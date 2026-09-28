@@ -157,11 +157,11 @@ var _far_trees: Array[GeometryInstance3D] = []
 var _grass_mm: MultiMesh
 
 
-## Laatutaso 0–2: ruohon määrä ja lehvästöpuiden etäisyys.
+## Laatutaso 0–3: ruohon määrä ja lehvästöpuiden etäisyys.
 func set_quality(q: int) -> void:
 	if _grass_mm != null:
-		_grass_mm.visible_instance_count = int(_grass_mm.instance_count * [0.35, 0.7, 1.0][q])
-	var near: float = [110.0, 160.0, TREE_NEAR][q]
+		_grass_mm.visible_instance_count = int(_grass_mm.instance_count * [0.2, 0.35, 0.7, 1.0][q])
+	var near: float = [80.0, 110.0, 160.0, TREE_NEAR][q]
 	for g in _near_trees:
 		g.visibility_range_end = near
 	for g in _far_trees:

@@ -1094,13 +1094,15 @@ func _lose(reason: String, cause := "default") -> void:
 
 
 ## Grafiikan laatu (Settings): varjot, SSAO/SSIL, hehku, ruohon tiheys, lähipuiden etäisyys, FPS-näyttö.
+## Erittäin matalalla ei ole auringon varjoja: ne piirtäisivät lähimaailman neljästi lisää joka ruudulla.
 func _apply_settings() -> void:
 	var q: int = Settings.get_v("quality")
-	_env.ssao_enabled = q >= 1
-	_env.ssil_enabled = q >= 2
-	_env.glow_enabled = q >= 1
-	_sun.directional_shadow_max_distance = [70.0, 120.0, 180.0][q]
-	_sun.shadow_blur = [0.5, 1.0, 1.5][q]
+	_env.ssao_enabled = q >= 2
+	_env.ssil_enabled = q >= 3
+	_env.glow_enabled = q >= 2
+	_sun.shadow_enabled = q >= 1
+	_sun.directional_shadow_max_distance = [70.0, 70.0, 120.0, 180.0][q]
+	_sun.shadow_blur = [0.5, 0.5, 1.0, 1.5][q]
 	world.set_quality(q)
 	_fps_label.visible = Settings.get_v("show_fps")
 
