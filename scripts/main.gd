@@ -108,15 +108,54 @@ var _bike_away_t := 0.0
 ## Paikat, joihin teinit voivat viedä lukitsemattoman pyörän.
 const BIKE_DUMPS := [Vector2(560, 1062), Vector2(300, 600), Vector2(640, 160), Vector2(400, 1480), Vector2(160, 640),
 	Vector2(760, 1680)]
-## Kaljajemma säilyy pelikerrasta toiseen (user://normipaiva.cfg).
-var jemma := 0
+## Kaljajemmat: id -> kaljat. Säilyvät pelikerrasta toiseen (user://normipaiva.cfg).
+## Kotijemmoja Päivi voi löytää (safe = montako mahtuu huomaamatta, find = löytymisherkkyys),
+## ulkojemmoista teinit voivat pölliä (steal = todennäköisyys aamulla). cap = kapasiteetti.
+const STASHES := {
+	"koti": {"name": "eteisen kaappi", "short": "eteinen", "into": "eteisen kaappiin", "from": "eteisen kaapista",
+		"home": true, "cap": 24, "safe": 4, "find": 1.5},
+	"autotalli": {"name": "autotallin työkalukaappi", "short": "talli", "into": "autotallin työkalukaappiin",
+		"from": "autotallin työkalukaapista", "home": true, "cap": 18, "safe": 8, "find": 0.8},
+	"komposti": {"name": "kompostin taus", "short": "komposti", "into": "kompostin taakse", "from": "kompostin takaa",
+		"home": true, "cap": 12, "safe": 8, "find": 0.4},
+	"laavu": {"name": "laavun halkovaja", "short": "laavu", "into": "halkovajan jemmaan", "from": "halkovajan jemmasta",
+		"home": false, "cap": 36, "steal": 0.35},
+	"grilli": {"name": "grillikatos", "short": "grilli", "into": "grillikatoksen jemmaan", "from": "grillikatoksen jemmasta",
+		"home": false, "cap": 24, "steal": 0.3},
+	"torni": {"name": "lintutornin alus", "short": "torni", "into": "lintutornin alle", "from": "lintutornin alta",
+		"home": false, "cap": 24, "steal": 0.15},
+}
+var stash := {}
+## Jemmat, joita pelaaja on käyttänyt (näytetään paperikartalla).
+var stash_used: Array = []
+var _old_stash_lost := 0  # vanhan tallennuksen jemmat, jotka menetettiin päivityksessä
+## Kotijemmojen summa (onnellinen loppu, kun JEMMA_GOAL täynnä). Asetus tyhjentää kotijemmat ja
+## laittaa arvon eteisen kaappiin (testit ja loppukohtaus).
+var jemma: int:
+	get:
+		var n := 0
+		for id in STASHES:
+			if STASHES[id].home:
+				n += stash.get(id, 0)
+		return n
+	set(v):
+		for id in STASHES:
+			if STASHES[id].home:
+				stash[id] = 0
+		stash["koti"] = v
 var laavu_conquered := false
-## Jemmat laavun halkovajassa ja Kiilinlammen grillikatoksella (kotijemma = jemma). Teinit voivat pölliä näistä.
-var stash_laavu := 0
-var stash_grilli := 0
+var stash_laavu: int:
+	get:
+		return stash.get("laavu", 0)
+	set(v):
+		stash["laavu"] = v
+var stash_grilli: int:
+	get:
+		return stash.get("grilli", 0)
+	set(v):
+		stash["grilli"] = v
 var _jemma_found := 0
 var jemma_endings := 0
-const JEMMA_WARN := 9
 var day := 1
 var cutscene: Node3D
 var menu: CanvasLayer
@@ -137,6 +176,7 @@ func _ready() -> void:
 	home_zone = world.home_zone
 	shop_zone = world.shop_zone
 	_build_markers()
+	_build_stash_props()
 	_spawn_player()
 	world.follow = player
 	player.world = world
@@ -152,6 +192,7 @@ func _ready() -> void:
 	var paper := PaperMap.new()
 	paper.world = world
 	paper.player = player
+	paper.game = self
 	map_layer.add_child(paper)
 	_paper = paper
 	var amb := Ambience.new()
@@ -181,7 +222,11 @@ func _ready() -> void:
 	if not skip_menu and not debug_shot:
 		menu.open_main()
 	skip_menu = false
-	var jemma_note := ("\nVaroitus: Päivi voi löytää ison kotijemman!") if jemma >= JEMMA_WARN else ""
+	var jemma_note := ("\nVaroitus: Päivi voi löytää täyden kotijemman!") if not _risky_stashes().is_empty() else ""
+	if _old_stash_lost > 0:
+		jemma_note += "\nPäivi löysi vanhat jemmat ja kaatoi %d kaljaa viemäriin! Nyt jemmoja on enemmän – jaa kaljat fiksusti." % _old_stash_lost
+		_old_stash_lost = 0
+		_save_game()
 	if Settings.renderer_auto_saved:
 		jemma_note += "\nYhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä (vaihda Asetuksista)."
 	_show_message("Päivä %d · Järvikuja 1, Saloinen.\nPitäis käydä kaupassa... Aja K-Marketille!%s%s" % [day, 
@@ -294,67 +339,123 @@ func _outside_logic() -> void:
 		_win()
 
 
-## Jemmat: jalan E piilottaa mukana olevat kaljat, tai ottaa jemmasta mukaan (jalan kantaa enintään 12).
+## Jemmat: jalan E piilottaa yhden kaljan (Shift+E kaikki), Q ottaa yhden (Shift+Q niin monta kuin jaksaa kantaa,
+## jalan enintään 12).
 func _stash_logic() -> void:
 	if _hint.text != "" or player != walker_out or player.is_stunned():
 		return
 	var p := player.global_position
-	var sites := [
-		["koti", home_zone + Vector3(4.0, 0, -2.0), "kotijemmaan", "kotijemmasta"],
-		["laavu", M.w(M.LAAVU) + Vector3(4.6, 0, 2.8), "halkovajan jemmaan", "halkovajan jemmasta"],
-		["grilli", M.w(M.GRILLIKATOS), "grillikatoksen jemmaan", "grillikatoksen jemmasta"],
-	]
-	for site in sites:
-		var at: Vector3 = site[1]
+	for id in STASHES:
+		var at := _stash_pos(id)
 		if Vector2(p.x - at.x, p.z - at.z).length() > 2.6:
 			continue
-		if site[0] == "koti" and state == "to_home":
+		if id == "koti" and state == "to_home":
 			return  # kotiinpaluu hoitaa saaliin
-		if site[0] == "laavu" and not laavu_conquered:
+		if id == "laavu" and not laavu_conquered:
 			return
-		var have: int = {"koti": jemma, "laavu": stash_laavu, "grilli": stash_grilli}[site[0]]
-		var e := Input.is_action_just_pressed("interact")
-		if beers > 0:
-			_hint.text = "[E] Piilota %d kaljaa %s (siellä %d)" % [beers, site[2], have]
-			if e:
-				_stash_add(site[0], beers)
-				_show_message("Piilotit %d kaljaa %s.%s" % [beers, site[2], _stash_warning(site[0])], 3.0)
-				beers = 0
-				player.set_carrying(false)
-				Sfx.play("pickup", -2.0, 0.8)
-		elif have > 0:
-			var take := mini(CARRY_FOOT, have)
-			_hint.text = "[E] Ota %d kaljaa %s (siellä %d)" % [take, site[3], have]
-			if e:
-				_stash_add(site[0], -take)
-				beers = take
-				player.set_carrying(true)
-				Sfx.play("pickup")
-				_show_message("Otit %d kaljaa %s. Laavulla ne maistuu!%s" % [take, site[3],
-					("\nPyörän kyytiin mahtuu vain %d." % CARRY_BIKE) if take > CARRY_BIKE else ""], 3.0)
-		else:
-			_hint.text = "Tyhjä jemma. Tänne voi piilottaa kaljoja."
+		var st: Dictionary = STASHES[id]
+		var have: int = stash.get(id, 0)
+		var room: int = maxi(0, st.cap - have)
+		var can_take := mini(CARRY_FOOT - beers, have)
+		var all := Input.is_key_pressed(KEY_SHIFT)
+		var opts: Array[String] = []
+		if beers > 0 and room > 0:
+			opts.append("[E] Piilota 1 · Shift+E %d" % mini(beers, room))
+		if can_take > 0:
+			opts.append("[Q] Ota 1 · Shift+Q %d" % can_take)
+		var head := "%s: %d/%d kaljaa" % [st.name.left(1).to_upper() + st.name.substr(1), have, st.cap]
+		if opts.is_empty():
+			_hint.text = head + (" – täynnä." if room == 0 and beers > 0 else (" – kädet täynnä." if have > 0 else " – tänne voi piilottaa kaljoja."))
+			return
+		_hint.text = head + "   " + "   ".join(opts)
+		if Input.is_action_just_pressed("interact") and beers > 0 and room > 0:
+			var n := mini(beers, room) if all else 1
+			_stash_add(id, n)
+			beers -= n
+			player.set_carrying(beers > 0)
+			Sfx.play("pickup", -2.0, 0.8)
+			if all or beers == 0:
+				_show_message("Piilotit %d kaljaa %s (siellä %d).%s" % [n, st.into, stash[id], _stash_warning(id)], 3.0)
+		elif Input.is_action_just_pressed("bell") and can_take > 0:
+			var n := can_take if all else 1
+			_stash_add(id, -n)
+			beers += n
+			player.set_carrying(true)
+			Sfx.play("pickup")
+			if all:
+				_show_message("Otit %d kaljaa %s.%s" % [n, st.from,
+					("\nPyörän kyytiin mahtuu vain %d." % CARRY_BIKE) if beers > CARRY_BIKE else ""], 3.0)
 		return
 
 
-func _stash_add(site: String, n: int) -> void:
-	match site:
+## Jemman paikka maailmassa.
+func _stash_pos(id: String) -> Vector3:
+	match id:
 		"koti":
-			jemma = maxi(0, jemma + n)
-			jemma_best = maxi(jemma_best, jemma)
+			return home_zone + Vector3(4.0, 0, -2.0)
+		"autotalli":
+			return M.w(M.GARAGE) + Vector3(-3.8, 0, 3.6)
+		"komposti":
+			return M.w(M.COMPOST)
 		"laavu":
-			stash_laavu = maxi(0, stash_laavu + n)
+			return M.w(M.LAAVU) + Vector3(4.6, 0, 2.8)
 		"grilli":
-			stash_grilli = maxi(0, stash_grilli + n)
+			return M.w(M.GRILLIKATOS)
+		"torni":
+			return world.kota.to_global(Kota.TOWER_LOCAL) if world.kota != null else M.w(M.KOTA)
+	return Vector3.ZERO
+
+
+func _stash_add(id: String, n: int) -> void:
+	stash[id] = maxi(0, stash.get(id, 0) + n)
+	if n > 0 and not id in stash_used:
+		stash_used.append(id)
+	jemma_best = maxi(jemma_best, jemma)
 	_save_game()
 
 
-func _stash_warning(site: String) -> String:
-	if site == "koti" and jemma >= JEMMA_WARN:
-		return "\nVAROITUS: kotijemma on jo %d kaljaa – Päivi voi löytää sen! Vie kaljoja laavulle." % jemma
-	if site != "koti":
-		return "\nMuista: teinit voivat pölliä täältä."
-	return ""
+## Päivin löytämisriski yhdelle kotijemmalle (0, jos jemmassa on vain huomaamaton määrä).
+func _find_chance(id: String) -> float:
+	var st: Dictionary = STASHES[id]
+	var over: int = stash.get(id, 0) - st.safe
+	return clampf(over * 0.04 * st.find, 0.0, 0.5) if over > 0 else 0.0
+
+
+## Kotijemmat, joissa on jo riskialtis määrä kaljaa.
+func _risky_stashes() -> Array[String]:
+	var out: Array[String] = []
+	for id in STASHES:
+		if STASHES[id].home and _find_chance(id) > 0.0:
+			out.append(id)
+	return out
+
+
+func _stash_warning(id: String) -> String:
+	if STASHES[id].home:
+		if _find_chance(id) > 0.0:
+			return "\nVAROITUS: %s on jo niin täynnä, että Päivi voi löytää sen! Jaa kaljat muihin jemmoihin." % STASHES[id].name
+		return ""
+	return "\nMuista: teinit voivat pölliä täältä."
+
+
+## Paperikartan jemmamerkit: [maailman x/z, lyhyt nimi, kaljat, kotijemma].
+func stash_markers() -> Array:
+	var out := []
+	for id in stash_used:
+		if STASHES.has(id):
+			var at := _stash_pos(id)
+			out.append([Vector2(at.x, at.z), STASHES[id].short, stash.get(id, 0), STASHES[id].home])
+	return out
+
+
+## Kompostilaatikko kotipihalle (jemma).
+func _build_stash_props() -> void:
+	var cp := M.w(M.COMPOST)
+	var wood := Color(0.42, 0.3, 0.18)
+	var comp := B.box(self, Vector3(1.4, 0.9, 1.4), cp + Vector3(0, 0.45, 0), wood)
+	for k in 4:
+		B.mesh(comp, B.boxm(Vector3(1.46, 0.06, 1.46)), Vector3(0, -0.35 + k * 0.22, 0), wood.darkened(0.25))
+	B.mesh(comp, B.boxm(Vector3(1.3, 0.05, 1.3)), Vector3(0, 0.44, 0), Color(0.25, 0.2, 0.12))
 
 
 func _bucket_total() -> int:
@@ -869,7 +970,7 @@ func _win() -> void:
 	player.controls_enabled = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	var brought := beers
-	jemma += beers
+	var where := _deposit_home(beers)
 	jemma_wins += 1
 	jemma_best = maxi(jemma_best, jemma)
 	beers = 0
@@ -887,61 +988,86 @@ func _win() -> void:
 		return
 	Sfx.play("win_small")
 	_new_day(home_zone + Vector3(0, 0, 4), false,
-		"Kotona! %d kaljaa jemmaan. Kotijemma %d/%d – kun jemmassa on %d, on juhlan aika.\n" % [
-		brought, jemma, JEMMA_GOAL, JEMMA_GOAL])
+		"Kotona! %d kaljaa %s. Kotijemmat %d/%d – kun niissä on %d, on juhlan aika.\n" % [
+		brought, where, jemma, JEMMA_GOAL, JEMMA_GOAL])
+
+
+## Kotiinpaluun saalis: eteisen kaappiin, ylimenevät autotalliin ja kompostin taakse. Palauttaa kuvauksen.
+func _deposit_home(n: int) -> String:
+	var parts: Array[String] = []
+	for id in ["koti", "autotalli", "komposti"]:
+		var put := mini(n, maxi(0, STASHES[id].cap - stash.get(id, 0)))
+		if put > 0:
+			stash[id] = stash.get(id, 0) + put
+			n -= put
+			parts.append("%d %s" % [put, STASHES[id].into])
+	if n > 0:
+		stash["koti"] = stash.get("koti", 0) + n  # kaikki täynnä: ahdetaan eteiseen
+		parts.append("%d lisää %s" % [n, STASHES["koti"].into])
+	return ", ".join(parts) if not parts.is_empty() else "jemmaan"
 
 
 func _load_game() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) != OK:
 		return
-	jemma = cfg.get_value("jemma", "kaljat", 0)
+	for id in STASHES:
+		stash[id] = cfg.get_value("jemmat", id, 0)
+	stash_used = cfg.get_value("jemmat", "kaytetyt", [])
+	# Vanhan version jemmat (kaljat/laavu/grilli) eivät siirry: Päivi löysi ne.
+	for k in ["kaljat", "laavu", "grilli"]:
+		_old_stash_lost += int(cfg.get_value("jemma", k, 0))
 	jemma_best = cfg.get_value("jemma", "ennatys", 0)
 	jemma_wins = cfg.get_value("jemma", "kotiinpaluut", 0)
 	laavu_conquered = cfg.get_value("peli", "laavu_vallattu", false)
 	money = cfg.get_value("peli", "rahat", START_MONEY)
 	day = cfg.get_value("peli", "paiva", 1)
-	stash_laavu = cfg.get_value("jemma", "laavu", 0)
 	jemma_endings = cfg.get_value("jemma", "loput", 0)
-	stash_grilli = cfg.get_value("jemma", "grilli", 0)
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
 
 
 func _save_game() -> void:
 	var cfg := ConfigFile.new()
-	cfg.set_value("jemma", "kaljat", jemma)
+	for id in STASHES:
+		cfg.set_value("jemmat", id, stash.get(id, 0))
+	cfg.set_value("jemmat", "kaytetyt", stash_used)
 	cfg.set_value("jemma", "ennatys", jemma_best)
 	cfg.set_value("jemma", "kotiinpaluut", jemma_wins)
 	cfg.set_value("peli", "laavu_vallattu", laavu_conquered)
 	cfg.set_value("peli", "rahat", money)
 	cfg.set_value("peli", "paiva", day)
-	cfg.set_value("jemma", "laavu", stash_laavu)
 	cfg.set_value("jemma", "loput", jemma_endings)
-	cfg.set_value("jemma", "grilli", stash_grilli)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
 	cfg.save(SAVE_PATH)
 
 
-## Isoon kotijemmaan kohdistuu riski: Päivi saattaa löytää sen ja kaataa puolet viemäriin.
-## Laavun ja grillikatoksen jemmoista teinit voivat pölliä. Tarkistetaan joka aamu.
+## Kotijemmoihin kohdistuu riski jemmakohtaisesti: Päivi saattaa löytää täyden jemman ja kaataa puolet
+## viemäriin (enintään yksi löytö aamussa). Ulkojemmoista teinit voivat pölliä. Tarkistetaan joka aamu.
 func _jemma_check(allow_found := true) -> String:
 	var note := ""
-	if allow_found and jemma >= JEMMA_WARN + 1 and randf() < clampf((jemma - JEMMA_WARN) * 0.05, 0.1, 0.45):
-		var lost := jemma / 2
-		jemma -= lost
-		_jemma_found = lost
-		note += "\nPäivi löysi kotijemman ja kaatoi %d kaljaa viemäriin!" % lost
-	for site in [["laavu", 0.35, "laavun halkovajasta"], ["grilli", 0.3, "grillikatokselta"]]:
-		var n: int = stash_laavu if site[0] == "laavu" else stash_grilli
-		if n > 0 and randf() < site[1]:
+	if allow_found:
+		var ids := _risky_stashes()
+		ids.shuffle()
+		for id in ids:
+			if randf() < _find_chance(id):
+				var lost: int = stash[id] / 2
+				stash[id] -= lost
+				_jemma_found = lost
+				note += "\nPäivi löysi %s ja kaatoi %d kaljaa viemäriin!" % [STASHES[id].name, lost]
+				break
+	for id in STASHES:
+		var st: Dictionary = STASHES[id]
+		var n: int = stash.get(id, 0)
+		if not st.home and n > 0 and randf() < st.steal:
 			var stolen := clampi(randi_range(n / 2, n), 1, n)
-			if site[0] == "laavu":
-				stash_laavu -= stolen
-			else:
-				stash_grilli -= stolen
-			note += "\nTeinit pöllivät %s %d kaljaa!" % [site[2], stolen]
-	if jemma >= JEMMA_WARN:
-		note += "\nVaroitus: kotijemmassa on jo %d kaljaa – Päivi voi löytää sen!" % jemma
+			stash[id] = n - stolen
+			note += "\nTeinit pöllivät %s %d kaljaa!" % [st.from, stolen]
+	var risky := _risky_stashes()
+	if not risky.is_empty():
+		var names: Array[String] = []
+		for id in risky:
+			names.append(STASHES[id].name)
+		note += "\nVaroitus: Päivi voi löytää jemman (%s)!" % ", ".join(names)
 	_save_game()
 	return note
 
@@ -1361,12 +1487,11 @@ func _build_hud() -> void:
 
 func _update_hud() -> void:
 	var jem := "koti %d/%d" % [jemma, JEMMA_GOAL]
-	if stash_laavu > 0:
-		jem += " · laavu %d" % stash_laavu
-	if stash_grilli > 0:
-		jem += " · grilli %d" % stash_grilli
+	for id in STASHES:
+		if not STASHES[id].home and stash.get(id, 0) > 0:
+			jem += " · %s %d" % [STASHES[id].short, stash[id]]
 	var lines := "Rahaa: %s €\nKaljat: %d   (jemmat: %s%s)\nAika: %s" % [_eur(money), beers, jem,
-		" ⚠" if jemma >= JEMMA_WARN else "", _time(elapsed)]
+		" ⚠" if not _risky_stashes().is_empty() else "", _time(elapsed)]
 	if state in ["to_shop", "to_home"]:
 		var target := shop_zone if state == "to_shop" else home_zone
 		var p := player.global_position
@@ -2079,6 +2204,45 @@ func _maybe_screenshot() -> void:
 			await get_tree().process_frame
 			Input.action_release("interact")
 			print("STASH laavu=", stash_laavu, " beers=", beers)
+		"stashtour":
+			# Jokainen jemma: E piilottaa yhden, Q ottaa yhden, kuva paikasta.
+			laavu_conquered = true
+			guard.vanish()
+			_toggle_mount()
+			_hud.visible = true
+			for id in STASHES:
+				var at := _stash_pos(id)
+				walker_out.global_position = at + Vector3(1.6, 0.6, 1.6)
+				walker_out.look_at(Vector3(at.x, walker_out.global_position.y, at.z))
+				walker_out.velocity = Vector3.ZERO
+				beers = 3
+				walker_out.set_carrying(true)
+				for i in 40:
+					await get_tree().process_frame
+				print("STASH ", id, " at ", at, " hint=", _hint.text)
+				var before: int = stash.get(id, 0)
+				Input.action_press("interact")
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+				print("  E: ", before, " -> ", stash.get(id, 0), " beers=", beers)
+				Input.action_press("bell")
+				await get_tree().process_frame
+				Input.action_release("bell")
+				await get_tree().process_frame
+				print("  Q: -> ", stash.get(id, 0), " beers=", beers)
+				_msg.text = ""
+				var tc := Camera3D.new()
+				add_child(tc)
+				tc.global_position = at + Vector3(5.0, 3.5, 5.0)
+				tc.look_at(at, Vector3.UP)
+				tc.current = true
+				for i in 3:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_" + id + ".png"))
+				tc.queue_free()
+				walker_out.activate_camera()
 		"carry":
 			laavu_conquered = true
 			guard.vanish()
@@ -2088,9 +2252,9 @@ func _maybe_screenshot() -> void:
 			stash_laavu = 15
 			for i in 20:
 				await get_tree().process_frame
-			Input.action_press("interact")
+			Input.action_press("bell")
 			await get_tree().process_frame
-			Input.action_release("interact")
+			Input.action_release("bell")
 			await get_tree().process_frame
 			print("CARRY took beers=", beers, " laavu=", stash_laavu)
 			Input.action_press("mount")

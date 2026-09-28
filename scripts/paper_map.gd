@@ -13,6 +13,7 @@ const PAPER := Color(0.93, 0.88, 0.74)
 var world: Node3D
 var player: Node3D
 var bike: Node3D
+var game: Node  # main.gd: stash_markers()
 
 var _view: Control
 var _k := MAP_W / (M.SIZE.x * M.SCALE)
@@ -219,7 +220,7 @@ func _draw() -> void:
 	var side := Vector2(_view.position.x + MAP_W + 30, _view.position.y)
 	_compass(side + Vector2(100, 70))
 	_scale_bar(side + Vector2(10, 180))
-	_legend(side + Vector2(10, 250))
+	_legend(side + Vector2(10, 232))
 	draw_string(font, Vector2(side.x + 10, r.end.y - 40), "Klikkaa: kompassin kohde", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 	draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje · W/S vieritä", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 
@@ -254,10 +255,10 @@ func _legend(p: Vector2) -> void:
 	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 	var items := [
 		["road", "Maantie"], ["street", "Katu"], ["path", "Polku"], ["forest", "Metsä"], ["field", "Pelto"],
-		["bog", "Suo, räme"], ["water", "Vesi"], ["home", "Koti"], ["shop", "K-Market"], ["laavu", "Laavu"], ["berry", "Marjapaikka"], ["mushroom", "Sienipaikka"], ["target", "Kompassin kohde"], ["you", "Olet tässä"],
+		["bog", "Suo, räme"], ["water", "Vesi"], ["home", "Koti"], ["shop", "K-Market"], ["laavu", "Laavu"], ["berry", "Marjapaikka"], ["mushroom", "Sienipaikka"], ["stash", "Kaljajemma"], ["target", "Kompassin kohde"], ["you", "Olet tässä"],
 	]
 	for i in items.size():
-		var y := p.y + 22 + i * 22
+		var y := p.y + 20 + i * 20
 		var sym := Vector2(p.x + 14, y)
 		match items[i][0]:
 			"road":
@@ -290,6 +291,8 @@ func _legend(p: Vector2) -> void:
 			"mushroom":
 				draw_rect(Rect2(sym + Vector2(-1, -1), Vector2(2, 5)), Color(0.9, 0.86, 0.75))
 				draw_colored_polygon(PackedVector2Array([sym + Vector2(-5, -1), sym + Vector2(0, -6), sym + Vector2(5, -1)]), Color(0.95, 0.65, 0.1))
+			"stash":
+				_stash_icon_on(self, sym)
 			"target":
 				_target_icon_on(self, sym)
 			"you":
@@ -436,6 +439,24 @@ func _draw_map() -> void:
 		v.draw_line(bp + Vector2(-5, 2), bp + Vector2(0, -4), Color(0.1, 0.35, 0.7), 1.8)
 		v.draw_line(bp + Vector2(0, -4), bp + Vector2(5, 2), Color(0.1, 0.35, 0.7), 1.8)
 		v.draw_string(ThemeDB.fallback_font, bp + Vector2(10, 4), "Pyörä", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.1, 0.3, 0.6))
+	# Käytetyt kaljajemmat: kotijemmat yhtenä merkkinä (ne ovat kartalla päällekkäin).
+	if game != null:
+		var home_n := 0
+		var home_p := Vector2.ZERO
+		var home_seen := false
+		for m in game.stash_markers():
+			if m[3]:
+				home_n += m[2]
+				home_p = m[0]
+				home_seen = true
+				continue
+			var sp2 := _w2(m[0])
+			_stash_icon_on(v, sp2)
+			v.draw_string(font, sp2 + Vector2(8, 12), "%s %d" % [m[1], m[2]], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.45, 0.25, 0.05))
+		if home_seen:
+			var hp := _px(M.HOME_ZONE) + Vector2(10, 10)
+			_stash_icon_on(v, hp)
+			v.draw_string(font, hp + Vector2(8, 12), "jemmat %d" % home_n, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.45, 0.25, 0.05))
 	if has_target:
 		_target_icon_on(v, _w2(target))
 	if player != null:
@@ -462,6 +483,14 @@ func _laavu_icon_on(ci: CanvasItem, p: Vector2) -> void:
 	ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-9, 6), p + Vector2(3, -8), p + Vector2(9, 6)]), Color(0.45, 0.28, 0.12))
 	ci.draw_line(p + Vector2(-9, 6), p + Vector2(9, 6), INK, 2.0)
 	ci.draw_circle(p + Vector2(-2, 3), 2.5, Color(0.95, 0.45, 0.1))
+
+
+## Kaljapullo: ruskea runko ja kaula.
+func _stash_icon_on(ci: CanvasItem, p: Vector2) -> void:
+	var col := Color(0.45, 0.25, 0.05)
+	ci.draw_rect(Rect2(p + Vector2(-3, -2), Vector2(6, 9)), col)
+	ci.draw_rect(Rect2(p + Vector2(-1.2, -7), Vector2(2.4, 5)), col)
+	ci.draw_rect(Rect2(p + Vector2(-3, 1), Vector2(6, 3)), Color(0.95, 0.85, 0.5))
 
 
 func _target_icon_on(ci: CanvasItem, p: Vector2) -> void:
