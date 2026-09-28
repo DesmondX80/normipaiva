@@ -23,6 +23,6 @@
 | swish_*.wav | "Swishes sound pack" – https://opengameart.org/content/swishes-sound-pack |
 | wind.ogg | "Wind whoosh loop" – https://opengameart.org/content/wind-whoosh-loop |
 | horn.wav | "Car signal" – https://opengameart.org/content/car-signal |
+| fart_0–2.wav | "Gastric Distress" (LFA) – https://opengameart.org/content/gastric-distress (leikattu) |
 
 - saw_0–7.wav (pokasahan vedot) ja axe_0–5.wav (kirveen iskut pölkkyyn): CC0, leikattu pidemmistä äänitteistä.
-- fart_0–2.wav (spurtin pieru): syntetisoitu tätä peliä varten (`tools/fart.gd`), CC0.
