@@ -48,6 +48,10 @@ Valmiit Windows- ja Mac-versiot uusimmasta mainista:
 GitHub Actions buildaa ne automaattisesti jokaisesta mainin pushista (`.github/workflows/release.yml`).
 Peliä ei ole allekirjoitettu: Windowsissa valitse SmartScreen-varoituksesta *Lisätietoja → Suorita silti*,
 Macissa *Järjestelmäasetukset → Tietosuoja ja suojaus → Avaa silti*.
+Jos Windows-versio näyttää hetken mustaa ja sulkeutuu, käynnistä se tiedostolla `Normipaiva (yhteensopiva).bat`
+(kevyempi OpenGL-grafiikka). Peli muistaa valinnan, joten sen jälkeen myös `Normipaiva.exe` toimii.
+Grafiikkamoottorin voi vaihtaa myös kohdasta Asetukset → Grafiikka (vaihtuu uudelleenkäynnistyksessä).
+Loki: `%APPDATA%\Godot\app_userdata\Normipäivä\logs\godot.log`.
 
 ## Käynnistys (Godot-editorista)
 

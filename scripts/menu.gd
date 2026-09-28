@@ -192,6 +192,14 @@ func _settings(from: String) -> void:
 	_slider(g, "Renderöintiskaala", "render_scale", 0.5, 1.0, 0.05, "%d %%", 100.0)
 	_slider(g, "Näkökenttä (FOV)", "fov", 55.0, 95.0, 1.0, "%d°", 1.0)
 	_check(g, "Näytä FPS", "show_fps")
+	var note := _label("", 14, Color(0.8, 0.8, 0.8))
+	var note_text := func() -> String:
+		return "Käytössä nyt: %s. Vaihtuu, kun peli käynnistetään uudelleen." % Settings.RENDERERS[Settings.renderer_current()]
+	_option(g, "Grafiikkamoottori", Settings.RENDERERS, Settings.renderer_saved(), func(i: int) -> void:
+		Settings.set_renderer(i)
+		note.text = note_text.call() if i != Settings.renderer_current() else "")
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	g.add_child(note)
 	var a := _tab(tabs, "Ääni")
 	_slider(a, "Kokonaisvoimakkuus", "vol_master", 0.0, 1.0, 0.05, "%d %%", 100.0)
 	_slider(a, "Tehosteet", "vol_sfx", 0.0, 1.0, 0.05, "%d %%", 100.0)

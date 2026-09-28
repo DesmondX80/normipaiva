@@ -181,6 +181,8 @@ func _ready() -> void:
 		menu.open_main()
 	skip_menu = false
 	var jemma_note := ("\nVaroitus: Päivi voi löytää ison kotijemman!") if jemma >= JEMMA_WARN else ""
+	if Settings.renderer_auto_saved:
+		jemma_note += "\nYhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä (vaihda Asetuksista)."
 	_show_message("Päivä %d · Järvikuja 1, Saloinen.\nPitäis käydä kaupassa... Aja K-Marketille!%s%s" % [day, 
 		("\nJemmassa %d kaljaa." % jemma) if jemma > 0 else "", jemma_note], 5.0 if jemma_note == "" else 6.0)
 	_maybe_screenshot()
@@ -1678,6 +1680,11 @@ func _maybe_screenshot() -> void:
 			print("MOUSE saw stroke s ", s0, " -> ", sg._s, " depth=", sg._depth)
 			sg._quit()
 			await get_tree().process_frame
+		"settingsmenu":
+			menu.open_main()
+			menu._settings("sub_main")
+			for i in 10:
+				await get_tree().process_frame
 		"kotaplay":
 			# Koko ketju: sahaa, pilko, sytytä, kuuntele tarina. Tulostaa tilat.
 			_toggle_mount()
