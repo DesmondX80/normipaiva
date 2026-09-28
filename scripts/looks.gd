@@ -61,6 +61,16 @@ const JEMMARI := {
 	"shirt": Color(0.2, 0.3, 0.55), "pants": Color(0.2, 0.3, 0.55), "shoes": Color(0.12, 0.1, 0.08),
 	"hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.4, 0.3), "beard": true, "height": 1.84, "skin": Color(1.0, 0.85, 0.78), "belly": 0.8, "bulk": 0.35, "shoulders": 0.3,
 }
+## Taksikuski ja Raahen baarin kädenvääntäjä (terästehtaan duunari).
+const TAXI_DRIVER := {
+	"shirt": Color(0.9, 0.9, 0.88), "pants": Color(0.12, 0.12, 0.14), "shoes": Color(0.08, 0.08, 0.08),
+	"hair": "Hair_SimpleParted", "hair_color": Color(0.6, 0.58, 0.55), "height": 1.76, "belly": 0.5,
+}
+const TERO := {
+	"shirt": Color(0.95, 0.5, 0.05), "pants": Color(0.15, 0.2, 0.35), "shoes": Color(0.2, 0.15, 0.1),
+	"hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "beard": true, "height": 1.88,
+	"belly": 0.6, "bulk": 0.6, "shoulders": 0.6, "muscle": 0.3,
+}
 const PEKKA := {
 	"shirt": Color(0.3, 0.36, 0.2), "pants": Color(0.35, 0.33, 0.22), "shoes": Color(0.15, 0.12, 0.1),
 	"hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.28, 0.2), "beard": true, "height": 1.78, "shine": 0.2, "belly": 0.65, "bulk": 0.1,

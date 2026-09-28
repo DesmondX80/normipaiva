@@ -182,6 +182,24 @@ static func car(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	return wheels
 
 
+## Taksi: tumma farmari, katolla keltainen TAXI-kupu. Palauttaa pyörät kuten car().
+static func taxi(parent: Node3D, plate := "") -> Array[Node3D]:
+	var wheels := car(parent, Color(0.08, 0.08, 0.1), plate)
+	part(parent, B.boxm(Vector3(0.5, 0.18, 0.2)), Vector3(0, 1.58, 0.25), lamp(Color(1.0, 0.85, 0.2)))
+	for side in [0.0, PI]:
+		var l := Label3D.new()
+		l.text = "TAXI"
+		l.font_size = 26
+		l.pixel_size = 0.005
+		l.modulate = Color(0.1, 0.08, 0.02)
+		l.outline_size = 0
+		l.double_sided = false
+		l.rotation.y = side
+		l.position = Vector3(0, 1.58, 0.25 + (0.105 if side == 0.0 else -0.105))
+		parent.add_child(l)
+	return wheels
+
+
 ## Traktori -Z-suuntaan. style "modern" (Valtra-tyylinen lasiohjaamo) tai "old" (pieni vanha, ei ohjaamoa).
 ## Palauttaa {"rear": [pyörät], "front": [pyörät]}.
 static func tractor(parent: Node3D, color: Color, style := "modern") -> Dictionary:

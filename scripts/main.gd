@@ -17,6 +17,7 @@ const Kota := preload("res://scripts/kota.gd")
 const Fight := preload("res://scripts/fight.gd")
 const ChopGame := preload("res://scripts/chop_game.gd")
 const SawGame := preload("res://scripts/saw_game.gd")
+const BarGame := preload("res://scripts/bar_game.gd")
 const LaavuGuard := preload("res://scripts/laavu_guard.gd")
 const PaperMap := preload("res://scripts/paper_map.gd")
 const Villager := preload("res://scripts/villager.gd")
@@ -63,6 +64,11 @@ const SAVE_PATH := "user://normipaiva.cfg"
 const INTERIOR_POS := Vector3(3000, 0, 0)
 const ZONE_RADIUS := 6.0
 const START_MONEY := 20.0
+## Taksi K-Marketin taksitolpalta Raahen baariin ja takaisin.
+const TAXI_FARE := 14.0  # meno-paluu
+const BAR_ROUND := 6.0  # kädenväännön häviäjä tarjoaa kierroksen
+const TAXI_RADIUS := 3.5
+const BAR_POS := Vector3(0, 0, -4200)  # baarin minipeli kaukana kartan ulkopuolella
 const CHOCO_CHANCE := 0.5  # suklaa lepyttää Päivin
 const CHOCO_MONEY := 5.0  # leppynyt Päivi antaa aamulla ylimääräistä
 const BEER_PRICE := 12.90
@@ -103,6 +109,10 @@ var has_matches := false
 ## Suklaalevy taskussa: saattaa lepyttää Päivin (salainen mekaniikka, ei vinkkejä pelissä).
 var has_chocolate := false
 var _choco_mercy := false  # Päivi leppyi WASTED-motkotuksessa: seuraavana aamuna ylimääräistä rahaa
+## Raahen reissujen mittarit 0–100 (tallentuvat): mielihyvä ja maine kovana jätkänä.
+var mielihyva := 0.0
+var maine := 0.0
+var _no_allowance := false  # Raahen reissun jälkeen Päivi ei anna aamulla rahaa kauppaan
 var _jemma_choco := ""
 var fire_lit := false
 var sausage_done := false
@@ -347,6 +357,7 @@ func _outside_logic() -> void:
 	_stash_logic()
 	_forage_logic()
 	_neighbor_logic()
+	_taxi_logic()
 	if dist >= ZONE_RADIUS:
 		return
 	if player == bike:
@@ -605,6 +616,55 @@ func _stop_picking(restore := true) -> void:
 	if _pick_locked and restore:
 		walker_out.controls_enabled = true
 	_pick_locked = false
+
+
+## K-Marketin taksitolpan taksi: jalan E vie Raahen baariin, jos rahaa on taksiin.
+func _taxi_logic() -> void:
+	if _hint.text != "":
+		return
+	var p := player.global_position
+	if Vector2(p.x - world.taxi_pos.x, p.z - world.taxi_pos.z).length() > TAXI_RADIUS:
+		return
+	if player == bike:
+		_hint.text = "Taksi Raahen baariin: nouse pyörän selästä (F)."
+	elif money < TAXI_FARE:
+		_hint.text = "Taksi Raahen baariin maksaa %s €. Rahat ei riitä." % _eur(TAXI_FARE)
+	else:
+		_hint.text = "[E] Taksilla Raahen baariin (%s €, meno-paluu)" % _eur(TAXI_FARE)
+		if Input.is_action_just_pressed("interact") and not player.is_stunned():
+			_taxi_trip()
+
+
+## Taksireissu: menomatka, kädenvääntö Raahen baarissa, paluu kotipihaan Päivin eteen ja uusi päivä kotoa.
+## Pyörä jää kaupan pihaan.
+func _taxi_trip() -> void:
+	state = "cutscene"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	money -= TAXI_FARE
+	Sfx.play("door_close", -3.0)
+	cutscene.taxi_to_raahe(func() -> void:
+		var bar := BarGame.new()
+		bar.position = BAR_POS
+		add_child(bar)
+		bar.finished.connect(func(won: bool) -> void:
+			bar.queue_free()
+			_after_bar(won)))
+
+
+func _after_bar(won: bool) -> void:
+	var paid := 0.0 if won else minf(BAR_ROUND, money)
+	money -= paid
+	mielihyva = clampf(mielihyva + (35.0 if won else 20.0), 0.0, 100.0)
+	maine = clampf(maine + (15.0 if won else -5.0), 0.0, 100.0)
+	_no_allowance = true
+	var stats := "%s Taksi %s €%s.\nMielihyvä %d · Maine %d" % [
+		"Voitit kädenväännön, Tero tarjosi." if won else "Hävisit kädenväännön ja tarjosit kierroksen.",
+		_eur(TAXI_FARE), "" if won else ", kierros %s €" % _eur(paid), roundi(mielihyva), roundi(maine)]
+	cutscene.taxi_home(home_zone, stats, func() -> void:
+		_new_day(home_zone + Vector3(0, 0, 4), false, "Pää on kipeä Raahen reissusta.\n"))
 
 
 ## Arto ostaa marjat ja kertoo paikat, Pekka ostaa sienet ja kehuu kyyhkysaaliitaan.
@@ -1128,6 +1188,8 @@ func _load_game() -> void:
 	money = cfg.get_value("peli", "rahat", START_MONEY)
 	day = cfg.get_value("peli", "paiva", 1)
 	has_chocolate = cfg.get_value("peli", "suklaa", false)
+	mielihyva = cfg.get_value("peli", "mielihyva", 0.0)
+	maine = cfg.get_value("peli", "maine", 0.0)
 	jemma_endings = cfg.get_value("jemma", "loput", 0)
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
 	if cfg.has_section_key("peli", "pyora"):
@@ -1145,6 +1207,8 @@ func _save_game() -> void:
 	cfg.set_value("peli", "rahat", money)
 	cfg.set_value("peli", "paiva", day)
 	cfg.set_value("peli", "suklaa", has_chocolate)
+	cfg.set_value("peli", "mielihyva", mielihyva)
+	cfg.set_value("peli", "maine", maine)
 	cfg.set_value("jemma", "loput", jemma_endings)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
 	if bike != null:
@@ -1251,7 +1315,10 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	if world.kota != null:
 		world.kota.set_fire(false)
 	var bonus := ""
-	if money < START_MONEY:
+	if _no_allowance:
+		_no_allowance = false
+		bonus = "\nPäivi ei antanut rahaa kauppaan Raahen reissun jälkeen."
+	elif money < START_MONEY:
 		bonus = "\nPäivi antoi %s € kauppaan." % _eur(START_MONEY - money) if not lost else "\nTakin taskusta löytyi vähän rahaa."
 		money = START_MONEY
 	if _choco_mercy:
@@ -1672,6 +1739,8 @@ func _update_hud() -> void:
 		inv.append("halkoja %d" % kota_halot)
 	if not inv.is_empty():
 		lines += "\nMukana: " + ", ".join(inv)
+	if mielihyva > 0.0 or maine > 0.0:
+		lines += "\nMielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)]
 	if not bucket.is_empty():
 		var bl: Array[String] = []
 		for k in bucket:
@@ -1769,6 +1838,89 @@ func _maybe_screenshot() -> void:
 		"wife":
 			player.position = wife.position + Vector3(0, 0.3, 14)
 			player.rotation.y = PI
+		"taxistand":
+			if player != walker_out:
+				_toggle_mount()
+			var shop_c := M.w(M.SHOP_BUILDING)
+			print("STAND kauppa=", shop_c, " kauppavyöhyke=", shop_zone - shop_c, " taksi=", world.taxi_pos - shop_c)
+			walker_out.global_position = world.taxi_pos + Vector3(8.0, 0.5, -6.0)
+			walker_out.rotation.y = B.yaw_to(world.taxi_pos - walker_out.global_position)
+		"taxitest":
+			# Taksi Raaheen: vihje, menomatka, kädenvääntö (A/D-tahti), paluu ja uusi päivä. Kuvat --shot-kansioon,
+			# tallennus palautetaan lopuksi.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var shot := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.get_base_dir().path_join("taxi_%s.png" % name))
+			if player != walker_out:
+				_toggle_mount()
+			money = 30.0
+			walker_out.global_position = world.taxi_pos + Vector3(2.2, 0.5, 1.0)
+			walker_out.rotation.y = -PI * 0.5
+			for i in 30:
+				await get_tree().physics_frame
+			await shot.call("parkki")
+			print("TAXI hint=", _hint.text)
+			await get_tree().process_frame  # kuvakaappauksen jälkeen: painallus seuraavan ruudun alkuun
+			Input.action_press("interact")
+			for w in 2:
+				await get_tree().process_frame
+			Input.action_release("interact")
+			print("TAXI state=", state, " money=", money)
+			await get_tree().create_timer(5.0, true, false, true).timeout
+			await shot.call("meno")
+			var bar: Node = null
+			for i in 60:
+				await get_tree().create_timer(0.5, true, false, true).timeout
+				for c in get_children():
+					if c is BarGame:
+						bar = c
+				if bar != null:
+					break
+			if bar == null:
+				print("TAXI baaria ei löytynyt")
+				get_tree().quit()
+				return
+			await get_tree().create_timer(1.5, true, false, true).timeout
+			await shot.call("baari")
+			await get_tree().process_frame
+			Input.action_press("interact")
+			for w in 2:
+				await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().create_timer(3.3, true, false, true).timeout
+			var key := "left"
+			var n := 0
+			var pace := 0.07  # s painallusten välissä (lisäksi 3 ruutua); --pace=0.3 kokeilee hidasta tahtia
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--pace="):
+					pace = float(arg.substr(7))
+			while bar._phase == "wrestle":
+				await get_tree().process_frame  # painallus ruudun alkuun, ei ajastimen jälkeen
+				Input.action_press(key)
+				for w in 2:
+					await get_tree().process_frame
+				Input.action_release(key)
+				key = "right" if key == "left" else "left"
+				await get_tree().create_timer(pace, true, false, true).timeout
+				n += 1
+				if n == 12:
+					await shot.call("vaanto")
+					await get_tree().process_frame
+			print("TAXI vääntö: kulma=%.2f painalluksia=%d" % [bar._angle, n])
+			await get_tree().create_timer(4.5, true, false, true).timeout
+			await get_tree().create_timer(4.0, true, false, true).timeout
+			await shot.call("paluu")
+			for i in 80:
+				await get_tree().create_timer(0.5, true, false, true).timeout
+				if i == 6:
+					await shot.call("koti")
+				if state != "cutscene":
+					break
+			print("TAXI after state=%s money=%.2f mielihyva=%d maine=%d msg=%s" % [state, money, mielihyva, maine,
+				_msg.text.replace("\n", " | ")])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"overview":
 			var cam := Camera3D.new()
 			cam.projection = Camera3D.PROJECTION_ORTHOGONAL
