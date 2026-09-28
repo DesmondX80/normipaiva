@@ -101,7 +101,9 @@ func open_main() -> void:
 	_button("Asetukset", func() -> void: _settings("sub_main"))
 	_button("Ohjaimet", func() -> void: _controls("sub_main"))
 	_button("Tekijät", func() -> void: _credits("sub_main"))
-	_button("Lopeta", func() -> void: get_tree().quit())
+	_button("Lopeta", func() -> void:
+		game._save_game()
+		get_tree().quit())
 
 
 func open_pause() -> void:
@@ -118,7 +120,9 @@ func open_pause() -> void:
 	_button("Päävalikkoon", func() -> void:
 		get_tree().paused = false
 		get_tree().reload_current_scene())
-	_button("Lopeta peli", func() -> void: get_tree().quit())
+	_button("Lopeta peli", func() -> void:
+		game._save_game()
+		get_tree().quit())
 
 
 func close() -> void:

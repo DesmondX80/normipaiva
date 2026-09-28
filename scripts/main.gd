@@ -128,6 +128,8 @@ const STASHES := {
 var stash := {}
 ## Jemmat, joita pelaaja on käyttänyt (näytetään paperikartalla).
 var stash_used: Array = []
+## Pyörä jää sinne, minne sen jättää (myös yön yli ja pelikerrasta toiseen): tallennettu paikka ja suunta.
+var _bike_saved = null  # [Vector3, float] tai null
 var _old_stash_lost := 0  # vanhan tallennuksen jemmat, jotka menetettiin päivityksessä
 ## Kotijemmojen summa (onnellinen loppu, kun JEMMA_GOAL täynnä). Asetus tyhjentää kotijemmat ja
 ## laittaa arvon eteisen kaappiin (testit ja loppukohtaus).
@@ -222,6 +224,7 @@ func _ready() -> void:
 	if not skip_menu and not debug_shot:
 		menu.open_main()
 	skip_menu = false
+	var bike_note := "" if debug_shot else _apply_saved_bike()  # testikuvat alkavat aina pyörän selästä kotoa
 	var jemma_note := ("\nVaroitus: Päivi voi löytää täyden kotijemman!") if not _risky_stashes().is_empty() else ""
 	if _old_stash_lost > 0:
 		jemma_note += "\nPäivi löysi vanhat jemmat ja kaatoi %d kaljaa viemäriin! Nyt jemmoja on enemmän – jaa kaljat fiksusti." % _old_stash_lost
@@ -229,6 +232,7 @@ func _ready() -> void:
 		_save_game()
 	if Settings.renderer_auto_saved:
 		jemma_note += "\nYhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä (vaihda Asetuksista)."
+	jemma_note = bike_note + jemma_note
 	_show_message("Päivä %d · Järvikuja 1, Saloinen.\nPitäis käydä kaupassa... Aja K-Marketille!%s%s" % [day, 
 		("\nJemmassa %d kaljaa." % jemma) if jemma > 0 else "", jemma_note], 5.0 if jemma_note == "" else 6.0)
 	_maybe_screenshot()
@@ -1024,6 +1028,8 @@ func _load_game() -> void:
 	day = cfg.get_value("peli", "paiva", 1)
 	jemma_endings = cfg.get_value("jemma", "loput", 0)
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
+	if cfg.has_section_key("peli", "pyora"):
+		_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
 
 
 func _save_game() -> void:
@@ -1038,6 +1044,9 @@ func _save_game() -> void:
 	cfg.set_value("peli", "paiva", day)
 	cfg.set_value("jemma", "loput", jemma_endings)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
+	if bike != null:
+		cfg.set_value("peli", "pyora", bike.global_position)
+		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
 	cfg.save(SAVE_PATH)
 
 
@@ -1108,17 +1117,12 @@ func _nearest_safe() -> Vector3:
 ## Uusi päivä turvapaikasta: vaarat ja kauppa nollautuvat, jemma, rahat ja laavun valtaus säilyvät.
 func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	day += 1
-	if walker_out.visible:
-		walker_out.visible = false
-		walker_out.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
-		bike.set_rider_visible(true)
-	bike.global_position = spawn + Vector3(0, 0.3, 0)
-	bike.rotation.y = 0.0
-	bike.speed = 0.0
-	bike.controls_enabled = true
-	_set_avatar(bike)
+	# Pyörä jää sinne, minne se jäi; päivä alkaa jalan turvapaikasta.
 	beers = 0
 	bike.set_carrying(false)
+	_place_on_foot(spawn + Vector3(0, 0.3, 0))
+	walker_out.rotation.y = 0.0
+	var bike_note := _bike_note(spawn)
 	has_sausage = false
 	has_matches = false
 	fire_lit = false
@@ -1155,20 +1159,42 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		# Päivi löysi jemman: välianimaatio ennen päivän alkua.
 		state = "cutscene"
 		_hud.visible = false
-		bike.controls_enabled = false
+		player.controls_enabled = false
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		var lost_n := _jemma_found
-		var msg := "%sPäivä %d alkaa.%s\nPitäis käydä kaupassa..." % [intro, day, jnote]
+		var msg := "%sPäivä %d alkaa.%s%s\nPitäis käydä kaupassa..." % [intro, day, bike_note, jnote]
 		cutscene.jemma_found(home_zone, lost_n, jemma, func() -> void:
 			state = "to_shop"
 			_hud.visible = true
-			bike.controls_enabled = true
-			bike.activate_camera()
+			player.controls_enabled = true
+			player.activate_camera()
 			_hazards.process_mode = Node.PROCESS_MODE_INHERIT
 			_show_message(msg, 6.0))
 		return
-	_show_message("%sPäivä %d alkaa%s.%s%s\nPitäis käydä kaupassa..." % [intro, day, " laavulta" if spawn.distance_to(home_zone) > 50.0 else " kotoa",
-		bonus, jnote], 4.0 if jnote == "" and intro == "" else 6.0)
+	_show_message("%sPäivä %d alkaa%s.%s%s%s\nPitäis käydä kaupassa..." % [intro, day, " laavulta" if spawn.distance_to(home_zone) > 50.0 else " kotoa",
+		bonus, bike_note, jnote], 4.0 if jnote == "" and intro == "" and bike_note == "" else 6.0)
+
+
+## Tallennettu pyörä paikalleen ja pelaaja jalan kotiin. Palauttaa aamumuistutuksen.
+func _apply_saved_bike() -> String:
+	if _bike_saved == null:
+		return ""
+	bike.global_position = _bike_saved[0]
+	bike.rotation.y = _bike_saved[1]
+	_place_on_foot(home_zone + Vector3(0, 0.3, 4))
+	return _bike_note(home_zone)
+
+
+## Muistutus aamulla, jos pyörä jäi kauas.
+func _bike_note(spawn: Vector3) -> String:
+	if bike.global_position.distance_to(spawn) < 30.0:
+		return ""
+	return "\nPyörä jäi eilen muualle – katso kartasta (M), minne."
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and bike != null:
+		_save_game()  # pyörän paikka talteen, vaikka ikkuna suljettaisiin kesken päivän
 
 
 func _set_outside_visible(v: bool) -> void:
@@ -1297,21 +1323,28 @@ func _set_avatar(a: CharacterBody3D) -> void:
 
 
 ## F: nouse pyörän selästä tai takaisin pyörälle (pyörän vieressä).
+## Pelaaja jalan kohtaan pos; pyörä jää paikalleen ilman kuskia.
+func _place_on_foot(pos: Vector3) -> void:
+	bike.speed = 0.0
+	bike.controls_enabled = false
+	bike.set_rider_visible(false)
+	walker_out.global_position = pos
+	walker_out.velocity = Vector3.ZERO
+	walker_out.visible = true
+	walker_out.process_mode = Node.PROCESS_MODE_INHERIT
+	walker_out.controls_enabled = true
+	walker_out.set_carrying(beers > 0)
+	_set_avatar(walker_out)
+
+
 func _toggle_mount() -> void:
 	if player == bike:
 		if absf(bike.speed) > 3.0:
 			_show_message("Hidasta ensin!", 1.2)
 			return
-		bike.speed = 0.0
-		bike.controls_enabled = false
-		bike.set_rider_visible(false)
-		walker_out.global_position = bike.global_position + bike.global_transform.basis.x * 1.1
+		_place_on_foot(bike.global_position + bike.global_transform.basis.x * 1.1)
 		walker_out.rotation.y = bike.rotation.y
-		walker_out.visible = true
-		walker_out.process_mode = Node.PROCESS_MODE_INHERIT
-		walker_out.controls_enabled = true
-		walker_out.set_carrying(beers > 0)
-		_set_avatar(walker_out)
+		_save_game()  # pyörän paikka talteen
 	else:
 		walker_out.visible = false
 		walker_out.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
@@ -2204,6 +2237,19 @@ func _maybe_screenshot() -> void:
 			await get_tree().process_frame
 			Input.action_release("interact")
 			print("STASH laavu=", stash_laavu, " beers=", beers)
+		"bikestay":
+			# Pyörä kaupalle, uusi päivä kotoa: pyörän pitää jäädä, pelaaja jalan. Sitten tallennus.
+			var left := shop_zone + Vector3(6, 0.3, 6)
+			bike.global_position = left
+			_new_day(home_zone + Vector3(0, 0, 4), false)
+			for i in 30:
+				await get_tree().physics_frame
+			print("BIKESTAY on_foot=", player == walker_out, " bike_moved=%.2f" % bike.global_position.distance_to(left),
+				" walker_home=%.1f" % walker_out.global_position.distance_to(home_zone), " msg=", _msg.text.replace("\n", " | "))
+			_save_game()
+		"bikeload":
+			print("BIKELOAD saved=", _bike_saved, " note=", _apply_saved_bike().strip_edges(), " on_foot=", player == walker_out,
+				" bike_at_shop=%.1f" % bike.global_position.distance_to(shop_zone))
 		"stashtour":
 			# Jokainen jemma: E piilottaa yhden, Q ottaa yhden, kuva paikasta.
 			laavu_conquered = true
