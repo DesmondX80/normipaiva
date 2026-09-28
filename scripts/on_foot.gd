@@ -68,6 +68,24 @@ func stun(direction: Vector3) -> void:
 	Sfx.play("body_fall", -2.0)
 
 
+## Kunnon kulutus ja palautuminen. Pyörän spurtti käyttää samaa mittaria (jalat ovat samat).
+func tire(exerting: bool, resting: bool, delta: float) -> void:
+	if exerting:
+		stamina = maxf(0.0, stamina - 18.0 * delta)
+		if stamina <= 0.0:
+			exhausted = true
+	else:
+		stamina = minf(100.0, stamina + (22.0 if resting else 12.0) * delta)
+		if exhausted and stamina >= 35.0:
+			exhausted = false
+	# Hengästyneenä kuuluu puuskutus.
+	if exhausted:
+		_breath_t -= delta
+		if _breath_t <= 0.0:
+			_breath_t = 0.75
+			Sfx.play("whoosh", -10.0, 0.5)
+
+
 func _physics_process(delta: float) -> void:
 	if world != null:
 		surface = world.surface_at(global_position)
@@ -88,20 +106,7 @@ func _physics_process(delta: float) -> void:
 		throttle = Input.get_axis("back", "forward")
 		steer = Input.get_axis("right", "left")
 		running = Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 and not exhausted
-	if running:
-		stamina = maxf(0.0, stamina - 18.0 * delta)
-		if stamina <= 0.0:
-			exhausted = true
-	else:
-		stamina = minf(100.0, stamina + (22.0 if absf(speed) < 0.2 else 12.0) * delta)
-		if exhausted and stamina >= 35.0:
-			exhausted = false
-	# Hengästyneenä kuuluu puuskutus.
-	if exhausted:
-		_breath_t -= delta
-		if _breath_t <= 0.0:
-			_breath_t = 0.75
-			Sfx.play("whoosh", -10.0, 0.5)
+	tire(running, absf(speed) < 0.2, delta)
 	var ground: float = world.speed_factor(global_position, "runner") if world != null else 1.0
 	var want := throttle * (RUN if running else WALK) * ground
 	if throttle < 0.0:

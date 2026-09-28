@@ -1307,6 +1307,7 @@ func _spawn_player() -> void:
 	walker_out = OnFoot.new()
 	walker_out.world = world
 	add_child(walker_out)
+	bike.legs = walker_out
 	walker_out.visible = false
 	walker_out.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 
@@ -1533,7 +1534,7 @@ func _update_hud() -> void:
 		lines += "\nTavoite: %s  %d m\nAlusta: %s" % [
 			"K-Market" if state == "to_shop" else "Koti",
 			int(Vector2(p.x, p.z).distance_to(Vector2(target.x, target.z))), world.TERRAIN[player.surface].name]
-	_stamina_box.visible = player == walker_out and state in ["to_shop", "to_home"]
+	_stamina_box.visible = state in ["to_shop", "to_home"]  # juoksu ja pyörän spurtti kuluttavat samaa kuntoa
 	if _stamina_box.visible:
 		_stamina_bar.value = walker_out.stamina
 		(_stamina_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = Color(0.9, 0.3, 0.2) if walker_out.exhausted else Color(0.3, 0.8, 0.4)
@@ -2028,6 +2029,52 @@ func _maybe_screenshot() -> void:
 				if i % 60 == 0:
 					var p := player.global_position
 					print("HILL t=", i, " y=%.2f ground=%.2f speed=%.1f" % [p.y, Terrain.h(p.x, p.z), player.speed])
+			Input.action_release("forward")
+		"sprinttest":
+			# Pisin suora tie: ensin tavallinen poljenta, sitten spurtti (Shift), kunnes kunto loppuu.
+			var a := Vector3.ZERO
+			var b := Vector3.ZERO
+			for r in M.ROADS:
+				for j in r.pts.size() - 1:
+					var p0 := M.w(r.pts[j])
+					var p1 := M.w(r.pts[j + 1])
+					if p0.distance_to(p1) > a.distance_to(b):
+						a = p0
+						b = p1
+			if player != bike:
+				_toggle_mount()
+			var d := (b - a).normalized()
+			bike.global_position = Vector3(a.x, Terrain.h(a.x, a.z) + 0.4, a.z)
+			bike.rotation.y = atan2(-d.x, -d.z)
+			print("SPRINT road %.0f m" % a.distance_to(b))
+			var shift := InputEventKey.new()
+			shift.keycode = KEY_SHIFT
+			Input.action_press("forward")
+			for i in 600:
+				if i == 180:
+					shift.pressed = true
+					Input.parse_input_event(shift)
+				await get_tree().physics_frame
+				if i % 60 == 59:
+					print("SPRINT t=%d speed=%.1f stamina=%.0f sprinting=%s exhausted=%s fov=%.1f" % [i, bike.speed,
+						walker_out.stamina, bike.sprinting, walker_out.exhausted, bike._cam.fov])
+			shift.pressed = false
+			Input.parse_input_event(shift)
+			Input.action_release("forward")
+			# Jalan: juoksu kuluttaa kuntoa, eikä parkissa oleva pyörä saa palauttaa sitä samalla.
+			for i in 120:
+				await get_tree().physics_frame
+			_toggle_mount()
+			walker_out.stamina = 100.0
+			walker_out.exhausted = false
+			shift.pressed = true
+			Input.parse_input_event(shift)
+			Input.action_press("forward")
+			for i in 120:
+				await get_tree().physics_frame
+			print("SPRINT jalan 2 s juoksua: stamina=%.0f (odotus ~64)" % walker_out.stamina)
+			shift.pressed = false
+			Input.parse_input_event(shift)
 			Input.action_release("forward")
 		"tractortest":
 			# Onnistunut kotiinpaluu ja sen jälkeen pellolle: jemmarin pitää hyökätä.
