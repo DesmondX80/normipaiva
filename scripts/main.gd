@@ -10,6 +10,7 @@ const ShopInterior := preload("res://scripts/shop_interior.gd")
 
 const World := preload("res://scripts/world.gd")
 const Minimap := preload("res://scripts/minimap.gd")
+const Compass := preload("res://scripts/compass.gd")
 const M := preload("res://scripts/map_data.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Kota := preload("res://scripts/kota.gd")
@@ -70,7 +71,6 @@ var wife_alerted := false
 
 var _hazards: Node3D
 var _beacon: MeshInstance3D
-var _arrow: Node3D
 var _stats: Label
 var _status: Label
 var _hint: Label
@@ -80,6 +80,7 @@ var _sus_box: Control
 var _sus_bar: ProgressBar
 var _bird_t := 2.0
 var _minimap: Control
+var _compass: Control
 var _hud: CanvasLayer
 var fight: Node3D
 var _fight_prev := ""
@@ -266,10 +267,10 @@ func _outside_logic() -> void:
 	var dist := Vector2(ppos.x, ppos.z).distance_to(Vector2(target.x, target.z))  # vaakaetäisyys (maasto ei vaikuta)
 
 	_beacon.position = Vector3(target.x, Terrain.h(target.x, target.z) + 20.0, target.z)  # alkaa maan pinnasta
-	_arrow.global_position = ppos + Vector3.UP * 2.6
-	var look := Vector3(target.x, _arrow.global_position.y, target.z)
-	if _arrow.global_position.distance_to(look) > 0.5:
-		_arrow.look_at(look, Vector3.UP)
+	# Kompassin kohde poistuu, kun sinne päästään.
+	if _paper.has_target and Vector2(ppos.x, ppos.z).distance_to(_paper.target) < 10.0:
+		_paper.clear_target()
+		Sfx.play("pickup", -10.0, 1.3)
 
 	_edge_logic()
 	_kota_logic()
@@ -1045,7 +1046,6 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 
 
 func _set_outside_visible(v: bool) -> void:
-	_arrow.visible = v
 	_beacon.visible = v
 
 
@@ -1142,15 +1142,6 @@ func _build_markers() -> void:
 	_beacon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_beacon)
 
-	_arrow = Node3D.new()
-	add_child(_arrow)
-	var cone := MeshInstance3D.new()
-	cone.mesh = B.cyl(0.0, 0.3, 0.9)
-	cone.material_override = B.unshaded(Color(1.0, 0.85, 0.1))
-	cone.rotation_degrees.x = -90
-	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_arrow.add_child(cone)
-
 
 # --- Hahmot ------------------------------------------------------------------
 
@@ -1174,6 +1165,7 @@ func _set_avatar(a: CharacterBody3D) -> void:
 		if h != null:
 			h.target = a
 	_minimap.player = a
+	_compass.player = a
 	_paper.player = a
 	a.activate_camera()
 
@@ -1280,7 +1272,7 @@ func _build_hud() -> void:
 	help.anchor_bottom = 1.0
 	help.offset_left = 20
 	help.offset_top = -36
-	_status = _centered_label(layer, 30, 0.0, 14, 90)
+	_status = _centered_label(layer, 30, 0.0, 66, 142)  # kompassin alle
 	_status.add_theme_color_override("font_color", Color(1, 0.25, 0.2))
 	_hint = _centered_label(layer, 30, 1.0, -130, -80)
 	_msg = _centered_label(layer, 44, 0.3, -80, 120)
@@ -1361,6 +1353,11 @@ func _build_hud() -> void:
 	_minimap.bike = bike
 	layer.add_child(_minimap)
 
+	_compass = Compass.new()
+	_compass.player = player
+	_compass.paper = _paper
+	layer.add_child(_compass)
+
 
 func _update_hud() -> void:
 	var jem := "koti %d/%d" % [jemma, JEMMA_GOAL]
@@ -1402,6 +1399,7 @@ func _update_hud() -> void:
 	_minimap.visible = state != "in_shop"
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
 	_minimap.show_target = state in ["to_shop", "to_home"]
+	_compass.visible = state in ["to_shop", "to_home"]
 
 	var status: Array[String] = []
 	if state in ["to_shop", "to_home"]:
@@ -1518,6 +1516,12 @@ func _maybe_screenshot() -> void:
 			world.fire.visible = true
 			guard.mode = "gone"
 			guard.visible = false
+		"compass", "maptarget":
+			# Kompassin kohde K-Marketille (ja lähelle toinen testi: kartta auki).
+			_paper.target = M.w2(M.SHOP_ZONE)
+			_paper.has_target = true
+			if scene == "maptarget":
+				_paper.toggle()
 		"map":
 			for n in find_children("*", "Control", true, false):
 				if n.has_method("toggle"):

@@ -1,7 +1,8 @@
 extends Control
 ## Paperikarttanäkymä (M): kellertävä paperi taitoksineen, maastokartan värit ja merkit,
 ## paikannimet, tienimet, kompassiruusu, mittakaava ja selite. Peli on pysäytettynä kun kartta on auki.
-## W/S tai hiiren rulla vierittää, M tai Esc sulkee.
+## W/S tai hiiren rulla vierittää, M tai Esc sulkee. Klikkaus asettaa kompassin kohteen (tarttuu lähimpään
+## merkkiin), klikkaus kohteen päälle tai oikea nappi poistaa sen.
 
 const M := preload("res://scripts/map_data.gd")
 
@@ -18,6 +19,11 @@ var _k := MAP_W / (M.SIZE.x * M.SCALE)
 var _scroll := 0.0
 var _paper_tex: ImageTexture
 var _tree_pts: PackedVector2Array = []
+## Kompassin kohde maailman x/z-koordinaatteina.
+var has_target := false
+var target := Vector2.ZERO
+
+const SNAP_PX := 14.0
 
 
 func _ready() -> void:
@@ -91,11 +97,55 @@ func _process(delta: float) -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_click(event.position - _view.position)
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			clear_target()
+		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_scroll = clampf(_scroll - 60.0, 0.0, _max_scroll())
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_scroll = clampf(_scroll + 60.0, 0.0, _max_scroll())
 		_view.queue_redraw()
+
+
+func clear_target() -> void:
+	has_target = false
+	_view.queue_redraw()
+
+
+func _click(local: Vector2) -> void:
+	if not Rect2(Vector2.ZERO, _view.size).has_point(local):
+		return
+	if has_target and _w2(target).distance_to(local) < SNAP_PX:
+		clear_target()
+		return
+	var best := _from_view(local)
+	var bd := SNAP_PX
+	for w in _snap_points():
+		var d := _w2(w).distance_to(local)
+		if d < bd:
+			bd = d
+			best = w
+	target = best
+	has_target = true
+	Sfx.play("whoosh", -14.0, 2.4)
+	_view.queue_redraw()
+
+
+## Kartan merkit, joihin klikkaus tarttuu (maailman x/z).
+func _snap_points() -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	for p in [M.HOME_ZONE, M.SHOP_ZONE, M.LAAVU, M.GRILLIKATOS, M.KOTA]:
+		out.append(M.w2(p))
+	for n in M.PLACE_NAMES:
+		out.append(M.w2(n[1]))
+	if bike != null and bike != player:
+		out.append(Vector2(bike.global_position.x, bike.global_position.z))
+	if world != null and world.forage_revealed:
+		for f in world.forage:
+			if not f.taken:
+				out.append(Vector2(f.pos.x, f.pos.z))
+	return out
 
 
 # --- Koordinaatit ------------------------------------------------------------
@@ -111,6 +161,10 @@ func _px(p: Vector2) -> Vector2:
 
 func _w2(p: Vector2) -> Vector2:
 	return (p - M.w2(Vector2.ZERO)) * _k - Vector2(0, _scroll)
+
+
+func _from_view(local: Vector2) -> Vector2:
+	return (local + Vector2(0, _scroll)) / _k + M.w2(Vector2.ZERO)
 
 
 func _pts(arr: Array) -> PackedVector2Array:
@@ -166,6 +220,7 @@ func _draw() -> void:
 	_compass(side + Vector2(100, 70))
 	_scale_bar(side + Vector2(10, 180))
 	_legend(side + Vector2(10, 250))
+	draw_string(font, Vector2(side.x + 10, r.end.y - 40), "Klikkaa: kompassin kohde", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 	draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje · W/S vieritä", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 
 
@@ -199,10 +254,10 @@ func _legend(p: Vector2) -> void:
 	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 	var items := [
 		["road", "Maantie"], ["street", "Katu"], ["path", "Polku"], ["forest", "Metsä"], ["field", "Pelto"],
-		["bog", "Suo, räme"], ["water", "Vesi"], ["home", "Koti"], ["shop", "K-Market"], ["laavu", "Laavu"], ["berry", "Marjapaikka"], ["mushroom", "Sienipaikka"], ["you", "Olet tässä"],
+		["bog", "Suo, räme"], ["water", "Vesi"], ["home", "Koti"], ["shop", "K-Market"], ["laavu", "Laavu"], ["berry", "Marjapaikka"], ["mushroom", "Sienipaikka"], ["target", "Kompassin kohde"], ["you", "Olet tässä"],
 	]
 	for i in items.size():
-		var y := p.y + 22 + i * 24
+		var y := p.y + 22 + i * 22
 		var sym := Vector2(p.x + 14, y)
 		match items[i][0]:
 			"road":
@@ -235,6 +290,8 @@ func _legend(p: Vector2) -> void:
 			"mushroom":
 				draw_rect(Rect2(sym + Vector2(-1, -1), Vector2(2, 5)), Color(0.9, 0.86, 0.75))
 				draw_colored_polygon(PackedVector2Array([sym + Vector2(-5, -1), sym + Vector2(0, -6), sym + Vector2(5, -1)]), Color(0.95, 0.65, 0.1))
+			"target":
+				_target_icon_on(self, sym)
 			"you":
 				_you_icon(sym, 0.0)
 		draw_string(font, Vector2(p.x + 36, y + 5), items[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK)
@@ -379,6 +436,8 @@ func _draw_map() -> void:
 		v.draw_line(bp + Vector2(-5, 2), bp + Vector2(0, -4), Color(0.1, 0.35, 0.7), 1.8)
 		v.draw_line(bp + Vector2(0, -4), bp + Vector2(5, 2), Color(0.1, 0.35, 0.7), 1.8)
 		v.draw_string(ThemeDB.fallback_font, bp + Vector2(10, 4), "Pyörä", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.1, 0.3, 0.6))
+	if has_target:
+		_target_icon_on(v, _w2(target))
 	if player != null:
 		var f := -player.global_transform.basis.z
 		_you_icon_on(v, _w2(Vector2(player.global_position.x, player.global_position.z)), atan2(f.z, f.x) + PI / 2.0)
@@ -403,6 +462,13 @@ func _laavu_icon_on(ci: CanvasItem, p: Vector2) -> void:
 	ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-9, 6), p + Vector2(3, -8), p + Vector2(9, 6)]), Color(0.45, 0.28, 0.12))
 	ci.draw_line(p + Vector2(-9, 6), p + Vector2(9, 6), INK, 2.0)
 	ci.draw_circle(p + Vector2(-2, 3), 2.5, Color(0.95, 0.45, 0.1))
+
+
+func _target_icon_on(ci: CanvasItem, p: Vector2) -> void:
+	var col := Color(0.85, 0.1, 0.1)
+	ci.draw_arc(p, 9.0, 0, TAU, 24, col, 2.5)
+	ci.draw_line(p - Vector2(5, 5), p + Vector2(5, 5), col, 2.0)
+	ci.draw_line(p + Vector2(-5, 5), p + Vector2(5, -5), col, 2.0)
 
 
 func _you_icon(p: Vector2, ang: float) -> void:
