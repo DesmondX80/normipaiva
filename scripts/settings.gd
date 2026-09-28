@@ -26,6 +26,7 @@ var values := {
 	"mouse_sens": 1.0,
 	"invert_y": false,
 	"auto_recenter": true,
+	"mouse_look": true,
 }
 ## Tosi, jos tämä käynnistys tallensi yhteensopivan grafiikan pysyväksi (Windowsin varakäynnistin).
 var renderer_auto_saved := false

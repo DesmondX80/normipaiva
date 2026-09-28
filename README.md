@@ -85,7 +85,7 @@ godot --path .
 | Shift | juokse (jalan) |
 | M | paperikartta (W/S vierittää) |
 | V | FPS-näkymä / kolmas persoona |
-| Hiiri | kamera (klikkaa ikkunaa, Esc vapauttaa) |
+| Hiiri | kamera (Esc vapauttaa hiiren valikkoon) |
 | Esc | valikko |
 | R | aloita alusta |
 
