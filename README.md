@@ -83,7 +83,7 @@ godot --path .
 | E | toiminto (kauppaan, osta, maksa, ulos) |
 | F | nouse pyörän selästä / takaisin pyörälle (pyörä jää parkkiin ja näkyy kartassa) |
 | Shift | juokse (jalan) |
-| M | paperikartta (W/S vierittää) |
+| M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen) |
 | V | FPS-näkymä / kolmas persoona |
 | Hiiri | kamera (Esc vapauttaa hiiren valikkoon) |
 | Esc | valikko |
