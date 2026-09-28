@@ -32,17 +32,23 @@ func _ready() -> void:
 	add_child(_view)
 	_view.draw.connect(_draw_map)
 	resized.connect(_layout)
-	_layout()
+	_layout.call_deferred()
 
 
 func _layout() -> void:
 	var paper := _paper_rect()
 	_view.position = Vector2(paper.position.x + 40, paper.position.y + 80)
 	_view.size = Vector2(MAP_W, paper.size.y - 130)
+	_scroll = clampf(_scroll, 0.0, _max_scroll())
+	queue_redraw()
+	_view.queue_redraw()
 
 
 func _paper_rect() -> Rect2:
-	var s := size if size.x > 0 else Vector2(1280, 720)
+	# Oma koko voi olla vielä 0 tai vanhentunut (piilossa ollessa), joten käytetään viewportin kokoa.
+	var s := get_viewport_rect().size
+	if s.x <= 0:
+		s = size if size.x > 0 else Vector2(1280, 720)
 	var w := MAP_W + 80 + 260
 	return Rect2(Vector2((s.x - w) / 2.0, 14), Vector2(w, s.y - 28))
 
@@ -52,7 +58,9 @@ func toggle() -> void:
 	get_tree().paused = visible
 	if visible:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if visible:
+		# Koko lasketaan aina avattaessa: resized-signaali ei välttämättä tullut oikeaan aikaan.
+		size = get_viewport_rect().size
+		_layout()
 		if _tree_pts.is_empty() and world != null:
 			for i in range(0, world._trees.size(), 7):
 				var t: Array = world._trees[i]
