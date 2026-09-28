@@ -407,6 +407,7 @@ func _build_woodwork() -> void:
 	B.mesh(saw, B.boxm(Vector3(0.08, 0.08, 1.0)), Vector3(0, 0.45, 0), dark)
 	var sawlog := B.mesh(saw, B.cyl(0.13, 0.14, 1.6, 10), Vector3(0, 0.88, 0), Color(0.85, 0.83, 0.78))
 	sawlog.rotation.x = PI / 2.0
+	sawlog.name = "SawLog"
 	var bow := Node3D.new()
 	bow.position = Vector3(0.05, 1.18, 0.35)
 	bow.name = "Saw"
