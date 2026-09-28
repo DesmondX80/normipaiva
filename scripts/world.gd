@@ -1,0 +1,1876 @@
+extends Node3D
+## Rakentaa Saloisten maiseman map_data.gd:n pohjalta: maasto, tiet, metsät, talot,
+## vesistöt, koti (Järvikuja 1) ja K-Market. Tarjoaa tieverkon vaimon partiointiin.
+
+const B := preload("res://scripts/build.gd")
+const M := preload("res://scripts/map_data.gd")
+const Foliage := preload("res://scripts/foliage.gd")
+const T := preload("res://scripts/terrain.gd")
+const Kota := preload("res://scripts/kota.gd")
+const DRAPE_EDGE := 3.0  # maakerrosten kolmioiden maksimisivu, jotta ne myötäilevät maastoa
+## Lehvästökorttien näkyvyysraja: tätä kauempana puut piirretään kevyinä perusmuotoina.
+const TREE_NEAR := 210.0
+
+const STYLES := {
+	"highway": {"w": 12.0, "surf": "asphalt", "dash": true, "edge": "shoulder"},
+	"road": {"w": 8.0, "surf": "asphalt", "dash": true, "edge": "shoulder"},
+	"street": {"w": 5.5, "surf": "street", "dash": false, "edge": ""},
+	"path": {"w": 3.0, "surf": "gravel", "dash": false, "edge": ""},
+}
+## Maanpintojen värit shaderille: [väri a, väri b, karkea skaala, hieno skaala, kuoppaisuus, karheus, rivit].
+const SURFACES := {
+	"meadow": [Color(0.32, 0.46, 0.18), Color(0.46, 0.58, 0.25), 0.02, 0.35, 0.5, 0.95, 0.0],
+	"forest": [Color(0.28, 0.32, 0.17), Color(0.5, 0.48, 0.32), 0.03, 0.6, 0.7, 0.95, 0.0],
+	"clearcut": [Color(0.36, 0.3, 0.2), Color(0.55, 0.47, 0.32), 0.04, 0.9, 0.9, 1.0, 0.0],
+	"field": [Color(0.5, 0.45, 0.26), Color(0.7, 0.63, 0.36), 0.02, 0.4, 0.5, 0.95, 2.2],
+	"bog": [Color(0.38, 0.36, 0.2), Color(0.56, 0.5, 0.3), 0.04, 0.5, 0.6, 0.9, 0.0],
+	"lawn": [Color(0.28, 0.52, 0.2), Color(0.4, 0.64, 0.27), 0.05, 0.6, 0.3, 0.95, 0.7],
+	"asphalt": [Color(0.17, 0.17, 0.18), Color(0.27, 0.27, 0.28), 0.05, 2.5, 0.25, 0.8, 0.0],
+	"street": [Color(0.24, 0.24, 0.25), Color(0.33, 0.33, 0.33), 0.05, 2.5, 0.25, 0.85, 0.0],
+	"gravel": [Color(0.53, 0.47, 0.37), Color(0.64, 0.57, 0.45), 0.08, 1.1, 0.6, 1.0, 0.0],
+	"shoulder": [Color(0.47, 0.46, 0.42), Color(0.56, 0.55, 0.5), 0.08, 1.1, 0.6, 1.0, 0.0],
+}
+## Alustat: nopeuskatto, kiihtyvyys, lisävastus, töyssyisyys, ohjattavuus, uppoaminen, nimi HUDiin.
+const TERRAIN := {
+	"asphalt": {"speed": 1.0, "accel": 1.0, "drag": 0.0, "bump": 0.0, "steer": 1.0, "sink": 0.0, "name": "Asfaltti"},
+	"gravel": {"speed": 0.85, "accel": 0.85, "drag": 0.6, "bump": 0.025, "steer": 0.9, "sink": 0.0, "name": "Sora"},
+	"lawn": {"speed": 0.78, "accel": 0.8, "drag": 1.0, "bump": 0.02, "steer": 0.9, "sink": 0.0, "name": "Nurmikko"},
+	"meadow": {"speed": 0.6, "accel": 0.6, "drag": 2.0, "bump": 0.05, "steer": 0.85, "sink": 0.02, "name": "Niitty"},
+	"forest": {"speed": 0.5, "accel": 0.5, "drag": 2.5, "bump": 0.09, "steer": 0.8, "sink": 0.02, "name": "Metsä"},
+	"field": {"speed": 0.4, "accel": 0.45, "drag": 3.5, "bump": 0.04, "steer": 0.7, "sink": 0.04, "name": "Viljapelto"},
+	"bog": {"speed": 0.3, "accel": 0.35, "drag": 5.0, "bump": 0.03, "steer": 0.6, "sink": 0.12, "name": "Räme"},
+	"water": {"speed": 0.15, "accel": 0.2, "drag": 8.0, "bump": 0.02, "steer": 0.5, "sink": 0.3, "name": "Vesi"},
+}
+## Sama alusta hidastaa eri tavalla: auto kärsii pehmeästä maasta eniten, jalankulkija vähiten.
+const TERRAIN_BY := {
+	"car": {"asphalt": 1.0, "gravel": 0.9, "lawn": 0.75, "meadow": 0.7, "forest": 0.5, "field": 0.45, "bog": 0.2, "water": 0.1},
+	"runner": {"asphalt": 1.0, "gravel": 1.0, "lawn": 1.0, "meadow": 0.9, "forest": 0.8, "field": 0.6, "bog": 0.5, "water": 0.4},
+}
+## Pintojen korkeudet selvin välein, ettei päällekkäisiä pintoja piirretä samaan tasoon (välkyntä):
+## polku < piennar < kaupan piha < katu < maantie < valtatie < keskiviivat.
+## Porrastus muutama millimetri: pinnat pysyvät maan tasossa (pyörä ei uppoa), mutta eivät välky.
+const LAYER := {"path": 0.012, "shoulder": 0.017, "lot": 0.021, "street": 0.025, "road": 0.029, "highway": 0.033, "dash": 0.037}
+const CELL := 40.0
+const CHUNK := 150.0
+const MASK_PX := 2.0  # metriä per maskin pikseli
+const WALLS := [Color(0.6, 0.15, 0.11), Color(0.9, 0.8, 0.45), Color(0.88, 0.78, 0.44), Color(0.86, 0.8, 0.66),
+	Color(0.84, 0.77, 0.62), Color(0.93, 0.93, 0.9),
+	Color(0.92, 0.91, 0.87), Color(0.58, 0.6, 0.61), Color(0.58, 0.7, 0.78), Color(0.45, 0.3, 0.2),
+	Color(0.75, 0.82, 0.7)]
+## Matalat peltikatot: enimmäkseen tummanharmaita/mustia, osa punaruskeita (ilmakuvan mukaan).
+const ROOFS := [Color(0.2, 0.21, 0.22), Color(0.2, 0.21, 0.22), Color(0.12, 0.12, 0.13), Color(0.3, 0.31, 0.33),
+	Color(0.4, 0.14, 0.1), Color(0.3, 0.2, 0.15)]
+const DOORS := [Color(0.35, 0.22, 0.14), Color(0.15, 0.25, 0.4), Color(0.5, 0.1, 0.08), Color(0.9, 0.9, 0.88)]
+const WHITE := Color(0.95, 0.95, 0.92)
+
+var graph_nodes: Array[Vector3] = []
+var graph_adj: Array = []
+var home_zone: Vector3
+var shop_zone: Vector3
+var follow: Node3D  # ruoho seuraa tätä (pelaaja)
+
+var _rng := RandomNumberGenerator.new()
+var _seg_grid := {}
+var _houses: Array[Vector2] = []
+var _trees: Array = []  # [Vector2 pos, String kind, float scale, bool collide]
+var _water: Array[PackedVector2Array] = []
+var _forests: Array[PackedVector2Array] = []
+var _fields: Array[PackedVector2Array] = []
+var _bogs: Array[PackedVector2Array] = []
+var _agility := PackedVector2Array()
+var _clearings: Array[PackedVector2Array] = []
+var fire: Node3D  # laavun nuotio (näkyy kun sytytetty)
+var kota: Node3D  # Haapajärven tekoaltaan kota (kota.gd)
+## Marja- ja sienipaikat: {pos: Vector3, kind: String, node: Node3D, taken: bool}. Arto paljastaa ne karttaan.
+var forage: Array = []
+var forage_revealed := false
+const FORAGE_KINDS := {
+	"puolukka": {"weight": 0.35, "liters": 2, "color": Color(0.8, 0.08, 0.1)},
+	"mustikka": {"weight": 0.3, "liters": 2, "color": Color(0.15, 0.2, 0.55)},
+	"kantarelli": {"weight": 0.2, "liters": 1, "color": Color(0.95, 0.65, 0.1)},
+	"herkkutatti": {"weight": 0.15, "liters": 1, "color": Color(0.5, 0.3, 0.15)},
+}
+var _surf_mats := {}
+var _batches := {}
+var _play := PackedVector2Array()
+var edge_bodies: Array[StaticBody3D] = []  # pelialueen reunaseinät (reunakommentit)
+var _grass_mat: ShaderMaterial
+var _lawn_st: SurfaceTool
+var _clearcuts: Array[PackedVector2Array] = []
+## Suorakaiteet, joilta ruoho poistetaan maskista: [keskipiste, puolileveys, puolisyvyys, kierto].
+var _mask_clear: Array = []
+var _hedge_batch := B.Batch.new()
+var _hedge_cards := B.Batch.new()
+var _hedge_quad: QuadMesh
+
+
+func _ready() -> void:
+	_rng.seed = 1917
+	_hedge_batch.lift = true
+	_hedge_cards.lift = true
+	home_zone = M.w(M.HOME_ZONE)
+	shop_zone = M.w(M.SHOP_ZONE)
+	for p in M.WATER:
+		_water.append(_poly(p))
+	for p in M.FORESTS:
+		_forests.append(_poly(p))
+	for p in M.FIELDS:
+		_fields.append(_poly(p))
+	for p in M.BOGS:
+		_bogs.append(_poly(p))
+	_agility = _poly(M.AGILITY)
+	_play = _poly(M.PLAY_AREA)
+	for p in M.CLEARINGS:
+		_clearings.append(_poly(p))
+	_index_segments()
+	_build_ground()
+	_build_roads()
+	_build_graph()
+	for p in M.CLEARCUTS:
+		_clearcuts.append(_poly(p))
+	_lawn_st = _new_st()
+	_build_home()
+	_build_shop()
+	_build_agility()
+	_build_laavu()
+	_build_grillikatos()
+	_build_kota()
+	_build_bales()
+	_build_houses()
+	_commit_strip(_lawn_st, _surf("lawn"))
+	_lawn_st = null
+	_build_verges()
+	_build_streetlights()
+	_build_power_lines()
+	_build_clearcuts()
+	_commit_batches()
+	_scatter_trees()
+	_build_trees()
+	_build_forage()
+	_build_grass()
+	_build_names()
+	_lift_objects()
+
+
+var _near_trees: Array[GeometryInstance3D] = []
+var _far_trees: Array[GeometryInstance3D] = []
+var _grass_mm: MultiMesh
+
+
+## Laatutaso 0–2: ruohon määrä ja lehvästöpuiden etäisyys.
+func set_quality(q: int) -> void:
+	if _grass_mm != null:
+		_grass_mm.visible_instance_count = int(_grass_mm.instance_count * [0.35, 0.7, 1.0][q])
+	var near: float = [110.0, 160.0, TREE_NEAR][q]
+	for g in _near_trees:
+		g.visibility_range_end = near
+	for g in _far_trees:
+		g.visibility_range_begin = near - 10.0
+
+
+func _process(_delta: float) -> void:
+	if follow != null and _grass_mat != null:
+		_grass_mat.set_shader_parameter("center", follow.global_position)
+	_process_fire()
+
+
+# --- Apurit ------------------------------------------------------------------
+
+func _poly(px: Array) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for p in px:
+		out.append(M.w2(p))
+	return out
+
+
+func _surf(kind: String) -> Material:
+	if kind == "water":
+		if not _surf_mats.has(kind):
+			_surf_mats[kind] = B.shader_mat("res://shaders/water.gdshader")
+		return _surf_mats[kind]
+	if not _surf_mats.has(kind):
+		var s: Array = SURFACES[kind]
+		_surf_mats[kind] = B.shader_mat("res://shaders/ground.gdshader", {
+			"color_a": s[0], "color_b": s[1], "scale": s[2], "fine_scale": s[3],
+			"bump": s[4], "roughness_v": s[5], "stripes": s[6], "stripe_angle": 0.35,
+		})
+	return _surf_mats[kind]
+
+
+## Litteä monikulmio maan pinnalle.
+func _flat_poly(poly: PackedVector2Array, y: float, material: Material) -> void:
+	var idx := Geometry2D.triangulate_polygon(poly)
+	if idx.is_empty():
+		return
+	var st := _new_st()
+	for i in idx:
+		st.add_vertex(Vector3(poly[i].x, y, poly[i].y))
+	_commit_strip(st, material)
+
+
+## Nauha murtoviivaa pitkin, nivelet täytetään kiekoilla.
+func _strip(st: SurfaceTool, pts: PackedVector2Array, half_w: float, y: float) -> void:
+	for i in pts.size() - 1:
+		var a := pts[i]
+		var b := pts[i + 1]
+		var n := (b - a).normalized().orthogonal() * half_w
+		for v in [a + n, b + n, b - n, a + n, b - n, a - n]:
+			st.add_vertex(Vector3(v.x, y, v.y))
+	for p in pts:
+		for k in 12:
+			var a0 := TAU * k / 12.0
+			var a1 := TAU * (k + 1) / 12.0
+			st.add_vertex(Vector3(p.x, y, p.y))
+			st.add_vertex(Vector3(p.x + cos(a0) * half_w, y, p.y + sin(a0) * half_w))
+			st.add_vertex(Vector3(p.x + cos(a1) * half_w, y, p.y + sin(a1) * half_w))
+
+
+func _commit_strip(st: SurfaceTool, material: Material) -> void:
+	var src: PackedVector3Array = st.commit_to_arrays()[Mesh.ARRAY_VERTEX]
+	if src.is_empty():
+		return
+	# Maakerros myötäilee maastoa: kolmiot pilkotaan pieniksi ja nostetaan maaston korkeudelle.
+	var out := PackedVector3Array()
+	for t in range(0, src.size() - 2, 3):
+		_subdivide(src[t], src[t + 1], src[t + 2], out)
+	var nrm := PackedVector3Array()
+	nrm.resize(out.size())
+	for i in out.size():
+		var p := out[i]
+		out[i] = Vector3(p.x, p.y + T.h(p.x, p.z), p.z)
+		nrm[i] = T.grid_normal(p.x, p.z)
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = out
+	arr[Mesh.ARRAY_NORMAL] = nrm
+	var am := ArrayMesh.new()
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var mi := MeshInstance3D.new()
+	mi.mesh = am
+	mi.material_override = material
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.set_meta("draped", true)
+	add_child(mi)
+
+
+## Pilkkoo kolmion pisimmän sivun kohdalta, kunnes kaikki sivut ovat alle DRAPE_EDGE.
+func _subdivide(a: Vector3, b: Vector3, c: Vector3, out: PackedVector3Array) -> void:
+	var ab := a.distance_squared_to(b)
+	var bc := b.distance_squared_to(c)
+	var ca := c.distance_squared_to(a)
+	var m := maxf(ab, maxf(bc, ca))
+	if m <= DRAPE_EDGE * DRAPE_EDGE:
+		out.append(a)
+		out.append(b)
+		out.append(c)
+		return
+	if m == ab:
+		var d := (a + b) * 0.5
+		_subdivide(a, d, c, out)
+		_subdivide(d, b, c, out)
+	elif m == bc:
+		var d := (b + c) * 0.5
+		_subdivide(a, b, d, out)
+		_subdivide(a, d, c, out)
+	else:
+		var d := (c + a) * 0.5
+		_subdivide(a, b, d, out)
+		_subdivide(d, b, c, out)
+
+
+## Maailman rakennuksen jälkeen: kaikki esineet (talot, puut, kyltit, pylväät...) maaston pinnalle.
+## Maakerrokset ja yhdistetyt verkot on jo nostettu pisteittäin (merkitty "draped").
+func _lift_objects() -> void:
+	for c in get_children():
+		_lift_node(c)
+
+
+func _lift_node(c: Node) -> void:
+	if c.has_meta("draped") or not (c is Node3D):
+		return
+	if c is MultiMeshInstance3D:
+		var mmi := c as MultiMeshInstance3D
+		var mm := mmi.multimesh
+		for i in mm.instance_count:
+			var t := mm.get_instance_transform(i)
+			var wp := mmi.transform * t.origin
+			t.origin.y += T.h(wp.x, wp.z)
+			mm.set_instance_transform(i, t)
+		return
+	var n := c as Node3D
+	if n.position.length() < 0.5 and n.get_child_count() > 0 and not (n is VisualInstance3D):
+		# Keräävä solmu origossa (esim. puiden törmäysmuodot): nostetaan lapset kukin omasta kohdastaan.
+		for g in n.get_children():
+			_lift_node(g)
+	else:
+		n.position.y += T.h(n.global_position.x, n.global_position.z)
+
+
+func _new_st() -> SurfaceTool:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	return st
+
+
+func _index_segments() -> void:
+	for r in M.ROADS:
+		var pts := _poly(r.pts)
+		var hw: float = STYLES[r.type].w / 2.0
+		for i in pts.size() - 1:
+			var a := pts[i]
+			var b := pts[i + 1]
+			var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y)) - Vector2.ONE * (hw + 12.0)
+			var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y)) + Vector2.ONE * (hw + 12.0)
+			for cx in range(floori(lo.x / CELL), floori(hi.x / CELL) + 1):
+				for cz in range(floori(lo.y / CELL), floori(hi.y / CELL) + 1):
+					var key := Vector2i(cx, cz)
+					if not _seg_grid.has(key):
+						_seg_grid[key] = []
+					_seg_grid[key].append([a, b, hw, r.type])
+
+
+## Etäisyys lähimmän tien reunaan (iso luku jos tietä ei ole lähellä).
+func _road_clearance(p: Vector2) -> float:
+	var key := Vector2i(floori(p.x / CELL), floori(p.y / CELL))
+	var best := 999.0
+	for s in _seg_grid.get(key, []):
+		var c := Geometry2D.get_closest_point_to_segment(p, s[0], s[1])
+		best = minf(best, p.distance_to(c) - s[2])
+	return best
+
+
+## Mikä alusta pisteessä on (ks. TERRAIN).
+func surface_at(pos: Vector3) -> String:
+	var p := Vector2(pos.x, pos.z)
+	if _in_any(p, _water):
+		return "water"
+	var key := Vector2i(floori(p.x / CELL), floori(p.y / CELL))
+	var best := 999.0
+	var best_type := ""
+	for s in _seg_grid.get(key, []):
+		var c := Geometry2D.get_closest_point_to_segment(p, s[0], s[1])
+		var d: float = p.distance_to(c) - s[2]
+		if d < best:
+			best = d
+			best_type = s[3]
+	if best <= 0.0:
+		return "gravel" if best_type == "path" else "asphalt"
+	if best <= 1.2 and best_type != "path":
+		return "gravel"  # piennar
+	if _near_stream(p):
+		return "water"
+	if p.distance_to(M.w2(M.LAAVU)) < 7.0:
+		return "gravel"  # laavun kenttä
+	if _in_rect(p, M.w2(M.SHOP_BUILDING) + Vector2(-18, 9), M.w2(M.SHOP_BUILDING) + Vector2(18, 31)):
+		return "asphalt"  # kaupan parkkipaikka
+	if Geometry2D.is_point_in_polygon(p, _agility):
+		return "lawn"
+	if _in_any(p, _fields):
+		return "field"
+	if _in_any(p, _bogs):
+		return "bog"
+	if _in_any(p, _forests):
+		return "forest"
+	return "meadow"
+
+
+## Nopeuskerroin alustalle: "bike" käyttää TERRAIN-taulua, muut TERRAIN_BY-taulua.
+func speed_factor(pos: Vector3, who: String) -> float:
+	var kind := surface_at(pos)
+	if who == "bike":
+		return TERRAIN[kind].speed
+	return TERRAIN_BY[who][kind]
+
+
+func _near_stream(p: Vector2) -> bool:
+	for s in M.STREAMS:
+		var pts := _poly(s)
+		for i in pts.size() - 1:
+			if p.distance_to(Geometry2D.get_closest_point_to_segment(p, pts[i], pts[i + 1])) < 1.3:
+				return true
+	return false
+
+
+func _in_rect(p: Vector2, a: Vector2, b: Vector2) -> bool:
+	return p.x >= a.x and p.y >= a.y and p.x <= b.x and p.y <= b.y
+
+
+func _in_any(p: Vector2, polys: Array[PackedVector2Array]) -> bool:
+	for poly in polys:
+		if Geometry2D.is_point_in_polygon(p, poly):
+			return true
+	return false
+
+
+func _near_house(p: Vector2, dist: float) -> bool:
+	for h in _houses:
+		if h.distance_squared_to(p) < dist * dist:
+			return true
+	return false
+
+
+## Onko piste pelialueella (M.PLAY_AREA) vähintään margin metriä reunasta (negatiivinen = reunan ulkopuolella).
+func _in_bounds(p: Vector2, margin: float) -> bool:
+	var inside := Geometry2D.is_point_in_polygon(p, _play)
+	var d := _play_edge_dist(p)
+	return (inside and d > margin) if margin >= 0.0 else (inside or d < -margin)
+
+
+func _play_edge_dist(p: Vector2) -> float:
+	var best := INF
+	for i in _play.size():
+		var a := _play[i]
+		var b := _play[(i + 1) % _play.size()]
+		best = minf(best, p.distance_to(Geometry2D.get_closest_point_to_segment(p, a, b)))
+	return best
+
+
+func _batch_at(p: Vector2) -> B.Batch:
+	var key := Vector2i(floori(p.x / CHUNK), floori(p.y / CHUNK))
+	if not _batches.has(key):
+		_batches[key] = B.Batch.new()
+		_batches[key].lift = true
+	return _batches[key]
+
+
+## Pensasaita: lehtitekstuurinen runko + pinnalle hajautetut lehväkortit pörröiseksi siluetiksi.
+func _add_hedge(xf: Transform3D, center: Vector3, size: Vector3, col: Color) -> void:
+	_hedge_batch.add(B.boxm(size - Vector3(0.1, 0.1, 0.1)), xf * Transform3D(Basis(), center), col)
+	if _hedge_quad == null:
+		_hedge_quad = QuadMesh.new()
+		_hedge_quad.size = Vector2(0.62, 0.62)
+	var n := maxi(2, int(size.x / 0.28))
+	for i in n:
+		var x := -size.x / 2.0 + (i + _rng.randf()) * size.x / n
+		# Päälle ja molemmille kyljille.
+		for face in [Vector3(0, 1, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]:
+			var p := center + Vector3(x, 0, 0)
+			if face.y > 0.0:
+				p += Vector3(0, size.y / 2.0 - 0.05, _rng.randf_range(-size.z / 2.0, size.z / 2.0) * 0.8)
+			else:
+				p += Vector3(0, _rng.randf_range(-size.y / 2.0, size.y / 2.0) * 0.85, face.z * (size.z / 2.0 - 0.05))
+			var basis := Basis.looking_at(-face if face.y == 0.0 else Vector3(0, -1, 0.01).normalized(), Vector3.UP if face.y == 0.0 else Vector3.FORWARD)
+			basis = basis.rotated(face, _rng.randf() * TAU)
+			basis = basis.rotated(Vector3.UP, _rng.randf_range(-0.5, 0.5))
+			_hedge_cards.add(_hedge_quad, xf * Transform3D(basis, p), col.lightened(_rng.randf_range(0.0, 0.2)))
+
+
+func _commit_batches() -> void:
+	if not _hedge_batch.is_empty():
+		var hm := MeshInstance3D.new()
+		hm.set_meta("draped", true)
+		hm.mesh = _hedge_batch.commit()
+		hm.material_override = B.shader_mat("res://shaders/hedge.gdshader", {"leaf_tex": Foliage.hedge_texture()})
+		add_child(hm)
+		var hc := MeshInstance3D.new()
+		hc.set_meta("draped", true)
+		hc.mesh = _hedge_cards.commit()
+		hc.material_override = B.shader_mat("res://shaders/foliage_card.gdshader", {"leaf_tex": Foliage.leaf_texture(), "sway": 0.015})
+		hc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(hc)
+		_hedge_batch = B.Batch.new()
+		_hedge_cards = B.Batch.new()
+		_hedge_batch.lift = true
+		_hedge_cards.lift = true
+	for key in _batches:
+		var batch: B.Batch = _batches[key]
+		if batch.is_empty():
+			continue
+		var mi := MeshInstance3D.new()
+		mi.set_meta("draped", true)
+		mi.mesh = batch.commit()
+		mi.material_override = B.vcol_mat()
+		add_child(mi)
+	_batches.clear()
+
+
+# --- Maasto & tiet -----------------------------------------------------------
+
+func _build_ground() -> void:
+	var lo := M.w2(Vector2.ZERO)
+	var hi := M.w2(M.SIZE)
+	var c := (lo + hi) / 2.0
+	var size := hi - lo
+	if T.available():
+		_build_terrain(lo, hi)
+	else:
+		var ground := B.box(self, Vector3(size.x + 600, 1, size.y + 600), Vector3(c.x, -0.5, c.y), Color.WHITE)
+		(ground.get_child(1) as MeshInstance3D).material_override = _surf("meadow")
+		ground.set_meta("draped", true)
+		for poly in _forests:
+			_flat_poly(poly, 0.002, _surf("forest"))
+		for poly in _fields:
+			_flat_poly(poly, 0.004, _surf("field"))
+		for poly in _bogs:
+			_flat_poly(poly, 0.0045, _surf("bog"))
+	for poly in _water:
+		_flat_poly(poly, 0.007, _surf("water"))
+	var st := _new_st()
+	for s in M.STREAMS:
+		_strip(st, _poly(s), 1.2, 0.006)
+	_commit_strip(st, _surf("water"))
+	# Näkymättömät reunat pelialueen ympärillä (korkeat, jotta maaston korkeuserot eivät jätä rakoja).
+	for i in _play.size():
+		var a := _play[i]
+		var b := _play[(i + 1) % _play.size()]
+		var body := StaticBody3D.new()
+		body.position = Vector3((a.x + b.x) / 2.0, 0, (a.y + b.y) / 2.0)
+		body.rotation.y = -atan2(b.y - a.y, b.x - a.x)
+		body.add_child(B.box_shape(Vector3(a.distance_to(b) + 2.0, 400, 2)))
+		body.set_meta("draped", true)
+		body.set_meta("edge", true)
+		add_child(body)
+		edge_bodies.append(body)
+
+
+## Korkeusmallin maastoverkko (5 m ruudut) laattoina pintakarttoineen + korkeuskenttä törmäyksiin.
+## Laatat, jotka ovat kaukana pelialueen ulkopuolella, jätetään pois (niitä ei koskaan näe).
+const TERRAIN_TILE := 40  # ruutua
+func _build_terrain(lo: Vector2, hi: Vector2) -> void:
+	var nx := T.nx
+	var nz := T.nz
+	var tiles: Array[ArrayMesh] = []
+	for tj in range(0, nz - 1, TERRAIN_TILE):
+		for ti in range(0, nx - 1, TERRAIN_TILE):
+			var cw := mini(TERRAIN_TILE, nx - 1 - ti)
+			var ch := mini(TERRAIN_TILE, nz - 1 - tj)
+			var cen := T.origin + (Vector2(ti, tj) + Vector2(cw, ch) * 0.5) * T.CELL
+			if not _in_bounds(cen, -(320.0 + TERRAIN_TILE * T.CELL * 0.71)):
+				continue
+			var verts := PackedVector3Array()
+			var norms := PackedVector3Array()
+			for j in range(tj, tj + ch + 1):
+				for i in range(ti, ti + cw + 1):
+					var k := j * nx + i
+					var x := T.origin.x + i * T.CELL
+					var z := T.origin.y + j * T.CELL
+					verts.append(Vector3(x, T.heights[k], z))
+					norms.append(T.grid_normal(x, z))
+			var idx := PackedInt32Array()
+			var rw := cw + 1
+			for j in ch:
+				for i in cw:
+					var a := j * rw + i
+					# Lävistäjä (1,0)-(0,1) kuten Terrain.h().
+					idx.append_array(PackedInt32Array([a, a + 1, a + rw, a + 1, a + rw + 1, a + rw]))
+			var arr := []
+			arr.resize(Mesh.ARRAY_MAX)
+			arr[Mesh.ARRAY_VERTEX] = verts
+			arr[Mesh.ARRAY_NORMAL] = norms
+			arr[Mesh.ARRAY_INDEX] = idx
+			var am := ArrayMesh.new()
+			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+			tiles.append(am)
+	var params := {"splat": load(T.SPLAT), "map_lo": lo, "map_size": hi - lo, "noise_tex": B.noise_tex(),
+		"field_stripes": SURFACES.field[6], "stripe_angle": 0.35}
+	for pair in [["meadow", "meadow"], ["forest", "forest"], ["field", "field"], ["bog", "bog"], ["cut", "clearcut"]]:
+		var sd: Array = SURFACES[pair[1]]
+		params[pair[0] + "_a"] = sd[0]
+		params[pair[0] + "_b"] = sd[1]
+		params[pair[0] + "_p"] = Vector4(sd[2], sd[3], sd[4], sd[5])
+	var tmat := B.shader_mat("res://shaders/terrain.gdshader", params)
+	for am in tiles:
+		var mi := MeshInstance3D.new()
+		mi.mesh = am
+		mi.material_override = tmat
+		mi.set_meta("draped", true)
+		add_child(mi)
+	var body := StaticBody3D.new()
+	body.set_meta("draped", true)
+	# Oma törmäyskerros: vain pelaaja (pyörä, jalan) ja kamera osuvat maastoon; NPC:t kulkevat
+	# maaston korkeudella suoraan (niiden laatikot eivät juutu ylämäkiin).
+	body.collision_layer = T.COLLISION_LAYER
+	body.collision_mask = 0
+	var hm := HeightMapShape3D.new()
+	hm.map_width = nx
+	hm.map_depth = nz
+	hm.map_data = T.heights
+	var cs := CollisionShape3D.new()
+	cs.shape = hm
+	cs.scale = Vector3(T.CELL, 1.0, T.CELL)
+	body.position = Vector3(T.origin.x + (nx - 1) * T.CELL * 0.5, 0.0, T.origin.y + (nz - 1) * T.CELL * 0.5)
+	body.add_child(cs)
+	add_child(body)
+
+
+func _build_roads() -> void:
+	var surfaces := {}
+	var dashes := _new_st()
+	for r in M.ROADS:
+		var style: Dictionary = STYLES[r.type]
+		var pts := _poly(r.pts)
+		if style.edge != "":
+			if not surfaces.has(style.edge):
+				surfaces[style.edge] = _new_st()
+			_strip(surfaces[style.edge], pts, style.w / 2.0 + 1.2, LAYER.shoulder)
+		var sk: String = style.surf + ("_hw" if r.type == "highway" else "")
+		if not surfaces.has(sk):
+			surfaces[sk] = _new_st()
+		_strip(surfaces[sk], pts, style.w / 2.0, LAYER[r.type])
+		if style.dash:
+			for i in pts.size() - 1:
+				var a := pts[i]
+				var b := pts[i + 1]
+				var d := (b - a).normalized()
+				var n := d.orthogonal() * 0.12
+				var t := 4.0
+				while t < a.distance_to(b) - 4.0:
+					var p0 := a + d * t
+					var p1 := a + d * (t + 3.0)
+					for v in [p0 + n, p1 + n, p1 - n, p0 + n, p1 - n, p0 - n]:
+						dashes.add_vertex(Vector3(v.x, LAYER.dash, v.y))
+					t += 9.0
+	for key in surfaces:
+		var kind: String = key.trim_suffix("_hw")
+		_commit_strip(surfaces[key], _surf(kind))
+	_commit_strip(dashes, B.mat(Color(0.9, 0.9, 0.84)))
+
+
+## Tieverkko autolle: tie- ja katuverkon taitepisteet, jaetut pisteet yhdistyvät risteyksiksi.
+func _build_graph() -> void:
+	var ids := {}
+	for r in M.ROADS:
+		if r.type != "road" and r.type != "street":
+			continue
+		var prev := -1
+		for p in r.pts:
+			var key := Vector2i(roundi(p.x), roundi(p.y))
+			if not ids.has(key):
+				ids[key] = graph_nodes.size()
+				graph_nodes.append(M.w(p))
+				graph_adj.append([])
+			var id: int = ids[key]
+			if prev >= 0 and prev != id:
+				if not graph_adj[prev].has(id):
+					graph_adj[prev].append(id)
+				if not graph_adj[id].has(prev):
+					graph_adj[id].append(prev)
+			prev = id
+
+
+func nearest_node(p: Vector3) -> int:
+	var best := 0
+	for i in graph_nodes.size():
+		if graph_nodes[i].distance_squared_to(p) < graph_nodes[best].distance_squared_to(p):
+			best = i
+	return best
+
+
+# --- Rakennukset -------------------------------------------------------------
+
+## Omakotitalo harjakatolla yhdistettyyn meshiin + törmäyslaatikko. Paikallinen -Z = etuseinä.
+## street_gap = etäisyys etuseinästä kadun reunaan (postilaatikko, aita).
+func _house(pos: Vector2, yaw: float, l: float, d: float, h: float, wall: Color, roof: Color,
+		street_gap := -1.0) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.position = Vector3(pos.x, 0, pos.y)
+	body.rotation.y = yaw
+	add_child(body)
+	body.add_child(B.box_shape(Vector3(l, h, d), Vector3(0, h / 2.0, 0)))
+	var xf := body.transform
+	var batch := _batch_at(pos)
+	if _lawn_st != null:
+		var hl := l / 2.0 + 6.0
+		var hd := d / 2.0 + (street_gap if street_gap > 0.0 else 6.0)
+		var corners := [Vector3(-hl, 0.008, -hd), Vector3(hl, 0.008, -hd), Vector3(hl, 0.008, d / 2.0 + 7.0), Vector3(-hl, 0.008, d / 2.0 + 7.0)]
+		for i in [0, 1, 2, 0, 2, 3]:
+			var wv: Vector3 = xf * corners[i]
+			_lawn_st.add_vertex(Vector3(wv.x, 0.008, wv.z))
+	var add := func(m: PrimitiveMesh, p: Vector3, col: Color, rot_y := 0.0) -> void:
+		batch.add(m, xf * Transform3D(Basis(Vector3.UP, rot_y), p), col)
+
+	add.call(B.boxm(Vector3(l + 0.2, 0.5, d + 0.2)), Vector3(0, 0.25, 0), Color(0.42, 0.42, 0.42))
+	add.call(B.boxm(Vector3(l, h - 0.4, d)), Vector3(0, 0.4 + (h - 0.4) / 2.0, 0), wall)
+	var rh := clampf(d * 0.22, 1.2, 2.2)
+	var prism := PrismMesh.new()
+	prism.size = Vector3(d + 1.0, rh, l + 1.0)
+	add.call(prism, Vector3(0, h + rh / 2.0, 0), roof, PI / 2.0)
+	add.call(B.boxm(Vector3(l + 1.0, 0.18, d + 1.0)), Vector3(0, h + 0.05, 0), wall.darkened(0.25))
+	add.call(B.boxm(Vector3(0.6, 1.5, 0.6)), Vector3(l * 0.25, h + rh * 0.7, 0), Color(0.5, 0.28, 0.22))
+	if wall.r > 0.55 and wall.g < 0.3:
+		# Punamultatalon valkoiset nurkkalaudat.
+		for x in [-l / 2.0, l / 2.0]:
+			for z in [-d / 2.0, d / 2.0]:
+				add.call(B.boxm(Vector3(0.26, h - 0.4, 0.26)), Vector3(x, 0.4 + (h - 0.4) / 2.0, z), WHITE)
+	var glass := Color(0.12, 0.17, 0.24)
+	var n := maxi(2, int(l / 3.6))
+	var door_i := n / 2
+	for i in n:
+		var x := -l / 2.0 + l * (i + 0.5) / n
+		for z in [-d / 2.0, d / 2.0]:
+			if z < 0.0 and i == door_i:
+				add.call(B.boxm(Vector3(1.2, 2.3, 0.08)), Vector3(x, 1.55, z - 0.02), WHITE)
+				add.call(B.boxm(Vector3(0.95, 2.1, 0.1)), Vector3(x, 1.45, z - 0.03), DOORS[_rng.randi() % DOORS.size()])
+				add.call(B.boxm(Vector3(1.8, 0.3, 1.0)), Vector3(x, 0.15, z - 0.5), Color(0.5, 0.5, 0.5))
+				continue
+			var sgn := signf(z)
+			add.call(B.boxm(Vector3(1.55, 1.35, 0.06)), Vector3(x, 1.75, z + sgn * 0.02), WHITE)
+			add.call(B.boxm(Vector3(1.3, 1.1, 0.08)), Vector3(x, 1.75, z + sgn * 0.035), glass)
+			add.call(B.boxm(Vector3(0.07, 1.1, 0.1)), Vector3(x, 1.75, z + sgn * 0.045), WHITE)
+			if h > 4.0:
+				add.call(B.boxm(Vector3(1.2, 1.0, 0.06)), Vector3(x, 4.1, z + sgn * 0.02), WHITE)
+				add.call(B.boxm(Vector3(1.0, 0.8, 0.08)), Vector3(x, 4.1, z + sgn * 0.035), glass)
+	for x in [-l / 2.0, l / 2.0]:
+		var sgn := signf(x)
+		add.call(B.boxm(Vector3(0.06, 1.35, 1.55)), Vector3(x + sgn * 0.02, 1.75, 0), WHITE)
+		add.call(B.boxm(Vector3(0.08, 1.1, 1.3)), Vector3(x + sgn * 0.035, 1.75, 0), glass)
+
+	if street_gap > 0.0:
+		var front := -d / 2.0 - street_gap
+		if _rng.randf() < 0.75:
+			var mx := l / 2.0 - 1.0
+			add.call(B.boxm(Vector3(0.08, 1.1, 0.08)), Vector3(mx, 0.55, front + 1.2), Color(0.35, 0.35, 0.35))
+			add.call(B.boxm(Vector3(0.36, 0.3, 0.5)), Vector3(mx, 1.2, front + 1.2),
+				[Color(0.9, 0.9, 0.88), Color(0.2, 0.4, 0.25), Color(0.8, 0.6, 0.1)][_rng.randi() % 3])
+		var fence_roll := _rng.randf()
+		if fence_roll < 0.35:
+			# Pensasaita pihan edessä, portti keskellä.
+			var hz := front + 2.0
+			var hl := (l + 8.0) / 2.0 - 1.6
+			var hedge := Color(0.2, 0.36, 0.14).lightened(_rng.randf_range(-0.05, 0.08))
+			var hh := _rng.randf_range(0.8, 1.3)
+			for sx in [-1.0, 1.0]:
+				_add_hedge(xf, Vector3(sx * (1.6 + hl / 2.0), hh / 2.0, hz), Vector3(hl, hh, 0.8), hedge.lightened(0.1))
+		elif fence_roll < 0.55:
+			var fz := front + 2.2
+			var fl := l + 8.0
+			for y in [0.4, 0.85]:
+				add.call(B.boxm(Vector3(fl, 0.08, 0.05)), Vector3(0, y, fz), WHITE)
+			var k := 0.0
+			while k <= fl:
+				if absf(-fl / 2.0 + k) > 1.8:  # portti keskellä
+					add.call(B.boxm(Vector3(0.08, 1.0, 0.08)), Vector3(-fl / 2.0 + k, 0.5, fz), WHITE)
+				k += 1.6
+	if street_gap > 0.0 and _rng.randf() < 0.35:
+		# Autokatos talon päädyssä, sivulla rimasäleikkö.
+		var cp := Vector3(l / 2.0 + 2.2, 0, -d / 2.0 + 1.0)
+		for px in [-1.5, 1.5]:
+			for pz in [-2.4, 2.4]:
+				add.call(B.boxm(Vector3(0.12, 2.3, 0.12)), cp + Vector3(px, 1.15, pz), WHITE)
+		add.call(B.boxm(Vector3(3.4, 0.15, 5.4)), cp + Vector3(0, 2.35, 0), roof)
+		for i in 9:
+			add.call(B.boxm(Vector3(0.05, 1.6, 0.07)), cp + Vector3(1.55, 0.95, -2.2 + i * 0.55), wall)
+		body.add_child(B.box_shape(Vector3(3.2, 2.3, 0.3), cp + Vector3(0, 1.15, 2.4)))
+	if _rng.randf() < 0.13:
+		# Lipputanko ja Suomen lippu.
+		var fp := Vector3(-l / 2.0 - 3.0, 0, -d / 2.0 - 3.0)
+		add.call(B.cyl(0.05, 0.07, 8.0, 6), fp + Vector3(0, 4.0, 0), WHITE)
+		add.call(B.boxm(Vector3(1.8, 1.1, 0.03)), fp + Vector3(0.95, 7.35, 0), WHITE)
+		add.call(B.boxm(Vector3(1.8, 0.3, 0.05)), fp + Vector3(0.95, 7.35, 0), Color(0.0, 0.2, 0.55))
+		add.call(B.boxm(Vector3(0.3, 1.1, 0.05)), fp + Vector3(0.7, 7.35, 0), Color(0.0, 0.2, 0.55))
+	if _rng.randf() < 0.3:
+		# Piharakennus / sauna.
+		var sp := Vector3(_rng.randf_range(-l / 3.0, l / 3.0), 0, d / 2.0 + 5.0)
+		var sc: Color = [Color(0.6, 0.15, 0.11), Color(0.45, 0.3, 0.2), Color(0.55, 0.55, 0.5)][_rng.randi() % 3]
+		add.call(B.boxm(Vector3(3.5, 2.3, 2.8)), sp + Vector3(0, 1.15, 0), sc)
+		var sr := PrismMesh.new()
+		sr.size = Vector3(3.2, 1.0, 4.0)
+		add.call(sr, sp + Vector3(0, 2.8, 0), roof, PI / 2.0)
+		body.add_child(B.box_shape(Vector3(3.5, 2.3, 2.8), sp + Vector3(0, 1.15, 0)))
+	return body
+
+
+func _build_houses() -> void:
+	var avoid := [Vector2(M.w2(M.HOME_BUILDING)), Vector2(M.w2(M.SHOP_BUILDING)), Vector2(M.w2(M.SHOP_ZONE))]
+	for r in M.ROADS:
+		var dens: float = r.h
+		if dens <= 0.0:
+			continue
+		var pts := _poly(r.pts)
+		var hw: float = STYLES[r.type].w / 2.0
+		for i in pts.size() - 1:
+			var a := pts[i]
+			var b := pts[i + 1]
+			var dir := (b - a).normalized()
+			var steps := int(a.distance_to(b) / 22.0)
+			for k in steps:
+				var p := a.lerp(b, (k + 0.5) / steps)
+				for side in [-1.0, 1.0]:
+					if _rng.randf() > dens:
+						continue
+					var nrm: Vector2 = dir.orthogonal() * side
+					var off := hw + 11.0 + _rng.randf_range(0.0, 4.0)
+					var c: Vector2 = p + nrm * off
+					if _road_clearance(c) < 8.0 or _near_house(c, 16.0) or _in_any(c, _water) or not _in_bounds(c, 12.0):
+						continue
+					var skip := false
+					for q in avoid:
+						if c.distance_to(q) < 32.0:
+							skip = true
+					if skip:
+						continue
+					_houses.append(c)
+					var facing := -nrm
+					var tall := _rng.randf() < 0.2
+					var d := _rng.randf_range(7, 9)
+					_house(c, B.yaw_to(Vector3(facing.x, 0, facing.y)), _rng.randf_range(9, 13), d,
+						5.6 if tall else 3.3, WALLS[_rng.randi() % WALLS.size()], ROOFS[_rng.randi() % ROOFS.size()],
+						off - hw - d / 2.0)
+					# Pihapuut: koivuja, pihlajia (lehtipuu), kuusia ja mäntyjä talon taakse ja sivuille.
+					for tk in _rng.randi_range(2, 4):
+						var tp: Vector2 = c + nrm * _rng.randf_range(7.0, 14.0) + dir * _rng.randf_range(-11, 11)
+						if _road_clearance(tp) > 3.0:
+							var kind: String = ["birch", "birch", "spruce", "pine"][_rng.randi() % 4]
+							_trees.append([tp, kind, _rng.randf_range(0.75, 1.15), true])
+
+
+## Järvikuja 1 katunäkymän (2022) mukaan: punatiilinen yksikerroksinen talo, musta tiilikuviopeltikatto,
+## valkoiset päätykolmiot ja räystäslaudat, isot valkokarmiset ikkunat kukkalaatikoineen, valkoinen ovi kapealla
+## pystyikkunalla, musta piippu, autotalli päädyssä, asfalttipiha autoineen, tiheä havupensasaita ja pyörät seinällä.
+func _build_home() -> void:
+	var c := M.w2(M.HOME_BUILDING)
+	_houses.append(c)
+	var l := 22.0
+	var d := 10.0
+	var h := 2.9
+	var rh := 1.5
+	var body := StaticBody3D.new()
+	body.position = Vector3(c.x, 0, c.y)
+	body.rotation.y = B.yaw_to(Vector3(-1, 0, 0))  # julkisivu länteen kadulle
+	add_child(body)
+	body.add_child(B.box_shape(Vector3(l, h + rh, d), Vector3(0, (h + rh) / 2.0, 0)))
+	var white := Color(0.95, 0.95, 0.93)
+	var brick_mat := B.shader_mat("res://shaders/bricks.gdshader")
+	var roof_mat := B.shader_mat("res://shaders/metal_roof.gdshader")
+	var put := func(m: Mesh, pos: Vector3, mat: Material, rot := Vector3.ZERO) -> MeshInstance3D:
+		var mi := MeshInstance3D.new()
+		mi.mesh = m
+		mi.material_override = mat
+		mi.position = pos
+		mi.rotation = rot
+		body.add_child(mi)
+		return mi
+	# Sokkeli ja tiiliseinät.
+	put.call(B.boxm(Vector3(l + 0.1, 0.35, d + 0.1)), Vector3(0, 0.175, 0), B.mat(Color(0.55, 0.55, 0.53)))
+	put.call(B.boxm(Vector3(l, h - 0.3, d)), Vector3(0, 0.3 + (h - 0.3) / 2.0, 0), brick_mat)
+	# Harjakatto kahtena peltilappeena, valkoiset päätykolmiot ja räystäslaudat.
+	var ang := atan(rh / (d / 2.0))
+	var half := (d / 2.0 + 0.6) / cos(ang)
+	for sz in [-1.0, 1.0]:
+		put.call(B.boxm(Vector3(l + 1.0, 0.07, half)), Vector3(0, h + rh / 2.0 - 0.06, sz * (d / 4.0 + 0.15)), roof_mat, Vector3(sz * ang, 0, 0))
+		put.call(B.boxm(Vector3(l + 1.0, 0.2, 0.05)), Vector3(0, h - 0.12, sz * (d / 2.0 + 0.58)), B.mat(white))
+	for sx in [-1.0, 1.0]:
+		var gable := PrismMesh.new()
+		gable.size = Vector3(d, rh, 0.06)
+		put.call(gable, Vector3(sx * (l / 2.0 + 0.02), h + rh / 2.0, 0), B.mat(white), Vector3(0, PI / 2.0, 0))
+		for k in 6:
+			put.call(B.boxm(Vector3(0.07, 0.02, 0.02)), Vector3(sx * (l / 2.0 + 0.06), h + 0.15 + k * 0.22, 0), B.mat(Color(0.8, 0.8, 0.78)))
+	put.call(B.boxm(Vector3(0.6, 1.3, 0.6)), Vector3(-3.0, h + rh - 0.1, 0.8), B.mat(Color(0.06, 0.06, 0.06)))
+	put.call(B.boxm(Vector3(0.8, 0.06, 0.8)), Vector3(-3.0, h + rh + 0.6, 0.8), B.mat(Color(0.1, 0.1, 0.1)))
+	# Julkisivu (-Z): ikkunat, ovi, porras, autotalli päädyssä, talonumero.
+	var fz := -d / 2.0 - 0.02
+	var glass := B.mat(Color(0.12, 0.16, 0.22))
+	for wx in [-8.5, -5.0, -1.5, 3.5]:
+		put.call(B.boxm(Vector3(1.7, 1.4, 0.06)), Vector3(wx, 1.65, fz), B.mat(white))
+		put.call(B.boxm(Vector3(1.45, 1.15, 0.08)), Vector3(wx, 1.65, fz - 0.01), glass)
+		put.call(B.boxm(Vector3(0.07, 1.15, 0.1)), Vector3(wx - 0.3, 1.65, fz - 0.02), B.mat(white))
+		put.call(B.boxm(Vector3(1.2, 0.18, 0.2)), Vector3(wx, 0.9, fz - 0.12), B.mat(Color(0.12, 0.12, 0.12)))
+		for f in 5:
+			put.call(B.sphere(0.07, 6), Vector3(wx - 0.45 + f * 0.22, 1.02, fz - 0.14), B.mat([Color(0.85, 0.2, 0.3), Color(0.95, 0.85, 0.2), Color(0.3, 0.55, 0.2)][f % 3]))
+	put.call(B.boxm(Vector3(1.05, 2.15, 0.08)), Vector3(1.2, 1.4, fz), B.mat(white))
+	put.call(B.boxm(Vector3(0.12, 1.3, 0.1)), Vector3(1.2, 1.55, fz - 0.02), glass)
+	put.call(B.boxm(Vector3(1.6, 0.3, 1.1)), Vector3(1.2, 0.15, fz - 0.55), B.mat(Color(0.6, 0.6, 0.58)))
+	put.call(B.boxm(Vector3(2.8, 2.3, 0.06)), Vector3(l / 2.0 - 2.4, 1.45, fz), B.mat(white))
+	for k in 5:
+		put.call(B.boxm(Vector3(2.8, 0.02, 0.08)), Vector3(l / 2.0 - 2.4, 0.45 + k * 0.45, fz - 0.02), B.mat(Color(0.8, 0.8, 0.8)))
+	var num := B.sign_plate(body, "1", Color(0.1, 0.3, 0.6), Color.WHITE, 0.2, 40, Color(0.1, 0.3, 0.6))
+	num.position = Vector3(2.1, 2.2, fz - 0.05)
+	num.rotation.y = PI
+	var koti := B.label(body, "KOTI", Vector3(0, h + rh + 1.2, 0), 90, Color(0.4, 1.0, 0.5), true)
+	koti.no_depth_test = false
+	# Takaseinän ikkunat.
+	for wx in [-6.0, 0.0, 5.0]:
+		put.call(B.boxm(Vector3(1.5, 1.2, 0.06)), Vector3(wx, 1.7, d / 2.0 + 0.02), B.mat(white))
+		put.call(B.boxm(Vector3(1.25, 1.0, 0.08)), Vector3(wx, 1.7, d / 2.0 + 0.03), glass)
+	# Asfalttipiha kadun puolelle, autot, pensasaita ja pyörät seinällä.
+	var xf := body.transform
+	var yard := PackedVector2Array()
+	for q in [Vector3(-l / 2.0, 0, fz), Vector3(l / 2.0, 0, fz), Vector3(l / 2.0, 0, fz - 9.5), Vector3(-l / 2.0, 0, fz - 9.5)]:
+		var wq: Vector3 = xf * q
+		yard.append(Vector2(wq.x, wq.z))
+	_flat_poly(yard, LAYER.lot, _surf("asphalt"))
+	var yard_c: Vector3 = xf * Vector3(0, 0, -5.0)
+	_mask_clear.append([Vector2(yard_c.x, yard_c.z), l / 2.0 + 1.5, d / 2.0 + 10.5, body.rotation.y])
+	for car in [[Vector3(-2.5, 0, fz - 4.0), Color(0.15, 0.35, 0.75)], [Vector3(2.2, 0, fz - 4.0), Color(0.45, 0.08, 0.12)]]:
+		var cp: Vector3 = xf * car[0]
+		B.parked_car(self, cp, rad_to_deg(body.rotation.y), car[1])
+	# Tumma havupensasaita (tuija/kataja) kadun puolella.
+	for seg in [[-l / 2.0, -4.5], [5.0, l / 2.0]]:
+		var hl: float = seg[1] - seg[0]
+		_add_hedge(xf, Vector3((seg[0] + seg[1]) / 2.0, 0.75, fz - 10.0), Vector3(hl, 1.5, 1.0), Color(0.18, 0.34, 0.16))
+	for bx in [-0.4, 0.2]:
+		_static_bike(body, Vector3(bx - 1.0, 0, fz - 0.35), 0.15)
+	_build_neighbors()
+
+
+## Yksinkertainen pyörä nojaamassa seinään (koristeeksi).
+func _static_bike(parent: Node3D, pos: Vector3, lean: float) -> void:
+	var bk := Node3D.new()
+	bk.position = pos
+	bk.rotation = Vector3(0, 0, lean)
+	parent.add_child(bk)
+	var tire := TorusMesh.new()
+	tire.inner_radius = 0.28
+	tire.outer_radius = 0.33
+	tire.rings = 16
+	tire.ring_segments = 5
+	for z in [-0.5, 0.5]:
+		B.mesh(bk, tire, Vector3(z, 0.33, 0), Color(0.06, 0.06, 0.06), Vector3(90, 0, 0))
+	B.tube(bk, Vector3(-0.5, 0.33, 0), Vector3(0.05, 0.75, 0), 0.02, Color(0.2, 0.4, 0.7))
+	B.tube(bk, Vector3(0.05, 0.75, 0), Vector3(0.5, 0.33, 0), 0.02, Color(0.2, 0.4, 0.7))
+	B.tube(bk, Vector3(0.05, 0.75, 0), Vector3(0.45, 0.95, 0), 0.02, Color(0.2, 0.4, 0.7))
+	B.tube(bk, Vector3(0.45, 0.95, -0.25), Vector3(0.45, 0.95, 0.25), 0.015, Color(0.1, 0.1, 0.1))
+
+
+## Järvikujan lähinaapurit katunäkymän mukaan.
+func _build_neighbors() -> void:
+	var west := B.yaw_to(Vector3(-1, 0, 0))
+	var east := B.yaw_to(Vector3(1, 0, 0))
+	var dark_roof := Color(0.2, 0.21, 0.22)
+	# Pohjoinen naapuri: keltainen puutalo, tumma katto, valkoinen pergola.
+	var n := M.w2(Vector2(815, 1124))
+	_houses.append(n)
+	var nb := _house(n, west, 12.0, 9.0, 3.3, Color(0.92, 0.8, 0.42), dark_roof, 9.0)
+	for px in [-1.5, 1.5]:
+		for pz in [-1.5, 1.5]:
+			B.mesh(nb, B.boxm(Vector3(0.12, 2.4, 0.12)), Vector3(6.0 + 1.5 + px, 1.2, -5.5 + pz), Color(0.95, 0.95, 0.93))
+	for k in 7:
+		B.mesh(nb, B.boxm(Vector3(3.2, 0.06, 0.06)), Vector3(7.5, 2.4, -7.0 + k * 0.5), Color(0.95, 0.95, 0.93))
+	# Kadun toinen puoli: keltabeige pitkä talo, pihalla vanha punainen traktori ja leikkimökki.
+	var a := M.w2(Vector2(770, 1176))
+	_houses.append(a)
+	var ab := _house(a, east, 16.0, 9.0, 3.3, Color(0.87, 0.77, 0.5), Color(0.3, 0.2, 0.15), 9.0)
+	_mask_clear.append([a, 9.0, 5.5, east])
+	_old_tractor(ab, Vector3(-9.5, 0, -2.0), 0.6)
+	var hut := Node3D.new()
+	hut.position = Vector3(-10.0, 0, 5.0)
+	ab.add_child(hut)
+	B.mesh(hut, B.boxm(Vector3(2.0, 1.6, 1.6)), Vector3(0, 0.8, 0), Color(0.62, 0.15, 0.1))
+	var hr := PrismMesh.new()
+	hr.size = Vector3(1.9, 0.8, 2.3)
+	B.mesh(hut, hr, Vector3(0, 2.0, 0), Color(0.2, 0.2, 0.2), Vector3(0, 90, 0))
+	B.mesh(hut, B.boxm(Vector3(0.6, 1.1, 0.04)), Vector3(0.4, 0.6, -0.81), Color(0.95, 0.95, 0.93))
+	# Katettu postilaatikkoteline kadun varressa.
+	var mb := Node3D.new()
+	var mbp := M.w2(Vector2(786, 1163))
+	mb.position = Vector3(mbp.x, 0, mbp.y)
+	mb.rotation.y = east
+	add_child(mb)
+	for x in [-1.0, 1.0]:
+		B.mesh(mb, B.boxm(Vector3(0.08, 1.4, 0.08)), Vector3(x, 0.7, 0), Color(0.4, 0.4, 0.42))
+	for i in 5:
+		B.mesh(mb, B.boxm(Vector3(0.36, 0.3, 0.45)), Vector3(-0.8 + i * 0.4, 1.2, 0), Color(0.62, 0.64, 0.66))
+	var mr := PrismMesh.new()
+	mr.size = Vector3(0.8, 0.25, 2.4)
+	B.mesh(mb, mr, Vector3(0, 1.5, 0), Color(0.25, 0.25, 0.27), Vector3(0, 90, 0))
+	# Pohjoisempi kadun vastapuoli: beige pitkä yksikerroksinen talo.
+	var b2 := M.w2(Vector2(777, 1112))
+	_houses.append(b2)
+	_house(b2, east, 18.0, 9.0, 3.1, Color(0.86, 0.8, 0.66), Color(0.33, 0.3, 0.28), 9.0)
+	_mask_clear.append([b2, 10.0, 5.5, east])
+	# Etelään: keltatiilinen autotalli ruskealla ovella ja luonnonpuinen säleaita.
+	var g := M.w2(Vector2(812, 1213))
+	_houses.append(g)
+	var gar := StaticBody3D.new()
+	gar.position = Vector3(g.x, 0, g.y)
+	gar.rotation.y = west
+	add_child(gar)
+	gar.add_child(B.box_shape(Vector3(7.0, 3.0, 6.0), Vector3(0, 1.5, 0)))
+	var yb := B.shader_mat("res://shaders/bricks.gdshader", {"brick": Color(0.86, 0.72, 0.45), "mortar": Color(0.8, 0.78, 0.72)})
+	var gw := MeshInstance3D.new()
+	gw.mesh = B.boxm(Vector3(7.0, 2.8, 6.0))
+	gw.material_override = yb
+	gw.position.y = 1.4
+	gar.add_child(gw)
+	B.mesh(gar, B.boxm(Vector3(7.4, 0.2, 6.4)), Vector3(0, 2.9, 0), Color(0.2, 0.2, 0.22))
+	B.mesh(gar, B.boxm(Vector3(2.8, 2.2, 0.06)), Vector3(-1.5, 1.1, -3.02), Color(0.4, 0.25, 0.15))
+	for k in 16:
+		B.mesh(gar, B.boxm(Vector3(0.1, 1.6, 0.03)), Vector3(3.8 + k * 0.14, 0.8, -3.0 + k * 0.0), Color(0.72, 0.6, 0.42))
+	B.mesh(gar, B.boxm(Vector3(2.4, 0.07, 0.05)), Vector3(4.9, 1.2, -3.0), Color(0.62, 0.5, 0.35))
+
+
+## Vanha punainen traktori pihalla (koriste).
+func _old_tractor(parent: Node3D, pos: Vector3, yaw: float) -> void:
+	var t := Node3D.new()
+	t.position = pos
+	t.rotation.y = yaw
+	parent.add_child(t)
+	load("res://scripts/vehicles.gd").tractor(t, Color(0.66, 0.1, 0.07), "old")
+
+
+func _build_shop() -> void:
+	var c := M.w2(M.SHOP_BUILDING)
+	_houses.append(c)
+	var orange := Color(1.0, 0.42, 0.0)
+	var p := Vector3(c.x, 0, c.y)
+	B.box(self, Vector3(30, 6, 18), p + Vector3(0, 3, 0), Color(0.95, 0.95, 0.93))
+	B.box(self, Vector3(30.4, 1.5, 18.4), p + Vector3(0, 5.3, 0), orange, false)
+	B.box(self, Vector3(30.6, 0.2, 18.6), p + Vector3(0, 6.1, 0), Color(0.3, 0.3, 0.3), false)
+	B.box(self, Vector3(22, 3.0, 0.2), p + Vector3(-2, 1.8, 9), Color(0.2, 0.32, 0.42), false)
+	for x in range(-12, 10, 3):
+		B.box(self, Vector3(0.12, 3.0, 0.3), p + Vector3(x + 0.5, 1.8, 9.05), Color(0.8, 0.8, 0.8), false)
+	B.box(self, Vector3(3.2, 2.8, 0.25), p + Vector3(11, 1.4, 9.05), Color(0.35, 0.5, 0.55), false)
+	B.box(self, Vector3(4.2, 0.25, 2.5), p + Vector3(11, 3.1, 10.2), orange, false)
+	# K-logo pyöreässä kyltissä.
+	B.mesh(self, B.cyl(1.1, 1.1, 0.2, 24), p + Vector3(-11, 5.3, 9.35), orange.darkened(0.1), Vector3(90, 0, 0))
+	B.label(self, "K", p + Vector3(-11, 5.3, 9.5), 200, Color.WHITE)
+	B.label(self, "K-Market", p + Vector3(2, 5.3, 9.3), 170, Color.WHITE)
+	# Ostoskärrykatos.
+	for x in [-16.5, -13.5]:
+		B.box(self, Vector3(0.1, 2.2, 0.1), p + Vector3(x, 1.1, 14), Color(0.6, 0.6, 0.6), false)
+	B.box(self, Vector3(3.6, 0.1, 2.0), p + Vector3(-15, 2.2, 14.5), orange, false)
+	var lot := PackedVector2Array([c + Vector2(-18, 9), c + Vector2(18, 9), c + Vector2(18, 31), c + Vector2(-18, 31)])
+	_flat_poly(lot, LAYER.lot, _surf("asphalt"))
+	for x in range(-14, 16, 4):
+		B.box(self, Vector3(0.15, 0.01, 4), p + Vector3(x, LAYER.lot + 0.008, 20), Color(0.9, 0.9, 0.9), false)
+	B.parked_car(self, p + Vector3(-13, 0, 20), 0.0, Color(0.1, 0.1, 0.1))
+	B.parked_car(self, p + Vector3(9, 0, 20), 0.0, Color(0.6, 0.6, 0.55))
+	B.parked_car(self, p + Vector3(13, 0, 20), 0.0, Color(0.8, 0.8, 0.82))
+
+
+func _build_agility() -> void:
+	_flat_poly(_agility, 0.009, _surf("lawn"))
+	var c := (_agility[0] + _agility[2]) / 2.0
+	var red := Color(0.85, 0.15, 0.1)
+	for i in 5:
+		var p := Vector3(c.x - 18 + i * 9, 0, c.y + (6 if i % 2 == 0 else -6))
+		for dx in [-0.9, 0.9]:
+			B.mesh(self, B.cyl(0.05, 0.05, 1.0), p + Vector3(dx, 0.5, 0), Color.WHITE)
+		B.mesh(self, B.cyl(0.04, 0.04, 1.8), p + Vector3(0, 0.6, 0), red, Vector3(0, 0, 90))
+	var lbl := B.label(self, "Agilitykenttä", Vector3(c.x, 3.5, c.y), 100, Color(1, 1, 0.8), true)
+	lbl.no_depth_test = false
+
+
+## Laavu Antinsuonkankaalla suomalaiseen tapaan: hirsiseinät kolmella sivulla, avoin etupuoli nuotiolle,
+## pulpettikatto (etureuna 2,5 m, takaseinä 1 m, n. 30°) bitumikatteella, koholla oleva lautalattia.
+## Pihassa kivikehäinen nuotiopaikka ritilöineen, penkit, puuvaja, huussi ja infotaulu.
+func _build_laavu() -> void:
+	var c := M.w2(M.LAAVU)
+	var pit := Vector3(c.x, 0, c.y)
+	_houses.append(c)  # puut ja talot pysyvät kaukana
+	var log_col := Color(0.52, 0.36, 0.22)
+	var log_dark := Color(0.44, 0.3, 0.18)
+	var board := Color(0.6, 0.44, 0.28)
+	var felt := Color(0.16, 0.16, 0.17)
+	var w := 3.4
+	var d := 2.7
+	var hf := 2.5
+	var hb := 1.0
+	# Katos nuotion eteläpuolella; paikallinen -Z = avoin etupuoli.
+	var shelter := StaticBody3D.new()
+	shelter.position = pit + Vector3(0, 0, 3.3)
+	add_child(shelter)
+	shelter.add_child(B.box_shape(Vector3(w + 0.3, 2.0, d), Vector3(0, 1.0, 0.25)))
+	var roof_y := func(z: float) -> float: return hf - (z + d / 2.0) / d * (hf - hb)
+	# Takaseinä: vaakahirret.
+	var r := 0.11
+	var y := r
+	while y < hb - 0.05:
+		B.mesh(shelter, B.cyl(r, r, w + 0.3, 10), Vector3(0, y, d / 2.0), log_col if int(y * 10) % 2 else log_dark, Vector3(0, 0, 90))
+		y += 2.0 * r * 0.95
+	# Sivuseinät: kolmiot katon linjaa myöten, ylähirret lyhyempiä ja etupainotteisia.
+	for sx in [-w / 2.0, w / 2.0]:
+		y = r
+		while y < hf - 0.15:
+			var z_lim: float = minf(d / 2.0, (hf - y - 0.12) / (hf - hb) * d - d / 2.0)
+			var l: float = z_lim + d / 2.0
+			if l > 0.25:
+				B.mesh(shelter, B.cyl(r, r, l, 10), Vector3(sx, y, -d / 2.0 + l / 2.0), log_col if int(y * 10) % 2 else log_dark, Vector3(90, 0, 0))
+			y += 2.0 * r * 0.95
+		B.mesh(shelter, B.cyl(0.13, 0.13, hf, 10), Vector3(sx, hf / 2.0, -d / 2.0), log_dark)
+	# Pulpettikatto: kattotuolit, laudoitus ja bitumikate räystäineen.
+	var ang := atan((hf - hb) / d)
+	var slope := d / cos(ang) + 0.8
+	for x in [-1.5, -0.5, 0.5, 1.5]:
+		var raft := B.mesh(shelter, B.boxm(Vector3(0.08, 0.14, slope)), Vector3(x, roof_y.call(0.0) + 0.02, 0), board.darkened(0.2))
+		raft.rotation.x = ang
+	var deck := B.mesh(shelter, B.boxm(Vector3(w + 0.8, 0.05, slope)), Vector3(0, roof_y.call(0.0) + 0.12, 0), board)
+	deck.rotation.x = ang
+	var roof := B.mesh(shelter, B.boxm(Vector3(w + 0.9, 0.03, slope + 0.05)), Vector3(0, roof_y.call(0.0) + 0.16, 0), felt)
+	roof.rotation.x = ang
+	var fascia := B.mesh(shelter, B.boxm(Vector3(w + 0.9, 0.18, 0.04)), Vector3(0, hf + 0.2, -d / 2.0 - 0.4), board.darkened(0.3))
+	fascia.rotation.x = ang
+	# Lautalattia koholla, kynnyshirsi edessä.
+	for i in 5:
+		B.mesh(shelter, B.boxm(Vector3(0.12, 0.3, d - 0.2)), Vector3(-1.4 + i * 0.7, 0.15, 0.05), log_dark)
+	for i in 10:
+		B.mesh(shelter, B.boxm(Vector3(w - 0.1, 0.04, 0.24)), Vector3(0, 0.42, -1.1 + i * 0.25), board.lightened(0.05 * (i % 2)))
+	B.mesh(shelter, B.cyl(0.14, 0.14, w, 10), Vector3(0, 0.3, -d / 2.0 + 0.05), log_col, Vector3(0, 0, 90))
+
+	# Nuotiopaikka: kivikehä, hiillos, halot ja grilliritilä jaloillaan.
+	for k in 12:
+		var a := TAU * k / 12.0
+		var stone := B.mesh(self, B.sphere(0.17, 8), pit + Vector3(cos(a) * 0.8, 0.09, sin(a) * 0.8), Color(0.45, 0.45, 0.44).darkened(randf() * 0.15))
+		stone.scale = Vector3(1.0, 0.7, 1.0)
+	B.mesh(self, B.cyl(0.66, 0.66, 0.04, 16), pit + Vector3(0, 0.03, 0), Color(0.08, 0.07, 0.07))
+	for k in 3:
+		var fl := B.mesh(self, B.cyl(0.07, 0.07, 0.9, 6), pit + Vector3(0, 0.15, 0), log_dark)
+		fl.rotation = Vector3(PI / 2.0, TAU * k / 3.0, 0.35)
+	for x in [-0.45, 0.45]:
+		for z in [-0.35, 0.35]:
+			B.mesh(self, B.boxm(Vector3(0.03, 0.5, 0.03)), pit + Vector3(x, 0.25, z), Color(0.12, 0.12, 0.12))
+	for i in 8:
+		B.mesh(self, B.boxm(Vector3(0.95, 0.015, 0.015)), pit + Vector3(0, 0.5, -0.35 + i * 0.1), Color(0.15, 0.15, 0.15))
+	# Penkit: lankku kahden kannon päällä nuotion ympärillä.
+	for bdef in [[Vector3(-2.3, 0, 0), PI / 2.0], [Vector3(2.3, 0, 0), PI / 2.0], [Vector3(0, 0, -2.3), 0.0]]:
+		var bench := StaticBody3D.new()
+		bench.position = pit + bdef[0]
+		bench.rotation.y = bdef[1]
+		add_child(bench)
+		bench.add_child(B.box_shape(Vector3(2.0, 0.45, 0.4), Vector3(0, 0.22, 0)))
+		B.mesh(bench, B.boxm(Vector3(2.0, 0.08, 0.36)), Vector3(0, 0.45, 0), board)
+		for sx in [-0.7, 0.7]:
+			B.mesh(bench, B.cyl(0.16, 0.18, 0.42, 10), Vector3(sx, 0.21, 0), log_col)
+	# Puuvaja halkoineen.
+	var shed := StaticBody3D.new()
+	shed.position = pit + Vector3(4.6, 0, 2.8)
+	shed.rotation.y = -0.4
+	add_child(shed)
+	shed.add_child(B.box_shape(Vector3(1.8, 1.9, 1.3), Vector3(0, 0.95, 0)))
+	for side in [-0.9, 0.9]:
+		B.mesh(shed, B.boxm(Vector3(0.05, 1.8, 1.3)), Vector3(side, 0.9, 0), board.darkened(0.1))
+	B.mesh(shed, B.boxm(Vector3(1.8, 1.5, 0.05)), Vector3(0, 0.75, 0.62), board.darkened(0.1))
+	var sroof := B.mesh(shed, B.boxm(Vector3(2.1, 0.05, 1.7)), Vector3(0, 1.85, 0), felt)
+	sroof.rotation.x = 0.25
+	for i in 30:
+		B.mesh(shed, B.cyl(0.07, 0.07, 0.4, 6), Vector3(-0.75 + (i % 10) * 0.16, 0.12 + floorf(i / 10.0) * 0.15, 0.2),
+			Color(0.62, 0.46, 0.3).darkened(randf() * 0.2), Vector3(90, 0, 0))
+	# Huussi, oven ikkunassa sydän.
+	var outhouse := StaticBody3D.new()
+	outhouse.position = pit + Vector3(-8.0, 0, 6.0)
+	outhouse.rotation.y = 0.5
+	add_child(outhouse)
+	outhouse.add_child(B.box_shape(Vector3(1.2, 2.2, 1.2), Vector3(0, 1.1, 0)))
+	B.mesh(outhouse, B.boxm(Vector3(1.2, 2.1, 1.2)), Vector3(0, 1.05, 0), Color(0.55, 0.18, 0.12))
+	var oroof := B.mesh(outhouse, B.boxm(Vector3(1.5, 0.05, 1.5)), Vector3(0, 2.2, 0), felt)
+	oroof.rotation.x = 0.2
+	B.mesh(outhouse, B.boxm(Vector3(0.75, 1.8, 0.04)), Vector3(0, 0.95, -0.61), Color(0.62, 0.22, 0.15))
+	for hx in [-0.045, 0.045]:
+		B.mesh(outhouse, B.sphere(0.055, 8), Vector3(hx, 1.58, -0.64), Color(0.05, 0.03, 0.02))
+	var heart_tip := PrismMesh.new()
+	heart_tip.size = Vector3(0.2, 0.12, 0.02)
+	B.mesh(outhouse, heart_tip, Vector3(0, 1.5, -0.64), Color(0.05, 0.03, 0.02), Vector3(0, 0, 180))
+	# Infotaulu katoksella: tolpat ja katos mitoitetaan otsikon leveyden mukaan.
+	var info := Node3D.new()
+	info.position = pit + Vector3(3.6, 0, -3.2)
+	info.rotation.y = 0.45
+	add_child(info)
+	var brown := Color(0.4, 0.22, 0.1)
+	var cream := Color(0.98, 0.95, 0.88)
+	var ip := B.sign_plate(info, "TARPION\nLAAVU", brown, cream, 0.22, 40, Color(0.3, 0.17, 0.08), "Helvetica Neue")
+	ip.position.y = 1.75
+	var note := B.sign_plate(info, "Kaikenlaisten roskien tuonti\nkielletty edesvastuun uhalla", brown, Color(0.95, 0.85, 0.5), 0.13, 26,
+		Color(0.3, 0.17, 0.08), "Helvetica Neue")
+	note.position.y = 1.2
+	var bw: float = maxf(ip.get_meta("width"), note.get_meta("width"))
+	for sx in [-bw / 2.0 - 0.06, bw / 2.0 + 0.06]:
+		B.mesh(info, B.boxm(Vector3(0.1, 2.2, 0.1)), Vector3(sx, 1.1, -0.06), log_dark)
+	var iroof := PrismMesh.new()
+	iroof.size = Vector3(bw + 0.6, 0.32, 0.55)
+	B.mesh(info, iroof, Vector3(0, 2.36, 0), felt)
+	var icon_board := B.mesh(info, B.boxm(Vector3(0.42, 0.38, 0.03)), Vector3(0, 0.78, 0), brown)
+	icon_board.name = "IconBoard"
+	for z in [0.02, -0.02]:
+		B.laavu_icon(info, Vector3(0, 0.78, z), 0.28, cream)
+
+	# Nuotio: liekit, loimu ja savu. Piilossa kunnes sytytetään.
+	fire = Node3D.new()
+	fire.position = pit
+	fire.visible = false
+	add_child(fire)
+	for k in 5:
+		var fl := MeshInstance3D.new()
+		fl.mesh = B.cyl(0.0, 0.18 - k * 0.02, 0.6 + k * 0.08, 6)
+		fl.material_override = B.unshaded(Color(1.6, 0.6 + k * 0.1, 0.1))
+		fl.position = Vector3(cos(k * 1.3) * 0.15, 0.35 + k * 0.03, sin(k * 1.3) * 0.15)
+		fl.name = "Flame%d" % k
+		fire.add_child(fl)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.55, 0.2)
+	glow.light_energy = 2.5
+	glow.omni_range = 9.0
+	glow.position.y = 0.8
+	glow.name = "Glow"
+	fire.add_child(glow)
+	var smoke := CPUParticles3D.new()
+	smoke.amount = 30
+	smoke.lifetime = 3.0
+	smoke.direction = Vector3.UP
+	smoke.spread = 12.0
+	smoke.initial_velocity_min = 0.6
+	smoke.initial_velocity_max = 1.2
+	smoke.gravity = Vector3(0.3, 0.2, 0)
+	smoke.scale_amount_min = 0.4
+	smoke.scale_amount_max = 1.4
+	smoke.position.y = 1.0
+	var sm := SphereMesh.new()
+	sm.radius = 0.25
+	sm.height = 0.5
+	sm.material = B.unshaded(Color(0.6, 0.6, 0.62, 0.25))
+	smoke.mesh = sm
+	fire.add_child(smoke)
+
+
+## Haapajärven tekoaltaan kota lintutorneineen (kota.gd); ovi kohti saapuvaa polkua.
+func _build_kota() -> void:
+	var c := M.w2(M.KOTA)
+	kota = Kota.new()
+	kota.position = Vector3(c.x, 0, c.y)
+	kota.rotation.y = B.yaw_to(Vector3(-10, 0, 11))
+	add_child(kota)
+	# Puut ja talot pysyvät poissa kodan, halkovajan ja lintutornin kohdalta.
+	for lp in [Vector3.ZERO, Kota.SAW_LOCAL, Kota.CHOP_LOCAL + Vector3(-1, 0, 0), Vector3(-6.5, 0, 4.2), Kota.TOWER_LOCAL,
+			Kota.TOWER_LOCAL + Vector3(0, 0, -6)]:
+		var g: Vector3 = kota.transform * (lp as Vector3)
+		_houses.append(Vector2(g.x, g.z))
+
+
+## Kiilinlammen grillikatos: kuusikulmainen puukatos, keskellä grilli savuhormeineen, penkit ympärillä.
+func _build_grillikatos() -> void:
+	var c := M.w2(M.GRILLIKATOS)
+	var p := Vector3(c.x, 0, c.y)
+	_houses.append(c)
+	var wood := Color(0.52, 0.36, 0.22)
+	var dark := Color(0.35, 0.24, 0.14)
+	var felt := Color(0.16, 0.16, 0.17)
+	var body := StaticBody3D.new()
+	body.position = p
+	add_child(body)
+	var r := 2.8
+	for k in 6:
+		var a := TAU * k / 6.0
+		var pp := Vector3(cos(a) * r, 0, sin(a) * r)
+		B.mesh(body, B.cyl(0.11, 0.12, 2.4, 8), pp + Vector3(0, 1.2, 0), dark)
+		var cs := CollisionShape3D.new()
+		var sh := CylinderShape3D.new()
+		sh.radius = 0.12
+		sh.height = 2.4
+		cs.shape = sh
+		cs.position = pp + Vector3(0, 1.2, 0)
+		body.add_child(cs)
+		# Kaiteet ja penkki jokaiselle sivulle paitsi sisäänkäynti.
+		var a2 := TAU * (k + 1) / 6.0
+		var q := Vector3(cos(a2) * r, 0, sin(a2) * r)
+		if k != 0:
+			for y in [0.45, 0.9]:
+				B.tube(body, pp + Vector3(0, y, 0), q + Vector3(0, y, 0), 0.05, wood)
+			var mid := (pp + q) * 0.5 * 0.82
+			var bench := B.mesh(body, B.boxm(Vector3(2.2, 0.06, 0.38)), mid + Vector3(0, 0.45, 0), wood)
+			bench.rotation.y = -((a + a2) * 0.5) + PI / 2.0
+	# Kuusikulmainen katto: kartio + räystäs.
+	B.mesh(body, B.cyl(0.25, r + 0.6, 1.3, 6), Vector3(0, 3.0, 0), felt)
+	B.mesh(body, B.cyl(r + 0.62, r + 0.62, 0.12, 6), Vector3(0, 2.38, 0), wood)
+	# Grilli ja hormi.
+	B.mesh(body, B.cyl(0.55, 0.6, 0.8, 12), Vector3(0, 0.4, 0), Color(0.18, 0.18, 0.19))
+	B.mesh(body, B.cyl(0.62, 0.62, 0.05, 16), Vector3(0, 0.82, 0), Color(0.3, 0.3, 0.32))
+	B.mesh(body, B.cyl(0.15, 0.15, 3.2, 10), Vector3(0, 2.4, 0), Color(0.15, 0.15, 0.16))
+	B.mesh(body, B.cyl(0.25, 0.22, 0.12, 10), Vector3(0, 4.05, 0), Color(0.15, 0.15, 0.16))
+	body.add_child(B.box_shape(Vector3(1.2, 0.9, 1.2), Vector3(0, 0.45, 0)))
+	var lbl := B.label(self, "KIILINLAMMEN\nGRILLIKATOS", p + Vector3(0, 4.6, 0), 60, Color(1, 0.95, 0.8), true)
+	lbl.no_depth_test = false
+	lbl.outline_modulate = Color(0.1, 0.3, 0.1)
+	# Soratie kentälle.
+	_flat_poly(PackedVector2Array([c + Vector2(-4.5, -4.5), c + Vector2(4.5, -4.5), c + Vector2(4.5, 4.5), c + Vector2(-4.5, 4.5)]),
+		LAYER.path, _surf("gravel"))
+
+
+## Valkoiset säilörehupaalit pellon laidalla.
+func _build_bales() -> void:
+	for p in M.BALES:
+		var c := M.w2(p)
+		var body := StaticBody3D.new()
+		body.position = Vector3(c.x, 0.65, c.y)
+		body.rotation.y = _rng.randf() * TAU
+		add_child(body)
+		var cs := CollisionShape3D.new()
+		var sh := CylinderShape3D.new()
+		sh.radius = 0.65
+		sh.height = 1.2
+		cs.shape = sh
+		cs.rotation.z = PI / 2.0
+		body.add_child(cs)
+		B.mesh(body, B.cyl(0.65, 0.65, 1.2, 18), Vector3.ZERO, Color(0.95, 0.95, 0.93), Vector3(0, 0, 90))
+		_houses.append(c)
+
+
+func _process_fire() -> void:
+	if fire == null or not fire.visible:
+		return
+	var t := Time.get_ticks_msec() * 0.001
+	for k in 5:
+		var fl: Node3D = fire.get_node("Flame%d" % k)
+		fl.scale = Vector3(1.0, 0.8 + 0.35 * absf(sin(t * (5.0 + k) + k)), 1.0)
+	(fire.get_node("Glow") as OmniLight3D).light_energy = 2.2 + 0.6 * sin(t * 13.0) * sin(t * 7.3)
+
+
+# --- Puut --------------------------------------------------------------------
+
+func _scatter_trees() -> void:
+	for poly in _forests:
+		var lo := Vector2(INF, INF)
+		var hi := -lo
+		for p in poly:
+			lo = lo.min(p)
+			hi = hi.max(p)
+		# Iso etelän metsä harvemmalla ruudukolla, ettei puita tule kymmeniätuhansia.
+		var step := 12.0 if (hi.x - lo.x) * (hi.y - lo.y) > 800000.0 else 9.0
+		var y := lo.y
+		while y < hi.y:
+			var x := lo.x
+			while x < hi.x:
+				var p := Vector2(x, y) + Vector2(_rng.randf_range(-4, 4), _rng.randf_range(-4, 4))
+				if Geometry2D.is_point_in_polygon(p, poly) and not _in_any(p, _fields) and not _in_any(p, _clearings) \
+						and not _in_any(p, _bogs) and not _in_any(p, _clearcuts) and not _in_any(p, _water):
+					var r := _rng.randf()
+					_try_tree(p, "pine" if r < 0.5 else ("spruce" if r < 0.8 else "birch"), _rng.randf_range(0.8, 1.35), 3.5)
+				x += step
+			y += step
+	# Harvat puut niityillä.
+	var lo2 := M.w2(Vector2.ZERO)
+	var hi2 := M.w2(M.SIZE)
+	var y2 := lo2.y
+	while y2 < hi2.y:
+		var x2 := lo2.x
+		while x2 < hi2.x:
+			var p := Vector2(x2, y2) + Vector2(_rng.randf_range(-15, 15), _rng.randf_range(-15, 15))
+			if _rng.randf() < 0.3 and not _in_any(p, _forests) and not _in_any(p, _fields):
+				var r2 := _rng.randf()
+				_try_tree(p, "birch" if r2 < 0.5 else ("pine" if r2 < 0.75 else "spruce"), _rng.randf_range(0.7, 1.2), 5.0)
+			x2 += 40.0
+		y2 += 40.0
+	# Rämeen pienet männyt.
+	for poly in _bogs:
+		for k in 50:
+			var p := poly[0].lerp(poly[2], _rng.randf()) + Vector2(_rng.randf_range(-20, 20), _rng.randf_range(-20, 20))
+			if Geometry2D.is_point_in_polygon(p, poly):
+				_try_tree(p, "pine", _rng.randf_range(0.3, 0.55), 3.0)
+	# Metsäraja kartan ulkopuolelle, ettei maailma lopu tyhjään.
+	var y3 := lo2.y - 90.0
+	while y3 < hi2.y + 90.0:
+		var x3 := lo2.x - 90.0
+		while x3 < hi2.x + 90.0:
+			var p := Vector2(x3, y3) + Vector2(_rng.randf_range(-4, 4), _rng.randf_range(-4, 4))
+			if not _in_bounds(p, -3.0) and _play_edge_dist(p) < 90.0 and not _in_any(p, _water):
+				_trees.append([p, "spruce" if _rng.randf() < 0.65 else "birch", _rng.randf_range(0.9, 1.5), false])
+			x3 += 10.0
+		y3 += 10.0
+
+
+func _try_tree(p: Vector2, kind: String, s: float, road_gap: float) -> void:
+	if not _in_bounds(p, 3.0) or _road_clearance(p) < road_gap or _in_any(p, _water) or _near_house(p, 9.0):
+		return
+	if Geometry2D.is_point_in_polygon(p, _agility):
+		return
+	_trees.append([p, kind, s, true])
+
+
+## Puut MultiMesheinä ruuduittain (näkymän rajaus toimii) + törmäyssylinterit.
+func _build_trees() -> void:
+	var chunks := {}
+	for t in _trees:
+		var key := Vector2i(floori(t[0].x / CHUNK), floori(t[0].y / CHUNK))
+		if not chunks.has(key):
+			chunks[key] = []
+		chunks[key].append(t)
+
+	var foliage := B.shader_mat("res://shaders/foliage.gdshader")
+	var bark := B.shader_mat("res://shaders/bark.gdshader")
+	var wood := B.vcol_mat()
+	var leaf := Color(0.36, 0.58, 0.22)
+	var needle := Color(0.12, 0.28, 0.15)
+	# Lähipuiden lehvästö korteista (kaksi muunnelmaa lajia kohden), kaukana kevyet perusmuodot.
+	var card := func(tex: Texture2D, sway: float) -> ShaderMaterial:
+		return B.shader_mat("res://shaders/foliage_card.gdshader", {"leaf_tex": tex, "sway": sway})
+	var leaf_mat: ShaderMaterial = card.call(Foliage.leaf_texture(), 0.08)
+	var spruce_mat: ShaderMaterial = card.call(Foliage.spruce_texture(), 0.04)
+	var pine_mat: ShaderMaterial = card.call(Foliage.pine_texture(), 0.05)
+	var near_parts := {
+		"birch": [[[Foliage.birch_crown(1), Vector3.ZERO, Color(0.42, 0.62, 0.26), leaf_mat]],
+			[[Foliage.birch_crown(2), Vector3.ZERO, Color(0.4, 0.6, 0.25), leaf_mat]]],
+		"pine": [[[Foliage.pine_crown(3), Vector3.ZERO, Color(0.3, 0.45, 0.22), pine_mat]],
+			[[Foliage.pine_crown(4), Vector3.ZERO, Color(0.28, 0.43, 0.2), pine_mat]]],
+		"spruce": [[[Foliage.spruce_crown(5), Vector3.ZERO, Color(0.22, 0.38, 0.2), spruce_mat],
+				[B.cyl(0.0, 1.3, 7.6, 7), Vector3(0, 4.6, 0), Color(0.06, 0.14, 0.07), foliage]],
+			[[Foliage.spruce_crown(6), Vector3.ZERO, Color(0.2, 0.36, 0.19), spruce_mat],
+				[B.cyl(0.0, 1.3, 7.6, 7), Vector3(0, 4.6, 0), Color(0.06, 0.14, 0.07), foliage]]],
+	}
+	# [mesh, paikka, väri, materiaali] (runko näkyy aina, latvus vain kaukana)
+	var parts := {
+		"birch": [
+			[B.cyl(0.11, 0.2, 6.0, 7), Vector3(0, 3.0, 0), Color.WHITE, bark],
+			[B.sphere(1.6, 8), Vector3(0, 5.9, 0), leaf, foliage],
+			[B.sphere(1.3, 8), Vector3(0.9, 5.1, 0.35), leaf, foliage],
+			[B.sphere(1.25, 8), Vector3(-0.75, 6.7, -0.35), leaf.lightened(0.05), foliage],
+		],
+		"pine": [
+			[B.cyl(0.13, 0.22, 5.0, 7), Vector3(0, 2.5, 0), Color(0.42, 0.32, 0.24), wood],
+			[B.cyl(0.09, 0.13, 4.5, 7), Vector3(0, 7.2, 0), Color(0.72, 0.42, 0.24), wood],
+			[_flat_sphere(1.7, 0.9), Vector3(0.2, 9.1, 0), Color(0.16, 0.32, 0.15), foliage],
+			[_flat_sphere(1.3, 0.8), Vector3(-0.8, 8.3, 0.4), Color(0.18, 0.34, 0.16), foliage],
+			[_flat_sphere(1.2, 0.7), Vector3(0.7, 8.0, -0.6), Color(0.15, 0.3, 0.14), foliage],
+			[_flat_sphere(0.9, 0.6), Vector3(0, 9.9, 0.2), Color(0.17, 0.33, 0.15), foliage],
+		],
+		"spruce": [
+			[B.cyl(0.15, 0.24, 2.2, 6), Vector3(0, 1.1, 0), Color(0.33, 0.24, 0.16), wood],
+			[B.cyl(0.0, 2.1, 3.4, 8), Vector3(0, 2.9, 0), needle, foliage],
+			[B.cyl(0.0, 1.65, 3.0, 8), Vector3(0, 4.6, 0), needle, foliage],
+			[B.cyl(0.0, 1.15, 2.6, 8), Vector3(0, 6.2, 0), needle, foliage],
+			[B.cyl(0.0, 0.6, 1.8, 7), Vector3(0, 7.6, 0), needle, foliage],
+		],
+	}
+
+	# Rungot yhteen kappaleeseen, joka lisätään maailmaan vasta lopuksi: muotojen lisääminen
+	# fysiikkamaailmassa olevaan kappaleeseen rakentaisi sen joka kerta uudelleen (hidas).
+	var colliders := StaticBody3D.new()
+	colliders.set_meta("draped", true)
+	var shape := CylinderShape3D.new()
+	shape.radius = 0.35
+	shape.height = 4.0
+
+	for key in chunks:
+		var list: Array = chunks[key]
+		for kind in parts:
+			var mine := list.filter(func(t: Array) -> bool: return t[1] == kind)
+			if mine.is_empty():
+				continue
+			var xforms: Array[Transform3D] = []
+			var tints: Array[float] = []
+			for t in mine:
+				var s: float = t[2]
+				var basis := Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3(s, s * _rng.randf_range(0.9, 1.15), s))
+				xforms.append(Transform3D(basis, Vector3(t[0].x, 0, t[0].y)))
+				tints.append(_rng.randf_range(-0.12, 0.12))
+			# Lähilatvukset: puut jaetaan kahteen muunnelmaan.
+			for v in 2:
+				var idx: Array[int] = []
+				for i in mine.size():
+					if i % 2 == v:
+						idx.append(i)
+				if idx.is_empty():
+					continue
+				for part in near_parts[kind][v]:
+					var mmn := MultiMesh.new()
+					mmn.transform_format = MultiMesh.TRANSFORM_3D
+					mmn.use_colors = true
+					mmn.mesh = part[0]
+					mmn.instance_count = idx.size()
+					for j in idx.size():
+						var xf := xforms[idx[j]]
+						mmn.set_instance_transform(j, Transform3D(xf.basis, xf.origin + xf.basis * part[1]))
+						var base_n: Color = part[2]
+						var tn: float = tints[idx[j]]
+						mmn.set_instance_color(j, base_n.lightened(tn) if tn > 0.0 else base_n.darkened(-tn))
+					var near_mmi := MultiMeshInstance3D.new()
+					near_mmi.multimesh = mmn
+					near_mmi.material_override = part[3]
+					near_mmi.visibility_range_end = TREE_NEAR
+					near_mmi.visibility_range_end_margin = 15.0
+					near_mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+					add_child(near_mmi)
+					_near_trees.append(near_mmi)
+			for part in parts[kind]:
+				var mm := MultiMesh.new()
+				mm.transform_format = MultiMesh.TRANSFORM_3D
+				mm.use_colors = true
+				mm.mesh = part[0]
+				mm.instance_count = mine.size()
+				for i in mine.size():
+					var xf := xforms[i]
+					mm.set_instance_transform(i, Transform3D(xf.basis, xf.origin + xf.basis * part[1]))
+					var base: Color = part[2]
+					mm.set_instance_color(i, base.lightened(tints[i]) if tints[i] > 0.0 else base.darkened(-tints[i]))
+				var mmi := MultiMeshInstance3D.new()
+				mmi.multimesh = mm
+				mmi.material_override = part[3]
+				if part[3] != bark and part[3] != wood:
+					mmi.visibility_range_begin = TREE_NEAR - 10.0  # perusmuotoinen latvus vain kaukana
+					mmi.visibility_range_begin_margin = 15.0
+					mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+					_far_trees.append(mmi)
+				add_child(mmi)
+	for t in _trees:
+		if not t[3]:
+			continue
+		var cs := CollisionShape3D.new()
+		cs.shape = shape
+		cs.position = Vector3(t[0].x, 2.0 + T.h(t[0].x, t[0].y), t[0].y)
+		colliders.add_child(cs)
+	add_child(colliders)
+
+
+# --- Metsän antimet -----------------------------------------------------------
+
+func _build_forage() -> void:
+	var laavu := M.w2(M.LAAVU)
+	var spots: Array[Vector2] = []
+	var kinds: Array[String] = []
+	# Arton vinkki: Antinsuonkankaalla laavun lähellä on hyvä puolukkapaikka.
+	var tries := 0
+	while spots.size() < 3 and tries < 400:
+		tries += 1
+		var p := laavu + Vector2(_rng.randf_range(-60, 60), _rng.randf_range(-60, 60))
+		if _forage_ok(p, spots) and p.distance_to(laavu) > 12.0:
+			spots.append(p)
+			kinds.append("puolukka")
+	tries = 0
+	while spots.size() < 30 and tries < 6000:
+		tries += 1
+		var poly: PackedVector2Array = _forests[_rng.randi() % _forests.size()]
+		var lo := Vector2(INF, INF)
+		var hi := -lo
+		for q in poly:
+			lo = lo.min(q)
+			hi = hi.max(q)
+		var p := Vector2(_rng.randf_range(lo.x, hi.x), _rng.randf_range(lo.y, hi.y))
+		if Geometry2D.is_point_in_polygon(p, poly) and _forage_ok(p, spots):
+			spots.append(p)
+			var r := _rng.randf()
+			var acc := 0.0
+			var pick := "puolukka"
+			for k in FORAGE_KINDS:
+				acc += FORAGE_KINDS[k].weight
+				if r <= acc:
+					pick = k
+					break
+			kinds.append(pick)
+	for i in spots.size():
+		var pos := Vector3(spots[i].x, 0, spots[i].y)
+		forage.append({"pos": pos, "kind": kinds[i], "node": _forage_visual(kinds[i], pos), "taken": false})
+
+
+func _forage_ok(p: Vector2, others: Array[Vector2]) -> bool:
+	if not _in_bounds(p, 10.0) or _road_clearance(p) < 5.0 or _near_house(p, 18.0):
+		return false
+	if _in_any(p, _water) or _in_any(p, _fields) or _in_any(p, _bogs) or _near_stream(p):
+		return false
+	for o in others:
+		if o.distance_to(p) < 35.0:
+			return false
+	return true
+
+
+## Mättäs varpuineen ja marjoineen tai ryhmä sieniä.
+func _forage_visual(kind: String, pos: Vector3) -> Node3D:
+	var root := Node3D.new()
+	root.position = pos
+	add_child(root)
+	var col: Color = FORAGE_KINDS[kind].color
+	if kind in ["puolukka", "mustikka"]:
+		var leaf := Color(0.18, 0.4, 0.16) if kind == "puolukka" else Color(0.25, 0.45, 0.2)
+		for k in 7:
+			var bp := Vector3(_rng.randf_range(-1.2, 1.2), 0.1, _rng.randf_range(-1.2, 1.2))
+			var bush := B.mesh(root, B.sphere(0.3, 8), bp, leaf.lightened(_rng.randf_range(-0.05, 0.1)))
+			bush.scale = Vector3(1.0, 0.5, 1.0)
+			for b in 5:
+				B.mesh(root, B.sphere(0.035, 6), bp + Vector3(_rng.randf_range(-0.22, 0.22), 0.12, _rng.randf_range(-0.22, 0.22)), col)
+	else:
+		for k in 6:
+			var mp := Vector3(_rng.randf_range(-0.9, 0.9), 0, _rng.randf_range(-0.9, 0.9))
+			var sz := _rng.randf_range(0.8, 1.3)
+			if kind == "kantarelli":
+				B.mesh(root, B.cyl(0.02 * sz, 0.012 * sz, 0.06 * sz, 6), mp + Vector3(0, 0.03 * sz, 0), col.darkened(0.1))
+				B.mesh(root, B.cyl(0.07 * sz, 0.02 * sz, 0.05 * sz, 10), mp + Vector3(0, 0.08 * sz, 0), col)
+			else:
+				B.mesh(root, B.cyl(0.035 * sz, 0.045 * sz, 0.1 * sz, 8), mp + Vector3(0, 0.05 * sz, 0), Color(0.9, 0.86, 0.75))
+				var cap := B.mesh(root, B.sphere(0.08 * sz, 10), mp + Vector3(0, 0.11 * sz, 0), col)
+				cap.scale = Vector3(1.0, 0.6, 1.0)
+	return root
+
+
+## Lähin poimimaton paikka ja etäisyys siihen.
+func nearest_forage(p: Vector3) -> Array:
+	var best: Dictionary = {}
+	var bd := INF
+	for f in forage:
+		if f.taken:
+			continue
+		var d: float = Vector2(f.pos.x - p.x, f.pos.z - p.z).length()
+		if d < bd:
+			bd = d
+			best = f
+	return [best, bd]
+
+
+func _flat_sphere(r: float, h: float) -> SphereMesh:
+	var sm := SphereMesh.new()
+	sm.radius = r
+	sm.height = h * 2.0
+	sm.radial_segments = 8
+	sm.rings = 4
+	return sm
+
+
+## Kadun reunaan leikattu nurmikaista (katunäkymän mukaan ei sorapiennarta).
+func _build_verges() -> void:
+	var st := _new_st()
+	for r in M.ROADS:
+		if r.type == "street":
+			_strip(st, _poly(r.pts), STYLES.street.w / 2.0 + 2.2, 0.01)
+	_commit_strip(st, _surf("lawn"))
+
+
+## Katuvalot kadun varteen n. 45 m välein.
+func _build_streetlights() -> void:
+	var grey := Color(0.55, 0.56, 0.58)
+	for r in M.ROADS:
+		if r.type != "street" and not (r.type == "road" and r.h > 0.0):
+			continue
+		var pts := _poly(r.pts)
+		var hw: float = STYLES[r.type].w / 2.0
+		var acc := 20.0
+		for i in pts.size() - 1:
+			var a := pts[i]
+			var b := pts[i + 1]
+			var dir := (b - a).normalized()
+			var seg := a.distance_to(b)
+			var t := acc
+			while t < seg:
+				var p := a + dir * t + dir.orthogonal() * (hw + 1.4)
+				if not _near_house(p, 5.0):
+					var batch := _batch_at(p)
+					var base := Vector3(p.x, 0, p.y)
+					var arm_dir := Vector3(-dir.orthogonal().x, 0, -dir.orthogonal().y)
+					batch.add(B.cyl(0.06, 0.09, 6.5, 8), Transform3D(Basis(), base + Vector3(0, 3.25, 0)), grey)
+					var arm_xf := Transform3D(Basis(Vector3.UP, atan2(arm_dir.x, arm_dir.z)), base + Vector3(0, 6.4, 0) + arm_dir * 0.7)
+					batch.add(B.boxm(Vector3(0.08, 0.08, 1.4)), arm_xf, grey)
+					batch.add(B.boxm(Vector3(0.28, 0.12, 0.55)), Transform3D(arm_xf.basis, base + Vector3(0, 6.35, 0) + arm_dir * 1.35),
+						Color(0.35, 0.36, 0.38))
+				t += 45.0
+			acc = t - seg
+
+
+## Puiset sähköpylväät ja ilmajohdot katujen varressa (katunäkymän mukaan), katuvalojen vastapuolella.
+func _build_power_lines() -> void:
+	var wood := Color(0.36, 0.26, 0.17)
+	var wire := Color(0.08, 0.08, 0.08)
+	for r in M.ROADS:
+		if r.type != "street":
+			continue
+		var pts := _poly(r.pts)
+		var hw: float = STYLES.street.w / 2.0
+		var poles: Array[Vector3] = []
+		var acc := 10.0
+		for i in pts.size() - 1:
+			var a := pts[i]
+			var b := pts[i + 1]
+			var dir := (b - a).normalized()
+			var seg := a.distance_to(b)
+			var t := acc
+			while t < seg:
+				var p := a + dir * t - dir.orthogonal() * (hw + 2.0)
+				if not _near_house(p, 4.5):
+					poles.append(Vector3(p.x, 0, p.y))
+					var batch := _batch_at(p)
+					batch.add(B.cyl(0.11, 0.14, 8.5, 7), Transform3D(Basis(), Vector3(p.x, 4.25, p.y)), wood)
+					batch.add(B.boxm(Vector3(0.1, 0.1, 1.4)), Transform3D(Basis(Vector3.UP, atan2(dir.x, dir.y)), Vector3(p.x, 7.9, p.y)), wood)
+				t += 40.0
+			acc = t - seg
+		for i in poles.size() - 1:
+			var a3 := poles[i] + Vector3(0, 7.95, 0)
+			var b3 := poles[i + 1] + Vector3(0, 7.95, 0)
+			if a3.distance_to(b3) > 60.0:
+				continue
+			var mid := (a3 + b3) / 2.0 - Vector3(0, 0.35, 0)  # riippuma
+			for off in [-0.5, 0.5]:
+				var side: Vector3 = (b3 - a3).cross(Vector3.UP).normalized() * off
+				for pair in [[a3 + side, mid + side], [mid + side, b3 + side]]:
+					var p0: Vector3 = pair[0]
+					var p1: Vector3 = pair[1]
+					var len := p0.distance_to(p1)
+					var bas := Basis.looking_at((p1 - p0).normalized(), Vector3.UP)
+					_batch_at(Vector2(p0.x, p0.z)).add(B.boxm(Vector3(0.025, 0.025, len)), Transform3D(bas, (p0 + p1) / 2.0), wire)
+
+
+## Hakkuuaukea: ruskea maa, kantoja, hakkuutähdekasoja ja muutama siemenmänty.
+func _build_clearcuts() -> void:
+	var stump := B.cyl(0.2, 0.26, 0.35, 8)
+	for poly in _clearcuts:
+		if not T.available():
+			_flat_poly(poly, 0.005, _surf("clearcut"))
+		var lo := Vector2(INF, INF)
+		var hi := -lo
+		for q in poly:
+			lo = lo.min(q)
+			hi = hi.max(q)
+		var y := lo.y
+		while y < hi.y:
+			var x := lo.x
+			while x < hi.x:
+				var p := Vector2(x, y) + Vector2(_rng.randf_range(-2.5, 2.5), _rng.randf_range(-2.5, 2.5))
+				if Geometry2D.is_point_in_polygon(p, poly) and _road_clearance(p) > 2.0:
+					var batch := _batch_at(p)
+					var roll := _rng.randf()
+					if roll < 0.6:
+						batch.add(stump, Transform3D(Basis(), Vector3(p.x, 0.17, p.y)), Color(0.6, 0.45, 0.3).darkened(_rng.randf() * 0.2))
+					elif roll < 0.8:
+						for k in 4:
+							var bx := Transform3D(Basis(Vector3.UP, _rng.randf() * TAU) * Basis(Vector3.RIGHT, PI / 2.0 - 0.2),
+								Vector3(p.x + _rng.randf_range(-1, 1), 0.15, p.y + _rng.randf_range(-1, 1)))
+							batch.add(B.cyl(0.04, 0.06, 2.2, 5), bx, Color(0.38, 0.3, 0.2))
+					elif roll < 0.84:
+						_trees.append([p, "pine", _rng.randf_range(0.9, 1.2), true])
+				x += 6.0
+			y += 6.0
+
+
+# --- Ruoho -------------------------------------------------------------------
+
+## Maskikuva: R = ruohon tiheys, G = viljapelto. Tiet, vesi ja talot nollataan.
+func _build_mask() -> ImageTexture:
+	var lo := M.w2(Vector2.ZERO)
+	var size := M.w2(M.SIZE) - lo
+	var w := ceili(size.x / MASK_PX)
+	var h := ceili(size.y / MASK_PX)
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 0, 0, 1))
+	var paint := func(polys: Array[PackedVector2Array], col: Color) -> void:
+		for poly in polys:
+			var a := Vector2(INF, INF)
+			var b := -a
+			for p in poly:
+				a = a.min(p)
+				b = b.max(p)
+			for j in range(maxi(0, floori((a.y - lo.y) / MASK_PX)), mini(h, ceili((b.y - lo.y) / MASK_PX))):
+				for i in range(maxi(0, floori((a.x - lo.x) / MASK_PX)), mini(w, ceili((b.x - lo.x) / MASK_PX))):
+					var wp := lo + (Vector2(i, j) + Vector2(0.5, 0.5)) * MASK_PX
+					if Geometry2D.is_point_in_polygon(wp, poly):
+						img.set_pixel(i, j, col)
+	paint.call(_forests, Color(0.35, 0, 0, 1))
+	paint.call(_bogs, Color(0.55, 0, 0, 1))
+	paint.call(_fields, Color(1, 1, 0, 1))
+	paint.call(_water, Color(0, 0, 0, 1))
+	var ag: Array[PackedVector2Array] = [_agility]
+	paint.call(ag, Color(0.12, 0, 0, 1))
+	var stamp := func(wp: Vector2, r: float) -> void:
+		var ci := (wp - lo) / MASK_PX
+		var rp := ceili(r / MASK_PX)
+		for j in range(floori(ci.y) - rp, floori(ci.y) + rp + 1):
+			for i in range(floori(ci.x) - rp, floori(ci.x) + rp + 1):
+				if i >= 0 and j >= 0 and i < w and j < h:
+					img.set_pixel(i, j, Color(0, 0, 0, 1))
+	for r in M.ROADS:
+		var pts := _poly(r.pts)
+		var hw: float = STYLES[r.type].w / 2.0 + (2.4 if STYLES[r.type].edge != "" else 1.2)
+		for i in pts.size() - 1:
+			var steps := ceili(pts[i].distance_to(pts[i + 1]) / MASK_PX)
+			for k in steps + 1:
+				stamp.call(pts[i].lerp(pts[i + 1], float(k) / steps), hw)
+	for hp in _houses:
+		stamp.call(hp, 7.0)
+	for s in M.STREAMS:
+		var pts := _poly(s)
+		for i in pts.size() - 1:
+			var steps := ceili(pts[i].distance_to(pts[i + 1]) / MASK_PX)
+			for k in steps + 1:
+				stamp.call(pts[i].lerp(pts[i + 1], float(k) / steps), 1.2)
+	for rc in _mask_clear:
+		var cen: Vector2 = rc[0]
+		var hx: float = rc[1]
+		var hz: float = rc[2]
+		var rb := Basis(Vector3.UP, rc[3])
+		var gx := -hx
+		while gx <= hx:
+			var gz := -hz
+			while gz <= hz:
+				var wv: Vector3 = rb * Vector3(gx, 0, gz)
+				stamp.call(cen + Vector2(wv.x, wv.z), 1.0)
+				gz += 1.5
+			gx += 1.5
+	var shop := M.w2(M.SHOP_BUILDING)
+	for dx in range(-18, 19, 2):
+		for dz in range(-9, 32, 2):
+			stamp.call(shop + Vector2(dx, dz), 1.0)
+	return ImageTexture.create_from_image(img)
+
+
+func _build_grass() -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in 6:
+		var a := TAU * k / 6.0 + 0.3 * k
+		var dir := Vector3(cos(a), 0, sin(a))
+		var off := Vector3(sin(a * 2.3), 0, cos(a * 1.7)) * 0.14
+		var lean := Vector3(-dir.z, 0, dir.x) * (0.08 + 0.05 * (k % 3))
+		var tall := 0.75 + 0.25 * ((k * 7) % 4) / 3.0
+		st.add_vertex(off - dir * 0.022)
+		st.add_vertex(off + dir * 0.022)
+		st.add_vertex(off + lean + Vector3.UP * tall)
+	var grid := 170
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = st.commit()
+	mm.instance_count = grid * grid
+	var lo := M.w2(Vector2.ZERO)
+	_grass_mat = B.shader_mat("res://shaders/grass.gdshader", {
+		"mask": _build_mask(), "map_origin": lo, "map_size": M.w2(M.SIZE) - lo,
+		"grid": grid, "spacing": 0.5,
+		"terrain_h": T.texture(), "terrain_origin": T.origin, "terrain_cells": Vector2(T.nx, T.nz), "terrain_cell": T.CELL,
+	})
+	_grass_mm = mm
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = _grass_mat
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.custom_aabb = AABB(Vector3(-5000, -60, -5000), Vector3(10000, 120, 10000))
+	mmi.set_meta("draped", true)
+	add_child(mmi)
+
+
+func _build_names() -> void:
+	for n in M.PLACE_NAMES:
+		var p := M.w2(n[1])
+		var l := B.label(self, n[0], Vector3(p.x, 22, p.y), 600, Color(1, 1, 1, 0.85), true)
+		l.no_depth_test = false
+	_build_signs()
+
+
+## Kyltit suomalaisten mallien mukaan: mustavalkoinen kadunnimikilpi, punainen valtatien numero,
+## ruskea virkistyskohteen opaste (laavu), valkoinen paikallinen opaste (K-Market), EuroVelo.
+func _build_signs() -> void:
+	var blue := Color(0.0, 0.3, 0.62)
+	for r in M.ROADS:
+		if r.name == "" or r.type in ["path", "highway"] or r.name == "EV10":
+			continue
+		# Kilpi kadun alkuun (risteykseen) ja pitkillä teillä myös loppuun.
+		var ends := [0]
+		if r.pts.size() > 3:
+			ends.append(r.pts.size() - 1)
+		for e in ends:
+			var j: int = e
+			var nxt: int = 1 if e == 0 else r.pts.size() - 2
+			var a := M.w2(r.pts[j])
+			var dir := (M.w2(r.pts[nxt]) - a).normalized()
+			var hw: float = STYLES[r.type].w / 2.0
+			var at := a + dir * (hw + 4.0) + dir.orthogonal() * (hw + 2.2)
+			if not _in_bounds(at, 2.0):
+				continue
+			B.street_sign(self, Vector3(at.x, 0, at.y), r.name, atan2(-dir.y, dir.x))
+	# Valtatie 8: punainen numerokilpi.
+	for p in [Vector2(200, 170), Vector2(70, 420)]:
+		var d := (M.w2(Vector2(90, 380)) - M.w2(Vector2(240, 110))).normalized()
+		var at := M.w2(p) + d.orthogonal() * 9.0
+		var pole := B.sign_pole(self, Vector3(at.x, 0, at.y), 2.4)
+		var plate := B.sign_plate(pole, " 8 ", Color(0.78, 0.1, 0.1), Color.WHITE, 0.45, 80)
+		plate.position.y = 2.1
+		plate.rotation.y = atan2(-d.orthogonal().y, d.orthogonal().x)
+	# EuroVelo 10 pyöräreitti.
+	var ev := M.w2(Vector2(60, 612)) + Vector2(0, -7)
+	var evp := B.sign_plate(B.sign_pole(self, Vector3(ev.x, 0, ev.y), 2.3), "EV10", blue, Color(1.0, 0.85, 0.1), 0.36, 60)
+	evp.position.y = 2.05
+	# Ruskea puinen reittiviitta polkujen alkuun: laavun symboli, nimi ja matka, kärki polun suuntaan.
+	for pair in [[M.J_H2, Vector2(770, 1290)], [M.J_KL, Vector2(600, 2400)]]:
+		var a2 := M.w2(pair[0])
+		var dir := (M.w2(pair[1]) - a2).normalized()
+		var at := a2 + dir * 5.0 + dir.orthogonal() * 3.0
+		var dist := int(round(a2.distance_to(M.w2(M.LAAVU)) / 100.0)) * 100
+		var km := ("%.1f km" % (dist / 1000.0)).replace(".", ",")
+		B.trail_sign(self, Vector3(at.x, 0, at.y), "Laavu  " + km, atan2(-dir.y, dir.x))
+	# Valkoinen paikallisopaste K-Marketille Ketunperäntien ja Tarpiontien risteyksessä.
+	var kd := (M.w2(M.J_W) - M.w2(M.J_K)).normalized()
+	var ka := M.w2(M.J_K) + kd * 8.0 - kd.orthogonal() * 6.5
+	var kp := B.sign_plate(B.sign_pole(self, Vector3(ka.x, 0, ka.y), 2.3), "K-Market  ", Color.WHITE, Color.BLACK, 0.32, 44,
+		Color(0.1, 0.1, 0.1))
+	kp.position.y = 2.0
+	kp.rotation.y = atan2(-kd.y, kd.x)
+	B.sign_arrow(kp, kp.get_meta("width") / 2.0 - 0.12, Color.BLACK)
