@@ -77,6 +77,21 @@ godot --path .
 | Esc | valikko |
 | R | aloita alusta |
 
+| Sahauksessa | |
+|---|---|
+| Hiiri / E | merkkaa katkaisukohta ja aloita |
+| Hiiri eteen-taakse / W-S | sahaa |
+| Hiiri sivulle / A-D | pidä saha suorassa |
+| Oikea nappi | nosta saha pois |
+| F | lopeta sahaus |
+
+| Halonhakkuussa | |
+|---|---|
+| Hiiri | tähtää |
+| Vasen nappi / E | nosta pölkky läjästä, aseta pölkylle, iske |
+| Oikea nappi / Q / rulla | käännä pölkky |
+| F | lopeta hakkuu |
+
 | Tappelussa | |
 |---|---|
 | A / D | liiku |
@@ -95,9 +110,18 @@ godot --path .
 - Koodi, kartta ja maisema: tehty tätä peliä varten.
 - Äänet: CC0-äänitteitä OpenGameArtista ja Kenneyltä (lähteet: `assets/sounds/LICENSE.md`).
 - **Haapajärven tekoaltaan kota** (sijainti OpenStreetMapista) on n. 2 km laavulta etelään Kotapolkua pitkin.
-  Sahaa tukki pölkyiksi sahapukilla ja pilko pölkyt haloiksi (jalan, E), sytytä tuli kotaan ja kuuntele
+  Sahaa tukki pölkyiksi pokasahalla ja halko pölkyt kirveellä (jalan, E), sytytä tuli kotaan ja kuuntele
   vakiovieraiden Raimon ja Veikon tarinoita (10 kpl, kuullut tallentuvat). Kota on täynnä kieltokylttejä.
   Vieressä lintutorni: kävele portaat ylös ja katsele lintuja tekojärvellä.
+- **Sahaus** on FPS-minipeli: tähtää tukkiin ja merkkaa katkaisukohta (pölkyn mitta näkyy, pukin välistä ei
+  sahata), sitten sahaa hiiren eteen-taakse-liikkeellä. Kädet ja tuulenpuuskat kallistavat sahaa: pidä se suorassa
+  hiiren sivuliikkeellä, muuten saha kiilaa. Liian kiivas riuhtominen saa sahan hyppäämään uralta. Raimo ja
+  Veikko arvioivat mitan ja suoruuden.
+- **Halonhakkuu** on FPS-minipeli: nosta pölkky läjästä, käännä se oikein päin ja aseta keskelle halkaisupölliä.
+  Pölkky pysyy pystyssä vain tasainen pää alaspäin (toinen pää on vino ja runko pyöreä): väärin päin tai
+  reunalle asetettu pölkky pyörähtää pois. Sitten tähtää kirveellä hiirellä ja iske. Kädet huojuvat ja
+  tuulenpuuskat heittävät tähtäystä. Keskelle osunut isku halkaisee pölkyn neljäksi haloksi, vähän sivuun
+  osunut jää kiinni ja reunaan osunut lennättää pölkyn pölliltä. Raimo ja Veikko tulevat ulos kommentoimaan.
 - Kartan reunalla hahmo kommentoi, miksi pidemmälle ei kannata lähteä.
 - Maaston korkeuserot: todellinen korkeusmalli (Copernicus DEM ~90 m, `assets/terrain/korkeus.json`), leivottu
   5 m ruudukoksi komennolla `godot --headless --path . -s tools/bake_terrain.gd`. Ylämäessä pyörä hidastuu,

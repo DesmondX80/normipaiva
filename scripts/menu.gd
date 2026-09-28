@@ -21,6 +21,16 @@ V	FPS / kolmas persoona
 Hiiri	kamera (klikkaa ikkunaa, Esc vapauttaa)
 Esc	taukovalikko
 R	aloita päivä alusta
+SAHAUS (kodan sahapukilla)
+Hiiri / E	merkkaa katkaisukohta ja aloita
+Hiiri eteen-taakse / W-S	sahaa (pitkät, rauhalliset vedot)
+Hiiri sivulle / A-D	pidä saha suorassa
+Oikea nappi	nosta saha pois (ennen kuin ura on syvä)
+HALONHAKKUU (kodan pilkkomispölkyllä)
+Hiiri	tähtää (kädet huojuvat, tuuli puuskii)
+Vasen nappi / E	nosta pölkky, aseta pölkylle, iske
+Oikea nappi / Q / rulla	käännä pölkky (tasainen pää alas)
+F	lopeta hakkuu
 TAPPELU
 A / D, W, S	liiku, hyppää, torju
 J / K	lyönti / potku
@@ -56,7 +66,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif _mode == "sub_pause":
 				open_pause()
 			get_viewport().set_input_as_handled()
-		elif game != null and game.state in ["to_shop", "to_home", "in_shop"] and not game._paper.visible:
+		elif game != null and game.state in ["to_shop", "to_home", "in_shop", "minigame"] and not game._paper.visible:
 			open_pause()
 			get_viewport().set_input_as_handled()
 
