@@ -34,6 +34,8 @@ const J_PATO := Vector2(1304, 3778)  # Ketunperäntie / Patotie
 
 const HOME_ZONE := Vector2(785, 1195)
 const HOME_BUILDING := Vector2(808, 1178)
+const GARAGE := Vector2(812, 1213)  # kodin autotalli
+const COMPOST := Vector2(817, 1186)  # kompostilaatikko talon takana (jemma)
 const SHOP_BUILDING := Vector2(75, 570)
 const SHOP_ZONE := Vector2(80, 596)
 
