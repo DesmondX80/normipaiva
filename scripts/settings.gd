@@ -6,6 +6,11 @@ signal changed
 
 const PATH := "user://settings.cfg"
 const QUALITY := ["Matala", "Keski", "Korkea"]
+## Grafiikkamoottori valitaan ennen kuin skriptit ajetaan, joten se tallennetaan user://override.cfg:hen
+## (project.godot: application/config/project_settings_override) ja vaihtuu uudelleenkäynnistyksessä.
+const OVERRIDE := "user://override.cfg"
+const RENDERERS := ["Paras (Forward+)", "Yhteensopiva (OpenGL)"]
+const RENDER_METHODS := ["forward_plus", "gl_compatibility"]
 
 var values := {
 	"fullscreen": false,
@@ -22,6 +27,8 @@ var values := {
 	"invert_y": false,
 	"auto_recenter": true,
 }
+## Tosi, jos tämä käynnistys tallensi yhteensopivan grafiikan pysyväksi (Windowsin varakäynnistin).
+var renderer_auto_saved := false
 
 
 func _ready() -> void:
@@ -36,7 +43,32 @@ func _ready() -> void:
 	if cfg.load(PATH) == OK:
 		for k in values:
 			values[k] = cfg.get_value("settings", k, values[k])
+	# Windowsin varakäynnistin (Normipaiva (yhteensopiva).bat) käynnistää OpenGL:llä: muistetaan valinta,
+	# jotta jatkossa myös pelkkä Normipaiva.exe toimii koneilla, joilla Vulkan kaatuu.
+	if OS.get_name() == "Windows" and renderer_current() == 1 and renderer_saved() != 1:
+		set_renderer(1)
+		renderer_auto_saved = true
 	apply()
+
+
+## Käytössä oleva grafiikkamoottori (RENDERERS-indeksi).
+func renderer_current() -> int:
+	return 1 if RenderingServer.get_current_rendering_method() == "gl_compatibility" else 0
+
+
+## Seuraavalla käynnistyksellä käytettävä grafiikkamoottori.
+func renderer_saved() -> int:
+	var cfg := ConfigFile.new()
+	if cfg.load(OVERRIDE) != OK:
+		return 0
+	return maxi(0, RENDER_METHODS.find(cfg.get_value("rendering", "renderer/rendering_method", "forward_plus")))
+
+
+func set_renderer(i: int) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(OVERRIDE)
+	cfg.set_value("rendering", "renderer/rendering_method", RENDER_METHODS[i])
+	cfg.save(OVERRIDE)
 
 
 func get_v(key: String) -> Variant:

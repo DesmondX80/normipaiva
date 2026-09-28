@@ -60,7 +60,10 @@ jobs:
           ~/godot/godot --headless --path . --export-release "macOS" build/Normipaiva-Mac.zip
           test -s build/Normipaiva.exe
           test -s build/Normipaiva-Mac.zip
-          (cd build && zip -9 -q Normipaiva-Windows.zip Normipaiva.exe)
+          # Varakäynnistin koneille, joilla Vulkan/D3D12 kaatuu: kevyempi OpenGL-renderöijä.
+          printf '@echo off\r\nstart "" "%%~dp0Normipaiva.exe" --rendering-method gl_compatibility\r\n' \
+            > "build/Normipaiva (yhteensopiva).bat"
+          (cd build && zip -9 -q Normipaiva-Windows.zip Normipaiva.exe "Normipaiva (yhteensopiva).bat")
           ls -la build
 
       - name: Julkaise
@@ -73,6 +76,10 @@ jobs:
 
           **Windows:** pura \`Normipaiva-Windows.zip\` ja käynnistä \`Normipaiva.exe\`. Jos SmartScreen varoittaa,
           valitse *Lisätietoja → Suorita silti* (peliä ei ole allekirjoitettu).
+          Jos peli näyttää hetken mustaa ja sulkeutuu, käynnistä se tiedostolla \`Normipaiva (yhteensopiva).bat\`:
+          se käyttää kevyempää OpenGL-grafiikkaa, joka toimii vanhemmillakin näytönohjaimilla. Peli muistaa
+          valinnan, joten sen jälkeen myös \`Normipaiva.exe\` toimii (vaihto: Asetukset → Grafiikka).
+          Virheloki löytyy osoitteesta \`%APPDATA%\\Godot\\app_userdata\\Normipäivä\\logs\\godot.log\`.
 
           **Mac:** pura \`Normipaiva-Mac.zip\` ja siirrä \`Normipäivä.app\` Ohjelmat-kansioon. Jos macOS ei avaa sitä,
           valitse *Järjestelmäasetukset → Tietosuoja ja suojaus → Avaa silti* (peliä ei ole notarisoitu).
