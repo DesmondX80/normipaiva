@@ -13,11 +13,17 @@ const DRAG := 2.5
 const STEER_SPEED := 2.2
 const SLOPE_GRAVITY := 6.0  # mäen vaikutus vauhtiin (m/s² per 100 % nousu), pehmennetty
 const GRAVITY := 20.0
+const SPRINT := 1.4  # spurtin kerroin kiihtyvyyteen ja huippunopeuteen
+const FART_CHANCE := 0.18  # miehekäs pieru spurtin alussa
+const SPRINT_FOV := 7.0
 
 var speed := 0.0
 var controls_enabled := true
 var world: Node3D  # alustatiedot (world.gd); ilman tätä kaikki on asfalttia
 var surface := "asphalt"
+## Jalan kulkeva pelaaja (on_foot.gd): spurtti kuluttaa samaa kuntomittaria kuin juoksu.
+var legs: Node
+var sprinting := false
 
 ## Hiukkasten värit alustan mukaan (sora pöllyää, vesi roiskuu, vilja lentelee).
 const DEBRIS := {
@@ -51,6 +57,7 @@ var _bump_t := 0.0
 var _shake := 0.0
 var _debris: CPUParticles3D
 var _debris_mat: StandardMaterial3D
+var _fov_kick := 0.0
 
 
 func _ready() -> void:
@@ -123,6 +130,7 @@ func stun(direction: Vector3) -> void:
 
 func _physics_process_stunned(delta: float) -> void:
 	_stun -= delta
+	sprinting = false
 	_push = _push.move_toward(Vector3.ZERO, 12.0 * delta)
 	velocity = Vector3(_push.x, velocity.y - GRAVITY * delta if not is_on_floor() else 0.0, _push.z)
 	move_and_slide()
@@ -146,6 +154,14 @@ func _physics_process(delta: float) -> void:
 		braking = Input.is_action_pressed("brake")
 		if Input.is_action_just_pressed("bell"):
 			Sfx.play("bell", -4.0)
+	# Shift: spurtti, kun poljetaan eteenpäin ja kuntoa on jäljellä.
+	var want_sprint: bool = controls_enabled and Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 \
+		and legs != null and not legs.exhausted
+	if want_sprint and not sprinting:
+		_sprint_start()
+	sprinting = want_sprint
+	if legs != null and controls_enabled:  # vain ajettaessa: parkissa jalat hoitavat kunnon itse
+		legs.tire(sprinting, absf(speed) < 0.2, delta)
 
 	_update_surface()
 	var t := _terrain
@@ -155,6 +171,9 @@ func _physics_process(delta: float) -> void:
 	var grade := -(tn.x * hfwd.x + tn.z * hfwd.z) / maxf(tn.y, 0.3)  # nousu eteenpäin (0.1 = 10 %)
 	var max_s: float = MAX_SPEED * t.speed * clampf(1.0 - grade * 3.0, 0.55, 1.35)
 	var accel: float = ACCEL * t.accel
+	if sprinting:
+		max_s *= SPRINT
+		accel *= SPRINT
 	if throttle > 0.0:
 		speed = move_toward(speed, max_s, accel * throttle * delta)
 	elif throttle < 0.0:
@@ -277,6 +296,15 @@ func _update_camera(delta: float) -> void:
 	var eye: Vector3 = _rider.to_global(_rider.bone_position("Head")) + Vector3.UP * 0.08
 	CamCtl.update_camera(_cam, self, eye, 5.5, 2.6, absf(speed) > 1.0, delta, not _cam_ready, shake)
 	_cam_ready = true
+	# Spurtissa näkökenttä levenee hieman (vauhdin tunne).
+	_fov_kick = lerpf(_fov_kick, SPRINT_FOV if sprinting and speed > 2.0 else 0.0, 1.0 - exp(-4.0 * delta))
+	_cam.fov += _fov_kick
+
+
+func _sprint_start() -> void:
+	_shake = maxf(_shake, 0.2)
+	if randf() < FART_CHANCE:
+		Sfx.play("fart", -3.0, randf_range(0.9, 1.1))
 
 
 func _build_bike() -> void:
