@@ -14,6 +14,8 @@ const M := preload("res://scripts/map_data.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Kota := preload("res://scripts/kota.gd")
 const Fight := preload("res://scripts/fight.gd")
+const ChopGame := preload("res://scripts/chop_game.gd")
+const SawGame := preload("res://scripts/saw_game.gd")
 const LaavuGuard := preload("res://scripts/laavu_guard.gd")
 const PaperMap := preload("res://scripts/paper_map.gd")
 const Villager := preload("res://scripts/villager.gd")
@@ -544,36 +546,17 @@ func _kota_logic() -> void:
 			_show_message("\"%s\"" % Kota.BIRD_LINES.pick_random(), 3.5)
 		return
 	if near.call(Kota.SAW_LOCAL, 1.7):
-		_hint.text = "[E] Sahaa tukista pölkky (%d/%d)" % [_saw_prog, SAW_STROKES]
+		_hint.text = "[E] Tartu pokasahaan ja sahaa tukista pölkkyjä"
 		if e:
-			_saw_prog += 1
-			var saw: Node3D = k.find_child("Saw", true, false)
-			if saw != null:
-				saw.position.z = 0.35 if _saw_prog % 2 else -0.35
-			Sfx.play("saw", -2.0, randf_range(0.95, 1.05))
-			if _saw_prog >= SAW_STROKES:
-				_saw_prog = 0
-				kota_polkyt += 1
-				Sfx.play("rattle", -6.0, 0.7)
-				_show_message("Pölkky sahattu! Pölkkyjä %d. Pilko ne pölkyllä kirveellä." % kota_polkyt, 2.5)
+			_start_saw()
 		return
 	if near.call(Kota.CHOP_LOCAL, 1.7):
 		if kota_polkyt <= 0:
 			_hint.text = "Pilkkomispölkky. Sahaa ensin tukki pölkyiksi sahapukilla."
 			return
-		_hint.text = "[E] Pilko pölkky haloiksi (%d/%d)" % [_chop_prog, CHOP_HITS]
+		_hint.text = "[E] Tartu kirveeseen ja halko pölkyt (%d pölkkyä)" % kota_polkyt
 		if e:
-			_chop_prog += 1
-			var axe: Node3D = k.find_child("Axe", true, false)
-			if axe != null:
-				axe.rotation.z = -0.45 if _chop_prog % 2 else 0.6
-			Sfx.play("axe", 0.0, randf_range(0.95, 1.05))
-			if _chop_prog >= CHOP_HITS:
-				_chop_prog = 0
-				kota_polkyt -= 1
-				kota_halot += HALOT_PER_POLKKY
-				Sfx.play("rattle", -4.0, 1.2)
-				_show_message("Halot pilkottu! Halkoja %d. Vie ne kodan tulisijaan." % kota_halot, 2.5)
+			_start_chop()
 		return
 	if dk < 2.7:
 		if not k.fire_on:
@@ -597,6 +580,56 @@ func _kota_logic() -> void:
 		_hint.text = "[E] Kuuntele tarina (kuultu %d/%d)" % [tarinat_kuultu.size(), Kota.STORIES.size()]
 		if e:
 			_tell_story()
+
+
+## Sahaus FPS-minipelinä (saw_game.gd): jokainen katkaistu pölkky kasvattaa pölkkyvarastoa.
+func _start_saw() -> void:
+	var sg := SawGame.new()
+	sg.sawn.connect(func() -> void: kota_polkyt += 1)
+	_start_kota_game(sg, Kota.SAW_LOCAL, 0.3, func() -> String:
+		return "Sahattu %d pölkkyä! Pölkkyjä %d. Halko ne pilkkomispölkyllä kirveellä." % [sg.polkyt_made, kota_polkyt] \
+			if sg.polkyt_made > 0 else "")
+
+
+## Halonhakkuu FPS-minipelinä (chop_game.gd).
+func _start_chop() -> void:
+	var cg := ChopGame.new()
+	cg.polkyt = kota_polkyt
+	cg.split.connect(func(n: int) -> void:
+		kota_polkyt -= 1
+		kota_halot += n)
+	_start_kota_game(cg, Kota.CHOP_LOCAL, 0.0, func() -> String:
+		return "Halottu %d halkoa! Halkoja %d. Vie ne kodan tulisijaan." % [cg.halot_made, kota_halot] \
+			if cg.halot_made > 0 else "")
+
+
+## Kodan FPS-minipeli (kota_minigame.gd) paikallisessa kohdassa local ja kierrossa rot_y. Pelaaja seisoo
+## piilossa minipelin silmien alla; message kertoo lopuksi saaliin.
+func _start_kota_game(game: Node3D, local: Vector3, rot_y: float, message: Callable) -> void:
+	var k: Node3D = world.kota
+	_minigame_prev = state
+	state = "minigame"
+	player.controls_enabled = false
+	player.speed = 0.0
+	game.kota = k
+	game.position = local
+	game.rotation.y = rot_y
+	walker_out.global_position = k.to_global(game.transform * (game.eye * Vector3(1, 0, 1))) + Vector3(0, 0.3, 0)
+	walker_out.rotation.y = k.global_rotation.y + rot_y + game.yaw_center + PI
+	player.visible = false
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	game.finished.connect(func() -> void:
+		state = _minigame_prev
+		player.visible = true
+		player.activate_camera()
+		player.controls_enabled = true
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
+		_hud.visible = true
+		var msg: String = message.call()
+		if msg != "":
+			_show_message(msg, 3.0))
+	k.add_child(game)
 
 
 ## Tarinatuokio kodassa: kamera kertojiin, repliikit puhekuplina ja tekstityksenä. E ohittaa repliikin.
@@ -800,14 +833,11 @@ func _on_fight_finished(won: bool, bags_used: int) -> void:
 const JEMMA_GOAL := 24
 
 # Kota: sahaus ja pilkkominen, tuli ja tarinat.
-const SAW_STROKES := 6
-const CHOP_HITS := 3
 const HALOT_PER_POLKKY := 4
 const FIRE_HALOT := 4
 var kota_polkyt := 0
 var kota_halot := 0
-var _saw_prog := 0
-var _chop_prog := 0
+var _minigame_prev := "to_shop"
 var tarinat_kuultu: Array = []  # kuultujen tarinoiden indeksit (tallentuu)
 var _kota_chat_t := 6.0
 var _story_skip := false
@@ -969,8 +999,6 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	world.fire.visible = false
 	if world.kota != null:
 		world.kota.set_fire(false)
-	_saw_prog = 0
-	_chop_prog = 0
 	var bonus := ""
 	if money < START_MONEY:
 		bonus = "\nPäivi antoi %s € kauppaan." % _eur(START_MONEY - money) if not lost else "\nTakin taskusta löytyi vähän rahaa."
@@ -1581,14 +1609,119 @@ func _maybe_screenshot() -> void:
 				Input.action_release("interact")
 				await get_tree().process_frame
 				await get_tree().process_frame
-			for step in [[Kota.SAW_LOCAL + Vector3(0.8, 0, 0), SAW_STROKES], [Kota.CHOP_LOCAL + Vector3(0.8, 0, 0), CHOP_HITS]]:
-				walker_out.global_position = world.kota.to_global(step[0]) + Vector3(0, 0.4, 0)
-				for i in 10:
-					await get_tree().physics_frame
-				print("KOTA hint: ", _hint.text)
-				for i in step[1]:
-					await press.call()
-			print("KOTA polkyt=", kota_polkyt, " halot=", kota_halot)
+			# Sahaus: merkkaa 36 cm, vedä sahaa suorassa, kunnes pölkky katkeaa. Kaksi pölkkyä.
+			walker_out.global_position = world.kota.to_global(Kota.SAW_LOCAL + Vector3(-0.8, 0, 0.3)) + Vector3(0, 0.4, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("KOTA hint: ", _hint.text)
+			await press.call()
+			var sg: Node3D = world.kota.get_children().filter(func(c): return c is SawGame)[0] if state == "minigame" else null
+			print("SAW state=", state, " sg=", sg != null)
+			sg._gust_next = 999.0
+			for n in 2:
+				var a2: Vector2 = sg._aim_to(Vector3(0, SawGame.LOG_Y + SawGame.R, SawGame.END_Z - 0.36))
+				sg._yaw = a2.x
+				sg._pitch = a2.y
+				for i in 5:
+					await get_tree().process_frame
+				if n == 0:
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mark.png"))
+					await get_tree().process_frame
+				await press.call()
+				print("SAW phase=", sg._phase, " cut_z=", sg._cut_z, " task=", sg._task.text)
+				var dir := 1.0
+				for i in 900:
+					if sg._phase != "saw":
+						break
+					sg._tilt_hand = -(sg._tilt - sg._tilt_hand)  # pidä suorassa
+					sg._stroke(dir * 0.02)
+					if absf(sg._s) >= SawGame.STROKE - 0.001:
+						dir = -dir
+					await get_tree().process_frame
+					if n == 0 and i == 120:
+						await RenderingServer.frame_post_draw
+						get_viewport().get_texture().get_image().save_png(path.replace(".png", "_saw.png"))
+				print("SAW cut done phase=", sg._phase, " made=", sg.polkyt_made, " polkyt=", kota_polkyt, " sub=", sg._sub.text)
+				for i in 30:
+					await get_tree().process_frame
+				if n == 0:
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_cut.png"))
+				for i in 600:
+					if sg._phase == "mark":
+						break
+					await get_tree().process_frame
+			sg._quit()
+			await get_tree().process_frame
+			print("SAW after state=", state, " msg=", _msg.text)
+			# Halonhakkuu: väärin päin asetettu pyörähtää pois, oikein päin keskelle ja isku keskelle.
+			walker_out.global_position = world.kota.to_global(Kota.CHOP_LOCAL + Vector3(0.8, 0, 0)) + Vector3(0, 0.4, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("KOTA hint: ", _hint.text)
+			await press.call()
+			var cg: Node3D = world.kota.get_children().filter(func(c): return c is ChopGame)[0] if state == "minigame" else null
+			print("CHOP state=", state, " cg=", cg != null)
+			cg._gust_next = 999.0
+			var aim := func(target: Vector3) -> void:
+				var dv: Vector3 = target - ChopGame.EYE
+				cg._yaw = atan2(dv.x, dv.z)
+				cg._pitch = -atan2(-dv.y, Vector2(dv.x, dv.z).length())
+			aim.call(ChopGame.PILE + Vector3(0, 0.18, 0))
+			for i in 5:
+				await get_tree().process_frame
+			await press.call()
+			print("CHOP phase=", cg._phase, " flat=", cg._flat_down)
+			if cg._flat_down:
+				cg._alt_action()
+			aim.call(Vector3(0, ChopGame.BLOCK_TOP, 0))
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_hold.png"))
+			await get_tree().process_frame
+			await press.call()
+			print("CHOP after wrong place phase=", cg._phase, " sub=", cg._sub.text)
+			for i in 30:
+				await get_tree().physics_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_roll.png"))
+			for i in 60:
+				await get_tree().process_frame
+			aim.call(ChopGame.PILE + Vector3(0, 0.18, 0))
+			await get_tree().process_frame
+			await press.call()
+			if not cg._flat_down:
+				cg._alt_action()
+			aim.call(Vector3(0, ChopGame.BLOCK_TOP, 0))
+			for i in 20:
+				await get_tree().process_frame
+			await press.call()
+			print("CHOP after good place phase=", cg._phase, " sub=", cg._sub.text)
+			for i in 40:
+				await get_tree().process_frame
+			aim.call(Vector3(cg._log_pos.x, ChopGame.BLOCK_TOP + ChopGame.LOG_L, cg._log_pos.z))
+			for i in 5:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_aim.png"))
+			await get_tree().process_frame
+			await press.call()
+			for i in 24:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_split.png"))
+			for i in 50:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_split2.png"))
+			print("CHOP after hit phase=", cg._phase, " sub=", cg._sub.text, " polkyt=", kota_polkyt, " halot=", kota_halot)
+			for i in 90:
+				await get_tree().process_frame
+			cg._quit()
+			await get_tree().process_frame
+			print("KOTA polkyt=", kota_polkyt, " halot=", kota_halot, " state=", state, " msg=", _msg.text)
 			walker_out.global_position = world.kota.to_global(Vector3(0.9, 0.4, -1.4))
 			for i in 10:
 				await get_tree().physics_frame
