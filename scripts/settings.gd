@@ -5,7 +5,7 @@ extends Node
 signal changed
 
 const PATH := "user://settings.cfg"
-const QUALITY := ["Matala", "Keski", "Korkea"]
+const QUALITY := ["Erittäin matala", "Matala", "Keski", "Korkea"]
 ## Grafiikkamoottori valitaan ennen kuin skriptit ajetaan, joten se tallennetaan user://override.cfg:hen
 ## (project.godot: application/config/project_settings_override) ja vaihtuu uudelleenkäynnistyksessä.
 const OVERRIDE := "user://override.cfg"
@@ -15,7 +15,7 @@ const RENDER_METHODS := ["forward_plus", "gl_compatibility"]
 var values := {
 	"fullscreen": false,
 	"vsync": true,
-	"quality": 2,  # 0 matala, 1 keski, 2 korkea
+	"quality": 3,  # 0 erittäin matala (ei auringon varjoja), 1 matala, 2 keski, 3 korkea
 	"render_scale": 1.0,
 	"fov": 70.0,
 	"show_fps": false,
@@ -44,6 +44,9 @@ func _ready() -> void:
 	if cfg.load(PATH) == OK:
 		for k in values:
 			values[k] = cfg.get_value("settings", k, values[k])
+		# Vanha kolmiportainen laatu (0 matala – 2 korkea): siirretään asteikolle, jonka alussa on erittäin matala.
+		if cfg.has_section_key("settings", "quality") and not cfg.has_section_key("settings", "quality_levels"):
+			values.quality = mini(values.quality + 1, QUALITY.size() - 1)
 	# Windowsin varakäynnistin (Normipaiva (yhteensopiva).bat) käynnistää OpenGL:llä: muistetaan valinta,
 	# jotta jatkossa myös pelkkä Normipaiva.exe toimii koneilla, joilla Vulkan kaatuu.
 	if OS.get_name() == "Windows" and renderer_current() == 1 and renderer_saved() != 1:
@@ -86,6 +89,7 @@ func save() -> void:
 	var cfg := ConfigFile.new()
 	for k in values:
 		cfg.set_value("settings", k, values[k])
+	cfg.set_value("settings", "quality_levels", QUALITY.size())
 	cfg.save(PATH)
 
 
@@ -97,7 +101,7 @@ func apply() -> void:
 			DisplayServer.window_set_mode(want)
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if values.vsync else DisplayServer.VSYNC_DISABLED)
 	win.scaling_3d_scale = values.render_scale
-	win.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][values.quality]
+	win.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][values.quality]
 	for b in [["Master", "vol_master"], ["SFX", "vol_sfx"], ["Ambience", "vol_ambience"], ["Music", "vol_music"]]:
 		var i := AudioServer.get_bus_index(b[0])
 		if i >= 0:
