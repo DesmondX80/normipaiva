@@ -46,6 +46,7 @@ const FILES := {
 	"body_fall": [["body_fall.ogg"], false],
 	"saw": [["saw_0.wav", "saw_1.wav", "saw_2.wav", "saw_3.wav", "saw_4.wav", "saw_5.wav", "saw_6.wav", "saw_7.wav"], false],
 	"axe": [["axe_0.wav", "axe_1.wav", "axe_2.wav", "axe_3.wav", "axe_4.wav", "axe_5.wav"], false],
+	"fart": [["fart_0.wav", "fart_1.wav", "fart_2.wav"], false],
 }
 
 

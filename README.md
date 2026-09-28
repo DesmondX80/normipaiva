@@ -23,7 +23,8 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Pyörä** on asfaltilla nopea, mutta metsässä ja pellolla pääset jalan nopeammin.
 - **Lukitsematon pyörä:** jos jätät sen pitkäksi aikaa kauas (ei kotipihaan), teinit voivat viedä sen.
   Katso kartasta, minne se jäi.
-- **Kunto:** juoksu (Shift) kuluttaa kuntoa. Tyhjänä pitää kävellä, kunnes kunto palautuu.
+- **Kunto:** juoksu ja pyörän spurtti (Shift) kuluttavat kuntoa. Tyhjänä pitää kävellä tai polkea rauhassa,
+  kunnes kunto palautuu. Spurtin alussa saattaa päästä miehekäs pieru.
 
 ## Päivät, turvapaikat ja välianimaatiot
 
@@ -82,7 +83,7 @@ godot --path .
 | Q | soittokello |
 | E | toiminto (kauppaan, osta, maksa, ulos) |
 | F | nouse pyörän selästä / takaisin pyörälle (pyörä jää parkkiin ja näkyy kartassa) |
-| Shift | juokse (jalan) |
+| Shift | juokse (jalan) / spurtti (pyörällä) |
 | M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen) |
 | V | FPS-näkymä / kolmas persoona |
 | Hiiri | kamera (Esc vapauttaa hiiren valikkoon) |

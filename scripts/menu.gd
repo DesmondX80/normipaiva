@@ -10,6 +10,7 @@ W / S	polje / jarruta ja peruuta
 A / D	ohjaa
 Välilyönti	jarru
 Q	soittokello
+Shift	spurtti (kuluttaa kuntoa)
 F	nouse pyörän selästä / takaisin pyörälle
 JALAN
 W / S, A / D	kävele ja käänny
