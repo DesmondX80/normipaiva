@@ -54,6 +54,8 @@ const SAVE_PATH := "user://normipaiva.cfg"
 const INTERIOR_POS := Vector3(3000, 0, 0)
 const ZONE_RADIUS := 6.0
 const START_MONEY := 20.0
+const CHOCO_CHANCE := 0.5  # suklaa lepyttää Päivin
+const CHOCO_MONEY := 5.0  # leppynyt Päivi antaa aamulla ylimääräistä
 const BEER_PRICE := 12.90
 
 var world: Node3D
@@ -89,6 +91,10 @@ var _fight_source := "juntti"  # juntti | laavu
 var guard: Node3D
 var has_sausage := false
 var has_matches := false
+## Suklaalevy taskussa: saattaa lepyttää Päivin (salainen mekaniikka, ei vinkkejä pelissä).
+var has_chocolate := false
+var _choco_mercy := false  # Päivi leppyi WASTED-motkotuksessa: seuraavana aamuna ylimääräistä rahaa
+var _jemma_choco := ""
 var fire_lit := false
 var sausage_done := false
 var _grill_t := -1.0
@@ -837,6 +843,7 @@ func _on_shop_exited(bought: bool) -> void:
 	if interior.has_paid:
 		has_sausage = has_sausage or interior.cart.has("makkara")
 		has_matches = has_matches or interior.cart.has("tikut")
+		has_chocolate = has_chocolate or interior.cart.has("suklaa")
 	if not bought:
 		state = "to_shop"
 		return
@@ -1026,6 +1033,7 @@ func _load_game() -> void:
 	laavu_conquered = cfg.get_value("peli", "laavu_vallattu", false)
 	money = cfg.get_value("peli", "rahat", START_MONEY)
 	day = cfg.get_value("peli", "paiva", 1)
+	has_chocolate = cfg.get_value("peli", "suklaa", false)
 	jemma_endings = cfg.get_value("jemma", "loput", 0)
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
 	if cfg.has_section_key("peli", "pyora"):
@@ -1042,6 +1050,7 @@ func _save_game() -> void:
 	cfg.set_value("peli", "laavu_vallattu", laavu_conquered)
 	cfg.set_value("peli", "rahat", money)
 	cfg.set_value("peli", "paiva", day)
+	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("jemma", "loput", jemma_endings)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
 	if bike != null:
@@ -1060,6 +1069,9 @@ func _jemma_check(allow_found := true) -> String:
 		for id in ids:
 			if randf() < _find_chance(id):
 				var lost: int = stash[id] / 2
+				_jemma_choco = _offer_chocolate()
+				if _jemma_choco == "ok":
+					lost /= 2  # leppynyt Päivi kaataa viemäriin vain osan
 				stash[id] -= lost
 				_jemma_found = lost
 				note += "\nPäivi löysi %s ja kaatoi %d kaljaa viemäriin!" % [STASHES[id].name, lost]
@@ -1090,7 +1102,17 @@ func _lose(reason: String, cause := "default") -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
 	_hud.visible = false
 	var spawn := _nearest_safe()
-	cutscene.wasted(player.global_position, reason, cause, home_zone, func() -> void: _new_day(spawn, true))
+	var choco := _offer_chocolate()
+	_choco_mercy = choco == "ok"
+	cutscene.wasted(player.global_position, reason, cause, home_zone, func() -> void: _new_day(spawn, true), choco)
+
+
+## Suklaa annetaan Päiville automaattisesti motkotuksen hetkellä. Palauttaa "" (ei suklaata), "ok" tai "fail".
+func _offer_chocolate() -> String:
+	if not has_chocolate:
+		return ""
+	has_chocolate = false
+	return "ok" if randf() < CHOCO_CHANCE else "fail"
 
 
 ## Grafiikan laatu (Settings): varjot, SSAO/SSIL, hehku, ruohon tiheys, lähipuiden etäisyys, FPS-näyttö.
@@ -1138,6 +1160,10 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	if money < START_MONEY:
 		bonus = "\nPäivi antoi %s € kauppaan." % _eur(START_MONEY - money) if not lost else "\nTakin taskusta löytyi vähän rahaa."
 		money = START_MONEY
+	if _choco_mercy:
+		_choco_mercy = false
+		money += CHOCO_MONEY
+		bonus += "\nPäivi leppyi ja antoi %s € ylimääräistä." % _eur(CHOCO_MONEY)
 	wife_alerted = false
 	for c in _hazards.get_children():
 		c.queue_free()
@@ -1156,6 +1182,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_set_outside_visible(true)
 	_save_game()
 	_jemma_found = 0
+	_jemma_choco = ""
 	var jnote := _jemma_check()
 	if _jemma_found > 0:
 		# Päivi löysi jemman: välianimaatio ennen päivän alkua.
@@ -1164,14 +1191,14 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		player.controls_enabled = false
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		var lost_n := _jemma_found
-		var msg := "%sPäivä %d alkaa.%s%s\nPitäis käydä kaupassa..." % [intro, day, bike_note, jnote]
+		var msg := "%sPäivä %d alkaa.%s%s%s\nPitäis käydä kaupassa..." % [intro, day, bonus, bike_note, jnote]
 		cutscene.jemma_found(home_zone, lost_n, jemma, func() -> void:
 			state = "to_shop"
 			_hud.visible = true
 			player.controls_enabled = true
 			player.activate_camera()
 			_hazards.process_mode = Node.PROCESS_MODE_INHERIT
-			_show_message(msg, 6.0))
+			_show_message(msg, 6.0), _jemma_choco)
 		return
 	_show_message("%sPäivä %d alkaa%s.%s%s%s\nPitäis käydä kaupassa..." % [intro, day, " laavulta" if spawn.distance_to(home_zone) > 50.0 else " kotoa",
 		bonus, bike_note, jnote], 4.0 if jnote == "" and intro == "" and bike_note == "" else 6.0)
@@ -1543,6 +1570,8 @@ func _update_hud() -> void:
 		inv.append("makkara (paistettu)" if sausage_done else "makkara")
 	if has_matches:
 		inv.append("tulitikut")
+	if has_chocolate:
+		inv.append("suklaalevy")
 	if kota_polkyt > 0:
 		inv.append("pölkkyjä %d" % kota_polkyt)
 	if kota_halot > 0:
@@ -2008,6 +2037,38 @@ func _maybe_screenshot() -> void:
 				if i % 120 == 0 or (i > 500 and _hint.text != "" and i % 30 == 0):
 					print("TOWER t=", i, " spd=", walker_out.speed, " y=%.2f ground=%.2f hint=%s" % [walker_out.global_position.y, Terrain.h(walker_out.global_position.x, walker_out.global_position.z), _hint.text])
 			Input.action_release("forward")
+		"chocotest":
+			# Suklaa karkkitelineestä, maksu, ulos ja WASTED: lepyttääkö Päivin? Tallennus palautetaan lopuksi.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var ok := 0
+			for i in 1000:
+				has_chocolate = true
+				ok += int(_offer_chocolate() == "ok")
+			print("CHOCO ok-osuus %.2f" % (ok / 1000.0))
+			_enter_shop()
+			for i in 10:
+				await get_tree().physics_frame
+			interior.walker.position = interior.CANDY_SPOT
+			for i in 5:
+				await get_tree().physics_frame
+			print("CHOCO hint=", interior.hint)
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().process_frame
+			print("CHOCO cart=", interior.cart, " total=", interior._total())
+			interior.has_paid = true
+			_on_shop_exited(false)
+			print("CHOCO has_chocolate=", has_chocolate, " money=", money)
+			_lose("Testi", "wife")
+			print("CHOCO mercy=", _choco_mercy, " has_chocolate=", has_chocolate)
+			for i in 60:
+				await get_tree().create_timer(0.5, true, false, true).timeout
+				if state != "cutscene":
+					break
+			print("CHOCO after state=", state, " money=", money, " msg=", _msg.text.replace("\n", " | "))
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"hilltest":
 			# Jyrkin rinne tien varrella: aja ylös ja alas, pysyykö pyörä maan pinnalla.
 			var best := Vector3.ZERO
