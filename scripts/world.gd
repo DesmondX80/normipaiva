@@ -970,7 +970,7 @@ func _build_neighbors() -> void:
 	_house(b2, east, 18.0, 9.0, 3.1, Color(0.86, 0.8, 0.66), Color(0.33, 0.3, 0.28), 9.0)
 	_mask_clear.append([b2, 10.0, 5.5, east])
 	# Etelään: keltatiilinen autotalli ruskealla ovella ja luonnonpuinen säleaita.
-	var g := M.w2(Vector2(812, 1213))
+	var g := M.w2(M.GARAGE)
 	_houses.append(g)
 	var gar := StaticBody3D.new()
 	gar.position = Vector3(g.x, 0, g.y)
