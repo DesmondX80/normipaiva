@@ -14,6 +14,7 @@ F	nouse pyörän selästä / takaisin pyörälle
 JALAN
 W / S, A / D	kävele ja käänny
 Shift	juokse (kuluttaa kuntoa)
+A / D	marjoja poimiessa: kyykkyyn ja ylös vuorotellen
 YLEISET
 E	toiminto (kauppa, poiminta, nuotio, myynti)
 M	paperikartta (W/S tai rulla vierittää)
