@@ -34,6 +34,7 @@ const PICK_FUMBLE := 0.06  # väärä nappi tai räpellys: marjoja tippuu
 const PICK_TOO_FAST := 0.14  # s: nopeampi näpyttely on räpellystä
 const PICK_IDLE := 0.8  # s: tauon jälkeen mittari alkaa valua
 const PICK_DECAY := 0.12  # mittarin valuminen tauolla (/s)
+const GRUNT_GAP_MS := 450  # ähkäisyjen väli vähintään
 const BEND_DRAIN := 27.0  # kyykkiminen kuluttaa kuntoa (/s, kumoaa seisomisen palautumisen ja vähän päälle)
 const BUCKET_MAX := 8
 ## Metsän antimet: hinta €/l, ostaja ja nimi.
@@ -107,6 +108,7 @@ var _pick_meter := 0.0  # marjojen poimintamittari 0–1
 var _pick_down := false  # kyykyssä: seuraavaksi odotetaan ylös (D)
 var _pick_idle := 0.0  # aika edellisestä painalluksesta
 var _pick_locked := false  # poiminta otti ohjauksen pois
+var _grunt_next := 0  # ms: seuraava ähkäisy aikaisintaan
 var arto: CharacterBody3D
 var pekka: CharacterBody3D
 var tractor: CharacterBody3D
@@ -522,6 +524,16 @@ func _forage_logic() -> void:
 				_pick_idle = PICK_IDLE
 				_pick_locked = true
 				walker_out.controls_enabled = false
+			else:
+				_grunt()  # kumartuu sienen luo
+
+
+## Ähkäisy kumartuessa tai noustessa (chance = todennäköisyys); lyhyt tauko ettei ähinä mene päällekkäin.
+func _grunt(chance := 1.0) -> void:
+	if Time.get_ticks_msec() < _grunt_next or randf() > chance:
+		return
+	_grunt_next = Time.get_ticks_msec() + GRUNT_GAP_MS
+	Sfx.play("grunt", -6.0, randf_range(0.92, 1.08))
 
 
 ## Marjat: kyykkyyn (A) ja ylös (D) vuorotellen oikeaan tahtiin täyttää poimintamittarin. Väärä nappi tai
@@ -542,7 +554,7 @@ func _pick_berries(dt: float) -> void:
 		walker_out.exhausted = true
 		walker_out.pose = ""
 		_show_message("Oho, selkä! Pakko pitää tauko.", 1.5)
-		Sfx.play("whoosh", -6.0, 0.4)
+		Sfx.play("groan", -2.0)
 		return
 	var want := "right" if _pick_down else "left"
 	var other := "left" if _pick_down else "right"
@@ -551,6 +563,7 @@ func _pick_berries(dt: float) -> void:
 			_pick_meter -= PICK_FUMBLE
 		else:
 			_pick_meter += PICK_GAIN
+		_grunt(lerpf(0.25, 0.8, 1.0 - walker_out.stamina / 100.0))  # väsyneenä ähistään tiheämmin
 		_pick_down = not _pick_down
 		walker_out.pose = "Crouch_Idle" if _pick_down else ""
 		_pick_idle = 0.0
@@ -574,6 +587,8 @@ func _pick_done() -> void:
 	_pick_spot.node.visible = false
 	_show_message("+%d l %s ämpäriin" % [liters, GOODS[_pick_spot.kind].name], 2.0)
 	Sfx.play("pickup", -4.0, 1.2)
+	if not (_pick_spot.kind in BERRIES):
+		_grunt()  # nousee ylös sienen kanssa
 	_stop_picking()
 
 
@@ -1829,6 +1844,19 @@ func _maybe_screenshot() -> void:
 				print("PICK %s: valmis=%s aika=%.1f s mittari=%.2f kunto=%.0f ämpäri=%s ohjaus=%s" % [tr[0], _pick_t < 0.0,
 					(Time.get_ticks_msec() - t0) / 1000.0, _pick_meter, walker_out.stamina, bucket, walker_out.controls_enabled])
 				_stop_picking()
+			# Sieni: pelkkä odotus, ähkäisy kumartuessa ja noustessa.
+			for f in world.forage:
+				if not f.taken and not (f.kind in BERRIES):
+					walker_out.global_position = f.pos + Vector3(0.8, 0.5, 0)
+					break
+			for i in 20:
+				await get_tree().physics_frame
+			Input.action_press("interact")
+			for w in 2:
+				await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().create_timer(PICK_TIME + 0.5).timeout
+			print("PICK sieni: valmis=%s ämpäri=%s" % [_pick_t < 0.0, bucket])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"shoptest":

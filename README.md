@@ -12,7 +12,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Metsän antimet:** poimi puolukoita, mustikoita, kantarelleja ja herkkutatteja. Naapurin Arto
   (lähekkö puolukkaan?) merkitsee paikat karttaan ja ostaa marjat, ja Pekka (14 kyyhkyä!) ostaa sienet.
   Marjoja poimitaan kyykkyyn (A) ja ylös (D) vuorotellen tasaiseen tahtiin: räpellys ja väärä nappi pudottavat
-  marjoja, ja pitkä kyykkiminen käy selkään (kunto), jolloin pitää pitää tauko. W/S lopettaa poiminnan.
+  marjoja, ja pitkä kyykkiminen käy selkään (kunto): ähinä tihenee, ja lopulta pitää pitää tauko. W/S lopettaa poiminnan.
 - **Kaljajemma:** onnistuneen kotiinpaluun saalis piilotetaan jemmaan, joka säilyy pelikerrasta toiseen.
   Jos jemma kasvaa isoksi, Päivi saattaa löytää sen...
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
