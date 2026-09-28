@@ -17,6 +17,9 @@ const PAIVI_LINES := {
 	"default": ["Missä sää oikein olit?!", "Taas jotain kaljareissuja!", "Pyöräkin on ihan kuramuas!",
 		"Nyt riitti, kotiin siitä!"],
 }
+## Suklaa Päiville motkotuksen aluksi: leppyy (lyhyt ja lempeä) tai ei (motkotus + lisärepliikki).
+const CHOCO_OK_LINES := ["...Onks toi mulle?", "No. Tän kerran annetaan anteeks."]
+const CHOCO_FAIL_LINE := "Ja luuletko että mut ostetaan suklaalla?"
 
 var env: Environment
 var sun: DirectionalLight3D
@@ -169,7 +172,7 @@ func _orbit(center: Vector3, radius: float, height: float, from_a: float, to_a: 
 
 # --- WASTED + motkotus ------------------------------------------------------------
 
-func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Callable) -> void:
+func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Callable, choco := "") -> void:
 	_begin()
 	_cam.current = true
 	Sfx.play("lose", 0.0)
@@ -211,9 +214,15 @@ func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Cal
 	bubble.no_depth_test = true
 	_cam.global_position = home + Vector3(-0.7, 1.7, 4.6)
 	_cam.look_at(home + Vector3(-0.7, 1.35, 1.0), Vector3.UP)
-	_sub.text = "Päivi ei ollut tyytyväinen."
+	if choco != "":
+		_give_chocolate(hero)
+	_sub.text = "Päivi ei ollut tyytyväinen." if choco != "ok" else "Päivi ei ollut ihan niin tyytymätön."
 	await _fade_to(0.0, 0.6)
 	var lines: Array = PAIVI_LINES.get(cause, PAIVI_LINES.default)
+	if choco == "ok":
+		lines = CHOCO_OK_LINES
+	elif choco == "fail":
+		lines = [CHOCO_FAIL_LINE] + lines
 	for line in lines:
 		bubble.text = line
 		await _wait(1.7)
@@ -226,7 +235,14 @@ const FOUND_LINES := ["Mitäs NÄMÄ sitten on?!", "Autotallin hyllyn takana, va
 	"Ja jos vielä kerran löydän..."]
 
 
-func jemma_found(home: Vector3, lost: int, left: int, done: Callable) -> void:
+## Sankari ojentaa suklaalevyn Päiville.
+func _give_chocolate(hero: Node3D) -> void:
+	var bar := Node3D.new()
+	B.mesh(bar, B.boxm(Vector3(0.16, 0.02, 0.08)), Vector3.ZERO, Color(0.1, 0.25, 0.7))
+	hero.attach("hand_r", bar, Vector3(0, -0.03, 0.04))
+
+
+func jemma_found(home: Vector3, lost: int, left: int, done: Callable, choco := "") -> void:
 	_begin()
 	await _fade_to(1.0, 0.4)
 	for n in hide_nodes:
@@ -258,8 +274,16 @@ func jemma_found(home: Vector3, lost: int, left: int, done: Callable) -> void:
 	_cam.look_at(home + Vector3(0.0, 1.15, 1.3), Vector3.UP)
 	env.adjustment_saturation = 1.12
 	await _fade_to(0.0, 0.5)
+	if choco != "":
+		_give_chocolate(hero)
 	for line in FOUND_LINES.slice(0, 2):
 		bubble.text = line
+		await _wait(1.6)
+	if choco == "ok":
+		bubble.text = "...No. Kaadan vaan osan."
+		await _wait(1.6)
+	elif choco == "fail":
+		bubble.text = CHOCO_FAIL_LINE
 		await _wait(1.6)
 	# WASTED-tyyli: harmaaksi ja iso punainen teksti.
 	Sfx.play("glass", 0.0)
