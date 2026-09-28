@@ -13,6 +13,9 @@ const GRILL_SPOT := Vector3(-9.6, 0, 6.4)
 const BEER_PRICE := 12.90
 ## Grillihyllyn tuotteet: avain -> [nimi, hinta].
 const EXTRAS := {"makkara": ["grillimakkara", 3.50], "tikut": ["tulitikut", 1.20]}
+## Karkkiteline kassan lähellä (heräteostos): suklaalevy.
+const CANDY_SPOT := Vector3(5.2, 0, 7.2)
+const CANDY := ["suklaa", "suklaalevy", 2.49]
 const QUEUE_FRONT := Vector3(7.6, 0, 5.4)
 const QUEUE_STEP := Vector3(0, 0, -1.4)
 const SPOT_RADIUS := 1.1
@@ -130,6 +133,15 @@ func _process(delta: float) -> void:
 				cart[next] = EXTRAS[next][1]
 				walker.set_carrying(true)
 				Sfx.play("pickup", -2.0, 0.8)
+	elif _flat(p, CANDY_SPOT) < 1.2 and not has_paid:
+		if cart.has(CANDY[0]):
+			hint = "Suklaalevy kassissa."
+		else:
+			hint = "[E] Ota %s (%s €)" % [CANDY[1], _eur(CANDY[2])]
+			if e:
+				cart[CANDY[0]] = CANDY[2]
+				walker.set_carrying(true)
+				Sfx.play("pickup", -4.0, 1.1)
 	elif not has_beer and _flat(p, COOLER_SPOT) < 1.5:
 		hint = "[E] Ota kuutonen keskaria"
 		if e:
@@ -315,6 +327,11 @@ func _build_room() -> void:
 			Color(0.85, 0.25, 0.2), false)
 	for i in 4:
 		B.box(self, Vector3(0.12, 0.05, 0.08), GRILL_SPOT + Vector3(-0.95, 1.08, 0.7 + i * 0.12), Color(0.95, 0.8, 0.2), false)
+	# Karkkiteline etuseinää vasten kassan lähellä: suklaalevyjä kääreissään.
+	B.box(self, Vector3(1.0, 1.1, 0.5), CANDY_SPOT + Vector3(0, 0.55, 1.2), Color(0.85, 0.88, 0.9))
+	for i in 8:
+		var wrap: Color = [Color(0.1, 0.25, 0.7), Color(0.45, 0.15, 0.5), Color(0.75, 0.1, 0.12)][i % 3]
+		B.box(self, Vector3(0.2, 0.03, 0.1), CANDY_SPOT + Vector3(-0.33 + (i % 4) * 0.22, 1.13, 1.08 + (i / 4) * 0.14), wrap, false)
 	var grill_sign := B.label(self, "GRILLI", GRILL_SPOT + Vector3(-1.3, 2.0, 0), 70, Color(1, 0.5, 0.3), true)
 	grill_sign.no_depth_test = false
 
