@@ -18,7 +18,7 @@ YLEISET
 E	toiminto (kauppa, poiminta, nuotio, myynti)
 M	paperikartta (W/S tai rulla vierittää)
 V	FPS / kolmas persoona
-Hiiri	kamera (klikkaa ikkunaa, Esc vapauttaa)
+Hiiri	kamera (Esc vapauttaa hiiren valikkoon)
 Esc	taukovalikko
 R	aloita päivä alusta
 SAHAUS (kodan sahapukilla)
@@ -208,6 +208,7 @@ func _settings(from: String) -> void:
 	var c := _tab(tabs, "Ohjaus")
 	_slider(c, "Hiiren herkkyys", "mouse_sens", 0.3, 3.0, 0.1, "%.1f", 1.0)
 	_check(c, "Käänteinen pystyakseli", "invert_y")
+	_check(c, "Hiiri kääntää kameraa", "mouse_look")
 	_check(c, "Kamera palaa itsestään taakse", "auto_recenter")
 	_button("Takaisin", func() -> void: _back(from))
 

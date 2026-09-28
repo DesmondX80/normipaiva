@@ -1,6 +1,8 @@
 extends Node
 ## Kameranohjaus ulkona, autoload "CamCtl": V vaihtaa kolmannen persoonan ja FPS:n välillä,
-## hiiri kiertää kameraa (klikkaa ikkunaa lukitaksesi hiiren, Esc vapauttaa).
+## hiiri kiertää kameraa ilman klikkausta: hiiri lukitaan aina kun peli pyörii ja ikkuna on aktiivinen
+## (valikko ja kartta pysäyttävät pelin ja vapauttavat kursorin). Asetus "mouse_look" pois: hiiri jää vapaaksi
+## ja kamera pysyy pelaajan takana, paitsi minipeleissä, joissa hiirellä tähdätään (need_mouse).
 ## Kolmannessa persoonassa kamera palaa itsestään taakse, kun hiirtä ei liikuteta ja liikutaan.
 ## FPS:ssä pelaajan oma vartalo piilotetaan kerroksella 2.
 
@@ -12,57 +14,35 @@ var fps := false
 var yaw := 0.0  # poikkeama suunnasta, jonne pelaaja katsoo
 var pitch := -0.12
 var _idle := 99.0
-var _mode_label: Label
+var need_mouse := false  # minipeli tähtää hiirellä asetuksesta riippumatta
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	var layer := CanvasLayer.new()
-	layer.layer = 20
-	add_child(layer)
-	_mode_label = Label.new()
-	_mode_label.add_theme_font_size_override("font_size", 22)
-	_mode_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	_mode_label.add_theme_constant_override("outline_size", 8)
-	_mode_label.anchor_left = 0.5
-	_mode_label.anchor_right = 0.5
-	_mode_label.offset_left = -200
-	_mode_label.offset_right = 200
-	_mode_label.offset_top = 110
-	_mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	layer.add_child(_mode_label)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if get_tree().paused:
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Settings.get_v("mouse_look"):
 		var sens: float = SENS * Settings.get_v("mouse_sens")
 		var inv := -1.0 if Settings.get_v("invert_y") else 1.0
 		yaw -= event.relative.x * sens
 		pitch = clampf(pitch - event.relative.y * sens * inv, -1.2 if fps else -0.9, 1.1 if fps else 0.45)
 		_idle = 0.0
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.physical_keycode == KEY_ESCAPE:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		elif event.physical_keycode == KEY_V:
+		if event.physical_keycode == KEY_V:
 			fps = not fps
 			yaw = 0.0
 			pitch = 0.0 if fps else -0.12
-			_show("FPS-näkymä" if fps else "Kolmas persoona")
 
 
 func _process(delta: float) -> void:
 	_idle += delta
-	if _mode_label.modulate.a > 0.0:
-		_mode_label.modulate.a = maxf(0.0, _mode_label.modulate.a - delta * 0.6)
-
-
-func _show(text: String) -> void:
-	_mode_label.text = text + "  (V vaihtaa · hiiri kääntää)"
-	_mode_label.modulate.a = 2.0
+	if not get_tree().paused and DisplayServer.window_is_focused():
+		var want := Input.MOUSE_MODE_CAPTURED if need_mouse or Settings.get_v("mouse_look") else Input.MOUSE_MODE_VISIBLE
+		if Input.mouse_mode != want:
+			Input.mouse_mode = want
 
 
 ## Piilottaa solmun meshit FPS-kameralta (asettaa ne kerrokselle 2).
@@ -78,7 +58,10 @@ func update_camera(cam: Camera3D, target: Node3D, eye: Vector3, dist: float, hei
 		delta: float, snap := false, shake := Vector3.ZERO) -> void:
 	var heading := target.global_rotation.y
 	cam.fov = Settings.get_v("fov")
-	if not fps and moving and _idle > RECENTER_AFTER and Settings.get_v("auto_recenter"):
+	if not Settings.get_v("mouse_look"):
+		yaw = lerp_angle(yaw, 0.0, 1.0 - exp(-4.0 * delta))
+		pitch = lerpf(pitch, 0.0 if fps else -0.12, 1.0 - exp(-4.0 * delta))
+	elif not fps and moving and _idle > RECENTER_AFTER and Settings.get_v("auto_recenter"):
 		yaw = lerp_angle(yaw, 0.0, 1.0 - exp(-2.0 * delta))
 		pitch = lerpf(pitch, -0.12, 1.0 - exp(-2.0 * delta))
 	var full_mask := 0xFFFFF

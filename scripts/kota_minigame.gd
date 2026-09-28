@@ -67,6 +67,7 @@ func _ready() -> void:
 	_build_hud()
 	_setup_watchers()
 	_saved["camctl"] = [CamCtl.yaw, CamCtl.pitch]
+	CamCtl.need_mouse = true
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_start()
 	# HUD ei saa napata hiirtä: lukittuna kursori on ruudun keskellä tähtäimen päällä, ja
@@ -126,7 +127,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_mouse_moved(rel)
 	elif event is InputEventMouseButton and event.pressed:
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-			return  # ensimmäinen klikkaus vain lukitsee hiiren (CamCtl)
+			return  # hiiri ei vielä lukittu (CamCtl lukitsee sen seuraavalla framella)
 		match event.button_index:
 			MOUSE_BUTTON_LEFT:
 				_action()
@@ -165,6 +166,10 @@ func _process(delta: float) -> void:
 			if ttl <= 0.0:
 				d.queue_free()
 				_debris.remove_at(i)
+
+
+func _exit_tree() -> void:
+	CamCtl.need_mouse = false
 
 
 func _quit() -> void:
