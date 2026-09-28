@@ -7,6 +7,7 @@ const M := preload("res://scripts/map_data.gd")
 const Foliage := preload("res://scripts/foliage.gd")
 const T := preload("res://scripts/terrain.gd")
 const Kota := preload("res://scripts/kota.gd")
+const Looks := preload("res://scripts/looks.gd")
 const DRAPE_EDGE := 3.0  # maakerrosten kolmioiden maksimisivu, jotta ne myötäilevät maastoa
 ## Lehvästökorttien näkyvyysraja: tätä kauempana puut piirretään kevyinä perusmuotoina.
 const TREE_NEAR := 210.0
@@ -67,6 +68,7 @@ var graph_nodes: Array[Vector3] = []
 var graph_adj: Array = []
 var home_zone: Vector3
 var shop_zone: Vector3
+var taxi_pos: Vector3  # K-Marketin taksitolpalla odottava taksi
 var follow: Node3D  # ruoho seuraa tätä (pelaaja)
 
 var _rng := RandomNumberGenerator.new()
@@ -1027,6 +1029,40 @@ func _build_shop() -> void:
 	B.parked_car(self, p + Vector3(-13, 0, 20), 0.0, Color(0.1, 0.1, 0.1))
 	B.parked_car(self, p + Vector3(9, 0, 20), 0.0, Color(0.6, 0.6, 0.55))
 	B.parked_car(self, p + Vector3(13, 0, 20), 0.0, Color(0.8, 0.8, 0.82))
+	_build_taxi(p + Vector3(-16.5, 0, 26.5))  # parkkipaikan länsikulmassa, kaupasta kauimpana
+
+
+## Taksi odottaa K-Marketin taksitolpalla: kuski ratissa ja radiosta soi tunnusbiisi hiljaa (kuuluu vain lähellä).
+func _build_taxi(pos: Vector3) -> void:
+	# Taksitolppa reunakivellä taksin keulan vieressä: keltainen TAKSI-kyltti mustalla reunuksella
+	# tolpan kyljessä lipun tapaan, osoittaa parkkipaikalle päin.
+	var pole := B.sign_pole(self, pos + Vector3(-1.8, 0, -2.4), 2.9)
+	var plate := B.sign_plate(pole, "TAKSI", Color(1.0, 0.8, 0.1), Color(0.05, 0.05, 0.05), 0.34, 64,
+		Color(0.05, 0.05, 0.05), "Helvetica Neue")
+	plate.position = Vector3(plate.get_meta("width") / 2.0 + 0.04, 2.55, 0)
+	var body := StaticBody3D.new()
+	body.position = pos
+	add_child(body)
+	body.add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.8, 0)))
+	load("res://scripts/vehicles.gd").taxi(body, "TXI-808")
+	var driver := Looks.make(body, Looks.TAXI_DRIVER)
+	driver.position = Vector3(-0.4, 0.05, 0.1)
+	driver.play("Driving", 0.0)
+	taxi_pos = pos
+	for f in Sfx.MUSIC_FILES:
+		if ResourceLoader.exists(f):
+			var st: AudioStream = load(f).duplicate()
+			Sfx._set_loop(st)
+			var radio := AudioStreamPlayer3D.new()
+			radio.stream = st
+			radio.bus = "Music"
+			radio.volume_db = -14.0
+			radio.unit_size = 2.5
+			radio.max_distance = 16.0
+			radio.position = Vector3(0, 1.0, 0)
+			radio.autoplay = true
+			body.add_child(radio)
+			break
 
 
 func _build_agility() -> void:

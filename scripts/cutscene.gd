@@ -16,6 +16,8 @@ const PAIVI_LINES := {
 		"Ja kotiin siitä, heti!"],
 	"default": ["Missä sää oikein olit?!", "Taas jotain kaljareissuja!", "Pyöräkin on ihan kuramuas!",
 		"Nyt riitti, kotiin siitä!"],
+	"raahe": ["Missä sää oot ollu koko yön?!", "Raahessa?! Taksilla?!", "Kaljanhaju tuntuu tänne asti!",
+		"Huomenna ei tule rahaa kauppaan!"],
 }
 ## Suklaa Päiville motkotuksen aluksi: leppyy (lyhyt ja lempeä) tai ei (motkotus + lisärepliikki).
 const CHOCO_OK_LINES := ["...Onks toi mulle?", "No. Tän kerran annetaan anteeks."]
@@ -350,6 +352,151 @@ func laavu_sunset(pit: Vector3, fire: Node3D, title: String, stats: String, done
 	sun.light_color = old_col
 	sun.light_energy = old_en
 	_title.add_theme_font_size_override("font_size", 150)
+
+
+# --- Taksireissu Raaheen ----------------------------------------------------------
+
+const TAXI_ROAD := Vector3(0, 0, -3400)
+const TAXI_OUT_LINES := ["Raaheen vai? No mennään.", "Kuutonen jää kotiin, baarissa juodaan hanasta.",
+	"Siellä on terästehtaan porukka taas liikkeellä..."]
+const TAXI_HOME_LINES := ["No, oliko reissu rahan arvoinen?", "Kotipihaan asti. Onnea vaan.", "Päivi taitaa olla hereillä..."]
+
+
+## Menomatka: taksi kaahaa katuvalojen alla kohti Raahen valoja, kuski juttelee ja radiosta soi biisi.
+func taxi_to_raahe(done: Callable) -> void:
+	_begin()
+	Sfx.music_play(0.8)
+	await _fade_to(1.0, 0.4)
+	var road := _build_taxi_road()
+	var taxi := Node3D.new()
+	road.add_child(taxi)
+	Vehicles.taxi(taxi)
+	var bubble := B.label(_props, "", Vector3.ZERO, 26, Color.WHITE, true)
+	bubble.outline_size = 8
+	_cam.current = true
+	_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
+	_title.add_theme_font_size_override("font_size", 90)
+	var t0 := Time.get_ticks_msec()
+	var faded := false
+	while Time.get_ticks_msec() - t0 < 8000:
+		var t := (Time.get_ticks_msec() - t0) / 1000.0
+		taxi.position.z = -t * 16.0
+		var tp := taxi.global_position
+		_cam.global_position = tp + Vector3(lerpf(4.0, 2.2, t / 8.0), 1.7, 6.5)
+		_cam.look_at(tp + Vector3(0, 0.8, -3.0), Vector3.UP)
+		bubble.global_position = tp + Vector3(-0.4, 2.3, 0)
+		bubble.text = TAXI_OUT_LINES[mini(int(t / 2.6), TAXI_OUT_LINES.size() - 1)]
+		if not faded:
+			faded = true
+			_fade_to(0.0, 0.6)
+			_title.text = "RAAHEEN"
+			_sub.text = "Taksi kaahaa kohti Raahen valoja."
+		await get_tree().process_frame
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Paluumatka Raahesta, sitten kotipihalla odottaa Päivi. stats näytetään matkalla.
+func taxi_home(home: Vector3, stats: String, done: Callable) -> void:
+	_begin()
+	Sfx.music_play(0.8, Sfx.MUSIC_CHORUS)
+	await _fade_to(1.0, 0.4)
+	var road := _build_taxi_road()
+	var taxi := Node3D.new()
+	taxi.position.z = -150.0
+	taxi.rotation.y = PI  # takaisin päin
+	road.add_child(taxi)
+	Vehicles.taxi(taxi)
+	var driver := Looks.make(taxi, Looks.TAXI_DRIVER)
+	driver.position = Vector3(-0.4, 0.05, 0.1)
+	driver.play("Driving", 0.0)
+	_cam.current = true
+	_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
+	_title.add_theme_font_size_override("font_size", 80)
+	var t0 := Time.get_ticks_msec()
+	var faded := false
+	while Time.get_ticks_msec() - t0 < 6500:
+		var t := (Time.get_ticks_msec() - t0) / 1000.0
+		taxi.position.z = -150.0 + t * 16.0
+		# Edestä viistosti: kuski ratissa ja Raahen valot taustalla.
+		_cam.global_position = taxi.to_global(Vector3(lerpf(2.8, 1.8, t / 6.5), 1.5, -7.5))
+		_cam.look_at(taxi.to_global(Vector3(0.0, 0.9, 0.0)), Vector3.UP)
+		if not faded:
+			faded = true
+			_fade_to(0.0, 0.6)
+			_title.text = "TAKAISIN SALOISIIN"
+			_sub.text = stats
+		_sub.text = stats if t < 4.0 else TAXI_HOME_LINES[mini(int((t - 4.0) / 1.2), TAXI_HOME_LINES.size() - 1)]
+		await get_tree().process_frame
+	await _fade_to(1.0, 0.5)
+	_title.text = ""
+	road.queue_free()
+	# Kotipiha: taksi kaartaa pois, Päivi odottaa.
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var hero := Looks.make(_props, Looks.PLAYER)
+	Looks.add_cap(hero)
+	hero.global_position = home + Vector3(0, 0, 1.0)
+	hero.rotation.y = PI * 0.5
+	hero.play("Idle", 0.0)
+	hero.set_override("neck_01", Vector3.RIGHT, 0.5)
+	var paivi := Looks.make(_props, Looks.PAIVI)
+	paivi.global_position = home + Vector3(-1.4, 0, 1.0)
+	paivi.rotation.y = -PI * 0.5
+	paivi.play("Idle_Talking", 0.0)
+	var cab := Node3D.new()
+	_props.add_child(cab)
+	cab.global_position = home + Vector3(2.5, 0, -5.0)
+	cab.rotation.y = -PI * 0.5  # keula +X: ajaa pois kuvan oikealle
+	Vehicles.taxi(cab)
+	var bubble := B.label(_props, "", paivi.global_position + Vector3(0.3, 2.05, 0), 26, Color.WHITE, true)
+	bubble.outline_size = 8
+	bubble.no_depth_test = true
+	_cam.global_position = home + Vector3(-0.7, 1.7, 4.6)
+	_cam.look_at(home + Vector3(-0.7, 1.35, 1.0), Vector3.UP)
+	_sub.text = "Päivi oli odottanut."
+	Sfx.music_stop(1.0)
+	await _fade_to(0.0, 0.6)
+	var ct := create_tween().set_ignore_time_scale(true)
+	ct.tween_interval(3.5)  # taksi lähtee takaisin kaupan taksitolpalle motkotuksen aikana
+	ct.tween_property(cab, "global_position", cab.global_position + Vector3(40, 0, 0), 5.0).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	for line in PAIVI_LINES.raahe:
+		bubble.text = line
+		await _wait(1.8)
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Ilta-tie Raaheen: asfalttia, katuvaloja, metsänreunaa ja lopussa Raahen valot ja terästehtaan piiput.
+func _build_taxi_road() -> Node3D:
+	var r := Node3D.new()
+	r.position = TAXI_ROAD
+	_props.add_child(r)
+	B.box(r, Vector3(400, 0.1, 400), Vector3(0, -0.06, -150), Color(0.2, 0.3, 0.16), false)
+	B.box(r, Vector3(7, 0.02, 400), Vector3(0, 0.0, -150), Color(0.18, 0.18, 0.19), false)
+	for i in 60:
+		B.box(r, Vector3(0.15, 0.01, 3.0), Vector3(0, 0.02, 40.0 - i * 6.5), Color(0.9, 0.9, 0.85), false)
+	for i in 18:
+		var z := 40.0 - i * 20.0
+		for sx in [-5.5, 5.5]:
+			B.box(r, Vector3(0.12, 6.0, 0.12), Vector3(sx, 3.0, z), Color(0.5, 0.5, 0.52), false)
+			B.mesh(r, B.boxm(Vector3(0.9, 0.12, 0.3)), Vector3(sx * 0.85, 6.0, z), Color(1.0, 0.9, 0.6))
+		for sx in [-14.0, 14.0]:
+			B.mesh(r, B.cyl(0.0, 2.2, 8.0, 7), Vector3(sx + randf_range(-3, 3), 4.0, z + randf_range(-6, 6)), Color(0.1, 0.22, 0.12))
+	# Raahen valot ja terästehtaan piiput horisontissa.
+	for i in 12:
+		B.box(r, Vector3(8, randf_range(6, 16), 8), Vector3(-50 + i * 9, 5, -380), Color(0.25, 0.25, 0.3), false)
+	for x in [-20.0, -8.0, 15.0]:
+		B.mesh(r, B.cyl(1.4, 2.0, 60.0, 10), Vector3(x, 30.0, -420), Color(0.45, 0.42, 0.4))
+	for p in [Vector3(0, 5.5, 0), Vector3(0, 5.5, -80), Vector3(0, 5.5, -160)]:
+		var l := OmniLight3D.new()
+		l.position = p
+		l.light_color = Color(1.0, 0.85, 0.55)
+		l.light_energy = 1.2
+		l.omni_range = 30.0
+		r.add_child(l)
+	return r
 
 
 # --- Autotalli ja karburaattori ---------------------------------------------------
