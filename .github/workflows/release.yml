@@ -1,0 +1,82 @@
+# Buildaa Windows- ja macOS-versiot jokaisesta mainin pushista ja päivittää GitHub-julkaisun
+# "Normipäivä (uusin main)" liikkuvaan latest-tagiin. Käsin: Actions → Julkaisu → Run workflow.
+name: Julkaisu
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Godot ja templatet välimuistista
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-win-mac
+
+      - name: Lataa Godot ja Windows/macOS-templatet
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          base=https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable
+          mkdir -p ~/godot/templates
+          curl -fsSL -o /tmp/godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+          # Templatepaketti on 1,3 Gt: puretaan vain tarvittavat.
+          curl -fsSL -o /tmp/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q -j /tmp/templates.tpz templates/version.txt templates/windows_release_x86_64.exe \
+            templates/macos.zip -d ~/godot/templates
+          rm /tmp/templates.tpz /tmp/godot.zip
+
+      - name: Asenna templatet
+        run: |
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$dest"
+          cp ~/godot/templates/* "$dest/"
+
+      - name: Tuo assetit
+        run: ~/godot/godot --headless --path . --import
+
+      - name: Export
+        run: |
+          mkdir -p build
+          ~/godot/godot --headless --path . --export-release "Windows" build/Normipaiva.exe
+          ~/godot/godot --headless --path . --export-release "macOS" build/Normipaiva-Mac.zip
+          test -s build/Normipaiva.exe
+          test -s build/Normipaiva-Mac.zip
+          (cd build && zip -9 -q Normipaiva-Windows.zip Normipaiva.exe)
+          ls -la build
+
+      - name: Julkaise
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          short=$(git rev-parse --short HEAD)
+          cat > notes.md <<EOF
+          Uusin versio mainista (commit ${short}), buildattu automaattisesti.
+
+          **Windows:** pura \`Normipaiva-Windows.zip\` ja käynnistä \`Normipaiva.exe\`. Jos SmartScreen varoittaa,
+          valitse *Lisätietoja → Suorita silti* (peliä ei ole allekirjoitettu).
+
+          **Mac:** pura \`Normipaiva-Mac.zip\` ja siirrä \`Normipäivä.app\` Ohjelmat-kansioon. Jos macOS ei avaa sitä,
+          valitse *Järjestelmäasetukset → Tietosuoja ja suojaus → Avaa silti* (peliä ei ole notarisoitu).
+          EOF
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest build/Normipaiva-Windows.zip build/Normipaiva-Mac.zip \
+            --target "$GITHUB_SHA" --title "Normipäivä (uusin main)" --notes-file notes.md --latest

@@ -41,7 +41,15 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - Esc avaa valikon: asetukset (grafiikan laatu, koko näyttö, V-Sync, renderöintiskaala, FOV, FPS-näyttö,
   äänenvoimakkuudet, hiiren herkkyys, käänteinen Y, kameran automaattikeskitys), ohjaimet ja tekijät.
 
-## Käynnistys
+## Lataa valmis peli
+
+Valmiit Windows- ja Mac-versiot uusimmasta mainista:
+[Releases → Normipäivä (uusin main)](https://github.com/DesmondX80/normipaiva/releases/tag/latest).
+GitHub Actions buildaa ne automaattisesti jokaisesta mainin pushista (`.github/workflows/release.yml`).
+Peliä ei ole allekirjoitettu: Windowsissa valitse SmartScreen-varoituksesta *Lisätietoja → Suorita silti*,
+Macissa *Järjestelmäasetukset → Tietosuoja ja suojaus → Avaa silti*.
+
+## Käynnistys (Godot-editorista)
 
 1. Asenna **Godot 4.7** (ilmainen): https://godotengine.org/download
    - Mac: myös `brew install --cask godot` käy.
