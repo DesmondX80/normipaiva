@@ -26,7 +26,16 @@ const OnFoot := preload("res://scripts/on_foot.gd")
 const Ambience := preload("res://scripts/ambience.gd")
 const Cutscene := preload("res://scripts/cutscene.gd")
 const Menu := preload("res://scripts/menu.gd")
-const PICK_TIME := 2.5
+const PICK_TIME := 2.5  # sienet: pelkkä odotus
+## Marjojen poiminta (puolukka, mustikka): kyykky-ylös-näpyttely.
+const BERRIES := ["puolukka", "mustikka"]
+const PICK_GAIN := 0.075  # oikea painallus oikeaan tahtiin
+const PICK_FUMBLE := 0.06  # väärä nappi tai räpellys: marjoja tippuu
+const PICK_TOO_FAST := 0.14  # s: nopeampi näpyttely on räpellystä
+const PICK_IDLE := 0.8  # s: tauon jälkeen mittari alkaa valua
+const PICK_DECAY := 0.12  # mittarin valuminen tauolla (/s)
+const GRUNT_GAP_MS := 450  # ähkäisyjen väli vähintään
+const BEND_DRAIN := 27.0  # kyykkiminen kuluttaa kuntoa (/s, kumoaa seisomisen palautumisen ja vähän päälle)
 const BUCKET_MAX := 8
 ## Metsän antimet: hinta €/l, ostaja ja nimi.
 const GOODS := {
@@ -101,6 +110,11 @@ var _grill_t := -1.0
 var bucket := {}  # laji -> litrat
 var _pick_t := -1.0
 var _pick_spot: Dictionary = {}
+var _pick_meter := 0.0  # marjojen poimintamittari 0–1
+var _pick_down := false  # kyykyssä: seuraavaksi odotetaan ylös (D)
+var _pick_idle := 0.0  # aika edellisestä painalluksesta
+var _pick_locked := false  # poiminta otti ohjauksen pois
+var _grunt_next := 0  # ms: seuraava ähkäisy aikaisintaan
 var arto: CharacterBody3D
 var pekka: CharacterBody3D
 var tractor: CharacterBody3D
@@ -479,20 +493,18 @@ func _bucket_total() -> int:
 func _forage_logic() -> void:
 	var p := player.global_position
 	if _pick_t >= 0.0:
-		_pick_t += get_process_delta_time()
+		var dt := get_process_delta_time()
+		_pick_t += dt
 		var sd := Vector2(_pick_spot.pos.x - p.x, _pick_spot.pos.z - p.z).length()
-		if sd > 4.5:
-			_pick_t = -1.0
+		if sd > 4.5 or player != walker_out:
+			_stop_picking()
+			return
+		if _pick_spot.kind in BERRIES:
+			_pick_berries(dt)
 			return
 		_hint.text = "Poimitaan %s... %d" % [GOODS[_pick_spot.kind].name, ceili(PICK_TIME - _pick_t)]
 		if _pick_t >= PICK_TIME:
-			var liters: int = mini(world.FORAGE_KINDS[_pick_spot.kind].liters, BUCKET_MAX - _bucket_total())
-			bucket[_pick_spot.kind] = bucket.get(_pick_spot.kind, 0) + liters
-			_pick_spot.taken = true
-			_pick_spot.node.visible = false
-			_show_message("+%d l %s ämpäriin" % [liters, GOODS[_pick_spot.kind].name], 2.0)
-			Sfx.play("pickup", -4.0, 1.2)
-			_pick_t = -1.0
+			_pick_done()
 		return
 	if _hint.text != "":
 		return
@@ -511,6 +523,88 @@ func _forage_logic() -> void:
 			_pick_t = 0.0
 			_pick_spot = f
 			player.speed = 0.0
+			if f.kind in BERRIES:
+				# A/D ovat poimiessa kyykky ja ylös, joten hahmo ei käänny niistä.
+				_pick_meter = 0.0
+				_pick_down = false
+				_pick_idle = PICK_IDLE
+				_pick_locked = true
+				walker_out.controls_enabled = false
+			else:
+				_grunt()  # kumartuu sienen luo
+
+
+## Ähkäisy kumartuessa tai noustessa (chance = todennäköisyys); lyhyt tauko ettei ähinä mene päällekkäin.
+func _grunt(chance := 1.0) -> void:
+	if Time.get_ticks_msec() < _grunt_next or randf() > chance:
+		return
+	_grunt_next = Time.get_ticks_msec() + GRUNT_GAP_MS
+	Sfx.play("grunt", -6.0, randf_range(0.92, 1.08))
+
+
+## Marjat: kyykkyyn (A) ja ylös (D) vuorotellen oikeaan tahtiin täyttää poimintamittarin. Väärä nappi tai
+## hätäinen räpellys pudottaa marjoja, tauolla mittari valuu. Kyykkiminen kuluttaa kuntoa, ja tyhjällä
+## kunnolla selkä pakottaa tauolle. W/S lopettaa.
+func _pick_berries(dt: float) -> void:
+	if Input.is_action_just_pressed("forward") or Input.is_action_just_pressed("back"):
+		_stop_picking()
+		return
+	var goods: String = GOODS[_pick_spot.kind].name
+	_pick_idle += dt
+	if walker_out.exhausted:
+		walker_out.pose = ""
+		_hint.text = "Selkä! Suorista hetki ennen kuin jatkat %s poimintaa. (W/S lopettaa)" % goods
+		return
+	walker_out.stamina = maxf(0.0, walker_out.stamina - BEND_DRAIN * dt)
+	if walker_out.stamina <= 0.0:
+		walker_out.exhausted = true
+		walker_out.pose = ""
+		_show_message("Oho, selkä! Pakko pitää tauko.", 1.5)
+		Sfx.play("groan", -2.0)
+		return
+	var want := "right" if _pick_down else "left"
+	var other := "left" if _pick_down else "right"
+	if Input.is_action_just_pressed(want):
+		if _pick_idle < PICK_TOO_FAST:
+			_pick_meter -= PICK_FUMBLE
+		else:
+			_pick_meter += PICK_GAIN
+		_grunt(lerpf(0.25, 0.8, 1.0 - walker_out.stamina / 100.0))  # väsyneenä ähistään tiheämmin
+		_pick_down = not _pick_down
+		walker_out.pose = "Crouch_Idle" if _pick_down else ""
+		_pick_idle = 0.0
+	elif Input.is_action_just_pressed(other):
+		_pick_meter -= PICK_FUMBLE
+		_pick_idle = 0.0
+		Sfx.play("rattle", -12.0, 1.4)
+	elif _pick_idle > PICK_IDLE:
+		_pick_meter -= PICK_DECAY * dt
+	_pick_meter = clampf(_pick_meter, 0.0, 1.0)
+	var bar := "▮".repeat(roundi(_pick_meter * 10.0)) + "▯".repeat(10 - roundi(_pick_meter * 10.0))
+	_hint.text = "Poimitaan %s %s   %s   (W/S lopettaa)" % [goods, bar, "[D] ylös" if _pick_down else "[A] kyykkyyn"]
+	if _pick_meter >= 1.0:
+		_pick_done()
+
+
+func _pick_done() -> void:
+	var liters: int = mini(world.FORAGE_KINDS[_pick_spot.kind].liters, BUCKET_MAX - _bucket_total())
+	bucket[_pick_spot.kind] = bucket.get(_pick_spot.kind, 0) + liters
+	_pick_spot.taken = true
+	_pick_spot.node.visible = false
+	_show_message("+%d l %s ämpäriin" % [liters, GOODS[_pick_spot.kind].name], 2.0)
+	Sfx.play("pickup", -4.0, 1.2)
+	if not (_pick_spot.kind in BERRIES):
+		_grunt()  # nousee ylös sienen kanssa
+	_stop_picking()
+
+
+## Poiminta loppuu. restore = palauta ohjaus (ei, jos tappelu tai uusi päivä hoitaa sen).
+func _stop_picking(restore := true) -> void:
+	_pick_t = -1.0
+	walker_out.pose = ""
+	if _pick_locked and restore:
+		walker_out.controls_enabled = true
+	_pick_locked = false
 
 
 ## Arto ostaa marjat ja kertoo paikat, Pekka ostaa sienet ja kehuu kyyhkysaaliitaan.
@@ -892,7 +986,7 @@ func _start_fight(foe_key: String, source: String, direction: Vector3) -> void:
 		return
 	_fight_source = source
 	_grill_t = -1.0
-	_pick_t = -1.0
+	_stop_picking(false)
 	_fight_prev = state
 	_fight_dir = direction
 	state = "fight"
@@ -1152,7 +1246,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	fire_lit = false
 	sausage_done = false
 	_grill_t = -1.0
-	_pick_t = -1.0
+	_stop_picking(false)
 	world.fire.visible = false
 	if world.kota != null:
 		world.kota.set_fire(false)
@@ -1743,6 +1837,58 @@ func _maybe_screenshot() -> void:
 		"tractor":
 			player.position = M.w(Vector2(352, 745)) + Vector3(0, 0.3, 0)
 			player.rotation.y = PI / 2.0
+		"picktest":
+			# Puolukan poiminta: rauhallinen A/D-tahti, sitten räpellys ja pelkkä A. Tallennus palautetaan lopuksi.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			if player != walker_out:
+				_toggle_mount()
+			var tries := [["tahti 0,25 s", 15], ["räpellys joka ruutu", 1], ["vain A", 15]]
+			for tr in tries:
+				var berry: Dictionary = {}
+				for f in world.forage:
+					if not f.taken and f.kind in BERRIES:
+						berry = f
+						break
+				walker_out.global_position = berry.pos + Vector3(0.8, 0.5, 0)
+				walker_out.stamina = 100.0
+				walker_out.exhausted = false
+				for i in 20:
+					await get_tree().physics_frame
+				Input.action_press("interact")
+				for w in 2:
+					await get_tree().process_frame
+				Input.action_release("interact")
+				var t0 := Time.get_ticks_msec()
+				var key := "left"
+				for n in 400:
+					if _pick_t < 0.0:
+						break
+					Input.action_press(key)
+					for w in 2:
+						await get_tree().process_frame
+					Input.action_release(key)
+					if tr[0] != "vain A":
+						key = "right" if key == "left" else "left"
+					for w in tr[1]:
+						await get_tree().process_frame
+				print("PICK %s: valmis=%s aika=%.1f s mittari=%.2f kunto=%.0f ämpäri=%s ohjaus=%s" % [tr[0], _pick_t < 0.0,
+					(Time.get_ticks_msec() - t0) / 1000.0, _pick_meter, walker_out.stamina, bucket, walker_out.controls_enabled])
+				_stop_picking()
+			# Sieni: pelkkä odotus, ähkäisy kumartuessa ja noustessa.
+			for f in world.forage:
+				if not f.taken and not (f.kind in BERRIES):
+					walker_out.global_position = f.pos + Vector3(0.8, 0.5, 0)
+					break
+			for i in 20:
+				await get_tree().physics_frame
+			Input.action_press("interact")
+			for w in 2:
+				await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().create_timer(PICK_TIME + 0.5).timeout
+			print("PICK sieni: valmis=%s ämpäri=%s" % [_pick_t < 0.0, bucket])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"shoptest":
 			_toggle_mount()
 			walker_out.global_position = shop_zone + Vector3(1.5, 0.5, 0)

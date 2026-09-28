@@ -22,6 +22,7 @@
 | register_*.ogg | Kenney "Casino Audio" – https://kenney.nl/assets/casino-audio |
 | swish_*.wav | "Swishes sound pack" – https://opengameart.org/content/swishes-sound-pack |
 | wind.ogg | "Wind whoosh loop" – https://opengameart.org/content/wind-whoosh-loop |
+| grunt_0–2.wav, groan_0–1.wav | "Male Grunt/Yelling sounds" (HaelDB, CC0) – https://opengameart.org/content/male-gruntyelling-sounds (leikattu) |
 | horn.wav | "Car signal" – https://opengameart.org/content/car-signal |
 | fart_0–2.wav | "Gastric Distress" (LFA) – https://opengameart.org/content/gastric-distress (leikattu) |
 
