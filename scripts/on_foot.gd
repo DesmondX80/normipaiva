@@ -18,6 +18,8 @@ var speed := 0.0
 ## Kestävyys: juoksu kuluttaa, kävely ja seisominen palauttavat. Tyhjänä ei voi juosta ennen kuin palautuu.
 var stamina := 100.0
 var exhausted := false
+## Asento paikallaan seistessä (esim. marjojen poiminnan kyykky); tyhjä = tavallinen seisominen.
+var pose := ""
 var _breath_t := 0.0
 
 var _body: Node3D
@@ -126,7 +128,7 @@ func _physics_process(delta: float) -> void:
 
 	var s := absf(speed)
 	if s < 0.2:
-		_body.play("Idle", 0.25)
+		_body.play(pose if pose != "" else "Idle", 0.12 if pose != "" else 0.25)
 	elif s < 2.8:
 		_body.play("Walk", 0.2, signf(speed) * s / 1.4)
 	else:
