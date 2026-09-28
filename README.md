@@ -15,6 +15,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   marjoja, ja pitkä kyykkiminen käy selkään (kunto): ähinä tihenee, ja lopulta pitää pitää tauko. W/S lopettaa poiminnan.
 - **Kaljajemma:** onnistuneen kotiinpaluun saalis piilotetaan jemmaan, joka säilyy pelikerrasta toiseen.
   Jos jemma kasvaa isoksi, Päivi saattaa löytää sen...
+- **Taksi Raahen baariin:** K-Marketin taksitolpalla odottaa taksi (14 € meno-paluu, jalan E). Raahen
+  baarissa terästehtaan Tero haastaa kädenvääntöön, ja häviäjä tarjoaa kierroksen (6 €). Reissu kasvattaa
+  mielihyvää ja voitto mainetta kovana jätkänä. Kotipihalla odottaa Päivi, eikä seuraavana aamuna tule
+  rahaa kauppaan. Pyörä jää kaupan pihaan.
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
 
@@ -106,6 +110,11 @@ godot --path .
 | Vasen nappi / E | nosta pölkky läjästä, aseta pölkylle, iske |
 | Oikea nappi / Q / rulla | käännä pölkky |
 | F | lopeta hakkuu |
+
+| Kädenväännössä | |
+|---|---|
+| E | tartu Teron kättä |
+| A / D | vuorotellen tasaiseen, reippaaseen tahtiin |
 
 | Tappelussa | |
 |---|---|

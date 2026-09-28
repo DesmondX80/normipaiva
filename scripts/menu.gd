@@ -33,6 +33,9 @@ Hiiri	tähtää (kädet huojuvat, tuuli puuskii)
 Vasen nappi / E	nosta pölkky, aseta pölkylle, iske
 Oikea nappi / Q / rulla	käännä pölkky (tasainen pää alas)
 F	lopeta hakkuu
+KÄDENVÄÄNTÖ (Raahen baarissa)
+E	tartu kättä
+A / D	vuorotellen tasaiseen, reippaaseen tahtiin
 TAPPELU
 A / D, W, S	liiku, hyppää, torju
 J / K	lyönti / potku
