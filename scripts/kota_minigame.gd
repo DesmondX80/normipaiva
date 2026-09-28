@@ -69,6 +69,10 @@ func _ready() -> void:
 	_saved["camctl"] = [CamCtl.yaw, CamCtl.pitch]
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_start()
+	# HUD ei saa napata hiirtä: lukittuna kursori on ruudun keskellä tähtäimen päällä, ja
+	# ColorRect/ProgressBar söisivät klikkaukset ja liikkeet ennen _unhandled_inputia.
+	for c in _layer.find_children("*", "Control", true, false):
+		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_update_camera(0.0)
 
 

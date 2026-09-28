@@ -80,6 +80,7 @@ var _log_pos := Vector3.ZERO
 var _cracks := 0
 var _swing_t := -1.0
 var _swing_hit := false
+var _swing_hold := 0.55  # kuinka kauan kirves on alhaalla iskun jälkeen (kiinni jäädessä pidempään)
 var _axe_vm: Node3D
 var _pile: Node3D
 var _idle_t := 0.0
@@ -264,7 +265,7 @@ func _tick(delta: float) -> void:
 
 
 func _can_quit() -> bool:
-	return _phase != "swing"
+	return true
 
 
 func _gust_comment_ok() -> bool:
@@ -296,6 +297,7 @@ func _action() -> void:
 		"chop":
 			_swing_t = 0.0
 			_swing_hit = false
+			_swing_hold = 0.55
 			_phase = "swing"
 			_idle_t = 0.0
 			Sfx.play("whoosh", -4.0, randf_range(0.7, 0.85))
@@ -414,7 +416,7 @@ func _update_swing(delta: float) -> void:
 	_swing_t += delta
 	const UP_T := 0.24
 	const DOWN_T := 0.1
-	var hold := 0.55
+	var hold := _swing_hold
 	if _swing_t < UP_T:
 		_pose_axe(ease(_swing_t / UP_T, 0.6))
 	elif _swing_t < UP_T + DOWN_T:
@@ -453,7 +455,7 @@ func _resolve_hit() -> void:
 		_split(d < PERFECT_R, _cracks >= 1 and d >= CLEAN_R)
 	elif d < STUCK_R:
 		_cracks += 1
-		_swing_t -= 0.35  # kirves jää hetkeksi kiinni
+		_swing_hold = 0.9  # kirves jää hetkeksi kiinni
 		_say_kind("stuck")
 	else:
 		# Syrjäisku: pölkky lentää pölliltä, nostetaan uudestaan.

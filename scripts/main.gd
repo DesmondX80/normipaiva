@@ -1600,6 +1600,84 @@ func _maybe_screenshot() -> void:
 			print("KGRID local x -16..24 (step 2), z -16..16 (top = -z = door side)")
 			for r in rows:
 				print("KGRID ", r)
+		"minimouse":
+			# Oikeat hiiritapahtumat minipeleille: liike kääntää tähtäystä, vasen nappi toimii, sahan veto.
+			_toggle_mount()
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			var send := func(ev: InputEvent) -> void:
+				Input.parse_input_event(ev)
+				await get_tree().process_frame
+				await get_tree().process_frame
+			kota_polkyt = 1
+			_start_chop()
+			await get_tree().process_frame
+			var cg: Node3D = world.kota.get_children().filter(func(c): return c is ChopGame)[0]
+			cg._gust_next = 999.0
+			var y0: float = cg._yaw
+			var mm := InputEventMouseMotion.new()
+			mm.relative = Vector2(-120, 0)
+			mm.position = get_viewport().get_visible_rect().size / 2.0
+			await send.call(mm)
+			print("MOUSE chop yaw ", y0, " -> ", cg._yaw, " mouse_mode=", Input.mouse_mode)
+			var want: Vector2 = cg._aim_to(ChopGame.PILE + Vector3(0, 0.18, 0))
+			cg._yaw = want.x
+			cg._pitch = want.y
+			await get_tree().process_frame
+			var click := InputEventMouseButton.new()
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = true
+			click.position = mm.position
+			await send.call(click)
+			var up := click.duplicate()
+			up.pressed = false
+			await send.call(up)
+			print("MOUSE chop after click phase=", cg._phase)
+			# Aseta oikein päin keskelle ja iske vähän sivuun: kirves jää kiinni, peli ei saa jumittua.
+			if not cg._flat_down:
+				cg._alt_action()
+			want = cg._aim_to(Vector3(0, ChopGame.BLOCK_TOP, 0))
+			cg._yaw = want.x
+			cg._pitch = want.y
+			for i in 3:
+				await get_tree().process_frame
+			await send.call(click)
+			await send.call(up)
+			for i in 60:
+				await get_tree().process_frame
+				if cg._phase == "chop":
+					break
+			want = cg._aim_to(cg._log_pos + Vector3(0.08, ChopGame.LOG_L, 0))
+			cg._yaw = want.x
+			cg._pitch = want.y
+			await get_tree().process_frame
+			await send.call(click)
+			await send.call(up)
+			for i in 400:
+				await get_tree().process_frame
+				if cg._phase == "chop" and cg._swing_t < 0.0:
+					break
+			print("MOUSE chop stuck hit -> phase=", cg._phase, " swing_t=", cg._swing_t, " cracks=", cg._cracks, " sub=", cg._sub.text)
+			cg._quit()
+			await get_tree().process_frame
+			_start_saw()
+			await get_tree().process_frame
+			var sg: Node3D = world.kota.get_children().filter(func(c): return c is SawGame)[0]
+			sg._gust_next = 999.0
+			var a3: Vector2 = sg._aim_to(Vector3(0, SawGame.LOG_Y + SawGame.R, SawGame.END_Z - 0.36))
+			sg._yaw = a3.x
+			sg._pitch = a3.y
+			await get_tree().process_frame
+			await send.call(click)
+			await send.call(up)
+			print("MOUSE saw after click phase=", sg._phase)
+			var s0: float = sg._s
+			var mv := InputEventMouseMotion.new()
+			mv.relative = Vector2(0, -40)
+			mv.position = mm.position
+			await send.call(mv)
+			print("MOUSE saw stroke s ", s0, " -> ", sg._s, " depth=", sg._depth)
+			sg._quit()
+			await get_tree().process_frame
 		"kotaplay":
 			# Koko ketju: sahaa, pilko, sytytä, kuuntele tarina. Tulostaa tilat.
 			_toggle_mount()
