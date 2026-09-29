@@ -207,6 +207,15 @@ const LAWN_NAG_PAIVI := ["Se nurmikko ei leikkaa itseään!", "Takapiha näyttä
 	"Leikkaa nyt se nurmikko ennen kuin lähet mihinkään!"]
 const LAWN_NAG_ANNALIISA := ["Teillä on siellä kohta ihan heinäpelto!", "Siilit on muuttanu teidän nurmikolle asumaan.",
 	"Meillä leikataan nurmikko joka lauantai, niin sitä vaan."]
+## Pannu-Sulon pontikkakanisteri metsästä: vastaa kotijemmassa 24 kaljaa. Yksi kanisteri päivässä.
+const KANISTER_BEERS := 24
+const KANISTER_PRICE := 20.0
+const SULO_LINES := ["Ei kuulu kellekään, mitä täällä tehdään.", "Kakskymppiä kanisteri, ja suu suppuun.",
+	"Sokeria, hiivaa ja kärsivällisyyttä. Siinä se resepti.", "Ootko sää poliisi? Et näytä poliisilta.",
+	"Tää on vanhan ajan tavaraa, ei mitään Alkon litkua.", "Kuka sulle tästä paikasta kerto? Raimo, vai?"]
+var sulo: CharacterBody3D
+var has_kanister := false
+var _sulo_sold := false  # tämän päivän kanisteri on jo myyty
 var lawn: Node3D
 var police: CharacterBody3D
 var mowing := false
@@ -382,6 +391,7 @@ func _outside_logic() -> void:
 	_stash_logic()
 	_forage_logic()
 	_neighbor_logic()
+	_pontikka_logic()
 	_taxi_logic()
 	if dist >= ZONE_RADIUS:
 		return
@@ -789,6 +799,31 @@ func _lawn_nag() -> String:
 	if avg >= 0.5:
 		s += "\nAnna-Liisa aidan takaa: \"%s\"" % LAWN_NAG_ANNALIISA.pick_random()
 	return s
+
+
+## Pannu-Sulo myy metsässä pontikkakanisterin (vastaa 24 kaljaa). Kanisterin kanssa suunta on kotiin.
+func _pontikka_logic() -> void:
+	if _hint.text != "" or sulo.distance_to_player() > 4.2:
+		return
+	if player == bike:
+		_hint.text = "Nouse pyörän selästä (F), niin voit jutella Sulon kanssa."
+		return
+	if has_kanister or _sulo_sold:
+		_hint.text = "Sulo: \"Tänään ei oo enempää. Tuu huomenna.\""
+		return
+	if money < KANISTER_PRICE:
+		_hint.text = "Sulo myy pontikkakanisterin %s eurolla. Rahat ei riitä." % _eur(KANISTER_PRICE)
+		return
+	_hint.text = "[E] Osta pontikkakanisteri (%s €, = %d kaljaa)" % [_eur(KANISTER_PRICE), KANISTER_BEERS]
+	if Input.is_action_just_pressed("interact") and not player.is_stunned():
+		money -= KANISTER_PRICE
+		has_kanister = true
+		_sulo_sold = true
+		walker_out.set_kanister(true)
+		state = "to_home"
+		sulo.say("Kakskymppiä ja suu suppuun. Ja kanisteri takasin, kun on tyhjä.")
+		Sfx.play("coin", -4.0)
+		_show_message("Pontikkakanisteri mukana, vastaa %d kaljaa!\nVie se kotiin jemmaan." % KANISTER_BEERS, 3.5)
 
 
 ## K-Marketin taksitolpan taksi: jalan E vie Raahen baariin, jos rahaa on taksiin.
@@ -1284,7 +1319,7 @@ func _on_fight_finished(won: bool, bags_used: int) -> void:
 				_lose("%s vei rahat. Kuutoseen ei enää riitä." % foe, _fight_source if _fight_source == "juntti" else "default")
 				return
 	player.set_carrying(beers > 0)
-	if state == "to_home" and beers <= 0:
+	if state == "to_home" and beers <= 0 and not has_kanister:
 		_lose("Kaikki kaljat rikki. Kotiin ei kannata mennä tyhjin käsin.", "juntti")
 
 
@@ -1323,8 +1358,13 @@ func _win() -> void:
 	state = "cutscene"
 	player.controls_enabled = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
-	var brought := beers
-	var where := _deposit_home(beers)
+	var kanister := KANISTER_BEERS if has_kanister else 0
+	var brought := beers + kanister
+	var where := _deposit_home(brought)
+	if kanister > 0:
+		where += " (pontikkakanisteri = %d kaljaa)" % kanister
+		has_kanister = false
+		walker_out.set_kanister(false)
 	jemma_wins += 1
 	jemma_best = maxi(jemma_best, jemma)
 	beers = 0
@@ -1337,7 +1377,8 @@ func _win() -> void:
 		jemma = 0  # onnellinen loppu juo kotijemman tyhjäksi
 		jemma_endings += 1
 		_save_game()
-		var stats := "Jemmassa oli %d olutta – juhlan paikka!  ·  Onnellisia loppuja: %d" % [had, jemma_endings]
+		var stats := "Jemmassa oli %d olutta%s – juhlan paikka!  ·  Onnellisia loppuja: %d" % [had,
+			" (pontikka mukaan luettuna)" if kanister > 0 else "", jemma_endings]
 		cutscene.garage("KARBURAATTORIA SÄÄTÄMÄSSÄ", stats, func() -> void: _new_day(home_zone + Vector3(0, 0, 4), false))
 		return
 	Sfx.play("win_small")
@@ -1504,6 +1545,9 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	day += 1
 	# Pyörä jää sinne, minne se jäi; päivä alkaa jalan turvapaikasta.
 	beers = 0
+	has_kanister = false
+	_sulo_sold = false
+	walker_out.set_kanister(false)
 	bike.set_carrying(false)
 	_place_on_foot(spawn + Vector3(0, 0.3, 0))
 	walker_out.rotation.y = 0.0
@@ -1719,7 +1763,7 @@ func _spawn_player() -> void:
 func _set_avatar(a: CharacterBody3D) -> void:
 	player = a
 	world.follow = a
-	for h in [wife, juntti, guard, tractor, arto, pekka, police]:
+	for h in [wife, juntti, guard, tractor, arto, pekka, sulo, police]:
 		if is_instance_valid(h):
 			h.target = a
 	_minimap.player = a
@@ -1767,6 +1811,7 @@ func _spawn_hazards() -> void:
 	_spawn_threats()
 	arto = _villager("Naapurin Arto", Looks.ARTO, ARTO_LINES, "arto", M.ARTO_POS)
 	pekka = _villager("Naapurin Pekka", Looks.PEKKA, PEKKA_LINES, "pekka", M.PEKKA_POS)
+	sulo = _villager("Pannu-Sulo", Looks.SULO, SULO_LINES, "sulo", M.PONTIKKA + Vector2(-2.2, -1.2))
 
 
 ## Päivi, juntti, laavun valtaajat ja jyväjemmari (luodaan uudelleen joka päivä).
@@ -1951,6 +1996,8 @@ func _update_hud() -> void:
 		inv.append("suklaalevy")
 	if has_mower_part:
 		inv.append("leikkurin varaosa")
+	if has_kanister:
+		inv.append("pontikkakanisteri (= %d kaljaa)" % KANISTER_BEERS)
 	if kota_polkyt > 0:
 		inv.append("pölkkyjä %d" % kota_polkyt)
 	if kota_halot > 0:
@@ -2943,6 +2990,59 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 		"shopfront":
 			player.position = shop_zone + Vector3(0, 0.3, 14)
+		"pontikka":
+			# Pannu-Sulo: kuva paikasta, kanisterin osto ja kotiinpaluu. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			_toggle_mount()
+			var sp := sulo.global_position
+			walker_out.global_position = sp + Vector3(2.0, 0.5, 2.5)
+			walker_out.look_at(Vector3(sp.x, walker_out.global_position.y, sp.z))
+			for i in 30:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("PONTIKKA hint=", _hint.text, " money=", _eur(money))
+			var tc := Camera3D.new()
+			add_child(tc)
+			var still := M.w(M.PONTIKKA)
+			tc.global_position = still + Vector3(4.5, 2.6, 5.0)
+			tc.look_at(still + Vector3(-0.6, 0.6, 0), Vector3.UP)
+			tc.current = true
+			_msg.text = ""
+			for i in 5:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_still.png"))
+			tc.queue_free()
+			walker_out.activate_camera()
+			await get_tree().process_frame
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().process_frame
+			print("BUY kanister=%s state=%s money=%s hint=%s" % [has_kanister, state, _eur(money), _hint.text])
+			for i in 60:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_carry.png"))
+			var cc := Camera3D.new()
+			add_child(cc)
+			var wp := walker_out.global_position
+			cc.global_position = wp + walker_out.global_transform.basis * Vector3(-1.6, 0.9, -1.2)
+			cc.look_at(wp + Vector3(0, 0.7, 0), Vector3.UP)
+			cc.current = true
+			_msg.text = ""
+			for i in 5:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_hand.png"))
+			cc.queue_free()
+			jemma = 3
+			_win()
+			print("WIN kanister=%s jemma=%d endings=%d state=%s" % [has_kanister, jemma, jemma_endings, state])
+			for i in 60:
+				await get_tree().process_frame
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"lawnday":
 			# Kasvu, kehu ja motkotus aamulla, varaosa Artolta ja korjaus kaljalla. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
