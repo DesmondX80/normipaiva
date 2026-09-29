@@ -1671,14 +1671,16 @@ func _start_fight(foe_key: String, source: String, direction: Vector3) -> void:
 	fight.start(beers, foe_key)
 
 
-func _on_fight_finished(won: bool, bags_used: int) -> void:
+func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
 	state = _fight_prev
 	_hud.visible = true
 	player.activate_camera()
 	player.controls_enabled = true
 	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
-	beers = maxi(0, beers - bags_used)
+	beers = maxi(0, beers - bags_used - thrown)
 	var note := "\nKassi-iskut rikkoi %d kaljaa." % bags_used if bags_used > 0 else ""
+	if thrown > 0:
+		note += "\nHeitit %d kaljaa vastustajaa päin." % thrown
 	var loser_node: Node3D = {"juntti": juntti, "laavu": guard, "tractor": tractor}[_fight_source]
 	if won:
 		loser_node.defeat()
@@ -3500,6 +3502,38 @@ func _maybe_screenshot() -> void:
 			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
 			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
 			sc.current = true
+		"heitto":
+			# Tappelussa kolme kaljanheittoa (eteen + L), sitten K.O. ja kaljamäärän tarkistus.
+			beers = 6
+			state = "to_home"
+			_start_fight("juntti", "juntti", Vector3.RIGHT)
+			for i in 150:
+				await get_tree().process_frame
+			for k in 3:
+				var hp0: float = fight._j.hp
+				Input.action_press("right")
+				await get_tree().process_frame
+				Input.action_press("special")
+				await get_tree().process_frame
+				Input.action_release("special")
+				Input.action_release("right")
+				for i in 12:
+					await get_tree().process_frame
+				if k == 0:
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_fly.png"))
+				for i in 50:
+					await get_tree().process_frame
+				print("HEITTO %d thrown=%d foe hp %.0f -> %.0f foe_state=%s cans=%d" % [k, fight._thrown, hp0, fight._j.hp,
+					fight._j.state, fight._cans.size()])
+			print("HEITTO help=", fight._help.text.right(40))
+			fight._j.hp = 0.0
+			fight._j.state = "ko"
+			for i in 300:
+				await get_tree().process_frame
+				if state != "fight":
+					break
+			print("HEITTO after fight beers=%d state=%s msg=%s" % [beers, state, _msg.text.replace("\n", " | ")])
 		"mummot":
 			# Pyörällä lujaa penkin ohi: mummot suuttuvat ja heittävät kettukarkkeja. Sitten jalan poimimaan.
 			var hits := [0]
