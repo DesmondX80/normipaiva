@@ -116,6 +116,22 @@ Päivän lopussa lasketaan kolmen tilan summa:
 | Jalkapallo pojille | moraali +0,1…0,5, kokemus +0,4…0,6 ensimmäisellä kerralla, muuten +0,1…0,3 |
 | Kalja pojille / pojan kivi osuu | moraali − / kipu − |
 | Kodan tarina | stressi + |
+| Nuotion tai kodan tulen sytytys | stressi + |
+| Lintujen katselu tornista (kerran päivässä) | vireys +, stressi + |
+| Sahaus ja halkominen (per pölkky) | stamina −, väsymys −, stressi + |
+| Marjojen tai sienten poiminta | väsymys −, stamina −, vireys + |
+| Nurmikon leikkuu (leikatessa) | väsymys −, nälkä − |
+| Siili leikkurin alle | moraali −−, stressi − |
+| Leikkuri hajoaa, teinit vievät pyörän | stressi − |
+| Päivi löytää jemman | stressi −−, moraali − |
+| Suklaa lepyttää Päivin | stressi + |
+| Mummot suuttuvat | moraali − |
+| Tappelun voitto | moraali +, kokemus + (tappelun miinusten päälle) |
+| Kädenvääntö Raahessa: voitto / häviö | moraali + / moraali − |
+| Marjojen tai sienten myynti | moraali + |
+| Mökki: savusauna / poreamme (kerran päivässä) | stressi ++, väsymys ++, kipu +, vireys + / stressi ++, kipu +, stamina + |
+| Mökki: kala laiturilta / tikan täysosuma (kerran päivässä) | moraali +, stressi + / moraali +, keskittyminen + |
+| Mökin piha (paikallaan) | kuten nuotio: stressi ++, vireys + |
 | Poliisilta pakoon | stressi + |
 | WASTED | moraali −−, stressi −− |
 | Ensimmäinen kerta (kauppa, laavu, tarinat, sahaus, halkominen, poiminta, Väinö, nurmikko, pontikka, Raahe, tappelut…) | kokemus + |
