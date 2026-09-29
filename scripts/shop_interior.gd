@@ -293,7 +293,10 @@ func _build_room() -> void:
 	add_child(front)
 	B.box(self, Vector3(24, 0.6, 0.3), Vector3(0, 0.3, 9), wall, false)
 	B.box(self, Vector3(2.4, 0.08, 0.35), Vector3(0, 0.64, 9), orange, false)
-	B.label(self, "ULOS", Vector3(0, 1.2, 8.7), 60, Color(0.2, 1, 0.3), true)
+	# Vihreä poistumistiekyltti tolpassa oven vieressä.
+	var exit := B.sign_plate(B.sign_pole(self, Vector3(1.7, 0, 8.6), 2.0), "ULOS", Color(0.05, 0.55, 0.25), Color.WHITE,
+		0.22, 36, Color.WHITE)
+	exit.position.y = 1.9
 
 	# Hyllyt tuotteineen.
 	var rng := RandomNumberGenerator.new()
@@ -317,7 +320,8 @@ func _build_room() -> void:
 	for x in range(-9, -2):
 		for h in [0.6, 1.2, 1.8]:
 			B.box(self, Vector3(0.7, 0.35, 0.4), Vector3(x + 0.5, h, -8.2), Color(0.95, 0.75, 0.1), false)
-	B.label(self, "OLUET", Vector3(-6, 2.8, -7.8), 90, Color(1, 0.85, 0.2))
+	var beer_sign := B.sign_plate(self, "OLUET", Color(1.0, 0.42, 0.0), Color.WHITE, 0.6, 110, Color.WHITE)
+	beer_sign.position = Vector3(-6, 2.75, -8.8)
 
 	# Grillihylly oven vieressä: makkarapaketit ja tulitikut.
 	B.box(self, Vector3(1.2, 1.0, 2.4), GRILL_SPOT + Vector3(-1.3, 0.5, 0), Color(0.85, 0.88, 0.9))
@@ -332,8 +336,10 @@ func _build_room() -> void:
 	for i in 8:
 		var wrap: Color = [Color(0.1, 0.25, 0.7), Color(0.45, 0.15, 0.5), Color(0.75, 0.1, 0.12)][i % 3]
 		B.box(self, Vector3(0.2, 0.03, 0.1), CANDY_SPOT + Vector3(-0.33 + (i % 4) * 0.22, 1.13, 1.08 + (i / 4) * 0.14), wrap, false)
-	var grill_sign := B.label(self, "GRILLI", GRILL_SPOT + Vector3(-1.3, 2.0, 0), 70, Color(1, 0.5, 0.3), true)
-	grill_sign.no_depth_test = false
+	# Hyllynreunakyltti grillihyllyn päällä, käytävän puolelle päin.
+	var grill_sign := B.sign_plate(self, "GRILLI", Color(0.8, 0.15, 0.1), Color.WHITE, 0.2, 36, Color.WHITE)
+	grill_sign.position = GRILL_SPOT + Vector3(-1.3, 1.3, 0)
+	grill_sign.rotation.y = PI / 2.0
 
 	for p in [Vector3(-8, 3.2, -3), Vector3(0, 3.2, -3), Vector3(8, 3.2, 3), Vector3(-6, 3.2, 5)]:
 		var l := OmniLight3D.new()
@@ -347,7 +353,12 @@ func _build_checkout() -> void:
 	B.box(self, Vector3(1.0, 1.0, 2.6), Vector3(9, 0.5, 5.2), Color(0.3, 0.3, 0.32))
 	B.box(self, Vector3(1.04, 0.06, 2.64), Vector3(9, 1.02, 5.2), Color(1.0, 0.42, 0.0), false)
 	B.box(self, Vector3(0.4, 0.3, 0.4), Vector3(9, 1.2, 6.0), Color(0.1, 0.1, 0.1), false)
-	B.label(self, "KASSA", Vector3(9.6, 3.2, 6.2), 64, Color.WHITE, true)
+	# Kassakyltti roikkuu tiskin yllä.
+	var till_sign := B.sign_plate(self, "KASSA", Color(1.0, 0.42, 0.0), Color.WHITE, 0.4, 70, Color.WHITE)
+	till_sign.position = Vector3(9, 2.7, 5.2)
+	till_sign.rotation.y = PI / 2.0
+	for dz in [-0.3, 0.3]:
+		B.mesh(self, B.cyl(0.008, 0.008, 0.8, 4), Vector3(9, 3.1, 5.2 + dz), Color(0.3, 0.3, 0.3))
 	_cashier = Looks.make(self, Looks.CASHIER)
 	_cashier.position = Vector3(10.2, 0, 5.2)
 	_cashier.rotation.y = B.yaw_to(Vector3(-1, 0, 0))
@@ -366,5 +377,5 @@ func _grandpa(pos: Vector3, i: int) -> Node3D:
 	Looks.hunch(g, 0.4)
 	g.position = pos
 	g.rotation.y = B.yaw_to(Vector3(0, 0, 1))
-	B.label(g, "Harmaapää", Vector3(0, 2.05, 0), 36, Color(0.85, 0.85, 0.85), true)
+	B.guide(g, "Harmaapää", Vector3(0, 2.05, 0), 36, Color(0.85, 0.85, 0.85), true)
 	return g

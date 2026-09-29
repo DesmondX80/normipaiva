@@ -45,7 +45,7 @@ func _ready() -> void:
 	add_child(B.capsule_shape(0.35, 1.8))
 	# Musta verkkari, valkoiset raidat, vaalea hiuspehko.
 	_body = Looks.make(self, Looks.JUNTTI)
-	_label = B.label(self, "Paikallinen juntti", Vector3(0, 2.25, 0), 40, Color(1, 0.9, 0.6), true)
+	_label = B.guide(self, "Paikallinen juntti", Vector3(0, 2.25, 0), 40, Color(1, 0.9, 0.6), true)
 	_bubble = B.label(self, "", Vector3(0, 2.7, 0), 56, Color.WHITE, true)
 	home_pos = position
 
@@ -153,6 +153,6 @@ func _face(dir: Vector3) -> void:
 
 
 func _say(text: String) -> void:
-	_bubble.text = text
+	_bubble.text = "Juntti: " + text if text != "" else ""
 	_bubble_t = 2.2
 	Sfx.babble(self, "juntti", text)

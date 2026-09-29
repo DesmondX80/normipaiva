@@ -104,7 +104,7 @@ func _wrestle(delta: float) -> void:
 	_talk_t -= delta
 	if _talk_t <= 0.0:
 		_talk_t = randf_range(2.5, 4.0)
-		_bubble.text = TERO_LINES.pick_random()
+		_bubble.text = "Tero: " + (TERO_LINES.pick_random())
 	elif _talk_t < 1.2:
 		_bubble.text = ""
 	if absf(_angle) >= 1.0 or _t >= TIME:
@@ -120,7 +120,7 @@ func _finish() -> void:
 	_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2) if won else Color(0.85, 0.08, 0.08))
 	_title.text = "VOITIT!" if won else "HÄVISIT!"
 	_info.text = "Tero tarjoaa kierroksen." if won else "Sinä tarjoat kierroksen."
-	_bubble.text = "Perkele, sää oot vahva! Mää tarjoan." if won else "Heh. Sää tarjoot."
+	_bubble.text = "Tero: " + ("Perkele, sää oot vahva! Mää tarjoan." if won else "Heh. Sää tarjoot.")
 	_tero.play("Sitting_Talking", 0.2)
 
 

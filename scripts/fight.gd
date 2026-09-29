@@ -602,7 +602,7 @@ func _build_stage() -> void:
 		person.play("Idle_Talking" if c[0] != Looks.ANNA_LIISA else "Idle", 0.0)
 		if c[0] != Looks.ANNA_LIISA:
 			Looks.hunch(person, 0.3)
-	var annaliisa := B.label(self, "Naapurin Anna-Liisa", Vector3(3.8, 2.1, -5.5), 32, Color(0.8, 1, 0.95), true)
+	var annaliisa := B.guide(self, "Naapurin Anna-Liisa", Vector3(3.8, 2.1, -5.5), 32, Color(0.8, 1, 0.95), true)
 	annaliisa.no_depth_test = false
 
 

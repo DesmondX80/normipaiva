@@ -228,7 +228,7 @@ func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Cal
 	elif choco == "fail":
 		lines = [CHOCO_FAIL_LINE] + lines
 	for line in lines:
-		bubble.text = line
+		bubble.text = "Päivi: " + line
 		await _wait(1.7)
 	await _end(done)
 
@@ -281,13 +281,13 @@ func jemma_found(home: Vector3, lost: int, left: int, done: Callable, choco := "
 	if choco != "":
 		_give_chocolate(hero)
 	for line in FOUND_LINES.slice(0, 2):
-		bubble.text = line
+		bubble.text = "Päivi: " + line
 		await _wait(1.6)
 	if choco == "ok":
-		bubble.text = "...No. Kaadan vaan osan."
+		bubble.text = "Päivi: ...No. Kaadan vaan osan."
 		await _wait(1.6)
 	elif choco == "fail":
-		bubble.text = CHOCO_FAIL_LINE
+		bubble.text = "Päivi: " + CHOCO_FAIL_LINE
 		await _wait(1.6)
 	# WASTED-tyyli: harmaaksi ja iso punainen teksti.
 	Sfx.play("glass", 0.0)
@@ -302,9 +302,9 @@ func jemma_found(home: Vector3, lost: int, left: int, done: Callable, choco := "
 	_title.scale = Vector2.ONE * 1.4
 	_tween().tween_property(_title, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK)
 	_sub.text = "Päivi kaatoi %d kaljaa viemäriin. Jemmaan jäi %d." % [lost, left]
-	bubble.text = FOUND_LINES[2]
+	bubble.text = "Päivi: " + FOUND_LINES[2]
 	await _wait(2.2)
-	bubble.text = FOUND_LINES[3]
+	bubble.text = "Päivi: " + FOUND_LINES[3]
 	await _wait(1.8)
 	_title.add_theme_font_size_override("font_size", 150)
 	await _end(done)
@@ -573,4 +573,4 @@ func _build_garage() -> void:
 	bulb.shadow_enabled = true
 	g.add_child(bulb)
 	B.mesh(g, B.sphere(0.08, 8), Vector3(0, 2.8, -0.5), Color(1, 0.95, 0.8))
-	B.label(g, "Radio: Iskelmä", Vector3(-2.8, 1.25, -3.3), 30, Color(1, 1, 0.8), true)
+	B.guide(g, "Radio: Iskelmä", Vector3(-2.8, 1.25, -3.3), 30, Color(1, 1, 0.8), true)
