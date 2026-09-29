@@ -20,6 +20,7 @@ const CALM_LINES := ["Kattokaa ny tuota.", "Ennen oli kaikki paremmin.", "Kallis
 
 signal hit(direction: Vector3)
 signal candy_picked
+signal angered  # mummot suuttuivat (main.gd: moraali laskee)
 
 var target: Node3D
 var anger_speed := ANGER_SPEED  # päivän tilat (#18) säätävät herkkyyttä
@@ -56,6 +57,7 @@ func _ready() -> void:
 ## Kello tai muu kiusanteko: suuttuvat varmasti.
 func anger() -> void:
 	if _angry <= 0.0:
+		angered.emit()
 		for i in 3:
 			_say(i, "Mummo: " + ANGRY_LINES.pick_random())
 			_throw_t[i] = randf_range(0.2, 0.8)
