@@ -66,6 +66,7 @@ const WHITE := Color(0.95, 0.95, 0.92)
 
 var graph_nodes: Array[Vector3] = []
 var graph_adj: Array = []
+var taxi_home_pos: Vector3  # taksipysäkki kotipihalla (ks. main.gd _taxi_logic)
 var home_zone: Vector3
 var shop_zone: Vector3
 var taxi_pos: Vector3  # K-Marketin taksitolpalla odottava taksi
@@ -906,6 +907,15 @@ func _build_home() -> void:
 	for car in [[Vector3(-2.5, 0, fz - 4.0), Color(0.15, 0.35, 0.75)], [Vector3(2.2, 0, fz - 4.0), Color(0.45, 0.08, 0.12)]]:
 		var cp: Vector3 = xf * car[0]
 		B.parked_car(self, cp, rad_to_deg(body.rotation.y), car[1])
+	# Taksipysäkki kotipihan reunalla (ks. main.gd _taxi_logic: taksi mökille 20 €).
+	var taxi_yellow := Color(0.96, 0.78, 0.08)
+	var taxi_sign := B.sign_pole(self, xf * Vector3(8.5, 0, fz - 1.8), 2.4)
+	var taxi_plate := B.sign_plate(taxi_sign, "TAKSI", taxi_yellow, Color(0.05, 0.05, 0.05), 0.26, 40,
+		Color(0.05, 0.05, 0.05), "Helvetica Neue")
+	taxi_plate.position.y = 2.1
+	taxi_plate.rotation.y = body.rotation.y
+	B.parked_car(self, xf * Vector3(8.5, 0, fz - 3.4), rad_to_deg(body.rotation.y), taxi_yellow)
+	taxi_home_pos = xf * Vector3(8.5, 0, fz - 2.4)
 	# Tumma havupensasaita (tuija/kataja) kadun puolella.
 	for seg in [[-l / 2.0, -4.5], [5.0, l / 2.0]]:
 		var hl: float = seg[1] - seg[0]

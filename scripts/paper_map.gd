@@ -5,18 +5,22 @@ extends Control
 ## merkkiin), klikkaus kohteen päälle tai oikea nappi poistaa sen.
 
 const M := preload("res://scripts/map_data.gd")
+const Mokki := preload("res://scripts/mokki.gd")
 
 const MAP_W := 600.0
 const INK := Color(0.22, 0.16, 0.1)
 const PAPER := Color(0.93, 0.88, 0.74)
+const MOKKI_RANGE := 65.0  # metriä keskeltä mökin kartan reunaan
 
 var world: Node3D
 var player: Node3D
 var bike: Node3D
 var game: Node  # main.gd: stash_markers()
+var mokki: Node3D
 
 var _view: Control
 var _k := MAP_W / (M.SIZE.x * M.SCALE)
+var _k_m := MAP_W / (MOKKI_RANGE * 2.0)
 var _scroll := 0.0
 var _paper_tex: ImageTexture
 var _tree_pts: PackedVector2Array = []
@@ -25,6 +29,7 @@ var has_target := false
 var target := Vector2.ZERO
 
 const SNAP_PX := 14.0
+var _in_mokki := false  # avattaessa: ollaanko mökin taskussa -> näytä lähikartta kyläkartan sijaan
 
 
 func _ready() -> void:
@@ -68,20 +73,26 @@ func toggle() -> void:
 		# Koko lasketaan aina avattaessa: resized-signaali ei välttämättä tullut oikeaan aikaan.
 		size = get_viewport_rect().size
 		_layout()
-		if _tree_pts.is_empty() and world != null:
-			for i in range(0, world._trees.size(), 7):
-				var t: Array = world._trees[i]
-				if t[3]:
-					_tree_pts.append(t[0])
-		# Keskitetään pelaajaan.
-		var p := _to_map(player.global_position)
-		_scroll = clampf(p.y - _view.size.y / 2.0, 0.0, _max_scroll())
+		_in_mokki = mokki != null and player.global_position.distance_to(mokki.global_position) < 300.0
+		if _in_mokki:
+			_scroll = 0.0
+		else:
+			if _tree_pts.is_empty() and world != null:
+				for i in range(0, world._trees.size(), 7):
+					var t: Array = world._trees[i]
+					if t[3]:
+						_tree_pts.append(t[0])
+			# Keskitetään pelaajaan.
+			var p := _to_map(player.global_position)
+			_scroll = clampf(p.y - _view.size.y / 2.0, 0.0, _max_scroll())
 		Sfx.play("whoosh", -8.0, 1.6)
 	queue_redraw()
 	_view.queue_redraw()
 
 
 func _max_scroll() -> float:
+	if _in_mokki:
+		return 0.0
 	return maxf(0.0, M.SIZE.y * M.SCALE * _k - _view.size.y)
 
 
@@ -175,6 +186,19 @@ func _pts(arr: Array) -> PackedVector2Array:
 	return out
 
 
+## Mökin paikallinen koordinaatti (metrit mökin origosta) näkymän pikseleiksi, Mokki.YARD_CENTER keskellä.
+func _pxl(local: Vector2) -> Vector2:
+	return (local - Mokki.YARD_CENTER) * _k_m + _view.size / 2.0
+
+
+func _ellipse_on(ci: CanvasItem, local_center: Vector2, rx: float, rz: float, col: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in 32:
+		var a := TAU * i / 32
+		pts.append(_pxl(local_center + Vector2(cos(a) * rx, sin(a) * rz)))
+	ci.draw_colored_polygon(pts, col)
+
+
 # --- Paperi ja kehys ---------------------------------------------------------
 
 func _make_paper() -> ImageTexture:
@@ -214,15 +238,24 @@ func _draw() -> void:
 	draw_rect(mv.grow(5), INK, false, 1.0)
 
 	var font := ThemeDB.fallback_font
-	draw_string(font, r.position + Vector2(40, 46), "SALOINEN · RAAHE", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, INK)
-	draw_string(font, r.position + Vector2(40, 68), "Normipäivän maastokartta — Järvikuja 1 ja ympäristö", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK.lightened(0.2))
+	if _in_mokki:
+		draw_string(font, r.position + Vector2(40, 46), "NEITTÄVÄ · MÖKKI PAAPELI", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, INK)
+		draw_string(font, r.position + Vector2(40, 68), "Mökin pihapiiri ja lähiranta", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK.lightened(0.2))
+	else:
+		draw_string(font, r.position + Vector2(40, 46), "SALOINEN · RAAHE", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, INK)
+		draw_string(font, r.position + Vector2(40, 68), "Normipäivän maastokartta — Järvikuja 1 ja ympäristö", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK.lightened(0.2))
 
 	var side := Vector2(_view.position.x + MAP_W + 30, _view.position.y)
 	_compass(side + Vector2(100, 70))
-	_scale_bar(side + Vector2(10, 180))
-	_legend(side + Vector2(10, 232))
-	draw_string(font, Vector2(side.x + 10, r.end.y - 40), "Klikkaa: kompassin kohde", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
-	draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje · W/S vieritä", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
+	if _in_mokki:
+		_scale_bar(side + Vector2(10, 180), 10.0, _k_m)
+		_legend_mokki(side + Vector2(10, 250))
+		draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
+	else:
+		_scale_bar(side + Vector2(10, 180), 100.0, _k)
+		_legend(side + Vector2(10, 250))
+		draw_string(font, Vector2(side.x + 10, r.end.y - 40), "Klikkaa: kompassin kohde", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
+		draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje · W/S vieritä", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 
 
 func _compass(c: Vector2) -> void:
@@ -239,15 +272,15 @@ func _compass(c: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, c + Vector2(-7, -58), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.75, 0.15, 0.1))
 
 
-func _scale_bar(p: Vector2) -> void:
+func _scale_bar(p: Vector2, meters: float, k: float) -> void:
 	var font := ThemeDB.fallback_font
-	var seg := 100.0 * _k  # 100 m
+	var seg := meters * k
 	for i in 2:
 		draw_rect(Rect2(p + Vector2(i * seg, 0), Vector2(seg, 8)), INK if i == 0 else PAPER.darkened(0.05))
 	draw_rect(Rect2(p, Vector2(seg * 2, 8)), INK, false, 1.0)
 	draw_string(font, p + Vector2(-2, 26), "0", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
-	draw_string(font, p + Vector2(seg - 14, 26), "100", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
-	draw_string(font, p + Vector2(seg * 2 - 20, 26), "200 m", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+	draw_string(font, p + Vector2(seg - 14, 26), "%d" % int(meters), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+	draw_string(font, p + Vector2(seg * 2 - 20, 26), "%d m" % int(meters * 2.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
 
 
 func _legend(p: Vector2) -> void:
@@ -300,9 +333,45 @@ func _legend(p: Vector2) -> void:
 		draw_string(font, Vector2(p.x + 36, y + 5), items[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK)
 
 
+func _legend_mokki(p: Vector2) -> void:
+	var font := ThemeDB.fallback_font
+	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
+	var items := [
+		["cottage", "Mökki"], ["sauna", "Savusauna"], ["tub", "Poreamme"], ["dart", "Tikkataulu"],
+		["dock", "Laituri"], ["taxi", "Taksipysäkki"], ["water", "Järvi"], ["you", "Olet tässä"],
+	]
+	for i in items.size():
+		var y := p.y + 22 + i * 24
+		var sym := Vector2(p.x + 14, y)
+		match items[i][0]:
+			"cottage":
+				draw_rect(Rect2(sym - Vector2(12, 7), Vector2(24, 14)), Color(0.85, 0.83, 0.74))
+				draw_rect(Rect2(sym - Vector2(12, 7), Vector2(24, 14)), INK, false, 1.0)
+			"sauna":
+				_house_icon(sym, Color(0.4, 0.22, 0.12))
+			"tub":
+				draw_circle(sym, 6.0, Color(0.2, 0.5, 0.55))
+			"dart":
+				draw_circle(sym, 5.0, Color(0.16, 0.28, 0.14))
+				draw_circle(sym, 2.0, Color(0.85, 0.15, 0.1))
+			"dock":
+				draw_line(sym - Vector2(12, 0), sym + Vector2(12, 0), Color(0.5, 0.38, 0.24), 5.0)
+			"taxi":
+				draw_circle(sym, 7.0, Color(0.96, 0.78, 0.08))
+				draw_string(font, sym + Vector2(-4, 5), "T", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.05, 0.05, 0.05))
+			"water":
+				draw_rect(Rect2(sym - Vector2(12, 7), Vector2(24, 14)), Color(0.55, 0.72, 0.86))
+			"you":
+				_you_icon(sym, 0.0)
+		draw_string(font, Vector2(p.x + 36, y + 5), items[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK)
+
+
 # --- Karttasisältö -----------------------------------------------------------
 
 func _draw_map() -> void:
+	if _in_mokki:
+		_draw_mokki_map()
+		return
 	var v := _view
 	v.draw_rect(Rect2(Vector2.ZERO, v.size), Color(0.95, 0.92, 0.82, 0.55))
 	# Pelialueen ulkopuoli (koillinen): vinoviivoitus ja merkintä, ettei tyhjä kulma näytä virheeltä.
@@ -462,6 +531,58 @@ func _draw_map() -> void:
 	if player != null:
 		var f := -player.global_transform.basis.z
 		_you_icon_on(v, _w2(Vector2(player.global_position.x, player.global_position.z)), atan2(f.z, f.x) + PI / 2.0)
+
+
+## Mökin oma lähikartta: piha, järvi ja rakennukset (ks. mokki.gd:n julkiset _LOCAL/_CENTER-vakiot).
+func _draw_mokki_map() -> void:
+	var v := _view
+	var font := ThemeDB.fallback_font
+	v.draw_rect(Rect2(Vector2.ZERO, v.size), Color(0.86, 0.88, 0.78, 0.55))
+	_ellipse_on(v, Mokki.YARD_CENTER, Mokki.FOREST_R.x, Mokki.FOREST_R.y, Color(0.66, 0.76, 0.52, 0.9))
+	_ellipse_on(v, Mokki.YARD_CENTER, Mokki.YARD_R.x, Mokki.YARD_R.y, Color(0.9, 0.88, 0.74, 0.9))
+	_ellipse_on(v, Mokki.LAKE_CENTER, Mokki.LAKE_R.x, Mokki.LAKE_R.y, Color(0.55, 0.72, 0.86))
+
+	var half := Mokki.COTTAGE_SIZE / 2.0
+	var c := Mokki.COTTAGE_LOCAL
+	var cottage := PackedVector2Array([
+		_pxl(c + Vector2(-half.x, -half.y)), _pxl(c + Vector2(half.x, -half.y)),
+		_pxl(c + Vector2(half.x, half.y)), _pxl(c + Vector2(-half.x, half.y)),
+	])
+	v.draw_colored_polygon(cottage, Color(0.85, 0.83, 0.74))
+	v.draw_polyline(cottage + PackedVector2Array([cottage[0]]), INK, 1.5)
+	v.draw_string(font, _pxl(c) + Vector2(-24, -18), "Mökki Paapeli", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+
+	var sauna_p := _pxl(Vector2(Mokki.SAUNA_LOCAL.x, Mokki.SAUNA_LOCAL.z))
+	_house_icon_on(v, sauna_p, Color(0.4, 0.22, 0.12))
+	v.draw_string(font, sauna_p + Vector2(10, 4), "Savusauna", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+
+	var tub_p := _pxl(Vector2(Mokki.TUB_LOCAL.x, Mokki.TUB_LOCAL.z))
+	v.draw_circle(tub_p, 6.0, Color(0.2, 0.5, 0.55))
+	v.draw_string(font, tub_p + Vector2(10, 4), "Poreamme", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+
+	var dart_p := _pxl(Vector2(Mokki.DART_LOCAL.x, Mokki.DART_LOCAL.z))
+	v.draw_circle(dart_p, 5.0, Color(0.16, 0.28, 0.14))
+	v.draw_circle(dart_p, 2.0, Color(0.85, 0.15, 0.1))
+	v.draw_string(font, dart_p + Vector2(10, 4), "Tikkataulu", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+
+	var dock_a := _pxl(Vector2(Mokki.DOCK_LOCAL.x, Mokki.DOCK_LOCAL.z - 12.0))
+	var dock_b := _pxl(Vector2(Mokki.DOCK_LOCAL.x, Mokki.DOCK_LOCAL.z))
+	v.draw_line(dock_a, dock_b, Color(0.5, 0.38, 0.24), 5.0)
+	v.draw_string(font, dock_b + Vector2(10, 4), "Laituri", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+
+	var taxi_p := _pxl(Vector2(Mokki.TAXI_LOCAL.x, Mokki.TAXI_LOCAL.z))
+	v.draw_circle(taxi_p, 7.0, Color(0.96, 0.78, 0.08))
+	v.draw_string(font, taxi_p + Vector2(-4, 5), "T", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.05, 0.05, 0.05))
+	v.draw_string(font, taxi_p + Vector2(12, 4), "Taksipysäkki", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+
+	var santtu_p := _pxl(Vector2(Mokki.SANTTU_LOCAL.x, Mokki.SANTTU_LOCAL.z))
+	v.draw_circle(santtu_p, 4.0, Color(0.75, 0.55, 0.12))
+	v.draw_string(font, santtu_p + Vector2(10, 4), "Santtu, isäntä", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+
+	if player != null and mokki != null:
+		var lp: Vector3 = mokki.to_local(player.global_position)
+		var f := -player.global_transform.basis.z
+		_you_icon_on(v, _pxl(Vector2(lp.x, lp.z)), atan2(f.z, f.x) + PI / 2.0)
 
 
 # --- Merkit (piirto joko tähän tai karttanäkymään) ----------------------------
