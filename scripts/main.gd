@@ -1650,6 +1650,7 @@ func _mokki_taxi_logic() -> void:
 				_show_message("Taksi maksaa %s €. Ei ole tarpeeksi rahaa." % _eur(TAXI_PRICE), 2.5)
 			else:
 				money -= TAXI_PRICE
+				tilat.first("mokki", 0.4)
 				_ride_taxi(mokki_stand + Vector3(0, 0, 2.2), "Matkalla mökille... (%s €)" % _eur(TAXI_PRICE))
 	elif d_mokki < 3.0:
 		_hint.text = "[E] Tilaa taksi kotiin (paluu jo maksettu)"
@@ -1696,6 +1697,8 @@ func _mokki_logic() -> void:
 			_hint.text = "[E] Sytytä kiuas"
 			if e:
 				mokki.set_sauna_fire(true)
+				if _once_today("kiuas"):
+					tilat.add("stressi", 0.1)  # tulen teko rauhoittaa kuten nuotiolla
 				Sfx.play("whoosh", 0.0, 0.6)
 				_show_message("Kiuas sytytetty. Lämpiää hetken.", 2.2)
 		elif not mokki.sauna_ready():
@@ -1719,6 +1722,8 @@ func _mokki_logic() -> void:
 			_hint.text = "[E] Sytytä poreammeen tuli"
 			if e:
 				mokki.set_tub_fire(true)
+				if _once_today("ammeen_tuli"):
+					tilat.add("stressi", 0.1)
 				Sfx.play("whoosh", 0.0, 0.5)
 				_show_message("Tuli palaa ammeen alla. Vesi lämpiää hitaasti.", 2.5)
 		elif not mokki.tub_ready():
