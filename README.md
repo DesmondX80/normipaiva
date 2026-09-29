@@ -7,6 +7,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 ## Mitä pelissä voi tehdä
 
 - **Kauppareissu:** kuutonen, grillimakkara ja tulitikut K-Marketista. Kassalla harmaapäät laskevat kolikoita.
+  Leipähyllystä saa korvapuusteja ja lihapiirakoita evääksi: T syö ne (tai suklaan tai marjat ämpäristä).
 - **Jalkapallopojat:** joka toinen päivä jossain tien varressa on kolme poikaa, joiden pallo on hukassa. Pojat
   kertovat suunnan, ja pallo on 100–300 m päässä. Palautus: poikien luona E avaa esinevalikon (W/S valitse, E anna,
   Q peruuta). Pallo = 1 € (ja moraali ja kokemus nousevat), kalja = pojat juoksevat nauraen pois, muu esine =
@@ -107,6 +108,8 @@ Päivän lopussa lasketaan kolmen tilan summa:
 | Jahti (Päivi, juntti, poliisi) | stressi − |
 | Kalja (laavu, leikkurin korjaus, Raahe 3, autotallin juhlat 6) | humala +, kipu +, stamina +, nälkä +, moraali −, keskittyminen − |
 | Syöminen (paistettu makkara, kettukarkki) | nälkä +, stamina + |
+| Syöminen T:llä: korvapuusti / lihapiirakka | nälkä +0,25 ja stressi + / nälkä +0,4 (ja stamina puolet nälän muutoksesta) |
+| Syöminen T:llä: suklaa / marjat (1 l) | nälkä +0,2, stressi +, moraali + / nälkä +0,15, vireys + |
 | Tappelu | stressi −, kipu −−, stamina −, moraali −, nälkä − |
 | Koiran purema / kettukarkin osuma | kipu −− / kipu − |
 | Haavan hoito (Pekka, Päivi) | kipu ++ |
@@ -181,6 +184,7 @@ godot --path .
 | Q | soittokello |
 | E | toiminto (kauppaan, osta, maksa, ulos) |
 | F | nouse pyörän selästä / takaisin pyörälle (pyörä jää parkkiin ja näkyy kartassa) |
+| T | syö: valikko mukana olevista eväistä (korvapuusti, lihapiirakka, suklaa, marjat ämpäristä) |
 | Shift | juokse (jalan) / spurtti (pyörällä) |
 | M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen) |
 | V | FPS-näkymä / kolmas persoona |

@@ -16,6 +16,9 @@ const EXTRAS := {"makkara": ["grillimakkara", 3.50], "tikut": ["tulitikut", 1.20
 ## Karkkiteline kassan lähellä (heräteostos): suklaalevy.
 const CANDY_SPOT := Vector3(5.2, 0, 7.2)
 const CANDY := ["suklaa", "suklaalevy", 2.49]
+## Leipähylly karkkitelineen vieressä: eväät (syödään T:llä, ks. main.gd _eat_menu). Avain -> [nimi, hinta].
+const BAKERY_SPOT := Vector3(3.2, 0, 7.2)
+const BAKERY := {"pulla": ["korvapuusti", 1.50], "piirakka": ["lihapiirakka", 2.20]}
 ## Päivin hylly oikealla seinällä (kauppalistan muistipeli, #12): jokaisella tuotteella oma lokero, jossa kaikki
 ## värit. Tuotteet maksetaan Päivin rahoilla. Tuote -> laatikon koko (muoto erottaa tuotteet toisistaan).
 const PRODUCTS := {
@@ -153,6 +156,20 @@ func _process(delta: float) -> void:
 				cart[next] = EXTRAS[next][1]
 				walker.set_carrying(true)
 				Sfx.play("pickup", -2.0, 0.8)
+	elif _flat(p, BAKERY_SPOT) < 1.2 and not has_paid:
+		var next := ""
+		for k in BAKERY:
+			if not cart.has(k):
+				next = k
+				break
+		if next == "":
+			hint = "Korvapuusti ja lihapiirakka kassissa."
+		else:
+			hint = "[E] Ota %s (%s €)" % [BAKERY[next][0], _eur(BAKERY[next][1])]
+			if e:
+				cart[next] = BAKERY[next][1]
+				walker.set_carrying(true)
+				Sfx.play("pickup", -4.0, 0.9)
 	elif _flat(p, CANDY_SPOT) < 1.2 and not has_paid:
 		if cart.has(CANDY[0]):
 			hint = "Suklaalevy kassissa."
@@ -395,6 +412,14 @@ func _build_room() -> void:
 			Color(0.85, 0.25, 0.2), false)
 	for i in 4:
 		B.box(self, Vector3(0.12, 0.05, 0.08), GRILL_SPOT + Vector3(-0.95, 1.08, 0.7 + i * 0.12), Color(0.95, 0.8, 0.2), false)
+	# Leipähylly karkkitelineen vieressä: korvapuusteja ja lihapiirakoita.
+	B.box(self, Vector3(1.0, 1.1, 0.5), BAKERY_SPOT + Vector3(0, 0.55, 1.2), Color(0.72, 0.55, 0.35))
+	for i in 8:
+		var bun := B.mesh(self, B.sphere(0.07, 8), BAKERY_SPOT + Vector3(-0.33 + (i % 4) * 0.22, 1.15, 1.08 + (i / 4) * 0.16),
+			Color(0.82, 0.55, 0.25) if i < 4 else Color(0.62, 0.38, 0.18))
+		bun.scale = Vector3(1.0, 0.55, 1.0) if i < 4 else Vector3(1.5, 0.5, 0.9)
+	var bake_sign := B.sign_plate(self, "LEIPÄ", Color(0.8, 0.55, 0.2), Color.WHITE, 0.14, 26, Color.WHITE)
+	bake_sign.position = BAKERY_SPOT + Vector3(0, 1.45, 1.4)
 	# Karkkiteline etuseinää vasten kassan lähellä: suklaalevyjä kääreissään.
 	B.box(self, Vector3(1.0, 1.1, 0.5), CANDY_SPOT + Vector3(0, 0.55, 1.2), Color(0.85, 0.88, 0.9))
 	for i in 8:
