@@ -48,7 +48,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   saattaa kuulla vihjeen. Sulo myy päivässä yhden kanisterin (20 €), joka vastaa kotijemmassa 24 kaljaa.
 - **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen). Savusauna, puukuumenteinen
   poreamme, tikanheittotaulu, kalastus laiturilta (heitä onki, odota nykäisyä, vedä ylös ajoissa) ja
-  isäntä Santtu kahvikuppeineen.
+  isäntä Santtu kahvikuppeineen. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
+  jääkaappi), pitkä pöytä, TV ja takka, makuuhuone violetteine kerrossänkyineen, kylpyhuone ja sisäsauna.
+  Kerrossängyssä voi **nukkua yön**: päivä vaihtuu ja uusi alkaa mökiltä (Päivi soittaa aamulla).
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
 
@@ -136,6 +138,10 @@ Päivän lopussa lasketaan kolmen tilan summa:
 | Mökki: kala laiturilta / tikan täysosuma (kerran päivässä) | moraali +, stressi + / moraali +, keskittyminen + |
 | Mökin piha (paikallaan) | kuten nuotio: stressi ++, vireys + |
 | Mökki: kiukaan tai ammeen tulen sytytys (kerran päivässä kumpikin) | stressi + |
+| Mökin sisällä olo | stressi +, vireys + (hitaasti), nälkä − |
+| Mökin sisällä (kerran päivässä): suodatinkahvi / takka / TV | vireys ++, stressi + / stressi + / stressi +, kokemus − |
+| Mökin sisällä (kerran päivässä): suihku / sisäsauna | vireys +, kipu + / stressi ++, väsymys ++, kipu + |
+| Nukkuminen mökillä | väsymys +++ (ennen päivän tulosta), aamulla stressi − (Päivi soittaa) |
 | Taksi mökille (ensimmäinen kerta) | kokemus + |
 | Poliisilta pakoon | stressi + |
 | WASTED | moraali −−, stressi −− |
