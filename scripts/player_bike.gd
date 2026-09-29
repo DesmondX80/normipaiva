@@ -41,6 +41,7 @@ var _visual: Node3D
 var _cam: Camera3D
 var _cam_ready := false
 var _lean := 0.0
+var _wobble := 0.0
 var _wheels: Array[Node3D] = []
 var _bag: MeshInstance3D
 var _crank: Node3D
@@ -128,6 +129,12 @@ func stun(direction: Vector3) -> void:
 	_push = direction * 8.0
 
 
+## Kevyt osuma (kettukarkki): pyörä heilahtaa ja vauhti hidastuu, mutta ei kaadu.
+func stagger(_direction: Vector3) -> void:
+	_wobble = 0.6
+	speed *= 0.5
+
+
 func _physics_process_stunned(delta: float) -> void:
 	_stun -= delta
 	sprinting = false
@@ -212,7 +219,8 @@ func _physics_process(delta: float) -> void:
 	speed = Vector2(velocity.x, velocity.z).dot(Vector2(fwd.x, fwd.z))
 
 	_lean = lerpf(_lean, steer * steer_factor * 0.35, 1.0 - exp(-6.0 * delta))
-	_visual.rotation.z = _lean
+	_wobble = maxf(0.0, _wobble - delta)
+	_visual.rotation.z = _lean + sin(_wobble * 30.0) * _wobble * 0.5  # kettukarkki osui: heilahdus
 	_apply_bumps(delta)
 	for w in _wheels:
 		w.rotation.x -= speed * delta / 0.35
