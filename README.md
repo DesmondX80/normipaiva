@@ -27,6 +27,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Väinö karkuteillä:** joskus Pekan koira Väinö karkaa ("VÄINÖ PERKELE!"). Se nuuhkii ja pakenee: juoksijan
   ja pyöräilijän se kuulee kaukaa, joten nuuhkivan Väinön viereen hiivitään kävellen ja se otetaan kiinni E:llä.
   Grillimakkara houkuttelee sen luo. Palautuksesta Pekka antaa vitosen ja kaljan.
+- **Vieras koira:** metsänreunassa kuljeskelee tumma vieras koira, joka murisee ja puree liian lähelle tulevaa.
+  Purtu jalka ontuu, pyöräily on raskasta ja kunto palautuu hitaasti. Haava hoidetaan kotikonstein: Pekka sitoo
+  sen ja kaataa päälle koskenkorvaa (kalja tai 3 €), tai Päivi kotona laittaa laastarin ja motkottaa. Hoitamaton
+  haava paranee yön aikana.
 - **Pontikka:** jossain metsässä Pannu-Sulo keittää pontikkaa. Paikka ei näy kartalla, mutta kodan tarinoista
   saattaa kuulla vihjeen. Sulo myy päivässä yhden kanisterin (20 €), joka vastaa kotijemmassa 24 kaljaa.
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.

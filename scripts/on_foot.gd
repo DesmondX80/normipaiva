@@ -22,6 +22,10 @@ var exhausted := false
 var pose := ""
 ## Juoksu estetty (esim. ruohonleikkurin työntäminen).
 var no_run := false
+## Vieraan koiran purema (main.gd): ontuu, ja kunto palautuu hitaammin. Pyörä lukee saman (raskaampi polkea).
+var hurt := false
+const HURT_SPEED := 0.6
+const HURT_RECOVER := 0.5
 var _breath_t := 0.0
 
 var _body: Node3D
@@ -93,7 +97,7 @@ func tire(exerting: bool, resting: bool, delta: float) -> void:
 		if stamina <= 0.0:
 			exhausted = true
 	else:
-		stamina = minf(100.0, stamina + (22.0 if resting else 12.0) * delta)
+		stamina = minf(100.0, stamina + (22.0 if resting else 12.0) * (HURT_RECOVER if hurt else 1.0) * delta)
 		if exhausted and stamina >= 35.0:
 			exhausted = false
 	# Hengästyneenä kuuluu puuskutus.
@@ -129,6 +133,8 @@ func _physics_process(delta: float) -> void:
 	var want := throttle * (RUN if running else WALK) * ground
 	if throttle < 0.0:
 		want *= 0.6  # peruutuskävely
+	if hurt:
+		want *= HURT_SPEED  # ontuu
 	speed = move_toward(speed, want, 12.0 * delta)
 	rotation.y += steer * TURN * delta
 
