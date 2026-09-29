@@ -40,11 +40,11 @@ func _ready() -> void:
 	if kind == "akka":
 		_boss_body = Looks.make(_boss, Looks.AKKA)
 		_boss.position = center + Vector3(1.4, 0, -3.3)
-		B.label(_boss, "Laavun akka", Vector3(0, 2.05, 0), 40, Color(1, 0.8, 0.8), true)
+		B.guide(_boss, "Laavun akka", Vector3(0, 2.05, 0), 40, Color(1, 0.8, 0.8), true)
 	else:
 		_boss_body = Looks.make(_boss, Looks.TEENS[0])
 		_boss.position = center + Vector3(-1.2, 0, -3.4)
-		B.label(_boss, "Teinijengin pomo", Vector3(0, 2.1, 0), 40, Color(0.8, 1, 0.8), true)
+		B.guide(_boss, "Teinijengin pomo", Vector3(0, 2.1, 0), 40, Color(0.8, 1, 0.8), true)
 		_build_vandalism()
 	_bubble = B.label(_boss, "", Vector3(0, 2.6, 0), 52, Color.WHITE, true)
 
@@ -161,7 +161,7 @@ func vanish() -> void:
 func defeat() -> void:
 	mode = "leave"
 	_leave_t = 7.0
-	_bubble.text = "Äitiii!" if kind == "akka" else "Juostaan!"
+	_bubble.text = _speaker() + ("Äitiii!" if kind == "akka" else "Juostaan!")
 	_bubble_t = 2.0
 	Sfx.babble(_boss, "akka" if kind == "akka" else "teini", _bubble.text)
 
@@ -170,7 +170,7 @@ func defeat() -> void:
 func gloat() -> void:
 	mode = "cooldown"
 	_cool = 4.0
-	_bubble.text = "Ja pysy poissa!" if kind == "akka" else "Hähää, boomer!"
+	_bubble.text = _speaker() + ("Ja pysy poissa!" if kind == "akka" else "Hähää, boomer!")
 	_bubble_t = 2.5
 	Sfx.babble(_boss, "akka" if kind == "akka" else "teini", _bubble.text)
 
@@ -189,7 +189,12 @@ func _face(dir: Vector3) -> void:
 
 
 func _say() -> void:
-	_bubble.text = (AKKA_LINES if kind == "akka" else TEEN_LINES).pick_random()
+	_bubble.text = _speaker() + ((AKKA_LINES if kind == "akka" else TEEN_LINES).pick_random())
 	_bubble_t = 2.4
 	_talk_t = 3.2
 	Sfx.babble(_boss, "akka" if kind == "akka" else "teini", _bubble.text)
+
+
+## Puhekuplan alkuun puhujan nimi.
+func _speaker() -> String:
+	return "Laavun akka: " if kind == "akka" else "Teinijengin pomo: "

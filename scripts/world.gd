@@ -888,7 +888,7 @@ func _build_home() -> void:
 	var num := B.sign_plate(body, "1", Color(0.1, 0.3, 0.6), Color.WHITE, 0.2, 40, Color(0.1, 0.3, 0.6))
 	num.position = Vector3(2.1, 2.2, fz - 0.05)
 	num.rotation.y = PI
-	var koti := B.label(body, "KOTI", Vector3(0, h + rh + 1.2, 0), 90, Color(0.4, 1.0, 0.5), true)
+	var koti := B.guide(body, "KOTI", Vector3(0, h + rh + 1.2, 0), 90, Color(0.4, 1.0, 0.5), true)
 	koti.no_depth_test = false
 	# Takaseinän ikkunat.
 	for wx in [-6.0, 0.0, 5.0]:
@@ -1088,7 +1088,7 @@ func _build_agility() -> void:
 		for dx in [-0.9, 0.9]:
 			B.mesh(self, B.cyl(0.05, 0.05, 1.0), p + Vector3(dx, 0.5, 0), Color.WHITE)
 		B.mesh(self, B.cyl(0.04, 0.04, 1.8), p + Vector3(0, 0.6, 0), red, Vector3(0, 0, 90))
-	var lbl := B.label(self, "Agilitykenttä", Vector3(c.x, 3.5, c.y), 100, Color(1, 1, 0.8), true)
+	var lbl := B.guide(self, "Agilitykenttä", Vector3(c.x, 3.5, c.y), 100, Color(1, 1, 0.8), true)
 	lbl.no_depth_test = false
 
 
@@ -1372,7 +1372,7 @@ func _build_grillikatos() -> void:
 	B.mesh(body, B.cyl(0.15, 0.15, 3.2, 10), Vector3(0, 2.4, 0), Color(0.15, 0.15, 0.16))
 	B.mesh(body, B.cyl(0.25, 0.22, 0.12, 10), Vector3(0, 4.05, 0), Color(0.15, 0.15, 0.16))
 	body.add_child(B.box_shape(Vector3(1.2, 0.9, 1.2), Vector3(0, 0.45, 0)))
-	var lbl := B.label(self, "KIILINLAMMEN\nGRILLIKATOS", p + Vector3(0, 4.6, 0), 60, Color(1, 0.95, 0.8), true)
+	var lbl := B.guide(self, "KIILINLAMMEN\nGRILLIKATOS", p + Vector3(0, 4.6, 0), 60, Color(1, 0.95, 0.8), true)
 	lbl.no_depth_test = false
 	lbl.outline_modulate = Color(0.1, 0.3, 0.1)
 	# Soratie kentälle.
@@ -1925,7 +1925,7 @@ func _build_grass() -> void:
 func _build_names() -> void:
 	for n in M.PLACE_NAMES:
 		var p := M.w2(n[1])
-		var l := B.label(self, n[0], Vector3(p.x, 22, p.y), 600, Color(1, 1, 1, 0.85), true)
+		var l := B.guide(self, n[0], Vector3(p.x, 22, p.y), 600, Color(1, 1, 1, 0.85), true)
 		l.no_depth_test = false
 	_build_signs()
 

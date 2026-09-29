@@ -19,6 +19,7 @@ var values := {
 	"render_scale": 1.0,
 	"fov": 70.0,
 	"show_fps": false,
+	"show_guides": false,  # leijuvat paikkojen ja hahmojen nimet (B.guide)
 	"vol_master": 0.9,
 	"vol_sfx": 0.9,
 	"vol_ambience": 0.8,

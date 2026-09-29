@@ -149,6 +149,18 @@ static func capsule_shape(radius: float, height: float) -> CollisionShape3D:
 	return cs
 
 
+## Opaste: maailmassa leijuva paikan tai hahmon nimi. Näkyy vain, kun asetus "Näytä opasteet" on päällä
+## (main.gd päivittää ryhmän näkyvyyden asetuksen muuttuessa). Puhekuplat eivät ole opasteita.
+const GUIDES := "opasteet"
+
+
+static func guide(parent: Node3D, text: String, pos: Vector3, size: int, color: Color, billboard := true) -> Label3D:
+	var l := label(parent, text, pos, size, color, billboard)
+	l.add_to_group(GUIDES)
+	l.visible = Settings.get_v("show_guides")
+	return l
+
+
 static func label(parent: Node3D, text: String, pos: Vector3, size: int, color: Color, billboard := false) -> Label3D:
 	var l := Label3D.new()
 	l.text = text
