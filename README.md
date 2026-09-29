@@ -149,6 +149,7 @@ godot --path .
 | J | lyönti |
 | K | potku |
 | L | kassi-isku (tekee kovaa vahinkoa, rikkoo yhden kaljan) |
+| eteen + L | heitä kalja: tölkki lentää kaaressa, osuma kaataa (vie kaljan pysyvästi; hyppy väistää, S torjuu) |
 | S + J | pystykoukku (nostaa ilmaan) |
 | S + K | jalkapyyhkäisy |
 | eteen + K | kiertopotku |
