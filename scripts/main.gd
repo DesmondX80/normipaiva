@@ -239,6 +239,17 @@ var ball: Node3D
 var has_ball := false
 var _ball_quest := ""  # "" = ei annettu, "search" = etsitään, "done" = hoidettu
 var _item_menu: PanelContainer
+var _menu_mode := "give"  # esinevalikon käyttö: "give" (pojat) tai "eat" (T: syö)
+## Eväät kaupan leipähyllystä: avain -> kpl (syödään T:llä, häviävät yöllä kuten kaljat).
+var food := {}
+## Syötävät: nimi valikossa, nälkä ja muut tilavaikutukset.
+const FOODS := {
+	"pulla": {"name": "Korvapuusti", "nalka": 0.25, "stressi": 0.05},
+	"piirakka": {"name": "Lihapiirakka", "nalka": 0.4},
+	"suklaa": {"name": "Suklaalevy (Päivin lepytys menee)", "nalka": 0.2, "stressi": 0.1, "moraali": 0.05},
+	"puolukka": {"name": "Puolukoita ämpäristä (1 l)", "nalka": 0.15, "vireys": 0.05},
+	"mustikka": {"name": "Mustikoita ämpäristä (1 l)", "nalka": 0.15, "vireys": 0.05},
+}
 ## Päivittäiset tilat (#18, day_stats.gd): kolme arvottua tilaa HUD:ssa, toiminnot nostavat ja laskevat niitä.
 ## Päivän summa < 0 -> seuraava päivä hankalampi (trouble = 1), >= GOOD_DAY -> helpompi (trouble = -1).
 const DayStats := preload("res://scripts/day_stats.gd")
@@ -443,6 +454,9 @@ func _mount_logic() -> void:
 func _outside_logic() -> void:
 	if _item_menu.is_open():
 		return  # esinevalikko ottaa E:n, W/S:n ja Q:n
+	if Input.is_action_just_pressed("eat") and not player.is_stunned():
+		_open_eat_menu()
+		return
 	var target := shop_zone if state == "to_shop" else home_zone
 	var ppos := player.global_position
 	var dist := Vector2(ppos.x, ppos.z).distance_to(Vector2(target.x, target.z))  # vaakaetäisyys (maasto ei vaikuta)
@@ -1008,7 +1022,53 @@ func _open_give_menu() -> void:
 	player.speed = 0.0
 	_msg.text = ""
 	_msg_time = 0.0
+	_menu_mode = "give"
 	_item_menu.open(items, "Mitä annat pojille?")
+
+
+## T: syömävalikko mukana olevista eväistä.
+func _open_eat_menu() -> void:
+	var items: Array = []
+	for k in ["pulla", "piirakka"]:
+		if food.get(k, 0) > 0:
+			items.append([k, "%s (%d)" % [FOODS[k].name, food[k]]])
+	if has_chocolate:
+		items.append(["suklaa", FOODS.suklaa.name])
+	for k in ["puolukka", "mustikka"]:
+		if bucket.get(k, 0) > 0:
+			items.append([k, "%s – ämpärissä %d l" % [FOODS[k].name, bucket[k]]])
+	if items.is_empty():
+		_show_message("Ei mitään syötävää. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja.", 3.0)
+		return
+	player.controls_enabled = false
+	player.speed = 0.0
+	_msg.text = ""
+	_msg_time = 0.0
+	_menu_mode = "eat"
+	_item_menu.open(items, "Mitä syöt?")
+
+
+func _on_eat(id: String) -> void:
+	player.controls_enabled = true
+	match id:
+		"pulla", "piirakka":
+			food[id] -= 1
+			if food[id] <= 0:
+				food.erase(id)
+		"suklaa":
+			has_chocolate = false
+		"puolukka", "mustikka":
+			bucket[id] -= 1
+			if bucket[id] <= 0:
+				bucket.erase(id)
+	var f: Dictionary = FOODS[id]
+	_eat(f.nalka)
+	for k in ["stressi", "moraali", "vireys"]:
+		if f.has(k):
+			tilat.add(k, f[k])
+	tilat.first("syo_" + id, 0.1)
+	Sfx.play("pickup", -6.0, 0.6)
+	_show_message(["Nam.", "Maistuu!", "Ei paha.", "Hyvää eväsleipää parempi."].pick_random(), 1.5)
 
 
 ## Esine pojille: pallo = palkkio, kalja = pojat juoksevat nauraen pois, muu = heittävät takaisin ja kivisade.
@@ -1984,6 +2044,9 @@ func _on_shop_exited(bought: bool) -> void:
 		has_sausage = has_sausage or interior.cart.has("makkara")
 		has_matches = has_matches or interior.cart.has("tikut")
 		has_chocolate = has_chocolate or interior.cart.has("suklaa")
+		for k in ShopInterior.BAKERY:
+			if interior.cart.has(k):
+				food[k] = food.get(k, 0) + 1
 		for k in interior.bag:
 			paivi_bag[k] = interior.bag[k]
 		if not interior.bag.is_empty() and not bought:
@@ -2339,6 +2402,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	var stats_note := _end_day_stats()
 	# Pyörä jää sinne, minne se jäi; päivä alkaa jalan turvapaikasta.
 	beers = 0
+	food.clear()
 	has_kanister = false
 	_sulo_sold = false
 	walker_out.set_kanister(false)
@@ -2484,6 +2548,7 @@ func _setup_input() -> void:
 	_add_action("special", [KEY_L])
 	_add_action("map", [KEY_M])
 	_add_action("mount", [KEY_F])
+	_add_action("eat", [KEY_T])
 
 
 func _add_action(action: String, keys: Array) -> void:
@@ -2723,7 +2788,7 @@ func _build_hud() -> void:
 	_stats = _label(layer, 24)
 	_stats.position = Vector2(20, 16)
 	var help := _label(layer, 16)
-	help.text = "W/S polje · A/D ohjaa · E toiminto · F jalan/pyörälle · M kartta · V FPS · hiiri kamera · Esc valikko"
+	help.text = "W/S polje · A/D ohjaa · E toiminto · F jalan/pyörälle · T syö · M kartta · V FPS · hiiri kamera · Esc valikko"
 	help.anchor_top = 1.0
 	help.anchor_bottom = 1.0
 	help.offset_left = 20
@@ -2812,7 +2877,11 @@ func _build_hud() -> void:
 
 	_item_menu = ItemMenu.new()
 	layer.add_child(_item_menu)
-	_item_menu.chosen.connect(_on_give)
+	_item_menu.chosen.connect(func(id: String) -> void:
+		if _menu_mode == "eat":
+			_on_eat(id)
+		else:
+			_on_give(id))
 	_item_menu.cancelled.connect(func() -> void: player.controls_enabled = true)
 
 	_stat_bars = StatBars.new()
@@ -2859,6 +2928,8 @@ func _update_hud() -> void:
 		inv.append("pontikkakanisteri (= %d kaljaa)" % KANISTER_BEERS)
 	if has_ball:
 		inv.append("jalkapallo")
+	for k in food:
+		inv.append("%s %d" % [FOODS[k].name.to_lower(), food[k]])
 	if kota_polkyt > 0:
 		inv.append("pölkkyjä %d" % kota_polkyt)
 	if kota_halot > 0:
@@ -3925,6 +3996,47 @@ func _maybe_screenshot() -> void:
 			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
 			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
 			sc.current = true
+		"syo":
+			# Leipähyllystä korvapuusti ja piirakka, sitten T-valikosta syöminen. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var press := func(action: String) -> void:
+				Input.action_press(action)
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			_enter_shop()
+			interior.walker.position = ShopInterior.BAKERY_SPOT
+			await get_tree().process_frame
+			print("SYO shop hint=", interior.hint)
+			await press.call("interact")
+			await press.call("interact")
+			print("SYO cart=", interior.cart, " hint=", interior.hint)
+			interior.has_paid = true
+			interior.exited.emit(false)
+			await get_tree().process_frame
+			print("SYO food=", food, " inv=", _stats.text.contains("korvapuusti"))
+			bucket["puolukka"] = 2
+			has_chocolate = true
+			_toggle_mount()
+			for i in 5:
+				await get_tree().physics_frame
+			var n0: float = tilat.value("nalka")
+			await press.call("eat")
+			print("SYO menu=", _item_menu.is_open(), " items=", _item_menu._items)
+			await press.call("interact")
+			print("SYO ate first: nalka %+.2f food=%s msg=%s" % [tilat.value("nalka") - n0, food, _msg.text])
+			await press.call("eat")
+			await press.call("back")
+			await press.call("back")
+			await press.call("interact")
+			print("SYO ate third: nalka total %+.2f bucket=%s choco=%s" % [tilat.value("nalka") - n0, bucket, has_chocolate])
+			food.clear()
+			bucket.clear()
+			has_chocolate = false
+			await press.call("eat")
+			print("SYO empty menu=%s msg=%s" % [_item_menu.is_open(), _msg.text])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"pojat":
 			# Jalkapallopojat: tehtävä, pallon haku, palautus valikosta; sitten kalja ja väärä esine. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
