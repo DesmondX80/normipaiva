@@ -7,6 +7,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 ## Mitä pelissä voi tehdä
 
 - **Kauppareissu:** kuutonen, grillimakkara ja tulitikut K-Marketista. Kassalla harmaapäät laskevat kolikoita.
+- **Penkin mummot:** K-Marketin edustan penkillä istuu kolme mummoa. Jos kurvaat pyörällä lujaa aivan vierestä tai
+  soitat kelloa (Q), he suuttuvat ja heittelevät kettukarkkeja: osuma heilauttaa pyörää tai horjauttaa. Maahan
+  jääneet karkit voi poimia jalan (kunto +15).
 - **Päivin kauppalista:** aamulla Päivi luettelee neljä tuotetta väreineen ("vihreä tamponi, punainen maito..."),
   mutta kauppalistaan tulee vain tuotteet. Kaupan oikealla seinällä on Päivin hylly, jossa jokaisesta tuotteesta
   on viisi väriä: Q vaihtaa väriä, E ottaa, vaihtaa tai palauttaa. Päivin ostokset maksetaan Päivin rahoilla.

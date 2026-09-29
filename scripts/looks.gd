@@ -76,6 +76,15 @@ const PEKKA := {
 	"hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.28, 0.2), "beard": true, "height": 1.78, "shine": 0.2, "belly": 0.65, "bulk": 0.1,
 }
 
+## Kaupan penkin mummot (kettukarkit taskussa).
+const MUMMOT := [
+	{"model": "female", "shirt": Color(0.55, 0.3, 0.45), "pants": Color(0.25, 0.22, 0.28), "shoes": Color(0.2, 0.15, 0.12),
+		"hair": "Hair_Buns", "hair_color": Color(0.82, 0.82, 0.8), "height": 1.58, "skin": Color(1.0, 0.9, 0.86)},
+	{"model": "female", "shirt": Color(0.3, 0.45, 0.6), "pants": Color(0.3, 0.3, 0.32), "shoes": Color(0.2, 0.15, 0.12),
+		"hair": "Hair_Long", "hair_color": Color(0.9, 0.9, 0.88), "height": 1.6, "skin": Color(1.0, 0.9, 0.86)},
+	{"model": "female", "shirt": Color(0.75, 0.6, 0.3), "pants": Color(0.35, 0.25, 0.2), "shoes": Color(0.2, 0.15, 0.12),
+		"hair": "Hair_BuzzedFemale", "hair_color": Color(0.7, 0.68, 0.66), "height": 1.56, "skin": Color(1.0, 0.9, 0.86)},
+]
 ## Pannu-Sulo, metsän pontikankeittäjä: ruutupaita, maastohousut, harmaa parta.
 const SULO := {
 	"shirt": Color(0.55, 0.12, 0.1), "pants": Color(0.25, 0.3, 0.2), "shoes": Color(0.12, 0.1, 0.08),
