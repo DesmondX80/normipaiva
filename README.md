@@ -41,6 +41,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   haava paranee yön aikana.
 - **Pontikka:** jossain metsässä Pannu-Sulo keittää pontikkaa. Paikka ei näy kartalla, mutta kodan tarinoista
   saattaa kuulla vihjeen. Sulo myy päivässä yhden kanisterin (20 €), joka vastaa kotijemmassa 24 kaljaa.
+- **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen). Savusauna, puukuumenteinen
+  poreamme, tikanheittotaulu, kalastus laiturilta (heitä onki, odota nykäisyä, vedä ylös ajoissa) ja
+  isäntä Santtu kahvikuppeineen.
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
 
@@ -169,6 +172,8 @@ godot --path .
   tuulenpuuskat heittävät tähtäystä. Keskelle osunut isku halkaisee pölkyn neljäksi haloksi, vähän sivuun
   osunut jää kiinni ja reunaan osunut lennättää pölkyn pölliltä. Raimo ja Veikko tulevat ulos kommentoimaan.
 - Kartan reunalla hahmo kommentoi, miksi pidemmälle ei kannata lähteä.
+- **Mökki** on mallinnettu oikean Airbnb-vuokramökin ("The warmth of a smoke sauna and cottage life",
+  Neittävä) valokuvien mukaan. Se on erillinen alue, jonne pääsee vain taksilla kotipihan taksipysäkiltä.
 - Maaston korkeuserot: todellinen korkeusmalli (Copernicus DEM ~90 m, `assets/terrain/korkeus.json`), leivottu
   5 m ruudukoksi komennolla `godot --headless --path . -s tools/bake_terrain.gd`. Ylämäessä pyörä hidastuu,
   alamäessä rullaa. Kartta on Saloisissa loivaa: suurin nousu reitillä on noin 15 %.

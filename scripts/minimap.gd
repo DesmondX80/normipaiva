@@ -3,14 +3,18 @@ extends Control
 ## Tiet, metsät, pellot, vesistöt, Päivi, tavoite ja laavu. Kaukana olevat merkit näytetään reunalla.
 
 const M := preload("res://scripts/map_data.gd")
+const Mokki := preload("res://scripts/mokki.gd")
 
 const SIZE_PX := 210.0
 const RANGE := 320.0  # metriä keskeltä reunaan
+const MOKKI_RANGE := 90.0  # mökin tutka on lähempänä tarkka, koska tasku on pieni
+const MOKKI_SHOW_DIST := 300.0  # etäisyys mökin keskeltä, jolloin tutka vaihtaa mökin lähikarttaan
 
 var player: Node3D
 var wife: Node3D
 var world: Node3D
 var bike: Node3D  # näytetään kun liikutaan jalan
+var mokki: Node3D
 var target := Vector3.ZERO
 var show_target := true
 
@@ -48,6 +52,9 @@ func _pts(arr: Array) -> PackedVector2Array:
 func _draw() -> void:
 	if player != null:
 		_origin = Vector2(player.global_position.x, player.global_position.z)
+	if mokki != null and player != null and player.global_position.distance_to(mokki.global_position) < MOKKI_SHOW_DIST:
+		_draw_mokki()
+		return
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.35, 0.45, 0.28, 0.9))
 	for f in M.FIELDS:
 		draw_colored_polygon(_pts(f), Color(0.62, 0.6, 0.38, 0.95))
@@ -101,6 +108,46 @@ func _draw() -> void:
 		draw_colored_polygon(PackedVector2Array([p + f * 8.0, p - f * 5.0 + r * 5.0, p - f * 5.0 - r * 5.0]), Color.WHITE)
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.85), false, 3.0)
 	draw_string(ThemeDB.fallback_font, Vector2(size.x / 2.0 - 4, 14), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+
+
+## Mökin oma lähitutka: sama kehys, mutta sisältö on mökin piha, järvi ja rakennukset kyläkartan sijaan
+## (ks. mokki.gd:n julkiset _LOCAL/_CENTER-vakiot, jotka pitävät tämän ja mallinnuksen synkassa).
+func _draw_mokki() -> void:
+	var k := (SIZE_PX / 2.0) / MOKKI_RANGE
+	var lp: Vector3 = mokki.to_local(player.global_position)
+	var origin2 := Vector2(lp.x, lp.z)
+	var wl := func(local: Vector2) -> Vector2:
+		return (local - origin2) * k + _center
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.16, 0.2, 0.12, 0.95))
+	_ellipse(wl, Mokki.YARD_CENTER, Mokki.YARD_R.x, Mokki.YARD_R.y, Color(0.36, 0.3, 0.2, 0.95))
+	_ellipse(wl, Mokki.LAKE_CENTER, Mokki.LAKE_R.x, Mokki.LAKE_R.y, Color(0.3, 0.5, 0.75))
+	var half := Mokki.COTTAGE_SIZE / 2.0
+	var c := Mokki.COTTAGE_LOCAL
+	draw_colored_polygon(PackedVector2Array([
+		wl.call(c + Vector2(-half.x, -half.y)), wl.call(c + Vector2(half.x, -half.y)),
+		wl.call(c + Vector2(half.x, half.y)), wl.call(c + Vector2(-half.x, half.y)),
+	]), Color(0.85, 0.83, 0.74))
+	_marker(wl.call(Vector2(Mokki.SAUNA_LOCAL.x, Mokki.SAUNA_LOCAL.z)), Color(0.55, 0.3, 0.16), "S")
+	_marker(wl.call(Vector2(Mokki.TUB_LOCAL.x, Mokki.TUB_LOCAL.z)), Color(0.2, 0.5, 0.55), "A")
+	_marker(wl.call(Vector2(Mokki.DART_LOCAL.x, Mokki.DART_LOCAL.z)), Color(0.85, 0.15, 0.1), "Ti")
+	_marker(wl.call(Vector2(Mokki.DOCK_LOCAL.x, Mokki.DOCK_LOCAL.z)), Color(0.5, 0.38, 0.24), "L")
+	_marker(wl.call(Vector2(Mokki.TAXI_LOCAL.x, Mokki.TAXI_LOCAL.z)), Color(0.96, 0.78, 0.08), "Tx")
+	if player != null:
+		var fwd3 := -player.global_transform.basis.z
+		var f := Vector2(fwd3.x, fwd3.z).normalized()
+		var r := f.orthogonal()
+		var p := _center
+		draw_colored_polygon(PackedVector2Array([p + f * 8.0, p - f * 5.0 + r * 5.0, p - f * 5.0 - r * 5.0]), Color.WHITE)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.85), false, 3.0)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x / 2.0 - 4, 14), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+
+
+func _ellipse(wl: Callable, local_center: Vector2, rx: float, rz: float, col: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in 24:
+		var a := TAU * i / 24
+		pts.append(wl.call(local_center + Vector2(cos(a) * rx, sin(a) * rz)))
+	draw_colored_polygon(pts, col)
 
 
 ## Tutkan ulkopuolella oleva merkki pysyy reunalla oikeassa suunnassa.

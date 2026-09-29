@@ -526,6 +526,25 @@ func garage(title: String, stats: String, done: Callable) -> void:
 	_title.add_theme_font_size_override("font_size", 150)
 
 
+# --- Taksi mökille ----------------------------------------------------------------
+
+## Lyhyt häivytys mustaan ja takaisin; done kutsutaan pimeällä (siirto tapahtuu silloin).
+func taxi(sub: String, done: Callable) -> void:
+	_begin()
+	Sfx.play("horn", -4.0)
+	await _fade_to(1.0, 0.45)
+	_band.visible = true
+	_title.add_theme_color_override("font_color", Color(0.96, 0.78, 0.08))
+	_title.add_theme_font_size_override("font_size", 90)
+	_title.text = "TAKSI"
+	_sub.text = sub
+	await _wait(1.5)
+	_title.text = ""
+	_band.visible = false
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
 func _build_garage() -> void:
 	var g := Node3D.new()
 	g.position = GARAGE_POS

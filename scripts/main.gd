@@ -14,6 +14,7 @@ const Compass := preload("res://scripts/compass.gd")
 const M := preload("res://scripts/map_data.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Kota := preload("res://scripts/kota.gd")
+const Mokki := preload("res://scripts/mokki.gd")
 const Fight := preload("res://scripts/fight.gd")
 const ChopGame := preload("res://scripts/chop_game.gd")
 const SawGame := preload("res://scripts/saw_game.gd")
@@ -64,6 +65,7 @@ const GRILL_TIME := 5.0
 const SAVE_PATH := "user://normipaiva.cfg"
 
 const INTERIOR_POS := Vector3(3000, 0, 0)
+const MOKKI_POS := Vector3(6000, 0, 0)  # erillinen tasku, tavoitettavissa vain taksilla kotoa
 const ZONE_RADIUS := 6.0
 const START_MONEY := 20.0
 ## Taksi K-Marketin taksitolpalta Raahen baariin ja takaisin.
@@ -74,6 +76,8 @@ const BAR_POS := Vector3(0, 0, -4200)  # baarin minipeli kaukana kartan ulkopuol
 const CHOCO_CHANCE := 0.5  # suklaa lepyttää Päivin
 const CHOCO_MONEY := 5.0  # leppynyt Päivi antaa aamulla ylimääräistä
 const BEER_PRICE := 12.90
+const TAXI_PRICE := 20.0
+const SAUNA_TALK_RADIUS := 30.0  # etäisyys, jonka sisällä Santun ympäristöpuheet voivat laueta
 
 var world: Node3D
 var home_zone: Vector3
@@ -249,6 +253,11 @@ var mower_broken := false
 var has_mower_part := false
 var _lawn_praise := false  # nurmikko leikattu: aamulla ylimääräistä rahaa
 var _lawn_done_today := false
+var mokki: Node3D
+var _santtu_chat_t := 6.0
+var _fish_state := "idle"  # idle | waiting | bite
+var _fish_t := 0.0
+var _fish_target := 0.0
 
 
 func _ready() -> void:
@@ -270,6 +279,9 @@ func _ready() -> void:
 	player.world = world
 	_spawn_hazards()
 	_spawn_interior()
+	mokki = Mokki.new()
+	mokki.position = MOKKI_POS
+	add_child(mokki)
 	fight = Fight.new()
 	fight.position = Vector3(-3000, 0, 0)
 	add_child(fight)
@@ -281,6 +293,7 @@ func _ready() -> void:
 	paper.world = world
 	paper.player = player
 	paper.game = self
+	paper.mokki = mokki
 	map_layer.add_child(paper)
 	_paper = paper
 	var amb := Ambience.new()
@@ -428,6 +441,8 @@ func _outside_logic() -> void:
 	_neighbor_logic()
 	_pontikka_logic()
 	_taxi_logic()
+	_mokki_taxi_logic()
+	_mokki_logic()
 	if dist >= ZONE_RADIUS:
 		return
 	if player == bike:
@@ -1221,6 +1236,154 @@ func _edge_logic() -> void:
 	_show_message("\"%s\"" % lines.pick_random(), 3.5)
 
 
+## Taksipysäkit: kotipihalta mökille 20 €, paluu mökiltä ilmainen (meno-paluu maksettu kerralla,
+## ettei rahattomana voi jäädä mökille jumiin). Ks. world.taxi_home_pos ja mokki.gd Mokki.TAXI_LOCAL.
+func _mokki_taxi_logic() -> void:
+	if _hint.text != "" or player.is_stunned() or cutscene.busy:
+		return
+	var p := player.global_position
+	var home_stand: Vector3 = world.taxi_home_pos
+	var mokki_stand: Vector3 = mokki.to_global(Mokki.TAXI_LOCAL)
+	var d_home := Vector2(p.x - home_stand.x, p.z - home_stand.z).length()
+	var d_mokki := Vector2(p.x - mokki_stand.x, p.z - mokki_stand.z).length()
+	if d_home < 3.0:
+		if player == bike:
+			_hint.text = "Nouse pyörän selästä (F) ja kävele taksille."
+			return
+		_hint.text = "[E] Tilaa taksi mökille (%s €)" % _eur(TAXI_PRICE)
+		if Input.is_action_just_pressed("interact"):
+			if money < TAXI_PRICE:
+				_show_message("Taksi maksaa %s €. Ei ole tarpeeksi rahaa." % _eur(TAXI_PRICE), 2.5)
+			else:
+				money -= TAXI_PRICE
+				_ride_taxi(mokki_stand + Vector3(0, 0, 2.2), "Matkalla mökille... (%s €)" % _eur(TAXI_PRICE))
+	elif d_mokki < 3.0:
+		_hint.text = "[E] Tilaa taksi kotiin (paluu jo maksettu)"
+		if Input.is_action_just_pressed("interact"):
+			_ride_taxi(home_stand + Vector3(0, 0, 2.2), "Matkalla kotiin...")
+
+
+func _ride_taxi(dest: Vector3, sub: String) -> void:
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	cutscene.taxi(sub, func() -> void:
+		walker_out.global_position = dest
+		walker_out.rotation.y = 0.0
+		walker_out.activate_camera()
+		walker_out.controls_enabled = true)
+
+
+## Mökillä: jutut Santun kanssa, savusaunan kiuas, puukuumenteinen poreamme, tikanheitto ja laituri.
+func _mokki_logic() -> void:
+	var p := player.global_position
+	var mc := mokki.global_position
+	if Vector2(p.x - mc.x, p.z - mc.z).length() > 60.0:
+		return
+	_santtu_chat_t -= get_process_delta_time()
+	if _santtu_chat_t <= 0.0:
+		_santtu_chat_t = randf_range(10.0, 18.0)
+		var sc: Vector3 = mokki.to_global(Mokki.SANTTU_LOCAL)
+		if Vector2(p.x - sc.x, p.z - sc.z).length() < SAUNA_TALK_RADIUS:
+			mokki.say(Mokki.SANTTU_AMBIENT.pick_random())
+	if _hint.text != "" or player == bike or player.is_stunned():
+		return
+	var e := Input.is_action_just_pressed("interact")
+	var near := func(local: Vector3, r: float) -> bool:
+		var g: Vector3 = mokki.to_global(local)
+		return Vector2(p.x - g.x, p.z - g.z).length() < r
+	if near.call(Mokki.SANTTU_LOCAL, 2.6):
+		_hint.text = "[E] Jutskaa Santun kanssa"
+		if e:
+			mokki.say(Mokki.SANTTU_LINES.pick_random())
+		return
+	if near.call(Mokki.SAUNA_LOCAL, 2.2):
+		if not mokki.sauna_fire_on:
+			_hint.text = "[E] Sytytä kiuas"
+			if e:
+				mokki.set_sauna_fire(true)
+				Sfx.play("whoosh", 0.0, 0.6)
+				_show_message("Kiuas sytytetty. Lämpiää hetken.", 2.2)
+		elif not mokki.sauna_ready():
+			_hint.text = "Kiuas lämpiää... %d s" % ceili(Mokki.SAUNA_HEAT - (Mokki.SAUNA_BURN - mokki.sauna_fire_time))
+		else:
+			_hint.text = "[E] Käy löylyssä"
+			if e:
+				walker_out.stamina = 100.0
+				walker_out.exhausted = false
+				Sfx.play("water", -6.0, 0.8)
+				_show_message("Löyly virkistää! Kunto palautui.", 2.5)
+		return
+	if near.call(Mokki.TUB_LOCAL, 1.7):
+		if not mokki.tub_fire_on:
+			_hint.text = "[E] Sytytä poreammeen tuli"
+			if e:
+				mokki.set_tub_fire(true)
+				Sfx.play("whoosh", 0.0, 0.5)
+				_show_message("Tuli palaa ammeen alla. Vesi lämpiää hitaasti.", 2.5)
+		elif not mokki.tub_ready():
+			_hint.text = "Amme lämpiää... %d s" % ceili(Mokki.TUB_HEAT - (Mokki.TUB_BURN - mokki.tub_fire_time))
+		else:
+			_hint.text = "[E] Mene kylpyyn"
+			if e:
+				walker_out.stamina = 100.0
+				walker_out.exhausted = false
+				Sfx.play("water", -4.0, 0.7)
+				_show_message("Kylpy lämmittää. Kunto palautui.", 2.5)
+		return
+	if near.call(Mokki.DART_LOCAL, 1.8):
+		_hint.text = "[E] Heitä tikkaa"
+		if e:
+			var score: int = [0, 5, 10, 15, 20, 25, 40, 50].pick_random()
+			Sfx.play("whoosh", -4.0, 1.2)
+			_show_message("TÄYSOSUMA! 50 pistettä!" if score == 50 else ("Ohi meni." if score == 0 else "%d pistettä." % score), 2.0)
+		return
+	if near.call(Mokki.DOCK_LOCAL, 2.2):
+		_fish_logic(e)
+		return
+
+
+## Kalastus laiturilta: heitä onki (E), odota nykäisyä, vedä ylös ajoissa (E). Ks. Mokki.FISH.
+func _fish_logic(e: bool) -> void:
+	match _fish_state:
+		"idle":
+			_hint.text = "[E] Heitä onki veteen"
+			if e:
+				_fish_state = "waiting"
+				_fish_t = 0.0
+				_fish_target = randf_range(3.0, 8.0)
+				Sfx.play("whoosh", -6.0, 0.8)
+				_show_message("\"%s\"" % Mokki.LAKE_LINES.pick_random(), 2.5)
+		"waiting":
+			_fish_t += get_process_delta_time()
+			if _fish_t >= _fish_target:
+				_fish_state = "bite"
+				_fish_t = 0.0
+				Sfx.play("alert", -6.0, 1.3)
+				_show_message("NYKÄISY!", 1.5)
+			else:
+				_hint.text = "Odotat nykäisyä..."
+		"bite":
+			_hint.text = "[E] Vedä ylös!"
+			_fish_t += get_process_delta_time()
+			if e:
+				_land_fish()
+				_fish_state = "idle"
+			elif _fish_t > 2.2:
+				_show_message(Mokki.FISH_MISS_LINES.pick_random(), 2.0)
+				_fish_state = "idle"
+
+
+func _land_fish() -> void:
+	if randf() < 0.12:
+		Sfx.play("rattle", -4.0, 0.9)
+		_show_message("Vedit ylös %s. Ei syötävää." % Mokki.FISH_JUNK.pick_random(), 2.5)
+		return
+	var fish: Dictionary = Mokki.FISH.pick_random()
+	var kg: float = fish.kg * randf_range(0.6, 1.6)
+	Sfx.play("win_small", -4.0)
+	_show_message("Sait %s! Painoa noin %.1f kg." % [fish.name, kg], 3.0)
+
+
 ## Kota: sahaa tukki pölkyiksi, pilko pölkyt haloiksi, sytytä tuli ja kuuntele tarinoita. Lintutornista lintuja.
 func _kota_logic() -> void:
 	var k: Node3D = world.kota
@@ -1793,6 +1956,10 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	world.fire.visible = false
 	if world.kota != null:
 		world.kota.set_fire(false)
+	if mokki != null:
+		mokki.set_sauna_fire(false)
+		mokki.set_tub_fire(false)
+	_fish_state = "idle"
 	var bonus := ""
 	if _no_allowance:
 		_no_allowance = false
@@ -2232,6 +2399,7 @@ func _build_hud() -> void:
 	_minimap.wife = wife
 	_minimap.world = world
 	_minimap.bike = bike
+	_minimap.mokki = mokki
 	layer.add_child(_minimap)
 
 	_compass = Compass.new()
@@ -2632,6 +2800,46 @@ func _maybe_screenshot() -> void:
 			if scene == "kotain":
 				world.kota.set_fire(true)
 				world.kota.say("raimo", "Tässä kodassa on enemmän kieltokylttejä kuin halkoja.")
+		"mokkiview", "mokkisauna", "mokkiyard", "mokkilake":
+			_toggle_mount()
+			walker_out.global_position = mokki.to_global(Vector3(-2, 0.4, -14))
+			for i in 40:
+				await get_tree().process_frame
+			var cam4 := Camera3D.new()
+			add_child(cam4)
+			cam4.fov = 60
+			if scene == "mokkiview":
+				cam4.look_at_from_position(mokki.to_global(Vector3(-16, 9, -22)), mokki.to_global(Vector3(2, 1.5, -1)), Vector3.UP)
+			elif scene == "mokkisauna":
+				cam4.look_at_from_position(mokki.to_global(Vector3(0, 3.5, 12)), mokki.to_global(Vector3(9, 1.2, 6.5)), Vector3.UP)
+				mokki.set_sauna_fire(true)
+				mokki.set_tub_fire(true)
+			elif scene == "mokkiyard":
+				cam4.look_at_from_position(mokki.to_global(Vector3(9, 5, -6)), mokki.to_global(Vector3(2, 1.0, -6)), Vector3.UP)
+			else:
+				cam4.look_at_from_position(mokki.to_global(Vector3(-4, 4, 20)), mokki.to_global(Vector3(7, 1.2, 24)), Vector3.UP)
+			cam4.current = true
+		"mokkifish":
+			# Koko kalastusketju: heitä onki, nykäisy, vedä ylös. Tulostaa tilat.
+			_toggle_mount()
+			var press2 := func() -> void:
+				Input.action_press("interact")
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+			walker_out.global_position = mokki.to_global(Mokki.DOCK_LOCAL) + Vector3(0, 0.4, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("FISH hint: ", _hint.text, " state=", _fish_state)
+			await press2.call()
+			print("FISH after cast: state=", _fish_state, " msg=", _msg.text)
+			_fish_t = _fish_target + 1.0
+			for i in 3:
+				await get_tree().physics_frame
+			print("FISH after wait: state=", _fish_state, " hint=", _hint.text, " msg=", _msg.text)
+			await press2.call()
+			print("FISH after reel: state=", _fish_state, " msg=", _msg.text)
 		"edgetest":
 			for spot in [Vector2(3, 1500), Vector2(450, 3), Vector2(1000, 3957), Vector2(1617, 3000), Vector2(893, 1500)]:
 				_edge_cd = 0.0
