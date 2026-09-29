@@ -53,7 +53,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   selkään eikä kauppaan (kuutonen ei mahdu).
 - **Kiilinlammen grillikatos** on turvapaikka: sinne Päivi ei tule Hyundailla perään.
 - Esc avaa valikon: asetukset (grafiikan laatu, koko näyttö, V-Sync, renderöintiskaala, FOV, FPS-näyttö,
-  äänenvoimakkuudet, hiiren herkkyys, käänteinen Y, kameran automaattikeskitys), ohjaimet ja tekijät.
+  leijuvat opasteet eli paikkojen ja hahmojen nimet (oletuksena pois), äänenvoimakkuudet, hiiren herkkyys, käänteinen Y, kameran automaattikeskitys), ohjaimet ja tekijät.
 
 ## Lataa valmis peli
 

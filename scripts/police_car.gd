@@ -30,7 +30,7 @@ func _ready() -> void:
 		l.position = Vector3(sx, 1.58, 0.2)
 		add_child(l)
 		_lights.append(l)
-	B.label(self, "POLIISI", Vector3(0, 2.4, 0), 56, Color(0.7, 0.8, 1.0), true)
+	B.guide(self, "POLIISI", Vector3(0, 2.4, 0), 56, Color(0.7, 0.8, 1.0), true)
 	_engine = Sfx.loop_on(self, "engine", -4.0)
 
 

@@ -814,7 +814,7 @@ func _pontikka_logic() -> void:
 	if money < KANISTER_PRICE:
 		_hint.text = "Sulo myy pontikkakanisterin %s eurolla. Rahat ei riitä." % _eur(KANISTER_PRICE)
 		return
-	_hint.text = "[E] Osta pontikkakanisteri (%s €, = %d kaljaa)" % [_eur(KANISTER_PRICE), KANISTER_BEERS]
+	_hint.text = "[E] Osta Pannu-Sulolta kanisteri (%s €, = %d kaljaa)" % [_eur(KANISTER_PRICE), KANISTER_BEERS]
 	if Input.is_action_just_pressed("interact") and not player.is_stunned():
 		money -= KANISTER_PRICE
 		has_kanister = true
@@ -1529,6 +1529,7 @@ func _apply_settings() -> void:
 	_sun.shadow_blur = [0.5, 0.5, 1.0, 1.5][q]
 	world.set_quality(q)
 	_fps_label.visible = Settings.get_v("show_fps")
+	get_tree().call_group(B.GUIDES, "set_visible", Settings.get_v("show_guides"))
 
 
 ## Lähin turvapaikka: koti tai laavu (kun se on vallattu).
@@ -2990,6 +2991,14 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 		"shopfront":
 			player.position = shop_zone + Vector3(0, 0.3, 14)
+		"shopsigns":
+			# Kaupan kyltit (KASSA, OLUET, GRILLI, ULOS) yleiskuvana ilman leijuvia opasteita.
+			_enter_shop()
+			var sc := Camera3D.new()
+			add_child(sc)
+			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
+			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
+			sc.current = true
 		"pontikka":
 			# Pannu-Sulo: kuva paikasta, kanisterin osto ja kotiinpaluu. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
