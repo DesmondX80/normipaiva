@@ -416,6 +416,7 @@ func _bike_theft(delta: float) -> void:
 					best = cand
 			bike.global_position = best + Vector3(0, 0.3, 0)
 			bike.rotation.y = randf() * TAU
+			tilat.add("stressi", -0.2)
 			_show_message("Teinit veivät lukitsemattoman pyöräsi!\nKatso kartasta (M), minne se jäi.", 4.0)
 			Sfx.play("alert", -4.0, 0.7)
 
@@ -713,6 +714,10 @@ func _pick_done() -> void:
 	bucket[_pick_spot.kind] = bucket.get(_pick_spot.kind, 0) + liters
 	_pick_spot.taken = true
 	tilat.first("poiminta_" + _pick_spot.kind)
+	# Kyykkiminen väsyttää, mutta metsässä olo virkistää.
+	tilat.add("vasymys", -0.05)
+	tilat.add("stamina", -0.05)
+	tilat.add("vireys", 0.1)
 	_pick_spot.node.visible = false
 	_show_message("+%d l %s ämpäriin" % [liters, GOODS[_pick_spot.kind].name], 2.0)
 	Sfx.play("pickup", -4.0, 1.2)
@@ -791,6 +796,9 @@ func _stop_mowing() -> void:
 
 
 func _mow() -> void:
+	var dt := get_process_delta_time()
+	tilat.add("vasymys", -0.004 * dt)  # leikkurin työntäminen väsyttää
+	tilat.add("nalka", -0.003 * dt)
 	lawn.push_mower(walker_out)
 	if not lawn.has_point(walker_out.global_position, 3.0):
 		_stop_mowing()
@@ -828,6 +836,7 @@ func _lawn_hit(o: Dictionary) -> void:
 		if lawn_kivet >= 2:
 			mower_broken = true
 			_stop_mowing()
+			tilat.add("stressi", -0.2)
 			_show_message("KRÄKS! Terä vääntyi ja leikkuri hajosi.\nHae varaosa Artolta ja kaljaa, niin korjataan.", 4.5)
 		else:
 			lawn.cough()
@@ -835,6 +844,8 @@ func _lawn_hit(o: Dictionary) -> void:
 	else:
 		lawn_siilit += 1
 		Sfx.play("pedal_squeak", 0.0, 1.8)
+		tilat.add("moraali", -0.3)
+		tilat.add("stressi", -0.2)
 		if lawn_siilit >= 2:
 			lawn_siilit = 0
 			_stop_mowing()
@@ -1075,9 +1086,22 @@ func _stats_tick(delta: float) -> void:
 	t.add("humala", -0.002 * delta)
 
 
-## Mukava paikka: syttynyt nuotio laavulla, tuli kodassa tai Kiilinlammen grillikatos.
+var _today: Array = []  # tänään jo saadut kertabonukset (ettei E:n hakkaaminen kasvata tiloja loputtomiin)
+
+
+## Kertabonus päivässä: palauttaa true vain ensimmäisellä kerralla tänään.
+func _once_today(id: String) -> bool:
+	if id in _today:
+		return false
+	_today.append(id)
+	return true
+
+
+## Mukava paikka: syttynyt nuotio laavulla, tuli kodassa, Kiilinlammen grillikatos tai mökin piha.
 func _pleasant_spot() -> bool:
 	var p := player.global_position
+	if p.distance_to(mokki.global_position) < 35.0:
+		return true
 	if fire_lit and p.distance_to(M.w(M.LAAVU)) < 8.0:
 		return true
 	if world.kota != null and world.kota.fire_on and p.distance_to(world.kota.global_position) < 8.0:
@@ -1135,6 +1159,7 @@ func _end_day_stats() -> String:
 		trouble = 0
 		note = "\nEilinen päivä: %s. Ihan normipäivä." % sum
 	tilat.reset()
+	_today.clear()
 	var names: Array[String] = []
 	for k in tilat.chosen:
 		names.append(DayStats.STATS[k].name)
@@ -1388,6 +1413,7 @@ func _after_bar(won: bool) -> void:
 	var paid := 0.0 if won else minf(BAR_ROUND, money)
 	money -= paid
 	mielihyva = clampf(mielihyva + (35.0 if won else 20.0), 0.0, 100.0)
+	tilat.add("moraali", 0.2 if won else -0.1)  # kädenvääntö
 	maine = clampf(maine + (15.0 if won else -5.0), 0.0, 100.0)
 	_no_allowance = true
 	_drink(3)
@@ -1457,6 +1483,7 @@ func _neighbor_logic() -> void:
 			_hint.text = "[E] Myy %s %s €" % ["marjat Artolle" if who == "arto" else "sienet Pekalle", _eur(sale)]
 			if e:
 				money += sale
+				tilat.add("moraali", 0.1)
 				for k in bucket.keys():
 					if GOODS[k].buyer == who:
 						bucket.erase(k)
@@ -1500,6 +1527,7 @@ func _laavu_logic() -> void:
 		_hint.text = "[E] Sytytä nuotio"
 		if e:
 			fire_lit = true
+			tilat.add("stressi", 0.1)
 			world.fire.visible = true
 			Sfx.play("whoosh", 0.0, 0.5)
 			_show_message("Nuotio palaa!", 2.0)
@@ -1601,6 +1629,7 @@ func _mokki_logic() -> void:
 		_hint.text = "[E] Jutskaa Santun kanssa"
 		if e:
 			mokki.say(Mokki.SANTTU_LINES.pick_random())
+			tilat.first("santtu")
 		return
 	if near.call(Mokki.SAUNA_LOCAL, 2.2):
 		if not mokki.sauna_fire_on:
@@ -1618,6 +1647,12 @@ func _mokki_logic() -> void:
 				walker_out.exhausted = false
 				Sfx.play("water", -6.0, 0.8)
 				_show_message("Löyly virkistää! Kunto palautui.", 2.5)
+				tilat.first("savusauna", 0.4)
+				if _once_today("sauna"):
+					tilat.add("stressi", 0.3)
+					tilat.add("vasymys", 0.3)
+					tilat.add("kipu", 0.2)
+					tilat.add("vireys", 0.2)
 		return
 	if near.call(Mokki.TUB_LOCAL, 1.7):
 		if not mokki.tub_fire_on:
@@ -1635,12 +1670,21 @@ func _mokki_logic() -> void:
 				walker_out.exhausted = false
 				Sfx.play("water", -4.0, 0.7)
 				_show_message("Kylpy lämmittää. Kunto palautui.", 2.5)
+				tilat.first("poreamme", 0.3)
+				if _once_today("amme"):
+					tilat.add("stressi", 0.3)
+					tilat.add("kipu", 0.2)
+					tilat.add("stamina", 0.2)
 		return
 	if near.call(Mokki.DART_LOCAL, 1.8):
 		_hint.text = "[E] Heitä tikkaa"
 		if e:
 			var score: int = [0, 5, 10, 15, 20, 25, 40, 50].pick_random()
 			Sfx.play("whoosh", -4.0, 1.2)
+			tilat.first("tikka")
+			if score == 50 and _once_today("tikka50"):
+				tilat.add("moraali", 0.1)
+				tilat.add("keskittyminen", 0.15)
 			_show_message("TÄYSOSUMA! 50 pistettä!" if score == 50 else ("Ohi meni." if score == 0 else "%d pistettä." % score), 2.0)
 		return
 	if near.call(Mokki.DOCK_LOCAL, 2.2):
@@ -1687,6 +1731,9 @@ func _land_fish() -> void:
 	var fish: Dictionary = Mokki.FISH.pick_random()
 	var kg: float = fish.kg * randf_range(0.6, 1.6)
 	Sfx.play("win_small", -4.0)
+	tilat.first("kalastus", 0.3)
+	tilat.add("moraali", 0.05)
+	tilat.add("stressi", 0.1)
 	_show_message("Sait %s! Painoa noin %.1f kg." % [fish.name, kg], 3.0)
 
 
@@ -1727,6 +1774,9 @@ func _kota_logic() -> void:
 		if e:
 			Sfx.play("crow", -8.0, randf_range(1.1, 1.4))
 			tilat.first("lintutorni")
+			if _once_today("linnut"):
+				tilat.add("vireys", 0.1)
+				tilat.add("stressi", 0.1)
 			_show_message("\"%s\"" % Kota.BIRD_LINES.pick_random(), 3.5)
 		return
 	if near.call(Kota.SAW_LOCAL, 1.7):
@@ -1749,6 +1799,8 @@ func _kota_logic() -> void:
 				if e:
 					kota_halot -= FIRE_HALOT
 					k.set_fire(true)
+					tilat.add("stressi", 0.1)
+					tilat.first("kodan_tuli")
 					Sfx.play("whoosh", 0.0, 0.5)
 					k.say("raimo", "No nyt! Tuli palaa. Istuhan alas.")
 			else:
@@ -1771,10 +1823,18 @@ func _start_saw() -> void:
 	var sg := SawGame.new()
 	sg.sawn.connect(func() -> void:
 		kota_polkyt += 1
-		tilat.first("sahaus"))
+		tilat.first("sahaus")
+		_wood_work())
 	_start_kota_game(sg, Kota.SAW_LOCAL, 0.3, func() -> String:
 		return "Sahattu %d pölkkyä! Pölkkyjä %d. Halko ne pilkkomispölkyllä kirveellä." % [sg.polkyt_made, kota_polkyt] \
 			if sg.polkyt_made > 0 else "")
+
+
+## Puiden teko (pölkky sahattu tai halottu): voimat kuluvat, mutta mieli rauhoittuu.
+func _wood_work() -> void:
+	tilat.add("stamina", -0.05)
+	tilat.add("vasymys", -0.03)
+	tilat.add("stressi", 0.05)
 
 
 ## Halonhakkuu FPS-minipelinä (chop_game.gd).
@@ -1784,6 +1844,7 @@ func _start_chop() -> void:
 	cg.split.connect(func(n: int) -> void:
 		kota_polkyt -= 1
 		tilat.first("halkominen")
+		_wood_work()
 		kota_halot += n)
 	_start_kota_game(cg, Kota.CHOP_LOCAL, 0.0, func() -> String:
 		return "Halottu %d halkoa! Halkoja %d. Vie ne kodan tulisijaan." % [cg.halot_made, kota_halot] \
@@ -2007,6 +2068,8 @@ func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
 	var loser_node: Node3D = {"juntti": juntti, "laavu": guard, "tractor": tractor}[_fight_source]
 	if won:
 		loser_node.defeat()
+		tilat.add("moraali", 0.1)  # voitto kumoaa tappelun moraalimenetyksen
+		tilat.add("kokemus", 0.1)
 		var who := "Juntti lähti itkien kotiin."
 		if _fight_source == "tractor":
 			who = "Jyväjemmari ajoi murjottamaan. Pelto on nyt vapaata riistaa!"
@@ -2202,6 +2265,8 @@ func _jemma_check(allow_found := true) -> String:
 				stash[id] -= lost
 				_jemma_found = lost
 				note += "\nPäivi löysi %s ja kaatoi %d kaljaa viemäriin!" % [STASHES[id].name, lost]
+				tilat.add("stressi", -0.3)
+				tilat.add("moraali", -0.2)
 				break
 	for id in STASHES:
 		var st: Dictionary = STASHES[id]
@@ -2305,6 +2370,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		_choco_mercy = false
 		money += CHOCO_MONEY
 		bonus += "\nPäivi leppyi ja antoi %s € ylimääräistä." % _eur(CHOCO_MONEY)
+		tilat.add("stressi", 0.2)
 	if bitten:
 		bitten = false  # parani yöllä (ei ensiapua uuden päivän kipuun)
 		walker_out.hurt = false
@@ -2611,6 +2677,7 @@ func _spawn_threats() -> void:
 		walker_out.stamina = minf(100.0, walker_out.stamina + 15.0)
 		_eat(0.1)
 		_show_message("Kettukarkki maasta. Kunto +15", 1.5))
+	mummot.angered.connect(func() -> void: tilat.add("moraali", -0.1))
 	_hazards.add_child(mummot)
 
 	stray = StrayDog.new()
