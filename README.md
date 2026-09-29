@@ -24,6 +24,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   alle tuo poliisin (pakene näkyvistä, kiinni jääminen = WASTED), ja toinen kivi rikkoo leikkurin (varaosa Artolta
   8 € ja kalja, niin korjataan). Leikattu nurmikko tuo aamulla Päiviltä 5 € ylimääräistä. Leikkaamattomasta Päivi
   motkottaa ja Anna-Liisa kommentoi, ja siilejä ja kiviä tulee lisää.
+- **Väinö karkuteillä:** joskus Pekan koira Väinö karkaa ("VÄINÖ PERKELE!"). Se nuuhkii ja pakenee: juoksijan
+  ja pyöräilijän se kuulee kaukaa, joten nuuhkivan Väinön viereen hiivitään kävellen ja se otetaan kiinni E:llä.
+  Grillimakkara houkuttelee sen luo. Palautuksesta Pekka antaa vitosen ja kaljan.
 - **Pontikka:** jossain metsässä Pannu-Sulo keittää pontikkaa. Paikka ei näy kartalla, mutta kodan tarinoista
   saattaa kuulla vihjeen. Sulo myy päivässä yhden kanisterin (20 €), joka vastaa kotijemmassa 24 kaljaa.
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
