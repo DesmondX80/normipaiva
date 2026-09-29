@@ -90,6 +90,13 @@ func stun(direction: Vector3) -> void:
 	Sfx.play("body_fall", -2.0)
 
 
+## Kevyt osuma (kettukarkki): horjahtaa hetken taaksepäin kaatumatta.
+func stagger(direction: Vector3) -> void:
+	_stun = 0.35
+	speed = 0.0
+	_push = direction * 2.5
+
+
 ## Kunnon kulutus ja palautuminen. Pyörän spurtti käyttää samaa mittaria (jalat ovat samat).
 func tire(exerting: bool, resting: bool, delta: float) -> void:
 	if exerting:
