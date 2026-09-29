@@ -27,10 +27,13 @@ const ATTACKS := {
 	"airpunch": {"startup": 0.05, "active": 0.14, "recover": 0.1, "range": 1.25, "dmg": 7.0, "push": 2.2},
 	"bag": {"startup": 0.3, "active": 0.14, "recover": 0.35, "range": 1.5, "dmg": 22.0, "push": 5.5, "lunge": 3.0},
 	"wave": {"startup": 0.4, "active": 0.05, "recover": 0.4, "range": 0.0, "dmg": 14.0, "push": 3.0},
+	# Kaljan heitto (eteen + L): tölkki lentää kaaressa (fight.spawn_can), osuma kaataa.
+	"throw": {"startup": 0.22, "active": 0.05, "recover": 0.3, "range": 0.0, "dmg": 26.0, "push": 5.5, "launch": 6.0, "stun": 0.9},
 }
 const ATTACK_ANIMS := {
 	"punch": "Punch_Jab", "kick": "Punch_Cross", "uppercut": "Punch_Cross", "sweep": "Crouch_Idle",
 	"spin": "Punch_Cross", "flykick": "Jump", "airpunch": "Punch_Jab", "bag": "Punch_Cross", "wave": "Spell_Simple_Shoot",
+	"throw": "Punch_Cross",
 }
 
 var fight: Node3D
@@ -51,6 +54,7 @@ var _hit_done := false
 var _stun := 0.0
 var _vel := Vector2.ZERO
 var _bag: MeshInstance3D
+var _can: MeshInstance3D  # kaljatölkki kädessä ennen heittoa
 var _celebrating := false
 
 
@@ -60,6 +64,10 @@ func setup(look: Dictionary) -> void:
 	_bag = B.mesh(bag, B.boxm(Vector3(0.26, 0.34, 0.18)), Vector3(0, -0.2, 0), Color(1.0, 0.45, 0.0))
 	body.attach("hand_r", bag, Vector3(0, -0.05, 0))
 	_bag.visible = false
+	var can := Node3D.new()
+	_can = B.mesh(can, B.cyl(0.033, 0.033, 0.12, 10), Vector3(0, -0.06, 0), Color(0.8, 0.75, 0.2))
+	body.attach("hand_r", can, Vector3(0, -0.02, 0))
+	_can.visible = false
 
 
 ## Voittajan tuuletus.
@@ -110,7 +118,10 @@ func update(delta: float) -> void:
 			if _attack == "flykick" and not on_ground():
 				_vel = Vector2(facing * 6.5, minf(_vel.y, -3.5))
 			if _t >= a.startup and not _hit_done:
-				if _attack == "wave":
+				if _attack == "throw":
+					_hit_done = true
+					fight.spawn_can(self)
+				elif _attack == "wave":
 					_hit_done = true
 					fight.spawn_wave(self)
 				elif _t <= a.startup + a.active:
@@ -139,7 +150,7 @@ func update(delta: float) -> void:
 
 ## Perusliike + suunta -> varsinainen liike.
 func _variant(base: String) -> String:
-	if base == "wave" or base == "bag":
+	if base in ["wave", "bag", "throw"]:
 		return base
 	if not on_ground():
 		return "flykick" if base == "kick" else "airpunch"
@@ -161,7 +172,7 @@ func _start_attack(kind: String) -> void:
 	if kind == "uppercut":
 		_vel.y = 3.0
 	Sfx.play("whoosh", -4.0 if kind in ["spin", "flykick", "uppercut"] else -6.0, randf_range(0.8, 1.2))
-	if kind != "wave":
+	if kind != "wave" and kind != "throw":
 		fight.spawn_swoosh(self, kind)
 
 
@@ -207,6 +218,7 @@ func _pose(delta: float) -> void:
 	var k := 1.0 - exp(-18.0 * delta)
 	rotation.y = lerp_angle(rotation.y, -PI / 2.0 if facing > 0.0 else PI / 2.0, k)
 	_bag.visible = state == "attack" and _attack == "bag"
+	_can.visible = state == "attack" and _attack == "throw" and _t < ATTACKS.throw.startup
 	if _celebrating:
 		return
 	var thigh_r := 0.0
@@ -255,6 +267,9 @@ func _pose(delta: float) -> void:
 					thigh_r = 1.9
 					thigh_l = -0.6
 					spine = 0.35
+				"throw":
+					spine = -0.4 * swing
+					arm_r = 1.5 * swing
 				"bag":
 					spine = -0.5 * swing
 					arm_r = 1.0 * swing
