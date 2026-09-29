@@ -8,7 +8,7 @@ const Mokki := preload("res://scripts/mokki.gd")
 const SIZE_PX := 210.0
 const RANGE := 320.0  # metriä keskeltä reunaan
 const MOKKI_RANGE := 90.0  # mökin tutka on lähempänä tarkka, koska tasku on pieni
-const MOKKI_SHOW_DIST := 300.0  # etäisyys mökin keskeltä, jolloin tutka vaihtaa mökin lähikarttaan
+const MOKKI_SHOW_DIST := 420.0  # etäisyys mökin keskeltä, jolloin tutka vaihtaa mökin lähikarttaan
 
 var player: Node3D
 var wife: Node3D
@@ -115,12 +115,27 @@ func _draw() -> void:
 func _draw_mokki() -> void:
 	var k := (SIZE_PX / 2.0) / MOKKI_RANGE
 	var lp: Vector3 = mokki.to_local(player.global_position)
-	var origin2 := Vector2(lp.x, lp.z)
+	var origin2 := Mokki.to_map2(Vector2(lp.x, lp.z))
 	var wl := func(local: Vector2) -> Vector2:
-		return (local - origin2) * k + _center
+		return (Mokki.to_map2(local) - origin2) * k + _center  # pohjoinen ylös (karttakehys)
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.16, 0.2, 0.12, 0.95))
+	# Oikean kartan kohteet (Mokki.map_data: OSM): pellot, piha, vesistöt, tiet ja naapurirakennukset.
+	var data: Dictionary = Mokki.map_data()
+	var tr := func(poly: PackedVector2Array) -> PackedVector2Array:
+		var out := PackedVector2Array()
+		for p in poly:
+			out.append(wl.call(p))
+		return out
+	for f in data.fields:
+		draw_colored_polygon(tr.call(f), Color(0.45, 0.5, 0.26))
 	_ellipse(wl, Mokki.YARD_CENTER, Mokki.YARD_R.x, Mokki.YARD_R.y, Color(0.36, 0.3, 0.2, 0.95))
-	_ellipse(wl, Mokki.LAKE_CENTER, Mokki.LAKE_R.x, Mokki.LAKE_R.y, Color(0.3, 0.5, 0.75))
+	for w in data.water:
+		draw_colored_polygon(tr.call(w), Color(0.3, 0.5, 0.75))
+	for r in data.roads:
+		draw_polyline(tr.call(r.pts), Color(0.75, 0.7, 0.55), 3.0)
+	for bd in data.buildings:
+		if not (bd.id in Mokki.OWN_BUILDINGS):
+			draw_colored_polygon(tr.call(bd.poly), Color(0.62, 0.6, 0.56))
 	var half := Mokki.COTTAGE_SIZE / 2.0
 	var c := Mokki.COTTAGE_LOCAL
 	draw_colored_polygon(PackedVector2Array([
@@ -129,12 +144,13 @@ func _draw_mokki() -> void:
 	]), Color(0.85, 0.83, 0.74))
 	_marker(wl.call(Vector2(Mokki.SAUNA_LOCAL.x, Mokki.SAUNA_LOCAL.z)), Color(0.55, 0.3, 0.16), "S")
 	_marker(wl.call(Vector2(Mokki.TUB_LOCAL.x, Mokki.TUB_LOCAL.z)), Color(0.2, 0.5, 0.55), "A")
+	_marker(wl.call(Vector2(Mokki.KITCHEN_LOCAL.x, Mokki.KITCHEN_LOCAL.z)), Color(0.6, 0.72, 0.82), "K")
 	_marker(wl.call(Vector2(Mokki.DART_LOCAL.x, Mokki.DART_LOCAL.z)), Color(0.85, 0.15, 0.1), "Ti")
 	_marker(wl.call(Vector2(Mokki.DOCK_LOCAL.x, Mokki.DOCK_LOCAL.z)), Color(0.5, 0.38, 0.24), "L")
 	_marker(wl.call(Vector2(Mokki.TAXI_LOCAL.x, Mokki.TAXI_LOCAL.z)), Color(0.96, 0.78, 0.08), "Tx")
 	if player != null:
 		var fwd3 := -player.global_transform.basis.z
-		var f := Vector2(fwd3.x, fwd3.z).normalized()
+		var f := (Mokki.to_map2(Vector2(fwd3.x, fwd3.z)) - Mokki.to_map2(Vector2.ZERO)).normalized()
 		var r := f.orthogonal()
 		var p := _center
 		draw_colored_polygon(PackedVector2Array([p + f * 8.0, p - f * 5.0 + r * 5.0, p - f * 5.0 - r * 5.0]), Color.WHITE)
