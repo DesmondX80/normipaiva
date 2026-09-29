@@ -4001,6 +4001,34 @@ func _maybe_screenshot() -> void:
 			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
 			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
 			sc.current = true
+		"kuisti":
+			# Mökin kuisti: luiskaa ylös kannelle (korkeus ~0,6 m), eikä kannen reunasta pääse sisään maata pitkin.
+			_toggle_mount()
+			var start: Vector3 = mokki.to_global(Vector3(-6.4, 0.4, -4.2))
+			walker_out.global_position = start
+			walker_out.look_at(mokki.to_global(Vector3(0, 0.4, -4.2)))
+			for i in 10:
+				await get_tree().physics_frame
+			Input.action_press("forward")
+			for i in 150:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			var lp: Vector3 = mokki.to_local(walker_out.global_position)
+			print("KUISTI portaat: x=%.2f y=%.2f z=%.2f (kansi y 0.62, x -4.7..4.7)" % [lp.x, lp.y, lp.z])
+			walker_out.global_position = mokki.to_global(Vector3(0, 0.4, -7.5))
+			walker_out.look_at(mokki.to_global(Vector3(0, 0.4, 0)))
+			for i in 10:
+				await get_tree().physics_frame
+			Input.action_press("forward")
+			for i in 120:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			lp = mokki.to_local(walker_out.global_position)
+			print("KUISTI edestä: z=%.2f y=%.2f (kannen reuna z -5.9: pitäisi pysähtyä)" % [lp.z, lp.y])
+			var kc := Camera3D.new()
+			add_child(kc)
+			kc.look_at_from_position(mokki.to_global(Vector3(-8, 2.5, -9)), walker_out.global_position + Vector3(0, 0.8, 0))
+			kc.current = true
 		"syo":
 			# Leipähyllystä korvapuusti ja piirakka, sitten T-valikosta syöminen. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)

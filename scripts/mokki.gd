@@ -291,7 +291,16 @@ func _build_cottage() -> void:
 	for i in 3:
 		var sy := found_h - i * found_h / 3.0 - found_h / 6.0
 		B.mesh(body, B.boxm(Vector3(1.1, found_h / 3.0, 0.32)), Vector3(stx - i * 0.32, sy, deck_z + 0.2 + i * 0.32), Color(0.5, 0.4, 0.28))
+	# Kuistin lattia kiinteäksi (muuten kävellään maata pitkin ja kansi leikkaa polvista) ja portaiden kohdalle
+	# loiva luiska: CharacterBody ei nouse porrasaskelmia, mutta kävelee alle 45° rinnettä ylös.
+	body.add_child(B.box_shape(Vector3(l, found_h + 0.03, porch_d), Vector3(0, (found_h + 0.03) / 2.0, deck_z)))
+	var run := 1.2
+	var ramp := B.box_shape(Vector3(Vector2(run, found_h).length(), 0.1, 1.1), Vector3.ZERO)
+	ramp.transform = Transform3D(Basis(Vector3.BACK, atan2(found_h, run)), Vector3(-l / 2.0 - run / 2.0, found_h / 2.0 - 0.05, deck_z + 0.5))
+	body.add_child(ramp)
 	# Kuistin sohva, tuolit ja pöytä (kuten kuvissa).
+	body.add_child(B.box_shape(Vector3(1.7, 0.6, 0.9), Vector3(1.5, found_h + 0.3, deck_z + 0.5)))
+	body.add_child(B.box_shape(Vector3(0.6, 0.45, 0.6), Vector3(3.6, found_h + 0.22, deck_z + 0.6)))
 	B.mesh(body, B.boxm(Vector3(1.7, 0.55, 0.75)), Vector3(1.5, found_h + 0.3, deck_z + 0.55), Color(0.32, 0.26, 0.22))
 	B.mesh(body, B.boxm(Vector3(1.7, 0.5, 0.16)), Vector3(1.5, found_h + 0.62, deck_z + 0.2), Color(0.36, 0.3, 0.26))
 	B.mesh(body, B.cyl(0.28, 0.3, 0.05, 16), Vector3(3.6, found_h + 0.42, deck_z + 0.6), Color(0.55, 0.42, 0.28))
