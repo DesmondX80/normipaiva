@@ -76,6 +76,13 @@ const PEKKA := {
 	"hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.28, 0.2), "beard": true, "height": 1.78, "shine": 0.2, "belly": 0.65, "bulk": 0.1,
 }
 
+## Pannu-Sulo, metsän pontikankeittäjä: ruutupaita, maastohousut, harmaa parta.
+const SULO := {
+	"shirt": Color(0.55, 0.12, 0.1), "pants": Color(0.25, 0.3, 0.2), "shoes": Color(0.12, 0.1, 0.08),
+	"hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.7, 0.68), "beard": true, "height": 1.72,
+	"skin": Color(1.0, 0.84, 0.78), "belly": 0.45, "bulk": -0.2, "shoulders": -0.3,
+}
+
 
 static func make(parent: Node3D, look: Dictionary) -> Node3D:
 	var c := Character.new()

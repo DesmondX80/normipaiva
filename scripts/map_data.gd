@@ -31,6 +31,9 @@ const LAAVU := Vector2(833, 2345)  # nuotiopaikka Antinsuonkankaalla
 const KOTA := Vector2(1403, 3742)
 const LINTUTORNI := Vector2(1413, 3748)
 const J_PATO := Vector2(1304, 3778)  # Ketunperäntie / Patotie
+## Pannu-Sulon pontikkapannu Antinsuonkankaan kuusikossa, Ketunperäntien ja laavupolun puolivälissä.
+## Ei näy kartoilla; kodan tarinoissa mainitaan ohimennen.
+const PONTIKKA := Vector2(560, 1850)
 
 const HOME_ZONE := Vector2(785, 1195)
 const HOME_BUILDING := Vector2(808, 1178)
