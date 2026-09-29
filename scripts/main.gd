@@ -1673,7 +1673,7 @@ func _mokki_taxi_logic() -> void:
 			else:
 				money -= TAXI_PRICE
 				tilat.first("mokki", 0.4)
-				_ride_taxi(mokki_stand + Vector3(0, 0, 2.2), "Matkalla mökille... (%s €)" % _eur(TAXI_PRICE))
+				_ride_taxi(mokki.gpos(Mokki.TAXI_LOCAL + Vector3(0, 0.3, 2.2)), "Matkalla mökille... (%s €)" % _eur(TAXI_PRICE))
 	elif d_mokki < 3.0:
 		_hint.text = "[E] Tilaa taksi kotiin (paluu jo maksettu)"
 		if Input.is_action_just_pressed("interact"):
@@ -1684,6 +1684,7 @@ func _ride_taxi(dest: Vector3, sub: String) -> void:
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
 	cutscene.taxi(sub, func() -> void:
+		mokki.ensure_built()  # mökkialue rakennetaan ensimmäisellä matkalla (ruutu on vielä pimeänä)
 		walker_out.global_position = dest
 		walker_out.rotation.y = 0.0
 		walker_out.activate_camera()
@@ -1712,6 +1713,19 @@ func _mokki_logic() -> void:
 		_hint.text = "[E] Mene sisälle mökkiin"
 		if e:
 			_enter_mokki()
+		return
+	if near.call(Mokki.KITCHEN_LOCAL, 1.6):
+		if has_sausage and not sausage_done:
+			_hint.text = "[E] Paista makkara kesäkeittiön savustimessa"
+			if e:
+				sausage_done = true
+				_eat(0.5)
+				tilat.first("savustin", 0.3)
+				tilat.add("stressi", 0.1)
+				Sfx.play("whoosh", -6.0, 0.4)
+				_show_message("Savustettu makkara! Nam.", 2.5)
+		else:
+			_hint.text = "Kesäkeittiö ja offset-savustin. Makkaran saa K-Marketista."
 		return
 	if near.call(Mokki.SANTTU_LOCAL, 2.6):
 		_hint.text = "[E] Jutskaa Santun kanssa"
@@ -1800,8 +1814,8 @@ func _on_mokki_exited() -> void:
 	mokki_int.leave()
 	Sfx.play("door_close", -3.0)
 	state = _mokki_prev
-	walker_out.global_position = mokki.to_global(Mokki.DOOR_LOCAL + Vector3(0, 0.9, -0.9))
-	walker_out.rotation.y = mokki.rotation.y  # selkä ovelle, katse pihalle (-Z)
+	walker_out.global_position = mokki.porch_pos(0.9)
+	walker_out.rotation.y = mokki.rotation.y + PI  # selkä ovelle, katse pihalle ja järvelle (+Z)
 	walker_out.velocity = Vector3.ZERO
 	walker_out.controls_enabled = true
 	walker_out.activate_camera()
@@ -1814,7 +1828,7 @@ func _on_mokki_slept() -> void:
 	tilat.add("vasymys", 0.3)  # hyvät unet näkyvät vielä päivän tuloksessa
 	_slept_mokki = true
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
-	_new_day(mokki.to_global(Mokki.DOOR_LOCAL + Vector3(0, 0.6, -0.9)), false, "Nukuit yön Santun mökillä kerrossängyssä.\n")
+	_new_day(mokki.porch_pos(0.9) - Vector3(0, 0.3, 0), false, "Nukuit yön Santun mökillä kerrossängyssä.\n")
 
 
 ## Mökin sisätoiminnot: tilavaikutukset (kerran päivässä) ja viestit.
@@ -3169,6 +3183,8 @@ func _maybe_screenshot() -> void:
 	if path.is_empty():
 		return
 	await get_tree().process_frame
+	if scene.begins_with("mokki") or scene == "kuisti":
+		mokki.ensure_built()  # testikohtaukset menevät mökille ilman taksia
 	match scene:
 		"shop":
 			_enter_shop()
@@ -3444,7 +3460,7 @@ func _maybe_screenshot() -> void:
 				Input.action_release("interact")
 				await get_tree().process_frame
 				await get_tree().process_frame
-			walker_out.global_position = mokki.to_global(Mokki.DOCK_LOCAL) + Vector3(0, 0.4, 0)
+			walker_out.global_position = mokki.to_global(Vector3(Mokki.DOCK_LOCAL.x, Mokki.h(Mokki.DOCK_LOCAL.x, Mokki.DOCK_LOCAL.z - 11.6) + 0.7, Mokki.DOCK_LOCAL.z))
 			for i in 10:
 				await get_tree().physics_frame
 			print("FISH hint: ", _hint.text, " state=", _fish_state)
@@ -4138,7 +4154,7 @@ func _maybe_screenshot() -> void:
 				Input.action_release(action)
 				await get_tree().process_frame
 			_toggle_mount()
-			walker_out.global_position = mokki.to_global(Mokki.DOOR_LOCAL + Vector3(0, 0.9, -0.4))
+			walker_out.global_position = mokki.porch_pos(0.4)
 			for i in 10:
 				await get_tree().physics_frame
 			await get_tree().process_frame
@@ -4165,7 +4181,7 @@ func _maybe_screenshot() -> void:
 			for i in 5:
 				await get_tree().physics_frame
 			print("SISA ulos state=%s porch_y=%.2f" % [state, mokki.to_local(walker_out.global_position).y])
-			walker_out.global_position = mokki.to_global(Mokki.DOOR_LOCAL + Vector3(0, 0.9, -0.4))
+			walker_out.global_position = mokki.porch_pos(0.4)
 			for i in 5:
 				await get_tree().physics_frame
 			await get_tree().process_frame
@@ -4181,12 +4197,71 @@ func _maybe_screenshot() -> void:
 				walker_out.global_position.distance_to(mokki.global_position), _msg.text.replace("\n", " | ")])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"taksimokki":
+			# Taksilla kotoa mökille: alue rakentuu vasta matkalla (viivästetty), pelaaja maan pinnalla pysäkillä.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			_toggle_mount()
+			print("TAKSIMOKKI ennen: rakennettu=%s" % mokki.built)
+			walker_out.global_position = world.taxi_home_pos + Vector3(0, 0.5, 1.0)
+			for i in 10:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			var t0 := Time.get_ticks_msec()
+			while not mokki.built and Time.get_ticks_msec() - t0 < 15000:
+				await get_tree().process_frame
+			for i in 90:
+				await get_tree().physics_frame
+			var lp: Vector3 = mokki.to_local(walker_out.global_position)
+			print("TAKSIMOKKI jälkeen: rakennettu=%s paikka=(%.1f, %.2f, %.1f) maa=%.2f rahat=%s" % [mokki.built, lp.x, lp.y, lp.z,
+				Mokki.h(lp.x, lp.z), _eur(money)])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"mokkikartta":
+			# Paperikartta (M) ja tutka mökillä: oikean kartan järvet, tiet ja rakennukset.
+			_toggle_mount()
+			walker_out.global_position = mokki.porch_pos(1.5)
+			for i in 10:
+				await get_tree().physics_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_tutka.png"))
+			await get_tree().process_frame
+			Input.action_press("map")
+			await get_tree().process_frame
+			Input.action_release("map")
+		"mokkiilma":
+			# Mökin 200 m alue ilmasta (vertaa drone-kuvaan ja karttaan) ja rakennusaika.
+			var t0 := Time.get_ticks_msec()
+			var test := Mokki.new()
+			test.position = Vector3(0, 0, 20000)
+			add_child(test)
+			print("MOKKIILMA rakennus %d ms, lapsia %d, vesi_y %.2f, mökki->ranta h(8.9,44)=%.2f" % [Time.get_ticks_msec() - t0,
+				test.get_child_count(), Mokki.water_y(), Mokki.h(8.9, 44.0)])
+			test.queue_free()
+			var ac := Camera3D.new()
+			add_child(ac)
+			ac.far = 2000.0
+			ac.look_at_from_position(mokki.gpos(Vector3(-5, 90, -60)), mokki.gpos(Vector3(0, 0, 25)))
+			ac.current = true
+			for i in 10:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_piha.png"))
+			# Mökki järven puolelta: rinteen sokkeli ja kuistin portaat.
+			ac.look_at_from_position(mokki.gpos(Vector3(9, 2.0, 12)), mokki.gpos(Vector3(1, 0.5, 0)))
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ranta.png"))
+			ac.look_at_from_position(mokki.gpos(Vector3(0, 170, 30)), mokki.gpos(Vector3(0, 0, 0)))
 		"kuisti":
 			# Mökin kuisti: luiskaa ylös kannelle (korkeus ~0,6 m), eikä kannen reunasta pääse sisään maata pitkin.
 			_toggle_mount()
-			var start: Vector3 = mokki.to_global(Vector3(-6.4, 0.4, -4.2))
+			var start: Vector3 = mokki.gpos(Vector3(6.6, 0.5, 2.2))
 			walker_out.global_position = start
-			walker_out.look_at(mokki.to_global(Vector3(0, 0.4, -4.2)))
+			walker_out.look_at(mokki.gpos(Vector3(0, 0.5, 2.2)))
 			for i in 10:
 				await get_tree().physics_frame
 			Input.action_press("forward")
@@ -4194,9 +4269,9 @@ func _maybe_screenshot() -> void:
 				await get_tree().physics_frame
 			Input.action_release("forward")
 			var lp: Vector3 = mokki.to_local(walker_out.global_position)
-			print("KUISTI portaat: x=%.2f y=%.2f z=%.2f (kansi y 0.62, x -4.7..4.7)" % [lp.x, lp.y, lp.z])
-			walker_out.global_position = mokki.to_global(Vector3(0, 0.4, -7.5))
-			walker_out.look_at(mokki.to_global(Vector3(0, 0.4, 0)))
+			print("KUISTI portaat: x=%.2f y=%.2f z=%.2f (kansi y %.2f, x -4.7..4.7)" % [lp.x, lp.y, lp.z, Mokki.h(0, -1) + 0.62])
+			walker_out.global_position = mokki.gpos(Vector3(0, 0.5, 7.5))
+			walker_out.look_at(mokki.gpos(Vector3(0, 0.5, 0)))
 			for i in 10:
 				await get_tree().physics_frame
 			Input.action_press("forward")
@@ -4204,10 +4279,11 @@ func _maybe_screenshot() -> void:
 				await get_tree().physics_frame
 			Input.action_release("forward")
 			lp = mokki.to_local(walker_out.global_position)
-			print("KUISTI edestä: z=%.2f y=%.2f (kannen reuna z -5.9: pitäisi pysähtyä)" % [lp.z, lp.y])
+			print("KUISTI edestä: z=%.2f y=%.2f (kannen reuna z 3.9: pitäisi pysähtyä)" % [lp.z, lp.y])
+			# Yleiskuva pihasta rannan suunnasta: kuisti, savusauna, poreamme ja kesäkeittiö kuten kuvissa.
 			var kc := Camera3D.new()
 			add_child(kc)
-			kc.look_at_from_position(mokki.to_global(Vector3(-8, 2.5, -9)), walker_out.global_position + Vector3(0, 0.8, 0))
+			kc.look_at_from_position(mokki.gpos(Vector3(4, 9, 36)), mokki.gpos(Vector3(2, 1, 8)))
 			kc.current = true
 		"syo":
 			# Leipähyllystä korvapuusti ja piirakka, sitten T-valikosta syöminen. Tallennus palautetaan.
