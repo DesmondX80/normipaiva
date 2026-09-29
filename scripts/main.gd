@@ -223,6 +223,14 @@ const StrayDog := preload("res://scripts/stray_dog.gd")
 const PEKKA_CARE := 3.0
 const WOUND_PAIVI := ["Taas sää oot ollu vieraitten koirien kans!", "Istu siihen. Ja älä vingu.",
 	"Ei ne koirat ite purase, jos niitä ei mene rapsuttelemaan."]
+## Päivin kauppalista (muistipeli, #12): Päivi sanoo tuotteet väreineen kerran, lista näyttää vain tuotteet.
+## Tuotteet haetaan kaupan Päivin hyllystä (shop_interior.gd) ja tarkistetaan kotona.
+const LIST_SIZE := 4
+var shopping_list: Array = []  # [[tuote, väri], ...]
+var paivi_bag := {}  # kaupasta tuodut: tuote -> väri
+var _list_done := false
+var _kaljarauha := false  # kaikki oikein: Päivi ei etsi jemmoja seuraavana aamuna
+var _msg_queue: Array = []
 var stray: CharacterBody3D
 var bitten := false
 var vaino: CharacterBody3D
@@ -313,6 +321,8 @@ func _ready() -> void:
 	jemma_note = bike_note + jemma_note + _lawn_nag()
 	_show_message("Päivä %d · Järvikuja 1, Saloinen.\nPitäis käydä kaupassa... Aja K-Marketille!%s%s" % [day, 
 		("\nJemmassa %d kaljaa." % jemma) if jemma > 0 else "", jemma_note], 5.0 if jemma_note == "" else 6.0)
+	_roll_list()
+	_tell_list()
 	_maybe_screenshot()
 
 
@@ -339,6 +349,9 @@ func _process(delta: float) -> void:
 		_msg_time -= delta
 		if _msg_time <= 0.0:
 			_msg.text = ""
+	elif not _msg_queue.is_empty() and _hud.visible:
+		var m: Array = _msg_queue.pop_front()
+		_show_message(m[0], m[1])
 
 
 ## Lukitsematon pyörä: jos se on pitkään kaukana (ei kotipihassa), teinit vievät sen muualle.
@@ -406,6 +419,7 @@ func _outside_logic() -> void:
 	_stash_logic()
 	_forage_logic()
 	_wound_logic()
+	_errand_logic()
 	_vaino_logic()
 	_neighbor_logic()
 	_pontikka_logic()
@@ -816,6 +830,70 @@ func _lawn_nag() -> String:
 	if avg >= 0.5:
 		s += "\nAnna-Liisa aidan takaa: \"%s\"" % LAWN_NAG_ANNALIISA.pick_random()
 	return s
+
+
+## Uusi kauppalista: neljä eri tuotetta, kullekin väri.
+func _roll_list() -> void:
+	var prods: Array = ShopInterior.PRODUCTS.keys()
+	prods.shuffle()
+	shopping_list.clear()
+	for i in LIST_SIZE:
+		shopping_list.append([prods[i], ShopInterior.COLORS.keys().pick_random()])
+	paivi_bag = {}
+	_list_done = false
+
+
+## Päivi luettelee listan kerran (viestijonossa päivän aloitusviestin jälkeen).
+func _tell_list() -> void:
+	var said: Array[String] = []
+	for it in shopping_list:
+		said.append("%s %s" % [it[1], it[0]])
+	var text := ", ".join(said.slice(0, said.size() - 1)) + " ja " + said[-1]
+	_queue_message("Päivi: \"Tuo kaupasta %s.\"\nKauppalistaan hän kirjoitti vain tuotteet. Muista värit!" % text, 7.0)
+
+
+## Ostosten tarkistus: palauttaa Päivin repliikit. Kaikki oikein -> kaljarauha.
+func _check_list() -> Array[String]:
+	_list_done = true
+	var lines: Array[String] = []
+	var big := false
+	var wanted := {}
+	for it in shopping_list:
+		wanted[it[0]] = it[1]
+		if not paivi_bag.has(it[0]):
+			lines.append("%s puuttuu kokonaan!" % it[0].capitalize())
+			big = true
+		elif paivi_bag[it[0]] != it[1]:
+			lines.append("Mä sanoin %s %s, ei %s!" % [it[1].to_upper(), it[0], paivi_bag[it[0]]])
+	for prod in paivi_bag:
+		if not wanted.has(prod):
+			lines.append("Ei ollu listalla: %s %s! Mitä mää tuolla teen?" % [paivi_bag[prod], prod])
+			big = true
+	paivi_bag = {}
+	if lines.is_empty():
+		_kaljarauha = true
+		Sfx.play("win_small")
+		return ["Päivi: \"Kaikki oikein! No niin, kyllä sää osaat.\"\nKaljarauha: Päivi ei etsi jemmoja huomenna."]
+	if big:
+		lines.push_front("Eihän tässä oo mitään järkeä!")
+	var out: Array[String] = []
+	for l in lines:
+		out.append("Päivi: \"%s\"" % l)
+	return out
+
+
+## Ostokset Päiville kotiovella (ilman kuutosta; kotiinpaluu kuutosen kanssa tarkistaa ne _win():ssä).
+func _errand_logic() -> void:
+	if _list_done or paivi_bag.is_empty() or _hint.text != "" or state != "to_shop" or player != walker_out:
+		return
+	var p := player.global_position
+	if Vector2(p.x - home_zone.x, p.z - home_zone.z).length() > ZONE_RADIUS:
+		return
+	_hint.text = "[E] Anna ostokset Päiville"
+	if Input.is_action_just_pressed("interact"):
+		for l in _check_list():
+			_queue_message(l, 3.0)
+		player.set_carrying(beers > 0)
 
 
 ## Vieras koira puri: kaatuu, ja jalka ontuu, kunnes haava hoidetaan.
@@ -1362,6 +1440,10 @@ func _on_shop_exited(bought: bool) -> void:
 		has_sausage = has_sausage or interior.cart.has("makkara")
 		has_matches = has_matches or interior.cart.has("tikut")
 		has_chocolate = has_chocolate or interior.cart.has("suklaa")
+		for k in interior.bag:
+			paivi_bag[k] = interior.bag[k]
+		if not interior.bag.is_empty() and not bought:
+			_show_message("Päivin ostokset kassissa. Vie ne kotiin.", 2.5)
 	if not bought:
 		state = "to_shop"
 		return
@@ -1499,6 +1581,10 @@ func _win() -> void:
 	state = "cutscene"
 	player.controls_enabled = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	if not _list_done and not paivi_bag.is_empty():
+		# Päivin palaute ostoksista uuden päivän aloitusviestin jälkeen (ennen uutta listaa).
+		for l in _check_list():
+			_msg_queue.append([l, 3.0])
 	var kanister := KANISTER_BEERS if has_kanister else 0
 	var brought := beers + kanister
 	var where := _deposit_home(brought)
@@ -1717,6 +1803,11 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	if bitten:
 		_heal()
 		bonus += "\nPuremahaava parani yön aikana. Päivi: \"%s\"" % WOUND_PAIVI.pick_random()
+	if not _list_done and not shopping_list.is_empty():
+		bonus += "\nPäivi: \"Eilen ei tullu kaupasta mitään, vaikka oli lista!\""
+	var rauha := _kaljarauha
+	_kaljarauha = false
+	_roll_list()
 	# Nurmikko kasvaa yön aikana; siilit ja kivet uusiin paikkoihin, leikkuri takaisin paikalleen.
 	_stop_mowing()
 	if _lawn_praise:
@@ -1750,7 +1841,9 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_save_game()
 	_jemma_found = 0
 	_jemma_choco = ""
-	var jnote := _jemma_check()
+	var jnote := _jemma_check(not rauha)
+	if rauha:
+		jnote += "\nKaljarauha: Päivi ei etsinyt jemmoja."
 	if _jemma_found > 0:
 		# Päivi löysi jemman: välianimaatio ennen päivän alkua.
 		state = "cutscene"
@@ -1765,10 +1858,12 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 			player.controls_enabled = true
 			player.activate_camera()
 			_hazards.process_mode = Node.PROCESS_MODE_INHERIT
-			_show_message(msg, 6.0), _jemma_choco)
+			_show_message(msg, 6.0)
+			_tell_list(), _jemma_choco)
 		return
 	_show_message("%sPäivä %d alkaa%s.%s%s%s\nPitäis käydä kaupassa..." % [intro, day, " laavulta" if spawn.distance_to(home_zone) > 50.0 else " kotoa",
 		bonus, bike_note, jnote], 4.0 if jnote == "" and intro == "" and bike_note == "" else 6.0)
+	_tell_list()
 
 
 ## Tallennettu pyörä paikalleen ja pelaaja jalan kotiin. Palauttaa aamumuistutuksen.
@@ -2162,6 +2257,12 @@ func _update_hud() -> void:
 		inv.append("halkoja %d" % kota_halot)
 	if not inv.is_empty():
 		lines += "\nMukana: " + ", ".join(inv)
+	if not _list_done and not shopping_list.is_empty():
+		# Kauppalista: vain tuotteet, värit pitää muistaa. ✔ = kassissa (väristä riippumatta).
+		var items: Array[String] = []
+		for it in shopping_list:
+			items.append(it[0] + (" ✔" if paivi_bag.has(it[0]) or interior.bag.has(it[0]) else ""))
+		lines += "\nKauppalista: " + ", ".join(items)
 	if mielihyva > 0.0 or maine > 0.0:
 		lines += "\nMielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)]
 	if not bucket.is_empty():
@@ -2227,6 +2328,14 @@ func _centered_label(layer: CanvasLayer, size: int, anchor_y: float, top: float,
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	return l
+
+
+## Viesti jonoon: näytetään, kun edellinen on ehtinyt näkyä loppuun.
+func _queue_message(text: String, seconds: float) -> void:
+	if _msg_time <= 0.0 and _hud.visible:
+		_show_message(text, seconds)
+	else:
+		_msg_queue.append([text, seconds])
 
 
 func _show_message(text: String, seconds: float) -> void:
@@ -3164,6 +3273,52 @@ func _maybe_screenshot() -> void:
 			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
 			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
 			sc.current = true
+		"kauppalista":
+			# Päivin lista: 3 oikein, 1 väärä väri ja 1 ylimääräinen; kotona palaute. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			shopping_list = [["tamponi", "vihreä"], ["maito", "punainen"], ["ristikkolehti", "sininen"], ["voi", "keltainen"]]
+			print("LISTA hud=", _stats.text.split("\n")[-1])
+			_enter_shop()
+			var iw: CharacterBody3D = interior.walker
+			var picks := [["tamponi", "vihreä"], ["maito", "punainen"], ["ristikkolehti", "sininen"], ["voi", "sininen"], ["kahvi", "punainen"]]
+			for pk in picks:
+				var idx: int = ShopInterior.PRODUCTS.keys().find(pk[0])
+				iw.position = Vector3(10.4, 0, ShopInterior.SHELF_Z0 + idx + 0.5)
+				await get_tree().process_frame
+				var ci: int = ShopInterior.COLORS.keys().find(pk[1])
+				for k in ci:
+					Input.action_press("bell")
+					await get_tree().process_frame
+					Input.action_release("bell")
+					await get_tree().process_frame
+				print("  at %s hint=%s" % [pk[0], interior.hint])
+				Input.action_press("interact")
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+			print("LISTA bag=", interior.bag, " hud=", _stats.text.split("\n")[-1])
+			for i in 5:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_shelf.png"))
+			interior.has_paid = true
+			interior.exited.emit(false)
+			await get_tree().process_frame
+			_toggle_mount()
+			walker_out.global_position = home_zone + Vector3(0, 0.5, 2.0)
+			for i in 20:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("LISTA home hint=", _hint.text, " bag=", paivi_bag)
+			_msg_time = 0.0
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			print("LISTA feedback=", " || ".join(_msg_queue.map(func(m: Array) -> String: return m[0])), " shown=", _msg.text)
+			_new_day(home_zone + Vector3(0, 0, 4), false)
+			print("LISTA newday list=", shopping_list, " queue=", _msg_queue.size())
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"purema":
 			# Vieras koira: murina, purema, ontuminen, hoito Pekalla ja Päivillä. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
