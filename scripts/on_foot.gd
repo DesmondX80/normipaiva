@@ -30,6 +30,7 @@ var _cam_ready := false
 var _stun := 0.0
 var _push := Vector3.ZERO
 var _bag: MeshInstance3D
+var _kanister: Node3D
 var _step_t := 0.0
 
 
@@ -43,6 +44,15 @@ func _ready() -> void:
 	_bag = B.mesh(bag, B.boxm(Vector3(0.26, 0.34, 0.18)), Vector3(0, -0.2, 0), Color(1.0, 0.45, 0.0))
 	_body.attach("hand_r", bag, Vector3(0, -0.05, 0))
 	_bag.visible = false
+	# Pontikkakanisteri vasemmassa kädessä.
+	var can := Node3D.new()
+	# Roikkuu vasemmalla kyljellä käden alla (hahmon juuressa, ei käden luussa: pysyy pystyssä).
+	B.mesh(can, B.boxm(Vector3(0.12, 0.32, 0.26)), Vector3.ZERO, Color(0.92, 0.92, 0.88))
+	B.mesh(can, B.boxm(Vector3(0.04, 0.05, 0.12)), Vector3(0, 0.18, -0.04), Color(0.85, 0.15, 0.1))
+	can.position = Vector3(-0.34, 0.6, 0.0)
+	add_child(can)
+	_kanister = can
+	can.visible = false
 	_cam = Camera3D.new()
 	_cam.fov = 70.0
 	_cam.far = 900.0
@@ -57,6 +67,10 @@ func activate_camera() -> void:
 
 func set_carrying(carrying: bool) -> void:
 	_bag.visible = carrying
+
+
+func set_kanister(on: bool) -> void:
+	_kanister.visible = on
 
 
 func is_stunned() -> bool:
