@@ -229,6 +229,16 @@ var mummot: Node3D
 const PEKKA_CARE := 3.0
 const WOUND_PAIVI := ["Taas sää oot ollu vieraitten koirien kans!", "Istu siihen. Ja älä vingu.",
 	"Ei ne koirat ite purase, jos niitä ei mene rapsuttelemaan."]
+## Jalkapallopojat (#29, boys.gd): joka toinen päivä kolme poikaa jossain tien varressa, pallo hukassa 100–300 m päässä.
+## Palautus esinevalikosta: pallo = 1 € ja moraali/kokemus, kalja = pojat juoksevat nauraen pois, muu = kivisade.
+const Boys := preload("res://scripts/boys.gd")
+const ItemMenu := preload("res://scripts/item_menu.gd")
+const BALL_REWARD := 1.0
+var boys: Node3D
+var ball: Node3D
+var has_ball := false
+var _ball_quest := ""  # "" = ei annettu, "search" = etsitään, "done" = hoidettu
+var _item_menu: PanelContainer
 ## Päivittäiset tilat (#18, day_stats.gd): kolme arvottua tilaa HUD:ssa, toiminnot nostavat ja laskevat niitä.
 ## Päivän summa < 0 -> seuraava päivä hankalampi (trouble = 1), >= GOOD_DAY -> helpompi (trouble = -1).
 const DayStats := preload("res://scripts/day_stats.gd")
@@ -319,6 +329,7 @@ func _ready() -> void:
 	_load_game()
 	_stat_bars.stats = tilat
 	_apply_trouble()
+	_spawn_boys()
 	lawn.spawn_objects()
 	_roll_vaino()
 	if laavu_conquered:
@@ -429,6 +440,8 @@ func _mount_logic() -> void:
 
 
 func _outside_logic() -> void:
+	if _item_menu.is_open():
+		return  # esinevalikko ottaa E:n, W/S:n ja Q:n
 	var target := shop_zone if state == "to_shop" else home_zone
 	var ppos := player.global_position
 	var dist := Vector2(ppos.x, ppos.z).distance_to(Vector2(target.x, target.z))  # vaakaetäisyys (maasto ei vaikuta)
@@ -447,6 +460,7 @@ func _outside_logic() -> void:
 	_laavu_logic()
 	_stash_logic()
 	_forage_logic()
+	_boys_logic()
 	_wound_logic()
 	_errand_logic()
 	_vaino_logic()
@@ -867,6 +881,151 @@ func _lawn_nag() -> String:
 	if avg >= 0.5:
 		s += "\nAnna-Liisa aidan takaa: \"%s\"" % LAWN_NAG_ANNALIISA.pick_random()
 	return s
+
+
+## Joka toinen päivä pojat johonkin tien varteen. Palauttaa true, jos pojat ovat tänään kylillä.
+func _spawn_boys() -> bool:
+	boys = null
+	ball = null
+	has_ball = false
+	_ball_quest = ""
+	if day % 2 != 0:
+		return false
+	for attempt in 40:
+		var n: Vector3 = world.graph_nodes.pick_random()
+		var a := randf() * TAU
+		var p := n + Vector3(cos(a), 0, sin(a)) * randf_range(7.0, 11.0)
+		if not world._in_bounds(Vector2(p.x, p.z), 25.0) or world.surface_at(p) == "water" \
+				or world._near_house(Vector2(p.x, p.z), 9.0) or p.distance_to(home_zone) < 40.0:
+			continue
+		boys = Boys.new()
+		boys.position = Vector3(p.x, Terrain.h(p.x, p.z), p.z)
+		boys.target = player
+		boys.hit.connect(func(dir: Vector3) -> void:
+			if state in ["to_shop", "to_home"] and not player.is_stunned():
+				player.stagger(dir)
+				tilat.add("kipu", -0.05)
+				_show_message("Kivi osui! Pojilla on hyvä käsi.", 2.0))
+		_hazards.add_child(boys)
+		return true
+	return false
+
+
+## Pojat: tehtävän anto, pallon poiminta ja esineen antaminen valikosta.
+func _boys_logic() -> void:
+	if not is_instance_valid(boys):
+		return
+	var e := Input.is_action_just_pressed("interact")
+	var p := player.global_position
+	if _ball_quest == "search" and not has_ball and is_instance_valid(ball) and _hint.text == "" \
+			and Vector2(p.x - ball.global_position.x, p.z - ball.global_position.z).length() < 1.6:
+		if player == bike:
+			_hint.text = "Nouse pyörän selästä (F), niin saat pallon."
+			return
+		_hint.text = "[E] Ota jalkapallo"
+		if e:
+			has_ball = true
+			ball.queue_free()
+			Sfx.play("pickup", -2.0, 1.1)
+			_show_message("Jalkapallo löytyi! Vie se pojille.", 2.5)
+		return
+	if _hint.text != "" or boys.mode != "idle" or boys.distance_to_target() > 4.0 or player.is_stunned():
+		return
+	if player == bike:
+		_hint.text = "Nouse pyörän selästä (F), niin voit jutella poikien kanssa."
+		return
+	match _ball_quest:
+		"":
+			_hint.text = "[E] Juttele poikien kanssa"
+			if e:
+				_give_ball_quest()
+		"search":
+			_hint.text = "[E] Anna pojille jotain"
+			if e:
+				_open_give_menu()
+		"done":
+			_hint.text = "Pojat pelaa palloa."
+
+
+## Pallo arvotaan 100–300 m päähän pelialueelle (ei veteen); pojat kertovat suunnan.
+func _give_ball_quest() -> void:
+	var c: Vector3 = boys.global_position
+	for attempt in 60:
+		var a := randf() * TAU
+		var dir := Vector3(cos(a), 0, sin(a))
+		var q := c + dir * randf_range(100.0, 300.0)
+		if not world._in_bounds(Vector2(q.x, q.z), 10.0) or world.surface_at(q) == "water":
+			continue
+		ball = Boys.make_ball()
+		_hazards.add_child(ball)
+		ball.global_position = Vector3(q.x, Terrain.h(q.x, q.z) + 0.11, q.z)
+		_ball_quest = "search"
+		var names := ["itään", "kaakkoon", "etelään", "lounaaseen", "länteen", "luoteeseen", "pohjoiseen", "koilliseen"]
+		var way: String = names[posmod(roundi(a / (TAU / 8.0)), 8)]
+		boys.say("Meiän pallo on hukassa! Se lensi tosi kauas %s." % way, 0, 4.0)
+		_show_message("Pojat: \"Meiän jalkapallo on hukassa! Se lensi tosi kauas %s.\"\nEtsi pallo ja tuo se pojille." % way, 4.5)
+		tilat.first("pojat")
+		return
+
+
+func _open_give_menu() -> void:
+	var items: Array = []
+	if has_ball:
+		items.append(["pallo", "Jalkapallo"])
+	if beers > 0:
+		items.append(["kalja", "Kalja (%d)" % beers])
+	if has_sausage:
+		items.append(["makkara", "Grillimakkara"])
+	if has_matches:
+		items.append(["tikut", "Tulitikut"])
+	if has_chocolate:
+		items.append(["suklaa", "Suklaalevy"])
+	if has_mower_part:
+		items.append(["varaosa", "Leikkurin varaosa"])
+	if has_kanister:
+		items.append(["kanisteri", "Pontikkakanisteri"])
+	if not bucket.is_empty():
+		items.append(["ampari", "Ämpäri (marjat ja sienet)"])
+	if not paivi_bag.is_empty():
+		items.append(["ostokset", "Päivin ostokset"])
+	if kota_halot > 0:
+		items.append(["halko", "Halko"])
+	if items.is_empty():
+		_show_message("Sinulla ei ole mitään annettavaa. Pallo pitää ensin löytää.", 2.5)
+		return
+	player.controls_enabled = false
+	player.speed = 0.0
+	_msg.text = ""
+	_msg_time = 0.0
+	_item_menu.open(items, "Mitä annat pojille?")
+
+
+## Esine pojille: pallo = palkkio, kalja = pojat juoksevat nauraen pois, muu = heittävät takaisin ja kivisade.
+func _on_give(id: String) -> void:
+	player.controls_enabled = true
+	match id:
+		"pallo":
+			has_ball = false
+			_ball_quest = "done"
+			money += BALL_REWARD
+			var first: bool = not ("jalkapallo" in tilat.firsts)
+			if first:
+				tilat.firsts.append("jalkapallo")
+			tilat.add("moraali", randf_range(0.1, 0.5))
+			tilat.add("kokemus", randf_range(0.4, 0.6) if first else randf_range(0.1, 0.3))
+			boys.play_ball()
+			boys.say("Kiitti setä! Tässä euro.", 1, 3.0)
+			Sfx.play("win_small")
+			_show_message("Pallo palautettu! Pojat antoi %s €." % _eur(BALL_REWARD), 3.0)
+		"kalja":
+			beers -= 1
+			player.set_carrying(beers > 0)
+			tilat.add("moraali", -0.2)
+			boys.flee()
+			_show_message("Pojat nappasi kaljan ja juoksi nauraen pois!", 3.0)
+		_:
+			boys.stone()
+			_show_message("Pojat heitti sen takaisin ja alkoi heitellä kivillä!", 3.0)
 
 
 ## Jatkuvat tilavaikutukset ulkona (sekunnissa). Arvot ovat -1..+1, joten 0,01/s = minuutissa 0,6.
@@ -1567,6 +1726,7 @@ func _kota_logic() -> void:
 		_hint.text = "[E] Katsele lintuja Haapajärven tekojärvellä"
 		if e:
 			Sfx.play("crow", -8.0, randf_range(1.1, 1.4))
+			tilat.first("lintutorni")
 			_show_message("\"%s\"" % Kota.BIRD_LINES.pick_random(), 3.5)
 		return
 	if near.call(Kota.SAW_LOCAL, 1.7):
@@ -2174,6 +2334,8 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		c.queue_free()
 	_spawn_threats()
 	_apply_trouble()
+	if _spawn_boys():
+		bonus += "\nJossain päin kylää pojat pelaa jalkapalloa."
 	if laavu_conquered:
 		guard.vanish()
 	_minimap.wife = wife
@@ -2353,7 +2515,7 @@ func _spawn_player() -> void:
 func _set_avatar(a: CharacterBody3D) -> void:
 	player = a
 	world.follow = a
-	for h in [wife, juntti, guard, tractor, arto, pekka, sulo, police, vaino, stray, mummot]:
+	for h in [wife, juntti, guard, tractor, arto, pekka, sulo, police, vaino, stray, mummot, boys]:
 		if is_instance_valid(h):
 			h.target = a
 	_minimap.player = a
@@ -2581,6 +2743,11 @@ func _build_hud() -> void:
 	_minimap.mokki = mokki
 	layer.add_child(_minimap)
 
+	_item_menu = ItemMenu.new()
+	layer.add_child(_item_menu)
+	_item_menu.chosen.connect(_on_give)
+	_item_menu.cancelled.connect(func() -> void: player.controls_enabled = true)
+
 	_stat_bars = StatBars.new()
 	_stat_bars.anchor_left = 1.0
 	_stat_bars.anchor_right = 1.0
@@ -2623,6 +2790,8 @@ func _update_hud() -> void:
 		inv.append("leikkurin varaosa")
 	if has_kanister:
 		inv.append("pontikkakanisteri (= %d kaljaa)" % KANISTER_BEERS)
+	if has_ball:
+		inv.append("jalkapallo")
 	if kota_polkyt > 0:
 		inv.append("pölkkyjä %d" % kota_polkyt)
 	if kota_halot > 0:
@@ -3689,6 +3858,63 @@ func _maybe_screenshot() -> void:
 			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
 			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
 			sc.current = true
+		"pojat":
+			# Jalkapallopojat: tehtävä, pallon haku, palautus valikosta; sitten kalja ja väärä esine. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var press := func(action: String) -> void:
+				Input.action_press(action)
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			_toggle_mount()
+			for round in ["pallo", "kalja", "makkara"]:
+				if is_instance_valid(boys):
+					boys.queue_free()
+				day = 2
+				_spawn_boys()
+				walker_out.global_position = boys.global_position + Vector3(2.5, 0.5, 0)
+				for i in 10:
+					await get_tree().physics_frame
+				await get_tree().process_frame
+				print("POJAT [%s] hint=%s" % [round, _hint.text])
+				await press.call("interact")
+				var bd: float = ball.global_position.distance_to(boys.global_position) if is_instance_valid(ball) else -1.0
+				print("POJAT quest=%s ball_dist=%.0f msg=%s" % [_ball_quest, bd, _msg.text.replace("\n", " | ")])
+				if round == "pallo":
+					walker_out.global_position = ball.global_position + Vector3(0.8, 0.4, 0)
+					for i in 10:
+						await get_tree().physics_frame
+					await get_tree().process_frame
+					await press.call("interact")
+					print("POJAT has_ball=%s hud_inv=%s" % [has_ball, "jalkapallo" in _stats.text])
+				elif round == "kalja":
+					beers = 2
+				else:
+					has_sausage = true
+					beers = 0
+				walker_out.global_position = boys.global_position + Vector3(2.5, 0.5, 0)
+				for i in 10:
+					await get_tree().physics_frame
+				await get_tree().process_frame
+				var m0 := money
+				var mor: float = tilat.value("moraali")
+				var xp: float = tilat.value("kokemus")
+				await press.call("interact")
+				print("POJAT menu open=%s items=%s" % [_item_menu.is_open(), _item_menu._items])
+				if round == "pallo":
+					for i in 5:
+						await get_tree().process_frame
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_menu.png"))
+					await get_tree().process_frame
+				await press.call("interact")
+				for i in 30:
+					await get_tree().process_frame
+				print("POJAT gave -> mode=%s money %s -> %s moraali %+.2f kokemus %+.2f beers=%d msg=%s" % [
+					boys.mode if is_instance_valid(boys) else "gone", _eur(m0), _eur(money), tilat.value("moraali") - mor,
+					tilat.value("kokemus") - xp, beers, _msg.text.replace("\n", " | ")])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"tilat":
 			# Päivän tilat: lepo grillikatoksella, kalja, tehtävä, uusi päivä ja hankaluus. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
