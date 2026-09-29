@@ -135,6 +135,8 @@ Päivän lopussa lasketaan kolmen tilan summa:
 | Mökki: savusauna / poreamme (kerran päivässä) | stressi ++, väsymys ++, kipu +, vireys + / stressi ++, kipu +, stamina + |
 | Mökki: kala laiturilta / tikan täysosuma (kerran päivässä) | moraali +, stressi + / moraali +, keskittyminen + |
 | Mökin piha (paikallaan) | kuten nuotio: stressi ++, vireys + |
+| Mökki: kiukaan tai ammeen tulen sytytys (kerran päivässä kumpikin) | stressi + |
+| Taksi mökille (ensimmäinen kerta) | kokemus + |
 | Poliisilta pakoon | stressi + |
 | WASTED | moraali −−, stressi −− |
 | Ensimmäinen kerta (kauppa, laavu, tarinat, sahaus, halkominen, poiminta, Väinö, nurmikko, pontikka, Raahe, tappelut…) | kokemus + |
