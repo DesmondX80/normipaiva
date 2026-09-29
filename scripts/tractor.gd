@@ -43,7 +43,7 @@ func _ready() -> void:
 	_engine = Sfx.loop_on(self, "tractor_engine", -2.0)
 	_engine.pitch_scale = 0.8
 	_bubble = B.label(self, "", Vector3(0, 3.6, 0), 56, Color.WHITE, true)
-	B.label(self, "Jyväjemmari", Vector3(0, 3.15, 0), 42, Color(1, 0.9, 0.6), true)
+	B.guide(self, "Jyväjemmari", Vector3(0, 3.15, 0), 42, Color(1, 0.9, 0.6), true)
 
 
 ## Punainen moderni traktori (vehicles.gd) ja kuski ohjaamossa.
@@ -91,7 +91,7 @@ func _physics_process(delta: float) -> void:
 				_say()
 			if _off_field > GIVE_UP:
 				mode = "return"
-				_bubble.text = "Ja pysy poissa!"
+				_bubble.text = "Jyväjemmari: Ja pysy poissa!"
 				_bubble_t = 2.0
 			elif d < CATCH:
 				mode = "cooldown"
@@ -131,7 +131,7 @@ func _drive(delta: float, goal: Vector3, want: float) -> void:
 ## Pelaaja voitti: jemmari ajaa kotiin murjottamaan eikä enää jahtaa.
 func defeat() -> void:
 	mode = "defeated"
-	_bubble.text = "No ajakaa sitte mun pellolla..."
+	_bubble.text = "Jyväjemmari: No ajakaa sitte mun pellolla..."
 	_bubble_t = 3.0
 	Sfx.babble(self, "pekka", _bubble.text)
 
@@ -139,13 +139,13 @@ func defeat() -> void:
 func gloat() -> void:
 	mode = "cooldown"
 	_cool = 4.0
-	_bubble.text = "Tuosta sait, viljanpolkija!"
+	_bubble.text = "Jyväjemmari: Tuosta sait, viljanpolkija!"
 	_bubble_t = 2.5
 	Sfx.babble(self, "pekka", _bubble.text)
 
 
 func _say() -> void:
-	_bubble.text = LINES.pick_random()
+	_bubble.text = "Jyväjemmari: " + LINES.pick_random()
 	_bubble_t = 2.4
 	_talk_t = 3.0
 	Sfx.babble(self, "pekka", _bubble.text)

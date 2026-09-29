@@ -155,7 +155,7 @@ func set_fire(on: bool, seconds := 240.0) -> void:
 
 func say(who: String, text: String, seconds := 3.2) -> void:
 	var l: Label3D = _bubbles[who]
-	l.text = text
+	l.text = "%s: %s" % [who.capitalize(), text] if text != "" else ""
 	_bubble_t[who] = seconds
 
 
@@ -555,7 +555,7 @@ func _build_people() -> void:
 		bubble.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_bubbles[sp[1]] = bubble
 		_bubble_t[sp[1]] = 0.0
-		var name := B.label(self, sp[3], c.position + Vector3(0, 1.3, 0), 12, Color(1, 0.9, 0.6), true)
+		var name := B.guide(self, sp[3], c.position + Vector3(0, 1.3, 0), 12, Color(1, 0.9, 0.6), true)
 		name.no_depth_test = false
 
 

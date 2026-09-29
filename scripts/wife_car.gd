@@ -40,7 +40,7 @@ func _ready() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.85, 0)))
 	B.car(self, Color(0.78, 0.05, 0.05))
-	B.label(self, "Päivin Hyundai", Vector3(0, 2.4, 0), 48, Color(1, 0.8, 0.8), true)
+	B.guide(self, "Päivin Hyundai", Vector3(0, 2.4, 0), 48, Color(1, 0.8, 0.8), true)
 	_engine = Sfx.loop_on(self, "engine", -4.0)
 
 

@@ -201,6 +201,7 @@ func _settings(from: String) -> void:
 	_slider(g, "Renderöintiskaala", "render_scale", 0.5, 1.0, 0.05, "%d %%", 100.0)
 	_slider(g, "Näkökenttä (FOV)", "fov", 55.0, 95.0, 1.0, "%d°", 1.0)
 	_check(g, "Näytä FPS", "show_fps")
+	_check(g, "Näytä opasteet (paikkojen ja hahmojen nimet)", "show_guides")
 	var note := _label("", 14, Color(0.8, 0.8, 0.8))
 	var note_text := func() -> String:
 		return "Käytössä nyt: %s. Vaihtuu, kun peli käynnistetään uudelleen." % Settings.RENDERERS[Settings.renderer_current()]

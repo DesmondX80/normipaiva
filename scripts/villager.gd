@@ -21,7 +21,7 @@ func _ready() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	add_child(B.capsule_shape(0.35, 1.8))
 	_body = Looks.make(self, look)
-	B.label(self, display_name, Vector3(0, 2.1, 0), 40, Color(0.9, 0.95, 1.0), true)
+	B.guide(self, display_name, Vector3(0, 2.1, 0), 40, Color(0.9, 0.95, 1.0), true)
 	_bubble = B.label(self, "", Vector3(0, 2.6, 0), 50, Color.WHITE, true)
 
 
@@ -44,7 +44,7 @@ func _physics_process(delta: float) -> void:
 
 
 func say(text: String) -> void:
-	_bubble.text = text
+	_bubble.text = "%s: %s" % [display_name.trim_prefix("Naapurin "), text] if text != "" else ""
 	_bubble_t = 3.0
 	Sfx.babble(self, voice, text)
 
