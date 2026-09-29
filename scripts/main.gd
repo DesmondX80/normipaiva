@@ -220,6 +220,8 @@ const VAINO_MONEY := 5.0
 ## Vieras koira metsänreunassa puree (stray_dog.gd). Haava hoidetaan kotikonstein: Pekka (kalja tai
 ## PEKKA_CARE €) tai Päivi kotona (ilmainen, mutta motkottaa). Hoitamaton haitta kestää päivän loppuun.
 const StrayDog := preload("res://scripts/stray_dog.gd")
+const Mummot := preload("res://scripts/mummot.gd")
+var mummot: Node3D
 const PEKKA_CARE := 3.0
 const WOUND_PAIVI := ["Taas sää oot ollu vieraitten koirien kans!", "Istu siihen. Ja älä vingu.",
 	"Ei ne koirat ite purase, jos niitä ei mene rapsuttelemaan."]
@@ -413,6 +415,8 @@ func _outside_logic() -> void:
 		Sfx.play("pickup", -10.0, 1.3)
 
 	_lawn_logic()
+	if player == bike and Input.is_action_just_pressed("bell") and mummot.distance_to_target() < 10.0:
+		mummot.anger()  # kellon soitto mummojen vieressä suututtaa varmasti
 	_edge_logic()
 	_kota_logic()
 	_laavu_logic()
@@ -2005,7 +2009,7 @@ func _spawn_player() -> void:
 func _set_avatar(a: CharacterBody3D) -> void:
 	player = a
 	world.follow = a
-	for h in [wife, juntti, guard, tractor, arto, pekka, sulo, police, vaino, stray]:
+	for h in [wife, juntti, guard, tractor, arto, pekka, sulo, police, vaino, stray, mummot]:
 		if is_instance_valid(h):
 			h.target = a
 	_minimap.player = a
@@ -2087,6 +2091,19 @@ func _spawn_threats() -> void:
 	tractor.world = world
 	tractor.challenge.connect(func(k: String, d: Vector3) -> void: _start_fight(k, "tractor", d))
 	_hazards.add_child(tractor)
+
+	# Kaupan penkin mummot (#14): kettukarkit, jos kurvaa läheltä lujaa tai soittaa kelloa.
+	mummot = Mummot.new()
+	mummot.position = M.w(M.SHOP_BUILDING) + Vector3(-6.0, 0, 10.2)
+	mummot.target = player
+	mummot.hit.connect(func(dir: Vector3) -> void:
+		if state in ["to_shop", "to_home"] and not player.is_stunned():
+			player.stagger(dir)
+			_show_message("Kettukarkki osui! Mummoilla on hyvä käsi.", 2.0))
+	mummot.candy_picked.connect(func() -> void:
+		walker_out.stamina = minf(100.0, walker_out.stamina + 15.0)
+		_show_message("Kettukarkki maasta. Kunto +15", 1.5))
+	_hazards.add_child(mummot)
 
 	stray = StrayDog.new()
 	stray.spot = M.w(M.STRAY_SPOTS.pick_random())
@@ -2294,6 +2311,8 @@ func _update_hud() -> void:
 			status.append("POLIISI JAHTAA!")
 		if bitten:
 			status.append("PURTU – HAAVA PITÄÄ HOITAA")
+		if mummot.is_angry():
+			status.append("MUMMOT HEITTELEE KETTUKARKKEJA!")
 		if is_instance_valid(vaino):
 			if vaino.mode == "follow":
 				status.append("VÄINÖ MUKANA – VIE PEKALLE")
@@ -3273,6 +3292,47 @@ func _maybe_screenshot() -> void:
 			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
 			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
 			sc.current = true
+		"mummot":
+			# Pyörällä lujaa penkin ohi: mummot suuttuvat ja heittävät kettukarkkeja. Sitten jalan poimimaan.
+			var hits := [0]
+			mummot.hit.connect(func(_d: Vector3) -> void: hits[0] += 1)
+			var bp: Vector3 = mummot.global_position
+			bike.global_position = bp + Vector3(-9.0, 0.3, 2.5)
+			bike.rotation.y = B.yaw_to(Vector3(1, 0, 0))
+			for i in 10:
+				await get_tree().physics_frame
+			var sc := Camera3D.new()
+			add_child(sc)
+			sc.global_position = bp + Vector3(3.0, 1.6, 4.5)
+			sc.look_at(bp + Vector3(0, 0.8, 0), Vector3.UP)
+			sc.current = true
+			for i in 3:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_bench.png"))
+			sc.queue_free()
+			bike.activate_camera()
+			bike.speed = 8.0
+			Input.action_press("forward")
+			for i in 90:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			print("MUMMOT angry=%s status=%s" % [mummot.is_angry(), _status.text])
+			for i in 180:
+				await get_tree().physics_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_throw.png"))
+			for i in 240:
+				await get_tree().physics_frame
+			print("MUMMOT hits=%d ground=%d angry=%s" % [hits[0], mummot._ground.size(), mummot.is_angry()])
+			_toggle_mount()
+			var s0: float = walker_out.stamina
+			walker_out.stamina = 50.0
+			if not mummot._ground.is_empty():
+				walker_out.global_position = mummot._ground[0].node.global_position + Vector3(0, 0.4, 0)
+			for i in 20:
+				await get_tree().physics_frame
+			print("MUMMOT picked stamina 50 -> %.0f ground=%d msg=%s" % [walker_out.stamina, mummot._ground.size(), _msg.text])
 		"kauppalista":
 			# Päivin lista: 3 oikein, 1 väärä väri ja 1 ylimääräinen; kotona palaute. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
