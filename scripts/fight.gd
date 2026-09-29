@@ -37,7 +37,7 @@ const FOES := {
 }
 const PLAYER_WIN := ["Takasin Raaheen siitä!", "Normipäivä jatkuu."]
 
-signal finished(player_won: bool, bags_used: int)
+signal finished(player_won: bool, bags_used: int, thrown: int)
 
 var foe := {}
 
@@ -65,6 +65,8 @@ var _ai_cmd := {}
 var _ai_block_t := 0.0
 var _wave_cd := 2.0
 var _bags_used := 0
+var _thrown := 0  # heitetyt kaljat (eteen + L)
+var _cans: Array = []  # lentävät tölkit: {node, vel: Vector2, owner, dodge}
 var _bubble_p: Label3D
 var _bubble_j: Label3D
 var _foe_name: Label
@@ -122,6 +124,7 @@ func start(beer_count: int, foe_key := "juntti") -> void:
 	beers = beer_count
 	active = true
 	_bags_used = 0
+	_thrown = 0
 	_p.reset(-2.5)
 	_j.reset(2.5)
 	_p.facing = 1.0
@@ -186,6 +189,7 @@ func _process(delta: float) -> void:
 		_j.update(delta)
 		_separate()
 		_update_waves(delta)
+		_update_cans(delta)
 	_update_effects(delta)
 	_update_camera(delta)
 	_bar_p.value = lerpf(_bar_p.value, _p.hp, 1.0 - exp(-10.0 * delta))
@@ -206,7 +210,10 @@ func _end() -> void:
 	for w in _waves:
 		w[0].queue_free()
 	_waves.clear()
-	finished.emit(_p.state != "ko", _bags_used)
+	for c in _cans:
+		c.node.queue_free()
+	_cans.clear()
+	finished.emit(_p.state != "ko", _bags_used, _thrown)
 
 
 # --- Ohjaus ------------------------------------------------------------------
@@ -222,9 +229,14 @@ func _player_cmd() -> Dictionary:
 		c.attack = "punch"
 	elif Input.is_action_just_pressed("kick"):
 		c.attack = "kick"
-	elif Input.is_action_just_pressed("special") and beers - _bags_used > 0:
-		c.attack = "bag"
-		_bags_used += 1
+	elif Input.is_action_just_pressed("special") and _beers_left() > 0 and _p.state in ["idle", "walk", "block"]:
+		# Eteen + L heittää kaljan (maasta), pelkkä L lyö kassilla. Kumpikin vie yhden kaljan.
+		if _p.on_ground() and signf(c.move) == _p.facing and absf(c.move) > 0.3:
+			c.attack = "throw"
+			_thrown += 1
+		else:
+			c.attack = "bag"
+			_bags_used += 1
 		_update_help()
 	return c
 
@@ -237,6 +249,17 @@ func _ai(delta: float) -> Dictionary:
 	var dist := absf(_p.position.x - _j.position.x)
 	var toward := signf(_p.position.x - _j.position.x)
 	var c := {"move": 0.0, "jump": false, "block": _ai_block_t > 0.0, "attack": ""}
+	# Lähestyvä tölkki: joskus hyppää yli tai torjuu (päätetään kerran per tölkki).
+	for can in _cans:
+		if can.owner == _p and can.dodge == "" and absf(can.node.position.x - _j.position.x) < 4.0:
+			var r := randf()
+			can.dodge = "jump" if r < 0.2 else ("block" if r < 0.45 else "none")
+			if can.dodge == "jump" and _j.on_ground() and _j.state in ["idle", "walk", "block"]:
+				c.jump = true
+				return c
+			elif can.dodge == "block":
+				_ai_block_t = 0.6
+				c.block = true
 	# Reagoi pelaajan hyökkäykseen joskus torjumalla.
 	if _p.state == "attack" and dist < 2.0 and _ai_block_t <= 0.0 and randf() < 2.5 * delta:
 		_ai_block_t = 0.5
@@ -297,15 +320,17 @@ func on_hit(attacker: Node3D, target: Node3D, blocked: bool, kind: String) -> vo
 		Sfx.play("punch", -10.0, 0.7)
 		_hitstop = 0.04
 		return
-	var big := kind in ["bag", "kick", "spin", "uppercut", "flykick"]
+	var big := kind in ["bag", "kick", "spin", "uppercut", "flykick", "throw"]
 	var word: String = {"bag": "KASSI-ISKU!", "spin": "KIERTOPOTKU!", "uppercut": "PYSTYKOUKKU!", "sweep": "PYYHKÄISY!",
-		"flykick": "LENTOPOTKU!"}.get(kind, HIT_WORDS.pick_random())
+		"flykick": "LENTOPOTKU!", "throw": "TÖLKKI PÄIN NAAMAA!"}.get(kind, HIT_WORDS.pick_random())
 	_effect(word, pos, Color(1, 0.85, 0.1), 1.3 if big else 1.0)
 	Sfx.play("punch_heavy" if big else "punch", 0.0 if big else -2.0, randf_range(0.92, 1.08))
 	if target.state == "ko":
 		Sfx.play("body_fall", 0.0)
 	if kind == "bag":
 		Sfx.play("glass", -6.0)
+	elif kind == "throw":
+		Sfx.play("rattle_hard", 0.0, 0.9)  # tölkki kolahtaa
 	_hitstop = 0.09 if big else 0.05
 	_shake = 0.35 if big else 0.15
 	_punch = 1.0 if big else 0.5
@@ -482,6 +507,84 @@ func spawn_wave(owner: Node3D) -> void:
 	B.label(node, foe.get("wave", "HAI-JAAH!"), Vector3(0, 0.7, 0), 48, Color(1, 0.9, 0.3), true)
 	_waves.append([node, owner.facing, owner])
 	Sfx.play("whoosh", 0.0, 0.6)
+
+
+func _beers_left() -> int:
+	return beers - _bags_used - _thrown
+
+
+## Kaljatölkki lähtee heittäjän kädestä kaaressa kohti vastustajaa.
+func spawn_can(owner: Node3D) -> void:
+	var node := Node3D.new()
+	add_child(node)
+	node.position = owner.position + Vector3(owner.facing * 0.6, 1.6, 0)
+	B.mesh(node, B.cyl(0.05, 0.05, 0.18, 12), Vector3.ZERO, Color(0.85, 0.78, 0.2))
+	B.mesh(node, B.cyl(0.05, 0.05, 0.02, 12), Vector3(0, 0.09, 0), Color(0.75, 0.75, 0.78))
+	_cans.append({"node": node, "vel": Vector2(owner.facing * 9.0, 2.0), "owner": owner, "dodge": "", "spent": false})
+	Sfx.play("whoosh", -2.0, 1.3)
+
+
+## Tölkit lentävät painovoiman alla. Osuma: vahinko, kaatuminen ja vaahto. Hyppy väistää (tölkki menee alta),
+## torjunta kimmottaa sen hukkaan. Maahan pudonnut tölkki kolahtaa ja katoaa.
+func _update_cans(delta: float) -> void:
+	for c in _cans.duplicate():
+		var node: Node3D = c.node
+		var owner: Node3D = c.owner
+		var target: Node3D = owner.opponent
+		c.vel.y -= 12.0 * delta
+		node.position += Vector3(c.vel.x, c.vel.y, 0) * delta
+		node.rotation.z -= signf(c.vel.x) * 14.0 * delta
+		var dx := node.position.x - target.position.x
+		var rel_y := node.position.y - target.position.y
+		# Ilmassa oleva väistää: tölkki menee alta.
+		if not c.spent and absf(dx) < 0.45 and rel_y > 0.2 and rel_y < 1.9 and target.state != "ko" \
+				and target.position.y < 0.4:
+			var dir := signf(c.vel.x)
+			var a: Dictionary = Fighter.ATTACKS.throw
+			var blocked: bool = target.take_hit(a.dmg * owner.dmg_mult, dir, a.push, a.launch, a.stun)
+			on_hit(owner, target, blocked, "throw")
+			if blocked:
+				c.vel = Vector2(-dir * 2.5, 4.0)  # kimpoaa hukkaan
+				c.spent = true
+				Sfx.play("rattle_hard", -4.0, 1.3)
+			else:
+				_foam(node.position)
+				node.queue_free()
+				_cans.erase(c)
+			continue
+		if node.position.y <= 0.05:
+			Sfx.play("rattle", -6.0, 1.2)
+			node.queue_free()
+			_cans.erase(c)
+		elif absf(node.position.x) > Fighter.STAGE + 3.0:
+			node.queue_free()
+			_cans.erase(c)
+
+
+## Vaahtosuihku tölkin osuessa, ja sihinä.
+func _foam(pos: Vector3) -> void:
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.95
+	p.amount = 40
+	p.lifetime = 0.8
+	p.direction = Vector3(0, 1, 0.3)
+	p.spread = 70.0
+	p.initial_velocity_min = 2.0
+	p.initial_velocity_max = 5.0
+	p.gravity = Vector3(0, -6, 0)
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.5
+	var sm := SphereMesh.new()
+	sm.radius = 0.05
+	sm.height = 0.1
+	sm.material = B.unshaded(Color(1.0, 0.97, 0.85, 0.85))
+	p.mesh = sm
+	p.position = pos
+	add_child(p)
+	p.emitting = true
+	get_tree().create_timer(1.5, true, false, true).timeout.connect(p.queue_free)
+	Sfx.play("whoosh", -4.0, 0.45)
 
 
 func _update_waves(delta: float) -> void:
@@ -665,9 +768,9 @@ func _build_hud() -> void:
 
 
 func _update_help() -> void:
-	var left := beers - _bags_used
-	_help.text = "A/D liiku · W hyppy · S torju · J lyönti · K potku · S+J pystykoukku · S+K pyyhkäisy · eteen+K kiertopotku · ilmassa K lentopotku · L kassi-isku (%s)" % (
-		"%d kaljaa, rikkoo yhden" % left if left > 0 else "ei kaljoja")
+	var left := _beers_left()
+	_help.text = "A/D liiku · W hyppy · S torju · J lyönti · K potku · S+J pystykoukku · S+K pyyhkäisy · eteen+K kiertopotku · ilmassa K lentopotku · L kassi-isku · eteen+L heitä kalja (%s)" % (
+		"%d kaljaa" % left if left > 0 else "ei kaljoja")
 
 
 func _health_bar(root: Control, left: bool) -> ProgressBar:
