@@ -16,6 +16,20 @@ const EXTRAS := {"makkara": ["grillimakkara", 3.50], "tikut": ["tulitikut", 1.20
 ## Karkkiteline kassan lähellä (heräteostos): suklaalevy.
 const CANDY_SPOT := Vector3(5.2, 0, 7.2)
 const CANDY := ["suklaa", "suklaalevy", 2.49]
+## Päivin hylly oikealla seinällä (kauppalistan muistipeli, #12): jokaisella tuotteella oma lokero, jossa kaikki
+## värit. Tuotteet maksetaan Päivin rahoilla. Tuote -> laatikon koko (muoto erottaa tuotteet toisistaan).
+const PRODUCTS := {
+	"tamponi": Vector3(0.1, 0.12, 0.07), "maito": Vector3(0.09, 0.24, 0.09), "ristikkolehti": Vector3(0.14, 0.02, 0.2),
+	"voi": Vector3(0.12, 0.06, 0.08), "jogurtti": Vector3(0.09, 0.1, 0.09), "tiskiaine": Vector3(0.07, 0.22, 0.05),
+	"vessapaperi": Vector3(0.14, 0.14, 0.14), "kahvi": Vector3(0.09, 0.18, 0.06), "hammastahna": Vector3(0.16, 0.04, 0.04),
+	"kynttilä": Vector3(0.05, 0.2, 0.05),
+}
+const COLORS := {
+	"punainen": Color(0.85, 0.12, 0.1), "sininen": Color(0.15, 0.35, 0.85), "vihreä": Color(0.15, 0.62, 0.2),
+	"keltainen": Color(0.95, 0.85, 0.15), "violetti": Color(0.55, 0.25, 0.72),
+}
+const SHELF_X := 11.45  # hyllyn keskilinja; pelaaja seisoo sen edessä (x ~ 10.4)
+const SHELF_Z0 := -8.0  # ensimmäisen lokeron alku, lokerot 1 m välein +Z-suuntaan
 const QUEUE_FRONT := Vector3(7.6, 0, 5.4)
 const QUEUE_STEP := Vector3(0, 0, -1.4)
 const SPOT_RADIUS := 1.1
@@ -43,6 +57,9 @@ var active := false
 var has_beer := false
 var has_paid := false
 var cart := {}  # grillituotteet: avain -> hinta
+var bag := {}  # Päivin hyllyn tuotteet: tuote -> väri
+var _sel := {}  # lokeron valittu väri: tuote -> värin indeksi
+var _items := {}  # tuote -> väri -> MeshInstance3D (valittu nostetaan esiin)
 var money := 20.0  # main päivittää ennen sisääntuloa
 
 var walker: CharacterBody3D
@@ -66,6 +83,7 @@ var _neighbor_spawned := false
 func _ready() -> void:
 	_build_room()
 	_build_checkout()
+	_build_paivi_shelf()
 	walker = Walker.new()
 	walker.position = DOOR
 	add_child(walker)
@@ -104,7 +122,7 @@ func _process(delta: float) -> void:
 
 	var p := walker.position
 	var my_spot := QUEUE_FRONT + QUEUE_STEP * _queue.size()
-	var has_items := has_beer or not cart.is_empty()
+	var has_items := has_beer or not cart.is_empty() or not bag.is_empty()
 	var in_queue := has_items and not has_paid and _flat(p, my_spot) < SPOT_RADIUS
 	if in_queue and not _queue_started:
 		_queue_started = true
@@ -119,6 +137,8 @@ func _process(delta: float) -> void:
 			hint = "[E] Poistu kaupasta"
 			if e:
 				exited.emit(has_paid and has_beer)
+	elif not has_paid and _shelf_section(p) != "":
+		_shelf_logic(_shelf_section(p), e)
 	elif _flat(p, GRILL_SPOT) < 1.6 and not has_paid:
 		var next := ""
 		for k in EXTRAS:
@@ -167,9 +187,53 @@ func _process(delta: float) -> void:
 	elif not has_paid and has_items:
 		hint = "Kassajonoon (keltainen ympyrä)%s" % ("" if has_beer else " – tai kaljat takaseinältä")
 	elif not has_paid:
-		hint = "Kaljat takaseinältä, grillitarvikkeet oven vierestä"
+		hint = "Kaljat takaseinältä, grillitarvikkeet oven vierestä, Päivin tuotteet oikealta seinältä"
 	else:
 		hint = "Maksettu! Ulos ovesta."
+
+
+## Minkä tuotteen lokeron edessä pelaaja seisoo ("" = ei minkään).
+func _shelf_section(p: Vector3) -> String:
+	if p.x < SHELF_X - 1.8:
+		return ""
+	var i := floori(p.z - SHELF_Z0)
+	return PRODUCTS.keys()[i] if i >= 0 and i < PRODUCTS.size() else ""
+
+
+## Lokero: Q vaihtaa valittua väriä, E ottaa valitun kassiin, vaihtaa kassissa olevan tai palauttaa sen.
+func _shelf_logic(prod: String, e: bool) -> void:
+	var cols: Array = COLORS.keys()
+	if Input.is_action_just_pressed("bell"):
+		_sel[prod] = (_sel.get(prod, 0) + 1) % cols.size()
+		Sfx.play("rattle", -14.0, 1.6)
+	var col: String = cols[_sel.get(prod, 0)]
+	_highlight(prod, col)
+	var have: String = bag.get(prod, "")
+	if have == col:
+		hint = "[E] Palauta %s %s hyllyyn   [Q] vaihda väriä" % [col, prod]
+	elif have != "":
+		hint = "[E] Vaihda %s %s → %s   [Q] vaihda väriä" % [have, prod, col]
+	else:
+		hint = "[E] Ota %s %s   [Q] vaihda väriä" % [col, prod]
+	if not e:
+		return
+	if have == col:
+		bag.erase(prod)
+		Sfx.play("pickup", -8.0, 0.7)
+	else:
+		bag[prod] = col
+		walker.set_carrying(true)
+		Sfx.play("pickup", -4.0, 1.2)
+
+
+## Valittu väri nousee lokerossa esiin.
+func _highlight(prod: String, col: String) -> void:
+	for p in _items:
+		for c in _items[p]:
+			var mi: MeshInstance3D = _items[p][c]
+			var lift := 0.14 if p == prod and c == col else 0.0
+			mi.position.y = mi.get_meta("y0") + lift
+			mi.scale = Vector3.ONE * (1.4 if lift > 0.0 else 1.0)
 
 
 func _total() -> float:
@@ -347,6 +411,29 @@ func _build_room() -> void:
 		l.omni_range = 12.0
 		l.light_energy = 0.25
 		add_child(l)
+
+
+## Päivin hylly oikealla seinällä: lokero per tuote, kaikki värit rivissä, nimikyltti hyllyn reunassa.
+func _build_paivi_shelf() -> void:
+	var n := PRODUCTS.size()
+	B.box(self, Vector3(0.8, 1.0, n), Vector3(SHELF_X, 0.5, SHELF_Z0 + n / 2.0), Color(0.85, 0.86, 0.88))
+	var head := B.sign_plate(self, "PÄIVIN HYLLY", Color(0.75, 0.2, 0.35), Color.WHITE, 0.3, 48, Color.WHITE)
+	head.position = Vector3(11.8, 2.4, SHELF_Z0 + n / 2.0)
+	head.rotation.y = PI / 2.0
+	var cols: Array = COLORS.keys()
+	for i in n:
+		var prod: String = PRODUCTS.keys()[i]
+		var z := SHELF_Z0 + i + 0.5
+		B.box(self, Vector3(0.84, 0.3, 0.03), Vector3(SHELF_X, 1.12, SHELF_Z0 + i), Color(0.7, 0.72, 0.74), false)
+		var tag := B.sign_plate(self, prod.to_upper(), Color.WHITE, Color(0.1, 0.1, 0.1), 0.1, 22, Color(0.75, 0.2, 0.35))
+		tag.position = Vector3(SHELF_X - 0.42, 0.85, z)
+		tag.rotation.y = PI / 2.0
+		_items[prod] = {}
+		var size: Vector3 = PRODUCTS[prod] * 1.5
+		for c in cols.size():
+			var mi := B.mesh(self, B.boxm(size), Vector3(SHELF_X - 0.15, 1.0 + size.y / 2.0, z - 0.38 + c * 0.19), COLORS[cols[c]])
+			mi.set_meta("y0", mi.position.y)
+			_items[prod][cols[c]] = mi
 
 
 func _build_checkout() -> void:
