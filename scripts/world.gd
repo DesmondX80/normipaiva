@@ -104,6 +104,8 @@ var _mask_clear: Array = []
 var _hedge_batch := B.Batch.new()
 var _hedge_cards := B.Batch.new()
 var _hedge_quad: QuadMesh
+## Kotipihan nurmikko (lawn.gd piirtää ruohon itse, joten yleinen ruoho ja puut pidetään poissa).
+var lawn_rect: Rect2
 
 
 func _ready() -> void:
@@ -112,6 +114,8 @@ func _ready() -> void:
 	_hedge_cards.lift = true
 	home_zone = M.w(M.HOME_ZONE)
 	shop_zone = M.w(M.SHOP_ZONE)
+	var la := M.w2(M.LAWN[0])
+	lawn_rect = Rect2(la, M.w2(M.LAWN[1]) - la)
 	for p in M.WATER:
 		_water.append(_poly(p))
 	for p in M.FORESTS:
@@ -147,6 +151,8 @@ func _ready() -> void:
 	_build_clearcuts()
 	_commit_batches()
 	_scatter_trees()
+	var no_trees := lawn_rect.grow(2.5)
+	_trees = _trees.filter(func(t: Array) -> bool: return not no_trees.has_point(t[0]))
 	_build_trees()
 	_build_forage()
 	_build_grass()
@@ -366,7 +372,7 @@ func surface_at(pos: Vector3) -> String:
 		return "gravel"  # laavun kenttä
 	if _in_rect(p, M.w2(M.SHOP_BUILDING) + Vector2(-18, 9), M.w2(M.SHOP_BUILDING) + Vector2(18, 31)):
 		return "asphalt"  # kaupan parkkipaikka
-	if Geometry2D.is_point_in_polygon(p, _agility):
+	if Geometry2D.is_point_in_polygon(p, _agility) or lawn_rect.grow(1.0).has_point(p):
 		return "lawn"
 	if _in_any(p, _fields):
 		return "field"
@@ -903,6 +909,11 @@ func _build_home() -> void:
 		_add_hedge(xf, Vector3((seg[0] + seg[1]) / 2.0, 0.75, fz - 10.0), Vector3(hl, 1.5, 1.0), Color(0.18, 0.34, 0.16))
 	for bx in [-0.4, 0.2]:
 		_static_bike(body, Vector3(bx - 1.0, 0, fz - 0.35), 0.15)
+	# Takapihan nurmikko: nurmipinta maahan, ruohon kasvattaa ja leikkaa lawn.gd (yleinen ruoho pois).
+	var lr := lawn_rect.grow(1.0)
+	_flat_poly(PackedVector2Array([lr.position, Vector2(lr.end.x, lr.position.y), lr.end, Vector2(lr.position.x, lr.end.y)]),
+		0.009, _surf("lawn"))
+	_mask_clear.append([lawn_rect.get_center(), lawn_rect.size.x / 2.0, lawn_rect.size.y / 2.0, 0.0])
 	_build_neighbors()
 
 
