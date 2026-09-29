@@ -7,6 +7,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 ## Mitä pelissä voi tehdä
 
 - **Kauppareissu:** kuutonen, grillimakkara ja tulitikut K-Marketista. Kassalla harmaapäät laskevat kolikoita.
+- **Jalkapallopojat:** joka toinen päivä jossain tien varressa on kolme poikaa, joiden pallo on hukassa. Pojat
+  kertovat suunnan, ja pallo on 100–300 m päässä. Palautus: poikien luona E avaa esinevalikon (W/S valitse, E anna,
+  Q peruuta). Pallo = 1 € (ja moraali ja kokemus nousevat), kalja = pojat juoksevat nauraen pois, muu esine =
+  pojat heittävät sen takaisin ja alkavat heitellä kivillä.
 - **Penkin mummot:** K-Marketin edustan penkillä istuu kolme mummoa. Jos kurvaat pyörällä lujaa aivan vierestä tai
   soitat kelloa (Q), he suuttuvat ja heittelevät kettukarkkeja: osuma heilauttaa pyörää tai horjauttaa. Maahan
   jääneet karkit voi poimia jalan (kunto +15).
@@ -109,6 +113,8 @@ Päivän lopussa lasketaan kolmen tilan summa:
 | Kotiinpaluu, laavuloppu | moraali +, stressi + |
 | Sivutehtävä (Väinö, nurmikko, kauppalista oikein) | moraali +, stressi +, keskittyminen ++ |
 | Kauppalista väärin | stressi −, moraali − |
+| Jalkapallo pojille | moraali +0,1…0,5, kokemus +0,4…0,6 ensimmäisellä kerralla, muuten +0,1…0,3 |
+| Kalja pojille / pojan kivi osuu | moraali − / kipu − |
 | Kodan tarina | stressi + |
 | Poliisilta pakoon | stressi + |
 | WASTED | moraali −−, stressi −− |
