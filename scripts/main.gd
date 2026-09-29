@@ -229,6 +229,14 @@ var mummot: Node3D
 const PEKKA_CARE := 3.0
 const WOUND_PAIVI := ["Taas sää oot ollu vieraitten koirien kans!", "Istu siihen. Ja älä vingu.",
 	"Ei ne koirat ite purase, jos niitä ei mene rapsuttelemaan."]
+## Päivittäiset tilat (#18, day_stats.gd): kolme arvottua tilaa HUD:ssa, toiminnot nostavat ja laskevat niitä.
+## Päivän summa < 0 -> seuraava päivä hankalampi (trouble = 1), >= GOOD_DAY -> helpompi (trouble = -1).
+const DayStats := preload("res://scripts/day_stats.gd")
+const StatBars := preload("res://scripts/stat_bars.gd")
+var tilat: RefCounted
+var trouble := 0
+var _stat_bars: Control
+var _still_t := 0.0  # paikallaan oloaika (lepo, kokemuksen hiipuminen)
 ## Päivin kauppalista (muistipeli, #12): Päivi sanoo tuotteet väreineen kerran, lista näyttää vain tuotteet.
 ## Tuotteet haetaan kaupan Päivin hyllystä (shop_interior.gd) ja tarkistetaan kotona.
 const LIST_SIZE := 4
@@ -307,7 +315,10 @@ func _ready() -> void:
 	cutscene.sun = _sun
 	cutscene.hide_nodes = [bike, walker_out]
 	add_child(cutscene)
+	tilat = DayStats.new()
 	_load_game()
+	_stat_bars.stats = tilat
+	_apply_trouble()
 	lawn.spawn_objects()
 	_roll_vaino()
 	if laavu_conquered:
@@ -356,6 +367,7 @@ func _process(delta: float) -> void:
 			_outside_logic()
 			_mount_logic()
 			_bike_theft(delta)
+			_stats_tick(delta)
 		"in_shop":
 			_hint.text = interior.hint
 	_update_hud()
@@ -686,6 +698,7 @@ func _pick_done() -> void:
 	var liters: int = mini(world.FORAGE_KINDS[_pick_spot.kind].liters, BUCKET_MAX - _bucket_total())
 	bucket[_pick_spot.kind] = bucket.get(_pick_spot.kind, 0) + liters
 	_pick_spot.taken = true
+	tilat.first("poiminta_" + _pick_spot.kind)
 	_pick_spot.node.visible = false
 	_show_message("+%d l %s ämpäriin" % [liters, GOODS[_pick_spot.kind].name], 2.0)
 	Sfx.play("pickup", -4.0, 1.2)
@@ -729,6 +742,7 @@ func _lawn_logic() -> void:
 				beers -= 1
 				player.set_carrying(beers > 0)
 				Sfx.play("rattle_hard", -4.0, 1.2)
+				_drink(1)
 				_show_message("Uusi terä paikalleen ja kalja naamaan. Leikkuri toimii!", 3.0)
 				_save_game()
 		return
@@ -779,6 +793,8 @@ func _mow() -> void:
 	if ratio >= LAWN_DONE and not _lawn_done_today:
 		_lawn_done_today = true
 		_lawn_praise = true
+		_task_done(true)
+		tilat.first("nurmikko", 0.4)
 		_stop_mowing()
 		Sfx.play("win_small")
 		_show_message("Nurmikko leikattu! Päivi on tyytyväinen.\nHuomenna tulee %s € ylimääräistä kauppaan." % _eur(LAWN_BONUS), 4.0)
@@ -834,6 +850,8 @@ func _call_police() -> void:
 		if state in ["to_shop", "to_home"]:
 			_lose("Poliisi pidätti: eläinsuojelurikos!", "police"))
 	police.escaped.connect(func() -> void:
+		tilat.first("poliisipako", 0.5)
+		tilat.add("stressi", 0.2)
 		_show_message("Pääsit karkuun! Poliisi luovutti... tällä kertaa.", 3.5))
 	police.start_chase()
 	Sfx.play("alert", 0.0, 0.8)
@@ -849,6 +867,119 @@ func _lawn_nag() -> String:
 	if avg >= 0.5:
 		s += "\nAnna-Liisa aidan takaa: \"%s\"" % LAWN_NAG_ANNALIISA.pick_random()
 	return s
+
+
+## Jatkuvat tilavaikutukset ulkona (sekunnissa). Arvot ovat -1..+1, joten 0,01/s = minuutissa 0,6.
+func _stats_tick(delta: float) -> void:
+	var t := tilat
+	var moving := absf(player.speed) > 0.3
+	var sprint: bool = (player == walker_out and absf(player.speed) > 3.0) or (player == bike and bike.sprinting)
+	_still_t = 0.0 if moving else _still_t + delta
+	var resting := _still_t > 3.0
+	# Nälkä: aika ja liike kuluttavat.
+	t.add("nalka", -(0.002 + (0.002 if moving else 0.0)) * delta)
+	# Väsymys ja stamina: sprintti kuluttaa, tauko palauttaa.
+	if sprint:
+		t.add("vasymys", -0.01 * delta)
+		t.add("stamina", -0.01 * delta)
+	elif resting:
+		t.add("vasymys", 0.01 * delta)
+		t.add("stamina", 0.01 * delta)
+	if "nalka" in t.chosen and "vasymys" in t.chosen and t.value("nalka") < -0.5 and t.value("vasymys") < -0.5:
+		t.add("stamina", -0.003 * delta)  # nälkä ja väsymys samana päivänä vievät voimat
+	# Kipu hellittää ajan myötä.
+	t.add("kipu", 0.003 * delta)
+	# Stressi: jahti on aikapainetta, paikallaan olo mukavassa paikassa rauhoittaa.
+	if wife.mode == "chase" or juntti.mode == "chase" or (is_instance_valid(police) and not police.is_leaving()):
+		t.add("stressi", -0.012 * delta)
+	if resting and _pleasant_spot():
+		t.add("stressi", 0.02 * delta)
+		t.add("vireys", 0.006 * delta)
+	# Vireys: rauha luonnossa ja selvin päin nostaa, humala, nälkä ja väsymys laskevat.
+	if resting and player.surface in ["forest", "meadow", "bog"]:
+		t.add("vireys", 0.004 * delta)
+	if t.value("humala") <= 0.0:
+		t.add("vireys", 0.001 * delta)
+	elif t.value("humala") > 0.5:
+		t.add("vireys", -0.005 * delta)
+	if t.value("nalka") < -0.5 or t.value("vasymys") < -0.5:
+		t.add("vireys", -0.002 * delta)
+	# Keskittyminen kärsii stressistä.
+	if t.value("stressi") < -0.5:
+		t.add("keskittyminen", -0.002 * delta)
+	# Kokemus: pitkä paikallaan olo laskee, kova humala "opettaa".
+	if _still_t > 10.0:
+		t.add("kokemus", -0.002 * delta)
+	if t.value("humala") > 0.7:
+		t.add("kokemus", 0.003 * delta)
+	# Humala haihtuu hitaasti.
+	t.add("humala", -0.002 * delta)
+
+
+## Mukava paikka: syttynyt nuotio laavulla, tuli kodassa tai Kiilinlammen grillikatos.
+func _pleasant_spot() -> bool:
+	var p := player.global_position
+	if fire_lit and p.distance_to(M.w(M.LAAVU)) < 8.0:
+		return true
+	if world.kota != null and world.kota.fire_on and p.distance_to(world.kota.global_position) < 8.0:
+		return true
+	return p.distance_to(M.w(M.GRILLIKATOS)) < 7.0
+
+
+## Kalja (tai useampi): humala nousee, kipu hellittää, mutta moraali ja keskittyminen kärsivät.
+func _drink(n: int) -> void:
+	tilat.add("humala", 0.12 * n)
+	tilat.add("kipu", 0.05 * n)
+	tilat.add("stamina", 0.05 * n)
+	tilat.add("nalka", 0.04 * n)
+	tilat.add("moraali", -0.04 * n)
+	tilat.add("keskittyminen", -0.05 * n)
+
+
+func _eat(amount: float) -> void:
+	tilat.add("nalka", amount)
+	tilat.add("stamina", amount * 0.5)
+
+
+## Tehtävä onnistui / sivutehtävässä autettiin jotakuta.
+func _task_done(side_quest := false) -> void:
+	tilat.add("moraali", 0.25)
+	tilat.add("stressi", 0.2)
+	if side_quest:
+		tilat.add("keskittyminen", 0.3)
+
+
+func _task_failed() -> void:
+	tilat.add("moraali", -0.3)
+	tilat.add("stressi", -0.3)
+
+
+## Päivän hankaluus vaaroihin: huono edellinen päivä = Päivi nopeampi, mummot herkempiä, koira puree kauempaa.
+func _apply_trouble() -> void:
+	wife.speed_mult = [0.88, 1.0, 1.12][trouble + 1]
+	mummot.anger_speed = [7.5, 5.0, 3.5][trouble + 1]
+	stray.bite_dist = [1.6, 2.3, 3.0][trouble + 1]
+
+
+## Päivän päätös: kolmen tilan summa ratkaisee huomisen hankaluuden. Palauttaa aamun viestin rivin.
+func _end_day_stats() -> String:
+	var s: float = tilat.score()
+	var sum: String = tilat.summary()
+	var note := ""
+	if s < 0.0:
+		trouble = 1
+		note = "\nEilinen päivä: %s. Huono päivä: tänään on hankalampaa (Päivi nopeampi, mummot kireämpiä, koirat pahempia)." % sum
+	elif s >= DayStats.GOOD_DAY:
+		trouble = -1
+		note = "\nEilinen päivä: %s. Hyvä päivä: tänään kaikki sujuu vähän helpommin." % sum
+	else:
+		trouble = 0
+		note = "\nEilinen päivä: %s. Ihan normipäivä." % sum
+	tilat.reset()
+	var names: Array[String] = []
+	for k in tilat.chosen:
+		names.append(DayStats.STATS[k].name)
+	return note + "\nTämän päivän tilat: " + ", ".join(names)
 
 
 ## Uusi kauppalista: neljä eri tuotetta, kullekin väri.
@@ -890,6 +1021,12 @@ func _check_list() -> Array[String]:
 			big = true
 	paivi_bag = {}
 	if lines.is_empty():
+		_task_done(true)
+		tilat.first("kauppalista", 0.4)
+	else:
+		tilat.add("stressi", -0.2)
+		tilat.add("moraali", -0.1)
+	if lines.is_empty():
 		_kaljarauha = true
 		Sfx.play("win_small")
 		return ["Päivi: \"Kaikki oikein! No niin, kyllä sää osaat.\"\nKaljarauha: Päivi ei etsi jemmoja huomenna."]
@@ -928,6 +1065,8 @@ func _on_bitten(direction: Vector3) -> void:
 		return
 	bitten = true
 	walker_out.hurt = true
+	tilat.add("kipu", -0.3)
+	tilat.add("stressi", -0.1)
 	_show_message("AI PERKELE! Vieras koira puri pohkeeseen!\nHaava pitää hoitaa: Pekka osaa, tai Päivi kotona.", 4.0)
 
 
@@ -947,6 +1086,7 @@ func _wound_logic() -> void:
 
 
 func _heal() -> void:
+	tilat.add("kipu", 0.5)  # ensiapu
 	bitten = false
 	walker_out.hurt = false
 
@@ -987,6 +1127,8 @@ func _vaino_logic() -> void:
 				player.set_carrying(true)
 			pekka.say("Hyvä poika! Siis Väinö. Tässä vitonen%s." % (" ja kalja" if beer else ""))
 			Sfx.play("win_small")
+			_task_done(true)
+			tilat.first("vaino", 0.5)
 			_show_message("Väinö kotona! Pekka antoi %s €%s." % [_eur(VAINO_MONEY), " ja kaljan" if beer else ""], 3.5)
 		return
 	if vaino.distance_to_target() > 2.4:
@@ -1038,6 +1180,7 @@ func _pontikka_logic() -> void:
 	if Input.is_action_just_pressed("interact") and not player.is_stunned():
 		money -= KANISTER_PRICE
 		has_kanister = true
+		tilat.first("pontikka", 0.5)
 		_sulo_sold = true
 		walker_out.set_kanister(true)
 		state = "to_home"
@@ -1088,6 +1231,8 @@ func _after_bar(won: bool) -> void:
 	mielihyva = clampf(mielihyva + (35.0 if won else 20.0), 0.0, 100.0)
 	maine = clampf(maine + (15.0 if won else -5.0), 0.0, 100.0)
 	_no_allowance = true
+	_drink(3)
+	tilat.first("raahe", 0.5)
 	var stats := "%s Taksi %s €%s.\nMielihyvä %d · Maine %d" % [
 		"Voitit kädenväännön, Tero tarjosi." if won else "Hävisit kädenväännön ja tarjosit kierroksen.",
 		_eur(TAXI_FARE), "" if won else ", kierros %s €" % _eur(paid), roundi(mielihyva), roundi(maine)]
@@ -1177,6 +1322,8 @@ func _laavu_logic() -> void:
 		if _grill_t >= GRILL_TIME or d > 6.0:
 			if _grill_t >= GRILL_TIME:
 				sausage_done = true
+				_eat(0.5)
+				tilat.first("makkaranpaisto")
 				_show_message("Makkara valmis! Nam.", 2.5)
 				Sfx.play("pickup", -2.0, 0.6)
 			_grill_t = -1.0
@@ -1462,7 +1609,9 @@ func _kota_logic() -> void:
 ## Sahaus FPS-minipelinä (saw_game.gd): jokainen katkaistu pölkky kasvattaa pölkkyvarastoa.
 func _start_saw() -> void:
 	var sg := SawGame.new()
-	sg.sawn.connect(func() -> void: kota_polkyt += 1)
+	sg.sawn.connect(func() -> void:
+		kota_polkyt += 1
+		tilat.first("sahaus"))
 	_start_kota_game(sg, Kota.SAW_LOCAL, 0.3, func() -> String:
 		return "Sahattu %d pölkkyä! Pölkkyjä %d. Halko ne pilkkomispölkyllä kirveellä." % [sg.polkyt_made, kota_polkyt] \
 			if sg.polkyt_made > 0 else "")
@@ -1474,6 +1623,7 @@ func _start_chop() -> void:
 	cg.polkyt = kota_polkyt
 	cg.split.connect(func(n: int) -> void:
 		kota_polkyt -= 1
+		tilat.first("halkominen")
 		kota_halot += n)
 	_start_kota_game(cg, Kota.CHOP_LOCAL, 0.0, func() -> String:
 		return "Halottu %d halkoa! Halkoja %d. Vie ne kodan tulisijaan." % [cg.halot_made, kota_halot] \
@@ -1552,6 +1702,8 @@ func _tell_story() -> void:
 	var fresh := not tarinat_kuultu.has(idx)
 	if fresh:
 		tarinat_kuultu.append(idx)
+		tilat.first("tarina_%d" % idx, 0.15)
+		tilat.add("stressi", 0.15)
 		_save_game()
 	if tarinat_kuultu.size() >= Kota.STORIES.size() and fresh:
 		_show_message("Olet kuullut kaikki kodan tarinat! Raimo: \"No sitten keksitään uusia.\"", 5.0)
@@ -1571,6 +1723,9 @@ func _win_laavu() -> void:
 	var title := "LEGENDAARINEN NORMIPÄIVÄ!" if fire_lit and sausage_done else "LAAVULLA KALJOILLA!"
 	# Onnellinen loppu juo laavun jemman tyhjäksi (ja mukana olleet kaljat).
 	var drunk := beers + 1 + stash_laavu
+	_task_done()
+	tilat.first("laavu", 0.5)
+	_drink(mini(drunk, 6))
 	var stats := "Nuotio %s  ·  Makkara %s  ·  Kaljoja juotiin %d  ·  Aika %s" % [
 		"✔" if fire_lit else "✘", "✔" if sausage_done else "✘", drunk, _time(elapsed)]
 	beers = 0
@@ -1583,6 +1738,7 @@ func _win_laavu() -> void:
 # --- Tapahtumat --------------------------------------------------------------
 
 func _enter_shop() -> void:
+	tilat.first("kauppa")
 	state = "in_shop"
 	player.controls_enabled = false
 	player.speed = 0.0
@@ -1661,6 +1817,13 @@ func _start_fight(foe_key: String, source: String, direction: Vector3) -> void:
 	_grill_t = -1.0
 	_stop_picking(false)
 	_stop_mowing()
+	# Tappelu: stressi, kipu ja moraali kärsivät, voimat kuluvat.
+	tilat.add("stressi", -0.15)
+	tilat.add("kipu", -0.3)
+	tilat.add("stamina", -0.2)
+	tilat.add("moraali", -0.1)
+	tilat.add("nalka", -0.05)
+	tilat.first("tappelu_" + foe_key, 0.3)
 	_fight_prev = state
 	_fight_dir = direction
 	state = "fight"
@@ -1754,6 +1917,7 @@ func _win() -> void:
 		# Päivin palaute ostoksista uuden päivän aloitusviestin jälkeen (ennen uutta listaa).
 		for l in _check_list():
 			_msg_queue.append([l, 3.0])
+	_task_done()
 	var kanister := KANISTER_BEERS if has_kanister else 0
 	var brought := beers + kanister
 	var where := _deposit_home(brought)
@@ -1770,6 +1934,7 @@ func _win() -> void:
 		if not Sfx.has_music():
 			Sfx.play("win")  # biisi soi loppukohtauksessa, jingle vain ilman sitä
 		var had := jemma
+		_drink(6)  # juhlat autotallissa
 		jemma = 0  # onnellinen loppu juo kotijemman tyhjäksi
 		jemma_endings += 1
 		_save_game()
@@ -1824,6 +1989,8 @@ func _load_game() -> void:
 	mower_broken = cfg.get_value("nurmikko", "rikki", false)
 	has_mower_part = cfg.get_value("nurmikko", "varaosa", false)
 	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
+	tilat.load_from(cfg)
+	trouble = cfg.get_value("tilat", "hankaluus", 0)
 	if cfg.has_section_key("peli", "pyora"):
 		_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
 
@@ -1850,6 +2017,9 @@ func _save_game() -> void:
 	cfg.set_value("nurmikko", "rikki", mower_broken)
 	cfg.set_value("nurmikko", "varaosa", has_mower_part)
 	cfg.set_value("nurmikko", "kehu", _lawn_praise)
+	if tilat != null:
+		tilat.save_to(cfg)
+	cfg.set_value("tilat", "hankaluus", trouble)
 	if bike != null:
 		cfg.set_value("peli", "pyora", bike.global_position)
 		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
@@ -1896,6 +2066,7 @@ func _lose(reason: String, cause := "default") -> void:
 		return
 	state = "cutscene"
 	_stop_mowing()
+	_task_failed()
 	player.controls_enabled = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
 	_hud.visible = false
@@ -1940,6 +2111,7 @@ func _nearest_safe() -> Vector3:
 ## Uusi päivä turvapaikasta: vaarat ja kauppa nollautuvat, jemma, rahat ja laavun valtaus säilyvät.
 func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	day += 1
+	var stats_note := _end_day_stats()
 	# Pyörä jää sinne, minne se jäi; päivä alkaa jalan turvapaikasta.
 	beers = 0
 	has_kanister = false
@@ -1974,10 +2146,12 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		money += CHOCO_MONEY
 		bonus += "\nPäivi leppyi ja antoi %s € ylimääräistä." % _eur(CHOCO_MONEY)
 	if bitten:
-		_heal()
+		bitten = false  # parani yöllä (ei ensiapua uuden päivän kipuun)
+		walker_out.hurt = false
 		bonus += "\nPuremahaava parani yön aikana. Päivi: \"%s\"" % WOUND_PAIVI.pick_random()
 	if not _list_done and not shopping_list.is_empty():
 		bonus += "\nPäivi: \"Eilen ei tullu kaupasta mitään, vaikka oli lista!\""
+	bonus += stats_note
 	var rauha := _kaljarauha
 	_kaljarauha = false
 	_roll_list()
@@ -1999,6 +2173,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	for c in _hazards.get_children():
 		c.queue_free()
 	_spawn_threats()
+	_apply_trouble()
 	if laavu_conquered:
 		guard.vanish()
 	_minimap.wife = wife
@@ -2268,9 +2443,11 @@ func _spawn_threats() -> void:
 	mummot.hit.connect(func(dir: Vector3) -> void:
 		if state in ["to_shop", "to_home"] and not player.is_stunned():
 			player.stagger(dir)
+			tilat.add("kipu", -0.05)
 			_show_message("Kettukarkki osui! Mummoilla on hyvä käsi.", 2.0))
 	mummot.candy_picked.connect(func() -> void:
 		walker_out.stamina = minf(100.0, walker_out.stamina + 15.0)
+		_eat(0.1)
 		_show_message("Kettukarkki maasta. Kunto +15", 1.5))
 	_hazards.add_child(mummot)
 
@@ -2404,6 +2581,14 @@ func _build_hud() -> void:
 	_minimap.mokki = mokki
 	layer.add_child(_minimap)
 
+	_stat_bars = StatBars.new()
+	_stat_bars.anchor_left = 1.0
+	_stat_bars.anchor_right = 1.0
+	_stat_bars.offset_left = -300
+	_stat_bars.offset_right = -20
+	_stat_bars.offset_top = 36
+	layer.add_child(_stat_bars)
+
 	_compass = Compass.new()
 	_compass.player = player
 	_compass.paper = _paper
@@ -2493,6 +2678,8 @@ func _update_hud() -> void:
 
 	var nb: CharacterBody3D = interior.neighbor
 	_sus_box.visible = state == "in_shop" and nb != null
+	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop"]
+	_stat_bars.offset_top = 90 if _sus_box.visible else 36
 	if _sus_box.visible:
 		_sus_bar.value = nb.suspicion
 
@@ -3502,6 +3689,34 @@ func _maybe_screenshot() -> void:
 			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
 			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
 			sc.current = true
+		"tilat":
+			# Päivän tilat: lepo grillikatoksella, kalja, tehtävä, uusi päivä ja hankaluus. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			tilat.chosen = ["stressi", "moraali", "humala"]
+			print("TILAT alku ", tilat.summary())
+			_toggle_mount()
+			walker_out.global_position = M.w(M.GRILLIKATOS) + Vector3(1.0, 0.5, 1.0)
+			for i in 300:
+				await get_tree().physics_frame
+			print("TILAT lepo grillikatoksella 5 s: ", tilat.summary())
+			_drink(2)
+			_task_done(true)
+			print("TILAT 2 kaljaa + sivutehtävä: ", tilat.summary())
+			for i in 5:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_hud.png"))
+			var sp0: float = wife.speed_mult
+			_new_day(home_zone + Vector3(0, 0, 4), false)
+			print("TILAT uusi päivä trouble=%d wife %.2f -> %.2f humala=%.2f chosen=%s" % [trouble, sp0, wife.speed_mult,
+				tilat.value("humala"), tilat.chosen])
+			print("TILAT viesti: ", _msg.text.replace("\n", " | "))
+			tilat.chosen = ["stressi", "nalka", "kipu"]
+			_new_day(home_zone + Vector3(0, 0, 4), false)
+			print("TILAT huono päivä trouble=%d wife=%.2f mummot=%.1f koira=%.1f" % [trouble, wife.speed_mult, mummot.anger_speed,
+				stray.bite_dist])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"heitto":
 			# Tappelussa kolme kaljanheittoa (eteen + L), sitten K.O. ja kaljamäärän tarkistus.
 			beers = 6

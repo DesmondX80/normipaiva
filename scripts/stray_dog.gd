@@ -22,6 +22,7 @@ signal bit(direction: Vector3)
 var target: Node3D
 var world: Node3D
 var spot: Vector3
+var bite_dist := BITE_DIST  # päivän tilat (#18) säätävät
 
 var _goal := Vector3.ZERO
 var _wait := 0.0
@@ -58,7 +59,7 @@ func _physics_process(delta: float) -> void:
 	_cool -= delta
 	var want := 0.0
 	var face := Vector3.ZERO
-	if _cool <= 0.0 and d < BITE_DIST:
+	if _cool <= 0.0 and d < bite_dist:
 		_cool = COOLDOWN
 		_growling = false
 		_anim.play("Attack", 0.1)
@@ -72,7 +73,7 @@ func _physics_process(delta: float) -> void:
 			_growling = true
 			growled.emit()
 		face = to_p
-		want = 0.6 if d > BITE_DIST + 1.0 else 0.0
+		want = 0.6 if d > bite_dist + 1.0 else 0.0
 		_growl_t -= delta
 		if _growl_t <= 0.0:
 			_growl_t = 1.3

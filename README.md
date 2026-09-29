@@ -73,6 +73,51 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - Esc avaa valikon: asetukset (grafiikan laatu, koko näyttö, V-Sync, renderöintiskaala, FOV, FPS-näyttö,
   leijuvat opasteet eli paikkojen ja hahmojen nimet (oletuksena pois), äänenvoimakkuudet, hiiren herkkyys, käänteinen Y, kameran automaattikeskitys), ohjaimet ja tekijät.
 
+## Päivittäiset tilat
+
+Joka aamu arvotaan kolme tilaa kymmenestä, ja ne näkyvät HUD:n oikeassa yläkulmassa palkkeina (-1…+1, nolla
+keskellä: punainen vasemmalle, vihreä oikealle). Kaikissa tiloissa **suurempi on parempi**: stressi, nälkä,
+väsymys ja kipu alkavat -1:stä, ja niitä yritetään nostaa; muut alkavat 0:sta. Humalatila (0…1) säilyy yön yli
+ja laskee yössä 0,2. Muut nollautuvat joka aamu.
+
+Päivän lopussa lasketaan kolmen tilan summa:
+- **alle 0** = huono päivä: seuraavana päivänä Päivi ajaa nopeammin, mummot suuttuvat herkemmin ja vieras koira
+  puree kauempaa
+- **vähintään +1** = hyvä päivä: seuraava päivä on vastaavasti helpompi
+- muuten normipäivä. Aamun viesti kertoo eilisen tuloksen ja tämän päivän tilat.
+
+| Toiminto | Vaikutus |
+|---|---|
+| Aika ulkona | nälkä −, kipu + (hellittää), humala − |
+| Liikkuminen | nälkä − (enemmän kuin paikallaan) |
+| Sprintti (juoksu, pyörän spurtti) | väsymys −, stamina − |
+| Tauko (paikallaan yli 3 s) | väsymys +, stamina + |
+| Paikallaan yli 10 s | kokemus − |
+| Nuotio laavulla, tuli kodassa, grillikatos (paikallaan) | stressi ++, vireys + |
+| Luonnossa paikallaan (metsä, niitty, räme) | vireys + |
+| Selvin päin / humala yli 0,5 | vireys + / vireys − |
+| Nälkä tai väsymys alle −0,5 | vireys − |
+| Nälkä ja väsymys molemmat päivän tiloissa ja alle −0,5 | stamina − |
+| Stressi alle −0,5 | keskittyminen − |
+| Humala yli 0,7 | kokemus + |
+| Jahti (Päivi, juntti, poliisi) | stressi − |
+| Kalja (laavu, leikkurin korjaus, Raahe 3, autotallin juhlat 6) | humala +, kipu +, stamina +, nälkä +, moraali −, keskittyminen − |
+| Syöminen (paistettu makkara, kettukarkki) | nälkä +, stamina + |
+| Tappelu | stressi −, kipu −−, stamina −, moraali −, nälkä − |
+| Koiran purema / kettukarkin osuma | kipu −− / kipu − |
+| Haavan hoito (Pekka, Päivi) | kipu ++ |
+| Kotiinpaluu, laavuloppu | moraali +, stressi + |
+| Sivutehtävä (Väinö, nurmikko, kauppalista oikein) | moraali +, stressi +, keskittyminen ++ |
+| Kauppalista väärin | stressi −, moraali − |
+| Kodan tarina | stressi + |
+| Poliisilta pakoon | stressi + |
+| WASTED | moraali −−, stressi −− |
+| Ensimmäinen kerta (kauppa, laavu, tarinat, sahaus, halkominen, poiminta, Väinö, nurmikko, pontikka, Raahe, tappelut…) | kokemus + |
+
+**Kehittäjille:** kun peliin tulee uusi toiminto, määritä sille vaikutukset tiloihin (`tilat.add(...)`, `_drink()`,
+`_eat()`, `_task_done()`, `_task_failed()`, `tilat.first(...)` main.gd:ssä) ja lisää ne tähän taulukkoon. Kirjaa vain
+vaikutukset, jotka poikkeavat nollasta. Jos arvoja ei ole annettu, päättele ne toiminnon luonteesta.
+
 ## Lataa valmis peli
 
 Valmiit Windows- ja Mac-versiot uusimmasta mainista:
