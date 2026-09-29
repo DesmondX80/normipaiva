@@ -22,6 +22,7 @@ signal hit(direction: Vector3)
 signal candy_picked
 
 var target: Node3D
+var anger_speed := ANGER_SPEED  # päivän tilat (#18) säätävät herkkyyttä
 
 var _grans: Array[Node3D] = []
 var _bubbles: Array[Label3D] = []
@@ -82,7 +83,7 @@ func _process(delta: float) -> void:
 		return
 	var d := distance_to_target()
 	var on_bike := target.has_method("set_rider_visible")
-	if on_bike and d < ANGER_DIST and absf(float(target.get("speed"))) > ANGER_SPEED:
+	if on_bike and d < ANGER_DIST and absf(float(target.get("speed"))) > anger_speed:
 		anger()
 	if _angry > 0.0:
 		_angry -= delta
