@@ -20,6 +20,8 @@ var stamina := 100.0
 var exhausted := false
 ## Asento paikallaan seistessä (esim. marjojen poiminnan kyykky); tyhjä = tavallinen seisominen.
 var pose := ""
+## Juoksu estetty (esim. ruohonleikkurin työntäminen).
+var no_run := false
 var _breath_t := 0.0
 
 var _body: Node3D
@@ -107,7 +109,7 @@ func _physics_process(delta: float) -> void:
 	if controls_enabled:
 		throttle = Input.get_axis("back", "forward")
 		steer = Input.get_axis("right", "left")
-		running = Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 and not exhausted
+		running = Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 and not exhausted and not no_run
 	tire(running, absf(speed) < 0.2, delta)
 	var ground: float = world.speed_factor(global_position, "runner") if world != null else 1.0
 	var want := throttle * (RUN if running else WALK) * ground

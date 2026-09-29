@@ -19,6 +19,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   baarissa terästehtaan Tero haastaa kädenvääntöön, ja häviäjä tarjoaa kierroksen (6 €). Reissu kasvattaa
   mielihyvää ja voitto mainetta kovana jätkänä. Kotipihalla odottaa Päivi, eikä seuraavana aamuna tule
   rahaa kauppaan. Pyörä jää kaupan pihaan.
+- **Nurmikon leikkuu:** takapihan nurmikko kasvaa joka päivä. Leikkurin luona E käynnistää (ja sammuttaa), ja
+  leikkuria työnnetään kuten kävellessä (ei juosta). Pitkässä ruohossa piilee siilejä ja kiviä: toinen siili leikkurin
+  alle tuo poliisin (pakene näkyvistä, kiinni jääminen = WASTED), ja toinen kivi rikkoo leikkurin (varaosa Artolta
+  8 € ja kalja, niin korjataan). Leikattu nurmikko tuo aamulla Päiviltä 5 € ylimääräistä. Leikkaamattomasta Päivi
+  motkottaa ja Anna-Liisa kommentoi, ja siilejä ja kiviä tulee lisää.
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
 

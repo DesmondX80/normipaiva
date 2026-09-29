@@ -16,6 +16,8 @@ const PAIVI_LINES := {
 		"Ja kotiin siitä, heti!"],
 	"default": ["Missä sää oikein olit?!", "Taas jotain kaljareissuja!", "Pyöräkin on ihan kuramuas!",
 		"Nyt riitti, kotiin siitä!"],
+	"police": ["Poliisi soitti. POLIISI!", "Siilin yli? Ruohonleikkurilla?!", "Koko kylä puhuu tästä huomenna.",
+		"Ja kotiin siitä, heti!"],
 	"raahe": ["Missä sää oot ollu koko yön?!", "Raahessa?! Taksilla?!", "Kaljanhaju tuntuu tänne asti!",
 		"Huomenna ei tule rahaa kauppaan!"],
 }
