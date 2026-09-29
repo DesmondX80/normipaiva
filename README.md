@@ -7,6 +7,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 ## Mitä pelissä voi tehdä
 
 - **Kauppareissu:** kuutonen, grillimakkara ja tulitikut K-Marketista. Kassalla harmaapäät laskevat kolikoita.
+- **Päivin kauppalista:** aamulla Päivi luettelee neljä tuotetta väreineen ("vihreä tamponi, punainen maito..."),
+  mutta kauppalistaan tulee vain tuotteet. Kaupan oikealla seinällä on Päivin hylly, jossa jokaisesta tuotteesta
+  on viisi väriä: Q vaihtaa väriä, E ottaa, vaihtaa tai palauttaa. Päivin ostokset maksetaan Päivin rahoilla.
+  Kotona Päivi tarkistaa ostokset: kaikki oikein = kaljarauha (Päivi ei etsi jemmoja seuraavana aamuna), muuten
+  motkotus jokaisesta virheestä.
 - **Laavu Antinsuonkankaalla:** sytytä nuotio, paista makkara ja avaa kalja, jos pääset laavun
   valtaajien (vittumainen akka tai teinijengi) ohi. Tästä tulee "LEGENDAARINEN NORMIPÄIVÄ".
 - **Metsän antimet:** poimi puolukoita, mustikoita, kantarelleja ja herkkutatteja. Naapurin Arto
