@@ -213,6 +213,12 @@ const KANISTER_PRICE := 20.0
 const SULO_LINES := ["Ei kuulu kellekään, mitä täällä tehdään.", "Kakskymppiä kanisteri, ja suu suppuun.",
 	"Sokeria, hiivaa ja kärsivällisyyttä. Siinä se resepti.", "Ootko sää poliisi? Et näytä poliisilta.",
 	"Tää on vanhan ajan tavaraa, ei mitään Alkon litkua.", "Kuka sulle tästä paikasta kerto? Raimo, vai?"]
+## Sivutehtävä: Pekan koira Väinö karkaa (dog.gd). Palautus Pekalle: vitonen ja kalja.
+const Dog := preload("res://scripts/dog.gd")
+const VAINO_CHANCE := 0.2  # osuus päivistä, joina Väinö karkaa
+const VAINO_MONEY := 5.0
+var vaino: CharacterBody3D
+var _vaino_at := -1.0  # päivän aika (elapsed), jolloin Väinö karkaa; -1 = ei tänään
 var sulo: CharacterBody3D
 var has_kanister := false
 var _sulo_sold := false  # tämän päivän kanisteri on jo myyty
@@ -272,6 +278,7 @@ func _ready() -> void:
 	add_child(cutscene)
 	_load_game()
 	lawn.spawn_objects()
+	_roll_vaino()
 	if laavu_conquered:
 		guard.vanish()
 	Settings.changed.connect(_apply_settings)
@@ -390,6 +397,7 @@ func _outside_logic() -> void:
 	_laavu_logic()
 	_stash_logic()
 	_forage_logic()
+	_vaino_logic()
 	_neighbor_logic()
 	_pontikka_logic()
 	_taxi_logic()
@@ -799,6 +807,76 @@ func _lawn_nag() -> String:
 	if avg >= 0.5:
 		s += "\nAnna-Liisa aidan takaa: \"%s\"" % LAWN_NAG_ANNALIISA.pick_random()
 	return s
+
+
+## Arvotaan, karkaako Väinö tänään ja milloin.
+func _roll_vaino() -> void:
+	_vaino_at = randf_range(40.0, 180.0) if randf() < VAINO_CHANCE else -1.0
+
+
+## Väinö karkuteillä: Pekan huuto, kiinniotto jalan (nuuhkiessa tai makkaralla houkuteltuna) ja palautus.
+func _vaino_logic() -> void:
+	if _vaino_at >= 0.0 and elapsed >= _vaino_at:
+		_vaino_at = -1.0
+		_vaino_escape()
+	if not is_instance_valid(vaino):
+		return
+	vaino.lure = has_sausage and player == walker_out
+	if _hint.text != "" or player.is_stunned():
+		return
+	var e := Input.is_action_just_pressed("interact")
+	if vaino.mode == "follow":
+		if pekka.distance_to_player() > 4.2:
+			return
+		if player == bike:
+			_hint.text = "Nouse pyörän selästä (F), niin voit palauttaa Väinön Pekalle."
+			return
+		if vaino.distance_to_target() > 6.0:
+			_hint.text = "Väinö jäi jälkeen. Odota, että se ehtii perään."
+			return
+		_hint.text = "[E] Palauta Väinö Pekalle"
+		if e:
+			vaino.queue_free()
+			vaino = null
+			money += VAINO_MONEY
+			var beer := beers < CARRY_FOOT
+			if beer:
+				beers += 1
+				player.set_carrying(true)
+			pekka.say("Hyvä poika! Siis Väinö. Tässä vitonen%s." % (" ja kalja" if beer else ""))
+			Sfx.play("win_small")
+			_show_message("Väinö kotona! Pekka antoi %s €%s." % [_eur(VAINO_MONEY), " ja kaljan" if beer else ""], 3.5)
+		return
+	if vaino.distance_to_target() > 2.4:
+		return
+	if player == bike:
+		_hint.text = "Nouse pyörän selästä (F), niin saat Väinön kiinni."
+	elif vaino.is_catchable():
+		_hint.text = "[E] Ota Väinö kiinni"
+		if e:
+			vaino.catch()
+			var ate: bool = has_sausage and vaino.lure  # houkuteltu makkaralla
+			if ate:
+				has_sausage = false
+				sausage_done = false
+			_show_message("Sait Väinön kiinni!%s Vie se Pekalle." % (" Se söi makkaran." if ate else ""), 3.0)
+
+
+## Väinö pääsee karkuun Pekan pihalta. Huuto kuuluu Pattijoelle asti.
+func _vaino_escape() -> void:
+	vaino = Dog.new()
+	var start := M.w(M.PEKKA_POS) + Vector3(2.0, 0.0, 2.0)
+	vaino.position = start
+	vaino.target = player
+	vaino.world = world
+	vaino.home = start
+	_hazards.add_child(vaino)
+	var a := randf() * TAU
+	vaino.bolt(Vector3(cos(a), 0, sin(a)), randf_range(15.0, 25.0))
+	pekka.say("VÄINÖ PERKELE!")
+	Sfx.play("dog", 0.0, 0.95)
+	Sfx.play("alert", -6.0, 0.6)
+	_show_message("Pekka: \"VÄINÖ PERKELE!\" (Kuului Pattijoelle asti.)\nPekan koira Väinö karkasi! Ota se kiinni jalan.", 4.5)
 
 
 ## Pannu-Sulo myy metsässä pontikkakanisterin (vastaa 24 kaljaa). Kanisterin kanssa suunta on kotiin.
@@ -1586,6 +1664,8 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	bonus += _lawn_nag()
 	wife_alerted = false
 	police = null
+	vaino = null  # karkuri palaa yöksi itse kotiin
+	_roll_vaino()
 	for c in _hazards.get_children():
 		c.queue_free()
 	_spawn_threats()
@@ -1764,7 +1844,7 @@ func _spawn_player() -> void:
 func _set_avatar(a: CharacterBody3D) -> void:
 	player = a
 	world.follow = a
-	for h in [wife, juntti, guard, tractor, arto, pekka, sulo, police]:
+	for h in [wife, juntti, guard, tractor, arto, pekka, sulo, police, vaino]:
 		if is_instance_valid(h):
 			h.target = a
 	_minimap.player = a
@@ -2034,6 +2114,12 @@ func _update_hud() -> void:
 			status.append("JYVÄJEMMARI JAHTAA!")
 		if is_instance_valid(police) and not police.is_leaving():
 			status.append("POLIISI JAHTAA!")
+		if is_instance_valid(vaino):
+			if vaino.mode == "follow":
+				status.append("VÄINÖ MUKANA – VIE PEKALLE")
+			else:
+				var vd := roundi(vaino.distance_to_target() / 10.0) * 10
+				status.append("VÄINÖ KARKUSSA" + (" (n. %d m)" % vd if vd >= 10 else ""))
 	_status.text = "\n".join(status)
 
 	var nb: CharacterBody3D = interior.neighbor
@@ -2999,6 +3085,58 @@ func _maybe_screenshot() -> void:
 			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
 			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
 			sc.current = true
+		"vaino":
+			# Väinö karkaa, pelaaja hiipii nuuhkivan koiran viereen, ottaa kiinni ja palauttaa Pekalle.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			_toggle_mount()
+			_vaino_at = elapsed
+			await get_tree().process_frame
+			await get_tree().process_frame
+			var mi: MeshInstance3D = vaino.find_children("*", "MeshInstance3D", true, false)[0]
+			var ab := mi.global_transform * mi.get_aabb()
+			print("VAINO escaped mode=%s aabb size=%s msg=%s" % [vaino.mode, ab.size, _msg.text.replace("\n", " | ")])
+			for i in 1800:
+				await get_tree().physics_frame
+				if vaino.mode == "sniff":
+					break
+			print("VAINO after bolt mode=%s d_home=%.1f" % [vaino.mode, vaino.global_position.distance_to(vaino.home)])
+			walker_out.global_position = vaino.global_position + vaino.global_transform.basis.x * 1.8 + Vector3(0, 0.5, 0)
+			walker_out.look_at(Vector3(vaino.global_position.x, walker_out.global_position.y, vaino.global_position.z))
+			for i in 5:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			var vc := Camera3D.new()
+			add_child(vc)
+			vc.global_position = vaino.global_position + Vector3(2.2, 1.2, 2.2)
+			vc.look_at(vaino.global_position + Vector3(0, 0.35, 0), Vector3.UP)
+			vc.current = true
+			_msg.text = ""
+			for i in 3:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_dog.png"))
+			vc.queue_free()
+			walker_out.activate_camera()
+			await get_tree().process_frame
+			print("VAINO near hint=%s mode=%s" % [_hint.text, vaino.mode])
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			print("VAINO caught mode=%s msg=%s" % [vaino.mode, _msg.text.replace("\n", " | ")])
+			walker_out.global_position = pekka.global_position + Vector3(2.0, 0.5, 0)
+			vaino.global_position = walker_out.global_position + Vector3(0, -0.5, 2.0)
+			for i in 60:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("VAINO at pekka hint=%s dog_d=%.1f status=%s" % [_hint.text, vaino.distance_to_target(), _status.text])
+			var m0 := money
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			print("VAINO returned valid=%s money %s -> %s beers=%d msg=%s" % [is_instance_valid(vaino), _eur(m0), _eur(money), beers,
+				_msg.text.replace("\n", " | ")])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"pontikka":
 			# Pannu-Sulo: kuva paikasta, kanisterin osto ja kotiinpaluu. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
