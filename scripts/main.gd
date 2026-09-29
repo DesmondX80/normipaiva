@@ -369,10 +369,11 @@ func _ready() -> void:
 		if arg.begins_with("--shot=") and not arg.ends_with("menu.png"):
 			debug_shot = true
 	Sfx.music_stop(0.8)  # esim. "Uusi peli" latasi kentän valikosta: musiikki pois, ellei valikko aukea
+	# Ennen valikkoa: pelaajan kamera aktivoituu tässä, ja valikon kiertävän kameran pitää jäädä voimaan.
+	var bike_note := "" if debug_shot else _apply_saved_bike()  # testikuvat alkavat aina pyörän selästä kotoa
 	if not skip_menu and not debug_shot:
 		menu.open_main()
 	skip_menu = false
-	var bike_note := "" if debug_shot else _apply_saved_bike()  # testikuvat alkavat aina pyörän selästä kotoa
 	var jemma_note := ("\nVaroitus: Päivi voi löytää täyden kotijemman!") if not _risky_stashes().is_empty() else ""
 	if _old_stash_lost > 0:
 		jemma_note += "\nPäivi löysi vanhat jemmat ja kaatoi %d kaljaa viemäriin! Nyt jemmoja on enemmän – jaa kaljat fiksusti." % _old_stash_lost
@@ -2771,7 +2772,6 @@ func _set_avatar(a: CharacterBody3D) -> void:
 	a.activate_camera()
 
 
-## F: nouse pyörän selästä tai takaisin pyörälle (pyörän vieressä).
 ## Pelaaja jalan kohtaan pos; pyörä jää paikalleen ilman kuskia.
 func _place_on_foot(pos: Vector3) -> void:
 	bike.speed = 0.0
@@ -2786,6 +2786,7 @@ func _place_on_foot(pos: Vector3) -> void:
 	_set_avatar(walker_out)
 
 
+## F: nouse pyörän selästä tai takaisin pyörälle (pyörän vieressä).
 func _toggle_mount() -> void:
 	_stop_mowing()
 	if player == bike:
