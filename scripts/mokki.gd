@@ -1,27 +1,40 @@
 extends Node3D
-## Mökki: Santtu-isännän oma vuokramökki (mallinnettu Airbnb-ilmoituksen "The warmth of a smoke
-## sauna and cottage life" kuvien mukaan). Erillinen tasku maailman ulkopuolella, tavoitettavissa
-## vain taksilla kotoa (ks. main.gd _taxi_logic). Paikallinen -Z = pihatie/taksipysäkki,
-## +Z = ranta ja laituri. Pelilogiikka (kiuas, poreallas, tikka, laituri) main.gd:ssä.
+## Mökki: Santtu-isännän vuokramökki Kaisuantie 62, Vaala (Neittävä), mallinnettu Airbnb-ilmoituksen kuvien ja
+## drone-kuvan mukaan. Erillinen tasku maailman ulkopuolella, tavoitettavissa vain taksilla kotoa. Ympäristö
+## 500 x 500 m oikean kartan mukaan (assets/mokki/kartta.json: OpenStreetMap ja EU-DEM 25 m): Likanen,
+## Tervalampi, Kiiskeroinen, tiet, pellot, naapurirakennukset ja metsä. Pelilogiikka main.gd:ssä.
+##
+## Koordinaatit: paikallinen kehys on mökin kehys (mökin pitkä sivu X-akselilla, kuisti +Z eli järvelle päin).
+## Karttadata on osoitepisteen kehyksessä (x itään, z etelään); mökki on kiertynyt siihen nähden YARD_ROT_DEG.
 
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 
-const TAXI_LOCAL := Vector3(0, 0, -15.5)
-const SAUNA_LOCAL := Vector3(7.4, 0, 5.4)   # kiuas savusaunan sisällä
-const TUB_LOCAL := Vector3(10.6, 0, 7.7)    # puukuumenteinen poreamme
-const DART_LOCAL := Vector3(9.0, 0, 2.0)    # heittopiste tikkataulun edessä (suoraan etelään puusta)
-const DOCK_LOCAL := Vector3(7.2, 0, 27.5)   # laiturin pää
-const SANTTU_LOCAL := Vector3(-1.5, 0, -7.0)  # pihatuolilla, kuistin eteläpuolella
+const DATA_PATH := "res://assets/mokki/kartta.json"
+## Mökin kehys karttakehyksessä: paikallisen origon paikka (m osoitepisteestä) ja kierto (OSM:n mökin mukaan).
+const YARD_C := Vector2(1.0, 2.35)
+const YARD_ROT_DEG := 17.6
+const AREA_HALF := 100.0  # alue 200 x 200 m osoitepisteen ympärillä
 
-# Karttageometria (ks. minimap.gd ja paper_map.gd: mökin oma lähikartta korvaa kyläkartan täällä).
-const YARD_CENTER := Vector2(2.0, 5.0)
-const YARD_R := Vector2(24.0, 22.0)
-const FOREST_R := Vector2(55.0, 55.0)
-const LAKE_CENTER := Vector2(8.0, 34.0)
-const LAKE_R := Vector2(22.0, 16.0)
+# Pihan asettelu: mökki ja vaja OSM:n rakennusten kohdalla, sauna, poreamme ja laituri drone-kuvasta.
+# Rannan puolella kuistilta katsottuna vasemmalta oikealle (+X -> -X): savusauna, poreamme ja kesäkeittiö.
+const TAXI_LOCAL := Vector3(-7.0, 0, -29.0)    # Kaisuantien varressa mökin takana
+const SAUNA_LOCAL := Vector3(5.9, 0, 18.1)     # kiuas savusaunan sisällä
+const TUB_LOCAL := Vector3(-0.7, 0, 14.8)      # puukuumenteinen poreamme
+const DART_LOCAL := Vector3(4.2, 0, 8.0)       # heittopiste tikkataulun edessä (taulu männyssä)
+const DOCK_LOCAL := Vector3(8.9, 0, 55.4)      # laiturin pää Likaisella
+const SHED_LOCAL := Vector3(-8.75, 0, 19.25)   # kesäkeittiön vaja (OSM-rakennus)
+const KITCHEN_LOCAL := Vector3(-12.6, 0, 16.2) # kesäkeittiön savustimen edessä (katoksen alla)
+const SANTTU_LOCAL := Vector3(-1.5, 0, 6.5)    # pihatuolilla kuistin edessä
+
+# Karttageometria (ks. minimap.gd ja paper_map.gd: mökin oma kartta korvaa kyläkartan täällä).
+const YARD_CENTER := Vector2(-2.0, 10.0)
+const YARD_R := Vector2(21.0, 19.0)
+const GRID_STEP := 2.0   # maastoverkon ja törmäyksen ruutu (korkeusmallin tarkkuus)
 const COTTAGE_LOCAL := Vector2(0.0, -1.0)
+## OSM-rakennukset, jotka mallinnetaan käsin (mökki ja kesäkeittiön vaja).
+const OWN_BUILDINGS := ["1074462394", "1555232405"]
 const COTTAGE_SIZE := Vector2(9.4, 5.0)
 
 const SAUNA_HEAT := 20.0    # s ennen kuin kiuas on kuuma
@@ -75,16 +88,30 @@ var _sauna_fire: Node3D
 var _tub_fire: Node3D
 
 
-func _ready() -> void:
+## Rakennettu? Mökkialue (500 m maasto, metsä, rakennukset) rakennetaan vasta tarvittaessa (ensure_built),
+## ettei pelin käynnistys hidastu noin 2 sekunnilla. Kartat ja sijaintilaskut (map_data, h, gpos) toimivat ilman.
+var built := false
+
+
+func ensure_built() -> void:
+	if built:
+		return
+	built = true
 	_build_ground()
 	_build_lake_and_dock()
+	_build_neighbors()
+	_build_forest()
 	_build_cottage()
-	_build_woodshed()
+	_build_summer_kitchen()
 	_build_savusauna()
 	_build_hottub()
 	_build_yard_extras()
 	_build_trees()
 	_build_santtu()
+	# Kaikki pihan rakennukset ja esineet maanpinnalle (maasto ja vesi ovat jo oikealla korkeudella).
+	for c in get_children():
+		if c is Node3D and not c.has_meta("ground"):
+			c.position.y += h(c.position.x, c.position.z)
 
 
 func sauna_ready() -> bool:
@@ -99,7 +126,7 @@ func set_sauna_fire(on: bool) -> void:
 	sauna_fire_on = on
 	if on:
 		sauna_fire_time = SAUNA_BURN
-	else:
+	elif _sauna_fire != null:
 		_sauna_fire.visible = false
 
 
@@ -107,16 +134,20 @@ func set_tub_fire(on: bool) -> void:
 	tub_fire_on = on
 	if on:
 		tub_fire_time = TUB_BURN
-	else:
+	elif _tub_fire != null:
 		_tub_fire.visible = false
 
 
 func say(text: String, seconds := 3.2) -> void:
+	if not built:
+		return
 	_bubble.text = text
 	_bubble_t = seconds
 
 
 func _process(delta: float) -> void:
+	if not built:
+		return
 	_t += delta
 	if sauna_fire_on:
 		sauna_fire_time -= delta
@@ -142,67 +173,399 @@ func _process(delta: float) -> void:
 			_bubble.text = ""
 
 
-# --- Maasto, järvi ja laituri ------------------------------------------------------
+# --- Kartta, maasto ja vesistöt ----------------------------------------------------
 
-func _disc(center: Vector2, rx: float, rz: float, material: Material, y := 0.0, segs := 40) -> void:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	st.set_normal(Vector3.UP)
-	for i in segs:
-		var a0 := TAU * i / segs
-		var a1 := TAU * (i + 1) / segs
-		var p0 := center + Vector2(cos(a0) * rx, sin(a0) * rz)
-		var p1 := center + Vector2(cos(a1) * rx, sin(a1) * rz)
-		st.add_vertex(Vector3(center.x, y, center.y))
-		st.add_vertex(Vector3(p0.x, y, p0.y))
-		st.add_vertex(Vector3(p1.x, y, p1.y))
-	var mi := MeshInstance3D.new()
-	mi.mesh = st.commit()
-	mi.material_override = material
-	add_child(mi)
+static var _map := {}
 
 
+## Karttakehys (osoitepisteestä, x itään, z etelään) -> mökin paikallinen kehys.
+static func to_local2(p: Vector2) -> Vector2:
+	var b := deg_to_rad(YARD_ROT_DEG)
+	var d := p - YARD_C
+	return Vector2(d.x * cos(b) + d.y * sin(b), -d.x * sin(b) + d.y * cos(b))
+
+
+## Mökin paikallinen kehys -> karttakehys.
+static func to_map2(p: Vector2) -> Vector2:
+	var b := deg_to_rad(YARD_ROT_DEG)
+	return Vector2(p.x * cos(b) - p.y * sin(b), p.x * sin(b) + p.y * cos(b)) + YARD_C
+
+
+## Karttadata paikallisessa kehyksessä: water/fields (monikulmiot), roads ({type, name, pts}), buildings
+## ({id, type, poly}), streams, dem ja alueen kulmat (area). Ladataan kerran.
+static func map_data() -> Dictionary:
+	if not _map.is_empty():
+		return _map
+	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(DATA_PATH))
+	var out := {"water": [], "water_names": [], "fields": [], "roads": [], "buildings": [], "streams": [], "dem": d.dem}
+	var keep := Rect2(-Vector2.ONE * (AREA_HALF + 40.0), Vector2.ONE * (AREA_HALF + 40.0) * 2.0)
+	for f in d.features:
+		var pts := PackedVector2Array()
+		var fb := Rect2(Vector2(f.pts[0][0], f.pts[0][1]), Vector2.ZERO)
+		for p in f.pts:
+			fb = fb.expand(Vector2(p[0], p[1]))
+			pts.append(to_local2(Vector2(p[0], p[1])))
+		if not keep.intersects(fb, true):
+			continue  # alueen ulkopuolinen kohde (karttakehyksessä)
+		if f.kind != "road" and f.kind != "stream" and pts.size() > 3 and pts[0].distance_to(pts[-1]) < 0.01:
+			pts.remove_at(pts.size() - 1)  # OSM:n suljettu viiva toistaa alkupisteen
+		match f.kind:
+			"water":
+				out.water.append(pts)
+				out.water_names.append(f.name)
+			"field":
+				out.fields.append(pts)
+			"road":
+				var bb := Rect2(pts[0], Vector2.ZERO)
+				for p in pts:
+					bb = bb.expand(p)
+				out.roads.append({"type": f.type, "name": f.name, "pts": pts, "bbox": bb.grow(6.0)})
+			"building":
+				out.buildings.append({"id": f.id, "type": f.type, "poly": pts})
+			"stream":
+				out.streams.append(pts)
+	var area := PackedVector2Array()
+	for c in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		area.append(to_local2(c * AREA_HALF))
+	out.area = area
+	_map = out
+	return _map
+
+
+## Onko paikallinen piste järvessä (tai lammessa).
+static func in_water(x: float, z: float) -> bool:
+	for poly in map_data().water:
+		if Geometry2D.is_point_in_polygon(Vector2(x, z), poly):
+			return true
+	return false
+
+
+## Onko paikallinen piste 200 x 200 m alueella (reunan sisäpuolella margin m).
+static func in_area(x: float, z: float, margin := 0.0) -> bool:
+	var m := to_map2(Vector2(x, z))
+	return absf(m.x) < AREA_HALF - margin and absf(m.y) < AREA_HALF - margin
+
+
+## Korkeusmallin arvo (m merenpinnasta) paikallisessa pisteessä, bilineaarisesti.
+static func _dem(x: float, z: float) -> float:
+	var dem: Dictionary = map_data().dem
+	var m := to_map2(Vector2(x, z))
+	var n: int = dem.n
+	var fx := clampf((m.x - dem.x0) / dem.step, 0.0, n - 1.001)
+	var fz := clampf((m.y - dem.z0) / dem.step, 0.0, n - 1.001)
+	var i := int(fx)
+	var j := int(fz)
+	var vals: Array = dem.values
+	var a: float = lerpf(vals[j * n + i], vals[j * n + i + 1], fx - i)
+	var b: float = lerpf(vals[(j + 1) * n + i], vals[(j + 1) * n + i + 1], fx - i)
+	return lerpf(a, b, fz - j)
+
+
+## Mökin paikallinen maanpinnan korkeus (mökki = 0). Vesistöissä pohja on pinnan alla, rannalla maa pysyy
+## hieman pinnan yläpuolella.
+static func h(x: float, z: float) -> float:
+	var water := water_y()
+	if in_water(x, z):
+		return water - 1.0
+	return maxf(_dem(x, z) - _base(), water + 0.12)
+
+
+static func _base() -> float:
+	return _dem(COTTAGE_LOCAL.x, COTTAGE_LOCAL.y)
+
+
+## Järvien pinnan korkeus mökin tasoon nähden (Likanen 125,3 m N2000).
+static func water_y() -> float:
+	return float(map_data().dem.water) - _base()
+
+
+## Paikallinen piste maanpinnalle (y = h + local.y) maailmakoordinaatteina.
+func gpos(local: Vector3) -> Vector3:
+	return to_global(Vector3(local.x, h(local.x, local.z) + local.y, local.z))
+
+
+## Kuistin kansi oven edessä (maailmassa): uloskäynnin ja aamun heräämisen paikka.
+func porch_pos(out := 0.9) -> Vector3:
+	var p := DOOR_LOCAL + PORCH_DIR * out
+	return to_global(Vector3(p.x, h(COTTAGE_LOCAL.x, COTTAGE_LOCAL.y) + 0.62 + 0.3, p.z))
+
+
+func _ground_mat(a: Color, b: Color, scale := 0.04, fine := 0.8) -> Material:
+	return B.shader_mat("res://shaders/ground.gdshader", {
+		"color_a": a, "color_b": b, "scale": scale, "fine_scale": fine, "bump": 0.7, "roughness_v": 0.95, "stripes": 0.0,
+	})
+
+
+## Onko piste jonkin rakennuksen pihalla (naapurit ja oma piha).
+func _is_yard(p: Vector2) -> bool:
+	if pow((p.x - YARD_CENTER.x) / YARD_R.x, 2.0) + pow((p.y - YARD_CENTER.y) / YARD_R.y, 2.0) < 1.0:
+		return true
+	for bd in map_data().buildings:
+		var poly: PackedVector2Array = bd.poly
+		if poly.size() > 0 and p.distance_to(poly[0]) < 16.0:
+			return true
+	return false
+
+
+## Maasto 2 m verkkona korkeusmallin mukaan: metsä, pihat, pellot ja järvien pohjat omilla materiaaleillaan,
+## törmäys samasta ruudukosta (HeightMapShape3D kuten world.gd:ssä).
 func _build_ground() -> void:
-	var forest_mat := B.shader_mat("res://shaders/ground.gdshader", {
-		"color_a": Color(0.28, 0.32, 0.17), "color_b": Color(0.5, 0.48, 0.32),
-		"scale": 0.03, "fine_scale": 0.6, "bump": 0.7, "roughness_v": 0.95, "stripes": 0.0,
-	})
-	var yard_mat := B.shader_mat("res://shaders/ground.gdshader", {
-		"color_a": Color(0.36, 0.3, 0.2), "color_b": Color(0.55, 0.47, 0.32),
-		"scale": 0.04, "fine_scale": 0.9, "bump": 0.9, "roughness_v": 1.0, "stripes": 0.0,
-	})
-	_disc(YARD_CENTER, FOREST_R.x, FOREST_R.y, forest_mat, -0.03)
-	_disc(YARD_CENTER, YARD_R.x, YARD_R.y, yard_mat, -0.02)
-	# Maastolevyt (_disc) ovat pelkkää visuaalia. Tasku on kaukana pääkartan korkeusmallista,
-	# joten Terrain.h() palauttaa täällä aina 0 eikä world.gd:n maaston HeightMapShape3D ulotu
-	# tänne: ilman omaa törmäystasoa pelaaja putoaa suoraan maan läpi saapuessaan taksilla.
+	var data := map_data()
+	var mats := {
+		"forest": _ground_mat(Color(0.28, 0.32, 0.17), Color(0.5, 0.48, 0.32), 0.03, 0.6),
+		"yard": _ground_mat(Color(0.36, 0.3, 0.2), Color(0.55, 0.47, 0.32), 0.04, 0.9),
+		"field": _ground_mat(Color(0.45, 0.5, 0.25), Color(0.6, 0.62, 0.32), 0.02, 0.4),
+		"shore": _ground_mat(Color(0.3, 0.3, 0.22), Color(0.42, 0.4, 0.3), 0.05, 0.8),
+	}
+	var half := AREA_HALF * 1.45  # kierretty neliö mahtuu
+	var lo := Vector2(-half, -half)
+	var n := int(half * 2.0 / GRID_STEP) + 1
+	var sts := {}
+	for k in mats:
+		sts[k] = SurfaceTool.new()
+		sts[k].begin(Mesh.PRIMITIVE_TRIANGLES)
+	var hs := PackedFloat32Array()
+	hs.resize(n * n)
+	for j in n:
+		for i in n:
+			var p := lo + Vector2(i, j) * GRID_STEP
+			hs[j * n + i] = h(p.x, p.y)
+	for j in n - 1:
+		for i in n - 1:
+			var c := lo + (Vector2(i, j) + Vector2(0.5, 0.5)) * GRID_STEP
+			if not in_area(c.x, c.y, -40.0):
+				continue  # alueen ulkopuolelle vain kapea metsäreunus
+			var kind := "forest"
+			if in_water(c.x, c.y):
+				kind = "shore"
+			else:
+				for f in data.fields:
+					if Geometry2D.is_point_in_polygon(c, f):
+						kind = "field"
+						break
+				if kind == "forest" and _is_yard(c):
+					kind = "yard"
+			var st: SurfaceTool = sts[kind]
+			var v := func(di: int, dj: int) -> Vector3:
+				var q := lo + Vector2(i + di, j + dj) * GRID_STEP
+				return Vector3(q.x, hs[(j + dj) * n + i + di], q.y)
+			for corner in [v.call(0, 0), v.call(1, 0), v.call(1, 1), v.call(0, 0), v.call(1, 1), v.call(0, 1)]:
+				st.add_vertex(corner)
+	for k in sts:
+		var st: SurfaceTool = sts[k]
+		st.generate_normals()
+		var mi := MeshInstance3D.new()
+		mi.mesh = st.commit()
+		mi.material_override = mats[k]
+		mi.set_meta("ground", true)
+		add_child(mi)
 	var ground_body := StaticBody3D.new()
 	ground_body.collision_layer = Terrain.COLLISION_LAYER
 	ground_body.collision_mask = 0
-	ground_body.add_child(B.box_shape(Vector3(FOREST_R.x * 2.0 + 10.0, 1.0, FOREST_R.y * 2.0 + 10.0),
-		Vector3(YARD_CENTER.x, -0.5, YARD_CENTER.y)))
+	var hm := HeightMapShape3D.new()
+	hm.map_width = n
+	hm.map_depth = n
+	hm.map_data = hs
+	var cs := CollisionShape3D.new()
+	cs.shape = hm
+	cs.scale = Vector3(GRID_STEP, 1.0, GRID_STEP)
+	ground_body.position = Vector3(lo.x + (n - 1) * GRID_STEP * 0.5, 0.0, lo.y + (n - 1) * GRID_STEP * 0.5)
+	ground_body.add_child(cs)
+	ground_body.set_meta("ground", true)
 	add_child(ground_body)
+	# Alueen reunat: näkymättömät seinät 200 m neliön laidoilla.
+	var area: PackedVector2Array = data.area
+	for k in 4:
+		var a := area[k]
+		var b := area[(k + 1) % 4]
+		var wall := StaticBody3D.new()
+		var mid := (a + b) / 2.0
+		wall.position = Vector3(mid.x, 0, mid.y)
+		wall.rotation.y = -atan2(b.y - a.y, b.x - a.x)
+		wall.add_child(B.box_shape(Vector3(a.distance_to(b), 30.0, 1.0), Vector3(0, 5.0, 0)))
+		wall.set_meta("ground", true)
+		add_child(wall)
+
+
+## Maaston myötäinen nauha (tie, puro) murtoviivaa pitkin.
+func _strip(pts: PackedVector2Array, half_w: float, lift: float, mat: Material) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in pts.size() - 1:
+		var a := pts[k]
+		var b := pts[k + 1]
+		var segs := maxi(1, int(a.distance_to(b) / 3.0))
+		var nrm := (b - a).normalized().orthogonal() * half_w
+		for s in segs:
+			var p0 := a.lerp(b, float(s) / segs)
+			var p1 := a.lerp(b, float(s + 1) / segs)
+			for v in [p0 + nrm, p1 + nrm, p1 - nrm, p0 + nrm, p1 - nrm, p0 - nrm]:
+				st.add_vertex(Vector3(v.x, h(v.x, v.y) + lift, v.y))
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	mi.set_meta("ground", true)
+	add_child(mi)
+
+
+## Järvet ja lammet (OSM-monikulmiot) pinnan korkeudelle, puro ja tiet maaston myötäisinä, ruovikko rannoille.
+func _build_waters_and_roads() -> void:
+	var data := map_data()
+	var water_mat := B.shader_mat("res://shaders/water.gdshader")
+	var wy := water_y()
+	for poly: PackedVector2Array in data.water:
+		var idx := Geometry2D.triangulate_polygon(poly)
+		if idx.is_empty():
+			continue
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		st.set_normal(Vector3.UP)
+		for i in idx:
+			st.add_vertex(Vector3(poly[i].x, wy, poly[i].y))
+		var mi := MeshInstance3D.new()
+		mi.mesh = st.commit()
+		mi.material_override = water_mat
+		mi.set_meta("ground", true)
+		add_child(mi)
+		# Ruovikko rantaviivalle (harvemmin kauempana mökistä).
+		for k in poly.size() - 1:
+			var a := poly[k]
+			var b := poly[k + 1]
+			if a.length() > 160.0:
+				continue
+			var cnt := int(a.distance_to(b) / 3.0)
+			for c in cnt:
+				var p := a.lerp(b, randf()) + Vector2(randf_range(-1.5, 1.5), randf_range(-1.5, 1.5))
+				if absf(p.x - DOCK_LOCAL.x) < 2.5 and absf(p.y - DOCK_LOCAL.z) < 16.0:
+					continue
+				var reed := B.mesh(self, B.cyl(0.0, 0.02, 0.9 + randf() * 0.5, 5), Vector3(p.x, wy, p.y),
+					Color(0.42, 0.5, 0.22).lightened(randf() * 0.15))
+				reed.rotation.x = (randf() - 0.5) * 0.15
+				reed.set_meta("ground", true)
+	for s in data.streams:
+		_strip(s, 0.8, 0.02, water_mat)
+	var gravel := _ground_mat(Color(0.53, 0.47, 0.37), Color(0.64, 0.57, 0.45), 0.08, 1.1)
+	for r in data.roads:
+		var w := 2.6 if r.type == "unclassified" else (1.4 if r.type == "service" else 1.8)
+		_strip(r.pts, w, 0.05, gravel)
+	Sfx.loop_on(self, "water", -14.0).position = Vector3(DOCK_LOCAL.x, 0, DOCK_LOCAL.z - 4.0)
+
+
+## Naapurit OSM-rakennuksina: seinät, harjakatto ja törmäys (oma mökki ja vaja mallinnetaan erikseen).
+func _build_neighbors() -> void:
+	var walls := [Color(0.6, 0.15, 0.11), Color(0.9, 0.8, 0.45), Color(0.86, 0.8, 0.66), Color(0.92, 0.91, 0.87),
+		Color(0.45, 0.3, 0.2), Color(0.58, 0.7, 0.78)]
+	for bd in map_data().buildings:
+		if bd.id in OWN_BUILDINGS:
+			continue
+		var poly: PackedVector2Array = bd.poly
+		if poly.size() < 4:
+			continue
+		# Suorakaide kahdesta ensimmäisestä sivusta; epäsäännöllisille rajaava laatikko samassa suunnassa.
+		var e1 := poly[1] - poly[0]
+		var ang := atan2(e1.y, e1.x)
+		var ax := e1.normalized()
+		var az := ax.orthogonal()
+		var mn := Vector2(INF, INF)
+		var mx := -mn
+		for p in poly:
+			var q := Vector2((p - poly[0]).dot(ax), (p - poly[0]).dot(az))
+			mn = mn.min(q)
+			mx = mx.max(q)
+		var size := mx - mn
+		var cen := poly[0] + ax * ((mn.x + mx.x) / 2.0) + az * ((mn.y + mx.y) / 2.0)
+		var small: bool = bd.type in ["shed", "cabin", "yes"] and size.x * size.y < 60.0
+		var wall_h := 2.3 if small else 3.0
+		var body := StaticBody3D.new()
+		body.position = Vector3(cen.x, h(cen.x, cen.y), cen.y)
+		body.rotation.y = -ang
+		body.set_meta("ground", true)
+		add_child(body)
+		var col: Color = walls[hash(bd.id) % walls.size()]
+		B.mesh(body, B.boxm(Vector3(size.x, wall_h, size.y)), Vector3(0, wall_h / 2.0 - 0.2, 0), col)
+		var roof := PrismMesh.new()
+		roof.size = Vector3(size.y + 0.8, 1.0 if small else 1.6, size.x + 0.6)
+		B.mesh(body, roof, Vector3(0, wall_h - 0.2 + roof.size.y / 2.0, 0), Color(0.22, 0.22, 0.24), Vector3(0, 90, 0))
+		body.add_child(B.box_shape(Vector3(size.x, wall_h, size.y), Vector3(0, wall_h / 2.0, 0)))
+
+
+## Metsä: männyt MultiMeshinä koko alueelle (ei vesiin, pelloille, teille eikä pihoille); törmäys lähimmille.
+func _build_forest() -> void:
+	var data := map_data()
+	var pine := _pine_mesh()
+	var xforms: Array[Transform3D] = []
+	var bodies := StaticBody3D.new()
+	bodies.set_meta("ground", true)
+	add_child(bodies)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 62
+	var step := 7.0
+	var z := -AREA_HALF * 1.45
+	while z < AREA_HALF * 1.45:
+		var x := -AREA_HALF * 1.45
+		while x < AREA_HALF * 1.45:
+			var p := Vector2(x, z) + Vector2(rng.randf_range(-3, 3), rng.randf_range(-3, 3))
+			x += step
+			if not in_area(p.x, p.y, -30.0) or in_water(p.x, p.y) or _is_yard(p):
+				continue
+			var skip := false
+			for f in data.fields:
+				if Geometry2D.is_point_in_polygon(p, f):
+					skip = true
+					break
+			if not skip:
+				for r in data.roads:
+					if not r.bbox.has_point(p):
+						continue
+					var pts: PackedVector2Array = r.pts
+					for k in pts.size() - 1:
+						if p.distance_to(Geometry2D.get_closest_point_to_segment(p, pts[k], pts[k + 1])) < 4.0:
+							skip = true
+							break
+					if skip:
+						break
+			if skip:
+				continue
+			var s := rng.randf_range(0.8, 1.4)
+			xforms.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(p.x, h(p.x, p.y), p.y)))
+			if p.length() < 110.0:
+				var cs := B.capsule_shape(0.25 * s, 5.6 * s)
+				cs.position = Vector3(p.x, h(p.x, p.y), p.y)
+				bodies.add_child(cs)
+		z += step
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = pine
+	mm.instance_count = xforms.size()
+	for i in xforms.size():
+		mm.set_instance_transform(i, xforms[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.set_meta("ground", true)
+	add_child(mmi)
+
+
+## Mänty yhtenä meshinä (runko + neljä latvakartiota), jotta metsä piirtyy MultiMeshinä.
+func _pine_mesh() -> ArrayMesh:
+	var am := ArrayMesh.new()
+	var parts := [[B.cyl(0.12, 0.22, 3.5, 7), Vector3(0, 1.75, 0), Color(0.35, 0.25, 0.16)]]
+	for k in 4:
+		var fh := 1.6 * (1.0 - k * 0.12)
+		parts.append([B.cyl(0.03, fh * 0.62, fh, 7), Vector3(0, 2.8 + k * 1.12, 0), Color(0.15, 0.26, 0.14).lightened(0.04 * k)])
+	for part in parts:
+		var st := SurfaceTool.new()
+		st.append_from(part[0], 0, Transform3D(Basis(), part[1]))
+		st.commit(am)
+		am.surface_set_material(am.get_surface_count() - 1, B.mat(part[2]))
+	return am
 
 
 func _build_lake_and_dock() -> void:
-	# Vesi piirretään maan yläpuolelle, jotta se ei jää nurmi-/metsälevyjen alle niiden mahdollisen
-	# päällekkäisyyden kohdalla (litteät levyt, ei todellista maastoa tässä taskussa).
-	var water_mat := B.shader_mat("res://shaders/water.gdshader")
-	_disc(LAKE_CENTER, LAKE_R.x, LAKE_R.y, water_mat, 0.0, 48)
-	Sfx.loop_on(self, "water", -14.0).position = Vector3(8.0, 0, 30.0)
-	# Ruovikko rantaviivalla.
-	for i in 26:
-		var a := randf() * TAU
-		var r := 15.0 + randf() * 4.0
-		var p := Vector2(8.0, 19.5) + Vector2(cos(a), sin(a) * 0.6) * r
-		if p.y < 15.0:
-			continue
-		var reed := B.mesh(self, B.cyl(0.0, 0.02, 0.9 + randf() * 0.5, 5), Vector3(p.x, 0, p.y),
-			Color(0.42, 0.5, 0.22).lightened(randf() * 0.15))
-		reed.rotation.x = (randf() - 0.5) * 0.15
-	# Laituri: pukit ja lankut rannasta veteen.
+	_build_waters_and_roads()
+	# Laituri: pukit ja lankut rannasta Likaiselle (+Z).
 	var dock := StaticBody3D.new()
-	dock.position = Vector3(6.4, 0, 15.5)
+	dock.position = DOCK_LOCAL + Vector3(0, 0, -11.6)
 	add_child(dock)
 	var wood := Color(0.5, 0.38, 0.24)
 	for i in 12:
@@ -240,6 +603,7 @@ func _build_cottage() -> void:
 	var deck_z := -d / 2.0 - porch_d / 2.0
 	var body := StaticBody3D.new()
 	body.position = Vector3(0, 0, -1.0)
+	body.rotation.y = PI  # kuisti (rungon -Z) järvelle päin (+Z), kuten kuvissa
 	add_child(body)
 	# Sokkeli: tummat pystylaudat ja vaaleat betoniharkot vuorotellen.
 	for i in 10:
@@ -277,6 +641,19 @@ func _build_cottage() -> void:
 	body.add_child(door)
 	B.mesh(door, B.boxm(Vector3(0.9, 2.0, 0.06)), Vector3(0, 1.0, 0), Color(0.4, 0.26, 0.15))
 	B.mesh(door, B.boxm(Vector3(0.1, 0.1, 0.08)), Vector3(0.32, 1.0, 0.02), Color(0.75, 0.72, 0.6))
+	# Rinteessä (korkeusmalli: maa laskee järvelle päin) sokkeli ja kuistin alusta jatkuvat maahan asti.
+	var g := func(bx: float, bz: float) -> float:
+		return h(-bx, -bz - 1.0) - h(0.0, -1.0)
+	var low := 0.0
+	for bx in [-l / 2.0 - 0.3, 0.0, l / 2.0 + 0.3]:
+		for bz in [d / 2.0, 0.0, -d / 2.0, deck_z, -d / 2.0 - porch_d]:
+			low = minf(low, g.call(bx, bz))
+	low -= 0.15
+	if low < -0.2:
+		B.mesh(body, B.boxm(Vector3(l - 0.04, -low, d - 0.04)), Vector3(0, low / 2.0, 0), dark_wood)
+		B.mesh(body, B.boxm(Vector3(l - 0.1, found_h - 0.07 - low, porch_d - 0.1)), Vector3(0, (found_h - 0.07 + low) / 2.0, deck_z), dark_wood)
+		body.add_child(B.box_shape(Vector3(l, -low, d), Vector3(0, low / 2.0, 0)))
+		body.add_child(B.box_shape(Vector3(l, found_h - low, porch_d), Vector3(0, (found_h + low) / 2.0, deck_z)))
 	# Kuisti: kansi, valkoinen kaide, tolpat ja portaat länsipäässä.
 	B.mesh(body, B.boxm(Vector3(l, 0.1, porch_d)), Vector3(0, found_h - 0.02, deck_z), Color(0.62, 0.5, 0.36))
 	for x in [-l / 2.0 + 0.3, -l / 2.0 + 1.9, -l / 2.0 + 3.5, -l / 2.0 + 5.1, -l / 2.0 + 6.7, l / 2.0 - 0.3]:
@@ -286,17 +663,23 @@ func _build_cottage() -> void:
 	B.mesh(body, B.boxm(Vector3(l - 0.2, 0.06, 0.06)), Vector3(0, found_h + 0.86, deck_z - porch_d + 0.02), white)
 	for i in 26:
 		B.mesh(body, B.boxm(Vector3(0.03, 0.7, 0.03)), Vector3(-l / 2.0 + 0.3 + i * (l - 0.6) / 25.0, found_h + 0.5, deck_z - porch_d + 0.02), white)
-	# Portaat lännessä maahan.
+	# Portaat lännessä maahan (rinteessä askelmia on niin monta kuin maan tasoon tarvitaan).
+	var foot := minf(g.call(-l / 2.0 - 1.0, deck_z + 0.5), 0.0)
 	var stx := -l / 2.0 - 0.15
-	for i in 3:
-		var sy := found_h - i * found_h / 3.0 - found_h / 6.0
-		B.mesh(body, B.boxm(Vector3(1.1, found_h / 3.0, 0.32)), Vector3(stx - i * 0.32, sy, deck_z + 0.2 + i * 0.32), Color(0.5, 0.4, 0.28))
+	var steps := maxi(3, ceili((found_h - foot) / 0.21))
+	var step_h := (found_h - foot) / steps
+	for i in steps:
+		var sy := found_h - (i + 0.5) * step_h
+		B.mesh(body, B.boxm(Vector3(0.32, step_h, 1.1)), Vector3(stx - i * 0.3, sy, deck_z + 0.5), Color(0.5, 0.4, 0.28))
 	# Kuistin lattia kiinteäksi (muuten kävellään maata pitkin ja kansi leikkaa polvista) ja portaiden kohdalle
 	# loiva luiska: CharacterBody ei nouse porrasaskelmia, mutta kävelee alle 45° rinnettä ylös.
 	body.add_child(B.box_shape(Vector3(l, found_h + 0.03, porch_d), Vector3(0, (found_h + 0.03) / 2.0, deck_z)))
-	var run := 1.2
-	var ramp := B.box_shape(Vector3(Vector2(run, found_h).length(), 0.1, 1.1), Vector3.ZERO)
-	ramp.transform = Transform3D(Basis(Vector3.BACK, atan2(found_h, run)), Vector3(-l / 2.0 - run / 2.0, found_h / 2.0 - 0.05, deck_z + 0.5))
+	# Luiska alkaa maan tason alta (-0,4), jotta rinteessä sen alapää ei jää askelmaksi.
+	var ramp_rise := found_h - foot + 0.4
+	var run := maxf(2.0, ramp_rise * 1.6)
+	var ramp := B.box_shape(Vector3(Vector2(run, ramp_rise).length(), 0.1, 1.1), Vector3.ZERO)
+	ramp.transform = Transform3D(Basis(Vector3.BACK, atan2(ramp_rise, run)),
+		Vector3(-l / 2.0 - run / 2.0, found_h - ramp_rise / 2.0 - 0.05, deck_z + 0.5))
 	body.add_child(ramp)
 	# Kuistin sohva, tuolit ja pöytä (kuten kuvissa).
 	body.add_child(B.box_shape(Vector3(1.7, 0.6, 0.9), Vector3(1.5, found_h + 0.3, deck_z + 0.5)))
@@ -311,29 +694,55 @@ func _build_cottage() -> void:
 	plate.rotation.y = PI
 
 
-# --- Halkovaja ja vedenlämmitin --------------------------------------------------
+# --- Kesäkeittiö: sinikattoinen vaja ja sen kylkeen avoin katos ------------------------
 
-func _build_woodshed() -> void:
-	var dark := Color(0.28, 0.22, 0.16)
+## Kuvien mukaan rannan puolella poreammeen oikealla (kuistilta katsottuna): pieni lautavaja vaaleansinisellä
+## peltikatolla ja sen kyljessä avoin puukatos, jonka alla savustin ja pöytä. Halkopino katoksen vieressä.
+func _build_summer_kitchen() -> void:
+	var boards := Color(0.42, 0.36, 0.3)
+	var blue_roof := Color(0.6, 0.72, 0.82)
+	var dark_roof := Color(0.24, 0.22, 0.2)
+	var post := Color(0.4, 0.3, 0.2)
 	var shed := StaticBody3D.new()
-	shed.position = Vector3(-8.6, 0, -3.6)
-	shed.rotation.y = 0.35
+	shed.position = SHED_LOCAL  # OSM-rakennuksen kohdalla (4,3 x 5,0 m)
 	add_child(shed)
-	shed.add_child(B.box_shape(Vector3(3.0, 2.1, 2.2), Vector3(0, 1.05, 0)))
-	B.mesh(shed, B.boxm(Vector3(3.0, 2.1, 2.2)), Vector3(0, 1.05, 0), dark)
-	B.mesh(shed, B.boxm(Vector3(3.2, 0.08, 2.4)), Vector3(0, 2.14, 0), Color(0.2, 0.19, 0.18)).rotation.x = 0.1
-	# Lämminvesivaraaja ulkoseinällä.
-	B.mesh(shed, B.cyl(0.26, 0.26, 1.1, 12), Vector3(1.7, 0.9, -0.2), Color(0.85, 0.85, 0.87))
-	B.mesh(shed, B.cyl(0.05, 0.05, 0.3, 8), Vector3(1.7, 1.5, -0.2), Color(0.5, 0.5, 0.52))
-	var sign := B.sign_plate(shed, "HALKOVAJA", Color(0.36, 0.2, 0.1), Color(0.98, 0.95, 0.86), 0.16, 24,
-		Color(0.3, 0.18, 0.1), "Helvetica Neue")
-	sign.position = Vector3(0, 1.85, 1.15)
-	# Halkopino.
+	shed.add_child(B.box_shape(Vector3(4.3, 2.2, 5.0), Vector3(0, 1.1, 0)))
+	B.mesh(shed, B.boxm(Vector3(4.3, 2.2, 5.0)), Vector3(0, 1.1, 0), boards)
+	for i in 10:
+		B.mesh(shed, B.boxm(Vector3(0.02, 2.2, 0.04)), Vector3(-1.95 + i * 0.43, 1.1, -2.52), boards.darkened(0.2))
+	B.mesh(shed, B.boxm(Vector3(0.8, 1.8, 0.05)), Vector3(1.0, 0.9, -2.53), boards.darkened(0.3))  # ovi
+	var roof := B.mesh(shed, B.boxm(Vector3(4.8, 0.06, 5.5)), Vector3(0, 2.35, 0), blue_roof)
+	roof.rotation.x = -0.14
+	# Avoin katos vajan kyljessä (-X): tolpat, loiva katto, savustin, pöytä ja penkki.
+	var katos := Node3D.new()
+	katos.position = KITCHEN_LOCAL + Vector3(-0.2, 0, 2.0)  # vajan kyljessä (-X)
+	add_child(katos)
+	for px in [-1.6, 1.4]:
+		for pz in [-1.4, 1.4]:
+			B.mesh(katos, B.cyl(0.07, 0.08, 2.2, 8), Vector3(px, 1.1, pz), post)
+	var kroof := B.mesh(katos, B.boxm(Vector3(3.6, 0.06, 3.4)), Vector3(-0.1, 2.25, 0), dark_roof)
+	kroof.rotation.z = 0.12
+	var smoker := Node3D.new()
+	smoker.position = Vector3(0.2, 0, -0.9)
+	katos.add_child(smoker)
+	B.mesh(smoker, B.cyl(0.35, 0.4, 1.0, 14), Vector3(0, 0.55, 0), Color(0.15, 0.15, 0.16), Vector3(0, 0, 90))
+	B.mesh(smoker, B.cyl(0.22, 0.24, 0.55, 12), Vector3(-0.55, 0.4, 0), Color(0.15, 0.15, 0.16), Vector3(0, 0, 90))
+	B.mesh(smoker, B.cyl(0.04, 0.04, 0.6, 8), Vector3(-0.55, 0.85, 0), Color(0.15, 0.15, 0.16))
+	for legx in [-0.4, 0.4]:
+		for legz in [-0.28, 0.28]:
+			B.mesh(smoker, B.cyl(0.03, 0.03, 0.5, 6), Vector3(legx, 0.25, legz), Color(0.1, 0.1, 0.1))
+	var kbody := StaticBody3D.new()
+	katos.add_child(kbody)
+	kbody.add_child(B.box_shape(Vector3(1.4, 1.0, 0.8), Vector3(0.2, 0.5, -0.9)))
+	kbody.add_child(B.box_shape(Vector3(1.6, 0.9, 0.7), Vector3(-0.3, 0.45, 0.8)))
+	B.mesh(katos, B.boxm(Vector3(1.6, 0.9, 0.6)), Vector3(-0.3, 0.45, 0.8), Color(0.32, 0.3, 0.28))  # keittiötaso
+	B.mesh(katos, B.boxm(Vector3(1.6, 0.05, 0.62)), Vector3(-0.3, 0.92, 0.8), Color(0.5, 0.5, 0.5))
+	# Halkopino katoksen vieressä, kuten kuvassa.
 	for row in 5:
 		for col in 8:
-			var h := B.mesh(shed, B.cyl(0.07, 0.07, 0.4, 5), Vector3(-1.3 + col * 0.32, 0.12 + row * 0.2, 1.14),
+			var log_mi := B.mesh(self, B.cyl(0.07, 0.07, 0.4, 5), Vector3(-16.4 + col * 0.32, 0.12 + row * 0.2, 19.6),
 				Color(0.72, 0.58, 0.38) if (row + col) % 3 else Color(0.62, 0.48, 0.3))
-			h.rotation.x = PI / 2.0
+			log_mi.rotation.x = PI / 2.0
 
 
 # --- Savusauna ------------------------------------------------------------------
@@ -345,7 +754,7 @@ func _build_savusauna() -> void:
 	var rise := 0.7
 	var log_col := Color(0.42, 0.32, 0.2)
 	var sauna := StaticBody3D.new()
-	sauna.position = Vector3(7.4, 0, 6.4)  # akselinsuuntainen: ei kiertoa, ovi -X:ssä
+	sauna.position = SAUNA_LOCAL + Vector3(0, 0, 1.0)  # akselinsuuntainen: ei kiertoa, ovi ja terassi -X:ssä poreammeelle päin
 	add_child(sauna)
 	var offs := [d / 2.0, w / 2.0, -d / 2.0, -w / 2.0]  # side 0..3: +Z, +X, -Z, -X (ovi)
 	# Pyöröhirsiseinät (kaksi pitkää, kaksi lyhyttä, ovi -X:ssä).
@@ -449,7 +858,7 @@ func _build_hottub() -> void:
 func _build_yard_extras() -> void:
 	# Tikkataulu männyn rungossa, kääntyneenä heittopistettä (etelää) kohti.
 	var tree := StaticBody3D.new()
-	tree.position = Vector3(9.0, 0, 5.0)
+	tree.position = DART_LOCAL + Vector3(0, 0, 3.0)
 	add_child(tree)
 	B.mesh(tree, B.cyl(0.22, 0.3, 6.0, 10), Vector3(0, 3.0, 0), Color(0.4, 0.26, 0.16))
 	for k in 3:
@@ -463,21 +872,14 @@ func _build_yard_extras() -> void:
 		var ring: float = [0.2, 0.14, 0.08, 0.03][i]
 		B.mesh(board, B.cyl(ring, ring, 0.065 + i * 0.002, 20), Vector3.ZERO, Color(0.85, 0.15, 0.1) if i % 2 == 0 else Color(0.92, 0.9, 0.85))
 	tree.add_child(B.capsule_shape(0.3, 6.0))
-	# Ulkokeittiö ja savustin kuistin nurkalla.
-	var kitchen := Node3D.new()
-	kitchen.position = Vector3(-4.6, 0, -6.0)
-	add_child(kitchen)
-	B.mesh(kitchen, B.boxm(Vector3(1.6, 0.9, 0.6)), Vector3(0, 0.45, 0), Color(0.32, 0.3, 0.28))
-	B.mesh(kitchen, B.boxm(Vector3(1.6, 0.05, 0.6)), Vector3(0, 0.92, 0), Color(0.5, 0.5, 0.5))
-	var smoker := Node3D.new()
-	smoker.position = Vector3(1.4, 0, 0.2)
-	kitchen.add_child(smoker)
-	B.mesh(smoker, B.cyl(0.35, 0.4, 1.0, 14), Vector3(0, 0.55, 0), Color(0.15, 0.15, 0.16), Vector3(0, 0, 90))
-	B.mesh(smoker, B.cyl(0.22, 0.24, 0.55, 12), Vector3(-0.55, 0.4, 0), Color(0.15, 0.15, 0.16), Vector3(0, 0, 90))
-	B.mesh(smoker, B.cyl(0.04, 0.04, 0.6, 8), Vector3(-0.55, 0.85, 0), Color(0.15, 0.15, 0.16))
-	for legx in [-0.4, 0.4]:
-		B.mesh(smoker, B.cyl(0.03, 0.03, 0.5, 6), Vector3(legx, 0.25, 0.28), Color(0.1, 0.1, 0.1))
-		B.mesh(smoker, B.cyl(0.03, 0.03, 0.5, 6), Vector3(legx, 0.25, -0.28), Color(0.1, 0.1, 0.1))
+	# Penkit ja nuotiopaikka poreammeen edessä (kuten kuistilta otetussa kuvassa).
+	for bp in [TUB_LOCAL + Vector3(-2.2, 0, -2.4), TUB_LOCAL + Vector3(2.4, 0, -2.4), TUB_LOCAL + Vector3(-2.6, 0, 1.0)]:
+		B.mesh(self, B.boxm(Vector3(1.6, 0.08, 0.35)), bp + Vector3(0, 0.42, 0), Color(0.45, 0.34, 0.22))
+		for lx in [-0.65, 0.65]:
+			B.mesh(self, B.boxm(Vector3(0.1, 0.4, 0.3)), bp + Vector3(lx, 0.2, 0), Color(0.38, 0.28, 0.18))
+	for k in 8:
+		var a := TAU * k / 8.0
+		B.mesh(self, B.sphere(0.12, 6), TUB_LOCAL + Vector3(0.2 + cos(a) * 0.45, 0.06, -3.8 + sin(a) * 0.45), Color(0.45, 0.44, 0.42))
 	# Taksipysäkki: kyltti ja pysäköity taksi pihatien päässä.
 	var taxi_sign := B.sign_pole(self, TAXI_LOCAL + Vector3(1.4, 0, 0), 2.4)
 	var tplate := B.sign_plate(taxi_sign, "TAKSI", Color(0.96, 0.78, 0.08), Color(0.05, 0.05, 0.05), 0.26, 40,
@@ -494,28 +896,28 @@ func _build_yard_extras() -> void:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_normal(Vector3.UP)
 	var a := Vector2(TAXI_LOCAL.x, TAXI_LOCAL.z)
-	var b := Vector2(0, -8.0)
+	var b := Vector2(1.0, -4.5)  # mökin takaseinälle (pysäköinti mökin takana, kuten drone-kuvassa)
 	var n := (b - a).normalized().orthogonal() * 1.6
-	for v in [a + n, b + n, b - n, a + n, b - n, a - n]:
-		st.add_vertex(Vector3(v.x, 0.005, v.y))
+	var segs := 10
+	for s in segs:
+		var p0 := a.lerp(b, float(s) / segs)
+		var p1 := a.lerp(b, float(s + 1) / segs)
+		for v in [p0 + n, p1 + n, p1 - n, p0 + n, p1 - n, p0 - n]:
+			st.add_vertex(Vector3(v.x, h(v.x, v.y) + 0.04, v.y))  # maaston myötäinen sora
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = road_mat
+	mi.set_meta("ground", true)
 	add_child(mi)
 
 
 # --- Männyt ympärillä --------------------------------------------------------------
 
+## Harvoja isoja mäntyjä pihalla kuten kuvissa (ei rakennusten päälle); metsä muualla _build_forest().
 func _build_trees() -> void:
-	for i in 46:
-		var a := randf() * TAU
-		var r := 16.0 + randf() * 26.0
-		var p := Vector2(2.0, 5.0) + Vector2(cos(a) * r, sin(a) * r)
-		if p.distance_to(Vector2(8.0, 30.0)) < 14.0:
-			continue  # ei puita järveen
-		if p.distance_to(Vector2(TAXI_LOCAL.x, TAXI_LOCAL.z)) < 6.0:
-			continue  # ei puita taksipysäkille tai pihatielle
-		_pine(Vector3(p.x, 0, p.y), 0.8 + randf() * 0.6)
+	for tp in [Vector2(-10.0, 3.0), Vector2(12.0, 2.0), Vector2(-17.0, 10.0), Vector2(14.0, 12.0), Vector2(15.0, 26.0),
+			Vector2(-4.0, 28.0)]:
+		_pine(Vector3(tp.x, 0, tp.y), 1.1)
 
 
 func _pine(pos: Vector3, s: float) -> void:
@@ -539,8 +941,9 @@ const SANTTU_LOOK := {
 	"hair": "Hair_SimpleParted", "hair_color": Color(0.4, 0.3, 0.18), "beard": true, "height": 1.78,
 	"belly": 0.35, "bulk": -0.1,
 }
-## Mökin ovi kuistilla (paikallinen): E vie sisään (main.gd _mokki_logic).
-const DOOR_LOCAL := Vector3(-1.9, 0, -4.1)
+## Mökin ovi kuistilla (paikallinen): E vie sisään (main.gd _mokki_logic). PORCH_DIR = ovelta kuistille ulospäin.
+const DOOR_LOCAL := Vector3(1.9, 0, 2.2)
+const PORCH_DIR := Vector3(0, 0, 1)
 
 
 func _build_santtu() -> void:
@@ -548,7 +951,7 @@ func _build_santtu() -> void:
 	B.mesh(self, B.cyl(0.22, 0.26, 0.42, 12), SANTTU_LOCAL + Vector3(0, 0.21, 0), Color(0.4, 0.28, 0.17))  # pihatuoli (kanto)
 	santtu = Looks.make(self, look)
 	santtu.position = SANTTU_LOCAL + Vector3(0, 0.2, 0)
-	santtu.rotation.y = B.yaw_to(Vector3(0, 0, 1))  # kasvot kohti mökkiä
+	santtu.rotation.y = B.yaw_to(Vector3(0, 0, -1))  # kasvot kohti mökkiä (kuisti järven puolella)
 	santtu.play("Sitting_Idle", 0.0)
 	var mug := Node3D.new()
 	B.mesh(mug, B.cyl(0.035, 0.035, 0.08, 10), Vector3(0, -0.02, 0), Color(0.95, 0.95, 0.92))

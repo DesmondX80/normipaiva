@@ -46,9 +46,13 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   haava paranee yön aikana.
 - **Pontikka:** jossain metsässä Pannu-Sulo keittää pontikkaa. Paikka ei näy kartalla, mutta kodan tarinoista
   saattaa kuulla vihjeen. Sulo myy päivässä yhden kanisterin (20 €), joka vastaa kotijemmassa 24 kaljaa.
-- **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen). Savusauna, puukuumenteinen
-  poreamme, tikanheittotaulu, kalastus laiturilta (heitä onki, odota nykäisyä, vedä ylös ajoissa) ja
-  isäntä Santtu kahvikuppeineen. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
+- **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen). Mökki on mallinnettu oikean
+  paikan mukaan (Kaisuantie 62, Vaala): 200 × 200 m alue OpenStreetMapista (Likanen, Tervalampi, Kiiskeroinen,
+  Kaisuantie, pellot, naapurit ja metsä) ja korkeudet Maanmittauslaitoksen 2 m korkeusmallista (mökki on
+  harjanteella ja piha viettää n. 7 m rantaan). Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella savusauna,
+  puukuumenteinen poreamme ja kesäkeittiö (vaja + katos, offset-savustimessa voi paistaa makkaran),
+  tikanheittotaulu, kalastus laiturilta (heitä onki, odota nykäisyä, vedä ylös ajoissa) ja isäntä Santtu
+  kahvikuppeineen. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
   jääkaappi), pitkä pöytä, TV ja takka, makuuhuone violetteine kerrossänkyineen, kylpyhuone ja sisäsauna.
   Kerrossängyssä voi **nukkua yön**: päivä vaihtuu ja uusi alkaa mökiltä (Päivi soittaa aamulla).
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
@@ -238,6 +242,8 @@ godot --path .
 
 - Koodi, kartta ja maisema: tehty tätä peliä varten.
 - Äänet: CC0-äänitteitä OpenGameArtista ja Kenneyltä (lähteet: `assets/sounds/LICENSE.md`).
+- Mökin ympäristö (`assets/mokki/kartta.json`): © OpenStreetMap-tekijät (ODbL) ja korkeudet Maanmittauslaitoksen
+  korkeusmalli 2 m (CC BY 4.0, lehti R4333D, 2023; Kapsin peilistä).
 - **Haapajärven tekoaltaan kota** (sijainti OpenStreetMapista) on n. 2 km laavulta etelään Kotapolkua pitkin.
   Sahaa tukki pölkyiksi pokasahalla ja halko pölkyt kirveellä (jalan, E), sytytä tuli kotaan ja kuuntele
   vakiovieraiden Raimon ja Veikon tarinoita (10 kpl, kuullut tallentuvat). Kota on täynnä kieltokylttejä.
