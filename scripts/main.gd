@@ -2781,6 +2781,9 @@ func _place_on_foot(pos: Vector3) -> void:
 	walker_out.velocity = Vector3.ZERO
 	walker_out.visible = true
 	walker_out.process_mode = Node.PROCESS_MODE_INHERIT
+	# Myös viiveellä: käynnistyksessä _spawn_player poistaa jalan kulkijan käytöstä set_deferredillä,
+	# joka muuten ajettaisiin tämän jälkeen ja jäädyttäisi hahmon ja kameran.
+	walker_out.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 	walker_out.controls_enabled = true
 	walker_out.set_carrying(beers > 0)
 	_set_avatar(walker_out)
@@ -4027,6 +4030,19 @@ func _maybe_screenshot() -> void:
 			await get_tree().process_frame
 			Input.action_release("interact")
 			print("STASH laavu=", stash_laavu, " beers=", beers)
+		"startcheck":
+			# Oikea käynnistys (kuvan nimi *menu.png ohittaa testitilan): tallennettu pyörä, valikosta jatkoon, kävely.
+			menu.close()
+			await get_tree().process_frame
+			var p0 := player.global_position
+			var c0 := get_viewport().get_camera_3d().global_position
+			Input.action_press("forward")
+			for i in 60:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			print("STARTCHECK on_foot=", player == walker_out, " mode=", walker_out.process_mode,
+				" moved=%.1f cam_moved=%.1f" % [player.global_position.distance_to(p0),
+				get_viewport().get_camera_3d().global_position.distance_to(c0)])
 		"bikestay":
 			# Pyörä kaupalle, uusi päivä kotoa: pyörän pitää jäädä, pelaaja jalan. Sitten tallennus.
 			var left := shop_zone + Vector3(6, 0.3, 6)
