@@ -20,6 +20,7 @@ var target: Node3D
 var world: Node3D  # alusta hidastaa autoa pellolla ja rämeellä
 var safe_zones: Array = []  # [Vector3 keskipiste, float säde]: näihin Päivi ei tule perään
 var alerted := false  # naapuri käräytti: vaimo tietää koko ajan missä olet
+var speed_mult := 1.0  # päivän tilat (#18): huonon päivän jälkeen nopeampi, hyvän jälkeen hitaampi
 var mode := "patrol"  # patrol, chase, return
 
 var _nodes: Array[Vector3] = []
@@ -118,7 +119,7 @@ func _physics_process(delta: float) -> void:
 				mode = "patrol"
 				_prev = -1
 				_advance()
-	_drive(delta, want)
+	_drive(delta, want * speed_mult)
 
 	if d < CATCH_DIST and not in_safe:
 		caught.emit()
