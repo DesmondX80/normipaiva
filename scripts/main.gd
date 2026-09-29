@@ -66,6 +66,14 @@ const SAVE_PATH := "user://normipaiva.cfg"
 
 const INTERIOR_POS := Vector3(3000, 0, 0)
 const MOKKI_POS := Vector3(6000, 0, 0)  # erillinen tasku, tavoitettavissa vain taksilla kotoa
+## Mökin sisätila (mokki_interior.gd) omassa taskussaan; kuistin ovelta E vie sisään.
+const MokkiInterior := preload("res://scripts/mokki_interior.gd")
+const MOKKI_INT_POS := Vector3(9000, 0, 0)
+const TV_SHOWS := ["Salkkarit: Kaikki riitelee taas.", "Kauniit ja rohkeat: Ridge on hämmentynyt.", "Uutiset: sadetta luvassa.",
+	"Hirviketju: kolme hirveä, kaksi ohi.", "Ostoskanava: veitsiä, jotka leikkaa tomaatin ja kengän."]
+var mokki_int: Node3D
+var _mokki_prev := "to_shop"
+var _slept_mokki := false
 const ZONE_RADIUS := 6.0
 const START_MONEY := 20.0
 ## Taksi K-Marketin taksitolpalta Raahen baariin ja takaisin.
@@ -311,6 +319,12 @@ func _ready() -> void:
 	mokki = Mokki.new()
 	mokki.position = MOKKI_POS
 	add_child(mokki)
+	mokki_int = MokkiInterior.new()
+	mokki_int.position = MOKKI_INT_POS
+	add_child(mokki_int)
+	mokki_int.exited.connect(_on_mokki_exited)
+	mokki_int.slept.connect(_on_mokki_slept)
+	mokki_int.acted.connect(_on_mokki_acted)
 	fight = Fight.new()
 	fight.position = Vector3(-3000, 0, 0)
 	add_child(fight)
@@ -380,7 +394,7 @@ func _process(delta: float) -> void:
 		get_tree().reload_current_scene()
 		return
 
-	if state in ["to_shop", "in_shop", "to_home", "fight"]:
+	if state in ["to_shop", "in_shop", "in_mokki", "to_home", "fight"]:
 		elapsed += delta
 
 	_hint.text = ""
@@ -392,6 +406,13 @@ func _process(delta: float) -> void:
 			_stats_tick(delta)
 		"in_shop":
 			_hint.text = interior.hint
+		"in_mokki":
+			_hint.text = mokki_int.hint
+			# Sisällä on rauhallista: stressi hellittää ja vireys nousee, nälkä kasvaa hiljaa.
+			tilat.add("stressi", 0.005 * delta)
+			tilat.add("vireys", 0.002 * delta)
+			tilat.add("nalka", -0.002 * delta)
+			tilat.add("humala", -0.002 * delta)
 	_update_hud()
 
 	if _msg_time > 0.0:
@@ -1686,6 +1707,11 @@ func _mokki_logic() -> void:
 	var near := func(local: Vector3, r: float) -> bool:
 		var g: Vector3 = mokki.to_global(local)
 		return Vector2(p.x - g.x, p.z - g.z).length() < r
+	if near.call(Mokki.DOOR_LOCAL, 1.2):
+		_hint.text = "[E] Mene sisälle mökkiin"
+		if e:
+			_enter_mokki()
+		return
 	if near.call(Mokki.SANTTU_LOCAL, 2.6):
 		_hint.text = "[E] Jutskaa Santun kanssa"
 		if e:
@@ -1755,6 +1781,82 @@ func _mokki_logic() -> void:
 	if near.call(Mokki.DOCK_LOCAL, 2.2):
 		_fish_logic(e)
 		return
+
+
+## Mökin sisälle: oma tasku ja kävelijä kuten kaupassa; vaarat pysähtyvät sisällä oloajaksi.
+func _enter_mokki() -> void:
+	_mokki_prev = state
+	state = "in_mokki"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	tilat.first("mokki_sisalla", 0.2)
+	mokki_int.enter()
+	Sfx.play("door", -3.0)
+
+
+func _on_mokki_exited() -> void:
+	mokki_int.leave()
+	Sfx.play("door_close", -3.0)
+	state = _mokki_prev
+	walker_out.global_position = mokki.to_global(Mokki.DOOR_LOCAL + Vector3(0, 0.9, -0.9))
+	walker_out.rotation.y = mokki.rotation.y  # selkä ovelle, katse pihalle (-Z)
+	walker_out.velocity = Vector3.ZERO
+	walker_out.controls_enabled = true
+	walker_out.activate_camera()
+	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+
+
+## Kerrossängyssä nukkuminen: päivä päättyy ja uusi alkaa mökin kuistilta (mökki on turvapaikka).
+func _on_mokki_slept() -> void:
+	mokki_int.leave()
+	tilat.add("vasymys", 0.3)  # hyvät unet näkyvät vielä päivän tuloksessa
+	_slept_mokki = true
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
+	_new_day(mokki.to_global(Mokki.DOOR_LOCAL + Vector3(0, 0.6, -0.9)), false, "Nukuit yön Santun mökillä kerrossängyssä.\n")
+
+
+## Mökin sisätoiminnot: tilavaikutukset (kerran päivässä) ja viestit.
+func _on_mokki_acted(kind: String) -> void:
+	match kind:
+		"kahvi":
+			tilat.first("suodatinkahvi")
+			if _once_today("kahvi"):
+				tilat.add("vireys", 0.2)
+				tilat.add("stressi", 0.1)
+			_show_message("Suodatinkahvia! Vireys nousee.", 2.5)
+		"jaakaappi":
+			if _once_today("jaakaappi"):
+				food["piirakka"] = food.get("piirakka", 0) + 1
+				_show_message("Santun jääkaapissa oli lihapiirakka. Otit sen evääksi (T syö).", 3.0)
+			else:
+				_show_message("Jääkaappi on tyhjä. Santtu: \"Kaupasta saa lisää!\"", 2.5)
+		"takka":
+			tilat.first("takka")
+			if _once_today("takka"):
+				tilat.add("stressi", 0.1)
+			_show_message("Takka syttyi. Tupa lämpenee.", 2.5)
+		"tv":
+			if _once_today("tv"):
+				tilat.add("stressi", 0.05)
+				tilat.add("kokemus", -0.02)
+			_show_message("\"%s\"" % TV_SHOWS.pick_random(), 3.0)
+		"suihku":
+			if _once_today("suihku"):
+				tilat.add("vireys", 0.1)
+				tilat.add("kipu", 0.05)
+			Sfx.play("water", -6.0, 1.1)
+			_show_message("Suihku virkistää.", 2.0)
+		"sauna":
+			tilat.first("sisasauna", 0.2)
+			walker_out.stamina = 100.0
+			walker_out.exhausted = false
+			if _once_today("sisasauna"):
+				tilat.add("stressi", 0.2)
+				tilat.add("vasymys", 0.2)
+				tilat.add("kipu", 0.1)
+			Sfx.play("water", -6.0, 0.8)
+			_show_message("Sisäsaunan löylyt! Kunto palautui.", 2.5)
 
 
 ## Kalastus laiturilta: heitä onki (E), odota nykäisyä, vedä ylös ajoissa (E). Ks. Mokki.FISH.
@@ -2447,6 +2549,10 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	if not _list_done and not shopping_list.is_empty():
 		bonus += "\nPäivi: \"Eilen ei tullu kaupasta mitään, vaikka oli lista!\""
 	bonus += stats_note
+	if _slept_mokki:
+		_slept_mokki = false
+		tilat.add("stressi", -0.1)
+		bonus += "\nPäivi soitti aamulla: \"Missä sää oot ollu koko yön?!\" Kotiin pääsee taksilla."
 	var rauha := _kaljarauha
 	_kaljarauha = false
 	_roll_list()
@@ -2506,7 +2612,12 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 			_show_message(msg, 6.0)
 			_tell_list(), _jemma_choco)
 		return
-	_show_message("%sPäivä %d alkaa%s.%s%s%s\nPitäis käydä kaupassa..." % [intro, day, " laavulta" if spawn.distance_to(home_zone) > 50.0 else " kotoa",
+	var where := " kotoa"
+	if spawn.distance_to(mokki.global_position) < 80.0:
+		where = " mökiltä"
+	elif spawn.distance_to(home_zone) > 50.0:
+		where = " laavulta"
+	_show_message("%sPäivä %d alkaa%s.%s%s%s\nPitäis käydä kaupassa..." % [intro, day, where,
 		bonus, bike_note, jnote], 4.0 if jnote == "" and intro == "" and bike_note == "" else 6.0)
 	_tell_list()
 
@@ -2957,7 +3068,7 @@ func _update_hud() -> void:
 	_stats.text = lines
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = state != "in_shop"
+	_minimap.visible = not (state in ["in_shop", "in_mokki"])
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
 	_minimap.show_target = state in ["to_shop", "to_home"]
 	_compass.visible = state in ["to_shop", "to_home"]
@@ -2990,7 +3101,7 @@ func _update_hud() -> void:
 
 	var nb: CharacterBody3D = interior.neighbor
 	_sus_box.visible = state == "in_shop" and nb != null
-	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop"]
+	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki"]
 	_stat_bars.offset_top = 90 if _sus_box.visible else 36
 	if _sus_box.visible:
 		_sus_bar.value = nb.suspicion
@@ -4001,6 +4112,58 @@ func _maybe_screenshot() -> void:
 			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
 			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
 			sc.current = true
+		"mokkisisalla":
+			# Mökin sisätila: ovelta sisään, toiminnot, kuva, ulos ja nukkumaan (päivä vaihtuu). Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var press := func(action: String) -> void:
+				Input.action_press(action)
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			_toggle_mount()
+			walker_out.global_position = mokki.to_global(Mokki.DOOR_LOCAL + Vector3(0, 0.9, -0.4))
+			for i in 10:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("SISA ovella hint=", _hint.text)
+			await press.call("interact")
+			print("SISA state=", state, " hint=", _hint.text)
+			for id in ["kahvi", "jaakaappi", "takka", "tv", "suihku", "sauna"]:
+				mokki_int.walker.position = mokki_int.SPOTS[id][0]
+				await get_tree().process_frame
+				await get_tree().process_frame
+				var h: String = mokki_int.hint
+				await press.call("interact")
+				print("SISA %s: hint=%s -> msg=%s" % [id, h, _msg.text])
+			print("SISA tilat: ", tilat.summary(), " food=", food)
+			mokki_int.walker.position = Vector3(-1.0, 0, 1.0)
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_tupa.png"))
+			await get_tree().process_frame
+			mokki_int.walker.position = mokki_int.SPOTS.ovi[0]
+			await get_tree().process_frame
+			await press.call("interact")
+			for i in 5:
+				await get_tree().physics_frame
+			print("SISA ulos state=%s porch_y=%.2f" % [state, mokki.to_local(walker_out.global_position).y])
+			walker_out.global_position = mokki.to_global(Mokki.DOOR_LOCAL + Vector3(0, 0.9, -0.4))
+			for i in 5:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			await press.call("interact")
+			mokki_int.walker.position = mokki_int.SPOTS.sanky[0]
+			await get_tree().process_frame
+			await get_tree().process_frame
+			var d0 := day
+			await press.call("interact")
+			for i in 10:
+				await get_tree().process_frame
+			print("SISA nukuttu day %d -> %d state=%s near_mokki=%.1f msg=%s" % [d0, day, state,
+				walker_out.global_position.distance_to(mokki.global_position), _msg.text.replace("\n", " | ")])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"kuisti":
 			# Mökin kuisti: luiskaa ylös kannelle (korkeus ~0,6 m), eikä kannen reunasta pääse sisään maata pitkin.
 			_toggle_mount()
