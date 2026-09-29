@@ -27,6 +27,8 @@ const OnFoot := preload("res://scripts/on_foot.gd")
 const Ambience := preload("res://scripts/ambience.gd")
 const Cutscene := preload("res://scripts/cutscene.gd")
 const Menu := preload("res://scripts/menu.gd")
+const Lawn := preload("res://scripts/lawn.gd")
+const PoliceCar := preload("res://scripts/police_car.gd")
 const PICK_TIME := 2.5  # sienet: pelkkä odotus
 ## Marjojen poiminta (puolukka, mustikka): kyykky-ylös-näpyttely.
 const BERRIES := ["puolukka", "mustikka"]
@@ -197,6 +199,23 @@ var _sun: DirectionalLight3D
 static var skip_menu := false  # "Uusi peli" lataa kentän uudelleen ilman alkuvalikkoa
 var jemma_best := 0
 var jemma_wins := 0
+## Nurmikon leikkuu (lawn.gd): kaksi siiliä -> poliisi, kaksi kiveä -> leikkuri rikki (varaosa Artolta + kalja).
+const LAWN_DONE := 0.9  # tämä osuus leikattuna = valmis
+const LAWN_PART_PRICE := 8.0
+const LAWN_BONUS := 5.0  # leikatusta nurmikosta Päivi antaa aamulla ylimääräistä
+const LAWN_NAG_PAIVI := ["Se nurmikko ei leikkaa itseään!", "Takapiha näyttää ihan heinäpellolta.",
+	"Leikkaa nyt se nurmikko ennen kuin lähet mihinkään!"]
+const LAWN_NAG_ANNALIISA := ["Teillä on siellä kohta ihan heinäpelto!", "Siilit on muuttanu teidän nurmikolle asumaan.",
+	"Meillä leikataan nurmikko joka lauantai, niin sitä vaan."]
+var lawn: Node3D
+var police: CharacterBody3D
+var mowing := false
+var lawn_siilit := 0  # yliajetut siilit (toinen tuo poliisin)
+var lawn_kivet := 0  # kivet terässä (toinen rikkoo leikkurin)
+var mower_broken := false
+var has_mower_part := false
+var _lawn_praise := false  # nurmikko leikattu: aamulla ylimääräistä rahaa
+var _lawn_done_today := false
 
 
 func _ready() -> void:
@@ -207,6 +226,10 @@ func _ready() -> void:
 	add_child(world)
 	home_zone = world.home_zone
 	shop_zone = world.shop_zone
+	lawn = Lawn.new()
+	lawn.rect = world.lawn_rect
+	lawn.mower_park = M.w(M.MOWER_PARK)
+	add_child(lawn)
 	_build_markers()
 	_build_stash_props()
 	_spawn_player()
@@ -239,6 +262,7 @@ func _ready() -> void:
 	cutscene.hide_nodes = [bike, walker_out]
 	add_child(cutscene)
 	_load_game()
+	lawn.spawn_objects()
 	if laavu_conquered:
 		guard.vanish()
 	Settings.changed.connect(_apply_settings)
@@ -262,7 +286,7 @@ func _ready() -> void:
 		_save_game()
 	if Settings.renderer_auto_saved:
 		jemma_note += "\nYhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä (vaihda Asetuksista)."
-	jemma_note = bike_note + jemma_note
+	jemma_note = bike_note + jemma_note + _lawn_nag()
 	_show_message("Päivä %d · Järvikuja 1, Saloinen.\nPitäis käydä kaupassa... Aja K-Marketille!%s%s" % [day, 
 		("\nJemmassa %d kaljaa." % jemma) if jemma > 0 else "", jemma_note], 5.0 if jemma_note == "" else 6.0)
 	_maybe_screenshot()
@@ -351,6 +375,7 @@ func _outside_logic() -> void:
 		_paper.clear_target()
 		Sfx.play("pickup", -10.0, 1.3)
 
+	_lawn_logic()
 	_edge_logic()
 	_kota_logic()
 	_laavu_logic()
@@ -618,6 +643,154 @@ func _stop_picking(restore := true) -> void:
 	_pick_locked = false
 
 
+## Nurmikon leikkuu: leikkurin luona E käynnistää ja E sammuttaa. Siili tai kivi terään on ikävä juttu.
+func _lawn_logic() -> void:
+	if mowing:
+		_mow()
+		return
+	if _hint.text != "" or player != walker_out or player.is_stunned():
+		return
+	var p := player.global_position
+	var mp: Vector3 = lawn.mower.global_position
+	if Vector2(p.x - mp.x, p.z - mp.z).length() > 1.6:
+		return
+	var e := Input.is_action_just_pressed("interact")
+	if mower_broken:
+		if not has_mower_part:
+			_hint.text = "Leikkuri on rikki. Varaosa Artolta ja kalja, niin korjataan."
+		elif beers <= 0:
+			_hint.text = "Varaosa on, mutta ilman kaljaa ei korjata. Kalja kaupasta tai jemmasta."
+		else:
+			_hint.text = "[E] Korjaa leikkuri (kalja samalla)"
+			if e:
+				mower_broken = false
+				has_mower_part = false
+				lawn_kivet = 0
+				beers -= 1
+				player.set_carrying(beers > 0)
+				Sfx.play("rattle_hard", -4.0, 1.2)
+				_show_message("Uusi terä paikalleen ja kalja naamaan. Leikkuri toimii!", 3.0)
+				_save_game()
+		return
+	var ratio: float = lawn.cut_ratio()
+	var cm := roundi(lawn.avg_len() * 100.0)
+	if ratio >= LAWN_DONE:
+		_hint.text = "Nurmikko on leikattu. Huomenna se on taas pidempi."
+		return
+	_hint.text = "[E] Leikkaa nurmikko (%d cm, leikattu %d %%)" % [cm, roundi(ratio * 100.0)]
+	if e:
+		_start_mowing()
+
+
+func _start_mowing() -> void:
+	mowing = true
+	walker_out.no_run = true
+	walker_out.rotation.y = lawn.mower.rotation.y
+	walker_out.global_position = lawn.mower.global_position + lawn.mower.global_transform.basis.z * Lawn.HEAD + Vector3(0, 0.3, 0)
+	walker_out.velocity = Vector3.ZERO
+	lawn.set_running(true)
+	Sfx.play("pedal_creak", -4.0, 0.6)
+	_show_message("Leikkuri käy! Katso tarkkaan: pitkässä ruohossa on siilejä ja kiviä.", 3.0)
+
+
+## Leikkuri sammuu ja jää siihen, missä se on.
+func _stop_mowing() -> void:
+	if not mowing:
+		return
+	mowing = false
+	walker_out.no_run = false
+	lawn.set_running(false)
+
+
+func _mow() -> void:
+	lawn.push_mower(walker_out)
+	if not lawn.has_point(walker_out.global_position, 3.0):
+		_stop_mowing()
+		_show_message("Leikkuri jäi pihan reunalle.", 2.0)
+		return
+	var head: Vector2 = lawn.head_pos()
+	var hit: Dictionary = lawn.hit_test(head)
+	if not hit.is_empty():
+		_lawn_hit(hit)
+		if not mowing:
+			return
+	lawn.cut(head, Lawn.BLADE_R)
+	var ratio: float = lawn.cut_ratio()
+	if ratio >= LAWN_DONE and not _lawn_done_today:
+		_lawn_done_today = true
+		_lawn_praise = true
+		_stop_mowing()
+		Sfx.play("win_small")
+		_show_message("Nurmikko leikattu! Päivi on tyytyväinen.\nHuomenna tulee %s € ylimääräistä kauppaan." % _eur(LAWN_BONUS), 4.0)
+		_save_game()
+		return
+	_hint.text = "Leikataan... %d %%   W/S/A/D ohjaa · [E] sammuta" % roundi(ratio * 100.0)
+	if Input.is_action_just_pressed("interact"):
+		_stop_mowing()
+
+
+## Terä osui siiliin tai kiveen. Toinen siili tuo poliisin, toinen kivi rikkoo leikkurin.
+func _lawn_hit(o: Dictionary) -> void:
+	lawn.remove_object(o)
+	if o.kind == "kivi":
+		lawn_kivet += 1
+		Sfx.play("rattle_hard", 0.0, 0.8)
+		if lawn_kivet >= 2:
+			mower_broken = true
+			_stop_mowing()
+			_show_message("KRÄKS! Terä vääntyi ja leikkuri hajosi.\nHae varaosa Artolta ja kaljaa, niin korjataan.", 4.5)
+		else:
+			lawn.cough()
+			_show_message("KOLAHDUS! Kivi terään, leikkuri yskii.", 2.5)
+	else:
+		lawn_siilit += 1
+		Sfx.play("pedal_squeak", 0.0, 1.8)
+		if lawn_siilit >= 2:
+			lawn_siilit = 0
+			_stop_mowing()
+			_call_police()
+		else:
+			_show_message("Voi ei, siili jäi leikkurin alle...\nHuono omatunto. Katso tarkemmin, mihin ajat.", 3.5)
+	_save_game()
+
+
+## Eläinsuojelurikos: poliisiauto lähtee tieverkolta noin 150 metrin päästä, jotta ehtii karkuun.
+func _call_police() -> void:
+	if police != null and is_instance_valid(police):
+		return
+	var p := player.global_position
+	var start := 0
+	var best := INF
+	for i in world.graph_nodes.size():
+		var d := absf(world.graph_nodes[i].distance_to(p) - 150.0)
+		if d < best:
+			best = d
+			start = i
+	police = PoliceCar.new()
+	_hazards.add_child(police)
+	police.setup(world.graph_nodes, world.graph_adj, start, player)
+	police.world = world
+	police.caught.connect(func() -> void:
+		if state in ["to_shop", "to_home"]:
+			_lose("Poliisi pidätti: eläinsuojelurikos!", "police"))
+	police.escaped.connect(func() -> void:
+		_show_message("Pääsit karkuun! Poliisi luovutti... tällä kertaa.", 3.5))
+	police.start_chase()
+	Sfx.play("alert", 0.0, 0.8)
+	_show_message("TOINEN SIILI! Anna-Liisa soitti poliisit.\nPOLIISI TULEE – KARKUUN!", 4.0)
+
+
+## Aamun motkotus pitkästä nurmikosta (Päivi, pidemmästä myös naapurin Anna-Liisa).
+func _lawn_nag() -> String:
+	var avg: float = lawn.avg_len()
+	var s := ""
+	if avg >= 0.35:
+		s += "\nPäivi: \"%s\"" % LAWN_NAG_PAIVI.pick_random()
+	if avg >= 0.5:
+		s += "\nAnna-Liisa aidan takaa: \"%s\"" % LAWN_NAG_ANNALIISA.pick_random()
+	return s
+
+
 ## K-Marketin taksitolpan taksi: jalan E vie Raahen baariin, jos rahaa on taksiin.
 func _taxi_logic() -> void:
 	if _hint.text != "":
@@ -676,6 +849,21 @@ func _neighbor_logic() -> void:
 		if v.distance_to_player() > 4.2:
 			continue
 		var who := "arto" if v == arto else "pekka"
+		if who == "arto" and mower_broken and not has_mower_part:
+			if player == bike:
+				_hint.text = "Nouse pyörän selästä (F), niin voit kysyä Artolta leikkurin varaosaa."
+			elif money < LAWN_PART_PRICE:
+				_hint.text = "Arto myisi leikkurin varaosan %s eurolla, mutta rahat ei riitä." % _eur(LAWN_PART_PRICE)
+			else:
+				_hint.text = "[E] Osta Artolta leikkurin varaosa (%s €)" % _eur(LAWN_PART_PRICE)
+				if e:
+					money -= LAWN_PART_PRICE
+					has_mower_part = true
+					v.say("Vanhasta Husqvarnasta irtos. Kivikkoon ajoit, vai?")
+					Sfx.play("register", -4.0)
+					_show_message("Varaosa mukana. Vielä kalja, niin leikkuri korjataan.", 3.0)
+					_save_game()
+			return
 		var sale := 0.0
 		for k in bucket:
 			if GOODS[k].buyer == who:
@@ -1047,6 +1235,7 @@ func _start_fight(foe_key: String, source: String, direction: Vector3) -> void:
 	_fight_source = source
 	_grill_t = -1.0
 	_stop_picking(false)
+	_stop_mowing()
 	_fight_prev = state
 	_fight_dir = direction
 	state = "fight"
@@ -1192,6 +1381,12 @@ func _load_game() -> void:
 	maine = cfg.get_value("peli", "maine", 0.0)
 	jemma_endings = cfg.get_value("jemma", "loput", 0)
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
+	lawn.load_state(cfg.get_value("nurmikko", "pituudet", PackedByteArray()))
+	lawn_siilit = cfg.get_value("nurmikko", "siilit", 0)
+	lawn_kivet = cfg.get_value("nurmikko", "kivet", 0)
+	mower_broken = cfg.get_value("nurmikko", "rikki", false)
+	has_mower_part = cfg.get_value("nurmikko", "varaosa", false)
+	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
 	if cfg.has_section_key("peli", "pyora"):
 		_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
 
@@ -1211,6 +1406,13 @@ func _save_game() -> void:
 	cfg.set_value("peli", "maine", maine)
 	cfg.set_value("jemma", "loput", jemma_endings)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
+	if lawn != null:
+		cfg.set_value("nurmikko", "pituudet", lawn.save_state())
+	cfg.set_value("nurmikko", "siilit", lawn_siilit)
+	cfg.set_value("nurmikko", "kivet", lawn_kivet)
+	cfg.set_value("nurmikko", "rikki", mower_broken)
+	cfg.set_value("nurmikko", "varaosa", has_mower_part)
+	cfg.set_value("nurmikko", "kehu", _lawn_praise)
 	if bike != null:
 		cfg.set_value("peli", "pyora", bike.global_position)
 		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
@@ -1256,6 +1458,7 @@ func _lose(reason: String, cause := "default") -> void:
 	if state == "cutscene":
 		return
 	state = "cutscene"
+	_stop_mowing()
 	player.controls_enabled = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
 	_hud.visible = false
@@ -1325,7 +1528,19 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		_choco_mercy = false
 		money += CHOCO_MONEY
 		bonus += "\nPäivi leppyi ja antoi %s € ylimääräistä." % _eur(CHOCO_MONEY)
+	# Nurmikko kasvaa yön aikana; siilit ja kivet uusiin paikkoihin, leikkuri takaisin paikalleen.
+	_stop_mowing()
+	if _lawn_praise:
+		_lawn_praise = false
+		money += LAWN_BONUS
+		bonus += "\nPäivi kehui nurmikkoa ja antoi %s € ylimääräistä." % _eur(LAWN_BONUS)
+	_lawn_done_today = false
+	lawn.grow()
+	lawn.park_mower()
+	lawn.spawn_objects()
+	bonus += _lawn_nag()
 	wife_alerted = false
+	police = null
 	for c in _hazards.get_children():
 		c.queue_free()
 	_spawn_threats()
@@ -1504,8 +1719,8 @@ func _spawn_player() -> void:
 func _set_avatar(a: CharacterBody3D) -> void:
 	player = a
 	world.follow = a
-	for h in [wife, juntti, guard, tractor, arto, pekka]:
-		if h != null:
+	for h in [wife, juntti, guard, tractor, arto, pekka, police]:
+		if is_instance_valid(h):
 			h.target = a
 	_minimap.player = a
 	_compass.player = a
@@ -1529,6 +1744,7 @@ func _place_on_foot(pos: Vector3) -> void:
 
 
 func _toggle_mount() -> void:
+	_stop_mowing()
 	if player == bike:
 		if absf(bike.speed) > 3.0:
 			_show_message("Hidasta ensin!", 1.2)
@@ -1733,6 +1949,8 @@ func _update_hud() -> void:
 		inv.append("tulitikut")
 	if has_chocolate:
 		inv.append("suklaalevy")
+	if has_mower_part:
+		inv.append("leikkurin varaosa")
 	if kota_polkyt > 0:
 		inv.append("pölkkyjä %d" % kota_polkyt)
 	if kota_halot > 0:
@@ -1766,6 +1984,8 @@ func _update_hud() -> void:
 			status.append("JUNTTI JAHTAA!")
 		if tractor.mode == "chase":
 			status.append("JYVÄJEMMARI JAHTAA!")
+		if is_instance_valid(police) and not police.is_leaving():
+			status.append("POLIISI JAHTAA!")
 	_status.text = "\n".join(status)
 
 	var nb: CharacterBody3D = interior.neighbor
@@ -2723,6 +2943,110 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 		"shopfront":
 			player.position = shop_zone + Vector3(0, 0.3, 14)
+		"lawnday":
+			# Kasvu, kehu ja motkotus aamulla, varaosa Artolta ja korjaus kaljalla. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			_toggle_mount()
+			lawn.lengths.fill(0.5)
+			_lawn_praise = true
+			_new_day(home_zone + Vector3(0, 0, 4), false)
+			print("DAY avg=%.2f money=%s objs=%d msg=%s" % [lawn.avg_len(), _eur(money), lawn.objects.size(), _msg.text.replace("\n", " | ")])
+			mower_broken = true
+			walker_out.global_position = arto.global_position + Vector3(1.5, 0.3, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("ARTO hint=", _hint.text)
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			print("ARTO part=%s money=%s" % [has_mower_part, _eur(money)])
+			beers = 1
+			walker_out.global_position = lawn.mower.global_position + Vector3(1.0, 0.3, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("FIX hint=", _hint.text)
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			print("FIX broken=%s part=%s beers=%d" % [mower_broken, has_mower_part, beers])
+			_save_game()
+			var cfg := ConfigFile.new()
+			cfg.load(SAVE_PATH)
+			var bytes: PackedByteArray = cfg.get_value("nurmikko", "pituudet", PackedByteArray())
+			print("SAVE cells=%d first=%d" % [bytes.size(), bytes[0] if bytes.size() > 0 else -1])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"lawn", "police":
+			# Nurmikko: kuva ylhäältä, sitten leikkuu eteenpäin (police: kaksi siiliä terän eteen).
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			_toggle_mount()
+			walker_out.global_position = lawn.mower_park + Vector3(1.2, 0.5, 0.8)
+			for i in 20:
+				await get_tree().physics_frame
+			print("LAWN avg=%.2f ratio=%.2f objs=%d hint=%s" % [lawn.avg_len(), lawn.cut_ratio(), lawn.objects.size(), _hint.text])
+			_msg.text = ""
+			var tc := Camera3D.new()
+			add_child(tc)
+			var c := Vector3(lawn.rect.get_center().x, 0, lawn.rect.get_center().y)
+			c.y = Terrain.h(c.x, c.z)
+			tc.global_position = c + Vector3(-9.0, 9.0, 12.0)
+			tc.look_at(c, Vector3.UP)
+			tc.current = true
+			for i in 5:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_top.png"))
+			tc.queue_free()
+			walker_out.activate_camera()
+			if scene == "police":
+				var sp: Vector3 = lawn.mower_park + Vector3(0, 0, -2.0)
+				for o in lawn.objects.duplicate():
+					if o.kind == "siili":
+						lawn.remove_object(o)
+				for k in 2:
+					var n := Node3D.new()
+					lawn.add_child(n)
+					lawn.objects.append({"kind": "siili", "pos": Vector2(sp.x, sp.z - k * 1.5), "r": 0.16, "node": n})
+			await get_tree().process_frame
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().process_frame
+			print("MOW start mowing=", mowing, " msg=", _msg.text.replace("\n", " | "))
+			Input.action_press("forward")
+			for i in 300:
+				await get_tree().physics_frame
+				if not mowing:
+					break
+			Input.action_release("forward")
+			print("MOW after ratio=%.2f mowing=%s siilit=%d kivet=%d broken=%s police=%s msg=%s" % [lawn.cut_ratio(), mowing,
+				lawn_siilit, lawn_kivet, mower_broken, is_instance_valid(police), _msg.text.replace("\n", " | ")])
+			_msg.text = ""
+			var tc2 := Camera3D.new()
+			add_child(tc2)
+			tc2.global_position = c + Vector3(-7.0, 10.0, 9.0)
+			tc2.look_at(c, Vector3.UP)
+			tc2.current = true
+			for i in 5:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_cut.png"))
+			tc2.queue_free()
+			player.activate_camera()
+			if scene == "police":
+				for i in 1800:
+					await get_tree().physics_frame
+					if i % 120 == 0 and is_instance_valid(police):
+						print("  police t=%d d=%.1f mode=%s alerted=%s" % [i / 60, police.global_position.distance_to(player.global_position),
+							police.mode, police.alerted])
+					if state != "to_shop":
+						break
+				print("POLICE d=%.1f status=%s state=%s" % [police.global_position.distance_to(player.global_position) if is_instance_valid(police) else -1.0,
+					_status.text, state])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 	for i in 90:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw

@@ -36,6 +36,9 @@ const HOME_ZONE := Vector2(785, 1195)
 const HOME_BUILDING := Vector2(808, 1178)
 const GARAGE := Vector2(812, 1213)  # kodin autotalli
 const COMPOST := Vector2(817, 1186)  # kompostilaatikko talon takana (jemma)
+## Kotipihan nurmikko talon takana (leikkuuminipeli): vasen yläkulma ja oikea alakulma.
+const LAWN := [Vector2(820, 1169), Vector2(830, 1183)]
+const MOWER_PARK := Vector2(825, 1184.5)  # ruohonleikkurin paikka nurmikon eteläreunalla
 const SHOP_BUILDING := Vector2(75, 570)
 const SHOP_ZONE := Vector2(80, 596)
 
