@@ -171,6 +171,9 @@ func _physics_process(delta: float) -> void:
 	var grade := -(tn.x * hfwd.x + tn.z * hfwd.z) / maxf(tn.y, 0.3)  # nousu eteenpäin (0.1 = 10 %)
 	var max_s: float = MAX_SPEED * t.speed * clampf(1.0 - grade * 3.0, 0.55, 1.35)
 	var accel: float = ACCEL * t.accel
+	if legs != null and legs.hurt:
+		max_s *= 0.75  # purtu jalka: raskas polkea
+		accel *= 0.75
 	if sprinting:
 		max_s *= SPRINT
 		accel *= SPRINT

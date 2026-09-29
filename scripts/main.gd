@@ -217,6 +217,14 @@ const SULO_LINES := ["Ei kuulu kellekään, mitä täällä tehdään.", "Kaksky
 const Dog := preload("res://scripts/dog.gd")
 const VAINO_CHANCE := 0.2  # osuus päivistä, joina Väinö karkaa
 const VAINO_MONEY := 5.0
+## Vieras koira metsänreunassa puree (stray_dog.gd). Haava hoidetaan kotikonstein: Pekka (kalja tai
+## PEKKA_CARE €) tai Päivi kotona (ilmainen, mutta motkottaa). Hoitamaton haitta kestää päivän loppuun.
+const StrayDog := preload("res://scripts/stray_dog.gd")
+const PEKKA_CARE := 3.0
+const WOUND_PAIVI := ["Taas sää oot ollu vieraitten koirien kans!", "Istu siihen. Ja älä vingu.",
+	"Ei ne koirat ite purase, jos niitä ei mene rapsuttelemaan."]
+var stray: CharacterBody3D
+var bitten := false
 var vaino: CharacterBody3D
 var _vaino_at := -1.0  # päivän aika (elapsed), jolloin Väinö karkaa; -1 = ei tänään
 var sulo: CharacterBody3D
@@ -397,6 +405,7 @@ func _outside_logic() -> void:
 	_laavu_logic()
 	_stash_logic()
 	_forage_logic()
+	_wound_logic()
 	_vaino_logic()
 	_neighbor_logic()
 	_pontikka_logic()
@@ -809,6 +818,42 @@ func _lawn_nag() -> String:
 	return s
 
 
+## Vieras koira puri: kaatuu, ja jalka ontuu, kunnes haava hoidetaan.
+func _on_bitten(direction: Vector3) -> void:
+	if not (state in ["to_shop", "to_home"]):
+		return
+	_stop_picking()
+	_stop_mowing()
+	player.stun(direction)
+	Sfx.play("groan", 0.0)
+	if bitten:
+		_show_message("AI! Sama koira puri uudestaan!", 2.5)
+		return
+	bitten = true
+	walker_out.hurt = true
+	_show_message("AI PERKELE! Vieras koira puri pohkeeseen!\nHaava pitää hoitaa: Pekka osaa, tai Päivi kotona.", 4.0)
+
+
+## Haavan hoito kotona: Päivi puhdistaa ja laittaa laastarin, mutta motkottaa (kotiovella, kun ei olla tulossa
+## kaupasta; kotiinpaluu kuutosen kanssa aloittaa uuden päivän, joka hoitaa haavan joka tapauksessa).
+func _wound_logic() -> void:
+	if not bitten or _hint.text != "" or state != "to_shop" or player != walker_out or player.is_stunned():
+		return
+	var p := player.global_position
+	if Vector2(p.x - home_zone.x, p.z - home_zone.z).length() > ZONE_RADIUS:
+		return
+	_hint.text = "[E] Mene sisälle, Päivi hoitaa haavan"
+	if Input.is_action_just_pressed("interact"):
+		_heal()
+		Sfx.play("door", -3.0)
+		_show_message("Päivi: \"%s\"\nPäivi puhdisti haavan ja laittoi laastarin." % WOUND_PAIVI.pick_random(), 4.0)
+
+
+func _heal() -> void:
+	bitten = false
+	walker_out.hurt = false
+
+
 ## Arvotaan, karkaako Väinö tänään ja milloin.
 func _roll_vaino() -> void:
 	_vaino_at = randf_range(40.0, 180.0) if randf() < VAINO_CHANCE else -1.0
@@ -976,6 +1021,24 @@ func _neighbor_logic() -> void:
 					Sfx.play("register", -4.0)
 					_show_message("Varaosa mukana. Vielä kalja, niin leikkuri korjataan.", 3.0)
 					_save_game()
+			return
+		if who == "pekka" and bitten:
+			if player == bike:
+				_hint.text = "Nouse pyörän selästä (F), niin Pekka voi katsoa haavaa."
+			elif beers <= 0 and money < PEKKA_CARE:
+				_hint.text = "Pekka hoitaisi haavan kaljalla tai %s eurolla, mutta kumpaakaan ei ole." % _eur(PEKKA_CARE)
+			else:
+				_hint.text = "[E] Pyydä Pekkaa hoitamaan haava (%s)" % ("kalja" if beers > 0 else _eur(PEKKA_CARE) + " €")
+				if e:
+					if beers > 0:
+						beers -= 1
+						player.set_carrying(beers > 0)
+					else:
+						money -= PEKKA_CARE
+					_heal()
+					v.say("Ei tää oo mitään, kyyhkyt purree pahemmin.")
+					Sfx.play("groan", -4.0, 1.2)
+					_show_message("Pekka sitoi haavan ja kaatoi päälle koskenkorvaa. Kirvelee!", 3.5)
 			return
 		var sale := 0.0
 		for k in bucket:
@@ -1651,6 +1714,9 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		_choco_mercy = false
 		money += CHOCO_MONEY
 		bonus += "\nPäivi leppyi ja antoi %s € ylimääräistä." % _eur(CHOCO_MONEY)
+	if bitten:
+		_heal()
+		bonus += "\nPuremahaava parani yön aikana. Päivi: \"%s\"" % WOUND_PAIVI.pick_random()
 	# Nurmikko kasvaa yön aikana; siilit ja kivet uusiin paikkoihin, leikkuri takaisin paikalleen.
 	_stop_mowing()
 	if _lawn_praise:
@@ -1844,7 +1910,7 @@ func _spawn_player() -> void:
 func _set_avatar(a: CharacterBody3D) -> void:
 	player = a
 	world.follow = a
-	for h in [wife, juntti, guard, tractor, arto, pekka, sulo, police, vaino]:
+	for h in [wife, juntti, guard, tractor, arto, pekka, sulo, police, vaino, stray]:
 		if is_instance_valid(h):
 			h.target = a
 	_minimap.player = a
@@ -1926,6 +1992,17 @@ func _spawn_threats() -> void:
 	tractor.world = world
 	tractor.challenge.connect(func(k: String, d: Vector3) -> void: _start_fight(k, "tractor", d))
 	_hazards.add_child(tractor)
+
+	stray = StrayDog.new()
+	stray.spot = M.w(M.STRAY_SPOTS.pick_random())
+	stray.position = stray.spot
+	stray.target = player
+	stray.world = world
+	stray.growled.connect(func() -> void:
+		if state in ["to_shop", "to_home"] and not bitten:
+			_show_message("Vieras koira murisee. Tuohon ei kannata mennä rapsuttelemaan.", 2.5))
+	stray.bit.connect(_on_bitten)
+	_hazards.add_child(stray)
 	wife.safe_zones = [[M.w(M.GRILLIKATOS), 7.5]]
 
 
@@ -2114,6 +2191,8 @@ func _update_hud() -> void:
 			status.append("JYVÄJEMMARI JAHTAA!")
 		if is_instance_valid(police) and not police.is_leaving():
 			status.append("POLIISI JAHTAA!")
+		if bitten:
+			status.append("PURTU – HAAVA PITÄÄ HOITAA")
 		if is_instance_valid(vaino):
 			if vaino.mode == "follow":
 				status.append("VÄINÖ MUKANA – VIE PEKALLE")
@@ -3085,6 +3164,61 @@ func _maybe_screenshot() -> void:
 			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
 			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
 			sc.current = true
+		"purema":
+			# Vieras koira: murina, purema, ontuminen, hoito Pekalla ja Päivillä. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			_toggle_mount()
+			var sp: Vector3 = stray.global_position
+			walker_out.global_position = sp + Vector3(8.0, 0.5, 0)
+			walker_out.look_at(Vector3(sp.x, walker_out.global_position.y, sp.z))
+			for i in 30:
+				await get_tree().physics_frame
+			var sc := Camera3D.new()
+			add_child(sc)
+			sc.global_position = stray.global_position + Vector3(2.5, 1.4, 2.5)
+			sc.look_at(stray.global_position + Vector3(0, 0.4, 0), Vector3.UP)
+			sc.current = true
+			for i in 3:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_dog.png"))
+			sc.queue_free()
+			walker_out.activate_camera()
+			print("PUREMA growl msg=", _msg.text.replace("\n", " | "))
+			Input.action_press("forward")
+			for i in 600:
+				await get_tree().physics_frame
+				if bitten:
+					break
+			Input.action_release("forward")
+			print("PUREMA bitten=%s hurt=%s status=%s msg=%s" % [bitten, walker_out.hurt, _status.text, _msg.text.replace("\n", " | ")])
+			for i in 120:
+				await get_tree().physics_frame
+			walker_out.global_position = pekka.global_position + Vector3(2.0, 0.5, 0)
+			beers = 0
+			for i in 20:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("PUREMA pekka hint=", _hint.text)
+			var m0 := money
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			print("PUREMA pekka healed=%s money %s -> %s msg=%s" % [not bitten, _eur(m0), _eur(money), _msg.text.replace("\n", " | ")])
+			_on_bitten(Vector3.FORWARD)
+			for i in 120:
+				await get_tree().physics_frame
+			walker_out.global_position = home_zone + Vector3(0, 0.5, 2.0)
+			for i in 20:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("PUREMA home hint=", _hint.text)
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			print("PUREMA paivi healed=%s hurt=%s msg=%s" % [not bitten, walker_out.hurt, _msg.text.replace("\n", " | ")])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"vaino":
 			# Väinö karkaa, pelaaja hiipii nuuhkivan koiran viereen, ottaa kiinni ja palauttaa Pekalle.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)

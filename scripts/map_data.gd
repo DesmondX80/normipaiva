@@ -202,6 +202,10 @@ const GRILLIKATOS := Vector2(789, 768)
 const ARTO_POS := Vector2(786, 1128)
 const PEKKA_POS := Vector2(752, 1073)
 
+## Vieraan koiran mahdolliset paikat metsänreunassa teiden ja polkujen varrella (yksi arvotaan päivässä).
+const STRAY_SPOTS := [Vector2(780, 1262), Vector2(622, 712), Vector2(215, 885), Vector2(205, 1255), Vector2(560, 1600),
+	Vector2(710, 1470)]
+
 ## Juntin mahdolliset olinpaikat reitin varrella.
 const JUNTTI_SPOTS := [Vector2(320, 610), Vector2(590, 720), Vector2(625, 880), Vector2(235, 500), Vector2(700, 1085)]
 
