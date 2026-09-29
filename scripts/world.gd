@@ -141,6 +141,7 @@ func _ready() -> void:
 	_build_laavu()
 	_build_grillikatos()
 	_build_kota()
+	_build_pontikka()
 	_build_bales()
 	_build_houses()
 	_commit_strip(_lawn_st, _surf("lawn"))
@@ -152,7 +153,9 @@ func _ready() -> void:
 	_commit_batches()
 	_scatter_trees()
 	var no_trees := lawn_rect.grow(2.5)
-	_trees = _trees.filter(func(t: Array) -> bool: return not no_trees.has_point(t[0]))
+	var still := M.w2(M.PONTIKKA)
+	_trees = _trees.filter(func(t: Array) -> bool:
+		return not no_trees.has_point(t[0]) and t[0].distance_to(still) > 6.5)
 	_build_trees()
 	_build_forage()
 	_build_grass()
@@ -1274,6 +1277,61 @@ func _build_kota() -> void:
 
 
 ## Kiilinlammen grillikatos: kuusikulmainen puukatos, keskellä grilli savuhormeineen, penkit ympärillä.
+## Pannu-Sulon pontikkapannu metsässä: kuparipannu kivien päällä tulella, kiemurainen putki
+## jäähdytystynnyriin, sankoon tippuva tisle, kanistereita, sokerisäkkejä ja pressukatos.
+func _build_pontikka() -> void:
+	var root := StaticBody3D.new()
+	var c := M.w2(M.PONTIKKA)
+	root.position = Vector3(c.x, 0, c.y)
+	root.rotation.y = 0.4
+	add_child(root)
+	var copper := Color(0.72, 0.4, 0.2)
+	var stone := Color(0.45, 0.44, 0.42)
+	for k in 7:
+		var a := TAU * k / 7.0
+		B.mesh(root, B.sphere(0.13, 8), Vector3(cos(a) * 0.42, 0.1, sin(a) * 0.42), stone.lightened(randf_range(-0.1, 0.1)))
+	var glow := B.unshaded(Color(1.0, 0.45, 0.08))
+	for k in 3:
+		var f := MeshInstance3D.new()
+		f.mesh = B.boxm(Vector3(0.28, 0.16, 0.06))
+		f.material_override = glow
+		f.position = Vector3(0, 0.18, 0)
+		f.rotation.y = k * PI / 3.0
+		root.add_child(f)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.55, 0.2)
+	light.light_energy = 0.8
+	light.omni_range = 4.0
+	light.position = Vector3(0, 0.4, 0)
+	root.add_child(light)
+	B.mesh(root, B.cyl(0.34, 0.34, 0.55, 16), Vector3(0, 0.6, 0), copper)
+	var dome := B.mesh(root, B.sphere(0.34, 16), Vector3(0, 0.88, 0), copper)
+	dome.scale = Vector3(1.0, 0.5, 1.0)
+	B.mesh(root, B.cyl(0.06, 0.1, 0.25, 10), Vector3(0, 1.1, 0), copper)
+	# Putki kierukaksi jäähdytystynnyriin ja tisle sankoon.
+	B.tube(root, Vector3(0, 1.2, 0), Vector3(0.6, 1.3, 0), 0.025, copper)
+	B.tube(root, Vector3(0.6, 1.3, 0), Vector3(1.35, 1.0, 0), 0.025, copper)
+	B.mesh(root, B.cyl(0.3, 0.3, 0.9, 14), Vector3(1.45, 0.45, 0), Color(0.15, 0.3, 0.6))
+	B.tube(root, Vector3(1.7, 0.2, 0), Vector3(1.95, 0.18, 0.1), 0.015, copper)
+	B.mesh(root, B.cyl(0.14, 0.11, 0.22, 10), Vector3(2.0, 0.11, 0.15), Color(0.7, 0.72, 0.74))
+	# Kanisterit ja sokerisäkit.
+	for k in 4:
+		var can := B.mesh(root, B.boxm(Vector3(0.18, 0.34, 0.28)), Vector3(-1.1 - k * 0.25, 0.17, 0.9), Color(0.92, 0.92, 0.88))
+		can.rotation.y = randf_range(-0.2, 0.2)
+		B.mesh(can, B.boxm(Vector3(0.04, 0.06, 0.14)), Vector3(0, 0.2, 0), Color(0.85, 0.15, 0.1))
+	for k in 3:
+		B.mesh(root, B.boxm(Vector3(0.45, 0.2, 0.3)), Vector3(-1.6, 0.1 + k * 0.2, -0.6), Color(0.93, 0.92, 0.86))
+	# Pressukatos istumapaikan yllä ja jakkarana pölkky.
+	for x in [-2.6, -0.8]:
+		B.mesh(root, B.cyl(0.04, 0.05, 2.1, 6), Vector3(x, 1.05, -1.6), Color(0.35, 0.26, 0.17))
+	var tarp := B.mesh(root, B.boxm(Vector3(2.4, 0.02, 2.0)), Vector3(-1.7, 1.75, -0.9), Color(0.22, 0.38, 0.22))
+	tarp.rotation.x = -0.45
+	B.mesh(root, B.cyl(0.2, 0.22, 0.45, 10), Vector3(-1.2, 0.22, -1.5), Color(0.5, 0.38, 0.25))
+	root.add_child(B.box_shape(Vector3(0.8, 1.2, 0.8), Vector3(0, 0.6, 0)))
+	root.add_child(B.box_shape(Vector3(0.6, 0.9, 0.6), Vector3(1.45, 0.45, 0)))
+	Sfx.loop_on(root, "fire", -14.0)
+
+
 func _build_grillikatos() -> void:
 	var c := M.w2(M.GRILLIKATOS)
 	var p := Vector3(c.x, 0, c.y)

@@ -67,6 +67,11 @@ const STORIES := [
 		["veikko", "Mies oli piilossa lintutornissa kolme päivää. Söi linnunruokaa."],
 		["raimo", "Sanoi jälkeenpäin, että oli bongaamassa kaakkuria."],
 		["veikko", "Kaakkuria ei näkynyt. Sirkka näkyi."]],
+	[["raimo", "Kerran kodalle tuli poliisi kyselemään, mistä kylän miehet saa juomansa."],
+		["veikko", "Minä sanoin, että kaupasta tietysti."],
+		["raimo", "Eikä kukaan sanonut mitään Sulon pannusta Antinsuonkankaan kuusikossa, Ketunperäntien ja laavupolun puolivälissä."],
+		["veikko", "...Raimo. Sinä sanoit sen just ääneen."],
+		["raimo", "Kiroilu on kielletty, puhuminen ei. Lue kylttiä."]],
 ]
 
 const BIRD_LINES := ["Laulujoutsen! Kaksi! Ei kun kolme.", "Kurki kaakattaa kaislikossa.",
