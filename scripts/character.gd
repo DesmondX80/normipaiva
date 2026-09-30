@@ -45,7 +45,8 @@ func setup(look: Dictionary) -> void:
 			body = mi
 	var src: StandardMaterial3D = body.mesh.surface_get_material(0)
 	var shape := {"belly": float(look.get("belly", 0.0)), "bulk": float(look.get("bulk", 0.0)),
-		"shoulders": float(look.get("shoulders", 0.0)), "muscle": float(look.get("muscle", DEFAULT_MUSCLE))}
+		"shoulders": float(look.get("shoulders", 0.0)), "muscle": float(look.get("muscle", DEFAULT_MUSCLE)),
+		"curves": float(look.get("curves", 0.0))}
 	body.mesh = _clothed_mesh(kind, body.mesh, body.skin, skeleton, bool(look.get("stripes", false)), shape)
 	body_mat = ShaderMaterial.new()
 	body_mat.shader = load(SHADER)
@@ -60,6 +61,9 @@ func setup(look: Dictionary) -> void:
 	# Kaljamaha pehmentää superhero-lihakset kankaan alla.
 	var mus := float(look.get("muscle", DEFAULT_MUSCLE))
 	body_mat.set_shader_parameter("muscle_def", (1.0 - 0.8 * clampf(float(look.get("belly", 0.0)), 0.0, 1.0)) * (1.0 + 0.6 * mus))
+	for k in ["shorts_y", "crop_y", "sleeve_x", "tube_y", "denim", "bare_skin"]:
+		if look.has(k):
+			body_mat.set_shader_parameter(k, look[k])
 	if look.has("stripe_color"):
 		body_mat.set_shader_parameter("stripe_col", look.stripe_color)
 	if look.has("tracksuit"):
@@ -424,6 +428,19 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		var lcx := signf(p.x) * 0.11
 		off.x += (lcx - p.x) * 0.16 * m * leg
 		off.z += (-0.04 - p.z) * 0.16 * m * leg
+	var cu: float = shape.get("curves", 0.0)
+	if cu > 0.0:
+		# Tiimalasi: kapea vyötärö, leveämmät lantiot ja pyöreämmät pakarat, hieman täyteläisempi rintamus.
+		var tx := 1.0 - smoothstep(0.22, 0.3, ax)
+		var waist := exp(-pow((p.y - 1.1) / 0.07, 2.0)) * tx
+		off.x -= p.x * 0.16 * cu * waist
+		off.z -= (p.z + 0.01) * 0.1 * cu * waist
+		var hips := exp(-pow((p.y - 0.93) / 0.08, 2.0)) * (1.0 - smoothstep(0.26, 0.34, ax))
+		off.x += p.x * 0.16 * cu * hips
+		var seat := (1.0 - smoothstep(-0.08, -0.02, p.z)) * exp(-pow((p.y - 0.9) / 0.08, 2.0)) * (1.0 - smoothstep(0.2, 0.26, ax))
+		off.z -= 0.03 * cu * seat
+		var bust := smoothstep(0.0, 0.06, p.z) * exp(-pow((p.y - 1.34) / 0.07, 2.0)) * (1.0 - smoothstep(0.16, 0.22, ax))
+		off.z += 0.025 * cu * bust
 	var sh: float = shape.get("shoulders", 0.0)
 	if sh != 0.0:
 		var band := exp(-pow((p.y - 1.44) / 0.1, 2.0))

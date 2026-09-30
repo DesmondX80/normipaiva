@@ -71,11 +71,14 @@ const TERO := {
 	"hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "beard": true, "height": 1.88,
 	"belly": 0.6, "bulk": 0.6, "shoulders": 0.6, "muscle": 0.3,
 }
-## Naapurin Sinikka: platinablondi, punainen toppi, valkoiset housut ja korkokengät, kiiltävä kangas.
+## Naapurin Sinikka, kylän seksipommi Salosten tapaan: platinablondi, tiimalasivartalo, punainen ysärin
+## tuubitoppi, revityt minifarkkushortsit ja punaiset korkokengät, kesärusketus; leveälierinen olkihattu,
+## isot aurinkolasit ja kultaiset rengaskorvakorut (glam, ks. add_glam).
 const SINIKKA := {
-	"model": "female", "shirt": Color(0.86, 0.06, 0.14), "pants": Color(0.95, 0.94, 0.9), "shoes": Color(0.8, 0.05, 0.1),
-	"hair": "Hair_Long", "hair_color": Color(0.96, 0.9, 0.7), "height": 1.72, "shine": 0.5, "bulk": -0.25,
-	"skin": Color(1.0, 0.86, 0.78),
+	"model": "female", "shirt": Color(0.82, 0.02, 0.1), "pants": Color(0.38, 0.5, 0.7), "shoes": Color(0.78, 0.02, 0.08),
+	"hair": "Hair_Long", "hair_color": Color(0.98, 0.92, 0.72), "height": 1.76, "shine": 0.85, "bulk": -0.2,
+	"curves": 1.0, "skin": Color(1.0, 0.97, 0.93), "bare_skin": Color(0.8, 0.58, 0.46), "glam": true,
+	"shorts_y": 0.8, "crop_y": 1.23, "tube_y": 1.41, "sleeve_x": 0.2, "denim": true,
 }
 const PEKKA := {
 	"shirt": Color(0.3, 0.36, 0.2), "pants": Color(0.35, 0.33, 0.22), "shoes": Color(0.15, 0.12, 0.1),
@@ -112,7 +115,41 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 	var c := Character.new()
 	parent.add_child(c)
 	c.setup(look)
+	if look.get("glam", false):
+		add_glam(c)
 	return c
+
+
+## Glamour-asusteet päähän: leveälierinen olkihattu punaisella nauhalla, isot tummat aurinkolasit ja kultaiset
+## rengaskorvakorut. Mitat hahmon avaruudessa pääluun lepopaikasta (kuten lippis, CAP_OFFSET).
+static func add_glam(c: Node3D) -> void:
+	var straw := Color(0.93, 0.85, 0.62)
+	var hat := Node3D.new()
+	B.mesh(hat, B.cyl(0.3, 0.3, 0.012, 32), Vector3(0, 0, 0), straw)
+	B.mesh(hat, B.cyl(0.1, 0.115, 0.11, 24), Vector3(0, 0.055, 0), straw)
+	B.mesh(hat, B.cyl(0.117, 0.117, 0.035, 24), Vector3(0, 0.02, 0), Color(0.8, 0.03, 0.1))
+	hat.rotation.x = deg_to_rad(-8)  # lieri hieman kallellaan taaksepäin
+	c.attach("Head", hat, Vector3(0, 0.15, -0.01))
+	var shades := Node3D.new()
+	var dark := Color(0.04, 0.03, 0.03)
+	for s in [-1.0, 1.0]:
+		B.mesh(shades, B.sphere(0.5, 12), Vector3(s * 0.037, 0, 0), dark).scale = Vector3(0.066, 0.052, 0.02)
+		B.mesh(shades, B.boxm(Vector3(0.006, 0.006, 0.09)), Vector3(s * 0.07, 0.008, -0.045), Color(0.85, 0.7, 0.3))
+	B.mesh(shades, B.boxm(Vector3(0.018, 0.005, 0.005)), Vector3(0, 0.012, 0), Color(0.85, 0.7, 0.3))
+	c.attach("Head", shades, Vector3(0, 0.07, 0.105))
+	for s in [-1.0, 1.0]:
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.019
+		tm.outer_radius = 0.024
+		tm.rings = 16
+		tm.ring_segments = 6
+		ring.mesh = tm
+		ring.material_override = B.mat(Color(0.95, 0.75, 0.25))
+		(ring.material_override as StandardMaterial3D).metallic = 0.9
+		(ring.material_override as StandardMaterial3D).roughness = 0.25
+		ring.rotation = Vector3(0, 0, PI / 2.0)
+		c.attach("Head", ring, Vector3(s * 0.072, 0.015, 0.005))
 
 
 ## Pelaajan lippis päähän.
