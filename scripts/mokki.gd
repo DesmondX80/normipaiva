@@ -14,6 +14,7 @@ const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const DroneGame := preload("res://scripts/drone_game.gd")
+const DartsGame := preload("res://scripts/darts_game.gd")
 const Mopo := preload("res://scripts/mopo.gd")
 
 const DATA_PATH := "res://assets/mokki/kartta.json"
@@ -32,6 +33,8 @@ const TAXI_LOCAL := Vector3(-7.0, 0, -29.0)    # Kaisuantien varressa mökin tak
 const SAUNA_LOCAL := Vector3(5.9, 0, 18.1)     # kiuas savusaunan sisällä
 const TUB_LOCAL := Vector3(-0.7, 0, 14.8)      # puukuumenteinen poreamme
 const DART_LOCAL := Vector3(4.2, 0, 8.0)       # heittopiste tikkataulun edessä (taulu männyssä)
+const DART_TREE := DART_LOCAL + Vector3(0, 0, 3.0)  # tikkataulun mänty
+const DART_BOARD_UP := 1.5  # taulun keskusta maasta
 const DOCK_LOCAL := Vector3(8.9, 0, 55.4)      # laiturin pää Likasella
 ## Pihalta rantaan laiturille johtava kulkukäytävä: metsä ei kasva tälle kaistaleelle (ks. _build_forest).
 const DOCK_PATH_A := Vector2(DOCK_LOCAL.x, 27.0)
@@ -149,6 +152,11 @@ func ensure_built() -> void:
 	for c in get_children():
 		if c is Node3D and not c.has_meta("ground"):
 			c.position.y += h(c.position.x, c.position.z)
+
+
+## Tikkataulun etupinnan keskipiste mökin koordinaateissa (tikanheiton minipeli).
+static func dart_board_center() -> Vector3:
+	return DART_TREE + Vector3(0, h(DART_TREE.x, DART_TREE.z) + DART_BOARD_UP, -0.36)
 
 
 func sauna_ready() -> bool:
@@ -1172,19 +1180,13 @@ func _build_hottub() -> void:
 func _build_yard_extras() -> void:
 	# Tikkataulu männyn rungossa, kääntyneenä heittopistettä (etelää) kohti.
 	var tree := StaticBody3D.new()
-	tree.position = DART_LOCAL + Vector3(0, 0, 3.0)
+	tree.position = DART_TREE
 	add_child(tree)
 	B.mesh(tree, B.cyl(0.22, 0.3, 6.0, 10), Vector3(0, 3.0, 0), Color(0.4, 0.26, 0.16))
 	for k in 3:
 		B.mesh(tree, B.cyl(0.02, 1.3 - k * 0.3, 1.8, 8), Vector3(0, 4.6 + k * 1.1, 0), Color(0.16, 0.28, 0.14))
-	var board := Node3D.new()
-	board.position = Vector3(0, 1.5, -0.32)
-	board.rotation_degrees = Vector3(-90, 0, 0)  # kiekot pystyyn, "etukuva" osoittaa -Z:aan (heittopisteelle)
-	tree.add_child(board)
-	B.mesh(board, B.cyl(0.24, 0.24, 0.06, 20), Vector3.ZERO, Color(0.55, 0.4, 0.25))
-	for i in 4:
-		var ring: float = [0.2, 0.14, 0.08, 0.03][i]
-		B.mesh(board, B.cyl(ring, ring, 0.065 + i * 0.002, 20), Vector3.ZERO, Color(0.85, 0.15, 0.1) if i % 2 == 0 else Color(0.92, 0.9, 0.85))
+	var board := DartsGame.make_board(tree)  # oikea tikkataulu, etupinta heittopisteelle (-Z)
+	board.position = Vector3(0, DART_BOARD_UP, -0.36)
 	tree.add_child(B.capsule_shape(0.3, 6.0))
 	# Penkit ja nuotiopaikka poreammeen edessä (kuten kuistilta otetussa kuvassa).
 	for bp in [TUB_LOCAL + Vector3(-2.2, 0, -2.4), TUB_LOCAL + Vector3(2.4, 0, -2.4), TUB_LOCAL + Vector3(-2.6, 0, 1.0)]:
