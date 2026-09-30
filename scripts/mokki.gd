@@ -495,6 +495,12 @@ func gpos(local: Vector3) -> Vector3:
 	return to_global(Vector3(local.x, h(local.x, local.z) + local.y, local.z))
 
 
+## Kuistin kansi pesuhuoneen oven edessä (maailmassa).
+func porch2_pos(out := 0.9) -> Vector3:
+	var p := DOOR2_LOCAL + PORCH_DIR * out
+	return to_global(Vector3(p.x, h(COTTAGE_LOCAL.x, COTTAGE_LOCAL.y) + 0.62 + 0.3, p.z))
+
+
 ## Kuistin kansi oven edessä (maailmassa): uloskäynnin ja aamun heräämisen paikka.
 func porch_pos(out := 0.9) -> Vector3:
 	var p := DOOR_LOCAL + PORCH_DIR * out
@@ -937,9 +943,16 @@ func _build_cottage() -> void:
 	B.mesh(body, B.boxm(Vector3(0.64, 0.08, 0.64)), Vector3(l / 2.0 - 2.2, found_h + wall_h + rise + 0.94, 0.4), Color(0.15, 0.15, 0.16))
 	# Ikkunat ja ovi julkisivussa (-Z, kuistin puolella).
 	var glass := Color(0.1, 0.14, 0.2)
-	for wx in [-3.4, -0.6, 2.0, 3.7]:
+	for wx in [-3.4, -0.6, 3.7]:
 		B.mesh(body, B.boxm(Vector3(1.0, 1.15, 0.05)), Vector3(wx, found_h + 1.35, -d / 2.0 - 0.02), white)
 		B.mesh(body, B.boxm(Vector3(0.85, 0.98, 0.06)), Vector3(wx, found_h + 1.35, -d / 2.0 - 0.03), glass)
+	# Pesuhuoneen puinen ovi ikkunoineen kuistille ja pieni pesuhuoneen ikkuna (sisätilassa pesuhuoneen vasen seinä).
+	var wash_x := -DOOR2_LOCAL.x
+	B.mesh(body, B.boxm(Vector3(0.9, 2.0, 0.05)), Vector3(wash_x, found_h + 1.0, -d / 2.0 - 0.02), Color(0.66, 0.46, 0.27))
+	B.mesh(body, B.boxm(Vector3(0.5, 0.55, 0.06)), Vector3(wash_x, found_h + 1.5, -d / 2.0 - 0.03), glass)
+	B.mesh(body, B.boxm(Vector3(0.06, 0.08, 0.08)), Vector3(wash_x - 0.32, found_h + 0.95, -d / 2.0 - 0.06), Color(0.75, 0.72, 0.6))
+	B.mesh(body, B.boxm(Vector3(0.55, 0.45, 0.05)), Vector3(wash_x + 0.95, found_h + 1.6, -d / 2.0 - 0.02), white)
+	B.mesh(body, B.boxm(Vector3(0.45, 0.35, 0.06)), Vector3(wash_x + 0.95, found_h + 1.6, -d / 2.0 - 0.03), glass)
 	# Ulko-ovi loven sisänurkassa kuistin puolella: lasiovi, edessä kuistin kansi, joka jatkuu loveen.
 	var sx := -l / 2.0 + notch.x / 2.0
 	var door := Node3D.new()
@@ -999,10 +1012,10 @@ func _build_cottage() -> void:
 		Vector3(-l / 2.0 - run / 2.0, found_h - ramp_rise / 2.0 - 0.05, deck_z + 0.5))
 	body.add_child(ramp)
 	# Kuistin sohva, tuolit ja pöytä (kuten kuvissa).
-	body.add_child(B.box_shape(Vector3(1.7, 0.6, 0.9), Vector3(1.5, found_h + 0.3, deck_z + 0.5)))
+	body.add_child(B.box_shape(Vector3(1.7, 0.6, 0.9), Vector3(-1.5, found_h + 0.3, deck_z + 0.5)))
 	body.add_child(B.box_shape(Vector3(0.6, 0.45, 0.6), Vector3(3.6, found_h + 0.22, deck_z + 0.6)))
-	B.mesh(body, B.boxm(Vector3(1.7, 0.55, 0.75)), Vector3(1.5, found_h + 0.3, deck_z + 0.55), Color(0.32, 0.26, 0.22))
-	B.mesh(body, B.boxm(Vector3(1.7, 0.5, 0.16)), Vector3(1.5, found_h + 0.62, deck_z + 0.2), Color(0.36, 0.3, 0.26))
+	B.mesh(body, B.boxm(Vector3(1.7, 0.55, 0.75)), Vector3(-1.5, found_h + 0.3, deck_z + 0.55), Color(0.32, 0.26, 0.22))
+	B.mesh(body, B.boxm(Vector3(1.7, 0.5, 0.16)), Vector3(-1.5, found_h + 0.62, deck_z + 0.2), Color(0.36, 0.3, 0.26))
 	B.mesh(body, B.cyl(0.28, 0.3, 0.05, 16), Vector3(3.6, found_h + 0.42, deck_z + 0.6), Color(0.55, 0.42, 0.28))
 	# Nimikyltti kuistilla.
 	var plate := B.sign_plate(body, "MÖKKI PAAPELI", Color(0.36, 0.2, 0.1), Color(0.98, 0.95, 0.86), 0.2, 34,
@@ -1348,6 +1361,8 @@ const SANTTU_LOOK := {
 ## (main.gd _mokki_logic). PORCH_DIR = ovelta ulospäin kuistille.
 const DOOR_LOCAL := Vector3(4.15, 0, 0.7)
 const PORCH_DIR := Vector3(0, 0, 1)
+## Pesuhuoneen ovi kuistille julkisivussa (paikallinen, oven edessä kannella): sisään pesuhuoneeseen.
+const DOOR2_LOCAL := Vector3(-1.3, 0, 2.0)
 
 
 func _build_santtu() -> void:

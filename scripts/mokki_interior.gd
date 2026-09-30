@@ -70,6 +70,7 @@ signal slept
 signal acted(kind: String)
 
 var active := false
+var exit_door := "ovi"  # kummasta ovesta viimeksi lähdettiin ulos (ovi / ovi2)
 var walker: CharacterBody3D
 var hint := ""
 var takka_on := false
@@ -109,11 +110,15 @@ func _ready() -> void:
 	add_child(walker)
 
 
-func enter() -> void:
+func enter(door := "ovi") -> void:
 	active = true
 	_enter_frame = Engine.get_process_frames()  # sisään vienyt E ei saa samalla ruudulla viedä ulos
-	walker.position = SPOTS.ovi[0] + Vector3(0, 0, 1.5)
-	walker.rotation.y = B.yaw_to(Vector3(0, 0, -1))  # katse tupaan (walkerin kääntö on yaw_to:n vastainen)
+	if door == "ovi2":
+		walker.position = SPOTS.ovi2[0] + Vector3(0, 0, 0.9)  # pesuhuoneeseen
+		walker.rotation.y = B.yaw_to(Vector3(0, 0, 1))
+	else:
+		walker.position = SPOTS.ovi[0] + Vector3(0, 0, 1.5)
+		walker.rotation.y = B.yaw_to(Vector3(0, 0, -1))  # katse tupaan (walkerin kääntö on yaw_to:n vastainen)
 	walker.activate()
 	say("No terve! Tuu sisälle vaan.")
 
@@ -169,6 +174,7 @@ func _process(delta: float) -> void:
 		return
 	match best:
 		"ovi", "ovi2":
+			exit_door = best
 			exited.emit()
 		"sanky":
 			slept.emit()
