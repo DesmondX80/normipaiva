@@ -5415,6 +5415,38 @@ func _maybe_screenshot() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ranta.png"))
 			ac.look_at_from_position(mokki.gpos(Vector3(0, 170, 30)), mokki.gpos(Vector3(0, 0, 0)))
+		"mokkikaide":
+			# Kuistin kaide järven puolelta läheltä vinosti.
+			var kc := Camera3D.new()
+			add_child(kc)
+			kc.look_at_from_position(mokki.gpos(Vector3(6.5, 1.6, 8.5)), mokki.gpos(Vector3(0.5, 0.9, 1.5)), Vector3.UP)
+			kc.current = true
+			walker_out.visible = false
+		"mokkilaituri":
+			# Laituri: rantaprofiili, kävely rannalta laiturin päähän ja kuva sivusta.
+			var dl: Vector3 = Mokki.DOCK_LOCAL
+			var prof := []
+			for k in 11:
+				var z: float = dl.z - 16.0 + k * 2.0
+				prof.append("%.0f:%.2f%s" % [z, Mokki.h(dl.x, z), "~" if Mokki.water_at(dl.x, z) >= 0 else ""])
+			print("LAITURI profiili ", " ".join(prof), " vesi_y %.2f" % Mokki.water_y())
+			_toggle_mount()
+			walker_out.global_position = mokki.gpos(Vector3(dl.x, 0.5, dl.z - 16.0))
+			walker_out.look_at(mokki.gpos(Vector3(dl.x, 0.5, dl.z + 5.0)))
+			for i in 10:
+				await get_tree().physics_frame
+			Input.action_press("forward")
+			for i in 420:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			var wl: Vector3 = mokki.to_local(walker_out.global_position)
+			print("LAITURI kävelijä x=%.2f y=%.2f z=%.2f (pää z %.1f)" % [wl.x, wl.y, wl.z, dl.z])
+			var dc := Camera3D.new()
+			add_child(dc)
+			var sy: float = Mokki.h(dl.x, dl.z - 12.0)
+			dc.look_at_from_position(mokki.to_global(dl + Vector3(4.5, sy + 1.2, -15.5)), mokki.to_global(dl + Vector3(0, sy, -10.5)))
+			dc.current = true
+			walker_out.visible = false
 		"kuisti":
 			# Mökin kuisti: luiskaa ylös kannelle (korkeus ~0,6 m), eikä kannen reunasta pääse sisään maata pitkin.
 			_toggle_mount()

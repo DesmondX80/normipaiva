@@ -627,7 +627,7 @@ func _build_waters_and_roads() -> void:
 				_strip(r.pts, 0.6, 0.04, gravel)
 			_:
 				_strip(r.pts, 2.6 if r.type == "unclassified" else (1.4 if r.type == "service" else 1.8), 0.05, gravel)
-	Sfx.loop_on(self, "water", -14.0).position = Vector3(DOCK_LOCAL.x, 0, DOCK_LOCAL.z - 4.0)
+	Sfx.loop_on(self, "water", -14.0).position = Vector3(DOCK_LOCAL.x, water_y(), DOCK_LOCAL.z - 4.0)
 
 
 ## Naapurit OSM-rakennuksina: seinät, harjakatto ja törmäys (oma mökki ja vaja mallinnetaan erikseen).
@@ -761,19 +761,28 @@ func _pine_mesh() -> ArrayMesh:
 
 func _build_lake_and_dock() -> void:
 	_build_waters_and_roads()
-	# Laituri: pukit ja lankut rannasta Likaselle (+Z).
+	# Laituri: pukit ja lankut rannasta Likaselle (+Z). Rantapää maastoverkon kuivan maan pisteeseen: verkko
+	# viettää rantaviivan ruudussa suoraan järven pohjaan, joten sen keskeltä alkava laituri leijuisi ilmassa.
+	# Laituri nostetaan rantaan (ensure_built lisää y:hyn h:n); pukit ulottuvat järven pohjaan asti.
+	var start_z := floorf((DOCK_LOCAL.z - 11.6) / GRID_STEP) * GRID_STEP
+	while in_water(DOCK_LOCAL.x, start_z) and start_z > DOCK_LOCAL.z - 30.0:
+		start_z -= GRID_STEP
+	var dl := DOCK_LOCAL.z - start_z  # kannen pituus rannasta päähän
 	var dock := StaticBody3D.new()
-	dock.position = DOCK_LOCAL + Vector3(0, 0, -11.6)
+	dock.position = Vector3(DOCK_LOCAL.x, 0, start_z)
 	add_child(dock)
+	var wi := water_at(DOCK_LOCAL.x, DOCK_LOCAL.z)
+	var bed := (water_level(wi) if wi >= 0 else water_y()) - 1.0 - h(DOCK_LOCAL.x, start_z)  # pohja laiturin kehyksessä
 	var wood := Color(0.5, 0.38, 0.24)
-	for i in 12:
+	var post_len := 0.22 - bed + 0.1
+	for i in int(dl / 1.05) + 1:
 		var z := i * 1.05
 		for sx in [-0.65, 0.65]:
-			B.mesh(dock, B.cyl(0.05, 0.06, 0.75, 8), Vector3(sx, -0.15, z), Color(0.35, 0.26, 0.16))
-	B.mesh(dock, B.boxm(Vector3(1.5, 0.06, 12.8)), Vector3(0, 0.22, 6.0), wood)
-	for i in 24:
+			B.mesh(dock, B.cyl(0.05, 0.06, post_len, 8), Vector3(sx, 0.22 - post_len / 2.0, z), Color(0.35, 0.26, 0.16))
+	B.mesh(dock, B.boxm(Vector3(1.5, 0.06, dl + 1.2)), Vector3(0, 0.22, (dl + 0.4) / 2.0), wood)
+	for i in int((dl + 0.8) / 0.55) + 1:
 		B.mesh(dock, B.boxm(Vector3(1.46, 0.02, 0.42)), Vector3(0, 0.26, i * 0.55), wood.lightened(0.05 * (i % 2)))
-	dock.add_child(B.box_shape(Vector3(1.5, 0.3, 13.0), Vector3(0, 0.2, 6.0)))
+	dock.add_child(B.box_shape(Vector3(1.5, 0.3, dl + 1.4), Vector3(0, 0.2, (dl + 0.4) / 2.0)))
 	# Portaat rantapäähän: kansi on hieman maanpintaa korkeammalla, joten muutama askelma vie kannelta
 	# rantaan (muuten CharacterBody ei nouse edes pienestä pystyreunasta).
 	var shore_y := h(dock.position.x, dock.position.z - 2.2) - h(dock.position.x, dock.position.z)
@@ -786,15 +795,22 @@ func _build_lake_and_dock() -> void:
 			var sy := deck_y - (i + 0.5) * stair_h
 			var sz := -0.5 - 0.16 - i * 0.32
 			B.mesh(dock, B.boxm(Vector3(1.3, stair_h, 0.34)), Vector3(0, sy, sz), wood.darkened(0.06 * (i % 2)))
-			dock.add_child(B.box_shape(Vector3(1.3, stair_h + 0.02, 0.36), Vector3(0, sy, sz)))
+	# Askelmien päällä näkymätön luiska (CharacterBody ei nouse askelmia, ks. kuisti): alkaa maan alta ilman
+	# reunaa ja päättyy kannen törmäyslaatikon yläpintaan.
+	var top := 0.35
+	var rise := top - shore_y + 0.4
+	var run := maxf(1.2, rise * 1.6)
+	var ramp := B.box_shape(Vector3(1.3, 0.1, Vector2(run, rise).length()), Vector3.ZERO)
+	ramp.transform = Transform3D(Basis(Vector3.RIGHT, -atan2(rise, run)), Vector3(0, top - rise / 2.0 - 0.05, -0.5 - run / 2.0))
+	dock.add_child(ramp)
 	# Onkivapa nojaa laiturin päässä (ks. Mokki.DOCK_LOCAL, kalastus main.gd:ssä).
 	var rod := Node3D.new()
-	rod.position = Vector3(0.55, 0.3, 11.6)
+	rod.position = Vector3(0.55, 0.3, dl)
 	rod.rotation = Vector3(0, 0.3, -0.35)
 	dock.add_child(rod)
 	B.mesh(rod, B.cyl(0.012, 0.02, 2.4, 6), Vector3(0, 1.2, 0), Color(0.15, 0.15, 0.16))
 	B.mesh(rod, B.sphere(0.03, 6), Vector3(0, 2.35, 0.05), Color(0.85, 0.15, 0.1))
-	B.mesh(dock, B.boxm(Vector3(0.3, 0.16, 0.2)), Vector3(-0.5, 0.32, 11.4), Color(0.32, 0.28, 0.24))  # varustelaatikko
+	B.mesh(dock, B.boxm(Vector3(0.3, 0.16, 0.2)), Vector3(-0.5, 0.32, dl - 0.2), Color(0.32, 0.28, 0.24))  # varustelaatikko
 
 
 # --- Päärakennus ---------------------------------------------------------------
@@ -899,11 +915,11 @@ func _build_cottage() -> void:
 	B.mesh(body, B.boxm(Vector3(l, 0.1, porch_d)), Vector3(0, found_h - 0.02, deck_z), Color(0.62, 0.5, 0.36))
 	for x in [-l / 2.0 + 0.3, -l / 2.0 + 1.9, -l / 2.0 + 3.5, -l / 2.0 + 5.1, -l / 2.0 + 6.7, l / 2.0 - 0.3]:
 		B.mesh(body, B.boxm(Vector3(0.14, wall_h, 0.14)), Vector3(x, found_h + wall_h / 2.0, deck_z - porch_d / 2.0), white)
-	for x2 in [-l / 2.0 + 0.3, -l / 2.0 + 1.9, -l / 2.0 + 3.5, -l / 2.0 + 5.1, -l / 2.0 + 6.7, l / 2.0 - 0.3]:
-		B.mesh(body, B.boxm(Vector3(0.1, 0.06, 0.1)), Vector3(x2, found_h + 0.86, deck_z - porch_d / 2.0 + 0.3), white)
-	B.mesh(body, B.boxm(Vector3(l - 0.2, 0.06, 0.06)), Vector3(0, found_h + 0.86, deck_z - porch_d + 0.02), white)
+	# Kaide kannen ulkoreunassa tolppien linjassa: yläpuu ja pystyrimat kannesta yläpuuhun.
+	var rail_z := deck_z - porch_d / 2.0 + 0.07
+	B.mesh(body, B.boxm(Vector3(l - 0.2, 0.06, 0.08)), Vector3(0, found_h + 0.86, rail_z), white)
 	for i in 26:
-		B.mesh(body, B.boxm(Vector3(0.03, 0.7, 0.03)), Vector3(-l / 2.0 + 0.3 + i * (l - 0.6) / 25.0, found_h + 0.5, deck_z - porch_d + 0.02), white)
+		B.mesh(body, B.boxm(Vector3(0.03, 0.83, 0.03)), Vector3(-l / 2.0 + 0.3 + i * (l - 0.6) / 25.0, found_h + 0.445, rail_z), white)
 	# Portaat lännessä maahan (rinteessä askelmia on niin monta kuin maan tasoon tarvitaan).
 	var foot := minf(g.call(-l / 2.0 - 1.0, deck_z + 0.5), 0.0)
 	var stx := -l / 2.0 - 0.15
