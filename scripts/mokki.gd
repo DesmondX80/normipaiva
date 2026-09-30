@@ -14,6 +14,7 @@ const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const DroneGame := preload("res://scripts/drone_game.gd")
+const Mopo := preload("res://scripts/mopo.gd")
 
 const DATA_PATH := "res://assets/mokki/kartta.json"
 ## Mökin kehys karttakehyksessä: paikallisen origon paikka (m osoitepisteestä) ja kierto (OSM:n mökin mukaan).
@@ -43,6 +44,7 @@ const HUNT_GLADE := Vector2(HUNT_LOCAL.x - 14.0, HUNT_LOCAL.z)
 const HUNT_GLADE_R := 10.0
 const PINGIS_LOCAL := Vector3(-7.5, 0, 9.0)    # pihapingiksen mailat kannolla Santun vasemmalla puolella
 const DRONE_LOCAL := Vector3(-4.5, 0, -7.5)    # droonin laskeutumisalusta pysäköintipaikan vieressä mökin takana
+const MOPO_LOCAL := Vector3(-1.2, 0, -8.0)     # Paapelin mopo parkissa mökin takana: E ajaa Vaalaan Siitariin
 ## Viinakätköt mökin ympäröivässä metsässä geokätköjen tapaan: kompassi ja HUD näyttävät lähimmän löytämättömän
 ## kätkön suunnan ja matkan (main.gd _viina_logic). Paikat arvotaan kiinteällä siemenellä (viina_positions).
 const VIINA := [
@@ -139,6 +141,7 @@ func ensure_built() -> void:
 	_build_yard_extras()
 	_build_hunt_spot()
 	_build_viina_caches()
+	_build_mopo()
 	_build_pingis_spot()
 	_build_trees()
 	_build_santtu()
@@ -1245,6 +1248,19 @@ func _build_hunt_spot() -> void:
 	var plate := B.sign_plate(sign, "RIISTAPOLKU", Color(0.32, 0.24, 0.14), Color(0.92, 0.88, 0.78), 0.18, 26,
 		Color(0.3, 0.18, 0.1), "Helvetica Neue")
 	plate.position.y = 1.3
+
+
+## Paapelin mopo parkissa (sama malli kuin ajettava, mopo.gd); main.gd piilottaa sen matkan ajaksi.
+var mopo_parked: Node3D
+
+
+func _build_mopo() -> void:
+	mopo_parked = Node3D.new()
+	mopo_parked.position = MOPO_LOCAL
+	mopo_parked.rotation.y = PI * 0.9
+	add_child(mopo_parked)
+	Mopo.build_model(mopo_parked)
+	mopo_parked.rotation.z = 0.08  # seisontatuella
 
 
 ## Viinakätköt: ruosteinen ammuslaatikko puoliksi kivien ja sammalen alla (kuten geokätkö), vieressä kuivunut

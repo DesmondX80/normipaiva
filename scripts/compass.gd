@@ -15,6 +15,7 @@ var paper: Control  # paper_map.gd: has_target, target (maailman x/z)
 var show_target := true  # mökillä kylän kohteita ei näytetä
 var has_cache := false
 var cache := Vector2.ZERO  # viinakätkö (maailman x/z)
+var cache_text := ""  # merkin alla; tyhjä = matka metreinä (mopomatkalla kohteen nimi ja todellinen matka)
 
 
 func _ready() -> void:
@@ -101,7 +102,7 @@ func _draw_cache(heading: float) -> void:
 	draw_colored_polygon(PackedVector2Array([m + Vector2(0, -8), m + Vector2(7, 0), m + Vector2(0, 8), m + Vector2(-7, 0)]), Color.BLACK)
 	draw_colored_polygon(PackedVector2Array([m + Vector2(0, -6), m + Vector2(5, 0), m + Vector2(0, 6), m + Vector2(-5, 0)]), CACHE_COL)
 	var font := ThemeDB.fallback_font
-	var txt := "%d m" % roundi(p.distance_to(cache))
+	var txt := cache_text if cache_text != "" else "%d m" % roundi(p.distance_to(cache))
 	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 	draw_string_outline(font, Vector2(x - tw / 2.0, h + 14), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, 4, Color.BLACK)
 	draw_string(font, Vector2(x - tw / 2.0, h + 14), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, CACHE_COL)
