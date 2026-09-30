@@ -40,6 +40,7 @@ const SIITARI_LINES := ["Baarimikko: \"Mopolla Paapelista? Sieltä se Santtukin 
 	"Jukeboksista soi Eppu Normaali.", "Pöydässä ikkunan vieressä pelataan korttia.",
 	"Terassilta näkyy Vaalantie ja Oulujoen silta.", "Baarimikko: \"Tuu kattoon lauantaina, täällä on karaoke.\""]
 const HuntGame := preload("res://scripts/hunt_game.gd")
+const DartsGame := preload("res://scripts/darts_game.gd")
 const LaavuGuard := preload("res://scripts/laavu_guard.gd")
 const PaperMap := preload("res://scripts/paper_map.gd")
 const Villager := preload("res://scripts/villager.gd")
@@ -236,6 +237,7 @@ var arto: CharacterBody3D
 var pekka: CharacterBody3D
 var sinikka: CharacterBody3D
 var sinikka_task := 0  # 1 = Sinikka odottaa mustikoita
+var tikka_ennatys := 0  # tikanheiton paras tulos (3 x 3 tikkaa)
 var tractor: CharacterBody3D
 ## player = se jolla nyt liikutaan (pyörä tai jalan); bike ja walker_out ovat molemmat olemassa koko ajan.
 var bike: CharacterBody3D
@@ -2181,15 +2183,9 @@ func _mokki_logic() -> void:
 					tilat.add("stamina", 0.2)
 		return
 	if near.call(Mokki.DART_LOCAL, 1.8):
-		_hint.text = "[E] Heitä tikkaa"
+		_hint.text = "[E] Heitä tikkaa (3 kierrosta Santtua vastaan%s)" % ("" if tikka_ennatys <= 0 else ", ennätys %d" % tikka_ennatys)
 		if e:
-			var score: int = [0, 5, 10, 15, 20, 25, 40, 50].pick_random()
-			Sfx.play("whoosh", -4.0, 1.2)
-			tilat.first("tikka")
-			if score == 50 and _once_today("tikka50"):
-				tilat.add("moraali", 0.1)
-				tilat.add("keskittyminen", 0.15)
-			_show_message("TÄYSOSUMA! 50 pistettä!" if score == 50 else ("Ohi meni." if score == 0 else "%d pistettä." % score), 2.0)
+			_start_darts()
 		return
 	if near.call(Mokki.DOCK_LOCAL, 2.2):
 		_fish_logic(e)
@@ -2652,6 +2648,46 @@ func _after_hunt(bag: Array, moose: bool) -> void:
 		_show_message("Saalis: %s. Vie kesäkeittiön savustimeen." % ", ".join(names), 3.5)
 	elif not moose:
 		_show_message("Ei saalista tällä kertaa. Metsä oli hiljainen.", 2.5)
+
+
+## Tikanheitto mökin pihalla (darts_game.gd): 3 x 3 tikkaa, verrataan Santun tulokseen. Humala heiluttaa kättä.
+func _start_darts() -> void:
+	_minigame_prev = state
+	state = "minigame"
+	player.controls_enabled = false
+	player.speed = 0.0
+	player.visible = false
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	var game := DartsGame.new()
+	game.board_center = Mokki.dart_board_center()
+	game.drunk = tilat.value("humala")
+	game.finished.connect(func(total: int, santtu: int) -> void:
+		state = _minigame_prev
+		player.visible = true
+		player.activate_camera()
+		player.controls_enabled = true
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
+		_hud.visible = true
+		_after_darts(total, santtu))
+	mokki.add_child(game)
+
+
+func _after_darts(total: int, santtu: int) -> void:
+	if total < 0:
+		return
+	tilat.first("tikka")
+	var record := total > tikka_ennatys
+	if record:
+		tikka_ennatys = total
+	if total > santtu:
+		tilat.add("moraali", 0.15)
+		tilat.add("keskittyminen", 0.1)
+		mokki.say("No voi perkele, voitit mut tikassa!", 3.0)
+	else:
+		mokki.say("Heh, tikassa mää oon ollu aina parempi.", 3.0)
+	_show_message("Tikkaa: %d pistettä (Santtu %d)%s" % [total, santtu, ", uusi ennätys!" if record else ""], 3.0)
+	_save_game()
 
 
 ## Pihapingis Santtua vastaan (pingis_game.gd): Street Fighter -näyttämö kaukana kartan ulkopuolella.
@@ -3253,6 +3289,7 @@ func _load_game() -> void:
 	mower_broken = cfg.get_value("nurmikko", "rikki", false)
 	has_mower_part = cfg.get_value("nurmikko", "varaosa", false)
 	sinikka_task = cfg.get_value("sinikka", "tehtava", 0)
+	tikka_ennatys = cfg.get_value("mokki", "tikka_ennatys", 0)
 	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
 	tilat.load_from(cfg)
 	trouble = cfg.get_value("tilat", "hankaluus", 0)
@@ -3287,6 +3324,7 @@ func _save_game() -> void:
 	cfg.set_value("nurmikko", "rikki", mower_broken)
 	cfg.set_value("nurmikko", "varaosa", has_mower_part)
 	cfg.set_value("sinikka", "tehtava", sinikka_task)
+	cfg.set_value("mokki", "tikka_ennatys", tikka_ennatys)
 	cfg.set_value("nurmikko", "kehu", _lawn_praise)
 	if tilat != null:
 		tilat.save_to(cfg)
@@ -4738,6 +4776,34 @@ func _maybe_screenshot() -> void:
 					mokki.to_global(Vector3(gl.x + 2.0, Mokki.h(gl.x + 2.0, hz) + 2.4, hz)))
 			ec.current = true
 			walker_out.visible = false
+		"mokkitikka":
+			# Tikanheitto: pisteytyksen tarkistus, 9 heittoa (tähtäys triplakahteenkymppiin) ja kuva taulusta.
+			for pt in [Vector2.ZERO, Vector2(0, 0.012), Vector2(0, 0.103), Vector2(0, 0.166), Vector2(0.103, 0), Vector2(0, 0.2)]:
+				print("TIKKA piste %s -> %s" % [pt, DartsGame.score(pt)])
+			_toggle_mount()
+			walker_out.global_position = mokki.to_global(Vector3(Mokki.DART_LOCAL.x, Mokki.h(Mokki.DART_LOCAL.x, Mokki.DART_LOCAL.z) + 0.4, Mokki.DART_LOCAL.z))
+			for i in 10:
+				await get_tree().physics_frame
+			print("TIKKA vihje: ", _hint.text)
+			_start_darts()
+			var dg: Node3D = mokki.get_children().filter(func(c): return c is DartsGame)[0]
+			for i in 30:
+				await get_tree().process_frame
+			for n in 9:
+				dg._aim = Vector2(0, 0.103)
+				while dg._phase != "aim":
+					await get_tree().process_frame
+				dg._aim = Vector2(randf_range(-0.03, 0.03), 0.103 + randf_range(-0.03, 0.03))
+				dg._throw()
+				while dg._phase == "fly":
+					await get_tree().process_frame
+				print("TIKKA heitto %d: %s" % [n + 1, dg._sub.text])
+				if n == 2:
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_taulu.png"))
+			while is_instance_valid(dg):
+				await get_tree().process_frame
+			print("TIKKA loppu: ennätys=%d msg=%s" % [tikka_ennatys, _msg.text])
 		"mokkijahti":
 			# Metsästys: nousee lavalle, odottaa eläimen, tähtää ja ampuu. Tulostaa saaliin.
 			_toggle_mount()
