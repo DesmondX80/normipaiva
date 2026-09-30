@@ -1,7 +1,7 @@
 extends Node3D
 ## Mökin sisätila (Airbnb-ilmoituksen kuvien mukaan, noin 1,5x mitoitettuna pelattavuuden vuoksi): avokeittiö ja
 ## ruokailutila (pitkä pöytä penkkeineen, vuodesohvat, TV, kivitakka), makuuhuone violetteine kerrossänkyineen, kylpyhuone suihkuineen
-## ja sisäsauna. Erillinen tasku kuten kaupan sisätila: kuistin ovelta sisään (main.gd _enter_mokki), kävely
+## ja sisäsauna sekä Santun PA-laitteet (kaiuttimet jalustoilla, mikseri pöydän päässä, pääte lattialla). Erillinen tasku kuten kaupan sisätila: kuistin ovelta sisään (main.gd _enter_mokki), kävely
 ## player_walker.gd:llä ylhäältä kuvattuna, katto pois. Toiminnot ilmoitetaan acted-signaalilla (tilavaikutukset
 ## ja viestit main.gd:ssä), nukkuminen slept-signaalilla (päivä vaihtuu, uusi päivä alkaa mökiltä).
 ## Paikallinen +Z = etuseinä (kuistin ja kameran puoli), -Z = takaseinä, keittiö ja ulko-ovi (vasen takanurkka).
@@ -29,7 +29,11 @@ const SPOTS := {
 	"sanky": [Vector3(4.9, 0, 1.2), "[E] Mene nukkumaan kerrossänkyyn (päivä päättyy)"],
 	"suihku": [Vector3(2.3, 0, -1.75), "[E] Käy suihkussa"],
 	"sauna": [Vector3(5.0, 0, -2.05), "[E] Käy sisäsaunassa"],
+	"pa": [Vector3(-0.9, 0, 1.55), "[E] Kytke Santun PA-laitteet"],
 }
+## PA-kaiuttimet (jalustoilla sohvien päädyissä) ja tunnusmusiikin voimakkuus: taso 0..1 -> dB.
+const PA_SPEAKERS := [Vector3(-4.95, 0, 3.2), Vector3(0.2, 0, 3.2)]
+const PA_DB := -2.0
 const SANTTU_IN_LINES := [
 	"Suodatinkahvia on aina tarjolla. Se on ilmoituksen kohokohtia!",
 	"Kerrossängyt on violetit. Tytär maalas, en kehdannu kieltää.",
@@ -37,6 +41,12 @@ const SANTTU_IN_LINES := [
 	"Takka vetää hyvin, kunhan muistaa avata pellin.",
 	"Vesi ja sähkö on, mitä muuta ihminen tarvii?",
 	"Superhost, viides vuosi. Arvosteluja ei vielä yhtään, mutta tulee, tulee.",
+	"PA-kamat on vanhoilta keikoilta. Pääte päälle viimeisenä, muista se.",
+]
+const SANTTU_PA_LINES := [
+	"Tää on se Normipäivän tunnari! Kova biisi.",
+	"Kuuluu varmaan Likasen yli naapuriin asti.",
+	"Vanhat keikkakamat toimii vieläkin!",
 ]
 
 signal exited
@@ -55,6 +65,12 @@ var _bubble_t := 0.0
 var _chat_t := 5.0
 var _takka_fire: Node3D
 var _tv_screen: MeshInstance3D
+## PA: päällä (onnistunut kytkentä), minipeli käynnissä (busy), kaiuttimien soittimet ja päällä näkyvät osat.
+var pa_on := false
+var busy := false
+var _pa_players: Array[AudioStreamPlayer3D] = []
+var _pa_lit: Array[Node3D] = []
+var _pa_cones: Array[MeshInstance3D] = []
 
 
 func _ready() -> void:
@@ -62,6 +78,7 @@ func _ready() -> void:
 	_build_kitchen_dining()
 	_build_bedroom()
 	_build_bath_sauna()
+	_build_pa()
 	_santtu = Looks.make(self, Mokki.SANTTU_LOOK)
 	_santtu.position = Vector3(-1.5, 0, -3.0)
 	_santtu.rotation.y = B.yaw_to(Vector3(0.3, 0, 1))
@@ -104,12 +121,17 @@ func _process(delta: float) -> void:
 	if _tv_screen != null and _tv_screen.visible:
 		(_tv_screen.material_override as StandardMaterial3D).albedo_color = Color(0.3, 0.45, 0.8).lightened(
 			0.3 * sin(Time.get_ticks_msec() / 180.0))
-	if not active:
+	if not _pa_players.is_empty() and _pa_players[0].playing:
+		var beat := 1.0 + 0.05 * maxf(sin(Time.get_ticks_msec() / 1000.0 * TAU * 2.0), 0.0)  # elementit sykkivät
+		for c in _pa_cones:
+			c.scale = Vector3(beat, 1.0, beat)
+	if not active or busy:
+		hint = ""
 		return
 	_chat_t -= delta
 	if _chat_t <= 0.0:
 		_chat_t = randf_range(12.0, 20.0)
-		say(SANTTU_IN_LINES.pick_random())
+		say((SANTTU_PA_LINES if pa_on and randf() < 0.5 else SANTTU_IN_LINES).pick_random())
 	var p := walker.position
 	var best := ""
 	var bd := 1.3
@@ -122,6 +144,8 @@ func _process(delta: float) -> void:
 	if best == "":
 		return
 	hint = SPOTS[best][1]
+	if best == "pa" and pa_on:
+		hint = "[E] Sammuta PA (pääte ensin pois)"
 	if best == "takka" and takka_on:
 		hint = "Takka lämmittää mukavasti."
 		return
@@ -321,3 +345,68 @@ func _build_bath_sauna() -> void:
 	for k in 6:
 		B.mesh(self, B.sphere(0.09, 6), Vector3(6.35 + (k % 3) * 0.15, 0.85, -3.25 + (k / 3) * 0.2), Color(0.45, 0.44, 0.42))
 	B.mesh(self, B.cyl(0.1, 0.12, 0.22, 10), Vector3(5.8, 0.11, -3.35), Color(0.15, 0.4, 0.8))  # sininen kiulu kuten kuvassa
+
+
+# --- PA-laitteet -------------------------------------------------------------------
+
+func _build_pa() -> void:
+	var black := Color(0.07, 0.07, 0.08)
+	# Kaiuttimet jalustoilla, elementit kohti tupaa (-Z).
+	for sp in PA_SPEAKERS:
+		B.mesh(self, B.cyl(0.025, 0.025, 1.2, 6), sp + Vector3(0, 0.6, 0), Color(0.2, 0.2, 0.22))
+		for a in 3:
+			var leg := Vector3(cos(a * TAU / 3.0), 0, sin(a * TAU / 3.0)) * 0.35
+			B.tube(self, sp + Vector3(0, 0.45, 0), sp + leg, 0.015, Color(0.2, 0.2, 0.22))
+		B.mesh(self, B.boxm(Vector3(0.5, 0.75, 0.42)), sp + Vector3(0, 1.55, 0), black)
+		var cone := B.mesh(self, B.cyl(0.17, 0.17, 0.03, 16), sp + Vector3(0, 1.45, -0.215), Color(0.2, 0.2, 0.22),
+			Vector3(PI / 2.0, 0, 0))
+		_pa_cones.append(cone)
+		B.mesh(self, B.boxm(Vector3(0.3, 0.1, 0.02)), sp + Vector3(0, 1.8, -0.215), Color(0.3, 0.3, 0.32))
+		var p := AudioStreamPlayer3D.new()
+		p.bus = "Music"
+		p.stream = Sfx.music_stream()
+		p.position = sp + Vector3(0, 1.5, 0)
+		p.unit_size = 8.0
+		p.max_distance = 60.0
+		add_child(p)
+		_pa_players.append(p)
+	# Mikseri pöydän päässä, pääte räkissä lattialla penkin päädyssä, mikki jalustalla.
+	B.mesh(self, B.boxm(Vector3(0.55, 0.08, 0.42)), Vector3(-1.75, 0.79, 1.55), Color(0.28, 0.3, 0.33))
+	for k in 6:
+		B.mesh(self, B.boxm(Vector3(0.03, 0.02, 0.12)), Vector3(-1.95 + k * 0.08, 0.84, 1.6), Color(0.85, 0.85, 0.85))
+	_solid(Vector3(0.5, 0.45, 0.45), Vector3(-1.1, 0.225, 2.4), black)
+	B.mesh(self, B.boxm(Vector3(0.46, 0.08, 0.02)), Vector3(-1.1, 0.35, 2.17), Color(0.3, 0.3, 0.32))
+	B.mesh(self, B.cyl(0.015, 0.015, 1.3, 6), Vector3(-0.3, 0.65, 2.3), Color(0.2, 0.2, 0.22))
+	B.mesh(self, B.cyl(0.03, 0.02, 0.18, 8), Vector3(-0.3, 1.35, 2.25), Color(0.15, 0.15, 0.15), Vector3(-0.5, 0, 0))
+	# Päällä: LEDit ja johdot lattialla.
+	for led in [Vector3(-1.55, 0.84, 1.4), Vector3(-1.25, 0.35, 2.165), Vector3(-1.2, 0.35, 2.165)]:
+		var l := B.mesh(self, B.sphere(0.02, 6), led, Color.WHITE)
+		l.material_override = B.unshaded(Color(0.2, 1.0, 0.3))
+		_pa_lit.append(l)
+	for sp in PA_SPEAKERS:
+		var c := B.tube(self, Vector3(-1.1, 0.02, 2.6), sp + Vector3(0, 0.02, 0), 0.012, Color(0.95, 0.6, 0.1))
+		_pa_lit.append(c)
+	_pa_lit.append(B.tube(self, Vector3(-1.75, 0.02, 1.9), Vector3(-1.1, 0.02, 2.2), 0.012, Color(0.25, 0.35, 0.55)))
+	for n in _pa_lit:
+		n.visible = false
+
+
+## Tunnusmusiikin voimakkuus kaiuttimissa (0 = hiljaa). Soittimet käynnistyvät yhtä aikaa, jotta ne pysyvät tahdissa.
+func set_pa_level(v: float) -> void:
+	for p in _pa_players:
+		if p.stream == null:
+			continue
+		if v <= 0.01:
+			p.stop()
+			continue
+		p.volume_db = PA_DB + linear_to_db(v)
+		if not p.playing:
+			p.play()
+	for n in _pa_lit:
+		n.visible = v > 0.01
+
+
+## Onnistuneen kytkennän jälkeen PA jää päälle (taso minipelin lopusta), sammutus hiljentää.
+func set_pa(on: bool, v := 0.0) -> void:
+	pa_on = on
+	set_pa_level(v if on else 0.0)

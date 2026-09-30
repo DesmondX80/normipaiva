@@ -100,6 +100,7 @@ var _smoker_smoke: CPUParticles3D
 ## Rakennettu? Mökkialue (500 m maasto, metsä, rakennukset) rakennetaan vasta tarvittaessa (ensure_built),
 ## ettei pelin käynnistys hidastu noin 2 sekunnilla. Kartat ja sijaintilaskut (map_data, h, gpos) toimivat ilman.
 var built := false
+var _pa_out: AudioStreamPlayer3D
 
 
 func ensure_built() -> void:
@@ -159,6 +160,28 @@ func set_smoker(temp: float) -> void:
 	var thick := clampf((temp - 40.0) / 120.0, 0.2, 1.0)
 	_smoker_smoke.scale_amount_min = 0.5 + thick * 0.6
 	_smoker_smoke.scale_amount_max = 1.0 + thick * 1.8
+
+
+## Mökin PA:n tunnusmusiikki kuuluu pihalle seinien läpi vaimeana (sisällä soi mokki_interior.gd:n kaiuttimista).
+func set_pa_level(v: float) -> void:
+	if _pa_out == null:
+		if v <= 0.01:
+			return
+		_pa_out = AudioStreamPlayer3D.new()
+		_pa_out.bus = "Music"
+		_pa_out.stream = Sfx.music_stream()
+		_pa_out.position = Vector3(COTTAGE_LOCAL.x, h(COTTAGE_LOCAL.x, COTTAGE_LOCAL.y) + 1.8, COTTAGE_LOCAL.y)
+		_pa_out.unit_size = 9.0
+		_pa_out.max_distance = 90.0
+		_pa_out.attenuation_filter_cutoff_hz = 900.0  # seinät vaimentavat diskantin
+		_pa_out.attenuation_filter_db = -30.0
+		add_child(_pa_out)
+	if v <= 0.01:
+		_pa_out.stop()
+		return
+	_pa_out.volume_db = -8.0 + linear_to_db(v)
+	if not _pa_out.playing and _pa_out.stream != null:
+		_pa_out.play()
 
 
 func say(text: String, seconds := 3.2) -> void:

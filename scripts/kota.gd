@@ -195,7 +195,6 @@ func _build_kota() -> void:
 			else:
 				B.mesh(holder, B.cyl(r, r, seg + 0.2, 10), Vector3(0, y, 0), col, Vector3(0, 0, 90))
 			y += 2.0 * r * 0.92
-		var cs := CollisionShape3D.new()
 		if k == 0:
 			for sx in [-1.0, 1.0]:
 				var cs2 := CollisionShape3D.new()
@@ -212,6 +211,7 @@ func _build_kota() -> void:
 			B.mesh(door, B.boxm(Vector3(0.92, 1.62, 0.06)), Vector3(0.46, 0.81, 0), Color(0.4, 0.26, 0.15))
 			B.mesh(door, B.boxm(Vector3(0.05, 0.05, 0.1)), Vector3(0.82, 0.85, 0.06), Color(0.1, 0.1, 0.1))
 			continue
+		var cs := CollisionShape3D.new()
 		var bs3 := BoxShape3D.new()
 		bs3.size = Vector3(seg + 0.1, WALL_H, 0.3)
 		cs.shape = bs3

@@ -20,6 +20,7 @@ const ChopGame := preload("res://scripts/chop_game.gd")
 const SawGame := preload("res://scripts/saw_game.gd")
 const BarGame := preload("res://scripts/bar_game.gd")
 const PingisGame := preload("res://scripts/pingis_game.gd")
+const PaGame := preload("res://scripts/pa_game.gd")
 const HuntGame := preload("res://scripts/hunt_game.gd")
 const LaavuGuard := preload("res://scripts/laavu_guard.gd")
 const PaperMap := preload("res://scripts/paper_map.gd")
@@ -434,6 +435,8 @@ func _process(delta: float) -> void:
 			tilat.add("vireys", 0.002 * delta)
 			tilat.add("nalka", -0.002 * delta)
 			tilat.add("humala", -0.002 * delta)
+			if mokki_int.pa_on:
+				tilat.add("moraali", 0.003 * delta)  # tunnari soi
 	_update_hud()
 
 	if _msg_time > 0.0:
@@ -1911,6 +1914,51 @@ func _on_mokki_acted(kind: String) -> void:
 				tilat.add("kipu", 0.1)
 			Sfx.play("water", -6.0, 0.8)
 			_show_message("Sisäsaunan löylyt! Kunto palautui.", 2.5)
+		"pa":
+			if mokki_int.pa_on:
+				_pa_off()
+			else:
+				_start_pa()
+
+
+## PA-laitteiden kytkentä (pa_game.gd) tuvassa. Tunnusmusiikki soi kaiuttimista jo säätäessä, ja onnistuneen
+## kytkennän jälkeen se jää soimaan tuvassa (ja vaimeana pihalle), kunnes PA sammutetaan.
+func _start_pa() -> void:
+	mokki_int.busy = true
+	mokki_int.walker.controls_enabled = false
+	_hud.visible = false
+	var game := PaGame.new()
+	game.level.connect(func(v: float) -> void:
+		mokki_int.set_pa_level(v)
+		mokki.set_pa_level(v))
+	game.finished.connect(func(won: bool) -> void:
+		var v: float = game.out_level
+		game.queue_free()
+		mokki_int.busy = false
+		mokki_int.walker.controls_enabled = true
+		_hud.visible = true
+		mokki_int.set_pa(won, v)
+		mokki.set_pa_level(v if won else 0.0)
+		if not won:
+			if game.strikes > 0:
+				_show_message("PA jäi kytkemättä. Santtu pakkasi kamat. Yritä uudestaan rauhassa.", 3.0)
+			return
+		tilat.first("pa", 0.3)
+		if _once_today("pa"):
+			tilat.add("moraali", 0.2)
+			tilat.add("stressi", 0.15)
+		mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0)
+		mokki_int.say("Nyt soi! Tää on se Normipäivän tunnari!")
+		_show_message("PA soi! Tunnari pauhaa tuvassa, kunnes PA sammutetaan (E laitteilla).", 3.5))
+	add_child(game)
+
+
+func _pa_off() -> void:
+	mokki_int.set_pa(false)
+	mokki.set_pa_level(0.0)
+	Sfx.play("rattle", -8.0, 1.6)
+	mokki_int.say("No niin, hiljaista. Pääte ensin pois, sitten mikseri.")
+	_show_message("PA sammutettu.", 2.0)
 
 
 ## Kalastus laiturilta: heitä onki (E), odota nykäisyä, vedä ylös ajoissa (E). Ks. Mokki.FISH.
@@ -4512,6 +4560,78 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("SISA nukuttu day %d -> %d state=%s near_mokki=%.1f msg=%s" % [d0, day, state,
 				walker_out.global_position.distance_to(mokki.global_position), _msg.text.replace("\n", " | ")])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"mokkipa":
+			# PA-kytkentä: väärä järjestys (pääte ensin = paukku), oikeat johdot, virrat, kierto mikistä, tasot
+			# vihreälle ja voitto. Kuvat: _pa_board (kesken), _pa_tupa (soi) ja _pa_ulkona. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(suffix: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", suffix))
+			_toggle_mount()
+			walker_out.global_position = mokki.porch_pos(0.4)
+			for i in 10:
+				await get_tree().physics_frame
+			_enter_mokki()
+			mokki_int.walker.position = mokki_int.SPOTS.pa[0]
+			for i in 3:
+				await get_tree().process_frame
+			print("PA hint=", mokki_int.hint)
+			_on_mokki_acted("pa")
+			var pg: Node = get_children().filter(func(c): return c is PaGame)[0]
+			print("PA virhe tyyppi: ", pg.connect_ports("puh_out", "mix_ch1"), " -> ", pg._sub.text)
+			for pr in [["puh_out", "mix_ch2"], ["mic_out", "mix_ch1"], ["mix_main_l", "amp_in_a"], ["mix_main_r", "amp_in_b"],
+					["amp_out_a", "spk_l_in"], ["amp_out_b", "spk_r_in"], ["jj_1", "mix_pow"], ["amp_pow", "jj_2"]]:
+				if not pg.connect_ports(pr[0], pr[1]):
+					print("PA kytkentä epäonnistui ", pr, " ", pg._sub.text)
+			print("PA path_ok=", pg.path_ok(), " task=", pg._task.text)
+			pg.amp_sw = true
+			for i in 3:
+				await get_tree().process_frame
+			print("PA pääte ensin: strikes=", pg.strikes, " sub=", pg._sub.text)
+			pg.amp_sw = false
+			await get_tree().process_frame
+			pg.mix_sw = true
+			await get_tree().process_frame
+			pg.amp_sw = true
+			await get_tree().process_frame
+			print("PA oikea järjestys: strikes=", pg.strikes, " task=", pg._task.text)
+			pg.faders.ch1 = 0.8
+			pg.faders.master = 0.8
+			for i in 60:
+				await get_tree().process_frame
+			print("PA kierto fb=%.2f sub=%s" % [pg._fb, pg._sub.text])
+			pg.faders.ch1 = 0.0
+			pg.faders.ch2 = 0.8
+			for i in 10:
+				await get_tree().process_frame
+			print("PA taso=%.2f soi=%s task=%s" % [pg.out_level, mokki_int._pa_players[0].playing, pg._task.text])
+			await snap.call("_pa_board.png")
+			var t0 := Time.get_ticks_msec()
+			while is_instance_valid(pg) and Time.get_ticks_msec() - t0 < 8000:
+				await get_tree().process_frame
+			print("PA valmis: pa_on=%s strikes? msg=%s soi=%s db=%.1f" % [mokki_int.pa_on, _msg.text,
+				mokki_int._pa_players[0].playing, mokki_int._pa_players[0].volume_db])
+			mokki_int.walker.position = Vector3(-2.0, 0, 0.5)
+			for i in 20:
+				await get_tree().process_frame
+			await snap.call("_pa_tupa.png")
+			mokki_int.walker.position = mokki_int.SPOTS.ovi[0]
+			await get_tree().process_frame
+			_on_mokki_exited()
+			for i in 20:
+				await get_tree().process_frame
+			print("PA ulkona: soi=%s" % mokki._pa_out.playing)
+			await snap.call("_pa_ulkona.png")
+			_enter_mokki()
+			mokki_int.walker.position = mokki_int.SPOTS.pa[0]
+			for i in 3:
+				await get_tree().process_frame
+			print("PA hint päällä=", mokki_int.hint)
+			_on_mokki_acted("pa")
+			print("PA sammutus: pa_on=%s soi=%s ulkona=%s" % [mokki_int.pa_on, mokki_int._pa_players[0].playing,
+				mokki._pa_out.playing])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"taksimokki":
