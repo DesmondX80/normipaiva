@@ -2159,6 +2159,11 @@ func _mokki_logic() -> void:
 		if e:
 			_enter_mokki()
 		return
+	if near.call(Mokki.DOOR2_LOCAL, 1.1):
+		_hint.text = "[E] Mene sisälle pesuhuoneeseen"
+		if e:
+			_enter_mokki("ovi2")
+		return
 	if near.call(Mokki.KITCHEN_LOCAL, 1.6):
 		_smoker_logic(e)
 		return
@@ -2608,14 +2613,14 @@ func _sauna_cutscene() -> void:
 
 
 ## Mökin sisälle: oma tasku ja kävelijä kuten kaupassa; vaarat pysähtyvät sisällä oloajaksi.
-func _enter_mokki() -> void:
+func _enter_mokki(door := "ovi") -> void:
 	_mokki_prev = state
 	state = "in_mokki"
 	player.controls_enabled = false
 	player.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	tilat.first("mokki_sisalla", 0.2)
-	mokki_int.enter()
+	mokki_int.enter(door)
 	Sfx.play("door", -3.0)
 
 
@@ -2623,7 +2628,7 @@ func _on_mokki_exited() -> void:
 	mokki_int.leave()
 	Sfx.play("door_close", -3.0)
 	state = _mokki_prev
-	walker_out.global_position = mokki.porch_pos(0.9)
+	walker_out.global_position = mokki.porch2_pos(0.9) if mokki_int.exit_door == "ovi2" else mokki.porch_pos(0.9)
 	walker_out.rotation.y = mokki.rotation.y + PI  # selkä ovelle, katse pihalle ja järvelle (+Z)
 	walker_out.velocity = Vector3.ZERO
 	walker_out.controls_enabled = true
@@ -6124,6 +6129,33 @@ func _maybe_screenshot() -> void:
 			sc.global_position = INTERIOR_POS + Vector3(2.0, 9.0, 14.0)
 			sc.look_at(INTERIOR_POS + Vector3(0, 1.0, 0), Vector3.UP)
 			sc.current = true
+		"mokkipesuovi":
+			# Pesuhuoneen ovi: kuistilta sisään pesuhuoneeseen, pesuhuoneen ovesta ulos saman oven eteen, kuva ovesta.
+			var press2 := func() -> void:
+				Input.action_press("interact")
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+			_toggle_mount()
+			walker_out.global_position = mokki.porch2_pos(0.4)
+			for i in 10:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("PESUOVI kuistilla hint=", _hint.text)
+			await press2.call()
+			print("PESUOVI sisällä state=%s walker=%s" % [state, mokki_int.walker.position])
+			for i in 5:
+				await get_tree().process_frame
+			print("PESUOVI sisävihje=", mokki_int.hint)
+			await press2.call()
+			for i in 5:
+				await get_tree().physics_frame
+			var lp := mokki.to_local(walker_out.global_position)
+			print("PESUOVI ulkona state=%s paikka=%s (ovi %s)" % [state, lp, Mokki.DOOR2_LOCAL])
+			var oc := Camera3D.new()
+			add_child(oc)
+			oc.look_at_from_position(mokki.porch2_pos(4.5) + Vector3(1.5, 0.6, 0), mokki.porch2_pos(-0.6) + Vector3(0, 0.3, 0), Vector3.UP)
+			oc.current = true
 		"mokkisisalla":
 			# Mökin sisätila: ovelta sisään, toiminnot, kuva, ulos ja nukkumaan (päivä vaihtuu). Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
