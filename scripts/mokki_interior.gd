@@ -12,24 +12,39 @@ const Looks := preload("res://scripts/looks.gd")
 const Walker := preload("res://scripts/player_walker.gd")
 const Mokki := preload("res://scripts/mokki.gd")
 
-const HALF := Vector2(7.0, 3.75)  # huoneiston puolikas (x, z)
+const HALF := Vector2(7.0, 3.75)  # huoneiston puolikas (x, z); tien puoli z = HALF.y
+## Kuistin puoleinen ulkoseinä: keittiö ja pesutilat on levennetty kuistille päin pelattavuuden vuoksi.
+const BACK := -5.0
 const WALL_H := 2.4
+const LOW_WALL := 1.0  # kameran puoleisten väliseinien näkyvä korkeus
 ## Pohja on suorakaide, jonka vasemmasta kuistin puoleisesta nurkasta puuttuu lovi (NOTCH, ulkona; ulko-ovi loven seinässä).
 ## Keittiö on loven vieressä tuvan takaseinän (väliseinä TV:n takana) takana, aukko KITCHEN_GAP (x alku, x loppu).
-const NOTCH := Rect2(-7.0, -3.75, 1.6, 1.95)
-const KITCHEN := Rect2(-5.4, -3.75, 6.4, 1.95)
+const NOTCH := Rect2(-7.0, BACK, 1.6, -1.8 - BACK)
+const KITCHEN := Rect2(-5.4, BACK, 6.4, -1.8 - BACK)
 const KITCHEN_GAP := Vector2(-2.3, -1.2)
+## Pesutilat (kuvien mukaan): keittiöstä oviaukko pitkään pesuhuoneeseen (WASH, kuistin puolella). Vasemmalla
+## seinällä ovi kuistille ja ikkuna, oikealla saunan lasiovi, perällä suihku ja sen oikealla lasisen suihkuseinän
+## takana pönttö istumasuunta suihkuun päin; pesuhuoneen perällä oikealla penkki pesuvateineen.
+## Sauna (SAUNA) pesuhuoneen ja makuuhuoneen välissä: ovelta katsottuna lauteet vasemmalla ja perällä, kiuas oikealla
+## perimmäisessä nurkassa.
+const WASH := Rect2(1.0, BACK, 6.0, 2.4)
+const SAUNA := Rect2(1.0, -2.6, 4.2, 2.0)
+const WASH_DOOR := Vector2(-4.4, -3.4)  # keittiön ja pesuhuoneen oviaukko (z alku, z loppu) seinässä x = 1
+const SAUNA_DOOR := Vector2(2.4, 3.3)  # saunan oviaukko (x alku, x loppu) seinässä z = -2.6
+const SHOWER_Z := -3.7  # suihkuseinä (lasi) perällä
 ## Toimintopisteet: id -> [paikka, vihje].
 const SPOTS := {
 	"ovi": [Vector3(-6.3, 0, -1.1), "[E] Ulos kuistille"],
-	"santtu": [Vector3(-1.5, 0, -2.2), "[E] Jutskaa Santun kanssa"],
-	"kahvi": [Vector3(-2.8, 0, -2.4), "[E] Keitä suodatinkahvit"],
-	"jaakaappi": [Vector3(0.4, 0, -2.4), "[E] Kurkkaa jääkaappiin"],
+	"ovi2": [Vector3(2.0, 0, -4.3), "[E] Ulos kuistille (pesuhuoneen ovi)"],
+	"santtu": [Vector3(-1.5, 0, -2.6), "[E] Jutskaa Santun kanssa"],
+	"kahvi": [Vector3(-2.8, 0, -3.7), "[E] Keitä suodatinkahvit"],
+	"jaakaappi": [Vector3(0.4, 0, -3.7), "[E] Kurkkaa jääkaappiin"],
 	"takka": [Vector3(-0.4, 0, -0.9), "[E] Sytytä takka"],
 	"tv": [Vector3(-3.9, 0, -0.6), "[E] Katso telkkaria"],
 	"sanky": [Vector3(4.9, 0, 1.2), "[E] Mene nukkumaan kerrossänkyyn (päivä päättyy)"],
-	"suihku": [Vector3(2.3, 0, -1.75), "[E] Käy suihkussa"],
-	"sauna": [Vector3(5.0, 0, -2.05), "[E] Käy sisäsaunassa"],
+	"suihku": [Vector3(5.4, 0, -4.4), "[E] Käy suihkussa"],
+	"wc": [Vector3(5.5, 0, -3.1), "[E] Käy pöntöllä"],
+	"sauna": [Vector3(2.85, 0, -1.7), "[E] Käy sisäsaunassa"],
 	"pa": [Vector3(-0.9, 0, 1.55), "[E] Kytke Santun PA-laitteet"],
 }
 ## PA-kaiuttimet (jalustoilla sohvien päädyissä) ja tunnusmusiikin voimakkuus: taso 0..1 -> dB.
@@ -81,7 +96,7 @@ func _ready() -> void:
 	_build_bath_sauna()
 	_build_pa()
 	_santtu = Looks.make(self, Mokki.SANTTU_LOOK)
-	_santtu.position = Vector3(-1.5, 0, -3.0)
+	_santtu.position = Vector3(-1.5, 0, -3.4)
 	_santtu.rotation.y = B.yaw_to(Vector3(0.3, 0, 1))
 	_santtu.play("Idle", 0.0)
 	var body := StaticBody3D.new()
@@ -153,7 +168,7 @@ func _process(delta: float) -> void:
 	if not Input.is_action_just_pressed("interact") or Engine.get_process_frames() == _enter_frame:
 		return
 	match best:
-		"ovi":
+		"ovi", "ovi2":
 			exited.emit()
 		"sanky":
 			slept.emit()
@@ -201,42 +216,48 @@ func _build_room() -> void:
 	var panel := Color(0.9, 0.89, 0.83)  # vaaleat paneeliseinät kuten kuvissa
 	# Harmaa lautalattia.
 	B.mesh(self, B.boxm(Vector3(80, 0.2, 80)), Vector3(0, -0.2, 0), Color(0.12, 0.12, 0.14))
-	B.mesh(self, B.boxm(Vector3(HALF.x * 2.0, 0.1, HALF.y * 2.0)), Vector3(0, -0.05, 0), Color(0.48, 0.5, 0.5))
+	var depth := HALF.y - BACK
+	var mid_z := (HALF.y + BACK) / 2.0
+	B.mesh(self, B.boxm(Vector3(HALF.x * 2.0, 0.1, depth)), Vector3(0, -0.05, mid_z), Color(0.48, 0.5, 0.5))
 	for i in 18:
 		var x := -HALF.x + 0.4 + i * 0.78
-		B.mesh(self, B.boxm(Vector3(0.02, 0.01, HALF.y * 2.0)), Vector3(x, 0.005, 0), Color(0.38, 0.4, 0.4))
+		B.mesh(self, B.boxm(Vector3(0.02, 0.01, depth)), Vector3(x, 0.005, mid_z), Color(0.38, 0.4, 0.4))
 	# Lovi (ulkotilaa) vasemmassa nurkassa kuistin puolella: maan värinen lattia lattialautojen päälle.
 	B.mesh(self, B.boxm(Vector3(NOTCH.size.x + 0.1, 0.02, NOTCH.size.y + 0.1)), Vector3(NOTCH.get_center().x - 0.05, 0.02,
 		NOTCH.get_center().y - 0.05), Color(0.3, 0.33, 0.22))
 	# Ulkoseinät: takaseinä (keittiön perä), loven kaksi seinää ja päädyt täyskorkeat, etuseinä matala kameran
 	# vuoksi (törmäys täyskorkea).
-	_wall(Vector2(NOTCH.end.x, -HALF.y), Vector2(HALF.x, -HALF.y), WALL_H, panel)
+	_wall(Vector2(NOTCH.end.x, BACK), Vector2(HALF.x, BACK), WALL_H, panel)
 	_wall(Vector2(-HALF.x, NOTCH.end.y), Vector2(NOTCH.end.x, NOTCH.end.y), WALL_H, panel)
-	_wall(Vector2(NOTCH.end.x, -HALF.y), Vector2(NOTCH.end.x, NOTCH.end.y), WALL_H, panel)
+	_wall(Vector2(NOTCH.end.x, BACK), Vector2(NOTCH.end.x, NOTCH.end.y), WALL_H, panel)
 	_wall(Vector2(-HALF.x, NOTCH.end.y), Vector2(-HALF.x, HALF.y), WALL_H, panel)
-	_wall(Vector2(HALF.x, -HALF.y), Vector2(HALF.x, HALF.y), WALL_H, panel)
+	_wall(Vector2(HALF.x, BACK), Vector2(HALF.x, HALF.y), WALL_H, panel)
 	_wall(Vector2(-HALF.x, HALF.y), Vector2(HALF.x, HALF.y), 0.5, panel)
 	# Lasiovi ulos loven seinässä (tuvan vasen takanurkka), päätyseinällä ikkuna.
 	B.mesh(self, B.boxm(Vector3(1.0, 2.05, 0.06)), Vector3(SPOTS.ovi[0].x, 1.02, NOTCH.end.y + 0.08), Color(0.95, 0.95, 0.93))
 	B.mesh(self, B.boxm(Vector3(0.8, 1.8, 0.07)), Vector3(SPOTS.ovi[0].x, 1.05, NOTCH.end.y + 0.09), Color(0.6, 0.78, 0.7))
 	B.mesh(self, B.boxm(Vector3(0.06, 1.1, 1.3)), Vector3(-HALF.x + 0.08, 1.45, 2.2), Color(0.95, 0.95, 0.93))
 	B.mesh(self, B.boxm(Vector3(0.07, 0.9, 1.1)), Vector3(-HALF.x + 0.09, 1.45, 2.2), Color(0.55, 0.75, 0.6))
-	# Punapuitteiset ikkunat takaseinässä (keittiö, kylpyhuone ja sauna).
-	for wx in [-1.5, 2.2, 5.2]:
-		B.mesh(self, B.boxm(Vector3(1.3, 1.1, 0.06)), Vector3(wx, 1.45, -HALF.y + 0.1), Color(0.55, 0.12, 0.14))
-		B.mesh(self, B.boxm(Vector3(1.1, 0.9, 0.07)), Vector3(wx, 1.45, -HALF.y + 0.11), Color(0.55, 0.75, 0.6))
-	# Väliseinät oikealla: kylpyhuone ja sauna takana, makuuhuone edessä (tien puolella), oviaukot.
+	# Punapuitteinen ikkuna keittiön kuistin puoleisessa seinässä.
+	B.mesh(self, B.boxm(Vector3(1.3, 1.1, 0.06)), Vector3(-1.5, 1.45, BACK + 0.1), Color(0.55, 0.12, 0.14))
+	B.mesh(self, B.boxm(Vector3(1.1, 0.9, 0.07)), Vector3(-1.5, 1.45, BACK + 0.11), Color(0.55, 0.75, 0.6))
+	# Väliseinät oikealla: pesuhuone kuistin puolella, sauna sen ja makuuhuoneen välissä, makuuhuone tien puolella.
 	var wall2 := panel.darkened(0.05)
-	_wall(Vector2(1.0, -HALF.y), Vector2(1.0, -2.8), WALL_H, wall2)
-	_wall(Vector2(1.0, -1.85), Vector2(1.0, 1.55), WALL_H, wall2)
+	_wall(Vector2(1.0, BACK), Vector2(1.0, WASH_DOOR.x), WALL_H, wall2)
+	_wall(Vector2(1.0, WASH_DOOR.y), Vector2(1.0, 1.55), WALL_H, wall2)
 	_wall(Vector2(1.0, 2.65), Vector2(1.0, HALF.y), WALL_H, wall2)
-	_wall(Vector2(1.0, -0.6), Vector2(HALF.x, -0.6), WALL_H, wall2)
-	_wall(Vector2(4.0, -HALF.y), Vector2(4.0, -2.65), WALL_H, Color(0.3, 0.22, 0.15))
-	_wall(Vector2(4.0, -1.55), Vector2(4.0, -0.6), WALL_H, Color(0.3, 0.22, 0.15))
+	# Kameran suuntaiset (x-akselin) väliseinät matalina kuten etuseinä: ylhäältä vinosti kuvattaessa ne
+	# eivät peitä takana olevia huoneita (pesuhuone, sauna); törmäys on täyskorkea.
+	_wall(Vector2(1.0, -0.6), Vector2(HALF.x, -0.6), LOW_WALL, wall2, WALL_H)
+	var dark := Color(0.3, 0.22, 0.15)
+	_wall(Vector2(1.0, SAUNA.position.y), Vector2(SAUNA_DOOR.x, SAUNA.position.y), LOW_WALL, dark, WALL_H)
+	_wall(Vector2(SAUNA_DOOR.y, SAUNA.position.y), Vector2(SAUNA.end.x, SAUNA.position.y), LOW_WALL, dark, WALL_H)
+	_wall(Vector2(SAUNA.end.x, SAUNA.position.y), Vector2(SAUNA.end.x, -0.6), WALL_H, dark)
 	# Keittiön ja tuvan väliseinä (TV:n takana) ja aukko pylvään kohdalla.
 	_wall(Vector2(NOTCH.end.x, KITCHEN.end.y), Vector2(KITCHEN_GAP.x, KITCHEN.end.y), WALL_H, wall2)
 	_wall(Vector2(KITCHEN_GAP.y, KITCHEN.end.y), Vector2(KITCHEN.end.x, KITCHEN.end.y), WALL_H, wall2)
-	for l in [Vector3(-3.5, 2.3, 0.0), Vector3(3.5, 2.3, -1.5)]:
+	for l in [Vector3(-3.5, 2.3, 0.0), Vector3(-2.0, 2.3, -3.4), Vector3(4.0, 2.3, -3.8), Vector3(3.0, 2.3, -1.6),
+			Vector3(4.0, 2.3, 1.5)]:
 		var light := OmniLight3D.new()
 		light.position = l
 		light.omni_range = 9.0
@@ -330,22 +351,78 @@ func _build_bedroom() -> void:
 
 
 func _build_bath_sauna() -> void:
-	# Kylpyhuone takana: valkoinen laatta, ruskea lattialaatta, suihku ja punainen saavi.
-	B.mesh(self, B.boxm(Vector3(2.9, 0.02, 3.0)), Vector3(2.5, 0.02, -2.15), Color(0.45, 0.25, 0.15))
-	B.mesh(self, B.boxm(Vector3(2.9, WALL_H, 0.05)), Vector3(2.5, WALL_H / 2.0, -0.65), Color(0.95, 0.95, 0.93))
-	B.mesh(self, B.cyl(0.02, 0.02, 1.9, 6), Vector3(1.4, 0.95, -0.95), Color(0.75, 0.75, 0.78))
-	B.mesh(self, B.cyl(0.08, 0.05, 0.05, 10), Vector3(1.4, 1.9, -1.05), Color(0.75, 0.75, 0.78))
-	B.mesh(self, B.cyl(0.18, 0.15, 0.25, 12), Vector3(3.4, 0.13, -1.05), Color(0.85, 0.12, 0.12))
-	# Sisäsauna kylpyhuoneen vieressä: tummat paneelit, kaksitasoiset lauteet ja puukiuas.
-	var dark := Color(0.3, 0.22, 0.15)
-	B.mesh(self, B.boxm(Vector3(2.9, 0.02, 3.0)), Vector3(5.5, 0.02, -2.15), Color(0.5, 0.48, 0.44))
-	_solid(Vector3(2.8, 0.45, 0.7), Vector3(5.5, 0.22, -1.05), Color(0.62, 0.48, 0.3))
-	B.mesh(self, B.boxm(Vector3(2.8, 0.05, 0.6)), Vector3(5.5, 0.9, -0.9), Color(0.62, 0.48, 0.3))
-	B.mesh(self, B.boxm(Vector3(2.9, WALL_H, 0.05)), Vector3(5.5, WALL_H / 2.0, -0.65), dark)
-	_solid(Vector3(0.6, 0.8, 0.6), Vector3(6.5, 0.4, -3.15), Color(0.12, 0.12, 0.12))
-	for k in 6:
-		B.mesh(self, B.sphere(0.09, 6), Vector3(6.35 + (k % 3) * 0.15, 0.85, -3.25 + (k / 3) * 0.2), Color(0.45, 0.44, 0.42))
-	B.mesh(self, B.cyl(0.1, 0.12, 0.22, 10), Vector3(5.8, 0.11, -3.35), Color(0.15, 0.4, 0.8))  # sininen kiulu kuten kuvassa
+	var tile := Color(0.95, 0.94, 0.9)
+	var floor_tile := Color(0.55, 0.3, 0.18)
+	var pine := Color(0.72, 0.52, 0.3)
+	# Pesuhuone: ruskea klinkkerilattia, valkoinen laatoitus seinillä, mäntypaneelikatto (katto pois kameran vuoksi).
+	B.mesh(self, B.boxm(Vector3(WASH.size.x, 0.02, WASH.size.y)), Vector3(WASH.get_center().x, 0.02, WASH.get_center().y), floor_tile)
+	for k in 12:
+		B.mesh(self, B.boxm(Vector3(0.015, 0.025, WASH.size.y)), Vector3(WASH.position.x + 0.5 * k, 0.025, WASH.get_center().y),
+			Color(0.2, 0.12, 0.08))
+	B.mesh(self, B.boxm(Vector3(WASH.size.x, WALL_H, 0.03)), Vector3(WASH.get_center().x, WALL_H / 2.0, BACK + 0.09), tile)
+	B.mesh(self, B.boxm(Vector3(0.03, WALL_H, WASH.size.y)), Vector3(HALF.x - 0.09, WALL_H / 2.0, WASH.get_center().y), tile)
+	# Vasemmalla (kuistin puoli) puinen ovi kuistille ikkunoineen ja pieni ikkuna.
+	var dx: float = SPOTS.ovi2[0].x
+	B.mesh(self, B.boxm(Vector3(0.95, 2.05, 0.06)), Vector3(dx, 1.02, BACK + 0.12), Color(0.7, 0.5, 0.3))
+	B.mesh(self, B.boxm(Vector3(0.55, 0.6, 0.07)), Vector3(dx, 1.55, BACK + 0.13), Color(0.55, 0.75, 0.6))
+	B.mesh(self, B.boxm(Vector3(0.05, 0.08, 0.1)), Vector3(dx + 0.35, 1.0, BACK + 0.16), Color(0.75, 0.72, 0.6))
+	B.mesh(self, B.boxm(Vector3(0.75, 0.6, 0.06)), Vector3(3.4, 1.7, BACK + 0.12), Color(0.55, 0.32, 0.2))
+	B.mesh(self, B.boxm(Vector3(0.6, 0.45, 0.07)), Vector3(3.4, 1.7, BACK + 0.13), Color(0.55, 0.75, 0.6))
+	# Perällä suihku: hana ja suihkuletku seinässä, lattiakaivo; oikealla lasinen suihkuseinä.
+	var sx := HALF.x - 0.12
+	var sz := (BACK + SHOWER_Z) / 2.0
+	B.mesh(self, B.cyl(0.015, 0.015, 1.1, 6), Vector3(sx, 1.35, sz), Color(0.8, 0.8, 0.82))
+	B.mesh(self, B.cyl(0.06, 0.04, 0.12, 10), Vector3(sx - 0.05, 1.92, sz), Color(0.8, 0.8, 0.82), Vector3(0, 0, 60))
+	B.mesh(self, B.boxm(Vector3(0.08, 0.06, 0.2)), Vector3(sx - 0.04, 0.95, sz), Color(0.8, 0.8, 0.82))
+	B.mesh(self, B.cyl(0.08, 0.08, 0.01, 12), Vector3(HALF.x - 0.6, 0.035, sz), Color(0.35, 0.35, 0.36))
+	var glass := B.mesh(self, B.boxm(Vector3(1.1, 2.0, 0.03)), Vector3(HALF.x - 0.6, 1.0, SHOWER_Z), Color.WHITE)
+	var gm := StandardMaterial3D.new()
+	gm.albedo_color = Color(0.8, 0.9, 0.95, 0.35)
+	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glass.material_override = gm
+	var gb := StaticBody3D.new()
+	gb.position = Vector3(HALF.x - 0.6, 0, SHOWER_Z)
+	gb.add_child(B.box_shape(Vector3(1.1, WALL_H, 0.05), Vector3(0, WALL_H / 2.0, 0)))
+	add_child(gb)
+	# Pönttö suihkuseinän takana, istumasuunta suihkuun päin (-Z); peili ja pyyhkeet seinällä.
+	var wc := Node3D.new()
+	wc.position = Vector3(HALF.x - 0.55, 0, SHOWER_Z + 0.55)
+	add_child(wc)
+	B.mesh(wc, B.boxm(Vector3(0.38, 0.4, 0.3)), Vector3(0, 0.2, 0.05), Color(0.97, 0.97, 0.97))
+	B.mesh(wc, B.cyl(0.19, 0.17, 0.08, 16), Vector3(0, 0.42, -0.05), Color(0.97, 0.97, 0.97))
+	B.mesh(wc, B.boxm(Vector3(0.38, 0.4, 0.18)), Vector3(0, 0.62, 0.25), Color(0.97, 0.97, 0.97))  # säiliö
+	var wb := StaticBody3D.new()
+	wb.add_child(B.box_shape(Vector3(0.4, 0.8, 0.6), Vector3(0, 0.4, 0.05)))
+	wc.add_child(wb)
+	B.mesh(self, B.boxm(Vector3(0.03, 0.6, 0.5)), Vector3(HALF.x - 0.12, 1.5, SHOWER_Z + 0.6), Color(0.75, 0.8, 0.85))
+	# Oikealla saunan oven vieressä puupenkki pesuvateineen ja pyyhkeet naulakossa.
+	var bench_x := SAUNA_DOOR.y + 0.9
+	_solid(Vector3(1.0, 0.45, 0.45), Vector3(bench_x, 0.225, SAUNA.position.y - 0.3), pine)
+	B.mesh(self, B.cyl(0.2, 0.16, 0.14, 12), Vector3(bench_x - 0.2, 0.52, SAUNA.position.y - 0.3), Color(0.85, 0.12, 0.12))
+	B.mesh(self, B.cyl(0.18, 0.14, 0.12, 12), Vector3(bench_x + 0.25, 0.51, SAUNA.position.y - 0.3), Color(0.9, 0.9, 0.9))
+	for k in 3:
+		B.mesh(self, B.boxm(Vector3(0.3, 0.9, 0.05)), Vector3(bench_x + 0.8 + k * 0.32, 1.3, SAUNA.position.y - 0.05),
+			[Color(0.35, 0.45, 0.7), Color(0.9, 0.9, 0.88), Color(0.3, 0.55, 0.75)][k])
+	# Saunan lasiovi puukehyksessä (auki: oviaukko).
+	B.mesh(self, B.boxm(Vector3(0.08, LOW_WALL, 0.08)), Vector3(SAUNA_DOOR.x, LOW_WALL / 2.0, SAUNA.position.y), pine)
+	B.mesh(self, B.boxm(Vector3(0.08, LOW_WALL, 0.08)), Vector3(SAUNA_DOOR.y, LOW_WALL / 2.0, SAUNA.position.y), pine)
+	# Sisäsauna: tummat paneelit, betonilattia, ovelta katsottuna lauteet vasemmalla (+X) ja perällä,
+	# kiuas savupiippuineen oikeassa perimmäisessä nurkassa (-X, tien puoli), rappausseinä kiukaan takana.
+	var dark := Color(0.28, 0.2, 0.13)
+	B.mesh(self, B.boxm(Vector3(SAUNA.size.x, 0.02, SAUNA.size.y)), Vector3(SAUNA.get_center().x, 0.02, SAUNA.get_center().y),
+		Color(0.6, 0.58, 0.54))
+	B.mesh(self, B.boxm(Vector3(SAUNA.size.x, LOW_WALL, 0.03)), Vector3(SAUNA.get_center().x, LOW_WALL / 2.0, -0.63), dark)
+	B.mesh(self, B.boxm(Vector3(0.03, WALL_H, SAUNA.size.y)), Vector3(1.04, WALL_H / 2.0, SAUNA.get_center().y), Color(0.7, 0.7, 0.68))
+	var lx := SAUNA.end.x - 0.55
+	_solid(Vector3(1.0, 0.45, SAUNA.size.y - 0.1), Vector3(lx - 0.15, 0.225, SAUNA.get_center().y + 0.05), pine)  # alalaude
+	_solid(Vector3(0.7, 0.9, SAUNA.size.y - 0.1), Vector3(SAUNA.end.x - 0.35, 0.45, SAUNA.get_center().y + 0.05), pine)
+	B.mesh(self, B.boxm(Vector3(2.4, 0.06, 0.55)), Vector3(SAUNA.end.x - 1.25, 0.9, -0.9), pine)  # peräseinän laude
+	B.mesh(self, B.cyl(0.12, 0.1, 0.22, 10), Vector3(SAUNA.end.x - 0.4, 1.02, -0.9), Color(0.1, 0.35, 0.8))  # sininen kiulu
+	B.mesh(self, B.sphere(0.06, 8), Vector3(SAUNA.end.x - 0.8, 0.96, -0.95), Color(0.75, 0.1, 0.1))  # punainen kauha
+	_solid(Vector3(0.6, 0.75, 0.55), Vector3(1.4, 0.375, -1.0), Color(0.12, 0.12, 0.12))  # kiuas
+	B.mesh(self, B.cyl(0.08, 0.08, 1.4, 10), Vector3(1.25, 1.45, -0.8), Color(0.1, 0.1, 0.1))
+	for k in 9:
+		B.mesh(self, B.sphere(0.08, 6), Vector3(1.25 + (k % 3) * 0.14, 0.8, -1.15 + (k / 3) * 0.14), Color(0.35, 0.35, 0.36))
 
 
 # --- PA-laitteet -------------------------------------------------------------------

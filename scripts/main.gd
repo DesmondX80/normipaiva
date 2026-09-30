@@ -2671,6 +2671,11 @@ func _on_mokki_acted(kind: String) -> void:
 				tilat.add("kipu", 0.05)
 			Sfx.play("water", -6.0, 1.1)
 			_show_message("Suihku virkistää.", 2.0)
+		"wc":
+			if _once_today("wc"):
+				tilat.add("stressi", 0.05)
+			_show_message(["Istut pöntöllä ja katselet suihkua. Mökkielämää.",
+				"Pönttö on suihkun vieressä: näköala on mitä on.", "Helpottaa."].pick_random(), 2.5)
 		"sauna":
 			tilat.first("sisasauna", 0.2)
 			walker_out.stamina = 100.0
@@ -6135,7 +6140,7 @@ func _maybe_screenshot() -> void:
 			print("SISA ovella hint=", _hint.text)
 			await press.call("interact")
 			print("SISA state=", state, " hint=", _hint.text)
-			for id in ["kahvi", "jaakaappi", "takka", "tv", "suihku", "sauna"]:
+			for id in ["kahvi", "jaakaappi", "takka", "tv", "suihku", "wc", "sauna"]:
 				mokki_int.walker.position = mokki_int.SPOTS[id][0]
 				await get_tree().process_frame
 				await get_tree().process_frame
@@ -6149,6 +6154,15 @@ func _maybe_screenshot() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_tupa.png"))
 			await get_tree().process_frame
+			mokki_int.walker.position = Vector3(3.0, 0, -3.8)
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_pesu.png"))
+			mokki_int.walker.position = mokki_int.SPOTS.ovi2[0]
+			await get_tree().process_frame
+			await get_tree().process_frame
+			print("SISA ovi2 hint=", mokki_int.hint)
 			mokki_int.walker.position = mokki_int.SPOTS.ovi[0]
 			await get_tree().process_frame
 			await press.call("interact")
