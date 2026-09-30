@@ -5,6 +5,8 @@ render_mode cull_disabled;
 
 uniform vec2 origin = vec2(0.0);
 uniform vec2 size = vec2(1.0);
+uniform vec2 pivot = vec2(0.0);  // nurmikon keskipiste maailmassa (origin ja size paikallisessa kehyksessä)
+uniform float angle = 0.0;
 uniform sampler2D cut : filter_linear;
 uniform float max_len = 0.8;
 uniform vec3 long_col : source_color = vec3(0.17, 0.33, 0.1);
@@ -18,7 +20,9 @@ void vertex() {
 }
 
 void fragment() {
-	float len = texture(cut, (v_wp - origin) / size).r * max_len;
+	vec2 d = v_wp - pivot;
+	vec2 lp = vec2(cos(angle) * d.x + sin(angle) * d.y, -sin(angle) * d.x + cos(angle) * d.y);
+	float len = texture(cut, (lp - origin) / size).r * max_len;
 	float n = texture(noise_tex, v_wp * 0.08).r;
 	float fine = texture(noise_tex, v_wp * 0.9).r;
 	vec3 col = mix(cut_col, long_col, smoothstep(0.05, 0.3, len));
