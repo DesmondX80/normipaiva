@@ -27,3 +27,4 @@
 | fart_0–2.wav | "Gastric Distress" (LFA) – https://opengameart.org/content/gastric-distress (leikattu) |
 
 - saw_0–7.wav (pokasahan vedot) ja axe_0–5.wav (kirveen iskut pölkkyyn): CC0, leikattu pidemmistä äänitteistä.
+- shotgun.wav (haulikon laukaus metsästysminipelissä): syntetisoitu tätä peliä varten (kohina, matala jyly ja kaiku), CC0.
