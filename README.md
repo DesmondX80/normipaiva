@@ -49,10 +49,13 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen). Mökki on mallinnettu oikean
   paikan mukaan (Kaisuantie 62, Vaala): 200 × 200 m alue OpenStreetMapista (Likanen, Tervalampi, Kiiskeroinen,
   Kaisuantie, pellot, naapurit ja metsä) ja korkeudet Maanmittauslaitoksen 2 m korkeusmallista (mökki on
-  harjanteella ja piha viettää n. 7 m rantaan). Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella savusauna,
-  puukuumenteinen poreamme ja kesäkeittiö (vaja + katos, offset-savustimessa voi paistaa makkaran),
-  tikanheittotaulu, kalastus laiturilta (heitä onki, odota nykäisyä, vedä ylös ajoissa) ja isäntä Santtu
-  kahvikuppeineen. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
+  harjanteella ja piha viettää n. 7 m rantaan), ja mökki rajautuu joka suunnalta tiiviiseen mäntymetsään
+  tummanruskeine pystylautaseinineen. Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella
+  savusauna, puukuumenteinen poreamme ja kesäkeittiö (avoin katos offset-savustimineen, jossa voi savustaa
+  makkaran, laiturilta saadun kalan tai riistapolulta ansoittaman riistan), tikanheittotaulu, kalastus
+  laiturilta portaineen (heitä onki, odota nykäisyä, vedä ylös ajoissa) ja isäntä Santtu kahvikuppeineen.
+  Saunassa käynti (E) on lyhyt välianimaatio terassilla: löyly höyryää saunan ovelta, ja jos kaljaa on mukana,
+  otetaan hörppy. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
   jääkaappi), pitkä pöytä, TV ja takka, makuuhuone violetteine kerrossänkyineen, kylpyhuone ja sisäsauna.
   Kerrossängyssä voi **nukkua yön**: päivä vaihtuu ja uusi alkaa mökiltä (Päivi soittaa aamulla).
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
@@ -192,7 +195,7 @@ godot --path .
 |---|---|
 | W / S | polje / jarruta ja peruuta |
 | A / D | ohjaa |
-| Välilyönti | jarru |
+| Välilyönti | jarru (pyörällä) / hyppy (jalan) |
 | Q | soittokello |
 | E | toiminto (kauppaan, osta, maksa, ulos) |
 | F | nouse pyörän selästä / takaisin pyörälle (pyörä jää parkkiin ja näkyy kartassa) |

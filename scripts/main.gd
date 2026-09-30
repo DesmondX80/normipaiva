@@ -295,6 +295,15 @@ var _santtu_chat_t := 6.0
 var _fish_state := "idle"  # idle | waiting | bite
 var _fish_t := 0.0
 var _fish_target := 0.0
+## Laiturilta saatu kala odottaa savustusta kesäkeittiössä (ks. Mokki.KITCHEN_LOCAL).
+var has_fish := false
+var fish_kind := ""
+## Metsästysreissu mökin metsässä (ks. Mokki.HUNT_LOCAL): sama nykäisy/vedä-rytmi kuin kalastuksessa.
+var _hunt_state := "idle"  # idle | waiting | moment
+var _hunt_t := 0.0
+var _hunt_target := 0.0
+var has_game := false
+var game_kind := ""
 
 
 func _ready() -> void:
@@ -1724,8 +1733,26 @@ func _mokki_logic() -> void:
 				tilat.add("stressi", 0.1)
 				Sfx.play("whoosh", -6.0, 0.4)
 				_show_message("Savustettu makkara! Nam.", 2.5)
+		elif has_fish:
+			_hint.text = "[E] Savusta %s offset-savustimessa" % fish_kind
+			if e:
+				has_fish = false
+				_eat(0.6)
+				tilat.first("savustin_kala", 0.3)
+				tilat.add("stressi", 0.1)
+				Sfx.play("whoosh", -6.0, 0.4)
+				_show_message("Savustettu %s! Herkullista." % fish_kind, 2.5)
+		elif has_game:
+			_hint.text = "[E] Savusta %s offset-savustimessa" % game_kind
+			if e:
+				has_game = false
+				_eat(0.7)
+				tilat.first("savustin_riista", 0.3)
+				tilat.add("stressi", 0.1)
+				Sfx.play("whoosh", -6.0, 0.4)
+				_show_message("Savustettu %s! Metsästäjän palkka." % game_kind, 2.5)
 		else:
-			_hint.text = "Kesäkeittiö ja offset-savustin. Makkaran saa K-Marketista."
+			_hint.text = "Kesäkeittiö ja offset-savustin. Makkaran saa K-Marketista, kalaa laiturilta ja riistaa riistapolulta."
 		return
 	if near.call(Mokki.SANTTU_LOCAL, 2.6):
 		_hint.text = "[E] Jutskaa Santun kanssa"
@@ -1747,16 +1774,7 @@ func _mokki_logic() -> void:
 		else:
 			_hint.text = "[E] Käy löylyssä"
 			if e:
-				walker_out.stamina = 100.0
-				walker_out.exhausted = false
-				Sfx.play("water", -6.0, 0.8)
-				_show_message("Löyly virkistää! Kunto palautui.", 2.5)
-				tilat.first("savusauna", 0.4)
-				if _once_today("sauna"):
-					tilat.add("stressi", 0.3)
-					tilat.add("vasymys", 0.3)
-					tilat.add("kipu", 0.2)
-					tilat.add("vireys", 0.2)
+				_sauna_cutscene()
 		return
 	if near.call(Mokki.TUB_LOCAL, 1.7):
 		if not mokki.tub_fire_on:
@@ -1796,6 +1814,38 @@ func _mokki_logic() -> void:
 	if near.call(Mokki.DOCK_LOCAL, 2.2):
 		_fish_logic(e)
 		return
+	if near.call(Mokki.HUNT_LOCAL, 2.4):
+		_hunt_logic(e)
+		return
+
+
+## Löylyssä käynti: lyhyt tunnelmapala terassilla, höyryä ja tilaisuuden tullen hörppy kaljaa.
+func _sauna_cutscene() -> void:
+	_mokki_prev = state
+	state = "cutscene"
+	player.controls_enabled = false
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	var had_beer := beers > 0
+	if had_beer:
+		beers -= 1
+	cutscene.sauna_relax(mokki.to_global(Mokki.SAUNA_LOCAL), had_beer, func() -> void:
+		walker_out.stamina = 100.0
+		walker_out.exhausted = false
+		tilat.first("savusauna", 0.4)
+		if _once_today("sauna"):
+			tilat.add("stressi", 0.3)
+			tilat.add("vasymys", 0.3)
+			tilat.add("kipu", 0.2)
+			tilat.add("vireys", 0.2)
+		if had_beer:
+			tilat.add("moraali", 0.1)
+		state = _mokki_prev
+		player.controls_enabled = true
+		player.activate_camera()
+		_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+		_hud.visible = true
+		_show_message("Löyly virkistää! Kunto palautui.", 2.5))
 
 
 ## Mökin sisälle: oma tasku ja kävelijä kuten kaupassa; vaarat pysähtyvät sisällä oloajaksi.
@@ -1916,7 +1966,56 @@ func _land_fish() -> void:
 	tilat.first("kalastus", 0.3)
 	tilat.add("moraali", 0.05)
 	tilat.add("stressi", 0.1)
-	_show_message("Sait %s! Painoa noin %.1f kg." % [fish.name, kg], 3.0)
+	has_fish = true
+	fish_kind = fish.name
+	_show_message("Sait %s! Painoa noin %.1f kg. Vie kesäkeittiön savustimeen." % [fish.name, kg], 3.0)
+
+
+## Riistanansa riistapolulla: aseta ansa (E), odota, tarkista ajoissa (E) ennen kuin kettu ehtii viedä saaliin.
+func _hunt_logic(e: bool) -> void:
+	match _hunt_state:
+		"idle":
+			_hint.text = "[E] Aseta ansa riistapolulle"
+			if e:
+				_hunt_state = "waiting"
+				_hunt_t = 0.0
+				_hunt_target = randf_range(4.0, 9.0)
+				Sfx.play("whoosh", -6.0, 0.7)
+				_show_message("Ansa on viritetty. Käy välillä tarkistamassa.", 2.5)
+		"waiting":
+			_hunt_t += get_process_delta_time()
+			if _hunt_t >= _hunt_target:
+				_hunt_state = "moment"
+				_hunt_t = 0.0
+				Sfx.play("alert", -6.0, 1.1)
+				_show_message("ANSA LAUKESI!", 1.5)
+			else:
+				_hint.text = "Ansa on viritetty, odotat..."
+		"moment":
+			_hint.text = "[E] Tarkista ansa"
+			_hunt_t += get_process_delta_time()
+			if e:
+				_land_game()
+				_hunt_state = "idle"
+			elif _hunt_t > 3.0:
+				_show_message(Mokki.GAME_MISS_LINES.pick_random(), 2.0)
+				_hunt_state = "idle"
+
+
+func _land_game() -> void:
+	if randf() < 0.15:
+		Sfx.play("rattle", -4.0, 0.9)
+		_show_message("Ansa oli tyhjä. Kettu ehti ensin.", 2.5)
+		return
+	var game: Dictionary = Mokki.GAME.pick_random()
+	var kg: float = game.kg * randf_range(0.7, 1.4)
+	Sfx.play("win_small", -4.0)
+	tilat.first("metsastys", 0.3)
+	tilat.add("moraali", 0.05)
+	tilat.add("stressi", 0.1)
+	has_game = true
+	game_kind = game.name
+	_show_message("Sait %s! Painoa noin %.1f kg. Vie kesäkeittiön savustimeen." % [game.name, kg], 3.0)
 
 
 ## Kota: sahaa tukki pölkyiksi, pilko pölkyt haloiksi, sytytä tuli ja kuuntele tarinoita. Lintutornista lintuja.
@@ -2545,6 +2644,9 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		mokki.set_sauna_fire(false)
 		mokki.set_tub_fire(false)
 	_fish_state = "idle"
+	has_fish = false
+	_hunt_state = "idle"
+	has_game = false
 	var bonus := ""
 	if _no_allowance:
 		_no_allowance = false
@@ -2671,6 +2773,7 @@ func _setup_input() -> void:
 	_add_action("left", [KEY_A, KEY_LEFT])
 	_add_action("right", [KEY_D, KEY_RIGHT])
 	_add_action("brake", [KEY_SPACE])
+	_add_action("jump", [KEY_SPACE])
 	_add_action("interact", [KEY_E])
 	_add_action("restart", [KEY_R])
 	_add_action("bell", [KEY_Q])
