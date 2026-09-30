@@ -3,6 +3,8 @@ extends Control
 ## eväille (T syö), esineet 16 x 16 pikselikuvakkeina pinoineen ja lukumäärineen. Hiiren alla olevasta ruudusta
 ## näytetään nimi ja kuvaus violettireunaisessa laatikossa. Vasemmalla rahat ja tilanne, oikealla kauppalista ja
 ## jemmat (vain Saloisissa, mökillä pääpelin tehtävät eivät näy). Peli pysähtyy, kun reppu on auki.
+## Muotokuvaruudussa on pelaajan oma 3D-hahmo (looks.gd: tuulipuku ja lippis) omassa SubViewportissaan; hahmo
+## kääntyy katsomaan hiirtä kuten Minecraftissa.
 ## Sisältö kysytään pelistä: game.inventory_items() -> [{icon, name, count, desc, tint?, food?}] ja
 ## game.inventory_info() -> {money, lines: [], list: [], stashes: []}.
 
@@ -15,6 +17,8 @@ const SLOT_BG := Color(0.545, 0.545, 0.545)
 const DARK := Color(0.216, 0.216, 0.216)
 const LIGHT := Color(1, 1, 1)
 const TEXT := Color(0.25, 0.25, 0.25)
+const PORTRAIT := Vector2(150, 200)
+const Looks := preload("res://scripts/looks.gd")
 
 var game: Node
 
@@ -25,6 +29,9 @@ var _panel := Rect2()
 var _slots: Array[Rect2] = []  # 27 reppu + 9 eväät
 var _hover := -1
 var _icons := {}
+var _pv: SubViewport  # hahmon muotokuva, rakennetaan ensimmäisellä avauksella
+var _pchar: Node3D
+var _ptex: TextureRect  # muotokuva omana lapsenaan: lineaarinen suodatus (muu reppu on pikseligrafiikkaa)
 
 
 func _ready() -> void:
@@ -38,9 +45,13 @@ func _ready() -> void:
 func toggle() -> void:
 	visible = not visible
 	get_tree().paused = visible
+	if _pv != null:
+		_pv.render_target_update_mode = SubViewport.UPDATE_ALWAYS if visible else SubViewport.UPDATE_DISABLED
+		_pchar.process_mode = Node.PROCESS_MODE_ALWAYS if visible else Node.PROCESS_MODE_DISABLED
 	if visible:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		size = get_viewport_rect().size
+		_ensure_portrait()
 		_refresh()
 		Sfx.play("cloth", -8.0, 1.2)
 	queue_redraw()
@@ -56,6 +67,7 @@ func _process(_delta: float) -> void:
 		for i in _slots.size():
 			if _slots[i].has_point(m):
 				h = i
+		_look_at_mouse(m, _delta)
 		if h != _hover:
 			_hover = h
 			queue_redraw()
@@ -89,7 +101,7 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	var p := _panel.position
 	# Yläosa: hahmon "muotokuvaruutu" ja tilanne vasemmalla, kauppalista ja jemmat oikealla.
-	var port := Rect2(p + Vector2(PAD, PAD), Vector2(150, 200))
+	var port := _portrait_rect()
 	_inset(port, Color(0.08, 0.08, 0.1))
 	_draw_portrait(port)
 	var y := p.y + PAD + 22.0
@@ -189,31 +201,77 @@ func _inset(r: Rect2, fill: Color) -> void:
 	draw_rect(Rect2(Vector2(r.end.x - 2, r.position.y), Vector2(2, r.size.y)), LIGHT)
 
 
-## Pelaajan pikselihahmo lippiksineen ja verkkareineen (kuten pelissä).
+func _portrait_rect() -> Rect2:
+	return Rect2(_panel.position + Vector2(PAD, PAD), PORTRAIT)
+
+
+## Pelaajan hahmo samasta mallista kuin pelissä: oma 3D-maailma, kamera, valot ja lepoanimaatio.
+func _ensure_portrait() -> void:
+	if _pv != null:
+		return
+	_pv = SubViewport.new()
+	_pv.own_world_3d = true
+	_pv.msaa_3d = Viewport.MSAA_4X
+	_pv.size = Vector2i(PORTRAIT * 2.0)  # tarkempi kuva, piirretään puoleen kokoon
+	_pv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(_pv)
+	var root := Node3D.new()
+	_pv.add_child(root)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.1, 0.11, 0.14)  # ruudun tumma tausta (läpinäkyvä tausta estäisi ihon SSS:n)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.75, 0.78, 0.85)
+	env.ambient_light_energy = 0.7
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	var we := WorldEnvironment.new()
+	we.environment = env
+	root.add_child(we)
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-30, 35, 0)
+	key.light_energy = 1.3
+	root.add_child(key)
+	var rim := DirectionalLight3D.new()
+	rim.rotation_degrees = Vector3(-15, 200, 0)
+	rim.light_energy = 0.6
+	rim.light_color = Color(0.7, 0.85, 1.0)
+	root.add_child(rim)
+	var cam := Camera3D.new()
+	cam.fov = 30.0
+	cam.position = Vector3(0, 0.95, 3.75)
+	cam.rotation_degrees = Vector3(-2, 0, 0)
+	root.add_child(cam)
+	cam.current = true
+	_pchar = Looks.make(root, Looks.PLAYER)
+	Looks.add_cap(_pchar)
+	_pchar.rotation.y = PI  # kasvot -Z:aan: käännetään kameraa kohti
+	_pchar.play("Idle")
+	_ptex = TextureRect.new()
+	_ptex.texture = _pv.get_texture()
+	_ptex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_ptex.stretch_mode = TextureRect.STRETCH_SCALE
+	_ptex.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_ptex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_ptex)
+
+
+## Hahmo kääntää vartaloa ja päätä hiiren suuntaan (Minecraftin inventaarion tapaan).
+func _look_at_mouse(m: Vector2, delta: float) -> void:
+	if _pchar == null:
+		return
+	var r := _portrait_rect()
+	var c := r.get_center() + Vector2(0, -r.size.y * 0.3)
+	var yaw := clampf((m.x - c.x) / 400.0, -0.7, 0.7)
+	var pitch := clampf((m.y - c.y) / 500.0, -0.4, 0.4)
+	_pchar.rotation.y = lerp_angle(_pchar.rotation.y, PI + yaw * 0.6, 1.0 - exp(-8.0 * delta))
+	_pchar.set_override("Head", Vector3.UP, yaw * 0.7)
+	_pchar.set_override("neck_01", Vector3.RIGHT, pitch)
+
+
 func _draw_portrait(r: Rect2) -> void:
-	var u := r.size.x / 16.0
-	var o := r.position + Vector2(0, (r.size.y - 22 * u) / 2.0)
-	var parts := [
-		[Rect2(5, 1, 6, 2), Color(0.1, 0.1, 0.12)],  # lippis
-		[Rect2(4, 2, 8, 1), Color(0.1, 0.1, 0.12)],
-		[Rect2(5, 3, 6, 5), Color(0.9, 0.72, 0.58)],  # kasvot
-		[Rect2(6, 5, 1, 1), Color(0.15, 0.1, 0.05)],
-		[Rect2(9, 5, 1, 1), Color(0.15, 0.1, 0.05)],
-		[Rect2(7, 7, 2, 1), Color(0.6, 0.35, 0.3)],
-		[Rect2(4, 8, 8, 7), Color(0.1, 0.55, 0.6)],  # verkkaritakki
-		[Rect2(4, 11, 8, 1), Color(0.45, 0.2, 0.55)],
-		[Rect2(2, 8, 2, 7), Color(0.45, 0.2, 0.55)],  # kädet
-		[Rect2(12, 8, 2, 7), Color(0.45, 0.2, 0.55)],
-		[Rect2(2, 15, 2, 1), Color(0.9, 0.72, 0.58)],
-		[Rect2(12, 15, 2, 1), Color(0.9, 0.72, 0.58)],
-		[Rect2(5, 15, 3, 6), Color(0.35, 0.15, 0.5)],  # housut
-		[Rect2(8, 15, 3, 6), Color(0.3, 0.12, 0.45)],
-		[Rect2(5, 21, 3, 1), Color.WHITE],
-		[Rect2(8, 21, 3, 1), Color.WHITE],
-	]
-	for pt in parts:
-		var q: Rect2 = pt[0]
-		draw_rect(Rect2(o + q.position * u, q.size * u), pt[1])
+	if _ptex != null:
+		_ptex.position = r.position + Vector2(2, 2)
+		_ptex.size = r.size - Vector2(4, 4)
 
 
 func _text(at: Vector2, s: String, fs: int, col: Color) -> void:

@@ -13,6 +13,7 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Terrain := preload("res://scripts/terrain.gd")
+const DroneGame := preload("res://scripts/drone_game.gd")
 
 const DATA_PATH := "res://assets/mokki/kartta.json"
 ## Mökin kehys karttakehyksessä: paikallisen origon paikka (m osoitepisteestä) ja kierto (OSM:n mökin mukaan).
@@ -41,6 +42,7 @@ const HUNT_LOCAL := Vector3(-30.0, 0, 5.0)     # metsästyslava syvemmällä met
 const HUNT_GLADE := Vector2(HUNT_LOCAL.x - 14.0, HUNT_LOCAL.z)
 const HUNT_GLADE_R := 10.0
 const PINGIS_LOCAL := Vector3(-7.5, 0, 9.0)    # pihapingiksen mailat kannolla Santun vasemmalla puolella
+const DRONE_LOCAL := Vector3(-4.5, 0, -7.5)    # droonin laskeutumisalusta pysäköintipaikan vieressä mökin takana
 
 # Karttageometria (ks. minimap.gd ja paper_map.gd: mökin oma kartta korvaa kyläkartan täällä).
 const YARD_CENTER := Vector2(-2.0, 10.0)
@@ -1138,6 +1140,8 @@ func _build_yard_extras() -> void:
 	tplate.position.y = 2.1
 	B.parked_car(self, TAXI_LOCAL + Vector3(-2.6, 0, 1.0), 12.0, Color(0.96, 0.78, 0.08))
 	B.mesh(self, B.boxm(Vector3(0.5, 0.16, 0.3)), TAXI_LOCAL + Vector3(-2.6, 1.68, 1.0), Color(0.9, 0.85, 0.2))
+	# Droonin alusta: sama drooni kulkee mukana taksissa kotoa.
+	DroneGame.make_pad(self, DRONE_LOCAL, 0.0)
 	# Pihatie taksipysäkiltä pihaan (sora).
 	var road_mat := B.shader_mat("res://shaders/ground.gdshader", {
 		"color_a": Color(0.53, 0.47, 0.37), "color_b": Color(0.64, 0.57, 0.45), "scale": 0.08,

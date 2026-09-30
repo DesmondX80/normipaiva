@@ -147,8 +147,17 @@ const DRONE_POIS := {
 	"juntti": "Juntti", "jyvajemmari": "Jyväjemmarin traktori", "mummot": "Penkin mummot", "arto": "Naapurin Arto",
 	"pekka": "Pekka", "sinikka": "Naapurin Sinikka", "vaino": "Väinö karkuteillä", "pojat": "Jalkapallopojat",
 }
+## Mökillä sama drooni lennetään pihan alustalta: omat ilmakuvat (id:t m_-alkuisia, samassa kokoelmassa).
+## Järvet ja lammet lisätään karttadatasta (ks. _mokki_drone_names).
+const MOKKI_DRONE_POIS := {
+	"m_mokki": "Mökki, Kaisuantie 62", "m_savusauna": "Savusauna", "m_poreamme": "Poreamme", "m_keittio": "Kesäkeittiö",
+	"m_laituri": "Laituri Likasella", "m_lava": "Metsästyslava", "m_santtu": "Santtu pihatuolilla",
+}
+const MOKKI_DRONE_R := 620.0  # lentoalueen säde mökiltä (maisema jatkuu vähän pidemmälle)
 var drone_battery := 1.0
 var drone_broken_day := -1
+var _mokki_drone_cache := {}
+var _mokki_lakes := {}  # id -> paikallinen piste järven pinnalla
 var drone_photos: Array = []
 var pontikka_found := false
 var _drone: Node3D
@@ -406,7 +415,7 @@ func _ready() -> void:
 	map_layer.add_child(_inventory)
 	_drone_parked = Node3D.new()
 	add_child(_drone_parked)
-	_drone_parked.position = world.drone_pad_pos + Vector3(0, Terrain.h(world.drone_pad_pos.x, world.drone_pad_pos.z) + 0.16, 0)
+	_drone_parked.position = _drone_pad(false) + Vector3(0, 0.16, 0)
 	DroneGame.make_model(_drone_parked)
 	var amb := Ambience.new()
 	amb.world = world
@@ -562,6 +571,7 @@ func _outside_logic() -> void:
 	# Mökillä vain mökin omat toiminnot: kauppareissu, jemmat ja kylän tapahtumat odottavat Saloisissa.
 	_beacon.visible = not _at_mokki()
 	if not _beacon.visible:
+		_drone_logic()
 		_mokki_taxi_logic()
 		_mokki_logic()
 		return
@@ -950,11 +960,16 @@ func _mow() -> void:
 		_stop_mowing()
 
 
-## Droonin alusta kotipihalla: jalan E lähettää droonin ilmaan.
+## Droonin alusta kotipihalla tai mökin pihalla: jalan E lähettää droonin ilmaan. Drooni kulkee mukana, joten
+## se odottaa sen paikan alustalla, jossa pelaaja on.
 func _drone_logic() -> void:
+	var at_m := _at_mokki()
+	var parked := _drone_pad(at_m) + Vector3(0, 0.16, 0)
+	if _drone_parked.position.distance_to(parked) > 0.5:
+		_drone_parked.position = parked
 	if _hint.text != "" or player != walker_out or player.is_stunned():
 		return
-	var pad: Vector3 = world.drone_pad_pos
+	var pad := _drone_pad(at_m)
 	var p := player.global_position
 	if Vector2(p.x - pad.x, p.z - pad.z).length() > 1.8:
 		return
@@ -964,10 +979,47 @@ func _drone_logic() -> void:
 	if drone_battery < 0.25:
 		_hint.text = "Droonin akku latautuu (%d %%)." % roundi(drone_battery * 100.0)
 		return
-	_hint.text = "[E] Lennätä droonia (akku %d %%, ilmakuvia %d/%d)" % [roundi(drone_battery * 100.0), drone_photos.size(),
-		DRONE_POIS.size()]
+	var names := _drone_names(at_m)
+	_hint.text = "[E] Lennätä droonia (akku %d %%, ilmakuvia %d/%d)" % [roundi(drone_battery * 100.0),
+		_drone_photo_count(names), names.size()]
 	if Input.is_action_just_pressed("interact"):
 		_start_drone()
+
+
+## Alustan keskipiste maanpinnalla (maailmassa): kotipiha tai mökin piha.
+func _drone_pad(at_m: bool) -> Vector3:
+	if at_m and mokki.built:
+		return mokki.gpos(Mokki.DRONE_LOCAL)
+	var pad: Vector3 = world.drone_pad_pos
+	return pad + Vector3(0, Terrain.h(pad.x, pad.z), 0)
+
+
+## Kuvattavien kohteiden nimet (id -> nimi) paikan mukaan.
+func _drone_names(at_m: bool) -> Dictionary:
+	return _mokki_drone_names() if at_m else DRONE_POIS
+
+
+func _drone_photo_count(names: Dictionary) -> int:
+	return drone_photos.filter(func(id: String) -> bool: return names.has(id)).size()
+
+
+## Mökin kohteet ja lentoalueen nimetyt järvet (id "m_järvi:<nimi>" -> nimi). Lasketaan kerran; järvien
+## pisteet (bbox:n keskipiste, jos se on vedessä) jäävät _mokki_lakes-sanakirjaan.
+func _mokki_drone_names() -> Dictionary:
+	if _mokki_drone_cache.is_empty():
+		var out := MOKKI_DRONE_POIS.duplicate()
+		var data := Mokki.map_data()
+		for i in data.water.size():
+			var nm: String = data.water_names[i]
+			var id := "m_järvi:" + nm
+			if nm == "" or out.has(id):
+				continue
+			var c: Vector2 = data.water_bbox[i].get_center()
+			if c.length() < MOKKI_DRONE_R - 80.0 and Geometry2D.is_point_in_polygon(c, data.water[i]):
+				out[id] = nm
+				_mokki_lakes[id] = Vector3(c.x, Mokki.water_level(i), c.y)
+		_mokki_drone_cache = out
+	return _mokki_drone_cache
 
 
 func _start_drone() -> void:
@@ -975,15 +1027,27 @@ func _start_drone() -> void:
 	state = "minigame"
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
-	walker_out.rotation.y = B.yaw_to(world.drone_pad_pos - walker_out.global_position)
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	var at_m := _at_mokki()
+	var pad := _drone_pad(at_m)
+	walker_out.rotation.y = B.yaw_to(pad - walker_out.global_position)
 	_drone_parked.visible = false
 	var d := DroneGame.new()
-	d.position = world.drone_pad_pos + Vector3(0, Terrain.h(world.drone_pad_pos.x, world.drone_pad_pos.z), 0)
+	d.position = pad
 	d.battery = drone_battery
-	d.pois = _drone_pois()
-	d.photo_total = DRONE_POIS.size()
-	d.photo_count = drone_photos.size()
+	var names := _drone_names(at_m)
+	d.pois = _mokki_drone_pois() if at_m else _drone_pois()
+	d.photo_total = names.size()
+	d.photo_count = _drone_photo_count(names)
+	if at_m:
+		# Mökin maasto: järvien kohdalla pinta on vesi (sinne pudonnut drooni on mennyttä).
+		var surface := func(x: float, z: float) -> Vector2:
+			var l: Vector3 = mokki.to_local(Vector3(x, 0, z))
+			var wi := Mokki.water_at(l.x, l.z)
+			return Vector2(wi, Mokki.water_level(wi) if wi >= 0 else Mokki.h(l.x, l.z))
+		d.ground = func(x: float, z: float) -> float: return mokki.global_position.y + surface.call(x, z).y
+		d.is_water = func(x: float, z: float) -> bool: return surface.call(x, z).x >= 0.0
+		d.in_bounds = func(q: Vector2) -> bool: return q.distance_to(Vector2(MOKKI_POS.x, MOKKI_POS.z)) < MOKKI_DRONE_R
 	d.photographed.connect(_on_drone_photo)
 	d.hud = _hud
 	d.finished.connect(_on_drone_finished)
@@ -1022,19 +1086,44 @@ func _drone_pois() -> Array:
 	return out
 
 
+## Mökin ilmakuvakohteet: pihan rakennukset, laituri, metsästyslava, Santtu ja järvet.
+func _mokki_drone_pois() -> Array:
+	var names := _mokki_drone_names()
+	var fixed := {"m_mokki": Vector3(Mokki.COTTAGE_LOCAL.x, 1.5, Mokki.COTTAGE_LOCAL.y), "m_savusauna": Mokki.SAUNA_LOCAL,
+		"m_poreamme": Mokki.TUB_LOCAL, "m_keittio": Mokki.KITCHEN_LOCAL, "m_laituri": Mokki.DOCK_LOCAL, "m_lava": Mokki.HUNT_LOCAL}
+	var out: Array = []
+	for id in fixed:
+		var at: Vector3 = mokki.gpos(fixed[id] + Vector3(0, 1.0, 0))
+		out.append({"id": id, "name": names[id], "pos": func() -> Vector3: return at})
+	var santtu: Node3D = mokki.santtu
+	out.append({"id": "m_santtu", "name": names.m_santtu, "pos": func() -> Vector3:
+		return santtu.global_position + Vector3(0, 1.0, 0) if is_instance_valid(santtu) and santtu.is_visible_in_tree() \
+			else Vector3(0, -9999, 0)})
+	for id in _mokki_lakes:
+		var at: Vector3 = mokki.to_global(_mokki_lakes[id])
+		out.append({"id": id, "name": names[id], "pos": func() -> Vector3: return at})
+	return out
+
+
 func _on_drone_photo(id: String) -> void:
 	if id in drone_photos:
 		return
 	drone_photos.append(id)
-	_drone.photo_count = drone_photos.size()
+	var names := _drone_names(id.begins_with("m_"))
+	var n := _drone_photo_count(names)
+	_drone.photo_count = n
 	tilat.add("kokemus", 0.05)
 	Sfx.play("win_small", -8.0, 1.2)
 	if id == "pontikka" and not pontikka_found:
 		pontikka_found = true
 		_queue_message("Kuusikosta nousee savua... Pannu-Sulon pontikkapannu! Paikka merkittiin karttaan (M).", 4.0)
-	if drone_photos.size() == DRONE_POIS.size():
-		_queue_message("Kaikki ilmakuvat otettu! Saloinen on nyt kartoitettu ilmasta.", 4.0)
-		maine = clampf(maine + 10.0, 0.0, 100.0)
+	if n == names.size():
+		if id.begins_with("m_"):
+			_queue_message("Kaikki mökin ilmakuvat otettu! Santtu saa uudet kuvat Airbnb-ilmoitukseen.", 4.0)
+			tilat.add("moraali", 0.1)
+		else:
+			_queue_message("Kaikki ilmakuvat otettu! Saloinen on nyt kartoitettu ilmasta.", 4.0)
+			maine = clampf(maine + 10.0, 0.0, 100.0)
 	_save_game()
 
 
@@ -1064,7 +1153,8 @@ func _on_drone_finished(result: String) -> void:
 		tilat.add("moraali", -0.1)
 		_show_message("Drooni hajosi. Romut kerätty, uudet potkurit huomenna.", 3.5)
 	else:
-		_show_message("Drooni laskeutui. Ilmakuvia %d/%d." % [drone_photos.size(), DRONE_POIS.size()], 3.0)
+		var names := _drone_names(_at_mokki())
+		_show_message("Drooni laskeutui. Ilmakuvia %d/%d." % [_drone_photo_count(names), names.size()], 3.0)
 
 
 ## Terä osui siiliin tai kiveen. Toinen siili tuo poliisin, toinen kivi rikkoo leikkurin.
@@ -3536,34 +3626,25 @@ func _build_hud() -> void:
 
 
 func _update_hud() -> void:
-	# Tavarat, kaljat ja jemmat ovat repussa (I). Mökillä pääpelin tehtävät eivät näy.
+	# Rahat, kauppalista, tavarat, jemmat ja mittarit ovat repussa (I): päänäkymässä vain matkan tiedot.
+	# Mökillä pääpelin tehtävät eivät näy.
 	var at_mokki := _at_mokki()
-	var lines := "Rahaa: %s €" % _eur(money)
-	if at_mokki:
-		lines += "\nMökki · Kaisuantie 62, Uutelanperä, Vaala"
-	else:
-		lines += "\nAika: %s" % _time(elapsed)
+	var lines: Array[String] = []
+	if not at_mokki:
+		lines.append("Aika: %s" % _time(elapsed))
 		if not _risky_stashes().is_empty():
-			lines += "\n⚠ Kotijemma vaarassa (I)"
+			lines.append("⚠ Kotijemma vaarassa (I)")
 	if state in ["to_shop", "to_home"] and not at_mokki:
 		var target := shop_zone if state == "to_shop" else home_zone
 		var p := player.global_position
-		lines += "\nTavoite: %s  %d m\nAlusta: %s" % [
-			"K-Market" if state == "to_shop" else "Koti",
-			int(Vector2(p.x, p.z).distance_to(Vector2(target.x, target.z))), world.TERRAIN[player.surface].name]
+		lines.append("Tavoite: %s  %d m" % ["K-Market" if state == "to_shop" else "Koti",
+			int(Vector2(p.x, p.z).distance_to(Vector2(target.x, target.z)))])
+		lines.append("Alusta: %s" % world.TERRAIN[player.surface].name)
 	_stamina_box.visible = state in ["to_shop", "to_home"]  # juoksu ja pyörän spurtti kuluttavat samaa kuntoa
 	if _stamina_box.visible:
 		_stamina_bar.value = walker_out.stamina
 		(_stamina_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = Color(0.9, 0.3, 0.2) if walker_out.exhausted else Color(0.3, 0.8, 0.4)
-	if not _list_done and not shopping_list.is_empty() and not at_mokki:
-		# Kauppalista: vain tuotteet, värit pitää muistaa. ✔ = kassissa (väristä riippumatta).
-		var items: Array[String] = []
-		for it in shopping_list:
-			items.append(it[0] + (" ✔" if paivi_bag.has(it[0]) or interior.bag.has(it[0]) else ""))
-		lines += "\nKauppalista: " + ", ".join(items)
-	if (mielihyva > 0.0 or maine > 0.0) and not at_mokki:
-		lines += "\nMielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)]
-	_stats.text = lines
+	_stats.text = "\n".join(lines)
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
 	_minimap.visible = not (state in ["in_shop", "in_mokki"])
@@ -3663,11 +3744,13 @@ func inventory_items() -> Array:
 func inventory_info() -> Dictionary:
 	var info := {"money": _eur(money), "lines": [], "list": [], "stashes": []}
 	if _at_mokki():
+		var mn := _mokki_drone_names()
 		info.lines = ["Päivä %d · mökillä" % day, "Kaisuantie 62, Uutelanperä, Vaala",
-			"Koti Saloisissa n. %d km länteen" % roundi(HOME_MOKKI_KM)]
+			"Koti Saloisissa n. %d km länteen" % roundi(HOME_MOKKI_KM),
+			"Droonin ilmakuvat %d / %d" % [_drone_photo_count(mn), mn.size()]]
 		return info
 	info.lines = ["Päivä %d · Järvikuja 1, Saloinen" % day, "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
-		"Aika: %s" % _time(elapsed)]
+		"Aika: %s" % _time(elapsed), "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
 	if not _list_done:
 		for it in shopping_list:
 			info.list.append(it[0] + ("  ✔" if paivi_bag.has(it[0]) or interior.bag.has(it[0]) else ""))
@@ -5058,6 +5141,94 @@ func _maybe_screenshot() -> void:
 			print("DROONI hint rikki=", _hint.text)
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"mokkidrooni":
+			# Drooni mökillä: alustan vihje, nousu, kuva mökistä ja järvestä, laskeutuminen (H) ja järveen putoaminen.
+			# Kuvat _pad, _fpv, _chase. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(suffix: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", suffix))
+			drone_photos.clear()
+			drone_battery = 1.0
+			_toggle_mount()
+			var pad := _drone_pad(true)
+			walker_out.global_position = pad + Vector3(1.2, 0.3, 0.6)
+			for i in 20:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("MDROONI at_mokki=%s pad=%s parked=%s hint=%s" % [_at_mokki(), pad, _drone_parked.position, _hint.text])
+			print("MDROONI kohteet: ", _mokki_drone_names().values())
+			await snap.call("_pad.png")
+			await get_tree().process_frame  # kuvakaappauksen jälkeen: painallus seuraavan ruudun alkuun
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().process_frame
+			var dg: Node3D = _drone
+			print("MDROONI state=%s drone=%s total=%d" % [state, dg != null, dg.photo_total])
+			Input.action_press("jump")
+			for i in 200:
+				await get_tree().physics_frame
+			Input.action_release("jump")
+			print("MDROONI nousu: kork %.1f m" % (dg.body.global_position.y - dg._home_ground))
+			var mc: Vector3 = mokki.gpos(Vector3(0, 1, -1))
+			var to: Vector3 = mc - dg.body.global_position
+			dg._yaw = atan2(-to.x, -to.z)
+			dg._gimbal = -atan2(-to.y, Vector2(to.x, to.z).length())
+			for i in 5:
+				await get_tree().physics_frame
+			await dg.take_photo()
+			print("MDROONI kuva: ", drone_photos, " ", dg._warn.text)
+			# Järven yläpuolelle ja kuva alas.
+			for id in _mokki_lakes:
+				var lk: Vector3 = mokki.to_global(_mokki_lakes[id])
+				dg.body.global_position = lk + Vector3(0, 50, 25)
+				dg._yaw = 0.0
+				dg._gimbal = -atan2(50.0, 25.0)
+				for i in 10:
+					await get_tree().physics_frame
+				await dg.take_photo()
+				print("MDROONI järvi %s: %s" % [id, dg._warn.text])
+				break
+			await snap.call("_fpv.png")
+			CamCtl.fps = false
+			dg.body.global_position = pad + Vector3(30, 25, 20)
+			for i in 40:
+				await get_tree().physics_frame
+			await snap.call("_chase.png")
+			Input.action_press("forward")  # alueen raja: kaukana mökistä käännytään takaisin
+			dg.body.global_position = MOKKI_POS + Vector3(MOKKI_DRONE_R + 5.0, 0, 0)
+			dg.body.global_position.y = dg.ground.call(dg.body.global_position.x, dg.body.global_position.z) + 60.0
+			for i in 5:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			print("MDROONI raja: vel=%s msg=%s" % [dg._vel, dg._warn.text])
+			dg.body.global_position = pad + Vector3(10, 20, 10)
+			var ev := InputEventKey.new()
+			ev.physical_keycode = KEY_H
+			ev.pressed = true
+			Input.parse_input_event(ev)
+			for i in 60 * 20:
+				await get_tree().physics_frame
+				if _drone == null:
+					break
+			print("MDROONI loppu: state=%s drone=%s msg=%s" % [state, _drone != null, _msg.text])
+			# Järveen pudotus: uusi lento ja lasku veden päälle.
+			await get_tree().process_frame
+			_start_drone()
+			await get_tree().process_frame
+			dg = _drone
+			var lake: Vector3 = mokki.gpos(Mokki.DOCK_LOCAL + Vector3(0, 0, 15))
+			dg._landed = false
+			dg.body.global_position = lake + Vector3(0, 1.05, 0)  # h() on järven pohja, pinta metrin ylempänä
+			print("MDROONI vesi=%s" % dg.is_water.call(lake.x, lake.z))
+			for i in 60 * 5:
+				await get_tree().physics_frame
+				if _drone == null:
+					break
+			print("MDROONI järveen: broken=%s msg=%s" % [drone_broken_day == day, _msg.text])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"reppu":
 			# Reppu täynnä tavaraa Saloisissa (kuva _reppu), sitten mökille: HUD ilman pääpelin tehtäviä, pyörän
 			# välimatka ja repun mökkinäkymä (kuva _reppu_mokki). Tallennus palautetaan.
@@ -5476,7 +5647,7 @@ func _maybe_screenshot() -> void:
 			# Päivin lista: 3 oikein, 1 väärä väri ja 1 ylimääräinen; kotona palaute. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
 			shopping_list = [["tamponi", "vihreä"], ["maito", "punainen"], ["ristikkolehti", "sininen"], ["voi", "keltainen"]]
-			print("LISTA hud=", _stats.text.split("\n")[-1])
+			print("LISTA reppu=", inventory_info().list)
 			_enter_shop()
 			var iw: CharacterBody3D = interior.walker
 			var picks := [["tamponi", "vihreä"], ["maito", "punainen"], ["ristikkolehti", "sininen"], ["voi", "sininen"], ["kahvi", "punainen"]]
@@ -5495,7 +5666,7 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 				Input.action_release("interact")
 				await get_tree().process_frame
-			print("LISTA bag=", interior.bag, " hud=", _stats.text.split("\n")[-1])
+			print("LISTA bag=", interior.bag, " reppu=", inventory_info().list)
 			for i in 5:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
