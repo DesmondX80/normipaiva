@@ -337,6 +337,15 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_r(img, 7, 9, 2, 1, Color(0.7, 0.1, 0.1))
 			_r(img, 6, 6, 1, 2, Color(0.75, 0.5, 0.25))
 			_r(img, 6, 11, 1, 3, Color(0.75, 0.5, 0.25))
+		"viina":
+			_r(img, 7, 1, 2, 1, Color(0.85, 0.1, 0.1))
+			_r(img, 7, 2, 2, 3, Color(0.8, 0.88, 0.9))
+			_r(img, 6, 5, 4, 1, Color(0.8, 0.88, 0.9))
+			_r(img, 5, 6, 6, 9, Color(0.8, 0.88, 0.9))
+			_r(img, 5, 8, 6, 4, Color(0.95, 0.95, 0.88))
+			_r(img, 6, 9, 4, 1, Color(0.1, 0.25, 0.6))
+			_r(img, 6, 6, 1, 2, Color(1, 1, 1))
+			_r(img, 6, 12, 1, 2, Color(1, 1, 1))
 		"kanisteri":
 			_r(img, 3, 5, 10, 10, Color(0.9, 0.9, 0.85))
 			_r(img, 4, 2, 5, 1, Color(0.6, 0.6, 0.6))

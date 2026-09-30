@@ -43,6 +43,18 @@ const HUNT_GLADE := Vector2(HUNT_LOCAL.x - 14.0, HUNT_LOCAL.z)
 const HUNT_GLADE_R := 10.0
 const PINGIS_LOCAL := Vector3(-7.5, 0, 9.0)    # pihapingiksen mailat kannolla Santun vasemmalla puolella
 const DRONE_LOCAL := Vector3(-4.5, 0, -7.5)    # droonin laskeutumisalusta pysäköintipaikan vieressä mökin takana
+## Viinakätköt mökin ympäröivässä metsässä geokätköjen tapaan: kompassi ja HUD näyttävät lähimmän löytämättömän
+## kätkön suunnan ja matkan (main.gd _viina_logic). Paikat arvotaan kiinteällä siemenellä (viina_positions).
+const VIINA := [
+	{"id": "kossu", "desc": "Koskenkorva 0,5 l", "spot": "kivikasan alla"},
+	{"id": "jallu", "desc": "Jaloviina 0,5 l", "spot": "kaatuneen kuusen juurakossa"},
+	{"id": "minttu", "desc": "Minttu 0,35 l", "spot": "sammalmättään alla"},
+	{"id": "salmari", "desc": "Salmiakkikossu 0,5 l", "spot": "kannon kolossa"},
+	{"id": "lakka", "desc": "Lakkalikööri 0,5 l", "spot": "kiven kupeessa"},
+	{"id": "pontikka", "desc": "Pontikkapullo 0,7 l", "spot": "risukasan alla"},
+]
+const VIINA_R := Vector2(45.0, 220.0)  # etäisyys mökistä (min, max)
+const VIINA_GAP := 45.0                # kätköjen väli vähintään
 
 # Karttageometria (ks. minimap.gd ja paper_map.gd: mökin oma kartta korvaa kyläkartan täällä).
 const YARD_CENTER := Vector2(-2.0, 10.0)
@@ -126,6 +138,7 @@ func ensure_built() -> void:
 	_build_hottub()
 	_build_yard_extras()
 	_build_hunt_spot()
+	_build_viina_caches()
 	_build_pingis_spot()
 	_build_trees()
 	_build_santtu()
@@ -368,6 +381,39 @@ static func _build_mask() -> void:
 			for q in poly:
 				c += q
 			mark.call(c / poly.size(), 14.0, 2)
+
+
+static var _viina_pos: Array[Vector2] = []
+
+
+## Viinakätköjen paikat (paikallinen x/z, VIINA-järjestyksessä): metsää, ei vettä, peltoa, suota, teitä eikä pihoja.
+static func viina_positions() -> Array[Vector2]:
+	if not _viina_pos.is_empty():
+		return _viina_pos
+	var data := map_data()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4062
+	var avoid := [Vector2(HUNT_LOCAL.x, HUNT_LOCAL.z), HUNT_GLADE, Vector2(DOCK_LOCAL.x, DOCK_LOCAL.z),
+		Vector2(TAXI_LOCAL.x, TAXI_LOCAL.z)]
+	var tries := 0
+	while _viina_pos.size() < VIINA.size() and tries < 5000:
+		tries += 1
+		var a := rng.randf() * TAU
+		var p := COTTAGE_LOCAL + Vector2(cos(a), sin(a)) * rng.randf_range(VIINA_R.x, VIINA_R.y)
+		if _mask(p) != 0 or in_water(p.x, p.y) or in_field(p) or not in_area(p.x, p.y, 30.0):
+			continue
+		if pow((p.x - YARD_CENTER.x) / YARD_R.x, 2.0) + pow((p.y - YARD_CENTER.y) / YARD_R.y, 2.0) < 2.0:
+			continue
+		var ok := true
+		for b in data.bogs:
+			if Geometry2D.is_point_in_polygon(p, b):
+				ok = false
+		for q in avoid + _viina_pos:
+			if p.distance_to(q) < VIINA_GAP:
+				ok = false
+		if ok:
+			_viina_pos.append(p)
+	return _viina_pos
 
 
 ## Onko paikallinen piste 200 x 200 m alueella (reunan sisäpuolella margin m).
@@ -1199,6 +1245,30 @@ func _build_hunt_spot() -> void:
 	var plate := B.sign_plate(sign, "RIISTAPOLKU", Color(0.32, 0.24, 0.14), Color(0.92, 0.88, 0.78), 0.18, 26,
 		Color(0.3, 0.18, 0.1), "Helvetica Neue")
 	plate.position.y = 1.3
+
+
+## Viinakätköt: ruosteinen ammuslaatikko puoliksi kivien ja sammalen alla (kuten geokätkö), vieressä kuivunut
+## oksa merkkinä. Laatikko jää paikalleen, kun viina on otettu.
+func _build_viina_caches() -> void:
+	var rust := Color(0.36, 0.3, 0.18)
+	var stone := Color(0.46, 0.46, 0.44)
+	var moss := Color(0.2, 0.24, 0.1)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	for p in viina_positions():
+		var c := Node3D.new()
+		c.position = Vector3(p.x, 0, p.y)
+		c.rotation.y = rng.randf() * TAU
+		add_child(c)
+		B.mesh(c, B.sphere(0.55, 10), Vector3(0, -0.3, 0), moss)
+		B.mesh(c, B.boxm(Vector3(0.36, 0.2, 0.2)), Vector3(0, 0.12, 0), rust)
+		B.mesh(c, B.boxm(Vector3(0.38, 0.04, 0.22)), Vector3(0, 0.23, 0), rust.darkened(0.25))
+		B.mesh(c, B.boxm(Vector3(0.1, 0.03, 0.04)), Vector3(0, 0.26, 0), rust.darkened(0.45))
+		for k in 4:
+			var ang := k * TAU / 4.0 + rng.randf_range(-0.3, 0.3)
+			var r := rng.randf_range(0.14, 0.24)
+			B.mesh(c, B.sphere(r, 8), Vector3(cos(ang) * 0.38, r * 0.4, sin(ang) * 0.3), stone.darkened(rng.randf_range(0.0, 0.25)))
+		B.tube(c, Vector3(0.45, 0.0, 0.25), Vector3(0.55, 0.9, 0.35), 0.025, Color(0.5, 0.42, 0.32))
 
 
 ## Pihapingiksen paikka: kaksi isoa puumailaa ja pallo kannon päällä, keskirajana köysi nurmella

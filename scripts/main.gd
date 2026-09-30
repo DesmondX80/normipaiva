@@ -160,6 +160,10 @@ var _mokki_drone_cache := {}
 var _mokki_lakes := {}  # id -> paikallinen piste järven pinnalla
 var drone_photos: Array = []
 var pontikka_found := false
+## Mökin metsän viinakätköt (Mokki.VIINA): löydetyt id:t ja repussa olevat pullot. Säilyvät pelikerrasta toiseen.
+var viina_found: Array = []
+var viina_pullot := 0
+const VIINA_OPEN_R := 2.0
 var _drone: Node3D
 var _drone_parked: Node3D
 var _compass: Control
@@ -312,6 +316,7 @@ const FOODS := {
 	"savukala": {"name": "Savukala", "nalka": 0.5, "stressi": 0.05, "moraali": 0.05},
 	"savuriista": {"name": "Savustettu riista", "nalka": 0.6, "stressi": 0.05, "moraali": 0.1},
 	"karrella": {"name": "Karrelle savustunut saalis", "nalka": 0.25},
+	"viina": {"name": "Kätköviina", "nalka": 0.0, "stressi": 0.15, "moraali": 0.05},
 }
 ## Päivittäiset tilat (#18, day_stats.gd): kolme arvottua tilaa HUD:ssa, toiminnot nostavat ja laskevat niitä.
 ## Päivän summa < 0 -> seuraava päivä hankalampi (trouble = 1), >= GOOD_DAY -> helpompi (trouble = -1).
@@ -573,8 +578,10 @@ func _outside_logic() -> void:
 	if not _beacon.visible:
 		_drone_logic()
 		_mokki_taxi_logic()
+		_viina_logic()
 		_mokki_logic()
 		return
+	_compass.has_cache = false
 	var target := shop_zone if state == "to_shop" else home_zone
 	var ppos := player.global_position
 	var dist := Vector2(ppos.x, ppos.z).distance_to(Vector2(target.x, target.z))  # vaakaetäisyys (maasto ei vaikuta)
@@ -1350,6 +1357,8 @@ func _open_eat_menu() -> void:
 			items.append([k, "%s (%d)" % [FOODS[k].name, food[k]]])
 	if has_chocolate:
 		items.append(["suklaa", FOODS.suklaa.name])
+	if viina_pullot > 0:
+		items.append(["viina", "Huikka kätköviinaa (%d pulloa)" % viina_pullot])
 	for k in ["puolukka", "mustikka"]:
 		if bucket.get(k, 0) > 0:
 			items.append([k, "%s – ämpärissä %d l" % [FOODS[k].name, bucket[k]]])
@@ -1373,6 +1382,16 @@ func _on_eat(id: String) -> void:
 				food.erase(id)
 		"suklaa":
 			has_chocolate = false
+		"viina":
+			viina_pullot -= 1
+			tilat.add("humala", 0.25)
+			tilat.add("kipu", 0.1)
+			tilat.add("stressi", FOODS.viina.stressi)
+			tilat.add("moraali", FOODS.viina.moraali)
+			tilat.first("syo_viina", 0.1)
+			Sfx.play("glass", -6.0, 0.9)
+			_show_message(["Kurkkua polttaa.", "Metsän makua.", "Lämmittää mukavasti.", "Tätä ei Päivi näe."].pick_random(), 1.8)
+			return
 		"puolukka", "mustikka":
 			bucket[id] -= 1
 			if bucket[id] <= 0:
@@ -2085,6 +2104,52 @@ func _mokki_logic() -> void:
 	if near.call(Mokki.HUNT_LOCAL, 2.4):
 		_hunt_logic(e)
 		return
+
+
+## Lähin löytämätön viinakätkö (indeksi Mokki.VIINA:ssa, -1 = kaikki löydetty) ja sen paikka maailmassa.
+func _viina_nearest() -> Array:
+	var p := player.global_position
+	var best := -1
+	var best_pos := Vector3.ZERO
+	var best_d := INF
+	var pos: Array[Vector2] = Mokki.viina_positions()
+	for i in pos.size():
+		if Mokki.VIINA[i].id in viina_found:
+			continue
+		var g: Vector3 = mokki.to_global(Vector3(pos[i].x, 0, pos[i].y))
+		var d := Vector2(p.x - g.x, p.z - g.z).length()
+		if d < best_d:
+			best = i
+			best_d = d
+			best_pos = g
+	return [best, best_pos, best_d]
+
+
+## Viinakätköt geokätköjen tapaan: kompassi ja HUD näyttävät lähimmän kätkön suunnan ja matkan, E avaa kätkön.
+func _viina_logic() -> void:
+	var n: Array = _viina_nearest()
+	_compass.has_cache = n[0] >= 0
+	if n[0] < 0:
+		return
+	var at: Vector3 = n[1]
+	_compass.cache = Vector2(at.x, at.z)
+	if n[2] > VIINA_OPEN_R or _hint.text != "" or player == bike or player.is_stunned():
+		return
+	var c: Dictionary = Mokki.VIINA[n[0]]
+	_hint.text = "[E] Avaa viinakätkö"
+	if not Input.is_action_just_pressed("interact"):
+		return
+	viina_found.append(c.id)
+	viina_pullot += 1
+	tilat.first("viinakatko", 0.3)
+	if viina_found.size() == Mokki.VIINA.size():
+		tilat.add("moraali", 0.2)
+		Sfx.play("win_small")
+	else:
+		Sfx.play("pickup", -4.0, 0.8)
+	_show_message("Viinakätkö löytyi %s! Laatikossa %s. Kirjoitit nimesi lokikirjaan. (%d / %d)%s" % [c.spot, c.desc,
+		viina_found.size(), Mokki.VIINA.size(), "\nKaikki kätköt löydetty!" if viina_found.size() == Mokki.VIINA.size() else ""], 4.0)
+	_save_game()
 
 
 ## Löylyssä käynti: lyhyt tunnelmapala terassilla, höyryä ja tilaisuuden tullen hörppy kaljaa.
@@ -2916,6 +2981,8 @@ func _load_game() -> void:
 	mielihyva = cfg.get_value("peli", "mielihyva", 0.0)
 	drone_photos = cfg.get_value("drooni", "kuvat", [])
 	pontikka_found = cfg.get_value("drooni", "pontikka", false)
+	viina_found = cfg.get_value("mokki", "viinakatkot", [])
+	viina_pullot = cfg.get_value("mokki", "viinapullot", 0)
 	maine = cfg.get_value("peli", "maine", 0.0)
 	jemma_endings = cfg.get_value("jemma", "loput", 0)
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
@@ -2945,6 +3012,8 @@ func _save_game() -> void:
 	cfg.set_value("peli", "mielihyva", mielihyva)
 	cfg.set_value("drooni", "kuvat", drone_photos)
 	cfg.set_value("drooni", "pontikka", pontikka_found)
+	cfg.set_value("mokki", "viinakatkot", viina_found)
+	cfg.set_value("mokki", "viinapullot", viina_pullot)
 	cfg.set_value("peli", "maine", maine)
 	cfg.set_value("jemma", "loput", jemma_endings)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
@@ -3630,6 +3699,11 @@ func _update_hud() -> void:
 	# Mökillä pääpelin tehtävät eivät näy.
 	var at_mokki := _at_mokki()
 	var lines: Array[String] = []
+	if at_mokki and _compass.visible and _compass.has_cache:
+		var pp := Vector2(player.global_position.x, player.global_position.z)
+		var deg := Compass.bearing_deg(pp, _compass.cache)
+		lines.append("Viinakätkö %d / %d: %d m  %s %d°" % [viina_found.size() + 1, Mokki.VIINA.size(),
+			roundi(pp.distance_to(_compass.cache)), Compass.dir_name(deg), roundi(deg)])
 	if not at_mokki:
 		lines.append("Aika: %s" % _time(elapsed))
 		if not _risky_stashes().is_empty():
@@ -3736,6 +3810,7 @@ func inventory_items() -> Array:
 	for k in food:
 		var icon: String = {"karrella": "karrella", "suklaa": "suklaa"}.get(k, k)
 		add.call(icon, FOODS[k].name, food[k], "T syö", {"food": true})
+	add.call("viina", "Kätköviina", viina_pullot, "Pulloja mökin metsän kätköistä · T ottaa huikan", {"food": true})
 	for k in ["puolukka", "mustikka"]:
 		add.call(k, k.capitalize(), bucket.get(k, 0), "litraa ämpärissä · T syö litran", {"food": true})
 	return out
@@ -3747,7 +3822,8 @@ func inventory_info() -> Dictionary:
 		var mn := _mokki_drone_names()
 		info.lines = ["Päivä %d · mökillä" % day, "Kaisuantie 62, Uutelanperä, Vaala",
 			"Koti Saloisissa n. %d km länteen" % roundi(HOME_MOKKI_KM),
-			"Droonin ilmakuvat %d / %d" % [_drone_photo_count(mn), mn.size()]]
+			"Droonin ilmakuvat %d / %d" % [_drone_photo_count(mn), mn.size()],
+			"Viinakätköt %d / %d" % [viina_found.size(), Mokki.VIINA.size()]]
 		return info
 	info.lines = ["Päivä %d · Järvikuja 1, Saloinen" % day, "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
 		"Aika: %s" % _time(elapsed), "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
@@ -4070,6 +4146,45 @@ func _maybe_screenshot() -> void:
 			if scene == "kotain":
 				world.kota.set_fire(true)
 				world.kota.say("raimo", "Tässä kodassa on enemmän kieltokylttejä kuin halkoja.")
+		"mokkiviina":
+			# Viinakätköt: paikat, HUD:n suunta ja matka kätkön vieressä (kuva _hud), kävely kätkölle ja avaus E:llä.
+			viina_found = []
+			_toggle_mount()
+			var vp: Array[Vector2] = Mokki.viina_positions()
+			print("VIINA paikat ", vp, " mökistä ", vp.map(func(q: Vector2) -> int: return roundi(q.distance_to(Mokki.COTTAGE_LOCAL))))
+			var q0: Vector2 = vp[0]
+			var toward := (Mokki.COTTAGE_LOCAL - q0).normalized()
+			walker_out.global_position = mokki.gpos(Vector3(q0.x + toward.x * 7.0, 0.6, q0.y + toward.y * 7.0))
+			walker_out.look_at(mokki.gpos(Vector3(q0.x, 0.6, q0.y)))
+			for i in 60:
+				await get_tree().physics_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_hud.png"))
+			print("VIINA HUD ", _stats.text.replace("\n", " | "))
+			var vc := Camera3D.new()
+			add_child(vc)
+			vc.look_at_from_position(mokki.gpos(Vector3(q0.x + 1.6, 1.1, q0.y + 1.2)), mokki.gpos(Vector3(q0.x, 0.1, q0.y)))
+			vc.current = true
+			_hud.visible = false
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_katko.png"))
+			_hud.visible = true
+			vc.queue_free()
+			walker_out.activate_camera()
+			Input.action_press("forward")
+			for i in 300:
+				await get_tree().physics_frame
+				if _viina_nearest()[2] < 1.2:
+					break
+			Input.action_release("forward")
+			print("VIINA matka %.2f vihje '%s'" % [_viina_nearest()[2], _hint.text])
+			Input.action_press("interact")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			Input.action_release("interact")
+			print("VIINA löydetyt ", viina_found, " pullot ", viina_pullot, " viesti: ", _msg.text)
 		"mokkiview", "mokkisauna", "mokkiyard", "mokkilake":
 			_toggle_mount()
 			walker_out.global_position = mokki.to_global(Vector3(-2, 0.4, -14))
