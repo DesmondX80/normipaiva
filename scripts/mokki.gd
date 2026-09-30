@@ -2,7 +2,8 @@ extends Node3D
 ## Mökki: Santtu-isännän vuokramökki Kaisuantie 62, Uutelanperä, Vaala, mallinnettu Airbnb-ilmoituksen kuvien ja
 ## drone-kuvan mukaan. Erillinen tasku maailman ulkopuolella, tavoitettavissa vain taksilla kotoa. Ympäristö
 ## 1,9 x 1,9 km oikean kartan mukaan (assets/mokki/kartta.json, tools/mokki_kartta.py: OpenStreetMap, MML:n 2 m
-## korkeusmalli pihan ympärillä ja EU-DEM 25 m kauempana): Likanen, Syväjärvi, Ahveroinen, Tervalampi, Kiiskeroinen,
+## korkeusmalli koko alueella, kauempana 8 m ruudukkona, tools/kartta/mokki.ps1): Likanen, Syväjärvi,
+## Ahveroinen, Tervalampi, Kiiskeroinen,
 ## Penikka ja muut lammet omilla pinnoillaan, tiet nimineen, pellot, suo, purot, naapurirakennukset ja metsä.
 ## Kävelyalue on 800 x 800 m; sen ulkopuolinen maisema näkyy horisonttiin asti. Pelilogiikka main.gd:ssä.
 ##
@@ -250,7 +251,8 @@ static func map_data() -> Dictionary:
 		return _map
 	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(DATA_PATH))
 	var out := {"water": [], "water_names": [], "water_levels": [], "water_bbox": [], "fields": [], "field_bbox": [],
-		"bogs": [], "sands": [], "roads": [], "buildings": [], "streams": [], "dem": d.dem, "dem_far": d.get("dem_far", {})}
+		"bogs": [], "sands": [], "forests": [], "roads": [], "buildings": [], "streams": [], "dem": d.dem,
+		"dem_far": d.get("dem_far", {})}
 	var keep := Rect2(-Vector2.ONE * (VIEW_HALF + 400.0), Vector2.ONE * (VIEW_HALF + 400.0) * 2.0)
 	for f in d.features:
 		var pts := PackedVector2Array()
@@ -276,6 +278,8 @@ static func map_data() -> Dictionary:
 				out.field_bbox.append(lb)
 			"bog":
 				out.bogs.append(pts)
+			"forest":
+				out.forests.append(pts)  # OSM:n metsät (vajaa kartoitus mökin ympärillä: maasto on metsää oletuksena)
 			"sand":
 				out.sands.append(pts)
 			"road":
@@ -370,8 +374,8 @@ static func in_area(x: float, z: float, margin := 0.0) -> bool:
 	return absf(m.x) < AREA_HALF - margin and absf(m.y) < AREA_HALF - margin
 
 
-## Korkeusmallin arvo (m merenpinnasta) paikallisessa pisteessä: pihan ympärillä MML:n 2 m malli, kauempana
-## EU-DEM 25 m (sovitettu samaan tasoon), välissä pehmeä liuku.
+## Korkeusmallin arvo (m merenpinnasta) paikallisessa pisteessä: pihan ympärillä MML:n 2 m malli 2 m ruudukkona,
+## kauempana sama malli 8 m ruudukkona ("dem_far"), välissä pehmeä liuku.
 static func _dem(x: float, z: float) -> float:
 	var data := map_data()
 	var m := to_map2(Vector2(x, z))
