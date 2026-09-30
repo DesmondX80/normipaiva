@@ -583,7 +583,7 @@ func _draw_mokki_map() -> void:
 		_pxl(c + Vector2(-half.x, -half.y)), _pxl(c + Vector2(half.x, -half.y)),
 		_pxl(c + Vector2(half.x, half.y)), _pxl(c + Vector2(-half.x, half.y)),
 	])
-	v.draw_colored_polygon(cottage, Color(0.85, 0.83, 0.74))
+	v.draw_colored_polygon(cottage, Color(0.24, 0.15, 0.09))
 	v.draw_polyline(cottage + PackedVector2Array([cottage[0]]), INK, 1.5)
 	v.draw_string(font, _pxl(c) + Vector2(-24, -18), "Mökki Paapeli", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
 
@@ -612,6 +612,10 @@ func _draw_mokki_map() -> void:
 
 	var santtu_p := _pxl(Vector2(Mokki.SANTTU_LOCAL.x, Mokki.SANTTU_LOCAL.z))
 	v.draw_circle(santtu_p, 4.0, Color(0.75, 0.55, 0.12))
+
+	var hunt_p := _pxl(Vector2(Mokki.HUNT_LOCAL.x, Mokki.HUNT_LOCAL.z))
+	v.draw_circle(hunt_p, 5.0, Color(0.3, 0.24, 0.15))
+	v.draw_string(font, hunt_p + Vector2(10, 4), "Riistapolku", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
 
 	if player != null and mokki != null:
 		var lp: Vector3 = mokki.to_local(player.global_position)

@@ -356,6 +356,69 @@ func laavu_sunset(pit: Vector3, fire: Node3D, title: String, stats: String, done
 	_title.add_theme_font_size_override("font_size", 150)
 
 
+# --- Savusaunan löyly ---------------------------------------------------------------
+
+const SAUNA_LINES := ["Löyly hehkuu, hiki virtaa selässä.", "Ihan puhdas olo.", "Ei tätä kaupungissa saa.",
+	"Hartiat rentoutuu vihdoinkin."]
+
+
+## Löylyssä käynti terassilla: höyry nousee saunan ovelta, hartiat rentoutuvat, ja jos kaljaa on mukana,
+## otetaan hörppy löylyn päälle. Lyhyt tunnelmapala, ei päivän lopetus (ks. main.gd _sauna_cutscene).
+func sauna_relax(at: Vector3, has_beer: bool, done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.4)
+	_cam.current = true
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var hero := Looks.make(_props, Looks.PLAYER)
+	Looks.add_cap(hero)
+	hero.global_position = at + Vector3(-3.6, 0.0, 1.0)
+	hero.rotation.y = -PI * 0.5  # kasvot saunan ovelle ja nousevalle höyrylle
+	hero.play("Sitting_Idle", 0.0)
+	# Löyly nousee saunan ovelta terassille.
+	var steam := CPUParticles3D.new()
+	steam.amount = 22
+	steam.lifetime = 2.2
+	steam.direction = Vector3.UP
+	steam.spread = 14.0
+	steam.initial_velocity_min = 0.4
+	steam.initial_velocity_max = 0.9
+	steam.scale_amount_min = 0.6
+	steam.scale_amount_max = 1.6
+	steam.global_position = at + Vector3(-1.8, 1.0, 1.5)
+	var sm := SphereMesh.new()
+	sm.radius = 0.22
+	sm.height = 0.44
+	sm.material = B.unshaded(Color(0.95, 0.95, 0.97, 0.35))
+	steam.mesh = sm
+	_props.add_child(steam)
+	_cam.global_position = at + Vector3(-5.4, 1.6, 3.2)
+	_cam.look_at(at + Vector3(-2.4, 1.05, 1.1), Vector3.UP)
+	var can: Node3D
+	if has_beer:
+		can = Node3D.new()
+		B.mesh(can, B.cyl(0.033, 0.033, 0.12, 12), Vector3(0, -0.02, 0), Color(0.8, 0.75, 0.2))
+		hero.attach("hand_r", can, Vector3(0, -0.02, 0.03))
+	_title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.6))
+	_title.add_theme_font_size_override("font_size", 70)
+	await _fade_to(0.0, 0.6)
+	_title.text = "LÖYLYSSÄ"
+	_sub.text = "Höyry nousee, hartiat rentoutuvat."
+	await _wait(2.2)
+	if has_beer and can != null:
+		var tw := _tween()
+		tw.tween_property(can, "rotation_degrees:x", -70.0, 0.35)
+		tw.tween_property(can, "rotation_degrees:x", 0.0, 0.35)
+		_sub.text = "Otat hörpyn kylmää kaljaa löylyn päälle."
+		Sfx.play("pickup", -2.0, 0.9)
+		await _wait(1.8)
+	_sub.text = SAUNA_LINES.pick_random()
+	await _wait(2.0)
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
 # --- Taksireissu Raaheen ----------------------------------------------------------
 
 const TAXI_ROAD := Vector3(0, 0, -3400)

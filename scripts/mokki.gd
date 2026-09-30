@@ -17,23 +17,26 @@ const YARD_C := Vector2(1.0, 2.35)
 const YARD_ROT_DEG := 17.6
 const AREA_HALF := 100.0  # alue 200 x 200 m osoitepisteen ympärillä
 
-# Pihan asettelu: mökki ja vaja OSM:n rakennusten kohdalla, sauna, poreamme ja laituri drone-kuvasta.
+# Pihan asettelu: mökki OSM:n rakennuksen kohdalla, sauna, poreamme ja laituri drone-kuvasta.
 # Rannan puolella kuistilta katsottuna vasemmalta oikealle (+X -> -X): savusauna, poreamme ja kesäkeittiö.
 const TAXI_LOCAL := Vector3(-7.0, 0, -29.0)    # Kaisuantien varressa mökin takana
 const SAUNA_LOCAL := Vector3(5.9, 0, 18.1)     # kiuas savusaunan sisällä
 const TUB_LOCAL := Vector3(-0.7, 0, 14.8)      # puukuumenteinen poreamme
 const DART_LOCAL := Vector3(4.2, 0, 8.0)       # heittopiste tikkataulun edessä (taulu männyssä)
 const DOCK_LOCAL := Vector3(8.9, 0, 55.4)      # laiturin pää Likaisella
-const SHED_LOCAL := Vector3(-8.75, 0, 19.25)   # kesäkeittiön vaja (OSM-rakennus)
+## Pihalta rantaan laiturille johtava kulkukäytävä: metsä ei kasva tälle kaistaleelle (ks. _build_forest).
+const DOCK_PATH_A := Vector2(DOCK_LOCAL.x, 27.0)
+const DOCK_PATH_B := Vector2(DOCK_LOCAL.x, DOCK_LOCAL.z + 1.5)
 const KITCHEN_LOCAL := Vector3(-12.6, 0, 16.2) # kesäkeittiön savustimen edessä (katoksen alla)
 const SANTTU_LOCAL := Vector3(-1.5, 0, 6.5)    # pihatuolilla kuistin edessä
+const HUNT_LOCAL := Vector3(-30.0, 0, 5.0)     # riistapolku syvemmällä metsässä, tien ja polun ulkopuolella
 
 # Karttageometria (ks. minimap.gd ja paper_map.gd: mökin oma kartta korvaa kyläkartan täällä).
 const YARD_CENTER := Vector2(-2.0, 10.0)
 const YARD_R := Vector2(21.0, 19.0)
 const GRID_STEP := 2.0   # maastoverkon ja törmäyksen ruutu (korkeusmallin tarkkuus)
 const COTTAGE_LOCAL := Vector2(0.0, -1.0)
-## OSM-rakennukset, jotka mallinnetaan käsin (mökki ja kesäkeittiön vaja).
+## OSM-rakennukset, jotka mallinnetaan käsin (mökki) tai jätetään tyhjäksi tontiksi (käyttämätön vaja purettu).
 const OWN_BUILDINGS := ["1074462394", "1555232405"]
 const COTTAGE_SIZE := Vector2(9.4, 5.0)
 
@@ -74,6 +77,11 @@ const FISH := [
 ]
 const FISH_JUNK := ["vanhan kumisaappaan", "ruosteisen peltitölkin", "jonkun kadonneen lippiksen", "pelkän oksankappaleen"]
 const FISH_MISS_LINES := ["Kala vei syötin.", "Onki jäi tyhjäksi.", "Siima venähti tyhjää.", "Ei tällä kertaa."]
+## Riista: nimi partitiivissa (sopii lauseeseen "Sait ...") ja tyypillinen paino kiloina.
+const GAME := [
+	{"name": "riekon", "kg": 0.5}, {"name": "metson", "kg": 3.8}, {"name": "jäniksen", "kg": 2.3}, {"name": "oravan", "kg": 0.3},
+]
+const GAME_MISS_LINES := ["Riista säikähti ja hävisi puiden taa.", "Vain oksa rasahti kauempana.", "Metsä oli hiljainen.", "Näit vain jäljet maassa."]
 
 var sauna_fire_on := false
 var sauna_fire_time := 0.0
@@ -106,6 +114,7 @@ func ensure_built() -> void:
 	_build_savusauna()
 	_build_hottub()
 	_build_yard_extras()
+	_build_hunt_spot()
 	_build_trees()
 	_build_santtu()
 	# Kaikki pihan rakennukset ja esineet maanpinnalle (maasto ja vesi ovat jo oikealla korkeudella).
@@ -509,6 +518,9 @@ func _build_forest() -> void:
 			x += step
 			if not in_area(p.x, p.y, -30.0) or in_water(p.x, p.y) or _is_yard(p):
 				continue
+			# Ranta-alue laiturille johtavalta polulta: puu ei saa tukkia kulkua laiturille.
+			if p.distance_to(Geometry2D.get_closest_point_to_segment(p, DOCK_PATH_A, DOCK_PATH_B)) < 3.0:
+				continue
 			var skip := false
 			for f in data.fields:
 				if Geometry2D.is_point_in_polygon(p, f):
@@ -576,6 +588,19 @@ func _build_lake_and_dock() -> void:
 	for i in 24:
 		B.mesh(dock, B.boxm(Vector3(1.46, 0.02, 0.42)), Vector3(0, 0.26, i * 0.55), wood.lightened(0.05 * (i % 2)))
 	dock.add_child(B.box_shape(Vector3(1.5, 0.3, 13.0), Vector3(0, 0.2, 6.0)))
+	# Portaat rantapäähän: kansi on hieman maanpintaa korkeammalla, joten muutama askelma vie kannelta
+	# rantaan (muuten CharacterBody ei nouse edes pienestä pystyreunasta).
+	var shore_y := h(dock.position.x, dock.position.z - 2.2) - h(dock.position.x, dock.position.z)
+	var deck_y := 0.25
+	var stair_rise := deck_y - shore_y
+	if stair_rise > 0.04:
+		var stair_steps := maxi(2, ceili(stair_rise / 0.13))
+		var stair_h := stair_rise / stair_steps
+		for i in stair_steps:
+			var sy := deck_y - (i + 0.5) * stair_h
+			var sz := -0.5 - 0.16 - i * 0.32
+			B.mesh(dock, B.boxm(Vector3(1.3, stair_h, 0.34)), Vector3(0, sy, sz), wood.darkened(0.06 * (i % 2)))
+			dock.add_child(B.box_shape(Vector3(1.3, stair_h + 0.02, 0.36), Vector3(0, sy, sz)))
 	# Onkivapa nojaa laiturin päässä (ks. Mokki.DOCK_LOCAL, kalastus main.gd:ssä).
 	var rod := Node3D.new()
 	rod.position = Vector3(0.55, 0.3, 11.6)
@@ -595,7 +620,7 @@ func _build_cottage() -> void:
 	var wall_h := 2.3
 	var rise := 1.0
 	var porch_d := 2.4
-	var cream := Color(0.85, 0.83, 0.74)
+	var wall_col := Color(0.24, 0.15, 0.09)
 	var dark_wood := Color(0.22, 0.18, 0.14)
 	var conc := Color(0.62, 0.62, 0.6)
 	var white := Color(0.94, 0.94, 0.9)
@@ -618,11 +643,11 @@ func _build_cottage() -> void:
 		var pc: Vector3 = part[0]
 		var ps: Vector3 = part[1]
 		body.add_child(B.box_shape(Vector3(ps.x, full_h, ps.z), Vector3(pc.x, full_h / 2.0 - found_h, pc.z)))
-		# Vaaleat pystypaneeliseinät.
-		B.mesh(body, B.boxm(Vector3(ps.x, wall_h, ps.z)), Vector3(pc.x, found_h + wall_h / 2.0, pc.z), cream)
+		# Tummanruskeat pystypaneeliseinät.
+		B.mesh(body, B.boxm(Vector3(ps.x, wall_h, ps.z)), Vector3(pc.x, found_h + wall_h / 2.0, pc.z), wall_col)
 	for i in 9:
 		var x := -l / 2.0 + 0.2 + i * l / 8.0
-		B.mesh(body, B.boxm(Vector3(0.03, wall_h, 0.01)), Vector3(x, found_h + wall_h / 2.0, -d / 2.0 - 0.01), cream.darkened(0.12))
+		B.mesh(body, B.boxm(Vector3(0.03, wall_h, 0.01)), Vector3(x, found_h + wall_h / 2.0, -d / 2.0 - 0.01), wall_col.lightened(0.14))
 	# Harjakatto (pelti) talon ylle, symmetrinen harja keskellä.
 	var ang := atan(rise / (d / 2.0))
 	var half := (d / 2.0 + 0.5) / cos(ang)
@@ -724,28 +749,16 @@ func _build_cottage() -> void:
 	plate.rotation.y = PI
 
 
-# --- Kesäkeittiö: sinikattoinen vaja ja sen kylkeen avoin katos ------------------------
+# --- Kesäkeittiö: avoin katos offset-savustimineen -------------------------------------
 
-## Kuvien mukaan rannan puolella poreammeen oikealla (kuistilta katsottuna): pieni lautavaja vaaleansinisellä
-## peltikatolla ja sen kyljessä avoin puukatos, jonka alla savustin ja pöytä. Halkopino katoksen vieressä.
+## Kuvien mukaan rannan puolella poreammeen oikealla (kuistilta katsottuna): avoin puukatos, jonka alla
+## offset-savustin ja pöytä. Halkopino katoksen vieressä. (Vieressä ollut käyttämätön lautavaja purettu.)
 func _build_summer_kitchen() -> void:
-	var boards := Color(0.42, 0.36, 0.3)
-	var blue_roof := Color(0.6, 0.72, 0.82)
 	var dark_roof := Color(0.24, 0.22, 0.2)
 	var post := Color(0.4, 0.3, 0.2)
-	var shed := StaticBody3D.new()
-	shed.position = SHED_LOCAL  # OSM-rakennuksen kohdalla (4,3 x 5,0 m)
-	add_child(shed)
-	shed.add_child(B.box_shape(Vector3(4.3, 2.2, 5.0), Vector3(0, 1.1, 0)))
-	B.mesh(shed, B.boxm(Vector3(4.3, 2.2, 5.0)), Vector3(0, 1.1, 0), boards)
-	for i in 10:
-		B.mesh(shed, B.boxm(Vector3(0.02, 2.2, 0.04)), Vector3(-1.95 + i * 0.43, 1.1, -2.52), boards.darkened(0.2))
-	B.mesh(shed, B.boxm(Vector3(0.8, 1.8, 0.05)), Vector3(1.0, 0.9, -2.53), boards.darkened(0.3))  # ovi
-	var roof := B.mesh(shed, B.boxm(Vector3(4.8, 0.06, 5.5)), Vector3(0, 2.35, 0), blue_roof)
-	roof.rotation.x = -0.14
-	# Avoin katos vajan kyljessä (-X): tolpat, loiva katto, savustin, pöytä ja penkki.
+	# Avoin katos: tolpat, loiva katto, savustin, pöytä ja penkki.
 	var katos := Node3D.new()
-	katos.position = KITCHEN_LOCAL + Vector3(-0.2, 0, 2.0)  # vajan kyljessä (-X)
+	katos.position = KITCHEN_LOCAL + Vector3(-0.2, 0, 2.0)
 	add_child(katos)
 	for px in [-1.6, 1.4]:
 		for pz in [-1.4, 1.4]:
@@ -941,13 +954,38 @@ func _build_yard_extras() -> void:
 	add_child(mi)
 
 
+## Riistapolku: matala metsästyslava puuta vasten ja pieni kyltti, josta löytää paikan syvemmältä metsästä.
+func _build_hunt_spot() -> void:
+	var wood := Color(0.4, 0.3, 0.2)
+	var tree := StaticBody3D.new()
+	tree.position = HUNT_LOCAL + Vector3(0.6, 0, -0.4)
+	add_child(tree)
+	B.mesh(tree, B.cyl(0.2, 0.28, 6.5, 9), Vector3(0, 3.25, 0), Color(0.38, 0.27, 0.17))
+	for k in 3:
+		B.mesh(tree, B.cyl(0.02, 1.2 - k * 0.25, 1.7, 8), Vector3(0, 5.0 + k * 1.05, 0), Color(0.15, 0.27, 0.14))
+	tree.add_child(B.capsule_shape(0.3, 6.5))
+	var stand := Node3D.new()
+	stand.position = HUNT_LOCAL
+	add_child(stand)
+	for lx in [-0.5, 0.5]:
+		for lz in [-0.4, 0.4]:
+			B.mesh(stand, B.cyl(0.04, 0.05, 1.1, 6), Vector3(lx, 0.55, lz), wood)
+	B.mesh(stand, B.boxm(Vector3(1.1, 0.08, 0.9)), Vector3(0, 1.1, 0), wood.lightened(0.08))
+	var sign := B.sign_pole(self, HUNT_LOCAL + Vector3(-1.2, 0, 0.8), 1.5)
+	var plate := B.sign_plate(sign, "RIISTAPOLKU", Color(0.32, 0.24, 0.14), Color(0.92, 0.88, 0.78), 0.18, 26,
+		Color(0.3, 0.18, 0.1), "Helvetica Neue")
+	plate.position.y = 1.3
+
+
 # --- Männyt ympärillä --------------------------------------------------------------
 
-## Harvoja isoja mäntyjä pihalla kuten kuvissa (ei rakennusten päälle); metsä muualla _build_forest().
+## Isoja mäntyjä pihan reunoilla (ei rakennusten, kulkuväylien eikä laiturin polun päälle): mökki on
+## metsän keskellä, joten piha rajautuu tiiviisti puihin joka suunnalta (harva metsä muualla _build_forest()).
 func _build_trees() -> void:
 	for tp in [Vector2(-10.0, 3.0), Vector2(12.0, 2.0), Vector2(-17.0, 10.0), Vector2(14.0, 12.0), Vector2(15.0, 26.0),
-			Vector2(-4.0, 28.0)]:
-		_pine(Vector3(tp.x, 0, tp.y), 1.1)
+			Vector2(-4.0, 28.0), Vector2(-16.0, -6.0), Vector2(17.0, -8.0), Vector2(-19.0, 24.0), Vector2(18.0, 24.0),
+			Vector2(2.0, 32.0), Vector2(-13.0, -18.0), Vector2(-6.0, -9.0), Vector2(9.0, -10.0)]:
+		_pine(Vector3(tp.x, 0, tp.y), randf_range(0.9, 1.3))
 
 
 func _pine(pos: Vector3, s: float) -> void:

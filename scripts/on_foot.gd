@@ -10,6 +10,7 @@ const WALK := 1.9
 const RUN := 5.4
 const TURN := 2.6
 const GRAVITY := 20.0
+const JUMP_SPEED := 6.5
 
 var controls_enabled := true
 var world: Node3D
@@ -131,10 +132,12 @@ func _physics_process(delta: float) -> void:
 	var throttle := 0.0
 	var steer := 0.0
 	var running := false
+	var jump_pressed := false
 	if controls_enabled:
 		throttle = Input.get_axis("back", "forward")
 		steer = Input.get_axis("right", "left")
 		running = Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 and not exhausted and not no_run
+		jump_pressed = Input.is_action_just_pressed("jump") and pose == ""
 	tire(running, absf(speed) < 0.2, delta)
 	var ground: float = world.speed_factor(global_position, "runner") if world != null else 1.0
 	var want := throttle * (RUN if running else WALK) * ground
@@ -149,14 +152,18 @@ func _physics_process(delta: float) -> void:
 	velocity.x = fwd.x * speed
 	velocity.z = fwd.z * speed
 	if is_on_floor():
-		velocity.y = 0.0
+		velocity.y = JUMP_SPEED if jump_pressed else 0.0
+		if jump_pressed:
+			Sfx.play("whoosh", -8.0, 1.4)
 	else:
 		velocity.y -= GRAVITY * delta
 	move_and_slide()
 	speed = Vector2(velocity.x, velocity.z).dot(Vector2(fwd.x, fwd.z))
 
 	var s := absf(speed)
-	if s < 0.2:
+	if not is_on_floor():
+		_body.play("Jump", 0.1)
+	elif s < 0.2:
 		_body.play(pose if pose != "" else "Idle", 0.12 if pose != "" else 0.25)
 	elif s < 2.8:
 		_body.play("Walk", 0.2, signf(speed) * s / 1.4)
