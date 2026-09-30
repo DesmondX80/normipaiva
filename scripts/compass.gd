@@ -10,6 +10,7 @@ const TARGET_COL := Color(0.9, 0.15, 0.1)
 
 var player: Node3D
 var paper: Control  # paper_map.gd: has_target, target (maailman x/z)
+var show_target := true  # mökillä kylän kohteita ei näytetä
 
 
 func _ready() -> void:
@@ -68,7 +69,7 @@ func _draw() -> void:
 
 
 func _draw_target(heading: float) -> void:
-	if paper == null or player == null or not paper.has_target:
+	if paper == null or player == null or not paper.has_target or not show_target:
 		return
 	var p := Vector2(player.global_position.x, player.global_position.z)
 	var d: Vector2 = paper.target - p

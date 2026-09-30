@@ -10,7 +10,7 @@ const Mokki := preload("res://scripts/mokki.gd")
 const MAP_W := 600.0
 const INK := Color(0.22, 0.16, 0.1)
 const PAPER := Color(0.93, 0.88, 0.74)
-const MOKKI_RANGE := 110.0  # metriä keskeltä mökin kartan reunaan (alue 200 x 200 m)
+const MOKKI_RANGE := 280.0  # metriä keskeltä mökin kartan reunaan (kävelyalue 800 x 800 m, kartta rajattu)
 
 var world: Node3D
 var player: Node3D
@@ -73,7 +73,7 @@ func toggle() -> void:
 		# Koko lasketaan aina avattaessa: resized-signaali ei välttämättä tullut oikeaan aikaan.
 		size = get_viewport_rect().size
 		_layout()
-		_in_mokki = mokki != null and player.global_position.distance_to(mokki.global_position) < 420.0
+		_in_mokki = mokki != null and player.global_position.distance_to(mokki.global_position) < 650.0
 		if _in_mokki:
 			_scroll = 0.0
 		else:
@@ -98,7 +98,8 @@ func _max_scroll() -> float:
 
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("map") or (visible and Input.is_key_pressed(KEY_ESCAPE)):
-		toggle()
+		if visible or not get_tree().paused:  # ei repun tai valikon päälle
+			toggle()
 	if not visible:
 		return
 	var v := Input.get_axis("forward", "back")
@@ -248,7 +249,7 @@ func _draw() -> void:
 	var side := Vector2(_view.position.x + MAP_W + 30, _view.position.y)
 	_compass(side + Vector2(100, 70))
 	if _in_mokki:
-		_scale_bar(side + Vector2(10, 180), 50.0, _k_m)
+		_scale_bar(side + Vector2(10, 180), 100.0, _k_m)
 		_legend_mokki(side + Vector2(10, 250))
 		draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 	else:
@@ -510,6 +511,11 @@ func _draw_map() -> void:
 	v.draw_string(font, _px(M.GRILLIKATOS) + Vector2(12, 4), "Grillikatos (turvapaikka)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.1, 0.4, 0.1))
 	_laavu_icon_on(v, _px(M.KOTA))
 	v.draw_string(font, _px(M.KOTA) + Vector2(-150, 4), "Kota ja lintutorni", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+	if game != null and game.pontikka_found:  # löytyi droonin ilmakuvasta
+		var pp := _px(M.PONTIKKA)
+		v.draw_circle(pp, 5.0, Color(0.55, 0.2, 0.1))
+		v.draw_arc(pp, 9.0, 0, TAU, 16, Color(0.55, 0.2, 0.1), 1.5)
+		v.draw_string(font, pp + Vector2(12, 4), "Pontikkapannu (ilmakuva)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.5, 0.15, 0.05))
 	if bike != null and bike != player:
 		var bp := _w2(Vector2(bike.global_position.x, bike.global_position.z))
 		for o in [-5.0, 5.0]:
@@ -557,6 +563,8 @@ func _draw_mokki_map() -> void:
 	v.draw_colored_polygon(tr.call(data.area), Color(0.66, 0.76, 0.52, 0.9))
 	for f in data.fields:
 		v.draw_colored_polygon(tr.call(f), Color(0.86, 0.84, 0.6, 0.9))
+	for b in data.bogs:
+		v.draw_colored_polygon(tr.call(b), Color(0.7, 0.68, 0.5, 0.9))
 	_ellipse_on(v, Mokki.YARD_CENTER, Mokki.YARD_R.x, Mokki.YARD_R.y, Color(0.9, 0.88, 0.74, 0.9))
 	for i in data.water.size():
 		var wp: PackedVector2Array = tr.call(data.water[i])

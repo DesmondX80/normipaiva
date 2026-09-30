@@ -8,7 +8,7 @@ const Mokki := preload("res://scripts/mokki.gd")
 const SIZE_PX := 210.0
 const RANGE := 320.0  # metriä keskeltä reunaan
 const MOKKI_RANGE := 90.0  # mökin tutka on lähempänä tarkka, koska tasku on pieni
-const MOKKI_SHOW_DIST := 420.0  # etäisyys mökin keskeltä, jolloin tutka vaihtaa mökin lähikarttaan
+const MOKKI_SHOW_DIST := 650.0  # etäisyys mökin keskeltä, jolloin tutka vaihtaa mökin lähikarttaan
 
 var player: Node3D
 var wife: Node3D
@@ -128,6 +128,8 @@ func _draw_mokki() -> void:
 		return out
 	for f in data.fields:
 		draw_colored_polygon(tr.call(f), Color(0.45, 0.5, 0.26))
+	for b in data.bogs:
+		draw_colored_polygon(tr.call(b), Color(0.4, 0.38, 0.24))
 	_ellipse(wl, Mokki.YARD_CENTER, Mokki.YARD_R.x, Mokki.YARD_R.y, Color(0.36, 0.3, 0.2, 0.95))
 	for w in data.water:
 		draw_colored_polygon(tr.call(w), Color(0.3, 0.5, 0.75))

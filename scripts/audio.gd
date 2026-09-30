@@ -69,6 +69,16 @@ func _ready() -> void:
 			_streams[key] = list  # äänite korvaa syntetisoidun
 
 
+## Suljettaessa soimassa olevat äänet pysäytetään ja irrotetaan, muuten äänipalvelin pitää äänitteen varattuna
+## ("resources still in use at exit").
+func _exit_tree() -> void:
+	for c in get_children():
+		if c is AudioStreamPlayer:
+			c.stop()
+			c.stream = null
+	_streams.clear()
+
+
 func _set_loop(st: AudioStream) -> void:
 	if st is AudioStreamOggVorbis or st is AudioStreamMP3:
 		st.loop = true
