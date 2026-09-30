@@ -10,6 +10,7 @@ signal finished(bag: Array, moose: bool)
 
 const B := preload("res://scripts/build.gd")
 const Mokki := preload("res://scripts/mokki.gd")
+const STAG := preload("res://assets/animals/Stag.glb")
 
 const SENS := 0.0028
 const TIME := 90.0
@@ -288,9 +289,18 @@ func _update_animals(delta: float) -> void:
 				if a.pos.y > ground:
 					a.vy -= 12.0 * delta
 					a.pos.y = maxf(ground, a.pos.y + a.vy * delta)
-				node.rotation.z = move_toward(node.rotation.z, PI / 2.0, delta * 6.0)
+				if not node.has_meta("anim"):
+					node.rotation.z = move_toward(node.rotation.z, PI / 2.0, delta * 6.0)
 		node.position = a.pos
-		if a.state != "dead":
+		if node.has_meta("anim"):
+			# Hirvi: mallin omat animaatiot (kävely, laukka, syönti, kuolema).
+			var ap: AnimationPlayer = node.get_meta("anim")
+			var want: String = {"walk": "Walk", "flee": "Gallop", "pause": "Eating", "dead": "Death"}.get(a.state, "Idle")
+			if ap.current_animation != want:
+				ap.play(want, 0.3)
+			if a.state != "dead":
+				node.rotation.y = atan2(a.dir.x, a.dir.z)
+		elif a.state != "dead":
 			node.rotation.y = atan2(a.dir.x, a.dir.z)
 			var hop := 0.0
 			if a.kind == "janis" and a.state in ["walk", "flee"]:
@@ -301,11 +311,18 @@ func _update_animals(delta: float) -> void:
 				body.rotation.x = 0.25 + 0.05 * sin(a.t * 6.0)  # nokka maassa
 			else:
 				body.rotation.x = 0.0
+			var flying: bool = sp.get("air", false) or a.state == "fly"
 			for w in ["WingL", "WingR"]:
 				var wing: Node3D = body.get_node_or_null(w)
 				if wing != null:
-					var flap := sin(a.t * 18.0) * 0.9 if (sp.get("air", false) or a.state == "fly") else 0.0
-					wing.rotation.z = flap * (1.0 if w == "WingL" else -1.0)
+					# Lennossa räpytys, maassa siivet taittuneina kyljille.
+					var ang := sin(a.t * 18.0) * 0.9 if flying else 1.35
+					wing.rotation.z = ang * (1.0 if w == "WingL" else -1.0)
+			var moving: bool = a.state in ["walk", "flee"] and not flying
+			for i in 2:
+				var leg: Node3D = body.get_node_or_null("Leg%d" % i)
+				if leg != null:
+					leg.rotation.x = sin(a.t * (10.0 if a.state == "walk" else 18.0) + i * PI) * 0.55 if moving else 0.0
 		# Kaukana tai korkealla olevat poistuvat.
 		var d2 := Vector2(a.pos.x - GLADE.x, a.pos.z - GLADE.y).length()
 		if a.state != "dead" and (d2 > 40.0 or a.pos.y > _eye.y + 25.0):
@@ -313,7 +330,9 @@ func _update_animals(delta: float) -> void:
 			_animals.erase(a)
 
 
-## Yksinkertaiset primitiivimallit, katse +Z. "Body"-lapsi hyppii ja nokkii, siivet "WingL"/"WingR".
+## Mallit, katse +Z. "Body"-lapsi hyppii ja nokkii, jalat "Leg0"/"Leg1" (heiluvat kävellessä), siivet "WingL"/"WingR"
+## (taittuneina kyljillä, räpyttävät lennossa). Hirvi on Quaterniuksen animoitu Stag (CC0) hirven väreillä ja itse
+## tehdyillä lapiosarvilla; muut ovat omia primitiivimalleja.
 func _model(kind: String) -> Node3D:
 	var root := Node3D.new()
 	var body := Node3D.new()
@@ -321,52 +340,191 @@ func _model(kind: String) -> Node3D:
 	root.add_child(body)
 	match kind:
 		"janis":
-			var fur := Color(0.55, 0.47, 0.38)
-			B.mesh(body, B.sphere(0.2, 10), Vector3(0, 0.22, 0), fur).scale = Vector3(0.8, 0.85, 1.35)
-			B.mesh(body, B.sphere(0.1, 10), Vector3(0, 0.36, 0.26), fur)
+			# Metsäjänis kesäturkissa: harmaanruskea, vaalea vatsa, pitkät mustakärkiset korvat, isot takajalat.
+			var fur := Color(0.5, 0.42, 0.32)
+			var light := Color(0.84, 0.8, 0.72)
+			B.mesh(body, B.sphere(0.2, 12), Vector3(0, 0.24, -0.02), fur).scale = Vector3(0.78, 0.82, 1.45)
+			B.mesh(body, B.sphere(0.13, 10), Vector3(0, 0.29, 0.17), fur.lightened(0.05))
+			B.mesh(body, B.sphere(0.15, 10), Vector3(0, 0.17, 0.0), light).scale = Vector3(0.7, 0.55, 1.2)
+			var head := Node3D.new()
+			head.position = Vector3(0, 0.4, 0.3)
+			body.add_child(head)
+			B.mesh(head, B.sphere(0.095, 10), Vector3.ZERO, fur).scale = Vector3(0.85, 0.9, 1.2)
+			B.mesh(head, B.sphere(0.05, 8), Vector3(0, -0.025, 0.09), light)
+			B.mesh(head, B.sphere(0.014, 6), Vector3(0, -0.005, 0.135), Color(0.3, 0.2, 0.2))
 			for s in [-1.0, 1.0]:
-				B.mesh(body, B.boxm(Vector3(0.04, 0.2, 0.02)), Vector3(s * 0.04, 0.52, 0.22), fur.darkened(0.1), Vector3(-20, 0, s * 8))
-			B.mesh(body, B.sphere(0.05, 8), Vector3(0, 0.25, -0.27), Color(0.95, 0.95, 0.92))
+				B.mesh(head, B.sphere(0.021, 8), Vector3(s * 0.06, 0.025, 0.045), Color(0.08, 0.06, 0.05))
+				var ear := Node3D.new()
+				ear.position = Vector3(s * 0.035, 0.06, -0.03)
+				ear.rotation = Vector3(deg_to_rad(-18), 0, s * deg_to_rad(12))
+				head.add_child(ear)
+				B.mesh(ear, B.sphere(0.5, 8), Vector3(0, 0.13, 0), fur.darkened(0.05)).scale = Vector3(0.055, 0.27, 0.025)
+				B.mesh(ear, B.sphere(0.5, 6), Vector3(0, 0.245, 0), Color(0.1, 0.09, 0.08)).scale = Vector3(0.04, 0.05, 0.027)
+				# Takajalat: iso reisi ja pitkä jalkapöytä.
+				B.mesh(body, B.sphere(0.09, 8), Vector3(s * 0.1, 0.17, -0.15), fur).scale = Vector3(0.6, 1.0, 1.4)
+				B.mesh(body, B.boxm(Vector3(0.05, 0.03, 0.2)), Vector3(s * 0.1, 0.015, -0.08), fur.darkened(0.1))
+			for i in 2:
+				var leg := Node3D.new()
+				leg.name = "Leg%d" % i
+				leg.position = Vector3((i * 2 - 1) * 0.06, 0.22, 0.2)
+				body.add_child(leg)
+				B.mesh(leg, B.cyl(0.022, 0.018, 0.21, 6), Vector3(0, -0.105, 0), fur.lightened(0.08))
+			B.mesh(body, B.sphere(0.05, 8), Vector3(0, 0.28, -0.3), Color(0.96, 0.96, 0.94))
 		"riekko":
-			var col := Color(0.6, 0.48, 0.34)
-			B.mesh(body, B.sphere(0.15, 10), Vector3(0, 0.18, 0), col).scale = Vector3(0.9, 0.85, 1.2)
-			B.mesh(body, B.sphere(0.07, 8), Vector3(0, 0.3, 0.16), col.darkened(0.1))
-			B.mesh(body, B.boxm(Vector3(0.05, 0.02, 0.04)), Vector3(0, 0.36, 0.17), Color(0.8, 0.1, 0.1))
-			_wings(body, 0.17, 0.2, Color(0.92, 0.9, 0.86))
-		"metso":
-			var col := Color(0.12, 0.12, 0.13)
-			B.mesh(body, B.sphere(0.26, 12), Vector3(0, 0.42, 0), col).scale = Vector3(0.85, 0.9, 1.3)
-			B.mesh(body, B.cyl(0.06, 0.08, 0.28, 8), Vector3(0, 0.66, 0.2), col, Vector3(20, 0, 0))
-			B.mesh(body, B.sphere(0.09, 8), Vector3(0, 0.8, 0.26), col)
-			B.mesh(body, B.boxm(Vector3(0.04, 0.03, 0.07)), Vector3(0, 0.79, 0.36), Color(0.9, 0.88, 0.75))
-			B.mesh(body, B.boxm(Vector3(0.1, 0.02, 0.03)), Vector3(0, 0.85, 0.3), Color(0.85, 0.1, 0.1))
-			B.mesh(body, B.boxm(Vector3(0.45, 0.4, 0.03)), Vector3(0, 0.62, -0.36), col.lightened(0.05), Vector3(-25, 0, 0))
-			_wings(body, 0.45, 0.35, col.lightened(0.1))
-		"kyyhky":
-			var col := Color(0.55, 0.57, 0.62)
-			B.mesh(body, B.sphere(0.12, 10), Vector3.ZERO, col).scale = Vector3(0.9, 0.85, 1.4)
-			B.mesh(body, B.sphere(0.065, 8), Vector3(0, 0.05, 0.17), col.darkened(0.15))
-			_wings(body, 0.0, 0.32, col.lightened(0.1))
-		"hirvi":
-			var col := Color(0.3, 0.22, 0.15)
-			B.mesh(body, B.capsule(0.45, 2.0), Vector3(0, 1.45, 0), col, Vector3(90, 0, 0))
-			for lx in [-0.22, 0.22]:
-				for lz in [-0.65, 0.65]:
-					B.mesh(body, B.cyl(0.06, 0.05, 1.2, 6), Vector3(lx, 0.6, lz), col.darkened(0.2))
-			B.mesh(body, B.cyl(0.14, 0.18, 0.7, 8), Vector3(0, 1.85, 0.95), col, Vector3(45, 0, 0))
-			B.mesh(body, B.boxm(Vector3(0.24, 0.3, 0.6)), Vector3(0, 2.05, 1.3), col.darkened(0.1))
+			# Riekkokukko kesällä: punaruskea, valkoiset siivet ja vatsa, punainen heltta, valkoiset höyhenjalat.
+			var brown := Color(0.55, 0.35, 0.2)
+			var white := Color(0.95, 0.94, 0.9)
+			B.mesh(body, B.sphere(0.15, 12), Vector3(0, 0.21, 0), brown).scale = Vector3(0.95, 0.85, 1.25)
+			B.mesh(body, B.sphere(0.12, 10), Vector3(0, 0.15, 0.01), white).scale = Vector3(0.92, 0.7, 1.1)
+			B.mesh(body, B.sphere(0.08, 8), Vector3(0, 0.28, 0.11), brown.darkened(0.1))
+			var head := Node3D.new()
+			head.position = Vector3(0, 0.34, 0.16)
+			body.add_child(head)
+			B.mesh(head, B.sphere(0.065, 10), Vector3.ZERO, brown.darkened(0.15))
+			B.mesh(head, B.boxm(Vector3(0.03, 0.025, 0.045)), Vector3(0, -0.012, 0.065), Color(0.15, 0.12, 0.1))
+			B.mesh(head, B.boxm(Vector3(0.075, 0.02, 0.035)), Vector3(0, 0.045, 0.015), Color(0.85, 0.1, 0.08))
 			for s in [-1.0, 1.0]:
-				B.mesh(body, B.boxm(Vector3(0.55, 0.04, 0.3)), Vector3(s * 0.35, 2.35, 1.15), Color(0.82, 0.76, 0.6), Vector3(0, 0, s * 20))
+				B.mesh(head, B.sphere(0.013, 6), Vector3(s * 0.05, 0.012, 0.03), Color(0.05, 0.05, 0.05))
+			B.mesh(body, B.boxm(Vector3(0.14, 0.03, 0.11)), Vector3(0, 0.22, -0.19), Color(0.18, 0.13, 0.1), Vector3(-15, 0, 0))
+			_legs(body, 0.05, 0.1, 0.03, white)
+			_wings(body, 0.24, 0.19, white)
+		"metso":
+			# Metsokukko: musta, vihreähohtoinen rinta, ruskeat siivet, punainen kulmaheltta, vaalea nokka, parta
+			# ja pystyyn nostettu viuhkapyrstö.
+			var black := Color(0.1, 0.1, 0.11)
+			B.mesh(body, B.sphere(0.26, 12), Vector3(0, 0.42, 0), black).scale = Vector3(0.85, 0.9, 1.3)
+			B.mesh(body, B.sphere(0.16, 10), Vector3(0, 0.5, 0.2), Color(0.07, 0.2, 0.14))
+			B.mesh(body, B.cyl(0.065, 0.085, 0.3, 8), Vector3(0, 0.66, 0.22), black, Vector3(25, 0, 0))
+			var head := Node3D.new()
+			head.position = Vector3(0, 0.82, 0.3)
+			body.add_child(head)
+			B.mesh(head, B.sphere(0.09, 10), Vector3.ZERO, black)
+			B.mesh(head, B.boxm(Vector3(0.05, 0.05, 0.09)), Vector3(0, -0.015, 0.1), Color(0.9, 0.88, 0.75))
+			B.mesh(head, B.boxm(Vector3(0.13, 0.025, 0.04)), Vector3(0, 0.05, 0.03), Color(0.85, 0.1, 0.1))
+			B.mesh(head, B.boxm(Vector3(0.07, 0.09, 0.03)), Vector3(0, -0.09, 0.05), black.lightened(0.05))
+			for s in [-1.0, 1.0]:
+				B.mesh(head, B.sphere(0.015, 6), Vector3(s * 0.07, 0.015, 0.04), Color(0.3, 0.25, 0.15))
+				B.mesh(body, B.sphere(0.035, 6), Vector3(s * 0.2, 0.52, 0.12), Color(0.95, 0.95, 0.92))  # valkoinen olkatäplä
+			for k in 9:  # viuhkapyrstö
+				var f := Node3D.new()
+				f.position = Vector3(0, 0.5, -0.3)
+				f.rotation = Vector3(deg_to_rad(-30), 0, deg_to_rad(-64.0 + k * 16.0))
+				body.add_child(f)
+				B.mesh(f, B.boxm(Vector3(0.07, 0.42, 0.02)), Vector3(0, 0.21, 0), black.lightened(0.04 * (k % 2)))
+				B.mesh(f, B.boxm(Vector3(0.05, 0.03, 0.022)), Vector3(0, 0.3, 0), Color(0.85, 0.85, 0.82))
+			_legs(body, 0.1, 0.2, 0.04, Color(0.35, 0.33, 0.3))
+			_wings(body, 0.48, 0.42, Color(0.32, 0.23, 0.15))
+		"kyyhky":
+			# Sepelkyyhky: siniharmaa, punertava rinta, valkoinen kaulatäplä ja siipijuova, tumma pyrstön pää.
+			var grey := Color(0.52, 0.56, 0.62)
+			B.mesh(body, B.sphere(0.12, 12), Vector3.ZERO, grey).scale = Vector3(0.9, 0.85, 1.4)
+			B.mesh(body, B.sphere(0.09, 10), Vector3(0, -0.01, 0.08), Color(0.72, 0.56, 0.56))
+			B.mesh(body, B.sphere(0.055, 8), Vector3(0, 0.03, 0.13), Color(0.3, 0.48, 0.42))
+			B.mesh(body, B.sphere(0.058, 10), Vector3(0, 0.06, 0.18), grey)
+			B.mesh(body, B.boxm(Vector3(0.02, 0.018, 0.04)), Vector3(0, 0.055, 0.245), Color(0.95, 0.75, 0.3))
+			for s in [-1.0, 1.0]:
+				B.mesh(body, B.sphere(0.022, 6), Vector3(s * 0.045, 0.03, 0.13), Color(0.97, 0.97, 0.95))
+				B.mesh(body, B.sphere(0.011, 6), Vector3(s * 0.045, 0.075, 0.2), Color(0.9, 0.85, 0.3))
+			B.mesh(body, B.boxm(Vector3(0.1, 0.02, 0.17)), Vector3(0, 0.0, -0.22), grey.darkened(0.05))
+			B.mesh(body, B.boxm(Vector3(0.1, 0.022, 0.04)), Vector3(0, 0.0, -0.3), Color(0.2, 0.21, 0.24))
+			_wings(body, 0.02, 0.34, grey.lightened(0.08), true)
+		"hirvi":
+			var g: Node3D = STAG.instantiate()
+			body.add_child(g)
+			_moose_look(g)
+			g.scale = Vector3.ONE * (2.2 / maxf(_height(g), 0.01))
+			var ap: AnimationPlayer = g.find_child("AnimationPlayer", true, false)
+			for n in ["Walk", "Gallop", "Eating", "Idle"]:
+				ap.get_animation(n).loop_mode = Animation.LOOP_LINEAR
+			ap.play("Walk")
+			root.set_meta("anim", ap)
 	return root
 
 
-func _wings(body: Node3D, y: float, span: float, col: Color) -> void:
+## Siivet: litistetyt soikiot kyljissä. white_bar = valkoinen juova (sepelkyyhky).
+func _wings(body: Node3D, y: float, span: float, col: Color, white_bar := false) -> void:
 	for s in [-1.0, 1.0]:
 		var pivot := Node3D.new()
 		pivot.name = "WingL" if s < 0.0 else "WingR"
-		pivot.position = Vector3(s * 0.08, y + 0.02, 0)
+		pivot.position = Vector3(s * 0.08 * span / 0.3, y + 0.02, 0)
+		pivot.rotation.z = -s * 1.35  # taittuneena kyljelle (_update_animals räpyttää lennossa)
 		body.add_child(pivot)
-		B.mesh(pivot, B.boxm(Vector3(span, 0.02, 0.16)), Vector3(s * span / 2.0, 0, 0), col)
+		B.mesh(pivot, B.sphere(0.5, 10), Vector3(s * span / 2.0, 0, 0), col).scale = Vector3(span, 0.035, span * 0.6)
+		if white_bar:
+			B.mesh(pivot, B.boxm(Vector3(span * 0.08, 0.04, span * 0.45)), Vector3(s * span * 0.3, 0.005, 0), Color(0.97, 0.97, 0.95))
+
+
+## Linnun jalat "Leg0"/"Leg1": lonkasta roikkuvat, x = puoliväli, h = pituus.
+func _legs(body: Node3D, x: float, h: float, r: float, col: Color) -> void:
+	for i in 2:
+		var leg := Node3D.new()
+		leg.name = "Leg%d" % i
+		leg.position = Vector3((i * 2 - 1) * x, h, 0.02)
+		body.add_child(leg)
+		B.mesh(leg, B.cyl(r, r * 0.8, h, 6), Vector3(0, -h / 2.0, 0), col)
+
+
+## Stag hirven näköiseksi: tumma turkki, vaaleammat jalat, lapiosarvet alkuperäisten sarvien tilalle.
+func _moose_look(g: Node3D) -> void:
+	for mi in g.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.name.contains("Horns"):
+			m.visible = false
+			var ant := Node3D.new()
+			ant.transform = m.transform
+			m.get_parent().add_child(ant)
+			_antlers(ant)
+			continue
+		for i in m.mesh.get_surface_count():
+			var src := m.get_active_material(i) as StandardMaterial3D
+			if src == null:
+				continue
+			var mat := src.duplicate() as StandardMaterial3D
+			var c := src.albedo_color
+			var lum := c.get_luminance()
+			# Ruskea turkki lähes mustanruskeaksi, vaalea (kaula, vatsa) harmaanruskeaksi, mustat ennallaan.
+			if lum >= 0.5:
+				mat.albedo_color = Color(0.3, 0.22, 0.15)
+			elif lum > 0.12:
+				mat.albedo_color = Color(0.2, 0.14, 0.09)
+			m.set_surface_override_material(i, mat)
+
+
+## Hirven lapiosarvet sarvimeshin koordinaateissa: x sivulle, z ylös (Stagin sarvet mahtuvat noin x ±0,0127,
+## z 0..0,014). Lyhyt tyvi sivulle ja leveä, loivasti ylös kallistuva lapio, jonka ulkoreunassa piikit.
+func _antlers(ant: Node3D) -> void:
+	var bone := Color(0.78, 0.72, 0.58)
+	for s in [-1.0, 1.0]:
+		var side := Node3D.new()
+		side.position = Vector3(s * 0.0012, 0, 0.0008)
+		side.rotation = Vector3(0, s * deg_to_rad(-22), 0)  # lapio nousee ulospäin
+		ant.add_child(side)
+		B.mesh(side, B.cyl(0.0006, 0.0008, 0.004, 6), Vector3(s * 0.002, 0, 0), bone, Vector3(0, 0, 90))
+		var palm := B.mesh(side, B.sphere(0.5, 10), Vector3(s * 0.0068, 0, 0.0006), bone)
+		palm.scale = Vector3(0.0085, 0.0065, 0.0011)
+		for k in 5:
+			var ty := -0.0026 + k * 0.0013
+			B.mesh(side, B.cyl(0.00015, 0.0004, 0.0022, 5), Vector3(s * (0.0103 - 0.0003 * absf(k - 2.0)), ty, 0.0014), bone,
+				Vector3(90, 0, s * -35))
+
+
+## Mallin korkeus sen omassa kehyksessä (näkyvät meshit, lepoasento).
+func _height(g: Node3D) -> float:
+	var top := -INF
+	var bottom := INF
+	for mi in g.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if not m.visible:
+			continue
+		var xf := Transform3D.IDENTITY
+		var n: Node = m
+		while n != g and n is Node3D:
+			xf = (n as Node3D).transform * xf
+			n = n.get_parent()
+		var box := xf * m.get_aabb()
+		top = maxf(top, box.end.y)
+		bottom = minf(bottom, box.position.y)
+	return top - bottom
 
 
 # --- Loppu -----------------------------------------------------------------------------
