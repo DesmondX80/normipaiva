@@ -95,7 +95,7 @@ const SAW_LOCAL := Vector3(-5.2, 0, 1.2)
 const CHOP_LOCAL := Vector3(-5.4, 0, -1.8)
 const FIRE_LOCAL := Vector3(0, 0, 0)
 const TELL_LOCAL := Vector3(0.6, 0, -1.4)  # kuulijan paikka kodan sisällä oven puolella
-const TOWER_LOCAL := Vector3(9.0, 0, 7.0)  # lintutornin keskipiste
+const TOWER_LOCAL := Vector3(6.5, 0, 5.0)  # lintutornin keskipiste (8 m kodasta kuten OSM:ssä)
 const TOWER_TOP_Y := 5.4
 
 

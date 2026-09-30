@@ -5,6 +5,8 @@ render_mode cull_disabled, skip_vertex_transform;
 
 uniform vec2 origin = vec2(0.0);
 uniform vec2 size = vec2(1.0);
+uniform vec2 pivot = vec2(0.0);  // nurmikon keskipiste maailmassa (origin ja size paikallisessa kehyksessä)
+uniform float angle = 0.0;  // paikallisen x-akselin kulma maailmassa
 uniform int cols = 1;
 uniform float spacing = 0.16;
 uniform sampler2D cut : filter_nearest;
@@ -26,8 +28,9 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 
 void vertex() {
 	vec2 cell = vec2(float(INSTANCE_ID % cols), float(INSTANCE_ID / cols));
-	vec2 wp = origin + (cell + vec2(hash(cell), hash(cell + 17.3))) * spacing;
-	float len = textureLod(cut, (wp - origin) / size, 0.0).r * max_len;
+	vec2 lp = origin + (cell + vec2(hash(cell), hash(cell + 17.3))) * spacing;
+	vec2 wp = pivot + vec2(cos(angle) * lp.x - sin(angle) * lp.y, sin(angle) * lp.x + cos(angle) * lp.y);
+	float len = textureLod(cut, (lp - origin) / size, 0.0).r * max_len;
 	float h = len * (0.75 + hash(cell + 2.2) * 0.5);
 	float ang = hash(cell + 9.7) * 6.2831;
 	v_h = VERTEX.y;

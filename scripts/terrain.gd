@@ -1,5 +1,5 @@
 extends RefCounted
-## Maaston korkeus: todellinen korkeusmalli (Copernicus DEM, ks. assets/terrain/korkeus.json)
+## Maaston korkeus: todellinen korkeusmalli (Maanmittauslaitoksen 2 m -malli, ks. assets/terrain/korkeus.json)
 ## leivottuna 5 m ruudukoksi (tools/bake_terrain.gd -> assets/terrain/korkeus.bin).
 ## h(x, z) antaa korkeuden maailmankoordinaateissa; kolmiointi vastaa maastoverkkoa, joten
 ## maan pinnalle nostetut asiat ovat täsmälleen samassa tasossa kuin maa.
