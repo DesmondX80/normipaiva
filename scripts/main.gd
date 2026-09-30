@@ -25,6 +25,9 @@ const PaGame := preload("res://scripts/pa_game.gd")
 const DroneGame := preload("res://scripts/drone_game.gd")
 ## Mopomatka Paapelista Vaalan Hotelli-Ravintola Siitariin (mopo_trip.gd, vaala.gd): erillinen tasku.
 const MopoTrip := preload("res://scripts/mopo_trip.gd")
+const TrafficCar := preload("res://scripts/traffic_car.gd")
+const Atm := preload("res://scripts/atm.gd")
+const TRAFFIC := 6  # autoja kylän tieverkossa
 const VAALA_POS := Vector3(13000, 0, 6000)
 ## Siitarin baarin tuotteet: id -> [nimi, hinta, humala, stressi, moraali].
 const SIITARI_MENU := {
@@ -179,6 +182,9 @@ var viina_pullot := 0
 const VIINA_OPEN_R := 2.0
 var _drone: Node3D
 var mopo_trip: Node3D
+## Pankkiautomaatti: 20 € kerran päivässä (Saloisissa K-Marketin takana, Vaalassa Siitaria vastapäätä).
+var atm_day := 0
+var _atm_node: Node3D
 var _mopo_label: Label
 var _siitari_drank := false
 var _drone_parked: Node3D
@@ -611,6 +617,7 @@ func _outside_logic() -> void:
 		Sfx.play("pickup", -10.0, 1.3)
 
 	_lawn_logic()
+	_atm_logic()
 	_drone_logic()
 	if player == bike and Input.is_action_just_pressed("bell") and mummot.distance_to_target() < 10.0:
 		mummot.anger()  # kellon soitto mummojen vieressä suututtaa varmasti
@@ -2175,6 +2182,40 @@ func _viina_logic() -> void:
 	_save_game()
 
 
+# --- Pankkiautomaatti ------------------------------------------------------------------------------------------
+
+## K-Marketin takaseinän automaatti (luodaan kerran, world.gd:n päälle).
+func _build_atm() -> void:
+	var p := M.w(M.SHOP_BUILDING) + Vector3(4.0, 0, -9.0)
+	p.y = Terrain.h(p.x, p.z)
+	_atm_node = Atm.build(world, p, 0.0)
+
+
+func _atm_logic() -> void:
+	if _atm_node == null:
+		_build_atm()
+	if _hint.text != "" or player.is_stunned():
+		return
+	var front := _atm_node.global_position + Vector3(0, 0, -1.0)
+	var p := player.global_position
+	if Vector2(p.x - front.x, p.z - front.z).length() < 1.6:
+		_hint.text = "[E] Nosta rahaa pankkiautomaatista (20 € kerran päivässä)"
+		if Input.is_action_just_pressed("interact"):
+			_atm_use()
+
+
+func _atm_use() -> void:
+	if atm_day == day:
+		_show_message("Päivän nostoraja on käytetty. Huomenna taas 20 €.", 2.5)
+		Sfx.play("alert", -8.0)
+		return
+	atm_day = day
+	money += Atm.DAILY
+	Sfx.play("coin", -2.0)
+	_show_message("Nostit %s €. Rahaa nyt %s €." % [_eur(Atm.DAILY), _eur(money)], 2.5)
+	_save_game()
+
+
 # --- Mopomatka Vaalaan -----------------------------------------------------------------------------------------
 
 ## Mopolla Paapelista Vaalan Siitariin: Vaalan tasku rakennetaan ensimmäisellä kerralla, HUD:sta näkyvät
@@ -2191,6 +2232,8 @@ func _start_mopo() -> void:
 		add_child(mopo_trip)
 		mopo_trip.arrived.connect(_on_mopo_arrived)
 		mopo_trip.finished.connect(_on_mopo_finished)
+		mopo_trip.killed.connect(_on_mopo_killed)
+		mopo_trip.atm.connect(_atm_use)
 	mokki.mopo_parked.visible = false
 	for c in _hud.get_children():
 		if c is CanvasItem and c not in [_compass, _msg, _hint, _mopo_label]:
@@ -2266,13 +2309,17 @@ func _on_siitari(id: String) -> void:
 	_open_siitari_menu.call_deferred()
 
 
-func _on_mopo_finished(_result: String) -> void:
-	_show_message("Mopo parkissa Paapelin pihassa.", 2.5)
-	_mopo_end()
-
-
-func _mopo_end() -> void:
+## Auto ajoi mopon päälle: WASTED Vaalan tiellä, Päivin motkotus ja uusi päivä kotoa Saloisista.
+func _on_mopo_killed() -> void:
+	var at: Vector3 = mopo_trip.mopo.global_position
+	var road_name: String = mopo_trip.status.get_slice("\n", 1).get_slice(" · ", 0)
+	_mopo_restore_hud()
+	state = _mokki_prev
+	_lose("Jäit auton alle mopolla (%s)." % road_name, "car", at)
 	mopo_trip.stop()
+
+
+func _mopo_restore_hud() -> void:
 	mokki.mopo_parked.visible = true
 	for c in _hud.get_children():
 		if c.has_meta("mopo_hidden"):
@@ -2281,14 +2328,24 @@ func _mopo_end() -> void:
 	_mopo_label.visible = false
 	_compass.cache_text = ""
 	_compass.has_cache = false
+	_compass.player = player
+	_minimap.player = player
+	world.follow = player
+
+
+func _on_mopo_finished(_result: String) -> void:
+	_show_message("Mopo parkissa Paapelin pihassa.", 2.5)
+	_mopo_end()
+
+
+func _mopo_end() -> void:
+	mopo_trip.stop()
+	_mopo_restore_hud()
 	state = _mokki_prev
 	walker_out.global_position = mokki.gpos(Mokki.MOPO_LOCAL + Vector3(1.2, 0.4, 0.3))
 	walker_out.velocity = Vector3.ZERO
 	walker_out.controls_enabled = true
 	walker_out.activate_camera()
-	_compass.player = player
-	_minimap.player = player
-	world.follow = player
 	_save_game()
 
 
@@ -3123,6 +3180,7 @@ func _load_game() -> void:
 	pontikka_found = cfg.get_value("drooni", "pontikka", false)
 	viina_found = cfg.get_value("mokki", "viinakatkot", [])
 	viina_pullot = cfg.get_value("mokki", "viinapullot", 0)
+	atm_day = cfg.get_value("peli", "otto_paiva", 0)
 	maine = cfg.get_value("peli", "maine", 0.0)
 	jemma_endings = cfg.get_value("jemma", "loput", 0)
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
@@ -3154,6 +3212,7 @@ func _save_game() -> void:
 	cfg.set_value("drooni", "pontikka", pontikka_found)
 	cfg.set_value("mokki", "viinakatkot", viina_found)
 	cfg.set_value("mokki", "viinapullot", viina_pullot)
+	cfg.set_value("peli", "otto_paiva", atm_day)
 	cfg.set_value("peli", "maine", maine)
 	cfg.set_value("jemma", "loput", jemma_endings)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
@@ -3210,7 +3269,8 @@ func _jemma_check(allow_found := true) -> String:
 
 
 ## Häviö: WASTED-välianimaatio ja Päivin motkotus, sitten uusi päivä lähimmästä turvapaikasta.
-func _lose(reason: String, cause := "default") -> void:
+## at = häviön paikka (oletus pelaaja); annettuna (mopomatka) uusi päivä alkaa kotoa.
+func _lose(reason: String, cause := "default", at := Vector3.INF) -> void:
 	if state == "cutscene":
 		return
 	state = "cutscene"
@@ -3219,10 +3279,11 @@ func _lose(reason: String, cause := "default") -> void:
 	player.controls_enabled = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
 	_hud.visible = false
-	var spawn := _nearest_safe()
+	var spawn := _nearest_safe() if at == Vector3.INF else home_zone + Vector3(0, 0, 4)
 	var choco := _offer_chocolate()
 	_choco_mercy = choco == "ok"
-	cutscene.wasted(player.global_position, reason, cause, home_zone, func() -> void: _new_day(spawn, true), choco)
+	cutscene.wasted(player.global_position if at == Vector3.INF else at, reason, cause, home_zone,
+		func() -> void: _new_day(spawn, true), choco)
 
 
 ## Suklaa annetaan Päiville automaattisesti motkotuksen hetkellä. Palauttaa "" (ei suklaata), "ok" tai "fail".
@@ -3608,6 +3669,23 @@ func _spawn_hazards() -> void:
 
 ## Päivi, juntti, laavun valtaajat ja jyväjemmari (luodaan uudelleen joka päivä).
 func _spawn_threats() -> void:
+	# Liikenne: autot ajavat tieverkkoa oikeaa kaistaa; alle jäänyt kuolee.
+	var far_nodes: Array[int] = []
+	for i in world.graph_nodes.size():
+		if world.graph_nodes[i].distance_to(player.global_position) > 90.0 and world.graph_adj[i].size() > 0:
+			far_nodes.append(i)
+	for i in TRAFFIC:
+		if far_nodes.is_empty():
+			break
+		var car := TrafficCar.new()
+		car.cruise = randf_range(9.5, 12.5)
+		car.target_fn = func() -> Node3D: return player
+		car.hit.connect(func() -> void:
+			if state in ["to_shop", "to_home"] and not _at_mokki():
+				Sfx.play("punch_heavy", 2.0)
+				_lose("Jäit auton alle.", "car"))
+		_hazards.add_child(car)
+		car.setup_graph(world.graph_nodes, world.graph_adj, far_nodes.pick_random())
 	wife = WifeCar.new()
 	_hazards.add_child(wife)
 	wife.setup(world.graph_nodes, world.graph_adj, world.nearest_node(M.w(M.J_T)), player)
@@ -4391,6 +4469,79 @@ func _maybe_screenshot() -> void:
 			_item_menu.hide()
 			_on_siitari("lahde")
 			print("MOPO kalja: rahaa %.2f -> %.2f, humala %.2f, tila %s, viesti: %s" % [m0, money, tilat.value("humala"), state, _msg.text])
+			# Vaalan pankkiautomaatti ja auton alle jääminen: auto takaa täydellä vauhdilla, mopo seisoo kaistalla.
+			_start_mopo()
+			mp.position = vl.atm_pos + Vector3(0, 0.5, 0)
+			mp.speed = 0.0
+			for i in 10:
+				await get_tree().physics_frame
+			var m1 := money
+			print("MOPO otto: hint '%s'" % _hint.text)
+			Input.action_press("interact")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			Input.action_release("interact")
+			print("MOPO otto: rahaa %.2f -> %.2f, viesti: %s" % [m1, money, _msg.text])
+			var si2 := 300
+			var d2: Vector3 = vl.road_dir(si2)
+			mp.position = vl.road_pos(si2) + d2.cross(Vector3.UP) * 1.6 + Vector3(0, 0.5, 0)
+			mp.rotation.y = atan2(-d2.x, -d2.z)
+			mp.speed = 0.0
+			var car0: Node3D = mopo_trip._cars[0]
+			car0.set_line_t(float(si2 - 5), 1)
+			for i in 90:
+				await get_tree().physics_frame
+				if state == "cutscene":
+					break
+			await snap.call("_kuolema.png")
+			print("MOPO kolari: tila %s, alaotsikko: %s" % [state, cutscene._sub.text])
+			for i in 900:
+				await get_tree().process_frame
+				if state != "cutscene":
+					break
+			print("MOPO kolarin jälkeen: tila %s, kotona %s, päivä %d" % [state, player.global_position.distance_to(home_zone) < 12.0, day])
+		"liikenne":
+			# Kylän liikenne: autojen määrä ja liike, K-Marketin automaatti kahdesti ja auton alle jääminen.
+			var cars: Array = _hazards.get_children().filter(func(c): return c is TrafficCar)
+			var p0: Array = cars.map(func(c): return c.global_position)
+			for i in 180:
+				await get_tree().physics_frame
+			var moved: Array = []
+			for i in cars.size():
+				moved.append(roundi(cars[i].global_position.distance_to(p0[i])))
+			print("LIIKENNE autoja %d, liikkuneet 3 s: %s" % [cars.size(), moved])
+			_toggle_mount()
+			_build_atm()
+			walker_out.global_position = _atm_node.global_position + Vector3(0, 0.5, -1.0)
+			for i in 10:
+				await get_tree().physics_frame
+			var mm := money
+			for k in 2:
+				Input.action_press("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+				print("LIIKENNE otto %d: rahaa %.2f -> %.2f, viesti: %s" % [k + 1, mm, money, _msg.text])
+			var ac2 := Camera3D.new()
+			add_child(ac2)
+			ac2.look_at_from_position(_atm_node.global_position + Vector3(2.5, 2.0, -4.5), _atm_node.global_position + Vector3(0, 1.2, 0))
+			ac2.current = true
+			for i in 6:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_otto.png"))
+			walker_out.activate_camera()
+			ac2.queue_free()
+			# Pelaaja auton eteen.
+			var c0: Node3D = cars[0]
+			var fw: Vector3 = -c0.global_transform.basis.z
+			walker_out.global_position = c0.global_position + fw * 3.0 + Vector3(0, 0.3, 0)
+			for i in 60:
+				await get_tree().physics_frame
+				if state == "cutscene":
+					break
+			print("LIIKENNE kolari: tila %s" % state)
 		"mokkiviina":
 			# Viinakätköt: paikat, HUD:n suunta ja matka kätkön vieressä (kuva _hud), kävely kätkölle ja avaus E:llä.
 			viina_found = []
