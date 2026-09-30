@@ -539,11 +539,6 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if Input.is_action_just_pressed("restart"):
-		skip_menu = true
-		get_tree().reload_current_scene()
-		return
-
 	var at_mokki := _at_mokki()
 	if state in ["to_shop", "in_shop", "to_home", "fight"] and not at_mokki:
 		elapsed += delta
@@ -3778,7 +3773,6 @@ func _setup_input() -> void:
 	_add_action("brake", [KEY_SPACE])
 	_add_action("jump", [KEY_SPACE])
 	_add_action("interact", [KEY_E])
-	_add_action("restart", [KEY_R])
 	_add_action("bell", [KEY_Q])
 	_add_action("punch", [KEY_J])
 	_add_action("kick", [KEY_K])
