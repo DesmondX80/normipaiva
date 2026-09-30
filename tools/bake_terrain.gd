@@ -84,37 +84,45 @@ func _cr(a: float, b: float, c: float, d: float, t: float) -> float:
 	return 0.5 * (2.0 * b + (-a + c) * t + (2.0 * a - 5.0 * b + 4.0 * c - d) * t * t + (-a + 3.0 * b - 3.0 * c + d) * t * t * t)
 
 
-## Järvet vaakasuoriksi: vesi pinnan tasolle, rannat viettävät loivasti veteen.
+## Järvet vaakasuoriksi: vesi korkeusmallin vedenpinnan tasolle, rannat mallin mukaisina.
+const SHORE_RAISE := 5.0  # rannan kaista (m), jolla maa pidetään vedenpinnan yläpuolella
 func _flatten_water(hs: PackedFloat32Array, nx: int, nz: int, lo: Vector2) -> void:
 	for wp in M.WATER:
 		var poly := PackedVector2Array()
 		for p in wp:
 			poly.append(M.w2(p))
-		var level := INF
-		for p in poly:
-			level = minf(level, _sample(hs, nx, nz, lo, p))
-		level -= 0.5
-		# Kodan rannalla vesi pihan tason alle (karkea korkeusmalli antaisi liian jyrkän rannan).
-		if _poly_dist(poly, M.w2(M.KOTA)) < 60.0:
-			level = maxf(level, _sample(hs, nx, nz, lo, M.w2(M.KOTA)) - 1.4)
 		var bmin := Vector2(INF, INF)
 		var bmax := -bmin
 		for p in poly:
 			bmin = bmin.min(p)
 			bmax = bmax.max(p)
-		bmin -= Vector2(25, 25)
-		bmax += Vector2(25, 25)
-		for j in range(maxi(0, int((bmin.y - lo.y) / T.CELL)), mini(nz, int((bmax.y - lo.y) / T.CELL) + 2)):
-			for i in range(maxi(0, int((bmin.x - lo.x) / T.CELL)), mini(nx, int((bmax.x - lo.x) / T.CELL) + 2)):
+		bmin -= Vector2(SHORE_RAISE, SHORE_RAISE)
+		bmax += Vector2(SHORE_RAISE, SHORE_RAISE)
+		var j0 := maxi(0, int((bmin.y - lo.y) / T.CELL))
+		var j1 := mini(nz, int((bmax.y - lo.y) / T.CELL) + 2)
+		var i0 := maxi(0, int((bmin.x - lo.x) / T.CELL))
+		var i1 := mini(nx, int((bmax.x - lo.x) / T.CELL) + 2)
+		# Pinta: korkeusmallin tasoitettu vedenpinta eli alin kohta järven sisällä (kuten mökillä,
+		# tools/kartta/mokki.ps1); pienelle lammelle, jonka sisään ei osu ruudukon pisteitä, rantaviivan alin kohta.
+		var level := INF
+		for j in range(j0, j1):
+			for i in range(i0, i1):
 				var w := lo + Vector2(i, j) * T.CELL
-				var d := _poly_dist(poly, w)
+				if Geometry2D.is_point_in_polygon(w, poly):
+					level = minf(level, hs[j * nx + i])
+		if level == INF:
+			for p in poly:
+				level = minf(level, _sample(hs, nx, nz, lo, p))
+		# Vesi järven kohdalle; ranta säilyy mallin mukaisena. Vain jos OSM:n rantaviiva ja malli eroavat niin, että
+		# maa jäisi rannan kaistalla veden alle, se nostetaan juuri pinnan yläpuolelle.
+		for j in range(j0, j1):
+			for i in range(i0, i1):
+				var w := lo + Vector2(i, j) * T.CELL
 				var k := j * nx + i
-				if Geometry2D.is_point_in_polygon(w, poly) or d < 3.0:
+				if Geometry2D.is_point_in_polygon(w, poly) or _poly_dist(poly, w) < 1.5:
 					hs[k] = level
-				elif w.distance_to(M.w2(M.KOTA) + Vector2(3, 3)) < 25.0:
-					pass  # kodan piha säilyy tasaisena rantatörmään asti
-				elif d < 22.0:
-					hs[k] = lerpf(level, hs[k], smoothstep(3.0, 22.0, d))
+				elif _poly_dist(poly, w) < SHORE_RAISE:
+					hs[k] = maxf(hs[k], level + 0.1)
 		print("järvi: taso %.2f m" % level)
 
 
