@@ -46,10 +46,15 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   haava paranee yön aikana.
 - **Pontikka:** jossain metsässä Pannu-Sulo keittää pontikkaa. Paikka ei näy kartalla, mutta kodan tarinoista
   saattaa kuulla vihjeen. Sulo myy päivässä yhden kanisterin (20 €), joka vastaa kotijemmassa 24 kaljaa.
-- **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen). Mökki on mallinnettu oikean
-  paikan mukaan (Kaisuantie 62, Vaala): 200 × 200 m alue OpenStreetMapista (Likanen, Tervalampi, Kiiskeroinen,
-  Kaisuantie, pellot, naapurit ja metsä) ja korkeudet Maanmittauslaitoksen 2 m korkeusmallista (mökki on
-  harjanteella ja piha viettää n. 7 m rantaan), ja mökki rajautuu joka suunnalta tiiviiseen mäntymetsään
+- **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen). Mökki on Vaalan Uutelanperällä,
+  noin 106 km linnuntietä itään Järvikujalta, ja välimatkat (esim. pyörään) näytetään sen mukaan. Mökillä
+  pääpelin tehtävät eivät etene eivätkä näy HUD:ssa: aika seisoo, Päivi ja muut vaarat jäävät Saloisiin, eikä
+  pyörää varasteta sillä aikaa. Mökki on mallinnettu oikean paikan mukaan (Kaisuantie 62, Uutelanperä, Vaala): 1,9 × 1,9 km
+  maisema OpenStreetMapista (Likanen, Syväjärvi, Ahveroinen, Tervalampi, Kiiskeroinen, Penikka ja muut lammet
+  omilla pinnoillaan, Kaisuantie, Uutelanperäntie, Neittäväntie ja muut tiet, pellot, suo, purot ja noin sata
+  naapurirakennusta) ja korkeudet Maanmittauslaitoksen 2 m korkeusmallista pihan ympärillä sekä EU-DEM 25 m
+  mallista kauempana (mökki on harjanteella ja piha viettää n. 7 m rantaan). Kävelyalue on 800 × 800 m, ja
+  maisema jatkuu horisonttiin. Data päivitetään komennolla `python3 tools/mokki_kartta.py`. Mökki rajautuu joka suunnalta tiiviiseen mäntymetsään
   tummanruskeine pystylautaseinineen. Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella
   savusauna, puukuumenteinen poreamme ja kesäkeittiö (avoin katos offset-savustimineen), tikanheittotaulu, kalastus
   laiturilta portaineen (heitä onki, odota nykäisyä, vedä ylös ajoissa) ja isäntä Santtu kahvikuppeineen.
@@ -73,6 +78,16 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   otetaan hörppy. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
   jääkaappi), pitkä pöytä, TV ja takka, makuuhuone violetteine kerrossänkyineen, kylpyhuone ja sisäsauna.
   Kerrossängyssä voi **nukkua yön**: päivä vaihtuu ja uusi alkaa mökiltä (Päivi soittaa aamulla).
+- **Drooni:** kotipihan asfaltilla on droonin laskeutumisalusta (jalan E). Kuvauskopterilla tutkitaan Saloisia
+  ilmasta: W/S/A/D liikkuu, hiiri tai Q/E kääntää, Space nousee, C laskee, Shift = sport-tila ja hiiren pystyliike
+  kallistaa kameraa. V vaihtaa FPV- ja seurantakameran. Vasen nappi ottaa ilmakuvan: tunnistettavia kohteita on 13
+  (koti, K-Market, laavu, grillikatos, Päivin Hyundai, juntti, jyväjemmari, mummot, Arto, Pekka, Väinö,
+  jalkapallopojat ja... Pannu-Sulon pontikkapannu, joka merkitään kuvan jälkeen karttaan). Akku kestää 5 min ja
+  latautuu alustalla, korkeusraja on 120 m ja kantama noin 1,3 km: heikolla akulla tai signaalilla drooni palaa
+  itse kotiin (H palaa, F laskeutuu). Kova törmäys rikkoo droonin päiväksi. Päivin jahti on tauolla lennon ajan.
+- **Reppu (I tai Tab):** tavarat, kaljat, ostokset, sienet, kalat ja metsästyssaaliit näkyvät Minecraft-tyylisessä
+  ruudukossa pikselikuvakkeina ja pinoina, ja alarivillä ovat eväät (T syö). Samassa näkymässä ovat rahat,
+  kauppalista ja jemmat. HUD:ssa näkyvät enää rahat, aika, tavoite ja kauppalista.
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
 

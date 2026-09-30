@@ -10,6 +10,7 @@ const ShopInterior := preload("res://scripts/shop_interior.gd")
 
 const World := preload("res://scripts/world.gd")
 const Minimap := preload("res://scripts/minimap.gd")
+const Inventory := preload("res://scripts/inventory.gd")
 const Compass := preload("res://scripts/compass.gd")
 const M := preload("res://scripts/map_data.gd")
 const Terrain := preload("res://scripts/terrain.gd")
@@ -21,6 +22,7 @@ const SawGame := preload("res://scripts/saw_game.gd")
 const BarGame := preload("res://scripts/bar_game.gd")
 const PingisGame := preload("res://scripts/pingis_game.gd")
 const PaGame := preload("res://scripts/pa_game.gd")
+const DroneGame := preload("res://scripts/drone_game.gd")
 const HuntGame := preload("res://scripts/hunt_game.gd")
 const LaavuGuard := preload("res://scripts/laavu_guard.gd")
 const PaperMap := preload("res://scripts/paper_map.gd")
@@ -69,6 +71,12 @@ const SAVE_PATH := "user://normipaiva.cfg"
 
 const INTERIOR_POS := Vector3(3000, 0, 0)
 const MOKKI_POS := Vector3(6000, 0, 0)  # erillinen tasku, tavoitettavissa vain taksilla kotoa
+## Mökki on Vaalan Uutelanperällä (Kaisuantie 62, 64,5055 N 26,6672 E) ja koti Saloisissa (Järvikuja 1, 64,6431 N
+## 24,4766 E). Pelissä mökki on erillinen tasku, joten välimatka niiden välillä on oikea linnuntie (n. 106 km itään).
+## Mökillä pääpelin tehtävät (kauppareissu, jemmat, aika, vaarat) eivät etene eivätkä näy HUD:ssa.
+const MOKKI_AREA_R := 700.0
+const HOME_MOKKI_KM := 105.7
+var _list_pending := false  # päivä alkoi mökiltä: Päivin värilista kerrotaan kotiin palatessa
 ## Mökin sisätila (mokki_interior.gd) omassa taskussaan; kuistin ovelta E vie sisään.
 const MokkiInterior := preload("res://scripts/mokki_interior.gd")
 const MOKKI_INT_POS := Vector3(9000, 0, 0)
@@ -115,6 +123,22 @@ var _sus_box: Control
 var _sus_bar: ProgressBar
 var _bird_t := 2.0
 var _minimap: Control
+var _inventory: Control  # reppu (I / Tab), inventory.gd
+## Drooni (drone_game.gd): alusta kotipihalla, akku latautuu maassa, törmäys rikkoo päiväksi. Ilmakuvat kerätään
+## kokoelmaksi, ja Pannu-Sulon pontikkapannu merkitään karttaan, kun se on kuvattu ilmasta.
+const DRONE_CHARGE_S := 240.0  # tyhjästä täyteen
+const DRONE_POIS := {
+	"koti": "Koti, Järvikuja 1", "kmarket": "K-Market", "laavu": "Laavu Antinsuonkankaalla",
+	"grillikatos": "Kiilinlammen grillikatos", "pontikka": "Pannu-Sulon pontikkapannu!", "paivi": "Päivin Hyundai",
+	"juntti": "Juntti", "jyvajemmari": "Jyväjemmarin traktori", "mummot": "Penkin mummot", "arto": "Naapurin Arto",
+	"pekka": "Pekka", "vaino": "Väinö karkuteillä", "pojat": "Jalkapallopojat",
+}
+var drone_battery := 1.0
+var drone_broken_day := -1
+var drone_photos: Array = []
+var pontikka_found := false
+var _drone: Node3D
+var _drone_parked: Node3D
 var _compass: Control
 var _hud: CanvasLayer
 var fight: Node3D
@@ -360,6 +384,13 @@ func _ready() -> void:
 	paper.mokki = mokki
 	map_layer.add_child(paper)
 	_paper = paper
+	_inventory = Inventory.new()
+	_inventory.game = self
+	map_layer.add_child(_inventory)
+	_drone_parked = Node3D.new()
+	add_child(_drone_parked)
+	_drone_parked.position = world.drone_pad_pos + Vector3(0, Terrain.h(world.drone_pad_pos.x, world.drone_pad_pos.z) + 0.16, 0)
+	DroneGame.make_model(_drone_parked)
 	var amb := Ambience.new()
 	amb.world = world
 	amb.player_ref = func() -> Node3D: return player if state in ["to_shop", "to_home"] else null
@@ -416,15 +447,21 @@ func _process(delta: float) -> void:
 		get_tree().reload_current_scene()
 		return
 
-	if state in ["to_shop", "in_shop", "in_mokki", "to_home", "fight"]:
+	var at_mokki := _at_mokki()
+	if state in ["to_shop", "in_shop", "to_home", "fight"] and not at_mokki:
 		elapsed += delta
+	if _drone == null:
+		drone_battery = minf(drone_battery + delta / DRONE_CHARGE_S, 1.0)  # latautuu alustalla
+	if at_mokki and _hazards.process_mode != Node.PROCESS_MODE_DISABLED:
+		_hazards.process_mode = Node.PROCESS_MODE_DISABLED  # Päivi ja muut vaarat jäävät Saloisiin
 
 	_hint.text = ""
 	match state:
 		"to_shop", "to_home":
 			_outside_logic()
 			_mount_logic()
-			_bike_theft(delta)
+			if not at_mokki:
+				_bike_theft(delta)
 			_stats_tick(delta)
 		"in_shop":
 			_hint.text = interior.hint
@@ -491,7 +528,10 @@ func _mount_logic() -> void:
 				else:
 					_toggle_mount()
 		elif e:
-			_show_message("Pyörä on %d metrin päässä." % int(d), 1.5)
+			if _at_mokki_pos(walker_out.global_position) != _at_mokki_pos(bike.global_position):
+				_show_message("Pyörä jäi Saloisiin, %s päähän." % _dist_text(walker_out.global_position, bike.global_position), 2.5)
+			else:
+				_show_message("Pyörä on %s päässä." % _dist_text(walker_out.global_position, bike.global_position), 1.5)
 	elif e:
 		_toggle_mount()
 
@@ -501,6 +541,12 @@ func _outside_logic() -> void:
 		return  # esinevalikko ottaa E:n, W/S:n ja Q:n
 	if Input.is_action_just_pressed("eat") and not player.is_stunned():
 		_open_eat_menu()
+		return
+	# Mökillä vain mökin omat toiminnot: kauppareissu, jemmat ja kylän tapahtumat odottavat Saloisissa.
+	_beacon.visible = not _at_mokki()
+	if not _beacon.visible:
+		_mokki_taxi_logic()
+		_mokki_logic()
 		return
 	var target := shop_zone if state == "to_shop" else home_zone
 	var ppos := player.global_position
@@ -513,6 +559,7 @@ func _outside_logic() -> void:
 		Sfx.play("pickup", -10.0, 1.3)
 
 	_lawn_logic()
+	_drone_logic()
 	if player == bike and Input.is_action_just_pressed("bell") and mummot.distance_to_target() < 10.0:
 		mummot.anger()  # kellon soitto mummojen vieressä suututtaa varmasti
 	_edge_logic()
@@ -884,6 +931,122 @@ func _mow() -> void:
 	_hint.text = "Leikataan... %d %%   W/S/A/D ohjaa · [E] sammuta" % roundi(ratio * 100.0)
 	if Input.is_action_just_pressed("interact"):
 		_stop_mowing()
+
+
+## Droonin alusta kotipihalla: jalan E lähettää droonin ilmaan.
+func _drone_logic() -> void:
+	if _hint.text != "" or player != walker_out or player.is_stunned():
+		return
+	var pad: Vector3 = world.drone_pad_pos
+	var p := player.global_position
+	if Vector2(p.x - pad.x, p.z - pad.z).length() > 1.8:
+		return
+	if drone_broken_day == day:
+		_hint.text = "Drooni on rikki. Uudet potkurit tulevat huomenna postissa."
+		return
+	if drone_battery < 0.25:
+		_hint.text = "Droonin akku latautuu (%d %%)." % roundi(drone_battery * 100.0)
+		return
+	_hint.text = "[E] Lennätä droonia (akku %d %%, ilmakuvia %d/%d)" % [roundi(drone_battery * 100.0), drone_photos.size(),
+		DRONE_POIS.size()]
+	if Input.is_action_just_pressed("interact"):
+		_start_drone()
+
+
+func _start_drone() -> void:
+	_mokki_prev = state
+	state = "minigame"
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	walker_out.rotation.y = B.yaw_to(world.drone_pad_pos - walker_out.global_position)
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_drone_parked.visible = false
+	var d := DroneGame.new()
+	d.position = world.drone_pad_pos + Vector3(0, Terrain.h(world.drone_pad_pos.x, world.drone_pad_pos.z), 0)
+	d.battery = drone_battery
+	d.pois = _drone_pois()
+	d.photo_total = DRONE_POIS.size()
+	d.photo_count = drone_photos.size()
+	d.photographed.connect(_on_drone_photo)
+	d.hud = _hud
+	d.finished.connect(_on_drone_finished)
+	_drone = d
+	add_child(d)
+	# Tutka, kompassi, kartta ja ruoho seuraavat droonia lennon ajan.
+	# Lennon ajaksi HUD:sta näkyvät vain tutka, kompassi ja viestit.
+	for c in _hud.get_children():
+		if c is CanvasItem and c not in [_minimap, _compass, _msg]:
+			c.set_meta("drone_hidden", c.visible)
+			c.visible = false
+	_minimap.player = d.body
+	_compass.player = d.body
+	_paper.player = d.body
+	world.follow = d.body
+	tilat.first("drooni", 0.3)
+
+
+## Ilmakuvattavat kohteet: kiinteät paikat ja liikkuvat hahmot (jos ne ovat olemassa).
+func _drone_pois() -> Array:
+	var out: Array = []
+	var fixed := {"koti": M.HOME_BUILDING, "kmarket": M.SHOP_BUILDING, "laavu": M.LAAVU, "grillikatos": M.GRILLIKATOS,
+		"pontikka": M.PONTIKKA}
+	for id in fixed:
+		var at: Vector3 = M.w(fixed[id])
+		out.append({"id": id, "name": DRONE_POIS[id], "pos": func() -> Vector3: return at + Vector3(0, 1.0, 0)})
+	var movers := {"paivi": wife, "juntti": juntti, "jyvajemmari": tractor, "mummot": mummot, "arto": arto, "pekka": pekka,
+		"vaino": vaino, "pojat": boys}
+	for id in movers:
+		var n: Node3D = movers[id]
+		if not is_instance_valid(n):
+			continue
+		out.append({"id": id, "name": DRONE_POIS[id], "pos": func() -> Vector3:
+			return n.global_position + Vector3(0, 1.0, 0) if is_instance_valid(n) and n.is_inside_tree() else Vector3(0, -9999, 0)})
+	return out
+
+
+func _on_drone_photo(id: String) -> void:
+	if id in drone_photos:
+		return
+	drone_photos.append(id)
+	_drone.photo_count = drone_photos.size()
+	tilat.add("kokemus", 0.05)
+	Sfx.play("win_small", -8.0, 1.2)
+	if id == "pontikka" and not pontikka_found:
+		pontikka_found = true
+		_queue_message("Kuusikosta nousee savua... Pannu-Sulon pontikkapannu! Paikka merkittiin karttaan (M).", 4.0)
+	if drone_photos.size() == DRONE_POIS.size():
+		_queue_message("Kaikki ilmakuvat otettu! Saloinen on nyt kartoitettu ilmasta.", 4.0)
+		maine = clampf(maine + 10.0, 0.0, 100.0)
+	_save_game()
+
+
+func _on_drone_finished(result: String) -> void:
+	drone_battery = _drone.battery
+	_drone.queue_free()
+	_drone = null
+	_drone_parked.visible = true
+	for c in _hud.get_children():
+		if c.has_meta("drone_hidden"):
+			c.visible = c.get_meta("drone_hidden")
+			c.remove_meta("drone_hidden")
+	state = _mokki_prev
+	_minimap.player = player
+	_compass.player = player
+	_paper.player = player
+	world.follow = player
+	walker_out.controls_enabled = true
+	walker_out.activate_camera()
+	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+	if _once_today("drooni"):
+		tilat.add("stressi", 0.1)
+		tilat.add("keskittyminen", 0.1)
+	if result == "crashed":
+		drone_broken_day = day
+		drone_battery = 0.0
+		tilat.add("moraali", -0.1)
+		_show_message("Drooni hajosi. Romut kerätty, uudet potkurit huomenna.", 3.5)
+	else:
+		_show_message("Drooni laskeutui. Ilmakuvia %d/%d." % [drone_photos.size(), DRONE_POIS.size()], 3.0)
 
 
 ## Terä osui siiliin tai kiveen. Toinen siili tuo poliisin, toinen kivi rikkoo leikkurin.
@@ -1689,18 +1852,18 @@ func _mokki_taxi_logic() -> void:
 		if player == bike:
 			_hint.text = "Nouse pyörän selästä (F) ja kävele taksille."
 			return
-		_hint.text = "[E] Tilaa taksi mökille (%s €)" % _eur(TAXI_PRICE)
+		_hint.text = "[E] Tilaa taksi mökille Vaalaan (n. %d km, %s €)" % [roundi(HOME_MOKKI_KM), _eur(TAXI_PRICE)]
 		if Input.is_action_just_pressed("interact"):
 			if money < TAXI_PRICE:
 				_show_message("Taksi maksaa %s €. Ei ole tarpeeksi rahaa." % _eur(TAXI_PRICE), 2.5)
 			else:
 				money -= TAXI_PRICE
 				tilat.first("mokki", 0.4)
-				_ride_taxi(mokki.gpos(Mokki.TAXI_LOCAL + Vector3(0, 0.3, 2.2)), "Matkalla mökille... (%s €)" % _eur(TAXI_PRICE))
+				_ride_taxi(mokki.gpos(Mokki.TAXI_LOCAL + Vector3(0, 0.3, 2.2)), "Matkalla mökille Vaalan Uutelanperälle... (%s €)" % _eur(TAXI_PRICE))
 	elif d_mokki < 3.0:
-		_hint.text = "[E] Tilaa taksi kotiin (paluu jo maksettu)"
+		_hint.text = "[E] Tilaa taksi kotiin Saloisiin (n. %d km, paluu jo maksettu)" % roundi(HOME_MOKKI_KM)
 		if Input.is_action_just_pressed("interact"):
-			_ride_taxi(home_stand + Vector3(0, 0, 2.2), "Matkalla kotiin...")
+			_ride_taxi(home_stand + Vector3(0, 0, 2.2), "Matkalla kotiin Saloisiin...")
 
 
 func _ride_taxi(dest: Vector3, sub: String) -> void:
@@ -1711,7 +1874,12 @@ func _ride_taxi(dest: Vector3, sub: String) -> void:
 		walker_out.global_position = dest
 		walker_out.rotation.y = 0.0
 		walker_out.activate_camera()
-		walker_out.controls_enabled = true)
+		walker_out.controls_enabled = true
+		if not _at_mokki_pos(dest):
+			_hazards.process_mode = Node.PROCESS_MODE_INHERIT  # takaisin Saloisissa: vaarat heräävät
+			if _list_pending:
+				_list_pending = false
+				_tell_list())
 
 
 ## Mökillä: jutut Santun kanssa, savusaunan kiuas, puukuumenteinen poreamme, tikanheitto ja laituri.
@@ -2638,6 +2806,8 @@ func _load_game() -> void:
 	day = cfg.get_value("peli", "paiva", 1)
 	has_chocolate = cfg.get_value("peli", "suklaa", false)
 	mielihyva = cfg.get_value("peli", "mielihyva", 0.0)
+	drone_photos = cfg.get_value("drooni", "kuvat", [])
+	pontikka_found = cfg.get_value("drooni", "pontikka", false)
 	maine = cfg.get_value("peli", "maine", 0.0)
 	jemma_endings = cfg.get_value("jemma", "loput", 0)
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
@@ -2665,6 +2835,8 @@ func _save_game() -> void:
 	cfg.set_value("peli", "paiva", day)
 	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("peli", "mielihyva", mielihyva)
+	cfg.set_value("drooni", "kuvat", drone_photos)
+	cfg.set_value("drooni", "pontikka", pontikka_found)
 	cfg.set_value("peli", "maine", maine)
 	cfg.set_value("jemma", "loput", jemma_endings)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
@@ -2772,6 +2944,7 @@ func _nearest_safe() -> Vector3:
 func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	day += 1
 	var stats_note := _end_day_stats()
+	var at_m := _at_mokki_pos(spawn)  # mökillä herätessä pääpelin asiat odottavat kotiinpaluuta
 	# Pyörä jää sinne, minne se jäi; päivä alkaa jalan turvapaikasta.
 	beers = 0
 	food.clear()
@@ -2781,7 +2954,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	bike.set_carrying(false)
 	_place_on_foot(spawn + Vector3(0, 0.3, 0))
 	walker_out.rotation.y = 0.0
-	var bike_note := _bike_note(spawn)
+	var bike_note := "" if at_m else _bike_note(spawn)
 	has_sausage = false
 	has_matches = false
 	fire_lit = false
@@ -2815,13 +2988,15 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		bitten = false  # parani yöllä (ei ensiapua uuden päivän kipuun)
 		walker_out.hurt = false
 		bonus += "\nPuremahaava parani yön aikana. Päivi: \"%s\"" % WOUND_PAIVI.pick_random()
-	if not _list_done and not shopping_list.is_empty():
+	if not _list_done and not shopping_list.is_empty() and not at_m:
 		bonus += "\nPäivi: \"Eilen ei tullu kaupasta mitään, vaikka oli lista!\""
 	bonus += stats_note
+	var mokki_note := ""
 	if _slept_mokki:
 		_slept_mokki = false
 		tilat.add("stressi", -0.1)
-		bonus += "\nPäivi soitti aamulla: \"Missä sää oot ollu koko yön?!\" Kotiin pääsee taksilla."
+		mokki_note = "\nPäivi soitti aamulla: \"Missä sää oot ollu koko yön?!\" Kotiin pääsee taksilla."
+		bonus += mokki_note
 	var rauha := _kaljarauha
 	_kaljarauha = false
 	_roll_list()
@@ -2835,7 +3010,8 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	lawn.grow()
 	lawn.park_mower()
 	lawn.spawn_objects()
-	bonus += _lawn_nag()
+	if not at_m:
+		bonus += _lawn_nag()
 	wife_alerted = false
 	police = null
 	vaino = null  # karkuri palaa yöksi itse kotiin
@@ -2844,7 +3020,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		c.queue_free()
 	_spawn_threats()
 	_apply_trouble()
-	if _spawn_boys():
+	if _spawn_boys() and not at_m:
 		bonus += "\nJossain päin kylää pojat pelaa jalkapalloa."
 	if laavu_conquered:
 		guard.vanish()
@@ -2861,8 +3037,8 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_save_game()
 	_jemma_found = 0
 	_jemma_choco = ""
-	var jnote := _jemma_check(not rauha)
-	if rauha:
+	var jnote := "" if at_m else _jemma_check(not rauha)
+	if rauha and not at_m:
 		jnote += "\nKaljarauha: Päivi ei etsinyt jemmoja."
 	if _jemma_found > 0:
 		# Päivi löysi jemman: välianimaatio ennen päivän alkua.
@@ -2880,6 +3056,12 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 			_hazards.process_mode = Node.PROCESS_MODE_INHERIT
 			_show_message(msg, 6.0)
 			_tell_list(), _jemma_choco)
+		return
+	if at_m:
+		# Mökillä vain mökin asiat: Päivin värilista kerrotaan, kun palataan kotiin (ks. _ride_taxi).
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+		_list_pending = true
+		_show_message("%sPäivä %d alkaa mökiltä, Uutelanperä, Vaala.%s%s" % [intro, day, stats_note, mokki_note], 5.0)
 		return
 	var where := " kotoa"
 	if spawn.distance_to(mokki.global_position) < 80.0:
@@ -2913,6 +3095,23 @@ func _notification(what: int) -> void:
 		_save_game()  # pyörän paikka talteen, vaikka ikkuna suljettaisiin kesken päivän
 
 
+func _at_mokki_pos(p: Vector3) -> bool:
+	return Vector2(p.x - MOKKI_POS.x, p.z - MOKKI_POS.z).length() < MOKKI_AREA_R
+
+
+## Ollaanko mökillä (pihalla, sisällä tai mökin minipeleissä)?
+func _at_mokki() -> bool:
+	return state == "in_mokki" or (player != null and _at_mokki_pos(player.global_position))
+
+
+## Välimatka tekstinä: saman alueen sisällä metreinä, kodin ja mökin välillä oikea linnuntie.
+func _dist_text(a: Vector3, b: Vector3) -> String:
+	if _at_mokki_pos(a) != _at_mokki_pos(b):
+		return "n. %d km" % roundi(HOME_MOKKI_KM)
+	var d := Vector2(a.x - b.x, a.z - b.z).length()
+	return "%d m" % int(d) if d < 2000.0 else "%.1f km" % (d / 1000.0)
+
+
 func _set_outside_visible(v: bool) -> void:
 	_beacon.visible = v
 
@@ -2933,6 +3132,7 @@ func _setup_input() -> void:
 	_add_action("kick", [KEY_K])
 	_add_action("special", [KEY_L])
 	_add_action("map", [KEY_M])
+	_add_action("inventory", [KEY_I, KEY_TAB])
 	_add_action("mount", [KEY_F])
 	_add_action("eat", [KEY_T])
 
@@ -3177,7 +3377,7 @@ func _build_hud() -> void:
 	_stats = _label(layer, 24)
 	_stats.position = Vector2(20, 16)
 	var help := _label(layer, 16)
-	help.text = "W/S polje · A/D ohjaa · E toiminto · F jalan/pyörälle · T syö · M kartta · V FPS · hiiri kamera · Esc valikko"
+	help.text = "W/S polje · A/D ohjaa · E toiminto · F jalan/pyörälle · T syö · I reppu · M kartta · V FPS · hiiri kamera · Esc valikko"
 	help.anchor_top = 1.0
 	help.anchor_bottom = 1.0
 	help.offset_left = 20
@@ -3288,13 +3488,16 @@ func _build_hud() -> void:
 
 
 func _update_hud() -> void:
-	var jem := "koti %d/%d" % [jemma, JEMMA_GOAL]
-	for id in STASHES:
-		if not STASHES[id].home and stash.get(id, 0) > 0:
-			jem += " · %s %d" % [STASHES[id].short, stash[id]]
-	var lines := "Rahaa: %s €\nKaljat: %d   (jemmat: %s%s)\nAika: %s" % [_eur(money), beers, jem,
-		" ⚠" if not _risky_stashes().is_empty() else "", _time(elapsed)]
-	if state in ["to_shop", "to_home"]:
+	# Tavarat, kaljat ja jemmat ovat repussa (I). Mökillä pääpelin tehtävät eivät näy.
+	var at_mokki := _at_mokki()
+	var lines := "Rahaa: %s €" % _eur(money)
+	if at_mokki:
+		lines += "\nMökki · Kaisuantie 62, Uutelanperä, Vaala"
+	else:
+		lines += "\nAika: %s" % _time(elapsed)
+		if not _risky_stashes().is_empty():
+			lines += "\n⚠ Kotijemma vaarassa (I)"
+	if state in ["to_shop", "to_home"] and not at_mokki:
 		var target := shop_zone if state == "to_shop" else home_zone
 		var p := player.global_position
 		lines += "\nTavoite: %s  %d m\nAlusta: %s" % [
@@ -3304,52 +3507,25 @@ func _update_hud() -> void:
 	if _stamina_box.visible:
 		_stamina_bar.value = walker_out.stamina
 		(_stamina_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = Color(0.9, 0.3, 0.2) if walker_out.exhausted else Color(0.3, 0.8, 0.4)
-	var inv: Array[String] = []
-	if has_sausage:
-		inv.append("makkara (paistettu)" if sausage_done else "makkara")
-	if has_matches:
-		inv.append("tulitikut")
-	if has_chocolate:
-		inv.append("suklaalevy")
-	if has_mower_part:
-		inv.append("leikkurin varaosa")
-	if has_kanister:
-		inv.append("pontikkakanisteri (= %d kaljaa)" % KANISTER_BEERS)
-	if has_ball:
-		inv.append("jalkapallo")
-	for k in food:
-		inv.append("%s %d" % [FOODS[k].name.to_lower(), food[k]])
-	if not saalis.is_empty():
-		inv.append("saalis: %s" % ", ".join(saalis.map(func(c): return c.nom)))
-	if kota_polkyt > 0:
-		inv.append("pölkkyjä %d" % kota_polkyt)
-	if kota_halot > 0:
-		inv.append("halkoja %d" % kota_halot)
-	if not inv.is_empty():
-		lines += "\nMukana: " + ", ".join(inv)
-	if not _list_done and not shopping_list.is_empty():
+	if not _list_done and not shopping_list.is_empty() and not at_mokki:
 		# Kauppalista: vain tuotteet, värit pitää muistaa. ✔ = kassissa (väristä riippumatta).
 		var items: Array[String] = []
 		for it in shopping_list:
 			items.append(it[0] + (" ✔" if paivi_bag.has(it[0]) or interior.bag.has(it[0]) else ""))
 		lines += "\nKauppalista: " + ", ".join(items)
-	if mielihyva > 0.0 or maine > 0.0:
+	if (mielihyva > 0.0 or maine > 0.0) and not at_mokki:
 		lines += "\nMielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)]
-	if not bucket.is_empty():
-		var bl: Array[String] = []
-		for k in bucket:
-			bl.append("%s %d l" % [k, bucket[k]])
-		lines += "\nÄmpäri: " + ", ".join(bl)
 	_stats.text = lines
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
 	_minimap.visible = not (state in ["in_shop", "in_mokki"])
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
-	_minimap.show_target = state in ["to_shop", "to_home"]
+	_minimap.show_target = state in ["to_shop", "to_home"] and not at_mokki
 	_compass.visible = state in ["to_shop", "to_home"]
+	_compass.show_target = not at_mokki
 
 	var status: Array[String] = []
-	if state in ["to_shop", "to_home"]:
+	if state in ["to_shop", "to_home"] and not at_mokki:
 		if wife.is_target_safe():
 			status.append("TURVASSA – KIILINLAMMEN GRILLIKATOS")
 		elif wife.alerted:
@@ -3380,6 +3556,78 @@ func _update_hud() -> void:
 	_stat_bars.offset_top = 90 if _sus_box.visible else 36
 	if _sus_box.visible:
 		_sus_bar.value = nb.suspicion
+
+
+## Repun sisältö (inventory.gd): tavarat kuvakkeineen, eväät (food = true) alariville.
+func inventory_items() -> Array:
+	var out: Array = []
+	var add := func(icon: String, name: String, count: int, desc := "", extra := {}) -> void:
+		if count <= 0:
+			return
+		var it := {"icon": icon, "name": name, "count": count, "desc": desc}
+		it.merge(extra)
+		out.append(it)
+	add.call("kalja", "Kalja", beers, "Jalan jaksaa kantaa %d, pyörän kyytiin mahtuu %d." % [CARRY_FOOT, CARRY_BIKE])
+	if has_kanister:
+		add.call("kanisteri", "Pontikkakanisteri", 1, "Vastaa kotijemmassa %d kaljaa." % KANISTER_BEERS)
+	if has_sausage:
+		add.call("makkara_valmis" if sausage_done else "makkara", "Grillimakkara" + (" (paistettu)" if sausage_done else ""), 1,
+			"Paistetaan laavulla tai mökin savustimessa.")
+	if has_matches:
+		add.call("tulitikut", "Tulitikut", 1, "Nuotion sytytykseen.")
+	if has_chocolate:
+		add.call("suklaa", "Suklaalevy", 1, "Päivin lepytykseen.")
+	if has_mower_part:
+		add.call("varaosa", "Leikkurin varaosa", 1, "Kalja vielä, niin leikkuri korjataan.")
+	if has_ball:
+		add.call("jalkapallo", "Jalkapallo", 1, "Poikien hukattu pallo.")
+	for k in ["kantarelli", "herkkutatti"]:
+		add.call(k, k.capitalize(), bucket.get(k, 0), "litraa ämpärissä · Pekka ostaa sienet")
+	var catch := {}
+	for c in saalis:
+		catch[c.nom] = catch.get(c.nom, 0) + 1
+	const BIRDS := {"riekko": Color(0.92, 0.9, 0.85), "metso": Color(0.18, 0.18, 0.2), "kyyhky": Color(0.55, 0.58, 0.65)}
+	for nom in catch:
+		var icon := "kala"
+		var tint := Color.WHITE
+		if nom == "jänis":
+			icon = "janis"
+		elif BIRDS.has(nom):
+			icon = "lintu"
+			tint = BIRDS[nom]
+		add.call(icon, str(nom).capitalize(), catch[nom], "Raaka saalis · savustin mökin kesäkeittiössä", {"tint": tint})
+	add.call("polkky", "Pölkky", kota_polkyt, "Kodan halkotelineelle.")
+	add.call("halko", "Halko", kota_halot, "Kodan pesään.")
+	var bought: Dictionary = paivi_bag.duplicate()
+	if state == "in_shop":
+		bought.merge(interior.bag)
+	for prod in bought:
+		var col: String = bought[prod]
+		add.call("tuote", "%s %s" % [col.capitalize(), prod], 1, "Päivin ostos", {"tint": ShopInterior.COLORS.get(col, Color.GRAY)})
+	for k in food:
+		var icon: String = {"karrella": "karrella", "suklaa": "suklaa"}.get(k, k)
+		add.call(icon, FOODS[k].name, food[k], "T syö", {"food": true})
+	for k in ["puolukka", "mustikka"]:
+		add.call(k, k.capitalize(), bucket.get(k, 0), "litraa ämpärissä · T syö litran", {"food": true})
+	return out
+
+
+func inventory_info() -> Dictionary:
+	var info := {"money": _eur(money), "lines": [], "list": [], "stashes": []}
+	if _at_mokki():
+		info.lines = ["Päivä %d · mökillä" % day, "Kaisuantie 62, Uutelanperä, Vaala",
+			"Koti Saloisissa n. %d km länteen" % roundi(HOME_MOKKI_KM)]
+		return info
+	info.lines = ["Päivä %d · Järvikuja 1, Saloinen" % day, "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
+		"Aika: %s" % _time(elapsed)]
+	if not _list_done:
+		for it in shopping_list:
+			info.list.append(it[0] + ("  ✔" if paivi_bag.has(it[0]) or interior.bag.has(it[0]) else ""))
+	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
+	for id in STASHES:
+		if stash.get(id, 0) > 0:
+			info.stashes.append("%s: %d" % [STASHES[id].name.capitalize(), stash[id]])
+	return info
 
 
 func _label(layer: CanvasLayer, size: int) -> Label:
@@ -3441,7 +3689,9 @@ func _maybe_screenshot() -> void:
 		return
 	await get_tree().process_frame
 	if scene.begins_with("mokki") or scene == "kuisti":
+		var tb := Time.get_ticks_msec()
 		mokki.ensure_built()  # testikohtaukset menevät mökille ilman taksia
+		print("MOKKI rakennettu %d ms" % (Time.get_ticks_msec() - tb))
 	match scene:
 		"shop":
 			_enter_shop()
@@ -4560,6 +4810,172 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("SISA nukuttu day %d -> %d state=%s near_mokki=%.1f msg=%s" % [d0, day, state,
 				walker_out.global_position.distance_to(mokki.global_position), _msg.text.replace("\n", " | ")])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"drooni":
+			# Drooni: alustan vihje, nousu, lento, kuvat kotitalosta ja K-Marketista, paluu kotiin (H) ja laskeutuminen.
+			# Kuvat _pad, _fpv, _chase. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(suffix: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", suffix))
+			var key := func(k: Key) -> void:
+				var ev := InputEventKey.new()
+				ev.physical_keycode = k
+				ev.pressed = true
+				Input.parse_input_event(ev)
+				await get_tree().process_frame
+				ev = ev.duplicate()
+				ev.pressed = false
+				Input.parse_input_event(ev)
+				await get_tree().process_frame
+			drone_photos.clear()
+			_toggle_mount()
+			var pad: Vector3 = world.drone_pad_pos
+			print("DROONI pad->home_zone %.1f m, pad->taksi %.1f m" % [Vector2(pad.x - home_zone.x, pad.z - home_zone.z).length(),
+				Vector2(pad.x - world.taxi_home_pos.x, pad.z - world.taxi_home_pos.z).length()])
+			walker_out.global_position = pad + Vector3(1.2, Terrain.h(pad.x, pad.z) + 0.3, 0.6)
+			walker_out.rotation.y = B.yaw_to(pad - walker_out.global_position)
+			for i in 20:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("DROONI hint=", _hint.text)
+			await snap.call("_pad.png")
+			var top := Camera3D.new()
+			add_child(top)
+			top.global_position = pad + Vector3(0, 28, 0.01)
+			top.look_at(pad, Vector3.UP)
+			top.current = true
+			for i in 3:
+				await get_tree().process_frame
+			await snap.call("_padtop.png")
+			top.queue_free()
+			walker_out.activate_camera()
+			await get_tree().process_frame  # kuvakaappauksen jälkeen: painallus seuraavan ruudun alkuun
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().process_frame
+			print("DROONI state=", state, " drone=", _drone != null)
+			var dg: Node3D = _drone
+			Input.action_press("jump")
+			for i in 150:
+				await get_tree().physics_frame
+			Input.action_release("jump")
+			print("DROONI nousu: kork %.1f m landed=%s" % [dg.body.global_position.y - dg._home_ground, dg._landed])
+			Input.action_press("forward")
+			for i in 180:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			print("DROONI eteen: kotiin %.1f m nopeus %.1f" % [dg._home_dist(), dg._vel.length()])
+			await snap.call("_fpv.png")
+			# Kuva kotitalosta: käännytään taloa kohti ja kamera alas.
+			var hb := M.w(M.HOME_BUILDING)
+			var to: Vector3 = hb - dg.body.global_position
+			dg._yaw = atan2(-to.x, -to.z)
+			dg._gimbal = -atan2(dg.body.global_position.y - hb.y, Vector2(to.x, to.z).length())
+			for i in 5:
+				await get_tree().physics_frame
+			await dg.take_photo()
+			print("DROONI kuva koti: photos=", drone_photos, " msg=", dg._warn.text)
+			# Pontikkapannun yläpuolelle (siirretään suoraan) ja kuva alas.
+			var pk := M.w(M.PONTIKKA)
+			dg.body.global_position = pk + Vector3(0, 60, 30)
+			dg._yaw = 0.0
+			dg._gimbal = -atan2(60.0, 30.0)
+			for i in 30:
+				await get_tree().physics_frame
+			await dg.take_photo()
+			print("DROONI kuva pontikka: photos=", drone_photos, " found=", pontikka_found)
+			await snap.call("_pontikka.png")
+			CamCtl.fps = false
+			dg.body.global_position = world.drone_pad_pos + Vector3(40, 30, 20)
+			for i in 40:
+				await get_tree().physics_frame
+			await snap.call("_chase.png")
+			await key.call(KEY_H)
+			print("DROONI H mode=", dg._mode)
+			for i in 60 * 25:
+				await get_tree().physics_frame
+				if _drone == null:
+					break
+			print("DROONI loppu: state=%s drone=%s akku=%.2f msg=%s" % [state, _drone != null, drone_battery, _msg.text])
+			# Törmäys: uusi lento ja isku seinään.
+			drone_battery = 1.0
+			walker_out.global_position = pad + Vector3(1.2, Terrain.h(pad.x, pad.z) + 0.3, 0.6)
+			for i in 5:
+				await get_tree().physics_frame
+			_start_drone()
+			await get_tree().process_frame
+			dg = _drone
+			dg._landed = false
+			dg.body.global_position = hb + Vector3(-20, 3, 0)
+			dg._vel = Vector3(18, 0, 0)
+			dg._yaw = -PI / 2.0
+			Input.action_press("forward")
+			for i in 60 * 5:
+				await get_tree().physics_frame
+				if _drone == null:
+					break
+			Input.action_release("forward")
+			print("DROONI törmäys: broken=%s msg=%s" % [drone_broken_day == day, _msg.text])
+			await get_tree().process_frame
+			print("DROONI hint rikki=", _hint.text)
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"reppu":
+			# Reppu täynnä tavaraa Saloisissa (kuva _reppu), sitten mökille: HUD ilman pääpelin tehtäviä, pyörän
+			# välimatka ja repun mökkinäkymä (kuva _reppu_mokki). Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(suffix: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", suffix))
+			beers = 9
+			has_sausage = true
+			has_matches = true
+			has_chocolate = true
+			has_ball = true
+			has_kanister = true
+			has_mower_part = true
+			bucket = {"puolukka": 3, "kantarelli": 2, "herkkutatti": 1, "mustikka": 2}
+			food = {"pulla": 2, "piirakka": 1, "savukala": 3, "savuriista": 1, "karrella": 1}
+			saalis = [{"type": "kala", "nom": "hauki"}, {"type": "kala", "nom": "ahven"}, {"type": "kala", "nom": "ahven"},
+				{"type": "riista", "nom": "jänis"}, {"type": "riista", "nom": "metso"}, {"type": "riista", "nom": "riekko"},
+				{"type": "riista", "nom": "kyyhky"}]
+			kota_polkyt = 2
+			kota_halot = 5
+			paivi_bag = {shopping_list[0][0]: "vihreä", shopping_list[1][0]: "punainen"}
+			await get_tree().process_frame
+			print("REPPU HUD saloinen: ", _stats.text.replace("\n", " | "))
+			_inventory.toggle()
+			for i in 5:
+				await get_tree().process_frame
+			_inventory._hover = 0
+			_inventory.queue_redraw()
+			await snap.call("_reppu.png")
+			_inventory.toggle()
+			await get_tree().process_frame
+			_toggle_mount()
+			walker_out.global_position = mokki.porch_pos(3.0)
+			for i in 10:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("REPPU HUD mökki: ", _stats.text.replace("\n", " | "), " status=", _status.text, " beacon=", _beacon.visible,
+				" hazards=", _hazards.process_mode)
+			Input.action_press("mount")
+			await get_tree().process_frame
+			Input.action_release("mount")
+			await get_tree().process_frame
+			print("REPPU pyörä: ", _msg.text)
+			var e0 := elapsed
+			for i in 30:
+				await get_tree().process_frame
+			print("REPPU aika mökillä %.2f -> %.2f" % [e0, elapsed])
+			_inventory.toggle()
+			for i in 5:
+				await get_tree().process_frame
+			await snap.call("_reppu_mokki.png")
+			_inventory.toggle()
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"mokkipa":
