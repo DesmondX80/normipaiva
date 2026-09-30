@@ -21,6 +21,7 @@ config/project_settings_override="user://override.cfg"
 Sfx="*res://scripts/audio.gd"
 CamCtl="*res://scripts/cam_ctl.gd"
 Settings="*res://scripts/settings.gd"
+Touch="*res://scripts/touch_controls.gd"
 
 [display]
 

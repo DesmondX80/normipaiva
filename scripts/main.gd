@@ -4546,6 +4546,52 @@ func _maybe_screenshot() -> void:
 			print("CHOCO after state=", state, " money=", money, " msg=", _msg.text.replace("\n", " | "))
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"kosketus":
+			# Kosketusohjaimet (--touch): tatti eteen ajaa pyörällä, Pyörä-nappi nousee selästä, veto kääntää kameraa.
+			var touch := func(i: int, p: Vector2, down: bool) -> void:
+				var ev := InputEventScreenTouch.new()
+				ev.index = i
+				ev.position = p
+				ev.pressed = down
+				Input.parse_input_event(ev)
+			var drag := func(i: int, p: Vector2, rel: Vector2) -> void:
+				var ev := InputEventScreenDrag.new()
+				ev.index = i
+				ev.position = p
+				ev.relative = rel
+				Input.parse_input_event(ev)
+			for i in 30:
+				await get_tree().physics_frame
+			var vs := get_viewport().get_visible_rect().size
+			var p0 := player.global_position
+			touch.call(0, Vector2(200, vs.y - 200), true)
+			drag.call(0, Vector2(200, vs.y - 290), Vector2(0, -90))
+			for i in 120:
+				await get_tree().physics_frame
+			print("KOSKETUS tatti: matka %.1f m, forward=%s shift=%s" % [player.global_position.distance_to(p0),
+				Input.is_action_pressed("forward"), Input.is_key_pressed(KEY_SHIFT)])
+			touch.call(0, Vector2(200, vs.y - 290), false)
+			for i in 60:
+				await get_tree().physics_frame
+			var yaw0 := CamCtl.yaw
+			touch.call(1, Vector2(vs.x * 0.6, vs.y * 0.3), true)
+			await get_tree().process_frame
+			drag.call(1, Vector2(vs.x * 0.6 + 80, vs.y * 0.3), Vector2(80, 0))
+			await get_tree().process_frame
+			await get_tree().process_frame
+			touch.call(1, Vector2(vs.x * 0.6 + 80, vs.y * 0.3), false)
+			print("KOSKETUS veto: yaw %.3f -> %.3f" % [yaw0, CamCtl.yaw])
+			var on_bike := player == bike
+			for i in 90:
+				await get_tree().physics_frame
+			print("KOSKETUS ennen nappia: vauhti %.2f vihje '%s'" % [bike.velocity.length(), _hint.text])
+			touch.call(2, Vector2(vs.x - 330, vs.y - 250), true)
+			for i in 6:
+				await get_tree().process_frame
+			touch.call(2, Vector2(vs.x - 330, vs.y - 250), false)
+			for i in 10:
+				await get_tree().physics_frame
+			print("KOSKETUS Pyörä-nappi: pyörällä %s -> %s" % [on_bike, player == bike])
 		"placecheck":
 			# Hahmojen, ajoneuvojen ja pelipaikkojen paikat: tien reunan etäisyys (negatiivinen = tiellä) ja
 			# osuuko kohta talon, auton tai muun esteen sisään (fysiikkakysely 1 m maan yläpuolella).

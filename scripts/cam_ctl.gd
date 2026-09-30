@@ -38,8 +38,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			pitch = 0.0 if fps else -0.12
 
 
+## Kosketusveto (Touch-autoload): kuten hiiren liike lukitulla hiirellä.
+func touch_look(rel: Vector2) -> void:
+	var sens: float = SENS * Settings.get_v("mouse_sens")
+	var inv := -1.0 if Settings.get_v("invert_y") else 1.0
+	yaw -= rel.x * sens
+	pitch = clampf(pitch - rel.y * sens * inv, -1.2 if fps else -0.9, 1.1 if fps else 0.45)
+	_idle = 0.0
+
+
 func _process(delta: float) -> void:
 	_idle += delta
+	if Touch.active:
+		return  # kosketusnäytöllä hiirtä ei lukita (napautukset toimivat hiiren klikkauksina valikoissa)
 	if not get_tree().paused and DisplayServer.window_is_focused():
 		var want := Input.MOUSE_MODE_CAPTURED if need_mouse or Settings.get_v("mouse_look") else Input.MOUSE_MODE_VISIBLE
 		if free_mouse:
@@ -61,7 +72,7 @@ func update_camera(cam: Camera3D, target: Node3D, eye: Vector3, dist: float, hei
 		delta: float, snap := false, shake := Vector3.ZERO) -> void:
 	var heading := target.global_rotation.y
 	cam.fov = Settings.get_v("fov")
-	if not Settings.get_v("mouse_look"):
+	if not Settings.get_v("mouse_look") and not Touch.active:
 		yaw = lerp_angle(yaw, 0.0, 1.0 - exp(-4.0 * delta))
 		pitch = lerpf(pitch, 0.0 if fps else -0.12, 1.0 - exp(-4.0 * delta))
 	elif not fps and moving and _idle > RECENTER_AFTER and Settings.get_v("auto_recenter"):

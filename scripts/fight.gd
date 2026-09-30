@@ -139,6 +139,7 @@ func start(beer_count: int, foe_key := "juntti") -> void:
 	_say(_bubble_j, _j, foe.intro.pick_random())
 	_update_help()
 	_layer.visible = true
+	Touch.set_extra([[KEY_J, "Lyö"], [KEY_K, "Potkaise"], [KEY_L, "Erikois"]])
 	_cam.current = true
 	set_process(true)
 	Sfx.play("alert", -2.0, 0.8)
@@ -207,6 +208,7 @@ func _end() -> void:
 	active = false
 	set_process(false)
 	_layer.visible = false
+	Touch.set_extra([])
 	for w in _waves:
 		w[0].queue_free()
 	_waves.clear()
