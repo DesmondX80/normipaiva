@@ -82,20 +82,36 @@ const PEKKA_LINES := [
 	"Kolmesataa jänistä perkele, joka talvi. Pakkaseen ei enää mahdu vittu.",
 	"Jäniksiä on niin helvetisti, että ne tulee jo pihalle, saatana!",
 	"Tänä talvena voi mennä jo kolmesataaviiskymmentä, perkele."]
+## Sinikan tehtävä: kaksi litraa mustikoita piirakkaan, palkaksi uunituore mustikkapiirakka (kerran päivässä).
+## Jos Päivi näkee sinut Sinikan pihalla, stressi nousee.
+const SINIKKA_BERRIES := 2
+const SINIKKA_ASK := ["Voi kulta, mää leipoisin sulle piirakan... mutta mun täyte on ihan lopussa. Toisitko kaks litraa mustikoita? Mää teen sen vaivan arvoiseksi.",
+	"Mun uuni on jo kuumana, puuttuu vaan täyte. Tuo kaks litraa mustikoita, niin pääset maistamaan.",
+	"Mää tarviin miehen, joka osaa poimia. Kaks litraa mustikoita... ja pehmeällä kädellä, ettei ne litisty."]
+const SINIKKA_WAIT := ["Mustikoita, kulta. Kaks litraa. Mää en jaksa odottaa... tai no, sua mää jaksan.",
+	"Uuni on kuuma ja minä odotan. Älä anna kummankaan jäähtyä.",
+	"Tyhjin käsin? No, katella saa... mutta piirakkaa ei heru ilman mustikoita."]
+const SINIKKA_THANKS := ["Voi, kuinka isoja ja mehukkaita! Tässä, piirakka on vielä lämmin... niinku minäkin.",
+	"Sää kyllä tiedät, miten nainen ilahdutetaan. Ota piirakka ja tuu huomenna uudestaan... hakemaan lisää.",
+	"Näin täyteläisiä marjoja! Ota piirakka. Päivin ei tarvii tietää, kuka sulle leipoo."]
 ## Sinikka hoitaa puutarhaansa ja puhuu siitä hyvin flirttailevasti.
 const SINIKKA_LINES := [
-	"Tuu kattomaan mun ruusuja... ne kaipaa hellää kättä.",
-	"Mää kastelen aina illalla. Hitaasti ja huolella.",
-	"Kurkut on tänä vuonna tavallista pitempiä. Haluatko nähdä?",
-	"Multa pitää kuohkeuttaa perusteellisesti, muuten mikään ei nouse.",
-	"Tomaatit kypsyy parhaiten, kun niitä vähän hyväilee.",
-	"Päivin ei tarvitse tietää, että kävit auttamassa mua kitkemisessä.",
-	"Mun kasvimaalla on aina tilaa yhdelle ahkeralle lapiomiehelle.",
+	"Tuu kattomaan mun ruusuja... ne kaipaa hellää kättä. Ja vähän piikittelyä.",
+	"Mää kastelen aina illalla. Hitaasti, huolella... ja perusteellisesti joka kolosta.",
+	"Kurkut on tänä vuonna tavallista pitempiä. Haluatko nähdä? Saat koskeakin.",
+	"Multa pitää kuohkeuttaa perusteellisesti, muuten mikään ei nouse. Sää näytät mieheltä, joka osaa.",
+	"Tomaatit kypsyy parhaiten, kun niitä vähän hyväilee. Mää hyväilen joka aamu.",
+	"Päivin ei tarvitse tietää, että kävit auttamassa mua kitkemisessä... polvillaan.",
+	"Mun kasvimaalla on aina tilaa yhdelle ahkeralle lapiomiehelle. Onko sulla iso lapio?",
 	"Voisitko joskus tulla leikkaamaan mun pensasaidan? Se on päässyt vähän villiksi.",
-	"Kuumina päivinä kastelen itsenikin puutarhaletkulla.",
-	"Porkkanat pitää nostaa käsin. Varovasti, mutta päättäväisesti.",
-	"Mulla on niin vehreää, että vähän hengästyttää. Tuutko istumaan?",
-	"Kaikki kasvaa paremmin, kun niille puhuu hiljaa ja lämpimästi."]
+	"Kuumina päivinä kastelen itsenikin puutarhaletkulla. Tuu kattomaan, jos uskallat.",
+	"Porkkanat pitää nostaa käsin. Varovasti, mutta päättäväisesti. Mää pidän paksuista.",
+	"Mulla on niin vehreää, että vähän hengästyttää. Tuutko istumaan? Aurinkotuolissa on tilaa kahdelle.",
+	"Kaikki kasvaa paremmin, kun niille kuiskaa hiljaa ja lämpimästi. Sääkin kasvaisit.",
+	"Mun ruusupensas kaipais vähän lannoitetta... ja miehen otetta.",
+	"Kurkkuja, kesäkurpitsaa, porkkanaa... mulla on aina jotain pitkää ja kovaa kasvamassa.",
+	"Mää en käytä hanskoja. Tykkään tuntea mullan paljain käsin.",
+	"Kitkeminen on niin hikistä hommaa. Siksi mää teen sitä näin vähissä vaatteissa."]
 const GRILL_TIME := 5.0
 const SAVE_PATH := "user://normipaiva.cfg"
 
@@ -219,6 +235,7 @@ var _grunt_next := 0  # ms: seuraava ähkäisy aikaisintaan
 var arto: CharacterBody3D
 var pekka: CharacterBody3D
 var sinikka: CharacterBody3D
+var sinikka_task := 0  # 1 = Sinikka odottaa mustikoita
 var tractor: CharacterBody3D
 ## player = se jolla nyt liikutaan (pyörä tai jalan); bike ja walker_out ovat molemmat olemassa koko ajan.
 var bike: CharacterBody3D
@@ -339,6 +356,7 @@ const FOODS := {
 	"savuriista": {"name": "Savustettu riista", "nalka": 0.6, "stressi": 0.05, "moraali": 0.1},
 	"karrella": {"name": "Karrelle savustunut saalis", "nalka": 0.25},
 	"viina": {"name": "Kätköviina", "nalka": 0.0, "stressi": 0.15, "moraali": 0.05},
+	"mustikkapiirakka": {"name": "Sinikan mustikkapiirakka", "nalka": 0.45, "stressi": 0.1, "moraali": 0.15},
 }
 ## Päivittäiset tilat (#18, day_stats.gd): kolme arvottua tilaa HUD:ssa, toiminnot nostavat ja laskevat niitä.
 ## Päivän summa < 0 -> seuraava päivä hankalampi (trouble = 1), >= GOOD_DAY -> helpompi (trouble = -1).
@@ -1401,7 +1419,7 @@ func _open_eat_menu() -> void:
 func _on_eat(id: String) -> void:
 	player.controls_enabled = true
 	match id:
-		"pulla", "piirakka", "savukala", "savuriista", "karrella":
+		"pulla", "piirakka", "savukala", "savuriista", "karrella", "mustikkapiirakka":
 			food[id] -= 1
 			if food[id] <= 0:
 				food.erase(id)
@@ -1850,6 +1868,9 @@ func _neighbor_logic() -> void:
 	if _hint.text != "":
 		return
 	var e := Input.is_action_just_pressed("interact")
+	if sinikka.distance_to_player() < 4.2:
+		_sinikka_logic(e)
+		return
 	for v in [arto, pekka]:
 		if v.distance_to_player() > 4.2:
 			continue
@@ -1915,6 +1936,48 @@ func _neighbor_logic() -> void:
 			if e:
 				v.say((ARTO_LINES if who == "arto" else PEKKA_LINES).pick_random())
 		return
+
+
+## Sinikka: mustikkatehtävä (pyytää, odottaa, palkitsee piirakalla) ja muuten flirttailevaa puutarhajuttua.
+## Päivi huomaa, jos hän on lähellä, kun juttelet Sinikan kanssa.
+func _sinikka_logic(e: bool) -> void:
+	if player == bike:
+		_hint.text = "Nouse pyörän selästä (F), niin voit jutella Sinikan kanssa."
+		return
+	var berries: int = bucket.get("mustikka", 0)
+	if sinikka_task == 1 and berries >= SINIKKA_BERRIES:
+		_hint.text = "[E] Anna Sinikalle %d l mustikoita" % SINIKKA_BERRIES
+	else:
+		_hint.text = "[E] Juttele Sinikan kanssa"
+	if not e:
+		return
+	if sinikka_task == 1 and berries >= SINIKKA_BERRIES:
+		bucket["mustikka"] = berries - SINIKKA_BERRIES
+		if bucket["mustikka"] <= 0:
+			bucket.erase("mustikka")
+		food["mustikkapiirakka"] = food.get("mustikkapiirakka", 0) + 1
+		sinikka_task = 0
+		_once_today("sinikka_piirakka")
+		tilat.add("moraali", 0.2)
+		tilat.first("sinikka_piirakka", 0.2)
+		sinikka.say(SINIKKA_THANKS.pick_random())
+		Sfx.play("pickup", -4.0, 0.8)
+		_show_message("Sinikka antoi uunituoreen mustikkapiirakan (T syö).", 3.0)
+		_save_game()
+	elif sinikka_task == 1:
+		sinikka.say(SINIKKA_WAIT.pick_random())
+		_show_message("Sinikka odottaa %d l mustikoita (ämpärissä %d l)." % [SINIKKA_BERRIES, berries], 2.5)
+	elif not ("sinikka_piirakka" in _today):
+		sinikka_task = 1
+		sinikka.say(SINIKKA_ASK.pick_random())
+		_show_message("Tehtävä: poimi metsästä %d l mustikoita ja vie ne Sinikalle." % SINIKKA_BERRIES, 3.5)
+		_save_game()
+	else:
+		sinikka.say(SINIKKA_LINES.pick_random())
+	if is_instance_valid(wife) and wife.global_position.distance_to(player.global_position) < 30.0 \
+			and _once_today("sinikka_paivi"):
+		tilat.add("stressi", -0.2)
+		_show_message("Päivi: \"Mitä sää siellä Sinikan pihalla notkut?!\"", 3.0)
 
 
 ## Laavulla: sytytä nuotio (tulitikut), paista makkara, juo kalja -> laavuloppu.
@@ -3189,6 +3252,7 @@ func _load_game() -> void:
 	lawn_kivet = cfg.get_value("nurmikko", "kivet", 0)
 	mower_broken = cfg.get_value("nurmikko", "rikki", false)
 	has_mower_part = cfg.get_value("nurmikko", "varaosa", false)
+	sinikka_task = cfg.get_value("sinikka", "tehtava", 0)
 	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
 	tilat.load_from(cfg)
 	trouble = cfg.get_value("tilat", "hankaluus", 0)
@@ -3222,6 +3286,7 @@ func _save_game() -> void:
 	cfg.set_value("nurmikko", "kivet", lawn_kivet)
 	cfg.set_value("nurmikko", "rikki", mower_broken)
 	cfg.set_value("nurmikko", "varaosa", has_mower_part)
+	cfg.set_value("sinikka", "tehtava", sinikka_task)
 	cfg.set_value("nurmikko", "kehu", _lawn_praise)
 	if tilat != null:
 		tilat.save_to(cfg)
@@ -4036,7 +4101,7 @@ func inventory_items() -> Array:
 		var col: String = bought[prod]
 		add.call("tuote", "%s %s" % [col.capitalize(), prod], 1, "Päivin ostos", {"tint": ShopInterior.COLORS.get(col, Color.GRAY)})
 	for k in food:
-		var icon: String = {"karrella": "karrella", "suklaa": "suklaa"}.get(k, k)
+		var icon: String = {"karrella": "karrella", "suklaa": "suklaa", "mustikkapiirakka": "piirakka"}.get(k, k)
 		add.call(icon, FOODS[k].name, food[k], "T syö", {"food": true})
 	add.call("viina", "Kätköviina", viina_pullot, "Pulloja mökin metsän kätköistä · T ottaa huikan", {"food": true})
 	for k in ["puolukka", "mustikka"]:
@@ -5352,6 +5417,50 @@ func _maybe_screenshot() -> void:
 			cam2.look_at_from_position(tp2 + Vector3(-5.5, 2.0, -4.0), tp2 + Vector3(0, 1.3, 0), Vector3.UP)
 			cam2.current = true
 			tractor.set_physics_process(false)
+			_msg.text = ""
+		"sinikkatehtava":
+			# Sinikan mustikkatehtävä: pyyntö, odotus ilman marjoja, luovutus 2 l:lla ja piirakka reppuun.
+			_toggle_mount()
+			var press := func() -> void:
+				Input.action_press("interact")
+				await get_tree().process_frame
+				Input.action_release("interact")
+				for i in 5:
+					await get_tree().process_frame
+			sinikka.set_physics_process(false)
+			var sp2: Vector3 = sinikka.yard[0]
+			sinikka.global_position = sp2
+			walker_out.global_position = sp2 + Vector3(1.5, 0.4, 0)
+			for i in 20:
+				await get_tree().physics_frame
+			print("SINIKKA vihje: ", _hint.text)
+			await press.call()
+			print("SINIKKA pyyntö: tehtävä=%d msg=%s" % [sinikka_task, _msg.text])
+			await press.call()
+			print("SINIKKA odotus: msg=%s" % _msg.text)
+			bucket["mustikka"] = 3
+			for i in 3:
+				await get_tree().process_frame
+			print("SINIKKA vihje marjoilla: ", _hint.text)
+			await press.call()
+			print("SINIKKA luovutus: tehtävä=%d ämpäri=%s piirakka=%d msg=%s" % [sinikka_task, bucket, food.get("mustikkapiirakka", 0), _msg.text])
+			await press.call()
+			print("SINIKKA sama päivä uudestaan: tehtävä=%d" % sinikka_task)
+		"sinikka":
+			# Sinikka läheltä edestä vinosti (ulkonäkö ja asusteet).
+			for i in 30:
+				await get_tree().process_frame
+			sinikka.set_physics_process(false)
+			var sp: Vector3 = sinikka.yard[0]
+			var hc := M.w(M.NEIGHBOR_SINIKKA)
+			var fwd := Vector3(sp.x - hc.x, 0, sp.z - hc.z).normalized()
+			sinikka.global_position = sp
+			sinikka.rotation.y = B.yaw_to(fwd)
+			var sc := Camera3D.new()
+			sc.fov = 40.0
+			add_child(sc)
+			sc.look_at_from_position(sp + fwd * 3.2 + fwd.cross(Vector3.UP) * 1.2 + Vector3(0, 1.4, 0), sp + Vector3(0, 1.05, 0), Vector3.UP)
+			sc.current = true
 			_msg.text = ""
 		"naapurit", "naapurit2", "naapurit3":  # naapurin talo ja piha kadulta päin (arto / pekka / sinikka)
 			var key: String = {"naapurit": "arto", "naapurit2": "pekka", "naapurit3": "sinikka"}[scene]
