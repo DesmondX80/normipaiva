@@ -18,6 +18,8 @@ const PAIVI_LINES := {
 		"Nyt riitti, kotiin siitä!"],
 	"police": ["Poliisi soitti. POLIISI!", "Siilin yli? Ruohonleikkurilla?!", "Koko kylä puhuu tästä huomenna.",
 		"Ja kotiin siitä, heti!"],
+	"car": ["Miksi sää menit kuolemaan?!", "Auton alle! Ihan keskellä tietä!", "Ja katso nyt tätäkin!",
+		"Kotiin siitä, heti!"],
 	"raahe": ["Missä sää oot ollu koko yön?!", "Raahessa?! Taksilla?!", "Kaljanhaju tuntuu tänne asti!",
 		"Huomenna ei tule rahaa kauppaan!"],
 }

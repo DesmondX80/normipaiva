@@ -8,6 +8,7 @@ extends Node3D
 
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
+const Atm := preload("res://scripts/atm.gd")
 const TIE := "res://assets/vaala/tie.json"
 const MAASTO := "res://assets/vaala/maasto.bin"
 
@@ -173,6 +174,7 @@ func ensure_built() -> void:
 	_build_signs()
 	_build_trees()
 	_build_lamps()
+	_build_atm()
 	print("VAALA rakennettu %d ms" % (Time.get_ticks_msec() - t0))
 
 
@@ -318,43 +320,124 @@ func _multimesh(mesh: Mesh, xfs: Array[Transform3D], col := Color.TRANSPARENT) -
 	add_child(mmi)
 
 
-## Tie näytteiden mukaan: asfaltti tai sora, päällystetyillä teillä keltainen keskiviiva ja valkoiset reunaviivat
-## (Vuolijoentie ja Vaalantie, kuten Suomen maanteillä).
+## Tiet: reitti ja risteysten haarat. Asfaltti kaksikaistaisena (keltainen katkoviiva keskellä ja valkoiset
+## reunaviivat kuten Suomen maanteillä), sora vaaleana ja karkeana kahden tummemman ajouran kera.
 func _build_road() -> void:
-	var asphalt := SurfaceTool.new()
-	asphalt.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var gravel := SurfaceTool.new()
-	gravel.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var lines := SurfaceTool.new()
-	lines.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var yellow := SurfaceTool.new()
-	yellow.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in road.size() - 1:
-		var a := road_pos(i)
-		var b := road_pos(i + 1)
-		var na := road_dir(i).cross(Vector3.UP)
-		var nb := road_dir(i + 1).cross(Vector3.UP)
-		var wa: float = road[i][4]
-		var wb: float = road[i + 1][4]
-		var st: SurfaceTool = gravel if road[i][5] == 1 else asphalt
-		var lift := Vector3(0, 0.04, 0)
-		_quad(st, a - na * wa + lift, b - nb * wb + lift, b + nb * wb + lift, a + na * wa + lift)
-		var marked: bool = road_names[i] in ["Vuolijoentie", "Vaalantie"]
-		if marked:
-			var up := Vector3(0, 0.055, 0)
-			for s in [-1.0, 1.0]:
-				_quad(lines, a + na * s * (wa - 0.3) + up, b + nb * s * (wb - 0.3) + up,
-					b + nb * s * (wb - 0.42) + up, a + na * s * (wa - 0.42) + up)
-			if i % 6 < 2:  # katkoviiva 3 m + 9 m väli
-				_quad(yellow, a - na * 0.06 + up, b - nb * 0.06 + up, b + nb * 0.06 + up, a + na * 0.06 + up)
-	for pair in [[asphalt, Color(0.22, 0.22, 0.23)], [gravel, Color(0.55, 0.5, 0.42)], [lines, Color(0.92, 0.92, 0.9)],
-			[yellow, Color(0.95, 0.75, 0.1)]]:
-		var st: SurfaceTool = pair[0]
+	_road_mats()
+	var pts: Array[Vector3] = []
+	var hws: Array[float] = []
+	var grav: Array[bool] = []
+	for i in road.size():
+		pts.append(road_pos(i))
+		hws.append(road[i][4])
+		grav.append(road[i][5] == 1)
+	_road_strip(pts, hws, grav)
+	for br in data.branches:
+		var bp: Array[Vector3] = []
+		var bh: Array[float] = []
+		var bg: Array[bool] = []
+		for q in br.pts:
+			bp.append(Vector3(q[0], h(q[0], q[2]), q[2]))
+			bh.append(br.hw)
+			bg.append(br.gravel == 1)
+		# Risteyksen pää tien reunaan asti: haara alkaa reitin keskeltä, joten ensimmäiset metrit jätetään pois.
+		var skip := 0
+		while skip < bp.size() - 2 and Vector2(bp[skip].x - bp[0].x, bp[skip].z - bp[0].z).length() < 3.0:
+			skip += 1
+		_road_strip(bp.slice(skip), bh.slice(skip), bg.slice(skip))
+		_dead_end(bp[-1], (bp[-1] - bp[-2]).normalized(), br.hw)
+	for key in _strips:
+		var st: SurfaceTool = _strips[key]
 		st.generate_normals()
 		var mi := MeshInstance3D.new()
 		mi.mesh = st.commit()
-		mi.material_override = B.mat(pair[1])
+		mi.material_override = _rmats[key]
 		add_child(mi)
+
+
+var _strips := {}
+var _rmats := {}
+
+
+func _road_mats() -> void:
+	_rmats = {
+		"asphalt": _ground_mat(Color(0.17, 0.17, 0.18), Color(0.27, 0.27, 0.28), 0.3, 3.0),
+		"gravel": _ground_mat(Color(0.5, 0.45, 0.36), Color(0.68, 0.62, 0.5), 0.25, 3.5),
+		"rut": _ground_mat(Color(0.4, 0.35, 0.28), Color(0.5, 0.45, 0.36), 0.3, 3.0),
+		"white": B.mat(Color(0.92, 0.92, 0.9)),
+		"yellow": B.mat(Color(0.95, 0.75, 0.1)),
+	}
+	for k2 in _rmats:
+		_strips[k2] = SurfaceTool.new()
+		_strips[k2].begin(Mesh.PRIMITIVE_TRIANGLES)
+
+
+func _road_strip(pts: Array, hws: Array, grav: Array) -> void:
+	var dirs: Array[Vector3] = []
+	for i in pts.size():
+		var a: Vector3 = pts[maxi(i - 1, 0)]
+		var b: Vector3 = pts[mini(i + 1, pts.size() - 1)]
+		dirs.append(Vector3(b.x - a.x, 0, b.z - a.z).normalized())
+	var dash := 0.0
+	for i in pts.size() - 1:
+		var a: Vector3 = pts[i]
+		var b: Vector3 = pts[i + 1]
+		var na := dirs[i].cross(Vector3.UP)
+		var nb := dirs[i + 1].cross(Vector3.UP)
+		var wa: float = hws[i]
+		var wb: float = hws[i + 1]
+		var lift := Vector3(0, 0.04, 0)
+		if grav[i]:
+			_quad(_strips.gravel, a - na * wa + lift, b - nb * wb + lift, b + nb * wb + lift, a + na * wa + lift)
+			var up := Vector3(0, 0.05, 0)
+			for s: float in [-0.95, 0.95]:
+				_quad(_strips.rut, a + na * (s - 0.25) + up, b + nb * (s - 0.25) + up, b + nb * (s + 0.25) + up, a + na * (s + 0.25) + up)
+		else:
+			_quad(_strips.asphalt, a - na * wa + lift, b - nb * wb + lift, b + nb * wb + lift, a + na * wa + lift)
+			var up := Vector3(0, 0.055, 0)
+			for s: float in [-1.0, 1.0]:
+				_quad(_strips.white, a + na * s * (wa - 0.3) + up, b + nb * s * (wb - 0.3) + up,
+					b + nb * s * (wb - 0.42) + up, a + na * s * (wa - 0.42) + up)
+			dash += a.distance_to(b)
+			if fmod(dash, 12.0) < 4.0:  # katkoviiva 4 m + 8 m väli
+				_quad(_strips.yellow, a - na * 0.07 + up, b - nb * 0.07 + up, b + nb * 0.07 + up, a + na * 0.07 + up)
+
+
+## Umpitie: puna-valkoinen puomi tolppineen ja liikennemerkki "Umpitie"; puomille törmäys.
+func _dead_end(at: Vector3, dir: Vector3, hw: float) -> void:
+	var right := dir.cross(Vector3.UP)
+	var root := Node3D.new()
+	root.position = at
+	root.rotation.y = atan2(-dir.x, -dir.z)
+	add_child(root)
+	for s: float in [-1.0, 1.0]:
+		B.mesh(root, B.cyl(0.06, 0.06, 1.1, 8), Vector3(s * (hw + 0.4), 0.55, 0), Color(0.9, 0.9, 0.9))
+	for k2 in 8:
+		var w := (hw * 2.0 + 0.8) / 8.0
+		B.mesh(root, B.boxm(Vector3(w, 0.18, 0.08)), Vector3(-(hw + 0.4) + w * (k2 + 0.5), 1.0, 0),
+			Color(0.85, 0.08, 0.08) if k2 % 2 == 0 else Color(0.95, 0.95, 0.95))
+	var body := StaticBody3D.new()
+	root.add_child(body)
+	body.add_child(B.box_shape(Vector3(hw * 2.0 + 1.0, 1.4, 0.4), Vector3(0, 0.7, 0)))
+	var pole := B.sign_pole(self, at - dir * 3.0 + right * (hw + 1.2), 2.2)
+	var plate := B.sign_plate(pole, "UMPITIE", Color(0.0, 0.3, 0.6), Color.WHITE, 0.3, 40, Color(0.95, 0.95, 0.95), "Helvetica Neue")
+	plate.position.y = 2.0
+	plate.rotation.y = atan2(-dir.x, -dir.z) + PI
+
+
+## Pankkiautomaatti Siitaria vastapäätä Vaalantien toisella puolella (oma kioski).
+var atm_pos := Vector3.ZERO
+
+
+func _build_atm() -> void:
+	var sc := Vector3(siitari.x, 0, siitari.y)
+	var ni: Array = nearest(sc)
+	var rp := road_pos(ni[0])
+	var away := Vector3(rp.x - sc.x, 0, rp.z - sc.z).normalized()
+	var at: Vector3 = rp + away * (float(road[ni[0]][4]) + 5.0)
+	at.y = h(at.x, at.z)
+	atm_pos = at
+	Atm.build(self, at, atan2(away.x, away.z), true)
 
 
 func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:

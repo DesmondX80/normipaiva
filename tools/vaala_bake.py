@@ -22,11 +22,13 @@ SRC = os.path.join(ROOT, "assets", "vaala", "reitti.json")
 OUT_JSON = os.path.join(ROOT, "assets", "vaala", "tie.json")
 OUT_BIN = os.path.join(ROOT, "assets", "vaala", "maasto.bin")
 
-K = 6.0            # tiivistyskerroin välimatkalla
+K = 14.0           # tiivistyskerroin välimatkalla (n. 1,7 km ajoa)
 STEP = 2.0         # tien näytteiden väli pelissä (m)
 CELL = 4.0         # tarkka maasto
 NEAR = 150.0       # tarkka maasto tien ympärillä
-TOWN_R = 420.0     # keskustan tarkka alue Siitarista
+TOWN_R = 220.0     # keskustan tarkka alue Siitarista
+END_1TO1 = 260.0   # Vaalaan tultaessa 1:1 viimeiset metrit: Siitari heti taajamamerkin jälkeen
+BRANCH_LEN = 90.0  # risteysten haarat väärään suuntaan: näin pitkä pätkä, sitten umpitie
 FAR_CELL = 32.0
 FAR_MARGIN = 700.0
 SIDE_D = 60.0      # sivukorkeuksien etäisyys tiestä (reitti.json "side")
@@ -154,10 +156,22 @@ def main():
     s_neitt = arc_at(steps[2]["at"])       # käännös Neittäväntielle
     s_vaala = arc_at(steps[4]["at"])       # Vuolijoentie päättyy Vaalantiehen
     S_A = s_neitt + 60.0
-    S_B = s_vaala - 160.0
+    S_B = total - END_1TO1
+    # Oulujoen silta 1:1 (uoma ei kapene): reitin kohdat joen keskiviivan lähellä.
+    rivers = [f for f in feats if f["kind"] == "river"]
+    RIVER_HALF = 30.0
+    oulu = [(a, b) for f in rivers if f.get("name") == "Oulujoki" for a, b in zip(f["pts"], f["pts"][1:])
+            if math.dist(a, (sx, sz)) < 1500.0]
+
+    def in_river(rp, grow=0.0):
+        return any(seg_dist(rp, a, b)[0] < RIVER_HALF + grow for a, b in oulu)
+
+    wet = [rs[i] for i in range(0, len(real), 2) if in_river(real[i], 6.0)]
+    B_LO, B_HI = (min(wet) - 45.0, max(wet) + 45.0) if wet else (-1.0, -1.0)
+    WINDOWS = [(0.0, S_A), (B_LO, B_HI), (S_B, total + 1.0)]
 
     def scale(s):
-        return 1.0 if s < S_A or s > S_B else 1.0 / K
+        return 1.0 if any(a <= s <= b for a, b in WINDOWS) else 1.0 / K
 
     # --- Korkeudet: tien keskilinja (20 m) ja sivut (60 m, 100 m välein). ----------------------------------------
     line = d["line"]
@@ -173,14 +187,15 @@ def main():
         i = min(int(k), len(lh) - 2)
         return lerp(lh[i], lh[i + 1], min(max(k - i, 0.0), 1.0))
 
-    h_a, h_b = h_real_s(S_A), h_real_s(S_B)
-
     def h_game_s(s):
         h = h_real_s(s)
-        if S_A <= s <= S_B:
-            base = lerp(h_a, h_b, (s - S_A) / (S_B - S_A))
-            return base + (h - base) * 0.45  # tiivistetyllä välillä mäet loivemmiksi (muuten jyrkkyys K-kertainen)
-        return h
+        if scale(s) == 1.0:
+            return h
+        # Tiivistetyllä välillä mäet loivemmiksi (muuten jyrkkyys K-kertainen): pohja 1:1-ikkunoiden reunoilta.
+        lo = max(b for a, b in WINDOWS if b <= s)
+        hi = min(a for a, b in WINDOWS if a >= s)
+        base = lerp(h_real_s(lo), h_real_s(hi), (s - lo) / max(hi - lo, 1.0))
+        return base + (h - base) * 0.25
 
     side = d["side"]
     sg = Grid([(p[0], p[1]) for p in side], 60.0)
@@ -209,7 +224,7 @@ def main():
         gp = (lerp(game[j][0], game[j + 1][0], t), lerp(game[j][1], game[j + 1][1], t))
         s = lerp(rs[j], rs[j + 1], t)
         rp = (lerp(real[j][0], real[j + 1][0], t), lerp(real[j][1], real[j + 1][1], t))
-        samples.append({"g": gp, "s": s, "r": rp})
+        samples.append({"g": gp, "s": s, "r": rp, "c": scale(s)})
         g += STEP
     n = len(samples)
     for i, smp in enumerate(samples):
@@ -227,7 +242,6 @@ def main():
     named = {"Uutelanperäntie": ("gravel", 2.6), "Neittäväntie": ("asphalt", 3.1), "Vuolijoentie": ("asphalt", 3.6),
              "Vaalantie": ("asphalt", 3.6)}
     waters = [(f, bbox(f["pts"])) for f in feats if f["kind"] == "water"]
-    rivers = [f for f in feats if f["kind"] == "river"]
     for smp in samples:
         r = smp["r"]
         best, bn = 12.0, ""
@@ -248,13 +262,6 @@ def main():
         smp["surf"], smp["hw"] = surf, hw
         smp["bridge"] = any(pip(r, f["pts"], bb) for f, bb in waters)
     # Oulujoki keskustassa: OSM:ssä vain keskiviiva, joten uoma RIVER_HALF m sen molemmin puolin; silta yli.
-    RIVER_HALF = 30.0
-    oulu = [(a, b) for f in rivers if f.get("name") == "Oulujoki" for a, b in zip(f["pts"], f["pts"][1:])
-            if math.dist(a, (sx, sz)) < 900.0]
-
-    def in_river(rp, grow=0.0):
-        return any(seg_dist(rp, a, b)[0] < RIVER_HALF + grow for a, b in oulu)
-
     for smp in samples:
         if in_river(smp["r"], 6.0):
             smp["bridge"] = True
@@ -294,23 +301,19 @@ def main():
     ggrid = Grid([smp["g"] for smp in samples], 20.0)
 
     def to_game(p, rmax=NEAR + 60.0):
-        """Todellinen piste pelin kehykseen, None jos kaukana tiestä (keskusta: pelkkä siirto)."""
-        if math.dist(p, (sx, sz)) < 650.0:
-            return (p[0] + town_off[0], p[1] + town_off[1])
+        """Todellinen piste pelin kehykseen lähimmän tien kohdan mukaan (tien suunnassa näytteen mittakaava,
+        sivusuunnassa 1:1), None jos kaukana tiestä."""
         i, dist = rgrid.nearest(p, rmax)
         if i < 0:
             return None
         smp = samples[i]
-        if smp["s"] > S_B:
-            return (p[0] + town_off[0], p[1] + town_off[1])
-        if smp["s"] < S_A:
-            return p
         rd = smp["rdir"]
         dx, dz = p[0] - smp["r"][0], p[1] - smp["r"][1]
-        along = dx * rd[0] + dz * rd[1]
+        along = dx * rd[0] + dz * rd[1] * 1.0
         lat = -dx * rd[1] + dz * rd[0]
         gd = smp["dir"]
-        return (smp["g"][0] + gd[0] * along / K - gd[1] * lat, smp["g"][1] + gd[1] * along / K + gd[0] * lat)
+        c = smp["c"]
+        return (smp["g"][0] + gd[0] * along * c - gd[1] * lat, smp["g"][1] + gd[1] * along * c + gd[0] * lat)
 
     def to_real(p):
         """Pelin piste todelliseksi (maankäytön haku). Palauttaa (piste, lähin näyte, etäisyys tiestä, puoli)."""
@@ -320,18 +323,13 @@ def main():
         dx, dz = p[0] - smp["g"][0], p[1] - smp["g"][1]
         lat = -dx * gd[1] + dz * gd[0]
         along = dx * gd[0] + dz * gd[1]
-        if smp["s"] > S_B or math.dist(p, (sx + town_off[0], sz + town_off[1])) < TOWN_R:
-            rp = (p[0] - town_off[0], p[1] - town_off[1])
-        elif smp["s"] < S_A:
-            rp = p
-        else:
-            rd = smp["rdir"]
-            rp = (smp["r"][0] + rd[0] * along * K - rd[1] * lat, smp["r"][1] + rd[1] * along * K + rd[0] * lat)
+        rd = smp["rdir"]
+        c = smp["c"]
+        rp = (smp["r"][0] + rd[0] * along / c - rd[1] * lat, smp["r"][1] + rd[1] * along / c + rd[0] * lat)
         return rp, i, dist, lat
 
     # --- Kohteet peliin. -------------------------------------------------------------------------------------
-    route_real = [smp["r"] for smp in samples]
-    rr = Grid(route_real, 20.0)
+    rr = Grid(real[::2], 20.0)  # tiheä todellinen reitti (näytteet ovat tiivistetyllä välillä harvassa)
 
     def on_route(p):
         return rr.nearest(p, 6.0)[0] >= 0
@@ -359,9 +357,58 @@ def main():
         out_buildings.append({"id": f["id"], "type": bt, "kind": kind, "levels": levels,
                               "name": f.get("name", ""), "addr": ("%s %s" % (f.get("addr_street", ""), f.get("addr_housenumber", ""))).strip(),
                               "pts": [[round(q[0] + off[0], 2), round(q[1] + off[1], 2)] for q in pts]})
+    # --- Risteysten haarat väärään suuntaan: OSM:n tie risteyksestä BRANCH_LEN m (1:1), sitten umpitie. ------------
+    def road_kind(f):
+        hw = f.get("highway", "")
+        paved = f.get("surface", "") in ("asphalt", "paved") or hw in ("secondary", "tertiary")
+        width = 3.1 if hw in ("secondary", "tertiary") else (2.6 if hw in ("unclassified", "residential") else 2.0)
+        return ("asphalt" if paved else "gravel"), width
+
+    branches = []
+    branch_ways = set()
+    for st in steps[1:5]:
+        J = tuple(st["at"])
+        ji = min(range(n), key=lambda i: math.dist(samples[i]["r"], J))
+        gj = samples[ji]["g"]
+        yj = None
+        for f in roads:
+            if f.get("highway") in ("footway", "cycleway", "path", "pedestrian", "track") or len(f["pts"]) < 2:
+                continue
+            vi = min(range(len(f["pts"])), key=lambda i: math.dist(f["pts"][i], J))
+            if math.dist(f["pts"][vi], J) > 15.0:
+                continue
+            for step_dir in (1, -1):
+                pts = [J]
+                k = vi
+                while 0 <= k + step_dir < len(f["pts"]):
+                    k += step_dir
+                    pts.append(tuple(f["pts"][k]))
+                line = resample(pts, 2.0)
+                acc, cut = 0.0, [line[0]]
+                for a, b in zip(line, line[1:]):
+                    acc += math.dist(a, b)
+                    if acc > BRANCH_LEN:
+                        break
+                    cut.append(b)
+                if acc < 20.0 and len(cut) < 10:
+                    continue
+                probe = cut[min(12, len(cut) - 1)]
+                if on_route(probe):
+                    continue  # tämä suunta on itse reitti
+                if any(math.dist(probe, tuple(q)) < 8.0 for b in branches for q in b["real"]):
+                    continue  # sama haara toisesta OSM-pätkästä
+                surf, hw = road_kind(f)
+                y0 = samples[ji]["y"]
+                gp = [(gj[0] + q[0] - J[0], gj[1] + q[1] - J[1]) for q in cut]
+                branches.append({"name": f.get("name", ""), "hw": hw, "gravel": 1 if surf == "gravel" else 0, "s": samples[ji]["s"],
+                                 "pts": [[round(q[0], 2), round(y0, 2), round(q[1], 2)] for q in gp],
+                                 "real": [[round(q[0], 2), round(q[1], 2)] for q in cut]})
+                branch_ways.add(f["id"])
+    print("haaroja", len(branches), [(b["name"], len(b["pts"])) for b in branches])
+
     side_roads = []
     for f in feats:
-        if f["kind"] not in ("road", "rail"):
+        if f["kind"] not in ("road", "rail") or f["id"] in branch_ways:
             continue
         hw = f.get("highway", "")
         cur = []
@@ -378,12 +425,13 @@ def main():
         if len(cur) > 1:
             side_roads.append({"kind": f["kind"], "hw": hw, "name": f.get("name", ""), "surface": f.get("surface", ""), "pts": cur})
     out_water = []
-    for f, bb in waters:
-        c = to_game(((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2), 2000.0)
-        if math.dist(((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2), (sx, sz)) < 3000.0:
-            out_water.append({"name": f.get("name", ""), "pts": [[round(q[0] + town_off[0], 2), round(q[1] + town_off[1], 2)] for q in f["pts"]]})
-    parkings = [[[round(q[0] + town_off[0], 2), round(q[1] + town_off[1], 2)] for q in f["pts"]] for f in feats
-                if f["kind"] == "parking" and math.dist(f["pts"][0], (sx, sz)) < 650.0]
+    parkings = []
+    for f in feats:
+        if f["kind"] != "parking":
+            continue
+        gp = [to_game(q) for q in f["pts"]]
+        if all(q is not None for q in gp):
+            parkings.append([[round(q[0], 2), round(q[1], 2)] for q in gp])
 
     # --- Maasto: tarkka ruudukko tien ympärillä, kaukomaasto karkeana. --------------------------------------------
     gx = [smp["g"][0] for smp in samples]
@@ -398,11 +446,16 @@ def main():
     nz = int((z1 - z0) / CELL) + 1
     print("ruudukko %d x %d (%.0f x %.0f m)" % (nx, nz, nx * CELL, nz * CELL))
     INF = 1e9
+    # Maaston näytteet: reitti ja risteysten haarat (haaran alla tasainen tiepohja kuten reitillä).
+    tsamp = list(samples)
+    for b in branches:
+        for q, rq in zip(b["pts"], b["real"]):
+            tsamp.append({"g": (q[0], q[2]), "y": q[1], "hw": b["hw"], "s": b["s"], "r": tuple(rq), "bridge": False})
     near_d = [INF] * (nx * nz)
     near_i = [-1] * (nx * nz)
     rcell = int(NEAR / CELL) + 1
-    for si in range(0, n, 2):
-        p = samples[si]["g"]
+    for si in list(range(0, n, 2)) + list(range(n, len(tsamp))):
+        p = tsamp[si]["g"]
         ci = int((p[0] - x0) / CELL)
         cj = int((p[1] - z0) / CELL)
         for j in range(max(cj - rcell, 0), min(cj + rcell + 1, nz)):
@@ -451,7 +504,7 @@ def main():
                 si, dist = ggrid.nearest(p, 450.0)
             else:
                 si, dist = near_i[k], math.sqrt(near_d[k])
-            smp = samples[si]
+            smp = tsamp[si]
             rp, _, _, lat = to_real(p)
             hw = smp["hw"]
             # Luonnollinen maa: keskustassa korkeusmalli, muualla tien korkeus + sivun kallistus.
@@ -463,7 +516,7 @@ def main():
                 hs = side[sj][2] if sj >= 0 else smp["y"]
                 ground = smp["y"] + (hs - h_real_s(smp["s"])) * smooth(0.0, SIDE_D, dist) * 0.7
             code = FOREST
-            if any(pip(rp, pts, bb) for pts, bb in wpolys) or ((in_town or smp["s"] > S_B) and in_river(rp)):
+            if any(pip(rp, pts, bb) for pts, bb in wpolys) or (smp["s"] > B_LO - 600.0 and in_river(rp)):
                 code = WATER
                 ground = water_level - 1.2
             elif any(pip(rp, pts, bb) for pts, bb in fields):
@@ -562,7 +615,7 @@ def main():
         "road": [[round(smp["g"][0], 2), round(smp["y"], 2), round(smp["g"][1], 2), round(smp["s"], 1),
                   smp["hw"], 1 if smp["surf"] == "gravel" else 0, 1 if smp["bridge"] else 0] for smp in samples],
         "road_names": [smp["name"] for smp in samples],
-        "bridges": bridges, "signs": signs, "buildings": out_buildings, "side_roads": side_roads,
+        "bridges": bridges, "signs": signs, "branches": [{k2: v for k2, v in b.items() if k2 != "real"} for b in branches], "buildings": out_buildings, "side_roads": side_roads,
         "water": out_water, "parkings": parkings, "river_half": RIVER_HALF,
     }
     with open(OUT_JSON, "w") as f:
