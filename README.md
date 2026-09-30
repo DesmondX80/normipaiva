@@ -296,6 +296,22 @@ godot --path .
 | Oikea nappi pohjassa | tarkka tähtäys (zoom, rauhallisempi käsi) |
 | F | lopeta jahti |
 
+### Puhelin ja tabletti (selainversio)
+
+Kosketusnäytöllä peliin tulevat ruudulle omat ohjaimet (`scripts/touch_controls.gd`, autoload `Touch`).
+Napit syöttävät samat näppäinpainallukset kuin näppäimistö, joten kaikki toiminnot toimivat niillä.
+
+| Kosketus | |
+|---|---|
+| Vasen puoli | tatti ilmestyy sormen kohdalle: polje/kävele ja ohjaa, reunaan asti = spurtti/juoksu |
+| Oikea puoli, veto | kamera (metsästyksessä ja droonilla tähtäys) |
+| Toiminto / Pyörä / Hyppy-Jarru / Syö | E / F / välilyönti / T |
+| Oikea reuna | Valikko (Esc), Kartta, Reppu, Kello, Kamera (V) |
+| Minipeleissä | omat napit: tappelu Lyö/Potkaise/Erikois, pingis Lyönti/Smash, drooni Kuva/Alas/Kotiin, metsästys Tähtää |
+| Valikot, kartta, sahaus ym. | napautus toimii hiiren klikkauksena |
+
+Työpöydällä ohjaimia voi kokeilla käynnistämällä pelin `godot --path . -- --touch`.
+
 ## Tekijänoikeudet
 
 - Koodi ja maisema: tehty tätä peliä varten.
