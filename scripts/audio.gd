@@ -49,6 +49,7 @@ const FILES := {
 	"saw": [["saw_0.wav", "saw_1.wav", "saw_2.wav", "saw_3.wav", "saw_4.wav", "saw_5.wav", "saw_6.wav", "saw_7.wav"], false],
 	"axe": [["axe_0.wav", "axe_1.wav", "axe_2.wav", "axe_3.wav", "axe_4.wav", "axe_5.wav"], false],
 	"fart": [["fart_0.wav", "fart_1.wav", "fart_2.wav"], false],
+	"shotgun": [["shotgun.wav"], false],
 }
 
 
@@ -66,6 +67,16 @@ func _ready() -> void:
 			list.append(st)
 		if not list.is_empty():
 			_streams[key] = list  # äänite korvaa syntetisoidun
+
+
+## Suljettaessa soimassa olevat äänet pysäytetään ja irrotetaan, muuten äänipalvelin pitää äänitteen varattuna
+## ("resources still in use at exit").
+func _exit_tree() -> void:
+	for c in get_children():
+		if c is AudioStreamPlayer:
+			c.stop()
+			c.stream = null
+	_streams.clear()
 
 
 func _set_loop(st: AudioStream) -> void:
@@ -102,21 +113,28 @@ func has_music() -> bool:
 	return false
 
 
+## Tunnusmusiikki silmukkana (esim. mökin PA-kaiuttimille), null jos tiedostoa ei ole.
+func music_stream() -> AudioStream:
+	for f in MUSIC_FILES:
+		if ResourceLoader.exists(f):
+			var st: AudioStream = load(f)
+			_set_loop(st)
+			return st
+	return null
+
+
 const MUSIC_CHORUS := 25.0  # kertosäe alkaa (s): onnelliset loput soivat tästä
 
 ## Aloittaa (tai jatkaa) musiikin häivyttäen sisään; from = aloituskohta sekunteina.
 func music_play(fade := 1.5, from := 0.0) -> void:
 	if _music == null:
-		for f in MUSIC_FILES:
-			if ResourceLoader.exists(f):
-				var st: AudioStream = load(f)
-				_set_loop(st)
-				_music = AudioStreamPlayer.new()
-				_music.bus = "Music"
-				_music.stream = st
-				_music.process_mode = Node.PROCESS_MODE_ALWAYS  # soi myös valikon tauon aikana
-				add_child(_music)
-				break
+		var st := music_stream()
+		if st != null:
+			_music = AudioStreamPlayer.new()
+			_music.bus = "Music"
+			_music.stream = st
+			_music.process_mode = Node.PROCESS_MODE_ALWAYS  # soi myös valikon tauon aikana
+			add_child(_music)
 	if _music == null:
 		return
 	if _music_tw != null:

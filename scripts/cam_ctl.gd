@@ -15,6 +15,7 @@ var yaw := 0.0  # poikkeama suunnasta, jonne pelaaja katsoo
 var pitch := -0.12
 var _idle := 99.0
 var need_mouse := false  # minipeli tähtää hiirellä asetuksesta riippumatta
+var free_mouse := false  # minipeli käyttää näkyvää kursoria (esim. PA-johtojen kytkentä)
 
 
 func _ready() -> void:
@@ -41,6 +42,8 @@ func _process(delta: float) -> void:
 	_idle += delta
 	if not get_tree().paused and DisplayServer.window_is_focused():
 		var want := Input.MOUSE_MODE_CAPTURED if need_mouse or Settings.get_v("mouse_look") else Input.MOUSE_MODE_VISIBLE
+		if free_mouse:
+			want = Input.MOUSE_MODE_VISIBLE
 		if Input.mouse_mode != want:
 			Input.mouse_mode = want
 
