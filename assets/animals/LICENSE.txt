@@ -1,6 +1,9 @@
 ShibaInu.glb: "Shiba Inu" by Quaternius (Animated Animal Pack)
 https://poly.pizza/m/y4wdQpg767 · https://quaternius.com/packs/ultimateanimatedanimals.html
 
+Stag.glb: "Stag" by Quaternius (Animated Animal Pack), metsästyksen hirvi (värit ja lapiosarvet hunt_game.gd:ssä)
+https://poly.pizza/m/tQdzbZ1Cmw · https://quaternius.com/packs/ultimateanimatedanimals.html
+
 License:
 CC0 1.0 Universal (CC0 1.0)
 Public Domain Dedication
