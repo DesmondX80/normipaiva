@@ -71,6 +71,12 @@ const TERO := {
 	"hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "beard": true, "height": 1.88,
 	"belly": 0.6, "bulk": 0.6, "shoulders": 0.6, "muscle": 0.3,
 }
+## Naapurin Sinikka: platinablondi, punainen toppi, valkoiset housut ja korkokengät, kiiltävä kangas.
+const SINIKKA := {
+	"model": "female", "shirt": Color(0.86, 0.06, 0.14), "pants": Color(0.95, 0.94, 0.9), "shoes": Color(0.8, 0.05, 0.1),
+	"hair": "Hair_Long", "hair_color": Color(0.96, 0.9, 0.7), "height": 1.72, "shine": 0.5, "bulk": -0.25,
+	"skin": Color(1.0, 0.86, 0.78),
+}
 const PEKKA := {
 	"shirt": Color(0.3, 0.36, 0.2), "pants": Color(0.35, 0.33, 0.22), "shoes": Color(0.15, 0.12, 0.1),
 	"hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.28, 0.2), "beard": true, "height": 1.78, "shine": 0.2, "belly": 0.65, "bulk": 0.1,
