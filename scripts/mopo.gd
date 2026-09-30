@@ -16,8 +16,14 @@ const STEER_SPEED := 1.9
 const GRAVITY := 20.0
 const SLOPE := 5.0
 
+signal crashed(reason: String)  # kännissä ojaan tai päin estettä
+
 var speed := 0.0
 var controls_enabled := true
+## Humala (0…1, main.gd:n tilat): mopo vaeltaa, ohjaus laahaa ja ylireagoi, välillä tanko nykäisee. Kännissä
+## ojaan tai estettä päin kovaa ajettaessa mopo kaatuu (crashed).
+var drunk := 0.0
+var fallen := false  # kaatunut: malli kyljellään
 var vaala: Node3D  # vaala.gd (paikallinen kehys = mopo_trip.gd:n kehys)
 
 var _visual: Node3D
@@ -29,6 +35,11 @@ var _wheels: Array[Node3D] = []
 var _engine: AudioStreamPlayer
 var _bump_t := 0.0
 var _code := Vaala.ROAD
+var _sway_t := 0.0
+var _steer_lag := 0.0
+var _yank := 0.0
+var _yank_t := 4.0
+var _wobble := 0.0  # horjunta ojassa kännissä; 1 = kaatuu
 
 
 func _ready() -> void:
@@ -152,16 +163,24 @@ func _physics_process(delta: float) -> void:
 	speed -= SLOPE * grade * delta
 	if speed > max_s:
 		speed = move_toward(speed, max_s, 4.0 * delta)
+	if drunk > 0.0 and controls_enabled:
+		steer = _drunk_steer(steer, delta)
 	var steer_factor := clampf(absf(speed) / 3.0, 0.0, 1.0) * lerpf(1.0, 0.6, clampf(absf(speed) / MAX_SPEED, 0.0, 1.0))
 	rotation.y += steer * STEER_SPEED * steer_factor * signf(speed) * delta
 	fwd = -global_transform.basis.z
 	velocity.x = fwd.x * speed
 	velocity.z = fwd.z * speed
 	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
+	var was := speed
 	move_and_slide()
 	speed = Vector2(velocity.x, velocity.z).dot(Vector2(fwd.x, fwd.z))
+	if drunk > 0.0 and controls_enabled:
+		_drunk_crash(was, delta)
 	_lean = lerpf(_lean, steer * steer_factor * 0.4, 1.0 - exp(-5.0 * delta))
-	_visual.rotation.z = _lean
+	if fallen:
+		_visual.rotation.z = lerpf(_visual.rotation.z, 1.35, 1.0 - exp(-10.0 * delta))  # kyljellään
+	else:
+		_visual.rotation.z = _lean + sin(_sway_t * 2.3) * 0.1 * clampf(drunk * DRUNK_GAIN, 0.0, 1.0)
 	_bump_t += delta * absf(speed)
 	var bump: float = surf.bump * clampf(absf(speed) / 5.0, 0.0, 1.0) * sin(_bump_t * 3.3) * sin(_bump_t * 1.9)
 	_visual.position.y = lerpf(_visual.position.y, bump, 1.0 - exp(-14.0 * delta))
@@ -172,8 +191,56 @@ func _physics_process(delta: float) -> void:
 	_engine.pitch_scale = lerpf(1.1, 2.6, k) + (0.25 if throttle > 0.0 else 0.0)
 	_engine.volume_db = lerpf(-14.0, -6.0, maxf(k, 0.4 if throttle > 0.0 else 0.0))
 	var eye: Vector3 = _rider.to_global(_rider.bone_position("Head")) + Vector3.UP * 0.1
-	CamCtl.update_camera(_cam, self, eye, 5.2, 2.4, absf(speed) > 1.0, delta, not _cam_ready, Vector3.ZERO)
+	# Kännissä kuva huojuu (katse keinuu hitaasti sivulta toiselle).
+	var dd := clampf(drunk * DRUNK_GAIN, 0.0, 1.0)
+	var sway := Vector3(sin(_sway_t * 0.9), sin(_sway_t * 0.55 + 0.7) * 0.4, 0.0) * dd * 0.9
+	CamCtl.update_camera(_cam, self, eye, 5.2, 2.4, absf(speed) > 1.0, delta, not _cam_ready, sway)
 	_cam_ready = true
+
+
+## Kännissä ohjaus: tanko vaeltaa itsestään (hidas huojunta), käsi reagoi viiveellä ja liian rajusti, ja
+## muutaman sekunnin välein tanko nykäisee sivulle. Mitä kovempi humala ja vauhti, sitä pahempi. Jo parin
+## kaljan humala (DRUNK_GAIN) tuntuu selvästi.
+const DRUNK_GAIN := 1.45
+
+
+func _drunk_steer(steer: float, delta: float) -> float:
+	_sway_t += delta
+	var d := clampf(drunk * DRUNK_GAIN, 0.0, 1.0)
+	var fast := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
+	_steer_lag = lerpf(_steer_lag, steer * (1.0 + 1.0 * d), 1.0 - exp(-lerpf(20.0, 2.0, d) * delta))
+	_yank_t -= delta
+	if _yank_t <= 0.0:
+		_yank_t = randf_range(1.6, 5.0) / (0.4 + d)
+		_yank = randf_range(0.7, 1.35) * (1.0 if randf() < 0.5 else -1.0) * d
+	_yank = move_toward(_yank, 0.0, 2.2 * delta)
+	var drift := (sin(_sway_t * 0.63) * 0.6 + sin(_sway_t * 1.71 + 1.3) * 0.4) * d * (0.5 + 0.75 * fast)
+	# Kaasukäsi lipsuu: vauhti nykii hieman.
+	speed += sin(_sway_t * 2.9) * d * 0.8 * delta * fast
+	return clampf(_steer_lag + drift + _yank, -1.6, 1.6)
+
+
+## Kännissä kaatuminen: pehmeällä (metsä, pelto, suo, vesi) horjunta kasvaa vauhdin mukaan, ja päin estettä
+## (kaide, talo, puomi) kovaa ajettaessa mopo kaatuu heti.
+func _drunk_crash(was: float, delta: float) -> void:
+	if absf(was) > 5.0 and absf(speed) < absf(was) * 0.4 and is_on_wall():
+		crashed.emit("wall")
+		return
+	var soft := _code in [Vaala.FOREST, Vaala.FIELD, Vaala.BOG, Vaala.WATER]
+	if soft and absf(speed) > 3.0:
+		_wobble += delta * clampf(drunk * DRUNK_GAIN, 0.0, 1.0) * absf(speed) / 3.5
+	else:
+		_wobble = move_toward(_wobble, 0.0, delta)
+	if _wobble >= 1.0:
+		_wobble = 0.0
+		crashed.emit("ditch")
+
+
+func reset_drunk() -> void:
+	fallen = false
+	_wobble = 0.0
+	_yank = 0.0
+	_steer_lag = 0.0
 
 
 ## Kädet tangolle ja jalat jalkatapeille (IK kuten pyörällä).

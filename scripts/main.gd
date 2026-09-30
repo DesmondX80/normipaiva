@@ -22,6 +22,24 @@ const SawGame := preload("res://scripts/saw_game.gd")
 const BarGame := preload("res://scripts/bar_game.gd")
 const PingisGame := preload("res://scripts/pingis_game.gd")
 const PaGame := preload("res://scripts/pa_game.gd")
+## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
+const SiitariInterior := preload("res://scripts/siitari_interior.gd")
+const KaraokeGame := preload("res://scripts/karaoke_game.gd")
+const SIITARI_INT_POS := Vector3(16000, 0, 0)
+const KARAOKE_PRICE := 2.0
+const PAJATSO_PRICE := 1.0
+## Sinikka Siitarissa (flirttailevaa kuten kotikadulla) ja Päivin puhelu, kun joku on nähnyt.
+const SINIKKA_BAR_LINES := [
+	"No mutta, naapuri! Täällähän sää iltasi vietät.", "Mää tuun tänne aina torstaisin. Musiikki vie mennessään.",
+	"Tanssitaanko? Mää vien, jos sää et osaa.", "Päivi ei varmaan tiedä, että sää oot täällä?",
+	"Mulla on ruusut kotona ihan yksin tänä iltana.", "Karaokessa sää olisit varmaan ihan Kari Tapio."]
+const PAIVI_SINIKKA_CALLS := [
+	"\"Pirjo soitti just, että sää TANSSIT Siitarissa Sinikan kanssa! Kotiin, NYT!\"",
+	"\"Mitä sää siellä Vaalassa Sinikan kanssa peuhaat?! Koko kylä puhuu jo!\"",
+	"\"Taas se Sinikka! Luuletko, ettei tänne kuulu mitään? Vaalan Facebook-ryhmässä on kuva!\"",
+	"\"Sää tarjoot Sinikalle drinkkejä, ja meillä on nurmikko leikkaamatta!\""]
+const PAIVI_MORNING_SINIKKA := ["Päivi: \"Siitä Sinikasta puhutaan vielä. Tänään mää pidän sua silmällä.\"",
+	"Päivi ei puhunut aamulla mitään. Kahvikin oli kylmää. (Sinikka.)"]
 const DroneGame := preload("res://scripts/drone_game.gd")
 ## Mopomatka Paapelista Vaalan Hotelli-Ravintola Siitariin (mopo_trip.gd, vaala.gd): erillinen tasku.
 const MopoTrip := preload("res://scripts/mopo_trip.gd")
@@ -38,9 +56,10 @@ const SIITARI_MENU := {
 }
 const SIITARI_LINES := ["Baarimikko: \"Mopolla Paapelista? Sieltä se Santtukin aina tulee.\"",
 	"Jukeboksista soi Eppu Normaali.", "Pöydässä ikkunan vieressä pelataan korttia.",
-	"Terassilta näkyy Vaalantie ja Oulujoen silta.", "Baarimikko: \"Tuu kattoon lauantaina, täällä on karaoke.\""]
+	"Terassilta näkyy Vaalantie ja Oulujoen silta.", "Baarimikko: \"Karaokelava on tuolla. Uskallatko?\""]
 const HuntGame := preload("res://scripts/hunt_game.gd")
 const DartsGame := preload("res://scripts/darts_game.gd")
+const FishGame := preload("res://scripts/fish_game.gd")
 const LaavuGuard := preload("res://scripts/laavu_guard.gd")
 const PaperMap := preload("res://scripts/paper_map.gd")
 const Villager := preload("res://scripts/villager.gd")
@@ -130,6 +149,10 @@ const MOKKI_INT_POS := Vector3(9000, 0, 0)
 const TV_SHOWS := ["Salkkarit: Kaikki riitelee taas.", "Kauniit ja rohkeat: Ridge on hämmentynyt.", "Uutiset: sadetta luvassa.",
 	"Hirviketju: kolme hirveä, kaksi ohi.", "Ostoskanava: veitsiä, jotka leikkaa tomaatin ja kengän."]
 var mokki_int: Node3D
+var siitari_int: Node3D
+var _paivi_call_t := -1.0  # Päivin motkotuspuhelu tulossa (s), kun Sinikan kanssa on peuhattu
+var _sinikka_gossip := false  # aamulla vielä motkotusta ja Päivi nopeampi
+var _paivi_mad := false
 var _mokki_prev := "to_shop"
 var _slept_mokki := false
 const ZONE_RADIUS := 6.0
@@ -203,7 +226,6 @@ var mopo_trip: Node3D
 var atm_day := 0
 var _atm_node: Node3D
 var _mopo_label: Label
-var _siitari_drank := false
 var _drone_parked: Node3D
 var _compass: Control
 var _hud: CanvasLayer
@@ -394,9 +416,6 @@ var _lawn_praise := false  # nurmikko leikattu: aamulla ylimääräistä rahaa
 var _lawn_done_today := false
 var mokki: Node3D
 var _santtu_chat_t := 6.0
-var _fish_state := "idle"  # idle | waiting | bite
-var _fish_t := 0.0
-var _fish_target := 0.0
 ## Raaka saalis (laiturin kalat, metsästyslavan riista) odottaa savustusta kesäkeittiössä:
 ## [{"type": "kala" | "riista", "nom": "hauki"}, ...]. Häviää yöllä kuten eväät.
 var saalis: Array = []
@@ -443,6 +462,11 @@ func _ready() -> void:
 	mokki_int.exited.connect(_on_mokki_exited)
 	mokki_int.slept.connect(_on_mokki_slept)
 	mokki_int.acted.connect(_on_mokki_acted)
+	siitari_int = SiitariInterior.new()
+	siitari_int.position = SIITARI_INT_POS
+	add_child(siitari_int)
+	siitari_int.exited.connect(_on_siitari_exited)
+	siitari_int.acted.connect(_on_siitari_acted)
 	fight = Fight.new()
 	fight.position = Vector3(-3000, 0, 0)
 	add_child(fight)
@@ -540,6 +564,15 @@ func _process(delta: float) -> void:
 			_hint.text = interior.hint
 		"mopo":
 			_mopo_tick()
+		"in_siitari":
+			if not _item_menu.is_open():
+				_hint.text = siitari_int.hint
+			tilat.add("humala", -0.002 * delta)
+			tilat.add("stressi", 0.004 * delta)
+			if _paivi_call_t > 0.0 and _hud.visible:  # karaoken aikana puhelin ei kuulu
+				_paivi_call_t -= delta
+				if _paivi_call_t <= 0.0:
+					_paivi_calls()
 		"in_mokki":
 			_hint.text = mokki_int.hint
 			# Sisällä on rauhallista: stressi hellittää ja vireys nousee, nälkä kasvaa hiljaa.
@@ -1580,6 +1613,9 @@ func _task_failed() -> void:
 ## Päivän hankaluus vaaroihin: huono edellinen päivä = Päivi nopeampi, mummot herkempiä, koira puree kauempaa.
 func _apply_trouble() -> void:
 	wife.speed_mult = [0.88, 1.0, 1.12][trouble + 1]
+	if _paivi_mad:
+		_paivi_mad = false
+		wife.speed_mult += 0.1  # Sinikka-juorut: Päivi on tänään vauhdissa
 	mummot.anger_speed = [7.5, 5.0, 3.5][trouble + 1]
 	stray.bite_dist = [1.6, 2.3, 3.0][trouble + 1]
 
@@ -2188,7 +2224,9 @@ func _mokki_logic() -> void:
 			_start_darts()
 		return
 	if near.call(Mokki.DOCK_LOCAL, 2.2):
-		_fish_logic(e)
+		_hint.text = "[E] Soutuveneellä kalaan (virveli)"
+		if e:
+			_start_fishing()
 		return
 	if near.call(Mokki.HUNT_LOCAL, 2.4):
 		_hunt_logic(e)
@@ -2293,19 +2331,20 @@ func _start_mopo() -> void:
 		mopo_trip.finished.connect(_on_mopo_finished)
 		mopo_trip.killed.connect(_on_mopo_killed)
 		mopo_trip.atm.connect(_atm_use)
+		mopo_trip.crashed.connect(_on_mopo_crashed)
 	mokki.mopo_parked.visible = false
 	for c in _hud.get_children():
 		if c is CanvasItem and c not in [_compass, _msg, _hint, _mopo_label]:
 			c.set_meta("mopo_hidden", c.visible)
 			c.visible = false
-	mopo_trip.start("siitari")
+	mopo_trip.start("siitari", tilat.value("humala"))
 	_compass.player = mopo_trip.mopo
 	_minimap.player = mopo_trip.mopo
 	world.follow = mopo_trip.mopo
 	_mopo_label.visible = true
-	_siitari_drank = false
 	tilat.first("mopo", 0.3)
-	_show_message("Mopo käynnistyi! Uutelanperäntie, Neittäväntie ja Vuolijoentie Vaalaan. Siitari on Vaalantiellä joen takana.", 4.5)
+	_show_message("Mopo käynnistyi! Uutelanperäntie, Neittäväntie ja Vuolijoentie Vaalaan. Siitari on Vaalantiellä joen takana."
+		+ (" Kännissä tanko vaeltaa: pidä mopo tiellä!" if tilat.value("humala") > 0.1 else ""), 4.5)
 
 
 func _mopo_tick() -> void:
@@ -2321,12 +2360,61 @@ func _mopo_tick() -> void:
 		("%.1f" % (left / 1000.0)).replace(".", ",")])
 
 
+## Siitarin ovella: mopo parkkiin ja sisälle baariin (siitari_interior.gd). Ulko-ovelta takaisin mopolle.
 func _on_mopo_arrived() -> void:
 	_hint.text = ""
-	_show_message("Hotelli-Ravintola Siitari, Vaalantie 12. Mopo parkkiin ja sisälle baariin!", 3.0)
+	_show_message("Hotelli-Ravintola Siitari, Vaalantie 12. Baaritiski, karaoke ja tanssilattia!", 3.0)
 	Sfx.play("door", -3.0)
 	tilat.first("siitari", 0.4)
-	_open_siitari_menu()
+	state = "in_siitari"
+	_mopo_label.visible = false
+	_compass.visible = false
+	siitari_int.enter()
+
+
+func _on_siitari_exited() -> void:
+	_on_siitari("lahde")
+
+
+## Siitarin sisätoiminnot: tiski (valikko), karaoke, Sinikka (valikko) ja pajatso.
+func _on_siitari_acted(kind: String) -> void:
+	match kind:
+		"tiski":
+			siitari_int.bartender_say("Mitäs laitetaan?")
+			_open_siitari_menu()
+		"karaoke":
+			if money < KARAOKE_PRICE:
+				_show_message("Karaoke maksaa %s €. Rahat ei riitä." % _eur(KARAOKE_PRICE), 2.5)
+				return
+			money -= KARAOKE_PRICE
+			_start_karaoke()
+		"sinikka":
+			siitari_int.sinikka_say(SINIKKA_BAR_LINES.pick_random())
+			_menu_mode = "siitari"
+			siitari_int.walker.controls_enabled = false
+			_item_menu.open([["sinikka_juttu", "Jutskaa Sinikan kanssa"], ["sinikka_tanssi", "Tanssi Sinikan kanssa"],
+				["sinikka_drinkki", "Tarjoa Sinikalle lonkero – %s €" % _eur(SIITARI_MENU.lonkero[1])],
+				["takaisin", "Takaisin"]], "Sinikka baaritiskillä")
+		"pajatso":
+			if money < PAJATSO_PRICE:
+				_show_message("Pajatso vie euron. Rahat ei riitä.", 2.0)
+				return
+			money -= PAJATSO_PRICE
+			Sfx.play("coin", -4.0)
+			var roll := randf()
+			if roll < 0.08:
+				money += 10.0
+				Sfx.play("win", -4.0)
+				tilat.add("moraali", 0.15)
+				_show_message("PAJATSO! Kolikot kilisee: +10 €!", 3.0)
+			elif roll < 0.3:
+				money += 2.0
+				Sfx.play("win_small", -6.0)
+				_show_message("Pajatso antoi 2 €.", 2.0)
+			else:
+				_show_message("Kuula kolisi ohi. Euro meni.", 2.0)
+		"tanssi_loppu":
+			_show_message("Tanssi loppui. Sinikka: \"Sää viet hyvin. Toiste uudestaan?\"", 3.0)
 
 
 func _open_siitari_menu() -> void:
@@ -2334,21 +2422,102 @@ func _open_siitari_menu() -> void:
 	for id in SIITARI_MENU:
 		var m: Array = SIITARI_MENU[id]
 		items.append([id, "%s – %s €" % [m[0], _eur(m[1])]])
-	items.append(["lahde", "Lähde takaisin Paapeliin" + (" (Santtu hakee kyydillä)" if _siitari_drank else " mopolla")])
+	items.append(["takaisin", "Takaisin"])
 	_menu_mode = "siitari"
+	siitari_int.walker.controls_enabled = false
 	_item_menu.open(items, "Siitarin baari · rahaa %s €" % _eur(money))
 
 
+## Sinikan kanssa peuhaaminen kantautuu Päiville: puhelu hetken päästä ja aamulla vielä motkotusta.
+func _sinikka_flirt() -> void:
+	tilat.first("sinikka_siitari", 0.2)
+	tilat.add("moraali", 0.1)
+	tilat.add("stressi", 0.05)
+	_sinikka_gossip = true
+	if _paivi_call_t <= 0.0:
+		_paivi_call_t = randf_range(7.0, 12.0)
+
+
+func _paivi_calls() -> void:
+	Sfx.play("alert", -2.0, 1.3)
+	tilat.add("stressi", -0.2)
+	tilat.add("moraali", -0.15)
+	_show_message("📱 Päivi soittaa: " + PAIVI_SINIKKA_CALLS.pick_random(), 5.0)
+
+
+## Karaoke: lavalle, laulu (karaoke_game.gd), yleisön reaktio ja tilavaikutukset.
+func _start_karaoke() -> void:
+	siitari_int.to_stage()
+	_hud.visible = false
+	var game := KaraokeGame.new()
+	game.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	game.line.connect(siitari_int.set_screen)
+	game.finished.connect(func(score: float) -> void:
+		game.queue_free()
+		_hud.visible = true
+		siitari_int.from_stage(score >= 0.5)
+		tilat.first("karaoke", 0.3)
+		var pct := roundi(score * 100.0)
+		if score >= 0.7:
+			Sfx.play("win", -4.0)
+			tilat.add("moraali", 0.25)
+			tilat.add("stressi", 0.15)
+			mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0)
+			_show_message("Karaoke %d %%: Siitari raikuu! Seurue taputtaa ja Sinikka huokaa." % pct, 3.5)
+		elif score >= 0.4:
+			Sfx.play("win_small", -6.0)
+			tilat.add("moraali", 0.1)
+			_show_message("Karaoke %d %%: ihan kelpo veto. Joku taputti." % pct, 3.0)
+		else:
+			Sfx.play("lose", -6.0)
+			tilat.add("moraali", -0.1)
+			_show_message("Karaoke %d %%: nuotin vierestä%s. Korttiporukka piti korviaan." % [pct,
+				" (kännissä ääni huojuu)" if tilat.value("humala") > 0.2 else ""], 3.5))
+	add_child(game)
+
+
 func _on_siitari(id: String) -> void:
+	if state == "in_siitari" and id != "lahde":
+		siitari_int.walker.controls_enabled = true
+		siitari_int.block_interact()
+		match id:
+			"takaisin":
+				return
+			"sinikka_juttu":
+				siitari_int.sinikka_say(SINIKKA_BAR_LINES.pick_random())
+				return
+			"sinikka_tanssi":
+				siitari_int.dance_with_sinikka(7.0)
+				_show_message("Tanssit Sinikan kanssa. Tanssilattia on pieni ja Vaala vielä pienempi...", 3.5)
+				_sinikka_flirt()
+				return
+			"sinikka_drinkki":
+				var price: float = SIITARI_MENU.lonkero[1]
+				if money < price:
+					_show_message("Rahat ei riitä Sinikan lonkeroon (%s €)." % _eur(money), 2.0)
+					return
+				money -= price
+				Sfx.play("glass", -6.0, 0.9)
+				siitari_int.sinikka_say("Sää oot kyllä herrasmies. Kippis, naapuri!")
+				_show_message("Tarjosit Sinikalle lonkeron. Baarimikko vilkaisi puhelintaan...", 3.0)
+				_sinikka_flirt()
+				return
 	if id == "lahde":
 		_menu_mode = "give"
-		if _siitari_drank:
-			# Mopolla ei ajeta kännissä: Santtu hakee pakulla, mopo peräkärryyn.
-			_show_message("Et lähde mopolla kännissä. Santtu hakee sinut pakulla ja mopon peräkärryssä Paapeliin.", 4.0)
-			_mopo_end()
+		if state == "in_siitari":
+			siitari_int.leave()
+			Sfx.play("door_close", -3.0)
+			state = "mopo"
+			_mopo_label.visible = true
+			_compass.visible = true
+		var drunk: float = tilat.value("humala")
+		if drunk > 0.1:
+			# Omalla kylällä saa ajaa kännissä, mutta helppoa se ei ole: tanko vaeltaa ja ojaan on lyhyt matka.
+			_show_message("Omalla kylällä saa ajaa kännissä! Tanko vaeltaa ja käsi laahaa: pidä mopo tiellä ja vauhti maltillisena.", 4.5)
+			tilat.first("mopo_kannissa", 0.3)
 		else:
 			_show_message("Takaisin Paapeliin: Vaalantie, Vuolijoentie ja Neittäväntie.", 3.0)
-			mopo_trip.start("paapeli")
+		mopo_trip.start("paapeli", drunk)
 		return
 	var m: Array = SIITARI_MENU[id]
 	if money < m[1]:
@@ -2359,13 +2528,11 @@ func _on_siitari(id: String) -> void:
 		tilat.add("stressi", m[3])
 		tilat.add("moraali", m[4])
 		if m[2] > 0.0:
-			_siitari_drank = true
 			Sfx.play("glass", -6.0, 0.9)
 		else:
 			Sfx.play("pickup", -8.0, 0.8)
 		tilat.first("siitari_" + id, 0.1)
 		_show_message("%s. %s" % [m[0], SIITARI_LINES.pick_random()], 3.0)
-	_open_siitari_menu.call_deferred()
 
 
 ## Auto ajoi mopon päälle: WASTED Vaalan tiellä, Päivin motkotus ja uusi päivä kotoa Saloisista.
@@ -2376,6 +2543,14 @@ func _on_mopo_killed() -> void:
 	state = _mokki_prev
 	_lose("Jäit auton alle mopolla (%s)." % road_name, "car", at)
 	mopo_trip.stop()
+
+
+## Kännissä kumoon: kipua ja nolous, mopo nostetaan tielle ja matka jatkuu.
+func _on_mopo_crashed(reason: String) -> void:
+	tilat.add("kipu", -0.15)
+	tilat.add("moraali", -0.05)
+	_show_message(("Mopo ojassa! Kännissä ajo ei ole helppoa." if reason == "ditch"
+		else "Pää edellä päin! Kännissä ajo on vaarallista.") + " Mopo pystyyn ja matka jatkuu.", 3.0)
 
 
 func _mopo_restore_hud() -> void:
@@ -2558,50 +2733,42 @@ func _pa_off() -> void:
 	_show_message("PA sammutettu.", 2.0)
 
 
-## Kalastus laiturilta: heitä onki (E), odota nykäisyä, vedä ylös ajoissa (E). Ks. Mokki.FISH.
-func _fish_logic(e: bool) -> void:
-	match _fish_state:
-		"idle":
-			_hint.text = "[E] Heitä onki veteen"
-			if e:
-				_fish_state = "waiting"
-				_fish_t = 0.0
-				_fish_target = randf_range(3.0, 8.0)
-				Sfx.play("whoosh", -6.0, 0.8)
-				_show_message("\"%s\"" % Mokki.LAKE_LINES.pick_random(), 2.5)
-		"waiting":
-			_fish_t += get_process_delta_time()
-			if _fish_t >= _fish_target:
-				_fish_state = "bite"
-				_fish_t = 0.0
-				Sfx.play("alert", -6.0, 1.3)
-				_show_message("NYKÄISY!", 1.5)
-			else:
-				_hint.text = "Odotat nykäisyä..."
-		"bite":
-			_hint.text = "[E] Vedä ylös!"
-			_fish_t += get_process_delta_time()
-			if e:
-				_land_fish()
-				_fish_state = "idle"
-			elif _fish_t > 2.2:
-				_show_message(Mokki.FISH_MISS_LINES.pick_random(), 2.0)
-				_fish_state = "idle"
+## Kalastus soutuveneellä (fish_game.gd): soutu Likasella, heitto, tärppi ja väsytys. Saalis savustimeen.
+func _start_fishing() -> void:
+	_minigame_prev = state
+	state = "minigame"
+	player.controls_enabled = false
+	player.speed = 0.0
+	player.visible = false
+	mokki.boat_parked.visible = false
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	var game := FishGame.new()
+	game.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	game.finished.connect(func(got: Array) -> void:
+		state = _minigame_prev
+		player.visible = true
+		player.activate_camera()
+		player.controls_enabled = true
+		mokki.boat_parked.visible = true
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
+		_hud.visible = true
+		_after_fishing(got))
+	mokki.add_child(game)
 
 
-func _land_fish() -> void:
-	if randf() < 0.12:
-		Sfx.play("rattle", -4.0, 0.9)
-		_show_message("Vedit ylös %s. Ei syötävää." % Mokki.FISH_JUNK.pick_random(), 2.5)
-		return
-	var fish: Dictionary = Mokki.FISH.pick_random()
-	var kg: float = fish.kg * randf_range(0.6, 1.6)
-	Sfx.play("win_small", -4.0)
+func _after_fishing(got: Array) -> void:
 	tilat.first("kalastus", 0.3)
-	tilat.add("moraali", 0.05)
-	tilat.add("stressi", 0.1)
-	saalis.append({"type": "kala", "nom": fish.nom})
-	_show_message("Sait %s! Painoa noin %.1f kg. Vie kesäkeittiön savustimeen." % [fish.name, kg], 3.0)
+	tilat.add("stressi", 0.15)  # vesillä rauhoittuu
+	if got.is_empty():
+		_show_message("Ei saalista tällä kertaa. Järvi oli kaunis silti.", 2.5)
+		return
+	var names: Array = []
+	for f in got:
+		saalis.append({"type": "kala", "nom": f.nom})
+		names.append("%s %s kg" % [f.nom, ("%.1f" % f.kg).replace(".", ",")])
+	tilat.add("moraali", minf(0.06 * got.size(), 0.25))
+	_show_message("Saalis: %s. Vie kesäkeittiön savustimeen." % ", ".join(names), 3.5)
 
 
 ## Metsästyslava riistapolulla: E nousee lavalle, ja metsästys on FPS-minipeli (hunt_game.gd).
@@ -3448,7 +3615,6 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	if mokki != null:
 		mokki.set_sauna_fire(false)
 		mokki.set_tub_fire(false)
-	_fish_state = "idle"
 	saalis.clear()
 	smoker_load.clear()
 	smoker_fuel = 0.0
@@ -3472,6 +3638,11 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	if not _list_done and not shopping_list.is_empty() and not at_m:
 		bonus += "\nPäivi: \"Eilen ei tullu kaupasta mitään, vaikka oli lista!\""
 	bonus += stats_note
+	if _sinikka_gossip:
+		_sinikka_gossip = false
+		_paivi_mad = true
+		tilat.add("stressi", -0.1)
+		bonus += "\n" + PAIVI_MORNING_SINIKKA.pick_random()
 	var mokki_note := ""
 	if _slept_mokki:
 		_slept_mokki = false
@@ -4003,7 +4174,7 @@ func _build_hud() -> void:
 			_on_give(id))
 	_item_menu.cancelled.connect(func() -> void:
 		if _menu_mode == "siitari":
-			_on_siitari("lahde")
+			_on_siitari("takaisin")
 		else:
 			player.controls_enabled = true)
 
@@ -4052,7 +4223,7 @@ func _update_hud() -> void:
 	_stats.text = "\n".join(lines)
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = not (state in ["in_shop", "in_mokki", "mopo"])
+	_minimap.visible = not (state in ["in_shop", "in_mokki", "mopo", "in_siitari"])
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
 	_minimap.show_target = state in ["to_shop", "to_home"] and not at_mokki
 	_compass.visible = state in ["to_shop", "to_home", "mopo"]
@@ -4086,7 +4257,7 @@ func _update_hud() -> void:
 
 	var nb: CharacterBody3D = interior.neighbor
 	_sus_box.visible = state == "in_shop" and nb != null
-	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki"]
+	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_siitari"]
 	_stat_bars.offset_top = 90 if _sus_box.visible else 36
 	if _sus_box.visible:
 		_sus_bar.value = nb.suspicion
@@ -4477,6 +4648,172 @@ func _maybe_screenshot() -> void:
 			if scene == "kotain":
 				world.kota.set_fire(true)
 				world.kota.say("raimo", "Tässä kodassa on enemmän kieltokylttejä kuin halkoja.")
+		"mokkisiitari":
+			# Siitari sisältä: _1 yleiskuva, _2 tanssi Sinikan kanssa, _3 karaoke kesken, _4 Päivin puhelu.
+			_start_mopo()
+			var mp: CharacterBody3D = mopo_trip.mopo
+			mp.position = mopo_trip.vaala.siitari_park + Vector3(0, 0.5, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			mopo_trip.stop()
+			_on_mopo_arrived()
+			money = 30.0
+			tilat.add("humala", 0.3)
+			var snap := func(name: String) -> void:
+				for i in 30:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			siitari_int.walker.position = Vector3(0.5, 0, 1.0)
+			await snap.call("_1.png")
+			print("SIITARI tila %s hint '%s'" % [state, _hint.text])
+			siitari_int.walker.position = siitari_int.spots.sinikka[0]
+			for i in 5:
+				await get_tree().process_frame
+			print("SIITARI Sinikan luona hint '%s'" % _hint.text)
+			_on_siitari_acted("sinikka")
+			print("SIITARI valikko auki %s" % _item_menu.is_open())
+			_item_menu.hide()
+			_on_siitari("sinikka_tanssi")
+			await snap.call("_2.png")
+			await get_tree().create_timer(7.5).timeout
+			print("SIITARI tanssi ohi: ohjaus %s, puhelu %.1f s" % [siitari_int.walker.controls_enabled, _paivi_call_t])
+			siitari_int.walker.position = siitari_int.spots.karaoke[0]
+			_on_siitari_acted("karaoke")
+			Input.action_press("forward")
+			await get_tree().create_timer(4.0).timeout
+			Input.action_release("forward")
+			await snap.call("_3.png")
+			await get_tree().create_timer(26.0).timeout
+			print("SIITARI karaoke ohi, viesti: %s | rahaa %.2f" % [_msg.text, money])
+			await get_tree().create_timer(4.5).timeout
+			await snap.call("_4.png")
+			print("SIITARI viesti: %s" % _msg.text)
+			siitari_int.walker.position = siitari_int.spots.ovi[0]
+			for i in 5:
+				await get_tree().process_frame
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			for i in 30:
+				await get_tree().physics_frame
+			print("SIITARI ulos: tila %s, mopo kohde %s aktiivinen %s" % [state, mopo_trip.target, mopo_trip.active])
+			get_tree().quit()
+		"mokkivaala":
+			# Vaalan kohteet kuviksi (_ali1 alikulku lähestyttäessä, _ali2 sivulta, _ali3 mopo alikulussa, _ris
+			# Vuolijoentien risteys, _kesk keskusta ylhäältä, _kirkko, _asema, _talot omakotitaloja läheltä).
+			_start_mopo()
+			var mp: CharacterBody3D = mopo_trip.mopo
+			var vl: Node3D = mopo_trip.vaala
+			_msg.text = ""
+			var oc := Camera3D.new()
+			oc.far = 3000.0
+			oc.fov = 62.0
+			add_child(oc)
+			var g := func(v: Vector3) -> Vector3: return mopo_trip.to_global(v)
+			var snap := func(name: String, from: Vector3, to: Vector3) -> void:
+				oc.look_at_from_position(g.call(from), g.call(to))
+				oc.current = true
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var ui: int = vl.underpass_i
+			var up: Vector3 = vl.road_pos(ui)
+			var ud: Vector3 = vl.road_dir(ui)
+			var ur := ud.cross(Vector3.UP)
+			await snap.call("_ali1.png", vl.road_pos(ui - 25) + Vector3(0, 2.2, 0) + ur * 1.6, up + Vector3(0, 2.5, 0))
+			await snap.call("_ali2.png", up + ur * 40.0 - ud * 25.0 + Vector3(0, 14, 0), up + Vector3(0, 2, 0))
+			await snap.call("_ali4.png", up + Vector3(0, 3.0, 0) - ud * 0.5, up + ud * 0.5)
+			mp.position = vl.road_pos(ui - 4) + Vector3(0, 0.6, 0) + ur * 1.6
+			mp.rotation.y = atan2(-ud.x, -ud.z)
+			mp.speed = 8.0
+			for i in 40:
+				await get_tree().physics_frame
+			print("VAALA alikulussa: y %.2f tie %.2f, nopeus %.1f, näyte %d (alikulku %d)" % [mp.position.y, vl.h(mp.position.x, mp.position.z),
+				mp.speed * 3.6, vl.nearest(mp.position)[0], ui])
+			mp.activate_camera()
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ali3.png"))
+			var js: int = vl.data.signs[2].i
+			await snap.call("_ris.png", vl.road_pos(js - 30) + Vector3(0, 30, 0), vl.road_pos(js + 5))
+			var sc := Vector3(vl.siitari.x, vl.siitari_door.y, vl.siitari.y)
+			await snap.call("_kesk.png", sc + Vector3(-160, 120, 160), sc + Vector3(40, 0, -40))
+			for bd in vl.data.buildings:
+				var nm: String = bd.name
+				if nm.contains("kirkko") or bd.type == "train_station":
+					var c := Vector2.ZERO
+					for q in bd.pts:
+						c += Vector2(q[0], q[1])
+					c /= bd.pts.size()
+					var cy: float = vl.h(c.x, c.y)
+					await snap.call("_kirkko.png" if nm.contains("kirkko") else "_asema.png", Vector3(c.x + 35, cy + 14, c.y + 35), Vector3(c.x, cy + 6, c.y))
+			var shots_done := {}
+			for bd in vl.data.buildings:
+				var key: String = bd.kind if bd.kind != "big" else "big%d" % (absi(int(bd.id)) % 3)
+				if shots_done.has(key) or key == "shed" or bd.name != "":
+					continue
+				shots_done[key] = true
+				var c := Vector2.ZERO
+				for q in bd.pts:
+					c += Vector2(q[0], q[1])
+				c /= bd.pts.size()
+				var cy: float = vl.h(c.x, c.y)
+				await snap.call("_lahi_%s.png" % key, Vector3(c.x + 9, cy + 4, c.y + 9), Vector3(c.x, cy + 2.5, c.y))
+			var hi: int = vl.nearest(sc)[0] - 60
+			await snap.call("_talot.png", vl.road_pos(hi) + Vector3(0, 3, 0), vl.road_pos(hi + 20) + Vector3(0, 2, 0))
+			get_tree().quit()
+		"mokkimopo_silta", "mokkimopo_kanni":
+			# mokkimopo_silta: oikealla kaistalla täysillä Oulujoen sillan yli (ei porrasta sillan päissä), kuva kannelta.
+			# mokkimopo_kanni: humala 0,8, kaasu pohjassa ilman ohjausta: kuinka pian mopo on ojassa.
+			var kanni := scene == "mokkimopo_kanni"
+			tilat.add("humala", -1.0)
+			if kanni:
+				tilat.add("humala", 0.8)
+			_start_mopo()
+			var mp: CharacterBody3D = mopo_trip.mopo
+			var vl: Node3D = mopo_trip.vaala
+			var crashes := [0]
+			print("MOPO humala %.2f" % mp.drunk)
+			mopo_trip.crashed.connect(func(r: String) -> void:
+				crashes[0] += 1
+				print("MOPO kumoon (%s) näyte %d" % [r, vl.nearest(mp.position)[0]]))
+			var b0 := int(vl.data.bridges[0][0])
+			var si := b0 - 30 if not kanni else 480
+			for car in mopo_trip._cars:  # ilman liikennettä: mitataan pelkkää ajamista
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var d: Vector3 = vl.road_dir(si)
+			mp.position = vl.road_pos(si) + Vector3(0, 0.6, 0) + d.cross(Vector3.UP) * 1.6
+			mp.rotation.y = atan2(-d.x, -d.z)
+			mp.speed = 12.0
+			Input.action_press("forward")
+			for i in 60 * 12:
+				await get_tree().physics_frame
+				if not kanni:
+					# Pidä oikea kaista: ohjaa kohti kaistan keskiviivaa.
+					var ni: Array = vl.nearest(mp.position)
+					var lane: Vector3 = vl.road_pos(ni[0] + 3) + vl.road_dir(ni[0] + 3).cross(Vector3.UP) * 1.6
+					var want := Vector3(lane.x - mp.position.x, 0, lane.z - mp.position.z)
+					var err := (-mp.global_transform.basis.z).signed_angle_to(want, Vector3.UP)
+					Input.action_press("left", clampf(err * 3.0, 0.0, 1.0))
+					Input.action_press("right", clampf(-err * 3.0, 0.0, 1.0))
+				if i % 60 == 0:
+					print("MOPO %2d s: näyte %d, %.1f km/h, y %.2f, tiestä %.1f m, pinta %d, seinä %s, ohjaus %s, kaatunut %s" % [i / 60, vl.nearest(mp.position)[0], mp.speed * 3.6, mp.position.y,
+						vl.nearest(mp.position)[1], vl.code_at(mp.position.x, mp.position.z), mp.is_on_wall(), mp.controls_enabled, mp.fallen])
+				if not kanni and vl.nearest(mp.position)[0] == b0 + 10:
+					Input.action_release("forward")
+					await get_tree().process_frame
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path)
+			Input.action_release("forward")
+			print("MOPO loppu: näyte %d (silta %s), kaatumisia %d" % [vl.nearest(mp.position)[0], vl.data.bridges[0], crashes[0]])
+			if kanni:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path)
+			get_tree().quit()
 		"mokkimopo":
 			# Mopomatka: lähtö Paapelista, ajo alusta, kuvat reitin varrelta (_1 lähtö, _2 Neittäväntie, _3 silta,
 			# _4 Siitari) ja saapuminen baariin.
@@ -4704,7 +5041,8 @@ func _maybe_screenshot() -> void:
 				cam4.look_at_from_position(mokki.to_global(Vector3(-4, 4, 20)), mokki.to_global(Vector3(7, 1.2, 24)), Vector3.UP)
 			cam4.current = true
 		"mokkifish":
-			# Koko kalastusketju: heitä onki, nykäisy, vedä ylös. Tulostaa tilat.
+			# Soutuvenekalastus: laiturilla E, soutu järvelle (_1), heitto parven kohdalle, tärppi ja väsytys (_2),
+			# lopetus F:llä. Tulostaa tilat ja saaliin.
 			_toggle_mount()
 			var press2 := func() -> void:
 				Input.action_press("interact")
@@ -4712,18 +5050,70 @@ func _maybe_screenshot() -> void:
 				Input.action_release("interact")
 				await get_tree().process_frame
 				await get_tree().process_frame
+			var shot2 := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
 			walker_out.global_position = mokki.to_global(Vector3(Mokki.DOCK_LOCAL.x, Mokki.h(Mokki.DOCK_LOCAL.x, Mokki.DOCK_LOCAL.z - 11.6) + 0.7, Mokki.DOCK_LOCAL.z))
 			for i in 10:
 				await get_tree().physics_frame
-			print("FISH hint: ", _hint.text, " state=", _fish_state)
+			await shot2.call("_0.png")
+			print("FISH hint: ", _hint.text)
+			_start_fishing()
+			await get_tree().process_frame
+			var fg: Node = null
+			for c in mokki.get_children():
+				if c is FishGame:
+					fg = c
+			print("FISH peli käynnissä: %s, tila %s" % [fg != null, state])
+			Input.action_press("forward")
+			await get_tree().create_timer(3.0).timeout
+			Input.action_release("forward")
+			await get_tree().create_timer(2.5).timeout
+			await shot2.call("_1.png")
+			print("FISH soudettu: paikka %s nopeus %.2f, parvia %d" % [fg._pos, fg._speed, fg._shoals.size()])
+			# Vene parven viereen ja heitto sitä kohti.
+			var sh: Vector3 = fg._shoals[0]
+			var dir: Vector3 = (sh - fg._pos).normalized()
+			fg._pos = sh - dir * 8.0
+			fg._yaw = atan2(-dir.x, -dir.z)
+			fg._speed = 0.0
+			Input.action_press("interact")
+			await get_tree().create_timer(0.5).timeout
+			Input.action_release("interact")
+			for i in 4:
+				await get_tree().process_frame
+			print("FISH heitto: tila %s, koho %s, kala %s" % [fg._state, fg._bob, fg._fish])
+			fg._bite_at = fg._t
+			for i in 4:
+				await get_tree().process_frame
+			print("FISH koho sukelsi: tila %s" % fg._state)
 			await press2.call()
-			print("FISH after cast: state=", _fish_state, " msg=", _msg.text)
-			_fish_t = _fish_target + 1.0
-			for i in 3:
-				await get_tree().physics_frame
-			print("FISH after wait: state=", _fish_state, " hint=", _hint.text, " msg=", _msg.text)
-			await press2.call()
-			print("FISH after reel: state=", _fish_state, " msg=", _msg.text)
+			print("FISH tärppi: tila %s" % fg._state)
+			# Väsytys: pidä E, kun kireys on alle 0,6, muuten päästä.
+			var guard := 0
+			while fg._state == "reel" and guard < 60 * 40:
+				guard += 1
+				if fg._tension < 0.6:
+					Input.action_press("interact")
+				else:
+					Input.action_release("interact")
+				if guard == 60:
+					await shot2.call("_2.png")
+				await get_tree().process_frame
+			Input.action_release("interact")
+			print("FISH väsytys ohi: tila %s, saalis %s, viesti %s" % [fg._state, fg.catch, fg._msg.text])
+			Input.action_press("ui_accept")
+			var fk := InputEventKey.new()
+			fk.keycode = KEY_F
+			fk.pressed = true
+			Input.parse_input_event(fk)
+			await get_tree().create_timer(2.0).timeout
+			fk.pressed = false
+			Input.parse_input_event(fk)
+			Input.action_release("ui_accept")
+			await get_tree().process_frame
+			print("FISH lopussa: tila %s, saalis %s, viesti %s" % [state, saalis, _msg.text])
+			get_tree().quit()
 		"mokkipingis":
 			# Pingis Santun kanssa: pelaaja lyö automaattisesti, kun pallo on ulottuvilla. Tulostaa pisteet.
 			_toggle_mount()
