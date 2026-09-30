@@ -19,6 +19,8 @@ const Fight := preload("res://scripts/fight.gd")
 const ChopGame := preload("res://scripts/chop_game.gd")
 const SawGame := preload("res://scripts/saw_game.gd")
 const BarGame := preload("res://scripts/bar_game.gd")
+const PingisGame := preload("res://scripts/pingis_game.gd")
+const HuntGame := preload("res://scripts/hunt_game.gd")
 const LaavuGuard := preload("res://scripts/laavu_guard.gd")
 const PaperMap := preload("res://scripts/paper_map.gd")
 const Villager := preload("res://scripts/villager.gd")
@@ -81,6 +83,7 @@ const TAXI_FARE := 14.0  # meno-paluu
 const BAR_ROUND := 6.0  # kädenväännön häviäjä tarjoaa kierroksen
 const TAXI_RADIUS := 3.5
 const BAR_POS := Vector3(0, 0, -4200)  # baarin minipeli kaukana kartan ulkopuolella
+const PINGIS_POS := Vector3(-3000, 0, 300)  # mökin pingisnäyttämö kaukana kartan ulkopuolella (tappelun vieressä)
 const CHOCO_CHANCE := 0.5  # suklaa lepyttää Päivin
 const CHOCO_MONEY := 5.0  # leppynyt Päivi antaa aamulla ylimääräistä
 const BEER_PRICE := 12.90
@@ -257,6 +260,9 @@ const FOODS := {
 	"suklaa": {"name": "Suklaalevy (Päivin lepytys menee)", "nalka": 0.2, "stressi": 0.1, "moraali": 0.05},
 	"puolukka": {"name": "Puolukoita ämpäristä (1 l)", "nalka": 0.15, "vireys": 0.05},
 	"mustikka": {"name": "Mustikoita ämpäristä (1 l)", "nalka": 0.15, "vireys": 0.05},
+	"savukala": {"name": "Savukala", "nalka": 0.5, "stressi": 0.05, "moraali": 0.05},
+	"savuriista": {"name": "Savustettu riista", "nalka": 0.6, "stressi": 0.05, "moraali": 0.1},
+	"karrella": {"name": "Karrelle savustunut saalis", "nalka": 0.25},
 }
 ## Päivittäiset tilat (#18, day_stats.gd): kolme arvottua tilaa HUD:ssa, toiminnot nostavat ja laskevat niitä.
 ## Päivän summa < 0 -> seuraava päivä hankalampi (trouble = 1), >= GOOD_DAY -> helpompi (trouble = -1).
@@ -295,15 +301,20 @@ var _santtu_chat_t := 6.0
 var _fish_state := "idle"  # idle | waiting | bite
 var _fish_t := 0.0
 var _fish_target := 0.0
-## Laiturilta saatu kala odottaa savustusta kesäkeittiössä (ks. Mokki.KITCHEN_LOCAL).
-var has_fish := false
-var fish_kind := ""
-## Metsästysreissu mökin metsässä (ks. Mokki.HUNT_LOCAL): sama nykäisy/vedä-rytmi kuin kalastuksessa.
-var _hunt_state := "idle"  # idle | waiting | moment
-var _hunt_t := 0.0
-var _hunt_target := 0.0
-var has_game := false
-var game_kind := ""
+## Raaka saalis (laiturin kalat, metsästyslavan riista) odottaa savustusta kesäkeittiössä:
+## [{"type": "kala" | "riista", "nom": "hauki"}, ...]. Häviää yöllä kuten eväät.
+var saalis: Array = []
+## Offset-savustin (Mokki.KITCHEN_LOCAL): halot tulipesään (E), lämpö seuraa polttoainetta viiveellä.
+## Savustus etenee 80–120 °C:ssa täysillä, viileämmässä hitaasti; yli 135 °C saalis karrelle.
+const SMOKER_LOAD_MAX := 4
+const SMOKER_TIME := 35.0  # s sopivassa lämmössä
+const SMOKER_LOG := 0.22  # halon lisäys polttoaineeseen
+const SMOKER_BURN := 0.045  # polttoaineen kulutus /s
+var smoker_load: Array = []  # savustimessa olevat saaliit (kuten saalis)
+var smoker_temp := 18.0
+var smoker_fuel := 0.0
+var smoker_progress := 0.0  # 0..1
+var smoker_burnt := 0.0  # 1 = karrella
 
 
 func _ready() -> void:
@@ -1060,7 +1071,7 @@ func _open_give_menu() -> void:
 ## T: syömävalikko mukana olevista eväistä.
 func _open_eat_menu() -> void:
 	var items: Array = []
-	for k in ["pulla", "piirakka"]:
+	for k in ["pulla", "piirakka", "savukala", "savuriista", "karrella"]:
 		if food.get(k, 0) > 0:
 			items.append([k, "%s (%d)" % [FOODS[k].name, food[k]]])
 	if has_chocolate:
@@ -1069,7 +1080,7 @@ func _open_eat_menu() -> void:
 		if bucket.get(k, 0) > 0:
 			items.append([k, "%s – ämpärissä %d l" % [FOODS[k].name, bucket[k]]])
 	if items.is_empty():
-		_show_message("Ei mitään syötävää. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja.", 3.0)
+		_show_message("Ei mitään syötävää. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja, mökin savustimesta kalaa ja riistaa.", 3.0)
 		return
 	player.controls_enabled = false
 	player.speed = 0.0
@@ -1082,7 +1093,7 @@ func _open_eat_menu() -> void:
 func _on_eat(id: String) -> void:
 	player.controls_enabled = true
 	match id:
-		"pulla", "piirakka":
+		"pulla", "piirakka", "savukala", "savuriista", "karrella":
 			food[id] -= 1
 			if food[id] <= 0:
 				food.erase(id)
@@ -1706,6 +1717,7 @@ func _mokki_logic() -> void:
 	var mc := mokki.global_position
 	if Vector2(p.x - mc.x, p.z - mc.z).length() > 60.0:
 		return
+	_smoker_tick(get_process_delta_time())
 	_santtu_chat_t -= get_process_delta_time()
 	if _santtu_chat_t <= 0.0:
 		_santtu_chat_t = randf_range(10.0, 18.0)
@@ -1724,35 +1736,12 @@ func _mokki_logic() -> void:
 			_enter_mokki()
 		return
 	if near.call(Mokki.KITCHEN_LOCAL, 1.6):
-		if has_sausage and not sausage_done:
-			_hint.text = "[E] Paista makkara kesäkeittiön savustimessa"
-			if e:
-				sausage_done = true
-				_eat(0.5)
-				tilat.first("savustin", 0.3)
-				tilat.add("stressi", 0.1)
-				Sfx.play("whoosh", -6.0, 0.4)
-				_show_message("Savustettu makkara! Nam.", 2.5)
-		elif has_fish:
-			_hint.text = "[E] Savusta %s offset-savustimessa" % fish_kind
-			if e:
-				has_fish = false
-				_eat(0.6)
-				tilat.first("savustin_kala", 0.3)
-				tilat.add("stressi", 0.1)
-				Sfx.play("whoosh", -6.0, 0.4)
-				_show_message("Savustettu %s! Herkullista." % fish_kind, 2.5)
-		elif has_game:
-			_hint.text = "[E] Savusta %s offset-savustimessa" % game_kind
-			if e:
-				has_game = false
-				_eat(0.7)
-				tilat.first("savustin_riista", 0.3)
-				tilat.add("stressi", 0.1)
-				Sfx.play("whoosh", -6.0, 0.4)
-				_show_message("Savustettu %s! Metsästäjän palkka." % game_kind, 2.5)
-		else:
-			_hint.text = "Kesäkeittiö ja offset-savustin. Makkaran saa K-Marketista, kalaa laiturilta ja riistaa riistapolulta."
+		_smoker_logic(e)
+		return
+	if near.call(Mokki.PINGIS_LOCAL, 1.8):
+		_hint.text = "[E] Haasta Santtu pihapingikseen"
+		if e:
+			_start_pingis()
 		return
 	if near.call(Mokki.SANTTU_LOCAL, 2.6):
 		_hint.text = "[E] Jutskaa Santun kanssa"
@@ -1966,56 +1955,170 @@ func _land_fish() -> void:
 	tilat.first("kalastus", 0.3)
 	tilat.add("moraali", 0.05)
 	tilat.add("stressi", 0.1)
-	has_fish = true
-	fish_kind = fish.name
+	saalis.append({"type": "kala", "nom": fish.nom})
 	_show_message("Sait %s! Painoa noin %.1f kg. Vie kesäkeittiön savustimeen." % [fish.name, kg], 3.0)
 
 
-## Riistanansa riistapolulla: aseta ansa (E), odota, tarkista ajoissa (E) ennen kuin kettu ehtii viedä saaliin.
+## Metsästyslava riistapolulla: E nousee lavalle, ja metsästys on FPS-minipeli (hunt_game.gd).
 func _hunt_logic(e: bool) -> void:
-	match _hunt_state:
-		"idle":
-			_hint.text = "[E] Aseta ansa riistapolulle"
-			if e:
-				_hunt_state = "waiting"
-				_hunt_t = 0.0
-				_hunt_target = randf_range(4.0, 9.0)
-				Sfx.play("whoosh", -6.0, 0.7)
-				_show_message("Ansa on viritetty. Käy välillä tarkistamassa.", 2.5)
-		"waiting":
-			_hunt_t += get_process_delta_time()
-			if _hunt_t >= _hunt_target:
-				_hunt_state = "moment"
-				_hunt_t = 0.0
-				Sfx.play("alert", -6.0, 1.1)
-				_show_message("ANSA LAUKESI!", 1.5)
-			else:
-				_hint.text = "Ansa on viritetty, odotat..."
-		"moment":
-			_hint.text = "[E] Tarkista ansa"
-			_hunt_t += get_process_delta_time()
-			if e:
-				_land_game()
-				_hunt_state = "idle"
-			elif _hunt_t > 3.0:
-				_show_message(Mokki.GAME_MISS_LINES.pick_random(), 2.0)
-				_hunt_state = "idle"
+	_hint.text = "[E] Nouse metsästyslavalle (haulikko, %d patruunaa)" % HuntGame.SHELLS
+	if e:
+		_start_hunt()
 
 
-func _land_game() -> void:
-	if randf() < 0.15:
-		Sfx.play("rattle", -4.0, 0.9)
-		_show_message("Ansa oli tyhjä. Kettu ehti ensin.", 2.5)
-		return
-	var game: Dictionary = Mokki.GAME.pick_random()
-	var kg: float = game.kg * randf_range(0.7, 1.4)
-	Sfx.play("win_small", -4.0)
+func _start_hunt() -> void:
+	_minigame_prev = state
+	state = "minigame"
+	player.controls_enabled = false
+	player.speed = 0.0
+	player.visible = false
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	var game := HuntGame.new()
+	game.finished.connect(func(bag: Array, moose: bool) -> void:
+		state = _minigame_prev
+		player.visible = true
+		player.activate_camera()
+		player.controls_enabled = true
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
+		_hud.visible = true
+		_after_hunt(bag, moose))
+	mokki.add_child(game)
+
+
+func _after_hunt(bag: Array, moose: bool) -> void:
 	tilat.first("metsastys", 0.3)
-	tilat.add("moraali", 0.05)
-	tilat.add("stressi", 0.1)
-	has_game = true
-	game_kind = game.name
-	_show_message("Sait %s! Painoa noin %.1f kg. Vie kesäkeittiön savustimeen." % [game.name, kg], 3.0)
+	if moose:
+		tilat.add("moraali", -0.3)
+		tilat.add("stressi", -0.3)
+		mokki.say("Ammuit HIRVEN? Ei meillä oo lupaa! Nyt tulee riistanvalvoja...", 4.0)
+	var names: Array = []
+	for k in bag:
+		var nom: String = HuntGame.SPECIES[k].nom
+		saalis.append({"type": "riista", "nom": nom})
+		names.append(nom)
+	if not bag.is_empty():
+		tilat.add("moraali", minf(0.05 * bag.size(), 0.2))
+		tilat.add("stressi", 0.1)
+		_show_message("Saalis: %s. Vie kesäkeittiön savustimeen." % ", ".join(names), 3.5)
+	elif not moose:
+		_show_message("Ei saalista tällä kertaa. Metsä oli hiljainen.", 2.5)
+
+
+## Pihapingis Santtua vastaan (pingis_game.gd): Street Fighter -näyttämö kaukana kartan ulkopuolella.
+func _start_pingis() -> void:
+	_mokki_prev = state
+	state = "cutscene"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	Sfx.play("pickup", -6.0, 1.3)
+	var game := PingisGame.new()
+	game.position = PINGIS_POS
+	game.finished.connect(func(won: bool, me: int, him: int) -> void:
+		game.queue_free()
+		state = _mokki_prev
+		player.activate_camera()
+		player.controls_enabled = true
+		_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+		_hud.visible = true
+		tilat.first("pingis", 0.3)
+		tilat.add("stamina", -0.1)
+		tilat.add("nalka", -0.05)
+		if _once_today("pingis"):
+			if won:
+				tilat.add("moraali", 0.2)
+				tilat.add("keskittyminen", 0.15)
+				tilat.add("stressi", 0.1)
+			else:
+				tilat.add("stressi", 0.05)
+				tilat.add("moraali", -0.05)
+		mokki.say("Hyvä peli! Kahvit on keittiössä." if won else "Heh, pingismestari pitää pintansa!")
+		_show_message("%s pihapingiksen eräin %d–%d." % ["Voitit" if won else "Hävisit", me, him], 3.0))
+	add_child(game)
+
+
+## Offset-savustin: raaka saalis sisään, halkoja tulipesään ja lämpö kohdalleen, lopuksi savustetut
+## eväiksi (syödään T:llä). Makkaran paisto hoituu kerralla kuten ennenkin.
+func _smoker_logic(e: bool) -> void:
+	if smoker_load.is_empty():
+		if has_sausage and not sausage_done:
+			_hint.text = "[E] Paista makkara kesäkeittiön savustimessa"
+			if e:
+				sausage_done = true
+				_eat(0.5)
+				tilat.first("savustin", 0.3)
+				tilat.add("stressi", 0.1)
+				Sfx.play("whoosh", -6.0, 0.4)
+				_show_message("Savustettu makkara! Nam.", 2.5)
+		elif not saalis.is_empty():
+			var n := mini(saalis.size(), SMOKER_LOAD_MAX)
+			_hint.text = "[E] Laita savustimeen: %s" % ", ".join(saalis.slice(0, n).map(func(c): return c.nom))
+			if e:
+				smoker_load = saalis.slice(0, n)
+				saalis = saalis.slice(n)
+				smoker_progress = 0.0
+				smoker_burnt = 0.0
+				Sfx.play("door_close", -6.0, 1.3)
+				_show_message("Saalis ritilällä. Lisää halkoja tulipesään (E) ja pidä lämpö 80–120 °C:ssa.", 3.5)
+		else:
+			_hint.text = "Kesäkeittiö ja offset-savustin. Makkaran saa K-Marketista, kalaa laiturilta ja riistaa metsästyslavalta."
+		return
+	if smoker_progress >= 1.0:
+		_hint.text = "[E] Ota savustetut pois (%d kpl)" % smoker_load.size()
+		if e:
+			var key := ""
+			for c in smoker_load:
+				key = "karrella" if smoker_burnt >= 1.0 else ("savukala" if c.type == "kala" else "savuriista")
+				food[key] = food.get(key, 0) + 1
+			tilat.first("savustus", 0.3)
+			tilat.add("stressi", 0.1)
+			Sfx.play("win_small", -6.0)
+			_show_message("Karrelle meni, mutta syötävää se on. T syö." if smoker_burnt >= 1.0 else
+				"Kullankeltaista savukalaa ja riistaa! Syö T:llä, kun nälkä yllättää.", 3.5)
+			smoker_load.clear()
+		return
+	var status := "liian kylmä"
+	if smoker_temp > 135.0:
+		status = "LIIAN KUUMA!"
+	elif smoker_temp > 120.0:
+		status = "kuuma"
+	elif smoker_temp >= 80.0:
+		status = "sopiva"
+	elif smoker_temp >= 60.0:
+		status = "viileä"
+	_hint.text = "Savustin %d °C (%s) · savustus %d %%%s · [E] lisää halko" % [roundi(smoker_temp), status,
+		floori(smoker_progress * 100.0), " · karrelle %d %%" % floori(smoker_burnt * 100.0) if smoker_burnt > 0.0 else ""]
+	if e:
+		if smoker_fuel <= 0.01 and smoker_temp < 40.0:
+			_show_message("Tuli syttyy tulipesään.", 1.5)
+		smoker_fuel = minf(smoker_fuel + SMOKER_LOG, 1.2)
+		Sfx.play("whoosh", -6.0, 0.5)
+
+
+## Savustimen lämpö seuraa polttoainetta viiveellä (offset-tulipesä), ja savustus etenee lämmön mukaan.
+func _smoker_tick(delta: float) -> void:
+	if not mokki.built:
+		return
+	smoker_fuel = maxf(0.0, smoker_fuel - SMOKER_BURN * delta)
+	var target := 18.0 + 200.0 * smoker_fuel
+	smoker_temp += (target - smoker_temp) * (1.0 - exp(-delta / 4.0))
+	mokki.set_smoker(smoker_temp)
+	if smoker_load.is_empty() or smoker_progress >= 1.0:
+		return
+	var rate := 0.0
+	if smoker_temp > 135.0:
+		rate = 0.6
+		smoker_burnt += delta * 0.15
+	elif smoker_temp >= 80.0 and smoker_temp <= 120.0:
+		rate = 1.0
+	elif smoker_temp >= 60.0:
+		rate = 0.5
+	smoker_progress = minf(1.0, smoker_progress + rate * delta / SMOKER_TIME)
+	if smoker_progress >= 1.0:
+		Sfx.play("alert", -6.0, 1.2)
+		mokki.say("Savustin on valmis! Tuoksuu jo tänne asti.")
 
 
 ## Kota: sahaa tukki pölkyiksi, pilko pölkyt haloiksi, sytytä tuli ja kuuntele tarinoita. Lintutornista lintuja.
@@ -2644,9 +2747,10 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		mokki.set_sauna_fire(false)
 		mokki.set_tub_fire(false)
 	_fish_state = "idle"
-	has_fish = false
-	_hunt_state = "idle"
-	has_game = false
+	saalis.clear()
+	smoker_load.clear()
+	smoker_fuel = 0.0
+	smoker_temp = 18.0
 	var bonus := ""
 	if _no_allowance:
 		_no_allowance = false
@@ -3167,6 +3271,8 @@ func _update_hud() -> void:
 		inv.append("jalkapallo")
 	for k in food:
 		inv.append("%s %d" % [FOODS[k].name.to_lower(), food[k]])
+	if not saalis.is_empty():
+		inv.append("saalis: %s" % ", ".join(saalis.map(func(c): return c.nom)))
 	if kota_polkyt > 0:
 		inv.append("pölkkyjä %d" % kota_polkyt)
 	if kota_halot > 0:
@@ -3575,6 +3681,114 @@ func _maybe_screenshot() -> void:
 			print("FISH after wait: state=", _fish_state, " hint=", _hint.text, " msg=", _msg.text)
 			await press2.call()
 			print("FISH after reel: state=", _fish_state, " msg=", _msg.text)
+		"mokkipingis":
+			# Pingis Santun kanssa: pelaaja lyö automaattisesti, kun pallo on ulottuvilla. Tulostaa pisteet.
+			_toggle_mount()
+			walker_out.global_position = mokki.to_global(Vector3(Mokki.PINGIS_LOCAL.x, Mokki.h(Mokki.PINGIS_LOCAL.x, Mokki.PINGIS_LOCAL.z) + 0.4, Mokki.PINGIS_LOCAL.z + 1.6))
+			for i in 10:
+				await get_tree().physics_frame
+			print("PINGIS hint: ", _hint.text)
+			_start_pingis()
+			var pg: Node3D = get_children().filter(func(c): return c is PingisGame)[0]
+			var shot_taken := false
+			for i in 60 * 40:
+				await get_tree().process_frame
+				if not is_instance_valid(pg) or pg._phase == "done":
+					break
+				if pg._phase == "serve" and pg._server == 0:
+					pg._serve(0)
+				elif pg._phase == "rally" and pg._last == 1 and pg._pl[0].swing_t < 0.0:
+					pg._pl[0].x = move_toward(pg._pl[0].x, clampf(pg._land_x(PingisGame.HIT_Y) - 0.45, -PingisGame.X_MAX, -PingisGame.X_MIN), 0.06)
+					if pg._ball.distance_to(pg._paddle(0)) < 0.6 and randf() < 0.93:
+						pg._swing(0, "smash" if pg._ball.y > 1.8 else "normal", 0.0)
+				if not shot_taken and pg._rally >= 3:
+					shot_taken = true
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_rally.png"))
+				if i % 300 == 0:
+					print("PINGIS t=%d phase=%s rounds=%s rally=%d" % [i / 60, pg._phase, pg._rounds, pg._rally])
+			print("PINGIS end state=", state, " msg=", _msg.text)
+		"mokkijahti":
+			# Metsästys: nousee lavalle, odottaa eläimen, tähtää ja ampuu. Tulostaa saaliin.
+			_toggle_mount()
+			walker_out.global_position = mokki.to_global(Vector3(Mokki.HUNT_LOCAL.x + 1.5, Mokki.h(Mokki.HUNT_LOCAL.x + 1.5, Mokki.HUNT_LOCAL.z) + 0.4, Mokki.HUNT_LOCAL.z))
+			for i in 10:
+				await get_tree().physics_frame
+			print("JAHTI hint: ", _hint.text)
+			_start_hunt()
+			var hg: Node3D = mokki.get_children().filter(func(c): return c is HuntGame)[0]
+			hg._spawn_t = 0.0
+			for i in 60 * 3:
+				await get_tree().process_frame
+			var shots := 0
+			for i in 60 * 20:
+				await get_tree().process_frame
+				var alive: Array = hg._animals.filter(func(a): return a.state in ["walk", "pause"] and a.kind != "hirvi")
+				if alive.is_empty() or hg._reload_t > 0.0:
+					continue
+				var a: Dictionary = alive[0]
+				var c: Vector3 = a.pos + Vector3(0, HuntGame.SPECIES[a.kind].cy * HuntGame.SIZE, 0) - hg._eye
+				hg._yaw = atan2(c.x, c.z)
+				hg._pitch = atan2(c.y, Vector2(c.x, c.z).length())
+				await get_tree().process_frame
+				if shots == 0:
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_aim.png"))
+				hg._shoot()
+				shots += 1
+				print("JAHTI shot %d at %s d=%.1f bag=%s" % [shots, a.kind, c.length(), hg.bag])
+				if shots >= 3:
+					break
+			hg._finish("testi")
+			while is_instance_valid(hg):
+				await get_tree().process_frame
+			await get_tree().process_frame
+			print("JAHTI end state=", state, " saalis=", saalis, " msg=", _msg.text)
+		"mokkisavustus":
+			# Savustus: saalis savustimeen, halkoja, valmis, eväiksi ja syönti.
+			_toggle_mount()
+			saalis = [{"type": "kala", "nom": "hauki"}, {"type": "riista", "nom": "jänis"}]
+			var kp := Mokki.KITCHEN_LOCAL
+			walker_out.global_position = mokki.to_global(Vector3(kp.x, Mokki.h(kp.x, kp.z) + 0.4, kp.z))
+			var press3 := func() -> void:
+				Input.action_press("interact")
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+			for i in 10:
+				await get_tree().physics_frame
+			print("SAVU hint: ", _hint.text)
+			await press3.call()
+			print("SAVU loaded=", smoker_load, " msg=", _msg.text)
+			for k in 3:
+				await press3.call()
+			var t_end := Time.get_ticks_msec() + 120000
+			var n := 0
+			while Time.get_ticks_msec() < t_end:
+				n += 1
+				await get_tree().process_frame
+				if smoker_temp < 95.0 and smoker_fuel < 0.35 and n % 20 == 0:
+					await press3.call()
+				if n % 600 == 0:
+					print("SAVU t=%d temp=%.0f fuel=%.2f progress=%.2f burnt=%.2f hint=%s" % [n / 60, smoker_temp, smoker_fuel, smoker_progress, smoker_burnt, _hint.text])
+				if smoker_progress >= 1.0:
+					break
+			var cam5 := Camera3D.new()
+			add_child(cam5)
+			cam5.look_at_from_position(mokki.to_global(kp + Vector3(3.0, 2.2, -2.5)), mokki.to_global(kp + Vector3(0, 1.0, 1.0)), Vector3.UP)
+			cam5.current = true
+			for i in 30:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_smoke.png"))
+			player.activate_camera()
+			await get_tree().process_frame
+			print("SAVU done progress=%.2f hint=%s state=%s" % [smoker_progress, _hint.text, state])
+			await press3.call()
+			print("SAVU out food=", food, " msg=", _msg.text)
+			var n0: float = tilat.value("nalka")
+			_on_eat("savuriista")
+			print("SAVU ate nalka %+.2f food=%s" % [tilat.value("nalka") - n0, food])
 		"edgetest":
 			for spot in [Vector2(3, 1500), Vector2(450, 3), Vector2(1000, 3957), Vector2(1617, 3000), Vector2(893, 1500)]:
 				_edge_cd = 0.0

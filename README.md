@@ -51,9 +51,18 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Kaisuantie, pellot, naapurit ja metsä) ja korkeudet Maanmittauslaitoksen 2 m korkeusmallista (mökki on
   harjanteella ja piha viettää n. 7 m rantaan), ja mökki rajautuu joka suunnalta tiiviiseen mäntymetsään
   tummanruskeine pystylautaseinineen. Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella
-  savusauna, puukuumenteinen poreamme ja kesäkeittiö (avoin katos offset-savustimineen, jossa voi savustaa
-  makkaran, laiturilta saadun kalan tai riistapolulta ansoittaman riistan), tikanheittotaulu, kalastus
+  savusauna, puukuumenteinen poreamme ja kesäkeittiö (avoin katos offset-savustimineen), tikanheittotaulu, kalastus
   laiturilta portaineen (heitä onki, odota nykäisyä, vedä ylös ajoissa) ja isäntä Santtu kahvikuppeineen.
+  - **Pihapingis Santtua vastaan:** mailat ovat kannolla Santun vieressä (E). Street Fighter -tyyliin sivulta:
+    isoilla puumailoilla lyödään palloa ilmassa puolelta toiselle ilman pöytää, ja se, jonka puolelle pallo
+    putoaa maahan, häviää erän. Kaksi erävoittoa voittaa, ja pallo kiihtyy rallin pidetessä.
+  - **Metsästys:** metsän riistapolulla on metsästyslava (E), josta ammutaan haulikolla (FPS) aukealle tulevaa
+    riistaa: jänis, riekko, metso ja ohi lentävä kyyhky. Kaksi piippua ja 8 patruunaa, laukaus säikäyttää
+    lähistön eläimet. Hirveen ei ole lupaa!
+  - **Offset-savustin:** laiturin kalat ja jahdin riista laitetaan savustimeen (E, enintään 4 kerralla), ja halkoja
+    lisätään tulipesään (E). Lämpö seuraa tulta viiveellä: 80–120 °C savustaa täysillä, viileämmässä hitaasti ja yli
+    135 °C käristää saaliin karrelle. Valmiit savukalat ja savuriista otetaan eväiksi ja syödään nälkään T:llä.
+    Makkaran voi yhä paistaa savustimessa kerralla.
   Saunassa käynti (E) on lyhyt välianimaatio terassilla: löyly höyryää saunan ovelta, ja jos kaljaa on mukana,
   otetaan hörppy. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
   jääkaappi), pitkä pöytä, TV ja takka, makuuhuone violetteine kerrossänkyineen, kylpyhuone ja sisäsauna.
@@ -119,6 +128,7 @@ Päivän lopussa lasketaan kolmen tilan summa:
 | Syöminen (paistettu makkara, kettukarkki) | nälkä +, stamina + |
 | Syöminen T:llä: korvapuusti / lihapiirakka | nälkä +0,25 ja stressi + / nälkä +0,4 (ja stamina puolet nälän muutoksesta) |
 | Syöminen T:llä: suklaa / marjat (1 l) | nälkä +0,2, stressi +, moraali + / nälkä +0,15, vireys + |
+| Syöminen T:llä: savukala / savuriista / karrella | nälkä +0,5, stressi +, moraali + / nälkä +0,6, stressi +, moraali + / nälkä +0,25 |
 | Tappelu | stressi −, kipu −−, stamina −, moraali −, nälkä − |
 | Koiran purema / kettukarkin osuma | kipu −− / kipu − |
 | Haavan hoito (Pekka, Päivi) | kipu ++ |
@@ -143,6 +153,9 @@ Päivän lopussa lasketaan kolmen tilan summa:
 | Marjojen tai sienten myynti | moraali + |
 | Mökki: savusauna / poreamme (kerran päivässä) | stressi ++, väsymys ++, kipu +, vireys + / stressi ++, kipu +, stamina + |
 | Mökki: kala laiturilta / tikan täysosuma (kerran päivässä) | moraali +, stressi + / moraali +, keskittyminen + |
+| Mökki: metsästys saaliin kanssa / hirvi ammuttu | moraali + (0,05 per saalis), stressi + / moraali −−, stressi −− |
+| Mökki: savustus valmis | stressi + |
+| Mökki: pihapingis | stamina −, nälkä −; kerran päivässä voitto: moraali +, keskittyminen +, stressi + / häviö: stressi +, moraali − |
 | Mökin piha (paikallaan) | kuten nuotio: stressi ++, vireys + |
 | Mökki: kiukaan tai ammeen tulen sytytys (kerran päivässä kumpikin) | stressi + |
 | Mökin sisällä olo | stressi +, vireys + (hitaasti), nälkä − |
@@ -240,6 +253,21 @@ godot --path .
 | S + K | jalkapyyhkäisy |
 | eteen + K | kiertopotku |
 | K ilmassa | lentopotku |
+
+| Pihapingiksessä | |
+|---|---|
+| A / D | liiku |
+| W | hyppy |
+| J | lyönti (ja syöttö) |
+| K | smash: kova ja matala, onnistuu vain korkeasta pallosta |
+| eteen / taakse + lyönti | pitkä / lyhyt pallo |
+
+| Metsästyksessä | |
+|---|---|
+| Hiiri | tähtää |
+| Vasen nappi / E | ammu (kaksi piippua, sitten lataus) |
+| Oikea nappi pohjassa | tarkka tähtäys (zoom, rauhallisempi käsi) |
+| F | lopeta jahti |
 
 ## Tekijänoikeudet
 

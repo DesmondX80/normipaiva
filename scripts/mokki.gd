@@ -29,7 +29,11 @@ const DOCK_PATH_A := Vector2(DOCK_LOCAL.x, 27.0)
 const DOCK_PATH_B := Vector2(DOCK_LOCAL.x, DOCK_LOCAL.z + 1.5)
 const KITCHEN_LOCAL := Vector3(-12.6, 0, 16.2) # kesäkeittiön savustimen edessä (katoksen alla)
 const SANTTU_LOCAL := Vector3(-1.5, 0, 6.5)    # pihatuolilla kuistin edessä
-const HUNT_LOCAL := Vector3(-30.0, 0, 5.0)     # riistapolku syvemmällä metsässä, tien ja polun ulkopuolella
+const HUNT_LOCAL := Vector3(-30.0, 0, 5.0)     # metsästyslava syvemmällä metsässä, tien ja polun ulkopuolella
+## Metsästyslavan edessä (lännessä) oleva aukea, jolle riista tulee (hunt_game.gd): metsä ei kasva sille.
+const HUNT_GLADE := Vector2(HUNT_LOCAL.x - 14.0, HUNT_LOCAL.z)
+const HUNT_GLADE_R := 10.0
+const PINGIS_LOCAL := Vector3(-7.5, 0, 9.0)    # pihapingiksen mailat kannolla Santun vasemmalla puolella
 
 # Karttageometria (ks. minimap.gd ja paper_map.gd: mökin oma kartta korvaa kyläkartan täällä).
 const YARD_CENTER := Vector2(-2.0, 10.0)
@@ -56,9 +60,7 @@ const SANTTU_LINES := [
 	"Pihalla on ulkokeittiö ja savustin. Kokkaa jotain, jos on aikaa.",
 	"Lähin kauppa on Vaalassa, viistoista kilsaa. Täällä on rauhallista.",
 	"Synnyin 80-luvulla, opiskelin Oulun yliopistossa. Sitä ei tästä äkkiä arvais.",
-	"Meitä on täällä kaksi aikuista ja kolme kakaraa: 21, 16 ja 11.",
 	"Vastausprosentti sata, vastaan yleensä tunnissa. Paitsi kun oon saunassa.",
-	"Taksikuski on serkkuni. Älä kerro kenellekään mitä se laskutti.",
 ]
 const SANTTU_AMBIENT := [
 	"Löylyä riittää, älä säästele.", "Poreamme lämpiää hitaasti, mutta kunnolla.",
@@ -72,16 +74,12 @@ const LAKE_LINES := [
 ]
 ## Saaliit: nimi partitiivissa (sopii lauseeseen "Sait ...") ja tyypillinen paino kiloina.
 const FISH := [
-	{"name": "särjen", "kg": 0.25}, {"name": "ahvenen", "kg": 0.35}, {"name": "lahnan", "kg": 0.9},
-	{"name": "hauen", "kg": 1.6}, {"name": "mateen", "kg": 0.8},
+	{"name": "särjen", "nom": "särki", "kg": 0.25}, {"name": "ahvenen", "nom": "ahven", "kg": 0.35},
+	{"name": "lahnan", "nom": "lahna", "kg": 0.9}, {"name": "hauen", "nom": "hauki", "kg": 1.6},
+	{"name": "mateen", "nom": "made", "kg": 0.8},
 ]
 const FISH_JUNK := ["vanhan kumisaappaan", "ruosteisen peltitölkin", "jonkun kadonneen lippiksen", "pelkän oksankappaleen"]
 const FISH_MISS_LINES := ["Kala vei syötin.", "Onki jäi tyhjäksi.", "Siima venähti tyhjää.", "Ei tällä kertaa."]
-## Riista: nimi partitiivissa (sopii lauseeseen "Sait ...") ja tyypillinen paino kiloina.
-const GAME := [
-	{"name": "riekon", "kg": 0.5}, {"name": "metson", "kg": 3.8}, {"name": "jäniksen", "kg": 2.3}, {"name": "oravan", "kg": 0.3},
-]
-const GAME_MISS_LINES := ["Riista säikähti ja hävisi puiden taa.", "Vain oksa rasahti kauempana.", "Metsä oli hiljainen.", "Näit vain jäljet maassa."]
 
 var sauna_fire_on := false
 var sauna_fire_time := 0.0
@@ -94,6 +92,9 @@ var _bubble_t := 0.0
 var _t := 0.0
 var _sauna_fire: Node3D
 var _tub_fire: Node3D
+## Offset-savustimen tulipesä ja piipun savu (main.gd säätää lämmön mukaan, set_smoker()).
+var _smoker_fire: Node3D
+var _smoker_smoke: CPUParticles3D
 
 
 ## Rakennettu? Mökkialue (500 m maasto, metsä, rakennukset) rakennetaan vasta tarvittaessa (ensure_built),
@@ -115,6 +116,7 @@ func ensure_built() -> void:
 	_build_hottub()
 	_build_yard_extras()
 	_build_hunt_spot()
+	_build_pingis_spot()
 	_build_trees()
 	_build_santtu()
 	# Kaikki pihan rakennukset ja esineet maanpinnalle (maasto ja vesi ovat jo oikealla korkeudella).
@@ -147,6 +149,18 @@ func set_tub_fire(on: bool) -> void:
 		_tub_fire.visible = false
 
 
+## Savustimen tulipesä ja savu lämpötilan (°C) mukaan: kylmänä ei mitään, kuumana paksu savu.
+func set_smoker(temp: float) -> void:
+	if not built:
+		return
+	_smoker_fire.visible = temp > 45.0
+	_smoker_smoke.emitting = temp > 40.0
+	# Kuumempi tulipesä = paksumpi savu (CPUParticles3D:llä ei ole amount_ratiota, joten koko kasvaa).
+	var thick := clampf((temp - 40.0) / 120.0, 0.2, 1.0)
+	_smoker_smoke.scale_amount_min = 0.5 + thick * 0.6
+	_smoker_smoke.scale_amount_max = 1.0 + thick * 1.8
+
+
 func say(text: String, seconds := 3.2) -> void:
 	if not built:
 		return
@@ -170,7 +184,7 @@ func _process(delta: float) -> void:
 			set_tub_fire(false)
 		else:
 			_tub_fire.visible = true
-	for f in [_sauna_fire, _tub_fire]:
+	for f in [_sauna_fire, _tub_fire, _smoker_fire]:
 		if f.visible:
 			for k in 4:
 				var fl: Node3D = f.get_node("Flame%d" % k)
@@ -521,6 +535,11 @@ func _build_forest() -> void:
 			# Ranta-alue laiturille johtavalta polulta: puu ei saa tukkia kulkua laiturille.
 			if p.distance_to(Geometry2D.get_closest_point_to_segment(p, DOCK_PATH_A, DOCK_PATH_B)) < 3.0:
 				continue
+			# Metsästysaukea ja näkölinja lavalta sinne.
+			var lava := Vector2(HUNT_LOCAL.x, HUNT_LOCAL.z)
+			if p.distance_to(HUNT_GLADE) < HUNT_GLADE_R \
+					or p.distance_to(Geometry2D.get_closest_point_to_segment(p, lava + Vector2(-2.0, 0), HUNT_GLADE)) < 6.0:
+				continue
 			var skip := false
 			for f in data.fields:
 				if Geometry2D.is_point_in_polygon(p, f):
@@ -774,6 +793,30 @@ func _build_summer_kitchen() -> void:
 	for legx in [-0.4, 0.4]:
 		for legz in [-0.28, 0.28]:
 			B.mesh(smoker, B.cyl(0.03, 0.03, 0.5, 6), Vector3(legx, 0.25, legz), Color(0.1, 0.1, 0.1))
+	# Tulipesä (offset-laatikko) hehkuu ja piipusta nousee savu, kun savustin on käytössä.
+	_smoker_fire = _make_fire(smoker, Vector3(-0.55, 0.2, 0), 0.4)
+	_smoker_smoke = CPUParticles3D.new()
+	_smoker_smoke.position = Vector3(-0.55, 1.15, 0)
+	_smoker_smoke.emitting = false
+	_smoker_smoke.amount = 40
+	_smoker_smoke.lifetime = 3.5
+	_smoker_smoke.direction = Vector3(0.15, 1, 0)
+	_smoker_smoke.spread = 12.0
+	_smoker_smoke.gravity = Vector3(0.25, 0.35, 0)
+	_smoker_smoke.initial_velocity_min = 0.4
+	_smoker_smoke.initial_velocity_max = 0.8
+	_smoker_smoke.scale_amount_min = 0.8
+	_smoker_smoke.scale_amount_max = 2.2
+	var puff := SphereMesh.new()
+	puff.radius = 0.12
+	puff.height = 0.24
+	puff.material = B.unshaded(Color(0.78, 0.78, 0.8, 0.28))
+	_smoker_smoke.mesh = puff
+	var grow := Curve.new()
+	grow.add_point(Vector2(0, 0.4))
+	grow.add_point(Vector2(1, 1.6))
+	_smoker_smoke.scale_amount_curve = grow
+	smoker.add_child(_smoker_smoke)
 	var kbody := StaticBody3D.new()
 	katos.add_child(kbody)
 	kbody.add_child(B.box_shape(Vector3(1.4, 1.0, 0.8), Vector3(0.2, 0.5, -0.9)))
@@ -971,10 +1014,26 @@ func _build_hunt_spot() -> void:
 		for lz in [-0.4, 0.4]:
 			B.mesh(stand, B.cyl(0.04, 0.05, 1.1, 6), Vector3(lx, 0.55, lz), wood)
 	B.mesh(stand, B.boxm(Vector3(1.1, 0.08, 0.9)), Vector3(0, 1.1, 0), wood.lightened(0.08))
-	var sign := B.sign_pole(self, HUNT_LOCAL + Vector3(-1.2, 0, 0.8), 1.5)
+	var sign := B.sign_pole(self, HUNT_LOCAL + Vector3(1.4, 0, 1.0), 1.5)
 	var plate := B.sign_plate(sign, "RIISTAPOLKU", Color(0.32, 0.24, 0.14), Color(0.92, 0.88, 0.78), 0.18, 26,
 		Color(0.3, 0.18, 0.1), "Helvetica Neue")
 	plate.position.y = 1.3
+
+
+## Pihapingiksen paikka: kaksi isoa puumailaa ja pallo kannon päällä, keskirajana köysi nurmella
+## (E: pingistä Santtua vastaan, pingis_game.gd).
+func _build_pingis_spot() -> void:
+	var t := Node3D.new()
+	t.position = PINGIS_LOCAL
+	add_child(t)
+	B.mesh(t, B.cyl(0.25, 0.28, 0.5, 12), Vector3(0, 0.25, 0), Color(0.42, 0.3, 0.18))
+	B.mesh(t, B.cyl(0.23, 0.23, 0.01, 12), Vector3(0, 0.505, 0), Color(0.78, 0.66, 0.46))
+	for m in [[Vector3(-0.08, 0.52, 0.02), 25.0, Color(0.85, 0.72, 0.5)], [Vector3(0.1, 0.535, -0.04), -40.0, Color(0.2, 0.45, 0.75)]]:
+		B.mesh(t, B.cyl(0.2, 0.2, 0.015, 18), m[0], m[2], Vector3(0, m[1], 0))
+		B.mesh(t, B.boxm(Vector3(0.035, 0.03, 0.16)), m[0] + Vector3(0, 0, 0.27).rotated(Vector3.UP, deg_to_rad(m[1])),
+			Color(0.5, 0.34, 0.18), Vector3(0, m[1], 0))
+	B.mesh(t, B.sphere(0.03, 8), Vector3(0.0, 0.58, 0.12), Color(1.0, 0.6, 0.15))
+	B.mesh(t, B.boxm(Vector3(0.04, 0.02, 3.0)), Vector3(2.0, 0.01, 0), Color(0.95, 0.95, 0.9))  # keskiraja
 
 
 # --- Männyt ympärillä --------------------------------------------------------------
