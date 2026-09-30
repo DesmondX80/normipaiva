@@ -66,6 +66,20 @@ const PEKKA_LINES := [
 	"Kolmesataa jänistä perkele, joka talvi. Pakkaseen ei enää mahdu vittu.",
 	"Jäniksiä on niin helvetisti, että ne tulee jo pihalle, saatana!",
 	"Tänä talvena voi mennä jo kolmesataaviiskymmentä, perkele."]
+## Sinikka hoitaa puutarhaansa ja puhuu siitä hyvin flirttailevasti.
+const SINIKKA_LINES := [
+	"Tuu kattomaan mun ruusuja... ne kaipaa hellää kättä.",
+	"Mää kastelen aina illalla. Hitaasti ja huolella.",
+	"Kurkut on tänä vuonna tavallista pitempiä. Haluatko nähdä?",
+	"Multa pitää kuohkeuttaa perusteellisesti, muuten mikään ei nouse.",
+	"Tomaatit kypsyy parhaiten, kun niitä vähän hyväilee.",
+	"Päivin ei tarvitse tietää, että kävit auttamassa mua kitkemisessä.",
+	"Mun kasvimaalla on aina tilaa yhdelle ahkeralle lapiomiehelle.",
+	"Voisitko joskus tulla leikkaamaan mun pensasaidan? Se on päässyt vähän villiksi.",
+	"Kuumina päivinä kastelen itsenikin puutarhaletkulla.",
+	"Porkkanat pitää nostaa käsin. Varovasti, mutta päättäväisesti.",
+	"Mulla on niin vehreää, että vähän hengästyttää. Tuutko istumaan?",
+	"Kaikki kasvaa paremmin, kun niille puhuu hiljaa ja lämpimästi."]
 const GRILL_TIME := 5.0
 const SAVE_PATH := "user://normipaiva.cfg"
 
@@ -131,7 +145,7 @@ const DRONE_POIS := {
 	"koti": "Koti, Järvikuja 1", "kmarket": "K-Market", "laavu": "Laavu Antinsuonkankaalla",
 	"grillikatos": "Kiilinlammen grillikatos", "pontikka": "Pannu-Sulon pontikkapannu!", "paivi": "Päivin Hyundai",
 	"juntti": "Juntti", "jyvajemmari": "Jyväjemmarin traktori", "mummot": "Penkin mummot", "arto": "Naapurin Arto",
-	"pekka": "Pekka", "vaino": "Väinö karkuteillä", "pojat": "Jalkapallopojat",
+	"pekka": "Pekka", "sinikka": "Naapurin Sinikka", "vaino": "Väinö karkuteillä", "pojat": "Jalkapallopojat",
 }
 var drone_battery := 1.0
 var drone_broken_day := -1
@@ -169,6 +183,7 @@ var _pick_locked := false  # poiminta otti ohjauksen pois
 var _grunt_next := 0  # ms: seuraava ähkäisy aikaisintaan
 var arto: CharacterBody3D
 var pekka: CharacterBody3D
+var sinikka: CharacterBody3D
 var tractor: CharacterBody3D
 ## player = se jolla nyt liikutaan (pyörä tai jalan); bike ja walker_out ovat molemmat olemassa koko ajan.
 var bike: CharacterBody3D
@@ -996,6 +1011,7 @@ func _drone_pois() -> Array:
 		var at: Vector3 = M.w(fixed[id])
 		out.append({"id": id, "name": DRONE_POIS[id], "pos": func() -> Vector3: return at + Vector3(0, 1.0, 0)})
 	var movers := {"paivi": wife, "juntti": juntti, "jyvajemmari": tractor, "mummot": mummot, "arto": arto, "pekka": pekka,
+		"sinikka": sinikka,
 		"vaino": vaino, "pojat": boys}
 	for id in movers:
 		var n: Node3D = movers[id]
@@ -1603,7 +1619,7 @@ func _vaino_logic() -> void:
 ## Väinö pääsee karkuun Pekan pihalta. Huuto kuuluu Pattijoelle asti.
 func _vaino_escape() -> void:
 	vaino = Dog.new()
-	var start := M.w(M.PEKKA_POS) + Vector3(2.0, 0.0, 2.0)
+	var start: Vector3 = world.neighbor_yards["pekka"][0]  # Pekan ulko-ovelta
 	vaino.position = start
 	vaino.target = player
 	vaino.world = world
@@ -3234,7 +3250,7 @@ func _spawn_player() -> void:
 func _set_avatar(a: CharacterBody3D) -> void:
 	player = a
 	world.follow = a
-	for h in [wife, juntti, guard, tractor, arto, pekka, sulo, police, vaino, stray, mummot, boys]:
+	for h in [wife, juntti, guard, tractor, arto, pekka, sinikka, sulo, police, vaino, stray, mummot, boys]:
 		if is_instance_valid(h):
 			h.target = a
 	_minimap.player = a
@@ -3283,8 +3299,11 @@ func _spawn_hazards() -> void:
 	_hazards = Node3D.new()
 	add_child(_hazards)
 	_spawn_threats()
-	arto = _villager("Naapurin Arto", Looks.ARTO, ARTO_LINES, "arto", M.ARTO_POS)
-	pekka = _villager("Naapurin Pekka", Looks.PEKKA, PEKKA_LINES, "pekka", M.PEKKA_POS)
+	# Naapurit omien talojensa ovilta, puuhailevat pihoillaan (world.neighbor_yards).
+	arto = _neighbor("Naapurin Arto", Looks.ARTO, ARTO_LINES, "arto")
+	pekka = _neighbor("Naapurin Pekka", Looks.PEKKA, PEKKA_LINES, "pekka")
+	sinikka = _neighbor("Naapurin Sinikka", Looks.SINIKKA, SINIKKA_LINES, "sinikka")
+	sinikka.chores.assign(["Fixing_Kneeling", "Crouch_Idle", "PickUp_Table", "Fixing_Kneeling"])  # kitkee, kastelee, istuttaa
 	sulo = _villager("Pannu-Sulo", Looks.SULO, SULO_LINES, "sulo", M.PONTIKKA + Vector2(-2.2, -1.2))
 
 
@@ -3364,6 +3383,22 @@ func _villager(nimi: String, look: Dictionary, lines: Array, voice: String, px: 
 	v.voice = voice
 	v.target = player
 	v.position = M.w(px)
+	add_child(v)
+	return v
+
+
+## Naapuri omalla pihallaan: aloittaa talonsa ulko-ovelta ja puuhailee pihan puuhapisteissä.
+func _neighbor(nimi: String, look: Dictionary, lines: Array, key: String) -> CharacterBody3D:
+	var v := Villager.new()
+	v.display_name = nimi
+	v.look = look
+	v.lines = lines
+	v.voice = key
+	v.target = player
+	v.yard.assign(world.neighbor_yards[key])
+	v.faces.assign(world.neighbor_faces.get(key, []))
+	v.position = v.yard[0]
+	v.rotation.y = B.yaw_to(v.yard[1] - v.yard[0])  # ovelta pihalle päin
 	add_child(v)
 	return v
 
@@ -4408,7 +4443,7 @@ func _maybe_screenshot() -> void:
 			var checks := [["koti_aloitus", home_zone + Vector3(0, 0, 4), null], ["koti_taksi", world.taxi_home_pos, null],
 				["kauppa_taksi", world.taxi_pos, null], ["kauppa_vyohyke", shop_zone, null], ["mummot", mummot.global_position, mummot],
 				["arto", arto.global_position, arto], ["pekka", pekka.global_position, pekka],
-				["sulo", sulo.global_position, sulo], ["vaino_alku", M.w(M.PEKKA_POS) + Vector3(2.0, 0.0, 2.0), null],
+				["sulo", sulo.global_position, sulo], ["sinikka", sinikka.global_position, sinikka], ["vaino_alku", world.neighbor_yards["pekka"][0], null],
 				["paivi_alku", world.graph_nodes[world.nearest_node(M.w(M.J_T))], null], ["laavu", M.w(M.LAAVU), null],
 				["kota_raimo", world.kota.raimo.global_position, world.kota.raimo],
 				["kota_veikko", world.kota.veikko.global_position, world.kota.veikko],
@@ -4424,6 +4459,10 @@ func _maybe_screenshot() -> void:
 				checks.append(["koira%d" % k, M.w(M.STRAY_SPOTS[k]), null])
 			for k in M.BALES.size():
 				checks.append(["paali%d" % k, M.w(M.BALES[k]), null])
+			for key: String in world.neighbor_yards:  # naapurien pihan puuhapisteet
+				var yd: Array = world.neighbor_yards[key]
+				for k in range(1, yd.size()):
+					checks.append(["%s_piha%d" % [key, k], yd[k], null])
 			for k in BIKE_DUMPS.size():
 				checks.append(["pyora%d" % k, M.w(BIKE_DUMPS[k]), null])
 			for c in checks:
@@ -4436,7 +4475,7 @@ func _maybe_screenshot() -> void:
 					var col: Node = h.collider
 					if c[2] != null and (col == c[2] or (c[2] as Node).is_ancestor_of(col)):
 						continue
-					hits.append(str(col.name))
+					hits.append("%s@%s" % [col.name, M.to_px((col as Node3D).global_position).round()])
 				print("PLACE %s px=%s tie=%.1f talo=%s pinta=%s osumat=%s" % [c[0], M.to_px(p).round(),
 					world._road_clearance(Vector2(p.x, p.z)), world._near_house(Vector2(p.x, p.z), 6.0), world.surface_at(p), hits])
 			var outside := 0
@@ -4629,6 +4668,19 @@ func _maybe_screenshot() -> void:
 			cam2.look_at_from_position(tp2 + Vector3(-5.5, 2.0, -4.0), tp2 + Vector3(0, 1.3, 0), Vector3.UP)
 			cam2.current = true
 			tractor.set_physics_process(false)
+			_msg.text = ""
+		"naapurit", "naapurit2", "naapurit3":  # naapurin talo ja piha kadulta päin (arto / pekka / sinikka)
+			var key: String = {"naapurit": "arto", "naapurit2": "pekka", "naapurit3": "sinikka"}[scene]
+			var yd: Array = world.neighbor_yards[key]
+			var door: Vector3 = yd[0]
+			var hc := M.w({"arto": M.NEIGHBOR_ARTO, "pekka": M.NEIGHBOR_PEKKA, "sinikka": M.NEIGHBOR_SINIKKA}[key])
+			var out := Vector3(door.x - hc.x, 0, door.z - hc.z).normalized()
+			var cam := Camera3D.new()
+			cam.fov = 65.0
+			add_child(cam)
+			cam.look_at_from_position(door + out * 13.0 + out.rotated(Vector3.UP, 1.2) * 5.0 + Vector3(0, 4.0, 0),
+				door + Vector3(0, 1.0, 0), Vector3.UP)
+			cam.current = true
 			_msg.text = ""
 		"homeview", "homeview2":
 			var cam := Camera3D.new()
