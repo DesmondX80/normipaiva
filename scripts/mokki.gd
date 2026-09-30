@@ -832,16 +832,20 @@ func _build_cottage() -> void:
 	body.position = Vector3(0, 0, -1.0)
 	body.rotation.y = PI  # kuisti (rungon -Z) järvelle päin (+Z), kuten kuvissa
 	add_child(body)
-	# Sokkeli: tummat pystylaudat ja vaaleat betoniharkot vuorotellen.
+	# Pohja on suorakaide, jonka kuistin puoleisesta länsinurkasta puuttuu lovi: ulko-ovi on loven sisänurkassa
+	# (sisätilassa tuvan vasen nurkka, mokki_interior.gd). Tien puoleinen takaseinä on suora.
+	var notch := Vector2(1.1, 1.3)
+	var notch_x := -l / 2.0 + notch.x
+	# Sokkeli: tummat pystylaudat ja vaaleat betoniharkot vuorotellen (ei loven kohdalla).
 	for i in 10:
 		var x := -l / 2.0 + 0.5 + i * (l - 1.0) / 9.0
+		if x < notch_x:
+			continue
 		B.mesh(body, B.boxm(Vector3((l - 1.0) / 9.0 - 0.03, found_h, 0.5)), Vector3(x, found_h / 2.0, -d / 2.0 - 0.05),
 			conc if i % 3 == 1 else dark_wood)
-	# Pohja on suorakaide, jonka takanurkasta (länsi, tien puoli) puuttuu lovi: ulko-ovi on loven sisänurkassa.
-	var notch := Vector2(1.1, 1.3)
 	var full_h := wall_h + rise + found_h
 	for part in [[Vector3(notch.x / 2.0, 0, 0), Vector3(l - notch.x, 0, d)],
-			[Vector3(-l / 2.0 + notch.x / 2.0, 0, -notch.y / 2.0), Vector3(notch.x, 0, d - notch.y)]]:
+			[Vector3(-l / 2.0 + notch.x / 2.0, 0, notch.y / 2.0), Vector3(notch.x, 0, d - notch.y)]]:
 		var pc: Vector3 = part[0]
 		var ps: Vector3 = part[1]
 		body.add_child(B.box_shape(Vector3(ps.x, full_h, ps.z), Vector3(pc.x, full_h / 2.0 - found_h, pc.z)))
@@ -849,6 +853,8 @@ func _build_cottage() -> void:
 		B.mesh(body, B.boxm(Vector3(ps.x, wall_h, ps.z)), Vector3(pc.x, found_h + wall_h / 2.0, pc.z), wall_col)
 	for i in 9:
 		var x := -l / 2.0 + 0.2 + i * l / 8.0
+		if x < notch_x + 0.05:
+			continue
 		B.mesh(body, B.boxm(Vector3(0.03, wall_h, 0.01)), Vector3(x, found_h + wall_h / 2.0, -d / 2.0 - 0.01), wall_col.lightened(0.14))
 	# Harjakatto (pelti) talon ylle, symmetrinen harja keskellä.
 	var ang := atan(rise / (d / 2.0))
@@ -870,36 +876,20 @@ func _build_cottage() -> void:
 	for wx in [-3.4, -0.6, 2.0, 3.7]:
 		B.mesh(body, B.boxm(Vector3(1.0, 1.15, 0.05)), Vector3(wx, found_h + 1.35, -d / 2.0 - 0.02), white)
 		B.mesh(body, B.boxm(Vector3(0.85, 0.98, 0.06)), Vector3(wx, found_h + 1.35, -d / 2.0 - 0.03), glass)
-	# Ulko-ovi loven sisänurkassa (tien puolella, sisäkuvien mukaan tuvan vasen takanurkka): lasiovi,
-	# eteen pieni porrastasanne ja luiska maahan.
+	# Ulko-ovi loven sisänurkassa kuistin puolella: lasiovi, edessä kuistin kansi, joka jatkuu loveen.
+	var sx := -l / 2.0 + notch.x / 2.0
 	var door := Node3D.new()
-	door.position = Vector3(-l / 2.0 + notch.x / 2.0, found_h, d / 2.0 - notch.y + 0.02)
+	door.position = Vector3(sx, found_h, -d / 2.0 + notch.y - 0.02)
 	body.add_child(door)
 	B.mesh(door, B.boxm(Vector3(0.95, 2.05, 0.06)), Vector3(0, 1.02, 0), white)
 	B.mesh(door, B.boxm(Vector3(0.75, 1.8, 0.07)), Vector3(0, 1.05, 0), glass)
-	B.mesh(door, B.boxm(Vector3(0.1, 0.1, 0.08)), Vector3(0.36, 1.0, 0.03), Color(0.75, 0.72, 0.6))
+	B.mesh(door, B.boxm(Vector3(0.1, 0.1, 0.08)), Vector3(0.36, 1.0, -0.03), Color(0.75, 0.72, 0.6))
+	# Tien puoleisessa takaseinässä vain makuuhuoneen ikkuna (sisätilassa makuuhuone oikealla tien puolella).
+	B.mesh(body, B.boxm(Vector3(1.0, 1.15, 0.05)), Vector3(2.7, found_h + 1.35, d / 2.0 + 0.02), white)
+	B.mesh(body, B.boxm(Vector3(0.85, 0.98, 0.06)), Vector3(2.7, found_h + 1.35, d / 2.0 + 0.03), glass)
 	# Maan korkeus rungon koordinaateissa mökin lattiatasoon nähden (rinne).
 	var g := func(bx: float, bz: float) -> float:
 		return h(-bx, -bz - 1.0) - h(0.0, -1.0)
-	var sx := -l / 2.0 + notch.x / 2.0
-	var stoop_d := notch.y + 0.3  # loven täyttävä tasanne, hieman ulos seinälinjasta
-	var stoop_end := d / 2.0 - notch.y + stoop_d
-	var stoop_z := stoop_end - stoop_d / 2.0
-	var stoop_low := minf(minf(g.call(sx, d / 2.0 - notch.y), g.call(sx, stoop_end)), 0.0) - 0.1
-	B.mesh(body, B.boxm(Vector3(notch.x, 0.1, stoop_d)), Vector3(sx, found_h - 0.02, stoop_z), Color(0.62, 0.5, 0.36))
-	B.mesh(body, B.boxm(Vector3(notch.x - 0.1, found_h - 0.07 - stoop_low, stoop_d - 0.1)), Vector3(sx, (found_h - 0.07 + stoop_low) / 2.0, stoop_z), dark_wood)
-	body.add_child(B.box_shape(Vector3(notch.x, found_h + 0.03 - stoop_low, stoop_d), Vector3(sx, (found_h + 0.03 + stoop_low) / 2.0, stoop_z)))
-	var back_foot := minf(g.call(sx, stoop_end + 0.8), found_h - 0.1)
-	var back_rise := found_h - back_foot + 0.4
-	var back_run := maxf(1.2, back_rise * 1.6)
-	var back_steps := maxi(1, ceili((found_h - back_foot) / 0.21))
-	for i in back_steps:
-		var sh := (found_h - back_foot) / back_steps
-		B.mesh(body, B.boxm(Vector3(notch.x - 0.1, sh, 0.3)), Vector3(sx, found_h - (i + 0.5) * sh, stoop_end + 0.15 + i * 0.3), Color(0.5, 0.4, 0.28))
-	var back_ramp := B.box_shape(Vector3(notch.x - 0.1, 0.1, Vector2(back_run, back_rise).length()), Vector3.ZERO)
-	back_ramp.transform = Transform3D(Basis(Vector3.RIGHT, atan2(back_rise, back_run)),
-		Vector3(sx, found_h - back_rise / 2.0 - 0.05, stoop_end + back_run / 2.0))
-	body.add_child(back_ramp)
 	# Rinteessä (korkeusmalli: maa laskee järvelle päin) sokkeli ja kuistin alusta jatkuvat maahan asti.
 	var low := 0.0
 	for bx in [-l / 2.0 - 0.3, 0.0, l / 2.0 + 0.3]:
@@ -931,6 +921,12 @@ func _build_cottage() -> void:
 	# Kuistin lattia kiinteäksi (muuten kävellään maata pitkin ja kansi leikkaa polvista) ja portaiden kohdalle
 	# loiva luiska: CharacterBody ei nouse porrasaskelmia, mutta kävelee alle 45° rinnettä ylös.
 	body.add_child(B.box_shape(Vector3(l, found_h + 0.03, porch_d), Vector3(0, (found_h + 0.03) / 2.0, deck_z)))
+	# Kansi jatkuu loveen oven eteen, alla umpinainen alusta maahan asti.
+	var nz := -d / 2.0 + notch.y / 2.0
+	var nlow := minf(minf(g.call(sx, -d / 2.0), g.call(sx, -d / 2.0 + notch.y)), 0.0) - 0.1
+	B.mesh(body, B.boxm(Vector3(notch.x, 0.1, notch.y)), Vector3(sx, found_h - 0.02, nz), Color(0.62, 0.5, 0.36))
+	B.mesh(body, B.boxm(Vector3(notch.x - 0.05, found_h - 0.07 - nlow, notch.y - 0.05)), Vector3(sx, (found_h - 0.07 + nlow) / 2.0, nz), dark_wood)
+	body.add_child(B.box_shape(Vector3(notch.x, found_h + 0.03 - nlow, notch.y), Vector3(sx, (found_h + 0.03 + nlow) / 2.0, nz)))
 	# Luiska alkaa maan tason alta (-0,4), jotta rinteessä sen alapää ei jää askelmaksi.
 	var ramp_rise := found_h - foot + 0.4
 	var run := maxf(2.0, ramp_rise * 1.6)
@@ -1253,10 +1249,10 @@ const SANTTU_LOOK := {
 	"hair": "Hair_SimpleParted", "hair_color": Color(0.4, 0.3, 0.18), "beard": true, "height": 1.78,
 	"belly": 0.35, "bulk": -0.1,
 }
-## Mökin ulko-ovi takanurkan lovessa tien puolella (paikallinen, ovella tasanteella): E vie sisään (main.gd _mokki_logic).
-## PORCH_DIR = ovelta ulospäin.
-const DOOR_LOCAL := Vector3(4.15, 0, -2.5)
-const PORCH_DIR := Vector3(0, 0, -1)
+## Mökin ulko-ovi länsinurkan lovessa kuistin puolella (paikallinen, oven edessä kannella): E vie sisään
+## (main.gd _mokki_logic). PORCH_DIR = ovelta ulospäin kuistille.
+const DOOR_LOCAL := Vector3(4.15, 0, 0.7)
+const PORCH_DIR := Vector3(0, 0, 1)
 
 
 func _build_santtu() -> void:
