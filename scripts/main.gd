@@ -4137,6 +4137,31 @@ func _maybe_screenshot() -> void:
 				if i % 300 == 0:
 					print("PINGIS t=%d phase=%s rounds=%s rally=%d" % [i / 60, pg._phase, pg._rounds, pg._rally])
 			print("PINGIS end state=", state, " msg=", _msg.text)
+		"mokkielukat", "mokkielukat2":
+			# Metsästyksen eläinmallit rivissä aukealla metsästyslavan edessä.
+			_toggle_mount()
+			var gl: Vector2 = Mokki.HUNT_GLADE
+			var kinds := ["hirvi", "metso", "riekko", "kyyhky", "janis"]
+			for i in kinds.size():
+				var hgm := HuntGame.new()
+				var node: Node3D = hgm._model(kinds[i])
+				hgm.free()
+				node.scale = Vector3.ONE * HuntGame.SIZE
+				var px := gl.x + 2.0
+				var pz := gl.y - 6.0 + i * 3.0
+				node.position = Vector3(px, Mokki.h(px, pz), pz)
+				node.rotation.y = PI / 2.0
+				mokki.add_child(node)
+			var ec := Camera3D.new()
+			add_child(ec)
+			ec.look_at_from_position(mokki.to_global(Vector3(gl.x + 9.0, Mokki.h(gl.x + 9.0, gl.y) + 1.6, gl.y)),
+				mokki.to_global(Vector3(gl.x + 2.0, Mokki.h(gl.x + 2.0, gl.y) + 0.8, gl.y)))
+			if scene == "mokkielukat2":  # hirvi läheltä
+				var hz := gl.y - 6.0
+				ec.look_at_from_position(mokki.to_global(Vector3(gl.x + 6.5, Mokki.h(gl.x + 6.5, hz + 2.0) + 3.0, hz + 2.5)),
+					mokki.to_global(Vector3(gl.x + 2.0, Mokki.h(gl.x + 2.0, hz) + 2.4, hz)))
+			ec.current = true
+			walker_out.visible = false
 		"mokkijahti":
 			# Metsästys: nousee lavalle, odottaa eläimen, tähtää ja ampuu. Tulostaa saaliin.
 			_toggle_mount()
