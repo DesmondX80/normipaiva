@@ -46,15 +46,48 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   haava paranee yön aikana.
 - **Pontikka:** jossain metsässä Pannu-Sulo keittää pontikkaa. Paikka ei näy kartalla, mutta kodan tarinoista
   saattaa kuulla vihjeen. Sulo myy päivässä yhden kanisterin (20 €), joka vastaa kotijemmassa 24 kaljaa.
-- **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen). Mökki on mallinnettu oikean
-  paikan mukaan (Kaisuantie 62, Vaala): 200 × 200 m alue OpenStreetMapista (Likanen, Tervalampi, Kiiskeroinen,
-  Kaisuantie, pellot, naapurit ja metsä) ja korkeudet Maanmittauslaitoksen 2 m korkeusmallista (mökki on
-  harjanteella ja piha viettää n. 7 m rantaan). Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella savusauna,
-  puukuumenteinen poreamme ja kesäkeittiö (vaja + katos, offset-savustimessa voi paistaa makkaran),
-  tikanheittotaulu, kalastus laiturilta (heitä onki, odota nykäisyä, vedä ylös ajoissa) ja isäntä Santtu
-  kahvikuppeineen. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
+- **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen). Mökki on Vaalan Uutelanperällä,
+  noin 106 km linnuntietä itään Järvikujalta, ja välimatkat (esim. pyörään) näytetään sen mukaan. Mökillä
+  pääpelin tehtävät eivät etene eivätkä näy HUD:ssa: aika seisoo, Päivi ja muut vaarat jäävät Saloisiin, eikä
+  pyörää varasteta sillä aikaa. Mökki on mallinnettu oikean paikan mukaan (Kaisuantie 62, Uutelanperä, Vaala): 1,9 × 1,9 km
+  maisema OpenStreetMapista (Likanen, Syväjärvi, Ahveroinen, Tervalampi, Kiiskeroinen, Penikka ja muut lammet
+  omilla pinnoillaan, Kaisuantie, Uutelanperäntie, Neittäväntie ja muut tiet, pellot, suo, purot ja noin sata
+  naapurirakennusta) ja korkeudet Maanmittauslaitoksen 2 m korkeusmallista pihan ympärillä sekä EU-DEM 25 m
+  mallista kauempana (mökki on harjanteella ja piha viettää n. 7 m rantaan). Kävelyalue on 800 × 800 m, ja
+  maisema jatkuu horisonttiin. Data päivitetään komennolla `python3 tools/mokki_kartta.py`. Mökki rajautuu joka suunnalta tiiviiseen mäntymetsään
+  tummanruskeine pystylautaseinineen. Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella
+  savusauna, puukuumenteinen poreamme ja kesäkeittiö (avoin katos offset-savustimineen), tikanheittotaulu, kalastus
+  laiturilta portaineen (heitä onki, odota nykäisyä, vedä ylös ajoissa) ja isäntä Santtu kahvikuppeineen.
+  - **Pihapingis Santtua vastaan:** mailat ovat kannolla Santun vieressä (E). Street Fighter -tyyliin sivulta:
+    isoilla puumailoilla lyödään palloa ilmassa puolelta toiselle ilman pöytää, ja se, jonka puolelle pallo
+    putoaa maahan, häviää erän. Kaksi erävoittoa voittaa, ja pallo kiihtyy rallin pidetessä.
+  - **Metsästys:** metsän riistapolulla on metsästyslava (E), josta ammutaan haulikolla (FPS) aukealle tulevaa
+    riistaa: jänis, riekko, metso ja ohi lentävä kyyhky. Kaksi piippua ja 8 patruunaa, laukaus säikäyttää
+    lähistön eläimet. Hirveen ei ole lupaa!
+  - **Offset-savustin:** laiturin kalat ja jahdin riista laitetaan savustimeen (E, enintään 4 kerralla), ja halkoja
+    lisätään tulipesään (E). Lämpö seuraa tulta viiveellä: 80–120 °C savustaa täysillä, viileämmässä hitaasti ja yli
+    135 °C käristää saaliin karrelle. Valmiit savukalat ja savuriista otetaan eväiksi ja syödään nälkään T:llä.
+    Makkaran voi yhä paistaa savustimessa kerralla.
+  - **Santun PA-laitteet:** tuvassa on vanhat keikkakamat (kaiuttimet jalustoilla, mikseri pöydän päässä ja pääte
+    lattialla). E avaa kytkennän, jossa johdot vedetään hiirellä liittimestä toiseen: puhelin mikserin linjakanavaan,
+    MAIN L/R päätteen tuloihin ja Speakonit kaiuttimiin, virrat jatkojohdosta. Virrat päälle oikeassa
+    järjestyksessä (mikseri ensin, pääte viimeisenä, muuten kaiuttimet paukahtavat), mikin kanava kiinni (kierto
+    kiljuu) ja CH2 ja MASTER niin, että taso pysyy vihreällä. Kolme mokaa ja Santtu pakkaa kamat. Onnistuneen
+    kytkennän jälkeen pelin tunnusmusiikki soi tuvassa ja vaimeana pihalle, kunnes PA sammutetaan (E laitteilla).
+  Saunassa käynti (E) on lyhyt välianimaatio terassilla: löyly höyryää saunan ovelta, ja jos kaljaa on mukana,
+  otetaan hörppy. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
   jääkaappi), pitkä pöytä, TV ja takka, makuuhuone violetteine kerrossänkyineen, kylpyhuone ja sisäsauna.
   Kerrossängyssä voi **nukkua yön**: päivä vaihtuu ja uusi alkaa mökiltä (Päivi soittaa aamulla).
+- **Drooni:** kotipihan asfaltilla on droonin laskeutumisalusta (jalan E). Kuvauskopterilla tutkitaan Saloisia
+  ilmasta: W/S/A/D liikkuu, hiiri tai Q/E kääntää, Space nousee, C laskee, Shift = sport-tila ja hiiren pystyliike
+  kallistaa kameraa. V vaihtaa FPV- ja seurantakameran. Vasen nappi ottaa ilmakuvan: tunnistettavia kohteita on 13
+  (koti, K-Market, laavu, grillikatos, Päivin Hyundai, juntti, jyväjemmari, mummot, Arto, Pekka, Väinö,
+  jalkapallopojat ja... Pannu-Sulon pontikkapannu, joka merkitään kuvan jälkeen karttaan). Akku kestää 5 min ja
+  latautuu alustalla, korkeusraja on 120 m ja kantama noin 1,3 km: heikolla akulla tai signaalilla drooni palaa
+  itse kotiin (H palaa, F laskeutuu). Kova törmäys rikkoo droonin päiväksi. Päivin jahti on tauolla lennon ajan.
+- **Reppu (I tai Tab):** tavarat, kaljat, ostokset, sienet, kalat ja metsästyssaaliit näkyvät Minecraft-tyylisessä
+  ruudukossa pikselikuvakkeina ja pinoina, ja alarivillä ovat eväät (T syö). Samassa näkymässä ovat rahat,
+  kauppalista ja jemmat. HUD:ssa näkyvät enää rahat, aika, tavoite ja kauppalista.
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
 
@@ -116,6 +149,7 @@ Päivän lopussa lasketaan kolmen tilan summa:
 | Syöminen (paistettu makkara, kettukarkki) | nälkä +, stamina + |
 | Syöminen T:llä: korvapuusti / lihapiirakka | nälkä +0,25 ja stressi + / nälkä +0,4 (ja stamina puolet nälän muutoksesta) |
 | Syöminen T:llä: suklaa / marjat (1 l) | nälkä +0,2, stressi +, moraali + / nälkä +0,15, vireys + |
+| Syöminen T:llä: savukala / savuriista / karrella | nälkä +0,5, stressi +, moraali + / nälkä +0,6, stressi +, moraali + / nälkä +0,25 |
 | Tappelu | stressi −, kipu −−, stamina −, moraali −, nälkä − |
 | Koiran purema / kettukarkin osuma | kipu −− / kipu − |
 | Haavan hoito (Pekka, Päivi) | kipu ++ |
@@ -140,6 +174,9 @@ Päivän lopussa lasketaan kolmen tilan summa:
 | Marjojen tai sienten myynti | moraali + |
 | Mökki: savusauna / poreamme (kerran päivässä) | stressi ++, väsymys ++, kipu +, vireys + / stressi ++, kipu +, stamina + |
 | Mökki: kala laiturilta / tikan täysosuma (kerran päivässä) | moraali +, stressi + / moraali +, keskittyminen + |
+| Mökki: metsästys saaliin kanssa / hirvi ammuttu | moraali + (0,05 per saalis), stressi + / moraali −−, stressi −− |
+| Mökki: savustus valmis | stressi + |
+| Mökki: pihapingis | stamina −, nälkä −; kerran päivässä voitto: moraali +, keskittyminen +, stressi + / häviö: stressi +, moraali − |
 | Mökin piha (paikallaan) | kuten nuotio: stressi ++, vireys + |
 | Mökki: kiukaan tai ammeen tulen sytytys (kerran päivässä kumpikin) | stressi + |
 | Mökin sisällä olo | stressi +, vireys + (hitaasti), nälkä − |
@@ -192,7 +229,7 @@ godot --path .
 |---|---|
 | W / S | polje / jarruta ja peruuta |
 | A / D | ohjaa |
-| Välilyönti | jarru |
+| Välilyönti | jarru (pyörällä) / hyppy (jalan) |
 | Q | soittokello |
 | E | toiminto (kauppaan, osta, maksa, ulos) |
 | F | nouse pyörän selästä / takaisin pyörälle (pyörä jää parkkiin ja näkyy kartassa) |
@@ -237,6 +274,21 @@ godot --path .
 | S + K | jalkapyyhkäisy |
 | eteen + K | kiertopotku |
 | K ilmassa | lentopotku |
+
+| Pihapingiksessä | |
+|---|---|
+| A / D | liiku |
+| W | hyppy |
+| J | lyönti (ja syöttö) |
+| K | smash: kova ja matala, onnistuu vain korkeasta pallosta |
+| eteen / taakse + lyönti | pitkä / lyhyt pallo |
+
+| Metsästyksessä | |
+|---|---|
+| Hiiri | tähtää |
+| Vasen nappi / E | ammu (kaksi piippua, sitten lataus) |
+| Oikea nappi pohjassa | tarkka tähtäys (zoom, rauhallisempi käsi) |
+| F | lopeta jahti |
 
 ## Tekijänoikeudet
 
