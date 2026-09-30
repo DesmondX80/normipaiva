@@ -52,9 +52,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   pyörää varasteta sillä aikaa. Mökki on mallinnettu oikean paikan mukaan (Kaisuantie 62, Uutelanperä, Vaala): 1,9 × 1,9 km
   maisema OpenStreetMapista (Likanen, Syväjärvi, Ahveroinen, Tervalampi, Kiiskeroinen, Penikka ja muut lammet
   omilla pinnoillaan, Kaisuantie, Uutelanperäntie, Neittäväntie ja muut tiet, pellot, suo, purot ja noin sata
-  naapurirakennusta) ja korkeudet Maanmittauslaitoksen 2 m korkeusmallista pihan ympärillä sekä EU-DEM 25 m
-  mallista kauempana (mökki on harjanteella ja piha viettää n. 7 m rantaan). Kävelyalue on 800 × 800 m, ja
-  maisema jatkuu horisonttiin. Data päivitetään komennolla `python3 tools/mokki_kartta.py`. Mökki rajautuu joka suunnalta tiiviiseen mäntymetsään
+  naapurirakennusta) ja korkeudet koko alueelta Maanmittauslaitoksen 2 m korkeusmallista (kauempana 8 m ruudukkona,
+  `tools/kartta/mokki.ps1`; mökki on harjanteella ja piha viettää n. 7 m rantaan). Kävelyalue on 800 × 800 m, ja
+  maisema jatkuu horisonttiin. Data päivitetään komennolla `tools/kartta/mokki.ps1` tai `tools/kartta/mokki.py` (ks. `tools/kartta/LUEMINUT.md`). Mökki rajautuu joka suunnalta tiiviiseen mäntymetsään
   tummanruskeine pystylautaseinineen. Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella
   savusauna, puukuumenteinen poreamme ja kesäkeittiö (avoin katos offset-savustimineen), tikanheittotaulu, kalastus
   laiturilta portaineen (heitä onki, odota nykäisyä, vedä ylös ajoissa) ja isäntä Santtu kahvikuppeineen.
@@ -320,7 +320,8 @@ godot --path .
   polut) sekä pelin paikat. Maaston korkeuserot: Maanmittauslaitoksen 2 m
   korkeusmalli (lehdet R4132H, R4134B, R4141G ja R4143A, CC BY 4.0, Kapsin peilistä) n. 5 m ruudukkona,
   leivottu komennolla `godot --headless --path . -s tools/bake_terrain.gd`. Ylämäessä pyörä hidastuu, alamäessä
-  rullaa. Karttadatan lähteet ja päivitysohjeet: `tools/kartta/LUEMINUT.md`.
+  rullaa. Karttadatan lähteet ja päivitysohjeet: `tools/kartta/LUEMINUT.md` (työkalut sekä PowerShell- että
+  Python-versioina, jotka tuottavat samat tiedostot).
 - Tunnusbiisi "Normipäivä Saloisissa" (rautalanka, tehty Sunolla) soi päävalikossa ja onnellisissa lopuissa
   (`assets/music/normipaiva.mp3`; voimakkuus Asetukset → Ääni → Musiikki).
 - Hahmot ja animaatiot: [Quaternius](https://quaternius.com) — Universal Base Characters ja
