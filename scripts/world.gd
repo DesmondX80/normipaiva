@@ -56,6 +56,7 @@ const LAYER := {"path": 0.012, "shoulder": 0.017, "lot": 0.021, "street": 0.025,
 const CELL := 40.0
 const CHUNK := 150.0
 const MASK_PX := 2.0  # metriä per maskin pikseli
+const JARVIKUJA_HALF := 3.0  # Järvikujan puolileveys naapuripihojen mitoitukseen
 const WALLS := [Color(0.6, 0.15, 0.11), Color(0.9, 0.8, 0.45), Color(0.88, 0.78, 0.44), Color(0.86, 0.8, 0.66),
 	Color(0.84, 0.77, 0.62), Color(0.93, 0.93, 0.9),
 	Color(0.92, 0.91, 0.87), Color(0.58, 0.6, 0.61), Color(0.58, 0.7, 0.78), Color(0.45, 0.3, 0.2),
@@ -69,6 +70,8 @@ const WHITE := Color(0.95, 0.95, 0.92)
 var graph_nodes: Array[Vector3] = []
 var graph_adj: Array = []
 var taxi_home_pos: Vector3  # taksipysäkki kotipihalla (ks. main.gd _taxi_logic)
+var neighbor_yards := {}  # "arto" / "pekka" / "sinikka" -> pihan puuhapisteet (ensimmäinen = ulko-ovi)
+var neighbor_faces := {}  # nimi -> suunta, johon puuhapisteessä katsotaan (valinnainen, sama järjestys)
 var drone_pad_pos: Vector3  # droonin laskeutumisalusta kotipihan asfaltilla (ks. main.gd _drone_logic)
 var home_zone: Vector3
 var shop_zone: Vector3
@@ -763,9 +766,10 @@ func nearest_node(p: Vector3) -> int:
 # --- Rakennukset -------------------------------------------------------------
 
 ## Omakotitalo harjakatolla yhdistettyyn meshiin + törmäyslaatikko. Paikallinen -Z = etuseinä.
-## street_gap = etäisyys etuseinästä kadun reunaan (postilaatikko, aita).
+## street_gap = etäisyys etuseinästä kadun reunaan (postilaatikko, aita). extras = false: ei satunnaisia pihaesineitä
+## (postilaatikko, aita, autokatos, lipputanko, piharakennus), kun piha kalustetaan itse.
 func _house(pos: Vector2, yaw: float, l: float, d: float, h: float, wall: Color, roof: Color,
-		street_gap := -1.0) -> StaticBody3D:
+		street_gap := -1.0, extras := true) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.position = Vector3(pos.x, 0, pos.y)
 	body.rotation.y = yaw
@@ -819,7 +823,7 @@ func _house(pos: Vector2, yaw: float, l: float, d: float, h: float, wall: Color,
 		add.call(B.boxm(Vector3(0.06, 1.35, 1.55)), Vector3(x + sgn * 0.02, 1.75, 0), WHITE)
 		add.call(B.boxm(Vector3(0.08, 1.1, 1.3)), Vector3(x + sgn * 0.035, 1.75, 0), glass)
 
-	if street_gap > 0.0:
+	if street_gap > 0.0 and extras:
 		var front := -d / 2.0 - street_gap
 		if _rng.randf() < 0.75:
 			var mx := l / 2.0 - 1.0
@@ -845,7 +849,7 @@ func _house(pos: Vector2, yaw: float, l: float, d: float, h: float, wall: Color,
 				if absf(-fl / 2.0 + k) > 1.8:  # portti keskellä
 					add.call(B.boxm(Vector3(0.08, 1.0, 0.08)), Vector3(-fl / 2.0 + k, 0.5, fz), WHITE)
 				k += 1.6
-	if street_gap > 0.0 and _rng.randf() < 0.35:
+	if street_gap > 0.0 and extras and _rng.randf() < 0.35:
 		# Autokatos talon päädyssä, sivulla rimasäleikkö.
 		var cp := Vector3(l / 2.0 + 2.2, 0, -d / 2.0 + 1.0)
 		for px in [-1.5, 1.5]:
@@ -855,14 +859,14 @@ func _house(pos: Vector2, yaw: float, l: float, d: float, h: float, wall: Color,
 		for i in 9:
 			add.call(B.boxm(Vector3(0.05, 1.6, 0.07)), cp + Vector3(1.55, 0.95, -2.2 + i * 0.55), wall)
 		body.add_child(B.box_shape(Vector3(3.2, 2.3, 0.3), cp + Vector3(0, 1.15, 2.4)))
-	if _rng.randf() < 0.13:
+	if extras and _rng.randf() < 0.13:
 		# Lipputanko ja Suomen lippu.
 		var fp := Vector3(-l / 2.0 - 3.0, 0, -d / 2.0 - 3.0)
 		add.call(B.cyl(0.05, 0.07, 8.0, 6), fp + Vector3(0, 4.0, 0), WHITE)
 		add.call(B.boxm(Vector3(1.8, 1.1, 0.03)), fp + Vector3(0.95, 7.35, 0), WHITE)
 		add.call(B.boxm(Vector3(1.8, 0.3, 0.05)), fp + Vector3(0.95, 7.35, 0), Color(0.0, 0.2, 0.55))
 		add.call(B.boxm(Vector3(0.3, 1.1, 0.05)), fp + Vector3(0.7, 7.35, 0), Color(0.0, 0.2, 0.55))
-	if _rng.randf() < 0.3:
+	if extras and _rng.randf() < 0.3:
 		# Piharakennus / sauna.
 		var sp := Vector3(_rng.randf_range(-l / 3.0, l / 3.0), 0, d / 2.0 + 5.0)
 		var sc: Color = [Color(0.6, 0.15, 0.11), Color(0.45, 0.3, 0.2), Color(0.55, 0.55, 0.5)][_rng.randi() % 3]
@@ -890,6 +894,34 @@ func _nearest_road(p: Vector2) -> Array:
 
 ## Talot OpenStreetMapin rakennuksista (map_osm.gd BUILDINGS): paikka, suunta ja koko pohjapiirroksesta,
 ## julkisivu lähimmälle tielle. Omat mallit (koti, naapurit, kauppa) ovat M.OWN_BUILDINGS-kohdissa.
+## OSM-rakennuksen pohja pelimaailmaan: keskipiste, mitat (l = pitkä sivu), julkisivun normaali lähintä tietä
+## kohti, sen suunta (yaw) ja etupihan leveys tielle (gap, -1 = ei tietä lähellä).
+func _osm_fit(b: Dictionary) -> Dictionary:
+	var c := M.w2(b.c)
+	var l: float = b.l * M.SCALE
+	var d: float = b.d * M.SCALE
+	var ax := Vector2(cos(b.a), sin(b.a))
+	var nrm := ax.orthogonal()
+	var gap := -1.0
+	var near := _nearest_road(c)
+	if not near.is_empty():
+		var to_road: Vector2 = near[0] - c
+		if nrm.dot(to_road) < 0.0:
+			nrm = -nrm
+		var g: float = absf(nrm.dot(to_road)) - d / 2.0 - near[1]
+		if g > 1.5 and g < 18.0:
+			gap = g
+	return {"c": c, "l": l, "d": d, "ax": ax, "nrm": nrm, "gap": gap, "yaw": B.yaw_to(Vector3(nrm.x, 0, nrm.y))}
+
+
+## Karttapisteessä px olevan OSM-rakennuksen pohja (_osm_fit); tyhjä, jos rakennusta ei löydy.
+func _osm_fit_at(px: Vector2) -> Dictionary:
+	for b in M.Osm.BUILDINGS:
+		if (b.c as Vector2).distance_to(px) < 4.0:
+			return _osm_fit(b)
+	return {}
+
+
 func _build_houses() -> void:
 	for b in M.Osm.BUILDINGS:
 		var cp: Vector2 = b.c
@@ -899,22 +931,15 @@ func _build_houses() -> void:
 				own = true
 		if own:
 			continue
-		var c := M.w2(cp)
-		var l: float = b.l * M.SCALE
-		var d: float = b.d * M.SCALE
+		var f := _osm_fit(b)
+		var c: Vector2 = f.c
+		var l: float = f.l
+		var d: float = f.d
 		if not _in_bounds(c, 3.0) or _in_any(c, _water):
 			continue
-		var ax := Vector2(cos(b.a), sin(b.a))
-		var nrm := ax.orthogonal()
-		var gap := -1.0
-		var near := _nearest_road(c)
-		if not near.is_empty():
-			var to_road: Vector2 = near[0] - c
-			if nrm.dot(to_road) < 0.0:
-				nrm = -nrm
-			var g: float = absf(nrm.dot(to_road)) - d / 2.0 - near[1]
-			if g > 1.5 and g < 18.0:
-				gap = g
+		var ax: Vector2 = f.ax
+		var nrm: Vector2 = f.nrm
+		var gap: float = f.gap
 		var area := l * d
 		var h := 3.3
 		if area < 45.0:
@@ -928,7 +953,7 @@ func _build_houses() -> void:
 			_add_house(c + ax * (l / 2.0 - 5.0) * (float(k) / ceilf(l / 14.0)))
 			_add_house(c - ax * (l / 2.0 - 5.0) * (float(k) / ceilf(l / 14.0)))
 			k += 1
-		_house(c, B.yaw_to(Vector3(nrm.x, 0, nrm.y)), l, d, h, WALLS[_rng.randi() % WALLS.size()],
+		_house(c, f.yaw, l, d, h, WALLS[_rng.randi() % WALLS.size()],
 			ROOFS[_rng.randi() % ROOFS.size()], gap)
 		# Pihapuut: koivuja, pihlajia (lehtipuu), kuusia ja mäntyjä talon taakse ja sivuille.
 		if area >= 45.0:
@@ -1079,31 +1104,88 @@ func _static_bike(parent: Node3D, pos: Vector3, lean: float) -> void:
 ## Järvikujan lähinaapurit katunäkymän mukaan.
 func _build_neighbors() -> void:
 	var to_east := B.yaw_to(Vector3(M.HOME_YAW_DIR.x, 0, M.HOME_YAW_DIR.y))  # kadun länsipuolelta kadulle
-	var to_west := B.yaw_to(Vector3(-M.HOME_YAW_DIR.x, 0, -M.HOME_YAW_DIR.y))  # itäpuolelta kadulle
 	var dark_roof := Color(0.2, 0.21, 0.22)
-	# Pohjoinen naapuri: keltainen puutalo, tumma katto, valkoinen pergola.
-	var n := M.w2(M.NEIGHBOR_N)
-	_add_house(n)
-	var nb := _house(n, to_east, 12.0, 9.0, 3.3, Color(0.92, 0.8, 0.42), dark_roof, 9.0)
+	# Naapuritalot OSM-pohjan mukaan (koko ja suunta, julkisivu Järvikujalle); omat värit ja pihat.
+	# Talon kehyksessä -Z on julkisivu ja fz sen z, ovi kohdassa (dx, fz) (_house). Etupihan aita, autokatos ja
+	# muut satunnaiset pihaesineet jätetään pois (extras false), jotta pihan omat esineet ja puuhapisteet mahtuvat.
+	var fit := func(px: Vector2) -> Dictionary:
+		var f := _osm_fit_at(px)
+		var c: Vector2 = f.c
+		# Julkisivu Järvikujalle: se neljästä sivusta, jonka normaali osoittaa lähimpään Järvikujan pisteeseen
+		# (neliömäinen talo voi kääntyä päätyyn nähden, jolloin l ja d vaihtavat paikkaa).
+		var to_st := Vector2.ZERO
+		for r in M.Osm.ROADS:
+			if r.get("name", "") == "Järvikuja":
+				var best := INF
+				for i in r.pts.size() - 1:
+					var q := Geometry2D.get_closest_point_to_segment(c, M.w2(r.pts[i]), M.w2(r.pts[i + 1]))
+					if q.distance_to(c) < best:
+						best = q.distance_to(c)
+						to_st = q - c
+		var ax: Vector2 = f.ax
+		if absf(ax.dot(to_st)) > absf(ax.orthogonal().dot(to_st)):
+			f.ax = ax.orthogonal()
+			var tmp: float = f.l
+			f.l = f.d
+			f.d = tmp
+		var nrm: Vector2 = (f.ax as Vector2).orthogonal()
+		if nrm.dot(to_st) < 0.0:
+			nrm = -nrm
+		f.nrm = nrm
+		f.yaw = B.yaw_to(Vector3(nrm.x, 0, nrm.y))
+		f.gap = maxf(nrm.dot(to_st) - f.d / 2.0 - JARVIKUJA_HALF, 2.0)  # etupiha julkisivusta tien reunaan
+		_add_house(c)
+		for s in [-1.0, 1.0]:  # päädyt, ettei puita kasva seinien sisään
+			_add_house(c + (f.ax as Vector2) * s * (f.l / 2.0 - 3.0))
+		_mask_clear.append([c, f.l / 2.0 + 0.5, f.d / 2.0 + 1.0, f.yaw])
+		f.fz = -f.d / 2.0
+		var nw := maxi(2, int(f.l / 3.6))
+		f.dx = -f.l / 2.0 + f.l * (nw / 2 + 0.5) / nw
+		return f
+	# Katunäkymän (2022) mukaan: Pekka asuu vaaleassa, lähes valkoisessa talossa vaalealla peltikatolla; kuisti
+	# (valkoinen pergola) etukulmassa, kadun varressa pensasaita ja kaksi valkoista pihavaloa.
+	var fn: Dictionary = fit.call(M.NEIGHBOR_PEKKA)
+	var nb := _house(fn.c, fn.yaw, fn.l, fn.d, 3.3, Color(0.9, 0.88, 0.8), Color(0.72, 0.7, 0.6), fn.gap, false)
+	var pg := Vector3(fn.l / 2.0 - 2.0, 0, fn.fz - 1.6)
 	for px in [-1.5, 1.5]:
-		for pz in [-1.5, 1.5]:
-			B.mesh(nb, B.boxm(Vector3(0.12, 2.4, 0.12)), Vector3(6.0 + 1.5 + px, 1.2, -5.5 + pz), Color(0.95, 0.95, 0.93))
+		B.mesh(nb, B.boxm(Vector3(0.14, 2.6, 0.14)), pg + Vector3(px, 1.3, -1.5), Color(0.95, 0.95, 0.93))
 	for k in 7:
-		B.mesh(nb, B.boxm(Vector3(3.2, 0.06, 0.06)), Vector3(7.5, 2.4, -7.0 + k * 0.5), Color(0.95, 0.95, 0.93))
-	# Kadun toinen puoli: keltabeige pitkä talo, pihalla vanha punainen traktori ja leikkimökki.
-	var a := M.w2(M.NEIGHBOR_A)
-	_add_house(a)
-	var ab := _house(a, to_west, 16.0, 9.0, 3.3, Color(0.87, 0.77, 0.5), Color(0.3, 0.2, 0.15), 9.0)
-	_mask_clear.append([a, 9.0, 5.5, to_west])
-	_old_tractor(ab, Vector3(-9.5, 0, -2.0), 0.6)
-	var hut := Node3D.new()
-	hut.position = Vector3(-10.0, 0, 5.0)
-	ab.add_child(hut)
-	B.mesh(hut, B.boxm(Vector3(2.0, 1.6, 1.6)), Vector3(0, 0.8, 0), Color(0.62, 0.15, 0.1))
-	var hr := PrismMesh.new()
-	hr.size = Vector3(1.9, 0.8, 2.3)
-	B.mesh(hut, hr, Vector3(0, 2.0, 0), Color(0.2, 0.2, 0.2), Vector3(0, 90, 0))
-	B.mesh(hut, B.boxm(Vector3(0.6, 1.1, 0.04)), Vector3(0.4, 0.6, -0.81), Color(0.95, 0.95, 0.93))
+		B.mesh(nb, B.boxm(Vector3(3.2, 0.06, 0.06)), pg + Vector3(0, 2.6, -1.5 + k * 0.5), Color(0.95, 0.95, 0.93))
+	_street_hedge(nb, fn, 0.0)
+	for x in [fn.dx - 1.6, fn.dx + 1.6]:
+		var lamp := Vector3(x, 0, fn.fz - fn.gap + 2.0)
+		B.mesh(nb, B.cyl(0.08, 0.08, 1.0, 8), lamp + Vector3(0, 0.5, 0), Color(0.95, 0.95, 0.93))
+		B.mesh(nb, B.sphere(0.13, 8), lamp + Vector3(0, 1.08, 0), Color(1.0, 0.97, 0.85))
+	# Arto asuu kodin vastapäätä: matala keltatiilinen talo vaalealla peltikatolla, etupihalla vanha punainen
+	# traktori ja pieni vaja, eteläpäädyssä keltatiilinen autotalli valkoisella ovella, kadun varressa pensasaita.
+	var fa: Dictionary = fit.call(M.NEIGHBOR_ARTO)
+	var ab := _house(fa.c, fa.yaw, fa.l, fa.d, 3.1, Color(0.84, 0.68, 0.4), Color(0.66, 0.68, 0.62), fa.gap, false)
+	var sa := signf((ab.transform.basis.inverse() * Vector3.BACK).x)  # talon x-akselin eteläsuunta
+	_street_hedge(ab, fa, sa)
+	_old_tractor(ab, Vector3(sa * (fa.l / 2.0 - 1.2), 0, fa.fz - 3.2), 0.4)
+	# Etupihan pieni vaalea vaja OSM-rakennuksen kohdalla.
+	var sh := _osm_fit_at(M.ARTO_SHED)
+	var shed := StaticBody3D.new()
+	shed.position = Vector3(sh.c.x, 0, sh.c.y)
+	shed.rotation.y = sh.yaw
+	add_child(shed)
+	_add_house(sh.c)
+	shed.add_child(B.box_shape(Vector3(sh.l, 2.2, sh.d), Vector3(0, 1.1, 0)))
+	B.mesh(shed, B.boxm(Vector3(sh.l, 2.2, sh.d)), Vector3(0, 1.1, 0), Color(0.86, 0.8, 0.68))
+	var shr := PrismMesh.new()
+	shr.size = Vector3(sh.d + 0.4, 0.7, sh.l + 0.4)
+	B.mesh(shed, shr, Vector3(0, 2.55, 0), Color(0.45, 0.3, 0.2), Vector3(0, 90, 0))
+	B.mesh(shed, B.boxm(Vector3(0.9, 1.8, 0.05)), Vector3(0, 0.9, -sh.d / 2.0 - 0.02), Color(0.55, 0.38, 0.25))
+	var gp := M.w2(M.ARTO_GARAGE)
+	var agar := StaticBody3D.new()
+	agar.position = Vector3(gp.x, 0, gp.y)
+	agar.rotation.y = fa.yaw
+	add_child(agar)
+	_add_house(gp)
+	agar.add_child(B.box_shape(Vector3(5.0, 2.6, 7.0), Vector3(0, 1.3, 0)))
+	B.mesh(agar, B.boxm(Vector3(5.0, 2.6, 7.0)), Vector3(0, 1.3, 0), Color(0.84, 0.68, 0.4))
+	B.mesh(agar, B.boxm(Vector3(5.5, 0.18, 7.5)), Vector3(0, 2.68, 0), Color(0.66, 0.68, 0.62))
+	B.mesh(agar, B.boxm(Vector3(2.5, 2.1, 0.06)), Vector3(0, 1.05, -3.52), Color(0.95, 0.95, 0.93))
 	# Katettu postilaatikkoteline kadun varressa.
 	var mb := Node3D.new()
 	var mbp := M.w2(M.MAILBOX)
@@ -1117,11 +1199,74 @@ func _build_neighbors() -> void:
 	var mr := PrismMesh.new()
 	mr.size = Vector3(0.8, 0.25, 2.4)
 	B.mesh(mb, mr, Vector3(0, 1.5, 0), Color(0.25, 0.25, 0.27), Vector3(0, 90, 0))
-	# Pohjoisempi kadun vastapuoli: beige pitkä yksikerroksinen talo.
-	var b2 := M.w2(M.NEIGHBOR_B)
-	_add_house(b2)
-	_house(b2, to_west, 18.0, 9.0, 3.1, Color(0.86, 0.8, 0.66), Color(0.33, 0.3, 0.28), 9.0)
-	_mask_clear.append([b2, 10.0, 5.5, to_west])
+	# Sinikan talo Arton eteläpuolella on katunäkymässä lähes piilossa isojen pyöreiden pensaiden takana; kadun
+	# varressa värikkäät postilaatikot. Julkisivun edessä kukkapenkki, aurinkotuoli ja radio, päädyissä kasvimaa
+	# ja ruusupensaat.
+	var fb: Dictionary = fit.call(M.NEIGHBOR_SINIKKA)
+	var bb := _house(fb.c, fb.yaw, fb.l, fb.d, 3.1, Color(0.86, 0.8, 0.66), Color(0.33, 0.3, 0.28), fb.gap, false)
+	var fz: float = fb.fz
+	var street_z: float = fz - fb.gap + 1.2
+	for k in 5:  # isot pyöreät pensaat kadun varressa, ajotie keskellä
+		var bx: float = [-fb.l / 2.0 - 1.0, -fb.l / 2.0 + 2.4, fb.dx + 3.4, fb.l / 2.0 - 1.5, fb.l / 2.0 + 1.8][k]
+		var br: float = [1.6, 1.9, 1.7, 2.0, 1.5][k]
+		B.mesh(bb, B.sphere(br, 10), Vector3(bx, br * 0.8, street_z + 0.4), Color(0.2, 0.38, 0.15).lightened(0.04 * k))
+	var mbox := Vector3(fb.dx + 1.4, 0, street_z - 0.6)
+	B.mesh(bb, B.boxm(Vector3(1.9, 0.06, 0.1)), mbox + Vector3(0, 1.05, 0), Color(0.35, 0.35, 0.35))
+	for x in [-0.8, 0.8]:
+		B.mesh(bb, B.boxm(Vector3(0.08, 1.1, 0.08)), mbox + Vector3(x, 0.55, 0), Color(0.35, 0.35, 0.35))
+	var box_cols := [Color(0.9, 0.55, 0.62), Color(0.55, 0.57, 0.6), Color(0.5, 0.52, 0.55), Color(0.2, 0.35, 0.75)]
+	for i in 4:
+		B.mesh(bb, B.boxm(Vector3(0.36, 0.32, 0.45)), mbox + Vector3(-0.66 + i * 0.44, 1.25, 0), box_cols[i])
+	var lounger := Node3D.new()
+	lounger.rotation.y = 0.3
+	bb.add_child(lounger)
+	B.mesh(lounger, B.boxm(Vector3(0.7, 0.08, 1.9)), Vector3(0, 0.35, 0), Color(0.95, 0.3, 0.45))
+	B.mesh(lounger, B.boxm(Vector3(0.7, 0.08, 0.7)), Vector3(0, 0.6, 0.95), Color(0.95, 0.3, 0.45), Vector3(-40, 0, 0))
+	for lx in [-0.3, 0.3]:
+		for lz in [-0.8, 0.8]:
+			B.mesh(lounger, B.boxm(Vector3(0.04, 0.35, 0.04)), Vector3(lx, 0.17, lz), Color(0.9, 0.9, 0.9))
+	lounger.position = Vector3(fb.l / 2.0 - 2.5, 0, fz - 3.6)
+	B.mesh(bb, B.boxm(Vector3(0.4, 0.22, 0.14)), Vector3(fb.l / 2.0 - 3.5, 0.11, fz - 2.6), Color(0.85, 0.1, 0.12))  # radio
+	# Sinikan puutarha: kukkapenkki, kasvimaa riveineen ja ruusupensaat (puuhapisteet niiden edessä).
+	var soil := Color(0.3, 0.2, 0.12)
+	var bed := Vector3(-4.5, 0, fz - 2.8)
+	B.mesh(bb, B.boxm(Vector3(3.2, 0.18, 1.1)), bed + Vector3(0, 0.09, 0), soil)
+	var petals := [Color(0.95, 0.2, 0.35), Color(1.0, 0.8, 0.1), Color(0.7, 0.3, 0.85), Color(1.0, 0.95, 0.95)]
+	for k in 14:
+		var fp := bed + Vector3(-1.4 + (k % 7) * 0.47, 0, -0.35 + (k / 7) * 0.6)
+		B.mesh(bb, B.cyl(0.015, 0.015, 0.35, 4), fp + Vector3(0, 0.35, 0), Color(0.2, 0.45, 0.15))
+		B.mesh(bb, B.sphere(0.09, 6), fp + Vector3(0, 0.55, 0), petals[k % petals.size()])
+	var veg := Vector3(-fb.l / 2.0 - 2.4, 0, fz + 3.5)
+	B.mesh(bb, B.boxm(Vector3(1.8, 0.14, 3.4)), veg + Vector3(0, 0.07, 0), soil)
+	for row in 3:
+		for k in 6:
+			B.mesh(bb, B.sphere(0.13, 6), veg + Vector3(-0.6 + row * 0.6, 0.2, -1.45 + k * 0.58), Color(0.25, 0.55, 0.2))
+	for k in 3:
+		var rp := Vector3(fb.l / 2.0 + 1.3, 0, fz + 1.5 + k * 1.0)
+		B.mesh(bb, B.sphere(0.45, 8), rp + Vector3(0, 0.45, 0), Color(0.18, 0.4, 0.14))
+		B.mesh(bb, B.sphere(0.1, 6), rp + Vector3(-0.3, 0.75, -0.2), Color(0.85, 0.08, 0.2))
+	var watering := B.mesh(bb, B.cyl(0.12, 0.14, 0.28, 10), Vector3(-2.2, 0.14, fz - 2.3), Color(0.2, 0.55, 0.3))
+	watering.rotation.y = 0.5
+	# Pihojen puuhapisteet talon kehyksessä: ensimmäinen on ulko-oven edusta (lähtöpaikka), muut etupihalla ja
+	# päädyissä, kaukana seinistä, pergolasta, traktorista ja mahdollisesta lipputangosta (-l/2 - 3, fz - 3).
+	var yard_pts := func(body: Node3D, local_pts: Array) -> Array[Vector3]:
+		var out: Array[Vector3] = []
+		for q: Vector3 in local_pts:
+			var wq: Vector3 = body.transform * q
+			out.append(Vector3(wq.x, T.h(wq.x, wq.z), wq.z))
+		return out
+	var door := func(f: Dictionary) -> Vector3:
+		return Vector3(f.dx, 0, f.fz - 1.4)
+	# Sinikka katsoo puuhapisteessä penkkiin päin (kukat, kasvimaa, ruusut).
+	neighbor_faces = {"sinikka": yard_pts.call(bb, [Vector3(fb.dx, 0, fz - 3.0), bed, veg, Vector3(fb.l / 2.0 + 1.3, 0, fz + 2.5)])}
+	neighbor_yards = {
+		"pekka": yard_pts.call(nb, [door.call(fn), Vector3(-3.5, 0, fn.fz - 2.5), Vector3(fn.l / 2.0 - 3.5, 0, fn.fz - 3.0),
+			Vector3(-fn.l / 2.0 - 1.6, 0, fn.fz + 2.0)]),
+		"arto": yard_pts.call(ab, [door.call(fa), Vector3(fa.dx - 1.0, 0, fa.fz - 4.5), Vector3(-sa * 2.0, 0, fa.d / 2.0 + 2.5),
+			Vector3(-sa * (fa.l / 2.0 + 1.6), 0, fa.fz + 2.0)]),
+		"sinikka": yard_pts.call(bb, [door.call(fb), bed + Vector3(0, 0, 1.2), veg + Vector3(1.4, 0, 0),
+			Vector3(fb.l / 2.0 + 0.2, 0, fz + 2.5)]),
+	}
 	# Etelään: keltatiilinen autotalli ruskealla ovella ja luonnonpuinen säleaita.
 	var g := M.w2(M.GARAGE)
 	_add_house(g)
@@ -1141,6 +1286,20 @@ func _build_neighbors() -> void:
 	for k in 16:
 		B.mesh(gar, B.boxm(Vector3(0.1, 1.6, 0.03)), Vector3(3.8 + k * 0.14, 0.8, -3.0 + k * 0.0), Color(0.72, 0.6, 0.42))
 	B.mesh(gar, B.boxm(Vector3(2.4, 0.07, 0.05)), Vector3(4.9, 1.2, -3.0), Color(0.62, 0.5, 0.35))
+
+
+## Pensasaita naapurin etupihan reunaan kadun varteen (talon kehyksessä, f = _build_neighbors fit). Ajotien
+## aukko talon siinä päädyssä, johon drive osoittaa (-1/1 x-akselilla), 0 = portti oven kohdalla.
+func _street_hedge(body: Node3D, f: Dictionary, drive: float) -> void:
+	var z: float = f.fz - f.gap + 0.8
+	var x0: float = -f.l / 2.0 - 2.0
+	var x1: float = f.l / 2.0 + 2.0
+	var gaps: Array = [[f.dx - 1.2, f.dx + 1.2]] if drive == 0.0 else [[drive * (f.l / 2.0 - 3.5) - 1.8, drive * (f.l / 2.0 - 3.5) + 1.8]]
+	var segs: Array = [[x0, gaps[0][0]], [gaps[0][1], x1]]
+	for sg in segs:
+		var w: float = sg[1] - sg[0]
+		if w > 0.5:
+			_add_hedge(body.transform, Vector3((sg[0] + sg[1]) / 2.0, 0.55, z), Vector3(w, 1.1, 0.8), Color(0.24, 0.42, 0.16))
 
 
 ## Vanha punainen traktori pihalla (koriste).
