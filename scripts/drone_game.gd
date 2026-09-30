@@ -105,6 +105,9 @@ func _ready() -> void:
 	_saved_fps = CamCtl.fps
 	CamCtl.fps = true
 	CamCtl.need_mouse = true
+	if Touch.active:
+		Touch.look.connect(_look)
+		Touch.set_extra([[KEY_P, "Kuva"], [KEY_C, "Alas"], [KEY_H, "Kotiin"]])
 	_build_hud()
 	_say("Drooni valmiina. Space nostaa ilmaan.", 3.0)
 
@@ -112,6 +115,9 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	CamCtl.need_mouse = false
 	CamCtl.fps = _saved_fps
+	if Touch.active:
+		Touch.look.disconnect(_look)
+		Touch.set_extra([])
 
 
 ## Nelikopterin malli: runko, varret, moottorit, potkurit (meta "prop") ja kamera gimbaalissa (-Z eteen).
@@ -155,15 +161,22 @@ static func make_pad(parent: Node3D, pos: Vector3, yaw: float) -> Node3D:
 
 # --- Syöte ja lento ---------------------------------------------------------------
 
+## Kääntö ja kameran kallistus (hiiri tai kosketusveto).
+func _look(rel: Vector2) -> void:
+	if _mode == "done" or get_tree().paused:
+		return
+	var sens: float = 0.0028 * Settings.get_v("mouse_sens")
+	_yaw -= rel.x * sens
+	var inv := -1.0 if Settings.get_v("invert_y") else 1.0
+	_gimbal = clampf(_gimbal - rel.y * sens * inv, -PI / 2.0, 0.3)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if _mode == "done":
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sens: float = 0.0028 * Settings.get_v("mouse_sens")
-		_yaw -= event.relative.x * sens
-		var inv := -1.0 if Settings.get_v("invert_y") else 1.0
-		_gimbal = clampf(_gimbal - event.relative.y * sens * inv, -PI / 2.0, 0.3)
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not Touch.active:
+		_look(event.relative)
+	elif event is InputEventMouseButton and not Touch.active and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		take_photo()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
