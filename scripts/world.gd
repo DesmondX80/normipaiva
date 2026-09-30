@@ -110,6 +110,8 @@ var _lawn_st: SurfaceTool
 var _clearcuts: Array[PackedVector2Array] = []
 ## Suorakaiteet, joilta ruoho poistetaan maskista: [keskipiste, puolileveys, puolisyvyys, kierto].
 var _mask_clear: Array = []
+## Rakennusten ja pihaesteiden pohjat [keskipiste, puolikoko (x, z), yaw] naapurien reitinhakuun (villager.gd).
+var blockers: Array = []
 var _hedge_batch := B.Batch.new()
 var _hedge_cards := B.Batch.new()
 var _hedge_quad: QuadMesh
@@ -775,6 +777,7 @@ func _house(pos: Vector2, yaw: float, l: float, d: float, h: float, wall: Color,
 	body.rotation.y = yaw
 	add_child(body)
 	body.add_child(B.box_shape(Vector3(l, h, d), Vector3(0, h / 2.0, 0)))
+	blockers.append([pos, Vector2(l / 2.0, d / 2.0), yaw])
 	var xf := body.transform
 	var batch := _batch_at(pos)
 	if _lawn_st != null:
@@ -1163,6 +1166,8 @@ func _build_neighbors() -> void:
 	var sa := signf((ab.transform.basis.inverse() * Vector3.BACK).x)  # talon x-akselin eteläsuunta
 	_street_hedge(ab, fa, sa)
 	_old_tractor(ab, Vector3(sa * (fa.l / 2.0 - 1.2), 0, fa.fz - 3.2), 0.4)
+	var tp: Vector3 = ab.transform * Vector3(sa * (fa.l / 2.0 - 1.2), 0, fa.fz - 3.2)
+	blockers.append([Vector2(tp.x, tp.z), Vector2(1.6, 1.6), fa.yaw])  # traktori (neliö, ettei suunnalla ole väliä)
 	# Etupihan pieni vaalea vaja OSM-rakennuksen kohdalla.
 	var sh := _osm_fit_at(M.ARTO_SHED)
 	var shed := StaticBody3D.new()
@@ -1171,6 +1176,7 @@ func _build_neighbors() -> void:
 	add_child(shed)
 	_add_house(sh.c)
 	shed.add_child(B.box_shape(Vector3(sh.l, 2.2, sh.d), Vector3(0, 1.1, 0)))
+	blockers.append([sh.c, Vector2(sh.l / 2.0, sh.d / 2.0), sh.yaw])
 	B.mesh(shed, B.boxm(Vector3(sh.l, 2.2, sh.d)), Vector3(0, 1.1, 0), Color(0.86, 0.8, 0.68))
 	var shr := PrismMesh.new()
 	shr.size = Vector3(sh.d + 0.4, 0.7, sh.l + 0.4)
@@ -1183,6 +1189,7 @@ func _build_neighbors() -> void:
 	add_child(agar)
 	_add_house(gp)
 	agar.add_child(B.box_shape(Vector3(5.0, 2.6, 7.0), Vector3(0, 1.3, 0)))
+	blockers.append([gp, Vector2(2.5, 3.5), fa.yaw])
 	B.mesh(agar, B.boxm(Vector3(5.0, 2.6, 7.0)), Vector3(0, 1.3, 0), Color(0.84, 0.68, 0.4))
 	B.mesh(agar, B.boxm(Vector3(5.5, 0.18, 7.5)), Vector3(0, 2.68, 0), Color(0.66, 0.68, 0.62))
 	B.mesh(agar, B.boxm(Vector3(2.5, 2.1, 0.06)), Vector3(0, 1.05, -3.52), Color(0.95, 0.95, 0.93))
@@ -1265,7 +1272,7 @@ func _build_neighbors() -> void:
 		"arto": yard_pts.call(ab, [door.call(fa), Vector3(fa.dx - 1.0, 0, fa.fz - 4.5), Vector3(-sa * 2.0, 0, fa.d / 2.0 + 2.5),
 			Vector3(-sa * (fa.l / 2.0 + 1.6), 0, fa.fz + 2.0)]),
 		"sinikka": yard_pts.call(bb, [door.call(fb), bed + Vector3(0, 0, 1.2), veg + Vector3(1.4, 0, 0),
-			Vector3(fb.l / 2.0 + 0.2, 0, fz + 2.5)]),
+			Vector3(fb.l / 2.0 + 2.4, 0, fz + 2.5)]),
 	}
 	# Etelään: keltatiilinen autotalli ruskealla ovella ja luonnonpuinen säleaita.
 	var g := M.w2(M.GARAGE)

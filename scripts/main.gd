@@ -3397,6 +3397,10 @@ func _neighbor(nimi: String, look: Dictionary, lines: Array, key: String) -> Cha
 	v.target = player
 	v.yard.assign(world.neighbor_yards[key])
 	v.faces.assign(world.neighbor_faces.get(key, []))
+	var mid := Vector2(v.yard[0].x, v.yard[0].z)
+	for o in world.blockers:
+		if (o[0] as Vector2).distance_to(mid) < 40.0:
+			v.obstacles.append(o)
 	v.position = v.yard[0]
 	v.rotation.y = B.yaw_to(v.yard[1] - v.yard[0])  # ovelta pihalle päin
 	add_child(v)
@@ -4459,6 +4463,21 @@ func _maybe_screenshot() -> void:
 				checks.append(["koira%d" % k, M.w(M.STRAY_SPOTS[k]), null])
 			for k in M.BALES.size():
 				checks.append(["paali%d" % k, M.w(M.BALES[k]), null])
+			for nv in [arto, pekka, sinikka]:  # reitit puuhapisteiden välillä esteiden ohi
+				for i in nv.yard.size():
+					if nv._inside(Vector2(nv.yard[i].x, nv.yard[i].z)):
+						print("REITTI %s piste %d esteen sisällä" % [nv.display_name, i])
+					for j in nv.yard.size():
+						var a: Vector3 = nv.yard[i]
+						var r: Array[Vector3] = nv._plan(a, nv.yard[j])
+						var pts: Array[Vector2] = [Vector2(a.x, a.z)]
+						for q in r:
+							pts.append(Vector2(q.x, q.z))
+						pts.append(Vector2(nv.yard[j].x, nv.yard[j].z))
+						for k in pts.size() - 1:
+							if i != j and nv._blocked(pts[k], pts[k + 1]):
+								print("REITTI %s %d->%d menee esteen läpi" % [nv.display_name, i, j])
+								break
 			for key: String in world.neighbor_yards:  # naapurien pihan puuhapisteet
 				var yd: Array = world.neighbor_yards[key]
 				for k in range(1, yd.size()):
