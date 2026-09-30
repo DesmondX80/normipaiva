@@ -9,6 +9,7 @@ const Terrain := preload("res://scripts/terrain.gd")
 
 const WALK_SPEED := 1.1
 const NEAR := 14.0  # tätä lähempänä pelaaja: puuhailu keskeytyy ja naapuri kääntyy juttelemaan
+const CLEAR := 0.7  # etäisyys, jolla kierretään seinät ja pihaesteet
 
 var look := {}
 var display_name := ""
@@ -21,6 +22,8 @@ var yard: Array[Vector3] = []
 var faces: Array[Vector3] = []
 ## Puuhailuanimaatiot (Universal Animation Library); arvotaan jokaiseen puuhapisteeseen.
 var chores: Array[String] = ["Fixing_Kneeling", "PickUp_Table", "Interact", "Crouch_Idle"]
+## Lähialueen rakennukset ja pihaesteet [keskipiste (x, z), puolikoko, yaw] (world.blockers); reitti kiertää ne.
+var obstacles: Array = []
 
 var _body: Node3D
 var _bubble: Label3D
@@ -30,6 +33,7 @@ var _goal := -1  # yard-indeksi, jota kohti kävellään (-1 = puuhailee paikall
 var _spot := 0
 var _chore_t := 0.0
 var _chore := "Idle"
+var _route: Array[Vector3] = []  # kulmapisteet matkalla kohti yard[_goal]
 
 
 func _ready() -> void:
@@ -68,8 +72,11 @@ func _putter(delta: float) -> void:
 		_body.play("Idle", 0.3)
 		return
 	if _goal >= 0:
-		var to_g := yard[_goal] - global_position
+		var to_g := (_route[0] if not _route.is_empty() else yard[_goal]) - global_position
 		to_g.y = 0.0
+		if to_g.length() < 0.25 and not _route.is_empty():
+			_route.remove_at(0)
+			return
 		if to_g.length() < 0.25:
 			_spot = _goal
 			_goal = -1
@@ -92,6 +99,90 @@ func _putter(delta: float) -> void:
 	if _chore_t <= 0.0:
 		var nxt := randi() % (yard.size() - 1)
 		_goal = nxt if nxt < _spot else nxt + 1  # eri piste kuin nykyinen
+		_route = _plan(global_position, yard[_goal])
+
+
+## Lyhin reitti esteiden ohi: näkyvyysverkko esteiden (laajennettujen) kulmien kautta, Dijkstra.
+func _plan(from: Vector3, to: Vector3) -> Array[Vector3]:
+	var a := Vector2(from.x, from.z)
+	var b := Vector2(to.x, to.z)
+	var out: Array[Vector3] = []
+	if not _blocked(a, b):
+		return out
+	var nodes: Array[Vector2] = [a, b]
+	for o in obstacles:
+		var h: Vector2 = o[1] + Vector2(CLEAR + 0.15, CLEAR + 0.15)
+		for c in [Vector2(-h.x, -h.y), Vector2(h.x, -h.y), Vector2(h.x, h.y), Vector2(-h.x, h.y)]:
+			var w: Vector2 = c.rotated(-o[2]) + o[0]
+			if not _inside(w):
+				nodes.append(w)
+	var dist: Array[float] = []
+	var prev: Array[int] = []
+	var done: Array[bool] = []
+	for i in nodes.size():
+		dist.append(INF)
+		prev.append(-1)
+		done.append(false)
+	dist[0] = 0.0
+	while true:
+		var u := -1
+		for i in nodes.size():
+			if not done[i] and dist[i] < INF and (u < 0 or dist[i] < dist[u]):
+				u = i
+		if u < 0 or u == 1:
+			break
+		done[u] = true
+		for v in nodes.size():
+			if done[v] or v == u:
+				continue
+			var nd := dist[u] + nodes[u].distance_to(nodes[v])
+			if nd < dist[v] and not _blocked(nodes[u], nodes[v]):
+				dist[v] = nd
+				prev[v] = u
+	if prev[1] < 0:
+		return out  # ei reittiä: kävellään suoraan
+	var k := prev[1]
+	while k > 0:
+		out.push_front(Vector3(nodes[k].x, 0.0, nodes[k].y))
+		k = prev[k]
+	return out
+
+
+## Leikkaako jana a-b jonkin esteen (laajennettuna CLEAR:llä)?
+func _blocked(a: Vector2, b: Vector2) -> bool:
+	for o in obstacles:
+		var h: Vector2 = o[1] + Vector2(CLEAR, CLEAR)
+		var p: Vector2 = (a - o[0]).rotated(o[2])
+		var q: Vector2 = (b - o[0]).rotated(o[2])
+		var d := q - p
+		var t0 := 0.0
+		var t1 := 1.0
+		var hit := true
+		for ax in 2:
+			if absf(d[ax]) < 1e-6:
+				if absf(p[ax]) > h[ax]:
+					hit = false
+					break
+				continue
+			var ta := (-h[ax] - p[ax]) / d[ax]
+			var tb := (h[ax] - p[ax]) / d[ax]
+			t0 = maxf(t0, minf(ta, tb))
+			t1 = minf(t1, maxf(ta, tb))
+			if t0 > t1:
+				hit = false
+				break
+		if hit:
+			return true
+	return false
+
+
+func _inside(w: Vector2) -> bool:
+	for o in obstacles:
+		var p: Vector2 = (w - o[0]).rotated(o[2])
+		var h: Vector2 = o[1] + Vector2(CLEAR, CLEAR)
+		if absf(p.x) < h.x and absf(p.y) < h.y:
+			return true
+	return false
 
 
 func say(text: String) -> void:
