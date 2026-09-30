@@ -85,9 +85,15 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   jalkapallopojat ja... Pannu-Sulon pontikkapannu, joka merkitään kuvan jälkeen karttaan). Akku kestää 5 min ja
   latautuu alustalla, korkeusraja on 120 m ja kantama noin 1,3 km: heikolla akulla tai signaalilla drooni palaa
   itse kotiin (H palaa, F laskeutuu). Kova törmäys rikkoo droonin päiväksi. Päivin jahti on tauolla lennon ajan.
+  Drooni kulkee mukana myös **mökille**: alusta on pysäköintipaikan vieressä mökin takana. Mökillä kuvattavia on
+  mökki, savusauna, poreamme, kesäkeittiö, laituri, metsästyslava, Santtu ja lähijärvet (Likanen, Tervalampi,
+  Kiiskeroinen); lentoalue ulottuu noin 600 m:n päähän, ja järveen tipahtanut drooni on mennyttä. Moottoreista
+  kuuluu vain pieni surina.
 - **Reppu (I tai Tab):** tavarat, kaljat, ostokset, sienet, kalat ja metsästyssaaliit näkyvät Minecraft-tyylisessä
   ruudukossa pikselikuvakkeina ja pinoina, ja alarivillä ovat eväät (T syö). Samassa näkymässä ovat rahat,
-  kauppalista ja jemmat. HUD:ssa näkyvät enää rahat, aika, tavoite ja kauppalista.
+  kauppalista, jemmat, mielihyvä ja maine sekä droonin ilmakuvat, ja muotokuvaruudussa on pelaajan oma 3D-hahmo
+  lippiksineen ja tuulipukuineen, joka kääntyy katsomaan hiirtä. Päänäkymän HUD:ssa näkyvät enää aika, tavoite ja
+  alusta (sekä varoitus, jos kotijemma on vaarassa).
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
 

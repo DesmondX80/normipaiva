@@ -7,6 +7,8 @@ extends Node3D
 ## Akku riittää viideksi minuutiksi; 20 %:ssa varoitus, 8 %:ssa automaattinen paluu kotiin. Yli kantaman
 ## signaali heikkenee ja drooni palaa itse. Kova törmäys maahan, taloon tai puuhun rikkoo droonin.
 ## main.gd:n lapsi, paikka = laskeutumisalusta; body liikkuu maailmassa (tutka, kompassi ja kartta seuraavat sitä).
+## Lennetään kotipihalta Saloisissa tai mökin pihalta: maanpinta, vesi ja lentoalue annetaan kutsuttavina
+## (oletuksena Saloisten maasto ja pelialue).
 
 signal photographed(id: String)
 signal finished(result: String)  # "landed" | "crashed"
@@ -33,6 +35,9 @@ var pois: Array = []  # [{id, name, pos: Callable -> Vector3}]
 var photo_count := 0
 var photo_total := 0
 var hud: CanvasLayer  # pelin HUD, piilotetaan kuvan ottamisen ajaksi
+var ground := func(x: float, z: float) -> float: return Terrain.h(x, z)  # pinnan korkeus maailmassa (vesi = pinta)
+var is_water := func(_x: float, _z: float) -> bool: return false
+var in_bounds := Callable()  # (Vector2 maailman x/z) -> bool; oletuksena Saloisten pelialue
 
 var body: CharacterBody3D
 var _model: Node3D
@@ -64,7 +69,7 @@ var _rec: Label
 
 func _ready() -> void:
 	_home = global_position
-	_home_ground = Terrain.h(_home.x, _home.z)
+	_home_ground = ground.call(_home.x, _home.z)
 	body = CharacterBody3D.new()
 	body.motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	var cs := CollisionShape3D.new()
@@ -89,12 +94,14 @@ func _ready() -> void:
 	_buzz = AudioStreamPlayer3D.new()
 	_buzz.bus = "SFX"
 	_buzz.stream = _buzz_stream()
-	_buzz.unit_size = 6.0
-	_buzz.volume_db = -6.0
+	_buzz.unit_size = 3.0
+	_buzz.volume_db = -20.0
 	body.add_child(_buzz)
 	_buzz.play()
-	for p in M.PLAY_AREA:
-		_play_poly.append(M.w2(p))
+	if not in_bounds.is_valid():
+		for p in M.PLAY_AREA:
+			_play_poly.append(M.w2(p))
+		in_bounds = func(p: Vector2) -> bool: return Geometry2D.is_point_in_polygon(p, _play_poly)
 	_saved_fps = CamCtl.fps
 	CamCtl.fps = true
 	CamCtl.need_mouse = true
@@ -130,6 +137,22 @@ static func make_model(parent: Node3D) -> Node3D:
 	return m
 
 
+## Laskeutumisalusta: tumma kiekko, keltainen H ja kantolaukku vieressä. pos = alustan keskipiste maanpinnalla.
+static func make_pad(parent: Node3D, pos: Vector3, yaw: float) -> Node3D:
+	var pad := Node3D.new()
+	pad.position = pos + Vector3(0, 0.01, 0)
+	pad.rotation.y = yaw
+	parent.add_child(pad)
+	B.mesh(pad, B.cyl(0.9, 0.9, 0.02, 24), Vector3.ZERO, Color(0.12, 0.12, 0.13))
+	B.mesh(pad, B.cyl(0.8, 0.8, 0.025, 24), Vector3.ZERO, Color(0.9, 0.75, 0.1))
+	B.mesh(pad, B.cyl(0.74, 0.74, 0.03, 24), Vector3.ZERO, Color(0.12, 0.12, 0.13))
+	for hx in [-0.22, 0.22]:
+		B.mesh(pad, B.boxm(Vector3(0.08, 0.02, 0.6)), Vector3(hx, 0.02, 0), Color(0.9, 0.75, 0.1))
+	B.mesh(pad, B.boxm(Vector3(0.44, 0.02, 0.08)), Vector3(0, 0.02, 0), Color(0.9, 0.75, 0.1))
+	B.mesh(pad, B.boxm(Vector3(0.5, 0.18, 0.35)), Vector3(1.3, 0.09, 0.2), Color(0.1, 0.1, 0.1))  # kantolaukku
+	return pad
+
+
 # --- Syöte ja lento ---------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -162,7 +185,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_t += delta
 	var pos := body.global_position
-	var ground := Terrain.h(pos.x, pos.z)
+	var floor_y: float = ground.call(pos.x, pos.z)
 	var alt := pos.y - _home_ground
 	var target := Vector3.ZERO
 	var vy := 0.0
@@ -189,7 +212,7 @@ func _physics_process(delta: float) -> void:
 		"landing":
 			var to := Vector2(_home.x - pos.x, _home.z - pos.z)
 			target = Vector3(to.x, 0, to.y) * 1.5
-			vy = -clampf((pos.y - ground) * 0.8, 0.6, 3.0)
+			vy = -clampf((pos.y - floor_y) * 0.8, 0.6, 3.0)
 	# Tuulenpuuskat heiluttavat ilmassa, sitä enemmän mitä korkeammalla.
 	var gust := Vector3(sin(_t * 0.37) + 0.5 * sin(_t * 1.3), 0, cos(_t * 0.29)) * clampf(alt / 60.0, 0.0, 1.0) * 0.6
 	var h := Vector2(_vel.x, _vel.z).lerp(Vector2(target.x, target.z), 1.0 - exp(-2.2 * delta))
@@ -201,7 +224,7 @@ func _physics_process(delta: float) -> void:
 		_vel.y = 0.0
 		_warn_once("alt", "Korkeusraja 120 m.")
 	var p2 := Vector2(pos.x, pos.z)
-	if not Geometry2D.is_point_in_polygon(p2, _play_poly):
+	if not in_bounds.call(p2):
 		var back := (Vector2(_home.x, _home.z) - p2).normalized() * 6.0
 		_vel.x = back.x
 		_vel.z = back.y
@@ -215,19 +238,22 @@ func _physics_process(delta: float) -> void:
 			return
 		_vel *= 0.3
 	pos = body.global_position
-	ground = Terrain.h(pos.x, pos.z)
-	if pos.y < ground + 0.18:
+	floor_y = ground.call(pos.x, pos.z)
+	if pos.y < floor_y + 0.18:
+		if is_water.call(pos.x, pos.z):
+			_crash("Drooni tipahti järveen!")
+			return
 		if _vel.y < -3.5 or Vector2(_vel.x, _vel.z).length() > CRASH_SPEED:
 			_crash("Drooni iskeytyi maahan!")
 			return
-		body.global_position.y = ground + 0.18
+		body.global_position.y = floor_y + 0.18
 		if not _landed and _vel.y <= 0.0:
 			_landed = true
 			_vel = Vector3.ZERO
 			if _mode == "landing" or _home_dist() < 3.0:
 				_finish("landed")
 				return
-	elif pos.y > ground + 0.4:
+	elif pos.y > floor_y + 0.4:
 		_landed = false
 	_tick_battery(delta, sport)
 	_tick_range()
@@ -280,7 +306,7 @@ func _crash(msg: String) -> void:
 	Sfx.play("rattle_hard", 0.0, 0.7)
 	Sfx.play("glass", -4.0, 1.4)
 	_model.rotation = Vector3(0.9, 0.3, 1.8)
-	body.global_position.y = Terrain.h(body.global_position.x, body.global_position.z) + 0.1
+	body.global_position.y = ground.call(body.global_position.x, body.global_position.z) + 0.1
 	_say(msg + "\nDROONI RIKKI", 3.0)
 	await get_tree().create_timer(2.5).timeout
 	finished.emit("crashed")
@@ -303,8 +329,8 @@ func _update_visuals(delta: float) -> void:
 	var spin := 0.0 if _landed else 60.0
 	for pr in _props:
 		pr.rotation.y += spin * delta
-	_buzz.pitch_scale = 0.85 + 0.35 * clampf(_vel.length() / SPORT + absf(_vel.y) / VSPEED * 0.3, 0.0, 1.0) \
-		if not _landed else 0.6
+	_buzz.pitch_scale = 0.94 + 0.14 * clampf(_vel.length() / SPORT + absf(_vel.y) / VSPEED * 0.3, 0.0, 1.0) \
+		if not _landed else 0.8
 	# Kamera: FPV gimbaalista (vakaa, ei kallistu rungon mukana) tai seuranta takaa.
 	var bp := body.global_position
 	if CamCtl.fps:
@@ -313,7 +339,7 @@ func _update_visuals(delta: float) -> void:
 	else:
 		var back := Basis(Vector3.UP, _yaw) * Vector3(0, 0.9, 2.6)
 		var want := bp + back
-		want.y = maxf(want.y, Terrain.h(want.x, want.z) + 0.5)
+		want.y = maxf(want.y, ground.call(want.x, want.z) + 0.5)
 		_cam.global_position = _cam.global_position.lerp(want, 1.0 - exp(-6.0 * delta))
 		_cam.look_at(bp + Vector3(0, 0.2, 0), Vector3.UP)
 
@@ -457,20 +483,23 @@ func _hud_label(size: int, preset: Control.LayoutPreset, offsets: Rect2) -> Labe
 	return l
 
 
-## Moottorien surina: sahalaitaa ja harmonisia noin 190 Hz:ssä, silmukkana.
+## Moottorien pieni surina: neljä hieman eri tahtiin pyörivää potkuria (lähes puhtaat siniaallot, jotka huojuvat
+## toisiaan vasten) ja hiljainen ilmavirran kohina. Kokonaislukutaajuudet, jotta 1 s silmukka jatkuu saumatta.
 static func _buzz_stream() -> AudioStreamWAV:
 	var rate := 22050
 	var n := rate  # 1 s
-	var f := 190.0
+	var freqs := [236.0, 241.0, 247.0, 252.0]
 	var data := PackedByteArray()
 	data.resize(n * 2)
+	var hiss := 0.0
 	for i in n:
 		var t := float(i) / rate
 		var s := 0.0
-		for k in range(1, 7):
-			s += sin(TAU * f * k * t + k) / k
-		s = s * 0.35 + 0.08 * sin(TAU * f * 1.5 * t) + (randf() - 0.5) * 0.06
-		data.encode_s16(i * 2, int(clampf(s, -1.0, 1.0) * 26000.0))
+		for f in freqs:
+			s += sin(TAU * f * t) + 0.25 * sin(TAU * f * 2.0 * t) + 0.08 * sin(TAU * f * 3.0 * t)
+		hiss = lerpf(hiss, randf() - 0.5, 0.15)  # pehmennetty kohina
+		s = s / freqs.size() * 0.55 + hiss * 0.08
+		data.encode_s16(i * 2, int(clampf(s, -1.0, 1.0) * 20000.0))
 	var w := AudioStreamWAV.new()
 	w.format = AudioStreamWAV.FORMAT_16_BITS
 	w.mix_rate = rate

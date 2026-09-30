@@ -8,6 +8,7 @@ const Foliage := preload("res://scripts/foliage.gd")
 const T := preload("res://scripts/terrain.gd")
 const Kota := preload("res://scripts/kota.gd")
 const Looks := preload("res://scripts/looks.gd")
+const DroneGame := preload("res://scripts/drone_game.gd")
 const DRAPE_EDGE := 3.0  # maakerrosten kolmioiden maksimisivu, jotta ne myötäilevät maastoa
 ## Lehvästökorttien näkyvyysraja: tätä kauempana puut piirretään kevyinä perusmuotoina.
 const TREE_NEAR := 210.0
@@ -1058,17 +1059,7 @@ func _build_home() -> void:
 	taxi_home_pos = xf * Vector3(8.5, 0, fz - 2.4)
 	# Droonin laskeutumisalusta autojen vieressä: tumma kiekko, keltainen H.
 	drone_pad_pos = xf * Vector3(-6.0, 0, fz - 7.0)
-	var pad := Node3D.new()
-	pad.position = drone_pad_pos + Vector3(0, T.h(drone_pad_pos.x, drone_pad_pos.z) + 0.01, 0)
-	pad.rotation.y = body.rotation.y
-	add_child(pad)
-	B.mesh(pad, B.cyl(0.9, 0.9, 0.02, 24), Vector3.ZERO, Color(0.12, 0.12, 0.13))
-	B.mesh(pad, B.cyl(0.8, 0.8, 0.025, 24), Vector3.ZERO, Color(0.9, 0.75, 0.1))
-	B.mesh(pad, B.cyl(0.74, 0.74, 0.03, 24), Vector3.ZERO, Color(0.12, 0.12, 0.13))
-	for hx in [-0.22, 0.22]:
-		B.mesh(pad, B.boxm(Vector3(0.08, 0.02, 0.6)), Vector3(hx, 0.02, 0), Color(0.9, 0.75, 0.1))
-	B.mesh(pad, B.boxm(Vector3(0.44, 0.02, 0.08)), Vector3(0, 0.02, 0), Color(0.9, 0.75, 0.1))
-	B.mesh(pad, B.boxm(Vector3(0.5, 0.18, 0.35)), Vector3(1.3, 0.09, 0.2), Color(0.1, 0.1, 0.1))  # kantolaukku
+	DroneGame.make_pad(self, drone_pad_pos + Vector3(0, T.h(drone_pad_pos.x, drone_pad_pos.z), 0), body.rotation.y)
 	# Tumma havupensasaita (tuija/kataja) kadun puolella.
 	for seg in [[-l / 2.0, -4.5], [5.0, l / 2.0]]:
 		var hl: float = seg[1] - seg[0]
