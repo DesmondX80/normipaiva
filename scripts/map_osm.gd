@@ -1,6 +1,6 @@
 extends RefCounted
-## GENEROITU (tools/kartta/kyla_osm.ps1): kylän pohjoisosa OpenStreetMapista (© OpenStreetMap-tekijät, ODbL).
-## Koordinaatit kartan pikseleinä samassa kehyksessä kuin eteläosa (ETRS-TM35FIN -> 1,22 m/px). Älä muokkaa käsin.
+## GENEROITU (tools/kartta/kyla_osm.ps1 tai kyla_osm.py): kylän kartta OpenStreetMapista (© OpenStreetMap-tekijät, ODbL).
+## Koordinaatit kartan pikseleinä (ETRS-TM35FIN -> 1,22 m/px, ks. tools/kartta/kehys.ps1). Älä muokkaa käsin.
 
 const ROADS := [
 	{"type": "highway", "name": "Kantatie", "h": 0, "pts": [Vector2(1255, -60), Vector2(1549, 206), Vector2(1591, 245), Vector2(1700, 344)]},

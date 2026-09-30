@@ -6,8 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Xml;
 
-// OpenStreetMap-ote -> kylän kartan pohjoisosa (scripts/map_osm.gd). Solmut muunnetaan ETRS-TM35FIN:iin
-// (Tm35.Fwd) ja siitä kartan pikseleiksi eteläosan yhdenmuotoisuusmuunnoksella (J_K -> J_PATO, ks. kyla.ps1).
+// OpenStreetMap-ote -> kylän kartta (scripts/map_osm.gd) tai mökin kohteet (kartta.json). Kylässä solmut muunnetaan
+// ETRS-TM35FIN:iin (Tm35.Fwd) ja siitä kartan pikseleiksi kehyksen yhdenmuotoisuusmuunnoksella (J_K, J_PATO, ks. kehys.ps1).
+// Python-versio: kartta.py (Osm).
 public static class Osm {
     public class Way { public string Id; public List<string> Nd = new List<string>(); public Dictionary<string, string> Tag = new Dictionary<string, string>(); }
     public class Rel { public string Id; public List<string[]> Mem = new List<string[]>(); public Dictionary<string, string> Tag = new Dictionary<string, string>(); }
@@ -19,15 +20,17 @@ public static class Osm {
     static Dictionary<string, int> nodeUse = new Dictionary<string, int>();
     static CultureInfo IC = CultureInfo.InvariantCulture;
 
-    // Nämä tiet otetaan koko kartan matkalta (FullRect), eivät vain pohjoisosasta: esim. Ketunperäntie kodalle asti.
-    public static string[] FullRoads = new string[0];
-    public static double[] FullRect = { -60, -60, 1700, 4100 };
-    // Metsät vain tämän rajan pohjoispuolelta (etelässä käsin tehty yhtenäinen metsä, map_data.gd).
-    public static double ForestY1 = double.MaxValue;
 
     // Kartan kehys: px = J_K + R(-rot) * ((E, -N) - J_K) / sc
     static double jkE, jkN, sc, rot;
     public static void Frame(double e, double n, double scale, double rotation) { jkE = e; jkN = n; sc = scale; rot = rotation; }
+    // Mökin kehys (Local): metrit osoitepisteestä, x itään ja z etelään, 111 320 m/aste (kuten tools/mokki_kartta.py).
+    public static bool Local = false;
+    public static double LLat0 = 64.5054523, LLon0 = 26.6672225;
+    static double[] ToLocal(double lat, double lon) {
+        return new[] { (lon - LLon0) * Math.Cos(LLat0 * Math.PI / 180.0) * 111320.0, -(lat - LLat0) * 111320.0 };
+    }
+
     public static double[] ToPx(double e, double n) {
         double mx = e - jkE, my = jkN - n, c = Math.Cos(rot), s = Math.Sin(rot);
         return new[] { 195 + (mx * c + my * s) / sc, 765 + (-mx * s + my * c) / sc };
@@ -41,8 +44,9 @@ public static class Osm {
                 switch (rd.Name) {
                     case "node":
                         nid = rd.GetAttribute("id");
-                        var t = Tm35.Fwd(double.Parse(rd.GetAttribute("lat"), IC), double.Parse(rd.GetAttribute("lon"), IC));
-                        node[nid] = ToPx(t[0], t[1]);
+                        double lat = double.Parse(rd.GetAttribute("lat"), IC), lon = double.Parse(rd.GetAttribute("lon"), IC);
+                        if (Local) node[nid] = ToLocal(lat, lon);
+                        else { var t = Tm35.Fwd(lat, lon); node[nid] = ToPx(t[0], t[1]); }
                         w = null; r = null;
                         if (rd.IsEmptyElement) nid = null;
                         break;
@@ -220,8 +224,8 @@ public static class Osm {
         var sb = new StringBuilder();
         var log = new StringBuilder();
         sb.Append("extends RefCounted\n");
-        sb.Append("## GENEROITU (tools/kartta/kyla_osm.ps1): kylän pohjoisosa OpenStreetMapista (© OpenStreetMap-tekijät, ODbL).\n");
-        sb.Append("## Koordinaatit kartan pikseleinä samassa kehyksessä kuin eteläosa (ETRS-TM35FIN -> 1,22 m/px). Älä muokkaa käsin.\n\n");
+        sb.Append("## GENEROITU (tools/kartta/kyla_osm.ps1 tai kyla_osm.py): kylän kartta OpenStreetMapista (© OpenStreetMap-tekijät, ODbL).\n");
+        sb.Append("## Koordinaatit kartan pikseleinä (ETRS-TM35FIN -> 1,22 m/px, ks. tools/kartta/kehys.ps1). Älä muokkaa käsin.\n\n");
 
         // Tiet: saman nimen ja tyypin pätkät ketjutetaan, risteyssolmut säilytetään yksinkertaistuksessa.
         var groups = new Dictionary<string, List<List<string>>>();
@@ -258,8 +262,7 @@ public static class Osm {
                 var p = ids.Select(id => node[id]).ToList();
                 var keep = ids.Select(id => nodeUse.ContainsKey(id) && nodeUse[id] > 1).ToArray();
                 var kout = new List<List<bool>>();  // ClipLine lisää osat ja niiden keep-listat samassa järjestyksessä
-                bool full = FullRoads.Contains(name);
-                var parts = full ? ClipLine(p, FullRect[0], FullRect[1], FullRect[2], FullRect[3], kout, keep) : ClipLine(p, x0, y0, x1, y1, kout, keep);
+                var parts = ClipLine(p, x0, y0, x1, y1, kout, keep);
                 for (int pi = 0; pi < parts.Count; pi++) {
                     var part = parts[pi];
                     double len = 0; for (int i = 1; i < part.Count; i++) len += Math.Sqrt(Math.Pow(part[i][0] - part[i - 1][0], 2) + Math.Pow(part[i][1] - part[i - 1][1], 2));
@@ -282,7 +285,7 @@ public static class Osm {
         Action<string, List<string>> addArea = (kind, ids) => {
             var p = Pts(ids); if (p.Count < 4) return;
             p.RemoveAt(p.Count - 1);
-            var cp = ClipPoly(p, x0, y0, x1, kind == "forest" ? Math.Min(y1, ForestY1) : y1);
+            var cp = ClipPoly(p, x0, y0, x1, y1);
             if (cp.Count < 3 || Math.Abs(Area(cp)) < (kind == "water" ? 40 : 300)) return;
             // Rajattu ja yksinkertaistettu alue; jos se leikkaa itseään (kovera alue ylittää rajan monesti, jolloin
             // rajaus jättää nollaleveitä reunoja), kokeillaan tarkempaa ja lopuksi rajaamatonta aluetta.
@@ -363,6 +366,58 @@ public static class Osm {
         log.AppendLine("rakennuksia " + nb);
         File.WriteAllText(outPath, sb.ToString(), new UTF8Encoding(false));
         return log.ToString();
+    }
+
+    // --- Mökki: kohteet kartta.json-muodossa (kuten tools/mokki_kartta.py, lisäksi metsät) ---------------
+    static string MokkiKind(Dictionary<string, string> t) {
+        string v;
+        if ((t.TryGetValue("natural", out v) && v == "water") || (t.TryGetValue("landuse", out v) && v == "reservoir")) return "water";
+        if (t.TryGetValue("landuse", out v) && (v == "farmland" || v == "meadow" || v == "grass")) return "field";
+        if (t.TryGetValue("natural", out v) && v == "wetland") return "bog";
+        if (t.TryGetValue("natural", out v) && v == "sand") return "sand";
+        if ((t.TryGetValue("landuse", out v) && v == "forest") || (t.TryGetValue("natural", out v) && (v == "wood" || v == "scrub" || v == "heath"))) return "forest";
+        if (t.ContainsKey("highway")) return "road";
+        if (t.ContainsKey("building")) return "building";
+        if (t.ContainsKey("waterway")) return "stream";
+        return null;
+    }
+
+    static string Js(string s) {
+        var b = new StringBuilder("\"");
+        foreach (char c in s ?? "") { if (c == '"' || c == '\\') b.Append('\\'); if (c >= ' ') b.Append(c); }
+        return b.Append('"').ToString();
+    }
+
+    // Kohteet JSON-taulukkona. level(xs, zs) antaa vesistön pinnan (m), se lisätään vesikohteisiin kenttään "level".
+    public static string MokkiFeatures(Func<double[], double[], double> level, out int count) {
+        var items = new List<string>();
+        Action<string, Dictionary<string, string>, string, List<double[]>> add = (kind, tags, id, p) => {
+            if (p.Count < 2) return;
+            string ftype = null;
+            foreach (var k in new[] { "highway", "building", "waterway", "natural" }) { string v; if (tags.TryGetValue(k, out v)) { ftype = v; break; } }
+            ftype = ftype ?? "";
+            if (ftype == "yes" && kind != "building") ftype = "";
+            string name; tags.TryGetValue("name", out name);
+            var sb = new StringBuilder();
+            sb.Append("{\"kind\":" + Js(kind) + ",\"name\":" + Js(name ?? "") + ",\"type\":" + Js(ftype) + ",\"id\":" + Js(id) + ",\"pts\":[");
+            sb.Append(string.Join(",", p.Select(q => "[" + Math.Round(q[0], 1).ToString(IC) + "," + Math.Round(q[1], 1).ToString(IC) + "]")));
+            sb.Append("]");
+            if (kind == "water") sb.Append(",\"level\":" + Math.Round(level(p.Select(q => q[0]).ToArray(), p.Select(q => q[1]).ToArray()), 2).ToString(IC));
+            sb.Append("}");
+            items.Add(sb.ToString());
+        };
+        foreach (var w in way.Values) {
+            string kind = MokkiKind(w.Tag); if (kind == null) continue;
+            add(kind, w.Tag, w.Id, Pts(w.Nd));
+        }
+        foreach (var r in rels) {
+            if (!r.Tag.ContainsKey("type") || r.Tag["type"] != "multipolygon") continue;
+            string kind = MokkiKind(r.Tag); if (kind == null) continue;
+            int k = 0;
+            foreach (var ring in Rings(r)) add(kind, r.Tag, "r" + r.Id + "_" + (k++), Pts(ring));
+        }
+        count = items.Count;
+        return "[" + string.Join(",", items) + "]";
     }
 
     // Apuri: nimettyjen kohteiden (solmut ja alueet) keskipisteet pikseleinä, esim. kaupat ja paikannimet.

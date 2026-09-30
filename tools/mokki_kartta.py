@@ -9,6 +9,9 @@ Ajo: python3 tools/mokki_kartta.py   (verkkoyhteys: overpass-api.de ja api.opent
   metreinä osoitepisteestä, x itään ja z etelään (sama kehys kuin ennen, 111 320 m/aste).
 - Tarkka MML:n 2 m korkeusmalli (300 x 300 m, "dem") säilytetään sellaisenaan. Sen ulkopuolelle haetaan
   EU-DEM 25 m ("dem_far", 2 x 2 km, 25 m ruutu), joka sovitetaan 2 m mallin tasoon päällekkäiseltä alueelta.
+  TARKENNUS: aja tämän jälkeen tools/kartta/mokki.ps1, joka korvaa "dem_far":n MML:n 2 m mallilla (8 m ruudukko,
+  lehti R4333D kattaa koko alueen) ja laskee vesistöjen pinnat siitä uudelleen (EU-DEM antaa pienille lammille
+  metrejä liian korkean pinnan).
 - Jokaiselle vesistölle lasketaan pinnan korkeus ("level"): korkeusmallin alin kohta järven sisällä (malli
   tasoittaa vedenpinnan), pienille lammille rantaviivan alin kohta. Likasen pinta on 2 m mallin mittaama 125,34 m.
 """

@@ -23,39 +23,68 @@ Huomioita:
   kylä = R4132H, R4134B, R4141G, R4143A. Tarkista tulos lehden omasta sijaintitiedosta (GeoTIFF-tagi 33922),
   jonka `Tiff.Info()` tulostaa.
 
+## Ajotavat: PowerShell tai Python
+
+Jokaisesta ajoskriptistä on kaksi samaa tulosta tuottavaa versiota:
+
+- **PowerShell** (Windows PowerShell 5.1, C# käännetään `Add-Type`llä): `kyla_osm.ps1`, `kyla.ps1`, `mokki.ps1`.
+- **Python 3** (vain standardikirjasto, ei numpyä eikä GDALia): `kyla_osm.py`, `kyla.py`, `mokki.py`
+  (yhteinen kirjasto `kartta.py`). Python-versiot tuottavat samat tiedostot tavu tavulta; LZW-purku puhtaalla
+  Pythonilla on hitaampi (kylän korkeusmalli muutamia minuutteja).
+
 ## Kylä (scripts/map_data.gd, scripts/map_osm.gd, assets/terrain/)
 
-Kartan pikselit ovat yhdessä todellisessa kehyksessä (`kehys.ps1`): kaksi OSM-risteystä kiinnittää sen,
-J_K (Ketunperäntie / Tarpiontie) = px (195, 765) ja J_PATO (Ketunperäntie / Patotie) = px (1304, 3778),
+Kartan pikselit ovat yhdessä todellisessa kehyksessä (`kehys.ps1`, Pythonissa `kartta.py`): kaksi OSM-risteystä
+kiinnittää sen, J_K (Ketunperäntie / Tarpiontie) = px (195, 765) ja J_PATO (Ketunperäntie / Patotie) = px (1304, 3778),
 mittakaava n. 1,22 m/px. Uusi alue laajennetaan samaan kehykseen, jolloin kaikki kohteet osuvat kohdalleen.
 
 1. **OSM-ote**: hae `map.osm` bbox-kyselyllä niin, että se kattaa uuden alueen (nykyinen: `bbox=24.43,64.595,24.53,64.66`).
-2. **Tiet, rakennukset, maankäyttö**: `powershell -File tools\kartta\kyla_osm.ps1 -Osm <map.osm>` kirjoittaa
-   `scripts/map_osm.gd`:n koko kartan alueelta. Rajausruutu (px) on skriptissä.
-   Luokittelu (`osm.cs`): highway → highway/road/street/path, landuse/natural → metsä/pelto/suo/vesi,
-   waterway → purot, building → talot (suunnattu pohjapiirros). Käsin tehdyt kohteet (vain se, mitä OSM:ssä
-   ei ole, esim. Antinsuonkankaan laavu) ja pelipaikat ovat `map_data.gd`:ssä; päivitä `PLAY_AREA` ja
-   pelipaikat, jos rajat muuttuvat. Tarkista paikat lopuksi testinäkymällä `--scene=placecheck`.
-3. **Korkeudet**: lataa tarvittavat 2 m -lehdet ja aja
-   `powershell -File tools\kartta\kyla.ps1 -Lehdet <kansio> [-Sheets R4132H,...]`. Se kirjoittaa
-   `assets/terrain/korkeus.json` (metatiedot) ja `korkeus_mml.i16` (int16 cm, täsmälleen pelin 5 m maastoruudukon pisteissä, ilman keskiarvoa). Mosaiikin
-   ja ruudukon rajat ovat skriptissä; laajenna niitä uuden alueen mukaan.
-4. **Maasto peliin**: `godot --headless --path . -s tools/bake_terrain.gd` leipoo `korkeus.bin`in ja
-   `pinnat.png`:n (järvet tasoitetaan `map_data.WATER`:n mukaan).
+2. **Tiet, rakennukset, maankäyttö** → `scripts/map_osm.gd` koko kartan alueelta (rajausruutu px skriptissä):
+   - `powershell -File tools\kartta\kyla_osm.ps1 -Osm <map.osm>`
+   - `python tools/kartta/kyla_osm.py --osm <map.osm> [--out <tiedosto>]`
+
+   Luokittelu (`osm.cs` / `kartta.py`): highway → highway/road/street/path, landuse/natural → metsä/pelto/suo/vesi,
+   waterway → purot, building → talot (suunnattu pohjapiirros). Käsin tehdyt kohteet (vain se, mitä OSM:ssä ei ole,
+   esim. Antinsuonkankaan laavu) ja pelipaikat ovat `map_data.gd`:ssä; päivitä `PLAY_AREA` ja pelipaikat, jos rajat
+   muuttuvat. Tarkista paikat lopuksi testinäkymällä `--scene=placecheck` ja alueet
+   `godot --headless --path . -s tools/kartta/tarkista_alueet.gd`.
+3. **Korkeudet** → `assets/terrain/korkeus.json` (metatiedot) ja `korkeus_mml.i16` (int16 cm, täsmälleen pelin 5 m
+   maastoruudukon pisteissä, ilman keskiarvoa). Lataa tarvittavat 2 m -lehdet ja aja
+   - `powershell -File tools\kartta\kyla.ps1 -Lehdet <kansio> [-Sheets R4132H,...]`
+   - `python tools/kartta/kyla.py --lehdet <kansio> [--sheets R4132H ...] [--out-dir <kansio>]`
+
+   Mosaiikin ja ruudukon rajat ovat skriptissä; laajenna niitä uuden alueen mukaan.
+4. **Maasto peliin**: `godot --headless --path . -s tools/bake_terrain.gd` leipoo `korkeus.bin`in ja `pinnat.png`:n.
+   Järvien pinta on korkeusmallin tasoitettu vedenpinta järven sisältä (`map_data.WATER`), rannat mallin mukaisina.
 
 ## Mökki (scripts/mokki.gd, assets/mokki/kartta.json)
 
-Mökin alue (200 × 200 m) on osoitepisteen kehyksessä (x itään, z etelään, metreinä; origo 64.5054523 N,
-26.6672225 E). `kartta.json` sisältää OSM-kohteet ja 2 m korkeusmallin (lehti R4333D, 2 m välein) samassa
-kehyksessä. Uusi alue tehdään samoin: OSM-ote → metreiksi osoitepisteestä (lon × 111 320 × cos(lat), lat × 111 320)
-ja korkeudet `Tiff`- ja `Tm35`-apureilla (ks. `kyla.ps1`).
+Mökin ympäristö (2 × 2 km, kävelyalue 800 × 800 m) on osoitepisteen kehyksessä (x itään, z etelään, metreinä;
+origo 64.5054523 N, 26.6672225 E; lon × 111 320 × cos(lat), lat × 111 320). `kartta.json` tehdään kokonaan samoilla
+työkaluilla kuin kylä: OSM-kohteet (myös metsät) samalla muuntimella, pihan tarkka ruudukko "dem" (300 × 300 m, 2 m)
+ja kaukoalue "dem_far" (2 × 2 km, 8 m = mökin kaukomaaston ruutu) MML:n 2 m mallista (lehti R4333D kattaa koko
+alueen) ja vesistöjen pinnat ("level") mallin tasoitetusta vedenpinnasta.
+
+1. **OSM-ote** 2 × 2 km: `https://api.openstreetmap.org/api/0.6/map?bbox=26.64531,64.49602,26.68914,64.51488`
+2. **Kartta**:
+   - `powershell -File tools\kartta\mokki.ps1 -Lehdet <kansio> [-Osm <map.osm>]`
+   - `python tools/kartta/mokki.py --lehdet <kansio> [--osm <map.osm>] [--out <tiedosto>]`
+
+   Ilman OSM-otetta nykyiset kohteet säilyvät ja vain korkeudet ja pinnat lasketaan uudelleen.
+
+Mökin ympäristössä OSM:n metsäkartoitus on vajaa (kävelyalue lähes kartoittamatta), joten `mokki.gd` pitää maaston
+metsänä kaikkialla, missä ei ole peltoa, vettä, suota, tietä tai pihaa; metsäalueet ovat datassa tallessa.
+Vanha `tools/mokki_kartta.py` (Overpass ja EU-DEM 25 m) on vielä repossa, mutta nämä työkalut korvaavat sen.
 
 ## Työkalut tässä kansiossa
 
-- `tm35.cs`: WGS84/ETRS89 → ETRS-TM35FIN (JHS 197).
-- `tiff.cs`: GeoTIFF-lukija (LZW, laatat) ilman GDALia; `Tiff.Info(polku)` ja `Tiff.Window(x, y, w, h)`.
-- `mosaic.cs`: lehtien mosaiikki ja näytteistys kartan pikseliruudukkoon.
-- `osm.cs`: OSM-XML → kartan tiet, alueet ja rakennukset GDScript-vakioina.
-- `kehys.ps1`: kylän kehys (px ↔ TM35), `kyla.ps1`: korkeudet, `kyla_osm.ps1`: OSM-aineisto.
-
-Skriptit on tehty Windows PowerShell 5.1:lle (C# käännetään `Add-Type`llä, Pythonia tai GDALia ei tarvita).
+| C# / PowerShell | Python | Tehtävä |
+|---|---|---|
+| `tm35.cs` | `kartta.py: tm35()` | WGS84/ETRS89 → ETRS-TM35FIN (JHS 197) |
+| `tiff.cs` | `kartta.py: Tiff` | GeoTIFF-lukija (LZW, laatat) ilman GDALia |
+| `mosaic.cs` | `kartta.py: Mosaic` | lehtien mosaiikki ja näytteistys |
+| `osm.cs` | `kartta.py: Osm` | OSM-XML → kylän GDScript-vakiot tai mökin kartta.json-kohteet |
+| `mokki_dem.cs` | `kartta.py: MokkiDem` | mökin korkeusruudukot ja vesistöjen pinnat |
+| `kehys.ps1` | `kartta.py: px2tm, tm2px` | kylän kehys (px ↔ TM35) |
+| `kyla_osm.ps1`, `kyla.ps1`, `mokki.ps1` | `kyla_osm.py`, `kyla.py`, `mokki.py` | ajoskriptit |
+| `tarkista_alueet.gd` | | aluemonikulmioiden kolmioituvuus (Godot) |
