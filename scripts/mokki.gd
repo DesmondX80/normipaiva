@@ -107,6 +107,7 @@ const FISH := [
 const FISH_JUNK := ["vanhan kumisaappaan", "ruosteisen peltitölkin", "jonkun kadonneen lippiksen", "pelkän oksankappaleen"]
 const FISH_MISS_LINES := ["Kala vei syötin.", "Onki jäi tyhjäksi.", "Siima venähti tyhjää.", "Ei tällä kertaa."]
 
+var boat_parked: Node3D
 var sauna_fire_on := false
 var sauna_fire_time := 0.0
 var tub_fire_on := false
@@ -868,6 +869,12 @@ func _build_lake_and_dock() -> void:
 	B.mesh(rod, B.cyl(0.012, 0.02, 2.4, 6), Vector3(0, 1.2, 0), Color(0.15, 0.15, 0.16))
 	B.mesh(rod, B.sphere(0.03, 6), Vector3(0, 2.35, 0.05), Color(0.85, 0.15, 0.1))
 	B.mesh(dock, B.boxm(Vector3(0.3, 0.16, 0.2)), Vector3(-0.5, 0.32, dl - 0.2), Color(0.32, 0.28, 0.24))  # varustelaatikko
+	# Soutuvene laiturin kyljessä köysissä (kalastus: fish_game.gd). Vedessä h() on pohja = pinta - 1.
+	boat_parked = Node3D.new()
+	boat_parked.position = Vector3(DOCK_LOCAL.x + 1.75, 1.12, DOCK_LOCAL.z - 1.6)
+	boat_parked.rotation.y = PI
+	add_child(boat_parked)
+	load("res://scripts/fish_game.gd").build_boat(boat_parked, true)
 
 
 # --- Päärakennus ---------------------------------------------------------------

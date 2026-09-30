@@ -5,8 +5,8 @@ Ajo: python3 tools/vaala_bake.py   (ei verkkoyhteyttä, n. 1 min)
 Tulos: assets/vaala/tie.json (tie, kyltit, rakennukset, sivutiet, rata, vedet) ja assets/vaala/maasto.bin
 (korkeusruudukko 4 m ja maankäyttö; kaukomaasto 32 m).
 
-Tiivistys: mökin pihasta Neittäväntien risteyksen yli (S_A) ja Vuolijoentien loppupäästä Siitariin (S_B ->)
-mittakaava on 1:1, välissä matka lyhenee K-kertaisesti. Jokainen tien pala lyhenee samassa suhteessa, joten
+Tiivistys: mökin pihasta Neittäväntien risteyksen yli (S_A) ja radan alikulusta Siitariin (S_B ->, koko Vaalan
+keskusta Oulujoen siltoineen) mittakaava on 1:1, välissä matka lyhenee K-kertaisesti. Jokainen tien pala lyhenee samassa suhteessa, joten
 suunnat ja risteysten kulmat säilyvät ja keskusta osuu tarkasti oikeaan kohtaan (vain siirrettynä).
 Pelin koordinaatit: mökin osoitepiste origossa kuten reitti.json:ssa (x itään, z etelään), korkeus metreinä mpy.
 Kohteet tien varrelta siirretään tien mukana: todellinen paikka -> lähin tien kohta (matka s, sivuetäisyys d)
@@ -22,12 +22,14 @@ SRC = os.path.join(ROOT, "assets", "vaala", "reitti.json")
 OUT_JSON = os.path.join(ROOT, "assets", "vaala", "tie.json")
 OUT_BIN = os.path.join(ROOT, "assets", "vaala", "maasto.bin")
 
-K = 14.0           # tiivistyskerroin välimatkalla (n. 1,7 km ajoa)
+K = 22.0           # tiivistyskerroin välimatkalla
 STEP = 2.0         # tien näytteiden väli pelissä (m)
 CELL = 4.0         # tarkka maasto
 NEAR = 150.0       # tarkka maasto tien ympärillä
-TOWN_R = 220.0     # keskustan tarkka alue Siitarista
-END_1TO1 = 260.0   # Vaalaan tultaessa 1:1 viimeiset metrit: Siitari heti taajamamerkin jälkeen
+TOWN_R = 480.0     # keskustan tarkka alue Siitarista (kaikki rakennukset, kadut ja rata)
+RAIL_1TO1 = 150.0  # 1:1 alkaa näin paljon ennen radan alikulkua (Vuolijoentie radan ali juuri ennen Oulujokea)
+UNDER_CLEAR = 4.6  # alikulun vapaa korkeus tien pinnasta ratasillan alapintaan
+UNDER_DIP = 1.3    # tie painuu alikulussa
 BRANCH_LEN = 90.0  # risteysten haarat väärään suuntaan: näin pitkä pätkä, sitten umpitie
 FAR_CELL = 32.0
 FAR_MARGIN = 700.0
@@ -156,7 +158,30 @@ def main():
     s_neitt = arc_at(steps[2]["at"])       # käännös Neittäväntielle
     s_vaala = arc_at(steps[4]["at"])       # Vuolijoentie päättyy Vaalantiehen
     S_A = s_neitt + 60.0
-    S_B = total - END_1TO1
+    # Rata ylittää Vuolijoentien sillalla: reitin ja ratojen leikkauskohta (todellinen matka).
+    rail_feats = [f for f in feats if f["kind"] == "rail"]
+
+    def cross_t(p1, p2, p3, p4):
+        den = (p2[0] - p1[0]) * (p4[1] - p3[1]) - (p2[1] - p1[1]) * (p4[0] - p3[0])
+        if den == 0:
+            return None
+        t = ((p3[0] - p1[0]) * (p4[1] - p3[1]) - (p3[1] - p1[1]) * (p4[0] - p3[0])) / den
+        u = ((p3[0] - p1[0]) * (p2[1] - p1[1]) - (p3[1] - p1[1]) * (p2[0] - p1[0])) / den
+        return t if 0 <= t <= 1 and 0 <= u <= 1 else None
+
+    rail_cross = []  # [(s, todellinen piste, radan suunta)]
+    for f in rail_feats:
+        for a, b in zip(f["pts"], f["pts"][1:]):
+            for i in range(len(real) - 1):
+                t = cross_t(real[i], real[i + 1], a, b)
+                if t is not None:
+                    L = math.dist(a, b) or 1.0
+                    rail_cross.append((rs[i] + t * math.dist(real[i], real[i + 1]),
+                                       (lerp(real[i][0], real[i + 1][0], t), lerp(real[i][1], real[i + 1][1], t)),
+                                       ((b[0] - a[0]) / L, (b[1] - a[1]) / L)))
+    rail_cross.sort()
+    print("rata ylittää reitin", [(round(c[0]), [round(v) for v in c[1]]) for c in rail_cross])
+    S_B = (rail_cross[0][0] if rail_cross else total - 260.0) - RAIL_1TO1
     # Oulujoen silta 1:1 (uoma ei kapene): reitin kohdat joen keskiviivan lähellä.
     rivers = [f for f in feats if f["kind"] == "river"]
     RIVER_HALF = 30.0
@@ -168,7 +193,8 @@ def main():
 
     wet = [rs[i] for i in range(0, len(real), 2) if in_river(real[i], 6.0)]
     B_LO, B_HI = (min(wet) - 45.0, max(wet) + 45.0) if wet else (-1.0, -1.0)
-    WINDOWS = [(0.0, S_A), (B_LO, B_HI), (S_B, total + 1.0)]
+    B_LO = min(B_LO, S_B)
+    WINDOWS = [(0.0, S_A), (S_B, total + 1.0)]
 
     def scale(s):
         return 1.0 if any(a <= s <= b for a, b in WINDOWS) else 1.0 / K
@@ -277,6 +303,16 @@ def main():
     # Sillan kohdalla tie kulkee suoraan rannalta rannalle (korkeusmalli painuu vedenpintaan).
     for smp in samples:
         smp["y"] = h_game_s(smp["s"])
+    # Radan alikulku: tie painuu ratasillan kohdalla, kansi UNDER_CLEAR m tien yläpuolella.
+    underpass = None
+    if rail_cross:
+        cs_, cp_, cd_ = rail_cross[0]
+        ci = min(range(n), key=lambda i: abs(samples[i]["s"] - cs_))
+        y0 = samples[ci]["y"]
+        for smp in samples:
+            e = abs(smp["s"] - cs_)
+            smp["y"] -= UNDER_DIP * (1.0 - smooth(10.0, 55.0, e))
+        underpass = {"i": ci, "real": cp_, "rdir": cd_, "deck": y0 - UNDER_DIP + UNDER_CLEAR + 0.9}
     flags = [smp["bridge"] for smp in samples]
     i = 0
     bridges = []
@@ -292,7 +328,9 @@ def main():
     for a0, b0 in bridges:
         ya, yb = samples[a0]["y"], samples[b0]["y"]
         for k in range(a0, b0 + 1):
-            samples[k]["y"] = lerp(ya, yb, (k - a0) / max(b0 - a0, 1)) + 0.6
+            # Kansi 0,6 m tien yläpuolelle loivasti päistä (4 näytettä = 8 m): ei porrasta, johon mopo töksähtää.
+            ramp = smooth(0.0, 4.0, min(k - a0, b0 - k))
+            samples[k]["y"] = lerp(ya, yb, (k - a0) / max(b0 - a0, 1)) + 0.6 * ramp
             samples[k]["bridge"] = True
     print("sillat", bridges)
 
@@ -300,9 +338,13 @@ def main():
     rgrid = Grid([smp["r"] for smp in samples], 20.0)
     ggrid = Grid([smp["g"] for smp in samples], 20.0)
 
+    real_town = (sx, sz)
+
     def to_game(p, rmax=NEAR + 60.0):
         """Todellinen piste pelin kehykseen lähimmän tien kohdan mukaan (tien suunnassa näytteen mittakaava,
-        sivusuunnassa 1:1), None jos kaukana tiestä."""
+        sivusuunnassa 1:1), None jos kaukana tiestä. Keskusta on kokonaan 1:1: pelkkä siirto."""
+        if math.dist(p, real_town) < TOWN_R:
+            return (p[0] + town_off[0], p[1] + town_off[1])
         i, dist = rgrid.nearest(p, rmax)
         if i < 0:
             return None
@@ -317,6 +359,9 @@ def main():
 
     def to_real(p):
         """Pelin piste todelliseksi (maankäytön haku). Palauttaa (piste, lähin näyte, etäisyys tiestä, puoli)."""
+        if math.dist(p, (sx + town_off[0], sz + town_off[1])) < TOWN_R + 20.0:
+            i, dist = ggrid.nearest(p, 2000.0)
+            return (p[0] - town_off[0], p[1] - town_off[1]), i, dist, 0.0
         i, dist = ggrid.nearest(p, 400.0)
         smp = samples[i]
         gd = smp["dir"]
@@ -334,15 +379,25 @@ def main():
     def on_route(p):
         return rr.nearest(p, 6.0)[0] >= 0
 
+    # Tiivistetyllä välillä ennen Oulujoen siltaa K-kertainen matka pakkautuisi lyhyelle pätkälle ja talot
+    # kasautuisivat toistensa päälle: sinne vain isoimmat talot vähintään THIN_GAP m välein, ei vajoja.
+    THIN_GAP = 45.0
+    kept = []
     out_buildings = []
-    for f in feats:
-        if f["kind"] != "building":
-            continue
+    def b_area(f):
+        q = f["pts"]
+        return abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(q, q[1:] + q[:1]))) / 2.0
+    for f in sorted((f for f in feats if f["kind"] == "building"), key=lambda f: -b_area(f)):
         pts = f["pts"][:-1] if f["pts"][0] == f["pts"][-1] else f["pts"]
         c = (sum(q[0] for q in pts) / len(pts), sum(q[1] for q in pts) / len(pts))
         gc = to_game(c)
         if gc is None:
             continue
+        ri, _ = rgrid.nearest(c, NEAR + 60.0)
+        if ri >= 0 and samples[ri]["c"] < 1.0 and samples[ri]["s"] < B_LO:
+            if b_area(f) < 60.0 or any(math.dist(gc, q) < THIN_GAP for q in kept):
+                continue
+            kept.append(gc)
         off = (gc[0] - c[0], gc[1] - c[1])
         bt = f.get("building", "yes")
         area = abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(pts, pts[1:] + pts[:1]))) / 2.0
@@ -405,6 +460,45 @@ def main():
                                  "real": [[round(q[0], 2), round(q[1], 2)] for q in cut]})
                 branch_ways.add(f["id"])
     print("haaroja", len(branches), [(b["name"], len(b["pts"])) for b in branches])
+
+    # Talot eivät saa jäädä tien päälle: tiivistetyillä risteyksillä kulman talo osuisi kääntyvälle tielle.
+    # Reitin päät (mökin piha, Siitarin piha) ovat omia kohteitaan.
+    road_pts = [(smp["g"], smp["hw"], i) for i, smp in enumerate(samples)]
+    for b in branches:
+        road_pts += [((q[0], q[2]), b["hw"], -1) for q in b["pts"]]
+    rp_grid = Grid([q[0] for q in road_pts], 20.0)
+    keep = []
+    dropped = []
+    for bd in out_buildings:
+        pts = bd["pts"]
+        c = (sum(q[0] for q in pts) / len(pts), sum(q[1] for q in pts) / len(pts))
+        rad = max(math.dist(c, q) for q in pts) + 6.0
+        bb = bbox(pts)
+        hit = False
+        ci_, cj_ = int(c[0] // 20.0), int(c[1] // 20.0)
+        rr_ = int(math.ceil(rad / 20.0))
+        for dj in range(-rr_, rr_ + 1):
+            for di in range(-rr_, rr_ + 1):
+                for qi in rp_grid.g.get((ci_ + di, cj_ + dj), ()):
+                    q, hw_, si_ = road_pts[qi]
+                    if 0 <= si_ < 10 or si_ > n - 15:
+                        continue
+                    if math.dist(q, c) > rad:
+                        continue
+                    edge = min(seg_dist(q, a, b2)[0] for a, b2 in zip(pts, pts[1:] + pts[:1]))
+                    if pip(q, pts, bb) or edge < hw_ + 1.2:
+                        hit = True
+                        break
+                if hit:
+                    break
+            if hit:
+                break
+        if hit:
+            dropped.append((bd["id"], bd["type"], bd["name"]))
+        else:
+            keep.append(bd)
+    out_buildings = keep
+    print("tien päältä pois", dropped)
 
     side_roads = []
     for f in feats:
@@ -530,7 +624,8 @@ def main():
             # Tie: tasainen piennar, oja ja luiska luonnolliseen maahan.
             y = smp["y"]
             if smp["bridge"]:
-                h = ground
+                # Rannoilla maa ei saa nousta kannen läpi (kansi törmäyksineen on sillan puolella).
+                h = min(ground, y - 0.1) if dist < hw + 3.0 else ground
                 if dist < hw + 0.5:
                     code = ROAD
             else:
@@ -548,6 +643,70 @@ def main():
                     h = lerp(y - 0.05, ground, smooth(ditch + 2.0, ditch + 22.0, dist))
             heights[k] = round(h, 3)
             codes[k] = code
+
+    def grid_h(p):
+        fx = min(max((p[0] - x0) / CELL, 0.0), nx - 1.001)
+        fz = min(max((p[1] - z0) / CELL, 0.0), nz - 1.001)
+        i, j = int(fx), int(fz)
+        u, v = fx - i, fz - j
+        q = j * nx + i
+        return lerp(lerp(heights[q], heights[q + 1], u), lerp(heights[q + nx], heights[q + nx + 1], u), v)
+
+    # Radan alikulku: rata penkereellä, joka nousee kannen korkeuteen tien kohdalla. Penger maastoon luiskineen,
+    # tien kohta (ajorata pientareineen) jää auki: siihen ratasilta maatukineen (vaala.gd).
+    for r in rails:
+        for q in r["pts"]:
+            q.append(round(grid_h(q), 2))
+    if underpass is not None:
+        us = samples[underpass["i"]]
+        ug = us["g"]
+        underpass["at"] = [round(ug[0], 2), round(ug[1], 2)]
+        rd_ = underpass["rdir"]
+        # Radan suunta pelissä: keskustan 1:1-alueella sama kuin todellinen.
+        underpass["dir"] = [round(rd_[0], 4), round(rd_[1], 4)]
+        underpass["road_y"] = round(us["y"], 2)
+        underpass["hw"] = us["hw"]
+        deck = underpass["deck"]
+        near_rail = []
+        for r in rails:
+            for q in r["pts"]:
+                e = math.dist((q[0], q[1]), ug)
+                if e < 340.0:
+                    top = lerp(q[2], deck, 1.0 - smooth(40.0, 320.0, e))
+                    q[2] = round(max(q[2], top), 2)
+            # Tiheä (1 m) viiva penkereen laskentaan.
+            for a, b in zip(r["pts"], r["pts"][1:]):
+                if math.dist((a[0], a[1]), ug) > 350.0 and math.dist((b[0], b[1]), ug) > 350.0:
+                    continue
+                m = max(int(math.dist((a[0], a[1]), (b[0], b[1]))), 1)
+                for t in range(m):
+                    near_rail.append([lerp(a[0], b[0], t / m), lerp(a[1], b[1], t / m), lerp(a[2], b[2], t / m)])
+        ng = Grid([(q[0], q[1]) for q in near_rail], 12.0)
+        # Alikulun aukko: ajorata, piennar ja yksi ruutu varaa (4 m ruudukon kolmiot eivät saa nousta ajoradan päälle).
+        # Maatuet (vaala.gd) peittävät aukon reunat.
+        span = us["hw"] + 6.0
+        for j in range(nz):
+            for i in range(nx):
+                k = j * nx + i
+                p = (x0 + i * CELL, z0 + j * CELL)
+                if codes[k] == 255 or math.dist(p, ug) > 360.0:
+                    continue
+                qi, dr = ng.nearest(p, 16.0)
+                if qi < 0:
+                    continue
+                top = near_rail[qi][2] - 0.1
+                # Alikulun aukko: ajoradan kohta pysyy tien tasossa.
+                rdist = math.sqrt(near_d[k]) if near_d[k] < INF else 1e9
+                if rdist < span:
+                    continue
+                emb = top - max(0.0, dr - 2.8) * 0.75
+                if emb > heights[k]:
+                    heights[k] = round(emb, 3)
+                    if dr < 2.8:
+                        codes[k] = RAIL
+                    elif codes[k] in (ROAD, SHOULDER, YARD, FOREST):
+                        codes[k] = FIELD  # penkereen luiskat nurmella
+        print("alikulku", underpass)
     # Kaukomaasto: karkea ruudukko koko alueelle, korkeus lähimmän tien kohdan mukaan (näytteet 40 m välein).
     fx0 = x0 - FAR_MARGIN
     fz0 = z0 - FAR_MARGIN
@@ -617,6 +776,7 @@ def main():
         "road_names": [smp["name"] for smp in samples],
         "bridges": bridges, "signs": signs, "branches": [{k2: v for k2, v in b.items() if k2 != "real"} for b in branches], "buildings": out_buildings, "side_roads": side_roads,
         "water": out_water, "parkings": parkings, "river_half": RIVER_HALF,
+        "underpass": {k2: v for k2, v in underpass.items() if k2 not in ("real", "rdir")} if underpass else None,
     }
     with open(OUT_JSON, "w") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))

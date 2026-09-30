@@ -6,8 +6,10 @@ extends CharacterBody3D
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 
-const WALK := 1.9
+const WALK := 2.3
 const RUN := 5.4
+## Juoksu kuluttaa kuntoa hitaammin kuin pyörän spurtti: täydellä kunnolla jaksaa juosta noin 20 s.
+const RUN_DRAIN := 5.0
 const TURN := 2.6
 const GRAVITY := 20.0
 const JUMP_SPEED := 6.5
@@ -99,9 +101,9 @@ func stagger(direction: Vector3) -> void:
 
 
 ## Kunnon kulutus ja palautuminen. Pyörän spurtti käyttää samaa mittaria (jalat ovat samat).
-func tire(exerting: bool, resting: bool, delta: float) -> void:
+func tire(exerting: bool, resting: bool, delta: float, drain := 18.0) -> void:
 	if exerting:
-		stamina = maxf(0.0, stamina - 18.0 * delta)
+		stamina = maxf(0.0, stamina - drain * delta)
 		if stamina <= 0.0:
 			exhausted = true
 	else:
@@ -138,7 +140,7 @@ func _physics_process(delta: float) -> void:
 		steer = Input.get_axis("right", "left")
 		running = Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 and not exhausted and not no_run
 		jump_pressed = Input.is_action_just_pressed("jump") and pose == ""
-	tire(running, absf(speed) < 0.2, delta)
+	tire(running, absf(speed) < 0.2, delta, RUN_DRAIN)
 	var ground: float = world.speed_factor(global_position, "runner") if world != null else 1.0
 	var want := throttle * (RUN if running else WALK) * ground
 	if throttle < 0.0:
@@ -166,7 +168,7 @@ func _physics_process(delta: float) -> void:
 	elif s < 0.2:
 		_body.play(pose if pose != "" else "Idle", 0.12 if pose != "" else 0.25)
 	elif s < 2.8:
-		_body.play("Walk", 0.2, signf(speed) * s / 1.4)
+		_body.play("Walk", 0.2, signf(speed) * s / 1.6)
 	else:
 		_body.play("Sprint", 0.2, s / 6.0)
 	# Askeleet: pehmeä töminä, soralla ja metsässä vähän kovempi.

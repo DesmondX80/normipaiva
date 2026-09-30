@@ -16,6 +16,7 @@ signal arrived
 signal finished(result: String)
 signal killed  # auto ajoi mopon päälle
 signal atm     # pankkiautomaatilla E
+signal crashed(reason: String)  # kännissä kumoon: "ditch" tai "wall"; mopo nostetaan tielle
 
 var vaala: Node3D
 var mopo: CharacterBody3D
@@ -26,6 +27,7 @@ var active := false
 var _sample := 0
 var _cars: Array = []
 var _line: Array = []
+var _down := 0.0  # kaatumisen jälkeen maassa (s)
 
 
 func _ready() -> void:
@@ -38,13 +40,18 @@ func ensure_built() -> void:
 
 
 ## Matka alkaa: "siitari" = Paapelin päästä Vaalaan, "paapeli" = Siitarin pihasta takaisin.
-func start(to: String) -> void:
+## drunk = humala (0…1): omalla kylällä saa ajaa kännissä, mutta ohjaus on sen mukainen (mopo.gd).
+func start(to: String, drunk := 0.0) -> void:
 	ensure_built()
 	target = to
 	if mopo == null:
 		mopo = Mopo.new()
 		mopo.vaala = vaala
+		mopo.crashed.connect(_on_crash)
 		add_child(mopo)
+	mopo.drunk = drunk
+	mopo.reset_drunk()
+	_down = 0.0
 	var at: Vector3
 	var dir: Vector3
 	if to == "siitari":
@@ -115,6 +122,32 @@ func _on_hit() -> void:
 	killed.emit()
 
 
+## Kännissä kumoon: mopo kyljelleen hetkeksi, sitten nostetaan lähimmälle tielle ajosuuntaan.
+func _on_crash(reason: String) -> void:
+	if not active or _down > 0.0:
+		return
+	_down = 2.5
+	mopo.controls_enabled = false
+	mopo.speed = 0.0
+	mopo.velocity = Vector3.ZERO
+	mopo.fallen = true
+	mopo.set_engine(false)
+	Sfx.play("bike_fall", 0.0)
+	crashed.emit(reason)
+
+
+func _get_up() -> void:
+	var ni: Array = vaala.nearest(mopo.position)
+	var i: int = maxi(ni[0], 3)
+	var dir: Vector3 = vaala.road_dir(i) * (1.0 if target == "siitari" else -1.0)
+	var right := dir.cross(Vector3.UP)
+	mopo.position = vaala.road_pos(i) + right * 1.6 + Vector3(0, 0.6, 0)
+	mopo.rotation.y = atan2(-dir.x, -dir.z)
+	mopo.reset_drunk()
+	mopo.controls_enabled = true
+	mopo.set_engine(true)
+
+
 func stop() -> void:
 	active = false
 	if mopo != null:
@@ -137,8 +170,14 @@ func real_left() -> float:
 	return (vaala.real_total - s) if target == "siitari" else s
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not active or mopo == null:
+		return
+	if _down > 0.0:
+		_down -= delta
+		if _down <= 0.0:
+			_get_up()
+		hint = ""
 		return
 	var ni: Array = vaala.nearest(mopo.position)
 	if ni[0] >= 0:
