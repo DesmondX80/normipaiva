@@ -1,5 +1,6 @@
 extends SceneTree
-## Leipoo maaston: korkeusmalli (assets/terrain/korkeus.json, Copernicus DEM ~90 m) -> 5 m ruudukko
+## Leipoo maaston: korkeusmalli (assets/terrain/korkeus.json + korkeus_mml.i16, MML 2 m -malli pelin 5 m ruudukossa,
+## ks. tools/kartta/LUEMINUT.md) -> 5 m ruudukko
 ## assets/terrain/korkeus.bin, järvet tasoitettuina; sekä pintakartta assets/terrain/pinnat.png
 ## (R metsä, G pelto, B räme, A hakkuuaukio; 2 m / pikseli). Ajo:
 ##   godot --headless --path . -s tools/bake_terrain.gd
@@ -7,14 +8,23 @@ extends SceneTree
 const M := preload("res://scripts/map_data.gd")
 const T := preload("res://scripts/terrain.gd")
 const MARGIN := 300.0
-const V_SCALE := 0.8  # kartta on vaakasuunnassa hieman tiivistetty (1 px ≈ 1.25 m): rinteet pysyvät luontevina
+const V_SCALE := 0.82  # kartta on vaakasuunnassa tiivistetty (1 px ≈ 1,22 m): rinteet pysyvät oikean jyrkkyisinä
 const SPLAT_PX := 2.0
 
 var _d: Dictionary
+var _elev := PackedFloat32Array()  # korkeudet (m) ruudukkona, rivi kerrallaan
 
 
 func _init() -> void:
 	_d = JSON.parse_string(FileAccess.get_file_as_string("res://assets/terrain/korkeus.json"))
+	if _d.has("data"):
+		# int16 senttimetreinä (tools/kartta/kyla.ps1).
+		var raw := FileAccess.get_file_as_bytes("res://assets/terrain/" + str(_d.data))
+		_elev.resize(raw.size() / 2)
+		for k in _elev.size():
+			_elev[k] = raw.decode_s16(2 * k) / 100.0
+	else:
+		_elev = PackedFloat32Array(_d.elev)
 	var lo := M.w2(Vector2.ZERO) - Vector2(MARGIN, MARGIN)
 	var hi := M.w2(M.SIZE) + Vector2(MARGIN, MARGIN)
 	var nx := int(ceil((hi.x - lo.x) / T.CELL)) + 1
@@ -26,7 +36,8 @@ func _init() -> void:
 		for i in nx:
 			var w := lo + Vector2(i, j) * T.CELL
 			hs[j * nx + i] = (_elev_px(w / M.SCALE + M.ORIGIN) - base) * V_SCALE
-	hs = _blur(hs, nx, nz, 2)
+	# Ei pehmennystä eikä teiden tasoitusta: korkeudet suoraan 2 m mallista samoissa pisteissä (tools/kartta/kyla.ps1).
+	# Maakerrokset (tiet, pihat) pilkotaan maastokolmioiden mukaan (world.gd _conform), joten maasto ei pistä läpi.
 	_flatten_site(hs, nx, nz, lo, M.w2(M.KOTA) + Vector2(3, 3), 13.0)  # kota, halkovaja ja lintutorni tasamaalle
 	_flatten_water(hs, nx, nz, lo)  # vesi viimeisenä, ettei piha nosta järven pintaa
 	var f := FileAccess.open(T.BIN, FileAccess.WRITE)
@@ -66,22 +77,11 @@ func _elev_px(p: Vector2) -> float:
 func _at(i: int, j: int) -> float:
 	i = clampi(i, 0, int(_d.nx) - 1)
 	j = clampi(j, 0, int(_d.ny) - 1)
-	return float(_d.elev[j * int(_d.nx) + i])
+	return _elev[j * int(_d.nx) + i]
 
 
 func _cr(a: float, b: float, c: float, d: float, t: float) -> float:
 	return 0.5 * (2.0 * b + (-a + c) * t + (2.0 * a - 5.0 * b + 4.0 * c - d) * t * t + (-a + 3.0 * b - 3.0 * c + d) * t * t * t)
-
-
-func _blur(hs: PackedFloat32Array, nx: int, nz: int, passes: int) -> PackedFloat32Array:
-	for p in passes:
-		var out := hs.duplicate()
-		for j in range(1, nz - 1):
-			for i in range(1, nx - 1):
-				var k := j * nx + i
-				out[k] = (hs[k] * 4.0 + hs[k - 1] + hs[k + 1] + hs[k - nx] + hs[k + nx]) / 8.0
-		hs = out
-	return hs
 
 
 ## Järvet vaakasuoriksi: vesi pinnan tasolle, rannat viettävät loivasti veteen.

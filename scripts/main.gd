@@ -178,7 +178,7 @@ var _stamina_box: Control
 var _stamina_bar: ProgressBar
 var _bike_away_t := 0.0
 ## Paikat, joihin teinit voivat viedä lukitsemattoman pyörän.
-const BIKE_DUMPS := [Vector2(560, 1062), Vector2(300, 600), Vector2(640, 160), Vector2(400, 1480), Vector2(160, 640),
+const BIKE_DUMPS := [Vector2(560, 1062), Vector2(300, 600), Vector2(640, 160), Vector2(400, 1480), Vector2(174, 640),
 	Vector2(760, 1680)]
 ## Kaljajemmat: id -> kaljat. Säilyvät pelikerrasta toiseen (user://normipaiva.cfg).
 ## Kotijemmoja Päivi voi löytää (safe = montako mahtuu huomaamatta, find = löytymisherkkyys),
@@ -352,6 +352,8 @@ func _ready() -> void:
 	shop_zone = world.shop_zone
 	lawn = Lawn.new()
 	lawn.rect = world.lawn_rect
+	lawn.pivot = world.lawn_pivot
+	lawn.angle = world.lawn_angle
 	lawn.mower_park = M.w(M.MOWER_PARK)
 	add_child(lawn)
 	_build_markers()
@@ -3347,6 +3349,13 @@ func _spawn_threats() -> void:
 	wife.safe_zones = [[M.w(M.GRILLIKATOS), 7.5]]
 
 
+## Kotipihan nurmikon kulma maailmassa (sx, sz = ±1 nurmikon omassa kehyksessä), paikkatarkistusta varten.
+func _lawn_corner(sx: float, sz: float) -> Vector3:
+	var l := Vector2(sx * world.lawn_rect.size.x, sz * world.lawn_rect.size.y) / 2.0
+	var p: Vector2 = l.rotated(world.lawn_angle) + world.lawn_pivot
+	return Vector3(p.x, 0, p.y)
+
+
 func _villager(nimi: String, look: Dictionary, lines: Array, voice: String, px: Vector2) -> CharacterBody3D:
 	var v := Villager.new()
 	v.display_name = nimi
@@ -3800,8 +3809,8 @@ func _maybe_screenshot() -> void:
 			cam.current = true
 			$WorldEnvironment.environment.fog_enabled = false
 		"route":
-			player.position = M.w(Vector2(545, 660)) + Vector3(0, 0.3, 0)
-			player.rotation.y = B.yaw_to(M.w(Vector2(300, 620)) - M.w(Vector2(545, 660)))
+			player.position = M.w(Vector2(440, 850)) + Vector3(0, 0.3, 0)
+			player.rotation.y = B.yaw_to(M.w(M.J_K) - M.w(Vector2(440, 850)))
 		"fight":
 			beers = 6
 			_on_kicked(Vector3.RIGHT)
@@ -3846,7 +3855,7 @@ func _maybe_screenshot() -> void:
 			player.rotation.y = PI + 0.3
 		"signclose":
 			var a2 := M.w2(M.J_K)
-			var d2 := (M.w2(Vector2(320, 790)) - a2).normalized()
+			var d2 := (M.w2(Vector2(313, 791)) - a2).normalized()
 			var at := a2 + d2 * 8.0 + d2.orthogonal() * 6.2
 			var cam := Camera3D.new()
 			cam.fov = 45.0
@@ -3855,7 +3864,7 @@ func _maybe_screenshot() -> void:
 			cam.look_at_from_position(eye, Vector3(at.x, 2.35, at.y) + Vector3(d2.x, 0, d2.y) * 0.6, Vector3.UP)
 			cam.current = true
 		"tractor":
-			player.position = M.w(Vector2(352, 745)) + Vector3(0, 0.3, 0)
+			player.position = M.w(Vector2(304, 735)) + Vector3(0, 0.3, 0)
 			player.rotation.y = PI / 2.0
 		"picktest":
 			# Puolukan poiminta: rauhallinen A/D-tahti, sitten räpellys ja pelkkä A. Tallennus palautetaan lopuksi.
@@ -4095,7 +4104,14 @@ func _maybe_screenshot() -> void:
 					await get_tree().physics_frame
 				print("EDGE ", spot, " -> ", _msg.text)
 		"kotapath":
-			var pts: Array = M.ROADS.filter(func(r): return r.name == "Kotapolku")[0].pts
+			# Kodalle vievä polku: se tie tai polku, jonka jokin piste on lähimpänä kotaa.
+			var pts: Array = []
+			var bestd := INF
+			for r in M.ROADS:
+				for q: Vector2 in r.pts:
+					if r.pts.size() > 7 and q.distance_to(M.KOTA) < bestd:
+						bestd = q.distance_to(M.KOTA)
+						pts = r.pts
 			player.global_position = M.w(pts[5]) + Vector3(0, 0.5, 0)
 			player.rotation.y = B.yaw_to(M.w(pts[6]) - M.w(pts[5]))
 		"kotagrid":
@@ -4383,6 +4399,54 @@ func _maybe_screenshot() -> void:
 			print("CHOCO after state=", state, " money=", money, " msg=", _msg.text.replace("\n", " | "))
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"placecheck":
+			# Hahmojen, ajoneuvojen ja pelipaikkojen paikat: tien reunan etäisyys (negatiivinen = tiellä) ja
+			# osuuko kohta talon, auton tai muun esteen sisään (fysiikkakysely 1 m maan yläpuolella).
+			for i in 3:
+				await get_tree().physics_frame
+			var space := get_world_3d().direct_space_state
+			var checks := [["koti_aloitus", home_zone + Vector3(0, 0, 4), null], ["koti_taksi", world.taxi_home_pos, null],
+				["kauppa_taksi", world.taxi_pos, null], ["kauppa_vyohyke", shop_zone, null], ["mummot", mummot.global_position, mummot],
+				["arto", arto.global_position, arto], ["pekka", pekka.global_position, pekka],
+				["sulo", sulo.global_position, sulo], ["vaino_alku", M.w(M.PEKKA_POS) + Vector3(2.0, 0.0, 2.0), null],
+				["paivi_alku", world.graph_nodes[world.nearest_node(M.w(M.J_T))], null], ["laavu", M.w(M.LAAVU), null],
+				["kota_raimo", world.kota.raimo.global_position, world.kota.raimo],
+				["kota_veikko", world.kota.veikko.global_position, world.kota.veikko],
+				["traktori", tractor.global_position, tractor], ["grilli", M.w(M.GRILLIKATOS), null],
+				["kompostijemma", M.w(M.COMPOST), null], ["autotallijemma", M.w(M.GARAGE) + Vector3(-3.8, 0, 3.6), null],
+				["leikkuri", M.w(M.MOWER_PARK), null],
+				["nurmikko_1", _lawn_corner(-1, -1), null], ["nurmikko_2", _lawn_corner(1, -1), null],
+				["nurmikko_3", _lawn_corner(1, 1), null],
+				["nurmikko_4", _lawn_corner(-1, 1), null], ["agility", M.w((M.AGILITY[0] + M.AGILITY[2]) / 2.0), null]]
+			for k in M.JUNTTI_SPOTS.size():
+				checks.append(["juntti%d" % k, M.w(M.JUNTTI_SPOTS[k]), null])
+			for k in M.STRAY_SPOTS.size():
+				checks.append(["koira%d" % k, M.w(M.STRAY_SPOTS[k]), null])
+			for k in M.BALES.size():
+				checks.append(["paali%d" % k, M.w(M.BALES[k]), null])
+			for k in BIKE_DUMPS.size():
+				checks.append(["pyora%d" % k, M.w(BIKE_DUMPS[k]), null])
+			for c in checks:
+				var p: Vector3 = c[1]
+				var q := PhysicsPointQueryParameters3D.new()
+				q.position = Vector3(p.x, Terrain.h(p.x, p.z) + 1.0, p.z)
+				q.collision_mask = 0xFFFFFFFF & ~Terrain.COLLISION_LAYER
+				var hits := []
+				for h in space.intersect_point(q, 8):
+					var col: Node = h.collider
+					if c[2] != null and (col == c[2] or (c[2] as Node).is_ancestor_of(col)):
+						continue
+					hits.append(str(col.name))
+				print("PLACE %s px=%s tie=%.1f talo=%s pinta=%s osumat=%s" % [c[0], M.to_px(p).round(),
+					world._road_clearance(Vector2(p.x, p.z)), world._near_house(Vector2(p.x, p.z), 6.0), world.surface_at(p), hits])
+			var outside := 0
+			for h: Vector2 in world._houses:
+				if not world._in_bounds(h, -1.0):
+					outside += 1
+			print("PLACE talot yhteensä %d, pelialueen ulkopuolella %d" % [world._houses.size(), outside])
+			print("PLACE kota %s (OSM %s), torni %s (OSM %s), grillikatos %s, laavu %s" % [
+				M.to_px(world.kota.global_position).round(), M.KOTA, M.to_px(world.kota.to_global(Kota.TOWER_LOCAL)).round(),
+				M.LINTUTORNI, M.GRILLIKATOS, M.LAAVU])
 		"hilltest":
 			# Jyrkin rinne tien varrella: aja ylös ja alas, pysyykö pyörä maan pinnalla.
 			var best := Vector3.ZERO
@@ -4460,7 +4524,7 @@ func _maybe_screenshot() -> void:
 			for i in 5:
 				await get_tree().physics_frame
 			print("AFTER WIN hazards process_mode=", _hazards.process_mode, " state=", state)
-			player.position = M.w(Vector2(352, 745)) + Vector3(0, 0.3, 0)
+			player.position = M.w(Vector2(304, 735)) + Vector3(0, 0.3, 0)
 			var hit := -1
 			for i in 600:
 				await get_tree().physics_frame
@@ -4488,7 +4552,7 @@ func _maybe_screenshot() -> void:
 			return
 		"trailsign":
 			var a3 := M.w2(M.J_H2)
-			var d3 := (M.w2(Vector2(770, 1290)) - a3).normalized()
+			var d3 := (M.w2(Vector2(846, 1300)) - a3).normalized()
 			var at3 := a3 + d3 * 5.0 + d3.orthogonal() * 3.0
 			var cam := Camera3D.new()
 			cam.fov = 40.0
@@ -4543,7 +4607,7 @@ func _maybe_screenshot() -> void:
 			cam.current = true
 			_msg.text = ""
 		"tractorside", "tractorfront", "tractortop":
-			player.position = M.w(Vector2(352, 745)) + Vector3(0, 0.3, 0)
+			player.position = M.w(Vector2(304, 735)) + Vector3(0, 0.3, 0)
 			var cam3 := Camera3D.new()
 			cam3.fov = 40.0
 			add_child(cam3)
@@ -4556,7 +4620,7 @@ func _maybe_screenshot() -> void:
 			cam3.current = true
 			_msg.text = ""
 		"tractorclose":
-			player.position = M.w(Vector2(352, 745)) + Vector3(0, 0.3, 0)
+			player.position = M.w(Vector2(304, 735)) + Vector3(0, 0.3, 0)
 			player.rotation.y = PI / 2.0
 			var cam2 := Camera3D.new()
 			cam2.fov = 45.0
@@ -4571,8 +4635,8 @@ func _maybe_screenshot() -> void:
 			cam.fov = 55.0
 			add_child(cam)
 			var hb := M.w(M.HOME_BUILDING)
-			var eye := M.w(Vector2(784, 1196)) + Vector3(0, 1.7, 0) if scene == "homeview" else M.w(Vector2(790, 1150)) + Vector3(0, 1.7, 0)
-			cam.look_at_from_position(eye, hb + Vector3(-4, 1.8, 0), Vector3.UP)
+			var eye := M.w(Vector2(826, 1186)) + Vector3(0, 1.7, 0) if scene == "homeview" else M.w(Vector2(822, 1150)) + Vector3(0, 1.7, 0)
+			cam.look_at_from_position(eye, hb + Vector3(0, 1.8, 0), Vector3.UP)
 			cam.current = true
 			_msg.text = ""
 		"mkey":
@@ -5589,7 +5653,7 @@ func _maybe_screenshot() -> void:
 			_msg.text = ""
 			var tc := Camera3D.new()
 			add_child(tc)
-			var c := Vector3(lawn.rect.get_center().x, 0, lawn.rect.get_center().y)
+			var c := Vector3(lawn.pivot.x, 0, lawn.pivot.y)
 			c.y = Terrain.h(c.x, c.z)
 			tc.global_position = c + Vector3(-9.0, 9.0, 12.0)
 			tc.look_at(c, Vector3.UP)

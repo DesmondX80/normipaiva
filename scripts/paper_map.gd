@@ -378,34 +378,43 @@ func _legend_mokki(p: Vector2) -> void:
 
 # --- Karttasisältö -----------------------------------------------------------
 
+## Pelialueen ulkopuoli (koillinen ja lounas): vinoviivoitus ja merkintä, ettei tyhjä kulma näytä virheeltä.
+## Piirretään karttakohteiden päälle, koska OSM-aineisto jatkuu pelialueen ulkopuolelle.
+func _draw_unmapped(v: CanvasItem) -> void:
+	var rects := [[Vector2(M.PLAY_AREA[1].x, 0), Vector2(M.SIZE.x, M.PLAY_AREA[2].y), true],
+		[Vector2(0, M.PLAY_AREA[2].y), Vector2(M.PLAY_AREA[5].x, M.SIZE.y), false]]
+	for rr in rects:
+		var out_lo := _px(rr[0])
+		var out_hi := _px(rr[1])
+		var out_r := Rect2(out_lo, out_hi - out_lo)
+		v.draw_rect(out_r, Color(0.8, 0.76, 0.64, 1.0))
+		var hy := -out_r.size.x
+		while hy < out_r.size.y:
+			var a0 := out_r.position + Vector2(0, hy)
+			var a1 := out_r.position + Vector2(out_r.size.x, hy + out_r.size.x)
+			if a0.y < out_r.position.y:
+				a0 = a0 + Vector2(out_r.position.y - a0.y, out_r.position.y - a0.y)
+			if a1.y > out_r.end.y:
+				a1 = a1 - Vector2(a1.y - out_r.end.y, a1.y - out_r.end.y)
+			v.draw_line(a0, a1, Color(0.55, 0.48, 0.36, 0.5), 1.0)
+			hy += 14.0
+		v.draw_rect(out_r, INK, false, 1.5)
+		if not rr[2]:
+			continue
+		var oc := out_r.get_center()
+		for i in 2:
+			var txt: String = ["KARTOITTAMATON", "(suota ja Pekan jäniksiä)"][i]
+			var fs := 18 if i == 0 else 13
+			var w := ThemeDB.fallback_font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			v.draw_string(ThemeDB.fallback_font, oc + Vector2(-w / 2.0, i * 22.0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, INK)
+
+
 func _draw_map() -> void:
 	if _in_mokki:
 		_draw_mokki_map()
 		return
 	var v := _view
 	v.draw_rect(Rect2(Vector2.ZERO, v.size), Color(0.95, 0.92, 0.82, 0.55))
-	# Pelialueen ulkopuoli (koillinen): vinoviivoitus ja merkintä, ettei tyhjä kulma näytä virheeltä.
-	var out_lo := _px(Vector2(M.PLAY_AREA[1].x, 0))
-	var out_hi := _px(Vector2(M.SIZE.x, M.PLAY_AREA[2].y))
-	var out_r := Rect2(out_lo, out_hi - out_lo)
-	v.draw_rect(out_r, Color(0.8, 0.76, 0.64, 0.8))
-	var hy := -out_r.size.x
-	while hy < out_r.size.y:
-		var a0 := out_r.position + Vector2(0, hy)
-		var a1 := out_r.position + Vector2(out_r.size.x, hy + out_r.size.x)
-		if a0.y < out_r.position.y:
-			a0 = a0 + Vector2(out_r.position.y - a0.y, out_r.position.y - a0.y)
-		if a1.y > out_r.end.y:
-			a1 = a1 - Vector2(a1.y - out_r.end.y, a1.y - out_r.end.y)
-		v.draw_line(a0, a1, Color(0.55, 0.48, 0.36, 0.5), 1.0)
-		hy += 14.0
-	v.draw_rect(out_r, INK, false, 1.5)
-	var oc := out_r.get_center()
-	for i in 2:
-		var txt: String = ["KARTOITTAMATON", "(suota ja Pekan jäniksiä)"][i]
-		var fs := 18 if i == 0 else 13
-		var w := ThemeDB.fallback_font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		v.draw_string(ThemeDB.fallback_font, oc + Vector2(-w / 2.0, i * 22.0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, INK)
 	for f in M.FORESTS:
 		v.draw_colored_polygon(_pts(f), Color(0.66, 0.76, 0.52, 0.9))
 	for c in M.CLEARINGS:
@@ -482,6 +491,7 @@ func _draw_map() -> void:
 		v.draw_set_transform((a + b) / 2.0 + Vector2(0, -6).rotated(ang), ang)
 		v.draw_string(font, Vector2(-r.name.length() * 3.2, 0), r.name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.35, 0.18, 0.08))
 		v.draw_set_transform(Vector2.ZERO)
+	_draw_unmapped(v)
 
 	_house_icon_on(v, _px(M.HOME_ZONE), Color(0.8, 0.15, 0.1))
 	v.draw_string(font, _px(M.HOME_ZONE) + Vector2(10, 4), "Järvikuja 1", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.1, 0.05))

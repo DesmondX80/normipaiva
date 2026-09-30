@@ -292,7 +292,9 @@ godot --path .
 
 ## Tekijänoikeudet
 
-- Koodi, kartta ja maisema: tehty tätä peliä varten.
+- Koodi ja maisema: tehty tätä peliä varten.
+- Kylän kartta (`scripts/map_osm.gd`): © OpenStreetMap-tekijät (ODbL); korkeudet © Maanmittauslaitos
+  (korkeusmalli 2 m, CC BY 4.0).
 - Äänet: CC0-äänitteitä OpenGameArtista ja Kenneyltä (lähteet: `assets/sounds/LICENSE.md`).
 - Mökin ympäristö (`assets/mokki/kartta.json`): © OpenStreetMap-tekijät (ODbL) ja korkeudet Maanmittauslaitoksen
   korkeusmalli 2 m (CC BY 4.0, lehti R4333D, 2023; Kapsin peilistä).
@@ -312,9 +314,13 @@ godot --path .
 - Kartan reunalla hahmo kommentoi, miksi pidemmälle ei kannata lähteä.
 - **Mökki** on mallinnettu oikean Airbnb-vuokramökin ("The warmth of a smoke sauna and cottage life",
   Neittävä) valokuvien mukaan. Se on erillinen alue, jonne pääsee vain taksilla kotipihan taksipysäkiltä.
-- Maaston korkeuserot: todellinen korkeusmalli (Copernicus DEM ~90 m, `assets/terrain/korkeus.json`), leivottu
-  5 m ruudukoksi komennolla `godot --headless --path . -s tools/bake_terrain.gd`. Ylämäessä pyörä hidastuu,
-  alamäessä rullaa. Kartta on Saloisissa loivaa: suurin nousu reitillä on noin 15 %.
+- Kylän kartta: koko alueen tiet, rakennukset, metsät, pellot, suot ja vedet OpenStreetMapista
+  (`scripts/map_osm.gd`, generoitu `tools/kartta/kyla_osm.ps1`:llä); kota, lintutorni, K-Market ja Kiilinlammen
+  taukopaikka (grillikatos) OSM:n kohdissa. Käsin vain se, mitä OSM:ssä ei ole (Antinsuonkankaan laavu ja sen
+  polut) sekä pelin paikat. Maaston korkeuserot: Maanmittauslaitoksen 2 m
+  korkeusmalli (lehdet R4132H, R4134B, R4141G ja R4143A, CC BY 4.0, Kapsin peilistä) n. 5 m ruudukkona,
+  leivottu komennolla `godot --headless --path . -s tools/bake_terrain.gd`. Ylämäessä pyörä hidastuu, alamäessä
+  rullaa. Karttadatan lähteet ja päivitysohjeet: `tools/kartta/LUEMINUT.md`.
 - Tunnusbiisi "Normipäivä Saloisissa" (rautalanka, tehty Sunolla) soi päävalikossa ja onnellisissa lopuissa
   (`assets/music/normipaiva.mp3`; voimakkuus Asetukset → Ääni → Musiikki).
 - Hahmot ja animaatiot: [Quaternius](https://quaternius.com) — Universal Base Characters ja

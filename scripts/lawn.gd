@@ -17,7 +17,11 @@ const SPACING := 0.13  # ruohotupsujen väli
 const HEAD := 0.8  # leikkurin keskipiste pelaajan edessä
 const BLADE_R := 0.5  # terän säde
 
+## Nurmikko omassa kehyksessään: rect on paikallinen (keskipiste origossa), pivot = keskipiste maailmassa ja
+## angle = paikallisen x-akselin kulma maailmassa (nurmikko talon suuntaisesti).
 var rect: Rect2
+var pivot := Vector2.ZERO
+var angle := 0.0
 var mower_park: Vector3
 var lengths := PackedFloat32Array()
 var cols := 0
@@ -101,8 +105,17 @@ func cut_ratio() -> float:
 	return float(n) / maxf(1.0, lengths.size())
 
 
+## Maailman x/z -> nurmikon paikallinen kehys ja takaisin.
+func to_lawn(p: Vector2) -> Vector2:
+	return (p - pivot).rotated(-angle)
+
+
+func to_world(p: Vector2) -> Vector2:
+	return p.rotated(angle) + pivot
+
+
 func has_point(p: Vector3, margin := 0.0) -> bool:
-	return rect.grow(margin).has_point(Vector2(p.x, p.z))
+	return rect.grow(margin).has_point(to_lawn(Vector2(p.x, p.z)))
 
 
 func _refresh() -> void:
@@ -115,7 +128,8 @@ func _refresh() -> void:
 # --- Leikkuu ---------------------------------------------------------------------
 
 ## Leikkaa ruudut, joiden keskipiste on säteellä r pisteestä p. Palauttaa, kuinka paljon ruohoa lähti (m).
-func cut(p: Vector2, r: float) -> float:
+func cut(pw: Vector2, r: float) -> float:
+	var p := to_lawn(pw)
 	var removed := 0.0
 	var lo := ((p - Vector2(r, r) - rect.position) / CELL).floor()
 	var hi := ((p + Vector2(r, r) - rect.position) / CELL).ceil()
@@ -164,7 +178,7 @@ func spawn_objects() -> void:
 	var park := Vector2(mower_park.x, mower_park.z)
 	for kind in kinds:
 		for attempt in 30:
-			var p := inner.position + Vector2(randf() * inner.size.x, randf() * inner.size.y)
+			var p := to_world(inner.position + Vector2(randf() * inner.size.x, randf() * inner.size.y))
 			if p.distance_to(park) < 2.5 or objects.any(func(o: Dictionary) -> bool: return o.pos.distance_to(p) < 1.4):
 				continue
 			var node := _hedgehog() if kind == "siili" else _rock()
@@ -231,7 +245,7 @@ func _build_ground() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var at := func(i: int, j: int) -> Vector3:
-		var p := rect.position + Vector2(i, j) * CELL
+		var p := to_world(rect.position + Vector2(i, j) * CELL)
 		return Vector3(p.x, T.h(p.x, p.y) + 0.02, p.y)
 	st.set_normal(Vector3.UP)
 	for j in rows:
@@ -241,7 +255,7 @@ func _build_ground() -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = B.shader_mat("res://shaders/lawn_ground.gdshader", {
-		"origin": rect.position, "size": rect.size, "cut": _tex, "max_len": MAX_LEN})
+		"origin": rect.position, "size": rect.size, "pivot": pivot, "angle": angle, "cut": _tex, "max_len": MAX_LEN})
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 
@@ -267,12 +281,14 @@ func _build_grass() -> void:
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.material_override = B.shader_mat("res://shaders/lawn.gdshader", {
-		"origin": rect.position, "size": rect.size, "cols": gx, "spacing": SPACING, "cut": _tex, "max_len": MAX_LEN,
+		"origin": rect.position, "size": rect.size, "pivot": pivot, "angle": angle, "cols": gx, "spacing": SPACING,
+		"cut": _tex, "max_len": MAX_LEN,
 		"terrain_h": T.texture(), "terrain_origin": T.origin, "terrain_cells": Vector2(T.nx, T.nz), "terrain_cell": T.CELL,
 	})
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var y := T.h(rect.get_center().x, rect.get_center().y)
-	mmi.custom_aabb = AABB(Vector3(rect.position.x, y - 20.0, rect.position.y), Vector3(rect.size.x, 40.0, rect.size.y))
+	var y := T.h(pivot.x, pivot.y)
+	var rad := rect.size.length() / 2.0
+	mmi.custom_aabb = AABB(Vector3(pivot.x - rad, y - 20.0, pivot.y - rad), Vector3(rad * 2.0, 40.0, rad * 2.0))
 	add_child(mmi)
 
 
