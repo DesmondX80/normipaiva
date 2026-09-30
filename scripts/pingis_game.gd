@@ -69,6 +69,7 @@ var _shake := 0.0
 
 
 func _ready() -> void:
+	Touch.set_extra([[KEY_J, "Lyönti"], [KEY_K, "Smash"]])
 	_build_stage()
 	_pl.append(_make_player(Looks.PLAYER, -2.6, 1.0, true))
 	_pl.append(_make_player(Mokki.SANTTU_LOOK, 2.6, -1.0, false))
@@ -148,6 +149,7 @@ func _process(delta: float) -> void:
 				if _prev_cam != null and is_instance_valid(_prev_cam):
 					_prev_cam.current = true
 				_layer.visible = false
+				Touch.set_extra([])
 				finished.emit(_rounds[0] > _rounds[1], _rounds[0], _rounds[1])
 	for i in 2:
 		_update_player(i, delta)

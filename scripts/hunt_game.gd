@@ -85,23 +85,39 @@ func _ready() -> void:
 		_ambience.position = _eye
 	_saved_cam = [CamCtl.yaw, CamCtl.pitch]
 	CamCtl.need_mouse = true
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if Touch.active:
+		# Kosketus: veto tähtää, Toiminto ampuu, Tähtää-nappi pohjassa = tarkka tähtäys, Pyörä lopettaa.
+		Touch.look.connect(_aim)
+		Touch.set_extra([[-1, "Tähtää"]])
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_say("Istut metsästyslavalla. Aukealla liikkuu jotain...", 3.0)
 	_update_camera(0.0)
 
 
 func _exit_tree() -> void:
 	CamCtl.need_mouse = false
+	if Touch.active:
+		Touch.look.disconnect(_aim)
+		Touch.set_extra([])
+
+
+func _aim(rel: Vector2) -> void:
+	if get_tree().paused or _phase != "hunt":
+		return
+	var sens: float = SENS * Settings.get_v("mouse_sens") * lerpf(1.0, 0.45, _zoom)
+	var inv := -1.0 if Settings.get_v("invert_y") else 1.0
+	_yaw = clampf(_yaw - rel.x * sens, _yaw_center - 1.1, _yaw_center + 1.1)
+	_pitch = clampf(_pitch - rel.y * inv * sens, -0.6, 0.9)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if get_tree().paused or _phase != "hunt":
 		return
+	if Touch.active:
+		return  # kosketuksen hiiriemulaatio ei tähtää eikä ammu (ks. _aim ja Toiminto-nappi)
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sens: float = SENS * Settings.get_v("mouse_sens") * lerpf(1.0, 0.45, _zoom)
-		var inv := -1.0 if Settings.get_v("invert_y") else 1.0
-		_yaw = clampf(_yaw - event.relative.x * sens, _yaw_center - 1.1, _yaw_center + 1.1)
-		_pitch = clampf(_pitch - event.relative.y * inv * sens, -0.6, 0.9)
+		_aim(event.relative)
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
 			and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_shoot()
@@ -124,7 +140,7 @@ func _process(delta: float) -> void:
 		if _end_t > 2.8:
 			_quit()
 			return
-	var aiming := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) and _phase == "hunt"
+	var aiming := (Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Touch.aim) and _phase == "hunt"
 	_zoom = move_toward(_zoom, 1.0 if aiming else 0.0, delta * 5.0)
 	if _reload_t > 0.0:
 		_reload_t -= delta
