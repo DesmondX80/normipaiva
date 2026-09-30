@@ -255,8 +255,7 @@ godot --path .
 | M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen) |
 | V | FPS-näkymä / kolmas persoona |
 | Hiiri | kamera (Esc vapauttaa hiiren valikkoon) |
-| Esc | valikko |
-| R | aloita alusta |
+| Esc | valikko (myös päivän aloitus alusta) |
 
 | Sahauksessa | |
 |---|---|

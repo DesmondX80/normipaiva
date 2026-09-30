@@ -21,8 +21,7 @@ E	toiminto (kauppa, poiminta, nuotio, myynti)
 M	paperikartta (W/S tai rulla vierittää)
 V	FPS / kolmas persoona
 Hiiri	kamera (Esc vapauttaa hiiren valikkoon)
-Esc	taukovalikko
-R	aloita päivä alusta
+Esc	taukovalikko (myös päivän aloitus alusta)
 SAHAUS (kodan sahapukilla)
 Hiiri / E	merkkaa katkaisukohta ja aloita
 Hiiri eteen-taakse / W-S	sahaa (pitkät, rauhalliset vedot)
