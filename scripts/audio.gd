@@ -103,21 +103,28 @@ func has_music() -> bool:
 	return false
 
 
+## Tunnusmusiikki silmukkana (esim. mökin PA-kaiuttimille), null jos tiedostoa ei ole.
+func music_stream() -> AudioStream:
+	for f in MUSIC_FILES:
+		if ResourceLoader.exists(f):
+			var st: AudioStream = load(f)
+			_set_loop(st)
+			return st
+	return null
+
+
 const MUSIC_CHORUS := 25.0  # kertosäe alkaa (s): onnelliset loput soivat tästä
 
 ## Aloittaa (tai jatkaa) musiikin häivyttäen sisään; from = aloituskohta sekunteina.
 func music_play(fade := 1.5, from := 0.0) -> void:
 	if _music == null:
-		for f in MUSIC_FILES:
-			if ResourceLoader.exists(f):
-				var st: AudioStream = load(f)
-				_set_loop(st)
-				_music = AudioStreamPlayer.new()
-				_music.bus = "Music"
-				_music.stream = st
-				_music.process_mode = Node.PROCESS_MODE_ALWAYS  # soi myös valikon tauon aikana
-				add_child(_music)
-				break
+		var st := music_stream()
+		if st != null:
+			_music = AudioStreamPlayer.new()
+			_music.bus = "Music"
+			_music.stream = st
+			_music.process_mode = Node.PROCESS_MODE_ALWAYS  # soi myös valikon tauon aikana
+			add_child(_music)
 	if _music == null:
 		return
 	if _music_tw != null:

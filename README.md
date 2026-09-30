@@ -63,6 +63,12 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     lisätään tulipesään (E). Lämpö seuraa tulta viiveellä: 80–120 °C savustaa täysillä, viileämmässä hitaasti ja yli
     135 °C käristää saaliin karrelle. Valmiit savukalat ja savuriista otetaan eväiksi ja syödään nälkään T:llä.
     Makkaran voi yhä paistaa savustimessa kerralla.
+  - **Santun PA-laitteet:** tuvassa on vanhat keikkakamat (kaiuttimet jalustoilla, mikseri pöydän päässä ja pääte
+    lattialla). E avaa kytkennän, jossa johdot vedetään hiirellä liittimestä toiseen: puhelin mikserin linjakanavaan,
+    MAIN L/R päätteen tuloihin ja Speakonit kaiuttimiin, virrat jatkojohdosta. Virrat päälle oikeassa
+    järjestyksessä (mikseri ensin, pääte viimeisenä, muuten kaiuttimet paukahtavat), mikin kanava kiinni (kierto
+    kiljuu) ja CH2 ja MASTER niin, että taso pysyy vihreällä. Kolme mokaa ja Santtu pakkaa kamat. Onnistuneen
+    kytkennän jälkeen pelin tunnusmusiikki soi tuvassa ja vaimeana pihalle, kunnes PA sammutetaan (E laitteilla).
   Saunassa käynti (E) on lyhyt välianimaatio terassilla: löyly höyryää saunan ovelta, ja jos kaljaa on mukana,
   otetaan hörppy. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
   jääkaappi), pitkä pöytä, TV ja takka, makuuhuone violetteine kerrossänkyineen, kylpyhuone ja sisäsauna.
