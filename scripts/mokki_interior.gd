@@ -4,7 +4,8 @@ extends Node3D
 ## ja sisäsauna sekä Santun PA-laitteet (kaiuttimet jalustoilla, mikseri pöydän päässä, pääte lattialla). Erillinen tasku kuten kaupan sisätila: kuistin ovelta sisään (main.gd _enter_mokki), kävely
 ## player_walker.gd:llä ylhäältä kuvattuna, katto pois. Toiminnot ilmoitetaan acted-signaalilla (tilavaikutukset
 ## ja viestit main.gd:ssä), nukkuminen slept-signaalilla (päivä vaihtuu, uusi päivä alkaa mökiltä).
-## Paikallinen +Z = etuseinä (kuistin ja kameran puoli), -Z = takaseinä, keittiö ja ulko-ovi (vasen takanurkka).
+## Paikallinen -Z = kuistin puoli: keittiö ja ulko-ovi (vasen nurkka), +Z = tien puoli (makuuhuone, kamera).
+## Sama suunta kuin mökin rungossa (mokki.gd _build_cottage).
 
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -13,7 +14,7 @@ const Mokki := preload("res://scripts/mokki.gd")
 
 const HALF := Vector2(7.0, 3.75)  # huoneiston puolikas (x, z)
 const WALL_H := 2.4
-## Pohja on suorakaide, jonka vasemmasta takanurkasta puuttuu lovi (NOTCH, ulkona; ulko-ovi loven seinässä).
+## Pohja on suorakaide, jonka vasemmasta kuistin puoleisesta nurkasta puuttuu lovi (NOTCH, ulkona; ulko-ovi loven seinässä).
 ## Keittiö on loven vieressä tuvan takaseinän (väliseinä TV:n takana) takana, aukko KITCHEN_GAP (x alku, x loppu).
 const NOTCH := Rect2(-7.0, -3.75, 1.6, 1.95)
 const KITCHEN := Rect2(-5.4, -3.75, 6.4, 1.95)
@@ -204,7 +205,7 @@ func _build_room() -> void:
 	for i in 18:
 		var x := -HALF.x + 0.4 + i * 0.78
 		B.mesh(self, B.boxm(Vector3(0.02, 0.01, HALF.y * 2.0)), Vector3(x, 0.005, 0), Color(0.38, 0.4, 0.4))
-	# Lovi (ulkotilaa) vasemmassa takanurkassa: maan värinen lattia lattialautojen päälle.
+	# Lovi (ulkotilaa) vasemmassa nurkassa kuistin puolella: maan värinen lattia lattialautojen päälle.
 	B.mesh(self, B.boxm(Vector3(NOTCH.size.x + 0.1, 0.02, NOTCH.size.y + 0.1)), Vector3(NOTCH.get_center().x - 0.05, 0.02,
 		NOTCH.get_center().y - 0.05), Color(0.3, 0.33, 0.22))
 	# Ulkoseinät: takaseinä (keittiön perä), loven kaksi seinää ja päädyt täyskorkeat, etuseinä matala kameran
@@ -224,7 +225,7 @@ func _build_room() -> void:
 	for wx in [-1.5, 2.2, 5.2]:
 		B.mesh(self, B.boxm(Vector3(1.3, 1.1, 0.06)), Vector3(wx, 1.45, -HALF.y + 0.1), Color(0.55, 0.12, 0.14))
 		B.mesh(self, B.boxm(Vector3(1.1, 0.9, 0.07)), Vector3(wx, 1.45, -HALF.y + 0.11), Color(0.55, 0.75, 0.6))
-	# Väliseinät oikealla: kylpyhuone ja sauna takana, makuuhuone edessä (kuistin puolella), oviaukot.
+	# Väliseinät oikealla: kylpyhuone ja sauna takana, makuuhuone edessä (tien puolella), oviaukot.
 	var wall2 := panel.darkened(0.05)
 	_wall(Vector2(1.0, -HALF.y), Vector2(1.0, -2.8), WALL_H, wall2)
 	_wall(Vector2(1.0, -1.85), Vector2(1.0, 1.55), WALL_H, wall2)
@@ -268,7 +269,7 @@ func _build_kitchen_dining() -> void:
 	for cx in [-4.0, -3.0, -2.0]:
 		B.mesh(self, B.boxm(Vector3(0.42, 0.45, 0.42)), Vector3(cx, 0.22, 0.75), Color(0.8, 0.55, 0.25))
 		B.mesh(self, B.boxm(Vector3(0.42, 0.4, 0.05)), Vector3(cx, 0.65, 0.55), Color(0.8, 0.55, 0.25))
-	# Kaksi vuodesohvaa peräkkäin kuistin puoleisella seinällä ja musta nojatuoli nurkassa.
+	# Kaksi vuodesohvaa peräkkäin tien puoleisella seinällä ja musta nojatuoli nurkassa.
 	for bx in [-1.3, -3.5]:
 		_solid(Vector3(2.0, 0.42, 0.85), Vector3(bx, 0.21, HALF.y - 0.5), wood)
 		B.mesh(self, B.boxm(Vector3(1.9, 0.12, 0.8)), Vector3(bx, 0.48, HALF.y - 0.5), Color(0.86, 0.86, 0.84))
