@@ -169,6 +169,7 @@ func ensure_built() -> void:
 	_build_road()
 	_build_bridges()
 	_build_side_roads()
+	_build_underpass()
 	_build_buildings()
 	_build_parkings()
 	_build_signs()
@@ -520,11 +521,26 @@ func _build_side_roads() -> void:
 			var b := Vector2(pts[j + 1][0], pts[j + 1][1])
 			var n := (b - a).normalized().orthogonal() * half
 			var lift := 0.03 if kind != "rail" else 0.05
-			# Rata ylittää Oulujoen ratasillalla: kiskot vähintään 3 m vedenpinnan yläpuolella.
-			var gy := func(p: Vector2) -> float: return maxf(h(p.x, p.y), water_level + 3.0) if kind == "rail" else h(p.x, p.y)
+			# Rata: leivottu korkeus (penger ja alikulun ratasilta), Oulujoen ratasillalla kiskot vähintään 3 m
+			# vedenpinnan yläpuolella.
+			var ya := h(a.x, a.y)
+			var yb := h(b.x, b.y)
+			if kind == "rail":
+				ya = maxf(maxf(ya, pts[j][2] if pts[j].size() > 2 else ya), water_level + 3.0)
+				yb = maxf(maxf(yb, pts[j + 1][2] if pts[j + 1].size() > 2 else yb), water_level + 3.0)
+			var gy := func(p: Vector2) -> float:
+				if kind != "rail":
+					return h(p.x, p.y)
+				return lerpf(ya, yb, clampf((p - a).dot(b - a) / maxf((b - a).length_squared(), 0.01), 0.0, 1.0))
 			var v := func(p: Vector2) -> Vector3: return Vector3(p.x, gy.call(p) + lift, p.y)
 			_quad(st, v.call(a - n), v.call(b - n), v.call(b + n), v.call(a + n))
 			if kind == "rail":
+				# Sepeliluiskat sivuille (ei rakoa maastoon).
+				var skirt := Vector3(0, -0.7, 0)
+				for sn: float in [-1.0, 1.0]:
+					var e := n * sn
+					var e2 := n * sn * 1.6
+					_quad(st, v.call(a + e), v.call(b + e), v.call(b + e2) + skirt, v.call(a + e2) + skirt)
 				var dir := (b - a).normalized()
 				var steps := int(a.distance_to(b) / 0.8)
 				for s in steps:
@@ -532,11 +548,10 @@ func _build_side_roads() -> void:
 					sleepers.append(Transform3D(Basis(Vector3.UP, atan2(-dir.x, -dir.y)), Vector3(p.x, gy.call(p) + 0.1, p.y)))
 				for off in [-0.72, 0.72]:
 					var o: Vector2 = dir.orthogonal() * off
-					B.tube(self, Vector3(a.x + o.x, gy.call(a) + 0.22, a.y + o.y), Vector3(b.x + o.x, gy.call(b) + 0.22, b.y + o.y),
+					B.tube(self, Vector3(a.x + o.x, ya + 0.22, a.y + o.y), Vector3(b.x + o.x, yb + 0.22, b.y + o.y),
 						0.04, Color(0.5, 0.45, 0.4))
 				if h(a.x, a.y) < water_level + 2.5:
 					# Teräksinen ristikkopalkki ja pilari veteen.
-					var ya: float = gy.call(a)
 					var mid := (a + b) / 2.0
 					for s2 in [-1.0, 1.0]:
 						var q: Vector2 = mid + dir.orthogonal() * 1.9 * s2
@@ -554,10 +569,112 @@ func _build_side_roads() -> void:
 		mi.material_override = B.mat(cols[kind])
 		add_child(mi)
 	if not sleepers.is_empty():
-		_multimesh(B.boxm(Vector3(2.4, 0.16, 0.24)), sleepers)
+		_multimesh(B.boxm(Vector3(2.4, 0.16, 0.24)), sleepers, Color(0.4, 0.38, 0.35))
 
 
-## Rakennukset OSM:n pohjista: omakotitalot harjakatolla, isot laatikkona tasakatolla, Siitari erikseen.
+## Radan alikulku (Vuolijoentie radan ali juuri ennen Oulujokea): betonilaatta ja siniset teräspalkit kaiteineen
+## ratapenkereen aukon yli, maatuet tien molemmin puolin (yläreuna seuraa penkereen luiskaa) ja
+## alikulkukorkeuden kilpi. Penger ja kiskojen korkeus ovat leivonnassa (vaala_bake.py).
+var underpass_i := -1
+
+
+func _build_underpass() -> void:
+	var u = data.get("underpass")
+	if u == null:
+		return
+	var i: int = u.i
+	underpass_i = i
+	var at := Vector3(u.at[0], float(u.road_y), u.at[1])
+	var rd := Vector3(u.dir[0], 0, u.dir[1]).normalized()
+	var fd := road_dir(i)
+	var rn := fd.cross(Vector3.UP)
+	var sin_a := maxf(absf(rd.cross(fd).y), 0.35)
+	var hw: float = u.hw
+	var deck: float = u.deck
+	var H := deck - 0.1 - at.y
+	var conc := Color(0.66, 0.65, 0.62)
+	# Kansi radan suuntaan aukon yli.
+	var dl := (hw + 1.6) / sin_a * 2.0 + 2.0
+	var basis := Basis(Vector3.UP, atan2(rd.x, rd.z))
+	var deck_c := Vector3(at.x, deck - 0.5, at.z)
+	var dm := B.mesh(self, B.boxm(Vector3(6.2, 0.8, dl)), deck_c, conc)
+	dm.basis = basis
+	var steel := Color(0.2, 0.36, 0.55)
+	for s: float in [-1.0, 1.0]:
+		var gp := deck_c + basis.x * s * 3.25 + Vector3(0, 0.35, 0)
+		var g := B.mesh(self, B.boxm(Vector3(0.35, 1.6, dl)), gp, steel)
+		g.basis = basis
+		var rail_top := gp + Vector3(0, 1.3, 0)
+		B.tube(self, rail_top - basis.z * dl / 2.0, rail_top + basis.z * dl / 2.0, 0.05, steel)
+		for k2 in int(dl / 1.5) + 1:
+			var pp: Vector3 = gp - basis.z * dl / 2.0 + basis.z * k2 * 1.5 + Vector3(0, 1.05, 0)
+			B.mesh(self, B.boxm(Vector3(0.06, 0.5, 0.06)), pp, steel)
+	# Alikulkukorkeus kannen reunaan molempiin ajosuuntiin.
+	for s: float in [-1.0, 1.0]:
+		var plate := B.sign_plate(self, "4,6 m", Color(0.98, 0.98, 0.95), Color(0.05, 0.05, 0.05), 0.4, 60, Color(0.85, 0.1, 0.08), "Helvetica Neue")
+		plate.position = at - fd * s * (3.4 / sin_a + 0.1) + Vector3(0, H - 1.25, 0)
+		plate.rotation.y = atan2(-fd.x * s, -fd.z * s)
+	# Maatuet: paksu betoniseinä pientareen takana, yläreuna penkereen korkeudella (luiskassa laskee).
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_color(Color(conc.r, conc.g, conc.b, CONCRETE))
+	var body := StaticBody3D.new()
+	add_child(body)
+	var X := (2.8 + H / 0.75) / sin_a + 1.0
+	var segs := 14
+	for s: float in [-1.0, 1.0]:
+		var l1 := hw + 1.3
+		var l2 := hw + 6.8
+		var prev := {}
+		for k2 in segs + 1:
+			var x := -X + 2.0 * X * k2 / segs
+			var ry := road_pos(i + roundi(x / 2.0)).y
+			var dr := absf(x) * sin_a
+			var top := at.y + maxf(H - maxf(0.0, dr - 2.8) * 0.75, 0.3) + 0.25
+			var c := at + fd * x
+			var cur := {
+				"b1": Vector3(c.x, ry - 0.8, c.z) + rn * s * l1, "t1": Vector3(c.x, top, c.z) + rn * s * l1,
+				"b2": Vector3(c.x, ry - 0.8, c.z) + rn * s * l2, "t2": Vector3(c.x, top, c.z) + rn * s * l2,
+			}
+			if prev.is_empty():
+				_quad(st, cur.b1, cur.t1, cur.t2, cur.b2)
+			else:
+				_quad(st, prev.b1, cur.b1, cur.t1, prev.t1)
+				_quad(st, prev.t1, cur.t1, cur.t2, prev.t2)
+				var lo := minf(prev.b1.y, cur.b1.y)
+				var hi := maxf(prev.t1.y, cur.t1.y)
+				var mid: Vector3 = (prev.b1 + cur.b1 + prev.b2 + cur.b2) / 4.0
+				var cs := B.box_shape(Vector3(l2 - l1, hi - lo, (prev.b1 as Vector3).distance_to(cur.b1) + 0.05), Vector3.ZERO)
+				cs.transform = Transform3D(Basis.looking_at(fd, Vector3.UP), Vector3(mid.x, (hi + lo) / 2.0, mid.z))
+				body.add_child(cs)
+			prev = cur
+		_quad(st, prev.b1, prev.t1, prev.t2, prev.b2)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = B.shader_mat("res://shaders/facade.gdshader")
+	add_child(mi)
+
+
+## Rakennukset OSM:n pohjista: omakotitalot vaakapaneelilla ja harjakatolla, vajat pystylaudoituksella, isot
+## tiilestä, rappauksesta tai betonielementeistä tasakatolla. Seinä- ja kattokuviot shadereista (facade, roof),
+## materiaali verteksivärin alfassa. Nimetyille kyltti tien puolelle, kirkolle torni, asemalle laituri.
+const WOOD := 1.0
+const BOARD := 0.75
+const BRICK := 0.5
+const PLASTER := 0.25
+const CONCRETE := 0.0
+const SEAM_ROOF := 1.0
+const TILE_ROOF := 0.5
+const FELT_ROOF := 0.0
+
+var _doors: Array[Transform3D] = []
+var _chimneys: Array[Transform3D] = []
+var _balconies: Array[Transform3D] = []
+var _win_mull: Array[Transform3D] = []
+var _shop_glass: Array[Transform3D] = []
+
+
 func _build_buildings() -> void:
 	_walls = SurfaceTool.new()
 	_walls.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -566,8 +683,9 @@ func _build_buildings() -> void:
 	var body := StaticBody3D.new()
 	add_child(body)
 	var house_cols := [Color(0.62, 0.16, 0.12), Color(0.86, 0.74, 0.42), Color(0.92, 0.91, 0.86), Color(0.45, 0.3, 0.2),
-		Color(0.55, 0.62, 0.66), Color(0.8, 0.55, 0.3)]
-	var big_cols := [Color(0.72, 0.52, 0.4), Color(0.85, 0.83, 0.78), Color(0.6, 0.58, 0.55), Color(0.78, 0.66, 0.5)]
+		Color(0.55, 0.62, 0.66), Color(0.8, 0.55, 0.3), Color(0.93, 0.9, 0.78), Color(0.7, 0.72, 0.62)]
+	var brick_cols := [Color(0.6, 0.26, 0.17), Color(0.72, 0.42, 0.28), Color(0.52, 0.3, 0.22), Color(0.82, 0.7, 0.5)]
+	var plaster_cols := [Color(0.9, 0.88, 0.82), Color(0.86, 0.8, 0.66), Color(0.78, 0.8, 0.8), Color(0.92, 0.86, 0.74)]
 	for bd in data.buildings:
 		var pts := PackedVector2Array()
 		for q in bd.pts:
@@ -578,51 +696,249 @@ func _build_buildings() -> void:
 		if id == SIITARI_ID:
 			_build_siitari(pts, body)
 			continue
+		var name: String = bd.name
+		var type: String = bd.type
 		var levels: int = bd.levels
-		var wall_h := 2.8 * levels + (0.4 if bd.kind != "shed" else 0.0)
-		if bd.kind == "shed":
-			wall_h = 2.4
-		var col: Color = (house_cols if bd.kind != "big" else big_cols)[absi(id) % (house_cols.size() if bd.kind != "big" else big_cols.size())]
-		if bd.kind == "shed":
-			col = [Color(0.55, 0.14, 0.1), Color(0.4, 0.3, 0.22), Color(0.6, 0.6, 0.58)][absi(id) % 3]
-		if id == HOTEL_ID:
-			col = Color(0.78, 0.62, 0.46)
-			wall_h = 6.4
+		var obb := _obb(pts)
 		var base := INF
 		for p in pts:
 			base = minf(base, h(p.x, p.y))
 		base -= 0.3
-		_prism(pts, base, base + wall_h + 0.3, col)
-		var obb := _obb(pts)
-		# Katto: pienet ja keskikokoiset talot harjakatolla pitkän sivun suuntaan, isot tasakatolla.
-		var roof_col: Color = [Color(0.18, 0.18, 0.2), Color(0.45, 0.14, 0.1), Color(0.3, 0.3, 0.32)][absi(id / 7) % 3]
-		var top := base + wall_h + 0.3
-		if bd.kind == "big" and id != HOTEL_ID:
-			_flat_roof(pts, top, Color(0.25, 0.25, 0.27))
+		var hsh := absi(id)
+		var kind: String = bd.kind
+		var col: Color
+		var mat := WOOD
+		var roof_col: Color = [Color(0.18, 0.18, 0.2), Color(0.45, 0.14, 0.1), Color(0.3, 0.3, 0.32), Color(0.22, 0.28, 0.24)][(hsh / 7) % 4]
+		var roof_mat := SEAM_ROOF if (hsh / 3) % 3 != 0 else TILE_ROOF
+		var wall_h := 2.8 * levels + 0.4
+		var flat := false
+		if kind == "shed":
+			wall_h = 2.4
+			col = [Color(0.55, 0.14, 0.1), Color(0.4, 0.3, 0.22), Color(0.6, 0.6, 0.58), Color(0.72, 0.6, 0.35)][hsh % 4]
+			mat = BOARD
+			roof_mat = SEAM_ROOF
+		elif kind == "house" or type in ["terrace", "house", "detached", "residential"]:
+			col = house_cols[hsh % house_cols.size()]
 		else:
-			_gable(obb, top, clampf(obb.size.y * 0.32, 0.8, 3.2), roof_col)
-		# Ikkunat pitkille sivuille.
-		if bd.kind != "shed":
-			_windows(pts, base + 0.3, levels if id != HOTEL_ID else 2)
+			flat = true
+			roof_mat = FELT_ROOF
+			roof_col = Color(0.24, 0.24, 0.26)
+			match hsh % 3:
+				0:
+					mat = BRICK
+					col = brick_cols[(hsh / 3) % brick_cols.size()]
+				1:
+					mat = PLASTER
+					col = plaster_cols[(hsh / 3) % plaster_cols.size()]
+				_:
+					mat = CONCRETE
+					col = Color(0.74, 0.72, 0.68)
+			if levels <= 1:
+				wall_h = 4.6  # liikerakennus: korkea kerros
+		if type in ["roof", "service"]:
+			wall_h = 3.2
+		var church := name.contains("kirkko")
+		var station := type == "train_station"
+		if church:
+			col = Color(0.95, 0.94, 0.9)
+			mat = PLASTER
+			wall_h = 6.5
+			flat = false
+			roof_mat = SEAM_ROOF
+			roof_col = Color(0.3, 0.3, 0.33)
+		elif station:
+			col = Color(0.88, 0.72, 0.36)  # keltainen puuasema
+			mat = WOOD
+			flat = false
+			roof_mat = SEAM_ROOF
+			roof_col = Color(0.5, 0.14, 0.1)
+		elif type == "church":
+			flat = false
+			mat = WOOD
+			col = Color(0.93, 0.92, 0.88)
+		if id == HOTEL_ID:
+			col = Color(0.78, 0.62, 0.46)
+			mat = BRICK
+			wall_h = 6.4
+			flat = false
+		var top := base + wall_h + 0.3
+		_prism(pts, base, top, col, mat)
+		if flat:
+			_flat_roof(pts, top, roof_col)
+			_parapet(pts, top, col, mat)
+		else:
+			var rise := clampf(obb.size.y * 0.32, 0.8, 3.2)
+			if church:
+				rise = obb.size.y * 0.5
+			_gable(obb, top, rise, roof_col, col, mat, roof_mat)
+			if kind == "house" and not station and (hsh / 5) % 4 != 0:
+				# Piippu harjan viereen.
+				var cq: Vector2 = obb.center + (obb.ax as Vector2) * obb.size.x * 0.2 + (obb.ay as Vector2) * 0.6
+				_chimneys.append(Transform3D(Basis(Vector3.UP, -obb.angle), Vector3(cq.x, top + rise - 0.2, cq.y)))
+		# Ikkunat kaikille sivuille, ovi tien puolelle, isoissa kerrostaloissa parvekkeet.
+		if kind != "shed":
+			var shop := type in ["retail", "commercial"] or name.contains("market") or name.contains("Market")
+			var door := _door(obb, base + 0.3)
+			_windows(pts, base + 0.3, maxi(levels, 1) if id != HOTEL_ID else 2, wall_h, shop, door)
+			if type == "apartments":
+				_balcony_rows(pts, base + 0.3, levels, obb)
 		var cs := B.box_shape(Vector3(obb.size.x, wall_h + 2.0, obb.size.y), Vector3.ZERO)
 		cs.transform = Transform3D(Basis(Vector3.UP, -obb.angle), Vector3(obb.center.x, base + wall_h / 2.0, obb.center.y))
 		body.add_child(cs)
+		if church:
+			_church_tower(obb, base, body)
 		if id == HOTEL_ID:
-			var plate := B.sign_plate(self, "HOTELLI SIITARI", Color(0.12, 0.2, 0.35), Color(0.98, 0.95, 0.85), 0.5, 60,
+			name = "HOTELLI SIITARI"
+		if name != "" and not church:
+			var fg := Color(0.98, 0.95, 0.85)
+			var bg := Color(0.12, 0.2, 0.35)
+			if name.contains("S-market"):
+				bg = Color(0.0, 0.45, 0.25)
+			elif name.contains("K-Market"):
+				bg = Color(0.9, 0.35, 0.05)
+			elif station:
+				name = "VAALA"
+				bg = Color(0.95, 0.95, 0.95)
+				fg = Color(0.1, 0.1, 0.1)
+			var plate := B.sign_plate(self, name, bg, fg, 0.5 if kind == "big" or station else 0.35, 60 if kind == "big" or station else 44,
 				Color(0.1, 0.12, 0.2), "Helvetica Neue")
-			plate.position.y = top - 0.9
+			plate.position.y = minf(top - 0.9, base + 3.4)
 			_face_road(plate, obb)
-	for st in [_walls, _roofs]:
+	for pair in [[_walls, "res://shaders/facade.gdshader"], [_roofs, "res://shaders/roof.gdshader"]]:
+		var st: SurfaceTool = pair[0]
 		st.generate_normals()
 		var mi := MeshInstance3D.new()
 		mi.mesh = st.commit()
-		var m := B.vcol_mat().duplicate() as StandardMaterial3D
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-		m.vertex_color_is_srgb = true
-		mi.material_override = m
+		mi.material_override = B.shader_mat(pair[1])
 		add_child(mi)
-	_multimesh(B.boxm(Vector3(1.1, 1.2, 0.05)), _win_frames, Color(0.93, 0.93, 0.9))
-	_multimesh(B.boxm(Vector3(0.9, 1.0, 0.06)), _win_glass, Color(0.12, 0.16, 0.22))
+	_multimesh(B.boxm(Vector3(1.1, 1.3, 0.06)), _win_frames, Color(0.93, 0.93, 0.9))
+	var glass := StandardMaterial3D.new()
+	glass.albedo_color = Color(0.1, 0.14, 0.2)
+	glass.metallic = 0.7
+	glass.roughness = 0.08
+	_multimesh_mat(B.boxm(Vector3(0.94, 1.14, 0.07)), _win_glass, glass)
+	_multimesh(_mullion_mesh(), _win_mull, Color(0.93, 0.93, 0.9))
+	_multimesh_mat(B.boxm(Vector3(2.8, 2.2, 0.07)), _shop_glass, glass)
+	_multimesh(_door_mesh(), _doors)
+	_multimesh(_chimney_mesh(), _chimneys)
+	_multimesh(_balcony_mesh(), _balconies)
+
+
+func _multimesh_mat(mesh: Mesh, xfs: Array[Transform3D], m: Material) -> void:
+	if xfs.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = xfs.size()
+	for i in xfs.size():
+		mm.set_instance_transform(i, xfs[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = m
+	add_child(mmi)
+
+
+func _parts_mesh(parts: Array) -> ArrayMesh:
+	var am := ArrayMesh.new()
+	for part in parts:
+		var st := SurfaceTool.new()
+		st.append_from(part[0], 0, Transform3D(Basis.from_euler(part[3] if part.size() > 3 else Vector3.ZERO), part[1]))
+		st.commit(am)
+		am.surface_set_material(am.get_surface_count() - 1, B.mat(part[2]))
+	return am
+
+
+## Ikkunan puitteet: pystypuite keskellä ja vaakapuite yläosassa (kuten suomalaisessa kolmiruutuisessa ikkunassa).
+func _mullion_mesh() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.append_from(B.boxm(Vector3(0.06, 1.14, 0.1)), 0, Transform3D(Basis(), Vector3.ZERO))
+	st.append_from(B.boxm(Vector3(0.94, 0.06, 0.1)), 0, Transform3D(Basis(), Vector3(0, 0.22, 0)))
+	st.append_from(B.boxm(Vector3(1.2, 0.05, 0.16)), 0, Transform3D(Basis(), Vector3(0, -0.68, 0.05)))  # vesipelti
+	return st.commit()
+
+
+func _door_mesh() -> ArrayMesh:
+	return _parts_mesh([
+		[B.boxm(Vector3(1.2, 2.25, 0.08)), Vector3(0, 1.12, 0), Color(0.93, 0.93, 0.9)],
+		[B.boxm(Vector3(1.0, 2.1, 0.1)), Vector3(0, 1.05, 0), Color(0.36, 0.22, 0.12)],
+		[B.boxm(Vector3(0.25, 1.1, 0.11)), Vector3(0.22, 1.3, 0), Color(0.55, 0.7, 0.8)],
+		[B.boxm(Vector3(0.1, 0.04, 0.16)), Vector3(-0.35, 1.0, 0.06), Color(0.8, 0.8, 0.8)],
+		[B.boxm(Vector3(1.6, 0.18, 1.0)), Vector3(0, -0.2, 0.45), Color(0.55, 0.55, 0.53)],  # porraskivi
+		[B.boxm(Vector3(1.8, 0.08, 1.2)), Vector3(0, 2.55, 0.5), Color(0.25, 0.25, 0.27)],  # lippa
+	])
+
+
+func _chimney_mesh() -> ArrayMesh:
+	return _parts_mesh([
+		[B.boxm(Vector3(0.6, 1.6, 0.6)), Vector3(0, 0.8, 0), Color(0.55, 0.25, 0.18)],
+		[B.boxm(Vector3(0.75, 0.1, 0.75)), Vector3(0, 1.62, 0), Color(0.3, 0.3, 0.32)],
+		[B.boxm(Vector3(0.5, 0.18, 0.5)), Vector3(0, 1.8, 0), Color(0.15, 0.15, 0.16)],
+	])
+
+
+func _balcony_mesh() -> ArrayMesh:
+	return _parts_mesh([
+		[B.boxm(Vector3(2.8, 0.16, 1.3)), Vector3(0, 0, 0.65), Color(0.7, 0.7, 0.68)],
+		[B.boxm(Vector3(2.8, 1.0, 0.06)), Vector3(0, 0.55, 1.28), Color(0.85, 0.85, 0.82)],
+		[B.boxm(Vector3(0.06, 1.0, 1.3)), Vector3(-1.37, 0.55, 0.65), Color(0.85, 0.85, 0.82)],
+		[B.boxm(Vector3(0.06, 1.0, 1.3)), Vector3(1.37, 0.55, 0.65), Color(0.85, 0.85, 0.82)],
+	])
+
+
+## Ovi pitkälle sivulle tien puolelle. Palauttaa oven paikan (ikkunat väistävät sitä).
+func _door(obb: Dictionary, y0: float) -> Vector2:
+	var ni: Array = nearest(Vector3(obb.center.x, 0, obb.center.y))
+	var ay: Vector2 = obb.ay
+	var side := ay
+	if ni[0] >= 0:
+		var rp := road_pos(ni[0])
+		if ay.dot(Vector2(rp.x, rp.z) - (obb.center as Vector2)) < 0.0:
+			side = -ay
+	var ax: Vector2 = obb.ax
+	var q: Vector2 = obb.center + side * ((obb.size as Vector2).y / 2.0 + 0.05) + ax * (obb.size as Vector2).x * 0.18
+	var y := h(q.x, q.y) + 0.1
+	_doors.append(Transform3D(Basis(Vector3.UP, atan2(side.x, side.y)), Vector3(q.x, maxf(y, y0 - 0.1), q.y)))
+	return q
+
+
+## Parvekkeet kerrostalon pitkille sivuille (toinen kerros ylöspäin), 6 m välein.
+func _balcony_rows(pts: PackedVector2Array, y0: float, levels: int, obb: Dictionary) -> void:
+	var ax: Vector2 = obb.ax
+	var ay: Vector2 = obb.ay
+	var n := int((obb.size as Vector2).x / 6.0)
+	for s in [-1.0, 1.0]:
+		var out: Vector2 = ay * s
+		for lv in range(1, levels):
+			for w in n:
+				var q: Vector2 = obb.center + out * ((obb.size as Vector2).y / 2.0) + ax * (6.0 * (w + 0.5) - n * 3.0)
+				_balconies.append(Transform3D(Basis(Vector3.UP, atan2(out.x, out.y)), Vector3(q.x, y0 + lv * 2.8 - 0.1, q.y)))
+
+
+## Kirkon kellotapuli: valkoinen torni rakennuksen päätyyn, kellokerroksen aukot, kapea kattoterävä ja risti.
+func _church_tower(obb: Dictionary, base: float, body: StaticBody3D) -> void:
+	var ax: Vector2 = obb.ax
+	var q: Vector2 = obb.center + ax * ((obb.size as Vector2).x / 2.0 + 2.4)
+	var p := Vector3(q.x, base, q.y)
+	var rot := Vector3(0, rad_to_deg(-obb.angle), 0)
+	var white := Color(0.95, 0.94, 0.9)
+	B.mesh(self, B.boxm(Vector3(4.4, 17.0, 4.4)), p + Vector3(0, 8.5, 0), white, rot)
+	for k2 in 4:
+		var a: float = -float(obb.angle) + k2 * PI / 2.0
+		var o := Vector3(sin(a), 0, cos(a)) * 2.22
+		B.mesh(self, B.boxm(Vector3(1.4, 2.4, 0.06)), p + o + Vector3(0, 14.2, 0), Color(0.12, 0.12, 0.14), Vector3(0, rad_to_deg(a), 0))
+	var spire := CylinderMesh.new()
+	spire.top_radius = 0.02
+	spire.bottom_radius = 3.3
+	spire.height = 9.0
+	spire.radial_segments = 4
+	spire.rings = 0
+	B.mesh(self, spire, p + Vector3(0, 21.5, 0), Color(0.3, 0.3, 0.33), Vector3(0, rad_to_deg(-obb.angle) + 45.0, 0))
+	B.mesh(self, B.boxm(Vector3(0.12, 2.0, 0.12)), p + Vector3(0, 27.0, 0), Color(0.85, 0.72, 0.3))
+	B.mesh(self, B.boxm(Vector3(1.0, 0.12, 0.12)), p + Vector3(0, 27.4, 0), Color(0.85, 0.72, 0.3), rot)
+	var cs := B.box_shape(Vector3(4.4, 17.0, 4.4), Vector3.ZERO)
+	cs.transform = Transform3D(Basis(Vector3.UP, -obb.angle), p + Vector3(0, 8.5, 0))
+	body.add_child(cs)
 
 
 ## Suunnattu rajauslaatikko: keskipiste, koko (pitkä sivu x), kulma (pitkän sivun suunta).
@@ -646,50 +962,76 @@ func _obb(pts: PackedVector2Array) -> Dictionary:
 	return {"center": ax * c.x + ay * c.y, "size": mx - mn, "angle": ang, "ax": ax, "ay": ay}
 
 
-func _prism(pts: PackedVector2Array, y0: float, y1: float, col: Color) -> void:
-	_walls.set_color(col)
+func _prism(pts: PackedVector2Array, y0: float, y1: float, col: Color, kind := WOOD) -> void:
+	_walls.set_color(Color(col.r, col.g, col.b, kind))
 	for i in pts.size():
 		var a := pts[i]
 		var b := pts[(i + 1) % pts.size()]
-		# Seinäpari eri kiertosuuntiin, jotta normaali osoittaa ulos kummassakin kiertosuunnassa.
 		_quad(_walls, Vector3(a.x, y0, a.y), Vector3(b.x, y0, b.y), Vector3(b.x, y1, b.y), Vector3(a.x, y1, a.y))
 
 
 func _flat_roof(pts: PackedVector2Array, y: float, col: Color) -> void:
 	var tris := Geometry2D.triangulate_polygon(pts)
-	_roofs.set_color(col)
+	_roofs.set_color(Color(col.r, col.g, col.b, FELT_ROOF))
 	for ix in tris:
 		_roofs.add_vertex(Vector3(pts[ix].x, y, pts[ix].y))
 
 
-## Harjakatto suunnatun laatikon päälle: harja pitkän sivun suuntaan, päätykolmiot, räystäät 0,4 m.
-func _gable(obb: Dictionary, y: float, rise: float, col: Color) -> void:
+## Tasakaton räystäskaide (0,5 m) seinän materiaalilla.
+func _parapet(pts: PackedVector2Array, y: float, col: Color, kind: float) -> void:
+	_prism(pts, y - 0.1, y + 0.5, col.darkened(0.08), kind)
+	_walls.set_color(Color(0.4, 0.4, 0.42, CONCRETE))
+	for i in pts.size():
+		var a := pts[i]
+		var b := pts[(i + 1) % pts.size()]
+		var n := (b - a).normalized().orthogonal() * 0.25
+		_quad(_walls, Vector3(a.x - n.x, y + 0.5, a.y - n.y), Vector3(b.x - n.x, y + 0.5, b.y - n.y),
+			Vector3(b.x + n.x, y + 0.5, b.y + n.y), Vector3(a.x + n.x, y + 0.5, a.y + n.y))
+
+
+## Harjakatto suunnatun laatikon päälle: harja pitkän sivun suuntaan, päätykolmiot seinän värillä, räystäät 0,5 m
+## ja otsalaudat.
+func _gable(obb: Dictionary, y: float, rise: float, col: Color, wall_col := Color(0.93, 0.92, 0.88), wall_kind := WOOD,
+		roof_kind := SEAM_ROOF) -> void:
 	var ax: Vector2 = obb.ax
 	var ay: Vector2 = obb.ay
 	var c: Vector2 = obb.center
-	var hx: float = obb.size.x / 2.0 + 0.4
-	var hy: float = obb.size.y / 2.0 + 0.4
+	var hx: float = obb.size.x / 2.0 + 0.5
+	var hy: float = obb.size.y / 2.0 + 0.5
 	var p := func(u: float, v: float, yy: float) -> Vector3:
 		var q := c + ax * u + ay * v
 		return Vector3(q.x, yy, q.y)
 	var ridge := y + rise
-	_roofs.set_color(col)
-	_quad(_roofs, p.call(-hx, -hy, y - 0.12), p.call(hx, -hy, y - 0.12), p.call(hx, 0, ridge), p.call(-hx, 0, ridge))
-	_quad(_roofs, p.call(-hx, hy, y - 0.12), p.call(-hx, 0, ridge), p.call(hx, 0, ridge), p.call(hx, hy, y - 0.12))
+	var drop := rise / maxf(obb.size.y / 2.0, 0.5) * 0.5
+	_roofs.set_color(Color(col.r, col.g, col.b, roof_kind))
+	_quad(_roofs, p.call(-hx, -hy, y - drop), p.call(hx, -hy, y - drop), p.call(hx, 0, ridge), p.call(-hx, 0, ridge))
+	_quad(_roofs, p.call(-hx, hy, y - drop), p.call(-hx, 0, ridge), p.call(hx, 0, ridge), p.call(hx, hy, y - drop))
+	# Harjapelti.
+	_roofs.set_color(Color(col.r * 0.8, col.g * 0.8, col.b * 0.8, FELT_ROOF))
+	_quad(_roofs, p.call(-hx, -0.15, ridge - 0.05), p.call(hx, -0.15, ridge - 0.05), p.call(hx, 0, ridge + 0.08), p.call(-hx, 0, ridge + 0.08))
+	_quad(_roofs, p.call(-hx, 0.15, ridge - 0.05), p.call(-hx, 0, ridge + 0.08), p.call(hx, 0, ridge + 0.08), p.call(hx, 0.15, ridge - 0.05))
 	var ex: float = obb.size.x / 2.0
 	var ey: float = obb.size.y / 2.0
-	_walls.set_color(Color(0.93, 0.92, 0.88))
+	_walls.set_color(Color(wall_col.r, wall_col.g, wall_col.b, wall_kind))
 	for s in [-1.0, 1.0]:
 		for v in [p.call(s * ex, -ey, y), p.call(s * ex, ey, y), p.call(s * ex, 0, ridge)]:
 			_walls.add_vertex(v)
+	# Otsalaudat valkoisina päätyihin.
+	_walls.set_color(Color(0.95, 0.95, 0.93, PLASTER))
+	for s in [-1.0, 1.0]:
+		var u: float = s * (hx + 0.02)
+		for sv in [-1.0, 1.0]:
+			_quad(_walls, p.call(u, sv * hy, y - drop), p.call(u, 0, ridge), p.call(u, 0, ridge + 0.22), p.call(u, sv * hy, y - drop + 0.22))
 
 
-## Ikkunat seinille 3 m välein kerroksittain (tummat lasit valkoisin karmein).
-func _windows(pts: PackedVector2Array, y0: float, levels: int) -> void:
+## Ikkunat seinille kerroksittain (tummat heijastavat lasit, valkoiset karmit, puitteet ja vesipelti). Liiketiloissa
+## maantasoon leveät näyteikkunat.
+func _windows(pts: PackedVector2Array, y0: float, levels: int, wall_h := 3.2, shop := false, door := Vector2(INF, INF)) -> void:
 	var c := Vector2.ZERO
 	for p in pts:
 		c += p
 	c /= pts.size()
+	var storey := wall_h / maxf(levels, 1)
 	for i in pts.size():
 		var a := pts[i]
 		var b := pts[(i + 1) % pts.size()]
@@ -700,13 +1042,23 @@ func _windows(pts: PackedVector2Array, y0: float, levels: int) -> void:
 		var out := dir.orthogonal()
 		if out.dot((a + b) / 2.0 - c) < 0.0:
 			out = -out
+		var basis := Basis(Vector3.UP, atan2(out.x, out.y))
 		var n := int(L / 3.0)
 		for lv in levels:
+			if shop and lv == 0 and L > 8.0:
+				var m := int(L / 3.2)
+				for w in m:
+					var q := a + dir * (L * (w + 0.5) / m) + out * 0.04
+					_shop_glass.append(Transform3D(basis, Vector3(q.x, y0 + 1.4, q.y)))
+				continue
 			for w in n:
 				var q := a + dir * (L * (w + 0.5) / n) + out * 0.04
-				var xf := Transform3D(Basis(Vector3.UP, atan2(out.x, out.y)), Vector3(q.x, y0 + 1.5 + lv * 2.8, q.y))
+				if lv == 0 and q.distance_to(door) < 1.4:
+					continue
+				var xf := Transform3D(basis, Vector3(q.x, y0 + minf(1.5, storey * 0.55) + lv * storey, q.y))
 				_win_frames.append(xf)
 				_win_glass.append(xf.translated_local(Vector3(0, 0, 0.01)))
+				_win_mull.append(xf.translated_local(Vector3(0, 0, 0.02)))
 
 
 func _face_road(node: Node3D, obb: Dictionary) -> void:
@@ -734,7 +1086,7 @@ func _build_siitari(pts: PackedVector2Array, body: StaticBody3D) -> void:
 	var wall_h := 4.2
 	var wood := Color(0.36, 0.22, 0.13)
 	_prism(pts, base, base + wall_h, wood)
-	_gable(obb, base + wall_h, 2.4, Color(0.2, 0.2, 0.22))
+	_gable(obb, base + wall_h, 2.4, Color(0.2, 0.2, 0.22), wood, WOOD, SEAM_ROOF)
 	var cs := B.box_shape(Vector3(obb.size.x, wall_h + 3.0, obb.size.y), Vector3.ZERO)
 	cs.transform = Transform3D(Basis(Vector3.UP, -obb.angle), Vector3(obb.center.x, base + wall_h / 2.0, obb.center.y))
 	body.add_child(cs)
@@ -883,6 +1235,9 @@ func _build_trees() -> void:
 			if c != FOREST and c != BOG and c != YARD:
 				continue
 			var chance := 0.3 if c == FOREST else (0.08 if c == BOG else 0.025)
+			var in_town := Vector2(_x0 + i * _cell - siitari.x, _z0 + j * _cell - siitari.y).length() < 480.0
+			if in_town and c == FOREST:
+				chance = 0.07  # keskustassa puistomaista: harvemmin puita, puolet koivuja
 			if rng.randf() > chance:
 				continue
 			var near_road := false
@@ -903,7 +1258,7 @@ func _build_trees() -> void:
 			var z := _z0 + (j + rng.randf_range(-0.5, 0.5)) * _cell
 			var sc := rng.randf_range(0.8, 1.4) * (0.6 if c == BOG else 1.0)
 			var xf := Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * sc), Vector3(x, h(x, z), z))
-			if c == YARD:
+			if c == YARD or (in_town and rng.randf() < 0.5):
 				birches.append(xf)
 			else:
 				pines.append(xf)
