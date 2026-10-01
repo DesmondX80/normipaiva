@@ -71,6 +71,8 @@ const WHITE := Color(0.95, 0.95, 0.92)
 var graph_nodes: Array[Vector3] = []
 var graph_adj: Array = []
 var graph_fast: Array = []  # solmu maantiellä ("road"): liikenne ajaa kovempaa kuin asuinkaduilla
+## Pyöräilyverkko (tiet, kadut ja polut, ei valtatietä): pyörävaras ajaa sitä pitkin (main.gd _thief_tick).
+var ride := AStar3D.new()
 var taxi_home_pos: Vector3  # taksipysäkki kotipihalla (ks. main.gd _taxi_logic)
 var neighbor_yards := {}  # "arto" / "pekka" / "sinikka" -> pihan puuhapisteet (ensimmäinen = ulko-ovi)
 var neighbor_faces := {}  # nimi -> suunta, johon puuhapisteessä katsotaan (valinnainen, sama järjestys)
@@ -162,6 +164,7 @@ func build(step: Callable) -> void:
 	await step.call("Asfaltoidaan teitä ja polkuja", 0.3)
 	_build_roads()
 	_build_graph()
+	_build_ride_graph()
 	for p in M.CLEARCUTS:
 		_clearcuts.append(_poly(p))
 	_lawn_st = _new_st()
@@ -786,6 +789,35 @@ func _build_graph() -> void:
 				if not graph_adj[id].has(prev):
 					graph_adj[id].append(prev)
 			prev = id
+
+
+## Pyöräilyverkko AStar3D:nä: kaikkien teiden, katujen ja polkujen taitepisteet, jaetut pisteet risteyksinä.
+func _build_ride_graph() -> void:
+	var ids := {}
+	for r in M.ROADS:
+		if r.type == "highway":
+			continue
+		var prev := -1
+		for p in r.pts:
+			var key := Vector2i(roundi(p.x), roundi(p.y))
+			if not ids.has(key):
+				var id := ids.size()
+				ids[key] = id
+				var w := M.w(p)
+				ride.add_point(id, Vector3(w.x, 0, w.z))
+			var cur: int = ids[key]
+			if prev >= 0 and prev != cur and not ride.are_points_connected(prev, cur):
+				ride.connect_points(prev, cur)
+			prev = cur
+
+
+## Reitti pyöräilyverkossa lähimmästä pisteestä lähimpään (maailman xz, y = 0).
+func ride_route(from: Vector3, to: Vector3) -> PackedVector3Array:
+	if ride.get_point_count() == 0:
+		return PackedVector3Array()
+	var a := ride.get_closest_point(Vector3(from.x, 0, from.z))
+	var b := ride.get_closest_point(Vector3(to.x, 0, to.z))
+	return ride.get_point_path(a, b)
 
 
 func nearest_node(p: Vector3) -> int:

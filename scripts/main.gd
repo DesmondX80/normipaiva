@@ -679,6 +679,7 @@ func _process(delta: float) -> void:
 			_mount_logic()
 			if not at_mokki:
 				_bike_theft(delta)
+				_thief_tick(delta)
 			_stats_tick(delta)
 		"in_shop":
 			_hint.text = interior.hint
@@ -738,22 +739,120 @@ func _bike_theft(delta: float) -> void:
 		_bike_away_t += delta
 	else:
 		_bike_away_t = maxf(0.0, _bike_away_t - delta)
-	if _bike_away_t > 60.0:
+	if _bike_away_t > 60.0 and _thief.is_empty():
 		_bike_away_t = 0.0
 		if randf() < 0.6:
-			var best := Vector3.ZERO
-			var bd := -1.0
-			for i in 3:
-				var cand := M.w(BIKE_DUMPS.pick_random())
-				var cd := cand.distance_to(walker_out.global_position)
-				if cd > bd:
-					bd = cd
-					best = cand
-			bike.global_position = best + Vector3(0, 0.3, 0)
-			bike.rotation.y = randf() * TAU
-			tilat.add("stressi", -0.2)
-			_show_message("Teinit veivät lukitsemattoman pyöräsi!\nKatso kartasta (M), minne se jäi.", 4.0)
-			Sfx.play("alert", -4.0, 0.7)
+			_thief_start()
+
+
+## Pyörävaras: teini ajaa pyörällä teitä ja polkuja pitkin (world.ride). Ensin kohti pelaajaa, 100 m:n päästä
+## sinne tänne enintään 100 m:n päässä pelaajasta, kunnes hylkää pyörän (sieltä sen voi taas pölliä).
+## Kiinni (3,5 m): teini hyppää selästä ja juoksee karkuun. Kartta (M) näyttää pyörän paikan koko ajan.
+const THIEF_NEAR := 100.0
+const THIEF_CATCH := 3.5
+var _thief := {}  # vaihe, reitti, ajastimet; tyhjä = ei varkautta
+
+
+func _thief_start() -> void:
+	_thief = {"phase": "approach", "route": PackedVector3Array(), "replan": 0.0, "roam": randf_range(60.0, 120.0),
+		"stuck": 0.0, "jam": 0.0, "hops": 0}
+	bike.set_thief(Looks.TEENS.pick_random())
+	bike.controls_enabled = false
+	bike.autopilot = true
+	tilat.add("stressi", -0.2)
+	_show_message("Teini pölli lukitsemattoman pyöräsi ja ajelee sillä kylällä!\nKatso kartasta (M), ja ota kiinni.", 4.0)
+	Sfx.play("alert", -4.0, 0.7)
+
+
+func _thief_stop() -> void:
+	if _thief.is_empty():
+		return
+	_thief.clear()
+	bike.autopilot = false
+	bike.set_thief({})
+	bike.speed = 0.0
+
+
+func _thief_tick(delta: float) -> void:
+	if _thief.is_empty():
+		return
+	var bp := bike.global_position
+	var pp := walker_out.global_position if player == walker_out else player.global_position
+	var flat := func(a: Vector3, b: Vector3) -> float: return Vector2(a.x - b.x, a.z - b.z).length()
+	var d: float = flat.call(bp, pp)
+	if player == walker_out and d < THIEF_CATCH:
+		_thief_stop()
+		tilat.add("moraali", 0.15)
+		tilat.first("pyoravaras", 0.3)
+		Sfx.play("grunt", -4.0, 1.4)
+		_show_message("Sait teinin kiinni! Teini hyppäsi pyörän selästä ja juoksi karkuun.", 3.5)
+		return
+	# Jumissa (aita, portti, jyrkänne): ensin ohitetaan reittipiste (stuck), pitkään jumissa (jam) teini nostaa
+	# pyörän esteen yli seuraavaan pisteeseen; kolmannen kerran jälkeen kyllästyy ja hylkää pyörän.
+	var slow: bool = absf(bike.speed) < 0.6
+	_thief.stuck = _thief.stuck + delta if slow else 0.0
+	_thief.jam = _thief.jam + delta if slow else 0.0
+	var route: PackedVector3Array = _thief.route
+	if _thief.jam > 6.0:
+		_thief.jam = 0.0
+		_thief.hops += 1
+		if _thief.hops > 3 or route.is_empty():
+			_thief_abandon()
+			return
+		var hop: Vector3 = route[0]
+		bike.global_position = Vector3(hop.x, Terrain.h(hop.x, hop.z) + 0.4, hop.z)
+		bike.velocity = Vector3.ZERO
+		route.remove_at(0)
+	if _thief.phase == "approach":
+		_thief.replan -= delta
+		if _thief.replan <= 0.0:
+			_thief.replan = 4.0
+			route = world.ride_route(bp, pp)
+		if d < THIEF_NEAR:
+			_thief.phase = "roam"
+			route = PackedVector3Array()
+	else:
+		_thief.roam -= delta
+		if _thief.roam <= 0.0:
+			_thief_abandon()
+			return
+		if route.is_empty():
+			# Seuraava risteys tai taite: satunnainen naapuri, joka pysyy 100 m:n sisällä pelaajasta (tai lähestyy).
+			var id: int = world.ride.get_closest_point(Vector3(bp.x, 0, bp.z))
+			var near: Array = []
+			var best := -1
+			var best_d := INF
+			for n in world.ride.get_point_connections(id):
+				var np: Vector3 = world.ride.get_point_position(n)
+				var nd: float = flat.call(np, pp)
+				if nd < THIEF_NEAR:
+					near.append(n)
+				if nd < best_d:
+					best_d = nd
+					best = n
+			var pick: int = near.pick_random() if not near.is_empty() else best
+			if pick >= 0:
+				route = PackedVector3Array([world.ride.get_point_position(id), world.ride.get_point_position(pick)])
+	# Reittipisteiden seuranta: saavutetut ja jo ohitetut pisteet pois (seuraava piste on lähempänä kuin
+	# pisteiden väli), autopilotti kohti seuraavaa. Kääntösäde on vauhdissa ~4 m, joten säde on väljä.
+	while route.size() > 0:
+		var reached: bool = flat.call(route[0], bp) < 6.0
+		var passed: bool = route.size() > 1 and flat.call(route[1], bp) < flat.call(route[0], route[1])
+		if not (reached or passed or (_thief.stuck > 3.0 and route.size() > 1)):
+			break
+		route.remove_at(0)
+		_thief.stuck = 0.0
+	_thief.route = route
+	if route.size() > 0:
+		bike.auto_target = route[0]
+	else:
+		bike.auto_target = pp
+
+
+func _thief_abandon() -> void:
+	var where := _dist_text(walker_out.global_position, bike.global_position)
+	_thief_stop()
+	_show_message("Teini hylkäsi pyöräsi %s päähän. Katso kartasta (M)." % where, 3.5)
 
 
 func _mount_logic() -> void:
@@ -4035,6 +4134,7 @@ func _nearest_safe() -> Vector3:
 
 ## Uusi päivä turvapaikasta: vaarat ja kauppa nollautuvat, jemma, rahat ja laavun valtaus säilyvät.
 func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
+	_thief_stop()  # yöllä teini jättää pyörän siihen, missä se on
 	day += 1
 	var stats_note := _end_day_stats()
 	var at_m := _at_mokki_pos(spawn)  # mökillä herätessä pääpelin asiat odottavat kotiinpaluuta
@@ -4365,6 +4465,8 @@ func _toggle_mount() -> void:
 		walker_out.rotation.y = bike.rotation.y
 		_save_game()  # pyörän paikka talteen
 	else:
+		if not _thief.is_empty():
+			return  # varas ajaa vielä: ensin kiinni
 		walker_out.visible = false
 		walker_out.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		bike.set_rider_visible(true)
@@ -7188,6 +7290,42 @@ func _maybe_screenshot() -> void:
 				if state != "in_raahe":
 					break
 			print("PAIVI loppu: state=%s kiinni=%s tila=%s msg=%s" % [state, _raahe.caught, raahe_int._paivi_mode, _msg.text])
+		"pyoravaras":
+			# Pyörävaras: pyörä 400 m päähän, varkaus käyntiin; seurataan teinin lähestymistä ja ajelua 100 m:n
+			# sisällä, kuva, sitten pelaaja kävelee pyörän luo (kiinni). --hylkaa: lyhyt ajelu ja hylkäys.
+			_toggle_mount()
+			var far := walker_out.global_position + Vector3(300, 0, 250)
+			var nid: int = world.ride.get_closest_point(Vector3(far.x, 0, far.z))
+			var np: Vector3 = world.ride.get_point_position(nid)
+			bike.global_position = Vector3(np.x, Terrain.h(np.x, np.z) + 0.4, np.z)
+			for i in 10:
+				await get_tree().physics_frame
+			_thief_start()
+			if OS.get_cmdline_user_args().has("--hylkaa"):
+				_thief.roam = 6.0
+			var maxd := 0.0
+			for k in 110:
+				await get_tree().create_timer(1.0).timeout
+				if _thief.is_empty():
+					break
+				var dd := Vector2(bike.global_position.x - walker_out.global_position.x, bike.global_position.z - walker_out.global_position.z).length()
+				if _thief.phase == "roam":
+					maxd = maxf(maxd, dd)
+				if k % 6 == 0:
+					print("VARAS %2d s: vaihe=%s etäisyys=%.0f m nopeus=%.1f reitti=%d" % [k, _thief.phase, dd, bike.speed, (_thief.route as PackedVector3Array).size()])
+			print("VARAS ajelun suurin etäisyys %.0f m, käynnissä=%s msg=%s" % [maxd, not _thief.is_empty(), _msg.text])
+			if not _thief.is_empty():
+				var oc := Camera3D.new()
+				add_child(oc)
+				oc.look_at_from_position(bike.global_position + Vector3(5, 3, 5), bike.global_position + Vector3(0, 1, 0), Vector3.UP)
+				oc.current = true
+				await get_tree().create_timer(0.3).timeout
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_varas.png"))
+				oc.queue_free()
+				walker_out.global_position = bike.global_position + Vector3(2.0, 0.5, 0)
+				await get_tree().create_timer(0.5).timeout
+				print("VARAS kiinni? käynnissä=%s msg=%s" % [not _thief.is_empty(), _msg.text])
 		"taksimokki":
 			# Taksilla kotoa mökille: alue rakentuu vasta matkalla (viivästetty), pelaaja maan pinnalla pysäkillä.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
