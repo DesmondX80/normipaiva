@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "kar
 import numpy as np  # noqa: E402
 import tarkka as T  # noqa: E402
 import vaala_tarkka as VT  # noqa: E402
+import puut_teilta as PT  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import vaala_lava as VL  # noqa: E402
 
@@ -834,6 +835,8 @@ def main():
           "rakennuksia", len(out_buildings), "sivuteitä", len(side_roads), "kylttejä", len(signs))
     # Oulujärven lava oikealle paikalleen (tarkan alueen ulkopuolella): tontti, Pahalahdentie ja puut.
     VL.apply(args.cache)
+    # Puut pois sivuteiltä, kaduilta, poluilta, radoilta ja parkkipaikoilta (tie.json on nyt valmis).
+    PT.filter_vaala()
 
 
 if __name__ == "__main__":
