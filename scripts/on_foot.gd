@@ -76,6 +76,18 @@ func set_carrying(carrying: bool) -> void:
 	_bag.visible = carrying
 
 
+## Kädessä kannettava esine (huussin sanko, halkosyli, kahvikuppi); null = tyhjät kädet.
+var _held: Node3D
+
+
+func set_held(node: Node3D) -> void:
+	if _held != null:
+		_held.queue_free()
+		_held = null
+	if node != null:
+		_held = _body.attach("hand_r", node, Vector3(0, -0.05, 0))
+
+
 func set_kanister(on: bool) -> void:
 	_kanister.visible = on
 
