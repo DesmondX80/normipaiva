@@ -3,6 +3,8 @@ extends Node3D
 ## maailman (vaala.gd) kerran ja ajaa mopoa (mopo.gd) sen tiellä. HUD: nopeus, tien nimi ja todellinen matka
 ## kohteeseen (tiivistetyllä välillä matkamittari juoksee K-kertaisesti). Kompassi näyttää kohteen suunnan.
 ## Signaalit: arrived (Siitarin ovella, mopo parkissa) ja finished("home"), kun mopo on ajettu takaisin Paapeliin.
+## Moposta voi nousta jalan (main.gd, F kuten pyörällä): on_foot = kävelijä, jolloin ovet ja automaatti toimivat
+## kävelijän kohdalta, mopo seisoo parkissa ja autot väistävät (ja töytäisevät) kävelijää.
 
 const Vaala := preload("res://scripts/vaala.gd")
 const Mopo := preload("res://scripts/mopo.gd")
@@ -32,6 +34,7 @@ var _sample := 0
 var _cars: Array = []
 var _line: Array = []
 var _down := 0.0  # kaatumisen jälkeen maassa (s)
+var on_foot: CharacterBody3D = null  # jalan (main.gd:n kävelijä), mopo parkissa; null = mopon selässä
 
 
 func _ready() -> void:
@@ -53,6 +56,7 @@ func start(to: String, drunk := 0.0) -> void:
 		mopo.vaala = vaala
 		mopo.crashed.connect(_on_crash)
 		add_child(mopo)
+	on_foot = null
 	mopo.drunk = drunk
 	mopo.reset_drunk()
 	_down = 0.0
@@ -91,7 +95,7 @@ func _spawn_cars() -> void:
 			var car := TrafficCar.new()
 			car.cruise = randf_range(15.0, 18.5)
 			car.lane = 1.6
-			car.target_fn = func() -> Node3D: return mopo
+			car.target_fn = func() -> Node3D: return on_foot if on_foot != null else mopo
 			car.line_ended = _respawn_car
 			car.hit.connect(_on_hit)
 			add_child(car)
@@ -169,14 +173,35 @@ func resume() -> void:
 		return
 	mopo.speed = 0.0
 	mopo.velocity = Vector3.ZERO
-	mopo.controls_enabled = true
-	mopo.set_engine(true)
-	mopo.activate_camera()
+	mopo.controls_enabled = on_foot == null  # jalan tultiin: mopo jää parkkiin (main.gd jatkaa kävelijällä)
+	mopo.set_engine(on_foot == null)
+	if on_foot == null:
+		mopo.activate_camera()
 	mopo.process_mode = Node.PROCESS_MODE_INHERIT
 	for car in _cars:
 		car.process_mode = Node.PROCESS_MODE_INHERIT
 		car.visible = true
 	active = true
+
+
+## Jalan: mopo parkkiin paikalleen (moottori sammuu), matka jatkuu kävelijän kohdalta. null = takaisin selkään.
+func set_on_foot(walker: CharacterBody3D) -> void:
+	on_foot = walker
+	mopo.speed = 0.0
+	mopo.velocity = Vector3.ZERO
+	mopo.controls_enabled = walker == null
+	mopo.set_engine(walker == null)
+	if walker == null:
+		mopo.activate_camera()
+
+
+## Pelaajan paikka tämän solmun kehyksessä (mopo tai kävelijä) ja seisooko hän (ovet avautuvat vain pysähtyneelle).
+func _actor_pos() -> Vector3:
+	return to_local(on_foot.global_position) if on_foot != null else mopo.position
+
+
+func _actor_still() -> bool:
+	return absf(on_foot.speed if on_foot != null else mopo.speed) < 2.0
 
 
 ## Kohteen paikka maailmassa (kompassia varten).
@@ -199,44 +224,45 @@ func _process(delta: float) -> void:
 			_get_up()
 		hint = ""
 		return
-	var ni: Array = vaala.nearest(mopo.position)
+	var pos := _actor_pos()
+	var ni: Array = vaala.nearest(pos)
 	if ni[0] >= 0:
 		_sample = ni[0]
 	var kmh := absf(mopo.speed) * 3.6
 	var left := real_left()
 	var name: String = vaala.road_names[_sample] if ni[0] >= 0 and ni[1] < 12.0 else "maastossa"
-	status = "Mopo %d km/h\n%s · %s %s" % [roundi(kmh), name, "Siitari" if target == "siitari" else "Paapeli",
+	status = "%s\n%s · %s %s" % ["Jalan" if on_foot != null else "Mopo %d km/h" % roundi(kmh), name, "Siitari" if target == "siitari" else "Paapeli",
 		("%.1f km" % (left / 1000.0)).replace(".", ",") if left > 150.0 else "%d m" % roundi(left)]
 	hint = ""
-	var d_shop: float = mopo.position.distance_to(vaala.kmarket_door) if vaala.kmarket_door != Vector3.ZERO else INF
-	var d_atm: float = mopo.position.distance_to(vaala.atm_pos)
-	if d_atm < 4.5 and d_atm <= d_shop and absf(mopo.speed) < 2.0:
+	var d_shop: float = pos.distance_to(vaala.kmarket_door) if vaala.kmarket_door != Vector3.ZERO else INF
+	var d_atm: float = pos.distance_to(vaala.atm_pos)
+	if d_atm < 4.5 and d_atm <= d_shop and _actor_still():
 		hint = "[E] Nosta rahaa pankkiautomaatista (20 € kerran päivässä)"
 		if Input.is_action_just_pressed("interact"):
 			atm.emit()
 		return
-	if vaala.lava_door != Vector3.ZERO and mopo.position.distance_to(vaala.lava_door) < 6.0 and absf(mopo.speed) < 2.0:
+	if vaala.lava_door != Vector3.ZERO and pos.distance_to(vaala.lava_door) < 6.0 and _actor_still():
 		hint = "[E] Oulujärven lava: lavatanssit (lippu %s €)" % ("%.2f" % LAVA_TICKET).replace(".", ",")
 		if Input.is_action_just_pressed("interact"):
 			mopo.speed = 0.0
 			lava.emit()
 		return
-	if d_shop < 5.0 and absf(mopo.speed) < 2.0:
-		hint = "[E] Parkkeeraa mopo ja mene K-Market Tervaporttiin (myös Alko)"
+	if d_shop < 5.0 and _actor_still():
+		hint = "[E] %sK-Market Tervaporttiin (myös Alko)" % ("Mene " if on_foot != null else "Parkkeeraa mopo ja mene ")
 		if Input.is_action_just_pressed("interact"):
 			mopo.speed = 0.0
 			shop.emit()
 		return
 	if target == "siitari":
-		if mopo.position.distance_to(vaala.siitari_park) < ARRIVE_R + 6.0 or \
-				Vector2(mopo.position.x - vaala.siitari_door.x, mopo.position.z - vaala.siitari_door.z).length() < ARRIVE_R:
-			hint = "[E] Parkkeeraa mopo ja mene Siitariin"
+		if pos.distance_to(vaala.siitari_park) < ARRIVE_R + 6.0 or \
+				Vector2(pos.x - vaala.siitari_door.x, pos.z - vaala.siitari_door.z).length() < ARRIVE_R:
+			hint = "[E] %s Siitariin" % ("Mene" if on_foot != null else "Parkkeeraa mopo ja mene")
 			if Input.is_action_just_pressed("interact"):
 				mopo.position = vaala.siitari_park + Vector3(0, 0.3, 0)
 				mopo.speed = 0.0
 				stop()
 				arrived.emit()
-	elif vaala.real_s(_sample) < HOME_S and ni[1] < 15.0:
+	elif vaala.real_s(_sample) < HOME_S and ni[1] < 15.0 and on_foot == null:
 		hint = "[E] Parkkeeraa mopo Paapelin pihaan"
 		if Input.is_action_just_pressed("interact"):
 			stop()

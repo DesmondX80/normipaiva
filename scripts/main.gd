@@ -2795,10 +2795,92 @@ func _mopo_tick() -> void:
 	var left: float = mopo_trip.real_left()
 	_compass.cache_text = ("%s %s km" % ["Siitari" if mopo_trip.target == "siitari" else "Paapeli",
 		("%.1f" % (left / 1000.0)).replace(".", ",")])
+	_mopo_mount_logic()
+
+
+var _mopo_dry := Vector3.ZERO  # jalan: viimeisin kuiva paikka
+
+
+## F: moposta jalan ja takaisin selkään mopon vierestä, kuten pyörällä. Jalan kulkee sama kävelijä kuin kylällä
+## ja mökillä; ovet (Siitari, Tervaportti, lava) ja pankkiautomaatti toimivat myös jalan (mopo_trip.gd).
+func _mopo_mount_logic() -> void:
+	var mp: CharacterBody3D = mopo_trip.mopo
+	var e: bool = Input.is_action_just_pressed("mount")
+	if mopo_trip.on_foot == null:
+		if not e or mp.fallen or not mp.controls_enabled:
+			return
+		if absf(mp.speed) > 3.0:
+			_show_message("Hidasta ensin!", 1.2)
+			return
+		walker_out.global_position = mp.global_position + mp.global_transform.basis.x * 1.1 + Vector3(0, 0.3, 0)
+		walker_out.global_rotation.y = mp.global_rotation.y
+		walker_out.velocity = Vector3.ZERO
+		walker_out.speed = 0.0
+		walker_out.visible = true
+		walker_out.process_mode = Node.PROCESS_MODE_INHERIT
+		walker_out.controls_enabled = true
+		walker_out.set_carrying(beers > 0)
+		mopo_trip.set_on_foot(walker_out)
+		_mopo_follow(walker_out)
+		_mopo_dry = walker_out.global_position
+		return
+	# Järveen tai jokeen ei kahlata: rantaviivalta takaisin kuivalle.
+	var vl: Node3D = mopo_trip.vaala
+	var lp: Vector3 = mopo_trip.to_local(walker_out.global_position)
+	if vl.h(lp.x, lp.z) < vl.water_level - 0.3:
+		walker_out.global_position = _mopo_dry
+		walker_out.velocity = Vector3.ZERO
+		if _hint.text == "":
+			_hint.text = "Vesi on kylmää. Ei uimaan."
+	else:
+		_mopo_dry = walker_out.global_position
+	var d := walker_out.global_position.distance_to(mp.global_position)
+	if d < 2.6:
+		if _hint.text == "":
+			_hint.text = "[F] Nouse mopon selkään"
+		if e:
+			_mopo_remount()
+	elif e:
+		_show_message("Mopo on %s päässä." % _dist_text(walker_out.global_position, mp.global_position), 1.5)
+
+
+func _mopo_remount() -> void:
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	walker_out.visible = false
+	mopo_trip.set_on_foot(null)
+	_mopo_follow(mopo_trip.mopo)
+
+
+## Kompassi, minikartta ja maailma seuraavat mopoa tai jalan kulkijaa; kamera siihen.
+func _mopo_follow(a: CharacterBody3D) -> void:
+	_compass.player = a
+	_minimap.player = a
+	world.follow = a
+	a.activate_camera()
+
+
+## Sisältä (kauppa, lava) takaisin matkalle: jalan tultiin, jalan jatketaan; muuten mopon selkään.
+func _mopo_resume() -> void:
+	mopo_trip.resume()
+	if mopo_trip.on_foot != null:
+		walker_out.visible = true
+		walker_out.controls_enabled = true
+		_mopo_follow(walker_out)
+
+
+## Sisälle (kauppa, lava): jalan kulkija odottaa ovella näkymättömänä.
+func _mopo_foot_inside() -> void:
+	if mopo_trip.on_foot != null:
+		walker_out.controls_enabled = false
+		walker_out.speed = 0.0
+		walker_out.visible = false
 
 
 ## Siitarin ovella: mopo parkkiin ja sisälle baariin (siitari_interior.gd). Ulko-ovelta takaisin mopolle.
 func _on_mopo_arrived() -> void:
+	if mopo_trip.on_foot != null:
+		_mopo_remount()  # mopo parkissa Siitarin pihassa, kotimatka alkaa sen selästä
 	_hint.text = ""
 	_show_message("Hotelli-Ravintola Siitari, Vaalantie 12. Baaritiski, karaoke ja tanssilattia!", 3.0)
 	Sfx.play("door", -3.0)
@@ -2974,11 +3056,15 @@ func _on_siitari(id: String) -> void:
 
 ## Auto ajoi mopon päälle: WASTED Vaalan tiellä, Päivin motkotus ja uusi päivä kotoa Saloisista.
 func _on_mopo_killed() -> void:
-	var at: Vector3 = mopo_trip.mopo.global_position
+	var walking: bool = mopo_trip.on_foot != null
+	var at: Vector3 = walker_out.global_position if walking else mopo_trip.mopo.global_position
 	var road_name: String = mopo_trip.status.get_slice("\n", 1).get_slice(" · ", 0)
+	if walking:
+		walker_out.controls_enabled = false
+		mopo_trip.on_foot = null
 	_mopo_restore_hud()
 	state = _mokki_prev
-	_lose("Jäit auton alle mopolla (%s)." % road_name, "car", at)
+	_lose("Jäit auton alle %s (%s)." % ["jalan" if walking else "mopolla", road_name], "car", at)
 	mopo_trip.stop()
 
 
@@ -3015,6 +3101,7 @@ func _mopo_end() -> void:
 	state = _mokki_prev
 	walker_out.global_position = mokki.gpos(Mokki.MOPO_LOCAL + Vector3(1.2, 0.4, 0.3))
 	walker_out.velocity = Vector3.ZERO
+	walker_out.visible = true  # jalan Vaalassa käynyt kävelijä piilotettiin selkään noustessa
 	walker_out.controls_enabled = true
 	walker_out.activate_camera()
 	_save_game()
@@ -3656,6 +3743,7 @@ var _shop_vaala := false
 
 func _enter_vaala_shop() -> void:
 	mopo_trip.stop()
+	_mopo_foot_inside()
 	_shop_vaala = true
 	state = "in_shop"
 	_mopo_label.visible = false
@@ -3694,8 +3782,11 @@ func _on_vaala_shop_exited(bought: bool) -> void:
 	state = "mopo"
 	_mopo_label.visible = true
 	_compass.visible = true
-	mopo_trip.resume()
-	_show_message(("Kassissa %s. Mopon kyytiin!" % " ja ".join(got)) if not got.is_empty() else "Takaisin mopon kyytiin.", 3.0)
+	_mopo_resume()
+	if mopo_trip.on_foot != null:
+		_show_message(("Kassissa %s." % " ja ".join(got)) if not got.is_empty() else "Takaisin ulos.", 3.0)
+	else:
+		_show_message(("Kassissa %s. Mopon kyytiin!" % " ja ".join(got)) if not got.is_empty() else "Takaisin mopon kyytiin.", 3.0)
 
 
 ## Oulujärven lava: lavatanssit (lava_game.gd) lavan lattialla. Lippu maksetaan ovella; hyvä tanssi nostaa
@@ -3711,6 +3802,7 @@ func _enter_lava() -> void:
 	money -= MopoTrip.LAVA_TICKET
 	Sfx.play("coin", -4.0)
 	mopo_trip.stop()
+	_mopo_foot_inside()
 	state = "lava"
 	_mopo_label.visible = false
 	_compass.visible = false
@@ -3731,7 +3823,7 @@ func _on_lava_finished(score: float) -> void:
 	state = "mopo"
 	_mopo_label.visible = true
 	_compass.visible = true
-	mopo_trip.resume()
+	_mopo_resume()
 	_show_message("Lavatanssit Oulujärven lavalla! %s" % ("Ilta jää mieleen." if score > 0.6 else "Varpaat muistavat illan."), 3.0)
 
 
@@ -5372,6 +5464,153 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().process_frame
 			print("LAVA ohi: tila %s, rahaa %.2f, mielihyvä %.1f -> %.1f, mopo aktiivinen %s" % [state, money, m0, mielihyva, mopo_trip.active])
+		"mokkivaalajalan":
+			# Moposta jalan (F) lavan pihassa, kävely ovelle (vihje), rantaan (ei veteen), takaisin mopolle ja selkään.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			var mp: CharacterBody3D = mopo_trip.mopo
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+			var press := func(action: String) -> void:
+				await get_tree().process_frame  # painallus ennen solmujen _processia (just_pressed samassa ruudussa)
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			mp.position = vl.lava_door + vl.lava_out * 12.0 + Vector3(0, 0.6, 0)
+			mp.rotation.y = atan2(vl.lava_out.x, vl.lava_out.z)  # selkä ovelle päin
+			for i in 20:
+				await get_tree().physics_frame
+			await press.call("mount")
+			print("JALAN: kävelijä %s, näkyvissä %s, status '%s'" % [mopo_trip.on_foot != null, walker_out.visible, mopo_trip.status.replace("\n", " | ")])
+			var walk_to := func(goal_local: Vector3, secs: float) -> void:
+				Input.action_press("forward")
+				for i in int(60 * secs):
+					await get_tree().physics_frame
+					var g: Vector3 = mopo_trip.to_global(goal_local)
+					var want := Vector3(g.x - walker_out.global_position.x, 0, g.z - walker_out.global_position.z)
+					if want.length() < 1.2:
+						break
+					var err := (-walker_out.global_transform.basis.z).signed_angle_to(want, Vector3.UP)
+					Input.action_press("left", clampf(err * 3.0, 0.0, 1.0))
+					Input.action_press("right", clampf(-err * 3.0, 0.0, 1.0))
+				for a in ["forward", "left", "right"]:
+					Input.action_release(a)
+				for i in 10:
+					await get_tree().process_frame
+			await walk_to.call(vl.lava_door, 12.0)
+			print("JALAN ovella: %.1f m, vihje '%s'" % [mopo_trip.to_local(walker_out.global_position).distance_to(vl.lava_door), _hint.text])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ovi.png"))
+			money = 50.0
+			await press.call("interact")
+			print("JALAN lavalle: tila %s, kävelijä näkyvissä %s, viesti %s" % [state, walker_out.visible, _msg.text])
+			if _lava_game != null:
+				_lava_game.finished.emit(0.5)
+				for i in 5:
+					await get_tree().process_frame
+			print("JALAN lavalta: tila %s, kävelijä näkyvissä %s, ohjaus %s, mopo ohjaus %s" % [state, walker_out.visible,
+				walker_out.controls_enabled, mp.controls_enabled])
+			# Rantaan: ensimmäinen vesi lavan etelänpuolella, kävelijä 4 m rannasta kohti vettä.
+			var shore: Vector3 = vl.lava_center
+			while vl.h(shore.x, shore.z) > vl.water_level - 0.3:
+				shore.z += 1.0
+			walker_out.global_position = mopo_trip.to_global(shore + Vector3(0, 0, -6))
+			walker_out.global_position.y = mopo_trip.to_global(Vector3(0, vl.h(shore.x, shore.z - 6.0) + 0.4, 0)).y
+			await walk_to.call(shore + Vector3(0, 0, 20), 6.0)
+			var lp: Vector3 = mopo_trip.to_local(walker_out.global_position)
+			print("JALAN rannassa: maa %.2f, vedenpinta %.2f, vihje '%s'" % [vl.h(lp.x, lp.z), vl.water_level, _hint.text])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ranta.png"))
+			walker_out.global_position = mp.global_position + Vector3(4, 0.3, 0)
+			await walk_to.call(mp.position, 5.0)
+			print("JALAN mopolla: %.1f m, vihje '%s'" % [walker_out.global_position.distance_to(mp.global_position), _hint.text])
+			await press.call("mount")
+			print("SELKÄÄN: kävelijä %s, ohjaus %s, näkyvissä %s" % [mopo_trip.on_foot != null, mp.controls_enabled, walker_out.visible])
+			get_tree().quit()
+		"mokkivaalalava":
+			# Oulujärven lava niemen kärjessä: _yla ylhäältä (joki ja järvi), _tie Vuolijoentieltä, _aita aita rannasta
+			# rantaan, _ranta järveltä päin, _ovi ovelta.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			_msg.text = ""
+			var oc := Camera3D.new()
+			oc.far = 3000.0
+			oc.fov = 62.0
+			add_child(oc)
+			var c: Vector3 = vl.lava_center
+			var snap := func(name: String, from: Vector3, to: Vector3) -> void:
+				oc.look_at_from_position(mopo_trip.to_global(from), mopo_trip.to_global(to))
+				oc.current = true
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var lv: Dictionary = vl.data.lava
+			var rp: Array = lv.road
+			var junc := Vector3(rp[0][0], 0, rp[0][1])
+			junc.y = vl.h(junc.x, junc.z)
+			await snap.call("_yla.png", c + Vector3(-60, 260, 160), c + Vector3(30, 0, -60))
+			await snap.call("_tie.png", junc + Vector3(-4, 3, 0), c + Vector3(0, 2, 0))
+			await snap.call("_aita.png", c + Vector3(-70, 25, -70), c + Vector3(0, 0, -10))
+			await snap.call("_ranta.png", c + Vector3(20, 6, 120), c)
+			await snap.call("_ovi.png", vl.lava_door + vl.lava_out * 20.0 + Vector3(0, 3, 12), vl.lava_door + Vector3(0, 1.5, 0))
+			var gt := Vector3(lv.gate[0], 0, lv.gate[1])
+			gt.y = vl.h(gt.x, gt.z)
+			await snap.call("_portti.png", gt + Vector3(-6, 2.5, -22), gt + Vector3(0, 1, 0))
+			await snap.call("_pihat.png", c + Vector3(10, 120, 1), c + Vector3(10, 0, 0))
+			var fw: Array = lv.fence[2]
+			var fe: Array = lv.fence[0]
+			await snap.call("_lansi.png", Vector3(fw[0] - 40, vl.water_level + 5, fw[1] - 25), Vector3(fw[0], vl.water_level, fw[1] - 10))
+			await snap.call("_ita.png", Vector3(fe[0] + 30, vl.water_level + 4, fe[1] - 35), Vector3(fe[0] - 5, vl.water_level, fe[1]))
+			await snap.call("_joki.png", c + Vector3(150, 40, -300), c + Vector3(80, 0, 100))
+			# Mopolla Pahalahdentieltä portista lavan ovelle, sitten aitaa päin portin vierestä (aidan pitää pysäyttää).
+			var mp: CharacterBody3D = mopo_trip.mopo
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+			var drive := func(from: Vector3, goals: Array, secs: float) -> void:
+				mp.position = from + Vector3(0, 0.6, 0)
+				var d0: Vector3 = (goals[0] - from).normalized()
+				mp.rotation.y = atan2(-d0.x, -d0.z)
+				mp.speed = 4.0
+				mp.activate_camera()
+				var gi := 0
+				Input.action_press("forward", 0.6)
+				for i in int(60 * secs):
+					await get_tree().physics_frame
+					var goal: Vector3 = goals[gi]
+					if gi < goals.size() - 1 and Vector2(mp.position.x - goal.x, mp.position.z - goal.z).length() < 4.0:
+						gi += 1
+					var want := Vector3(goal.x - mp.position.x, 0, goal.z - mp.position.z)
+					var err := (-mp.global_transform.basis.z).signed_angle_to(want, Vector3.UP)
+					Input.action_press("left", clampf(err * 3.0, 0.0, 1.0))
+					Input.action_press("right", clampf(-err * 3.0, 0.0, 1.0))
+				for a in ["forward", "left", "right"]:
+					Input.action_release(a)
+			# Pahalahdentie: 30 m ennen porttia, portin läpi, ajotien alkuun ja ovelle.
+			var pr: Array = []
+			for r in vl.data.side_roads:
+				if r.get("name", "") == "Pahalahdentie":
+					for q in r.pts:
+						pr.append(Vector3(q[0], vl.h(q[0], q[1]), q[1]))
+			var gk := 0
+			for k in pr.size():
+				if pr[k].distance_to(gt) < pr[gk].distance_to(gt):
+					gk = k
+			var rp0: Vector3 = Vector3(rp[0][0], 0, rp[0][1])
+			await drive.call(pr[maxi(gk - 5, 0)], pr.slice(gk - 3) + [rp0, vl.lava_door + vl.lava_out * 5.0], 16.0)
+			for i in 30:
+				await get_tree().physics_frame
+			print("LAVA portista: ovelta %.1f m, vihje '%s'" % [mp.position.distance_to(vl.lava_door), mopo_trip.hint])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
+			# Aitaa päin 20 m portista länteen (pohjoisesta etelään).
+			var beside := gt + Vector3(-20, 0, 0)
+			beside.y = vl.h(beside.x, beside.z)
+			await drive.call(beside + Vector3(0, 0, -6), [beside + Vector3(0, 0, 20)], 5.0)
+			print("LAVA aitaa päin: aidan pohjoispuolella %.1f m (negatiivinen = läpi)" % (beside.z - mp.position.z))
+			get_tree().quit()
 		"mokkivaalakartta":
 			# Neittävä–Vaala-kartta (M) mopolla lavan luona: koko alue, keskusta lähempää ja mökin piha.
 			_start_mopo()
@@ -6920,6 +7159,7 @@ func _maybe_screenshot() -> void:
 			# Mökin sisätila: ovelta sisään, toiminnot, kuva, ulos ja nukkumaan (päivä vaihtuu). Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
 			var press := func(action: String) -> void:
+				await get_tree().process_frame  # painallus ennen solmujen _processia (just_pressed samassa ruudussa)
 				Input.action_press(action)
 				await get_tree().process_frame
 				Input.action_release(action)
@@ -7492,6 +7732,7 @@ func _maybe_screenshot() -> void:
 			# Leipähyllystä korvapuusti ja piirakka, sitten T-valikosta syöminen. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
 			var press := func(action: String) -> void:
+				await get_tree().process_frame  # painallus ennen solmujen _processia (just_pressed samassa ruudussa)
 				Input.action_press(action)
 				await get_tree().process_frame
 				Input.action_release(action)
@@ -7533,6 +7774,7 @@ func _maybe_screenshot() -> void:
 			# Jalkapallopojat: tehtävä, pallon haku, palautus valikosta; sitten kalja ja väärä esine. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
 			var press := func(action: String) -> void:
+				await get_tree().process_frame  # painallus ennen solmujen _processia (just_pressed samassa ruudussa)
 				Input.action_press(action)
 				await get_tree().process_frame
 				Input.action_release(action)
