@@ -117,6 +117,9 @@ Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kart
   reitti.json:ssa ("lava_dem", `--cache` hakee sen kerran); muuten ajo ei tarvitse välimuistia ja on toistettavissa.
   Tarkistuskuvat: `godot --path . -- --shot=<kansio>/v.png --scene=mokkivaalalava` (myös mopolla portista ovelle)
   ja `--scene=mokkivaalajalan` (moposta jalan, ovelle, rantaan ja takaisin selkään).
+- **Puut pois teiltä**: molemmat leivonnat ajavat lopuksi `tools/kartta/puut_teilta.py`:n, joka poistaa valmiista
+  `puut.bin`:stä puut piirretyiltä teiltä, kaduilta, poluilta, radoilta ja parkkipaikoilta (rungon etäisyys tien reunasta
+  vähintään 0,8 m). Ajettavissa myös erikseen ilman välimuistia: `venv/bin/python tools/kartta/puut_teilta.py`.
 
 Lähdeaineisto ladataan välimuistiin (n. 600 Mt: 9 laserlehteä, korkeusmallilehdet, maastotietokanta R4333L, R4333R,
 R4334R). Korkeusmallin lehtijako alkaa idässä 308 000:sta (lehdet 2000 mod 6000), pohjoisessa 6 570 000:sta.
