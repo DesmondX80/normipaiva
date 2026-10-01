@@ -956,7 +956,7 @@ func _draw_mokki_overlay(v: Control) -> void:
 			v.draw_colored_polygon(tr.call(bd.poly), Color(0.42, 0.38, 0.34))
 	if _vzoom < 1.2:
 		return
-	# Piha lähempää: mökki, savusauna, poreamme, kesäkeittiö, tikkataulu, laituri, taksipysäkki, Santtu ja riistapolku.
+	# Piha lähempää: mökki, savusauna, palju, kesäkeittiö, tikkataulu, laituri, taksipysäkki, Santtu ja riistapolku.
 	var labels := _vzoom >= 2.0
 	_ellipse_on(v, Mokki.YARD_CENTER, Mokki.YARD_R.x, Mokki.YARD_R.y, Color(0.9, 0.88, 0.74, 0.9))
 	var half := Mokki.COTTAGE_SIZE / 2.0

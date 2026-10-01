@@ -29,6 +29,10 @@ var rows := 0
 var mower: Node3D
 ## Nurmikon yllätykset: {kind: "siili" | "kivi", pos: Vector2, r: float, node: Node3D}.
 var objects: Array = []
+## Maan korkeus maailman x/z:ssä: tyhjä = Saloisten maasto (terrain.gd). Mökin nurmikolla mökin oma maasto.
+var height_fn: Callable
+## Aamulla arvottavat yllätykset (mökillä vain kiviä).
+var kinds: Array = ["siili", "kivi"]
 
 var _img: Image
 var _tex: ImageTexture
@@ -50,6 +54,10 @@ func _ready() -> void:
 	_build_mower()
 	park_mower()
 	_refresh()
+
+
+func _gh(x: float, z: float) -> float:
+	return height_fn.call(x, z) if height_fn.is_valid() else T.h(x, z)
 
 
 func _process(delta: float) -> void:
@@ -169,20 +177,22 @@ func spawn_objects() -> void:
 		o.node.queue_free()
 	objects.clear()
 	var avg := avg_len()
-	var kinds: Array[String] = []
-	for i in 1 + int(avg / 0.25):
-		kinds.append("siili")
-	for i in 2 + int(avg / 0.2):
-		kinds.append("kivi")
+	var want: Array[String] = []
+	if "siili" in kinds:
+		for i in 1 + int(avg / 0.25):
+			want.append("siili")
+	if "kivi" in kinds:
+		for i in 2 + int(avg / 0.2):
+			want.append("kivi")
 	var inner := rect.grow(-0.6)
 	var park := Vector2(mower_park.x, mower_park.z)
-	for kind in kinds:
+	for kind in want:
 		for attempt in 30:
 			var p := to_world(inner.position + Vector2(randf() * inner.size.x, randf() * inner.size.y))
 			if p.distance_to(park) < 2.5 or objects.any(func(o: Dictionary) -> bool: return o.pos.distance_to(p) < 1.4):
 				continue
 			var node := _hedgehog() if kind == "siili" else _rock()
-			node.position = Vector3(p.x, T.h(p.x, p.y), p.y)
+			node.position = Vector3(p.x, _gh(p.x, p.y), p.y)
 			node.rotation.y = randf() * TAU
 			add_child(node)
 			objects.append({"kind": kind, "pos": p, "r": 0.16 if kind == "siili" else 0.18, "node": node})
@@ -202,7 +212,7 @@ func push_mower(walker: Node3D) -> void:
 	var fwd := -walker.global_transform.basis.z
 	fwd.y = 0.0
 	var p := walker.global_position + fwd.normalized() * HEAD
-	mower.global_position = Vector3(p.x, T.h(p.x, p.z), p.z)
+	mower.global_position = Vector3(p.x, _gh(p.x, p.z), p.z)
 	mower.rotation.y = walker.rotation.y
 
 
@@ -246,7 +256,7 @@ func _build_ground() -> void:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var at := func(i: int, j: int) -> Vector3:
 		var p := to_world(rect.position + Vector2(i, j) * CELL)
-		return Vector3(p.x, T.h(p.x, p.y) + 0.02, p.y)
+		return Vector3(p.x, _gh(p.x, p.y) + 0.02, p.y)
 	st.set_normal(Vector3.UP)
 	for j in rows:
 		for i in cols:
@@ -283,13 +293,42 @@ func _build_grass() -> void:
 	mmi.material_override = B.shader_mat("res://shaders/lawn.gdshader", {
 		"origin": rect.position, "size": rect.size, "pivot": pivot, "angle": angle, "cols": gx, "spacing": SPACING,
 		"cut": _tex, "max_len": MAX_LEN,
-		"terrain_h": T.texture(), "terrain_origin": T.origin, "terrain_cells": Vector2(T.nx, T.nz), "terrain_cell": T.CELL,
 	})
+	if height_fn.is_valid():
+		_own_heights(mmi.material_override)
+	else:
+		var m: ShaderMaterial = mmi.material_override
+		m.set_shader_parameter("terrain_h", T.texture())
+		m.set_shader_parameter("terrain_origin", T.origin)
+		m.set_shader_parameter("terrain_cells", Vector2(T.nx, T.nz))
+		m.set_shader_parameter("terrain_cell", T.CELL)
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var y := T.h(pivot.x, pivot.y)
+	var y := _gh(pivot.x, pivot.y)
 	var rad := rect.size.length() / 2.0
 	mmi.custom_aabb = AABB(Vector3(pivot.x - rad, y - 20.0, pivot.y - rad), Vector3(rad * 2.0, 40.0, rad * 2.0))
 	add_child(mmi)
+
+
+## Oma korkeuskartta korsien juurille (height_fn), 0,5 m ruudukko nurmikon ympäriltä.
+func _own_heights(m: ShaderMaterial) -> void:
+	var lo := Vector2(INF, INF)
+	var hi := -lo
+	for c in [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]:
+		var w := to_world(c)
+		lo = lo.min(w)
+		hi = hi.max(w)
+	var cell := 0.5
+	lo -= Vector2.ONE * cell * 2.0
+	var n := Vector2i(ceili((hi.x - lo.x) / cell) + 4, ceili((hi.y - lo.y) / cell) + 4)
+	var img := Image.create(n.x, n.y, false, Image.FORMAT_RF)
+	for j in n.y:
+		for i in n.x:
+			var p := lo + Vector2(i, j) * cell
+			img.set_pixel(i, j, Color(_gh(p.x, p.y), 0, 0))
+	m.set_shader_parameter("terrain_h", ImageTexture.create_from_image(img))
+	m.set_shader_parameter("terrain_origin", lo)
+	m.set_shader_parameter("terrain_cells", Vector2(n))
+	m.set_shader_parameter("terrain_cell", cell)
 
 
 ## Siili: piikikäs ruskea kumpu, vaalea kuono ja musta nenä (-Z eteen).
