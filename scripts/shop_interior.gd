@@ -63,6 +63,7 @@ signal exited(bought: bool)
 var active := false
 var has_beer := false
 var has_paid := false
+var stolen := false  # juoksukaljat: rahat ei riittäneet, kaljat ja viinat vietiin maksamatta
 var cart := {}  # grillituotteet: avain -> hinta
 var bag := {}  # Päivin hyllyn tuotteet: tuote -> väri
 var _sel := {}  # lokeron valittu väri: tuote -> värin indeksi
@@ -143,7 +144,11 @@ func _process(delta: float) -> void:
 	hint = ""
 	var e := Input.is_action_just_pressed("interact")
 	if _flat(p, DOOR) < 1.4:
-		if has_items and not has_paid:
+		if has_items and not has_paid and (has_beer or alko_count() > 0) and _total() > money + 0.001:
+			hint = "[E] Juoksukaljat! Rahat ei riitä (%s €): kaljat ja viinat mukaan maksamatta" % _eur(_total())
+			if e:
+				_run_out()
+		elif has_items and not has_paid:
 			hint = "Maksa ensin! Kassalle jonoon."
 		else:
 			hint = "[E] Poistu kaupasta"
@@ -227,6 +232,19 @@ func _process(delta: float) -> void:
 			(", Alko vasemmalta seinältä" if vaala else "")
 	else:
 		hint = "Maksettu! Ulos ovesta."
+
+
+## Juoksukaljat: muut tuotteet jäävät oven viereen, kaljat ja Alkon pullot lähtevät mukaan maksamatta.
+func _run_out() -> void:
+	for k in cart.keys():
+		if not String(k).begins_with("viina"):
+			cart.erase(k)
+	bag.clear()
+	stolen = true
+	has_paid = true
+	_cashier_say("Hei! Maksamatta! Tuu takasin!")
+	Sfx.play("door", -1.0, 1.3)
+	exited.emit(has_beer)
 
 
 ## Montako Alkon pulloa korissa.

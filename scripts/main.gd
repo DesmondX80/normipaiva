@@ -264,7 +264,7 @@ var viina_pullot := 0
 const VIINA_OPEN_R := 2.0
 var _drone: Node3D
 var mopo_trip: Node3D
-## Pankkiautomaatti: 20 € kerran päivässä (Saloisissa K-Marketin takana, Vaalassa Siitaria vastapäätä).
+## Pankkiautomaatti: 20 € kerran päivässä (Saloisissa K-Marketin takana, Vaalassa K-Market Tervaportin seinällä Siitarin vieressä).
 var atm_day := 0
 var _atm_node: Node3D
 var _mopo_label: Label
@@ -4680,18 +4680,22 @@ func _on_vaala_shop_exited(bought: bool) -> void:
 		var bottles: int = interior.alko_count()
 		if bottles > 0:
 			viina_pullot += bottles
-			got.append("%d pulloa Koskenkorvaa" % bottles)
+			got.append("pullo Koskenkorvaa" if bottles == 1 else "%d pulloa Koskenkorvaa" % bottles)
 		for k in interior.bag:
 			paivi_bag[k] = interior.bag[k]
 	if bought:
 		beers += 6
 		got.push_front("kuutonen")
+	var ran: bool = interior.stolen
 	_reset_shop_visit()
 	state = "mopo"
 	_mopo_label.visible = true
 	_compass.visible = true
 	_mopo_resume()
-	if mopo_trip.on_foot != null:
+	if ran:
+		_show_message("JUOKSUKALJAT! Kassa huutaa perään.\nKassissa %s. Äkkiä %s!" % [" ja ".join(got),
+			"pois" if mopo_trip.on_foot != null else "mopon kyytiin"], 3.5)
+	elif mopo_trip.on_foot != null:
 		_show_message(("Kassissa %s." % " ja ".join(got)) if not got.is_empty() else "Takaisin ulos.", 3.0)
 	else:
 		_show_message(("Kassissa %s. Mopon kyytiin!" % " ja ".join(got)) if not got.is_empty() else "Takaisin mopon kyytiin.", 3.0)
@@ -4739,6 +4743,7 @@ func _on_lava_finished(score: float) -> void:
 func _reset_shop_visit() -> void:
 	interior.has_beer = false
 	interior.has_paid = false
+	interior.stolen = false
 	interior.cart.clear()
 	interior.bag.clear()
 	interior.walker.set_carrying(false)
@@ -4776,6 +4781,8 @@ func _on_shop_exited(bought: bool) -> void:
 		wife.alerted = true
 		wife.reset_to(wife.farthest_node_from(shop_zone))
 		_show_message("Anna-Liisa soitti Päiville.\nPÄIVI TIETÄÄ MISSÄ OLET!", 3.5)
+	elif interior.stolen:
+		_show_message("JUOKSUKALJAT! Kassa huutaa perään.\nÄkkiä kotiin!", 3.0)
 	else:
 		_show_message("Kuutonen kassissa!\nNyt kotiin.", 3.0)
 
@@ -6419,7 +6426,8 @@ func _maybe_screenshot() -> void:
 			for i in 20:
 				await get_tree().physics_frame
 			await press.call("mount")
-			print("JALAN: kävelijä %s, näkyvissä %s, status '%s'" % [mopo_trip.on_foot != null, walker_out.visible, mopo_trip.status.replace("\n", " | ")])
+			print("JALAN: kävelijä %s, näkyvissä %s, kuski mopolla %s, status '%s'" % [mopo_trip.on_foot != null, walker_out.visible,
+				mp._rider.visible, mopo_trip.status.replace("\n", " | ")])
 			var walk_to := func(goal_local: Vector3, secs: float) -> void:
 				Input.action_press("forward")
 				for i in int(60 * secs):
@@ -6463,7 +6471,8 @@ func _maybe_screenshot() -> void:
 			await walk_to.call(mp.position, 5.0)
 			print("JALAN mopolla: %.1f m, vihje '%s'" % [walker_out.global_position.distance_to(mp.global_position), _hint.text])
 			await press.call("mount")
-			print("SELKÄÄN: kävelijä %s, ohjaus %s, näkyvissä %s" % [mopo_trip.on_foot != null, mp.controls_enabled, walker_out.visible])
+			print("SELKÄÄN: kävelijä %s, ohjaus %s, näkyvissä %s, kuski mopolla %s" % [mopo_trip.on_foot != null, mp.controls_enabled,
+				walker_out.visible, mp._rider.visible])
 			get_tree().quit()
 		"mokkivaalalava":
 			# Oulujärven lava niemen kärjessä: _yla ylhäältä (joki ja järvi), _tie Vuolijoentieltä, _aita aita rannasta
@@ -6603,6 +6612,54 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("VAALAKAUPPA ulos: tila %s, pulloja %d -> %d, kaljoja %d, mopo aktiivinen %s" % [state, pullot0, viina_pullot,
 				beers, mopo_trip.active])
+			# Juoksukaljat: rahat loppu, kuutonen ja pullo ovesta maksamatta.
+			money = 1.0
+			_enter_vaala_shop()
+			interior.has_beer = true
+			interior.cart["viina0"] = ShopInterior.ALKO[1]
+			interior.cart["makkara"] = 3.0
+			interior.walker.position = ShopInterior.DOOR
+			Input.action_press("interact")
+			for i in 3:
+				await get_tree().process_frame
+			Input.action_release("interact")
+			for i in 10:
+				await get_tree().process_frame
+			print("VAALAKAUPPA juoksukaljat: tila %s, raha %.2f, pulloja %d, kaljoja %d, makkara %s, viesti '%s'" % [state, money,
+				viina_pullot, beers, has_sausage, _msg.text.replace("\n", " | ")])
+		"mokkivaalakesk":
+			# Vaalan keskusta Siitarin ympäriltä: _y ylhäältä, _n/_e/_s/_w 45 m päästä viistosti, _tie Vaalantieltä,
+			# _ovi Siitarin ovelta ja _kauppa K-Marketin edestä (automaatti).
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			_msg.text = ""
+			var oc := Camera3D.new()
+			oc.far = 3000.0
+			oc.fov = 62.0
+			add_child(oc)
+			var snap := func(name: String, from: Vector3, to: Vector3) -> void:
+				oc.look_at_from_position(mopo_trip.to_global(from), mopo_trip.to_global(to))
+				oc.current = true
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var sc := Vector3(vl.siitari.x, vl.siitari_door.y, vl.siitari.y)
+			await snap.call("_y.png", sc + Vector3(0, 140, 60), sc)
+			for d in [["_n", Vector3(0, 0, -1)], ["_e", Vector3(1, 0, 0)], ["_s", Vector3(0, 0, 1)], ["_w", Vector3(-1, 0, 0)]]:
+				await snap.call(d[0] + ".png", sc + d[1] * 45.0 + Vector3(0, 18, 0), sc + Vector3(0, 2, 0))
+			var ni: int = vl.nearest(sc)[0]
+			await snap.call("_tie.png", vl.road_pos(ni - 15) + Vector3(0, 1.7, 0), vl.road_pos(ni + 5) + Vector3(0, 1.5, 0))
+			await snap.call("_tie2.png", vl.road_pos(ni + 15) + Vector3(0, 1.7, 0), vl.road_pos(ni - 5) + Vector3(0, 1.5, 0))
+			var so: Vector3 = Vector3(sin(vl.siitari_yaw), 0, cos(vl.siitari_yaw))
+			await snap.call("_ovi.png", vl.siitari_door + so * 14.0 + Vector3(0, 2.5, 0), vl.siitari_door + Vector3(0, 1.5, 0))
+			if vl.kmarket_door != Vector3.ZERO:
+				await snap.call("_kauppa.png", vl.kmarket_door + vl.kmarket_out * 16.0 + Vector3(0, 4, 0), vl.kmarket_door)
+				await snap.call("_valilla.png", vl.kmarket_door + Vector3(0, 30, 0) + (sc - vl.kmarket_door) * -0.3,
+					(sc + vl.kmarket_door) / 2.0)
+			print("VAALAKESK siitari %s kauppa %s automaatti %s, väli %.0f m" % [sc, vl.kmarket_door, vl.atm_pos,
+				Vector2(sc.x - vl.kmarket_door.x, sc.z - vl.kmarket_door.z).length()])
+			get_tree().quit()
 		"mokkivaala":
 			# Vaalan kohteet kuviksi (_ali1 alikulku lähestyttäessä, _ali2 sivulta, _ali3 mopo alikulussa, _ris
 			# Vuolijoentien risteys, _kesk keskusta ylhäältä, _kirkko, _asema, _talot omakotitaloja läheltä).

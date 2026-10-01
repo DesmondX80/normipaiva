@@ -80,13 +80,16 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     ja rakennusten pohjat maastotietokannasta, rakennusten korkeudet ja tienvarren metsä (noin 200 000 puuta)
     laserkeilauksesta ja puulajit Luken VMI:stä (`tools/vaala_bake.py`). Keskustassa on K-Market Tervaportti:
     sama kauppa kuin kylässä, ja vasemmalla seinällä Alkon hylly (Koskenkorva kätköviinaksi, T ottaa huikan).
-    Pankkiautomaatti on kaupan seinällä. Niemellä, jossa Oulujoki alkaa Oulujärvestä (Vuolijoentieltä oikealle
+    Pelissä kauppa on Siitarin vieressä Vaalantien varressa (todellisuudessa n. 400 m kauempana), ja
+    pankkiautomaatti on kaupan seinällä. Jos rahat eivät riitä, kaljat ja Alkon pullot voi viedä ovesta
+    juoksukaljoina maksamatta (kylän K-Marketissa samoin). `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
+    laserpuut rakennusten, parkkien ja teiden päältä (latvusmallissa katotkin näkyivät puina). Niemellä, jossa Oulujoki alkaa Oulujärvestä (Vuolijoentieltä oikealle
     asfaltoitua Pahalahdentietä juuri ennen radan alikulkua; `tools/vaala_lava.py` tekee niemen, leveän joen ja
     järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (1 500 m², punamullatut seinät, luukut auki,
     bändi lavalla) lautatarha-aidan sisällä, jonka päät ulottuvat jokeen ja Pahalahteen: lipulla (12 €)
     lavatansseihin, joissa A ja D vuorotellen tahdissa vievät parin tanssiin. Pelissä lava on vähän lähempänä
     päätietä kuin todellisuudessa (niemen kärjessä).
-    Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen) ja kävellä; ovet ja automaatti toimivat jalankin,
+    Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen; mopo jää parkkiin tyhjänä) ja kävellä; ovet ja automaatti toimivat jalankin,
     ja F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
     Paperikartta (M) on mökillä ja Vaalan matkalla yksi iso Neittävä–Vaala-kartta: mökin piha, mopotie ja Vaalan
     keskusta (Siitari, K-Market Tervaportti, pankkiautomaatti, Oulujärven lava, kirkko, rautatieasema ja muut

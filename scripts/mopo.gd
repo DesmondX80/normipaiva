@@ -80,6 +80,11 @@ func activate_camera() -> void:
 	_cam_ready = false
 
 
+## Jalan noustessa kuski pois selästä (mopo jää parkkiin tyhjänä), selkään noustessa takaisin.
+func set_rider_visible(v: bool) -> void:
+	_rider.visible = v
+
+
 func set_engine(on: bool) -> void:
 	if on and not _engine.playing:
 		_engine.play()
