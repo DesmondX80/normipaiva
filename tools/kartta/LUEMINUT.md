@@ -111,6 +111,9 @@ Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kart
   kohteet, tiivistetyllä välillä harvennettuna tiivistyksen suhteessa (metsän tiheys säilyy). Kaukomaaston metsä
   (650 m tiestä) on laserin valtapuita. Lopuksi `tools/vaala_lava.py` siirtää Oulujärven lavan oikealle paikalleen
   Pahalahdentien päähän (tontti, tie ja puut; ajettavissa myös erikseen ilman välimuistia).
+- **Puut pois teiltä**: molemmat leivonnat ajavat lopuksi `tools/kartta/puut_teilta.py`:n, joka poistaa valmiista
+  `puut.bin`:stä puut piirretyiltä teiltä, kaduilta, poluilta, radoilta ja parkkipaikoilta (rungon etäisyys tien reunasta
+  vähintään 0,8 m). Ajettavissa myös erikseen ilman välimuistia: `venv/bin/python tools/kartta/puut_teilta.py`.
 
 Lähdeaineisto ladataan välimuistiin (n. 600 Mt: 9 laserlehteä, korkeusmallilehdet, maastotietokanta R4333L, R4333R,
 R4334R). Korkeusmallin lehtijako alkaa idässä 308 000:sta (lehdet 2000 mod 6000), pohjoisessa 6 570 000:sta.
