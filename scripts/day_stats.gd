@@ -45,6 +45,13 @@ func reset() -> void:
 	chosen = keys.slice(0, PICK)
 
 
+## Tila mukaan päivän kolmen joukkoon (esim. mökillä humalatila aina): korvaa viimeisen, jos ei jo mukana.
+func ensure(key: String) -> void:
+	if key in chosen:
+		return
+	chosen[chosen.size() - 1] = key
+
+
 func add(key: String, amount: float) -> void:
 	values[key] = clampf(values[key] + amount, 0.0 if key == "humala" else -1.0, 1.0)
 
