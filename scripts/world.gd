@@ -122,6 +122,10 @@ var lawn_pivot: Vector2
 var lawn_angle := 0.0
 
 
+## deferred: main.gd rakentaa maailman build()-korutiinilla latausruudun takana (ruutu päivittyy vaiheiden välissä).
+var deferred := false
+
+
 func _ready() -> void:
 	_rng.seed = 1917
 	_hedge_batch.lift = true
@@ -131,6 +135,14 @@ func _ready() -> void:
 	lawn_pivot = M.w2(M.LAWN_CENTER)
 	lawn_angle = M.LAWN_AXIS.angle()
 	lawn_rect = Rect2(-M.LAWN_SIZE * M.SCALE / 2.0, M.LAWN_SIZE * M.SCALE)
+	if not deferred:
+		build(func(_text: String, _frac: float) -> void: pass)
+
+
+## Maailman rakennus vaiheittain. step(teksti, osuus 0..1) kutsutaan ennen kutakin vaihetta ja odotetaan: latausruutu
+## odottaa siinä ruudunpäivityksen, testiajossa (deferred = false) se palaa heti eikä rakennus keskeydy.
+func build(step: Callable) -> void:
+	await step.call("Luetaan karttaa", 0.01)
 	for p in M.WATER:
 		_water.append(_poly(p))
 	for p in M.FORESTS:
@@ -144,35 +156,49 @@ func _ready() -> void:
 	for p in M.CLEARINGS:
 		_clearings.append(_poly(p))
 	_index_segments()
+	await step.call("Muotoillaan maastoa ja järviä", 0.03)
 	_build_ground()
+	await step.call("Asfaltoidaan teitä ja polkuja", 0.3)
 	_build_roads()
 	_build_graph()
 	for p in M.CLEARCUTS:
 		_clearcuts.append(_poly(p))
 	_lawn_st = _new_st()
+	await step.call("Rakennetaan Järvikuja 1 ja naapurit", 0.49)
 	_build_home()
+	await step.call("Avataan K-Market", 0.5)
 	_build_shop()
 	_build_agility()
+	await step.call("Laavu, grillikatos ja kota", 0.53)
 	_build_laavu()
 	_build_grillikatos()
 	_build_kota()
 	_build_pontikka()
 	_build_bales()
+	await step.call("Rakennetaan Saloisten talot", 0.56)
 	_build_houses()
+	await step.call("Kylvetään nurmikot", 0.63)
 	_commit_strip(_lawn_st, _surf("lawn"))
 	_lawn_st = null
+	await step.call("Pientareet, katuvalot ja sähkölinjat", 0.67)
 	_build_verges()
 	_build_streetlights()
 	_build_power_lines()
+	await step.call("Hakkuuaukeat", 0.73)
 	_build_clearcuts()
 	_commit_batches()
+	await step.call("Istutetaan metsää", 0.75)
 	_scatter_trees()
 	var still := M.w2(M.PONTIKKA)
 	_trees = _trees.filter(func(t: Array) -> bool:
 		return not in_lawn(t[0], 2.5) and t[0].distance_to(still) > 6.5)
+	await step.call("Puut kasvavat", 0.84)
 	_build_trees()
+	await step.call("Marjat ja sienet metsään", 0.86)
 	_build_forage()
+	await step.call("Ruoho kasvaa", 0.87)
 	_build_grass()
+	await step.call("Paikannimet ja viimeistely", 0.95)
 	_build_names()
 	_lift_objects()
 
