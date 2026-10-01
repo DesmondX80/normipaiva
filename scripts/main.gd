@@ -465,8 +465,23 @@ func _ready() -> void:
 	randomize()
 	_setup_input()
 	_setup_environment()
+	# Latausruutu: maailma rakennetaan vaiheittain, ja ruutu päivittyy vaiheiden välissä (selaimessa rakennus kestää).
+	# Testiajot (--shot) rakentavat kaiken kerralla ilman ruudunpäivityksiä kuten ennenkin.
+	var loading := true
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--shot="):
+			loading = false
+	if loading:
+		set_process(false)
+		_loading_show()
+		await get_tree().process_frame
+		await get_tree().process_frame
 	world = World.new()
+	world.deferred = loading
 	add_child(world)
+	if loading:
+		await world.build(_loading_step)
+		await _loading_step.call("Mökki, Siitari ja Raahen baari", 0.97)
 	home_zone = world.home_zone
 	shop_zone = world.shop_zone
 	lawn = Lawn.new()
@@ -570,7 +585,76 @@ func _ready() -> void:
 		("\nJemmassa %d kaljaa." % jemma) if jemma > 0 else "", jemma_note], 5.0 if jemma_note == "" else 6.0)
 	_roll_list()
 	_tell_list()
+	if loading:
+		_loading_hide()
+		set_process(true)
 	_maybe_screenshot()
+
+
+var _loading_layer: CanvasLayer
+var _loading_bar: ProgressBar
+var _loading_text: Label
+
+
+## Latausruutu: tumma tausta, pelin nimi, vaiheen nimi ja edistymispalkki.
+func _loading_show() -> void:
+	_loading_layer = CanvasLayer.new()
+	_loading_layer.layer = 100
+	add_child(_loading_layer)
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.06, 0.08)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_loading_layer.add_child(bg)
+	var box := VBoxContainer.new()
+	box.set_anchors_preset(Control.PRESET_CENTER)
+	box.custom_minimum_size = Vector2(560, 0)
+	box.offset_left = -280
+	box.offset_right = 280
+	box.offset_top = -110
+	box.offset_bottom = 110
+	box.add_theme_constant_override("separation", 14)
+	_loading_layer.add_child(box)
+	var title := Label.new()
+	title.text = "NORMIPÄIVÄ"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 64)
+	title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
+	box.add_child(title)
+	var sub := Label.new()
+	sub.text = "S A L O I S I S S A"
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_font_size_override("font_size", 22)
+	sub.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	box.add_child(sub)
+	_loading_bar = ProgressBar.new()
+	_loading_bar.custom_minimum_size = Vector2(560, 22)
+	_loading_bar.show_percentage = false
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color(1.0, 0.8, 0.2)
+	var back := StyleBoxFlat.new()
+	back.bg_color = Color(0.18, 0.19, 0.22)
+	_loading_bar.add_theme_stylebox_override("fill", fill)
+	_loading_bar.add_theme_stylebox_override("background", back)
+	box.add_child(_loading_bar)
+	_loading_text = Label.new()
+	_loading_text.text = "Ladataan..."
+	_loading_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_loading_text.add_theme_font_size_override("font_size", 20)
+	box.add_child(_loading_text)
+
+
+## Rakennusvaihe: teksti ja palkki päivittyvät, ja odotetaan kaksi ruutua, jotta ne ehtivät näkyä.
+var _loading_step := func(text: String, frac: float) -> void:
+	_loading_text.text = text + "..."
+	_loading_bar.value = frac * 100.0
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+
+func _loading_hide() -> void:
+	if _loading_layer != null:
+		_loading_layer.queue_free()
+		_loading_layer = null
 
 
 func _process(delta: float) -> void:
