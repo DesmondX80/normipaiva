@@ -1,7 +1,6 @@
 extends Control
 ## Päivin heippalappu: päivän alun ohjeet keltaisena muistilappuna ruudun vasemmalla (vinossa, teippi yläreunassa,
-## käsialafontti, allekirjoitus). Lapun alla Päivin ääneen sanoma repliikki (esim. kauppalistan värit, joita hän ei
-## kirjoittanut lappuun). Häipyy itsestään; show_note() korvaa edellisen.
+## käsialafontti, allekirjoitus; kauppalistan tuotteet värikynillä). Häipyy itsestään; show_note() korvaa edellisen.
 
 const PAPER := Color(1.0, 0.95, 0.55)
 const INK := Color(0.16, 0.18, 0.42)
@@ -10,9 +9,7 @@ const WIDTH := 400.0
 var _holder: Control  # lappu ja teippi yhdessä (vinossa)
 var _paper: PanelContainer
 var _box: VBoxContainer
-var _speech: Label
 var _tw: Tween
-var _speech_tw: Tween
 var _font: SystemFont
 
 
@@ -53,30 +50,30 @@ func _ready() -> void:
 	tape.rotation = deg_to_rad(3.0)
 	tape.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_holder.add_child(tape)  # ei PanelContainerin lapsena (se venyttäisi teipin koko lapun päälle)
-	_speech = Label.new()
-	_speech.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_speech.custom_minimum_size = Vector2(WIDTH + 260, 0)
-	_speech.position = Vector2(30, 0)
-	_speech.add_theme_font_size_override("font_size", 21)
-	_speech.add_theme_color_override("font_color", Color(1, 1, 1))
-	_speech.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	_speech.add_theme_constant_override("outline_size", 7)
-	_speech.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_speech)
 	_holder.modulate.a = 0.0
-	_speech.modulate.a = 0.0
 
 
 ## Uusi lappu: rivit (tyhjät ohitetaan; "• " alkavat listana), allekirjoitus ja näkymisaika sekunteina.
+## Rivi voi olla myös [teksti, väri]: kirjoitettu värikynällä (ohut tumma reunus, jotta keltainenkin erottuu).
 func show_note(lines: Array, sign := "– Päivi", seconds := 12.0) -> void:
 	for c in _box.get_children():
 		c.queue_free()
 	var first := true
 	for raw in lines:
+		var ink := INK
+		var pen := false
+		if raw is Array:
+			ink = raw[1]
+			pen = true
+			raw = raw[0]
 		var t := String(raw).strip_edges()
 		if t == "":
 			continue
 		var l := _line(t, 28 if first else 22)
+		if pen:
+			l.add_theme_color_override("font_color", ink)
+			l.add_theme_color_override("font_outline_color", INK.darkened(0.3))
+			l.add_theme_constant_override("outline_size", 4)
 		first = false
 		_box.add_child(l)
 	if sign != "":
@@ -89,28 +86,10 @@ func show_note(lines: Array, sign := "– Päivi", seconds := 12.0) -> void:
 	_tw.tween_property(_holder, "modulate:a", 1.0, 0.35)
 	_tw.tween_interval(seconds)
 	_tw.tween_property(_holder, "modulate:a", 0.0, 0.8)
-	_place_speech.call_deferred()
-
-
-## Päivin repliikki lapun alla (lainausmerkeissä), näkyy seconds sekuntia.
-func say(text: String, seconds := 9.0) -> void:
-	_speech.text = text
-	if _speech_tw != null:
-		_speech_tw.kill()
-	_speech_tw = create_tween()
-	_speech_tw.tween_property(_speech, "modulate:a", 1.0, 0.3)
-	_speech_tw.tween_interval(seconds)
-	_speech_tw.tween_property(_speech, "modulate:a", 0.0, 0.8)
-	_place_speech.call_deferred()
 
 
 func is_showing() -> bool:
 	return _holder.modulate.a > 0.01
-
-
-func _place_speech() -> void:
-	var bottom := _holder.position.y + _paper.size.y + 16.0 if _holder.modulate.a > 0.01 or _tw != null else 150.0
-	_speech.position = Vector2(30, bottom)
 
 
 func _line(text: String, size: int) -> Label:

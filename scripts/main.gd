@@ -588,7 +588,6 @@ func _ready() -> void:
 	jemma_note = bike_note + jemma_note + _lawn_nag()
 	_roll_list()
 	_day_note("Huomenta! Päivä %d, Järvikuja 1." % day, ("\nJemmassa %d kaljaa." % jemma if jemma > 0 else "") + jemma_note)
-	_tell_list()
 	if loading:
 		_loading_hide()
 		set_process(true)
@@ -1886,28 +1885,23 @@ func _roll_list() -> void:
 	_list_done = false
 
 
-## Päivin heippalappu päivän alkuun: otsikko, tehtävä ja kauppalista (vain tuotteet, värit Päivi sanoo ääneen,
-## ks. _tell_list) sekä päivän muut muistutukset (extra: rivit \n-erotettuina).
+## Päivin heippalappu päivän alkuun: otsikko, tehtävä ja kauppalista värikynillä (kukin tuote oman värisellä
+## kynällä: lappu näkyy hetken, ja HUD:n kauppalistassa on vain tuotteet, joten värit pitää muistaa)
+## sekä päivän muut muistutukset (extra: rivit \n-erotettuina).
 func _day_note(head: String, extra: String, with_list := true) -> void:
 	var lines: Array = [head]
 	if with_list and not shopping_list.is_empty():
 		lines.append("Käy K-Marketissa ja tuo:")
 		for it in shopping_list:
-			lines.append("  • %s" % it[0])
+			# Keltainen kynä keltaisella post-it-lapulla: vähän tummempi, jotta erottuu.
+			var ink: Color = ShopInterior.COLORS[it[1]] if it[1] != "keltainen" else Color(0.95, 0.68, 0.0)
+			lines.append(["  • %s" % it[0], ink])
 	var more := extra.strip_edges()
 	if more != "":
 		lines.append("")
 		lines.append_array(more.split("\n"))
 	_note.show_note(lines, "– Päivi ♥", 12.0 if more == "" else 16.0)
 
-
-## Päivi luettelee listan kerran ääneen (värit; lapun alla).
-func _tell_list() -> void:
-	var said: Array[String] = []
-	for it in shopping_list:
-		said.append("%s %s" % [it[1], it[0]])
-	var text := ", ".join(said.slice(0, said.size() - 1)) + " ja " + said[-1]
-	_note.say("Päivi huutaa perään: \"Tuo %s!\"\n(Lappuun hän kirjoitti vain tuotteet. Muista värit!)" % text, 9.0)
 
 
 ## Ostosten tarkistus: palauttaa Päivin repliikit. Kaikki oikein -> kaljarauha.
@@ -2567,7 +2561,7 @@ func _ride_taxi(dest: Vector3, sub: String, title := "TAKSI") -> void:
 			_hazards.process_mode = Node.PROCESS_MODE_INHERIT  # takaisin Saloisissa: vaarat heräävät
 			if _list_pending:
 				_list_pending = false
-				_tell_list(), title)
+				_day_note("Kotona odotti Päivin lappu.", ""), title)  # mökiltä palatessa: päivän lista värikynillä
 
 
 ## Mökillä: jutut Santun kanssa, savusaunan kiuas, puukuumenteinen poreamme, tikanheitto ja laituri.
@@ -4251,8 +4245,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 			player.controls_enabled = true
 			player.activate_camera()
 			_hazards.process_mode = Node.PROCESS_MODE_INHERIT
-			_day_note("Huomenta! Päivä %d." % day, msg)
-			_tell_list(), _jemma_choco)
+			_day_note("Huomenta! Päivä %d." % day, msg), _jemma_choco)
 		return
 	if at_m:
 		# Mökillä vain mökin asiat: Päivin värilista kerrotaan, kun palataan kotiin (ks. _ride_taxi).
@@ -4267,7 +4260,6 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	elif spawn.distance_to(home_zone) > 50.0:
 		where = " laavulta"
 	_day_note("Huomenta! Päivä %d alkaa%s." % [day, where], "%s%s%s%s" % [intro, bonus, bike_note, jnote])
-	_tell_list()
 
 
 ## Tallennettu pyörä paikalleen ja pelaaja jalan kotiin. Palauttaa aamumuistutuksen.
