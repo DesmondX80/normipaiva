@@ -700,6 +700,8 @@ func _process(delta: float) -> void:
 		drone_battery = minf(drone_battery + delta / DRONE_CHARGE_S, 1.0)  # latautuu alustalla
 	if at_mokki and _hazards.process_mode != Node.PROCESS_MODE_DISABLED:
 		_hazards.process_mode = Node.PROCESS_MODE_DISABLED  # Päivi ja muut vaarat jäävät Saloisiin
+	if mokki != null and mokki.built:
+		_puuhat_tick(at_mokki)
 
 	_hint.text = ""
 	if not at_mokki:
@@ -2694,7 +2696,7 @@ func _mokki_logic() -> void:
 		_hunt_logic(e)
 		return
 	# Santtu viimeisenä: hommia katsomaan tullut Santtu ei saa peittää homman omaa toimintoa.
-	if near.call(mokki.santtu.position, 2.6):
+	if mokki.santtu.visible and near.call(mokki.santtu.position, 2.6):
 		_hint.text = "[E] Jutskaa Santun kanssa"
 		if e:
 			_santtu_menu()
@@ -3334,6 +3336,15 @@ func _watch_context() -> Array:
 	return []
 
 
+## Santun puuhastelu (santtu_puuhat.gd): saa puuhata pihalla, kun hommia ei katsota eikä minipeli ole käynnissä.
+## Pelaajan paikka kertoo, mistä Santtu väistää, ja tänään annettuja hommia Santtu ei tee itse.
+func _puuhat_tick(at_mokki: bool) -> void:
+	var pu: Node = mokki.puuhat
+	pu.enabled = at_mokki and state in ["to_shop", "to_home", "in_mokki"] and _watch_task == "" and not cutscene.busy
+	pu.player_local = mokki.to_local(player.global_position) if state != "in_mokki" else Vector3.INF
+	pu.pending = hommat.undone() if hommat.active else []
+
+
 ## Santtu nousee kannolta ja kävelee katsomaan käynnissä olevaa hommaa, tulee perille, kommentoi ja palaa
 ## kannolle, kun hommaa ei hetkeen tehdä.
 func _santtu_watch(dt: float) -> void:
@@ -3355,6 +3366,7 @@ func _santtu_watch(dt: float) -> void:
 	var sp: Vector3 = mokki.santtu.position
 	var far := Vector2(sp.x - spot.x, sp.z - spot.z).length() > 4.5
 	if id != _watch_task or (far and _watch_retarget <= 0.0 and mokki.santtu_arrived()):
+		mokki.puuhat.enabled = false  # hommien katsominen ennen puuhia (sama ruutu)
 		if id != _watch_task:
 			_watch_arrived = false
 		_watch_task = id
@@ -3423,6 +3435,8 @@ func _on_santtu_menu(id: String) -> void:
 
 ## Santun juttu: ilmoituksen faktat, arvostelut päivitettyinä.
 func _santtu_chat_line() -> String:
+	if mokki.puuhat.working():
+		return mokki.puuhat.chat_line()
 	var line: String = Mokki.SANTTU_LINES.pick_random()
 	if hommat.reviews.size() > 0 and "arvostelu" in line:
 		line = "Arvosteluja on jo %d, keskiarvo %s tähteä. Kyllä tää vielä nousee." % [hommat.reviews.size(),
@@ -8536,6 +8550,70 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_aita_%d.png" % i))
+		"mokkipuuhat":
+			# Santun puuhastelu: jokainen puuhapaikka vuorollaan (kuva _p_<id>.png), sitten vapaa puuhastelu
+			# minuutin ajan (Santun tila tulostetaan) ja väistö, kun pelaaja tulee puuhapaikalle.
+			_toggle_mount()
+			walker_out.global_position = mokki.gpos(Vector3(-2.0, 0.4, -14.0))
+			for i in 20:
+				await get_tree().process_frame
+			var pu: Node = mokki.puuhat
+			var pc := Camera3D.new()
+			add_child(pc)
+			for id in pu.spot_ids():
+				pu.debug_start(id)
+				var at: Vector3 = pu.spot_at(id)
+				var sp: Vector3 = mokki.santtu.position
+				for k in 150:
+					await get_tree().process_frame
+					if k == 100:
+						sp = mokki.santtu.position
+						var away := Vector3(3.2, 2.0, -3.2) if id != "onki" and id != "naputus" else Vector3(-3.0, 1.8, -3.0)
+						pc.look_at_from_position(mokki.to_global(sp + away), mokki.to_global(sp + Vector3(0, 1.0, 0)), Vector3.UP)
+						pc.current = true
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_p_%s.png" % id))
+				print("PUUHA %s working=%s anim=%s visible=%s bubble=%s" % [id, pu.working(), mokki.santtu.current(),
+					mokki.santtu.visible, mokki._bubble.text])
+			pc.current = false
+			# Reitit kannolta jokaiselle puuhapaikalle: ei rakennusten, pihan esineiden, puiden eikä veden läpi.
+			for id in pu.spot_ids():
+				var at: Vector3 = pu.spot_at(id)
+				var t0 := Time.get_ticks_usec()
+				var route: Array = mokki._route(Vector2(Mokki.SANTTU_LOCAL.x, Mokki.SANTTU_LOCAL.z + 0.6), Vector2(at.x, at.z))
+				var us := Time.get_ticks_usec() - t0
+				var hits := 0
+				var from := Vector2(Mokki.SANTTU_LOCAL.x, Mokki.SANTTU_LOCAL.z + 0.6)
+				var length := 0.0
+				for k in route.size():
+					var q: Vector2 = route[k]
+					var n := maxi(1, ceili(from.distance_to(q) / 0.2))
+					for m in range(1, n):
+						var c: Vector2 = from.lerp(q, float(m) / n)
+						if not mokki._free(mokki._cell(c)) and c.distance_to(Vector2(at.x, at.z)) > 1.0 and m > 2:
+							hits += 1
+					length += from.distance_to(q)
+					from = q
+				print("REITTI %s: %d pistettä, %.0f m, %.1f ms, esteissä %d" % [id, route.size(), length, us / 1000.0, hits])
+			walker_out.activate_camera()
+			pu._abort()
+			mokki.santtu_go_home()
+			pu._t = 1.0
+			var seen := {}
+			for k in 60 * 90:
+				await get_tree().process_frame
+				var cid: String = pu.current_id()
+				if cid != "" and not seen.has(cid):
+					seen[cid] = true
+					print("PUUHA vapaa t=%d -> %s (%s)" % [k / 60, cid, pu._state])
+			print("PUUHA vapaa paikat=%s" % [seen.keys()])
+			# Väistö: pelaaja tikkataululle, kun Santtu heittää.
+			pu.debug_start("tikka")
+			await get_tree().process_frame
+			walker_out.global_position = mokki.gpos(Mokki.DART_LOCAL + Vector3(0.5, 0.4, 0.3))
+			for k in 30:
+				await get_tree().process_frame
+			print("PUUHA väistö state=%s bubble=%s" % [pu._state, mokki._bubble.text])
 		"mokkihommat":
 			# Santun hommat: yö mökillä, aamulappu, kaikki 12 hommaa pihalla, Santun kävely, minipelit (laituri,
 			# ränni, ampiaiset, sahaus, halkominen, tiskit), huussin sangot, savusauna, palju, kalja Santulle,
