@@ -50,7 +50,7 @@ func _ready() -> void:
 		g.position = Vector3(-1.0 + i, 0.25, 0.05)
 		g.play("Sitting_Idle", 0.0)
 		_grans.append(g)
-		var bubble := B.label(self, "", g.position + Vector3(0, 1.45, 0.1), 36, Color.WHITE, true)
+		var bubble := B.bubble(self, g.position + Vector3(0, 1.45, 0.1), Color.WHITE)
 		_bubbles.append(bubble)
 
 

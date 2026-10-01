@@ -1306,9 +1306,6 @@ func _build_santtu() -> void:
 	var mug := Node3D.new()
 	B.mesh(mug, B.cyl(0.035, 0.035, 0.08, 10), Vector3(0, -0.02, 0), Color(0.95, 0.95, 0.92))
 	santtu.attach("hand_r", mug, Vector3(0, -0.02, 0.03))
-	_bubble = B.label(self, "", SANTTU_LOCAL + Vector3(0, 1.6, 0), 16, Color.WHITE, true)
-	_bubble.outline_size = 6
-	_bubble.width = 700.0
-	_bubble.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_bubble = B.bubble(self, SANTTU_LOCAL + Vector3(0, 1.6, 0), Color.WHITE)
 	var name := B.label(self, "Santtu, isäntä", SANTTU_LOCAL + Vector3(0, 1.3, 0), 12, Color(1, 0.9, 0.6), true)
 	name.no_depth_test = false
