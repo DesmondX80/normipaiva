@@ -1418,7 +1418,7 @@ func _build_santtu() -> void:
 	B.mesh(mug, B.cyl(0.035, 0.035, 0.08, 10), Vector3(0, -0.02, 0), Color(0.95, 0.95, 0.92))
 	santtu.attach("hand_r", mug, Vector3(0, -0.02, 0.03))
 	_bubble = B.bubble(self, SANTTU_LOCAL + Vector3(0, 1.6, 0), Color.WHITE)
-	_name_label = B.label(self, "Santtu, isäntä", SANTTU_LOCAL + Vector3(0, 1.3, 0), 12, Color(1, 0.9, 0.6), true)
+	_name_label = B.guide(self, "Santtu, isäntä", SANTTU_LOCAL + Vector3(0, 1.3, 0), 12, Color(1, 0.9, 0.6), true)
 	_name_label.no_depth_test = false
 
 
