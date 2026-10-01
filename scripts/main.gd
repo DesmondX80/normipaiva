@@ -6645,6 +6645,18 @@ func _maybe_screenshot() -> void:
 				door + Vector3(0, 1.0, 0), Vector3.UP)
 			cam.current = true
 			_msg.text = ""
+		"pitkalappu":
+			# Pitkä lappu: kaikki päivän muistutukset kerralla; lapun pitää mahtua kokonaan ruudulle.
+			var many := ["Jemmassa 4 kaljaa.", "Varoitus: Päivi voi löytää täyden kotijemman!",
+				"Päivi löysi vanhat jemmat ja kaatoi 3 kaljaa viemäriin! Nyt jemmoja on enemmän.",
+				"Yhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä.",
+				"Nurmikko on kasvanut pitkäksi: leikkaa se ennen kuin lähdet mihinkään!", "Pyörä jäi mökille.",
+				"Eilinen päivä: Vireys +0,1 · Stressi -0,4 · Keskittyminen -0,6 = -0,9. Huono päivä: tänään on hankalampaa."]
+			_day_note("Huomenta! Päivä %d alkaa mökiltä." % day, "
+".join(many))
+			await get_tree().create_timer(1.2).timeout
+			var rect: Rect2 = _note._paper.get_global_rect()
+			print("PITKALAPPU ruutu=%s lappu=%s asteikko=%s" % [get_viewport().get_visible_rect().size, rect, _note._holder.scale])
 		"homeview", "homeview2":
 			var cam := Camera3D.new()
 			cam.fov = 55.0
