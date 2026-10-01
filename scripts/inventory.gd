@@ -118,7 +118,7 @@ func _draw() -> void:
 		var paper := Rect2(Vector2(rx, ry), Vector2(170, 26 + list.size() * 22))
 		draw_rect(paper, Color(0.96, 0.94, 0.85))
 		draw_rect(paper, Color(0.55, 0.5, 0.4), false, 2.0)
-		_text(paper.position + Vector2(10, 20), "Kauppalista", 16, Color(0.2, 0.2, 0.45))
+		_text(paper.position + Vector2(10, 20), _info.get("list_title", "Kauppalista"), 16, Color(0.2, 0.2, 0.45))
 		for i in list.size():
 			_text(paper.position + Vector2(14, 42 + i * 22), list[i], 15, Color(0.15, 0.15, 0.3))
 		rx = paper.end.x + 16.0

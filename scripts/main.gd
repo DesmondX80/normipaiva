@@ -23,6 +23,12 @@ const BarGame := preload("res://scripts/bar_game.gd")
 const LavaGame := preload("res://scripts/lava_game.gd")
 const PingisGame := preload("res://scripts/pingis_game.gd")
 const PaGame := preload("res://scripts/pa_game.gd")
+## Santun hommat mökillä (santun_hommat.gd) ja niiden minipelit.
+const Hommat := preload("res://scripts/santun_hommat.gd")
+const LaituriGame := preload("res://scripts/laituri_game.gd")
+const RanniGame := preload("res://scripts/ranni_game.gd")
+const AmpiaisGame := preload("res://scripts/ampiais_game.gd")
+const TiskiGame := preload("res://scripts/tiski_game.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
 const SiitariInterior := preload("res://scripts/siitari_interior.gd")
 ## Raahen baari: Kapteenin Kulma ja Kellari (raahe_interior.gd), taksilla kotoa.
@@ -186,6 +192,8 @@ var _quiz_right := 0
 var _paivi_call_t := -1.0  # Päivin motkotuspuhelu tulossa (s), kun Sinikan kanssa on peuhattu
 var _sinikka_gossip := false  # aamulla vielä motkotusta ja Päivi nopeampi
 var _paivi_mad := false
+var _paivi_call_kind := "sinikka"  # Päivin puhelu Siitariin: "sinikka" tai "santtu" (Santtu kantelee hommista)
+var _santtu_gossip := false  # Santtu soitti Päiville: kotona aamulla motkotusta ja Päivi nopeampi
 var _mokki_prev := "to_shop"
 var _slept_mokki := false
 const ZONE_RADIUS := 6.0
@@ -240,7 +248,7 @@ const DRONE_POIS := {
 ## Mökillä sama drooni lennetään pihan alustalta: omat ilmakuvat (id:t m_-alkuisia, samassa kokoelmassa).
 ## Järvet ja lammet lisätään karttadatasta (ks. _mokki_drone_names).
 const MOKKI_DRONE_POIS := {
-	"m_mokki": "Mökki, Kaisuantie 62", "m_savusauna": "Savusauna", "m_poreamme": "Poreamme", "m_keittio": "Kesäkeittiö",
+	"m_mokki": "Mökki, Kaisuantie 62", "m_savusauna": "Savusauna", "m_poreamme": "Palju", "m_keittio": "Kesäkeittiö",
 	"m_laituri": "Laituri Likasella", "m_lava": "Metsästyslava", "m_santtu": "Santtu pihatuolilla",
 }
 const MOKKI_DRONE_R := 620.0  # lentoalueen säde mökiltä (maisema jatkuu vähän pidemmälle)
@@ -450,6 +458,28 @@ var _lawn_praise := false  # nurmikko leikattu: aamulla ylimääräistä rahaa
 var _lawn_done_today := false
 var mokki: Node3D
 var _santtu_chat_t := 6.0
+## Santun hommat (santun_hommat.gd): päivän hommat, hermot ja arvostelut.
+var hommat: RefCounted
+## Mökin päädyn nurmikko (lawn.gd mökin maastossa) ja nurmikko, jota leikkuri parhaillaan leikkaa.
+var mokki_lawn: Node3D
+var _mow_lawn: Node3D
+## Kädessä kannettava (huussin sanko, halkosyli, kahvikuppi) ja sen läikkymisvaara (0–1).
+var _carry := ""
+var _carry_slosh := 0.0
+## Mökin puupaikka: sahatut pölkyt ja tänään halotut halot (saunapuut).
+var _mokki_polkyt := 0
+var _mokki_halot := 0
+## Laiturin paikkalautojen ja rännien tila päivän aikana (laituri_game.gd, ranni_game.gd).
+var _dock_state: Array = []
+var _ranni_state: Array = []
+## Santtu katsomassa hommaa: homman id, kommenttien ajastin ja poissaolo ilman hommaa.
+var _watch_task := ""
+var _watch_t := 0.0
+var _watch_idle := 0.0
+var _watch_arrived := false
+var _watch_retarget := 0.0
+var _palju_draining := false
+var _palju_overflow := 0.0
 ## Raaka saalis (laiturin kalat, metsästyslavan riista) odottaa savustusta kesäkeittiössä:
 ## [{"type": "kala" | "riista", "nom": "hauki"}, ...]. Häviää yöllä kuten eväät.
 var saalis: Array = []
@@ -511,6 +541,7 @@ func _ready() -> void:
 	mokki_int.exited.connect(_on_mokki_exited)
 	mokki_int.slept.connect(_on_mokki_slept)
 	mokki_int.acted.connect(_on_mokki_acted)
+	mokki.sauna_event.connect(_on_sauna_event)
 	siitari_int = SiitariInterior.new()
 	siitari_int.position = SIITARI_INT_POS
 	add_child(siitari_int)
@@ -555,6 +586,7 @@ func _ready() -> void:
 	cutscene.hide_nodes = [bike, walker_out]
 	add_child(cutscene)
 	tilat = DayStats.new()
+	hommat = Hommat.new()
 	_load_game()
 	_stat_bars.stats = tilat
 	_apply_trouble()
@@ -709,6 +741,7 @@ func _process(delta: float) -> void:
 			tilat.add("stressi", 0.004 * delta)
 		"in_mokki":
 			_hint.text = mokki_int.hint
+			_hommat_tick(delta)
 			# Sisällä on rauhallista: stressi hellittää ja vireys nousee, nälkä kasvaa hiljaa.
 			tilat.add("stressi", 0.005 * delta)
 			tilat.add("vireys", 0.002 * delta)
@@ -1222,18 +1255,22 @@ func _lawn_logic() -> void:
 		return
 	_hint.text = "[E] Leikkaa nurmikko (%d cm, leikattu %d %%)" % [cm, roundi(ratio * 100.0)]
 	if e:
-		_start_mowing()
+		_start_mowing(lawn)
 
 
-func _start_mowing() -> void:
+func _start_mowing(which: Node3D) -> void:
 	mowing = true
+	_mow_lawn = which
 	walker_out.no_run = true
-	walker_out.rotation.y = lawn.mower.rotation.y
-	walker_out.global_position = lawn.mower.global_position + lawn.mower.global_transform.basis.z * Lawn.HEAD + Vector3(0, 0.3, 0)
+	walker_out.rotation.y = which.mower.rotation.y
+	walker_out.global_position = which.mower.global_position + which.mower.global_transform.basis.z * Lawn.HEAD + Vector3(0, 0.3, 0)
 	walker_out.velocity = Vector3.ZERO
-	lawn.set_running(true)
+	which.set_running(true)
 	Sfx.play("pedal_creak", -4.0, 0.6)
-	_show_message("Leikkuri käy! Katso tarkkaan: pitkässä ruohossa on siilejä ja kiviä.", 3.0)
+	if which == mokki_lawn:
+		_show_message("Santun vanha leikkuri yskähti käyntiin! Varo kiviä.", 3.0)
+	else:
+		_show_message("Leikkuri käy! Katso tarkkaan: pitkässä ruohossa on siilejä ja kiviä.", 3.0)
 
 
 ## Leikkuri sammuu ja jää siihen, missä se on.
@@ -1242,26 +1279,39 @@ func _stop_mowing() -> void:
 		return
 	mowing = false
 	walker_out.no_run = false
-	lawn.set_running(false)
+	_mow_lawn.set_running(false)
 
 
 func _mow() -> void:
 	var dt := get_process_delta_time()
+	var ml: Node3D = _mow_lawn
 	tilat.add("vasymys", -0.004 * dt)  # leikkurin työntäminen väsyttää
 	tilat.add("nalka", -0.003 * dt)
-	lawn.push_mower(walker_out)
-	if not lawn.has_point(walker_out.global_position, 3.0):
+	ml.push_mower(walker_out)
+	if not ml.has_point(walker_out.global_position, 3.0):
 		_stop_mowing()
 		_show_message("Leikkuri jäi pihan reunalle.", 2.0)
 		return
-	var head: Vector2 = lawn.head_pos()
-	var hit: Dictionary = lawn.hit_test(head)
+	var head: Vector2 = ml.head_pos()
+	var hit: Dictionary = ml.hit_test(head)
 	if not hit.is_empty():
-		_lawn_hit(hit)
+		if ml == mokki_lawn:
+			_mokki_lawn_hit(hit)
+		else:
+			_lawn_hit(hit)
 		if not mowing:
 			return
-	lawn.cut(head, Lawn.BLADE_R)
-	var ratio: float = lawn.cut_ratio()
+	ml.cut(head, Lawn.BLADE_R)
+	var ratio: float = ml.cut_ratio()
+	if ml == mokki_lawn:
+		if ratio >= LAWN_DONE:
+			_stop_mowing()
+			_hommat_complete("nurmi")
+			return
+		_hint.text = "Leikataan... %d %%   W/S/A/D ohjaa · [E] sammuta" % roundi(ratio * 100.0)
+		if Input.is_action_just_pressed("interact"):
+			_stop_mowing()
+		return
 	if ratio >= LAWN_DONE and not _lawn_done_today:
 		_lawn_done_today = true
 		_lawn_praise = true
@@ -2533,6 +2583,9 @@ func _mokki_taxi_logic() -> void:
 		if player == bike:
 			_hint.text = "Nouse pyörän selästä (F) ja kävele taksille."
 			return
+		if hommat.banned_day == day:
+			_hint.text = "Santtu ei ota tänään enää vastaan. Huomenna voi yrittää uudestaan."
+			return
 		_hint.text = "[E] Tilaa taksi mökille Vaalaan (n. %d km, %s €)" % [roundi(HOME_MOKKI_KM), _eur(TAXI_PRICE)]
 		if Input.is_action_just_pressed("interact"):
 			if money < TAXI_PRICE:
@@ -2545,7 +2598,14 @@ func _mokki_taxi_logic() -> void:
 	elif d_mokki < 3.0:
 		_hint.text = "[E] Tilaa taksi kotiin Saloisiin (n. %d km, paluu jo maksettu)" % roundi(HOME_MOKKI_KM)
 		if Input.is_action_just_pressed("interact"):
-			_ride_taxi(home_stand + Vector3(0, 0, 2.2), "Matkalla kotiin Saloisiin...")
+			var sub := "Matkalla kotiin Saloisiin..."
+			if hommat.active:
+				var st: int = hommat.stars_now()
+				var rv: String = hommat.add_review(day, st)
+				sub = "Santun arvostelu: %s\n\"%s\"\nMatkalla kotiin Saloisiin..." % [Hommat.stars(st), rv]
+				mokki.say("Ai lähet jo? Hommat jäi kesken..." if st < 5 else "Kiitos käynnistä! Tervetuloa uudestaan!", 3.0)
+			_hommat_leave_mokki()
+			_ride_taxi(home_stand + Vector3(0, 0, 2.2), sub)
 
 
 func _ride_taxi(dest: Vector3, sub: String, title := "TAKSI") -> void:
@@ -2557,6 +2617,8 @@ func _ride_taxi(dest: Vector3, sub: String, title := "TAKSI") -> void:
 		walker_out.rotation.y = 0.0
 		walker_out.activate_camera()
 		walker_out.controls_enabled = true
+		if _at_mokki_pos(dest):
+			_hommat_arrive()
 		if not _at_mokki_pos(dest):
 			_hazards.process_mode = Node.PROCESS_MODE_INHERIT  # takaisin Saloisissa: vaarat heräävät
 			if _list_pending:
@@ -2564,28 +2626,34 @@ func _ride_taxi(dest: Vector3, sub: String, title := "TAKSI") -> void:
 				_day_note("Kotona odotti Päivin lappu.", ""), title)  # mökiltä palatessa: päivän lista värikynillä
 
 
-## Mökillä: jutut Santun kanssa, savusaunan kiuas, puukuumenteinen poreamme, tikanheitto ja laituri.
+## Mökillä: jutut Santun kanssa, Santun hommat, savusauna, palju, tikanheitto, laituri ja metsästyslava.
 func _mokki_logic() -> void:
 	var p := player.global_position
 	var mc := mokki.global_position
 	if Vector2(p.x - mc.x, p.z - mc.z).length() > 60.0:
 		return
-	_smoker_tick(get_process_delta_time())
-	_santtu_chat_t -= get_process_delta_time()
-	if _santtu_chat_t <= 0.0:
-		_santtu_chat_t = randf_range(10.0, 18.0)
-		var sc: Vector3 = mokki.to_global(Mokki.SANTTU_LOCAL)
-		if Vector2(p.x - sc.x, p.z - sc.z).length() < SAUNA_TALK_RADIUS:
-			mokki.say(Mokki.SANTTU_AMBIENT.pick_random())
+	var dt := get_process_delta_time()
+	_smoker_tick(dt)
+	_hommat_tick(dt)
+	_santtu_chatter(dt)
+	_santtu_watch(dt)
+	if mowing:
+		_mow()
+		return
 	if _hint.text != "" or player == bike or player.is_stunned():
 		return
 	var e := Input.is_action_just_pressed("interact")
 	var near := func(local: Vector3, r: float) -> bool:
 		var g: Vector3 = mokki.to_global(local)
 		return Vector2(p.x - g.x, p.z - g.z).length() < r
+	if _hommat_logic(e, near):
+		return
 	if near.call(Mokki.MOPO_LOCAL, 1.8):
-		_hint.text = "[E] Aja mopolla Vaalaan Hotelli-Ravintola Siitariin (11,6 km)"
+		_hint.text = "[E] Aja mopolla Vaalaan Hotelli-Ravintola Siitariin (11,6 km)%s" % (
+			"  · Santun hommat kesken!" if hommat.active and not hommat.all_done() else "")
 		if e:
+			if hommat.active and not hommat.all_done():
+				_hommat_snitch()
 			_start_mopo()
 		return
 	if near.call(Mokki.DOOR_LOCAL, 1.2):
@@ -2606,51 +2674,11 @@ func _mokki_logic() -> void:
 		if e:
 			_start_pingis()
 		return
-	if near.call(Mokki.SANTTU_LOCAL, 2.6):
-		_hint.text = "[E] Jutskaa Santun kanssa"
-		if e:
-			mokki.say(Mokki.SANTTU_LINES.pick_random())
-			tilat.first("santtu")
-		return
 	if near.call(Mokki.SAUNA_LOCAL, 2.2):
-		if not mokki.sauna_fire_on:
-			_hint.text = "[E] Sytytä kiuas"
-			if e:
-				mokki.set_sauna_fire(true)
-				if _once_today("kiuas"):
-					tilat.add("stressi", 0.1)  # tulen teko rauhoittaa kuten nuotiolla
-				Sfx.play("whoosh", 0.0, 0.6)
-				_show_message("Kiuas sytytetty. Lämpiää hetken.", 2.2)
-		elif not mokki.sauna_ready():
-			_hint.text = "Kiuas lämpiää... %d s" % ceili(Mokki.SAUNA_HEAT - (Mokki.SAUNA_BURN - mokki.sauna_fire_time))
-		else:
-			_hint.text = "[E] Käy löylyssä"
-			if e:
-				_sauna_cutscene()
+		_sauna_logic(e)
 		return
 	if near.call(Mokki.TUB_LOCAL, 1.7):
-		if not mokki.tub_fire_on:
-			_hint.text = "[E] Sytytä poreammeen tuli"
-			if e:
-				mokki.set_tub_fire(true)
-				if _once_today("ammeen_tuli"):
-					tilat.add("stressi", 0.1)
-				Sfx.play("whoosh", 0.0, 0.5)
-				_show_message("Tuli palaa ammeen alla. Vesi lämpiää hitaasti.", 2.5)
-		elif not mokki.tub_ready():
-			_hint.text = "Amme lämpiää... %d s" % ceili(Mokki.TUB_HEAT - (Mokki.TUB_BURN - mokki.tub_fire_time))
-		else:
-			_hint.text = "[E] Mene kylpyyn"
-			if e:
-				walker_out.stamina = 100.0
-				walker_out.exhausted = false
-				Sfx.play("water", -4.0, 0.7)
-				_show_message("Kylpy lämmittää. Kunto palautui.", 2.5)
-				tilat.first("poreamme", 0.3)
-				if _once_today("amme"):
-					tilat.add("stressi", 0.3)
-					tilat.add("kipu", 0.2)
-					tilat.add("stamina", 0.2)
+		_palju_logic(e)
 		return
 	if near.call(Mokki.DART_LOCAL, 1.8):
 		_hint.text = "[E] Heitä tikkaa (3 kierrosta Santtua vastaan%s)" % ("" if tikka_ennatys <= 0 else ", ennätys %d" % tikka_ennatys)
@@ -2665,6 +2693,130 @@ func _mokki_logic() -> void:
 	if near.call(Mokki.HUNT_LOCAL, 2.4):
 		_hunt_logic(e)
 		return
+	# Santtu viimeisenä: hommia katsomaan tullut Santtu ei saa peittää homman omaa toimintoa.
+	if near.call(mokki.santtu.position, 2.6):
+		_hint.text = "[E] Jutskaa Santun kanssa"
+		if e:
+			_santtu_menu()
+		return
+
+
+## Savusauna: sylit halkopinosta pesään, lämpö täyteen, savut tuulettumaan ja sitten löylyihin. Liian aikaisin
+## sisään mennessä häkä kirvelee.
+func _sauna_logic(e: bool) -> void:
+	var pct := roundi(mokki.sauna_heat * 100.0)
+	if mokki.sauna_fire_on:
+		if _carry == "halot":
+			_hint.text = "[E] Lisää syli halkoja pesään (lämpö %d %%, tulta %d s)" % [pct, ceili(mokki.sauna_fuel)]
+			if e:
+				if mokki.sauna_add_wood():
+					_set_carry("")
+					Sfx.play("whoosh", -2.0, 0.6)
+					_show_message("Halot pesään. Savua tupruaa ovesta ja räppänästä.", 2.0)
+				else:
+					_show_message("Pesä on vielä täynnä. Anna palaa hetki.", 2.0)
+		else:
+			_hint.text = "Savusauna lämpiää %d %% · tulta %d s%s" % [pct, ceili(mokki.sauna_fuel),
+				" · hae lisää puita halkopinosta!" if mokki.sauna_fuel < 15.0 else ""]
+	elif mokki.sauna_ready():
+		_hint.text = "[E] Käy löylyssä"
+		if e:
+			_sauna_cutscene()
+	elif mokki.sauna_heated and mokki.sauna_smoke > 0.05:
+		_hint.text = "Savut tuulettuu... %d s · [E] Mene silti (häkää!)" % ceili(mokki.sauna_smoke * Mokki.SAUNA_CLEAR)
+		if e:
+			tilat.add("kipu", -0.2)
+			tilat.add("vireys", -0.2)
+			tilat.add("stressi", -0.1)
+			Sfx.play("grunt", -2.0, 0.8)
+			_show_message("Häkää! Silmiä kirvelee ja päätä särkee. Savujen pitää tuulettua ensin.", 3.0)
+			_santtu_line("Älä mene sinne vielä, siellä on häkää! Savusaunassa on tarkkuutta.")
+	elif _carry == "halot":
+		_hint.text = "[E] Pane halot pesään ja sytytä%s" % (" (kiuas %d %%)" % pct if pct > 0 else "")
+		if e:
+			mokki.sauna_add_wood()
+			_set_carry("")
+			if _once_today("kiuas"):
+				tilat.add("stressi", 0.1)  # tulen teko rauhoittaa kuten nuotiolla
+			Sfx.play("whoosh", 0.0, 0.6)
+			_show_message("Tuli syttyi savusaunan kiukaaseen. Pidä pesä täynnä, kunnes kiuas on kuuma.", 3.0)
+	else:
+		_hint.text = "Savusaunan kiuas on %s. Hae syli halkoja halkopinosta kesäkeittiön vierestä." % (
+			"haalea (%d %%)" % pct if pct > 5 else "kylmä")
+
+
+func _on_sauna_event(kind: String) -> void:
+	match kind:
+		"kuuma":
+			_show_message("Savusaunan kiuas on kuuma! Pesä palaa loppuun: anna savujen tuulettua ennen löylyä.", 3.5)
+			if hommat.pending("savusauna"):
+				_santtu_line("Nyt on lämmintä! Ovi auki ja savut pihalle.")
+		"sammui":
+			_show_message("Savusaunan tuli sammui ennen kuin kiuas ehti kuumaksi! Hae lisää halkoja.", 3.0)
+			if hommat.pending("savusauna"):
+				hommat.add_hermo(3.0)
+				_santtu_line("Tuli sammui! Lisää puuta, ettei kiuas jäähdy.")
+		"valmis":
+			_show_message("Savut tuulettuneet: savusauna on valmis löylyihin!", 3.0)
+			_hommat_complete("savusauna")
+
+
+## Palju: Santun hommana tyhjennys, pesu ja täyttö pumpulla järvestä, muuten kamiina ja kylpy.
+func _palju_logic(e: bool) -> void:
+	if hommat.pending("palju"):
+		if mokki.palju_dirt > 0.0:
+			if _palju_draining:
+				_hint.text = "Vanha vesi valuu venttiilistä... %d %%" % roundi(mokki.palju_level * 100.0)
+			elif mokki.palju_level > 0.02:
+				_hint.text = "[E] Avaa tyhjennysventtiili (vanha vihreä vesi pois)"
+				if e:
+					_palju_draining = true
+					Sfx.play("water", -2.0, 0.6)
+					_show_message("Venttiili auki: vihreä vesi lorisee nurmelle.", 2.5)
+			else:
+				_hint.text = "Pidä E pohjassa: harjaa levät ja lehdet pois (%d %%)" % roundi((1.0 - mokki.palju_dirt) * 100.0)
+				if Input.is_action_pressed("interact"):
+					var dt := get_process_delta_time()
+					mokki.palju_dirt = maxf(0.0, mokki.palju_dirt - dt / 6.0)
+					if Engine.get_process_frames() % 20 == 0:
+						Sfx.play("whoosh", -10.0, 1.6)
+					if mokki.palju_dirt <= 0.0:
+						mokki.set_hose(true)
+						Sfx.play("pickup", -4.0)
+						_show_message("Palju on puhdas! Käynnistä pumppu rannassa laiturin vieressä.", 3.0)
+						_santtu_line("Kiiltää! Pumppu on rannassa, letku on jo vedetty.")
+		elif mokki.pump_on:
+			_hint.text = "Palju täyttyy... %d %%%s" % [roundi(minf(mokki.palju_level, 1.0) * 100.0),
+				"  · SAMMUTA PUMPPU RANNASSA!" if mokki.palju_level >= 0.95 else ""]
+		else:
+			_hint.text = "Palju on puhdas mutta %s. Pumppu on rannassa laiturin vieressä." % (
+				"tyhjä" if mokki.palju_level < 0.05 else "vajaa (%d %%)" % roundi(mokki.palju_level * 100.0))
+		return
+	if mokki.palju_level < 0.9:
+		_hint.text = "Palju on tyhjä."
+		return
+	if not mokki.tub_fire_on:
+		_hint.text = "[E] Sytytä paljun kamiina"
+		if e:
+			mokki.set_tub_fire(true)
+			if _once_today("ammeen_tuli"):
+				tilat.add("stressi", 0.1)
+			Sfx.play("whoosh", 0.0, 0.5)
+			_show_message("Kamiina palaa paljun kyljessä. Vesi lämpiää hitaasti.", 2.5)
+	elif not mokki.tub_ready():
+		_hint.text = "Palju lämpiää... %d s" % ceili(Mokki.TUB_HEAT - (Mokki.TUB_BURN - mokki.tub_fire_time))
+	else:
+		_hint.text = "[E] Mene paljuun"
+		if e:
+			walker_out.stamina = 100.0
+			walker_out.exhausted = false
+			Sfx.play("water", -4.0, 0.7)
+			_show_message("Palju lämmittää. Kunto palautui.", 2.5)
+			tilat.first("poreamme", 0.3)
+			if _once_today("amme"):
+				tilat.add("stressi", 0.3)
+				tilat.add("kipu", 0.2)
+				tilat.add("stamina", 0.2)
 
 
 ## Lähin löytämätön viinakätkö (indeksi Mokki.VIINA:ssa, -1 = kaikki löydetty) ja sen paikka maailmassa.
@@ -2711,6 +2863,704 @@ func _viina_logic() -> void:
 	_show_message("Viinakätkö löytyi %s! Laatikossa %s. Kirjoitit nimesi lokikirjaan. (%d / %d)%s" % [c.spot, c.desc,
 		viina_found.size(), Mokki.VIINA.size(), "\nKaikki kätköt löydetty!" if viina_found.size() == Mokki.VIINA.size() else ""], 4.0)
 	_save_game()
+
+
+# --- Santun hommat ---------------------------------------------------------------------------------------------
+# Ensimmäisen mökkiyön jälkeen Santtu antaa aamulapussa päivän hommat (santun_hommat.gd). Tekemättömät hommat
+# kiristävät hermoja, ja täysillä hermoilla tulee lähtö. Santtu tulee katsomaan ja kommentoimaan jokaista hommaa.
+
+## Taksilla mökille: hommat alkavat vasta, kun mökillä on oltu yö.
+func _hommat_arrive() -> void:
+	hommat.stop()
+	hommat.nights = 0
+	_hommat_prepare()
+
+
+## Lähtö mökiltä (taksi kotiin tai häätö): kesken jääneet tavarat pois käsistä ja Santtu kannolle.
+func _hommat_leave_mokki() -> void:
+	_stop_mowing()
+	_set_carry("")
+	_palju_draining = false
+	hommat.stop()
+	hommat.nights = 0
+	if mokki.built:
+		mokki.set_pump(false)
+		mokki.santtu_go_home()
+	_watch_task = ""
+	_save_game()
+
+
+## Aamu mökillä: päivän hommat arvotaan ja ne kirjoitetaan Santun lappuun (ruskealla kynällä).
+func _hommat_morning() -> Array:
+	hommat.start_day()
+	_hommat_prepare()
+	if not hommat.active:
+		return []
+	var rows: Array = ["Santun hommat tänään:"]
+	for r in hommat.lappu_rows():
+		rows.append([r, Color(0.5, 0.26, 0.08)])
+	if hommat.hermo > 1.0:
+		rows.append("Eilisistä jäi vielä vähän hampaankoloon.")
+	rows.append("Jos hommat jää tekemättä, mulla menee hermot. Kalja auttaa.")
+	rows.append("")
+	return rows
+
+
+## Pihan esineet päivän hommien mukaan: ampiaispesä, huussin kärpäset, lahot laudat, pitkä nurmikko, likainen
+## palju, tiskit ja PA:n sotkut. Hommattomana päivänä kaikki on siistiä.
+func _hommat_prepare() -> void:
+	if mokki == null or not mokki.built:
+		return
+	_ensure_mokki_lawn()
+	var nest: Node3D = mokki.wasp_nest
+	if not nest.has_meta("home"):
+		nest.set_meta("home", nest.position)
+	nest.position = nest.get_meta("home")
+	nest.visible = hommat.pending("ampiaiset")
+	mokki.huussi_flies.emitting = hommat.pending("huussi")
+	_dock_state = LaituriGame.new_state() if hommat.pending("laituri") else []
+	LaituriGame.build_patch(mokki.dock_patch, _dock_state, _dock_fix_z())
+	_ranni_state = []
+	mokki_lawn.lengths.fill(0.42 if hommat.pending("nurmi") else 0.05)
+	mokki_lawn._dirty = true
+	mokki_lawn.spawn_objects()
+	mokki_lawn.park_mower()
+	mokki.palju_level = 1.0
+	mokki.palju_dirt = 1.0 if hommat.pending("palju") else 0.0
+	mokki.set_pump(false)
+	mokki.set_hose(false)
+	_palju_draining = false
+	_palju_overflow = 0.0
+	mokki_int.set_dishes(TiskiGame.DISHES.size() if hommat.pending("kahvi") else 0)
+	if hommat.pending("pa") and mokki_int.pa_on:
+		mokki_int.set_pa(false)
+		mokki.set_pa_level(0.0)
+	_mokki_polkyt = 0
+	_mokki_halot = 0
+	_watch_task = ""
+
+
+func _ensure_mokki_lawn() -> void:
+	if mokki_lawn != null:
+		return
+	var r: Rect2 = Mokki.LAWN_RECT
+	var c: Vector3 = mokki.to_global(Vector3(r.get_center().x, 0, r.get_center().y))
+	mokki_lawn = Lawn.new()
+	mokki_lawn.rect = Rect2(-r.size / 2.0, r.size)
+	mokki_lawn.pivot = Vector2(c.x, c.z)
+	mokki_lawn.angle = -mokki.global_rotation.y
+	mokki_lawn.mower_park = mokki.gpos(Mokki.LAWN_MOWER_LOCAL)
+	mokki_lawn.kinds = ["kivi"]
+	var mk := mokki
+	mokki_lawn.height_fn = func(x: float, z: float) -> float:
+		var l: Vector3 = mk.to_local(Vector3(x, 0, z))
+		return mk.global_position.y + Mokki.h(l.x, l.z)
+	add_child(mokki_lawn)
+
+
+## Kivi Santun leikkurin terään: yskii, ja joka toisella kerralla sammuu (naru uudestaan).
+func _mokki_lawn_hit(o: Dictionary) -> void:
+	mokki_lawn.remove_object(o)
+	Sfx.play("rattle_hard", 0.0, 0.8)
+	mokki_lawn.cough()
+	var n: int = hommat.progress.get("kivet", 0) + 1
+	hommat.progress["kivet"] = n
+	if n % 2 == 0:
+		_stop_mowing()
+		_show_message("KOLAHDUS! Kivi terään ja vanha leikkuri sammui. Vedä naru uudestaan (E).", 3.0)
+	else:
+		_show_message("KOLAHDUS! Kivi terään, leikkuri yskii.", 2.5)
+	_santtu_line(["Kivistä varo, terä on ainut!", "Mun leikkuri! Se on vanhempi ku sää.", "Ei sitä noin ajeta!"].pick_random())
+
+
+## Kannettava käteen (tyhjä = kädet vapaiksi).
+func _set_carry(kind: String) -> void:
+	_carry = kind
+	_carry_slosh = 0.0
+	if walker_out != null:
+		walker_out.set_held(Hommat.held_model(kind) if kind != "" else null)
+
+
+## Hommien kello: kannettavan läikkyminen, paljun tyhjennys ja tulva, Santun hermot ja häätö.
+func _hommat_tick(dt: float) -> void:
+	if _carry in ["sanko", "kahvi"] and state in ["to_shop", "to_home"]:
+		var running: bool = walker_out.speed > 3.2
+		_carry_slosh = clampf(_carry_slosh + (0.9 if running else -0.35) * dt + tilat.value("humala") * 0.4 * dt * randf(), 0.0, 1.0)
+		if walker_out.is_stunned():
+			_carry_slosh = 1.0
+		if _carry_slosh >= 1.0:
+			_spill()
+	if mokki.built:
+		if _palju_draining:
+			mokki.palju_level = maxf(0.0, mokki.palju_level - dt / Mokki.PALJU_DRAIN)
+			if mokki.palju_level <= 0.0:
+				_palju_draining = false
+				_show_message("Palju on tyhjä. Nyt harjaa levät pois (pidä E pohjassa paljun vieressä).", 3.0)
+		if mokki.pump_on and mokki.palju_level > 1.05:
+			_palju_overflow += dt
+			if _palju_overflow > 5.0 and not hommat.progress.has("tulva"):
+				hommat.progress["tulva"] = true
+				hommat.add_hermo(8.0)
+				_santtu_line("Palju tulvii yli! Ei sitä järveä tarvi kokonaan siirtää!", true)
+	if not hommat.active:
+		return
+	if state in ["to_shop", "to_home", "in_mokki"] and not cutscene.busy and not _item_menu.is_open():
+		var lv: int = hommat.tick(dt)
+		if lv >= 0:
+			_santtu_line(Hommat.HERMO_LINES[lv].pick_random(), true)
+		if hommat.furious():
+			_hommat_evict()
+
+
+## Liian kova vauhti: sanko tai kahvi läikkyy.
+func _spill() -> void:
+	match _carry:
+		"sanko":
+			Sfx.play("water", -2.0, 0.5)
+			tilat.add("stressi", -0.15)
+			tilat.add("moraali", -0.1)
+			hommat.add_hermo(4.0)
+			_show_message("Sanko läikkyi kengille! Hyi helvetti. Hae uusi sanko huussin takaluukusta.", 3.5)
+			_santtu_line("Ei juosta sangon kanssa! Nyt haisee koko piha.", false)
+		"kahvi":
+			Sfx.play("glass", -4.0, 1.3)
+			hommat.progress["kahvi_keitetty"] = false
+			_show_message("Kahvit läikkyi! Keitä uudet kahvit tuvassa ja kävele rauhassa.", 3.0)
+			_santtu_line("Mun kahvit! Kävele, älä juokse.", false)
+	_set_carry("")
+
+
+## Hommien toiminnot pihalla. Palauttaa true, jos jokin homma otti vihjeen.
+func _hommat_logic(e: bool, near: Callable) -> bool:
+	if near.call(Mokki.HALKO_LOCAL, 1.4):
+		if _carry == "":
+			_hint.text = "[E] Ota syli halkoja (savusaunan pesään)"
+			if e:
+				_set_carry("halot")
+				Sfx.play("cloth", -4.0, 0.7)
+		elif _carry == "halot":
+			_hint.text = "[E] Laita halot takaisin pinoon"
+			if e:
+				_set_carry("")
+		else:
+			return false
+		return true
+	if near.call(Mokki.PUU_SAW_LOCAL, 1.6):
+		_hint.text = "[E] Sahaa saunapuita pukilla (pölkkyjä %d)" % _mokki_polkyt
+		if e:
+			_start_mokki_saw()
+		return true
+	if near.call(Mokki.PUU_CHOP_LOCAL, 1.4):
+		_hint.text = "[E] Halko pölkkyjä (pölkkyjä %d%s)" % [_mokki_polkyt,
+			", halottu %d / 8" % _mokki_halot if hommat.pending("puut") else ""]
+		if e:
+			_start_mokki_chop()
+		return true
+	if mokki_lawn != null and near.call(mokki.to_local(mokki_lawn.mower.global_position), 1.6):
+		if hommat.pending("nurmi"):
+			_hint.text = "[E] Käynnistä Santun vanha leikkuri (leikattu %d %%)" % roundi(mokki_lawn.cut_ratio() * 100.0)
+			if e:
+				_start_mowing(mokki_lawn)
+		else:
+			_hint.text = "Santun vanha leikkuri. Päädyn nurmikko on leikattu."
+		return true
+	if hommat.pending("huussi"):
+		var trips: int = hommat.progress.get("sangot", 0)
+		if trips < 3 and near.call(Mokki.HUUSSI_HATCH_LOCAL, 1.3):
+			if _carry == "":
+				_hint.text = "[E] Ota täysi sanko huussin takaluukusta (%d / 3)" % trips
+				if e:
+					_set_carry("sanko")
+					Sfx.play("rattle", -6.0, 0.7)
+					_show_message("Sanko on täynnä ja haisee. Kanna se kompostiin: kävele rauhassa, ettei läiky.", 3.0)
+			else:
+				_hint.text = "Kädet täynnä. Vie ensin %s." % ("sanko kompostiin" if _carry == "sanko" else "tavarat pois")
+			return true
+		if near.call(Mokki.KOMPOSTI_LOCAL, 1.9):
+			if _carry == "sanko":
+				_hint.text = "[E] Kaada sanko kompostiin"
+				if e:
+					trips += 1
+					hommat.progress["sangot"] = trips
+					_set_carry("")
+					Sfx.play("water", -6.0, 0.5)
+					if trips >= 3:
+						mokki.huussi_flies.emitting = false
+						_show_message("Huussi on tyhjä! Nyt komposti talikolla ympäri.", 3.0)
+					else:
+						_show_message("Plörts. Sanko kompostiin (%d / 3)." % trips, 2.0)
+			elif trips >= 3:
+				var t: float = hommat.progress.get("komposti", 0.0)
+				_hint.text = "[E] Käännä kompostia talikolla (%d %%) · hakkaa E:tä" % roundi(t * 100.0)
+				if e:
+					t += 0.1
+					hommat.progress["komposti"] = t
+					Sfx.play("rattle", -8.0, 0.6)
+					mokki.komposti_soil.rotation.y = randf_range(-0.1, 0.1)
+					mokki.komposti_soil.scale.y = 0.9 + randf() * 0.15
+					tilat.add("stamina", -0.01)
+					if t >= 1.0:
+						_hommat_complete("huussi")
+			else:
+				_hint.text = "Komposti odottaa huussin sankoja (%d / 3)." % trips
+			return true
+	if hommat.pending("ranni") and near.call(Mokki.LADDER_LOCAL, 1.5):
+		_hint.text = "[E] Kiipeä tikkaille putsaamaan rännit" + ("  (olet kännissä!)" if tilat.value("humala") > 0.3 else "")
+		if e:
+			_start_ranni()
+		return true
+	if hommat.pending("ampiaiset") and near.call(Mokki.WASP_STAND_LOCAL, 1.4):
+		_hint.text = "[E] Hävitä ampiaispesä (myrkkypurkki saunan penkiltä)"
+		if e:
+			_start_ampiaiset()
+		return true
+	if hommat.pending("laituri") and mokki.dock_body != null and near.call(_dock_fix_local(), 1.4):
+		_hint.text = "[E] Korjaa laiturin lahot laudat (sorkkarauta, vasara ja naulat)"
+		if e:
+			_start_laituri()
+		return true
+	if near.call(Mokki.pump_local(), 1.5):
+		if hommat.pending("palju") and mokki.palju_dirt <= 0.0 and not _palju_draining:
+			if mokki.pump_on:
+				_hint.text = "[E] Sammuta pumppu (palju %d %%)" % roundi(minf(mokki.palju_level, 1.0) * 100.0)
+				if e:
+					mokki.set_pump(false)
+					_palju_pump_off()
+			else:
+				_hint.text = "[E] Käynnistä pumppu: täytä palju järvivedellä (%d %%)" % roundi(mokki.palju_level * 100.0)
+				if e:
+					mokki.set_pump(true)
+					Sfx.play("pedal_creak", -4.0, 0.5)
+					_show_message("Pumppu pärähti käyntiin! Muista sammuttaa, kun palju on täynnä.", 3.0)
+		else:
+			_hint.text = "Bensapumppu paljun täyttöön."
+		return true
+	if _carry == "kahvi" and near.call(mokki.santtu.position, 2.2):
+		_hint.text = "[E] Anna kahvit Santulle"
+		if e:
+			hommat.progress["kahvi_vietu"] = true
+			_set_carry("")
+			Sfx.play("glass", -8.0, 1.4)
+			tilat.add("moraali", 0.05)
+			if mokki_int.dishes <= 0:
+				_hommat_complete("kahvi")
+			else:
+				mokki.say("Ahh. Musta ja kuuma, niinku pitää. Tiskit vielä, niin on homma tehty.", 4.0)
+		return true
+	return false
+
+
+func _palju_pump_off() -> void:
+	if mokki.palju_level >= 0.95:
+		mokki.palju_level = minf(mokki.palju_level, 1.0)
+		mokki.set_hose(false)
+		_hommat_complete("palju")
+	else:
+		_show_message("Pumppu sammui. Palju on vasta %d %% täynnä." % roundi(mokki.palju_level * 100.0), 2.5)
+
+
+## Laiturin paikkalautojen alku laiturin kehyksessä (lautojen jaossa) ja korjauskohdan paikka mökin kehyksessä.
+func _dock_fix_z() -> float:
+	if mokki.dock_body == null:
+		return 0.0
+	return roundf((Mokki.DOCK_FIX_LOCAL.z - mokki.dock_body.position.z) / LaituriGame.PITCH) * LaituriGame.PITCH
+
+
+func _dock_fix_local() -> Vector3:
+	return mokki.dock_body.position + Vector3(0, 0, _dock_fix_z() - 0.6)
+
+
+## Homma tehty pelaajan toimesta.
+func _hommat_complete(id: String) -> void:
+	if not hommat.complete(id):
+		return
+	_hommat_finished(id, false)
+
+
+## Homman jälkeen: piha näyttää tehdyltä, Santtu kommentoi, ja kaikki tehty = palkinto.
+func _hommat_finished(id: String, by_santtu: bool) -> void:
+	_hommat_visual_done(id)
+	var nimi: String = Hommat.TASKS[id].nimi
+	if not by_santtu:
+		tilat.add("moraali", 0.1)
+		tilat.add("stressi", 0.1)
+		tilat.first("homma_" + id, 0.2)
+		Sfx.play("win_small", -4.0)
+		_santtu_line(hommat.line(id, "valmis"))
+		_queue_message("Santun homma tehty: %s! (%d / %d)" % [nimi, hommat.done.size(), hommat.tasks.size()], 3.0)
+	if hommat.all_done():
+		_hommat_reward()
+	_save_game()
+
+
+func _hommat_visual_done(id: String) -> void:
+	match id:
+		"ampiaiset":
+			mokki.wasp_nest.visible = false
+		"huussi":
+			mokki.huussi_flies.emitting = false
+		"laituri":
+			for sl in _dock_state:
+				sl.s = "valmis"
+				sl.nails = [1.0, 1.0]
+				sl.bent = [false, false]
+			LaituriGame.build_patch(mokki.dock_patch, _dock_state, _dock_fix_z())
+		"nurmi":
+			mokki_lawn.lengths.fill(0.05)
+			mokki_lawn._dirty = true
+		"palju":
+			mokki.palju_dirt = 0.0
+			mokki.palju_level = 1.0
+			mokki.set_pump(false)
+			mokki.set_hose(false)
+			_palju_draining = false
+		"kahvi":
+			mokki_int.set_dishes(0)
+			if _carry == "kahvi":
+				_set_carry("")
+		"savusauna":
+			mokki.sauna_heated = true
+			mokki.sauna_heat = maxf(mokki.sauna_heat, 0.9)
+			mokki.sauna_smoke = 0.0
+
+
+## Kaikki hommat tehty: Santtu maksaa taksirahat takaisin, antaa savukalaa ja pullon pontikkaa.
+func _hommat_reward() -> void:
+	money += 15.0
+	food["savukala"] = food.get("savukala", 0) + 1
+	viina_pullot += 1
+	tilat.add("moraali", 0.3)
+	tilat.add("stressi", 0.2)
+	mielihyva = clampf(mielihyva + 15.0, 0.0, 100.0)
+	Sfx.play("win", -4.0)
+	_santtu_line("Kaikki hommat tehty! Viiden tähden vieras!", false)
+	_queue_message("KAIKKI SANTUN HOMMAT TEHTY!\nSanttu maksoi taksirahat takaisin (15 €), antoi savukalaa ja pullon pontikkaa.", 5.0)
+
+
+## Mopolla Siitariin hommat kesken: Santtu huutaa perään ja soittaa Päiville.
+func _hommat_snitch() -> void:
+	mokki.say(Hommat.LEAVE_LINES.pick_random(), 4.0)
+	if hommat.snitched:
+		return
+	hommat.snitched = true
+	hommat.add_hermo(Hommat.HERMO_LEAVE)
+	_santtu_gossip = true
+	_paivi_call_kind = "santtu"
+	_paivi_call_t = randf_range(9.0, 14.0)
+
+
+## Hermot meni: yhden tähden arvostelu, Santtu tilaa taksin ja mökille ei pääse ennen huomista.
+func _hommat_evict() -> void:
+	if not hommat.active:
+		return
+	var rv: String = hommat.add_review(day, 1)
+	hommat.banned_day = day
+	if state == "in_mokki":
+		mokki_int.leave()
+		state = _mokki_prev
+		walker_out.global_position = mokki.porch_pos(0.9)
+		walker_out.activate_camera()
+	if state == "in_mokki" or state == "cutscene":
+		state = "to_shop"
+	_hommat_leave_mokki()
+	tilat.add("moraali", -0.3)
+	tilat.add("stressi", -0.25)
+	mokki.say("Nyt riitti! Taksi on tilattu. Kamat kassiin!", 4.0)
+	Sfx.play("alert", -2.0, 0.8)
+	_show_message("Santun hermot meni! \"Nyt riitti, taksi on tilattu!\"", 3.0)
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	var home_stand: Vector3 = world.taxi_home_pos
+	get_tree().create_timer(2.5).timeout.connect(func() -> void:
+		_ride_taxi(home_stand + Vector3(0, 0, 2.2), "Santun hermot meni. Taksi kotiin Saloisiin...\nSantun arvostelu: %s\n\"%s\"" % [
+			Hommat.stars(1), rv], "HÄÄTÖ MÖKILTÄ"))
+
+
+## Santun repliikki: pihalla puhekupla Santun päällä, sisällä sisä-Santulle, msg = myös viestinä ruudulle.
+func _santtu_line(text: String, msg := false) -> void:
+	if state == "in_mokki":
+		mokki_int.say(text)
+	else:
+		mokki.say(text, 3.8)
+	if msg:
+		_queue_message("Santtu: \"%s\"" % text, 3.0)
+
+
+## Santun juttelu kannolta: hommapäivinä huutelua hommista ja hermojen mukaan, muuten mökkijuttuja.
+func _santtu_chatter(dt: float) -> void:
+	_santtu_chat_t -= dt
+	if _santtu_chat_t > 0.0 or mokki.santtu_out():
+		return
+	_santtu_chat_t = randf_range(10.0, 18.0)
+	var sc: Vector3 = mokki.santtu.global_position
+	var d := Vector2(player.global_position.x - sc.x, player.global_position.z - sc.z).length()
+	if hommat.active and not hommat.all_done():
+		_santtu_chat_t = randf_range(16.0, 26.0)
+		var lv: int = hommat.level()
+		var line: String = Hommat.HERMO_LINES[lv].pick_random() if lv >= 0 and randf() < 0.5 else \
+			hommat.line(hommat.undone().pick_random(), "huuto")
+		mokki.say(line, 3.8)
+		if d > 12.0 and _hint.text == "":
+			_queue_message("Santtu huutaa kuistilta: \"%s\"" % line, 3.0)
+	elif d < SAUNA_TALK_RADIUS:
+		mokki.say(Mokki.SANTTU_AMBIENT.pick_random())
+
+
+## Mikä homma on käynnissä pelaajan lähellä: [id, paikka mökin kehyksessä] tai []. Santtu tulee sinne katsomaan.
+func _watch_context() -> Array:
+	var lp: Vector3 = mokki.to_local(player.global_position)
+	var near := func(local: Vector3, r: float) -> bool:
+		return Vector2(lp.x - local.x, lp.z - local.z).length() < r
+	if mowing and _mow_lawn == mokki_lawn:
+		return ["nurmi", lp]
+	if hommat.pending("huussi") and (_carry == "sanko" or near.call(Mokki.HUUSSI_HATCH_LOCAL, 3.0) or near.call(Mokki.KOMPOSTI_LOCAL, 3.0)):
+		return ["huussi", lp]
+	if hommat.pending("savusauna") and (_carry == "halot" or (near.call(Mokki.SAUNA_LOCAL, 4.0) and (mokki.sauna_fire_on or mokki.sauna_heated))):
+		return ["savusauna", lp if _carry == "halot" else Mokki.SAUNA_LOCAL]
+	if hommat.pending("palju") and (near.call(Mokki.TUB_LOCAL, 3.5) or near.call(Mokki.pump_local(), 3.0)):
+		return ["palju", lp]
+	if hommat.pending("savustus") and near.call(Mokki.KITCHEN_LOCAL, 3.5) and not smoker_load.is_empty():
+		return ["savustus", Mokki.KITCHEN_LOCAL]
+	if hommat.pending("puut") and (near.call(Mokki.PUU_SAW_LOCAL, 3.5) or near.call(Mokki.PUU_CHOP_LOCAL, 3.5)):
+		return ["puut", Mokki.PUU_CHOP_LOCAL]
+	if hommat.pending("ranni") and near.call(Mokki.LADDER_LOCAL, 3.5):
+		return ["ranni", Mokki.LADDER_LOCAL]
+	if hommat.pending("ampiaiset") and near.call(Mokki.WASP_STAND_LOCAL, 3.5):
+		return ["ampiaiset", Mokki.WASP_STAND_LOCAL + Vector3(0.6, 0, -2.8)]
+	if hommat.pending("laituri") and mokki.dock_body != null and near.call(_dock_fix_local(), 3.5):
+		return ["laituri", _dock_fix_local()]
+	if hommat.pending("metsastys") and near.call(Mokki.HUNT_LOCAL, 4.0):
+		return ["metsastys", Mokki.HUNT_LOCAL]
+	return []
+
+
+## Santtu nousee kannolta ja kävelee katsomaan käynnissä olevaa hommaa, tulee perille, kommentoi ja palaa
+## kannolle, kun hommaa ei hetkeen tehdä.
+func _santtu_watch(dt: float) -> void:
+	if not hommat.active or state not in ["to_shop", "to_home"]:
+		return
+	var ctx := _watch_context()
+	if ctx.is_empty():
+		if _watch_task != "":
+			_watch_idle += dt
+			if _watch_idle > 5.0:
+				_watch_task = ""
+				mokki.santtu_go_home()
+		return
+	_watch_idle = 0.0
+	var id: String = ctx[0]
+	var spot: Vector3 = ctx[1]
+	var lp: Vector3 = mokki.to_local(player.global_position)
+	_watch_retarget -= dt
+	var sp: Vector3 = mokki.santtu.position
+	var far := Vector2(sp.x - spot.x, sp.z - spot.z).length() > 4.5
+	if id != _watch_task or (far and _watch_retarget <= 0.0 and mokki.santtu_arrived()):
+		if id != _watch_task:
+			_watch_arrived = false
+		_watch_task = id
+		_watch_retarget = 2.0
+		mokki.santtu_visit(spot, lp)
+	if not _watch_arrived and mokki.santtu_arrived():
+		_watch_arrived = true
+		_watch_t = randf_range(7.0, 11.0)
+		mokki.say(hommat.line(id, "tulee"), 3.8)
+	elif _watch_arrived:
+		_watch_t -= dt
+		if _watch_t <= 0.0:
+			_watch_t = randf_range(8.0, 13.0)
+			mokki.say(hommat.line(id, "kesken"), 3.8)
+
+
+## Santun valikko kannolla: juttelu, päivän hommat ja kalja (Santtu tekee yhden homman).
+func _santtu_menu() -> void:
+	var items: Array = [["juttu", "Jutskaa Santun kanssa"]]
+	if hommat.active:
+		items.append(["hommat", "Mitä hommia vielä on?"])
+		if not hommat.beer_used and not hommat.all_done():
+			if beers > 0:
+				items.append(["kalja", "Tarjoa Santulle kalja (hän tekee yhden homman)"])
+			elif viina_pullot > 0:
+				items.append(["viina", "Tarjoa Santulle kätköviinaa (hän tekee yhden homman)"])
+	if items.size() == 1:
+		_on_santtu_menu("juttu")
+		return
+	items.append(["takaisin", "Takaisin"])
+	player.controls_enabled = false
+	player.speed = 0.0
+	_menu_mode = "santtu"
+	_item_menu.open(items, "Santtu, isäntä · hermot: %s" % hommat.mood())
+
+
+func _on_santtu_menu(id: String) -> void:
+	player.controls_enabled = true
+	match id:
+		"juttu":
+			mokki.say(_santtu_chat_line())
+			tilat.first("santtu")
+		"hommat":
+			var left: Array = hommat.undone()
+			if left.is_empty():
+				mokki.say("Kaikki tehty! Ota rennosti, kahvit on keittiössä.", 3.5)
+			else:
+				var id0: String = left[0]
+				mokki.say(hommat.line(id0, "anna"), 5.0)
+				_show_message("Santun hommat: " + ", ".join(left.map(func(t): return Hommat.TASKS[t].nimi)) +
+					"\nHermot: %s %s" % [hommat.bar(), hommat.mood()], 4.5)
+		"kalja", "viina":
+			if id == "kalja":
+				beers -= 1
+				player.set_carrying(beers > 0)
+			else:
+				viina_pullot -= 1
+			Sfx.play("glass", -6.0, 0.9)
+			var t: String = hommat.beer_help()
+			if t != "":
+				mokki.say(Hommat.BEER_LINES.pick_random(), 4.5)
+				_show_message("Santtu joi %s ja hoiti homman: %s. Puolittain, mutta ei kehtaa valittaa." % [
+					"kaljan" if id == "kalja" else "huikan", Hommat.TASKS[t].nimi], 4.0)
+				_hommat_finished(t, true)
+
+
+## Santun juttu: ilmoituksen faktat, arvostelut päivitettyinä.
+func _santtu_chat_line() -> String:
+	var line: String = Mokki.SANTTU_LINES.pick_random()
+	if hommat.reviews.size() > 0 and "arvostelu" in line:
+		line = "Arvosteluja on jo %d, keskiarvo %s tähteä. Kyllä tää vielä nousee." % [hommat.reviews.size(),
+			("%.1f" % hommat.review_avg()).replace(".", ",")]
+	return line
+
+
+## Puupaikan sahaus ja halkominen mökillä (kodan minipelit, Santtu katsojana).
+func _start_mokki_saw() -> void:
+	var sg := SawGame.new()
+	sg.lines = Hommat.SAW_LINES
+	sg.watcher_spots = {"santtu": Vector3(1.6, 0, -0.55)}
+	sg.sawn.connect(func() -> void:
+		_mokki_polkyt += 1
+		tilat.first("sahaus")
+		_wood_work())
+	var l := Mokki.PUU_SAW_LOCAL
+	_start_kota_game(sg, Vector3(l.x, Mokki.h(l.x, l.z), l.z), 0.0, func() -> String:
+		return "Sahattu %d pölkkyä! Pölkkyjä %d. Halko ne pilkkomispölkyllä." % [sg.polkyt_made, _mokki_polkyt] \
+			if sg.polkyt_made > 0 else "", mokki)
+
+
+func _start_mokki_chop() -> void:
+	var cg := ChopGame.new()
+	cg.lines = Hommat.CHOP_LINES
+	cg.watcher_spots = {"santtu": Vector3(1.75, 0, 2.2)}
+	cg.polkyt = _mokki_polkyt
+	cg.split.connect(func(n: int) -> void:
+		_mokki_polkyt -= 1
+		_mokki_halot += n
+		tilat.first("halkominen")
+		_wood_work()
+		if _mokki_halot >= 8:
+			_hommat_complete("puut"))
+	var l := Mokki.PUU_CHOP_LOCAL
+	_start_kota_game(cg, Vector3(l.x, Mokki.h(l.x, l.z), l.z), 0.0, func() -> String:
+		return "Halottu %d halkoa! Saunapuita tänään %d." % [cg.halot_made, _mokki_halot] if cg.halot_made > 0 else "", mokki)
+
+
+## Laiturin korjaus (laituri_game.gd) polvillaan laiturilla.
+func _start_laituri() -> void:
+	var g := LaituriGame.new()
+	if _dock_state.is_empty():
+		_dock_state = LaituriGame.new_state()
+	g.state = _dock_state
+	g.patch = mokki.dock_patch
+	g.patch_z = _dock_fix_z()
+	g.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	g.thumb.connect(func() -> void:
+		tilat.add("kipu", -0.15)
+		tilat.add("stressi", -0.05))
+	g.fixed_plank.connect(func() -> void:
+		if LaituriGame.is_done(_dock_state):
+			_hommat_complete("laituri"))
+	var pos: Vector3 = mokki.dock_body.position + Vector3(0, LaituriGame.DECK_Y, _dock_fix_z())
+	_start_kota_game(g, pos, 0.0, func() -> String:
+		if g.thumbs > 0 and not LaituriGame.is_done(_dock_state):
+			return "Peukalo sykkii (%d osumaa). Laiturissa on vielä lahoja lautoja." % g.thumbs
+		return "", mokki)
+
+
+## Rännien putsaus tikkailta (ranni_game.gd). Putoaminen sattuu.
+func _start_ranni() -> void:
+	var g := RanniGame.new()
+	var hy := Mokki.h(Mokki.LADDER_LOCAL.x, Mokki.LADDER_LOCAL.z)
+	g.base_off = mokki.cottage_base - hy
+	g.gutter_up = Mokki.GUTTER_UP
+	if _ranni_state.is_empty():
+		_ranni_state = RanniGame.new_state(g.base_off, g.gutter_up)
+	g.state = _ranni_state
+	g.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	_start_kota_game(g, Vector3(0, hy, Mokki.LADDER_LOCAL.z), 0.0, func() -> String:
+		if g.fell_off:
+			tilat.add("kipu", -0.3)
+			tilat.add("stressi", -0.15)
+			tilat.add("moraali", -0.1)
+			walker_out.stun(Vector3(0, 0, -1).rotated(Vector3.UP, mokki.global_rotation.y))
+			mokki.say("Ei se mitään, nurmikko on pehmeä. Kiipeä uudestaan, ku pää selkenee.", 4.0)
+			return "Tikkaat kaatui! Selkä maassa ja ylpeys kolhuilla."
+		if RanniGame.is_done(_ranni_state):
+			_hommat_complete("ranni")
+		return "", mokki)
+
+
+## Ampiaispesän hävitys (ampiais_game.gd). Kolmas pisto: paniikki ja juoksu järveen.
+func _start_ampiaiset() -> void:
+	var g := AmpiaisGame.new()
+	var l := Mokki.WASP_STAND_LOCAL
+	var pos := Vector3(l.x, mokki.sauna_base, l.z)  # terassin laudoilla saunan tasossa
+	g.nest_local = mokki.to_local(mokki.wasp_nest.global_position) - pos
+	g.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	_start_kota_game(g, pos, 0.0, func() -> String:
+		tilat.add("kipu", -0.08 * g.stings)
+		match g.result:
+			"ok":
+				_hommat_complete("ampiaiset")
+			"pako":
+				walker_out.global_position = mokki.gpos(Mokki.pump_local() + Vector3(0.9, 0.3, 0.8))
+				walker_out.velocity = Vector3.ZERO
+				tilat.add("vireys", 0.2)
+				tilat.add("stressi", -0.15)
+				Sfx.play("water", 0.0, 0.8)
+				mokki.say("Hah! Ampiaiset voitti tällä kertaa. Uusi purkki on penkillä.", 4.0)
+				return "Juoksit paniikissa suoraan Likaseen! Pistoja %d. Kylmä vesi auttoi, mutta pesä jäi." % g.stings
+			"tyhja":
+				return "Myrkky loppui kesken! Uusi purkki on saunan penkillä (E pesän edessä)."
+		return "", mokki)
+
+
+## Tiskaus tuvassa (tiski_game.gd), sisä-Santtu kommentoi.
+func _start_tiskit() -> void:
+	if mokki_int.dishes <= 0:
+		return
+	mokki_int.busy = true
+	mokki_int.walker.controls_enabled = false
+	_hud.visible = false
+	var g := TiskiGame.new()
+	g.dishes_left = mokki_int.dishes
+	g.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	g.comment.connect(func(t: String) -> void: mokki_int.say(t))
+	g.finished.connect(func(washed: int, broken: int) -> void:
+		mokki_int.busy = false
+		mokki_int.walker.controls_enabled = true
+		_hud.visible = true
+		mokki_int.set_dishes(g.dishes_left)
+		if broken > 0:
+			hommat.add_hermo(4.0 * broken)
+			tilat.add("moraali", -0.05 * broken)
+		tilat.first("tiskit", 0.1)
+		if g.dishes_left > 0:
+			_show_message("Tiskit jäi kesken (%d jäljellä)." % g.dishes_left, 2.5)
+		elif hommat.pending("kahvi"):
+			if hommat.progress.get("kahvi_vietu", false):
+				_hommat_complete("kahvi")
+			else:
+				_show_message("Tiskit tehty%s! Santtu odottaa vielä kahveja pihalla." % (
+					" (%d meni rikki)" % broken if broken > 0 else ""), 3.0))
+	add_child(g)
 
 
 # --- Pankkiautomaatti ------------------------------------------------------------------------------------------
@@ -2873,13 +3723,16 @@ func _sinikka_flirt() -> void:
 	_sinikka_gossip = true
 	if _paivi_call_t <= 0.0:
 		_paivi_call_t = randf_range(7.0, 12.0)
+		_paivi_call_kind = "sinikka"
 
 
 func _paivi_calls() -> void:
 	Sfx.play("alert", -2.0, 1.3)
 	tilat.add("stressi", -0.2)
 	tilat.add("moraali", -0.15)
-	_show_message("📱 Päivi soittaa: " + PAIVI_SINIKKA_CALLS.pick_random(), 5.0)
+	var lines: Array = Hommat.PAIVI_SANTTU_CALLS if _paivi_call_kind == "santtu" else PAIVI_SINIKKA_CALLS
+	_paivi_call_kind = "sinikka"
+	_show_message("📱 Päivi soittaa: " + lines.pick_random(), 5.0)
 
 
 ## Karaoke: lavalle, laulu (karaoke_game.gd), yleisön reaktio ja tilavaikutukset.
@@ -3062,6 +3915,8 @@ func _enter_mokki(door := "ovi") -> void:
 
 
 func _on_mokki_exited() -> void:
+	if hommat.progress.get("kahvi_keitetty", false) and not hommat.progress.get("kahvi_vietu", false) and _carry == "":
+		_set_carry("kahvi")
 	mokki_int.leave()
 	Sfx.play("door_close", -3.0)
 	state = _mokki_prev
@@ -3075,6 +3930,18 @@ func _on_mokki_exited() -> void:
 
 ## Kerrossängyssä nukkuminen: päivä päättyy ja uusi alkaa mökin kuistilta (mökki on turvapaikka).
 func _on_mokki_slept() -> void:
+	if hommat.active and not hommat.all_done():
+		hommat.add_hermo(Hommat.HERMO_SLEEP)
+		if hommat.furious():
+			mokki_int.say("Nukkumaan ja hommat kesken? Ei käy! Taksi tulee.")
+			_hommat_evict()
+			return
+		mokki_int.say("Hommat jäi kesken... No, nuku nyt. Huomenna parempi.")
+	if hommat.active:
+		var st: int = hommat.stars_now()
+		hommat.add_review(day, st)
+		hommat.carry = hommat.hermo * 0.5 if st < 5 else 0.0
+	hommat.nights += 1
 	mokki_int.leave()
 	tilat.add("vasymys", 0.3)  # hyvät unet näkyvät vielä päivän tuloksessa
 	_slept_mokki = true
@@ -3090,7 +3957,14 @@ func _on_mokki_acted(kind: String) -> void:
 			if _once_today("kahvi"):
 				tilat.add("vireys", 0.2)
 				tilat.add("stressi", 0.1)
-			_show_message("Suodatinkahvia! Vireys nousee.", 2.5)
+			if hommat.pending("kahvi") and not hommat.progress.get("kahvi_vietu", false):
+				hommat.progress["kahvi_keitetty"] = true
+				mokki_int.say("Musta, ei sokeria. Vie se mulle pihalle, mää istun kannolla.")
+				_show_message("Suodatinkahvia! Kaadoit Santulle kupin mustaa: vie se pihalle (kävele, älä juokse).", 3.5)
+			else:
+				_show_message("Suodatinkahvia! Vireys nousee.", 2.5)
+		"tiskit":
+			_start_tiskit()
 		"jaakaappi":
 			if _once_today("jaakaappi"):
 				food["piirakka"] = food.get("piirakka", 0) + 1
@@ -3138,6 +4012,8 @@ func _on_mokki_acted(kind: String) -> void:
 ## PA-laitteiden kytkentä (pa_game.gd) tuvassa. Tunnusmusiikki soi kaiuttimista jo säätäessä, ja onnistuneen
 ## kytkennän jälkeen se jää soimaan tuvassa (ja vaimeana pihalle), kunnes PA sammutetaan.
 func _start_pa() -> void:
+	if hommat.pending("pa"):
+		mokki_int.say(hommat.line("pa", "tulee"))
 	mokki_int.busy = true
 	mokki_int.walker.controls_enabled = false
 	_hud.visible = false
@@ -3158,6 +4034,7 @@ func _start_pa() -> void:
 				_show_message("PA jäi kytkemättä. Santtu pakkasi kamat. Yritä uudestaan rauhassa.", 3.0)
 			return
 		tilat.first("pa", 0.3)
+		_hommat_complete("pa")
 		if _once_today("pa"):
 			tilat.add("moraali", 0.2)
 			tilat.add("stressi", 0.15)
@@ -3221,6 +4098,9 @@ func _hunt_logic(e: bool) -> void:
 
 
 func _start_hunt() -> void:
+	if hommat.pending("metsastys"):
+		mokki.santtu_teleport(Mokki.HUNT_LOCAL + Vector3(1.6, 0, 1.2), Vector3(Mokki.HUNT_GLADE.x, 0, Mokki.HUNT_GLADE.y))
+		_show_message("Santtu tuli mukaan lavan juurelle: \"%s\"" % hommat.line("metsastys", "tulee"), 3.0)
 	_minigame_prev = state
 	state = "minigame"
 	player.controls_enabled = false
@@ -3242,10 +4122,15 @@ func _start_hunt() -> void:
 
 func _after_hunt(bag: Array, moose: bool) -> void:
 	tilat.first("metsastys", 0.3)
+	mokki.santtu_go_home()
 	if moose:
 		tilat.add("moraali", -0.3)
 		tilat.add("stressi", -0.3)
 		mokki.say("Ammuit HIRVEN? Ei meillä oo lupaa! Nyt tulee riistanvalvoja...", 4.0)
+		if hommat.active:
+			hommat.add_hermo(30.0)
+	elif not bag.is_empty():
+		_hommat_complete("metsastys")
 	var names: Array = []
 	for k in bag:
 		var nom: String = HuntGame.SPECIES[k].nom
@@ -3368,6 +4253,11 @@ func _smoker_logic(e: bool) -> void:
 				food[key] = food.get(key, 0) + 1
 			tilat.first("savustus", 0.3)
 			tilat.add("stressi", 0.1)
+			if smoker_burnt >= 1.0:
+				if hommat.pending("savustus"):
+					_santtu_line("Hiiltä! Tuota ei syö koirakaan. Uusiks.", true)
+			else:
+				_hommat_complete("savustus")
 			Sfx.play("win_small", -6.0)
 			_show_message("Karrelle meni, mutta syötävää se on. T syö." if smoker_burnt >= 1.0 else
 				"Kullankeltaista savukalaa ja riistaa! Syö T:llä, kun nälkä yllättää.", 3.5)
@@ -3531,8 +4421,10 @@ func _start_chop() -> void:
 
 ## Kodan FPS-minipeli (kota_minigame.gd) paikallisessa kohdassa local ja kierrossa rot_y. Pelaaja seisoo
 ## piilossa minipelin silmien alla; message kertoo lopuksi saaliin.
-func _start_kota_game(game: Node3D, local: Vector3, rot_y: float, message: Callable) -> void:
-	var k: Node3D = world.kota
+func _start_kota_game(game: Node3D, local: Vector3, rot_y: float, message: Callable, host: Node3D = null) -> void:
+	var k: Node3D = host if host != null else world.kota
+	if k == mokki:
+		mokki.santtu_stop()
 	_minigame_prev = state
 	state = "minigame"
 	player.controls_enabled = false
@@ -3552,6 +4444,8 @@ func _start_kota_game(game: Node3D, local: Vector3, rot_y: float, message: Calla
 		player.controls_enabled = true
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 		_hud.visible = true
+		if k == mokki:
+			mokki.santtu_go_home()
 		var msg: String = message.call()
 		if msg != "":
 			_show_message(msg, 3.0))
@@ -3996,6 +4890,7 @@ func _load_game() -> void:
 	has_mower_part = cfg.get_value("nurmikko", "varaosa", false)
 	sinikka_task = cfg.get_value("sinikka", "tehtava", 0)
 	tikka_ennatys = cfg.get_value("mokki", "tikka_ennatys", 0)
+	hommat.reviews = cfg.get_value("mokki", "arvostelut", [])
 	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
 	tilat.load_from(cfg)
 	trouble = cfg.get_value("tilat", "hankaluus", 0)
@@ -4031,6 +4926,8 @@ func _save_game() -> void:
 	cfg.set_value("nurmikko", "varaosa", has_mower_part)
 	cfg.set_value("sinikka", "tehtava", sinikka_task)
 	cfg.set_value("mokki", "tikka_ennatys", tikka_ennatys)
+	if hommat != null:
+		cfg.set_value("mokki", "arvostelut", hommat.reviews)
 	cfg.set_value("nurmikko", "kehu", _lawn_praise)
 	if tilat != null:
 		tilat.save_to(cfg)
@@ -4153,8 +5050,9 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	if world.kota != null:
 		world.kota.set_fire(false)
 	if mokki != null:
-		mokki.set_sauna_fire(false)
+		mokki.reset_sauna()
 		mokki.set_tub_fire(false)
+	_set_carry("")
 	saalis.clear()
 	smoker_load.clear()
 	smoker_fuel = 0.0
@@ -4183,6 +5081,11 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		_paivi_mad = true
 		tilat.add("stressi", -0.1)
 		bonus += "\n" + PAIVI_MORNING_SINIKKA.pick_random()
+	if _santtu_gossip and not at_m:
+		_santtu_gossip = false
+		_paivi_mad = true
+		tilat.add("stressi", -0.1)
+		bonus += "\nPäivi: \"Santtu soitti, että sää jätit mökillä hommat kesken. Kotonaki riittää hommia!\""
 	var mokki_note := ""
 	if _slept_mokki:
 		_slept_mokki = false
@@ -4252,9 +5155,14 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		# Mökillä vain mökin asiat: Päivin värilista kerrotaan, kun palataan kotiin (ks. _ride_taxi).
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		_list_pending = true
+		var rows: Array = _hommat_morning()
 		_note.show_note(["Huomenta mökille! Päivä %d." % day, "Kaisuantie 62, Neittävä, Vaala."]
-			+ Array(("%s%s%s" % [intro, stats_note, mokki_note]).strip_edges().split("\n")), "– Santtu", 10.0)
+			+ rows + Array(("%s%s%s" % [intro, stats_note, mokki_note]).strip_edges().split("\n")), "– Santtu",
+			10.0 if rows.is_empty() else 18.0)
 		return
+	hommat.stop()
+	hommat.nights = 0
+	_hommat_prepare()
 	var where := " kotoa"
 	if spawn.distance_to(mokki.global_position) < 80.0:
 		where = " mökiltä"
@@ -4746,6 +5654,8 @@ func _build_hud() -> void:
 			_on_siitari(id)
 		elif _menu_mode == "raahe":
 			_on_raahe(id)
+		elif _menu_mode == "santtu":
+			_on_santtu_menu(id)
 		else:
 			_on_give(id))
 	_item_menu.cancelled.connect(func() -> void:
@@ -4784,6 +5694,11 @@ func _update_hud() -> void:
 		var deg := Compass.bearing_deg(pp, _compass.cache)
 		lines.append("Viinakätkö %d / %d: %d m  %s %d°" % [viina_found.size() + 1, Mokki.VIINA.size(),
 			roundi(pp.distance_to(_compass.cache)), Compass.dir_name(deg), roundi(deg)])
+	if at_mokki and hommat.active and state in ["to_shop", "to_home", "in_mokki"]:
+		lines.append("Santun hommat %d / %d · hermot %s" % [hommat.done.size(), hommat.tasks.size(), hommat.bar()])
+		if _carry != "":
+			lines.append("Kädessä: %s%s" % [{"sanko": "huussin sanko", "halot": "syli halkoja", "kahvi": "Santun kahvit"}[_carry],
+				"  ⚠ läikkyy!" if _carry_slosh > 0.5 else ""])
 	if not at_mokki:
 		lines.append("Aika: %s" % _time(elapsed))
 		if not _risky_stashes().is_empty():
@@ -4904,6 +5819,13 @@ func inventory_info() -> Dictionary:
 			"Koti Saloisissa n. %d km länteen" % roundi(HOME_MOKKI_KM),
 			"Droonin ilmakuvat %d / %d" % [_drone_photo_count(mn), mn.size()],
 			"Viinakätköt %d / %d" % [viina_found.size(), Mokki.VIINA.size()]]
+		if not hommat.reviews.is_empty():
+			info.lines.append("Santun arvostelut: %s (%d)" % [Hommat.stars(roundi(hommat.review_avg())), hommat.reviews.size()])
+		if hommat.active:
+			info.lines.append("Santun hermot: %s %s" % [hommat.bar(), hommat.mood()])
+			info.list_title = "Santun hommat"
+			for t in hommat.tasks:
+				info.list.append(Hommat.TASKS[t].nimi + ("  ✔" if t in hommat.done else ""))
 		return info
 	info.lines = ["Päivä %d · Järvikuja 1, Saloinen" % day, "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
 		"Aika: %s" % _time(elapsed), "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
@@ -7286,6 +8208,200 @@ func _maybe_screenshot() -> void:
 				mokki._pa_out.playing])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"mokkihommat":
+			# Santun hommat: yö mökillä, aamulappu, kaikki 12 hommaa pihalla, Santun kävely, minipelit (laituri,
+			# ränni, ampiaiset, sahaus, halkominen, tiskit), huussin sangot, savusauna, palju, kalja Santulle,
+			# hermot ja häätö. Kuvat _h_*.png. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(suffix: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_h_%s.png" % suffix))
+			var wait := func(n: int) -> void:
+				for i in n:
+					await get_tree().process_frame
+			var cam := Camera3D.new()
+			add_child(cam)
+			var look := func(from: Vector3, at: Vector3) -> void:
+				cam.look_at_from_position(mokki.to_global(Vector3(from.x, Mokki.h(from.x, from.z) + from.y, from.z)),
+					mokki.to_global(Vector3(at.x, Mokki.h(at.x, at.z) + at.y, at.z)), Vector3.UP)
+				cam.current = true
+			_toggle_mount()
+			walker_out.global_position = mokki.porch_pos(0.9)
+			_hommat_arrive()
+			print("HOMMAT saapuminen active=%s nights=%d" % [hommat.active, hommat.nights])
+			hommat.nights = 1
+			var rows: Array = _hommat_morning()
+			print("HOMMAT aamu active=%s tasks=%s rows=%d" % [hommat.active, hommat.tasks, rows.size()])
+			hommat.tasks = Hommat.TASKS.keys()
+			_hommat_prepare()
+			_note.show_note(["Huomenta mökille!"] + rows, "– Santtu", 5.0)
+			await wait.call(30)
+			await snap.call("lappu")
+			_note.visible = false
+			await look.call(Vector3(-11, 3.5, 6), Vector3(-16, 0.8, 15))
+			await wait.call(10)
+			await snap.call("puupaikka")
+			await look.call(Vector3(-8, 3.0, 4), Vector3(-15, 0.8, 1.5))
+			await wait.call(10)
+			await snap.call("huussi")
+			await look.call(Vector3(14, 4.0, -9), Vector3(6, 1.5, 0))
+			await wait.call(10)
+			await snap.call("nurmi_tikkaat")
+			await look.call(Vector3(9.7, 9.0, -8.0), Vector3(9.7, 0.0, 1.0))
+			await wait.call(10)
+			await snap.call("nurmi_ylhaalta")
+			await look.call(Vector3(-1.5, 2.0, 15.5), Vector3(2.7, 2.0, 18.5))
+			mokki.wasp_nest.visible = true
+			await wait.call(10)
+			await snap.call("ampiaispesa")
+			var dz: float = mokki.dock_body.position.z + _dock_fix_z()
+			await look.call(Vector3(6.5, 2.5, dz - 2.5), Vector3(8.9, 0.0, dz + 0.6))
+			await wait.call(10)
+			await snap.call("laituri")
+			# Huussi: kolme sankoa kompostiin (kävellen) ja yksi läikkyy juostessa, sitten talikko.
+			var near := func(local: Vector3, r: float) -> bool:
+				var g: Vector3 = mokki.to_global(local)
+				var pp := player.global_position
+				return Vector2(pp.x - g.x, pp.z - g.z).length() < r
+			var go := func(local: Vector3) -> void:
+				walker_out.global_position = mokki.gpos(local + Vector3(0, 0.4, 0))
+				walker_out.velocity = Vector3.ZERO
+				for i in 4:
+					await get_tree().physics_frame
+			for trip in 3:
+				await go.call(Mokki.HUUSSI_HATCH_LOCAL)
+				_hommat_logic(true, near)
+				await go.call(Mokki.KOMPOSTI_LOCAL + Vector3(1.2, 0, 0))
+				_hommat_logic(true, near)
+			print("HUUSSI sangot=%s carry=%s" % [hommat.progress.get("sangot"), _carry])
+			cam.current = false
+			walker_out.activate_camera()
+			for i in 12:
+				_hommat_logic(true, near)
+			print("HUUSSI tehty=%s msg=%s" % ["huussi" in hommat.done, _msg.text.replace("\n", " | ")])
+			await go.call(Mokki.HUUSSI_HATCH_LOCAL)
+			_set_carry("sanko")
+			walker_out.speed = 5.0
+			_hommat_tick(2.0)
+			print("LAIKKYI carry=%s msg=%s" % [_carry, _msg.text.replace("\n", " | ")])
+			# Santtu kävelee katsomaan (palju) ja palaa kannolle.
+			await go.call(Mokki.TUB_LOCAL + Vector3(1.4, 0, 0))
+			for i in 60 * 8:
+				_santtu_watch(get_process_delta_time())
+				await get_tree().process_frame
+				if mokki.santtu_arrived():
+					break
+			print("SANTTU paljulla arrived=%s pos=%s bubble=%s" % [mokki.santtu_arrived(), mokki.santtu.position, mokki._bubble.text])
+			await snap.call("santtu_palju")
+			# Palju: tyhjennys, pesu ja täyttö pumpulla.
+			_palju_logic(true)
+			for i in 60 * 9:
+				_hommat_tick(get_process_delta_time())
+				await get_tree().process_frame
+				if not _palju_draining:
+					break
+			mokki.palju_dirt = 0.01
+			Input.action_press("interact")
+			for i in 10:
+				_palju_logic(false)
+				await get_tree().process_frame
+			Input.action_release("interact")
+			print("PALJU taso=%.2f lika=%.2f letku=%s" % [mokki.palju_level, mokki.palju_dirt, mokki._hose.visible])
+			await go.call(Mokki.pump_local() + Vector3(0.8, 0, 0))
+			_hommat_logic(true, near)
+			mokki.palju_level = 0.97
+			await wait.call(5)
+			_hommat_logic(true, near)
+			print("PALJU tehty=%s pumppu=%s" % ["palju" in hommat.done, mokki.pump_on])
+			# Savusauna: syli pesään, kiuas kuumaksi ja savut tuulettumaan (ajat lyhennetään).
+			await go.call(Mokki.HALKO_LOCAL)
+			_hommat_logic(true, near)
+			print("HALOT carry=%s" % _carry)
+			await go.call(Mokki.SAUNA_LOCAL + Vector3(-1.5, 0, 0))
+			_sauna_logic(true)
+			await look.call(Vector3(-1, 3.0, 14), Vector3(5, 1.5, 19))
+			await wait.call(90)
+			await snap.call("savusauna")
+			mokki.sauna_heat = 0.99
+			for i in 60 * 8:
+				await get_tree().process_frame
+				if not mokki.sauna_fire_on:
+					break
+			mokki.sauna_smoke = 0.02
+			await wait.call(60)
+			print("SAUNA heated=%s ready=%s tehty=%s" % [mokki.sauna_heated, mokki.sauna_ready(), "savusauna" in hommat.done])
+			cam.current = false
+			# Minipelit: käynnistys, kuva Santtu katsojana ja lopetus.
+			var mg := func(starter: Callable, name: String, frames: int) -> void:
+				starter.call()
+				await wait.call(frames)
+				await snap.call(name)
+				var g: Node = null
+				for c in mokki.get_children():
+					if c.has_method("_quit"):
+						g = c
+				if g != null:
+					g._quit()
+				await wait.call(5)
+				print("PELI %s state=%s msg=%s" % [name, state, _msg.text.replace("\n", " | ")])
+			await mg.call(_start_laituri, "peli_laituri", 40)
+			await mg.call(_start_ranni, "peli_ranni", 40)
+			await mg.call(_start_ampiaiset, "peli_ampiaiset", 40)
+			await mg.call(_start_mokki_saw, "peli_saha", 40)
+			_mokki_polkyt = 2
+			await mg.call(_start_mokki_chop, "peli_halko", 40)
+			# Laituri ratkaistuna: kaikki naulat kantaan.
+			var lg := LaituriGame.new()
+			print("LAITURI valmis ennen=%s" % LaituriGame.is_done(_dock_state))
+			lg.free()
+			# Leikkuri: nurmikko leikataan suoraan.
+			_ensure_mokki_lawn()
+			_start_mowing(mokki_lawn)
+			mokki_lawn.lengths.fill(0.04)
+			_mow()
+			print("NURMI tehty=%s mowing=%s" % ["nurmi" in hommat.done, mowing])
+			# Kahvit sisällä, vienti Santulle ja tiskit.
+			_enter_mokki()
+			await wait.call(5)
+			_on_mokki_acted("kahvi")
+			_start_tiskit()
+			await wait.call(20)
+			await snap.call("tiskit")
+			var tg: Node = get_children().filter(func(c): return c is TiskiGame)[0]
+			for k in 400:
+				tg._scrub(1 if k % 2 == 0 else -1)
+				if tg._dirt <= 0.0:
+					tg.drunk = 0.0
+					tg._lift()
+				if not is_instance_valid(tg) or tg._done:
+					break
+			await wait.call(5)
+			print("TISKIT dishes=%d" % mokki_int.dishes)
+			_on_mokki_exited()
+			print("KAHVI carry=%s" % _carry)
+			await go.call(mokki.santtu.position + Vector3(1.2, 0, 0))
+			_hommat_logic(true, near)
+			print("KAHVI tehty=%s" % ("kahvi" in hommat.done))
+			# Kalja Santulle: yksi homma pois.
+			beers = 1
+			_on_santtu_menu("kalja")
+			print("KALJA beer_used=%s done=%s" % [hommat.beer_used, hommat.done])
+			print("HUD: ", _stats.text.replace("\n", " | "))
+			print("REPPU: ", inventory_info())
+			# Hermot: täysi mittari = häätö ja yhden tähden arvostelu.
+			hommat.done = hommat.done.slice(0, 2)
+			hommat.hermo = 99.9
+			state = "to_shop"
+			print("HAATO ennen: busy=%s menu=%s (%s) note=%s" % [cutscene.busy, _item_menu.is_open(), _item_menu._title.text, _note.visible])
+			_item_menu.visible = false
+			player.controls_enabled = true
+			_hommat_tick(1.0)
+			await wait.call(10)
+			print("HAATO active=%s banned=%s reviews=%s" % [hommat.active, hommat.banned_day == day, hommat.reviews])
+			await wait.call(200)
+			print("HAATO state=%s at_mokki=%s" % [state, _at_mokki()])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"raahepaivi":
 			# Päivi Raahen baarissa: 1) pelaaja jää tiskille -> kiinni ja taksi kotiin; --pako: pelaaja Kellariin,
 			# Päivi seuraa portaiden kautta, pelaaja ylös ja ulos ennen kiinnijäämistä.
@@ -7466,7 +8582,7 @@ func _maybe_screenshot() -> void:
 			Input.action_release("forward")
 			lp = mokki.to_local(walker_out.global_position)
 			print("KUISTI edestä: z=%.2f y=%.2f (kannen reuna z 3.9: pitäisi pysähtyä)" % [lp.z, lp.y])
-			# Yleiskuva pihasta rannan suunnasta: kuisti, savusauna, poreamme ja kesäkeittiö kuten kuvissa.
+			# Yleiskuva pihasta rannan suunnasta: kuisti, savusauna, palju ja kesäkeittiö kuten kuvissa.
 			var kc := Camera3D.new()
 			add_child(kc)
 			kc.look_at_from_position(mokki.gpos(Vector3(4, 9, 36)), mokki.gpos(Vector3(2, 1, 8)))

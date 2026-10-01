@@ -67,7 +67,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Maanmittauslaitoksen laserkeilauksesta (paikka, pituus ja latvuksen leveys) ja Luken VMI:n puulajeista, ja
   naapuritalojen korkeudet on mitattu laserista (`tools/kartta/mokki_puut.py`). Mökki on tummanruskeine
   pystylautaseinineen metsän keskellä. Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella
-  savusauna, puukuumenteinen poreamme ja kesäkeittiö (avoin katos offset-savustimineen), tikanheittotaulu, laituri
+  savusauna, puulämmitteinen palju ja kesäkeittiö (avoin katos offset-savustimineen), tikanheittotaulu, laituri
   portaineen ja soutuveneineen sekä isäntä Santtu kahvikuppeineen.
   - **Kalastus soutuveneellä:** laiturilla E vie veneeseen. W/S soutaa ja A/D kääntää. Kalaparvet näkyvät renkaina
     pinnalla. Pidä E heittääksesi virvelin (pidempi painallus heittää kauemmas), ja kun koho sukeltaa, paina E heti.
@@ -108,6 +108,27 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     järjestyksessä (mikseri ensin, pääte viimeisenä, muuten kaiuttimet paukahtavat), mikin kanava kiinni (kierto
     kiljuu) ja CH2 ja MASTER niin, että taso pysyy vihreällä. Kolme mokaa ja Santtu pakkaa kamat. Onnistuneen
     kytkennän jälkeen pelin tunnusmusiikki soi tuvassa ja vaimeana pihalle, kunnes PA sammutetaan (E laitteilla).
+  - **Savusauna lämmitetään:** syli halkoja halkopinosta kesäkeittiön vierestä (E) ja pesään (E saunalla).
+    Pesä pitää pitää täynnä, kunnes kiuas on kuuma, ja sitten pesä palaa loppuun ja savut tuulettuvat ovesta ja
+    räppänästä. Vasta sitten pääsee löylyihin: liian aikaisin sisään mennessä häkä kirvelee.
+  - **Santun hommat:** kun mökillä on oltu yksi yö, Santtu kirjoittaa aamulappuun päivän hommat (toisena päivänä
+    3, sitten 4). Valikoimassa on 12 hommaa:
+    saunapuut (sahaus ja halkominen puupaikalla, Santtu kommentoi Raimon ja Veikon tilalla, 8 halkoa),
+    päädyn nurmikko Santun vanhalla leikkurilla (kiviä nurmikossa), savusaunan lämmitys, huussin tyhjennys
+    (kolme sankoa takaluukusta kompostiin ja komposti talikolla ympäri), laiturin korjaus (lahot laudat irti
+    sorkkaraudalla, uudet laudat ja naulat vasaralla, ohi lyönti osuu peukaloon), rännien ja katon putsaus tikkailta
+    (tasapaino A/D:llä, liikaa kallellaan ja tikkaat kaatuvat), ampiaispesän hävitys saunan terassilta
+    (suihkuta suuaukkoon, kolmas pisto ja juoksu järveen), kahvit Santulle pihalle ja tiskit tuvassa (märkä
+    astia lipsahtaa humalassa), paljun tyhjennys, pesu ja täyttö bensapumpulla rannasta (muista sammuttaa
+    ajoissa), savustus, metsästys (ei hirveä!) ja PA:n johtojen korjaus. Sangon ja kahvikupin kanssa ei
+    juosta: kova vauhti läikyttää. Santtu tulee paikalle katsomaan ja kommentoimaan jokaista hommaa
+    ("Ei sitä noin hakata!") ja huutelee kuistilta, kun hommat odottavat.
+    Tekemättömät hommat kiristävät Santun **hermoja** (HUD ja reppu). Täysillä hermoilla tulee lähtö: Santtu
+    tilaa taksin, antaa yhden tähden arvostelun, eikä mökille pääse ennen huomista. Nukkumaan meno hommat
+    kesken kiristää hermoja lisää, mopolla Siitariin lähtö hommat kesken saa Santun soittamaan Päiville (puhelu
+    baarissa ja kotona motkotusta). Kalja tai kätköviina Santulle kerran päivässä: Santtu tekee yhden homman
+    itse (puolittain). Kaikki hommat tehty: Santtu maksaa taksirahat takaisin (15 €), antaa savukalaa ja pullon
+    pontikkaa. Jokainen mökkipäivä päättyy Santun arvosteluun (1, 3 tai 5 tähteä), ja arvostelut näkyvät repussa.
   Saunassa käynti (E) on lyhyt välianimaatio terassilla: löyly höyryää saunan ovelta, ja jos kaljaa on mukana,
   otetaan hörppy. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
   jääkaappi), pitkä pöytä, TV ja takka, makuuhuone violetteine kerrossänkyineen, kylpyhuone ja sisäsauna.
@@ -120,7 +141,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   latautuu alustalla, korkeusraja on 120 m ja kantama noin 1,3 km: heikolla akulla tai signaalilla drooni palaa
   itse kotiin (H palaa, F laskeutuu). Kova törmäys rikkoo droonin päiväksi. Päivin jahti on tauolla lennon ajan.
   Drooni kulkee mukana myös **mökille**: alusta on pysäköintipaikan vieressä mökin takana. Mökillä kuvattavia on
-  mökki, savusauna, poreamme, kesäkeittiö, laituri, metsästyslava, Santtu ja lähijärvet (Likanen, Tervalampi,
+  mökki, savusauna, palju, kesäkeittiö, laituri, metsästyslava, Santtu ja lähijärvet (Likanen, Tervalampi,
   Kiiskeroinen); lentoalue ulottuu noin 600 m:n päähän, ja järveen tipahtanut drooni on mennyttä. Moottoreista
   kuuluu vain pieni surina.
 - **Reppu (I tai Tab):** tavarat, kaljat, ostokset, sienet, kalat ja metsästyssaaliit näkyvät Minecraft-tyylisessä
@@ -214,13 +235,17 @@ Päivän lopussa lasketaan kolmen tilan summa:
 | Tappelun voitto | moraali +, kokemus + (tappelun miinusten päälle) |
 | Kädenvääntö Raahessa: voitto / häviö | moraali + / moraali − |
 | Marjojen tai sienten myynti | moraali + |
-| Mökki: savusauna / poreamme (kerran päivässä) | stressi ++, väsymys ++, kipu +, vireys + / stressi ++, kipu +, stamina + |
+| Mökki: savusauna / palju (kerran päivässä) | stressi ++, väsymys ++, kipu +, vireys + / stressi ++, kipu +, stamina + |
 | Mökki: kala laiturilta / tikan täysosuma (kerran päivässä) | moraali +, stressi + / moraali +, keskittyminen + |
 | Mökki: metsästys saaliin kanssa / hirvi ammuttu | moraali + (0,05 per saalis), stressi + / moraali −−, stressi −− |
 | Mökki: savustus valmis | stressi + |
 | Mökki: pihapingis | stamina −, nälkä −; kerran päivässä voitto: moraali +, keskittyminen +, stressi + / häviö: stressi +, moraali − |
 | Mökin piha (paikallaan) | kuten nuotio: stressi ++, vireys + |
-| Mökki: kiukaan tai ammeen tulen sytytys (kerran päivässä kumpikin) | stressi + |
+| Mökki: kiukaan tai paljun kamiinan sytytys (kerran päivässä kumpikin) | stressi + |
+| Mökki: Santun homma tehty / kaikki hommat tehty | moraali +, stressi + / moraali ++, stressi + |
+| Mökki: peukaloon vasaralla / ampiaisen pisto / tikkailta putoaminen | kipu − / kipu − / kipu −−, stressi − |
+| Mökki: sanko läikkyi / häkää savusaunassa | stressi −, moraali − / kipu −, vireys −, stressi − |
+| Mökki: Santun häätö | moraali −−, stressi −− |
 | Mökin sisällä olo | stressi +, vireys + (hitaasti), nälkä − |
 | Mökin sisällä (kerran päivässä): suodatinkahvi / takka / TV | vireys ++, stressi + / stressi + / stressi +, kokemus − |
 | Mökin sisällä (kerran päivässä): suihku / sisäsauna | vireys +, kipu + / stressi ++, väsymys ++, kipu + |
