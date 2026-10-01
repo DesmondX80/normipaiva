@@ -215,8 +215,7 @@ func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Cal
 	paivi.global_position = home + Vector3(-1.4, 0, 1.0)
 	paivi.rotation.y = -PI * 0.5
 	paivi.play("Idle_Talking", 0.0)
-	var bubble := B.label(_props, "", paivi.global_position + Vector3(0.3, 2.05, 0), 26, Color.WHITE, true)
-	bubble.outline_size = 8
+	var bubble := B.bubble(_props, paivi.global_position + Vector3(0.3, 2.05, 0), Color.WHITE, 1.0, false)
 	bubble.no_depth_test = true
 	_cam.global_position = home + Vector3(-0.7, 1.7, 4.6)
 	_cam.look_at(home + Vector3(-0.7, 1.35, 1.0), Vector3.UP)
@@ -274,8 +273,7 @@ func jemma_found(home: Vector3, lost: int, left: int, done: Callable, choco := "
 			Color(0.8, 0.75, 0.2))
 		c.rotation.y = randf() * TAU
 	B.box(_props, Vector3(0.7, 0.3, 0.45), home + Vector3(-1.9, 0.15, 1.6), Color(0.3, 0.2, 0.1), false)  # kaljakori
-	var bubble := B.label(_props, "", paivi.global_position + Vector3(0, 2.05, 0), 26, Color.WHITE, true)
-	bubble.outline_size = 8
+	var bubble := B.bubble(_props, paivi.global_position + Vector3(0, 2.05, 0), Color.WHITE, 1.0, false)
 	_cam.global_position = home + Vector3(0.1, 1.55, 4.3)
 	_cam.look_at(home + Vector3(0.0, 1.15, 1.3), Vector3.UP)
 	env.adjustment_saturation = 1.12
@@ -438,8 +436,7 @@ func taxi_to_raahe(done: Callable) -> void:
 	var taxi := Node3D.new()
 	road.add_child(taxi)
 	Vehicles.taxi(taxi)
-	var bubble := B.label(_props, "", Vector3.ZERO, 26, Color.WHITE, true)
-	bubble.outline_size = 8
+	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
 	_cam.current = true
 	_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
 	_title.add_theme_font_size_override("font_size", 90)
@@ -517,8 +514,7 @@ func taxi_home(home: Vector3, stats: String, done: Callable) -> void:
 	cab.global_position = home + Vector3(2.5, 0, -5.0)
 	cab.rotation.y = -PI * 0.5  # keula +X: ajaa pois kuvan oikealle
 	Vehicles.taxi(cab)
-	var bubble := B.label(_props, "", paivi.global_position + Vector3(0.3, 2.05, 0), 26, Color.WHITE, true)
-	bubble.outline_size = 8
+	var bubble := B.bubble(_props, paivi.global_position + Vector3(0.3, 2.05, 0), Color.WHITE, 1.0, false)
 	bubble.no_depth_test = true
 	_cam.global_position = home + Vector3(-0.7, 1.7, 4.6)
 	_cam.look_at(home + Vector3(-0.7, 1.35, 1.0), Vector3.UP)

@@ -36,7 +36,7 @@ func _ready() -> void:
 	_body = Looks.make(self, Looks.ANNA_LIISA)
 	B.guide(self, "Naapurin Anna-Liisa", Vector3(0, 2.1, 0), 40, Color(0.8, 1, 0.95), true)
 	_mark = B.label(self, "", Vector3(0, 2.55, 0), 90, Color(1, 0.85, 0.1), true)
-	_bubble = B.label(self, "", Vector3(0, 3.1, 0), 48, Color.WHITE, true)
+	_bubble = B.bubble(self, Vector3(0, 3.1, 0), Color.WHITE)
 
 	var fan := MeshInstance3D.new()
 	fan.mesh = B.vision_fan(VIEW_RANGE, VIEW_HALF_ANGLE)

@@ -426,10 +426,7 @@ func _seat(look: Dictionary, at: Vector3, face: Vector3) -> Node3D:
 
 
 func _add_bubble(c: Node3D) -> void:
-	var b := B.label(c, "", Vector3(0, 2.15, 0), 30, Color.WHITE, true)
-	b.outline_size = 8
-	b.width = 520.0
-	b.autowrap_mode = TextServer.AUTOWRAP_WORD
+	var b := B.bubble(c, Vector3(0, 1.85, 0), Color.WHITE, 0.7)
 	_bubbles[c] = b
 
 
