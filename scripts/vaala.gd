@@ -11,6 +11,8 @@ const Terrain := preload("res://scripts/terrain.gd")
 const Atm := preload("res://scripts/atm.gd")
 const TIE := "res://assets/vaala/tie.json"
 const MAASTO := "res://assets/vaala/maasto.bin"
+const TREES := "res://assets/vaala/puut.bin"
+const Forest := preload("res://scripts/forest.gd")
 
 enum { FOREST, FIELD, BOG, WATER, YARD, SHOULDER, ROAD, RAIL }
 const OUTSIDE := 255
@@ -290,19 +292,7 @@ func _build_far() -> void:
 	mi.mesh = st.commit()
 	mi.material_override = _ground_mat(Color(0.22, 0.27, 0.15), Color(0.34, 0.36, 0.22), 0.01, 0.3)
 	add_child(mi)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 91
-	var xfs: Array[Transform3D] = []
-	for j in _fnz - 1:
-		for i in _fnx - 1:
-			for n in 1:
-				var x := _fx0 + (i + rng.randf()) * _fcell
-				var z := _fz0 + (j + rng.randf()) * _fcell
-				if code_at(x, z) != OUTSIDE:
-					continue
-				var sc := rng.randf_range(0.9, 1.5)
-				xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * sc), Vector3(x, _far_h(x, z) + 1.3, z)))
-	_multimesh(_far_pine_mesh(), xfs)
+	# Kaukomaaston metsä tulee laserpuista (forest.gd, _build_trees).
 
 
 func _multimesh(mesh: Mesh, xfs: Array[Transform3D], col := Color.TRANSPARENT) -> void:
@@ -737,6 +727,19 @@ func _build_buildings() -> void:
 				wall_h = 4.6  # liikerakennus: korkea kerros
 		if type in ["roof", "service"]:
 			wall_h = 3.2
+		# Pohjapiirros ei ole suorakaide (siivet, L- ja U-muodot): tasakatto pohjan mukaan, ei laatikon harjakattoa.
+		var area := absf(_poly_area(pts))
+		var boxy: bool = area > 0.75 * obb.size.x * obb.size.y
+		if not boxy:
+			flat = true
+		# Korkeus laserkeilauksesta (tools/kartta/vaala_tarkka.py): harjakatossa seinät harjasta katon nousun verran
+		# alempana, tasakatossa katon taso.
+		var ridge: float = bd.get("h", 0.0)
+		if ridge > 2.0:
+			if flat:
+				wall_h = clampf(ridge - 0.3, 2.2, 30.0)
+			else:
+				wall_h = clampf(ridge - clampf(obb.size.y * 0.32, 0.8, 3.2) - 0.3, 2.2, 12.0)
 		var church := name.contains("kirkko")
 		var station := type == "train_station"
 		if church:
@@ -782,9 +785,19 @@ func _build_buildings() -> void:
 			_windows(pts, base + 0.3, maxi(levels, 1) if id != HOTEL_ID else 2, wall_h, shop, door)
 			if type == "apartments":
 				_balcony_rows(pts, base + 0.3, levels, obb)
-		var cs := B.box_shape(Vector3(obb.size.x, wall_h + 2.0, obb.size.y), Vector3.ZERO)
-		cs.transform = Transform3D(Basis(Vector3.UP, -obb.angle), Vector3(obb.center.x, base + wall_h / 2.0, obb.center.y))
-		body.add_child(cs)
+		if boxy:
+			var cs := B.box_shape(Vector3(obb.size.x, wall_h + 2.0, obb.size.y), Vector3.ZERO)
+			cs.transform = Transform3D(Basis(Vector3.UP, -obb.angle), Vector3(obb.center.x, base + wall_h / 2.0, obb.center.y))
+			body.add_child(cs)
+		else:
+			# Seinä kerrallaan: siipien väliset pihat jäävät vapaiksi.
+			for k in pts.size():
+				var a := pts[k]
+				var b2 := pts[(k + 1) % pts.size()]
+				var cs := B.box_shape(Vector3(a.distance_to(b2) + 0.4, wall_h + 2.0, 0.6), Vector3.ZERO)
+				cs.transform = Transform3D(Basis(Vector3.UP, -atan2(b2.y - a.y, b2.x - a.x)),
+					Vector3((a.x + b2.x) / 2.0, base + wall_h / 2.0, (a.y + b2.y) / 2.0))
+				body.add_child(cs)
 		if church:
 			_church_tower(obb, base, body)
 		if id == HOTEL_ID:
@@ -942,6 +955,15 @@ func _church_tower(obb: Dictionary, base: float, body: StaticBody3D) -> void:
 
 
 ## Suunnattu rajauslaatikko: keskipiste, koko (pitkä sivu x), kulma (pitkän sivun suunta).
+static func _poly_area(pts: PackedVector2Array) -> float:
+	var a := 0.0
+	for k in pts.size():
+		var p := pts[k]
+		var q := pts[(k + 1) % pts.size()]
+		a += p.x * q.y - q.x * p.y
+	return a / 2.0
+
+
 func _obb(pts: PackedVector2Array) -> Dictionary:
 	var best := 0.0
 	var ang := 0.0
@@ -1221,53 +1243,12 @@ func _build_signs() -> void:
 
 
 ## Mäntymetsä metsäruuduille (ei tien, pihojen eikä radan viereen), koivuja pihoille; puille törmäys tien lähellä.
+## Metsä oikeista puista: MML:n laserkeilaus (paikka, pituus, latvus) ja Luken VMI (laji) tien suhteen pelin
+## kehykseen, tiivistetyllä välillä harvennettuna (tools/vaala_bake.py -> assets/vaala/puut.bin, forest.gd).
 func _build_trees() -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 1170
-	var pines: Array[Transform3D] = []
-	var birches: Array[Transform3D] = []
-	var body := StaticBody3D.new()
-	add_child(body)
-	for j in range(1, _nz - 1):
-		for i in range(1, _nx - 1):
-			var q := j * _nx + i
-			var c: int = _codes[q]
-			if c != FOREST and c != BOG and c != YARD:
-				continue
-			var chance := 0.3 if c == FOREST else (0.08 if c == BOG else 0.025)
-			var in_town := Vector2(_x0 + i * _cell - siitari.x, _z0 + j * _cell - siitari.y).length() < 480.0
-			if in_town and c == FOREST:
-				chance = 0.07  # keskustassa puistomaista: harvemmin puita, puolet koivuja
-			if rng.randf() > chance:
-				continue
-			var near_road := false
-			var bad := false
-			for dj in range(-2, 3):
-				for di in range(-2, 3):
-					var qq := q + dj * _nx + di
-					if qq < 0 or qq >= _codes.size():
-						continue
-					var cc: int = _codes[qq]
-					if cc == ROAD or cc == SHOULDER or cc == RAIL or cc == WATER:
-						if absi(di) <= 1 and absi(dj) <= 1:
-							bad = true
-						near_road = true
-			if bad:
-				continue
-			var x := _x0 + (i + rng.randf_range(-0.5, 0.5)) * _cell
-			var z := _z0 + (j + rng.randf_range(-0.5, 0.5)) * _cell
-			var sc := rng.randf_range(0.8, 1.4) * (0.6 if c == BOG else 1.0)
-			var xf := Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * sc), Vector3(x, h(x, z), z))
-			if c == YARD or (in_town and rng.randf() < 0.5):
-				birches.append(xf)
-			else:
-				pines.append(xf)
-			if near_road:
-				var cs := B.capsule_shape(0.25 * sc, 5.0 * sc)
-				cs.position = Vector3(x, h(x, z) + 2.5 * sc, z)
-				body.add_child(cs)
-	_multimesh(_pine_mesh(), pines)
-	_multimesh(_birch_mesh(), birches)
+	var f := Forest.new()
+	add_child(f)
+	f.load_data(TREES)
 
 
 ## Katuvalot keskustan tien varteen (30 m välein).
@@ -1288,37 +1269,3 @@ func _build_lamps() -> void:
 		B.mesh(self, B.boxm(Vector3(0.6, 0.12, 0.3)), head, Color(0.85, 0.85, 0.8))
 
 
-func _pine_mesh() -> ArrayMesh:
-	var am := ArrayMesh.new()
-	var parts := [[B.cyl(0.12, 0.22, 3.5, 7), Vector3(0, 1.75, 0), Color(0.35, 0.25, 0.16)]]
-	for n in 4:
-		var fh := 1.6 * (1.0 - n * 0.12)
-		parts.append([B.cyl(0.03, fh * 0.62, fh, 7), Vector3(0, 2.8 + n * 1.12, 0), Color(0.15, 0.26, 0.14).lightened(0.04 * n)])
-	for part in parts:
-		var st := SurfaceTool.new()
-		st.append_from(part[0], 0, Transform3D(Basis(), part[1]))
-		st.commit(am)
-		am.surface_set_material(am.get_surface_count() - 1, B.mat(part[2]))
-	return am
-
-
-func _birch_mesh() -> ArrayMesh:
-	var am := ArrayMesh.new()
-	for part in [[B.cyl(0.09, 0.14, 4.2, 7), Vector3(0, 2.1, 0), Color(0.9, 0.9, 0.86)],
-			[B.sphere(1.5, 8), Vector3(0, 4.6, 0), Color(0.33, 0.5, 0.2)]]:
-		var st := SurfaceTool.new()
-		st.append_from(part[0], 0, Transform3D(Basis(), part[1]))
-		st.commit(am)
-		am.surface_set_material(am.get_surface_count() - 1, B.mat(part[2]))
-	return am
-
-
-func _far_pine_mesh() -> ArrayMesh:
-	var am := ArrayMesh.new()
-	for part in [[B.cyl(0.1, 0.2, 3.0, 5), Vector3(0, 1.5, 0), Color(0.35, 0.25, 0.16)],
-			[B.cyl(0.05, 1.1, 5.6, 6), Vector3(0, 4.6, 0), Color(0.16, 0.27, 0.15)]]:
-		var st := SurfaceTool.new()
-		st.append_from(part[0], 0, Transform3D(Basis(), part[1]))
-		st.commit(am)
-		am.surface_set_material(am.get_surface_count() - 1, B.mat(part[2]))
-	return am

@@ -18,6 +18,9 @@ const DartsGame := preload("res://scripts/darts_game.gd")
 const Mopo := preload("res://scripts/mopo.gd")
 
 const DATA_PATH := "res://assets/mokki/kartta.json"
+const HEIGHTS_PATH := "res://assets/mokki/rakennukset.json"
+const TREES_PATH := "res://assets/mokki/puut.bin"
+const Forest := preload("res://scripts/forest.gd")
 ## Mökin kehys karttakehyksessä: paikallisen origon paikka (m osoitepisteestä) ja kierto (OSM:n mökin mukaan).
 const YARD_C := Vector2(1.0, 2.35)
 const YARD_ROT_DEG := 17.6
@@ -696,6 +699,10 @@ func _build_waters_and_roads() -> void:
 
 ## Naapurit OSM-rakennuksina: seinät, harjakatto ja törmäys (oma mökki ja vaja mallinnetaan erikseen).
 func _build_neighbors() -> void:
+	# Harjan korkeudet laserkeilauksesta (tools/kartta/mokki_puut.py -> assets/mokki/rakennukset.json).
+	var heights := {}
+	if FileAccess.file_exists(HEIGHTS_PATH):
+		heights = JSON.parse_string(FileAccess.get_file_as_string(HEIGHTS_PATH)).get("height", {})
 	var walls := [Color(0.6, 0.15, 0.11), Color(0.9, 0.8, 0.45), Color(0.86, 0.8, 0.66), Color(0.92, 0.91, 0.87),
 		Color(0.45, 0.3, 0.2), Color(0.58, 0.7, 0.78)]
 	for bd in map_data().buildings:
@@ -719,6 +726,13 @@ func _build_neighbors() -> void:
 		var cen := poly[0] + ax * ((mn.x + mx.x) / 2.0) + az * ((mn.y + mx.y) / 2.0)
 		var small: bool = bd.type in ["shed", "cabin", "yes"] and size.x * size.y < 60.0
 		var wall_h := 2.3 if small else 3.0
+		var rise := 1.0 if small else 1.6
+		var ridge: float = heights.get(str(bd.id), 0.0)
+		if ridge > 0.0:
+			# Laserin harjakorkeus: katon nousu lyhyemmän sivun mukaan, seinät loput.
+			rise = clampf(minf(size.x, size.y) * 0.3, 0.8, 3.0)
+			wall_h = clampf(ridge - rise, 2.1, 6.0)
+			rise = maxf(ridge - wall_h, 0.6)
 		var body := StaticBody3D.new()
 		body.position = Vector3(cen.x, h(cen.x, cen.y), cen.y)
 		body.rotation.y = -ang
@@ -727,100 +741,17 @@ func _build_neighbors() -> void:
 		var col: Color = walls[hash(bd.id) % walls.size()]
 		B.mesh(body, B.boxm(Vector3(size.x, wall_h, size.y)), Vector3(0, wall_h / 2.0 - 0.2, 0), col)
 		var roof := PrismMesh.new()
-		roof.size = Vector3(size.y + 0.8, 1.0 if small else 1.6, size.x + 0.6)
+		roof.size = Vector3(size.y + 0.8, rise, size.x + 0.6)
 		B.mesh(body, roof, Vector3(0, wall_h - 0.2 + roof.size.y / 2.0, 0), Color(0.22, 0.22, 0.24), Vector3(0, 90, 0))
 		body.add_child(B.box_shape(Vector3(size.x, wall_h, size.y), Vector3(0, wall_h / 2.0, 0)))
 
 
-## Metsä: männyt MultiMeshinä. Kävelyalueella tarkat männyt (törmäys pihan lähellä), kauempana kevyet
-## kartiopuut horisonttiin asti. Ei vesiin, pelloille, teille eikä pihoille; suolla harvempaa.
+## Metsä oikeista puista: MML:n laserkeilaus (paikka, pituus, latvus) ja Luken VMI (laji), forest.gd. Puut on
+## jo leivottu pois vesistä, pelloilta, teiltä, rakennuksilta ja pelin aukoista (tools/kartta/mokki_puut.py).
 func _build_forest() -> void:
-	var data := map_data()
-	var bodies := StaticBody3D.new()
-	bodies.set_meta("ground", true)
-	add_child(bodies)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 62
-	var near_half := AREA_HALF + 60.0
-	var near: Array[Transform3D] = []
-	var far: Array[Transform3D] = []
-	var lava := Vector2(HUNT_LOCAL.x, HUNT_LOCAL.z)
-	for pass_i in 2:
-		var step := 7.0 if pass_i == 0 else 10.0
-		var half := near_half if pass_i == 0 else VIEW_HALF - 5.0
-		var z := -half
-		while z < half:
-			var x := -half
-			while x < half:
-				var p := Vector2(x, z) + Vector2(rng.randf_range(-3, 3), rng.randf_range(-3, 3))
-				x += step
-				if pass_i == 1 and absf(p.x) < near_half and absf(p.y) < near_half:
-					continue  # tarkkojen puiden alue
-				if _mask(p) != 0 or in_water(p.x, p.y) or in_field(p) or _is_yard(p):
-					continue
-				if pass_i == 0:
-					# Ranta-alue laiturille johtavalta polulta, metsästysaukea ja näkölinja lavalta sinne.
-					if p.distance_to(Geometry2D.get_closest_point_to_segment(p, DOCK_PATH_A, DOCK_PATH_B)) < 3.0:
-						continue
-					if p.distance_to(HUNT_GLADE) < HUNT_GLADE_R \
-							or p.distance_to(Geometry2D.get_closest_point_to_segment(p, lava + Vector2(-2.0, 0), HUNT_GLADE)) < 6.0:
-						continue
-				var bog := false
-				for b in data.bogs:
-					if Geometry2D.is_point_in_polygon(p, b):
-						bog = true
-				if bog and rng.randf() < 0.7:
-					continue
-				var sc := rng.randf_range(0.8, 1.4) * (0.6 if bog else 1.0)
-				var xf := Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * sc), Vector3(p.x, h(p.x, p.y), p.y))
-				if pass_i == 0:
-					near.append(xf)
-					if p.length() < 200.0:
-						var cs := B.capsule_shape(0.25 * sc, 5.6 * sc)
-						cs.position = Vector3(p.x, h(p.x, p.y), p.y)
-						bodies.add_child(cs)
-				else:
-					far.append(xf)
-			z += step
-	for set_i in 2:
-		var xfs: Array[Transform3D] = near if set_i == 0 else far
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = _pine_mesh() if set_i == 0 else _far_pine_mesh()
-		mm.instance_count = xfs.size()
-		for i in xfs.size():
-			mm.set_instance_transform(i, xfs[i])
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.set_meta("ground", true)
-		add_child(mmi)
-
-
-## Kaukainen mänty: runko ja yksi kartio (vähän kolmioita horisontin metsään).
-func _far_pine_mesh() -> ArrayMesh:
-	var am := ArrayMesh.new()
-	for part in [[B.cyl(0.1, 0.2, 3.0, 5), Vector3(0, 1.5, 0), Color(0.35, 0.25, 0.16)],
-			[B.cyl(0.05, 1.1, 5.6, 6), Vector3(0, 4.6, 0), Color(0.16, 0.27, 0.15)]]:
-		var st := SurfaceTool.new()
-		st.append_from(part[0], 0, Transform3D(Basis(), part[1]))
-		st.commit(am)
-		am.surface_set_material(am.get_surface_count() - 1, B.mat(part[2]))
-	return am
-
-
-## Mänty yhtenä meshinä (runko + neljä latvakartiota), jotta metsä piirtyy MultiMeshinä.
-func _pine_mesh() -> ArrayMesh:
-	var am := ArrayMesh.new()
-	var parts := [[B.cyl(0.12, 0.22, 3.5, 7), Vector3(0, 1.75, 0), Color(0.35, 0.25, 0.16)]]
-	for k in 4:
-		var fh := 1.6 * (1.0 - k * 0.12)
-		parts.append([B.cyl(0.03, fh * 0.62, fh, 7), Vector3(0, 2.8 + k * 1.12, 0), Color(0.15, 0.26, 0.14).lightened(0.04 * k)])
-	for part in parts:
-		var st := SurfaceTool.new()
-		st.append_from(part[0], 0, Transform3D(Basis(), part[1]))
-		st.commit(am)
-		am.surface_set_material(am.get_surface_count() - 1, B.mat(part[2]))
-	return am
+	var f := Forest.new()
+	add_child(f)
+	f.load_data(TREES_PATH)
 
 
 func _build_lake_and_dock() -> void:

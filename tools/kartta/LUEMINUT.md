@@ -88,3 +88,31 @@ Vanha `tools/mokki_kartta.py` (Overpass ja EU-DEM 25 m) on vielä repossa, mutta
 | `kehys.ps1` | `kartta.py: px2tm, tm2px` | kylän kehys (px ↔ TM35) |
 | `kyla_osm.ps1`, `kyla.ps1`, `mokki.ps1` | `kyla_osm.py`, `kyla.py`, `mokki.py` | ajoskriptit |
 | `tarkista_alueet.gd` | | aluemonikulmioiden kolmioituvuus (Godot) |
+
+## Tarkka mallinnus: mökin metsä ja Vaalan mopomatka (tarkka.py)
+
+Mökin ympäristö ja Vaalan mopomatka käyttävät samaa aineistoa kuin Oulujärven norpat:
+
+| Mitä | Lähde |
+|------|-------|
+| Puut: paikka, pituus, latvuksen säde | MML:n laserkeilaus 2011 (Funet, `mml/laserkeilaus/2008_latest/2011/`): latvusmallin paikalliset maksimit; latvuston aukot täydennetään vain laserin näkemään latvustoon |
+| Puulajit | Luken monilähteinen VMI 2023 (16 m), HTTP-aluepyynnöillä vain tarvittavat laatat |
+| Rakennusten korkeudet | laserpisteet pohjapiirroksen sisältä (pienissä harja, isoissa katon taso) |
+| Vaalan korkeudet | MML:n 2 m korkeusmalli (tie, sivut, keskusta ja kaukomaasto; ennen EU-DEM 25 m) |
+| Vaalan pellot, suot, vedet ja rakennukset | maastotietokanta; keskustan rakennuksille OSM:n nimet, tyypit ja tunnisteet |
+
+Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kartta/requirements.txt`.
+
+- **Mökki**: `venv/bin/python tools/kartta/mokki_puut.py --cache <välimuisti>` → `assets/mokki/puut.bin`
+  (puut mökin paikallisessa kehyksessä, maanpinta kuten `mokki.gd`:n `h()`) ja `assets/mokki/rakennukset.json`
+  (naapurirakennusten harjakorkeudet OSM-tunnisteittain).
+- **Vaala**: `venv/bin/python tools/vaala_bake.py --cache <välimuisti>` (tarkka aineisto `tools/kartta/vaala_tarkka.py`)
+  → `assets/vaala/tie.json`, `maasto.bin` ja `puut.bin`. Puut siirretään tien suhteen pelin kehykseen kuten muutkin
+  kohteet, tiivistetyllä välillä harvennettuna tiivistyksen suhteessa (metsän tiheys säilyy). Kaukomaaston metsä
+  (650 m tiestä) on laserin valtapuita.
+
+Lähdeaineisto ladataan välimuistiin (n. 600 Mt: 9 laserlehteä, korkeusmallilehdet, maastotietokanta R4333L, R4333R,
+R4334R). Korkeusmallin lehtijako alkaa idässä 308 000:sta (lehdet 2000 mod 6000), pohjoisessa 6 570 000:sta.
+Puut piirtää `scripts/forest.gd` (kolme tarkkuustasoa, paikat varjostimessa datatekstuurista, rungot törmäävät
+kameran lähellä). Tarkistuskuvat: `godot --path . -s tools/testit/tarkka_kuvat.gd -- <kansio>` (mökki) ja
+`godot --path . -- --shot=<kansio>/v.png --scene=mokkivaala` (Vaala).
