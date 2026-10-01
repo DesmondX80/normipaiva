@@ -38,7 +38,7 @@ func _ready() -> void:
 		k.rotation.y = B.yaw_to(-k.position)
 		k.play("Idle", 0.0)
 		_kids.append(k)
-		_bubbles.append(B.label(self, "", k.position + Vector3(0, 1.75, 0), 34, Color.WHITE, true))
+		_bubbles.append(B.bubble(self, k.position + Vector3(0, 1.75, 0), Color.WHITE))
 
 
 ## Pojan repliikki kuplaan (i = -1: satunnainen poika).

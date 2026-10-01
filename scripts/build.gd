@@ -177,6 +177,36 @@ static func label(parent: Node3D, text: String, pos: Vector3, size: int, color: 
 	return l
 
 
+## Puhekupla hahmon yläpuolelle: teksti on aina saman kokoista ruudulla (fixed_size: läheltä ei paisu jättimäiseksi
+## eikä kaukaa kutistu), rivittyy (BUBBLE_WIDTH px) ja siinä on paksu musta ääriviiva, jotta se erottuu mistä
+## taustasta tahansa. Teksti asetetaan label.text:llä.
+const BUBBLE_WIDTH := 520.0
+const BUBBLE_FONT := 40
+const BUBBLE_PIXEL := 0.0012
+static func bubble(parent: Node3D, pos: Vector3, color := Color.WHITE, scale := 1.0, guard := true) -> Label3D:
+	var l: Label3D = preload("res://scripts/bubble.gd").new()
+	l.rest = pos
+	l.guard = guard
+	l.text = ""
+	l.font_size = BUBBLE_FONT
+	l.pixel_size = BUBBLE_PIXEL * scale  # sisätilojen yläkamera: scale < 1, ettei kupla karkaa ruudun yläreunan yli
+	l.fixed_size = true
+	l.width = BUBBLE_WIDTH
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.modulate = color
+	l.outline_size = 18
+	l.outline_modulate = Color(0, 0, 0, 1)
+	l.position = pos
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.render_priority = 10
+	l.outline_render_priority = 9
+	l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM  # kasvaa ylöspäin, alareuna pysyy hahmon yläpuolella
+	l.offset = Vector2(0, 0)
+	parent.add_child(l)
+	return l
+
+
 ## Ihminen, jalat y=0:ssa ja kasvot -Z-suuntaan. Solmut LegL/LegR/Upper/ArmL/ArmR animointia varten.
 static func person(parent: Node3D, shirt: Color, pants: Color, skin: Color, hair: Color, hunch := 0.0) -> Node3D:
 	var root := Node3D.new()

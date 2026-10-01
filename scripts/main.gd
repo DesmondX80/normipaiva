@@ -6666,6 +6666,23 @@ func _maybe_screenshot() -> void:
 				door + Vector3(0, 1.0, 0), Vector3.UP)
 			cam.current = true
 			_msg.text = ""
+		"kupla":
+			# Puhekupla läheltä ja kaukaa: Pekka sanoo pitkän repliikin, kamera 1,6 m / 4 m / 9 m päästä.
+			pekka.set_physics_process(false)
+			var pp: Vector3 = pekka.yard[0]
+			pekka.global_position = pp
+			var fwd := Vector3(0, 0, 1)
+			pekka.rotation.y = B.yaw_to(fwd)
+			pekka.say(PEKKA_LINES[3] + " " + PEKKA_LINES[1])
+			var kc := Camera3D.new()
+			add_child(kc)
+			kc.current = true
+			for dist in [1.6, 4.0, 9.0]:
+				kc.look_at_from_position(pp + fwd * dist + Vector3(0, 1.5, 0), pp + Vector3(0, 1.8, 0), Vector3.UP)
+				await get_tree().create_timer(0.4).timeout
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%d.png" % int(dist * 10)))
+				pekka.say(PEKKA_LINES[3] + " " + PEKKA_LINES[1])
 		"pitkalappu":
 			# Pitkä lappu: kaikki päivän muistutukset kerralla; lapun pitää mahtua kokonaan ruudulle.
 			var many := ["Jemmassa 4 kaljaa.", "Varoitus: Päivi voi löytää täyden kotijemman!",

@@ -549,10 +549,7 @@ func _build_people() -> void:
 			raimo = c
 		else:
 			veikko = c
-		var bubble := B.label(self, "", c.position + Vector3(0, 1.65, 0), 16, Color.WHITE, true)
-		bubble.outline_size = 6
-		bubble.width = 700.0
-		bubble.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var bubble := B.bubble(self, c.position + Vector3(0, 1.65, 0), Color.WHITE)
 		_bubbles[sp[1]] = bubble
 		_bubble_t[sp[1]] = 0.0
 		var name := B.guide(self, sp[3], c.position + Vector3(0, 1.3, 0), 12, Color(1, 0.9, 0.6), true)
