@@ -42,7 +42,7 @@ func _ready() -> void:
 	home = position
 	_engine = Sfx.loop_on(self, "tractor_engine", -2.0)
 	_engine.pitch_scale = 0.8
-	_bubble = B.label(self, "", Vector3(0, 3.6, 0), 56, Color.WHITE, true)
+	_bubble = B.bubble(self, Vector3(0, 3.6, 0), Color.WHITE)
 	B.guide(self, "Jyväjemmari", Vector3(0, 3.15, 0), 42, Color(1, 0.9, 0.6), true)
 
 

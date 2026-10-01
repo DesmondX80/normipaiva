@@ -46,7 +46,7 @@ func _ready() -> void:
 		_boss.position = center + Vector3(-1.2, 0, -3.4)
 		B.guide(_boss, "Teinijengin pomo", Vector3(0, 2.1, 0), 40, Color(0.8, 1, 0.8), true)
 		_build_vandalism()
-	_bubble = B.label(_boss, "", Vector3(0, 2.6, 0), 52, Color.WHITE, true)
+	_bubble = B.bubble(_boss, Vector3(0, 2.6, 0), Color.WHITE)
 
 
 ## Teinit: kaksi kaveria riehuu, roskis kaatuneena, töhrytys katoksessa.

@@ -88,7 +88,7 @@ func _spawn_people() -> void:
 	_partner.position = Vector3(1.6, 0.06, 0.6)
 	_partner.rotation.y = -0.8
 	_partner.play("Idle", 0.0)
-	_bubble = B.label(self, "", Vector3(1.6, 2.2, 0.6), 48, Color(1, 1, 0.85), true)
+	_bubble = B.bubble(self, Vector3(1.6, 2.2, 0.6), Color(1, 1, 0.85))
 
 
 func _process(delta: float) -> void:

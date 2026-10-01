@@ -322,6 +322,13 @@ func _watcher_bubble(who: String) -> Label3D:
 	return kota._bubbles[who]
 
 
+## Kuplan paikka: B.bubble (bubble.gd) palauttaa paikkansa restiin joka ruudulla, joten molemmat asetetaan.
+func _place_bubble(b: Label3D, p: Vector3) -> void:
+	if "rest" in b:
+		b.rest = p
+	b.position = p
+
+
 func _watcher_say(who: String, text: String, seconds: float) -> void:
 	if kota.has_method("watcher_say"):
 		kota.watcher_say(who, text, seconds)
@@ -335,19 +342,19 @@ func _setup_watchers() -> void:
 		_talk_t[who] = 0.0
 		var c: Node3D = _watcher(who)
 		var bubble: Label3D = _watcher_bubble(who)
-		_saved[who] = [c.transform, bubble.position, c.current()]
+		_saved[who] = [c.transform, bubble.rest if "rest" in bubble else bubble.position, c.current()]
 		var p: Vector3 = transform * (watcher_spots[who] as Vector3)
 		c.position = p
 		c.rotation = Vector3(0, B.yaw_to(transform * watch_at - p), 0)
 		c.play("Idle", 0.3)
-		bubble.position = p + Vector3(0, 2.05, 0)
+		_place_bubble(bubble, p + Vector3(0, 2.05, 0))
 
 
 func _restore_watchers() -> void:
 	for who in watcher_spots:
 		var c: Node3D = _watcher(who)
 		c.transform = _saved[who][0]
-		_watcher_bubble(who).position = _saved[who][1]
+		_place_bubble(_watcher_bubble(who), _saved[who][1])
 		c.play(_saved[who][2], 0.0)
 		_watcher_say(who, "", 0.0)
 

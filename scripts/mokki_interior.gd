@@ -108,7 +108,7 @@ func _ready() -> void:
 	body.position = _santtu.position
 	body.add_child(B.capsule_shape(0.3, 1.8))
 	add_child(body)
-	_bubble = B.label(self, "", _santtu.position + Vector3(0, 2.1, 0), 34, Color.WHITE, true)
+	_bubble = B.bubble(self, _santtu.position + Vector3(0, 1.9, 0), Color.WHITE, 0.7)
 	walker = Walker.new()
 	walker.position = SPOTS.ovi[0]
 	add_child(walker)

@@ -523,7 +523,7 @@ func _build_checkout() -> void:
 	_cashier = Looks.make(self, Looks.CASHIER)
 	_cashier.position = Vector3(10.2, 0, 5.2)
 	_cashier.rotation.y = B.yaw_to(Vector3(-1, 0, 0))
-	_cashier_bubble = B.label(self, "", Vector3(10.2, 2.6, 5.2), 48, Color.WHITE, true)
+	_cashier_bubble = B.bubble(self, Vector3(10.2, 2.3, 5.2), Color.WHITE, 0.7)
 	# Jonopaikkamerkit lattiassa.
 	for i in 5:
 		var ring := MeshInstance3D.new()

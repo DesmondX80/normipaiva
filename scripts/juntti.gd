@@ -46,7 +46,7 @@ func _ready() -> void:
 	# Musta verkkari, valkoiset raidat, vaalea hiuspehko.
 	_body = Looks.make(self, Looks.JUNTTI)
 	_label = B.guide(self, "Paikallinen juntti", Vector3(0, 2.25, 0), 40, Color(1, 0.9, 0.6), true)
-	_bubble = B.label(self, "", Vector3(0, 2.7, 0), 56, Color.WHITE, true)
+	_bubble = B.bubble(self, Vector3(0, 2.7, 0), Color.WHITE)
 	home_pos = position
 
 
