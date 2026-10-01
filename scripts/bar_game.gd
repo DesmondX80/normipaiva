@@ -167,8 +167,7 @@ func _build_room() -> void:
 	_tero.position = Vector3(0, 0.0, -0.62)
 	_tero.rotation.y = PI
 	_tero.play("Sitting_Idle", 0.0)
-	_bubble = B.label(self, "", Vector3(0.35, 1.72, -0.62), 12, Color.WHITE, true)
-	_bubble.outline_size = 4
+	_bubble = B.bubble(self, Vector3(0.35, 1.72, -0.62), Color.WHITE)
 	# Kädet.
 	_my_arm = _arm_mesh()
 	_hand = MeshInstance3D.new()

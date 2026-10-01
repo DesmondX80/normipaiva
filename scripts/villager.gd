@@ -41,7 +41,7 @@ func _ready() -> void:
 	add_child(B.capsule_shape(0.35, 1.8))
 	_body = Looks.make(self, look)
 	B.guide(self, display_name, Vector3(0, 2.1, 0), 40, Color(0.9, 0.95, 1.0), true)
-	_bubble = B.label(self, "", Vector3(0, 2.6, 0), 50, Color.WHITE, true)
+	_bubble = B.bubble(self, Vector3(0, 2.6, 0), Color.WHITE)
 	_chore_t = randf_range(1.0, 4.0)  # hetki oven edessä ennen ensimmäistä puuhaa
 
 
