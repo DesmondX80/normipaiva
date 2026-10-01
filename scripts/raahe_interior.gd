@@ -49,11 +49,31 @@ const KAPTEENI_LINES := ["Raahe oli aikoinaan Suomen suurin laivakaupunki. Retar
 const KELLARI_LINES := ["Kellarissa on Raahen paras karaoke, sanoo kaikki.", "Laula sinäkin! Täällä ei kukaan räknää nuotteja.",
 	"Ruukin Raija laulo eilen kolme kertaa saman biisin.", "Kajuutan aikaan täällä oli tanssit joka lauantai.",
 	"Skooli laulajalle!"]
+## Päivi tulee etsimään. Näkökenttä (keila lattialla): näkee pelaajan keilan sisällä samassa kerroksessa ja
+## kuulee aivan vierestä. Ei näe: kiertää etsintäpisteitä ja katselee ympärilleen, välillä käy toisessa
+## kerroksessa portaiden kautta. Näkee: huutaa ja ajaa takaa; kadottaa: menee viimeiseen havaintopaikkaan.
+const PAIVI_SPEED := 2.4  # etsiessä
+const PAIVI_CHASE := 3.2  # takaa-ajossa (pelaaja 4,5 m/s pääsee karkuun, nurkkaan ei kannata jäädä)
+const PAIVI_CATCH := 1.1
+const PAIVI_STAIRS := 2.5  # s portaissa kerrosten välillä
+const VIEW_DIST := 9.0
+const VIEW_HALF := 60.0  # astetta keilan keskiviivasta
+const HEAR_DIST := 1.8
+## Etsintäpisteet kerroksittain (Kulma, Kellari): viimeinen on portaat.
+const PAIVI_POINTS := [
+	[Vector3(-6.0, 0, 3.0), Vector3(-1.0, 0, 0.0), Vector3(1.5, 0, -2.6), Vector3(4.0, 0, 2.4), Vector3(-5.5, 0, -1.8), Vector3(7.2, 0, 3.4)],
+	[Vector3(30.0, 0, 0.5), Vector3(26.5, 0, 2.0), Vector3(31.5, 0, -2.6), Vector3(33.5, 0, 1.5), Vector3(36.0, 0, 3.4)],
+]
+const PAIVI_SEARCH_LINES := ["Missä se on? Mää tiedän että se on täällä!", "Taksikuski sano että se jäi tänne!",
+	"Älkää yrittäkö, mää nään kyllä!", "Ruukin porukka, ootteko nähny mun miestä?", "Kotiin, ja heti!"]
+const PAIVI_WARN_LINES := ["Päivi tuli! Kellariin äkkiä!", "Hei, sun Päivi on ovella!", "Voi pojat, nyt tuli emäntä."]
+const PAIVI_COVER_LINES := ["Ei me oo nähty ketään.", "Täällä on vaan ruukin porukkaa, rouva.", "Kapteeni ei puhu, kapteeni juo."]
 const SINGER_LINES := ["♪ Ruukin valot syttyy yöhön... ♪", "♪ Pekka torilla vahtii, merelle kattoo... ♪",
 	"♪ Seelit ylös, retari huutaa... ♪", "♪ Skooli, kaverit, Kellarissa... ♪"]
 
 signal exited
 signal acted(kind: String)
+signal paivi_caught
 
 var active := false
 var busy := false
@@ -76,6 +96,17 @@ var _sing_t := 10.0
 var _singing := 0.0
 var _chat_t := 5.0
 var _t := 0.0
+var paivi_here := false
+var _paivi: Node3D
+var _paivi_cone: MeshInstance3D
+var _paivi_mode := "look"  # look (katselee ympärilleen) | search | chase | lost
+var _paivi_wait := 0.0
+var _paivi_goal := Vector3.ZERO
+var _paivi_pts: Array = []  # tämän kerroksen etsintäpisteet jäljellä
+var _paivi_seen := Vector3.ZERO
+var _paivi_floor_t := 0.0  # aika tässä kerroksessa pelaajaa näkemättä
+var _paivi_stairs := 0.0  # > 0: Päivi portaissa
+var _paivi_talk := 0.0
 
 
 func _ready() -> void:
@@ -99,6 +130,165 @@ func enter() -> void:
 func leave() -> void:
 	active = false
 	walker.controls_enabled = false
+	paivi_here = false
+	_paivi.visible = false
+	_paivi_cone.visible = false
+
+
+## Päivi astuu ovesta sisään etsimään pelaajaa; baarimikko tai ruukin porukka varoittaa.
+func paivi_arrive() -> void:
+	paivi_here = true
+	_paivi_stairs = 0.0
+	_paivi.visible = true
+	_paivi.position = spots.ovi[0]
+	_paivi.rotation.y = B.yaw_to(Vector3(1, 0, -0.5))
+	_paivi_cone.visible = true
+	_paivi_talk = 4.0
+	_paivi_mode = "look"
+	_paivi_wait = 2.5  # katselee ensin ovella ympärilleen
+	_paivi_pts.clear()
+	_paivi_floor_t = 0.0
+	say(_paivi, "MISSÄ SE ON?!", 3.0)
+	if in_cellar():
+		say(_cellar_bartender, "Ylhäältä kuuluu huutoa... Päivi tuli!")
+	else:
+		say(_ruukki.pick_random(), PAIVI_WARN_LINES.pick_random())
+
+
+func _cellar_of(p: Vector3) -> bool:
+	return p.x > CELLAR.x - CELLAR_HALF.x - 1.0
+
+
+## Näkeekö Päivi pelaajan: sama kerros ja keilan sisällä (tai aivan vieressä).
+func _paivi_sees() -> bool:
+	if _cellar_of(walker.position) != _cellar_of(_paivi.position):
+		return false
+	var to := walker.position - _paivi.position
+	to.y = 0.0
+	var d := to.length()
+	if d < HEAR_DIST:
+		return true
+	if d > VIEW_DIST:
+		return false
+	var fwd := -_paivi.global_transform.basis.z
+	fwd = Vector3(fwd.x, 0, fwd.z).normalized()
+	return rad_to_deg(fwd.angle_to(to.normalized())) < VIEW_HALF
+
+
+func _paivi_walk(target: Vector3, speed: float, delta: float) -> float:
+	var to := target - _paivi.position
+	to.y = 0.0
+	var d := to.length()
+	if d > 0.05:
+		_paivi.position += to.normalized() * minf(speed * delta, d)
+		_paivi.rotation.y = lerp_angle(_paivi.rotation.y, B.yaw_to(to), 1.0 - exp(-8.0 * delta))
+		_paivi.play("Walk", 0.2)
+	return d
+
+
+func _paivi_next_point() -> void:
+	var fl := 1 if _cellar_of(_paivi.position) else 0
+	if _paivi_pts.is_empty() or _paivi_floor_t > 25.0:
+		var pts: Array = (PAIVI_POINTS[fl] as Array).duplicate()
+		var stairs: Vector3 = pts.pop_back()
+		pts.shuffle()
+		pts.append(stairs)  # kierros päättyy portaille ja toiseen kerrokseen
+		_paivi_pts = pts
+		_paivi_floor_t = 0.0
+	_paivi_goal = _paivi_pts.pop_front()
+	_paivi_mode = "search"
+
+
+func _paivi_tick(delta: float) -> void:
+	if _paivi_stairs > 0.0:
+		_paivi_stairs -= delta
+		if _paivi_stairs <= 0.0:
+			var down := not _cellar_of(_paivi.position)
+			_paivi.position = (spots.ylos[0] if down else spots.alas[0]) + Vector3(-1.0, 0, 0)
+			_paivi.rotation.y = B.yaw_to(Vector3(-1, 0, 0))
+			_paivi.visible = true
+			_paivi_cone.visible = true
+			_paivi_pts.clear()
+			_paivi_mode = "look"
+			_paivi_wait = 1.5
+			say(_paivi, "Kellarissa vai? Katotaan..." if down else "Ylhäällä vai?", 2.5)
+		return
+	_paivi_floor_t += delta
+	var to_p := walker.position - _paivi.position
+	to_p.y = 0.0
+	if _paivi_sees():
+		if _paivi_mode != "chase":
+			say(_paivi, "TUOLLA SÄÄ OOT!", 2.5)
+			_paivi_talk = 3.0
+			Sfx.play("alert", -6.0, 1.2)
+		_paivi_mode = "chase"
+		_paivi_seen = walker.position
+		_paivi_floor_t = 0.0
+	elif _paivi_mode == "chase":
+		_paivi_mode = "lost"  # katosi näkyvistä: viimeiseen havaintopaikkaan
+		say(_paivi, "Mihin se meni?!", 2.0)
+	match _paivi_mode:
+		"chase":
+			if to_p.length() < PAIVI_CATCH:
+				paivi_here = false
+				_paivi_cone.visible = false
+				_paivi.play("Idle_Talking", 0.2)
+				say(_paivi, "Täällähän sää oot! Kotiin, heti!", 3.0)
+				paivi_caught.emit()
+				return
+			_paivi_walk(walker.position, PAIVI_CHASE, delta)
+		"lost":
+			if _paivi_walk(_paivi_seen, PAIVI_CHASE, delta) < 0.3:
+				_paivi_mode = "look"
+				_paivi_wait = 2.0
+		"look":
+			# Katselee ympärilleen: keila pyyhkii puolelta toiselle.
+			_paivi_wait -= delta
+			_paivi.rotation.y += sin(_t * 2.2) * 1.6 * delta
+			_paivi.play("Idle", 0.3)
+			if _paivi_wait <= 0.0:
+				_paivi_next_point()
+		"search":
+			var stairs_goal: bool = _paivi_goal.is_equal_approx(PAIVI_POINTS[1 if _cellar_of(_paivi.position) else 0][-1])
+			if _paivi_walk(_paivi_goal, PAIVI_SPEED, delta) < 0.3:
+				if stairs_goal:
+					_paivi.visible = false
+					_paivi_cone.visible = false
+					_paivi_stairs = PAIVI_STAIRS
+					return
+				_paivi_mode = "look"
+				_paivi_wait = randf_range(1.2, 2.2)
+	_paivi_talk -= delta
+	if _paivi_talk <= 0.0 and _paivi_mode != "chase":
+		_paivi_talk = randf_range(3.5, 5.5)
+		say(_paivi, PAIVI_SEARCH_LINES.pick_random(), 2.6)
+		if randf() < 0.4 and not _cellar_of(_paivi.position):
+			say([_kapteeni, _ruukki.pick_random(), _bartender].pick_random(), PAIVI_COVER_LINES.pick_random())
+
+
+## Näkökeila lattialla: läpikuultava punainen viuhka Päivin edessä (näyttää minne hän katsoo).
+func _make_cone() -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 16
+	for i in n:
+		var a0 := deg_to_rad(-VIEW_HALF + 2.0 * VIEW_HALF * i / n)
+		var a1 := deg_to_rad(-VIEW_HALF + 2.0 * VIEW_HALF * (i + 1) / n)
+		st.add_vertex(Vector3.ZERO)
+		st.add_vertex(Vector3(-sin(a1), 0, -cos(a1)) * VIEW_DIST)
+		st.add_vertex(Vector3(-sin(a0), 0, -cos(a0)) * VIEW_DIST)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.15, 0.1, 0.18)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position.y = 0.03
+	mi.visible = false
+	return mi
 
 
 func in_cellar() -> bool:
@@ -161,6 +351,11 @@ func _process(delta: float) -> void:
 			var line: String = SINGER_LINES.pick_random()
 			say(_singer, line, 8.5)
 			_screen.text = line.replace("♪ ", "").replace(" ♪", "")
+	if paivi_here and active and not busy:
+		_paivi_tick(delta)
+	if _paivi_cone.visible:
+		_paivi_cone.position = Vector3(_paivi.position.x, 0.03, _paivi.position.z)
+		_paivi_cone.rotation.y = _paivi.rotation.y
 	if not active or busy or not walker.controls_enabled:
 		hint = ""
 		return
@@ -215,6 +410,11 @@ func _process(delta: float) -> void:
 			acted.emit("tiski")
 		_:
 			acted.emit(best)
+
+
+## Testi: ulko-ovesta ulos ilman E-painallusta.
+func _on_test_exit() -> void:
+	exited.emit()
 
 
 ## Valikosta tai minipelistä palatessa sama E-painallus ei saa avata uutta toimintoa.
@@ -572,3 +772,9 @@ func _build_people() -> void:
 	_singer = _seat({"model": "female", "shirt": Color(0.2, 0.55, 0.75), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.1, 0.1, 0.1),
 		"hair": "Hair_Buns", "hair_color": Color(0.85, 0.55, 0.25), "height": 1.64}, CELLAR + Vector3(3.2, 0, 2.0), Vector3(-1, 0, 0))
 	_kellari.append(_singer)
+	# Päivi (piilossa, kunnes tulee etsimään).
+	_paivi = Looks.make(self, Looks.PAIVI)
+	_paivi.visible = false
+	_add_bubble(_paivi)
+	_paivi_cone = _make_cone()
+	add_child(_paivi_cone)
