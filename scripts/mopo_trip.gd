@@ -16,6 +16,10 @@ signal arrived
 signal finished(result: String)
 signal killed  # auto ajoi mopon päälle
 signal atm     # pankkiautomaatilla E
+signal shop    # K-Market Tervaportin ovella E
+signal lava    # Oulujärven lavan ovella E (lavatanssit)
+
+const LAVA_TICKET := 12.0
 signal crashed(reason: String)  # kännissä kumoon: "ditch" tai "wall"; mopo nostetaan tielle
 
 var vaala: Node3D
@@ -159,6 +163,22 @@ func stop() -> void:
 		car.visible = false
 
 
+## Jatkaa matkaa siitä, mihin jäätiin (esim. K-Market Tervaportista): mopo ja liikenne heräävät, paikka säilyy.
+func resume() -> void:
+	if mopo == null:
+		return
+	mopo.speed = 0.0
+	mopo.velocity = Vector3.ZERO
+	mopo.controls_enabled = true
+	mopo.set_engine(true)
+	mopo.activate_camera()
+	mopo.process_mode = Node.PROCESS_MODE_INHERIT
+	for car in _cars:
+		car.process_mode = Node.PROCESS_MODE_INHERIT
+		car.visible = true
+	active = true
+
+
 ## Kohteen paikka maailmassa (kompassia varten).
 func target_global() -> Vector3:
 	return to_global(vaala.siitari_door if target == "siitari" else vaala.road_pos(0))
@@ -188,10 +208,24 @@ func _process(delta: float) -> void:
 	status = "Mopo %d km/h\n%s · %s %s" % [roundi(kmh), name, "Siitari" if target == "siitari" else "Paapeli",
 		("%.1f km" % (left / 1000.0)).replace(".", ",") if left > 150.0 else "%d m" % roundi(left)]
 	hint = ""
-	if mopo.position.distance_to(vaala.atm_pos) < 4.5 and absf(mopo.speed) < 2.0:
+	var d_shop: float = mopo.position.distance_to(vaala.kmarket_door) if vaala.kmarket_door != Vector3.ZERO else INF
+	var d_atm: float = mopo.position.distance_to(vaala.atm_pos)
+	if d_atm < 4.5 and d_atm <= d_shop and absf(mopo.speed) < 2.0:
 		hint = "[E] Nosta rahaa pankkiautomaatista (20 € kerran päivässä)"
 		if Input.is_action_just_pressed("interact"):
 			atm.emit()
+		return
+	if vaala.lava_door != Vector3.ZERO and mopo.position.distance_to(vaala.lava_door) < 6.0 and absf(mopo.speed) < 2.0:
+		hint = "[E] Oulujärven lava: lavatanssit (lippu %s €)" % ("%.2f" % LAVA_TICKET).replace(".", ",")
+		if Input.is_action_just_pressed("interact"):
+			mopo.speed = 0.0
+			lava.emit()
+		return
+	if d_shop < 5.0 and absf(mopo.speed) < 2.0:
+		hint = "[E] Parkkeeraa mopo ja mene K-Market Tervaporttiin (myös Alko)"
+		if Input.is_action_just_pressed("interact"):
+			mopo.speed = 0.0
+			shop.emit()
 		return
 	if target == "siitari":
 		if mopo.position.distance_to(vaala.siitari_park) < ARRIVE_R + 6.0 or \

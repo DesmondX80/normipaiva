@@ -594,16 +594,17 @@ func garage(title: String, stats: String, done: Callable) -> void:
 # --- Taksi mökille ----------------------------------------------------------------
 
 ## Lyhyt häivytys mustaan ja takaisin; done kutsutaan pimeällä (siirto tapahtuu silloin).
-func taxi(sub: String, done: Callable) -> void:
+## Taksimatka: otsikkonauha (oletus TAKSI) ja alateksti; mitä pidempi teksti, sitä kauemmin se näkyy.
+func taxi(sub: String, done: Callable, title := "TAKSI") -> void:
 	_begin()
 	Sfx.play("horn", -4.0)
 	await _fade_to(1.0, 0.45)
 	_band.visible = true
 	_title.add_theme_color_override("font_color", Color(0.96, 0.78, 0.08))
-	_title.add_theme_font_size_override("font_size", 90)
-	_title.text = "TAKSI"
+	_title.add_theme_font_size_override("font_size", 90 if title.length() <= 8 else 64)
+	_title.text = title
 	_sub.text = sub
-	await _wait(1.5)
+	await _wait(1.5 + sub.count("\n") * 1.0 + (1.0 if title != "TAKSI" else 0.0))
 	_title.text = ""
 	_band.visible = false
 	await _end(done)

@@ -15,6 +15,10 @@ const BEER_PRICE := 12.90
 const EXTRAS := {"makkara": ["grillimakkara", 3.50], "tikut": ["tulitikut", 1.20]}
 ## Karkkiteline kassan lähellä (heräteostos): suklaalevy.
 const CANDY_SPOT := Vector3(5.2, 0, 7.2)
+## Alkon hylly vasemmalla seinällä (vain Vaalan K-Market Tervaportissa, vaala = true): viina kätköviinaksi.
+const ALKO_SPOT := Vector3(-10.4, 0, -2.0)
+const ALKO := ["Koskenkorva 0,5 l", 21.90]
+const ALKO_MAX := 2
 const CANDY := ["suklaa", "suklaalevy", 2.49]
 ## Leipähylly karkkitelineen vieressä: eväät (syödään T:llä, ks. main.gd _eat_menu). Avain -> [nimi, hinta].
 const BAKERY_SPOT := Vector3(3.2, 0, 7.2)
@@ -64,6 +68,9 @@ var bag := {}  # Päivin hyllyn tuotteet: tuote -> väri
 var _sel := {}  # lokeron valittu väri: tuote -> värin indeksi
 var _items := {}  # tuote -> väri -> MeshInstance3D (valittu nostetaan esiin)
 var money := 20.0  # main päivittää ennen sisääntuloa
+## Vaalan K-Market Tervaportti: Alkon hylly näkyvissä, eikä Saloisten naapuri (Anna-Liisa) tule kauppaan.
+var vaala := false
+var _alko: Node3D
 
 var walker: CharacterBody3D
 var neighbor: CharacterBody3D
@@ -87,6 +94,7 @@ func _ready() -> void:
 	_build_room()
 	_build_checkout()
 	_build_paivi_shelf()
+	_build_alko()
 	walker = Walker.new()
 	walker.position = DOOR
 	add_child(walker)
@@ -100,7 +108,8 @@ func enter() -> void:
 	walker.position = ENTRY
 	walker.rotation.y = 0.0
 	walker.activate()
-	if not _neighbor_spawned and _neighbor_t < 0.0:
+	_alko.visible = vaala
+	if not vaala and not _neighbor_spawned and _neighbor_t < 0.0:
 		_neighbor_t = randf_range(4.0, 10.0)
 
 
@@ -170,6 +179,16 @@ func _process(delta: float) -> void:
 				cart[next] = BAKERY[next][1]
 				walker.set_carrying(true)
 				Sfx.play("pickup", -4.0, 0.9)
+	elif vaala and _flat(p, ALKO_SPOT) < 1.5 and not has_paid:
+		var n := alko_count()
+		if n >= ALKO_MAX:
+			hint = "Kaksi pulloa riittää. Kassalle!"
+		else:
+			hint = "[E] Ota %s Alkon hyllystä (%s €)" % [ALKO[0], _eur(ALKO[1])]
+			if e:
+				cart["viina%d" % n] = ALKO[1]
+				walker.set_carrying(true)
+				Sfx.play("glass", -6.0, 1.1)
 	elif _flat(p, CANDY_SPOT) < 1.2 and not has_paid:
 		if cart.has(CANDY[0]):
 			hint = "Suklaalevy kassissa."
@@ -204,9 +223,39 @@ func _process(delta: float) -> void:
 	elif not has_paid and has_items:
 		hint = "Kassajonoon (keltainen ympyrä)%s" % ("" if has_beer else " – tai kaljat takaseinältä")
 	elif not has_paid:
-		hint = "Kaljat takaseinältä, grillitarvikkeet oven vierestä, Päivin tuotteet oikealta seinältä"
+		hint = "Kaljat takaseinältä, grillitarvikkeet oven vierestä, Päivin tuotteet oikealta seinältä" + \
+			(", Alko vasemmalta seinältä" if vaala else "")
 	else:
 		hint = "Maksettu! Ulos ovesta."
+
+
+## Montako Alkon pulloa korissa.
+func alko_count() -> int:
+	var n := 0
+	for k in cart:
+		if String(k).begins_with("viina"):
+			n += 1
+	return n
+
+
+## Alkon hylly vasemmalla seinällä: tummat hyllyt, kirkkaita ja ruskeita pulloja, kyltti ALKO.
+func _build_alko() -> void:
+	_alko = Node3D.new()
+	add_child(_alko)
+	var at := ALKO_SPOT + Vector3(-1.0, 0, 0)
+	B.box(_alko, Vector3(0.7, 2.2, 3.6), at + Vector3(0, 1.1, 0), Color(0.18, 0.18, 0.2))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	for hy in [0.55, 1.05, 1.55]:
+		B.box(_alko, Vector3(0.75, 0.04, 3.5), at + Vector3(0.05, hy - 0.04, 0), Color(0.75, 0.75, 0.78), false)
+		for k in 12:
+			var col: Color = [Color(0.85, 0.92, 0.95, 1), Color(0.45, 0.25, 0.1), Color(0.2, 0.4, 0.2), Color(0.9, 0.9, 0.85)][rng.randi() % 4]
+			var z := -1.6 + k * 0.29
+			B.mesh(_alko, B.cyl(0.035, 0.045, 0.3, 8), at + Vector3(0.2, hy + 0.15, z), col)
+			B.mesh(_alko, B.cyl(0.015, 0.02, 0.08, 6), at + Vector3(0.2, hy + 0.34, z), col.darkened(0.3))
+	var sign := B.sign_plate(_alko, "ALKO", Color(0.75, 0.05, 0.12), Color.WHITE, 0.45, 80, Color.WHITE)
+	sign.position = at + Vector3(0.3, 2.55, 0)
+	sign.rotation.y = PI / 2.0
 
 
 ## Minkä tuotteen lokeron edessä pelaaja seisoo ("" = ei minkään).

@@ -70,6 +70,7 @@ const WHITE := Color(0.95, 0.95, 0.92)
 
 var graph_nodes: Array[Vector3] = []
 var graph_adj: Array = []
+var graph_fast: Array = []  # solmu maantiellä ("road"): liikenne ajaa kovempaa kuin asuinkaduilla
 var taxi_home_pos: Vector3  # taksipysäkki kotipihalla (ks. main.gd _taxi_logic)
 var neighbor_yards := {}  # "arto" / "pekka" / "sinikka" -> pihan puuhapisteet (ensimmäinen = ulko-ovi)
 var neighbor_faces := {}  # nimi -> suunta, johon puuhapisteessä katsotaan (valinnainen, sama järjestys)
@@ -775,7 +776,10 @@ func _build_graph() -> void:
 				ids[key] = graph_nodes.size()
 				graph_nodes.append(M.w(p))
 				graph_adj.append([])
+				graph_fast.append(false)
 			var id: int = ids[key]
+			if r.type == "road":
+				graph_fast[id] = true
 			if prev >= 0 and prev != id:
 				if not graph_adj[prev].has(id):
 					graph_adj[prev].append(id)
@@ -1128,14 +1132,14 @@ func _build_neighbors() -> void:
 	# Naapuritalot OSM-pohjan mukaan (koko ja suunta, julkisivu Järvikujalle); omat värit ja pihat.
 	# Talon kehyksessä -Z on julkisivu ja fz sen z, ovi kohdassa (dx, fz) (_house). Etupihan aita, autokatos ja
 	# muut satunnaiset pihaesineet jätetään pois (extras false), jotta pihan omat esineet ja puuhapisteet mahtuvat.
-	var fit := func(px: Vector2) -> Dictionary:
+	var fit := func(px: Vector2, street: String) -> Dictionary:
 		var f := _osm_fit_at(px)
 		var c: Vector2 = f.c
-		# Julkisivu Järvikujalle: se neljästä sivusta, jonka normaali osoittaa lähimpään Järvikujan pisteeseen
+		# Julkisivu kadulle (street): se neljästä sivusta, jonka normaali osoittaa kadun lähimpään pisteeseen
 		# (neliömäinen talo voi kääntyä päätyyn nähden, jolloin l ja d vaihtavat paikkaa).
 		var to_st := Vector2.ZERO
 		for r in M.Osm.ROADS:
-			if r.get("name", "") == "Järvikuja":
+			if r.get("name", "") == street:
 				var best := INF
 				for i in r.pts.size() - 1:
 					var q := Geometry2D.get_closest_point_to_segment(c, M.w2(r.pts[i]), M.w2(r.pts[i + 1]))
@@ -1162,9 +1166,9 @@ func _build_neighbors() -> void:
 		var nw := maxi(2, int(f.l / 3.6))
 		f.dx = -f.l / 2.0 + f.l * (nw / 2 + 0.5) / nw
 		return f
-	# Katunäkymän (2022) mukaan: Pekka asuu vaaleassa, lähes valkoisessa talossa vaalealla peltikatolla; kuisti
-	# (valkoinen pergola) etukulmassa, kadun varressa pensasaita ja kaksi valkoista pihavaloa.
-	var fn: Dictionary = fit.call(M.NEIGHBOR_PEKKA)
+	# Pekka asuu Lehtikujan päässä vaaleassa, lähes valkoisessa talossa vaalealla peltikatolla; kuisti (valkoinen
+	# pergola) etukulmassa, kadun varressa pensasaita ja kaksi valkoista pihavaloa.
+	var fn: Dictionary = fit.call(M.NEIGHBOR_PEKKA, "Lehtikuja")
 	var nb := _house(fn.c, fn.yaw, fn.l, fn.d, 3.3, Color(0.9, 0.88, 0.8), Color(0.72, 0.7, 0.6), fn.gap, false)
 	var pg := Vector3(fn.l / 2.0 - 2.0, 0, fn.fz - 1.6)
 	for px in [-1.5, 1.5]:
@@ -1176,40 +1180,15 @@ func _build_neighbors() -> void:
 		var lamp := Vector3(x, 0, fn.fz - fn.gap + 2.0)
 		B.mesh(nb, B.cyl(0.08, 0.08, 1.0, 8), lamp + Vector3(0, 0.5, 0), Color(0.95, 0.95, 0.93))
 		B.mesh(nb, B.sphere(0.13, 8), lamp + Vector3(0, 1.08, 0), Color(1.0, 0.97, 0.85))
-	# Arto asuu kodin vastapäätä: matala keltatiilinen talo vaalealla peltikatolla, etupihalla vanha punainen
-	# traktori ja pieni vaja, eteläpäädyssä keltatiilinen autotalli valkoisella ovella, kadun varressa pensasaita.
-	var fa: Dictionary = fit.call(M.NEIGHBOR_ARTO)
+	# Arto asuu heti vasemmalla (kodin eteläpuolella, autotallin takana): matala keltatiilinen talo vaalealla
+	# peltikatolla, etupihalla vanha punainen traktori, kadun varressa pensasaita.
+	var fa: Dictionary = fit.call(M.NEIGHBOR_ARTO, "Järvikuja")
 	var ab := _house(fa.c, fa.yaw, fa.l, fa.d, 3.1, Color(0.84, 0.68, 0.4), Color(0.66, 0.68, 0.62), fa.gap, false)
 	var sa := signf((ab.transform.basis.inverse() * Vector3.BACK).x)  # talon x-akselin eteläsuunta
 	_street_hedge(ab, fa, sa)
 	_old_tractor(ab, Vector3(sa * (fa.l / 2.0 - 1.2), 0, fa.fz - 3.2), 0.4)
 	var tp: Vector3 = ab.transform * Vector3(sa * (fa.l / 2.0 - 1.2), 0, fa.fz - 3.2)
 	blockers.append([Vector2(tp.x, tp.z), Vector2(1.6, 1.6), fa.yaw])  # traktori (neliö, ettei suunnalla ole väliä)
-	# Etupihan pieni vaalea vaja OSM-rakennuksen kohdalla.
-	var sh := _osm_fit_at(M.ARTO_SHED)
-	var shed := StaticBody3D.new()
-	shed.position = Vector3(sh.c.x, 0, sh.c.y)
-	shed.rotation.y = sh.yaw
-	add_child(shed)
-	_add_house(sh.c)
-	shed.add_child(B.box_shape(Vector3(sh.l, 2.2, sh.d), Vector3(0, 1.1, 0)))
-	blockers.append([sh.c, Vector2(sh.l / 2.0, sh.d / 2.0), sh.yaw])
-	B.mesh(shed, B.boxm(Vector3(sh.l, 2.2, sh.d)), Vector3(0, 1.1, 0), Color(0.86, 0.8, 0.68))
-	var shr := PrismMesh.new()
-	shr.size = Vector3(sh.d + 0.4, 0.7, sh.l + 0.4)
-	B.mesh(shed, shr, Vector3(0, 2.55, 0), Color(0.45, 0.3, 0.2), Vector3(0, 90, 0))
-	B.mesh(shed, B.boxm(Vector3(0.9, 1.8, 0.05)), Vector3(0, 0.9, -sh.d / 2.0 - 0.02), Color(0.55, 0.38, 0.25))
-	var gp := M.w2(M.ARTO_GARAGE)
-	var agar := StaticBody3D.new()
-	agar.position = Vector3(gp.x, 0, gp.y)
-	agar.rotation.y = fa.yaw
-	add_child(agar)
-	_add_house(gp)
-	agar.add_child(B.box_shape(Vector3(5.0, 2.6, 7.0), Vector3(0, 1.3, 0)))
-	blockers.append([gp, Vector2(2.5, 3.5), fa.yaw])
-	B.mesh(agar, B.boxm(Vector3(5.0, 2.6, 7.0)), Vector3(0, 1.3, 0), Color(0.84, 0.68, 0.4))
-	B.mesh(agar, B.boxm(Vector3(5.5, 0.18, 7.5)), Vector3(0, 2.68, 0), Color(0.66, 0.68, 0.62))
-	B.mesh(agar, B.boxm(Vector3(2.5, 2.1, 0.06)), Vector3(0, 1.05, -3.52), Color(0.95, 0.95, 0.93))
 	# Katettu postilaatikkoteline kadun varressa.
 	var mb := Node3D.new()
 	var mbp := M.w2(M.MAILBOX)
@@ -1223,10 +1202,10 @@ func _build_neighbors() -> void:
 	var mr := PrismMesh.new()
 	mr.size = Vector3(0.8, 0.25, 2.4)
 	B.mesh(mb, mr, Vector3(0, 1.5, 0), Color(0.25, 0.25, 0.27), Vector3(0, 90, 0))
-	# Sinikan talo Arton eteläpuolella on katunäkymässä lähes piilossa isojen pyöreiden pensaiden takana; kadun
+	# Sinikan talo Järvikujan itäpuolella on katunäkymässä lähes piilossa isojen pyöreiden pensaiden takana; kadun
 	# varressa värikkäät postilaatikot. Julkisivun edessä kukkapenkki, aurinkotuoli ja radio, päädyissä kasvimaa
 	# ja ruusupensaat.
-	var fb: Dictionary = fit.call(M.NEIGHBOR_SINIKKA)
+	var fb: Dictionary = fit.call(M.NEIGHBOR_SINIKKA, "Järvikuja")
 	var bb := _house(fb.c, fb.yaw, fb.l, fb.d, 3.1, Color(0.86, 0.8, 0.66), Color(0.33, 0.3, 0.28), fb.gap, false)
 	var fz: float = fb.fz
 	var street_z: float = fz - fb.gap + 1.2

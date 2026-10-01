@@ -19,6 +19,7 @@ config/project_settings_override="user://override.cfg"
 [audio]
 
 general/default_playback_type.web=0
+driver/output_latency.web=150
 
 [autoload]
 
