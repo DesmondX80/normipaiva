@@ -28,10 +28,15 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   marjoja, ja pitkä kyykkiminen käy selkään (kunto): ähinä tihenee, ja lopulta pitää pitää tauko. W/S lopettaa poiminnan.
 - **Kaljajemma:** onnistuneen kotiinpaluun saalis piilotetaan jemmaan, joka säilyy pelikerrasta toiseen.
   Jos jemma kasvaa isoksi, Päivi saattaa löytää sen...
-- **Taksi Raahen baariin:** K-Marketin taksitolpalla odottaa taksi (14 € meno-paluu, jalan E). Raahen
-  baarissa terästehtaan Tero haastaa kädenvääntöön, ja häviäjä tarjoaa kierroksen (6 €). Reissu kasvattaa
-  mielihyvää ja voitto mainetta kovana jätkänä. Kotipihalla odottaa Päivi, eikä seuraavana aamuna tule
-  rahaa kauppaan. Pyörä jää kaupan pihaan.
+- **Taksi Raahen baariin:** K-Marketin taksitolpalla odottaa taksi (14 € meno-paluu, jalan E) Kapteenin Kulmaan
+  ja Kellariin (Kirkkokatu 32, Kirkkokadun ja kävelykadun kulma). Ylhäällä Kulmassa merihenkinen pubi
+  (ruori, pelastusrengas, laivataulu Raahen purjelaivojen ajoilta, kuva Pekkatorin Brahen patsaasta) ja
+  kesäterassi kävelykadulla: tiskiltä tuoppi, kossu tai kaffet, ikkunapöydässä vanha kapteeni muistelee
+  retarien aikoja, ja terästehtaan porukka yövuoron jälkeen: Tero haastaa kädenvääntöön (häviäjä tarjoaa
+  kierroksen). Tiistain pubivisassa kolme kysymystä Raahesta (kaikki oikein: visajuoma talon piikkiin).
+  Portaat alas Kellariin (ent. Kajuutta): karaoke "Ruukin valot". Puhe on raahelaista (räknätä, skooli, kööki,
+  retari, seeli). Ulko-ovelta taksi kotiin: Päivi odottaa, eikä seuraavana aamuna tule rahaa kauppaan.
+  Pyörä jää kaupan pihaan.
 - **Nurmikon leikkuu:** takapihan nurmikko kasvaa joka päivä. Leikkurin luona E käynnistää (ja sammuttaa), ja
   leikkuria työnnetään kuten kävellessä (ei juosta). Pitkässä ruohossa piilee siilejä ja kiviä: toinen siili leikkurin
   alle tuo poliisin (pakene näkyvistä, kiinni jääminen = WASTED), ja toinen kivi rikkoo leikkurin (varaosa Artolta
