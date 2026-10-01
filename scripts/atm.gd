@@ -1,6 +1,6 @@
 extends RefCounted
 ## Pankkiautomaatti (Otto.): seinään tai omaan kioskiin. Nosto 20 € kerran päivässä (main.gd _atm_use).
-## Vaalassa Siitaria vastapäätä (vaala.gd), Saloisissa K-Marketin takaseinällä (world.gd / main.gd).
+## Vaalassa K-Market Tervaportin seinällä Siitarin vieressä (vaala.gd), Saloisissa K-Marketin takaseinällä (world.gd / main.gd).
 
 const B := preload("res://scripts/build.gd")
 const DAILY := 20.0

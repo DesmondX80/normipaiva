@@ -57,6 +57,7 @@ func start(to: String, drunk := 0.0) -> void:
 		mopo.crashed.connect(_on_crash)
 		add_child(mopo)
 	on_foot = null
+	mopo.set_rider_visible(true)
 	mopo.drunk = drunk
 	mopo.reset_drunk()
 	_down = 0.0
@@ -171,6 +172,7 @@ func stop() -> void:
 func resume() -> void:
 	if mopo == null:
 		return
+	_resume_frame = Engine.get_process_frames()
 	mopo.speed = 0.0
 	mopo.velocity = Vector3.ZERO
 	mopo.controls_enabled = on_foot == null  # jalan tultiin: mopo jää parkkiin (main.gd jatkaa kävelijällä)
@@ -184,6 +186,15 @@ func resume() -> void:
 	active = true
 
 
+## E ovilla ja automaatilla. Ei samassa ruudussa, jossa palattiin sisältä: ovesta ulos tullut painallus ei saa
+## avata ovea heti uudelleen.
+var _resume_frame := -1
+
+
+func _interact() -> bool:
+	return Input.is_action_just_pressed("interact") and Engine.get_process_frames() != _resume_frame
+
+
 ## Jalan: mopo parkkiin paikalleen (moottori sammuu), matka jatkuu kävelijän kohdalta. null = takaisin selkään.
 func set_on_foot(walker: CharacterBody3D) -> void:
 	on_foot = walker
@@ -191,6 +202,7 @@ func set_on_foot(walker: CharacterBody3D) -> void:
 	mopo.velocity = Vector3.ZERO
 	mopo.controls_enabled = walker == null
 	mopo.set_engine(walker == null)
+	mopo.set_rider_visible(walker == null)
 	if walker == null:
 		mopo.activate_camera()
 
@@ -238,18 +250,18 @@ func _process(delta: float) -> void:
 	var d_atm: float = pos.distance_to(vaala.atm_pos)
 	if d_atm < 4.5 and d_atm <= d_shop and _actor_still():
 		hint = "[E] Nosta rahaa pankkiautomaatista (20 € kerran päivässä)"
-		if Input.is_action_just_pressed("interact"):
+		if _interact():
 			atm.emit()
 		return
 	if vaala.lava_door != Vector3.ZERO and pos.distance_to(vaala.lava_door) < 6.0 and _actor_still():
 		hint = "[E] Oulujärven lava: lavatanssit (lippu %s €)" % ("%.2f" % LAVA_TICKET).replace(".", ",")
-		if Input.is_action_just_pressed("interact"):
+		if _interact():
 			mopo.speed = 0.0
 			lava.emit()
 		return
 	if d_shop < 5.0 and _actor_still():
 		hint = "[E] %sK-Market Tervaporttiin (myös Alko)" % ("Mene " if on_foot != null else "Parkkeeraa mopo ja mene ")
-		if Input.is_action_just_pressed("interact"):
+		if _interact():
 			mopo.speed = 0.0
 			shop.emit()
 		return
@@ -257,13 +269,13 @@ func _process(delta: float) -> void:
 		if pos.distance_to(vaala.siitari_park) < ARRIVE_R + 6.0 or \
 				Vector2(pos.x - vaala.siitari_door.x, pos.z - vaala.siitari_door.z).length() < ARRIVE_R:
 			hint = "[E] %s Siitariin" % ("Mene" if on_foot != null else "Parkkeeraa mopo ja mene")
-			if Input.is_action_just_pressed("interact"):
+			if _interact():
 				mopo.position = vaala.siitari_park + Vector3(0, 0.3, 0)
 				mopo.speed = 0.0
 				stop()
 				arrived.emit()
 	elif vaala.real_s(_sample) < HOME_S and ni[1] < 15.0 and on_foot == null:
 		hint = "[E] Parkkeeraa mopo Paapelin pihaan"
-		if Input.is_action_just_pressed("interact"):
+		if _interact():
 			stop()
 			finished.emit("home")
