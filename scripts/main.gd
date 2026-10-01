@@ -24,6 +24,30 @@ const PingisGame := preload("res://scripts/pingis_game.gd")
 const PaGame := preload("res://scripts/pa_game.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
 const SiitariInterior := preload("res://scripts/siitari_interior.gd")
+## Raahen baari: Kapteenin Kulma ja Kellari (raahe_interior.gd), taksilla kotoa.
+const RaaheInterior := preload("res://scripts/raahe_interior.gd")
+const RAAHE_INT_POS := Vector3(-16000, 0, 0)
+const RAAHE_MENU := {
+	"tuoppi": ["Tuoppi hanasta 0,5 l", 7.5, 0.14, 0.1, 0.05],
+	"lonkero": ["Lonkero", 7.9, 0.14, 0.1, 0.05],
+	"kossu": ["Kossupaukku 4 cl (\"ruukin lääke\")", 6.9, 0.12, 0.08, 0.03],
+	"kahvi": ["Kaffet ja korvapuusti", 3.9, 0.0, 0.05, 0.05],
+}
+const RAAHE_LINES := ["Ruukin porukka nostaa lasit: \"Skooli!\"", "Kapteeni nyökkää ikkunapöydästä.",
+	"Baarimikko: \"Ko lasi on tyhjä, tiiät mistä saa lisää.\"", "Kävelykadulla kulkee iltaväkeä kohti Pekkatoria.",
+	"Joku räknää tiskillä kolikoita tuopin hintaan.", "Kellarista kuuluu karaokea portaita ylös."]
+## Tiistain pubivisa: kysymys, oikea vastaus ensin, sitten väärät (järjestys sekoitetaan).
+const RAAHE_QUIZ := [
+	["Kuka perusti Raahen vuonna 1649?", ["Pietari Brahe", "Kustaa Vaasa", "J. L. Runeberg"]],
+	["Mikä on Raahen vanhan torin nimi?", ["Pekkatori", "Kauppatori", "Rantatori"]],
+	["Mitä raahelainen tekee, kun hän \"räknää\"?", ["Laskee", "Ruokkii lehmät", "Nukkuu päiväunet"]],
+	["Mitä terästehtaan masuunissa tehdään?", ["Raakarautaa", "Paperia", "Sahatavaraa"]],
+	["Mitä raahelainen sanoo nostaessaan lasin?", ["Skooli!", "Kippis ja kulaus!", "Hölökyn kölökyn!"]],
+	["Mikä oli \"retari\" vanhassa Raahessa?", ["Laivanisäntä", "Kalastaja", "Lukkari"]],
+	["Kuka veisti Pekkatorin Brahen patsaan (1888)?", ["Walter Runeberg", "Wäinö Aaltonen", "Emil Wikström"]],
+	["Mitä raahelainen tarkoittaa sanalla \"kööki\"?", ["Keittiö", "Kuisti", "Kellari"]],
+]
+const RAAHE_KARAOKE_PRICE := 2.0
 const KaraokeGame := preload("res://scripts/karaoke_game.gd")
 const SIITARI_INT_POS := Vector3(16000, 0, 0)
 const KARAOKE_PRICE := 2.0
@@ -150,6 +174,11 @@ const TV_SHOWS := ["Salkkarit: Kaikki riitelee taas.", "Kauniit ja rohkeat: Ridg
 	"Hirviketju: kolme hirveä, kaksi ohi.", "Ostoskanava: veitsiä, jotka leikkaa tomaatin ja kengän."]
 var mokki_int: Node3D
 var siitari_int: Node3D
+var raahe_int: Node3D
+var _raahe := {}  # illan tapahtumat Raahen baarissa (kädenvääntö, visa, karaoke)
+var _quiz: Array = []  # visan kysymykset [kysymys, vaihtoehdot sekoitettuna, oikea]
+var _quiz_i := 0
+var _quiz_right := 0
 var _paivi_call_t := -1.0  # Päivin motkotuspuhelu tulossa (s), kun Sinikan kanssa on peuhattu
 var _sinikka_gossip := false  # aamulla vielä motkotusta ja Päivi nopeampi
 var _paivi_mad := false
@@ -467,6 +496,11 @@ func _ready() -> void:
 	add_child(siitari_int)
 	siitari_int.exited.connect(_on_siitari_exited)
 	siitari_int.acted.connect(_on_siitari_acted)
+	raahe_int = RaaheInterior.new()
+	raahe_int.position = RAAHE_INT_POS
+	add_child(raahe_int)
+	raahe_int.exited.connect(_on_raahe_exited)
+	raahe_int.acted.connect(_on_raahe_acted)
 	fight = Fight.new()
 	fight.position = Vector3(-3000, 0, 0)
 	add_child(fight)
@@ -568,6 +602,11 @@ func _process(delta: float) -> void:
 				_paivi_call_t -= delta
 				if _paivi_call_t <= 0.0:
 					_paivi_calls()
+		"in_raahe":
+			if not _item_menu.is_open():
+				_hint.text = raahe_int.hint
+			tilat.add("humala", -0.002 * delta)
+			tilat.add("stressi", 0.004 * delta)
 		"in_mokki":
 			_hint.text = mokki_int.hint
 			# Sisällä on rauhallista: stressi hellittää ja vireys nousee, nälkä kasvaa hiljaa.
@@ -1871,29 +1910,193 @@ func _taxi_trip() -> void:
 	_hud.visible = false
 	money -= TAXI_FARE
 	Sfx.play("door_close", -3.0)
-	cutscene.taxi_to_raahe(func() -> void:
-		var bar := BarGame.new()
-		bar.position = BAR_POS
-		add_child(bar)
-		bar.finished.connect(func(won: bool) -> void:
-			bar.queue_free()
-			_after_bar(won)))
+	cutscene.taxi_to_raahe(_enter_raahe)
 
 
-func _after_bar(won: bool) -> void:
-	var paid := 0.0 if won else minf(BAR_ROUND, money)
-	money -= paid
-	mielihyva = clampf(mielihyva + (35.0 if won else 20.0), 0.0, 100.0)
-	tilat.add("moraali", 0.2 if won else -0.1)  # kädenvääntö
-	maine = clampf(maine + (15.0 if won else -5.0), 0.0, 100.0)
-	_no_allowance = true
-	_drink(3)
+## Raahessa: Kapteenin Kulma ja Kellari (raahe_interior.gd). Ulko-ovelta taksi kotiin ja uusi päivä.
+func _enter_raahe() -> void:
+	state = "in_raahe"
+	_hud.visible = true
+	_raahe = {"won": -1, "paid": 0.0, "quiz": -1, "karaoke": -1.0}
 	tilat.first("raahe", 0.5)
-	var stats := "%s Taksi %s €%s.\nMielihyvä %d · Maine %d" % [
-		"Voitit kädenväännön, Tero tarjosi." if won else "Hävisit kädenväännön ja tarjosit kierroksen.",
-		_eur(TAXI_FARE), "" if won else ", kierros %s €" % _eur(paid), roundi(mielihyva), roundi(maine)]
+	raahe_int.enter()
+	_show_message("Kapteenin Kulma, Kirkkokatu 32, Raahe. Kellarissa karaoke, tiistaisin visa ja Tero odottaa kädenvääntöä.", 4.0)
+
+
+func _on_raahe_exited() -> void:
+	raahe_int.leave()
+	Sfx.play("door_close", -3.0)
+	state = "cutscene"
+	_hud.visible = false
+	var won: int = _raahe.won
+	mielihyva = clampf(mielihyva + (35.0 if won == 1 else 20.0), 0.0, 100.0)
+	_no_allowance = true
+	var parts := PackedStringArray()
+	if won == 1:
+		parts.append("Voitit kädenväännön, Tero tarjosi.")
+	elif won == 0:
+		parts.append("Hävisit kädenväännön ja tarjosit kierroksen (%s €)." % _eur(_raahe.paid))
+	if _raahe.quiz >= 0:
+		parts.append("Visassa %d/3 oikein." % _raahe.quiz)
+	if _raahe.karaoke >= 0.0:
+		parts.append("Karaoke Kellarissa %d %%." % roundi(_raahe.karaoke * 100.0))
+	if parts.is_empty():
+		parts.append("Ilta Kapteenin Kulmassa.")
+	var stats := "%s Taksi %s €.\nMielihyvä %d · Maine %d" % [" ".join(parts), _eur(TAXI_FARE), roundi(mielihyva), roundi(maine)]
 	cutscene.taxi_home(home_zone, stats, func() -> void:
 		_new_day(home_zone + Vector3(0, 0, 4), false, "Pää on kipeä Raahen reissusta.\n"))
+
+
+func _on_raahe_acted(kind: String) -> void:
+	match kind:
+		"tiski":
+			raahe_int.bartender_say("Mitäs laitetaan?")
+			var items: Array = []
+			for id in RAAHE_MENU:
+				var m: Array = RAAHE_MENU[id]
+				items.append([id, "%s – %s €" % [m[0], _eur(m[1])]])
+			items.append(["takaisin", "Takaisin"])
+			_menu_mode = "raahe"
+			raahe_int.walker.controls_enabled = false
+			_item_menu.open(items, "Kapteenin Kulma · rahaa %s €" % _eur(money))
+		"tero":
+			_raahe_wrestle()
+		"visa":
+			if _raahe.quiz >= 0:
+				raahe_int.quizmaster_say("Tämän illan visa on jo räknätty. Tuu ensi tiistaina uudestaan!")
+				return
+			_quiz.clear()
+			var pool := RAAHE_QUIZ.duplicate()
+			pool.shuffle()
+			for q in pool.slice(0, 3):
+				var opts: Array = (q[1] as Array).duplicate()
+				opts.shuffle()
+				_quiz.append([q[0], opts, q[1][0]])
+			_quiz_i = 0
+			_quiz_right = 0
+			raahe_int.quizmaster_say("Tiistain visa! Kolme kysymystä Raahesta. Kaikki oikein, niin visajuoma on talon.")
+			_ask_quiz()
+		"karaoke":
+			if money < RAAHE_KARAOKE_PRICE:
+				_show_message("Karaoke maksaa %s €. Rahat ei riitä." % _eur(RAAHE_KARAOKE_PRICE), 2.5)
+				return
+			money -= RAAHE_KARAOKE_PRICE
+			_raahe_karaoke()
+
+
+## Kädenvääntö Teron kanssa (bar_game.gd) ruukin porukan pöydässä; häviäjä tarjoaa kierroksen.
+func _raahe_wrestle() -> void:
+	raahe_int.busy = true
+	raahe_int.walker.controls_enabled = false
+	_hud.visible = false
+	var bar := BarGame.new()
+	bar.position = BAR_POS
+	add_child(bar)
+	bar.finished.connect(func(won: bool) -> void:
+		bar.queue_free()
+		_hud.visible = true
+		raahe_int.busy = false
+		raahe_int.walker.controls_enabled = true
+		raahe_int.walker.activate()
+		raahe_int.block_interact()
+		if _raahe.won < 0:
+			tilat.add("moraali", 0.2 if won else -0.1)
+			maine = clampf(maine + (15.0 if won else -5.0), 0.0, 100.0)
+		_raahe.won = 1 if won else 0
+		if won:
+			raahe_int.tero_say("Perkele, sää oot vahva! Skooli, mää tarjoan.")
+			tilat.add("humala", 0.14)
+			_show_message("Voitit Teron! Ruukin porukka hakkaa pöytää. Tero tarjoaa tuopin.", 3.5)
+		else:
+			var paid := minf(BAR_ROUND, money)
+			money -= paid
+			_raahe.paid += paid
+			tilat.add("humala", 0.14)
+			raahe_int.tero_say("Heh. Masuunilla nostellaan isompia. Sää tarjoot.")
+			_show_message("Hävisit. Tarjosit ruukin porukalle kierroksen (%s €)." % _eur(paid), 3.5))
+
+
+func _ask_quiz() -> void:
+	var q: Array = _quiz[_quiz_i]
+	var items: Array = []
+	for k in (q[1] as Array).size():
+		items.append(["visa_%d" % k, q[1][k]])
+	_menu_mode = "raahe"
+	raahe_int.walker.controls_enabled = false
+	_item_menu.open(items, "Visa %d/3: %s" % [_quiz_i + 1, q[0]])
+
+
+## Karaoke Kapteenin Kellarissa: "Ruukin valot".
+func _raahe_karaoke() -> void:
+	raahe_int.to_stage()
+	_hud.visible = false
+	var game := KaraokeGame.new()
+	game.song = KaraokeGame.SONG_RAAHE
+	game.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	game.line.connect(raahe_int.set_screen)
+	game.finished.connect(func(score: float) -> void:
+		game.queue_free()
+		_hud.visible = true
+		raahe_int.from_stage(score >= 0.5)
+		_raahe.karaoke = maxf(_raahe.karaoke, score)
+		tilat.first("karaoke_raahe", 0.3)
+		var pct := roundi(score * 100.0)
+		if score >= 0.7:
+			Sfx.play("win", -4.0)
+			tilat.add("moraali", 0.25)
+			mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0)
+			_show_message("Karaoke %d %%: Kellari raikuu! \"Skooli laulajalle!\"" % pct, 3.5)
+		elif score >= 0.4:
+			Sfx.play("win_small", -6.0)
+			tilat.add("moraali", 0.1)
+			_show_message("Karaoke %d %%: kelpo veto. Joku ruukkilainen taputti." % pct, 3.0)
+		else:
+			Sfx.play("lose", -6.0)
+			tilat.add("moraali", -0.1)
+			_show_message("Karaoke %d %%: nuotin vierestä. Kellarissa ei räknätä, mutta kuultiin kyllä." % pct, 3.5))
+	add_child(game)
+
+
+func _on_raahe(id: String) -> void:
+	raahe_int.walker.controls_enabled = true
+	raahe_int.block_interact()
+	if id == "takaisin":
+		return
+	if id.begins_with("visa_"):
+		var q: Array = _quiz[_quiz_i]
+		var pick: String = q[1][int(id.trim_prefix("visa_"))]
+		if pick == q[2]:
+			_quiz_right += 1
+			Sfx.play("win_small", -8.0)
+			raahe_int.quizmaster_say("Oikein! %s." % q[2], 2.5)
+		else:
+			Sfx.play("lose", -10.0)
+			raahe_int.quizmaster_say("Väärin! Oikea vastaus: %s." % q[2], 3.0)
+		_quiz_i += 1
+		if _quiz_i < _quiz.size():
+			_ask_quiz()
+			return
+		_raahe.quiz = _quiz_right
+		tilat.first("pubivisa", 0.3)
+		tilat.add("keskittyminen", 0.05 * _quiz_right)
+		if _quiz_right == 3:
+			tilat.add("moraali", 0.2)
+			tilat.add("humala", 0.14)
+			_show_message("Visa 3/3! Voitit: visajuoma talon piikkiin. Ruukin porukka: \"Saloisista ja tietää Raahen!\"", 4.0)
+		else:
+			_show_message("Visa %d/3. Visamestari: \"Ensi tiistaina uudestaan!\"" % _quiz_right, 3.0)
+		return
+	var m: Array = RAAHE_MENU[id]
+	if money < m[1]:
+		_show_message("Rahat ei riitä (%s €)." % _eur(money), 2.0)
+		return
+	money -= m[1]
+	tilat.add("humala", m[2])
+	tilat.add("stressi", m[3])
+	tilat.add("moraali", m[4])
+	Sfx.play("glass" if m[2] > 0.0 else "pickup", -6.0, 0.9)
+	tilat.first("raahe_" + id, 0.1)
+	_show_message("%s. %s" % [m[0], RAAHE_LINES.pick_random()], 3.0)
 
 
 ## Arto ostaa marjat ja kertoo paikat, Pekka ostaa sienet ja kehuu kyyhkysaaliitaan.
@@ -4174,11 +4377,15 @@ func _build_hud() -> void:
 			_on_eat(id)
 		elif _menu_mode == "siitari":
 			_on_siitari(id)
+		elif _menu_mode == "raahe":
+			_on_raahe(id)
 		else:
 			_on_give(id))
 	_item_menu.cancelled.connect(func() -> void:
 		if _menu_mode == "siitari":
 			_on_siitari("takaisin")
+		elif _menu_mode == "raahe":
+			_on_raahe("takaisin")
 		else:
 			player.controls_enabled = true)
 
@@ -4227,7 +4434,7 @@ func _update_hud() -> void:
 	_stats.text = "\n".join(lines)
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = not (state in ["in_shop", "in_mokki", "mopo", "in_siitari"])
+	_minimap.visible = not (state in ["in_shop", "in_mokki", "mopo", "in_siitari", "in_raahe"])
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
 	_minimap.show_target = state in ["to_shop", "to_home"] and not at_mokki
 	_compass.visible = state in ["to_shop", "to_home", "mopo"]
@@ -4261,7 +4468,7 @@ func _update_hud() -> void:
 
 	var nb: CharacterBody3D = interior.neighbor
 	_sus_box.visible = state == "in_shop" and nb != null
-	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_siitari"]
+	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_siitari", "in_raahe"]
 	_stat_bars.offset_top = 90 if _sus_box.visible else 36
 	if _sus_box.visible:
 		_sus_bar.value = nb.suspicion
@@ -4450,14 +4657,48 @@ func _maybe_screenshot() -> void:
 			print("TAXI state=", state, " money=", money)
 			await get_tree().create_timer(5.0, true, false, true).timeout
 			await shot.call("meno")
-			var bar: Node = null
 			for i in 60:
 				await get_tree().create_timer(0.5, true, false, true).timeout
-				for c in get_children():
-					if c is BarGame:
-						bar = c
-				if bar != null:
+				if state == "in_raahe":
 					break
+			print("TAXI perillä state=%s msg=%s" % [state, _msg.text])
+			var press := func() -> void:
+				await get_tree().process_frame
+				Input.action_press("interact")
+				for w in 2:
+					await get_tree().process_frame
+				Input.action_release("interact")
+				for w in 3:
+					await get_tree().process_frame
+			raahe_int.walker.position = Vector3(0.0, 0, 1.5)
+			await get_tree().create_timer(1.0, true, false, true).timeout
+			await shot.call("kulma")
+			# Visa: kolme kysymystä, vastataan aina ensimmäiseen vaihtoehtoon.
+			raahe_int.walker.position = raahe_int.spots.visa[0]
+			for w in 3:
+				await get_tree().process_frame
+			print("TAXI visa hint=", raahe_int.hint)
+			await press.call()
+			for qn in 3:
+				print("TAXI visa kysymys: ", _quiz[_quiz_i][0], " ", _quiz[_quiz_i][1])
+				_item_menu.visible = false  # kuten valikon E-valinta
+				_item_menu.chosen.emit("visa_0")
+				for w in 3:
+					await get_tree().process_frame
+			print("TAXI visa tulos=%d msg=%s" % [_raahe.quiz, _msg.text])
+			# Tiskiltä tuoppi.
+			_on_raahe("tuoppi")
+			print("TAXI tuoppi: rahaa %.2f msg=%s" % [money, _msg.text])
+			# Kädenvääntö Teron kanssa.
+			raahe_int.walker.position = raahe_int.spots.tero[0]
+			for w in 3:
+				await get_tree().process_frame
+			print("TAXI tero hint=", raahe_int.hint)
+			await press.call()
+			var bar: Node = null
+			for c in get_children():
+				if c is BarGame:
+					bar = c
 			if bar == null:
 				print("TAXI baaria ei löytynyt")
 				get_tree().quit()
@@ -4489,6 +4730,27 @@ func _maybe_screenshot() -> void:
 					await shot.call("vaanto")
 					await get_tree().process_frame
 			print("TAXI vääntö: kulma=%.2f painalluksia=%d" % [bar._angle, n])
+			await get_tree().create_timer(4.0, true, false, true).timeout
+			print("TAXI väännön jälkeen: won=%s msg=%s" % [_raahe.won, _msg.text])
+			# Kellariin portaita ja kuva karaokesta.
+			raahe_int.walker.position = raahe_int.spots.alas[0]
+			for w in 3:
+				await get_tree().process_frame
+			await press.call()
+			print("TAXI kellarissa: %s" % raahe_int.in_cellar())
+			raahe_int.walker.position = raahe_int.spots.karaoke[0] + Vector3(1.5, 0, -0.5)
+			await get_tree().create_timer(1.0, true, false, true).timeout
+			await shot.call("kellari")
+			# Ylös ja ulos.
+			raahe_int.walker.position = raahe_int.spots.ylos[0]
+			for w in 3:
+				await get_tree().process_frame
+			await press.call()
+			raahe_int.walker.position = raahe_int.spots.ovi[0]
+			for w in 3:
+				await get_tree().process_frame
+			print("TAXI ovi hint=", raahe_int.hint)
+			await press.call()
 			await get_tree().create_timer(4.5, true, false, true).timeout
 			await get_tree().create_timer(4.0, true, false, true).timeout
 			await shot.call("paluu")
