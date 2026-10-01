@@ -445,9 +445,10 @@ func _build_atm() -> void:
 
 
 # --- Oulujärven lava ------------------------------------------------------------------------------------------
-## Oulujärven lava (1977-2010) Niskanselän rannassa keskustan tuntumassa 90-luvun asussaan: 1 500 m² suurlava
-## (34 x 44 m), punamullatut lautaseinät, ikkunaluukut auki, matala peltinen harjakatto, lautalattia, esiintymislava
-## pohjoispäädyssä, lipunmyyntikoju ja kyltti oven puolella, parkkipaikka ja ajotie kadulta (tie.json "lava").
+## Oulujärven lava (1977-2010) oikealla paikallaan Oulujoen etelärannalla Pahalahdentien päässä (64.550921 N,
+## 26.822649 E; tools/vaala_lava.py) 90-luvun asussaan: 1 500 m² suurlava (34 x 44 m), punamullatut lautaseinät,
+## ikkunaluukut auki, matala peltinen harjakatto, lautalattia, esiintymislava pohjoispäädyssä, lipunmyyntikoju ja
+## kyltti oven puolella, parkkipaikka ja ajotie Pahalahdentieltä (tie.json "lava").
 ## Tansseissa käydään mopolla (mopo_trip.gd, lava_game.gd).
 var lava_center := Vector3.ZERO  # lattian keskipiste (lattian korkeudella)
 var lava_door := Vector3.ZERO    # oven edusta ulkona (mopon pysäköinti)

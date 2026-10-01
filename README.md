@@ -80,9 +80,14 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     ja rakennusten pohjat maastotietokannasta, rakennusten korkeudet ja tienvarren metsä (noin 200 000 puuta)
     laserkeilauksesta ja puulajit Luken VMI:stä (`tools/vaala_bake.py`). Keskustassa on K-Market Tervaportti:
     sama kauppa kuin kylässä, ja vasemmalla seinällä Alkon hylly (Koskenkorva kätköviinaksi, T ottaa huikan).
-    Pankkiautomaatti on kaupan seinällä. Niskanselän rannassa keskustan tuntumassa on Oulujärven lava 90-luvun
+    Pankkiautomaatti on kaupan seinällä. Oulujoen etelärannalla Pahalahdentien päässä (oikealla paikallaan,
+    `tools/vaala_lava.py`; Vuolijoentieltä oikealle juuri ennen radan alikulkua) on Oulujärven lava 90-luvun
     asussaan (1 500 m², punamullatut seinät, luukut auki, bändi lavalla): lipulla (12 €) lavatansseihin, joissa A ja
     D vuorotellen tahdissa vievät parin tanssiin.
+    Paperikartta (M) on mökillä ja Vaalan matkalla yksi iso Neittävä–Vaala-kartta: mökin piha, mopotie ja Vaalan
+    keskusta (Siitari, K-Market Tervaportti, pankkiautomaatti, Oulujärven lava, kirkko, rautatieasema ja muut
+    nimetyt talot), maankäyttö rinnevarjostuksineen. Rulla tai Q/E zoomaa ja WASD tai vetäminen siirtää; tiivistetty
+    tienpätkä on merkitty punaisella katkoviivalla.
     Kännissä tanko vaeltaa, kuva huojuu ja ojaan on lyhyt matka. Siitarin baarissa on tiski, karaoke
     (W/S tai hiiri pitää äänen sävelpalkilla), tanssilattia, pajatso, pöytäseurue ja naapurin Sinikka. Jos Sinikan
     kanssa tanssii tai tarjoaa hänelle drinkin, Päivi kuulee siitä pian puhelimessa ja on seuraavana päivänä
@@ -272,7 +277,7 @@ godot --path .
 | F | nouse pyörän selästä / takaisin pyörälle (pyörä jää parkkiin ja näkyy kartassa) |
 | T | syö: valikko mukana olevista eväistä (korvapuusti, lihapiirakka, suklaa, marjat ämpäristä) |
 | Shift | juokse (jalan) / spurtti (pyörällä) |
-| M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen) |
+| M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen; mökillä ja Vaalan matkalla Neittävä–Vaala-kartta: rulla tai Q/E zoomaa, WASD tai vetäminen siirtää) |
 | V | FPS-näkymä / kolmas persoona |
 | Hiiri | kamera (Esc vapauttaa hiiren valikkoon) |
 | Esc | valikko (myös päivän aloitus alusta) |
