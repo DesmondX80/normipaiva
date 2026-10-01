@@ -5,11 +5,18 @@ extends Control
 const PAPER := Color(1.0, 0.95, 0.55)
 const INK := Color(0.16, 0.18, 0.42)
 const WIDTH := 400.0
+const TOP := 140.0  # lapun oletusyläreuna
+const MARGIN := 24.0  # väli ruudun reunoihin lapun mahduttamisessa
+const MIN_SCALE := 0.55  # pienin kutistus: sitä pidempi lappu leikkaantuu mieluummin kuin muuttuu lukukelvottomaksi
+const GOOD_SCALE := 0.85  # tätä pienemmäksi kutistuva lappu leveämmäksi: leveällä rivit eivät rivity niin paljon
+const WIDTHS := [400.0, 540.0, 680.0]
 
 var _holder: Control  # lappu ja teippi yhdessä (vinossa)
 var _paper: PanelContainer
 var _box: VBoxContainer
 var _tw: Tween
+var _tape: ColorRect
+var _width := WIDTH
 var _font: SystemFont
 
 
@@ -44,6 +51,7 @@ func _ready() -> void:
 	_paper.add_child(_box)
 	# Teippi yläreunassa.
 	var tape := ColorRect.new()
+	_tape = tape
 	tape.color = Color(0.95, 0.95, 0.9, 0.7)
 	tape.size = Vector2(110, 26)
 	tape.position = Vector2(WIDTH / 2.0 - 55, -12)
@@ -86,6 +94,43 @@ func show_note(lines: Array, sign := "– Päivi", seconds := 12.0) -> void:
 	_tw.tween_property(_holder, "modulate:a", 1.0, 0.35)
 	_tw.tween_interval(seconds)
 	_tw.tween_property(_holder, "modulate:a", 0.0, 0.8)
+	_fit.call_deferred()
+
+
+## Mahduttaa lapun ruudulle (pitkät lapussa on monta muistutusta): ensin levennetään, jotta rivit rivittyvät vähemmän,
+## sitten nostetaan ylemmäs ja viimeiseksi kutistetaan.
+func _fit() -> void:
+	var vp := get_viewport_rect().size
+	var best := 0.0
+	var best_h := 0.0
+	for w in WIDTHS:
+		_set_width(w)
+		await get_tree().process_frame  # rivit asettuvat vasta ruudun yli
+		_paper.size = Vector2(w, 0.0)
+		var h := _paper.get_combined_minimum_size().y
+		var room := vp.y - 2.0 * MARGIN - 14.0
+		best = w
+		best_h = h
+		if h <= room or minf(1.0, room / h) >= GOOD_SCALE or w + 20.0 > vp.x * 0.62:
+			break  # mahtuu (lähes) sellaisenaan tai leveämpi ei enää mahdu ruudun leveyteen
+	var y := TOP
+	var sc := 1.0
+	if y + best_h > vp.y - MARGIN:
+		y = maxf(MARGIN + 14.0, vp.y - MARGIN - best_h)  # teippi ulottuu 12 px lapun yläpuolelle
+	if y + best_h > vp.y - MARGIN:
+		sc = clampf((vp.y - 2.0 * MARGIN - 14.0) / best_h, MIN_SCALE, 1.0)
+		y = MARGIN + 14.0
+	_holder.scale = Vector2(sc, sc)
+	_holder.position = Vector2(34.0, y)
+
+
+func _set_width(w: float) -> void:
+	_width = w
+	_paper.custom_minimum_size = Vector2(w, 0)
+	_tape.position.x = w / 2.0 - 55.0
+	for c in _box.get_children():
+		if c is Label:
+			c.custom_minimum_size = Vector2(w - 50.0, 0)
 
 
 func is_showing() -> bool:
@@ -96,7 +141,7 @@ func _line(text: String, size: int) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size = Vector2(WIDTH - 50, 0)
+	l.custom_minimum_size = Vector2(_width - 50.0, 0)
 	l.add_theme_font_override("font", _font)
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", INK)
