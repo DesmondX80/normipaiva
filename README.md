@@ -80,10 +80,14 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     ja rakennusten pohjat maastotietokannasta, rakennusten korkeudet ja tienvarren metsä (noin 200 000 puuta)
     laserkeilauksesta ja puulajit Luken VMI:stä (`tools/vaala_bake.py`). Keskustassa on K-Market Tervaportti:
     sama kauppa kuin kylässä, ja vasemmalla seinällä Alkon hylly (Koskenkorva kätköviinaksi, T ottaa huikan).
-    Pankkiautomaatti on kaupan seinällä. Oulujoen etelärannalla Pahalahdentien päässä (oikealla paikallaan,
-    `tools/vaala_lava.py`; Vuolijoentieltä oikealle juuri ennen radan alikulkua) on Oulujärven lava 90-luvun
-    asussaan (1 500 m², punamullatut seinät, luukut auki, bändi lavalla): lipulla (12 €) lavatansseihin, joissa A ja
-    D vuorotellen tahdissa vievät parin tanssiin.
+    Pankkiautomaatti on kaupan seinällä. Niemellä, jossa Oulujoki alkaa Oulujärvestä (Vuolijoentieltä oikealle
+    asfaltoitua Pahalahdentietä juuri ennen radan alikulkua; `tools/vaala_lava.py` tekee niemen, leveän joen ja
+    järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (1 500 m², punamullatut seinät, luukut auki,
+    bändi lavalla) lautatarha-aidan sisällä, jonka päät ulottuvat jokeen ja Pahalahteen: lipulla (12 €)
+    lavatansseihin, joissa A ja D vuorotellen tahdissa vievät parin tanssiin. Pelissä lava on vähän lähempänä
+    päätietä kuin todellisuudessa (niemen kärjessä).
+    Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen) ja kävellä; ovet ja automaatti toimivat jalankin,
+    ja F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
     Paperikartta (M) on mökillä ja Vaalan matkalla yksi iso Neittävä–Vaala-kartta: mökin piha, mopotie ja Vaalan
     keskusta (Siitari, K-Market Tervaportti, pankkiautomaatti, Oulujärven lava, kirkko, rautatieasema ja muut
     nimetyt talot), maankäyttö rinnevarjostuksineen. Rulla tai Q/E zoomaa ja WASD tai vetäminen siirtää; tiivistetty

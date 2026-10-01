@@ -109,8 +109,14 @@ Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kart
 - **Vaala**: `venv/bin/python tools/vaala_bake.py --cache <välimuisti>` (tarkka aineisto `tools/kartta/vaala_tarkka.py`)
   → `assets/vaala/tie.json`, `maasto.bin` ja `puut.bin`. Puut siirretään tien suhteen pelin kehykseen kuten muutkin
   kohteet, tiivistetyllä välillä harvennettuna tiivistyksen suhteessa (metsän tiheys säilyy). Kaukomaaston metsä
-  (650 m tiestä) on laserin valtapuita. Lopuksi `tools/vaala_lava.py` siirtää Oulujärven lavan oikealle paikalleen
-  Pahalahdentien päähän (tontti, tie ja puut; ajettavissa myös erikseen ilman välimuistia).
+  (650 m tiestä) on laserin valtapuita. Lopuksi `tools/vaala_lava.py` tekee Oulujärven lavan niemen 1:1-maastoksi:
+  Pahalahdentien risteys on 1:1-alueella, mutta niemen kaukomaasto tuli tiivistetyn tien suhteen (muualta), joten
+  niemellä ei ollut vettä. Skripti tekee alueelle tarkan maaston korkeusmallista (vesi = korkeusmallin tasoitettu
+  vedenpinta, Oulujoki ja Oulujärvi samassa 122,74 m:ssä), painaa järven kaukomaastoon (vaala.gd piirtää vedet),
+  asfaltoi Pahalahdentien lavalle, tekee aidan rannasta rantaan ja siistii puut. Korkeusmalli on tallessa
+  reitti.json:ssa ("lava_dem", `--cache` hakee sen kerran); muuten ajo ei tarvitse välimuistia ja on toistettavissa.
+  Tarkistuskuvat: `godot --path . -- --shot=<kansio>/v.png --scene=mokkivaalalava` (myös mopolla portista ovelle)
+  ja `--scene=mokkivaalajalan` (moposta jalan, ovelle, rantaan ja takaisin selkään).
 
 Lähdeaineisto ladataan välimuistiin (n. 600 Mt: 9 laserlehteä, korkeusmallilehdet, maastotietokanta R4333L, R4333R,
 R4334R). Korkeusmallin lehtijako alkaa idässä 308 000:sta (lehdet 2000 mod 6000), pohjoisessa 6 570 000:sta.
