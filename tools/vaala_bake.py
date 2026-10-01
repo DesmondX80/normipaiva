@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """Mopomatkan pelimaailma assets/vaala/reitti.json -datasta: tiivistetty tie, maasto ja kohteet.
 
-Ajo: python3 tools/vaala_bake.py   (ei verkkoyhteyttä, n. 1 min)
-Tulos: assets/vaala/tie.json (tie, kyltit, rakennukset, sivutiet, rata, vedet) ja assets/vaala/maasto.bin
-(korkeusruudukko 4 m ja maankäyttö; kaukomaasto 32 m).
+Ajo: venv/bin/python tools/vaala_bake.py --cache <välimuisti>   (riippuvuudet tools/kartta/requirements.txt)
+Tulos: assets/vaala/tie.json (tie, kyltit, rakennukset, sivutiet, rata, vedet), assets/vaala/maasto.bin
+(korkeusruudukko 4 m ja maankäyttö; kaukomaasto 32 m) ja assets/vaala/puut.bin (metsä, scripts/forest.gd).
+
+Tarkka aineisto (tools/kartta/vaala_tarkka.py): korkeudet MML:n 2 m korkeusmallista (tie, sivut, keskusta ja
+kaukomaasto), pellot, suot ja vedet maastotietokannasta, keskustan ulkopuoliset rakennukset maastotietokannasta,
+rakennusten harjakorkeudet ja puut MML:n laserkeilauksesta 2011, puulajit Luken VMI 2023:sta. Reitin linja,
+tiennimet ja päällysteet sekä keskustan rakennusten nimet ja tyypit OpenStreetMapista (reitti.json).
 
 Tiivistys: mökin pihasta Neittäväntien risteyksen yli (S_A) ja radan alikulusta Siitariin (S_B ->, koko Vaalan
 keskusta Oulujoen siltoineen) mittakaava on 1:1, välissä matka lyhenee K-kertaisesti. Jokainen tien pala lyhenee samassa suhteessa, joten
@@ -12,15 +17,23 @@ Pelin koordinaatit: mökin osoitepiste origossa kuten reitti.json:ssa (x itään
 Kohteet tien varrelta siirretään tien mukana: todellinen paikka -> lähin tien kohta (matka s, sivuetäisyys d)
 -> pelissä sama d samasta tien kohdasta.
 """
+import argparse
 import json
 import math
 import os
 import struct
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "kartta"))
+import numpy as np  # noqa: E402
+import tarkka as T  # noqa: E402
+import vaala_tarkka as VT  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "assets", "vaala", "reitti.json")
 OUT_JSON = os.path.join(ROOT, "assets", "vaala", "tie.json")
 OUT_BIN = os.path.join(ROOT, "assets", "vaala", "maasto.bin")
+OUT_TREES = os.path.join(ROOT, "assets", "vaala", "puut.bin")
 
 K = 22.0           # tiivistyskerroin välimatkalla
 STEP = 2.0         # tien näytteiden väli pelissä (m)
@@ -32,6 +45,7 @@ UNDER_CLEAR = 4.6  # alikulun vapaa korkeus tien pinnasta ratasillan alapintaan
 UNDER_DIP = 1.3    # tie painuu alikulussa
 BRANCH_LEN = 90.0  # risteysten haarat väärään suuntaan: näin pitkä pätkä, sitten umpitie
 FAR_CELL = 32.0
+FAR_TREES = 650.0  # kaukomaaston metsä (laserin valtapuut) näin kauas todellisesta tiestä
 FAR_MARGIN = 700.0
 SIDE_D = 60.0      # sivukorkeuksien etäisyys tiestä (reitti.json "side")
 
@@ -130,7 +144,11 @@ class Grid:
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--cache", required=True, help="MML:n ja Luken lähdeaineiston välimuisti")
+    args = ap.parse_args()
     d = json.load(open(SRC))
+    fd, laser = VT.refine(d, args.cache, TOWN_R)
     feats = d["features"]
     sx, sz = d["siitari"]
     steps = d["steps"]
@@ -409,7 +427,7 @@ def main():
             kind = "house"
         else:
             kind = "big"
-        out_buildings.append({"id": f["id"], "type": bt, "kind": kind, "levels": levels,
+        out_buildings.append({"id": f["id"], "type": bt, "kind": kind, "levels": levels, "h": f.get("height", 0.0),
                               "name": f.get("name", ""), "addr": ("%s %s" % (f.get("addr_street", ""), f.get("addr_housenumber", ""))).strip(),
                               "pts": [[round(q[0] + off[0], 2), round(q[1] + off[1], 2)] for q in pts]})
     # --- Risteysten haarat väärään suuntaan: OSM:n tie risteyksestä BRANCH_LEN m (1:1), sitten umpitie. ------------
@@ -583,7 +601,9 @@ def main():
                   for b in out_buildings], 30.0)
     rails = [r for r in side_roads if r["kind"] == "rail"]
     rail_grid = Grid([tuple(q) for r in rails for q in r["pts"]], 20.0) if rails else None
-    water_level = min([smp["y"] - 0.6 for smp in samples if smp["bridge"]] or [121.0]) - 3.5
+    # Oulujoen pinta korkeusmallista (tasoitettu vedenpinta joen keskiviivalla keskustassa).
+    wl = sorted(fd.at(q[0], q[1]) for a, b in oulu for q in (a, b))
+    water_level = wl[len(wl) // 2] if wl else min([smp["y"] - 0.6 for smp in samples if smp["bridge"]] or [121.0]) - 3.5
     heights = [0.0] * (nx * nz)
     codes = [0] * (nx * nz)
     for j in range(nz):
@@ -606,9 +626,9 @@ def main():
             if in_town or smp["s"] > S_B:
                 ground = town_h(rp)
             if ground is None:
-                sj, _ = sg.nearest(smp["r"], 140.0)
-                hs = side[sj][2] if sj >= 0 else smp["y"]
-                ground = smp["y"] + (hs - h_real_s(smp["s"])) * smooth(0.0, SIDE_D, dist) * 0.7
+                # Korkeusmalli todellisessa paikassa tien korkeuteen suhteutettuna (tiivistetyllä välillä loivemmin).
+                ground = smp["y"] + (fd.at(rp[0], rp[1]) - fd.at(smp["r"][0], smp["r"][1], smooth=1)) \
+                    * (1.0 if smp.get("c", 1.0) >= 1.0 else 0.5)
             code = FOREST
             if any(pip(rp, pts, bb) for pts, bb in wpolys) or (smp["s"] > B_LO - 600.0 and in_river(rp)):
                 code = WATER
@@ -717,11 +737,20 @@ def main():
     for j in range(fnz):
         for i in range(fnx):
             p = (fx0 + i * FAR_CELL, fz0 + j * FAR_CELL)
-            ci, _ = coarse.nearest(p, 2000.0)
+            ci, _ = coarse.nearest(p, 4000.0)
             smp = samples[ci * 20]
-            y = smp["y"]
-            th = town_h((p[0] - town_off[0], p[1] - town_off[1])) if math.dist(p, town_c) < 300 else None
-            far.append(round(th if th is not None else y + 2.0 * math.sin(p[0] * 0.013) * math.cos(p[1] * 0.011), 2))
+            if math.dist(p, town_c) < TOWN_R + 300.0:
+                far.append(round(fd.at(p[0] - town_off[0], p[1] - town_off[1]), 2))
+                continue
+            # Kaukomaasto korkeusmallista: todellinen paikka tien suhteen (sivusuunta 1:1).
+            gd = smp["dir"]
+            dx, dz = p[0] - smp["g"][0], p[1] - smp["g"][1]
+            lat = -dx * gd[1] + dz * gd[0]
+            along = dx * gd[0] + dz * gd[1]
+            rd = smp["rdir"]
+            rp = (smp["r"][0] + rd[0] * along / smp["c"] - rd[1] * lat, smp["r"][1] + rd[1] * along / smp["c"] + rd[0] * lat)
+            far.append(round(smp["y"] + (fd.at(rp[0], rp[1]) - fd.at(smp["r"][0], smp["r"][1], smooth=1))
+                             * (1.0 if smp["c"] >= 1.0 else 0.5), 2))
 
     def far_h(x, z):
         fx = (x - fx0) / FAR_CELL
@@ -749,6 +778,24 @@ def main():
         f.write(bytes(codes))
         f.write(struct.pack("<iifff", fnx, fnz, fx0, fz0, FAR_CELL))
         f.write(struct.pack("<%df" % (fnx * fnz), *far))
+
+    # --- Metsä: laserpuut tien suhteen pelin kehykseen (vaala_tarkka.trees). -----------------------------------
+    def code_at(x, z):
+        i, j = int(round((x - x0) / CELL)), int(round((z - z0) / CELL))
+        if i < 0 or j < 0 or i >= nx or j >= nz:
+            return 255
+        return codes[j * nx + i]
+
+    def c_at(p):
+        if math.dist(p, real_town) < TOWN_R:
+            return 1.0
+        i, _ = rgrid.nearest(p, NEAR + 60.0)
+        return samples[i]["c"] if i >= 0 else 1.0
+
+    rng = np.random.default_rng(1170)
+    tx, ty, tz, th, tsp = VT.trees(args.cache, laser, fd, real, to_game, code_at, lambda x, z: grid_h((x, z)), c_at, rng,
+                                   NEAR + 60.0, FAR_TREES, far_h)
+    T.write_trees(OUT_TREES, tx, ty, tz, th, tsp, rng)
 
     # --- Kyltit: risteykset ja kilometrit Vaalaan (todellinen matka). --------------------------------------------
     def sample_at_real(s):

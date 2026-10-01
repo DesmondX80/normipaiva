@@ -2,3 +2,4 @@
 *.import
 export/
 *Zone.Identifier*
+__pycache__/

@@ -1,0 +1,8 @@
+laspy[lazrs]
+numpy
+scipy
+tifffile
+imagecodecs
+pyshp
+pillow
+pyproj

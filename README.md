@@ -59,8 +59,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   omilla pinnoillaan, Kaisuantie, Uutelanperäntie, Neittäväntie ja muut tiet, pellot, suo, purot ja noin sata
   naapurirakennusta) ja korkeudet koko alueelta Maanmittauslaitoksen 2 m korkeusmallista (kauempana 8 m ruudukkona,
   `tools/kartta/mokki.ps1`; mökki on harjanteella ja piha viettää n. 7 m rantaan). Kävelyalue on 800 × 800 m, ja
-  maisema jatkuu horisonttiin. Data päivitetään komennolla `tools/kartta/mokki.ps1` tai `tools/kartta/mokki.py` (ks. `tools/kartta/LUEMINUT.md`). Mökki rajautuu joka suunnalta tiiviiseen mäntymetsään
-  tummanruskeine pystylautaseinineen. Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella
+  maisema jatkuu horisonttiin. Data päivitetään komennolla `tools/kartta/mokki.ps1` tai `tools/kartta/mokki.py` (ks. `tools/kartta/LUEMINUT.md`). Metsä on oikea: noin 128 000 puuta
+  Maanmittauslaitoksen laserkeilauksesta (paikka, pituus ja latvuksen leveys) ja Luken VMI:n puulajeista, ja
+  naapuritalojen korkeudet on mitattu laserista (`tools/kartta/mokki_puut.py`). Mökki on tummanruskeine
+  pystylautaseinineen metsän keskellä. Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella
   savusauna, puukuumenteinen poreamme ja kesäkeittiö (avoin katos offset-savustimineen), tikanheittotaulu, laituri
   portaineen ja soutuveneineen sekä isäntä Santtu kahvikuppeineen.
   - **Kalastus soutuveneellä:** laiturilla E vie veneeseen. W/S soutaa ja A/D kääntää. Kalaparvet näkyvät renkaina
@@ -68,8 +70,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     Väsytyksessä E kelaa: pidä siiman kireys vihreällä, koska punaisella siima katkeaa ja löysällä kala karkaa.
     Parvien luona ja kauempana rannasta tulee isompia kaloja (hauki rimpuilee rajuimmin). Humala tärisyttää kättä.
     F soutaa takaisin laiturille. Saalis viedään savustimeen.
-  - **Mopolla Vaalaan:** mökin pihan mopolla ajetaan Hotelli-Ravintola Siitariin (Vuolijoentie radan ali, Oulujoen
-    silta, Vaalan keskusta 1:1 OpenStreetMapin rakennuksineen: kirkko, rautatieasema, kaupat ja kunnantalo).
+  - **Mopolla Vaalaan:** mökin pihan mopolla ajetaan Hotelli-Ravintola Siitariin (Uutelanperäntien sora
+    Neittäväntielle oikean mittaisena, Vuolijoentie radan ali, Oulujoen silta, Vaalan keskusta 1:1: kirkko,
+    rautatieasema, kaupat ja kunnantalo). Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet
+    ja rakennusten pohjat maastotietokannasta, rakennusten korkeudet ja tienvarren metsä (noin 200 000 puuta)
+    laserkeilauksesta ja puulajit Luken VMI:stä (`tools/vaala_bake.py`).
     Kännissä tanko vaeltaa, kuva huojuu ja ojaan on lyhyt matka. Siitarin baarissa on tiski, karaoke
     (W/S tai hiiri pitää äänen sävelpalkilla), tanssilattia, pajatso, pöytäseurue ja naapurin Sinikka. Jos Sinikan
     kanssa tanssii tai tarjoaa hänelle drinkin, Päivi kuulee siitä pian puhelimessa ja on seuraavana päivänä
