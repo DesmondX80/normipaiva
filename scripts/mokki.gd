@@ -16,6 +16,7 @@ const Terrain := preload("res://scripts/terrain.gd")
 const DroneGame := preload("res://scripts/drone_game.gd")
 const DartsGame := preload("res://scripts/darts_game.gd")
 const Mopo := preload("res://scripts/mopo.gd")
+const SanttuPuuhat := preload("res://scripts/santtu_puuhat.gd")
 
 const DATA_PATH := "res://assets/mokki/kartta.json"
 const HEIGHTS_PATH := "res://assets/mokki/rakennukset.json"
@@ -140,6 +141,10 @@ var tub_fire_on := false
 var tub_fire_time := 0.0
 
 var santtu: Node3D
+## Santun puuhastelu pihalla (santtu_puuhat.gd), kahvikuppi ja puuhan esine kädessä.
+var puuhat: Node
+var _mug: Node3D
+var _prop: Node3D
 var _bubble: Label3D
 var _name_label: Label3D
 var _bubble_t := 0.0
@@ -179,6 +184,7 @@ var wasp_nest: Node3D
 var dock_body: Node3D
 var dock_patch: Node3D
 var ladder: Node3D
+var _forests: Array = []  # metsä ja pihan männyt (Santun reitinhaun esteet)
 var cottage_base := 0.0  # mökin lattiatason maan korkeus (rännipelin kehys)
 var sauna_base := 0.0  # savusaunan ja terassin lattiataso (ampiaispelin kehys)
 
@@ -826,6 +832,7 @@ func _build_forest() -> void:
 	var f := Forest.new()
 	add_child(f)
 	f.load_data(TREES_PATH)
+	_forests.append(f)
 
 
 func _build_lake_and_dock() -> void:
@@ -1391,6 +1398,7 @@ func _build_trees() -> void:
 	f.name = "PihaMannyt"
 	add_child(f)
 	f.load_list(trees)
+	_forests.append(f)
 
 
 # --- Santtu, isäntä ------------------------------------------------------------
@@ -1419,7 +1427,10 @@ func _build_santtu() -> void:
 	santtu.play("Sitting_Idle", 0.0)
 	var mug := Node3D.new()
 	B.mesh(mug, B.cyl(0.035, 0.035, 0.08, 10), Vector3(0, -0.02, 0), Color(0.95, 0.95, 0.92))
-	santtu.attach("hand_r", mug, Vector3(0, -0.02, 0.03))
+	_mug = santtu.attach("hand_r", mug, Vector3(0, -0.02, 0.03))
+	puuhat = SanttuPuuhat.new()
+	puuhat.mokki = self
+	add_child(puuhat)
 	_bubble = B.bubble(self, SANTTU_LOCAL + Vector3(0, 1.6, 0), Color.WHITE)
 	_name_label = B.guide(self, "Santtu, isäntä", SANTTU_LOCAL + Vector3(0, 1.3, 0), 12, Color(1, 0.9, 0.6), true)
 	_name_label.no_depth_test = false
@@ -1702,10 +1713,6 @@ var _santtu_look := Vector3.ZERO
 var _santtu_away := false
 var _santtu_walking := false
 const SANTTU_WALK := 1.6
-## Esteet, joiden läpi Santtu ei kävele (paikallinen x/z): mökki kuisteineen, savusauna, palju, kesäkeittiö, huussi.
-const SANTTU_BLOCKS := [Rect2(-5.6, -4.4, 12.6, 8.6), Rect2(1.7, 17.2, 6.2, 3.9), Rect2(-1.8, 13.7, 2.2, 2.2),
-	Rect2(-14.8, 16.4, 4.0, 3.6), Rect2(-13.3, -2.8, 1.6, 1.6)]
-
 
 ## Santtu nousee kannolta ja kävelee paikan spot viereen (noin 1,8 m päähän) katsomaan kohti look.
 func santtu_visit(spot: Vector3, look := Vector3.INF) -> void:
@@ -1734,14 +1741,60 @@ func santtu_teleport(spot: Vector3, look: Vector3) -> void:
 	_santtu_walking = false
 
 
-func santtu_go_home() -> void:
+func santtu_go_home(via: Array = []) -> void:
 	if not built or not _santtu_away:
 		return
 	_santtu_away = false
 	_santtu_look = Vector3.INF
-	_santtu_path = _route(Vector2(santtu.position.x, santtu.position.z), Vector2(SANTTU_LOCAL.x, SANTTU_LOCAL.z + 0.6))
+	santtu.visible = true
+	santtu_prop("")
+	_santtu_path = _route_via(via + [Vector3(SANTTU_LOCAL.x, 0, SANTTU_LOCAL.z + 0.6)])
 	_santtu_path.append(Vector2(SANTTU_LOCAL.x, SANTTU_LOCAL.z))
 	_start_walk()
+
+
+## Santtu kävelee tarkalleen pisteeseen (välipisteiden kautta, esim. laiturille) ja katsoo kohti look.
+func santtu_walk(points: Array, look: Vector3) -> void:
+	if not built or points.is_empty():
+		return
+	_santtu_look = look
+	_santtu_path = _route_via(points)
+	_santtu_away = true
+	_start_walk()
+
+
+func _route_via(points: Array) -> Array:
+	var out: Array = []
+	var from := Vector2(santtu.position.x, santtu.position.z)
+	for q in points:
+		var to2 := Vector2(q.x, q.z)
+		out.append_array(_route(from, to2))
+		from = to2
+	return out
+
+
+## Esine Santun käteen ("" = kahvikuppi takaisin).
+func santtu_prop(kind: String) -> void:
+	if _prop != null:
+		_prop.queue_free()
+		_prop = null
+	if _mug != null:
+		_mug.visible = kind == ""
+	if kind in SanttuPuuhat.BODY_PROPS:
+		_prop = SanttuPuuhat.prop_model(kind)  # hahmon kehyksessä (eteen = +Z), ei käden luussa
+		santtu.add_child(_prop)
+	elif kind != "":
+		_prop = santtu.attach("hand_r", SanttuPuuhat.prop_model(kind), Vector3(0, -0.02, 0.03))
+
+
+## Kävelykorkeus: laiturilla kansi, vedessä pinta (ei pohja), muuten maa.
+func walk_y(x: float, z: float) -> float:
+	if dock_body != null and absf(x - DOCK_LOCAL.x) < 0.9 and z > dock_body.position.z - 0.6 and z < DOCK_LOCAL.z + 0.7:
+		return dock_body.position.y + 0.27
+	var wi := water_at(x, z)
+	if wi >= 0:
+		return water_level(wi)
+	return h(x, z)
 
 
 ## Onko Santtu poissa kannolta (kävelee tai katsoo jotain hommaa).
@@ -1758,7 +1811,7 @@ func _start_walk() -> void:
 	if _santtu_path.is_empty():
 		return
 	if not _santtu_walking:
-		santtu.position.y = h(santtu.position.x, santtu.position.z)
+		santtu.position.y = walk_y(santtu.position.x, santtu.position.z)
 		santtu.play("Walk", 0.2)
 	_santtu_walking = true
 
@@ -1776,7 +1829,7 @@ func _santtu_tick(delta: float) -> void:
 			p += d.normalized() * step
 		if d.length() > 0.01:
 			santtu.rotation.y = B.yaw_to(Vector3(d.x, 0, d.y))
-		santtu.position = Vector3(p.x, h(p.x, p.y), p.y)
+		santtu.position = Vector3(p.x, walk_y(p.x, p.y), p.y)
 		if _santtu_path.is_empty():
 			_santtu_walking = false
 			if _santtu_away:
@@ -1799,34 +1852,228 @@ func santtu_stop() -> void:
 	_santtu_walking = false
 
 
-## Reitti kulmapisteiden kautta esteiden ohi (enintään kaksi kulmaa).
-func _route(a: Vector2, b: Vector2, depth := 0) -> Array:
-	var blk: Variant = _blocked(a, b)
-	if blk == null or depth >= 2:
+# --- Santun reitinhaku ------------------------------------------------------------------------
+# Esteruudukko (NAV_CELL m) pihan ja lähimetsän yltä: rakennukset, pihan esineet, puut (metsä ja pihan männyt) ja
+# vesi ovat esteitä, laituri on kulkukelpoinen. Reitti A*:lla (8 suuntaa) ja suoristetaan näköyhteyksillä.
+
+const NAV_CELL := 0.5
+const NAV_LO := Vector2(-62.0, -46.0)
+const NAV_HI := Vector2(32.0, 64.0)
+const NAV_BODY := 0.3  # Santun säde esteiden ympärillä
+var _nav := PackedByteArray()  # 1 = este
+var _nav_n := Vector2i.ZERO
+
+
+func _nav_build() -> void:
+	_nav_n = Vector2i(ceili((NAV_HI.x - NAV_LO.x) / NAV_CELL), ceili((NAV_HI.y - NAV_LO.y) / NAV_CELL))
+	_nav.resize(_nav_n.x * _nav_n.y)
+	_nav.fill(0)
+	# Vesi esteeksi (laituria lukuun ottamatta).
+	for j in _nav_n.y:
+		for i in _nav_n.x:
+			var c := NAV_LO + (Vector2(i, j) + Vector2(0.5, 0.5)) * NAV_CELL
+			if in_water(c.x, c.y) and not _on_dock(c):
+				_nav[j * _nav_n.x + i] = 1
+	# Rakennukset ja pihan esineet (suorakaiteet: keskipiste, koko).
+	var boxes := [
+		[Vector2(0.4, -0.1), Vector2(12.4, 8.1)],  # mökki kuisteineen ja portaineen
+		[Vector2(5.9, 19.1), Vector2(3.6, 3.1)],  # savusauna (terassi on kulkukelpoinen)
+		[HUUSSI_LOCAL2(), Vector2(1.5, 1.5)], [Vector2(KOMPOSTI_LOCAL.x, KOMPOSTI_LOCAL.z), Vector2(1.6, 1.6)],
+		[Vector2(-12.6, 17.3), Vector2(1.6, 1.0)], [Vector2(-13.1, 19.0), Vector2(1.8, 0.9)],  # savustin ja keittiötaso
+		[Vector2(-15.3, 19.6), Vector2(2.6, 0.6)],  # halkopino
+		[Vector2(PUU_SAW_LOCAL.x, PUU_SAW_LOCAL.z), Vector2(0.7, 1.5)],  # sahapukki
+		[Vector2(PUU_SAW_LOCAL.x - 2.6, PUU_SAW_LOCAL.z + 1.0), Vector2(1.1, 3.1)],  # tukkipino
+		[Vector2(HUNT_LOCAL.x, HUNT_LOCAL.z), Vector2(1.2, 1.0)],  # metsästyslava
+		[Vector2(TAXI_LOCAL.x - 2.6, TAXI_LOCAL.z + 1.0), Vector2(2.2, 4.6)],  # taksi
+		[Vector2(TUB_LOCAL.x - 2.2, TUB_LOCAL.z - 2.4), Vector2(1.7, 0.45)], [Vector2(TUB_LOCAL.x + 2.4, TUB_LOCAL.z - 2.4), Vector2(1.7, 0.45)],
+		[Vector2(TUB_LOCAL.x - 2.6, TUB_LOCAL.z + 1.0), Vector2(1.7, 0.45)],  # penkit paljun ympärillä
+	]
+	for bx in boxes:
+		_nav_rect(Rect2(bx[0] - bx[1] / 2.0, bx[1]).grow(NAV_BODY))
+	# Pyöreät esteet: palju, nuotiopaikka, pölkky, pingiskanto, tikkataulun mänty, mopo, pumppu, terassin tolpat.
+	var circles := [[TUB_LOCAL, 1.25], [TUB_LOCAL + Vector3(0.2, 0, -3.8), 0.6], [PUU_CHOP_LOCAL, 0.4], [PINGIS_LOCAL, 0.32],
+		[DART_TREE, 0.35], [MOPO_LOCAL, 0.8], [pump_local(), 0.35], [Vector3(2.1, 0, 18.2), 0.15], [Vector3(2.1, 0, 20.0), 0.15],
+		[KITCHEN_LOCAL + Vector3(-1.8, 0, 0.6), 0.1], [KITCHEN_LOCAL + Vector3(1.2, 0, 0.6), 0.1],
+		[KITCHEN_LOCAL + Vector3(-1.8, 0, 3.4), 0.1], [KITCHEN_LOCAL + Vector3(1.2, 0, 3.4), 0.1]]
+	for c in circles:
+		_nav_circle(Vector2(c[0].x, c[0].z), c[1] + NAV_BODY)
+	# Puut: metsä ja pihan männyt rungon säteellä.
+	for f in _forests:
+		var d: PackedFloat32Array = f.data_a
+		for k in range(0, d.size(), 4):
+			var x := d[k]
+			var z := d[k + 2]
+			if x < NAV_LO.x or z < NAV_LO.y or x > NAV_HI.x or z > NAV_HI.y or d[k + 3] < 1.5:
+				continue
+			_nav_circle(Vector2(x, z), 0.22 + NAV_BODY)
+
+
+static func HUUSSI_LOCAL2() -> Vector2:
+	return Vector2(HUUSSI_LOCAL.x, HUUSSI_LOCAL.z)
+
+
+func _on_dock(p: Vector2) -> bool:
+	return dock_body != null and absf(p.x - DOCK_LOCAL.x) < 0.7 and p.y > dock_body.position.z - 1.0 and p.y < DOCK_LOCAL.z + 0.6
+
+
+func _nav_rect(r: Rect2) -> void:
+	var i0 := maxi(0, floori((r.position.x - NAV_LO.x) / NAV_CELL))
+	var j0 := maxi(0, floori((r.position.y - NAV_LO.y) / NAV_CELL))
+	var i1 := mini(_nav_n.x - 1, floori((r.end.x - NAV_LO.x) / NAV_CELL))
+	var j1 := mini(_nav_n.y - 1, floori((r.end.y - NAV_LO.y) / NAV_CELL))
+	for j in range(j0, j1 + 1):
+		for i in range(i0, i1 + 1):
+			_nav[j * _nav_n.x + i] = 1
+
+
+func _nav_circle(c: Vector2, r: float) -> void:
+	var i0 := maxi(0, floori((c.x - r - NAV_LO.x) / NAV_CELL))
+	var j0 := maxi(0, floori((c.y - r - NAV_LO.y) / NAV_CELL))
+	var i1 := mini(_nav_n.x - 1, floori((c.x + r - NAV_LO.x) / NAV_CELL))
+	var j1 := mini(_nav_n.y - 1, floori((c.y + r - NAV_LO.y) / NAV_CELL))
+	for j in range(j0, j1 + 1):
+		for i in range(i0, i1 + 1):
+			var q := NAV_LO + (Vector2(i, j) + Vector2(0.5, 0.5)) * NAV_CELL
+			if q.distance_to(c) < r:
+				_nav[j * _nav_n.x + i] = 1
+
+
+func _cell(p: Vector2) -> Vector2i:
+	return Vector2i(floori((p.x - NAV_LO.x) / NAV_CELL), floori((p.y - NAV_LO.y) / NAV_CELL))
+
+
+func _free(c: Vector2i) -> bool:
+	return c.x >= 0 and c.y >= 0 and c.x < _nav_n.x and c.y < _nav_n.y and _nav[c.y * _nav_n.x + c.x] == 0
+
+
+func _center(c: Vector2i) -> Vector2:
+	return NAV_LO + (Vector2(c) + Vector2(0.5, 0.5)) * NAV_CELL
+
+
+## Lähin vapaa ruutu (alku- tai kohdepiste voi olla esteen vieressä tai sisällä, esim. kanto).
+func _nearest_free(c: Vector2i) -> Vector2i:
+	if _free(c):
+		return c
+	for r in range(1, 12):
+		for dj in range(-r, r + 1):
+			for di in range(-r, r + 1):
+				if maxi(absi(di), absi(dj)) == r and _free(c + Vector2i(di, dj)):
+					return c + Vector2i(di, dj)
+	return c
+
+
+## Näkyykö b a:sta esteiden yli (puolen ruudun askelin).
+func _sight(a: Vector2, b: Vector2) -> bool:
+	var n := maxi(1, ceili(a.distance_to(b) / (NAV_CELL * 0.2)))
+	for k in range(1, n):
+		if not _free(_cell(a.lerp(b, float(k) / n))):
+			return false
+	return true
+
+
+## Reitti a -> b esteiden ohi (A*, 8 suuntaa, suoristus). Alueen ulkopuolella suora viiva.
+func _route(a: Vector2, b: Vector2) -> Array:
+	if _nav.is_empty():
+		_nav_build()
+	var inside := func(p: Vector2) -> bool:
+		return p.x > NAV_LO.x and p.y > NAV_LO.y and p.x < NAV_HI.x and p.y < NAV_HI.y
+	if not inside.call(a) or not inside.call(b):
 		return [b]
-	var r: Rect2 = blk.grow(0.7)
-	var best: Array = []
-	var best_len := INF
-	for c in [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]:
-		if _blocked(a, c) != null:
+	var sc := _nearest_free(_cell(a))
+	var gc := _nearest_free(_cell(b))
+	if _sight(a, b) and _free(_cell(a)) and _free(_cell(b)):
+		return [b]
+	var w := _nav_n.x
+	var start := sc.y * w + sc.x
+	var goal := gc.y * w + gc.x
+	var g := {start: 0.0}
+	var came := {}
+	var heap: Array = [[0.0, start]]
+	var closed := {}
+	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)]
+	var found := false
+	var guard := 0
+	while not heap.is_empty() and guard < 60000:
+		guard += 1
+		var cur: int = _heap_pop(heap)[1]
+		if cur == goal:
+			found = true
+			break
+		if closed.has(cur):
 			continue
-		var rest := _route(c, b, depth + 1)
-		var len: float = a.distance_to(c) + c.distance_to(rest[0])
-		if len < best_len:
-			best_len = len
-			best = [c] + rest
-	return best if not best.is_empty() else [b]
+		closed[cur] = true
+		var cc := Vector2i(cur % w, cur / w)
+		for dv in dirs:
+			var nc: Vector2i = cc + dv
+			if not _free(nc):
+				continue
+			if dv.x != 0 and dv.y != 0 and (not _free(Vector2i(cc.x + dv.x, cc.y)) or not _free(Vector2i(cc.x, cc.y + dv.y))):
+				continue  # ei kulmien yli
+			var ni := nc.y * w + nc.x
+			var ng: float = g[cur] + (1.4142 if dv.x != 0 and dv.y != 0 else 1.0)
+			if ng < g.get(ni, INF):
+				g[ni] = ng
+				came[ni] = cur
+				var dx := absi(nc.x - gc.x)
+				var dy := absi(nc.y - gc.y)
+				_heap_push(heap, [ng + maxi(dx, dy) + 0.4142 * mini(dx, dy), ni])
+	if not found:
+		return [b]
+	var cells: Array = []
+	var k := goal
+	while k != start:
+		cells.push_front(_center(Vector2i(k % w, k / w)))
+		k = came[k]
+	cells.append(b)
+	# Suoristus: hypätään suoraan kauimpaan näkyvään pisteeseen.
+	var out: Array = []
+	var from := a
+	var i := 0
+	while i < cells.size():
+		var j := cells.size() - 1
+		while j > i and not _sight(from, cells[j]):
+			j -= 1
+		out.append(cells[j])
+		from = cells[j]
+		i = j + 1
+	return out
 
 
-func _blocked(a: Vector2, b: Vector2) -> Variant:
-	var n := maxi(1, int(a.distance_to(b) / 0.4))
-	for r in SANTTU_BLOCKS:
-		if r.has_point(a) or r.has_point(b):
-			continue
-		for i in range(1, n):
-			if r.has_point(a.lerp(b, float(i) / n)):
-				return r
-	return null
+func _heap_push(h: Array, item: Array) -> void:
+	h.append(item)
+	var i := h.size() - 1
+	while i > 0:
+		var p := (i - 1) / 2
+		if h[p][0] <= h[i][0]:
+			break
+		var t: Array = h[p]
+		h[p] = h[i]
+		h[i] = t
+		i = p
+
+
+func _heap_pop(h: Array) -> Array:
+	var top: Array = h[0]
+	var last: Array = h.pop_back()
+	if h.is_empty():
+		return top
+	h[0] = last
+	var i := 0
+	while true:
+		var l := i * 2 + 1
+		var r := l + 1
+		var m := i
+		if l < h.size() and h[l][0] < h[m][0]:
+			m = l
+		if r < h.size() and h[r][0] < h[m][0]:
+			m = r
+		if m == i:
+			break
+		var t: Array = h[m]
+		h[m] = h[i]
+		h[i] = t
+		i = m
+	return top
 
 
 # --- Katsojarajapinta kodan minipeleille (kota_minigame.gd): mökillä katsojana Santtu --------

@@ -103,6 +103,14 @@ func play(anim_name: String, blend := 0.2, speed := 1.0) -> void:
 	anim.play(anim_name, blend)
 
 
+## Sama animaatio alusta (esim. kirveen isku uudestaan).
+func restart(anim_name: String, blend := 0.1, speed := 1.0) -> void:
+	_current = anim_name
+	anim.speed_scale = speed
+	anim.play(anim_name, blend)
+	anim.seek(0.0, true)
+
+
 func current() -> String:
 	return _current
 
