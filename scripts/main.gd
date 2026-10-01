@@ -1905,7 +1905,7 @@ func _apply_trouble() -> void:
 
 
 ## Päivän päätös: kolmen tilan summa ratkaisee huomisen hankaluuden. Palauttaa aamun viestin rivin.
-func _end_day_stats() -> String:
+func _end_day_stats(at_mokki := false) -> String:
 	var s: float = tilat.score()
 	var sum: String = tilat.summary()
 	var note := ""
@@ -1919,6 +1919,8 @@ func _end_day_stats() -> String:
 		trouble = 0
 		note = "\nEilinen päivä: %s. Ihan normipäivä." % sum
 	tilat.reset()
+	if at_mokki:
+		tilat.ensure("humala")  # mökillä humalatila on aina yksi päivän kolmesta tilasta
 	_today.clear()
 	var names: Array[String] = []
 	for k in tilat.chosen:
@@ -2873,6 +2875,7 @@ func _viina_logic() -> void:
 
 ## Taksilla mökille: hommat alkavat vasta, kun mökillä on oltu yö.
 func _hommat_arrive() -> void:
+	tilat.ensure("humala")  # mökillä humalatila on aina yksi päivän kolmesta tilasta
 	hommat.stop()
 	hommat.nights = 0
 	_hommat_prepare()
@@ -2894,6 +2897,7 @@ func _hommat_leave_mokki() -> void:
 
 ## Aamu mökillä: päivän hommat arvotaan ja ne kirjoitetaan Santun lappuun (ruskealla kynällä).
 func _hommat_morning() -> Array:
+	tilat.ensure("humala")
 	hommat.start_day()
 	_hommat_prepare()
 	if not hommat.active:
@@ -5141,8 +5145,8 @@ func _nearest_safe() -> Vector3:
 func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_thief_stop()  # yöllä teini jättää pyörän siihen, missä se on
 	day += 1
-	var stats_note := _end_day_stats()
 	var at_m := _at_mokki_pos(spawn)  # mökillä herätessä pääpelin asiat odottavat kotiinpaluuta
+	var stats_note := _end_day_stats(at_m)
 	# Pyörä jää sinne, minne se jäi; päivä alkaa jalan turvapaikasta.
 	beers = 0
 	food.clear()
