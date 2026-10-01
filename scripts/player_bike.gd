@@ -24,6 +24,11 @@ var surface := "asphalt"
 ## Jalan kulkeva pelaaja (on_foot.gd): spurtti kuluttaa samaa kuntomittaria kuin juoksu.
 var legs: Node
 var sprinting := false
+## Autopilotti (pyörävaras, main.gd): ohjaa kohti auto_target-pistettä omalla fysiikalla, auto_speed = osuus huippunopeudesta.
+var autopilot := false
+var auto_target := Vector3.ZERO
+var auto_speed := 0.6
+var _thief: Node3D  # varkaan hahmo satulassa (pelaajan kuski piilossa)
 
 ## Hiukkasten värit alustan mukaan (sora pöllyää, vesi roiskuu, vilja lentelee).
 const DEBRIS := {
@@ -111,6 +116,23 @@ func set_rider_visible(v: bool) -> void:
 	_bag.visible = _bag.visible and v
 
 
+## Varas satulaan (look) tai pois (tyhjä): pelaajan kuski piiloon, varkaalle samat polkimet ja ote tangosta.
+func set_thief(look: Dictionary) -> void:
+	if _thief != null:
+		_thief.queue_free()
+		_thief = null
+	if look.is_empty():
+		return
+	_rider.visible = false
+	_bag.visible = false
+	_thief = Looks.make(_visual, look)
+	_thief.play("Driving", 0.0)
+	_thief.anim.advance(0.01)
+	var pelvis: Vector3 = _thief.bone_position("pelvis")
+	_thief.position = Vector3(0, 0.9, 0.28) + Vector3(0, 0.12, 0.02) - pelvis
+	_thief.set_override("spine_01", Vector3.RIGHT, -0.4)
+
+
 func activate_camera() -> void:
 	_cam.current = true
 	_cam_ready = false
@@ -155,7 +177,17 @@ func _physics_process(delta: float) -> void:
 	var throttle := 0.0
 	var steer := 0.0
 	var braking := false
-	if controls_enabled:
+	if autopilot:
+		var fwd0 := -global_transform.basis.z
+		var to := auto_target - global_position
+		to.y = 0.0
+		var ang := Vector3(fwd0.x, 0, fwd0.z).signed_angle_to(to, Vector3.UP)
+		steer = clampf(ang * 1.6, -1.0, 1.0)
+		# Mutkassa hiljennetään (jyrkässä jarrutetaan), suoralla poljetaan auto_speed-osuudella huippunopeudesta.
+		var want := MAX_SPEED * auto_speed * clampf(1.2 - absf(ang), 0.25, 1.0)
+		throttle = 1.0 if speed < want else 0.0
+		braking = speed > want + 2.0
+	elif controls_enabled:
 		throttle = Input.get_axis("back", "forward")
 		steer = Input.get_axis("right", "left")
 		braking = Input.is_action_pressed("brake")
@@ -395,15 +427,16 @@ func _animate_pedals(delta: float) -> void:
 			Sfx.play("pedal_creak" if _squeak_alt else "pedal_squeak", linear_to_db(loud) - 10.0,
 				randf_range(0.9, 1.1) * (1.0 + clampf(absf(speed) / 14.0, 0.0, 1.0) * 0.15))
 		_squeak_alt = not _squeak_alt
-	var inv := _rider.transform.affine_inverse()
+	var who: Node3D = _thief if _thief != null else _rider
+	var inv := who.transform.affine_inverse()
 	var crank_basis := Basis(Vector3.RIGHT, _crank.rotation.x)
 	for side in [["_l", -1.0], ["_r", 1.0]]:
 		var s: float = side[1]
 		var pedal: Vector3 = _crank.position + crank_basis * Vector3(0.12 * s, -0.17 * s, 0)
 		var hip := Vector3(0.1 * s, 1.0, 0.25)
-		_rider.set_ik("leg" + side[0], "thigh" + side[0], "calf" + side[0], "foot" + side[0],
+		who.set_ik("leg" + side[0], "thigh" + side[0], "calf" + side[0], "foot" + side[0],
 			inv * (pedal + Vector3(0, 0.08, 0.04)), inv * (hip + Vector3(0.05 * s, 0.1, -0.7)))
 		var grip := Vector3(0.27 * s, 1.24, -0.34)
 		var shoulder := Vector3(0.2 * s, 1.5, 0.05)
-		_rider.set_ik("arm" + side[0], "upperarm" + side[0], "lowerarm" + side[0], "hand" + side[0],
+		who.set_ik("arm" + side[0], "upperarm" + side[0], "lowerarm" + side[0], "hand" + side[0],
 			inv * grip, inv * (shoulder + Vector3(0.35 * s, -0.35, 0.1)))
