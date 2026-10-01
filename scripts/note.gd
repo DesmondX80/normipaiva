@@ -68,15 +68,26 @@ func _ready() -> void:
 
 
 ## Uusi lappu: rivit (tyhjät ohitetaan; "• " alkavat listana), allekirjoitus ja näkymisaika sekunteina.
+## Rivi voi olla myös [teksti, väri]: kirjoitettu värikynällä (ohut tumma reunus, jotta keltainenkin erottuu).
 func show_note(lines: Array, sign := "– Päivi", seconds := 12.0) -> void:
 	for c in _box.get_children():
 		c.queue_free()
 	var first := true
 	for raw in lines:
+		var ink := INK
+		var pen := false
+		if raw is Array:
+			ink = raw[1]
+			pen = true
+			raw = raw[0]
 		var t := String(raw).strip_edges()
 		if t == "":
 			continue
 		var l := _line(t, 28 if first else 22)
+		if pen:
+			l.add_theme_color_override("font_color", ink)
+			l.add_theme_color_override("font_outline_color", INK.darkened(0.3))
+			l.add_theme_constant_override("outline_size", 4)
 		first = false
 		_box.add_child(l)
 	if sign != "":

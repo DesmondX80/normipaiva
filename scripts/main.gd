@@ -1886,14 +1886,17 @@ func _roll_list() -> void:
 	_list_done = false
 
 
-## Päivin heippalappu päivän alkuun: otsikko, tehtävä ja kauppalista (vain tuotteet, värit Päivi sanoo ääneen,
-## ks. _tell_list) sekä päivän muut muistutukset (extra: rivit \n-erotettuina).
+## Päivin heippalappu päivän alkuun: otsikko, tehtävä ja kauppalista värikynillä (kukin tuote oman värisellä
+## kynällä: lappu näkyy hetken, ja HUD:n kauppalistassa on vain tuotteet, joten värit pitää muistaa)
+## sekä päivän muut muistutukset (extra: rivit \n-erotettuina).
 func _day_note(head: String, extra: String, with_list := true) -> void:
 	var lines: Array = [head]
 	if with_list and not shopping_list.is_empty():
 		lines.append("Käy K-Marketissa ja tuo:")
 		for it in shopping_list:
-			lines.append("  • %s" % it[0])
+			# Keltainen kynä keltaisella post-it-lapulla: vähän tummempi, jotta erottuu.
+			var ink: Color = ShopInterior.COLORS[it[1]] if it[1] != "keltainen" else Color(0.95, 0.68, 0.0)
+			lines.append(["  • %s" % it[0], ink])
 	var more := extra.strip_edges()
 	if more != "":
 		lines.append("")
@@ -1901,13 +1904,9 @@ func _day_note(head: String, extra: String, with_list := true) -> void:
 	_note.show_note(lines, "– Päivi ♥", 12.0 if more == "" else 16.0)
 
 
-## Päivi luettelee listan kerran ääneen (värit; lapun alla).
+## Päivi huutaa perään lapun alla: tuotteet on kirjoitettu värikynillä, värit pitää muistaa.
 func _tell_list() -> void:
-	var said: Array[String] = []
-	for it in shopping_list:
-		said.append("%s %s" % [it[1], it[0]])
-	var text := ", ".join(said.slice(0, said.size() - 1)) + " ja " + said[-1]
-	_note.say("Päivi huutaa perään: \"Tuo %s!\"\n(Lappuun hän kirjoitti vain tuotteet. Muista värit!)" % text, 9.0)
+	_note.say("Päivi huutaa perään: \"Kirjotin värikynillä! Muista värit!\"", 9.0)
 
 
 ## Ostosten tarkistus: palauttaa Päivin repliikit. Kaikki oikein -> kaljarauha.
