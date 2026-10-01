@@ -112,8 +112,7 @@ func _make_player(look: Dictionary, x: float, facing: float, cap: bool) -> Dicti
 	B.mesh(paddle, B.cyl(PADDLE_R, PADDLE_R, 0.015, 20), Vector3(0, -0.16 - PADDLE_R, 0),
 		Color(0.85, 0.72, 0.5) if facing > 0.0 else Color(0.2, 0.45, 0.75), Vector3(90, 0, 0))
 	body.attach("hand_r", paddle, Vector3(0, -0.02, 0.02))
-	var bubble := B.label(self, "", Vector3(x, 2.3, 0), 44, Color.WHITE, true)
-	bubble.outline_size = 12
+	var bubble := B.bubble(self, Vector3(x, 2.3, 0), Color.WHITE)
 	return {"body": body, "x": x, "y": 0.0, "vy": 0.0, "facing": facing, "swing_t": -1.0, "kind": "", "aim": 0.0,
 		"hit_done": false, "moving": false, "bubble": bubble, "say_t": 0.0}
 

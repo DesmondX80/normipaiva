@@ -89,7 +89,7 @@ func _ready() -> void:
 	_p.display_name = "SÄÄ"
 	_p.special = "bag"
 	_p.fight = self
-	_bubble_p = B.label(_p, "", Vector3(0, 2.3, 0), 48, Color.WHITE, true)
+	_bubble_p = B.bubble(_p, Vector3(0, 2.3, 0), Color.WHITE)
 
 	_cam = Camera3D.new()
 	_cam.fov = 50.0
@@ -114,7 +114,7 @@ func _make_foe(key: String) -> void:
 	_j.fight = self
 	_j.opponent = _p
 	_p.opponent = _j
-	_bubble_j = B.label(_j, "", Vector3(0, 2.3, 0), 48, Color.WHITE, true)
+	_bubble_j = B.bubble(_j, Vector3(0, 2.3, 0), Color.WHITE)
 	_foe_name.text = foe.name
 	_bar_j.max_value = foe.hp
 
