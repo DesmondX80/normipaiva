@@ -133,6 +133,13 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     baarissa ja kotona motkotusta). Kalja tai kätköviina Santulle kerran päivässä: Santtu tekee yhden homman
     itse (puolittain). Kaikki hommat tehty: Santtu maksaa taksirahat takaisin (15 €), antaa savukalaa ja pullon
     pontikkaa. Jokainen mökkipäivä päättyy Santun arvosteluun (1, 3 tai 5 tähteä), ja arvostelut näkyvät repussa.
+  - **Santtu puuhastelee:** kannolla kahvikupin kanssa istumisen välillä Santtu kävelee pihan puuhapaikoille:
+    halkoo ja sahaa puupaikalla, kantaa sylillisen halkoja saunan seinälle, heittää löylyvettä kiukaalle, koettaa
+    paljun vettä, hoitaa savustinta, heittää tikkaa, onkii laiturin päässä (joskus nousee ahven), naputtelee
+    laiturin lautoja, pompottelee pingispalloa, käy huussissa, kääntää kompostia, kitkee nurmikkoa, katsoo
+    ränniä, rassaa mopon karburaattoria, tarkistaa pumpun ja kiikaroi metsästyslavalla. Santtu väistää, jos
+    pelaaja tulee paikalle, eikä tee itse sinä päivänä annettuja hommia. Hommien katsominen menee puuhien edelle.
+    Santtu kiertää rakennukset, pihan esineet, puut ja veden (reitinhaku esteruudukossa, laiturilla kansi).
   Saunassa käynti (E) on lyhyt välianimaatio terassilla: löyly höyryää saunan ovelta, ja jos kaljaa on mukana,
   otetaan hörppy. Kuistin ovelta (E) pääsee **sisälle**: tupa keittiöineen (suodatinkahvi,
   jääkaappi), pitkä pöytä, TV ja takka, makuuhuone violetteine kerrossänkyineen, kylpyhuone ja sisäsauna.
