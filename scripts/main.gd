@@ -1558,7 +1558,7 @@ func _open_give_menu() -> void:
 ## T: syömävalikko mukana olevista eväistä.
 func _open_eat_menu() -> void:
 	var items: Array = []
-	for k in ["pulla", "piirakka", "savukala", "savuriista", "karrella"]:
+	for k in ["pulla", "piirakka", "mustikkapiirakka", "savukala", "savuriista", "karrella"]:
 		if food.get(k, 0) > 0:
 			items.append([k, "%s (%d)" % [FOODS[k].name, food[k]]])
 	if has_chocolate:
@@ -6284,6 +6284,12 @@ func _maybe_screenshot() -> void:
 			print("SINIKKA luovutus: tehtävä=%d ämpäri=%s piirakka=%d msg=%s" % [sinikka_task, bucket, food.get("mustikkapiirakka", 0), _msg.text])
 			await press.call()
 			print("SINIKKA sama päivä uudestaan: tehtävä=%d" % sinikka_task)
+			var n0: float = tilat.value("nalka")
+			_open_eat_menu()
+			print("SINIKKA syömävalikko: ", _item_menu._items)
+			_item_menu.visible = false
+			_item_menu.chosen.emit("mustikkapiirakka")
+			print("SINIKKA söi piirakan: nälkä %+.2f, piirakoita %d, msg=%s" % [tilat.value("nalka") - n0, food.get("mustikkapiirakka", 0), _msg.text])
 		"sinikka":
 			# Sinikka läheltä edestä vinosti (ulkonäkö ja asusteet).
 			for i in 30:
