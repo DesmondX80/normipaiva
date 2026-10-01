@@ -26,8 +26,17 @@ const SONG := [
 	[["Nor-", 4, 1], ["mi-", 5, 1], ["päi-", 7, 2], ["vä,", 9, 2], ["nor-", 7, 1], ["mi-", 5, 1], ["yyyy-", 4, 2], ["öö", 0, 4]],
 ]
 
+## Raahen Kapteenin Kellarin kappale "Ruukin valot" (oma sävellys, raahelaisittain).
+const SONG_RAAHE := [
+	[["Ruu-", 4, 1], ["kin", 4, 1], ["va-", 5, 1], ["lot", 7, 2], ["syt-", 7, 1], ["tyy", 5, 1], ["yö-", 4, 2], ["hön", 2, 3]],
+	[["Pek-", 4, 1], ["ka", 5, 1], ["to-", 7, 2], ["ril-", 5, 1], ["la", 4, 1], ["vah-", 2, 1], ["tii", 4, 1], ["merta", 0, 3]],
+	[["Skoo-", 7, 1], ["li,", 7, 1], ["ka-", 9, 2], ["ve-", 7, 1], ["rit,", 11, 1], ["Kel-", 9, 1], ["la-", 7, 2], ["rissa", 5, 3]],
+	[["Raa-", 4, 1], ["hen", 5, 1], ["yö", 7, 2], ["on", 9, 2], ["te-", 7, 1], ["rästä", 5, 1], ["ja", 4, 2], ["laulua", 0, 4]],
+]
+
 var drunk := 0.0
 var score := 0.0
+var song: Array = SONG  # laulettava kappale (rivit tavuina)
 
 var _notes: Array = []  # [alku, kesto, sävel, tavu, rivi]
 var _total_len := 0.0
@@ -55,8 +64,8 @@ var _mouse_used := false
 func _ready() -> void:
 	layer = 20
 	var t := LEAD
-	for li in SONG.size():
-		for syl in SONG[li]:
+	for li in song.size():
+		for syl in song[li]:
 			var d: float = syl[2] * SYL
 			_notes.append([t, d * 0.92, float(syl[1]), syl[0], li])
 			_total_len += d * 0.92
@@ -163,7 +172,7 @@ func _update_lyrics(cur: Array) -> void:
 ## Rivin sanat tavuista (laulettava tavu isolla hakasulkeissa).
 func _line_text(li: int, cur: Array) -> String:
 	var txt := ""
-	for syl in SONG[li]:
+	for syl in song[li]:
 		var s: String = syl[0]
 		var joined := s.ends_with("-")
 		s = s.trim_suffix("-")
