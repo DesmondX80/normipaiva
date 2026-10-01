@@ -294,6 +294,34 @@ func _build_far() -> void:
 	mi.mesh = st.commit()
 	mi.material_override = _ground_mat(Color(0.22, 0.27, 0.15), Color(0.34, 0.36, 0.22), 0.01, 0.3)
 	add_child(mi)
+	# Oulujärvi ja Oulujoki kaukomaastossa: pohja painettu vedenpinnan alle (tools/vaala_lava.py), vesi ruutuihin,
+	# joiden jokin kulma on pohjaa. Tarkan maaston kokonaan peittämät ruudut ohitetaan (tarkka piirtää oman vetensä).
+	var water_v := PackedVector3Array()
+	for j in _fnz - 1:
+		for i in _fnx - 1:
+			var q := j * _fnx + i
+			if minf(minf(_far[q], _far[q + 1]), minf(_far[q + _fnx], _far[q + _fnx + 1])) > water_level - 1.9:
+				continue
+			var a := Vector3(_fx0 + i * _fcell, water_level, _fz0 + j * _fcell)
+			var covered := true
+			for dc: Vector2 in [Vector2(0, 0), Vector2(1, 0), Vector2(0, 1), Vector2(1, 1)]:
+				if code_at(a.x + dc.x * _fcell, a.z + dc.y * _fcell) == OUTSIDE:
+					covered = false
+			if covered:
+				continue
+			var e := _fcell
+			for w in [Vector3.ZERO, Vector3(e, 0, 0), Vector3(0, 0, e), Vector3(e, 0, 0), Vector3(e, 0, e), Vector3(0, 0, e)]:
+				water_v.append(a + w)
+	if not water_v.is_empty():
+		var ws := SurfaceTool.new()
+		ws.begin(Mesh.PRIMITIVE_TRIANGLES)
+		ws.set_normal(Vector3.UP)
+		for v in water_v:
+			ws.add_vertex(v)
+		var wm := MeshInstance3D.new()
+		wm.mesh = ws.commit()
+		wm.material_override = B.shader_mat("res://shaders/water.gdshader")
+		add_child(wm)
 	# Kaukomaaston metsä tulee laserpuista (forest.gd, _build_trees).
 
 
@@ -445,10 +473,12 @@ func _build_atm() -> void:
 
 
 # --- Oulujärven lava ------------------------------------------------------------------------------------------
-## Oulujärven lava (1977-2010) oikealla paikallaan Oulujoen etelärannalla Pahalahdentien päässä (64.550921 N,
-## 26.822649 E; tools/vaala_lava.py) 90-luvun asussaan: 1 500 m² suurlava (34 x 44 m), punamullatut lautaseinät,
-## ikkunaluukut auki, matala peltinen harjakatto, lautalattia, esiintymislava pohjoispäädyssä, lipunmyyntikoju ja
-## kyltti oven puolella, parkkipaikka ja ajotie Pahalahdentieltä (tie.json "lava").
+## Oulujärven lava (1977-2010) niemellä, jossa Oulujoki alkaa Oulujärvestä (todellisuudessa niemen kärjessä
+## Pahalahdentien päässä, 64.550921 N, 26.822649 E; pelissä vähän lähempänä Vuolijoentietä, tools/vaala_lava.py)
+## 90-luvun asussaan: 1 500 m² suurlava (34 x 44 m), punamullatut lautaseinät, ikkunaluukut auki, matala peltinen
+## harjakatto, lautalattia, esiintymislava pohjoispäädyssä, lipunmyyntikoju ja kyltti oven puolella, parkkipaikka,
+## asfaltoitu ajotie Pahalahdentieltä ja lautatarha-aita joelta Pahalahteen (päät vedessä, portti tiellä;
+## tie.json "lava").
 ## Tansseissa käydään mopolla (mopo_trip.gd, lava_game.gd).
 var lava_center := Vector3.ZERO  # lattian keskipiste (lattian korkeudella)
 var lava_door := Vector3.ZERO    # oven edusta ulkona (mopon pysäköinti)
@@ -574,8 +604,8 @@ func _build_lava() -> void:
 			var p0 := a.lerp(b, float(k) / segs)
 			var p1 := a.lerp(b, float(k + 1) / segs)
 			var m2 := (p0 + p1) / 2.0
-			var seg := B.mesh(self, B.boxm(Vector3(3.6, 0.1, p0.distance_to(p1) + 0.2)), Vector3(m2.x, h(m2.x, m2.y) + 0.03, m2.y),
-				Color(0.56, 0.5, 0.42))
+			var seg := B.mesh(self, B.boxm(Vector3(4.4, 0.1, p0.distance_to(p1) + 0.2)), Vector3(m2.x, h(m2.x, m2.y) + 0.03, m2.y),
+				Color(0.24, 0.24, 0.25))
 			seg.rotation.y = atan2(p1.x - p0.x, p1.y - p0.y)
 	var park := Vector2(lava_door.x, lava_door.z) + Vector2(side * 4.0, 0)
 	var cols := [Color(0.6, 0.1, 0.1), Color(0.8, 0.8, 0.82), Color(0.15, 0.25, 0.45), Color(0.3, 0.35, 0.3)]
@@ -588,7 +618,93 @@ func _build_lava() -> void:
 		car.rotation.y = PI / 2.0
 		add_child(car)
 		Vehicles.car(car, cols[k])
+	_build_lava_fence(lv)
 
+
+## Lavan aita: 2 m lautatarha punamullattuna, tolpat 2,4 m välein; päät vedessä (tolpat pohjaan asti), portti
+## Pahalahdentiellä auki (portinpielet ja aukaistut lehdet). Törmäys aidalle, ei portille.
+func _build_lava_fence(lv: Dictionary) -> void:
+	var pts: Array = lv.get("fence", [])
+	if pts.size() < 2:
+		return
+	var gate := Vector2.INF
+	if lv.get("gate") != null:
+		gate = Vector2(lv.gate[0], lv.gate[1])
+	var gw: float = lv.get("gate_w", 6.0)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var body := StaticBody3D.new()
+	add_child(body)
+	var red := Color(0.5, 0.15, 0.1)
+	var post := B.boxm(Vector3(0.14, 1.0, 0.14))
+	# Aita kahtena pätkänä portin molemmin puolin (portti on ensimmäisellä, joen puoleisella sivulla).
+	var line: Array[Vector2] = []
+	for q in pts:
+		line.append(Vector2(q[0], q[1]))
+	var runs: Array = [line]
+	if gate != Vector2.INF:
+		var gd0 := (line[1] - line[0]).normalized()
+		var g0 := gate - gd0 * gw / 2.0
+		var g1 := gate + gd0 * gw / 2.0
+		runs = [[line[0], g0], [g1] + line.slice(1)]
+	for run: Array in runs:
+		for s in run.size() - 1:
+			_fence_run(st, body, run[s], run[s + 1], post)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = B.mat(red)
+	add_child(mi)
+	if gate == Vector2.INF:
+		return
+	# Portinpielet ja lehdet auki sisäänpäin (etelään).
+	var a0 := Vector2(pts[0][0], pts[0][1])
+	var a1 := Vector2(pts[1][0], pts[1][1])
+	var gd := (a1 - a0).normalized()
+	for sg in [-1.0, 1.0]:
+		var gp: Vector2 = gate + gd * sg * gw / 2.0
+		var gy: float = h(gp.x, gp.y)
+		B.mesh(self, B.boxm(Vector3(0.25, 2.6, 0.25)), Vector3(gp.x, gy + 1.3, gp.y), red.darkened(0.2))
+		var leaf := B.mesh(self, B.boxm(Vector3(0.05, 1.8, gw / 2.0 - 0.2)), Vector3.ZERO, red)
+		var inward := Vector2(-gd.y, gd.x) if (Vector2(lv.x, lv.z) - gate).dot(Vector2(-gd.y, gd.x)) > 0.0 else Vector2(gd.y, -gd.x)
+		var lc: Vector2 = gp + inward * (gw / 4.0)
+		leaf.position = Vector3(lc.x, gy + 1.05, lc.y)
+		leaf.rotation.y = atan2(inward.x, inward.y)
+	var plate := B.sign_plate(self, "OULUJÄRVEN LAVA", Color(0.95, 0.92, 0.82), Color(0.5, 0.1, 0.08), 0.45, 64, Color(0.5, 0.1, 0.08))
+	var outward := (gate - Vector2(lv.x, lv.z)).normalized()
+	var sp: Vector2 = gate + gd * (gw / 2.0 + 1.6) + outward * 0.2
+	plate.position = Vector3(sp.x, h(sp.x, sp.y) + 1.6, sp.y)
+	plate.rotation.y = atan2(outward.x, outward.y)
+
+
+
+## Aidan suora pätkä a -> b: tolpat 2,4 m välein, lautaseinä ja johteet tolppien välissä, törmäys seinälle. Maalla
+## seinä seuraa maata, vedessä se ulottuu pinnan alle ja tolpat pohjaan.
+func _fence_run(st: SurfaceTool, body: StaticBody3D, a: Vector2, b: Vector2, post: Mesh) -> void:
+	var top := func(p: Vector2) -> float: return maxf(h(p.x, p.y), water_level) + 2.0
+	var dir := (b - a).normalized()
+	var n := maxi(1, int(ceil(a.distance_to(b) / 2.4)))
+	for k in n + 1:
+		var p := a.lerp(b, float(k) / n)
+		var y0 := h(p.x, p.y) - 0.3
+		var y1: float = top.call(p) + 0.1
+		st.append_from(post, 0, Transform3D(Basis().scaled(Vector3(1, y1 - y0, 1)), Vector3(p.x, (y0 + y1) / 2.0, p.y)))
+	for k in n:
+		var p0 := a.lerp(b, float(k) / n)
+		var p1 := a.lerp(b, float(k + 1) / n)
+		var m := (p0 + p1) / 2.0
+		var y0 := minf(h(p0.x, p0.y), h(p1.x, p1.y)) + 0.08
+		if y0 < water_level:
+			y0 = water_level - 0.3  # vedessä lauta ulottuu pinnan alle
+		var y1: float = minf(top.call(p0), top.call(p1))
+		var seg_len := p0.distance_to(p1)
+		var xf := Transform3D(Basis(Vector3.UP, atan2(dir.x, dir.y)), Vector3(m.x, (y0 + y1) / 2.0, m.y))
+		st.append_from(B.boxm(Vector3(0.04, y1 - y0, seg_len)), 0, xf)
+		# Johteet aidan toisella puolella ylhäällä ja alhaalla.
+		for jy in [y0 + 0.25, y1 - 0.25]:
+			st.append_from(B.boxm(Vector3(0.05, 0.1, seg_len)), 0, Transform3D(xf.basis, Vector3(m.x, jy, m.y) + Vector3(dir.y, 0, -dir.x) * 0.045))
+		var cs := B.box_shape(Vector3(0.2, y1 - y0 + 1.0, seg_len), Vector3(m.x, (y0 + y1) / 2.0, m.y))
+		cs.rotation.y = atan2(dir.x, dir.y)
+		body.add_child(cs)
 
 func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
 	for v in [a, b, c, a, c, d]:
@@ -682,7 +798,7 @@ func _build_side_roads() -> void:
 					return h(p.x, p.y)
 				return lerpf(ya, yb, clampf((p - a).dot(b - a) / maxf((b - a).length_squared(), 0.01), 0.0, 1.0))
 			var v := func(p: Vector2) -> Vector3: return Vector3(p.x, gy.call(p) + lift, p.y)
-			_quad(st, v.call(a - n), v.call(b - n), v.call(b + n), v.call(a + n))
+			_quad(st, v.call(a + n), v.call(b + n), v.call(b - n), v.call(a - n))
 			if kind == "rail":
 				# Sepeliluiskat sivuille (ei rakoa maastoon).
 				var skirt := Vector3(0, -0.7, 0)

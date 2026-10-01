@@ -833,7 +833,7 @@ def main():
     print("kirjoitettu", OUT_JSON, os.path.getsize(OUT_JSON) // 1024, "kt;", OUT_BIN, os.path.getsize(OUT_BIN) // 1024, "kt;",
           "rakennuksia", len(out_buildings), "sivuteitä", len(side_roads), "kylttejä", len(signs))
     # Oulujärven lava oikealle paikalleen (tarkan alueen ulkopuolella): tontti, Pahalahdentie ja puut.
-    VL.apply()
+    VL.apply(args.cache)
 
 
 if __name__ == "__main__":
