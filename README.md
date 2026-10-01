@@ -131,8 +131,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Vain jalan:** kauppaan meno, marjojen ja sienten poiminta, laavun toiminnot, kaupat naapureiden kanssa
   ja kotiin meno. Nouse pyörän selästä F:llä.
 - **Pyörä** on asfaltilla nopea, mutta metsässä ja pellolla pääset jalan nopeammin.
-- **Lukitsematon pyörä:** jos jätät sen pitkäksi aikaa kauas (ei kotipihaan), teinit voivat viedä sen.
-  Katso kartasta, minne se jäi.
+- **Lukitsematon pyörä:** jos jätät sen pitkäksi aikaa kauas (ei kotipihaan), teini voi pölliä sen. Varas ajaa
+  pyörällä oikeasti teitä ja polkuja pitkin: ensin kohti sinua ja 100 m:n päästä sinne tänne enintään 100 m:n
+  päässä, kunnes hylkää pyörän (sieltä sen voi taas pölliä). Kartta (M) näyttää pyörän koko ajan; kun ehdit
+  pyörän viereen, teini hyppää selästä ja juoksee karkuun.
 - **Kunto:** juoksu ja pyörän spurtti (Shift) kuluttavat kuntoa. Tyhjänä pitää kävellä tai polkea rauhassa,
   kunnes kunto palautuu. Spurtin alussa saattaa päästä miehekäs pieru.
 
