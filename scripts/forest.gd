@@ -62,12 +62,57 @@ func load_data(path: String) -> bool:
 	near_tab = f.get_buffer(nnx * nnz * SPECIES * 8).to_int32_array()
 	var raw_a := f.get_buffer(w * h * 16)
 	var raw_b := f.get_buffer(w * h * 4)
+	_setup(raw_a, raw_b, w, h)
+	return true
+
+
+## Käsin sijoitetut puut (esim. mökin pihan männyt) samoilla malleilla kuin laserkeilattu metsä:
+## trees = [{pos: Vector3 (y = maanpinta solmun kehyksessä), h: pituus m, sp: laji (PINE...)}]. Yksi lähi- ja
+## kaukolohko kattaa kaikki puut.
+func load_list(trees: Array, seed := 1) -> void:
+	set_meta("ground", true)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	var list := trees.duplicate()
+	list.sort_custom(func(a, b) -> bool: return a.sp < b.sp)
+	count = list.size()
+	var lo := Vector2(INF, INF)
+	var hi := -lo
+	for t in list:
+		lo = lo.min(Vector2(t.pos.x, t.pos.z))
+		hi = hi.max(Vector2(t.pos.x, t.pos.z))
+	origin = lo - Vector2.ONE
+	far_chunk = maxf(hi.x - lo.x, hi.y - lo.y) + 2.0
+	near_chunk = far_chunk
+	nfx = 1
+	nfz = 1
+	nnx = 1
+	nnz = 1
+	var tab := PackedInt32Array()
+	tab.resize(SPECIES * 2)
+	for i in count:
+		var sp: int = list[i].sp
+		if tab[sp * 2 + 1] == 0:
+			tab[sp * 2] = i
+		tab[sp * 2 + 1] += 1
+	far_tab = tab
+	near_tab = tab
+	var a := PackedFloat32Array()
+	var b := PackedByteArray()
+	for t in list:
+		var hh: float = t.h
+		a.append_array([t.pos.x, t.pos.y, t.pos.z, hh])
+		var r: float = clampf((0.35 + 0.085 * hh) if t.sp == SPRUCE else ((0.5 + 0.1 * hh) if t.sp == PINE else 0.6 + 0.12 * hh), 0.4, 5.0)
+		b.append_array([clampi(roundi(r * 40.0), 1, 255), t.sp, rng.randi_range(0, 255), rng.randi_range(0, 255)])
+	_setup(a.to_byte_array(), b, count, 1)
+
+
+func _setup(raw_a: PackedByteArray, raw_b: PackedByteArray, w: int, h: int) -> void:
 	data_a = raw_a.to_float32_array()
 	_tex_a = ImageTexture.create_from_image(Image.create_from_data(w, h, false, Image.FORMAT_RGBAF, raw_a))
 	_tex_b = ImageTexture.create_from_image(Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, raw_b))
 	_make_meshes()
 	_build_far()
-	return true
 
 
 func _process(_delta: float) -> void:
