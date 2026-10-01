@@ -2768,6 +2768,7 @@ func _start_mopo() -> void:
 		mopo_trip.shop.connect(_enter_vaala_shop)
 		mopo_trip.lava.connect(_enter_lava)
 		mopo_trip.crashed.connect(_on_mopo_crashed)
+		_paper.mopo_trip = mopo_trip
 	mokki.mopo_parked.visible = false
 	for c in _hud.get_children():
 		if c is CanvasItem and c not in [_compass, _msg, _hint, _mopo_label]:
@@ -5371,6 +5372,26 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().process_frame
 			print("LAVA ohi: tila %s, rahaa %.2f, mielihyvä %.1f -> %.1f, mopo aktiivinen %s" % [state, money, m0, mielihyva, mopo_trip.active])
+		"mokkivaalakartta":
+			# Neittävä–Vaala-kartta (M) mopolla lavan luona: koko alue, keskusta lähempää ja mökin piha.
+			_start_mopo()
+			mopo_trip.mopo.position = mopo_trip.vaala.lava_door + Vector3(0, 0.6, 0)
+			for i in 10:
+				await get_tree().process_frame
+			_paper.toggle()
+			var views := [["_koko.png", Vector2.ZERO, 0.0], ["_keskusta.png", Vector2(1100, -1150), 1.0],
+				["_lava.png", Vector2(560, -500), 2.0], ["_mokki.png", Vector2(0, 0), 2.5]]
+			for vw in views:
+				if vw[2] > 0.0:
+					_paper._vcenter = vw[1]
+					_paper._vzoom = vw[2]
+				_paper._view.queue_redraw()
+				_paper.queue_redraw()
+				for i in 3:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0]))
+			_paper.toggle()
 		"mokkikauppa":
 			# K-Market Tervaportti Vaalassa: mopo oven eteen (vihje), kauppaan, Alkon hylly, ulos ja takaisin mopolle.
 			_start_mopo()

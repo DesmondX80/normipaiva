@@ -28,6 +28,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "kar
 import numpy as np  # noqa: E402
 import tarkka as T  # noqa: E402
 import vaala_tarkka as VT  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import vaala_lava as VL  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "assets", "vaala", "reitti.json")
@@ -46,10 +48,6 @@ UNDER_DIP = 1.3    # tie painuu alikulussa
 BRANCH_LEN = 90.0  # risteysten haarat väärään suuntaan: näin pitkä pätkä, sitten umpitie
 FAR_CELL = 32.0
 FAR_TREES = 650.0  # kaukomaaston metsä (laserin valtapuut) näin kauas todellisesta tiestä
-# Oulujärven lava (1977-2010, 1 500 m²) Niskanselän rannassa keskustan tuntumassa: keskipiste Siitarista (pelin
-# kehyksessä, keskusta on 1:1), pitkä sivu rannan suuntaisesti (z), ovi lähimmän kadun puolella.
-LAVA_REL = (-170.0, -280.0)
-LAVA_SIZE = (34.0, 44.0)
 FAR_MARGIN = 700.0
 SIDE_D = 60.0      # sivukorkeuksien etäisyys tiestä (reitti.json "side")
 
@@ -796,36 +794,9 @@ def main():
         i, _ = rgrid.nearest(p, NEAR + 60.0)
         return samples[i]["c"] if i >= 0 else 1.0
 
-    # Oulujärven lava: paikka, ajotie lähimmälle kadulle; puut pois lavan tontilta ja ajotieltä.
-    lava_c = (sx + town_off[0] + LAVA_REL[0], sz + town_off[1] + LAVA_REL[1])
-    best = None
-    for r in side_roads:
-        if r["kind"] == "rail":
-            continue
-        for q in r["pts"]:
-            dd = math.dist(lava_c, (q[0], q[1]))
-            if best is None or dd < best[0]:
-                best = (dd, (q[0], q[1]))
-    # Ovi lähimmän kadun puoleiselle pitkälle sivulle (x-suunta), ajotie siitä kadulle.
-    side = 1.0 if best is None or best[1][0] >= lava_c[0] else -1.0
-    lava_door = (lava_c[0] + side * (LAVA_SIZE[0] / 2.0 + 4.0), lava_c[1])
-    if best:
-        best = (math.dist(lava_door, best[1]), best[1])
-    lava_road = [lava_door, best[1]] if best else [lava_door]
-    clear = [(lava_c, 34.0)]
-    if best:
-        m = max(int(best[0] / 4.0), 1)
-        clear += [((lerp(lava_door[0], best[1][0], k / m), lerp(lava_door[1], best[1][1], k / m)), 6.0) for k in range(m + 1)]
-    lava = {"x": round(lava_c[0], 2), "z": round(lava_c[1], 2), "w": LAVA_SIZE[0], "l": LAVA_SIZE[1], "door_side": side,
-            "road": [[round(a, 2), round(b, 2)] for a, b in lava_road]}
-    print("Oulujärven lava", lava)
-
-    def lava_clear(x, z):
-        return any(math.dist((x, z), c) < r for c, r in clear)
-
     rng = np.random.default_rng(1170)
     tx, ty, tz, th, tsp = VT.trees(args.cache, laser, fd, real, to_game,
-                                   lambda x, z: 6 if lava_clear(x, z) else code_at(x, z),
+                                   code_at,
                                    lambda x, z: grid_h((x, z)), c_at, rng, NEAR + 60.0, FAR_TREES, far_h)
     T.write_trees(OUT_TREES, tx, ty, tz, th, tsp, rng)
 
@@ -856,12 +827,13 @@ def main():
         "bridges": bridges, "signs": signs, "branches": [{k2: v for k2, v in b.items() if k2 != "real"} for b in branches], "buildings": out_buildings, "side_roads": side_roads,
         "water": out_water, "parkings": parkings, "river_half": RIVER_HALF,
         "underpass": {k2: v for k2, v in underpass.items() if k2 not in ("real", "rdir")} if underpass else None,
-        "lava": lava,
     }
     with open(OUT_JSON, "w") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     print("kirjoitettu", OUT_JSON, os.path.getsize(OUT_JSON) // 1024, "kt;", OUT_BIN, os.path.getsize(OUT_BIN) // 1024, "kt;",
           "rakennuksia", len(out_buildings), "sivuteitä", len(side_roads), "kylttejä", len(signs))
+    # Oulujärven lava oikealle paikalleen (tarkan alueen ulkopuolella): tontti, Pahalahdentie ja puut.
+    VL.apply()
 
 
 if __name__ == "__main__":
