@@ -4,7 +4,9 @@ extends Node3D
 ## vakiovieraat Raimo ja Veikko, jotka tulevat ulos katsomaan ja kommentoivat.
 ## Aliluokka asettaa _init():ssä eye, watcher_spots, watch_at, help_text ja lines ja toteuttaa koukut
 ## _start, _tick, _action, _alt_action, _mouse_moved, _can_quit, _gust_comment_ok ja _cleanup.
-## kota.gd:n lapsi: kaikki koordinaatit ovat tämän solmun paikallisia.
+## kota.gd:n lapsi: kaikki koordinaatit ovat tämän solmun paikallisia. Isäntä (kota) voi olla myös mökki
+## (mokki.gd), jolloin katsojana on Santtu: isäntä tarjoaa silloin watcher_node(), watcher_bubble() ja
+## watcher_say() (kodalla raimo/veikko, _bubbles ja say()).
 
 signal finished
 
@@ -50,7 +52,7 @@ var _wind_label: Label
 var _sub: Label
 var _sub_t := 0.0
 var _count: Label
-var _talk_t := {"raimo": 0.0, "veikko": 0.0}
+var _talk_t := {}
 var _last_line := ""
 
 
@@ -153,7 +155,7 @@ func _process(delta: float) -> void:
 		if _talk_t[who] > 0.0:
 			_talk_t[who] -= delta
 			if _talk_t[who] <= 0.0:
-				(kota.raimo if who == "raimo" else kota.veikko).play("Idle", 0.3)
+				_watcher(who).play("Idle", 0.3)
 	if _sub_t > 0.0:
 		_sub_t -= delta
 		if _sub_t <= 0.0:
@@ -307,26 +309,54 @@ func _build_leaves() -> void:
 
 # --- Katsojat ja kommentit --------------------------------------------------------------
 
-## Raimo ja Veikko tulevat kodasta ulos seisomaan katsomaan (paikat aliluokalta).
+## Katsojan hahmo, puhekupla ja puhe isännän mukaan (kota: Raimo ja Veikko, mökki: Santtu).
+func _watcher(who: String) -> Node3D:
+	if kota.has_method("watcher_node"):
+		return kota.watcher_node(who)
+	return kota.raimo if who == "raimo" else kota.veikko
+
+
+func _watcher_bubble(who: String) -> Label3D:
+	if kota.has_method("watcher_bubble"):
+		return kota.watcher_bubble(who)
+	return kota._bubbles[who]
+
+
+## Kuplan paikka: B.bubble (bubble.gd) palauttaa paikkansa restiin joka ruudulla, joten molemmat asetetaan.
+func _place_bubble(b: Label3D, p: Vector3) -> void:
+	if "rest" in b:
+		b.rest = p
+	b.position = p
+
+
+func _watcher_say(who: String, text: String, seconds: float) -> void:
+	if kota.has_method("watcher_say"):
+		kota.watcher_say(who, text, seconds)
+	else:
+		kota.say(who, text, seconds)
+
+
+## Katsojat (kodalla Raimo ja Veikko, mökillä Santtu) tulevat seisomaan katsomaan (paikat aliluokalta).
 func _setup_watchers() -> void:
 	for who in watcher_spots:
-		var c: Node3D = kota.raimo if who == "raimo" else kota.veikko
-		var bubble: Label3D = kota._bubbles[who]
-		_saved[who] = [c.transform, bubble.position, c.current()]
+		_talk_t[who] = 0.0
+		var c: Node3D = _watcher(who)
+		var bubble: Label3D = _watcher_bubble(who)
+		_saved[who] = [c.transform, bubble.rest if "rest" in bubble else bubble.position, c.current()]
 		var p: Vector3 = transform * (watcher_spots[who] as Vector3)
 		c.position = p
 		c.rotation = Vector3(0, B.yaw_to(transform * watch_at - p), 0)
 		c.play("Idle", 0.3)
-		bubble.position = p + Vector3(0, 2.05, 0)
+		_place_bubble(bubble, p + Vector3(0, 2.05, 0))
 
 
 func _restore_watchers() -> void:
 	for who in watcher_spots:
-		var c: Node3D = kota.raimo if who == "raimo" else kota.veikko
+		var c: Node3D = _watcher(who)
 		c.transform = _saved[who][0]
-		(kota._bubbles[who] as Label3D).position = _saved[who][1]
+		_place_bubble(_watcher_bubble(who), _saved[who][1])
 		c.play(_saved[who][2], 0.0)
-		kota.say(who, "", 0.0)
+		_watcher_say(who, "", 0.0)
 
 
 func _say_kind(kind: String) -> void:
@@ -334,13 +364,13 @@ func _say_kind(kind: String) -> void:
 	if opts.is_empty():
 		opts = lines[kind]
 	var line: Array = opts.pick_random()
-	var who: String = line[0] if line[0] != "" else ["raimo", "veikko"].pick_random()
+	var who: String = line[0] if line[0] != "" and watcher_spots.has(line[0]) else watcher_spots.keys().pick_random()
 	_last_line = line[1]
 	var dur := clampf(1.8 + line[1].length() * 0.05, 2.5, 5.5)
-	kota.say(who, line[1], dur)
-	(kota.raimo if who == "raimo" else kota.veikko).play("Idle_Talking", 0.2)
+	_watcher_say(who, line[1], dur)
+	_watcher(who).play("Idle_Talking", 0.2)
 	_talk_t[who] = dur
-	_sub.text = "%s: %s" % ["Raimo" if who == "raimo" else "Veikko", line[1]]
+	_sub.text = "%s: %s" % [who.capitalize(), line[1]]
 	_sub_t = dur
 
 

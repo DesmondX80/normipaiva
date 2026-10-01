@@ -30,11 +30,11 @@ const INNER_HALF := 144.0  # tarkka 2 m maastoverkko pihan ympärillä (2 m kork
 const FAR_GRID := 8.0  # kauempana maastoverkon ruutu
 const MASK_STEP := 4.0  # teiden ja pihojen hakuruudukko (ks. _mask)
 
-# Pihan asettelu: mökki OSM:n rakennuksen kohdalla, sauna, poreamme ja laituri drone-kuvasta.
-# Rannan puolella kuistilta katsottuna vasemmalta oikealle (+X -> -X): savusauna, poreamme ja kesäkeittiö.
+# Pihan asettelu: mökki OSM:n rakennuksen kohdalla, sauna, palju ja laituri drone-kuvasta.
+# Rannan puolella kuistilta katsottuna vasemmalta oikealle (+X -> -X): savusauna, palju ja kesäkeittiö.
 const TAXI_LOCAL := Vector3(-7.0, 0, -29.0)    # Kaisuantien varressa mökin takana
 const SAUNA_LOCAL := Vector3(5.9, 0, 18.1)     # kiuas savusaunan sisällä
-const TUB_LOCAL := Vector3(-0.7, 0, 14.8)      # puukuumenteinen poreamme
+const TUB_LOCAL := Vector3(-0.7, 0, 14.8)      # puulämmitteinen palju
 const DART_LOCAL := Vector3(4.2, 0, 8.0)       # heittopiste tikkataulun edessä (taulu männyssä)
 const DART_TREE := DART_LOCAL + Vector3(0, 0, 3.0)  # tikkataulun mänty
 const DART_BOARD_UP := 1.5  # taulun keskusta maasta
@@ -51,6 +51,22 @@ const HUNT_GLADE_R := 10.0
 const PINGIS_LOCAL := Vector3(-7.5, 0, 9.0)    # pihapingiksen mailat kannolla Santun vasemmalla puolella
 const DRONE_LOCAL := Vector3(-4.5, 0, -7.5)    # droonin laskeutumisalusta pysäköintipaikan vieressä mökin takana
 const MOPO_LOCAL := Vector3(-1.2, 0, -8.0)     # Paapelin mopo parkissa mökin takana: E ajaa Vaalaan Siitariin
+## Santun hommat (santun_hommat.gd, main.gd _hommat_*): puupaikka, halkopino, huussi, komposti, päädyn nurmikko,
+## tikkaat räystääseen, ampiaispesä saunan terassilla, laiturin korjauskohta ja paljun pumppu rannassa.
+const PUU_SAW_LOCAL := Vector3(-18.0, 0, 14.5)   # sahapukki kesäkeittiön takana
+const PUU_CHOP_LOCAL := Vector3(-15.2, 0, 13.4)  # pilkkomispölkky
+const HALKO_LOCAL := Vector3(-15.3, 0, 18.6)     # halkopinon edessä: syli halkoja savusaunaan
+const HUUSSI_LOCAL := Vector3(-12.5, 0, -2.0)    # huussi pihan laidalla, ovi pihalle (+Z)
+const HUUSSI_HATCH_LOCAL := Vector3(-12.5, 0, -3.3)  # takaluukku, josta sanko otetaan
+const KOMPOSTI_LOCAL := Vector3(-18.5, 0, 5.5)
+## Päädyn nurmikko (paikallinen x/z) ja Santun vanha leikkuri sen kulmassa.
+const LAWN_RECT := Rect2(7.8, -3.5, 3.8, 9.0)
+const LAWN_MOWER_LOCAL := Vector3(8.4, 0, -3.0)
+const LADDER_LOCAL := Vector3(0.4, 0, -4.6)      # tikkaat takaseinän räystääseen (räystäs z = -3.75)
+const GUTTER_Z := -3.85                           # ränni takaräystään alla
+const GUTTER_UP := 2.78                           # rännin korkeus mökin lattiatason maasta
+const WASP_STAND_LOCAL := Vector3(2.2, 0, 16.9)  # ampiaispesän edessä saunan terassin kulmalla
+const DOCK_FIX_LOCAL := Vector3(8.9, 0, 49.0)    # laiturin lahot laudat
 ## Viinakätköt mökin ympäröivässä metsässä geokätköjen tapaan: kompassi ja HUD näyttävät lähimmän löytämättömän
 ## kätkön suunnan ja matkan (main.gd _viina_logic). Paikat arvotaan kiinteällä siemenellä (viina_positions).
 const VIINA := [
@@ -73,8 +89,15 @@ const COTTAGE_LOCAL := Vector2(0.0, -1.0)
 const OWN_BUILDINGS := ["1074462394", "1555232405"]
 const COTTAGE_SIZE := Vector2(9.4, 5.0)
 
-const SAUNA_HEAT := 20.0    # s ennen kuin kiuas on kuuma
+const SAUNA_HEAT := 20.0    # (vanha) s ennen kuin kiuas on kuuma
 const SAUNA_BURN := 260.0   # s sytytyksestä sammumiseen
+## Savusaunan lämmitys: syli palaa SAUNA_FUEL_LOAD s, pesään mahtuu SAUNA_FUEL_MAX s, ja täyteen lämpöön menee
+## noin 1 / SAUNA_HEAT_RATE s tulta. Savut tuulettuvat SAUNA_CLEAR s:ssa, ja lämmin kiuas jäähtyy hitaasti.
+const SAUNA_FUEL_LOAD := 30.0
+const SAUNA_FUEL_MAX := 60.0
+const SAUNA_HEAT_RATE := 1.0 / 75.0
+const SAUNA_CLEAR := 22.0
+const SAUNA_COOL := 1.0 / 500.0
 const TUB_HEAT := 30.0
 const TUB_BURN := 320.0
 
@@ -85,14 +108,14 @@ const SANTTU_LINES := [
 	"Muilla mökeillä on jo 106 arvostelua, keskiarvo 4.86. Kyllä tää vielä nousee.",
 	"Parkkipaikka on ilmainen, harvinaista täällä päin.",
 	"Suodatinkahvia on aina tarjolla. Se on listan kohokohtia, usko tai älä.",
-	"Savusauna ja puukuumenteinen poreamme – kokeile molempia, ennen ku lähet.",
+	"Savusauna ja puulämmitteinen palju – kokeile molempia, ennen ku lähet.",
 	"Pihalla on ulkokeittiö ja savustin. Kokkaa jotain, jos on aikaa.",
 	"Lähin kauppa on Vaalassa, viistoista kilsaa. Täällä on rauhallista.",
 	"Synnyin 80-luvulla, opiskelin Oulun yliopistossa. Sitä ei tästä äkkiä arvais.",
 	"Vastausprosentti sata, vastaan yleensä tunnissa. Paitsi kun oon saunassa.",
 ]
 const SANTTU_AMBIENT := [
-	"Löylyä riittää, älä säästele.", "Poreamme lämpiää hitaasti, mutta kunnolla.",
+	"Löylyä riittää, älä säästele.", "Palju lämpiää hitaasti, mutta kunnolla.",
 	"Kahvia on keittiössä, ota rohkeasti.", "Tikkaa saa heittää, puuta ei tarvi säästellä.",
 	"Ilta on kaunis järvellä.", "Rauhallista täällä, ei naapureita lähelläkään.",
 ]
@@ -118,6 +141,7 @@ var tub_fire_time := 0.0
 
 var santtu: Node3D
 var _bubble: Label3D
+var _name_label: Label3D
 var _bubble_t := 0.0
 var _t := 0.0
 var _sauna_fire: Node3D
@@ -131,6 +155,32 @@ var _smoker_smoke: CPUParticles3D
 ## ettei pelin käynnistys hidastu noin 2 sekunnilla. Kartat ja sijaintilaskut (map_data, h, gpos) toimivat ilman.
 var built := false
 var _pa_out: AudioStreamPlayer3D
+
+## Savusauna: lämpö (0–1), polttopuuta pesässä (s), savua saunassa (0–1). Täysi lämpö polttaa pesän loppuun,
+## ja ennen löylyä savujen pitää tuulettua (häkä). Ks. main.gd _sauna_logic.
+var sauna_heat := 0.0
+var sauna_fuel := 0.0
+var sauna_smoke := 0.0
+var sauna_heated := false
+signal sauna_event(kind: String)  # "sammui", "kuuma", "valmis"
+var _sauna_smoke_fx: CPUParticles3D
+## Palju: vettä (0–1), likaa (0–1) ja pumppu järvestä.
+var palju_level := 1.0
+var palju_dirt := 0.0
+var pump_on := false
+var _palju_water: MeshInstance3D
+var _palju_dirt: MeshInstance3D
+var _pump_sound: AudioStreamPlayer3D
+var _hose: Node3D
+## Hommien esineet: huussin kärpäset, kompostin pinta, ampiaispesä, laiturin paikkalaudat, tikkaat.
+var huussi_flies: CPUParticles3D
+var komposti_soil: MeshInstance3D
+var wasp_nest: Node3D
+var dock_body: Node3D
+var dock_patch: Node3D
+var ladder: Node3D
+var cottage_base := 0.0  # mökin lattiatason maan korkeus (rännipelin kehys)
+var sauna_base := 0.0  # savusaunan ja terassin lattiataso (ampiaispelin kehys)
 
 
 func ensure_built() -> void:
@@ -152,10 +202,14 @@ func ensure_built() -> void:
 	_build_pingis_spot()
 	_build_trees()
 	_build_santtu()
+	_build_chore_spots()
 	# Kaikki pihan rakennukset ja esineet maanpinnalle (maasto ja vesi ovat jo oikealla korkeudella).
 	for c in get_children():
 		if c is Node3D and not c.has_meta("ground"):
 			c.position.y += h(c.position.x, c.position.z)
+	cottage_base = h(0.0, -1.0)
+	sauna_base = h(SAUNA_LOCAL.x, SAUNA_LOCAL.z + 1.0)
+	_build_hose()
 
 
 ## Tikkataulun etupinnan keskipiste mökin koordinaateissa (tikanheiton minipeli).
@@ -163,8 +217,9 @@ static func dart_board_center() -> Vector3:
 	return DART_TREE + Vector3(0, h(DART_TREE.x, DART_TREE.z) + DART_BOARD_UP, -0.36)
 
 
+## Löylyihin: kiuas lämmitetty täyteen, pesä palanut loppuun ja savut tuulettuneet.
 func sauna_ready() -> bool:
-	return sauna_fire_on and sauna_fire_time <= SAUNA_BURN - SAUNA_HEAT
+	return sauna_heated and not sauna_fire_on and sauna_smoke <= 0.05 and sauna_heat >= 0.6
 
 
 func tub_ready() -> bool:
@@ -175,8 +230,30 @@ func set_sauna_fire(on: bool) -> void:
 	sauna_fire_on = on
 	if on:
 		sauna_fire_time = SAUNA_BURN
-	elif _sauna_fire != null:
-		_sauna_fire.visible = false
+		sauna_fuel = maxf(sauna_fuel, SAUNA_FUEL_LOAD)
+	else:
+		sauna_fuel = 0.0
+		if _sauna_fire != null:
+			_sauna_fire.visible = false
+
+
+## Uusi päivä: savusauna kylmänä.
+func reset_sauna() -> void:
+	set_sauna_fire(false)
+	sauna_heat = 0.0
+	sauna_smoke = 0.0
+	sauna_heated = false
+
+
+## Syli halkoja pesään (sytyttää, jos tuli on sammunut). Palauttaa false, jos pesä on jo täynnä.
+func sauna_add_wood() -> bool:
+	if sauna_fire_on and sauna_fuel > SAUNA_FUEL_MAX - SAUNA_FUEL_LOAD * 0.5:
+		return false
+	if not sauna_fire_on:
+		sauna_fire_on = true
+		sauna_fire_time = SAUNA_BURN
+	sauna_fuel = minf(sauna_fuel + SAUNA_FUEL_LOAD, SAUNA_FUEL_MAX)
+	return true
 
 
 func set_tub_fire(on: bool) -> void:
@@ -232,12 +309,9 @@ func _process(delta: float) -> void:
 	if not built:
 		return
 	_t += delta
-	if sauna_fire_on:
-		sauna_fire_time -= delta
-		if sauna_fire_time <= 0.0:
-			set_sauna_fire(false)
-		else:
-			_sauna_fire.visible = true
+	_sauna_tick(delta)
+	_palju_tick(delta)
+	_santtu_tick(delta)
 	if tub_fire_on:
 		tub_fire_time -= delta
 		if tub_fire_time <= 0.0:
@@ -766,6 +840,11 @@ func _build_lake_and_dock() -> void:
 	var dock := StaticBody3D.new()
 	dock.position = Vector3(DOCK_LOCAL.x, 0, start_z)
 	add_child(dock)
+	dock_body = dock
+	# Paikkalaudat (laiturin korjaus, laituri_game.gd): lahot ja uudet laudat piirretään tämän alle.
+	dock_patch = Node3D.new()
+	dock_patch.name = "DockPatch"
+	dock.add_child(dock_patch)
 	var wi := water_at(DOCK_LOCAL.x, DOCK_LOCAL.z)
 	var bed := (water_level(wi) if wi >= 0 else water_y()) - 1.0 - h(DOCK_LOCAL.x, start_z)  # pohja laiturin kehyksessä
 	var wood := Color(0.5, 0.38, 0.24)
@@ -869,6 +948,11 @@ func _build_cottage() -> void:
 		B.mesh(body, gable, Vector3(sxg * (l / 2.0 + 0.02), found_h + wall_h + rise / 2.0, 0), white, Vector3(0, 90, 0))
 	# Kuistin tasainen lippakatto tolppien varassa.
 	B.mesh(body, B.boxm(Vector3(l + 0.4, 0.08, porch_d + 0.4)), Vector3(0, found_h + wall_h + 0.04, deck_z), roof_col)
+	# Rännit molempien räystäiden alla (takaräystään ränni putsataan tikkailta, ranni_game.gd).
+	for sz in [-1.0, 1.0]:
+		var gz: float = sz * (d / 2.0 + 0.35)
+		B.mesh(body, B.boxm(Vector3(l + 0.9, 0.1, 0.13)), Vector3(0, GUTTER_UP - 0.04, gz), Color(0.42, 0.43, 0.45))
+	B.mesh(body, B.cyl(0.045, 0.045, GUTTER_UP, 8), Vector3(-l / 2.0 - 0.3, GUTTER_UP / 2.0 - 0.1, d / 2.0 + 0.35), Color(0.42, 0.43, 0.45))  # syöksytorvi
 	# Savupiippu (musta, korkilla).
 	B.mesh(body, B.boxm(Vector3(0.5, 1.1, 0.5)), Vector3(l / 2.0 - 2.2, found_h + wall_h + rise + 0.35, 0.4), Color(0.08, 0.08, 0.09))
 	B.mesh(body, B.boxm(Vector3(0.64, 0.08, 0.64)), Vector3(l / 2.0 - 2.2, found_h + wall_h + rise + 0.94, 0.4), Color(0.15, 0.15, 0.16))
@@ -957,7 +1041,7 @@ func _build_cottage() -> void:
 
 # --- Kesäkeittiö: avoin katos offset-savustimineen -------------------------------------
 
-## Kuvien mukaan rannan puolella poreammeen oikealla (kuistilta katsottuna): avoin puukatos, jonka alla
+## Kuvien mukaan rannan puolella paljun oikealla (kuistilta katsottuna): avoin puukatos, jonka alla
 ## offset-savustin ja pöytä. Halkopino katoksen vieressä. (Vieressä ollut käyttämätön lautavaja purettu.)
 func _build_summer_kitchen() -> void:
 	var dark_roof := Color(0.24, 0.22, 0.2)
@@ -1027,7 +1111,7 @@ func _build_savusauna() -> void:
 	var rise := 0.7
 	var log_col := Color(0.42, 0.32, 0.2)
 	var sauna := StaticBody3D.new()
-	sauna.position = SAUNA_LOCAL + Vector3(0, 0, 1.0)  # akselinsuuntainen: ei kiertoa, ovi ja terassi -X:ssä poreammeelle päin
+	sauna.position = SAUNA_LOCAL + Vector3(0, 0, 1.0)  # akselinsuuntainen: ei kiertoa, ovi ja terassi -X:ssä paljulle päin
 	add_child(sauna)
 	var offs := [d / 2.0, w / 2.0, -d / 2.0, -w / 2.0]  # side 0..3: +Z, +X, -Z, -X (ovi)
 	# Pyöröhirsiseinät (kaksi pitkää, kaksi lyhyttä, ovi -X:ssä).
@@ -1083,6 +1167,20 @@ func _build_savusauna() -> void:
 	_sauna_fire = _make_fire(sauna, Vector3(kiuas_local.x, 0.62, kiuas_local.z), 0.55)
 	B.mesh(sauna, B.cyl(0.1, 0.13, 0.55, 10), Vector3(kiuas_local.x + 0.45, 0.28, kiuas_local.z), Color(0.55, 0.4, 0.25))  # tuohinen kiulu
 	B.mesh(sauna, B.cyl(0.15, 0.1, 0.5, 10), Vector3(0.6, wall_h - 0.05, -1.1), Color(0.22, 0.22, 0.24))  # savuhormi kattoon
+	# Savusaunan savu: lämmittäessä paksua savua ovesta ja räppänästä, tuulettuessa ohenee.
+	_sauna_smoke_fx = _smoke_fx(Vector3(-w / 2.0 - 0.2, 1.7, 0.4))
+	sauna.add_child(_sauna_smoke_fx)
+	# Ampiaispesä terassin katon alla etukulmassa (Santun homma: ampiais_game.gd). Näkyy vain homman päivänä.
+	wasp_nest = Node3D.new()
+	wasp_nest.position = Vector3(-w / 2.0 - 1.5, 1.95, -0.6)
+	wasp_nest.visible = false
+	sauna.add_child(wasp_nest)
+	var paper := Color(0.62, 0.58, 0.5)
+	for k in 5:
+		var ring := B.mesh(wasp_nest, B.sphere(0.13 - absf(k - 2) * 0.025, 12), Vector3(0, -k * 0.055, 0), paper.darkened(0.06 * (k % 2)))
+		ring.scale = Vector3(1.0, 0.6, 1.0)
+	B.mesh(wasp_nest, B.sphere(0.03, 8), Vector3(0, -0.27, 0), Color(0.08, 0.07, 0.06))  # suuaukko
+	B.mesh(wasp_nest, B.cyl(0.015, 0.02, 0.12, 6), Vector3(0, 0.08, 0), paper.darkened(0.2))
 
 
 func _make_fire(parent: Node3D, pos: Vector3, sz: float) -> Node3D:
@@ -1106,17 +1204,29 @@ func _make_fire(parent: Node3D, pos: Vector3, sz: float) -> Node3D:
 	return fire
 
 
-# --- Puukuumenteinen poreamme -----------------------------------------------------
+# --- Puulämmitteinen palju -----------------------------------------------------
 
 func _build_hottub() -> void:
 	var tub := StaticBody3D.new()
 	tub.position = TUB_LOCAL
 	add_child(tub)
 	tub.add_child(B.capsule_shape(0.95, 0.9))
-	B.mesh(tub, B.cyl(0.95, 0.98, 0.85, 20), Vector3(0, 0.42, 0), Color(0.08, 0.08, 0.09))
-	B.mesh(tub, B.cyl(0.86, 0.86, 0.05, 20), Vector3(0, 0.86, 0), Color(0.15, 0.35, 0.42, 0.85))
+	# Puinen palju: tummat laudat ulkona, musta sisäkuori ja vanteet.
+	B.mesh(tub, B.cyl(0.95, 0.98, 0.85, 20), Vector3(0, 0.42, 0), Color(0.36, 0.25, 0.16))
+	B.mesh(tub, B.cyl(0.88, 0.88, 0.8, 20), Vector3(0, 0.46, 0), Color(0.07, 0.07, 0.08))
+	_palju_water = B.mesh(tub, B.cyl(0.86, 0.86, 0.05, 20), Vector3(0, 0.86, 0), Color(0.15, 0.35, 0.42, 0.85))
+	# Levät ja lehdet pohjalla (näkyy, kun palju on tyhjä ja likainen).
+	_palju_dirt = B.mesh(tub, B.cyl(0.85, 0.85, 0.02, 20), Vector3(0, 0.08, 0), Color(0.22, 0.3, 0.12))
+	_palju_dirt.visible = false
+	var dm := StandardMaterial3D.new()
+	dm.albedo_color = Color(0.22, 0.3, 0.12)
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dm.roughness = 1.0
+	_palju_dirt.material_override = dm
 	for k in 3:
-		B.mesh(tub, B.cyl(0.99, 0.99, 0.04, 20), Vector3(0, 0.2 + k * 0.28, 0), Color(0.5, 0.45, 0.4))
+		B.mesh(tub, B.cyl(0.99, 0.99, 0.04, 20), Vector3(0, 0.2 + k * 0.28, 0), Color(0.18, 0.18, 0.2))
+	# Tyhjennysventtiili kyljessä.
+	B.mesh(tub, B.cyl(0.04, 0.04, 0.2, 8), Vector3(-0.98, 0.1, 0.0), Color(0.6, 0.6, 0.62), Vector3(0, 0, 90))
 	B.mesh(tub, B.cyl(0.14, 0.16, 0.45, 10), Vector3(0.7, 0.0, 0.7), Color(0.3, 0.3, 0.32))  # tulipesän piippu
 	_tub_fire = _make_fire(tub, Vector3(0.7, 0.05, 0.7), 0.55)
 	var steps := Node3D.new()
@@ -1139,7 +1249,7 @@ func _build_yard_extras() -> void:
 	var board := DartsGame.make_board(tree)  # oikea tikkataulu, etupinta heittopisteelle (-Z)
 	board.position = Vector3(0, DART_BOARD_UP, -0.36)
 	tree.add_child(B.capsule_shape(0.3, 6.0))
-	# Penkit ja nuotiopaikka poreammeen edessä (kuten kuistilta otetussa kuvassa).
+	# Penkit ja nuotiopaikka paljun edessä (kuten kuistilta otetussa kuvassa).
 	for bp in [TUB_LOCAL + Vector3(-2.2, 0, -2.4), TUB_LOCAL + Vector3(2.4, 0, -2.4), TUB_LOCAL + Vector3(-2.6, 0, 1.0)]:
 		B.mesh(self, B.boxm(Vector3(1.6, 0.08, 0.35)), bp + Vector3(0, 0.42, 0), Color(0.45, 0.34, 0.22))
 		for lx in [-0.65, 0.65]:
@@ -1294,6 +1404,7 @@ const DOOR_LOCAL := Vector3(4.15, 0, 0.7)
 const PORCH_DIR := Vector3(0, 0, 1)
 ## Pesuhuoneen ovi kuistille julkisivussa (paikallinen, oven edessä kannella): sisään pesuhuoneeseen.
 const DOOR2_LOCAL := Vector3(-1.3, 0, 2.0)
+const COTTAGE_DOOR_SPOT := DOOR_LOCAL  # PA-homma: Santtu tulee ovelle
 
 
 func _build_santtu() -> void:
@@ -1307,5 +1418,424 @@ func _build_santtu() -> void:
 	B.mesh(mug, B.cyl(0.035, 0.035, 0.08, 10), Vector3(0, -0.02, 0), Color(0.95, 0.95, 0.92))
 	santtu.attach("hand_r", mug, Vector3(0, -0.02, 0.03))
 	_bubble = B.bubble(self, SANTTU_LOCAL + Vector3(0, 1.6, 0), Color.WHITE)
-	var name := B.label(self, "Santtu, isäntä", SANTTU_LOCAL + Vector3(0, 1.3, 0), 12, Color(1, 0.9, 0.6), true)
-	name.no_depth_test = false
+	_name_label = B.label(self, "Santtu, isäntä", SANTTU_LOCAL + Vector3(0, 1.3, 0), 12, Color(1, 0.9, 0.6), true)
+	_name_label.no_depth_test = false
+
+
+# --- Santun hommat: puupaikka, huussi, komposti, tikkaat, pumppu ja letku ---------------------
+
+## Puupaikka (sahapukki ja pilkkomispölkky kuten kodalla, solmujen nimet samat: saw_game.gd ja chop_game.gd
+## piilottavat ne pelin ajaksi), huussi, komposti ja tikkaat takaseinällä.
+func _build_chore_spots() -> void:
+	var dark := Color(0.3, 0.22, 0.14)
+	var saw := Node3D.new()
+	saw.position = PUU_SAW_LOCAL
+	add_child(saw)
+	for z in [-0.4, 0.4]:
+		for sgn in [-1.0, 1.0]:
+			var leg := B.mesh(saw, B.boxm(Vector3(0.07, 1.0, 0.07)), Vector3(0, 0.45, z), dark)
+			leg.rotation.z = sgn * 0.5
+	B.mesh(saw, B.boxm(Vector3(0.08, 0.08, 1.0)), Vector3(0, 0.45, 0), dark)
+	var sawlog := B.mesh(saw, B.cyl(0.13, 0.14, 1.6, 10), Vector3(0, 0.88, 0), Color(0.85, 0.83, 0.78))
+	sawlog.rotation.x = PI / 2.0
+	sawlog.name = "SawLog"
+	var bow := Node3D.new()
+	bow.position = Vector3(0.05, 1.18, 0.35)
+	bow.name = "Saw"
+	saw.add_child(bow)
+	B.mesh(bow, B.cyl(0.02, 0.02, 0.8, 8), Vector3(0, 0.25, 0), Color(0.95, 0.45, 0.05), Vector3(0, 0, PI / 2.0))
+	B.mesh(bow, B.boxm(Vector3(0.78, 0.035, 0.005)), Vector3(0, -0.05, 0), Color(0.75, 0.76, 0.78))
+	for sx in [-0.39, 0.39]:
+		B.mesh(bow, B.cyl(0.018, 0.018, 0.32, 8), Vector3(sx, 0.1, 0), Color(0.95, 0.45, 0.05))
+	var sb := StaticBody3D.new()
+	sb.position = PUU_SAW_LOCAL + Vector3(0, 0.5, 0)
+	sb.add_child(B.box_shape(Vector3(0.6, 1.0, 1.4)))
+	add_child(sb)
+	# Tukkipino sahapukin takana (sahaaja seisoo pukin -X-puolella).
+	for i in 5:
+		var l := B.mesh(self, B.cyl(0.14, 0.16, 3.0, 10), PUU_SAW_LOCAL + Vector3(-2.3 - (i % 3) * 0.3, 0.16 + (i / 3) * 0.26, 1.0),
+			Color(0.85, 0.83, 0.78))
+		l.rotation.x = PI / 2.0
+	var chop := Node3D.new()
+	chop.position = PUU_CHOP_LOCAL
+	add_child(chop)
+	B.mesh(chop, B.cyl(0.3, 0.34, 0.5, 12), Vector3(0, 0.25, 0), Color(0.5, 0.36, 0.22))
+	B.mesh(chop, B.cyl(0.29, 0.29, 0.02, 12), Vector3(0, 0.51, 0), Color(0.8, 0.68, 0.48))
+	var axe := Node3D.new()
+	axe.position = Vector3(0.05, 0.52, 0)
+	axe.rotation.z = -0.45
+	axe.name = "Axe"
+	chop.add_child(axe)
+	B.mesh(axe, B.cyl(0.02, 0.025, 0.7, 8), Vector3(0, 0.35, 0), Color(0.75, 0.6, 0.35))
+	B.mesh(axe, B.boxm(Vector3(0.16, 0.1, 0.03)), Vector3(0.05, 0.02, 0), Color(0.3, 0.3, 0.32))
+	var cb := StaticBody3D.new()
+	cb.position = PUU_CHOP_LOCAL + Vector3(0, 0.25, 0)
+	cb.add_child(B.box_shape(Vector3(0.6, 0.5, 0.6)))
+	add_child(cb)
+	_build_huussi()
+	_build_komposti()
+	_build_ladder()
+	_build_pump()
+
+
+## Punainen lautahuussi sydänikkunoineen: ovi pihalle (+Z), takana luukku, josta sanko otetaan.
+func _build_huussi() -> void:
+	var red := Color(0.55, 0.18, 0.12)
+	var white := Color(0.92, 0.9, 0.84)
+	var hu := StaticBody3D.new()
+	hu.position = HUUSSI_LOCAL
+	add_child(hu)
+	B.mesh(hu, B.boxm(Vector3(1.3, 2.1, 1.3)), Vector3(0, 1.05, 0), red)
+	for k in 6:
+		B.mesh(hu, B.boxm(Vector3(0.02, 2.1, 0.01)), Vector3(-0.55 + k * 0.22, 1.05, 0.655), red.darkened(0.2))
+	var roof := PrismMesh.new()
+	roof.size = Vector3(1.6, 0.45, 1.6)
+	B.mesh(hu, roof, Vector3(0, 2.32, 0), Color(0.2, 0.2, 0.22))
+	B.mesh(hu, B.boxm(Vector3(0.8, 1.85, 0.04)), Vector3(0, 0.95, 0.67), red.lightened(0.08))  # ovi
+	for side in [-1.0, 1.0]:  # sydän: kaksi palloa ja kärki
+		B.mesh(hu, B.sphere(0.055, 8), Vector3(side * 0.045, 1.62, 0.69), Color(0.05, 0.04, 0.04))
+	var tip := B.mesh(hu, B.boxm(Vector3(0.08, 0.08, 0.02)), Vector3(0, 1.56, 0.69), Color(0.05, 0.04, 0.04))
+	tip.rotation.z = PI / 4.0
+	B.mesh(hu, B.boxm(Vector3(0.08, 0.04, 0.05)), Vector3(0.3, 0.95, 0.7), white)  # hakanen
+	B.mesh(hu, B.boxm(Vector3(0.7, 0.45, 0.04)), Vector3(0, 0.3, -0.67), red.darkened(0.15))  # takaluukku
+	B.mesh(hu, B.boxm(Vector3(0.12, 0.04, 0.05)), Vector3(0, 0.45, -0.7), white)
+	hu.add_child(B.box_shape(Vector3(1.3, 2.1, 1.3), Vector3(0, 1.05, 0)))
+	var sign := B.label(hu, "♥", Vector3(0, 2.0, 0.7), 20, Color(0.95, 0.85, 0.7), false)
+	sign.no_depth_test = false
+	huussi_flies = CPUParticles3D.new()
+	huussi_flies.position = Vector3(0, 0.6, -0.9)
+	huussi_flies.amount = 14
+	huussi_flies.lifetime = 2.0
+	huussi_flies.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	huussi_flies.emission_sphere_radius = 0.5
+	huussi_flies.gravity = Vector3.ZERO
+	huussi_flies.initial_velocity_min = 0.3
+	huussi_flies.initial_velocity_max = 0.8
+	huussi_flies.spread = 180.0
+	var fly := SphereMesh.new()
+	fly.radius = 0.012
+	fly.height = 0.024
+	fly.material = B.unshaded(Color(0.05, 0.05, 0.05))
+	huussi_flies.mesh = fly
+	huussi_flies.emitting = false
+	hu.add_child(huussi_flies)
+
+
+## Lautakehikkoinen komposti ja talikko kyljessä.
+func _build_komposti() -> void:
+	var wood := Color(0.48, 0.36, 0.22)
+	var ko := StaticBody3D.new()
+	ko.position = KOMPOSTI_LOCAL
+	add_child(ko)
+	for row in 4:
+		for side in 4:
+			var horiz := side % 2 == 0
+			var off := 0.7 * (1.0 if side < 2 else -1.0)
+			var plank := B.boxm(Vector3(1.45, 0.16, 0.04) if horiz else Vector3(0.04, 0.16, 1.45))
+			B.mesh(ko, plank, Vector3(0 if horiz else off, 0.1 + row * 0.2, off if horiz else 0), wood.darkened(0.05 * (row % 2)))
+	komposti_soil = B.mesh(ko, B.boxm(Vector3(1.36, 0.6, 1.36)), Vector3(0, 0.3, 0), Color(0.18, 0.14, 0.09))
+	var fork := Node3D.new()
+	fork.position = Vector3(0.85, 0, 0.5)
+	fork.rotation.z = 0.25
+	ko.add_child(fork)
+	B.mesh(fork, B.cyl(0.018, 0.02, 1.4, 6), Vector3(0, 0.75, 0), Color(0.7, 0.55, 0.32))
+	for k in 4:
+		B.mesh(fork, B.cyl(0.006, 0.006, 0.25, 4), Vector3(-0.06 + k * 0.04, 0.08, 0), Color(0.35, 0.35, 0.37))
+	ko.add_child(B.box_shape(Vector3(1.45, 0.8, 1.45), Vector3(0, 0.4, 0)))
+
+
+## Alumiinitikkaat takaseinää vasten räystääseen (ranni_game.gd piirtää omansa pelin ajaksi).
+func _build_ladder() -> void:
+	ladder = Node3D.new()
+	ladder.name = "Ladder"
+	ladder.position = LADDER_LOCAL
+	add_child(ladder)
+	make_ladder(ladder, 3.1)
+
+
+## Tikkaat juuresta ylös nojaten +Z:aan (kaltevuus noin 15°).
+static func make_ladder(parent: Node3D, length: float) -> void:
+	var alu := Color(0.72, 0.74, 0.76)
+	var lean := 0.26
+	var leg := Node3D.new()
+	leg.rotation.x = lean
+	parent.add_child(leg)
+	for sx in [-0.22, 0.22]:
+		B.mesh(leg, B.boxm(Vector3(0.04, length, 0.06)), Vector3(sx, length / 2.0, 0), alu)
+	for k in int(length / 0.3):
+		B.mesh(leg, B.cyl(0.015, 0.015, 0.44, 6), Vector3(0, 0.25 + k * 0.3, 0), alu.darkened(0.1), Vector3(0, 0, 90))
+
+
+## Paljun täyttöpumppu rannassa laiturin vieressä (bensamoottori ja imuletku järveen).
+static func pump_local() -> Vector3:
+	var x := DOCK_LOCAL.x - 1.7
+	var z := DOCK_LOCAL.z - 8.0
+	while in_water(x, z) and z > 20.0:
+		z -= 1.0
+	return Vector3(x, 0, z - 1.4)
+
+
+func _build_pump() -> void:
+	var pump := Node3D.new()
+	pump.position = pump_local()
+	add_child(pump)
+	B.mesh(pump, B.boxm(Vector3(0.5, 0.35, 0.38)), Vector3(0, 0.2, 0), Color(0.8, 0.12, 0.08))
+	B.mesh(pump, B.cyl(0.11, 0.11, 0.28, 12), Vector3(0.05, 0.47, 0), Color(0.15, 0.15, 0.16))
+	B.mesh(pump, B.cyl(0.03, 0.03, 0.08, 6), Vector3(-0.2, 0.42, 0.12), Color(0.9, 0.75, 0.1))
+	B.tube(pump, Vector3(0.0, 0.15, 0.2), Vector3(0.1, -0.3, 1.8), 0.035, Color(0.12, 0.3, 0.12))  # imuletku järveen
+	_pump_sound = Sfx.loop_on(pump, "tractor_engine", -12.0)
+	if _pump_sound != null:
+		_pump_sound.stop()
+		_pump_sound.pitch_scale = 1.9
+
+
+## Täyttöletku pumpulta paljulle maaston myötäisesti (näkyy, kun palju täytetään).
+func _build_hose() -> void:
+	_hose = Node3D.new()
+	_hose.visible = false
+	add_child(_hose)
+	var pts := [pump_local() + Vector3(0, 0, -0.2), Vector3(DOCK_LOCAL.x - 1.8, 0, 28.0), Vector3(1.6, 0, 23.5),
+		Vector3(0.6, 0, 16.0), TUB_LOCAL + Vector3(0.4, 0, 0.8)]
+	for k in pts.size() - 1:
+		var a: Vector3 = pts[k]
+		var b: Vector3 = pts[k + 1]
+		var segs := maxi(1, int(a.distance_to(b) / 1.5))
+		for s in segs:
+			var p0 := a.lerp(b, float(s) / segs)
+			var p1 := a.lerp(b, float(s + 1) / segs)
+			B.tube(_hose, Vector3(p0.x, h(p0.x, p0.z) + 0.04, p0.z), Vector3(p1.x, h(p1.x, p1.z) + 0.04, p1.z), 0.03, Color(0.12, 0.3, 0.12))
+	var top := TUB_LOCAL + Vector3(0.4, 0, 0.8)
+	var ty := h(top.x, top.z)
+	B.tube(_hose, Vector3(top.x, ty + 0.04, top.z), Vector3(top.x - 0.1, h(TUB_LOCAL.x, TUB_LOCAL.z) + 0.95, top.z - 0.3), 0.03, Color(0.12, 0.3, 0.12))
+
+
+func _smoke_fx(pos: Vector3) -> CPUParticles3D:
+	var fx := CPUParticles3D.new()
+	fx.position = pos
+	fx.emitting = false
+	fx.amount = 36
+	fx.lifetime = 4.0
+	fx.direction = Vector3(-0.3, 1, 0)
+	fx.spread = 18.0
+	fx.gravity = Vector3(0.2, 0.4, 0)
+	fx.initial_velocity_min = 0.3
+	fx.initial_velocity_max = 0.7
+	fx.scale_amount_min = 1.0
+	fx.scale_amount_max = 2.6
+	var puff := SphereMesh.new()
+	puff.radius = 0.26
+	puff.height = 0.52
+	puff.material = B.unshaded(Color(0.55, 0.55, 0.57, 0.3))
+	fx.mesh = puff
+	var grow := Curve.new()
+	grow.add_point(Vector2(0, 0.4))
+	grow.add_point(Vector2(1, 1.8))
+	fx.scale_amount_curve = grow
+	return fx
+
+
+# --- Savusaunan lämmitys ja palju ------------------------------------------------------
+
+func _sauna_tick(delta: float) -> void:
+	if sauna_fire_on:
+		sauna_fuel -= delta
+		sauna_heat = minf(1.0, sauna_heat + SAUNA_HEAT_RATE * delta)
+		sauna_smoke = 1.0
+		_sauna_fire.visible = true
+		if sauna_heat >= 1.0 and not sauna_heated:
+			sauna_heated = true
+			sauna_fuel = minf(sauna_fuel, 4.0)  # pesä palaa loppuun
+			sauna_event.emit("kuuma")
+		if sauna_fuel <= 0.0:
+			sauna_fire_on = false
+			sauna_fuel = 0.0
+			_sauna_fire.visible = false
+			if not sauna_heated:
+				sauna_event.emit("sammui")
+	else:
+		sauna_heat = maxf(0.0, sauna_heat - SAUNA_COOL * delta)
+		if sauna_smoke > 0.0:
+			sauna_smoke = maxf(0.0, sauna_smoke - delta / SAUNA_CLEAR)
+			if sauna_smoke <= 0.0 and sauna_heated:
+				sauna_event.emit("valmis")
+	_sauna_smoke_fx.emitting = sauna_smoke > 0.08
+	# Tuulettuessa savu ohenee (CPUParticles3D:llä ei ole amount_ratiota, joten koko pienenee).
+	_sauna_smoke_fx.scale_amount_max = 1.0 + 1.6 * clampf(sauna_smoke, 0.0, 1.0)
+
+
+## Paljun vesi ja lika näkyviin, pumppu täyttää.
+func _palju_tick(delta: float) -> void:
+	if pump_on:
+		palju_level = minf(palju_level + delta / PALJU_FILL, 1.25)  # yli 1 = tulvii yli
+	_palju_water.visible = palju_level > 0.03
+	_palju_water.position.y = 0.1 + 0.76 * minf(palju_level, 1.0)
+	_palju_dirt.visible = palju_dirt > 0.02 and palju_level < 0.5
+	(_palju_dirt.material_override as StandardMaterial3D).albedo_color.a = clampf(palju_dirt * 1.2, 0.0, 1.0)
+
+
+const PALJU_FILL := 30.0  # s tyhjästä täyteen pumpulla
+const PALJU_DRAIN := 8.0  # s täydestä tyhjäksi
+
+
+func set_pump(on: bool) -> void:
+	pump_on = on
+	_hose.visible = on or (palju_level < 0.95 and palju_dirt <= 0.02)
+	if _pump_sound != null:
+		if on:
+			_pump_sound.play()
+		else:
+			_pump_sound.stop()
+
+
+func set_hose(v: bool) -> void:
+	_hose.visible = v
+
+
+# --- Santtu tulee katsomaan ---------------------------------------------------------
+
+## Santun kävely: kohde ja reitti (kulmapisteet mökin ja saunan ohi), katse ja kotiinpaluu kannolle.
+var _santtu_path: Array = []
+var _santtu_look := Vector3.ZERO
+var _santtu_away := false
+var _santtu_walking := false
+const SANTTU_WALK := 1.6
+## Esteet, joiden läpi Santtu ei kävele (paikallinen x/z): mökki kuisteineen, savusauna, palju, kesäkeittiö, huussi.
+const SANTTU_BLOCKS := [Rect2(-5.6, -4.4, 12.6, 8.6), Rect2(1.7, 17.2, 6.2, 3.9), Rect2(-1.8, 13.7, 2.2, 2.2),
+	Rect2(-14.8, 16.4, 4.0, 3.6), Rect2(-13.3, -2.8, 1.6, 1.6)]
+
+
+## Santtu nousee kannolta ja kävelee paikan spot viereen (noin 1,8 m päähän) katsomaan kohti look.
+func santtu_visit(spot: Vector3, look := Vector3.INF) -> void:
+	if not built:
+		return
+	var from := Vector2(santtu.position.x, santtu.position.z)
+	var to2 := Vector2(spot.x, spot.z)
+	var d := to2 - from
+	if d.length() > 1.8:
+		to2 -= d.normalized() * 1.8
+	_santtu_look = look if look != Vector3.INF else spot
+	_santtu_path = _route(from, to2)
+	_santtu_away = true
+	_start_walk()
+
+
+## Santtu suoraan paikalle (esim. metsästyslavan viereen, kun peli on omassa näkymässään).
+func santtu_teleport(spot: Vector3, look: Vector3) -> void:
+	if not built:
+		return
+	santtu.position = Vector3(spot.x, h(spot.x, spot.z), spot.z)
+	santtu.rotation.y = B.yaw_to(look - spot)
+	santtu.play("Idle", 0.2)
+	_santtu_path.clear()
+	_santtu_away = true
+	_santtu_walking = false
+
+
+func santtu_go_home() -> void:
+	if not built or not _santtu_away:
+		return
+	_santtu_away = false
+	_santtu_look = Vector3.INF
+	_santtu_path = _route(Vector2(santtu.position.x, santtu.position.z), Vector2(SANTTU_LOCAL.x, SANTTU_LOCAL.z + 0.6))
+	_santtu_path.append(Vector2(SANTTU_LOCAL.x, SANTTU_LOCAL.z))
+	_start_walk()
+
+
+## Onko Santtu poissa kannolta (kävelee tai katsoo jotain hommaa).
+func santtu_out() -> bool:
+	return _santtu_away or _santtu_walking
+
+
+## Onko Santtu perillä katsomassa (ei kävele).
+func santtu_arrived() -> bool:
+	return _santtu_away and not _santtu_walking
+
+
+func _start_walk() -> void:
+	if _santtu_path.is_empty():
+		return
+	if not _santtu_walking:
+		santtu.position.y = h(santtu.position.x, santtu.position.z)
+		santtu.play("Walk", 0.2)
+	_santtu_walking = true
+
+
+func _santtu_tick(delta: float) -> void:
+	if _santtu_walking:
+		var target: Vector2 = _santtu_path[0]
+		var p := Vector2(santtu.position.x, santtu.position.z)
+		var d := target - p
+		var step := SANTTU_WALK * delta
+		if d.length() <= step:
+			p = target
+			_santtu_path.pop_front()
+		else:
+			p += d.normalized() * step
+		if d.length() > 0.01:
+			santtu.rotation.y = B.yaw_to(Vector3(d.x, 0, d.y))
+		santtu.position = Vector3(p.x, h(p.x, p.y), p.y)
+		if _santtu_path.is_empty():
+			_santtu_walking = false
+			if _santtu_away:
+				santtu.rotation.y = B.yaw_to(_santtu_look - santtu.position)
+				santtu.play("Idle", 0.3)
+			else:
+				santtu.position = SANTTU_LOCAL + Vector3(0, h(SANTTU_LOCAL.x, SANTTU_LOCAL.z) + 0.2, 0)
+				santtu.rotation.y = B.yaw_to(Vector3(0, 0, -1))
+				santtu.play("Sitting_Idle", 0.3)
+	# Puhekupla ja nimi seuraavat Santtua (istuessa matalammalla).
+	var sitting: bool = santtu.current().begins_with("Sitting")
+	_bubble.rest = santtu.position + Vector3(0, 1.4 if sitting else 2.05, 0)  # bubble.gd palauttaa paikan restiin
+	_bubble.position = _bubble.rest
+	_name_label.position = santtu.position + Vector3(0, 1.1 if sitting else 1.85, 0)
+
+
+## Kävely seis (minipeli ottaa Santun katsojaksi).
+func santtu_stop() -> void:
+	_santtu_path.clear()
+	_santtu_walking = false
+
+
+## Reitti kulmapisteiden kautta esteiden ohi (enintään kaksi kulmaa).
+func _route(a: Vector2, b: Vector2, depth := 0) -> Array:
+	var blk: Variant = _blocked(a, b)
+	if blk == null or depth >= 2:
+		return [b]
+	var r: Rect2 = blk.grow(0.7)
+	var best: Array = []
+	var best_len := INF
+	for c in [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]:
+		if _blocked(a, c) != null:
+			continue
+		var rest := _route(c, b, depth + 1)
+		var len: float = a.distance_to(c) + c.distance_to(rest[0])
+		if len < best_len:
+			best_len = len
+			best = [c] + rest
+	return best if not best.is_empty() else [b]
+
+
+func _blocked(a: Vector2, b: Vector2) -> Variant:
+	var n := maxi(1, int(a.distance_to(b) / 0.4))
+	for r in SANTTU_BLOCKS:
+		if r.has_point(a) or r.has_point(b):
+			continue
+		for i in range(1, n):
+			if r.has_point(a.lerp(b, float(i) / n)):
+				return r
+	return null
+
+
+# --- Katsojarajapinta kodan minipeleille (kota_minigame.gd): mökillä katsojana Santtu --------
+
+func watcher_node(_who: String) -> Node3D:
+	return santtu
+
+
+func watcher_bubble(_who: String) -> Label3D:
+	return _bubble
+
+
+func watcher_say(_who: String, text: String, seconds: float) -> void:
+	_bubble.text = "Santtu: " + text if text != "" else ""
+	_bubble_t = seconds

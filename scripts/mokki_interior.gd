@@ -38,6 +38,7 @@ const SPOTS := {
 	"ovi2": [Vector3(2.0, 0, -4.3), "[E] Ulos kuistille (pesuhuoneen ovi)"],
 	"santtu": [Vector3(-1.5, 0, -2.6), "[E] Jutskaa Santun kanssa"],
 	"kahvi": [Vector3(-2.8, 0, -3.7), "[E] Keitä suodatinkahvit"],
+	"tiskit": [Vector3(-4.3, 0, -3.7), "[E] Tiskaa astiat"],
 	"jaakaappi": [Vector3(0.4, 0, -3.7), "[E] Kurkkaa jääkaappiin"],
 	"takka": [Vector3(-0.4, 0, -0.9), "[E] Sytytä takka"],
 	"tv": [Vector3(-3.9, 0, -0.6), "[E] Katso telkkaria"],
@@ -88,6 +89,9 @@ var busy := false
 var _pa_players: Array[AudioStreamPlayer3D] = []
 var _pa_lit: Array[Node3D] = []
 var _pa_cones: Array[MeshInstance3D] = []
+## Likaisia astioita tiskipöydällä (Santun homma: tiski_game.gd). 0 = tiskipöytä on siisti.
+var dishes := 0
+var _dish_pile: Node3D
 
 
 func _ready() -> void:
@@ -126,6 +130,15 @@ func enter(door := "ovi") -> void:
 func leave() -> void:
 	active = false
 	walker.controls_enabled = false
+
+
+## Likaiset astiat tiskipöydälle (n kpl, 0 = siisti).
+func set_dishes(n: int) -> void:
+	dishes = n
+	if _dish_pile != null:
+		_dish_pile.visible = n > 0
+		for i in _dish_pile.get_child_count():
+			(_dish_pile.get_child(i) as Node3D).visible = i < n
 
 
 func say(text: String) -> void:
@@ -170,6 +183,11 @@ func _process(delta: float) -> void:
 	if best == "takka" and takka_on:
 		hint = "Takka lämmittää mukavasti."
 		return
+	if best == "tiskit":
+		if dishes <= 0:
+			hint = "Tiskipöytä on siisti."
+			return
+		hint = "[E] Tiskaa astiat (%d likaista)" % dishes
 	if not Input.is_action_just_pressed("interact") or Engine.get_process_frames() == _enter_frame:
 		return
 	match best:
@@ -285,6 +303,16 @@ func _build_kitchen_dining() -> void:
 	for kx in [kc + 0.2, kc + 0.6]:
 		B.mesh(self, B.cyl(0.1, 0.1, 0.02, 12), Vector3(kx, 0.98, kback + 0.4), Color(0.25, 0.25, 0.25))
 	B.mesh(self, B.boxm(Vector3(0.45, 0.28, 0.35)), Vector3(kc - 1.0, 1.08, kback + 0.35), Color(0.85, 0.85, 0.85))  # mikro
+	# Tiskiallas ja hana mikron ja lieden välissä, likaiset astiat pinossa vieressä (tiskipäivinä).
+	B.mesh(self, B.boxm(Vector3(0.5, 0.03, 0.42)), Vector3(SPOTS.tiskit[0].x, 0.955, kback + 0.45), Color(0.62, 0.64, 0.67))
+	B.mesh(self, B.cyl(0.015, 0.015, 0.25, 6), Vector3(SPOTS.tiskit[0].x, 1.08, kback + 0.22), Color(0.7, 0.7, 0.72))
+	_dish_pile = Node3D.new()
+	_dish_pile.position = Vector3(SPOTS.tiskit[0].x + 0.45, 0.95, kback + 0.5)
+	add_child(_dish_pile)
+	for k in 6:
+		B.mesh(_dish_pile, B.cyl(0.13, 0.11, 0.025, 12), Vector3(randf_range(-0.03, 0.03), 0.015 + k * 0.03, randf_range(-0.03, 0.03)),
+			Color(0.92, 0.9, 0.86) if k % 2 == 0 else Color(0.78, 0.66, 0.5))
+	_dish_pile.visible = false
 	B.mesh(self, B.cyl(0.08, 0.1, 0.3, 12), Vector3(SPOTS.kahvi[0].x, 1.1, kback + 0.4), Color(0.08, 0.08, 0.08))  # kahvinkeitin
 	B.mesh(self, B.cyl(0.07, 0.07, 0.12, 12), Vector3(SPOTS.kahvi[0].x, 1.0, kback + 0.62), Color(0.6, 0.7, 0.75))  # kannu
 	B.mesh(self, B.boxm(Vector3(0.15, WALL_H, 0.15)), Vector3(KITCHEN_GAP.y, WALL_H / 2.0, KITCHEN.end.y), white)  # pylväs
