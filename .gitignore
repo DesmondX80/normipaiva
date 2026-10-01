@@ -3,3 +3,4 @@
 export/
 *Zone.Identifier*
 __pycache__/
+venv/
