@@ -18,6 +18,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tarkka as T  # noqa: E402
+import puut_teilta as PT  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 KARTTA = os.path.join(ROOT, "assets", "mokki", "kartta.json")
@@ -150,6 +151,7 @@ def main():
     lx, lz = to_local(x, z)
     y = np.maximum(dem_local(lx, lz) - base, water_y + 0.12)
     T.write_trees(OUT, lx.astype(np.float32), y.astype(np.float32), lz.astype(np.float32), h.astype(np.float32), sp, rng)
+    PT.filter_mokki()  # pihatie ja asfalttitien reunat (piirretty leveys)
 
     # Naapurirakennusten harjakorkeudet laserista (mokki.gd lukee ne tiedostosta rakennukset.json OSM-tunnisteittain).
     heights = {}

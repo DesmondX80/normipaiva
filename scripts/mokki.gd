@@ -1243,9 +1243,8 @@ func _build_yard_extras() -> void:
 	var tree := StaticBody3D.new()
 	tree.position = DART_TREE
 	add_child(tree)
-	B.mesh(tree, B.cyl(0.22, 0.3, 6.0, 10), Vector3(0, 3.0, 0), Color(0.4, 0.26, 0.16))
-	for k in 3:
-		B.mesh(tree, B.cyl(0.02, 1.3 - k * 0.3, 1.8, 8), Vector3(0, 4.6 + k * 1.1, 0), Color(0.16, 0.28, 0.14))
+	# Paksu tyvi tikkataululle; männyn latvus ja runko ylempänä metsän mallista (_build_trees).
+	B.mesh(tree, B.cyl(0.2, 0.3, 3.2, 10), Vector3(0, 1.6, 0), Color(0.4, 0.3, 0.22))
 	var board := DartsGame.make_board(tree)  # oikea tikkataulu, etupinta heittopisteelle (-Z)
 	board.position = Vector3(0, DART_BOARD_UP, -0.36)
 	tree.add_child(B.capsule_shape(0.3, 6.0))
@@ -1296,10 +1295,7 @@ func _build_hunt_spot() -> void:
 	var tree := StaticBody3D.new()
 	tree.position = HUNT_LOCAL + Vector3(0.6, 0, -0.4)
 	add_child(tree)
-	B.mesh(tree, B.cyl(0.2, 0.28, 6.5, 9), Vector3(0, 3.25, 0), Color(0.38, 0.27, 0.17))
-	for k in 3:
-		B.mesh(tree, B.cyl(0.02, 1.2 - k * 0.25, 1.7, 8), Vector3(0, 5.0 + k * 1.05, 0), Color(0.15, 0.27, 0.14))
-	tree.add_child(B.capsule_shape(0.3, 6.5))
+	tree.add_child(B.capsule_shape(0.3, 6.5))  # mänty metsän mallista (_build_trees)
 	var stand := Node3D.new()
 	stand.position = HUNT_LOCAL
 	add_child(stand)
@@ -1370,24 +1366,31 @@ func _build_pingis_spot() -> void:
 
 ## Isoja mäntyjä pihan reunoilla (ei rakennusten, kulkuväylien eikä laiturin polun päälle): mökki on
 ## metsän keskellä, joten piha rajautuu tiiviisti puihin joka suunnalta (harva metsä muualla _build_forest()).
+## Samat mäntymallit kuin laserkeilatussa metsässä (forest.gd load_list); mukana tikkataulun ja metsästyslavan männyt.
+const YARD_PINES := [Vector2(-10.0, 3.0), Vector2(12.0, 2.0), Vector2(-17.0, 10.0), Vector2(14.0, 12.0), Vector2(15.0, 26.0),
+	Vector2(-4.0, 28.0), Vector2(-16.0, -6.0), Vector2(17.0, -8.0), Vector2(-19.0, 24.0), Vector2(18.0, 24.0),
+	Vector2(2.0, 32.0), Vector2(-13.0, -18.0), Vector2(-6.0, -9.0), Vector2(9.0, -10.0)]
+
+
 func _build_trees() -> void:
-	for tp in [Vector2(-10.0, 3.0), Vector2(12.0, 2.0), Vector2(-17.0, 10.0), Vector2(14.0, 12.0), Vector2(15.0, 26.0),
-			Vector2(-4.0, 28.0), Vector2(-16.0, -6.0), Vector2(17.0, -8.0), Vector2(-19.0, 24.0), Vector2(18.0, 24.0),
-			Vector2(2.0, 32.0), Vector2(-13.0, -18.0), Vector2(-6.0, -9.0), Vector2(9.0, -10.0)]:
-		_pine(Vector3(tp.x, 0, tp.y), randf_range(0.9, 1.3))
-
-
-func _pine(pos: Vector3, s: float) -> void:
-	var t := StaticBody3D.new()
-	t.position = pos
-	add_child(t)
-	var h := 7.0 * s
-	B.mesh(t, B.cyl(0.12 * s, 0.22 * s, h * 0.5, 7), Vector3(0, h * 0.25, 0), Color(0.35, 0.25, 0.16))
-	for k in 4:
-		var fh := 1.6 * s * (1.0 - k * 0.12)
-		B.mesh(t, B.cyl(0.03, fh * 0.62, fh, 7), Vector3(0, h * 0.4 + k * h * 0.16, 0),
-			Color(0.15, 0.26, 0.14).lightened(0.04 * k))
-	t.add_child(B.capsule_shape(0.25 * s, h * 0.8))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1762
+	var trees: Array = []
+	for tp in YARD_PINES:
+		trees.append({"pos": Vector3(tp.x, h(tp.x, tp.y), tp.y), "h": rng.randf_range(9.5, 13.5), "sp": Forest.PINE})
+		# Rungon törmäys heti (metsän rungot törmäävät vasta kameran lähilohkoissa).
+		var body := StaticBody3D.new()
+		body.position = Vector3(tp.x, 0, tp.y)
+		body.add_child(B.capsule_shape(0.25, 6.0))
+		add_child(body)
+	var dart := DART_TREE
+	trees.append({"pos": Vector3(dart.x, h(dart.x, dart.z), dart.z), "h": 12.0, "sp": Forest.PINE})
+	var hunt := HUNT_LOCAL + Vector3(0.6, 0, -0.4)
+	trees.append({"pos": Vector3(hunt.x, h(hunt.x, hunt.z), hunt.z), "h": 11.0, "sp": Forest.PINE})
+	var f := Forest.new()
+	f.name = "PihaMannyt"
+	add_child(f)
+	f.load_list(trees)
 
 
 # --- Santtu, isäntä ------------------------------------------------------------

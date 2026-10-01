@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "kar
 import numpy as np  # noqa: E402
 import tarkka as T  # noqa: E402
 import vaala_tarkka as VT  # noqa: E402
+import puut_teilta as PT  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import vaala_lava as VL  # noqa: E402
 import vaala_keskusta as VK  # noqa: E402
@@ -837,6 +838,8 @@ def main():
     VL.apply(args.cache)
     # K-Market Siitarin viereen, puut pois rakennuksista, parkeista ja teiltä.
     VK.apply()
+    # Puut pois sivuteiltä, kaduilta, poluilta, radoilta ja parkkipaikoilta (tie.json on nyt valmis).
+    PT.filter_vaala()
 
 
 if __name__ == "__main__":

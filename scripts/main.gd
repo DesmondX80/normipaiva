@@ -8522,6 +8522,20 @@ func _maybe_screenshot() -> void:
 				mokki._pa_out.playing])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"aidat":
+			# Pensasaidat tien kohdalta katkaistuina: kuvat kolmesta leikkauskohdasta (_aita_N.png).
+			print("AIDAT leikattu %.1f m, kohtia %d" % [world.hedges_cut * 0.25, world.hedge_cut_at.size()])
+			var ac := Camera3D.new()
+			add_child(ac)
+			for i in mini(3, world.hedge_cut_at.size()):
+				var c: Vector2 = world.hedge_cut_at[i]
+				var gy := Terrain.h(c.x, c.y)
+				ac.look_at_from_position(Vector3(c.x + 7.0, gy + 6.0, c.y + 7.0), Vector3(c.x, gy + 0.5, c.y), Vector3.UP)
+				ac.current = true
+				for k in 30:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_aita_%d.png" % i))
 		"mokkihommat":
 			# Santun hommat: yö mökillä, aamulappu, kaikki 12 hommaa pihalla, Santun kävely, minipelit (laituri,
 			# ränni, ampiaiset, sahaus, halkominen, tiskit), huussin sangot, savusauna, palju, kalja Santulle,

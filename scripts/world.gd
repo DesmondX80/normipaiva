@@ -94,6 +94,9 @@ var _fields: Array[PackedVector2Array] = []
 var _bogs: Array[PackedVector2Array] = []
 var _agility := PackedVector2Array()
 var _clearings: Array[PackedVector2Array] = []
+var _lots: Array[PackedVector2Array] = []  # asfalttikentät (kotipiha, kaupan parkkipaikka): ei puita
+## Puun rungon vähimmäisetäisyys tien tai polun reunasta (kaikki puut, myös metsäreuna ja hakkuuaukeiden männyt).
+const TREE_ROAD_GAP := 1.0
 var fire: Node3D  # laavun nuotio (näkyy kun sytytetty)
 var kota: Node3D  # Haapajärven tekoaltaan kota (kota.gd)
 ## Marja- ja sienipaikat: {pos: Vector3, kind: String, node: Node3D, taken: bool}. Arto paljastaa ne karttaan.
@@ -194,8 +197,13 @@ func build(step: Callable) -> void:
 	await step.call("Istutetaan metsää", 0.75)
 	_scatter_trees()
 	var still := M.w2(M.PONTIKKA)
+	var n0 := _trees.size()
 	_trees = _trees.filter(func(t: Array) -> bool:
-		return not in_lawn(t[0], 2.5) and t[0].distance_to(still) > 6.5)
+		return not in_lawn(t[0], 2.5) and t[0].distance_to(still) > 6.5 and _road_clearance(t[0]) >= TREE_ROAD_GAP \
+			and not _in_any(t[0], _lots))
+	if OS.get_cmdline_user_args().has("--puut"):
+		print("PUUT kylässä %d, pois %d · pensasaitaa tien kohdalta pois %.1f m" % [_trees.size(), n0 - _trees.size(),
+			hedges_cut * 0.25])
 	await step.call("Puut kasvavat", 0.84)
 	_build_trees()
 	await step.call("Marjat ja sienet metsään", 0.86)
@@ -573,8 +581,46 @@ func _batch_at(p: Vector2) -> B.Batch:
 	return _batches[key]
 
 
-## Pensasaita: lehtitekstuurinen runko + pinnalle hajautetut lehväkortit pörröiseksi siluetiksi.
+## Pensasaita (pituus paikallisella x-akselilla). Tien tai polun kohdalta aita katkaistaan: tien viereen se saa
+## tulla, mutta ei tien päälle (HEDGE_ROAD_GAP reunasta).
+const HEDGE_ROAD_GAP := 0.1
+var hedges_cut := 0  # tien kohdalta pois leikattuja aidan pätkiä (testinäkymä aidat)
+var hedge_cut_at: Array[Vector2] = []  # leikkauskohdat maailmassa (yksi per 20 m ruutu)
+
+
 func _add_hedge(xf: Transform3D, center: Vector3, size: Vector3, col: Color) -> void:
+	var step := 0.25
+	var n := maxi(1, ceili(size.x / step))
+	var dx := size.x / n
+	var run_start := -1
+	for i in n + 1:
+		var ok := false
+		if i < n:
+			ok = true
+			var lx := center.x - size.x / 2.0 + (i + 0.5) * dx
+			for dz in [-size.z / 2.0, 0.0, size.z / 2.0]:
+				var w: Vector3 = xf * Vector3(lx, 0.0, center.z + dz)
+				if _road_clearance(Vector2(w.x, w.z)) < HEDGE_ROAD_GAP:
+					ok = false
+					break
+			if not ok:
+				hedges_cut += 1
+				var cw: Vector3 = xf * Vector3(lx, 0.0, center.z)
+				var c2 := Vector2(cw.x, cw.z)
+				if not hedge_cut_at.any(func(q: Vector2) -> bool: return q.distance_to(c2) < 20.0):
+					hedge_cut_at.append(c2)
+		if ok and run_start < 0:
+			run_start = i
+		elif not ok and run_start >= 0:
+			var len := (i - run_start) * dx
+			if len >= 0.5:
+				var mid := center.x - size.x / 2.0 + (run_start + i) * dx / 2.0
+				_hedge_box(xf, Vector3(mid, center.y, center.z), Vector3(len, size.y, size.z), col)
+			run_start = -1
+
+
+## Pensasaita: lehtitekstuurinen runko + pinnalle hajautetut lehväkortit pörröiseksi siluetiksi.
+func _hedge_box(xf: Transform3D, center: Vector3, size: Vector3, col: Color) -> void:
 	_hedge_batch.add(B.boxm(size - Vector3(0.1, 0.1, 0.1)), xf * Transform3D(Basis(), center), col)
 	if _hedge_quad == null:
 		_hedge_quad = QuadMesh.new()
@@ -1105,6 +1151,7 @@ func _build_home() -> void:
 		var wq: Vector3 = xf * q
 		yard.append(Vector2(wq.x, wq.z))
 	_flat_poly(yard, LAYER.lot, _surf("asphalt"))
+	_lots.append(yard)
 	var yard_c: Vector3 = xf * Vector3(0, 0, -5.0)
 	_mask_clear.append([Vector2(yard_c.x, yard_c.z), l / 2.0 + 1.5, d / 2.0 + 9.5, body.rotation.y])
 	for car in [[Vector3(-2.5, 0, fz - 4.0), Color(0.15, 0.35, 0.75)], [Vector3(2.2, 0, fz - 4.0), Color(0.45, 0.08, 0.12)]]:
@@ -1369,6 +1416,7 @@ func _build_shop() -> void:
 	B.box(self, Vector3(3.6, 0.1, 2.0), p + Vector3(-15, 2.2, 14.5), orange, false)
 	var lot := PackedVector2Array([c + Vector2(-18, 9), c + Vector2(18, 9), c + Vector2(18, 31), c + Vector2(-18, 31)])
 	_flat_poly(lot, LAYER.lot, _surf("asphalt"))
+	_lots.append(lot)
 	for x in range(-14, 16, 4):
 		B.box(self, Vector3(0.15, 0.01, 4), p + Vector3(x, LAYER.lot + 0.008, 20), Color(0.9, 0.9, 0.9), false)
 	B.parked_car(self, p + Vector3(-13, 0, 20), 0.0, Color(0.1, 0.1, 0.1))
