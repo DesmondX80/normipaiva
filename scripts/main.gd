@@ -501,6 +501,7 @@ func _ready() -> void:
 	add_child(raahe_int)
 	raahe_int.exited.connect(_on_raahe_exited)
 	raahe_int.acted.connect(_on_raahe_acted)
+	raahe_int.paivi_caught.connect(_on_raahe_paivi_caught)
 	fight = Fight.new()
 	fight.position = Vector3(-3000, 0, 0)
 	add_child(fight)
@@ -605,6 +606,15 @@ func _process(delta: float) -> void:
 		"in_raahe":
 			if not _item_menu.is_open():
 				_hint.text = raahe_int.hint
+			# Päivi saattaa tulla etsimään (ei kesken minipelin tai valikon).
+			if _raahe.get("paivi_t", -1.0) > 0.0 and not raahe_int.busy and not _item_menu.is_open():
+				_raahe.paivi_t -= delta
+				if _raahe.paivi_t <= 0.0:
+					_raahe.paivi_came = true
+					raahe_int.paivi_arrive()
+					Sfx.play("alert", -2.0, 0.9)
+					tilat.add("stressi", -0.1)
+					_show_message("PÄIVI TULI BAARIIN ETSIMÄÄN SINUA! Pakoon: Kellariin portaita, ympäri pöytiä tai ulos taksiin.", 4.5)
 			tilat.add("humala", -0.002 * delta)
 			tilat.add("stressi", 0.004 * delta)
 		"in_mokki":
@@ -1917,19 +1927,23 @@ func _taxi_trip() -> void:
 func _enter_raahe() -> void:
 	state = "in_raahe"
 	_hud.visible = true
-	_raahe = {"won": -1, "paid": 0.0, "quiz": -1, "karaoke": -1.0}
+	# Päivi tulee etsimään joka toinen kerta, kun pelaaja on viihtynyt hetken (aika s, < 0 = ei tule).
+	_raahe = {"won": -1, "paid": 0.0, "quiz": -1, "karaoke": -1.0, "caught": false,
+		"paivi_t": randf_range(40.0, 90.0) if randf() < 0.5 else -1.0}
 	tilat.first("raahe", 0.5)
 	raahe_int.enter()
 	_show_message("Kapteenin Kulma, Kirkkokatu 32, Raahe. Kellarissa karaoke, tiistaisin visa ja Tero odottaa kädenvääntöä.", 4.0)
 
 
 func _on_raahe_exited() -> void:
+	if state != "in_raahe":
+		return  # jo lähdössä (Päivi löysi ja ovi samaan aikaan)
 	raahe_int.leave()
 	Sfx.play("door_close", -3.0)
 	state = "cutscene"
 	_hud.visible = false
 	var won: int = _raahe.won
-	mielihyva = clampf(mielihyva + (35.0 if won == 1 else 20.0), 0.0, 100.0)
+	mielihyva = clampf(mielihyva + (35.0 if won == 1 else 20.0) - (15.0 if _raahe.caught else 0.0), 0.0, 100.0)
 	_no_allowance = true
 	var parts := PackedStringArray()
 	if won == 1:
@@ -1940,11 +1954,29 @@ func _on_raahe_exited() -> void:
 		parts.append("Visassa %d/3 oikein." % _raahe.quiz)
 	if _raahe.karaoke >= 0.0:
 		parts.append("Karaoke Kellarissa %d %%." % roundi(_raahe.karaoke * 100.0))
+	if _raahe.caught:
+		parts.append("Päivi löysi sinut baarista ja raahasi kotiin.")
+	elif _raahe.get("paivi_came", false):
+		parts.append("Päivi tuli etsimään, mutta livahdit taksiin.")
 	if parts.is_empty():
 		parts.append("Ilta Kapteenin Kulmassa.")
 	var stats := "%s Taksi %s €.\nMielihyvä %d · Maine %d" % [" ".join(parts), _eur(TAXI_FARE), roundi(mielihyva), roundi(maine)]
 	cutscene.taxi_home(home_zone, stats, func() -> void:
 		_new_day(home_zone + Vector3(0, 0, 4), false, "Pää on kipeä Raahen reissusta.\n"))
+
+
+## Päivi löysi: ilta loppuu, stressi ja moraali kärsivät, kotimatkalla kuunnellaan saarnaa.
+func _on_raahe_paivi_caught() -> void:
+	_raahe.caught = true
+	tilat.add("stressi", -0.3)
+	tilat.add("moraali", -0.2)
+	maine = clampf(maine - 10.0, 0.0, 100.0)
+	Sfx.play("lose", -4.0)
+	raahe_int.walker.controls_enabled = false
+	_show_message("Päivi löysi sinut! \"Täällähän sää oot! Kotiin, heti!\" Ruukin porukka nauraa.", 3.0)
+	get_tree().create_timer(2.5).timeout.connect(func() -> void:
+		if state == "in_raahe":
+			_on_raahe_exited())
 
 
 func _on_raahe_acted(kind: String) -> void:
@@ -6805,6 +6837,35 @@ func _maybe_screenshot() -> void:
 				mokki._pa_out.playing])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"raahepaivi":
+			# Päivi Raahen baarissa: 1) pelaaja jää tiskille -> kiinni ja taksi kotiin; --pako: pelaaja Kellariin,
+			# Päivi seuraa portaiden kautta, pelaaja ylös ja ulos ennen kiinnijäämistä.
+			_toggle_mount()
+			state = "cutscene"
+			_enter_raahe()
+			_raahe.paivi_t = 0.5
+			var pako := OS.get_cmdline_user_args().has("--pako")
+			raahe_int.walker.position = raahe_int.spots.tiski[0]
+			await get_tree().create_timer(1.2).timeout
+			print("PAIVI tuli=%s paikalla=%s tila=%s" % [_raahe.get("paivi_came", false), raahe_int.paivi_here, raahe_int._paivi_mode])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kulma.png"))
+			if pako:
+				raahe_int.walker.position = raahe_int.spots.ylos[0] + Vector3(-3.0, 0, -2.0)
+				await get_tree().create_timer(6.0).timeout
+				print("PAIVI 6 s: tila=%s kellarissa=%s" % [raahe_int._paivi_mode, raahe_int._cellar_of(raahe_int._paivi.position)])
+				print("PAIVI kellarissa: päivi kellarissa=%s näkyy=%s" % [raahe_int._cellar_of(raahe_int._paivi.position), raahe_int._paivi.visible])
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kellari.png"))
+				raahe_int.walker.position = raahe_int.spots.ovi[0]
+				for w in 3:
+					await get_tree().process_frame
+				raahe_int._on_test_exit()
+			for i in 40:
+				await get_tree().create_timer(0.5).timeout
+				if state != "in_raahe":
+					break
+			print("PAIVI loppu: state=%s kiinni=%s tila=%s msg=%s" % [state, _raahe.caught, raahe_int._paivi_mode, _msg.text])
 		"taksimokki":
 			# Taksilla kotoa mökille: alue rakentuu vasta matkalla (viivästetty), pelaaja maan pinnalla pysäkillä.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
