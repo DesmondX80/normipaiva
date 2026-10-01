@@ -30,6 +30,7 @@ import tarkka as T  # noqa: E402
 import vaala_tarkka as VT  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import vaala_lava as VL  # noqa: E402
+import vaala_keskusta as VK  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "assets", "vaala", "reitti.json")
@@ -834,6 +835,8 @@ def main():
           "rakennuksia", len(out_buildings), "sivuteitä", len(side_roads), "kylttejä", len(signs))
     # Oulujärven lava oikealle paikalleen (tarkan alueen ulkopuolella): tontti, Pahalahdentie ja puut.
     VL.apply(args.cache)
+    # K-Market Siitarin viereen, puut pois rakennuksista, parkeista ja teiltä.
+    VK.apply()
 
 
 if __name__ == "__main__":

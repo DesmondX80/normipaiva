@@ -190,19 +190,47 @@ func _ground_mat(a: Color, b: Color, scale := 0.04, fine := 0.8) -> Material:
 
 
 func _build_terrain() -> void:
-	var mats := {
-		FOREST: _ground_mat(Color(0.28, 0.32, 0.17), Color(0.5, 0.48, 0.32), 0.03, 0.6),
-		FIELD: _ground_mat(Color(0.45, 0.5, 0.25), Color(0.6, 0.62, 0.32), 0.02, 0.4),
-		BOG: _ground_mat(Color(0.4, 0.38, 0.22), Color(0.55, 0.45, 0.3), 0.03, 0.5),
-		WATER: _ground_mat(Color(0.3, 0.3, 0.22), Color(0.42, 0.4, 0.3), 0.05, 0.8),
-		YARD: _ground_mat(Color(0.3, 0.42, 0.18), Color(0.42, 0.52, 0.24), 0.05, 0.9),
-		SHOULDER: _ground_mat(Color(0.5, 0.46, 0.38), Color(0.62, 0.58, 0.48), 0.08, 1.4),
+	# Maankäyttö verteksiväreinä yhteen meshiin (ground_blend.gdshader): [väri a, väri b, sorapintaisuus].
+	# Rajat liukuvat ruudun matkalla, joten pihat, pientareet ja metsänpohja eivät näy 4 m portaina.
+	var pal := {
+		FOREST: [Color(0.28, 0.32, 0.17), Color(0.5, 0.48, 0.32), 0.0],
+		FIELD: [Color(0.45, 0.5, 0.25), Color(0.6, 0.62, 0.32), 0.0],
+		BOG: [Color(0.4, 0.38, 0.22), Color(0.55, 0.45, 0.3), 0.0],
+		WATER: [Color(0.3, 0.3, 0.22), Color(0.42, 0.4, 0.3), 0.3],
+		YARD: [Color(0.3, 0.42, 0.18), Color(0.42, 0.52, 0.24), 0.2],
+		SHOULDER: [Color(0.5, 0.46, 0.38), Color(0.62, 0.58, 0.48), 1.0],
+		RAIL: [Color(0.35, 0.33, 0.3), Color(0.5, 0.47, 0.42), 1.0],
 	}
-	mats[ROAD] = mats[SHOULDER]
-	mats[RAIL] = _ground_mat(Color(0.35, 0.33, 0.3), Color(0.5, 0.47, 0.42), 0.1, 1.6)
-	var arrays := {}
-	for c in mats:
-		arrays[c] = {"v": [], "i": [], "map": {}}  # Array (viite): Packed-taulukot kopioituisivat sanakirjasta
+	pal[ROAD] = pal[SHOULDER]
+	var lin := {}
+	for c in pal:
+		lin[c] = [(pal[c][0] as Color).srgb_to_linear(), (pal[c][1] as Color).srgb_to_linear(), pal[c][2]]
+	var n := _nx * _nz
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	var cols := PackedColorArray()
+	var cust := PackedFloat32Array()
+	verts.resize(n)
+	norms.resize(n)
+	cols.resize(n)
+	cust.resize(n * 4)
+	for j in _nz:
+		for i in _nx:
+			var q := j * _nx + i
+			verts[q] = Vector3(_x0 + i * _cell, _h[q], _z0 + j * _cell)
+			var hl := _h[q - 1] if i > 0 else _h[q]
+			var hr := _h[q + 1] if i < _nx - 1 else _h[q]
+			var hu := _h[q - _nx] if j > 0 else _h[q]
+			var hd := _h[q + _nx] if j < _nz - 1 else _h[q]
+			norms[q] = Vector3(hl - hr, 2.0 * _cell, hu - hd).normalized()
+			var e: Array = lin.get(_codes[q], lin[FOREST])
+			cols[q] = e[0]
+			var b: Color = e[1]
+			cust[q * 4] = b.r
+			cust[q * 4 + 1] = b.g
+			cust[q * 4 + 2] = b.b
+			cust[q * 4 + 3] = e[2]
+	var ids := PackedInt32Array()
 	var water_v := PackedVector3Array()
 	for j in _nz - 1:
 		for i in _nx - 1:
@@ -210,39 +238,28 @@ func _build_terrain() -> void:
 			var c: int = _codes[q]
 			if c == OUTSIDE or _codes[q + 1] == OUTSIDE or _codes[q + _nx] == OUTSIDE or _codes[q + _nx + 1] == OUTSIDE:
 				continue
-			var a: Dictionary = arrays[c]
-			var vs: Array = a.v
-			var ids: Array = a.i
-			var mp: Dictionary = a.map
-			var idx: Array[int] = []
-			for corner: int in [q, q + 1, q + _nx, q + _nx + 1]:
-				if not mp.has(corner):
-					mp[corner] = vs.size()
-					vs.append(Vector3(_x0 + (corner % _nx) * _cell, _h[corner], _z0 + (corner / _nx) * _cell))
-				idx.append(mp[corner])
 			# Sama lävistäjä kuin h():ssa: (1,0)-(0,1).
-			ids.append_array([idx[0], idx[1], idx[2], idx[1], idx[3], idx[2]])
+			ids.append_array([q, q + 1, q + _nx, q + 1, q + _nx + 1, q + _nx])
 			if c == WATER:
 				# Vesipinta laajennettuna 2 ruutua: rantojen maasto peittää reunan (ei porrasta).
 				var p := Vector3(_x0 + (i - 2) * _cell, water_level, _z0 + (j - 2) * _cell)
 				var e := _cell * 5.0
 				for w in [Vector3.ZERO, Vector3(e, 0, 0), Vector3(0, 0, e), Vector3(e, 0, 0), Vector3(e, 0, e), Vector3(0, 0, e)]:
 					water_v.append(p + w)
-	for c in arrays:
-		var a: Dictionary = arrays[c]
-		if a.i.is_empty():
-			continue
-		var st := SurfaceTool.new()
-		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		for v in a.v:
-			st.add_vertex(v)
-		for ix in a.i:
-			st.add_index(ix)
-		st.generate_normals()
-		var mi := MeshInstance3D.new()
-		mi.mesh = st.commit()
-		mi.material_override = mats[c]
-		add_child(mi)
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = norms
+	arr[Mesh.ARRAY_COLOR] = cols
+	arr[Mesh.ARRAY_CUSTOM0] = cust
+	arr[Mesh.ARRAY_INDEX] = ids
+	var am := ArrayMesh.new()
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {},
+		Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+	var mi := MeshInstance3D.new()
+	mi.mesh = am
+	mi.material_override = B.shader_mat("res://shaders/ground_blend.gdshader")
+	add_child(mi)
 	if not water_v.is_empty():
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -446,7 +463,7 @@ func _dead_end(at: Vector3, dir: Vector3, hw: float) -> void:
 	plate.rotation.y = atan2(-dir.x, -dir.z) + PI
 
 
-## Pankkiautomaatti Siitaria vastapäätä Vaalantien toisella puolella (oma kioski).
+## Pankkiautomaatti K-Market Tervaportin seinällä (tai, jos kauppaa ei ole datassa, Siitaria vastapäätä omassa kioskissa).
 var atm_pos := Vector3.ZERO
 ## K-Market Tervaportin oven edusta (tyhjä, jos kauppaa ei löytynyt datasta), ulospäin ja julkisivun suunta.
 var kmarket_door := Vector3.ZERO
@@ -454,7 +471,8 @@ var kmarket_out := Vector3.ZERO
 var kmarket_along := Vector3.ZERO
 
 
-## Pankkiautomaatti K-Market Tervaportin seinälle oven viereen kuten kylän K-Marketissa (ennen Siitarin luona).
+## Pankkiautomaatti K-Market Tervaportin seinälle oven viereen kuten kylän K-Marketissa. Kauppa on pelissä Siitarin
+## vieressä Vaalantien varressa (tools/vaala_keskusta.py), joten Siitarista on automaatille parikymmentä metriä.
 func _build_atm() -> void:
 	if kmarket_door != Vector3.ZERO:
 		var at := kmarket_door - kmarket_out * 1.9 + kmarket_along * 4.6
@@ -1096,7 +1114,9 @@ func _build_buildings() -> void:
 				name = "VAALA"
 				bg = Color(0.95, 0.95, 0.95)
 				fg = Color(0.1, 0.1, 0.1)
-			var plate := B.sign_plate(self, name, bg, fg, 0.5 if kind == "big" or station else 0.35, 60 if kind == "big" or station else 44,
+			var big_sign := kind == "big" or station or name == "K-MARKET TERVAPORTTI"
+			var plate := B.sign_plate(self, name, bg, fg, (0.9 if name == "K-MARKET TERVAPORTTI" else 0.5) if big_sign else 0.35,
+				60 if big_sign else 44,
 				Color(0.1, 0.12, 0.2), "Helvetica Neue")
 			plate.position.y = minf(top - 0.9, base + 3.4)
 			_face_road(plate, obb)
@@ -1478,14 +1498,39 @@ func _build_parkings() -> void:
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
 		st.set_normal(Vector3.UP)
-		for ix in tris:
-			st.add_vertex(Vector3(pts[ix].x, h(pts[ix].x, pts[ix].y) + 0.06, pts[ix].y))
+		for t in range(0, tris.size(), 3):
+			_drape(st, pts[tris[t]], pts[tris[t + 1]], pts[tris[t + 2]])
 		var mi := MeshInstance3D.new()
 		mi.mesh = st.commit()
 		var m := B.mat(Color(0.26, 0.26, 0.27)).duplicate() as StandardMaterial3D
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED
 		mi.material_override = m
 		add_child(mi)
+
+
+## Kolmio maan pintaan: jaetaan alle 2 m:n paloiksi, jotta asfaltti myötäilee maastoa (maa ei pistä läpi).
+func _drape(st: SurfaceTool, a: Vector2, b: Vector2, c: Vector2) -> void:
+	var ab := a.distance_to(b)
+	var bc := b.distance_to(c)
+	var ca := c.distance_to(a)
+	var m := maxf(ab, maxf(bc, ca))
+	if m > 2.0:
+		# Pisin sivu kahtia.
+		if m == ab:
+			var d := (a + b) / 2.0
+			_drape(st, a, d, c)
+			_drape(st, d, b, c)
+		elif m == bc:
+			var d := (b + c) / 2.0
+			_drape(st, a, b, d)
+			_drape(st, a, d, c)
+		else:
+			var d := (c + a) / 2.0
+			_drape(st, a, b, d)
+			_drape(st, d, b, c)
+		return
+	for p in [a, b, c]:
+		st.add_vertex(Vector3(p.x, h(p.x, p.y) + 0.08, p.y))
 
 
 ## Kyltit: tienviitat risteyksiin, kilometritaulut Vaalaan ja joen nimi sillalle.
