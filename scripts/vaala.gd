@@ -9,6 +9,7 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Atm := preload("res://scripts/atm.gd")
+const Vehicles := preload("res://scripts/vehicles.gd")
 const TIE := "res://assets/vaala/tie.json"
 const MAASTO := "res://assets/vaala/maasto.bin"
 const TREES := "res://assets/vaala/puut.bin"
@@ -178,6 +179,7 @@ func ensure_built() -> void:
 	_build_trees()
 	_build_lamps()
 	_build_atm()
+	_build_lava()
 	print("VAALA rakennettu %d ms" % (Time.get_ticks_msec() - t0))
 
 
@@ -418,9 +420,20 @@ func _dead_end(at: Vector3, dir: Vector3, hw: float) -> void:
 
 ## Pankkiautomaatti Siitaria vastapäätä Vaalantien toisella puolella (oma kioski).
 var atm_pos := Vector3.ZERO
+## K-Market Tervaportin oven edusta (tyhjä, jos kauppaa ei löytynyt datasta), ulospäin ja julkisivun suunta.
+var kmarket_door := Vector3.ZERO
+var kmarket_out := Vector3.ZERO
+var kmarket_along := Vector3.ZERO
 
 
+## Pankkiautomaatti K-Market Tervaportin seinälle oven viereen kuten kylän K-Marketissa (ennen Siitarin luona).
 func _build_atm() -> void:
+	if kmarket_door != Vector3.ZERO:
+		var at := kmarket_door - kmarket_out * 1.9 + kmarket_along * 4.6
+		at.y = h(at.x, at.z)
+		atm_pos = at + kmarket_out * 1.2
+		Atm.build(self, at, atan2(kmarket_out.x, kmarket_out.z), true)
+		return
 	var sc := Vector3(siitari.x, 0, siitari.y)
 	var ni: Array = nearest(sc)
 	var rp := road_pos(ni[0])
@@ -429,6 +442,151 @@ func _build_atm() -> void:
 	at.y = h(at.x, at.z)
 	atm_pos = at
 	Atm.build(self, at, atan2(away.x, away.z), true)
+
+
+# --- Oulujärven lava ------------------------------------------------------------------------------------------
+## Oulujärven lava (1977-2010) Niskanselän rannassa keskustan tuntumassa 90-luvun asussaan: 1 500 m² suurlava
+## (34 x 44 m), punamullatut lautaseinät, ikkunaluukut auki, matala peltinen harjakatto, lautalattia, esiintymislava
+## pohjoispäädyssä, lipunmyyntikoju ja kyltti oven puolella, parkkipaikka ja ajotie kadulta (tie.json "lava").
+## Tansseissa käydään mopolla (mopo_trip.gd, lava_game.gd).
+var lava_center := Vector3.ZERO  # lattian keskipiste (lattian korkeudella)
+var lava_door := Vector3.ZERO    # oven edusta ulkona (mopon pysäköinti)
+var lava_out := Vector3.ZERO     # ovelta ulospäin
+
+
+func _build_lava() -> void:
+	var lv: Dictionary = data.get("lava", {})
+	if lv.is_empty():
+		return
+	var c := Vector2(lv.x, lv.z)
+	var w: float = lv.w
+	var l: float = lv.l
+	var side: float = lv.get("door_side", 1.0)
+	var lo := INF
+	var hi := -INF
+	for k in 9:
+		var q := c + Vector2((k % 3 - 1) * w / 2.0, (k / 3 - 1) * l / 2.0)
+		lo = minf(lo, h(q.x, q.y))
+		hi = maxf(hi, h(q.x, q.y))
+	var fy := hi + 0.5  # lattia paalujen päällä rinteessä
+	var root := Node3D.new()
+	root.position = Vector3(c.x, fy, c.y)
+	add_child(root)
+	lava_center = root.position
+	lava_out = Vector3(side, 0, 0)
+	lava_door = lava_center + lava_out * (w / 2.0 + 3.5)
+	lava_door.y = h(lava_door.x, lava_door.z)
+	var red := Color(0.55, 0.16, 0.11)
+	var trim := Color(0.93, 0.91, 0.85)
+	var roof := Color(0.36, 0.12, 0.1)
+	var body := StaticBody3D.new()
+	root.add_child(body)
+	# Sokkeli ja lattia.
+	B.mesh(root, B.boxm(Vector3(w, fy - lo + 0.2, l)), Vector3(0, -(fy - lo) / 2.0 - 0.1, 0), Color(0.5, 0.5, 0.48))
+	B.mesh(root, B.boxm(Vector3(w - 0.4, 0.12, l - 0.4)), Vector3(0, 0.0, 0), Color(0.72, 0.56, 0.36))
+	for k in int(w / 0.6):
+		B.mesh(root, B.boxm(Vector3(0.02, 0.005, l - 0.5)), Vector3(-w / 2.0 + 0.3 + k * 0.6, 0.065, 0), Color(0.55, 0.4, 0.25))
+	body.add_child(B.box_shape(Vector3(w, 0.4, l), Vector3(0, -0.2, 0)))
+	# Seinät: alaosa umpilautaa, ikkunavyö luukut auki (tolpat 2,2 m välein), yläreuna. Ovi oven puolen keskellä.
+	var wall_parts := [[Vector3(0, 0, -l / 2.0), Vector3(1, 0, 0), w], [Vector3(0, 0, l / 2.0), Vector3(1, 0, 0), w],
+		[Vector3(-w / 2.0, 0, 0), Vector3(0, 0, 1), l], [Vector3(w / 2.0, 0, 0), Vector3(0, 0, 1), l]]
+	for wp in wall_parts:
+		var mid: Vector3 = wp[0]
+		var along: Vector3 = wp[1]
+		var length: float = wp[2]
+		var is_door := absf(mid.x - side * w / 2.0) < 0.1 and mid.z == 0.0
+		var n := int(length / 2.2)
+		for k in n:
+			var t := -length / 2.0 + (k + 0.5) * length / n
+			if is_door and absf(t) < 2.4:
+				continue  # pariovet
+			var p := mid + along * t
+			var sz := Vector3(length / n + 0.02, 1.2, 0.15) if along.x != 0.0 else Vector3(0.15, 1.2, length / n + 0.02)
+			B.mesh(root, B.boxm(sz), p + Vector3(0, 0.6, 0), red)
+			body.add_child(B.box_shape(sz + Vector3(0, 1.0, 0), p + Vector3(0, 1.1, 0)))
+			# Avattu luukku vinossa ikkuna-aukon yllä.
+			var sh := B.mesh(root, B.boxm(Vector3(length / n - 0.2, 0.05, 0.9) if along.x != 0.0 else Vector3(0.9, 0.05, length / n - 0.2)),
+				p + Vector3(0, 2.95, 0) - (mid.normalized() * -0.45 if mid.length() > 0.1 else Vector3.ZERO), red.darkened(0.15))
+			sh.rotation = Vector3(0.45 * signf(mid.z), 0, 0) if along.x != 0.0 else Vector3(0, 0, -0.45 * signf(mid.x))
+		for k in n + 1:
+			var t := -length / 2.0 + k * length / n
+			B.mesh(root, B.boxm(Vector3(0.18, 3.2, 0.18)), mid + along * t + Vector3(0, 1.6, 0), trim)
+		var top := Vector3(length, 0.55, 0.16) if along.x != 0.0 else Vector3(0.16, 0.55, length)
+		B.mesh(root, B.boxm(top), mid + Vector3(0, 3.0, 0), red)
+		B.mesh(root, B.boxm(top * Vector3(1, 0.2, 1.2) + Vector3(0, 0, 0)), mid + Vector3(0, 1.22, 0), trim)
+	# Matala harjakatto pituussuunnassa (peltiä), räystäät yli.
+	var pm := PrismMesh.new()
+	pm.size = Vector3(w + 2.0, 3.2, l + 2.0)
+	B.mesh(root, pm, Vector3(0, 3.27 + 1.6, 0), roof)
+	for gz in [-l / 2.0 - 0.05, l / 2.0 + 0.05]:
+		var gable := PrismMesh.new()
+		gable.size = Vector3(w, 3.0, 0.1)
+		B.mesh(root, gable, Vector3(0, 3.27 + 1.5, gz), red)
+	# Esiintymislava pohjoispäädyssä: koroke, takaseinä, vahvistimet ja rummut.
+	var st := Vector3(0, 0, -l / 2.0 + 3.2)
+	B.mesh(root, B.boxm(Vector3(14, 1.0, 5.6)), st + Vector3(0, 0.5, 0), Color(0.3, 0.22, 0.16))
+	body.add_child(B.box_shape(Vector3(14, 1.0, 5.6), st + Vector3(0, 0.5, 0)))
+	B.mesh(root, B.boxm(Vector3(14, 2.8, 0.2)), st + Vector3(0, 2.4, -2.7), Color(0.12, 0.12, 0.2))
+	for x in [-5.5, 5.5]:
+		B.mesh(root, B.boxm(Vector3(1.0, 1.6, 0.7)), st + Vector3(x, 1.8, -1.6), Color(0.1, 0.1, 0.1))
+	for k in 3:
+		B.mesh(root, B.cyl(0.32, 0.32, 0.3, 14), st + Vector3(-1.0 + k * 0.8, 1.3 + (0.25 if k == 1 else 0.0), -1.2), Color(0.85, 0.2, 0.15),
+			Vector3(90 if k == 1 else 0, 0, 0))
+	var band := B.sign_plate(root, "TANSSIT", Color(0.9, 0.75, 0.2), Color(0.12, 0.1, 0.2), 0.5, 70, Color(0.12, 0.1, 0.2))
+	band.position = st + Vector3(0, 3.3, -2.55)
+	# Valot sisällä (lämmin), lyhdyt räystään alla.
+	for z in [-12.0, 0.0, 12.0]:
+		var ol := OmniLight3D.new()
+		ol.position = Vector3(0, 3.0, z)
+		ol.omni_range = 18.0
+		ol.light_energy = 0.6
+		ol.light_color = Color(1.0, 0.85, 0.6)
+		root.add_child(ol)
+	# Kyltti oven yllä ja lipunmyynti oven vieressä.
+	var face := side * (w / 2.0 + 0.12)
+	var signp := B.sign_plate(root, "OULUJÄRVEN LAVA", Color(0.95, 0.92, 0.82), Color(0.5, 0.1, 0.08), 0.8, 110, Color(0.5, 0.1, 0.08))
+	signp.position = Vector3(face, 3.0, 0)
+	signp.rotation.y = side * PI / 2.0
+	var booth := Vector3(side * (w / 2.0 + 2.2), 0, 4.2)
+	B.mesh(root, B.boxm(Vector3(2.0, 2.3, 2.0)), booth + Vector3(0, 1.15 - 0.3, 0), red)
+	B.mesh(root, B.boxm(Vector3(2.4, 0.15, 2.4)), booth + Vector3(0, 2.05, 0), roof)
+	B.mesh(root, B.boxm(Vector3(0.05, 0.6, 1.0)), booth + Vector3(side * 1.02, 1.2, 0), Color(0.15, 0.2, 0.25))
+	var tick := B.sign_plate(root, "LIPUT", Color(0.95, 0.92, 0.82), Color(0.5, 0.1, 0.08), 0.3, 44, Color(0.5, 0.1, 0.08))
+	tick.position = booth + Vector3(side * 1.05, 1.75, 0)
+	tick.rotation.y = side * PI / 2.0
+	body.add_child(B.box_shape(Vector3(2.0, 2.3, 2.0), booth + Vector3(0, 0.85, 0)))
+	var poster := B.sign_plate(root, "LA KLO 21-02", Color(0.2, 0.25, 0.55), Color(1, 0.95, 0.6), 0.35, 44, Color(1, 0.95, 0.6))
+	poster.position = Vector3(face + side * 0.02, 1.6, -3.6)
+	poster.rotation.y = side * PI / 2.0
+	# Portaat ovelta maahan.
+	var steps := int(ceil((fy - lava_door.y) / 0.25))
+	for k in steps:
+		B.mesh(root, B.boxm(Vector3(0.45, 0.25, 4.6)), Vector3(side * (w / 2.0 + 0.25 + k * 0.45), -0.12 - k * 0.25, 0),
+			Color(0.55, 0.55, 0.53))
+	# Ajotie kadulta ja parkkipaikka 90-luvun autoineen.
+	var road_pts: Array = lv.get("road", [])
+	if road_pts.size() >= 2:
+		var a := Vector2(road_pts[0][0], road_pts[0][1])
+		var b := Vector2(road_pts[1][0], road_pts[1][1])
+		var segs := maxi(1, int(a.distance_to(b) / 2.0))
+		for k in segs:
+			var p0 := a.lerp(b, float(k) / segs)
+			var p1 := a.lerp(b, float(k + 1) / segs)
+			var m2 := (p0 + p1) / 2.0
+			var seg := B.mesh(self, B.boxm(Vector3(3.6, 0.1, p0.distance_to(p1) + 0.2)), Vector3(m2.x, h(m2.x, m2.y) + 0.03, m2.y),
+				Color(0.56, 0.5, 0.42))
+			seg.rotation.y = atan2(p1.x - p0.x, p1.y - p0.y)
+	var park := Vector2(lava_door.x, lava_door.z) + Vector2(side * 4.0, 0)
+	var cols := [Color(0.6, 0.1, 0.1), Color(0.8, 0.8, 0.82), Color(0.15, 0.25, 0.45), Color(0.3, 0.35, 0.3)]
+	for k in 4:
+		var pz := park + Vector2(side * 3.0, -14.0 - k * 3.0)
+		if absf(pz.y - c.y) > l / 2.0 + 8.0:
+			continue
+		var car := Node3D.new()
+		car.position = Vector3(pz.x, h(pz.x, pz.y), pz.y)
+		car.rotation.y = PI / 2.0
+		add_child(car)
+		Vehicles.car(car, cols[k])
 
 
 func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
@@ -802,12 +960,20 @@ func _build_buildings() -> void:
 			_church_tower(obb, base, body)
 		if id == HOTEL_ID:
 			name = "HOTELLI SIITARI"
+		if name.contains("K-Market"):
+			# K-Market Tervaportti: ovi kadun puolella, pankkiautomaatti oven viereen (_build_atm), mopolla E kauppaan.
+			name = "K-MARKET TERVAPORTTI"
+			var kd := _door(obb, base + 0.3)
+			var out := (kd - (obb.center as Vector2)).normalized()
+			kmarket_door = Vector3(kd.x, h(kd.x, kd.y), kd.y) + Vector3(out.x, 0, out.y) * 2.5
+			kmarket_out = Vector3(out.x, 0, out.y)
+			kmarket_along = Vector3((obb.ax as Vector2).x, 0, (obb.ax as Vector2).y)
 		if name != "" and not church:
 			var fg := Color(0.98, 0.95, 0.85)
 			var bg := Color(0.12, 0.2, 0.35)
 			if name.contains("S-market"):
 				bg = Color(0.0, 0.45, 0.25)
-			elif name.contains("K-Market"):
+			elif name.contains("K-Market") or name.contains("K-MARKET"):
 				bg = Color(0.9, 0.35, 0.05)
 			elif station:
 				name = "VAALA"

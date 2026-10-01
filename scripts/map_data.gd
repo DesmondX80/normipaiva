@@ -59,18 +59,16 @@ const LAWN_AXIS := HOME_YAW_DIR
 const MOWER_PARK := Vector2(798.4, 1192.1)  # ruohonleikkurin paikka nurmikon eteläreunalla
 const SHOP_BUILDING := Vector2(86, 541)
 const SHOP_ZONE := Vector2(90, 567)
-## Järvikujan naapuritalot (world.gd _build_neighbors) OSM-rakennusten keskipisteissä; malli tehdään OSM-pohjan
-## mukaan, julkisivu Järvikujalle. Arto asuu kodin vastapäätä, Pekka samalla puolella autotallin takana ja Sinikka
-## vastapuolella Arton eteläpuolella.
-const NEIGHBOR_ARTO := Vector2(850.6, 1187.4)
-const NEIGHBOR_PEKKA := Vector2(820.6, 1219.9)
+## Naapuritalot (world.gd _build_neighbors) OSM-rakennusten keskipisteissä; malli tehdään OSM-pohjan mukaan.
+## Arto asuu heti vasemmalla (kodin eteläpuolella samalla puolella Järvikujaa, autotallin takana), Pekka Lehtikujan
+## päässä (itäpuolen iso talo, julkisivu Lehtikujalle) ja Sinikka Järvikujan vastapuolella.
+const NEIGHBOR_ARTO := Vector2(820.6, 1219.9)
+const NEIGHBOR_PEKKA := Vector2(868.8, 1108.7)
 const NEIGHBOR_SINIKKA := Vector2(855.5, 1204.2)
-const ARTO_GARAGE := Vector2(846.6, 1202.1)  # Arton keltatiilinen autotalli talon eteläpäädyssä
-const ARTO_SHED := Vector2(840.6, 1183.2)  # Arton etupihan vaja
 const MAILBOX := Vector2(814, 1169)
 ## OSM-rakennukset, joiden tilalle tehdään oma malli (koti, autotalli, naapurit, kauppa).
-const OWN_BUILDINGS := [Vector2(812.4, 1177.9), GARAGE, NEIGHBOR_ARTO, NEIGHBOR_PEKKA, NEIGHBOR_SINIKKA, ARTO_GARAGE,
-	ARTO_SHED, Vector2(85.6, 541), Vector2(80.1, 521.8)]
+const OWN_BUILDINGS := [Vector2(812.4, 1177.9), GARAGE, NEIGHBOR_ARTO, NEIGHBOR_PEKKA, NEIGHBOR_SINIKKA,
+	Vector2(85.6, 541), Vector2(80.1, 521.8)]
 
 ## type: highway | road | street | path. h = katuvalot/kylämäisyys tien varrella (0..1).
 ## Tiet ja polut: Osm.ROADS (OpenStreetMap). Tässä vain käsin tehdyt laavupolut (laavu ei ole OSM:ssä).

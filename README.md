@@ -7,6 +7,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 ## Mitä pelissä voi tehdä
 
 - **Kauppareissu:** kuutonen, grillimakkara ja tulitikut K-Marketista. Kassalla harmaapäät laskevat kolikoita.
+  Kylän teillä on liikennettä: henkilöautoja ja pakettiautoja, maanteillä kovempaa kuin asuinkaduilla. Autot
+  pysyvät pelaajan ympärillä, ajavat jonossa toistensa (ja Päivin) perässä ja jarruttavat pelaajalle, mutta
+  pysähtymismatka on pitkä. Arto asuu heti kodin vasemmalla puolella ja Pekka Lehtikujan päässä.
   Leipähyllystä saa korvapuusteja ja lihapiirakoita evääksi: T syö ne (tai suklaan tai marjat ämpäristä).
 - **Jalkapallopojat:** joka toinen päivä jossain tien varressa on kolme poikaa, joiden pallo on hukassa. Pojat
   kertovat suunnan, ja pallo on 100–300 m päässä. Palautus: poikien luona E avaa esinevalikon (W/S valitse, E anna,
@@ -15,8 +18,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Penkin mummot:** K-Marketin edustan penkillä istuu kolme mummoa. Jos kurvaat pyörällä lujaa aivan vierestä tai
   soitat kelloa (Q), he suuttuvat ja heittelevät kettukarkkeja: osuma heilauttaa pyörää tai horjauttaa. Maahan
   jääneet karkit voi poimia jalan (kunto +15).
-- **Päivin kauppalista:** aamulla Päivi luettelee neljä tuotetta väreineen ("vihreä tamponi, punainen maito..."),
-  mutta kauppalistaan tulee vain tuotteet. Kaupan oikealla seinällä on Päivin hylly, jossa jokaisesta tuotteesta
+- **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (päivä, tehtävä, kauppalista ja muut
+  muistutukset), ja Päivi huutaa perään neljä tuotetta väreineen ("vihreä tamponi, punainen maito..."), mutta
+  lappuun hän kirjoittaa vain tuotteet. Kaupan oikealla seinällä on Päivin hylly, jossa jokaisesta tuotteesta
   on viisi väriä: Q vaihtaa väriä, E ottaa, vaihtaa tai palauttaa. Päivin ostokset maksetaan Päivin rahoilla.
   Kotona Päivi tarkistaa ostokset: kaikki oikein = kaljarauha (Päivi ei etsi jemmoja seuraavana aamuna), muuten
   motkotus jokaisesta virheestä.
@@ -51,10 +55,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   haava paranee yön aikana.
 - **Pontikka:** jossain metsässä Pannu-Sulo keittää pontikkaa. Paikka ei näy kartalla, mutta kodan tarinoista
   saattaa kuulla vihjeen. Sulo myy päivässä yhden kanisterin (20 €), joka vastaa kotijemmassa 24 kaljaa.
-- **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen). Mökki on Vaalan Uutelanperällä,
+- **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen) (taksimatkan välikuvassa: "Taksilla Vaalaan – Terveisin, Maustetytöt"). Mökki on Vaalan Neittävän kylällä,
   noin 106 km linnuntietä itään Järvikujalta, ja välimatkat (esim. pyörään) näytetään sen mukaan. Mökillä
   pääpelin tehtävät eivät etene eivätkä näy HUD:ssa: aika seisoo, Päivi ja muut vaarat jäävät Saloisiin, eikä
-  pyörää varasteta sillä aikaa. Mökki on mallinnettu oikean paikan mukaan (Kaisuantie 62, Uutelanperä, Vaala): 1,9 × 1,9 km
+  pyörää varasteta sillä aikaa. Mökki on mallinnettu oikean paikan mukaan (Kaisuantie 62, Neittävä, Vaala): 1,9 × 1,9 km
   maisema OpenStreetMapista (Likanen, Syväjärvi, Ahveroinen, Tervalampi, Kiiskeroinen, Penikka ja muut lammet
   omilla pinnoillaan, Kaisuantie, Uutelanperäntie, Neittäväntie ja muut tiet, pellot, suo, purot ja noin sata
   naapurirakennusta) ja korkeudet koko alueelta Maanmittauslaitoksen 2 m korkeusmallista (kauempana 8 m ruudukkona,
@@ -74,7 +78,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     Neittäväntielle oikean mittaisena, Vuolijoentie radan ali, Oulujoen silta, Vaalan keskusta 1:1: kirkko,
     rautatieasema, kaupat ja kunnantalo). Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet
     ja rakennusten pohjat maastotietokannasta, rakennusten korkeudet ja tienvarren metsä (noin 200 000 puuta)
-    laserkeilauksesta ja puulajit Luken VMI:stä (`tools/vaala_bake.py`).
+    laserkeilauksesta ja puulajit Luken VMI:stä (`tools/vaala_bake.py`). Keskustassa on K-Market Tervaportti:
+    sama kauppa kuin kylässä, ja vasemmalla seinällä Alkon hylly (Koskenkorva kätköviinaksi, T ottaa huikan).
+    Pankkiautomaatti on kaupan seinällä. Niskanselän rannassa keskustan tuntumassa on Oulujärven lava 90-luvun
+    asussaan (1 500 m², punamullatut seinät, luukut auki, bändi lavalla): lipulla (12 €) lavatansseihin, joissa A ja
+    D vuorotellen tahdissa vievät parin tanssiin.
     Kännissä tanko vaeltaa, kuva huojuu ja ojaan on lyhyt matka. Siitarin baarissa on tiski, karaoke
     (W/S tai hiiri pitää äänen sävelpalkilla), tanssilattia, pajatso, pöytäseurue ja naapurin Sinikka. Jos Sinikan
     kanssa tanssii tai tarjoaa hänelle drinkin, Päivi kuulee siitä pian puhelimessa ja on seuraavana päivänä

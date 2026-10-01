@@ -182,6 +182,36 @@ static func car(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	return wheels
 
 
+## Pakettiauto -Z-suuntaan (Transit-tyyppinen): lyhyt keula, korkea umpinainen tavaratila, takaovien sauma.
+## Palauttaa pyörät kuten car().
+static func van(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
+	var body := paint(color)
+	if plate == "":
+		plate = "%s%s%s-%d" % [char(65 + randi() % 26), char(65 + randi() % 26), char(65 + randi() % 26), 100 + randi() % 900]
+	part(parent, B.boxm(Vector3(1.95, 1.75, 3.9)), Vector3(0, 1.38, 0.45), body)  # tavaratila ja ohjaamo
+	part(parent, B.boxm(Vector3(1.9, 0.62, 0.95)), Vector3(0, 0.82, -1.95), body)  # keula
+	slab(parent, Vector3(0, 1.13, -2.42), Vector3(0, 1.16, -1.5), 1.86, 0.08, body)  # konepelti
+	slab(parent, Vector3(0, 1.17, -1.5), Vector3(0, 2.05, -1.0), 1.8, 0.05, glass())  # tuulilasi
+	part(parent, B.boxm(Vector3(1.98, 0.14, 4.9)), Vector3(0, 0.5, -0.05), plastic())  # helma
+	for sx in [-0.98, 0.98]:
+		part(parent, B.boxm(Vector3(0.02, 0.5, 0.75)), Vector3(sx, 1.65, -0.85), glass())  # sivuikkuna
+		part(parent, B.boxm(Vector3(0.14, 0.12, 0.2)), Vector3(sx * 1.12, 1.6, -1.45), body)  # peili
+		part(parent, B.boxm(Vector3(0.012, 1.3, 0.012)), Vector3(sx * 0.99, 1.25, 0.2), plastic())  # liukuoven sauma
+		part(parent, B.boxm(Vector3(0.36, 0.13, 0.05)), Vector3(sx * 0.66, 0.98, -2.43), lamp(Color(1.0, 0.98, 0.9)))
+		part(parent, B.boxm(Vector3(0.12, 0.42, 0.05)), Vector3(sx * 0.9, 1.0, 2.41), lamp(Color(0.8, 0.04, 0.03)))
+	part(parent, B.boxm(Vector3(0.012, 1.5, 0.02)), Vector3(0, 1.38, 2.41), plastic())  # takaovien sauma
+	part(parent, B.boxm(Vector3(0.95, 0.24, 0.04)), Vector3(0, 0.88, -2.43), plastic())  # maski
+	part(parent, B.boxm(Vector3(1.96, 0.2, 0.12)), Vector3(0, 0.52, -2.47), plastic())
+	part(parent, B.boxm(Vector3(1.96, 0.2, 0.12)), Vector3(0, 0.52, 2.45), plastic())
+	_plate(parent, Vector3(0, 0.55, -2.54), false, plate)
+	_plate(parent, Vector3(0, 0.62, 2.45), true, plate)
+	var wheels: Array[Node3D] = []
+	for sx in [-0.86, 0.86]:
+		for wz in [-1.65, 1.55]:
+			wheels.append(wheel(parent, Vector3(sx, 0.36, wz), 0.36, 0.24, 0, chrome(), 0.6))
+	return wheels
+
+
 ## Taksi: tumma farmari, katolla keltainen TAXI-kupu. Palauttaa pyörät kuten car().
 static func taxi(parent: Node3D, plate := "") -> Array[Node3D]:
 	var wheels := car(parent, Color(0.08, 0.08, 0.1), plate)

@@ -20,6 +20,7 @@ const Fight := preload("res://scripts/fight.gd")
 const ChopGame := preload("res://scripts/chop_game.gd")
 const SawGame := preload("res://scripts/saw_game.gd")
 const BarGame := preload("res://scripts/bar_game.gd")
+const LavaGame := preload("res://scripts/lava_game.gd")
 const PingisGame := preload("res://scripts/pingis_game.gd")
 const PaGame := preload("res://scripts/pa_game.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
@@ -69,7 +70,9 @@ const DroneGame := preload("res://scripts/drone_game.gd")
 const MopoTrip := preload("res://scripts/mopo_trip.gd")
 const TrafficCar := preload("res://scripts/traffic_car.gd")
 const Atm := preload("res://scripts/atm.gd")
-const TRAFFIC := 6  # autoja kylän tieverkossa
+const TRAFFIC := 14  # autoja kylän tieverkossa (pidetään pelaajan ympärillä, ks. _traffic_tick)
+const TRAFFIC_FAR := 450.0  # tätä kauempana oleva auto siirretään pelaajan lähelle
+const TRAFFIC_RESPAWN := Vector2(180.0, 380.0)  # uusi paikka tältä etäisyydeltä (mieluiten näkökentän ulkopuolelta)
 const VAALA_POS := Vector3(13000, 0, 6000)
 ## Siitarin baarin tuotteet: id -> [nimi, hinta, humala, stressi, moraali].
 const SIITARI_MENU := {
@@ -92,6 +95,7 @@ const Tractor := preload("res://scripts/tractor.gd")
 const OnFoot := preload("res://scripts/on_foot.gd")
 const Ambience := preload("res://scripts/ambience.gd")
 const Cutscene := preload("res://scripts/cutscene.gd")
+const Note := preload("res://scripts/note.gd")
 const Menu := preload("res://scripts/menu.gd")
 const Lawn := preload("res://scripts/lawn.gd")
 const PoliceCar := preload("res://scripts/police_car.gd")
@@ -161,7 +165,7 @@ const SAVE_PATH := "user://normipaiva.cfg"
 
 const INTERIOR_POS := Vector3(3000, 0, 0)
 const MOKKI_POS := Vector3(6000, 0, 0)  # erillinen tasku, tavoitettavissa vain taksilla kotoa
-## Mökki on Vaalan Uutelanperällä (Kaisuantie 62, 64,5055 N 26,6672 E) ja koti Saloisissa (Järvikuja 1, 64,6431 N
+## Mökki on Vaalan Neittävän kylällä (Kaisuantie 62, 64,5055 N 26,6672 E) ja koti Saloisissa (Järvikuja 1, 64,6431 N
 ## 24,4766 E). Pelissä mökki on erillinen tasku, joten välimatka niiden välillä on oikea linnuntie (n. 106 km itään).
 ## Mökillä pääpelin tehtävät (kauppareissu, jemmat, aika, vaarat) eivät etene eivätkä näy HUD:ssa.
 const MOKKI_AREA_R := 700.0
@@ -217,6 +221,7 @@ var _stats: Label
 var _status: Label
 var _hint: Label
 var _msg: Label
+var _note: Control  # Päivin heippalappu (note.gd): päivän alun ohjeet
 var _msg_time := 0.0
 var _sus_box: Control
 var _sus_bar: ProgressBar
@@ -581,9 +586,8 @@ func _ready() -> void:
 	if Settings.renderer_auto_saved:
 		jemma_note += "\nYhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä (vaihda Asetuksista)."
 	jemma_note = bike_note + jemma_note + _lawn_nag()
-	_show_message("Päivä %d · Järvikuja 1, Saloinen.\nPitäis käydä kaupassa... Aja K-Marketille!%s%s" % [day, 
-		("\nJemmassa %d kaljaa." % jemma) if jemma > 0 else "", jemma_note], 5.0 if jemma_note == "" else 6.0)
 	_roll_list()
+	_day_note("Huomenta! Päivä %d, Järvikuja 1." % day, ("\nJemmassa %d kaljaa." % jemma if jemma > 0 else "") + jemma_note)
 	_tell_list()
 	if loading:
 		_loading_hide()
@@ -667,6 +671,8 @@ func _process(delta: float) -> void:
 		_hazards.process_mode = Node.PROCESS_MODE_DISABLED  # Päivi ja muut vaarat jäävät Saloisiin
 
 	_hint.text = ""
+	if not at_mokki:
+		_traffic_tick(delta)
 	match state:
 		"to_shop", "to_home":
 			_outside_logic()
@@ -1781,13 +1787,28 @@ func _roll_list() -> void:
 	_list_done = false
 
 
-## Päivi luettelee listan kerran (viestijonossa päivän aloitusviestin jälkeen).
+## Päivin heippalappu päivän alkuun: otsikko, tehtävä ja kauppalista (vain tuotteet, värit Päivi sanoo ääneen,
+## ks. _tell_list) sekä päivän muut muistutukset (extra: rivit \n-erotettuina).
+func _day_note(head: String, extra: String, with_list := true) -> void:
+	var lines: Array = [head]
+	if with_list and not shopping_list.is_empty():
+		lines.append("Käy K-Marketissa ja tuo:")
+		for it in shopping_list:
+			lines.append("  • %s" % it[0])
+	var more := extra.strip_edges()
+	if more != "":
+		lines.append("")
+		lines.append_array(more.split("\n"))
+	_note.show_note(lines, "– Päivi ♥", 12.0 if more == "" else 16.0)
+
+
+## Päivi luettelee listan kerran ääneen (värit; lapun alla).
 func _tell_list() -> void:
 	var said: Array[String] = []
 	for it in shopping_list:
 		said.append("%s %s" % [it[1], it[0]])
 	var text := ", ".join(said.slice(0, said.size() - 1)) + " ja " + said[-1]
-	_queue_message("Päivi: \"Tuo kaupasta %s.\"\nKauppalistaan hän kirjoitti vain tuotteet. Muista värit!" % text, 7.0)
+	_note.say("Päivi huutaa perään: \"Tuo %s!\"\n(Lappuun hän kirjoitti vain tuotteet. Muista värit!)" % text, 9.0)
 
 
 ## Ostosten tarkistus: palauttaa Päivin repliikit. Kaikki oikein -> kaljarauha.
@@ -2426,14 +2447,15 @@ func _mokki_taxi_logic() -> void:
 			else:
 				money -= TAXI_PRICE
 				tilat.first("mokki", 0.4)
-				_ride_taxi(mokki.gpos(Mokki.TAXI_LOCAL + Vector3(0, 0.3, 2.2)), "Matkalla mökille Vaalan Uutelanperälle... (%s €)" % _eur(TAXI_PRICE))
+				_ride_taxi(mokki.gpos(Mokki.TAXI_LOCAL + Vector3(0, 0.3, 2.2)), "Terveisin, Maustetytöt\nMökille Vaalan Neittävän kylään (%s €)" % _eur(TAXI_PRICE),
+					"TAKSILLA VAALAAN")
 	elif d_mokki < 3.0:
 		_hint.text = "[E] Tilaa taksi kotiin Saloisiin (n. %d km, paluu jo maksettu)" % roundi(HOME_MOKKI_KM)
 		if Input.is_action_just_pressed("interact"):
 			_ride_taxi(home_stand + Vector3(0, 0, 2.2), "Matkalla kotiin Saloisiin...")
 
 
-func _ride_taxi(dest: Vector3, sub: String) -> void:
+func _ride_taxi(dest: Vector3, sub: String, title := "TAKSI") -> void:
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
 	cutscene.taxi(sub, func() -> void:
@@ -2446,7 +2468,7 @@ func _ride_taxi(dest: Vector3, sub: String) -> void:
 			_hazards.process_mode = Node.PROCESS_MODE_INHERIT  # takaisin Saloisissa: vaarat heräävät
 			if _list_pending:
 				_list_pending = false
-				_tell_list())
+				_tell_list(), title)
 
 
 ## Mökillä: jutut Santun kanssa, savusaunan kiuas, puukuumenteinen poreamme, tikanheitto ja laituri.
@@ -2650,6 +2672,8 @@ func _start_mopo() -> void:
 		mopo_trip.finished.connect(_on_mopo_finished)
 		mopo_trip.killed.connect(_on_mopo_killed)
 		mopo_trip.atm.connect(_atm_use)
+		mopo_trip.shop.connect(_enter_vaala_shop)
+		mopo_trip.lava.connect(_enter_lava)
 		mopo_trip.crashed.connect(_on_mopo_crashed)
 	mokki.mopo_parked.visible = false
 	for c in _hud.get_children():
@@ -3532,7 +3556,104 @@ func _enter_shop() -> void:
 	Sfx.play("door", -3.0)
 
 
+## Vaalan K-Market Tervaportti: sama kauppa kuin kylässä, lisäksi Alkon hylly. Mopo jää oven eteen.
+var _shop_vaala := false
+
+
+func _enter_vaala_shop() -> void:
+	mopo_trip.stop()
+	_shop_vaala = true
+	state = "in_shop"
+	_mopo_label.visible = false
+	_compass.visible = false
+	interior.vaala = true
+	interior.money = money
+	interior.enter()
+	Sfx.play("door", -3.0)
+	tilat.first("kauppa_vaala", 0.2)
+	_show_message("K-Market Tervaportti, Vaala. Alkon hylly vasemmalla seinällä.", 3.0)
+
+
+func _on_vaala_shop_exited(bought: bool) -> void:
+	interior.leave()
+	interior.vaala = false
+	_shop_vaala = false
+	Sfx.play("door_close", -3.0)
+	var got: Array[String] = []
+	if interior.has_paid:
+		has_sausage = has_sausage or interior.cart.has("makkara")
+		has_matches = has_matches or interior.cart.has("tikut")
+		has_chocolate = has_chocolate or interior.cart.has("suklaa")
+		for k in ShopInterior.BAKERY:
+			if interior.cart.has(k):
+				food[k] = food.get(k, 0) + 1
+		var bottles: int = interior.alko_count()
+		if bottles > 0:
+			viina_pullot += bottles
+			got.append("%d pulloa Koskenkorvaa" % bottles)
+		for k in interior.bag:
+			paivi_bag[k] = interior.bag[k]
+	if bought:
+		beers += 6
+		got.push_front("kuutonen")
+	_reset_shop_visit()
+	state = "mopo"
+	_mopo_label.visible = true
+	_compass.visible = true
+	mopo_trip.resume()
+	_show_message(("Kassissa %s. Mopon kyytiin!" % " ja ".join(got)) if not got.is_empty() else "Takaisin mopon kyytiin.", 3.0)
+
+
+## Oulujärven lava: lavatanssit (lava_game.gd) lavan lattialla. Lippu maksetaan ovella; hyvä tanssi nostaa
+## moraalia ja vähentää stressiä, kömpelökin ilta piristää. Mopo jää oven eteen.
+var _lava_game: Node3D
+
+
+func _enter_lava() -> void:
+	if money < MopoTrip.LAVA_TICKET:
+		_show_message("Lippu maksaa %s €. Rahat ei riitä – pankkiautomaatti on K-Market Tervaportin seinällä." %
+			_eur(MopoTrip.LAVA_TICKET), 3.5)
+		return
+	money -= MopoTrip.LAVA_TICKET
+	Sfx.play("coin", -4.0)
+	mopo_trip.stop()
+	state = "lava"
+	_mopo_label.visible = false
+	_compass.visible = false
+	_hint.text = ""
+	tilat.first("lava", 0.3)
+	_lava_game = LavaGame.new()
+	mopo_trip.vaala.add_child(_lava_game)
+	_lava_game.position = mopo_trip.vaala.lava_center
+	_lava_game.finished.connect(_on_lava_finished)
+
+
+func _on_lava_finished(score: float) -> void:
+	_lava_game.queue_free()
+	_lava_game = null
+	tilat.add("moraali", 0.1 + score * 0.25)
+	tilat.add("stressi", 0.1 + score * 0.15)
+	mielihyva += 2.0 + score * 6.0
+	state = "mopo"
+	_mopo_label.visible = true
+	_compass.visible = true
+	mopo_trip.resume()
+	_show_message("Lavatanssit Oulujärven lavalla! %s" % ("Ilta jää mieleen." if score > 0.6 else "Varpaat muistavat illan."), 3.0)
+
+
+## Kaupan kori tyhjäksi seuraavaa käyntiä varten (sama sisätila kuin kylän K-Marketissa).
+func _reset_shop_visit() -> void:
+	interior.has_beer = false
+	interior.has_paid = false
+	interior.cart.clear()
+	interior.bag.clear()
+	interior.walker.set_carrying(false)
+
+
 func _on_shop_exited(bought: bool) -> void:
+	if _shop_vaala:
+		_on_vaala_shop_exited(bought)
+		return
 	interior.leave()
 	Sfx.play("door_close", -3.0)
 	player.rotation.y = PI
@@ -4023,29 +4144,29 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		player.controls_enabled = false
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		var lost_n := _jemma_found
-		var msg := "%sPäivä %d alkaa.%s%s%s\nPitäis käydä kaupassa..." % [intro, day, bonus, bike_note, jnote]
+		var msg := "%s%s%s%s" % [intro, bonus, bike_note, jnote]
 		cutscene.jemma_found(home_zone, lost_n, jemma, func() -> void:
 			state = "to_shop"
 			_hud.visible = true
 			player.controls_enabled = true
 			player.activate_camera()
 			_hazards.process_mode = Node.PROCESS_MODE_INHERIT
-			_show_message(msg, 6.0)
+			_day_note("Huomenta! Päivä %d." % day, msg)
 			_tell_list(), _jemma_choco)
 		return
 	if at_m:
 		# Mökillä vain mökin asiat: Päivin värilista kerrotaan, kun palataan kotiin (ks. _ride_taxi).
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		_list_pending = true
-		_show_message("%sPäivä %d alkaa mökiltä, Uutelanperä, Vaala.%s%s" % [intro, day, stats_note, mokki_note], 5.0)
+		_note.show_note(["Huomenta mökille! Päivä %d." % day, "Kaisuantie 62, Neittävä, Vaala."]
+			+ Array(("%s%s%s" % [intro, stats_note, mokki_note]).strip_edges().split("\n")), "– Santtu", 10.0)
 		return
 	var where := " kotoa"
 	if spawn.distance_to(mokki.global_position) < 80.0:
 		where = " mökiltä"
 	elif spawn.distance_to(home_zone) > 50.0:
 		where = " laavulta"
-	_show_message("%sPäivä %d alkaa%s.%s%s%s\nPitäis käydä kaupassa..." % [intro, day, where,
-		bonus, bike_note, jnote], 4.0 if jnote == "" and intro == "" and bike_note == "" else 6.0)
+	_day_note("Huomenta! Päivä %d alkaa%s." % [day, where], "%s%s%s%s" % [intro, bonus, bike_note, jnote])
 	_tell_list()
 
 
@@ -4264,25 +4385,58 @@ func _spawn_hazards() -> void:
 	sulo = _villager("Pannu-Sulo", Looks.SULO, SULO_LINES, "sulo", M.PONTIKKA + Vector2(-2.2, -1.2))
 
 
+var _traffic_t := 0.0
+
+
+## Liikenne pysyy pelaajan ympärillä: kaukana (TRAFFIC_FAR) oleva auto siirretään tieverkon solmuun
+## TRAFFIC_RESPAWN-etäisyydelle, mieluiten kameran taakse, ettei se ilmesty silmien eteen.
+func _traffic_tick(delta: float) -> void:
+	_traffic_t -= delta
+	if _traffic_t > 0.0 or _hazards == null:
+		return
+	_traffic_t = 1.0
+	var p := player.global_position
+	var cam := get_viewport().get_camera_3d()
+	var fwd := -cam.global_transform.basis.z if cam != null else Vector3.FORWARD
+	for c in _hazards.get_children():
+		if not (c is TrafficCar) or c.global_position.distance_to(p) < TRAFFIC_FAR:
+			continue
+		var cand: Array[int] = []
+		var behind: Array[int] = []
+		for i in world.graph_nodes.size():
+			var to: Vector3 = world.graph_nodes[i] - p
+			var d := to.length()
+			if d < TRAFFIC_RESPAWN.x or d > TRAFFIC_RESPAWN.y or world.graph_adj[i].is_empty():
+				continue
+			cand.append(i)
+			if to.normalized().dot(fwd) < 0.2:
+				behind.append(i)
+		var pick := behind if not behind.is_empty() else cand
+		if not pick.is_empty():
+			c.setup_graph(world.graph_nodes, world.graph_adj, pick.pick_random(), world.graph_fast)
+
+
 ## Päivi, juntti, laavun valtaajat ja jyväjemmari (luodaan uudelleen joka päivä).
 func _spawn_threats() -> void:
 	# Liikenne: autot ajavat tieverkkoa oikeaa kaistaa; alle jäänyt kuolee.
 	var far_nodes: Array[int] = []
 	for i in world.graph_nodes.size():
-		if world.graph_nodes[i].distance_to(player.global_position) > 90.0 and world.graph_adj[i].size() > 0:
+		var d: float = world.graph_nodes[i].distance_to(player.global_position)
+		if d > 90.0 and d < TRAFFIC_FAR and world.graph_adj[i].size() > 0:
 			far_nodes.append(i)
 	for i in TRAFFIC:
 		if far_nodes.is_empty():
 			break
 		var car := TrafficCar.new()
-		car.cruise = randf_range(9.5, 12.5)
+		car.van = randf() < 0.25
+		car.cruise = randf_range(12.5, 16.0) * (0.9 if car.van else 1.0)
 		car.target_fn = func() -> Node3D: return player
 		car.hit.connect(func() -> void:
 			if state in ["to_shop", "to_home"] and not _at_mokki():
 				Sfx.play("punch_heavy", 2.0)
 				_lose("Jäit auton alle.", "car"))
 		_hazards.add_child(car)
-		car.setup_graph(world.graph_nodes, world.graph_adj, far_nodes.pick_random())
+		car.setup_graph(world.graph_nodes, world.graph_adj, far_nodes.pick_random(), world.graph_fast)
 	wife = WifeCar.new()
 	_hazards.add_child(wife)
 	wife.setup(world.graph_nodes, world.graph_adj, world.nearest_node(M.w(M.J_T)), player)
@@ -4411,6 +4565,8 @@ func _build_hud() -> void:
 	_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # pitkät viestit (tarinat) rivittyvät
 	_msg.offset_left = 60
 	_msg.offset_right = -60
+	_note = Note.new()
+	layer.add_child(_note)
 
 	_sus_box = VBoxContainer.new()
 	_sus_box.anchor_left = 1.0
@@ -4550,7 +4706,7 @@ func _update_hud() -> void:
 	_stats.text = "\n".join(lines)
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = not (state in ["in_shop", "in_mokki", "mopo", "in_siitari", "in_raahe"])
+	_minimap.visible = not (state in ["in_shop", "in_mokki", "mopo", "in_siitari", "in_raahe", "lava"])
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
 	_minimap.show_target = state in ["to_shop", "to_home"] and not at_mokki
 	_compass.visible = state in ["to_shop", "to_home", "mopo"]
@@ -4649,7 +4805,7 @@ func inventory_info() -> Dictionary:
 	var info := {"money": _eur(money), "lines": [], "list": [], "stashes": []}
 	if _at_mokki():
 		var mn := _mokki_drone_names()
-		info.lines = ["Päivä %d · mökillä" % day, "Kaisuantie 62, Uutelanperä, Vaala",
+		info.lines = ["Päivä %d · mökillä" % day, "Kaisuantie 62, Neittävä, Vaala",
 			"Koti Saloisissa n. %d km länteen" % roundi(HOME_MOKKI_KM),
 			"Droonin ilmakuvat %d / %d" % [_drone_photo_count(mn), mn.size()],
 			"Viinakätköt %d / %d" % [viina_found.size(), Mokki.VIINA.size()]]
@@ -5081,6 +5237,82 @@ func _maybe_screenshot() -> void:
 				await get_tree().physics_frame
 			print("SIITARI ulos: tila %s, mopo kohde %s aktiivinen %s" % [state, mopo_trip.target, mopo_trip.active])
 			get_tree().quit()
+		"mokkilava":
+			# Oulujärven lava: mopo ovelle (vihje), ulkokuva, lavatanssit (kuva), lopetus ja takaisin mopolle.
+			_start_mopo()
+			var vl2: Node3D = mopo_trip.vaala
+			var mpl: CharacterBody3D = mopo_trip.mopo
+			mpl.position = vl2.lava_door + Vector3(0, 0.6, 0)
+			mpl.speed = 0.0
+			money = 40.0
+			for i in 30:
+				await get_tree().process_frame
+			print("LAVA ovi ", vl2.lava_door, " keskus ", vl2.lava_center, " vihje: ", mopo_trip.hint)
+			var lc := Camera3D.new()
+			lc.far = 3000.0
+			add_child(lc)
+			lc.look_at_from_position(mopo_trip.to_global(vl2.lava_door + vl2.lava_out * 30.0 + Vector3(-25, 18, 30)),
+				mopo_trip.to_global(vl2.lava_center))
+			lc.current = true
+			for i in 30:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ulko.png"))
+			_enter_lava()
+			for i in 20:
+				await get_tree().process_frame
+			_lava_game._phase = "dance"
+			_lava_game._me.play("Dance", 0.2)
+			_lava_game._partner.play("Dance", 0.2)
+			_lava_game._hits = 20
+			for i in 60:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_tanssi.png"))
+			_lava_game._t = LavaGame.SONG
+			for i in 5:
+				await get_tree().process_frame
+			var m0 := mielihyva
+			_lava_game.finished.emit(_lava_game._score())
+			for i in 10:
+				await get_tree().process_frame
+			print("LAVA ohi: tila %s, rahaa %.2f, mielihyvä %.1f -> %.1f, mopo aktiivinen %s" % [state, money, m0, mielihyva, mopo_trip.active])
+		"mokkikauppa":
+			# K-Market Tervaportti Vaalassa: mopo oven eteen (vihje), kauppaan, Alkon hylly, ulos ja takaisin mopolle.
+			_start_mopo()
+			var vk: Node3D = mopo_trip.vaala
+			var mpk: CharacterBody3D = mopo_trip.mopo
+			mpk.position = vk.kmarket_door + Vector3(0, 0.6, 0)
+			mpk.speed = 0.0
+			for i in 30:
+				await get_tree().process_frame
+			print("VAALAKAUPPA ovi ", vk.kmarket_door, " automaatti ", vk.atm_pos, " vihje: ", mopo_trip.hint)
+			var occ := Camera3D.new()
+			add_child(occ)
+			occ.look_at_from_position(mopo_trip.to_global(vk.kmarket_door + vk.kmarket_out * 14.0 + Vector3(0, 5, 0)),
+				mopo_trip.to_global(vk.kmarket_door))
+			occ.current = true
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ulko.png"))
+			_enter_vaala_shop()
+			interior.walker.position = ShopInterior.ALKO_SPOT
+			interior.walker.rotation.y = PI / 2.0
+			for i in 40:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_alko.png"))
+			print("VAALAKAUPPA alkon vihje: ", interior.hint)
+			interior.cart["viina0"] = ShopInterior.ALKO[1]
+			interior.has_beer = true
+			interior.has_paid = true
+			var pullot0 := viina_pullot
+			interior.exited.emit(true)
+			for i in 10:
+				await get_tree().process_frame
+			print("VAALAKAUPPA ulos: tila %s, pulloja %d -> %d, kaljoja %d, mopo aktiivinen %s" % [state, pullot0, viina_pullot,
+				beers, mopo_trip.active])
 		"mokkivaala":
 			# Vaalan kohteet kuviksi (_ali1 alikulku lähestyttäessä, _ali2 sivulta, _ali3 mopo alikulussa, _ris
 			# Vuolijoentien risteys, _kesk keskusta ylhäältä, _kirkko, _asema, _talot omakotitaloja läheltä).

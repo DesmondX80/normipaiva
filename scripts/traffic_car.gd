@@ -2,19 +2,28 @@ extends CharacterBody3D
 ## Liikenteen auto: ajaa oikeaa kaistaa joko kylän tieverkossa (setup_graph, satunnaiset käännökset risteyksissä)
 ## tai Vaalan mopomatkan tiellä (setup_line, tien näytteitä pitkin). Jarruttaa, kun pelaaja on edessä, mutta
 ## pysähtymismatka on pitkä: eteen hyppäävä jää alle (hit-signaali, kun auto osuu vauhdissa).
+## Pitää välimatkan edellä samaan suuntaan ajavaan (ryhmä "liikenne", myös Päivin auto): jonot eivät ajele
+## toistensa läpi. Kylässä nopeus tien mukaan: maantiellä kovempaa kuin asuinkadulla (setup_graph fast).
 
 const B := preload("res://scripts/build.gd")
+const Vehicles := preload("res://scripts/vehicles.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 
 const COLORS := [Color(0.85, 0.85, 0.87), Color(0.08, 0.08, 0.1), Color(0.15, 0.25, 0.5), Color(0.55, 0.56, 0.58),
 	Color(0.5, 0.1, 0.1), Color(0.2, 0.35, 0.25), Color(0.75, 0.7, 0.55), Color(0.9, 0.9, 0.9)]
+const VAN_COLORS := [Color(0.92, 0.92, 0.9), Color(0.85, 0.85, 0.87), Color(0.12, 0.2, 0.42), Color(0.55, 0.12, 0.1)]
 const LOOK := 16.0      # jarrutusetäisyys edessä
 const BRAKE := 7.0
 const HIT_SPEED := 3.0  # tätä kovempaa osuessa pelaaja kuolee
+const GROUP := "liikenne"
+const FOLLOW_LOOK := 22.0  # edellä ajavan huomioiminen
+const FOLLOW_GAP := 7.0    # pysähtyy tähän etäisyyteen (keskipisteiden väli)
+const STREET_SPEED := 0.72  # asuinkadulla osuus maantienopeudesta
 
 signal hit
 
 var target_fn: Callable  # palauttaa pelaajan solmun (jalan, pyörä tai mopo)
+var van := false  # pakettiauto henkilöauton sijaan
 var cruise := 11.0
 var lane := 1.7
 var ground_fn: Callable  # (x, z) -> y; oletuksena kylän maasto
@@ -25,6 +34,7 @@ var _engine: AudioStreamPlayer3D
 # Tieverkko
 var _nodes: Array[Vector3] = []
 var _adj: Array = []
+var _fast: Array = []  # solmu maantiellä (road) vai asuinkadulla (street)
 var _cur := 0
 var _prev := -1
 # Tieviiva
@@ -38,14 +48,19 @@ func _ready() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	collision_layer = 0  # ei tönäise pelaajaa: osuma tarkistetaan itse
 	collision_mask = 0
-	B.car(self, COLORS.pick_random())
+	add_to_group(GROUP)
+	if van:
+		Vehicles.van(self, VAN_COLORS.pick_random())
+	else:
+		B.car(self, COLORS.pick_random())
 	_engine = Sfx.loop_on(self, "engine", -10.0)
 	_engine.pitch_scale = randf_range(0.85, 1.1)
 
 
-func setup_graph(nodes: Array[Vector3], adj: Array, start: int) -> void:
+func setup_graph(nodes: Array[Vector3], adj: Array, start: int, fast: Array = []) -> void:
 	_nodes = nodes
 	_adj = adj
+	_fast = fast
 	_cur = start
 	_prev = -1
 	position = nodes[start]
@@ -90,6 +105,7 @@ func _physics_process(delta: float) -> void:
 		if absf(_speed) > HIT_SPEED and ahead > -2.4 and ahead < 2.6 and side < 1.25:
 			hit.emit()
 			_speed = 0.0
+	want = minf(want, _follow_speed(fwd))
 	_speed = move_toward(_speed, want, (BRAKE if want < _speed else 3.0) * delta)
 	if not _line.is_empty():
 		_place_on_line(_speed * delta)
@@ -97,6 +113,28 @@ func _physics_process(delta: float) -> void:
 		_drive_graph(delta)
 	if _engine != null:
 		_engine.pitch_scale = 0.8 + clampf(_speed / 16.0, 0.0, 1.0) * 0.6
+
+
+## Edellä samaan suuntaan ajava ajoneuvo: nopeus, jolla pysähdytään FOLLOW_GAP päähän siitä.
+func _follow_speed(fwd: Vector3) -> float:
+	var best := INF
+	for o in get_tree().get_nodes_in_group(GROUP):
+		if o == self or not (o is Node3D) or not o.is_inside_tree():
+			continue
+		var to: Vector3 = (o as Node3D).global_position - global_position
+		to.y = 0.0
+		var ahead := to.dot(fwd)
+		if ahead <= 0.5 or ahead > FOLLOW_LOOK:
+			continue
+		if absf(to.dot(fwd.cross(Vector3.UP))) > 1.9:
+			continue  # vastaantuleva kaista tai sivukatu
+		var ofwd := -(o as Node3D).global_transform.basis.z
+		if ofwd.dot(fwd) < 0.3:
+			continue  # risteävä tai vastaan tuleva
+		best = minf(best, ahead)
+	if best == INF:
+		return INF
+	return maxf(0.0, (best - FOLLOW_GAP) * 1.1)
 
 
 func _drive_graph(delta: float) -> void:
@@ -113,7 +151,10 @@ func _drive_graph(delta: float) -> void:
 	var yaw := B.yaw_to(to_g)
 	rotation.y = rotate_toward(rotation.y, yaw, 2.5 * delta)
 	var slow := clampf(1.0 - absf(wrapf(yaw - rotation.y, -PI, PI)) / 1.2, 0.3, 1.0)
-	_speed = minf(_speed, cruise * slow + 1.0)
+	var limit := cruise
+	if not _fast.is_empty() and _prev >= 0 and not (_fast[_prev] and _fast[_cur]):
+		limit *= STREET_SPEED
+	_speed = minf(_speed, limit * slow + 1.0)
 	global_position += -global_transform.basis.z * _speed * delta
 	global_position.y = ground_fn.call(global_position.x, global_position.z) if ground_fn.is_valid() \
 		else Terrain.h(global_position.x, global_position.z)
