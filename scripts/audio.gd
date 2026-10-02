@@ -160,7 +160,9 @@ func music_stop(fade := 1.5) -> void:
 
 
 ## Ei-sijainnillinen ääni (HUD-tyyppiset, pelaajan omat).
-func play(sound: String, volume_db := 0.0, pitch := 1.0) -> void:
+## Kertaääni. Silmukaksi merkitty äänite (esim. "water", jota käytetään myös jatkuvana) ei pääty itsestään,
+## joten se hiljennetään ja pysäytetään loop_secs sekunnin kuluttua.
+func play(sound: String, volume_db := 0.0, pitch := 1.0, loop_secs := 1.8) -> void:
 	var p := AudioStreamPlayer.new()
 	p.bus = "SFX"
 	p.stream = stream(sound)
@@ -169,24 +171,37 @@ func play(sound: String, volume_db := 0.0, pitch := 1.0) -> void:
 	add_child(p)
 	p.finished.connect(p.queue_free)
 	p.play()
+	_limit_loop(p, sound, loop_secs)
+
+
+## Kertaäänenä soitettu silmukka hiljenee ja pysähtyy loop_secs sekunnin kuluttua (muuten se soisi ikuisesti).
+func _limit_loop(p: Node, sound: String, loop_secs: float) -> void:
+	if not (FILES.has(sound) and FILES[sound][1]):
+		return
+	var tw := p.create_tween()
+	tw.tween_interval(maxf(0.0, loop_secs - 0.4))
+	tw.tween_property(p, "volume_db", -40.0, 0.4)
+	tw.tween_callback(p.queue_free)
 
 
 ## Sijainnillinen ääni, joka seuraa annettua solmua.
-func play_on(node: Node3D, sound: String, volume_db := 0.0, pitch := 1.0) -> AudioStreamPlayer3D:
+func play_on(node: Node3D, sound: String, volume_db := 0.0, pitch := 1.0, loop_secs := 1.8) -> AudioStreamPlayer3D:
 	var p := _player3d(stream(sound), volume_db, pitch)
 	node.add_child(p)
 	p.finished.connect(p.queue_free)
 	p.play()
+	_limit_loop(p, sound, loop_secs)
 	return p
 
 
 ## Sijainnillinen ääni kiinteään pisteeseen.
-func play_at(pos: Vector3, sound: String, volume_db := 0.0, pitch := 1.0) -> void:
+func play_at(pos: Vector3, sound: String, volume_db := 0.0, pitch := 1.0, loop_secs := 1.8) -> void:
 	var p := _player3d(stream(sound), volume_db, pitch)
 	get_tree().current_scene.add_child(p)
 	p.global_position = pos
 	p.finished.connect(p.queue_free)
 	p.play()
+	_limit_loop(p, sound, loop_secs)
 
 
 ## Jatkuva silmukka solmussa (moottori). Äänenvoimakkuutta ja sävelkorkeutta säädetään kutsujassa.

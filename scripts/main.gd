@@ -1236,7 +1236,7 @@ func _on_home_acted(kind: String) -> void:
 			if _once_today("suihku"):
 				tilat.add("vireys", 0.1)
 				tilat.add("kipu", 0.05)
-			Sfx.play("water", -6.0, 1.1)
+			Sfx.play("water", -6.0, 1.1, 3.0)  # suihku
 			_show_message("Suihku virkistää.", 2.0)
 		"wc":
 			_open_wc_menu("koti")
@@ -1251,7 +1251,7 @@ func _on_home_acted(kind: String) -> void:
 				tilat.add("stressi", 0.2)
 				tilat.add("vasymys", 0.2)
 				tilat.add("kipu", 0.1)
-			Sfx.play("water", -6.0, 0.8)
+			Sfx.play("water", -6.0, 0.8, 2.5)  # löyly
 			_show_message("Kotisaunan löylyt! Kunto palautui.", 2.5)
 		"nortti":
 			tilat.first("nortti", 0.1)
@@ -4510,7 +4510,7 @@ func _on_mokki_acted(kind: String) -> void:
 			if _once_today("suihku"):
 				tilat.add("vireys", 0.1)
 				tilat.add("kipu", 0.05)
-			Sfx.play("water", -6.0, 1.1)
+			Sfx.play("water", -6.0, 1.1, 3.0)  # suihku
 			_show_message("Suihku virkistää.", 2.0)
 		"wc":
 			_open_wc_menu("mokki")
@@ -4522,7 +4522,7 @@ func _on_mokki_acted(kind: String) -> void:
 				tilat.add("stressi", 0.2)
 				tilat.add("vasymys", 0.2)
 				tilat.add("kipu", 0.1)
-			Sfx.play("water", -6.0, 0.8)
+			Sfx.play("water", -6.0, 0.8, 2.5)  # löyly
 			_show_message("Sisäsaunan löylyt! Kunto palautui.", 2.5)
 		"pa":
 			if mokki_int.pa_on:
@@ -7367,7 +7367,7 @@ func _maybe_screenshot() -> void:
 			top.queue_free()
 			home_int.walker.activate()
 			var wk: CharacterBody3D = home_int.walker
-			for id in ["kerrossanky", "suihku", "wc", "peili", "sauna", "kahvi", "jaakaappi", "tv", "sohva", "nortti"]:
+			for id in ["kerrossanky", "suihku", "peili", "sauna", "kahvi", "jaakaappi", "tv", "sohva", "nortti"]:  # WC: vessa-testi
 				wk.position = home_int.SPOTS[id][0]
 				for i in 5:
 					await get_tree().physics_frame
@@ -7376,6 +7376,19 @@ func _maybe_screenshot() -> void:
 				print("KOTI %s: '%s' -> '%s'" % [id, h, _msg.text.replace("\n", " ")])
 				if id == "nortti":
 					await shot.call("_nortti.png")
+			var count_water := func() -> int:
+				var n := 0
+				for c in Sfx.get_children():
+					if c is AudioStreamPlayer and c.playing and c.stream == Sfx.stream("water"):
+						n += 1
+				return n
+			print("KOTI vesiääniä soi heti: %d" % count_water.call())
+			await get_tree().create_timer(4.0).timeout  # oikeaa aikaa (testiajo voi pyöriä yli 60 FPS)
+			print("KOTI vesiääniä soi 4 s päästä: %d" % count_water.call())
+			for c in Sfx.get_children():
+				if c is AudioStreamPlayer and c.playing:
+					print("KOTI soi: %s db %.1f pitch %.2f pos %.1f/%.1f bus %s" % [c.stream.resource_path, c.volume_db, c.pitch_scale,
+						c.get_playback_position(), c.stream.get_length(), c.bus])
 			wk.position = home_int.SPOTS.takaovi[0]
 			for i in 5:
 				await get_tree().physics_frame
