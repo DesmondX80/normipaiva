@@ -197,8 +197,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   auringonlaskussa.
 - **Jemmat:** piilota kaljat itse kotijemmoihin (eteisen kaappi, autotalli, komposti), laavun halkovajaan tai
   Kiilinlammen grillikatokselle (jalan, E; pontikkakanisteri E:llä kotijemmaan = 24 kaljaa). Kotiovesta pääsee
-  sisään vasta tyhjin käsin. Kun kotijemmassa on
-  **24 olutta**, tulee onnellinen loppu autotallissa. Yli 9 kaljan kotijemma on vaarassa: Päivi voi löytää sen
+  sisään vasta tyhjin käsin. Kun kotipiiloissa (eteinen, autotalli
+  ja komposti yhteensä) on **24 olutta**, juhlat aloitetaan tyhjin käsin kotipiilon luona (E): onnellinen loppu
+  autotallissa. Nukkumaan mentäessä juhlat eivät ala itsestään. Yli 9 kaljan kotijemma on vaarassa: Päivi voi löytää sen
   (JEMMA PALJASTUI!). Laavun ja grillikatoksen jemmoista teinit voivat pölliä. Jemmasta voi ottaa kaljat mukaan
   ja juoda ne laavulla. Onnellinen loppu juo kyseisen jemman tyhjäksi (autotalli kotijemman, laavu laavun jemman).
 - **Kantoraja:** jalan jaksaa kantaa 12 kaljaa, pyörän kyytiin mahtuu 6. Liian täysin käsin ei pääse pyörän

@@ -1167,7 +1167,11 @@ func _stash_logic() -> void:
 		var all := Input.is_key_pressed(KEY_SHIFT)
 		var opts: Array[String] = []
 		var kanister: bool = has_kanister and st.home
-		if kanister:
+		# Kotipiiloissa 24 kaljaa: tyhjin käsin kotipiilolla E aloittaa juhlat (onnellinen loppu, _win(true)).
+		var party: bool = st.home and jemma >= JEMMA_GOAL and beers <= 0 and not has_kanister
+		if party:
+			opts.append("[E] Aloita juhlat autotallissa (kotipiiloissa %d kaljaa)" % jemma)
+		elif kanister:
 			opts.append("[E] Piilota kanisteri (= %d kaljaa)" % KANISTER_BEERS)
 		elif beers > 0 and room > 0:
 			opts.append("[E] Piilota 1 · Shift+E %d" % mini(beers, room))
@@ -1178,6 +1182,9 @@ func _stash_logic() -> void:
 			_hint.text = head + (" – täynnä." if room == 0 and beers > 0 else (" – kädet täynnä." if have > 0 else " – tänne voi piilottaa kaljoja."))
 			return
 		_hint.text = head + "   " + "   ".join(opts)
+		if Input.is_action_just_pressed("interact") and party:
+			_win(true)
+			return
 		if Input.is_action_just_pressed("interact") and kanister:
 			_stash_add(id, KANISTER_BEERS)
 			has_kanister = false
@@ -1194,7 +1201,8 @@ func _stash_logic() -> void:
 			player.set_carrying(beers > 0)
 			Sfx.play("pickup", -2.0, 0.8)
 			if all or beers == 0:
-				_show_message("Piilotit %d kaljaa %s (siellä %d).%s" % [n, st.into, stash[id], _stash_warning(id)], 3.0)
+				_show_message("Piilotit %d kaljaa %s (siellä %d).%s%s" % [n, st.into, stash[id], _stash_warning(id),
+					("\nKotipiiloissa %d kaljaa: juhlat voi aloittaa kotipiilolta (E)!" % jemma) if st.home and jemma >= JEMMA_GOAL and beers == 0 else ""], 3.0)
 		elif Input.is_action_just_pressed("bell") and can_take > 0:
 			var n := can_take if all else 1
 			_stash_add(id, -n)
@@ -5222,8 +5230,9 @@ const CARRY_FOOT := 12  # jalan jaksaa kantaa kaksi kuutosta
 const CARRY_BIKE := 6  # pyörän tarakalle mahtuu kuutonen
 
 ## Kotiinpaluu: saalis jemmaan. Kun kotijemmassa on 24 olutta, tulee onnellinen loppu:
-## karburaattorin säätöä autotallissa kalja kädessä (kotijemma juodaan tyhjäksi).
-func _win() -> void:
+## karburaattorin säätöä autotallissa kalja kädessä (kotijemma juodaan tyhjäksi). party = juhlat aloitettiin
+## kotipiilolta (_stash_logic, kotipiiloissa vähintään JEMMA_GOAL); nukkumaan mentäessä juhlia ei aloiteta itsestään.
+func _win(party := false) -> void:
 	var shopped := state == "to_home"  # kuutonen haettu tänään
 	state = "cutscene"
 	player.controls_enabled = false
@@ -5244,7 +5253,7 @@ func _win() -> void:
 	jemma_best = maxi(jemma_best, jemma)
 	beers = 0
 	_save_game()
-	if jemma >= JEMMA_GOAL:
+	if party:
 		_hud.visible = false
 		if not Sfx.has_music():
 			Sfx.play("win")  # biisi soi loppukohtauksessa, jingle vain ilman sitä
@@ -5258,7 +5267,7 @@ func _win() -> void:
 		return
 	Sfx.play("win_small")
 	_new_day(home_zone + Vector3(0, 0, 4), false,
-		"Kotona! Kotijemmat %d/%d – kun niissä on %d, on juhlan aika.\n" % [jemma, JEMMA_GOAL, JEMMA_GOAL])
+		"Kotona! Kotijemmat %d/%d – kun niissä on %d, juhlat aloitetaan kotipiilolta.\n" % [jemma, JEMMA_GOAL, JEMMA_GOAL])
 
 
 func _load_game() -> void:
@@ -7281,6 +7290,41 @@ func _maybe_screenshot() -> void:
 			for i in 30:
 				await get_tree().process_frame
 			print("KOTI nukuttu: päivä %d -> %d, tila %s" % [d0, day, state])
+		"juhlat":
+			# Onnellinen loppu kotipiilolta: 24 kaljaa kotipiiloissa, nukkuminen ei aloita juhlia, kotipiilolla E aloittaa.
+			_toggle_mount()
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			stash["koti"] = 12
+			stash["autotalli"] = 8
+			stash["komposti"] = 4
+			beers = 0
+			_kaljarauha = true  # Päivi ei etsi jemmoja yöllä (muuten jemma paljastuu ja välikohtaus alkaa)
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			await press.call("interact")
+			home_int.walker.position = home_int.SPOTS.sanky[0]
+			for i in 5:
+				await get_tree().physics_frame
+			var e0 := jemma_endings
+			await press.call("interact")
+			for i in 30:
+				await get_tree().process_frame
+			print("JUHLAT nukuttu: jemma %d, loppuja %d -> %d, tila %s" % [jemma, e0, jemma_endings, state])
+			walker_out.global_position = _stash_pos("autotalli") + Vector3(0, 0.3, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("JUHLAT kotipiilolla: hint '%s'" % _hint.text)
+			await press.call("interact")
+			for i in 10:
+				await get_tree().process_frame
+			print("JUHLAT E: jemma %d, loppuja %d -> %d, tila %s" % [jemma, e0, jemma_endings, state])
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()
@@ -8625,7 +8669,7 @@ func _maybe_screenshot() -> void:
 		"garage":
 			beers = 0
 			jemma = 26
-			_win()
+			_win(true)
 			print("GARAGE jemma=", jemma)
 			for i in 200:
 				await get_tree().process_frame
