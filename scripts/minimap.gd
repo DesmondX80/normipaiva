@@ -18,6 +18,25 @@ var mokki: Node3D
 var target := Vector3.ZERO
 var show_target := true
 
+## Staattinen kartta (pellot, metsät, vedet, tiet, rakennukset) piirretään kerran tekstuuriksi (SubViewport) ja
+## joka ruudulla näytetään vain pelaajan ympärille leikattu pala. Ennen kartta piirrettiin kokonaan uudelleen joka
+## ruudulla (satoja monikulmioita ja polyviivoja, pisteet muunnettuna GDScriptillä), mikä vei heikolla koneella
+## yli puolet ruudun ajasta. TEX_SCALE = tekstuuripikseliä metriä kohti.
+const TEX_SCALE := 0.5
+const MOKKI_TEX_SCALE := 1.0
+
+class _Painter extends Control:
+	var fn: Callable
+
+	func _draw() -> void:
+		fn.call(self)
+
+
+var _village_tex: Texture2D
+var _village_origin := Vector2.ZERO  # tekstuurin vasen yläkulma maailman metreinä
+var _mokki_tex: Texture2D
+var _mokki_origin := Vector2.ZERO  # tekstuurin vasen yläkulma mökin karttametreinä (Mokki.to_map2)
+var _mokki_building := false
 var _k := (SIZE_PX / 2.0) / RANGE
 var _center := Vector2.ONE * SIZE_PX / 2.0
 var _origin := Vector2.ZERO  # pelaajan paikka metreinä
@@ -28,6 +47,7 @@ func _ready() -> void:
 	size = custom_minimum_size
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bake_village()
 
 
 func _process(_delta: float) -> void:
@@ -49,39 +69,80 @@ func _pts(arr: Array) -> PackedVector2Array:
 	return out
 
 
+## Kylän staattinen kartta tekstuuriksi (kerran käynnistyksessä): kattaa koko pelialueen ja reunalle RANGE + 10 m
+## marginaalin, jotta leike ei koskaan ulotu tekstuurin ulkopuolelle.
+func _bake_village() -> void:
+	var pad := RANGE + 10.0
+	var lo := M.w2(Vector2.ZERO) - Vector2(pad, pad)
+	var hi := M.w2(M.SIZE) + Vector2(pad, pad)
+	_village_origin = lo
+	var tex_size := Vector2i(((hi - lo) * TEX_SCALE).ceil())
+	var tp := func(p: Vector2) -> Vector2:
+		return (M.w2(p) - lo) * TEX_SCALE
+	var wscale := TEX_SCALE / _k  # viivanleveys: lopullinen leveys pysyy samana, kun tekstuuri pienennetään
+	var paint := func(c: Control) -> void:
+		var pts := func(arr: Array) -> PackedVector2Array:
+			var out := PackedVector2Array()
+			for q in arr:
+				out.append(tp.call(q))
+			return out
+		c.draw_rect(Rect2(Vector2.ZERO, Vector2(tex_size)), Color(0.35, 0.45, 0.28, 0.9))
+		for f in M.FIELDS:
+			c.draw_colored_polygon(pts.call(f), Color(0.62, 0.6, 0.38, 0.95))
+		for f in M.FORESTS:
+			c.draw_colored_polygon(pts.call(f), Color(0.2, 0.32, 0.16, 0.95))
+		for cl in M.CLEARINGS:
+			c.draw_colored_polygon(pts.call(cl), Color(0.35, 0.45, 0.28, 0.95))
+		for b in M.BOGS:
+			c.draw_colored_polygon(pts.call(b), Color(0.45, 0.43, 0.3, 0.95))
+		for w in M.WATER:
+			c.draw_colored_polygon(pts.call(w), Color(0.3, 0.5, 0.75))
+		for st in M.STREAMS:
+			c.draw_polyline(pts.call(st), Color(0.3, 0.5, 0.75), 1.5 * wscale)
+		for r in M.ROADS:
+			var col := Color(0.88, 0.88, 0.85)
+			var width := 2.0
+			match r.type:
+				"highway":
+					col = Color(0.95, 0.8, 0.2)
+					width = 4.0
+				"road":
+					width = 3.0
+				"path":
+					col = Color(0.85, 0.7, 0.5)
+					width = 1.5
+			c.draw_polyline(pts.call(r.pts), col, width * wscale)
+	_village_tex = await _render(tex_size, paint)
+
+
+## Piirtää paint-kutsun SubViewportissa kerran ja palauttaa valmiin tekstuurin.
+func _render(tex_size: Vector2i, paint: Callable) -> Texture2D:
+	var vp := SubViewport.new()
+	vp.size = tex_size
+	vp.transparent_bg = false
+	vp.disable_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	var painter := _Painter.new()
+	painter.fn = paint
+	painter.size = Vector2(tex_size)
+	vp.add_child(painter)
+	add_child(vp)
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	return vp.get_texture()
+
+
 func _draw() -> void:
 	if player != null:
 		_origin = Vector2(player.global_position.x, player.global_position.z)
 	if mokki != null and player != null and player.global_position.distance_to(mokki.global_position) < MOKKI_SHOW_DIST:
 		_draw_mokki()
 		return
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.35, 0.45, 0.28, 0.9))
-	for f in M.FIELDS:
-		draw_colored_polygon(_pts(f), Color(0.62, 0.6, 0.38, 0.95))
-	for f in M.FORESTS:
-		draw_colored_polygon(_pts(f), Color(0.2, 0.32, 0.16, 0.95))
-	for c in M.CLEARINGS:
-		draw_colored_polygon(_pts(c), Color(0.35, 0.45, 0.28, 0.95))
-	for b in M.BOGS:
-		draw_colored_polygon(_pts(b), Color(0.45, 0.43, 0.3, 0.95))
-	for w in M.WATER:
-		draw_colored_polygon(_pts(w), Color(0.3, 0.5, 0.75))
-	for s in M.STREAMS:
-		draw_polyline(_pts(s), Color(0.3, 0.5, 0.75), 1.5)
-	for r in M.ROADS:
-		var col := Color(0.88, 0.88, 0.85)
-		var width := 2.0
-		match r.type:
-			"highway":
-				col = Color(0.95, 0.8, 0.2)
-				width = 4.0
-			"road":
-				width = 3.0
-			"path":
-				col = Color(0.85, 0.7, 0.5)
-				width = 1.5
-		draw_polyline(_pts(r.pts), col, width)
-
+	if _village_tex != null:
+		var src := Rect2((_origin - _village_origin) * TEX_SCALE - Vector2.ONE * RANGE * TEX_SCALE, Vector2.ONE * 2.0 * RANGE * TEX_SCALE)
+		draw_texture_rect_region(_village_tex, Rect2(Vector2.ZERO, size), src)
+	else:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.35, 0.45, 0.28, 0.9))
 	_marker(_px(M.HOME_ZONE), Color(0.3, 1.0, 0.4), "K")
 	_marker(_px(M.SHOP_ZONE), Color(1.0, 0.5, 0.0), "M")
 	_marker(_px(M.LAAVU), Color(0.75, 0.5, 0.25), "L")
@@ -118,32 +179,15 @@ func _draw_mokki() -> void:
 	var origin2 := Mokki.to_map2(Vector2(lp.x, lp.z))
 	var wl := func(local: Vector2) -> Vector2:
 		return (Mokki.to_map2(local) - origin2) * k + _center  # pohjoinen ylös (karttakehys)
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.16, 0.2, 0.12, 0.95))
-	# Oikean kartan kohteet (Mokki.map_data: OSM): pellot, piha, vesistöt, tiet ja naapurirakennukset.
-	var data: Dictionary = Mokki.map_data()
-	var tr := func(poly: PackedVector2Array) -> PackedVector2Array:
-		var out := PackedVector2Array()
-		for p in poly:
-			out.append(wl.call(p))
-		return out
-	for f in data.fields:
-		draw_colored_polygon(tr.call(f), Color(0.45, 0.5, 0.26))
-	for b in data.bogs:
-		draw_colored_polygon(tr.call(b), Color(0.4, 0.38, 0.24))
-	_ellipse(wl, Mokki.YARD_CENTER, Mokki.YARD_R.x, Mokki.YARD_R.y, Color(0.36, 0.3, 0.2, 0.95))
-	for w in data.water:
-		draw_colored_polygon(tr.call(w), Color(0.3, 0.5, 0.75))
-	for r in data.roads:
-		draw_polyline(tr.call(r.pts), Color(0.75, 0.7, 0.55), 3.0)
-	for bd in data.buildings:
-		if not (bd.id in Mokki.OWN_BUILDINGS):
-			draw_colored_polygon(tr.call(bd.poly), Color(0.62, 0.6, 0.56))
-	var half := Mokki.COTTAGE_SIZE / 2.0
-	var c := Mokki.COTTAGE_LOCAL
-	draw_colored_polygon(PackedVector2Array([
-		wl.call(c + Vector2(-half.x, -half.y)), wl.call(c + Vector2(half.x, -half.y)),
-		wl.call(c + Vector2(half.x, half.y)), wl.call(c + Vector2(-half.x, half.y)),
-	]), Color(0.24, 0.15, 0.09))
+	if _mokki_tex == null:
+		if not _mokki_building:
+			_mokki_building = true
+			_bake_mokki()
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.16, 0.2, 0.12, 0.95))
+	else:
+		var src := Rect2((origin2 - _mokki_origin) * MOKKI_TEX_SCALE - Vector2.ONE * MOKKI_RANGE * MOKKI_TEX_SCALE,
+			Vector2.ONE * 2.0 * MOKKI_RANGE * MOKKI_TEX_SCALE)
+		draw_texture_rect_region(_mokki_tex, Rect2(Vector2.ZERO, size), src)
 	_marker(wl.call(Vector2(Mokki.SAUNA_LOCAL.x, Mokki.SAUNA_LOCAL.z)), Color(0.55, 0.3, 0.16), "S")
 	_marker(wl.call(Vector2(Mokki.TUB_LOCAL.x, Mokki.TUB_LOCAL.z)), Color(0.2, 0.5, 0.55), "A")
 	_marker(wl.call(Vector2(Mokki.KITCHEN_LOCAL.x, Mokki.KITCHEN_LOCAL.z)), Color(0.6, 0.72, 0.82), "K")
@@ -161,12 +205,56 @@ func _draw_mokki() -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(size.x / 2.0 - 4, 14), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
 
 
-func _ellipse(wl: Callable, local_center: Vector2, rx: float, rz: float, col: Color) -> void:
-	var pts := PackedVector2Array()
-	for i in 24:
-		var a := TAU * i / 24
-		pts.append(wl.call(local_center + Vector2(cos(a) * rx, sin(a) * rz)))
-	draw_colored_polygon(pts, col)
+## Mökin lähikartan staattinen osa tekstuuriksi (kerran, kun pelaaja ensimmäisen kerran tulee mökin lähelle).
+## Kattaa koko mökkialueen ja reunalla MOKKI_RANGE + 10 m marginaalin.
+func _bake_mokki() -> void:
+	var data: Dictionary = Mokki.map_data()
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for a in data.area:
+		var m: Vector2 = Mokki.to_map2(a)
+		lo = lo.min(m)
+		hi = hi.max(m)
+	var pad := MOKKI_RANGE + 10.0
+	lo -= Vector2(pad, pad)
+	hi += Vector2(pad, pad)
+	_mokki_origin = lo
+	var tex_size := Vector2i(((hi - lo) * MOKKI_TEX_SCALE).ceil())
+	var kk := (SIZE_PX / 2.0) / MOKKI_RANGE
+	var wscale := MOKKI_TEX_SCALE / kk
+	var wl := func(local: Vector2) -> Vector2:
+		return (Mokki.to_map2(local) - lo) * MOKKI_TEX_SCALE
+	var paint := func(c: Control) -> void:
+		var tr := func(poly: PackedVector2Array) -> PackedVector2Array:
+			var out := PackedVector2Array()
+			for q in poly:
+				out.append(wl.call(q))
+			return out
+		c.draw_rect(Rect2(Vector2.ZERO, Vector2(tex_size)), Color(0.16, 0.2, 0.12, 0.95))
+		# Oikean kartan kohteet (Mokki.map_data: OSM): pellot, piha, vesistöt, tiet ja naapurirakennukset.
+		for f in data.fields:
+			c.draw_colored_polygon(tr.call(f), Color(0.45, 0.5, 0.26))
+		for b in data.bogs:
+			c.draw_colored_polygon(tr.call(b), Color(0.4, 0.38, 0.24))
+		var ep := PackedVector2Array()
+		for i in 24:
+			var an := TAU * i / 24
+			ep.append(wl.call(Mokki.YARD_CENTER + Vector2(cos(an) * Mokki.YARD_R.x, sin(an) * Mokki.YARD_R.y)))
+		c.draw_colored_polygon(ep, Color(0.36, 0.3, 0.2, 0.95))
+		for w in data.water:
+			c.draw_colored_polygon(tr.call(w), Color(0.3, 0.5, 0.75))
+		for r in data.roads:
+			c.draw_polyline(tr.call(r.pts), Color(0.75, 0.7, 0.55), 3.0 * wscale)
+		for bd in data.buildings:
+			if not (bd.id in Mokki.OWN_BUILDINGS):
+				c.draw_colored_polygon(tr.call(bd.poly), Color(0.62, 0.6, 0.56))
+		var half := Mokki.COTTAGE_SIZE / 2.0
+		var ct := Mokki.COTTAGE_LOCAL
+		c.draw_colored_polygon(PackedVector2Array([
+			wl.call(ct + Vector2(-half.x, -half.y)), wl.call(ct + Vector2(half.x, -half.y)),
+			wl.call(ct + Vector2(half.x, half.y)), wl.call(ct + Vector2(-half.x, half.y)),
+		]), Color(0.24, 0.15, 0.09))
+	_mokki_tex = await _render(tex_size, paint)
 
 
 ## Tutkan ulkopuolella oleva merkki pysyy reunalla oikeassa suunnassa.
