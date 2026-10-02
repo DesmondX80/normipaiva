@@ -195,10 +195,30 @@ func _settings(from: String) -> void:
 	tabs.custom_minimum_size = Vector2(560, 380)
 	_box.add_child(tabs)
 	var g := _tab(tabs, "Grafiikka")
+	var weak := Button.new()
+	weak.text = "Heikko kone: valitse kevyimmät asetukset"
+	weak.tooltip_text = "Erittäin matala laatu, renderöintiskaala 70 % ja lyhyt näkyvyysetäisyys."
+	weak.custom_minimum_size = Vector2(0, 40)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = {"normal": Color(0.18, 0.16, 0.2), "hover": Color(0.85, 0.35, 0.05), "pressed": Color(1.0, 0.45, 0.1),
+			"focus": Color(0.18, 0.16, 0.2)}[st]
+		sb.border_color = YELLOW if st == "focus" else Color(0.4, 0.35, 0.3)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(4)
+		weak.add_theme_stylebox_override(st, sb)
+	weak.pressed.connect(func() -> void:
+		Settings.set_v("quality", 0)
+		Settings.set_v("render_scale", 0.7)
+		Settings.set_v("view_distance", 0)
+		_settings(from))
+	g.add_child(weak)
 	_option(g, "Laatu", Settings.QUALITY, Settings.get_v("quality"), func(i: int) -> void: Settings.set_v("quality", i))
 	_check(g, "Koko näyttö", "fullscreen")
 	_check(g, "Pystytahdistus (V-Sync)", "vsync")
 	_slider(g, "Renderöintiskaala", "render_scale", 0.5, 1.0, 0.05, "%d %%", 100.0)
+	_option(g, "Näkyvyysetäisyys (lyhyt keventää)", Settings.VIEW_NAMES, Settings.get_v("view_distance"),
+		func(i: int) -> void: Settings.set_v("view_distance", i))
 	_slider(g, "Näkökenttä (FOV)", "fov", 55.0, 95.0, 1.0, "%d°", 1.0)
 	_check(g, "Näytä FPS", "show_fps")
 	_check(g, "Näytä opasteet (paikkojen ja hahmojen nimet)", "show_guides")
