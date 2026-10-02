@@ -4,6 +4,7 @@ extends CharacterBody3D
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Looks := preload("res://scripts/looks.gd")
+const DrunkWobble := preload("res://scripts/drunk_wobble.gd")
 
 const MAX_SPEED := 14.0
 const REVERSE_SPEED := 3.0
@@ -28,6 +29,11 @@ var sprinting := false
 var autopilot := false
 var auto_target := Vector3.ZERO
 var auto_speed := 0.6
+## Humala (main.gd asettaa, kun humala on päivän tila): yli DrunkWobble.LIMIT ohjaus heittelee.
+var drunk := 0.0
+var _drunk_wobble := DrunkWobble.new()
+## Stamina-tilan palkinto (main.gd _stat_effects): spurtin kerroin SPRINT -> sprint_mult.
+var sprint_mult := SPRINT
 var _thief: Node3D  # varkaan hahmo satulassa (pelaajan kuski piilossa)
 
 ## Hiukkasten värit alustan mukaan (sora pöllyää, vesi roiskuu, vilja lentelee).
@@ -195,7 +201,7 @@ func _physics_process(delta: float) -> void:
 			Sfx.play("bell", -4.0)
 	# Shift: spurtti, kun poljetaan eteenpäin ja kuntoa on jäljellä.
 	var want_sprint: bool = controls_enabled and Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 \
-		and legs != null and not legs.exhausted
+		and legs != null and not legs.exhausted and not legs.no_sprint
 	if want_sprint and not sprinting:
 		_sprint_start()
 	sprinting = want_sprint
@@ -208,14 +214,14 @@ func _physics_process(delta: float) -> void:
 	var hfwd := -global_transform.basis.z
 	var tn := Terrain.normal(global_position.x, global_position.z)
 	var grade := -(tn.x * hfwd.x + tn.z * hfwd.z) / maxf(tn.y, 0.3)  # nousu eteenpäin (0.1 = 10 %)
-	var max_s: float = MAX_SPEED * t.speed * clampf(1.0 - grade * 3.0, 0.55, 1.35)
+	var max_s: float = MAX_SPEED * t.speed * clampf(1.0 - grade * 3.0, 0.55, 1.35) * (legs.speed_mult if legs != null else 1.0)
 	var accel: float = ACCEL * t.accel
 	if legs != null and legs.hurt:
 		max_s *= 0.75  # purtu jalka: raskas polkea
 		accel *= 0.75
 	if sprinting:
-		max_s *= SPRINT
-		accel *= SPRINT
+		max_s *= sprint_mult
+		accel *= sprint_mult
 	if throttle > 0.0:
 		speed = move_toward(speed, max_s, accel * throttle * delta)
 	elif throttle < 0.0:
@@ -235,6 +241,8 @@ func _physics_process(delta: float) -> void:
 
 	# Ohjaus toimii vain liikkeessä, peruuttaessa käänteisesti. Pehmeä maa ja vesi heiluttavat.
 	var steer_factor := clampf(absf(speed) / 4.0, 0.0, 1.0)
+	if controls_enabled and not autopilot:
+		steer += _drunk_wobble.steer(drunk, steer_factor, delta)
 	rotation.y += steer * STEER_SPEED * steer_factor * signf(speed) * t.steer * delta
 	if t.sink > 0.05:
 		rotation.y += sin(Time.get_ticks_msec() * 0.004) * t.sink * 0.8 * steer_factor * delta

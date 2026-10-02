@@ -1,9 +1,10 @@
 extends RefCounted
-## Päivittäiset tilat (#18). Joka päivä arvotaan kolme tilaa kymmenestä, ja päivän lopussa niiden summa ratkaisee:
-## alle 0 = huono päivä (seuraava hankalampi), vähintään GOOD_DAY = hyvä päivä (seuraava helpompi).
+## Päivittäiset tilat (#18). Joka päivä arvotaan kolme tilaa kymmenestä. Tilat nollautuvat joka aamu, eikä eilinen
+## vaikuta tähän päivään, paitsi humala: illalla yli HANGOVER_LIMIT tulee krapula-aamu (main.gd _end_day_stats).
 ## Kaikissa tiloissa suurempi on parempi: "negatiiviset" (stressi, nälkä, väsymys, kipu) alkavat -1:stä ja niitä
 ## yritetään nostaa, positiiviset alkavat 0:sta. Humalatila (0..1) säilyy yön yli ja laskee yössä 0,2.
 ## Vaikutukset pelin toiminnoista kirjataan main.gd:ssä (ks. README, "Päivittäiset tilat").
+## Jokaisella tilalla on oma palkinto ja haitta (effect), jotka ovat päällä heti rajan ylittyessä.
 
 const STATS := {
 	"stressi": {"name": "Stressi", "neg": true},
@@ -18,8 +19,10 @@ const STATS := {
 	"humala": {"name": "Humalatila", "neg": false},
 }
 const PICK := 3
-const GOOD_DAY := 1.0
+const HANGOVER_LIMIT := 0.8  # illan humala tämän yli -> krapula-aamu
 const HANGOVER := 0.2  # yö laskee humalatilaa
+const REWARD := 0.5  # tästä ylöspäin tilan palkinto on päällä (effect)
+const PENALTY := -0.5  # tästä alaspäin tilan haitta on päällä
 
 var values := {}
 var chosen: Array = []
@@ -67,6 +70,17 @@ func first(action: String, xp := 0.2) -> bool:
 	firsts.append(action)
 	add("kokemus", xp)
 	return true
+
+
+## Tilan palkinto tai haitta (main.gd _stat_effects): 1 = palkinto (arvo >= REWARD), -1 = haitta (<= PENALTY),
+## 0 = ei kumpaakaan. Vain päivän kolme tilaa vaikuttavat. Humalatila (0..1): palkinto 0,3–0,6, haitta yli 0,8.
+func effect(key: String) -> int:
+	if not key in chosen:
+		return 0
+	var v: float = values[key]
+	if key == "humala":
+		return 1 if v >= 0.3 and v <= 0.6 else (-1 if v > 0.8 else 0)
+	return 1 if v >= REWARD else (-1 if v <= PENALTY else 0)
 
 
 ## Päivän kolmen tilan summa.
