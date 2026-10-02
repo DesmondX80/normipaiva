@@ -265,6 +265,10 @@ var viina_pullot := 0
 const VIINA_OPEN_R := 2.0
 var _drone: Node3D
 var mopo_trip: Node3D
+## Vaalassa (mopomatka, Siitari, Tervaportti, lava): sama pelitila kuin kylässä ja mökillä (to_shop/to_home),
+## pelaajana mopo tai sen vierestä kävelevä. Kylän omat asiat odottavat Saloisissa kuten mökillä.
+var _in_vaala := false
+var _vaala_state := "to_shop"  # tila, johon Vaalan sisätiloista palataan
 ## Pankkiautomaatti: 20 € kerran päivässä (Saloisissa K-Marketin takana, Vaalassa K-Market Tervaportin seinällä Siitarin vieressä).
 var atm_day := 0
 var _atm_node: Node3D
@@ -581,7 +585,7 @@ func _ready() -> void:
 	DroneGame.make_model(_drone_parked)
 	var amb := Ambience.new()
 	amb.world = world
-	amb.player_ref = func() -> Node3D: return player if state in ["to_shop", "to_home"] else null
+	amb.player_ref = func() -> Node3D: return player if state in ["to_shop", "to_home"] and not _in_vaala else null  # Vaalalla omat äänet
 	add_child(amb)
 	paper.bike = bike
 	_build_hud()
@@ -705,30 +709,30 @@ func _loading_hide() -> void:
 
 func _process(delta: float) -> void:
 	var at_mokki := _at_mokki()
-	if state in ["to_shop", "in_shop", "to_home", "fight"] and not at_mokki:
+	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
+	if state in ["to_shop", "in_shop", "to_home", "fight"] and not away:
 		elapsed += delta
 	if _drone == null:
 		drone_battery = minf(drone_battery + delta / DRONE_CHARGE_S, 1.0)  # latautuu alustalla
-	if at_mokki and _hazards.process_mode != Node.PROCESS_MODE_DISABLED:
+	if away and _hazards.process_mode != Node.PROCESS_MODE_DISABLED:
 		_hazards.process_mode = Node.PROCESS_MODE_DISABLED  # Päivi ja muut vaarat jäävät Saloisiin
 	if mokki != null and mokki.built:
 		_puuhat_tick(at_mokki)
 
 	_hint.text = ""
-	if not at_mokki:
+	if not away:
 		_traffic_tick(delta)
 	match state:
 		"to_shop", "to_home":
 			_outside_logic()
-			_mount_logic()
-			if not at_mokki:
+			if not _in_vaala:
+				_mount_logic()  # Vaalassa mopon selkään ja pois: _vaala_logic
+			if not away:
 				_bike_theft(delta)
 				_thief_tick(delta)
 			_stats_tick(delta)
 		"in_shop":
 			_hint.text = interior.hint
-		"mopo":
-			_mopo_tick()
 		"in_siitari":
 			if not _item_menu.is_open():
 				_hint.text = siitari_int.hint
@@ -926,7 +930,13 @@ func _outside_logic() -> void:
 	if _item_menu.is_open():
 		return  # esinevalikko ottaa E:n, W/S:n ja Q:n
 	if Input.is_action_just_pressed("eat") and not player.is_stunned():
-		_open_eat_menu()
+		if _in_vaala and player == mopo_trip.mopo and absf(player.speed) > 3.0:
+			_show_message("Hidasta ensin!", 1.2)
+		else:
+			_open_eat_menu()
+			return
+	if _in_vaala:
+		_vaala_logic()
 		return
 	# Mökillä vain mökin omat toiminnot: kauppareissu, jemmat ja kylän tapahtumat odottavat Saloisissa.
 	_beacon.visible = not _at_mokki()
@@ -1753,13 +1763,6 @@ func _mopo_menu(open: bool) -> void:
 		mopo_trip._resume_frame = Engine.get_process_frames()
 
 
-## Hahmo, jota pelaaja juuri nyt ohjaa: Vaalan matkalla mopo tai sen vierestä kävelevä, muuten player.
-func _controlled() -> CharacterBody3D:
-	if state == "mopo" and mopo_trip != null and mopo_trip.active:
-		return mopo_trip.on_foot if mopo_trip.on_foot != null else mopo_trip.mopo
-	return player
-
-
 func _open_eat_menu() -> void:
 	var items: Array = []
 	for k in ["pulla", "piirakka", "mustikkapiirakka", "savukala", "savuriista", "karrella"]:
@@ -1777,8 +1780,8 @@ func _open_eat_menu() -> void:
 	if items.is_empty():
 		_show_message("Ei mitään syötävää eikä juotavaa. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja, mökin savustimesta kalaa ja riistaa.", 3.0)
 		return
-	_controlled().controls_enabled = false
-	_controlled().speed = 0.0
+	player.controls_enabled = false
+	player.speed = 0.0
 	_mopo_menu(true)
 	_msg.text = ""
 	_msg_time = 0.0
@@ -1787,7 +1790,7 @@ func _open_eat_menu() -> void:
 
 
 func _on_eat(id: String) -> void:
-	_controlled().controls_enabled = true
+	player.controls_enabled = true
 	_mopo_menu(false)
 	match id:
 		"pulla", "piirakka", "savukala", "savuriista", "karrella", "mustikkapiirakka":
@@ -3780,8 +3783,8 @@ func _atm_use() -> void:
 ## Mopolla Paapelista Vaalan Siitariin: Vaalan tasku rakennetaan ensimmäisellä kerralla, HUD:sta näkyvät
 ## matkan aikana vain kompassi, viestit, vihje ja mopon mittari (nopeus, tie, todellinen matka).
 func _start_mopo() -> void:
-	_mokki_prev = state
-	state = "mopo"
+	_vaala_state = state
+	_in_vaala = true
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
@@ -3798,35 +3801,21 @@ func _start_mopo() -> void:
 		mopo_trip.crashed.connect(_on_mopo_crashed)
 		_paper.mopo_trip = mopo_trip
 	mokki.mopo_parked.visible = false
-	for c in _hud.get_children():
-		if c is CanvasItem and c not in [_compass, _msg, _hint, _mopo_label]:
-			c.set_meta("mopo_hidden", c.visible)
-			c.visible = false
+	walker_out.visible = false
 	mopo_trip.start("siitari", tilat.value("humala"))
-	_compass.player = mopo_trip.mopo
-	_minimap.player = mopo_trip.mopo
-	world.follow = mopo_trip.mopo
+	_set_avatar(mopo_trip.mopo)
 	_mopo_label.visible = true
 	tilat.first("mopo", 0.3)
 	_show_message("Mopo käynnistyi! Uutelanperäntie, Neittäväntie ja Vuolijoentie Vaalaan. Siitari on Vaalantiellä joen takana."
 		+ (" Kännissä tanko vaeltaa: pidä mopo tiellä!" if tilat.value("humala") > 0.1 else ""), 4.5)
 
 
-func _mopo_tick() -> void:
-	if mopo_trip == null or not mopo_trip.active:
+## Vaalan omat asiat (_outside_logicista): vihje, mopon mittari, kompassin kohde ja mopon selkään/pois.
+func _vaala_logic() -> void:
+	if not mopo_trip.active:
 		return
 	_hint.text = mopo_trip.hint
 	_mopo_label.text = mopo_trip.status
-	if _item_menu.is_open():
-		return  # eväsvalikko ottaa näppäimet
-	# Eväät ja viina myös Vaalan matkalla (T), mutta ei vauhdissa eikä kumossa.
-	if Input.is_action_just_pressed("eat"):
-		var c := _controlled()
-		if absf(c.speed) > 3.0:
-			_show_message("Hidasta ensin!", 1.2)
-		elif not (c.has_method("is_stunned") and c.is_stunned()) and not mopo_trip.mopo.fallen:
-			_open_eat_menu()
-			return
 	var tg: Vector3 = mopo_trip.target_global()
 	_compass.has_cache = true
 	_compass.cache = Vector2(tg.x, tg.z)
@@ -3890,12 +3879,9 @@ func _mopo_remount() -> void:
 	_mopo_follow(mopo_trip.mopo)
 
 
-## Kompassi, minikartta ja maailma seuraavat mopoa tai jalan kulkijaa; kamera siihen.
+## Pelaajaksi mopo tai jalan kulkija (kamera, kompassi ja kaikki player-logiikka seuraavat).
 func _mopo_follow(a: CharacterBody3D) -> void:
-	_compass.player = a
-	_minimap.player = a
-	world.follow = a
-	a.activate_camera()
+	_set_avatar(a)
 
 
 ## Sisältä (kauppa, lava) takaisin matkalle: jalan tultiin, jalan jatketaan; muuten mopon selkään.
@@ -4067,7 +4053,7 @@ func _on_siitari(id: String) -> void:
 		if state == "in_siitari":
 			siitari_int.leave()
 			Sfx.play("door_close", -3.0)
-			state = "mopo"
+			state = _vaala_state
 			_mopo_label.visible = true
 			_compass.visible = true
 		var drunk: float = tilat.value("humala")
@@ -4104,7 +4090,7 @@ func _on_mopo_killed() -> void:
 		walker_out.controls_enabled = false
 		mopo_trip.on_foot = null
 	_mopo_restore_hud()
-	state = _mokki_prev
+	state = _vaala_state
 	_lose("Jäit auton alle %s (%s)." % ["jalan" if walking else "mopolla", road_name], "car", at)
 	mopo_trip.stop()
 
@@ -4118,17 +4104,11 @@ func _on_mopo_crashed(reason: String) -> void:
 
 
 func _mopo_restore_hud() -> void:
+	_in_vaala = false
 	mokki.mopo_parked.visible = true
-	for c in _hud.get_children():
-		if c.has_meta("mopo_hidden"):
-			c.visible = c.get_meta("mopo_hidden")
-			c.remove_meta("mopo_hidden")
 	_mopo_label.visible = false
 	_compass.cache_text = ""
 	_compass.has_cache = false
-	_compass.player = player
-	_minimap.player = player
-	world.follow = player
 
 
 func _on_mopo_finished(_result: String) -> void:
@@ -4139,12 +4119,12 @@ func _on_mopo_finished(_result: String) -> void:
 func _mopo_end() -> void:
 	mopo_trip.stop()
 	_mopo_restore_hud()
-	state = _mokki_prev
+	state = _vaala_state
 	walker_out.global_position = mokki.gpos(Mokki.MOPO_LOCAL + Vector3(1.2, 0.4, 0.3))
 	walker_out.velocity = Vector3.ZERO
 	walker_out.visible = true  # jalan Vaalassa käynyt kävelijä piilotettiin selkään noustessa
 	walker_out.controls_enabled = true
-	walker_out.activate_camera()
+	_set_avatar(walker_out)
 	_save_game()
 
 
@@ -4863,7 +4843,7 @@ func _on_vaala_shop_exited(bought: bool) -> void:
 		got.push_front("kuutonen")
 	var ran: bool = interior.stolen
 	_reset_shop_visit()
-	state = "mopo"
+	state = _vaala_state
 	_mopo_label.visible = true
 	_compass.visible = true
 	_mopo_resume()
@@ -4907,7 +4887,7 @@ func _on_lava_finished(score: float) -> void:
 	tilat.add("moraali", 0.1 + score * 0.25)
 	tilat.add("stressi", 0.1 + score * 0.15)
 	mielihyva += 2.0 + score * 6.0
-	state = "mopo"
+	state = _vaala_state
 	_mopo_label.visible = true
 	_compass.visible = true
 	_mopo_resume()
@@ -5968,7 +5948,7 @@ func _build_hud() -> void:
 			_on_raahe("takaisin")
 		else:
 			_mopo_menu(false)
-			_controlled().controls_enabled = true)
+			player.controls_enabled = true)
 
 	_mopo_label = _label(layer, 22)
 	_mopo_label.position = Vector2(20, 12)
@@ -6003,11 +5983,12 @@ func _update_hud() -> void:
 		if _carry != "":
 			lines.append("Kädessä: %s%s" % [{"sanko": "huussin sanko", "halot": "syli halkoja", "kahvi": "Santun kahvit"}[_carry],
 				"  ⚠ läikkyy!" if _carry_slosh > 0.5 else ""])
-	if not at_mokki:
+	var away := at_mokki or _in_vaala
+	if not away:
 		lines.append("Aika: %s" % _time(elapsed))
 		if not _risky_stashes().is_empty():
 			lines.append("⚠ Kotijemma vaarassa (I)")
-	if state in ["to_shop", "to_home"] and not at_mokki:
+	if state in ["to_shop", "to_home"] and not away:
 		var target := shop_zone if state == "to_shop" else home_zone
 		var p := player.global_position
 		lines.append("Tavoite: %s  %d m" % ["K-Market" if state == "to_shop" else "Koti",
@@ -6020,14 +6001,14 @@ func _update_hud() -> void:
 	_stats.text = "\n".join(lines)
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = not (state in ["in_shop", "in_mokki", "mopo", "in_siitari", "in_raahe", "lava"])
+	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_siitari", "in_raahe", "lava"]) and not _in_vaala
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
-	_minimap.show_target = state in ["to_shop", "to_home"] and not at_mokki
-	_compass.visible = state in ["to_shop", "to_home", "mopo"]
-	_compass.show_target = not at_mokki and state != "mopo"
+	_minimap.show_target = state in ["to_shop", "to_home"] and not away
+	_compass.visible = state in ["to_shop", "to_home"]
+	_compass.show_target = not away
 
 	var status: Array[String] = []
-	if state in ["to_shop", "to_home"] and not at_mokki:
+	if state in ["to_shop", "to_home"] and not away:
 		if wife.is_target_safe():
 			status.append("TURVASSA – KIILINLAMMEN GRILLIKATOS")
 		elif wife.alerted:
