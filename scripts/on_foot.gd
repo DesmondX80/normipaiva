@@ -30,7 +30,7 @@ var no_run := false
 var hurt := false
 const HURT_SPEED := 0.6
 const HURT_RECOVER := 0.5
-## Humala (main.gd asettaa, kun humala on päivän tila): yli DrunkWobble.LIMIT kävely heittelee.
+## Humala (main.gd asettaa aina, tilasta riippumatta): yli DrunkWobble.LIMIT kävely heittelee.
 var drunk := 0.0
 var _drunk_wobble := DrunkWobble.new()
 ## Päivän tilojen palkinnot ja haitat (main.gd _stat_effects). Pyörä lukee näistä nopeuden, kulutuksen ja spurtin.

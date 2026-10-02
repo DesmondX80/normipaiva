@@ -10,7 +10,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Kylän teillä on liikennettä: henkilöautoja ja pakettiautoja, maanteillä kovempaa kuin asuinkaduilla. Autot
   pysyvät pelaajan ympärillä, ajavat jonossa toistensa (ja Päivin) perässä ja jarruttavat pelaajalle, mutta
   pysähtymismatka on pitkä. Arto asuu heti kodin vasemmalla puolella ja Pekka Lehtikujan päässä.
-  Leipähyllystä saa korvapuusteja ja lihapiirakoita evääksi: T syö ne (tai suklaan tai marjat ämpäristä).
+  Leipähyllystä saa korvapuusteja ja lihapiirakoita evääksi: T syö ne (tai suklaan tai marjat ämpäristä) ja juo kannossa olevan kaljan.
 - **Jalkapallopojat:** joka toinen päivä jossain tien varressa on kolme poikaa, joiden pallo on hukassa. Pojat
   kertovat suunnan, ja pallo on 100–300 m päässä. Palautus: poikien luona E avaa esinevalikon (W/S valitse, E anna,
   Q peruuta). Pallo = 1 € (ja moraali ja kokemus nousevat), kalja = pojat juoksevat nauraen pois, muu esine =
@@ -18,8 +18,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Penkin mummot:** K-Marketin edustan penkillä istuu kolme mummoa. Jos kurvaat pyörällä lujaa aivan vierestä tai
   soitat kelloa (Q), he suuttuvat ja heittelevät kettukarkkeja: osuma heilauttaa pyörää tai horjauttaa. Maahan
   jääneet karkit voi poimia jalan (kunto +15).
-- **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (päivä, tehtävä, kauppalista ja muut
-  muistutukset). Kauppalistan neljä tuotetta on kirjoitettu kukin omanvärisellä kynällä ("vihreä tamponi,
+- **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (kauppalista ja Päivin omin sanoin
+  kirjoittamat muistutukset; mökillä lapun kirjoittaa Santtu). Pelin tiedot, kuten jemmojen tilanne ja varoitukset,
+  tulevat ruudun viesteinä. Kauppalistan neljä tuotetta on kirjoitettu kukin omanvärisellä kynällä ("vihreä tamponi,
   punainen maito..."), mutta lappu näkyy vain hetken, ja repun kauppalistassa on pelkät tuotteet. Kaupan oikealla seinällä on Päivin hylly, jossa jokaisesta tuotteesta
   on viisi väriä: Q vaihtaa väriä, E ottaa, vaihtaa tai palauttaa. Päivin ostokset maksetaan Päivin rahoilla.
   Kotona Päivi tarkistaa ostokset: kaikki oikein = kaljarauha (Päivi ei etsi jemmoja seuraavana aamuna), muuten
@@ -30,8 +31,8 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   (lähekkö puolukkaan?) merkitsee paikat karttaan ja ostaa marjat, ja Pekka (14 kyyhkyä!) ostaa sienet.
   Marjoja poimitaan kyykkyyn (A) ja ylös (D) vuorotellen tasaiseen tahtiin: räpellys ja väärä nappi pudottavat
   marjoja, ja pitkä kyykkiminen käy selkään (kunto): ähinä tihenee, ja lopulta pitää pitää tauko. W/S lopettaa poiminnan.
-- **Kaljajemma:** onnistuneen kotiinpaluun saalis piilotetaan jemmaan, joka säilyy pelikerrasta toiseen.
-  Jos jemma kasvaa isoksi, Päivi saattaa löytää sen...
+- **Kaljajemma:** kotiinpaluun saalis piilotetaan itse jemmaan (jalan E), joka säilyy pelikerrasta toiseen.
+  Kotiovi ei aukea kaljat tai kanisteri kädessä. Jos jemma kasvaa isoksi, Päivi saattaa löytää sen...
 - **Taksi Raahen baariin:** K-Marketin taksitolpalla odottaa taksi (14 € meno-paluu, jalan E) Kapteenin Kulmaan
   ja Kellariin (Kirkkokatu 32, Kirkkokadun ja kävelykadun kulma). Ylhäällä Kulmassa merihenkinen pubi
   (ruori, pelastusrengas, laivataulu Raahen purjelaivojen ajoilta, kuva Pekkatorin Brahen patsaasta) ja
@@ -187,7 +188,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   lähimmästä turvapaikasta: kotoa tai laavulta (kun olet vallannut sen).
 - Onnellinen loppu kotona: karburaattorin säätöä autotallissa kalja kädessä. Laavulla: makkaranpaistoa
   auringonlaskussa.
-- **Jemmat:** vie kaljat kotiin, laavun halkovajaan tai Kiilinlammen grillikatokselle (jalan, E). Kun kotijemmassa on
+- **Jemmat:** piilota kaljat itse kotijemmoihin (eteisen kaappi, autotalli, komposti), laavun halkovajaan tai
+  Kiilinlammen grillikatokselle (jalan, E; pontikkakanisteri E:llä kotijemmaan = 24 kaljaa). Kotiovesta pääsee
+  sisään vasta tyhjin käsin. Kun kotijemmassa on
   **24 olutta**, tulee onnellinen loppu autotallissa. Yli 9 kaljan kotijemma on vaarassa: Päivi voi löytää sen
   (JEMMA PALJASTUI!). Laavun ja grillikatoksen jemmoista teinit voivat pölliä. Jemmasta voi ottaa kaljat mukaan
   ja juoda ne laavulla. Onnellinen loppu juo kyseisen jemman tyhjäksi (autotalli kotijemman, laavu laavun jemman).
@@ -206,7 +209,7 @@ ja laskee yössä 0,2. Muut nollautuvat joka aamu.
 
 Jokaisella tilalla on oma palkinto ja haitta, jotka ovat päällä heti, kun palkki ylittää rajan (**+0,5** tai
 **−0,5**; humalatila 0,3–0,6 tai yli 0,8), ja lakkaavat, kun arvo palaa rajojen väliin. Vain päivän kolme tilaa
-vaikuttavat. Eilinen päivä ei vaikuta tähän päivään, paitsi humala: jos illalla humala on yli 0,8, tulee
+vaikuttavat; poikkeuksena humalan ohjaushaitta, joka on aina päällä kuten mopolla. Eilinen päivä ei vaikuta tähän päivään, paitsi humala: jos illalla humala on yli 0,8, tulee
 **krapula-aamu** (vireys ja keskittyminen alkavat −0,3:sta). Aamun viesti kertoo tämän päivän tilat.
 
 | Tila | Palkinto (≥ +0,5) | Haitta (≤ −0,5) |
@@ -241,6 +244,7 @@ Toimintojen vaikutukset tiloihin:
 | Jahti (Päivi, juntti, poliisi) | stressi − |
 | Kalja (laavu, leikkurin korjaus, Raahe 3, autotallin juhlat 6) | humala +, kipu +, stamina +, nälkä +, moraali −, keskittyminen − |
 | Syöminen (paistettu makkara, kettukarkki) | nälkä +, stamina + |
+| Kalja T:llä (yksi kannossa olevista) | kuten kalja yllä |
 | Syöminen T:llä: korvapuusti / lihapiirakka | nälkä +0,25 ja stressi + / nälkä +0,4 (ja stamina puolet nälän muutoksesta) |
 | Syöminen T:llä: suklaa / marjat (1 l) | nälkä +0,2, stressi +, moraali + / nälkä +0,15, vireys + |
 | Syöminen T:llä: savukala / savuriista / karrella | nälkä +0,5, stressi +, moraali + / nälkä +0,6, stressi +, moraali + / nälkä +0,25 |
@@ -331,7 +335,7 @@ godot --path .
 | Q | soittokello |
 | E | toiminto (kauppaan, osta, maksa, ulos) |
 | F | nouse pyörän selästä / takaisin pyörälle (pyörä jää parkkiin ja näkyy kartassa) |
-| T | syö: valikko mukana olevista eväistä (korvapuusti, lihapiirakka, suklaa, marjat ämpäristä) |
+| T | syö ja juo: valikko mukana olevista eväistä (korvapuusti, lihapiirakka, suklaa, marjat ämpäristä) ja kaljoista |
 | Shift | juokse (jalan) / spurtti (pyörällä) |
 | M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen; mökillä ja Vaalan matkalla Neittävä–Vaala-kartta: rulla tai Q/E zoomaa, WASD tai vetäminen siirtää) |
 | V | FPS-näkymä / kolmas persoona |
