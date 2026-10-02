@@ -1,6 +1,6 @@
 extends Node3D
 ## Mökki: Santtu-isännän vuokramökki Kaisuantie 62, Uutelanperä, Vaala, mallinnettu Airbnb-ilmoituksen kuvien ja
-## drone-kuvan mukaan. Erillinen tasku maailman ulkopuolella, tavoitettavissa vain taksilla kotoa. Ympäristö
+## drone-kuvan mukaan. Erillinen tasku maailman ulkopuolella, tavoitettavissa vain naapurin Pekan kyydillä kotoa. Ympäristö
 ## 1,9 x 1,9 km oikean kartan mukaan (assets/mokki/kartta.json, tools/mokki_kartta.py: OpenStreetMap, MML:n 2 m
 ## korkeusmalli koko alueella, kauempana 8 m ruudukkona, tools/kartta/mokki.ps1): Likanen, Syväjärvi,
 ## Ahveroinen, Tervalampi, Kiiskeroinen,
@@ -33,7 +33,7 @@ const MASK_STEP := 4.0  # teiden ja pihojen hakuruudukko (ks. _mask)
 
 # Pihan asettelu: mökki OSM:n rakennuksen kohdalla, sauna, palju ja laituri drone-kuvasta.
 # Rannan puolella kuistilta katsottuna vasemmalta oikealle (+X -> -X): savusauna, palju ja kesäkeittiö.
-const TAXI_LOCAL := Vector3(-7.0, 0, -29.0)    # Kaisuantien varressa mökin takana
+const RIDE_LOCAL := Vector3(-7.0, 0, -29.0)    # Kaisuantien varressa mökin takana
 const SAUNA_LOCAL := Vector3(5.9, 0, 18.1)     # kiuas savusaunan sisällä
 const TUB_LOCAL := Vector3(-0.7, 0, 14.8)      # puulämmitteinen palju
 const DART_LOCAL := Vector3(4.2, 0, 8.0)       # heittopiste tikkataulun edessä (taulu männyssä)
@@ -489,7 +489,7 @@ static func viina_positions() -> Array[Vector2]:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4062
 	var avoid := [Vector2(HUNT_LOCAL.x, HUNT_LOCAL.z), HUNT_GLADE, Vector2(DOCK_LOCAL.x, DOCK_LOCAL.z),
-		Vector2(TAXI_LOCAL.x, TAXI_LOCAL.z)]
+		Vector2(RIDE_LOCAL.x, RIDE_LOCAL.z)]
 	var tries := 0
 	while _viina_pos.size() < VIINA.size() and tries < 5000:
 		tries += 1
@@ -1243,7 +1243,7 @@ func _build_hottub() -> void:
 		B.mesh(steps, B.boxm(Vector3(0.6, 0.18, 0.4)), Vector3(0, 0.1 + i * 0.2, -i * 0.35), Color(0.5, 0.38, 0.25))
 
 
-# --- Piha: tikkataulu, savustin, taksipysäkki -------------------------------------
+# --- Piha: tikkataulu, savustin, Pekan auto --------------------------------------
 
 func _build_yard_extras() -> void:
 	# Tikkataulu männyn rungossa, kääntyneenä heittopistettä (etelää) kohti.
@@ -1263,16 +1263,13 @@ func _build_yard_extras() -> void:
 	for k in 8:
 		var a := TAU * k / 8.0
 		B.mesh(self, B.sphere(0.12, 6), TUB_LOCAL + Vector3(0.2 + cos(a) * 0.45, 0.06, -3.8 + sin(a) * 0.45), Color(0.45, 0.44, 0.42))
-	# Taksipysäkki: kyltti ja pysäköity taksi pihatien päässä.
-	var taxi_sign := B.sign_pole(self, TAXI_LOCAL + Vector3(1.4, 0, 0), 2.4)
-	var tplate := B.sign_plate(taxi_sign, "TAKSI", Color(0.96, 0.78, 0.08), Color(0.05, 0.05, 0.05), 0.26, 40,
-		Color(0.05, 0.05, 0.05), "Helvetica Neue")
-	tplate.position.y = 2.1
-	B.parked_car(self, TAXI_LOCAL + Vector3(-2.6, 0, 1.0), 12.0, Color(0.96, 0.78, 0.08))
-	B.mesh(self, B.boxm(Vector3(0.5, 0.16, 0.3)), TAXI_LOCAL + Vector3(-2.6, 1.68, 1.0), Color(0.9, 0.85, 0.2))
-	# Droonin alusta: sama drooni kulkee mukana taksissa kotoa.
+	# Pekan vihreä Volvo pihatien päässä: Pekka on kyyhkyjahdissa ja vie kotiin (main.gd _mokki_ride_logic).
+	B.parked_car(self, RIDE_LOCAL + Vector3(-2.6, 0, 1.0), 12.0, Color(0.22, 0.3, 0.18))
+	B.mesh(self, B.boxm(Vector3(0.55, 0.32, 0.9)), RIDE_LOCAL + Vector3(-2.6, 1.72, 1.0), Color(0.75, 0.3, 0.08),
+		Vector3(0, 12.0, 0))  # kattoboksi
+	# Droonin alusta: sama drooni kulkee mukana Pekan kyydissä kotoa.
 	DroneGame.make_pad(self, DRONE_LOCAL, 0.0)
-	# Pihatie taksipysäkiltä pihaan (sora).
+	# Pihatie Pekan autolta pihaan (sora).
 	var road_mat := B.shader_mat("res://shaders/ground.gdshader", {
 		"color_a": Color(0.53, 0.47, 0.37), "color_b": Color(0.64, 0.57, 0.45), "scale": 0.08,
 		"fine_scale": 1.1, "bump": 0.6, "roughness_v": 1.0, "stripes": 0.0,
@@ -1280,7 +1277,7 @@ func _build_yard_extras() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_normal(Vector3.UP)
-	var a := Vector2(TAXI_LOCAL.x, TAXI_LOCAL.z)
+	var a := Vector2(RIDE_LOCAL.x, RIDE_LOCAL.z)
 	var b := Vector2(1.0, -4.5)  # mökin takaseinälle (pysäköinti mökin takana, kuten drone-kuvassa)
 	var n := (b - a).normalized().orthogonal() * 1.6
 	var segs := 10
@@ -1884,7 +1881,7 @@ func _nav_build() -> void:
 		[Vector2(PUU_SAW_LOCAL.x, PUU_SAW_LOCAL.z), Vector2(0.7, 1.5)],  # sahapukki
 		[Vector2(PUU_SAW_LOCAL.x - 2.6, PUU_SAW_LOCAL.z + 1.0), Vector2(1.1, 3.1)],  # tukkipino
 		[Vector2(HUNT_LOCAL.x, HUNT_LOCAL.z), Vector2(1.2, 1.0)],  # metsästyslava
-		[Vector2(TAXI_LOCAL.x - 2.6, TAXI_LOCAL.z + 1.0), Vector2(2.2, 4.6)],  # taksi
+		[Vector2(RIDE_LOCAL.x - 2.6, RIDE_LOCAL.z + 1.0), Vector2(2.2, 4.6)],  # Pekan auto
 		[Vector2(TUB_LOCAL.x - 2.2, TUB_LOCAL.z - 2.4), Vector2(1.7, 0.45)], [Vector2(TUB_LOCAL.x + 2.4, TUB_LOCAL.z - 2.4), Vector2(1.7, 0.45)],
 		[Vector2(TUB_LOCAL.x - 2.6, TUB_LOCAL.z + 1.0), Vector2(1.7, 0.45)],  # penkit paljun ympärillä
 	]

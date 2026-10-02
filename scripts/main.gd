@@ -207,7 +207,7 @@ const PINGIS_POS := Vector3(-3000, 0, 300)  # mökin pingisnäyttämö kaukana k
 const CHOCO_CHANCE := 0.5  # suklaa lepyttää Päivin
 const CHOCO_MONEY := 5.0  # leppynyt Päivi antaa aamulla ylimääräistä
 const BEER_PRICE := 12.90
-const TAXI_PRICE := 20.0
+const PEKKA_RIDE_PRICE := 10.0  # tai kalja: Pekan kyyti mökille
 const SAUNA_TALK_RADIUS := 30.0  # etäisyys, jonka sisällä Santun ympäristöpuheet voivat laueta
 
 var world: Node3D
@@ -921,7 +921,7 @@ func _outside_logic() -> void:
 	_beacon.visible = not _at_mokki()
 	if not _beacon.visible:
 		_drone_logic()
-		_mokki_taxi_logic()
+		_mokki_ride_logic()
 		_viina_logic()
 		_mokki_logic()
 		return
@@ -953,7 +953,6 @@ func _outside_logic() -> void:
 	_neighbor_logic()
 	_pontikka_logic()
 	_taxi_logic()
-	_mokki_taxi_logic()
 	_mokki_logic()
 	if dist >= ZONE_RADIUS:
 		return
@@ -2383,6 +2382,20 @@ func _on_raahe(id: String) -> void:
 	_show_message("%s. %s" % [m[0], RAAHE_LINES.pick_random()], 3.0)
 
 
+## Pekan kyyti mökille: vihje ja E. Palauttaa false, jos kyytiä ei voi tarjota (pyörällä, rahaton, häädetty),
+## jolloin Pekan kanssa jutellaan.
+func _pekka_ride_hint(v: CharacterBody3D, e: bool) -> bool:
+	if player == bike or cutscene.busy or hommat.banned_day == day:
+		return false
+	if beers <= 0 and money < PEKKA_RIDE_PRICE:
+		return false
+	_hint.text = "[E] Pyydä Pekalta kyyti mökille Vaalaan (%s bensarahoiksi)" % ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €")
+	if e:
+		v.say("Hyppää kyytiin perkele, lähetään!")
+		_pekka_ride()
+	return true
+
+
 ## Arto ostaa marjat ja kertoo paikat, Pekka ostaa sienet ja kehuu kyyhkysaaliitaan.
 func _neighbor_logic() -> void:
 	if _hint.text != "":
@@ -2451,6 +2464,8 @@ func _neighbor_logic() -> void:
 				v.say("Kiitti! Tästä tulee hyvää puuroa." if who == "arto" else "No perkele, hyviä sieniä! Näistä tulee saatanan hyvä kastike kyyhkyille.")
 				Sfx.play("register", -4.0)
 				_show_message("+%s €" % _eur(sale), 2.0)
+		elif who == "pekka" and _pekka_ride_hint(v, e):
+			pass
 		else:
 			_hint.text = "[E] Juttele %s" % ("Arton kanssa" if who == "arto" else "Pekan kanssa")
 			if e:
@@ -2573,61 +2588,69 @@ func _edge_logic() -> void:
 	_show_message("\"%s\"" % lines.pick_random(), 3.5)
 
 
-## Taksipysäkit: kotipihalta mökille 20 €, paluu mökiltä ilmainen (meno-paluu maksettu kerralla,
-## ettei rahattomana voi jäädä mökille jumiin). Ks. world.taxi_home_pos ja mokki.gd Mokki.TAXI_LOCAL.
-func _mokki_taxi_logic() -> void:
+## Pekan auto mökin pihatien päässä (Mokki.RIDE_LOCAL): Pekka palaa kyyhkyjahdista ja vie kotiin Saloisiin.
+## Paluu on ilmainen (bensat maksettiin menomatkalla), ettei rahattomana voi jäädä mökille jumiin.
+func _mokki_ride_logic() -> void:
 	if _hint.text != "" or player.is_stunned() or cutscene.busy:
 		return
 	var p := player.global_position
-	var home_stand: Vector3 = world.taxi_home_pos
-	var mokki_stand: Vector3 = mokki.to_global(Mokki.TAXI_LOCAL)
-	var d_home := Vector2(p.x - home_stand.x, p.z - home_stand.z).length()
-	var d_mokki := Vector2(p.x - mokki_stand.x, p.z - mokki_stand.z).length()
-	if d_home < 3.0:
-		if player == bike:
-			_hint.text = "Nouse pyörän selästä (F) ja kävele taksille."
-			return
-		if hommat.banned_day == day:
-			_hint.text = "Santtu ei ota tänään enää vastaan. Huomenna voi yrittää uudestaan."
-			return
-		_hint.text = "[E] Tilaa taksi mökille Vaalaan (n. %d km, %s €)" % [roundi(HOME_MOKKI_KM), _eur(TAXI_PRICE)]
-		if Input.is_action_just_pressed("interact"):
-			if money < TAXI_PRICE:
-				_show_message("Taksi maksaa %s €. Ei ole tarpeeksi rahaa." % _eur(TAXI_PRICE), 2.5)
-			else:
-				money -= TAXI_PRICE
-				tilat.first("mokki", 0.4)
-				_ride_taxi(mokki.gpos(Mokki.TAXI_LOCAL + Vector3(0, 0.3, 2.2)), "Terveisin, Maustetytöt\nMökille Vaalan Neittävän kylään (%s €)" % _eur(TAXI_PRICE),
-					"TAKSILLA VAALAAN")
-	elif d_mokki < 3.0:
-		_hint.text = "[E] Tilaa taksi kotiin Saloisiin (n. %d km, paluu jo maksettu)" % roundi(HOME_MOKKI_KM)
-		if Input.is_action_just_pressed("interact"):
-			var sub := "Matkalla kotiin Saloisiin..."
-			if hommat.active:
-				var st: int = hommat.stars_now()
-				var rv: String = hommat.add_review(day, st)
-				sub = "Santun arvostelu: %s\n\"%s\"\nMatkalla kotiin Saloisiin..." % [Hommat.stars(st), rv]
-				mokki.say("Ai lähet jo? Hommat jäi kesken..." if st < 5 else "Kiitos käynnistä! Tervetuloa uudestaan!", 3.0)
-			_hommat_leave_mokki()
-			_ride_taxi(home_stand + Vector3(0, 0, 2.2), sub)
+	var stand: Vector3 = mokki.to_global(Mokki.RIDE_LOCAL)
+	if Vector2(p.x - stand.x, p.z - stand.z).length() >= 3.0:
+		return
+	_hint.text = "[E] Pekan kyydillä kotiin Saloisiin (n. %d km, bensat jo maksettu)" % roundi(HOME_MOKKI_KM)
+	if not Input.is_action_just_pressed("interact"):
+		return
+	var sub := "Pekka palasi kyyhkyjahdista. Matkalla kotiin Saloisiin..."
+	if hommat.active:
+		var st: int = hommat.stars_now()
+		var rv: String = hommat.add_review(day, st)
+		sub = "Santun arvostelu: %s\n\"%s\"\nMatkalla kotiin Saloisiin..." % [Hommat.stars(st), rv]
+		mokki.say("Ai lähet jo? Hommat jäi kesken..." if st < 5 else "Kiitos käynnistä! Tervetuloa uudestaan!", 3.0)
+	_hommat_leave_mokki()
+	_ride_pekka_home(sub, "koti")
 
 
-func _ride_taxi(dest: Vector3, sub: String, title := "TAKSI") -> void:
+## Pekan kyydillä mökiltä kotipihaan (kind "koti" tai "haato", ks. cutscene.pekka_ride).
+func _ride_pekka_home(sub: String, kind: String) -> void:
+	_hud.visible = false
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
-	cutscene.taxi(sub, func() -> void:
-		mokki.ensure_built()  # mökkialue rakennetaan ensimmäisellä matkalla (ruutu on vielä pimeänä)
-		walker_out.global_position = dest
-		walker_out.rotation.y = 0.0
-		walker_out.activate_camera()
-		walker_out.controls_enabled = true
-		if _at_mokki_pos(dest):
-			_hommat_arrive()
-		if not _at_mokki_pos(dest):
-			_hazards.process_mode = Node.PROCESS_MODE_INHERIT  # takaisin Saloisissa: vaarat heräävät
-			if _list_pending:
-				_list_pending = false
-				_day_note("Kotona odotti Päivin lappu.", ""), title)  # mökiltä palatessa: päivän lista värikynillä
+	cutscene.pekka_ride(sub, _arrive_by_car.bind(home_zone + Vector3(0, 0.3, 4)), kind)
+
+
+## Pekan kyydin perillä (ruutu vielä pimeänä): pelaaja määränpäähän, mökillä hommat alkavat.
+func _arrive_by_car(dest: Vector3) -> void:
+	mokki.ensure_built()  # mökkialue rakennetaan ensimmäisellä matkalla (ruutu on vielä pimeänä)
+	walker_out.global_position = dest
+	walker_out.rotation.y = 0.0
+	walker_out.activate_camera()
+	walker_out.controls_enabled = true
+	_hud.visible = true  # kyydin ajaksi HUD piilossa
+	if _at_mokki_pos(dest):
+		_hommat_arrive()
+	else:
+		_hazards.process_mode = Node.PROCESS_MODE_INHERIT  # takaisin Saloisissa: vaarat heräävät
+		if _list_pending:
+			_list_pending = false
+			_day_note("Kotona odotti Päivin lappu.", "")  # mökiltä palatessa: päivän lista värikynillä
+
+
+## Naapurin Pekka lähtee Neittävälle kyyhkyjahtiin ja ottaa kyytiin mökille bensakaljalla tai kympillä.
+## Ainoa tie mökille; paluu Pekan autolla mökin pihatien päästä (_mokki_ride_logic).
+func _pekka_ride() -> void:
+	var paid := "kalja"
+	if beers > 0:
+		beers -= 1
+		player.set_carrying(beers > 0)
+	else:
+		money -= PEKKA_RIDE_PRICE
+		paid = _eur(PEKKA_RIDE_PRICE) + " €"
+	tilat.first("mokki", 0.4)
+	_hud.visible = false
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	cutscene.pekka_ride("Naapurin Pekka on menossa Neittävälle kyyhkyjahtiin.\nBensarahat: %s" % paid,
+		_arrive_by_car.bind(mokki.gpos(Mokki.RIDE_LOCAL + Vector3(0, 0.3, 2.2))))
 
 
 ## Mökillä: jutut Santun kanssa, Santun hommat, savusauna, palju, tikanheitto, laituri ja metsästyslava.
@@ -3230,9 +3253,9 @@ func _hommat_visual_done(id: String) -> void:
 			mokki.sauna_smoke = 0.0
 
 
-## Kaikki hommat tehty: Santtu maksaa taksirahat takaisin, antaa savukalaa ja pullon pontikkaa.
+## Kaikki hommat tehty: Santtu maksaa kyytirahat takaisin, antaa savukalaa ja pullon pontikkaa.
 func _hommat_reward() -> void:
-	money += 15.0
+	money += PEKKA_RIDE_PRICE
 	food["savukala"] = food.get("savukala", 0) + 1
 	viina_pullot += 1
 	tilat.add("moraali", 0.3)
@@ -3240,7 +3263,7 @@ func _hommat_reward() -> void:
 	mielihyva = clampf(mielihyva + 15.0, 0.0, 100.0)
 	Sfx.play("win", -4.0)
 	_santtu_line("Kaikki hommat tehty! Viiden tähden vieras!", false)
-	_queue_message("KAIKKI SANTUN HOMMAT TEHTY!\nSanttu maksoi taksirahat takaisin (15 €), antoi savukalaa ja pullon pontikkaa.", 5.0)
+	_queue_message("KAIKKI SANTUN HOMMAT TEHTY!\nSanttu maksoi kyytirahat takaisin (%s €), antoi savukalaa ja pullon pontikkaa." % _eur(PEKKA_RIDE_PRICE), 5.0)
 
 
 ## Mopolla Siitariin hommat kesken: Santtu huutaa perään ja soittaa Päiville.
@@ -3255,7 +3278,7 @@ func _hommat_snitch() -> void:
 	_paivi_call_t = randf_range(9.0, 14.0)
 
 
-## Hermot meni: yhden tähden arvostelu, Santtu tilaa taksin ja mökille ei pääse ennen huomista.
+## Hermot meni: yhden tähden arvostelu, Santtu soittaa Pekan hakemaan ja mökille ei pääse ennen huomista.
 func _hommat_evict() -> void:
 	if not hommat.active:
 		return
@@ -3271,15 +3294,14 @@ func _hommat_evict() -> void:
 	_hommat_leave_mokki()
 	tilat.add("moraali", -0.3)
 	tilat.add("stressi", -0.25)
-	mokki.say("Nyt riitti! Taksi on tilattu. Kamat kassiin!", 4.0)
+	mokki.say("Nyt riitti! Mää soitin Pekalle. Kamat kassiin!", 4.0)
 	Sfx.play("alert", -2.0, 0.8)
-	_show_message("Santun hermot meni! \"Nyt riitti, taksi on tilattu!\"", 3.0)
+	_show_message("Santun hermot meni! \"Nyt riitti, Pekka tulee hakemaan!\"", 3.0)
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
-	var home_stand: Vector3 = world.taxi_home_pos
 	get_tree().create_timer(2.5).timeout.connect(func() -> void:
-		_ride_taxi(home_stand + Vector3(0, 0, 2.2), "Santun hermot meni. Taksi kotiin Saloisiin...\nSantun arvostelu: %s\n\"%s\"" % [
-			Hommat.stars(1), rv], "HÄÄTÖ MÖKILTÄ"))
+		_ride_pekka_home("Santun hermot meni. Pekka haki kotiin Saloisiin...\nSantun arvostelu: %s\n\"%s\"" % [
+			Hommat.stars(1), rv], "haato"))
 
 
 ## Santun repliikki: pihalla puhekupla Santun päällä, sisällä sisä-Santulle, msg = myös viestinä ruudulle.
@@ -4038,7 +4060,7 @@ func _on_mokki_slept() -> void:
 	if hommat.active and not hommat.all_done():
 		hommat.add_hermo(Hommat.HERMO_SLEEP)
 		if hommat.furious():
-			mokki_int.say("Nukkumaan ja hommat kesken? Ei käy! Taksi tulee.")
+			mokki_int.say("Nukkumaan ja hommat kesken? Ei käy! Pekka tulee hakemaan.")
 			_hommat_evict()
 			return
 		mokki_int.say("Hommat jäi kesken... No, nuku nyt. Huomenna parempi.")
@@ -5207,7 +5229,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	if _slept_mokki:
 		_slept_mokki = false
 		tilat.add("stressi", -0.1)
-		mokki_note = "\nPäivi soitti aamulla: \"Missä sää oot ollu koko yön?!\" Kotiin pääsee taksilla."
+		mokki_note = "\nPäivi soitti aamulla: \"Missä sää oot ollu koko yön?!\" Kotiin pääsee Pekan kyydillä."
 		bonus += mokki_note
 	var rauha := _kaljarauha
 	_kaljarauha = false
@@ -5269,7 +5291,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 			_day_note("Huomenta! Päivä %d." % day, msg), _jemma_choco)
 		return
 	if at_m:
-		# Mökillä vain mökin asiat: Päivin värilista kerrotaan, kun palataan kotiin (ks. _ride_taxi).
+		# Mökillä vain mökin asiat: Päivin värilista kerrotaan, kun palataan kotiin (ks. _arrive_by_car).
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		_list_pending = true
 		var rows: Array = _hommat_morning()
@@ -7595,7 +7617,7 @@ func _maybe_screenshot() -> void:
 			for i in 3:
 				await get_tree().physics_frame
 			var space := get_world_3d().direct_space_state
-			var checks := [["koti_aloitus", home_zone + Vector3(0, 0, 4), null], ["koti_taksi", world.taxi_home_pos, null],
+			var checks := [["koti_aloitus", home_zone + Vector3(0, 0, 4), null],
 				["kauppa_taksi", world.taxi_pos, null], ["kauppa_vyohyke", shop_zone, null], ["mummot", mummot.global_position, mummot],
 				["arto", arto.global_position, arto], ["pekka", pekka.global_position, pekka],
 				["sulo", sulo.global_position, sulo], ["sinikka", sinikka.global_position, sinikka], ["vaino_alku", world.neighbor_yards["pekka"][0], null],
@@ -8234,8 +8256,7 @@ func _maybe_screenshot() -> void:
 			drone_photos.clear()
 			_toggle_mount()
 			var pad: Vector3 = world.drone_pad_pos
-			print("DROONI pad->home_zone %.1f m, pad->taksi %.1f m" % [Vector2(pad.x - home_zone.x, pad.z - home_zone.z).length(),
-				Vector2(pad.x - world.taxi_home_pos.x, pad.z - world.taxi_home_pos.z).length()])
+			print("DROONI pad->home_zone %.1f m" % Vector2(pad.x - home_zone.x, pad.z - home_zone.z).length())
 			walker_out.global_position = pad + Vector3(1.2, Terrain.h(pad.x, pad.z) + 0.3, 0.6)
 			walker_out.rotation.y = B.yaw_to(pad - walker_out.global_position)
 			for i in 20:
@@ -8877,26 +8898,56 @@ func _maybe_screenshot() -> void:
 				walker_out.global_position = bike.global_position + Vector3(2.0, 0.5, 0)
 				await get_tree().create_timer(0.5).timeout
 				print("VARAS kiinni? käynnissä=%s msg=%s" % [not _thief.is_empty(), _msg.text])
-		"taksimokki":
-			# Taksilla kotoa mökille: alue rakentuu vasta matkalla (viivästetty), pelaaja maan pinnalla pysäkillä.
+		"pekkakyyti":
+			# Pekan kyyti mökille: vihje Pekan luona, välikuvan kolme kuvaa ja perillä mökin pysäkillä.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
-			_toggle_mount()
-			print("TAKSIMOKKI ennen: rakennettu=%s" % mokki.built)
-			walker_out.global_position = world.taxi_home_pos + Vector3(0, 0.5, 1.0)
-			for i in 10:
+			var shot := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.get_base_dir().path_join("pekka_%s.png" % name))
+			if player != walker_out:
+				_toggle_mount()
+			money = 30.0
+			pekka.process_mode = Node.PROCESS_MODE_DISABLED  # ei karkaa puuhiinsa testin aikana
+			_note.visible = false
+			walker_out.global_position = pekka.global_position + Vector3(1.5, 0.5, 0)
+			for i in 30:
 				await get_tree().physics_frame
+			print("PEKKA hint=", _hint.text)
 			await get_tree().process_frame
 			Input.action_press("interact")
-			await get_tree().process_frame
-			Input.action_release("interact")
-			var t0 := Time.get_ticks_msec()
-			while not mokki.built and Time.get_ticks_msec() - t0 < 15000:
+			for w in 2:
 				await get_tree().process_frame
-			for i in 90:
+			Input.action_release("interact")
+			print("PEKKA busy=%s rahat=%s" % [cutscene.busy, _eur(money)])
+			for sec in [2.5, 4.0, 3.5]:
+				await get_tree().create_timer(sec, true, false, true).timeout
+				await shot.call(str(sec))
+			var t0 := Time.get_ticks_msec()
+			while (cutscene.busy or not mokki.built) and Time.get_ticks_msec() - t0 < 20000:
+				await get_tree().process_frame
+			for i in 60:
 				await get_tree().physics_frame
 			var lp: Vector3 = mokki.to_local(walker_out.global_position)
-			print("TAKSIMOKKI jälkeen: rakennettu=%s paikka=(%.1f, %.2f, %.1f) maa=%.2f rahat=%s" % [mokki.built, lp.x, lp.y, lp.z,
-				Mokki.h(lp.x, lp.z), _eur(money)])
+			print("PEKKA perillä: rakennettu=%s paikka=(%.1f, %.1f) ohjaus=%s" % [mokki.built, lp.x, lp.z, walker_out.controls_enabled])
+			await shot.call("perilla")
+			# Paluu: Pekan autolla kotiin (mökin pihatien päästä).
+			print("PEKKA mökillä hint=", _hint.text)
+			await get_tree().process_frame  # kuvakaappauksen jälkeen: painallus seuraavan ruudun alkuun
+			Input.action_press("interact")
+			for w in 2:
+				await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().create_timer(10.5, true, false, true).timeout
+			await shot.call("koti_tie")
+			t0 = Time.get_ticks_msec()
+			while cutscene.busy and Time.get_ticks_msec() - t0 < 20000:
+				await get_tree().process_frame
+			for i in 60:
+				await get_tree().physics_frame
+			var hp := walker_out.global_position
+			print("PEKKA kotona: etäisyys kotiin %.1f m mökillä=%s ohjaus=%s" % [Vector2(hp.x - home_zone.x, hp.z - home_zone.z).length(),
+				_at_mokki(), walker_out.controls_enabled])
+			await shot.call("kotona")
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"mokkikartta":
