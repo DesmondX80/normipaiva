@@ -5,6 +5,7 @@ extends CharacterBody3D
 
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
+const DrunkWobble := preload("res://scripts/drunk_wobble.gd")
 
 const WALK := 2.3
 const RUN := 5.4
@@ -29,6 +30,16 @@ var no_run := false
 var hurt := false
 const HURT_SPEED := 0.6
 const HURT_RECOVER := 0.5
+## Humala (main.gd asettaa, kun humala on päivän tila): yli DrunkWobble.LIMIT kävely heittelee.
+var drunk := 0.0
+var _drunk_wobble := DrunkWobble.new()
+## Päivän tilojen palkinnot ja haitat (main.gd _stat_effects). Pyörä lukee näistä nopeuden, kulutuksen ja spurtin.
+var speed_mult := 1.0  # nälkä: kävely ja juoksu
+var run_mult := 1.0  # kipu: juoksu
+var jump_mult := 1.0  # kipu: hyppy
+var drain_mult := 1.0  # väsymys: juoksun ja spurtin kulutus
+var recover_mult := 1.0  # väsymys: palautuminen
+var no_sprint := false  # stamina: juoksu ja spurtti eivät toimi
 var _breath_t := 0.0
 
 var _body: Node3D
@@ -115,11 +126,11 @@ func stagger(direction: Vector3) -> void:
 ## Kunnon kulutus ja palautuminen. Pyörän spurtti käyttää samaa mittaria (jalat ovat samat).
 func tire(exerting: bool, resting: bool, delta: float, drain := 18.0) -> void:
 	if exerting:
-		stamina = maxf(0.0, stamina - drain * delta)
+		stamina = maxf(0.0, stamina - drain * drain_mult * delta)
 		if stamina <= 0.0:
 			exhausted = true
 	else:
-		stamina = minf(100.0, stamina + (22.0 if resting else 12.0) * (HURT_RECOVER if hurt else 1.0) * delta)
+		stamina = minf(100.0, stamina + (22.0 if resting else 12.0) * (HURT_RECOVER if hurt else 1.0) * recover_mult * delta)
 		if exhausted and stamina >= 35.0:
 			exhausted = false
 	# Hengästyneenä kuuluu puuskutus.
@@ -150,23 +161,25 @@ func _physics_process(delta: float) -> void:
 	if controls_enabled:
 		throttle = Input.get_axis("back", "forward")
 		steer = Input.get_axis("right", "left")
-		running = Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 and not exhausted and not no_run
+		running = Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 and not exhausted and not no_run and not no_sprint
 		jump_pressed = Input.is_action_just_pressed("jump") and pose == ""
 	tire(running, absf(speed) < 0.2, delta, RUN_DRAIN)
 	var ground: float = world.speed_factor(global_position, "runner") if world != null else 1.0
-	var want := throttle * (RUN if running else WALK) * ground
+	var want := throttle * (RUN * run_mult if running else WALK) * ground * speed_mult
 	if throttle < 0.0:
 		want *= 0.6  # peruutuskävely
 	if hurt:
 		want *= HURT_SPEED  # ontuu
 	speed = move_toward(speed, want, 12.0 * delta)
+	if controls_enabled:
+		steer += _drunk_wobble.steer(drunk, clampf(absf(speed) / WALK, 0.0, 1.0), delta) * 0.6
 	rotation.y += steer * TURN * delta
 
 	var fwd := -global_transform.basis.z
 	velocity.x = fwd.x * speed
 	velocity.z = fwd.z * speed
 	if is_on_floor():
-		velocity.y = JUMP_SPEED if jump_pressed else 0.0
+		velocity.y = JUMP_SPEED * jump_mult if jump_pressed else 0.0
 		if jump_pressed:
 			Sfx.play("whoosh", -8.0, 1.4)
 	else:

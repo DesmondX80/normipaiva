@@ -19,8 +19,8 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   soitat kelloa (Q), he suuttuvat ja heittelevät kettukarkkeja: osuma heilauttaa pyörää tai horjauttaa. Maahan
   jääneet karkit voi poimia jalan (kunto +15).
 - **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (päivä, tehtävä, kauppalista ja muut
-  muistutukset), ja Päivi huutaa perään neljä tuotetta väreineen ("vihreä tamponi, punainen maito..."), mutta
-  lappuun hän kirjoittaa vain tuotteet. Kaupan oikealla seinällä on Päivin hylly, jossa jokaisesta tuotteesta
+  muistutukset). Kauppalistan neljä tuotetta on kirjoitettu kukin omanvärisellä kynällä ("vihreä tamponi,
+  punainen maito..."), mutta lappu näkyy vain hetken, ja repun kauppalistassa on pelkät tuotteet. Kaupan oikealla seinällä on Päivin hylly, jossa jokaisesta tuotteesta
   on viisi väriä: Q vaihtaa väriä, E ottaa, vaihtaa tai palauttaa. Päivin ostokset maksetaan Päivin rahoilla.
   Kotona Päivi tarkistaa ostokset: kaikki oikein = kaljarauha (Päivi ei etsi jemmoja seuraavana aamuna), muuten
   motkotus jokaisesta virheestä.
@@ -204,11 +204,25 @@ keskellä: punainen vasemmalle, vihreä oikealle). Kaikissa tiloissa **suurempi 
 väsymys ja kipu alkavat -1:stä, ja niitä yritetään nostaa; muut alkavat 0:sta. Humalatila (0…1) säilyy yön yli
 ja laskee yössä 0,2. Muut nollautuvat joka aamu.
 
-Päivän lopussa lasketaan kolmen tilan summa:
-- **alle 0** = huono päivä: seuraavana päivänä Päivi ajaa nopeammin, mummot suuttuvat herkemmin ja vieras koira
-  puree kauempaa
-- **vähintään +1** = hyvä päivä: seuraava päivä on vastaavasti helpompi
-- muuten normipäivä. Aamun viesti kertoo eilisen tuloksen ja tämän päivän tilat.
+Jokaisella tilalla on oma palkinto ja haitta, jotka ovat päällä heti, kun palkki ylittää rajan (**+0,5** tai
+**−0,5**; humalatila 0,3–0,6 tai yli 0,8), ja lakkaavat, kun arvo palaa rajojen väliin. Vain päivän kolme tilaa
+vaikuttavat. Eilinen päivä ei vaikuta tähän päivään, paitsi humala: jos illalla humala on yli 0,8, tulee
+**krapula-aamu** (vireys ja keskittyminen alkavat −0,3:sta). Aamun viesti kertoo tämän päivän tilat.
+
+| Tila | Palkinto (≥ +0,5) | Haitta (≤ −0,5) |
+|---|---|---|
+| Stressi | mummot suuttuvat hitaammin | Päivi ajaa 10 % nopeammin |
+| Nälkä | kävely, juoksu ja pyöräily +10 % | kävely, juoksu ja pyöräily −10 % |
+| Väsymys | juoksu ja spurtti kuluttavat kuntoa 30 % hitaammin | kunto palautuu puolet hitaammin |
+| Kipu | tappelussa 120 hp (tilanne ennen tappelun iskuja) | juoksu −15 %, hyppy matalampi |
+| Stamina | pyörän spurtti rajumpi (1,4 → 1,6) | juoksu ja spurtti eivät toimi |
+| Vireys | tutka näkee kauemmas (320 → 450 m) | usva tihenee, näkyvyys puolittuu |
+| Moraali | K-Marketin kassa −10 % | K-Marketin kassa +10 % |
+| Keskittyminen | repun kauppalistassa näkyy ensimmäisen tuotteen väri | viimeinen tuote unohtuu listasta (???) |
+| Kokemus | minipeleissä vakaampi käsi (humalan huojunta −0,15) | minipeleissä huojuntaa +0,15 |
+| Humala | 0,3–0,6: tappelussa iskut +20 % | yli 0,8: pyörän ja kävelyn ohjaus heittelee |
+
+Toimintojen vaikutukset tiloihin:
 
 | Toiminto | Vaikutus |
 |---|---|
