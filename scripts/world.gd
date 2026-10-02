@@ -1131,6 +1131,9 @@ func _build_home() -> void:
 	put.call(B.boxm(Vector3(1.05, 2.15, 0.08)), Vector3(1.2, 1.4, fz), B.mat(white))
 	put.call(B.boxm(Vector3(0.12, 1.3, 0.1)), Vector3(1.2, 1.55, fz - 0.02), glass)
 	put.call(B.boxm(Vector3(1.6, 0.3, 1.1)), Vector3(1.2, 0.15, fz - 0.55), B.mat(Color(0.6, 0.6, 0.58)))
+	# Takaovi takapihalle etuovea vastapäätä (kodin sisätila, home_interior.gd): ovi ja porras.
+	put.call(B.boxm(Vector3(1.05, 2.15, 0.08)), Vector3(1.2, 1.4, -fz), B.mat(Color(0.55, 0.38, 0.22)))
+	put.call(B.boxm(Vector3(1.4, 0.25, 0.9)), Vector3(1.2, 0.125, -fz + 0.45), B.mat(Color(0.6, 0.6, 0.58)))
 	put.call(B.boxm(Vector3(2.8, 2.3, 0.06)), Vector3(l / 2.0 - 2.4, 1.45, fz), B.mat(white))
 	for k in 5:
 		put.call(B.boxm(Vector3(2.8, 0.02, 0.08)), Vector3(l / 2.0 - 2.4, 0.45 + k * 0.45, fz - 0.02), B.mat(Color(0.8, 0.8, 0.8)))

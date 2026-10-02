@@ -179,10 +179,14 @@ const HOME_MOKKI_KM := 105.7
 var _list_pending := false  # päivä alkoi mökiltä: Päivin värilista kerrotaan kotiin palatessa
 ## Mökin sisätila (mokki_interior.gd) omassa taskussaan; kuistin ovelta E vie sisään.
 const MokkiInterior := preload("res://scripts/mokki_interior.gd")
+const HomeInterior := preload("res://scripts/home_interior.gd")
+const HOME_INT_POS := Vector3(-9000, 0, 0)  # kodin sisätila, erillinen tasku
 const MOKKI_INT_POS := Vector3(9000, 0, 0)
 const TV_SHOWS := ["Salkkarit: Kaikki riitelee taas.", "Kauniit ja rohkeat: Ridge on hämmentynyt.", "Uutiset: sadetta luvassa.",
 	"Hirviketju: kolme hirveä, kaksi ohi.", "Ostoskanava: veitsiä, jotka leikkaa tomaatin ja kengän."]
 var mokki_int: Node3D
+var home_int: Node3D
+var _home_prev := "to_shop"  # ulkotila ennen kotiin menoa (to_home = kuutonen haettu tänään)
 var siitari_int: Node3D
 var raahe_int: Node3D
 var _raahe := {}  # illan tapahtumat Raahen baarissa (kädenvääntö, visa, karaoke)
@@ -199,6 +203,7 @@ var _slept_mokki := false
 const ZONE_RADIUS := 6.0
 var shop_door := Vector3.ZERO  # Saloisten K-Marketin oven edusta
 var home_door := Vector3.ZERO  # kodin etuoven portaiden edusta (kotiin meno, eteisen kaappi, Päivin ostokset, haava)
+var home_back_door := Vector3.ZERO  # takaovi takapihalle (etuovea vastapäätä)
 const HOME_DOOR_ZONE := 3.0  # Päivin ostosten luovutus ja haavan hoito ovella
 var _shop_exit_frame := -1  # ulos tullessa painettu E ei vie heti takaisin sisään
 var _shop_prev := "to_shop"  # ulkotila ennen kauppaan menoa (to_home = kuutonen jo ostettu tänään)
@@ -556,6 +561,8 @@ func _ready() -> void:
 	var hf := M.HOME_YAW_DIR.normalized()
 	var hd := hb + Vector2(-hf.y, hf.x) * 1.2 + hf * 6.4
 	home_door = Vector3(hd.x, Terrain.h(hd.x, hd.y), hd.y)
+	var hbd := hb + Vector2(-hf.y, hf.x) * 1.2 - hf * 6.4
+	home_back_door = Vector3(hbd.x, Terrain.h(hbd.x, hbd.y), hbd.y)
 	lawn = Lawn.new()
 	lawn.rect = world.lawn_rect
 	lawn.pivot = world.lawn_pivot
@@ -577,6 +584,12 @@ func _ready() -> void:
 	mokki_int.exited.connect(_on_mokki_exited)
 	mokki_int.slept.connect(_on_mokki_slept)
 	mokki_int.acted.connect(_on_mokki_acted)
+	home_int = HomeInterior.new()
+	home_int.position = HOME_INT_POS
+	add_child(home_int)
+	home_int.exited.connect(_on_home_exited)
+	home_int.slept.connect(_on_home_slept)
+	home_int.acted.connect(_on_home_acted)
 	mokki.sauna_event.connect(_on_sauna_event)
 	siitari_int = SiitariInterior.new()
 	siitari_int.position = SIITARI_INT_POS
@@ -783,6 +796,12 @@ func _process(delta: float) -> void:
 					_show_message("PÄIVI TULI BAARIIN ETSIMÄÄN SINUA! Pakoon: Kellariin portaita, ympäri pöytiä tai ulos taksiin.", 4.5)
 			tilat.add("humala", -0.002 * delta)
 			tilat.add("stressi", 0.004 * delta)
+		"in_home":
+			_hint.text = home_int.hint
+			# Kotona on rauhallista kuten mökillä: stressi hellittää, nälkä kasvaa hiljaa.
+			tilat.add("stressi", 0.005 * delta)
+			tilat.add("nalka", -0.002 * delta)
+			tilat.add("humala", -0.002 * delta)
 		"in_mokki":
 			_hint.text = mokki_int.hint
 			_hommat_tick(delta)
@@ -1003,7 +1022,9 @@ func _outside_logic() -> void:
 	if p2.distance_to(Vector2(shop_door.x, shop_door.z)) < SHOP_DOOR_R:
 		_shop_door_logic()
 	elif p2.distance_to(Vector2(home_door.x, home_door.z)) < DOOR_RADIUS:
-		_home_door_logic()
+		_home_door_logic("ovi")
+	elif p2.distance_to(Vector2(home_back_door.x, home_back_door.z)) < DOOR_RADIUS:
+		_home_door_logic("takaovi")
 
 
 ## K-Marketin ovi: kauppaan milloin vain, kuten mihin tahansa hommaan, paitsi kalja kädessä (kauppias kieltää).
@@ -1021,8 +1042,9 @@ func _shop_door_logic() -> void:
 	_enter_shop()
 
 
-## Kotiovi: sisälle milloin vain tyhjin käsin (päivä päättyy). Kaljat ja kanisteri ensin jemmaan, Päivi näkee.
-func _home_door_logic() -> void:
+## Kotiovi (etu- tai takaovi): sisälle milloin vain tyhjin käsin. Kaljat ja kanisteri ensin jemmaan, Päivi näkee.
+## Päivä päättyy vasta, kun mennään nukkumaan parisänkyyn (home_interior.gd, _on_home_slept).
+func _home_door_logic(door: String) -> void:
 	if player == bike:
 		_hint.text = "Nouse pyörän selästä (F) ja kävele ovelle"
 		return
@@ -1030,9 +1052,99 @@ func _home_door_logic() -> void:
 		_hint.text = "Ovi ei aukea kaljat kädessä – Päivi näkee! Piilota %s ensin jemmaan (E)." % (
 			"kanisteri" if beers <= 0 else "kaljat")
 		return
-	_hint.text = "[E] Mene sisälle kotiin (päivä päättyy)"
-	if Input.is_action_just_pressed("interact") and not player.is_stunned():
-		_win()
+	_hint.text = "[E] Mene sisälle kotiin" + (" takaovesta" if door == "takaovi" else "")
+	if Input.is_action_just_pressed("interact") and not player.is_stunned() and Engine.get_process_frames() != _home_exit_frame:
+		_enter_home(door)
+
+
+var _home_exit_frame := -1  # ulos tullessa painettu E ei vie heti takaisin sisään
+
+
+func _enter_home(door: String) -> void:
+	_home_prev = state
+	state = "in_home"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	tilat.first("koti_sisalla", 0.1)
+	home_int.enter(door)
+	Sfx.play("door", -3.0)
+
+
+func _on_home_exited() -> void:
+	home_int.leave()
+	Sfx.play("door_close", -3.0)
+	state = _home_prev
+	_home_exit_frame = Engine.get_process_frames()
+	var back: bool = home_int.exit_door == "takaovi"
+	var hf := M.HOME_YAW_DIR.normalized()
+	var out := Vector3(-hf.x, 0, -hf.y) if back else Vector3(hf.x, 0, hf.y)
+	walker_out.global_position = (home_back_door if back else home_door) + out * 1.0 + Vector3(0, 0.3, 0)
+	walker_out.look_at(walker_out.global_position + out, Vector3.UP)
+	walker_out.velocity = Vector3.ZERO
+	walker_out.controls_enabled = true
+	walker_out.activate_camera()
+	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+
+
+## Parisänkyyn nukkumaan: päivä päättyy kuten ennen kotiovella (Päivin ostokset, palkinto, jemmat, uusi päivä).
+func _on_home_slept() -> void:
+	home_int.leave()
+	state = _home_prev
+	_win()
+
+
+## Kodin sisätoiminnot: tilavaikutukset (kerran päivässä) ja viestit.
+func _on_home_acted(kind: String) -> void:
+	match kind:
+		"kahvi":
+			if _once_today("kahvi"):
+				tilat.add("vireys", 0.2)
+				tilat.add("stressi", 0.1)
+			_show_message("Kahvit keitetty. Päivin Juhla Mokkaa, ei mitään suodatinhienouksia.", 2.5)
+		"jaakaappi":
+			if _once_today("koti_jaakaappi"):
+				food["pulla"] = food.get("pulla", 0) + 1
+				_show_message("Jääkaapissa oli Päivin pullaa. Otit yhden evääksi (T syö).", 3.0)
+			else:
+				_show_message("Jääkaapissa on vain nörtin energiajuomia ja sinappia.", 2.5)
+		"tv":
+			if _once_today("tv"):
+				tilat.add("stressi", 0.05)
+				tilat.add("kokemus", -0.02)
+			_show_message("\"%s\"" % TV_SHOWS.pick_random(), 3.0)
+		"sohva":
+			if _once_today("sohva"):
+				tilat.add("vasymys", 0.2)
+				tilat.add("stressi", 0.1)
+				_show_message("Nokoset sohvalla. Väsymys hellittää.", 2.5)
+			else:
+				_show_message("Ei enää nukuta. Sohva on Päivin mielestä muutenkin liikaa käytössä.", 2.5)
+		"suihku":
+			if _once_today("suihku"):
+				tilat.add("vireys", 0.1)
+				tilat.add("kipu", 0.05)
+			Sfx.play("water", -6.0, 1.1)
+			_show_message("Suihku virkistää.", 2.0)
+		"wc":
+			if _once_today("wc"):
+				tilat.add("stressi", 0.05)
+			_show_message(["Helpottaa.", "Rauhallinen hetki. Ainoa paikka, jossa kukaan ei kysy mitään."].pick_random(), 2.5)
+		"peili":
+			_show_message(["Peilistä katsoo normimies. Tuulipuku istuu.", "Vähän väsyneen näkönen. Normipäivä.",
+				"Parta kasvaa, kalja ei."].pick_random(), 2.5)
+		"sauna":
+			tilat.first("kotisauna", 0.2)
+			walker_out.stamina = 100.0
+			walker_out.exhausted = false
+			if _once_today("kotisauna"):
+				tilat.add("stressi", 0.2)
+				tilat.add("vasymys", 0.2)
+				tilat.add("kipu", 0.1)
+			Sfx.play("water", -6.0, 0.8)
+			_show_message("Kotisaunan löylyt! Kunto palautui.", 2.5)
+		"nortti":
+			tilat.first("nortti", 0.1)
 
 
 ## Jemmat: jalan E piilottaa yhden kaljan (Shift+E kaikki), Q ottaa yhden (Shift+Q niin monta kuin jaksaa kantaa,
@@ -6026,7 +6138,7 @@ func _update_hud() -> void:
 	_stats.text = "\n".join(lines)
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_siitari", "in_raahe", "lava"]) and not _in_vaala
+	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_siitari", "in_raahe", "lava"]) and not _in_vaala
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
 	_minimap.show_target = false  # ei tehtäväkohdetta: kauppa ja koti näkyvät kartalla merkkeinä
 	_compass.visible = state in ["to_shop", "to_home"]
@@ -6060,7 +6172,7 @@ func _update_hud() -> void:
 
 	var nb: CharacterBody3D = interior.neighbor
 	_sus_box.visible = state == "in_shop" and nb != null
-	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_siitari", "in_raahe"]
+	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_home", "in_siitari", "in_raahe"]
 	_stat_bars.offset_top = 90 if _sus_box.visible else 36
 	if _sus_box.visible:
 		_sus_bar.value = nb.suspicion
@@ -7088,10 +7200,87 @@ func _maybe_screenshot() -> void:
 			var d0 := day
 			print("KAUPPAOVI ennen: lista tehty %s, ostokset %s, listalla %d" % [_list_done, paivi_bag, shopping_list.size()])
 			await press.call("interact")
+			home_int.walker.position = home_int.SPOTS.sanky[0]
+			for i in 5:
+				await get_tree().physics_frame
+			await press.call("interact")
 			print("KAUPPAOVI Päivi: %s" % str(_msg_queue))
 			for i in 30:
 				await get_tree().process_frame
 			print("KAUPPAOVI kotiin: päivä %d -> %d, tila %s" % [d0, day, state])
+		"kotisisa":
+			# Kodin sisätila: etuovesta sisään, kuva ylhäältä, jokainen toimintopiste, takaovesta ulos ja sisään,
+			# lopuksi nukkumaan parisänkyyn.
+			_toggle_mount()
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var shot := func(name: String) -> void:
+				_msg.text = ""
+				_note.visible = false
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("KOTI ovella: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("KOTI sisällä: tila %s, vihje '%s'" % [state, home_int.hint])
+			await shot.call("_eteinen.png")
+			var top := Camera3D.new()
+			add_child(top)
+			top.look_at_from_position(HOME_INT_POS + Vector3(0, 24, 9), HOME_INT_POS + Vector3(0, 0, -0.5))
+			top.current = true
+			await shot.call("_pohja.png")
+			top.queue_free()
+			home_int.walker.activate()
+			var wk: CharacterBody3D = home_int.walker
+			for id in ["kerrossanky", "suihku", "wc", "peili", "sauna", "kahvi", "jaakaappi", "tv", "sohva", "nortti"]:
+				wk.position = home_int.SPOTS[id][0]
+				for i in 5:
+					await get_tree().physics_frame
+				var h: String = home_int.hint
+				await press.call("interact")
+				print("KOTI %s: '%s' -> '%s'" % [id, h, _msg.text.replace("\n", " ")])
+				if id == "nortti":
+					await shot.call("_nortti.png")
+			wk.position = home_int.SPOTS.takaovi[0]
+			for i in 5:
+				await get_tree().physics_frame
+			await press.call("interact")
+			var hb2 := walker_out.global_position
+			print("KOTI takaovesta: tila %s, takaovelta %.1f m, etuovelta %.1f m" % [state,
+				Vector2(hb2.x - home_back_door.x, hb2.z - home_back_door.z).length(), Vector2(hb2.x - home_door.x, hb2.z - home_door.z).length()])
+			await shot.call("_takapiha.png")
+			var bc := Camera3D.new()
+			add_child(bc)
+			var hf2 := M.HOME_YAW_DIR.normalized()
+			bc.look_at_from_position(home_back_door - Vector3(hf2.x, 0, hf2.y) * 7.0 + Vector3(0, 2.5, 0), home_back_door + Vector3(0, 1.0, 0))
+			bc.current = true
+			await shot.call("_takaovi_ulkoa.png")
+			bc.queue_free()
+			walker_out.activate_camera()
+			walker_out.global_position = home_back_door + Vector3(0, 0.3, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("KOTI takaovella: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("KOTI takaovesta sisään: tila %s" % state)
+			wk.position = home_int.SPOTS.sanky[0]
+			for i in 5:
+				await get_tree().physics_frame
+			var d0 := day
+			print("KOTI sängyllä: '%s'" % home_int.hint)
+			await press.call("interact")
+			for i in 30:
+				await get_tree().process_frame
+			print("KOTI nukuttu: päivä %d -> %d, tila %s" % [d0, day, state])
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()
