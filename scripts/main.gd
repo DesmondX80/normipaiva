@@ -6957,6 +6957,27 @@ func _maybe_screenshot() -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path)
 			get_tree().quit()
+		"mokkiviina":
+			# Viinakätköjen etäisyys lähimpään rakennukseen (negatiivinen = sisällä) ja korkeus maasta.
+			var data: Dictionary = Mokki.map_data()
+			var vp: Array[Vector2] = Mokki.viina_positions()
+			for i in vp.size():
+				var p: Vector2 = vp[i]
+				var best := INF
+				for bd in data.buildings:
+					var poly: PackedVector2Array = bd.poly
+					if poly.size() < 3:
+						continue
+					var d := INF
+					for k in poly.size():
+						var c := Geometry2D.get_closest_point_to_segment(p, poly[k], poly[(k + 1) % poly.size()])
+						d = minf(d, p.distance_to(c))
+					if Geometry2D.is_point_in_polygon(p, poly):
+						d = -d
+					best = minf(best, d)
+				var e := 1.5
+				var sl := rad_to_deg(atan(Vector2(Mokki.h(p.x + e, p.y) - Mokki.h(p.x - e, p.y), Mokki.h(p.x, p.y + e) - Mokki.h(p.x, p.y - e)).length() / (2.0 * e)))
+				print("VIINA %d %s: lähin rakennus %.1f m, rinne %.0f°" % [i, p, best, sl])
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()

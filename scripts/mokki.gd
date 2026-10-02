@@ -479,6 +479,22 @@ static func _build_mask() -> void:
 
 
 static var _viina_pos: Array[Vector2] = []
+const VIINA_WALL_GAP := 6.0  # kätkö vähintään näin kauas rakennuksen seinästä (ei rakennuksen sisään)
+
+
+## Onko piste rakennuksen sisällä tai alle margin m päässä sen seinästä (oikea pohjapiirros, ei vain keskipiste:
+## pitkä rakennus ulottuu _maskin 14 m säteen yli).
+static func _near_building(p: Vector2, margin: float) -> bool:
+	for bd in map_data().buildings:
+		var poly: PackedVector2Array = bd.poly
+		if poly.size() < 3:
+			continue
+		if Geometry2D.is_point_in_polygon(p, poly):
+			return true
+		for k in poly.size():
+			if p.distance_to(Geometry2D.get_closest_point_to_segment(p, poly[k], poly[(k + 1) % poly.size()])) < margin:
+				return true
+	return false
 
 
 ## Viinakätköjen paikat (paikallinen x/z, VIINA-järjestyksessä): metsää, ei vettä, peltoa, suota, teitä eikä pihoja.
@@ -499,7 +515,7 @@ static func viina_positions() -> Array[Vector2]:
 			continue
 		if pow((p.x - YARD_CENTER.x) / YARD_R.x, 2.0) + pow((p.y - YARD_CENTER.y) / YARD_R.y, 2.0) < 2.0:
 			continue
-		var ok := true
+		var ok := not _near_building(p, VIINA_WALL_GAP)
 		for b in data.bogs:
 			if Geometry2D.is_point_in_polygon(p, b):
 				ok = false
