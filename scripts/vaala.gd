@@ -14,6 +14,10 @@ const TIE := "res://assets/vaala/tie.json"
 const MAASTO := "res://assets/vaala/maasto.bin"
 const TREES := "res://assets/vaala/puut.bin"
 const Forest := preload("res://scripts/forest.gd")
+## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
+## mökin omilla rakennusfunktioilla (mokki.gd ladataan ajonaikaisesti: mokki.gd -> mopo.gd -> vaala.gd).
+const MOKKI_PATH := "res://scripts/mokki.gd"
+const MOKKI_CLEAR_R := 45.0  # tämän säteen OSM-rakennukset jätetään pois mökin kohdalta
 
 enum { FOREST, FIELD, BOG, WATER, YARD, SHOULDER, ROAD, RAIL }
 const OUTSIDE := 255
@@ -38,6 +42,9 @@ var siitari_park := Vector3.ZERO
 var siitari_yaw := 0.0       # ovelta ulos
 var water_level := 118.0
 var built := false
+## Mopo parkissa mökin takana kuten mökillä (paikallinen) ja sen suunta: mopomatka alkaa tästä.
+var mokki_mopo := Vector3.ZERO
+var mokki_mopo_yaw := 0.0
 
 var _nx := 0
 var _nz := 0
@@ -180,6 +187,7 @@ func ensure_built() -> void:
 	_build_lamps()
 	_build_atm()
 	_build_lava()
+	_build_mokki_yard()
 	print("VAALA rakennettu %d ms" % (Time.get_ticks_msec() - t0))
 
 
@@ -982,6 +990,11 @@ func _build_buildings() -> void:
 		if pts.size() < 3:
 			continue
 		var id: int = bd.id
+		var cen := Vector2.ZERO
+		for q in pts:
+			cen += q
+		if (cen / pts.size()).distance_to(_mokki_c()) < MOKKI_CLEAR_R:
+			continue  # mökin pihapiiri tehdään mökin malleilla (_build_mokki_yard)
 		if id == SIITARI_ID:
 			_build_siitari(pts, body)
 			continue
@@ -1607,4 +1620,79 @@ func _build_lamps() -> void:
 		B.tube(self, at + Vector3(0, 7.4, 0), head, 0.05, Color(0.5, 0.52, 0.55))
 		B.mesh(self, B.boxm(Vector3(0.6, 0.12, 0.3)), head, Color(0.85, 0.85, 0.8))
 
+
+# --- Mökin pihapiiri (mopomatkan lähtö) -----------------------------------------------------------------------
+
+## Mökin paikallisen kehyksen origo Vaalan kehyksessä (molemmat mitataan mökin osoitepisteestä, x itään, z etelään).
+func _mokki_c() -> Vector2:
+	return load(MOKKI_PATH).YARD_C
+
+
+## Mökki, savusauna, kesäkeittiö, palju ja huussi mökin omilla rakennusfunktioilla oikealle paikalleen ja
+## kiertoon (mokki.gd YARD_C, YARD_ROT_DEG), Vaalan maaston korkeudelle. Pihan männyt ja ympärille männikkö
+## (Vaalan puudatassa pihan ympärys on niittyä), piha hiekkaa. Mopo lähtee mökin takaa samasta paikasta.
+func _build_mokki_yard() -> void:
+	var MokkiScript: GDScript = load(MOKKI_PATH)
+	var yard := Node3D.new()
+	yard.name = "MokinPiha"
+	var c: Vector2 = MokkiScript.YARD_C
+	var rot := -deg_to_rad(MokkiScript.YARD_ROT_DEG)
+	yard.position = Vector3(c.x, 0, c.y)
+	yard.rotation.y = rot
+	add_child(yard)
+	var to_vaala := func(lp: Vector3) -> Vector3:
+		var m: Vector2 = MokkiScript.to_map2(Vector2(lp.x, lp.z))
+		return Vector3(m.x, h(m.x, m.y), m.y)
+	# Hiekkapiha mökin, saunan ja kesäkeittiön ympärillä (maaston myötäinen soikio).
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var mid := Vector3(-2.0, 0, 6.0)
+	var n := 28
+	for i in n:
+		var a0 := TAU * i / n
+		var a1 := TAU * (i + 1) / n
+		for lp in [mid, mid + Vector3(cos(a0) * 19.0, 0, sin(a0) * 17.0), mid + Vector3(cos(a1) * 19.0, 0, sin(a1) * 17.0)]:
+			var g: Vector3 = to_vaala.call(lp)
+			st.add_vertex(Vector3(lp.x, g.y + 0.05, lp.z))
+	st.generate_normals()
+	var sand := MeshInstance3D.new()
+	sand.mesh = st.commit()
+	sand.material_override = _ground_mat(Color(0.58, 0.52, 0.38), Color(0.7, 0.63, 0.47), 0.06, 1.2)
+	yard.add_child(sand)
+	# Rakennukset: mökin rakennusfunktiot lisäävät lapset y = 0 -tasoon, nostetaan Vaalan maastoon.
+	var rep: Node3D = MokkiScript.new()
+	rep.set_process(false)
+	yard.add_child(rep)
+	for f in ["_build_cottage", "_build_savusauna", "_build_summer_kitchen", "_build_hottub", "_build_huussi", "_build_ladder"]:
+		rep.call(f)
+	for ch in rep.get_children():
+		if ch is Node3D:
+			var g: Vector3 = to_vaala.call((ch as Node3D).position)
+			(ch as Node3D).position.y += g.y
+	# Männyt: pihan omat ja ympärille rengas männikköä, ei tielle eikä veteen.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1762
+	var trees: Array = []
+	for tp in MokkiScript.YARD_PINES:
+		var g: Vector3 = to_vaala.call(Vector3(tp.x, 0, tp.y))
+		trees.append({"pos": Vector3(tp.x, g.y, tp.y), "h": rng.randf_range(9.5, 13.5), "sp": Forest.PINE})
+	for i in 1400:  # mökin männikön tiheys (n. puu / 20 m²)
+		var a := rng.randf() * TAU
+		var r := sqrt(rng.randf_range(24.0 * 24.0, 110.0 * 110.0))
+		var lp := Vector3(cos(a) * r, 0, sin(a) * r + 6.0)
+		var g: Vector3 = to_vaala.call(lp)
+		var code := code_at(g.x, g.z)
+		if code in [ROAD, SHOULDER, WATER, OUTSIDE] or g.y < water_level + 0.5:
+			continue
+		var ni: Array = nearest(g)
+		if ni[0] >= 0 and ni[1] < float(road[ni[0]][4]) + 4.0:
+			continue
+		trees.append({"pos": Vector3(lp.x, g.y, lp.z), "h": rng.randf_range(10.0, 17.0), "sp": Forest.PINE})
+	var forest := Forest.new()
+	forest.name = "PihanMannikko"
+	yard.add_child(forest)
+	forest.load_list(trees)
+	# Mopon lähtöpaikka: sama kuin mökin parkkipaikka (mokki.gd _build_mopo: kierto PI * 0.9 mökin kehyksessä).
+	mokki_mopo = to_vaala.call(MokkiScript.MOPO_LOCAL)
+	mokki_mopo_yaw = PI * 0.9 + rot
 
