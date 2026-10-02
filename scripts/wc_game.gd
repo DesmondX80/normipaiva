@@ -215,7 +215,7 @@ func _finish() -> void:
 	var ended: bool = (mode == "ykkonen" and _total >= PEE_TIME - 0.05) or (mode == "kakkonen" and _phase == "paper" and _sheets > 0)
 	if ended:
 		if flush:
-			Sfx.play("water", -2.0, 0.55)  # vesi vedetään
+			Sfx.play("water", -2.0, 0.55, 2.5)  # vesi vedetään
 		else:
 			Sfx.play("door_close", -6.0, 1.3)  # huussin luukku kiinni
 	var res := {}
