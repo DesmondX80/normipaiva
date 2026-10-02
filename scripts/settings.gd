@@ -6,6 +6,10 @@ signal changed
 
 const PATH := "user://settings.cfg"
 const QUALITY := ["Erittäin matala", "Matala", "Keski", "Korkea"]
+## Näkyvyysetäisyys (m): kameran kaukoraja ja usva. Lyhyt etäisyys karsii kaukaisen maiseman piirtämisen kokonaan
+## (maasto, talot, puut), mikä keventää eniten heikoilla näytönohjaimilla; usva peittää rajan.
+const VIEW_NAMES := ["Lyhyt (200 m)", "Keski (350 m)", "Pitkä (550 m)", "Täysi (900 m)"]
+const VIEW_DIST := [200.0, 350.0, 550.0, 900.0]
 ## Grafiikkamoottori valitaan ennen kuin skriptit ajetaan, joten se tallennetaan user://override.cfg:hen
 ## (project.godot: application/config/project_settings_override) ja vaihtuu uudelleenkäynnistyksessä.
 const OVERRIDE := "user://override.cfg"
@@ -17,6 +21,7 @@ var values := {
 	"vsync": true,
 	"quality": 3,  # 0 erittäin matala (ei auringon varjoja), 1 matala, 2 keski, 3 korkea
 	"render_scale": 1.0,
+	"view_distance": 3,  # VIEW_NAMES-indeksi
 	"fov": 70.0,
 	"show_fps": false,
 	"show_guides": false,  # leijuvat paikkojen ja hahmojen nimet (B.guide)
@@ -92,6 +97,11 @@ func save() -> void:
 		cfg.set_value("settings", k, values[k])
 	cfg.set_value("settings", "quality_levels", QUALITY.size())
 	cfg.save(PATH)
+
+
+## Kameran kaukoraja valitulle näkyvyysetäisyydelle.
+func view_far() -> float:
+	return VIEW_DIST[clampi(int(values.view_distance), 0, VIEW_DIST.size() - 1)]
 
 
 func apply() -> void:

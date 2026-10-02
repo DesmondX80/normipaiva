@@ -72,6 +72,7 @@ func update_camera(cam: Camera3D, target: Node3D, eye: Vector3, dist: float, hei
 		delta: float, snap := false, shake := Vector3.ZERO) -> void:
 	var heading := target.global_rotation.y
 	cam.fov = Settings.get_v("fov")
+	cam.far = Settings.view_far()
 	if not Settings.get_v("mouse_look") and not Touch.active:
 		yaw = lerp_angle(yaw, 0.0, 1.0 - exp(-4.0 * delta))
 		pitch = lerpf(pitch, 0.0 if fps else -0.12, 1.0 - exp(-4.0 * delta))

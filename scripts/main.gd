@@ -5128,6 +5128,10 @@ func _apply_settings() -> void:
 	_sun.directional_shadow_max_distance = [70.0, 70.0, 120.0, 180.0][q]
 	_sun.shadow_blur = [0.5, 0.5, 1.0, 1.5][q]
 	world.set_quality(q)
+	# Näkyvyysetäisyys: usva ja kameran kaukoraja (cam_ctl.gd) yhdessä; täydellä 900 m on entiset 90–700 m.
+	var far: float = Settings.view_far()
+	_env.fog_depth_begin = 90.0 * far / 900.0
+	_env.fog_depth_end = 700.0 * far / 900.0
 	_fps_label.visible = Settings.get_v("show_fps")
 	get_tree().call_group(B.GUIDES, "set_visible", Settings.get_v("show_guides"))
 
@@ -7353,6 +7357,19 @@ func _maybe_screenshot() -> void:
 			menu._settings("sub_main")
 			for i in 10:
 				await get_tree().process_frame
+			var wk: Button = null
+			for b in menu.find_children("*", "Button", true, false):
+				if (b as Button).text.begins_with("Heikko kone"):
+					wk = b
+			print("ASETUKSET ennen: laatu=%d skaala=%.1f etäisyys=%d" % [Settings.get_v("quality"), Settings.get_v("render_scale"), Settings.get_v("view_distance")])
+			if wk != null:
+				wk.pressed.emit()
+			for i in 10:
+				await get_tree().process_frame
+			print("ASETUKSET jälkeen: laatu=%d skaala=%.1f etäisyys=%d usva_loppu=%.0f kaukoraja=%.0f" % [Settings.get_v("quality"),
+				Settings.get_v("render_scale"), Settings.get_v("view_distance"), _env.fog_depth_end, Settings.view_far()])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_asetukset.png"))
 		"kotaplay":
 			# Koko ketju: sahaa, pilko, sytytä, kuuntele tarina. Tulostaa tilat.
 			_toggle_mount()
@@ -7919,6 +7936,58 @@ func _maybe_screenshot() -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%d.png" % int(dist * 10)))
 				pekka.say(PEKKA_LINES[3] + " " + PEKKA_LINES[1])
+		"fpsmitta":
+			# Kuvataajuus eri asetuksilla (kodin edessä, katse Järvikujaa pitkin). Tallennetut asetukset palautetaan.
+			var keep := {}
+			for k in ["quality", "render_scale", "view_distance"]:
+				keep[k] = Settings.get_v(k)
+			_note.hide()
+			await get_tree().create_timer(2.0).timeout
+			var cfgs := [["täysi laatu, 100 %, täysi etäisyys", 3, 1.0, 3], ["erittäin matala, 50 %, täysi etäisyys", 0, 0.5, 3],
+				["erittäin matala, 50 %, keski 350 m", 0, 0.5, 1], ["erittäin matala, 50 %, lyhyt 200 m", 0, 0.5, 0],
+				["erittäin matala, 100 %, lyhyt 200 m", 0, 1.0, 0], ["täysi laatu, 100 %, lyhyt 200 m", 3, 1.0, 0]]
+			for c in cfgs:
+				Settings.set_v("quality", c[1])
+				Settings.set_v("render_scale", c[2])
+				Settings.set_v("view_distance", c[3])
+				await get_tree().create_timer(1.5).timeout
+				var f0 := Engine.get_process_frames()
+				var t0 := Time.get_ticks_msec()
+				await get_tree().create_timer(4.0).timeout
+				var fps := float(Engine.get_process_frames() - f0) / ((Time.get_ticks_msec() - t0) / 1000.0)
+				var vp: RID = get_viewport().get_viewport_rid()
+				print("FPS %5.1f  %s | kutsuja %d, kolmioita %d, kohteita %d | prosessi %.1f ms, fysiikka %.1f ms" % [fps, c[0],
+					RenderingServer.viewport_get_render_info(vp, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME),
+					RenderingServer.viewport_get_render_info(vp, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME),
+					RenderingServer.viewport_get_render_info(vp, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME),
+					Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0])
+			for k in keep:
+				Settings.set_v(k, keep[k])
+		"fpsosat":
+			# Mikä kuluttaa aikaa: laatu 0 / 50 % / 200 m, sitten kutakin pääsolmua vuorotellen pois päältä (prosessi + fysiikka).
+			Settings.set_v("quality", 0)
+			Settings.set_v("render_scale", 0.5)
+			Settings.set_v("view_distance", 0)
+			_note.hide()
+			var measure := func(label: String) -> void:
+				await get_tree().create_timer(0.8).timeout
+				var f0 := Engine.get_process_frames()
+				var t0 := Time.get_ticks_msec()
+				await get_tree().create_timer(2.5).timeout
+				print("FPS %5.1f  %s" % [float(Engine.get_process_frames() - f0) / ((Time.get_ticks_msec() - t0) / 1000.0), label])
+			await measure.call("perus")
+			for ch in _hazards.get_children():
+				var was_pm: int = ch.process_mode
+				ch.process_mode = Node.PROCESS_MODE_DISABLED
+				await measure.call("hazards pois: %s (%s)" % [ch.name, ch.get_script().resource_path.get_file() if ch.get_script() else ch.get_class()])
+				ch.process_mode = was_pm
+			for ch in get_children():
+				if not (ch is Node3D or ch is Control or ch is CanvasLayer) or ch == player or ch is Camera3D or ch is WorldEnvironment or ch is DirectionalLight3D:
+					continue
+				var was: int = ch.process_mode
+				ch.process_mode = Node.PROCESS_MODE_DISABLED
+				await measure.call("pois: %s (%s, %d lasta)" % [ch.name, ch.get_script().resource_path.get_file() if ch.get_script() else ch.get_class(), ch.get_child_count()])
+				ch.process_mode = was
 		"pitkalappu":
 			# Pitkä lappu: kaikki päivän muistutukset kerralla; lapun pitää mahtua kokonaan ruudulle.
 			var many := ["Jemmassa 4 kaljaa.", "Varoitus: Päivi voi löytää täyden kotijemman!",
