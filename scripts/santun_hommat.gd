@@ -1,7 +1,7 @@
 extends RefCounted
 ## Santun hommat: kun mökillä on oltu yksi yö, isäntä Santtu alkaa antaa päivän hommia (mökin aamulappu).
 ## Joka aamu arvotaan HOMMIA_N hommaa ja Santun hermot (0–100) alkavat kiristyä sitä nopeammin, mitä enemmän
-## hommia on tekemättä. Tehty homma rauhoittaa. Täysillä hermoilla tulee lähtö: taksi kotiin ja yhden
+## hommia on tekemättä. Tehty homma rauhoittaa. Täysillä hermoilla tulee lähtö: Pekan kyydillä kotiin ja yhden
 ## tähden arvostelu. Kaikki tehty: palkinto ja viiden tähden arvostelu. Pelilogiikka main.gd:ssä (_hommat_*).
 ## Santtu tulee paikalle kommentoimaan jokaista hommaa (mokki.gd santtu_visit, minipeleissä katsojana).
 
@@ -154,12 +154,12 @@ const LINES := {
 const HERMO_LINES := [
 	["Joko ne hommat alkaa? Mää kattelen täältä.", "Superhost en oo ilmaseks.", "Hommat ei tee itteään."],
 	["Kahvikin loppu, ku joku vaan makoilee.", "Tää ei oo mikään hotelli. Hommiin!", "Mää alan kohta hermostua."],
-	["Viimenen varotus: hommat tehdään tai lähetään!", "Taksi on yhen puhelun päässä!", "Mää soitan kohta Päiville."],
+	["Viimenen varotus: hommat tehdään tai lähetään!", "Pekka on yhen puhelun päässä!", "Mää soitan kohta Päiville."],
 ]
 ## Santun arvostelut (tähdet -> teksti).
 const REVIEWS := {
 	1: ["Vieras ei tehnyt mitään. Makoili ja söi jääkaapin tyhjäksi. Ei suositella.",
-		"Laiskin vieras viiteen vuoteen. Taksi tuli ja lähti.", "Hommat jäi tekemättä. Superhost suosittelee kotiin jäämistä."],
+		"Laiskin vieras viiteen vuoteen. Pekka tuli hakemaan.", "Hommat jäi tekemättä. Superhost suosittelee kotiin jäämistä."],
 	3: ["Teki osan hommista, loput jäi. Ihan kelpo vieras.", "Hommat puolittain tehty. Kahvit juotiin."],
 	5: ["Paras vieras ikinä! Teki kaikki hommat ja vielä pyytämättä kehui savustinta.",
 		"Viisi tähteä! Huussi tyhjä, palju puhdas ja laituri kantaa.", "Tervetuloa uudestaan! Mökki on paremmassa kunnossa ku ennen."],
@@ -183,7 +183,7 @@ var tasks: Array = []  # päivän hommat (id:t)
 var done: Array = []
 var hermo := 0.0
 var active := false
-## Mökillä vietetyt yöt putkeen (taksi kotiin nollaa). Hommat alkavat ensimmäisen yön jälkeen.
+## Mökillä vietetyt yöt putkeen (kotiinlähtö nollaa). Hommat alkavat ensimmäisen yön jälkeen.
 var nights := 0
 var beer_used := false
 var snitched := false  # Santtu soitti jo tänään Päiville
@@ -191,7 +191,7 @@ var snitched := false  # Santtu soitti jo tänään Päiville
 var progress := {}
 ## Santun arvostelut: [{day, stars, text}]. Tallentuu.
 var reviews: Array = []
-## Häädetty mökiltä tänä päivänä (taksi ei vie takaisin ennen huomista).
+## Häädetty mökiltä tänä päivänä (Pekka ei vie takaisin ennen huomista).
 var banned_day := -1
 ## Eilisistä keskeneräisistä hommista jäi kaunaa: osa hermoista siirtyy seuraavaan päivään.
 var carry := 0.0

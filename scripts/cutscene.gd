@@ -562,6 +562,191 @@ func _build_taxi_road() -> Node3D:
 	return r
 
 
+# --- Pekan kyyti mökille ----------------------------------------------------------
+
+const RIDE_ROAD := Vector3(-6000, 0, -3000)
+const RIDE_LEN := 420.0
+const PEKKA_RIDE_LINES := ["Hyppää kyytiin perkele, mää oon menossa Neittävälle kyyhkyjahtiin!",
+	"Turvavyö? Ei tässä autossa oo saatanan turvavöitä.", "Kato, hirvi! ...Ei ollu. Kanto se oli, perkele.",
+	"Neittävän pelloilla on kyyhkyä ku vittu taivaan täydeltä!", "Sanoinko jo että ammuin neljätoista kyyhkyä?",
+	"Tästä Kaisuantielle. Terveisiä Santulle, perkele!"]
+const PEKKA_HOME_LINES := ["Yheksän kyyhkyä tuli, perkele. Kymmenes karkas metsään.",
+	"No, tuliko Santun hommat tehtyä vai motkottiko se taas, saatana?", "Päivi soitti mulle. Mää en sanonu mitään, perkele.",
+	"Ens kerralla lähetään yhessä jahtiin, vittu.", "Sanoinko jo että ammuin neljätoista kyyhkyä?",
+	"Kotipihaan asti, saatana. Tervemenoa Päivin luo."]
+const PEKKA_EVICT_LINES := ["Santtu soitti. Kuulemma hommat jäi tekemättä, perkele.", "Yhen tähen arvostelu? Voi vittu.",
+	"No, mää en kerro Päiville. Tai no, se kuulee kuitenkin.", "Kyyhkyjahti jäi kesken sun takia, saatana.",
+	"Sanoinko jo että ammuin neljätoista kyyhkyä?", "Kotipihaan asti. Mee nyt vaan sisälle, perkele."]
+
+
+## Pekan vanha vihreä Volvo-farmari: kattoteline, haulikkolaukku ja läpinäkyvät lasit, että kuski ja
+## kyytiläinen näkyvät. Palauttaa {"car", "pekka", "hero", "wheels"}.
+func _pekka_car(parent: Node3D) -> Dictionary:
+	var car := Node3D.new()
+	parent.add_child(car)
+	var wheels := Vehicles.car(car, Color(0.22, 0.3, 0.18), "PEK-14")
+	for c in car.get_children():
+		if c is MeshInstance3D and c.material_override == Vehicles.glass():
+			c.material_override = Vehicles.cab_glass()
+	var rack := Color(0.12, 0.12, 0.12)
+	for z in [-0.35, 0.85]:
+		B.box(car, Vector3(1.5, 0.05, 0.06), Vector3(0, 1.53, z), rack, false)
+	B.box(car, Vector3(0.28, 0.12, 1.6), Vector3(0.35, 1.62, 0.25), Color(0.3, 0.24, 0.12), false)  # haulikkolaukku
+	B.box(car, Vector3(0.55, 0.32, 0.9), Vector3(-0.35, 1.72, 0.25), Color(0.75, 0.3, 0.08), false)  # punkka kattotelineellä
+	var pekka := Looks.make(car, Looks.PEKKA)
+	pekka.position = Vector3(-0.4, 0.05, 0.1)
+	pekka.play("Driving", 0.0)
+	var hero := Looks.make(car, Looks.PLAYER)
+	Looks.add_cap(hero)
+	hero.position = Vector3(0.4, 0.05, 0.15)
+	hero.play("Sitting_Idle", 0.0)
+	var can := Node3D.new()
+	B.mesh(can, B.cyl(0.033, 0.033, 0.12, 12), Vector3(0, -0.02, 0), Color(0.8, 0.75, 0.2))
+	hero.attach("hand_r", can, Vector3(0, -0.02, 0.03))
+	return {"car": car, "pekka": pekka, "hero": hero, "wheels": wheels}
+
+
+## Kyyti naapurin Pekan kanssa Saloisista Vaalaan: kesäinen maantie peltojen, säilörehupaalien ja männikön
+## halki, Pekka puhuu kyyhkyistä. Kolme kuvaa: perästä, edestä tuulilasin läpi (Pekka ratissa, sankari
+## kalja kädessä) ja tienvarresta, kun auto kaartaa Neittävän kyltin ohi. done kutsutaan pimeällä.
+## kind: "meno" (Vaalaan), "koti" (kotiin Saloisiin) tai "haato" (Santtu soitti Pekan hakemaan).
+func pekka_ride(sub: String, done: Callable, kind := "meno") -> void:
+	var home := kind != "meno"
+	var lines: Array = PEKKA_RIDE_LINES if not home else (PEKKA_EVICT_LINES if kind == "haato" else PEKKA_HOME_LINES)
+	_begin()
+	Sfx.play("door_close", -3.0)
+	Sfx.music_play(0.8)
+	await _fade_to(1.0, 0.4)
+	var road := _build_ride_road("Raahe 108\nSaloinen 106" if home else "Vaala 12\nNeittävä 4", "SALOINEN" if home else "NEITTÄVÄ")
+	var rig := _pekka_car(road)
+	var car: Node3D = rig.car
+	var wheels: Array = rig.wheels
+	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
+	bubble.no_depth_test = true
+	_cam.current = true
+	_title.add_theme_color_override("font_color", Color(0.75, 0.95, 0.45))
+	_title.add_theme_font_size_override("font_size", 80)
+	const SEC := 12.0
+	const SPEED := 22.0
+	var t0 := Time.get_ticks_msec()
+	var faded := false
+	var honked := false
+	while Time.get_ticks_msec() - t0 < SEC * 1000.0:
+		var t := (Time.get_ticks_msec() - t0) / 1000.0
+		# Kevyt hölskyntä soratiellä ja pyörät pyörivät.
+		car.position = Vector3(sin(t * 0.7) * 0.25, absf(sin(t * 9.0)) * 0.02, -t * SPEED)
+		car.rotation.z = sin(t * 5.3) * 0.012
+		for w: Node3D in wheels:
+			w.rotation.x = -t * SPEED / 0.34
+		var tp := car.global_position
+		if t < 4.2:
+			# 1) Perästä viistosti: tie ja pellot aukeavat eteen.
+			var u := t / 4.2
+			_cam.global_position = tp + Vector3(lerpf(4.5, 2.6, u), lerpf(2.6, 1.9, u), lerpf(8.5, 6.8, u))
+			_cam.look_at(tp + Vector3(0, 0.9, -4.0), Vector3.UP)
+		elif t < 8.6:
+			# 2) Edestä tuulilasin läpi: Pekka ratissa, sankari kalja kädessä.
+			var u := (t - 4.2) / 4.4
+			_cam.global_position = car.to_global(Vector3(lerpf(1.6, 0.5, u), 1.45, -5.4 + u * 0.8))
+			_cam.look_at(car.to_global(Vector3(0.0, 1.2, 0.2)), Vector3.UP)
+		else:
+			# 3) Tienvarresta Neittävän kyltin vierestä: auto ohittaa ja töräyttää.
+			var post := RIDE_ROAD + Vector3(5.8, 1.1, -SPEED * 10.3)
+			_cam.global_position = post
+			_cam.look_at(tp + Vector3(0, 0.8, 0), Vector3.UP)
+			if not honked:
+				honked = true
+				Sfx.play("horn", -6.0)
+		bubble.global_position = tp + Vector3(-0.4, 2.4 if t < 4.2 or t >= 8.6 else 1.85, 0)
+		bubble.text = "Pekka: " + lines[mini(int(t / 2.0), lines.size() - 1)]
+		if not faded:
+			faded = true
+			_fade_to(0.0, 0.6)
+			_title.text = {"meno": "PEKAN KYYDILLÄ VAALAAN", "koti": "PEKAN KYYDILLÄ KOTIIN", "haato": "HÄÄTÖ MÖKILTÄ"}[kind]
+			_sub.text = sub
+		if t > 3.6 and t < 8.6:
+			_title.text = ""  # tuulilasikuvassa kasvot näkyviin
+			_band.visible = false
+		elif t >= 8.6:
+			_title.text = "SALOINEN" if home else "NEITTÄVÄ"
+		await get_tree().process_frame
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Kesäinen maantie Vaalaan: kapea asfaltti sorapientareineen, pellot ja säilörehupaalit, ladot, männikkö,
+## sähkölinja, Oulujärven sininen kaistale ja lopussa kylän nimikyltti (Neittävä tai kotimatkalla Saloinen).
+func _build_ride_road(guide: String, village: String) -> Node3D:
+	var r := Node3D.new()
+	r.position = RIDE_ROAD
+	_props.add_child(r)
+	var mid := -RIDE_LEN * 0.5 + 40.0
+	B.box(r, Vector3(600, 0.1, RIDE_LEN + 200), Vector3(0, -0.06, mid), Color(0.32, 0.46, 0.2), false)  # pellot
+	B.box(r, Vector3(9, 0.03, RIDE_LEN + 200), Vector3(0, -0.005, mid), Color(0.55, 0.5, 0.4), false)  # piennar
+	B.box(r, Vector3(6, 0.02, RIDE_LEN + 200), Vector3(0, 0.01, mid), Color(0.26, 0.26, 0.27), false)
+	for i in int((RIDE_LEN + 200) / 9.0):
+		B.box(r, Vector3(0.12, 0.01, 3.0), Vector3(0, 0.025, 60.0 - i * 9.0), Color(0.92, 0.88, 0.6), false)
+	for sx in [-2.85, 2.85]:
+		B.box(r, Vector3(0.1, 0.01, RIDE_LEN + 200), Vector3(sx, 0.025, mid), Color(0.9, 0.9, 0.86), false)
+	# Ojat ja viljapelto (kultaista) vasemmalla, nurmipelto paaleineen oikealla.
+	for sx in [-5.5, 5.5]:
+		B.box(r, Vector3(1.2, 0.02, RIDE_LEN + 200), Vector3(sx, -0.02, mid), Color(0.2, 0.3, 0.15), false)
+	B.box(r, Vector3(120, 0.04, RIDE_LEN * 0.6), Vector3(-67, 0.0, -90), Color(0.78, 0.68, 0.3), false)
+	var white := Color(0.93, 0.94, 0.92)
+	for i in 26:
+		var p := Vector3(randf_range(14, 70), 0.6, randf_range(-RIDE_LEN + 60, 40))
+		var bale := B.mesh(r, B.cyl(0.65, 0.65, 1.2, 16), p, white, Vector3(0, 0, PI / 2.0))
+		bale.rotation.y = randf() * TAU
+	# Punainen lato ja keltainen omakotitalo peltojen laidalla.
+	for spec in [[Vector3(-34, 0, -40), Color(0.6, 0.12, 0.08)], [Vector3(30, 0, -210), Color(0.62, 0.14, 0.1)],
+			[Vector3(-26, 0, -300), Color(0.9, 0.78, 0.35)]]:
+		var bp: Vector3 = spec[0]
+		B.box(r, Vector3(9, 4, 6), bp + Vector3(0, 2, 0), spec[1], false)
+		B.mesh(r, B.cyl(0.0, 5.6, 2.4, 4), bp + Vector3(0, 5.2, 0), Color(0.18, 0.18, 0.2), Vector3(0, PI / 4.0, 0))
+		for wx in [-2.5, 2.5]:
+			B.box(r, Vector3(1.0, 1.0, 0.05), bp + Vector3(wx, 2.4, 3.03), white, false)
+	# Männikkö ja kuusikko peltojen takana, välillä tien vieressä.
+	for i in 140:
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var near := i % 7 == 0
+		var x := side * (randf_range(9, 16) if near else randf_range(75, 160))
+		var z := randf_range(-RIDE_LEN - 40, 60)
+		var hgt := randf_range(9, 16)
+		if randf() < 0.5:
+			B.mesh(r, B.cyl(0.0, hgt * 0.22, hgt * 0.8, 7), Vector3(x, hgt * 0.5, z), Color(0.1, 0.24, 0.12))  # kuusi
+		else:
+			B.mesh(r, B.cyl(0.18, 0.25, hgt * 0.75, 6), Vector3(x, hgt * 0.37, z), Color(0.55, 0.32, 0.18))  # männyn runko
+			B.mesh(r, B.sphere(hgt * 0.2, 7), Vector3(x, hgt * 0.8, z), Color(0.16, 0.32, 0.14))
+	# Sähkölinja: puupylväät ja langat oikealla puolella.
+	var prev := Vector3.ZERO
+	for i in 12:
+		var p := Vector3(10.5, 0, 50.0 - i * 45.0)
+		B.box(r, Vector3(0.25, 9, 0.25), p + Vector3(0, 4.5, 0), Color(0.35, 0.25, 0.16), false)
+		B.box(r, Vector3(2.2, 0.15, 0.15), p + Vector3(0, 8.6, 0), Color(0.35, 0.25, 0.16), false)
+		if i > 0:
+			for wx in [-0.9, 0.9]:
+				B.tube(r, prev + Vector3(wx, 8.7, 0), p + Vector3(wx, 8.7, 0), 0.015, Color(0.1, 0.1, 0.1))
+		prev = p
+	# Oulujärven sininen selkä horisontissa ja Kaihuanvaaran siluetti.
+	B.box(r, Vector3(700, 0.05, 60), Vector3(0, 0.03, -RIDE_LEN - 70), Color(0.25, 0.42, 0.62), false)
+	for i in 6:
+		B.mesh(r, B.sphere(40.0 + i * 6.0, 10), Vector3(-260 + i * 100, -18, -RIDE_LEN - 190), Color(0.18, 0.3, 0.2))
+	# Tienviitat: VAALA 12 alussa ja Neittävän kylännimikyltti lopussa (kolmannen kuvan kamera sen vieressä).
+	var s1 := B.sign_pole(r, Vector3(4.6, 0, -30), 2.6)
+	var p1 := B.sign_plate(s1, guide, Color(0.1, 0.32, 0.65), Color.WHITE, 0.6, 44, Color.WHITE, "Helvetica Neue")
+	p1.position.y = 2.2
+	var s2 := B.sign_pole(r, Vector3(4.6, 0, -22.0 * 10.3 + 7.0), 2.6)  # kameran ja tulevan auton välissä
+	var p2 := B.sign_plate(s2, village, Color(0.1, 0.32, 0.65), Color.WHITE, 0.32, 44, Color.WHITE, "Helvetica Neue")
+	p2.position.y = 2.2
+	var sun_l := OmniLight3D.new()
+	sun_l.position = Vector3(0, 30, -150)
+	sun_l.light_color = Color(1.0, 0.95, 0.8)
+	sun_l.light_energy = 0.6
+	sun_l.omni_range = 400.0
+	r.add_child(sun_l)
+	return r
+
+
 # --- Autotalli ja karburaattori ---------------------------------------------------
 
 func garage(title: String, stats: String, done: Callable) -> void:
@@ -583,26 +768,6 @@ func garage(title: String, stats: String, done: Callable) -> void:
 		_cam.global_position = GARAGE_POS + Vector3(lerpf(3.2, 2.2, u), lerpf(1.9, 1.5, u), lerpf(5.4, 4.3, u))
 		_cam.look_at(GARAGE_POS + Vector3(0.6, 0.9, 1.4), Vector3.UP)
 		await get_tree().process_frame
-	await _end(done)
-	_title.add_theme_font_size_override("font_size", 150)
-
-
-# --- Taksi mökille ----------------------------------------------------------------
-
-## Lyhyt häivytys mustaan ja takaisin; done kutsutaan pimeällä (siirto tapahtuu silloin).
-## Taksimatka: otsikkonauha (oletus TAKSI) ja alateksti; mitä pidempi teksti, sitä kauemmin se näkyy.
-func taxi(sub: String, done: Callable, title := "TAKSI") -> void:
-	_begin()
-	Sfx.play("horn", -4.0)
-	await _fade_to(1.0, 0.45)
-	_band.visible = true
-	_title.add_theme_color_override("font_color", Color(0.96, 0.78, 0.08))
-	_title.add_theme_font_size_override("font_size", 90 if title.length() <= 8 else 64)
-	_title.text = title
-	_sub.text = sub
-	await _wait(1.5 + sub.count("\n") * 1.0 + (1.0 if title != "TAKSI" else 0.0))
-	_title.text = ""
-	_band.visible = false
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)
 
