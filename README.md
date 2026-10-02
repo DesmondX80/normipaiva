@@ -9,7 +9,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Kauppareissu:** kuutonen, grillimakkara ja tulitikut K-Marketista. Kassalla harmaapäät laskevat kolikoita.
   Kauppa on homma muiden joukossa: ei valosädettä eikä pakollista reittiä. Kauppaan mennään oven edestä (E)
   milloin vain, ja sinne voi palata uudestaan, paitsi kalja kädessä: silloin kauppias ovella kieltää Saloisten
-  tapaan. Kotiin mennään kotiovelta (E) tyhjin käsin, kun itse haluaa; päivä päättyy.
+  tapaan. Kotiin mennään etu- tai takaovesta (E) tyhjin käsin, kun itse haluaa.
+- **Koti sisältä:** etuovelta vasemmalla kaksi makuuhuonetta (kerrossänky ja parisänky), oikealla kylpyhuone
+  (suihku, pönttö, peili) ja sauna, suoraan edessä tupakeittiö (kahvit, jääkaappi, telkkari, nokoset sohvalla),
+  joka jatkuu vasemmalle nörtin huoneeseen (kolme näyttöä, raidi kesken). Tupakeittiöstä etuovea vastapäätä
+  takaovi takapihalle. Päivä päättyy vasta, kun menee nukkumaan parisänkyyn.
   Kylän teillä on liikennettä: henkilöautoja ja pakettiautoja, maanteillä kovempaa kuin asuinkaduilla. Autot
   pysyvät pelaajan ympärillä, ajavat jonossa toistensa (ja Päivin) perässä ja jarruttavat pelaajalle, mutta
   pysähtymismatka on pitkä. Arto asuu heti kodin vasemmalla puolella ja Pekka Lehtikujan päässä.

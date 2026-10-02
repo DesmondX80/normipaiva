@@ -70,7 +70,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif _mode == "sub_pause":
 				open_pause()
 			get_viewport().set_input_as_handled()
-		elif game != null and game.state in ["to_shop", "to_home", "in_shop", "in_mokki", "minigame"] and not game._paper.visible \
+		elif game != null and game.state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_home", "minigame"] and not game._paper.visible \
 				and not game._inventory.visible:
 			open_pause()
 			get_viewport().set_input_as_handled()
