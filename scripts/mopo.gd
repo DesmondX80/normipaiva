@@ -23,6 +23,7 @@ var controls_enabled := true
 ## Humala (0…1, main.gd:n tilat): mopo vaeltaa, ohjaus laahaa ja ylireagoi, välillä tanko nykäisee. Kännissä
 ## ojaan tai estettä päin kovaa ajettaessa mopo kaatuu (crashed).
 var drunk := 0.0
+var surface := "asphalt"  # main.gd:n tilat (lepo luonnossa): mopo on aina tiellä
 var fallen := false  # kaatunut: malli kyljellään
 var vaala: Node3D  # vaala.gd (paikallinen kehys = mopo_trip.gd:n kehys)
 
@@ -73,6 +74,15 @@ func _ready() -> void:
 	_engine.volume_db = -12.0
 	add_child(_engine)
 	_engine.play()
+
+
+## Samat kutsut kuin pyörällä ja jalan (main.gd:n player-logiikka): kumossa = tainnoksissa, kaljat tarakalla.
+func is_stunned() -> bool:
+	return fallen
+
+
+func set_carrying(_on: bool) -> void:
+	pass
 
 
 func activate_camera() -> void:

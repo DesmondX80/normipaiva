@@ -20,7 +20,6 @@ const VAALA_TIE := "res://assets/vaala/tie.json"
 const MOKKI_DETAIL_R := 480.0
 const VZOOM_MAX := 4.0  # px/m
 ## Mopomatkan tilat (main.gd state), joissa näytetään Neittävä–Vaala-kartta.
-const VAALA_STATES := ["mopo", "in_siitari", "lava"]
 
 var world: Node3D
 var player: Node3D
@@ -605,14 +604,14 @@ func _draw_map() -> void:
 func _vaala_mode() -> bool:
 	if game == null:
 		return false
-	if game.state in VAALA_STATES or (game.state == "in_shop" and game._shop_vaala):
+	if game._in_vaala:
 		return true
 	return game._at_mokki()
 
 
 func _vaala_trip() -> bool:
 	return mopo_trip != null and mopo_trip.mopo != null and \
-		(game.state in VAALA_STATES or (game.state == "in_shop" and game._shop_vaala))
+		(game._in_vaala)
 
 
 ## Pelaajan paikka ja suunta kartan kehyksessä: mopolla (tai sen luona sisällä) mopon paikka, mökillä mökin
