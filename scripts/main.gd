@@ -8278,6 +8278,34 @@ func _maybe_screenshot() -> void:
 			await get_tree().process_frame
 			Input.action_release("interact")
 			print("STASH laavu=", stash_laavu, " beers=", beers)
+		"carbump":
+			# Hiljaa tuleva auto tönäisee (ei hit-signaalia), lujaa tuleva tappaa (hit-signaali).
+			_toggle_mount()
+			for i in 10:
+				await get_tree().physics_frame
+			for c in [[5.0, 3.5], [16.0, 4.0]]:
+				var hits := [0]
+				var stunned := false
+				var car := TrafficCar.new()
+				car.cruise = c[0]
+				car.lane = 0.0
+				car.target_fn = func() -> Node3D: return walker_out
+				car.hit.connect(func() -> void: hits[0] += 1)
+				add_child(car)
+				var wp := walker_out.global_position
+				var pts := []
+				for k in 41:
+					var x := wp.x - 40.0 + k * 2.0
+					pts.append(Vector3(x, Terrain.h(x, wp.z), wp.z))
+				car.setup_line(pts, (40.0 - c[1]) / 2.0, 1)
+				for i in 90:
+					await get_tree().physics_frame
+					stunned = stunned or walker_out.is_stunned()
+				print("CARBUMP cruise=", c[0], " hits=", hits[0], " stunned=", stunned)
+				car.queue_free()
+				for i in 120:
+					await get_tree().physics_frame
+				walker_out.global_position = wp
 		"startcheck":
 			# Oikea käynnistys (kuvan nimi *menu.png ohittaa testitilan): tallennettu pyörä, valikosta jatkoon, kävely.
 			menu.close()

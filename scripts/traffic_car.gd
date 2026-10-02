@@ -1,7 +1,8 @@
 extends CharacterBody3D
 ## Liikenteen auto: ajaa oikeaa kaistaa joko kylän tieverkossa (setup_graph, satunnaiset käännökset risteyksissä)
 ## tai Vaalan mopomatkan tiellä (setup_line, tien näytteitä pitkin). Jarruttaa, kun pelaaja on edessä, mutta
-## pysähtymismatka on pitkä: eteen hyppäävä jää alle (hit-signaali, kun auto osuu vauhdissa).
+## pysähtymismatka on pitkä: eteen hyppäävä jää alle (hit-signaali, kun auto osuu kovassa vauhdissa).
+## Hiljaa liikkuva auto vain tönäisee pelaajan kumoon (stun), eikä siihen kuole.
 ## Pitää välimatkan edellä samaan suuntaan ajavaan (ryhmä "liikenne", myös Päivin auto): jonot eivät ajele
 ## toistensa läpi. Kylässä nopeus tien mukaan: maantiellä kovempaa kuin asuinkadulla (setup_graph fast).
 
@@ -14,7 +15,8 @@ const COLORS := [Color(0.85, 0.85, 0.87), Color(0.08, 0.08, 0.1), Color(0.15, 0.
 const VAN_COLORS := [Color(0.92, 0.92, 0.9), Color(0.85, 0.85, 0.87), Color(0.12, 0.2, 0.42), Color(0.55, 0.12, 0.1)]
 const LOOK := 16.0      # jarrutusetäisyys edessä
 const BRAKE := 7.0
-const HIT_SPEED := 3.0  # tätä kovempaa osuessa pelaaja kuolee
+const HIT_SPEED := 8.0   # tätä kovempaa osuessa pelaaja kuolee (~29 km/h)
+const BUMP_SPEED := 1.0  # tätä kovempaa (mutta alle HIT_SPEED) auto tönäisee pelaajan kumoon
 const GROUP := "liikenne"
 const FOLLOW_LOOK := 22.0  # edellä ajavan huomioiminen
 const FOLLOW_GAP := 7.0    # pysähtyy tähän etäisyyteen (keskipisteiden väli)
@@ -102,8 +104,12 @@ func _physics_process(delta: float) -> void:
 				Sfx.play_on(self, "horn", 0.0, randf_range(0.9, 1.1))
 				_honk_t = randf_range(1.5, 2.5)
 		# Osuma: pelaaja auton ääriviivojen sisällä ja auto liikkuu.
-		if absf(_speed) > HIT_SPEED and ahead > -2.4 and ahead < 2.6 and side < 1.25:
-			hit.emit()
+		if absf(_speed) > BUMP_SPEED and ahead > -2.4 and ahead < 2.6 and side < 1.25:
+			if absf(_speed) > HIT_SPEED:
+				hit.emit()
+			elif tgt.has_method("stun") and not tgt.is_stunned():
+				tgt.stun(to.normalized() if to.length() > 0.1 else fwd)
+				Sfx.play_on(self, "horn", 0.0, 0.8)
 			_speed = 0.0
 	want = minf(want, _follow_speed(fwd))
 	_speed = move_toward(_speed, want, (BRAKE if want < _speed else 3.0) * delta)
