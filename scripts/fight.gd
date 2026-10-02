@@ -119,8 +119,12 @@ func _make_foe(key: String) -> void:
 	_bar_j.max_value = foe.hp
 
 
-func start(beer_count: int, foe_key := "juntti") -> void:
+## player_hp ja player_dmg: päivän tilojen vaikutus pelaajaan (main.gd _start_fight).
+func start(beer_count: int, foe_key := "juntti", player_hp := 100.0, player_dmg := 1.0) -> void:
 	_make_foe(foe_key)
+	_p.max_hp = player_hp
+	_p.dmg_mult = player_dmg
+	_bar_p.max_value = player_hp
 	beers = beer_count
 	active = true
 	_bags_used = 0
@@ -135,7 +139,7 @@ func start(beer_count: int, foe_key := "juntti") -> void:
 	_wave_cd = 2.0
 	_announce.text = "ROUND 1"
 	_bar_j.value = foe.hp
-	_bar_p.value = 100.0
+	_bar_p.value = player_hp
 	_say(_bubble_j, _j, foe.intro.pick_random())
 	_update_help()
 	_layer.visible = true

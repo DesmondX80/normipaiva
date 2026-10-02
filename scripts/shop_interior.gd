@@ -65,6 +65,8 @@ var has_beer := false
 var has_paid := false
 var stolen := false  # juoksukaljat: rahat ei riittäneet, kaljat ja viinat vietiin maksamatta
 var cart := {}  # grillituotteet: avain -> hinta
+## Moraali-tilan palkinto/haitta (main.gd _stat_effects): kassan loppusumman kerroin (0,9 / 1,1).
+var price_mult := 1.0
 var bag := {}  # Päivin hyllyn tuotteet: tuote -> väri
 var _sel := {}  # lokeron valittu väri: tuote -> värin indeksi
 var _items := {}  # tuote -> väri -> MeshInstance3D (valittu nostetaan esiin)
@@ -212,6 +214,10 @@ func _process(delta: float) -> void:
 	elif not has_paid and in_queue and _queue.is_empty():
 		var total := _total()
 		hint = "[E] Maksa %s €" % _eur(total)
+		if price_mult < 1.0:
+			hint += "  (hyvä mieli: kassa antaa −10 %)"
+		elif price_mult > 1.0:
+			hint += "  (nyrpeä naama: +10 %)"
 		if e:
 			if total > money + 0.001 and not cart.is_empty():
 				cart.clear()
@@ -324,7 +330,7 @@ func _total() -> float:
 	var t := BEER_PRICE if has_beer else 0.0
 	for k in cart:
 		t += cart[k]
-	return t
+	return snappedf(t * price_mult, 0.01)
 
 
 func _eur(v: float) -> String:

@@ -7,6 +7,7 @@ const Mokki := preload("res://scripts/mokki.gd")
 
 const SIZE_PX := 210.0
 const RANGE := 320.0  # metriä keskeltä reunaan
+const FAR_RANGE := 450.0  # vireys-tilan palkinto (main.gd _stat_effects): tutka näkee kauemmas
 const MOKKI_RANGE := 90.0  # mökin tutka on lähempänä tarkka, koska tasku on pieni
 const MOKKI_SHOW_DIST := 650.0  # etäisyys mökin keskeltä, jolloin tutka vaihtaa mökin lähikarttaan
 
@@ -37,6 +38,11 @@ var _village_origin := Vector2.ZERO  # tekstuurin vasen yläkulma maailman metre
 var _mokki_tex: Texture2D
 var _mokki_origin := Vector2.ZERO  # tekstuurin vasen yläkulma mökin karttametreinä (Mokki.to_map2)
 var _mokki_building := false
+## Tutkan säde (RANGE tai FAR_RANGE).
+var range_m := RANGE:
+	set(v):
+		range_m = v
+		_k = (SIZE_PX / 2.0) / v
 var _k := (SIZE_PX / 2.0) / RANGE
 var _center := Vector2.ONE * SIZE_PX / 2.0
 var _origin := Vector2.ZERO  # pelaajan paikka metreinä
@@ -69,10 +75,10 @@ func _pts(arr: Array) -> PackedVector2Array:
 	return out
 
 
-## Kylän staattinen kartta tekstuuriksi (kerran käynnistyksessä): kattaa koko pelialueen ja reunalle RANGE + 10 m
+## Kylän staattinen kartta tekstuuriksi (kerran käynnistyksessä): kattaa koko pelialueen ja reunalle FAR_RANGE + 10 m
 ## marginaalin, jotta leike ei koskaan ulotu tekstuurin ulkopuolelle.
 func _bake_village() -> void:
-	var pad := RANGE + 10.0
+	var pad := FAR_RANGE + 10.0
 	var lo := M.w2(Vector2.ZERO) - Vector2(pad, pad)
 	var hi := M.w2(M.SIZE) + Vector2(pad, pad)
 	_village_origin = lo
@@ -139,7 +145,7 @@ func _draw() -> void:
 		_draw_mokki()
 		return
 	if _village_tex != null:
-		var src := Rect2((_origin - _village_origin) * TEX_SCALE - Vector2.ONE * RANGE * TEX_SCALE, Vector2.ONE * 2.0 * RANGE * TEX_SCALE)
+		var src := Rect2((_origin - _village_origin) * TEX_SCALE - Vector2.ONE * range_m * TEX_SCALE, Vector2.ONE * 2.0 * range_m * TEX_SCALE)
 		draw_texture_rect_region(_village_tex, Rect2(Vector2.ZERO, size), src)
 	else:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.35, 0.45, 0.28, 0.9))
