@@ -6835,6 +6835,8 @@ func _maybe_screenshot() -> void:
 			await snap.call("_ovi.png", vl.siitari_door + so * 14.0 + Vector3(0, 2.5, 0), vl.siitari_door + Vector3(0, 1.5, 0))
 			if vl.kmarket_door != Vector3.ZERO:
 				await snap.call("_kauppa.png", vl.kmarket_door + vl.kmarket_out * 16.0 + Vector3(0, 4, 0), vl.kmarket_door)
+				await snap.call("_otto.png", vl.atm_pos + vl.kmarket_face * 3.0 + Vector3(0, 1.6, 0), vl.atm_pos + Vector3(0, 1.3, 0) - vl.kmarket_face * 1.2)
+				await snap.call("_otto_kaukaa.png", (vl.atm_pos + vl.kmarket_door) / 2.0 + vl.kmarket_face * 22.0 + Vector3(0, 4.0, 0), (vl.atm_pos + vl.kmarket_door) / 2.0 + Vector3(0, 1.0, 0))
 				await snap.call("_valilla.png", vl.kmarket_door + Vector3(0, 30, 0) + (sc - vl.kmarket_door) * -0.3,
 					(sc + vl.kmarket_door) / 2.0)
 			print("VAALAKESK siitari %s kauppa %s automaatti %s, väli %.0f m" % [sc, vl.kmarket_door, vl.atm_pos,

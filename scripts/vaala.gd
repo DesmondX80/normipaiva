@@ -469,16 +469,22 @@ var atm_pos := Vector3.ZERO
 var kmarket_door := Vector3.ZERO
 var kmarket_out := Vector3.ZERO
 var kmarket_along := Vector3.ZERO
+var kmarket_center := Vector3.ZERO  # rakennuksen keskipiste maan tasossa
+var kmarket_half := Vector2.ZERO  # puolikkaat: x = julkisivun suunta (kmarket_along), y = syvyys (kmarket_face)
+var kmarket_face := Vector3.ZERO  # julkisivun normaali kadulle (kmarket_out on vino: ovi ei ole keskellä)
 
 
-## Pankkiautomaatti K-Market Tervaportin seinälle oven viereen kuten kylän K-Marketissa. Kauppa on pelissä Siitarin
-## vieressä Vaalantien varressa (tools/vaala_keskusta.py), joten Siitarista on automaatille parikymmentä metriä.
+## Pankkiautomaatti omaan kioskiinsa K-Market Tervaportin päätyyn Siitarin puolelle: julkisivu on näyteikkunaa
+## päästä päähän, joten seinään se peittäisi ikkunan. Kioski on julkisivun linjassa, näyttö kadulle päin. Kauppa
+## on pelissä Siitarin vieressä Vaalantien varressa (tools/vaala_keskusta.py).
 func _build_atm() -> void:
 	if kmarket_door != Vector3.ZERO:
-		var at := kmarket_door - kmarket_out * 1.9 + kmarket_along * 4.6
+		var to_siitari := Vector3(siitari.x, 0, siitari.y) - kmarket_center
+		var side := 1.0 if kmarket_along.dot(to_siitari) >= 0.0 else -1.0
+		var at := kmarket_center + kmarket_along * side * (kmarket_half.x + 1.6) + kmarket_face * (kmarket_half.y - 0.9)
 		at.y = h(at.x, at.z)
-		atm_pos = at + kmarket_out * 1.2
-		Atm.build(self, at, atan2(kmarket_out.x, kmarket_out.z), true)
+		atm_pos = at + kmarket_face * 1.2
+		Atm.build(self, at, atan2(-kmarket_face.x, -kmarket_face.z), true)  # näyttö (-Z) kadulle
 		return
 	var sc := Vector3(siitari.x, 0, siitari.y)
 	var ni: Array = nearest(sc)
@@ -1103,6 +1109,11 @@ func _build_buildings() -> void:
 			kmarket_door = Vector3(kd.x, h(kd.x, kd.y), kd.y) + Vector3(out.x, 0, out.y) * 2.5
 			kmarket_out = Vector3(out.x, 0, out.y)
 			kmarket_along = Vector3((obb.ax as Vector2).x, 0, (obb.ax as Vector2).y)
+			kmarket_center = Vector3((obb.center as Vector2).x, 0, (obb.center as Vector2).y)
+			kmarket_half = (obb.size as Vector2) / 2.0
+			var ay: Vector2 = obb.ay
+			var face: Vector2 = ay if ay.dot(kd - (obb.center as Vector2)) >= 0.0 else -ay
+			kmarket_face = Vector3(face.x, 0, face.y)
 		if name != "" and not church:
 			var fg := Color(0.98, 0.95, 0.85)
 			var bg := Color(0.12, 0.2, 0.35)
