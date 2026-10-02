@@ -47,7 +47,12 @@ func _ready() -> void:
 			AudioServer.set_bus_name(i, bus)
 			AudioServer.set_bus_send(i, "Master")
 	var cfg := ConfigFile.new()
-	if cfg.load(PATH) == OK:
+	if cfg.load(PATH) != OK and is_mobile_web():
+		# Puhelimen selaimessa WebGL:n muisti loppuu helposti ("WebGL context lost"): aloitetaan kevyimmillä.
+		values.quality = 0
+		values.render_scale = 0.7
+		values.view_distance = 0
+	elif cfg.has_section("settings"):
 		for k in values:
 			values[k] = cfg.get_value("settings", k, values[k])
 		# Vanha kolmiportainen laatu (0 matala – 2 korkea): siirretään asteikolle, jonka alussa on erittäin matala.
@@ -59,6 +64,22 @@ func _ready() -> void:
 		set_renderer(1)
 		renderer_auto_saved = true
 	apply()
+
+
+## Puhelimen tai tabletin selain: vähän näytönohjaimen muistia, ja selain kaataa WebGL:n sen loppuessa.
+func is_mobile_web() -> bool:
+	return OS.has_feature("web_android") or OS.has_feature("web_ios")
+
+
+## Auringon varjokartan sivu laadun mukaan. 8192² syvyyskartta vie 256 Mt, mikä kaataa selaimen WebGL:n
+## varsinkin puhelimessa, joten selaimessa kartta on pienempi.
+func shadow_size() -> int:
+	var size: int = [2048, 2048, 4096, 8192][values.quality]
+	if is_mobile_web():
+		return mini(size, 2048)
+	if OS.has_feature("web"):
+		return mini(size, 4096)
+	return size
 
 
 ## Käytössä oleva grafiikkamoottori (RENDERERS-indeksi).
@@ -112,6 +133,7 @@ func apply() -> void:
 			DisplayServer.window_set_mode(want)
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if values.vsync else DisplayServer.VSYNC_DISABLED)
 	win.scaling_3d_scale = values.render_scale
+	RenderingServer.directional_shadow_atlas_set_size(shadow_size(), true)
 	win.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][values.quality]
 	for b in [["Master", "vol_master"], ["SFX", "vol_sfx"], ["Ambience", "vol_ambience"], ["Music", "vol_music"]]:
 		var i := AudioServer.get_bus_index(b[0])
