@@ -191,8 +191,11 @@ func resume() -> void:
 var _resume_frame := -1
 
 
+var menu_open := false  # main.gd: eväsvalikko auki, sen E ei avaa ovia
+
+
 func _interact() -> bool:
-	return Input.is_action_just_pressed("interact") and Engine.get_process_frames() != _resume_frame
+	return Input.is_action_just_pressed("interact") and Engine.get_process_frames() != _resume_frame and not menu_open
 
 
 ## Jalan: mopo parkkiin paikalleen (moottori sammuu), matka jatkuu kävelijän kohdalta. null = takaisin selkään.

@@ -1744,6 +1744,22 @@ func _open_give_menu() -> void:
 
 
 ## T: syömävalikko mukana olevista eväistä.
+## Vaalan matkalla valikon E ei saa avata ovia: auki ollessa estetty, ja sulkeutumisruudulla myös.
+func _mopo_menu(open: bool) -> void:
+	if mopo_trip == null:
+		return
+	mopo_trip.menu_open = open
+	if not open:
+		mopo_trip._resume_frame = Engine.get_process_frames()
+
+
+## Hahmo, jota pelaaja juuri nyt ohjaa: Vaalan matkalla mopo tai sen vierestä kävelevä, muuten player.
+func _controlled() -> CharacterBody3D:
+	if state == "mopo" and mopo_trip != null and mopo_trip.active:
+		return mopo_trip.on_foot if mopo_trip.on_foot != null else mopo_trip.mopo
+	return player
+
+
 func _open_eat_menu() -> void:
 	var items: Array = []
 	for k in ["pulla", "piirakka", "mustikkapiirakka", "savukala", "savuriista", "karrella"]:
@@ -1761,8 +1777,9 @@ func _open_eat_menu() -> void:
 	if items.is_empty():
 		_show_message("Ei mitään syötävää eikä juotavaa. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja, mökin savustimesta kalaa ja riistaa.", 3.0)
 		return
-	player.controls_enabled = false
-	player.speed = 0.0
+	_controlled().controls_enabled = false
+	_controlled().speed = 0.0
+	_mopo_menu(true)
 	_msg.text = ""
 	_msg_time = 0.0
 	_menu_mode = "eat"
@@ -1770,7 +1787,8 @@ func _open_eat_menu() -> void:
 
 
 func _on_eat(id: String) -> void:
-	player.controls_enabled = true
+	_controlled().controls_enabled = true
+	_mopo_menu(false)
 	match id:
 		"pulla", "piirakka", "savukala", "savuriista", "karrella", "mustikkapiirakka":
 			food[id] -= 1
@@ -3799,6 +3817,16 @@ func _mopo_tick() -> void:
 		return
 	_hint.text = mopo_trip.hint
 	_mopo_label.text = mopo_trip.status
+	if _item_menu.is_open():
+		return  # eväsvalikko ottaa näppäimet
+	# Eväät ja viina myös Vaalan matkalla (T), mutta ei vauhdissa eikä kumossa.
+	if Input.is_action_just_pressed("eat"):
+		var c := _controlled()
+		if absf(c.speed) > 3.0:
+			_show_message("Hidasta ensin!", 1.2)
+		elif not (c.has_method("is_stunned") and c.is_stunned()) and not mopo_trip.mopo.fallen:
+			_open_eat_menu()
+			return
 	var tg: Vector3 = mopo_trip.target_global()
 	_compass.has_cache = true
 	_compass.cache = Vector2(tg.x, tg.z)
@@ -5939,7 +5967,8 @@ func _build_hud() -> void:
 		elif _menu_mode == "raahe":
 			_on_raahe("takaisin")
 		else:
-			player.controls_enabled = true)
+			_mopo_menu(false)
+			_controlled().controls_enabled = true)
 
 	_mopo_label = _label(layer, 22)
 	_mopo_label.position = Vector2(20, 12)
@@ -6945,6 +6974,48 @@ func _maybe_screenshot() -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path)
 			get_tree().quit()
+		"mokkieat":
+			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
+			_toggle_mount()
+			walker_out.global_position = mokki.gpos(Mokki.MOPO_LOCAL + Vector3(1.0, 0.5, 0.0))
+			for i in 10:
+				await get_tree().physics_frame
+			_start_mopo()
+			food["pulla"] = 1
+			viina_pullot = 1
+			var mp: CharacterBody3D = mopo_trip.mopo
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			for i in 30:
+				await get_tree().physics_frame
+			await press.call("eat")
+			print("MOPOEAT open=", _item_menu.is_open(), " mopo_ctrl=", mp.controls_enabled, " door_block=", mopo_trip.menu_open)
+			await press.call("interact")
+			print("MOPOEAT pulla=", food.get("pulla", 0), " open=", _item_menu.is_open(), " mopo_ctrl=", mp.controls_enabled, " state=", state)
+			Input.action_press("forward")
+			for i in 120:
+				await get_tree().physics_frame
+			await press.call("eat")
+			Input.action_release("forward")
+			print("MOPOEAT fast speed=%.1f open=" % mp.speed, _item_menu.is_open(), " msg=", _msg.text)
+			Input.action_press("brake")
+			for i in 180:
+				await get_tree().physics_frame
+				if absf(mp.speed) < 0.5:
+					break
+			Input.action_release("brake")
+			await press.call("mount")
+			for i in 10:
+				await get_tree().physics_frame
+			await press.call("eat")
+			print("MOPOEAT foot=", mopo_trip.on_foot != null, " open=", _item_menu.is_open(), " walker_ctrl=", walker_out.controls_enabled)
+			await press.call("interact")
+			print("MOPOEAT viina=", viina_pullot, " walker_ctrl=", walker_out.controls_enabled, " state=", state)
 		"mokkimopo":
 			# Mopomatka: lähtö Paapelista, ajo alusta, kuvat reitin varrelta (_1 lähtö, _2 Neittäväntie, _3 silta,
 			# _4 Siitari) ja saapuminen baariin.
