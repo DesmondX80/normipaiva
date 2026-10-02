@@ -956,7 +956,7 @@ func _draw_mokki_overlay(v: Control) -> void:
 			v.draw_colored_polygon(tr.call(bd.poly), Color(0.42, 0.38, 0.34))
 	if _vzoom < 1.2:
 		return
-	# Piha lähempää: mökki, savusauna, palju, kesäkeittiö, tikkataulu, laituri, taksipysäkki, Santtu ja riistapolku.
+	# Piha lähempää: mökki, savusauna, palju, kesäkeittiö, tikkataulu, laituri, Pekan auto, Santtu ja riistapolku.
 	var labels := _vzoom >= 2.0
 	_ellipse_on(v, Mokki.YARD_CENTER, Mokki.YARD_R.x, Mokki.YARD_R.y, Color(0.9, 0.88, 0.74, 0.9))
 	var half := Mokki.COTTAGE_SIZE / 2.0
@@ -978,16 +978,16 @@ func _draw_mokki_overlay(v: Control) -> void:
 	var dock_a := _pxl(Vector2(Mokki.DOCK_LOCAL.x, Mokki.DOCK_LOCAL.z - 12.0))
 	var dock_b: Vector2 = at.call(Mokki.DOCK_LOCAL)
 	v.draw_line(dock_a, dock_b, Color(0.5, 0.38, 0.24), 4.0)
-	var taxi_p: Vector2 = at.call(Mokki.TAXI_LOCAL)
-	v.draw_circle(taxi_p, 6.0, Color(0.96, 0.78, 0.08))
-	v.draw_string(font, taxi_p + Vector2(-4, 5), "T", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.05, 0.05, 0.05))
+	var ride_p: Vector2 = at.call(Mokki.RIDE_LOCAL)
+	v.draw_circle(ride_p, 6.0, Color(0.3, 0.42, 0.24))
+	v.draw_string(font, ride_p + Vector2(-4, 5), "P", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.95, 0.95, 0.9))
 	v.draw_circle(at.call(Mokki.SANTTU_LOCAL), 3.5, Color(0.75, 0.55, 0.12))
 	var hunt_p: Vector2 = at.call(Mokki.HUNT_LOCAL)
 	v.draw_circle(hunt_p, 4.5, Color(0.3, 0.24, 0.15))
 	if labels:
 		v.draw_string(font, at.call(Mokki.SAUNA_LOCAL) + Vector2(10, 4), "Savusauna", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
 		v.draw_string(font, dock_b + Vector2(8, 4), "Laituri", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
-		v.draw_string(font, taxi_p + Vector2(10, 4), "Taksi", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
+		v.draw_string(font, ride_p + Vector2(10, 4), "Pekan auto", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
 		v.draw_string(font, hunt_p + Vector2(8, 4), "Riistapolku", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
 
 

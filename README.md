@@ -55,7 +55,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   haava paranee yön aikana.
 - **Pontikka:** jossain metsässä Pannu-Sulo keittää pontikkaa. Paikka ei näy kartalla, mutta kodan tarinoista
   saattaa kuulla vihjeen. Sulo myy päivässä yhden kanisterin (20 €), joka vastaa kotijemmassa 24 kaljaa.
-- **Mökki:** taksipysäkki kotipihalla vie mökille 20 €:lla (paluu ilmainen) (taksimatkan välikuvassa: "Taksilla Vaalaan – Terveisin, Maustetytöt"). Mökki on Vaalan Neittävän kylällä,
+- **Mökki:** mökille pääsee vain naapurin Pekan kyydillä: Pekka on menossa Neittävälle kyyhkyjahtiin ja ottaa
+  kyytiin kaljalla tai 10 eurolla (jalan E Pekan luona). Pekan auto odottaa mökin pihatien päässä, ja sillä
+  pääsee kotipihaan ilmaiseksi (bensat maksettiin menomatkalla). Välikuvassa Pekan vihreä Volvo kaahaa kesäistä maantietä peltojen, säilörehupaalien ja männikön
+  halki, Pekka puhuu kyyhkyistä ratissa ja auto töräyttää Neittävän (kotimatkalla Saloisten) kyltin ohi. Mökki on Vaalan Neittävän kylällä,
   noin 106 km linnuntietä itään Järvikujalta, ja välimatkat (esim. pyörään) näytetään sen mukaan. Mökillä
   pääpelin tehtävät eivät etene eivätkä näy HUD:ssa: aika seisoo, Päivi ja muut vaarat jäävät Saloisiin, eikä
   pyörää varasteta sillä aikaa. Mökki on mallinnettu oikean paikan mukaan (Kaisuantie 62, Neittävä, Vaala): 1,9 × 1,9 km
@@ -131,10 +134,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     juosta: kova vauhti läikyttää. Santtu tulee paikalle katsomaan ja kommentoimaan jokaista hommaa
     ("Ei sitä noin hakata!") ja huutelee kuistilta, kun hommat odottavat.
     Tekemättömät hommat kiristävät Santun **hermoja** (HUD ja reppu). Täysillä hermoilla tulee lähtö: Santtu
-    tilaa taksin, antaa yhden tähden arvostelun, eikä mökille pääse ennen huomista. Nukkumaan meno hommat
+    soittaa Pekan hakemaan, antaa yhden tähden arvostelun, eikä mökille pääse ennen huomista. Nukkumaan meno hommat
     kesken kiristää hermoja lisää, mopolla Siitariin lähtö hommat kesken saa Santun soittamaan Päiville (puhelu
     baarissa ja kotona motkotusta). Kalja tai kätköviina Santulle kerran päivässä: Santtu tekee yhden homman
-    itse (puolittain). Kaikki hommat tehty: Santtu maksaa taksirahat takaisin (15 €), antaa savukalaa ja pullon
+    itse (puolittain). Kaikki hommat tehty: Santtu maksaa kyytirahat takaisin (10 €), antaa savukalaa ja pullon
     pontikkaa. Jokainen mökkipäivä päättyy Santun arvosteluun (1, 3 tai 5 tähteä), ja arvostelut näkyvät repussa.
   - **Santtu puuhastelee:** kannolla kahvikupin kanssa istumisen välillä Santtu kävelee pihan puuhapaikoille:
     halkoo ja sahaa puupaikalla, kantaa sylillisen halkoja saunan seinälle, heittää löylyvettä kiukaalle, koettaa
@@ -264,7 +267,7 @@ Päivän lopussa lasketaan kolmen tilan summa:
 | Mökin sisällä (kerran päivässä): suodatinkahvi / takka / TV | vireys ++, stressi + / stressi + / stressi +, kokemus − |
 | Mökin sisällä (kerran päivässä): suihku / sisäsauna | vireys +, kipu + / stressi ++, väsymys ++, kipu + |
 | Nukkuminen mökillä | väsymys +++ (ennen päivän tulosta), aamulla stressi − (Päivi soittaa) |
-| Taksi mökille (ensimmäinen kerta) | kokemus + |
+| Pekan kyyti mökille (ensimmäinen kerta) | kokemus + |
 | Poliisilta pakoon | stressi + |
 | WASTED | moraali −−, stressi −− |
 | Ensimmäinen kerta (kauppa, laavu, tarinat, sahaus, halkominen, poiminta, Väinö, nurmikko, pontikka, Raahe, tappelut…) | kokemus + |
@@ -409,7 +412,7 @@ Työpöydällä ohjaimia voi kokeilla käynnistämällä pelin `godot --path . -
   osunut jää kiinni ja reunaan osunut lennättää pölkyn pölliltä. Raimo ja Veikko tulevat ulos kommentoimaan.
 - Kartan reunalla hahmo kommentoi, miksi pidemmälle ei kannata lähteä.
 - **Mökki** on mallinnettu oikean Airbnb-vuokramökin ("The warmth of a smoke sauna and cottage life",
-  Neittävä) valokuvien mukaan. Se on erillinen alue, jonne pääsee vain taksilla kotipihan taksipysäkiltä.
+  Neittävä) valokuvien mukaan. Se on erillinen alue, jonne pääsee vain naapurin Pekan kyydillä.
 - Kylän kartta: koko alueen tiet, rakennukset, metsät, pellot, suot ja vedet OpenStreetMapista
   (`scripts/map_osm.gd`, generoitu `tools/kartta/kyla_osm.ps1`:llä); kota, lintutorni, K-Market ja Kiilinlammen
   taukopaikka (grillikatos) OSM:n kohdissa. Käsin vain se, mitä OSM:ssä ei ole (Antinsuonkankaan laavu ja sen

@@ -193,7 +193,7 @@ func _draw_mokki() -> void:
 	_marker(wl.call(Vector2(Mokki.KITCHEN_LOCAL.x, Mokki.KITCHEN_LOCAL.z)), Color(0.6, 0.72, 0.82), "K")
 	_marker(wl.call(Vector2(Mokki.DART_LOCAL.x, Mokki.DART_LOCAL.z)), Color(0.85, 0.15, 0.1), "Ti")
 	_marker(wl.call(Vector2(Mokki.DOCK_LOCAL.x, Mokki.DOCK_LOCAL.z)), Color(0.5, 0.38, 0.24), "L")
-	_marker(wl.call(Vector2(Mokki.TAXI_LOCAL.x, Mokki.TAXI_LOCAL.z)), Color(0.96, 0.78, 0.08), "Tx")
+	_marker(wl.call(Vector2(Mokki.RIDE_LOCAL.x, Mokki.RIDE_LOCAL.z)), Color(0.3, 0.42, 0.24), "Pk")
 	_marker(wl.call(Vector2(Mokki.HUNT_LOCAL.x, Mokki.HUNT_LOCAL.z)), Color(0.3, 0.24, 0.15), "R")
 	if player != null:
 		var fwd3 := -player.global_transform.basis.z
