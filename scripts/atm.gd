@@ -23,7 +23,7 @@ static func build(parent: Node3D, pos: Vector3, yaw: float, kiosk := false) -> N
 	# Kotelo, näyttö, näppäimistö, kortti- ja setelirako.
 	B.mesh(root, B.boxm(Vector3(0.9, 1.5, 0.1)), Vector3(0, 1.15, -0.32), grey)
 	B.mesh(root, B.boxm(Vector3(0.9, 0.35, 0.1)), Vector3(0, 2.05, -0.32), blue)
-	var logo := B.label(root, "Otto.", Vector3(0, 2.05, -0.38), 60, Color.WHITE)
+	var logo := B.label(root, "Otto.", Vector3(0, 2.05, -0.38), 26, Color.WHITE)  # mahtuu siniseen kylttiin (0,9 × 0,35 m)
 	logo.rotation.y = PI
 	var screen := MeshInstance3D.new()
 	screen.mesh = B.boxm(Vector3(0.5, 0.36, 0.02))
