@@ -6957,6 +6957,35 @@ func _maybe_screenshot() -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path)
 			get_tree().quit()
+		"mokkilahto":
+			# Mopomatkan lähtö: _1 mökin mopopaikalta (pelaaja jalan, mopo parkissa), _2 heti kartan vaihduttua
+			# mopon kameralla, _3 ylhäältä Vaalan lähtöpaikasta, _4 mökin piha ylhäältä vertailuun.
+			_toggle_mount()
+			walker_out.global_position = mokki.gpos(Mokki.MOPO_LOCAL + Vector3(1.0, 0.5, 0.0))
+			walker_out.rotation.y = mokki.rotation.y + PI * 0.9
+			var shot := func(name: String) -> void:
+				for i in 40:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_msg.text = ""
+			_note.visible = false
+			await shot.call("_1.png")
+			var top := Camera3D.new()
+			top.far = 2000.0
+			add_child(top)
+			top.look_at_from_position(mokki.gpos(Mokki.MOPO_LOCAL) + Vector3(0, 45, 35), mokki.gpos(Mokki.MOPO_LOCAL))
+			top.current = true
+			await shot.call("_4.png")
+			_start_mopo()
+			_msg.text = ""
+			_note.visible = false
+			await shot.call("_2.png")
+			var mp: CharacterBody3D = mopo_trip.mopo
+			top.look_at_from_position(mp.global_position + Vector3(0, 45, 35), mp.global_position)
+			top.current = true
+			await shot.call("_3.png")
+			print("LAHTO mopo vaalassa ", mopo_trip.to_local(mp.global_position), " näyte ", mopo_trip._sample, " ", mopo_trip.status.replace("\n", " | "))
 		"mokkiviina":
 			# Viinakätköjen etäisyys lähimpään rakennukseen (negatiivinen = sisällä) ja korkeus maasta.
 			var data: Dictionary = Mokki.map_data()
@@ -7090,15 +7119,14 @@ func _maybe_screenshot() -> void:
 			_item_menu.hide()
 			_on_siitari("lahde")
 			print("MOPO paluu: kohde %s, aktiivinen %s, %s" % [mopo_trip.target, mopo_trip.active, mopo_trip.status.replace("\n", " / ")])
-			mp.position = vl.road_pos(12) + Vector3(0, 0.6, 0)
+			mp.position = vl.road_pos(30) + Vector3(0, 0.6, 0)
 			for i in 20:
 				await get_tree().physics_frame
-			print("MOPO Paapelissa: hint '%s'" % _hint.text)
-			Input.action_press("interact")
-			await get_tree().process_frame
-			await get_tree().process_frame
-			Input.action_release("interact")
-			await get_tree().process_frame
+			print("MOPO Paapelin tiellä: matka jatkuu %s, hint '%s'" % [mopo_trip.active, _hint.text])
+			# Pihaan ajettaessa kartta vaihtuu mökille itsestään (ei E:tä).
+			mp.position = vl.mokki_mopo + (vl.road_pos(3) - vl.mokki_mopo).normalized() * 6.0 + Vector3(0, 0.6, 0)
+			for i in 20:
+				await get_tree().physics_frame
 			var wl2: Vector3 = mokki.to_local(walker_out.global_position)
 			print("MOPO kotona: tila %s, kävelijä mökillä %.1f %.1f, mopo pihassa %s" % [state, wl2.x, wl2.z, mokki.mopo_parked.visible])
 			# Toinen kerta: kalja Siitarissa -> Santtu hakee.

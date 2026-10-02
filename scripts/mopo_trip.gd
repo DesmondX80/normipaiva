@@ -12,7 +12,7 @@ const TrafficCar := preload("res://scripts/traffic_car.gd")
 const CARS := 6
 
 const ARRIVE_R := 7.0
-const HOME_S := 70.0  # todellinen matka tien alusta: tätä lähempänä ollaan Paapelin tiellä
+const HOME_YARD_R := 12.0  # mökin parkkipaikasta: pihaan ajettaessa matka päättyy (vaala.gd mokki_mopo)
 
 signal arrived
 signal finished(result: String)
@@ -64,9 +64,15 @@ func start(to: String, drunk := 0.0) -> void:
 	var at: Vector3
 	var dir: Vector3
 	if to == "siitari":
-		_sample = 3
-		at = vaala.road_pos(_sample)
-		dir = vaala.road_dir(_sample)
+		# Lähtö mökin takaa samasta paikasta, jossa mopo oli parkissa (vaala.gd _build_mokki_yard), nokka tielle
+		# päin (parkissa se katsoo mökin seinään).
+		at = vaala.mokki_mopo
+		_sample = maxi(vaala.nearest(at)[0], 3)
+		dir = vaala.road_pos(_sample + 4) - at
+		dir.y = 0.0
+		dir = dir.normalized()
+		at += dir * 2.5  # kamera mahtuu mopon taakse (mökin takaseinä on muuten heti selän takana)
+		at.y = vaala.h(at.x, at.z)
 	else:
 		at = vaala.siitari_park
 		var ni: Array = vaala.nearest(at)
@@ -277,8 +283,7 @@ func _process(delta: float) -> void:
 				mopo.speed = 0.0
 				stop()
 				arrived.emit()
-	elif vaala.real_s(_sample) < HOME_S and ni[1] < 15.0 and on_foot == null:
-		hint = "[E] Parkkeeraa mopo Paapelin pihaan"
-		if _interact():
-			stop()
-			finished.emit("home")
+	elif on_foot == null and pos.distance_to(vaala.mokki_mopo) < HOME_YARD_R:
+		# Mökin pihaan ajettaessa kartta vaihtuu mökille itsestään (mopo parkkiin kuten lähtiessä).
+		stop()
+		finished.emit("home")
