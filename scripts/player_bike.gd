@@ -29,7 +29,7 @@ var sprinting := false
 var autopilot := false
 var auto_target := Vector3.ZERO
 var auto_speed := 0.6
-## Humala (main.gd asettaa, kun humala on päivän tila): yli DrunkWobble.LIMIT ohjaus heittelee.
+## Humala (main.gd asettaa aina, tilasta riippumatta): yli DrunkWobble.LIMIT ohjaus heittelee.
 var drunk := 0.0
 var _drunk_wobble := DrunkWobble.new()
 ## Stamina-tilan palkinto (main.gd _stat_effects): spurtin kerroin SPRINT -> sprint_mult.

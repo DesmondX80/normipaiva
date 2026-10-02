@@ -69,8 +69,8 @@ const PAIVI_SINIKKA_CALLS := [
 	"\"Mitä sää siellä Vaalassa Sinikan kanssa peuhaat?! Koko kylä puhuu jo!\"",
 	"\"Taas se Sinikka! Luuletko, ettei tänne kuulu mitään? Vaalan Facebook-ryhmässä on kuva!\"",
 	"\"Sää tarjoot Sinikalle drinkkejä, ja meillä on nurmikko leikkaamatta!\""]
-const PAIVI_MORNING_SINIKKA := ["Päivi: \"Siitä Sinikasta puhutaan vielä. Tänään mää pidän sua silmällä.\"",
-	"Päivi ei puhunut aamulla mitään. Kahvikin oli kylmää. (Sinikka.)"]
+const PAIVI_MORNING_SINIKKA := ["Siitä Sinikasta puhutaan vielä. Tänään mää pidän sua silmällä.",
+	"Kahvi on pöydällä. Kylmänä. Tiedät kyllä miksi. (Sinikka.)"]
 const DroneGame := preload("res://scripts/drone_game.gd")
 ## Mopomatka Paapelista Vaalan Hotelli-Ravintola Siitariin (mopo_trip.gd, vaala.gd): erillinen tasku.
 const MopoTrip := preload("res://scripts/mopo_trip.gd")
@@ -197,6 +197,7 @@ var _santtu_gossip := false  # Santtu soitti Päiville: kotona aamulla motkotust
 var _mokki_prev := "to_shop"
 var _slept_mokki := false
 const ZONE_RADIUS := 6.0
+const DOOR_RADIUS := 1.8  # kotiovi: tyhjin käsin tästä sisään (eteisen jemma on ovesta 4,5 m, ei päällekkäin)
 const START_MONEY := 20.0
 ## Taksi K-Marketin taksitolpalta Raahen baariin ja takaisin.
 const TAXI_FARE := 14.0  # meno-paluu
@@ -331,6 +332,7 @@ const STASHES := {
 		"home": false, "cap": 24, "steal": 0.15},
 }
 var stash := {}
+var _stashed_today := 0  # tänään jemmoihin piilotetut (kotimatkan tappio vain, jos mitään ei ole piilossa)
 ## Jemmat, joita pelaaja on käyttänyt (näytetään paperikartalla).
 var stash_used: Array = []
 ## Pyörä jää sinne, minne sen jättää (myös yön yli ja pelikerrasta toiseen): tallennettu paikka ja suunta.
@@ -378,8 +380,10 @@ const LAWN_PART_PRICE := 8.0
 const LAWN_BONUS := 5.0  # leikatusta nurmikosta Päivi antaa aamulla ylimääräistä
 const LAWN_NAG_PAIVI := ["Se nurmikko ei leikkaa itseään!", "Takapiha näyttää ihan heinäpellolta.",
 	"Leikkaa nyt se nurmikko ennen kuin lähet mihinkään!"]
-const LAWN_NAG_ANNALIISA := ["Teillä on siellä kohta ihan heinäpelto!", "Siilit on muuttanu teidän nurmikolle asumaan.",
-	"Meillä leikataan nurmikko joka lauantai, niin sitä vaan."]
+## Päivi kertoo lapussa, mitä Anna-Liisa sanoi aidan takaa.
+const LAWN_NAG_ANNALIISA := ["Anna-Liisa sano aidan takaa, että meillä on kohta ihan heinäpelto!",
+	"Anna-Liisan mukaan siilit on muuttanu meidän nurmikolle asumaan.",
+	"Anna-Liisa muisti taas mainita, että niillä leikataan nurmikko joka lauantai."]
 ## Pannu-Sulon pontikkakanisteri metsästä: vastaa kotijemmassa 24 kaljaa. Yksi kanisteri päivässä.
 const KANISTER_BEERS := 24
 const KANISTER_PRICE := 20.0
@@ -611,16 +615,22 @@ func _ready() -> void:
 	if not skip_menu and not debug_shot:
 		menu.open_main()
 	skip_menu = false
-	var jemma_note := ("\nVaroitus: Päivi voi löytää täyden kotijemman!") if not _risky_stashes().is_empty() else ""
+	if jemma > 0:
+		_morning_info.append("Kotijemmoissa %d kaljaa." % jemma)
+	if not _risky_stashes().is_empty():
+		_morning_info.append("Varoitus: Päivi voi löytää täyden kotijemman!")
+	var jemma_note := ""
 	if _old_stash_lost > 0:
-		jemma_note += "\nPäivi löysi vanhat jemmat ja kaatoi %d kaljaa viemäriin! Nyt jemmoja on enemmän – jaa kaljat fiksusti." % _old_stash_lost
+		jemma_note += "\nLöysin sun vanhat jemmat ja kaadoin %d kaljaa viemäriin!" % _old_stash_lost
+		_morning_info.append("Nyt jemmoja on enemmän – jaa kaljat fiksusti.")
 		_old_stash_lost = 0
 		_save_game()
 	if Settings.renderer_auto_saved:
-		jemma_note += "\nYhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä (vaihda Asetuksista)."
+		_morning_info.append("Yhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä (vaihda Asetuksista).")
 	jemma_note = bike_note + jemma_note + _lawn_nag()
 	_roll_list()
-	_day_note("Huomenta! Päivä %d, Järvikuja 1." % day, ("\nJemmassa %d kaljaa." % jemma if jemma > 0 else "") + jemma_note)
+	_day_note(MORNING_HEAD.koti.pick_random(), jemma_note)
+	_flush_morning_info()
 	if loading:
 		_loading_hide()
 		set_process(true)
@@ -960,6 +970,18 @@ func _outside_logic() -> void:
 	if player == bike:
 		_hint.text = "Nouse pyörän selästä (F) ja kävele %s" % ("kauppaan" if state == "to_shop" else "ovelle")
 		return
+	if state == "to_home":
+		# Kaljat ja kanisteri piilotetaan itse jemmoihin: ovi aukeaa vasta tyhjin käsin.
+		if beers > 0 or has_kanister:
+			if _hint.text == "":
+				_hint.text = "Ovi ei aukea kaljat kädessä – Päivi näkee! Piilota %s ensin jemmaan (E)." % (
+					"kanisteri" if beers <= 0 else "kaljat")
+			return
+		if dist < DOOR_RADIUS:
+			_win()
+		elif _hint.text == "":
+			_hint.text = "Kädet tyhjät. Mene ovelle."
+		return
 	if state == "to_shop":
 		if beers + 6 > CARRY_FOOT:
 			_hint.text = "Kädet täynnä kaljaa (%d). Kuutonen ei enää mahdu kantoon – jemmaa ensin." % beers
@@ -967,12 +989,11 @@ func _outside_logic() -> void:
 		_hint.text = "[E] Mene kauppaan"
 		if Input.is_action_just_pressed("interact") and not player.is_stunned():
 			_enter_shop()
-	else:
-		_win()
 
 
 ## Jemmat: jalan E piilottaa yhden kaljan (Shift+E kaikki), Q ottaa yhden (Shift+Q niin monta kuin jaksaa kantaa,
-## jalan enintään 12).
+## jalan enintään 12). Pontikkakanisteri piilotetaan E:llä kotijemmaan (= KANISTER_BEERS kaljaa, kattoa ei
+## katsota). Kotiinpaluussa kaikki piilotetaan itse: ovi aukeaa vasta tyhjin käsin.
 func _stash_logic() -> void:
 	if _hint.text != "" or player != walker_out or player.is_stunned():
 		return
@@ -981,8 +1002,6 @@ func _stash_logic() -> void:
 		var at := _stash_pos(id)
 		if Vector2(p.x - at.x, p.z - at.z).length() > 2.6:
 			continue
-		if id == "koti" and state == "to_home":
-			return  # kotiinpaluu hoitaa saaliin
 		if id == "laavu" and not laavu_conquered:
 			return
 		var st: Dictionary = STASHES[id]
@@ -991,7 +1010,10 @@ func _stash_logic() -> void:
 		var can_take := mini(CARRY_FOOT - beers, have)
 		var all := Input.is_key_pressed(KEY_SHIFT)
 		var opts: Array[String] = []
-		if beers > 0 and room > 0:
+		var kanister: bool = has_kanister and st.home
+		if kanister:
+			opts.append("[E] Piilota kanisteri (= %d kaljaa)" % KANISTER_BEERS)
+		elif beers > 0 and room > 0:
 			opts.append("[E] Piilota 1 · Shift+E %d" % mini(beers, room))
 		if can_take > 0:
 			opts.append("[Q] Ota 1 · Shift+Q %d" % can_take)
@@ -1000,10 +1022,19 @@ func _stash_logic() -> void:
 			_hint.text = head + (" – täynnä." if room == 0 and beers > 0 else (" – kädet täynnä." if have > 0 else " – tänne voi piilottaa kaljoja."))
 			return
 		_hint.text = head + "   " + "   ".join(opts)
-		if Input.is_action_just_pressed("interact") and beers > 0 and room > 0:
+		if Input.is_action_just_pressed("interact") and kanister:
+			_stash_add(id, KANISTER_BEERS)
+			has_kanister = false
+			walker_out.set_kanister(false)
+			_stashed_today += KANISTER_BEERS
+			Sfx.play("pickup", -2.0, 0.6)
+			_show_message("Kanisteri piiloon %s (= %d kaljaa, siellä nyt %d).%s" % [st.into, KANISTER_BEERS, stash[id],
+				_stash_warning(id)], 3.0)
+		elif Input.is_action_just_pressed("interact") and beers > 0 and room > 0:
 			var n := mini(beers, room) if all else 1
 			_stash_add(id, n)
 			beers -= n
+			_stashed_today += n
 			player.set_carrying(beers > 0)
 			Sfx.play("pickup", -2.0, 0.8)
 			if all or beers == 0:
@@ -1011,6 +1042,7 @@ func _stash_logic() -> void:
 		elif Input.is_action_just_pressed("bell") and can_take > 0:
 			var n := can_take if all else 1
 			_stash_add(id, -n)
+			_stashed_today = maxi(0, _stashed_today - n)
 			beers += n
 			player.set_carrying(true)
 			Sfx.play("pickup")
@@ -1587,9 +1619,9 @@ func _lawn_nag() -> String:
 	var avg: float = lawn.avg_len()
 	var s := ""
 	if avg >= 0.35:
-		s += "\nPäivi: \"%s\"" % LAWN_NAG_PAIVI.pick_random()
+		s += "\n" + LAWN_NAG_PAIVI.pick_random()
 	if avg >= 0.5:
-		s += "\nAnna-Liisa aidan takaa: \"%s\"" % LAWN_NAG_ANNALIISA.pick_random()
+		s += "\n" + LAWN_NAG_ANNALIISA.pick_random()
 	return s
 
 
@@ -1719,20 +1751,22 @@ func _open_eat_menu() -> void:
 			items.append([k, "%s (%d)" % [FOODS[k].name, food[k]]])
 	if has_chocolate:
 		items.append(["suklaa", FOODS.suklaa.name])
+	if beers > 0:
+		items.append(["kalja", "Kalja (kannossa %d)" % beers])
 	if viina_pullot > 0:
 		items.append(["viina", "Huikka kätköviinaa (%d pulloa)" % viina_pullot])
 	for k in ["puolukka", "mustikka"]:
 		if bucket.get(k, 0) > 0:
 			items.append([k, "%s – ämpärissä %d l" % [FOODS[k].name, bucket[k]]])
 	if items.is_empty():
-		_show_message("Ei mitään syötävää. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja, mökin savustimesta kalaa ja riistaa.", 3.0)
+		_show_message("Ei mitään syötävää eikä juotavaa. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja, mökin savustimesta kalaa ja riistaa.", 3.0)
 		return
 	player.controls_enabled = false
 	player.speed = 0.0
 	_msg.text = ""
 	_msg_time = 0.0
 	_menu_mode = "eat"
-	_item_menu.open(items, "Mitä syöt?")
+	_item_menu.open(items, "Mitä syöt tai juot?")
 
 
 func _on_eat(id: String) -> void:
@@ -1744,6 +1778,14 @@ func _on_eat(id: String) -> void:
 				food.erase(id)
 		"suklaa":
 			has_chocolate = false
+		"kalja":
+			beers -= 1
+			player.set_carrying(beers > 0)
+			_drink(1)
+			tilat.first("syo_kalja", 0.1)
+			Sfx.play("glass", -6.0, 1.2)
+			_show_message(["Tsihh. Ah.", "Kylmää ja hyvää.", "Yks ei oo yhtään.", "Päivin ei tarvi tietää."].pick_random(), 1.8)
+			return
 		"viina":
 			viina_pullot -= 1
 			tilat.add("humala", 0.25)
@@ -1873,8 +1915,9 @@ func _stat_effects() -> void:
 	var far: float = Settings.view_far() * (0.5 if e < 0 else 1.0)
 	_env.fog_depth_begin = 90.0 * far / 900.0
 	_env.fog_depth_end = 700.0 * far / 900.0
-	# Humalan haitta: kovassa humalassa pyörän ja kävelyn ohjaus heittelee (drunk_wobble.gd).
-	var drunk: float = t.value("humala") if "humala" in t.chosen else 0.0
+	# Kovassa humalassa pyörän ja kävelyn ohjaus heittelee (drunk_wobble.gd), kuten mopolla: aina, vaikka humala
+	# ei olisi päivän tila. Humalan palkinto (tappelun iskut) vaatii, että humala on päivän tiloissa.
+	var drunk: float = t.value("humala")
 	bike.drunk = drunk
 	walker_out.drunk = drunk
 	# Moraali (kaupan hinnat), keskittyminen (repun kauppalista), kokemus (minipelien käsi, _hand_shake) ja
@@ -2709,7 +2752,7 @@ func _arrive_by_car(dest: Vector3) -> void:
 		_hazards.process_mode = Node.PROCESS_MODE_INHERIT  # takaisin Saloisissa: vaarat heräävät
 		if _list_pending:
 			_list_pending = false
-			_day_note("Kotona odotti Päivin lappu.", "")  # mökiltä palatessa: päivän lista värikynillä
+			_day_note("Tervetuloa kotiin! Tässä tämän päivän lista.", "")  # mökiltä palatessa: päivän lista värikynillä
 
 
 ## Naapurin Pekka lähtee Neittävälle kyyhkyjahtiin ja ottaa kyytiin mökille bensakaljalla tai kympillä.
@@ -3002,7 +3045,7 @@ func _hommat_morning() -> Array:
 	_hommat_prepare()
 	if not hommat.active:
 		return []
-	var rows: Array = ["Santun hommat tänään:"]
+	var rows: Array = ["Tämän päivän hommat:"]
 	for r in hommat.lappu_rows():
 		rows.append([r, Color(0.5, 0.26, 0.08)])
 	if hommat.hermo > 1.0:
@@ -4989,7 +5032,7 @@ func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
 				_lose("%s vei rahat. Kuutoseen ei enää riitä." % foe, _fight_source if _fight_source == "juntti" else "default")
 				return
 	player.set_carrying(beers > 0)
-	if state == "to_home" and beers <= 0 and not has_kanister:
+	if state == "to_home" and beers <= 0 and not has_kanister and _stashed_today <= 0:
 		_lose("Kaikki kaljat rikki. Kotiin ei kannata mennä tyhjin käsin.", "juntti")
 
 
@@ -5033,13 +5076,6 @@ func _win() -> void:
 		for l in _check_list():
 			_msg_queue.append([l, 3.0])
 	_task_done()
-	var kanister := KANISTER_BEERS if has_kanister else 0
-	var brought := beers + kanister
-	var where := _deposit_home(brought)
-	if kanister > 0:
-		where += " (pontikkakanisteri = %d kaljaa)" % kanister
-		has_kanister = false
-		walker_out.set_kanister(false)
 	jemma_wins += 1
 	jemma_best = maxi(jemma_best, jemma)
 	beers = 0
@@ -5053,29 +5089,12 @@ func _win() -> void:
 		jemma = 0  # onnellinen loppu juo kotijemman tyhjäksi
 		jemma_endings += 1
 		_save_game()
-		var stats := "Jemmassa oli %d olutta%s – juhlan paikka!  ·  Onnellisia loppuja: %d" % [had,
-			" (pontikka mukaan luettuna)" if kanister > 0 else "", jemma_endings]
+		var stats := "Jemmassa oli %d olutta – juhlan paikka!  ·  Onnellisia loppuja: %d" % [had, jemma_endings]
 		cutscene.garage("KARBURAATTORIA SÄÄTÄMÄSSÄ", stats, func() -> void: _new_day(home_zone + Vector3(0, 0, 4), false))
 		return
 	Sfx.play("win_small")
 	_new_day(home_zone + Vector3(0, 0, 4), false,
-		"Kotona! %d kaljaa %s. Kotijemmat %d/%d – kun niissä on %d, on juhlan aika.\n" % [
-		brought, where, jemma, JEMMA_GOAL, JEMMA_GOAL])
-
-
-## Kotiinpaluun saalis: eteisen kaappiin, ylimenevät autotalliin ja kompostin taakse. Palauttaa kuvauksen.
-func _deposit_home(n: int) -> String:
-	var parts: Array[String] = []
-	for id in ["koti", "autotalli", "komposti"]:
-		var put := mini(n, maxi(0, STASHES[id].cap - stash.get(id, 0)))
-		if put > 0:
-			stash[id] = stash.get(id, 0) + put
-			n -= put
-			parts.append("%d %s" % [put, STASHES[id].into])
-	if n > 0:
-		stash["koti"] = stash.get("koti", 0) + n  # kaikki täynnä: ahdetaan eteiseen
-		parts.append("%d lisää %s" % [n, STASHES["koti"].into])
-	return ", ".join(parts) if not parts.is_empty() else "jemmaan"
+		"Kotona! Kotijemmat %d/%d – kun niissä on %d, on juhlan aika.\n" % [jemma, JEMMA_GOAL, JEMMA_GOAL])
 
 
 func _load_game() -> void:
@@ -5171,7 +5190,7 @@ func _jemma_check(allow_found := true) -> String:
 					lost /= 2  # leppynyt Päivi kaataa viemäriin vain osan
 				stash[id] -= lost
 				_jemma_found = lost
-				note += "\nPäivi löysi %s ja kaatoi %d kaljaa viemäriin!" % [STASHES[id].name, lost]
+				note += "\nLöysin sun kaljat %s ja kaadoin %d viemäriin!" % [STASHES[id].from, lost]
 				tilat.add("stressi", -0.3)
 				tilat.add("moraali", -0.2)
 				break
@@ -5181,13 +5200,13 @@ func _jemma_check(allow_found := true) -> String:
 		if not st.home and n > 0 and randf() < st.steal:
 			var stolen := clampi(randi_range(n / 2, n), 1, n)
 			stash[id] = n - stolen
-			note += "\nTeinit pöllivät %s %d kaljaa!" % [st.from, stolen]
+			_morning_info.append("Teinit pöllivät %s %d kaljaa!" % [st.from, stolen])
 	var risky := _risky_stashes()
 	if not risky.is_empty():
 		var names: Array[String] = []
 		for id in risky:
 			names.append(STASHES[id].name)
-		note += "\nVaroitus: Päivi voi löytää jemman (%s)!" % ", ".join(names)
+		_morning_info.append("Varoitus: Päivi voi löytää jemman (%s)!" % ", ".join(names))
 	_save_game()
 	return note
 
@@ -5254,6 +5273,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	var stats_note := _end_day_stats(at_m)
 	# Pyörä jää sinne, minne se jäi; päivä alkaa jalan turvapaikasta.
 	beers = 0
+	_stashed_today = 0
 	food.clear()
 	has_kanister = false
 	_sulo_sold = false
@@ -5282,21 +5302,25 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	var bonus := ""
 	if _no_allowance:
 		_no_allowance = false
-		bonus = "\nPäivi ei antanut rahaa kauppaan Raahen reissun jälkeen."
+		bonus = "\nRaahen reissun jälkeen et saa multa rahaa kauppaan."
 	elif money < START_MONEY:
-		bonus = "\nPäivi antoi %s € kauppaan." % _eur(START_MONEY - money) if not lost else "\nTakin taskusta löytyi vähän rahaa."
+		if lost:
+			_morning_info.append("Takin taskusta löytyi vähän rahaa.")
+		else:
+			bonus = "\nLaitoin %s € kauppaa varten." % _eur(START_MONEY - money)
 		money = START_MONEY
 	if _choco_mercy:
 		_choco_mercy = false
 		money += CHOCO_MONEY
-		bonus += "\nPäivi leppyi ja antoi %s € ylimääräistä." % _eur(CHOCO_MONEY)
+		bonus += "\nKiitos suklaasta. Tässä %s € ylimääräistä." % _eur(CHOCO_MONEY)
 		tilat.add("stressi", 0.2)
 	if bitten:
 		bitten = false  # parani yöllä (ei ensiapua uuden päivän kipuun)
 		walker_out.hurt = false
-		bonus += "\nPuremahaava parani yön aikana. Päivi: \"%s\"" % WOUND_PAIVI.pick_random()
+		bonus += "\n" + WOUND_PAIVI.pick_random()
+		_morning_info.append("Puremahaava parani yön aikana.")
 	if not _list_done and not shopping_list.is_empty() and not at_m:
-		bonus += "\nPäivi: \"Eilen ei tullu kaupasta mitään, vaikka oli lista!\""
+		bonus += "\nEilen ei tullu kaupasta mitään, vaikka oli lista!"
 	bonus += stats_note
 	if _sinikka_gossip:
 		_sinikka_gossip = false
@@ -5307,12 +5331,13 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		_santtu_gossip = false
 		_paivi_mad = true
 		tilat.add("stressi", -0.1)
-		bonus += "\nPäivi: \"Santtu soitti, että sää jätit mökillä hommat kesken. Kotonaki riittää hommia!\""
+		bonus += "\nSanttu soitti, että sää jätit mökillä hommat kesken. Kotonaki riittää hommia!"
 	var mokki_note := ""
 	if _slept_mokki:
 		_slept_mokki = false
 		tilat.add("stressi", -0.1)
-		mokki_note = "\nPäivi soitti aamulla: \"Missä sää oot ollu koko yön?!\" Kotiin pääsee Pekan kyydillä."
+		# Yö mökillä: aamun lapun kirjoittaa Santtu (mökillä herätessä).
+		mokki_note = "\nPäivi soitti aamulla ja kyseli, missä sää oot ollu koko yön. Pekka heittää sut kotiin."
 		bonus += mokki_note
 	var rauha := _kaljarauha
 	_kaljarauha = false
@@ -5322,7 +5347,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	if _lawn_praise:
 		_lawn_praise = false
 		money += LAWN_BONUS
-		bonus += "\nPäivi kehui nurmikkoa ja antoi %s € ylimääräistä." % _eur(LAWN_BONUS)
+		bonus += "\nNurmikko näyttää hienolta! Tässä %s € ylimääräistä." % _eur(LAWN_BONUS)
 	_lawn_done_today = false
 	lawn.grow()
 	lawn.park_mower()
@@ -5338,7 +5363,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_spawn_threats()
 	_apply_day_base()
 	if _spawn_boys() and not at_m:
-		bonus += "\nJossain päin kylää pojat pelaa jalkapalloa."
+		_morning_info.append("Jossain päin kylää pojat pelaa jalkapalloa.")
 	if laavu_conquered:
 		guard.vanish()
 	_minimap.wife = wife
@@ -5356,7 +5381,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_jemma_choco = ""
 	var jnote := "" if at_m else _jemma_check(not rauha)
 	if rauha and not at_m:
-		jnote += "\nKaljarauha: Päivi ei etsinyt jemmoja."
+		jnote += "\nKauppareissu meni hienosti, joten en ees ettiny sun jemmoja."
 	if _jemma_found > 0:
 		# Päivi löysi jemman: välianimaatio ennen päivän alkua.
 		state = "cutscene"
@@ -5364,33 +5389,60 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		player.controls_enabled = false
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		var lost_n := _jemma_found
-		var msg := "%s%s%s%s" % [intro, bonus, bike_note, jnote]
+		var msg := "%s%s%s" % [bonus, bike_note, jnote]
 		cutscene.jemma_found(home_zone, lost_n, jemma, func() -> void:
 			state = "to_shop"
 			_hud.visible = true
 			player.controls_enabled = true
 			player.activate_camera()
 			_hazards.process_mode = Node.PROCESS_MODE_INHERIT
-			_day_note("Huomenta! Päivä %d." % day, msg), _jemma_choco)
+			_day_note(MORNING_HEAD.koti.pick_random(), msg)
+			_flush_morning_info(intro), _jemma_choco)
 		return
 	if at_m:
 		# Mökillä vain mökin asiat: Päivin värilista kerrotaan, kun palataan kotiin (ks. _arrive_by_car).
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		_list_pending = true
 		var rows: Array = _hommat_morning()
-		_note.show_note(["Huomenta mökille! Päivä %d." % day, "Kaisuantie 62, Neittävä, Vaala."]
-			+ rows + Array(("%s%s%s" % [intro, stats_note, mokki_note]).strip_edges().split("\n")), "– Santtu",
+		_note.show_note([MORNING_HEAD.mokki.pick_random()]
+			+ rows + Array(("%s%s" % [stats_note, mokki_note]).strip_edges().split("\n")), "– Santtu",
 			10.0 if rows.is_empty() else 18.0)
+		_flush_morning_info(intro)
 		return
 	hommat.stop()
 	hommat.nights = 0
 	_hommat_prepare()
-	var where := " kotoa"
+	var where := "koti"
 	if spawn.distance_to(mokki.global_position) < 80.0:
-		where = " mökiltä"
+		where = "mokilta"
 	elif spawn.distance_to(home_zone) > 50.0:
-		where = " laavulta"
-	_day_note("Huomenta! Päivä %d alkaa%s." % [day, where], "%s%s%s%s" % [intro, bonus, bike_note, jnote])
+		where = "laavulta"
+	_day_note(MORNING_HEAD[where].pick_random(), "%s%s%s" % [bonus, bike_note, jnote])
+	_flush_morning_info(intro)
+
+
+## Aamun lapun otsikko allekirjoittajan sanoin: kotona Päivi, laavulta ja mökiltä Päivi hämmästelee, mökillä Santtu.
+const MORNING_HEAD := {
+	"koti": ["Huomenta, kulta!", "Huomenta! Kahvia on pannussa.", "Huomenta! Mää lähin jo."],
+	"laavulta": ["Missä sää taas yöllä olit?!", "Laavulla nukuit taas, vai?"],
+	"mokilta": ["Tuu jo kotiin sieltä mökiltä!", "Huomenta, mökkiläinen."],
+	"mokki": ["Huomenta! Kahvit on keitetty.", "Huomenta mökille!", "Aamu! Sauna lämpiää illalla."],
+}
+## Aamun pelitiedot (jemmat, varoitukset, teinit, pyörän paikka), joita lapun kirjoittaja ei tietäisi tai kirjoittaisi:
+## näytetään ruudun viesteinä lapun rinnalla (_flush_morning_info).
+var _morning_info: Array[String] = []
+
+
+## Aamun pelitiedot ruudun viesteiksi. intro = päivän vaihdon oma viesti (kotiinpaluu, häviö, Raahe, mökki).
+func _flush_morning_info(intro := "") -> void:
+	var lines: Array[String] = []
+	for l in intro.strip_edges().split("\n"):
+		if l != "":
+			lines.append(l)
+	lines.append_array(_morning_info)
+	_morning_info.clear()
+	for l in lines:
+		_queue_message(l, 3.0)
 
 
 ## Tallennettu pyörä paikalleen ja pelaaja jalan kotiin. Palauttaa aamumuistutuksen.
@@ -5407,7 +5459,8 @@ func _apply_saved_bike() -> String:
 func _bike_note(spawn: Vector3) -> String:
 	if bike.global_position.distance_to(spawn) < 30.0:
 		return ""
-	return "\nPyörä jäi eilen muualle – katso kartasta (M), minne."
+	_morning_info.append("Pyörä jäi eilen muualle – katso kartasta (M), minne.")
+	return "\nPyörä ei oo pihassa. Mihin sää sen taas jätit?"
 
 
 func _notification(what: int) -> void:
@@ -7853,8 +7906,8 @@ func _maybe_screenshot() -> void:
 		"tractortest":
 			# Onnistunut kotiinpaluu ja sen jälkeen pellolle: jemmarin pitää hyökätä.
 			state = "to_home"
-			beers = 6
-			jemma = 0
+			beers = 0
+			jemma = 6
 			_win()
 			for i in 5:
 				await get_tree().physics_frame
@@ -8120,13 +8173,12 @@ func _maybe_screenshot() -> void:
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_b.png"))
 		"pitkalappu":
 			# Pitkä lappu: kaikki päivän muistutukset kerralla; lapun pitää mahtua kokonaan ruudulle.
-			var many := ["Jemmassa 4 kaljaa.", "Varoitus: Päivi voi löytää täyden kotijemman!",
-				"Päivi löysi vanhat jemmat ja kaatoi 3 kaljaa viemäriin! Nyt jemmoja on enemmän.",
-				"Yhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä.",
-				"Nurmikko on kasvanut pitkäksi: leikkaa se ennen kuin lähdet mihinkään!", "Pyörä jäi mökille.",
+			var many := ["Laitoin 12,00 € kauppaa varten.", "Eilen ei tullu kaupasta mitään, vaikka oli lista!",
+				PAIVI_MORNING_SINIKKA[0], "Löysin sun kaljat eteisen kaapista ja kaadoin 6 viemäriin!",
+				LAWN_NAG_PAIVI[2], LAWN_NAG_ANNALIISA[0], "Pyörä ei oo pihassa. Mihin sää sen taas jätit?",
 				HANGOVER_NOTE.paivi, STAT_TIPS.paivi.vireys[0],
 				STAT_TIPS.paivi.stressi[1], STAT_TIPS.paivi.keskittyminen[0]]
-			_day_note("Huomenta! Päivä %d alkaa mökiltä." % day, "
+			_day_note(MORNING_HEAD.mokilta[0], "
 ".join(many))
 			await get_tree().create_timer(1.2).timeout
 			var rect: Rect2 = _note._paper.get_global_rect()
@@ -8194,8 +8246,8 @@ func _maybe_screenshot() -> void:
 			for i in 210:
 				await get_tree().process_frame
 		"garage":
-			beers = 6
-			jemma = 20
+			beers = 0
+			jemma = 26
 			_win()
 			print("GARAGE jemma=", jemma)
 			for i in 200:
@@ -9248,6 +9300,7 @@ func _maybe_screenshot() -> void:
 			print("SYO food=", food, " inv=", _stats.text.contains("korvapuusti"))
 			bucket["puolukka"] = 2
 			has_chocolate = true
+			beers = 0  # kalja tarkistetaan erikseen lopussa
 			_toggle_mount()
 			for i in 5:
 				await get_tree().physics_frame
@@ -9264,6 +9317,13 @@ func _maybe_screenshot() -> void:
 			food.clear()
 			bucket.clear()
 			has_chocolate = false
+			beers = 2
+			var h0: float = tilat.value("humala")
+			await press.call("eat")
+			print("SYO kalja menu=", _item_menu._items)
+			await press.call("interact")
+			print("SYO joi kaljan: humala %+.2f beers=%d msg=%s" % [tilat.value("humala") - h0, beers, _msg.text])
+			beers = 0
 			await press.call("eat")
 			print("SYO empty menu=%s msg=%s" % [_item_menu.is_open(), _msg.text])
 			if not saved.is_empty():
@@ -9378,9 +9438,10 @@ func _maybe_screenshot() -> void:
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"humala_ohjaus":
-			# Humalan haitta: kävellään ja ajetaan 6 s suoraan ilman ohjausta, selvänä ja humalassa 0,9. Suunnan muutos.
+			# Humalan ohjaushaitta: kävellään ja ajetaan 6 s suoraan ilman ohjausta, selvänä ja humalassa 0,9. Suunnan
+			# muutos. Humala ei ole päivän tiloissa: heittely on silti päällä (kuten mopolla).
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
-			tilat.chosen = ["stressi", "moraali", "humala"]
+			tilat.chosen = ["stressi", "moraali", "kipu"]
 			for mounted in [false, true]:
 				if (player == bike) != mounted:
 					_toggle_mount()
@@ -9624,6 +9685,46 @@ func _maybe_screenshot() -> void:
 				_msg.text.replace("\n", " | ")])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"jemma_ovi":
+			# Kotiinpaluu: kaljat kädessä ovi ei aukea, eteisen kaappiin piilotus E:llä, tyhjin käsin ovelle -> koti.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			if player == bike:
+				_toggle_mount()
+			state = "to_home"
+			jemma = 0
+			beers = 3
+			walker_out.global_position = home_zone + Vector3(0, 0.5, 0)
+			for i in 3:
+				await get_tree().physics_frame
+			await get_tree().process_frame
+			print("OVI kaljat kädessä: state=%s hint=%s" % [state, _hint.text])
+			walker_out.global_position = _stash_pos("koti") + Vector3(0, 0.5, 0.5)
+			await get_tree().physics_frame
+			await get_tree().process_frame
+			print("OVI jemman luona: hint=%s" % _hint.text)
+			for i in 3:
+				await press.call("interact")
+			print("OVI piilotettu: beers=%d jemma=%d state=%s hint=%s" % [beers, jemma, state, _hint.text])
+			walker_out.global_position = home_zone + Vector3(3.0, 0.5, 2.0)
+			await get_tree().physics_frame
+			await get_tree().process_frame
+			print("OVI pihalla tyhjin käsin: hint=%s" % _hint.text)
+			walker_out.global_position = home_zone + Vector3(0, 0.5, 0)
+			for i in 3:
+				await get_tree().physics_frame
+				await get_tree().process_frame
+			print("OVI ovella: state=%s jemma=%d" % [state, jemma])
+			for i in 30:
+				await get_tree().process_frame
+			print("OVI aamu: day=%d msg=%s" % [day, _msg.text.replace("\n", " | ")])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"pontikka":
 			# Pannu-Sulo: kuva paikasta, kanisterin osto ja kotiinpaluu. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
@@ -9671,7 +9772,20 @@ func _maybe_screenshot() -> void:
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_hand.png"))
 			cc.queue_free()
 			jemma = 3
-			_win()
+			# Kanisteri piilotetaan itse eteisen kaappiin, sitten tyhjin käsin ovelle.
+			walker_out.global_position = _stash_pos("koti") + Vector3(0, 0.5, 0.5)
+			await get_tree().physics_frame
+			await get_tree().process_frame
+			print("STASH hint=", _hint.text)
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().process_frame
+			print("STASH kanister=%s jemma=%d msg=%s" % [has_kanister, jemma, _msg.text.replace("\n", " | ")])
+			walker_out.global_position = home_zone + Vector3(0, 0.5, 0)
+			for i in 3:
+				await get_tree().physics_frame
+				await get_tree().process_frame
 			print("WIN kanister=%s jemma=%d endings=%d state=%s" % [has_kanister, jemma, jemma_endings, state])
 			for i in 60:
 				await get_tree().process_frame

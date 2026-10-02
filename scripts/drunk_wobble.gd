@@ -1,5 +1,5 @@
 extends RefCounted
-## Kova humala pyörällä ja jalan (päivän tila humala yli LIMIT, main.gd _stats_tick): ohjaus vaeltaa hitaasti
+## Kova humala pyörällä ja jalan (humala yli LIMIT, myös kun se ei ole päivän tila; main.gd _stat_effects): ohjaus vaeltaa hitaasti
 ## sivulta toiselle ja välillä nykäisee. Lievempi kuin mopon känniohjaus (mopo.gd _drunk_steer).
 
 const LIMIT := 0.8
