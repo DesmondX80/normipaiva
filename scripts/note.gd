@@ -7,7 +7,7 @@ const INK := Color(0.16, 0.18, 0.42)
 const WIDTH := 400.0
 const TOP := 140.0  # lapun oletusyläreuna
 const MARGIN := 24.0  # väli ruudun reunoihin lapun mahduttamisessa
-const MIN_SCALE := 0.55  # pienin kutistus: sitä pidempi lappu leikkaantuu mieluummin kuin muuttuu lukukelvottomaksi
+const MIN_SCALE := 0.45  # pienin kutistus: sitä pidempi lappu leikkaantuu mieluummin kuin muuttuu lukukelvottomaksi
 const GOOD_SCALE := 0.85  # tätä pienemmäksi kutistuva lappu leveämmäksi: leveällä rivit eivät rivity niin paljon
 const WIDTHS := [400.0, 540.0, 680.0]
 
@@ -113,6 +113,9 @@ func _fit() -> void:
 		best_h = h
 		if h <= room or minf(1.0, room / h) >= GOOD_SCALE or w + 20.0 > vp.x * 0.62:
 			break  # mahtuu (lähes) sellaisenaan tai leveämpi ei enää mahdu ruudun leveyteen
+	# Rivitetyt rivit voivat kasvattaa lappua vielä seuraavalla ruudulla: mitataan todellinen korkeus uudelleen.
+	await get_tree().process_frame
+	best_h = maxf(best_h, maxf(_paper.size.y, _paper.get_combined_minimum_size().y))
 	var y := TOP
 	var sc := 1.0
 	if y + best_h > vp.y - MARGIN:
