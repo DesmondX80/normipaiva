@@ -7975,19 +7975,40 @@ func _maybe_screenshot() -> void:
 				var t0 := Time.get_ticks_msec()
 				await get_tree().create_timer(2.5).timeout
 				print("FPS %5.1f  %s" % [float(Engine.get_process_frames() - f0) / ((Time.get_ticks_msec() - t0) / 1000.0), label])
-			await measure.call("perus")
-			for ch in _hazards.get_children():
-				var was_pm: int = ch.process_mode
-				ch.process_mode = Node.PROCESS_MODE_DISABLED
-				await measure.call("hazards pois: %s (%s)" % [ch.name, ch.get_script().resource_path.get_file() if ch.get_script() else ch.get_class()])
-				ch.process_mode = was_pm
-			for ch in get_children():
-				if not (ch is Node3D or ch is Control or ch is CanvasLayer) or ch == player or ch is Camera3D or ch is WorldEnvironment or ch is DirectionalLight3D:
-					continue
-				var was: int = ch.process_mode
-				ch.process_mode = Node.PROCESS_MODE_DISABLED
-				await measure.call("pois: %s (%s, %d lasta)" % [ch.name, ch.get_script().resource_path.get_file() if ch.get_script() else ch.get_class(), ch.get_child_count()])
-				ch.process_mode = was
+			await measure.call("perus (minikartta näkyvissä)")
+			print("marja- ja sienipaikkoja: %d (näkyvät kartalla: %s)" % [world.forage.size(), world.forage_revealed])
+			_minimap.visible = false
+			await measure.call("minikartta piilossa")
+			_minimap.visible = true
+			await measure.call("minikartta taas näkyvissä")
+			_minimap.visible = false
+			await measure.call("minikartta piilossa (toisto)")
+			_minimap.visible = true
+
+		"minikartta":
+			# Minikartan liikkuvat osat: pelaajan nuoli, Päivi, pyörä (kun jalan), tavoite, marja- ja sienipaikat, merkit.
+			_toggle_mount()
+			world.forage_revealed = true
+			var fp: Vector3 = world.forage[0].pos
+			walker_out.global_position = Vector3(fp.x + 6.0, Terrain.h(fp.x + 6.0, fp.z), fp.z)
+			bike.global_position = walker_out.global_position + Vector3(-55, 0, 40)
+			wife.global_position = walker_out.global_position + Vector3(70, 0, -45)
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_a.png"))
+			# Liike: kävellään eteenpäin, kartan pitää seurata ja nuolen kääntyä.
+			var o0: Vector2 = _minimap._origin
+			Input.action_press("forward")
+			for i in 90:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			for i in 3:
+				await get_tree().process_frame
+			print("MINIKARTTA keskipiste siirtyi %.1f m, marjapaikkoja %d, Päivi näkyvissä=%s pyörä=%s" % [
+				(_minimap._origin - o0).length(), world.forage.size(), wife.is_inside_tree(), bike != player])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_b.png"))
 		"pitkalappu":
 			# Pitkä lappu: kaikki päivän muistutukset kerralla; lapun pitää mahtua kokonaan ruudulle.
 			var many := ["Jemmassa 4 kaljaa.", "Varoitus: Päivi voi löytää täyden kotijemman!",
