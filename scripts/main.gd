@@ -197,7 +197,28 @@ var _santtu_gossip := false  # Santtu soitti Päiville: kotona aamulla motkotust
 var _mokki_prev := "to_shop"
 var _slept_mokki := false
 const ZONE_RADIUS := 6.0
-const DOOR_RADIUS := 1.8  # kotiovi: tyhjin käsin tästä sisään (eteisen jemma on ovesta 4,5 m, ei päällekkäin)
+var shop_door := Vector3.ZERO  # Saloisten K-Marketin oven edusta
+var home_door := Vector3.ZERO  # kodin etuoven portaiden edusta (kotiin meno, eteisen kaappi, Päivin ostokset, haava)
+const HOME_DOOR_ZONE := 3.0  # Päivin ostosten luovutus ja haavan hoito ovella
+var _shop_exit_frame := -1  # ulos tullessa painettu E ei vie heti takaisin sisään
+var _shop_prev := "to_shop"  # ulkotila ennen kauppaan menoa (to_home = kuutonen jo ostettu tänään)
+const DOOR_RADIUS := 1.8  # kotiovi: tyhjin käsin tästä sisään (eteisen jemma on ovesta 4,8 m, ei päällekkäin)
+const SHOP_DOOR_R := 2.4  # Saloisten K-Marketin ovi: tästä sisään (E)
+## Päivi, kun kotiin tullaan ilman hänen ostoksiaan.
+const PAIVI_NO_SHOPPING := [
+	"Missä mun ostokset?!",
+	"Ja kauppalista? Mää kirjotin sen ihan sulle, ja sää tuut tyhjin käsin!",
+	"Missä ne mun tavarat on? Unohtuko taas?",
+	"Ookko sää ees käyny kaupassa? Mun ostokset puuttuu kokonaan!",
+]
+## Kauppias ovella, kun yrittää kauppaan kalja kädessä (Saloisten tapaan).
+const SHOP_NO_BEER := [
+	"Ei kaljojen kanssa kauppaan! Viehän ne ensin pois, ennenko tuut tänne heilumaan.",
+	"Ookko sää tosissas? Omia kaljoja ei tänne tuuva. Mää en kato sitä hyvällä.",
+	"Ei käy! Kalijat jemmaan ja sitte tullaan uuesti, ookko ymmärtäny?",
+	"Kato nyt ittiäs, kassi täynnä kaljaa! Ei tänne niitten kanssa, ei ees Saloisissa.",
+	"Hoi hoi! Mää tunnen sut. Ensin ne kaljat pois, sitte vasta kauppaan.",
+]
 const START_MONEY := 20.0
 ## Taksi K-Marketin taksitolpalta Raahen baariin ja takaisin.
 const TAXI_FARE := 14.0  # meno-paluu
@@ -225,7 +246,6 @@ var elapsed := 0.0
 var wife_alerted := false
 
 var _hazards: Node3D
-var _beacon: MeshInstance3D
 var _stats: Label
 var _status: Label
 var _hint: Label
@@ -528,13 +548,20 @@ func _ready() -> void:
 		await _loading_step.call("Mökki, Siitari ja Raahen baari", 0.97)
 	home_zone = world.home_zone
 	shop_zone = world.shop_zone
+	var sb := M.w2(M.SHOP_BUILDING)
+	shop_door = Vector3(sb.x + 11.0, 0, sb.y + 10.2)  # oven edusta (world.gd _build_shop: ovi x +11, julkisivu z +9)
+	shop_door.y = Terrain.h(shop_door.x, shop_door.z)
+	# Kodin etuovi (world.gd _build_home: ovi paikallisessa x = 1,2, porras julkisivun edessä; julkisivu HOME_YAW_DIR).
+	var hb := M.w2(M.HOME_BUILDING)
+	var hf := M.HOME_YAW_DIR.normalized()
+	var hd := hb + Vector2(-hf.y, hf.x) * 1.2 + hf * 6.4
+	home_door = Vector3(hd.x, Terrain.h(hd.x, hd.y), hd.y)
 	lawn = Lawn.new()
 	lawn.rect = world.lawn_rect
 	lawn.pivot = world.lawn_pivot
 	lawn.angle = world.lawn_angle
 	lawn.mower_park = M.w(M.MOWER_PARK)
 	add_child(lawn)
-	_build_markers()
 	_build_stash_props()
 	_spawn_player()
 	world.follow = player
@@ -939,19 +966,14 @@ func _outside_logic() -> void:
 		_vaala_logic()
 		return
 	# Mökillä vain mökin omat toiminnot: kauppareissu, jemmat ja kylän tapahtumat odottavat Saloisissa.
-	_beacon.visible = not _at_mokki()
-	if not _beacon.visible:
+	if _at_mokki():
 		_drone_logic()
 		_mokki_ride_logic()
 		_viina_logic()
 		_mokki_logic()
 		return
 	_compass.has_cache = false
-	var target := shop_zone if state == "to_shop" else home_zone
 	var ppos := player.global_position
-	var dist := Vector2(ppos.x, ppos.z).distance_to(Vector2(target.x, target.z))  # vaakaetäisyys (maasto ei vaikuta)
-
-	_beacon.position = Vector3(target.x, Terrain.h(target.x, target.z) + 20.0, target.z)  # alkaa maan pinnasta
 	# Kompassin kohde poistuu, kun sinne päästään.
 	if _paper.has_target and Vector2(ppos.x, ppos.z).distance_to(_paper.target) < 10.0:
 		_paper.clear_target()
@@ -975,30 +997,42 @@ func _outside_logic() -> void:
 	_pontikka_logic()
 	_taxi_logic()
 	_mokki_logic()
-	if dist >= ZONE_RADIUS:
-		return
+	if _hint.text != "":
+		return  # jemma, Päivin ostokset, haava tai muu toiminto ovella menee edelle
+	var p2 := Vector2(ppos.x, ppos.z)
+	if p2.distance_to(Vector2(shop_door.x, shop_door.z)) < SHOP_DOOR_R:
+		_shop_door_logic()
+	elif p2.distance_to(Vector2(home_door.x, home_door.z)) < DOOR_RADIUS:
+		_home_door_logic()
+
+
+## K-Marketin ovi: kauppaan milloin vain, kuten mihin tahansa hommaan, paitsi kalja kädessä (kauppias kieltää).
+func _shop_door_logic() -> void:
 	if player == bike:
-		_hint.text = "Nouse pyörän selästä (F) ja kävele %s" % ("kauppaan" if state == "to_shop" else "ovelle")
+		_hint.text = "Nouse pyörän selästä (F) ja kävele kauppaan"
 		return
-	if state == "to_home":
-		# Kaljat ja kanisteri piilotetaan itse jemmoihin: ovi aukeaa vasta tyhjin käsin.
-		if beers > 0 or has_kanister:
-			if _hint.text == "":
-				_hint.text = "Ovi ei aukea kaljat kädessä – Päivi näkee! Piilota %s ensin jemmaan (E)." % (
-					"kanisteri" if beers <= 0 else "kaljat")
-			return
-		if dist < DOOR_RADIUS:
-			_win()
-		elif _hint.text == "":
-			_hint.text = "Kädet tyhjät. Mene ovelle."
+	_hint.text = "[E] Mene kauppaan"
+	if not Input.is_action_just_pressed("interact") or player.is_stunned() or Engine.get_process_frames() == _shop_exit_frame:
 		return
-	if state == "to_shop":
-		if beers + 6 > CARRY_FOOT:
-			_hint.text = "Kädet täynnä kaljaa (%d). Kuutonen ei enää mahdu kantoon – jemmaa ensin." % beers
-			return
-		_hint.text = "[E] Mene kauppaan"
-		if Input.is_action_just_pressed("interact") and not player.is_stunned():
-			_enter_shop()
+	if beers > 0 or has_kanister:
+		Sfx.play("alert", -10.0, 1.3)
+		_show_message("Kauppias ovella: \"%s\"" % SHOP_NO_BEER.pick_random(), 3.5)
+		return
+	_enter_shop()
+
+
+## Kotiovi: sisälle milloin vain tyhjin käsin (päivä päättyy). Kaljat ja kanisteri ensin jemmaan, Päivi näkee.
+func _home_door_logic() -> void:
+	if player == bike:
+		_hint.text = "Nouse pyörän selästä (F) ja kävele ovelle"
+		return
+	if beers > 0 or has_kanister:
+		_hint.text = "Ovi ei aukea kaljat kädessä – Päivi näkee! Piilota %s ensin jemmaan (E)." % (
+			"kanisteri" if beers <= 0 else "kaljat")
+		return
+	_hint.text = "[E] Mene sisälle kotiin (päivä päättyy)"
+	if Input.is_action_just_pressed("interact") and not player.is_stunned():
+		_win()
 
 
 ## Jemmat: jalan E piilottaa yhden kaljan (Shift+E kaikki), Q ottaa yhden (Shift+Q niin monta kuin jaksaa kantaa,
@@ -1066,7 +1100,8 @@ func _stash_logic() -> void:
 func _stash_pos(id: String) -> Vector3:
 	match id:
 		"koti":
-			return home_zone + Vector3(4.0, 0, -2.0)
+			var hf := M.HOME_YAW_DIR.normalized()
+			return home_door + Vector3(-hf.y, 0, hf.x) * 4.8 - Vector3(hf.x, 0, hf.y) * 0.6  # julkisivun vieressä oven sivulla
 		"autotalli":
 			return M.w(M.GARAGE) + Vector3(-3.8, 0, 3.6)
 		"komposti":
@@ -2139,7 +2174,7 @@ func _errand_logic() -> void:
 	if _list_done or paivi_bag.is_empty() or _hint.text != "" or state != "to_shop" or player != walker_out:
 		return
 	var p := player.global_position
-	if Vector2(p.x - home_zone.x, p.z - home_zone.z).length() > ZONE_RADIUS:
+	if Vector2(p.x - home_door.x, p.z - home_door.z).length() > HOME_DOOR_ZONE:
 		return
 	_hint.text = "[E] Anna ostokset Päiville"
 	if Input.is_action_just_pressed("interact"):
@@ -2172,7 +2207,7 @@ func _wound_logic() -> void:
 	if not bitten or _hint.text != "" or state != "to_shop" or player != walker_out or player.is_stunned():
 		return
 	var p := player.global_position
-	if Vector2(p.x - home_zone.x, p.z - home_zone.z).length() > ZONE_RADIUS:
+	if Vector2(p.x - home_door.x, p.z - home_door.z).length() > HOME_DOOR_ZONE:
 		return
 	_hint.text = "[E] Mene sisälle, Päivi hoitaa haavan"
 	if Input.is_action_just_pressed("interact"):
@@ -4787,10 +4822,10 @@ func _win_laavu() -> void:
 
 func _enter_shop() -> void:
 	tilat.first("kauppa")
+	_shop_prev = state
 	state = "in_shop"
 	player.controls_enabled = false
 	player.speed = 0.0
-	_set_outside_visible(false)
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
 	if wife.mode == "chase" and not wife_alerted:
 		wife.reset_to(wife.farthest_node_from(shop_zone))
@@ -4910,10 +4945,11 @@ func _on_shop_exited(bought: bool) -> void:
 		return
 	interior.leave()
 	Sfx.play("door_close", -3.0)
+	_shop_exit_frame = Engine.get_process_frames()
+	player.global_position = shop_door + Vector3(0, 0.3, 1.6)  # ovelta pari askelta pihalle
 	player.rotation.y = PI
 	player.controls_enabled = true
 	player.activate_camera()
-	_set_outside_visible(true)
 	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
 	if interior.has_paid:
 		has_sausage = has_sausage or interior.cart.has("makkara")
@@ -4927,19 +4963,19 @@ func _on_shop_exited(bought: bool) -> void:
 		if not interior.bag.is_empty() and not bought:
 			_show_message("Päivin ostokset kassissa. Vie ne kotiin.", 2.5)
 	if not bought:
-		state = "to_shop"
+		state = _shop_prev  # aiemmin tänään ostettu kuutonen pysyy ostettuna
 		return
 	beers += 6
-	state = "to_home"
+	state = "to_home"  # = kuutonen ostettu tänään (ei tehtävä: kotiin tai kauppaan voi mennä milloin vain)
 	player.set_carrying(true)
 	if wife_alerted:
 		wife.alerted = true
 		wife.reset_to(wife.farthest_node_from(shop_zone))
 		_show_message("Anna-Liisa soitti Päiville.\nPÄIVI TIETÄÄ MISSÄ OLET!", 3.5)
 	elif interior.stolen:
-		_show_message("JUOKSUKALJAT! Kassa huutaa perään.\nÄkkiä kotiin!", 3.0)
+		_show_message("JUOKSUKALJAT! Kassa huutaa perään.\nÄkkiä pois!", 3.0)
 	else:
-		_show_message("Kuutonen kassissa!\nNyt kotiin.", 3.0)
+		_show_message("Kuutonen kassissa!", 2.5)
 
 
 func _on_paid(total: float) -> void:
@@ -5076,6 +5112,7 @@ const CARRY_BIKE := 6  # pyörän tarakalle mahtuu kuutonen
 ## Kotiinpaluu: saalis jemmaan. Kun kotijemmassa on 24 olutta, tulee onnellinen loppu:
 ## karburaattorin säätöä autotallissa kalja kädessä (kotijemma juodaan tyhjäksi).
 func _win() -> void:
+	var shopped := state == "to_home"  # kuutonen haettu tänään
 	state = "cutscene"
 	player.controls_enabled = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
@@ -5083,8 +5120,15 @@ func _win() -> void:
 		# Päivin palaute ostoksista uuden päivän aloitusviestin jälkeen (ennen uutta listaa).
 		for l in _check_list():
 			_msg_queue.append([l, 3.0])
-	_task_done()
-	jemma_wins += 1
+	elif not _list_done and not shopping_list.is_empty():
+		# Kotiin tyhjin käsin: Päivin ostokset jäivät hakematta (sama vaikutus kuin väärillä ostoksilla, _check_list).
+		_list_done = true
+		tilat.add("stressi", -0.2)
+		tilat.add("moraali", -0.1)
+		_msg_queue.append(["Päivi: \"%s\"" % PAIVI_NO_SHOPPING.pick_random(), 3.0])
+	if shopped:
+		_task_done()
+		jemma_wins += 1
 	jemma_best = maxi(jemma_best, jemma)
 	beers = 0
 	_save_game()
@@ -5383,7 +5427,6 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	state = "to_shop"
 	elapsed = 0.0
 	_hud.visible = true
-	_set_outside_visible(true)
 	_save_game()
 	_jemma_found = 0
 	_jemma_choco = ""
@@ -5493,10 +5536,6 @@ func _dist_text(a: Vector3, b: Vector3) -> String:
 	return "%d m" % int(d) if d < 2000.0 else "%.1f km" % (d / 1000.0)
 
 
-func _set_outside_visible(v: bool) -> void:
-	_beacon.visible = v
-
-
 # --- Syöte & ympäristö -------------------------------------------------------
 
 func _setup_input() -> void:
@@ -5581,16 +5620,6 @@ func _setup_environment() -> void:
 	sun.directional_shadow_max_distance = 180.0
 	sun.directional_shadow_blend_splits = true
 	add_child(sun)
-
-
-# --- Merkit ------------------------------------------------------------------
-
-func _build_markers() -> void:
-	_beacon = MeshInstance3D.new()
-	_beacon.mesh = B.cyl(1.5, 1.5, 40)
-	_beacon.material_override = B.unshaded(Color(1.0, 0.85, 0.1, 0.3))
-	_beacon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(_beacon)
 
 
 # --- Hahmot ------------------------------------------------------------------
@@ -5989,10 +6018,6 @@ func _update_hud() -> void:
 		if not _risky_stashes().is_empty():
 			lines.append("⚠ Kotijemma vaarassa (I)")
 	if state in ["to_shop", "to_home"] and not away:
-		var target := shop_zone if state == "to_shop" else home_zone
-		var p := player.global_position
-		lines.append("Tavoite: %s  %d m" % ["K-Market" if state == "to_shop" else "Koti",
-			int(Vector2(p.x, p.z).distance_to(Vector2(target.x, target.z)))])
 		lines.append("Alusta: %s" % world.TERRAIN[player.surface].name)
 	_stamina_box.visible = state in ["to_shop", "to_home"]  # juoksu ja pyörän spurtti kuluttavat samaa kuntoa
 	if _stamina_box.visible:
@@ -6003,7 +6028,7 @@ func _update_hud() -> void:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
 	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_siitari", "in_raahe", "lava"]) and not _in_vaala
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
-	_minimap.show_target = state in ["to_shop", "to_home"] and not away
+	_minimap.show_target = false  # ei tehtäväkohdetta: kauppa ja koti näkyvät kartalla merkkeinä
 	_compass.visible = state in ["to_shop", "to_home"]
 	_compass.show_target = not away
 
@@ -7007,6 +7032,66 @@ func _maybe_screenshot() -> void:
 				var e := 1.5
 				var sl := rad_to_deg(atan(Vector2(Mokki.h(p.x + e, p.y) - Mokki.h(p.x - e, p.y), Mokki.h(p.x, p.y + e) - Mokki.h(p.x, p.y - e)).length() / (2.0 * e)))
 				print("VIINA %d %s: lähin rakennus %.1f m, rinne %.0f°" % [i, p, best, sl])
+		"kauppaovi":
+			# Kauppa hommana: ovelta sisään, ulos kuutosen kanssa, kalja kädessä kielto, tyhjin käsin uudestaan
+			# sisään (ostamatta ulos: kuutonen pysyy ostettuna), lopuksi kotiovelta sisään (E).
+			_toggle_mount()
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			walker_out.global_position = shop_zone + Vector3(0, 0.3, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("KAUPPAOVI parkkipaikalla: hint '%s'" % _hint.text)
+			walker_out.global_position = shop_door + Vector3(0, 0.3, 0.5)
+			for i in 10:
+				await get_tree().physics_frame
+			print("KAUPPAOVI ovella: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("KAUPPAOVI sisään: tila %s" % state)
+			_on_shop_exited(true)
+			for i in 10:
+				await get_tree().physics_frame
+			print("KAUPPAOVI ulos: tila %s, kaljat %d, viesti '%s', hint '%s'" % [state, beers, _msg.text.replace("\n", " "), _hint.text])
+			walker_out.global_position = shop_door + Vector3(0, 0.3, 0.5)
+			for i in 10:
+				await get_tree().physics_frame
+			await press.call("interact")
+			print("KAUPPAOVI kalja kädessä: tila %s, viesti '%s'" % [state, _msg.text])
+			beers = 0
+			walker_out.set_carrying(false)
+			await press.call("interact")
+			print("KAUPPAOVI tyhjin käsin: tila %s" % state)
+			_on_shop_exited(false)
+			print("KAUPPAOVI ostamatta ulos: tila %s" % state)
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("KAUPPAOVI kotiovella: hint '%s'" % _hint.text)
+			var dc := Camera3D.new()
+			add_child(dc)
+			var hf := M.HOME_YAW_DIR.normalized()
+			dc.look_at_from_position(home_door + Vector3(hf.x, 0, hf.y) * 7.0 + Vector3(0, 2.5, 0), home_door + Vector3(0, 1.0, 0))
+			dc.current = true
+			_msg.text = ""
+			_note.visible = false
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kotiovi.png"))
+			dc.queue_free()
+			walker_out.activate_camera()
+			var d0 := day
+			print("KAUPPAOVI ennen: lista tehty %s, ostokset %s, listalla %d" % [_list_done, paivi_bag, shopping_list.size()])
+			await press.call("interact")
+			print("KAUPPAOVI Päivi: %s" % str(_msg_queue))
+			for i in 30:
+				await get_tree().process_frame
+			print("KAUPPAOVI kotiin: päivä %d -> %d, tila %s" % [d0, day, state])
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()
@@ -8832,7 +8917,7 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().physics_frame
 			await get_tree().process_frame
-			print("REPPU HUD mökki: ", _stats.text.replace("\n", " | "), " status=", _status.text, " beacon=", _beacon.visible,
+			print("REPPU HUD mökki: ", _stats.text.replace("\n", " | "), " status=", _status.text,
 				" hazards=", _hazards.process_mode)
 			Input.action_press("mount")
 			await get_tree().process_frame

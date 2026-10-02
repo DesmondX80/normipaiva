@@ -7,6 +7,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 ## Mitä pelissä voi tehdä
 
 - **Kauppareissu:** kuutonen, grillimakkara ja tulitikut K-Marketista. Kassalla harmaapäät laskevat kolikoita.
+  Kauppa on homma muiden joukossa: ei valosädettä eikä pakollista reittiä. Kauppaan mennään oven edestä (E)
+  milloin vain, ja sinne voi palata uudestaan, paitsi kalja kädessä: silloin kauppias ovella kieltää Saloisten
+  tapaan. Kotiin mennään kotiovelta (E) tyhjin käsin, kun itse haluaa; päivä päättyy.
   Kylän teillä on liikennettä: henkilöautoja ja pakettiautoja, maanteillä kovempaa kuin asuinkaduilla. Autot
   pysyvät pelaajan ympärillä, ajavat jonossa toistensa (ja Päivin) perässä ja jarruttavat pelaajalle, mutta
   pysähtymismatka on pitkä. Arto asuu heti kodin vasemmalla puolella ja Pekka Lehtikujan päässä.
@@ -165,7 +168,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Reppu (I tai Tab):** tavarat, kaljat, ostokset, sienet, kalat ja metsästyssaaliit näkyvät Minecraft-tyylisessä
   ruudukossa pikselikuvakkeina ja pinoina, ja alarivillä ovat eväät (T syö). Samassa näkymässä ovat rahat,
   kauppalista, jemmat, mielihyvä ja maine sekä droonin ilmakuvat, ja muotokuvaruudussa on pelaajan oma 3D-hahmo
-  lippiksineen ja tuulipukuineen, joka kääntyy katsomaan hiirtä. Päänäkymän HUD:ssa näkyvät enää aika, tavoite ja
+  lippiksineen ja tuulipukuineen, joka kääntyy katsomaan hiirtä. Päänäkymän HUD:ssa näkyvät enää aika ja
   alusta (sekä varoitus, jos kotijemma on vaarassa).
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
@@ -195,7 +198,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   (JEMMA PALJASTUI!). Laavun ja grillikatoksen jemmoista teinit voivat pölliä. Jemmasta voi ottaa kaljat mukaan
   ja juoda ne laavulla. Onnellinen loppu juo kyseisen jemman tyhjäksi (autotalli kotijemman, laavu laavun jemman).
 - **Kantoraja:** jalan jaksaa kantaa 12 kaljaa, pyörän kyytiin mahtuu 6. Liian täysin käsin ei pääse pyörän
-  selkään eikä kauppaan (kuutonen ei mahdu).
+  selkään, ja kalja kädessä ei pääse kauppaan (kauppias kieltää).
 - **Kiilinlammen grillikatos** on turvapaikka: sinne Päivi ei tule Hyundailla perään.
 - Esc avaa valikon: asetukset (grafiikan laatu, koko näyttö, V-Sync, renderöintiskaala, FOV, FPS-näyttö,
   leijuvat opasteet eli paikkojen ja hahmojen nimet (oletuksena pois), äänenvoimakkuudet, hiiren herkkyys, käänteinen Y, kameran automaattikeskitys), ohjaimet ja tekijät.
@@ -253,7 +256,7 @@ Toimintojen vaikutukset tiloihin:
 | Haavan hoito (Pekka, Päivi) | kipu ++ |
 | Kotiinpaluu, laavuloppu | moraali +, stressi + |
 | Sivutehtävä (Väinö, nurmikko, kauppalista oikein) | moraali +, stressi +, keskittyminen ++ |
-| Kauppalista väärin | stressi −, moraali − |
+| Kauppalista väärin tai kotiin ilman Päivin ostoksia | stressi −, moraali − |
 | Jalkapallo pojille | moraali +0,1…0,5, kokemus +0,4…0,6 ensimmäisellä kerralla, muuten +0,1…0,3 |
 | Kalja pojille / pojan kivi osuu | moraali − / kipu − |
 | Kodan tarina | stressi + |
