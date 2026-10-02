@@ -425,14 +425,15 @@ const FOODS := {
 	"mustikkapiirakka": {"name": "Sinikan mustikkapiirakka", "nalka": 0.45, "stressi": 0.1, "moraali": 0.15},
 }
 ## Päivittäiset tilat (#18, day_stats.gd): kolme arvottua tilaa HUD:ssa, toiminnot nostavat ja laskevat niitä.
-## Päivän summa < 0 -> seuraava päivä hankalampi (trouble = 1), >= GOOD_DAY -> helpompi (trouble = -1).
+## Jokaisella tilalla on palkinto ja haitta (_stat_effects). Eilinen ei vaikuta, paitsi humala (krapula).
 const DayStats := preload("res://scripts/day_stats.gd")
 const StatBars := preload("res://scripts/stat_bars.gd")
 var tilat: RefCounted
-var trouble := 0
+var _wife_speed_base := 1.0  # päivän perusarvot, joihin tilojen vaikutukset lisätään (_apply_day_base)
+var _anger_base := 5.0
 var _stat_bars: Control
 var _still_t := 0.0  # paikallaan oloaika (lepo, kokemuksen hiipuminen)
-## Päivin kauppalista (muistipeli, #12): Päivi sanoo tuotteet väreineen kerran, lista näyttää vain tuotteet.
+## Päivin kauppalista (muistipeli, #12): heippalapussa tuotteet värikynillä hetken, repun lista näyttää vain tuotteet.
 ## Tuotteet haetaan kaupan Päivin hyllystä (shop_interior.gd) ja tarkistetaan kotona.
 const LIST_SIZE := 4
 var shopping_list: Array = []  # [[tuote, väri], ...]
@@ -589,7 +590,7 @@ func _ready() -> void:
 	hommat = Hommat.new()
 	_load_game()
 	_stat_bars.stats = tilat
-	_apply_trouble()
+	_apply_day_base()
 	_spawn_boys()
 	lawn.spawn_objects()
 	_roll_vaino()
@@ -1840,6 +1841,49 @@ func _stats_tick(delta: float) -> void:
 		t.add("kokemus", 0.003 * delta)
 	# Humala haihtuu hitaasti.
 	t.add("humala", -0.002 * delta)
+	_stat_effects()
+
+
+## Päivän kolmen tilan palkinnot ja haitat (day_stats.gd effect): päällä heti, kun palkki ylittää rajan
+## (+0,5 / -0,5; humalatila 0,3–0,6 / yli 0,8). Muut tilat kuin päivän kolme eivät vaikuta. Ks. README.
+func _stat_effects() -> void:
+	var t := tilat
+	# Stressi: rauhallisena mummot suuttuvat hitaammin, kireänä Päivi ajaa lujempaa.
+	var e: int = t.effect("stressi")
+	mummot.anger_speed = _anger_base * (1.3 if e > 0 else 1.0)
+	wife.speed_mult = _wife_speed_base + (0.1 if e < 0 else 0.0)
+	# Nälkä: kylläisenä kulkee kevyemmin, nälkäisenä raskaammin (jalan ja pyörällä).
+	e = t.effect("nalka")
+	walker_out.speed_mult = 1.0 + 0.1 * e
+	# Väsymys: virkeänä juoksu ja spurtti kuluttavat vähemmän, väsyneenä kunto palautuu hitaammin.
+	e = t.effect("vasymys")
+	walker_out.drain_mult = 0.7 if e > 0 else 1.0
+	walker_out.recover_mult = 0.5 if e < 0 else 1.0
+	# Kipu: kipeänä ontuu (juoksu ja hyppy). Palkinto (lisäkesto) tulee tappelun alussa (_start_fight).
+	e = t.effect("kipu")
+	walker_out.run_mult = 0.85 if e < 0 else 1.0
+	walker_out.jump_mult = 0.75 if e < 0 else 1.0
+	# Stamina: hyvissä voimissa spurtti on rajumpi, voimattomana ei juosta eikä spurtata.
+	e = t.effect("stamina")
+	bike.sprint_mult = 1.6 if e > 0 else PlayerBike.SPRINT
+	walker_out.no_sprint = e < 0
+	# Vireys: virkeänä tutka näkee kauemmas, tokkuraisena usva tihenee.
+	e = t.effect("vireys")
+	_minimap.range_m = Minimap.FAR_RANGE if e > 0 else Minimap.RANGE
+	var far: float = Settings.view_far() * (0.5 if e < 0 else 1.0)
+	_env.fog_depth_begin = 90.0 * far / 900.0
+	_env.fog_depth_end = 700.0 * far / 900.0
+	# Humalan haitta: kovassa humalassa pyörän ja kävelyn ohjaus heittelee (drunk_wobble.gd).
+	var drunk: float = t.value("humala") if "humala" in t.chosen else 0.0
+	bike.drunk = drunk
+	walker_out.drunk = drunk
+	# Moraali (kaupan hinnat), keskittyminen (repun kauppalista), kokemus (minipelien käsi, _hand_shake) ja
+	# humalan palkinto (tappelun iskut) luetaan siellä, missä niitä käytetään.
+
+
+## Minipelien käden huojunta (game.drunk): humala, ja kokemus-tila vakauttaa (-0,15) tai horjuttaa (+0,15).
+func _hand_shake() -> float:
+	return clampf(tilat.value("humala") - 0.15 * tilat.effect("kokemus"), 0.0, 1.0)
 
 
 var _today: Array = []  # tänään jo saadut kertabonukset (ettei E:n hakkaaminen kasvata tiloja loputtomiin)
@@ -1893,38 +1937,71 @@ func _task_failed() -> void:
 	tilat.add("stressi", -0.3)
 
 
-## Päivän hankaluus vaaroihin: huono edellinen päivä = Päivi nopeampi, mummot herkempiä, koira puree kauempaa.
-func _apply_trouble() -> void:
-	wife.speed_mult = [0.88, 1.0, 1.12][trouble + 1]
+## Päivän perusarvot vaaroille (tilojen vaikutukset lisätään näihin, _stat_effects). Edellinen päivä ei vaikuta,
+## paitsi Sinikan juorut (Päivi vauhdissa) ja krapula (_end_day_stats).
+func _apply_day_base() -> void:
+	wife.speed_mult = 1.0
 	if _paivi_mad:
 		_paivi_mad = false
 		wife.speed_mult += 0.1  # Sinikka-juorut: Päivi on tänään vauhdissa
-	mummot.anger_speed = [7.5, 5.0, 3.5][trouble + 1]
-	stray.bite_dist = [1.6, 2.3, 3.0][trouble + 1]
+	_wife_speed_base = wife.speed_mult
+	_anger_base = 5.0
+	mummot.anger_speed = _anger_base
+	stray.bite_dist = 2.3
 
 
-## Päivän päätös: kolmen tilan summa ratkaisee huomisen hankaluuden. Palauttaa aamun viestin rivin.
+## Päivän päätös: tilat nollautuvat eikä eilinen vaikuta tähän päivään, paitsi humala: illalla yli
+## DayStats.HANGOVER_LIMIT -> krapula-aamu (vireys ja keskittyminen alkavat -0,3). Palauttaa aamun viestin rivin.
 func _end_day_stats(at_mokki := false) -> String:
-	var s: float = tilat.score()
-	var sum: String = tilat.summary()
 	var note := ""
-	if s < 0.0:
-		trouble = 1
-		note = "\nEilinen päivä: %s. Huono päivä: tänään on hankalampaa (Päivi nopeampi, mummot kireämpiä, koirat pahempia)." % sum
-	elif s >= DayStats.GOOD_DAY:
-		trouble = -1
-		note = "\nEilinen päivä: %s. Hyvä päivä: tänään kaikki sujuu vähän helpommin." % sum
-	else:
-		trouble = 0
-		note = "\nEilinen päivä: %s. Ihan normipäivä." % sum
+	var who := "santtu" if at_mokki else "paivi"
+	var hangover: bool = tilat.value("humala") > DayStats.HANGOVER_LIMIT
 	tilat.reset()
+	if hangover:
+		tilat.add("vireys", -0.3)
+		tilat.add("keskittyminen", -0.3)
+		note = "\n" + HANGOVER_NOTE[who]
 	if at_mokki:
 		tilat.ensure("humala")  # mökillä humalatila on aina yksi päivän kolmesta tilasta
 	_today.clear()
-	var names: Array[String] = []
 	for k in tilat.chosen:
-		names.append(DayStats.STATS[k].name)
-	return note + "\nTämän päivän tilat: " + ", ".join(names)
+		note += "\n" + STAT_TIPS[who][k].pick_random()
+	return note
+
+
+## Aamun lapun muistutukset päivän kolmesta tilasta: kotona Päivi, mökillä Santtu kirjoittaa lappuun omin sanoin
+## (ei tilojen nimiä), ja rivi vihjaa, mitä tilalle kannattaa tehdä.
+const STAT_TIPS := {
+	"paivi": {
+		"stressi": ["Ota tänään vähän rauhallisemmin, kulta.", "Älä hermostu heti kaikesta."],
+		"nalka": ["Syö jotain, oot muuten taas ihan kiukkunen.", "Älä lähe tyhjällä mahalla."],
+		"vasymys": ["Lepää välillä, näytit eilen ihan kuolleelta.", "Älä juokse koko päivää, istu välillä."],
+		"kipu": ["Älä hae turpaan tänään.", "Varo niitä koiria."],
+		"stamina": ["Säästä vähän voimia, illalla on vielä hommia.", "Syö ja lepää, niin jaksat."],
+		"vireys": ["Käy vaikka metsässä haukkaamassa happea.", "Selvin päin tänään, kiitos."],
+		"moraali": ["Tee jotain kivaa, oot ollu ihan maassa.", "Hymyile välillä, ei se tapa."],
+		"keskittyminen": ["Keskity nyt ja muista mitä pyysin!", "Älä haahuile."],
+		"kokemus": ["Tee tänään jotain uutta, äläkä vaan makaa.", "Älä seiso tumput suorina."],
+		"humala": ["Ei kaljaa ennen iltaa!", "Kohtuudella sen kaljan kanssa."],
+	},
+	"santtu": {
+		"stressi": ["Täällä ei oo kiire mihinkään.", "Rauhotu, ollaan mökillä."],
+		"nalka": ["Ruokaa riittää, syö kunnolla.", "Laita savustimeen jotain, nälkä tulee."],
+		"vasymys": ["Ota välillä rennosti laiturilla.", "Älä riehu koko päivää."],
+		"kipu": ["Varo itteäs, lähin lääkäri on kaukana.", "Ei mitään tyhmiä tänään."],
+		"stamina": ["Tänään tarvitaan voimia, syö hyvin.", "Säästele vähän, hommia riittää."],
+		"vireys": ["Käy metsässä, raitis ilma tekee hyvää.", "Kirkas pää on tänään plussaa."],
+		"moraali": ["Tehään tästä hyvä päivä.", "Kala laiturilta piristää aina."],
+		"keskittyminen": ["Pää kasassa, niin hommat sujuu.", "Älä haahuile."],
+		"kokemus": ["Kokeile jotain, mitä et oo ennen tehny.", "Mökillä riittää uutta tekemistä."],
+		"humala": ["Saunakaljat illalla, ei aamusta.", "Kohtuudella, ettei mene överiks."],
+	},
+}
+## Krapula-aamun rivi (vireys ja keskittyminen -0,3): kotona Päivi, mökillä Santtu.
+const HANGOVER_NOTE := {
+	"paivi": "Haisit yöllä ihan viinalta. Toivottavasti päätä särkee.",
+	"santtu": "Eilinen ilta venyi. Juo vettä, kyllä se krapula siitä hellittää.",
+}
 
 
 ## Uusi kauppalista: neljä eri tuotetta, kullekin väri.
@@ -2315,7 +2392,7 @@ func _raahe_karaoke() -> void:
 	_hud.visible = false
 	var game := KaraokeGame.new()
 	game.song = KaraokeGame.SONG_RAAHE
-	game.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	game.drunk = _hand_shake()
 	game.line.connect(raahe_int.set_screen)
 	game.finished.connect(func(score: float) -> void:
 		game.queue_free()
@@ -3510,7 +3587,7 @@ func _start_laituri() -> void:
 	g.state = _dock_state
 	g.patch = mokki.dock_patch
 	g.patch_z = _dock_fix_z()
-	g.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	g.drunk = _hand_shake()
 	g.thumb.connect(func() -> void:
 		tilat.add("kipu", -0.15)
 		tilat.add("stressi", -0.05))
@@ -3533,7 +3610,7 @@ func _start_ranni() -> void:
 	if _ranni_state.is_empty():
 		_ranni_state = RanniGame.new_state(g.base_off, g.gutter_up)
 	g.state = _ranni_state
-	g.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	g.drunk = _hand_shake()
 	_start_kota_game(g, Vector3(0, hy, Mokki.LADDER_LOCAL.z), 0.0, func() -> String:
 		if g.fell_off:
 			tilat.add("kipu", -0.3)
@@ -3553,7 +3630,7 @@ func _start_ampiaiset() -> void:
 	var l := Mokki.WASP_STAND_LOCAL
 	var pos := Vector3(l.x, mokki.sauna_base, l.z)  # terassin laudoilla saunan tasossa
 	g.nest_local = mokki.to_local(mokki.wasp_nest.global_position) - pos
-	g.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	g.drunk = _hand_shake()
 	_start_kota_game(g, pos, 0.0, func() -> String:
 		tilat.add("kipu", -0.08 * g.stings)
 		match g.result:
@@ -3581,7 +3658,7 @@ func _start_tiskit() -> void:
 	_hud.visible = false
 	var g := TiskiGame.new()
 	g.dishes_left = mokki_int.dishes
-	g.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	g.drunk = _hand_shake()
 	g.comment.connect(func(t: String) -> void: mokki_int.say(t))
 	g.finished.connect(func(washed: int, broken: int) -> void:
 		mokki_int.busy = false
@@ -3862,7 +3939,7 @@ func _start_karaoke() -> void:
 	siitari_int.to_stage()
 	_hud.visible = false
 	var game := KaraokeGame.new()
-	game.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	game.drunk = _hand_shake()
 	game.line.connect(siitari_int.set_screen)
 	game.finished.connect(func(score: float) -> void:
 		game.queue_free()
@@ -4190,7 +4267,7 @@ func _start_fishing() -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_hud.visible = false
 	var game := FishGame.new()
-	game.drunk = clampf(tilat.value("humala"), 0.0, 1.0)
+	game.drunk = _hand_shake()
 	game.finished.connect(func(got: Array) -> void:
 		state = _minigame_prev
 		player.visible = true
@@ -4282,7 +4359,7 @@ func _start_darts() -> void:
 	_hud.visible = false
 	var game := DartsGame.new()
 	game.board_center = Mokki.dart_board_center()
-	game.drunk = tilat.value("humala")
+	game.drunk = _hand_shake()
 	game.finished.connect(func(total: int, santtu: int) -> void:
 		state = _minigame_prev
 		player.visible = true
@@ -4667,6 +4744,7 @@ func _enter_shop() -> void:
 	if wife.mode == "chase" and not wife_alerted:
 		wife.reset_to(wife.farthest_node_from(shop_zone))
 	interior.money = money
+	interior.price_mult = 1.0 - 0.1 * tilat.effect("moraali")
 	interior.enter()
 	Sfx.play("door", -3.0)
 
@@ -4849,6 +4927,9 @@ func _start_fight(foe_key: String, source: String, direction: Vector3) -> void:
 	_grill_t = -1.0
 	_stop_picking(false)
 	_stop_mowing()
+	# Tilojen vaikutus tappeluun ennen iskuja: terveenä enemmän kestoa, sopivassa nousuhumalassa kovemmat iskut.
+	var hp := 120.0 if tilat.effect("kipu") > 0 else 100.0
+	var dmg := 1.2 if tilat.effect("humala") > 0 else 1.0
 	# Tappelu: stressi, kipu ja moraali kärsivät, voimat kuluvat.
 	tilat.add("stressi", -0.15)
 	tilat.add("kipu", -0.3)
@@ -4863,7 +4944,7 @@ func _start_fight(foe_key: String, source: String, direction: Vector3) -> void:
 	player.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
 	_hud.visible = false
-	fight.start(beers, foe_key)
+	fight.start(beers, foe_key, hp, dmg)
 
 
 func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
@@ -5032,7 +5113,6 @@ func _load_game() -> void:
 	hommat.reviews = cfg.get_value("mokki", "arvostelut", [])
 	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
 	tilat.load_from(cfg)
-	trouble = cfg.get_value("tilat", "hankaluus", 0)
 	if cfg.has_section_key("peli", "pyora"):
 		_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
 
@@ -5070,7 +5150,6 @@ func _save_game() -> void:
 	cfg.set_value("nurmikko", "kehu", _lawn_praise)
 	if tilat != null:
 		tilat.save_to(cfg)
-	cfg.set_value("tilat", "hankaluus", trouble)
 	if bike != null:
 		cfg.set_value("peli", "pyora", bike.global_position)
 		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
@@ -5257,7 +5336,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	for c in _hazards.get_children():
 		c.queue_free()
 	_spawn_threats()
-	_apply_trouble()
+	_apply_day_base()
 	if _spawn_boys() and not at_m:
 		bonus += "\nJossain päin kylää pojat pelaa jalkapalloa."
 	if laavu_conquered:
@@ -5973,8 +6052,16 @@ func inventory_info() -> Dictionary:
 	info.lines = ["Päivä %d · Järvikuja 1, Saloinen" % day, "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
 		"Aika: %s" % _time(elapsed), "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
 	if not _list_done:
-		for it in shopping_list:
-			info.list.append(it[0] + ("  ✔" if paivi_bag.has(it[0]) or interior.bag.has(it[0]) else ""))
+		# Keskittyminen: palkintona ensimmäisen tuotteen väri näkyy, haittana viimeinen tuote unohtuu listasta.
+		var focus: int = tilat.effect("keskittyminen")
+		for i in shopping_list.size():
+			var it: Array = shopping_list[i]
+			var row: String = it[0]
+			if focus > 0 and i == 0:
+				row = "%s (%s)" % [it[0], it[1]]
+			elif focus < 0 and i == shopping_list.size() - 1:
+				row = "???"
+			info.list.append(row + ("  ✔" if paivi_bag.has(it[0]) or interior.bag.has(it[0]) else ""))
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if stash.get(id, 0) > 0:
@@ -8037,7 +8124,8 @@ func _maybe_screenshot() -> void:
 				"Päivi löysi vanhat jemmat ja kaatoi 3 kaljaa viemäriin! Nyt jemmoja on enemmän.",
 				"Yhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä.",
 				"Nurmikko on kasvanut pitkäksi: leikkaa se ennen kuin lähdet mihinkään!", "Pyörä jäi mökille.",
-				"Eilinen päivä: Vireys +0,1 · Stressi -0,4 · Keskittyminen -0,6 = -0,9. Huono päivä: tänään on hankalampaa."]
+				HANGOVER_NOTE.paivi, STAT_TIPS.paivi.vireys[0],
+				STAT_TIPS.paivi.stressi[1], STAT_TIPS.paivi.keskittyminen[0]]
 			_day_note("Huomenta! Päivä %d alkaa mökiltä." % day, "
 ".join(many))
 			await get_tree().create_timer(1.2).timeout
@@ -9257,13 +9345,57 @@ func _maybe_screenshot() -> void:
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_hud.png"))
 			var sp0: float = wife.speed_mult
 			_new_day(home_zone + Vector3(0, 0, 4), false)
-			print("TILAT uusi päivä trouble=%d wife %.2f -> %.2f humala=%.2f chosen=%s" % [trouble, sp0, wife.speed_mult,
-				tilat.value("humala"), tilat.chosen])
+			print("TILAT uusi päivä wife %.2f -> %.2f mummot=%.1f koira=%.1f humala=%.2f chosen=%s" % [sp0, wife.speed_mult,
+				mummot.anger_speed, stray.bite_dist, tilat.value("humala"), tilat.chosen])
 			print("TILAT viesti: ", _msg.text.replace("\n", " | "))
-			tilat.chosen = ["stressi", "nalka", "kipu"]
+			# Krapula: illan humala yli rajan -> aamulla vireys ja keskittyminen -0,3.
+			tilat.values["humala"] = 0.95
 			_new_day(home_zone + Vector3(0, 0, 4), false)
-			print("TILAT huono päivä trouble=%d wife=%.2f mummot=%.1f koira=%.1f" % [trouble, wife.speed_mult, mummot.anger_speed,
-				stray.bite_dist])
+			print("TILAT krapula humala=%.2f vireys=%.2f keskittyminen=%.2f viesti: %s" % [tilat.value("humala"),
+				tilat.value("vireys"), tilat.value("keskittyminen"), _msg.text.replace("\n", " | ")])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"tilat_vaikutukset":
+			# Jokaisen tilan palkinto (+0,8) ja haitta (-0,8): mitä _stat_effects ja kulutuskohdat asettavat.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			for k in DayStats.STATS:
+				for v in ([0.5, 0.9] if k == "humala" else [0.8, -0.8]):
+					tilat.chosen = [k, "stressi" if k != "stressi" else "nalka", "moraali" if k != "moraali" else "nalka"]
+					for o in DayStats.STATS:
+						tilat.values[o] = 0.0
+					tilat.values[k] = v
+					_stat_effects()
+					interior.price_mult = 1.0 - 0.1 * tilat.effect("moraali")
+					var inv: Dictionary = inventory_info()
+					print("VAIKUTUS %s %+.1f eff=%d | mummot %.1f wife %.2f nopeus %.2f kulutus %.1f palautus %.1f juoksu %.2f hyppy %.2f spurtti %.1f eispurttia %s tutka %.0f usva %.0f hinta %.2f käsi %.2f lista %s" % [
+						k, v, tilat.effect(k), mummot.anger_speed, wife.speed_mult, walker_out.speed_mult, walker_out.drain_mult,
+						walker_out.recover_mult, walker_out.run_mult, walker_out.jump_mult, bike.sprint_mult, walker_out.no_sprint,
+						_minimap.range_m, _env.fog_depth_end, interior.price_mult, _hand_shake(), inv.list])
+			# Muut kuin päivän kolme tilaa eivät vaikuta.
+			tilat.chosen = ["stressi", "moraali", "kipu"]
+			tilat.values["nalka"] = -0.9
+			print("VAIKUTUS nälkä ei päivän tila: eff=%d" % tilat.effect("nalka"))
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"humala_ohjaus":
+			# Humalan haitta: kävellään ja ajetaan 6 s suoraan ilman ohjausta, selvänä ja humalassa 0,9. Suunnan muutos.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			tilat.chosen = ["stressi", "moraali", "humala"]
+			for mounted in [false, true]:
+				if (player == bike) != mounted:
+					_toggle_mount()
+				for h in [0.0, 0.9]:
+					tilat.values["humala"] = h
+					player.global_position = M.w(M.GRILLIKATOS) + Vector3(1.0, 0.5, 1.0)
+					player.rotation.y = 0.0
+					Input.action_press("forward")
+					var max_dev := 0.0
+					for i in 360:
+						await get_tree().physics_frame
+						max_dev = maxf(max_dev, absf(wrapf(player.rotation.y, -PI, PI)))
+					Input.action_release("forward")
+					print("HUMALA %s humala=%.1f drunk=%.2f max suunnanmuutos %.0f°" % ["pyörä" if mounted else "jalan", h,
+						player.drunk, rad_to_deg(max_dev)])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"heitto":
