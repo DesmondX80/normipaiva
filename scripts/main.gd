@@ -180,6 +180,10 @@ var _list_pending := false  # päivä alkoi mökiltä: Päivin värilista kerrot
 ## Mökin sisätila (mokki_interior.gd) omassa taskussaan; kuistin ovelta E vie sisään.
 const MokkiInterior := preload("res://scripts/mokki_interior.gd")
 const HomeInterior := preload("res://scripts/home_interior.gd")
+const WcGame := preload("res://scripts/wc_game.gd")
+## Pöntöllä kysytään Saloisten tapaan: ykkönen vai kakkonen.
+const WC_ASK := ["No nii. Onko pikkunen vai isompi hätä?", "Mitäs sää, ykköstä vai kakkosta?",
+	"Kumpi on, pissa vai kakka? Ei tartte hävetä.", "Pikkunen asia vai iso asia? Kerro nyt."]
 const HOME_INT_POS := Vector3(-9000, 0, 0)  # kodin sisätila, erillinen tasku
 const MOKKI_INT_POS := Vector3(9000, 0, 0)
 const TV_SHOWS := ["Salkkarit: Kaikki riitelee taas.", "Kauniit ja rohkeat: Ridge on hämmentynyt.", "Uutiset: sadetta luvassa.",
@@ -1094,6 +1098,114 @@ func _on_home_slept() -> void:
 	_win()
 
 
+## Vessanpönttö (koti, mökin pesuhuone, mökin huussi): ensin kysytään ykkönen vai kakkonen (esinevalikko), sitten
+## minipeli (wc_game.gd) ja lopuksi tulos (_wc_result).
+var _wc_where := ""
+var _wc_game: CanvasLayer  # käynnissä oleva minipeli (testit)
+
+
+func _wc_walker() -> CharacterBody3D:
+	match _wc_where:
+		"koti":
+			return home_int.walker
+		"mokki":
+			return mokki_int.walker
+	return walker_out
+
+
+func _wc_busy(on: bool) -> void:
+	if _wc_where == "koti":
+		home_int.busy = on
+		if not on:
+			home_int._enter_frame = Engine.get_process_frames()  # valinnan E ei käynnistä pistettä uudelleen
+	elif _wc_where == "mokki":
+		mokki_int.busy = on
+		if not on:
+			mokki_int._enter_frame = Engine.get_process_frames()
+
+
+func _open_wc_menu(where: String) -> void:
+	_wc_where = where
+	_wc_busy(true)
+	var w := _wc_walker()
+	w.controls_enabled = false
+	if "speed" in w:
+		w.speed = 0.0
+	_menu_mode = "wc"
+	_item_menu.open([["ykkonen", "Ykkönen – pikkunen hätä"], ["kakkonen", "Kakkonen – isompi asia"]], WC_ASK.pick_random())
+
+
+func _wc_release() -> void:
+	_wc_busy(false)
+	_wc_walker().controls_enabled = true
+	_hud.visible = true
+
+
+func _start_wc(mode: String) -> void:
+	_menu_mode = "give"
+	_hud.visible = false
+	var g := WcGame.new()
+	g.mode = mode
+	g.drunk = _hand_shake()
+	g.flush = _wc_where != "huussi"
+	g.finished.connect(_wc_result)
+	add_child(g)
+	_wc_game = g
+
+
+## Minipelin tulos: helpotus (kerran päivässä), ja sotku tai tukos saa kotona Päivin tai nörtin, mökillä Santun
+## huomauttamaan.
+func _wc_result(mode: String, r: Dictionary) -> void:
+	var where := _wc_where
+	_wc_release()
+	tilat.first(mode, 0.1)
+	var who := "Päivi" if where == "koti" else "Santtu"
+	if mode == "ykkonen":
+		if not r.done:
+			_show_message("Jäi kesken. Hätä palaa kyllä.", 2.0)
+			return
+		var acc: float = r.accuracy
+		if _once_today("wc_ykkonen"):
+			tilat.add("stressi", 0.05)
+		if acc >= 0.85:
+			_show_message("Napakymppi! Ei tippaakaan ohi.", 2.5)
+		elif acc >= 0.6:
+			_show_message("Melkein kaikki pönttöön. Pari tippaa reunalle.", 2.5)
+		else:
+			tilat.add("moraali", -0.05)
+			if where == "koti":
+				_show_message("Lattia lainehtii! %s huutaa: \"Kuka on taas pissiny lattialle?! Istualtaan jatkossa!\"" % who, 4.0)
+			else:
+				_show_message("Lattia lainehtii! %s: \"Superhost huomaa kaiken. Lattia pyyhitään!\"" % who, 4.0)
+				if hommat.active:
+					hommat.add_hermo(3.0)
+		return
+	if not r.done:
+		_show_message("Jäi kesken. Tuntuu vielä.", 2.0)
+		return
+	var lines: Array[String] = []
+	if _once_today("wc_kakkonen"):
+		tilat.add("stressi", 0.15)
+		tilat.add("vireys", 0.05)
+	if r.hard > 0:
+		tilat.add("kipu", -0.05 * r.hard)
+		lines.append("Liian kovaa ponnistettu, peräpukamat muistuttaa.")
+	if r.clog:
+		tilat.add("moraali", -0.1)
+		if where == "koti":
+			lines.append("Pönttö tukossa! Nörtti huutaa: \"Kuka tukki taas pöntön? Mää en ainakaan!\"")
+		else:
+			lines.append("Pönttö tukossa! %s: \"Mökin viemäri ei vedä noin paljoa paperia!\"" % who)
+			if hommat.active:
+				hommat.add_hermo(5.0)
+	elif r.sheets < WcGame.PAPER_OK.x:
+		tilat.add("moraali", -0.05)
+		lines.append("Säästeliäs paperinkäyttö. Toivottavasti riitti.")
+	else:
+		lines.append("Siistiä työtä." + (" Vettä perään." if where != "huussi" else " Huussin luukku kiinni."))
+	_show_message("\n".join(lines), 3.5)
+
+
 ## Kodin sisätoiminnot: tilavaikutukset (kerran päivässä) ja viestit.
 func _on_home_acted(kind: String) -> void:
 	match kind:
@@ -1127,9 +1239,7 @@ func _on_home_acted(kind: String) -> void:
 			Sfx.play("water", -6.0, 1.1)
 			_show_message("Suihku virkistää.", 2.0)
 		"wc":
-			if _once_today("wc"):
-				tilat.add("stressi", 0.05)
-			_show_message(["Helpottaa.", "Rauhallinen hetki. Ainoa paikka, jossa kukaan ei kysy mitään."].pick_random(), 2.5)
+			_open_wc_menu("koti")
 		"peili":
 			_show_message(["Peilistä katsoo normimies. Tuulipuku istuu.", "Vähän väsyneen näkönen. Normipäivä.",
 				"Parta kasvaa, kalja ei."].pick_random(), 2.5)
@@ -2979,6 +3089,11 @@ func _mokki_logic() -> void:
 				_hommat_snitch()
 			_start_mopo()
 		return
+	if near.call(Mokki.HUUSSI_LOCAL + Vector3(0, 0, 1.3), 1.0):
+		_hint.text = "[E] Käy huussissa"
+		if e:
+			_open_wc_menu("huussi")
+		return
 	if near.call(Mokki.DOOR_LOCAL, 1.2):
 		_hint.text = "[E] Mene sisälle mökkiin"
 		if e:
@@ -4398,10 +4513,7 @@ func _on_mokki_acted(kind: String) -> void:
 			Sfx.play("water", -6.0, 1.1)
 			_show_message("Suihku virkistää.", 2.0)
 		"wc":
-			if _once_today("wc"):
-				tilat.add("stressi", 0.05)
-			_show_message(["Istut pöntöllä ja katselet suihkua. Mökkielämää.",
-				"Pönttö on suihkun vieressä: näköala on mitä on.", "Helpottaa."].pick_random(), 2.5)
+			_open_wc_menu("mokki")
 		"sauna":
 			tilat.first("sisasauna", 0.2)
 			walker_out.stamina = 100.0
@@ -6089,6 +6201,8 @@ func _build_hud() -> void:
 			_on_raahe(id)
 		elif _menu_mode == "santtu":
 			_on_santtu_menu(id)
+		elif _menu_mode == "wc":
+			_start_wc(id)
 		else:
 			_on_give(id))
 	_item_menu.cancelled.connect(func() -> void:
@@ -6096,6 +6210,9 @@ func _build_hud() -> void:
 			_on_siitari("takaisin")
 		elif _menu_mode == "raahe":
 			_on_raahe("takaisin")
+		elif _menu_mode == "wc":
+			_menu_mode = "give"
+			_wc_release()
 		else:
 			_mopo_menu(false)
 			player.controls_enabled = true)
@@ -7325,6 +7442,128 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().process_frame
 			print("JUHLAT E: jemma %d, loppuja %d -> %d, tila %s" % [jemma, e0, jemma_endings, state])
+		"vessa":
+			# Kodin WC: ykkönen ja kakkonen (ponnistus vihreällä, 5 arkkia).
+			_toggle_mount()
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			# Pöntöllä: valikko auki, valinta (ykkönen = 1. rivi, kakkonen = 2.), minipeli pelataan läpi.
+			var play := func(choice: int, sheets: int) -> void:
+				print("VESSA valikko auki %s, kysymys '%s'" % [_item_menu.is_open(), _item_menu._title.text])
+				if choice == 2:
+					await press.call("back")
+				await press.call("interact")
+				var g: CanvasLayer = _wc_game
+				if g.mode == "ykkonen":
+					while is_instance_valid(g):
+						var aim: Vector2 = g._aim
+						Input.action_release("left")
+						Input.action_release("right")
+						Input.action_release("forward")
+						Input.action_release("back")
+						if aim.x > 8.0:
+							Input.action_press("left", clampf(aim.x / 60.0, 0.2, 1.0))
+						elif aim.x < -8.0:
+							Input.action_press("right", clampf(-aim.x / 60.0, 0.2, 1.0))
+						if aim.y > 8.0:
+							Input.action_press("forward", clampf(aim.y / 60.0, 0.2, 1.0))
+						elif aim.y < -8.0:
+							Input.action_press("back", clampf(-aim.y / 60.0, 0.2, 1.0))
+						await get_tree().process_frame
+					for a2 in ["left", "right", "forward", "back"]:
+						Input.action_release(a2)
+				else:
+					while is_instance_valid(g) and g._phase == "push":
+						await get_tree().process_frame
+						if g._needle >= WcGame.GREEN.x + 0.04 and g._needle <= WcGame.GREEN.y - 0.04:
+							await press.call("interact")
+					for k in sheets:
+						await press.call("interact")
+					await press.call("brake")
+				for i in 5:
+					await get_tree().process_frame
+				print("VESSA tulos: '%s'" % _msg.text.replace("\n", " | "))
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			await press.call("interact")
+			home_int.walker.position = home_int.SPOTS.wc[0]
+			for i in 5:
+				await get_tree().physics_frame
+			print("VESSA koti: '%s'" % home_int.hint)
+			await press.call("interact")
+			await play.call(1, 0)
+			await press.call("interact")
+			await play.call(2, 5)
+			print("VESSA kävelijä liikkuu %s, kiireinen %s" % [home_int.walker.controls_enabled, home_int.busy])
+		"mokkivessa":
+			# Mökin pesuhuoneen pönttö (kakkonen, 12 arkkia = tukos) ja pihan huussi (kakkonen, 12 arkkia: ei tukosta).
+			_toggle_mount()
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			# Pöntöllä: valikko auki, valinta (ykkönen = 1. rivi, kakkonen = 2.), minipeli pelataan läpi.
+			var play := func(choice: int, sheets: int) -> void:
+				print("VESSA valikko auki %s, kysymys '%s'" % [_item_menu.is_open(), _item_menu._title.text])
+				if choice == 2:
+					await press.call("back")
+				await press.call("interact")
+				var g: CanvasLayer = _wc_game
+				if g.mode == "ykkonen":
+					while is_instance_valid(g):
+						var aim: Vector2 = g._aim
+						Input.action_release("left")
+						Input.action_release("right")
+						Input.action_release("forward")
+						Input.action_release("back")
+						if aim.x > 8.0:
+							Input.action_press("left", clampf(aim.x / 60.0, 0.2, 1.0))
+						elif aim.x < -8.0:
+							Input.action_press("right", clampf(-aim.x / 60.0, 0.2, 1.0))
+						if aim.y > 8.0:
+							Input.action_press("forward", clampf(aim.y / 60.0, 0.2, 1.0))
+						elif aim.y < -8.0:
+							Input.action_press("back", clampf(-aim.y / 60.0, 0.2, 1.0))
+						await get_tree().process_frame
+					for a2 in ["left", "right", "forward", "back"]:
+						Input.action_release(a2)
+				else:
+					while is_instance_valid(g) and g._phase == "push":
+						await get_tree().process_frame
+						if g._needle >= WcGame.GREEN.x + 0.04 and g._needle <= WcGame.GREEN.y - 0.04:
+							await press.call("interact")
+					for k in sheets:
+						await press.call("interact")
+					await press.call("brake")
+				for i in 5:
+					await get_tree().process_frame
+				print("VESSA tulos: '%s'" % _msg.text.replace("\n", " | "))
+			walker_out.global_position = mokki.porch_pos(0.9)
+			for i in 10:
+				await get_tree().physics_frame
+			_enter_mokki()
+			mokki_int.walker.position = mokki_int.SPOTS.wc[0]
+			for i in 5:
+				await get_tree().physics_frame
+			print("VESSA mökki: '%s'" % mokki_int.hint)
+			await press.call("interact")
+			await play.call(2, 12)
+			_on_mokki_exited()
+			walker_out.global_position = mokki.to_global(Mokki.HUUSSI_LOCAL + Vector3(0, 0.3, 1.3))
+			for i in 10:
+				await get_tree().physics_frame
+			print("VESSA huussi: '%s'" % _hint.text)
+			await press.call("interact")
+			await play.call(2, 12)
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()

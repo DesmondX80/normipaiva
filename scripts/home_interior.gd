@@ -60,6 +60,7 @@ signal slept
 signal acted(kind: String)
 
 var active := false
+var busy := false  # minipeli tai valikko auki (main.gd): toimintopisteet eivät reagoi
 var exit_door := "ovi"  # kummasta ovesta viimeksi lähdettiin ulos (ovi / takaovi)
 var walker: CharacterBody3D
 var hint := ""
@@ -117,7 +118,7 @@ func _process(delta: float) -> void:
 	for i in _screens.size():
 		(_screens[i].material_override as StandardMaterial3D).albedo_color = Color(0.2, 0.75, 0.4).lerp(
 			Color(0.6, 0.3, 0.9), 0.5 + 0.5 * sin(t * (2.0 + i)))
-	if not active:
+	if not active or busy:
 		hint = ""
 		return
 	var p := walker.position
