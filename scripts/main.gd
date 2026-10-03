@@ -8910,6 +8910,51 @@ func _maybe_screenshot() -> void:
 				print("KOTIVESSA minipeli käynnissä=%s" % [is_instance_valid(_wc_game) and _wc_game.is_inside_tree()])
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_peli.png"))
+		"minipelikuvat":
+			# Kuvat WC- ja tiskausminipeleistä: ykkönen (lätäköitä), kakkonen (paperivaihe), huussi ja tiskaus.
+			_hud.visible = false
+			var shot := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+			for cfg in [["ykkonen", true], ["kakkonen", true], ["kakkonen", false]]:
+				var g := WcGame.new()
+				g.mode = cfg[0]
+				g.flush = cfg[1]
+				add_child(g)
+				for i in 30:
+					await get_tree().process_frame
+				if g.mode == "ykkonen":
+					g._aim = Vector2(40, -20)
+					for k in 6:
+						g._puddles.append(Vector2(200 + k * 12, 60 + (k % 3) * 10))
+					g._inside = 3.0
+					g._total = 4.0
+				else:
+					g._pushes = 3
+					g._phase = "paper"
+					g._sheets = 5
+				for i in 5:
+					await get_tree().process_frame
+				await shot.call("%s_%s" % [cfg[0], "vesi" if cfg[1] else "huussi"])
+				g._done = true
+				g.queue_free()
+			var tg := TiskiGame.new()
+			add_child(tg)
+			for i in 10:
+				await get_tree().process_frame
+			tg.washed = 2
+			tg.dishes_left = TiskiGame.DISHES.size() - 5  # mummon kukkalautanen esille
+			tg._dirt = 0.45
+			tg._wobble = 0.6
+			tg._last_dir = 1
+			for i in 5:
+				await get_tree().process_frame
+			await shot.call("tiski")
+			tg.dishes_left = TiskiGame.DISHES.size() - 1  # muki
+			tg._dirt = 0.8
+			for i in 5:
+				await get_tree().process_frame
+			await shot.call("tiski_muki")
 		"pitkalappu":
 			# Pitkä lappu: kaikki päivän muistutukset kerralla; lapun pitää mahtua kokonaan ruudulle.
 			var many := ["Laitoin 12,00 € kauppaa varten.", "Eilen ei tullu kaupasta mitään, vaikka oli lista!",
