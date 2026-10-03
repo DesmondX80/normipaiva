@@ -163,7 +163,7 @@ func _physics_process(delta: float) -> void:
 	if controls_enabled:
 		throttle = Input.get_axis("back", "forward")
 		steer = Input.get_axis("right", "left")
-		running = Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 and not exhausted and not no_run and not no_sprint
+		running = Input.is_action_pressed("sprint") and throttle > 0.0 and not exhausted and not no_run and not no_sprint
 		jump_pressed = Input.is_action_just_pressed("jump") and pose == ""
 		if CamCtl.steering():
 			# FPS-tyyli: hiiri kääntää hahmoa, A/D sivuttain.

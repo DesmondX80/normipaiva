@@ -151,6 +151,14 @@ func _key(code: int, down: bool) -> void:
 	ev.keycode = code as Key
 	ev.pressed = down
 	Input.parse_input_event(ev)
+	# Näppäimet voi vaihtaa asetuksista: painetaan myös oletusnäppäimen toimintoja, jotta kosketusohjaus toimii aina.
+	for row in Settings.KEY_ROWS:
+		if code in row[2]:
+			for a in row[0]:
+				if down:
+					Input.action_press(a)
+				else:
+					Input.action_release(a)
 
 
 func _draw_pad() -> void:

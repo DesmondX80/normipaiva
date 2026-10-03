@@ -5771,32 +5771,20 @@ func _dist_text(a: Vector3, b: Vector3) -> String:
 
 # --- Syöte & ympäristö -------------------------------------------------------
 
+## Toiminnot ja näppäimet tulevat asetuksista (Settings.KEY_ROWS, vaihdettavissa valikossa). Ohjerivin
+## oletusnäppäimet ([E]) vaihdetaan valittuihin juuri ennen piirtoa.
 func _setup_input() -> void:
-	_add_action("forward", [KEY_W, KEY_UP])
-	_add_action("back", [KEY_S, KEY_DOWN])
-	_add_action("left", [KEY_A, KEY_LEFT])
-	_add_action("right", [KEY_D, KEY_RIGHT])
-	_add_action("brake", [KEY_SPACE])
-	_add_action("jump", [KEY_SPACE])
-	_add_action("interact", [KEY_E])
-	_add_action("bell", [KEY_Q])
-	_add_action("punch", [KEY_J])
-	_add_action("kick", [KEY_K])
-	_add_action("special", [KEY_L])
-	_add_action("map", [KEY_M])
-	_add_action("inventory", [KEY_I, KEY_TAB])
-	_add_action("mount", [KEY_F])
-	_add_action("eat", [KEY_T])
+	Settings.apply_keys()
+	RenderingServer.frame_pre_draw.connect(_fix_hint_keys)
 
 
-func _add_action(action: String, keys: Array) -> void:
-	if InputMap.has_action(action):
-		return
-	InputMap.add_action(action)
-	for k in keys:
-		var ev := InputEventKey.new()
-		ev.physical_keycode = k
-		InputMap.action_add_event(action, ev)
+var _hint_shown := ""
+
+
+func _fix_hint_keys() -> void:
+	if _hint != null and _hint.text != _hint_shown:
+		_hint_shown = Settings.key_hint(_hint.text)
+		_hint.text = _hint_shown
 
 
 func _setup_environment() -> void:
@@ -8212,6 +8200,60 @@ func _maybe_screenshot() -> void:
 			print("MOUSE saw stroke s ", s0, " -> ", sg._s, " depth=", sg._depth)
 			sg._quit()
 			await get_tree().process_frame
+		"nappaimet":
+			# Näppäinasetukset: E -> R toiminnolle, sitten R pyörälle (poistuu toiminnolta), ohjeteksti ja kuva.
+			menu.open_main()
+			menu._settings("sub_main")
+			for i in 5:
+				await get_tree().process_frame
+			var tabs: TabContainer = menu.find_children("*", "TabContainer", true, false)[0]
+			tabs.current_tab = tabs.get_tab_count() - 1
+			var key := func(code: int) -> void:
+				var ev := InputEventKey.new()
+				ev.physical_keycode = code as Key
+				ev.pressed = true
+				Input.parse_input_event(ev)
+				await get_tree().process_frame
+				ev = ev.duplicate()
+				ev.pressed = false
+				Input.parse_input_event(ev)
+				await get_tree().process_frame
+			var row_of := func(a: String) -> int:
+				for r in Settings.KEY_ROWS.size():
+					if a in Settings.KEY_ROWS[r][0]:
+						return r
+				return -1
+			var btn := func(row: int, slot: int) -> Button:
+				for kb in menu._key_buttons:
+					if kb[0] == row and kb[1] == slot:
+						return kb[2]
+				return null
+			(btn.call(row_of.call("interact"), 0) as Button).pressed.emit()
+			await key.call(KEY_R)
+			print("NAPP toiminto=%s E-painallus->interact=%s R->interact=%s" % [Settings.keys_of(row_of.call("interact")),
+				InputMap.action_has_event("interact", (func() -> InputEventKey:
+					var e := InputEventKey.new(); e.physical_keycode = KEY_E; return e).call()),
+				InputMap.action_has_event("interact", (func() -> InputEventKey:
+					var e := InputEventKey.new(); e.physical_keycode = KEY_R; return e).call())])
+			(btn.call(row_of.call("mount"), 0) as Button).pressed.emit()
+			await key.call(KEY_R)
+			print("NAPP pyörä=%s toiminto=%s viesti=%s" % [Settings.keys_of(row_of.call("mount")), Settings.keys_of(row_of.call("interact")), menu._key_note.text])
+			(btn.call(row_of.call("interact"), 0) as Button).pressed.emit()
+			await key.call(KEY_G)
+			(btn.call(row_of.call("forward"), 1) as Button).pressed.emit()
+			await key.call(KEY_ESCAPE)
+			print("NAPP esc: eteen=%s viesti=%s valikko auki=%s" % [Settings.keys_of(0), menu._key_note.text, menu.visible])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_nappaimet.png"))
+			menu.close()
+			await get_tree().process_frame
+			print("NAPP vihje: ", Settings.key_hint("[E] Avaa ovi   [F] Pyörälle   [Q] kello   [A] ei vaihdu"))
+			for i in 20:
+				await get_tree().physics_frame
+			await RenderingServer.frame_post_draw
+			print("NAPP pelin vihje: ", _hint.text)
+			Settings.reset_keys()
+			print("NAPP palautus: toiminto=%s pyörä=%s" % [Settings.keys_of(row_of.call("interact")), Settings.keys_of(row_of.call("mount"))])
 		"settingsmenu":
 			menu.open_main()
 			menu._settings("sub_main")
