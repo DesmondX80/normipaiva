@@ -5,7 +5,8 @@ extends CanvasLayer
 const M := preload("res://scripts/map_data.gd")
 const SAVE_PATH := "user://normipaiva.cfg"
 const YELLOW := Color(1.0, 0.8, 0.1)
-const CONTROLS := """PYÖRÄLLÄ
+const CONTROLS := """Näppäimet voi vaihtaa: Asetukset → Näppäimet (alla oletukset).
+PYÖRÄLLÄ
 W / S	polje / jarruta ja peruuta
 A / D	ohjaa
 Välilyönti	jarru
@@ -49,6 +50,9 @@ var _box: VBoxContainer
 var _mode := ""  # main | pause
 var _menu_cam: Camera3D
 var _cam_t := 0.0
+var _capture := {}  # näppäinasetus odottaa painallusta: {row, slot}
+var _key_buttons := []  # [row, slot, Button]
+var _key_note: Label
 
 
 func _ready() -> void:
@@ -58,6 +62,23 @@ func _ready() -> void:
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_root)
 	visible = false
+
+
+## Näppäimen vaihto: seuraava painallus asetetaan (Esc peruu), eikä se päädy valikolle.
+func _input(event: InputEvent) -> void:
+	if _capture.is_empty() or not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	get_viewport().set_input_as_handled()
+	var code: int = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
+	var row: int = _capture.row
+	var slot: int = _capture.slot
+	_capture = {}
+	if code == KEY_ESCAPE:
+		_key_note.text = "Peruttu."
+	else:
+		var moved: String = Settings.bind_key(row, slot, code)
+		_key_note.text = "%s: %s" % [Settings.KEY_ROWS[row][1], Settings.key_name(code)] + 			("  (poistettu kohdasta %s)" % moved if moved != "" else "")
+	_refresh_keys()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -241,7 +262,84 @@ func _settings(from: String) -> void:
 	_check(c, "Hiiri kääntää kameraa", "mouse_look")
 	_check(c, "Hiiri ohjaa kulkusuuntaa (FPS-tyyli)", "mouse_steer")
 	_check(c, "Kamera palaa itsestään taakse", "auto_recenter")
+	_keys_tab(tabs)
 	_button("Takaisin", func() -> void: _back(from))
+
+
+## Näppäimet-välilehti: jokaisella toiminnolla kaksi paikkaa; napsautus odottaa uutta näppäintä.
+func _keys_tab(tabs: TabContainer) -> void:
+	var k := _tab(tabs, "Näppäimet")
+	_capture = {}
+	_key_buttons.clear()
+	_key_note = _label("Napsauta näppäintä ja paina uutta. Esc peruu. Sama näppäin voi olla vain yhdessä kohdassa.", 15,
+		Color(0.85, 0.85, 0.85))
+	_key_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_key_note.custom_minimum_size = Vector2(520, 0)
+	k.add_child(_key_note)
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	k.add_child(sc)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(list)
+	for r in Settings.KEY_ROWS.size():
+		var h := _row(list, Settings.KEY_ROWS[r][1])
+		(h.get_child(0) as Label).custom_minimum_size = Vector2(230, 0)
+		for slot in 2:
+			var b := Button.new()
+			b.custom_minimum_size = Vector2(130, 30)
+			b.focus_mode = Control.FOCUS_NONE
+			_key_style(b)
+			b.pressed.connect(func() -> void:
+				_capture = {"row": r, "slot": slot}
+				_key_note.text = "Paina uutta näppäintä kohtaan %s… (Esc peruu)" % Settings.KEY_ROWS[r][1]
+				_refresh_keys())
+			h.add_child(b)
+			_key_buttons.append([r, slot, b])
+		var clr := Button.new()
+		clr.text = "×"
+		clr.tooltip_text = "Tyhjennä toinen näppäin"
+		clr.focus_mode = Control.FOCUS_NONE
+		_key_style(clr)
+		clr.pressed.connect(func() -> void:
+			Settings.bind_key(r, 1, 0)
+			_refresh_keys())
+		h.add_child(clr)
+	var reset := Button.new()
+	reset.text = "Palauta oletusnäppäimet"
+	reset.focus_mode = Control.FOCUS_NONE
+	reset.custom_minimum_size = Vector2(0, 34)
+	_key_style(reset)
+	reset.pressed.connect(func() -> void:
+		Settings.reset_keys()
+		_capture = {}
+		_key_note.text = "Oletusnäppäimet palautettu."
+		_refresh_keys())
+	k.add_child(reset)
+	_refresh_keys()
+
+
+## Näppäinnappi näyttää näppäimeltä: tumma laatikko reunuksella, hover oranssi.
+func _key_style(b: Button) -> void:
+	for st in ["normal", "hover", "pressed"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = {"normal": Color(0.16, 0.15, 0.18), "hover": Color(0.85, 0.35, 0.05), "pressed": Color(1.0, 0.45, 0.1)}[st]
+		sb.border_color = Color(0.5, 0.45, 0.4)
+		sb.set_border_width_all(2)
+		sb.border_width_bottom = 4
+		sb.set_corner_radius_all(5)
+		sb.content_margin_left = 10
+		sb.content_margin_right = 10
+		b.add_theme_stylebox_override(st, sb)
+
+
+func _refresh_keys() -> void:
+	for kb in _key_buttons:
+		var b: Button = kb[2]
+		var waiting: bool = not _capture.is_empty() and _capture.row == kb[0] and _capture.slot == kb[1]
+		b.text = "…" if waiting else Settings.key_name(Settings.keys_of(kb[0])[kb[1]])
+		b.modulate = YELLOW if waiting else Color.WHITE
 
 
 # --- Rakennuspalikat ------------------------------------------------------------
@@ -254,6 +352,7 @@ func _show() -> void:
 
 
 func _clear() -> void:
+	_capture = {}
 	for ch in _root.get_children():
 		ch.queue_free()
 	var dim := ColorRect.new()
