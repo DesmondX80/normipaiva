@@ -19,6 +19,7 @@ var controls_enabled := true
 var world: Node3D
 var surface := "asphalt"
 var speed := 0.0
+var _strafe := 0.0  # sivuttaisvauhti (hiiriohjauksen A/D)
 ## Kestävyys: juoksu kuluttaa, kävely ja seisominen palauttavat. Tyhjänä ei voi juosta ennen kuin palautuu.
 var stamina := 100.0
 var exhausted := false
@@ -156,6 +157,7 @@ func _physics_process(delta: float) -> void:
 
 	var throttle := 0.0
 	var steer := 0.0
+	var strafe := 0.0
 	var running := false
 	var jump_pressed := false
 	if controls_enabled:
@@ -163,6 +165,12 @@ func _physics_process(delta: float) -> void:
 		steer = Input.get_axis("right", "left")
 		running = Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 and not exhausted and not no_run and not no_sprint
 		jump_pressed = Input.is_action_just_pressed("jump") and pose == ""
+		if CamCtl.steering():
+			# FPS-tyyli: hiiri kääntää hahmoa, A/D sivuttain.
+			rotation.y += CamCtl.yaw
+			CamCtl.yaw = 0.0
+			strafe = steer
+			steer = 0.0
 	tire(running, absf(speed) < 0.2, delta, RUN_DRAIN)
 	var ground: float = world.speed_factor(global_position, "runner") if world != null else 1.0
 	var want := throttle * (RUN * run_mult if running else WALK) * ground * speed_mult
@@ -174,10 +182,12 @@ func _physics_process(delta: float) -> void:
 	if controls_enabled:
 		steer += _drunk_wobble.steer(drunk, clampf(absf(speed) / WALK, 0.0, 1.0), delta) * 0.6
 	rotation.y += steer * TURN * delta
+	_strafe = move_toward(_strafe, strafe * WALK * 0.8 * ground * speed_mult, 12.0 * delta)
 
 	var fwd := -global_transform.basis.z
-	velocity.x = fwd.x * speed
-	velocity.z = fwd.z * speed
+	var side := global_transform.basis.x
+	velocity.x = fwd.x * speed + side.x * _strafe
+	velocity.z = fwd.z * speed + side.z * _strafe
 	if is_on_floor():
 		velocity.y = JUMP_SPEED * jump_mult if jump_pressed else 0.0
 		if jump_pressed:
@@ -187,7 +197,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	speed = Vector2(velocity.x, velocity.z).dot(Vector2(fwd.x, fwd.z))
 
-	var s := absf(speed)
+	var s := maxf(absf(speed), absf(_strafe))
 	if not is_on_floor():
 		_body.play("Jump", 0.1)
 	elif s < 0.2:
