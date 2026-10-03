@@ -237,54 +237,168 @@ func _finish() -> void:
 func _draw_root() -> void:
 	var sz := _root.size
 	var c := sz / 2.0 + Vector2(0, 30)
-	_root.draw_rect(Rect2(Vector2.ZERO, sz), Color(0, 0, 0, 0.5))
-	# Lattialaatat ja pönttö ylhäältä.
-	_root.draw_rect(Rect2(c - Vector2(360, 260), Vector2(720, 520)), Color(0.82, 0.84, 0.85))
-	for i in 10:
-		_root.draw_line(c + Vector2(-360 + i * 72, -260), c + Vector2(-360 + i * 72, 260), Color(0.7, 0.72, 0.74), 2.0)
-	for j in 8:
-		_root.draw_line(c + Vector2(-360, -260 + j * 72), c + Vector2(360, -260 + j * 72), Color(0.7, 0.72, 0.74), 2.0)
+	var t := Time.get_ticks_msec() / 1000.0
+	_root.draw_rect(Rect2(Vector2.ZERO, sz), Color(0, 0, 0, 0.55))
+	var room := Rect2(c - Vector2(360, 260), Vector2(720, 520))
+	_box(room.grow(8.0), Color(0.12, 0.12, 0.13), 14, Color(0, 0, 0, 0.5), 18)
 	if flush:
-		_root.draw_rect(Rect2(c + Vector2(-110, -BOWL.y - 120), Vector2(220, 90)), Color(0.96, 0.96, 0.96))  # säiliö
+		# Lattia: vaaleat laatat, hieman eri sävyjä ja tummempi sauma.
+		_root.draw_rect(room, Color(0.66, 0.68, 0.7))
+		for i in 10:
+			for j in 8:
+				var tile := Rect2(room.position + Vector2(i * 72 + 2, j * 72 + 2), Vector2(68, 68)).intersection(room)
+				var v := 0.03 * sin(i * 12.9 + j * 7.3)
+				_root.draw_rect(tile, Color(0.84 + v, 0.86 + v, 0.87 + v))
+				_root.draw_rect(Rect2(tile.position, Vector2(tile.size.x, 6)), Color(1, 1, 1, 0.12))
 	else:
-		_root.draw_rect(Rect2(c - Vector2(360, 260), Vector2(720, 520)), Color(0.55, 0.38, 0.22, 0.85))  # huussin lauta
-	_ellipse_fill(c, BOWL + Vector2(22, 22), Color(0.97, 0.97, 0.97) if flush else Color(0.45, 0.3, 0.18))
-	_ellipse_fill(c, BOWL, Color(0.9, 0.92, 0.93) if flush else Color(0.12, 0.09, 0.06))
-	_ellipse_fill(c, WATER, Color(0.55, 0.75, 0.85) if flush else Color(0.08, 0.06, 0.04))
+		# Huussin lankkulattia: lankut syineen ja nauloineen.
+		for i in 8:
+			var plank := Rect2(room.position + Vector2(0, i * 65), Vector2(room.size.x, 63))
+			_root.draw_rect(plank, Color(0.5, 0.35, 0.2).darkened(0.05 * (i % 3)))
+			for k in 4:
+				var y := plank.position.y + 12 + k * 13 + 3.0 * sin(i * 3.1 + k)
+				_root.draw_line(Vector2(plank.position.x, y), Vector2(plank.end.x, y + 4.0 * sin(i + k)), Color(0.35, 0.22, 0.12, 0.35), 2.0)
+			for x in [24.0, room.size.x - 24.0]:
+				_root.draw_circle(plank.position + Vector2(x, 31), 4.0, Color(0.25, 0.25, 0.27))
+	# Varjo pöntön alla.
+	_ellipse_fill(c + Vector2(14, 18), BOWL + Vector2(40, 40), Color(0, 0, 0, 0.22))
+	if flush:
+		# Vesisäiliö kannella ja huuhtelunapilla.
+		var tank := Rect2(c + Vector2(-125, -BOWL.y - 128), Vector2(250, 100))
+		_box(tank.grow(4.0), Color(0, 0, 0, 0.0), 16, Color(0, 0, 0, 0.3), 10)
+		_box(tank, Color(0.93, 0.94, 0.95), 16)
+		_box(Rect2(tank.position + Vector2(10, 8), Vector2(tank.size.x - 20, 40)), Color(0.98, 0.98, 0.99), 12)
+		_root.draw_circle(tank.get_center() + Vector2(0, -22), 15.0, Color(0.72, 0.74, 0.77))
+		_root.draw_circle(tank.get_center() + Vector2(0, -22), 11.0, Color(0.85, 0.87, 0.9))
+		# Saranat.
+		for sx in [-60.0, 60.0]:
+			_box(Rect2(c + Vector2(sx - 16, -BOWL.y - 34), Vector2(32, 18)), Color(0.8, 0.82, 0.85), 5)
+		# Istuinrengas: ulkoreuna, varjostus sisäreunalle, kiilto.
+		_ellipse_fill(c, BOWL + Vector2(26, 26), Color(0.86, 0.87, 0.88))
+		_ellipse_fill(c + Vector2(0, -3), BOWL + Vector2(22, 22), Color(0.98, 0.98, 0.99))
+		_ring(c + Vector2(-30, -40), BOWL + Vector2(6, 6), 0.25, 0.85, Color(1, 1, 1, 0.9), 3.0)
+		# Kulhon sisäpinta tummuu syvemmälle.
+		for k in 5:
+			var f := k / 5.0
+			_ellipse_fill(c + Vector2(0, 6 * f), BOWL.lerp(WATER, f), Color(0.9, 0.92, 0.93).darkened(0.1 * f))
+		# Vesi: syvyys, väreet ja heijastus.
+		_ellipse_fill(c + Vector2(0, 8), WATER, Color(0.45, 0.66, 0.78))
+		_ellipse_fill(c + Vector2(0, 14), WATER * 0.62, Color(0.36, 0.56, 0.7))
+		_ring(c + Vector2(-20, -8), WATER * 0.75, 0.6, 1.4, Color(1, 1, 1, 0.45), 3.0)
+	else:
+		# Huussin penkki ja reikä.
+		_box(Rect2(c - Vector2(BOWL.x + 70, BOWL.y + 70), (BOWL + Vector2(70, 70)) * 2.0), Color(0.58, 0.42, 0.26), 10, Color(0, 0, 0, 0.35), 12)
+		_ellipse_fill(c, BOWL + Vector2(10, 10), Color(0.4, 0.28, 0.16))
+		_ellipse_fill(c, BOWL, Color(0.1, 0.07, 0.05))
+		_ellipse_fill(c + Vector2(0, 10), WATER, Color(0.05, 0.04, 0.03))
+		_box(Rect2(c + Vector2(-BOWL.x - 40, -BOWL.y - 120), Vector2(BOWL.x * 2 + 80, 50)), Color(0.45, 0.32, 0.2), 6)  # kansi
 	if mode == "ykkonen":
 		for pd in _puddles:
-			_root.draw_circle(c + pd, 9.0, Color(0.95, 0.88, 0.3, 0.7))
+			_ellipse_fill(c + pd, Vector2(13, 9), Color(0.95, 0.85, 0.25, 0.45))
+			_root.draw_circle(c + pd + Vector2(-3, -2), 3.0, Color(1, 1, 1, 0.4))
 		var tip := c + _aim
-		_root.draw_line(c + Vector2(0, 240), tip, Color(0.98, 0.9, 0.35, 0.85), 5.0)
-		_root.draw_circle(tip, 10.0, Color(0.98, 0.9, 0.35))
+		var base := c + Vector2(0, 250)
+		# Suihku: kaartuva, ohenee ja lepattaa.
+		var pts := PackedVector2Array()
+		for k in 13:
+			var f := k / 12.0
+			var bend := Vector2(sin(t * 9.0 + f * 6.0) * 4.0 * f, -40.0 * sin(f * PI))
+			pts.append(base.lerp(tip, f) + bend)
+		_root.draw_polyline(pts, Color(0.98, 0.88, 0.3, 0.55), 9.0, true)
+		_root.draw_polyline(pts, Color(1.0, 0.95, 0.55, 0.9), 4.0, true)
+		# Osumakohta: väreet vedessä, roiskeet muualla.
+		var in_water := _ellipse(_aim, WATER) <= 1.0
+		if in_water:
+			for k in 3:
+				var ph := fmod(t * 1.6 + k / 3.0, 1.0)
+				_ring(tip, Vector2(10, 7) + Vector2(36, 24) * ph, 0.0, TAU, Color(1, 1, 1, 0.55 * (1.0 - ph)), 2.0)
+		else:
+			for k in 6:
+				var a := t * 13.0 + k * 1.05
+				_root.draw_circle(tip + Vector2(cos(a), sin(a) * 0.6) * (10 + 8 * sin(t * 20 + k)), 3.0, Color(1, 0.92, 0.45, 0.85))
+		_root.draw_circle(tip, 8.0, Color(1.0, 0.95, 0.6))
+		# Osumatarkkuus.
 		var acc := _inside / maxf(_total, 0.01)
-		var bar := Rect2(c + Vector2(-150, 270), Vector2(300, 18))
-		_root.draw_rect(bar, Color(0.1, 0.1, 0.1, 0.8))
-		_root.draw_rect(Rect2(bar.position, Vector2(bar.size.x * acc, bar.size.y)), Color(0.4, 0.85, 0.5))
+		_meter_h(Rect2(c + Vector2(-335, -225), Vector2(190, 18)), acc, Color(0.3, 0.8, 0.45), "Osumatarkkuus %d %%" % roundi(acc * 100.0))
 		return
-	# Kakkonen: ponnistusmittari ja paperirulla.
-	var m := Rect2(c + Vector2(260, -200), Vector2(40, 400))
-	_root.draw_rect(m, Color(0.15, 0.15, 0.15))
-	var g0 := m.end.y - m.size.y * GREEN.y
-	_root.draw_rect(Rect2(Vector2(m.position.x, g0), Vector2(m.size.x, m.size.y * (GREEN.y - GREEN.x))), Color(0.3, 0.8, 0.4))
-	_root.draw_rect(Rect2(m.position, Vector2(m.size.x, m.size.y * (1.0 - RED))), Color(0.85, 0.2, 0.15))
+	# Kakkonen: ponnistusmittari (pystysuora, asteikolla) ja paperirulla seinätelineessä.
+	var m := Rect2(c + Vector2(262, -200), Vector2(46, 400))
+	_box(m.grow(6.0), Color(0.12, 0.12, 0.13), 10, Color(0, 0, 0, 0.4), 8)
+	var steps := 40
+	for k in steps:
+		var f := (k + 0.5) / steps
+		var col := Color(0.25, 0.35, 0.55)
+		if f >= RED:
+			col = Color(0.9, 0.22, 0.16)
+		elif f >= GREEN.x and f <= GREEN.y:
+			col = Color(0.3, 0.85, 0.4)
+		elif f > GREEN.y:
+			col = Color(0.95, 0.7, 0.2)
+		_root.draw_rect(Rect2(Vector2(m.position.x, m.end.y - m.size.y * (k + 1) / steps + 1), Vector2(m.size.x, m.size.y / steps - 2)), col)
 	var ny := m.end.y - m.size.y * _needle
-	_root.draw_rect(Rect2(Vector2(m.position.x - 12, ny - 4), Vector2(m.size.x + 24, 8)), Color.WHITE)
+	_root.draw_colored_polygon(PackedVector2Array([Vector2(m.position.x - 22, ny - 10), Vector2(m.position.x - 4, ny), Vector2(m.position.x - 22, ny + 10)]), Color.WHITE)
+	_root.draw_rect(Rect2(Vector2(m.position.x - 4, ny - 2), Vector2(m.size.x + 8, 4)), Color(1, 1, 1, 0.9))
+	# Ponnistukset kuvakkeina.
 	for k in PUSHES:
-		_root.draw_circle(c + Vector2(-60 + k * 60, 0), 18.0, Color(0.45, 0.3, 0.15) if k < _pushes else Color(0, 0, 0, 0.15))
+		var pc := c + Vector2(-70 + k * 70, 0)
+		if k < _pushes:
+			_ellipse_fill(pc + Vector2(0, 6), Vector2(24, 14), Color(0.36, 0.24, 0.12))
+			_ellipse_fill(pc, Vector2(18, 12), Color(0.45, 0.3, 0.15))
+			_root.draw_circle(pc + Vector2(-5, -5), 4.0, Color(1, 1, 1, 0.25))
+		else:
+			_ring(pc, Vector2(18, 12), 0.0, TAU, Color(1, 1, 1, 0.25), 2.0)
 	if _phase == "paper":
-		var rc := c + Vector2(-300, -120)
-		_root.draw_circle(rc, 46.0, Color(0.97, 0.97, 0.95))
-		_root.draw_circle(rc, 16.0, Color(0.7, 0.6, 0.45))
+		# Seinäteline ja rulla; repäistyt arkit kasaan.
+		var rc := c + Vector2(-305, -150)
+		_box(Rect2(rc + Vector2(-60, -14), Vector2(120, 28)), Color(0.7, 0.72, 0.75), 8)
+		_root.draw_circle(rc, 48.0, Color(0.85, 0.85, 0.83))
+		_root.draw_circle(rc, 44.0, Color(0.98, 0.98, 0.96))
+		_root.draw_circle(rc, 15.0, Color(0.72, 0.6, 0.42))
+		_box(Rect2(rc + Vector2(-34, 40), Vector2(68, 52)), Color(0.98, 0.98, 0.96), 3)  # roikkuva pää
+		for k in 6:
+			_root.draw_line(rc + Vector2(-34 + k * 13, 92), rc + Vector2(-28 + k * 13, 92), Color(0.75, 0.75, 0.72), 2.0)
 		for k in mini(_sheets, 14):
-			_root.draw_rect(Rect2(rc + Vector2(-34, 50 + k * 14), Vector2(68, 12)), Color(0.98, 0.98, 0.96))
+			var sp := c + Vector2(-300 + (k % 2) * 8, 40 + k * 13)
+			_box(Rect2(sp, Vector2(70, 12)), Color(0.98, 0.98, 0.96), 2, Color(0, 0, 0, 0.2), 3)
+		if flush and _sheets >= PAPER_CLOG:
+			_root.draw_string(ThemeDB.fallback_font, c + Vector2(-120, -40), "TUKOSVAARA!", HORIZONTAL_ALIGNMENT_LEFT, -1, 40, Color(0.95, 0.3, 0.2))
 	if _flash > 0.0:
 		_root.draw_rect(Rect2(Vector2.ZERO, sz), Color(_flash_col, _flash * 0.25))
 
 
 func _ellipse_fill(c: Vector2, r: Vector2, col: Color) -> void:
 	var pts := PackedVector2Array()
-	for i in 40:
-		var a := TAU * i / 40.0
+	for i in 48:
+		var a := TAU * i / 48.0
 		pts.append(c + Vector2(cos(a) * r.x, sin(a) * r.y))
 	_root.draw_colored_polygon(pts, col)
+
+
+## Ellipsin kaari (a0..a1 radiaaneina) viivana.
+func _ring(c: Vector2, r: Vector2, a0: float, a1: float, col: Color, w: float) -> void:
+	var pts := PackedVector2Array()
+	for i in 33:
+		var a := lerpf(a0, a1, i / 32.0)
+		pts.append(c + Vector2(cos(a) * r.x, sin(a) * r.y))
+	_root.draw_polyline(pts, col, w, true)
+
+
+## Pyöristetty laatikko (valinnainen varjo).
+func _box(r: Rect2, col: Color, radius: int, shadow := Color(0, 0, 0, 0), shadow_size := 0) -> void:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = col
+	sb.set_corner_radius_all(radius)
+	sb.shadow_color = shadow
+	sb.shadow_size = shadow_size
+	sb.shadow_offset = Vector2(4, 6)
+	sb.anti_aliasing = true
+	_root.draw_style_box(sb, r)
+
+
+## Vaakamittari tekstillä.
+func _meter_h(r: Rect2, v: float, col: Color, text: String) -> void:
+	_box(r.grow(4.0), Color(0.08, 0.08, 0.09, 0.9), 10)
+	if v > 0.01:
+		_box(Rect2(r.position, Vector2(r.size.x * clampf(v, 0.0, 1.0), r.size.y)), col, 8)
+	_root.draw_string(ThemeDB.fallback_font, r.position + Vector2(0, r.size.y + 22), text, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 18,
+		Color(0.15, 0.15, 0.17))
