@@ -32,6 +32,7 @@ const SPOTS := {
 	"kerrossanky": [Vector3(-8.6, 0, 3.9), "Kerrossänky. Vieraille ja kavereille, ei Päivin viereen."],
 	"sanky": [Vector3(-6.6, 0, -3.2), "[E] Mene nukkumaan parisänkyyn (päivä päättyy)"],
 	"wc": [Vector3(-8.6, 0, 0.5), "[E] Käy pöntöllä"],
+	"wc2": [Vector3(1.2, 0, 2.75), "[E] Käy kylpyhuoneen pöntöllä"],
 	"peili": [Vector3(-6.4, 0, 0.6), "[E] Katso peiliin"],
 	"suihku": [Vector3(3.6, 0, 4.9), "[E] Käy suihkussa"],
 	"sauna": [Vector3(7.0, 0, 3.6), "[E] Heitä löylyä"],
@@ -146,6 +147,8 @@ func _process(delta: float) -> void:
 		"tv":
 			_tv_screen.visible = true
 			acted.emit("tv")
+		"wc2":
+			acted.emit("wc")  # kylpyhuoneen pönttö toimii kuten WC:n
 		_:
 			acted.emit(best)
 
@@ -273,7 +276,7 @@ func _build_bedrooms() -> void:
 
 func _build_bath_sauna() -> void:
 	# WC makuuhuoneiden välissä (ovi tupakeittiöstä): pönttö vasemmalla seinällä, allas ja peili.
-	_solid(Vector3(0.65, 0.45, 0.45), Vector3(-9.6, 0.225, 0.5), Color(0.97, 0.97, 0.97))  # pönttö
+	_toilet(Vector3(-9.55, 0, 0.5), Vector3(1, 0, 0))
 	_solid(Vector3(0.7, 0.85, 0.45), Vector3(-6.4, 0.425, FRONT_Z - 0.28), Color(0.95, 0.95, 0.95))  # allas
 	B.mesh(self, B.boxm(Vector3(0.6, 0.7, 0.04)), Vector3(-6.4, 1.5, FRONT_Z - 0.06), Color(0.75, 0.85, 0.9))  # peili
 	# Kylpyhuone (oikealla eteisestä): suihku perimmäisessä nurkassa lasiseinän takana, pesukone ja penkki.
@@ -281,6 +284,8 @@ func _build_bath_sauna() -> void:
 	B.mesh(self, B.boxm(Vector3(0.05, 2.0, 1.4)), Vector3(2.8, 1.0, 5.2), glass)
 	B.mesh(self, B.cyl(0.08, 0.08, 0.05, 10), Vector3(3.8, 2.1, 5.4), Color(0.75, 0.75, 0.78))
 	_solid(Vector3(0.6, 0.85, 0.6), Vector3(-0.5, 0.425, 2.2), Color(0.95, 0.95, 0.96))  # pesukone
+	_toilet(Vector3(1.2, 0, FRONT_Z + 0.32), Vector3(0, 0, 1))  # kylpyhuoneen pönttö väliseinää vasten
+	B.mesh(self, B.cyl(0.07, 0.07, 0.11, 12), Vector3(1.75, 0.75, FRONT_Z + 0.12), Color(0.97, 0.97, 0.95), Vector3(0, 0, 90))  # paperirulla
 	B.mesh(self, B.cyl(0.18, 0.18, 0.02, 14), Vector3(-0.5, 0.55, 1.88), Color(0.3, 0.35, 0.4), Vector3(90, 0, 0))
 	# Sauna (kylpyhuoneen oikealla): lauteet perällä oikeaa seinää vasten ja sähkökiuas perimmäisessä nurkassa.
 	var wood := Color(0.72, 0.52, 0.3)
@@ -290,6 +295,37 @@ func _build_bath_sauna() -> void:
 	_solid(Vector3(0.6, 0.8, 0.6), Vector3(BATH_X + 0.5, 0.4, HALF.y - 0.5), Color(0.25, 0.25, 0.27))  # kiuas
 	for k in 6:
 		B.mesh(self, B.sphere(0.1, 6), Vector3(BATH_X + 0.35 + (k % 3) * 0.15, 0.85, HALF.y - 0.6 + (k / 3) * 0.2), Color(0.35, 0.33, 0.3))
+
+
+## Vessanpönttö: jalka, kulho ja kansi auki, istuinrengas ja vesisäiliö seinää vasten. face = suunta, johon istuja katsoo.
+func _toilet(at: Vector3, face: Vector3) -> void:
+	var white := Color(0.97, 0.97, 0.97)
+	var t := Node3D.new()
+	t.position = at
+	t.rotation.y = atan2(face.x, face.z)  # paikallinen +Z = istujan katse
+	add_child(t)
+	B.mesh(t, B.cyl(0.13, 0.17, 0.3, 16), Vector3(0, 0.15, 0.05), white)  # jalka
+	var bowl := B.mesh(t, B.cyl(0.21, 0.16, 0.12, 20), Vector3(0, 0.36, 0.12), white)  # kulho
+	bowl.scale = Vector3(1.0, 1.0, 1.25)
+	B.mesh(t, B.cyl(0.15, 0.15, 0.01, 18), Vector3(0, 0.41, 0.12), Color(0.55, 0.75, 0.85)).scale = Vector3(1.0, 1.0, 1.2)  # vesi
+	var seat := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.14
+	tm.outer_radius = 0.21
+	tm.rings = 20
+	tm.ring_segments = 8
+	seat.mesh = tm
+	seat.material_override = B.mat(white)
+	seat.position = Vector3(0, 0.43, 0.12)
+	seat.scale = Vector3(1.0, 0.25, 1.22)
+	t.add_child(seat)
+	B.mesh(t, B.boxm(Vector3(0.4, 0.42, 0.03)), Vector3(0, 0.66, -0.12), white, Vector3(-12, 0, 0))  # kansi auki
+	B.mesh(t, B.boxm(Vector3(0.44, 0.38, 0.18)), Vector3(0, 0.62, -0.2), white)  # säiliö
+	B.mesh(t, B.boxm(Vector3(0.46, 0.04, 0.2)), Vector3(0, 0.83, -0.2), white.darkened(0.04))  # säiliön kansi
+	B.mesh(t, B.cyl(0.03, 0.03, 0.015, 10), Vector3(0, 0.855, -0.2), Color(0.75, 0.75, 0.78))  # huuhtelunappi
+	var body := StaticBody3D.new()
+	body.add_child(B.box_shape(Vector3(0.46, 0.85, 0.65), Vector3(0, 0.42, 0.0)))
+	t.add_child(body)
 
 
 func _build_kitchen_living() -> void:
