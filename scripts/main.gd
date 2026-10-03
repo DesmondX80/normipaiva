@@ -9904,6 +9904,48 @@ func _maybe_screenshot() -> void:
 				if state != "in_raahe":
 					break
 			print("PAIVI loppu: state=%s kiinni=%s tila=%s msg=%s" % [state, _raahe.caught, raahe_int._paivi_mode, _msg.text])
+		"hiiriohjaus":
+			# Hiiriohjaus (FPS-tyyli): jalan hiiren käännös kääntää hahmon suoraan ja A sivuttain; pyörä ohjautuu
+			# kameran suuntaan ja kamera pysyy maailmassa paikallaan.
+			Settings.set_v("mouse_steer", true)
+			if player == bike:
+				_toggle_mount()
+			for i in 10:
+				await get_tree().physics_frame
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			await get_tree().process_frame
+			var h0 := walker_out.rotation.y
+			CamCtl.yaw = 0.6
+			for i in 3:
+				await get_tree().physics_frame
+			print("HIIRI ohjaa=%s jalan käännös %.2f (odotus 0.60) yaw jäljellä %.2f" % [CamCtl.steering(), wrapf(walker_out.rotation.y - h0, -PI, PI), CamCtl.yaw])
+			var p0 := walker_out.global_position
+			var side0 := walker_out.global_transform.basis.x
+			Input.action_press("left")
+			for i in 60:
+				await get_tree().physics_frame
+			Input.action_release("left")
+			var mv := walker_out.global_position - p0
+			print("HIIRI A-sivuaskel: sivulle %.2f m, eteen %.2f m" % [mv.dot(side0), mv.dot(-walker_out.global_transform.basis.z)])
+			var far := walker_out.global_position + Vector3(300, 0, 250)
+			var np: Vector3 = world.ride.get_point_position(world.ride.get_closest_point(Vector3(far.x, 0, far.z)))
+			bike.global_position = Vector3(np.x, Terrain.h(np.x, np.z) + 0.4, np.z)
+			_toggle_mount()
+			for i in 10:
+				await get_tree().physics_frame
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			Input.action_press("forward")
+			for i in 60:
+				await get_tree().physics_frame
+			var target := bike.rotation.y + 0.8
+			CamCtl.yaw = 0.8
+			for k in 4:
+				for i in 30:
+					await get_tree().physics_frame
+				print("HIIRI pyörä %.1f s: keula-ero kohteeseen %.2f, kameran ero kohteeseen %.2f, vauhti %.1f" % [
+					(k + 1) * 0.5, wrapf(target - bike.rotation.y, -PI, PI), wrapf(target - bike.rotation.y - CamCtl.yaw, -PI, PI), bike.speed])
+			Input.action_release("forward")
+			Settings.set_v("mouse_steer", false)
 		"pyoravaras":
 			# Pyörävaras: pyörä 400 m päähän, varkaus käyntiin; seurataan teinin lähestymistä ja ajelua 100 m:n
 			# sisällä, kuva, sitten pelaaja kävelee pyörän luo (kiinni). --hylkaa: lyhyt ajelu ja hylkäys.

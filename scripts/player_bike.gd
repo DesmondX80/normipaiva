@@ -195,7 +195,7 @@ func _physics_process(delta: float) -> void:
 		braking = speed > want + 2.0
 	elif controls_enabled:
 		throttle = Input.get_axis("back", "forward")
-		steer = Input.get_axis("right", "left")
+		steer = clampf(Input.get_axis("right", "left") + CamCtl.vehicle_steer(speed), -1.0, 1.0)
 		braking = Input.is_action_pressed("brake")
 		if Input.is_action_just_pressed("bell"):
 			Sfx.play("bell", -4.0)
@@ -243,9 +243,12 @@ func _physics_process(delta: float) -> void:
 	var steer_factor := clampf(absf(speed) / 4.0, 0.0, 1.0)
 	if controls_enabled and not autopilot:
 		steer += _drunk_wobble.steer(drunk, steer_factor, delta)
+	var heading0 := rotation.y
 	rotation.y += steer * STEER_SPEED * steer_factor * signf(speed) * t.steer * delta
 	if t.sink > 0.05:
 		rotation.y += sin(Time.get_ticks_msec() * 0.004) * t.sink * 0.8 * steer_factor * delta
+	if controls_enabled and not autopilot:
+		CamCtl.turned(rotation.y - heading0)
 
 	var fwd := -global_transform.basis.z
 	velocity.x = fwd.x * speed
