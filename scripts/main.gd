@@ -6109,6 +6109,8 @@ func _build_hud() -> void:
 	_status = _centered_label(layer, 30, 0.0, 66, 142)  # kompassin alle
 	_status.add_theme_color_override("font_color", Color(1, 0.25, 0.2))
 	_hint = _centered_label(layer, 30, 1.0, -130, -80)
+	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # lapun vieressä tilaa on vähemmän (_avoid_note)
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_msg = _centered_label(layer, 44, 0.3, -80, 120)
 	_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # pitkät viestit (tarinat) rivittyvät
 	_msg.offset_left = 60
@@ -6235,7 +6237,19 @@ func _build_hud() -> void:
 	layer.add_child(_compass)
 
 
+## Päivin lappu on ruudun vasemmalla: sen näkyessä keskitetyt HUD-tekstit (viestit, vihje, tila) siirtyvät lapun
+## oikealle puolelle, etteivät ne jää lapun alle. Pitkät viestit rivittyvät jäljelle jäävään tilaan.
+func _avoid_note() -> void:
+	var left := 0.0
+	if _note != null and _note.is_showing():
+		left = _note._paper.get_global_rect().end.x + 40.0  # lappu on vinossa: vähän väljyyttä
+	_msg.offset_left = maxf(60.0, left)
+	_hint.offset_left = left
+	_status.offset_left = left
+
+
 func _update_hud() -> void:
+	_avoid_note()
 	# Rahat, kauppalista, tavarat, jemmat ja mittarit ovat repussa (I): päänäkymässä vain matkan tiedot.
 	# Mökillä pääpelin tehtävät eivät näy.
 	var at_mokki := _at_mokki()
@@ -7577,6 +7591,17 @@ func _maybe_screenshot() -> void:
 			print("VESSA huussi: '%s'" % _hint.text)
 			await press.call("interact")
 			await play.call(2, 12)
+		"lappu":
+			# Aamulappu ja samaan aikaan pitkä viesti ja vihje: tekstit lapun oikealla puolella, eivät sen alla.
+			_day_note("Huomenta! Mää lähin jo.", "Se nurmikko ei leikkaa itseään!\nAnna-Liisa sano aidan takaa, että meillä on kohta ihan heinäpelto!")
+			for i in 30:
+				await get_tree().process_frame
+			_show_message("Päivä 5 alkaa kotoa.\nPyörä jäi eilen muualle – katso kartasta (M), minne.\nJossain päin kylää pojat pelaa jalkapalloa.", 6.0)
+			for i in 3:
+				await get_tree().process_frame
+			_hint.text = "Ovi ei aukea kaljat kädessä – Päivi näkee! Piilota kaljat ensin jemmaan (E)."
+			print("LAPPU näkyy %s, lapun oikea reuna %.0f, viestin vasen reuna %.0f" % [_note.is_showing(),
+				_note._paper.get_global_rect().end.x, _msg.get_global_rect().position.x])
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()
