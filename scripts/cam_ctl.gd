@@ -3,6 +3,8 @@ extends Node
 ## hiiri kiertää kameraa ilman klikkausta: hiiri lukitaan aina kun peli pyörii ja ikkuna on aktiivinen
 ## (valikko ja kartta pysäyttävät pelin ja vapauttavat kursorin). Asetus "mouse_look" pois: hiiri jää vapaaksi
 ## ja kamera pysyy pelaajan takana, paitsi minipeleissä, joissa hiirellä tähdätään (need_mouse).
+## Asetus "mouse_steer": hiiren sivuliike kääntää jalan kulkiessa hahmoa suoraan ja ajoneuvo ohjautuu kameran
+## suuntaan (eteen/taakse edelleen näppäimistöltä).
 ## Kolmannessa persoonassa kamera palaa itsestään taakse, kun hiirtä ei liikuteta ja liikutaan.
 ## FPS:ssä pelaajan oma vartalo piilotetaan kerroksella 2.
 
@@ -25,7 +27,7 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if get_tree().paused:
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Settings.get_v("mouse_look"):
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _looking():
 		var sens: float = SENS * Settings.get_v("mouse_sens")
 		var inv := -1.0 if Settings.get_v("invert_y") else 1.0
 		yaw -= event.relative.x * sens
@@ -52,11 +54,34 @@ func _process(delta: float) -> void:
 	if Touch.active:
 		return  # kosketusnäytöllä hiirtä ei lukita (napautukset toimivat hiiren klikkauksina valikoissa)
 	if not get_tree().paused and DisplayServer.window_is_focused():
-		var want := Input.MOUSE_MODE_CAPTURED if need_mouse or Settings.get_v("mouse_look") else Input.MOUSE_MODE_VISIBLE
+		var want := Input.MOUSE_MODE_CAPTURED if need_mouse or _looking() else Input.MOUSE_MODE_VISIBLE
 		if free_mouse:
 			want = Input.MOUSE_MODE_VISIBLE
 		if Input.mouse_mode != want:
 			Input.mouse_mode = want
+
+
+func _looking() -> bool:
+	return Settings.get_v("mouse_look") or Settings.get_v("mouse_steer")
+
+
+## Tosi, kun hiiri ohjaa kulkusuuntaa (asetus päällä ja hiiri lukittuna pelin käyttöön).
+func steering() -> bool:
+	return Settings.get_v("mouse_steer") and not Touch.active and not need_mouse and not free_mouse 		and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+
+
+## Ajoneuvon ohjauskäsky kohti kameran suuntaa (-1..1); kertoimena on jo vauhdin suunta, joten peruuttaessakin
+## keula kääntyy kameran suuntaan.
+func vehicle_steer(speed: float) -> float:
+	if not steering():
+		return 0.0
+	return clampf(yaw * 2.5, -1.0, 1.0) * (-1.0 if speed < 0.0 else 1.0)
+
+
+## Ajoneuvo kääntyi d radiaania: hiiriohjauksessa kamera pysyy maailmassa paikallaan, jotta keula ehtii perään.
+func turned(d: float) -> void:
+	if steering():
+		yaw = wrapf(yaw - d, -PI, PI)
 
 
 ## Piilottaa solmun meshit FPS-kameralta (asettaa ne kerrokselle 2).
@@ -73,10 +98,10 @@ func update_camera(cam: Camera3D, target: Node3D, eye: Vector3, dist: float, hei
 	var heading := target.global_rotation.y
 	cam.fov = Settings.get_v("fov")
 	cam.far = Settings.view_far()
-	if not Settings.get_v("mouse_look") and not Touch.active:
+	if not _looking() and not Touch.active:
 		yaw = lerp_angle(yaw, 0.0, 1.0 - exp(-4.0 * delta))
 		pitch = lerpf(pitch, 0.0 if fps else -0.12, 1.0 - exp(-4.0 * delta))
-	elif not fps and moving and _idle > RECENTER_AFTER and Settings.get_v("auto_recenter"):
+	elif not fps and moving and not steering() and _idle > RECENTER_AFTER and Settings.get_v("auto_recenter"):
 		yaw = lerp_angle(yaw, 0.0, 1.0 - exp(-2.0 * delta))
 		pitch = lerpf(pitch, -0.12, 1.0 - exp(-2.0 * delta))
 	var full_mask := 0xFFFFF

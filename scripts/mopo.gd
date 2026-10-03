@@ -153,7 +153,7 @@ func _physics_process(delta: float) -> void:
 	var braking := false
 	if controls_enabled:
 		throttle = Input.get_axis("back", "forward")
-		steer = Input.get_axis("right", "left")
+		steer = clampf(Input.get_axis("right", "left") + CamCtl.vehicle_steer(speed), -1.0, 1.0)
 		braking = Input.is_action_pressed("brake")
 		if Input.is_action_just_pressed("bell"):
 			Sfx.play("horn", -8.0, 1.8)  # mopon piippari
@@ -181,7 +181,10 @@ func _physics_process(delta: float) -> void:
 	if drunk > 0.0 and controls_enabled:
 		steer = _drunk_steer(steer, delta)
 	var steer_factor := clampf(absf(speed) / 3.0, 0.0, 1.0) * lerpf(1.0, 0.6, clampf(absf(speed) / MAX_SPEED, 0.0, 1.0))
+	var heading0 := rotation.y
 	rotation.y += steer * STEER_SPEED * steer_factor * signf(speed) * delta
+	if controls_enabled:
+		CamCtl.turned(rotation.y - heading0)
 	fwd = -global_transform.basis.z
 	velocity.x = fwd.x * speed
 	velocity.z = fwd.z * speed
