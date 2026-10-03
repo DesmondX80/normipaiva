@@ -200,7 +200,7 @@ func _physics_process(delta: float) -> void:
 		if Input.is_action_just_pressed("bell"):
 			Sfx.play("bell", -4.0)
 	# Shift: spurtti, kun poljetaan eteenpäin ja kuntoa on jäljellä.
-	var want_sprint: bool = controls_enabled and Input.is_key_pressed(KEY_SHIFT) and throttle > 0.0 \
+	var want_sprint: bool = controls_enabled and Input.is_action_pressed("sprint") and throttle > 0.0 \
 		and legs != null and not legs.exhausted and not legs.no_sprint
 	if want_sprint and not sprinting:
 		_sprint_start()

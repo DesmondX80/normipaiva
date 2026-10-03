@@ -15,6 +15,32 @@ const VIEW_DIST := [200.0, 350.0, 550.0, 900.0]
 const OVERRIDE := "user://override.cfg"
 const RENDERERS := ["Paras (Forward+)", "Yhteensopiva (OpenGL)"]
 const RENDER_METHODS := ["forward_plus", "gl_compatibility"]
+## Vaihdettavat näppäimet: [toiminnot, nimi, oletusnäppäimet (enintään 2)]. Hyppy ja jarru ovat samassa näppäimessä
+## (jalan hyppy, pyörällä jarru). Yksi näppäin voi olla vain yhdessä kohdassa: uusi sijoitus poistaa vanhan.
+const KEY_ROWS := [
+	[["forward"], "Eteen", [KEY_W, KEY_UP]],
+	[["back"], "Taakse", [KEY_S, KEY_DOWN]],
+	[["left"], "Vasemmalle", [KEY_A, KEY_LEFT]],
+	[["right"], "Oikealle", [KEY_D, KEY_RIGHT]],
+	[["sprint"], "Juoksu / spurtti", [KEY_SHIFT]],
+	[["jump", "brake"], "Hyppy / jarru", [KEY_SPACE]],
+	[["interact"], "Toiminto", [KEY_E]],
+	[["mount"], "Pyörän selkään / pois", [KEY_F]],
+	[["eat"], "Syö", [KEY_T]],
+	[["bell"], "Soittokello / kello", [KEY_Q]],
+	[["map"], "Kartta", [KEY_M]],
+	[["inventory"], "Reppu", [KEY_I, KEY_TAB]],
+	[["camera"], "Kamera (FPS / 3. persoona)", [KEY_V]],
+	[["punch"], "Tappelu: lyönti", [KEY_J]],
+	[["kick"], "Tappelu: potku", [KEY_K]],
+	[["special"], "Tappelu: erikoisisku", [KEY_L]],
+]
+## Ohjeteksteissä oletuskirjain hakasulkeissa ([E]) vaihtuu käyttäjän valitsemaan näppäimeen.
+const HINT_KEYS := {"E": "interact", "F": "mount", "T": "eat", "Q": "bell", "M": "map", "I": "inventory", "V": "camera",
+	"J": "punch"}
+const KEY_NAMES := {KEY_SPACE: "Välilyönti", KEY_UP: "Nuoli ylös", KEY_DOWN: "Nuoli alas", KEY_LEFT: "Nuoli vas.",
+	KEY_RIGHT: "Nuoli oik.", KEY_SHIFT: "Shift", KEY_CTRL: "Ctrl", KEY_ALT: "Alt", KEY_TAB: "Tab", KEY_ENTER: "Enter",
+	KEY_BACKSPACE: "Askelpalautin", KEY_CAPSLOCK: "Caps Lock"}
 
 var values := {
 	"fullscreen": false,
@@ -34,7 +60,9 @@ var values := {
 	"auto_recenter": true,
 	"mouse_look": true,
 	"mouse_steer": false,  # hiiri ohjaa kulkusuuntaa (FPS-tyyli), W/S eteen ja taakse
+	"keys": {},  # vaihdetut näppäimet: KEY_ROWS-rivin ensimmäinen toiminto -> [näppäin1, näppäin2] (0 = ei mitään)
 }
+var _hint_re := RegEx.create_from_string(r"\[([A-Z])\]")
 ## Tosi, jos tämä käynnistys tallensi yhteensopivan grafiikan pysyväksi (Windowsin varakäynnistin).
 var renderer_auto_saved := false
 
@@ -60,6 +88,7 @@ func _ready() -> void:
 		set_renderer(1)
 		renderer_auto_saved = true
 	apply()
+	apply_keys()
 
 
 ## Käytössä oleva grafiikkamoottori (RENDERERS-indeksi).
@@ -98,6 +127,88 @@ func save() -> void:
 		cfg.set_value("settings", k, values[k])
 	cfg.set_value("settings", "quality_levels", QUALITY.size())
 	cfg.save(PATH)
+
+
+## KEY_ROWS-rivin näppäimet [1, 2] (fyysiset näppäinkoodit, 0 = tyhjä).
+func keys_of(row: int) -> Array:
+	var k: Array = (values.keys as Dictionary).get(KEY_ROWS[row][0][0], KEY_ROWS[row][2])
+	return [int(k[0]) if k.size() > 0 else 0, int(k[1]) if k.size() > 1 else 0]
+
+
+## Asettaa rivin paikkaan (0/1) näppäimen. Sama näppäin poistetaan muualta; palauttaa sen rivin nimen, jolta
+## näppäin otettiin pois ("" jos ei miltään).
+func bind_key(row: int, slot: int, code: int) -> String:
+	var table := []
+	for r in KEY_ROWS.size():
+		table.append(keys_of(r))
+	var moved := ""
+	if code != 0:
+		for r in table.size():
+			for s in 2:
+				if table[r][s] == code and not (r == row and s == slot):
+					table[r][s] = 0
+					if r != row:
+						moved = KEY_ROWS[r][1]
+	table[row][slot] = code
+	var d := {}
+	for r in table.size():
+		d[KEY_ROWS[r][0][0]] = table[r]
+	values.keys = d
+	apply_keys()
+	save()
+	return moved
+
+
+func reset_keys() -> void:
+	values.keys = {}
+	apply_keys()
+	save()
+
+
+## Luo toiminnot ja asettaa niille valitut näppäimet.
+func apply_keys() -> void:
+	for r in KEY_ROWS.size():
+		var ks := keys_of(r)
+		for a in KEY_ROWS[r][0]:
+			if not InputMap.has_action(a):
+				InputMap.add_action(a)
+			InputMap.action_erase_events(a)
+			for k in ks:
+				if k != 0:
+					var ev := InputEventKey.new()
+					ev.physical_keycode = k
+					InputMap.action_add_event(a, ev)
+
+
+func key_name(code: int) -> String:
+	if code == 0:
+		return "—"
+	if KEY_NAMES.has(code):
+		return KEY_NAMES[code]
+	return OS.get_keycode_string(DisplayServer.keyboard_get_keycode_from_physical(code))
+
+
+## Toiminnon ensimmäisen näppäimen nimi ohjeisiin.
+func action_key(action: String) -> String:
+	for r in KEY_ROWS.size():
+		if action in KEY_ROWS[r][0]:
+			var ks := keys_of(r)
+			return key_name(ks[0] if ks[0] != 0 else ks[1])
+	return "?"
+
+
+## Vaihtaa ohjetekstin oletusnäppäimet ([E]) valittuihin.
+func key_hint(s: String) -> String:
+	if values.keys.is_empty() or not "[" in s:
+		return s
+	var out := ""
+	var at := 0
+	for m in _hint_re.search_all(s):
+		var letter := m.get_string(1)
+		if HINT_KEYS.has(letter):
+			out += s.substr(at, m.get_start() - at) + "[" + action_key(HINT_KEYS[letter]) + "]"
+			at = m.get_end()
+	return out + s.substr(at)
 
 
 ## Kameran kaukoraja valitulle näkyvyysetäisyydelle.

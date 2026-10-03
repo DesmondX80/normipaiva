@@ -34,7 +34,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		pitch = clampf(pitch - event.relative.y * sens * inv, -1.2 if fps else -0.9, 1.1 if fps else 0.45)
 		_idle = 0.0
 	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.physical_keycode == KEY_V:
+		if event.is_action_pressed("camera"):
 			fps = not fps
 			yaw = 0.0
 			pitch = 0.0 if fps else -0.12
