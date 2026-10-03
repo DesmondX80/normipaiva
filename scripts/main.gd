@@ -8869,6 +8869,92 @@ func _maybe_screenshot() -> void:
 				(_minimap._origin - o0).length(), world.forage.size(), wife.is_inside_tree(), bike != player])
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_b.png"))
+		"kotivessa":
+			# Kodin WC: sisään etuovesta, kävely tupakeittiöstä WC:hen pöntön eteen, E -> valikko -> ykkönen -> minipeli.
+			_toggle_mount()
+			state = "to_shop"
+			_enter_home("ovi")
+			for i in 5:
+				await get_tree().process_frame
+			var w: CharacterBody3D = home_int.walker
+			# Kävellen: etuovelta suoraan eteenpäin tupakeittiöön, vasemmalle WC:n ovelle ja sisään pöntön luo.
+			var kylpy := OS.get_cmdline_user_args().has("--kylpy")
+			var route: Array = [Vector3(-2.5, 0, 0.5), Vector3(-2.5, 0, 4.0), Vector3(1.2, 0, 4.0), Vector3(1.2, 0, 2.75)] if kylpy \
+				else [Vector3(-2.5, 0, 0.5), Vector3(-5.0, 0, 0.5), Vector3(-8.6, 0, 0.5)]
+			for tgt in route:
+				for i in 240:
+					var to: Vector3 = tgt - w.position
+					to.y = 0.0
+					if to.length() < 0.25:
+						break
+					w.position += to.normalized() * minf(0.06, to.length())
+					w.velocity = Vector3.ZERO
+					await get_tree().physics_frame
+			for i in 3:
+				await get_tree().process_frame
+			print("KOTIVESSA paikka=%s vihje=%s" % [w.position, home_int.hint])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_wc.png"))
+			await get_tree().process_frame  # kuvakaappauksen jälkeen: painallus ruudun alkuun
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			for i in 3:
+				await get_tree().process_frame
+			print("KOTIVESSA valikko auki=%s tila=%s" % [_item_menu.is_open(), _menu_mode])
+			if _item_menu.is_open():
+				_item_menu.visible = false
+				_item_menu.chosen.emit("ykkonen")
+				for i in 5:
+					await get_tree().process_frame
+				print("KOTIVESSA minipeli käynnissä=%s" % [is_instance_valid(_wc_game) and _wc_game.is_inside_tree()])
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_peli.png"))
+		"minipelikuvat":
+			# Kuvat WC- ja tiskausminipeleistä: ykkönen (lätäköitä), kakkonen (paperivaihe), huussi ja tiskaus.
+			_hud.visible = false
+			var shot := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+			for cfg in [["ykkonen", true], ["kakkonen", true], ["kakkonen", false]]:
+				var g := WcGame.new()
+				g.mode = cfg[0]
+				g.flush = cfg[1]
+				add_child(g)
+				for i in 30:
+					await get_tree().process_frame
+				if g.mode == "ykkonen":
+					g._aim = Vector2(40, -20)
+					for k in 6:
+						g._puddles.append(Vector2(200 + k * 12, 60 + (k % 3) * 10))
+					g._inside = 3.0
+					g._total = 4.0
+				else:
+					g._pushes = 3
+					g._phase = "paper"
+					g._sheets = 5
+				for i in 5:
+					await get_tree().process_frame
+				await shot.call("%s_%s" % [cfg[0], "vesi" if cfg[1] else "huussi"])
+				g._done = true
+				g.queue_free()
+			var tg := TiskiGame.new()
+			add_child(tg)
+			for i in 10:
+				await get_tree().process_frame
+			tg.washed = 2
+			tg.dishes_left = TiskiGame.DISHES.size() - 5  # mummon kukkalautanen esille
+			tg._dirt = 0.45
+			tg._wobble = 0.6
+			tg._last_dir = 1
+			for i in 5:
+				await get_tree().process_frame
+			await shot.call("tiski")
+			tg.dishes_left = TiskiGame.DISHES.size() - 1  # muki
+			tg._dirt = 0.8
+			for i in 5:
+				await get_tree().process_frame
+			await shot.call("tiski_muki")
 		"pitkalappu":
 			# Pitkä lappu: kaikki päivän muistutukset kerralla; lapun pitää mahtua kokonaan ruudulle.
 			var many := ["Laitoin 12,00 € kauppaa varten.", "Eilen ei tullu kaupasta mitään, vaikka oli lista!",
