@@ -33,6 +33,7 @@ var values := {
 	"invert_y": false,
 	"auto_recenter": true,
 	"mouse_look": true,
+	"mouse_steer": false,  # hiiri ohjaa kulkusuuntaa (FPS-tyyli), W/S eteen ja taakse
 }
 ## Tosi, jos tämä käynnistys tallensi yhteensopivan grafiikan pysyväksi (Windowsin varakäynnistin).
 var renderer_auto_saved := false
