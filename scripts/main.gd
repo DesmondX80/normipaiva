@@ -7695,6 +7695,51 @@ func _maybe_screenshot() -> void:
 				var e := 1.5
 				var sl := rad_to_deg(atan(Vector2(Mokki.h(p.x + e, p.y) - Mokki.h(p.x - e, p.y), Mokki.h(p.x, p.y + e) - Mokki.h(p.x, p.y - e)).length() / (2.0 * e)))
 				print("VIINA %d %s: lähin rakennus %.1f m, rinne %.0f°" % [i, p, best, sl])
+		"kauppapalautus":
+			# Rahat ei riitä: kalja ja makkara palautetaan hyllyyn, sitten kassalla Q jättää ostokset tiskille.
+			if player == bike:
+				_toggle_mount()
+			money = 3.0
+			_enter_shop()
+			for g in interior._queue:
+				g.queue_free()
+			interior._queue.clear()
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var go := func(at: Vector3) -> void:
+				interior.walker.position = at
+				for i in 5:
+					await get_tree().physics_frame
+			await go.call(interior.COOLER_SPOT)
+			await press.call("interact")
+			print("PALAUTUS kylmiö: kalja=%s hint '%s'" % [interior.has_beer, _hint.text])
+			await go.call(interior.GRILL_SPOT)
+			await press.call("interact")
+			print("PALAUTUS grilli: kori=%s hint '%s'" % [interior.cart, _hint.text])
+			await go.call(interior.QUEUE_FRONT)
+			print("PALAUTUS kassalla: hint '%s' kauppias '%s'" % [_hint.text.replace("
+", " | "), interior._cashier_bubble.text])
+			await press.call("interact")
+			print("PALAUTUS maksuyritys: maksettu=%s kauppias '%s'" % [interior.has_paid, interior._cashier_bubble.text])
+			await go.call(interior.GRILL_SPOT)
+			await press.call("bell")
+			print("PALAUTUS grilliin Q: kori=%s" % [interior.cart])
+			await go.call(interior.COOLER_SPOT)
+			print("PALAUTUS kylmiöllä: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("PALAUTUS kylmiöön E: kalja=%s" % interior.has_beer)
+			await press.call("interact")
+			await go.call(interior.QUEUE_FRONT)
+			await press.call("bell")
+			print("PALAUTUS kassalle Q: kalja=%s kori=%s kauppias '%s' hint '%s'" % [interior.has_beer, interior.cart,
+				interior._cashier_bubble.text, _hint.text])
+			await go.call(interior.DOOR)
+			print("PALAUTUS ovella: hint '%s'" % _hint.text)
 		"kauppaovi":
 			# Kauppa hommana: ovelta sisään, ulos kuutosen kanssa, kalja kädessä kielto, tyhjin käsin uudestaan
 			# sisään (ostamatta ulos: kuutonen pysyy ostettuna), lopuksi kotiovelta sisään (E).

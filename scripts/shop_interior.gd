@@ -89,6 +89,7 @@ var _count_label: Label3D
 var _cashier_bubble: Label3D
 var _cashier: Node3D
 var _cashier_t := 0.0
+var _broke_hinted := false  # kauppias on jo neuvonut, miten liiat ostokset palautetaan
 var _neighbor_t := -1.0
 var _neighbor_spawned := false
 
@@ -111,6 +112,7 @@ func enter() -> void:
 	walker.position = ENTRY
 	walker.rotation.y = 0.0
 	walker.activate()
+	_broke_hinted = false
 	_alko.visible = vaala
 	if not vaala and not _neighbor_spawned and _neighbor_t < 0.0:
 		_neighbor_t = randf_range(4.0, 10.0)
@@ -145,13 +147,14 @@ func _process(delta: float) -> void:
 
 	hint = ""
 	var e := Input.is_action_just_pressed("interact")
+	var broke := not has_paid and _total() > money + 0.001
 	if _flat(p, DOOR) < 1.4:
-		if has_items and not has_paid and (has_beer or alko_count() > 0) and _total() > money + 0.001:
+		if has_items and not has_paid and (has_beer or alko_count() > 0) and broke:
 			hint = "[E] Juoksukaljat! Rahat ei riitä (%s €): kaljat ja viinat mukaan maksamatta" % _eur(_total())
 			if e:
 				_run_out()
 		elif has_items and not has_paid:
-			hint = "Maksa ensin! Kassalle jonoon."
+			hint = "Maksa ensin! Kassalle jonoon." if not broke else 				"Rahat ei riitä: vie tavarat takaisin hyllyyn tai jätä ne kassalle."
 		else:
 			hint = "[E] Poistu kaupasta"
 			if e:
@@ -172,6 +175,7 @@ func _process(delta: float) -> void:
 				cart[next] = EXTRAS[next][1]
 				walker.set_carrying(true)
 				Sfx.play("pickup", -2.0, 0.8)
+		_return_logic(EXTRAS)
 	elif _flat(p, BAKERY_SPOT) < 1.2 and not has_paid:
 		var next := ""
 		for k in BAKERY:
@@ -186,6 +190,7 @@ func _process(delta: float) -> void:
 				cart[next] = BAKERY[next][1]
 				walker.set_carrying(true)
 				Sfx.play("pickup", -4.0, 0.9)
+		_return_logic(BAKERY)
 	elif vaala and _flat(p, ALKO_SPOT) < 1.5 and not has_paid:
 		var n := alko_count()
 		if n >= ALKO_MAX:
@@ -196,21 +201,31 @@ func _process(delta: float) -> void:
 				cart["viina%d" % n] = ALKO[1]
 				walker.set_carrying(true)
 				Sfx.play("glass", -6.0, 1.1)
+		if n > 0:
+			hint += "   [Q] palauta pullo hyllyyn"
+			if Input.is_action_just_pressed("bell"):
+				cart.erase("viina%d" % (n - 1))
+				_update_carry()
+				Sfx.play("glass", -8.0, 0.8)
 	elif _flat(p, CANDY_SPOT) < 1.2 and not has_paid:
 		if cart.has(CANDY[0]):
-			hint = "Suklaalevy kassissa."
+			hint = "[E] Palauta %s telineeseen" % CANDY[1]
+			if e:
+				cart.erase(CANDY[0])
+				_update_carry()
+				Sfx.play("pickup", -8.0, 0.7)
 		else:
 			hint = "[E] Ota %s (%s €)" % [CANDY[1], _eur(CANDY[2])]
 			if e:
 				cart[CANDY[0]] = CANDY[2]
 				walker.set_carrying(true)
 				Sfx.play("pickup", -4.0, 1.1)
-	elif not has_beer and _flat(p, COOLER_SPOT) < 1.5:
-		hint = "[E] Ota kuutonen keskaria"
+	elif not has_paid and _flat(p, COOLER_SPOT) < 1.5:
+		hint = "[E] Ota kuutonen keskaria" if not has_beer else "[E] Palauta kuutonen kylmiöön"
 		if e:
-			has_beer = true
-			walker.set_carrying(true)
-			Sfx.play("pickup")
+			has_beer = not has_beer
+			_update_carry()
+			Sfx.play("pickup", 0.0 if has_beer else -6.0, 1.0 if has_beer else 0.7)
 	elif not has_paid and in_queue and _queue.is_empty():
 		var total := _total()
 		hint = "[E] Maksa %s €" % _eur(total)
@@ -218,12 +233,23 @@ func _process(delta: float) -> void:
 			hint += "  (hyvä mieli: kassa antaa −10 %)"
 		elif price_mult > 1.0:
 			hint += "  (nyrpeä naama: +10 %)"
-		if e:
-			if total > money + 0.001 and not cart.is_empty():
-				cart.clear()
-				_cashier_say("Rahat ei riitä makkaroihin! Ne jää tänne.")
-			elif total > money + 0.001:
-				_cashier_say("Rahat ei riitä!")
+		var own := has_beer or not cart.is_empty()
+		if broke and own:
+			hint += "   [Q] jätä omat ostokset kassalle"
+			if not _broke_hinted:
+				_broke_hinted = true
+				_cashier_say("Riittääkö rahat? Liiat voi viedä takaisin hyllyyn, tai jättää tähän tiskille.", 4.0)
+		if own and Input.is_action_just_pressed("bell") and broke:
+			has_beer = false
+			cart.clear()
+			_update_carry()
+			Sfx.play("rattle", -10.0, 0.8)
+			_cashier_say("Ei se mitään, mää laitan ne takaisin hyllyyn." if bag.is_empty() else
+				"Laitan ne takaisin. Päivin tavarat on Päivin piikkiin.", 3.5)
+		elif e:
+			if total > money + 0.001:
+				_cashier_say("Rahat ei riitä, %s € puuttuu! Vie jotain takaisin hyllyyn tai jätä tähän, paina [%s]." % [
+					_eur(total - money), Settings.action_key("bell")], 4.5)
 			else:
 				has_paid = true
 				Sfx.play("register")
@@ -233,6 +259,9 @@ func _process(delta: float) -> void:
 		hint = "Jonotat... edessä %d harmaapäätä" % _queue.size()
 	elif not has_paid and has_items:
 		hint = "Kassajonoon (keltainen ympyrä)%s" % ("" if has_beer else " – tai kaljat takaseinältä")
+		if broke:
+			hint += "
+Rahat ei riitä (%s / %s €): palauta tavaraa samaan hyllyyn, josta otit" % [_eur(money), _eur(_total())]
 	elif not has_paid:
 		hint = "Kaljat takaseinältä, grillitarvikkeet oven vierestä, Päivin tuotteet oikealta seinältä" + \
 			(", Alko vasemmalta seinältä" if vaala else "")
@@ -309,6 +338,7 @@ func _shelf_logic(prod: String, e: bool) -> void:
 		return
 	if have == col:
 		bag.erase(prod)
+		_update_carry()
 		Sfx.play("pickup", -8.0, 0.7)
 	else:
 		bag[prod] = col
@@ -317,6 +347,26 @@ func _shelf_logic(prod: String, e: bool) -> void:
 
 
 ## Valittu väri nousee lokerossa esiin.
+## Hyllyn kohdalla Q palauttaa viimeksi otetun tuotteen (items: tuote -> [nimi, hinta]).
+func _return_logic(items: Dictionary) -> void:
+	var last := ""
+	for k in items:
+		if cart.has(k):
+			last = k
+	if last == "":
+		return
+	hint += "   [Q] palauta %s" % items[last][0]
+	if Input.is_action_just_pressed("bell"):
+		cart.erase(last)
+		_update_carry()
+		Sfx.play("pickup", -8.0, 0.7)
+
+
+## Kassi kädessä vain, jos siinä on jotain.
+func _update_carry() -> void:
+	walker.set_carrying(has_beer or not cart.is_empty() or not bag.is_empty())
+
+
 func _highlight(prod: String, col: String) -> void:
 	for p in _items:
 		for c in _items[p]:
@@ -419,9 +469,9 @@ func _flat(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x - b.x, a.z - b.z).length()
 
 
-func _cashier_say(text: String) -> void:
+func _cashier_say(text: String, t := 2.0) -> void:
 	_cashier_bubble.text = text
-	_cashier_t = 2.0
+	_cashier_t = t
 	_cashier.play("Idle_Talking", 0.3)
 	Sfx.babble(_cashier, "kassa", text)
 
