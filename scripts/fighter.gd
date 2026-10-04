@@ -43,6 +43,9 @@ var special := "bag"
 var hp := 100.0
 var max_hp := 100.0
 var dmg_mult := 1.0
+var throw_only := false  # kung fu: lyönnit ja potkut torjutaan aina, vain heitetty tölkki tehoaa (kauppias)
+var parry_t := 0.0  # kung fu -torjunta-asento näkyy tämän ajan (fight.gd tekoäly pitää torjunnan)
+var counter_pending := false  # torjunnan jälkeen näyttävä vastaisku (fight.gd _ai)
 var facing := 1.0
 var state := "idle"  # idle, walk, attack, block, hit, ko
 var cmd := {"move": 0.0, "jump": false, "block": false, "attack": ""}
@@ -95,6 +98,7 @@ func on_ground() -> bool:
 
 func update(delta: float) -> void:
 	_t += delta
+	parry_t = maxf(0.0, parry_t - delta)
 	if state != "ko" and state != "attack":
 		facing = signf(opponent.position.x - position.x) if absf(opponent.position.x - position.x) > 0.05 else facing
 
@@ -190,9 +194,19 @@ func _try_hit(a: Dictionary) -> bool:
 
 
 ## Palauttaa true jos torjuttiin. launch nostaa ilmaan (pystykoukku), stun pidentää tainnutusta.
-func take_hit(dmg: float, dir: float, push: float, launch := 0.0, stun := 0.32) -> bool:
+func take_hit(dmg: float, dir: float, push: float, launch := 0.0, stun := 0.32, can := false) -> bool:
 	if state == "ko":
 		return false
+	if throw_only and not can:
+		# Kung fu -torjunta: kääntyy lyöjään, nostaa kädet torjuntaan ja vastaa heti näyttävästi (fight.gd _ai).
+		_vel.x = dir * push * 0.3
+		if state != "attack":
+			facing = -signf(dir) if dir != 0.0 else facing
+			state = "block"
+			_t = 0.0
+		parry_t = 0.3
+		counter_pending = true
+		return true
 	if state == "block" and signf(facing) == -signf(dir):
 		hp = maxf(1.0, hp - dmg * 0.15)
 		_vel.x = dir * push * 0.5

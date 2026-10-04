@@ -181,6 +181,7 @@ var _list_pending := false  # päivä alkoi mökiltä: Päivin värilista kerrot
 const MokkiInterior := preload("res://scripts/mokki_interior.gd")
 const HomeInterior := preload("res://scripts/home_interior.gd")
 const WcGame := preload("res://scripts/wc_game.gd")
+const ShopChaser := preload("res://scripts/shop_chaser.gd")
 ## Pöntöllä kysytään Saloisten tapaan: ykkönen vai kakkonen.
 const WC_ASK := ["No nii. Onko pikkunen vai isompi hätä?", "Mitäs sää, ykköstä vai kakkosta?",
 	"Kumpi on, pissa vai kakka? Ei tartte hävetä.", "Pikkunen asia vai iso asia? Kerro nyt."]
@@ -1101,6 +1102,9 @@ func _on_home_slept() -> void:
 ## Vessanpönttö (koti, mökin pesuhuone, mökin huussi): ensin kysytään ykkönen vai kakkonen (esinevalikko), sitten
 ## minipeli (wc_game.gd) ja lopuksi tulos (_wc_result).
 var _wc_where := ""
+## Juoksukaljat: kauppias perässä (shop_chaser.gd). Saloisissa taksiin ehtii juuri ja juuri, Vaalassa ei taksia.
+var _shop_chaser: Node3D = null
+var _chase_viina := 0  # Vaalassa juostut Koskenkorvat (kauppias ottaa takaisin, jos voittaa)
 var _wc_game: CanvasLayer  # käynnissä oleva minipeli (testit)
 
 
@@ -2557,6 +2561,15 @@ func _taxi_logic() -> void:
 	var p := player.global_position
 	if Vector2(p.x - world.taxi_pos.x, p.z - world.taxi_pos.z).length() > TAXI_RADIUS:
 		return
+	if _chasing():
+		# Juoksukaljat: kuski ottaa kyytiin rahatta, kunhan ehtii ennen kauppiasta.
+		_hint.text = "[E] HYPPÄÄ TAKSIIN! Kauppias tulee!" if player != bike else "Pyörältä pois (F) ja taksiin!"
+		if player != bike and Input.is_action_just_pressed("interact") and not player.is_stunned():
+			_shop_chaser.give_up()
+			_shop_chaser = null
+			_show_message("Kuski: \"Hyppää kyytiin! Maksat sitte.\"", 2.5)
+			_taxi_trip(true)
+		return
 	if player == bike:
 		_hint.text = "Taksi Raahen baariin: nouse pyörän selästä (F)."
 	elif money < TAXI_FARE:
@@ -2569,13 +2582,13 @@ func _taxi_logic() -> void:
 
 ## Taksireissu: menomatka, kädenvääntö Raahen baarissa, paluu kotipihaan Päivin eteen ja uusi päivä kotoa.
 ## Pyörä jää kaupan pihaan.
-func _taxi_trip() -> void:
+func _taxi_trip(escape := false) -> void:
 	state = "cutscene"
 	player.controls_enabled = false
 	player.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_hud.visible = false
-	money -= TAXI_FARE
+	money = maxf(0.0, money - TAXI_FARE) if escape else money - TAXI_FARE  # paossa kuski ottaa mitä on
 	Sfx.play("door_close", -3.0)
 	cutscene.taxi_to_raahe(_enter_raahe)
 
@@ -5104,6 +5117,7 @@ func _on_vaala_shop_exited(bought: bool) -> void:
 			if interior.cart.has(k):
 				food[k] = food.get(k, 0) + 1
 		var bottles: int = interior.alko_count()
+		_chase_viina = bottles if interior.stolen else 0
 		if bottles > 0:
 			viina_pullot += bottles
 			got.append("pullo Koskenkorvaa" if bottles == 1 else "%d pulloa Koskenkorvaa" % bottles)
@@ -5119,8 +5133,9 @@ func _on_vaala_shop_exited(bought: bool) -> void:
 	_compass.visible = true
 	_mopo_resume()
 	if ran:
-		_show_message("JUOKSUKALJAT! Kassa huutaa perään.\nKassissa %s. Äkkiä %s!" % [" ja ".join(got),
-			"pois" if mopo_trip.on_foot != null else "mopon kyytiin"], 3.5)
+		_show_message("JUOKSUKALJAT! Kauppias juoksee perään – mopolla ei pääse karkuun!\nKassissa %s. Heitä kaljoja päin!" % [
+			" ja ".join(got)], 4.0)
+		_start_shop_chase(mopo_trip.vaala.to_global(mopo_trip.vaala.kmarket_door), false)
 	elif mopo_trip.on_foot != null:
 		_show_message(("Kassissa %s." % " ja ".join(got)) if not got.is_empty() else "Takaisin ulos.", 3.0)
 	else:
@@ -5219,7 +5234,9 @@ func _on_shop_exited(bought: bool) -> void:
 		wife.reset_to(wife.farthest_node_from(shop_zone))
 		_show_message("Anna-Liisa soitti Päiville.\nPÄIVI TIETÄÄ MISSÄ OLET!", 3.5)
 	elif interior.stolen:
-		_show_message("JUOKSUKALJAT! Kassa huutaa perään.\nÄkkiä pois!", 3.0)
+		_show_message("JUOKSUKALJAT! Kauppias juoksee perään – se on nopeampi kuin pyörä!\nTaksiin, tai heitä kaljoja päin!", 4.0)
+	if interior.stolen:
+		_start_shop_chase(shop_door, true)
 	else:
 		_show_message("Kuutonen kassissa!", 2.5)
 
@@ -5290,6 +5307,9 @@ func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
 	var note := "\nKassi-iskut rikkoi %d kaljaa." % bags_used if bags_used > 0 else ""
 	if thrown > 0:
 		note += "\nHeitit %d kaljaa vastustajaa päin." % thrown
+	if _fight_source == "kauppias":
+		_kauppias_fight_end(won, note)
+		return
 	var loser_node: Node3D = {"juntti": juntti, "laavu": guard, "tractor": tractor}[_fight_source]
 	if won:
 		loser_node.defeat()
@@ -5324,6 +5344,63 @@ func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
 	player.set_carrying(beers > 0)
 	if state == "to_home" and beers <= 0 and not has_kanister and _stashed_today <= 0:
 		_lose("Kaikki kaljat rikki. Kotiin ei kannata mennä tyhjin käsin.", "juntti")
+
+
+## Juoksukaljat: kauppias lähtee perään kaupan ovelta. Saloisissa (taxi = true) etumatka riittää juuri ja juuri
+## taksille, kun juoksee suoraan; Vaalassa taksia ei ole, joten edessä on aina tappelu.
+func _start_shop_chase(door: Vector3, taxi: bool) -> void:
+	if is_instance_valid(_shop_chaser):
+		_shop_chaser.queue_free()
+	var c := ShopChaser.new()
+	add_child(c)
+	c.global_position = door
+	c.target_fn = func() -> Node3D: return player
+	if _in_vaala:
+		var vl: Node3D = mopo_trip.vaala
+		c.ground_fn = func(x: float, z: float) -> float:
+			var lp: Vector3 = vl.to_local(Vector3(x, 0, z))
+			return vl.to_global(Vector3(lp.x, vl.h(lp.x, lp.z), lp.z)).y
+	if taxi:
+		var d := Vector2(door.x - world.taxi_pos.x, door.z - world.taxi_pos.z).length() - TAXI_RADIUS
+		c.delay = maxf(1.0, d / OnFoot.RUN - d / ShopChaser.SPEED + 0.6)
+	else:
+		c.delay = 2.0
+	c.caught.connect(func(dir: Vector3) -> void:
+		if state in ["to_shop", "to_home"]:
+			_start_fight("kauppias", "kauppias", dir))
+	_shop_chaser = c
+
+
+func _chasing() -> bool:
+	return is_instance_valid(_shop_chaser) and _shop_chaser.is_chasing()
+
+
+## Tappelu kauppiaan kanssa ohi: voitolla kaljat jäävät (heitetyt menivät), tappiolla kauppias vie loput kaljat
+## (Vaalassa myös juostut Koskenkorvat) takaisin hyllyyn, eikä kuutosta ole haettu.
+func _kauppias_fight_end(won: bool, note: String) -> void:
+	var c := _shop_chaser
+	_shop_chaser = null
+	if won:
+		if is_instance_valid(c):
+			c.defeat()
+		tilat.add("moraali", 0.1)
+		tilat.add("kokemus", 0.1)
+		_show_message("K.O.! Kauppias laahusti kassalle. Kaljat jäi sulle!%s" % note, 3.5)
+	else:
+		if is_instance_valid(c):
+			c.gloat()
+		if player.has_method("stun"):
+			player.stun(_fight_dir)
+		var took := beers
+		beers = 0
+		viina_pullot = maxi(0, viina_pullot - _chase_viina)
+		Sfx.play("glass", -6.0, 0.8)
+		if not _in_vaala:
+			state = "to_shop"  # kuutonen palautui hyllyyn: ei haettu tänään
+		_show_message("Hävisit! Kauppias vei %s takaisin hyllyyn ja kung fu -potkaisi perään.%s" % [
+			"%d kaljaa" % took if took > 0 else "kaljat", note], 3.5)
+	_chase_viina = 0
+	player.set_carrying(beers > 0)
 
 
 const JEMMA_GOAL := 24
@@ -7685,6 +7762,104 @@ func _maybe_screenshot() -> void:
 			for i in 20:
 				await get_tree().physics_frame
 			print("KOTAOPASTE reunalla: '%s'" % _msg.text)
+		"juoksutaksi", "juoksutappelu":
+			# Juoksukaljat Saloisissa: kauppias perään. Taksi: juokse suoraan taksille (5,4 m/s). Tappelu: jää
+			# paikalleen, kung fu -torjunta ja vastaisku, tölkki tehoaa, ja voitto ja tappio.
+			_toggle_mount()
+			walker_out.global_position = shop_door + Vector3(0, 0.3, 0.5)
+			for i in 5:
+				await get_tree().physics_frame
+			_enter_shop()
+			interior.has_beer = true
+			interior.has_paid = true
+			interior.stolen = true
+			_on_shop_exited(true)
+			await get_tree().process_frame
+			print("JUOKSU alku: kaljat %d, kauppias %s, etumatka %.1f s, viesti '%s'" % [beers, _chasing(),
+				_shop_chaser.delay, _msg.text.replace("\n", " ")])
+			if scene == "juoksutaksi":
+				var t0 := Time.get_ticks_msec()
+				walker_out.controls_enabled = false
+				while _chasing():
+					var tp: Vector3 = world.taxi_pos
+					var to := Vector3(tp.x - walker_out.global_position.x, 0, tp.z - walker_out.global_position.z)
+					if to.length() < TAXI_RADIUS - 0.5:
+						break
+					walker_out.global_position += to.normalized() * OnFoot.RUN / 60.0
+					await get_tree().physics_frame
+				walker_out.controls_enabled = true
+				var cd: float = walker_out.global_position.distance_to(_shop_chaser.global_position) if _chasing() else -1.0
+				print("JUOKSU taksilla: kauppias jahtaa %s, välimatka %.1f m, hint '%s'" % [_chasing(), cd, _hint.text])
+				for i in 2:
+					await get_tree().process_frame
+				Input.action_press("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+				print("JUOKSU taksiin: tila %s, rahat %.2f" % [state, money])
+			else:
+				for i in 400:
+					await get_tree().physics_frame
+					if state == "fight":
+						break
+				print("JUOKSU kiinni: tila %s, vastustaja %s" % [state, fight.foe.get("short", "")])
+				while fight._phase != "fight":
+					await get_tree().process_frame
+				var j: Node3D = fight._j
+				var hp0: float = j.hp
+				var bl: bool = j.take_hit(12.0, -1.0, 2.0)
+				await get_tree().process_frame
+				print("JUOKSU lyönti: torjuttu %s, hp %.0f -> %.0f, asento %s, torjunta %.2f s, vastaisku tulossa %s" % [bl,
+					hp0, j.hp, j.state, j.parry_t, j.counter_pending])
+				var seen := ""
+				for i in 90:
+					await get_tree().process_frame
+					if j.state == "attack" and seen == "":
+						seen = j._attack
+				print("JUOKSU vastaisku: %s, huuto '%s'" % [seen, fight._bubble_j.text])
+				bl = j.take_hit(26.0, -1.0, 5.5, 6.0, 0.9, true)
+				print("JUOKSU tölkki: torjuttu %s, hp -> %.0f" % [bl, j.hp])
+				j.take_hit(999.0, -1.0, 5.5, 6.0, 0.9, true)
+				while state == "fight":
+					await get_tree().process_frame
+				print("JUOKSU voitto: tila %s, kaljat %d, viesti '%s'" % [state, beers, _msg.text.replace("\n", " ")])
+		"mokkijuoksu":
+			# Juoksukaljat Vaalan Tervaportissa: ei taksia, kauppias saa mopon kiinni, tappio vie kaljat ja Koskenkorvat.
+			_toggle_mount()
+			walker_out.global_position = mokki.gpos(Mokki.MOPO_LOCAL + Vector3(1.0, 0.5, 0.0))
+			for i in 10:
+				await get_tree().physics_frame
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			var mp: CharacterBody3D = mopo_trip.mopo
+			mp.position = vl.kmarket_door + Vector3(0, 0.6, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			_enter_vaala_shop()
+			interior.has_beer = true
+			interior.has_paid = true
+			interior.stolen = true
+			var pv0 := viina_pullot
+			_on_shop_exited(true)
+			await get_tree().process_frame
+			print("VJUOKSU alku: kaljat %d, kauppias %s, viesti '%s'" % [beers, _chasing(), _msg.text.replace("\n", " ")])
+			for i in 600:
+				await get_tree().physics_frame
+				if state == "fight":
+					break
+			print("VJUOKSU kiinni: tila %s, kauppias korkeus %.1f, mopo %.1f" % [state, _shop_chaser.global_position.y if is_instance_valid(_shop_chaser) else -1.0, mp.global_position.y])
+			while fight._phase != "fight":
+				await get_tree().process_frame
+			for i in 40:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_tappelu.png"))
+			fight._p.take_hit(999.0, 1.0, 5.0)
+			while state == "fight":
+				await get_tree().process_frame
+			print("VJUOKSU tappio: tila %s, kaljat %d, pullot %d -> %d, vaala %s, viesti '%s'" % [state, beers, pv0, viina_pullot,
+				_in_vaala, _msg.text.replace("\n", " ")])
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()

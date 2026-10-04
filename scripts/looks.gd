@@ -20,6 +20,12 @@ const ANNA_LIISA := {
 	"model": "female", "shirt": Color(0.28, 0.58, 0.54), "pants": Color(0.22, 0.22, 0.27),
 	"hair": "Hair_Buns", "hair_color": Color(0.55, 0.22, 0.12), "height": 1.66,
 }
+## K-Marketin kauppias: juoksukaljojen perään juokseva kung fu -mies (shop_chaser.gd, fight.gd "kauppias").
+const KAUPPIAS := {
+	"shirt": Color(1.0, 0.42, 0.0), "pants": Color(0.12, 0.12, 0.16), "shoes": Color(0.9, 0.9, 0.92),
+	"hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.55, 0.55), "beard": true, "height": 1.86, "belly": 0.3,
+	"muscle": 0.4,
+}
 const CASHIER := {
 	"model": "female", "shirt": Color(1.0, 0.42, 0.0), "pants": Color(0.15, 0.15, 0.2),
 	"hair": "Hair_Long", "hair_color": Color(0.9, 0.78, 0.45), "height": 1.68,
