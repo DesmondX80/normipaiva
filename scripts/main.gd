@@ -6655,7 +6655,8 @@ func inventory_items() -> Array:
 		var it := {"icon": icon, "name": name, "count": count, "desc": desc}
 		it.merge(extra)
 		out.append(it)
-	add.call("kalja", "Kalja", beers, "Jalan jaksaa kantaa %d, pyörän kyytiin mahtuu %d." % [CARRY_FOOT, CARRY_BIKE])
+	add.call("kalja", "Kalja", beers, "Jalan jaksaa kantaa %d, pyörän kyytiin mahtuu %d." % [CARRY_FOOT, CARRY_BIKE],
+		{"use": "kalja", "use_label": "juo yksi"})
 	if has_kanister:
 		add.call("kanisteri", "Pontikkakanisteri", 1, "Vastaa kotijemmassa %d kaljaa." % KANISTER_BEERS)
 	if has_sausage:
@@ -6664,7 +6665,7 @@ func inventory_items() -> Array:
 	if has_matches:
 		add.call("tulitikut", "Tulitikut", 1, "Nuotion sytytykseen.")
 	if has_chocolate:
-		add.call("suklaa", "Suklaalevy", 1, "Päivin lepytykseen.")
+		add.call("suklaa", "Suklaalevy", 1, "Päivin lepytykseen.", {"use": "suklaa", "use_label": "syö"})
 	if has_mower_part:
 		add.call("varaosa", "Leikkurin varaosa", 1, "Kalja vielä, niin leikkuri korjataan.")
 	if has_ball:
@@ -6694,11 +6695,21 @@ func inventory_items() -> Array:
 		add.call("tuote", "%s %s" % [col.capitalize(), prod], 1, "Päivin ostos", {"tint": ShopInterior.COLORS.get(col, Color.GRAY)})
 	for k in food:
 		var icon: String = {"karrella": "karrella", "suklaa": "suklaa", "mustikkapiirakka": "piirakka"}.get(k, k)
-		add.call(icon, FOODS[k].name, food[k], "T syö", {"food": true})
-	add.call("viina", "Kätköviina", viina_pullot, "Pulloja mökin metsän kätköistä · T ottaa huikan", {"food": true})
+		add.call(icon, FOODS[k].name, food[k], "T syö", {"food": true, "use": k, "use_label": "syö"})
+	add.call("viina", "Kätköviina", viina_pullot, "Pulloja mökin metsän kätköistä · T ottaa huikan",
+		{"food": true, "use": "viina", "use_label": "ota huikka"})
 	for k in ["puolukka", "mustikka"]:
-		add.call(k, k.capitalize(), bucket.get(k, 0), "litraa ämpärissä · T syö litran", {"food": true})
+		add.call(k, k.capitalize(), bucket.get(k, 0), "litraa ämpärissä · T syö litran",
+			{"food": true, "use": k, "use_label": "syö litra"})
 	return out
+
+
+## Repusta klikattu tarvike (inventory.gd): syödään tai juodaan kuten T-valikosta. Ohjattavan hahmon tila
+## (esim. sisätiloissa ulkona odottava kävelijä) palautetaan ennalleen, koska _on_eat vapauttaa ohjauksen.
+func use_item(id: String) -> void:
+	var was: bool = player.controls_enabled
+	_on_eat(id)
+	player.controls_enabled = was
 
 
 func inventory_info() -> Dictionary:
@@ -8260,6 +8271,50 @@ func _maybe_screenshot() -> void:
 					break
 			for i in 20:
 				await get_tree().process_frame
+		"reppukaytto":
+			# Repusta klikkaus: pulla syödään, kalja juodaan, tooltip kertoo toiminnon. Sisällä kävelijä ei herää.
+			_toggle_mount()
+			food["pulla"] = 2
+			beers = 3
+			_inventory.toggle()
+			for i in 5:
+				await get_tree().process_frame
+			var click := func(icon: String) -> void:
+				for i in _inventory._slots.size():
+					var it = _inventory._slot_item(i)
+					if it != null and it.icon == icon:
+						var ev := InputEventMouseMotion.new()
+						_inventory._hover = i
+						var cl := InputEventMouseButton.new()
+						cl.button_index = MOUSE_BUTTON_LEFT
+						cl.pressed = true
+						cl.position = _inventory._slots[i].get_center()
+						_inventory._gui_input(cl)
+						return
+			await click.call("pulla")
+			print("REPPUK pulla: %d, viesti '%s'" % [food.get("pulla", 0), _msg.text])
+			await click.call("kalja")
+			print("REPPUK kalja: %d, viesti '%s', tauko %s, reppu auki %s" % [beers, _msg.text, get_tree().paused, _inventory.visible])
+			for i in _inventory._slots.size():
+				var it = _inventory._slot_item(i)
+				if it != null and it.icon == "pulla":
+					_inventory._hover = i
+			_inventory.queue_redraw()
+			for i in 3:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_tooltip.png"))
+			_inventory.toggle()
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			for i in 5:
+				await get_tree().physics_frame
+			_enter_home("ovi")
+			_inventory.toggle()
+			for i in 3:
+				await get_tree().process_frame
+			await click.call("pulla")
+			_inventory.toggle()
+			print("REPPUK sisällä: ulkokävelijän ohjaus %s, tila %s" % [walker_out.controls_enabled, state])
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()
