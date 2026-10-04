@@ -28,6 +28,13 @@ const FOES := {
 		"win": ["Tuosta sait, viljanpolkija!", "Ja pysy poissa mun pellolta!"],
 		"wave": "HEINÄPAALI!", "wave_cry": "OTA PAALI!", "hp": 120.0, "dmg": 1.1, "aggr": 0.85,
 	},
+	"kauppias": {
+		"look": Looks.KAUPPIAS, "name": "KAUPPIAS – Juoksukaljat? Ei mun kaupasta!", "short": "KAUPPIAS", "voice": "pekka",
+		"intro": ["Juoksukaljat? Ei mun kaupasta!", "Mää oon kakskymmentä vuotta treenannu kung fuuta varaston takana!",
+			"Nyrkillä mua ei voiteta, ookko ymmärtäny?"],
+		"win": ["Kaljat takasin hyllyyn!", "Ja ens kerralla maksetaan, hienohelma!"],
+		"wave": "KASSAJONO!", "wave_cry": "SEURAAVA!", "hp": 75.0, "dmg": 1.35, "aggr": 1.2, "throw_only": true,
+	},
 	"teens": {
 		"look": Looks.TEENS[0], "name": "TEINIJENGIN POMO – Raahe 4ever", "short": "TEINI", "voice": "teini",
 		"intro": ["Mitä sää tuijotat, setä?", "Tää on meiän mesta!", "Ok boomer."],
@@ -35,6 +42,9 @@ const FOES := {
 		"wave": "TÖLKKI!", "wave_cry": "Ota energiajuomaa!", "hp": 90.0, "dmg": 0.8, "aggr": 1.25,
 	},
 }
+## Kauppiaan kung fu -vastaiskujen huudot (torjutun lyönnin jälkeen).
+const KUNGFU_LINES := ["HIIII-YAH!", "Varaston takana treenattu!", "Kassakone-isku!", "Hinnoittelupotku!",
+	"Turhaa lyödä, nakkaa kaljaa jos uskallat!", "Kakskymmentä vuotta kung fuuta!"]
 const PLAYER_WIN := ["Takasin Raaheen siitä!", "Normipäivä jatkuu."]
 
 signal finished(player_won: bool, bags_used: int, thrown: int)
@@ -110,6 +120,7 @@ func _make_foe(key: String) -> void:
 	_j.display_name = foe.short
 	_j.special = "wave"
 	_j.dmg_mult = foe.dmg
+	_j.throw_only = foe.get("throw_only", false)
 	_j.max_hp = foe.hp
 	_j.fight = self
 	_j.opponent = _p
@@ -266,6 +277,28 @@ func _ai(delta: float) -> Dictionary:
 			elif can.dodge == "block":
 				_ai_block_t = 0.6
 				c.block = true
+	# Kauppiaan kung fu: torjunta-asento näkyy hetken, sitten näyttävä vastaisku (kiertopotku, pystykoukku tai
+	# jalkapyyhkäisy) huudon ja tehosteen kera.
+	if _j.throw_only:
+		if _j.parry_t > 0.0:
+			c.block = true
+			return c
+		if _j.counter_pending and _j.state in ["idle", "walk", "block"]:
+			_j.counter_pending = false
+			match ["spin", "uppercut", "sweep"].pick_random():
+				"spin":
+					c.attack = "kick"
+					c.move = toward
+				"uppercut":
+					c.attack = "punch"
+					c.block = true
+				_:
+					c.attack = "kick"
+					c.block = true
+			_say(_bubble_j, _j, KUNGFU_LINES.pick_random())
+			_effect("KUNG FU!", _j.position + Vector3(0, 2.3, 0.3), Color(1.0, 0.5, 0.15), 1.5)
+			Sfx.play("whoosh", 0.0, 0.7)
+			return c
 	# Reagoi pelaajan hyökkäykseen joskus torjumalla.
 	if _p.state == "attack" and dist < 2.0 and _ai_block_t <= 0.0 and randf() < 2.5 * delta:
 		_ai_block_t = 0.5
@@ -275,6 +308,12 @@ func _ai(delta: float) -> Dictionary:
 		c.move = _ai_cmd.get("move", 0.0)
 		return c
 	var aggr: float = foe.get("aggr", 1.0)
+	if _j.throw_only and dist <= 1.8 and randf() < 0.35:
+		# Kauppias suosii näyttäviä potkuja.
+		c.attack = "kick"
+		c.move = toward
+		_ai_t = randf_range(0.25, 0.5)
+		return c
 	_ai_t = randf_range(0.18, 0.45) / aggr
 	_ai_cmd = {"move": 0.0}
 	if dist > 3.2 and _wave_cd <= 0.0 and randf() < 0.45:
@@ -321,7 +360,9 @@ func _separate() -> void:
 func on_hit(attacker: Node3D, target: Node3D, blocked: bool, kind: String) -> void:
 	var pos: Vector3 = target.position + Vector3(0, 1.4, 0.3)
 	if blocked:
-		_effect("TORJUTTU", pos, Color(0.6, 0.85, 1.0), 0.8)
+		var kf: bool = target.throw_only and kind != "throw"
+		_effect("KUNG FU -TORJUNTA!" if kf else "TORJUTTU", pos, Color(1.0, 0.5, 0.2) if kf else Color(0.6, 0.85, 1.0),
+			1.1 if kf else 0.8)
 		Sfx.play("cloth", 0.0, 0.8)
 		Sfx.play("punch", -10.0, 0.7)
 		_hitstop = 0.04
@@ -547,7 +588,7 @@ func _update_cans(delta: float) -> void:
 				and target.position.y < 0.4:
 			var dir := signf(c.vel.x)
 			var a: Dictionary = Fighter.ATTACKS.throw
-			var blocked: bool = target.take_hit(a.dmg * owner.dmg_mult, dir, a.push, a.launch, a.stun)
+			var blocked: bool = target.take_hit(a.dmg * owner.dmg_mult, dir, a.push, a.launch, a.stun, true)
 			on_hit(owner, target, blocked, "throw")
 			if blocked:
 				c.vel = Vector2(-dir * 2.5, 4.0)  # kimpoaa hukkaan
