@@ -73,12 +73,16 @@ func _process(_delta: float) -> void:
 			queue_redraw()
 
 
+var _task_w := 0.0
+
+
 func _refresh() -> void:
 	var all: Array = game.inventory_items() if game != null else []
 	_items = all.filter(func(it): return not it.get("food", false))
 	_food = all.filter(func(it): return it.get("food", false))
 	_info = game.inventory_info() if game != null else {}
-	var w := PAD * 2.0 + COLS * SLOT
+	_task_w = 310.0 if not _info.get("tasks", []).is_empty() else 0.0  # tarinan tehtävät oikeaan laitaan
+	var w := PAD * 2.0 + COLS * SLOT + _task_w
 	var h := 340.0 + ROWS * SLOT + SLOT + 60.0
 	_panel = Rect2((size - Vector2(w, h)) / 2.0, Vector2(w, h))
 	_slots.clear()
@@ -127,6 +131,18 @@ func _draw() -> void:
 		_text(Vector2(rx, ry + 16), "Jemmat", 16, TEXT)
 		for i in stashes.size():
 			_text(Vector2(rx + 6, ry + 38 + i * 20), stashes[i], 14, Color(0.3, 0.2, 0.05))
+	# Tarinan tehtävät (story.gd) omana sarakkeenaan oikeassa laidassa: valmiit himmeinä ruksilla, avoimet tummina.
+	var tasks: Array = _info.get("tasks", [])
+	if not tasks.is_empty():
+		var tx := _panel.end.x - _task_w
+		var col := Rect2(Vector2(tx, p.y + PAD), Vector2(_task_w - PAD, 26 + tasks.size() * 24))
+		draw_rect(col, Color(0.96, 0.94, 0.85))
+		draw_rect(col, Color(0.55, 0.5, 0.4), false, 2.0)
+		_text(col.position + Vector2(10, 20), "Tehtävät", 16, Color(0.2, 0.35, 0.15))
+		for i in tasks.size():
+			var t: Array = tasks[i]
+			_text(col.position + Vector2(12, 44 + i * 24), ("✔ " if t[1] else "• ") + t[0], 14,
+				Color(0.5, 0.5, 0.5) if t[1] else Color(0.1, 0.25, 0.1))
 	_text(p + Vector2(PAD, 322.0), "Reppu", 18, TEXT)
 	_text(_slots[ROWS * COLS].position + Vector2(0, -8), "Eväät (T syö)", 18, TEXT)
 	for i in _slots.size():

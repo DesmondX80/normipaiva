@@ -137,10 +137,21 @@ func _process(delta: float) -> void:
 		_view.queue_redraw()
 
 
+## Hiiren alla olevan nimetyn tien nimi (karttanäkymän koordinaateissa piirretään hiiren viereen).
+var _hover_px := Vector2(-1000, -1000)
+var _hover_name := ""
+
+
 func _gui_input(event: InputEvent) -> void:
 	if _vaala:
 		_vaala_input(event)
 		return
+	if event is InputEventMouseMotion:
+		_hover_px = event.position - _view.position
+		var nm := _road_at(_hover_px)
+		if nm != _hover_name or nm != "":
+			_hover_name = nm
+			_view.queue_redraw()
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_click(event.position - _view.position)
@@ -150,7 +161,26 @@ func _gui_input(event: InputEvent) -> void:
 			_scroll = clampf(_scroll - 60.0, 0.0, _max_scroll())
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_scroll = clampf(_scroll + 60.0, 0.0, _max_scroll())
+		_hover_name = _road_at(_hover_px)
 		_view.queue_redraw()
+
+
+## Lähimmän nimetyn tien nimi, jos hiiri on alle 7 px päässä siitä (karttanäkymän px).
+func _road_at(local: Vector2) -> String:
+	if not Rect2(Vector2.ZERO, _view.size).has_point(local):
+		return ""
+	var best := 7.0
+	var name := ""
+	for r in M.ROADS:
+		if r.name == "":
+			continue
+		var pts: Array = r.pts
+		for i in pts.size() - 1:
+			var d := local.distance_to(Geometry2D.get_closest_point_to_segment(local, _px(pts[i]), _px(pts[i + 1])))
+			if d < best:
+				best = d
+				name = r.name
+	return name
 
 
 func clear_target() -> void:
@@ -517,24 +547,17 @@ func _draw_map() -> void:
 	for n in M.PLACE_NAMES:
 		var p := _px(n[1])
 		v.draw_string(font, p - Vector2(n[0].length() * 5.5, 0), n[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
-	# Tienimet tien suuntaisesti.
-	for r in M.ROADS:
-		if r.name == "":
-			continue
-		var pts: Array = r.pts
-		var i := int(pts.size() / 2) - 1 if pts.size() > 2 else 0
-		var a := _px(pts[i])
-		var b := _px(pts[i + 1])
-		var ang := (b - a).angle()
-		if ang > PI / 2.0 or ang < -PI / 2.0:
-			ang += PI
-		v.draw_set_transform((a + b) / 2.0 + Vector2(0, -6).rotated(ang), ang)
-		v.draw_string(font, Vector2(-r.name.length() * 3.2, 0), r.name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.35, 0.18, 0.08))
-		v.draw_set_transform(Vector2.ZERO)
+	# Tienimet eivät tukkeuta karttaa: nimi näkyy vain, kun hiiri on tien päällä (_hover_road).
 	_draw_unmapped(v)
 
+	# Naapurit (tarina lähettää heidän luokseen): pieni talomerkki ja nimi, nimet eri puolille ettei mene päällekkäin.
+	for n in [[M.NEIGHBOR_PEKKA, "Pekka", Vector2(8, -2)], [M.NEIGHBOR_SINIKKA, "Sinikka", Vector2(8, 10)],
+			[M.NEIGHBOR_ARTO, "Arto", Vector2(-10, 20)]]:
+		var np := _px(n[0])
+		_neighbor_icon_on(v, np)
+		v.draw_string(font, np + n[2], n[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.35, 0.22, 0.1))
 	_house_icon_on(v, _px(M.HOME_ZONE), Color(0.8, 0.15, 0.1))
-	v.draw_string(font, _px(M.HOME_ZONE) + Vector2(10, 4), "Järvikuja 1", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.1, 0.05))
+	v.draw_string(font, _px(M.HOME_ZONE) + Vector2(-78, 4), "Järvikuja 1", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.1, 0.05))
 	var sp := _px(M.SHOP_ZONE)
 	v.draw_circle(sp, 8.0, Color(1.0, 0.45, 0.0))
 	v.draw_string(font, sp + Vector2(-4, 5), "K", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
@@ -596,6 +619,7 @@ func _draw_map() -> void:
 	if player != null:
 		var f := -player.global_transform.basis.z
 		_you_icon_on(v, _w2(Vector2(player.global_position.x, player.global_position.z)), atan2(f.z, f.x) + PI / 2.0)
+	_draw_road_hover(v)
 
 
 # --- Neittävä–Vaala-kartta --------------------------------------------------------------------------------------
@@ -1014,6 +1038,19 @@ func _outlined(v: CanvasItem, p: Vector2, text: String, fs: int, col: Color) -> 
 	v.draw_string(font, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 
 
+## Hiiren alla olevan tien nimi pienessä lapussa hiiren vieressä (kutsutaan _draw_mapin lopusta).
+func _draw_road_hover(v: Control) -> void:
+	if _hover_name == "":
+		return
+	var font := ThemeDB.fallback_font
+	var w := font.get_string_size(_hover_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+	var at := _hover_px + Vector2(12, -10)
+	at.x = minf(at.x, v.size.x - w - 12)
+	v.draw_rect(Rect2(at - Vector2(5, 14), Vector2(w + 10, 19)), Color(0.98, 0.95, 0.85, 0.95))
+	v.draw_rect(Rect2(at - Vector2(5, 14), Vector2(w + 10, 19)), Color(0.35, 0.18, 0.08), false, 1.0)
+	v.draw_string(font, at, _hover_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.35, 0.18, 0.08))
+
+
 # --- Merkit (piirto joko tähän tai karttanäkymään) ----------------------------
 
 ## Neittävä–Vaala-kartan kohteiden merkit.
@@ -1068,6 +1105,13 @@ func _house_icon(p: Vector2, col: Color) -> void:
 func _house_icon_on(ci: CanvasItem, p: Vector2, col: Color) -> void:
 	ci.draw_rect(Rect2(p + Vector2(-6, -2), Vector2(12, 9)), col)
 	ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-8, -2), p + Vector2(0, -10), p + Vector2(8, -2)]), col.darkened(0.2))
+
+
+## Naapurin talo: pieni ruskea talomerkki.
+func _neighbor_icon_on(ci: CanvasItem, p: Vector2) -> void:
+	var col := Color(0.55, 0.35, 0.15)
+	ci.draw_rect(Rect2(p + Vector2(-4, -1), Vector2(8, 6)), col)
+	ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-5.5, -1), p + Vector2(0, -6), p + Vector2(5.5, -1)]), col.darkened(0.2))
 
 
 func _laavu_icon(p: Vector2) -> void:

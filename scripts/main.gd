@@ -182,6 +182,8 @@ const MokkiInterior := preload("res://scripts/mokki_interior.gd")
 const HomeInterior := preload("res://scripts/home_interior.gd")
 const WcGame := preload("res://scripts/wc_game.gd")
 const ShopChaser := preload("res://scripts/shop_chaser.gd")
+const Story := preload("res://scripts/story.gd")
+const TAXI_MOKKI_FARE := 60.0  # kaupan taksilla Paapeliin, meno-paluu
 ## Pöntöllä kysytään Saloisten tapaan: ykkönen vai kakkonen.
 const WC_ASK := ["No nii. Onko pikkunen vai isompi hätä?", "Mitäs sää, ykköstä vai kakkosta?",
 	"Kumpi on, pissa vai kakka? Ei tartte hävetä.", "Pikkunen asia vai iso asia? Kerro nyt."]
@@ -499,6 +501,10 @@ var mokki: Node3D
 var _santtu_chat_t := 6.0
 ## Santun hommat (santun_hommat.gd): päivän hommat, hermot ja arvostelut.
 var hommat: RefCounted
+var story: RefCounted  # tarina (story.gd): ohjaa naapurilta toiselle, Pekan kyyti Paapeliin aukeaa lopuksi
+var sinikka_lawn: Node3D  # Sinikan takapihan nurmikko (tarinatehtävä)
+var _keys_node: Node3D  # Pekan autonavaimet kodalla
+var _taxi_mokki_return := false  # taksilla Paapeliin: paluu maksettu
 ## Mökin päädyn nurmikko (lawn.gd mökin maastossa) ja nurmikko, jota leikkuri parhaillaan leikkaa.
 var mokki_lawn: Node3D
 var _mow_lawn: Node3D
@@ -574,6 +580,14 @@ func _ready() -> void:
 	lawn.angle = world.lawn_angle
 	lawn.mower_park = M.w(M.MOWER_PARK)
 	add_child(lawn)
+	var sl: Dictionary = world.sinikka_lawn
+	sinikka_lawn = Lawn.new()
+	sinikka_lawn.rect = Rect2(-sl.size / 2.0, sl.size)
+	sinikka_lawn.pivot = sl.pivot
+	sinikka_lawn.angle = sl.angle
+	sinikka_lawn.mower_park = Vector3(sl.mower.x, Terrain.h(sl.mower.x, sl.mower.z), sl.mower.z)
+	sinikka_lawn.kinds = []  # Sinikan nurmikolla ei siilejä eikä kiviä
+	add_child(sinikka_lawn)
 	_build_stash_props()
 	_spawn_player()
 	world.follow = player
@@ -641,7 +655,10 @@ func _ready() -> void:
 	add_child(cutscene)
 	tilat = DayStats.new()
 	hommat = Hommat.new()
+	story = Story.new()
 	_load_game()
+	if story.step == "avaimet":
+		_place_keys()
 	_stat_bars.stats = tilat
 	_apply_day_base()
 	_spawn_boys()
@@ -1018,6 +1035,7 @@ func _outside_logic() -> void:
 	_errand_logic()
 	_vaino_logic()
 	_neighbor_logic()
+	_story_logic()
 	_pontikka_logic()
 	_taxi_logic()
 	_mokki_logic()
@@ -1350,6 +1368,8 @@ func _stash_pos(id: String) -> Vector3:
 
 
 func _stash_add(id: String, n: int) -> void:
+	if n > 0 and STASHES[id].home and story.step == "kaljat":
+		_story_step("pekka_kutsuu")
 	stash[id] = maxi(0, stash.get(id, 0) + n)
 	if n > 0 and not id in stash_used:
 		stash_used.append(id)
@@ -1616,6 +1636,19 @@ func _mow() -> void:
 			return
 	ml.cut(head, Lawn.BLADE_R)
 	var ratio: float = ml.cut_ratio()
+	if ml == sinikka_lawn:
+		if ratio >= LAWN_DONE:
+			_stop_mowing()
+			story.done.nurmikko = true
+			sinikka.say("Voi kuinka siisti! Tuu joskus muulloinkin... leikkaamaan.")
+			Sfx.play("win_small")
+			_show_message("Sinikan nurmikko leikattu!", 3.0)
+			_story_check_tasks()
+			return
+		_hint.text = "Leikataan Sinikan nurmikkoa... %d %%   W/S/A/D ohjaa · [E] sammuta" % roundi(ratio * 100.0)
+		if Input.is_action_just_pressed("interact"):
+			_stop_mowing()
+		return
 	if ml == mokki_lawn:
 		if ratio >= LAWN_DONE:
 			_stop_mowing()
@@ -2571,17 +2604,48 @@ func _taxi_logic() -> void:
 			_taxi_trip(true)
 		return
 	if player == bike:
-		_hint.text = "Taksi Raahen baariin: nouse pyörän selästä (F)."
+		_hint.text = "Taksi: nouse pyörän selästä (F)."
 	elif money < TAXI_FARE:
-		_hint.text = "Taksi Raahen baariin maksaa %s €. Rahat ei riitä." % _eur(TAXI_FARE)
+		_hint.text = "Taksi Raahen baariin maksaa %s €, Paapeliin %s €. Rahat ei riitä." % [_eur(TAXI_FARE), _eur(TAXI_MOKKI_FARE)]
 	else:
-		_hint.text = "[E] Taksilla Raahen baariin (%s €, meno-paluu)" % _eur(TAXI_FARE)
+		_hint.text = "[E] Taksi: Raahen baariin tai Paapelin mökille"
 		if Input.is_action_just_pressed("interact") and not player.is_stunned():
-			_taxi_trip()
+			player.controls_enabled = false
+			player.speed = 0.0
+			_menu_mode = "taksi"
+			_item_menu.open([["raahe", "Raahen baariin – %s € (meno-paluu)" % _eur(TAXI_FARE)],
+				["paapeli", "Paapelin mökille – %s € (meno-paluu)" % _eur(TAXI_MOKKI_FARE)]],
+				"Kuski: \"No mihinkäs lähetään?\"")
 
 
 ## Taksireissu: menomatka, kädenvääntö Raahen baarissa, paluu kotipihaan Päivin eteen ja uusi päivä kotoa.
 ## Pyörä jää kaupan pihaan.
+func _on_taxi_choice(id: String) -> void:
+	_menu_mode = "give"
+	player.controls_enabled = true
+	if id == "paapeli":
+		if money < TAXI_MOKKI_FARE:
+			_show_message("Kuski: \"Paapeliin on pitkä matka. %s € tai ei mitään.\"" % _eur(TAXI_MOKKI_FARE), 3.0)
+			return
+		_taxi_mokki()
+	elif id == "raahe":
+		_taxi_trip()
+
+
+## Kaupan taksilla Paapelin mökille (meno-paluu): paluu tilataan mökin pihatien päästä.
+func _taxi_mokki() -> void:
+	money -= TAXI_MOKKI_FARE
+	_taxi_mokki_return = true
+	tilat.first("mokki", 0.4)
+	_hud.visible = false
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	Sfx.play("door_close", -3.0)
+	_save_game()
+	cutscene.taxi_ride("PAAPELIIN", "Taksi kaahaa Vaalaan Kaisuantielle. Mittari raksuttaa.", Cutscene.TAXI_MOKKI_LINES,
+		_arrive_by_car.bind(mokki.gpos(Mokki.RIDE_LOCAL + Vector3(0, 0.3, 2.2))))
+
+
 func _taxi_trip(escape := false) -> void:
 	state = "cutscene"
 	player.controls_enabled = false
@@ -2804,8 +2868,8 @@ func _on_raahe(id: String) -> void:
 ## Pekan kyyti mökille: vihje ja E. Palauttaa false, jos kyytiä ei voi tarjota (pyörällä, rahaton, häädetty),
 ## jolloin Pekan kanssa jutellaan.
 func _pekka_ride_hint(v: CharacterBody3D, e: bool) -> bool:
-	if player == bike or cutscene.busy or hommat.banned_day == day:
-		return false
+	if player == bike or cutscene.busy or hommat.banned_day == day or not story.ride_unlocked():
+		return false  # tarinan aikana Pekka ei ehdi (kaupan taksilla Paapeliin pääsee)
 	if beers <= 0 and money < PEKKA_RIDE_PRICE:
 		return false
 	_hint.text = "[E] Pyydä Pekalta kyyti mökille Vaalaan (%s bensarahoiksi)" % ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €")
@@ -2820,6 +2884,8 @@ func _neighbor_logic() -> void:
 	if _hint.text != "":
 		return
 	var e := Input.is_action_just_pressed("interact")
+	if _story_neighbor(e):
+		return
 	if sinikka.distance_to_player() < 4.2:
 		_sinikka_logic(e)
 		return
@@ -2888,7 +2954,7 @@ func _neighbor_logic() -> void:
 		else:
 			_hint.text = "[E] Juttele %s" % ("Arton kanssa" if who == "arto" else "Pekan kanssa")
 			if e:
-				v.say((ARTO_LINES if who == "arto" else PEKKA_LINES).pick_random())
+				v.say((ARTO_LINES if who == "arto" else (Story.PEKKA_WAITING if story.step == "tehtavat" else PEKKA_LINES)).pick_random())
 		return
 
 
@@ -3019,6 +3085,19 @@ func _mokki_ride_logic() -> void:
 	var p := player.global_position
 	var stand: Vector3 = mokki.to_global(Mokki.RIDE_LOCAL)
 	if Vector2(p.x - stand.x, p.z - stand.z).length() >= 3.0:
+		return
+	if _taxi_mokki_return:
+		_hint.text = "[E] Taksilla kotiin Saloisiin (paluu maksettu)"
+		if not Input.is_action_just_pressed("interact"):
+			return
+		_taxi_mokki_return = false
+		_hommat_leave_mokki()
+		_hud.visible = false
+		walker_out.controls_enabled = false
+		walker_out.speed = 0.0
+		_save_game()
+		cutscene.taxi_ride("SALOISIIN", "Taksi vie takaisin Saloisiin. Paluu oli jo maksettu.", Cutscene.TAXI_HOME_LINES,
+			_arrive_by_car.bind(home_zone + Vector3(0, 0.3, 4)))
 		return
 	_hint.text = "[E] Pekan kyydillä kotiin Saloisiin (n. %d km, bensat jo maksettu)" % roundi(HOME_MOKKI_KM)
 	if not Input.is_action_just_pressed("interact"):
@@ -5251,6 +5330,12 @@ func _on_busted() -> void:
 
 
 func _on_wife_spotted() -> void:
+	if state in ["to_shop", "to_home"] and mowing and _mow_lawn == sinikka_lawn and _once_today("sinikka_nurmi_nahty"):
+		# Tarina: Päivi näki leikkaamassa Sinikan nurmikkoa. Suuttuu ja lähtee jahtiin; leikkuuta voi jatkaa karkuun päästyä.
+		tilat.add("moraali", -0.1)
+		tilat.add("stressi", -0.1)
+		_show_message("PÄIVI NÄKI SINUT! \"SINIKAN nurmikkoa sää leikkaat?!\"\nPakoon, ja jatka kun pääset karkuun!", 3.5)
+		return
 	if state in ["to_shop", "to_home"] and not wife.alerted:
 		_show_message("PÄIVI NÄKI SINUT!\nPakoon!", 2.0)
 
@@ -5403,6 +5488,163 @@ func _kauppias_fight_end(won: bool, note: String) -> void:
 	player.set_carrying(beers > 0)
 
 
+# --- Tarina (story.gd) ---------------------------------------------------------------------------------
+
+func _story_step(to: String) -> void:
+	story.step = to
+	match to:
+		"pekka_kutsuu":
+			_msg_queue.append([Story.PEKKA_CALL, 4.0])
+		"pekka_avaimet":
+			_msg_queue.append(["Pekka huikkaa pihalta: \"Kaikki tehty? Tuu käymään, lähetään... kohta!\"", 4.0])
+		"avaimet":
+			_place_keys()
+		"valmis":
+			_msg_queue.append(["Pekan kyyti Paapeliin on nyt auki! Pyydä Pekalta kyyti mökille.", 4.0])
+	Sfx.play("win_small", -6.0)
+	_save_game()
+
+
+func _story_check_tasks() -> void:
+	if story.step == "tehtavat" and story.all_tasks_done():
+		_story_step("pekka_avaimet")
+	else:
+		_save_game()
+
+
+## Pekan ja Arton tarinavuorosanat ja luovutukset; palauttaa true, jos hoiti vihjeen.
+func _story_neighbor(e: bool) -> bool:
+	if player == bike:
+		return false
+	if pekka.distance_to_player() < 4.2:
+		match story.step:
+			"pekka_kutsuu":
+				_hint.text = "[E] Kuuntele, mitä Pekalla on asiaa"
+				if e:
+					pekka.say(Story.PEKKA_TASKS[0])
+					for l in Story.PEKKA_TASKS.slice(1):
+						_msg_queue.append(["Pekka: \"%s\"" % l, 4.0])
+					_msg_queue.append(["Uudet tehtävät repussa (I): sienet Pekalle, puolukat Artolle ja Sinikan nurmikko.", 4.0])
+					_story_step("tehtavat")
+				return true
+			"tehtavat":
+				var l := _goods_l("pekka")
+				if not story.done.sienet and l >= Story.SIENET_L:
+					_hint.text = "[E] Anna Pekalle %d l sieniä" % Story.SIENET_L
+					if e:
+						money += _take_goods("pekka", Story.SIENET_L)
+						story.done.sienet = true
+						pekka.say("No perkele, hyviä sieniä! Näistä tulee saatanan hyvä kastike kyyhkyille.")
+						Sfx.play("register", -4.0)
+						_show_message("Pekan sienet hoidettu!", 2.5)
+						_story_check_tasks()
+					return true
+			"pekka_avaimet":
+				_hint.text = "[E] Juttele Pekan kanssa (lähdetäänkö?)"
+				if e:
+					pekka.say(Story.PEKKA_KEYS[0])
+					for l in Story.PEKKA_KEYS.slice(1):
+						_msg_queue.append(["Pekka: \"%s\"" % l, 4.5])
+					_story_step("avaimet")
+				return true
+			"avaimet":
+				_hint.text = "[E] Juttele Pekan kanssa"
+				if e:
+					pekka.say(["Avaimet on kodalla, lintutornin luona! Mää en pääse ilman autoa.",
+						"Kodalla ne on, perkele. Laavulta polkua etelään."].pick_random())
+				return true
+			"avaimet_mukana":
+				_hint.text = "[E] Anna autonavaimet Pekalle"
+				if e:
+					pekka.say(Story.PEKKA_THANKS)
+					_story_step("valmis")
+				return true
+	if arto.distance_to_player() < 4.2 and story.step == "tehtavat" and not story.done.puolukat \
+			and bucket.get("puolukka", 0) >= Story.PUOLUKAT_L:
+		_hint.text = "[E] Anna Artolle %d l puolukoita" % Story.PUOLUKAT_L
+		if e:
+			bucket["puolukka"] -= Story.PUOLUKAT_L
+			if bucket["puolukka"] <= 0:
+				bucket.erase("puolukka")
+			money += Story.PUOLUKAT_L * GOODS.puolukka.price
+			story.done.puolukat = true
+			arto.say("Kiitti! Tästä tulee hyvää hilloa. Pekka on kyllä koko kesän puhunu siitä Paapelista.")
+			Sfx.play("register", -4.0)
+			_show_message("Arton puolukat hoidettu! +%s €" % _eur(Story.PUOLUKAT_L * GOODS.puolukka.price), 2.5)
+			_story_check_tasks()
+		return true
+	return false
+
+
+## Ämpärin litrat, jotka annettu ostaja (arto / pekka) ostaa.
+func _goods_l(buyer: String) -> int:
+	var n := 0
+	for k in bucket:
+		if GOODS[k].buyer == buyer:
+			n += bucket[k]
+	return n
+
+
+## Ottaa ämpäristä n litraa ostajan tavaraa (kalleimmasta alkaen) ja palauttaa hinnan.
+func _take_goods(buyer: String, n: int) -> float:
+	var pay := 0.0
+	var keys: Array = bucket.keys().filter(func(k: String) -> bool: return GOODS[k].buyer == buyer)
+	keys.sort_custom(func(a: String, b: String) -> bool: return GOODS[a].price > GOODS[b].price)
+	for k in keys:
+		var take: int = mini(n, bucket[k])
+		bucket[k] -= take
+		pay += take * GOODS[k].price
+		n -= take
+		if bucket[k] <= 0:
+			bucket.erase(k)
+		if n <= 0:
+			break
+	return pay
+
+
+## Sinikan nurmikon leikkuri ja Pekan avaimet kodalla (_outside_logic).
+func _story_logic() -> void:
+	if _hint.text != "" or player != walker_out or player.is_stunned() or mowing:
+		return
+	var p := player.global_position
+	var e := Input.is_action_just_pressed("interact")
+	if story.step == "tehtavat" and not story.done.nurmikko:
+		var mp: Vector3 = sinikka_lawn.mower.global_position
+		if Vector2(p.x - mp.x, p.z - mp.z).length() < 1.6:
+			_hint.text = "[E] Leikkaa Sinikan nurmikko, ettei Päivi nää (leikattu %d %%)" % roundi(sinikka_lawn.cut_ratio() * 100.0)
+			if e:
+				_start_mowing(sinikka_lawn)
+				_show_message("Sinikan leikkuri käy. Pidä silmällä Päiviä ja Anna-Liisaa!", 3.0)
+			return
+	if story.step == "avaimet" and is_instance_valid(_keys_node):
+		var kp := _keys_node.global_position
+		if Vector2(p.x - kp.x, p.z - kp.z).length() < 1.6:
+			_hint.text = "[E] Ota Pekan autonavaimet"
+			if e:
+				_keys_node.queue_free()
+				_keys_node = null
+				Sfx.play("pickup", -2.0, 1.4)
+				_show_message("Pekan avaimet! Avaimenperänä kyyhkyn sulka. Vie ne Pekalle.", 3.5)
+				_story_step("avaimet_mukana")
+
+
+## Pekan autonavaimet kodan eteen maahan: rengas, kaksi avainta ja kyyhkyn sulka.
+func _place_keys() -> void:
+	if is_instance_valid(_keys_node) or world.kota == null:
+		return
+	var at: Vector3 = world.kota.to_global(Vector3(-1.6, 0, -8.0))
+	at.y = Terrain.h(at.x, at.z)
+	_keys_node = Node3D.new()
+	add_child(_keys_node)
+	_keys_node.global_position = at
+	B.mesh(_keys_node, B.cyl(0.05, 0.05, 0.012, 14), Vector3(0, 0.02, 0), Color(0.75, 0.75, 0.78))
+	for k in 2:
+		B.mesh(_keys_node, B.boxm(Vector3(0.025, 0.008, 0.11)), Vector3(-0.03 + k * 0.06, 0.02, 0.09), Color(0.85, 0.75, 0.3))
+	B.mesh(_keys_node, B.boxm(Vector3(0.04, 0.006, 0.16)), Vector3(0.08, 0.02, -0.06), Color(0.55, 0.55, 0.6), Vector3(0, 30, 0))
+	B.mesh(_keys_node, B.boxm(Vector3(0.09, 0.012, 0.06)), Vector3(-0.09, 0.02, -0.02), Color(0.85, 0.12, 0.1))  # avaimenperä
+	_keys_node.scale = Vector3.ONE * 2.2  # erottuu nurmikolta
+
+
 const JEMMA_GOAL := 24
 
 # Kota: sahaus ja pilkkominen, tuli ja tarinat.
@@ -5508,6 +5750,8 @@ func _load_game() -> void:
 	hommat.reviews = cfg.get_value("mokki", "arvostelut", [])
 	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
 	tilat.load_from(cfg)
+	story.load_from(cfg)
+	_taxi_mokki_return = cfg.get_value("tarina", "taksi_paluu", false)
 	if cfg.has_section_key("peli", "pyora"):
 		_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
 
@@ -5545,6 +5789,9 @@ func _save_game() -> void:
 	cfg.set_value("nurmikko", "kehu", _lawn_praise)
 	if tilat != null:
 		tilat.save_to(cfg)
+	if story != null:
+		story.save_to(cfg)
+		cfg.set_value("tarina", "taksi_paluu", _taxi_mokki_return)
 	if bike != null:
 		cfg.set_value("peli", "pyora", bike.global_position)
 		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
@@ -6284,6 +6531,8 @@ func _build_hud() -> void:
 			_on_santtu_menu(id)
 		elif _menu_mode == "wc":
 			_start_wc(id)
+		elif _menu_mode == "taksi":
+			_on_taxi_choice(id)
 		else:
 			_on_give(id))
 	_item_menu.cancelled.connect(func() -> void:
@@ -6467,6 +6716,7 @@ func inventory_info() -> Dictionary:
 			info.list_title = "Santun hommat"
 			for t in hommat.tasks:
 				info.list.append(Hommat.TASKS[t].nimi + ("  ✔" if t in hommat.done else ""))
+		info.tasks = story.list()
 		return info
 	info.lines = ["Päivä %d · Järvikuja 1, Saloinen" % day, "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
 		"Aika: %s" % _time(elapsed), "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
@@ -6481,6 +6731,7 @@ func inventory_info() -> Dictionary:
 			elif focus < 0 and i == shopping_list.size() - 1:
 				row = "???"
 			info.list.append(row + ("  ✔" if paivi_bag.has(it[0]) or interior.bag.has(it[0]) else ""))
+	info.tasks = story.list()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if stash.get(id, 0) > 0:
@@ -7860,6 +8111,155 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("VJUOKSU tappio: tila %s, kaljat %d, pullot %d -> %d, vaala %s, viesti '%s'" % [state, beers, pv0, viina_pullot,
 				_in_vaala, _msg.text.replace("\n", " ")])
+		"tarina":
+			# Koko tarina läpi: kaljat jemmaan, Pekan tehtävät, sienet, puolukat, Sinikan nurmikko, avaimet kodalta.
+			story = Story.new()
+			_toggle_mount()
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var goto := func(pos: Vector3) -> void:
+				walker_out.global_position = pos + Vector3(0, 0.4, 0)
+				walker_out.velocity = Vector3.ZERO
+				for i in 8:
+					await get_tree().physics_frame
+			var shot := func(name: String) -> void:
+				_msg.text = ""
+				_msg_queue.clear()
+				_note.visible = false
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			print("TARINA alku: %s, Pekan kyyti auki %s" % [story.step, story.ride_unlocked()])
+			beers = 6
+			walker_out.set_carrying(true)
+			await goto.call(_stash_pos("koti"))
+			var shift := InputEventKey.new()
+			shift.keycode = KEY_SHIFT
+			shift.physical_keycode = KEY_SHIFT
+			shift.pressed = true
+			Input.parse_input_event(shift)
+			await press.call("interact")
+			shift = shift.duplicate()
+			shift.pressed = false
+			Input.parse_input_event(shift)
+			print("TARINA jemma: kaljat %d, vaihe %s, viesti '%s'" % [beers, story.step, str(_msg_queue)])
+			await goto.call(pekka.global_position + Vector3(1.5, 0, 0))
+			print("TARINA Pekka: '%s'" % _hint.text)
+			await press.call("interact")
+			print("TARINA tehtävät: %s, lista %s" % [story.step, str(story.list())])
+			bucket = {"kantarelli": 2, "herkkutatti": 2, "puolukka": 6}
+			await goto.call(pekka.global_position + Vector3(1.5, 0, 0))
+			print("TARINA Pekka sienet: '%s'" % _hint.text)
+			var m0 := money
+			await press.call("interact")
+			print("TARINA sienet: %s, ämpäri %s, rahaa %.2f -> %.2f" % [story.done.sienet, bucket, m0, money])
+			await goto.call(arto.global_position + Vector3(1.5, 0, 0))
+			print("TARINA Arto: '%s'" % _hint.text)
+			await press.call("interact")
+			print("TARINA puolukat: %s, ämpäri %s" % [story.done.puolukat, bucket])
+			await goto.call(sinikka_lawn.mower.global_position + Vector3(0.8, 0, 0))
+			print("TARINA leikkuri: '%s'" % _hint.text)
+			await shot.call("_nurmikko.png")
+			await press.call("interact")
+			print("TARINA leikkuu käy %s" % mowing)
+			sinikka_lawn.lengths.fill(0.0)
+			for i in 10:
+				await get_tree().process_frame
+			print("TARINA nurmikko: %s, vaihe %s" % [story.done.nurmikko, story.step])
+			_inventory.toggle()
+			for i in 5:
+				await get_tree().process_frame
+			await shot.call("_reppu.png")
+			_inventory.toggle()
+			await goto.call(pekka.global_position + Vector3(1.5, 0, 0))
+			print("TARINA Pekka avaimet: '%s'" % _hint.text)
+			await press.call("interact")
+			print("TARINA avaimet: vaihe %s, avaimet kodalla %s" % [story.step, is_instance_valid(_keys_node)])
+			await goto.call(_keys_node.global_position + Vector3(1.0, 0, 0))
+			print("TARINA kodalla: '%s'" % _hint.text)
+			var kc := Camera3D.new()
+			add_child(kc)
+			kc.look_at_from_position(_keys_node.global_position + Vector3(1.2, 1.2, 1.2), _keys_node.global_position)
+			kc.current = true
+			await shot.call("_avaimet.png")
+			kc.queue_free()
+			walker_out.activate_camera()
+			await press.call("interact")
+			print("TARINA avaimet mukana: %s" % story.step)
+			await goto.call(pekka.global_position + Vector3(1.5, 0, 0))
+			await press.call("interact")
+			print("TARINA valmis: %s, kyyti auki %s" % [story.step, story.ride_unlocked()])
+			for i in 3:
+				await get_tree().process_frame
+			print("TARINA Pekka nyt: '%s'" % _hint.text)
+		"taksipaapeli":
+			# Kaupan taksilla Paapeliin (60 €, meno-paluu) ja mökiltä taksilla takaisin; Pekan kyyti lukossa.
+			story = Story.new()
+			_toggle_mount()
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			money = 100.0
+			walker_out.global_position = world.taxi_pos + Vector3(2.0, 0.4, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("TAKSI hint: '%s'" % _hint.text)
+			await press.call("interact")
+			print("TAKSI valikko: %s '%s'" % [_item_menu.is_open(), _item_menu._title.text])
+			await press.call("back")
+			await press.call("interact")
+			while not cutscene.busy:
+				await get_tree().process_frame
+			while cutscene.busy:
+				await get_tree().process_frame
+			for i in 20:
+				await get_tree().physics_frame
+			print("TAKSI mökillä: %s, rahaa %.2f, paluu maksettu %s" % [_at_mokki(), money, _taxi_mokki_return])
+			walker_out.global_position = mokki.to_global(Mokki.RIDE_LOCAL) + Vector3(0, 0.4, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("TAKSI paluu: '%s'" % _hint.text)
+			await press.call("interact")
+			while not cutscene.busy:
+				await get_tree().process_frame
+			while cutscene.busy:
+				await get_tree().process_frame
+			for i in 20:
+				await get_tree().physics_frame
+			print("TAKSI kotona: mökillä %s, rahaa %.2f, paluu %s, tila %s" % [_at_mokki(), money, _taxi_mokki_return, state])
+			walker_out.global_position = pekka.global_position + Vector3(1.5, 0.4, 0)
+			bucket = {}
+			for i in 10:
+				await get_tree().physics_frame
+			print("TAKSI Pekka (lukossa): '%s'" % _hint.text)
+		"karttanaapurit":
+			# Paperikartta: naapurien merkit kodin ympärillä.
+			_note.visible = false
+			_msg.text = ""
+			_paper.toggle()
+			for i in 10:
+				await get_tree().process_frame
+			# Hiiri Järvikujan päälle: tien nimi näkyy.
+			for r in M.ROADS:
+				if r.name == "Järvikuja":
+					var mp: Vector2 = _paper._px(r.pts[int(r.pts.size() / 2)])
+					var ev := InputEventMouseMotion.new()
+					ev.position = mp + _paper._view.position
+					_paper._gui_input(ev)
+					print("KARTTA hiiren alla: '%s'" % _paper._hover_name)
+					break
+			for i in 20:
+				await get_tree().process_frame
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()
