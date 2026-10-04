@@ -424,11 +424,18 @@ func sauna_relax(at: Vector3, has_beer: bool, done: Callable) -> void:
 const TAXI_ROAD := Vector3(0, 0, -3400)
 const TAXI_OUT_LINES := ["Raaheen vai? No mennään.", "Kuutonen jää kotiin, baarissa juodaan hanasta.",
 	"Siellä on terästehtaan porukka taas liikkeellä..."]
+const TAXI_MOKKI_LINES := ["Paapeliin? Vaalaan asti? No, mittari on päällä.", "Kuuskymppiä, mutta tuon takasinki.",
+	"Mökille vai? Kantarellejako poimimaan?"]
 const TAXI_HOME_LINES := ["No, oliko reissu rahan arvoinen?", "Kotipihaan asti. Onnea vaan.", "Päivi taitaa olla hereillä..."]
 
 
 ## Menomatka: taksi kaahaa katuvalojen alla kohti Raahen valoja, kuski juttelee ja radiosta soi biisi.
 func taxi_to_raahe(done: Callable) -> void:
+	taxi_ride("RAAHEEN", "Taksi kaahaa kohti Raahen valoja.", TAXI_OUT_LINES, done)
+
+
+## Taksimatka (title ja sub ruudulla, kuskin repliikit lines): Raaheen, Paapeliin tai Paapelista kotiin.
+func taxi_ride(title: String, sub: String, lines: Array, done: Callable) -> void:
 	_begin()
 	Sfx.music_play(0.8)
 	await _fade_to(1.0, 0.4)
@@ -449,12 +456,12 @@ func taxi_to_raahe(done: Callable) -> void:
 		_cam.global_position = tp + Vector3(lerpf(4.0, 2.2, t / 8.0), 1.7, 6.5)
 		_cam.look_at(tp + Vector3(0, 0.8, -3.0), Vector3.UP)
 		bubble.global_position = tp + Vector3(-0.4, 2.3, 0)
-		bubble.text = TAXI_OUT_LINES[mini(int(t / 2.6), TAXI_OUT_LINES.size() - 1)]
+		bubble.text = lines[mini(int(t / 2.6), lines.size() - 1)]
 		if not faded:
 			faded = true
 			_fade_to(0.0, 0.6)
-			_title.text = "RAAHEEN"
-			_sub.text = "Taksi kaahaa kohti Raahen valoja."
+			_title.text = title
+			_sub.text = sub
 		await get_tree().process_frame
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)

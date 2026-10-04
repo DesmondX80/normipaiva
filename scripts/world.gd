@@ -79,6 +79,8 @@ var drone_pad_pos: Vector3  # droonin laskeutumisalusta kotipihan asfaltilla (ks
 var home_zone: Vector3
 var shop_zone: Vector3
 var taxi_pos: Vector3  # K-Marketin taksitolpalla odottava taksi
+## Sinikan takapihan nurmikko (tarinan "Sinikan nurmikko, ettei Päivi nää"): pivot, koko, kulma ja leikkurin paikka.
+var sinikka_lawn := {}
 var follow: Node3D  # ruoho seuraa tätä (pelaaja)
 
 var _rng := RandomNumberGenerator.new()
@@ -1280,6 +1282,14 @@ func _build_neighbors() -> void:
 	var fb: Dictionary = fit.call(M.NEIGHBOR_SINIKKA, "Järvikuja")
 	var bb := _house(fb.c, fb.yaw, fb.l, fb.d, 3.1, Color(0.86, 0.8, 0.66), Color(0.33, 0.3, 0.28), fb.gap, false)
 	var fz: float = fb.fz
+	# Takapihan nurmikko talon takana (julkisivu kadulle -Z, takaseinä +Z): metsä ei kasva sille.
+	var lsize := Vector2(maxf(fb.l - 2.0, 8.0), 6.0)
+	var lc: Vector3 = bb.transform * Vector3(0, 0, -fz + 1.2 + lsize.y / 2.0)
+	var lax: Vector3 = bb.transform.basis.x
+	var lang := atan2(lax.z, lax.x)
+	sinikka_lawn = {"pivot": Vector2(lc.x, lc.z), "size": lsize, "angle": lang,
+		"mower": bb.transform * Vector3(lsize.x / 2.0 + 0.8, 0, -fz + 1.6)}
+	_mask_clear.append([Vector2(lc.x, lc.z), lsize.x / 2.0 + 1.0, lsize.y / 2.0 + 1.0, -lang])
 	var street_z: float = fz - fb.gap + 1.2
 	for k in 5:  # isot pyöreät pensaat kadun varressa, ajotie keskellä
 		var bx: float = [-fb.l / 2.0 - 1.0, -fb.l / 2.0 + 2.4, fb.dx + 3.4, fb.l / 2.0 - 1.5, fb.l / 2.0 + 1.8][k]

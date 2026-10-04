@@ -6,6 +6,15 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 
 ## Mitä pelissä voi tehdä
 
+- **Tarina "Paapeliin pääsee, kunhan…":** ohjaa naapurilta toiselle, mutta kaikki muu pysyy vapaana. Ensin
+  kuutonen kotijemmaan, sitten Pekka huikkaa pihalta ja antaa kolme tehtävää vapaassa järjestyksessä: 3 l sieniä
+  Pekalle (Arto tietää paikat), 5 l puolukoita Artolle ja Sinikan takapihan nurmikko niin, ettei Päivi näe
+  (jos näkee, Päivi suuttuu ja lähtee jahtiin, mutta leikkuuta voi jatkaa karkuun päästyä). Lopuksi Pekan
+  autonavaimet ovat hukassa kodalla: Pekka kävi lintutornilla kaverin kyydillä niin kännissä, että ampui
+  luvallisia ja luvattomia lintuja osumatta yhteenkään. Avaimet Pekalle, niin Pekan kyyti Paapeliin aukeaa.
+  Tehtävät näkyvät repussa (I) sitä mukaa kuin niitä löytyy. Tarinan ajan Paapeliin pääsee kaupan taksilla
+  (60 €, meno-paluu: paluutaksi mökin pihatien päästä). Paapeli on välietappi: tarina jatkuu myöhemmin.
+
 - **Kauppareissu:** kuutonen, grillimakkara ja tulitikut K-Marketista. Kassalla harmaapäät laskevat kolikoita.
   Kauppa on homma muiden joukossa: ei valosädettä eikä pakollista reittiä. Kauppaan mennään oven edestä (E)
   milloin vain, ja sinne voi palata uudestaan, paitsi kalja kädessä: silloin kauppias ovella kieltää Saloisten
