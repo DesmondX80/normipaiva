@@ -5161,6 +5161,13 @@ func _on_lava_finished(score: float) -> void:
 	_show_message("Lavatanssit Oulujärven lavalla! %s" % ("Ilta jää mieleen." if score > 0.6 else "Varpaat muistavat illan."), 3.0)
 
 
+## Kaupan sisätila uudeksi (kuten uutena päivänä): edellisen käynnin tila ei siirry seuraavaan käyntiin.
+func _renew_shop_interior() -> void:
+	var old := interior
+	_spawn_interior()
+	old.queue_free()
+
+
 ## Kaupan kori tyhjäksi seuraavaa käyntiä varten (sama sisätila kuin kylän K-Marketissa).
 func _reset_shop_visit() -> void:
 	interior.has_beer = false
@@ -5172,6 +5179,9 @@ func _reset_shop_visit() -> void:
 
 
 func _on_shop_exited(bought: bool) -> void:
+	# Jokainen käynti alkaa puhtaalta pöydältä (kauppaan saa palata saman päivän aikana): kori, maksu, kalja kädessä,
+	# Päivin kassi, kassajono ja juoksukaljat nollautuvat, kun sisätila rakennetaan uudelleen tämän käsittelyn jälkeen.
+	_renew_shop_interior.call_deferred()
 	if _shop_vaala:
 		_on_vaala_shop_exited(bought)
 		return
@@ -7306,6 +7316,13 @@ func _maybe_screenshot() -> void:
 			walker_out.set_carrying(false)
 			await press.call("interact")
 			print("KAUPPAOVI tyhjin käsin: tila %s" % state)
+			print("KAUPPAOVI toinen käynti: kalja kädessä %s, maksettu %s, kori %s, kassi %s" % [interior.has_beer,
+				interior.has_paid, interior.cart, interior.bag])
+			var b0 := beers
+			interior.exited.emit(interior.has_paid and interior.has_beer)  # ulos kassan ohi ostamatta mitään
+			await get_tree().process_frame
+			print("KAUPPAOVI ulos ostamatta: kaljat %d -> %d, tila %s" % [b0, beers, state])
+			_enter_shop()
 			_on_shop_exited(false)
 			print("KAUPPAOVI ostamatta ulos: tila %s" % state)
 			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
@@ -7590,6 +7607,33 @@ func _maybe_screenshot() -> void:
 			_hint.text = "Ovi ei aukea kaljat kädessä – Päivi näkee! Piilota kaljat ensin jemmaan (E)."
 			print("LAPPU näkyy %s, lapun oikea reuna %.0f, viestin vasen reuna %.0f" % [_note.is_showing(),
 				_note._paper.get_global_rect().end.x, _msg.get_global_rect().position.x])
+		"mummotesti":
+			# Pyörällä lujaa mummojen ohi: suuttuvatko ja heittävätkö kettukarkkeja? Sitten kello.
+			var mp0 := mummot.global_position
+			bike.global_position = mp0 + Vector3(-20, 0.4, 3.0)
+			bike.look_at(bike.global_position + Vector3(1, 0, 0), Vector3.UP)
+			bike.speed = 9.0
+			Input.action_press("forward")
+			var angry_seen := false
+			for i in 180:
+				await get_tree().physics_frame
+				angry_seen = angry_seen or mummot.is_angry()
+			Input.action_release("forward")
+			print("MUMMOT paikka %s, kaupan ovi %s, väli %.1f m, parkkipaikka %.1f m" % [mummot.global_position, shop_door,
+				Vector2(mummot.global_position.x - shop_door.x, mummot.global_position.z - shop_door.z).length(),
+				Vector2(mummot.global_position.x - shop_zone.x, mummot.global_position.z - shop_zone.z).length()])
+			var oc := Camera3D.new()
+			add_child(oc)
+			oc.look_at_from_position(shop_door + Vector3(-4, 9, 22), (shop_door + mummot.global_position) / 2.0)
+			oc.current = true
+			_msg.text = ""
+			_note.visible = false
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kauppa.png"))
+			print("MUMMOT ohi: vaarat %s, in_vaala %s, suuttui %s, lentäviä %d, maassa %d, vauhti %.1f" % [_hazards.process_mode,
+				_in_vaala, angry_seen, mummot._flying.size(), mummot._ground.size(), bike.speed])
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()
