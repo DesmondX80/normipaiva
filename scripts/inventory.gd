@@ -42,6 +42,19 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 
+## Klikkaus käytettävään tarvikkeeseen (it.use): syö tai juo (main.gd use_item).
+func _gui_input(event: InputEvent) -> void:
+	if not visible or game == null:
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and _hover >= 0:
+		var it = _slot_item(_hover)
+		if it != null and it.get("use", "") != "":
+			game.use_item(it.use)
+			_refresh()
+			queue_redraw()
+			accept_event()
+
+
 func toggle() -> void:
 	visible = not visible
 	get_tree().paused = visible
@@ -185,6 +198,8 @@ func _tooltip(at: Vector2, it: Dictionary) -> void:
 	var lines := [it.name]
 	if it.get("desc", "") != "":
 		lines.append(it.desc)
+	if it.get("use", "") != "":
+		lines.append("Klikkaa: %s" % it.get("use_label", "käytä"))
 	var w := 0.0
 	for l in lines:
 		w = maxf(w, font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x)
