@@ -29,6 +29,7 @@ var pose := ""
 var no_run := false
 ## Vieraan koiran purema (main.gd): ontuu, ja kunto palautuu hitaammin. Pyörä lukee saman (raskaampi polkea).
 var hurt := false
+var hurt_speed := HURT_SPEED  # karhun haava hidastaa enemmän
 const HURT_SPEED := 0.6
 const HURT_RECOVER := 0.5
 ## Humala (main.gd asettaa aina, tilasta riippumatta): yli DrunkWobble.LIMIT kävely heittelee.
@@ -177,7 +178,7 @@ func _physics_process(delta: float) -> void:
 	if throttle < 0.0:
 		want *= 0.6  # peruutuskävely
 	if hurt:
-		want *= HURT_SPEED  # ontuu
+		want *= hurt_speed  # ontuu
 	speed = move_toward(speed, want, 12.0 * delta)
 	if controls_enabled:
 		steer += _drunk_wobble.steer(drunk, clampf(absf(speed) / WALK, 0.0, 1.0), delta) * 0.6
