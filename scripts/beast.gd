@@ -1,0 +1,320 @@
+extends CharacterBody3D
+## Metsän peto: karhu tai susi ilmestyy, kun pelaaja kulkee jalan metsässä (main.gd _beast_tick).
+## Karhu: juokseminen tai liian lähelle meneminen laukaisee rynnäkön; paikallaan seisominen tai hidas
+## perääntyminen saa sen luopumaan. Susi: hiipii lähemmäs ja hyökkää, jos sille juoksee karkuun tai sen antaa
+## tulla liian lähelle; huuto (shout) kasvot sutta kohti säikäyttää sen pois. Hyökkäys (attacked) ja
+## selviäminen (gave_up) käsitellään main.gd:ssä.
+
+const B := preload("res://scripts/build.gd")
+const DOG := preload("res://assets/animals/ShibaInu.glb")
+
+signal warned
+signal attacked(direction: Vector3)
+signal gave_up(scared: bool)
+
+const STANDOFF_D := {"karhu": 14.0, "susi": 11.0}
+const CHARGE_SPEED := {"karhu": 9.5, "susi": 8.5}
+const RUNNING := 3.2  # pelaajan vauhti, jota peto pitää pakenemisena
+const CALM_NEEDED := 6.0  # karhu: näin kauan rauhallisena, niin se luopuu
+
+var kind := "karhu"
+var target: Node3D
+var phase := "approach"  # approach, standoff, charge, leave
+var _t := 0.0
+var _speed := 0.0
+var _calm := 0.0
+var _d0 := 0.0
+var _roar_t := 0.0
+var _scared := false
+var _anim: AnimationPlayer
+var _legs: Array[Node3D] = []  # karhu: etu-vasen, etu-oikea, taka-vasen, taka-oikea
+var _walk := 0.0
+var _rig: Node3D  # karhun ruumis: kääntyy takajalkojen ympäri, kun karhu nousee pystyyn
+var _body: Node3D
+var _head: Node3D
+var _jaw: Node3D
+var _roar_anim := 0.0  # kidan aukeaminen murinassa
+var _rear := 0.0  # 0 = neljällä jalalla, 1 = takajaloillaan
+var _life := 0.0
+
+
+func _ready() -> void:
+	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
+	collision_layer = 0
+	collision_mask = 0
+	if kind == "karhu":
+		_build_bear()
+	else:
+		_build_wolf()
+
+
+## Asettaa pedon maahan pisteeseen p (korkeus säteellä).
+func place(p: Vector3) -> void:
+	global_position = p
+	global_position.y = _ground(p, 150.0)
+
+
+## Huuto: susi säikähtää, jos pelaaja katsoo sitä kohti. Palauttaa true, jos susi pakeni.
+func shout() -> bool:
+	if kind != "susi" or phase != "standoff":
+		return false
+	var to_w := global_position - target.global_position
+	to_w.y = 0.0
+	var fwd := -target.global_transform.basis.z
+	if Vector2(fwd.x, fwd.z).normalized().dot(Vector2(to_w.x, to_w.z).normalized()) < 0.5:
+		return false
+	_scared = true
+	_leave(true)
+	return true
+
+
+func _physics_process(delta: float) -> void:
+	if target == null:
+		return
+	_t += delta
+	var to_p := target.global_position - global_position
+	to_p.y = 0.0
+	var d := to_p.length()
+	var ps: float = absf(target.get("speed")) if target.get("speed") != null else 0.0
+	var want := 0.0
+	var face := to_p
+	match phase:
+		"approach":
+			want = 2.2 if kind == "karhu" else 2.8
+			if d < STANDOFF_D[kind]:
+				phase = "standoff"
+				_t = 0.0
+				_d0 = d
+				_roar()
+				warned.emit()
+			elif _t > 45.0:
+				_leave(false)
+		"standoff":
+			_roar_t -= delta
+			if _roar_t <= 0.0:
+				_roar()
+			if kind == "karhu":
+				if ps > RUNNING or d < 6.0:
+					_charge()
+				else:
+					_calm += delta * (1.6 if d > _d0 + 2.0 else 1.0)  # perääntyminen rauhoittaa nopeammin
+					if _calm > CALM_NEEDED or d > 32.0:
+						_leave(false)
+			else:
+				want = 0.8  # hiipii lähemmäs
+				if ps > RUNNING or d < 2.8:
+					_charge()
+				elif _t > 25.0 or d > 30.0:
+					_leave(false)
+		"charge":
+			want = CHARGE_SPEED[kind]
+			if d < 1.7:
+				attacked.emit(to_p.normalized())
+				_leave(false, true)
+			elif d > 45.0 or _t > 12.0:
+				_leave(false)
+		"leave":
+			face = -to_p
+			want = 7.0 if _scared else 3.5
+			if d > 50.0 or _t > 20.0:
+				queue_free()
+	_speed = move_toward(_speed, want, (14.0 if phase == "charge" else 5.0) * delta)
+	if face.length() > 0.01:
+		rotation.y = lerp_angle(rotation.y, B.yaw_to(face), 1.0 - exp(-6.0 * delta))
+	velocity = -global_transform.basis.z * _speed
+	move_and_slide()
+	global_position.y = _ground(global_position, 3.0)
+	_animate(delta)
+
+
+func _charge() -> void:
+	phase = "charge"
+	_t = 0.0
+	Sfx.play_on(self, "dog", 6.0, 0.35 if kind == "karhu" else 0.6)
+
+
+func _leave(scared: bool, after_attack := false) -> void:
+	phase = "leave"
+	_t = 0.0
+	if not after_attack:
+		gave_up.emit(scared)
+
+
+func _roar() -> void:
+	_roar_t = randf_range(1.6, 2.6)
+	_roar_anim = 1.0
+	if kind == "karhu":
+		Sfx.play_on(self, "dog", 2.0, randf_range(0.28, 0.34))  # matala murina
+	else:
+		Sfx.play_on(self, "dog", 0.0, randf_range(0.55, 0.62))
+
+
+func _ground(p: Vector3, up: float) -> float:
+	var q := PhysicsRayQueryParameters3D.create(p + Vector3.UP * up, p + Vector3.DOWN * 8.0)
+	q.collision_mask = 1
+	if target is CollisionObject3D:
+		q.exclude = [(target as CollisionObject3D).get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	return hit.position.y if not hit.is_empty() else p.y
+
+
+func _animate(delta: float) -> void:
+	if _anim != null:
+		var a := "Idle"
+		if _speed > 5.0:
+			a = "Gallop"
+		elif _speed > 0.3:
+			a = "Walk"
+		elif phase == "standoff":
+			a = "Idle_2_HeadLow"
+		if _anim.current_animation != a:
+			_anim.play(a, 0.2)
+		return
+	# Karhu: kävellessä ristiaskel, rynnäkössä laukka (etujalat ja takajalat pareittain), pää heiluu ja
+	# haistelee, kyljet hengittävät. Kohtaamisen alussa karhu nousee takajaloilleen ja karjuu kita auki.
+	_life += delta
+	var gallop := _speed > 5.0
+	_walk += delta * (_speed * (1.4 if gallop else 2.4) + 0.0)
+	var amp := clampf(_speed / 3.0, 0.0, 1.0) * (0.85 if gallop else 0.55)
+	for i in _legs.size():
+		var off: float = ([0.0, 0.25, 2.6, 2.85] if gallop else [0.0, PI, PI, 0.0])[i]
+		_legs[i].rotation.x = sin(_walk + off) * amp * (1.0 - _rear)
+	var want_rear := 1.0 if phase == "standoff" and _t < 3.2 and _speed < 0.5 else 0.0
+	_rear = move_toward(_rear, want_rear, delta * (1.6 if want_rear > _rear else 1.2))
+	var rs := smoothstep(0.0, 1.0, _rear)
+	_rig.rotation.x = rs * 1.05 + (sin(_walk * 2.0) * 0.06 if gallop else 0.0)
+	_legs[0].rotation.x += -rs * 0.9  # etutassut koholla edessä
+	_legs[2].rotation.x -= _rig.rotation.x  # takajalat pysyvät pystyssä maata vasten
+	_legs[3].rotation.x -= _rig.rotation.x
+	_legs[1].rotation.x += -rs * 0.7 + sin(_life * 3.0) * rs * 0.25
+	_body.scale = Vector3(1.0 + sin(_life * 2.2) * 0.025, 1.0 + sin(_life * 2.2) * 0.035, 1.0)  # hengitys
+	_roar_anim = maxf(0.0, _roar_anim - delta * 0.8)
+	var roar := sin(clampf(_roar_anim, 0.0, 1.0) * PI)
+	_jaw.rotation.x = 0.05 + roar * 0.65
+	var sway := sin(_walk * 0.5) * 0.12 * clampf(_speed / 2.0, 0.0, 1.0)
+	var sniff := sin(_life * 7.0) * 0.03 if _speed < 0.3 and phase != "standoff" else 0.0
+	_head.rotation = Vector3(-rs * 0.8 - roar * 0.35 + sniff, sway, sin(_life * 0.9) * 0.05)
+
+
+## Karhu: kerroksellinen turkki (sävytetyt tupsut ruhossa, kyttyrässä ja niskassa), vaaleampi kuono, kita
+## hampaineen ja kielineen, pyöreät korvat sisäkorvineen, kiiltävät silmät, tassut kynsineen ja töpöhäntä.
+## Ruho (_rig) kääntyy takajalkojen ympäri, jotta karhu voi nousta pystyyn.
+func _build_bear() -> void:
+	var fur := Color(0.27, 0.17, 0.1)
+	var dark := Color(0.17, 0.11, 0.07)
+	var light := Color(0.42, 0.3, 0.19)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var fm := func(c: Color) -> StandardMaterial3D:
+		var m := B.mat(c)
+		m.roughness = 1.0
+		return m
+	var put := func(parent: Node3D, mesh: Mesh, pos: Vector3, c: Color, sc := Vector3.ONE) -> MeshInstance3D:
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.material_override = fm.call(c)
+		mi.position = pos
+		mi.scale = sc
+		parent.add_child(mi)
+		return mi
+	_rig = Node3D.new()
+	_rig.position = Vector3(0, 0.8, 0.62)  # takalantio
+	add_child(_rig)
+	_body = Node3D.new()
+	_rig.add_child(_body)
+	# Ruho: rintakehä, vatsa, lantio ja lapojen kyttyrä.
+	put.call(_body, B.sphere(0.55, 20), Vector3(0, 0.2, -0.85), fur, Vector3(1.05, 1.0, 1.15))  # rinta ja lavat
+	put.call(_body, B.sphere(0.52, 20), Vector3(0, 0.12, -0.3), fur, Vector3(1.0, 0.95, 1.2))  # vatsa
+	put.call(_body, B.sphere(0.47, 18), Vector3(0, 0.12, 0.08), fur, Vector3(1.0, 0.95, 1.0))  # lantio
+	put.call(_body, B.sphere(0.36, 16), Vector3(0, 0.62, -0.9), fur.darkened(0.08), Vector3(1.05, 0.75, 1.1))  # kyttyrä
+	put.call(_body, B.sphere(0.4, 16), Vector3(0, -0.12, -0.45), dark, Vector3(0.95, 0.6, 1.5))  # tumma vatsapuoli
+	put.call(_body, B.sphere(0.11, 10), Vector3(0, 0.3, 0.52), fur)  # töpöhäntä
+	# Turkin tupsut: satunnaiset, hieman eri sävyiset pallot pinnalla (rosoinen siluetti).
+	for i in 46:
+		var a := rng.randf() * TAU
+		var z := rng.randf_range(-1.15, 0.35)
+		var r := 0.5 if z < -0.6 else 0.46
+		var pos := Vector3(cos(a) * r * 1.02, 0.15 + sin(a) * r * 0.95, z)
+		if pos.y < -0.2:
+			continue  # vatsan alle ei tupsuja
+		var c := fur.lerp(light if rng.randf() < 0.35 else dark, rng.randf_range(0.1, 0.5))
+		put.call(_body, B.sphere(rng.randf_range(0.09, 0.15), 8), pos, c)
+	# Niskan ja kyttyrän pidempi, vaaleampi karva.
+	for i in 10:
+		var x := rng.randf_range(-0.3, 0.3)
+		put.call(_body, B.sphere(0.12, 8), Vector3(x, 0.72 - absf(x) * 0.5, rng.randf_range(-1.15, -0.7)),
+			light.lerp(fur, rng.randf_range(0.3, 0.7)))
+	# Pää.
+	_head = Node3D.new()
+	_head.position = Vector3(0, 0.38, -1.38)
+	_rig.add_child(_head)
+	put.call(_head, B.sphere(0.32, 20), Vector3(0, 0.02, -0.12), fur, Vector3(1.05, 0.9, 1.0))
+	put.call(_head, B.sphere(0.22, 12), Vector3(0, 0.12, 0.08), fur.darkened(0.05), Vector3(1.4, 0.9, 1.0))  # otsa ja niska
+	for sx in [-1.0, 1.0]:
+		put.call(_head, B.sphere(0.13, 10), Vector3(0.24 * sx, 0.08, -0.05), fur.lightened(0.05), Vector3(1.0, 1.0, 1.1))  # posket
+		put.call(_head, B.sphere(0.1, 10), Vector3(0.21 * sx, 0.3, 0.0), fur, Vector3(1.0, 1.0, 0.6))  # korva
+		put.call(_head, B.sphere(0.06, 8), Vector3(0.21 * sx, 0.3, -0.05), Color(0.12, 0.08, 0.06), Vector3(1.0, 1.0, 0.4))  # sisäkorva
+		put.call(_head, B.sphere(0.045, 8), Vector3(0.13 * sx, 0.1, -0.36), Color(0.03, 0.02, 0.02))  # silmä
+		var glint := MeshInstance3D.new()
+		glint.mesh = B.sphere(0.013, 6)
+		glint.material_override = B.unshaded(Color(1, 1, 1, 0.9))
+		glint.position = Vector3(0.13 * sx + 0.012, 0.118, -0.395)
+		_head.add_child(glint)
+		put.call(_head, B.sphere(0.07, 8), Vector3(0.12 * sx, 0.16, -0.33), fur.darkened(0.15), Vector3(1.2, 0.5, 0.8))  # kulmat
+	# Kuono: vaalea, nenä kosteana.
+	put.call(_head, B.sphere(0.17, 14), Vector3(0, -0.04, -0.46), light, Vector3(0.95, 0.75, 1.25))
+	var nose := put.call(_head, B.sphere(0.07, 10), Vector3(0, 0.0, -0.64), Color(0.04, 0.03, 0.03), Vector3(1.1, 0.75, 0.7)) as MeshInstance3D
+	(nose.material_override as StandardMaterial3D).roughness = 0.25
+	put.call(_head, B.boxm(Vector3(0.2, 0.025, 0.12)), Vector3(0, -0.12, -0.5), Color(0.08, 0.04, 0.04))  # suupieli
+	# Alaleuka saranoituna: kieli ja hampaat näkyvät karjuessa.
+	_jaw = Node3D.new()
+	_jaw.position = Vector3(0, -0.13, -0.3)
+	_head.add_child(_jaw)
+	put.call(_jaw, B.sphere(0.13, 12), Vector3(0, -0.02, -0.18), light.darkened(0.1), Vector3(0.9, 0.45, 1.3))
+	put.call(_jaw, B.sphere(0.09, 10), Vector3(0, 0.02, -0.2), Color(0.7, 0.3, 0.32), Vector3(0.85, 0.3, 1.2))  # kieli
+	put.call(_head, B.sphere(0.11, 10), Vector3(0, -0.12, -0.45), Color(0.25, 0.08, 0.08), Vector3(0.9, 0.35, 1.3))  # kidan sisus
+	for sx in [-1.0, 1.0]:
+		for t in [[0.055, -0.58, 0.035], [0.085, -0.54, 0.025]]:
+			var tooth := put.call(_head, B.cyl(0.0, t[2] * 0.5, t[2] * 1.6, 6), Vector3(t[0] * sx, -0.105, t[1]),
+				Color(0.95, 0.92, 0.82)) as MeshInstance3D
+			tooth.rotation.x = PI  # kärki alas
+			put.call(_jaw, B.cyl(0.0, t[2] * 0.45, t[2] * 1.4, 6), Vector3(t[0] * sx, 0.03, t[1] + 0.3), Color(0.95, 0.92, 0.82))
+	# Jalat: paksu reisi, kyynär- tai kinnerkohta, tassu, neljä kynttä.
+	var claw := Color(0.86, 0.82, 0.72)
+	for lp in [Vector3(-0.3, 0.05, -1.0), Vector3(0.3, 0.05, -1.0), Vector3(-0.3, 0.05, 0.02), Vector3(0.3, 0.05, 0.02)]:
+		var leg := Node3D.new()
+		leg.position = lp
+		_rig.add_child(leg)
+		var front: bool = lp.z < -0.5
+		put.call(leg, B.sphere(0.22, 12), Vector3(0, -0.12, 0.0), fur, Vector3(1.0, 1.3, 1.1))  # reisi / olka
+		put.call(leg, B.cyl(0.15, 0.13, 0.62, 12), Vector3(0, -0.5, -0.02 if front else 0.04), fur.darkened(0.06))
+		for i in 3:
+			put.call(leg, B.sphere(0.08, 8), Vector3(rng.randf_range(-0.12, 0.12), -0.35 - i * 0.12, rng.randf_range(-0.1, 0.1)),
+				fur.lerp(dark, rng.randf_range(0.2, 0.6)))  # rosoista karvaa
+		put.call(leg, B.sphere(0.17, 12), Vector3(0, -0.8, -0.06), dark, Vector3(1.05, 0.55, 1.35))  # tassu
+		for c in 4:
+			var cl := put.call(leg, B.cyl(0.0, 0.022, 0.1, 5), Vector3(-0.09 + c * 0.06, -0.83, -0.27), claw) as MeshInstance3D
+			cl.rotation.x = -PI / 2.0 - 0.4  # kynnet eteenpäin ja alas
+		_legs.append(leg)
+
+
+## Susi koiramallista: isompi, harmaa turkki.
+func _build_wolf() -> void:
+	var m: Node3D = DOG.instantiate()
+	m.scale = Vector3.ONE * 0.4
+	m.rotation.y = PI
+	add_child(m)
+	for mi in m.find_children("*", "MeshInstance3D", true, false):
+		var mesh := mi as MeshInstance3D
+		for i in mesh.mesh.get_surface_count():
+			var mat := mesh.get_active_material(i) as StandardMaterial3D
+			if mat == null:
+				continue
+			var grey := mat.duplicate() as StandardMaterial3D
+			grey.albedo_color = {"Main": Color(0.36, 0.35, 0.33), "Main_Light": Color(0.62, 0.6, 0.56)}.get(
+				mat.resource_name, mat.albedo_color)
+			mesh.set_surface_override_material(i, grey)
+	_anim = m.find_child("AnimationPlayer", true, false)
+	for n in ["Idle", "Walk", "Gallop", "Idle_2_HeadLow"]:
+		_anim.get_animation(n).loop_mode = Animation.LOOP_LINEAR
+	_anim.play("Idle")
