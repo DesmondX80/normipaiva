@@ -2990,6 +2990,10 @@ func _edge_logic() -> void:
 		side = "south"
 	elif px.x > 870.0:
 		side = "east"
+	if px.x > 950.0 and px.y > 1700.0 and px.y < 2560.0:
+		# Laavulta kodalle kaakkoon oikaiseva: oikea reitti on polku laavulta etelään (reittiviitta "Kota").
+		_show_message("Tästä ei pääse kodalle. Kodan polku lähtee laavun vierestä etelään – katso reittiviitta \"Kota\".", 4.5)
+		return
 	var lines: Array = EDGE_LINES[side] + EDGE_LINES["any"]
 	_show_message("\"%s\"" % lines.pick_random(), 3.5)
 
@@ -7634,6 +7638,53 @@ func _maybe_screenshot() -> void:
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kauppa.png"))
 			print("MUMMOT ohi: vaarat %s, in_vaala %s, suuttui %s, lentäviä %d, maassa %d, vauhti %.1f" % [_hazards.process_mode,
 				_in_vaala, angry_seen, mummot._flying.size(), mummot._ground.size(), bike.speed])
+		"koillinen":
+			# Pelialueen koillisnurkka (x > 1000, y < 2500): onko maastoa, puita ja teitä? Kuvat Patotien varrelta.
+			var oc := Camera3D.new()
+			oc.far = 3000.0
+			add_child(oc)
+			_msg.text = ""
+			_note.visible = false
+			for spot in [["_patotie", Vector2(1470, 2300), Vector2(1470, 2700)], ["_ylhaalta", Vector2(1300, 2200), Vector2(1300, 2201)]]:
+				var a3 := M.w(spot[1])
+				var b3 := M.w(spot[2])
+				if spot[0] == "_ylhaalta":
+					oc.look_at_from_position(a3 + Vector3(0, 450, 300), a3)
+				else:
+					oc.look_at_from_position(a3 + Vector3(0, 3, 0), b3 + Vector3(0, 2, 0))
+				oc.current = true
+				for i in 40:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", spot[0] + ".png"))
+			print("KOILLINEN maaston korkeus %.1f, pinta %s" % [Terrain.h(M.w(Vector2(1300, 2200)).x, M.w(Vector2(1300, 2200)).z),
+				world.surface_at(M.w(Vector2(1300, 2200)))])
+		"kotaopaste":
+			# Laavun reittiviitta kodalle ja koillisen reunan reittiohje.
+			var kpts: PackedVector2Array = world._kota_path()
+			print("KOTAOPASTE polku %d pistettä, päättyy %.0f m kodasta" % [kpts.size(),
+				kpts[-1].distance_to(M.w2(M.KOTA)) if kpts.size() > 0 else -1.0])
+			var oc := Camera3D.new()
+			add_child(oc)
+			var k0: Vector2 = kpts[0]
+			var kd: Vector2 = (kpts[2] - kpts[0]).normalized()
+			var sp := k0 + kd * 4.0
+			var sp3 := Vector3(sp.x, Terrain.h(sp.x, sp.y), sp.y)
+			oc.look_at_from_position(sp3 + Vector3(kd.y, 0, -kd.x) * 7.0 + Vector3(0, 2.0, 0), sp3 + Vector3(0, 1.5, 0))
+			oc.current = true
+			_msg.text = ""
+			_note.visible = false
+			for i in 40:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_viitta.png"))
+			oc.queue_free()
+			_toggle_mount()
+			walker_out.global_position = M.w(Vector2(996, 2300)) + Vector3(0, 0.4, 0)
+			_edge_cd = 0.0
+			for i in 20:
+				await get_tree().physics_frame
+			print("KOTAOPASTE reunalla: '%s'" % _msg.text)
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()

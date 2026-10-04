@@ -169,7 +169,7 @@ func _physics_process(delta: float) -> void:
 			# FPS-tyyli: hiiri kääntää hahmoa, A/D sivuttain.
 			rotation.y += CamCtl.yaw
 			CamCtl.yaw = 0.0
-			strafe = steer
+			strafe = -steer  # steer on vasemmalle positiivinen, side (basis.x) osoittaa oikealle
 			steer = 0.0
 	tire(running, absf(speed) < 0.2, delta, RUN_DRAIN)
 	var ground: float = world.speed_factor(global_position, "runner") if world != null else 1.0
