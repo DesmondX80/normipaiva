@@ -2387,6 +2387,22 @@ func _build_signs() -> void:
 		var dist := int(round(a2.distance_to(M.w2(M.LAAVU)) / 100.0)) * 100
 		var km := ("%.1f km" % (dist / 1000.0)).replace(".", ",")
 		B.trail_sign(self, Vector3(at.x, 0, at.y), "Laavu  " + km, atan2(-dir.y, dir.x))
+	# Reittiviitta laavulta kodalle: OSM-polku lähtee laavun vierestä etelään (laavulta kaakkoon oikaistessa
+	# tulee pelialueen reuna vastaan). Matka polkua pitkin.
+	var kota_pts := _kota_path()
+	if kota_pts.size() > 2:
+		var start := 0  # polku alkaa laavun kohdalta (_kota_path)
+		var k_len := 0.0
+		for i in range(start, kota_pts.size() - 1):
+			k_len += kota_pts[i].distance_to(kota_pts[i + 1])
+		k_len += kota_pts[-1].distance_to(M.w2(M.KOTA))
+		var nxt: Vector2 = kota_pts[mini(start + 2, kota_pts.size() - 1)]
+		var kdir := (nxt - kota_pts[start]).normalized()
+		var kat := _sign_spot([kota_pts[start] + kdir * 4.0 + kdir.orthogonal() * 2.5, kota_pts[start] + kdir * 4.0 - kdir.orthogonal() * 2.5,
+			kota_pts[start] + kdir * 7.0 + kdir.orthogonal() * 2.5])
+		if kat != Vector2.INF:
+			var kkm := ("%.1f km" % (roundf(k_len / 100.0) / 10.0)).replace(".", ",")
+			B.trail_sign(self, Vector3(kat.x, 0, kat.y), "Kota  " + kkm, atan2(-kdir.y, kdir.x))
 	# Valkoinen paikallisopaste K-Marketille Ketunperäntien ja Tarpiontien risteyksessä.
 	var kd := (M.w2(M.J_W) - M.w2(M.J_K)).normalized()
 	var jk := M.w2(M.J_K)
@@ -2398,3 +2414,33 @@ func _build_signs() -> void:
 		kp.position.y = 2.0
 		kp.rotation.y = atan2(-kd.y, kd.x)
 		B.sign_arrow(kp, kp.get_meta("width") / 2.0 - 0.12, Color.BLACK)
+
+
+## Kodan polku (OSM): laavun vierestä kulkeva polku, joka käy lähimpänä kotaa. Palauttaa pisteet laavun kohdalta
+## kodan lähimpään kohtaan asti (maailman 2D), tai tyhjän.
+func _kota_path() -> PackedVector2Array:
+	var kota := M.w2(M.KOTA)
+	var laavu := M.w2(M.LAAVU)
+	var best := PackedVector2Array()
+	var bd := INF
+	for r in M.ROADS:
+		if r.type != "path" or r.pts.size() < 3:
+			continue
+		var pts := PackedVector2Array()
+		for q in r.pts:
+			pts.append(M.w2(q))
+		var il := 0
+		var ik := 0
+		for i in pts.size():
+			if pts[i].distance_to(laavu) < pts[il].distance_to(laavu):
+				il = i
+			if pts[i].distance_to(kota) < pts[ik].distance_to(kota):
+				ik = i
+		var dk: float = pts[ik].distance_to(kota)
+		if pts[il].distance_to(laavu) < 60.0 and dk < bd and il != ik:
+			bd = dk
+			best = pts.slice(il, ik + 1) if ik > il else pts.slice(ik, il + 1)
+			if ik < il:
+				best.reverse()
+	return best if bd < 200.0 else PackedVector2Array()
+

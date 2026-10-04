@@ -89,7 +89,7 @@ func _ready() -> void:
 	B.mesh(_rod, B.cyl(0.012, 0.025, 2.6, 6), Vector3(0, 1.3, 0), Color(0.12, 0.12, 0.14))
 	B.mesh(_rod, B.cyl(0.05, 0.05, 0.08, 10), Vector3(0.05, 0.35, 0), Color(0.7, 0.7, 0.72), Vector3(0, 0, 90))
 	_rod.position = Vector3(0.5, 0.75, 0.6)
-	_rod.rotation = Vector3(0.9, 0, -0.5)
+	_rod.rotation = Vector3(-0.9, 0, -0.5)  # kärki keulaan (-Z), heiton suuntaan
 	_rod.visible = false
 	_bobber = Node3D.new()
 	add_child(_bobber)
