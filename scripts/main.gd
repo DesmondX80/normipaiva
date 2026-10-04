@@ -7857,6 +7857,41 @@ func _maybe_screenshot() -> void:
 				var e := 1.5
 				var sl := rad_to_deg(atan(Vector2(Mokki.h(p.x + e, p.y) - Mokki.h(p.x - e, p.y), Mokki.h(p.x, p.y + e) - Mokki.h(p.x, p.y - e)).length() / (2.0 * e)))
 				print("VIINA %d %s: lähin rakennus %.1f m, rinne %.0f°" % [i, p, best, sl])
+		"karhukuva":
+			# Karhun lähikuvat: kävely sivulta, pystyyn nousu ja karjaisu edestä, laukka sivulta.
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			_hud.visible = false
+			var c0 := walker_out.global_position + Vector3(6, 0, 6)
+			var b := Beast.new()
+			b.kind = "karhu"
+			b.target = walker_out
+			add_child(b)
+			b.place(c0)
+			b.set_physics_process(false)
+			b.rotation.y = 0.0
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.current = true
+			var shoot := func(name: String, phase: String, speed: float, t: float, secs: float, from: Vector3) -> void:
+				b.phase = phase
+				b._speed = speed
+				b._t = t
+				var n := int(secs * 60.0)
+				for i in n:
+					b._t += 1.0 / 60.0
+					b._animate(1.0 / 60.0)
+					await get_tree().process_frame
+				cam.look_at_from_position(b.global_position + from, b.global_position + Vector3(0, 0.9, 0), Vector3.UP)
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+			await shoot.call("kavely", "approach", 2.2, 0.0, 0.6, Vector3(-4.2, 1.2, -0.8))
+			b._roar()
+			await shoot.call("pysty", "standoff", 0.0, 0.0, 1.4, Vector3(-1.5, 1.5, -4.0))
+			b._roar()
+			await shoot.call("karjaisu", "standoff", 0.0, 5.0, 0.6, Vector3(-0.8, 1.1, -2.6))
+			await shoot.call("laukka", "charge", 9.0, 0.0, 0.37, Vector3(-4.5, 1.0, -0.5))
 		"pedot":
 			# Metsän pedot: karhu ja paikallaan seisominen (luopuu), karhu ja juoksu (raatelee, iso haava, eväät),
 			# susi ja huuto kasvokkain (pakenee), Santun hoito, mökin metsän tunnistus. Kuva karhusta.
