@@ -1,11 +1,11 @@
 extends Control
 ## Paperikarttanäkymä (M): kellertävä paperi taitoksineen, maastokartan värit ja merkit,
 ## paikannimet, tienimet, kompassiruusu, mittakaava ja selite. Peli on pysäytettynä kun kartta on auki.
-## W/S tai hiiren rulla vierittää, M tai Esc sulkee. Klikkaus asettaa kompassin kohteen (tarttuu lähimpään
+## W/S, hiiren rulla tai vetäminen (myös sormella) vierittää, M tai Esc sulkee. Klikkaus asettaa kompassin kohteen (tarttuu lähimpään
 ## merkkiin), klikkaus kohteen päälle tai oikea nappi poistaa sen.
 ## Mökillä ja Vaalan mopomatkalla kartta on yksi iso Neittävä–Vaala-kartta mopomatkan kehyksessä (vaala.gd:
 ## origo mökin osoitepisteessä, x itään, z etelään): mökin piha, tie Vaalaan ja Vaalan keskusta kohteineen.
-## Rulla tai Q/E zoomaa, W/A/S/D tai vetäminen siirtää.
+## Rulla, Q/E tai kahden sormen nipistys zoomaa, W/A/S/D tai vetäminen siirtää.
 
 const M := preload("res://scripts/map_data.gd")
 const Mokki := preload("res://scripts/mokki.gd")
@@ -140,6 +140,42 @@ func _process(delta: float) -> void:
 ## Hiiren alla olevan nimetyn tien nimi (karttanäkymän koordinaateissa piirretään hiiren viereen).
 var _hover_px := Vector2(-1000, -1000)
 var _hover_name := ""
+## Vetäminen (hiiri tai kosketuksen hiiriemulointi): lyhyt napautus on klikkaus, pidempi veto vierittää.
+const DRAG_CLICK := 10.0
+var _drag_on := false
+var _dragged := 0.0
+## Kahden sormen nipistys (Vaalan kartta): sormien paikat indeksin mukaan.
+var _touches := {}
+var _pinch_d := 0.0
+
+
+func _input(event: InputEvent) -> void:
+	if not visible or not _vaala:
+		return
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			_touches[event.index] = event.position
+		else:
+			_touches.erase(event.index)
+		_pinch_d = _pinch_dist()
+	elif event is InputEventScreenDrag and _touches.has(event.index):
+		_touches[event.index] = event.position
+		if _touches.size() >= 2:
+			_vdrag = false  # kaksi sormea: zoomaus, ei siirtoa
+			var d := _pinch_dist()
+			if _pinch_d > 1.0 and d > 1.0:
+				var ps: Array = _touches.values()
+				var mid: Vector2 = (ps[0] + ps[1]) / 2.0 - _view.global_position
+				_vzoom_by(d / _pinch_d, mid)
+			_pinch_d = d
+			get_viewport().set_input_as_handled()
+
+
+func _pinch_dist() -> float:
+	if _touches.size() < 2:
+		return 0.0
+	var ps: Array = _touches.values()
+	return (ps[0] as Vector2).distance_to(ps[1])
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -147,14 +183,25 @@ func _gui_input(event: InputEvent) -> void:
 		_vaala_input(event)
 		return
 	if event is InputEventMouseMotion:
+		if _drag_on and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
+			_dragged += event.relative.length()
+			if _dragged >= DRAG_CLICK:
+				_scroll = clampf(_scroll - event.relative.y, 0.0, _max_scroll())
+				_view.queue_redraw()
 		_hover_px = event.position - _view.position
 		var nm := _road_at(_hover_px)
 		if nm != _hover_name or nm != "":
 			_hover_name = nm
 			_view.queue_redraw()
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		if _drag_on and _dragged < DRAG_CLICK:
+			_click(event.position - _view.position)  # napautus: kompassin kohde
+		_drag_on = false
+		_view.queue_redraw()
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			_click(event.position - _view.position)
+			_drag_on = true
+			_dragged = 0.0
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			clear_target()
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -325,14 +372,15 @@ func _draw() -> void:
 			draw_string(font, side + Vector2(10, 222), ("Punainen katkoviiva: %.1f km tietä tiivistetty" % ((_vd.s_b - _vd.s_a) / 1000.0)).replace(".", ","),
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.7, 0.12, 0.08))
 		_legend_vaala(side + Vector2(10, 250))
-		draw_string(font, Vector2(side.x + 10, r.end.y - 58), "Rulla / Q E: zoomaa", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
+		draw_string(font, Vector2(side.x + 10, r.end.y - 58), "Rulla / Q E / nipistä: zoomaa", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 		draw_string(font, Vector2(side.x + 10, r.end.y - 40), "WASD / vedä: siirrä", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 		draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 	else:
 		_scale_bar(side + Vector2(10, 180), 100.0, _k)
 		_legend(side + Vector2(10, 250))
-		draw_string(font, Vector2(side.x + 10, r.end.y - 40), "Klikkaa: kompassin kohde", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
-		draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje · W/S vieritä", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
+		draw_string(font, Vector2(side.x + 10, r.end.y - 58), "Klikkaa: kompassin kohde", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
+		draw_string(font, Vector2(side.x + 10, r.end.y - 40), "Vedä / W S / rulla: vieritä", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
+		draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 
 
 func _compass(c: Vector2) -> void:
