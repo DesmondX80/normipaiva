@@ -433,6 +433,27 @@ const VAINO_MONEY := 5.0
 ## Vieras koira metsänreunassa puree (stray_dog.gd). Haava hoidetaan kotikonstein: Pekka (kalja tai
 ## PEKKA_CARE €) tai Päivi kotona (ilmainen, mutta motkottaa). Hoitamaton haitta kestää päivän loppuun.
 const StrayDog := preload("res://scripts/stray_dog.gd")
+## Metsän pedot (beast.gd): jalan metsässä kertyy aikaa, ja kun _beast_next täyttyy, karhu tai susi ilmestyy
+## puiden sekaan. Saloisissa kerran päivässä; mökillä metsää on enemmän ja pedot yleisempiä (aika kertyy
+## nopeammin, kaksi päivässä). Karhun haava on isompi kuin suden: enemmän kipua, ontuu pahemmin ja kipu
+## pahenee hoitamatta. Haavan hoitavat Pekka, Päivi tai mökillä Santtu omin konstein.
+const Beast := preload("res://scripts/beast.gd")
+const BEAST_FOREST_S := [50.0, 110.0]
+const BEAST_MAX := {"koti": 1, "mokki": 2}
+const BEAST_MEAT := ["piirakka", "savukala", "savuriista", "karrella"]
+const BEAR_HURT_SPEED := 0.45
+const SANTTU_CARE := [
+	["Santtu kaatoi haavaan kätköviinaa, otti itse huikan ja sitoi päälle jesarilla. Pitää!", "Jesari pitää vaikka mitä."],
+	["Santtu levitti haavaan koivutervaa ja painoi päälle sammalta. Haisee savusaunalta.",
+		"Vaari paransi tällä karhunkin raapaisut."],
+	["Santtu pesi haavan järvivedellä, liimasi sen pikaliimalla ja kehui omaa kättään.", "Pikaliima on armeijan keksintö, tiesitkö?"],
+	["Santtu kääri haavaan vanhan saunapyyhkeen ja käski purra kalikkaa.", "Ei tunnu missään, eihän?"],
+]
+var _beast: Node3D = null
+var _beast_forest_t := 0.0
+var _beast_next := 80.0
+var _beasts_today := 0
+var wound_big := false  # karhun raatelema
 const Mummot := preload("res://scripts/mummot.gd")
 var mummot: Node3D
 const PEKKA_CARE := 3.0
@@ -998,6 +1019,8 @@ func _mount_logic() -> void:
 func _outside_logic() -> void:
 	if _item_menu.is_open():
 		return  # esinevalikko ottaa E:n, W/S:n ja Q:n
+	if _beast_tick():
+		return  # huuto sudelle vei E:n
 	if Input.is_action_just_pressed("eat") and not player.is_stunned():
 		if _in_vaala and player == mopo_trip.mopo and absf(player.speed) > 3.0:
 			_show_message("Hidasta ensin!", 1.2)
@@ -2235,6 +2258,8 @@ func _stats_tick(delta: float) -> void:
 	var resting := _still_t > 3.0
 	# Nälkä: aika ja liike kuluttavat.
 	t.add("nalka", -(0.002 + (0.002 if moving else 0.0)) * delta)
+	if wound_big:
+		t.add("kipu", -0.004 * delta)  # karhun raapaisut kirveltävät pahemmin, kunnes hoidetaan
 	# Väsymys ja stamina: sprintti kuluttaa, tauko palauttaa.
 	if sprint:
 		t.add("vasymys", -0.01 * delta)
@@ -2533,6 +2558,124 @@ func _on_bitten(direction: Vector3) -> void:
 	_show_message("AI PERKELE! Vieras koira puri pohkeeseen!\nHaava pitää hoitaa: Pekka osaa, tai Päivi kotona.", 4.0)
 
 
+## Onko piste metsässä (Saloisissa alustan mukaan, mökillä kaikki mikä ei ole pihaa, tietä, peltoa tai vettä).
+func _in_forest(p: Vector3) -> bool:
+	if _at_mokki_pos(p):
+		if mokki == null:
+			return false
+		var l: Vector3 = mokki.to_local(p)
+		var q := Vector2(l.x, l.z)
+		return mokki._mask(q) == 0 and not Mokki.in_water(q.x, q.y) and not Mokki.in_field(q) and not mokki._is_yard(q)
+	return world.surface_at(p) == "forest"
+
+
+## Metsän peto: aika kertyy jalan metsässä; kohtaamisen aikana suden edessä E huutaa. Palauttaa true, kun
+## E käytettiin huutoon (muut E-toiminnot odottavat).
+func _beast_tick() -> bool:
+	if _beast != null and is_instance_valid(_beast):
+		if _beast.phase == "standoff" and player == walker_out:
+			if _beast.kind == "susi":
+				_hint.text = "[E] Huuda sudelle ja näytä isolta"
+				if Input.is_action_just_pressed("interact"):
+					if not _beast.shout():
+						_show_message("Susi ei välitä huudosta selän takaa. Käänny sitä kohti!", 2.0)
+					return true
+			else:
+				_hint.text = "Karhu tuijottaa... Älä juokse."
+		return false
+	_beast = null
+	if player != walker_out or player.is_stunned() or _in_vaala:
+		return false
+	var where := "mokki" if _at_mokki() else "koti"
+	if _beasts_today >= BEAST_MAX[where] or not _in_forest(player.global_position):
+		return false
+	_beast_forest_t += get_process_delta_time() * (1.7 if where == "mokki" else 1.0)
+	if _beast_forest_t >= _beast_next:
+		_beast_forest_t = 0.0
+		_beast_next = randf_range(BEAST_FOREST_S[0], BEAST_FOREST_S[1])
+		_spawn_beast("karhu" if randf() < 0.5 else "susi")
+	return false
+
+
+## Peto ilmestyy n. 30 m päähän puiden sekaan, mieluiten pelaajan taakse tai sivulle.
+func _spawn_beast(kind: String) -> bool:
+	var p := player.global_position
+	var back := player.global_transform.basis.z
+	back.y = 0.0
+	for a in [0.0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8, PI]:
+		var q := p + back.normalized().rotated(Vector3.UP, a) * 30.0
+		if not _in_forest(q):
+			continue
+		var b := Beast.new()
+		b.kind = kind
+		b.target = walker_out
+		add_child(b)
+		b.place(q)
+		b.warned.connect(func() -> void:
+			if kind == "karhu":
+				_show_message("KARHU! Iso kontio murisee puiden välissä.\nÄlä juokse – seiso paikallasi tai peräänny hitaasti.", 4.5)
+			else:
+				_show_message("SUSI! Harmaa susi tuijottaa puiden välistä.\nÄlä käännä selkääsi: katso sitä kohti ja huuda [%s]." %
+					Settings.action_key("interact"), 4.5)
+			Sfx.play("alert", -6.0, 0.7)
+			tilat.add("stressi", -0.1))
+		b.gave_up.connect(func(scared: bool) -> void:
+			if not state in ["to_shop", "to_home"]:
+				return
+			if kind == "karhu":
+				_show_message("Karhu tuhahti ja lönkytteli metsään. Huh, sydän hakkaa.", 3.0)
+				tilat.first("karhu_selvisi", 0.4)
+				tilat.add("moraali", 0.1)
+			elif scared:
+				_show_message("Susi säikähti huutoa ja katosi metsään!", 3.0)
+				tilat.first("susi_karkotettu", 0.4)
+				tilat.add("moraali", 0.1)
+			else:
+				_show_message("Susi menetti kiinnostuksensa ja hölkkäsi pois.", 2.5))
+		b.attacked.connect(func(dir: Vector3) -> void: _on_beast_attack(kind, dir))
+		_beast = b
+		_beasts_today += 1
+		return true
+	return false
+
+
+## Pedon hyökkäys: kaatuminen, haava (karhulla isompi) ja eväät: karhu vie kaiken syötävän, susi lihat.
+func _on_beast_attack(kind: String, dir: Vector3) -> void:
+	if not state in ["to_shop", "to_home"] or player != walker_out:
+		return
+	_stop_picking()
+	_stop_mowing()
+	player.stun(dir)
+	Sfx.play("groan", 2.0)
+	var big := kind == "karhu"
+	var lost := PackedStringArray()
+	for k in food.keys():
+		if big or k in BEAST_MEAT:
+			lost.append(FOODS[k].name.to_lower())
+			food.erase(k)
+	if has_sausage:
+		has_sausage = false
+		lost.append("makkarat")
+	if big:
+		for k in bucket.keys():
+			lost.append("%s (%d l)" % ["puolukat" if k == "puolukka" else "mustikat", bucket[k]])
+		bucket.clear()
+	tilat.add("kipu", -0.5 if big else -0.3)
+	tilat.add("stressi", -0.25 if big else -0.15)
+	bitten = true
+	walker_out.hurt = true
+	if big:
+		wound_big = true
+		walker_out.hurt_speed = BEAR_HURT_SPEED
+	var msg := "KARHU RAATELI! Kynnet repivät kylkeen, ja kontio jäi penkomaan reppua." if big else \
+		"SUSI PURI! Hampaat upposivat reiteen, ja susi nappasi eväät mennessään."
+	if not lost.is_empty():
+		msg += "\nMeni: %s." % ", ".join(lost)
+	msg += "\nIso haava, kipu pahenee: hoidata pian (Pekka, Päivi tai mökillä Santtu)." if big else \
+		"\nHaava pitää hoitaa: Pekka, Päivi tai mökillä Santtu."
+	_show_message(msg, 5.0)
+
+
 ## Haavan hoito kotona: Päivi puhdistaa ja laittaa laastarin, mutta motkottaa (kotiovella, kun ei olla tulossa
 ## kaupasta; kotiinpaluu kuutosen kanssa aloittaa uuden päivän, joka hoitaa haavan joka tapauksessa).
 func _wound_logic() -> void:
@@ -2551,7 +2694,9 @@ func _wound_logic() -> void:
 func _heal() -> void:
 	tilat.add("kipu", 0.5)  # ensiapu
 	bitten = false
+	wound_big = false
 	walker_out.hurt = false
+	walker_out.hurt_speed = walker_out.HURT_SPEED
 
 
 ## Arvotaan, karkaako Väinö tänään ja milloin.
@@ -2990,7 +3135,7 @@ func _neighbor_logic() -> void:
 					else:
 						money -= PEKKA_CARE
 					_heal()
-					v.say("Ei tää oo mitään, kyyhkyt purree pahemmin.")
+					v.say("Karhu?! No nyt tarvitaan koko pullo." if wound_big else "Ei tää oo mitään, kyyhkyt purree pahemmin.")
 					Sfx.play("groan", -4.0, 1.2)
 					_show_message("Pekka sitoi haavan ja kaatoi päälle koskenkorvaa. Kirvelee!", 3.5)
 			return
@@ -3987,6 +4132,8 @@ func _santtu_watch(dt: float) -> void:
 ## Santun valikko kannolla: juttelu, päivän hommat ja kalja (Santtu tekee yhden homman).
 func _santtu_menu() -> void:
 	var items: Array = [["juttu", "Jutskaa Santun kanssa"]]
+	if bitten:
+		items.append(["haava", "Pyydä Santtua hoitamaan haava"])
 	if hommat.active:
 		items.append(["hommat", "Mitä hommia vielä on?"])
 		if not hommat.beer_used and not hommat.all_done():
@@ -4010,6 +4157,14 @@ func _on_santtu_menu(id: String) -> void:
 		"juttu":
 			mokki.say(_santtu_chat_line())
 			tilat.first("santtu")
+		"haava":
+			var care: Array = SANTTU_CARE.pick_random()
+			var big := wound_big
+			_heal()
+			mokki.say(("Karhu? Ei hätää, mää oon nähny pahempaa. " if big else "") + care[1], 4.0)
+			Sfx.play("groan", -4.0, 1.1)
+			_show_message(care[0], 4.0)
+			tilat.first("santtu_hoiti", 0.2)
 		"hommat":
 			var left: Array = hommat.undone()
 			if left.is_empty():
@@ -6006,9 +6161,16 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		money += CHOCO_MONEY
 		bonus += "\nKiitos suklaasta. Tässä %s € ylimääräistä." % _eur(CHOCO_MONEY)
 		tilat.add("stressi", 0.2)
+	_beasts_today = 0
+	_beast_forest_t = 0.0
+	if _beast != null and is_instance_valid(_beast):
+		_beast.queue_free()
+	_beast = null
 	if bitten:
 		bitten = false  # parani yöllä (ei ensiapua uuden päivän kipuun)
+		wound_big = false
 		walker_out.hurt = false
+		walker_out.hurt_speed = walker_out.HURT_SPEED
 		bonus += "\n" + WOUND_PAIVI.pick_random()
 		_morning_info.append("Puremahaava parani yön aikana.")
 	if not _list_done and not shopping_list.is_empty() and not at_m:
@@ -7695,6 +7857,100 @@ func _maybe_screenshot() -> void:
 				var e := 1.5
 				var sl := rad_to_deg(atan(Vector2(Mokki.h(p.x + e, p.y) - Mokki.h(p.x - e, p.y), Mokki.h(p.x, p.y + e) - Mokki.h(p.x, p.y - e)).length() / (2.0 * e)))
 				print("VIINA %d %s: lähin rakennus %.1f m, rinne %.0f°" % [i, p, best, sl])
+		"pedot":
+			# Metsän pedot: karhu ja paikallaan seisominen (luopuu), karhu ja juoksu (raatelee, iso haava, eväät),
+			# susi ja huuto kasvokkain (pakenee), Santun hoito, mökin metsän tunnistus. Kuva karhusta.
+			if player == bike:
+				_toggle_mount()
+			var spot := Vector3.INF
+			var p0 := walker_out.global_position
+			for r in range(40, 900, 20):
+				for k in 24:
+					var q := p0 + Vector3(cos(k * TAU / 24.0), 0, sin(k * TAU / 24.0)) * r
+					if _in_forest(q) and _in_forest(q + Vector3(30, 0, 0)) and _in_forest(q + Vector3(-30, 0, 0)) \
+							and _in_forest(q + Vector3(0, 0, 30)) and _in_forest(q + Vector3(0, 0, -30)):
+						spot = q
+						break
+				if spot != Vector3.INF:
+					break
+			print("PEDOT metsäpiste ", spot, " alusta ", world.surface_at(spot))
+			walker_out.global_position = Vector3(spot.x, Terrain.h(spot.x, spot.z) + 0.3, spot.z)
+			for i in 10:
+				await get_tree().physics_frame
+			var wait_phase := func(ph: String, limit: float) -> void:
+				var t0 := Time.get_ticks_msec()
+				while is_instance_valid(_beast) and _beast.phase != ph and Time.get_ticks_msec() - t0 < limit * 1000.0:
+					await get_tree().physics_frame
+			# 1) Karhu, seisotaan paikallaan.
+			_spawn_beast("karhu")
+			await wait_phase.call("standoff", 20.0)
+			print("PEDOT karhu kohtaus: etäisyys %.1f m viesti '%s'" % [_beast.global_position.distance_to(walker_out.global_position), _msg.text.replace("\n", " | ")])
+			var oc := Camera3D.new()
+			add_child(oc)
+			oc.look_at_from_position(walker_out.global_position + Vector3(0, 2.2, 0) + (walker_out.global_position - _beast.global_position).normalized() * 3.0,
+				_beast.global_position + Vector3(0, 1.0, 0), Vector3.UP)
+			oc.current = true
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_karhu.png"))
+			oc.queue_free()
+			walker_out.activate_camera()
+			await wait_phase.call("leave", 15.0)
+			print("PEDOT karhu paikallaan: vaihe %s viesti '%s' haava %s" % [_beast.phase if is_instance_valid(_beast) else "-", _msg.text, bitten])
+			if is_instance_valid(_beast):
+				_beast.queue_free()
+			_beast = null
+			# 2) Karhu, juostaan karkuun.
+			food["pulla"] = 2
+			food["savukala"] = 1
+			has_sausage = true
+			bucket["mustikka"] = 3
+			var k0: float = tilat.value("kipu")
+			_spawn_beast("karhu")
+			await wait_phase.call("standoff", 20.0)
+			Input.action_press("forward")
+			Input.action_press("sprint")
+			await wait_phase.call("leave", 10.0)
+			Input.action_release("forward")
+			Input.action_release("sprint")
+			print("PEDOT karhu juoksu: haava %s iso %s kipu %.2f -> %.2f ontuu %.2f ruoat %s makkara %s ämpäri %s" % [bitten, wound_big,
+				k0, tilat.value("kipu"), walker_out.hurt_speed, food, has_sausage, bucket])
+			print("PEDOT viesti: ", _msg.text.replace("\n", " | "))
+			if is_instance_valid(_beast):
+				_beast.queue_free()
+			_beast = null
+			_heal()
+			for i in 120:
+				await get_tree().physics_frame
+			# 3) Susi, käännytään kohti ja huudetaan.
+			food["savukala"] = 1
+			_spawn_beast("susi")
+			await wait_phase.call("standoff", 20.0)
+			print("PEDOT susi kohtaus: viesti '%s' hint '%s'" % [_msg.text.replace("\n", " | "), _hint.text])
+			var wp: Vector3 = _beast.global_position
+			walker_out.look_at(Vector3(wp.x, walker_out.global_position.y, wp.z), Vector3.UP)
+			await get_tree().process_frame
+			Input.action_press("interact")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().process_frame
+			print("PEDOT susi huuto: vaihe %s viesti '%s' haava %s" % [_beast.phase if is_instance_valid(_beast) else "-", _msg.text, bitten])
+			# 4) Santun hoito karhun haavaan.
+			bitten = true
+			wound_big = true
+			walker_out.hurt = true
+			walker_out.hurt_speed = BEAR_HURT_SPEED
+			if mokki != null:
+				mokki.ensure_built()
+				_on_santtu_menu("haava")
+			print("PEDOT Santtu: haava %s iso %s ontuu %.2f viesti '%s'" % [bitten, wound_big, walker_out.hurt_speed, _msg.text])
+			# 5) Mökin metsä: osuus metsää mökin ympärillä.
+			var n_forest := 0
+			for k in 40:
+				var q := MOKKI_POS + Vector3(cos(k * 0.7) * (60 + k * 8), 0, sin(k * 0.7) * (60 + k * 8))
+				if _in_forest(q):
+					n_forest += 1
+			print("PEDOT mökin ympäristöstä metsää %d / 40, mökin piha metsää? %s" % [n_forest, _in_forest(MOKKI_POS)])
 		"kauppapalautus":
 			# Rahat ei riitä: kalja ja makkara palautetaan hyllyyn, sitten kassalla Q jättää ostokset tiskille.
 			if player == bike:
