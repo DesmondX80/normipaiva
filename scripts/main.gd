@@ -784,6 +784,7 @@ func _process(delta: float) -> void:
 	_hint.text = ""
 	if not away:
 		_traffic_tick(delta)
+	_indoor_eat()
 	match state:
 		"to_shop", "to_home":
 			_outside_logic()
@@ -2065,6 +2066,30 @@ func _mopo_menu(open: bool) -> void:
 		mopo_trip._resume_frame = Engine.get_process_frames()
 
 
+## Ohjattava hahmo: sisätiloissa sisätilan oma kävelijä, muuten pelaaja (ulkona odottava kävelijä ei liiku).
+func _active_walker() -> CharacterBody3D:
+	match state:
+		"in_shop":
+			return interior.walker
+		"in_siitari":
+			return siitari_int.walker
+		"in_raahe":
+			return raahe_int.walker
+		"in_home":
+			return home_int.walker
+		"in_mokki":
+			return mokki_int.walker
+	return player
+
+
+## T sisätiloissa: sama syö/juo-valikko kuin ulkona, kun hahmo on vapaana (ei minipeliä, keskustelua tai valikkoa).
+func _indoor_eat() -> void:
+	if not state in ["in_shop", "in_siitari", "in_raahe", "in_home", "in_mokki"] or _item_menu.is_open():
+		return
+	if Input.is_action_just_pressed("eat") and _active_walker().controls_enabled:
+		_open_eat_menu()
+
+
 func _open_eat_menu() -> void:
 	var items: Array = []
 	for k in ["pulla", "piirakka", "mustikkapiirakka", "savukala", "savuriista", "karrella"]:
@@ -2082,8 +2107,10 @@ func _open_eat_menu() -> void:
 	if items.is_empty():
 		_show_message("Ei mitään syötävää eikä juotavaa. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja, mökin savustimesta kalaa ja riistaa.", 3.0)
 		return
-	player.controls_enabled = false
-	player.speed = 0.0
+	var w := _active_walker()
+	w.controls_enabled = false
+	if "speed" in w:
+		w.speed = 0.0
 	_mopo_menu(true)
 	_msg.text = ""
 	_msg_time = 0.0
@@ -2091,8 +2118,44 @@ func _open_eat_menu() -> void:
 	_item_menu.open(items, "Mitä syöt tai juot?")
 
 
+## Omat juomat baarissa: baarimikko huomaa joka toisen kerran (OWN_DRINK_SEEN); ensin varoitus, toisella ulos.
+const OWN_DRINK_SEEN := 0.5
+const OWN_DRINK_WARN := ["Hei! Omia juomia ei täällä juoda.", "Pullo pois, tää on anniskeluravintola!",
+	"Nähtiin kyllä. Vielä kerran niin lähdet."]
+var _own_drink_warned := false  # nollataan baariin tullessa
+
+
+func _own_drink_in_bar() -> void:
+	if not state in ["in_raahe", "in_siitari"] or randf() >= OWN_DRINK_SEEN:
+		return
+	var bar = raahe_int if state == "in_raahe" else siitari_int
+	if not _own_drink_warned:
+		_own_drink_warned = true
+		bar.bartender_say(OWN_DRINK_WARN.pick_random())
+		tilat.add("stressi", -0.05)
+		_show_message("Baarimikko huomasi omat juomat. Seuraavasta lentää ulos.", 2.5)
+		return
+	bar.bartender_say("Nyt riitti! Ulos, ja heti!")
+	bar.walker.controls_enabled = false
+	maine = clampf(maine - 5.0, 0.0, 100.0)
+	tilat.add("moraali", -0.1)
+	Sfx.play("lose", -4.0)
+	_show_message("Baarimikko heitti sinut ulos omien juomien takia!", 3.0)
+	tilat.first("baarista_ulos", 0.3)
+	var where := state
+	get_tree().create_timer(2.5).timeout.connect(func() -> void:
+		if state != where:
+			return
+		if where == "in_raahe":
+			_raahe.kicked = true
+			_on_raahe_exited()
+		else:
+			_on_siitari("lahde")
+			_show_message("Siitarista heitettiin ulos omien juomien takia. Mopo odottaa pihassa.", 3.5))
+
+
 func _on_eat(id: String) -> void:
-	player.controls_enabled = true
+	_active_walker().controls_enabled = true
 	_mopo_menu(false)
 	match id:
 		"pulla", "piirakka", "savukala", "savuriista", "karrella", "mustikkapiirakka":
@@ -2108,6 +2171,7 @@ func _on_eat(id: String) -> void:
 			tilat.first("syo_kalja", 0.1)
 			Sfx.play("glass", -6.0, 1.2)
 			_show_message(["Tsihh. Ah.", "Kylmää ja hyvää.", "Yks ei oo yhtään.", "Päivin ei tarvi tietää."].pick_random(), 1.8)
+			_own_drink_in_bar()
 			return
 		"viina":
 			viina_pullot -= 1
@@ -2118,6 +2182,7 @@ func _on_eat(id: String) -> void:
 			tilat.first("syo_viina", 0.1)
 			Sfx.play("glass", -6.0, 0.9)
 			_show_message(["Kurkkua polttaa.", "Metsän makua.", "Lämmittää mukavasti.", "Tätä ei Päivi näe."].pick_random(), 1.8)
+			_own_drink_in_bar()
 			return
 		"puolukka", "mustikka":
 			bucket[id] -= 1
@@ -2665,6 +2730,7 @@ func _enter_raahe() -> void:
 	_raahe = {"won": -1, "paid": 0.0, "quiz": -1, "karaoke": -1.0, "caught": false,
 		"paivi_t": randf_range(40.0, 90.0) if randf() < 0.5 else -1.0}
 	tilat.first("raahe", 0.5)
+	_own_drink_warned = false
 	raahe_int.enter()
 	_show_message("Kapteenin Kulma, Kirkkokatu 32, Raahe. Kellarissa karaoke, tiistaisin visa ja Tero odottaa kädenvääntöä.", 4.0)
 
@@ -2688,6 +2754,8 @@ func _on_raahe_exited() -> void:
 		parts.append("Visassa %d/3 oikein." % _raahe.quiz)
 	if _raahe.karaoke >= 0.0:
 		parts.append("Karaoke Kellarissa %d %%." % roundi(_raahe.karaoke * 100.0))
+	if _raahe.get("kicked", false):
+		parts.append("Baarimikko heitti sinut ulos omien juomien takia.")
 	if _raahe.caught:
 		parts.append("Päivi löysi sinut baarista ja raahasi kotiin.")
 	elif _raahe.get("paivi_came", false):
@@ -4276,6 +4344,7 @@ func _on_mopo_arrived() -> void:
 	Sfx.play("door", -3.0)
 	tilat.first("siitari", 0.4)
 	state = "in_siitari"
+	_own_drink_warned = false
 	_mopo_label.visible = false
 	_compass.visible = false
 	siitari_int.enter()
@@ -6707,9 +6776,10 @@ func inventory_items() -> Array:
 ## Repusta klikattu tarvike (inventory.gd): syödään tai juodaan kuten T-valikosta. Ohjattavan hahmon tila
 ## (esim. sisätiloissa ulkona odottava kävelijä) palautetaan ennalleen, koska _on_eat vapauttaa ohjauksen.
 func use_item(id: String) -> void:
-	var was: bool = player.controls_enabled
+	var w := _active_walker()
+	var was: bool = w.controls_enabled
 	_on_eat(id)
-	player.controls_enabled = was
+	w.controls_enabled = was
 
 
 func inventory_info() -> Dictionary:
@@ -8271,6 +8341,32 @@ func _maybe_screenshot() -> void:
 					break
 			for i in 20:
 				await get_tree().process_frame
+		"sisasyonti":
+			# T sisätiloissa: kotona valikko aukeaa, kävelijä pysähtyy, pulla syödään ja ohjaus palaa.
+			if player == bike:
+				_toggle_mount()
+			food["pulla"] = 2
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			for i in 5:
+				await get_tree().physics_frame
+			_enter_home("ovi")
+			for i in 30:
+				await get_tree().physics_frame
+			var n0: float = tilat.get_v("nalka") if tilat.has_method("get_v") else 0.0
+			await get_tree().process_frame
+			Input.action_press("eat")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			Input.action_release("eat")
+			print("SISASYO tila=%s valikko=%s kotikävelijän ohjaus=%s ulkokävelijän=%s" % [state, _item_menu.is_open(),
+				home_int.walker.controls_enabled, walker_out.controls_enabled])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_sisasyonti.png"))
+			_item_menu.visible = false
+			_item_menu.chosen.emit("pulla")
+			await get_tree().process_frame
+			print("SISASYO jälkeen: pullia %d, viesti '%s', kotikävelijän ohjaus=%s ulkokävelijän=%s" % [food.get("pulla", 0), _msg.text,
+				home_int.walker.controls_enabled, walker_out.controls_enabled])
 		"reppukaytto":
 			# Repusta klikkaus: pulla syödään, kalja juodaan, tooltip kertoo toiminnon. Sisällä kävelijä ei herää.
 			_toggle_mount()
@@ -10642,6 +10738,30 @@ func _maybe_screenshot() -> void:
 			print("HAATO state=%s at_mokki=%s" % [state, _at_mokki()])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"omatjuomat":
+			# Omat juomat Raahen baarissa: T-valikosta kaljaa, kunnes baarimikko varoittaa ja heittää ulos.
+			_toggle_mount()
+			state = "cutscene"
+			_enter_raahe()
+			_raahe.paivi_t = -1.0
+			raahe_int.walker.position = raahe_int.spots.tiski[0]
+			beers = 12
+			await get_tree().create_timer(0.8).timeout
+			for k in 12:
+				if state != "in_raahe" or not raahe_int.walker.controls_enabled:
+					break
+				await get_tree().process_frame
+				Input.action_press("eat")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("eat")
+				var open: bool = _item_menu.is_open()
+				_item_menu.visible = false
+				_item_menu.chosen.emit("kalja")
+				await get_tree().process_frame
+				print("OMAT %d: valikko=%s kaljaa=%d varoitettu=%s viesti='%s'" % [k, open, beers, _own_drink_warned, _msg.text])
+			await get_tree().create_timer(3.0).timeout
+			print("OMAT loppu: tila=%s potkittu=%s" % [state, _raahe.get("kicked", false)])
 		"raahepaivi":
 			# Päivi Raahen baarissa: 1) pelaaja jää tiskille -> kiinni ja taksi kotiin; --pako: pelaaja Kellariin,
 			# Päivi seuraa portaiden kautta, pelaaja ylös ja ulos ennen kiinnijäämistä.
