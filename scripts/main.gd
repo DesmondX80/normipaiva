@@ -8659,6 +8659,67 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().physics_frame
 			print("TAKSI Pekka (lukossa): '%s'" % _hint.text)
+		"karttaveto":
+			# Paperikartta kosketuksella: veto vierittää (ei aseta kohdetta), napautus asettaa kohteen;
+			# mökillä kahden sormen nipistys zoomaa.
+			if player == bike:
+				_toggle_mount()
+			_paper.toggle()
+			for i in 3:
+				await get_tree().process_frame
+			var c: Vector2 = _paper._view.position + _paper._view.size / 2.0
+			var mb := func(pos: Vector2, down: bool) -> void:
+				var e := InputEventMouseButton.new()
+				e.button_index = MOUSE_BUTTON_LEFT
+				e.pressed = down
+				e.position = pos
+				_paper._gui_input(e)
+			var s0: float = _paper._scroll
+			mb.call(c, true)
+			for k in 12:
+				var mm := InputEventMouseMotion.new()
+				mm.position = c + Vector2(0, -20.0 * (k + 1))
+				mm.relative = Vector2(0, -20)
+				mm.button_mask = MOUSE_BUTTON_MASK_LEFT
+				_paper._gui_input(mm)
+			mb.call(c + Vector2(0, -240), false)
+			print("KARTTAVETO veto ylös: vieritys %.0f -> %.0f (max %.0f), kohde '%s'" % [s0, _paper._scroll, _paper._max_scroll(),
+				str(_paper.target)])
+			mb.call(c, true)
+			mb.call(c, false)
+			print("KARTTAVETO napautus: kohde '%s'" % [str(_paper.target)])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kartta.png"))
+			_paper.toggle()
+			mokki.ensure_built()
+			walker_out.global_position = MOKKI_POS + Vector3(5, 2, 5)
+			for i in 10:
+				await get_tree().physics_frame
+			_paper.toggle()
+			for i in 3:
+				await get_tree().process_frame
+			var z0: float = _paper._vzoom
+			var vc: Vector2 = _paper._view.global_position + _paper._view.size / 2.0
+			var touch := func(i: int, pos: Vector2, down: bool) -> void:
+				var e := InputEventScreenTouch.new()
+				e.index = i
+				e.position = pos
+				e.pressed = down
+				_paper._input(e)
+			var drag := func(i: int, pos: Vector2) -> void:
+				var e := InputEventScreenDrag.new()
+				e.index = i
+				e.position = pos
+				_paper._input(e)
+			touch.call(0, vc - Vector2(50, 0), true)
+			touch.call(1, vc + Vector2(50, 0), true)
+			for k in 10:
+				drag.call(0, vc - Vector2(50 + 10 * (k + 1), 0))
+				drag.call(1, vc + Vector2(50 + 10 * (k + 1), 0))
+			touch.call(0, vc, false)
+			touch.call(1, vc, false)
+			print("KARTTAVETO mökki vaala=%s nipistys: zoom %.3f -> %.3f" % [_paper._vaala, z0, _paper._vzoom])
+			_paper.toggle()
 		"karttanaapurit":
 			# Paperikartta: naapurien merkit kodin ympärillä.
 			_note.visible = false
