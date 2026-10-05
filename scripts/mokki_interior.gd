@@ -48,7 +48,7 @@ const SPOTS := {
 	"sauna": [Vector3(2.85, 0, -1.7), "[E] Käy sisäsaunassa"],
 	"pa": [Vector3(-0.9, 0, 1.55), "[E] Kytke Santun PA-laitteet"],
 	"sokeri": [Vector3(-1.4, 0, -3.7), "[E] Ota sokeria Santun keittiön kaapista (Santtu suuttuu!)"],
-	"sangot": [Vector3(6.1, 0, -1.6), ""],  # Paapelin viinisaavi pöntön takana olevalla seinällä: vihje main.gd:stä
+	"sangot": [Vector3(5.55, 0, -1.6), ""],  # Paapelin viinisaavi pöntön takana olevalla seinällä: vihje main.gd:stä
 }
 ## PA-kaiuttimet (jalustoilla sohvien päädyissä) ja tunnusmusiikin voimakkuus: taso 0..1 -> dB.
 const PA_SPEAKERS := [Vector3(-4.95, 0, 3.2), Vector3(0.2, 0, 3.2)]
@@ -151,7 +151,7 @@ func set_dishes(n: int) -> void:
 
 
 ## Paapelin viinisaavi pöntön takana olevan seinän keskellä: puinen saavi vanteineen, liina ja vesilukko.
-const WINE_VAT := Vector3(6.1, 0, -0.98)
+const WINE_VAT := Vector3(6.1, 0, -1.78)  # irti seinästä: matalan seinän takaa näkyy, että se on puinen saavi
 
 
 func _build_wine_buckets() -> void:
@@ -170,7 +170,7 @@ func _build_wine_buckets() -> void:
 	add_child(body)
 	var liq := B.mesh(self, B.cyl(0.31, 0.31, 0.01, 18), c + Vector3(0, 0.58, 0), Color(0.35, 0.12, 0.25))
 	_wine_liquid.append(liq)
-	var cloth := B.mesh(self, B.cyl(0.36, 0.36, 0.012, 18), c + Vector3(0, 0.62, 0), Color(0.9, 0.86, 0.78))
+	var cloth := B.mesh(self, B.cyl(0.27, 0.27, 0.012, 18), c + Vector3(0, 0.6, 0), Color(0.9, 0.86, 0.78))  # liina saavin sisällä: puureuna näkyy
 	B.mesh(cloth, B.cyl(0.025, 0.025, 0.16, 8), Vector3(0, 0.08, 0), Color(0.85, 0.9, 0.92, 0.8))
 	B.mesh(cloth, B.sphere(0.04, 8), Vector3(0, 0.17, 0), Color(0.8, 0.9, 0.95))
 	_wine_cloth.append(cloth)

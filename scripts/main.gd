@@ -8229,6 +8229,7 @@ func _maybe_screenshot() -> void:
 			print("PAAPELI sangoilla: hint '%s'" % _hint.text)
 			await press.call("interact")
 			print("PAAPELI käymään: alku %d päiviä %d korpihiiva %s hiiva %s" % [mwine_start, mwine_days, has_korpihiiva, has_yeast])
+			mokki_int.walker.position = Vector3(5.5, 0, -3.6)  # suihkun eteen, ettei peitä saavia
 			await frames.call(20)
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_sangot.png"))
