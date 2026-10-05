@@ -37,7 +37,7 @@ func _ready() -> void:
 	_list = VBoxContainer.new()
 	box.add_child(_list)
 	var help := Label.new()
-	help.text = "W/S valitse · E anna · Q peruuta"
+	help.text = "W/S tai rulla valitse · E tai vasen nappi anna · Q peruuta"
 	help.add_theme_font_size_override("font_size", 14)
 	help.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
 	box.add_child(help)
@@ -65,6 +65,18 @@ func _refresh() -> void:
 		l.add_theme_font_size_override("font_size", 20)
 		l.add_theme_color_override("font_color", Color.WHITE if i == _sel else Color(0.75, 0.75, 0.75))
 		_list.add_child(l)
+
+
+## Hiiren rulla selaa valikkoa (ei toimintona, ettei rulla liikuta hahmoa).
+func _input(event: InputEvent) -> void:
+	if not visible or not (event is InputEventMouseButton) or not event.pressed or _items.is_empty():
+		return
+	if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		_sel = (_sel - 1 + _items.size()) % _items.size()
+		_refresh()
+	elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		_sel = (_sel + 1) % _items.size()
+		_refresh()
 
 
 func _process(_delta: float) -> void:
