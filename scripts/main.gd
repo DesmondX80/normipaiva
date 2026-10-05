@@ -308,7 +308,19 @@ var interior: Node3D
 var state := "to_shop"
 var money := START_MONEY
 var beers := 0
-var elapsed := 0.0
+## Vuorokausikello (#84): pelin kellonaika minuutteina vuorokauden alusta. Vuorokausi kestää tunnin oikeaa aikaa
+## (CLOCK_RATE pelin minuuttia per oikea sekunti), kello kulkee aina pelatessa (tauko ja valikot pysäyttävät puun),
+## matkat ja välianimaatiot hyppäävät eteenpäin (_advance_clock). Päivä alkaa DAY_START. Näkyy HUD:ssa
+## rannekellona (clock_hud.gd) ja repun tietosivulla.
+const ClockHud := preload("res://scripts/clock_hud.gd")
+const CLOCK_RATE := 1440.0 / 3600.0
+const DAY_START := 8.0 * 60.0
+const HOP_RAAHE := 20.0  # taksi Saloisista Raaheen
+const HOP_VAALA := 150.0  # auto- tai taksimatka Saloisten ja Vaalan välillä
+const HOP_MOPO := 20.0  # mopomatka Neittävältä Vaalaan tai takaisin
+const HOP_NAP := 60.0  # nokoset sohvalla
+var clock_min := DAY_START
+var _clock_hud: Control
 var wife_alerted := false
 
 var _hazards: Node3D
@@ -577,7 +589,7 @@ var _msg_queue: Array = []
 var stray: CharacterBody3D
 var bitten := false
 var vaino: CharacterBody3D
-var _vaino_at := -1.0  # päivän aika (elapsed), jolloin Väinö karkaa; -1 = ei tänään
+var _vaino_at := -1.0  # kellonaika (min), jolloin Väinö karkaa; -1 = ei tänään
 var sulo: CharacterBody3D
 var has_kanister := false
 var _sulo_sold := false  # tämän päivän kanisteri on jo myyty
@@ -879,8 +891,7 @@ func _loading_hide() -> void:
 func _process(delta: float) -> void:
 	var at_mokki := _at_mokki()
 	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
-	if state in ["to_shop", "in_shop", "to_home", "fight"] and not away:
-		elapsed += delta
+	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
 	if _drone == null:
 		drone_battery = minf(drone_battery + delta / DRONE_CHARGE_S, 1.0)  # latautuu alustalla
 	if away and _hazards.process_mode != Node.PROCESS_MODE_DISABLED:
@@ -1460,6 +1471,7 @@ func _mokki_wine_party() -> void:
 			tilat.add(k, -0.7)
 		tilat.add("kipu", -0.3)
 		tilat.add("stressi", -0.2)
+		clock_min = 11.0 * 60.0  # herätys myöhään
 		_save_game())
 
 
@@ -1735,6 +1747,7 @@ func _on_home_acted(kind: String) -> void:
 			_show_message("\"%s\"" % TV_SHOWS.pick_random(), 3.0)
 		"sohva":
 			if _once_today("sohva"):
+				_advance_clock(HOP_NAP)
 				tilat.add("vasymys", 0.2)
 				tilat.add("stressi", 0.1)
 				_show_message("Nokoset sohvalla. Väsymys hellittää.", 2.5)
@@ -3217,12 +3230,12 @@ func _heal() -> void:
 
 ## Arvotaan, karkaako Väinö tänään ja milloin.
 func _roll_vaino() -> void:
-	_vaino_at = randf_range(40.0, 180.0) if randf() < VAINO_CHANCE else -1.0
+	_vaino_at = randf_range(8.5 * 60.0, 11.0 * 60.0) if randf() < VAINO_CHANCE else -1.0
 
 
 ## Väinö karkuteillä: Pekan huuto, kiinniotto jalan (nuuhkiessa tai makkaralla houkuteltuna) ja palautus.
 func _vaino_logic() -> void:
-	if _vaino_at >= 0.0 and elapsed >= _vaino_at:
+	if _vaino_at >= 0.0 and clock_min >= _vaino_at:
 		_vaino_at = -1.0
 		_vaino_escape()
 	if not is_instance_valid(vaino):
@@ -3486,6 +3499,7 @@ func _taxi_trip(escape := false) -> void:
 
 ## Raahessa: Kapteenin Kulma ja Kellari (raahe_interior.gd). Ulko-ovelta taksi kotiin ja uusi päivä.
 func _enter_raahe() -> void:
+	_advance_clock(HOP_RAAHE)
 	state = "in_raahe"
 	_hud.visible = true
 	# Päivi tulee etsimään joka toinen kerta, kun pelaaja on viihtynyt hetken (aika s, < 0 = ei tule).
@@ -3952,6 +3966,7 @@ func _ride_pekka_home(sub: String, kind: String) -> void:
 
 ## Pekan kyydin perillä (ruutu vielä pimeänä): pelaaja määränpäähän, mökillä hommat alkavat.
 func _arrive_by_car(dest: Vector3) -> void:
+	_advance_clock(HOP_VAALA)  # Saloisten ja Vaalan väli autolla
 	mokki.ensure_built()  # mökkialue rakennetaan ensimmäisellä matkalla (ruutu on vielä pimeänä)
 	walker_out.global_position = dest
 	walker_out.rotation.y = 0.0
@@ -5123,6 +5138,7 @@ func _mopo_foot_inside() -> void:
 
 ## Siitarin ovella: mopo parkkiin ja sisälle baariin (siitari_interior.gd). Ulko-ovelta takaisin mopolle.
 func _on_mopo_arrived() -> void:
+	_advance_clock(HOP_MOPO)
 	if mopo_trip.on_foot != null:
 		_mopo_remount()  # mopo parkissa Siitarin pihassa, kotimatka alkaa sen selästä
 	_hint.text = ""
@@ -5333,6 +5349,7 @@ func _mopo_restore_hud() -> void:
 
 
 func _on_mopo_finished(_result: String) -> void:
+	_advance_clock(HOP_MOPO)
 	_show_message("Mopo parkissa Paapelin pihassa.", 2.5)
 	_mopo_end()
 
@@ -6009,8 +6026,8 @@ func _win_laavu() -> void:
 	_task_done()
 	tilat.first("laavu", 0.5)
 	_drink(mini(drunk, 6))
-	var stats := "Nuotio %s  ·  Makkara %s  ·  Kaljoja juotiin %d  ·  Aika %s" % [
-		"✔" if fire_lit else "✘", "✔" if sausage_done else "✘", drunk, _time(elapsed)]
+	var stats := "Nuotio %s  ·  Makkara %s  ·  Kaljoja juotiin %d  ·  Kello %s" % [
+		"✔" if fire_lit else "✘", "✔" if sausage_done else "✘", drunk, _clock_text()]
 	beers = 0
 	stash_laavu = 0
 	player.set_carrying(false)
@@ -6597,6 +6614,7 @@ func _win(party := false, wine := false) -> void:
 				tilat.add(k, -0.7)
 			tilat.add("kipu", -0.3)
 			tilat.add("stressi", -0.2)
+			clock_min = 11.0 * 60.0  # herätys myöhään
 			_save_game())
 		return
 	if party:
@@ -6631,6 +6649,7 @@ func _load_game() -> void:
 	laavu_conquered = cfg.get_value("peli", "laavu_vallattu", false)
 	money = cfg.get_value("peli", "rahat", START_MONEY)
 	day = cfg.get_value("peli", "paiva", 1)
+	clock_min = cfg.get_value("peli", "kello", DAY_START)
 	has_chocolate = cfg.get_value("peli", "suklaa", false)
 	mielihyva = cfg.get_value("peli", "mielihyva", 0.0)
 	drone_photos = cfg.get_value("drooni", "kuvat", [])
@@ -6682,6 +6701,7 @@ func _save_game() -> void:
 	cfg.set_value("peli", "laavu_vallattu", laavu_conquered)
 	cfg.set_value("peli", "rahat", money)
 	cfg.set_value("peli", "paiva", day)
+	cfg.set_value("peli", "kello", clock_min)
 	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("peli", "mielihyva", mielihyva)
 	cfg.set_value("drooni", "kuvat", drone_photos)
@@ -6944,7 +6964,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	# jäisi sen alle (vaarat jäätyisivät koko päiväksi). Viivästetyt kutsut suoritetaan järjestyksessä.
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 	state = "to_shop"
-	elapsed = 0.0
+	clock_min = DAY_START
 	_hud.visible = true
 	_save_game()
 	_jemma_found = 0
@@ -7374,8 +7394,11 @@ func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	_hud = layer
 	add_child(layer)
-	_stats = _label(layer, 24)
-	_stats.position = Vector2(20, 16)
+	_clock_hud = ClockHud.new()  # vasen yläkulma; Päivin lappu saa mennä päälle
+	_clock_hud.position = Vector2(20, 14)
+	layer.add_child(_clock_hud)
+	_stats = _label(layer, 22)  # matkan tiedot kellon oikealla puolella
+	_stats.position = Vector2(20 + ClockHud.SIZE.x + 14, 14)
 	var help := _label(layer, 16)
 	help.text = "W/S polje · A/D ohjaa · E toiminto · F jalan/pyörälle · T syö · I reppu · M kartta · V FPS · hiiri kamera · Esc valikko"
 	help.anchor_top = 1.0
@@ -7543,17 +7566,15 @@ func _update_hud() -> void:
 			lines.append("Kädessä: %s%s" % [{"sanko": "huussin sanko", "halot": "syli halkoja", "kahvi": "Santun kahvit"}[_carry],
 				"  ⚠ läikkyy!" if _carry_slosh > 0.5 else ""])
 	var away := at_mokki or _in_vaala
-	if not away:
-		lines.append("Aika: %s" % _time(elapsed))
-		if not _risky_stashes().is_empty():
-			lines.append("⚠ Kotijemma vaarassa (I)")
-	if state in ["to_shop", "to_home"] and not away:
-		lines.append("Alusta: %s" % world.TERRAIN[player.surface].name)
+	if not away and not _risky_stashes().is_empty():
+		lines.append("⚠ Kotijemma vaarassa (I)")
 	_stamina_box.visible = state in ["to_shop", "to_home"]  # juoksu ja pyörän spurtti kuluttavat samaa kuntoa
 	if _stamina_box.visible:
 		_stamina_bar.value = walker_out.stamina
 		(_stamina_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = Color(0.9, 0.3, 0.2) if walker_out.exhausted else Color(0.3, 0.8, 0.4)
 	_stats.text = "\n".join(lines)
+	_clock_hud.minutes = clock_min
+	_clock_hud.day = day
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
 	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "lava"]) and not _in_vaala
@@ -7678,7 +7699,7 @@ func inventory_info() -> Dictionary:
 	var info := {"money": _eur(money), "lines": [], "list": [], "stashes": []}
 	if _at_mokki():
 		var mn := _mokki_drone_names()
-		info.lines = ["Päivä %d · mökillä" % day, "Kaisuantie 62, Neittävä, Vaala",
+		info.lines = ["Päivä %d · mökillä · klo %s" % [day, _clock_text()], "Kaisuantie 62, Neittävä, Vaala",
 			"Koti Saloisissa n. %d km länteen" % roundi(HOME_MOKKI_KM),
 			"Droonin ilmakuvat %d / %d" % [_drone_photo_count(mn), mn.size()],
 			"Viinakätköt %d / %d" % [viina_found.size(), Mokki.VIINA.size()]]
@@ -7692,7 +7713,7 @@ func inventory_info() -> Dictionary:
 		info.tasks = story.list()
 		return info
 	info.lines = ["Päivä %d · Järvikuja 1, Saloinen" % day, "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
-		"Aika: %s" % _time(elapsed), "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
+		"Kello %s" % _clock_text(), "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
 	if not _list_done:
 		# Keskittyminen: palkintona ensimmäisen tuotteen väri näkyy, haittana viimeinen tuote unohtuu listasta.
 		var focus: int = tilat.effect("keskittyminen")
@@ -7753,8 +7774,14 @@ func _eur(v: float) -> String:
 	return ("%.2f" % v).replace(".", ",")
 
 
-func _time(t: float) -> String:
-	return "%d:%02d" % [int(t) / 60, int(t) % 60]
+## Kellonaika tekstinä "14.30".
+func _clock_text() -> String:
+	return "%d.%02d" % [int(clock_min) / 60, int(clock_min) % 60]
+
+
+## Matka tai välianimaatio: kello hyppää eteenpäin.
+func _advance_clock(minutes: float) -> void:
+	clock_min = fmod(clock_min + minutes, 1440.0)
 
 
 # --- Debug -------------------------------------------------------------------
@@ -8259,6 +8286,47 @@ func _maybe_screenshot() -> void:
 			mokki_int.walker.position = mokki_int.SPOTS.sangot[0]
 			await frames.call(5)
 			print("PAAPELI lukossa: hint '%s'" % _hint.text)
+		"kello":
+			# Vuorokausikello: kulku ulkona, kotona, autotallissa ja mökin tuvassa, tauko pysäyttää, nokoset ja
+			# auto-/taksimatka hyppäävät, uusi päivä alkaa klo 8. Kuva HUD:sta.
+			if player == bike:
+				_toggle_mount()
+			clock_min = 14.0 * 60.0 + 27.0
+			var tick := func(label: String) -> void:
+				var c0 := clock_min
+				await get_tree().create_timer(2.0).timeout
+				print("KELLO %s: %s, +%.2f pelin min / 2 s (tila %s)" % [label, _clock_text(), clock_min - c0, state])
+			await tick.call("ulkona")
+			await RenderingServer.frame_post_draw
+			var im := get_viewport().get_texture().get_image()
+			im.save_png(path.replace(".png", "_hud.png"))
+			var crop := im.get_region(Rect2i(0, 0, 380, 130))
+			crop.resize(1140, 390, Image.INTERPOLATE_NEAREST)
+			crop.save_png(path.replace(".png", "_kello.png"))
+			_enter_home("ovi")
+			await tick.call("kotona")
+			var c1 := clock_min
+			_on_home_acted("sohva")
+			print("KELLO nokoset: +%.0f min -> %s" % [clock_min - c1, _clock_text()])
+			_on_home_exited()
+			_enter_garage()
+			await tick.call("autotallissa")
+			_on_garage_exited(false)
+			var c2 := clock_min
+			get_tree().paused = true
+			await get_tree().create_timer(2.0, true, false, true).timeout
+			get_tree().paused = false
+			print("KELLO tauolla: +%.2f" % (clock_min - c2))
+			var c3 := clock_min
+			_arrive_by_car(mokki.gpos(Mokki.RIDE_LOCAL + Vector3(0, 0.3, 2.2)))
+			print("KELLO autolla mökille: +%.0f min -> %s" % [clock_min - c3, _clock_text()])
+			await tick.call("mökillä")
+			print("KELLO repussa: ", inventory_info().lines[0])
+			_new_day(home_zone + Vector3(0, 0, 4), false)
+			print("KELLO uusi päivä %d: %s" % [day, _clock_text()])
+			await get_tree().create_timer(0.5).timeout
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_aamu.png"))
 		"korpikalle":
 			# Korpi-Kalle: osto, kuva pannusta, ratsia karkuun ja kiinni, huikka (lavan rohkeus), myynti lavan pihalla.
 			if player == bike:
@@ -11906,10 +11974,10 @@ func _maybe_screenshot() -> void:
 			Input.action_release("mount")
 			await get_tree().process_frame
 			print("REPPU pyörä: ", _msg.text)
-			var e0 := elapsed
+			var e0 := clock_min
 			for i in 30:
 				await get_tree().process_frame
-			print("REPPU aika mökillä %.2f -> %.2f" % [e0, elapsed])
+			print("REPPU aika mökillä %.2f -> %.2f" % [e0, clock_min])
 			_inventory.toggle()
 			for i in 5:
 				await get_tree().process_frame
@@ -12901,7 +12969,7 @@ func _maybe_screenshot() -> void:
 			# Väinö karkaa, pelaaja hiipii nuuhkivan koiran viereen, ottaa kiinni ja palauttaa Pekalle.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
 			_toggle_mount()
-			_vaino_at = elapsed
+			_vaino_at = clock_min
 			await get_tree().process_frame
 			await get_tree().process_frame
 			var mi: MeshInstance3D = vaino.find_children("*", "MeshInstance3D", true, false)[0]
