@@ -48,7 +48,7 @@ const SPOTS := {
 	"sauna": [Vector3(2.85, 0, -1.7), "[E] Käy sisäsaunassa"],
 	"pa": [Vector3(-0.9, 0, 1.55), "[E] Kytke Santun PA-laitteet"],
 	"sokeri": [Vector3(-1.4, 0, -3.7), "[E] Ota sokeria Santun keittiön kaapista (Santtu suuttuu!)"],
-	"sangot": [Vector3(3.9, 0, -3.4), ""],  # Paapelin kotiviini: vihje main.gd:stä
+	"sangot": [Vector3(5.75, 0, -1.75), ""],  # Paapelin viinisaavi pöntön takana: vihje main.gd:stä
 }
 ## PA-kaiuttimet (jalustoilla sohvien päädyissä) ja tunnusmusiikin voimakkuus: taso 0..1 -> dB.
 const PA_SPEAKERS := [Vector3(-4.95, 0, 3.2), Vector3(0.2, 0, 3.2)]
@@ -150,21 +150,35 @@ func set_dishes(n: int) -> void:
 			(_dish_pile.get_child(i) as Node3D).visible = i < n
 
 
-## Viinisangot pesuhuoneessa saunan seinää vasten: kaksi valkoista sankoa liinoineen ja vesilukkoineen.
+## Paapelin viinisaavi pesuhuoneessa pöntön takana: puinen saavi vanteineen, liina ja vesilukko.
+const WINE_VAT := Vector3(6.4, 0, -2.2)
+
+
 func _build_wine_buckets() -> void:
-	for k in 2:
-		var c := Vector3(3.3 + k * 0.65, 0, -2.95)
-		B.mesh(self, B.cyl(0.26, 0.22, 0.5, 16), c + Vector3(0, 0.25, 0), Color(0.95, 0.95, 0.93))
-		B.mesh(self, B.cyl(0.265, 0.265, 0.03, 16), c + Vector3(0, 0.49, 0), Color(0.85, 0.85, 0.83))
-		var liq := B.mesh(self, B.cyl(0.24, 0.24, 0.01, 16), c + Vector3(0, 0.47, 0), Color(0.35, 0.12, 0.25))
-		_wine_liquid.append(liq)
-		var cloth := B.mesh(self, B.cyl(0.29, 0.29, 0.012, 16), c + Vector3(0, 0.51, 0), Color(0.9, 0.86, 0.78))
-		B.mesh(cloth, B.cyl(0.02, 0.02, 0.14, 8), Vector3(0, 0.07, 0), Color(0.85, 0.9, 0.92, 0.8))
-		_wine_cloth.append(cloth)
+	var c := WINE_VAT
+	var wood := Color(0.52, 0.34, 0.18)
+	B.mesh(self, B.cyl(0.34, 0.29, 0.6, 18), c + Vector3(0, 0.3, 0), wood)
+	for y in [0.12, 0.52]:
+		B.mesh(self, B.cyl(0.33 if y > 0.3 else 0.305, 0.33 if y > 0.3 else 0.305, 0.04, 18), c + Vector3(0, y, 0), Color(0.3, 0.3, 0.32))
+	for k in 10:
+		var a := k * TAU / 10.0
+		B.mesh(self, B.boxm(Vector3(0.012, 0.58, 0.02)), c + Vector3(cos(a) * 0.315, 0.3, sin(a) * 0.315), wood.darkened(0.25),
+			Vector3(0, -rad_to_deg(a), 0))
+	var body := StaticBody3D.new()
+	body.position = c + Vector3(0, 0.35, 0)
+	body.add_child(B.box_shape(Vector3(0.7, 0.7, 0.7)))
+	add_child(body)
+	var liq := B.mesh(self, B.cyl(0.31, 0.31, 0.01, 18), c + Vector3(0, 0.58, 0), Color(0.35, 0.12, 0.25))
+	_wine_liquid.append(liq)
+	var cloth := B.mesh(self, B.cyl(0.36, 0.36, 0.012, 18), c + Vector3(0, 0.62, 0), Color(0.9, 0.86, 0.78))
+	B.mesh(cloth, B.cyl(0.025, 0.025, 0.16, 8), Vector3(0, 0.08, 0), Color(0.85, 0.9, 0.92, 0.8))
+	B.mesh(cloth, B.sphere(0.04, 8), Vector3(0, 0.17, 0), Color(0.8, 0.9, 0.95))
+	_wine_cloth.append(cloth)
 	for i in 3:
-		var bl := B.guide(self, "blub", Vector3(3.6, 0.8, -2.95), 24, Color(0.9, 0.7, 0.85), true)
+		var bl := B.guide(self, "blub", c + Vector3(0, 1.0, 0), 24, Color(0.9, 0.7, 0.85), true)
 		bl.visible = false
 		_blubs.append(bl)
+	B.guide(self, "Viinisaavi", c + Vector3(0, 1.25, 0), 20, Color(1, 1, 1), true)
 	set_wine("")
 
 
@@ -205,7 +219,7 @@ func _process(delta: float) -> void:
 			for bl in _blubs:
 				if not bl.visible:
 					bl.visible = true
-					bl.position = Vector3(3.6 + randf_range(-0.3, 0.3), 0.75, -2.95)
+					bl.position = WINE_VAT + Vector3(randf_range(-0.15, 0.15), 1.0, 0)
 					bl.modulate.a = 1.0
 					break
 		for bl in _blubs:
