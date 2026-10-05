@@ -1379,11 +1379,11 @@ func _mwine_hint() -> String:
 		return "Viini käy saavissa: valmis %d päivän päästä. Blub." % (mwine_days - (day - mwine_start))
 	var miss := PackedStringArray()
 	if _wine_berries() < WINE_BERRIES:
-		miss.append("marjoja %d l (ämpärissä %d l, Santulta marjapaikat)" % [WINE_BERRIES, _wine_berries()])
+		miss.append("marjoja %d l (ämpärissä %d l)" % [WINE_BERRIES, _wine_berries()])
 	if _best_yeast() == "":
-		miss.append("hiivaa (Santun jääkaappi, Vaalan kauppa tai Korpi-Kalle)")
+		miss.append("hiivaa")
 	if not has_sugar:
-		miss.append("sokeria (Vaalan kauppa tai Santun kaappi)")
+		miss.append("sokeria")
 	if miss.is_empty():
 		return "[E] Laita viini käymään saaviin (%s)" % _yeast_name(_best_yeast())
 	return "Viinisaavi. Puuttuu: " + ", ".join(miss)
@@ -1489,9 +1489,9 @@ func _wine_hint() -> String:
 	if _wine_berries() < WINE_BERRIES:
 		miss.append("marjoja %d l (ämpärissä %d l)" % [WINE_BERRIES, _wine_berries()])
 	if _best_yeast() == "":
-		miss.append("hiivaa (jääkaappi) tai turbohiivaa (kauppa)")
+		miss.append("hiivaa")
 	if not has_sugar:
-		miss.append("sokeria (kauppa tai keittiön kaappi)")
+		miss.append("sokeria")
 	if miss.is_empty():
 		return "[E] Laita kotiviini käymään (%s)" % _yeast_name(_best_yeast())
 	return "Viinisaavi. Puuttuu: " + ", ".join(miss)
