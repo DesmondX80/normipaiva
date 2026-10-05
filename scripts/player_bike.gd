@@ -274,7 +274,33 @@ func _physics_process(delta: float) -> void:
 	_update_roll_sound()
 
 
+## Kuuluvuus 0..1: pelaajan ajaessa täysi, muuten (teini ajaa, autopilotti, parkissa) kameran etäisyyden mukaan,
+## HEAR_FAR metrin päästä ei kuulu mitään. Pyörän äänet ovat ei-sijainnillisia, joten muuten ne kuuluisivat
+## koko kartalle.
+const HEAR_NEAR := 6.0
+const HEAR_FAR := 40.0
+
+
+func _hear() -> float:
+	if controls_enabled and not autopilot:
+		return 1.0
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return 0.0
+	var d := cam.global_position.distance_to(global_position)
+	return clampf(1.0 - (d - HEAR_NEAR) / (HEAR_FAR - HEAR_NEAR), 0.0, 1.0)
+
+
+## Kertaääni kuuluvuuden mukaan (hiljaa tai ei ollenkaan, kun pyörä on kaukana).
+func _sfx(sound: String, db: float, pitch := 1.0) -> void:
+	var h := _hear()
+	if h > 0.02:
+		Sfx.play(sound, db + linear_to_db(h), pitch)
+
+
 func _update_roll_sound() -> void:
+	var h := _hear()
+	var mute := linear_to_db(maxf(h, 0.0001))
 	var k := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
 	# Jarrut kirskuvat vauhdissa.
 	var braking := controls_enabled and (Input.is_action_pressed("brake") or (Input.is_action_pressed("back") and speed > 1.0))
@@ -282,11 +308,11 @@ func _update_roll_sound() -> void:
 	_squeal.volume_db = lerpf(_squeal.volume_db, want, 0.3)
 	_squeal.pitch_scale = 0.9 + k * 0.25
 	var r: Array = ROLL.get(surface, ROLL.asphalt)
-	_roll.volume_db = linear_to_db(k * 0.6 + 0.0001) + r[1] - 2.0
+	_roll.volume_db = linear_to_db(k * 0.6 + 0.0001) + r[1] - 2.0 + mute
 	_roll.pitch_scale = (0.75 + k * 0.5) * r[0]
 	# Vapaaratas naksuu vain, kun rullataan polkematta.
 	var coasting := controls_enabled and absf(speed) > 1.0 and not Input.is_action_pressed("forward")
-	_chain.volume_db = lerpf(_chain.volume_db, (linear_to_db(k * 0.7 + 0.0001) - 6.0) if coasting else -80.0, 0.25)
+	_chain.volume_db = lerpf(_chain.volume_db, (linear_to_db(k * 0.7 + 0.0001) - 6.0 + mute) if coasting else -80.0, 0.25)
 	_chain.pitch_scale = 0.6 + k * 0.8
 
 
@@ -294,8 +320,8 @@ func _update_surface() -> void:
 	var kind: String = world.surface_at(global_position) if world != null else "asphalt"
 	if kind != surface:
 		if kind == "water":
-			Sfx.play("whoosh", 2.0, 0.45)
-			Sfx.play("water", -6.0, 1.3)
+			_sfx("whoosh", 2.0, 0.45)
+			_sfx("water", -6.0, 1.3)
 		surface = kind
 	_terrain = world.TERRAIN[kind] if world != null else {"speed": 1.0, "accel": 1.0, "drag": 0.0, "bump": 0.0, "steer": 1.0, "sink": 0.0}
 
@@ -309,14 +335,14 @@ func _apply_bumps(delta: float) -> void:
 	if t.bump >= 0.08 and randf() < 0.03 * k:
 		# Juurakko metsässä: tärähdys ja vauhti hidastuu.
 		bump += 0.12
-		Sfx.play("rattle_hard", -2.0, randf_range(0.9, 1.1))
+		_sfx("rattle_hard", -2.0, randf_range(0.9, 1.1))
 		speed *= 0.85
 		_shake = 0.25
 	_visual.position.y = lerpf(_visual.position.y, -t.sink + bump, 1.0 - exp(-14.0 * delta))
 	_visual.rotation.x = lerpf(_visual.rotation.x, bump * 1.5, 1.0 - exp(-14.0 * delta))
 	_shake = maxf(_shake - delta, t.bump * k * 0.6)
 	if t.bump > 0.0 and randf() < t.bump * k * 0.25:
-		Sfx.play("rattle", -14.0 + t.bump * 60.0, randf_range(0.85, 1.15))  # lokasuoja kolisee
+		_sfx("rattle", -14.0 + t.bump * 60.0, randf_range(0.85, 1.15))  # lokasuoja kolisee
 	_debris.emitting = DEBRIS.has(surface) and absf(speed) > 2.0
 	if _debris.emitting:
 		_debris_mat.albedo_color = DEBRIS[surface]
@@ -359,7 +385,7 @@ func _update_camera(delta: float) -> void:
 func _sprint_start() -> void:
 	_shake = maxf(_shake, 0.2)
 	if randf() < FART_CHANCE:
-		Sfx.play("fart", -3.0, randf_range(0.9, 1.1))
+		_sfx("fart", -3.0, randf_range(0.9, 1.1))
 
 
 func _build_bike() -> void:
@@ -436,7 +462,7 @@ func _animate_pedals(delta: float) -> void:
 		var loud := clampf(absf(speed) / 6.0, 0.25, 1.0)
 		# Ruosteiset polkimet: vinkaisu ja narahdus vuorotellen, välillä väliin jääden.
 		if randf() < 0.7:
-			Sfx.play("pedal_creak" if _squeak_alt else "pedal_squeak", linear_to_db(loud) - 10.0,
+			_sfx("pedal_creak" if _squeak_alt else "pedal_squeak", linear_to_db(loud) - 10.0,
 				randf_range(0.9, 1.1) * (1.0 + clampf(absf(speed) / 14.0, 0.0, 1.0) * 0.15))
 		_squeak_alt = not _squeak_alt
 	var who: Node3D = _thief if _thief != null else _rider
