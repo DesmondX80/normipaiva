@@ -1728,6 +1728,7 @@ var _wc_where := ""
 ## Juoksukaljat: kauppias perässä (shop_chaser.gd). Saloisissa taksiin ehtii juuri ja juuri, Vaalassa ei taksia.
 var _shop_chaser: Node3D = null
 var _chase_viina := 0  # Vaalassa juostut Koskenkorvat (kauppias ottaa takaisin, jos voittaa)
+var _chase_loot := {}  # maksamatta viedyt: {"kalja": bool, "cart": [...], "bag": {...}} (kauppias ottaa takaisin)
 var _wc_game: CanvasLayer  # käynnissä oleva minipeli (testit)
 
 
@@ -6327,14 +6328,16 @@ func _on_vaala_shop_exited(bought: bool) -> void:
 		beers += 6
 		got.push_front("kuutonen")
 	var ran: bool = interior.stolen
+	if ran:
+		_chase_loot = {"kalja": bought, "cart": interior.cart.keys(), "bag": interior.bag.duplicate()}
 	_reset_shop_visit()
 	state = _vaala_state
 	_mopo_label.visible = true
 	_compass.visible = true
 	_mopo_resume()
 	if ran:
-		_show_message("JUOKSUKALJAT! Kauppias juoksee perään – mopolla ei pääse karkuun!\nKassissa %s. Heitä kaljoja päin!" % [
-			" ja ".join(got)], 4.0)
+		_show_message("MAKSAMATTA ULOS! Kauppias juoksee perään – mopolla ei pääse karkuun!%s" % [
+			("\nKassissa %s. Heitä kaljoja päin!" % " ja ".join(got)) if not got.is_empty() else ""], 4.0)
 		_start_shop_chase(mopo_trip.vaala.to_global(mopo_trip.vaala.kmarket_door), false)
 	elif mopo_trip.on_foot != null:
 		_show_message(("Kassissa %s." % " ja ".join(got)) if not got.is_empty() else "Takaisin ulos.", 3.0)
@@ -6424,10 +6427,15 @@ func _on_shop_exited(bought: bool) -> void:
 				food[k] = food.get(k, 0) + 1
 		for k in interior.bag:
 			paivi_bag[k] = interior.bag[k]
-		if not interior.bag.is_empty() and not bought:
+		if not interior.bag.is_empty() and not bought and not interior.stolen:
 			_show_message("Päivin ostokset kassissa. Vie ne kotiin.", 2.5)
+	if interior.stolen:
+		_chase_loot = {"kalja": bought, "cart": interior.cart.keys(), "bag": interior.bag.duplicate()}
 	if not bought:
 		state = _shop_prev  # aiemmin tänään ostettu kuutonen pysyy ostettuna
+		if interior.stolen:
+			_show_message("MAKSAMATTA ULOS! Kauppias juoksee perään – se on nopeampi kuin pyörä!\nTaksiin tai pakoon!", 4.0)
+			_start_shop_chase(shop_door, true)
 		return
 	beers += 6
 	state = "to_home"  # = kuutonen ostettu tänään (ei tehtävä: kotiin tai kauppaan voi mennä milloin vain)
@@ -6586,6 +6594,36 @@ func _chasing() -> bool:
 
 ## Tappelu kauppiaan kanssa ohi: voitolla kaljat jäävät (heitetyt menivät), tappiolla kauppias vie loput kaljat
 ## (Vaalassa myös juostut Koskenkorvat) takaisin hyllyyn, eikä kuutosta ole haettu.
+## Kauppias otti varastetut takaisin (paitsi kaljat ja viinat, jotka käsitellään erikseen). Palauttaa nimet.
+func _reclaim_loot() -> PackedStringArray:
+	var out := PackedStringArray()
+	for k in _chase_loot.get("cart", []):
+		match String(k):
+			"makkara":
+				has_sausage = false
+				out.append("makkarat")
+			"tikut":
+				has_matches = false
+			"suklaa":
+				has_chocolate = false
+				out.append("suklaan")
+			"turbohiiva":
+				has_turbo = false
+			"sokeri":
+				has_sugar = false
+			"pulla", "piirakka":
+				food[k] = food.get(k, 0) - 1
+				if food[k] <= 0:
+					food.erase(k)
+				out.append("eväät")
+	var bag: Dictionary = _chase_loot.get("bag", {})
+	for prod in bag:
+		paivi_bag.erase(prod)
+	if not bag.is_empty():
+		out.append("Päivin ostokset")
+	return out
+
+
 func _kauppias_fight_end(won: bool, note: String) -> void:
 	var c := _shop_chaser
 	_shop_chaser = null
@@ -6594,21 +6632,29 @@ func _kauppias_fight_end(won: bool, note: String) -> void:
 			c.defeat()
 		tilat.add("moraali", 0.1)
 		tilat.add("kokemus", 0.1)
-		_show_message("K.O.! Kauppias laahusti kassalle. Kaljat jäi sulle!%s" % note, 3.5)
+		_show_message("K.O.! Kauppias laahusti kassalle. Tavarat jäi sulle!%s" % note, 3.5)
+		_chase_loot = {}
 	else:
 		if is_instance_valid(c):
 			c.gloat()
 		if player.has_method("stun"):
 			player.stun(_fight_dir)
-		var took := beers
-		beers = 0
+		var took := beers if _chase_loot.get("kalja", true) else 0
+		if _chase_loot.get("kalja", true):
+			beers = 0
 		viina_pullot = maxi(0, viina_pullot - _chase_viina)
+		var back := _reclaim_loot()
 		Sfx.play("glass", -6.0, 0.8)
 		if not _in_vaala:
 			state = "to_shop"  # kuutonen palautui hyllyyn: ei haettu tänään
+		var what := PackedStringArray()
+		if took > 0:
+			what.append("%d kaljaa" % took)
+		what.append_array(back)
 		_show_message("Hävisit! Kauppias vei %s takaisin hyllyyn ja kung fu -potkaisi perään.%s" % [
-			"%d kaljaa" % took if took > 0 else "kaljat", note], 3.5)
+			", ".join(what) if not what.is_empty() else "tavarat", note], 3.5)
 	_chase_viina = 0
+	_chase_loot = {}
 	player.set_carrying(beers > 0)
 
 
@@ -9761,6 +9807,41 @@ func _maybe_screenshot() -> void:
 				if _in_forest(q):
 					n_forest += 1
 			print("PEDOT mökin ympäristöstä metsää %d / 40, mökin piha metsää? %s" % [n_forest, _in_forest(MOKKI_POS)])
+		"maksamatta":
+			# Maksamatta ulos: rahaa on, mutta lähdetään ovesta. Kauppias perään; tappiolla tavarat takaisin, voitolla jää.
+			if player == bike:
+				_toggle_mount()
+			for win in [false, true]:
+				money = 50.0
+				has_sausage = false
+				paivi_bag.clear()
+				_enter_shop()
+				for g in interior._queue:
+					g.queue_free()
+				interior._queue.clear()
+				interior.cart["makkara"] = 3.5
+				interior.bag["maito"] = "sininen"
+				interior.walker.set_carrying(true)
+				interior.walker.position = ShopInterior.DOOR
+				for i in 5:
+					await get_tree().physics_frame
+				await get_tree().process_frame
+				print("MAKSAMATTA ovella: hint '%s'" % _hint.text)
+				await get_tree().process_frame
+				Input.action_press("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("interact")
+				for i in 5:
+					await get_tree().process_frame
+				print("MAKSAMATTA ulos: tila %s, makkara %s, Päivin kassi %s, rahaa %.2f, kauppias perässä %s, viesti '%s'" % [state,
+					has_sausage, paivi_bag, money, is_instance_valid(_shop_chaser), _msg.text.replace("
+", " | ")])
+				_kauppias_fight_end(win, "")
+				print("MAKSAMATTA tappelu %s: makkara %s, Päivin kassi %s, viesti '%s'" % ["voitto" if win else "tappio", has_sausage,
+					paivi_bag, _msg.text])
+				for i in 10:
+					await get_tree().process_frame
 		"kauppapalautus":
 			# Rahat ei riitä: kalja ja makkara palautetaan hyllyyn, sitten kassalla Q jättää ostokset tiskille.
 			if player == bike:
