@@ -184,6 +184,10 @@ const HomeInterior := preload("res://scripts/home_interior.gd")
 ## (carb_game.gd), työpöytä (pyörän huolto), radio, pakastearkku, työkalukaappi (jemma) ja pyörän paikka.
 const GarageInterior := preload("res://scripts/garage_interior.gd")
 const CarbGame := preload("res://scripts/carb_game.gd")
+## Savusaunan korjaus (Santun homma "saunakorjaus", saunakorjaus_game.gd): kivet rannalta, kiuas ja lauteet sisällä,
+## tervaus takaseinällä, savuluukku ja ovi terassilla. Korjattu sauna lämpiää normaalisti (mokki.sauna_fixed).
+const SaunaKorjaus := preload("res://scripts/saunakorjaus_game.gd")
+const KORJAUS_VAIHEET := {"kiuas": "kiuaskivet", "lauteet": "lauteiden laudat", "terva": "seinien tervaus", "luukku": "savuluukku ja ovi"}
 const GARAGE_INT_POS := Vector3(-9000, 0, 3000)
 const BIKE_TUNE := 1.1  # työpöydällä huollettu pyörä: huippunopeus ja kiihtyvyys päivän ajan
 ## Sisätiloissa olevat jemmat (eteisen kaappi kodin eteisessä, työkalukaappi tallissa): _stash_ui sisältä.
@@ -4053,6 +4057,8 @@ func _mokki_logic() -> void:
 		if e:
 			_start_pingis()
 		return
+	if hommat.pending("saunakorjaus") and _saunakorjaus_logic(near, e):
+		return
 	if near.call(Mokki.SAUNA_LOCAL, 2.2):
 		_sauna_logic(e)
 		return
@@ -4078,6 +4084,85 @@ func _mokki_logic() -> void:
 		if e:
 			_santtu_menu()
 		return
+
+
+## Savusaunan korjauksen paikat: kivikasa rannalla, sisällä kiuas ja lauteet, takaseinä ja terassin ovi.
+func _saunakorjaus_logic(near: Callable, e: bool) -> bool:
+	var pr: Dictionary = hommat.progress.get("korjaus", {})
+	hommat.progress["korjaus"] = pr
+	var stones: bool = hommat.progress.get("kivet", false)
+	if near.call(Mokki.KIVI_LOCAL, 1.8):
+		if pr.has("kiuas") or stones:
+			_hint.text = "Rannan kivikasa. Kiuaskivet on jo haettu."
+			return true
+		_hint.text = "[E] Kerää kiuaskiviä rannan kivikasasta"
+		if e:
+			_start_saunakorjaus("kivet")
+		return true
+	if near.call(Mokki.KORJAUS_IN_LOCAL, 1.0):
+		if not pr.has("kiuas"):
+			if stones:
+				_hint.text = "[E] Vaihda kiuaskivet (rapautuneet pois, uudet tilalle)"
+				if e:
+					_start_saunakorjaus("kiuas")
+			else:
+				_hint.text = "Kiukaan kivet on rapautuneet. Hae uudet rannan kivikasasta."
+			return true
+		if not pr.has("lauteet"):
+			_hint.text = "[E] Vaihda lauteiden lahot laudat"
+			if e:
+				_start_saunakorjaus("lauteet")
+			return true
+		return false
+	if near.call(Mokki.KORJAUS_TERVA_LOCAL, 1.5) and not pr.has("terva"):
+		_hint.text = "[E] Tervaa savusaunan hirsiseinä"
+		if e:
+			_start_saunakorjaus("terva")
+		return true
+	if near.call(Mokki.KORJAUS_OVI_LOCAL, 1.2) and not pr.has("luukku"):
+		_hint.text = "[E] Korjaa jumittunut savuluukku ja vino ovi"
+		if e:
+			_start_saunakorjaus("luukku")
+		return true
+	return false
+
+
+func _start_saunakorjaus(mode: String) -> void:
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	_hud.visible = false
+	CamCtl.free_mouse = true
+	var g := SaunaKorjaus.new()
+	g.mode = mode
+	g.drunk = _hand_shake()
+	g.comment.connect(func(t: String) -> void: mokki.say(t, 3.0))
+	g.thumb.connect(func() -> void:
+		tilat.add("kipu", -0.15)
+		tilat.add("stressi", -0.05))
+	g.finished.connect(func(ok: bool) -> void:
+		CamCtl.free_mouse = false
+		walker_out.controls_enabled = true
+		_hud.visible = true
+		if not ok:
+			return
+		if mode == "kivet":
+			hommat.progress["kivet"] = true
+			_show_message("Kiuaskivet mukana. Vie ne savusaunaan ja vaihda kiukaaseen.", 3.0)
+			return
+		var pr: Dictionary = hommat.progress.get("korjaus", {})
+		pr[mode] = true
+		hommat.progress["korjaus"] = pr
+		tilat.first("saunakorjaus_" + mode, 0.15)
+		if pr.size() >= KORJAUS_VAIHEET.size():
+			_hommat_complete("saunakorjaus")
+		else:
+			var left := PackedStringArray()
+			for k in KORJAUS_VAIHEET:
+				if not pr.has(k):
+					left.append(KORJAUS_VAIHEET[k])
+			_show_message("Savusaunan korjaus: %s tehty (%d / %d). Jäljellä: %s." % [KORJAUS_VAIHEET[mode], pr.size(),
+				KORJAUS_VAIHEET.size(), ", ".join(left)], 3.5))
+	add_child(g)
 
 
 ## Savusauna: sylit halkopinosta pesään, lämpö täyteen, savut tuulettumaan ja sitten löylyihin. Liian aikaisin
@@ -4113,6 +4198,8 @@ func _sauna_logic(e: bool) -> void:
 	elif _carry == "halot":
 		_hint.text = "[E] Pane halot pesään ja sytytä%s" % (" (kiuas %d %%)" % pct if pct > 0 else "")
 		if e:
+			if not mokki.sauna_fixed and _once_today("sauna_rikki"):
+				_queue_message("Savusauna on retuperällä: lämpiää hitaasti ja savuttaa pitkään. Santtu tietää, mitä pitäisi korjata.", 3.5)
 			mokki.sauna_add_wood()
 			_set_carry("")
 			if _once_today("kiuas"):
@@ -4576,6 +4663,9 @@ func _hommat_finished(id: String, by_santtu: bool) -> void:
 
 func _hommat_visual_done(id: String) -> void:
 	match id:
+		"saunakorjaus":
+			hommat.sauna_fixed = true
+			mokki.set_sauna_fixed(true)
 		"ampiaiset":
 			mokki.wasp_nest.visible = false
 		"huussi":
@@ -4711,6 +4801,9 @@ func _watch_context() -> Array:
 		return ["laituri", _dock_fix_local()]
 	if hommat.pending("metsastys") and near.call(Mokki.HUNT_LOCAL, 4.0):
 		return ["metsastys", Mokki.HUNT_LOCAL]
+	if hommat.pending("saunakorjaus") and (near.call(Mokki.KORJAUS_TERVA_LOCAL, 3.5) or near.call(Mokki.KORJAUS_OVI_LOCAL, 3.5)
+			or near.call(Mokki.KIVI_LOCAL, 3.5)):
+		return ["saunakorjaus", Mokki.KORJAUS_OVI_LOCAL + Vector3(-1.5, 0, 1.2)]
 	return []
 
 
@@ -6673,6 +6766,9 @@ func _load_game() -> void:
 	mwine_locked = cfg.get_value("paapeli", "viini_lukossa", false)
 	mwine_endings = cfg.get_value("paapeli", "bileet", 0)
 	mokki_forage_revealed = cfg.get_value("paapeli", "marjapaikat", false)
+	if mokki != null:
+		mokki.set_sauna_fixed(cfg.get_value("paapeli", "savusauna_korjattu", false))
+		hommat.sauna_fixed = mokki.sauna_fixed
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
 	lawn.load_state(cfg.get_value("nurmikko", "pituudet", PackedByteArray()))
 	lawn_siilit = cfg.get_value("nurmikko", "siilit", 0)
@@ -6725,6 +6821,7 @@ func _save_game() -> void:
 	cfg.set_value("paapeli", "viini_lukossa", mwine_locked)
 	cfg.set_value("paapeli", "bileet", mwine_endings)
 	cfg.set_value("paapeli", "marjapaikat", mokki_forage_revealed)
+	cfg.set_value("paapeli", "savusauna_korjattu", mokki.sauna_fixed if mokki != null else false)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
 	if lawn != null:
 		cfg.set_value("nurmikko", "pituudet", lawn.save_state())
@@ -7397,8 +7494,8 @@ func _build_hud() -> void:
 	_clock_hud = ClockHud.new()  # vasen yläkulma; Päivin lappu saa mennä päälle
 	_clock_hud.position = Vector2(20, 14)
 	layer.add_child(_clock_hud)
-	_stats = _label(layer, 22)  # matkan tiedot kellon oikealla puolella
-	_stats.position = Vector2(20 + ClockHud.SIZE.x + 14, 14)
+	_stats = _label(layer, 22)  # matkan tiedot (viinakätköt, Santun hommat) kellon alla; pitkä rivi ei ylety kompassiin
+	_stats.position = Vector2(20, 14 + ClockHud.SIZE.y + 6)
 	var help := _label(layer, 16)
 	help.text = "W/S polje · A/D ohjaa · E toiminto · F jalan/pyörälle · T syö · I reppu · M kartta · V FPS · hiiri kamera · Esc valikko"
 	help.anchor_top = 1.0
@@ -8286,6 +8383,77 @@ func _maybe_screenshot() -> void:
 			mokki_int.walker.position = mokki_int.SPOTS.sangot[0]
 			await frames.call(5)
 			print("PAAPELI lukossa: hint '%s'" % _hint.text)
+		"saunakorjaus":
+			# Savusaunan korjaus: Santun homma, kivikasa, neljä vaihetta (kuvat minipeleistä, vaiheet kuitataan), lopuksi
+			# korjattu sauna (tervatut seinät, suora ovi) ja lämpenemisen vertailu.
+			if player == bike:
+				_toggle_mount()
+			mokki.ensure_built()
+			mokki.set_sauna_fixed(false)
+			hommat.sauna_fixed = false
+			hommat.active = true
+			hommat.tasks = ["saunakorjaus"]
+			hommat.done.clear()
+			hommat.progress.clear()
+			_note.visible = false
+			var press := func() -> void:
+				await get_tree().process_frame
+				Input.action_press("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+			var go := func(local: Vector3) -> void:
+				walker_out.global_position = mokki.gpos(local) + Vector3(0, 0.3, 0)
+				walker_out.velocity = Vector3.ZERO
+				for i in 8:
+					await get_tree().physics_frame
+				for i in 3:
+					await get_tree().process_frame
+			print("SAUNA kivikasa vedessä %s" % Mokki.in_water(Mokki.KIVI_LOCAL.x, Mokki.KIVI_LOCAL.z))
+			# Lämpeneminen rikkinäisenä.
+			mokki.sauna_heat = 0.0
+			mokki.sauna_fire_on = true
+			mokki.sauna_fuel = 30.0
+			for i in 60:
+				await get_tree().physics_frame
+			var broken_heat: float = mokki.sauna_heat
+			mokki.sauna_fire_on = false
+			mokki.sauna_heat = 0.0
+			for step in ["kivet", "kiuas", "lauteet", "terva", "luukku"]:
+				var at: Vector3 = {"kivet": Mokki.KIVI_LOCAL, "kiuas": Mokki.KORJAUS_IN_LOCAL, "lauteet": Mokki.KORJAUS_IN_LOCAL,
+					"terva": Mokki.KORJAUS_TERVA_LOCAL, "luukku": Mokki.KORJAUS_OVI_LOCAL}[step]
+				await go.call(at)
+				print("SAUNA %s: hint '%s'" % [step, _hint.text])
+				await press.call()
+				var g: Node = get_children().filter(func(c): return c is SaunaKorjaus).front()
+				if g == null:
+					print("SAUNA %s: peli ei auennut" % step)
+					continue
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % step))
+				g._finish(true)
+				await get_tree().process_frame
+				print("SAUNA %s valmis: viesti '%s'" % [step, _msg.text.replace("\n", " | ")])
+			print("SAUNA lopuksi: homma tehty %s, korjattu %s" % ["saunakorjaus" in hommat.done, mokki.sauna_fixed])
+			mokki.sauna_fire_on = true
+			mokki.sauna_fuel = 30.0
+			for i in 60:
+				await get_tree().physics_frame
+			print("SAUNA lämpö 1 s: rikki %.3f, korjattu %.3f" % [broken_heat, mokki.sauna_heat])
+			mokki.sauna_fire_on = false
+			await go.call(Mokki.KORJAUS_OVI_LOCAL + Vector3(-4.0, 0, 0))
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.global_position = mokki.gpos(Mokki.SAUNA_LOCAL + Vector3(-6.0, 2.5, 4.0))
+			cam.look_at(mokki.gpos(Mokki.SAUNA_LOCAL + Vector3(0, 1.0, 1.0)), Vector3.UP)
+			cam.current = true
+			for i in 10:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_korjattu.png"))
 		"kello":
 			# Vuorokausikello: kulku ulkona, kotona, autotallissa ja mökin tuvassa, tauko pysäyttää, nokoset ja
 			# auto-/taksimatka hyppäävät, uusi päivä alkaa klo 8. Kuva HUD:sta.

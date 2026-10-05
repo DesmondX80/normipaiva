@@ -40,7 +40,11 @@ const TASKS := {
 		"spot": Mokki.HUNT_LOCAL},
 	"pa": {"lappu": "PA:n kytkennät on sekaisin, korjaa ne tuvassa", "nimi": "PA-laitteet",
 		"spot": Mokki.COTTAGE_DOOR_SPOT},
+	"saunakorjaus": {"lappu": "Korjaa savusauna: uudet kiuaskivet rannalta, lauteiden laudat, seinät tervaan, savuluukku ja ovi",
+		"nimi": "Savusaunan korjaus", "spot": Mokki.KORJAUS_IN_LOCAL},
 }
+## Korjattu savusauna ei enää tarvitse korjausta (main.gd asettaa).
+var sauna_fixed := false
 ## Hommia päivässä: toisena mökkipäivänä 3, siitä eteenpäin 4.
 const HOMMIA_N := [3, 4]
 ## Hermot nousevat sekunnissa tekemätöntä hommaa kohden (4 hommaa = noin 12 min pelivaraa).
@@ -56,6 +60,14 @@ const LEVELS := [35.0, 60.0, 85.0]
 ## Repliikit hommittain: anna (aamulla tai kysyttäessä), tulee (Santtu tulee katsomaan), kesken (kommentit
 ## homman aikana), valmis (homma tehty), huuto (muistutus kaukaa, kun homma odottaa).
 const LINES := {
+	"saunakorjaus": {
+		"anna": "Savusauna on retuperällä: kiuaskivet rapautunu, lauteet laholla, seinät kaipaa tervaa ja räppänä on jumissa. Kivikasa on rannassa.",
+		"tulee": ["Mää tuun kattomaan. Tuo sauna on mun vaarin tekemä.", "Varovasti, se on vanha sauna."],
+		"kesken": ["Kiuas ensin, ilman sitä ei oo saunaa.", "Terva tuoksuu! Niin pitääkin.", "Räppänä pitää saada auki, muuten savu jää sisään.",
+			"Hyvä, hyvä. Vaari ois ylpeä."],
+		"valmis": "Savusauna on ku uus! Lämpiää ja tuulettuu niinku pitää.",
+		"huuto": ["Se savusauna ei korjaannu itestään!", "Kiuaskivet on rannan kivikasassa!"],
+	},
 	"puut": {
 		"anna": "Halkopino hupenee. Sahaa ja halko, niin saunassa riittää lämpöä.",
 		"tulee": ["No niin, katotaan miten kaupunkilainen sahaa.", "Mää tuun kattomaan, ettei mee varpaat."],
@@ -212,6 +224,8 @@ func start_day() -> void:
 	if not active:
 		return
 	var ids: Array = TASKS.keys()
+	if sauna_fixed:
+		ids.erase("saunakorjaus")
 	ids.shuffle()
 	tasks = ids.slice(0, HOMMIA_N[mini(nights - 1, HOMMIA_N.size() - 1)])
 

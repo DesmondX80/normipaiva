@@ -68,6 +68,14 @@ const GUTTER_Z := -3.85                           # ränni takaräystään alla
 const GUTTER_UP := 2.78                           # rännin korkeus mökin lattiatason maasta
 const WASP_STAND_LOCAL := Vector3(2.2, 0, 16.9)  # ampiaispesän edessä saunan terassin kulmalla
 const DOCK_FIX_LOCAL := Vector3(8.9, 0, 49.0)    # laiturin lahot laudat
+## Savusaunan korjaus (Santun homma): rannan kivikasa, sisällä kiuas ja lauteet, takaseinä tervaukseen, terassilla
+## savuluukku ja ovi. Korjaamaton sauna lämpiää hitaasti ja savuttaa pitkään (sauna_fixed).
+const KIVI_LOCAL := Vector3(5.0, 0, 42.0)
+const KORJAUS_IN_LOCAL := Vector3(5.1, 0, 19.7)
+const KORJAUS_TERVA_LOCAL := Vector3(8.6, 0, 19.1)
+const KORJAUS_OVI_LOCAL := Vector3(3.5, 0, 19.65)
+const BROKEN_HEAT := 0.55
+const BROKEN_SMOKE := 1.8
 ## Viinakätköt mökin ympäröivässä metsässä geokätköjen tapaan: kompassi ja HUD näyttävät lähimmän löytämättömän
 ## kätkön suunnan ja matkan (main.gd _viina_logic). Paikat arvotaan kiinteällä siemenellä (viina_positions).
 const VIINA := [
@@ -167,6 +175,9 @@ var sauna_heat := 0.0
 var sauna_fuel := 0.0
 var sauna_smoke := 0.0
 var sauna_heated := false
+var sauna_fixed := false  # savusauna korjattu (Santun homma): lämpiää ja tuulettuu normaalisti
+var _sauna_logs: Array[MeshInstance3D] = []
+var _sauna_door: Node3D
 signal sauna_event(kind: String)  # "sammui", "kuuma", "valmis"
 var _sauna_smoke_fx: CPUParticles3D
 ## Palju: vettä (0–1), likaa (0–1) ja pumppu järvestä.
@@ -1252,12 +1263,13 @@ func _build_savusauna() -> void:
 		while y < wall_h:
 			var col := log_col if int(y * 10) % 2 else log_col.darkened(0.12)
 			if horiz:
-				B.mesh(sauna, B.cyl(0.09, 0.09, len + 0.18, 8), Vector3(0, y, off), col, Vector3(0, 0, 90))
+				_sauna_logs.append(B.mesh(sauna, B.cyl(0.09, 0.09, len + 0.18, 8), Vector3(0, y, off), col, Vector3(0, 0, 90)))
 			elif side == 3 and y < 1.7:
 				for sz in [-1.0, 1.0]:
-					B.mesh(sauna, B.cyl(0.09, 0.09, (len - 0.8) / 2.0, 8), Vector3(off, y, sz * (len + 0.8) / 4.0), col, Vector3(90, 0, 0))
+					_sauna_logs.append(B.mesh(sauna, B.cyl(0.09, 0.09, (len - 0.8) / 2.0, 8), Vector3(off, y, sz * (len + 0.8) / 4.0), col,
+						Vector3(90, 0, 0)))
 			else:
-				B.mesh(sauna, B.cyl(0.09, 0.09, len + 0.18, 8), Vector3(off, y, 0), col, Vector3(90, 0, 0))
+				_sauna_logs.append(B.mesh(sauna, B.cyl(0.09, 0.09, len + 0.18, 8), Vector3(off, y, 0), col, Vector3(90, 0, 0)))
 			y += 0.17
 	# Törmäys kolmelle umpiseinälle; oviseinä jätetään avoimeksi (kulkuaukko).
 	for side in range(3):
@@ -1276,6 +1288,7 @@ func _build_savusauna() -> void:
 	var door := Node3D.new()
 	door.position = Vector3(-w / 2.0 - 0.03, 0.05, 0.55)
 	sauna.add_child(door)
+	_sauna_door = door
 	B.mesh(door, B.boxm(Vector3(0.06, 1.7, 0.75)), Vector3(0, 0.85, 0), Color(0.35, 0.24, 0.14))
 	B.mesh(sauna, B.boxm(Vector3(0.05, 0.5, 0.5)), Vector3(-w / 2.0 - 0.02, 1.1, -0.7), Color(0.94, 0.94, 0.9))
 	# Katettu terassi ovella: pukit, penkki, jakkarat ja saavit (kuten kuvassa).
@@ -1310,6 +1323,16 @@ func _build_savusauna() -> void:
 		ring.scale = Vector3(1.0, 0.6, 1.0)
 	B.mesh(wasp_nest, B.sphere(0.03, 8), Vector3(0, -0.27, 0), Color(0.08, 0.07, 0.06))  # suuaukko
 	B.mesh(wasp_nest, B.cyl(0.015, 0.02, 0.12, 6), Vector3(0, 0.08, 0), paper.darkened(0.2))
+	# Rannan kivikasa (kiuaskivet) ja korjaamattoman saunan vino ovi.
+	var pile := Node3D.new()
+	pile.position = Vector3(KIVI_LOCAL.x, h(KIVI_LOCAL.x, KIVI_LOCAL.z), KIVI_LOCAL.z)
+	add_child(pile)
+	for k in 14:
+		var a := k * 2.4
+		var r := 0.12 + (k % 3) * 0.04
+		B.mesh(pile, B.sphere(r, 8), Vector3(cos(a) * (0.2 + k * 0.035), r * 0.7 + (0.12 if k < 4 else 0.0), sin(a) * (0.2 + k * 0.035)),
+			Color(0.36, 0.37, 0.38).lerp(Color(0.5, 0.48, 0.45), (k % 4) / 4.0)).scale = Vector3(1.0, 0.7, 1.0)
+	set_sauna_fixed(sauna_fixed)
 
 
 func _make_fire(parent: Node3D, pos: Vector3, sz: float) -> Node3D:
@@ -1769,10 +1792,25 @@ func _smoke_fx(pos: Vector3) -> CPUParticles3D:
 
 # --- Savusaunan lämmitys ja palju ------------------------------------------------------
 
+## Korjattu savusauna: tervatut (tummemmat) hirret ja suora ovi; korjaamattomana ovi roikkuu vinossa.
+func set_sauna_fixed(on: bool) -> void:
+	sauna_fixed = on
+	for m in _sauna_logs:
+		var mat := m.material_override as StandardMaterial3D
+		if mat != null:
+			if not m.has_meta("c0"):
+				m.set_meta("c0", mat.albedo_color)
+			var c0: Color = m.get_meta("c0")
+			mat.albedo_color = c0.darkened(0.35) if on else c0
+			mat.roughness = 0.55 if on else 1.0
+	if _sauna_door != null:
+		_sauna_door.rotation = Vector3(0, 0.0 if on else 0.35, 0.0 if on else 0.05)
+
+
 func _sauna_tick(delta: float) -> void:
 	if sauna_fire_on:
 		sauna_fuel -= delta
-		sauna_heat = minf(1.0, sauna_heat + SAUNA_HEAT_RATE * delta)
+		sauna_heat = minf(1.0, sauna_heat + SAUNA_HEAT_RATE * delta * (1.0 if sauna_fixed else BROKEN_HEAT))
 		sauna_smoke = 1.0
 		_sauna_fire.visible = true
 		if sauna_heat >= 1.0 and not sauna_heated:
@@ -1788,7 +1826,7 @@ func _sauna_tick(delta: float) -> void:
 	else:
 		sauna_heat = maxf(0.0, sauna_heat - SAUNA_COOL * delta)
 		if sauna_smoke > 0.0:
-			sauna_smoke = maxf(0.0, sauna_smoke - delta / SAUNA_CLEAR)
+			sauna_smoke = maxf(0.0, sauna_smoke - delta / (SAUNA_CLEAR * (1.0 if sauna_fixed else BROKEN_SMOKE)))
 			if sauna_smoke <= 0.0 and sauna_heated:
 				sauna_event.emit("valmis")
 	_sauna_smoke_fx.emitting = sauna_smoke > 0.08
