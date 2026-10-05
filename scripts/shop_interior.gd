@@ -156,12 +156,12 @@ func _process(delta: float) -> void:
 	var e := Input.is_action_just_pressed("interact") and not busy and Engine.get_process_frames() != _enter_frame
 	var broke := not has_paid and _total() > money + 0.001
 	if _flat(p, DOOR) < 1.4:
-		if has_items and not has_paid and (has_beer or alko_count() > 0) and broke:
-			hint = "[E] Juoksukaljat! Rahat ei riitä (%s €): kaljat ja viinat mukaan maksamatta" % _eur(_total())
+		if has_items and not has_paid:
+			# Maksamatta saa lähteä milloin vain, mutta kauppias tulee perään (main.gd _start_shop_chase).
+			hint = "[E] Lähde maksamatta (%s €) – kauppias tulee perään!%s" % [_eur(_total()),
+				"" if not broke else "  · Tai vie tavarat takaisin hyllyyn."]
 			if e:
 				_run_out()
-		elif has_items and not has_paid:
-			hint = "Maksa ensin! Kassalle jonoon." if not broke else 				"Rahat ei riitä: vie tavarat takaisin hyllyyn tai jätä ne kassalle."
 		else:
 			hint = "[E] Poistu kaupasta"
 			if e:
@@ -291,12 +291,8 @@ Rahat ei riitä (%s / %s €): palauta tavaraa samaan hyllyyn, josta otit" % [_e
 		hint = "Maksettu! Ulos ovesta."
 
 
-## Juoksukaljat: muut tuotteet jäävät oven viereen, kaljat ja Alkon pullot lähtevät mukaan maksamatta.
+## Maksamatta ulos: kaikki korin tavarat ja Päivin kassi lähtevät mukaan, kauppias tulee perään.
 func _run_out() -> void:
-	for k in cart.keys():
-		if not String(k).begins_with("viina"):
-			cart.erase(k)
-	bag.clear()
 	stolen = true
 	has_paid = true
 	_cashier_say("Hei! Maksamatta! Tuu takasin!")
