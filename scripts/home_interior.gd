@@ -39,6 +39,7 @@ const SPOTS := {
 	"sauna": [Vector3(7.0, 0, 3.6), "[E] Heitä löylyä"],
 	"kahvi": [Vector3(2.0, 0, -4.6), "[E] Keitä kahvit"],
 	"jaakaappi": [Vector3(5.0, 0, -4.4), "[E] Kurkkaa jääkaappiin"],
+	"sokeri": [Vector3(3.5, 0, -4.6), "[E] Ota sokeria keittiön kaapista (Päivi suuttuu!)"],
 	"tv": [Vector3(-0.2, 0, -4.3), "[E] Katso telkkaria"],
 	"sohva": [Vector3(1.7, 0, -2.8), "[E] Ota nokoset sohvalla"],
 	"nortti": [Vector3(8.0, 0, -3.6), "[E] Jutskaa nörtin kanssa"],
