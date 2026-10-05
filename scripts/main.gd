@@ -3909,7 +3909,12 @@ func _neighbor_logic() -> void:
 		if v.distance_to_player() > 4.2:
 			continue
 		var who := "arto" if v == arto else "pekka"
-		if who == "arto" and mower_broken and not has_mower_part:
+		# Myytävät marjat tai sienet ensin: muuten leikkurin varaosa tai haavanhoito estäisi myynnin (ja tarinan tehtävät).
+		var has_goods := false
+		for k in bucket:
+			if GOODS[k].buyer == who and bucket[k] > 0:
+				has_goods = true
+		if who == "arto" and mower_broken and not has_mower_part and not has_goods:
 			if player == bike:
 				_hint.text = "Nouse pyörän selästä (F), niin voit kysyä Artolta leikkurin varaosaa."
 			elif money < LAWN_PART_PRICE:
@@ -3924,7 +3929,7 @@ func _neighbor_logic() -> void:
 					_show_message("Varaosa mukana. Vielä kalja, niin leikkuri korjataan.", 3.0)
 					_save_game()
 			return
-		if who == "pekka" and bitten:
+		if who == "pekka" and bitten and not has_goods:
 			if player == bike:
 				_hint.text = "Nouse pyörän selästä (F), niin Pekka voi katsoa haavaa."
 			elif beers <= 0 and money < PEKKA_CARE:
@@ -3946,7 +3951,7 @@ func _neighbor_logic() -> void:
 		for k in bucket:
 			if GOODS[k].buyer == who:
 				sale += bucket[k] * GOODS[k].price
-		if who == "arto" and not world.forage_revealed:
+		if who == "arto" and not world.forage_revealed and not has_goods:
 			_hint.text = "[E] Juttele Arton kanssa"
 			if e:
 				world.forage_revealed = true
@@ -3959,12 +3964,15 @@ func _neighbor_logic() -> void:
 			if e:
 				money += sale
 				tilat.add("moraali", 0.1)
+				var sold := {}
 				for k in bucket.keys():
 					if GOODS[k].buyer == who:
+						sold[k] = bucket[k]
 						bucket.erase(k)
 				v.say("Kiitti! Tästä tulee hyvää puuroa." if who == "arto" else "No perkele, hyviä sieniä! Näistä tulee saatanan hyvä kastike kyyhkyille.")
 				Sfx.play("register", -4.0)
 				_show_message("+%s €" % _eur(sale), 2.0)
+				_story_sold(who, sold)
 		elif who == "pekka" and _pekka_ride_hint(v, e):
 			pass
 		else:
@@ -6716,6 +6724,28 @@ func _story_step(to: String) -> void:
 	_save_game()
 
 
+## Tarinan tehtävät kertyvät myynneistä: sienet (kantarelli, herkkutatti) Pekalle ja puolukat Artolle, useassa erässä.
+func _story_sold(who: String, sold: Dictionary) -> void:
+	if story.step != "tehtavat":
+		return
+	if who == "pekka" and not story.done.sienet:
+		story.given.sienet += int(sold.get("kantarelli", 0)) + int(sold.get("herkkutatti", 0))
+		if story.given.sienet >= Story.SIENET_L:
+			story.done.sienet = true
+			_queue_message("Pekan sienet hoidettu! (%d l)" % story.given.sienet, 2.5)
+		else:
+			_queue_message("Pekalle sieniä %d / %d l." % [story.given.sienet, Story.SIENET_L], 2.5)
+	elif who == "arto" and not story.done.puolukat and sold.has("puolukka"):
+		story.given.puolukat += int(sold.puolukka)
+		if story.given.puolukat >= Story.PUOLUKAT_L:
+			story.done.puolukat = true
+			arto.say("Nyt riittää hilloon! Pekka on kyllä koko kesän puhunu siitä Paapelista.")
+			_queue_message("Arton puolukat hoidettu! (%d l)" % story.given.puolukat, 2.5)
+		else:
+			_queue_message("Artolle puolukoita %d / %d l." % [story.given.puolukat, Story.PUOLUKAT_L], 2.5)
+	_story_check_tasks()
+
+
 func _story_check_tasks() -> void:
 	if story.step == "tehtavat" and story.all_tasks_done():
 		_story_step("pekka_avaimet")
@@ -6738,18 +6768,6 @@ func _story_neighbor(e: bool) -> bool:
 					_msg_queue.append(["Uudet tehtävät repussa (I): sienet Pekalle, puolukat Artolle ja Sinikan nurmikko.", 4.0])
 					_story_step("tehtavat")
 				return true
-			"tehtavat":
-				var l := _goods_l("pekka")
-				if not story.done.sienet and l >= Story.SIENET_L:
-					_hint.text = "[E] Anna Pekalle %d l sieniä" % Story.SIENET_L
-					if e:
-						money += _take_goods("pekka", Story.SIENET_L)
-						story.done.sienet = true
-						pekka.say("No perkele, hyviä sieniä! Näistä tulee saatanan hyvä kastike kyyhkyille.")
-						Sfx.play("register", -4.0)
-						_show_message("Pekan sienet hoidettu!", 2.5)
-						_story_check_tasks()
-					return true
 			"pekka_avaimet":
 				_hint.text = "[E] Juttele Pekan kanssa (lähdetäänkö?)"
 				if e:
@@ -6770,20 +6788,6 @@ func _story_neighbor(e: bool) -> bool:
 					pekka.say(Story.PEKKA_THANKS)
 					_story_step("valmis")
 				return true
-	if arto.distance_to_player() < 4.2 and story.step == "tehtavat" and not story.done.puolukat \
-			and bucket.get("puolukka", 0) >= Story.PUOLUKAT_L:
-		_hint.text = "[E] Anna Artolle %d l puolukoita" % Story.PUOLUKAT_L
-		if e:
-			bucket["puolukka"] -= Story.PUOLUKAT_L
-			if bucket["puolukka"] <= 0:
-				bucket.erase("puolukka")
-			money += Story.PUOLUKAT_L * GOODS.puolukka.price
-			story.done.puolukat = true
-			arto.say("Kiitti! Tästä tulee hyvää hilloa. Pekka on kyllä koko kesän puhunu siitä Paapelista.")
-			Sfx.play("register", -4.0)
-			_show_message("Arton puolukat hoidettu! +%s €" % _eur(Story.PUOLUKAT_L * GOODS.puolukka.price), 2.5)
-			_story_check_tasks()
-		return true
 	return false
 
 
@@ -9848,6 +9852,35 @@ func _maybe_screenshot() -> void:
 				if _in_forest(q):
 					n_forest += 1
 			print("PEDOT mökin ympäristöstä metsää %d / 40, mökin piha metsää? %s" % [n_forest, _in_forest(MOKKI_POS)])
+		"tarinamyynti":
+			# Tarinan tehtävät useasta myynnistä: sienet Pekalle 2 + 1 l, puolukat Artolle 3 + 2 l.
+			if player == bike:
+				_toggle_mount()
+			story.step = "tehtavat"
+			story.done = {"sienet": false, "puolukat": false, "nurmikko": true}
+			story.given = {"sienet": 0, "puolukat": 0}
+			world.forage_revealed = true
+			pekka.process_mode = Node.PROCESS_MODE_DISABLED
+			arto.process_mode = Node.PROCESS_MODE_DISABLED
+			var sell := func(v: CharacterBody3D, goods: Dictionary) -> void:
+				bucket = goods
+				walker_out.global_position = v.global_position + Vector3(1.5, 0.5, 0)
+				for i in 10:
+					await get_tree().physics_frame
+				await get_tree().process_frame
+				print("TMYYNTI hint '%s' bucket %s" % [_hint.text, bucket])
+				Input.action_press("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("interact")
+				for i in 3:
+					await get_tree().process_frame
+			await sell.call(pekka, {"kantarelli": 2})
+			await sell.call(pekka, {"herkkutatti": 1})
+			await sell.call(arto, {"puolukka": 3, "mustikka": 1})
+			await sell.call(arto, {"puolukka": 2})
+			print("TMYYNTI: annettu %s, tehty %s, vaihe %s, jono %s" % [story.given, story.done, story.step,
+				str(_msg_queue.map(func(m): return m[0])).left(260)])
 		"maksamatta":
 			# Maksamatta ulos: rahaa on, mutta lähdetään ovesta. Kauppias perään; tappiolla tavarat takaisin, voitolla jää.
 			if player == bike:
