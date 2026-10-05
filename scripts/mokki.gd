@@ -527,6 +527,85 @@ static func viina_positions() -> Array[Vector2]:
 	return _viina_pos
 
 
+## Marja- ja sienipaikat mökin metsässä: [paikallinen x/z, laji]. Metsää kuten viinakätköillä, ei kätköjen eikä
+## Korpi-Kallen pannun päällä. Santtu merkitsee ne karttaan (main.gd).
+const FORAGE_N := 12
+const FORAGE_WEIGHTS := {"puolukka": 0.35, "mustikka": 0.3, "kantarelli": 0.2, "herkkutatti": 0.15}
+const FORAGE_COLORS := {"puolukka": Color(0.8, 0.08, 0.1), "mustikka": Color(0.15, 0.2, 0.55),
+	"kantarelli": Color(0.95, 0.65, 0.1), "herkkutatti": Color(0.5, 0.3, 0.15)}
+static var _forage_pos: Array = []
+
+
+static func forage_positions() -> Array:
+	if not _forage_pos.is_empty():
+		return _forage_pos
+	var data := map_data()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5150
+	var avoid: Array = [Vector2(HUNT_LOCAL.x, HUNT_LOCAL.z), Vector2(DOCK_LOCAL.x, DOCK_LOCAL.z), still_position()]
+	avoid.append_array(viina_positions())
+	var taken: Array = []
+	for tries in 6000:
+		if _forage_pos.size() >= FORAGE_N:
+			break
+		var a := rng.randf() * TAU
+		var p := COTTAGE_LOCAL + Vector2(cos(a), sin(a)) * rng.randf_range(35.0, 230.0)
+		if _mask(p) != 0 or in_water(p.x, p.y) or in_field(p) or not in_area(p.x, p.y, 25.0):
+			continue
+		if pow((p.x - YARD_CENTER.x) / YARD_R.x, 2.0) + pow((p.y - YARD_CENTER.y) / YARD_R.y, 2.0) < 2.0 or _near_building(p, 8.0):
+			continue
+		var ok := true
+		for bg in data.bogs:
+			if Geometry2D.is_point_in_polygon(p, bg):
+				ok = false
+		for q in avoid + taken:
+			if p.distance_to(q) < 28.0:
+				ok = false
+		if not ok:
+			continue
+		var r := rng.randf()
+		var acc := 0.0
+		var kind := "puolukka"
+		for k in FORAGE_WEIGHTS:
+			acc += FORAGE_WEIGHTS[k]
+			if r <= acc:
+				kind = k
+				break
+		taken.append(p)
+		_forage_pos.append([p, kind])
+	return _forage_pos
+
+
+## Mättäs varpuineen ja marjoineen tai ryhmä sieniä paikallisessa pisteessä (kuten kylän metsissä).
+func forage_visual(kind: String, local: Vector2) -> Node3D:
+	var root := Node3D.new()
+	root.position = Vector3(local.x, h(local.x, local.y), local.y)
+	add_child(root)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(local.x * 31.0 + local.y * 17.0)
+	var col: Color = FORAGE_COLORS[kind]
+	if kind in ["puolukka", "mustikka"]:
+		var leaf := Color(0.18, 0.4, 0.16) if kind == "puolukka" else Color(0.25, 0.45, 0.2)
+		for k in 7:
+			var bp := Vector3(rng.randf_range(-1.2, 1.2), 0.1, rng.randf_range(-1.2, 1.2))
+			var bush := B.mesh(root, B.sphere(0.3, 8), bp, leaf.lightened(rng.randf_range(-0.05, 0.1)))
+			bush.scale = Vector3(1.0, 0.5, 1.0)
+			for bb in 5:
+				B.mesh(root, B.sphere(0.035, 6), bp + Vector3(rng.randf_range(-0.22, 0.22), 0.12, rng.randf_range(-0.22, 0.22)), col)
+	else:
+		for k in 6:
+			var mp := Vector3(rng.randf_range(-0.9, 0.9), 0, rng.randf_range(-0.9, 0.9))
+			var sz := rng.randf_range(0.8, 1.3)
+			if kind == "kantarelli":
+				B.mesh(root, B.cyl(0.02 * sz, 0.012 * sz, 0.06 * sz, 6), mp + Vector3(0, 0.03 * sz, 0), col.darkened(0.1))
+				B.mesh(root, B.cyl(0.07 * sz, 0.02 * sz, 0.05 * sz, 10), mp + Vector3(0, 0.08 * sz, 0), col)
+			else:
+				B.mesh(root, B.cyl(0.035 * sz, 0.045 * sz, 0.1 * sz, 8), mp + Vector3(0, 0.05 * sz, 0), Color(0.9, 0.86, 0.75))
+				var cap := B.mesh(root, B.sphere(0.08 * sz, 10), mp + Vector3(0, 0.11 * sz, 0), col)
+				cap.scale = Vector3(1.0, 0.6, 1.0)
+	return root
+
+
 ## Korpi-Kallen pannun paikka (paikallinen x/z): metsää kuten viinakätköillä, kauempana mökistä ja kätköistä.
 static func still_position() -> Vector2:
 	var data := map_data()

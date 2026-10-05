@@ -44,9 +44,11 @@ const SPOTS := {
 	"tv": [Vector3(-3.9, 0, -0.6), "[E] Katso telkkaria"],
 	"sanky": [Vector3(4.9, 0, 1.2), "[E] Mene nukkumaan kerrossänkyyn (päivä päättyy)"],
 	"suihku": [Vector3(5.4, 0, -4.4), "[E] Käy suihkussa"],
-	"wc": [Vector3(5.5, 0, -3.1), "[E] Käy pöntöllä"],
+	"wc": [Vector3(5.5, 0, -2.75), "[E] Käy pöntöllä"],
 	"sauna": [Vector3(2.85, 0, -1.7), "[E] Käy sisäsaunassa"],
 	"pa": [Vector3(-0.9, 0, 1.55), "[E] Kytke Santun PA-laitteet"],
+	"sokeri": [Vector3(-1.4, 0, -3.7), "[E] Ota sokeria Santun keittiön kaapista (Santtu suuttuu!)"],
+	"sangot": [Vector3(5.55, 0, -1.6), ""],  # Paapelin viinisaavi pöntön takana olevalla seinällä: vihje main.gd:stä
 }
 ## PA-kaiuttimet (jalustoilla sohvien päädyissä) ja tunnusmusiikin voimakkuus: taso 0..1 -> dB.
 const PA_SPEAKERS := [Vector3(-4.95, 0, 3.2), Vector3(0.2, 0, 3.2)]
@@ -74,6 +76,12 @@ var active := false
 var exit_door := "ovi"  # kummasta ovesta viimeksi lähdettiin ulos (ovi / ovi2)
 var walker: CharacterBody3D
 var hint := ""
+var spot := ""  # lähin toimintopiste
+var _wine_liquid: Array[MeshInstance3D] = []
+var _wine_cloth: Array[Node3D] = []
+var _blubs: Array[Label3D] = []
+var _blub_t := 0.0
+var wine_stage := ""
 var takka_on := false
 var _enter_frame := -1
 
@@ -96,6 +104,7 @@ var _dish_pile: Node3D
 
 func _ready() -> void:
 	_build_room()
+	_build_wine_buckets()
 	_build_kitchen_dining()
 	_build_bedroom()
 	_build_bath_sauna()
@@ -141,6 +150,34 @@ func set_dishes(n: int) -> void:
 			(_dish_pile.get_child(i) as Node3D).visible = i < n
 
 
+## Paapelin viinisaavi pöntön takana olevan seinän keskellä: puinen saavi vanteineen, liina ja vesilukko.
+const WINE_VAT := Vector3(6.1, 0, -1.78)  # irti seinästä: matalan seinän takaa näkyy, että se on puinen saavi
+
+
+func _build_wine_buckets() -> void:
+	var c := WINE_VAT
+	var parts := B.wine_vat(self, c)  # sama saavi kuin autotallissa
+	_wine_liquid.append(parts[0])
+	_wine_cloth.append(parts[1])
+	for i in 3:
+		var bl := B.guide(self, "blub", c + Vector3(0, 1.0, 0), 26, Color(0.9, 0.7, 0.85), true)
+		bl.visible = false
+		_blubs.append(bl)
+	set_wine("")
+
+
+func set_wine(stage: String) -> void:
+	wine_stage = stage
+	for l in _wine_liquid:
+		l.visible = stage != ""
+		(l.material_override as StandardMaterial3D).albedo_color = Color(0.45, 0.05, 0.2) if stage == "valmis" \
+			else Color(0.35, 0.12, 0.25)
+	for c in _wine_cloth:
+		c.visible = stage == "kay"
+	for bl in _blubs:
+		bl.visible = false
+
+
 func say(text: String) -> void:
 	_bubble.text = "Santtu: " + text
 	_bubble_t = 3.2
@@ -159,8 +196,25 @@ func _process(delta: float) -> void:
 		var beat := 1.0 + 0.05 * maxf(sin(Time.get_ticks_msec() / 1000.0 * TAU * 2.0), 0.0)  # elementit sykkivät
 		for c in _pa_cones:
 			c.scale = Vector3(beat, 1.0, beat)
+	if wine_stage == "kay":
+		_blub_t -= delta
+		if _blub_t <= 0.0:
+			_blub_t = randf_range(1.4, 2.8)
+			for bl in _blubs:
+				if not bl.visible:
+					bl.visible = true
+					bl.position = WINE_VAT + Vector3(randf_range(-0.15, 0.15), 1.05, 0)
+					bl.modulate.a = 1.0
+					break
+		for bl in _blubs:
+			if bl.visible:
+				bl.position.y += delta * 0.4
+				bl.modulate.a -= delta * 0.6
+				if bl.modulate.a <= 0.0:
+					bl.visible = false
 	if not active or busy:
 		hint = ""
+		spot = ""
 		return
 	_chat_t -= delta
 	if _chat_t <= 0.0:
@@ -175,6 +229,7 @@ func _process(delta: float) -> void:
 			bd = d
 			best = id
 	hint = ""
+	spot = best
 	if best == "":
 		return
 	hint = SPOTS[best][1]
@@ -420,7 +475,7 @@ func _build_bath_sauna() -> void:
 	add_child(gb)
 	# Pönttö suihkuseinän takana, istumasuunta suihkuun päin (-Z); peili ja pyyhkeet seinällä.
 	var wc := Node3D.new()
-	wc.position = Vector3(HALF.x - 0.55, 0, SHOWER_Z + 0.55)
+	wc.position = Vector3(HALF.x - 0.55, 0, SHOWER_Z + 0.9)  # pois päin suihkusta, tilaa saaville takana
 	add_child(wc)
 	B.mesh(wc, B.boxm(Vector3(0.38, 0.4, 0.3)), Vector3(0, 0.2, 0.05), Color(0.97, 0.97, 0.97))
 	B.mesh(wc, B.cyl(0.19, 0.17, 0.08, 16), Vector3(0, 0.42, -0.05), Color(0.97, 0.97, 0.97))
@@ -428,7 +483,7 @@ func _build_bath_sauna() -> void:
 	var wb := StaticBody3D.new()
 	wb.add_child(B.box_shape(Vector3(0.4, 0.8, 0.6), Vector3(0, 0.4, 0.05)))
 	wc.add_child(wb)
-	B.mesh(self, B.boxm(Vector3(0.03, 0.6, 0.5)), Vector3(HALF.x - 0.12, 1.5, SHOWER_Z + 0.6), Color(0.75, 0.8, 0.85))
+	B.mesh(self, B.boxm(Vector3(0.03, 0.6, 0.5)), Vector3(HALF.x - 0.12, 1.5, SHOWER_Z + 0.95), Color(0.75, 0.8, 0.85))
 	# Oikealla saunan oven vieressä puupenkki pesuvateineen ja pyyhkeet naulakossa.
 	var bench_x := SAUNA_DOOR.y + 0.9
 	_solid(Vector3(1.0, 0.45, 0.45), Vector3(bench_x, 0.225, SAUNA.position.y - 0.3), pine)
