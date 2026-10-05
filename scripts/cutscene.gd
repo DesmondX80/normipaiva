@@ -837,6 +837,116 @@ func wine_party(stats: String, done: Callable) -> void:
 	_title.add_theme_font_size_override("font_size", 150)
 
 
+## Paapelin mökkibileet pihalla (center = maailman piste kuistin edessä, yaw = kuistilta pihalle): Santtu,
+## Sinikka ja Korpi-Kalle, kokko ja viinisangot. Juhlakuva ja hatarat muistikuvat kuten viinibileissä.
+const MOKKI_FLASHBACKS := [
+	["...Santtu nosti PA-kaiuttimet kuistille ja soitti Eräitä Jormia koko Neittävälle...", Vector3(-3.0, 1.2, 3.5), Vector3(0, 1.2, -1.5)],
+	["...Korpi-Kalle ja Sinikka tanssivat humppaa kokon ympäri...", Vector3(3.5, 1.4, 3.0), Vector3(0.8, 1.0, 1.5)],
+	["...joku hyppäsi järveen vaatteet päällä. Taisit olla sinä.", Vector3(0, 2.2, 5.0), Vector3(0, 0.5, 14.0)],
+	["...Santtu lupasi, ettei Paapelilla tehdä enää viiniä. Ikinä. Ehkä.", Vector3(-1.0, 1.5, 2.0), Vector3(-1.4, 1.3, -0.4)],
+]
+
+
+func mokki_party(center: Vector3, yaw: float, stats: String, done: Callable) -> void:
+	_begin()
+	Sfx.music_play(0.8, Sfx.MUSIC_CHORUS)
+	await _fade_to(1.0, 0.5)
+	var g := Node3D.new()
+	_props.add_child(g)
+	g.global_position = center
+	g.rotation.y = yaw
+	var Mokki := load("res://scripts/mokki.gd")
+	var Kalle := load("res://scripts/korpikeittaja.gd")
+	# Kokko, pöytä ja sangot.
+	for k in 8:
+		var a := TAU * k / 8.0
+		B.mesh(g, B.sphere(0.16, 8), Vector3(0.8 + cos(a) * 0.55, 0.1, 1.5 + sin(a) * 0.55), Color(0.45, 0.44, 0.42))
+	var glow := B.unshaded(Color(1.0, 0.5, 0.1))
+	for k in 3:
+		var f := MeshInstance3D.new()
+		f.mesh = B.boxm(Vector3(0.4, 0.5, 0.06))
+		f.material_override = glow
+		f.position = Vector3(0.8, 0.3, 1.5)
+		f.rotation.y = k * PI / 3.0
+		g.add_child(f)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.55, 0.2)
+	light.light_energy = 2.0
+	light.omni_range = 8.0
+	light.position = Vector3(0.8, 0.8, 1.5)
+	g.add_child(light)
+	B.mesh(g, B.boxm(Vector3(1.4, 0.06, 0.7)), Vector3(-2.0, 0.75, 0.6), Color(0.55, 0.4, 0.25))
+	for k in 5:
+		B.mesh(g, B.cyl(0.035, 0.04, 0.26, 8), Vector3(-2.5 + k * 0.22, 0.91, 0.6), Color(0.2, 0.4, 0.22))
+	for k in 2:
+		B.mesh(g, B.cyl(0.26, 0.22, 0.5, 14), Vector3(-2.9 + k * 0.6, 0.25, 1.4), Color(0.95, 0.95, 0.93))
+	_party.clear()
+	var cast := [["hero", Looks.PLAYER, Vector3(-0.4, 0, 2.2), "Dance"], ["santtu", Mokki.SANTTU_LOOK, Vector3(-1.4, 0, -0.4), "Dance"],
+		["sinikka", Looks.SINIKKA, Vector3(1.8, 0, 2.4), "Dance"], ["kalle", Kalle.KALLE, Vector3(2.2, 0, 1.2), "Dance"]]
+	for c in cast:
+		var ch := Looks.make(g, c[1])
+		if c[0] == "hero":
+			Looks.add_cap(ch)
+		ch.position = c[2]
+		ch.play(c[3], 0.0)
+		ch.attach("hand_r", _wine_glass(), Vector3(0, -0.03, 0.04))
+		_party[c[0]] = ch
+	_face(_party.hero, Vector3(0.8, 0, 1.5))
+	_face(_party.santtu, Vector3(0.8, 0, 1.5))
+	_face(_party.sinikka, _party.kalle.position)
+	_face(_party.kalle, _party.sinikka.position)
+	var tg := func(local: Vector3) -> Vector3: return g.to_global(local)
+	_cam.current = true
+	_title.add_theme_color_override("font_color", Color(0.85, 0.3, 0.55))
+	_title.add_theme_font_size_override("font_size", 90)
+	await _fade_to(0.0, 0.8)
+	_title.text = "MÖKKIBILEET!"
+	_sub.text = stats
+	var t0 := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 6500:
+		var u := (Time.get_ticks_msec() - t0) / 6500.0
+		_cam.global_position = tg.call(Vector3(lerpf(4.5, 2.5, u), lerpf(2.6, 1.9, u), lerpf(6.5, 5.2, u)))
+		_cam.look_at(tg.call(Vector3(0.2, 1.0, 1.2)), Vector3.UP)
+		await get_tree().process_frame
+	_title.text = ""
+	_sub.text = ""
+	await _fade_to(1.0, 0.8)
+	env.adjustment_saturation = 0.25
+	for i in MOKKI_FLASHBACKS.size():
+		var fb: Array = MOKKI_FLASHBACKS[i]
+		match i:
+			0:
+				_party.santtu.play("Dance", 0.0)
+			1:
+				_party.sinikka.position = Vector3(0.0, 0, 2.4)
+				_party.kalle.position = Vector3(0.6, 0, 2.6)
+				_face(_party.sinikka, _party.kalle.position)
+				_face(_party.kalle, _party.sinikka.position)
+			2:
+				for k in ["hero", "santtu", "sinikka", "kalle"]:
+					_party[k].visible = false
+			3:
+				_party.santtu.visible = true
+				_party.santtu.play("Idle_Talking", 0.0)
+				_face(_party.santtu, Vector3(-1.0, 0, 2.0))
+		await _fade_to(0.15, 0.35)
+		_sub.text = fb[0]
+		var t1 := Time.get_ticks_msec()
+		while Time.get_ticks_msec() - t1 < 2600:
+			var w := (Time.get_ticks_msec() - t1) / 1000.0
+			_cam.global_position = tg.call((fb[1] as Vector3) + Vector3(sin(w * 1.3) * 0.15, sin(w * 0.9) * 0.08, 0))
+			_cam.look_at(tg.call(fb[2]), Vector3.UP)
+			_cam.rotate_object_local(Vector3.FORWARD, 0.18 * sin(w * 0.7 + i))
+			_fade.color.a = 0.15 + 0.25 * absf(sin(w * 2.1 + i))
+			await get_tree().process_frame
+		await _fade_to(1.0, 0.4)
+	_sub.text = "...ja sitten kaikki pimeni."
+	await _wait(1.6)
+	_sub.text = ""
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
 ## Takauman asetelma: hahmot ja asennot (i = WINE_FLASHBACKS-indeksi).
 func _wine_pose(i: int) -> void:
 	var pekka: Node3D = _party.get("pekka")

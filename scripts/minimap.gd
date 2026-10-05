@@ -35,6 +35,7 @@ class _Painter extends Control:
 
 var _village_tex: Texture2D
 var _village_origin := Vector2.ZERO  # tekstuurin vasen yläkulma maailman metreinä
+var mokki_forage: Array = []  # Santun kertomat marja- ja sienipaikat (main.gd), tyhjä = ei näytetä
 var _mokki_tex: Texture2D
 var _mokki_origin := Vector2.ZERO  # tekstuurin vasen yläkulma mökin karttametreinä (Mokki.to_map2)
 var _mokki_building := false
@@ -201,6 +202,11 @@ func _draw_mokki() -> void:
 	_marker(wl.call(Vector2(Mokki.DOCK_LOCAL.x, Mokki.DOCK_LOCAL.z)), Color(0.5, 0.38, 0.24), "L")
 	_marker(wl.call(Vector2(Mokki.RIDE_LOCAL.x, Mokki.RIDE_LOCAL.z)), Color(0.3, 0.42, 0.24), "Pk")
 	_marker(wl.call(Vector2(Mokki.HUNT_LOCAL.x, Mokki.HUNT_LOCAL.z)), Color(0.3, 0.24, 0.15), "R")
+	for f in mokki_forage:
+		if not f.taken:
+			var fp: Vector2 = wl.call(f.local)
+			if Rect2(Vector2.ZERO, size).has_point(fp):
+				draw_circle(fp, 3.0, Mokki.FORAGE_COLORS[f.kind])
 	if player != null:
 		var fwd3 := -player.global_transform.basis.z
 		var f := (Mokki.to_map2(Vector2(fwd3.x, fwd3.z)) - Mokki.to_map2(Vector2.ZERO)).normalized()
