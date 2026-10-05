@@ -779,7 +779,105 @@ func garage(title: String, stats: String, done: Callable) -> void:
 	_title.add_theme_font_size_override("font_size", 150)
 
 
-func _build_garage() -> void:
+# --- Viinibileet ja hatarat muistikuvat ------------------------------------------------
+
+## Takaumat illasta: [kuvateksti, kameran paikka, katseen kohde (tallin koordinaateissa)]. Asetelmat _wine_pose.
+const WINE_FLASHBACKS := [
+	["...Pekka seisoi saavin päällä ja piti juhlapuheen kotiviinin kunniaksi...", Vector3(-0.6, 0.5, 1.6), Vector3(-2.6, 1.6, -0.4)],
+	["...Sinikka ja sinä tanssitte tangoa radion tahtiin. Vai oliko se humppa?", Vector3(1.6, 1.2, 4.4), Vector3(0.0, 1.0, 2.6)],
+	["...Arto halasi karburaattoria ja itki, että SLN-73 on hänen paras ystävänsä...", Vector3(2.2, 1.1, 3.6), Vector3(0.6, 0.6, 1.8)],
+	["...joku lupasi, ettei viiniä tehdä enää IKINÄ.", Vector3(-1.2, 1.4, 1.2), Vector3(-2.6, 0.6, -0.4)],
+]
+var _party := {}
+
+
+## Viinibileet autotallissa: kotiviini valmis, Pekka, Arto ja Sinikka kylässä. Juhlakuva ja sen jälkeen
+## haaleat, vinot muistikuvat illasta (kuvatekstit), lopulta pimeys. done herättää naapurista (main.gd).
+func wine_party(stats: String, done: Callable) -> void:
+	_begin()
+	Sfx.music_play(0.8, Sfx.MUSIC_CHORUS)
+	await _fade_to(1.0, 0.5)
+	_build_garage(true)
+	var g := GARAGE_POS
+	_cam.current = true
+	_title.add_theme_color_override("font_color", Color(0.85, 0.3, 0.55))
+	_title.add_theme_font_size_override("font_size", 90)
+	await _fade_to(0.0, 0.8)
+	_title.text = "VIINIBILEET!"
+	_sub.text = stats
+	var t0 := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 6500:
+		var u := (Time.get_ticks_msec() - t0) / 6500.0
+		_cam.global_position = g + Vector3(lerpf(3.4, 2.0, u), lerpf(2.0, 1.6, u), lerpf(5.6, 4.8, u))
+		_cam.look_at(g + Vector3(-0.8, 1.0, 1.6), Vector3.UP)
+		await get_tree().process_frame
+	_title.text = ""
+	_sub.text = ""
+	await _fade_to(1.0, 0.8)
+	# Hatarat muistikuvat: haalea, vino ja huojuva kuva, välissä pimeää.
+	env.adjustment_saturation = 0.25
+	for i in WINE_FLASHBACKS.size():
+		var fb: Array = WINE_FLASHBACKS[i]
+		_wine_pose(i)
+		await _fade_to(0.15, 0.35)
+		_sub.text = fb[0]
+		var t1 := Time.get_ticks_msec()
+		while Time.get_ticks_msec() - t1 < 2600:
+			var w := (Time.get_ticks_msec() - t1) / 1000.0
+			_cam.global_position = g + (fb[1] as Vector3) + Vector3(sin(w * 1.3) * 0.15, sin(w * 0.9) * 0.08, 0)
+			_cam.look_at(g + (fb[2] as Vector3), Vector3.UP)
+			_cam.rotate_object_local(Vector3.FORWARD, 0.18 * sin(w * 0.7 + i))
+			_fade.color.a = 0.15 + 0.25 * absf(sin(w * 2.1 + i))  # silmät lupsuvat
+			await get_tree().process_frame
+		await _fade_to(1.0, 0.4)
+	_sub.text = "...ja sitten kaikki pimeni."
+	await _wait(1.6)
+	_sub.text = ""
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Takauman asetelma: hahmot ja asennot (i = WINE_FLASHBACKS-indeksi).
+func _wine_pose(i: int) -> void:
+	var pekka: Node3D = _party.get("pekka")
+	var arto: Node3D = _party.get("arto")
+	var sinikka: Node3D = _party.get("sinikka")
+	var hero: Node3D = _party.get("hero")
+	match i:
+		0:
+			pekka.position = Vector3(-2.6, 0.72, -0.4)
+			_face(pekka, Vector3(0, 0, 2.0))
+			pekka.play("Idle_Talking", 0.0)
+		1:
+			hero.position = Vector3(-0.25, 0, 2.6)
+			sinikka.position = Vector3(0.3, 0, 2.6)
+			_face(hero, sinikka.position)
+			_face(sinikka, hero.position)
+			hero.play("Dance", 0.0)
+			sinikka.play("Dance", 0.0)
+		2:
+			arto.position = Vector3(0.6, 0, 1.9)
+			_face(arto, Vector3(0.6, 0, 0.5))
+			arto.play("Fixing_Kneeling", 0.0)
+		3:
+			for ch in [pekka, arto, sinikka, hero]:
+				ch.visible = false
+
+
+## Hahmo katsomaan kohti pistettä (tallin koordinaateissa).
+func _face(ch: Node3D, at: Vector3) -> void:
+	var d := at - ch.position
+	ch.rotation.y = atan2(-d.x, -d.z)  # malli katsoo -Z:aan
+
+
+func _wine_glass() -> Node3D:
+	var gl := Node3D.new()
+	B.mesh(gl, B.cyl(0.035, 0.02, 0.07, 10), Vector3(0, 0.05, 0), Color(0.5, 0.05, 0.2))
+	B.mesh(gl, B.cyl(0.004, 0.004, 0.07, 6), Vector3(0, -0.02, 0), Color(0.9, 0.9, 0.95))
+	return gl
+
+
+func _build_garage(party := false) -> void:
 	var g := Node3D.new()
 	g.position = GARAGE_POS
 	_props.add_child(g)
@@ -806,15 +904,18 @@ func _build_garage() -> void:
 	hood.name = "Hood"
 	B.box(car, Vector3(0.9, 0.3, 0.8), Vector3(0, 0.95, -1.5), Color(0.2, 0.2, 0.22), false)  # moottori
 	B.mesh(car, B.cyl(0.14, 0.14, 0.18, 12), Vector3(0, 1.15, -1.5), Color(0.6, 0.6, 0.62))  # karburaattori
-	# Sankari kumarassa moottorin kimpussa, kalja kädessä.
-	var hero := Looks.make(g, Looks.PLAYER)
-	Looks.add_cap(hero)
-	hero.position = Vector3(0.9, 0, 2.2)
-	hero.play("Fixing_Kneeling", 0.0)
-	hero.set_override("spine_01", Vector3.RIGHT, -0.35)
-	var can := Node3D.new()
-	B.mesh(can, B.cyl(0.033, 0.033, 0.12, 12), Vector3(0, -0.02, 0), Color(0.8, 0.75, 0.2))
-	hero.attach("hand_l", can, Vector3(0, -0.02, 0))
+	if party:
+		_build_wine_party(g)
+	else:
+		# Sankari kumarassa moottorin kimpussa, kalja kädessä.
+		var hero := Looks.make(g, Looks.PLAYER)
+		Looks.add_cap(hero)
+		hero.position = Vector3(0.9, 0, 2.2)
+		hero.play("Fixing_Kneeling", 0.0)
+		hero.set_override("spine_01", Vector3.RIGHT, -0.35)
+		var can := Node3D.new()
+		B.mesh(can, B.cyl(0.033, 0.033, 0.12, 12), Vector3(0, -0.02, 0), Color(0.8, 0.75, 0.2))
+		hero.attach("hand_l", can, Vector3(0, -0.02, 0))
 	# Kuutonen työpöydällä ja lamppu katossa.
 	for i in 5:
 		B.mesh(g, B.cyl(0.033, 0.033, 0.12, 10), Vector3(-2.8 + i * 0.09, 0.96, -3.3), Color(0.8, 0.75, 0.2))
@@ -827,3 +928,28 @@ func _build_garage() -> void:
 	g.add_child(bulb)
 	B.mesh(g, B.sphere(0.08, 8), Vector3(0, 2.8, -0.5), Color(1, 0.95, 0.8))
 	B.guide(g, "Radio: Iskelmä", Vector3(-2.8, 1.25, -3.3), 30, Color(1, 1, 0.8), true)
+
+
+## Viinibileiden väki: sankari ja Sinikka tanssivat, Pekka ja Arto maistelevat saavin vieressä, viinilasit käsissä.
+func _build_wine_party(g: Node3D) -> void:
+	var wood := Color(0.52, 0.34, 0.18)
+	B.mesh(g, B.cyl(0.36, 0.31, 0.65, 18), Vector3(-2.6, 0.33, -0.4), wood)  # viinisaavi
+	B.mesh(g, B.cyl(0.33, 0.33, 0.02, 18), Vector3(-2.6, 0.62, -0.4), Color(0.45, 0.05, 0.2))
+	for k in 6:  # tyhjiä pulloja lattialla
+		var bt := B.mesh(g, B.cyl(0.035, 0.04, 0.26, 8), Vector3(-1.9 + k * 0.18, 0.04, -1.6 + (k % 2) * 0.2), Color(0.2, 0.4, 0.22))
+		bt.rotation.z = PI / 2.0
+	var cast := [["hero", Looks.PLAYER, Vector3(-0.3, 0, 2.6), "Dance"], ["sinikka", Looks.SINIKKA, Vector3(0.5, 0, 2.9), "Dance"],
+		["pekka", Looks.PEKKA, Vector3(-1.9, 0, 0.9), "Idle_Talking"], ["arto", Looks.ARTO, Vector3(-1.3, 0, 1.7), "Idle_Talking"]]
+	_party.clear()
+	for c in cast:
+		var ch := Looks.make(g, c[1])
+		if c[0] == "hero":
+			Looks.add_cap(ch)
+		ch.position = c[2]
+		ch.play(c[3], 0.0)
+		ch.attach("hand_r", _wine_glass(), Vector3(0, -0.03, 0.04))
+		_party[c[0]] = ch
+	_face(_party.hero, _party.sinikka.position)
+	_face(_party.sinikka, _party.hero.position)
+	_face(_party.pekka, _party.arto.position)
+	_face(_party.arto, _party.pekka.position)

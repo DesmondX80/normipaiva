@@ -22,6 +22,7 @@ const SPOTS := {
 	"kaappi": [Vector3(3.2, 0, -0.6), ""],  # jemma: vihje ja näppäimet main.gd:stä
 	"arkku": [Vector3(-3.0, 0, -3.4), "[E] Avaa pakastearkku"],
 	"pyora": [Vector3(2.6, 0, 3.0), ""],
+	"saavi": [Vector3(-3.0, 0, -2.2), ""],  # kotiviini: vihje main.gd:stä
 }
 
 signal exited
@@ -40,6 +41,11 @@ var _radio: Node3D
 var _radio_player: AudioStreamPlayer3D
 var _notes: Array[Label3D] = []
 var _hood: Node3D
+var wine_stage := ""  # "" tyhjä, "kay" käymässä, "valmis"
+var _wine_liquid: MeshInstance3D
+var _wine_cover: Node3D
+var _blubs: Array[Label3D] = []
+var _blub_t := 0.0
 
 
 func _ready() -> void:
@@ -48,6 +54,7 @@ func _ready() -> void:
 	_build_bench()
 	_build_cabinet_and_freezer()
 	_build_bike()
+	_build_vat()
 	walker = Walker.new()
 	add_child(walker)
 	walker.position = SPOTS.ovi[0] + Vector3(0, 0, -1.2)
@@ -93,8 +100,37 @@ func _set_radio(on: bool, remember := true) -> void:
 		n.visible = on and active
 
 
+## Viinisaavin tila: tyhjä, käymässä (kansi, vesilukko pulputtaa) tai valmis (kansi auki, viini kiiltää).
+func set_wine(stage: String) -> void:
+	wine_stage = stage
+	_wine_liquid.visible = stage != ""
+	_wine_cover.visible = stage == "kay"
+	(_wine_liquid.material_override as StandardMaterial3D).albedo_color = Color(0.45, 0.05, 0.2) if stage == "valmis" \
+		else Color(0.35, 0.12, 0.25)
+	for bl in _blubs:
+		bl.visible = false
+
+
 func _process(delta: float) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
+	if wine_stage == "kay":
+		_blub_t -= delta
+		if _blub_t <= 0.0:
+			_blub_t = randf_range(1.2, 2.6)
+			for bl in _blubs:
+				if not bl.visible:
+					bl.visible = true
+					bl.position = Vector3(-3.62, 1.05, -2.2)
+					bl.modulate.a = 1.0
+					if active:
+						Sfx.play_on(self, "water", -22.0, 2.4, 0.3)
+					break
+		for bl in _blubs:
+			if bl.visible:
+				bl.position.y += delta * 0.4
+				bl.modulate.a -= delta * 0.6
+				if bl.modulate.a <= 0.0:
+					bl.visible = false
 	for i in _notes.size():
 		var n := _notes[i]
 		var ph := fmod(t * 0.5 + i * 0.33, 1.0)
@@ -238,6 +274,37 @@ func _build_cabinet_and_freezer() -> void:
 	B.mesh(self, B.boxm(Vector3(1.32, 0.05, 0.72)), Vector3(-3.3, 0.87, -4.4), Color(0.88, 0.88, 0.9))
 	B.mesh(self, B.boxm(Vector3(0.3, 0.04, 0.04)), Vector3(-3.3, 0.8, -4.04), Color(0.6, 0.6, 0.62))
 	B.mesh(self, B.sphere(0.02, 6), Vector3(-2.75, 0.7, -4.04), Color(0.2, 0.9, 0.3))  # merkkivalo
+
+
+## Viinisaavi vasemmalla perällä: puinen saavi vanteineen, viini, liinakansi ja vesilukko.
+func _build_vat() -> void:
+	var c := Vector3(-3.62, 0, -2.2)
+	var wood := Color(0.52, 0.34, 0.18)
+	B.box(self, Vector3(0.8, 0.12, 0.8), c + Vector3(0, 0.06, 0), Color(0.35, 0.25, 0.15))  # jalusta
+	B.mesh(self, B.cyl(0.36, 0.31, 0.65, 18), c + Vector3(0, 0.45, 0), wood)
+	for y in [0.22, 0.68]:
+		B.mesh(self, B.cyl(0.355 if y > 0.5 else 0.325, 0.355 if y > 0.5 else 0.325, 0.04, 18), c + Vector3(0, y, 0), Color(0.3, 0.3, 0.32))
+	for k in 10:  # laudoitus
+		var a := k * TAU / 10.0
+		B.mesh(self, B.boxm(Vector3(0.012, 0.64, 0.02)), c + Vector3(cos(a) * 0.335, 0.45, sin(a) * 0.335), wood.darkened(0.25),
+			Vector3(0, -rad_to_deg(a), 0))
+	var body := StaticBody3D.new()
+	body.position = c + Vector3(0, 0.4, 0)
+	body.add_child(B.box_shape(Vector3(0.75, 0.8, 0.75)))
+	add_child(body)
+	_wine_liquid = B.mesh(self, B.cyl(0.33, 0.33, 0.02, 18), c + Vector3(0, 0.74, 0), Color(0.35, 0.12, 0.25))
+	_wine_cover = Node3D.new()
+	_wine_cover.position = c + Vector3(0, 0.79, 0)
+	add_child(_wine_cover)
+	B.mesh(_wine_cover, B.cyl(0.38, 0.38, 0.015, 18), Vector3.ZERO, Color(0.9, 0.88, 0.82))  # liina
+	B.mesh(_wine_cover, B.cyl(0.03, 0.03, 0.18, 8), Vector3(0, 0.1, 0), Color(0.85, 0.9, 0.92, 0.8))  # vesilukko
+	B.mesh(_wine_cover, B.sphere(0.045, 8), Vector3(0, 0.2, 0), Color(0.8, 0.9, 0.95))
+	for i in 3:
+		var bl := B.guide(self, "blub", c + Vector3(0, 1.0, 0), 26, Color(0.9, 0.7, 0.85), true)
+		bl.visible = false
+		_blubs.append(bl)
+	B.guide(self, "Viinisaavi", c + Vector3(0, 1.3, 0), 22, Color(1, 1, 1), true)
+	set_wine("")
 
 
 ## Pyörä telineessä oven vieressä (näkyy, kun se on tuotu talliin).
