@@ -527,6 +527,33 @@ static func viina_positions() -> Array[Vector2]:
 	return _viina_pos
 
 
+## Korpi-Kallen pannun paikka (paikallinen x/z): metsää kuten viinakätköillä, kauempana mökistä ja kätköistä.
+static func still_position() -> Vector2:
+	var data := map_data()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7121
+	var avoid: Array = [Vector2(HUNT_LOCAL.x, HUNT_LOCAL.z), HUNT_GLADE, Vector2(DOCK_LOCAL.x, DOCK_LOCAL.z),
+		Vector2(RIDE_LOCAL.x, RIDE_LOCAL.z)]
+	avoid.append_array(viina_positions())
+	for tries in 5000:
+		var a := rng.randf() * TAU
+		var p := COTTAGE_LOCAL + Vector2(cos(a), sin(a)) * rng.randf_range(120.0, 200.0)
+		if _mask(p) != 0 or in_water(p.x, p.y) or in_field(p) or not in_area(p.x, p.y, 30.0):
+			continue
+		if _near_building(p, 12.0):
+			continue
+		var ok := true
+		for bg in data.bogs:
+			if Geometry2D.is_point_in_polygon(p, bg):
+				ok = false
+		for q in avoid:
+			if p.distance_to(q) < 35.0:
+				ok = false
+		if ok:
+			return p
+	return COTTAGE_LOCAL + Vector2(150, 0)
+
+
 ## Onko paikallinen piste 200 x 200 m alueella (reunan sisäpuolella margin m).
 static func in_area(x: float, z: float, margin := 0.0) -> bool:
 	var m := to_map2(Vector2(x, z))
