@@ -180,6 +180,14 @@ var _list_pending := false  # päivä alkoi mökiltä: Päivin värilista kerrot
 ## Mökin sisätila (mokki_interior.gd) omassa taskussaan; kuistin ovelta E vie sisään.
 const MokkiInterior := preload("res://scripts/mokki_interior.gd")
 const HomeInterior := preload("res://scripts/home_interior.gd")
+## Autotallin sisätila (garage_interior.gd): nosturiovelta sisään. Auto SLN-73 ja karburaattorin säätö
+## (carb_game.gd), työpöytä (pyörän huolto), radio, pakastearkku, työkalukaappi (jemma) ja pyörän paikka.
+const GarageInterior := preload("res://scripts/garage_interior.gd")
+const CarbGame := preload("res://scripts/carb_game.gd")
+const GARAGE_INT_POS := Vector3(-9000, 0, 3000)
+const BIKE_TUNE := 1.1  # työpöydällä huollettu pyörä: huippunopeus ja kiihtyvyys päivän ajan
+## Sisätiloissa olevat jemmat (eteisen kaappi kodin eteisessä, työkalukaappi tallissa): _stash_ui sisältä.
+const INDOOR_STASHES := ["koti", "autotalli"]
 const WcGame := preload("res://scripts/wc_game.gd")
 const ShopChaser := preload("res://scripts/shop_chaser.gd")
 const Story := preload("res://scripts/story.gd")
@@ -194,6 +202,13 @@ const TV_SHOWS := ["Salkkarit: Kaikki riitelee taas.", "Kauniit ja rohkeat: Ridg
 var mokki_int: Node3D
 var home_int: Node3D
 var _home_prev := "to_shop"  # ulkotila ennen kotiin menoa (to_home = kuutonen haettu tänään)
+var garage_int: Node3D
+var _garage_prev := "to_shop"
+var _garage_exit_frame := -1
+var bike_in_garage := false  # pyörä tallissa: piilossa ja turvassa varkailta
+var _bike_garage_saved := false
+var _bike_tuned := false
+var _freezer_bottle := false  # arkun pohjan Koskenkorva löydetty (kerran pelikerrassa)
 var siitari_int: Node3D
 var raahe_int: Node3D
 var _raahe := {}  # illan tapahtumat Raahen baarissa (kädenvääntö, visa, karaoke)
@@ -630,6 +645,11 @@ func _ready() -> void:
 	home_int.exited.connect(_on_home_exited)
 	home_int.slept.connect(_on_home_slept)
 	home_int.acted.connect(_on_home_acted)
+	garage_int = GarageInterior.new()
+	garage_int.position = GARAGE_INT_POS
+	add_child(garage_int)
+	garage_int.exited.connect(func() -> void: _on_garage_exited(false))
+	garage_int.acted.connect(_on_garage_acted)
 	mokki.sauna_event.connect(_on_sauna_event)
 	siitari_int = SiitariInterior.new()
 	siitari_int.position = SIITARI_INT_POS
@@ -842,10 +862,21 @@ func _process(delta: float) -> void:
 			tilat.add("stressi", 0.004 * delta)
 		"in_home":
 			_hint.text = home_int.hint
+			home_int.carrying = beers > 0 or has_kanister
+			if home_int.spot == "kaappi":
+				_stash_ui("koti")
 			# Kotona on rauhallista kuten mökillä: stressi hellittää, nälkä kasvaa hiljaa.
 			tilat.add("stressi", 0.005 * delta)
 			tilat.add("nalka", -0.002 * delta)
 			tilat.add("humala", -0.002 * delta)
+		"in_garage":
+			_hint.text = garage_int.hint
+			if garage_int.spot == "kaappi":
+				_stash_ui("autotalli")
+			if garage_int.radio_on:
+				tilat.add("stressi", 0.006 * delta)  # iskelmä rauhoittaa
+				tilat.add("moraali", 0.002 * delta)
+			tilat.add("nalka", -0.002 * delta)
 		"in_mokki":
 			_hint.text = mokki_int.hint
 			_hommat_tick(delta)
@@ -869,7 +900,7 @@ func _process(delta: float) -> void:
 
 ## Lukitsematon pyörä: jos se on pitkään kaukana (ei kotipihassa), teinit vievät sen muualle.
 func _bike_theft(delta: float) -> void:
-	if player != walker_out:
+	if player != walker_out or bike_in_garage:
 		_bike_away_t = 0.0
 		return
 	var d := walker_out.global_position.distance_to(bike.global_position)
@@ -996,6 +1027,10 @@ func _thief_abandon() -> void:
 
 func _mount_logic() -> void:
 	var e: bool = Input.is_action_just_pressed("mount") and not player.is_stunned()
+	if bike_in_garage:
+		if e and player == walker_out:
+			_show_message("Pyörä on autotallissa. Hae se tallista.", 2.0)
+		return
 	if player == walker_out:
 		var d: float = walker_out.global_position.distance_to(bike.global_position)
 		if d < 2.6:
@@ -1068,6 +1103,8 @@ func _outside_logic() -> void:
 	var p2 := Vector2(ppos.x, ppos.z)
 	if p2.distance_to(Vector2(shop_door.x, shop_door.z)) < SHOP_DOOR_R:
 		_shop_door_logic()
+	elif world.garage_door != Vector3.ZERO and p2.distance_to(Vector2(world.garage_door.x, world.garage_door.z)) < DOOR_RADIUS:
+		_garage_door_logic()
 	elif p2.distance_to(Vector2(home_door.x, home_door.z)) < DOOR_RADIUS:
 		_home_door_logic("ovi")
 	elif p2.distance_to(Vector2(home_back_door.x, home_back_door.z)) < DOOR_RADIUS:
@@ -1095,16 +1132,141 @@ func _home_door_logic(door: String) -> void:
 	if player == bike:
 		_hint.text = "Nouse pyörän selästä (F) ja kävele ovelle"
 		return
-	if beers > 0 or has_kanister:
-		_hint.text = "Ovi ei aukea kaljat kädessä – Päivi näkee! Piilota %s ensin jemmaan (E)." % (
-			"kanisteri" if beers <= 0 else "kaljat")
+	var loaded := beers > 0 or has_kanister
+	if loaded and door == "takaovi":
+		_hint.text = "Takaovesta suoraan keittiöön – Päivi näkee %s! Mene etuovesta eteisen kaapille." % (
+			"kanisterin" if beers <= 0 else "kaljat")
 		return
-	_hint.text = "[E] Mene sisälle kotiin" + (" takaovesta" if door == "takaovi" else "")
+	_hint.text = "[E] Mene sisälle kotiin" + (" takaovesta" if door == "takaovi" else "") + \
+		(" (%s eteisen kaappiin, Päivi ei saa nähdä)" % ("kanisteri" if beers <= 0 else "kaljat") if loaded else "")
 	if Input.is_action_just_pressed("interact") and not player.is_stunned() and Engine.get_process_frames() != _home_exit_frame:
 		_enter_home(door)
 
 
 var _home_exit_frame := -1  # ulos tullessa painettu E ei vie heti takaisin sisään
+
+
+## Autotallin nosturiovi: jalan sisään (kaljat saa kantaa, työkalukaappi on sisällä), pyörällä pyörä talliin.
+func _garage_door_logic() -> void:
+	var e: bool = Input.is_action_just_pressed("interact") and not player.is_stunned() \
+		and Engine.get_process_frames() != _garage_exit_frame
+	if player == bike:
+		_hint.text = "[E] Vie pyörä talliin"
+		if e:
+			if absf(bike.speed) > 3.0:
+				_show_message("Hidasta ensin!", 1.2)
+				return
+			_toggle_mount()
+			_store_bike(true)
+			_enter_garage()
+		return
+	_hint.text = "[E] Mene autotalliin" + (" (pyörä on tallissa)" if bike_in_garage else "")
+	if e:
+		_enter_garage()
+
+
+## Pyörä talliin (piiloon, ei varkaita) tai pois.
+func _store_bike(on: bool) -> void:
+	bike_in_garage = on
+	bike.visible = not on
+	bike.process_mode = Node.PROCESS_MODE_DISABLED if on else Node.PROCESS_MODE_INHERIT
+	if on:
+		bike.global_position = world.garage_door - world.garage_out * 3.0 + Vector3(0, 0.3, 0)
+
+
+func _enter_garage() -> void:
+	_garage_prev = state
+	state = "in_garage"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	tilat.first("autotalli_sisalla", 0.1)
+	garage_int.enter(bike_in_garage)
+	garage_int.walker.set_carrying(beers > 0 or has_kanister)
+	Sfx.play("door", -3.0, 0.7)
+
+
+func _on_garage_exited(with_bike: bool) -> void:
+	if state != "in_garage":
+		return
+	garage_int.leave()
+	Sfx.play("door_close", -3.0, 0.7)
+	state = _garage_prev
+	_garage_exit_frame = Engine.get_process_frames()
+	var out: Vector3 = world.garage_out
+	walker_out.global_position = world.garage_door + out * 0.6 + Vector3(0, 0.3, 0)
+	walker_out.look_at(walker_out.global_position + out, Vector3.UP)
+	walker_out.velocity = Vector3.ZERO
+	walker_out.controls_enabled = true
+	walker_out.activate_camera()
+	walker_out.set_carrying(beers > 0)
+	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+	if with_bike:
+		_store_bike(false)
+		bike.global_position = world.garage_door + out * 1.6 + Vector3(0, 0.4, 0)
+		bike.look_at(bike.global_position + out, Vector3.UP)
+		if beers > CARRY_BIKE:
+			_show_message("Pyörä ulkona, mutta kyytiin mahtuu vain %d kaljaa." % CARRY_BIKE, 2.5)
+		else:
+			_toggle_mount()
+
+
+func _on_garage_acted(kind: String) -> void:
+	match kind:
+		"auto":
+			_start_carb()
+		"tyopoyta":
+			if not bike_in_garage:
+				_show_message("Työpöydällä ruuvipenkki, jakoavaimia ja tyhjiä tölkkejä. Tuo pyörä talliin, niin sen voi huoltaa.", 3.5)
+			elif _bike_tuned:
+				_show_message("Pyörä on jo huollettu tänään. Ketju kiiltää.", 2.0)
+			else:
+				_bike_tuned = true
+				bike.tune = BIKE_TUNE
+				Sfx.play("rattle", -6.0, 1.2)
+				tilat.first("pyora_huolto", 0.3)
+				_show_message("Ketju öljytty, renkaat pumpattu ja jarrut säädetty. Pyörä kulkee tänään kevyemmin!", 3.5)
+		"arkku":
+			if not _freezer_bottle:
+				_freezer_bottle = true
+				viina_pullot += 1
+				Sfx.play("glass", -6.0, 0.8)
+				_show_message("Arkun pohjalta, makkaroiden alta löytyi jäinen Koskenkorva! (kätköviina, T)", 3.5)
+			elif _once_today("arkku"):
+				_eat(0.15)
+				tilat.add("stressi", 0.08)
+				Sfx.play("pickup", -6.0, 0.7)
+				_show_message("Pakastearkusta löytyi mehujää. Virkistää!", 2.5)
+			else:
+				_show_message("Pakastearkussa on vain Päivin marjoja ja vuoden 2019 makkaroita.", 2.5)
+		"radio":
+			_show_message("Radio Iskelmä soi. Stressi hellittää." if garage_int.radio_on else "Radio hiljeni.", 2.0)
+		"pyora":
+			_on_garage_exited(true)
+
+
+## Karburaattorin säätö autotallissa (carb_game.gd).
+func _start_carb() -> void:
+	garage_int.busy = true
+	garage_int.walker.controls_enabled = false
+	_hud.visible = false
+	var g := CarbGame.new()
+	g.drunk = _hand_shake()
+	g.finished.connect(func(ok: bool) -> void:
+		garage_int.busy = false
+		garage_int.walker.controls_enabled = true
+		_hud.visible = true
+		if ok:
+			if _once_today("karburaattori"):
+				tilat.add("moraali", 0.15)
+				tilat.add("stressi", 0.1)
+			tilat.first("karburaattori", 0.4)
+			Sfx.play("win_small", -4.0)
+			_show_message(["SLN-73 hurisee kuin kissa! Ei sillä mihinkään ajeta, mutta kuitenkin.",
+				"Tasainen tyhjäkäynti. Tätä ei Päivi ymmärrä."].pick_random(), 3.5)
+		else:
+			_show_message("Karburaattori jäi vielä vähän sinne päin. Huomenna uusiks.", 2.5))
+	add_child(g)
 
 
 func _enter_home(door: String) -> void:
@@ -1114,7 +1276,9 @@ func _enter_home(door: String) -> void:
 	player.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	tilat.first("koti_sisalla", 0.1)
+	home_int.carrying = beers > 0 or has_kanister
 	home_int.enter(door)
+	home_int.walker.set_carrying(beers > 0 or has_kanister)
 	Sfx.play("door", -3.0)
 
 
@@ -1131,6 +1295,7 @@ func _on_home_exited() -> void:
 	walker_out.velocity = Vector3.ZERO
 	walker_out.controls_enabled = true
 	walker_out.activate_camera()
+	walker_out.set_carrying(beers > 0)
 	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
 
 
@@ -1311,75 +1476,105 @@ func _stash_logic() -> void:
 		return
 	var p := player.global_position
 	for id in STASHES:
+		if id in INDOOR_STASHES:
+			continue  # eteisen kaappi ja tallin työkalukaappi ovat sisällä (_stash_ui sisätiloista)
 		var at := _stash_pos(id)
 		if Vector2(p.x - at.x, p.z - at.z).length() > 2.6:
 			continue
 		if id == "laavu" and not laavu_conquered:
 			return
-		var st: Dictionary = STASHES[id]
-		var have: int = stash.get(id, 0)
-		var room: int = maxi(0, st.cap - have)
-		var can_take := mini(CARRY_FOOT - beers, have)
-		var all := Input.is_key_pressed(KEY_SHIFT)
-		var opts: Array[String] = []
-		var kanister: bool = has_kanister and st.home
-		# Kotipiiloissa 24 kaljaa: tyhjin käsin kotipiilolla E aloittaa juhlat (onnellinen loppu, _win(true)).
-		var party: bool = st.home and jemma >= JEMMA_GOAL and beers <= 0 and not has_kanister
-		if party:
-			opts.append("[E] Aloita juhlat autotallissa (kotipiiloissa %d kaljaa)" % jemma)
-		elif kanister:
-			opts.append("[E] Piilota kanisteri (= %d kaljaa)" % KANISTER_BEERS)
-		elif beers > 0 and room > 0:
-			opts.append("[E] Piilota 1 · Shift+E %d" % mini(beers, room))
-		if can_take > 0:
-			opts.append("[Q] Ota 1 · Shift+Q %d" % can_take)
-		var head := "%s: %d/%d kaljaa" % [st.name.left(1).to_upper() + st.name.substr(1), have, st.cap]
-		if opts.is_empty():
-			_hint.text = head + (" – täynnä." if room == 0 and beers > 0 else (" – kädet täynnä." if have > 0 else " – tänne voi piilottaa kaljoja."))
-			return
-		_hint.text = head + "   " + "   ".join(opts)
-		if Input.is_action_just_pressed("interact") and party:
-			_win(true)
-			return
-		if Input.is_action_just_pressed("interact") and kanister:
-			_stash_add(id, KANISTER_BEERS)
-			has_kanister = false
-			walker_out.set_kanister(false)
-			_stashed_today += KANISTER_BEERS
-			Sfx.play("pickup", -2.0, 0.6)
-			_show_message("Kanisteri piiloon %s (= %d kaljaa, siellä nyt %d).%s" % [st.into, KANISTER_BEERS, stash[id],
-				_stash_warning(id)], 3.0)
-		elif Input.is_action_just_pressed("interact") and beers > 0 and room > 0:
-			var n := mini(beers, room) if all else 1
-			_stash_add(id, n)
-			beers -= n
-			_stashed_today += n
-			player.set_carrying(beers > 0)
-			Sfx.play("pickup", -2.0, 0.8)
-			if all or beers == 0:
-				_show_message("Piilotit %d kaljaa %s (siellä %d).%s%s" % [n, st.into, stash[id], _stash_warning(id),
-					("\nKotipiiloissa %d kaljaa: juhlat voi aloittaa kotipiilolta (E)!" % jemma) if st.home and jemma >= JEMMA_GOAL and beers == 0 else ""], 3.0)
-		elif Input.is_action_just_pressed("bell") and can_take > 0:
-			var n := can_take if all else 1
-			_stash_add(id, -n)
-			_stashed_today = maxi(0, _stashed_today - n)
-			beers += n
-			player.set_carrying(true)
-			Sfx.play("pickup")
-			if all:
-				_show_message("Otit %d kaljaa %s.%s" % [n, st.from,
-					("\nPyörän kyytiin mahtuu vain %d." % CARRY_BIKE) if beers > CARRY_BIKE else ""], 3.0)
+		_stash_ui(id)
 		return
+
+
+## Jemman vihje ja näppäimet: ulkona _stash_logic, sisällä eteisen kaappi (koti) ja tallin työkalukaappi.
+func _stash_ui(id: String) -> void:
+	var st: Dictionary = STASHES[id]
+	var have: int = stash.get(id, 0)
+	var room: int = maxi(0, st.cap - have)
+	var can_take := mini(CARRY_FOOT - beers, have)
+	var all := Input.is_key_pressed(KEY_SHIFT)
+	var opts: Array[String] = []
+	var kanister: bool = has_kanister and st.home
+	# Kotipiiloissa 24 kaljaa: tyhjin käsin kotipiilolla E aloittaa juhlat (onnellinen loppu, _win(true)).
+	var party: bool = st.home and jemma >= JEMMA_GOAL and beers <= 0 and not has_kanister
+	if party:
+		opts.append("[E] Aloita juhlat autotallissa (kotipiiloissa %d kaljaa)" % jemma)
+	elif kanister:
+		opts.append("[E] Piilota kanisteri (= %d kaljaa)" % KANISTER_BEERS)
+	elif beers > 0 and room > 0:
+		opts.append("[E] Piilota 1 · Shift+E %d" % mini(beers, room))
+	if can_take > 0:
+		opts.append("[Q] Ota 1 · Shift+Q %d" % can_take)
+	var head := "%s: %d/%d kaljaa" % [st.name.left(1).to_upper() + st.name.substr(1), have, st.cap]
+	if opts.is_empty():
+		_hint.text = head + (" – täynnä." if room == 0 and beers > 0 else (" – kädet täynnä." if have > 0 else " – tänne voi piilottaa kaljoja."))
+		return
+	_hint.text = head + "   " + "   ".join(opts)
+	if Input.is_action_just_pressed("interact") and party:
+		_leave_interior_quiet()
+		_win(true)
+		return
+	if Input.is_action_just_pressed("interact") and kanister:
+		_stash_add(id, KANISTER_BEERS)
+		has_kanister = false
+		walker_out.set_kanister(false)
+		_set_beer_carry()
+		_stashed_today += KANISTER_BEERS
+		Sfx.play("pickup", -2.0, 0.6)
+		_show_message("Kanisteri piiloon %s (= %d kaljaa, siellä nyt %d).%s" % [st.into, KANISTER_BEERS, stash[id],
+			_stash_warning(id)], 3.0)
+	elif Input.is_action_just_pressed("interact") and beers > 0 and room > 0:
+		var n := mini(beers, room) if all else 1
+		_stash_add(id, n)
+		beers -= n
+		_stashed_today += n
+		_set_beer_carry()
+		Sfx.play("pickup", -2.0, 0.8)
+		if all or beers == 0:
+			_show_message("Piilotit %d kaljaa %s (siellä %d).%s%s" % [n, st.into, stash[id], _stash_warning(id),
+				("\nKotipiiloissa %d kaljaa: juhlat voi aloittaa kotipiilolta (E)!" % jemma) if st.home and jemma >= JEMMA_GOAL and beers == 0 else ""], 3.0)
+	elif Input.is_action_just_pressed("bell") and can_take > 0:
+		var n := can_take if all else 1
+		_stash_add(id, -n)
+		_stashed_today = maxi(0, _stashed_today - n)
+		beers += n
+		_set_beer_carry()
+		Sfx.play("pickup")
+		if all:
+			_show_message("Otit %d kaljaa %s.%s" % [n, st.from,
+				("\nPyörän kyytiin mahtuu vain %d." % CARRY_BIKE) if beers > CARRY_BIKE else ""], 3.0)
+	return
+
+
+## Kantaminen näkyy ulkokävelijällä ja sisätilan kävelijällä.
+func _set_beer_carry() -> void:
+	walker_out.set_carrying(beers > 0)
+	var w := _active_walker()
+	if w != walker_out and w.has_method("set_carrying"):
+		w.set_carrying(beers > 0 or has_kanister)
+	if state == "in_home":
+		home_int.carrying = beers > 0 or has_kanister
+
+
+## Sisätilasta suoraan tapahtumaan (juhlat): sisätila suljetaan ja palataan ulkotilaan ilman ovianimaatiota.
+func _leave_interior_quiet() -> void:
+	if state == "in_home":
+		home_int.leave()
+		state = _home_prev
+	elif state == "in_garage":
+		garage_int.leave()
+		state = _garage_prev
+	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
 
 
 ## Jemman paikka maailmassa.
 func _stash_pos(id: String) -> Vector3:
 	match id:
 		"koti":
-			var hf := M.HOME_YAW_DIR.normalized()
-			return home_door + Vector3(-hf.y, 0, hf.x) * 4.8 - Vector3(hf.x, 0, hf.y) * 0.6  # julkisivun vieressä oven sivulla
+			return home_door  # eteisen kaappi (sisällä)
 		"autotalli":
-			return M.w(M.GARAGE) + Vector3(-3.8, 0, 3.6)
+			return world.garage_door if world.garage_door != Vector3.ZERO else M.w(M.GARAGE)  # työkalukaappi (sisällä)
 		"komposti":
 			return M.w(M.COMPOST)
 		"laavu":
@@ -2102,12 +2297,14 @@ func _active_walker() -> CharacterBody3D:
 			return home_int.walker
 		"in_mokki":
 			return mokki_int.walker
+		"in_garage":
+			return garage_int.walker
 	return player
 
 
 ## T sisätiloissa: sama syö/juo-valikko kuin ulkona, kun hahmo on vapaana (ei minipeliä, keskustelua tai valikkoa).
 func _indoor_eat() -> void:
-	if not state in ["in_shop", "in_siitari", "in_raahe", "in_home", "in_mokki"] or _item_menu.is_open():
+	if not state in ["in_shop", "in_siitari", "in_raahe", "in_home", "in_mokki", "in_garage"] or _item_menu.is_open():
 		return
 	if Input.is_action_just_pressed("eat") and _active_walker().controls_enabled:
 		_open_eat_menu()
@@ -5978,6 +6175,7 @@ func _load_game() -> void:
 	_taxi_mokki_return = cfg.get_value("tarina", "taksi_paluu", false)
 	if cfg.has_section_key("peli", "pyora"):
 		_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
+		_bike_garage_saved = cfg.get_value("peli", "pyora_tallissa", false)
 
 
 func _save_game() -> void:
@@ -6019,6 +6217,7 @@ func _save_game() -> void:
 	if bike != null:
 		cfg.set_value("peli", "pyora", bike.global_position)
 		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
+		cfg.set_value("peli", "pyora_tallissa", bike_in_garage)
 	cfg.save(SAVE_PATH)
 
 
@@ -6163,6 +6362,8 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		tilat.add("stressi", 0.2)
 	_beasts_today = 0
 	_beast_forest_t = 0.0
+	_bike_tuned = false
+	bike.tune = 1.0
 	if _beast != null and is_instance_valid(_beast):
 		_beast.queue_free()
 	_beast = null
@@ -6305,6 +6506,8 @@ func _apply_saved_bike() -> String:
 	bike.global_position = _bike_saved[0]
 	bike.rotation.y = _bike_saved[1]
 	_place_on_foot(home_zone + Vector3(0, 0.3, 4))
+	if _bike_garage_saved:
+		_store_bike(true)
 	return _bike_note(home_zone)
 
 
@@ -6837,7 +7040,7 @@ func _update_hud() -> void:
 	_stats.text = "\n".join(lines)
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_siitari", "in_raahe", "lava"]) and not _in_vaala
+	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "lava"]) and not _in_vaala
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
 	_minimap.show_target = false  # ei tehtäväkohdetta: kauppa ja koti näkyvät kartalla merkkeinä
 	_compass.visible = state in ["to_shop", "to_home"]
@@ -6871,7 +7074,7 @@ func _update_hud() -> void:
 
 	var nb: CharacterBody3D = interior.neighbor
 	_sus_box.visible = state == "in_shop" and nb != null
-	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_home", "in_siitari", "in_raahe"]
+	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe"]
 	_stat_bars.offset_top = 90 if _sus_box.visible else 36
 	if _sus_box.visible:
 		_sus_bar.value = nb.suspicion
@@ -7857,6 +8060,105 @@ func _maybe_screenshot() -> void:
 				var e := 1.5
 				var sl := rad_to_deg(atan(Vector2(Mokki.h(p.x + e, p.y) - Mokki.h(p.x - e, p.y), Mokki.h(p.x, p.y + e) - Mokki.h(p.x, p.y - e)).length() / (2.0 * e)))
 				print("VIINA %d %s: lähin rakennus %.1f m, rinne %.0f°" % [i, p, best, sl])
+		"autotalli":
+			# Autotalli: sisään kaljat kädessä, työkalukaappiin, radio, arkku, karburaattori (kuva + pakotettu
+			# onnistuminen), ulos; pyörä talliin, huolto ja ulos pyörällä; eteisen kaappi kodin sisällä.
+			if player == bike:
+				_toggle_mount()
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var gstash: int = stash.get("autotalli", 0)
+			beers = 3
+			walker_out.global_position = world.garage_door + world.garage_out * 0.4 + Vector3(0, 0.3, 0)
+			await frames.call(10)
+			print("TALLI ovella: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("TALLI sisään: tila %s" % state)
+			garage_int.walker.position = GarageInterior.SPOTS.kaappi[0]
+			await frames.call(5)
+			print("TALLI kaappi: hint '%s'" % _hint.text)
+			await press.call("interact")
+			await press.call("interact")
+			print("TALLI kaappiin: jemma %d -> %d, kaljat %d" % [gstash, stash.get("autotalli", 0), beers])
+			garage_int.walker.position = GarageInterior.SPOTS.radio[0]
+			await frames.call(5)
+			await press.call("interact")
+			print("TALLI radio: päällä %s, viesti '%s'" % [garage_int.radio_on, _msg.text])
+			garage_int.walker.position = GarageInterior.SPOTS.arkku[0]
+			await frames.call(5)
+			var v0 := viina_pullot
+			await press.call("interact")
+			print("TALLI arkku: viina %d -> %d, viesti '%s'" % [v0, viina_pullot, _msg.text])
+			garage_int.walker.position = Vector3(0.6, 0, 3.0)
+			await frames.call(10)
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_talli.png"))
+			garage_int.walker.position = GarageInterior.SPOTS.auto[0]
+			await frames.call(5)
+			await press.call("interact")
+			var cg: Node = get_children().filter(func(c): return c is CarbGame).front()
+			print("TALLI karburaattori auki: %s" % [cg != null])
+			await get_tree().create_timer(1.5).timeout
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_karbu.png"))
+			if cg != null:
+				cg._mix_ok = cg._mix
+				cg._idle_ok = cg._idle
+				await get_tree().create_timer(4.0).timeout
+			print("TALLI karburaattori: peli ohi %s, viesti '%s'" % [not is_instance_valid(cg), _msg.text])
+			garage_int.walker.position = GarageInterior.SPOTS.ovi[0]
+			await frames.call(5)
+			await press.call("interact")
+			print("TALLI ulos: tila %s, etäisyys ovesta %.1f m" % [state, walker_out.global_position.distance_to(world.garage_door)])
+			# Pyörä talliin ja ulos.
+			bike.global_position = world.garage_door + world.garage_out * 2.5 + Vector3(0, 0.4, 0)
+			walker_out.global_position = bike.global_position + Vector3(1.0, 0, 0)
+			beers = 0
+			await frames.call(5)
+			_toggle_mount()
+			bike.global_position = world.garage_door + world.garage_out * 0.5 + Vector3(0, 0.4, 0)
+			await frames.call(10)
+			print("TALLI pyörällä ovella: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("TALLI pyörä talliin: tila %s, tallissa %s, näkyy %s" % [state, bike_in_garage, bike.visible])
+			garage_int.walker.position = GarageInterior.SPOTS.tyopoyta[0]
+			await frames.call(5)
+			await press.call("interact")
+			print("TALLI huolto: tune %.2f viesti '%s'" % [bike.tune, _msg.text])
+			garage_int.walker.position = GarageInterior.SPOTS.pyora[0]
+			await frames.call(5)
+			print("TALLI pyörän luona: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("TALLI ulos pyörällä: tila %s, pyörän selässä %s, tallissa %s" % [state, player == bike, bike_in_garage])
+			# Eteisen kaappi sisällä.
+			_toggle_mount()
+			beers = 2
+			var hstash: int = stash.get("koti", 0)
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			await frames.call(10)
+			print("ETEINEN ovella: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("ETEINEN sisään: tila %s, kantaa %s" % [state, home_int.carrying])
+			home_int.walker.position = Vector3(1.5, 0, -2.5)
+			await frames.call(5)
+			print("ETEINEN keittiöön kaljoineen: paikka %s hint '%s'" % [home_int.walker.position, _hint.text])
+			home_int.walker.position = HomeInterior.SPOTS.kaappi[0]
+			await frames.call(5)
+			print("ETEINEN kaapilla: hint '%s'" % _hint.text)
+			await press.call("interact")
+			await press.call("interact")
+			home_int.walker.position = Vector3(1.5, 0, -2.5)
+			await frames.call(5)
+			print("ETEINEN kaappiin: jemma %d -> %d, kaljat %d, keittiöön pääsi %s" % [hstash, stash.get("koti", 0), beers,
+				home_int.walker.position.distance_to(Vector3(1.5, 0, -2.5)) < 0.5])
 		"karhukuva":
 			# Karhun lähikuvat: kävely sivulta, pystyyn nousu ja karjaisu edestä, laukka sivulta.
 			if player == bike:
