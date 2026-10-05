@@ -1146,6 +1146,24 @@ func _home_door_logic(door: String) -> void:
 var _home_exit_frame := -1  # ulos tullessa painettu E ei vie heti takaisin sisään
 
 
+## Testit: kotiin tai talliin ja sisäjemman kaapin eteen.
+func _test_goto_stash(id: String) -> void:
+	walker_out.global_position = (home_door if id == "koti" else world.garage_door) + Vector3(0, 0.3, 0)
+	walker_out.velocity = Vector3.ZERO
+	for i in 3:
+		await get_tree().physics_frame
+	if id == "koti":
+		_enter_home("ovi")
+		home_int.walker.position = HomeInterior.SPOTS.kaappi[0]
+	else:
+		_enter_garage()
+		garage_int.walker.position = GarageInterior.SPOTS.kaappi[0]
+	for i in 5:
+		await get_tree().physics_frame
+	for i in 3:
+		await get_tree().process_frame
+
+
 ## Autotallin nosturiovi: jalan sisään (kaljat saa kantaa, työkalukaappi on sisällä), pyörällä pyörä talliin.
 func _garage_door_logic() -> void:
 	var e: bool = Input.is_action_just_pressed("interact") and not player.is_stunned() \
@@ -8517,9 +8535,7 @@ func _maybe_screenshot() -> void:
 			for i in 30:
 				await get_tree().process_frame
 			print("JUHLAT nukuttu: jemma %d, loppuja %d -> %d, tila %s" % [jemma, e0, jemma_endings, state])
-			walker_out.global_position = _stash_pos("autotalli") + Vector3(0, 0.3, 0)
-			for i in 10:
-				await get_tree().physics_frame
+			await _test_goto_stash("autotalli")
 			print("JUHLAT kotipiilolla: hint '%s'" % _hint.text)
 			await press.call("interact")
 			for i in 10:
@@ -8857,7 +8873,7 @@ func _maybe_screenshot() -> void:
 			print("TARINA alku: %s, Pekan kyyti auki %s" % [story.step, story.ride_unlocked()])
 			beers = 6
 			walker_out.set_carrying(true)
-			await goto.call(_stash_pos("koti"))
+			await _test_goto_stash("koti")
 			var shift := InputEventKey.new()
 			shift.keycode = KEY_SHIFT
 			shift.physical_keycode = KEY_SHIFT
@@ -8868,6 +8884,7 @@ func _maybe_screenshot() -> void:
 			shift.pressed = false
 			Input.parse_input_event(shift)
 			print("TARINA jemma: kaljat %d, vaihe %s, viesti '%s'" % [beers, story.step, str(_msg_queue)])
+			_on_home_exited()
 			await goto.call(pekka.global_position + Vector3(1.5, 0, 0))
 			print("TARINA Pekka: '%s'" % _hint.text)
 			await press.call("interact")
@@ -12144,13 +12161,12 @@ func _maybe_screenshot() -> void:
 				await get_tree().physics_frame
 			await get_tree().process_frame
 			print("OVI kaljat kädessä: state=%s hint=%s" % [state, _hint.text])
-			walker_out.global_position = _stash_pos("koti") + Vector3(0, 0.5, 0.5)
-			await get_tree().physics_frame
-			await get_tree().process_frame
+			await _test_goto_stash("koti")
 			print("OVI jemman luona: hint=%s" % _hint.text)
 			for i in 3:
 				await press.call("interact")
 			print("OVI piilotettu: beers=%d jemma=%d state=%s hint=%s" % [beers, jemma, state, _hint.text])
+			_on_home_exited()
 			walker_out.global_position = home_zone + Vector3(3.0, 0.5, 2.0)
 			await get_tree().physics_frame
 			await get_tree().process_frame
@@ -12213,15 +12229,14 @@ func _maybe_screenshot() -> void:
 			cc.queue_free()
 			jemma = 3
 			# Kanisteri piilotetaan itse eteisen kaappiin, sitten tyhjin käsin ovelle.
-			walker_out.global_position = _stash_pos("koti") + Vector3(0, 0.5, 0.5)
-			await get_tree().physics_frame
-			await get_tree().process_frame
+			await _test_goto_stash("koti")
 			print("STASH hint=", _hint.text)
 			Input.action_press("interact")
 			await get_tree().process_frame
 			Input.action_release("interact")
 			await get_tree().process_frame
 			print("STASH kanister=%s jemma=%d msg=%s" % [has_kanister, jemma, _msg.text.replace("\n", " | ")])
+			_on_home_exited()
 			walker_out.global_position = home_zone + Vector3(0, 0.5, 0)
 			for i in 3:
 				await get_tree().physics_frame
