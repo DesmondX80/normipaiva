@@ -8235,6 +8235,7 @@ func _maybe_screenshot() -> void:
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_sangot.png"))
 			day += mwine_days
 			mokki_int.set_wine(_mwine_stage())
+			mokki_int.walker.position = mokki_int.SPOTS.sangot[0]
 			await frames.call(3)
 			print("PAAPELI valmis: hint '%s'" % _hint.text)
 			await press.call("interact")
