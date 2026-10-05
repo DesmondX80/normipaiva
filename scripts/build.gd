@@ -408,6 +408,33 @@ static func vision_fan(radius: float, half_angle: float) -> ArrayMesh:
 	return st.commit()
 
 
+## Kotiviinin puusaavi (autotalli ja Paapeli): puinen jalusta, saavi vanteineen ja laudoituksineen, törmäys,
+## viini ja käymisen ajan liina vesilukkoineen saavin sisällä (puureuna näkyy ylhäältä). Palauttaa [viini, liina].
+static func wine_vat(parent: Node3D, c: Vector3) -> Array:
+	var wood := Color(0.52, 0.34, 0.18)
+	box(parent, Vector3(0.8, 0.12, 0.8), c + Vector3(0, 0.06, 0), Color(0.35, 0.25, 0.15))  # jalusta
+	mesh(parent, cyl(0.36, 0.31, 0.65, 18), c + Vector3(0, 0.45, 0), wood)
+	for y in [0.22, 0.68]:
+		mesh(parent, cyl(0.355 if y > 0.5 else 0.325, 0.355 if y > 0.5 else 0.325, 0.04, 18), c + Vector3(0, y, 0), Color(0.3, 0.3, 0.32))
+	for k in 10:  # laudoitus
+		var a := k * TAU / 10.0
+		mesh(parent, boxm(Vector3(0.012, 0.64, 0.02)), c + Vector3(cos(a) * 0.335, 0.45, sin(a) * 0.335), wood.darkened(0.25),
+			Vector3(0, -rad_to_deg(a), 0))
+	var body := StaticBody3D.new()
+	body.position = c + Vector3(0, 0.4, 0)
+	body.add_child(box_shape(Vector3(0.75, 0.8, 0.75)))
+	parent.add_child(body)
+	var liquid := mesh(parent, cyl(0.33, 0.33, 0.02, 18), c + Vector3(0, 0.74, 0), Color(0.35, 0.12, 0.25))
+	var cover := Node3D.new()
+	cover.position = c + Vector3(0, 0.76, 0)
+	parent.add_child(cover)
+	mesh(cover, cyl(0.3, 0.3, 0.015, 18), Vector3.ZERO, Color(0.9, 0.88, 0.82))  # liina saavin sisällä
+	mesh(cover, cyl(0.03, 0.03, 0.18, 8), Vector3(0, 0.1, 0), Color(0.85, 0.9, 0.92, 0.8))  # vesilukko
+	mesh(cover, sphere(0.045, 8), Vector3(0, 0.2, 0), Color(0.8, 0.9, 0.95))
+	guide(parent, "Viinisaavi", c + Vector3(0, 1.3, 0), 22, Color(1, 1, 1), true)
+	return [liquid, cover]
+
+
 ## Yaw, jolla -Z osoittaa suuntaan dir (XZ-tasossa).
 static func yaw_to(dir: Vector3) -> float:
 	return atan2(-dir.x, -dir.z)

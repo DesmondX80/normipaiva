@@ -78,7 +78,7 @@ var walker: CharacterBody3D
 var hint := ""
 var spot := ""  # lähin toimintopiste
 var _wine_liquid: Array[MeshInstance3D] = []
-var _wine_cloth: Array[MeshInstance3D] = []
+var _wine_cloth: Array[Node3D] = []
 var _blubs: Array[Label3D] = []
 var _blub_t := 0.0
 var wine_stage := ""
@@ -156,29 +156,13 @@ const WINE_VAT := Vector3(6.1, 0, -1.78)  # irti seinästä: matalan seinän tak
 
 func _build_wine_buckets() -> void:
 	var c := WINE_VAT
-	var wood := Color(0.52, 0.34, 0.18)
-	B.mesh(self, B.cyl(0.34, 0.29, 0.6, 18), c + Vector3(0, 0.3, 0), wood)
-	for y in [0.12, 0.52]:
-		B.mesh(self, B.cyl(0.33 if y > 0.3 else 0.305, 0.33 if y > 0.3 else 0.305, 0.04, 18), c + Vector3(0, y, 0), Color(0.3, 0.3, 0.32))
-	for k in 10:
-		var a := k * TAU / 10.0
-		B.mesh(self, B.boxm(Vector3(0.012, 0.58, 0.02)), c + Vector3(cos(a) * 0.315, 0.3, sin(a) * 0.315), wood.darkened(0.25),
-			Vector3(0, -rad_to_deg(a), 0))
-	var body := StaticBody3D.new()
-	body.position = c + Vector3(0, 0.35, 0)
-	body.add_child(B.box_shape(Vector3(0.7, 0.7, 0.7)))
-	add_child(body)
-	var liq := B.mesh(self, B.cyl(0.31, 0.31, 0.01, 18), c + Vector3(0, 0.58, 0), Color(0.35, 0.12, 0.25))
-	_wine_liquid.append(liq)
-	var cloth := B.mesh(self, B.cyl(0.27, 0.27, 0.012, 18), c + Vector3(0, 0.6, 0), Color(0.9, 0.86, 0.78))  # liina saavin sisällä: puureuna näkyy
-	B.mesh(cloth, B.cyl(0.025, 0.025, 0.16, 8), Vector3(0, 0.08, 0), Color(0.85, 0.9, 0.92, 0.8))
-	B.mesh(cloth, B.sphere(0.04, 8), Vector3(0, 0.17, 0), Color(0.8, 0.9, 0.95))
-	_wine_cloth.append(cloth)
+	var parts := B.wine_vat(self, c)  # sama saavi kuin autotallissa
+	_wine_liquid.append(parts[0])
+	_wine_cloth.append(parts[1])
 	for i in 3:
-		var bl := B.guide(self, "blub", c + Vector3(0, 1.0, 0), 24, Color(0.9, 0.7, 0.85), true)
+		var bl := B.guide(self, "blub", c + Vector3(0, 1.0, 0), 26, Color(0.9, 0.7, 0.85), true)
 		bl.visible = false
 		_blubs.append(bl)
-	B.guide(self, "Viinisaavi", c + Vector3(0, 1.25, 0), 20, Color(1, 1, 1), true)
 	set_wine("")
 
 
@@ -219,7 +203,7 @@ func _process(delta: float) -> void:
 			for bl in _blubs:
 				if not bl.visible:
 					bl.visible = true
-					bl.position = WINE_VAT + Vector3(randf_range(-0.15, 0.15), 1.0, 0)
+					bl.position = WINE_VAT + Vector3(randf_range(-0.15, 0.15), 1.05, 0)
 					bl.modulate.a = 1.0
 					break
 		for bl in _blubs:
