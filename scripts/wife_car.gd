@@ -22,6 +22,7 @@ var safe_zones: Array = []  # [Vector3 keskipiste, float säde]: näihin Päivi 
 var alerted := false  # naapuri käräytti: vaimo tietää koko ajan missä olet
 var speed_mult := 1.0  # päivän tilat (#18): huonon päivän jälkeen nopeampi, hyvän jälkeen hitaampi
 var mode := "patrol"  # patrol, chase, return
+var parked := false  # yöllä kotipihassa: Päivi sisällä, auto ei liiku eikä jahtaa (main.gd _day_rhythm)
 
 var _nodes: Array[Vector3] = []
 var _adj: Array = []
@@ -92,6 +93,9 @@ func _physics_process(delta: float) -> void:
 		self, global_position + Vector3.UP * 1.3, target.global_position + Vector3.UP,
 		[get_rid(), (target as CollisionObject3D).get_rid()])))
 
+	if parked:
+		_speed = 0.0
+		return  # yöllä Päivi on sisällä, auto pihassa
 	if mode != "chase" and sees:
 		mode = "chase"
 		_honk_t = 0.0
