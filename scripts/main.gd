@@ -188,6 +188,17 @@ const GARAGE_INT_POS := Vector3(-9000, 0, 3000)
 const BIKE_TUNE := 1.1  # työpöydällä huollettu pyörä: huippunopeus ja kiihtyvyys päivän ajan
 ## Sisätiloissa olevat jemmat (eteisen kaappi kodin eteisessä, työkalukaappi tallissa): _stash_ui sisältä.
 const INDOOR_STASHES := ["koti", "autotalli"]
+## Kotiviini autotallin saavissa: marjat (WINE_BERRIES l ämpäristä), hiiva ja sokeri. Tavallinen hiiva (kodin
+## jääkaapista) käyttää WINE_DAYS.hiiva päivää, turbohiiva (kaupasta) WINE_DAYS.turbo. Sokeri kaupasta tai kodin
+## keittiön kaapista (Päivi suuttuu aamulla). Valmis viini = viinibileet (onnellinen loppu) Pekan, Arton ja Sinikan
+## kanssa; herätään jonkun heistä luota krapulassa ja viininteko lukittuu (lupaus: ei enää ikinä).
+const WINE_BERRIES := 3
+const WINE_DAYS := {"hiiva": 21, "turbo": 7}
+const WINE_WAKE := {
+	"pekka": "Heräsit Pekan saunan lauteilta pyyhe päässä. Pekka kuorsaa kuistilla kyyhkynsulka hiuksissa.",
+	"arto": "Heräsit Arton Hyundain takapenkiltä. Arto keittää kahvia eikä katso silmiin.",
+	"sinikka": "Heräsit Sinikan sohvalta kukkapeiton alta. Sinikka hymyilee merkitsevästi.",
+}
 const WcGame := preload("res://scripts/wc_game.gd")
 const ShopChaser := preload("res://scripts/shop_chaser.gd")
 const Story := preload("res://scripts/story.gd")
@@ -209,6 +220,14 @@ var bike_in_garage := false  # pyörä tallissa: piilossa ja turvassa varkailta
 var _bike_garage_saved := false
 var _bike_tuned := false
 var _freezer_bottle := false  # arkun pohjan Koskenkorva löydetty (kerran pelikerrassa)
+var has_yeast := false
+var has_turbo := false
+var has_sugar := false
+var _sugar_taken := false  # keittiön kaapista: Päivi huomaa aamulla
+var wine_start := -1  # päivä, jona viini laitettiin käymään (-1 = saavi tyhjä)
+var wine_days := 0
+var wine_locked := false  # viinibileiden jälkeen: ei enää ikinä
+var wine_endings := 0
 var siitari_int: Node3D
 var raahe_int: Node3D
 var _raahe := {}  # illan tapahtumat Raahen baarissa (kädenvääntö, visa, karaoke)
@@ -873,6 +892,8 @@ func _process(delta: float) -> void:
 			_hint.text = garage_int.hint
 			if garage_int.spot == "kaappi":
 				_stash_ui("autotalli")
+			elif garage_int.spot == "saavi":
+				_hint.text = _wine_hint()
 			if garage_int.radio_on:
 				tilat.add("stressi", 0.006 * delta)  # iskelmä rauhoittaa
 				tilat.add("moraali", 0.002 * delta)
@@ -1200,6 +1221,7 @@ func _enter_garage() -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	tilat.first("autotalli_sisalla", 0.1)
 	garage_int.enter(bike_in_garage)
+	garage_int.set_wine(_wine_stage())
 	garage_int.walker.set_carrying(beers > 0 or has_kanister)
 	Sfx.play("door", -3.0, 0.7)
 
@@ -1261,6 +1283,76 @@ func _on_garage_acted(kind: String) -> void:
 			_show_message("Radio Iskelmä soi. Stressi hellittää." if garage_int.radio_on else "Radio hiljeni.", 2.0)
 		"pyora":
 			_on_garage_exited(true)
+		"saavi":
+			_wine_act()
+
+
+func _wine_berries() -> int:
+	return bucket.get("puolukka", 0) + bucket.get("mustikka", 0)
+
+
+func _wine_ready() -> bool:
+	return wine_start >= 0 and day - wine_start >= wine_days
+
+
+func _wine_stage() -> String:
+	if wine_start < 0:
+		return ""
+	return "valmis" if _wine_ready() else "kay"
+
+
+func _wine_hint() -> String:
+	if wine_locked:
+		return "Viinisaavi. Lupasit: viiniä ei tehdä enää IKINÄ."
+	if _wine_ready():
+		return "[E] Kotiviini on valmis! Kutsu Pekka, Arto ja Sinikka viinibileisiin"
+	if wine_start >= 0:
+		var left := wine_days - (day - wine_start)
+		return "Viini käy: valmis %d päivän päästä. Blub." % left
+	var miss := PackedStringArray()
+	if _wine_berries() < WINE_BERRIES:
+		miss.append("marjoja %d l (ämpärissä %d l)" % [WINE_BERRIES, _wine_berries()])
+	if not has_yeast and not has_turbo:
+		miss.append("hiivaa (jääkaappi) tai turbohiivaa (kauppa)")
+	if not has_sugar:
+		miss.append("sokeria (kauppa tai keittiön kaappi)")
+	if miss.is_empty():
+		return "[E] Laita kotiviini käymään (%s)" % ("turbohiiva: viikko" if has_turbo else "hiiva: kolme viikkoa")
+	return "Viinisaavi. Puuttuu: " + ", ".join(miss)
+
+
+func _wine_act() -> void:
+	if wine_locked:
+		_show_message("Ei. Enää. Ikinä.", 2.0)
+		return
+	if _wine_ready():
+		_leave_interior_quiet()
+		_win(true, true)
+		return
+	if wine_start >= 0 or _wine_berries() < WINE_BERRIES or not (has_yeast or has_turbo) or not has_sugar:
+		return
+	var need := WINE_BERRIES
+	for k in ["mustikka", "puolukka"]:
+		var n: int = mini(need, bucket.get(k, 0))
+		if n > 0:
+			bucket[k] -= n
+			if bucket[k] <= 0:
+				bucket.erase(k)
+			need -= n
+	var turbo := has_turbo
+	if turbo:
+		has_turbo = false
+	else:
+		has_yeast = false
+	has_sugar = false
+	wine_start = day
+	wine_days = WINE_DAYS.turbo if turbo else WINE_DAYS.hiiva
+	garage_int.set_wine("kay")
+	tilat.first("kotiviini", 0.4)
+	Sfx.play("water", -6.0, 0.7)
+	_save_game()
+	_show_message("Marjat, sokeri ja %s saaviin, liina päälle ja vesilukko kiinni. Viini valmis %d päivän päästä." % [
+		"turbohiiva" if turbo else "hiiva", wine_days], 4.0)
 
 
 ## Karburaattorin säätö autotallissa (carb_game.gd).
@@ -1449,6 +1541,20 @@ func _on_home_acted(kind: String) -> void:
 				_show_message("Jääkaapissa oli Päivin pullaa. Otit yhden evääksi (T syö).", 3.0)
 			else:
 				_show_message("Jääkaapissa on vain nörtin energiajuomia ja sinappia.", 2.5)
+			if not has_yeast and not wine_locked:
+				has_yeast = true
+				_queue_message("Jääkaapin ovesta löytyi hiivapala. Otit sen mukaan (kotiviiniin).", 3.0)
+		"sokeri":
+			if wine_locked:
+				_show_message("Sokeria. Viiniä ei tehdä enää ikinä, lupasit.", 2.5)
+			elif has_sugar:
+				_show_message("Sokeripussi on jo mukana.", 2.0)
+			else:
+				has_sugar = true
+				_sugar_taken = true
+				tilat.add("stressi", -0.05)
+				Sfx.play("cloth", -6.0, 0.8)
+				_show_message("Otit Päivin sokeripussin keittiön kaapista. Tästä tulee vielä puhetta...", 3.0)
 		"tv":
 			if _once_today("tv"):
 				tilat.add("stressi", 0.05)
@@ -5631,6 +5737,8 @@ func _on_vaala_shop_exited(bought: bool) -> void:
 		has_sausage = has_sausage or interior.cart.has("makkara")
 		has_matches = has_matches or interior.cart.has("tikut")
 		has_chocolate = has_chocolate or interior.cart.has("suklaa")
+		has_turbo = has_turbo or interior.cart.has("turbohiiva")
+		has_sugar = has_sugar or interior.cart.has("sokeri")
 		for k in ShopInterior.BAKERY:
 			if interior.cart.has(k):
 				food[k] = food.get(k, 0) + 1
@@ -5734,6 +5842,8 @@ func _on_shop_exited(bought: bool) -> void:
 		has_sausage = has_sausage or interior.cart.has("makkara")
 		has_matches = has_matches or interior.cart.has("tikut")
 		has_chocolate = has_chocolate or interior.cart.has("suklaa")
+		has_turbo = has_turbo or interior.cart.has("turbohiiva")
+		has_sugar = has_sugar or interior.cart.has("sokeri")
 		for k in ShopInterior.BAKERY:
 			if interior.cart.has(k):
 				food[k] = food.get(k, 0) + 1
@@ -6116,7 +6226,7 @@ const CARRY_BIKE := 6  # pyörän tarakalle mahtuu kuutonen
 ## Kotiinpaluu: saalis jemmaan. Kun kotijemmassa on 24 olutta, tulee onnellinen loppu:
 ## karburaattorin säätöä autotallissa kalja kädessä (kotijemma juodaan tyhjäksi). party = juhlat aloitettiin
 ## kotipiilolta (_stash_logic, kotipiiloissa vähintään JEMMA_GOAL); nukkumaan mentäessä juhlia ei aloiteta itsestään.
-func _win(party := false) -> void:
+func _win(party := false, wine := false) -> void:
 	var shopped := state == "to_home"  # kuutonen haettu tänään
 	state = "cutscene"
 	player.controls_enabled = false
@@ -6137,6 +6247,30 @@ func _win(party := false) -> void:
 	jemma_best = maxi(jemma_best, jemma)
 	beers = 0
 	_save_game()
+	if wine:
+		_hud.visible = false
+		if not Sfx.has_music():
+			Sfx.play("win")
+		_drink(6)
+		wine_endings += 1
+		var used := wine_days
+		wine_start = -1
+		wine_locked = true  # lupaus: viiniä ei tehdä enää ikinä
+		garage_int.set_wine("")
+		_save_game()
+		var wstats := "Kotiviiniä %d päivän käymisen jälkeen  ·  Pekka, Arto ja Sinikka  ·  Viinibileitä: %d" % [used, wine_endings]
+		var who: String = WINE_WAKE.keys().pick_random()
+		cutscene.wine_party(wstats, func() -> void:
+			var yard: Array = world.neighbor_yards[who]
+			_new_day(yard[0] + Vector3(0, 0, 0), false, WINE_WAKE[who] +
+				"\nPää halkeaa. Äärimmäinen krapula.\nLupasit itsellesi: viiniä ei tehdä enää IKINÄ.")
+			for k in ["vireys", "keskittyminen"]:
+				tilat.ensure(k)
+				tilat.add(k, -0.7)
+			tilat.add("kipu", -0.3)
+			tilat.add("stressi", -0.2)
+			_save_game())
+		return
 	if party:
 		_hud.visible = false
 		if not Sfx.has_music():
@@ -6178,6 +6312,13 @@ func _load_game() -> void:
 	atm_day = cfg.get_value("peli", "otto_paiva", 0)
 	maine = cfg.get_value("peli", "maine", 0.0)
 	jemma_endings = cfg.get_value("jemma", "loput", 0)
+	wine_start = cfg.get_value("viini", "alku", -1)
+	wine_days = cfg.get_value("viini", "paivat", 0)
+	wine_locked = cfg.get_value("viini", "lukossa", false)
+	wine_endings = cfg.get_value("viini", "loput", 0)
+	has_yeast = cfg.get_value("viini", "hiiva", false)
+	has_turbo = cfg.get_value("viini", "turbo", false)
+	has_sugar = cfg.get_value("viini", "sokeri", false)
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
 	lawn.load_state(cfg.get_value("nurmikko", "pituudet", PackedByteArray()))
 	lawn_siilit = cfg.get_value("nurmikko", "siilit", 0)
@@ -6215,6 +6356,13 @@ func _save_game() -> void:
 	cfg.set_value("peli", "otto_paiva", atm_day)
 	cfg.set_value("peli", "maine", maine)
 	cfg.set_value("jemma", "loput", jemma_endings)
+	cfg.set_value("viini", "alku", wine_start)
+	cfg.set_value("viini", "paivat", wine_days)
+	cfg.set_value("viini", "lukossa", wine_locked)
+	cfg.set_value("viini", "loput", wine_endings)
+	cfg.set_value("viini", "hiiva", has_yeast)
+	cfg.set_value("viini", "turbo", has_turbo)
+	cfg.set_value("viini", "sokeri", has_sugar)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
 	if lawn != null:
 		cfg.set_value("nurmikko", "pituudet", lawn.save_state())
@@ -6378,6 +6526,11 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		money += CHOCO_MONEY
 		bonus += "\nKiitos suklaasta. Tässä %s € ylimääräistä." % _eur(CHOCO_MONEY)
 		tilat.add("stressi", 0.2)
+	if _sugar_taken:
+		_sugar_taken = false
+		bonus += "\nKUKA VEI SOKERIT?! Mää tiedän kyllä, mitä sää siellä autotallissa keität!"
+		tilat.add("stressi", -0.15)
+		tilat.add("moraali", -0.1)
 	_beasts_today = 0
 	_beast_forest_t = 0.0
 	_bike_tuned = false
@@ -7118,6 +7271,12 @@ func inventory_items() -> Array:
 		add.call("tulitikut", "Tulitikut", 1, "Nuotion sytytykseen.")
 	if has_chocolate:
 		add.call("suklaa", "Suklaalevy", 1, "Päivin lepytykseen.", {"use": "suklaa", "use_label": "syö"})
+	if has_yeast:
+		add.call("hiiva", "Hiiva", 1, "Kotiviiniin: kolme viikkoa käymistä.")
+	if has_turbo:
+		add.call("turbohiiva", "Turbohiiva", 1, "Kotiviiniin: viikossa valmista.")
+	if has_sugar:
+		add.call("sokeri", "Sokeri", 1, "Kotiviiniin (autotallin saavi).")
 	if has_mower_part:
 		add.call("varaosa", "Leikkurin varaosa", 1, "Kalja vielä, niin leikkuri korjataan.")
 	if has_ball:
@@ -7200,6 +7359,8 @@ func inventory_info() -> Dictionary:
 	for id in STASHES:
 		if stash.get(id, 0) > 0:
 			info.stashes.append("%s: %d" % [STASHES[id].name.capitalize(), stash[id]])
+	if wine_start >= 0:
+		info.lines.append("Kotiviini: %s" % ("valmis!" if _wine_ready() else "valmis %d pv päästä" % (wine_days - (day - wine_start))))
 	return info
 
 
@@ -8078,6 +8239,91 @@ func _maybe_screenshot() -> void:
 				var e := 1.5
 				var sl := rad_to_deg(atan(Vector2(Mokki.h(p.x + e, p.y) - Mokki.h(p.x - e, p.y), Mokki.h(p.x, p.y + e) - Mokki.h(p.x, p.y - e)).length() / (2.0 * e)))
 				print("VIINA %d %s: lähin rakennus %.1f m, rinne %.0f°" % [i, p, best, sl])
+		"viini":
+			# Kotiviini: kaupan hylly, hiiva jääkaapista, sokeri keittiön kaapista, saaviin, 21 päivää, viinibileet,
+			# takaumat ja herätys naapurista krapulassa, lukitus.
+			if player == bike:
+				_toggle_mount()
+			wine_locked = false
+			wine_start = -1
+			has_yeast = false
+			has_turbo = false
+			has_sugar = false
+			bucket = {"mustikka": 2, "puolukka": 2}
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+				for i in 3:
+					await get_tree().process_frame
+			_enter_shop()
+			interior.walker.position = ShopInterior.BREW_SPOT
+			await frames.call(5)
+			print("VIINI kauppa: hint '%s'" % _hint.text)
+			await press.call("interact")
+			await press.call("interact")
+			print("VIINI kauppa kori: %s" % [interior.cart])
+			interior.cart.clear()
+			_on_shop_exited(false)
+			await frames.call(5)
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			await frames.call(3)
+			_enter_home("ovi")
+			home_int.walker.position = HomeInterior.SPOTS.jaakaappi[0]
+			await frames.call(5)
+			await press.call("interact")
+			home_int.walker.position = HomeInterior.SPOTS.sokeri[0]
+			await frames.call(5)
+			print("VIINI keittiön kaappi: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("VIINI kotoa: hiiva %s sokeri %s viesti '%s'" % [has_yeast, has_sugar, _msg.text])
+			_on_home_exited()
+			await frames.call(3)
+			walker_out.global_position = world.garage_door + Vector3(0, 0.3, 0)
+			await frames.call(3)
+			_enter_garage()
+			garage_int.walker.position = GarageInterior.SPOTS.saavi[0]
+			await frames.call(5)
+			print("VIINI saavilla: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("VIINI käymään: alku %d päiviä %d marjat %s hiiva %s sokeri %s" % [wine_start, wine_days, bucket, has_yeast, has_sugar])
+			await frames.call(30)
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_saavi.png"))
+			day += 21
+			garage_int.set_wine(_wine_stage())
+			await frames.call(3)
+			print("VIINI 21 pv: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("VIINI bileet: tila %s lukossa %s" % [state, wine_locked])
+			for t in [5.0, 6.0, 7.0]:
+				await get_tree().create_timer(t, true, false, true).timeout
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_bileet%d.png" % int(t)))
+			for i in 40:
+				await get_tree().create_timer(0.5, true, false, true).timeout
+				if not cutscene.busy:
+					break
+			await get_tree().create_timer(1.5, true, false, true).timeout
+			var near := ""
+			for k in WINE_WAKE:
+				if walker_out.global_position.distance_to(world.neighbor_yards[k][0]) < 3.0:
+					near = k
+			print("VIINI herätys: tila %s naapuri '%s' vireys %.2f keskittyminen %.2f viesti '%s'" % [state, near,
+				tilat.value("vireys"), tilat.value("keskittyminen"), _msg.text.replace("\n", " | ")])
+			print("VIINI jono: ", str(_msg_queue).left(300))
+			walker_out.global_position = world.garage_door + Vector3(0, 0.3, 0)
+			await frames.call(3)
+			_enter_garage()
+			garage_int.walker.position = GarageInterior.SPOTS.saavi[0]
+			await frames.call(5)
+			print("VIINI lukossa: hint '%s'" % _hint.text)
 		"kieltokyltti":
 			# Kodan polun keltainen kieltokyltti: lähikuva edestä ja polulta tulijan silmin.
 			print("KYLTTI ", world.waste_sign != null, " paikka ", world.waste_sign.global_position if world.waste_sign else Vector3.ZERO,

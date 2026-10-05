@@ -407,6 +407,17 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_r(img, 10, 4, 4, 4, Color(0.4, 0.2, 0.1))
 			_r(img, 11, 5, 1, 1, Color(0.55, 0.3, 0.15))
 			_r(img, 3, 5, 5, 1, Color(0.95, 0.95, 0.95))
+		"hiiva", "turbohiiva":
+			var col := Color(0.15, 0.25, 0.6) if id == "turbohiiva" else Color(0.85, 0.75, 0.35)
+			_r(img, 3, 5, 10, 8, col)
+			_r(img, 3, 5, 10, 2, col.lightened(0.3))
+			_r(img, 5, 8, 6, 3, Color(0.95, 0.95, 0.9))
+			if id == "turbohiiva":
+				_r(img, 6, 9, 4, 1, Color(0.9, 0.2, 0.15))
+		"sokeri":
+			_r(img, 4, 3, 8, 11, Color(0.96, 0.96, 0.94))
+			_r(img, 4, 3, 8, 2, Color(0.2, 0.45, 0.8))
+			_r(img, 5, 7, 6, 3, Color(0.2, 0.45, 0.8))
 		"varaosa":
 			_r(img, 1, 7, 14, 2, Color(0.72, 0.72, 0.76))
 			_r(img, 1, 6, 3, 1, Color(0.85, 0.85, 0.9))

@@ -23,6 +23,9 @@ const CANDY := ["suklaa", "suklaalevy", 2.49]
 ## Leipähylly karkkitelineen vieressä: eväät (syödään T:llä, ks. main.gd _eat_menu). Avain -> [nimi, hinta].
 const BAKERY_SPOT := Vector3(3.2, 0, 7.2)
 const BAKERY := {"pulla": ["korvapuusti", 1.50], "piirakka": ["lihapiirakka", 2.20]}
+## Kotiviinihylly etuseinällä oven vasemmalla: turbohiiva ja sokeri (kotiviini autotallin saavissa, main.gd).
+const BREW_SPOT := Vector3(-4.0, 0, 7.2)
+const BREW := {"turbohiiva": ["turbohiiva", 4.90], "sokeri": ["sokeri 1 kg", 1.60]}
 ## Päivin hylly oikealla seinällä (kauppalistan muistipeli, #12): jokaisella tuotteella oma lokero, jossa kaikki
 ## värit. Tuotteet maksetaan Päivin rahoilla. Tuote -> laatikon koko (muoto erottaa tuotteet toisistaan).
 const PRODUCTS := {
@@ -207,6 +210,21 @@ func _process(delta: float) -> void:
 				cart.erase("viina%d" % (n - 1))
 				_update_carry()
 				Sfx.play("glass", -8.0, 0.8)
+	elif _flat(p, BREW_SPOT) < 1.2 and not has_paid:
+		var next := ""
+		for k in BREW:
+			if not cart.has(k):
+				next = k
+				break
+		if next == "":
+			hint = "Turbohiiva ja sokeri kassissa."
+		else:
+			hint = "[E] Ota %s (%s €)" % [BREW[next][0], _eur(BREW[next][1])]
+			if e:
+				cart[next] = BREW[next][1]
+				walker.set_carrying(true)
+				Sfx.play("pickup", -4.0, 1.0)
+		_return_logic(BREW)
 	elif _flat(p, CANDY_SPOT) < 1.2 and not has_paid:
 		if cart.has(CANDY[0]):
 			hint = "[E] Palauta %s telineeseen" % CANDY[1]
@@ -548,6 +566,14 @@ func _build_room() -> void:
 	for i in 8:
 		var wrap: Color = [Color(0.1, 0.25, 0.7), Color(0.45, 0.15, 0.5), Color(0.75, 0.1, 0.12)][i % 3]
 		B.box(self, Vector3(0.2, 0.03, 0.1), CANDY_SPOT + Vector3(-0.33 + (i % 4) * 0.22, 1.13, 1.08 + (i / 4) * 0.14), wrap, false)
+	# Kotiviinihylly: turbohiivapussit ja sokeripussit.
+	B.box(self, Vector3(1.0, 1.1, 0.5), BREW_SPOT + Vector3(0, 0.55, 1.2), Color(0.82, 0.84, 0.86))
+	for i in 8:
+		var turbo := i < 4
+		B.box(self, Vector3(0.14, 0.2 if turbo else 0.24, 0.1), BREW_SPOT + Vector3(-0.33 + (i % 4) * 0.22, 1.2, 1.08 + (i / 4) * 0.16),
+			Color(0.15, 0.25, 0.6) if turbo else Color(0.95, 0.95, 0.93), false)
+	var brew_sign := B.sign_plate(self, "KOTIVIINI", Color(0.45, 0.1, 0.3), Color.WHITE, 0.14, 26, Color.WHITE)
+	brew_sign.position = BREW_SPOT + Vector3(0, 1.5, 1.4)
 	# Hyllynreunakyltti grillihyllyn päällä, käytävän puolelle päin.
 	var grill_sign := B.sign_plate(self, "GRILLI", Color(0.8, 0.15, 0.1), Color.WHITE, 0.2, 36, Color.WHITE)
 	grill_sign.position = GRILL_SPOT + Vector3(-1.3, 1.3, 0)
