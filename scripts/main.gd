@@ -2559,7 +2559,7 @@ func _lawn_hit(o: Dictionary) -> void:
 
 
 ## Eläinsuojelurikos: poliisiauto lähtee tieverkolta noin 150 metrin päästä, jotta ehtii karkuun.
-func _call_police() -> void:
+func _call_police(reason := "siili") -> void:
 	if police != null and is_instance_valid(police):
 		return
 	var p := player.global_position
@@ -2576,14 +2576,18 @@ func _call_police() -> void:
 	police.world = world
 	police.caught.connect(func() -> void:
 		if state in ["to_shop", "to_home"]:
-			_lose("Poliisi pidätti: eläinsuojelurikos!", "police"))
+			_lose("Poliisi pidätti: %s!" % ("myymälävarkaus ja pahoinpitely" if reason == "varkaus" else "eläinsuojelurikos"),
+				"police"))
 	police.escaped.connect(func() -> void:
 		tilat.first("poliisipako", 0.5)
 		tilat.add("stressi", 0.2)
 		_show_message("Pääsit karkuun! Poliisi luovutti... tällä kertaa.", 3.5))
 	police.start_chase()
 	Sfx.play("alert", 0.0, 0.8)
-	_show_message("TOINEN SIILI! Anna-Liisa soitti poliisit.\nPOLIISI TULEE – KARKUUN!", 4.0)
+	if reason == "varkaus":
+		_show_message("Kauppias soitti poliisit!\nPOLIISI TULEE, KARKUUN!", 4.0)
+	else:
+		_show_message("TOINEN SIILI! Anna-Liisa soitti poliisit.\nPOLIISI TULEE – KARKUUN!", 4.0)
 
 
 ## Aamun motkotus pitkästä nurmikosta (Päivi, pidemmästä myös naapurin Anna-Liisa).
@@ -3493,6 +3497,35 @@ func _nimismies_raid() -> void:
 	n.gave_up.connect(func() -> void:
 		tilat.add("moraali", 0.05)
 		_show_message("Pääsit karkuun! Nimismies luovutti ja jäi puuskuttamaan.", 3.0))
+	get_tree().create_timer(30.0).timeout.connect(func() -> void:
+		if is_instance_valid(n):
+			n.queue_free())
+
+
+## Vaalan kaupan varkaus: nimismies tulee jalan perään (nimismies.gd); kiinni = sakko ja kaljat takavarikkoon.
+func _nimismies_shop_raid() -> void:
+	if _nimismies != null and is_instance_valid(_nimismies):
+		return
+	var n := Nimismies.new()
+	n.target = player
+	add_child(n)
+	var back := -player.global_transform.basis.z
+	n.global_position = player.global_position - Vector3(back.x, 0, back.z).normalized() * 25.0 + Vector3(0, 1.0, 0)
+	_nimismies = n
+	Sfx.play("alert", 0.0, 0.8)
+	_show_message("Kauppias soitti nimismiehen! KARKUUN!", 3.5)
+	n.caught.connect(func() -> void:
+		var fine := minf(SAKKO, money)
+		money -= fine
+		beers = 0
+		player.set_carrying(false)
+		tilat.add("stressi", -0.2)
+		maine = clampf(maine - 8.0, 0.0, 100.0)
+		Sfx.play("lose", -4.0)
+		_show_message("Nimismies pidätti myymälävarkaan. Sakko %s € ja kaljat takavarikkoon." % _eur(fine), 4.0))
+	n.gave_up.connect(func() -> void:
+		tilat.first("nimismiespako", 0.4)
+		_show_message("Pääsit nimismieheltä karkuun!", 3.0))
 	get_tree().create_timer(30.0).timeout.connect(func() -> void:
 		if is_instance_valid(n):
 			n.queue_free())
@@ -6634,6 +6667,14 @@ func _kauppias_fight_end(won: bool, note: String) -> void:
 		tilat.add("kokemus", 0.1)
 		_show_message("K.O.! Kauppias laahusti kassalle. Tavarat jäi sulle!%s" % note, 3.5)
 		_chase_loot = {}
+		# Kauppias soittaa poliisit: Saloisissa poliisiauto, Vaalassa nimismies jalan.
+		get_tree().create_timer(3.0).timeout.connect(func() -> void:
+			if not state in ["to_shop", "to_home"]:
+				return
+			if _in_vaala or _at_mokki():
+				_nimismies_shop_raid()
+			else:
+				_call_police("varkaus"))
 	else:
 		if is_instance_valid(c):
 			c.gloat()
@@ -9840,8 +9881,9 @@ func _maybe_screenshot() -> void:
 				_kauppias_fight_end(win, "")
 				print("MAKSAMATTA tappelu %s: makkara %s, Päivin kassi %s, viesti '%s'" % ["voitto" if win else "tappio", has_sausage,
 					paivi_bag, _msg.text])
-				for i in 10:
-					await get_tree().process_frame
+				await get_tree().create_timer(3.5).timeout
+				print("MAKSAMATTA poliisi %s: %s, viesti '%s'" % ["voiton jälkeen" if win else "tappion jälkeen",
+					police != null and is_instance_valid(police), _msg.text.replace("\n", " | ")])
 		"kauppapalautus":
 			# Rahat ei riitä: kalja ja makkara palautetaan hyllyyn, sitten kassalla Q jättää ostokset tiskille.
 			if player == bike:
