@@ -44,11 +44,11 @@ const SPOTS := {
 	"tv": [Vector3(-3.9, 0, -0.6), "[E] Katso telkkaria"],
 	"sanky": [Vector3(4.9, 0, 1.2), "[E] Mene nukkumaan kerrossänkyyn (päivä päättyy)"],
 	"suihku": [Vector3(5.4, 0, -4.4), "[E] Käy suihkussa"],
-	"wc": [Vector3(5.5, 0, -3.1), "[E] Käy pöntöllä"],
+	"wc": [Vector3(5.5, 0, -3.25), "[E] Käy pöntöllä"],
 	"sauna": [Vector3(2.85, 0, -1.7), "[E] Käy sisäsaunassa"],
 	"pa": [Vector3(-0.9, 0, 1.55), "[E] Kytke Santun PA-laitteet"],
 	"sokeri": [Vector3(-1.4, 0, -3.7), "[E] Ota sokeria Santun keittiön kaapista (Santtu suuttuu!)"],
-	"sangot": [Vector3(5.75, 0, -1.75), ""],  # Paapelin viinisaavi pöntön takana: vihje main.gd:stä
+	"sangot": [Vector3(3.8, 0, -3.95), ""],  # Paapelin viinisaavi pesuhuoneen takaseinällä: vihje main.gd:stä
 }
 ## PA-kaiuttimet (jalustoilla sohvien päädyissä) ja tunnusmusiikin voimakkuus: taso 0..1 -> dB.
 const PA_SPEAKERS := [Vector3(-4.95, 0, 3.2), Vector3(0.2, 0, 3.2)]
@@ -150,8 +150,8 @@ func set_dishes(n: int) -> void:
 			(_dish_pile.get_child(i) as Node3D).visible = i < n
 
 
-## Paapelin viinisaavi pesuhuoneessa pöntön takana: puinen saavi vanteineen, liina ja vesilukko.
-const WINE_VAT := Vector3(6.4, 0, -2.2)
+## Paapelin viinisaavi pesuhuoneen takaseinän keskellä: puinen saavi vanteineen, liina ja vesilukko.
+const WINE_VAT := Vector3(3.8, 0, -4.6)
 
 
 func _build_wine_buckets() -> void:
@@ -491,7 +491,7 @@ func _build_bath_sauna() -> void:
 	add_child(gb)
 	# Pönttö suihkuseinän takana, istumasuunta suihkuun päin (-Z); peili ja pyyhkeet seinällä.
 	var wc := Node3D.new()
-	wc.position = Vector3(HALF.x - 0.55, 0, SHOWER_Z + 0.55)
+	wc.position = Vector3(HALF.x - 0.55, 0, SHOWER_Z + 0.4)
 	add_child(wc)
 	B.mesh(wc, B.boxm(Vector3(0.38, 0.4, 0.3)), Vector3(0, 0.2, 0.05), Color(0.97, 0.97, 0.97))
 	B.mesh(wc, B.cyl(0.19, 0.17, 0.08, 16), Vector3(0, 0.42, -0.05), Color(0.97, 0.97, 0.97))
@@ -499,7 +499,7 @@ func _build_bath_sauna() -> void:
 	var wb := StaticBody3D.new()
 	wb.add_child(B.box_shape(Vector3(0.4, 0.8, 0.6), Vector3(0, 0.4, 0.05)))
 	wc.add_child(wb)
-	B.mesh(self, B.boxm(Vector3(0.03, 0.6, 0.5)), Vector3(HALF.x - 0.12, 1.5, SHOWER_Z + 0.6), Color(0.75, 0.8, 0.85))
+	B.mesh(self, B.boxm(Vector3(0.03, 0.6, 0.5)), Vector3(HALF.x - 0.12, 1.5, SHOWER_Z + 0.45), Color(0.75, 0.8, 0.85))
 	# Oikealla saunan oven vieressä puupenkki pesuvateineen ja pyyhkeet naulakossa.
 	var bench_x := SAUNA_DOOR.y + 0.9
 	_solid(Vector3(1.0, 0.45, 0.45), Vector3(bench_x, 0.225, SAUNA.position.y - 0.3), pine)
