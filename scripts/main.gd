@@ -194,7 +194,7 @@ const INDOOR_STASHES := ["koti", "autotalli"]
 ## kanssa; herätään jonkun heistä luota krapulassa ja viininteko lukittuu (lupaus: ei enää ikinä).
 const WINE_BERRIES := 3
 const WINE_DAYS := {"hiiva": 21, "turbo": 7, "korpi": 5}
-## Paapelin kotiviini mökin pesuhuoneen takaseinän saavissa: samat ainekset (marjat mökin metsästä, hiiva Santun jääkaapista,
+## Paapelin kotiviini mökin pöntön takana olevassa saavissa: samat ainekset (marjat mökin metsästä, hiiva Santun jääkaapista,
 ## sokeri Santun keittiön kaapista – Santun hermot kiristyvät – tai kaikki Vaalan kaupasta), lisäksi Korpi-Kallen
 ## korpihiiva (5 pv). Kotona annettu lupaus ei estä: Santtu muistuttaa, mutta haluaa itsekin viiniä. Valmis viini =
 ## mökkibileet (onnellinen loppu) Santun, Sinikan ja Korpi-Kallen kanssa, herätys laiturilta, savusaunasta tai
@@ -3299,7 +3299,7 @@ func _kalle_logic() -> void:
 			money -= KORPIHIIVA_PRICE
 			has_korpihiiva = true
 			kalle.say("Mun oma hiivakanta. Viidessä päivässä valmista, kunhan sokeria on reilusti.", 4.0)
-			_show_message("Korpihiivaa reppuun. Viini käy sillä viidessä päivässä (Paapelin viinisaavi pesuhuoneessa).", 3.0)
+			_show_message("Korpihiivaa reppuun. Viini käy sillä viidessä päivässä (Paapelin viinisaavi pöntön takana).", 3.0)
 			return
 	var yeast_opt := "   [Q] Osta korpihiivaa (%s €, viini viidessä päivässä)" % _eur(KORPIHIIVA_PRICE) \
 		if not has_korpihiiva and not mwine_locked and money >= KORPIHIIVA_PRICE else ""
