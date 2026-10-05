@@ -125,6 +125,8 @@ var _hedge_batch := B.Batch.new()
 var _hedge_cards := B.Batch.new()
 var _hedge_quad: QuadMesh
 ## Kotipihan nurmikko (lawn.gd piirtää ruohon itse, joten yleinen ruoho ja puut pidetään poissa).
+var lamp_spots: Array[Vector3] = []  # katuvalojen lamppujen paikat (main.gd sytyttää illalla)
+var lamps: MultiMeshInstance3D
 var garage_door := Vector3.ZERO  # autotallin nosturioven edusta (main.gd _garage_door_logic)
 var garage_out := Vector3.FORWARD  # nosturiovelta ulospäin
 var lawn_rect: Rect2  # nurmikko omassa kehyksessään (keskipiste origossa), ks. in_lawn
@@ -217,6 +219,7 @@ func build(step: Callable) -> void:
 	await step.call("Paikannimet ja viimeistely", 0.95)
 	_build_names()
 	_lift_objects()
+	build_lamps()
 
 
 var _near_trees: Array[GeometryInstance3D] = []
@@ -2134,8 +2137,34 @@ func _build_streetlights() -> void:
 					batch.add(B.boxm(Vector3(0.08, 0.08, 1.4)), arm_xf, grey)
 					batch.add(B.boxm(Vector3(0.28, 0.12, 0.55)), Transform3D(arm_xf.basis, base + Vector3(0, 6.35, 0) + arm_dir * 1.35),
 						Color(0.35, 0.36, 0.38))
+					lamp_spots.append(base + Vector3(0, 6.26, 0) + arm_dir * 1.35)
 				t += 45.0
 			acc = t - seg
+
+
+## Katuvalojen hehkuvat lamput (yksi MultiMesh, piilossa päivällä). Korkeus nostetaan maastoon _lift_objects:ssa
+## kuten muutkin; tässä maaston korkeus lisätään suoraan.
+func build_lamps() -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	var m := BoxMesh.new()
+	m.size = Vector3(0.24, 0.04, 0.48)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.85, 0.55)
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.78, 0.45)
+	mat.emission_energy_multiplier = 4.0
+	m.material = mat
+	mm.mesh = m
+	mm.instance_count = lamp_spots.size()
+	for i in lamp_spots.size():
+		var p := lamp_spots[i]
+		mm.set_instance_transform(i, Transform3D(Basis(), Vector3(p.x, p.y + T.h(p.x, p.z), p.z)))
+	lamps = MultiMeshInstance3D.new()
+	lamps.multimesh = mm
+	lamps.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	lamps.visible = false
+	add_child(lamps)
 
 
 ## Puiset sähköpylväät ja ilmajohdot katujen varressa (katunäkymän mukaan), katuvalojen vastapuolella.
