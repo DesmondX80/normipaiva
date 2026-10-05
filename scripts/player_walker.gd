@@ -1,5 +1,6 @@
 extends CharacterBody3D
-## Pelaaja jalan kaupan sisällä. Kamera ylhäältä takaviistosta, liike maailman akseleilla.
+## Pelaaja jalan sisätiloissa. Kamera ylhäältä takaviistosta, liike maailman akseleilla; hiiriohjauksella (asetus)
+## hiiri kääntää hahmoa ja liike on hahmon suuntaan.
 
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
@@ -46,12 +47,19 @@ func _physics_process(delta: float) -> void:
 	if controls_enabled:
 		v = Input.get_vector("left", "right", "forward", "back")
 	var dir := Vector3(v.x, 0, v.y)
+	var steer := controls_enabled and CamCtl.steering()
+	if steer:
+		# Hiiriohjaus (asetus): hiiri kääntää hahmoa, W/S eteen ja taakse katseen suuntaan, A/D sivuttain.
+		rotation.y += CamCtl.yaw
+		CamCtl.yaw = 0.0
+		dir = (global_transform.basis * Vector3(v.x, 0, v.y)).normalized() * minf(v.length(), 1.0)
 	velocity = dir * SPEED
 	move_and_slide()
 	global_position.y = Terrain.h(global_position.x, global_position.z)  # maaston pinnalla (sisätiloissa 0)
 	if dir.length() > 0.1:
-		rotation.y = lerp_angle(rotation.y, B.yaw_to(dir), 1.0 - exp(-12.0 * delta))
-		_body.play("Jog_Fwd", 0.15, 1.1)
+		if not steer:
+			rotation.y = lerp_angle(rotation.y, B.yaw_to(dir), 1.0 - exp(-12.0 * delta))
+		_body.play("Jog_Fwd", 0.15, 1.1 if v.y <= 0.0 else -0.8)
 	else:
 		_body.play("Idle", 0.2)
 	_update_camera()
