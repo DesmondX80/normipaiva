@@ -414,6 +414,11 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_r(img, 5, 8, 6, 3, Color(0.95, 0.95, 0.9))
 			if id == "turbohiiva":
 				_r(img, 6, 9, 4, 1, Color(0.9, 0.2, 0.15))
+		"pontikka":
+			_r(img, 7, 1, 2, 2, Color(0.45, 0.32, 0.2))
+			_r(img, 6, 3, 4, 2, Color(0.8, 0.88, 0.92))
+			_r(img, 5, 5, 6, 10, Color(0.8, 0.88, 0.92))
+			_r(img, 6, 8, 4, 6, Color(0.92, 0.95, 0.98))
 		"sokeri":
 			_r(img, 4, 3, 8, 11, Color(0.96, 0.96, 0.94))
 			_r(img, 4, 3, 8, 2, Color(0.2, 0.45, 0.8))
