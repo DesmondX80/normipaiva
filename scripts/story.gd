@@ -34,6 +34,8 @@ const PEKKA_THANKS := "Avaimet! Perkele, kiitti! Nyt ku haluat Paapeliin, niin h
 
 var step := "kaljat"
 var done := {"sienet": false, "puolukat": false, "nurmikko": false}
+## Tehtävävaiheessa myydyt litrat (sienet Pekalle, puolukat Artolle): kertyvät useasta myynnistä.
+var given := {"sienet": 0, "puolukat": 0}
 
 
 func at_least(s: String) -> bool:
@@ -55,8 +57,8 @@ func list() -> Array:
 	if step == "pekka_kutsuu":
 		out.append(["Käy Pekan luona", false])
 	if at_least("tehtavat"):
-		out.append(["%d l sieniä Pekalle (Arto tietää paikat)" % SIENET_L, done.sienet])
-		out.append(["%d l puolukoita Artolle" % PUOLUKAT_L, done.puolukat])
+		out.append(["Sieniä Pekalle %d / %d l (Arto tietää paikat)" % [mini(given.sienet, SIENET_L), SIENET_L], done.sienet])
+		out.append(["Puolukoita Artolle %d / %d l" % [mini(given.puolukat, PUOLUKAT_L), PUOLUKAT_L], done.puolukat])
 		out.append(["Sinikan nurmikko, ettei Päivi nää", done.nurmikko])
 	if step == "pekka_avaimet":
 		out.append(["Käy Pekan luona", false])
@@ -71,6 +73,7 @@ func list() -> Array:
 func save_to(cfg: ConfigFile) -> void:
 	cfg.set_value("tarina", "vaihe", step)
 	cfg.set_value("tarina", "tehty", done)
+	cfg.set_value("tarina", "annettu", given)
 
 
 func load_from(cfg: ConfigFile) -> void:
@@ -79,3 +82,6 @@ func load_from(cfg: ConfigFile) -> void:
 	var d: Dictionary = cfg.get_value("tarina", "tehty", {})
 	for k in done:
 		done[k] = d.get(k, false)
+	var g: Dictionary = cfg.get_value("tarina", "annettu", {})
+	for k in given:
+		given[k] = int(g.get(k, 0))
