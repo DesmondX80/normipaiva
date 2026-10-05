@@ -28,6 +28,7 @@ const DOOR_X := -2.5   # etuovi ja sitä vastapäätä takaovi
 ## Toimintopisteet: id -> [paikka, vihje].
 const SPOTS := {
 	"ovi": [Vector3(DOOR_X, 0, 5.3), "[E] Ulos etuovesta"],
+	"kaappi": [Vector3(-1.9, 0, 2.4), ""],  # eteisen kaappi = kotijemma (vihje ja näppäimet main.gd _stash_ui)
 	"takaovi": [Vector3(DOOR_X, 0, -5.3), "[E] Ulos takaovesta pihalle"],
 	"kerrossanky": [Vector3(-8.6, 0, 3.9), "Kerrossänky. Vieraille ja kavereille, ei Päivin viereen."],
 	"sanky": [Vector3(-6.6, 0, -3.2), "[E] Mene nukkumaan parisänkyyn (päivä päättyy)"],
@@ -65,6 +66,12 @@ var busy := false  # minipeli tai valikko auki (main.gd): toimintopisteet eivät
 var exit_door := "ovi"  # kummasta ovesta viimeksi lähdettiin ulos (ovi / takaovi)
 var walker: CharacterBody3D
 var hint := ""
+var spot := ""  # lähin toimintopiste
+## Kaljat tai kanisteri kädessä (main.gd): eteisestä ei pääse pidemmälle, Päivi näkisi. Piiloon eteisen kaappiin.
+var carrying := false
+const HALL := Rect2(LEFT_X + 0.25, FRONT_Z + 0.25, HALL_X - LEFT_X - 0.5, HALF.y - FRONT_Z)
+var _hall_ok := Vector3.ZERO
+var _blocked_t := 0.0
 var _enter_frame := -1
 
 var _nerd: Node3D
@@ -78,11 +85,24 @@ func _ready() -> void:
 	_build_room()
 	_build_bedrooms()
 	_build_bath_sauna()
+	_build_hall_closet()
 	_build_kitchen_living()
 	_build_nerd_room()
 	walker = Walker.new()
 	walker.position = SPOTS.ovi[0]
 	add_child(walker)
+
+
+## Eteisen kaappi (kotijemma) oikealla seinällä kylpyhuoneen oven edessä: liukuovet, kenkäteline.
+func _build_hall_closet() -> void:
+	var c := Vector3(HALL_X - 0.3, 0, 2.4)
+	B.box(self, Vector3(0.55, 2.1, 1.3), c + Vector3(0, 1.05, 0), Color(0.86, 0.84, 0.8))
+	for dz in [-0.32, 0.32]:
+		B.mesh(self, B.boxm(Vector3(0.02, 1.9, 0.6)), c + Vector3(-0.28, 1.05, dz), Color(0.78, 0.74, 0.68))
+		B.mesh(self, B.boxm(Vector3(0.03, 0.25, 0.03)), c + Vector3(-0.3, 1.05, dz * 0.2), Color(0.5, 0.5, 0.52))
+	B.mesh(self, B.boxm(Vector3(0.35, 0.12, 1.1)), Vector3(LEFT_X + 0.25, 0.06, 2.6), Color(0.35, 0.25, 0.18))  # kenkäteline
+	for k in 3:
+		B.mesh(self, B.boxm(Vector3(0.12, 0.08, 0.28)), Vector3(LEFT_X + 0.25, 0.16, 2.2 + k * 0.35), Color(0.12, 0.1, 0.09))
 
 
 func enter(door := "ovi") -> void:
@@ -95,6 +115,7 @@ func enter(door := "ovi") -> void:
 		walker.position = SPOTS.ovi[0] + Vector3(0, 0, -1.3)
 		walker.rotation.y = B.yaw_to(Vector3(0, 0, 1))  # katse eteiseen (walkerin kääntö on yaw_to:n vastainen)
 	walker.activate()
+	_hall_ok = walker.position
 
 
 func leave() -> void:
@@ -121,8 +142,18 @@ func _process(delta: float) -> void:
 			Color(0.6, 0.3, 0.9), 0.5 + 0.5 * sin(t * (2.0 + i)))
 	if not active or busy:
 		hint = ""
+		spot = ""
 		return
 	var p := walker.position
+	_blocked_t -= delta
+	if carrying:
+		if HALL.has_point(Vector2(p.x, p.z)):
+			_hall_ok = p
+		else:
+			walker.position = _hall_ok
+			walker.velocity = Vector3.ZERO
+			p = _hall_ok
+			_blocked_t = 2.0
 	var best := ""
 	var bd := 1.3
 	for id in SPOTS:
@@ -130,8 +161,11 @@ func _process(delta: float) -> void:
 		if d < bd:
 			bd = d
 			best = id
+	spot = best
 	hint = "" if best == "" else SPOTS[best][1]
-	if best == "" or not Input.is_action_just_pressed("interact") or Engine.get_process_frames() == _enter_frame:
+	if _blocked_t > 0.0 and best != "kaappi":
+		hint = "Kaljat kädessä ei pidemmälle – Päivi näkee! Piilota ne eteisen kaappiin."
+	if best == "" or best == "kaappi" or not Input.is_action_just_pressed("interact") or Engine.get_process_frames() == _enter_frame:
 		return
 	match best:
 		"ovi", "takaovi":
