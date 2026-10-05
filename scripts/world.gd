@@ -124,6 +124,8 @@ var _hedge_batch := B.Batch.new()
 var _hedge_cards := B.Batch.new()
 var _hedge_quad: QuadMesh
 ## Kotipihan nurmikko (lawn.gd piirtää ruohon itse, joten yleinen ruoho ja puut pidetään poissa).
+var garage_door := Vector3.ZERO  # autotallin nosturioven edusta (main.gd _garage_door_logic)
+var garage_out := Vector3.FORWARD  # nosturiovelta ulospäin
 var lawn_rect: Rect2  # nurmikko omassa kehyksessään (keskipiste origossa), ks. in_lawn
 var lawn_pivot: Vector2
 var lawn_angle := 0.0
@@ -1368,6 +1370,12 @@ func _build_neighbors() -> void:
 	gar.add_child(gw)
 	B.mesh(gar, B.boxm(Vector3(7.4, 0.2, 6.4)), Vector3(0, 2.9, 0), Color(0.2, 0.2, 0.22))
 	B.mesh(gar, B.boxm(Vector3(2.8, 2.2, 0.06)), Vector3(-1.5, 1.1, -3.02), Color(0.4, 0.25, 0.15))
+	for k in 6:  # nosturioven paneelit
+		B.mesh(gar, B.boxm(Vector3(2.7, 0.03, 0.03)), Vector3(-1.5, 0.3 + k * 0.36, -3.06), Color(0.32, 0.2, 0.12))
+	B.mesh(gar, B.boxm(Vector3(0.3, 0.05, 0.05)), Vector3(-1.5, 0.35, -3.08), Color(0.7, 0.7, 0.72))  # kahva
+	garage_out = gar.basis * Vector3(0, 0, -1)
+	var gd: Vector3 = gar.position + gar.basis * Vector3(-1.5, 0, -3.9)
+	garage_door = Vector3(gd.x, T.h(gd.x, gd.z), gd.z)
 	for k in 16:
 		B.mesh(gar, B.boxm(Vector3(0.1, 1.6, 0.03)), Vector3(3.8 + k * 0.14, 0.8, -3.0 + k * 0.0), Color(0.72, 0.6, 0.42))
 	B.mesh(gar, B.boxm(Vector3(2.4, 0.07, 0.05)), Vector3(4.9, 1.2, -3.0), Color(0.62, 0.5, 0.35))
