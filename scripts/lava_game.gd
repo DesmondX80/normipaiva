@@ -16,6 +16,7 @@ const COUPLES := 9
 const SONGS := ["Satumaa-tango", "Kesäillan valssi", "Humppa Oulujärven rannalla", "Lavan kuningas -foksi"]
 const PARTNER_LINES := ["Tanssitaanko?", "Hyvin vie!", "Ootko käyny ennenki lavalla?", "Ihana ilta!", "Varo varpaita!"]
 
+var courage := 0.0  # pontikkahuikka ennen lavaa (main.gd): leveämpi tahti-ikkuna, mutta kompastelee
 var _phase := "intro"  # intro | dance | result
 var _t := 0.0
 var _beat := 60.0 / BPM
@@ -131,14 +132,17 @@ func _dance(_delta: float) -> void:
 		var ok := (left and _next == "left") or (right and _next == "right")
 		var hasty := _t - _last_press < _beat * 0.5
 		_last_press = _t
-		if ok and near < WINDOW and not hasty:
+		var stumble := courage > 0.0 and randf() < 0.12 * courage
+		if ok and near < WINDOW + 0.06 * courage and not hasty and not stumble:
 			_hits += 1
 			_next = "right" if _next == "left" else "left"
 			if _hits % 12 == 0:
 				_say(PARTNER_LINES.pick_random())
 		else:
 			_misses += 1
-			_me.rotation.y += randf_range(-0.3, 0.3)
+			_me.rotation.y += randf_range(-0.3, 0.3) * (2.0 if stumble else 1.0)
+			if stumble:
+				_say("Hups! Pontikka vie jalat.")
 			if _misses % 5 == 0:
 				_say("Auts! Varpaat!")
 				Sfx.play("grunt", -6.0)

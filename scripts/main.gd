@@ -317,6 +317,7 @@ const DRONE_POIS := {
 const MOKKI_DRONE_POIS := {
 	"m_mokki": "Mökki, Kaisuantie 62", "m_savusauna": "Savusauna", "m_poreamme": "Palju", "m_keittio": "Kesäkeittiö",
 	"m_laituri": "Laituri Likasella", "m_lava": "Metsästyslava", "m_santtu": "Santtu pihatuolilla",
+	"m_kalle": "Korpi-Kallen pannu!",
 }
 const MOKKI_DRONE_R := 620.0  # lentoalueen säde mökiltä (maisema jatkuu vähän pidemmälle)
 var drone_battery := 1.0
@@ -457,6 +458,23 @@ const LAWN_NAG_ANNALIISA := ["Anna-Liisa sano aidan takaa, että meillä on koht
 ## Pannu-Sulon pontikkakanisteri metsästä: vastaa kotijemmassa 24 kaljaa. Yksi kanisteri päivässä.
 const KANISTER_BEERS := 24
 const KANISTER_PRICE := 20.0
+## Korpi-Kalle (korpikeittaja.gd): Neittävän korpikeittäjä mökin metsässä myy pontikkaa (PONTIKKA_DAY pulloa
+## päivässä). Pontikka: Santun lahjonta (hoitaa homman), huikka ennen lavaa (rohkeus: lavalla isompi tahti-ikkuna,
+## mutta kompastelee) ja myynti Siitarin tai Oulujärven lavan pihalla. Nimismies (nimismies.gd) voi yllättää
+## pannulla (juokse karkuun) tai kaupanteossa: sakko ja pullot takavarikkoon.
+const Korpikeittaja := preload("res://scripts/korpikeittaja.gd")
+const Nimismies := preload("res://scripts/nimismies.gd")
+const PONTIKKA_PRICE := 12.0
+const PONTIKKA_SELL := 25.0
+const PONTIKKA_DAY := 2
+const RAID_BUY := 0.15  # nimismies tulee pannulle oston jälkeen
+const RAID_SELL := 0.25  # nimismies näkee kaupanteon
+const SAKKO := 40.0
+var kalle: Node3D
+var pontikka := 0  # pulloja repussa
+var _kalle_sold := 0  # tänään myydyt
+var _nimismies: Node3D = null
+var _lava_courage_day := -1  # päivä, jona otettu pontikkahuikka (lavan rohkeus)
 const SULO_LINES := ["Ei kuulu kellekään, mitä täällä tehdään.", "Kakskymppiä kanisteri, ja suu suppuun.",
 	"Sokeria, hiivaa ja kärsivällisyyttä. Siinä se resepti.", "Ootko sää poliisi? Et näytä poliisilta.",
 	"Tää on vanhan ajan tavaraa, ei mitään Alkon litkua.", "Kuka sulle tästä paikasta kerto? Raimo, vai?"]
@@ -652,6 +670,11 @@ func _ready() -> void:
 	mokki = Mokki.new()
 	mokki.position = MOKKI_POS
 	add_child(mokki)
+	var kp := Mokki.still_position()
+	kalle = Korpikeittaja.new()
+	kalle.position = Vector3(kp.x, Mokki.h(kp.x, kp.y), kp.y)
+	kalle.rotation.y = B.yaw_to(Vector3(Mokki.COTTAGE_LOCAL.x - kp.x, 0, Mokki.COTTAGE_LOCAL.y - kp.y))
+	mokki.add_child(kalle)
 	mokki_int = MokkiInterior.new()
 	mokki_int.position = MOKKI_INT_POS
 	add_child(mokki_int)
@@ -1091,6 +1114,7 @@ func _outside_logic() -> void:
 		_drone_logic()
 		_mokki_ride_logic()
 		_viina_logic()
+		_kalle_logic()
 		_mokki_logic()
 		return
 	_compass.has_cache = false
@@ -2151,6 +2175,9 @@ func _mokki_drone_pois() -> Array:
 	for id in fixed:
 		var at: Vector3 = mokki.gpos(fixed[id] + Vector3(0, 1.0, 0))
 		out.append({"id": id, "name": names[id], "pos": func() -> Vector3: return at})
+	var kp := Mokki.still_position()
+	var kat: Vector3 = mokki.gpos(Vector3(kp.x, Mokki.h(kp.x, kp.y) + 1.0, kp.y))
+	out.append({"id": "m_kalle", "name": names.m_kalle, "pos": func() -> Vector3: return kat})
 	var santtu: Node3D = mokki.santtu
 	out.append({"id": "m_santtu", "name": names.m_santtu, "pos": func() -> Vector3:
 		return santtu.global_position + Vector3(0, 1.0, 0) if is_instance_valid(santtu) and santtu.is_visible_in_tree() \
@@ -2445,6 +2472,8 @@ func _open_eat_menu() -> void:
 		items.append(["kalja", "Kalja (kannossa %d)" % beers])
 	if viina_pullot > 0:
 		items.append(["viina", "Huikka kätköviinaa (%d pulloa)" % viina_pullot])
+	if pontikka > 0:
+		items.append(["pontikka", "Huikka Korpi-Kallen pontikkaa (%d pulloa)" % pontikka])
 	for k in ["puolukka", "mustikka"]:
 		if bucket.get(k, 0) > 0:
 			items.append([k, "%s – ämpärissä %d l" % [FOODS[k].name, bucket[k]]])
@@ -2526,6 +2555,18 @@ func _on_eat(id: String) -> void:
 			tilat.first("syo_viina", 0.1)
 			Sfx.play("glass", -6.0, 0.9)
 			_show_message(["Kurkkua polttaa.", "Metsän makua.", "Lämmittää mukavasti.", "Tätä ei Päivi näe."].pick_random(), 1.8)
+			_own_drink_in_bar()
+			return
+		"pontikka":
+			pontikka -= 1
+			tilat.add("humala", 0.3)
+			tilat.add("kipu", 0.1)
+			tilat.add("stressi", 0.1)
+			_lava_courage_day = day
+			tilat.first("syo_pontikka", 0.1)
+			Sfx.play("glass", -6.0, 0.8)
+			_show_message(["Kurkku tulessa! Nyt uskaltaa vaikka lavalle.", "Korpi-Kallen tavaraa. Silmät vettyy.",
+				"Rohkeutta pullosta. Varpaat kyllä kärsii."].pick_random(), 2.5)
 			_own_drink_in_bar()
 			return
 		"puolukka", "mustikka":
@@ -3090,6 +3131,98 @@ func _vaino_escape() -> void:
 	Sfx.play("dog", 0.0, 0.95)
 	Sfx.play("alert", -6.0, 0.6)
 	_show_message("Pekka: \"VÄINÖ PERKELE!\" (Kuului Pattijoelle asti.)\nPekan koira Väinö karkasi! Ota se kiinni jalan.", 4.5)
+
+
+## Korpi-Kalle mökin metsässä: pullo pontikkaa PONTIKKA_PRICE eurolla, PONTIKKA_DAY päivässä. Oston jälkeen
+## nimismies voi tulla (RAID_BUY): juokse karkuun.
+func _kalle_logic() -> void:
+	if _hint.text != "" or kalle == null or player != walker_out or kalle.hiding:
+		return
+	if walker_out.global_position.distance_to(kalle.global_position) > 3.6:
+		return
+	if _kalle_sold >= PONTIKKA_DAY:
+		_hint.text = "Korpi-Kalle: \"Tänään ei enää. Pannu jäähtyy.\""
+		return
+	if money < PONTIKKA_PRICE:
+		_hint.text = "Korpi-Kalle myy pontikkaa %s € pullo. Rahat ei riitä." % _eur(PONTIKKA_PRICE)
+		return
+	_hint.text = "[E] Osta Korpi-Kallelta pullo pontikkaa (%s €)" % _eur(PONTIKKA_PRICE)
+	if not Input.is_action_just_pressed("interact") or player.is_stunned():
+		return
+	money -= PONTIKKA_PRICE
+	pontikka += 1
+	_kalle_sold += 1
+	Sfx.play("glass", -6.0, 0.9)
+	tilat.first("korpikalle", 0.4)
+	kalle.say(Korpikeittaja.LINES.pick_random())
+	_show_message("Pullo pontikkaa reppuun (%d). Santtu tekee sillä homman, lavalla se rohkaisee, ja Siitarin pihalla sen saa myytyä." % pontikka, 3.5)
+	if randf() < RAID_BUY:
+		_nimismies_raid()
+
+
+## Nimismies tulee metsätieltä Kallen pannulle: juokse karkuun (nimismies.gd).
+func _nimismies_raid() -> void:
+	if _nimismies != null and is_instance_valid(_nimismies):
+		return
+	kalle.say("NIMISMIES! Juokse!", 2.5)
+	kalle.set_hiding.call_deferred(true)
+	var to_cottage: Vector3 = (mokki.gpos(Vector3(Mokki.COTTAGE_LOCAL.x, 0, Mokki.COTTAGE_LOCAL.y)) - kalle.global_position)
+	to_cottage.y = 0.0
+	var n := Nimismies.new()
+	n.target = walker_out
+	add_child(n)
+	n.global_position = kalle.global_position + to_cottage.normalized().rotated(Vector3.UP, 0.8) * 22.0 + Vector3(0, 1.0, 0)
+	_nimismies = n
+	Sfx.play("alert", -2.0, 0.8)
+	_show_message("NIMISMIES! Pakoon metsän läpi – kiinni jäädessä sakko ja pullot menee!", 3.5)
+	n.caught.connect(func() -> void:
+		_pontikka_busted("Nimismies sai kiinni pannulta."))
+	n.gave_up.connect(func() -> void:
+		tilat.add("moraali", 0.05)
+		_show_message("Pääsit karkuun! Nimismies luovutti ja jäi puuskuttamaan.", 3.0))
+	get_tree().create_timer(30.0).timeout.connect(func() -> void:
+		if is_instance_valid(n):
+			n.queue_free())
+
+
+## Kiinni pontikan kanssa: sakko ja kaikki pullot takavarikkoon.
+func _pontikka_busted(why: String) -> void:
+	var fine := minf(SAKKO, money)
+	money -= fine
+	var lost := pontikka
+	pontikka = 0
+	tilat.add("stressi", -0.2)
+	tilat.add("moraali", -0.1)
+	maine = clampf(maine - 5.0, 0.0, 100.0)
+	Sfx.play("lose", -4.0)
+	var fine_txt := "Sakko %s €" % _eur(fine) if fine > 0.01 else "Rahaa ei ollut edes sakkoon"
+	_show_message("%s %s, ja %d pulloa pontikkaa takavarikkoon." % [why, fine_txt, lost], 4.0)
+
+
+## Pontikan myynti Siitarin tai Oulujärven lavan pihalla jalan (Q). Nimismies voi nähdä kaupat (RAID_SELL).
+func _pontikka_sell_logic() -> void:
+	if pontikka <= 0 or mopo_trip.on_foot == null or not mopo_trip.active:
+		return
+	var vl: Node3D = mopo_trip.vaala
+	var p: Vector3 = walker_out.global_position
+	var near := ""
+	for d in [["Siitarin", vl.siitari_door], ["lavan", vl.lava_door]]:
+		if d[1] != Vector3.ZERO and p.distance_to(vl.to_global(d[1])) < 8.0:
+			near = d[0]
+	if near == "":
+		return
+	_hint.text = (_hint.text + "   " if _hint.text != "" else "") + "[Q] Myy pontikkapullo %s pihalla (%s €)" % [near, _eur(PONTIKKA_SELL)]
+	if not Input.is_action_just_pressed("bell"):
+		return
+	if randf() < RAID_SELL:
+		_pontikka_busted("Nimismies seisoi %s nurkalla ja näki kaupat!" % near)
+		return
+	pontikka -= 1
+	money += PONTIKKA_SELL
+	Sfx.play("coin", -4.0)
+	tilat.first("pontikka_myynti", 0.3)
+	_show_message(["\"Korpi-Kallen tavaraa? Annappa tänne.\" +%s €", "Pullo vaihtoi omistajaa %s pihalla. +%s €" % [near, "%s"],
+		"\"Älä kerro kenellekään.\" +%s €"].pick_random() % _eur(PONTIKKA_SELL), 2.5)
 
 
 ## Pannu-Sulo myy metsässä pontikkakanisterin (vastaa 24 kaljaa). Kanisterin kanssa suunta on kotiin.
@@ -4460,6 +4593,8 @@ func _santtu_menu() -> void:
 		if not hommat.beer_used and not hommat.all_done():
 			if beers > 0:
 				items.append(["kalja", "Tarjoa Santulle kalja (hän tekee yhden homman)"])
+			elif pontikka > 0:
+				items.append(["pontikka", "Tarjoa Santulle Korpi-Kallen pontikkaa (hän tekee yhden homman)"])
 			elif viina_pullot > 0:
 				items.append(["viina", "Tarjoa Santulle kätköviinaa (hän tekee yhden homman)"])
 	if items.size() == 1:
@@ -4495,10 +4630,12 @@ func _on_santtu_menu(id: String) -> void:
 				mokki.say(hommat.line(id0, "anna"), 5.0)
 				_show_message("Santun hommat: " + ", ".join(left.map(func(t): return Hommat.TASKS[t].nimi)) +
 					"\nHermot: %s %s" % [hommat.bar(), hommat.mood()], 4.5)
-		"kalja", "viina":
+		"kalja", "viina", "pontikka":
 			if id == "kalja":
 				beers -= 1
 				player.set_carrying(beers > 0)
+			elif id == "pontikka":
+				pontikka -= 1
 			else:
 				viina_pullot -= 1
 			Sfx.play("glass", -6.0, 0.9)
@@ -4506,7 +4643,7 @@ func _on_santtu_menu(id: String) -> void:
 			if t != "":
 				mokki.say(Hommat.BEER_LINES.pick_random(), 4.5)
 				_show_message("Santtu joi %s ja hoiti homman: %s. Puolittain, mutta ei kehtaa valittaa." % [
-					"kaljan" if id == "kalja" else "huikan", Hommat.TASKS[t].nimi], 4.0)
+					{"kalja": "kaljan", "pontikka": "pontikkahuikan"}.get(id, "huikan"), Hommat.TASKS[t].nimi], 4.0)
 				_hommat_finished(t, true)
 
 
@@ -4725,6 +4862,7 @@ func _vaala_logic() -> void:
 	if not mopo_trip.active:
 		return
 	_hint.text = mopo_trip.hint
+	_pontikka_sell_logic()
 	_mopo_label.text = mopo_trip.status
 	var tg: Vector3 = mopo_trip.target_global()
 	_compass.has_cache = true
@@ -5788,6 +5926,7 @@ func _enter_lava() -> void:
 	_hint.text = ""
 	tilat.first("lava", 0.3)
 	_lava_game = LavaGame.new()
+	_lava_game.courage = 1.0 if _lava_courage_day == day else 0.0
 	mopo_trip.vaala.add_child(_lava_game)
 	_lava_game.position = mopo_trip.vaala.lava_center
 	_lava_game.finished.connect(_on_lava_finished)
@@ -6319,6 +6458,7 @@ func _load_game() -> void:
 	has_yeast = cfg.get_value("viini", "hiiva", false)
 	has_turbo = cfg.get_value("viini", "turbo", false)
 	has_sugar = cfg.get_value("viini", "sokeri", false)
+	pontikka = cfg.get_value("viini", "pontikka", 0)
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
 	lawn.load_state(cfg.get_value("nurmikko", "pituudet", PackedByteArray()))
 	lawn_siilit = cfg.get_value("nurmikko", "siilit", 0)
@@ -6363,6 +6503,7 @@ func _save_game() -> void:
 	cfg.set_value("viini", "hiiva", has_yeast)
 	cfg.set_value("viini", "turbo", has_turbo)
 	cfg.set_value("viini", "sokeri", has_sugar)
+	cfg.set_value("viini", "pontikka", pontikka)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
 	if lawn != null:
 		cfg.set_value("nurmikko", "pituudet", lawn.save_state())
@@ -6535,6 +6676,9 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_beast_forest_t = 0.0
 	_bike_tuned = false
 	bike.tune = 1.0
+	_kalle_sold = 0
+	if kalle != null:
+		kalle.set_hiding(false)
 	if _beast != null and is_instance_valid(_beast):
 		_beast.queue_free()
 	_beast = null
@@ -7271,6 +7415,8 @@ func inventory_items() -> Array:
 		add.call("tulitikut", "Tulitikut", 1, "Nuotion sytytykseen.")
 	if has_chocolate:
 		add.call("suklaa", "Suklaalevy", 1, "Päivin lepytykseen.", {"use": "suklaa", "use_label": "syö"})
+	add.call("pontikka", "Pontikka", pontikka, "Korpi-Kallen tavaraa · T ottaa huikan (rohkeutta lavalle)",
+		{"food": true, "use": "pontikka", "use_label": "ota huikka"})
 	if has_yeast:
 		add.call("hiiva", "Hiiva", 1, "Kotiviiniin: kolme viikkoa käymistä.")
 	if has_turbo:
@@ -7819,6 +7965,107 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().process_frame
 			print("LAVA ohi: tila %s, rahaa %.2f, mielihyvä %.1f -> %.1f, mopo aktiivinen %s" % [state, money, m0, mielihyva, mopo_trip.active])
+		"korpikalle":
+			# Korpi-Kalle: osto, kuva pannusta, ratsia karkuun ja kiinni, huikka (lavan rohkeus), myynti lavan pihalla.
+			if player == bike:
+				_toggle_mount()
+			mokki.ensure_built()
+			money = 60.0
+			pontikka = 0
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+				for i in 3:
+					await get_tree().process_frame
+			walker_out.global_position = kalle.to_global(Vector3(0.6, 0.5, -2.2))
+			walker_out.look_at(kalle.global_position + Vector3(0, 0.5, 0), Vector3.UP)
+			await frames.call(20)
+			print("KALLE pannulla: mökillä %s, hint '%s'" % [_at_mokki(), _hint.text])
+			await press.call("interact")
+			print("KALLE osto: pontikka %d rahaa %.2f viesti '%s'" % [pontikka, money, _msg.text])
+			_note.visible = false
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.global_position = kalle.to_global(Vector3(2.5, 2.0, -4.5))
+			cam.look_at(kalle.to_global(Vector3(0, 0.8, 0)), Vector3.UP)
+			cam.current = true
+			for i in 30:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_pannu.png"))
+			# Ratsia 1: juostaan karkuun poispäin nimismiehestä.
+			_nimismies_raid()
+			await frames.call(10)
+			cam.global_position = _nimismies.global_position + Vector3(3, 2.5, 3)
+			cam.look_at(_nimismies.global_position + Vector3(0, 1.0, 0), Vector3.UP)
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_nimismies.png"))
+			cam.current = false
+			walker_out.activate_camera()
+			var away: Vector3 = walker_out.global_position - _nimismies.global_position
+			walker_out.look_at(walker_out.global_position + Vector3(away.x, 0, away.z), Vector3.UP)
+			Input.action_press("forward")
+			Input.action_press("sprint")
+			var w0 := walker_out.global_position
+			for i in 40:
+				await get_tree().create_timer(0.5).timeout
+				var flee: Vector3 = walker_out.global_position - _nimismies.global_position
+				flee.y = 0.0
+				if absf(walker_out.speed) < 1.0:
+					flee = flee.rotated(Vector3.UP, 1.2 if i % 4 < 2 else -1.2)  # puu edessä: sivuun
+				walker_out.look_at(walker_out.global_position + flee, Vector3.UP)
+				if i % 2 == 0:
+					print("KALLE pako %.1f s: pelaaja liikkunut %.1f m, vauhti %.1f, nimismies %.1f m päässä, alusta %s" % [i * 0.5,
+						walker_out.global_position.distance_to(w0), walker_out.speed, walker_out.global_position.distance_to(_nimismies.global_position),
+						walker_out.surface])
+				if _nimismies._done:
+					break
+			Input.action_release("forward")
+			Input.action_release("sprint")
+			print("KALLE ratsia 1: viesti '%s' pontikka %d rahaa %.2f" % [_msg.text, pontikka, money])
+			_nimismies.queue_free()
+			_nimismies = null
+			# Ratsia 2: jäädään paikalleen pannulle.
+			pontikka = 2
+			walker_out.global_position = kalle.to_global(Vector3(0.6, 0.5, -2.2))
+			await frames.call(5)
+			_nimismies_raid()
+			for i in 20:
+				await get_tree().create_timer(0.5).timeout
+				if _nimismies._done:
+					break
+			print("KALLE ratsia 2: viesti '%s' pontikka %d rahaa %.2f" % [_msg.text, pontikka, money])
+			_nimismies.queue_free()
+			_nimismies = null
+			print("KALLE piilossa %s, myyty tänään %d" % [kalle.hiding, _kalle_sold])
+			# Huikka.
+			pontikka = 1
+			_on_eat("pontikka")
+			print("KALLE huikka: pontikka %d rohkeus tänään %s viesti '%s'" % [pontikka, _lava_courage_day == day, _msg.text])
+			# Myynti lavan pihalla.
+			pontikka = 3
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			var mp: CharacterBody3D = mopo_trip.mopo
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+			mp.position = vl.lava_door + vl.lava_out * 4.0 + Vector3(0, 0.6, 0)
+			for i in 20:
+				await get_tree().physics_frame
+			await press.call("mount")
+			await frames.call(10)
+			print("KALLE lavan pihalla: hint '%s'" % _hint.text)
+			var m0 := money
+			for k in 3:
+				await press.call("bell")
+				print("KALLE myynti %d: pontikka %d rahaa %.2f viesti '%s'" % [k, pontikka, money, _msg.text])
 		"mokkivaalajalan":
 			# Moposta jalan (F) lavan pihassa, kävely ovelle (vihje), rantaan (ei veteen), takaisin mopolle ja selkään.
 			_start_mopo()
