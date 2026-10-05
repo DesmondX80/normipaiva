@@ -12774,6 +12774,62 @@ func _maybe_screenshot() -> void:
 				await get_tree().physics_frame
 			Input.action_release("forward")
 			print("HSISALLA ilman asetusta W liikkuu ruudulla ylös (−Z): %.2f m" % -(w.position - p1).z)
+		"tallijuoma2":
+			# Käyttäjän polku: hiiriohjaus päällä, viini käymään saavilla, T-valikko, välissä taukovalikko, viina hiiren
+			# vasemmalla.
+			Settings.set_v("mouse_steer", true)
+			if player == bike:
+				_toggle_mount()
+			viina_pullot = 2
+			bucket = {"mustikka": 3}
+			has_yeast = true
+			has_sugar = true
+			wine_start = -1
+			wine_locked = false
+			_enter_garage()
+			var w: CharacterBody3D = garage_int.walker
+			w.position = GarageInterior.SPOTS.saavi[0]
+			for i in 5:
+				await get_tree().physics_frame
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			var press := func(a: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(a)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(a)
+				await get_tree().process_frame
+			var click := func(btn: int) -> void:
+				for down in [true, false]:
+					var ev := InputEventMouseButton.new()
+					ev.button_index = btn
+					ev.pressed = down
+					Input.parse_input_event(ev)
+					await get_tree().process_frame
+					await get_tree().process_frame
+			await click.call(MOUSE_BUTTON_LEFT)
+			print("TALLIJ2 viini käymään: alku %d" % wine_start)
+			await press.call("eat")
+			print("TALLIJ2 valikko auki %s" % _item_menu.is_open())
+			menu.open_pause()
+			for i in 5:
+				await get_tree().process_frame
+			menu.close()
+			for i in 5:
+				await get_tree().process_frame
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			_item_menu._sel = _item_menu._items.map(func(x): return x[0]).find("viina")
+			await click.call(MOUSE_BUTTON_LEFT)
+			for i in 10:
+				await get_tree().physics_frame
+			var p0 := w.position
+			Input.action_press("forward")
+			for i in 30:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			print("TALLIJ2 viinan jälkeen: valikko %s, ohjaus %s, tila %s, busy %s, liikkui %.2f m, viinaa %d, viesti '%s'" % [
+				_item_menu.is_open(), w.controls_enabled, state, garage_int.busy, w.position.distance_to(p0), viina_pullot, _msg.text])
+			Settings.set_v("mouse_steer", false)
 		"tallijuoma":
 			# Tallissa juominen: T-valikosta viina ja kalja sekä repusta, ohjauksen pitää palata.
 			if player == bike:
