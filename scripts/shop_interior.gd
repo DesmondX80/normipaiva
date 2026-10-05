@@ -126,6 +126,10 @@ func leave() -> void:
 	walker.controls_enabled = false
 
 
+var busy := false  # syö/juo-valikko auki (main.gd): ovi ja hyllyt eivät reagoi E:hen
+var _enter_frame := -1
+
+
 func _process(delta: float) -> void:
 	_update_grandpas(delta)
 	_cashier_t -= delta
@@ -149,7 +153,7 @@ func _process(delta: float) -> void:
 		_serve_t = randf_range(5.0, 8.0)
 
 	hint = ""
-	var e := Input.is_action_just_pressed("interact")
+	var e := Input.is_action_just_pressed("interact") and not busy and Engine.get_process_frames() != _enter_frame
 	var broke := not has_paid and _total() > money + 0.001
 	if _flat(p, DOOR) < 1.4:
 		if has_items and not has_paid and (has_beer or alko_count() > 0) and broke:
