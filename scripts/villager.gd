@@ -192,7 +192,7 @@ func say(text: String) -> void:
 
 
 func distance_to_player() -> float:
-	if target == null:
-		return INF
+	if target == null or not visible:
+		return INF  # yöllä sisällä (main.gd _day_rhythm)
 	var d := target.global_position - global_position
 	return Vector2(d.x, d.z).length()
