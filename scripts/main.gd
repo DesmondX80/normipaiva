@@ -12722,6 +12722,40 @@ func _maybe_screenshot() -> void:
 				if state != "in_raahe":
 					break
 			print("PAIVI loppu: state=%s kiinni=%s tila=%s msg=%s" % [state, _raahe.caught, raahe_int._paivi_mode, _msg.text])
+		"hiirisisalla":
+			# Hiiriohjaus sisätiloissa: kotona hiiren liike kääntää hahmoa, W vie katseen suuntaan, A sivulle.
+			Settings.set_v("mouse_steer", true)
+			if player == bike:
+				_toggle_mount()
+			_enter_home("ovi")
+			var w: CharacterBody3D = home_int.walker
+			w.position = Vector3(1.0, 0, -2.0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("HSISALLA hiiri %d ohjaa %s" % [Input.mouse_mode, CamCtl.steering()])
+			var r0 := w.rotation.y
+			for i in 20:
+				var mm := InputEventMouseMotion.new()
+				mm.relative = Vector2(-10, 0)
+				Input.parse_input_event(mm)
+				await get_tree().physics_frame
+			var turned := wrapf(w.rotation.y - r0, -PI, PI)
+			var fwd := -w.global_transform.basis.z
+			var p0 := w.position
+			Input.action_press("forward")
+			for i in 20:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			var mv := w.position - p0
+			print("HSISALLA käännös %.2f rad, W liike katseen suuntaan %.2f m, sivulle %.2f m" % [turned, mv.dot(fwd),
+				mv.dot(w.global_transform.basis.x)])
+			Settings.set_v("mouse_steer", false)
+			var p1 := w.position
+			Input.action_press("forward")
+			for i in 20:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			print("HSISALLA ilman asetusta W liikkuu ruudulla ylös (−Z): %.2f m" % -(w.position - p1).z)
 		"hiiriohjaus":
 			# Hiiriohjaus (FPS-tyyli): jalan hiiren käännös kääntää hahmon suoraan ja A sivuttain; pyörä ohjautuu
 			# kameran suuntaan ja kamera pysyy maailmassa paikallaan.
