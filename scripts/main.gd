@@ -2671,6 +2671,7 @@ func _open_eat_menu() -> void:
 	if "speed" in w:
 		w.speed = 0.0
 	_mopo_menu(true)
+	_interior_busy(true)
 	_msg.text = ""
 	_msg_time = 0.0
 	_menu_mode = "eat"
@@ -2713,7 +2714,20 @@ func _own_drink_in_bar() -> void:
 			_show_message("Siitarista heitettiin ulos omien juomien takia. Mopo odottaa pihassa.", 3.5))
 
 
+## Sisätilan toimintopisteet pois päältä valikon ajaksi: valikon valinta-E ei saa samalla avata ovea (ulos) tai
+## toimia hyllyllä. Suljettaessa vielä saman ruudun yli (_enter_frame).
+func _interior_busy(on: bool) -> void:
+	var it: Node = {"in_home": home_int, "in_garage": garage_int, "in_mokki": mokki_int, "in_shop": interior,
+		"in_raahe": raahe_int, "in_siitari": siitari_int}.get(state)
+	if it == null:
+		return
+	it.busy = on
+	if not on:
+		it._enter_frame = Engine.get_process_frames()
+
+
 func _on_eat(id: String) -> void:
+	_interior_busy(false)
 	_active_walker().controls_enabled = true
 	_mopo_menu(false)
 	match id:
@@ -7639,7 +7653,11 @@ func _build_hud() -> void:
 			_wc_release()
 		else:
 			_mopo_menu(false)
-			player.controls_enabled = true)
+			if _menu_mode == "eat":
+				_interior_busy(false)
+				_active_walker().controls_enabled = true
+			else:
+				player.controls_enabled = true)
 
 	_mopo_label = _label(layer, 22)
 	_mopo_label.position = Vector2(20, 12)
@@ -12756,6 +12774,48 @@ func _maybe_screenshot() -> void:
 				await get_tree().physics_frame
 			Input.action_release("forward")
 			print("HSISALLA ilman asetusta W liikkuu ruudulla ylös (−Z): %.2f m" % -(w.position - p1).z)
+		"tallijuoma":
+			# Tallissa juominen: T-valikosta viina ja kalja sekä repusta, ohjauksen pitää palata.
+			if player == bike:
+				_toggle_mount()
+			viina_pullot = 3
+			beers = 2
+			pontikka = 1
+			_enter_garage()
+			for i in 5:
+				await get_tree().physics_frame
+			var w: CharacterBody3D = garage_int.walker
+			var press := func(a: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(a)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(a)
+				await get_tree().process_frame
+			for id in ["viina", "kalja", "pontikka"]:
+				await press.call("eat")
+				var open: bool = _item_menu.is_open()
+				var items: Array = _item_menu._items.map(func(x): return x[0])
+				_item_menu._sel = items.find(id)
+				await press.call("interact")
+				for i in 10:
+					await get_tree().process_frame
+				print("TALLIJ %s: valikko auki %s, valikossa %s, ohjaus %s, tila %s, busy %s, viesti '%s'" % [id, open, items,
+					w.controls_enabled, state, garage_int.busy, _msg.text])
+			await press.call("eat")
+			await press.call("bell")
+			for i in 5:
+				await get_tree().process_frame
+			print("TALLIJ peruutus: ohjaus %s, tila %s" % [w.controls_enabled, state])
+			w.position = GarageInterior.SPOTS.ovi[0]
+			for i in 5:
+				await get_tree().physics_frame
+			await press.call("eat")
+			_item_menu._sel = 0
+			await press.call("interact")
+			for i in 5:
+				await get_tree().process_frame
+			print("TALLIJ ovella kalja: ohjaus %s, tila %s" % [w.controls_enabled, state])
 		"hiirinapit":
 			# Hiiren napit: oletukset, vasen = toiminto lukitulla hiirellä (kotiovelle sisään), minipelin aikana ei,
 			# rulla selaa esinevalikkoa, valikossa hiiren napin asetus ja oikea klikkaus tyhjentää.
