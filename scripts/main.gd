@@ -193,7 +193,19 @@ const INDOOR_STASHES := ["koti", "autotalli"]
 ## keittiön kaapista (Päivi suuttuu aamulla). Valmis viini = viinibileet (onnellinen loppu) Pekan, Arton ja Sinikan
 ## kanssa; herätään jonkun heistä luota krapulassa ja viininteko lukittuu (lupaus: ei enää ikinä).
 const WINE_BERRIES := 3
-const WINE_DAYS := {"hiiva": 21, "turbo": 7}
+const WINE_DAYS := {"hiiva": 21, "turbo": 7, "korpi": 5}
+## Paapelin kotiviini mökin pesuhuoneen sangoissa: samat ainekset (marjat mökin metsästä, hiiva Santun jääkaapista,
+## sokeri Santun keittiön kaapista – Santun hermot kiristyvät – tai kaikki Vaalan kaupasta), lisäksi Korpi-Kallen
+## korpihiiva (5 pv). Kotona annettu lupaus ei estä: Santtu muistuttaa, mutta haluaa itsekin viiniä. Valmis viini =
+## mökkibileet (onnellinen loppu) Santun, Sinikan ja Korpi-Kallen kanssa, herätys laiturilta, savusaunasta tai
+## metsästyslavalta ja oma lupaus (lukko).
+const KORPIHIIVA_PRICE := 3.0
+const SUGAR_HERMO := 6.0
+const MWINE_WAKE := {
+	"laituri": ["Heräsit laiturilta märkänä, makuupussi puoliksi järvessä. Joutsenet katsoo paheksuen.", Vector3(8.9, 0, 52.0)],
+	"savusauna": ["Heräsit savusaunan lauteilta noen peitossa. Kiuas on vielä lämmin.", Vector3(5.9, 0, 21.0)],
+	"lava": ["Heräsit metsästyslavalta. Miten sää tänne kiipesit?!", Vector3(-30.0, 0, 7.0)],
+}
 const WINE_WAKE := {
 	"pekka": "Heräsit Pekan saunan lauteilta pyyhe päässä. Pekka kuorsaa kuistilla kyyhkynsulka hiuksissa.",
 	"arto": "Heräsit Arton Hyundain takapenkiltä. Arto keittää kahvia eikä katso silmiin.",
@@ -228,6 +240,14 @@ var wine_start := -1  # päivä, jona viini laitettiin käymään (-1 = saavi ty
 var wine_days := 0
 var wine_locked := false  # viinibileiden jälkeen: ei enää ikinä
 var wine_endings := 0
+var has_korpihiiva := false
+var mwine_start := -1  # Paapelin sangot
+var mwine_days := 0
+var mwine_locked := false
+var mwine_endings := 0
+## Mökin metsän marja- ja sienipaikat (Mokki.forage_positions): kuten world.forage, Santtu merkitsee karttaan.
+var mokki_forage: Array = []
+var mokki_forage_revealed := false
 var siitari_int: Node3D
 var raahe_int: Node3D
 var _raahe := {}  # illan tapahtumat Raahen baarissa (kädenvääntö, visa, karaoke)
@@ -675,6 +695,10 @@ func _ready() -> void:
 	kalle.position = Vector3(kp.x, Mokki.h(kp.x, kp.y), kp.y)
 	kalle.rotation.y = B.yaw_to(Vector3(Mokki.COTTAGE_LOCAL.x - kp.x, 0, Mokki.COTTAGE_LOCAL.y - kp.y))
 	mokki.add_child(kalle)
+	for fp in Mokki.forage_positions():
+		var lp: Vector2 = fp[0]
+		var node: Node3D = mokki.forage_visual(fp[1], lp)
+		mokki_forage.append({"pos": mokki.to_global(node.position), "local": lp, "kind": fp[1], "node": node, "taken": false})
 	mokki_int = MokkiInterior.new()
 	mokki_int.position = MOKKI_INT_POS
 	add_child(mokki_int)
@@ -923,6 +947,8 @@ func _process(delta: float) -> void:
 			tilat.add("nalka", -0.002 * delta)
 		"in_mokki":
 			_hint.text = mokki_int.hint
+			if mokki_int.spot == "sangot":
+				_hint.text = _mwine_hint()
 			_hommat_tick(delta)
 			# Sisällä on rauhallista: stressi hellittää ja vireys nousee, nälkä kasvaa hiljaa.
 			tilat.add("stressi", 0.005 * delta)
@@ -1311,6 +1337,132 @@ func _on_garage_acted(kind: String) -> void:
 			_wine_act()
 
 
+## Paras saatavilla oleva hiiva: korpihiiva (5 pv) > turbohiiva (7 pv) > tavallinen (21 pv). "" = ei hiivaa.
+func _best_yeast() -> String:
+	if has_korpihiiva:
+		return "korpi"
+	if has_turbo:
+		return "turbo"
+	return "hiiva" if has_yeast else ""
+
+
+func _use_yeast(kind: String) -> void:
+	match kind:
+		"korpi":
+			has_korpihiiva = false
+		"turbo":
+			has_turbo = false
+		_:
+			has_yeast = false
+
+
+func _yeast_name(kind: String) -> String:
+	return {"korpi": "korpihiiva: viisi päivää", "turbo": "turbohiiva: viikko", "hiiva": "hiiva: kolme viikkoa"}[kind]
+
+
+func _mwine_ready() -> bool:
+	return mwine_start >= 0 and day - mwine_start >= mwine_days
+
+
+func _mwine_stage() -> String:
+	if mwine_start < 0:
+		return ""
+	return "valmis" if _mwine_ready() else "kay"
+
+
+func _mwine_hint() -> String:
+	if mwine_locked:
+		return "Viinisangot. Santtu ja sinä lupasitte: Paapelilla ei enää ikinä. Ehkä."
+	if _mwine_ready():
+		return "[E] Paapelin viini on valmis! Mökkibileet: Santtu, Sinikka ja Korpi-Kalle"
+	if mwine_start >= 0:
+		return "Viini käy sangoissa: valmis %d päivän päästä. Blub." % (mwine_days - (day - mwine_start))
+	var miss := PackedStringArray()
+	if _wine_berries() < WINE_BERRIES:
+		miss.append("marjoja %d l (ämpärissä %d l, Santulta marjapaikat)" % [WINE_BERRIES, _wine_berries()])
+	if _best_yeast() == "":
+		miss.append("hiivaa (Santun jääkaappi, Vaalan kauppa tai Korpi-Kalle)")
+	if not has_sugar:
+		miss.append("sokeria (Vaalan kauppa tai Santun kaappi)")
+	if miss.is_empty():
+		return "[E] Laita viini käymään sankoihin (%s)" % _yeast_name(_best_yeast())
+	return "Viinisangot. Puuttuu: " + ", ".join(miss)
+
+
+func _mwine_act() -> void:
+	if mwine_locked:
+		mokki_int.say("Ei. Me luvattiin. ...Vai luvattiinko?")
+		return
+	if _mwine_ready():
+		_mokki_wine_party()
+		return
+	var yeast := _best_yeast()
+	if mwine_start >= 0 or _wine_berries() < WINE_BERRIES or yeast == "" or not has_sugar:
+		return
+	var need := WINE_BERRIES
+	for k in ["mustikka", "puolukka"]:
+		var n: int = mini(need, bucket.get(k, 0))
+		if n > 0:
+			bucket[k] -= n
+			if bucket[k] <= 0:
+				bucket.erase(k)
+			need -= n
+	_use_yeast(yeast)
+	has_sugar = false
+	mwine_start = day
+	mwine_days = WINE_DAYS[yeast]
+	mokki_int.set_wine("kay")
+	tilat.first("paapelin_viini", 0.4)
+	Sfx.play("water", -6.0, 0.7)
+	if wine_locked:
+		mokki_int.say("Etkö sää luvannu, ettei enää ikinä? ...No, laita vaan. Mää maistan ekana.")
+	else:
+		mokki_int.say("Kotiviiniä! Mää en nähny mitään. Mutta mää haluun lasin.")
+	_save_game()
+	_show_message("Marjat, sokeri ja %s sankoihin, liinat päälle. Viini valmis %d päivän päästä." % [
+		{"korpi": "korpihiiva", "turbo": "turbohiiva"}.get(yeast, "hiiva"), mwine_days], 4.0)
+
+
+## Mökkibileet: onnellinen loppu mökillä. Herätys laiturilta, savusaunasta tai metsästyslavalta krapulassa,
+## Paapelin viini lukkoon (Santun ja sinun lupaus).
+func _mokki_wine_party() -> void:
+	_leave_interior_quiet()
+	if state == "in_mokki":
+		mokki_int.leave()
+		state = _mokki_prev
+	state = "cutscene"
+	player.controls_enabled = false
+	_hud.visible = false
+	if not Sfx.has_music():
+		Sfx.play("win")
+	_drink(6)
+	mwine_endings += 1
+	var used := mwine_days
+	mwine_start = -1
+	mwine_locked = true
+	mokki_int.set_wine("")
+	_save_game()
+	var stats := "Paapelin kotiviiniä %d päivän käymisen jälkeen  ·  Santtu, Sinikka ja Korpi-Kalle  ·  Mökkibileitä: %d" % [
+		used, mwine_endings]
+	var who: String = MWINE_WAKE.keys().pick_random()
+	var santtu: Node3D = mokki.santtu
+	santtu.visible = false
+	kalle.visible = false
+	var center: Vector3 = mokki.porch_pos(6.0)
+	cutscene.mokki_party(center, mokki.global_rotation.y, stats, func() -> void:
+		santtu.visible = true
+		kalle.visible = true
+		var w: Array = MWINE_WAKE[who]
+		_new_day(mokki.gpos(w[1]), false, w[0] +
+			"\nPää halkeaa. Äärimmäinen krapula.\nSanttu ja sinä lupasitte: Paapelilla ei tehdä enää viiniä. Ikinä. Ehkä.")
+		for k in ["vireys", "keskittyminen"]:
+			tilat.ensure(k)
+			tilat.add(k, -0.7)
+		tilat.add("kipu", -0.3)
+		tilat.add("stressi", -0.2)
+		_save_game())
+
+
 func _wine_berries() -> int:
 	return bucket.get("puolukka", 0) + bucket.get("mustikka", 0)
 
@@ -1336,12 +1488,12 @@ func _wine_hint() -> String:
 	var miss := PackedStringArray()
 	if _wine_berries() < WINE_BERRIES:
 		miss.append("marjoja %d l (ämpärissä %d l)" % [WINE_BERRIES, _wine_berries()])
-	if not has_yeast and not has_turbo:
+	if _best_yeast() == "":
 		miss.append("hiivaa (jääkaappi) tai turbohiivaa (kauppa)")
 	if not has_sugar:
 		miss.append("sokeria (kauppa tai keittiön kaappi)")
 	if miss.is_empty():
-		return "[E] Laita kotiviini käymään (%s)" % ("turbohiiva: viikko" if has_turbo else "hiiva: kolme viikkoa")
+		return "[E] Laita kotiviini käymään (%s)" % _yeast_name(_best_yeast())
 	return "Viinisaavi. Puuttuu: " + ", ".join(miss)
 
 
@@ -1353,7 +1505,8 @@ func _wine_act() -> void:
 		_leave_interior_quiet()
 		_win(true, true)
 		return
-	if wine_start >= 0 or _wine_berries() < WINE_BERRIES or not (has_yeast or has_turbo) or not has_sugar:
+	var yeast := _best_yeast()
+	if wine_start >= 0 or _wine_berries() < WINE_BERRIES or yeast == "" or not has_sugar:
 		return
 	var need := WINE_BERRIES
 	for k in ["mustikka", "puolukka"]:
@@ -1363,20 +1516,16 @@ func _wine_act() -> void:
 			if bucket[k] <= 0:
 				bucket.erase(k)
 			need -= n
-	var turbo := has_turbo
-	if turbo:
-		has_turbo = false
-	else:
-		has_yeast = false
+	_use_yeast(yeast)
 	has_sugar = false
 	wine_start = day
-	wine_days = WINE_DAYS.turbo if turbo else WINE_DAYS.hiiva
+	wine_days = WINE_DAYS[yeast]
 	garage_int.set_wine("kay")
 	tilat.first("kotiviini", 0.4)
 	Sfx.play("water", -6.0, 0.7)
 	_save_game()
 	_show_message("Marjat, sokeri ja %s saaviin, liina päälle ja vesilukko kiinni. Viini valmis %d päivän päästä." % [
-		"turbohiiva" if turbo else "hiiva", wine_days], 4.0)
+		{"korpi": "korpihiiva", "turbo": "turbohiiva"}.get(yeast, "hiiva"), wine_days], 4.0)
 
 
 ## Karburaattorin säätö autotallissa (carb_game.gd).
@@ -1815,6 +1964,11 @@ func _forage_logic() -> void:
 	if _hint.text != "":
 		return
 	var near: Array = world.nearest_forage(p)
+	for f in mokki_forage:
+		if not f.taken:
+			var dm: float = Vector2(f.pos.x - p.x, f.pos.z - p.z).length()
+			if dm < near[1]:
+				near = [f, dm]
 	if near[0].is_empty() or near[1] > 3.2:
 		return
 	var f: Dictionary = near[0]
@@ -3140,13 +3294,22 @@ func _kalle_logic() -> void:
 		return
 	if walker_out.global_position.distance_to(kalle.global_position) > 3.6:
 		return
+	if not has_korpihiiva and not mwine_locked:
+		if Input.is_action_just_pressed("bell") and money >= KORPIHIIVA_PRICE:
+			money -= KORPIHIIVA_PRICE
+			has_korpihiiva = true
+			kalle.say("Mun oma hiivakanta. Viidessä päivässä valmista, kunhan sokeria on reilusti.", 4.0)
+			_show_message("Korpihiivaa reppuun. Viini käy sillä viidessä päivässä (mökin sangot).", 3.0)
+			return
+	var yeast_opt := "   [Q] Osta korpihiivaa (%s €, viini viidessä päivässä)" % _eur(KORPIHIIVA_PRICE) \
+		if not has_korpihiiva and not mwine_locked and money >= KORPIHIIVA_PRICE else ""
 	if _kalle_sold >= PONTIKKA_DAY:
-		_hint.text = "Korpi-Kalle: \"Tänään ei enää. Pannu jäähtyy.\""
+		_hint.text = "Korpi-Kalle: \"Tänään ei enää pontikkaa.\"" + yeast_opt
 		return
 	if money < PONTIKKA_PRICE:
 		_hint.text = "Korpi-Kalle myy pontikkaa %s € pullo. Rahat ei riitä." % _eur(PONTIKKA_PRICE)
 		return
-	_hint.text = "[E] Osta Korpi-Kallelta pullo pontikkaa (%s €)" % _eur(PONTIKKA_PRICE)
+	_hint.text = "[E] Osta Korpi-Kallelta pullo pontikkaa (%s €)" % _eur(PONTIKKA_PRICE) + yeast_opt
 	if not Input.is_action_just_pressed("interact") or player.is_stunned():
 		return
 	money -= PONTIKKA_PRICE
@@ -4586,6 +4749,8 @@ func _santtu_watch(dt: float) -> void:
 ## Santun valikko kannolla: juttelu, päivän hommat ja kalja (Santtu tekee yhden homman).
 func _santtu_menu() -> void:
 	var items: Array = [["juttu", "Jutskaa Santun kanssa"]]
+	if not mokki_forage_revealed:
+		items.append(["marjat", "Missä täällä on marja- ja sienipaikat?"])
 	if bitten:
 		items.append(["haava", "Pyydä Santtua hoitamaan haava"])
 	if hommat.active:
@@ -4613,6 +4778,13 @@ func _on_santtu_menu(id: String) -> void:
 		"juttu":
 			mokki.say(_santtu_chat_line())
 			tilat.first("santtu")
+		"marjat":
+			mokki_forage_revealed = true
+			_minimap.mokki_forage = mokki_forage
+			mokki.say("Puolukkaa ja mustikkaa joka mättäällä! Merkkaan sulle karttaan parhaat paikat. Kantarellit on salaisuus... no, ne kans.", 5.0)
+			_show_message("Santtu merkitsi mökin metsän marja- ja sienipaikat karttaan (M).", 3.0)
+			tilat.first("santtu_marjat", 0.2)
+			_save_game()
 		"haava":
 			var care: Array = SANTTU_CARE.pick_random()
 			var big := wound_big
@@ -5215,6 +5387,7 @@ func _enter_mokki(door := "ovi") -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	tilat.first("mokki_sisalla", 0.2)
 	mokki_int.enter(door)
+	mokki_int.set_wine(_mwine_stage())
 	Sfx.play("door", -3.0)
 
 
@@ -5275,6 +5448,22 @@ func _on_mokki_acted(kind: String) -> void:
 				_show_message("Santun jääkaapissa oli lihapiirakka. Otit sen evääksi (T syö).", 3.0)
 			else:
 				_show_message("Jääkaappi on tyhjä. Santtu: \"Kaupasta saa lisää!\"", 2.5)
+			if not has_yeast and not mwine_locked:
+				has_yeast = true
+				_queue_message("Santun jääkaapin ovessa oli hiivapala. Otit sen mukaan (kotiviiniin).", 3.0)
+		"sokeri":
+			if mwine_locked:
+				_show_message("Sokeria. Paapelilla ei tehdä enää viiniä, lupasitte.", 2.5)
+			elif has_sugar:
+				_show_message("Sokeripussi on jo mukana.", 2.0)
+			else:
+				has_sugar = true
+				hommat.add_hermo(SUGAR_HERMO)
+				mokki_int.say("Hei! Ne on mun kahvisokerit! ...No, mihin sää niitä tarviit?")
+				Sfx.play("cloth", -6.0, 0.8)
+				_show_message("Otit Santun sokeripussin. Santun hermot kiristyy.", 3.0)
+		"sangot":
+			_mwine_act()
 		"takka":
 			tilat.first("takka")
 			if _once_today("takka"):
@@ -6459,6 +6648,12 @@ func _load_game() -> void:
 	has_turbo = cfg.get_value("viini", "turbo", false)
 	has_sugar = cfg.get_value("viini", "sokeri", false)
 	pontikka = cfg.get_value("viini", "pontikka", 0)
+	has_korpihiiva = cfg.get_value("viini", "korpihiiva", false)
+	mwine_start = cfg.get_value("paapeli", "viini_alku", -1)
+	mwine_days = cfg.get_value("paapeli", "viini_paivat", 0)
+	mwine_locked = cfg.get_value("paapeli", "viini_lukossa", false)
+	mwine_endings = cfg.get_value("paapeli", "bileet", 0)
+	mokki_forage_revealed = cfg.get_value("paapeli", "marjapaikat", false)
 	tarinat_kuultu = cfg.get_value("kota", "tarinat", [])
 	lawn.load_state(cfg.get_value("nurmikko", "pituudet", PackedByteArray()))
 	lawn_siilit = cfg.get_value("nurmikko", "siilit", 0)
@@ -6504,6 +6699,12 @@ func _save_game() -> void:
 	cfg.set_value("viini", "turbo", has_turbo)
 	cfg.set_value("viini", "sokeri", has_sugar)
 	cfg.set_value("viini", "pontikka", pontikka)
+	cfg.set_value("viini", "korpihiiva", has_korpihiiva)
+	cfg.set_value("paapeli", "viini_alku", mwine_start)
+	cfg.set_value("paapeli", "viini_paivat", mwine_days)
+	cfg.set_value("paapeli", "viini_lukossa", mwine_locked)
+	cfg.set_value("paapeli", "bileet", mwine_endings)
+	cfg.set_value("paapeli", "marjapaikat", mokki_forage_revealed)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
 	if lawn != null:
 		cfg.set_value("nurmikko", "pituudet", lawn.save_state())
@@ -7356,6 +7557,7 @@ func _update_hud() -> void:
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
 	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "lava"]) and not _in_vaala
+	_minimap.mokki_forage = mokki_forage if mokki_forage_revealed else []
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
 	_minimap.show_target = false  # ei tehtäväkohdetta: kauppa ja koti näkyvät kartalla merkkeinä
 	_compass.visible = state in ["to_shop", "to_home"]
@@ -7421,6 +7623,8 @@ func inventory_items() -> Array:
 		add.call("hiiva", "Hiiva", 1, "Kotiviiniin: kolme viikkoa käymistä.")
 	if has_turbo:
 		add.call("turbohiiva", "Turbohiiva", 1, "Kotiviiniin: viikossa valmista.")
+	if has_korpihiiva:
+		add.call("turbohiiva", "Korpihiiva", 1, "Korpi-Kallen oma kanta: viini viidessä päivässä.")
 	if has_sugar:
 		add.call("sokeri", "Sokeri", 1, "Kotiviiniin (autotallin saavi).")
 	if has_mower_part:
@@ -7965,6 +8169,94 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().process_frame
 			print("LAVA ohi: tila %s, rahaa %.2f, mielihyvä %.1f -> %.1f, mopo aktiivinen %s" % [state, money, m0, mielihyva, mopo_trip.active])
+		"paapeli":
+			# Paapelin kotiviini ja Santun marjapaikat: marjapaikat karttaan, hiiva jääkaapista, sokeri Santun kaapista,
+			# Kallen korpihiiva, sangot, 5 päivää, mökkibileet, herätys ja lukko.
+			if player == bike:
+				_toggle_mount()
+			mokki.ensure_built()
+			mwine_locked = false
+			mwine_start = -1
+			has_yeast = false
+			has_turbo = false
+			has_korpihiiva = false
+			has_sugar = false
+			mokki_forage_revealed = false
+			money = 30.0
+			bucket = {"mustikka": 2, "puolukka": 2}
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+				for i in 3:
+					await get_tree().process_frame
+			print("PAAPELI marjapaikkoja %d: %s" % [mokki_forage.size(), str(mokki_forage.map(func(f): return f.kind))])
+			_on_santtu_menu("marjat")
+			walker_out.global_position = mokki.porch_pos(4.0) + Vector3(0, 0.3, 0)
+			_note.visible = false
+			await frames.call(20)
+			print("PAAPELI marjapaikat kartalla: %s (minikartalla %d)" % [mokki_forage_revealed, _minimap.mokki_forage.size()])
+			_paper.toggle()
+			for i in 5:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kartta.png"))
+			_paper.toggle()
+			# Korpi-Kallen korpihiiva (Q).
+			walker_out.global_position = kalle.to_global(Vector3(0.6, 0.5, -2.2))
+			await frames.call(10)
+			print("PAAPELI Kalle: hint '%s'" % _hint.text)
+			await press.call("bell")
+			print("PAAPELI korpihiiva %s rahaa %.2f" % [has_korpihiiva, money])
+			# Mökin sisällä: jääkaappi, sokeri, sangot.
+			_enter_mokki("ovi")
+			mokki_int.walker.position = mokki_int.SPOTS.jaakaappi[0]
+			await frames.call(5)
+			await press.call("interact")
+			mokki_int.walker.position = mokki_int.SPOTS.sokeri[0]
+			await frames.call(5)
+			var h0: float = hommat.hermo
+			await press.call("interact")
+			print("PAAPELI keittiö: hiiva %s sokeri %s hermot %.1f -> %.1f" % [has_yeast, has_sugar, h0, hommat.hermo])
+			mokki_int.walker.position = mokki_int.SPOTS.sangot[0]
+			await frames.call(5)
+			print("PAAPELI sangoilla: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("PAAPELI käymään: alku %d päiviä %d korpihiiva %s hiiva %s" % [mwine_start, mwine_days, has_korpihiiva, has_yeast])
+			await frames.call(20)
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_sangot.png"))
+			day += mwine_days
+			mokki_int.set_wine(_mwine_stage())
+			await frames.call(3)
+			print("PAAPELI valmis: hint '%s'" % _hint.text)
+			await press.call("interact")
+			print("PAAPELI bileet: tila %s lukossa %s" % [state, mwine_locked])
+			for t in [5.0, 6.0, 7.0]:
+				await get_tree().create_timer(t, true, false, true).timeout
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_bileet%d.png" % int(t)))
+			for i in 40:
+				await get_tree().create_timer(0.5, true, false, true).timeout
+				if not cutscene.busy:
+					break
+			await get_tree().create_timer(1.5, true, false, true).timeout
+			var woke := ""
+			for k in MWINE_WAKE:
+				if walker_out.global_position.distance_to(mokki.gpos(MWINE_WAKE[k][1])) < 4.0:
+					woke = k
+			print("PAAPELI herätys: tila %s paikka '%s' mökillä %s vireys %.2f viesti '%s'" % [state, woke, _at_mokki(),
+				tilat.value("vireys"), _msg.text.replace("\n", " | ")])
+			_enter_mokki("ovi")
+			mokki_int.walker.position = mokki_int.SPOTS.sangot[0]
+			await frames.call(5)
+			print("PAAPELI lukossa: hint '%s'" % _hint.text)
 		"korpikalle":
 			# Korpi-Kalle: osto, kuva pannusta, ratsia karkuun ja kiinni, huikka (lavan rohkeus), myynti lavan pihalla.
 			if player == bike:

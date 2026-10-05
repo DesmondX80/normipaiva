@@ -47,6 +47,8 @@ const SPOTS := {
 	"wc": [Vector3(5.5, 0, -3.1), "[E] Käy pöntöllä"],
 	"sauna": [Vector3(2.85, 0, -1.7), "[E] Käy sisäsaunassa"],
 	"pa": [Vector3(-0.9, 0, 1.55), "[E] Kytke Santun PA-laitteet"],
+	"sokeri": [Vector3(-1.4, 0, -3.7), "[E] Ota sokeria Santun keittiön kaapista (Santtu suuttuu!)"],
+	"sangot": [Vector3(3.9, 0, -3.4), ""],  # Paapelin kotiviini: vihje main.gd:stä
 }
 ## PA-kaiuttimet (jalustoilla sohvien päädyissä) ja tunnusmusiikin voimakkuus: taso 0..1 -> dB.
 const PA_SPEAKERS := [Vector3(-4.95, 0, 3.2), Vector3(0.2, 0, 3.2)]
@@ -74,6 +76,12 @@ var active := false
 var exit_door := "ovi"  # kummasta ovesta viimeksi lähdettiin ulos (ovi / ovi2)
 var walker: CharacterBody3D
 var hint := ""
+var spot := ""  # lähin toimintopiste
+var _wine_liquid: Array[MeshInstance3D] = []
+var _wine_cloth: Array[MeshInstance3D] = []
+var _blubs: Array[Label3D] = []
+var _blub_t := 0.0
+var wine_stage := ""
 var takka_on := false
 var _enter_frame := -1
 
@@ -96,6 +104,7 @@ var _dish_pile: Node3D
 
 func _ready() -> void:
 	_build_room()
+	_build_wine_buckets()
 	_build_kitchen_dining()
 	_build_bedroom()
 	_build_bath_sauna()
@@ -141,6 +150,36 @@ func set_dishes(n: int) -> void:
 			(_dish_pile.get_child(i) as Node3D).visible = i < n
 
 
+## Viinisangot pesuhuoneessa saunan seinää vasten: kaksi valkoista sankoa liinoineen ja vesilukkoineen.
+func _build_wine_buckets() -> void:
+	for k in 2:
+		var c := Vector3(3.3 + k * 0.65, 0, -2.95)
+		B.mesh(self, B.cyl(0.26, 0.22, 0.5, 16), c + Vector3(0, 0.25, 0), Color(0.95, 0.95, 0.93))
+		B.mesh(self, B.cyl(0.265, 0.265, 0.03, 16), c + Vector3(0, 0.49, 0), Color(0.85, 0.85, 0.83))
+		var liq := B.mesh(self, B.cyl(0.24, 0.24, 0.01, 16), c + Vector3(0, 0.47, 0), Color(0.35, 0.12, 0.25))
+		_wine_liquid.append(liq)
+		var cloth := B.mesh(self, B.cyl(0.29, 0.29, 0.012, 16), c + Vector3(0, 0.51, 0), Color(0.9, 0.86, 0.78))
+		B.mesh(cloth, B.cyl(0.02, 0.02, 0.14, 8), Vector3(0, 0.07, 0), Color(0.85, 0.9, 0.92, 0.8))
+		_wine_cloth.append(cloth)
+	for i in 3:
+		var bl := B.guide(self, "blub", Vector3(3.6, 0.8, -2.95), 24, Color(0.9, 0.7, 0.85), true)
+		bl.visible = false
+		_blubs.append(bl)
+	set_wine("")
+
+
+func set_wine(stage: String) -> void:
+	wine_stage = stage
+	for l in _wine_liquid:
+		l.visible = stage != ""
+		(l.material_override as StandardMaterial3D).albedo_color = Color(0.45, 0.05, 0.2) if stage == "valmis" \
+			else Color(0.35, 0.12, 0.25)
+	for c in _wine_cloth:
+		c.visible = stage == "kay"
+	for bl in _blubs:
+		bl.visible = false
+
+
 func say(text: String) -> void:
 	_bubble.text = "Santtu: " + text
 	_bubble_t = 3.2
@@ -159,8 +198,25 @@ func _process(delta: float) -> void:
 		var beat := 1.0 + 0.05 * maxf(sin(Time.get_ticks_msec() / 1000.0 * TAU * 2.0), 0.0)  # elementit sykkivät
 		for c in _pa_cones:
 			c.scale = Vector3(beat, 1.0, beat)
+	if wine_stage == "kay":
+		_blub_t -= delta
+		if _blub_t <= 0.0:
+			_blub_t = randf_range(1.4, 2.8)
+			for bl in _blubs:
+				if not bl.visible:
+					bl.visible = true
+					bl.position = Vector3(3.6 + randf_range(-0.3, 0.3), 0.75, -2.95)
+					bl.modulate.a = 1.0
+					break
+		for bl in _blubs:
+			if bl.visible:
+				bl.position.y += delta * 0.4
+				bl.modulate.a -= delta * 0.6
+				if bl.modulate.a <= 0.0:
+					bl.visible = false
 	if not active or busy:
 		hint = ""
+		spot = ""
 		return
 	_chat_t -= delta
 	if _chat_t <= 0.0:
@@ -175,6 +231,7 @@ func _process(delta: float) -> void:
 			bd = d
 			best = id
 	hint = ""
+	spot = best
 	if best == "":
 		return
 	hint = SPOTS[best][1]
