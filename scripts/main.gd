@@ -245,6 +245,10 @@ var wine_days := 0
 var wine_locked := false  # viinibileiden jälkeen: ei enää ikinä
 var wine_endings := 0
 var has_korpihiiva := false
+## Saaviin jo lisätyt ainekset (koti / paapeli): marjat (l), hiiva ("" / hiiva / turbo / korpi), sokeri. Ainekset
+## kaadetaan saaviin yksitellen (E saavilla avaa valikon), ja kun kaikki on sisällä, liina päälle ja käymään.
+var vat_mix := {"koti": {"marjat": 0, "hiiva": "", "sokeri": false}, "paapeli": {"marjat": 0, "hiiva": "", "sokeri": false}}
+var _vat_where := ""
 var mwine_start := -1  # Paapelin viinisaavi
 var mwine_days := 0
 var mwine_locked := false
@@ -1246,6 +1250,37 @@ func _home_door_logic(door: String) -> void:
 var _home_exit_frame := -1  # ulos tullessa painettu E ei vie heti takaisin sisään
 
 
+## Testit: saavilla E (tai hiiren vasen) ja valikosta aines kerrallaan, lopuksi käymään. Tulostaa valikon rivit.
+func _test_fill_vat(mouse := false) -> void:
+	for step in 6:
+		await get_tree().process_frame
+		if mouse:
+			for down in [true, false]:
+				var ev := InputEventMouseButton.new()
+				ev.button_index = MOUSE_BUTTON_LEFT
+				ev.pressed = down
+				Input.parse_input_event(ev)
+				await get_tree().process_frame
+		else:
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+		for i in 3:
+			await get_tree().process_frame
+		if not _item_menu.is_open():
+			print("SAAVI ei valikkoa: '%s'" % _msg.text)
+			return
+		var ids: Array = _item_menu._items.map(func(x): return x[0])
+		print("SAAVI valikko: %s" % _item_menu._title.text)
+		var pick: String = "kayma" if "kayma" in ids else ids[0]
+		_item_menu.visible = false
+		_item_menu.chosen.emit(pick)
+		for i in 3:
+			await get_tree().process_frame
+		if pick == "kayma":
+			return
+
+
 ## Testit: kotiin tai talliin ja sisäjemman kaapin eteen.
 func _test_goto_stash(id: String) -> void:
 	walker_out.global_position = (home_door if id == "koti" else world.garage_door) + Vector3(0, 0.3, 0)
@@ -1406,16 +1441,7 @@ func _mwine_hint() -> String:
 		return "[E] Paapelin viini on valmis! Mökkibileet: Santtu, Sinikka ja Korpi-Kalle"
 	if mwine_start >= 0:
 		return "Viini käy saavissa: valmis %d päivän päästä. Blub." % (mwine_days - (day - mwine_start))
-	var miss := PackedStringArray()
-	if _wine_berries() < WINE_BERRIES:
-		miss.append("marjoja %d l (ämpärissä %d l)" % [WINE_BERRIES, _wine_berries()])
-	if _best_yeast() == "":
-		miss.append("hiivaa")
-	if not has_sugar:
-		miss.append("sokeria")
-	if miss.is_empty():
-		return "[E] Laita viini käymään saaviin (%s)" % _yeast_name(_best_yeast())
-	return "Viinisaavi. Puuttuu: " + ", ".join(miss)
+	return "[E] Viinisaavi: %s" % _vat_text("paapeli")
 
 
 func _mwine_act() -> void:
@@ -1425,19 +1451,14 @@ func _mwine_act() -> void:
 	if _mwine_ready():
 		_mokki_wine_party()
 		return
-	var yeast := _best_yeast()
-	if mwine_start >= 0 or _wine_berries() < WINE_BERRIES or yeast == "" or not has_sugar:
+	if mwine_start >= 0:
 		return
-	var need := WINE_BERRIES
-	for k in ["mustikka", "puolukka"]:
-		var n: int = mini(need, bucket.get(k, 0))
-		if n > 0:
-			bucket[k] -= n
-			if bucket[k] <= 0:
-				bucket.erase(k)
-			need -= n
-	_use_yeast(yeast)
-	has_sugar = false
+	_vat_menu("paapeli")
+
+
+func _mwine_start_ferment() -> void:
+	var yeast: String = vat_mix.paapeli.hiiva
+	vat_mix.paapeli = {"marjat": 0, "hiiva": "", "sokeri": false}
 	mwine_start = day
 	mwine_days = WINE_DAYS[yeast]
 	mokki_int.set_wine("kay")
@@ -1448,7 +1469,7 @@ func _mwine_act() -> void:
 	else:
 		mokki_int.say("Kotiviiniä! Mää en nähny mitään. Mutta mää haluun lasin.")
 	_save_game()
-	_show_message("Marjat, sokeri ja %s saaviin, liina päälle. Viini valmis %d päivän päästä." % [
+	_show_message("Liina päälle. Viini käy (%s): valmis %d päivän päästä." % [
 		{"korpi": "korpihiiva", "turbo": "turbohiiva"}.get(yeast, "hiiva"), mwine_days], 4.0)
 
 
@@ -1493,6 +1514,88 @@ func _mokki_wine_party() -> void:
 		_save_game())
 
 
+## Saavin sisältö tekstinä vihjeeseen: "marjat 2/3 l · hiiva ✔ · sokeri –".
+func _vat_text(where: String) -> String:
+	var m: Dictionary = vat_mix[where]
+	return "marjat %d/%d l · %s · sokeri %s" % [m.marjat, WINE_BERRIES,
+		("hiiva ✔" if m.hiiva == "hiiva" else "turbohiiva ✔" if m.hiiva == "turbo" else "korpihiiva ✔" if m.hiiva == "korpi" else "hiiva –"),
+		"✔" if m.sokeri else "–"]
+
+
+func _vat_full(where: String) -> bool:
+	var m: Dictionary = vat_mix[where]
+	return m.marjat >= WINE_BERRIES and m.hiiva != "" and m.sokeri
+
+
+## Valikko saavilla: lisää yksi aines kerrallaan, kun kaikki on sisällä, aloita käyminen.
+func _vat_menu(where: String) -> void:
+	var m: Dictionary = vat_mix[where]
+	var items: Array = []
+	if m.marjat < WINE_BERRIES and _wine_berries() > 0:
+		var n := mini(WINE_BERRIES - m.marjat, _wine_berries())
+		items.append(["marjat", "Kaada marjoja saaviin (%d l, ämpärissä %d l)" % [n, _wine_berries()]])
+	if m.hiiva == "":
+		for y in ["korpi", "turbo", "hiiva"]:
+			if {"korpi": has_korpihiiva, "turbo": has_turbo, "hiiva": has_yeast}[y]:
+				items.append(["hiiva_" + y, "Murenna %s saaviin (%s)" % [{"korpi": "korpihiivaa", "turbo": "turbohiivaa", "hiiva": "hiivaa"}[y],
+					{"korpi": "viisi päivää", "turbo": "viikko", "hiiva": "kolme viikkoa"}[y]]])
+	if not m.sokeri and has_sugar:
+		items.append(["sokeri", "Kaada sokeri saaviin"])
+	if _vat_full(where):
+		items.append(["kayma", "Liina päälle ja vesilukko kiinni: viini käymään"])
+	if items.is_empty():
+		_show_message("Saavissa: %s. Puuttuvia aineksia ei ole mukana." % _vat_text(where), 3.0)
+		return
+	items.append(["takaisin", "Takaisin"])
+	_vat_where = where
+	var w := _active_walker()
+	w.controls_enabled = false
+	_interior_busy(true)
+	_menu_mode = "viini"
+	_item_menu.open(items, "Viinisaavi · " + _vat_text(where))
+
+
+func _on_vat_menu(id: String) -> void:
+	_interior_busy(false)
+	_active_walker().controls_enabled = true
+	_menu_mode = "give"
+	var where := _vat_where
+	var m: Dictionary = vat_mix[where]
+	match id:
+		"marjat":
+			var need: int = WINE_BERRIES - m.marjat
+			for k in ["mustikka", "puolukka"]:
+				var n: int = mini(need, bucket.get(k, 0))
+				if n > 0:
+					bucket[k] -= n
+					if bucket[k] <= 0:
+						bucket.erase(k)
+					need -= n
+					m.marjat += n
+			Sfx.play("water", -8.0, 1.3)
+			_show_message("Marjat saaviin. Saavissa: %s." % _vat_text(where), 2.5)
+		"hiiva_korpi", "hiiva_turbo", "hiiva_hiiva":
+			var y: String = id.substr(6)
+			_use_yeast(y)
+			m.hiiva = y
+			Sfx.play("cloth", -8.0, 1.2)
+			_show_message("Hiiva saaviin. Saavissa: %s." % _vat_text(where), 2.5)
+		"sokeri":
+			has_sugar = false
+			m.sokeri = true
+			Sfx.play("rattle", -10.0, 1.6)
+			_show_message("Sokeri saaviin. Saavissa: %s." % _vat_text(where), 2.5)
+		"kayma":
+			if where == "koti":
+				_wine_start_ferment()
+			else:
+				_mwine_start_ferment()
+			return
+		_:
+			return
+	_save_game()
+
+
 func _wine_berries() -> int:
 	return bucket.get("puolukka", 0) + bucket.get("mustikka", 0)
 
@@ -1515,16 +1618,7 @@ func _wine_hint() -> String:
 	if wine_start >= 0:
 		var left := wine_days - (day - wine_start)
 		return "Viini käy: valmis %d päivän päästä. Blub." % left
-	var miss := PackedStringArray()
-	if _wine_berries() < WINE_BERRIES:
-		miss.append("marjoja %d l (ämpärissä %d l)" % [WINE_BERRIES, _wine_berries()])
-	if _best_yeast() == "":
-		miss.append("hiivaa")
-	if not has_sugar:
-		miss.append("sokeria")
-	if miss.is_empty():
-		return "[E] Laita kotiviini käymään (%s)" % _yeast_name(_best_yeast())
-	return "Viinisaavi. Puuttuu: " + ", ".join(miss)
+	return "[E] Viinisaavi: %s" % _vat_text("koti")
 
 
 func _wine_act() -> void:
@@ -1535,26 +1629,21 @@ func _wine_act() -> void:
 		_leave_interior_quiet()
 		_win(true, true)
 		return
-	var yeast := _best_yeast()
-	if wine_start >= 0 or _wine_berries() < WINE_BERRIES or yeast == "" or not has_sugar:
+	if wine_start >= 0:
 		return
-	var need := WINE_BERRIES
-	for k in ["mustikka", "puolukka"]:
-		var n: int = mini(need, bucket.get(k, 0))
-		if n > 0:
-			bucket[k] -= n
-			if bucket[k] <= 0:
-				bucket.erase(k)
-			need -= n
-	_use_yeast(yeast)
-	has_sugar = false
+	_vat_menu("koti")
+
+
+func _wine_start_ferment() -> void:
+	var yeast: String = vat_mix.koti.hiiva
+	vat_mix.koti = {"marjat": 0, "hiiva": "", "sokeri": false}
 	wine_start = day
 	wine_days = WINE_DAYS[yeast]
 	garage_int.set_wine("kay")
 	tilat.first("kotiviini", 0.4)
 	Sfx.play("water", -6.0, 0.7)
 	_save_game()
-	_show_message("Marjat, sokeri ja %s saaviin, liina päälle ja vesilukko kiinni. Viini valmis %d päivän päästä." % [
+	_show_message("Liina päälle ja vesilukko kiinni. Viini käy (%s): valmis %d päivän päästä." % [
 		{"korpi": "korpihiiva", "turbo": "turbohiiva"}.get(yeast, "hiiva"), wine_days], 4.0)
 
 
@@ -6795,6 +6884,9 @@ func _load_game() -> void:
 	has_sugar = cfg.get_value("viini", "sokeri", false)
 	pontikka = cfg.get_value("viini", "pontikka", 0)
 	has_korpihiiva = cfg.get_value("viini", "korpihiiva", false)
+	var vm = cfg.get_value("viini", "saavit", null)
+	if vm is Dictionary and vm.has("koti") and vm.has("paapeli"):
+		vat_mix = vm
 	mwine_start = cfg.get_value("paapeli", "viini_alku", -1)
 	mwine_days = cfg.get_value("paapeli", "viini_paivat", 0)
 	mwine_locked = cfg.get_value("paapeli", "viini_lukossa", false)
@@ -6850,6 +6942,7 @@ func _save_game() -> void:
 	cfg.set_value("viini", "sokeri", has_sugar)
 	cfg.set_value("viini", "pontikka", pontikka)
 	cfg.set_value("viini", "korpihiiva", has_korpihiiva)
+	cfg.set_value("viini", "saavit", vat_mix)
 	cfg.set_value("paapeli", "viini_alku", mwine_start)
 	cfg.set_value("paapeli", "viini_paivat", mwine_days)
 	cfg.set_value("paapeli", "viini_lukossa", mwine_locked)
@@ -7639,6 +7732,8 @@ func _build_hud() -> void:
 			_on_santtu_menu(id)
 		elif _menu_mode == "wc":
 			_start_wc(id)
+		elif _menu_mode == "viini":
+			_on_vat_menu(id)
 		elif _menu_mode == "taksi":
 			_on_taxi_choice(id)
 		else:
@@ -7653,7 +7748,8 @@ func _build_hud() -> void:
 			_wc_release()
 		else:
 			_mopo_menu(false)
-			if _menu_mode == "eat":
+			if _menu_mode in ["eat", "viini"]:
+				_menu_mode = "give"
 				_interior_busy(false)
 				_active_walker().controls_enabled = true
 			else:
@@ -8500,7 +8596,7 @@ func _maybe_screenshot() -> void:
 			mokki_int.walker.position = mokki_int.SPOTS.sangot[0]
 			await frames.call(5)
 			print("PAAPELI sangoilla: hint '%s'" % _hint.text)
-			await press.call("interact")
+			await _test_fill_vat()
 			print("PAAPELI käymään: alku %d päiviä %d korpihiiva %s hiiva %s" % [mwine_start, mwine_days, has_korpihiiva, has_yeast])
 			mokki_int.walker.position = Vector3(5.5, 0, -3.6)  # suihkun eteen, ettei peitä saavia
 			await frames.call(20)
@@ -9258,7 +9354,7 @@ func _maybe_screenshot() -> void:
 			garage_int.walker.position = GarageInterior.SPOTS.saavi[0]
 			await frames.call(5)
 			print("VIINI saavilla: hint '%s'" % _hint.text)
-			await press.call("interact")
+			await _test_fill_vat()
 			print("VIINI käymään: alku %d päiviä %d marjat %s hiiva %s sokeri %s" % [wine_start, wine_days, bucket, has_yeast, has_sugar])
 			await frames.call(30)
 			await RenderingServer.frame_post_draw
@@ -12807,7 +12903,7 @@ func _maybe_screenshot() -> void:
 					Input.parse_input_event(ev)
 					await get_tree().process_frame
 					await get_tree().process_frame
-			await click.call(MOUSE_BUTTON_LEFT)
+			await _test_fill_vat(true)
 			print("TALLIJ2 viini käymään: alku %d" % wine_start)
 			await press.call("eat")
 			print("TALLIJ2 valikko auki %s" % _item_menu.is_open())
