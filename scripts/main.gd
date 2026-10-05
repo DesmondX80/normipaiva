@@ -324,6 +324,19 @@ const HOP_VAALA := 150.0  # auto- tai taksimatka Saloisten ja Vaalan välillä
 const HOP_MOPO := 20.0  # mopomatka Neittävältä Vaalaan tai takaisin
 const HOP_NAP := 60.0  # nokoset sohvalla
 var clock_min := DAY_START
+## Ilta ja yön raja (#86): klo 22 alkaen ilta (väsymys kasvaa), klo 2 sammutaan siihen missä ollaan. Kahvi
+## (NIGHT_COFFEE min/kuppi) ja alkoholi (päivän humalan huippu, NIGHT_DRUNK min täydestä humalasta) siirtävät rajaa
+## enintään NIGHT_EXTRA_MAX, eli klo 4 asti. Herätys klo 10 paikasta riippuen; humalasta krapula kuten ennenkin.
+const EVENING_AT := 22.0 * 60.0
+const PASS_OUT_AT := 2.0 * 60.0
+const NIGHT_COFFEE := 45.0
+const NIGHT_DRUNK := 150.0
+const NIGHT_EXTRA_MAX := 120.0
+const PASS_OUT_WAKE := 10.0 * 60.0
+var _night_coffee := 0
+var _humala_peak := 0.0  # tänään juotu humala (aamun krapulan pohjahumala ei laske)
+var _humala_base := 0.0
+var _night_warned := 0  # 1 = ilta ilmoitettu, 2 = viimeinen varoitus
 var _clock_hud: Control
 var wife_alerted := false
 
@@ -896,6 +909,7 @@ func _process(delta: float) -> void:
 	var at_mokki := _at_mokki()
 	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
 	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
+	_night_tick(delta)
 	if _drone == null:
 		drone_battery = minf(drone_battery + delta / DRONE_CHARGE_S, 1.0)  # latautuu alustalla
 	if away and _hazards.process_mode != Node.PROCESS_MODE_DISABLED:
@@ -1720,6 +1734,7 @@ func _wc_result(mode: String, r: Dictionary) -> void:
 func _on_home_acted(kind: String) -> void:
 	match kind:
 		"kahvi":
+			_coffee()
 			if _once_today("kahvi"):
 				tilat.add("vireys", 0.2)
 				tilat.add("stressi", 0.1)
@@ -3705,6 +3720,8 @@ func _on_raahe(id: String) -> void:
 		_show_message("Rahat ei riitä (%s €)." % _eur(money), 2.0)
 		return
 	money -= m[1]
+	if id == "kahvi":
+		_coffee()
 	tilat.add("humala", m[2])
 	tilat.add("stressi", m[3])
 	tilat.add("moraali", m[4])
@@ -5400,6 +5417,8 @@ func _on_siitari(id: String) -> void:
 		_show_message("Rahat ei riitä (%s €)." % _eur(money), 2.0)
 	else:
 		money -= m[1]
+		if id == "kahvi":
+			_coffee()
 		tilat.add("humala", m[2])
 		tilat.add("stressi", m[3])
 		tilat.add("moraali", m[4])
@@ -5540,6 +5559,7 @@ func _on_mokki_slept() -> void:
 func _on_mokki_acted(kind: String) -> void:
 	match kind:
 		"kahvi":
+			_coffee()
 			tilat.first("suodatinkahvi")
 			if _once_today("kahvi"):
 				tilat.add("vireys", 0.2)
@@ -7062,6 +7082,10 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 	state = "to_shop"
 	clock_min = DAY_START
+	_night_coffee = 0
+	_humala_peak = 0.0
+	_humala_base = tilat.value("humala")
+	_night_warned = 0
 	_hud.visible = true
 	_save_game()
 	_jemma_found = 0
@@ -7810,7 +7834,7 @@ func inventory_info() -> Dictionary:
 		info.tasks = story.list()
 		return info
 	info.lines = ["Päivä %d · Järvikuja 1, Saloinen" % day, "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
-		"Kello %s" % _clock_text(), "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
+		"Kello %s · nukahdat n. klo %s" % [_clock_text(), _pass_out_text()], "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
 	if not _list_done:
 		# Keskittyminen: palkintona ensimmäisen tuotteen väri näkyy, haittana viimeinen tuote unohtuu listasta.
 		var focus: int = tilat.effect("keskittyminen")
@@ -7874,6 +7898,113 @@ func _eur(v: float) -> String:
 ## Kellonaika tekstinä "14.30".
 func _clock_text() -> String:
 	return "%d.%02d" % [int(clock_min) / 60, int(clock_min) % 60]
+
+
+## Valveilla oloa päivän alusta (min): yli puolenyön kello jatkaa yli 1440:n.
+func _awake_min() -> float:
+	var a := clock_min - DAY_START
+	return a + 1440.0 if a < 0.0 else a
+
+
+## Nukahtamisraja valveilla oloaikana: klo 2 + kahvin ja alkoholin siirto (enintään klo 4).
+func _pass_out_limit() -> float:
+	var extra := minf(NIGHT_EXTRA_MAX, _night_coffee * NIGHT_COFFEE + _humala_peak * NIGHT_DRUNK)
+	return (PASS_OUT_AT + 1440.0 - DAY_START) + extra
+
+
+func _pass_out_text() -> String:
+	var lim := fmod(_pass_out_limit() + DAY_START, 1440.0)
+	return "%d.%02d" % [int(lim) / 60, int(lim) % 60]
+
+
+## Kahvikuppi siirtää nukahtamista (kodin ja mökin kahvit, baarien kahvit).
+func _coffee() -> void:
+	_night_coffee += 1
+
+
+const NIGHT_STATES := ["to_shop", "to_home", "in_shop", "in_home", "in_garage", "in_mokki", "in_siitari", "in_raahe"]
+
+
+func _night_tick(delta: float) -> void:
+	_humala_base = minf(_humala_base, tilat.value("humala"))
+	_humala_peak = maxf(_humala_peak, tilat.value("humala") - _humala_base)
+	if not state in NIGHT_STATES or cutscene.busy or get_tree().paused:
+		return
+	var awake := _awake_min()
+	if awake >= EVENING_AT - DAY_START:
+		tilat.add("vasymys", -0.004 * delta)  # ilta painaa
+		if _night_warned < 1:
+			_night_warned = 1
+			_queue_message("Kello on kymmenen illalla. Alkaa olla myöhä – kahdelta silmät painuu kiinni, kahvi ja viina pitää hereillä.", 4.0)
+	var limit := _pass_out_limit()
+	if awake >= limit - 30.0 and _night_warned < 2:
+		_night_warned = 2
+		_queue_message("Silmät painuu kiinni... (nukahdat n. klo %s). Sänkyyn ajoissa, tai kahvia!" % _pass_out_text(), 3.5)
+	if awake >= limit - 30.0:
+		tilat.add("vireys", -0.01 * delta)
+	if awake >= limit:
+		_pass_out()
+
+
+## Yön raja: sammutaan siihen missä ollaan. Kotona ja mökillä sänkyyn kuten nukkumaan mentäessä, muualla herätys
+## paikan mukaan (piha tai oja, autotallin lattia, baarin jälkeen koti tai mökki).
+func _pass_out() -> void:
+	var drunk := _humala_peak > 0.4
+	var spawn := Vector3.ZERO
+	var intro := ""
+	Sfx.play("body_fall", -4.0)
+	match state:
+		"in_home":
+			home_int.leave()
+			state = _home_prev
+			spawn = home_zone + Vector3(0, 0, 4)
+			intro = "Sammuit sohvalle vaatteet päällä. Päivi: \"No niin, taas.\"\n"
+		"in_mokki":
+			mokki_int.leave()
+			state = _mokki_prev
+			spawn = mokki.porch_pos(0.9) - Vector3(0, 0.3, 0)
+			intro = "Sammuit tuvan penkille. Santtu oli peitellyt sut torkkupeitolla.\n"
+		"in_garage":
+			garage_int.leave()
+			state = _garage_prev
+			spawn = world.garage_door + world.garage_out * 1.0
+			intro = "Heräsit autotallin lattialta SLN-73:n vierestä. Radio soi vieläkin.\n"
+		"in_raahe":
+			raahe_int.leave()
+			spawn = home_zone + Vector3(0, 0, 4)
+			intro = "Sammuit Kapteenin Kulman nurkkapöytään. Baarimikko soitti taksin, ja Päivi maksoi sen.\n"
+		"in_siitari":
+			siitari_int.leave()
+			if mopo_trip.active:
+				mopo_trip.stop()
+				_mopo_restore_hud()
+			spawn = mokki.porch_pos(0.9) - Vector3(0, 0.3, 0)
+			intro = "Sammuit Siitarin terassille. Santtu haki sut autolla ja kirosi koko matkan.\n"
+		"in_shop":
+			interior.leave()
+			spawn = shop_door + Vector3(0, 0, 2)
+			intro = "Sammuit K-Marketin penkille. Mummot herättivät kettukarkeilla.\n"
+		_:
+			if _in_vaala and mopo_trip.active:
+				mopo_trip.stop()
+				_mopo_restore_hud()
+				spawn = mokki.porch_pos(0.9) - Vector3(0, 0.3, 0)
+				intro = "Sammuit mopon selkään tien varteen. Santtu haki sut traktorilla Paapeliin.\n"
+			else:
+				spawn = Vector3(player.global_position.x, 0, player.global_position.z)
+				var at_m := _at_mokki_pos(spawn)
+				intro = ("Heräsit mökin pihalta mustikanvarvuista. Santtu: \"Sängyt on sisällä.\"\n" if at_m
+					else "Heräsit ojanpientareelta kaste vaatteissa. Joku oli asetellut kaljatölkin tyynyksi.\n")
+				if not at_m and money > 5.0 and randf() < 0.4:
+					money -= 5.0
+					intro += "Lompakosta puuttuu vitonen.\n"
+	state = "cutscene"
+	player.controls_enabled = false
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
+	_new_day(spawn, false, intro + ("Krapula jyskyttää ohimoilla.\n" if drunk else "Selkä on jumissa ja silmät rähmällä.\n"))
+	clock_min = PASS_OUT_WAKE
+	for k in ["vireys", "keskittyminen"]:
+		tilat.add(k, -0.4)
 
 
 ## Matka tai välianimaatio: kello hyppää eteenpäin.
@@ -8454,6 +8585,47 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_korjattu.png"))
+		"yo":
+			# Yön raja: ilta-ilmoitus klo 22, raja klo 2, kahvi ja viina siirtävät (enintään klo 4), sammuminen ulkona,
+			# kotona ja mökillä.
+			if player == bike:
+				_toggle_mount()
+			var run := func(label: String, start: float, coffee: int, humala: float, home := false) -> void:
+				_new_day(home_zone + Vector3(0, 0, 4), false)
+				await get_tree().process_frame
+				if home:
+					_enter_home("ovi")
+				_msg_queue.clear()
+				clock_min = start
+				_night_coffee = coffee
+				if humala > 0.0:
+					tilat.ensure("humala")
+					tilat.add("humala", humala)
+				for i in 3:
+					await get_tree().process_frame
+				var lim := _pass_out_text()
+				var d0 := day
+				var last := clock_min
+				var t0 := Time.get_ticks_msec()
+				while day == d0 and Time.get_ticks_msec() - t0 < 60000:
+					last = clock_min
+					clock_min = fmod(clock_min + 1.0, 1440.0)  # kelataan minuutti ruudussa
+					await get_tree().process_frame
+				print("YO %s: raja klo %s, sammui klo %d.%02d, herätys klo %s, kotipihalla %s, viesti '%s'" % [label, lim,
+					int(last) / 60, int(last) % 60, _clock_text(), walker_out.global_position.distance_to(home_zone) < 10.0,
+					str(_msg_queue.map(func(m): return m[0])).left(200)])
+			clock_min = 21.0 * 60.0 + 59.0
+			_night_warned = 0
+			for i in 5:
+				await get_tree().process_frame
+			clock_min = 22.0 * 60.0 + 1.0
+			for i in 5:
+				await get_tree().process_frame
+			print("YO ilta: varoitettu %d, jono %s" % [_night_warned, str(_msg_queue).left(140)])
+			await run.call("ulkona selvänä", 1.0 * 60.0 + 50.0, 0, 0.0)
+			await run.call("kaksi kahvia", 2.0 * 60.0 + 30.0, 2, 0.0)
+			await run.call("kahvit ja viina", 3.0 * 60.0 + 40.0, 3, 0.8)
+			await run.call("kotona", 1.0 * 60.0 + 55.0, 0, 0.0, true)
 		"kello":
 			# Vuorokausikello: kulku ulkona, kotona, autotallissa ja mökin tuvassa, tauko pysäyttää, nokoset ja
 			# auto-/taksimatka hyppäävät, uusi päivä alkaa klo 8. Kuva HUD:sta.
