@@ -5,6 +5,7 @@ uniform vec3 top_color : source_color = vec3(0.22, 0.42, 0.78);
 uniform vec3 horizon_color : source_color = vec3(0.8, 0.85, 0.9);
 uniform vec3 ground_color : source_color = vec3(0.42, 0.48, 0.42);
 uniform float cloud_coverage = 0.5;
+uniform vec3 cloud_light : source_color = vec3(1.0, 1.0, 1.0);  // vuorokausirytmi: illalla ja yöllä tummempi
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -40,6 +41,7 @@ void sky() {
 		c = smoothstep(1.0 - cloud_coverage, 1.0 - cloud_coverage + 0.22, c);
 		float shade = fbm(uv * 1.4 + vec2(0.35, 0.2));
 		vec3 ccol = mix(vec3(1.0, 0.98, 0.95), vec3(0.66, 0.7, 0.78), shade * 0.7);
+		ccol *= cloud_light;
 		ccol += LIGHT0_COLOR * pow(sd, 6.0) * 0.3;
 		col = mix(col, ccol, c * smoothstep(0.0, 0.18, h));
 	}

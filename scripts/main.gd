@@ -341,6 +341,16 @@ var _night_coffee := 0
 var _humala_peak := 0.0  # tänään juotu humala (aamun krapulan pohjahumala ei laske)
 var _humala_base := 0.0
 var _night_warned := 0  # 1 = ilta ilmoitettu, 2 = viimeinen varoitus
+## Vuorokausirytmi (#87): aurinko, taivas, valo ja usva kellon mukaan (kesäyö ei pimene, vain sinertää), katuvalot
+## illalla, Päivi töissä (WIFE_WORK) ja yöllä kotona, naapurit yöllä sisällä. Päivitys DAY_RHYTHM_STEP välein.
+const DAY_RHYTHM_STEP := 0.25
+const WIFE_WORK := Vector2(8.5 * 60.0, 15.5 * 60.0)  # Päivi töissä (min)
+const WIFE_HOME := Vector2(22.0 * 60.0, 8.5 * 60.0)  # Päivi kotona, auto pihassa
+const NEIGHBORS_INSIDE := Vector2(23.0 * 60.0, 7.0 * 60.0)
+const LAMPS_ON := Vector2(21.5 * 60.0, 4.5 * 60.0)
+var _rhythm_t := 0.0
+var _wife_phase := ""
+var _sky_mat: ShaderMaterial
 var _clock_hud: Control
 var wife_alerted := false
 
@@ -914,6 +924,10 @@ func _process(delta: float) -> void:
 	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
 	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
 	_night_tick(delta)
+	_rhythm_t -= delta
+	if _rhythm_t <= 0.0:
+		_rhythm_t = DAY_RHYTHM_STEP
+		_day_rhythm()
 	if _drone == null:
 		drone_battery = minf(drone_battery + delta / DRONE_CHARGE_S, 1.0)  # latautuu alustalla
 	if away and _hazards.process_mode != Node.PROCESS_MODE_DISABLED:
@@ -7325,7 +7339,8 @@ func _fix_hint_keys() -> void:
 
 func _setup_environment() -> void:
 	var sky := Sky.new()
-	sky.sky_material = B.shader_mat("res://shaders/sky.gdshader")
+	_sky_mat = B.shader_mat("res://shaders/sky.gdshader")
+	sky.sky_material = _sky_mat
 	sky.radiance_size = Sky.RADIANCE_SIZE_256
 
 	var env := Environment.new()
@@ -7511,6 +7526,7 @@ func _spawn_threats() -> void:
 		car.setup_graph(world.graph_nodes, world.graph_adj, far_nodes.pick_random(), world.graph_fast)
 	wife = WifeCar.new()
 	_hazards.add_child(wife)
+	_wife_phase = ""
 	wife.setup(world.graph_nodes, world.graph_adj, world.nearest_node(M.w(M.J_T)), player)
 	wife.world = world
 	wife.spotted.connect(_on_wife_spotted)
@@ -8012,6 +8028,82 @@ func _eur(v: float) -> String:
 ## Kellonaika tekstinä "14.30".
 func _clock_text() -> String:
 	return "%d.%02d" % [int(clock_min) / 60, int(clock_min) % 60]
+
+
+func _between(t: float, span: Vector2) -> bool:
+	return t >= span.x and t < span.y if span.x < span.y else (t >= span.x or t < span.y)
+
+
+## Auringon korkeus (astetta) kellonajasta: huippu klo 13.30 (n. 56°), alimmillaan klo 1.30 (n. −4°): kesäyö.
+func _sun_elevation(t: float) -> float:
+	return 26.0 + 30.0 * cos((t - 13.5 * 60.0) / 1440.0 * TAU)
+
+
+## Aurinko, taivas, ympäristövalo, usva ja katuvalot kellon mukaan; Päivi ja naapurit.
+func _day_rhythm() -> void:
+	var t := clock_min
+	if not cutscene.busy:
+		var e := _sun_elevation(t)
+		var day := clampf(e / 20.0, 0.0, 1.0)  # 0 = hämärä, 1 = täysi päivä
+		var low := 1.0 - clampf(absf(e - 4.0) / 14.0, 0.0, 1.0)  # matala aurinko: oranssi
+		_sun.rotation_degrees = Vector3(-maxf(e, 2.0), 145.0 + (t - 15.0 * 60.0) / 4.0, 0)
+		_sun.light_color = Color(1.0, 0.93, 0.82).lerp(Color(1.0, 0.62, 0.35), low * 0.8).lerp(Color(0.55, 0.62, 0.9), 1.0 - clampf(e / 4.0 + 0.5, 0.0, 1.0))
+		_sun.light_energy = lerpf(0.18, 1.35, smoothstep(-4.0, 16.0, e))
+		var top := Color(0.08, 0.12, 0.3).lerp(Color(0.22, 0.42, 0.78), day)
+		var hor := Color(0.32, 0.36, 0.52).lerp(Color(0.8, 0.85, 0.9), day).lerp(Color(0.98, 0.62, 0.42), low * 0.6)
+		_sky_mat.set_shader_parameter("top_color", top)
+		_sky_mat.set_shader_parameter("horizon_color", hor)
+		_sky_mat.set_shader_parameter("cloud_light", Color(0.38, 0.4, 0.55).lerp(Color.WHITE, day).lerp(Color(1.0, 0.75, 0.6), low * 0.5))
+		_env.ambient_light_energy = lerpf(0.45, 1.0, day)
+		_env.fog_light_color = Color(0.74, 0.8, 0.88).lerp(hor, 0.6)
+		_env.tonemap_exposure = lerpf(1.2, 1.05, day)
+	if world.lamps != null:
+		world.lamps.visible = _between(t, LAMPS_ON)
+	# Naapurit yöllä sisällä (piilossa ovella), aamulla taas pihalla.
+	var inside := _between(t, NEIGHBORS_INSIDE)
+	for n in [arto, pekka, sinikka]:
+		if n != null and n.visible == inside:
+			n.visible = not inside
+			n.process_mode = Node.PROCESS_MODE_DISABLED if inside else Node.PROCESS_MODE_INHERIT
+			if inside:
+				n.global_position = n.yard[0]
+	_wife_rhythm(t)
+
+
+## Päivi: töissä WIFE_WORK (auto pois tieverkolta, ellei naapuri ole käräyttänyt), illalla partioi, yöllä kotona
+## auto pihassa (ei jahtaa). Vaihtuu vain, kun Päivi ei ole jahtaamassa.
+func _wife_rhythm(t: float) -> void:
+	if wife == null or not is_instance_valid(wife):
+		return
+	var want := "partio"
+	if _between(t, WIFE_HOME):
+		want = "koti"
+	elif _between(t, WIFE_WORK) and not wife_alerted:
+		want = "toissa"
+	if want == _wife_phase or wife.mode == "chase":
+		return
+	var prev := _wife_phase
+	_wife_phase = want
+	match want:
+		"toissa":
+			wife.parked = false
+			wife.visible = false
+			wife.process_mode = Node.PROCESS_MODE_DISABLED
+			wife.global_position = Vector3(0, -500, 0)
+		"koti":
+			wife.reset_to(world.nearest_node(home_zone))
+			wife.global_position = home_zone + Vector3(4.0, 0.3, -2.0)
+			wife.parked = true
+			wife.visible = true
+			wife.process_mode = Node.PROCESS_MODE_INHERIT
+		"partio":
+			wife.parked = false
+			if prev == "toissa" or prev == "":
+				wife.reset_to(wife.farthest_node_from(player.global_position))
+			wife.visible = true
+			wife.process_mode = Node.PROCESS_MODE_INHERIT
+			if prev == "toissa" and state in ["to_shop", "to_home"] and not _at_mokki():
+				_queue_message("Päivi pääsi töistä. Punainen Hyundai on taas teillä!", 3.0)
 
 
 ## Valveilla oloa päivän alusta (min): yli puolenyön kello jatkaa yli 1440:n.
@@ -8699,6 +8791,40 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_korjattu.png"))
+		"rytmi":
+			# Vuorokausirytmi: kuvat Järvikujalta eri kellonaikoina, Päivin vaihe, naapurit ja katuvalot.
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			wife_alerted = false
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.global_position = home_zone + Vector3(-14, 4.0, 22)
+			cam.look_at(home_zone + Vector3(10, 2.0, -10), Vector3.UP)
+			cam.current = true
+			for h in [8.0, 12.0, 17.0, 21.5, 23.0, 1.5]:
+				clock_min = h * 60.0
+				_rhythm_t = 0.0
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%02d.png" % int(h * 10)))
+				print("RYTMI klo %s: aurinko %.0f°, Päivi %s (näkyy %s, pihassa %s), Pekka ulkona %s, katuvalot %s" % [_clock_text(),
+					_sun_elevation(clock_min), _wife_phase, wife.visible, wife.parked, pekka.visible, world.lamps.visible])
+			var lp: Vector3 = world.lamp_spots[0]
+			var best := INF
+			for q in world.lamp_spots:
+				if q.distance_to(home_zone) < best:
+					best = q.distance_to(home_zone)
+					lp = q
+			lp.y += Terrain.h(lp.x, lp.z)
+			cam.global_position = lp + Vector3(9, -3.5, 9)
+			cam.look_at(lp, Vector3.UP)
+			for i in 5:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lamppu.png"))
+			print("RYTMI lamppuja %d" % world.lamp_spots.size())
 		"yo":
 			# Yön raja: ilta-ilmoitus klo 22, raja klo 2, kahvi ja viina siirtävät (enintään klo 4), sammuminen ulkona,
 			# kotona ja mökillä.
