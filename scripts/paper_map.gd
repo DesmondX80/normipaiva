@@ -1055,6 +1055,17 @@ func _draw_mokki_overlay(v: Control) -> void:
 	v.draw_circle(at.call(Mokki.SANTTU_LOCAL), 3.5, Color(0.75, 0.55, 0.12))
 	var hunt_p: Vector2 = at.call(Mokki.HUNT_LOCAL)
 	v.draw_circle(hunt_p, 4.5, Color(0.3, 0.24, 0.15))
+	# Santun kertomat marja- ja sienipaikat.
+	if game != null and game.mokki_forage_revealed:
+		for f in game.mokki_forage:
+			var fp := _pxl(f.local)
+			var col: Color = Mokki.FORAGE_COLORS[f.kind]
+			if f.taken:
+				v.draw_line(fp - Vector2(3, 3), fp + Vector2(3, 3), INK.lightened(0.4), 1.2)
+				v.draw_line(fp + Vector2(-3, 3), fp + Vector2(3, -3), INK.lightened(0.4), 1.2)
+			else:
+				v.draw_circle(fp, 3.2, col)
+				v.draw_arc(fp, 6.0, 0, TAU, 14, Color(0.6, 0.1, 0.05, 0.7), 1.0)
 	if labels:
 		v.draw_string(font, at.call(Mokki.SAUNA_LOCAL) + Vector2(10, 4), "Savusauna", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
 		v.draw_string(font, dock_b + Vector2(8, 4), "Laituri", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
