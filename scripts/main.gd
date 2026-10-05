@@ -8078,6 +8078,26 @@ func _maybe_screenshot() -> void:
 				var e := 1.5
 				var sl := rad_to_deg(atan(Vector2(Mokki.h(p.x + e, p.y) - Mokki.h(p.x - e, p.y), Mokki.h(p.x, p.y + e) - Mokki.h(p.x, p.y - e)).length() / (2.0 * e)))
 				print("VIINA %d %s: lähin rakennus %.1f m, rinne %.0f°" % [i, p, best, sl])
+		"kieltokyltti":
+			# Kodan polun keltainen kieltokyltti: lähikuva edestä ja polulta tulijan silmin.
+			print("KYLTTI ", world.waste_sign != null, " paikka ", world.waste_sign.global_position if world.waste_sign else Vector3.ZERO,
+				" kodalle %.0f m" % (world.waste_sign.global_position.distance_to(world.kota.global_position) if world.waste_sign else -1.0))
+			if world.waste_sign == null:
+				return
+			_note.visible = false
+			_hud.visible = false
+			var ws: Node3D = world.waste_sign
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.current = true
+			cam.fov = 60.0
+			for v in [["lahi", Vector3(0.3, 1.4, 3.0), Vector3(0, 1.25, 0)], ["polku", Vector3(-1.5, 1.7, 9.0), Vector3(0, 1.0, 0)]]:
+				cam.global_position = ws.to_global(v[1])
+				cam.look_at(ws.to_global(v[2]), Vector3.UP)
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % v[0]))
 		"autotalli":
 			# Autotalli: sisään kaljat kädessä, työkalukaappiin, radio, arkku, karburaattori (kuva + pakotettu
 			# onnistuminen), ulos; pyörä talliin, huolto ja ulos pyörällä; eteisen kaappi kodin sisällä.
