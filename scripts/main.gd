@@ -12786,7 +12786,8 @@ func _maybe_screenshot() -> void:
 				if _thief.phase == "roam":
 					maxd = maxf(maxd, dd)
 				if k % 6 == 0:
-					print("VARAS %2d s: vaihe=%s etäisyys=%.0f m nopeus=%.1f reitti=%d" % [k, _thief.phase, dd, bike.speed, (_thief.route as PackedVector3Array).size()])
+					print("VARAS %2d s: vaihe=%s etäisyys=%.0f m nopeus=%.1f reitti=%d kuuluvuus=%.2f rullaus=%.0f dB" % [k, _thief.phase, dd, bike.speed,
+						(_thief.route as PackedVector3Array).size(), bike._hear(), bike._roll.volume_db])
 			print("VARAS ajelun suurin etäisyys %.0f m, käynnissä=%s msg=%s" % [maxd, not _thief.is_empty(), _msg.text])
 			if not _thief.is_empty():
 				var oc := Camera3D.new()
