@@ -100,6 +100,7 @@ var _lots: Array[PackedVector2Array] = []  # asfalttikentät (kotipiha, kaupan p
 const TREE_ROAD_GAP := 1.0
 var fire: Node3D  # laavun nuotio (näkyy kun sytytetty)
 var kota: Node3D  # Haapajärven tekoaltaan kota (kota.gd)
+var waste_sign: Node3D  # Raahen kaupungin jätteentuontikielto kodan polulla (_waste_sign)
 ## Marja- ja sienipaikat: {pos: Vector3, kind: String, node: Node3D, taken: bool}. Arto paljastaa ne karttaan.
 var forage: Array = []
 var forage_revealed := false
@@ -2421,6 +2422,28 @@ func _build_signs() -> void:
 		if kat != Vector2.INF:
 			var kkm := ("%.1f km" % (roundf(k_len / 100.0) / 10.0)).replace(".", ",")
 			B.trail_sign(self, Vector3(kat.x, 0, kat.y), "Kota  " + kkm, atan2(-kdir.y, kdir.x))
+		# Raahen kaupungin keltainen jätteentuontikielto polun varressa ennen kotaa ja lintutornia, kasvot
+		# tulijaa kohti (valokuva Haapajärven tekoaltaan polulta).
+		var kc := M.w2(M.KOTA)
+		var back := (kota_pts[-1] - kc).normalized()  # kodalta polulle päin = tulijan suunta
+		var cands := []
+		for d in [14.0, 18.0, 11.0, 22.0]:
+			for side in [3.0, -3.0, 5.0, -5.0, 8.0, -8.0]:
+				var c: Vector2 = kc + back * d + back.orthogonal() * side
+				# Kuivalle maalle kodan puolelle: ei vettä kyltin juurella eikä kyltin ja kodan välissä.
+				var dry := true
+				for k in 6:
+					var q: Vector2 = c.lerp(kc, k / 6.0) + (Vector2.ZERO if k > 0 else Vector2.ZERO)
+					if surface_at(Vector3(q.x, 0, q.y)) in ["water", "bog"]:
+						dry = false
+				for o2 in [Vector2(1.2, 0), Vector2(-1.2, 0), Vector2(0, 1.2), Vector2(0, -1.2)]:
+					if surface_at(Vector3(c.x + o2.x, 0, c.y + o2.y)) in ["water", "bog"]:
+						dry = false
+				if dry:
+					cands.append(c)
+		var ws := _sign_spot(cands)
+		if ws != Vector2.INF:
+			_waste_sign(Vector3(ws.x, 0, ws.y), atan2(back.x, back.y))  # maailma nostaa maaston tasolle
 	# Valkoinen paikallisopaste K-Marketille Ketunperäntien ja Tarpiontien risteyksessä.
 	var kd := (M.w2(M.J_W) - M.w2(M.J_K)).normalized()
 	var jk := M.w2(M.J_K)
@@ -2432,6 +2455,96 @@ func _build_signs() -> void:
 		kp.position.y = 2.0
 		kp.rotation.y = atan2(-kd.y, kd.x)
 		B.sign_arrow(kp, kp.get_meta("width") / 2.0 - 0.12, Color.BLACK)
+
+
+## Kieltokyltti "KIELTO – JÄTTEEN TUONTI ALUEELLE EDESVASTUUN UHALLA KIELLETTY – RAAHEN KAUPUNKI": kaksi
+## sinkittyä putkitolppaa, tumma taustalevy, keltainen kalvo, joka on repeytynyt oikeasta yläkulmasta ja
+## käpristyy, ruuvit, tussitägi ja kuivaa heinää juurella. Paikallinen +Z = kyltin etupuoli (yaw).
+func _waste_sign(pos: Vector3, yaw: float) -> void:
+	var s := Node3D.new()
+	s.position = pos
+	s.rotation.y = yaw
+	add_child(s)
+	waste_sign = s
+	var steel := Color(0.62, 0.64, 0.66)
+	var yellow := Color(0.96, 0.8, 0.12)
+	var back_col := Color(0.2, 0.16, 0.13)
+	var ink := Color(0.06, 0.06, 0.07)
+	var cy := 1.3  # kyltin keskikorkeus
+	for x in [-0.72, 0.72]:
+		var post := B.mesh(s, B.cyl(0.03, 0.03, 2.1, 10), Vector3(x, 1.05, -0.05), steel)
+		(post.material_override as StandardMaterial3D).metallic = 0.6
+		(post.material_override as StandardMaterial3D).roughness = 0.45
+		B.mesh(s, B.cyl(0.032, 0.032, 0.02, 10), Vector3(x, 2.1, -0.05), steel.darkened(0.2))  # tulppa
+	var body := StaticBody3D.new()
+	body.add_child(B.box_shape(Vector3(1.6, 2.1, 0.12), Vector3(0, 1.05, -0.04)))
+	s.add_child(body)
+	B.mesh(s, B.boxm(Vector3(1.9, 1.08, 0.025)), Vector3(0, cy, -0.02), back_col)  # taustalevy
+	# Keltainen kalvo: koko pinta paitsi repeytynyt oikea yläkulma (kaistale ja kulmapala puuttuvat).
+	var fw := 1.8
+	var fh := 1.0
+	B.mesh(s, B.boxm(Vector3(fw, fh - 0.08, 0.006)), Vector3(0, cy - 0.04, -0.004), yellow)
+	B.mesh(s, B.boxm(Vector3(fw * 0.55, 0.08, 0.006)), Vector3(-fw * 0.225, cy + fh / 2.0 - 0.04, -0.004), yellow)
+	for i in 6:  # repeämän rosoinen reuna
+		var x := -fw * 0.05 + i * 0.13
+		var h := 0.08 - 0.012 * i + (0.015 if i % 2 == 0 else 0.0)
+		B.mesh(s, B.boxm(Vector3(0.13, maxf(h, 0.01), 0.006)), Vector3(x, cy + fh / 2.0 - 0.08 + h / 2.0, -0.004), yellow)
+	for i in 3:  # käpristyneet kalvon kaistaleet yläreunalla
+		var curl := B.mesh(s, B.boxm(Vector3(0.12, 0.05, 0.004)), Vector3(0.05 + i * 0.16, cy + fh / 2.0 - 0.05, 0.02),
+			yellow.darkened(0.15))
+		curl.rotation = Vector3(-0.9 - i * 0.2, 0.2 * i, 0.15)
+	B.mesh(s, B.boxm(Vector3(0.06, 0.55, 0.006)), Vector3(fw / 2.0 - 0.03, cy + 0.05, -0.004), back_col.lightened(0.05))  # kuoriutunut oikea reuna
+	# Teksti.
+	var sf := SystemFont.new()
+	sf.font_names = PackedStringArray(["Helvetica Neue", "Helvetica", "Arial", "Liberation Sans"])
+	sf.font_weight = 600
+	var line := func(text: String, y: float, size: int) -> void:
+		var l := Label3D.new()
+		l.text = text
+		l.font = sf
+		l.font_size = size
+		l.pixel_size = 0.004
+		l.modulate = ink
+		l.outline_size = 0
+		l.double_sided = false
+		l.position = Vector3(0, cy + y, 0.002)
+		s.add_child(l)
+	line.call("KIELTO", 0.33, 52)
+	line.call("JÄTTEEN TUONTI ALUEELLE", 0.12, 30)
+	line.call("EDESVASTUUN UHALLA", 0.0, 30)
+	line.call("KIELLETTY", -0.12, 30)
+	line.call("RAAHEN KAUPUNKI", -0.36, 22)
+	# Ruuvit kulmissa ja reunoilla.
+	for p in [Vector2(-0.82, 0.42), Vector2(-0.7, 0.42), Vector2(0.7, 0.42), Vector2(0.8, 0.42), Vector2(-0.82, -0.42),
+			Vector2(-0.7, -0.42), Vector2(0.72, -0.42), Vector2(0.8, -0.38)]:
+		B.mesh(s, B.sphere(0.012, 6), Vector3(p.x, cy + p.y, 0.004), Color(0.25, 0.25, 0.27))
+	# Tussitägi KIELLETTY-sanan oikealla puolella.
+	var tag := Node3D.new()
+	tag.position = Vector3(0.5, cy - 0.12, 0.003)
+	s.add_child(tag)
+	for st in [[Vector2(-0.08, 0.03), Vector2(0.0, 0.07), 0.5], [Vector2(0.0, 0.07), Vector2(0.05, -0.04), -1.2],
+			[Vector2(0.05, -0.04), Vector2(0.14, 0.05), 0.8], [Vector2(-0.06, -0.02), Vector2(0.12, -0.01), 0.05],
+			[Vector2(0.08, 0.05), Vector2(0.16, -0.07), -1.0]]:
+		var a: Vector2 = st[0]
+		var b2: Vector2 = st[1]
+		var seg := B.mesh(tag, B.boxm(Vector3(a.distance_to(b2), 0.012, 0.002)), Vector3((a.x + b2.x) / 2.0, (a.y + b2.y) / 2.0, 0), ink)
+		seg.rotation.z = (b2 - a).angle()
+	# Kuivaa heinää ja horsmanvarsia tolppien juurella.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	for i in 70:
+		var x := rng.randf_range(-1.1, 1.1)
+		var h := rng.randf_range(0.15, 0.75)
+		var blade := B.mesh(s, B.boxm(Vector3(0.02, h, 0.003)), Vector3(x, h / 2.0 - 0.02, rng.randf_range(-0.35, 0.35)),
+			Color(0.78, 0.68, 0.45).lerp(Color(0.5, 0.48, 0.25), rng.randf()))
+		blade.rotation = Vector3(rng.randf_range(-0.45, 0.45), rng.randf() * TAU, rng.randf_range(-0.45, 0.45))
+	for i in 5:  # horsmanvarret ja pihlajan vesa
+		var x := rng.randf_range(-1.2, 1.2)
+		var stem := B.mesh(s, B.cyl(0.006, 0.01, 1.1, 5), Vector3(x, 0.55, rng.randf_range(-0.4, 0.3)), Color(0.45, 0.25, 0.18))
+		stem.rotation.z = rng.randf_range(-0.2, 0.2)
+		for k in 4:
+			B.mesh(stem, B.boxm(Vector3(0.12, 0.004, 0.03)), Vector3(0.04 * (1 if k % 2 == 0 else -1), -0.2 + k * 0.15, 0),
+				Color(0.85, 0.55, 0.15).lerp(Color(0.6, 0.6, 0.2), rng.randf()), Vector3(0, rng.randf() * 180.0, 20))
 
 
 ## Kodan polku (OSM): laavun vierestä kulkeva polku, joka käy lähimpänä kotaa. Palauttaa pisteet laavun kohdalta
