@@ -17,24 +17,32 @@ const RENDERERS := ["Paras (Forward+)", "Yhteensopiva (OpenGL)"]
 const RENDER_METHODS := ["forward_plus", "gl_compatibility"]
 ## Vaihdettavat näppäimet: [toiminnot, nimi, oletusnäppäimet (enintään 2)]. Hyppy ja jarru ovat samassa näppäimessä
 ## (jalan hyppy, pyörällä jarru). Yksi näppäin voi olla vain yhdessä kohdassa: uusi sijoitus poistaa vanhan.
+## Kolmas paikka on hiiren nappi (MOUSE_BASE + nappi): suositellut oletukset vasen = toiminto, oikea = hyppy/jarru,
+## rullan painallus = pyörä, sivunapit = kartta ja reppu. Hiiren napit toimivat vain, kun hiiri on lukittu peliin
+## eikä minipeli käytä hiirtä (_input), jotta valikoiden ja minipelien klikkaukset eivät laukaise toimintoja.
+const MOUSE_BASE := 1 << 30
+const SLOTS := 3
 const KEY_ROWS := [
-	[["forward"], "Eteen", [KEY_W, KEY_UP]],
-	[["back"], "Taakse", [KEY_S, KEY_DOWN]],
-	[["left"], "Vasemmalle", [KEY_A, KEY_LEFT]],
-	[["right"], "Oikealle", [KEY_D, KEY_RIGHT]],
-	[["sprint"], "Juoksu / spurtti", [KEY_SHIFT]],
-	[["jump", "brake"], "Hyppy / jarru", [KEY_SPACE]],
-	[["interact"], "Toiminto", [KEY_E]],
-	[["mount"], "Pyörän selkään / pois", [KEY_F]],
-	[["eat"], "Syö", [KEY_T]],
-	[["bell"], "Soittokello / kello", [KEY_Q]],
-	[["map"], "Kartta", [KEY_M]],
-	[["inventory"], "Reppu", [KEY_I, KEY_TAB]],
-	[["camera"], "Kamera (FPS / 3. persoona)", [KEY_V]],
-	[["punch"], "Tappelu: lyönti", [KEY_J]],
-	[["kick"], "Tappelu: potku", [KEY_K]],
-	[["special"], "Tappelu: erikoisisku", [KEY_L]],
+	[["forward"], "Eteen", [KEY_W, KEY_UP, 0]],
+	[["back"], "Taakse", [KEY_S, KEY_DOWN, 0]],
+	[["left"], "Vasemmalle", [KEY_A, KEY_LEFT, 0]],
+	[["right"], "Oikealle", [KEY_D, KEY_RIGHT, 0]],
+	[["sprint"], "Juoksu / spurtti", [KEY_SHIFT, 0, 0]],
+	[["jump", "brake"], "Hyppy / jarru", [KEY_SPACE, 0, MOUSE_BASE + MOUSE_BUTTON_RIGHT]],
+	[["interact"], "Toiminto", [KEY_E, 0, MOUSE_BASE + MOUSE_BUTTON_LEFT]],
+	[["mount"], "Pyörän selkään / pois", [KEY_F, 0, MOUSE_BASE + MOUSE_BUTTON_MIDDLE]],
+	[["eat"], "Syö", [KEY_T, 0, 0]],
+	[["bell"], "Soittokello / kello", [KEY_Q, 0, 0]],
+	[["map"], "Kartta", [KEY_M, 0, MOUSE_BASE + MOUSE_BUTTON_XBUTTON1]],
+	[["inventory"], "Reppu", [KEY_I, KEY_TAB, MOUSE_BASE + MOUSE_BUTTON_XBUTTON2]],
+	[["camera"], "Kamera (FPS / 3. persoona)", [KEY_V, 0, 0]],
+	[["punch"], "Tappelu: lyönti", [KEY_J, 0, 0]],
+	[["kick"], "Tappelu: potku", [KEY_K, 0, 0]],
+	[["special"], "Tappelu: erikoisisku", [KEY_L, 0, 0]],
 ]
+const MOUSE_NAMES := {MOUSE_BUTTON_LEFT: "Hiiri vasen", MOUSE_BUTTON_RIGHT: "Hiiri oikea", MOUSE_BUTTON_MIDDLE: "Rullan painallus",
+	MOUSE_BUTTON_WHEEL_UP: "Rulla ylös", MOUSE_BUTTON_WHEEL_DOWN: "Rulla alas", MOUSE_BUTTON_XBUTTON1: "Hiiri sivu 1",
+	MOUSE_BUTTON_XBUTTON2: "Hiiri sivu 2"}
 ## Ohjeteksteissä oletuskirjain hakasulkeissa ([E]) vaihtuu käyttäjän valitsemaan näppäimeen.
 const HINT_KEYS := {"E": "interact", "F": "mount", "T": "eat", "Q": "bell", "M": "map", "I": "inventory", "V": "camera",
 	"J": "punch"}
@@ -60,7 +68,7 @@ var values := {
 	"auto_recenter": true,
 	"mouse_look": true,
 	"mouse_steer": false,  # hiiri ohjaa kulkusuuntaa (FPS-tyyli), W/S eteen ja taakse
-	"keys": {},  # vaihdetut näppäimet: KEY_ROWS-rivin ensimmäinen toiminto -> [näppäin1, näppäin2] (0 = ei mitään)
+	"keys": {},  # vaihdetut näppäimet: KEY_ROWS-rivin ensimmäinen toiminto -> [näppäin1, näppäin2, hiiri] (0 = ei mitään)
 }
 var _hint_re := RegEx.create_from_string(r"\[([A-Z])\]")
 ## Tosi, jos tämä käynnistys tallensi yhteensopivan grafiikan pysyväksi (Windowsin varakäynnistin).
@@ -129,10 +137,15 @@ func save() -> void:
 	cfg.save(PATH)
 
 
-## KEY_ROWS-rivin näppäimet [1, 2] (fyysiset näppäinkoodit, 0 = tyhjä).
+## KEY_ROWS-rivin näppäimet [1, 2, 3] (fyysiset näppäinkoodit tai MOUSE_BASE + hiiren nappi, 0 = tyhjä). Vanhoissa
+## tallennuksissa on kaksi paikkaa: kolmas (hiiri) tulee oletuksista.
 func keys_of(row: int) -> Array:
-	var k: Array = (values.keys as Dictionary).get(KEY_ROWS[row][0][0], KEY_ROWS[row][2])
-	return [int(k[0]) if k.size() > 0 else 0, int(k[1]) if k.size() > 1 else 0]
+	var d: Array = KEY_ROWS[row][2]
+	var k: Array = (values.keys as Dictionary).get(KEY_ROWS[row][0][0], d)
+	var out := []
+	for i in SLOTS:
+		out.append(int(k[i]) if k.size() > i else int(d[i]))
+	return out
 
 
 ## Asettaa rivin paikkaan (0/1) näppäimen. Sama näppäin poistetaan muualta; palauttaa sen rivin nimen, jolta
@@ -144,7 +157,7 @@ func bind_key(row: int, slot: int, code: int) -> String:
 	var moved := ""
 	if code != 0:
 		for r in table.size():
-			for s in 2:
+			for s in SLOTS:
 				if table[r][s] == code and not (r == row and s == slot):
 					table[r][s] = 0
 					if r != row:
@@ -174,7 +187,7 @@ func apply_keys() -> void:
 				InputMap.add_action(a)
 			InputMap.action_erase_events(a)
 			for k in ks:
-				if k != 0:
+				if k != 0 and k < MOUSE_BASE:  # hiiren napit: _input
 					var ev := InputEventKey.new()
 					ev.physical_keycode = k
 					InputMap.action_add_event(a, ev)
@@ -183,9 +196,33 @@ func apply_keys() -> void:
 func key_name(code: int) -> String:
 	if code == 0:
 		return "—"
+	if code >= MOUSE_BASE:
+		return MOUSE_NAMES.get(code - MOUSE_BASE, "Hiiri %d" % (code - MOUSE_BASE))
 	if KEY_NAMES.has(code):
 		return KEY_NAMES[code]
 	return OS.get_keycode_string(DisplayServer.keyboard_get_keycode_from_physical(code))
+
+
+## Hiiren napit toimintoihin, kun hiiri on lukittu peliin eikä minipeli tai valikko käytä hiirtä. Rulla antaa vain
+## painalluksen, joten se vapautetaan seuraavalla ruudulla.
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton) or get_tree().paused:
+		return
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED or CamCtl.need_mouse or CamCtl.free_mouse:
+		return
+	var code: int = MOUSE_BASE + event.button_index
+	var wheel: bool = event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_LEFT,
+		MOUSE_BUTTON_WHEEL_RIGHT]
+	for r in KEY_ROWS.size():
+		if not code in keys_of(r):
+			continue
+		for a in KEY_ROWS[r][0]:
+			if event.pressed:
+				Input.action_press(a)
+				if wheel:
+					get_tree().process_frame.connect(Input.action_release.bind(a), CONNECT_ONE_SHOT)
+			elif not wheel:
+				Input.action_release(a)
 
 
 ## Toiminnon ensimmäisen näppäimen nimi ohjeisiin.
@@ -193,7 +230,10 @@ func action_key(action: String) -> String:
 	for r in KEY_ROWS.size():
 		if action in KEY_ROWS[r][0]:
 			var ks := keys_of(r)
-			return key_name(ks[0] if ks[0] != 0 else ks[1])
+			for k in ks:
+				if k != 0:
+					return key_name(k)
+			return "—"
 	return "?"
 
 

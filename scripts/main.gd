@@ -12756,6 +12756,65 @@ func _maybe_screenshot() -> void:
 				await get_tree().physics_frame
 			Input.action_release("forward")
 			print("HSISALLA ilman asetusta W liikkuu ruudulla ylös (−Z): %.2f m" % -(w.position - p1).z)
+		"hiirinapit":
+			# Hiiren napit: oletukset, vasen = toiminto lukitulla hiirellä (kotiovelle sisään), minipelin aikana ei,
+			# rulla selaa esinevalikkoa, valikossa hiiren napin asetus ja oikea klikkaus tyhjentää.
+			Settings.reset_keys()
+			if player == bike:
+				_toggle_mount()
+			var names := []
+			for r in Settings.KEY_ROWS.size():
+				var ks: Array = Settings.keys_of(r)
+				if ks[2] != 0:
+					names.append("%s=%s" % [Settings.KEY_ROWS[r][1], Settings.key_name(ks[2])])
+			print("HNAPIT oletukset: ", ", ".join(names))
+			var click := func(btn: int) -> void:
+				for down in [true, false]:
+					var ev := InputEventMouseButton.new()
+					ev.button_index = btn
+					ev.pressed = down
+					Input.parse_input_event(ev)
+					await get_tree().process_frame
+					await get_tree().process_frame
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			await get_tree().process_frame
+			await click.call(MOUSE_BUTTON_LEFT)
+			print("HNAPIT vasen kotiovella: tila %s" % state)
+			_on_home_exited()
+			for i in 5:
+				await get_tree().physics_frame
+			CamCtl.need_mouse = true
+			var st0 := state
+			await click.call(MOUSE_BUTTON_LEFT)
+			print("HNAPIT minipelin aikana vasen: tila %s (ei muutosta: %s)" % [state, state == st0])
+			CamCtl.need_mouse = false
+			_item_menu.open([["a", "Eka"], ["b", "Toka"], ["c", "Kolmas"]], "Testi")
+			await get_tree().process_frame
+			await click.call(MOUSE_BUTTON_WHEEL_DOWN)
+			await click.call(MOUSE_BUTTON_WHEEL_DOWN)
+			print("HNAPIT rulla esinevalikossa: valinta %d (odotus 2), pelaaja paikallaan %s" % [_item_menu._sel, absf(walker_out.speed) < 0.1])
+			_item_menu.visible = false
+			menu.open_main()
+			menu._settings("sub_main")
+			for i in 5:
+				await get_tree().process_frame
+			var row := 9  # soittokello
+			for kb in menu._key_buttons:
+				if kb[0] == row and kb[1] == 2:
+					(kb[2] as Button).pressed.emit()
+			await click.call(MOUSE_BUTTON_WHEEL_UP)
+			print("HNAPIT asetus: kello = %s, viesti '%s'" % [Settings.key_name(Settings.keys_of(row)[2]), menu._key_note.text])
+			var tabs: TabContainer = menu.find_children("*", "TabContainer", true, false)[0]
+			tabs.current_tab = tabs.get_tab_count() - 1
+			for i in 5:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_nappaimet.png"))
+			Settings.reset_keys()
+			menu.close()
 		"hiiriohjaus":
 			# Hiiriohjaus (FPS-tyyli): jalan hiiren käännös kääntää hahmon suoraan ja A sivuttain; pyörä ohjautuu
 			# kameran suuntaan ja kamera pysyy maailmassa paikallaan.

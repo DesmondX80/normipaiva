@@ -66,10 +66,16 @@ func _ready() -> void:
 
 ## Näppäimen vaihto: seuraava painallus asetetaan (Esc peruu), eikä se päädy valikolle.
 func _input(event: InputEvent) -> void:
-	if _capture.is_empty() or not (event is InputEventKey) or not event.pressed or event.echo:
+	if _capture.is_empty() or not (event is InputEventKey or event is InputEventMouseButton) or not event.pressed:
+		return
+	if event is InputEventKey and event.echo:
 		return
 	get_viewport().set_input_as_handled()
-	var code: int = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
+	var code: int
+	if event is InputEventMouseButton:
+		code = Settings.MOUSE_BASE + event.button_index
+	else:
+		code = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
 	var row: int = _capture.row
 	var slot: int = _capture.slot
 	_capture = {}
@@ -271,7 +277,8 @@ func _keys_tab(tabs: TabContainer) -> void:
 	var k := _tab(tabs, "Näppäimet")
 	_capture = {}
 	_key_buttons.clear()
-	_key_note = _label("Napsauta näppäintä ja paina uutta. Esc peruu. Sama näppäin voi olla vain yhdessä kohdassa.", 15,
+	_key_note = _label("Napsauta paikkaa ja paina uutta näppäintä tai hiiren nappia. Esc peruu, oikea klikkaus tyhjentää. "
+		+ "Sama näppäin voi olla vain yhdessä kohdassa. Hiiren napit toimivat, kun hiiri on lukittu peliin.", 15,
 		Color(0.85, 0.85, 0.85))
 	_key_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_key_note.custom_minimum_size = Vector2(520, 0)
@@ -285,27 +292,24 @@ func _keys_tab(tabs: TabContainer) -> void:
 	sc.add_child(list)
 	for r in Settings.KEY_ROWS.size():
 		var h := _row(list, Settings.KEY_ROWS[r][1])
-		(h.get_child(0) as Label).custom_minimum_size = Vector2(230, 0)
-		for slot in 2:
+		(h.get_child(0) as Label).custom_minimum_size = Vector2(210, 0)
+		for slot in Settings.SLOTS:
 			var b := Button.new()
-			b.custom_minimum_size = Vector2(130, 30)
+			b.custom_minimum_size = Vector2(120, 30)
 			b.focus_mode = Control.FOCUS_NONE
+			b.clip_text = true
 			_key_style(b)
 			b.pressed.connect(func() -> void:
 				_capture = {"row": r, "slot": slot}
-				_key_note.text = "Paina uutta näppäintä kohtaan %s… (Esc peruu)" % Settings.KEY_ROWS[r][1]
+				_key_note.text = "Paina uutta näppäintä tai hiiren nappia kohtaan %s… (Esc peruu)" % Settings.KEY_ROWS[r][1]
 				_refresh_keys())
+			b.gui_input.connect(func(ev: InputEvent) -> void:
+				if _capture.is_empty() and ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_RIGHT:
+					Settings.bind_key(r, slot, 0)
+					_key_note.text = "%s: paikka tyhjennetty." % Settings.KEY_ROWS[r][1]
+					_refresh_keys())
 			h.add_child(b)
 			_key_buttons.append([r, slot, b])
-		var clr := Button.new()
-		clr.text = "×"
-		clr.tooltip_text = "Tyhjennä toinen näppäin"
-		clr.focus_mode = Control.FOCUS_NONE
-		_key_style(clr)
-		clr.pressed.connect(func() -> void:
-			Settings.bind_key(r, 1, 0)
-			_refresh_keys())
-		h.add_child(clr)
 	var reset := Button.new()
 	reset.text = "Palauta oletusnäppäimet"
 	reset.focus_mode = Control.FOCUS_NONE
