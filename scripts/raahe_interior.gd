@@ -20,6 +20,7 @@ const CELLAR := Vector3(30.0, 0, 0)  # Kellarin keskikohta taskussa
 const CELLAR_HALF := Vector2(7.0, 4.5)
 const STAGE := Rect2(-7.0, 0.6, 3.4, 3.9)  # karaokelava Kellarissa (CELLAR-suhteellinen)
 ## Toimintopisteet: id -> [paikka, vihje].
+var spot := ""  # lähin toimintopiste (main.gd näyttää puhuttaville puhevihjeen)
 var spots := {
 	"ovi": [Vector3(-8.2, 0, 4.2), "[E] Ulos Kirkkokadulle: taksi kotiin Saloisiin"],
 	"tiski": [Vector3(0.2, 0, -3.0), "[E] Tilaa tiskiltä"],
@@ -381,6 +382,7 @@ func _process(delta: float) -> void:
 			bd = d
 			best = id
 	hint = ""
+	spot = best
 	if best == "":
 		return
 	hint = spots[best][1]
