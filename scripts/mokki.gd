@@ -34,7 +34,14 @@ const MASK_STEP := 4.0  # teiden ja pihojen hakuruudukko (ks. _mask)
 # Pihan asettelu: mökki OSM:n rakennuksen kohdalla, sauna, palju ja laituri drone-kuvasta.
 # Rannan puolella kuistilta katsottuna vasemmalta oikealle (+X -> -X): savusauna, palju ja kesäkeittiö.
 const RIDE_LOCAL := Vector3(-7.0, 0, -29.0)    # Kaisuantien varressa mökin takana
-const SAUNA_LOCAL := Vector3(5.9, 0, 18.1)     # kiuas savusaunan sisällä
+## Savusauna: rungon keskipiste ja koko (x, z), ovi järvelle (+Z) ja oven edessä terassi saman harjakaton alla.
+const SAUNA_C := Vector3(5.9, 0, 19.1)
+const SAUNA_SIZE := Vector2(3.4, 2.9)
+const SAUNA_TERRACE := 2.4
+const SAUNA_DOOR_X := -0.8                     # oviaukon keskikohta etuseinässä (rungon kehys)
+const SAUNA_BENCH_Y := 1.0                     # ylälauteen pinta
+const SAUNA_LOCAL := Vector3(6.85, 0, 19.65)   # kiuas savusaunan sisällä oven oikealla puolella
+const SAUNA_KIULU := Vector3(1.15, 0.65, -0.15)  # kiulu alalauteella kiukaan vieressä (rungon kehys, cutscene.gd)
 const TUB_LOCAL := Vector3(-0.7, 0, 14.8)      # puulämmitteinen palju
 const DART_LOCAL := Vector3(4.2, 0, 8.0)       # heittopiste tikkataulun edessä (taulu männyssä)
 const DART_TREE := DART_LOCAL + Vector3(0, 0, 3.0)  # tikkataulun mänty
@@ -66,14 +73,15 @@ const LAWN_MOWER_LOCAL := Vector3(8.4, 0, -3.0)
 const LADDER_LOCAL := Vector3(0.4, 0, -4.6)      # tikkaat takaseinän räystääseen (räystäs z = -3.75)
 const GUTTER_Z := -3.85                           # ränni takaräystään alla
 const GUTTER_UP := 2.78                           # rännin korkeus mökin lattiatason maasta
-const WASP_STAND_LOCAL := Vector3(2.2, 0, 16.9)  # ampiaispesän edessä saunan terassin kulmalla
+const WASP_STAND_LOCAL := Vector3(5.2, 0, 21.35)  # ampiaispesän edessä saunan terassilla
+const WASP_NEST_LOCAL := Vector3(4.6, 1.95, 22.75)  # pesä terassin katon alla järvenpuoleisessa kulmassa
 const DOCK_FIX_LOCAL := Vector3(8.9, 0, 49.0)    # laiturin lahot laudat
 ## Savusaunan korjaus (Santun homma): rannan kivikasa, sisällä kiuas ja lauteet, takaseinä tervaukseen, terassilla
 ## savuluukku ja ovi. Korjaamaton sauna lämpiää hitaasti ja savuttaa pitkään (sauna_fixed).
 const KIVI_LOCAL := Vector3(5.0, 0, 42.0)
-const KORJAUS_IN_LOCAL := Vector3(5.1, 0, 19.7)
+const KORJAUS_IN_LOCAL := Vector3(5.75, 0, 19.75)
 const KORJAUS_TERVA_LOCAL := Vector3(8.6, 0, 19.1)
-const KORJAUS_OVI_LOCAL := Vector3(3.5, 0, 19.65)
+const KORJAUS_OVI_LOCAL := Vector3(5.1, 0, 21.3)
 const BROKEN_HEAT := 0.55
 const BROKEN_SMOKE := 1.8
 ## Viinakätköt mökin ympäröivässä metsässä geokätköjen tapaan: kompassi ja HUD näyttävät lähimmän löytämättömän
@@ -178,6 +186,7 @@ var sauna_heated := false
 var sauna_fixed := false  # savusauna korjattu (Santun homma): lämpiää ja tuulettuu normaalisti
 var _sauna_logs: Array[MeshInstance3D] = []
 var _sauna_door: Node3D
+var _sauna_body: StaticBody3D
 signal sauna_event(kind: String)  # "sammui", "kuuma", "valmis"
 var _sauna_smoke_fx: CPUParticles3D
 ## Palju: vettä (0–1), likaa (0–1) ja pumppu järvestä.
@@ -225,13 +234,18 @@ func ensure_built() -> void:
 		if c is Node3D and not c.has_meta("ground"):
 			c.position.y += h(c.position.x, c.position.z)
 	cottage_base = h(0.0, -1.0)
-	sauna_base = h(SAUNA_LOCAL.x, SAUNA_LOCAL.z + 1.0)
+	sauna_base = _sauna_body.position.y + 0.15  # terassin kansi
 	_build_hose()
 
 
 ## Tikkataulun etupinnan keskipiste mökin koordinaateissa (tikanheiton minipeli).
 static func dart_board_center() -> Vector3:
 	return DART_TREE + Vector3(0, h(DART_TREE.x, DART_TREE.z) + DART_BOARD_UP, -0.36)
+
+
+## Savusaunan rungon kehys maailmassa (keskipiste lattiatasossa, +Z järvelle): välianimaatio rakentuu tähän.
+func sauna_frame() -> Transform3D:
+	return _sauna_body.global_transform
 
 
 ## Löylyihin: kiuas lämmitetty täyteen, pesä palanut loppuun ja savut tuulettuneet.
@@ -1245,76 +1259,148 @@ func _build_summer_kitchen() -> void:
 # --- Savusauna ------------------------------------------------------------------
 
 func _build_savusauna() -> void:
-	var w := 3.4
-	var d := 2.9
+	var w := SAUNA_SIZE.x
+	var d := SAUNA_SIZE.y
 	var wall_h := 2.0
-	var rise := 0.7
+	var rise := 1.0
+	var ter := SAUNA_TERRACE
+	var fz := d / 2.0  # etuseinä (ovi) järvelle päin
 	var log_col := Color(0.42, 0.32, 0.2)
+	var roof_col := Color(0.24, 0.22, 0.2)
+	var board := Color(0.5, 0.4, 0.28)
 	var sauna := StaticBody3D.new()
-	sauna.position = SAUNA_LOCAL + Vector3(0, 0, 1.0)  # akselinsuuntainen: ei kiertoa, ovi ja terassi -X:ssä paljulle päin
+	sauna.position = SAUNA_C  # akselinsuuntainen: ovi ja terassi +Z:ssa järvelle päin
+	# Rinne laskee järvelle: lattia rinteen yläpään tasolle, alle kivijalka (pihan nosto lisää h(SAUNA_C)).
+	var top_g := -INF
+	for cx in [-w / 2.0, w / 2.0]:
+		for cz in [-d / 2.0, d / 2.0]:
+			top_g = maxf(top_g, h(SAUNA_C.x + cx, SAUNA_C.z + cz))
+	sauna.position.y = top_g - h(SAUNA_C.x, SAUNA_C.z) + 0.05
+	var gnd := func(x: float, z: float) -> float: return h(SAUNA_C.x + x, SAUNA_C.z + z) - top_g - 0.05
 	add_child(sauna)
-	var offs := [d / 2.0, w / 2.0, -d / 2.0, -w / 2.0]  # side 0..3: +Z, +X, -Z, -X (ovi)
-	# Pyöröhirsiseinät (kaksi pitkää, kaksi lyhyttä, ovi -X:ssä).
-	for side in 4:
-		var horiz := side % 2 == 0
-		var len := w if horiz else d
-		var off: float = offs[side]
-		var y := 0.14
-		while y < wall_h:
-			var col := log_col if int(y * 10) % 2 else log_col.darkened(0.12)
-			if horiz:
-				_sauna_logs.append(B.mesh(sauna, B.cyl(0.09, 0.09, len + 0.18, 8), Vector3(0, y, off), col, Vector3(0, 0, 90)))
-			elif side == 3 and y < 1.7:
-				for sz in [-1.0, 1.0]:
-					_sauna_logs.append(B.mesh(sauna, B.cyl(0.09, 0.09, (len - 0.8) / 2.0, 8), Vector3(off, y, sz * (len + 0.8) / 4.0), col,
-						Vector3(90, 0, 0)))
-			else:
-				_sauna_logs.append(B.mesh(sauna, B.cyl(0.09, 0.09, len + 0.18, 8), Vector3(off, y, 0), col, Vector3(90, 0, 0)))
-			y += 0.17
-	# Törmäys kolmelle umpiseinälle; oviseinä jätetään avoimeksi (kulkuaukko).
-	for side in range(3):
-		var horiz2 := side % 2 == 0
-		var off2: float = offs[side]
-		if horiz2:
-			sauna.add_child(B.box_shape(Vector3(w + 0.2, wall_h, 0.2), Vector3(0, wall_h / 2.0, off2)))
+	_sauna_body = sauna
+	var dx := SAUNA_DOOR_X
+	var dw := 0.8
+	var door_top := 1.7
+	# Pyöröhirsiseinät; etuseinässä oviaukko (dx), muut umpinaiset.
+	var y := 0.14
+	while y < wall_h:
+		var col := log_col if int(y * 10) % 2 else log_col.darkened(0.12)
+		var x0 := -w / 2.0 - 0.09
+		var x1 := w / 2.0 + 0.09
+		_sauna_logs.append(B.mesh(sauna, B.cyl(0.09, 0.09, w + 0.18, 8), Vector3(0, y, -fz), col, Vector3(0, 0, 90)))
+		for sx in [-1.0, 1.0]:
+			_sauna_logs.append(B.mesh(sauna, B.cyl(0.09, 0.09, d + 0.18, 8), Vector3(sx * w / 2.0, y, 0), col, Vector3(90, 0, 0)))
+		if y < door_top:
+			for seg in [[x0, dx - dw / 2.0], [dx + dw / 2.0, x1]]:
+				_sauna_logs.append(B.mesh(sauna, B.cyl(0.09, 0.09, seg[1] - seg[0], 8), Vector3((seg[0] + seg[1]) / 2.0, y, fz), col,
+					Vector3(0, 0, 90)))
 		else:
-			sauna.add_child(B.box_shape(Vector3(0.2, wall_h, d + 0.2), Vector3(off2, wall_h / 2.0, 0)))
-	# Harjakatto (harja Z-suunnassa, lappeet ovelle päin) ja piippu.
+			_sauna_logs.append(B.mesh(sauna, B.cyl(0.09, 0.09, w + 0.18, 8), Vector3(0, y, fz), col, Vector3(0, 0, 90)))
+		y += 0.17
+	# Törmäys: taka- ja sivuseinät kokonaan, etuseinä oviaukon molemmin puolin.
+	sauna.add_child(B.box_shape(Vector3(w + 0.2, wall_h, 0.2), Vector3(0, wall_h / 2.0, -fz)))
+	for sx in [-1.0, 1.0]:
+		sauna.add_child(B.box_shape(Vector3(0.2, wall_h, d + 0.2), Vector3(sx * w / 2.0, wall_h / 2.0, 0)))
+	var lw := dx - dw / 2.0 + w / 2.0
+	sauna.add_child(B.box_shape(Vector3(lw, wall_h, 0.2), Vector3(-w / 2.0 + lw / 2.0, wall_h / 2.0, fz)))
+	var rw := w / 2.0 - dx - dw / 2.0
+	sauna.add_child(B.box_shape(Vector3(rw, wall_h, 0.2), Vector3(w / 2.0 - rw / 2.0, wall_h / 2.0, fz)))
+	# Yhteinen harjakatto saunan ja terassin yllä: harja Z-suunnassa kohtisuoraan järvelle, päätykolmio järvelle.
 	var roof := PrismMesh.new()
-	roof.size = Vector3(w + 0.9, rise, d + 0.9)
-	B.mesh(sauna, roof, Vector3(0, wall_h + rise / 2.0, 0), Color(0.24, 0.22, 0.2))
-	B.mesh(sauna, B.cyl(0.1, 0.12, 0.9, 10), Vector3(0.6, wall_h + rise + 0.4, 0), Color(0.4, 0.16, 0.1))
-	# Ovi ja pieni ikkuna.
+	roof.size = Vector3(w + 1.0, rise, d + ter + 0.7)
+	B.mesh(sauna, roof, Vector3(0, wall_h + rise / 2.0, ter / 2.0), roof_col)
+	# Päätykolmiot: saunan etuseinän yläpuolella (terassin puolelta näkyvä) ja järvenpuoleinen päätylauta.
+	var gable := PrismMesh.new()
+	gable.size = Vector3(w + 0.18, rise - 0.05, 0.14)
+	B.mesh(sauna, gable, Vector3(0, wall_h + (rise - 0.05) / 2.0, fz), log_col.darkened(0.2))
+	var gable2 := PrismMesh.new()
+	gable2.size = Vector3(w + 0.3, rise - 0.05, 0.08)
+	B.mesh(sauna, gable2, Vector3(0, wall_h + (rise - 0.05) / 2.0, fz + ter + 0.1), Color(0.3, 0.22, 0.14))
+	B.mesh(sauna, B.boxm(Vector3(w + 0.4, 0.16, 0.16)), Vector3(0, wall_h - 0.06, fz + ter + 0.1), log_col.darkened(0.15))  # päätyorsi
+	for sx in [-1.0, 1.0]:
+		B.mesh(sauna, B.boxm(Vector3(0.14, 0.14, ter + 0.2)), Vector3(sx * w / 2.0, wall_h - 0.06, fz + ter / 2.0), log_col.darkened(0.15))
+	B.mesh(sauna, B.boxm(Vector3(0.45, 0.3, 0.06)), Vector3(0.9, 1.75, -fz - 0.11), Color(0.2, 0.15, 0.1))  # räppänä
+	# Ovi (saranat oviaukon +X-reunassa) ja pieni ikkuna paljun puoleisessa sivuseinässä.
 	var door := Node3D.new()
-	door.position = Vector3(-w / 2.0 - 0.03, 0.05, 0.55)
+	door.position = Vector3(dx + dw / 2.0, 0.08, fz + 0.04)
 	sauna.add_child(door)
 	_sauna_door = door
-	B.mesh(door, B.boxm(Vector3(0.06, 1.7, 0.75)), Vector3(0, 0.85, 0), Color(0.35, 0.24, 0.14))
-	B.mesh(sauna, B.boxm(Vector3(0.05, 0.5, 0.5)), Vector3(-w / 2.0 - 0.02, 1.1, -0.7), Color(0.94, 0.94, 0.9))
-	# Katettu terassi ovella: pukit, penkki, jakkarat ja saavit (kuten kuvassa).
-	for pz in [-0.9, 0.9]:
-		B.mesh(sauna, B.cyl(0.08, 0.08, wall_h + rise, 8), Vector3(-w / 2.0 - 2.1, (wall_h + rise) / 2.0, pz), log_col)
-	var proof := PrismMesh.new()
-	proof.size = Vector3(2.4, 0.5, d + 0.4)
-	B.mesh(sauna, proof, Vector3(-w / 2.0 - 2.1, wall_h + rise * 0.5, 0), Color(0.24, 0.22, 0.2))
-	B.mesh(sauna, B.boxm(Vector3(1.5, 0.5, 0.7)), Vector3(-w / 2.0 - 2.5, 0.3, -0.6), Color(0.3, 0.26, 0.22))
-	B.mesh(sauna, B.cyl(0.28, 0.3, 0.4, 16), Vector3(-w / 2.0 - 2.0, 0.22, 0.9), Color(0.34, 0.24, 0.15))
-	B.mesh(sauna, B.cyl(0.2, 0.22, 0.35, 12), Vector3(-w / 2.0 - 1.4, 0.19, 1.0), Color(0.3, 0.22, 0.14))
-	# Sisätila: penkit, kiuas ja tynnyri.
-	for pz in [-0.9, 0.0, 0.9]:
-		B.mesh(sauna, B.boxm(Vector3(w - 0.5, 0.06, 0.5)), Vector3(0.6, 0.55, pz), Color(0.62, 0.5, 0.34))
-	B.mesh(sauna, B.boxm(Vector3(w - 0.5, 0.06, 0.9)), Vector3(0.6, 0.95, 0), Color(0.62, 0.5, 0.34))
-	var kiuas_local: Vector3 = SAUNA_LOCAL - sauna.position
-	B.mesh(sauna, B.cyl(0.18, 0.22, 0.6, 10), Vector3(kiuas_local.x, 0.3, kiuas_local.z), Color(0.3, 0.3, 0.32))
-	_sauna_fire = _make_fire(sauna, Vector3(kiuas_local.x, 0.62, kiuas_local.z), 0.55)
-	B.mesh(sauna, B.cyl(0.1, 0.13, 0.55, 10), Vector3(kiuas_local.x + 0.45, 0.28, kiuas_local.z), Color(0.55, 0.4, 0.25))  # tuohinen kiulu
-	B.mesh(sauna, B.cyl(0.15, 0.1, 0.5, 10), Vector3(0.6, wall_h - 0.05, -1.1), Color(0.22, 0.22, 0.24))  # savuhormi kattoon
+	B.mesh(door, B.boxm(Vector3(dw - 0.06, door_top - 0.1, 0.06)), Vector3(-(dw - 0.06) / 2.0, (door_top - 0.1) / 2.0, 0), Color(0.35, 0.24, 0.14))
+	B.mesh(door, B.boxm(Vector3(0.04, 0.04, 0.08)), Vector3(-dw + 0.18, 0.95, 0.05), Color(0.2, 0.2, 0.2))  # kahva
+	B.mesh(sauna, B.boxm(Vector3(0.04, 0.52, 0.62)), Vector3(-w / 2.0 - 0.1, 1.25, -0.3), Color(0.3, 0.22, 0.14))  # karmi
+	B.mesh(sauna, B.boxm(Vector3(0.03, 0.4, 0.5)), Vector3(-w / 2.0 - 0.12, 1.25, -0.3), Color(0.62, 0.7, 0.74))
+	B.mesh(sauna, B.boxm(Vector3(0.04, 0.36, 0.46)), Vector3(-w / 2.0 + 0.07, 1.25, -0.3), Color(0.8, 0.85, 0.9))
+	# Kivijalka, lattia ja terassin lankkukansi (kiinteä, ettei kävellä maata pitkin kannen alla), tolpat ja
+	# rinteen puolelle umpinainen lautahame. Portaat terassilta pihalle paljun puolelle (-X).
+	var low := minf(minf(gnd.call(-w / 2.0, fz + ter), gnd.call(w / 2.0, fz + ter)), gnd.call(0.0, d / 2.0)) - 0.3
+	B.mesh(sauna, B.boxm(Vector3(w + 0.1, -low, d + 0.1)), Vector3(0, low / 2.0, 0), Color(0.36, 0.35, 0.33))
+	B.mesh(sauna, B.boxm(Vector3(w - 0.1, 0.06, d - 0.1)), Vector3(0, 0.06, 0), Color(0.3, 0.24, 0.17))
+	sauna.add_child(B.box_shape(Vector3(w, 0.4 - low, d), Vector3(0, (low + 0.09) / 2.0 - 0.15, 0)))
+	var deck_z := fz + ter / 2.0 + 0.05
+	for k in int(ter / 0.15):
+		B.mesh(sauna, B.boxm(Vector3(w + 0.3, 0.05, 0.13)), Vector3(0, 0.13, fz + 0.12 + k * 0.15), board.darkened(0.06 * (k % 3)))
+	sauna.add_child(B.box_shape(Vector3(w + 0.3, 0.15 - low, ter + 0.1), Vector3(0, (0.15 + low) / 2.0, deck_z)))
+	var skirt := board.darkened(0.4)
+	B.mesh(sauna, B.boxm(Vector3(w + 0.3, 0.1 - low, 0.04)), Vector3(0, (0.1 + low) / 2.0, fz + ter + 0.08), skirt)
+	for sx in [-1.0, 1.0]:
+		B.mesh(sauna, B.boxm(Vector3(0.04, 0.1 - low, ter + 0.1)), Vector3(sx * (w / 2.0 + 0.15), (0.1 + low) / 2.0, deck_z), skirt)
+		B.mesh(sauna, B.cyl(0.08, 0.08, wall_h, 8), Vector3(sx * w / 2.0, wall_h / 2.0, fz + ter), log_col)
+		sauna.add_child(B.box_shape(Vector3(0.18, wall_h, 0.18), Vector3(sx * w / 2.0, wall_h / 2.0, fz + ter)))
+	B.mesh(sauna, B.boxm(Vector3(w + 0.38, 0.06, 0.1)), Vector3(0, 0.15, fz + ter + 0.08), board.darkened(0.3))  # otsalauta
+	var stx := -w / 2.0 - 0.17
+	var stz := fz + 0.75
+	var foot := minf(gnd.call(stx - 1.0, stz), 0.0)
+	var steps := maxi(2, ceili((0.15 - foot) / 0.2))
+	var step_h := (0.15 - foot) / steps
+	for i in steps:
+		var sy := 0.15 - (i + 0.5) * step_h
+		B.mesh(sauna, B.boxm(Vector3(0.3, step_h, 1.1)), Vector3(stx - 0.15 - i * 0.3, sy, stz), board.darkened(0.08 * (i % 2)))
+		B.mesh(sauna, B.boxm(Vector3(0.3, sy - foot + step_h / 2.0, 0.05)), Vector3(stx - 0.15 - i * 0.3, (sy + step_h / 2.0 + foot) / 2.0, stz - 0.55),
+			skirt)
+	# Portaiden päällä näkymätön luiska (CharacterBody ei nouse askelmia, ks. kuisti), alapää maan alla.
+	var ramp_rise := 0.15 - foot + 0.4
+	var run := maxf(2.0, ramp_rise * 1.6)
+	var ramp := B.box_shape(Vector3(Vector2(run, ramp_rise).length(), 0.1, 1.1), Vector3.ZERO)
+	ramp.transform = Transform3D(Basis(Vector3.BACK, atan2(ramp_rise, run)), Vector3(stx - run / 2.0, 0.15 - ramp_rise / 2.0 - 0.05, stz))
+	sauna.add_child(ramp)
+	# Terassin penkki saunan seinustalla, jakkara ja saavit (kuten kuvassa).
+	B.mesh(sauna, B.boxm(Vector3(1.3, 0.06, 0.4)), Vector3(0.85, 0.55, fz + 0.35), board)
+	for bx in [0.35, 1.35]:
+		B.mesh(sauna, B.boxm(Vector3(0.06, 0.42, 0.34)), Vector3(bx, 0.36, fz + 0.35), board.darkened(0.2))
+	B.mesh(sauna, B.cyl(0.18, 0.18, 0.42, 12), Vector3(-1.1, 0.36, fz + ter - 0.5), board.darkened(0.1))  # jakkara
+	B.mesh(sauna, B.cyl(0.28, 0.3, 0.4, 16), Vector3(1.3, 0.35, fz + ter - 0.45), Color(0.34, 0.24, 0.15))
+	B.mesh(sauna, B.cyl(0.2, 0.22, 0.35, 12), Vector3(0.65, 0.32, fz + ter - 0.35), Color(0.3, 0.22, 0.14))
+	# Sisätila: lauteet takaseinällä, kiviröykkiökiuas oven vieressä pesä sisäänpäin, kiulu ja kauha.
+	var lt := Color(0.5, 0.38, 0.24)
+	B.mesh(sauna, B.boxm(Vector3(w - 0.25, 0.07, 0.95)), Vector3(0, SAUNA_BENCH_Y, -fz + 0.6), lt)  # ylälaude
+	B.mesh(sauna, B.boxm(Vector3(w - 0.25, 0.06, 0.4)), Vector3(0, 0.5, -fz + 1.3), lt.darkened(0.08))  # alalaude
+	for bx in [-1.2, 0.0, 1.2]:
+		B.mesh(sauna, B.boxm(Vector3(0.08, SAUNA_BENCH_Y, 0.08)), Vector3(bx, SAUNA_BENCH_Y / 2.0, -fz + 1.03), lt.darkened(0.3))
+		B.mesh(sauna, B.boxm(Vector3(0.08, 0.5, 0.08)), Vector3(bx, 0.25, -fz + 1.45), lt.darkened(0.3))
+	var kl: Vector3 = SAUNA_LOCAL - SAUNA_C
+	var stone := Color(0.3, 0.29, 0.28)
+	B.mesh(sauna, B.boxm(Vector3(0.95, 0.6, 0.18)), Vector3(kl.x, 0.3, kl.z - 0.36), stone)
+	B.mesh(sauna, B.boxm(Vector3(0.95, 0.6, 0.18)), Vector3(kl.x, 0.3, kl.z + 0.36), stone)
+	B.mesh(sauna, B.boxm(Vector3(0.18, 0.6, 0.9)), Vector3(kl.x + 0.38, 0.3, kl.z), stone)
+	B.mesh(sauna, B.boxm(Vector3(0.95, 0.12, 0.9)), Vector3(kl.x, 0.66, kl.z), stone.darkened(0.2))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	for k in 26:
+		var r := rng.randf_range(0.09, 0.15)
+		var sp := B.mesh(sauna, B.sphere(r, 8), Vector3(kl.x + rng.randf_range(-0.38, 0.38), 0.74 + r * 0.6 + (k / 9) * 0.07,
+			kl.z + rng.randf_range(-0.36, 0.36)), Color(0.24, 0.23, 0.22).lerp(Color(0.42, 0.4, 0.38), rng.randf()))
+		sp.scale = Vector3(1.0, 0.75, 1.0)
+	_sauna_fire = _make_fire(sauna, Vector3(kl.x - 0.05, 0.08, kl.z), 0.55)
+	B.mesh(sauna, B.cyl(0.13, 0.1, 0.24, 10), SAUNA_KIULU, Color(0.55, 0.4, 0.25))  # tuohinen kiulu
+	B.mesh(sauna, B.cyl(0.12, 0.12, 0.01, 10), SAUNA_KIULU + Vector3(0, 0.1, 0), Color(0.3, 0.38, 0.42))  # vesi
+	B.mesh(sauna, B.boxm(Vector3(w - 0.1, 0.03, d - 0.1)), Vector3(0, wall_h - 0.02, 0), Color(0.09, 0.08, 0.07))  # nokinen sisäkatto
 	# Savusaunan savu: lämmittäessä paksua savua ovesta ja räppänästä, tuulettuessa ohenee.
-	_sauna_smoke_fx = _smoke_fx(Vector3(-w / 2.0 - 0.2, 1.7, 0.4))
+	_sauna_smoke_fx = _smoke_fx(Vector3(dx, 1.7, fz + 0.3))
 	sauna.add_child(_sauna_smoke_fx)
-	# Ampiaispesä terassin katon alla etukulmassa (Santun homma: ampiais_game.gd). Näkyy vain homman päivänä.
+	# Ampiaispesä terassin katon alla järvenpuoleisessa kulmassa (Santun homma: ampiais_game.gd). Näkyy vain homman päivänä.
 	wasp_nest = Node3D.new()
-	wasp_nest.position = Vector3(-w / 2.0 - 1.5, 1.95, -0.6)
+	wasp_nest.position = WASP_NEST_LOCAL - SAUNA_C
 	wasp_nest.visible = false
 	sauna.add_child(wasp_nest)
 	var paper := Color(0.62, 0.58, 0.5)

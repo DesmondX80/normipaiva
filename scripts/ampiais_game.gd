@@ -11,6 +11,8 @@ const CAN_S := 7.0
 const HIT_R := 0.11  # suihku osuu suuaukkoon tätä lähempää
 const STINGS_MAX := 3
 const WASPS := 16
+## Santtu katsoo terassin vierestä nurmelta (seisomapaikan kehyksessä).
+const SANTTU_SPOT := Vector3(-2.6, 0, 0.9)
 
 const LINES := {
 	"start": [["santtu", "Rauhallisesti. Ne haistaa pelon."], ["santtu", "Mää kattelen tästä vähän kauempaa."],
@@ -53,7 +55,7 @@ var _nest_vis: Node3D
 func _init() -> void:
 	eye = EYE
 	lines = LINES
-	watcher_spots = {"santtu": Vector3(0.6, 0, -2.8)}
+	watcher_spots = {"santtu": SANTTU_SPOT}
 	help_text = "Hiiri tähtää · Pidä vasen nappi / E pohjassa: suihkuta myrkkyä · F: lopeta"
 
 
@@ -66,7 +68,7 @@ func _start() -> void:
 	watch_at = nest_local
 	# Peli on terassin tasossa: Santtu seisoo maassa.
 	var santtu: Node3D = _watcher("santtu")
-	santtu.position.y = kota.h(santtu.position.x, santtu.position.z)
+	santtu.position.y = kota.h(position.x + santtu.position.x, position.z + santtu.position.z) - position.y
 	_nest_vis = Node3D.new()
 	_nest_vis.position = nest_local
 	add_child(_nest_vis)

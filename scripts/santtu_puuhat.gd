@@ -74,7 +74,7 @@ func _build_spots() -> void:
 				"sound": "cloth", "fx": "pino", "prop": "halot", "prop_after": ""}],
 			"lines": ["Syli halkoja saunan seinälle. Talvella kiittää.", "Puita ei oo koskaan liikaa."]},
 		{"id": "sauna", "task": "savusauna", "use": [M.SAUNA_LOCAL, 2.2],
-			"steps": [{"at": Vector3(3.3, 0, 19.65), "look": Vector3(4.2, 0, 19.65), "anim": "Idle", "beat_anim": "Interact", "beat": 3.5,
+			"steps": [{"at": Vector3(5.1, 0, 21.45), "look": Vector3(5.1, 0, 20.4), "anim": "Idle", "beat_anim": "Interact", "beat": 3.5,
 				"sound": "water", "fx": "hoyry", "prop": "kiulu"}],
 			"lines": ["Kiuas tarvii vähän vettä, ettei kivet halkea.", "Savusauna on mökin sydän.", "Tuo savun haju. Ei sitä voita mikään."]},
 		{"id": "palju", "task": "palju", "use": [M.TUB_LOCAL, 1.7], "cond": "palju",
