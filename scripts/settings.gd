@@ -71,7 +71,7 @@ var values := {
 	"mouse_steer_indoor": false,  # sisätiloissa hiiri kääntää hahmoa (muuten W/A/S/D ruudun suuntiin, kursori vapaana)
 	"keys": {},  # vaihdetut näppäimet: KEY_ROWS-rivin ensimmäinen toiminto -> [näppäin1, näppäin2, hiiri] (0 = ei mitään)
 }
-var _hint_re := RegEx.create_from_string(r"\[([A-Z])\]")
+var _hint_re := RegEx.create_from_string(r"\[(Shift\+)?([A-Z])\]")
 ## Tosi, jos tämä käynnistys tallensi yhteensopivan grafiikan pysyväksi (Windowsin varakäynnistin).
 var renderer_auto_saved := false
 
@@ -204,13 +204,15 @@ func key_name(code: int) -> String:
 	return OS.get_keycode_string(DisplayServer.keyboard_get_keycode_from_physical(code))
 
 
-## Hiiren napit toimintoihin, kun hiiri on lukittu peliin eikä minipeli tai valikko käytä hiirtä. Rulla antaa vain
-## painalluksen, joten se vapautetaan seuraavalla ruudulla.
+## Hiiren napit toimintoihin, kun hiiri on lukittu peliin eikä minipeli tai valikko käytä hiirtä. Sisätiloissa ilman
+## hiiriohjausta kursori on vapaana: silloin napit toimivat, kun kursori ei ole käyttöliittymän päällä. Rulla antaa
+## vain painalluksen, joten se vapautetaan seuraavalla ruudulla.
 func _input(event: InputEvent) -> void:
-	if not (event is InputEventMouseButton) or get_tree().paused:
+	if not (event is InputEventMouseButton) or get_tree().paused or CamCtl.need_mouse or CamCtl.free_mouse:
 		return
-	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED or CamCtl.need_mouse or CamCtl.free_mouse:
-		return
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		if not CamCtl.indoors or Touch.active or get_viewport().gui_get_hovered_control() != null:
+			return
 	var code: int = MOUSE_BASE + event.button_index
 	var wheel: bool = event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_LEFT,
 		MOUSE_BUTTON_WHEEL_RIGHT]
@@ -245,9 +247,9 @@ func key_hint(s: String) -> String:
 	var out := ""
 	var at := 0
 	for m in _hint_re.search_all(s):
-		var letter := m.get_string(1)
+		var letter := m.get_string(2)
 		if HINT_KEYS.has(letter):
-			out += s.substr(at, m.get_start() - at) + "[" + action_key(HINT_KEYS[letter]) + "]"
+			out += s.substr(at, m.get_start() - at) + "[" + m.get_string(1) + action_key(HINT_KEYS[letter]) + "]"
 			at = m.get_end()
 	return out + s.substr(at)
 
