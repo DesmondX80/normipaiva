@@ -580,6 +580,7 @@ const Boys := preload("res://scripts/boys.gd")
 const ItemMenu := preload("res://scripts/item_menu.gd")
 const DialogueBox := preload("res://scripts/dialogue_box.gd")
 const TalkPrompt := preload("res://scripts/talk_prompt.gd")
+const HintBar := preload("res://scripts/hint_bar.gd")
 const BALL_REWARD := 1.0
 var boys: Node3D
 var ball: Node3D
@@ -590,6 +591,7 @@ var _item_menu: PanelContainer
 ## _talk_node = hahmo, jonka luota poistuminen katkaisee keskustelun (null: ei etäisyystarkistusta).
 var _talk_box: CanvasLayer
 var _talk_prompt: Control  # puhevihje ruudun alaosassa (talk_prompt.gd)
+var _hint_bar: Control  # toimintovihjeet näppäinhattuina (hint_bar.gd); _hint on sen lähdeteksti, itse ei näy
 var _talk_who := ""
 var _talk_node: Node3D
 var _talk_kind := ""  # tila avattaessa (ulkona "ulko"); tilan vaihtuessa keskustelu katkeaa
@@ -1991,9 +1993,9 @@ func _stash_ui(id: String) -> void:
 	elif kanister:
 		opts.append("[E] Piilota kanisteri (= %d kaljaa)" % KANISTER_BEERS)
 	elif beers > 0 and room > 0:
-		opts.append("[E] Piilota 1 · Shift+E %d" % mini(beers, room))
+		opts.append("[E] Piilota 1   [Shift+E] Piilota %d" % mini(beers, room))
 	if can_take > 0:
-		opts.append("[Q] Ota 1 · Shift+Q %d" % can_take)
+		opts.append("[Q] Ota 1   [Shift+Q] Ota %d" % can_take)
 	var head := "%s: %d/%d kaljaa" % [st.name.left(1).to_upper() + st.name.substr(1), have, st.cap]
 	if opts.is_empty():
 		_hint.text = head + (" – täynnä." if room == 0 and beers > 0 else (" – kädet täynnä." if have > 0 else " – tänne voi piilottaa kaljoja."))
@@ -7710,6 +7712,8 @@ func _fix_hint_keys() -> void:
 	if _hint != null and _hint.text != _hint_shown:
 		_hint_shown = Settings.key_hint(_hint.text)
 		_hint.text = _hint_shown
+	if _hint_bar != null:
+		_hint_bar.set_text(_hint.text if _hint.visible and _hint.is_visible_in_tree() else "")
 
 
 func _setup_environment() -> void:
@@ -8027,6 +8031,9 @@ func _build_hud() -> void:
 	_status = _centered_label(layer, 30, 0.0, 66, 142)  # kompassin alle
 	_status.add_theme_color_override("font_color", Color(1, 0.25, 0.2))
 	_hint = _centered_label(layer, 30, 1.0, -130, -80)
+	_hint.self_modulate.a = 0.0  # teksti piirretään vihjepalkkiin (hint_bar.gd)
+	_hint_bar = HintBar.new()
+	layer.add_child(_hint_bar)
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # lapun vieressä tilaa on vähemmän (_avoid_note)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_msg = _centered_label(layer, 44, 0.3, -80, 120)
@@ -8164,6 +8171,8 @@ func _avoid_note() -> void:
 		left = _note._paper.get_global_rect().end.x + 40.0  # lappu on vinossa: vähän väljyyttä
 	_msg.offset_left = maxf(60.0, left)
 	_hint.offset_left = left
+	if _hint_bar != null:
+		_hint_bar.left = left
 	_status.offset_left = left
 
 
@@ -10196,6 +10205,65 @@ func _maybe_screenshot() -> void:
 			for i in 3:
 				await get_tree().process_frame
 			print("KESK suljettu: auki %s, ohjaus %s" % [_talk_box.is_open(), walker_out.controls_enabled])
+		"hiirisisalla":
+			# Hiiren napit sisätiloissa vapaalla kursorilla: vasen nappi = toiminto kylmiöllä (kuutonen koriin).
+			Settings.values["mouse_steer_indoor"] = false
+			_enter_shop()
+			interior.walker.position = interior.COOLER_SPOT
+			for i in 10:
+				await get_tree().process_frame
+			var mid := get_viewport().get_visible_rect().size / 2.0
+			print("HIIRI tila %s, hiiri %s, hint '%s', leijuu %s" % [state, Input.mouse_mode, interior.hint,
+				get_viewport().gui_get_hovered_control()])
+			var ev := InputEventMouseButton.new()
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.position = mid
+			ev.global_position = mid
+			ev.pressed = true
+			Input.parse_input_event(ev)
+			for i in 2:
+				await get_tree().process_frame
+			var up := ev.duplicate()
+			up.pressed = false
+			Input.parse_input_event(up)
+			for i in 3:
+				await get_tree().process_frame
+			print("HIIRI vasen nappi: kuutonen %s" % interior.has_beer)
+		"vihjeet":
+			# Vihjepalkki (hint_bar.gd): kaupan grilli, ovi maksamatta, jono ja kotijemma.
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			_note._holder.modulate.a = 0.0  # lappu kiinni: palkki keskelle
+			var snap := func(name: String) -> void:
+				_msg.text = ""
+				_msg_queue.clear()
+				for i in 15:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				print("VIHJEET %s: '%s'" % [name, _hint.text.replace("
+", " | ")])
+			money = 9.0
+			_enter_shop()
+			interior.cart["makkara"] = 3.5
+			interior.walker.set_carrying(true)
+			interior.walker.position = interior.GRILL_SPOT
+			await snap.call("_grilli.png")
+			interior.walker.position = interior.DOOR
+			await snap.call("_ovi.png")
+			interior.walker.position = interior.QUEUE_FRONT + interior.QUEUE_STEP * 3
+			await snap.call("_jono.png")
+			interior.cart.clear()
+			interior.has_paid = true
+			interior.exited.emit(false)
+			await get_tree().process_frame
+			if player == bike:
+				_toggle_mount()
+			beers = 6
+			walker_out.set_carrying(true)
+			await _test_goto_stash("koti")
+			await snap.call("_jemma.png")
 		"keskustelut":
 			# Muiden hahmojen keskusteluikkunat: kauppias kassalla ja Korpi-Kalle pannulla.
 			if player == bike:
