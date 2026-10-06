@@ -18,6 +18,7 @@ var pitch := -0.12
 var _idle := 99.0
 var need_mouse := false  # minipeli tähtää hiirellä asetuksesta riippumatta
 var free_mouse := false  # minipeli käyttää näkyvää kursoria (esim. PA-johtojen kytkentä)
+var loading := false  # latausruutu näkyy: hiiri vapaana (main.gd _loading_show / _loading_hide)
 
 
 func _ready() -> void:
@@ -55,7 +56,7 @@ func _process(delta: float) -> void:
 		return  # kosketusnäytöllä hiirtä ei lukita (napautukset toimivat hiiren klikkauksina valikoissa)
 	if not get_tree().paused and DisplayServer.window_is_focused():
 		var want := Input.MOUSE_MODE_CAPTURED if need_mouse or _looking() else Input.MOUSE_MODE_VISIBLE
-		if free_mouse:
+		if free_mouse or loading:
 			want = Input.MOUSE_MODE_VISIBLE
 		if Input.mouse_mode != want:
 			Input.mouse_mode = want
