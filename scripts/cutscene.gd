@@ -365,12 +365,49 @@ const SAUNA_HERO := Vector3(0.5, 0.6, -0.75)
 const SAUNA_STONES := Vector3(0.9, 1.02, 0.5)
 const SAUNA_KIULU_W := Vector3(1.15, 0.76, -0.15)
 const LADLE_LEN := 0.78
+## Saunan asettelu rungon kehyksessä (oletus savusauna). hero = istumapaikka, face = katseen suunta, stones = kivet,
+## over = kauhan kaatokohta, kiulu = vesi, rest_cup = kauhan lepopaikka, ember / window = valot, coals = hiillos
+## pesässä (null = ei näkyvää pesää), kiulu_prop = kiulu tuodaan mukana, shell = välianimaation seinät ja katto
+## (Rect2 x/z, korkeus; null = saunalla omat), shots = kamerakuvat [alku, loppu, katse alku, katse loppu, s] (yleis,
+## kiuas, lähi, vetäytyvä). Santtu tuo kaljat: door = ovelta sisään (reitti), stand = ojentaa kaljan, seat = viereen
+## lauteelle, santtu_shot = kuva ovelle.
+const SAUNA_SAVU := {
+	"title": "SAVUSAUNA", "intro": "Hämärä, noen ja tervan tuoksu. Kiuas hehkuu.",
+	"hero": SAUNA_HERO, "face": Vector3(0, 0, 1), "stones": SAUNA_STONES, "over": SAUNA_STONES + Vector3(-0.05, 0.28, -0.05),
+	"kiulu": SAUNA_KIULU_W, "rest_cup": Vector3(0.82, 0.62, -0.3), "kiulu_prop": false,
+	"ember": SAUNA_STONES + Vector3(-0.55, -0.55, 0.0), "ember_shadow": true, "window": Vector3(-1.4, 1.25, -0.3),
+	"coals": Vector3(0.82, 0.08, 0.32), "haze": Vector3(0, 1.75, 0), "haze_ext": Vector3(1.4, 0.15, 1.2), "shell": null,
+	"shots": [[Vector3(-1.3, 1.25, 1.2), Vector3(-1.15, 1.3, 0.95), Vector3(0.4, 1.0, -0.5), Vector3(0.5, 1.15, -0.55), 4.0],
+		[Vector3(-0.75, 1.35, 0.55), Vector3(-0.7, 1.3, 0.5), Vector3(0.85, 0.95, 0.15), Vector3(0.85, 1.0, 0.2), 4.0],
+		[Vector3(0.05, 1.5, 0.15), Vector3(0.15, 1.55, -0.05), Vector3(0.5, 1.55, -0.75), Vector3(0.5, 1.6, -0.75), 4.5],
+		[Vector3(-1.0, 1.4, 0.9), Vector3(-1.3, 1.45, 1.2), Vector3(0.6, 1.0, -0.2), Vector3(0.5, 1.1, -0.4), 7.0]],
+	"door": [Vector3(-0.8, 0.12, 2.1), Vector3(-0.8, 0.09, 0.95)], "stand": Vector3(-0.2, 0.09, 0.42),
+	"seat": Vector3(-0.45, 0.6, -0.75),
+	"santtu_shot": [Vector3(1.3, 1.55, -0.95), Vector3(1.2, 1.5, -0.85), Vector3(-0.7, 1.0, 1.2), Vector3(-0.2, 1.0, 0.3), 6.0],
+}
+const SAUNA_SANTTU_IN := ["Mahtuuko tänne? Otin kylmät mukaan.", "Löylyä ilman kaljaa? Ei meidän mökillä.",
+	"Kuulin ku kiuas sihahti. Tässä, kylmää."]
+const SAUNA_SANTTU_SIT := ["Kippis! Tää on mökin paras hetki.", "Aaah. Tätä varten tää mökki on olemassa.",
+	"Heitä vielä yks, ei se meitä tapa."]
+
+
+## Saunavaatteet: paljas, löylystä punertava iho ja valkoinen pyyhe lanteilla.
+static func sauna_look(base: Dictionary) -> Dictionary:
+	var look: Dictionary = base.duplicate()
+	look.erase("tracksuit")
+	look.merge({"stripes": false, "shine": 0.0, "tube_y": 0.01, "shorts_y": 0.72,
+		"pants": Color(0.9, 0.88, 0.84), "shoes": Color(0.86, 0.62, 0.52), "bare_skin": Color(0.96, 0.68, 0.58)}, true)
+	return look
 
 
 ## Löylyssä käynti: hämärä savusauna sisältä, kiuas hehkuu. Hahmo istuu ylälauteella, heittää pitkävartisella
 ## kauhalla löylyä kiukaalle ja nauttii rauhassa; kalja mukana, niin hörppy löylyn päälle. frame = saunan
 ## rungon kehys (Mokki.sauna_frame). Lyhyt tunnelmapala, ei päivän lopetus (ks. main.gd _sauna_cutscene).
-func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable) -> void:
+## lay = saunan asettelu (SAUNA_SAVU:n avaimet korvaavat, esim. mökin sisäsauna), santtu = Santtu tulee löylyihin ja
+## tuo kaljat, hide = välianimaation ajaksi piilotettavat solmut (esim. sisätilan kävelijä).
+func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable, lay: Dictionary = {}, santtu := false,
+		hide: Array = []) -> void:
+	var L: Dictionary = SAUNA_SAVU.merged(lay, true)
 	_begin()
 	await _fade_to(1.0, 0.4)
 	_cam.current = true
@@ -378,7 +415,17 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable) -> void:
 	for n in hide_nodes:
 		if is_instance_valid(n):
 			n.visible = false
+	var hidden: Array = []
+	for n in hide:
+		if is_instance_valid(n) and n.visible:
+			n.visible = false
+			hidden.append(n)
 	var at := func(p: Vector3) -> Vector3: return frame * p
+	# Hahmon oma kehys: paikat (kalja, pyyhe) annetaan kuin istuisi kasvot +Z:aan, kääntö katseen suuntaan.
+	var hero_rot := Basis(Vector3.UP, B.yaw_to(L.face) - PI)
+	var hl := func(v: Vector3) -> Vector3: return frame * (L.hero + hero_rot * v)
+	if L.shell != null:
+		_sauna_shell(frame, L.shell)
 	# Hämärä: aurinko ja taivaan valo pois, valo tulee hiillokselta ja pienestä ikkunasta.
 	var saved := [sun.light_energy, env.ambient_light_energy, env.glow_intensity, env.glow_bloom, env.reflected_light_source]
 	sun.light_energy = 0.12
@@ -391,38 +438,39 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable) -> void:
 	ember.light_energy = 1.6
 	ember.omni_range = 3.6
 	ember.omni_attenuation = 1.4
-	ember.shadow_enabled = true
+	ember.shadow_enabled = L.ember_shadow
 	_props.add_child(ember)
-	ember.global_position = at.call(SAUNA_STONES + Vector3(-0.55, -0.55, 0.0))
+	ember.global_position = at.call(L.ember)
 	var window := OmniLight3D.new()
 	window.light_color = Color(0.62, 0.74, 1.0)
 	window.light_energy = 0.9
 	window.omni_range = 3.4
 	_props.add_child(window)
-	window.global_position = at.call(Vector3(-1.4, 1.25, -0.3))
-	for k in 7:  # hiillos pesässä
-		B.mesh(_props, B.sphere(0.035 + (k % 3) * 0.012, 6), at.call(Vector3(0.82 + (k % 3) * 0.1, 0.08, 0.32 + k * 0.05)),
-			Color.WHITE).material_override = B.unshaded(Color(1.6, 0.45 + (k % 2) * 0.2, 0.08))
-	# Ylälauteella, kasvot oveen ja kiukaaseen päin (+Z). Kiuas jää vasemmalle kädelle.
-	# Saunassa ilman verkkareita: paljas, löylystä punertava iho ja valkoinen pyyhe lanteilla.
-	var look: Dictionary = Looks.PLAYER.duplicate()
-	look.erase("tracksuit")
-	look.merge({"stripes": false, "shine": 0.0, "tube_y": 0.01, "shorts_y": 0.72,
-		"pants": Color(0.9, 0.88, 0.84), "shoes": Color(0.86, 0.62, 0.52), "bare_skin": Color(0.96, 0.68, 0.58)}, true)
-	var hero := Looks.make(_props, look)
-	hero.global_position = at.call(SAUNA_HERO)
-	hero.global_rotation.y = frame.basis.get_euler().y + PI
+	window.global_position = at.call(L.window)
+	if L.coals != null:
+		for k in 7:  # hiillos pesässä
+			B.mesh(_props, B.sphere(0.035 + (k % 3) * 0.012, 6), at.call(L.coals + Vector3((k % 3) * 0.1, 0, k * 0.05)),
+				Color.WHITE).material_override = B.unshaded(Color(1.6, 0.45 + (k % 2) * 0.2, 0.08))
+	if L.kiulu_prop:
+		var ki: Vector3 = L.kiulu - Vector3(0, 0.12, 0)
+		B.mesh(_props, B.cyl(0.13, 0.1, 0.24, 10), at.call(ki), Color(0.55, 0.4, 0.25))
+		B.mesh(_props, B.cyl(0.12, 0.12, 0.01, 10), at.call(ki + Vector3(0, 0.1, 0)), Color(0.3, 0.38, 0.42))
+	# Ylälauteella, kasvot oveen ja kiukaaseen päin (savusaunassa +Z). Kiuas jää vasemmalle kädelle.
+	var hero := Looks.make(_props, sauna_look(Looks.PLAYER))
+	hero.global_position = at.call(L.hero)
+	hero.global_rotation.y = frame.basis.get_euler().y + B.yaw_to(L.face)
 	hero.play("Sitting_Idle", 0.0)
 	var ladle := Node3D.new()
 	B.tube(ladle, Vector3.ZERO, Vector3(0, 0, -LADLE_LEN), 0.014, Color(0.55, 0.42, 0.26))
 	B.mesh(ladle, B.cyl(0.06, 0.045, 0.06, 10), Vector3(0, 0.0, -LADLE_LEN), Color(0.5, 0.36, 0.22))
 	_props.add_child(ladle)
+	var can_rest: Vector3 = hl.call(Vector3(-0.42, 0.5, -0.05))  # oikean reiden vieressä lauteella
 	var can: Node3D
-	if has_beer:
-		can = B.mesh(_props, B.cyl(0.033, 0.033, 0.12, 12), at.call(SAUNA_HERO + Vector3(-0.42, 0.5, -0.05)), Color(0.8, 0.75, 0.2))
+	if has_beer and not santtu:
+		can = B.mesh(_props, B.cyl(0.033, 0.033, 0.12, 12), can_rest, Color(0.8, 0.75, 0.2))
 	# Kädet IK:lla: vasen ohjaa kauhan kuppia (cup), oikea tuo kaljan suulle (sip 0..1).
-	var st := {"cup": Vector3.ZERO, "pour": 0.0, "lean": 0.0, "back": 0.0, "sip": 0.0, "t": 0.0, "shot": 0}
-	var rest_cup: Vector3 = at.call(Vector3(0.82, 0.62, -0.3))  # kauha kiulun vieressä nojallaan
+	var st := {"cup": Vector3.ZERO, "pour": 0.0, "lean": 0.0, "back": 0.0, "sip": 0.0, "t": 0.0, "shot": 0, "can": can}
+	var rest_cup: Vector3 = at.call(L.rest_cup)  # kauha kiulun vieressä nojallaan
 	st.cup = rest_cup
 	var upd := func() -> void:
 		if not is_instance_valid(hero):
@@ -435,23 +483,23 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable) -> void:
 		var cup: Vector3 = st.cup
 		var hand := cup - (cup - sh).normalized() * LADLE_LEN
 		var side: Vector3 = hero.global_basis.x * -0.45
+		var cn: Node3D = st.get("can")  # oma tai Santun tuoma kalja
 		hero.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", hero.to_local(hand), hero.to_local(sh + side + Vector3(0, -0.4, 0)))
 		var grip: Vector3 = hero.to_global(hero.bone_position("hand_l"))
 		ladle.global_position = grip
 		if grip.distance_to(cup) > 0.05:
 			ladle.look_at(cup, Vector3.UP)
 			ladle.rotate_object_local(Vector3.FORWARD, st.pour)
-		if can != null and st.sip > 0.0:
+		if cn != null and st.sip > 0.0:
 			var head: Vector3 = hero.to_global(hero.bone_position("Head"))
 			var mouth := head + hero.global_basis.z * -0.12 + Vector3(0, -0.06, 0)
 			var shr: Vector3 = hero.to_global(hero.bone_position("upperarm_r"))
-			var rest: Vector3 = at.call(SAUNA_HERO + Vector3(-0.42, 0.5, -0.05))
-			var goal := rest.lerp(mouth, st.sip)
+			var goal := can_rest.lerp(mouth, st.sip)
 			hero.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", hero.to_local(goal),
 				hero.to_local(shr + hero.global_basis.x * 0.4 + Vector3(0, -0.4, 0)))
-			can.global_position = hero.to_global(hero.bone_position("hand_r")) + Vector3(0, 0.02, 0)
-			can.global_rotation = Vector3(0, 0, 0)
-			can.rotate_object_local(Vector3.RIGHT, -1.6 * st.sip)
+			cn.global_position = hero.to_global(hero.bone_position("hand_r")) + Vector3(0, 0.02, 0)
+			cn.global_rotation = Vector3(0, 0, 0)
+			cn.rotate_object_local(Vector3.RIGHT, -1.6 * st.sip)
 	get_tree().process_frame.connect(upd)
 	var glide := func(key: String, to: Variant, sec: float) -> Tween:
 		var t := _tween()
@@ -509,14 +557,14 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable) -> void:
 		return p
 	var haze: CPUParticles3D = make_steam.call(24, 6.0, 0.08, 1.6, false)
 	haze.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	haze.emission_box_extents = Vector3(1.4, 0.15, 1.2)
-	haze.global_position = at.call(Vector3(0, 1.75, 0))
+	haze.emission_box_extents = L.haze_ext
+	haze.global_position = at.call(L.haze)
 	haze.preprocess = 6.0  # kaikki tupsut elossa heti: syntymättömät piirtyisivät mustina
 	var puff: CPUParticles3D = make_steam.call(70, 3.4, 1.3, 1.8, true)
 	puff.explosiveness = 1.0
 	puff.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	puff.emission_sphere_radius = 0.2
-	puff.global_position = at.call(SAUNA_STONES)
+	puff.global_position = at.call(L.stones)
 	var drops := CPUParticles3D.new()
 	drops.amount = 18
 	drops.lifetime = 0.45
@@ -536,10 +584,10 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable) -> void:
 	_props.add_child(drops)
 	var throw := func(lines: Array) -> void:
 		glide.call("lean", 1.0, 0.8)
-		await (glide.call("cup", at.call(SAUNA_KIULU_W), 0.8) as Tween).finished
+		await (glide.call("cup", at.call(L.kiulu), 0.8) as Tween).finished
 		Sfx.play("water", -10.0, 1.4, 0.4)
 		await _wait(0.25)
-		var over: Vector3 = at.call(SAUNA_STONES + Vector3(-0.05, 0.28, -0.05))
+		var over: Vector3 = at.call(L.over)
 		await (glide.call("cup", over, 0.8) as Tween).finished
 		glide.call("pour", 2.2, 0.3)
 		drops.global_position = over
@@ -573,29 +621,38 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable) -> void:
 			if u >= 1.0 or not busy:
 				break
 			await get_tree().process_frame
+	var shot := func(k: int) -> void:
+		var sh: Array = L.shots[k] if k >= 0 else L.santtu_shot
+		cam_move.call(sh[0], sh[1], sh[2], sh[3], sh[4])
 	_title.add_theme_color_override("font_color", Color(1.0, 0.72, 0.42))
 	_title.add_theme_font_size_override("font_size", 70)
 	# 1. Yleiskuva oven pielestä: hämärä, hiillos hehkuu, hahmo ylälauteella.
-	cam_move.call(Vector3(-1.3, 1.25, 1.2), Vector3(-1.15, 1.3, 0.95), Vector3(0.4, 1.0, -0.5), Vector3(0.5, 1.15, -0.55), 4.0)
+	shot.call(0)
 	await _fade_to(0.0, 0.8)
-	_title.text = "SAVUSAUNA"
-	_sub.text = "Hämärä, noen ja tervan tuoksu. Kiuas hehkuu."
+	_title.text = L.title
+	_sub.text = L.intro
 	await _wait(2.6)
 	_title.text = ""
 	# 2. Kauhallinen kiukaalle: kuva sivusta kivien ja kauhan tasolta.
-	cam_move.call(Vector3(-0.75, 1.35, 0.55), Vector3(-0.7, 1.3, 0.5), Vector3(0.85, 0.95, 0.15), Vector3(0.85, 1.0, 0.2), 4.0)
+	shot.call(1)
 	_sub.text = "Kauhallinen vettä kiukaalle..."
 	await throw.call(["Tsssshhhh!"])
 	# 3. Lähikuva: nojaa taaksepäin, silmät kiinni, löyly laskeutuu hartioille.
-	cam_move.call(Vector3(0.05, 1.5, 0.15), Vector3(0.15, 1.55, -0.05), Vector3(0.5, 1.55, -0.75), Vector3(0.5, 1.6, -0.75), 4.5)
+	shot.call(2)
 	glide.call("back", 1.0, 1.4)
 	_sub.text = "Löyly laskeutuu hartioille. Aaahh."
 	await _wait(2.4)
 	_sub.text = SAUNA_LINES.pick_random()
 	await _wait(2.2)
+	if santtu:
+		# 3b. Santtu tulee ovesta pyyhe lanteilla, ojentaa kylmän kaljan ja istuu viereen.
+		glide.call("back", 0.0, 0.6)
+		shot.call(-1)
+		await _sauna_santtu(frame, L, hero, st)
+		has_beer = true
 	# 4. Toinen kauhallinen ja hörppy kaljaa, kamera vetäytyy hitaasti.
 	glide.call("back", 0.0, 0.6)
-	cam_move.call(Vector3(-1.0, 1.4, 0.9), Vector3(-1.3, 1.45, 1.2), Vector3(0.6, 1.0, -0.2), Vector3(0.5, 1.1, -0.4), 7.0)
+	shot.call(3)
 	await throw.call(["Toinen kauhallinen. Lämpö nousee korviin."])
 	if has_beer:
 		_sub.text = "Hörppy kylmää kaljaa löylyn päälle."
@@ -611,6 +668,9 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable) -> void:
 	_sub.text = ""
 	await _end(func() -> void:
 		get_tree().process_frame.disconnect(upd)
+		for n in hidden:
+			if is_instance_valid(n):
+				n.visible = true
 		sun.light_energy = saved[0]
 		env.ambient_light_energy = saved[1]
 		env.glow_intensity = saved[2]
@@ -619,6 +679,83 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable) -> void:
 		_cam.fov = 50.0
 		done.call())
 	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Santtu löylyihin: ovelta sisään (L.door), ojentaa kaljan hahmolle (st.can, IK:n kalja) ja istuu viereen (L.seat)
+## oma kalja kädessä.
+func _sauna_santtu(frame: Transform3D, L: Dictionary, hero: Node3D, st: Dictionary) -> void:
+	var at := func(p: Vector3) -> Vector3: return frame * p
+	var s: Node3D = Looks.make(_props, sauna_look(load("res://scripts/mokki.gd").SANTTU_LOOK))
+	var path: Array = L.door + [L.stand]
+	s.global_position = at.call(path[0])
+	s.play("Walk", 0.0)
+	var own := Node3D.new()
+	B.mesh(own, B.cyl(0.033, 0.033, 0.12, 12), Vector3.ZERO, Color(0.8, 0.75, 0.2))
+	s.attach("hand_r", own, Vector3(0, -0.02, 0.05))
+	var gift := Node3D.new()
+	B.mesh(gift, B.cyl(0.033, 0.033, 0.12, 12), Vector3.ZERO, Color(0.8, 0.75, 0.2))
+	var gift_bone: Node3D = s.attach("hand_l", gift, Vector3(0, -0.02, 0.05))
+	Sfx.play("door", -6.0, 0.9)
+	_sub.text = "Ovi narahtaa..."
+	for i in range(1, path.size()):
+		var a: Vector3 = at.call(path[i - 1])
+		var b: Vector3 = at.call(path[i])
+		s.global_rotation.y = B.yaw_to(b - a)
+		var tw := _tween()
+		tw.tween_property(s, "global_position", b, a.distance_to(b) / 1.3)
+		await tw.finished
+	var hp := hero.global_position
+	s.global_rotation.y = B.yaw_to(Vector3(hp.x, 0, hp.z) - Vector3(s.global_position.x, 0, s.global_position.z))
+	s.play("Interact", 0.25)
+	_sub.text = "Santtu: \"%s\"" % SAUNA_SANTTU_IN.pick_random()
+	await _wait(0.9)
+	# Kalja Santun kädestä hahmon viereen lauteelle; IK nostaa sen myöhemmin suulle.
+	var from: Vector3 = gift.global_position
+	gift_bone.queue_free()
+	var can := B.mesh(_props, B.cyl(0.033, 0.033, 0.12, 12), from, Color(0.8, 0.75, 0.2))
+	var rest: Vector3 = frame * (L.hero + Basis(Vector3.UP, B.yaw_to(L.face) - PI) * Vector3(-0.42, 0.5, -0.05))
+	var tw2 := _tween()
+	tw2.tween_property(can, "global_position", rest, 0.7).set_trans(Tween.TRANS_SINE)
+	Sfx.play("pickup", -6.0, 1.1)
+	await tw2.finished
+	st.can = can
+	await _wait(1.0)
+	# Viereen lauteelle.
+	s.play("Walk", 0.2)
+	var seat: Vector3 = at.call(L.seat)
+	s.global_rotation.y = B.yaw_to(seat - s.global_position)
+	var tw3 := _tween()
+	tw3.tween_property(s, "global_position", seat, 0.9).set_trans(Tween.TRANS_SINE)
+	await tw3.finished
+	s.global_rotation.y = frame.basis.get_euler().y + B.yaw_to(L.face)
+	s.play("Sitting_Idle", 0.3)
+	Sfx.play("pickup", -4.0, 0.8)
+	_sub.text = "Santtu: \"%s\"" % SAUNA_SANTTU_SIT.pick_random()
+	await _wait(2.4)
+
+
+## Välianimaation saunahuone (sisätiloissa ilman kattoa ja matalin seinin): tummat paneeliseinät, oviaukko ja katto.
+## shell = [Rect2(x, z, leveys, syvyys), korkeus, oviaukko Vector2(x alku, x loppu) seinässä z = rect.position.y].
+func _sauna_shell(frame: Transform3D, shell: Array) -> void:
+	var r: Rect2 = shell[0]
+	var h: float = shell[1]
+	var door: Vector2 = shell[2]
+	var col := Color(0.24, 0.17, 0.11)
+	var t := 0.06
+	var x0 := r.position.x - t / 2.0
+	var x1 := r.end.x + t / 2.0
+	var z0 := r.position.y - t / 2.0
+	var z1 := r.end.y + t / 2.0
+	var part := func(size: Vector3, c: Vector3) -> void:
+		var m := B.mesh(_props, B.boxm(size), frame * c, col)
+		m.global_basis = frame.basis
+	part.call(Vector3(x1 - x0, h, t), Vector3((x0 + x1) / 2.0, h / 2.0, z1))
+	part.call(Vector3(t, h, z1 - z0), Vector3(x0, h / 2.0, (z0 + z1) / 2.0))
+	part.call(Vector3(t, h, z1 - z0), Vector3(x1, h / 2.0, (z0 + z1) / 2.0))
+	part.call(Vector3(door.x - x0, h, t), Vector3((x0 + door.x) / 2.0, h / 2.0, z0))
+	part.call(Vector3(x1 - door.y, h, t), Vector3((door.y + x1) / 2.0, h / 2.0, z0))
+	part.call(Vector3(door.y - door.x, h - 2.0, t), Vector3((door.x + door.y) / 2.0, (h + 2.0) / 2.0, z0))
+	part.call(Vector3(x1 - x0, t, z1 - z0), Vector3((x0 + x1) / 2.0, h, (z0 + z1) / 2.0))
 
 
 # --- Taksireissu Raaheen ----------------------------------------------------------

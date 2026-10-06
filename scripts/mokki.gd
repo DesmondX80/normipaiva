@@ -52,6 +52,9 @@ const DOCK_PATH_A := Vector2(DOCK_LOCAL.x, 27.0)
 const DOCK_PATH_B := Vector2(DOCK_LOCAL.x, DOCK_LOCAL.z + 1.5)
 const KITCHEN_LOCAL := Vector3(-12.6, 0, 16.2) # kesäkeittiön savustimen edessä (katoksen alla)
 const SANTTU_LOCAL := Vector3(-1.5, 0, 6.5)    # pihatuolilla kuistin edessä
+## Istuessa hahmon juuri kannon keskeltä: Sitting_Idlen lantio on 0,33 m juuren takana ja 0,54 m sen yläpuolella,
+## joten juuri kannon eteen (kohti mökkiä, -Z) ja maan tasalle, niin takapuoli osuu kannon (0,42 m) päälle.
+const SANTTU_SEAT := Vector3(0, 0.0, -0.33)
 const HUNT_LOCAL := Vector3(-30.0, 0, 5.0)     # metsästyslava syvemmällä metsässä, tien ja polun ulkopuolella
 ## Metsästyslavan edessä (lännessä) oleva aukea, jolle riista tulee (hunt_game.gd): metsä ei kasva sille.
 const HUNT_GLADE := Vector2(HUNT_LOCAL.x - 14.0, HUNT_LOCAL.z)
@@ -1650,7 +1653,8 @@ func _build_santtu() -> void:
 	var look := SANTTU_LOOK
 	B.mesh(self, B.cyl(0.22, 0.26, 0.42, 12), SANTTU_LOCAL + Vector3(0, 0.21, 0), Color(0.4, 0.28, 0.17))  # pihatuoli (kanto)
 	santtu = Looks.make(self, look)
-	santtu.position = SANTTU_LOCAL + Vector3(0, 0.2, 0)
+	santtu.position = santtu_seat()
+	santtu.set_meta("ground", true)  # korkeus jo kannon maasta (_build ei lisää maata uudestaan)
 	santtu.rotation.y = B.yaw_to(Vector3(0, 0, -1))  # kasvot kohti mökkiä (kuisti järven puolella)
 	santtu.play("Sitting_Idle", 0.0)
 	var mug := Node3D.new()
@@ -1984,6 +1988,16 @@ func santtu_teleport(spot: Vector3, look: Vector3) -> void:
 	_santtu_walking = false
 
 
+## Pihan Santtu kuplineen (piiloon välianimaatiossa, jossa Santtu on mukana omana hahmonaan).
+func santtu_nodes() -> Array:
+	return [santtu, _bubble, _name_label]
+
+
+## Santun paikka kannolla istuessa (mökin kehys).
+func santtu_seat() -> Vector3:
+	return SANTTU_LOCAL + SANTTU_SEAT + Vector3(0, h(SANTTU_LOCAL.x, SANTTU_LOCAL.z), 0)
+
+
 func santtu_go_home(via: Array = []) -> void:
 	if not built or not _santtu_away:
 		return
@@ -2079,7 +2093,7 @@ func _santtu_tick(delta: float) -> void:
 				santtu.rotation.y = B.yaw_to(_santtu_look - santtu.position)
 				santtu.play("Idle", 0.3)
 			else:
-				santtu.position = SANTTU_LOCAL + Vector3(0, h(SANTTU_LOCAL.x, SANTTU_LOCAL.z) + 0.2, 0)
+				santtu.position = santtu_seat()
 				santtu.rotation.y = B.yaw_to(Vector3(0, 0, -1))
 				santtu.play("Sitting_Idle", 0.3)
 	# Puhekupla ja nimi seuraavat Santtua (istuessa matalammalla).
