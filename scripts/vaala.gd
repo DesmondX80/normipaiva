@@ -180,8 +180,10 @@ func ensure_built() -> void:
 	_build_bridges()
 	_build_side_roads()
 	_build_underpass()
+	_tori_prep()
 	_build_buildings()
 	_build_parkings()
+	_build_tori()
 	_build_signs()
 	_build_trees()
 	_build_lamps()
@@ -238,46 +240,27 @@ func _build_terrain() -> void:
 			cust[q * 4 + 1] = b.g
 			cust[q * 4 + 2] = b.b
 			cust[q * 4 + 3] = e[2]
-	var ids := PackedInt32Array()
-	var water_v := PackedVector3Array()
-	for j in _nz - 1:
-		for i in _nx - 1:
-			var q := j * _nx + i
-			var c: int = _codes[q]
-			if c == OUTSIDE or _codes[q + 1] == OUTSIDE or _codes[q + _nx] == OUTSIDE or _codes[q + _nx + 1] == OUTSIDE:
-				continue
-			# Sama lävistäjä kuin h():ssa: (1,0)-(0,1).
-			ids.append_array([q, q + 1, q + _nx, q + 1, q + _nx + 1, q + _nx])
-			if c == WATER:
-				# Vesipinta laajennettuna 2 ruutua: rantojen maasto peittää reunan (ei porrasta).
-				var p := Vector3(_x0 + (i - 2) * _cell, water_level, _z0 + (j - 2) * _cell)
-				var e := _cell * 5.0
-				for w in [Vector3.ZERO, Vector3(e, 0, 0), Vector3(0, 0, e), Vector3(e, 0, 0), Vector3(e, 0, e), Vector3(0, 0, e)]:
-					water_v.append(p + w)
-	var arr := []
-	arr.resize(Mesh.ARRAY_MAX)
-	arr[Mesh.ARRAY_VERTEX] = verts
-	arr[Mesh.ARRAY_NORMAL] = norms
-	arr[Mesh.ARRAY_COLOR] = cols
-	arr[Mesh.ARRAY_CUSTOM0] = cust
-	arr[Mesh.ARRAY_INDEX] = ids
-	var am := ArrayMesh.new()
-	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {},
-		Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
-	var mi := MeshInstance3D.new()
-	mi.mesh = am
-	mi.material_override = B.shader_mat("res://shaders/ground_blend.gdshader")
-	add_child(mi)
-	if not water_v.is_empty():
-		var st := SurfaceTool.new()
-		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		st.set_normal(Vector3.UP)
-		for v in water_v:
-			st.add_vertex(v)
-		var wm := MeshInstance3D.new()
-		wm.mesh = st.commit()
-		wm.material_override = B.shader_mat("res://shaders/water.gdshader")
-		add_child(wm)
+	# Lohkot (TCHUNK ruutua) kolmella tarkkuudella: lähellä joka ruutu, kauempana joka toinen ja neljäs piste.
+	# Harvempien tasojen reunoilla helma alaspäin peittää saumat. Lohkot karsitaan näkymästä erikseen, ja vain
+	# lähin taso heittää varjoja.
+	var mat := B.shader_mat("res://shaders/ground_blend.gdshader")
+	var lods := [[1, 0.0, TLOD[0]], [2, TLOD[0], TLOD[1]], [4, TLOD[1], 0.0]]
+	var half := TCHUNK * _cell * 0.71
+	for cj in range(0, _nz - 1, TCHUNK):
+		for ci in range(0, _nx - 1, TCHUNK):
+			for lod in lods:
+				var am := _terrain_chunk(ci, cj, mini(ci + TCHUNK, _nx - 1), mini(cj + TCHUNK, _nz - 1), lod[0], verts, norms, cols, cust)
+				if am == null:
+					continue
+				var mi := MeshInstance3D.new()
+				mi.mesh = am
+				mi.material_override = mat
+				mi.visibility_range_begin = maxf(lod[1] - half, 0.0) if lod[1] > 0.0 else 0.0
+				mi.visibility_range_end = lod[2] + half if lod[2] > 0.0 else 0.0
+				if lod[0] > 1:
+					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				add_child(mi)
+	_build_water()
 	# Törmäys koko tarkalle ruudukolle (tarkan alueen ulkopuoli kaukomaaston korkeudella).
 	var body := StaticBody3D.new()
 	body.collision_layer = Terrain.COLLISION_LAYER
@@ -301,6 +284,108 @@ func _build_terrain() -> void:
 		wall.position = side[0]
 		wall.add_child(B.box_shape(side[1], Vector3(0, 120, 0)))
 		add_child(wall)
+
+
+## Maaston lohko ruuduista [i0, i1] x [j0, j1] askeleella st (1, 2 tai 4); harvoilla tasoilla helma reunoille.
+const TCHUNK := 32
+const TLOD := [320.0, 700.0]
+
+
+func _terrain_chunk(i0: int, j0: int, i1: int, j1: int, st: int, verts: PackedVector3Array, norms: PackedVector3Array,
+		cols: PackedColorArray, cust: PackedFloat32Array) -> ArrayMesh:
+	var ii := []
+	var jj := []
+	for i in range(i0, i1, st):
+		ii.append(i)
+	ii.append(i1)
+	for j in range(j0, j1, st):
+		jj.append(j)
+	jj.append(j1)
+	var w := ii.size()
+	var v := PackedVector3Array()
+	var n := PackedVector3Array()
+	var c := PackedColorArray()
+	var u := PackedFloat32Array()
+	for j in jj:
+		for i in ii:
+			var q: int = j * _nx + i
+			v.append(verts[q])
+			n.append(norms[q])
+			c.append(cols[q])
+			u.append_array([cust[q * 4], cust[q * 4 + 1], cust[q * 4 + 2], cust[q * 4 + 3]])
+	var ids := PackedInt32Array()
+	for b in jj.size() - 1:
+		for a in w - 1:
+			var q := b * w + a
+			ids.append_array([q, q + 1, q + w, q + 1, q + w + 1, q + w])
+	if st > 1:
+		# Helma: reunan pisteet 3 m alas, kolmiot molemmin puolin (kumpi tahansa puoli näkyy).
+		var ring := []
+		for a in w:
+			ring.append(a)
+		for b in range(1, jj.size()):
+			ring.append(b * w + w - 1)
+		for a in range(w - 2, -1, -1):
+			ring.append((jj.size() - 1) * w + a)
+		for b in range(jj.size() - 2, -1, -1):
+			ring.append(b * w)
+		var base := v.size()
+		for k in ring.size():
+			var q: int = ring[k]
+			v.append(v[q] - Vector3(0, 3.0, 0))
+			n.append(n[q])
+			c.append(c[q])
+			u.append_array([u[q * 4], u[q * 4 + 1], u[q * 4 + 2], u[q * 4 + 3]])
+		for k in ring.size() - 1:
+			var a0: int = ring[k]
+			var a1: int = ring[k + 1]
+			var b0 := base + k
+			var b1 := base + k + 1
+			ids.append_array([a0, b0, a1, a1, b0, b1, a0, a1, b0, a1, b1, b0])
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = v
+	arr[Mesh.ARRAY_NORMAL] = n
+	arr[Mesh.ARRAY_COLOR] = c
+	arr[Mesh.ARRAY_CUSTOM0] = u
+	arr[Mesh.ARRAY_INDEX] = ids
+	var am := ArrayMesh.new()
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {},
+		Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+	return am
+
+
+## Vedet tarkalla alueella: jokaisella järvellä oma pintansa (pohja on 1,2 m pinnan alla, vaala_bake.py). Rivin
+## peräkkäiset vesiruudut samalla pinnalla yhdeksi suorakaiteeksi, ruudun verran laajennettuna rantojen yli.
+func _build_water() -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	var any := false
+	for j in _nz:
+		var run := -1
+		var lv := 0.0
+		for i in _nx + 1:
+			var q := j * _nx + i
+			var wet := i < _nx and _codes[q] == WATER
+			var l := _h[q] + 1.2 if wet else 0.0
+			if run >= 0 and (not wet or absf(l - lv) > 0.05):
+				var a := Vector3(_x0 + (run - 1) * _cell, lv, _z0 + (j - 1) * _cell)
+				var b := Vector3(_x0 + i * _cell, lv, _z0 + (j + 1) * _cell)
+				for p in [a, Vector3(b.x, lv, a.z), Vector3(a.x, lv, b.z), Vector3(b.x, lv, a.z), b, Vector3(a.x, lv, b.z)]:
+					st.add_vertex(p)
+				any = true
+				run = -1
+			if wet and run < 0:
+				run = i
+				lv = l
+	if not any:
+		return
+	var wm := MeshInstance3D.new()
+	wm.mesh = st.commit()
+	wm.material_override = B.shader_mat("res://shaders/water.gdshader")
+	wm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(wm)
 
 
 ## Kaukomaasto (32 m) metsänvärisenä ja harvana kaukometsänä horisonttiin.
@@ -480,6 +565,16 @@ var kmarket_along := Vector3.ZERO
 var kmarket_center := Vector3.ZERO  # rakennuksen keskipiste maan tasossa
 var kmarket_half := Vector2.ZERO  # puolikkaat: x = julkisivun suunta (kmarket_along), y = syvyys (kmarket_face)
 var kmarket_face := Vector3.ZERO  # julkisivun normaali kadulle (kmarket_out on vino: ovi ei ole keskellä)
+## Keskustan ovet, joista mennään sisään E:llä (mopo_trip.gd door-signaali): {id, pos = oven edusta, out = ulospäin,
+## hint}. K-Market Tervaportti, S-Market, torin Zabuki ja Gasthaus.
+var doors: Array = []
+
+
+func door_pos(id: String) -> Vector3:
+	for d in doors:
+		if d.id == id:
+			return d.pos
+	return Vector3.ZERO
 
 
 ## Pankkiautomaatti omaan kioskiinsa K-Market Tervaportin päätyyn Siitarin puolelle: julkisivu on näyteikkunaa
@@ -869,10 +964,14 @@ func _build_side_roads() -> void:
 		_multimesh(B.boxm(Vector3(2.4, 0.16, 0.24)), sleepers, Color(0.4, 0.38, 0.35))
 
 
-## Radan alikulku (Vuolijoentie radan ali juuri ennen Oulujokea): betonilaatta ja siniset teräspalkit kaiteineen
-## ratapenkereen aukon yli, maatuet tien molemmin puolin (yläreuna seuraa penkereen luiskaa) ja
-## alikulkukorkeuden kilpi. Penger ja kiskojen korkeus ovat leivonnassa (vaala_bake.py).
+## Radan alikulku (Vuolijoentie radan ali juuri ennen Oulujokea): ratapenkereen läpi kulkeva aukko, jonka
+## betoniseinät seuraavat tien kaarta (yläreuna penkereen luiskan mukaan), seinien päällä betonikansi siniseten
+## teräspalkkien ja kaiteiden kanssa ja seinän takana nurmettu reunus penkereeseen asti. Alikulkukorkeuden kilpi
+## kannen reunoissa. Penger, kiskot ja aukko maastossa ovat leivonnassa (vaala_bake.py, aukko UNDER_OPEN).
 var underpass_i := -1
+const UNDER_INNER := 1.0  # seinän sisäpinta ajoradan reunasta (m), leivonnan aukko on tätä vähän leveämpi
+const UNDER_WALL := 0.6
+const UNDER_CAP := 7.0  # reunus peittää leivonnan aukon (UNDER_OPEN 4 m) ja 4 m ruudukon luiskan
 
 
 func _build_underpass() -> void:
@@ -881,17 +980,18 @@ func _build_underpass() -> void:
 		return
 	var i: int = u.i
 	underpass_i = i
-	var at := Vector3(u.at[0], float(u.road_y), u.at[1])
+	var at := road_pos(i)
+	at.y = float(u.road_y)
 	var rd := Vector3(u.dir[0], 0, u.dir[1]).normalized()
 	var fd := road_dir(i)
-	var rn := fd.cross(Vector3.UP)
 	var sin_a := maxf(absf(rd.cross(fd).y), 0.35)
 	var hw: float = u.hw
 	var deck: float = u.deck
 	var H := deck - 0.1 - at.y
+	var inner := hw + UNDER_INNER
 	var conc := Color(0.66, 0.65, 0.62)
-	# Kansi radan suuntaan aukon yli.
-	var dl := (hw + 1.6) / sin_a * 2.0 + 2.0
+	# Kansi radan suuntaan seinältä seinälle.
+	var dl := (inner + UNDER_WALL) / sin_a * 2.0 + 1.2
 	var basis := Basis(Vector3.UP, atan2(rd.x, rd.z))
 	var deck_c := Vector3(at.x, deck - 0.5, at.z)
 	var dm := B.mesh(self, B.boxm(Vector3(6.2, 0.8, dl)), deck_c, conc)
@@ -911,46 +1011,73 @@ func _build_underpass() -> void:
 		var plate := B.sign_plate(self, "4,6 m", Color(0.98, 0.98, 0.95), Color(0.05, 0.05, 0.05), 0.4, 60, Color(0.85, 0.1, 0.08), "Helvetica Neue")
 		plate.position = at - fd * s * (3.4 / sin_a + 0.1) + Vector3(0, H - 1.25, 0)
 		plate.rotation.y = atan2(-fd.x * s, -fd.z * s)
-	# Maatuet: paksu betoniseinä pientareen takana, yläreuna penkereen korkeudella (luiskassa laskee).
+	# Seinät tien kaarta pitkin: sisäpinta, betonireunus ja nurmettu reunus penkereeseen. Yläreuna laskee
+	# penkereen luiskan mukaan, päissä pääty.
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_color(Color(conc.r, conc.g, conc.b, CONCRETE))
+	var grass := SurfaceTool.new()
+	grass.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var body := StaticBody3D.new()
 	add_child(body)
 	var X := (2.8 + H / 0.75) / sin_a + 1.0
-	var segs := 14
+	var segs := int(X)
 	for s: float in [-1.0, 1.0]:
-		var l1 := hw + 1.3
-		var l2 := hw + 6.8
 		var prev := {}
-		for k2 in segs + 1:
-			var x := -X + 2.0 * X * k2 / segs
-			var ry := road_pos(i + roundi(x / 2.0)).y
+		for k2 in segs * 2 + 1:
+			var x := -X + 2.0 * X * k2 / (segs * 2)
+			var c := _road_at(i, x)
+			var rn := _road_dir_at(i, x).cross(Vector3.UP) * s
 			var dr := absf(x) * sin_a
-			var top := at.y + maxf(H - maxf(0.0, dr - 2.8) * 0.75, 0.3) + 0.25
-			var c := at + fd * x
+			var top := at.y + maxf(H - maxf(0.0, dr - 2.8) * 0.75, 0.3) + 0.15
 			var cur := {
-				"b1": Vector3(c.x, ry - 0.8, c.z) + rn * s * l1, "t1": Vector3(c.x, top, c.z) + rn * s * l1,
-				"b2": Vector3(c.x, ry - 0.8, c.z) + rn * s * l2, "t2": Vector3(c.x, top, c.z) + rn * s * l2,
+				"b1": c + rn * inner - Vector3(0, 0.6, 0), "t1": Vector3(0, top - c.y, 0) + c + rn * inner,
+				"t2": Vector3(0, top - c.y, 0) + c + rn * (inner + UNDER_WALL),
+				"g": Vector3(0, top - c.y - 0.12, 0) + c + rn * (inner + UNDER_WALL + UNDER_CAP),
+				"b2": c + rn * (inner + UNDER_WALL) - Vector3(0, 0.6, 0),
 			}
 			if prev.is_empty():
 				_quad(st, cur.b1, cur.t1, cur.t2, cur.b2)
 			else:
-				_quad(st, prev.b1, cur.b1, cur.t1, prev.t1)
-				_quad(st, prev.t1, cur.t1, cur.t2, prev.t2)
+				if s > 0.0:
+					_quad(st, prev.b1, cur.b1, cur.t1, prev.t1)
+					_quad(st, prev.t1, cur.t1, cur.t2, prev.t2)
+					_quad(grass, prev.t2, cur.t2, cur.g, prev.g)
+				else:
+					_quad(st, prev.t1, cur.t1, cur.b1, prev.b1)
+					_quad(st, prev.t2, cur.t2, cur.t1, prev.t1)
+					_quad(grass, prev.g, cur.g, cur.t2, prev.t2)
 				var lo := minf(prev.b1.y, cur.b1.y)
 				var hi := maxf(prev.t1.y, cur.t1.y)
 				var mid: Vector3 = (prev.b1 + cur.b1 + prev.b2 + cur.b2) / 4.0
-				var cs := B.box_shape(Vector3(l2 - l1, hi - lo, (prev.b1 as Vector3).distance_to(cur.b1) + 0.05), Vector3.ZERO)
-				cs.transform = Transform3D(Basis.looking_at(fd, Vector3.UP), Vector3(mid.x, (hi + lo) / 2.0, mid.z))
+				var cs := B.box_shape(Vector3(UNDER_WALL + 0.4, hi - lo, (prev.b1 as Vector3).distance_to(cur.b1) + 0.05), Vector3.ZERO)
+				cs.transform = Transform3D(Basis.looking_at(cur.b1 - prev.b1, Vector3.UP), Vector3(mid.x, (hi + lo) / 2.0, mid.z))
 				body.add_child(cs)
 			prev = cur
-		_quad(st, prev.b1, prev.t1, prev.t2, prev.b2)
+		_quad(st, prev.b2, prev.t2, prev.t1, prev.b1)
 	st.generate_normals()
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = B.shader_mat("res://shaders/facade.gdshader")
 	add_child(mi)
+	grass.generate_normals()
+	var gm := MeshInstance3D.new()
+	gm.mesh = grass.commit()
+	var gmat := B.mat(Color(0.38, 0.44, 0.22)).duplicate() as StandardMaterial3D
+	gmat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	gm.material_override = gmat
+	add_child(gm)
+
+
+## Tien keskilinja ja suunta x metrin päässä näytteestä i (näytteiden välissä lineaarisesti).
+func _road_at(i: int, x: float) -> Vector3:
+	var f := x / float(data.step)
+	var k := clampi(i + floori(f), 0, road.size() - 2)
+	return road_pos(k).lerp(road_pos(k + 1), clampf(f - floori(f), 0.0, 1.0))
+
+
+func _road_dir_at(i: int, x: float) -> Vector3:
+	return road_dir(clampi(i + roundi(x / float(data.step)), 0, road.size() - 1))
 
 
 ## Rakennukset OSM:n pohjista: omakotitalot vaakapaneelilla ja harjakatolla, vajat pystylaudoituksella, isot
@@ -995,6 +1122,8 @@ func _build_buildings() -> void:
 			cen += q
 		if (cen / pts.size()).distance_to(_mokki_c()) < MOKKI_CLEAR_R:
 			continue  # mökin pihapiiri tehdään mökin malleilla (_build_mokki_yard)
+		if bd.kind == "shed" and _zabuki != Vector3.INF and (cen / pts.size()).distance_to(Vector2(_zabuki.x, _zabuki.z)) < 5.0:
+			continue  # torin kioskin paikalla on Zabuki (_build_tori)
 		if id == SIITARI_ID:
 			_build_siitari(pts, body)
 			continue
@@ -1076,6 +1205,9 @@ func _build_buildings() -> void:
 			mat = BRICK
 			wall_h = 6.4
 			flat = false
+		elif id == GASTHAUS_ID:
+			col = Color(0.93, 0.84, 0.6)  # keltainen rappaus, valkoiset nurkat kuin vanhassa majatalossa
+			mat = PLASTER
 		var top := base + wall_h + 0.3
 		_prism(pts, base, top, col, mat)
 		if flat:
@@ -1112,6 +1244,8 @@ func _build_buildings() -> void:
 				body.add_child(cs)
 		if church:
 			_church_tower(obb, base, body)
+		if id == GASTHAUS_ID:
+			_gasthaus_front(obb, base, top)
 		if id == HOTEL_ID:
 			name = "HOTELLI SIITARI"
 		if name.contains("K-Market"):
@@ -1127,10 +1261,18 @@ func _build_buildings() -> void:
 			var ay: Vector2 = obb.ay
 			var face: Vector2 = ay if ay.dot(kd - (obb.center as Vector2)) >= 0.0 else -ay
 			kmarket_face = Vector3(face.x, 0, face.y)
+			doors.append({"id": "kmarket", "pos": kmarket_door, "out": kmarket_out, "hint": "K-Market Tervaporttiin (myös Alko)"})
+		elif name.contains("S-market"):
+			# S-Market: ovi kadun puolella kuten Tervaportissa, sisällä sama kauppa (ilman Alkoa).
+			name = "S-MARKET"
+			var sd := _door(obb, base + 0.3)
+			var sout := (sd - (obb.center as Vector2)).normalized()
+			doors.append({"id": "smarket", "pos": Vector3(sd.x, h(sd.x, sd.y), sd.y) + Vector3(sout.x, 0, sout.y) * 2.5,
+				"out": Vector3(sout.x, 0, sout.y), "hint": "S-Marketiin"})
 		if name != "" and not church:
 			var fg := Color(0.98, 0.95, 0.85)
 			var bg := Color(0.12, 0.2, 0.35)
-			if name.contains("S-market"):
+			if name.contains("S-MARKET"):
 				bg = Color(0.0, 0.45, 0.25)
 			elif name.contains("K-Market") or name.contains("K-MARKET"):
 				bg = Color(0.9, 0.35, 0.05)
@@ -1138,8 +1280,8 @@ func _build_buildings() -> void:
 				name = "VAALA"
 				bg = Color(0.95, 0.95, 0.95)
 				fg = Color(0.1, 0.1, 0.1)
-			var big_sign := kind == "big" or station or name == "K-MARKET TERVAPORTTI"
-			var plate := B.sign_plate(self, name, bg, fg, (0.9 if name == "K-MARKET TERVAPORTTI" else 0.5) if big_sign else 0.35,
+			var big_sign := kind == "big" or station or name in ["K-MARKET TERVAPORTTI", "S-MARKET"]
+			var plate := B.sign_plate(self, name, bg, fg, (0.9 if name in ["K-MARKET TERVAPORTTI", "S-MARKET"] else 0.5) if big_sign else 0.35,
 				60 if big_sign else 44,
 				Color(0.1, 0.12, 0.2), "Helvetica Neue")
 			plate.position.y = minf(top - 0.9, base + 3.4)
@@ -1240,6 +1382,152 @@ func _door(obb: Dictionary, y0: float) -> Vector2:
 	var y := h(q.x, q.y) + 0.1
 	_doors.append(Transform3D(Basis(Vector3.UP, atan2(side.x, side.y)), Vector3(q.x, maxf(y, y0 - 0.1), q.y)))
 	return q
+
+
+# --- Vaalan tori: Zabuki ja Gasthaus ------------------------------------------------------------------------
+## Tori (OSM-kävelyalue "Vaalan tori") kivetään. Torin kioskin paikalla (lähin vaja torin laidalla) on Zabuki:
+## baaritiski luukulla, olutta ja hampurilaisia (main.gd keskustelu "zabuki"). Gasthaus on torin länsilaidan
+## kaksikerroksisessa talossa (OSM 534430535): huone yöksi kympillä (main.gd "gasthaus").
+const GASTHAUS_ID := 534430535
+var _tori := PackedVector2Array()
+var _tori_c := Vector2.ZERO
+var _zabuki := Vector3.INF  # Zabukin keskipiste maan tasossa; INF = toria ei ole datassa
+var _zabuki_face := Vector2.ZERO  # julkisivu (tiski) torille päin
+
+
+func _tori_prep() -> void:
+	for r in data.side_roads:
+		if r.name == "Vaalan tori":
+			for q in r.pts:
+				_tori.append(Vector2(q[0], q[1]))
+	if _tori.size() < 3:
+		return
+	for q in _tori:
+		_tori_c += q
+	_tori_c /= _tori.size()
+	var at := Vector2.INF
+	for bd in data.buildings:
+		if bd.kind != "shed":
+			continue
+		var c := Vector2.ZERO
+		for q in bd.pts:
+			c += Vector2(q[0], q[1])
+		c /= bd.pts.size()
+		if c.distance_to(_tori_c) < 30.0 and c.distance_to(_tori_c) < at.distance_to(_tori_c):
+			at = c
+	if at == Vector2.INF:
+		at = _tori_c + Vector2(0, -12.0)  # ei kioskia: torin pohjoislaidalle
+	_zabuki = Vector3(at.x, h(at.x, at.y), at.y)
+	_zabuki_face = (_tori_c - at).normalized()
+
+
+func _build_tori() -> void:
+	if _zabuki == Vector3.INF:
+		return
+	# Kiveys: harmaa noppakivi kävelyalueen muodossa.
+	var tris := Geometry2D.triangulate_polygon(_tori)
+	if not tris.is_empty():
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		st.set_normal(Vector3.UP)
+		for t in range(0, tris.size(), 3):
+			_drape(st, _tori[tris[t]], _tori[tris[t + 1]], _tori[tris[t + 2]])
+		var mi := MeshInstance3D.new()
+		mi.mesh = st.commit()
+		mi.material_override = _ground_mat(Color(0.56, 0.55, 0.52), Color(0.46, 0.45, 0.43), 0.9, 2.5)
+		mi.position.y = 0.02  # parkkien yläpuolelle
+		add_child(mi)
+	_build_zabuki()
+
+
+## Zabuki: matala tumma kioskibaari, punakeltainen markiisi, tiski luukulla ja baarijakkarat torin puolella.
+func _build_zabuki() -> void:
+	var f := _zabuki_face
+	var ax := Vector2(-f.y, f.x)
+	var c := Vector2(_zabuki.x, _zabuki.z)
+	var base := INF
+	for u in [-4.5, 4.5]:
+		for v in [-3.0, 3.0]:
+			var q: Vector2 = c + ax * u + f * v
+			base = minf(base, h(q.x, q.y))
+	base -= 0.2
+	var yaw := atan2(f.x, f.y)
+	var deg := rad_to_deg(yaw)
+	var at := func(u: float, v: float, y: float) -> Vector3:
+		var q := c + ax * u + f * v
+		return Vector3(q.x, base + y, q.y)
+	var wall := Color(0.14, 0.14, 0.16)
+	var red := Color(0.72, 0.08, 0.06)
+	var yel := Color(1.0, 0.78, 0.1)
+	var steel := Color(0.7, 0.72, 0.74)
+	# Runko 9 x 5 m, tasakatto ja katon reunan valokyltti.
+	B.mesh(self, B.boxm(Vector3(9.0, 3.3, 5.0)), at.call(0, -0.5, 1.65), wall, Vector3(0, deg, 0))
+	B.mesh(self, B.boxm(Vector3(9.3, 0.25, 5.3)), at.call(0, -0.5, 3.4), Color(0.1, 0.1, 0.11), Vector3(0, deg, 0))
+	var logo := B.sign_plate(self, "ZABUKI", red, yel, 1.0, 110, Color(0.3, 0.02, 0.02), "Helvetica Neue")
+	logo.position = at.call(0, 2.08, 3.95)
+	logo.rotation.y = yaw
+	# Tiskiluukku: valoisa aukko, teräksinen tiski ja markiisi.
+	B.mesh(self, B.boxm(Vector3(5.6, 1.3, 0.06)), at.call(-0.6, 2.0, 1.85), Color(1.0, 0.86, 0.55), Vector3(0, deg, 0)).material_override = 		B.unshaded(Color(1.0, 0.86, 0.55))
+	B.mesh(self, B.boxm(Vector3(6.0, 0.08, 0.7)), at.call(-0.6, 2.25, 1.12), steel, Vector3(0, deg, 0))
+	B.mesh(self, B.boxm(Vector3(6.0, 1.08, 0.12)), at.call(-0.6, 2.05, 0.54), Color(0.2, 0.2, 0.22), Vector3(0, deg, 0))
+	for k in 6:
+		B.mesh(self, B.boxm(Vector3(1.0, 0.08, 1.4)), at.call(-3.1 + k, 2.7, 2.9), red if k % 2 == 0 else yel,
+			Vector3(-18.0, deg, 0))
+	var menu := B.sign_plate(self, "BURGERIT · OLUT", Color(0.08, 0.08, 0.08), yel, 0.32, 40, Color(0.9, 0.7, 0.1), "Helvetica Neue")
+	menu.position = at.call(3.4, 2.06, 2.1)
+	menu.rotation.y = yaw
+	# Hampurilainen kyltissä: sämpylä, pihvi ja juusto.
+	var bun := Color(0.85, 0.55, 0.22)
+	B.mesh(self, B.cyl(0.32, 0.36, 0.16, 16), at.call(3.4, 2.15, 2.85), bun)
+	B.mesh(self, B.cyl(0.37, 0.37, 0.08, 16), at.call(3.4, 2.15, 2.73), Color(0.35, 0.18, 0.1))
+	B.mesh(self, B.boxm(Vector3(0.62, 0.03, 0.62)), at.call(3.4, 2.15, 2.78), yel, Vector3(0, deg + 45.0, 0))
+	B.mesh(self, B.cyl(0.36, 0.33, 0.12, 16), at.call(3.4, 2.15, 2.63), bun)
+	# Baarijakkarat tiskin edessä ja kaksi seisomapöytää.
+	for k in 5:
+		var sp: Vector3 = at.call(-3.0 + k * 1.2, 2.85, 0.0)
+		B.mesh(self, B.cyl(0.03, 0.03, 0.75, 6), sp + Vector3(0, 0.37, 0), steel)
+		B.mesh(self, B.cyl(0.2, 0.2, 0.07, 12), sp + Vector3(0, 0.78, 0), red)
+	for u in [-2.5, 2.5]:
+		var tp: Vector3 = at.call(u, 6.0, 0.0)
+		B.mesh(self, B.cyl(0.05, 0.05, 1.05, 8), tp + Vector3(0, 0.52, 0), steel)
+		B.mesh(self, B.cyl(0.4, 0.4, 0.04, 14), tp + Vector3(0, 1.06, 0), Color(0.85, 0.85, 0.82))
+	var body := StaticBody3D.new()
+	add_child(body)
+	var cs := B.box_shape(Vector3(9.0, 3.6, 5.6), Vector3.ZERO)
+	cs.transform = Transform3D(Basis(Vector3.UP, yaw), at.call(0, -0.3, 1.8))
+	body.add_child(cs)
+	var front: Vector3 = at.call(-0.6, 4.6, 0.0)
+	front.y = h(front.x, front.z)
+	doors.append({"id": "zabuki", "pos": front, "out": Vector3(f.x, 0, f.y), "hint": "Zabukin tiskille (olut ja hampurilaiset)"})
+
+
+## Gasthaus: kyltti ja ovi torin puoleiselle pitkälle sivulle, "Huoneet 10 €" oven pieleen.
+func _gasthaus_front(obb: Dictionary, base: float, top: float) -> void:
+	var ay: Vector2 = obb.ay
+	var c: Vector2 = obb.center
+	var to_tori := (_tori_c - c) if _tori.size() >= 3 else ay
+	var side: Vector2 = ay if ay.dot(to_tori) >= 0.0 else -ay
+	var ax: Vector2 = obb.ax
+	var hy: float = (obb.size as Vector2).y / 2.0
+	var dq := c + side * (hy + 0.05)
+	var yaw := atan2(side.x, side.y)
+	var y := maxf(h(dq.x, dq.y) + 0.1, base + 0.2)
+	_doors.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(dq.x, y, dq.y)))
+	var lamp := B.mesh(self, B.sphere(0.12, 8), Vector3(dq.x, y + 2.5, dq.y) + Vector3(side.x, 0, side.y) * 0.3, Color.WHITE)
+	lamp.material_override = B.unshaded(Color(1.0, 0.85, 0.55))
+	var plate := B.sign_plate(self, "GASTHAUS", Color(0.16, 0.24, 0.16), Color(0.98, 0.9, 0.62), 0.8, 90,
+		Color(0.6, 0.5, 0.2), "Georgia")
+	var sp := c + side * (hy + 0.12)
+	plate.position = Vector3(sp.x, minf(top - 0.9, base + 4.6), sp.y)
+	plate.rotation.y = yaw
+	var price := B.sign_plate(self, "HUONEET 10 €", Color(0.95, 0.93, 0.86), Color(0.16, 0.24, 0.16), 0.24, 36,
+		Color(0.16, 0.24, 0.16), "Georgia")
+	var pq := dq + ax * 1.0 + side * 0.08
+	price.position = Vector3(pq.x, y + 1.6, pq.y)
+	price.rotation.y = yaw
+	var out := Vector3(side.x, 0, side.y)
+	var front := Vector3(dq.x, h(dq.x, dq.y), dq.y) + out * 2.2
+	doors.append({"id": "gasthaus", "pos": front, "out": out, "hint": "Gasthausiin (huone yöksi 10 €)"})
 
 
 ## Parvekkeet kerrostalon pitkille sivuille (toinen kerros ylöspäin), 6 m välein.
