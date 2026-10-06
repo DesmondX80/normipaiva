@@ -71,7 +71,7 @@ var values := {
 	"mouse_steer_indoor": false,  # sisätiloissa hiiri kääntää hahmoa (muuten W/A/S/D ruudun suuntiin, kursori vapaana)
 	"keys": {},  # vaihdetut näppäimet: KEY_ROWS-rivin ensimmäinen toiminto -> [näppäin1, näppäin2, hiiri] (0 = ei mitään)
 }
-var _hint_re := RegEx.create_from_string(r"\[([A-Z])\]")
+var _hint_re := RegEx.create_from_string(r"\[(Shift\+)?([A-Z])\]")
 ## Tosi, jos tämä käynnistys tallensi yhteensopivan grafiikan pysyväksi (Windowsin varakäynnistin).
 var renderer_auto_saved := false
 
@@ -245,9 +245,9 @@ func key_hint(s: String) -> String:
 	var out := ""
 	var at := 0
 	for m in _hint_re.search_all(s):
-		var letter := m.get_string(1)
+		var letter := m.get_string(2)
 		if HINT_KEYS.has(letter):
-			out += s.substr(at, m.get_start() - at) + "[" + action_key(HINT_KEYS[letter]) + "]"
+			out += s.substr(at, m.get_start() - at) + "[" + m.get_string(1) + action_key(HINT_KEYS[letter]) + "]"
 			at = m.get_end()
 	return out + s.substr(at)
 
