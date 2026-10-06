@@ -267,6 +267,7 @@ func _settings(from: String) -> void:
 	_check(c, "Käänteinen pystyakseli", "invert_y")
 	_check(c, "Hiiri kääntää kameraa", "mouse_look")
 	_check(c, "Hiiri ohjaa kulkusuuntaa (FPS-tyyli)", "mouse_steer")
+	_check(c, "Sisätiloissa hiiri ohjaa kulkusuuntaa", "mouse_steer_indoor")
 	_check(c, "Kamera palaa itsestään taakse", "auto_recenter")
 	_keys_tab(tabs)
 	_button("Takaisin", func() -> void: _back(from))

@@ -68,6 +68,7 @@ var values := {
 	"auto_recenter": true,
 	"mouse_look": true,
 	"mouse_steer": false,  # hiiri ohjaa kulkusuuntaa (FPS-tyyli), W/S eteen ja taakse
+	"mouse_steer_indoor": false,  # sisätiloissa hiiri kääntää hahmoa (muuten W/A/S/D ruudun suuntiin, kursori vapaana)
 	"keys": {},  # vaihdetut näppäimet: KEY_ROWS-rivin ensimmäinen toiminto -> [näppäin1, näppäin2, hiiri] (0 = ei mitään)
 }
 var _hint_re := RegEx.create_from_string(r"\[([A-Z])\]")
