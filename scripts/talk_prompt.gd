@@ -99,7 +99,7 @@ func show_for(target: Node3D, key: String, action: String, who: String, color: C
 
 
 func _process(delta: float) -> void:
-	var on := Engine.get_process_frames() - _seen <= 1 and is_instance_valid(_target)
+	var on := Engine.get_process_frames() - _seen <= 1
 	_a = move_toward(_a, 1.0 if on else 0.0, delta * (7.0 if on else 10.0))
 	visible = _a > 0.0
 	if not visible:

@@ -92,11 +92,11 @@ func is_open() -> bool:
 
 
 ## Avaa keskustelun: puhujan nimi ja väri, aloitusrepliikki ja vaihtoehdot.
-func open(who: String, color: Color, line: String, options: Array) -> void:
+func open(who: String, color: Color, line: String, options: Array, info := "") -> void:
 	speaker = who
 	_color = color
 	_line = line
-	_info = ""
+	_info = info
 	_pages.clear()
 	_options = options
 	_sel = _first_enabled()

@@ -586,17 +586,43 @@ var ball: Node3D
 var has_ball := false
 var _ball_quest := ""  # "" = ei annettu, "search" = etsitään, "done" = hoidettu
 var _item_menu: PanelContainer
-## Keskusteluikkuna (dialogue_box.gd): naapurin kanssa kaikki asiat valintoina; _talk_who = "arto" / "pekka" / "sinikka".
+## Keskusteluikkuna (dialogue_box.gd): hahmon kanssa kaikki asiat valintoina; _talk_who = TALKERS-avain,
+## _talk_node = hahmo, jonka luota poistuminen katkaisee keskustelun (null: ei etäisyystarkistusta).
 var _talk_box: CanvasLayer
-var _talk_prompt: Control  # puhevihje naapurin pään päällä (talk_prompt.gd)
+var _talk_prompt: Control  # puhevihje ruudun alaosassa (talk_prompt.gd)
 var _talk_who := ""
+var _talk_node: Node3D
+var _talk_kind := ""  # tila avattaessa (ulkona "ulko"); tilan vaihtuessa keskustelu katkeaa
 var _talk_end_frame := -1  # sulkemisruudulla E ei saa avata uutta keskustelua tai muuta toimintoa
-const TALK_COLORS := {"arto": Color(0.55, 0.85, 0.45), "pekka": Color(1.0, 0.6, 0.25), "sinikka": Color(1.0, 0.55, 0.75)}
-const TALK_GEN := {"arto": "Arton", "pekka": "Pekan", "sinikka": "Sinikan"}
+## Puhuttavat hahmot: nimi keskusteluikkunassa ja puhevihjeessä sekä nimen väri.
+const TALKERS := {
+	"arto": ["Arto", Color(0.55, 0.85, 0.45)],
+	"pekka": ["Pekka", Color(1.0, 0.6, 0.25)],
+	"sinikka": ["Sinikka", Color(1.0, 0.55, 0.75)],
+	"santtu": ["Santtu", Color(0.45, 0.75, 1.0)],
+	"kalle": ["Korpi-Kalle", Color(0.85, 0.68, 0.4)],
+	"sulo": ["Pannu-Sulo", Color(0.8, 0.8, 0.55)],
+	"pojat": ["Jalkapallopojat", Color(0.5, 0.9, 0.85)],
+	"taksi": ["Taksikuski", Color(1.0, 0.85, 0.2)],
+	"raahe": ["Baarimikko", Color(0.95, 0.72, 0.5)],
+	"visa": ["Visamestari", Color(0.72, 0.62, 1.0)],
+	"siitari": ["Baarimikko", Color(0.95, 0.72, 0.5)],
+	"siitari_sinikka": ["Sinikka", Color(1.0, 0.55, 0.75)],
+	"kauppias": ["Kauppias", Color(0.6, 0.82, 1.0)],
+	"paivi": ["Päivi", Color(1.0, 0.42, 0.38)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
 	"pekka": ["No perkele, naapuri!", "Terve terve, saatana.", "Kas, sieltähän se tulee."],
-	"sinikka": ["Hei kulta... tuu vähän lähemmäs.", "No hei komistus.", "Kas, mun lempinaapuri."]}
+	"sinikka": ["Hei kulta... tuu vähän lähemmäs.", "No hei komistus.", "Kas, mun lempinaapuri."],
+	"santtu": ["No terve, mitäs?", "Jaa, sinä. Mitä nyt?", "Noh? Kahvit on keittiössä."],
+	"kalle": ["Kuka sut tänne lähetti?", "Hiljaa ja nopeesti. Mitä?", "Ei tänne kukaan eksy vahingossa."],
+	"sulo": ["Mitä sää täällä kuusikossa?", "Ei kuulu kellekään, mitä täällä tehdään.", "No?"],
+	"pojat": ["Moi setä!", "Mitä setä?", "Setä, ootko nähny meiän palloa?"],
+	"taksi": ["No mihinkäs lähetään?", "Kyytiä vailla?"],
+	"kauppias": ["Päivää! Löytykö kaikki?", "Seuraava, olkaa hyvä."],
+	"paivi": ["No? Toitko ne?", "Siinähän sää vihdoin oot. Annappa kassi."]}
+const POJAT_LINES := ["Meiän isä sanoo, että Saloisissa on Suomen parhaat mansikat.", "Setä, osaatko pallotella?",
+	"Me pelataan tässä joka päivä. Paitsi kun sataa.", "Meiän pallo on ihan uus. Tai oli."]
 var _menu_mode := "give"  # esinevalikon käyttö: "give" (pojat) tai "eat" (T: syö)
 ## Eväät kaupan leipähyllystä: avain -> kpl (syödään T:llä, häviävät yöllä kuten kaljat).
 var food := {}
@@ -953,6 +979,8 @@ func _process(delta: float) -> void:
 		_puuhat_tick(at_mokki)
 
 	_hint.text = ""
+	if _talk_box.is_open():
+		_talk_watch()
 	if not away:
 		_traffic_tick(delta)
 	_indoor_eat()
@@ -967,9 +995,12 @@ func _process(delta: float) -> void:
 			_stats_tick(delta)
 		"in_shop":
 			_hint.text = interior.hint
+			if interior.at_till and not interior.busy and not _talk_box.is_open():
+				_talk_hint("kauppias", null)
 		"in_siitari":
 			if not _item_menu.is_open():
 				_hint.text = siitari_int.hint
+				_bar_prompt(siitari_int, {"tiski": "siitari", "sinikka": "siitari_sinikka"})
 			tilat.add("humala", -0.002 * delta)
 			tilat.add("stressi", 0.004 * delta)
 			if _paivi_call_t > 0.0 and _hud.visible:  # karaoken aikana puhelin ei kuulu
@@ -979,6 +1010,7 @@ func _process(delta: float) -> void:
 		"in_raahe":
 			if not _item_menu.is_open():
 				_hint.text = raahe_int.hint
+				_bar_prompt(raahe_int, {"tiski": "raahe", "kellari_tiski": "raahe", "visa": "visa"})
 			# Päivi saattaa tulla etsimään (ei kesken minipelin tai valikon).
 			if _raahe.get("paivi_t", -1.0) > 0.0 and not raahe_int.busy and not _item_menu.is_open():
 				_raahe.paivi_t -= delta
@@ -1191,7 +1223,6 @@ func _outside_logic() -> void:
 	if _item_menu.is_open():
 		return  # esinevalikko ottaa E:n, W/S:n ja Q:n
 	if _talk_box.is_open():
-		_talk_watch()
 		return  # keskusteluikkuna ottaa E:n, numerot, W/S:n ja Q:n
 	if Engine.get_process_frames() == _talk_end_frame:
 		return
@@ -2686,24 +2717,14 @@ func _boys_logic() -> void:
 		return
 	if _hint.text != "" or boys.mode != "idle" or boys.distance_to_target() > 4.0 or player.is_stunned():
 		return
-	if player == bike:
-		_hint.text = "Nouse pyörän selästä (F), niin voit jutella poikien kanssa."
+	if _ball_quest == "done":
+		_hint.text = "Pojat pelaa palloa."
 		return
-	match _ball_quest:
-		"":
-			_hint.text = "[E] Juttele poikien kanssa"
-			if e:
-				_give_ball_quest()
-		"search":
-			_hint.text = "[E] Anna pojille jotain"
-			if e:
-				_open_give_menu()
-		"done":
-			_hint.text = "Pojat pelaa palloa."
+	_talk_hint("pojat", boys, player != bike)
 
 
 ## Pallo arvotaan 100–300 m päähän pelialueelle (ei veteen); pojat kertovat suunnan.
-func _give_ball_quest() -> void:
+func _give_ball_quest() -> String:
 	var c: Vector3 = boys.global_position
 	for attempt in 60:
 		var a := randf() * TAU
@@ -2717,13 +2738,13 @@ func _give_ball_quest() -> void:
 		_ball_quest = "search"
 		var names := ["itään", "kaakkoon", "etelään", "lounaaseen", "länteen", "luoteeseen", "pohjoiseen", "koilliseen"]
 		var way: String = names[posmod(roundi(a / (TAU / 8.0)), 8)]
-		boys.say("Meiän pallo on hukassa! Se lensi tosi kauas %s." % way, 0, 4.0)
-		_show_message("Pojat: \"Meiän jalkapallo on hukassa! Se lensi tosi kauas %s.\"\nEtsi pallo ja tuo se pojille." % way, 4.5)
 		tilat.first("pojat")
-		return
+		return "Meiän pallo on hukassa! Se lensi tosi kauas %s." % way
+	return "Ei me tarvita mitään, kiitti."
 
 
-func _open_give_menu() -> void:
+## Mitä pojille voi antaa: [[id, nimi], ...].
+func _give_items() -> Array:
 	var items: Array = []
 	if has_ball:
 		items.append(["pallo", "Jalkapallo"])
@@ -2745,15 +2766,7 @@ func _open_give_menu() -> void:
 		items.append(["ostokset", "Päivin ostokset"])
 	if kota_halot > 0:
 		items.append(["halko", "Halko"])
-	if items.is_empty():
-		_show_message("Sinulla ei ole mitään annettavaa. Pallo pitää ensin löytää.", 2.5)
-		return
-	player.controls_enabled = false
-	player.speed = 0.0
-	_msg.text = ""
-	_msg_time = 0.0
-	_menu_mode = "give"
-	_item_menu.open(items, "Mitä annat pojille?")
+	return items
 
 
 ## T: syömävalikko mukana olevista eväistä.
@@ -2786,7 +2799,8 @@ func _active_walker() -> CharacterBody3D:
 
 ## T sisätiloissa: sama syö/juo-valikko kuin ulkona, kun hahmo on vapaana (ei minipeliä, keskustelua tai valikkoa).
 func _indoor_eat() -> void:
-	if not state in ["in_shop", "in_siitari", "in_raahe", "in_home", "in_mokki", "in_garage"] or _item_menu.is_open():
+	if not state in ["in_shop", "in_siitari", "in_raahe", "in_home", "in_mokki", "in_garage"] or _item_menu.is_open() \
+			or _talk_box.is_open():
 		return
 	if Input.is_action_just_pressed("eat") and _active_walker().controls_enabled:
 		_open_eat_menu()
@@ -2929,8 +2943,8 @@ func _on_eat(id: String) -> void:
 
 
 ## Esine pojille: pallo = palkkio, kalja = pojat juoksevat nauraen pois, muu = heittävät takaisin ja kivisade.
-func _on_give(id: String) -> void:
-	player.controls_enabled = true
+## Pallosta palauttaa keskusteluikkunan inforivin (muut lopettavat keskustelun ja näkyvät viestinä).
+func _on_give(id: String) -> String:
 	match id:
 		"pallo":
 			has_ball = false
@@ -2942,9 +2956,8 @@ func _on_give(id: String) -> void:
 			tilat.add("moraali", randf_range(0.1, 0.5))
 			tilat.add("kokemus", randf_range(0.4, 0.6) if first else randf_range(0.1, 0.3))
 			boys.play_ball()
-			boys.say("Kiitti setä! Tässä euro.", 1, 3.0)
 			Sfx.play("win_small")
-			_show_message("Pallo palautettu! Pojat antoi %s €." % _eur(BALL_REWARD), 3.0)
+			return "Pallo palautettu! Pojat antoi %s €." % _eur(BALL_REWARD)
 		"kalja":
 			beers -= 1
 			player.set_carrying(beers > 0)
@@ -2954,6 +2967,7 @@ func _on_give(id: String) -> void:
 		_:
 			boys.stone()
 			_show_message("Pojat heitti sen takaisin ja alkoi heitellä kivillä!", 3.0)
+	return ""
 
 
 ## Jatkuvat tilavaikutukset ulkona (sekunnissa). Arvot ovat -1..+1, joten 0,01/s = minuutissa 0,6.
@@ -3240,11 +3254,7 @@ func _errand_logic() -> void:
 	var p := player.global_position
 	if Vector2(p.x - home_door.x, p.z - home_door.z).length() > HOME_DOOR_ZONE:
 		return
-	_hint.text = "[E] Anna ostokset Päiville"
-	if Input.is_action_just_pressed("interact"):
-		for l in _check_list():
-			_queue_message(l, 3.0)
-		player.set_carrying(beers > 0)
+	_talk_hint("paivi", null)
 
 
 ## Vieras koira puri: kaatuu, ja jalka ontuu, kunnes haava hoidetaan.
@@ -3423,29 +3433,7 @@ func _vaino_logic() -> void:
 		return
 	var e := Input.is_action_just_pressed("interact")
 	if vaino.mode == "follow":
-		if pekka.distance_to_player() > 4.2:
-			return
-		if player == bike:
-			_hint.text = "Nouse pyörän selästä (F), niin voit palauttaa Väinön Pekalle."
-			return
-		if vaino.distance_to_target() > 6.0:
-			_hint.text = "Väinö jäi jälkeen. Odota, että se ehtii perään."
-			return
-		_hint.text = "[E] Palauta Väinö Pekalle"
-		if e:
-			vaino.queue_free()
-			vaino = null
-			money += VAINO_MONEY
-			var beer := beers < CARRY_FOOT
-			if beer:
-				beers += 1
-				player.set_carrying(true)
-			pekka.say("Hyvä poika! Siis Väinö. Tässä vitonen%s." % (" ja kalja" if beer else ""))
-			Sfx.play("win_small")
-			_task_done(true)
-			tilat.first("vaino", 0.5)
-			_show_message("Väinö kotona! Pekka antoi %s €%s." % [_eur(VAINO_MONEY), " ja kaljan" if beer else ""], 3.5)
-		return
+		return  # palautus Pekan keskusteluikkunassa (_talk_options)
 	if vaino.distance_to_target() > 2.4:
 		return
 	if player == bike:
@@ -3485,33 +3473,7 @@ func _kalle_logic() -> void:
 		return
 	if walker_out.global_position.distance_to(kalle.global_position) > 3.6:
 		return
-	if not has_korpihiiva and not mwine_locked:
-		if Input.is_action_just_pressed("bell") and money >= KORPIHIIVA_PRICE:
-			money -= KORPIHIIVA_PRICE
-			has_korpihiiva = true
-			kalle.say("Mun oma hiivakanta. Viidessä päivässä valmista, kunhan sokeria on reilusti.", 4.0)
-			_show_message("Korpihiivaa reppuun. Viini käy sillä viidessä päivässä (Paapelin viinisaavi pöntön takana).", 3.0)
-			return
-	var yeast_opt := "   [Q] Osta korpihiivaa (%s €, viini viidessä päivässä)" % _eur(KORPIHIIVA_PRICE) \
-		if not has_korpihiiva and not mwine_locked and money >= KORPIHIIVA_PRICE else ""
-	if _kalle_sold >= PONTIKKA_DAY:
-		_hint.text = "Korpi-Kalle: \"Tänään ei enää pontikkaa.\"" + yeast_opt
-		return
-	if money < PONTIKKA_PRICE:
-		_hint.text = "Korpi-Kalle myy pontikkaa %s € pullo. Rahat ei riitä." % _eur(PONTIKKA_PRICE)
-		return
-	_hint.text = "[E] Osta Korpi-Kallelta pullo pontikkaa (%s €)" % _eur(PONTIKKA_PRICE) + yeast_opt
-	if not Input.is_action_just_pressed("interact") or player.is_stunned():
-		return
-	money -= PONTIKKA_PRICE
-	pontikka += 1
-	_kalle_sold += 1
-	Sfx.play("glass", -6.0, 0.9)
-	tilat.first("korpikalle", 0.4)
-	kalle.say(Korpikeittaja.LINES.pick_random())
-	_show_message("Pullo pontikkaa reppuun (%d). Santtu tekee sillä homman, lavalla se rohkaisee, ja Siitarin pihalla sen saa myytyä." % pontikka, 3.5)
-	if randf() < RAID_BUY:
-		_nimismies_raid()
+	_talk_hint("kalle", kalle)
 
 
 ## Nimismies tulee metsätieltä Kallen pannulle: juokse karkuun (nimismies.gd).
@@ -3612,26 +3574,7 @@ func _pontikka_sell_logic() -> void:
 func _pontikka_logic() -> void:
 	if _hint.text != "" or sulo.distance_to_player() > 4.2:
 		return
-	if player == bike:
-		_hint.text = "Nouse pyörän selästä (F), niin voit jutella Sulon kanssa."
-		return
-	if has_kanister or _sulo_sold:
-		_hint.text = "Sulo: \"Tänään ei oo enempää. Tuu huomenna.\""
-		return
-	if money < KANISTER_PRICE:
-		_hint.text = "Sulo myy pontikkakanisterin %s eurolla. Rahat ei riitä." % _eur(KANISTER_PRICE)
-		return
-	_hint.text = "[E] Osta Pannu-Sulolta kanisteri (%s €, = %d kaljaa)" % [_eur(KANISTER_PRICE), KANISTER_BEERS]
-	if Input.is_action_just_pressed("interact") and not player.is_stunned():
-		money -= KANISTER_PRICE
-		has_kanister = true
-		tilat.first("pontikka", 0.5)
-		_sulo_sold = true
-		walker_out.set_kanister(true)
-		state = "to_home"
-		sulo.say("Kakskymppiä ja suu suppuun. Ja kanisteri takasin, kun on tyhjä.")
-		Sfx.play("coin", -4.0)
-		_show_message("Pontikkakanisteri mukana, vastaa %d kaljaa!\nVie se kotiin jemmaan." % KANISTER_BEERS, 3.5)
+	_talk_hint("sulo", sulo, player != bike)
 
 
 ## K-Marketin taksitolpan taksi: jalan E vie Raahen baariin, jos rahaa on taksiin.
@@ -3650,26 +3593,12 @@ func _taxi_logic() -> void:
 			_show_message("Kuski: \"Hyppää kyytiin! Maksat sitte.\"", 2.5)
 			_taxi_trip(true)
 		return
-	if player == bike:
-		_hint.text = "Taksi: nouse pyörän selästä (F)."
-	elif money < TAXI_FARE:
-		_hint.text = "Taksi Raahen baariin maksaa %s €, Paapeliin %s €. Rahat ei riitä." % [_eur(TAXI_FARE), _eur(TAXI_MOKKI_FARE)]
-	else:
-		_hint.text = "[E] Taksi: Raahen baariin tai Paapelin mökille"
-		if Input.is_action_just_pressed("interact") and not player.is_stunned():
-			player.controls_enabled = false
-			player.speed = 0.0
-			_menu_mode = "taksi"
-			_item_menu.open([["raahe", "Raahen baariin – %s € (meno-paluu)" % _eur(TAXI_FARE)],
-				["paapeli", "Paapelin mökille – %s € (meno-paluu)" % _eur(TAXI_MOKKI_FARE)]],
-				"Kuski: \"No mihinkäs lähetään?\"")
+	_talk_hint("taksi", null, player != bike)
 
 
 ## Taksireissu: menomatka, kädenvääntö Raahen baarissa, paluu kotipihaan Päivin eteen ja uusi päivä kotoa.
 ## Pyörä jää kaupan pihaan.
 func _on_taxi_choice(id: String) -> void:
-	_menu_mode = "give"
-	player.controls_enabled = true
 	if id == "paapeli":
 		if money < TAXI_MOKKI_FARE:
 			_show_message("Kuski: \"Paapeliin on pitkä matka. %s € tai ei mitään.\"" % _eur(TAXI_MOKKI_FARE), 3.0)
@@ -3767,20 +3696,13 @@ func _on_raahe_paivi_caught() -> void:
 func _on_raahe_acted(kind: String) -> void:
 	match kind:
 		"tiski":
-			raahe_int.bartender_say("Mitäs laitetaan?")
-			var items: Array = []
-			for id in RAAHE_MENU:
-				var m: Array = RAAHE_MENU[id]
-				items.append([id, "%s – %s €" % [m[0], _eur(m[1])]])
-			items.append(["takaisin", "Takaisin"])
-			_menu_mode = "raahe"
-			raahe_int.walker.controls_enabled = false
-			_item_menu.open(items, "Kapteenin Kulma · rahaa %s €" % _eur(money))
+			_talk_open("raahe", null, "Mitäs laitetaan?")
 		"tero":
 			_raahe_wrestle()
 		"visa":
 			if _raahe.quiz >= 0:
-				raahe_int.quizmaster_say("Tämän illan visa on jo räknätty. Tuu ensi tiistaina uudestaan!")
+				_quiz.clear()
+				_talk_open("visa", null, "Tämän illan visa on jo räknätty. Tuu ensi tiistaina uudestaan!")
 				return
 			_quiz.clear()
 			var pool := RAAHE_QUIZ.duplicate()
@@ -3791,8 +3713,8 @@ func _on_raahe_acted(kind: String) -> void:
 				_quiz.append([q[0], opts, q[1][0]])
 			_quiz_i = 0
 			_quiz_right = 0
-			raahe_int.quizmaster_say("Tiistain visa! Kolme kysymystä Raahesta. Kaikki oikein, niin visajuoma on talon.")
-			_ask_quiz()
+			_talk_open("visa", null, "Tiistain visa! Kolme kysymystä Raahesta. Kaikki oikein, niin visajuoma on talon.\n\n"
+				+ _quiz_question())
 		"karaoke":
 			if money < RAAHE_KARAOKE_PRICE:
 				_show_message("Karaoke maksaa %s €. Rahat ei riitä." % _eur(RAAHE_KARAOKE_PRICE), 2.5)
@@ -3833,14 +3755,39 @@ func _raahe_wrestle() -> void:
 			_show_message("Hävisit. Tarjosit ruukin porukalle kierroksen (%s €)." % _eur(paid), 3.5))
 
 
-func _ask_quiz() -> void:
+func _quiz_question() -> String:
+	return "Kysymys %d/3: %s" % [_quiz_i + 1, _quiz[_quiz_i][0]]
+
+
+## Visan vastaus keskusteluikkunassa: oikein/väärin, seuraava kysymys tai tulos.
+func _quiz_answer(k: int) -> void:
 	var q: Array = _quiz[_quiz_i]
-	var items: Array = []
-	for k in (q[1] as Array).size():
-		items.append(["visa_%d" % k, q[1][k]])
-	_menu_mode = "raahe"
-	raahe_int.walker.controls_enabled = false
-	_item_menu.open(items, "Visa %d/3: %s" % [_quiz_i + 1, q[0]])
+	var pick: String = q[1][k]
+	var res := ""
+	if pick == q[2]:
+		_quiz_right += 1
+		Sfx.play("win_small", -8.0)
+		res = "Oikein! %s" % q[2]
+	else:
+		Sfx.play("lose", -10.0)
+		res = "Väärin! Oikea vastaus: %s" % q[2]
+	if not res.right(1) in [".", "!", "?"]:
+		res += "."
+	_quiz_i += 1
+	if _quiz_i < _quiz.size():
+		_talk_box.reply(res + "\n\n" + _quiz_question(), _talk_options())
+		return
+	_raahe.quiz = _quiz_right
+	_quiz.clear()
+	tilat.first("pubivisa", 0.3)
+	tilat.add("keskittyminen", 0.05 * _quiz_right)
+	if _quiz_right == 3:
+		tilat.add("moraali", 0.2)
+		tilat.add("humala", 0.14)
+		_talk_box.reply(res + " Kaikki oikein! Visajuoma talon piikkiin.", _talk_options(),
+			"Visa 3/3! Ruukin porukka: \"Saloisista ja tietää Raahen!\"")
+	else:
+		_talk_box.reply(res + " Ensi tiistaina uudestaan!", _talk_options(), "Visa %d/3." % _quiz_right)
 
 
 ## Karaoke Kapteenin Kellarissa: "Ruukin valot".
@@ -3874,39 +3821,11 @@ func _raahe_karaoke() -> void:
 	add_child(game)
 
 
-func _on_raahe(id: String) -> void:
-	raahe_int.walker.controls_enabled = true
-	raahe_int.block_interact()
-	if id == "takaisin":
-		return
-	if id.begins_with("visa_"):
-		var q: Array = _quiz[_quiz_i]
-		var pick: String = q[1][int(id.trim_prefix("visa_"))]
-		if pick == q[2]:
-			_quiz_right += 1
-			Sfx.play("win_small", -8.0)
-			raahe_int.quizmaster_say("Oikein! %s." % q[2], 2.5)
-		else:
-			Sfx.play("lose", -10.0)
-			raahe_int.quizmaster_say("Väärin! Oikea vastaus: %s." % q[2], 3.0)
-		_quiz_i += 1
-		if _quiz_i < _quiz.size():
-			_ask_quiz()
-			return
-		_raahe.quiz = _quiz_right
-		tilat.first("pubivisa", 0.3)
-		tilat.add("keskittyminen", 0.05 * _quiz_right)
-		if _quiz_right == 3:
-			tilat.add("moraali", 0.2)
-			tilat.add("humala", 0.14)
-			_show_message("Visa 3/3! Voitit: visajuoma talon piikkiin. Ruukin porukka: \"Saloisista ja tietää Raahen!\"", 4.0)
-		else:
-			_show_message("Visa %d/3. Visamestari: \"Ensi tiistaina uudestaan!\"" % _quiz_right, 3.0)
-		return
+## Juoma Kapteenin Kulman tiskiltä: palauttaa [baarimikon repliikki, inforivi].
+func _on_raahe(id: String) -> Array:
 	var m: Array = RAAHE_MENU[id]
 	if money < m[1]:
-		_show_message("Rahat ei riitä (%s €)." % _eur(money), 2.0)
-		return
+		return ["Rahat ei riitä.", "Rahaa %s €." % _eur(money)]
 	money -= m[1]
 	if id == "kahvi":
 		_coffee()
@@ -3915,37 +3834,17 @@ func _on_raahe(id: String) -> void:
 	tilat.add("moraali", m[4])
 	Sfx.play("glass" if m[2] > 0.0 else "pickup", -6.0, 0.9)
 	tilat.first("raahe_" + id, 0.1)
-	_show_message("%s. %s" % [m[0], RAAHE_LINES.pick_random()], 3.0)
+	return [RAAHE_LINES.pick_random(), "%s, −%s €." % [m[0], _eur(m[1])]]
 
 
-## Naapurit (Arto, Pekka, Sinikka): lähellä vihje, E avaa keskusteluikkunan, jossa kaikki asiat ovat valintoina.
+## Naapurit (Arto, Pekka, Sinikka): lähellä puhevihje, E avaa keskusteluikkunan.
 func _neighbor_logic() -> void:
 	if _hint.text != "":
 		return
 	for v in [sinikka, pekka, arto]:
 		if v.distance_to_player() > 4.2:
 			continue
-		var who := _villager_id(v)
-		var name: String = v.display_name.trim_prefix("Naapurin ")
-		# Vanha vihjerivi pysyy tekstinä (estää muut vihjeet ja testit lukevat sen), mutta näkyviin tulee pään päälle
-		# piirretty puhevihje.
-		if player == bike:
-			_hint.text = " "
-			_talk_prompt.show_for(v, Settings.action_key("mount"), "Nouse pyörältä", name, TALK_COLORS[who], "jutellaksesi")
-		else:
-			_hint.text = " "
-			var saved := _talk_who
-			_talk_who = who
-			var can: Array = _talk_options().filter(func(o: Dictionary) -> bool:
-				return o.enabled and not o.id in ["juttu", "lopeta"])
-			_talk_who = saved
-			var sub := " · ".join(can.slice(0, 2).map(func(o: Dictionary) -> String: return String(o.text).get_slice(" (", 0)))
-			if can.size() > 2:
-				sub += " …"
-			var hot := can.any(func(o: Dictionary) -> bool: return o.id in ["tarina", "mustikat"])
-			_talk_prompt.show_for(v, Settings.action_key("interact"), "Puhu", name, TALK_COLORS[who], sub, hot)
-			if Input.is_action_just_pressed("interact"):
-				_talk(v)
+		_talk_hint(_villager_id(v), v, player != bike)
 		return
 
 
@@ -3953,47 +3852,124 @@ func _villager_id(v: Node) -> String:
 	return "arto" if v == arto else ("pekka" if v == pekka else "sinikka")
 
 
-func _talk_npc() -> CharacterBody3D:
-	return {"arto": arto, "pekka": pekka, "sinikka": sinikka}[_talk_who]
+# --- Keskustelut (dialogue_box.gd, talk_prompt.gd) ---------------------------------------------------------
+# Kaikki hahmot samalla mallilla: _talk_hint näyttää puhevihjeen ja avaa E:llä, _talk_options antaa hahmon kaikki
+# asiat (mahdottomat harmaana syyn kanssa), _talk_choose toteuttaa valinnan ja hahmo vastaa samaan ikkunaan.
+
+## Puhevihje hahmolle (talk_prompt.gd) ja E avaa keskustelun. Vihjeriville jää välilyönti, joka estää muut vihjeet
+## (vanha vihjerivi ei näy, puhevihje on sen paikalla). on_foot = false: kehotus nousta pyörän selästä.
+func _talk_hint(who: String, node: Node3D, on_foot := true) -> void:
+	_hint.text = " "
+	var nm: String = TALKERS[who][0]
+	if not on_foot:
+		_talk_prompt.show_for(node, Settings.action_key("mount"), "Nouse pyörältä", nm, TALKERS[who][1], "jutellaksesi")
+		return
+	var can: Array = _talk_options(who).filter(func(o: Dictionary) -> bool:
+		return o.enabled and not o.id in ["juttu", "lopeta"])
+	var sub := " · ".join(can.slice(0, 2).map(func(o: Dictionary) -> String: return String(o.text).get_slice(" (", 0)))
+	if can.size() > 2:
+		sub += " …"
+	var hot := can.any(func(o: Dictionary) -> bool: return o.get("hot", false))
+	_talk_prompt.show_for(node, Settings.action_key("interact"), "Puhu", nm, TALKERS[who][1], sub, hot)
+	if Input.is_action_just_pressed("interact") and Engine.get_process_frames() != _talk_end_frame \
+			and not (_active_walker().has_method("is_stunned") and _active_walker().is_stunned()):
+		_talk_open(who, node)
 
 
-func _talk(v: CharacterBody3D) -> void:
-	_talk_who = _villager_id(v)
-	walker_out.controls_enabled = false
-	walker_out.speed = 0.0
-	v.quiet = true
-	v.say("")
+## Baarien puhuttavat pisteet (tiski, visa, Sinikka): puhevihje vihjerivin tilalle. E:n käsittelee sisätila itse
+## (acted-signaali), joka avaa keskustelun.
+func _bar_prompt(bar: Node, talkers: Dictionary) -> void:
+	if bar.busy or _talk_box.is_open() or not talkers.has(bar.spot):
+		return
+	var who: String = talkers[bar.spot]
+	var sub := "Juomat ja kahvit" if who in ["raahe", "siitari"] else ("Tiistain pubivisa" if who == "visa" else "Tanssi · Tarjoa lonkero")
+	_hint.text = " "
+	_talk_prompt.show_for(null, Settings.action_key("interact"), "Puhu", TALKERS[who][0], TALKERS[who][1], sub)
+
+
+func _talk_state_kind() -> String:
+	return "ulko" if state in ["to_shop", "to_home"] else state
+
+
+## Avaa keskustelun: ohjattava hahmo pysähtyy, sisätilan toimintopisteet ja hahmon omat repliikit tauolle.
+func _talk_open(who: String, node: Node3D, hello := "") -> void:
+	_talk_who = who
+	_talk_node = node
+	_talk_kind = _talk_state_kind()
+	var w := _active_walker()
+	w.controls_enabled = false
+	if "speed" in w:
+		w.speed = 0.0
+	_interior_busy(true)
+	if node != null and "quiet" in node:
+		node.quiet = true
+		node.say("")
 	CamCtl.free_mouse = true
 	_msg.text = ""
 	_msg_time = 0.0
-	var hello: String = TALK_HELLO[_talk_who].pick_random()
-	if _talk_who == "pekka" and story.step in ["pekka_kutsuu", "pekka_avaimet"]:
-		hello = "Hei! Tuu tänne, mulla ois asiaa!"
-	_talk_box.open(v.display_name.trim_prefix("Naapurin "), TALK_COLORS[_talk_who], hello, _talk_options())
+	if hello == "":
+		hello = _talk_hello(who)
+	_talk_box.open(TALKERS[who][0], TALKERS[who][1], hello, _talk_options(), _talk_open_info(who))
 	# Päivi huomaa, jos juttelet Sinikan kanssa hänen lähellään.
-	if _talk_who == "sinikka" and is_instance_valid(wife) and wife.visible \
+	if who == "sinikka" and is_instance_valid(wife) and wife.visible \
 			and wife.global_position.distance_to(player.global_position) < 30.0 and _once_today("sinikka_paivi"):
 		tilat.add("stressi", -0.2)
 		_show_message("Päivi: \"Mitä sää siellä Sinikan pihalla notkut?!\"", 3.0)
 
 
-## Keskustelu katkeaa, jos tilanne muuttuu (välianimaatio, kauppa, naapuri meni sisälle tai pelaaja siirtyi).
+func _talk_hello(who: String) -> String:
+	if who == "pekka" and story.step in ["pekka_kutsuu", "pekka_avaimet"]:
+		return "Hei! Tuu tänne, mulla ois asiaa!"
+	if who == "pekka" and is_instance_valid(vaino) and vaino.mode == "follow":
+		return "VÄINÖ! Siinähän se on, perkele!"
+	return TALK_HELLO[who].pick_random() if TALK_HELLO.has(who) else ""
+
+
+func _talk_open_info(who: String) -> String:
+	match who:
+		"santtu":
+			if hommat.active:
+				return "Santun hermot: %s %s" % [hommat.bar(), hommat.mood()]
+		"kauppias":
+			return interior.price_note()
+		"raahe", "siitari":
+			return "Rahaa %s €." % _eur(money)
+	return ""
+
+
+## Keskustelu katkeaa, jos tilanne muuttuu (välianimaatio, tila vaihtui, hahmo meni piiloon tai liian kauas).
 func _talk_watch() -> void:
-	if cutscene.busy or player != walker_out or _talk_npc().distance_to_player() > 7.0:
+	var stop: bool = cutscene.busy or _talk_state_kind() != _talk_kind
+	if not stop and _talk_node != null:
+		if not is_instance_valid(_talk_node) or not _talk_node.visible or ("hiding" in _talk_node and _talk_node.hiding):
+			stop = true
+		else:
+			var p := _active_walker().global_position
+			var q := _talk_node.global_position
+			stop = Vector2(p.x - q.x, p.z - q.z).length() > 7.0
+	if stop:
 		_talk_box.close()
 
 
 func _talk_end() -> void:
 	_talk_end_frame = Engine.get_process_frames()
-	walker_out.controls_enabled = true
 	CamCtl.free_mouse = false
-	if _talk_who != "":
-		_talk_npc().quiet = false
+	if is_instance_valid(_talk_node) and "quiet" in _talk_node:
+		_talk_node.quiet = false
+	# Ohjaus takaisin vain, jos ollaan yhä samassa tilanteessa (välianimaatio tai tilan vaihto hoitaa omansa).
+	if not cutscene.busy and _talk_state_kind() == _talk_kind:
+		_active_walker().controls_enabled = true
+		_interior_busy(false)
+		if state == "in_raahe":
+			raahe_int.block_interact()
+		elif state == "in_siitari":
+			siitari_int.block_interact()
 	_talk_who = ""
+	_talk_node = null
 
 
-func _opt(id: String, text: String, ok := true, reason := "") -> Dictionary:
-	return {"id": id, "text": text, "enabled": ok, "reason": reason}
+func _opt(id: String, text: String, ok := true, reason := "", hot := false) -> Dictionary:
+	return {"id": id, "text": text, "enabled": ok, "reason": reason, "hot": hot}
 
 
 func _goods_value(buyer: String) -> float:
@@ -4004,10 +3980,14 @@ func _goods_value(buyer: String) -> float:
 	return sale
 
 
-## Naapurin kaikki asiat: tarina ensin, sitten kaupat ja palvelut, juttelu ja lopetus. Mahdottomat harmaana syyn kanssa.
-func _talk_options() -> Array:
+## Hahmon kaikki asiat: tarina ja tehtävät ensin (hot = korostus puhevihjeessä), sitten kaupat ja palvelut, juttelu
+## ja lopetus. Mahdottomat harmaana syyn kanssa.
+func _talk_options(who := "") -> Array:
+	if who == "":
+		who = _talk_who
 	var o: Array = []
-	match _talk_who:
+	var chat := true
+	match who:
 		"arto":
 			var sale := _goods_value("arto")
 			o.append(_opt("myy", "Myy marjat (%s €)" % _eur(sale) if sale > 0.0 else "Myy marjat", sale > 0.0,
@@ -4018,15 +3998,18 @@ func _talk_options() -> Array:
 			if not world.forage_revealed:
 				o.append(_opt("paikat", "Missä on hyviä marja- ja sienipaikkoja?"))
 		"pekka":
+			if is_instance_valid(vaino) and vaino.mode == "follow":
+				o.append(_opt("vaino", "Palauta Väinö", vaino.distance_to_target() <= 6.0,
+					"Väinö jäi jälkeen, odota että se ehtii perään", true))
 			match story.step:
 				"pekka_kutsuu":
-					o.append(_opt("tarina", "Mitä asiaa sulla oli?"))
+					o.append(_opt("tarina", "Mitä asiaa sulla oli?", true, "", true))
 				"pekka_avaimet":
-					o.append(_opt("tarina", "Kaikki tehty. Lähdetäänkö Paapeliin?"))
+					o.append(_opt("tarina", "Kaikki tehty. Lähdetäänkö Paapeliin?", true, "", true))
 				"avaimet":
 					o.append(_opt("tarina", "Missä ne autonavaimet olikaan?"))
 				"avaimet_mukana":
-					o.append(_opt("tarina", "Anna autonavaimet"))
+					o.append(_opt("tarina", "Anna autonavaimet", true, "", true))
 			var sale := _goods_value("pekka")
 			o.append(_opt("myy", "Myy sienet (%s €)" % _eur(sale) if sale > 0.0 else "Myy sienet", sale > 0.0,
 				"ämpärissä ei kantarelleja eikä herkkutatteja"))
@@ -4045,21 +4028,145 @@ func _talk_options() -> Array:
 			var berries: int = bucket.get("mustikka", 0)
 			if sinikka_task == 1:
 				o.append(_opt("mustikat", "Anna %d l mustikoita" % SINIKKA_BERRIES, berries >= SINIKKA_BERRIES,
-					"ämpärissä %d l" % berries))
+					"ämpärissä %d l" % berries, true))
 			elif not ("sinikka_piirakka" in _today):
 				o.append(_opt("apu", "Voinko auttaa jotenkin?"))
-	o.append(_opt("juttu", "Mitä kuuluu?"))
+		"santtu":
+			if _carry == "kahvi":
+				o.append(_opt("kahvi", "Anna kahvit", true, "", true))
+			if hommat.active:
+				o.append(_opt("hommat", "Mitä hommia vielä on?"))
+				if not hommat.beer_used and not hommat.all_done():
+					var drinks := [["kalja", "Tarjoa kalja", beers], ["pontikka", "Tarjoa Korpi-Kallen pontikkaa", pontikka],
+						["viina", "Tarjoa kätköviinaa", viina_pullot]]
+					var any := false
+					for d in drinks:
+						if d[2] > 0:
+							o.append(_opt(d[0], "%s (Santtu tekee yhden homman)" % d[1]))
+							any = true
+					if not any:
+						o.append(_opt("kalja", "Tarjoa juotavaa (Santtu tekee yhden homman)", false,
+							"ei kaljaa, pontikkaa eikä viinaa"))
+			if not mokki_forage_revealed:
+				o.append(_opt("marjat", "Missä täällä on marja- ja sienipaikat?"))
+			if bitten:
+				o.append(_opt("haava", "Hoida mun haava"))
+		"kalle":
+			var why := ""
+			if _kalle_sold >= PONTIKKA_DAY:
+				why = "tänään ei enää"
+			elif money < PONTIKKA_PRICE:
+				why = "rahat ei riitä"
+			o.append(_opt("pontikka", "Osta pullo pontikkaa (%s €)" % _eur(PONTIKKA_PRICE), why == "", why))
+			if not has_korpihiiva and not mwine_locked:
+				o.append(_opt("hiiva", "Osta korpihiivaa (%s €, viini viidessä päivässä)" % _eur(KORPIHIIVA_PRICE),
+					money >= KORPIHIIVA_PRICE, "rahat ei riitä"))
+		"sulo":
+			var why := ""
+			if has_kanister or _sulo_sold:
+				why = "tänään ei enää"
+			elif money < KANISTER_PRICE:
+				why = "rahat ei riitä"
+			o.append(_opt("kanisteri", "Osta pontikkakanisteri (%s €, = %d kaljaa)" % [_eur(KANISTER_PRICE), KANISTER_BEERS],
+				why == "", why))
+		"pojat":
+			if _ball_quest == "":
+				o.append(_opt("pallo_kysy", "Mitäs pojat, onko kaikki hyvin?", true, "", true))
+			elif _ball_quest == "search":
+				var items := _give_items()
+				for it in items:
+					o.append(_opt("anna_" + it[0], "Anna: %s" % it[1], true, "", it[0] == "pallo"))
+				if items.is_empty():
+					o.append(_opt("anna_", "Anna jotain", false, "ei mitään annettavaa, pallo pitää ensin löytää"))
+		"taksi":
+			chat = false
+			o.append(_opt("raahe", "Raahen baariin (%s €, meno-paluu)" % _eur(TAXI_FARE), money >= TAXI_FARE, "rahat ei riitä"))
+			o.append(_opt("paapeli", "Paapelin mökille (%s €, meno-paluu)" % _eur(TAXI_MOKKI_FARE), money >= TAXI_MOKKI_FARE,
+				"rahat ei riitä"))
+		"raahe", "siitari":
+			var menu: Dictionary = RAAHE_MENU if who == "raahe" else SIITARI_MENU
+			for id in menu:
+				var m: Array = menu[id]
+				o.append(_opt("juo_" + id, "%s (%s €)" % [m[0], _eur(m[1])], money >= m[1], "rahat ei riitä"))
+		"visa":
+			chat = false
+			if _quiz_i < _quiz.size():
+				var q: Array = _quiz[_quiz_i]
+				for k in (q[1] as Array).size():
+					o.append(_opt("visa_%d" % k, q[1][k]))
+		"siitari_sinikka":
+			o.append(_opt("tanssi", "Tanssitaanko?"))
+			var price: float = SIITARI_MENU.lonkero[1]
+			o.append(_opt("drinkki", "Tarjoa lonkero (%s €)" % _eur(price), money >= price, "rahat ei riitä"))
+		"kauppias":
+			chat = false
+			if not interior.has_paid and interior.at_till:
+				var total: float = interior.till_total()
+				o.append(_opt("maksa", "Maksa %s €" % _eur(total), interior.can_pay(),
+					"%s € puuttuu" % _eur(total - interior.money)))
+				if not interior.can_pay() and interior.own_items():
+					o.append(_opt("jata", "Jätä omat ostokset tiskille"))
+			o.append(_opt("neuvo", "Mistä löytyy mitäkin?"))
+		"paivi":
+			chat = false
+			if not paivi_bag.is_empty():
+				o.append(_opt("ostokset", "Anna ostokset", true, "", true))
+	if chat:
+		o.append(_opt("juttu", "Mitä kuuluu?"))
 	o.append(_opt("lopeta", "Lopeta"))
 	return o
 
 
 func _talk_choose(id: String) -> void:
-	var v := _talk_npc()
-	match id:
-		"lopeta":
+	if id == "lopeta":
+		_talk_box.close()
+		return
+	if id == "juttu":
+		_talk_box.reply(_talk_chat_line(), _talk_options(), _talk_chat_info())
+		return
+	match _talk_who:
+		"arto", "pekka", "sinikka":
+			_talk_neighbor(id)
+		"santtu":
+			var r := _on_santtu_menu(id)
+			_talk_box.reply(r[0], _talk_options(), r[1])
+		"kalle":
+			_talk_kalle(id)
+		"sulo":
+			money -= KANISTER_PRICE
+			has_kanister = true
+			tilat.first("pontikka", 0.5)
+			_sulo_sold = true
+			walker_out.set_kanister(true)
+			state = "to_home"
+			Sfx.play("coin", -4.0)
+			_talk_box.reply("Kakskymppiä ja suu suppuun. Ja kanisteri takasin, kun on tyhjä.", _talk_options(),
+				"Pontikkakanisteri mukana, vastaa %d kaljaa! Vie se kotiin jemmaan." % KANISTER_BEERS)
+		"pojat":
+			_talk_pojat(id)
+		"taksi":
 			_talk_box.close()
-		"juttu":
-			_talk_box.reply(_talk_chat_line(), _talk_options(), _talk_chat_info())
+			_on_taxi_choice(id)
+		"raahe", "siitari":
+			var r: Array = _on_raahe(id.trim_prefix("juo_")) if _talk_who == "raahe" else _on_siitari(id.trim_prefix("juo_"))
+			_talk_box.reply(r[0], _talk_options(), r[1] + "   Rahaa %s €." % _eur(money))
+		"visa":
+			_quiz_answer(int(id.trim_prefix("visa_")))
+		"siitari_sinikka":
+			if id == "tanssi":
+				_talk_box.close()
+				_on_siitari("sinikka_tanssi")
+			else:
+				var r := _on_siitari("sinikka_drinkki")
+				_talk_box.reply(r[0], _talk_options(), r[1])
+		"kauppias":
+			_talk_kauppias(id)
+		"paivi":
+			_talk_paivi()
+
+
+func _talk_neighbor(id: String) -> void:
+	match id:
 		"myy":
 			var sale := _goods_value(_talk_who)
 			money += sale
@@ -4100,9 +4207,22 @@ func _talk_choose(id: String) -> void:
 			Sfx.play("groan", -4.0, 1.2)
 			_talk_box.reply("Karhu?! No nyt tarvitaan koko pullo." if big else "Ei tää oo mitään, kyyhkyt purree pahemmin.",
 				_talk_options(), "Pekka sitoi haavan ja kaatoi päälle koskenkorvaa. Kirvelee!")
+		"vaino":
+			vaino.queue_free()
+			vaino = null
+			money += VAINO_MONEY
+			var beer := beers < CARRY_FOOT
+			if beer:
+				beers += 1
+				player.set_carrying(true)
+			Sfx.play("win_small")
+			_task_done(true)
+			tilat.first("vaino", 0.5)
+			_talk_box.reply("Hyvä poika! Siis Väinö. Tässä vitonen%s." % (" ja kalja" if beer else ""), _talk_options(),
+				"Väinö kotona! Pekka antoi %s €%s." % [_eur(VAINO_MONEY), " ja kaljan" if beer else ""])
 		"kyyti":
 			_talk_box.close()
-			v.say("Hyppää kyytiin perkele, lähetään!")
+			pekka.say("Hyppää kyytiin perkele, lähetään!")
 			_pekka_ride()
 		"tarina":
 			match story.step:
@@ -4138,13 +4258,96 @@ func _talk_choose(id: String) -> void:
 				"Tehtävä: poimi metsästä %d l mustikoita ja vie ne Sinikalle." % SINIKKA_BERRIES)
 
 
+## Korpi-Kalle: pontikka (nimismies voi tulla oston jälkeen, RAID_BUY) ja korpihiiva viiniin.
+func _talk_kalle(id: String) -> void:
+	match id:
+		"pontikka":
+			money -= PONTIKKA_PRICE
+			pontikka += 1
+			_kalle_sold += 1
+			Sfx.play("glass", -6.0, 0.9)
+			tilat.first("korpikalle", 0.4)
+			if randf() < RAID_BUY:
+				_talk_box.close()
+				_nimismies_raid()
+				return
+			_talk_box.reply(Korpikeittaja.LINES.pick_random(), _talk_options(),
+				"Pullo pontikkaa reppuun (%d). Santtu tekee sillä homman, lavalla se rohkaisee, ja Siitarin pihalla sen saa myytyä." % pontikka)
+		"hiiva":
+			money -= KORPIHIIVA_PRICE
+			has_korpihiiva = true
+			_talk_box.reply("Mun oma hiivakanta. Viidessä päivässä valmista, kunhan sokeria on reilusti.", _talk_options(),
+				"Korpihiivaa reppuun. Viini käy sillä viidessä päivässä (Paapelin viinisaavi pöntön takana).")
+
+
+## Pojat: pallotehtävä ja esineen antaminen. Pallo = palkkio; kalja ja muut lopettavat keskustelun (pojat juoksevat
+## karkuun tai heittelevät kivillä).
+func _talk_pojat(id: String) -> void:
+	if id == "pallo_kysy":
+		_talk_box.reply(_give_ball_quest(), _talk_options(), "Etsi pallo ja tuo se pojille.")
+		return
+	var what := id.trim_prefix("anna_")
+	if what == "pallo":
+		var info := _on_give("pallo")
+		_talk_box.reply("Kiitti setä! Tässä euro.", _talk_options(), info)
+		return
+	_talk_box.close()
+	_on_give(what)
+
+
+func _talk_kauppias(id: String) -> void:
+	match id:
+		"maksa":
+			interior.pay()
+			_talk_box.reply("Kiitos, hei!", _talk_options(), "Maksettu! Ulos ovesta.")
+		"jata":
+			interior.leave_own()
+			_talk_box.reply("Ei se mitään, mää laitan ne takaisin hyllyyn." if interior.bag.is_empty() else
+				"Laitan ne takaisin. Päivin tavarat on Päivin piikkiin.", _talk_options())
+		"neuvo":
+			_talk_box.reply(interior.where_text() + ". Liiat voi viedä takaisin samaan hyllyyn.", _talk_options())
+
+
+## Päivi tarkistaa ostokset: moitteet rivi kerrallaan, palkinto (kaljarauha) inforivillä.
+func _talk_paivi() -> void:
+	var lines: Array = []
+	var info := ""
+	for l in _check_list():
+		var parts: PackedStringArray = l.split("\n")
+		var t: String = parts[0]
+		if t.begins_with("Päivi: \""):
+			t = t.trim_prefix("Päivi: \"").trim_suffix("\"")
+		lines.append(t)
+		if parts.size() > 1:
+			info = parts[1]
+	player.set_carrying(beers > 0)
+	_talk_box.say_lines(lines, _talk_options(), info)
+
+
 func _talk_chat_line() -> String:
 	match _talk_who:
 		"arto":
 			return ARTO_LINES.pick_random()
 		"pekka":
 			return (Story.PEKKA_WAITING if story.step == "tehtavat" else PEKKA_LINES).pick_random()
-	return (SINIKKA_WAIT if sinikka_task == 1 else SINIKKA_LINES).pick_random()
+		"sinikka":
+			return (SINIKKA_WAIT if sinikka_task == 1 else SINIKKA_LINES).pick_random()
+		"santtu":
+			tilat.first("santtu")
+			return _santtu_chat_line()
+		"kalle":
+			return Korpikeittaja.LINES.pick_random()
+		"sulo":
+			return SULO_LINES.pick_random()
+		"pojat":
+			return POJAT_LINES.pick_random()
+		"raahe":
+			return RAAHE_LINES.pick_random()
+		"siitari":
+			return SIITARI_LINES.pick_random()
+		"siitari_sinikka":
+			return SINIKKA_BAR_LINES.pick_random()
+	return ""
 
 
 func _talk_chat_info() -> String:
@@ -4392,10 +4595,8 @@ func _mokki_logic() -> void:
 		_hunt_logic(e)
 		return
 	# Santtu viimeisenä: hommia katsomaan tullut Santtu ei saa peittää homman omaa toimintoa.
-	if mokki.santtu.visible and near.call(mokki.santtu.position, 2.6):
-		_hint.text = "[E] Jutskaa Santun kanssa"
-		if e:
-			_santtu_menu()
+	if mokki.santtu != null and mokki.santtu.visible and near.call(mokki.santtu.position, 2.6):
+		_talk_hint("santtu", mokki.santtu)
 		return
 
 
@@ -4917,16 +5118,7 @@ func _hommat_logic(e: bool, near: Callable) -> bool:
 			_hint.text = "Bensapumppu paljun täyttöön."
 		return true
 	if _carry == "kahvi" and near.call(mokki.santtu.position, 2.2):
-		_hint.text = "[E] Anna kahvit Santulle"
-		if e:
-			hommat.progress["kahvi_vietu"] = true
-			_set_carry("")
-			Sfx.play("glass", -8.0, 1.4)
-			tilat.add("moraali", 0.05)
-			if mokki_int.dishes <= 0:
-				_hommat_complete("kahvi")
-			else:
-				mokki.say("Ahh. Musta ja kuuma, niinku pitää. Tiskit vielä, niin on homma tehty.", 4.0)
+		_talk_hint("santtu", mokki.santtu)  # kahvit annetaan keskusteluikkunassa
 		return true
 	return false
 
@@ -5071,6 +5263,8 @@ func _santtu_line(text: String, msg := false) -> void:
 
 ## Santun juttelu kannolta: hommapäivinä huutelua hommista ja hermojen mukaan, muuten mökkijuttuja.
 func _santtu_chatter(dt: float) -> void:
+	if _talk_box.is_open():
+		return
 	_santtu_chat_t -= dt
 	if _santtu_chat_t > 0.0 or mokki.santtu_out():
 		return
@@ -5124,7 +5318,8 @@ func _watch_context() -> Array:
 ## Pelaajan paikka kertoo, mistä Santtu väistää, ja tänään annettuja hommia Santtu ei tee itse.
 func _puuhat_tick(at_mokki: bool) -> void:
 	var pu: Node = mokki.puuhat
-	pu.enabled = at_mokki and state in ["to_shop", "to_home", "in_mokki"] and _watch_task == "" and not cutscene.busy
+	pu.enabled = at_mokki and state in ["to_shop", "to_home", "in_mokki"] and _watch_task == "" and not cutscene.busy \
+		and not _talk_box.is_open()  # keskustelun ajaksi Santtu pysähtyy
 	pu.player_local = mokki.to_local(player.global_position) if state != "in_mokki" else Vector3.INF
 	pu.pending = hommat.undone() if hommat.active else []
 
@@ -5132,7 +5327,7 @@ func _puuhat_tick(at_mokki: bool) -> void:
 ## Santtu nousee kannolta ja kävelee katsomaan käynnissä olevaa hommaa, tulee perille, kommentoi ja palaa
 ## kannolle, kun hommaa ei hetkeen tehdä.
 func _santtu_watch(dt: float) -> void:
-	if not hommat.active or state not in ["to_shop", "to_home"]:
+	if not hommat.active or state not in ["to_shop", "to_home"] or _talk_box.is_open():
 		return
 	var ctx := _watch_context()
 	if ctx.is_empty():
@@ -5167,62 +5362,42 @@ func _santtu_watch(dt: float) -> void:
 			mokki.say(hommat.line(id, "kesken"), 3.8)
 
 
-## Santun valikko kannolla: juttelu, päivän hommat ja kalja (Santtu tekee yhden homman).
-func _santtu_menu() -> void:
-	var items: Array = [["juttu", "Jutskaa Santun kanssa"]]
-	if not mokki_forage_revealed:
-		items.append(["marjat", "Missä täällä on marja- ja sienipaikat?"])
-	if bitten:
-		items.append(["haava", "Pyydä Santtua hoitamaan haava"])
-	if hommat.active:
-		items.append(["hommat", "Mitä hommia vielä on?"])
-		if not hommat.beer_used and not hommat.all_done():
-			if beers > 0:
-				items.append(["kalja", "Tarjoa Santulle kalja (hän tekee yhden homman)"])
-			elif pontikka > 0:
-				items.append(["pontikka", "Tarjoa Santulle Korpi-Kallen pontikkaa (hän tekee yhden homman)"])
-			elif viina_pullot > 0:
-				items.append(["viina", "Tarjoa Santulle kätköviinaa (hän tekee yhden homman)"])
-	if items.size() == 1:
-		_on_santtu_menu("juttu")
-		return
-	items.append(["takaisin", "Takaisin"])
-	player.controls_enabled = false
-	player.speed = 0.0
-	_menu_mode = "santtu"
-	_item_menu.open(items, "Santtu, isäntä · hermot: %s" % hommat.mood())
-
-
-func _on_santtu_menu(id: String) -> void:
-	player.controls_enabled = true
+## Santun asiat keskusteluikkunassa: palauttaa [Santun repliikki, inforivi]. Kalja, pontikka tai viina: Santtu tekee
+## yhden homman.
+func _on_santtu_menu(id: String) -> Array:
 	match id:
 		"juttu":
-			mokki.say(_santtu_chat_line())
 			tilat.first("santtu")
+			return [_santtu_chat_line(), ""]
+		"kahvi":
+			hommat.progress["kahvi_vietu"] = true
+			_set_carry("")
+			Sfx.play("glass", -8.0, 1.4)
+			tilat.add("moraali", 0.05)
+			if mokki_int.dishes <= 0:
+				_hommat_complete("kahvi")
+				return ["Ahh. Musta ja kuuma, niinku pitää.", ""]
+			return ["Ahh. Musta ja kuuma, niinku pitää. Tiskit vielä, niin on homma tehty.", ""]
 		"marjat":
 			mokki_forage_revealed = true
 			_minimap.mokki_forage = mokki_forage
-			mokki.say("Puolukkaa ja mustikkaa joka mättäällä! Merkkaan sulle karttaan parhaat paikat. Kantarellit on salaisuus... no, ne kans.", 5.0)
-			_show_message("Santtu merkitsi mökin metsän marja- ja sienipaikat karttaan (M).", 3.0)
 			tilat.first("santtu_marjat", 0.2)
 			_save_game()
+			return ["Puolukkaa ja mustikkaa joka mättäällä! Merkkaan sulle karttaan parhaat paikat. Kantarellit on salaisuus... no, ne kans.",
+				"Santtu merkitsi mökin metsän marja- ja sienipaikat karttaan (M)."]
 		"haava":
 			var care: Array = SANTTU_CARE.pick_random()
 			var big := wound_big
 			_heal()
-			mokki.say(("Karhu? Ei hätää, mää oon nähny pahempaa. " if big else "") + care[1], 4.0)
 			Sfx.play("groan", -4.0, 1.1)
-			_show_message(care[0], 4.0)
 			tilat.first("santtu_hoiti", 0.2)
+			return [("Karhu? Ei hätää, mää oon nähny pahempaa. " if big else "") + care[1], care[0]]
 		"hommat":
 			var left: Array = hommat.undone()
 			if left.is_empty():
-				mokki.say("Kaikki tehty! Ota rennosti, kahvit on keittiössä.", 3.5)
-			else:
-				var id0: String = left[0]
-				mokki.say(hommat.line(id0, "anna"), 5.0)
-				_show_message("Santun hommat: " + ", ".join(left.map(func(t): return Hommat.TASKS[t].nimi)) +
-					"\nHermot: %s %s" % [hommat.bar(), hommat.mood()], 4.5)
+				return ["Kaikki tehty! Ota rennosti, kahvit on keittiössä.", ""]
+			return [hommat.line(left[0], "anna"), "Hommat: " + ", ".join(left.map(func(t): return Hommat.TASKS[t].nimi)) +
+				"   ·   Hermot: %s %s" % [hommat.bar(), hommat.mood()]]
 		"kalja", "viina", "pontikka":
 			if id == "kalja":
 				beers -= 1
@@ -5234,10 +5409,13 @@ func _on_santtu_menu(id: String) -> void:
 			Sfx.play("glass", -6.0, 0.9)
 			var t: String = hommat.beer_help()
 			if t != "":
-				mokki.say(Hommat.BEER_LINES.pick_random(), 4.5)
-				_show_message("Santtu joi %s ja hoiti homman: %s. Puolittain, mutta ei kehtaa valittaa." % [
-					{"kalja": "kaljan", "pontikka": "pontikkahuikan"}.get(id, "huikan"), Hommat.TASKS[t].nimi], 4.0)
+				var info := "Santtu joi %s ja hoiti homman: %s. Puolittain, mutta ei kehtaa valittaa." % [
+					{"kalja": "kaljan", "pontikka": "pontikkahuikan"}.get(id, "huikan"), Hommat.TASKS[t].nimi]
+				var line: String = Hommat.BEER_LINES.pick_random()
 				_hommat_finished(t, true)
+				return [line, info]
+			return ["Kippis!", ""]
+	return ["", ""]
 
 
 ## Santun juttu: ilmoituksen faktat, arvostelut päivitettyinä.
@@ -5566,8 +5744,7 @@ func _on_siitari_exited() -> void:
 func _on_siitari_acted(kind: String) -> void:
 	match kind:
 		"tiski":
-			siitari_int.bartender_say("Mitäs laitetaan?")
-			_open_siitari_menu()
+			_talk_open("siitari", null, "Mitäs laitetaan?")
 		"karaoke":
 			if money < KARAOKE_PRICE:
 				_show_message("Karaoke maksaa %s €. Rahat ei riitä." % _eur(KARAOKE_PRICE), 2.5)
@@ -5575,12 +5752,7 @@ func _on_siitari_acted(kind: String) -> void:
 			money -= KARAOKE_PRICE
 			_start_karaoke()
 		"sinikka":
-			siitari_int.sinikka_say(SINIKKA_BAR_LINES.pick_random())
-			_menu_mode = "siitari"
-			siitari_int.walker.controls_enabled = false
-			_item_menu.open([["sinikka_juttu", "Jutskaa Sinikan kanssa"], ["sinikka_tanssi", "Tanssi Sinikan kanssa"],
-				["sinikka_drinkki", "Tarjoa Sinikalle lonkero – %s €" % _eur(SIITARI_MENU.lonkero[1])],
-				["takaisin", "Takaisin"]], "Sinikka baaritiskillä")
+			_talk_open("siitari_sinikka", null, SINIKKA_BAR_LINES.pick_random())
 		"pajatso":
 			if money < PAJATSO_PRICE:
 				_show_message("Pajatso vie euron. Rahat ei riitä.", 2.0)
@@ -5601,17 +5773,6 @@ func _on_siitari_acted(kind: String) -> void:
 				_show_message("Kuula kolisi ohi. Euro meni.", 2.0)
 		"tanssi_loppu":
 			_show_message("Tanssi loppui. Sinikka: \"Sää viet hyvin. Toiste uudestaan?\"", 3.0)
-
-
-func _open_siitari_menu() -> void:
-	var items: Array = []
-	for id in SIITARI_MENU:
-		var m: Array = SIITARI_MENU[id]
-		items.append([id, "%s – %s €" % [m[0], _eur(m[1])]])
-	items.append(["takaisin", "Takaisin"])
-	_menu_mode = "siitari"
-	siitari_int.walker.controls_enabled = false
-	_item_menu.open(items, "Siitarin baari · rahaa %s €" % _eur(money))
 
 
 ## Sinikan kanssa peuhaaminen kantautuu Päiville: puhelu hetken päästä ja aamulla vielä motkotusta.
@@ -5665,34 +5826,24 @@ func _start_karaoke() -> void:
 	add_child(game)
 
 
-func _on_siitari(id: String) -> void:
+## Siitarin tiski ja Sinikka (keskusteluikkunasta) ja lähtö: palauttaa [repliikki, inforivi].
+func _on_siitari(id: String) -> Array:
 	if state == "in_siitari" and id != "lahde":
-		siitari_int.walker.controls_enabled = true
-		siitari_int.block_interact()
 		match id:
-			"takaisin":
-				return
-			"sinikka_juttu":
-				siitari_int.sinikka_say(SINIKKA_BAR_LINES.pick_random())
-				return
 			"sinikka_tanssi":
 				siitari_int.dance_with_sinikka(7.0)
 				_show_message("Tanssit Sinikan kanssa. Tanssilattia on pieni ja Vaala vielä pienempi...", 3.5)
 				_sinikka_flirt()
-				return
+				return ["", ""]
 			"sinikka_drinkki":
 				var price: float = SIITARI_MENU.lonkero[1]
 				if money < price:
-					_show_message("Rahat ei riitä Sinikan lonkeroon (%s €)." % _eur(money), 2.0)
-					return
+					return ["Ens kerralla sitten, kulta.", "Rahat ei riitä Sinikan lonkeroon (%s €)." % _eur(money)]
 				money -= price
 				Sfx.play("glass", -6.0, 0.9)
-				siitari_int.sinikka_say("Sää oot kyllä herrasmies. Kippis, naapuri!")
-				_show_message("Tarjosit Sinikalle lonkeron. Baarimikko vilkaisi puhelintaan...", 3.0)
 				_sinikka_flirt()
-				return
+				return ["Sää oot kyllä herrasmies. Kippis, naapuri!", "Tarjosit Sinikalle lonkeron. Baarimikko vilkaisi puhelintaan..."]
 	if id == "lahde":
-		_menu_mode = "give"
 		if state == "in_siitari":
 			siitari_int.leave()
 			Sfx.play("door_close", -3.0)
@@ -5707,23 +5858,22 @@ func _on_siitari(id: String) -> void:
 		else:
 			_show_message("Takaisin Paapeliin: Vaalantie, Vuolijoentie ja Neittäväntie.", 3.0)
 		mopo_trip.start("paapeli", drunk)
-		return
+		return ["", ""]
 	var m: Array = SIITARI_MENU[id]
 	if money < m[1]:
-		_show_message("Rahat ei riitä (%s €)." % _eur(money), 2.0)
+		return ["Rahat ei riitä.", "Rahaa %s €." % _eur(money)]
+	money -= m[1]
+	if id == "kahvi":
+		_coffee()
+	tilat.add("humala", m[2])
+	tilat.add("stressi", m[3])
+	tilat.add("moraali", m[4])
+	if m[2] > 0.0:
+		Sfx.play("glass", -6.0, 0.9)
 	else:
-		money -= m[1]
-		if id == "kahvi":
-			_coffee()
-		tilat.add("humala", m[2])
-		tilat.add("stressi", m[3])
-		tilat.add("moraali", m[4])
-		if m[2] > 0.0:
-			Sfx.play("glass", -6.0, 0.9)
-		else:
-			Sfx.play("pickup", -8.0, 0.8)
-		tilat.first("siitari_" + id, 0.1)
-		_show_message("%s. %s" % [m[0], SIITARI_LINES.pick_random()], 3.0)
+		Sfx.play("pickup", -8.0, 0.8)
+	tilat.first("siitari_" + id, 0.1)
+	return [SIITARI_LINES.pick_random(), "%s, −%s €." % [m[0], _eur(m[1])]]
 
 
 ## Auto ajoi mopon päälle: WASTED Vaalan tiellä, Päivin motkotus ja uusi päivä kotoa Saloisista.
@@ -7555,6 +7705,8 @@ var _hint_shown := ""
 
 
 func _fix_hint_keys() -> void:
+	if _hint != null:
+		_hint.visible = _talk_box == null or not _talk_box.is_open()  # keskusteluikkuna peittää vihjerivin paikan
 	if _hint != null and _hint.text != _hint_shown:
 		_hint_shown = Settings.key_hint(_hint.text)
 		_hint.text = _hint_shown
@@ -7969,26 +8121,12 @@ func _build_hud() -> void:
 	_item_menu.chosen.connect(func(id: String) -> void:
 		if _menu_mode == "eat":
 			_on_eat(id)
-		elif _menu_mode == "siitari":
-			_on_siitari(id)
-		elif _menu_mode == "raahe":
-			_on_raahe(id)
-		elif _menu_mode == "santtu":
-			_on_santtu_menu(id)
 		elif _menu_mode == "wc":
 			_start_wc(id)
 		elif _menu_mode == "viini":
-			_on_vat_menu(id)
-		elif _menu_mode == "taksi":
-			_on_taxi_choice(id)
-		else:
-			_on_give(id))
+			_on_vat_menu(id))
 	_item_menu.cancelled.connect(func() -> void:
-		if _menu_mode == "siitari":
-			_on_siitari("takaisin")
-		elif _menu_mode == "raahe":
-			_on_raahe("takaisin")
-		elif _menu_mode == "wc":
+		if _menu_mode == "wc":
 			_menu_mode = "give"
 			_wc_release()
 		else:
@@ -8508,6 +8646,8 @@ func _maybe_screenshot() -> void:
 			for w in 2:
 				await get_tree().process_frame
 			Input.action_release("interact")
+			print("TAXI ikkuna: %s" % str(_talk_box._options.map(func(o): return o.text)))
+			_test_talk(["raahe"])
 			print("TAXI state=", state, " money=", money)
 			await get_tree().create_timer(5.0, true, false, true).timeout
 			await shot.call("meno")
@@ -8533,16 +8673,20 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("TAXI visa hint=", raahe_int.hint)
 			await press.call()
+			print("TAXI visa ikkuna=%s '%s'" % [_talk_box.is_open(), _talk_box._line.replace("\n", " | ")])
 			for qn in 3:
 				print("TAXI visa kysymys: ", _quiz[_quiz_i][0], " ", _quiz[_quiz_i][1])
-				_item_menu.visible = false  # kuten valikon E-valinta
-				_item_menu.chosen.emit("visa_0")
+				_talk_choose("visa_0")
+				print("TAXI visa vastaus: '%s' info '%s'" % [_talk_box._line.replace("\n", " | "), _talk_box._info])
 				for w in 3:
 					await get_tree().process_frame
-			print("TAXI visa tulos=%d msg=%s" % [_raahe.quiz, _msg.text])
-			# Tiskiltä tuoppi.
-			_on_raahe("tuoppi")
-			print("TAXI tuoppi: rahaa %.2f msg=%s" % [money, _msg.text])
+			print("TAXI visa tulos=%d valinnat=%s" % [_raahe.quiz, str(_talk_box._options.map(func(o): return o.id))])
+			_talk_box.close()
+			raahe_int.walker.position = raahe_int.spots.tiski[0] if raahe_int.spots.has("tiski") else raahe_int.walker.position
+			_on_raahe_acted("tiski")
+			print("TAXI tiski: ikkuna %s valinnat %s" % [_talk_box.is_open(), str(_talk_box._options.map(func(o): return o.text))])
+			_test_talk(["juo_tuoppi"])
+			print("TAXI tuoppi: rahaa %.2f ohjaus %s" % [money, raahe_int.walker.controls_enabled])
 			# Kädenvääntö Teron kanssa.
 			raahe_int.walker.position = raahe_int.spots.tero[0]
 			for w in 3:
@@ -8792,9 +8936,8 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("SIITARI Sinikan luona hint '%s'" % _hint.text)
 			_on_siitari_acted("sinikka")
-			print("SIITARI valikko auki %s" % _item_menu.is_open())
-			_item_menu.hide()
-			_on_siitari("sinikka_tanssi")
+			print("SIITARI ikkuna auki %s valinnat %s" % [_talk_box.is_open(), str(_talk_box._options.map(func(o): return o.text))])
+			_test_talk(["tanssi"])
 			await snap.call("_2.png")
 			await get_tree().create_timer(7.5).timeout
 			print("SIITARI tanssi ohi: ohjaus %s, puhelu %.1f s" % [siitari_int.walker.controls_enabled, _paivi_call_t])
@@ -8902,7 +9045,8 @@ func _maybe_screenshot() -> void:
 			walker_out.global_position = kalle.to_global(Vector3(0.6, 0.5, -2.2))
 			await frames.call(10)
 			print("PAAPELI Kalle: hint '%s'" % _hint.text)
-			await press.call("bell")
+			await press.call("interact")
+			_test_talk(["hiiva"])
 			print("PAAPELI korpihiiva %s rahaa %.2f" % [has_korpihiiva, money])
 			# Mökin sisällä: jääkaappi, sokeri, sangot.
 			_enter_mokki("ovi")
@@ -9160,6 +9304,8 @@ func _maybe_screenshot() -> void:
 			await frames.call(20)
 			print("KALLE pannulla: mökillä %s, hint '%s'" % [_at_mokki(), _hint.text])
 			await press.call("interact")
+			print("KALLE ikkuna: %s" % str(_talk_box._options.map(func(o): return o.text + ("" if o.enabled else " [" + o.reason + "]"))))
+			_test_talk(["pontikka"])
 			print("KALLE osto: pontikka %d rahaa %.2f viesti '%s'" % [pontikka, money, _msg.text])
 			_note.visible = false
 			var cam := Camera3D.new()
@@ -10050,6 +10196,52 @@ func _maybe_screenshot() -> void:
 			for i in 3:
 				await get_tree().process_frame
 			print("KESK suljettu: auki %s, ohjaus %s" % [_talk_box.is_open(), walker_out.controls_enabled])
+		"keskustelut":
+			# Muiden hahmojen keskusteluikkunat: kauppias kassalla ja Korpi-Kalle pannulla.
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var snap := func(name: String) -> void:
+				_msg.text = ""
+				_msg_queue.clear()
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var press := func() -> void:
+				await get_tree().process_frame
+				Input.action_press("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("interact")
+			money = 9.0
+			_enter_shop()
+			for g in interior._queue:
+				g.queue_free()
+			interior._queue.clear()
+			interior.has_beer = true
+			interior.cart["makkara"] = 3.5
+			interior.walker.set_carrying(true)
+			interior.walker.position = interior.QUEUE_FRONT
+			for i in 10:
+				await get_tree().physics_frame
+			await snap.call("_kassa_vihje.png")
+			await press.call()
+			await snap.call("_kassa.png")
+			print("KESKUSTELUT kauppias: %s" % str(_talk_box._options.map(func(o): return o.text + ("" if o.enabled else " [" + o.reason + "]"))))
+			_talk_box.close()
+			mokki.ensure_built()
+			money = 40.0
+			_kalle_sold = 0
+			walker_out.global_position = kalle.to_global(Vector3(0.6, 0.5, -2.2))
+			walker_out.look_at(kalle.global_position + Vector3(0, 0.5, 0), Vector3.UP)
+			state = "to_shop"
+			interior.leave()
+			for i in 20:
+				await get_tree().physics_frame
+			await press.call()
+			await snap.call("_kalle.png")
+			print("KESKUSTELUT Kalle: %s" % str(_talk_box._options.map(func(o): return o.text)))
 		"tarinamyynti":
 			# Tarinan tehtävät useasta myynnistä: sienet Pekalle 2 + 1 l, puolukat Artolle 3 + 2 l.
 			if player == bike:
@@ -10151,7 +10343,9 @@ func _maybe_screenshot() -> void:
 			print("PALAUTUS kassalla: hint '%s' kauppias '%s'" % [_hint.text.replace("
 ", " | "), interior._cashier_bubble.text])
 			await press.call("interact")
-			print("PALAUTUS maksuyritys: maksettu=%s kauppias '%s'" % [interior.has_paid, interior._cashier_bubble.text])
+			print("PALAUTUS kauppias-ikkuna %s: %s" % [_talk_box.is_open(), str(_talk_box._options.map(func(o): return o.text + ("" if o.enabled else " [" + o.reason + "]")))])
+			_talk_box.close()
+			print("PALAUTUS maksuyritys: maksettu=%s" % interior.has_paid)
 			await go.call(interior.GRILL_SPOT)
 			await press.call("bell")
 			print("PALAUTUS grilliin Q: kori=%s" % [interior.cart])
@@ -10161,8 +10355,9 @@ func _maybe_screenshot() -> void:
 			print("PALAUTUS kylmiöön E: kalja=%s" % interior.has_beer)
 			await press.call("interact")
 			await go.call(interior.QUEUE_FRONT)
-			await press.call("bell")
-			print("PALAUTUS kassalle Q: kalja=%s kori=%s kauppias '%s' hint '%s'" % [interior.has_beer, interior.cart,
+			await press.call("interact")
+			_test_talk(["jata"])
+			print("PALAUTUS kassalle jätetty: kalja=%s kori=%s kauppias '%s' hint '%s'" % [interior.has_beer, interior.cart,
 				interior._cashier_bubble.text, _hint.text])
 			await go.call(interior.DOOR)
 			print("PALAUTUS ovella: hint '%s'" % _hint.text)
@@ -10775,9 +10970,8 @@ func _maybe_screenshot() -> void:
 				await get_tree().physics_frame
 			print("TAKSI hint: '%s'" % _hint.text)
 			await press.call("interact")
-			print("TAKSI valikko: %s '%s'" % [_item_menu.is_open(), _item_menu._title.text])
-			await press.call("back")
-			await press.call("interact")
+			print("TAKSI ikkuna: %s %s" % [_talk_box.is_open(), str(_talk_box._options.map(func(o): return o.text))])
+			_test_talk(["paapeli"])
 			while not cutscene.busy:
 				await get_tree().process_frame
 			while cutscene.busy:
@@ -13296,7 +13490,7 @@ func _maybe_screenshot() -> void:
 			_on_mokki_exited()
 			print("KAHVI carry=%s" % _carry)
 			await go.call(mokki.santtu.position + Vector3(1.2, 0, 0))
-			_hommat_logic(true, near)
+			_on_santtu_menu("kahvi")
 			print("KAHVI tehty=%s" % ("kahvi" in hommat.done))
 			# Kalja Santulle: yksi homma pois.
 			beers = 1
@@ -13872,6 +14066,7 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 				print("POJAT [%s] hint=%s" % [round, _hint.text])
 				await press.call("interact")
+				_test_talk(["pallo_kysy"])
 				var bd: float = ball.global_position.distance_to(boys.global_position) if is_instance_valid(ball) else -1.0
 				print("POJAT quest=%s ball_dist=%.0f msg=%s" % [_ball_quest, bd, _msg.text.replace("\n", " | ")])
 				if round == "pallo":
@@ -13894,14 +14089,14 @@ func _maybe_screenshot() -> void:
 				var mor: float = tilat.value("moraali")
 				var xp: float = tilat.value("kokemus")
 				await press.call("interact")
-				print("POJAT menu open=%s items=%s" % [_item_menu.is_open(), _item_menu._items])
+				print("POJAT ikkuna=%s valinnat=%s" % [_talk_box.is_open(), str(_talk_box._options.map(func(o): return o.id))])
 				if round == "pallo":
 					for i in 5:
 						await get_tree().process_frame
 					await RenderingServer.frame_post_draw
 					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_menu.png"))
 					await get_tree().process_frame
-				await press.call("interact")
+				_test_talk([_talk_box._options[0].id])
 				for i in 30:
 					await get_tree().process_frame
 				print("POJAT gave -> mode=%s money %s -> %s moraali %+.2f kokemus %+.2f beers=%d msg=%s" % [
@@ -14086,8 +14281,10 @@ func _maybe_screenshot() -> void:
 			interior.has_paid = true
 			interior.exited.emit(false)
 			await get_tree().process_frame
-			_toggle_mount()
-			walker_out.global_position = home_zone + Vector3(0, 0.5, 2.0)
+			if player == bike:
+				_toggle_mount()
+			var to_yard: Vector3 = (home_zone - home_door) * Vector3(1, 0, 1)
+			walker_out.global_position = home_door + to_yard.normalized() * 1.6 + Vector3(0, 0.5, 0)
 			for i in 20:
 				await get_tree().physics_frame
 			await get_tree().process_frame
@@ -14096,7 +14293,10 @@ func _maybe_screenshot() -> void:
 			Input.action_press("interact")
 			await get_tree().process_frame
 			Input.action_release("interact")
-			print("LISTA feedback=", " || ".join(_msg_queue.map(func(m: Array) -> String: return m[0])), " shown=", _msg.text)
+			await get_tree().process_frame
+			_talk_choose("ostokset")
+			print("LISTA feedback=", _talk_box._line, " || ", " || ".join(_talk_box._pages), " info=", _talk_box._info)
+			_talk_box.close()
 			_new_day(home_zone + Vector3(0, 0, 4), false)
 			print("LISTA newday list=", shopping_list, " queue=", _msg_queue.size())
 			if not saved.is_empty():
@@ -14204,6 +14404,9 @@ func _maybe_screenshot() -> void:
 			Input.action_press("interact")
 			await get_tree().process_frame
 			Input.action_release("interact")
+			await get_tree().process_frame
+			print("VAINO Pekan valinnat: %s" % str(_talk_box._options.map(func(o): return o.id)))
+			_test_talk(["vaino"])
 			print("VAINO returned valid=%s money %s -> %s beers=%d msg=%s" % [is_instance_valid(vaino), _eur(m0), _eur(money), beers,
 				_msg.text.replace("\n", " | ")])
 			if not saved.is_empty():
@@ -14276,6 +14479,8 @@ func _maybe_screenshot() -> void:
 			await get_tree().process_frame
 			Input.action_release("interact")
 			await get_tree().process_frame
+			print("SULO ikkuna: %s" % str(_talk_box._options.map(func(o): return o.text)))
+			_test_talk(["kanisteri"])
 			print("BUY kanister=%s state=%s money=%s hint=%s" % [has_kanister, state, _eur(money), _hint.text])
 			for i in 60:
 				await get_tree().process_frame
