@@ -3194,6 +3194,15 @@ func _roll_list() -> void:
 	_list_done = false
 
 
+## Tarina: kun Pekalla on asiaa (kutsu kuutosen piilottamisen jälkeen tai tehtävät tehty), Päivi mainitsee sen lapussa.
+const NOTE_PEKKA := {
+	"pekka_kutsuu": ["Pekka huuteli aidan takaa sua. Käy kattomassa mitä se haluaa, mutta EI mitään kaljareissuja!",
+		"Pekka kyseli sua. Sillä on kuulemma jotain asiaa. Mää en halua tietää.",
+		"Ps. Pekka kävi ovella kysymässä sua. Haisi kyyhkyltä."],
+	"pekka_avaimet": ["Pekka kyseli taas sua, ihan innoissaan. Mitä te oikein suunnittelette?",
+		"Ps. Pekka huuteli aamulla aidan takaa jotain Paapelista. Mikä se on?"]}
+
+
 ## Päivin heippalappu päivän alkuun: otsikko, tehtävä ja kauppalista värikynillä (kukin tuote oman värisellä
 ## kynällä: lappu näkyy hetken, ja HUD:n kauppalistassa on vain tuotteet, joten värit pitää muistaa)
 ## sekä päivän muut muistutukset (extra: rivit \n-erotettuina).
@@ -3206,6 +3215,8 @@ func _day_note(head: String, extra: String, with_list := true) -> void:
 			var ink: Color = ShopInterior.COLORS[it[1]] if it[1] != "keltainen" else Color(0.95, 0.68, 0.0)
 			lines.append(["  • %s" % it[0], ink])
 	var more := extra.strip_edges()
+	if NOTE_PEKKA.has(story.step):
+		more = (more + "\n" + NOTE_PEKKA[story.step].pick_random()).strip_edges()
 	if more != "":
 		lines.append("")
 		lines.append_array(more.split("\n"))
@@ -10272,6 +10283,16 @@ func _maybe_screenshot() -> void:
 			walker_out.set_carrying(true)
 			await _test_goto_stash("koti")
 			await snap.call("_jemma.png")
+		"lappupekka":
+			# Päivin lappu, kun Pekalla on asiaa (kuutonen piilotettu, Pekan luona ei käyty).
+			story = Story.new()
+			story.step = "pekka_kutsuu"
+			_day_note(MORNING_HEAD.koti[0], "")
+			for i in 40:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lappu.png"))
+			print("LAPPU Pekka näkyy %s" % _note.is_showing())
 		"keskustelut":
 			# Muiden hahmojen keskusteluikkunat: kauppias kassalla ja Korpi-Kalle pannulla.
 			if player == bike:
