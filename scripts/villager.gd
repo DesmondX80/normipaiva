@@ -14,6 +14,7 @@ const CLEAR := 0.7  # etäisyys, jolla kierretään seinät ja pihaesteet
 var look := {}
 var display_name := ""
 var lines: Array = []
+var quiet := false  # keskustelun aikana (main.gd _talk) ei omia satunnaisia repliikkejä
 var voice := "mummo"
 var target: Node3D
 ## Pihan puuhapisteet maailmassa (ensimmäinen = ulko-ovi, lähtöpaikka). Tyhjä = seisoo paikallaan.
@@ -58,7 +59,7 @@ func _physics_process(delta: float) -> void:
 	if d < NEAR:
 		rotation.y = lerp_angle(rotation.y, B.yaw_to(to_p), 1.0 - exp(-4.0 * delta))
 		_talk_t -= delta
-		if _talk_t <= 0.0 and d < 9.0:
+		if _talk_t <= 0.0 and d < 9.0 and not quiet:
 			say(lines.pick_random())
 			_talk_t = randf_range(4.5, 7.0)
 		_body.play("Idle_Talking" if _bubble_t > 0.0 else "Idle", 0.3)
