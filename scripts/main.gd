@@ -1289,7 +1289,7 @@ func _outside_logic() -> void:
 ## K-Marketin ovi: kauppaan milloin vain, kuten mihin tahansa hommaan, paitsi kalja kädessä (kauppias kieltää).
 func _shop_door_logic() -> void:
 	if player == bike:
-		_hint.text = "Nouse pyörän selästä (F) ja kävele kauppaan"
+		_hint.text = "[F] Nouse pyörän selästä ja kävele kauppaan"
 		return
 	_hint.text = "[E] Mene kauppaan"
 	if not Input.is_action_just_pressed("interact") or player.is_stunned() or Engine.get_process_frames() == _shop_exit_frame:
@@ -1305,7 +1305,7 @@ func _shop_door_logic() -> void:
 ## Päivä päättyy vasta, kun mennään nukkumaan parisänkyyn (home_interior.gd, _on_home_slept).
 func _home_door_logic(door: String) -> void:
 	if player == bike:
-		_hint.text = "Nouse pyörän selästä (F) ja kävele ovelle"
+		_hint.text = "[F] Nouse pyörän selästä ja kävele ovelle"
 		return
 	var loaded := beers > 0 or has_kanister
 	if loaded and door == "takaovi":
@@ -2166,7 +2166,7 @@ func _forage_logic() -> void:
 		return
 	var f: Dictionary = near[0]
 	if player == bike:
-		_hint.text = "Täällä on %s! Nouse pyörän selästä poimimaan (F)." % GOODS[f.kind].name
+		_hint.text = "Täällä on %s!   [F] Nouse pyörän selästä poimimaan" % GOODS[f.kind].name
 		return
 	if _bucket_total() >= BUCKET_MAX:
 		_hint.text = "Ämpäri täynnä (%d l). Myy naapureille!" % BUCKET_MAX
@@ -2708,7 +2708,7 @@ func _boys_logic() -> void:
 	if _ball_quest == "search" and not has_ball and is_instance_valid(ball) and _hint.text == "" \
 			and Vector2(p.x - ball.global_position.x, p.z - ball.global_position.z).length() < 1.6:
 		if player == bike:
-			_hint.text = "Nouse pyörän selästä (F), niin saat pallon."
+			_hint.text = "[F] Nouse pyörän selästä – niin saat pallon"
 			return
 		_hint.text = "[E] Ota jalkapallo"
 		if e:
@@ -3439,7 +3439,7 @@ func _vaino_logic() -> void:
 	if vaino.distance_to_target() > 2.4:
 		return
 	if player == bike:
-		_hint.text = "Nouse pyörän selästä (F), niin saat Väinön kiinni."
+		_hint.text = "[F] Nouse pyörän selästä – niin saat Väinön kiinni"
 	elif vaino.is_catchable():
 		_hint.text = "[E] Ota Väinö kiinni"
 		if e:
@@ -3588,7 +3588,7 @@ func _taxi_logic() -> void:
 		return
 	if _chasing():
 		# Juoksukaljat: kuski ottaa kyytiin rahatta, kunhan ehtii ennen kauppiasta.
-		_hint.text = "[E] HYPPÄÄ TAKSIIN! Kauppias tulee!" if player != bike else "Pyörältä pois (F) ja taksiin!"
+		_hint.text = "[E] HYPPÄÄ TAKSIIN! Kauppias tulee!" if player != bike else "[F] Pyörältä pois ja taksiin!"
 		if player != bike and Input.is_action_just_pressed("interact") and not player.is_stunned():
 			_shop_chaser.give_up()
 			_shop_chaser = null
@@ -4389,7 +4389,7 @@ func _laavu_logic() -> void:
 		_hint.text = "Laavu on vallattu!"
 		return
 	if player == bike:
-		_hint.text = "Nouse pyörän selästä (F), niin pääset nuotiolle."
+		_hint.text = "[F] Nouse pyörän selästä – niin pääset nuotiolle"
 		return
 	var e: bool = Input.is_action_just_pressed("interact") and not player.is_stunned()
 	if not fire_lit and has_matches:
@@ -5075,7 +5075,7 @@ func _hommat_logic(e: bool, near: Callable) -> bool:
 						_show_message("Plörts. Sanko kompostiin (%d / 3)." % trips, 2.0)
 			elif trips >= 3:
 				var t: float = hommat.progress.get("komposti", 0.0)
-				_hint.text = "[E] Käännä kompostia talikolla (%d %%) · hakkaa E:tä" % roundi(t * 100.0)
+				_hint.text = "[E] Käännä kompostia talikolla (%d %%) – hakkaa nappia" % roundi(t * 100.0)
 				if e:
 					t += 0.1
 					hommat.progress["komposti"] = t
@@ -6395,7 +6395,7 @@ func _kota_logic() -> void:
 		return
 	if player == bike:
 		if dk < 12.0:
-			_hint.text = "Nouse pyörän selästä (F): kodalla touhutaan jalan."
+			_hint.text = "[F] Nouse pyörän selästä – kodalla touhutaan jalan"
 		return
 	if player.is_stunned():
 		return
@@ -8173,6 +8173,7 @@ func _avoid_note() -> void:
 	_hint.offset_left = left
 	if _hint_bar != null:
 		_hint_bar.left = left
+		_hint_bar.right = 16.0 + 210.0 + 24.0 if _minimap != null and _minimap.visible else 0.0
 	_status.offset_left = left
 
 
@@ -10244,6 +10245,13 @@ func _maybe_screenshot() -> void:
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
 				print("VIHJEET %s: '%s'" % [name, _hint.text.replace("
 ", " | ")])
+			_toggle_mount()
+			bike.global_position = shop_door + (shop_zone - shop_door).normalized() * 1.0 + Vector3(0, 0.5, 0)
+			bike.velocity = Vector3.ZERO
+			for i in 10:
+				await get_tree().physics_frame
+			await snap.call("_pyora.png")
+			_toggle_mount()
 			money = 9.0
 			_enter_shop()
 			interior.cart["makkara"] = 3.5
