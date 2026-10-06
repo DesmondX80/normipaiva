@@ -8,8 +8,10 @@ const BOTTOM := 150.0  # keskikohdan etäisyys ruudun alareunasta (px), sama kui
 const GAP := 22.0  # toimintojen väli rivillä
 
 var left := 0.0  # vasen raja (lappu auki: main.gd _avoid_note)
+var right := 0.0  # varattu oikealta (minikartta: main.gd _avoid_note)
 var _text := ""
 var _shown := "-"
+var _built_w := 0.0  # leveys, jolle rivit jaettiin (alue muuttui: jaetaan uudelleen)
 var _a := 0.0
 var _pill: PanelContainer
 var _rows: VBoxContainer
@@ -47,7 +49,7 @@ func set_text(t: String) -> void:
 
 
 func _process(delta: float) -> void:
-	if _text != _shown:
+	if _text != _shown or (_text != "" and absf(_area_w() - _built_w) > 1.0):
 		_shown = _text
 		if _text != "":
 			_rebuild()
@@ -58,8 +60,9 @@ func _process(delta: float) -> void:
 	var vs := get_viewport_rect().size
 	_pill.reset_size()
 	var sz := _pill.get_combined_minimum_size()
-	var cx := (maxf(left, 0.0) + vs.x) / 2.0
-	_pill.position = Vector2(clampf(cx - sz.x / 2.0, maxf(left, 12.0), maxf(vs.x - sz.x - 12.0, 12.0)),
+	var lo := maxf(left, 12.0)
+	var hi := vs.x - maxf(right, 12.0)
+	_pill.position = Vector2(clampf((lo + hi) / 2.0 - sz.x / 2.0, lo, maxf(hi - sz.x, lo)),
 		vs.y - BOTTOM - sz.y / 2.0 + (1.0 - _a) * 10.0)
 	modulate.a = _a
 
@@ -69,8 +72,8 @@ func _rebuild() -> void:
 	for c in _rows.get_children():
 		_rows.remove_child(c)
 		c.queue_free()
-	var vs := get_viewport_rect().size
-	var max_w := minf(vs.x - maxf(left, 0.0) - 80.0, 1400.0)
+	_built_w = _area_w()
+	var max_w := minf(_built_w - 60.0, 1400.0)
 	for line in _text.split("\n"):
 		if line.strip_edges() == "":
 			continue
@@ -86,6 +89,11 @@ func _rebuild() -> void:
 				row.add_child(chunk)
 				w = 0.0
 			w += cw + (GAP if row.get_child_count() > 1 else 0.0)
+
+
+## Vihjeelle vapaa leveys lapun ja minikartan välissä.
+func _area_w() -> float:
+	return get_viewport_rect().size.x - maxf(left, 12.0) - maxf(right, 12.0)
 
 
 func _new_row() -> HBoxContainer:
