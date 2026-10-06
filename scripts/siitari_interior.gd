@@ -16,6 +16,7 @@ const WALL_H := 3.0
 const STAGE := Rect2(-8.0, 1.2, 3.6, 4.3)  # karaokelava vasemmassa etunurkassa
 const DANCE := Vector3(-2.6, 0, 3.2)       # tanssilattian keskikohta lavan edessä
 ## Toimintopisteet: id -> [paikka, vihje]. Sinikan paikka päivittyy (tanssilattialla eri kohdassa).
+var spot := ""  # lähin toimintopiste (main.gd näyttää puhuttaville puhevihjeen)
 var spots := {
 	"ovi": [Vector3(7.2, 0, 3.4), "[E] Ulos ja mopolla takaisin Paapeliin"],
 	"tiski": [Vector3(-4.2, 0, -3.3), "[E] Tilaa baaritiskiltä"],
@@ -200,6 +201,7 @@ func _process(delta: float) -> void:
 			bd = d
 			best = id
 	hint = ""
+	spot = best
 	if best == "":
 		return
 	hint = spots[best][1]

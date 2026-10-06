@@ -62,6 +62,7 @@ const LAST_MINUTE := [
 signal paid(total: float)
 signal busted
 signal exited(bought: bool)
+var at_till := false  # kassalla vuorossa: main.gd näyttää puhevihjeen kauppiaalle
 
 var active := false
 var has_beer := false
@@ -92,7 +93,6 @@ var _count_label: Label3D
 var _cashier_bubble: Label3D
 var _cashier: Node3D
 var _cashier_t := 0.0
-var _broke_hinted := false  # kauppias on jo neuvonut, miten liiat ostokset palautetaan
 var _neighbor_t := -1.0
 var _neighbor_spawned := false
 
@@ -115,7 +115,6 @@ func enter() -> void:
 	walker.position = ENTRY
 	walker.rotation.y = 0.0
 	walker.activate()
-	_broke_hinted = false
 	_alko.visible = vaala
 	if not vaala and not _neighbor_spawned and _neighbor_t < 0.0:
 		_neighbor_t = randf_range(4.0, 10.0)
@@ -153,6 +152,7 @@ func _process(delta: float) -> void:
 		_serve_t = randf_range(5.0, 8.0)
 
 	hint = ""
+	at_till = false
 	var e := Input.is_action_just_pressed("interact") and not busy and Engine.get_process_frames() != _enter_frame
 	var broke := not has_paid and _total() > money + 0.001
 	if _flat(p, DOOR) < 1.4:
@@ -249,34 +249,7 @@ func _process(delta: float) -> void:
 			_update_carry()
 			Sfx.play("pickup", 0.0 if has_beer else -6.0, 1.0 if has_beer else 0.7)
 	elif not has_paid and in_queue and _queue.is_empty():
-		var total := _total()
-		hint = "[E] Maksa %s €" % _eur(total)
-		if price_mult < 1.0:
-			hint += "  (hyvä mieli: kassa antaa −10 %)"
-		elif price_mult > 1.0:
-			hint += "  (nyrpeä naama: +10 %)"
-		var own := has_beer or not cart.is_empty()
-		if broke and own:
-			hint += "   [Q] jätä omat ostokset kassalle"
-			if not _broke_hinted:
-				_broke_hinted = true
-				_cashier_say("Riittääkö rahat? Liiat voi viedä takaisin hyllyyn, tai jättää tähän tiskille.", 4.0)
-		if own and Input.is_action_just_pressed("bell") and broke:
-			has_beer = false
-			cart.clear()
-			_update_carry()
-			Sfx.play("rattle", -10.0, 0.8)
-			_cashier_say("Ei se mitään, mää laitan ne takaisin hyllyyn." if bag.is_empty() else
-				"Laitan ne takaisin. Päivin tavarat on Päivin piikkiin.", 3.5)
-		elif e:
-			if total > money + 0.001:
-				_cashier_say("Rahat ei riitä, %s € puuttuu! Vie jotain takaisin hyllyyn tai jätä tähän, paina [%s]." % [
-					_eur(total - money), Settings.action_key("bell")], 4.5)
-			else:
-				has_paid = true
-				Sfx.play("register")
-				_cashier_say("Kiitos, hei!")
-				paid.emit(total)
+		at_till = true  # kauppiaan kanssa puhutaan keskusteluikkunassa (main.gd): maksu, ostokset tiskille, neuvot
 	elif not has_paid and in_queue:
 		hint = "Jonotat... edessä %d harmaapäätä" % _queue.size()
 	elif not has_paid and has_items:
@@ -285,10 +258,51 @@ func _process(delta: float) -> void:
 			hint += "
 Rahat ei riitä (%s / %s €): palauta tavaraa samaan hyllyyn, josta otit" % [_eur(money), _eur(_total())]
 	elif not has_paid:
-		hint = "Kaljat takaseinältä, grillitarvikkeet oven vierestä, Päivin tuotteet oikealta seinältä" + \
-			(", Alko vasemmalta seinältä" if vaala else "")
+		hint = where_text()
 	else:
 		hint = "Maksettu! Ulos ovesta."
+
+
+## Mistä mitäkin löytyy (vihje ja kauppiaan neuvo).
+func where_text() -> String:
+	return "Kaljat takaseinältä, grillitarvikkeet oven vierestä, Päivin tuotteet oikealta seinältä" + \
+		(", Alko vasemmalta seinältä" if vaala else "")
+
+
+## Kassalla: summa, riittävätkö rahat ja hinnan mielialalisä (main.gd keskusteluikkuna).
+func till_total() -> float:
+	return _total()
+
+
+func can_pay() -> bool:
+	return _total() <= money + 0.001
+
+
+func own_items() -> bool:
+	return has_beer or not cart.is_empty()
+
+
+func price_note() -> String:
+	if price_mult < 1.0:
+		return "Hyvä mieli: kassa antaa −10 %."
+	if price_mult > 1.0:
+		return "Nyrpeä naama: +10 %."
+	return ""
+
+
+func pay() -> void:
+	var total := _total()
+	has_paid = true
+	Sfx.play("register")
+	paid.emit(total)
+
+
+## Omat ostokset (kalja, kori) jätetään tiskille, Päivin tavarat jäävät kassiin.
+func leave_own() -> void:
+	has_beer = false
+	cart.clear()
+	_update_carry()
+	Sfx.play("rattle", -10.0, 0.8)
 
 
 ## Maksamatta ulos: kaikki korin tavarat ja Päivin kassi lähtevät mukaan, kauppias tulee perään.
