@@ -368,9 +368,6 @@ func _draw() -> void:
 			if cand * _vzoom <= 100.0:
 				m = cand
 		_scale_bar(side + Vector2(10, 180), m, _vzoom)
-		if not _vd.is_empty():
-			draw_string(font, side + Vector2(10, 222), ("Punainen katkoviiva: %.1f km tietä tiivistetty" % ((_vd.s_b - _vd.s_a) / 1000.0)).replace(".", ","),
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.7, 0.12, 0.08))
 		_legend_vaala(side + Vector2(10, 250))
 		draw_string(font, Vector2(side.x + 10, r.end.y - 58), "Rulla / Q E / nipistä: zoomaa", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 		draw_string(font, Vector2(side.x + 10, r.end.y - 40), "WASD / vedä: siirrä", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
@@ -722,7 +719,8 @@ func _vaala_load() -> void:
 	var hts := f.get_buffer(nx * nz * 4).to_float32_array()
 	var codes := f.get_buffer(nx * nz)
 	_vrect = Rect2(x0 - cell / 2.0, z0 - cell / 2.0, nx * cell, nz * cell)
-	# Koodit kuten vaala.gd: metsä, pelto, suo, vesi, piha, piennar, tie, rata; 255 = tarkan alueen ulkopuoli (metsää).
+	# Koodit kuten vaala.gd: metsä, pelto, suo, vesi, piha, piennar, tie, rata. Tiivistys on leivottu saumattomaksi
+	# (tools/kartta/vaala_warp.py), joten kartta piirretään sellaisenaan ilman merkintöjä.
 	var pal := [Color(0.66, 0.76, 0.52), Color(0.93, 0.82, 0.5), Color(0.78, 0.84, 0.82), Color(0.55, 0.72, 0.86),
 		Color(0.86, 0.85, 0.7), Color(0.84, 0.8, 0.68), Color(0.84, 0.8, 0.68), Color(0.7, 0.66, 0.6)]
 	var px := PackedByteArray()
@@ -869,19 +867,6 @@ func _draw_vaala_map() -> void:
 		for i in _vbld_pts.size():
 			bp[i] = _vpx(_vbld_pts[i])
 		RenderingServer.canvas_item_add_triangle_array(v.get_canvas_item(), _vbld_idx, bp, _vbld_cols)
-
-	# Tiivistetty väli: Neittäväntie ja Vuolijoentie ovat pelissä n. 1:22 (mittari näyttää oikeat kilometrit).
-	var ia := -1
-	var ib := -1
-	for i in road.size():
-		if ia < 0 and road[i][3] > _vd.s_a:
-			ia = i
-		if ib < 0 and road[i][3] >= _vd.s_b:
-			ib = i
-	if ia >= 0 and ib > ia:
-		var dash := line.slice(ia, ib + 1)
-		for i in range(0, dash.size() - 1, 2):
-			v.draw_line(dash[i], dash[i + 1], Color(0.75, 0.15, 0.1, 0.8), 1.5)
 
 	# Tienimet kylteistä (tien suuntaisesti).
 	for sg in _vd.signs:

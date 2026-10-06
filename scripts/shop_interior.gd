@@ -77,6 +77,7 @@ var _items := {}  # tuote -> väri -> MeshInstance3D (valittu nostetaan esiin)
 var money := 20.0  # main päivittää ennen sisääntuloa
 ## Vaalan K-Market Tervaportti: Alkon hylly näkyvissä, eikä Saloisten naapuri (Anna-Liisa) tule kauppaan.
 var vaala := false
+var alko := true  # Vaalassa: Alkon hylly (Tervaportti), S-Marketissa ei
 var _alko: Node3D
 
 var walker: CharacterBody3D
@@ -116,7 +117,7 @@ func enter() -> void:
 	walker.position = ENTRY
 	walker.rotation.y = 0.0
 	walker.activate()
-	_alko.visible = vaala
+	_alko.visible = vaala and alko
 	if not vaala and not _neighbor_spawned and _neighbor_t < 0.0:
 		_neighbor_t = randf_range(4.0, 10.0)
 
@@ -199,7 +200,7 @@ func _process(delta: float) -> void:
 				walker.set_carrying(true)
 				Sfx.play("pickup", -4.0, 0.9)
 		_return_logic(BAKERY)
-	elif vaala and _flat(p, ALKO_SPOT) < 1.5 and not has_paid:
+	elif vaala and alko and _flat(p, ALKO_SPOT) < 1.5 and not has_paid:
 		var n := alko_count()
 		if n >= ALKO_MAX:
 			hint = "Kaksi pulloa riittää. Kassalle!"
@@ -267,7 +268,7 @@ Rahat ei riitä (%s / %s €): palauta tavaraa samaan hyllyyn, josta otit" % [_e
 ## Mistä mitäkin löytyy (vihje ja kauppiaan neuvo).
 func where_text() -> String:
 	return "Kaljat takaseinältä, grillitarvikkeet oven vierestä, Päivin tuotteet oikealta seinältä" + \
-		(", Alko vasemmalta seinältä" if vaala else "")
+		(", Alko vasemmalta seinältä" if vaala and alko else "")
 
 
 ## Kassalla: summa, riittävätkö rahat ja hinnan mielialalisä (main.gd keskusteluikkuna).
