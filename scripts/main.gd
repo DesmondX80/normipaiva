@@ -3727,6 +3727,35 @@ func _taxi_mokki() -> void:
 		_arrive_by_car.bind(mokki.gpos(Mokki.RIDE_LOCAL + Vector3(0, 0.3, 2.2))))
 
 
+## Huijauskoodi: kirjoita "paapeli" ulkona, niin hahmo siirtyy suoraan mökin pihatien päähän ilman
+## kyytiä ja maksua. Paluu Pekan kyydillä pihatien päästä kuten aina.
+const CHEAT_MOKKI := "paapeli"
+var _cheat_buf := ""
+
+
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo and event.unicode > 0):
+		return
+	_cheat_buf = (_cheat_buf + char(event.unicode).to_lower()).right(CHEAT_MOKKI.length())
+	if _cheat_buf == CHEAT_MOKKI:
+		_cheat_buf = ""
+		_cheat_mokki.call_deferred()
+
+
+func _cheat_mokki() -> void:
+	await get_tree().process_frame
+	if _inventory.visible:
+		_inventory.toggle()  # koodin I avasi repun
+	if state not in ["to_shop", "to_home"] or _in_vaala or cutscene.busy or _talk_box.is_open() or _at_mokki():
+		return
+	if player == bike:
+		_place_on_foot(bike.global_position + bike.global_transform.basis.x * 1.1)  # pyörä jää Saloisiin
+	tilat.first("mokki", 0.4)
+	_save_game()
+	_arrive_by_car(mokki.gpos(Mokki.RIDE_LOCAL + Vector3(0, 0.3, 2.2)))
+	_show_message("PAAPELI! Olet mökillä.", 2.5)
+
+
 func _taxi_trip(escape := false) -> void:
 	state = "cutscene"
 	player.controls_enabled = false
@@ -6009,32 +6038,49 @@ func _mopo_end() -> void:
 
 
 ## Löylyssä käynti: lyhyt tunnelmapala terassilla, höyryä ja tilaisuuden tullen hörppy kaljaa.
-func _sauna_cutscene() -> void:
-	_mokki_prev = state
-	state = "cutscene"
-	player.controls_enabled = false
-	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+## Löylyt savusaunassa tai mökin sisäsaunassa (indoor): välianimaatio, jossa Santtu tulee kylmien kaljojen kanssa
+## (omia kaljoja ei kulu).
+func _sauna_cutscene(indoor := false) -> void:
+	var hide: Array
+	if indoor:
+		mokki_int.busy = true
+		mokki_int.walker.controls_enabled = false
+		hide = mokki_int.cutscene_nodes()
+	else:
+		_mokki_prev = state
+		state = "cutscene"
+		player.controls_enabled = false
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+		hide = mokki.santtu_nodes()  # pihan Santtu tulee löylyihin
 	_hud.visible = false
-	var had_beer := beers > 0
-	if had_beer:
-		beers -= 1
-	cutscene.sauna_relax(mokki.sauna_frame(), had_beer, func() -> void:
+	var frame: Transform3D = mokki_int.global_transform if indoor else mokki.sauna_frame()
+	var lay: Dictionary = mokki_int.sauna_layout() if indoor else {}
+	cutscene.sauna_relax(frame, false, func() -> void:
 		walker_out.stamina = 100.0
 		walker_out.exhausted = false
-		tilat.first("savusauna", 0.4)
-		if _once_today("sauna"):
+		tilat.first("sisasauna" if indoor else "savusauna", 0.4 if not indoor else 0.2)
+		if indoor:
+			if _once_today("sisasauna"):
+				tilat.add("stressi", 0.2)
+				tilat.add("vasymys", 0.2)
+				tilat.add("kipu", 0.1)
+		elif _once_today("sauna"):
 			tilat.add("stressi", 0.3)
 			tilat.add("vasymys", 0.3)
 			tilat.add("kipu", 0.2)
 			tilat.add("vireys", 0.2)
-		if had_beer:
-			tilat.add("moraali", 0.1)
-		state = _mokki_prev
-		player.controls_enabled = true
-		player.activate_camera()
-		_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+		tilat.add("moraali", 0.1)  # Santun kylmä kalja löylyn päälle
+		if indoor:
+			mokki_int.busy = false
+			mokki_int.walker.activate()
+		else:
+			state = _mokki_prev
+			player.controls_enabled = true
+			player.activate_camera()
+			_hazards.process_mode = Node.PROCESS_MODE_INHERIT
 		_hud.visible = true
-		_show_message("Löyly virkistää! Kunto palautui.", 2.5))
+		_show_message("%s Kunto palautui." % ("Sisäsaunan löylyt ja Santun kaljat!" if indoor else "Löyly virkistää!"), 2.5),
+		lay, true, hide)
 
 
 ## Mökin sisälle: oma tasku ja kävelijä kuten kaupassa; vaarat pysähtyvät sisällä oloajaksi.
@@ -6069,10 +6115,10 @@ func _on_mokki_slept() -> void:
 	if hommat.active and not hommat.all_done():
 		hommat.add_hermo(Hommat.HERMO_SLEEP)
 		if hommat.furious():
-			mokki_int.say("Nukkumaan ja hommat kesken? Ei käy! Pekka tulee hakemaan.")
+			mokki_int.say("Nukkumaan ja hommat kesken? Ei käy! Pekka tulee hakemaan.", false)
 			_hommat_evict()
 			return
-		mokki_int.say("Hommat jäi kesken... No, nuku nyt. Huomenna parempi.")
+		mokki_int.say("Hommat jäi kesken... No, nuku nyt. Huomenna parempi.", false)
 	if hommat.active:
 		var st: int = hommat.stars_now()
 		hommat.add_review(day, st)
@@ -6096,7 +6142,7 @@ func _on_mokki_acted(kind: String) -> void:
 				tilat.add("stressi", 0.1)
 			if hommat.pending("kahvi") and not hommat.progress.get("kahvi_vietu", false):
 				hommat.progress["kahvi_keitetty"] = true
-				mokki_int.say("Musta, ei sokeria. Vie se mulle pihalle, mää istun kannolla.")
+				mokki_int.say("Musta, ei sokeria. Vie se mulle pihalle, mää istun kannolla.", false)
 				_show_message("Suodatinkahvia! Kaadoit Santulle kupin mustaa: vie se pihalle (kävele, älä juokse).", 3.5)
 			else:
 				_show_message("Suodatinkahvia! Vireys nousee.", 2.5)
@@ -6143,15 +6189,7 @@ func _on_mokki_acted(kind: String) -> void:
 		"wc":
 			_open_wc_menu("mokki")
 		"sauna":
-			tilat.first("sisasauna", 0.2)
-			walker_out.stamina = 100.0
-			walker_out.exhausted = false
-			if _once_today("sisasauna"):
-				tilat.add("stressi", 0.2)
-				tilat.add("vasymys", 0.2)
-				tilat.add("kipu", 0.1)
-			Sfx.play("water", -6.0, 0.8, 2.5)  # löyly
-			_show_message("Sisäsaunan löylyt! Kunto palautui.", 2.5)
+			_sauna_cutscene(true)
 		"pa":
 			if mokki_int.pa_on:
 				_pa_off()
@@ -11257,6 +11295,23 @@ func _maybe_screenshot() -> void:
 			await press.call("interact")
 			print("TARINA Pekka nyt valinnat: %s" % str(_talk_box._options.map(func(o): return o.text + ("" if o.enabled else " [" + o.reason + "]"))))
 			_talk_box.close()
+		"paapelikoodi":
+			# Huijauskoodi: "paapeli" pyörän selästä kotipihalla vie suoraan mökille, pyörä jää Saloisiin.
+			for c in CHEAT_MOKKI:
+				var ev := InputEventKey.new()
+				ev.pressed = true
+				ev.keycode = OS.find_keycode_from_string(c.to_upper())
+				ev.unicode = c.unicode_at(0)
+				Input.parse_input_event(ev)
+				await get_tree().process_frame
+				var up := ev.duplicate()
+				up.pressed = false
+				Input.parse_input_event(up)
+				await get_tree().process_frame
+			for i in 10:
+				await get_tree().process_frame
+			print("KOODI mökillä: %s, jalan %s, reppu auki %s, pyörä mökillä %s" % [_at_mokki(), player == walker_out,
+				_inventory.visible, _at_mokki_pos(bike.global_position)])
 		"taksipaapeli":
 			# Kaupan taksilla Paapeliin (60 €, meno-paluu) ja mökiltä taksilla takaisin; Pekan kyyti lukossa.
 			story = Story.new()
@@ -14325,6 +14380,48 @@ func _maybe_screenshot() -> void:
 			dc.look_at_from_position(mokki.to_global(dl + Vector3(4.5, sy + 1.2, -15.5)), mokki.to_global(dl + Vector3(0, sy, -10.5)))
 			dc.current = true
 			walker_out.visible = false
+		"mokkikanto":
+			# Santtu kannolla: alussa ja puuhista palattua, istuu pölkyn päällä (ei ilmassa eikä pölkyn sisällä).
+			_toggle_mount()
+			walker_out.global_position = mokki.gpos(Vector3(8, 0.5, 14))
+			var kc := Camera3D.new()
+			add_child(kc)
+			kc.current = true
+			var sl := Mokki.SANTTU_LOCAL
+			var snap := func(tag: String) -> void:
+				var top := -99.0
+				for c in mokki.get_children():
+					if c is MeshInstance3D and c.mesh is CylinderMesh and Vector2(c.position.x - sl.x, c.position.z - sl.z).length() < 0.05:
+						top = c.position.y + c.mesh.height * 0.5
+				var s: Node3D = mokki.santtu
+				var pel: Vector3 = mokki.to_local(s.to_global(s.bone_position("pelvis")))
+				var th: Vector3 = mokki.to_local(s.to_global(s.bone_position("thigh_l")))
+				print("KANTO %s: juuri %s, lantio %s, reisi %s, kanto keski %s ylä %.2f, maa %.2f" % [tag, s.position, pel, th,
+					Vector2(sl.x, sl.z), top, Mokki.h(sl.x, sl.z)])
+				for v in [["sivu", Vector3(2.2, 0.9, 0.0)], ["edes", Vector3(0.0, 1.0, -2.2)], ["taka", Vector3(-0.6, 1.2, 2.2)]]:
+					var eye: Vector3 = mokki.gpos(sl + v[1])
+					eye.y = mokki.to_global(Vector3(0, Mokki.h(sl.x, sl.z), 0)).y + v[1].y
+					kc.look_at_from_position(eye, mokki.to_global(sl + Vector3(0, Mokki.h(sl.x, sl.z) + 0.5, 0)), Vector3.UP)
+					for i in 4:
+						await get_tree().process_frame
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s_%s.png" % [tag, v[0]]))
+			for i in 10:
+				await get_tree().process_frame
+			await snap.call("alku")
+			mokki.santtu_visit(sl + Vector3(3, 0, 3))
+			while not mokki.santtu_arrived():
+				await get_tree().process_frame
+			mokki.santtu_go_home()
+			while mokki.santtu_out():
+				await get_tree().process_frame
+			for i in 30:
+				await get_tree().process_frame
+			await snap.call("paluu")
+			for k in 12:
+				await get_tree().create_timer(0.25).timeout
+				var s: Node3D = mokki.santtu
+				print("KANTO t%d lantio %s anim %s" % [k, mokki.to_local(s.to_global(s.bone_position("pelvis"))), s.current()])
 		"kuisti":
 			# Mökin kuisti: luiskaa ylös kannelle (korkeus ~0,6 m), eikä kannen reunasta pääse sisään maata pitkin.
 			_toggle_mount()
