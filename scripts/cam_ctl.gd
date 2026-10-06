@@ -18,6 +18,8 @@ var pitch := -0.12
 var _idle := 99.0
 var need_mouse := false  # minipeli tähtää hiirellä asetuksesta riippumatta
 var free_mouse := false  # minipeli käyttää näkyvää kursoria (esim. PA-johtojen kytkentä)
+var indoors := false  # sisätilassa (main.gd): ohjaus asetuksesta "mouse_steer_indoor"
+var loading := false  # latausruutu näkyy: hiiri vapaana (main.gd _loading_show / _loading_hide)
 
 
 func _ready() -> void:
@@ -55,19 +57,22 @@ func _process(delta: float) -> void:
 		return  # kosketusnäytöllä hiirtä ei lukita (napautukset toimivat hiiren klikkauksina valikoissa)
 	if not get_tree().paused and DisplayServer.window_is_focused():
 		var want := Input.MOUSE_MODE_CAPTURED if need_mouse or _looking() else Input.MOUSE_MODE_VISIBLE
-		if free_mouse:
+		if free_mouse or loading:
 			want = Input.MOUSE_MODE_VISIBLE
 		if Input.mouse_mode != want:
 			Input.mouse_mode = want
 
 
 func _looking() -> bool:
+	if indoors:
+		return Settings.get_v("mouse_steer_indoor")  # sisällä kamera on kiinteä: hiiri lukitaan vain ohjaukseen
 	return Settings.get_v("mouse_look") or Settings.get_v("mouse_steer")
 
 
 ## Tosi, kun hiiri ohjaa kulkusuuntaa (asetus päällä ja hiiri lukittuna pelin käyttöön).
 func steering() -> bool:
-	return Settings.get_v("mouse_steer") and not Touch.active and not need_mouse and not free_mouse 		and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	return Settings.get_v("mouse_steer_indoor" if indoors else "mouse_steer") and not Touch.active and not need_mouse \
+		and not free_mouse and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 
 
 ## Ajoneuvon ohjauskäsky kohti kameran suuntaa (-1..1); kertoimena on jo vauhdin suunta, joten peruuttaessakin

@@ -873,6 +873,8 @@ var _loading_text: Label
 
 ## Latausruutu: tumma tausta, pelin nimi, vaiheen nimi ja edistymispalkki.
 func _loading_show() -> void:
+	CamCtl.loading = true  # latauksen aikana hiiri ei lukitu
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_loading_layer = CanvasLayer.new()
 	_loading_layer.layer = 100
 	add_child(_loading_layer)
@@ -927,12 +929,14 @@ var _loading_step := func(text: String, frac: float) -> void:
 
 
 func _loading_hide() -> void:
+	CamCtl.loading = false
 	if _loading_layer != null:
 		_loading_layer.queue_free()
 		_loading_layer = null
 
 
 func _process(delta: float) -> void:
+	CamCtl.indoors = state in ["in_shop", "in_home", "in_mokki", "in_garage", "in_siitari", "in_raahe"]
 	var at_mokki := _at_mokki()
 	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
 	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
@@ -2202,10 +2206,23 @@ func _pick_berries(dt: float) -> void:
 		_pick_done()
 
 
+const FORAGE_REGROW := Vector2i(1, 5)  # poimittu paikka kasvaa takaisin tämän päivämäärän välein
+
+
+## Aamulla: poimitut marja- ja sienipaikat, joiden aika on tullut, kasvavat takaisin (Saloinen ja mökki).
+func _regrow_forage() -> void:
+	for f in world.forage + mokki_forage:
+		if f.taken and day >= int(f.get("regrow", 0)):
+			f.taken = false
+			if is_instance_valid(f.node):
+				f.node.visible = true
+
+
 func _pick_done() -> void:
 	var liters: int = mini(world.FORAGE_KINDS[_pick_spot.kind].liters, BUCKET_MAX - _bucket_total())
 	bucket[_pick_spot.kind] = bucket.get(_pick_spot.kind, 0) + liters
 	_pick_spot.taken = true
+	_pick_spot.regrow = day + randi_range(FORAGE_REGROW.x, FORAGE_REGROW.y)  # kasvaa takaisin 1–5 päivän päästä
 	tilat.first("poiminta_" + _pick_spot.kind)
 	# Kyykkiminen väsyttää, mutta metsässä olo virkistää.
 	tilat.add("vasymys", -0.05)
@@ -4069,6 +4086,7 @@ func _talk_choose(id: String) -> void:
 				"Varaosa mukana. Vielä kalja, niin leikkuri korjataan.")
 		"paikat":
 			world.forage_revealed = true
+			_save_game()
 			_talk_box.reply("Lähekkö puolukkaan? Merkkaan sulle karttaan parhaat paikat!", _talk_options(),
 				"Arto merkitsi marja- ja sienipaikat karttaan (M).")
 		"haava":
@@ -7072,7 +7090,7 @@ func _load_game() -> void:
 	has_sugar = cfg.get_value("viini", "sokeri", false)
 	pontikka = cfg.get_value("viini", "pontikka", 0)
 	has_korpihiiva = cfg.get_value("viini", "korpihiiva", false)
-	var vm = cfg.get_value("viini", "saavit", null)
+	var vm = cfg.get_value("viini", "saavit", {})  # null ei kelpaa oletukseksi (Godot: "no default")
 	if vm is Dictionary and vm.has("koti") and vm.has("paapeli"):
 		vat_mix = vm
 	mwine_start = cfg.get_value("paapeli", "viini_alku", -1)
@@ -7080,6 +7098,22 @@ func _load_game() -> void:
 	mwine_locked = cfg.get_value("paapeli", "viini_lukossa", false)
 	mwine_endings = cfg.get_value("paapeli", "bileet", 0)
 	mokki_forage_revealed = cfg.get_value("paapeli", "marjapaikat", false)
+	world.forage_revealed = cfg.get_value("peli", "marjapaikat", false)  # Arton merkinnät karttaan
+	# Päivästä toiseen säilyvät (uusi päivä ei nollaa): ämpärin marjat ja sienet, kodan pölkyt ja halot, rikkinäinen
+	# drooni ja Sinikan nurmikon leikkuu (tarina).
+	bucket = cfg.get_value("peli", "ampari", {})
+	var fs: Array = cfg.get_value("peli", "poimitut", [])  # [indeksi, kasvaa takaisin -päivä]
+	for e in fs:
+		var i: int = e[0]
+		if i >= 0 and i < world.forage.size():
+			world.forage[i].taken = true
+			world.forage[i].regrow = int(e[1])
+			world.forage[i].node.visible = false
+	_regrow_forage()
+	kota_polkyt = cfg.get_value("kota", "polkyt", 0)
+	kota_halot = cfg.get_value("kota", "halot", 0)
+	drone_broken_day = cfg.get_value("peli", "drooni_rikki", -1)
+	sinikka_lawn.load_state(cfg.get_value("tarina", "sinikan_nurmikko", PackedByteArray()))
 	if mokki != null:
 		mokki.set_sauna_fixed(cfg.get_value("paapeli", "savusauna_korjattu", false))
 		hommat.sauna_fixed = mokki.sauna_fixed
@@ -7136,6 +7170,20 @@ func _save_game() -> void:
 	cfg.set_value("paapeli", "viini_lukossa", mwine_locked)
 	cfg.set_value("paapeli", "bileet", mwine_endings)
 	cfg.set_value("paapeli", "marjapaikat", mokki_forage_revealed)
+	if world != null:
+		cfg.set_value("peli", "marjapaikat", world.forage_revealed)
+	cfg.set_value("peli", "ampari", bucket)
+	if world != null:
+		var fs: Array = []
+		for i in world.forage.size():
+			if world.forage[i].taken:
+				fs.append([i, int(world.forage[i].get("regrow", 0))])
+		cfg.set_value("peli", "poimitut", fs)
+	cfg.set_value("kota", "polkyt", kota_polkyt)
+	cfg.set_value("kota", "halot", kota_halot)
+	cfg.set_value("peli", "drooni_rikki", drone_broken_day)
+	if sinikka_lawn != null:
+		cfg.set_value("tarina", "sinikan_nurmikko", sinikka_lawn.save_state())
 	cfg.set_value("paapeli", "savusauna_korjattu", mokki.sauna_fixed if mokki != null else false)
 	cfg.set_value("kota", "tarinat", tarinat_kuultu)
 	if lawn != null:
@@ -7257,6 +7305,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	day += 1
 	var at_m := _at_mokki_pos(spawn)  # mökillä herätessä pääpelin asiat odottavat kotiinpaluuta
 	var stats_note := _end_day_stats(at_m)
+	_regrow_forage()
 	# Pyörä jää sinne, minne se jäi; päivä alkaa jalan turvapaikasta.
 	beers = 0
 	_stashed_today = 0
@@ -10902,6 +10951,40 @@ func _maybe_screenshot() -> void:
 			await click.call("pulla")
 			_inventory.toggle()
 			print("REPPUK sisällä: ulkokävelijän ohjaus %s, tila %s" % [walker_out.controls_enabled, state])
+		"marjapaikat":
+			# Arton merkinnät karttaan säilyvät tallennuksessa: tallennus ja lataus uudelleen.
+			world.forage_revealed = true
+			bucket = {"puolukka": 3, "kantarelli": 1}
+			kota_polkyt = 2
+			kota_halot = 5
+			drone_broken_day = day
+			sinikka_lawn.lengths.fill(0.1)
+			_save_game()
+			world.forage_revealed = false
+			bucket = {}
+			kota_polkyt = 0
+			kota_halot = 0
+			drone_broken_day = -1
+			sinikka_lawn.lengths.fill(0.4)
+			_load_game()
+			var f0: Dictionary = world.forage[0]
+			f0.taken = true
+			f0.regrow = day + 2
+			f0.node.visible = false
+			_save_game()
+			f0.taken = false
+			_load_game()
+			print("MARJAPAIKAT poimittu tallessa: %s, takaisin päivänä %d (nyt %d)" % [f0.taken, f0.regrow, day])
+			var d0 := day
+			day = d0 + 1
+			_regrow_forage()
+			print("MARJAPAIKAT +1 pv: poimittu %s" % f0.taken)
+			day = d0 + 2
+			_regrow_forage()
+			print("MARJAPAIKAT +2 pv: poimittu %s, näkyy %s" % [f0.taken, f0.node.visible])
+			day = d0
+			print("MARJAPAIKAT latauksen jälkeen: paikat %s, ämpäri %s, pölkyt %d, halot %d, drooni rikki %s, Sinikan nurmi %.2f" % [
+				world.forage_revealed, bucket, kota_polkyt, kota_halot, drone_broken_day == day, sinikka_lawn.lengths[0]])
 		"mokkieat":
 			# Vaalan matkalla T: pulla mopon selässä, vauhdissa ei, viina jalan.
 			_toggle_mount()
@@ -13289,13 +13372,21 @@ func _maybe_screenshot() -> void:
 					break
 			print("PAIVI loppu: state=%s kiinni=%s tila=%s msg=%s" % [state, _raahe.caught, raahe_int._paivi_mode, _msg.text])
 		"hiirisisalla":
-			# Hiiriohjaus sisätiloissa: kotona hiiren liike kääntää hahmoa, W vie katseen suuntaan, A sivulle.
+			# Hiiriohjaus sisätiloissa (oma asetus): pelkkä ulkoasetus ei ohjaa sisällä (kursori vapaana); sisäasetus
+			# päälle -> hiiren liike kääntää hahmoa ja W vie katseen suuntaan; pois -> W liikkuu ruudulla ylös.
+			var old_out: bool = Settings.get_v("mouse_steer")
+			var old_in: bool = Settings.get_v("mouse_steer_indoor")
 			Settings.set_v("mouse_steer", true)
+			Settings.set_v("mouse_steer_indoor", false)
 			if player == bike:
 				_toggle_mount()
 			_enter_home("ovi")
 			var w: CharacterBody3D = home_int.walker
 			w.position = Vector3(1.0, 0, -2.0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("HSISALLA ulkoasetus: sisällä %s, hiiri %d, ohjaa %s" % [CamCtl.indoors, Input.mouse_mode, CamCtl.steering()])
+			Settings.set_v("mouse_steer_indoor", true)
 			for i in 10:
 				await get_tree().physics_frame
 			print("HSISALLA hiiri %d ohjaa %s" % [Input.mouse_mode, CamCtl.steering()])
@@ -13315,13 +13406,15 @@ func _maybe_screenshot() -> void:
 			var mv := w.position - p0
 			print("HSISALLA käännös %.2f rad, W liike katseen suuntaan %.2f m, sivulle %.2f m" % [turned, mv.dot(fwd),
 				mv.dot(w.global_transform.basis.x)])
-			Settings.set_v("mouse_steer", false)
+			Settings.set_v("mouse_steer_indoor", false)
 			var p1 := w.position
 			Input.action_press("forward")
 			for i in 20:
 				await get_tree().physics_frame
 			Input.action_release("forward")
 			print("HSISALLA ilman asetusta W liikkuu ruudulla ylös (−Z): %.2f m" % -(w.position - p1).z)
+			Settings.set_v("mouse_steer", old_out)
+			Settings.set_v("mouse_steer_indoor", old_in)
 		"tallijuoma2":
 			# Käyttäjän polku: hiiriohjaus päällä, viini käymään saavilla, T-valikko, välissä taukovalikko, viina hiiren
 			# vasemmalla.
