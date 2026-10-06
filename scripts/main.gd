@@ -579,6 +579,7 @@ const WOUND_PAIVI := ["Taas sää oot ollu vieraitten koirien kans!", "Istu siih
 const Boys := preload("res://scripts/boys.gd")
 const ItemMenu := preload("res://scripts/item_menu.gd")
 const DialogueBox := preload("res://scripts/dialogue_box.gd")
+const TalkPrompt := preload("res://scripts/talk_prompt.gd")
 const BALL_REWARD := 1.0
 var boys: Node3D
 var ball: Node3D
@@ -587,6 +588,7 @@ var _ball_quest := ""  # "" = ei annettu, "search" = etsitään, "done" = hoidet
 var _item_menu: PanelContainer
 ## Keskusteluikkuna (dialogue_box.gd): naapurin kanssa kaikki asiat valintoina; _talk_who = "arto" / "pekka" / "sinikka".
 var _talk_box: CanvasLayer
+var _talk_prompt: Control  # puhevihje naapurin pään päällä (talk_prompt.gd)
 var _talk_who := ""
 var _talk_end_frame := -1  # sulkemisruudulla E ei saa avata uutta keskustelua tai muuta toimintoa
 const TALK_COLORS := {"arto": Color(0.55, 0.85, 0.45), "pekka": Color(1.0, 0.6, 0.25), "sinikka": Color(1.0, 0.55, 0.75)}
@@ -3907,10 +3909,24 @@ func _neighbor_logic() -> void:
 		if v.distance_to_player() > 4.2:
 			continue
 		var who := _villager_id(v)
+		var name: String = v.display_name.trim_prefix("Naapurin ")
+		# Vanha vihjerivi pysyy tekstinä (estää muut vihjeet ja testit lukevat sen), mutta näkyviin tulee pään päälle
+		# piirretty puhevihje.
 		if player == bike:
-			_hint.text = "Nouse pyörän selästä (F) jutellaksesi %s kanssa." % TALK_GEN[who]
+			_hint.text = " "
+			_talk_prompt.show_for(v, Settings.action_key("mount"), "Nouse pyörältä", name, TALK_COLORS[who], "jutellaksesi")
 		else:
-			_hint.text = "[E] Puhu %s kanssa" % TALK_GEN[who]
+			_hint.text = " "
+			var saved := _talk_who
+			_talk_who = who
+			var can: Array = _talk_options().filter(func(o: Dictionary) -> bool:
+				return o.enabled and not o.id in ["juttu", "lopeta"])
+			_talk_who = saved
+			var sub := " · ".join(can.slice(0, 2).map(func(o: Dictionary) -> String: return String(o.text).get_slice(" (", 0)))
+			if can.size() > 2:
+				sub += " …"
+			var hot := can.any(func(o: Dictionary) -> bool: return o.id in ["tarina", "mustikat"])
+			_talk_prompt.show_for(v, Settings.action_key("interact"), "Puhu", name, TALK_COLORS[who], sub, hot)
 			if Input.is_action_just_pressed("interact"):
 				_talk(v)
 		return
@@ -7895,6 +7911,8 @@ func _build_hud() -> void:
 
 	_talk_box = DialogueBox.new()
 	add_child(_talk_box)
+	_talk_prompt = TalkPrompt.new()
+	layer.add_child(_talk_prompt)
 	_talk_box.chosen.connect(_talk_choose)
 	_talk_box.closed.connect(_talk_end)
 	_item_menu = ItemMenu.new()
@@ -9931,8 +9949,9 @@ func _maybe_screenshot() -> void:
 			bitten = true
 			beers = 0
 			money = 2.0
-			pekka.process_mode = Node.PROCESS_MODE_DISABLED
+			pekka.set_physics_process(false)
 			arto.process_mode = Node.PROCESS_MODE_DISABLED
+			_note.visible = false
 			var shot := func(name: String) -> void:
 				_msg.text = ""
 				_msg_queue.clear()
@@ -9940,10 +9959,26 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
-			walker_out.global_position = pekka.global_position + Vector3(1.8, 0.5, 0.6)
+			walker_out.global_position = pekka.global_position + Vector3(2.6, 0.5, 1.4)
+			walker_out.rotation.y = B.yaw_to(pekka.global_position - walker_out.global_position) + PI
 			for i in 10:
 				await get_tree().physics_frame
 			print("KESK vihje '%s'" % _hint.text)
+			await shot.call("_vihje.png")
+			pekka.say("Perkele, ammuin toissapäivänä neljätoista saatanan kyyhkyä!")
+			await shot.call("_vihjekupla.png")
+			pekka.say("")
+			var irow := -1
+			for r in Settings.KEY_ROWS.size():
+				if "interact" in Settings.KEY_ROWS[r][0]:
+					irow = r
+			var old_k: int = Settings.keys_of(irow)[0]
+			Settings.bind_key(irow, 0, KEY_R)
+			await shot.call("_vihje_r.png")
+			print("KESK näppäin vaihdettu: '%s'" % _talk_prompt._key.text)
+			Settings.bind_key(irow, 0, old_k)
+			for i in 3:
+				await get_tree().process_frame
 			await get_tree().process_frame
 			Input.action_press("interact")
 			await get_tree().process_frame
