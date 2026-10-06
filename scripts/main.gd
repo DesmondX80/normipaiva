@@ -10205,6 +10205,30 @@ func _maybe_screenshot() -> void:
 			for i in 3:
 				await get_tree().process_frame
 			print("KESK suljettu: auki %s, ohjaus %s" % [_talk_box.is_open(), walker_out.controls_enabled])
+		"hiirisisalla":
+			# Hiiren napit sisätiloissa vapaalla kursorilla: vasen nappi = toiminto kylmiöllä (kuutonen koriin).
+			Settings.values["mouse_steer_indoor"] = false
+			_enter_shop()
+			interior.walker.position = interior.COOLER_SPOT
+			for i in 10:
+				await get_tree().process_frame
+			var mid := get_viewport().get_visible_rect().size / 2.0
+			print("HIIRI tila %s, hiiri %s, hint '%s', leijuu %s" % [state, Input.mouse_mode, interior.hint,
+				get_viewport().gui_get_hovered_control()])
+			var ev := InputEventMouseButton.new()
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.position = mid
+			ev.global_position = mid
+			ev.pressed = true
+			Input.parse_input_event(ev)
+			for i in 2:
+				await get_tree().process_frame
+			var up := ev.duplicate()
+			up.pressed = false
+			Input.parse_input_event(up)
+			for i in 3:
+				await get_tree().process_frame
+			print("HIIRI vasen nappi: kuutonen %s" % interior.has_beer)
 		"vihjeet":
 			# Vihjepalkki (hint_bar.gd): kaupan grilli, ovi maksamatta, jono ja kotijemma.
 			if player == bike:
