@@ -578,12 +578,25 @@ const WOUND_PAIVI := ["Taas sää oot ollu vieraitten koirien kans!", "Istu siih
 ## Palautus esinevalikosta: pallo = 1 € ja moraali/kokemus, kalja = pojat juoksevat nauraen pois, muu = kivisade.
 const Boys := preload("res://scripts/boys.gd")
 const ItemMenu := preload("res://scripts/item_menu.gd")
+const DialogueBox := preload("res://scripts/dialogue_box.gd")
+const TalkPrompt := preload("res://scripts/talk_prompt.gd")
 const BALL_REWARD := 1.0
 var boys: Node3D
 var ball: Node3D
 var has_ball := false
 var _ball_quest := ""  # "" = ei annettu, "search" = etsitään, "done" = hoidettu
 var _item_menu: PanelContainer
+## Keskusteluikkuna (dialogue_box.gd): naapurin kanssa kaikki asiat valintoina; _talk_who = "arto" / "pekka" / "sinikka".
+var _talk_box: CanvasLayer
+var _talk_prompt: Control  # puhevihje naapurin pään päällä (talk_prompt.gd)
+var _talk_who := ""
+var _talk_end_frame := -1  # sulkemisruudulla E ei saa avata uutta keskustelua tai muuta toimintoa
+const TALK_COLORS := {"arto": Color(0.55, 0.85, 0.45), "pekka": Color(1.0, 0.6, 0.25), "sinikka": Color(1.0, 0.55, 0.75)}
+const TALK_GEN := {"arto": "Arton", "pekka": "Pekan", "sinikka": "Sinikan"}
+const TALK_HELLO := {
+	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
+	"pekka": ["No perkele, naapuri!", "Terve terve, saatana.", "Kas, sieltähän se tulee."],
+	"sinikka": ["Hei kulta... tuu vähän lähemmäs.", "No hei komistus.", "Kas, mun lempinaapuri."]}
 var _menu_mode := "give"  # esinevalikon käyttö: "give" (pojat) tai "eat" (T: syö)
 ## Eväät kaupan leipähyllystä: avain -> kpl (syödään T:llä, häviävät yöllä kuten kaljat).
 var food := {}
@@ -1147,6 +1160,8 @@ func _thief_abandon() -> void:
 
 
 func _mount_logic() -> void:
+	if _talk_box.is_open():
+		return
 	var e: bool = Input.is_action_just_pressed("mount") and not player.is_stunned()
 	if bike_in_garage:
 		if e and player == walker_out:
@@ -1175,6 +1190,11 @@ func _mount_logic() -> void:
 func _outside_logic() -> void:
 	if _item_menu.is_open():
 		return  # esinevalikko ottaa E:n, W/S:n ja Q:n
+	if _talk_box.is_open():
+		_talk_watch()
+		return  # keskusteluikkuna ottaa E:n, numerot, W/S:n ja Q:n
+	if Engine.get_process_frames() == _talk_end_frame:
+		return
 	if _beast_tick():
 		return  # huuto sudelle vei E:n
 	if Input.is_action_just_pressed("eat") and not player.is_stunned():
@@ -3898,148 +3918,247 @@ func _on_raahe(id: String) -> void:
 	_show_message("%s. %s" % [m[0], RAAHE_LINES.pick_random()], 3.0)
 
 
-## Pekan kyyti mökille: vihje ja E. Palauttaa false, jos kyytiä ei voi tarjota (pyörällä, rahaton, häädetty),
-## jolloin Pekan kanssa jutellaan.
-func _pekka_ride_hint(v: CharacterBody3D, e: bool) -> bool:
-	if player == bike or cutscene.busy or hommat.banned_day == day or not story.ride_unlocked():
-		return false  # tarinan aikana Pekka ei ehdi (kaupan taksilla Paapeliin pääsee)
-	if beers <= 0 and money < PEKKA_RIDE_PRICE:
-		return false
-	_hint.text = "[E] Pyydä Pekalta kyyti mökille Vaalaan (%s bensarahoiksi)" % ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €")
-	if e:
-		v.say("Hyppää kyytiin perkele, lähetään!")
-		_pekka_ride()
-	return true
-
-
-## Arto ostaa marjat ja kertoo paikat, Pekka ostaa sienet ja kehuu kyyhkysaaliitaan.
+## Naapurit (Arto, Pekka, Sinikka): lähellä vihje, E avaa keskusteluikkunan, jossa kaikki asiat ovat valintoina.
 func _neighbor_logic() -> void:
 	if _hint.text != "":
 		return
-	var e := Input.is_action_just_pressed("interact")
-	if _story_neighbor(e):
-		return
-	if sinikka.distance_to_player() < 4.2:
-		_sinikka_logic(e)
-		return
-	for v in [arto, pekka]:
+	for v in [sinikka, pekka, arto]:
 		if v.distance_to_player() > 4.2:
 			continue
-		var who := "arto" if v == arto else "pekka"
-		# Myytävät marjat tai sienet ensin: muuten leikkurin varaosa tai haavanhoito estäisi myynnin (ja tarinan tehtävät).
-		var has_goods := false
-		for k in bucket:
-			if GOODS[k].buyer == who and bucket[k] > 0:
-				has_goods = true
-		if who == "arto" and mower_broken and not has_mower_part and not has_goods:
-			if player == bike:
-				_hint.text = "Nouse pyörän selästä (F), niin voit kysyä Artolta leikkurin varaosaa."
-			elif money < LAWN_PART_PRICE:
-				_hint.text = "Arto myisi leikkurin varaosan %s eurolla, mutta rahat ei riitä." % _eur(LAWN_PART_PRICE)
-			else:
-				_hint.text = "[E] Osta Artolta leikkurin varaosa (%s €)" % _eur(LAWN_PART_PRICE)
-				if e:
-					money -= LAWN_PART_PRICE
-					has_mower_part = true
-					v.say("Vanhasta Husqvarnasta irtos. Kivikkoon ajoit, vai?")
-					Sfx.play("register", -4.0)
-					_show_message("Varaosa mukana. Vielä kalja, niin leikkuri korjataan.", 3.0)
-					_save_game()
-			return
-		if who == "pekka" and bitten and not has_goods:
-			if player == bike:
-				_hint.text = "Nouse pyörän selästä (F), niin Pekka voi katsoa haavaa."
-			elif beers <= 0 and money < PEKKA_CARE:
-				_hint.text = "Pekka hoitaisi haavan kaljalla tai %s eurolla, mutta kumpaakaan ei ole." % _eur(PEKKA_CARE)
-			else:
-				_hint.text = "[E] Pyydä Pekkaa hoitamaan haava (%s)" % ("kalja" if beers > 0 else _eur(PEKKA_CARE) + " €")
-				if e:
-					if beers > 0:
-						beers -= 1
-						player.set_carrying(beers > 0)
-					else:
-						money -= PEKKA_CARE
-					_heal()
-					v.say("Karhu?! No nyt tarvitaan koko pullo." if wound_big else "Ei tää oo mitään, kyyhkyt purree pahemmin.")
-					Sfx.play("groan", -4.0, 1.2)
-					_show_message("Pekka sitoi haavan ja kaatoi päälle koskenkorvaa. Kirvelee!", 3.5)
-			return
-		var sale := 0.0
-		for k in bucket:
-			if GOODS[k].buyer == who:
-				sale += bucket[k] * GOODS[k].price
-		if who == "arto" and not world.forage_revealed and not has_goods:
-			_hint.text = "[E] Juttele Arton kanssa"
-			if e:
-				world.forage_revealed = true
-				_save_game()
-				v.say("Lähekkö puolukkaan? Merkkaan sulle karttaan parhaat paikat!")
-				_show_message("Arto merkitsi marja- ja sienipaikat karttaan (M).", 3.0)
-		elif sale > 0.0 and player == bike:
-			_hint.text = "Nouse pyörän selästä (F), niin voit myydä %s." % ("marjat" if who == "arto" else "sienet")
-		elif sale > 0.0:
-			_hint.text = "[E] Myy %s %s €" % ["marjat Artolle" if who == "arto" else "sienet Pekalle", _eur(sale)]
-			if e:
-				money += sale
-				tilat.add("moraali", 0.1)
-				var sold := {}
-				for k in bucket.keys():
-					if GOODS[k].buyer == who:
-						sold[k] = bucket[k]
-						bucket.erase(k)
-				v.say("Kiitti! Tästä tulee hyvää puuroa." if who == "arto" else "No perkele, hyviä sieniä! Näistä tulee saatanan hyvä kastike kyyhkyille.")
-				Sfx.play("register", -4.0)
-				_show_message("+%s €" % _eur(sale), 2.0)
-				_story_sold(who, sold)
-		elif who == "pekka" and _pekka_ride_hint(v, e):
-			pass
+		var who := _villager_id(v)
+		var name: String = v.display_name.trim_prefix("Naapurin ")
+		# Vanha vihjerivi pysyy tekstinä (estää muut vihjeet ja testit lukevat sen), mutta näkyviin tulee pään päälle
+		# piirretty puhevihje.
+		if player == bike:
+			_hint.text = " "
+			_talk_prompt.show_for(v, Settings.action_key("mount"), "Nouse pyörältä", name, TALK_COLORS[who], "jutellaksesi")
 		else:
-			_hint.text = "[E] Juttele %s" % ("Arton kanssa" if who == "arto" else "Pekan kanssa")
-			if e:
-				v.say((ARTO_LINES if who == "arto" else (Story.PEKKA_WAITING if story.step == "tehtavat" else PEKKA_LINES)).pick_random())
+			_hint.text = " "
+			var saved := _talk_who
+			_talk_who = who
+			var can: Array = _talk_options().filter(func(o: Dictionary) -> bool:
+				return o.enabled and not o.id in ["juttu", "lopeta"])
+			_talk_who = saved
+			var sub := " · ".join(can.slice(0, 2).map(func(o: Dictionary) -> String: return String(o.text).get_slice(" (", 0)))
+			if can.size() > 2:
+				sub += " …"
+			var hot := can.any(func(o: Dictionary) -> bool: return o.id in ["tarina", "mustikat"])
+			_talk_prompt.show_for(v, Settings.action_key("interact"), "Puhu", name, TALK_COLORS[who], sub, hot)
+			if Input.is_action_just_pressed("interact"):
+				_talk(v)
 		return
 
 
-## Sinikka: mustikkatehtävä (pyytää, odottaa, palkitsee piirakalla) ja muuten flirttailevaa puutarhajuttua.
-## Päivi huomaa, jos hän on lähellä, kun juttelet Sinikan kanssa.
-func _sinikka_logic(e: bool) -> void:
-	if player == bike:
-		_hint.text = "Nouse pyörän selästä (F), niin voit jutella Sinikan kanssa."
-		return
-	var berries: int = bucket.get("mustikka", 0)
-	if sinikka_task == 1 and berries >= SINIKKA_BERRIES:
-		_hint.text = "[E] Anna Sinikalle %d l mustikoita" % SINIKKA_BERRIES
-	else:
-		_hint.text = "[E] Juttele Sinikan kanssa"
-	if not e:
-		return
-	if sinikka_task == 1 and berries >= SINIKKA_BERRIES:
-		bucket["mustikka"] = berries - SINIKKA_BERRIES
-		if bucket["mustikka"] <= 0:
-			bucket.erase("mustikka")
-		food["mustikkapiirakka"] = food.get("mustikkapiirakka", 0) + 1
-		sinikka_task = 0
-		_once_today("sinikka_piirakka")
-		tilat.add("moraali", 0.2)
-		tilat.first("sinikka_piirakka", 0.2)
-		sinikka.say(SINIKKA_THANKS.pick_random())
-		Sfx.play("pickup", -4.0, 0.8)
-		_show_message("Sinikka antoi uunituoreen mustikkapiirakan (T syö).", 3.0)
-		_save_game()
-	elif sinikka_task == 1:
-		sinikka.say(SINIKKA_WAIT.pick_random())
-		_show_message("Sinikka odottaa %d l mustikoita (ämpärissä %d l)." % [SINIKKA_BERRIES, berries], 2.5)
-	elif not ("sinikka_piirakka" in _today):
-		sinikka_task = 1
-		sinikka.say(SINIKKA_ASK.pick_random())
-		_show_message("Tehtävä: poimi metsästä %d l mustikoita ja vie ne Sinikalle." % SINIKKA_BERRIES, 3.5)
-		_save_game()
-	else:
-		sinikka.say(SINIKKA_LINES.pick_random())
-	if is_instance_valid(wife) and wife.global_position.distance_to(player.global_position) < 30.0 \
-			and _once_today("sinikka_paivi"):
+func _villager_id(v: Node) -> String:
+	return "arto" if v == arto else ("pekka" if v == pekka else "sinikka")
+
+
+func _talk_npc() -> CharacterBody3D:
+	return {"arto": arto, "pekka": pekka, "sinikka": sinikka}[_talk_who]
+
+
+func _talk(v: CharacterBody3D) -> void:
+	_talk_who = _villager_id(v)
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	v.quiet = true
+	v.say("")
+	CamCtl.free_mouse = true
+	_msg.text = ""
+	_msg_time = 0.0
+	var hello: String = TALK_HELLO[_talk_who].pick_random()
+	if _talk_who == "pekka" and story.step in ["pekka_kutsuu", "pekka_avaimet"]:
+		hello = "Hei! Tuu tänne, mulla ois asiaa!"
+	_talk_box.open(v.display_name.trim_prefix("Naapurin "), TALK_COLORS[_talk_who], hello, _talk_options())
+	# Päivi huomaa, jos juttelet Sinikan kanssa hänen lähellään.
+	if _talk_who == "sinikka" and is_instance_valid(wife) and wife.visible \
+			and wife.global_position.distance_to(player.global_position) < 30.0 and _once_today("sinikka_paivi"):
 		tilat.add("stressi", -0.2)
 		_show_message("Päivi: \"Mitä sää siellä Sinikan pihalla notkut?!\"", 3.0)
+
+
+## Keskustelu katkeaa, jos tilanne muuttuu (välianimaatio, kauppa, naapuri meni sisälle tai pelaaja siirtyi).
+func _talk_watch() -> void:
+	if cutscene.busy or player != walker_out or _talk_npc().distance_to_player() > 7.0:
+		_talk_box.close()
+
+
+func _talk_end() -> void:
+	_talk_end_frame = Engine.get_process_frames()
+	walker_out.controls_enabled = true
+	CamCtl.free_mouse = false
+	if _talk_who != "":
+		_talk_npc().quiet = false
+	_talk_who = ""
+
+
+func _opt(id: String, text: String, ok := true, reason := "") -> Dictionary:
+	return {"id": id, "text": text, "enabled": ok, "reason": reason}
+
+
+func _goods_value(buyer: String) -> float:
+	var sale := 0.0
+	for k in bucket:
+		if GOODS[k].buyer == buyer:
+			sale += bucket[k] * GOODS[k].price
+	return sale
+
+
+## Naapurin kaikki asiat: tarina ensin, sitten kaupat ja palvelut, juttelu ja lopetus. Mahdottomat harmaana syyn kanssa.
+func _talk_options() -> Array:
+	var o: Array = []
+	match _talk_who:
+		"arto":
+			var sale := _goods_value("arto")
+			o.append(_opt("myy", "Myy marjat (%s €)" % _eur(sale) if sale > 0.0 else "Myy marjat", sale > 0.0,
+				"ämpärissä ei puolukoita eikä mustikoita"))
+			if mower_broken and not has_mower_part:
+				o.append(_opt("varaosa", "Osta leikkurin varaosa (%s €)" % _eur(LAWN_PART_PRICE), money >= LAWN_PART_PRICE,
+					"rahat ei riitä"))
+			if not world.forage_revealed:
+				o.append(_opt("paikat", "Missä on hyviä marja- ja sienipaikkoja?"))
+		"pekka":
+			match story.step:
+				"pekka_kutsuu":
+					o.append(_opt("tarina", "Mitä asiaa sulla oli?"))
+				"pekka_avaimet":
+					o.append(_opt("tarina", "Kaikki tehty. Lähdetäänkö Paapeliin?"))
+				"avaimet":
+					o.append(_opt("tarina", "Missä ne autonavaimet olikaan?"))
+				"avaimet_mukana":
+					o.append(_opt("tarina", "Anna autonavaimet"))
+			var sale := _goods_value("pekka")
+			o.append(_opt("myy", "Myy sienet (%s €)" % _eur(sale) if sale > 0.0 else "Myy sienet", sale > 0.0,
+				"ämpärissä ei kantarelleja eikä herkkutatteja"))
+			if bitten:
+				o.append(_opt("haava", "Hoida mun haava (%s)" % ("kalja" if beers > 0 else _eur(PEKKA_CARE) + " €"),
+					beers > 0 or money >= PEKKA_CARE, "ei kaljaa eikä %s €" % _eur(PEKKA_CARE)))
+			if story.ride_unlocked():
+				var why := ""
+				if hommat.banned_day == day:
+					why = "Santtu häätänyt mökiltä tänään"
+				elif beers <= 0 and money < PEKKA_RIDE_PRICE:
+					why = "ei kaljaa eikä %s € bensarahaa" % _eur(PEKKA_RIDE_PRICE)
+				o.append(_opt("kyyti", "Kyyti mökille Vaalaan (%s)" % ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €"),
+					why == "", why))
+		"sinikka":
+			var berries: int = bucket.get("mustikka", 0)
+			if sinikka_task == 1:
+				o.append(_opt("mustikat", "Anna %d l mustikoita" % SINIKKA_BERRIES, berries >= SINIKKA_BERRIES,
+					"ämpärissä %d l" % berries))
+			elif not ("sinikka_piirakka" in _today):
+				o.append(_opt("apu", "Voinko auttaa jotenkin?"))
+	o.append(_opt("juttu", "Mitä kuuluu?"))
+	o.append(_opt("lopeta", "Lopeta"))
+	return o
+
+
+func _talk_choose(id: String) -> void:
+	var v := _talk_npc()
+	match id:
+		"lopeta":
+			_talk_box.close()
+		"juttu":
+			_talk_box.reply(_talk_chat_line(), _talk_options(), _talk_chat_info())
+		"myy":
+			var sale := _goods_value(_talk_who)
+			money += sale
+			tilat.add("moraali", 0.1)
+			var sold := {}
+			for k in bucket.keys():
+				if GOODS[k].buyer == _talk_who:
+					sold[k] = bucket[k]
+					bucket.erase(k)
+			Sfx.play("register", -4.0)
+			var line := "Kiitti! Tästä tulee hyvää puuroa." if _talk_who == "arto" else \
+				"No perkele, hyviä sieniä! Näistä tulee saatanan hyvä kastike kyyhkyille."
+			var was_done: bool = story.done.puolukat
+			var note := _story_sold(_talk_who, sold)
+			if _talk_who == "arto" and story.done.puolukat and not was_done:
+				line = "Nyt riittää hilloon! Pekka on kyllä koko kesän puhunu siitä Paapelista."
+			_talk_box.reply(line, _talk_options(), "+%s €%s" % [_eur(sale), "   ·   " + note if note != "" else ""])
+		"varaosa":
+			money -= LAWN_PART_PRICE
+			has_mower_part = true
+			Sfx.play("register", -4.0)
+			_save_game()
+			_talk_box.reply("Vanhasta Husqvarnasta irtos. Kivikkoon ajoit, vai?", _talk_options(),
+				"Varaosa mukana. Vielä kalja, niin leikkuri korjataan.")
+		"paikat":
+			world.forage_revealed = true
+			_save_game()
+			_talk_box.reply("Lähekkö puolukkaan? Merkkaan sulle karttaan parhaat paikat!", _talk_options(),
+				"Arto merkitsi marja- ja sienipaikat karttaan (M).")
+		"haava":
+			if beers > 0:
+				beers -= 1
+				player.set_carrying(beers > 0)
+			else:
+				money -= PEKKA_CARE
+			var big := wound_big
+			_heal()
+			Sfx.play("groan", -4.0, 1.2)
+			_talk_box.reply("Karhu?! No nyt tarvitaan koko pullo." if big else "Ei tää oo mitään, kyyhkyt purree pahemmin.",
+				_talk_options(), "Pekka sitoi haavan ja kaatoi päälle koskenkorvaa. Kirvelee!")
+		"kyyti":
+			_talk_box.close()
+			v.say("Hyppää kyytiin perkele, lähetään!")
+			_pekka_ride()
+		"tarina":
+			match story.step:
+				"pekka_kutsuu":
+					_story_step("tehtavat")
+					_talk_box.say_lines(Story.PEKKA_TASKS, _talk_options(),
+						"Uudet tehtävät repussa (I): sienet Pekalle, puolukat Artolle ja Sinikan nurmikko.")
+				"pekka_avaimet":
+					_story_step("avaimet")
+					_talk_box.say_lines(Story.PEKKA_KEYS, _talk_options(), "Hae autonavaimet kodalta (lintutornin luota).")
+				"avaimet":
+					_talk_box.reply(["Avaimet on kodalla, lintutornin luona! Mää en pääse ilman autoa.",
+						"Kodalla ne on, perkele. Laavulta polkua etelään."].pick_random(), _talk_options())
+				"avaimet_mukana":
+					_story_step("valmis")
+					_talk_box.reply(Story.PEKKA_THANKS, _talk_options(), "Pekan kyyti Paapeliin on nyt auki!")
+		"mustikat":
+			bucket["mustikka"] = int(bucket.get("mustikka", 0)) - SINIKKA_BERRIES
+			if bucket["mustikka"] <= 0:
+				bucket.erase("mustikka")
+			food["mustikkapiirakka"] = food.get("mustikkapiirakka", 0) + 1
+			sinikka_task = 0
+			_once_today("sinikka_piirakka")
+			tilat.add("moraali", 0.2)
+			tilat.first("sinikka_piirakka", 0.2)
+			Sfx.play("pickup", -4.0, 0.8)
+			_save_game()
+			_talk_box.reply(SINIKKA_THANKS.pick_random(), _talk_options(), "Sait uunituoreen mustikkapiirakan (T syö).")
+		"apu":
+			sinikka_task = 1
+			_save_game()
+			_talk_box.reply(SINIKKA_ASK.pick_random(), _talk_options(),
+				"Tehtävä: poimi metsästä %d l mustikoita ja vie ne Sinikalle." % SINIKKA_BERRIES)
+
+
+func _talk_chat_line() -> String:
+	match _talk_who:
+		"arto":
+			return ARTO_LINES.pick_random()
+		"pekka":
+			return (Story.PEKKA_WAITING if story.step == "tehtavat" else PEKKA_LINES).pick_random()
+	return (SINIKKA_WAIT if sinikka_task == 1 else SINIKKA_LINES).pick_random()
+
+
+func _talk_chat_info() -> String:
+	if _talk_who == "sinikka" and sinikka_task == 1:
+		return "Sinikka odottaa %d l mustikoita (ämpärissä %d l)." % [SINIKKA_BERRIES, int(bucket.get("mustikka", 0))]
+	return ""
+
+
+## Testeille: valitsee avoimesta keskustelusta vaihtoehdot järjestyksessä (sivutetut puheet ohi) ja lopettaa.
+func _test_talk(ids: Array) -> void:
+	for id in ids:
+		_talk_box._pages.clear()
+		_talk_choose(id)
+	_talk_box.close()
 
 
 ## Laavulla: sytytä nuotio (tulitikut), paista makkara, juo kalja -> laavuloppu.
@@ -6743,25 +6862,27 @@ func _story_step(to: String) -> void:
 
 
 ## Tarinan tehtävät kertyvät myynneistä: sienet (kantarelli, herkkutatti) Pekalle ja puolukat Artolle, useassa erässä.
-func _story_sold(who: String, sold: Dictionary) -> void:
+## Palauttaa edistymisen tekstinä keskusteluikkunan inforiville (tyhjä, jos ei tarinatehtävää).
+func _story_sold(who: String, sold: Dictionary) -> String:
 	if story.step != "tehtavat":
-		return
+		return ""
+	var note := ""
 	if who == "pekka" and not story.done.sienet:
 		story.given.sienet += int(sold.get("kantarelli", 0)) + int(sold.get("herkkutatti", 0))
 		if story.given.sienet >= Story.SIENET_L:
 			story.done.sienet = true
-			_queue_message("Pekan sienet hoidettu! (%d l)" % story.given.sienet, 2.5)
+			note = "Pekan sienet hoidettu! (%d l)" % story.given.sienet
 		else:
-			_queue_message("Pekalle sieniä %d / %d l." % [story.given.sienet, Story.SIENET_L], 2.5)
+			note = "Pekalle sieniä %d / %d l." % [story.given.sienet, Story.SIENET_L]
 	elif who == "arto" and not story.done.puolukat and sold.has("puolukka"):
 		story.given.puolukat += int(sold.puolukka)
 		if story.given.puolukat >= Story.PUOLUKAT_L:
 			story.done.puolukat = true
-			arto.say("Nyt riittää hilloon! Pekka on kyllä koko kesän puhunu siitä Paapelista.")
-			_queue_message("Arton puolukat hoidettu! (%d l)" % story.given.puolukat, 2.5)
+			note = "Arton puolukat hoidettu! (%d l)" % story.given.puolukat
 		else:
-			_queue_message("Artolle puolukoita %d / %d l." % [story.given.puolukat, Story.PUOLUKAT_L], 2.5)
+			note = "Artolle puolukoita %d / %d l." % [story.given.puolukat, Story.PUOLUKAT_L]
 	_story_check_tasks()
+	return note
 
 
 func _story_check_tasks() -> void:
@@ -6769,44 +6890,6 @@ func _story_check_tasks() -> void:
 		_story_step("pekka_avaimet")
 	else:
 		_save_game()
-
-
-## Pekan ja Arton tarinavuorosanat ja luovutukset; palauttaa true, jos hoiti vihjeen.
-func _story_neighbor(e: bool) -> bool:
-	if player == bike:
-		return false
-	if pekka.distance_to_player() < 4.2:
-		match story.step:
-			"pekka_kutsuu":
-				_hint.text = "[E] Kuuntele, mitä Pekalla on asiaa"
-				if e:
-					pekka.say(Story.PEKKA_TASKS[0])
-					for l in Story.PEKKA_TASKS.slice(1):
-						_msg_queue.append(["Pekka: \"%s\"" % l, 4.0])
-					_msg_queue.append(["Uudet tehtävät repussa (I): sienet Pekalle, puolukat Artolle ja Sinikan nurmikko.", 4.0])
-					_story_step("tehtavat")
-				return true
-			"pekka_avaimet":
-				_hint.text = "[E] Juttele Pekan kanssa (lähdetäänkö?)"
-				if e:
-					pekka.say(Story.PEKKA_KEYS[0])
-					for l in Story.PEKKA_KEYS.slice(1):
-						_msg_queue.append(["Pekka: \"%s\"" % l, 4.5])
-					_story_step("avaimet")
-				return true
-			"avaimet":
-				_hint.text = "[E] Juttele Pekan kanssa"
-				if e:
-					pekka.say(["Avaimet on kodalla, lintutornin luona! Mää en pääse ilman autoa.",
-						"Kodalla ne on, perkele. Laavulta polkua etelään."].pick_random())
-				return true
-			"avaimet_mukana":
-				_hint.text = "[E] Anna autonavaimet Pekalle"
-				if e:
-					pekka.say(Story.PEKKA_THANKS)
-					_story_step("valmis")
-				return true
-	return false
 
 
 ## Ämpärin litrat, jotka annettu ostaja (arto / pekka) ostaa.
@@ -7875,6 +7958,12 @@ func _build_hud() -> void:
 	_minimap.mokki = mokki
 	layer.add_child(_minimap)
 
+	_talk_box = DialogueBox.new()
+	add_child(_talk_box)
+	_talk_prompt = TalkPrompt.new()
+	layer.add_child(_talk_prompt)
+	_talk_box.chosen.connect(_talk_choose)
+	_talk_box.closed.connect(_talk_end)
 	_item_menu = ItemMenu.new()
 	layer.add_child(_item_menu)
 	_item_menu.chosen.connect(func(id: String) -> void:
@@ -9901,6 +9990,66 @@ func _maybe_screenshot() -> void:
 				if _in_forest(q):
 					n_forest += 1
 			print("PEDOT mökin ympäristöstä metsää %d / 40, mökin piha metsää? %s" % [n_forest, _in_forest(MOKKI_POS)])
+		"keskustelu":
+			# Keskusteluikkuna: Pekka (sienet, haava, kyyti harmaana) ja Arto, kuvat valinnoista ja vastauksesta.
+			if player == bike:
+				_toggle_mount()
+			bucket = {"kantarelli": 2, "puolukka": 3}
+			bitten = true
+			beers = 0
+			money = 2.0
+			pekka.set_physics_process(false)
+			arto.process_mode = Node.PROCESS_MODE_DISABLED
+			_note.visible = false
+			var shot := func(name: String) -> void:
+				_msg.text = ""
+				_msg_queue.clear()
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			walker_out.global_position = pekka.global_position + Vector3(2.6, 0.5, 1.4)
+			walker_out.rotation.y = B.yaw_to(pekka.global_position - walker_out.global_position) + PI
+			for i in 10:
+				await get_tree().physics_frame
+			print("KESK vihje '%s'" % _hint.text)
+			await shot.call("_vihje.png")
+			pekka.say("Perkele, ammuin toissapäivänä neljätoista saatanan kyyhkyä!")
+			await shot.call("_vihjekupla.png")
+			pekka.say("")
+			var irow := -1
+			for r in Settings.KEY_ROWS.size():
+				if "interact" in Settings.KEY_ROWS[r][0]:
+					irow = r
+			var old_k: int = Settings.keys_of(irow)[0]
+			Settings.bind_key(irow, 0, KEY_R)
+			await shot.call("_vihje_r.png")
+			print("KESK näppäin vaihdettu: '%s'" % _talk_prompt._key.text)
+			Settings.bind_key(irow, 0, old_k)
+			for i in 3:
+				await get_tree().process_frame
+			await get_tree().process_frame
+			Input.action_press("interact")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			Input.action_release("interact")
+			await shot.call("_pekka.png")
+			print("KESK Pekka: %s" % str(_talk_box._options.map(func(o): return o.text + ("" if o.enabled else " [" + o.reason + "]"))))
+			# Numeronäppäin 1 = myy sienet
+			var k := InputEventKey.new()
+			k.physical_keycode = KEY_1
+			k.pressed = true
+			Input.parse_input_event(k)
+			await get_tree().process_frame
+			await shot.call("_myyty.png")
+			print("KESK myyty: rahaa %.2f, info '%s', auki %s" % [money, _talk_box._info, _talk_box.is_open()])
+			var q := InputEventKey.new()
+			q.physical_keycode = KEY_ESCAPE
+			q.pressed = true
+			Input.parse_input_event(q)
+			for i in 3:
+				await get_tree().process_frame
+			print("KESK suljettu: auki %s, ohjaus %s" % [_talk_box.is_open(), walker_out.controls_enabled])
 		"tarinamyynti":
 			# Tarinan tehtävät useasta myynnistä: sienet Pekalle 2 + 1 l, puolukat Artolle 3 + 2 l.
 			if player == bike:
@@ -9923,6 +10072,12 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 				Input.action_release("interact")
 				for i in 3:
+					await get_tree().process_frame
+				print("TMYYNTI ikkuna %s: %s" % [_talk_box.is_open(), _talk_box._options.map(func(o): return o.text)])
+				_talk_choose("myy")
+				print("TMYYNTI info '%s'" % _talk_box._info)
+				_talk_box.close()
+				for i in 2:
 					await get_tree().process_frame
 			await sell.call(pekka, {"kantarelli": 2})
 			await sell.call(pekka, {"herkkutatti": 1})
@@ -10548,16 +10703,20 @@ func _maybe_screenshot() -> void:
 			await goto.call(pekka.global_position + Vector3(1.5, 0, 0))
 			print("TARINA Pekka: '%s'" % _hint.text)
 			await press.call("interact")
+			print("TARINA ikkuna: %s" % str(_talk_box._options.map(func(o): return o.text)))
+			_test_talk(["tarina"])
 			print("TARINA tehtävät: %s, lista %s" % [story.step, str(story.list())])
 			bucket = {"kantarelli": 2, "herkkutatti": 2, "puolukka": 6}
 			await goto.call(pekka.global_position + Vector3(1.5, 0, 0))
 			print("TARINA Pekka sienet: '%s'" % _hint.text)
 			var m0 := money
 			await press.call("interact")
+			_test_talk(["myy"])
 			print("TARINA sienet: %s, ämpäri %s, rahaa %.2f -> %.2f" % [story.done.sienet, bucket, m0, money])
 			await goto.call(arto.global_position + Vector3(1.5, 0, 0))
 			print("TARINA Arto: '%s'" % _hint.text)
 			await press.call("interact")
+			_test_talk(["myy"])
 			print("TARINA puolukat: %s, ämpäri %s" % [story.done.puolukat, bucket])
 			await goto.call(sinikka_lawn.mower.global_position + Vector3(0.8, 0, 0))
 			print("TARINA leikkuri: '%s'" % _hint.text)
@@ -10576,6 +10735,7 @@ func _maybe_screenshot() -> void:
 			await goto.call(pekka.global_position + Vector3(1.5, 0, 0))
 			print("TARINA Pekka avaimet: '%s'" % _hint.text)
 			await press.call("interact")
+			_test_talk(["tarina"])
 			print("TARINA avaimet: vaihe %s, avaimet kodalla %s" % [story.step, is_instance_valid(_keys_node)])
 			await goto.call(_keys_node.global_position + Vector3(1.0, 0, 0))
 			print("TARINA kodalla: '%s'" % _hint.text)
@@ -10590,10 +10750,14 @@ func _maybe_screenshot() -> void:
 			print("TARINA avaimet mukana: %s" % story.step)
 			await goto.call(pekka.global_position + Vector3(1.5, 0, 0))
 			await press.call("interact")
+			_test_talk(["tarina"])
 			print("TARINA valmis: %s, kyyti auki %s" % [story.step, story.ride_unlocked()])
 			for i in 3:
 				await get_tree().process_frame
 			print("TARINA Pekka nyt: '%s'" % _hint.text)
+			await press.call("interact")
+			print("TARINA Pekka nyt valinnat: %s" % str(_talk_box._options.map(func(o): return o.text + ("" if o.enabled else " [" + o.reason + "]"))))
+			_talk_box.close()
 		"taksipaapeli":
 			# Kaupan taksilla Paapeliin (60 €, meno-paluu) ja mökiltä taksilla takaisin; Pekan kyyti lukossa.
 			story = Story.new()
@@ -12006,17 +12170,23 @@ func _maybe_screenshot() -> void:
 				await get_tree().physics_frame
 			print("SINIKKA vihje: ", _hint.text)
 			await press.call()
-			print("SINIKKA pyyntö: tehtävä=%d msg=%s" % [sinikka_task, _msg.text])
-			await press.call()
-			print("SINIKKA odotus: msg=%s" % _msg.text)
+			print("SINIKKA valinnat: %s" % str(_talk_box._options.map(func(o): return o.id)))
+			_talk_choose("apu")
+			print("SINIKKA pyyntö: tehtävä=%d info=%s" % [sinikka_task, _talk_box._info])
+			_talk_choose("juttu")
+			print("SINIKKA odotus: info=%s valinnat=%s" % [_talk_box._info, str(_talk_box._options.map(func(o): return o.text + ("" if o.enabled else " [" + o.reason + "]")))])
+			_talk_box.close()
 			bucket["mustikka"] = 3
 			for i in 3:
 				await get_tree().process_frame
 			print("SINIKKA vihje marjoilla: ", _hint.text)
 			await press.call()
-			print("SINIKKA luovutus: tehtävä=%d ämpäri=%s piirakka=%d msg=%s" % [sinikka_task, bucket, food.get("mustikkapiirakka", 0), _msg.text])
-			await press.call()
-			print("SINIKKA sama päivä uudestaan: tehtävä=%d" % sinikka_task)
+			_talk_choose("mustikat")
+			print("SINIKKA luovutus: tehtävä=%d ämpäri=%s piirakka=%d info=%s" % [sinikka_task, bucket, food.get("mustikkapiirakka", 0), _talk_box._info])
+			print("SINIKKA sama päivä uudestaan: valinnat=%s" % str(_talk_box._options.map(func(o): return o.id)))
+			_talk_box.close()
+			for i in 3:
+				await get_tree().process_frame
 			var n0: float = tilat.value("nalka")
 			_open_eat_menu()
 			print("SINIKKA syömävalikko: ", _item_menu._items)
