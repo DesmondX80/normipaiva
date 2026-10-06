@@ -207,7 +207,7 @@ const KORPIHIIVA_PRICE := 3.0
 const SUGAR_HERMO := 6.0
 const MWINE_WAKE := {
 	"laituri": ["Heräsit laiturilta märkänä, makuupussi puoliksi järvessä. Joutsenet katsoo paheksuen.", Vector3(8.9, 0, 52.0)],
-	"savusauna": ["Heräsit savusaunan lauteilta noen peitossa. Kiuas on vielä lämmin.", Vector3(5.9, 0, 21.0)],
+	"savusauna": ["Heräsit savusaunan lauteilta noen peitossa. Kiuas on vielä lämmin.", Vector3(5.6, 0, 19.4)],
 	"lava": ["Heräsit metsästyslavalta. Miten sää tänne kiipesit?!", Vector3(-30.0, 0, 7.0)],
 }
 const WINE_WAKE := {
@@ -4577,7 +4577,7 @@ func _mokki_logic() -> void:
 		return
 	if hommat.pending("saunakorjaus") and _saunakorjaus_logic(near, e):
 		return
-	if near.call(Mokki.SAUNA_LOCAL, 2.2):
+	if near.call(Mokki.SAUNA_LOCAL, 2.4):  # kiuas oven vieressä: oviaukolta tai sisältä
 		_sauna_logic(e)
 		return
 	if near.call(Mokki.TUB_LOCAL, 1.7):
@@ -5305,7 +5305,7 @@ func _watch_context() -> Array:
 	if hommat.pending("ranni") and near.call(Mokki.LADDER_LOCAL, 3.5):
 		return ["ranni", Mokki.LADDER_LOCAL]
 	if hommat.pending("ampiaiset") and near.call(Mokki.WASP_STAND_LOCAL, 3.5):
-		return ["ampiaiset", Mokki.WASP_STAND_LOCAL + Vector3(0.6, 0, -2.8)]
+		return ["ampiaiset", Mokki.WASP_STAND_LOCAL + AmpiaisGame.SANTTU_SPOT]
 	if hommat.pending("laituri") and mokki.dock_body != null and near.call(_dock_fix_local(), 3.5):
 		return ["laituri", _dock_fix_local()]
 	if hommat.pending("metsastys") and near.call(Mokki.HUNT_LOCAL, 4.0):
@@ -5936,7 +5936,7 @@ func _sauna_cutscene() -> void:
 	var had_beer := beers > 0
 	if had_beer:
 		beers -= 1
-	cutscene.sauna_relax(mokki.to_global(Mokki.SAUNA_LOCAL), had_beer, func() -> void:
+	cutscene.sauna_relax(mokki.sauna_frame(), had_beer, func() -> void:
 		walker_out.stamina = 100.0
 		walker_out.exhausted = false
 		tilat.first("savusauna", 0.4)
@@ -14010,6 +14010,61 @@ func _maybe_screenshot() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ranta.png"))
 			ac.look_at_from_position(mokki.gpos(Vector3(0, 170, 30)), mokki.gpos(Vector3(0, 0, 0)))
+		"mokkisavusauna":
+			# Savusauna: ovi ja terassi järvelle yhteisen harjakaton alla, kävely terassilta sisään ja löylyvälianimaatio.
+			var sc0 := Mokki.SAUNA_C
+			var prof := []
+			for z in [17.0, 19.0, 21.0, 22.5, 24.0]:
+				prof.append("%.0f:%.2f" % [z, Mokki.h(sc0.x, z) - Mokki.h(sc0.x, sc0.z)])
+			print("SAUNA rinne ", " ".join(prof))
+			var ec := Camera3D.new()
+			add_child(ec)
+			ec.current = true
+			walker_out.visible = false
+			for v in [["ulko", Vector3(3.5, 2.2, 10.0), Vector3(0, 1.2, 1.5)], ["sivu", Vector3(-8.0, 2.8, 4.0), Vector3(0, 1.2, 1.0)],
+					["taka", Vector3(-4.0, 3.5, -8.0), Vector3(0, 1.2, 0.5)]]:
+				ec.look_at_from_position(mokki.gpos(sc0 + v[1]), mokki.gpos(sc0 + v[2]), Vector3.UP)
+				for i in 6:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % v[0]))
+			ec.queue_free()
+			walker_out.visible = true
+			_toggle_mount()
+			var sb: Vector3 = mokki._sauna_body.position
+			var walk := func(from: Vector3, to: Vector3, frames: int, what: String) -> void:
+				if from != Vector3.INF:
+					walker_out.global_position = mokki.gpos(sc0 + from)
+				walker_out.look_at(mokki.gpos(sc0 + to) + Vector3(0, walker_out.global_position.y - mokki.gpos(sc0 + to).y, 0))
+				for i in 10:
+					await get_tree().physics_frame
+				Input.action_press("forward")
+				for i in frames:
+					await get_tree().physics_frame
+					var cur: Vector3 = mokki.to_local(walker_out.global_position) - sb
+					if Vector2(cur.x - to.x, cur.z - to.z).length() < 0.3:
+						break
+				Input.action_release("forward")
+				var wl: Vector3 = mokki.to_local(walker_out.global_position) - sb
+				print("SAUNA %s: x=%.2f y=%.2f z=%.2f" % [what, wl.x, wl.y, wl.z])
+			await walk.call(Vector3(-4.6, 0.5, 2.2), Vector3(Mokki.SAUNA_DOOR_X, 0, 2.2), 300, "portaat ylös (kansi y 0.15)")
+			await walk.call(Vector3.INF, Vector3(Mokki.SAUNA_DOOR_X, 0, 0.0), 200, "ovesta sisään (lattia y 0.09, z 0)")
+			var nc := Camera3D.new()
+			add_child(nc)
+			nc.look_at_from_position(mokki.to_global(sb + Vector3(-5.0, 1.4, 4.6)), mokki.to_global(sb + Vector3(-1.5, 0.2, 2.2)), Vector3.UP)
+			nc.current = true
+			for i in 6:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_portaat.png"))
+			nc.queue_free()
+			walker_out.activate_camera()
+			beers = 1
+			_sauna_cutscene()
+			for k in 22:
+				await get_tree().create_timer(0.9).timeout
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_cs%02d.png" % k))
 		"mokkikaide":
 			# Kuistin kaide järven puolelta läheltä vinosti.
 			var kc := Camera3D.new()

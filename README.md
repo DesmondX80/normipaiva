@@ -137,7 +137,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     kytkennän jälkeen pelin tunnusmusiikki soi tuvassa ja vaimeana pihalle, kunnes PA sammutetaan (E laitteilla).
   - **Savusauna lämmitetään:** syli halkoja halkopinosta kesäkeittiön vierestä (E) ja pesään (E saunalla).
     Pesä pitää pitää täynnä, kunnes kiuas on kuuma, ja sitten pesä palaa loppuun ja savut tuulettuvat ovesta ja
-    räppänästä. Vasta sitten pääsee löylyihin: liian aikaisin sisään mennessä häkä kirvelee.
+    räppänästä. Vasta sitten pääsee löylyihin: liian aikaisin sisään mennessä häkä kirvelee. Ovi ja katettu
+    terassi ovat järven puolella saman harjakaton alla (portaat pihan puolelta). Löylyssä istutaan hämärässä
+    ylälauteella, heitetään pitkävartisella kauhalla löylyä kiukaalle ja otetaan hörppy kaljaa, jos on mukana.
   - **Santun hommat:** kun mökillä on oltu yksi yö, Santtu kirjoittaa aamulappuun päivän hommat (toisena päivänä
     3, sitten 4). Valikoimassa on 12 hommaa:
     saunapuut (sahaus ja halkominen puupaikalla, Santtu kommentoi Raimon ja Veikon tilalla, 8 halkoa),

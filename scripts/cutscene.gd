@@ -358,64 +358,266 @@ func laavu_sunset(pit: Vector3, fire: Node3D, title: String, stats: String, done
 
 # --- Savusaunan löyly ---------------------------------------------------------------
 
-const SAUNA_LINES := ["Löyly hehkuu, hiki virtaa selässä.", "Ihan puhdas olo.", "Ei tätä kaupungissa saa.",
-	"Hartiat rentoutuu vihdoinkin."]
+const SAUNA_LINES := ["Löyly puree korvia. Ei kiirettä mihinkään.", "Savun ja tervan tuoksu. Ihan puhdas olo.",
+	"Ei tätä kaupungissa saa.", "Hartiat rentoutuu vihdoinkin.", "Hiki virtaa selässä. Hiljaista."]
+## Rungon kehyksessä (mokki.gd _build_savusauna): ylälaude takaseinällä, kiuas oven vieressä, kiulu alalauteella.
+const SAUNA_HERO := Vector3(0.5, 0.6, -0.75)
+const SAUNA_STONES := Vector3(0.9, 1.02, 0.5)
+const SAUNA_KIULU_W := Vector3(1.15, 0.76, -0.15)
+const LADLE_LEN := 0.78
 
 
-## Löylyssä käynti terassilla: höyry nousee saunan ovelta, hartiat rentoutuvat, ja jos kaljaa on mukana,
-## otetaan hörppy löylyn päälle. Lyhyt tunnelmapala, ei päivän lopetus (ks. main.gd _sauna_cutscene).
-func sauna_relax(at: Vector3, has_beer: bool, done: Callable) -> void:
+## Löylyssä käynti: hämärä savusauna sisältä, kiuas hehkuu. Hahmo istuu ylälauteella, heittää pitkävartisella
+## kauhalla löylyä kiukaalle ja nauttii rauhassa; kalja mukana, niin hörppy löylyn päälle. frame = saunan
+## rungon kehys (Mokki.sauna_frame). Lyhyt tunnelmapala, ei päivän lopetus (ks. main.gd _sauna_cutscene).
+func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable) -> void:
 	_begin()
 	await _fade_to(1.0, 0.4)
 	_cam.current = true
+	_cam.fov = 58.0
 	for n in hide_nodes:
 		if is_instance_valid(n):
 			n.visible = false
-	var hero := Looks.make(_props, Looks.PLAYER)
-	Looks.add_cap(hero)
-	hero.global_position = at + Vector3(-3.6, 0.0, 1.0)
-	hero.rotation.y = -PI * 0.5  # kasvot saunan ovelle ja nousevalle höyrylle
+	var at := func(p: Vector3) -> Vector3: return frame * p
+	# Hämärä: aurinko ja taivaan valo pois, valo tulee hiillokselta ja pienestä ikkunasta.
+	var saved := [sun.light_energy, env.ambient_light_energy, env.glow_intensity, env.glow_bloom, env.reflected_light_source]
+	sun.light_energy = 0.12
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED  # ei sinistä taivasheijastusta tervatuista hirsistä
+	env.ambient_light_energy = 0.14
+	env.glow_intensity = 0.8
+	env.glow_bloom = 0.12
+	var ember := OmniLight3D.new()
+	ember.light_color = Color(1.0, 0.45, 0.16)
+	ember.light_energy = 1.6
+	ember.omni_range = 3.6
+	ember.omni_attenuation = 1.4
+	ember.shadow_enabled = true
+	_props.add_child(ember)
+	ember.global_position = at.call(SAUNA_STONES + Vector3(-0.55, -0.55, 0.0))
+	var window := OmniLight3D.new()
+	window.light_color = Color(0.62, 0.74, 1.0)
+	window.light_energy = 0.9
+	window.omni_range = 3.4
+	_props.add_child(window)
+	window.global_position = at.call(Vector3(-1.4, 1.25, -0.3))
+	for k in 7:  # hiillos pesässä
+		B.mesh(_props, B.sphere(0.035 + (k % 3) * 0.012, 6), at.call(Vector3(0.82 + (k % 3) * 0.1, 0.08, 0.32 + k * 0.05)),
+			Color.WHITE).material_override = B.unshaded(Color(1.6, 0.45 + (k % 2) * 0.2, 0.08))
+	# Ylälauteella, kasvot oveen ja kiukaaseen päin (+Z). Kiuas jää vasemmalle kädelle.
+	# Saunassa ilman verkkareita: paljas, löylystä punertava iho ja valkoinen pyyhe lanteilla.
+	var look: Dictionary = Looks.PLAYER.duplicate()
+	look.erase("tracksuit")
+	look.merge({"stripes": false, "shine": 0.0, "tube_y": 0.01, "shorts_y": 0.72,
+		"pants": Color(0.9, 0.88, 0.84), "shoes": Color(0.86, 0.62, 0.52), "bare_skin": Color(0.96, 0.68, 0.58)}, true)
+	var hero := Looks.make(_props, look)
+	hero.global_position = at.call(SAUNA_HERO)
+	hero.global_rotation.y = frame.basis.get_euler().y + PI
 	hero.play("Sitting_Idle", 0.0)
-	# Löyly nousee saunan ovelta terassille.
-	var steam := CPUParticles3D.new()
-	steam.amount = 22
-	steam.lifetime = 2.2
-	steam.direction = Vector3.UP
-	steam.spread = 14.0
-	steam.initial_velocity_min = 0.4
-	steam.initial_velocity_max = 0.9
-	steam.scale_amount_min = 0.6
-	steam.scale_amount_max = 1.6
-	steam.global_position = at + Vector3(-1.8, 1.0, 1.5)
-	var sm := SphereMesh.new()
-	sm.radius = 0.22
-	sm.height = 0.44
-	sm.material = B.unshaded(Color(0.95, 0.95, 0.97, 0.35))
-	steam.mesh = sm
-	_props.add_child(steam)
-	_cam.global_position = at + Vector3(-5.4, 1.6, 3.2)
-	_cam.look_at(at + Vector3(-2.4, 1.05, 1.1), Vector3.UP)
+	var ladle := Node3D.new()
+	B.tube(ladle, Vector3.ZERO, Vector3(0, 0, -LADLE_LEN), 0.014, Color(0.55, 0.42, 0.26))
+	B.mesh(ladle, B.cyl(0.06, 0.045, 0.06, 10), Vector3(0, 0.0, -LADLE_LEN), Color(0.5, 0.36, 0.22))
+	_props.add_child(ladle)
 	var can: Node3D
 	if has_beer:
-		can = Node3D.new()
-		B.mesh(can, B.cyl(0.033, 0.033, 0.12, 12), Vector3(0, -0.02, 0), Color(0.8, 0.75, 0.2))
-		hero.attach("hand_r", can, Vector3(0, -0.02, 0.03))
-	_title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.6))
+		can = B.mesh(_props, B.cyl(0.033, 0.033, 0.12, 12), at.call(SAUNA_HERO + Vector3(-0.42, 0.5, -0.05)), Color(0.8, 0.75, 0.2))
+	# Kädet IK:lla: vasen ohjaa kauhan kuppia (cup), oikea tuo kaljan suulle (sip 0..1).
+	var st := {"cup": Vector3.ZERO, "pour": 0.0, "lean": 0.0, "back": 0.0, "sip": 0.0, "t": 0.0, "shot": 0}
+	var rest_cup: Vector3 = at.call(Vector3(0.82, 0.62, -0.3))  # kauha kiulun vieressä nojallaan
+	st.cup = rest_cup
+	var upd := func() -> void:
+		if not is_instance_valid(hero):
+			return
+		st.t += get_process_delta_time()
+		ember.light_energy = 1.5 + 0.18 * sin(st.t * 7.0) + 0.1 * sin(st.t * 17.3)
+		hero.set_override("spine_01", Vector3.RIGHT, st.lean * 0.35 - st.back * 0.12)
+		hero.set_override("neck_01", Vector3.RIGHT, st.back * 0.4 + st.sip * 0.3)
+		var sh: Vector3 = hero.to_global(hero.bone_position("upperarm_l"))
+		var cup: Vector3 = st.cup
+		var hand := cup - (cup - sh).normalized() * LADLE_LEN
+		var side: Vector3 = hero.global_basis.x * -0.45
+		hero.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", hero.to_local(hand), hero.to_local(sh + side + Vector3(0, -0.4, 0)))
+		var grip: Vector3 = hero.to_global(hero.bone_position("hand_l"))
+		ladle.global_position = grip
+		if grip.distance_to(cup) > 0.05:
+			ladle.look_at(cup, Vector3.UP)
+			ladle.rotate_object_local(Vector3.FORWARD, st.pour)
+		if can != null and st.sip > 0.0:
+			var head: Vector3 = hero.to_global(hero.bone_position("Head"))
+			var mouth := head + hero.global_basis.z * -0.12 + Vector3(0, -0.06, 0)
+			var shr: Vector3 = hero.to_global(hero.bone_position("upperarm_r"))
+			var rest: Vector3 = at.call(SAUNA_HERO + Vector3(-0.42, 0.5, -0.05))
+			var goal := rest.lerp(mouth, st.sip)
+			hero.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", hero.to_local(goal),
+				hero.to_local(shr + hero.global_basis.x * 0.4 + Vector3(0, -0.4, 0)))
+			can.global_position = hero.to_global(hero.bone_position("hand_r")) + Vector3(0, 0.02, 0)
+			can.global_rotation = Vector3(0, 0, 0)
+			can.rotate_object_local(Vector3.RIGHT, -1.6 * st.sip)
+	get_tree().process_frame.connect(upd)
+	var glide := func(key: String, to: Variant, sec: float) -> Tween:
+		var t := _tween()
+		t.tween_method(func(v: Variant) -> void: st[key] = v, st[key], to, sec).set_trans(Tween.TRANS_SINE)
+		return t
+	# Löylyhöyry: kiukaalta purkautuva pilvi ja hiljalleen leijuva usva katon rajassa.
+	# Pehmeät höyrytupsut: kameraan kääntyvä taso, jossa säteittäin häipyvä valkoinen.
+	var puff_tex := GradientTexture2D.new()
+	puff_tex.fill = GradientTexture2D.FILL_RADIAL
+	puff_tex.fill_from = Vector2(0.5, 0.5)
+	puff_tex.fill_to = Vector2(1.0, 0.5)
+	var pg := Gradient.new()
+	pg.set_color(0, Color(1, 1, 1, 0.55))
+	pg.set_color(1, Color(1, 1, 1, 0.0))
+	pg.add_point(0.45, Color(1, 1, 1, 0.25))
+	puff_tex.gradient = pg
+	var steam_mat := StandardMaterial3D.new()
+	steam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	steam_mat.vertex_color_use_as_albedo = true
+	steam_mat.albedo_texture = puff_tex
+	steam_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	steam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED  # varjostettuna hiilloksen vastavalo tummentaa
+	steam_mat.albedo_color = Color(0.62, 0.55, 0.5)
+	steam_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	var make_steam := func(amount: int, life: float, vel: float, sz: float, burst: bool) -> CPUParticles3D:
+		var p := CPUParticles3D.new()
+		p.one_shot = burst
+		p.emitting = not burst
+		p.visible = not burst
+		p.amount = amount
+		p.lifetime = life
+		p.direction = Vector3.UP
+		p.spread = 40.0
+		p.initial_velocity_min = vel * 0.5
+		p.initial_velocity_max = vel
+		p.gravity = Vector3(0, 0.15, 0)
+		p.damping_min = vel * 0.4
+		p.damping_max = vel * 0.7
+		p.scale_amount_min = sz * 0.6
+		p.scale_amount_max = sz
+		var curve := Curve.new()
+		curve.add_point(Vector2(0, 0.3))
+		curve.add_point(Vector2(1, 1.6))
+		p.scale_amount_curve = curve
+		var ramp := Gradient.new()
+		ramp.set_color(0, Color(1, 1, 1, 0.0))
+		ramp.set_color(1, Color(1, 1, 1, 0.0))
+		ramp.add_point(0.15, Color(1, 1, 1, 0.8))
+		p.color_ramp = ramp
+		var qm := QuadMesh.new()
+		qm.size = Vector2(0.5, 0.5)
+		qm.material = steam_mat
+		p.mesh = qm
+		_props.add_child(p)
+		return p
+	var haze: CPUParticles3D = make_steam.call(24, 6.0, 0.08, 1.6, false)
+	haze.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	haze.emission_box_extents = Vector3(1.4, 0.15, 1.2)
+	haze.global_position = at.call(Vector3(0, 1.75, 0))
+	haze.preprocess = 6.0  # kaikki tupsut elossa heti: syntymättömät piirtyisivät mustina
+	var puff: CPUParticles3D = make_steam.call(70, 3.4, 1.3, 1.8, true)
+	puff.explosiveness = 1.0
+	puff.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	puff.emission_sphere_radius = 0.2
+	puff.global_position = at.call(SAUNA_STONES)
+	var drops := CPUParticles3D.new()
+	drops.amount = 18
+	drops.lifetime = 0.45
+	drops.one_shot = true
+	drops.emitting = false
+	drops.explosiveness = 0.6
+	drops.direction = Vector3.DOWN
+	drops.spread = 15.0
+	drops.initial_velocity_min = 0.3
+	drops.initial_velocity_max = 0.8
+	drops.gravity = Vector3(0, -9.0, 0)
+	var dm := SphereMesh.new()
+	dm.radius = 0.012
+	dm.height = 0.024
+	dm.material = B.unshaded(Color(0.75, 0.85, 1.0, 0.8))
+	drops.mesh = dm
+	_props.add_child(drops)
+	var throw := func(lines: Array) -> void:
+		glide.call("lean", 1.0, 0.8)
+		await (glide.call("cup", at.call(SAUNA_KIULU_W), 0.8) as Tween).finished
+		Sfx.play("water", -10.0, 1.4, 0.4)
+		await _wait(0.25)
+		var over: Vector3 = at.call(SAUNA_STONES + Vector3(-0.05, 0.28, -0.05))
+		await (glide.call("cup", over, 0.8) as Tween).finished
+		glide.call("pour", 2.2, 0.3)
+		drops.global_position = over
+		drops.restart()
+		await _wait(0.22)
+		puff.visible = true
+		puff.restart()
+		get_tree().create_timer(puff.lifetime - 0.05, true, false, true).timeout.connect(func() -> void:
+			if is_instance_valid(puff):
+				puff.visible = false)
+		Sfx.play("water", -4.0, 2.4, 0.9)
+		Sfx.play("whoosh", -6.0, 0.45)
+		_sub.text = lines[0]
+		var flare := _tween()
+		flare.tween_property(env, "glow_intensity", 1.3, 0.15)
+		flare.tween_property(env, "glow_intensity", 0.8, 1.2)
+		await _wait(0.5)
+		glide.call("pour", 0.0, 0.4)
+		glide.call("lean", 0.0, 0.9)
+		await (glide.call("cup", rest_cup, 0.9) as Tween).finished
+	# Kameraliike sec sekunnissa; uusi kuva (shot-laskuri) katkaisee edellisen liikkeen.
+	var cam_move := func(from: Vector3, to: Vector3, look_from: Vector3, look_to: Vector3, sec: float) -> void:
+		st.shot += 1
+		var my: int = st.shot
+		var t0 := Time.get_ticks_msec()
+		while my == st.shot:
+			var u := clampf((Time.get_ticks_msec() - t0) / (sec * 1000.0), 0.0, 1.0)
+			var e := u * u * (3.0 - 2.0 * u)
+			_cam.global_position = at.call(from.lerp(to, e))
+			_cam.look_at(at.call(look_from.lerp(look_to, e)), Vector3.UP)
+			if u >= 1.0 or not busy:
+				break
+			await get_tree().process_frame
+	_title.add_theme_color_override("font_color", Color(1.0, 0.72, 0.42))
 	_title.add_theme_font_size_override("font_size", 70)
-	await _fade_to(0.0, 0.6)
-	_title.text = "LÖYLYSSÄ"
-	_sub.text = "Höyry nousee, hartiat rentoutuvat."
-	await _wait(2.2)
-	if has_beer and can != null:
-		var tw := _tween()
-		tw.tween_property(can, "rotation_degrees:x", -70.0, 0.35)
-		tw.tween_property(can, "rotation_degrees:x", 0.0, 0.35)
-		_sub.text = "Otat hörpyn kylmää kaljaa löylyn päälle."
-		Sfx.play("pickup", -2.0, 0.9)
-		await _wait(1.8)
+	# 1. Yleiskuva oven pielestä: hämärä, hiillos hehkuu, hahmo ylälauteella.
+	cam_move.call(Vector3(-1.3, 1.25, 1.2), Vector3(-1.15, 1.3, 0.95), Vector3(0.4, 1.0, -0.5), Vector3(0.5, 1.15, -0.55), 4.0)
+	await _fade_to(0.0, 0.8)
+	_title.text = "SAVUSAUNA"
+	_sub.text = "Hämärä, noen ja tervan tuoksu. Kiuas hehkuu."
+	await _wait(2.6)
+	_title.text = ""
+	# 2. Kauhallinen kiukaalle: kuva sivusta kivien ja kauhan tasolta.
+	cam_move.call(Vector3(-0.75, 1.35, 0.55), Vector3(-0.7, 1.3, 0.5), Vector3(0.85, 0.95, 0.15), Vector3(0.85, 1.0, 0.2), 4.0)
+	_sub.text = "Kauhallinen vettä kiukaalle..."
+	await throw.call(["Tsssshhhh!"])
+	# 3. Lähikuva: nojaa taaksepäin, silmät kiinni, löyly laskeutuu hartioille.
+	cam_move.call(Vector3(0.05, 1.5, 0.15), Vector3(0.15, 1.55, -0.05), Vector3(0.5, 1.55, -0.75), Vector3(0.5, 1.6, -0.75), 4.5)
+	glide.call("back", 1.0, 1.4)
+	_sub.text = "Löyly laskeutuu hartioille. Aaahh."
+	await _wait(2.4)
 	_sub.text = SAUNA_LINES.pick_random()
-	await _wait(2.0)
-	await _end(done)
+	await _wait(2.2)
+	# 4. Toinen kauhallinen ja hörppy kaljaa, kamera vetäytyy hitaasti.
+	glide.call("back", 0.0, 0.6)
+	cam_move.call(Vector3(-1.0, 1.4, 0.9), Vector3(-1.3, 1.45, 1.2), Vector3(0.6, 1.0, -0.2), Vector3(0.5, 1.1, -0.4), 7.0)
+	await throw.call(["Toinen kauhallinen. Lämpö nousee korviin."])
+	if has_beer:
+		_sub.text = "Hörppy kylmää kaljaa löylyn päälle."
+		await (glide.call("sip", 1.0, 0.7) as Tween).finished
+		Sfx.play("pickup", -4.0, 0.9)
+		await _wait(0.6)
+		await (glide.call("sip", 0.0, 0.7) as Tween).finished
+		await _wait(0.4)
+	else:
+		glide.call("back", 0.8, 1.2)
+		_sub.text = SAUNA_LINES.pick_random()
+		await _wait(2.0)
+	_sub.text = ""
+	await _end(func() -> void:
+		get_tree().process_frame.disconnect(upd)
+		sun.light_energy = saved[0]
+		env.ambient_light_energy = saved[1]
+		env.glow_intensity = saved[2]
+		env.glow_bloom = saved[3]
+		env.reflected_light_source = saved[4]
+		_cam.fov = 50.0
+		done.call())
 	_title.add_theme_font_size_override("font_size", 150)
 
 
