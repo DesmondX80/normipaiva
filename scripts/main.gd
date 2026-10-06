@@ -923,6 +923,7 @@ func _loading_hide() -> void:
 
 
 func _process(delta: float) -> void:
+	CamCtl.indoors = state in ["in_shop", "in_home", "in_mokki", "in_garage", "in_siitari", "in_raahe"]
 	var at_mokki := _at_mokki()
 	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
 	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
@@ -13201,13 +13202,21 @@ func _maybe_screenshot() -> void:
 					break
 			print("PAIVI loppu: state=%s kiinni=%s tila=%s msg=%s" % [state, _raahe.caught, raahe_int._paivi_mode, _msg.text])
 		"hiirisisalla":
-			# Hiiriohjaus sisätiloissa: kotona hiiren liike kääntää hahmoa, W vie katseen suuntaan, A sivulle.
+			# Hiiriohjaus sisätiloissa (oma asetus): pelkkä ulkoasetus ei ohjaa sisällä (kursori vapaana); sisäasetus
+			# päälle -> hiiren liike kääntää hahmoa ja W vie katseen suuntaan; pois -> W liikkuu ruudulla ylös.
+			var old_out: bool = Settings.get_v("mouse_steer")
+			var old_in: bool = Settings.get_v("mouse_steer_indoor")
 			Settings.set_v("mouse_steer", true)
+			Settings.set_v("mouse_steer_indoor", false)
 			if player == bike:
 				_toggle_mount()
 			_enter_home("ovi")
 			var w: CharacterBody3D = home_int.walker
 			w.position = Vector3(1.0, 0, -2.0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("HSISALLA ulkoasetus: sisällä %s, hiiri %d, ohjaa %s" % [CamCtl.indoors, Input.mouse_mode, CamCtl.steering()])
+			Settings.set_v("mouse_steer_indoor", true)
 			for i in 10:
 				await get_tree().physics_frame
 			print("HSISALLA hiiri %d ohjaa %s" % [Input.mouse_mode, CamCtl.steering()])
@@ -13227,13 +13236,15 @@ func _maybe_screenshot() -> void:
 			var mv := w.position - p0
 			print("HSISALLA käännös %.2f rad, W liike katseen suuntaan %.2f m, sivulle %.2f m" % [turned, mv.dot(fwd),
 				mv.dot(w.global_transform.basis.x)])
-			Settings.set_v("mouse_steer", false)
+			Settings.set_v("mouse_steer_indoor", false)
 			var p1 := w.position
 			Input.action_press("forward")
 			for i in 20:
 				await get_tree().physics_frame
 			Input.action_release("forward")
 			print("HSISALLA ilman asetusta W liikkuu ruudulla ylös (−Z): %.2f m" % -(w.position - p1).z)
+			Settings.set_v("mouse_steer", old_out)
+			Settings.set_v("mouse_steer_indoor", old_in)
 		"tallijuoma2":
 			# Käyttäjän polku: hiiriohjaus päällä, viini käymään saavilla, T-valikko, välissä taukovalikko, viina hiiren
 			# vasemmalla.
