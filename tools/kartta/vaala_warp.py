@@ -21,7 +21,7 @@ REAL_CELL = 4.0    # todellisen kehyksen maankäyttö- ja puurasterin ruutu
 # sitten kerroin kasvaa tasaisesti LAT_G:hen LAT1 m:iin mennessä. Kaukana maisema on tasaisemmin kutistettu eikä
 # veny tien suunnassa 1:22 litistetyiksi juoviksi.
 LAT0, LAT1, LAT_G = 110.0, 400.0, 8.0
-LAT_C = 0.1  # sivulaajennus vain voimakkaasti tiivistetyillä kehyksillä (c < LAT_C), ei keskustan lievällä tiivistyksellä
+LAT_C = 0.06  # sivulaajennus vain voimakkaasti tiivistetyillä kehyksillä (c < LAT_C), ei keskustan lievällä tiivistyksellä
 _LAT_A = (LAT_G - 1.0) / (2.0 * (LAT1 - LAT0))
 _LAT_F1 = LAT1 + _LAT_A * (LAT1 - LAT0) ** 2
 

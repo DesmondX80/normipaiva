@@ -10344,11 +10344,15 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			for car in mopo_trip._cars:  # kuvat ilman liikennettä
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
 			var ui: int = vl.underpass_i
 			var up: Vector3 = vl.road_pos(ui)
 			var ud: Vector3 = vl.road_dir(ui)
 			var ur := ud.cross(Vector3.UP)
 			await snap.call("_ali1.png", vl.road_pos(ui - 25) + Vector3(0, 2.2, 0) + ur * 1.6, up + Vector3(0, 2.5, 0))
+			await snap.call("_ali5.png", vl.road_pos(ui + 25) + Vector3(0, 2.2, 0) - ur * 1.6, up + Vector3(0, 2.5, 0))
 			await snap.call("_ali2.png", up + ur * 40.0 - ud * 25.0 + Vector3(0, 14, 0), up + Vector3(0, 2, 0))
 			await snap.call("_ali4.png", up + Vector3(0, 3.0, 0) - ud * 0.5, up + ud * 0.5)
 			mp.position = vl.road_pos(ui - 4) + Vector3(0, 0.6, 0) + ur * 1.6

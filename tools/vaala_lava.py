@@ -34,8 +34,14 @@ LAVA = (64.550921, 26.822649)
 LAVA_SHIFT = (-68.0, -65.0)  # pelissä niemen kärjestä n. 90 m lähemmäs Vuolijoentietä, Pahalahdentien länsipuolelle
 LAVA_SIZE = (34.0, 44.0)  # 1 500 m², pitkä sivu z-suunnassa (vaala.gd _build_lava)
 ROAD_NAME = "Pahalahdentie"
-# Pelin kehyksessä (x0, z0, x1, z1): niemen 1:1-alue (vaala_bake.py:n ankkurit x0 + 60 m alkaen).
+# Niemen 1:1-alue (x0, z0, x1, z1; vaala_bake.py:n ankkurit x0 + 60 m alkaen) todellisessa kehyksessä; pelissä
+# se siirtyy niemen siirron (tie.json "lava_off") mukana: area(off). AREA on viimeksi käytetty pelin alue.
+AREA_REAL = (7149.18, -5936.78, 8149.18, -4786.78)
 AREA = (300.0, -1300.0, 1300.0, -150.0)
+
+
+def area(off):
+    return (AREA_REAL[0] + off[0], AREA_REAL[1] + off[1], AREA_REAL[2] + off[0], AREA_REAL[3] + off[1])
 FENCE_GAP = (30.0, 25.0)  # aidan etäisyys lavasta pohjoiseen ja länteen
 FENCE_INTO_WATER = 8.0
 GATE_W = 6.0
@@ -125,7 +131,9 @@ class Dem:
 def apply(cache=None):
     d = json.load(open(SRC))
     tie = json.load(open(TIE))
+    global AREA
     off = tie.get("lava_off", tie["town_off"])
+    AREA = area(off)
     wl = tie["water_level"]
     if "lava_dem" not in d:
         if not cache:
