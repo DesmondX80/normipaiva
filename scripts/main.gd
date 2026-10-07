@@ -10257,6 +10257,65 @@ func _maybe_screenshot() -> void:
 			for i in 3:
 				await get_tree().process_frame
 			print("HIIRI vasen nappi: kuutonen %s" % interior.has_beer)
+		"sisarajat":
+			# Joka sisätilassa ovelta neljään suuntaan 1,5 s: hahmo ei saa päätyä lattian ulkopuolelle.
+			if player == bike:
+				_toggle_mount()
+			mokki.ensure_built()
+			var cases := [["koti", home_int, func() -> void: _enter_home("ovi")],
+				["mökki", mokki_int, func() -> void: _enter_mokki("ovi")],
+				["talli", garage_int, func() -> void: _enter_garage()],
+				["kauppa", interior, func() -> void: _enter_shop()],
+				["raahe", raahe_int, func() -> void: _enter_raahe()],
+				["siitari", siitari_int, func() -> void:
+					state = "in_siitari"
+					siitari_int.enter()]]
+			for c in cases:
+				var it: Node3D = c[1]
+				c[2].call()
+				for i in 5:
+					await get_tree().physics_frame
+				var w: CharacterBody3D = it.walker
+				var start: Vector3 = w.position
+				var worst := 0.0
+				for d in [["right", Vector2(1, 0)], ["left", Vector2(-1, 0)], ["forward", Vector2(0, -1)], ["back", Vector2(0, 1)]]:
+					w.position = start
+					w.controls_enabled = true
+					Input.action_press(d[0])
+					for i in 90:
+						await get_tree().physics_frame
+					Input.action_release(d[0])
+					var p := Vector2(w.position.x, w.position.z)
+					var out := INF
+					for r: Rect2 in w.bounds:
+						var q := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
+						out = minf(out, q.distance_to(p))
+					worst = maxf(worst, out)
+				print("SISARAJAT %s: ovi %s, pahin yli lattian %.2f m, rajat %s" % [c[0], start, worst, w.bounds])
+				# Toisin päin: rajaus ei saa estää pääsyä yhteenkään toimintopisteeseen.
+				var pts := {}
+				var sp = it.get("spots")
+				if sp == null and "SPOTS" in it:
+					sp = it.SPOTS
+				if sp is Dictionary:
+					for id in sp:
+						pts[id] = sp[id][0]
+				if it == interior:
+					for id in ["DOOR", "ENTRY", "COOLER_SPOT", "GRILL_SPOT", "CANDY_SPOT", "BAKERY_SPOT", "BREW_SPOT", "ALKO_SPOT",
+							"QUEUE_FRONT"]:
+						pts[id] = interior.get_script().get_script_constant_map()[id]
+					for k in ShopInterior.PRODUCTS.size():
+						pts["hylly%d" % k] = Vector3(10.4, 0, ShopInterior.SHELF_Z0 + k + 0.5)
+				var blocked: Array = []
+				for id in pts:
+					var at: Vector3 = pts[id]
+					w.position = at
+					w._keep_in_bounds()
+					if Vector2(w.position.x - at.x, w.position.z - at.z).length() > 0.01:
+						blocked.append("%s (%.2f m)" % [id, Vector2(w.position.x - at.x, w.position.z - at.z).length()])
+				print("SISARAJAT %s: toimintopisteitä %d, rajaus estää: %s" % [c[0], pts.size(), blocked if not blocked.is_empty() else "ei mitään"])
+				w.position = start
+				state = "to_shop"
 		"ohjerivi":
 			# Näppäinohjerivi seuraa asetuksia: syö T -> R ja takaisin.
 			var erow := -1

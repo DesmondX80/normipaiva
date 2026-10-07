@@ -116,6 +116,8 @@ func _ready() -> void:
 	_build_people()
 	walker = Walker.new()
 	walker.position = spots.ovi[0]
+	walker.bounds = [Rect2(-HALF, HALF * 2.0),  # Kulma ja Kellari (portaat siirtävät suoraan)
+		Rect2(Vector2(CELLAR.x, CELLAR.z) - CELLAR_HALF, CELLAR_HALF * 2.0)]
 	add_child(walker)
 
 

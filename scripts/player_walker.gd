@@ -42,6 +42,30 @@ func set_carrying(carrying: bool) -> void:
 	_bag.visible = carrying
 
 
+## Sisätilan lattia (Rect2:t xz-tasossa, sisätilan kehyksessä): hahmo pysyy niiden sisällä, ettei oviaukoista
+## pääse kävelemään tyhjyyteen. Tyhjä = ei rajaa (ulkona).
+var bounds: Array = []
+const BOUND_MARGIN := 0.35  # hahmon säde
+
+
+func _keep_in_bounds() -> void:
+	if bounds.is_empty():
+		return
+	var p := Vector2(position.x, position.z)
+	var best := p
+	var bd := INF
+	for r: Rect2 in bounds:
+		var g := r.grow(-BOUND_MARGIN)
+		var q := Vector2(clampf(p.x, g.position.x, g.end.x), clampf(p.y, g.position.y, g.end.y))
+		var d := q.distance_squared_to(p)
+		if d < bd:
+			bd = d
+			best = q
+	if bd > 0.0:
+		position.x = best.x
+		position.z = best.y
+
+
 func _physics_process(delta: float) -> void:
 	var v := Vector2.ZERO
 	if controls_enabled:
@@ -55,6 +79,7 @@ func _physics_process(delta: float) -> void:
 		dir = (global_transform.basis * Vector3(v.x, 0, v.y)).normalized() * minf(v.length(), 1.0)
 	velocity = dir * SPEED
 	move_and_slide()
+	_keep_in_bounds()
 	global_position.y = Terrain.h(global_position.x, global_position.z)  # maaston pinnalla (sisätiloissa 0)
 	if dir.length() > 0.1:
 		if not steer:
