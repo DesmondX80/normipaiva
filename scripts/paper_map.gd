@@ -610,23 +610,62 @@ func _draw_map() -> void:
 				v.draw_rect(Rect2(p - Vector2(hs, hs) / 2.0, Vector2(hs, hs)), INK)
 
 	var font := ThemeDB.fallback_font
+	# Paikannimet eivät mene päällekkäin: tärkeiden kohteiden nimet ja merkit varaavat tilan ensin, paikannimet
+	# piirretään listan järjestyksessä vain vapaaseen kohtaan. Kaukaa katsottaessa fontti pienenee.
+	var taken: Array[Rect2] = []
+	var text_rect := func(text: String, at: Vector2, fs: int) -> Rect2:
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		return Rect2(at.x, at.y - fs * 0.85, w, fs * 1.05)
+	# Näkyvä kartta-alue: nimet pysyvät sen sisällä (kaukaa kartan ulkopuoli on paperia).
+	var map_vis := Rect2(_vpx(_vrect.position), _vrect.size * _vzoom).intersection(Rect2(Vector2.ZERO, v.size))
+	# Kohteiden nimet: oikealle merkistä, tai vasemmalle, jos oikealla ei ole tilaa (lb_at: nimen paikka piirtoon).
+	var lb_at := {}
+	var grilli_txt := "Grillikatos (turvapaikka)" if _vzoom >= 0.4 else "Grillikatos"  # kaukaa lyhyt, mahtuu
+	for lb in [["koti", M.HOME_ZONE, "Järvikuja 1"], ["kauppa", M.SHOP_ZONE, "K-Market"], ["laavu", M.LAAVU, "Laavu"],
+			["grilli", M.GRILLIKATOS, grilli_txt], ["kota", M.KOTA, "Kota ja lintutorni"]]:
+		var ip := _px(lb[1])
+		var w := font.get_string_size(lb[2], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		var at := ip + Vector2(12, 4)
+		if lb[0] in ["koti", "kota"] or at.x + w > map_vis.end.x - 2.0:
+			at = ip + Vector2(-12 - w, 4)
+		if at.x < map_vis.position.x + 2.0:
+			at.x = ip.x + 12.0
+		lb_at[lb[0]] = at
+		taken.append(Rect2(ip - Vector2(10, 10), Vector2(20, 18)))
+		taken.append(text_rect.call(lb[2], at, 13))
+	var place_fs := clampi(roundi(12.0 + 8.0 * (_vzoom - 0.15) / 0.45), 12, 20)
 	for n in M.PLACE_NAMES:
-		var p := _px(n[1])
-		v.draw_string(font, p - Vector2(n[0].length() * 5.5, 0), n[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
+		var w := font.get_string_size(n[0], HORIZONTAL_ALIGNMENT_LEFT, -1, place_fs).x
+		var at := _px(n[1]) - Vector2(w / 2.0, 0)
+		at.x = clampf(at.x, map_vis.position.x + 4.0, maxf(map_vis.position.x + 4.0, map_vis.end.x - w - 4.0))  # kokonaan näkyviin
+		at.y = clampf(at.y, map_vis.position.y + place_fs + 2.0, maxf(map_vis.position.y + place_fs + 2.0, map_vis.end.y - 4.0))
+		var rr: Rect2 = text_rect.call(n[0], at, place_fs)
+		if not rr.intersects(Rect2(Vector2.ZERO, v.size)):
+			continue
+		var free := true
+		for t in taken:
+			if rr.grow(2.0).intersects(t):
+				free = false
+				break
+		if free:
+			taken.append(rr)
+			_outlined(v, at, n[0], place_fs, INK)
 	# Tienimet eivät tukkeuta karttaa: nimi näkyy vain, kun hiiri on tien päällä (_hover_road).
 
 	# Naapurit (tarina lähettää heidän luokseen): pieni talomerkki ja nimi, nimet eri puolille ettei mene päällekkäin.
+	# Nimet vasta lähempää: kaukaa ne peittäisivät kodin.
 	for n in [[M.NEIGHBOR_PEKKA, "Pekka", Vector2(8, -2)], [M.NEIGHBOR_SINIKKA, "Sinikka", Vector2(8, 10)],
 			[M.NEIGHBOR_ARTO, "Arto", Vector2(-10, 20)]]:
 		var np := _px(n[0])
 		_neighbor_icon_on(v, np)
-		v.draw_string(font, np + n[2], n[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.35, 0.22, 0.1))
+		if _vzoom >= 0.45:
+			v.draw_string(font, np + n[2], n[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.35, 0.22, 0.1))
 	_house_icon_on(v, _px(M.HOME_ZONE), Color(0.8, 0.15, 0.1))
-	v.draw_string(font, _px(M.HOME_ZONE) + Vector2(-78, 4), "Järvikuja 1", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.1, 0.05))
+	_outlined(v, lb_at.koti, "Järvikuja 1", 13, Color(0.7, 0.1, 0.05))
 	var sp := _px(M.SHOP_ZONE)
 	v.draw_circle(sp, 8.0, Color(1.0, 0.45, 0.0))
 	v.draw_string(font, sp + Vector2(-4, 5), "K", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
-	v.draw_string(font, sp + Vector2(12, 4), "K-Market", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.3, 0.0))
+	_outlined(v, lb_at.kauppa, "K-Market", 13, Color(0.7, 0.3, 0.0))
 	# Arton merkitsemät marja- ja sienipaikat, käsin piirretyn näköisinä.
 	if world != null and world.forage_revealed:
 		for f in world.forage:
@@ -644,11 +683,11 @@ func _draw_map() -> void:
 				v.draw_colored_polygon(PackedVector2Array([fp + Vector2(-5, -1), fp + Vector2(0, -6), fp + Vector2(5, -1)]), col)
 				v.draw_arc(fp + Vector2(0, -1), 8.0, 0, TAU, 16, Color(0.6, 0.1, 0.05, 0.7), 1.2)
 	_laavu_icon_on(v, _px(M.LAAVU))
-	v.draw_string(font, _px(M.LAAVU) + Vector2(12, 4), "Laavu", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+	_outlined(v, lb_at.laavu, "Laavu", 13, INK)
 	_laavu_icon_on(v, _px(M.GRILLIKATOS))
-	v.draw_string(font, _px(M.GRILLIKATOS) + Vector2(12, 4), "Grillikatos (turvapaikka)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.1, 0.4, 0.1))
+	_outlined(v, lb_at.grilli, grilli_txt, 13, Color(0.1, 0.4, 0.1))
 	_laavu_icon_on(v, _px(M.KOTA))
-	v.draw_string(font, _px(M.KOTA) + Vector2(-150, 4), "Kota ja lintutorni", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+	_outlined(v, lb_at.kota, "Kota ja lintutorni", 13, INK)
 	if game != null and game.pontikka_found:  # löytyi droonin ilmakuvasta
 		var pp := _px(M.PONTIKKA)
 		v.draw_circle(pp, 5.0, Color(0.55, 0.2, 0.1))
