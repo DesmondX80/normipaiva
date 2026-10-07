@@ -327,6 +327,8 @@ const HOP_RAAHE := 20.0  # taksi Saloisista Raaheen
 const HOP_VAALA := 150.0  # auto- tai taksimatka Saloisten ja Vaalan välillä
 const HOP_MOPO := 20.0  # mopomatka Neittävältä Vaalaan tai takaisin
 const HOP_NAP := 60.0  # nokoset sohvalla
+## Tappelun häviö ei päätä päivää: tyrmäys vie aikaa, kipu, moraali ja maine kärsivät.
+const KO_MINUTES := 60.0
 var clock_min := DAY_START
 ## Ilta ja yön raja (#86): klo 22 alkaen ilta (väsymys kasvaa), klo 2 sammutaan siihen missä ollaan. Kahvi
 ## (NIGHT_COFFEE min/kuppi) ja alkoholi (päivän humalan huippu, NIGHT_DRUNK min täydestä humalasta) siirtävät rajaa
@@ -3257,7 +3259,6 @@ const DAY_END_BAG := {
 	"auto": "Päivin ostokset levisivät asfaltille auton alle.",
 	"poliisi": "Poliisi takavarikoi kassin, ja Päivin ostokset jäi putkaan.",
 	"paivi": "Päivi heitti kassin auton takapenkille, ja kaikki meni rutussa.",
-	"tappelu": "Päivin kassi lensi tappelussa ojaan.",
 	"raahe": "Päivin kassi unohtui Raahen taksiin."}
 var _day_end := ""  # miten päivä päättyi (DAY_END_BAG-avain), asetetaan ennen _new_dayta
 
@@ -6959,21 +6960,22 @@ func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
 			foe = "Jyväjemmari"
 		elif _fight_source == "laavu":
 			foe = "Akka" if guard.kind == "akka" else "Teinit"
+		_advance_clock(KO_MINUTES)
+		tilat.add("kipu", -0.2)
+		tilat.add("moraali", -0.1)
+		maine = clampf(maine - 3.0, 0.0, 100.0)
+		var ko := "\nHeräsit ojasta tunnin päästä. Kylki on kipeä."
 		if beers > 0:
 			beers = maxi(0, beers - 2)
 			Sfx.play("glass", -3.0)
-			_show_message("Hävisit! %s potkaisi kassia, 2 kaljaa rikki.%s" % [foe, note], 3.0)
+			_show_message("Hävisit! %s potkaisi kassia, 2 kaljaa rikki.%s%s" % [foe, note, ko], 3.5)
 		else:
-			money -= 5.0
-			_show_message("Hävisit! %s vei vitosen \"lainaksi\"." % foe, 3.0)
-			if state == "to_shop" and money < BEER_PRICE:
-				_day_end = "tappelu"
-				_lose("%s vei rahat. Kuutoseen ei enää riitä." % foe, _fight_source if _fight_source == "juntti" else "default")
-				return
+			var took := minf(5.0, money)
+			money -= took
+			var what := "vitosen \"lainaksi\"" if took >= 5.0 else "viimeiset %s €" % _eur(took)
+			_show_message(("Hävisit! %s vei %s.%s" % [foe, what, ko]) if took > 0.0 else
+				"Hävisit! %s penkoi taskut, mutta ne oli tyhjät.%s" % [foe, ko], 3.5)
 	player.set_carrying(beers > 0)
-	if state == "to_home" and beers <= 0 and not has_kanister and _stashed_today <= 0:
-		_day_end = "tappelu"
-		_lose("Kaikki kaljat rikki. Kotiin ei kannata mennä tyhjin käsin.", "juntti")
 
 
 ## Juoksukaljat: kauppias lähtee perään kaupan ovelta. Saloisissa (taxi = true) etumatka riittää juuri ja juuri
@@ -7492,8 +7494,7 @@ func _lose(reason: String, cause := "default", at := Vector3.INF) -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
 	_hud.visible = false
 	var spawn := _nearest_safe() if at == Vector3.INF else home_zone + Vector3(0, 0, 4)
-	if _day_end == "":  # tappelun häviö asettaa "tappelu" ennen _losea
-		_day_end = {"car": "auto", "police": "poliisi", "wife": "paivi", "juntti": "tappelu"}.get(cause, "ulko")
+	_day_end = {"car": "auto", "police": "poliisi", "wife": "paivi"}.get(cause, "ulko")
 	var choco := _offer_chocolate()
 	_choco_mercy = choco == "ok"
 	cutscene.wasted(player.global_position if at == Vector3.INF else at, reason, cause, home_zone,
@@ -14505,6 +14506,30 @@ func _maybe_screenshot() -> void:
 						player.drunk, rad_to_deg(max_dev)])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"tappioko":
+			# Tappelun häviö ilman kaljoja ja rahaa: päivä ei pääty, tyrmäys vie tunnin, rahaa ei mene miinukselle.
+			for case in [["to_shop", 0, 3.0], ["to_home", 2, 20.0]]:
+				state = case[0]
+				beers = case[1]
+				money = case[2]
+				var d0 := day
+				var c0 := clock_min
+				var m0: float = maine
+				_start_fight("juntti", "juntti", Vector3.RIGHT)
+				for i in 150:
+					await get_tree().process_frame
+				fight._p.hp = 0.0
+				fight._p.state = "ko"
+				for i in 400:
+					await get_tree().process_frame
+					if state != "fight":
+						break
+				for i in 30:
+					await get_tree().process_frame
+				print("TAPPIO %s: tila %s, päivä %d -> %d, kello +%.0f min, rahaa %.2f, kaljoja %d, maine %.0f -> %.0f, viesti '%s'" % [
+					case[0], state, d0, day, fmod(clock_min - c0 + 1440.0, 1440.0), money, beers, m0, maine,
+					_msg.text.replace("\n", " | ")])
+				juntti.global_position += Vector3(200, 0, 200)
 		"heitto":
 			# Tappelussa kolme kaljanheittoa (eteen + L), sitten K.O. ja kaljamäärän tarkistus.
 			beers = 6
