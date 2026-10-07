@@ -7797,7 +7797,8 @@ func _setup_input() -> void:
 var _hint_shown := ""
 
 
-## Näppäinohjerivin teksti: syö, reppu ja kartta, pyörällä lisäksi jarru ja kello. Näppäimet asetuksista.
+## Näppäinohjerivin teksti: syö, reppu ja kartta; ulkona jalan juoksu, pyörällä spurtti, jarru ja kello.
+## Näppäimet asetuksista.
 func _help_text() -> String:
 	if cutscene.busy or not state in ["to_shop", "to_home", "in_shop", "in_home", "in_garage", "in_mokki", "in_raahe",
 			"in_siitari"]:
@@ -7805,9 +7806,13 @@ func _help_text() -> String:
 	var k := func(action: String, what: String) -> String:
 		return "[%s] %s" % [Settings.action_key(action), what]
 	var parts: Array[String] = []
-	if player == bike and state in ["to_shop", "to_home"]:
+	var outside: bool = state in ["to_shop", "to_home"]
+	if player == bike and outside:
+		parts.append(k.call("sprint", "spurtti"))
 		parts.append(k.call("brake", "jarru"))
 		parts.append(k.call("bell", "kello"))
+	elif player == walker_out and outside:
+		parts.append(k.call("sprint", "juoksu"))
 	parts.append(k.call("eat", "syö"))
 	parts.append(k.call("inventory", "reppu"))
 	parts.append(k.call("map", "kartta"))
