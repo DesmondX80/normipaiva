@@ -327,6 +327,8 @@ const HOP_RAAHE := 20.0  # taksi Saloisista Raaheen
 const HOP_VAALA := 150.0  # auto- tai taksimatka Saloisten ja Vaalan välillä
 const HOP_MOPO := 20.0  # mopomatka Neittävältä Vaalaan tai takaisin
 const HOP_NAP := 60.0  # nokoset sohvalla
+## Tappelun häviö ei päätä päivää: tyrmäys vie aikaa, kipu, moraali ja maine kärsivät.
+const KO_MINUTES := 60.0
 var clock_min := DAY_START
 ## Ilta ja yön raja (#86): klo 22 alkaen ilta (väsymys kasvaa), klo 2 sammutaan siihen missä ollaan. Kahvi
 ## (NIGHT_COFFEE min/kuppi) ja alkoholi (päivän humalan huippu, NIGHT_DRUNK min täydestä humalasta) siirtävät rajaa
@@ -611,8 +613,7 @@ const TALKERS := {
 	"visa": ["Visamestari", Color(0.72, 0.62, 1.0)],
 	"siitari": ["Baarimikko", Color(0.95, 0.72, 0.5)],
 	"siitari_sinikka": ["Sinikka", Color(1.0, 0.55, 0.75)],
-	"kauppias": ["Kauppias", Color(0.6, 0.82, 1.0)],
-	"paivi": ["Päivi", Color(1.0, 0.42, 0.38)]}
+	"kauppias": ["Kauppias", Color(0.6, 0.82, 1.0)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
 	"pekka": ["No perkele, naapuri!", "Terve terve, saatana.", "Kas, sieltähän se tulee."],
@@ -622,8 +623,7 @@ const TALK_HELLO := {
 	"sulo": ["Mitä sää täällä kuusikossa?", "Ei kuulu kellekään, mitä täällä tehdään.", "No?"],
 	"pojat": ["Moi setä!", "Mitä setä?", "Setä, ootko nähny meiän palloa?"],
 	"taksi": ["No mihinkäs lähetään?", "Kyytiä vailla?"],
-	"kauppias": ["Päivää! Löytykö kaikki?", "Seuraava, olkaa hyvä."],
-	"paivi": ["No? Toitko ne?", "Siinähän sää vihdoin oot. Annappa kassi."]}
+	"kauppias": ["Päivää! Löytykö kaikki?", "Seuraava, olkaa hyvä."]}
 const POJAT_LINES := ["Meiän isä sanoo, että Saloisissa on Suomen parhaat mansikat.", "Setä, osaatko pallotella?",
 	"Me pelataan tässä joka päivä. Paitsi kun sataa.", "Meiän pallo on ihan uus. Tai oli."]
 var _menu_mode := "give"  # esinevalikon käyttö: "give" (pojat) tai "eat" (T: syö)
@@ -656,6 +656,12 @@ var _still_t := 0.0  # paikallaan oloaika (lepo, kokemuksen hiipuminen)
 const LIST_SIZE := 4
 var shopping_list: Array = []  # [[tuote, väri], ...]
 var paivi_bag := {}  # kaupasta tuodut: tuote -> väri
+var paivi_placed := {}  # kotona paikoilleen viedyt: tuote -> väri (lista valmis, kun kaikki listan tuotteet paikoillaan)
+## Päivin ostosten paikat kotona (kodin toimintopiste -> tuotteet) ja paikan nimi vihjeeseen.
+const PUT_AWAY := {"jaakaappi": ["maito", "voi", "jogurtti"], "kahvi": ["kahvi", "tiskiaine"],
+	"peili": ["tamponi", "hammastahna", "vessapaperi"], "sohva": ["ristikkolehti", "kynttilä"]}
+const PUT_AWAY_NAME := {"jaakaappi": "jääkaappiin", "kahvi": "keittiön kaappiin", "peili": "kylpyhuoneen kaappiin",
+	"sohva": "olohuoneen pöydälle"}
 var _list_done := false
 var _kaljarauha := false  # kaikki oikein: Päivi ei etsi jemmoja seuraavana aamuna
 var _msg_queue: Array = []
@@ -1026,6 +1032,7 @@ func _process(delta: float) -> void:
 			tilat.add("humala", -0.002 * delta)
 			tilat.add("stressi", 0.004 * delta)
 		"in_home":
+			home_int.overrides = _put_away_hints()
 			_hint.text = home_int.hint
 			home_int.carrying = beers > 0 or has_kanister
 			if home_int.spot == "kaappi":
@@ -1267,7 +1274,6 @@ func _outside_logic() -> void:
 	_forage_logic()
 	_boys_logic()
 	_wound_logic()
-	_errand_logic()
 	_vaino_logic()
 	_neighbor_logic()
 	_story_logic()
@@ -1754,6 +1760,8 @@ func _enter_home(door: String) -> void:
 	home_int.enter(door)
 	home_int.walker.set_carrying(beers > 0 or has_kanister)
 	Sfx.play("door", -3.0)
+	if not _list_done and not paivi_bag.is_empty():
+		_show_message("Päivin ostokset paikoilleen: jääkaappiin, keittiön kaappiin, kylpyhuoneeseen ja olohuoneeseen.", 3.5)
 
 
 func _on_home_exited() -> void:
@@ -1894,6 +1902,9 @@ func _wc_result(mode: String, r: Dictionary) -> void:
 
 ## Kodin sisätoiminnot: tilavaikutukset (kerran päivässä) ja viestit.
 func _on_home_acted(kind: String) -> void:
+	if kind.begins_with("laita_"):
+		_put_away(kind.trim_prefix("laita_"))
+		return
 	match kind:
 		"kahvi":
 			_coffee()
@@ -3184,6 +3195,89 @@ const HANGOVER_NOTE := {
 }
 
 
+## Kodin pisteet, joihin kassissa on vietävää: piste -> vihje "[E] Laita jääkaappiin: maito, voi".
+func _put_away_hints() -> Dictionary:
+	var out := {}
+	if _list_done:
+		return out
+	for id in PUT_AWAY:
+		var here: Array = PUT_AWAY[id].filter(func(p: String) -> bool: return paivi_bag.has(p))
+		if not here.is_empty():
+			out[id] = "[E] Laita %s: %s" % [PUT_AWAY_NAME[id], ", ".join(here.map(func(p: String) -> String:
+				return "%s %s" % [paivi_bag[p], p]))]
+	return out
+
+
+## Päivin ostokset paikoilleen: jokaisesta heti tieto, oliko oikea väri. Kun kaikki listan tuotteet ovat paikoillaan,
+## lista on valmis (_check_list: palkinto tai Päivin moitteet).
+func _put_away(id: String) -> void:
+	var wanted := {}
+	for it in shopping_list:
+		wanted[it[0]] = it[1]
+	var lines: Array[String] = []
+	for p in PUT_AWAY[id]:
+		if not paivi_bag.has(p):
+			continue
+		var col: String = paivi_bag[p]
+		paivi_bag.erase(p)
+		paivi_placed[p] = col
+		if not wanted.has(p):
+			lines.append("✗ %s %s – ei ollu listalla!" % [col.capitalize(), p])
+		elif wanted[p] == col:
+			lines.append("✔ %s %s – oikea väri!" % [col.capitalize(), p])
+		else:
+			lines.append("✗ %s %s – listalla oli %s!" % [col.capitalize(), p, wanted[p]])
+	Sfx.play("cloth", -6.0, 1.1)
+	if not paivi_bag.is_empty() and paivi_bag.keys().any(func(p: String) -> bool: return wanted.has(p)):
+		_show_message("\n".join(lines), 3.0)
+		return
+	var all_in := wanted.keys().all(func(p: String) -> bool: return paivi_placed.has(p))
+	if not all_in:
+		_show_message("\n".join(lines) + "\nListalta puuttuu vielä jotain. Kauppa on auki.", 3.5)
+		return
+	var verdict := _finish_list()
+	_show_message("\n".join(lines), 3.0)
+	for l in verdict:
+		_queue_message(l, 3.5)
+
+
+## Lista tarkistetaan, kun kaikki listan tuotteet ovat paikoillaan (kassiin jääneet ylimääräiset mukaan).
+func _finish_list() -> Array[String]:
+	paivi_bag.merge(paivi_placed, true)
+	paivi_placed = {}
+	return _check_list()
+
+
+## Päivän päättyessä paikoilleen viemättömät ostokset pilaantuvat tai katoavat päättymistavan mukaan (_day_end), eikä
+## Päivi hyväksy niitä: lista tarkistetaan vain paikoilleen viedyistä.
+const SPOIL := {"maito": "hapantui", "voi": "suli mössöksi", "jogurtti": "pullistui ja poksahti", "kahvi": "repesi",
+	"tiskiaine": "valui kaiken päälle", "tamponi": "kastui", "vessapaperi": "kastui ja litistyi",
+	"hammastahna": "puristui tyhjäksi", "ristikkolehti": "rypistyi", "kynttilä": "katkesi"}
+const DAY_END_BAG := {
+	"koti": "Päivin kassi jäi yöksi eteisen lattialle.",
+	"ulko": "Päivin kassi oli koko yön ulkona kosteassa.",
+	"auto": "Päivin ostokset levisivät asfaltille auton alle.",
+	"poliisi": "Poliisi takavarikoi kassin, ja Päivin ostokset jäi putkaan.",
+	"paivi": "Päivi heitti kassin auton takapenkille, ja kaikki meni rutussa.",
+	"raahe": "Päivin kassi unohtui Raahen taksiin."}
+var _day_end := ""  # miten päivä päättyi (DAY_END_BAG-avain), asetetaan ennen _new_dayta
+
+
+func _end_day_shopping(how: String) -> Array[String]:
+	var out: Array[String] = []
+	var lost: Array = paivi_bag.keys()
+	if not lost.is_empty():
+		var what: Array = lost.map(func(p: String) -> String: return "%s %s" % [paivi_bag[p], p])
+		if how in ["koti", "ulko"]:
+			what = lost.map(func(p: String) -> String: return "%s %s" % [p, SPOIL.get(p, "pilaantui")])
+		out.append("%s %s." % [DAY_END_BAG.get(how, DAY_END_BAG.ulko),
+			("Pilalla: " if how in ["koti", "ulko"] else "Menetit: ") + ", ".join(what)])
+	paivi_bag = paivi_placed.duplicate()
+	paivi_placed = {}
+	out.append_array(_check_list(lost, "pilalla" if how in ["koti", "ulko"] else "hukassa"))
+	return out
+
+
 ## Uusi kauppalista: neljä eri tuotetta, kullekin väri.
 func _roll_list() -> void:
 	var prods: Array = ShopInterior.PRODUCTS.keys()
@@ -3192,6 +3286,7 @@ func _roll_list() -> void:
 	for i in LIST_SIZE:
 		shopping_list.append([prods[i], ShopInterior.COLORS.keys().pick_random()])
 	paivi_bag = {}
+	paivi_placed = {}
 	_list_done = false
 
 
@@ -3226,14 +3321,18 @@ func _day_note(head: String, extra: String, with_list := true) -> void:
 
 
 ## Ostosten tarkistus: palauttaa Päivin repliikit. Kaikki oikein -> kaljarauha.
-func _check_list() -> Array[String]:
+## spoiled: paikoilleen viemättä pilaantuneet tai kadonneet (_end_day_shopping): Päivi ei hyväksy niitä.
+func _check_list(spoiled: Array = [], spoil_word := "pilalla") -> Array[String]:
 	_list_done = true
 	var lines: Array[String] = []
 	var big := false
 	var wanted := {}
 	for it in shopping_list:
 		wanted[it[0]] = it[1]
-		if not paivi_bag.has(it[0]):
+		if not paivi_bag.has(it[0]) and it[0] in spoiled:
+			lines.append("%s %s – ei kelpaa!" % [it[0].capitalize(), spoil_word])
+			big = true
+		elif not paivi_bag.has(it[0]):
 			lines.append("%s puuttuu kokonaan!" % it[0].capitalize())
 			big = true
 		elif paivi_bag[it[0]] != it[1]:
@@ -3253,22 +3352,14 @@ func _check_list() -> Array[String]:
 		_kaljarauha = true
 		Sfx.play("win_small")
 		return ["Päivi: \"Kaikki oikein! No niin, kyllä sää osaat.\"\nKaljarauha: Päivi ei etsi jemmoja huomenna."]
+	if shopping_list.any(func(it: Array) -> bool: return it[0] in spoiled):
+		lines.append("Ostokset viedään HETI paikoilleen, eikä jätetä kassiin!")
 	if big:
 		lines.push_front("Eihän tässä oo mitään järkeä!")
 	var out: Array[String] = []
 	for l in lines:
 		out.append("Päivi: \"%s\"" % l)
 	return out
-
-
-## Ostokset Päiville kotiovella (ilman kuutosta; kotiinpaluu kuutosen kanssa tarkistaa ne _win():ssä).
-func _errand_logic() -> void:
-	if _list_done or paivi_bag.is_empty() or _hint.text != "" or state != "to_shop" or player != walker_out:
-		return
-	var p := player.global_position
-	if Vector2(p.x - home_door.x, p.z - home_door.z).length() > HOME_DOOR_ZONE:
-		return
-	_talk_hint("paivi", null)
 
 
 ## Vieras koira puri: kaatuu, ja jalka ontuu, kunnes haava hoidetaan.
@@ -3689,6 +3780,7 @@ func _on_raahe_exited() -> void:
 	if parts.is_empty():
 		parts.append("Ilta Kapteenin Kulmassa.")
 	var stats := "%s Taksi %s €.\nMielihyvä %d · Maine %d" % [" ".join(parts), _eur(TAXI_FARE), roundi(mielihyva), roundi(maine)]
+	_day_end = "raahe"
 	cutscene.taxi_home(home_zone, stats, func() -> void:
 		_new_day(home_zone + Vector3(0, 0, 4), false, "Pää on kipeä Raahen reissusta.\n"))
 
@@ -4121,10 +4213,6 @@ func _talk_options(who := "") -> Array:
 				if not interior.can_pay() and interior.own_items():
 					o.append(_opt("jata", "Jätä omat ostokset tiskille"))
 			o.append(_opt("neuvo", "Mistä löytyy mitäkin?"))
-		"paivi":
-			chat = false
-			if not paivi_bag.is_empty():
-				o.append(_opt("ostokset", "Anna ostokset", true, "", true))
 	if chat:
 		o.append(_opt("juttu", "Mitä kuuluu?"))
 	o.append(_opt("lopeta", "Lopeta"))
@@ -4175,8 +4263,6 @@ func _talk_choose(id: String) -> void:
 				_talk_box.reply(r[0], _talk_options(), r[1])
 		"kauppias":
 			_talk_kauppias(id)
-		"paivi":
-			_talk_paivi()
 
 
 func _talk_neighbor(id: String) -> void:
@@ -4320,22 +4406,6 @@ func _talk_kauppias(id: String) -> void:
 				"Laitan ne takaisin. Päivin tavarat on Päivin piikkiin.", _talk_options())
 		"neuvo":
 			_talk_box.reply(interior.where_text() + ". Liiat voi viedä takaisin samaan hyllyyn.", _talk_options())
-
-
-## Päivi tarkistaa ostokset: moitteet rivi kerrallaan, palkinto (kaljarauha) inforivillä.
-func _talk_paivi() -> void:
-	var lines: Array = []
-	var info := ""
-	for l in _check_list():
-		var parts: PackedStringArray = l.split("\n")
-		var t: String = parts[0]
-		if t.begins_with("Päivi: \""):
-			t = t.trim_prefix("Päivi: \"").trim_suffix("\"")
-		lines.append(t)
-		if parts.size() > 1:
-			info = parts[1]
-	player.set_carrying(beers > 0)
-	_talk_box.say_lines(lines, _talk_options(), info)
 
 
 func _talk_chat_line() -> String:
@@ -6890,19 +6960,22 @@ func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
 			foe = "Jyväjemmari"
 		elif _fight_source == "laavu":
 			foe = "Akka" if guard.kind == "akka" else "Teinit"
+		_advance_clock(KO_MINUTES)
+		tilat.add("kipu", -0.2)
+		tilat.add("moraali", -0.1)
+		maine = clampf(maine - 3.0, 0.0, 100.0)
+		var ko := "\nHeräsit ojasta tunnin päästä. Kylki on kipeä."
 		if beers > 0:
 			beers = maxi(0, beers - 2)
 			Sfx.play("glass", -3.0)
-			_show_message("Hävisit! %s potkaisi kassia, 2 kaljaa rikki.%s" % [foe, note], 3.0)
+			_show_message("Hävisit! %s potkaisi kassia, 2 kaljaa rikki.%s%s" % [foe, note, ko], 3.5)
 		else:
-			money -= 5.0
-			_show_message("Hävisit! %s vei vitosen \"lainaksi\"." % foe, 3.0)
-			if state == "to_shop" and money < BEER_PRICE:
-				_lose("%s vei rahat. Kuutoseen ei enää riitä." % foe, _fight_source if _fight_source == "juntti" else "default")
-				return
+			var took := minf(5.0, money)
+			money -= took
+			var what := "vitosen \"lainaksi\"" if took >= 5.0 else "viimeiset %s €" % _eur(took)
+			_show_message(("Hävisit! %s vei %s.%s" % [foe, what, ko]) if took > 0.0 else
+				"Hävisit! %s penkoi taskut, mutta ne oli tyhjät.%s" % [foe, ko], 3.5)
 	player.set_carrying(beers > 0)
-	if state == "to_home" and beers <= 0 and not has_kanister and _stashed_today <= 0:
-		_lose("Kaikki kaljat rikki. Kotiin ei kannata mennä tyhjin käsin.", "juntti")
 
 
 ## Juoksukaljat: kauppias lähtee perään kaupan ovelta. Saloisissa (taxi = true) etumatka riittää juuri ja juuri
@@ -7162,9 +7235,9 @@ func _win(party := false, wine := false) -> void:
 	state = "cutscene"
 	player.controls_enabled = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
-	if not _list_done and not paivi_bag.is_empty():
-		# Päivin palaute ostoksista uuden päivän aloitusviestin jälkeen (ennen uutta listaa).
-		for l in _check_list():
+	if not _list_done and (not paivi_bag.is_empty() or not paivi_placed.is_empty()):
+		# Päivin palaute ostoksista uuden päivän aloitusviestin jälkeen (ennen uutta listaa); kassiin jääneet pilalla.
+		for l in _end_day_shopping("koti"):
 			_msg_queue.append([l, 3.0])
 	elif not _list_done and not shopping_list.is_empty():
 		# Kotiin tyhjin käsin: Päivin ostokset jäivät hakematta (sama vaikutus kuin väärillä ostoksilla, _check_list).
@@ -7421,6 +7494,7 @@ func _lose(reason: String, cause := "default", at := Vector3.INF) -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
 	_hud.visible = false
 	var spawn := _nearest_safe() if at == Vector3.INF else home_zone + Vector3(0, 0, 4)
+	_day_end = {"car": "auto", "police": "poliisi", "wife": "paivi"}.get(cause, "ulko")
 	var choco := _offer_chocolate()
 	_choco_mercy = choco == "ok"
 	cutscene.wasted(player.global_position if at == Vector3.INF else at, reason, cause, home_zone,
@@ -7535,8 +7609,13 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		walker_out.hurt_speed = walker_out.HURT_SPEED
 		bonus += "\n" + WOUND_PAIVI.pick_random()
 		_morning_info.append("Puremahaava parani yön aikana.")
-	if not _list_done and not shopping_list.is_empty() and not at_m:
+	if not _list_done and not at_m and (not paivi_bag.is_empty() or not paivi_placed.is_empty()):
+		# Päivä päättyi ennen kuin kaikki oli paikoillaan: kassiin jääneet pilalla päättymistavan mukaan.
+		for l in _end_day_shopping(_day_end if _day_end != "" else "ulko"):
+			bonus += "\n" + l.trim_prefix("Päivi: \"").trim_suffix("\"")
+	elif not _list_done and not shopping_list.is_empty() and not at_m:
 		bonus += "\nEilen ei tullu kaupasta mitään, vaikka oli lista!"
+	_day_end = ""
 	bonus += stats_note
 	if _sinikka_gossip:
 		_sinikka_gossip = false
@@ -8379,7 +8458,12 @@ func inventory_info() -> Dictionary:
 				row = "%s (%s)" % [it[0], it[1]]
 			elif focus < 0 and i == shopping_list.size() - 1:
 				row = "???"
-			info.list.append(row + ("  ✔" if paivi_bag.has(it[0]) or interior.bag.has(it[0]) else ""))
+			var mark := ""
+			if paivi_placed.has(it[0]):
+				mark = "  ✔ paikoillaan"
+			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
+				mark = "  (kassissa)"
+			info.list.append(row + mark)
 	info.tasks = story.list()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
@@ -8562,6 +8646,7 @@ func _pass_out() -> void:
 	var drunk := _humala_peak > 0.4
 	var spawn := Vector3.ZERO
 	var intro := ""
+	_day_end = "koti" if state in ["in_home", "in_garage"] else ("raahe" if state == "in_raahe" else "ulko")
 	Sfx.play("body_fall", -4.0)
 	match state:
 		"in_home":
@@ -14421,6 +14506,30 @@ func _maybe_screenshot() -> void:
 						player.drunk, rad_to_deg(max_dev)])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"tappioko":
+			# Tappelun häviö ilman kaljoja ja rahaa: päivä ei pääty, tyrmäys vie tunnin, rahaa ei mene miinukselle.
+			for case in [["to_shop", 0, 3.0], ["to_home", 2, 20.0]]:
+				state = case[0]
+				beers = case[1]
+				money = case[2]
+				var d0 := day
+				var c0 := clock_min
+				var m0: float = maine
+				_start_fight("juntti", "juntti", Vector3.RIGHT)
+				for i in 150:
+					await get_tree().process_frame
+				fight._p.hp = 0.0
+				fight._p.state = "ko"
+				for i in 400:
+					await get_tree().process_frame
+					if state != "fight":
+						break
+				for i in 30:
+					await get_tree().process_frame
+				print("TAPPIO %s: tila %s, päivä %d -> %d, kello +%.0f min, rahaa %.2f, kaljoja %d, maine %.0f -> %.0f, viesti '%s'" % [
+					case[0], state, d0, day, fmod(clock_min - c0 + 1440.0, 1440.0), money, beers, m0, maine,
+					_msg.text.replace("\n", " | ")])
+				juntti.global_position += Vector3(200, 0, 200)
 		"heitto":
 			# Tappelussa kolme kaljanheittoa (eteen + L), sitten K.O. ja kaljamäärän tarkistus.
 			beers = 6
@@ -14532,17 +14641,47 @@ func _maybe_screenshot() -> void:
 			for i in 20:
 				await get_tree().physics_frame
 			await get_tree().process_frame
-			print("LISTA home hint=", _hint.text, " bag=", paivi_bag)
-			_msg_time = 0.0
+			print("LISTA kotiovella hint=", _hint.text, " bag=", paivi_bag)
 			Input.action_press("interact")
 			await get_tree().process_frame
 			Input.action_release("interact")
-			await get_tree().process_frame
-			_talk_choose("ostokset")
-			print("LISTA feedback=", _talk_box._line, " || ", " || ".join(_talk_box._pages), " info=", _talk_box._info)
-			_talk_box.close()
-			_new_day(home_zone + Vector3(0, 0, 4), false)
-			print("LISTA newday list=", shopping_list, " queue=", _msg_queue.size())
+			for i in 5:
+				await get_tree().process_frame
+			print("LISTA sisällä: tila %s viesti '%s'" % [state, _msg.text])
+			# Ostokset paikoilleen: jokainen piste, jossa kassissa on vietävää.
+			for id in PUT_AWAY:
+				if not _put_away_hints().has(id):
+					continue
+				home_int.walker.position = HomeInterior.SPOTS[id][0]
+				for i in 3:
+					await get_tree().process_frame
+				print("LISTA %s hint '%s'" % [id, _hint.text])
+				_msg_queue.clear()
+				Input.action_press("interact")
+				await get_tree().process_frame
+				Input.action_release("interact")
+				for i in 3:
+					await get_tree().process_frame
+				print("LISTA %s viesti '%s' | jonossa %s" % [id, _msg.text.replace("\n", " | "),
+					str(_msg_queue.map(func(m): return m[0])).left(200)])
+				if id == "jaakaappi":
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_jaakaappi.png"))
+			print("LISTA valmis %s, paikoillaan %s, kassi %s, kaljarauha %s" % [_list_done, paivi_placed, paivi_bag, _kaljarauha])
+			# Päivä päättyy kesken: kaksi listan tuotetta paikoillaan, kaksi kassissa. Kassiin jääneet pilalla
+			# päättymistavan mukaan, eikä Päivi hyväksy niitä.
+			for how in ["koti", "auto", "ulko"]:
+				_roll_list()
+				paivi_placed = {shopping_list[0][0]: shopping_list[0][1], shopping_list[1][0]: shopping_list[1][1]}
+				paivi_bag = {shopping_list[2][0]: shopping_list[2][1], shopping_list[3][0]: shopping_list[3][1]}
+				if how == "koti":
+					print("LISTA päättyi %s: %s" % [how, " | ".join(_end_day_shopping("koti"))])
+					continue
+				_day_end = how
+				_new_day(home_zone + Vector3(0, 0, 4), false)
+				var txt := " / ".join(_note.find_children("*", "Label", true, false).map(func(c): return c.text))
+				var at := txt.rfind("Päivin")
+				print("LISTA päättyi %s: %s" % [how, txt.substr(at, 260) if at >= 0 else txt.right(260)])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"purema":
