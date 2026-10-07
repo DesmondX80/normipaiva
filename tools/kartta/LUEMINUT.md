@@ -59,13 +59,15 @@ mittakaava n. 1,22 m/px. Uusi alue laajennetaan samaan kehykseen, jolloin kaikki
 
 ## Mökki (scripts/mokki.gd, assets/mokki/kartta.json)
 
-Mökin ympäristö (2 × 2 km, kävelyalue 800 × 800 m) on osoitepisteen kehyksessä (x itään, z etelään, metreinä;
+Mökin ympäristö (kävelyalue `AREA_MIN..AREA_MAX` mokki.gd:ssä: 400 m mökin ympäri ja pohjoiseen Salmisille ja
+Keskimmäiselle, n. 1 × 2,15 km; näkyvä alue 550 m laajempi) on osoitepisteen kehyksessä (x itään, z etelään, metreinä;
 origo 64.5054523 N, 26.6672225 E; lon × 111 320 × cos(lat), lat × 111 320). `kartta.json` tehdään kokonaan samoilla
 työkaluilla kuin kylä: OSM-kohteet (myös metsät) samalla muuntimella, pihan tarkka ruudukko "dem" (300 × 300 m, 2 m)
 ja kaukoalue "dem_far" (2 × 2 km, 8 m = mökin kaukomaaston ruutu) MML:n 2 m mallista (lehti R4333D kattaa koko
 alueen) ja vesistöjen pinnat ("level") mallin tasoitetusta vedenpinnasta.
 
-1. **OSM-ote** 2 × 2 km: `https://api.openstreetmap.org/api/0.6/map?bbox=26.64531,64.49602,26.68914,64.51488`
+1. **OSM-ote**: `https://api.openstreetmap.org/api/0.6/map?bbox=26.6440,64.4955,26.6950,64.5280` (kaukoalue `FAR`
+   mokki.py:ssä; PowerShell-versiot tekevät vielä vanhan 2 × 2 km alueen)
 2. **Kartta**:
    - `powershell -File tools\kartta\mokki.ps1 -Lehdet <kansio> [-Osm <map.osm>]`
    - `python tools/kartta/mokki.py --lehdet <kansio> [--osm <map.osm>] [--out <tiedosto>]`
@@ -109,9 +111,12 @@ Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kart
 - **Vaala**: `venv/bin/python tools/vaala_bake.py --cache <välimuisti>` (tarkka aineisto `tools/kartta/vaala_tarkka.py`)
   → `assets/vaala/tie.json`, `maasto.bin` ja `puut.bin`. Puut siirretään tien suhteen pelin kehykseen kuten muutkin
   kohteet, tiivistetyllä välillä harvennettuna tiivistyksen suhteessa (metsän tiheys säilyy). Kaukomaaston metsä
-  (650 m tiestä) on laserin valtapuita. Alikululta keskustaan Oulujoen ylitys ja itärannan alku on lineaarinen kaista
-  (`TOWN_K`, `TOWN_GATE`): joki kapenee ja keskusta on lähempänä alikulkua; lavan niemi ja keskusta ovat kumpikin 1:1
-  omalla siirrollaan (`lava_off`, `town_off`). Oulujärvi loppuu etelässä `LAKE_Z`:aan. Sivuteiden päälle jääneet talot
+  (650 m tiestä) on laserin valtapuita. Soratie mökiltä Neittäväntielle on tiivistetty `GRAVEL_K`-kertaisesti.
+  Alikululta keskustaan Oulujoen ylitys (`TOWN_K`) ja itärannan pätkä keskustan portille (`EAST_K`, `TOWN_GATE`, ei
+  taloja) on lineaarinen kaista: joki kapenee ja keskusta alkaa heti sillan jälkeen; lavan niemi (`vaala_lava.AREA_REAL`)
+  ja keskusta ovat kumpikin 1:1 omalla siirrollaan (`lava_off`, `town_off`). Oulujärvi loppuu etelässä `LAKE_Z`:aan.
+  Radan alikulku on leveä (`UNDER_OPEN` 13 m ajoradan reunasta): kansi pilareilla (vaala.gd). Liian isot rakennukset
+  pienennetään `BUILDING_SCALE`-taulukolla. Sivuteiden päälle jääneet talot
   ja sillan päihin liittyvät sivutiet karsitaan. Ajettavuus: `godot --path . -- --shot=<kansio>/t.png
   --scene=mokkivaalatiet` (mopon kapseli kaikkia teitä pitkin) ja `--scene=mokkimopo_koko` (koko reitti ajaen). Lopuksi `tools/vaala_lava.py` tekee Oulujärven lavan niemen 1:1-maastoksi:
   Pahalahdentien risteys on 1:1-alueella, mutta niemen kaukomaasto tuli tiivistetyn tien suhteen (muualta), joten

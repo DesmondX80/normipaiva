@@ -1000,9 +1000,10 @@ func _build_side_roads() -> void:
 ## teräspalkkien ja kaiteiden kanssa ja seinän takana nurmettu reunus penkereeseen asti. Alikulkukorkeuden kilpi
 ## kannen reunoissa. Penger, kiskot ja aukko maastossa ovat leivonnassa (vaala_bake.py, aukko UNDER_OPEN).
 var underpass_i := -1
-const UNDER_INNER := 1.0  # seinän sisäpinta ajoradan reunasta (m), leivonnan aukko on tätä vähän leveämpi
+const UNDER_INNER := 12.0  # maatukiseinän sisäpinta ajoradan reunasta (m), leivonnan aukko (UNDER_OPEN 13 m) vähän leveämpi
 const UNDER_WALL := 0.6
-const UNDER_CAP := 7.0  # reunus peittää leivonnan aukon (UNDER_OPEN 4 m) ja 4 m ruudukon luiskan
+const UNDER_CAP := 7.0  # reunus peittää leivonnan aukon reunan ja 4 m ruudukon luiskan
+const UNDER_PIER := 2.2  # välitukipilarit näin kauas ajoradan reunasta
 
 
 func _build_underpass() -> void:
@@ -1027,6 +1028,48 @@ func _build_underpass() -> void:
 	var deck_c := Vector3(at.x, deck - 0.5, at.z)
 	var dm := B.mesh(self, B.boxm(Vector3(6.2, 0.8, dl)), deck_c, conc)
 	dm.basis = basis
+	# Välituet kuten videolla: tien kummallakin puolella kaksi neliöpilaria (radan suunnassa kannen leveydellä) ja
+	# niiden päällä poikkipalkki. Paikka haetaan radan akselilta mittaamalla todellinen etäisyys tien keskilinjaan
+	# (tie kaartaa alikulussa), joten pilari ei osu kaistalle.
+	var pier_body := StaticBody3D.new()
+	add_child(pier_body)
+	var road_dist := func(q: Vector3) -> float:
+		var best := INF
+		for k in range(maxi(i - 40, 0), mini(i + 40, road.size() - 1)):
+			var pa := road_pos(k)
+			var pb := road_pos(k + 1)
+			var c := Geometry2D.get_closest_point_to_segment(Vector2(q.x, q.z), Vector2(pa.x, pa.z), Vector2(pb.x, pb.z))
+			best = minf(best, c.distance_to(Vector2(q.x, q.z)))
+		return best
+	var pier_c := Color(0.7, 0.69, 0.66)
+	for s: float in [-1.0, 1.0]:
+		var along := 0.0
+		# Pilaririvin molemmat pilarit (±2,2 m radan poikki) vähintään UNDER_PIER m ajoradan reunasta.
+		while along < 40.0:
+			var ok := true
+			for w: float in [-2.6, 2.6]:
+				var q := Vector3(at.x, 0, at.z) + basis.z * along * s + basis.x * w
+				if road_dist.call(q) < hw + UNDER_PIER + 0.5:
+					ok = false
+			if ok:
+				break
+			along += 0.25
+		for w: float in [-2.2, 2.2]:
+			var pp := Vector3(at.x, 0, at.z) + basis.z * along * s + basis.x * w
+			var gy := minf(h(pp.x, pp.z), at.y) - 0.3
+			var ph := deck - 1.35 - gy
+			var pm := B.mesh(self, B.boxm(Vector3(1.0, ph, 1.0)), Vector3(pp.x, gy + ph / 2.0, pp.z), pier_c)
+			pm.basis = basis
+			var pcs := B.box_shape(Vector3(1.0, ph, 1.0), Vector3.ZERO)
+			pcs.transform = Transform3D(basis, Vector3(pp.x, gy + ph / 2.0, pp.z))
+			pier_body.add_child(pcs)
+		var bp := Vector3(at.x, deck - 1.12, at.z) + basis.z * along * s
+		var bm := B.mesh(self, B.boxm(Vector3(6.4, 0.45, 1.3)), bp, pier_c)
+		bm.basis = basis
+	# Kannen reunapalkit (tummempi reuna) koko matkalta.
+	for e: float in [-1.0, 1.0]:
+		var em := B.mesh(self, B.boxm(Vector3(0.3, 0.55, dl)), deck_c + basis.x * e * 3.15 + Vector3(0, -0.05, 0), conc.darkened(0.15))
+		em.basis = basis
 	var steel := Color(0.2, 0.36, 0.55)
 	for s: float in [-1.0, 1.0]:
 		var gp := deck_c + basis.x * s * 3.25 + Vector3(0, 0.35, 0)
