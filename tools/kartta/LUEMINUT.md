@@ -126,6 +126,11 @@ Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kart
   reitti.json:ssa ("lava_dem", `--cache` hakee sen kerran); muuten ajo ei tarvitse välimuistia ja on toistettavissa.
   Tarkistuskuvat: `godot --path . -- --shot=<kansio>/v.png --scene=mokkivaalalava` (myös mopolla portista ovelle)
   ja `--scene=mokkivaalajalan` (moposta jalan, ovelle, rantaan ja takaisin selkään).
+  Sen jälkeen `tools/vaala_silta_jarvi.py` suoristaa Oulujoen sillan (tiivistyskaistan sauma taittoi sen keskeltä)
+  ja tasaa sen korkeuden penkereineen sekä täyttää Oulujärven kaukomaaston luoteiskulmaan, ja
+  `tools/vaala_keskusta.py` siirtää K-Marketin, Gasthausin ja Zabukin Siitarin ympärille ja torin niiden taakse.
+  Molemmat ovat toistettavia ilman välimuistia (alkuarvot tie.json:ssa). Tarkistuskuvat:
+  `--scene=mokkitori` (tori, Zabuki, Gasthaus) ja `--scene=mokkivaala` (silta `_silta*`, alikulku, keskusta).
 - **Puut pois teiltä**: molemmat leivonnat ajavat lopuksi `tools/kartta/puut_teilta.py`:n, joka poistaa valmiista
   `puut.bin`:stä puut piirretyiltä teiltä, kaduilta, poluilta, radoilta ja parkkipaikoilta (rungon etäisyys tien reunasta
   vähintään 0,8 m). Ajettavissa myös erikseen ilman välimuistia: `venv/bin/python tools/kartta/puut_teilta.py`.

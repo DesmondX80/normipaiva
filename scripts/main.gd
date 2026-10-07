@@ -10290,8 +10290,12 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
-			var tc := Vector3(1435, 0, -1430)
+			var tc := Vector3(vl._tori_c.x, 0, vl._tori_c.y)
 			tc.y = vl.h(tc.x, tc.z)
+			var sc := Vector3(vl.siitari.x, 0, vl.siitari.y)
+			sc.y = vl.h(sc.x, sc.z)
+			await snap.call("_siitari_tori.png", sc + (sc - tc).normalized() * 45.0 + Vector3(0, 28, 0), (sc + tc) / 2.0)
+			await snap.call("_tie_tori.png", vl.road_pos(vl.nearest(sc)[0] - 25) + Vector3(0, 1.8, 0), tc + Vector3(0, 1.0, 0))
 			await snap.call("_tori_ylh.png", tc + Vector3(0, 90, 0), tc)
 			await snap.call("_tori_viisto.png", tc + Vector3(-35, 22, 30), tc)
 			var sm := Vector3(1048, 0, -1205)
@@ -10367,6 +10371,16 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ali3.png"))
+			# Oulujoen silta: sivulta, ylhäältä ja ajajan silmin molempiin suuntiin.
+			var br: Array = vl.data.bridges[vl.data.bridges.size() - 1]
+			var bm: Vector3 = (vl.road_pos(br[0]) + vl.road_pos(br[1])) / 2.0
+			var bdir: Vector3 = vl.road_dir((br[0] + br[1]) / 2)
+			var bn := bdir.cross(Vector3.UP)
+			await snap.call("_silta_sivu.png", bm + bn * 70.0 + Vector3(0, 6, 0), bm)
+			await snap.call("_silta_ylha.png", bm + Vector3(0, 90, 1), bm)
+			await snap.call("_silta_tulo.png", vl.road_pos(br[0] - 30) + Vector3(0, 1.8, 0) + vl.road_dir(br[0] - 30).cross(Vector3.UP) * 1.6, vl.road_pos(br[0] + 10) + Vector3(0, 1.6, 0))
+			await snap.call("_silta_paalla.png", vl.road_pos(br[0] + 4) + Vector3(0, 1.8, 0), vl.road_pos(br[1]) + Vector3(0, 1.5, 0))
+			await snap.call("_jarvi.png", bm + Vector3(-60, 40, 60), bm + Vector3(-900, 0, -1200))
 			var js: int = vl.data.signs[2].i
 			await snap.call("_ris.png", vl.road_pos(js - 30) + Vector3(0, 30, 0), vl.road_pos(js + 5))
 			var sc := Vector3(vl.siitari.x, vl.siitari_door.y, vl.siitari.y)

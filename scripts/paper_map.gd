@@ -368,8 +368,8 @@ func _draw() -> void:
 		for cand in [50.0, 100.0, 200.0, 250.0, 500.0, 1000.0]:
 			if cand * _vzoom <= 100.0:
 				m = cand
-		_scale_bar(side + Vector2(10, 180), m, _vzoom)
-		_legend_vaala(side + Vector2(10, 250))
+		_scale_bar(side + Vector2(10, 165), m, _vzoom)
+		_legend_vaala(side + Vector2(10, 228))
 		draw_string(font, Vector2(side.x + 10, r.end.y - 58), "Rulla / Q E / nipistä: zoomaa", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 		draw_string(font, Vector2(side.x + 10, r.end.y - 40), "WASD / vedä: siirrä", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
 		draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
@@ -463,12 +463,18 @@ func _legend_vaala(p: Vector2) -> void:
 		["home", "Mökki Paapeli"], ["siitari", "Hotelli-Ravintola Siitari"], ["shop", "K-Market Tervaportti"],
 		["smarket", "S-Market"], ["zabuki", "Zabuki (olut, burgerit)"], ["gasthaus", "Gasthaus (yö 10 €)"],
 		["atm", "Pankkiautomaatti"], ["lava", "Oulujärven lava"], ["church", "Kirkko"], ["station", "Rautatieasema"],
+		["beach", "Salmisen uimaranta"], ["statue", "Ranta-Rosvo"], ["laavu", "Keskimmäisen laavu"],
+		["barrel", "Tynnyrisauna"], ["dock", "Laituri ja soutuvene"], ["you", "Olet tässä"],
 		["road", "Maantie"], ["gravel", "Soratie"], ["rail", "Rautatie"], ["field", "Pelto"], ["bog", "Suo"],
-		["water", "Vesi"], ["building", "Rakennus"], ["you", "Olet tässä"],
+		["water", "Vesi"], ["building", "Rakennus"],
 	]
+	# Kohteet allekkain, viivat ja alueet kahteen palstaan.
+	var first_area := 16
 	for i in items.size():
-		var y := p.y + 17 + i * 15.0
-		var sym := Vector2(p.x + 14, y)
+		var row := i if i < first_area else first_area + (i - first_area) / 2
+		var col := 0.0 if i < first_area else 120.0 * ((i - first_area) % 2)
+		var y := p.y + 17 + row * 14.0
+		var sym := Vector2(p.x + 14 + col, y)
 		match items[i][0]:
 			"road":
 				draw_line(sym - Vector2(12, 0), sym + Vector2(12, 0), Color(0.45, 0.25, 0.1), 6.0)
@@ -490,7 +496,7 @@ func _legend_vaala(p: Vector2) -> void:
 				_you_icon(sym, 0.0)
 			_:
 				_poi_icon_on(self, sym, items[i][0])
-		draw_string(font, Vector2(p.x + 36, y + 5), items[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK)
+		draw_string(font, Vector2(sym.x + 22, y + 5), items[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
 
 
 # --- Karttasisältö -----------------------------------------------------------
@@ -816,10 +822,15 @@ func _vaala_tori() -> Array:
 				pts.append(Vector2(q[0], q[1]))
 	if pts.size() < 3:
 		return [Vector2.INF, Vector2.INF]
+	if pts[0].distance_to(pts[pts.size() - 1]) < 0.01:
+		pts.remove_at(pts.size() - 1)
 	var c := Vector2.ZERO
 	for q in pts:
 		c += q
 	c /= pts.size()
+	var kz = _vd.get("keskusta", {}).get("zabuki")
+	if kz != null:
+		return [c, Vector2(kz.c[0], kz.c[1])]
 	if mopo_trip != null and mopo_trip.vaala.door_pos("zabuki") != Vector3.ZERO:
 		var zp: Vector3 = mopo_trip.vaala.door_pos("zabuki")
 		return [c, Vector2(zp.x, zp.z)]
@@ -964,6 +975,7 @@ func _draw_vaala_map() -> void:
 	# Mökillä mökin koko kävelyalue omasta aineistostaan kaiken päälle (mopomatkan tiivistetty kartta jää alle).
 	if not _vaala_trip():
 		_draw_mokki_overlay(v)
+	_draw_mokki_sites(v)
 	# Mopo: mökin pihassa tai Vaalassa parkissa; pelaaja.
 	var me := _vaala_me()
 	if mokki != null and not _vaala_trip() and mokki.mopo_parked != null and mokki.mopo_parked.visible:
@@ -1034,17 +1046,6 @@ func _draw_mokki_overlay(v: Control) -> void:
 	for bd in data.buildings:
 		if not (bd.id in Mokki.OWN_BUILDINGS) and near.call(bd.poly):
 			v.draw_colored_polygon(tr.call(bd.poly), Color(0.42, 0.38, 0.34))
-	if whole and mokki != null and mokki.built:
-		var sites := [["Salmisen uimaranta", mokki.beach_pos, "beach"], ["Ranta-Rosvo", mokki.rosvo_pos, "statue"],
-			["Laavu ja tynnyrisauna", mokki.laavu_fire, "laavu"], ["Laituri ja soutuvene", mokki.north_dock, "dock"]]
-		for st in sites:
-			var p3: Vector3 = st[1]
-			if p3 == Vector3.ZERO:
-				continue
-			var sp := _pxl(Vector2(p3.x, p3.z))
-			_poi_icon_on(v, sp, st[2])
-			if _vzoom >= 0.5 and st[2] != "dock" or _vzoom >= 1.2:
-				_outlined(v, sp + Vector2(10, 5), st[0], 12, Color(0.12, 0.25, 0.5))
 	if _vzoom < 1.2:
 		return
 	# Piha lähempää: mökki, savusauna, palju, kesäkeittiö, tikkataulu, laituri, Pekan auto, Santtu ja riistapolku.
@@ -1091,6 +1092,28 @@ func _draw_mokki_overlay(v: Control) -> void:
 		v.draw_string(font, dock_b + Vector2(8, 4), "Laituri", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
 		v.draw_string(font, ride_p + Vector2(10, 4), "Pekan auto", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
 		v.draw_string(font, hunt_p + Vector2(8, 4), "Riistapolku", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
+
+
+## Mökin kävelyalueen kohteet (mokki.gd, paikallinen kehys) aina näkyviin, myös mopomatkalla: Salmisen uimaranta,
+## Ranta-Rosvo, Keskimmäisen laavu, tynnyrisauna ja laituri soutuveneineen. Kaukaa laavu ja sauna yhtenä merkkinä.
+func _draw_mokki_sites(v: Control) -> void:
+	if mokki == null or not mokki.built:
+		return
+	var apart := _vzoom >= 0.8
+	var sites := [["Salmisen uimaranta", mokki.beach_pos, "beach", Vector2(10, 5)], ["Ranta-Rosvo", mokki.rosvo_pos, "statue", Vector2(10, 5)],
+		["Keskimmäisen laavu" if apart else "Laavu ja tynnyrisauna", mokki.laavu_fire, "laavu", Vector2(10, 5)]]
+	if apart:
+		sites.append(["Tynnyrisauna", mokki.barrel_door, "barrel", Vector2(10, 16)])
+		sites.append(["Laituri ja soutuvene", mokki.north_dock, "dock", Vector2(10, -6)])
+	for st in sites:
+		var p3: Vector3 = st[1]
+		if p3 == Vector3.ZERO:
+			continue
+		var sp := _pxl(Vector2(p3.x, p3.z))
+		if not Rect2(Vector2(-60, -20), v.size + Vector2(120, 40)).has_point(sp):
+			continue
+		_poi_icon_on(v, sp, st[2])
+		_outlined(v, sp + st[3], st[0], 12, Color(0.12, 0.25, 0.5))
 
 
 ## Teksti tien suuntaisesti (luettavaan suuntaan), keskellä pisteiden a ja b välissä, siirrettynä sivulle.
@@ -1157,7 +1180,19 @@ func _poi_icon_on(ci: CanvasItem, p: Vector2, kind: String) -> void:
 			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-8, 6), p + Vector2(-2, -7), p + Vector2(8, 6)]), Color(0.45, 0.33, 0.2))
 			ci.draw_circle(p + Vector2(5, 8), 2.5, Color(0.95, 0.5, 0.1))
 		"dock":
-			ci.draw_line(p + Vector2(-6, 0), p + Vector2(6, 0), Color(0.5, 0.38, 0.24), 4.0)
+			ci.draw_line(p + Vector2(-8, -2), p + Vector2(4, -2), Color(0.5, 0.38, 0.24), 4.0)
+			# Soutuvene laiturin kyljessä.
+			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-6, 3), p + Vector2(6, 3), p + Vector2(4, 7), p + Vector2(-4, 7)]), Color(0.75, 0.2, 0.12))
+		"barrel":
+			# Tynnyrisauna kyljellään vaunun päällä, piippu.
+			ci.draw_rect(Rect2(p + Vector2(-9, -5), Vector2(18, 10)), Color(0.55, 0.36, 0.2))
+			for x in [-4.0, 4.0]:
+				ci.draw_line(p + Vector2(x, -5), p + Vector2(x, 5), Color(0.3, 0.2, 0.12), 1.5)
+			ci.draw_line(p + Vector2(5, -5), p + Vector2(5, -10), INK, 2.0)
+			ci.draw_circle(p + Vector2(-5, 7), 2.0, INK)
+			ci.draw_circle(p + Vector2(5, 7), 2.0, INK)
+		"sauna":
+			_house_icon_on(ci, p, Color(0.4, 0.22, 0.12))
 		"smarket":
 			ci.draw_circle(p, 8.0, Color(0.1, 0.5, 0.25))
 			ci.draw_string(font, p + Vector2(-4, 5), "S", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
