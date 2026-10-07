@@ -1,11 +1,12 @@
 extends Control
 ## Paperikarttanäkymä (M): kellertävä paperi taitoksineen, maastokartan värit ja merkit,
 ## paikannimet, tienimet, kompassiruusu, mittakaava ja selite. Peli on pysäytettynä kun kartta on auki.
-## W/S, hiiren rulla tai vetäminen (myös sormella) vierittää, M tai Esc sulkee. Klikkaus asettaa kompassin kohteen (tarttuu lähimpään
-## merkkiin), klikkaus kohteen päälle tai oikea nappi poistaa sen.
+## Molemmat kartat zoomataan ja siirretään samalla tavalla: rulla zoomaa hiiren kohtaan, kello/toiminto (Q/E) tai
+## kahden sormen nipistys zoomaa, W/A/S/D tai vetäminen siirtää, hyppy (välilyönti) keskittää pelaajaan, M tai Esc
+## sulkee. Kyläkartalla klikkaus asettaa kompassin kohteen (tarttuu lähimpään merkkiin), klikkaus kohteen päälle tai
+## oikea nappi poistaa sen.
 ## Mökillä ja Vaalan mopomatkalla kartta on yksi iso Neittävä–Vaala-kartta mopomatkan kehyksessä (vaala.gd:
 ## origo mökin osoitepisteessä, x itään, z etelään): mökin piha, tie Vaalaan ja Vaalan keskusta kohteineen.
-## Rulla, Q/E tai kahden sormen nipistys zoomaa, W/A/S/D tai vetäminen siirtää.
 
 const M := preload("res://scripts/map_data.gd")
 const Mokki := preload("res://scripts/mokki.gd")
@@ -18,7 +19,8 @@ const VAALA_TIE := "res://assets/vaala/tie.json"
 ## Mökin oma kartta-aineisto (mokki.gd) piirretään tähän asti osoitepisteestä: sen jälkeen mopomatkan tie on
 ## tiivistetty (Neittäväntie ja Vuolijoentie), eikä 1:1-aineisto enää osu kohdalleen.
 const MOKKI_DETAIL_R := 480.0
-const VZOOM_MAX := 4.0  # px/m
+const VZOOM_MAX := 4.0  # px/m (Neittävä–Vaala)
+const VZOOM_MAX_KYLA := 2.0  # kyläkartan talot ovat merkkejä, ei pohjia: tätä lähemmäs ei kannata
 ## Mopomatkan tilat (main.gd state), joissa näytetään Neittävä–Vaala-kartta.
 
 var world: Node3D
@@ -29,8 +31,6 @@ var mokki: Node3D
 var mopo_trip: Node3D  # main.gd asettaa ensimmäisellä mopomatkalla
 
 var _view: Control
-var _k := MAP_W / (M.SIZE.x * M.SCALE)
-var _scroll := 0.0
 var _paper_tex: ImageTexture
 var _tree_pts: PackedVector2Array = []
 ## Kompassin kohde maailman x/z-koordinaatteina.
@@ -41,15 +41,17 @@ const SNAP_PX := 14.0
 var _vaala := false  # avattaessa: mökki tai Vaalan matka -> Neittävä–Vaala-kartta kyläkartan sijaan
 var _vd := {}  # tie.json
 var _vtex: ImageTexture  # tarkan maaston maankäyttö ja rinnevarjostus
-var _vrect := Rect2()   # tarkan maaston alue (kehyksen x/z)
+var _vaala_rect := Rect2()  # Neittävä–Vaala-kartan alue
+## Näkymä (molemmat kartat): _vrect = kartan alue (kyläkartalla maailman x/z, Vaalassa kehyksen x/z), _vcenter
+## keskipiste samassa kehyksessä, _vzoom pikseliä metrille.
+var _vrect := Rect2()
 var _vbld_pts := PackedVector2Array()  # rakennusten kolmiot (kehyksen x/z), yksi piirtokutsu
 var _vbld_idx := PackedInt32Array()
 var _vbld_cols := PackedColorArray()
 var _vpois: Array = []  # [nimi, paikka, laji, aina näkyvä]
 var _vzoom := 0.3
+const ZOOM_OPEN := 0.6  # kyläkartta avattaessa (px/m), pelaaja keskellä
 var _vcenter := Vector2.ZERO
-var _vdrag := false
-var _vdragged := 0.0
 
 
 func _ready() -> void:
@@ -71,7 +73,6 @@ func _layout() -> void:
 	var paper := _paper_rect()
 	_view.position = Vector2(paper.position.x + 40, paper.position.y + 80)
 	_view.size = Vector2(MAP_W, paper.size.y - 130)
-	_scroll = clampf(_scroll, 0.0, _max_scroll())
 	queue_redraw()
 	_view.queue_redraw()
 
@@ -95,8 +96,8 @@ func toggle() -> void:
 		_layout()
 		_vaala = _vaala_mode()
 		if _vaala:
-			_scroll = 0.0
 			_vaala_load()
+			_vrect = _vaala_rect
 			_vfit()
 		else:
 			if _tree_pts.is_empty() and world != null:
@@ -104,18 +105,44 @@ func toggle() -> void:
 					var t: Array = world._trees[i]
 					if t[3]:
 						_tree_pts.append(t[0])
-			# Keskitetään pelaajaan.
-			var p := _to_map(player.global_position)
-			_scroll = clampf(p.y - _view.size.y / 2.0, 0.0, _max_scroll())
+			var lo := M.w2(Vector2.ZERO)
+			_vrect = Rect2(lo, M.w2(M.SIZE) - lo).abs()
+			_vzoom = maxf(ZOOM_OPEN, _fit_zoom())
+			_center_on_me()  # rajaa myös reunat
 		Sfx.play("whoosh", -8.0, 1.6)
 	queue_redraw()
 	_view.queue_redraw()
 
 
-func _max_scroll() -> float:
+## Keskipiste niin, ettei kartan reuna siirry näkymän sisään: kun kartta on näkymää kapeampi (zoom kaukana),
+## se on keskellä.
+func _clamped(c: Vector2) -> Vector2:
+	var half := _view.size / 2.0 / _vzoom
+	var out := c
+	for ax in 2:
+		if _vrect.size[ax] <= half[ax] * 2.0:
+			out[ax] = _vrect.get_center()[ax]
+		else:
+			out[ax] = clampf(c[ax], _vrect.position[ax] + half[ax], _vrect.end[ax] - half[ax])
+	return out
+
+
+## Pienin zoom: koko kartta näkyy.
+func _fit_zoom() -> float:
+	return minf(_view.size.x / _vrect.size.x, _view.size.y / _vrect.size.y)
+
+
+## Näkymä pelaajan kohdalle (kyläkartalla maailman x/z, Vaalassa mökin tai mopon paikka kehyksessä).
+func _center_on_me() -> void:
 	if _vaala:
-		return 0.0
-	return maxf(0.0, M.SIZE.y * M.SCALE * _k - _view.size.y)
+		var me := _vaala_me()
+		if not me.is_empty():
+			_vcenter = me[0]
+	elif player != null:
+		_vcenter = Vector2(player.global_position.x, player.global_position.z)
+	_vcenter = _clamped(_vcenter)
+	_view.queue_redraw()
+	queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -124,17 +151,13 @@ func _process(delta: float) -> void:
 			toggle()
 	if not visible:
 		return
-	if _vaala:
-		var pan := Vector2(Input.get_axis("left", "right"), Input.get_axis("forward", "back"))
-		var z := (1.0 if Input.is_key_pressed(KEY_E) else 0.0) - (1.0 if Input.is_key_pressed(KEY_Q) else 0.0)
-		if pan != Vector2.ZERO or z != 0.0:
-			_vcenter += pan * 420.0 * delta / _vzoom
-			_vzoom_by(exp(z * 1.6 * delta), _view.size / 2.0)
-		return
-	var v := Input.get_axis("forward", "back")
-	if v != 0.0:
-		_scroll = clampf(_scroll + v * 600.0 * delta, 0.0, _max_scroll())
-		_view.queue_redraw()
+	var pan := Vector2(Input.get_axis("left", "right"), Input.get_axis("forward", "back"))
+	var z := Input.get_action_strength("interact") - Input.get_action_strength("bell")  # E lähemmäs, Q kauemmas
+	if pan != Vector2.ZERO or z != 0.0:
+		_vcenter = _clamped(_vcenter + pan * 420.0 * delta / _vzoom)
+		_vzoom_by(exp(z * 1.6 * delta), _view.size / 2.0)
+	if Input.is_action_just_pressed("jump"):
+		_center_on_me()
 
 
 ## Hiiren alla olevan nimetyn tien nimi (karttanäkymän koordinaateissa piirretään hiiren viereen).
@@ -150,7 +173,7 @@ var _pinch_d := 0.0
 
 
 func _input(event: InputEvent) -> void:
-	if not visible or not _vaala:
+	if not visible:
 		return
 	if event is InputEventScreenTouch:
 		if event.pressed:
@@ -161,7 +184,7 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag and _touches.has(event.index):
 		_touches[event.index] = event.position
 		if _touches.size() >= 2:
-			_vdrag = false  # kaksi sormea: zoomaus, ei siirtoa
+			_drag_on = false  # kaksi sormea: zoomaus, ei siirtoa
 			var d := _pinch_dist()
 			if _pinch_d > 1.0 and d > 1.0:
 				var ps: Array = _touches.values()
@@ -179,36 +202,43 @@ func _pinch_dist() -> float:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if _vaala:
-		_vaala_input(event)
-		return
 	if event is InputEventMouseMotion:
 		if _drag_on and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
 			_dragged += event.relative.length()
 			if _dragged >= DRAG_CLICK:
-				_scroll = clampf(_scroll - event.relative.y, 0.0, _max_scroll())
+				_vcenter = _clamped(_vcenter - event.relative / _vzoom)
 				_view.queue_redraw()
-		_hover_px = event.position - _view.position
-		var nm := _road_at(_hover_px)
-		if nm != _hover_name or nm != "":
-			_hover_name = nm
-			_view.queue_redraw()
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
-		if _drag_on and _dragged < DRAG_CLICK:
-			_click(event.position - _view.position)  # napautus: kompassin kohde
-		_drag_on = false
+		if not _vaala:
+			_hover_px = event.position - _view.position
+			var nm := _road_at(_hover_px)
+			if nm != _hover_name or nm != "":
+				_hover_name = nm
+				_view.queue_redraw()
+	elif event is InputEventMouseButton:
+		var local: Vector2 = event.position - _view.position
+		match event.button_index:
+			MOUSE_BUTTON_LEFT:
+				if event.pressed:
+					_drag_on = true
+					_dragged = 0.0
+				else:
+					if _drag_on and _dragged < DRAG_CLICK and not _vaala:
+						_click(local)  # napautus: kompassin kohde
+					_drag_on = false
+			MOUSE_BUTTON_RIGHT:
+				if event.pressed and not _vaala:
+					clear_target()
+			MOUSE_BUTTON_WHEEL_UP:
+				if event.pressed:
+					_vzoom_by(1.2, local)
+			MOUSE_BUTTON_WHEEL_DOWN:
+				if event.pressed:
+					_vzoom_by(1.0 / 1.2, local)
 		_view.queue_redraw()
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			_drag_on = true
-			_dragged = 0.0
-		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			clear_target()
-		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_scroll = clampf(_scroll - 60.0, 0.0, _max_scroll())
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_scroll = clampf(_scroll + 60.0, 0.0, _max_scroll())
-		_hover_name = _road_at(_hover_px)
+	elif event is InputEventMagnifyGesture:
+		_vzoom_by(event.factor, event.position - _view.position)
+	elif event is InputEventPanGesture:
+		_vcenter = _clamped(_vcenter + event.delta * 8.0 / _vzoom)
 		_view.queue_redraw()
 
 
@@ -272,21 +302,19 @@ func _snap_points() -> Array[Vector2]:
 
 # --- Koordinaatit ------------------------------------------------------------
 
-func _to_map(v: Vector3) -> Vector2:
-	var lo := M.w2(Vector2.ZERO)
-	return (Vector2(v.x, v.z) - lo) * _k
-
-
+## Kyläkartan karttapikseli (map_data) näkymän pikseleiksi.
 func _px(p: Vector2) -> Vector2:
-	return (M.w2(p) - M.w2(Vector2.ZERO)) * _k - Vector2(0, _scroll)
+	return _vpx(M.w2(p))
 
 
+## Maailman x/z näkymän pikseleiksi (kyläkartta).
 func _w2(p: Vector2) -> Vector2:
-	return (p - M.w2(Vector2.ZERO)) * _k - Vector2(0, _scroll)
+	return _vpx(p)
 
 
+## Näkymän pikseli maailman x/z:ksi (kyläkartta).
 func _from_view(local: Vector2) -> Vector2:
-	return (local + Vector2(0, _scroll)) / _k + M.w2(Vector2.ZERO)
+	return (local - _view.size / 2.0) / _vzoom + _vcenter
 
 
 func _pts(arr: Array) -> PackedVector2Array:
@@ -362,25 +390,30 @@ func _draw() -> void:
 
 	var side := Vector2(_view.position.x + MAP_W + 30, _view.position.y)
 	_compass(side + Vector2(100, 70))
+	var m := 50.0
+	for cand in [10.0, 25.0, 50.0, 100.0, 200.0, 250.0, 500.0, 1000.0]:
+		if cand * _vzoom <= 100.0:
+			m = cand
+	_scale_bar(side + Vector2(10, 180), m, _vzoom)
+	var end_y := 0.0
 	if _vaala:
-		var m := 50.0
-		for cand in [50.0, 100.0, 200.0, 250.0, 500.0, 1000.0]:
-			if cand * _vzoom <= 100.0:
-				m = cand
-		_scale_bar(side + Vector2(10, 180), m, _vzoom)
 		if not _vd.is_empty():
 			draw_string(font, side + Vector2(10, 222), ("Punainen katkoviiva: %.1f km tietä tiivistetty" % ((_vd.s_b - _vd.s_a) / 1000.0)).replace(".", ","),
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.7, 0.12, 0.08))
-		_legend_vaala(side + Vector2(10, 250))
-		draw_string(font, Vector2(side.x + 10, r.end.y - 58), "Rulla / Q E / nipistä: zoomaa", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
-		draw_string(font, Vector2(side.x + 10, r.end.y - 40), "WASD / vedä: siirrä", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
-		draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
+		end_y = _legend_vaala(side + Vector2(10, 250))
 	else:
-		_scale_bar(side + Vector2(10, 180), 100.0, _k)
-		_legend(side + Vector2(10, 250))
-		draw_string(font, Vector2(side.x + 10, r.end.y - 58), "Klikkaa: kompassin kohde", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
-		draw_string(font, Vector2(side.x + 10, r.end.y - 40), "Vedä / W S / rulla: vieritä", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
-		draw_string(font, Vector2(side.x + 10, r.end.y - 22), "M sulje", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK.lightened(0.3))
+		end_y = _legend(side + Vector2(10, 250))
+	# Ohjeet heti selitteen alle (ei päällekkäin), näppäimet asetuksista.
+	var k := func(a: String) -> String: return Settings.action_key(a)
+	var help := ["Rulla / %s %s: zoomaa · %s%s%s%s / vedä: siirrä" % [k.call("bell"), k.call("interact"), k.call("forward"),
+		k.call("left"), k.call("back"), k.call("right")],
+		"%s: keskitä itseesi · %s sulje" % [k.call("jump"), k.call("map")]]
+	if not _vaala:
+		help.push_front("Klikkaa: kompassin kohde · oikea: poista")
+	var hy := maxf(end_y + 24.0, r.end.y - 12.0 - help.size() * 16.0)
+	for line in help:
+		draw_string(font, Vector2(side.x + 10, hy), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK.lightened(0.3))
+		hy += 16.0
 
 
 func _compass(c: Vector2) -> void:
@@ -408,15 +441,16 @@ func _scale_bar(p: Vector2, meters: float, k: float) -> void:
 	draw_string(font, p + Vector2(seg * 2 - 20, 26), "%d m" % int(meters * 2.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
 
 
-func _legend(p: Vector2) -> void:
+func _legend(p: Vector2) -> float:
 	var font := ThemeDB.fallback_font
 	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 	var items := [
 		["road", "Maantie"], ["street", "Katu"], ["path", "Polku"], ["forest", "Metsä"], ["field", "Pelto"],
 		["bog", "Suo, räme"], ["water", "Vesi"], ["home", "Koti"], ["shop", "K-Market"], ["laavu", "Laavu"], ["berry", "Marjapaikka"], ["mushroom", "Sienipaikka"], ["stash", "Kaljajemma"], ["target", "Kompassin kohde"], ["you", "Olet tässä"],
 	]
+	var y := p.y
 	for i in items.size():
-		var y := p.y + 20 + i * 20
+		y = p.y + 20 + i * 17.0
 		var sym := Vector2(p.x + 14, y)
 		match items[i][0]:
 			"road":
@@ -456,9 +490,10 @@ func _legend(p: Vector2) -> void:
 			"you":
 				_you_icon(sym, 0.0)
 		draw_string(font, Vector2(p.x + 36, y + 5), items[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK)
+	return y
 
 
-func _legend_vaala(p: Vector2) -> void:
+func _legend_vaala(p: Vector2) -> float:
 	var font := ThemeDB.fallback_font
 	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 	var items := [
@@ -467,8 +502,9 @@ func _legend_vaala(p: Vector2) -> void:
 		["road", "Maantie"], ["gravel", "Soratie"], ["rail", "Rautatie"], ["field", "Pelto"], ["bog", "Suo"],
 		["water", "Vesi"], ["building", "Rakennus"], ["you", "Olet tässä"],
 	]
+	var y := p.y
 	for i in items.size():
-		var y := p.y + 17 + i * 18.5
+		y = p.y + 17 + i * 18.5
 		var sym := Vector2(p.x + 14, y)
 		match items[i][0]:
 			"road":
@@ -492,6 +528,7 @@ func _legend_vaala(p: Vector2) -> void:
 			_:
 				_poi_icon_on(self, sym, items[i][0])
 		draw_string(font, Vector2(p.x + 36, y + 5), items[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK)
+	return y
 
 
 # --- Karttasisältö -----------------------------------------------------------
@@ -518,6 +555,8 @@ func _draw_map() -> void:
 		for p in pts:
 			lo = lo.min(p)
 			hi = hi.max(p)
+		lo = lo.max(Vector2.ZERO)  # vain näkyvä osa (zoomatessa suot ovat isoja)
+		hi = hi.min(v.size)
 		var yy := lo.y + 5.0
 		while yy < hi.y:
 			var xx := lo.x + fmod(yy * 7.0, 11.0)
@@ -527,10 +566,11 @@ func _draw_map() -> void:
 				xx += 14.0
 			yy += 6.0
 	# Puumerkit metsiin.
+	var view_r := Rect2(Vector2(-5, -5), v.size + Vector2(10, 10))
 	for t in _tree_pts:
 		var p := _w2(t)
-		if p.y > -5 and p.y < v.size.y + 5:
-			v.draw_circle(p, 1.3, Color(0.35, 0.5, 0.28, 0.7))
+		if view_r.has_point(p):
+			v.draw_circle(p, clampf(1.3 * _vzoom / 0.4, 1.3, 2.6), Color(0.35, 0.5, 0.28, 0.7))
 	for w in M.WATER:
 		var pts := _pts(w)
 		v.draw_colored_polygon(pts, Color(0.55, 0.72, 0.86))
@@ -538,18 +578,19 @@ func _draw_map() -> void:
 	for s in M.STREAMS:
 		v.draw_polyline(_pts(s), Color(0.2, 0.45, 0.75), 2.0)
 
-	# Tiet: ensin ääriviivat, sitten täyttö.
+	# Tiet: ensin ääriviivat, sitten täyttö; leveys kasvaa zoomatessa.
+	var rw := clampf(_vzoom / 0.4, 1.0, 3.0)
 	for pass_i in 2:
 		for r in M.ROADS:
 			var pts := _pts(r.pts)
 			match r.type:
 				"highway":
-					v.draw_polyline(pts, Color(0.45, 0.2, 0.08) if pass_i == 0 else Color(0.95, 0.55, 0.2), 8.0 if pass_i == 0 else 5.0)
+					v.draw_polyline(pts, Color(0.45, 0.2, 0.08) if pass_i == 0 else Color(0.95, 0.55, 0.2), (8.0 if pass_i == 0 else 5.0) * rw)
 				"road":
-					v.draw_polyline(pts, Color(0.45, 0.25, 0.1) if pass_i == 0 else Color(0.98, 0.86, 0.4), 6.0 if pass_i == 0 else 3.5)
+					v.draw_polyline(pts, Color(0.45, 0.25, 0.1) if pass_i == 0 else Color(0.98, 0.86, 0.4), (6.0 if pass_i == 0 else 3.5) * rw)
 				"street":
 					if pass_i == 1:
-						v.draw_polyline(pts, INK.lightened(0.15), 2.0)
+						v.draw_polyline(pts, INK.lightened(0.15), 2.0 * rw)
 				"path":
 					if pass_i == 1:
 						for i in pts.size() - 1:
@@ -558,7 +599,9 @@ func _draw_map() -> void:
 	if world != null:
 		for h in world._houses:
 			var p := _w2(h)
-			v.draw_rect(Rect2(p - Vector2(2.5, 2.5), Vector2(5, 5)), INK)
+			var hs := clampf(10.0 * _vzoom, 2.0, 20.0)  # talo n. 10 m
+			if view_r.has_point(p):
+				v.draw_rect(Rect2(p - Vector2(hs, hs) / 2.0, Vector2(hs, hs)), INK)
 
 	var font := ThemeDB.fallback_font
 	for n in M.PLACE_NAMES:
@@ -636,6 +679,29 @@ func _draw_map() -> void:
 		var f := -player.global_transform.basis.z
 		_you_icon_on(v, _w2(Vector2(player.global_position.x, player.global_position.z)), atan2(f.z, f.x) + PI / 2.0)
 	_draw_road_hover(v)
+	_mask_outside(v)
+
+
+## Kartta-alueen ulkopuoli paperiksi (OSM-aineisto jatkuu pelialueen yli) ja alueen reunaviiva, kun kartta on
+## kokonaan näkyvissä tai sen reuna näkyy.
+func _mask_outside(v: Control) -> void:
+	var a := _vpx(_vrect.position)
+	var b := _vpx(_vrect.end)
+	var full := Rect2(Vector2.ZERO, v.size)
+	var r := _paper_rect()
+	var tex_k := Vector2(_paper_tex.get_width(), _paper_tex.get_height()) / r.size
+	for out in [Rect2(0, 0, v.size.x, a.y), Rect2(0, b.y, v.size.x, v.size.y - b.y), Rect2(0, a.y, a.x, b.y - a.y),
+			Rect2(b.x, a.y, v.size.x - b.x, b.y - a.y)]:
+		if out.size.x <= 0.5 or out.size.y <= 0.5:
+			continue  # reuna näkymän ulkopuolella
+		var o: Rect2 = out.intersection(full)
+		if o.size.x <= 0.5 or o.size.y <= 0.5:
+			continue
+		var src := Rect2((o.position + _view.position - r.position) * tex_k, o.size * tex_k)
+		v.draw_texture_rect_region(_paper_tex, o, src)
+	var inner := Rect2(a, b - a).intersection(full.grow(2.0))
+	if inner.size.x < v.size.x - 1.0 or inner.size.y < v.size.y - 1.0:
+		v.draw_rect(Rect2(a, b - a), INK, false, 1.5)
 
 
 # --- Neittävä–Vaala-kartta --------------------------------------------------------------------------------------
@@ -676,32 +742,13 @@ func _vfit() -> void:
 
 
 func _vzoom_by(f: float, at: Vector2) -> void:
-	var fit := minf(_view.size.x / _vrect.size.x, _view.size.y / _vrect.size.y)
+	var fit := _fit_zoom()
 	var before := (at - _view.size / 2.0) / _vzoom + _vcenter
-	_vzoom = clampf(_vzoom * f, fit, VZOOM_MAX)
+	_vzoom = clampf(_vzoom * f, fit, VZOOM_MAX if _vaala else VZOOM_MAX_KYLA)
 	_vcenter = before - (at - _view.size / 2.0) / _vzoom
-	_vcenter = _vcenter.clamp(_vrect.position, _vrect.end)
+	_vcenter = _clamped(_vcenter)
 	_view.queue_redraw()
 	queue_redraw()  # mittakaava
-
-
-func _vaala_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		var local: Vector2 = event.position - _view.position
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
-			_vzoom_by(1.2, local)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
-			_vzoom_by(1.0 / 1.2, local)
-		elif event.button_index == MOUSE_BUTTON_LEFT:
-			_vdrag = event.pressed
-	elif event is InputEventMouseMotion and _vdrag:
-		_vcenter = (_vcenter - event.relative / _vzoom).clamp(_vrect.position, _vrect.end)
-		_view.queue_redraw()
-	elif event is InputEventMagnifyGesture:
-		_vzoom_by(event.factor, event.position - _view.position)
-	elif event is InputEventPanGesture:
-		_vcenter = (_vcenter + event.delta * 8.0 / _vzoom).clamp(_vrect.position, _vrect.end)
-		_view.queue_redraw()
 
 
 ## Kerran: tie.json (mopomatkan oma, jos se on jo ladattu), maankäyttö ja rinnevarjostus maasto.bin:stä
@@ -721,7 +768,7 @@ func _vaala_load() -> void:
 	var cell := f.get_float()
 	var hts := f.get_buffer(nx * nz * 4).to_float32_array()
 	var codes := f.get_buffer(nx * nz)
-	_vrect = Rect2(x0 - cell / 2.0, z0 - cell / 2.0, nx * cell, nz * cell)
+	_vaala_rect = Rect2(x0 - cell / 2.0, z0 - cell / 2.0, nx * cell, nz * cell)
 	# Koodit kuten vaala.gd: metsä, pelto, suo, vesi, piha, piennar, tie, rata; 255 = tarkan alueen ulkopuoli (metsää).
 	var pal := [Color(0.66, 0.76, 0.52), Color(0.93, 0.82, 0.5), Color(0.78, 0.84, 0.82), Color(0.55, 0.72, 0.86),
 		Color(0.86, 0.85, 0.7), Color(0.84, 0.8, 0.68), Color(0.84, 0.8, 0.68), Color(0.7, 0.66, 0.6)]
