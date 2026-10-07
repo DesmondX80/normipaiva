@@ -9301,7 +9301,26 @@ func _maybe_screenshot() -> void:
 				_paper.toggle()
 		"map":
 			_note.visible = false
+			_note._holder.modulate.a = 0.0
 			_paper.toggle()  # vain paperikartta (ei reppua päälle)
+			var snap := func(name: String) -> void:
+				_paper._view.queue_redraw()
+				_paper.queue_redraw()
+				for i in 4:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			await snap.call("_avattu.png")
+			print("MAP avattu: zoom %.2f px/m, keskellä %s, pelaaja %s" % [_paper._vzoom, _paper._vcenter,
+				Vector2(player.global_position.x, player.global_position.z)])
+			_paper._vzoom_by(0.01, _paper._view.size / 2.0)
+			await snap.call("_koko.png")
+			print("MAP koko kartta: zoom %.3f" % _paper._vzoom)
+			_paper._center_on_me()
+			_paper._vzoom_by(100.0, _paper._view.size / 2.0)
+			await snap.call("_lahella.png")
+			print("MAP lähellä: zoom %.2f" % _paper._vzoom)
+			_paper.toggle()
 		"bikeside":
 			var cam := Camera3D.new()
 			cam.fov = 35.0
@@ -12181,7 +12200,7 @@ func _maybe_screenshot() -> void:
 				e.pressed = down
 				e.position = pos
 				_paper._gui_input(e)
-			var s0: float = _paper._scroll
+			var s0: Vector2 = _paper._vcenter
 			mb.call(c, true)
 			for k in 12:
 				var mm := InputEventMouseMotion.new()
@@ -12190,8 +12209,16 @@ func _maybe_screenshot() -> void:
 				mm.button_mask = MOUSE_BUTTON_MASK_LEFT
 				_paper._gui_input(mm)
 			mb.call(c + Vector2(0, -240), false)
-			print("KARTTAVETO veto ylös: vieritys %.0f -> %.0f (max %.0f), kohde '%s'" % [s0, _paper._scroll, _paper._max_scroll(),
-				str(_paper.target)])
+			print("KARTTAVETO veto ylös: keskipiste %s -> %s, kohde '%s'" % [s0, _paper._vcenter, str(_paper.target)])
+			# Rullalla zoomaus hiiren kohtaan kyläkartalla.
+			var zk0: float = _paper._vzoom
+			for k in 3:
+				var wh := InputEventMouseButton.new()
+				wh.button_index = MOUSE_BUTTON_WHEEL_UP
+				wh.pressed = true
+				wh.position = c
+				_paper._gui_input(wh)
+			print("KARTTAVETO kylä rulla: zoom %.2f -> %.2f px/m" % [zk0, _paper._vzoom])
 			mb.call(c, true)
 			mb.call(c, false)
 			print("KARTTAVETO napautus: kohde '%s'" % [str(_paper.target)])
@@ -13797,12 +13824,12 @@ func _maybe_screenshot() -> void:
 			ev.pressed = false
 			Input.parse_input_event(ev)
 			print("PAPER visible=", _paper.visible, " paused=", get_tree().paused)
-			var sc0: float = _paper._scroll
+			var sc0: Vector2 = _paper._vcenter
 			Input.action_press("back")
 			for i in 30:
 				await get_tree().process_frame
 			Input.action_release("back")
-			print("PAPER scroll ", sc0, " -> ", _paper._scroll, " max ", _paper._max_scroll())
+			print("PAPER siirto ", sc0, " -> ", _paper._vcenter)
 			ev = ev.duplicate()
 			ev.pressed = true
 			Input.parse_input_event(ev)
