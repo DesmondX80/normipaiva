@@ -21,10 +21,9 @@ const Osm := preload("res://scripts/map_osm.gd")
 const SCALE := 1.0
 const ORIGIN := Vector2(450, 800)
 const SIZE := Vector2(1620, 3960)
-## Pelialue: kylä ja Antinsuonkangas (0..1000 × 0..2500) ja etelän laajennus kodalle Haapajärven tekojärven
-## rannalle (400..1620 × 2500..3960). Reunoilla näkymätön seinä.
-const PLAY_AREA := [Vector2(0, 0), Vector2(1000, 0), Vector2(1000, 2500), Vector2(1620, 2500), Vector2(1620, 3960),
-	Vector2(400, 3960), Vector2(400, 2500), Vector2(0, 2500)]
+## Pelialue: koko kartta suorakaiteena (0..1620 × 0..3960): kylä, Antinsuonkangas, koillisen asuinalue ja etelän
+## Haapajärven tekojärven ranta kodalle. Reunoilla näkymätön seinä.
+const PLAY_AREA := [Vector2(0, 0), Vector2(1620, 0), Vector2(1620, 3960), Vector2(0, 3960)]
 
 # Risteykset ja kiintopisteet (OpenStreetMapin teiltä).
 const J_W := Vector2(125, 573)    # Ketunperäntie / Oikotie, K-Marketin kulma
