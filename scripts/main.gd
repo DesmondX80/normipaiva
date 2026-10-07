@@ -4711,6 +4711,7 @@ func _mokki_logic() -> void:
 	var p := player.global_position
 	var mc := mokki.global_position
 	if Vector2(p.x - mc.x, p.z - mc.z).length() > 60.0:
+		_north_logic(p)
 		return
 	var dt := get_process_delta_time()
 	_smoker_tick(dt)
@@ -6412,23 +6413,27 @@ func _pa_off() -> void:
 
 
 ## Kalastus soutuveneellä (fish_game.gd): soutu Likasella, heitto, tärppi ja väsytys. Saalis savustimeen.
-func _start_fishing() -> void:
+func _start_fishing(north := false) -> void:
+	var boat: Node3D = mokki.north_boat if north else mokki.boat_parked
 	_minigame_prev = state
 	state = "minigame"
 	player.controls_enabled = false
 	player.speed = 0.0
 	player.visible = false
-	mokki.boat_parked.visible = false
+	boat.visible = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_hud.visible = false
 	var game := FishGame.new()
+	if north:
+		game.dock = mokki.north_dock
+		game.dock_dir = mokki.north_dock_dir
 	game.drunk = _hand_shake()
 	game.finished.connect(func(got: Array) -> void:
 		state = _minigame_prev
 		player.visible = true
 		player.activate_camera()
 		player.controls_enabled = true
-		mokki.boat_parked.visible = true
+		boat.visible = true
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 		_hud.visible = true
 		_after_fishing(got))
@@ -6447,6 +6452,102 @@ func _after_fishing(got: Array) -> void:
 		names.append("%s %s kg" % [f.nom, ("%.1f" % f.kg).replace(".", ",")])
 	tilat.add("moraali", minf(0.06 * got.size(), 0.25))
 	_show_message("Saalis: %s. Vie kesäkeittiön savustimeen." % ", ".join(names), 3.5)
+
+
+## Mökin pohjoispuoli: Salmisen uimaranta, Ranta-Rosvo, Keskimmäisen laavu, tynnyrisauna ja laituri (mokki.gd).
+const ROSVO_TEXT := "RANTA-ROSVO. Kerrotaan, että Salmisten rannoilla liikkui aikanaan rosvo, joka vei uimareiden eväät ja jätti tilalle kiitoskirjeen. Laatassa lukee: \"Älä jätä eväitä rannalle.\""
+
+
+func _north_logic(p: Vector3) -> void:
+	if not mokki.built or _hint.text != "" or player == bike or player.is_stunned() or state not in ["to_shop", "to_home"]:
+		return
+	var e := Input.is_action_just_pressed("interact")
+	var f := Input.is_action_just_pressed("mount")
+	var near := func(local: Vector3, r: float) -> bool:
+		if local == Vector3.ZERO:
+			return false
+		var g: Vector3 = mokki.to_global(local)
+		return Vector2(p.x - g.x, p.z - g.z).length() < r
+	if near.call(mokki.north_dock, 2.4):
+		_hint.text = "[E] Soutuveneellä kalaan Keskimmäiselle · %s Hyppää uimaan" % Settings.cap("mount")
+		if e:
+			_start_fishing(true)
+		elif f:
+			_swim("Keskimmäinen", mokki.barrel_door)
+		return
+	if near.call(mokki.barrel_door, 2.6):
+		_hint.text = "[E] Tynnyrisaunan löylyt ja pulahdus Keskimmäiseen"
+		if e:
+			_barrel_sauna()
+		return
+	if near.call(mokki.laavu_fire, 3.0):
+		_hint.text = "[E] Istahda laavun nuotiolle%s" % (" (paista makkara)" if has_sausage else "")
+		if e:
+			_laavu_rest()
+		return
+	if near.call(mokki.beach_pos, 6.0):
+		_hint.text = "[E] Uimaan: Salminen, maailman paras uimaranta"
+		if e:
+			_swim("Salminen", Vector3.ZERO)
+		return
+	if near.call(mokki.rosvo_pos, 2.5):
+		_hint.text = "[E] Lue Ranta-Rosvon laatta"
+		if e:
+			tilat.first("ranta_rosvo", 0.2)
+			_show_message(ROSVO_TEXT, 6.0)
+
+
+## Uinti (Salminen tai laiturilta): kunto palautuu, stressi laskee; saunan jälkeen vilvoittelu tuntuu parhaalta.
+func _swim(where: String, _from: Vector3) -> void:
+	Sfx.play("water", -2.0)
+	walker_out.stamina = 100.0
+	walker_out.exhausted = false
+	var after_sauna := _barrel_sauna_t > 0.0 and Time.get_ticks_msec() / 1000.0 - _barrel_sauna_t < 180.0
+	if _once_today("uinti_" + where):
+		tilat.add("stressi", 0.2)
+		tilat.add("vireys", 0.25)
+		tilat.add("moraali", 0.15 if where == "Salminen" else 0.08)
+	tilat.first("uinti_" + where.to_lower(), 0.3)
+	if where == "Salminen":
+		_show_message("Pulahdit Salmiseen. Hiekkapohja, lämmin pintavesi ja hiljaisuus: maailman paras uimaranta, ei epäilystäkään.", 4.0)
+	elif after_sauna:
+		_show_message("Löylyistä suoraan Keskimmäiseen! Kylmä vesi kihelmöi, ja maailma on taas kohdallaan.", 4.0)
+		tilat.add("stressi", 0.1)
+	else:
+		_show_message("Hyppäsit laiturilta Keskimmäiseen. Vesi on raikasta! Kunto palautui.", 3.0)
+
+
+var _barrel_sauna_t := -1.0
+
+
+## Tynnyrisauna Keskimmäisen rannassa: löylyt (sauna on aina lämmin), sitten pulahdus laiturilta.
+func _barrel_sauna() -> void:
+	Sfx.play("water", -6.0, 0.6)
+	walker_out.stamina = 100.0
+	walker_out.exhausted = false
+	_barrel_sauna_t = Time.get_ticks_msec() / 1000.0
+	if _once_today("tynnyrisauna"):
+		tilat.add("stressi", 0.3)
+		tilat.add("vasymys", 0.3)
+		tilat.add("kipu", 0.2)
+	tilat.first("tynnyrisauna", 0.3)
+	_show_message("Tynnyrisaunan löylyt! Kiuas sihisee, ja tynnyrin kaari pitää lämmön. Laiturilta pääsee vilvoittelemaan (%s)." % Settings.cap("mount"), 4.0)
+
+
+## Laavun nuotio: istahdus lepuuttaa, makkara paistuu jos mukana.
+func _laavu_rest() -> void:
+	walker_out.stamina = 100.0
+	walker_out.exhausted = false
+	tilat.first("laavu", 0.3)
+	if has_sausage:
+		has_sausage = false
+		_eat(0.5)
+		tilat.add("moraali", 0.1)
+		_show_message("Makkara tirisee laavun nuotiolla. Ei parempaa eväsretkeä!", 3.5)
+		return
+	if _once_today("laavu"):
+		tilat.add("stressi", 0.15)
+	_show_message("Istahdit laavulle. Nuotio rätisee, ja Keskimmäisen pinta kimaltaa.", 3.0)
 
 
 ## Metsästyslava riistapolulla: E nousee lavalle, ja metsästys on FPS-minipeli (hunt_game.gd).
@@ -8014,7 +8115,10 @@ func _notification(what: int) -> void:
 
 
 func _at_mokki_pos(p: Vector3) -> bool:
-	return Vector2(p.x - MOKKI_POS.x, p.z - MOKKI_POS.z).length() < MOKKI_AREA_R
+	if mokki == null:
+		return Vector2(p.x - MOKKI_POS.x, p.z - MOKKI_POS.z).length() < MOKKI_AREA_R
+	var l: Vector3 = mokki.to_local(p)
+	return Mokki.in_area(l.x, l.z, -60.0)  # kävelyalue (myös Salmiset ja Keskimmäinen) ja vähän reunan yli
 
 
 ## Ollaanko mökillä (pihalla, sisällä tai mökin minipeleissä)?
@@ -10029,6 +10133,29 @@ func _maybe_screenshot() -> void:
 			print("VAALAKESK siitari %s kauppa %s automaatti %s, väli %.0f m" % [sc, vl.kmarket_door, vl.atm_pos,
 				Vector2(sc.x - vl.kmarket_door.x, sc.z - vl.kmarket_door.z).length()])
 			get_tree().quit()
+		"mokkiperf":
+			# Suorituskyky mökillä: pelaajan kamera 5 kohdassa (piha, Salmisen ranta, Ranta-Rosvo, laavu, laituri).
+			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+			_toggle_mount()
+			_msg.text = ""
+			_note.visible = false
+			var tot := 0.0
+			var spots := [["piha", mokki.porch_pos(3.0)], ["ranta", mokki.to_global(mokki.beach_pos)], ["rosvo", mokki.to_global(mokki.rosvo_pos)],
+				["laavu", mokki.to_global(mokki.laavu_fire)], ["laituri", mokki.to_global(mokki.north_dock)]]
+			for sp in spots:
+				walker_out.global_position = sp[1] + Vector3(0, 0.5, 0)
+				for f in 40:
+					await get_tree().process_frame
+				var t0 := Time.get_ticks_usec()
+				for f in 60:
+					await get_tree().process_frame
+				var fps := 60.0 / ((Time.get_ticks_usec() - t0) / 1e6)
+				tot += fps
+				print("PERF %s: %.0f fps, piirtoja %d, kolmioita %dk" % [sp[0], fps,
+					Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+					Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000])
+			print("PERF keskiarvo %.0f fps" % (tot / spots.size()))
+			get_tree().quit()
 		"mokkivaalaperf":
 			# Suorituskyky Vaalan reitillä: kamera mopon takana 8 kohdassa, FPS (ilman vsynciä), piirtokutsut ja kolmiot.
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
@@ -11853,6 +11980,55 @@ func _maybe_screenshot() -> void:
 			for i in 5:
 				await get_tree().process_frame
 			print("SANTTU kotona: kyydissä %s, pihalla näkyy %s" % [_santtu_riding, mokki.santtu.visible])
+			get_tree().quit()
+		"mokkipohjoinen":
+			# Mökin pohjoiset kohteet: Salmisen uimaranta, Ranta-Rosvo, Keskimmäisen laavu, tynnyrisauna, laituri ja vene.
+			_toggle_mount()
+			var cam := Camera3D.new()
+			cam.far = 2000.0
+			add_child(cam)
+			var shot := func(name: String, at: Vector3, from: Vector3) -> void:
+				cam.look_at_from_position(mokki.to_global(at + from), mokki.to_global(at + Vector3(0, 1.0, 0)))
+				cam.current = true
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_msg.text = ""
+			_note.visible = false
+			print("POHJOINEN laavu %s sauna %s laituri %s vene %s rosvo %s ranta %s" % [mokki.laavu_fire, mokki.barrel_door,
+				mokki.north_dock, mokki.north_boat.position if mokki.north_boat else null, mokki.rosvo_pos, mokki.beach_pos])
+			var dd := Vector3(mokki.north_dock_dir.x, 0, mokki.north_dock_dir.y)
+			await shot.call("_laavu.png", mokki.laavu_fire, dd * 3.0 - dd.cross(Vector3.UP) * 4.0 + Vector3(0, 1.5, 0))
+			await shot.call("_sauna.png", mokki.barrel_door, dd * 4.5 + dd.cross(Vector3.UP) * 3.5 + Vector3(0, 0.8, 0))
+			await shot.call("_laituri.png", mokki.north_dock, dd * 12.0 + dd.cross(Vector3.UP) * 8.0 + Vector3(0, 4, 0))
+			await shot.call("_rosvo.png", mokki.rosvo_pos, Vector3(2.5, 1.2, 4.5))
+			await shot.call("_ranta.png", mokki.beach_pos, Vector3(14, 6, 10))
+			var ref := Vector3(120, 0, -250)
+			ref.y = Mokki.h(ref.x, ref.z)
+			await shot.call("_vertailu.png", ref, Vector3(14, 6, 10))
+			# Kävely: pelaaja laiturille, kalastus ja uinti.
+			for spot in [["ranta", mokki.beach_pos], ["rosvo", mokki.rosvo_pos], ["laavu", mokki.laavu_fire], ["sauna", mokki.barrel_door], ["laituri", mokki.north_dock]]:
+				walker_out.global_position = mokki.to_global(spot[1] + Vector3(0, 0.6, 0))
+				walker_out.velocity = Vector3.ZERO
+				for i in 20:
+					await get_tree().physics_frame
+				_hint.text = ""
+				for i in 3:
+					await get_tree().process_frame
+				print("POHJOINEN %s: alueella %s, vihje '%s', y %.2f" % [spot[0], Mokki.in_area(spot[1].x, spot[1].z), _hint.text, mokki.to_local(walker_out.global_position).y])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kavely.png"))
+			_paper.toggle()
+			_paper._vcenter = Vector2(20, -900)
+			_paper._vzoom = 0.3
+			_paper._view.queue_redraw()
+			_paper.queue_redraw()
+			for i in 3:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kartta.png"))
+			_paper.toggle()
 			get_tree().quit()
 		"vaalakoodi":
 			# Huijauskoodi: "vaala" kotipihalla vie Vaalaan Gasthausin pihaan seuraavaan aamuun, mopo pihassa.
