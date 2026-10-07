@@ -7,11 +7,15 @@ Ajo: python3 tools/vaala_keskusta.py   (vaala_bake.py ajaa tämän lopuksi lavan
   Siitarin lounaispuolelle, jotta kauppa ja sen seinän pankkiautomaatti ovat Siitarin vieressä. Uusi pohja on
   suorakaide pitkä sivu tielle päin (ovi ja kyltti tien puolella, vaala.gd), eteen parkkipaikka. Tontin ja
   parkkipaikan maasto pihaksi ja tasaiseksi, reunat liitetään ympäristöön pehmeästi.
+- Gasthaus (OSM 534430535, torin laidalta) Siitaria vastapäätä tien toiselle puolelle, Zabuki seuraavaan
+  rakennukseen Gasthausin viereen (molemmat julkisivu tielle) ja tori niiden taakse. Asfalttitie lähtee Vaalantieltä
+  Zabukin vierestä torille. Alta jäävät talot ja polut poistetaan, tontit ja tori tasoitetaan pihaksi. vaala.gd lukee
+  Zabukin paikan ja julkisivut tie.json:sta ("keskusta": "zabuki", "gasthaus_face"), tori on "Vaalan tori".
 - Puut pois rakennusten sisältä ja vierestä, parkkipaikoilta ja ajoradoilta: laserkeilauksen latvusmallin
   maksimeista tunnistuu "puiksi" myös kattoja, jotka kasvoivat pelissä seinien ja kattojen läpi. Siitarin ympäriltä
   raivataan piha, ettei ovi avaudu suoraan metsään.
-Ajo on toistettavissa: K-Marketin alkuperäinen pohja ja muutettujen maastoruutujen alkuarvot ovat tie.json:ssa
-("keskusta"), ja ne palautetaan ennen uutta ajoa.
+Ajo on toistettavissa: K-Marketin ja Gasthausin alkuperäiset pohjat, poistetut talot ja polut, torin alkuperäinen
+muoto ja muutettujen maastoruutujen alkuarvot ovat tie.json:ssa ("keskusta"), ja ne palautetaan ennen uutta ajoa.
 """
 import json
 import math
@@ -28,13 +32,21 @@ OUTSIDE = 255
 KMARKET_ID = 225699583
 SIITARI_ID = 225699578
 SIITARI_YARD = 10.0  # Siitarin ympäriltä puut pois (ovi ja terassi eivät avaudu metsään)
-KM_SAMPLE = 1110     # Vaalantien näyte, jonka kohdalle kauppa tulee (Siitarista n. 45 m lounaaseen)
+KM_FROM_END = 68     # Vaalantien näyte (tien lopusta laskien), jonka kohdalle kauppa tulee (Siitarista n. 45 m lounaaseen)
 KM_SIZE = (27.0, 18.0)  # julkisivu tielle x syvyys
 KM_SETBACK = 28.0    # tien keskiviivasta rakennuksen keskelle (edessä parkkipaikka)
 PARK_DEPTH = 12.0
 BUILD_MARGIN = 2.0   # puut näin kauas seinistä
 PARK_MARGIN = 1.0
 ROAD_MARGIN = 1.5    # tien reunasta
+GASTHAUS_ID = 534430535
+GH_SETBACK = 9.0     # Gasthausin julkisivu näin kauas ajoradan reunasta (piha mopolle)
+ZB_SIZE = (9.0, 5.0)  # Zabukin kioski (vaala.gd _build_zabuki): leveys x syvyys
+ZB_SETBACK = 9.0     # Zabukin tiski näin kauas ajoradan reunasta (jakkarat ja seisomapöydät edessä)
+ZB_GAP = 6.0         # Gasthausin ja Zabukin väli
+LANE_GAP = 5.0       # torille vievän asfalttitien keskiviiva näin kauas Zabukin päädystä
+TORI_GAP = 5.0       # tori näin kauas rakennusten takaseinistä
+TORI_DEPTH = 30.0
 
 
 def in_poly(p, poly):
@@ -75,6 +87,114 @@ def rect(c, ax, az, hx, hz):
             for sx, sz in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
 
 
+def place_tori(tie, flatten):
+    """Gasthaus Siitaria vastapäätä, Zabuki sen viereen ja tori niiden taakse; asfalttitie Zabukin vierestä torille."""
+    road = tie["road"]
+    sx, sz = tie["siitari"]
+    # Siitarin kohta tiellä: näyte, jonka kohdalla Siitari on suoraan sivulla (tien lopun lenkki parkkiin pois).
+    last = len(road) - 30
+    ki = min(range(last - 120, last), key=lambda i: abs((sx - road[i][0]) * (road[i + 2][0] - road[i - 2][0])
+                                                        + (sz - road[i][2]) * (road[i + 2][2] - road[i - 2][2])))
+    a, b = road[ki - 4], road[ki + 4]
+    L = math.hypot(b[0] - a[0], b[2] - a[2])
+    ax = ((b[0] - a[0]) / L, (b[2] - a[2]) / L)  # tien suunta keskustaan
+    away = (-ax[1], ax[0])                         # poispäin Siitarista
+    rp = (road[ki][0], road[ki][2])
+    if (sx - rp[0]) * away[0] + (sz - rp[1]) * away[1] > 0.0:
+        away = (-away[0], -away[1])
+    hw = road[ki][4]
+    at = lambda u, v: (rp[0] + ax[0] * u + away[0] * v, rp[1] + ax[1] * u + away[1] * v)  # noqa: E731
+
+    gh = next(b for b in tie["buildings"] if b["id"] == GASTHAUS_ID)
+    gh_orig = gh["pts"]
+    # Gasthausin mitat alkuperäisestä pohjasta: pisin sivu julkisivuksi tielle.
+    pts = gh_orig[:-1] if gh_orig[0] == gh_orig[-1] else gh_orig
+    e = max(zip(pts, pts[1:] + pts[:1]), key=lambda s: math.dist(s[0], s[1]))
+    el = math.dist(e[0], e[1])
+    eu = ((e[1][0] - e[0][0]) / el, (e[1][1] - e[0][1]) / el)
+    us = [q[0] * eu[0] + q[1] * eu[1] for q in pts]
+    vs = [-q[0] * eu[1] + q[1] * eu[0] for q in pts]
+    gl, gw = max(us) - min(us), max(vs) - min(vs)
+    gc = at(0.0, hw + GH_SETBACK + gw / 2.0)
+    gh["pts"] = rect(gc, ax, away, gl / 2.0, gw / 2.0)
+    zu = gl / 2.0 + ZB_GAP + ZB_SIZE[0] / 2.0
+    zc = at(zu, hw + ZB_SETBACK + ZB_SIZE[1] / 2.0)
+    lane_u = zu + ZB_SIZE[0] / 2.0 + LANE_GAP
+    back = hw + max(GH_SETBACK + gw, ZB_SETBACK + ZB_SIZE[1]) + TORI_GAP
+    tu0, tu1 = -gl / 2.0 - 4.0, lane_u + 8.0
+    tc = at((tu0 + tu1) / 2.0, back + TORI_DEPTH / 2.0)
+    tori = rect(tc, ax, away, (tu1 - tu0) / 2.0, TORI_DEPTH / 2.0)
+    lane = [at(lane_u, 0.0), at(lane_u, back + 6.0)]
+
+    # Tontit: Gasthaus pihoineen, Zabuki edustoineen, asfalttitie ja tori.
+    g_lot = rect(at(0.0, hw + 1.0 + (GH_SETBACK - 1.0 + gw) / 2.0), ax, away, gl / 2.0 + 2.0, (GH_SETBACK - 1.0 + gw) / 2.0)
+    z_lot = rect(at(zu, hw + 1.0 + (ZB_SETBACK - 1.0 + ZB_SIZE[1]) / 2.0), ax, away, ZB_SIZE[0] / 2.0 + 1.5,
+                 (ZB_SETBACK - 1.0 + ZB_SIZE[1]) / 2.0)
+    l_lot = rect(at(lane_u, (hw + 1.0 + back + 6.0) / 2.0), ax, away, 3.5, (back + 5.0 - hw) / 2.0)
+    lots = [g_lot, z_lot, l_lot, tori]
+    keep = (SIITARI_ID, KMARKET_ID, GASTHAUS_ID)
+    removed = []
+    for bd in tie["buildings"]:
+        if bd["id"] == GASTHAUS_ID:
+            continue
+        hit = any(in_poly(q, bd["pts"]) for p in lots for q in p) or \
+            min(poly_dist(q, p) for p in lots for q in bd["pts"]) < 2.0
+        if hit:
+            if bd["id"] in keep:
+                raise SystemExit("torin paikka osuu rakennukseen %s" % bd["id"])
+            removed.append(bd)
+    tie["buildings"] = [b for b in tie["buildings"] if b not in removed]
+
+    # Polut ja pikkutiet tonttien kohdalta pois (pätkiksi); Vaalantie ja muut isot kadut eivät saa osua.
+    cut_roads = []
+    pieces = []
+    tori_pts = None
+    for k, sr in enumerate(tie["side_roads"]):
+        if sr.get("name") == "Vaalan tori":
+            tori_pts = sr["pts"]
+            continue
+        if sr["kind"] == "rail":
+            continue
+        dense = []
+        for a2, b2 in zip(sr["pts"], sr["pts"][1:]):
+            n = max(1, int(math.dist(a2[:2], b2[:2]) / 2.0))
+            dense += [[a2[0] + (b2[0] - a2[0]) * t / n, a2[1] + (b2[1] - a2[1]) * t / n] for t in range(n + 1)]
+        big = sr["hw"] in ("secondary", "tertiary", "primary")
+        if not any(poly_dist(q, p) < (0.01 if big else 1.5) for p in lots for q in dense):
+            continue
+        if big:
+            raise SystemExit("torin paikka osuu katuun %s" % sr.get("name", ""))
+        cut_roads.append([k, sr])
+        cur = []
+        for a2, b2 in zip(sr["pts"], sr["pts"][1:]):
+            n = max(1, int(math.dist(a2[:2], b2[:2]) / 2.0))
+            for t in range(n + 1):
+                q = [round(a2[0] + (b2[0] - a2[0]) * t / n, 2), round(a2[1] + (b2[1] - a2[1]) * t / n, 2)]
+                if any(poly_dist(q, p) < 1.5 for p in lots):
+                    if len(cur) > 1:
+                        pieces.append(dict(sr, pts=cur, _kesk=1))
+                    cur = []
+                elif not cur or cur[-1] != q:
+                    cur.append(q)
+        if len(cur) > 1:
+            pieces.append(dict(sr, pts=cur, _kesk=1))
+    for k, _sr in reversed(cut_roads):
+        del tie["side_roads"][k]
+    tie["side_roads"] += pieces
+    for sr in tie["side_roads"]:
+        if sr.get("name") == "Vaalan tori":
+            sr["pts"] = tori + [tori[0]]
+    tie["side_roads"].append({"kind": "road", "hw": "service", "name": "", "surface": "asphalt", "_kesk": 1,
+                              "pts": [[round(q[0], 2), round(q[1], 2)] for q in lane]})
+    flat = flatten(lots, 8.0)
+    print("Gasthaus Siitaria vastapäätä", [round(v, 1) for v in gc], "%.0f x %.0f m" % (gl, gw),
+          "| Zabuki", [round(v, 1) for v in zc], "| tori", [round(v, 1) for v in tc], "%.1f m" % flat,
+          "| poistettu talot", [b["id"] for b in removed], "| katkaistu polkuja", len(cut_roads))
+    return {"zabuki": {"c": [round(zc[0], 2), round(zc[1], 2)], "face": [round(-away[0], 4), round(-away[1], 4)]},
+            "gasthaus_face": [round(-away[0], 4), round(-away[1], 4)],
+            "tori": {"gasthaus_pts": gh_orig, "removed": removed, "cut_roads": cut_roads, "tori_pts": tori_pts}}
+
+
 def apply():
     tie = json.load(open(TIE))
     raw = open(MAASTO, "rb").read()
@@ -89,9 +209,22 @@ def apply():
     # --- Edellinen ajo pois. ---------------------------------------------------------------------------------
     prev = tie.pop("keskusta", None)
     if prev:
-        for k, hv, cv in prev["cells"]:
+        for k, hv, cv in reversed(prev["cells"]):  # sama ruutu voi olla kahdesti: alkuperäinen arvo viimeiseksi
             heights[k] = hv
             codes[k] = cv
+        if "tori" in prev:
+            # Torin muutokset ensin pois (K-Marketin sivutieindeksit viittaavat tilaan ennen niitä).
+            t = prev["tori"]
+            tie["side_roads"] = [r for r in tie["side_roads"] if not r.get("_kesk")]
+            for k, r in t["cut_roads"]:
+                tie["side_roads"].insert(k, r)
+            for r in tie["side_roads"]:
+                if r.get("name") == "Vaalan tori":
+                    r["pts"] = t["tori_pts"]
+            tie["buildings"] += t["removed"]
+            for b in tie["buildings"]:
+                if b["id"] == GASTHAUS_ID:
+                    b["pts"] = t["gasthaus_pts"]
         tie["parkings"] = [p for p in tie["parkings"] if p != prev["parking"]]
         for k, pts in prev["side_roads"]:
             tie["side_roads"][k]["pts"] = pts
@@ -104,13 +237,14 @@ def apply():
 
     # --- K-Market Siitarin viereen. --------------------------------------------------------------------------
     road = tie["road"]
-    a, b = road[KM_SAMPLE - 4], road[KM_SAMPLE + 4]
+    ki = len(road) - KM_FROM_END
+    a, b = road[ki - 4], road[ki + 4]
     d = (b[0] - a[0], b[2] - a[2])
     L = math.hypot(*d)
     ax = (d[0] / L, d[1] / L)  # tien suunta
     az = (-ax[1], ax[0])       # poispäin tiestä (Siitarin puolelle)
     sx, sz = tie["siitari"]
-    rp = (road[KM_SAMPLE][0], road[KM_SAMPLE][2])
+    rp = (road[ki][0], road[ki][2])
     if (sx - rp[0]) * az[0] + (sz - rp[1]) * az[1] < 0.0:
         az = (-az[0], -az[1])
     c = (rp[0] + az[0] * KM_SETBACK, rp[1] + az[1] * KM_SETBACK)
@@ -148,31 +282,39 @@ def apply():
             out.append([round(q[0], 2), round(q[1], 2)])
         sr["pts"] = out
         print("sivutie kiertämään kaupan päädyn:", sr["hw"], sr.get("name", ""))
-    fx0, fz0, fx1, fz1 = bbox(lot, 12.0)
-    inner = []
-    for j in range(nz):
-        for i in range(nx):
-            x, z = x0 + i * cell, z0 + j * cell
-            if fx0 <= x <= fx1 and fz0 <= z <= fz1 and codes[j * nx + i] != OUTSIDE and poly_dist((x, z), lot) < 0.01:
-                inner.append(heights[j * nx + i])
-    flat = sum(inner) / len(inner)
     cells = []
-    for j in range(nz):
-        for i in range(nx):
-            x, z = x0 + i * cell, z0 + j * cell
-            k = j * nx + i
-            if not (fx0 <= x <= fx1 and fz0 <= z <= fz1) or codes[k] in (OUTSIDE, ROAD, RAIL, WATER):
-                continue
-            dd = poly_dist((x, z), lot)
-            if dd > 8.0:
-                continue
+
+    def flatten(lots, yard=6.0):
+        """Tontit tasaiseksi (yhteinen keskikorkeus), pehmeä liitos 8 m:llä; ruudut pihaksi yard m:n päähän."""
+        bxs = [bbox(p, 12.0) for p in lots]
+        fx0, fz0 = min(b[0] for b in bxs), min(b[1] for b in bxs)
+        fx1, fz1 = max(b[2] for b in bxs), max(b[3] for b in bxs)
+        inner = []
+        near = []
+        for j in range(max(0, int((fz0 - z0) / cell)), min(nz, int((fz1 - z0) / cell) + 2)):
+            for i in range(max(0, int((fx0 - x0) / cell)), min(nx, int((fx1 - x0) / cell) + 2)):
+                k = j * nx + i
+                if codes[k] == OUTSIDE:
+                    continue
+                dd = min(poly_dist((x0 + i * cell, z0 + j * cell), p) for p in lots)
+                if dd < 0.01:
+                    inner.append(heights[k])
+                if dd <= 8.0 and codes[k] not in (ROAD, RAIL, WATER):
+                    near.append((k, dd))
+        flat = sum(inner) / len(inner)
+        for k, dd in near:
             cells.append([k, heights[k], codes[k]])
             t = max(0.0, (dd - 3.0) / 5.0)
             t = t * t * (3.0 - 2.0 * t)
             heights[k] = round(flat + (heights[k] - flat) * t, 3)
-            if dd < 6.0 and codes[k] != SHOULDER:
+            if dd < yard and codes[k] != SHOULDER:
                 codes[k] = YARD
+        return flat
+
+    flat = flatten([lot])
+    tori = place_tori(tie, flatten)
     tie["keskusta"] = {"kmarket_pts": orig_pts, "parking": parking, "cells": cells, "side_roads": moved_roads}
+    tie["keskusta"].update(tori)
 
     with open(TIE, "w") as f:
         json.dump(tie, f, ensure_ascii=False, separators=(",", ":"))
@@ -207,6 +349,9 @@ def apply():
                 grid.setdefault((gi, gj), []).append((kind, poly, grow))
     for bd in tie["buildings"]:
         add("poly", bd["pts"], SIITARI_YARD if bd["id"] == SIITARI_ID else BUILD_MARGIN)
+    for sr in tie["side_roads"]:
+        if sr.get("name") == "Vaalan tori":
+            add("poly", [q[:2] for q in sr["pts"][:-1]], PARK_MARGIN)
     for p in tie["parkings"]:
         add("poly", p, PARK_MARGIN)
     for k in range(len(road) - 1):
@@ -234,7 +379,7 @@ def apply():
     count, _W, _H, _fc, _nc, _ox, _oz, pnfx, pnfz, pnnx, pnnz = struct.unpack_from("<IIIffffIIII", buf, 4)
     t0 = 4 + 44 + (pnfx * pnfz + pnnx * pnnz) * 5 * 8
     removed = moved = 0
-    lx0, lz0, lx1, lz1 = bbox(lot, 10.0)
+    changed = {k for k, _h, _c in cells}
     for n in range(count):
         q = t0 + n * 16
         x, y, z, h = struct.unpack_from("<ffff", buf, q)
@@ -243,7 +388,7 @@ def apply():
         if blocked(x, z):
             struct.pack_into("<f", buf, q + 12, 0.0)
             removed += 1
-        elif lx0 <= x <= lx1 and lz0 <= z <= lz1 and abs(ground(x, z) - y) > 0.01:
+        elif int(round((z - z0) / cell)) * nx + int(round((x - x0) / cell)) in changed and abs(ground(x, z) - y) > 0.01:
             struct.pack_into("<f", buf, q + 4, ground(x, z))
             moved += 1
     with open(PUUT, "wb") as f:

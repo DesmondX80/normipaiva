@@ -18,7 +18,7 @@ signal arrived
 signal finished(result: String)
 signal killed  # auto ajoi mopon päälle
 signal atm     # pankkiautomaatilla E
-signal shop    # K-Market Tervaportin ovella E
+signal door(id: String)  # keskustan ovella E (vaala.gd doors: kmarket, smarket, zabuki, gasthaus)
 signal lava    # Oulujärven lavan ovella E (lavatanssit)
 
 const LAVA_TICKET := 12.0
@@ -255,7 +255,13 @@ func _process(delta: float) -> void:
 	status = "%s\n%s · %s %s" % ["Jalan" if on_foot != null else "Mopo %d km/h" % roundi(kmh), name, "Siitari" if target == "siitari" else "Paapeli",
 		("%.1f km" % (left / 1000.0)).replace(".", ",") if left > 150.0 else "%d m" % roundi(left)]
 	hint = ""
-	var d_shop: float = pos.distance_to(vaala.kmarket_door) if vaala.kmarket_door != Vector3.ZERO else INF
+	var near_door := {}
+	var d_shop := INF
+	for d in vaala.doors:
+		var dd: float = pos.distance_to(d.pos)
+		if dd < d_shop:
+			d_shop = dd
+			near_door = d
 	var d_atm: float = pos.distance_to(vaala.atm_pos)
 	if d_atm < 4.5 and d_atm <= d_shop and _actor_still():
 		hint = "[E] Nosta rahaa pankkiautomaatista (20 € kerran päivässä)"
@@ -269,10 +275,10 @@ func _process(delta: float) -> void:
 			lava.emit()
 		return
 	if d_shop < 5.0 and _actor_still():
-		hint = "[E] %sK-Market Tervaporttiin (myös Alko)" % ("Mene " if on_foot != null else "Parkkeeraa mopo ja mene ")
+		hint = "[E] %s%s" % ["Mene " if on_foot != null else "Parkkeeraa mopo ja mene ", near_door.hint]
 		if _interact():
 			mopo.speed = 0.0
-			shop.emit()
+			door.emit(near_door.id)
 		return
 	if target == "siitari":
 		if pos.distance_to(vaala.siitari_park) < ARRIVE_R + 6.0 or \

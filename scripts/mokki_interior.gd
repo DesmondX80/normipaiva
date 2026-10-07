@@ -36,7 +36,6 @@ const SHOWER_Z := -3.7  # suihkuseinä (lasi) perällä
 const SPOTS := {
 	"ovi": [Vector3(-6.3, 0, -1.1), "[E] Ulos kuistille"],
 	"ovi2": [Vector3(2.0, 0, -4.3), "[E] Ulos kuistille (pesuhuoneen ovi)"],
-	"santtu": [Vector3(-1.5, 0, -2.6), "[E] Jutskaa Santun kanssa"],
 	"kahvi": [Vector3(-2.8, 0, -3.7), "[E] Keitä suodatinkahvit"],
 	"tiskit": [Vector3(-4.3, 0, -3.7), "[E] Tiskaa astiat"],
 	"jaakaappi": [Vector3(0.4, 0, -3.7), "[E] Kurkkaa jääkaappiin"],
@@ -85,7 +84,25 @@ var wine_stage := ""
 var takka_on := false
 var _enter_frame := -1
 
+## Santtu on sisällä vain asialla (say tuo hänet): muuten hän puuhailee pihalla (santtu_puuhat.gd). Hän tulee
+## ulko-ovelta lähimmälle seisomapaikalle (SANTTU_STANDS: reitti tuvan keskeltä SANTTU_HUB), juttelee ja palaa
+## ulos, kun hetkeen ei ole asiaa (SANTTU_STAY) eikä minipeli ole käynnissä.
+const SANTTU_DOOR := Vector3(-6.3, 0, -1.7)
+const SANTTU_HUB := Vector3(-1.75, 0, -1.1)
+const SANTTU_STANDS := {
+	"keittio": [Vector3(-1.75, 0, -2.3), Vector3(-1.5, 0, -3.4)],
+	"tupa": [Vector3(-2.2, 0, -0.5)],
+	"pesu": [Vector3(-1.75, 0, -2.3), Vector3(-0.4, 0, -3.9), Vector3(2.0, 0, -3.9), Vector3(3.0, 0, -3.6)],
+}
+const SANTTU_WALK := 1.6
+const SANTTU_STAY := 9.0
+var santtu_in := false  # sisällä: tulossa, paikalla tai lähdössä
 var _santtu: Node3D
+var _santtu_body: StaticBody3D
+var _santtu_path: Array = []
+var _santtu_stand := ""
+var _santtu_leaving := false
+var _santtu_stay := 0.0
 var _bubble: Label3D
 var _bubble_t := 0.0
 var _chat_t := 5.0
@@ -110,14 +127,12 @@ func _ready() -> void:
 	_build_bath_sauna()
 	_build_pa()
 	_santtu = Looks.make(self, Mokki.SANTTU_LOOK)
-	_santtu.position = Vector3(-1.5, 0, -3.4)
-	_santtu.rotation.y = B.yaw_to(Vector3(0.3, 0, 1))
 	_santtu.play("Idle", 0.0)
-	var body := StaticBody3D.new()
-	body.position = _santtu.position
-	body.add_child(B.capsule_shape(0.3, 1.8))
-	add_child(body)
-	_bubble = B.bubble(self, _santtu.position + Vector3(0, 1.9, 0), Color.WHITE, 0.7)
+	_santtu_body = StaticBody3D.new()
+	_santtu_body.add_child(B.capsule_shape(0.3, 1.8))
+	_santtu.add_child(_santtu_body)
+	_bubble = B.bubble(self, Vector3.ZERO, Color.WHITE, 0.7)
+	_santtu_hide()
 	walker = Walker.new()
 	walker.position = SPOTS.ovi[0]
 	walker.bounds = [Rect2(-HALF.x, BACK, HALF.x * 2.0, HALF.y - BACK)]  # ovien aukoista ei ulos
@@ -134,12 +149,136 @@ func enter(door := "ovi") -> void:
 		walker.position = SPOTS.ovi[0] + Vector3(0, 0, 1.5)
 		walker.rotation.y = B.yaw_to(Vector3(0, 0, -1))  # katse tupaan (walkerin kääntö on yaw_to:n vastainen)
 	walker.activate()
-	say("No terve! Tuu sisälle vaan.")
+	_santtu_hide()
 
 
 func leave() -> void:
 	active = false
 	walker.controls_enabled = false
+	_santtu_hide()
+
+
+# --- Santun käynnit sisällä ---------------------------------------------------------------
+
+func _santtu_hide() -> void:
+	santtu_in = false
+	_santtu_leaving = false
+	_santtu_stand = ""
+	_santtu_path.clear()
+	_santtu.visible = false
+	_santtu_body.process_mode = Node.PROCESS_MODE_DISABLED  # ei törmäystä poissa ollessa
+	_bubble.text = ""
+	_bubble_t = 0.0
+
+
+## Santtu sisälle seisomapaikalle where ("" = lähin pelaajaa). Jo sisällä: siirtyy tarvittaessa ja jää pidempään.
+func santtu_come(where := "") -> void:
+	_santtu_stay = SANTTU_STAY
+	if where == "":
+		var bd := INF
+		for id in SANTTU_STANDS:
+			var d: float = walker.position.distance_to(SANTTU_STANDS[id][-1])
+			if d < bd:
+				bd = d
+				where = id
+	if santtu_in and where == _santtu_stand and not _santtu_leaving:
+		return
+	var path: Array = []
+	if not santtu_in:
+		_santtu.position = SANTTU_DOOR
+		_santtu.visible = true
+		path.append(SANTTU_HUB)
+	else:
+		path.append(SANTTU_HUB)  # tuvan keskeltä uudelle paikalle (oviaukot ja väliseinät kierretään sitä kautta)
+		if _santtu_stand != "" and _santtu_path.is_empty() and not _santtu_leaving:
+			var back: Array = SANTTU_STANDS[_santtu_stand].duplicate()
+			back.reverse()
+			path = back.slice(1) + path
+	path.append_array(SANTTU_STANDS[where])
+	santtu_in = true
+	_santtu_leaving = false
+	_santtu_stand = where
+	_santtu_walk(path)
+
+
+func _santtu_walk(path: Array) -> void:
+	_santtu_path = path
+	_santtu_body.process_mode = Node.PROCESS_MODE_DISABLED  # kävellessä ei tönäise pelaajaa
+	_santtu.play("Walk", 0.2)
+
+
+func _santtu_leave() -> void:
+	var path: Array = SANTTU_STANDS[_santtu_stand].duplicate()
+	path.reverse()
+	path = path.slice(1) + [SANTTU_HUB, SANTTU_DOOR]
+	_santtu_leaving = true
+	_santtu_walk(path)
+
+
+func _santtu_tick(delta: float) -> void:
+	if not santtu_in:
+		return
+	if not _santtu_path.is_empty():
+		var to: Vector3 = _santtu_path[0]
+		var d := to - _santtu.position
+		d.y = 0.0
+		var step := SANTTU_WALK * delta
+		if d.length() <= step:
+			_santtu.position = to
+			_santtu_path.pop_front()
+		else:
+			_santtu.position += d.normalized() * step
+		if d.length() > 0.01:
+			_santtu.rotation.y = B.yaw_to(d)
+		if _santtu_path.is_empty():
+			if _santtu_leaving:
+				_santtu_hide()
+				return
+			_santtu_body.process_mode = Node.PROCESS_MODE_INHERIT
+			_santtu.play("Idle_Talking" if _bubble_t > 0.0 else "Idle", 0.3)
+	else:
+		var to_p := walker.position - _santtu.position
+		to_p.y = 0.0
+		if to_p.length() > 0.3:
+			_santtu.rotation.y = lerp_angle(_santtu.rotation.y, B.yaw_to(to_p), minf(delta * 4.0, 1.0))
+		if not busy and _bubble_t <= 0.0:
+			_santtu_stay -= delta
+			if _santtu_stay <= 0.0:
+				_santtu_leave()
+	_bubble.rest = _santtu.position + Vector3(0, 1.9, 0)
+	_bubble.position = _bubble.rest
+
+
+## Välianimaation ajaksi piiloon: kävelijä ja sisä-Santtu kuplineen.
+func cutscene_nodes() -> Array:
+	return [walker, _santtu, _bubble]
+
+
+## Sisäsaunan asettelu välianimaatiolle (cutscene.gd SAUNA_SAVU:n avaimet, tämän solmun kehyksessä): istutaan
+## peräseinän lauteella kasvot ovelle (-Z), kiuas vasemmalla, kiulu lattialla jalkojen vieressä. Huoneella ei ole
+## kattoa eikä täyskorkeita seiniä (yläkamera), joten välianimaatio rakentaa ne (shell).
+func sauna_layout() -> Dictionary:
+	var hero := Vector3(3.0, 0.5, -1.23)
+	return {
+		"title": "SISÄSAUNA", "intro": "Mäntylauteet ja tikittävä kiuas. Lasiovesta kajastaa pesuhuoneen valo.",
+		"hero": hero, "face": Vector3(0, 0, -1), "stones": Vector3(1.39, 0.85, -1.0), "over": Vector3(1.55, 1.08, -1.0),
+		"kiulu": Vector3(2.4, 0.27, -1.55), "kiulu_prop": true, "rest_cup": Vector3(2.5, 0.45, -1.4),
+		"ember": Vector3(1.4, 1.1, -1.0), "ember_shadow": false, "window": Vector3(2.85, 1.3, -2.45), "coals": null,
+		"haze": Vector3(3.1, 2.0, -1.6), "haze_ext": Vector3(2.0, 0.15, 0.9),
+		"shell": [SAUNA, 2.3, SAUNA_DOOR],
+		"shots": [[Vector3(4.9, 1.7, -2.4), Vector3(4.8, 1.72, -2.35), Vector3(2.2, 0.9, -1.0), Vector3(2.3, 1.0, -1.0), 4.0],
+			[Vector3(2.3, 1.35, -2.3), Vector3(2.25, 1.3, -2.25), Vector3(1.6, 0.95, -1.0), Vector3(1.6, 1.0, -0.95), 4.0],
+			[Vector3(3.0, 1.5, -1.95), Vector3(3.0, 1.55, -1.85), Vector3(3.0, 1.55, -0.95), Vector3(3.0, 1.6, -0.95), 4.5],
+			[Vector3(4.3, 1.5, -2.2), Vector3(4.8, 1.6, -2.45), Vector3(2.8, 1.0, -1.1), Vector3(3.0, 1.1, -1.0), 7.0]],
+		"door": [Vector3(2.85, 0.03, -3.2), Vector3(2.85, 0.03, -2.3)], "stand": Vector3(3.45, 0.03, -1.8),
+		"seat": Vector3(3.8, 0.5, -1.23),
+		"santtu_shot": [Vector3(1.7, 1.6, -0.8), Vector3(1.75, 1.6, -0.85), Vector3(2.9, 1.0, -2.5), Vector3(3.3, 0.9, -1.6), 6.0],
+	}
+
+
+## Seisooko Santtu sisällä paikallaan (juttelu E:llä).
+func santtu_here() -> bool:
+	return santtu_in and not _santtu_leaving and _santtu_path.is_empty()
 
 
 ## Likaiset astiat tiskipöydälle (n kpl, 0 = siisti).
@@ -179,17 +318,28 @@ func set_wine(stage: String) -> void:
 		bl.visible = false
 
 
-func say(text: String) -> void:
-	_bubble.text = "Santtu: " + text
+## Santun repliikki: come = Santtu tulee sisälle sanomaan sen, muuten huuto pihalta ulko-oven kohdalla.
+func say(text: String, come := true) -> void:
+	if come:
+		santtu_come()
 	_bubble_t = 3.2
-	_santtu.play("Idle_Talking", 0.3)
+	if not santtu_in:
+		_bubble.text = "Santtu (pihalta): " + text
+		_bubble.rest = SANTTU_DOOR + Vector3(0, 2.0, 0.4)
+		_bubble.position = _bubble.rest
+		return
+	_bubble.text = "Santtu: " + text
+	if _santtu_path.is_empty():
+		_santtu.play("Idle_Talking", 0.3)
 
 
 func _process(delta: float) -> void:
 	_bubble_t -= delta
 	if _bubble_t <= 0.0 and _bubble.text != "":
 		_bubble.text = ""
-		_santtu.play("Idle", 0.3)
+		if santtu_here():
+			_santtu.play("Idle", 0.3)
+	_santtu_tick(delta)
 	if _tv_screen != null and _tv_screen.visible:
 		(_tv_screen.material_override as StandardMaterial3D).albedo_color = Color(0.3, 0.45, 0.8).lightened(
 			0.3 * sin(Time.get_ticks_msec() / 180.0))
@@ -220,7 +370,8 @@ func _process(delta: float) -> void:
 	_chat_t -= delta
 	if _chat_t <= 0.0:
 		_chat_t = randf_range(12.0, 20.0)
-		say((SANTTU_PA_LINES if pa_on and randf() < 0.5 else SANTTU_IN_LINES).pick_random())
+		if santtu_here():  # sisällä vain asialla: juttelee, kun on jo tuvassa
+			say((SANTTU_PA_LINES if pa_on and randf() < 0.5 else SANTTU_IN_LINES).pick_random())
 	var p := walker.position
 	var best := ""
 	var bd := 1.3
@@ -229,11 +380,13 @@ func _process(delta: float) -> void:
 		if d < bd:
 			bd = d
 			best = id
+	if santtu_here() and Vector2(p.x - _santtu.position.x, p.z - _santtu.position.z).length() < 1.4:
+		best = "santtu"
 	hint = ""
 	spot = best
 	if best == "":
 		return
-	hint = SPOTS[best][1]
+	hint = "[E] Jutskaa Santun kanssa" if best == "santtu" else SPOTS[best][1]
 	if best == "pa" and pa_on:
 		hint = "[E] Sammuta PA (pääte ensin pois)"
 	if best == "takka" and takka_on:
