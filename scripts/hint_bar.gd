@@ -3,10 +3,12 @@ extends Control
 ## näppäinhattuina, toiminto valkoisella, hinnat ja lisätiedot harmaalla. Lukee vanhan vihjerivin tekstin muodossa
 ## "Tietoa   [E] Toiminto (lisä)   [Q] Toinen – selitys"; rivinvaihto tekee uuden rivin, ja liian leveä rivi
 ## jaetaan useammalle. main.gd antaa tekstin set_text:llä joka ruutu (näppäimet jo asetusten mukaisina).
+## compact = näppäinohjerivi vasemmassa alakulmassa: pienemmät näppäinhatut, kevyempi tausta.
 
 const BOTTOM := 150.0  # keskikohdan etäisyys ruudun alareunasta (px), sama kuin puhevihjeellä
 const GAP := 22.0  # toimintojen väli rivillä
 
+var compact := false  # näppäinohjerivi vasemmassa alakulmassa (aseta ennen add_child)
 var left := 0.0  # vasen raja (lappu auki: main.gd _avoid_note)
 var right := 0.0  # varattu oikealta (minikartta: main.gd _avoid_note)
 var _text := ""
@@ -21,10 +23,10 @@ var _re := RegEx.new()
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	_re.compile(r"\[([^\]\n]{1,14})\]")
+	_re.compile(r"\[([^\]\n]{1,20})\]")
 	_pill = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.07, 0.07, 0.09, 0.86)
+	sb.bg_color = Color(0.07, 0.07, 0.09, 0.55 if compact else 0.86)
 	sb.set_corner_radius_all(14)
 	sb.border_color = Color(1, 1, 1, 0.18)
 	sb.set_border_width_all(1)
@@ -34,6 +36,14 @@ func _ready() -> void:
 	sb.content_margin_bottom = 7
 	sb.shadow_color = Color(0, 0, 0, 0.35)
 	sb.shadow_size = 6
+	if compact:
+		sb.set_corner_radius_all(10)
+		sb.content_margin_left = 8
+		sb.content_margin_right = 10
+		sb.content_margin_top = 4
+		sb.content_margin_bottom = 4
+		sb.shadow_size = 0
+		sb.border_color = Color(1, 1, 1, 0.1)
 	_pill.add_theme_stylebox_override("panel", sb)
 	_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_pill)
@@ -60,6 +70,10 @@ func _process(delta: float) -> void:
 	var vs := get_viewport_rect().size
 	_pill.reset_size()
 	var sz := _pill.get_combined_minimum_size()
+	if compact:
+		_pill.position = Vector2(16.0, vs.y - 12.0 - sz.y)
+		modulate.a = _a
+		return
 	var lo := maxf(left, 12.0)
 	var hi := vs.x - maxf(right, 12.0)
 	_pill.position = Vector2(clampf((lo + hi) / 2.0 - sz.x / 2.0, lo, maxf(hi - sz.x, lo)),
@@ -151,14 +165,14 @@ func _chunk(part: Array) -> HBoxContainer:
 		cs.content_margin_top = 0
 		cs.content_margin_bottom = 1
 		cap.add_theme_stylebox_override("panel", cs)
-		cap.custom_minimum_size = Vector2(32, 32)
+		cap.custom_minimum_size = Vector2(24, 24) if compact else Vector2(32, 32)
 		cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		var k := _label(part[0], 19, Color(0.12, 0.12, 0.14), false)
+		var k := _label(part[0], 14 if compact else 19, Color(0.12, 0.12, 0.14), false)
 		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		cap.add_child(k)
 		h.add_child(cap)
 		if part[1] != "":
-			h.add_child(_label(part[1], 22, Color.WHITE))
+			h.add_child(_label(part[1], 16 if compact else 22, Color.WHITE))
 	elif part[1] != "":
 		h.add_child(_label(part[1], 21, Color(0.86, 0.86, 0.88)))
 	if part[2] != "":
