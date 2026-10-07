@@ -13,9 +13,11 @@ tiennimet ja päällysteet sekä keskustan rakennusten nimet ja tyypit OpenStree
 Saumaton kuvaus (tools/kartta/vaala_warp.py): koko alueen maasto, maankäyttö ja metsä haetaan todellisesta paikasta
 tien näytteiden ja 1:1-ankkurien kehysten pehmeänä yhdistelmänä, joten kartassa ei näy tiivistyksen reunoja.
 
-Tiivistys: mökin pihasta Neittäväntien risteyksen yli (S_A) ja radan alikulusta Siitariin (S_B ->, koko Vaalan
-keskusta Oulujoen siltoineen) mittakaava on 1:1, välissä matka lyhenee K-kertaisesti. Jokainen tien pala lyhenee samassa suhteessa, joten
-suunnat ja risteysten kulmat säilyvät ja keskusta osuu tarkasti oikeaan kohtaan (vain siirrettynä).
+Tiivistys: mökin pihasta Neittäväntien risteyksen yli (S_A), radan alikululta Oulujoen länsirannalle (S_B..S_R, lavan
+niemi) ja Vaalan keskustassa (S_T ->) mittakaava on 1:1, välissä matka lyhenee K-kertaisesti. Jokainen tien pala lyhenee
+samassa suhteessa, joten suunnat ja risteysten kulmat säilyvät. Oulujoen ylitys ja itärannan alku (S_R..S_T) on
+lineaarinen kaista, joka tiivistyy TOWN_K-kertaisesti kaistan akselin suunnassa (joki kapenee, keskusta tulee lähemmäs
+alikulkua). Oulujärvi loppuu etelässä LAKE_Z:aan (muuten se olisi tiivistyksen takia mökin vieressä).
 Pelin koordinaatit: mökin osoitepiste origossa kuten reitti.json:ssa (x itään, z etelään), korkeus metreinä mpy.
 Kohteet tien varrelta siirretään tien mukana: todellinen paikka -> lähin tien kohta (matka s, sivuetäisyys d)
 -> pelissä sama d samasta tien kohdasta.
@@ -54,6 +56,16 @@ MOKKI_1TO1 = 200.0  # mökin pihapiiri 1:1 näin kauas osoitepisteestä
 GASTHAUS_ID = 534430535  # torin laidan talo, vaala.gd _gasthaus_front
 TOWN_R = 480.0     # keskustan tarkka alue Siitarista (kaikki rakennukset, kadut ja rata)
 RAIL_1TO1 = 150.0  # 1:1 alkaa näin paljon ennen radan alikulkua (Vuolijoentie radan ali juuri ennen Oulujokea)
+# Alikulusta keskustaan: Oulujoen ylitys ja itärannan alku tiivistetään TOWN_K-kertaisesti länsirannalta (sillan alku)
+# siihen asti, kun Siitari on TOWN_GATE m päässä. Joki on tässä lähes kohtisuorassa tiehen nähden, joten tien suuntainen
+# kaista kaventaa uomaa tasaisesti. Alikulku, Pahalahdentie ja lavan niemi ovat yhtä 1:1-palaa (west_off), keskusta
+# toista (town_off), joka on siten lähempänä alikulkua kuin todellisuudessa.
+TOWN_K = 3.5
+TOWN_GATE = 330.0
+TOWN_RMAX = 650.0  # kaistan kohteet (rakennukset, kadut) näin kauas kaistan akselilta
+LAKE_Z = -250.0    # Oulujärvi loppuu etelässä tähän (pelin z, aaltoileva ranta): todellisuudessa järvi on mökiltä
+                   # n. 7 km päässä, mutta tiivistys toisi sen 300 m päähän mökistä
+BAND_LAT = 1200.0  # kaistan maastokehykset näin kauas akselilta
 UNDER_CLEAR = 4.6  # alikulun vapaa korkeus tien pinnasta ratasillan alapintaan
 UNDER_DIP = 1.3    # tie painuu alikulussa
 UNDER_OPEN = 4.0   # alikulun aukko maastossa ajoradan reunasta: 4 m ruudukossa vähintään yksi tasainen ruutu tien ulkopuolella
@@ -129,6 +141,29 @@ def seg_dist(p, a, b):
     L2 = dx * dx + dz * dz
     t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / L2))
     return math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dz * t), t
+
+
+def lake_edge(x):
+    """Oulujärven eteläranta pelissä (z) kohdassa x: LAKE_Z aaltoiltuna."""
+    return LAKE_Z + 70.0 * np.sin(np.asarray(x) / 190.0 + 1.3) + 35.0 * np.sin(np.asarray(x) / 67.0 + 0.4)
+
+
+def polys_near(a, b, gap):
+    """Ovatko monikulmiot a ja b päällekkäin tai alle gap m päässä toisistaan."""
+    ba, bb = bbox(a, gap), bbox(b)
+    if ba[0] > bb[2] or bb[0] > ba[2] or ba[1] > bb[3] or bb[1] > ba[3]:
+        return False
+    if pip(a[0], b, bbox(b)) or pip(b[0], a, bbox(a)):
+        return True
+    return any(seg_seg_dist(p, q, r, t) < gap for p, q in zip(a, a[1:] + a[:1]) for r, t in zip(b, b[1:] + b[:1]))
+
+
+def seg_seg_dist(p, q, r, t):
+    def orient(a, b, c):
+        return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+    if orient(p, q, r) * orient(p, q, t) < 0 and orient(r, t, p) * orient(r, t, q) < 0:
+        return 0.0
+    return min(seg_dist(p, r, t)[0], seg_dist(q, r, t)[0], seg_dist(r, p, q)[0], seg_dist(t, p, q)[0])
 
 
 class Grid:
@@ -224,10 +259,14 @@ def main():
     wet = [rs[i] for i in range(0, len(real), 2) if in_river(real[i], 6.0)]
     B_LO, B_HI = (min(wet) - 45.0, max(wet) + 45.0) if wet else (-1.0, -1.0)
     B_LO = min(B_LO, S_B)
-    WINDOWS = [(0.0, S_A), (S_B, total + 1.0)]
+    S_R = min(wet) - 10.0  # länsiranta
+    S_T = next(rs[i] for i in range(len(real)) if rs[i] > B_HI and math.dist(real[i], (sx, sz)) < TOWN_GATE)
+    WINDOWS = [(0.0, S_A), (S_B, S_R), (S_T, total + 1.0)]
 
     def scale(s):
-        return 1.0 if any(a <= s <= b for a, b in WINDOWS) else 1.0 / K
+        if any(a <= s <= b for a, b in WINDOWS):
+            return 1.0
+        return 1.0 / TOWN_K if S_R < s < S_T else 1.0 / K
 
     # --- Korkeudet: tien keskilinja (20 m) ja sivut (60 m, 100 m välein). ----------------------------------------
     line = d["line"]
@@ -247,19 +286,58 @@ def main():
         lo = max(b for a, b in WINDOWS if b <= s)
         hi = min(a for a, b in WINDOWS if a >= s)
         base = lerp(h_real_s(lo), h_real_s(hi), (s - lo) / max(hi - lo, 1.0))
-        return base + (h - base) * 0.25
+        return base + (h - base) * (0.25 if s < S_R else 0.6)
 
 
     # --- Pelin tie: todellinen askel skaalataan, suunta säilyy. ---------------------------------------------------
+    # Joen ja keskustan välinen kaista (S_R..S_T) on yksi lineaarinen kuvaus: kaistan akselin (u, länsirannalta
+    # keskustan portille) suunnassa TOWN_K-kertaisesti tiivistetty, sivusuunnassa 1:1. Tie, kohteet ja maasto
+    # (kaistan kehykset) käyttävät samaa kuvausta, joten kaikki osuu kohdalleen kaukanakin tiestä.
+    ib = max(i for i in range(len(real)) if rs[i] <= S_R)
+    it = min(i for i in range(len(real)) if rs[i] >= S_T)
+    b_pt, t_pt = real[ib], real[it]
+    BAND_W = math.dist(b_pt, t_pt)
+    u = ((t_pt[0] - b_pt[0]) / BAND_W, (t_pt[1] - b_pt[1]) / BAND_W)
+
+    def band_a(p):
+        """Matka kaistan akselilla länsirannan viivalta (0 .. BAND_W kaistalla)."""
+        return (p[0] - b_pt[0]) * u[0] + (p[1] - b_pt[1]) * u[1]
+
+    def bridge_d(p):
+        """Matka länsirannan viivalta länteen (negatiivinen kaistalla)."""
+        return -band_a(p)
+
+    def gate_d(p):
+        """Matka keskustan portilta keskustaan päin (negatiivinen kaistalla)."""
+        return band_a(p) - BAND_W
+
+    def west_of_bridge(p):
+        return bridge_d(p) >= 0.0
+
+    def past_gate(p):
+        return gate_d(p) >= 0.0
+
     game = [real[0]]
-    for i in range(1, len(real)):
+    for i in range(1, ib + 1):
         k = scale(rs[i - 1])
         a, b = real[i - 1], real[i]
         game.append((game[-1][0] + (b[0] - a[0]) * k, game[-1][1] + (b[1] - a[1]) * k))
+    west_off = (game[ib][0] - real[ib][0], game[ib][1] - real[ib][1])
+    shrink = 1.0 - 1.0 / TOWN_K
+
+    def band_g(p):
+        """Todellinen piste kaistalla (tai sen jälkeen keskustassa) pelin kehykseen."""
+        a = min(max(band_a(p), 0.0), BAND_W) * shrink
+        return (p[0] + west_off[0] - u[0] * a, p[1] + west_off[1] - u[1] * a)
+
+    for i in range(ib + 1, len(real)):
+        game.append(band_g(real[i]))
     gs = [0.0]
     for a, b in zip(game, game[1:]):
         gs.append(gs[-1] + math.dist(a, b))
     town_off = (game[-1][0] - real[-1][0], game[-1][1] - real[-1][1])
+    print("joelta keskustaan: kaista %.0f m -> %.0f m (S_R %.0f S_T %.0f), niemen siirto %.1f %.1f" % (
+        BAND_W, BAND_W / TOWN_K, S_R, S_T, west_off[0], west_off[1]))
     print("todellinen %.0f m -> pelissä %.0f m, S_A %.0f S_B %.0f, keskustan siirto %.1f %.1f" % (
         total, gs[-1], S_A, S_B, town_off[0], town_off[1]))
 
@@ -367,10 +445,17 @@ def main():
         """Todellinen piste pelin kehykseen lähimmän tien kohdan mukaan (tien suunnassa näytteen mittakaava,
         sivusuunnassa 1:1), None jos kaukana tiestä. Keskusta ja lavan niemi (VL.AREA) ovat 1:1: pelkkä siirto,
         mökin pihapiiri paikallaan (samat ankkurit kuin maaston kuvauksessa)."""
-        tp = (p[0] + town_off[0], p[1] + town_off[1])
         ar = VL.AREA
-        if math.dist(p, real_town) < TOWN_R or (ar[0] + 60.0 <= tp[0] <= ar[2] and ar[1] <= tp[1] <= ar[3]):
-            return tp
+        wp = (p[0] + west_off[0], p[1] + west_off[1])
+        in_area = ar[0] + 60.0 <= wp[0] <= ar[2] and ar[1] <= wp[1] <= ar[3]
+        if past_gate(p) and (in_area or math.dist(p, real_town) < TOWN_R):
+            return (p[0] + town_off[0], p[1] + town_off[1])
+        if west_of_bridge(p) and in_area:
+            return wp
+        if not west_of_bridge(p) and not past_gate(p):
+            # Kaista: sama lineaarinen kuvaus kuin tiellä ja maastossa, TOWN_RMAX m kaistan akselilta.
+            lat = -(p[0] - b_pt[0]) * u[1] + (p[1] - b_pt[1]) * u[0]
+            return band_g(p) if abs(lat) < TOWN_RMAX else None
         if math.hypot(p[0], p[1]) < MOKKI_1TO1:
             return p
         i, dist = rgrid.nearest(p, rmax)
@@ -383,7 +468,7 @@ def main():
         lat = -dx * rd[1] + dz * rd[0]
         gd = smp["dir"]
         c = smp["c"]
-        if c < 1.0:
+        if c < VW.LAT_C:
             lat = VW.lat_in(lat)  # kuten maaston kuvauksessa (vaala_warp.lat_out)
         return (smp["g"][0] + gd[0] * along * c - gd[1] * lat, smp["g"][1] + gd[1] * along * c + gd[0] * lat)
 
@@ -397,22 +482,41 @@ def main():
     # kasautuisivat toistensa päälle: sinne vain isoimmat talot vähintään THIN_GAP m välein, ei vajoja.
     THIN_GAP = 45.0
     kept = []
+    kept_band = []
     out_buildings = []
     def b_area(f):
         q = f["pts"]
         return abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(q, q[1:] + q[:1]))) / 2.0
-    for f in sorted((f for f in feats if f["kind"] == "building"), key=lambda f: -b_area(f)):
+
+    def b_centroid(f):
         pts = f["pts"][:-1] if f["pts"][0] == f["pts"][-1] else f["pts"]
-        c = (sum(q[0] for q in pts) / len(pts), sum(q[1] for q in pts) / len(pts))
+        return (sum(q[0] for q in pts) / len(pts), sum(q[1] for q in pts) / len(pts))
+
+    def in_band(p):
+        return not west_of_bridge(p) and not past_gate(p)
+
+    # Kaistan ulkopuoliset ensin, jotta kaistan talot väistävät niitäkin; kummassakin isoimmat ensin.
+    for f in sorted((f for f in feats if f["kind"] == "building"), key=lambda f: (in_band(b_centroid(f)), -b_area(f))):
+        pts = f["pts"][:-1] if f["pts"][0] == f["pts"][-1] else f["pts"]
+        c = b_centroid(f)
         gc = to_game(c)
         if gc is None:
             continue
         ri, _ = rgrid.nearest(c, NEAR + 60.0)
-        if ri >= 0 and samples[ri]["c"] < 1.0 and samples[ri]["s"] < B_LO:
+        off = (gc[0] - c[0], gc[1] - c[1])
+        if in_band(c):
+            # Kaistalla talot tiivistyvät akselin suunnassa: isoimmat ensin, alle 4 m päässä toisistaan olevat pois.
+            gpts = [band_g(q) for q in pts]
+            if any(polys_near(gpts, q, 4.0) for q in kept_band):
+                continue
+            kept_band.append(gpts)
+            off = None
+        elif ri >= 0 and samples[ri]["c"] < VW.LAT_C:
             if b_area(f) < 60.0 or any(math.dist(gc, q) < THIN_GAP for q in kept):
                 continue
             kept.append(gc)
-        off = (gc[0] - c[0], gc[1] - c[1])
+        if off is not None and (-80.0 < gate_d(c) < 80.0 or -80.0 < bridge_d(c) < 80.0):
+            kept_band.append([(q[0] + off[0], q[1] + off[1]) for q in pts])
         bt = f.get("building", "yes")
         area = abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(pts, pts[1:] + pts[:1]))) / 2.0
         lv = f.get("building_levels")
@@ -425,7 +529,8 @@ def main():
             kind = "big"
         out_buildings.append({"id": f["id"], "type": bt, "kind": kind, "levels": levels, "h": f.get("height", 0.0),
                               "name": f.get("name", ""), "addr": ("%s %s" % (f.get("addr_street", ""), f.get("addr_housenumber", ""))).strip(),
-                              "pts": [[round(q[0] + off[0], 2), round(q[1] + off[1], 2)] for q in pts]})
+                              "pts": [[round(q[0], 2), round(q[1], 2)] for q in gpts] if off is None else
+                              [[round(q[0] + off[0], 2), round(q[1] + off[1], 2)] for q in pts]})
     # --- Risteysten haarat väärään suuntaan: OSM:n tie risteyksestä BRANCH_LEN m (1:1), sitten umpitie. ------------
     def road_kind(f):
         hw = f.get("highway", "")
@@ -514,6 +619,8 @@ def main():
     print("tien päältä pois", dropped)
 
     side_roads = []
+    # Sivutiet loppuvat ennen siltoja (kannen kaiteet ja rantapenkat): ei liittymää sillan päähän.
+    bgrid = Grid([smp["g"] for smp in samples if smp["bridge"]], 20.0)
     for f in feats:
         if f["kind"] not in ("road", "rail") or f["id"] in branch_ways:
             continue
@@ -522,7 +629,7 @@ def main():
         pts = resample(f["pts"], 6.0)
         for p in pts:
             gp = to_game(p, 130.0)
-            if gp is None or (f["kind"] == "road" and on_route(p)):
+            if gp is None or (f["kind"] == "road" and (on_route(p) or bgrid.nearest(gp, 20.0)[0] >= 0)):
                 if len(cur) > 1:
                     side_roads.append({"kind": f["kind"], "hw": hw, "name": f.get("name", ""), "surface": f.get("surface", ""),
                                        "pts": cur})
@@ -531,6 +638,34 @@ def main():
             cur.append([round(gp[0], 2), round(gp[1], 2)])
         if len(cur) > 1:
             side_roads.append({"kind": f["kind"], "hw": hw, "name": f.get("name", ""), "surface": f.get("surface", ""), "pts": cur})
+    # Talot eivät saa jäädä ajettavien sivuteiden päälle (tiivistetyllä välillä kadut kutistuvat pisteittäin, talot
+    # siirtyvät kokonaisina): ajoradan puoliskon sisällä oleva talo pois.
+    SIDE_HW = {"secondary": 3.2, "tertiary": 3.2, "residential": 2.6, "service": 1.8}
+    street_pts = []
+    for r in side_roads:
+        if r["kind"] != "road" or r["hw"] in ("footway", "cycleway", "path", "pedestrian", "steps"):
+            continue
+        hw_ = SIDE_HW.get(r["hw"], 2.2)
+        for a, b in zip(r["pts"], r["pts"][1:]):
+            for q in resample([tuple(a), tuple(b)], 1.0):
+                street_pts.append((q, hw_))
+    sgrid = Grid([q[0] for q in street_pts], 20.0)
+    keep, dropped = [], []
+    for bd in out_buildings:
+        pts = [tuple(q) for q in bd["pts"]]
+        c = (sum(q[0] for q in pts) / len(pts), sum(q[1] for q in pts) / len(pts))
+        rad = max(math.dist(c, q) for q in pts) + 3.2
+        bb = bbox(pts)
+        ci_, cj_ = int(c[0] // 20.0), int(c[1] // 20.0)
+        rr_ = int(math.ceil(rad / 20.0))
+        hit = any(math.dist(street_pts[qi][0], c) <= rad and (
+                  pip(street_pts[qi][0], pts, bb) or
+                  min(seg_dist(street_pts[qi][0], a, b2)[0] for a, b2 in zip(pts, pts[1:] + pts[:1])) < street_pts[qi][1] * 0.5)
+                  for dj in range(-rr_, rr_ + 1) for di in range(-rr_, rr_ + 1)
+                  for qi in sgrid.g.get((ci_ + di, cj_ + dj), ()))
+        (dropped if hit else keep).append(bd if not hit else (bd["id"], bd["type"], bd["name"]))
+    out_buildings = keep
+    print("sivuteiden päältä pois", dropped)
     out_water = []
     parkings = []
     for f in feats:
@@ -587,14 +722,27 @@ def main():
     for i in range(0, n, 3):
         smp = samples[i]
         c = smp["c"]
+        if S_R < smp["s"] < S_T:
+            continue  # kaistalla kaistan omat kehykset
         frame(smp["g"], smp["r"], smp["dir"], smp["rdir"], c, h_game_s(smp["s"]), 1.0 if c >= 1.0 else 0.5, 0.0)
     dem_s = lambda q: float(VW.dem_at(fd, [q[0]], [q[1]], smooth=6)[0])  # noqa: E731
+    # Kaistan kehykset: ruudukko pelin kaistalla, kaikki samaa lineaarista kuvausta (akseli u tiivistetty TOWN_K).
+    nb = 0
+    perp = (-u[1], u[0])
+    for ag in np.arange(0.0, BAND_W / TOWN_K + 0.1, 20.0):
+        for lt in np.arange(-BAND_LAT, BAND_LAT + 0.1, 25.0):
+            r = (b_pt[0] + u[0] * ag * TOWN_K + perp[0] * lt, b_pt[1] + u[1] * ag * TOWN_K + perp[1] * lt)
+            gq = (b_pt[0] + west_off[0] + u[0] * ag + perp[0] * lt, b_pt[1] + west_off[1] + u[1] * ag + perp[1] * lt)
+            # Kaukana akselilta kaistan kehykset häviävät naapureilleen (ei saumaa kaukomaisemaan).
+            frame(gq, r, u, u, 1.0 / TOWN_K, dem_s(r), 1.0, -max(0.0, abs(lt) - 400.0))
+            nb += 1
+    print("kaistan kehyksiä", nb)
     for b in branches:
         for k in range(0, len(b["pts"]), 3):
             q, rq = b["pts"][k], b["real"][k]
             frame((q[0], q[2]), tuple(rq), (1.0, 0.0), (1.0, 0.0), 1.0, dem_s(rq), 1.0, 0.0)
 
-    def anchors(cx, cz, rad, step, off, bonus, box=None):
+    def anchors(cx, cz, rad, step, off, bonus, box=None, edge=None):
         m = 0
         for ax in np.arange(cx - rad, cx + rad + 0.1, step):
             for az in np.arange(cz - rad, cz + rad + 0.1, step):
@@ -602,17 +750,32 @@ def main():
                         (box is not None and not (box[0] <= ax <= box[2] and box[1] <= az <= box[3])):
                     continue
                 r = (ax - off[0], az - off[1])
-                frame((ax, az), r, (1.0, 0.0), (1.0, 0.0), 1.0, dem_s(r), 1.0, bonus)
+                b = bonus
+                if edge is not None:
+                    # Kaistan reunalla ankkurit eivät saa etumatkaa kaistan yli (muuten ne peittäisivät joen).
+                    e = edge(r)
+                    if e < 0.0:
+                        continue
+                    b = min(bonus, e)
+                frame((ax, az), r, (1.0, 0.0), (1.0, 0.0), 1.0, dem_s(r), 1.0, b)
                 m += 1
         return m
 
     # Etumatka: ankkurit voittavat tienäytteet näin monen metrin päästä. Tiivistetty käytävä on pelissä vain n. 440 m,
     # joten mökin ja niemen ankkureilla etumatka on pieni (muuten ne peittäisivät käytävän).
     na = anchors(0.0, 0.0, MOKKI_1TO1, 40.0, (0.0, 0.0), 100.0)
-    na += anchors(town_c[0], town_c[1], TOWN_R + 60.0, 50.0, town_off, 300.0)
+    na += anchors(town_c[0], town_c[1], TOWN_R + 60.0, 50.0, town_off, 300.0, edge=gate_d)
+    # Keskustan ympyrän joen länsipuoli (ennen tiivistystä keskustan ankkureilla) niemen siirrolla.
+    na += anchors(sx + west_off[0], sz + west_off[1], TOWN_R + 60.0, 50.0, west_off, 300.0, edge=bridge_d)
     ar = VL.AREA
-    na += anchors((ar[0] + ar[2]) / 2, (ar[1] + ar[3]) / 2, max(ar[2] - ar[0], ar[3] - ar[1]), 60.0, town_off, 60.0,
-                  (ar[0] + 60.0, ar[1], ar[2], ar[3]))
+    na += anchors((ar[0] + ar[2]) / 2, (ar[1] + ar[3]) / 2, max(ar[2] - ar[0], ar[3] - ar[1]), 60.0, west_off, 60.0,
+                  (ar[0] + 60.0, ar[1], ar[2], ar[3]), edge=bridge_d)
+    # Joen länsipuoli niemen pohjoispuolella (järvi ja suot) niemen siirrolla, kuten ennen kaistaa.
+    na += anchors(0.0, ar[1] - 450.0, 900.0, 60.0, west_off, 60.0, (-700.0, ar[1] - 900.0, ar[2], ar[1]), edge=bridge_d)
+    # Niemen alueen keskustan puoli (radan eteläpuolen asuinalue) keskustan siirrolla.
+    dx_, dz_ = town_off[0] - west_off[0], town_off[1] - west_off[1]
+    na += anchors((ar[0] + ar[2]) / 2 + dx_, (ar[1] + ar[3]) / 2 + dz_, max(ar[2] - ar[0], ar[3] - ar[1]), 60.0, town_off,
+                  60.0, (ar[0] + 60.0 + dx_, ar[1] + dz_, ar[2] + dx_, ar[3] + dz_), edge=gate_d)
     warp = VW.Warp(fd, **frames)
     print("kehyksiä %d (ankkureita %d)" % (len(frames["g"]), na))
     rc = VW.RealCodes(feats, fd.x0, fd.z0, fd.x0 + (fd.nx - 1) * fd.step, fd.z0 + (fd.nz - 1) * fd.step, oulu, RIVER_HALF)
@@ -635,6 +798,17 @@ def main():
     rails = [r for r in side_roads if r["kind"] == "rail"]
     CODE[VW.game_raster([], x0, z0, nx, nz, CELL, [r["pts"] for r in rails], 5.6)] = RAIL
     VW.flatten_water(CODE, GROUND, water_level, CELL)
+    # Oulujärvi etelässä maaksi (lake_edge): ranta suota, sitten metsää, maa nousee loivasti rannasta.
+    lab, _nl = ndimage.label(CODE == WATER, structure=np.ones((3, 3)))
+    sizes = np.bincount(lab.ravel())
+    sizes[0] = 0
+    LAKE_CUT = (lab == sizes.argmax()) & (GZ > lake_edge(GX))
+    if LAKE_CUT.any():
+        CODE[LAKE_CUT] = FOREST
+        dist = ndimage.distance_transform_edt(CODE != WATER) * CELL  # matka uudelta rannalta
+        GROUND[LAKE_CUT] = water_level + 0.4 + np.minimum(dist[LAKE_CUT] * 0.03, 5.0)
+        CODE[LAKE_CUT & (dist < 40.0)] = BOG
+    print("Oulujärvi etelästä maaksi %d ruutua" % LAKE_CUT.sum())
     if os.environ.get("VAALA_DEBUG"):
         # Vianetsintä: maankäyttö ja 1:1-osuus (punainen = tiivistetyn tien kehykset) kuvaksi.
         from PIL import Image
@@ -751,6 +925,11 @@ def main():
     FX, FZ = np.meshgrid(fx0 + np.arange(fnx) * FAR_CELL, fz0 + np.arange(fnz) * FAR_CELL)
     _frx, _frz, FG, _fone, fcode = warp.inv(FX, FZ, rc)
     main_lake = (fcode == WATER) & (np.abs(FG - water_level) < 2.5)
+    far_cut = main_lake & (FZ.ravel() > lake_edge(FX.ravel()))
+    fcode = np.where(far_cut, FOREST, fcode)
+    far_d = (ndimage.distance_transform_edt(far_cut.reshape(fnz, fnx)) * FAR_CELL).ravel()
+    FG = np.where(far_cut, water_level + 0.4 + np.minimum(far_d * 0.03, 5.0), FG)
+    main_lake &= ~far_cut
     FG = np.where(main_lake, water_level - 2.0, np.where(fcode == WATER, FG - 1.0, FG))
     far = [round(float(v), 2) for v in FG]
     for j in range(fnz):
@@ -785,7 +964,7 @@ def main():
     road_mask = VW.game_raster([], x0, z0, nx, nz, CELL, [[smp["g"] for smp in samples]], CELL)
     keep_small = ndimage.distance_transform_edt(~road_mask) * CELL < 250.0
     re_, rn_ = T.frame_to_tm(RX.ravel(), RZ.ravel())
-    inside = laser.chm_at(re_, rn_, laser.covered)
+    inside = laser.chm_at(re_, rn_, laser.covered) & ~LAKE_CUT.ravel()  # järvestä tullut maa: luonnollinen metsä
     tx, tz, thh, tss = VW.sample_trees(rng, tfx, tfz, np.asarray(th, np.float32), np.asarray(tsp, np.uint8), inside,
                                        GX.ravel(), GZ.ravel(), RX.ravel(), RZ.ravel(), ok.ravel(), keep_small.ravel())
     # Kaukomaaston metsä (tarkan alueen ulkopuolella) harvana: muutama puu kaukoruutua kohti.
@@ -794,7 +973,7 @@ def main():
     fpx = FX.ravel()[fsel] + rng.uniform(-FAR_CELL / 2, FAR_CELL / 2, len(fsel))
     fpz = FZ.ravel()[fsel] + rng.uniform(-FAR_CELL / 2, FAR_CELL / 2, len(fsel))
     _frx, _frz, fgy, _fone, fpc = warp.inv(fpx, fpz, rc)
-    fok = fpc == FOREST
+    fok = (fpc == FOREST) | ((fpc == WATER) & (fpz > lake_edge(fpx)))
     fh = np.clip(rng.normal(17.0, 4.0, len(fsel)), 8.0, 26.0)
     fs = rng.choice([0, 1, 2], len(fsel), p=[0.6, 0.25, 0.15])
     ty = np.array([grid_h((float(a), float(b))) for a, b in zip(tx, tz)], np.float32)
@@ -823,7 +1002,8 @@ def main():
     out = {
         "source": d["source"] + " Leivottu: tools/vaala_bake.py (tiivistys K=%.0f)." % K,
         "k": K, "s_a": round(S_A, 1), "s_b": round(S_B, 1), "real_total": round(total, 1), "step": STEP,
-        "town_off": [round(town_off[0], 2), round(town_off[1], 2)],
+        "town_off": [round(town_off[0], 2), round(town_off[1], 2)], "lava_off": [round(west_off[0], 2), round(west_off[1], 2)],
+        "s_t": round(S_T, 1), "town_k": TOWN_K,
         "siitari": [round(sx + town_off[0], 2), round(sz + town_off[1], 2)], "water_level": round(water_level, 2),
         "names": sorted({smp["name"] for smp in samples}),
         "road": [[round(smp["g"][0], 2), round(smp["y"], 2), round(smp["g"][1], 2), round(smp["s"], 1),

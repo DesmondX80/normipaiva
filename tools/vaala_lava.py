@@ -125,7 +125,7 @@ class Dem:
 def apply(cache=None):
     d = json.load(open(SRC))
     tie = json.load(open(TIE))
-    off = tie["town_off"]
+    off = tie.get("lava_off", tie["town_off"])
     wl = tie["water_level"]
     if "lava_dem" not in d:
         if not cache:
@@ -214,6 +214,24 @@ def apply(cache=None):
                    "fence": [[round(x, 2), round(z, 2)] for x, z in fence],
                    "gate": [round(gate[0], 2), round(gate[1], 2)] if gate else None, "gate_w": GATE_W}
     tie["buildings"] = [b for b in tie["buildings"] if not any(in_plot(q, 2.0) for q in b["pts"])]
+    # Muut tiet ja polut aidan sisällä (lava on siirretty niiden päälle) pois: tie loppuu aidan taakse.
+    near_fence = lambda p: p[0] > corner[0] - 4.0 and p[1] > corner[1] - 4.0  # noqa: E731
+    cut_roads = []
+    for r in tie["side_roads"]:
+        if r.get("name") == ROAD_NAME or r["kind"] != "road":
+            cut_roads.append(r)
+            continue
+        cur = []
+        for q in r["pts"]:
+            if near_fence(q):
+                if len(cur) > 1:
+                    cut_roads.append(dict(r, pts=cur))
+                cur = []
+            else:
+                cur.append(q)
+        if len(cur) > 1:
+            cut_roads.append(dict(r, pts=cur))
+    tie["side_roads"] = cut_roads
     lane = road + [door]
     # Tien pinta: korkeusmalli tien linjalla pehmennettynä (±10 m); maasto tasoitetaan sen alle, jottei tie jää
     # kumpareiden alle.

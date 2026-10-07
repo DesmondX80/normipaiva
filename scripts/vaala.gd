@@ -1,9 +1,10 @@
 extends Node3D
 ## Mopomatkan maailma Paapelista Vaalan keskustaan Hotelli-Ravintola Siitarille (erillinen tasku kuten mökki).
 ## Data: tools/vaala_reitti.py (OSM, OSRM-reitti, EU-DEM) -> tools/vaala_bake.py -> assets/vaala/tie.json ja
-## maasto.bin. Todellinen 11,6 km on tiivistetty n. 3,4 km:iin: mökin pää ja Vaalan keskusta ovat 1:1, välillä
-## jokainen tien pala on lyhennetty samassa suhteessa (suunnat ja risteykset säilyvät). Tien näytteissä on
-## todellinen matka, joten mittari näyttää oikeat kilometrit.
+## maasto.bin. Todellinen 11,6 km on tiivistetty n. 2 km:iin: mökin pää, alikulku lavan niemineen ja Vaalan keskusta
+## ovat 1:1, välillä jokainen tien pala on lyhennetty samassa suhteessa (suunnat ja risteykset säilyvät); Oulujoen
+## ylitys keskustaan on lievemmin tiivistetty kaista. Tien näytteissä on todellinen matka, joten mittari näyttää
+## oikeat kilometrit.
 ## Paikallinen kehys = leivonnan kehys: origo mökin osoitepisteessä (Kaisuantie 62), x itään, z etelään, y mpy.
 
 const B := preload("res://scripts/build.gd")
@@ -857,11 +858,7 @@ func _build_bridges() -> void:
 			for s in [-1.0, 1.0]:
 				_quad(st, a + na * s * w + down, b + nb * s * w + down, b + nb * s * w, a + na * s * w)
 				_quad(st, a + na * s * w, b + nb * s * w, b + nb * s * (w - 0.5) + Vector3(0, 0.25, 0), a + na * s * (w - 0.5) + Vector3(0, 0.25, 0))
-			# Tie jatkuu kannella.
 			var mid := (a + b) / 2.0
-			var seg := B.box_shape(Vector3(w * 2.0, 0.5, a.distance_to(b) + 0.2), Vector3.ZERO)
-			seg.transform = Transform3D(Basis.looking_at(b - a, Vector3.UP), mid + Vector3(0, -0.2, 0))
-			body.add_child(seg)
 			if i % 2 == 0:
 				for s in [-1.0, 1.0]:
 					var rp: Vector3 = mid + na * s * (w - 0.25)
@@ -876,12 +873,46 @@ func _build_bridges() -> void:
 			if (i - int(br[0])) % 12 == 6:
 				B.mesh(self, B.boxm(Vector3(w * 1.6, mid.y - water_level + 2.0, 1.2)), Vector3(mid.x, (mid.y + water_level) / 2.0 - 1.5, mid.z),
 					conc, Vector3(0, rad_to_deg(atan2(-road_dir(i).x, -road_dir(i).z)), 0))
+		_bridge_deck(body, int(br[0]), int(br[1]))
 		st.generate_normals()
 		var mi := MeshInstance3D.new()
 		mi.mesh = st.commit()
 		mi.material_override = B.mat(conc)
 		mi.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
 		add_child(mi)
+
+
+## Sillan kannen törmäys yhtenä ohuena pintana (tien pinta + 5 cm). Päissä pinta jatkuu 6 m luiskana 0,5 m maan
+## alle: laatikon etureuna jäi tien päähän 10-20 cm kynnykseksi, johon mopo pysähtyi kuin seinään.
+const DECK_RAMP := 6.0
+const DECK_DROP := 0.5
+
+
+func _bridge_deck(body: StaticBody3D, i0: int, i1: int) -> void:
+	var rows: Array = []  # [keskipiste, sivuvektori * puolileveys]
+	var first := road_pos(i0)
+	var d0 := road_dir(i0)
+	var last := road_pos(i1)
+	var d1 := road_dir(i1)
+	for k in [DECK_RAMP, DECK_RAMP / 2.0]:
+		rows.append([first - d0 * k + Vector3(0, 0.05 - DECK_DROP * k / DECK_RAMP, 0), d0.cross(Vector3.UP) * (float(road[i0][4]) + 1.6)])
+	for i in range(i0, i1 + 1):
+		rows.append([road_pos(i) + Vector3(0, 0.05, 0), road_dir(i).cross(Vector3.UP) * (float(road[i][4]) + 1.6)])
+	for k in [DECK_RAMP / 2.0, DECK_RAMP]:
+		rows.append([last + d1 * k + Vector3(0, 0.05 - DECK_DROP * k / DECK_RAMP, 0), d1.cross(Vector3.UP) * (float(road[i1][4]) + 1.6)])
+	var faces := PackedVector3Array()
+	for r in rows.size() - 1:
+		var a: Vector3 = rows[r][0]
+		var b: Vector3 = rows[r + 1][0]
+		var na: Vector3 = rows[r][1]
+		var nb: Vector3 = rows[r + 1][1]
+		faces.append_array([a - na, b - nb, b + nb, a - na, b + nb, a + na])
+	var shape := ConcavePolygonShape3D.new()
+	shape.set_faces(faces)
+	shape.backface_collision = true
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	body.add_child(cs)
 
 
 ## Sivutiet, pihatiet, kevyen liikenteen väylät ja rautatie (OSM, tien mukana siirrettyinä).

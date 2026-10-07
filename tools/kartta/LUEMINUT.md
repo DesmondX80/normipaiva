@@ -109,7 +109,11 @@ Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kart
 - **Vaala**: `venv/bin/python tools/vaala_bake.py --cache <välimuisti>` (tarkka aineisto `tools/kartta/vaala_tarkka.py`)
   → `assets/vaala/tie.json`, `maasto.bin` ja `puut.bin`. Puut siirretään tien suhteen pelin kehykseen kuten muutkin
   kohteet, tiivistetyllä välillä harvennettuna tiivistyksen suhteessa (metsän tiheys säilyy). Kaukomaaston metsä
-  (650 m tiestä) on laserin valtapuita. Lopuksi `tools/vaala_lava.py` tekee Oulujärven lavan niemen 1:1-maastoksi:
+  (650 m tiestä) on laserin valtapuita. Alikululta keskustaan Oulujoen ylitys ja itärannan alku on lineaarinen kaista
+  (`TOWN_K`, `TOWN_GATE`): joki kapenee ja keskusta on lähempänä alikulkua; lavan niemi ja keskusta ovat kumpikin 1:1
+  omalla siirrollaan (`lava_off`, `town_off`). Oulujärvi loppuu etelässä `LAKE_Z`:aan. Sivuteiden päälle jääneet talot
+  ja sillan päihin liittyvät sivutiet karsitaan. Ajettavuus: `godot --path . -- --shot=<kansio>/t.png
+  --scene=mokkivaalatiet` (mopon kapseli kaikkia teitä pitkin) ja `--scene=mokkimopo_koko` (koko reitti ajaen). Lopuksi `tools/vaala_lava.py` tekee Oulujärven lavan niemen 1:1-maastoksi:
   Pahalahdentien risteys on 1:1-alueella, mutta niemen kaukomaasto tuli tiivistetyn tien suhteen (muualta), joten
   niemellä ei ollut vettä. Skripti tekee alueelle tarkan maaston korkeusmallista (vesi = korkeusmallin tasoitettu
   vedenpinta, Oulujoki ja Oulujärvi samassa 122,74 m:ssä), painaa järven kaukomaastoon (vaala.gd piirtää vedet),
