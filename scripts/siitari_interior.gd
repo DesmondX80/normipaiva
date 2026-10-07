@@ -72,6 +72,7 @@ func _ready() -> void:
 	_build_people()
 	walker = Walker.new()
 	walker.position = spots.ovi[0]
+	walker.bounds = [Rect2(-HALF, HALF * 2.0)]  # oviaukosta ei ulos
 	add_child(walker)
 
 

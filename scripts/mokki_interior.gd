@@ -120,6 +120,7 @@ func _ready() -> void:
 	_bubble = B.bubble(self, _santtu.position + Vector3(0, 1.9, 0), Color.WHITE, 0.7)
 	walker = Walker.new()
 	walker.position = SPOTS.ovi[0]
+	walker.bounds = [Rect2(-HALF.x, BACK, HALF.x * 2.0, HALF.y - BACK)]  # ovien aukoista ei ulos
 	add_child(walker)
 
 
