@@ -7799,6 +7799,9 @@ var _hint_shown := ""
 
 ## Näppäinohjerivin teksti: syö, reppu ja kartta, pyörällä lisäksi jarru ja kello. Näppäimet asetuksista.
 func _help_text() -> String:
+	if cutscene.busy or not state in ["to_shop", "to_home", "in_shop", "in_home", "in_garage", "in_mokki", "in_raahe",
+			"in_siitari"]:
+		return ""  # minipeleillä ja välianimaatioilla omat ohjeensa
 	var k := func(action: String, what: String) -> String:
 		return "[%s] %s" % [Settings.action_key(action), what]
 	var parts: Array[String] = []

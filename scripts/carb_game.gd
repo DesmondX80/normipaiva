@@ -15,6 +15,7 @@ var drunk := 0.0
 
 var _root: Control
 var _info: Label
+var _keys: Control
 var _mix := 0.0  # ruuvien asento -1..1
 var _idle := 0.0
 var _mix_ok := 0.0
@@ -51,6 +52,10 @@ func _ready() -> void:
 	_info.offset_top = 40
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_info)
+	_keys = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
+	_keys.compact = true
+	_keys.centered = true
+	add_child(_keys)
 	# Vinkit (comment) näkyvät paneelin alla.
 	var tip := Label.new()
 	tip.add_theme_font_size_override("font_size", 22)
@@ -111,20 +116,22 @@ func _process(delta: float) -> void:
 	if _tip_t <= 0.0:
 		_tip_t = 5.0
 		if _stalled:
-			comment.emit("Sammui! Tyhjäkäyntiä ylös (W).")
+			comment.emit("Sammui! Tyhjäkäyntiä ylös (%s)." % Settings.action_key("forward"))
 		elif me > 0.25:
-			comment.emit("Musta savu – liian rikas. Seosruuvia vasemmalle (A).")
+			comment.emit("Musta savu – liian rikas. Seosruuvia vasemmalle (%s)." % Settings.action_key("left"))
 		elif me < -0.25:
-			comment.emit("Paukkuu – laiha seos. Seosruuvia oikealle (D).")
+			comment.emit("Paukkuu – laiha seos. Seosruuvia oikealle (%s)." % Settings.action_key("right"))
 		elif _rpm > GREEN.y:
-			comment.emit("Ulvoo. Tyhjäkäyntiä alas (S).")
+			comment.emit("Ulvoo. Tyhjäkäyntiä alas (%s)." % Settings.action_key("back"))
 	if _ok_t >= HOLD:
 		_finish(true)
 		return
 	if _t >= TIME:
 		_finish(false)
 		return
-	_info.text = "Karburaattori · A/D seosruuvi · W/S tyhjäkäynti · %d s · F lopettaa" % ceili(TIME - _t)
+	_info.text = "Karburaattori · %d s" % ceili(TIME - _t)
+	_keys.set_text("%s seosruuvi   %s tyhjäkäynti   %s lopeta" % [Settings.pair("left", "right"),
+		Settings.pair("forward", "back"), Settings.cap("mount")])
 
 
 func _finish(success: bool) -> void:
@@ -153,8 +160,8 @@ func _draw_root() -> void:
 	for k in 4:  # kiinnityspultit
 		var a := k * TAU / 4.0 + PI / 4.0
 		_root.draw_circle(body + Vector2(cos(a), sin(a)) * 125.0, 9.0, Color(0.45, 0.45, 0.47))
-	_screw(body + Vector2(-95, 105), _mix, "SEOS  A / D", Color(0.85, 0.7, 0.3))
-	_screw(body + Vector2(95, 105), _idle, "TYHJÄKÄYNTI  W / S", Color(0.75, 0.75, 0.8))
+	_screw(body + Vector2(-95, 105), _mix, "SEOS  %s / %s" % [Settings.action_key("left"), Settings.action_key("right")], Color(0.85, 0.7, 0.3))
+	_screw(body + Vector2(95, 105), _idle, "TYHJÄKÄYNTI  %s / %s" % [Settings.action_key("forward"), Settings.action_key("back")], Color(0.75, 0.75, 0.8))
 	# Pakoputken savu.
 	var ex := c + Vector2(-140, -200)
 	for s in _smoke:

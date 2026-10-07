@@ -32,6 +32,7 @@ var flush := true  # huussissa ei ole vesivessaa (ei tukkeudu)
 
 var _root: Control
 var _info: Label
+var _keys: Control
 var _say: Label  # kommentit pelin aikana (HUD on piilossa)
 var _say_t := 0.0
 var _done := false
@@ -73,6 +74,10 @@ func _ready() -> void:
 	_info.offset_top = 40
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_info)
+	_keys = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
+	_keys.compact = true
+	_keys.centered = true
+	add_child(_keys)
 	_say = Label.new()
 	_say.add_theme_font_size_override("font_size", 30)
 	_say.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -146,7 +151,9 @@ func _pee(delta: float) -> void:
 			_miss_cd = 0.12
 			if randf() < 0.25:
 				comment.emit(LINES.pee_miss.pick_random())
-	_info.text = "Ykkönen · pidä suihku pöntössä (WASD / nuolet tai hiiri) · %.0f s · F lopettaa" % maxf(0.0, PEE_TIME - _t)
+	_info.text = "Ykkönen · pidä suihku pöntössä · %.0f s" % maxf(0.0, PEE_TIME - _t)
+	_keys.set_text("[%s/%s/%s/%s] suuntaa suihkua (tai hiiri)   %s lopeta" % [Settings.action_key("forward"),
+		Settings.action_key("left"), Settings.action_key("back"), Settings.action_key("right"), Settings.cap("mount")])
 	if _t >= PEE_TIME:
 		_finish()
 
@@ -158,7 +165,9 @@ func _poo(delta: float) -> void:
 		if _needle > 1.0 or _needle < 0.0:
 			_needle_dir = -_needle_dir
 			_needle = clampf(_needle, 0.0, 1.0)
-		_info.text = "Kakkonen · ponnista vihreällä (E / välilyönti) · %d / %d · F lopettaa" % [_pushes, PUSHES]
+		_info.text = "Kakkonen · %d / %d" % [_pushes, PUSHES]
+		_keys.set_text("[%s / %s] ponnista vihreällä   %s lopeta" % [Settings.action_key("interact"),
+			Settings.action_key("brake"), Settings.cap("mount")])
 		if not press:
 			return
 		if _needle >= RED:
@@ -185,7 +194,8 @@ func _poo(delta: float) -> void:
 			Sfx.play("grunt", -12.0, 1.2)
 		_flash = 1.0
 		return
-	_info.text = "Paperia: %d arkkia · E repäisee arkin · välilyönti valmis" % _sheets
+	_info.text = "Paperia: %d arkkia" % _sheets
+	_keys.set_text("%s repäise arkki   %s valmis" % [Settings.cap("interact"), Settings.cap("brake")])
 	if Input.is_action_just_pressed("interact"):
 		_sheets += 1
 		Sfx.play("cloth", -12.0, 1.4)

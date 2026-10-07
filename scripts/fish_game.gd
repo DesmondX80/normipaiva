@@ -60,7 +60,7 @@ var _line: MeshInstance3D
 var _line_mesh: ImmediateMesh
 var _cam: Camera3D
 var _ui: CanvasLayer
-var _hint: Label
+var _hint: Control  # näppäinohjeet hattuina (hint_bar.gd)
 var _msg: Label
 var _bag_label: Label
 var _bar_bg: ColorRect
@@ -109,7 +109,8 @@ func _ready() -> void:
 	_cam.current = true
 	_spawn_shoals()
 	_build_ui()
-	_say("Soutuvene Likasella. W/S airot, A/D käännös. Soutele kalaparven kohdalle (renkaat pinnalla).", 4.5)
+	_say("Soutuvene Likasella. %s/%s airot, %s/%s käännös. Soutele kalaparven kohdalle (renkaat pinnalla)." % [
+		Settings.action_key("forward"), Settings.action_key("back"), Settings.action_key("left"), Settings.action_key("right")], 4.5)
 
 
 ## Puinen soutuvene: pohja, laidat, keulan ja perän kaventuvat laudat, tuhdot, hankaimet ja airot.
@@ -192,7 +193,10 @@ func _build_ui() -> void:
 	_ui = CanvasLayer.new()
 	_ui.layer = 15
 	add_child(_ui)
-	_hint = _mk_label(Vector2(0, 640), 28, HORIZONTAL_ALIGNMENT_CENTER)
+	_hint = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
+	_hint.compact = true
+	_hint.centered = true
+	_ui.add_child(_hint)
 	_msg = _mk_label(Vector2(0, 90), 32, HORIZONTAL_ALIGNMENT_CENTER)
 	_bag_label = _mk_label(Vector2(20, 14), 24, HORIZONTAL_ALIGNMENT_LEFT)
 	_dist_label = _mk_label(Vector2(0, 470), 24, HORIZONTAL_ALIGNMENT_CENTER)
@@ -259,7 +263,8 @@ func _process(delta: float) -> void:
 	_row(delta)
 	match _state:
 		"row":
-			_hint.text = "W/S soutu · A/D käännös · pidä E: heitä virveli · F: takaisin laiturille"
+			_hint.set_text("%s soutu   %s käännös   %s heitä virveli (pidä pohjassa)   %s takaisin laiturille" % [
+				Settings.pair("forward", "back"), Settings.pair("left", "right"), Settings.cap("interact"), Settings.cap("mount")])
 			if Input.is_action_pressed("interact") and absf(_speed) < 0.6:
 				_state = "charge"
 				_charge = 0.0
@@ -269,11 +274,11 @@ func _process(delta: float) -> void:
 		"charge":
 			_charge = minf(_charge + delta * 0.8, 1.0)
 			_power.size.x = 500.0 * _charge
-			_hint.text = "Päästä E: heitto (%d m)" % roundi(lerpf(CAST_MIN, CAST_MAX, _charge))
+			_hint.set_text("%s päästä irti: heitto (%d m)" % [Settings.cap("interact"), roundi(lerpf(CAST_MIN, CAST_MAX, _charge))])
 			if not Input.is_action_pressed("interact"):
 				_cast()
 		"wait":
-			_hint.text = "Odota nykäisyä... (soutaminen kelaa siiman sisään)"
+			_hint.set_text("Odota nykäisyä... (soutaminen kelaa siiman sisään)")
 			_bobber.position = _bob + Vector3(0, sin(_t * 2.0) * 0.02, 0)
 			if absf(_speed) > 0.8:
 				_reel_in("Kelasit siiman sisään.")
@@ -281,12 +286,12 @@ func _process(delta: float) -> void:
 				_state = "bite"
 				_bite_at = _t + lerpf(0.9, 0.6, drunk)
 				Sfx.play("water", -2.0, 1.6)
-				_say("NYKÄISY! E nyt!", 1.0)
+				_say("NYKÄISY! %s nyt!" % Settings.action_key("interact"), 1.0)
 			elif fmod(_t, 3.0) < delta and randf() < 0.35:
 				_bobber.position.y -= 0.05  # pikku nypläys
 		"bite":
 			_bobber.position = _bob + Vector3(0, -0.12 + sin(_t * 30.0) * 0.04, 0)
-			_hint.text = "E: tartu!"
+			_hint.set_text("%s tartu!" % Settings.cap("interact"))
 			if Input.is_action_just_pressed("interact"):
 				_hook()
 			elif _t > _bite_at:
@@ -299,7 +304,7 @@ func _process(delta: float) -> void:
 				finished.emit(catch)
 				queue_free()
 				return
-	if _state in ["row", "wait"] and Input.is_key_pressed(KEY_F):
+	if _state in ["row", "wait"] and Input.is_action_just_pressed("mount"):
 		_state = "end"
 		_end_t = 1.2
 		_rod.visible = false
@@ -422,7 +427,7 @@ func _hook() -> void:
 	_surge_t = 0.8
 	_show_bar(true)
 	Sfx.play("alert", -6.0, 1.5)
-	_say("Tärppi! Pidä E: kelaa. Kireys vihreällä!", 2.0)
+	_say("Tärppi! Pidä %s: kelaa. Kireys vihreällä!" % Settings.action_key("interact"), 2.0)
 
 
 ## Väsytys: E kelaa (kireys nousee, kala lähestyy vihreällä), irti päästäminen löysää. Kala rimpuilee
@@ -453,7 +458,7 @@ func _reel(delta: float) -> void:
 	_bobber.position = _bob + Vector3(sin(_t * 9.0) * 0.1 * p, -0.05, cos(_t * 11.0) * 0.1 * p)
 	_needle.position = Vector2(390 + 500 * clampf(_tension, 0.0, 1.0) - 3, 504)
 	_dist_label.text = "%.1f m" % maxf(_dist, 0.0)
-	_hint.text = "Pidä E: kelaa · päästä: löysää · pidä neula vihreällä"
+	_hint.set_text("%s kelaa (pidä pohjassa, päästä: löysää) – pidä neula vihreällä" % Settings.cap("interact"))
 	if _tension >= 1.0:
 		Sfx.play("rattle", -4.0, 1.4)
 		_end_reel("PAM! Siima katkesi. " + ("Se oli iso..." if p > 0.7 else "Liian kireällä."))

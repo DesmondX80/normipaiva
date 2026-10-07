@@ -28,6 +28,7 @@ var _last_dir := 0
 var _wobble := 0.0
 var _drop_t := -1.0
 var _info: Label
+var _keys: Control
 var _done := false
 var _spots: Array = []
 
@@ -48,6 +49,10 @@ func _ready() -> void:
 	_info.offset_top = 40
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_info)
+	_keys = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
+	_keys.compact = true
+	_keys.centered = true
+	add_child(_keys)
 	_new_dish()
 	comment.emit(LINES.start.pick_random())
 
@@ -90,8 +95,9 @@ func _process(delta: float) -> void:
 		_scrub(1)
 	if Input.is_action_just_pressed("jump") or Input.is_action_just_pressed("interact"):
 		_lift()
-	_info.text = "%s · jäljellä %d · hankaa A/D tai hiirellä · välilyönti / E kuivauskaappiin · F lopettaa" % [
-		_dish()[0].capitalize(), dishes_left]
+	_info.text = "%s · jäljellä %d" % [_dish()[0].capitalize(), dishes_left]
+	_keys.set_text("%s hankaa (tai hiiri)   [%s / %s] kuivauskaappiin   %s lopeta" % [Settings.pair("left", "right"),
+		Settings.action_key("jump"), Settings.action_key("interact"), Settings.cap("mount")])
 
 
 func _scrub(dir: int) -> void:

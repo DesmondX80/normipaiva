@@ -33,6 +33,7 @@ var thumbs := 0
 
 var _root: Control
 var _info: Label
+var _keys: Control
 var _tip: Label
 var _done := false
 var _t := 0.0
@@ -73,6 +74,10 @@ func _ready() -> void:
 	_root.gui_input.connect(_gui)
 	add_child(_root)
 	_info = _label(24, 40.0, false)
+	_keys = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
+	_keys.compact = true
+	_keys.centered = true
+	add_child(_keys)
 	_tip = _label(22, -90.0, true)
 	_tip.add_theme_color_override("font_color", Color(1.0, 0.9, 0.55))
 	comment.connect(func(t: String) -> void: _tip.text = t)
@@ -146,7 +151,8 @@ func _process(delta: float) -> void:
 			_terva_tick(delta)
 		"luukku":
 			_luukku_tick(delta)
-	_info.text = _status() + "   ·   F lopettaa"
+	_info.text = _status()
+	_keys.set_text("%s lopeta" % Settings.cap("mount"))
 
 
 func _status() -> String:
@@ -164,9 +170,10 @@ func _status() -> String:
 			return "Tervaus: %d %% · valumia %d · vasen nappi pohjassa tervaa, oikea pyyhkii valuman" % [roundi(_coverage() * 100.0), _drips.size()]
 		"luukku":
 			if _phase == "luukku":
-				return "Savuluukku jumissa: A / D vuorotellen (%d / 14)" % _wiggle
+				return "Savuluukku jumissa: %s / %s vuorotellen (%d / 14)" % [Settings.action_key("left"), Settings.action_key("right"), _wiggle]
 			if _phase == "ovi":
-				return "Ovi roikkuu: pidä W pohjassa nostaaksesi, E kiinnittää kun vihreällä"
+				return "Ovi roikkuu: pidä %s pohjassa nostaaksesi, %s kiinnittää kun vihreällä" % [Settings.action_key("forward"),
+					Settings.action_key("interact")]
 			return "Saranaruuvi %d / 3: pyöritä hiirtä myötäpäivään" % (_screw_i + 1)
 	return ""
 
