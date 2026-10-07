@@ -16,6 +16,7 @@ const INK := Color(0.22, 0.16, 0.1)
 const PAPER := Color(0.93, 0.88, 0.74)
 const VAALA_MAASTO := "res://assets/vaala/maasto.bin"
 const VAALA_TIE := "res://assets/vaala/tie.json"
+const GASTHAUS_ID := 534430535  # vaala.gd
 ## Mökin oma kartta-aineisto (mokki.gd) piirretään tähän asti osoitepisteestä: sen jälkeen mopomatkan tie on
 ## tiivistetty (Neittäväntie ja Vuolijoentie), eikä 1:1-aineisto enää osu kohdalleen.
 const MOKKI_DETAIL_R := 480.0
@@ -397,10 +398,7 @@ func _draw() -> void:
 	_scale_bar(side + Vector2(10, 180), m, _vzoom)
 	var end_y := 0.0
 	if _vaala:
-		if not _vd.is_empty():
-			draw_string(font, side + Vector2(10, 222), ("Punainen katkoviiva: %.1f km tietä tiivistetty" % ((_vd.s_b - _vd.s_a) / 1000.0)).replace(".", ","),
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.7, 0.12, 0.08))
-		end_y = _legend_vaala(side + Vector2(10, 250))
+		end_y = _legend_vaala(side + Vector2(10, 228))
 	else:
 		end_y = _legend(side + Vector2(10, 250))
 	# Ohjeet heti selitteen alle (ei päällekkäin), näppäimet asetuksista.
@@ -498,14 +496,22 @@ func _legend_vaala(p: Vector2) -> float:
 	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 	var items := [
 		["home", "Mökki Paapeli"], ["siitari", "Hotelli-Ravintola Siitari"], ["shop", "K-Market Tervaportti"],
+		["smarket", "S-Market"], ["zabuki", "Zabuki (olut, burgerit)"], ["gasthaus", "Gasthaus (yö 10 €)"],
 		["atm", "Pankkiautomaatti"], ["lava", "Oulujärven lava"], ["church", "Kirkko"], ["station", "Rautatieasema"],
+		["beach", "Salmisen uimaranta"], ["statue", "Ranta-Rosvo"], ["laavu", "Keskimmäisen laavu"],
+		["barrel", "Tynnyrisauna"], ["dock", "Laituri ja soutuvene"], ["you", "Olet tässä"],
 		["road", "Maantie"], ["gravel", "Soratie"], ["rail", "Rautatie"], ["field", "Pelto"], ["bog", "Suo"],
-		["water", "Vesi"], ["building", "Rakennus"], ["you", "Olet tässä"],
+		["water", "Vesi"], ["building", "Rakennus"],
 	]
-	var y := p.y
+	# Kohteet allekkain, viivat ja alueet kahteen palstaan.
+	var first_area := 16
+	var last_y := p.y
 	for i in items.size():
-		y = p.y + 17 + i * 18.5
-		var sym := Vector2(p.x + 14, y)
+		var row := i if i < first_area else first_area + (i - first_area) / 2
+		var col := 0.0 if i < first_area else 120.0 * ((i - first_area) % 2)
+		var y := p.y + 17 + row * 14.0
+		last_y = maxf(last_y, y)
+		var sym := Vector2(p.x + 14 + col, y)
 		match items[i][0]:
 			"road":
 				draw_line(sym - Vector2(12, 0), sym + Vector2(12, 0), Color(0.45, 0.25, 0.1), 6.0)
@@ -527,8 +533,8 @@ func _legend_vaala(p: Vector2) -> float:
 				_you_icon(sym, 0.0)
 			_:
 				_poi_icon_on(self, sym, items[i][0])
-		draw_string(font, Vector2(p.x + 36, y + 5), items[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK)
-	return y
+		draw_string(font, Vector2(sym.x + 22, y + 5), items[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+	return last_y
 
 
 # --- Karttasisältö -----------------------------------------------------------
@@ -769,7 +775,8 @@ func _vaala_load() -> void:
 	var hts := f.get_buffer(nx * nz * 4).to_float32_array()
 	var codes := f.get_buffer(nx * nz)
 	_vaala_rect = Rect2(x0 - cell / 2.0, z0 - cell / 2.0, nx * cell, nz * cell)
-	# Koodit kuten vaala.gd: metsä, pelto, suo, vesi, piha, piennar, tie, rata; 255 = tarkan alueen ulkopuoli (metsää).
+	# Koodit kuten vaala.gd: metsä, pelto, suo, vesi, piha, piennar, tie, rata. Tiivistys on leivottu saumattomaksi
+	# (tools/kartta/vaala_warp.py), joten kartta piirretään sellaisenaan ilman merkintöjä.
 	var pal := [Color(0.66, 0.76, 0.52), Color(0.93, 0.82, 0.5), Color(0.78, 0.84, 0.82), Color(0.55, 0.72, 0.86),
 		Color(0.86, 0.85, 0.7), Color(0.84, 0.8, 0.68), Color(0.84, 0.8, 0.68), Color(0.7, 0.66, 0.6)]
 	var px := PackedByteArray()
@@ -822,7 +829,7 @@ func _vaala_load() -> void:
 		_vpois.append(["Oulujärven lava", Vector2(_vd.lava.x, _vd.lava.z), "lava", true])
 	for bd in _vd.buildings:
 		var nm: String = bd.name
-		if nm == "" and bd.type != "train_station":
+		if nm == "" and bd.type != "train_station" and int(bd.id) != GASTHAUS_ID:
 			continue
 		var cen := Vector2.ZERO
 		for q in bd.pts:
@@ -830,12 +837,20 @@ func _vaala_load() -> void:
 		cen /= float(bd.pts.size())
 		if nm.contains("K-Market"):
 			_vpois.append(["K-Market Tervaportti", cen, "shop", true])
+		elif nm.contains("S-market"):
+			_vpois.append(["S-Market", cen, "smarket", false])
+		elif int(bd.id) == GASTHAUS_ID:
+			_vpois.append(["Gasthaus", cen, "gasthaus", false])
 		elif bd.type == "train_station":
 			_vpois.append([nm if nm != "" else "Rautatieasema", cen, "station", false])
 		elif bd.type == "church" or nm.ends_with("kirkko"):
 			_vpois.append([nm, cen, "church", nm.ends_with("kirkko")])
 		else:
 			_vpois.append([nm, cen, "named", false])
+	var tori := _vaala_tori()
+	if tori[0] != Vector2.INF:
+		_vpois.append(["Tori", tori[0], "label", false])
+		_vpois.append(["Zabuki", tori[1], "zabuki", false])
 	if _vd.get("underpass") != null:
 		var u: Dictionary = _vd.underpass
 		_vpois.append(["Radan alikulku", Vector2(u.at[0], u.at[1]), "label", false])
@@ -846,6 +861,40 @@ func _vaala_load() -> void:
 		_vpois.append(["Oulujoen silta", Vector2((a[0] + b[0]) / 2.0, (a[2] + b[2]) / 2.0), "label", false])
 
 
+## Vaalan tori ja Zabuki kuten vaala.gd _tori_prep: [torin keskipiste, Zabukin paikka] (INF, jos toria ei ole).
+func _vaala_tori() -> Array:
+	var pts := PackedVector2Array()
+	for r in _vd.side_roads:
+		if r.name == "Vaalan tori":
+			for q in r.pts:
+				pts.append(Vector2(q[0], q[1]))
+	if pts.size() < 3:
+		return [Vector2.INF, Vector2.INF]
+	if pts[0].distance_to(pts[pts.size() - 1]) < 0.01:
+		pts.remove_at(pts.size() - 1)
+	var c := Vector2.ZERO
+	for q in pts:
+		c += q
+	c /= pts.size()
+	var kz = _vd.get("keskusta", {}).get("zabuki")
+	if kz != null:
+		return [c, Vector2(kz.c[0], kz.c[1])]
+	if mopo_trip != null and mopo_trip.vaala.door_pos("zabuki") != Vector3.ZERO:
+		var zp: Vector3 = mopo_trip.vaala.door_pos("zabuki")
+		return [c, Vector2(zp.x, zp.z)]
+	var at := Vector2.INF
+	for bd in _vd.buildings:
+		if bd.kind != "shed":
+			continue
+		var b := Vector2.ZERO
+		for q in bd.pts:
+			b += Vector2(q[0], q[1])
+		b /= bd.pts.size()
+		if b.distance_to(c) < 30.0 and b.distance_to(c) < at.distance_to(c):
+			at = b
+	return [c, at if at != Vector2.INF else c + Vector2(0, -12.0)]
+
+
 func _draw_vaala_map() -> void:
 	var v := _view
 	var font := ThemeDB.fallback_font
@@ -854,7 +903,8 @@ func _draw_vaala_map() -> void:
 	if _vtex == null:
 		return
 	v.draw_texture_rect(_vtex, Rect2(_vpx(_vrect.position), _vrect.size * _vzoom), false)
-	_draw_mokki_overlay(v)
+	if _vaala_trip():
+		_draw_mokki_overlay(v)
 	var wz := func(half: float, lo: float, hi: float) -> float: return clampf(half * 2.0 * _vzoom, lo, hi)
 
 	# Sivutiet ja rata.
@@ -917,19 +967,6 @@ func _draw_vaala_map() -> void:
 			bp[i] = _vpx(_vbld_pts[i])
 		RenderingServer.canvas_item_add_triangle_array(v.get_canvas_item(), _vbld_idx, bp, _vbld_cols)
 
-	# Tiivistetty väli: Neittäväntie ja Vuolijoentie ovat pelissä n. 1:22 (mittari näyttää oikeat kilometrit).
-	var ia := -1
-	var ib := -1
-	for i in road.size():
-		if ia < 0 and road[i][3] > _vd.s_a:
-			ia = i
-		if ib < 0 and road[i][3] >= _vd.s_b:
-			ib = i
-	if ia >= 0 and ib > ia:
-		var dash := line.slice(ia, ib + 1)
-		for i in range(0, dash.size() - 1, 2):
-			v.draw_line(dash[i], dash[i + 1], Color(0.75, 0.15, 0.1, 0.8), 1.5)
-
 	# Tienimet kylteistä (tien suuntaisesti).
 	for sg in _vd.signs:
 		if sg.kind != "street":
@@ -975,13 +1012,18 @@ func _draw_vaala_map() -> void:
 			continue
 		_poi_icon_on(v, p, kind)
 		if poi[3] or _vzoom >= 0.9:
-			var col := Color(0.7, 0.3, 0.0) if kind == "shop" else (Color(0.6, 0.08, 0.05) if kind in ["siitari", "lava", "home"] else INK)
+			var col := Color(0.7, 0.3, 0.0) if kind == "shop" else (Color(0.6, 0.08, 0.05) if kind in ["siitari", "lava", "home", "zabuki", "gasthaus"]
+				else (Color(0.1, 0.45, 0.2) if kind == "smarket" else INK))
 			var tw := font.get_string_size(poi[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 			_outlined(v, p + (Vector2(-12 - tw, 5) if p.x + 12 + tw > v.size.x - 4 else Vector2(12, 5)), poi[0], 13, col)
-	if mopo_trip != null and mopo_trip.vaala.atm_pos != Vector3.ZERO and _vzoom >= 0.9:
+	if mopo_trip != null and mopo_trip.vaala.atm_pos != Vector3.ZERO:
 		var ap: Vector3 = mopo_trip.vaala.atm_pos
 		_poi_icon_on(v, _vpx(Vector2(ap.x, ap.z)) + Vector2(0, 14), "atm")
 
+	# Mökillä mökin koko kävelyalue omasta aineistostaan kaiken päälle (mopomatkan tiivistetty kartta jää alle).
+	if not _vaala_trip():
+		_draw_mokki_overlay(v)
+	_draw_mokki_sites(v)
 	# Mopo: mökin pihassa tai Vaalassa parkissa; pelaaja.
 	var me := _vaala_me()
 	if mokki != null and not _vaala_trip() and mokki.mopo_parked != null and mokki.mopo_parked.visible:
@@ -996,12 +1038,24 @@ func _draw_vaala_map() -> void:
 func _draw_mokki_overlay(v: Control) -> void:
 	var font := ThemeDB.fallback_font
 	var data: Dictionary = Mokki.map_data()
+	# Mökillä koko kävelyalue (pohjoiseen Salmisille ja Keskimmäiselle) mökin omasta 1:1-aineistosta mopomatkan
+	# tiivistetyn kartan päälle; matkalla vain mökin lähiympäristö.
+	var whole := not _vaala_trip()
+	var area: PackedVector2Array = data.area
+	if whole:
+		var ap := PackedVector2Array()
+		for q in area:
+			ap.append(_pxl(q))
+		v.draw_colored_polygon(ap, Color(0.66, 0.76, 0.52))
+		v.draw_polyline(ap + PackedVector2Array([ap[0]]), INK.lightened(0.4), 1.0)
+	var inside := func(p: Vector2) -> bool:
+		return Geometry2D.is_point_in_polygon(p, area) if whole else Mokki.to_map2(p).length() < MOKKI_DETAIL_R
 	var near := func(poly: PackedVector2Array) -> bool:
 		var cen := Vector2.ZERO
 		for p in poly:
 			cen += p
 		cen /= maxf(1.0, poly.size())
-		return Mokki.to_map2(cen).length() < MOKKI_DETAIL_R
+		return inside.call(cen)
 	var tr := func(poly: PackedVector2Array) -> PackedVector2Array:
 		var out := PackedVector2Array()
 		for p in poly:
@@ -1028,10 +1082,10 @@ func _draw_mokki_overlay(v: Control) -> void:
 	for r in data.roads:
 		var seg := PackedVector2Array()
 		for p in r.pts:
-			if Mokki.to_map2(p).length() < MOKKI_DETAIL_R:
+			if inside.call(p):
 				seg.append(_pxl(p))
 			elif seg.size() > 1:
-				v.draw_polyline(seg, Color(0.62, 0.52, 0.36), 2.0)
+				v.draw_polyline(seg, Color(0.55, 0.42, 0.26), 2.5)
 				seg = PackedVector2Array()
 			else:
 				seg = PackedVector2Array()
@@ -1088,6 +1142,28 @@ func _draw_mokki_overlay(v: Control) -> void:
 		v.draw_string(font, hunt_p + Vector2(8, 4), "Riistapolku", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
 
 
+## Mökin kävelyalueen kohteet (mokki.gd, paikallinen kehys) aina näkyviin, myös mopomatkalla: Salmisen uimaranta,
+## Ranta-Rosvo, Keskimmäisen laavu, tynnyrisauna ja laituri soutuveneineen. Kaukaa laavu ja sauna yhtenä merkkinä.
+func _draw_mokki_sites(v: Control) -> void:
+	if mokki == null or not mokki.built:
+		return
+	var apart := _vzoom >= 0.8
+	var sites := [["Salmisen uimaranta", mokki.beach_pos, "beach", Vector2(10, 5)], ["Ranta-Rosvo", mokki.rosvo_pos, "statue", Vector2(10, 5)],
+		["Keskimmäisen laavu" if apart else "Laavu ja tynnyrisauna", mokki.laavu_fire, "laavu", Vector2(10, 5)]]
+	if apart:
+		sites.append(["Tynnyrisauna", mokki.barrel_door, "barrel", Vector2(10, 16)])
+		sites.append(["Laituri ja soutuvene", mokki.north_dock, "dock", Vector2(10, -6)])
+	for st in sites:
+		var p3: Vector3 = st[1]
+		if p3 == Vector3.ZERO:
+			continue
+		var sp := _pxl(Vector2(p3.x, p3.z))
+		if not Rect2(Vector2(-60, -20), v.size + Vector2(120, 40)).has_point(sp):
+			continue
+		_poi_icon_on(v, sp, st[2])
+		_outlined(v, sp + st[3], st[0], 12, Color(0.12, 0.25, 0.5))
+
+
 ## Teksti tien suuntaisesti (luettavaan suuntaan), keskellä pisteiden a ja b välissä, siirrettynä sivulle.
 func _road_label(v: CanvasItem, a: Vector2, b: Vector2, text: String, col: Color, fs: int, side: float) -> void:
 	var font := ThemeDB.fallback_font
@@ -1139,6 +1215,46 @@ func _poi_icon_on(ci: CanvasItem, p: Vector2, kind: String) -> void:
 		"shop":
 			ci.draw_circle(p, 8.0, Color(1.0, 0.45, 0.0))
 			ci.draw_string(font, p + Vector2(-4, 5), "K", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+		"beach":
+			# Aurinkovarjo hiekalla.
+			ci.draw_rect(Rect2(p + Vector2(-8, 3), Vector2(16, 4)), Color(0.9, 0.8, 0.5))
+			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-8, -3), p + Vector2(0, -9), p + Vector2(8, -3)]), Color(0.9, 0.2, 0.2))
+			ci.draw_line(p + Vector2(0, -3), p + Vector2(0, 4), INK, 1.5)
+		"statue":
+			ci.draw_rect(Rect2(p + Vector2(-5, 2), Vector2(10, 5)), Color(0.45, 0.43, 0.42))
+			ci.draw_circle(p + Vector2(0, -7), 2.5, Color(0.42, 0.3, 0.16))
+			ci.draw_line(p + Vector2(0, -5), p + Vector2(0, 2), Color(0.42, 0.3, 0.16), 3.0)
+		"laavu":
+			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-8, 6), p + Vector2(-2, -7), p + Vector2(8, 6)]), Color(0.45, 0.33, 0.2))
+			ci.draw_circle(p + Vector2(5, 8), 2.5, Color(0.95, 0.5, 0.1))
+		"dock":
+			ci.draw_line(p + Vector2(-8, -2), p + Vector2(4, -2), Color(0.5, 0.38, 0.24), 4.0)
+			# Soutuvene laiturin kyljessä.
+			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-6, 3), p + Vector2(6, 3), p + Vector2(4, 7), p + Vector2(-4, 7)]), Color(0.75, 0.2, 0.12))
+		"barrel":
+			# Tynnyrisauna kyljellään vaunun päällä, piippu.
+			ci.draw_rect(Rect2(p + Vector2(-9, -5), Vector2(18, 10)), Color(0.55, 0.36, 0.2))
+			for x in [-4.0, 4.0]:
+				ci.draw_line(p + Vector2(x, -5), p + Vector2(x, 5), Color(0.3, 0.2, 0.12), 1.5)
+			ci.draw_line(p + Vector2(5, -5), p + Vector2(5, -10), INK, 2.0)
+			ci.draw_circle(p + Vector2(-5, 7), 2.0, INK)
+			ci.draw_circle(p + Vector2(5, 7), 2.0, INK)
+		"sauna":
+			_house_icon_on(ci, p, Color(0.4, 0.22, 0.12))
+		"smarket":
+			ci.draw_circle(p, 8.0, Color(0.1, 0.5, 0.25))
+			ci.draw_string(font, p + Vector2(-4, 5), "S", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+		"zabuki":
+			# Oluttuoppi: keltainen lasi, vaahto ja kahva.
+			ci.draw_rect(Rect2(p + Vector2(-5, -6), Vector2(9, 13)), Color(0.95, 0.7, 0.15))
+			ci.draw_rect(Rect2(p + Vector2(-5, -8), Vector2(9, 3)), Color(1.0, 0.98, 0.9))
+			ci.draw_arc(p + Vector2(5, 0), 3.5, -PI / 2, PI / 2, 8, INK, 2.0)
+			ci.draw_rect(Rect2(p + Vector2(-5, -8), Vector2(9, 15)), INK, false, 1.0)
+		"gasthaus":
+			# Sänky: runko, tyyny ja peitto.
+			ci.draw_rect(Rect2(p + Vector2(-9, -6), Vector2(18, 12)), Color(0.2, 0.25, 0.45))
+			ci.draw_rect(Rect2(p + Vector2(-7, -1), Vector2(14, 5)), Color(0.95, 0.93, 0.85))
+			ci.draw_rect(Rect2(p + Vector2(-7, -4), Vector2(5, 3)), Color(1, 1, 1))
 		"atm":
 			ci.draw_rect(Rect2(p - Vector2(6, 5), Vector2(12, 10)), Color(0.1, 0.45, 0.25))
 			ci.draw_string(font, p + Vector2(-4, 4), "€", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.WHITE)

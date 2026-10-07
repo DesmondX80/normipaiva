@@ -7,6 +7,9 @@ extends Node3D
 ## Tarkkuustaso valitaan puukohtaisesti etäisyydestä katsojaan (globaali lod_eye): lähellä korttilatvukset
 ## (foliage.gd), keskellä umpimuodot, kaukana perusmuodot. Lähi- ja keskitason lohkot (64 m) tehdään kameran
 ## ympärille sitä mukaa kuin se liikkuu, kaukotaso (256 m) kerralla. Rungot törmäävät kameran lähilohkoissa.
+## Suorituskyky: jokaisen lohkon kaikki puut kulkevat varjostimen läpi (väärän tason puut litistetään), joten
+## tasojen lohkot karsitaan näkyvyysetäisyydellä, kaukotaso loppuu usvan taakse (näkyvyysasetus) ja keskitaso
+## heittää varjon vain auringon varjoetäisyyden sisällä (SHADOW_END).
 
 const Foliage := preload("res://scripts/foliage.gd")
 const B := preload("res://scripts/build.gd")
@@ -14,9 +17,10 @@ const B := preload("res://scripts/build.gd")
 enum { PINE, SPRUCE, BIRCH, ASPEN, BUSH }
 const SPECIES := 5
 const NEAR_END := 80.0
-const MID_END := 420.0
-const FAR_END := 2200.0
-const MID_RADIUS := 480.0
+const MID_END := 260.0
+const MID_RADIUS := 320.0
+const BUSH_END := 140.0  # pensaat (alle 3 m) eivät erotu kauempaa: ei keski- eikä kaukotasoa
+const SHADOW_END := 110.0  # kaukaisemmissa varjokaskadeissa puiden varjot eivät erotu (enintään 180 m, main.gd)
 const COLLIDE_RADIUS := 1
 const MIN_COLLIDE_H := 2.5
 
@@ -39,6 +43,7 @@ var _built := {}
 var _bodies := {}
 var _queue: Array[Vector2i] = []
 var _last := Vector2i(-99999, -99999)
+var _far_end := 1000.0  # kaukotason loppu: usva peittää puut näkyvyysetäisyyden takana
 
 
 ## Lataa puut tiedostosta ja rakentaa kaukotason. Palauttaa false, jos dataa ei ole.
@@ -108,6 +113,7 @@ func load_list(trees: Array, seed := 1) -> void:
 
 
 func _setup(raw_a: PackedByteArray, raw_b: PackedByteArray, w: int, h: int) -> void:
+	_far_end = Settings.view_far() + 100.0
 	data_a = raw_a.to_float32_array()
 	_tex_a = ImageTexture.create_from_image(Image.create_from_data(w, h, false, Image.FORMAT_RGBAF, raw_a))
 	_tex_b = ImageTexture.create_from_image(Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, raw_b))
@@ -144,6 +150,8 @@ func _process(_delta: float) -> void:
 				for n in _built[k]:
 					n.queue_free()
 				_built.erase(k)
+			else:
+				_chunk_shadow(k, _built[k], c)
 		_queue = _queue.filter(func(k: Vector2i) -> bool: return want.has(k))
 		_queue.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return (a - c).length_squared() < (b - c).length_squared())
 		_update_bodies(c)
@@ -168,11 +176,11 @@ func _build_far() -> void:
 		for i in nfx:
 			for sp in SPECIES:
 				var r := _range(far_tab, j * nfx + i, sp)
-				if r.y == 0:
+				if r.y == 0 or sp == BUSH:
 					continue
 				var mmi := _mmi(_meshes.far[sp], r, _aabb(i, j, far_chunk))
 				mmi.visibility_range_begin = maxf(0.0, MID_END - far_chunk * 0.71 - 20.0)
-				mmi.visibility_range_end = FAR_END
+				mmi.visibility_range_end = _far_end + far_chunk * 0.71
 				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				add_child(mmi)
 
@@ -187,10 +195,21 @@ func _build_near_chunk(k: Vector2i) -> Array:
 		near.visibility_range_end = NEAR_END + near_chunk * 0.71 + 10.0
 		add_child(near)
 		var mid := _mmi(_meshes.mid[sp], r, _aabb(k.x, k.y, near_chunk))
-		mid.visibility_range_end = MID_END + near_chunk * 0.71 + 10.0
+		mid.visibility_range_begin = maxf(0.0, NEAR_END - near_chunk * 0.71 - 10.0)
+		mid.visibility_range_end = (BUSH_END if sp == BUSH else MID_END) + near_chunk * 0.71 + 10.0
 		add_child(mid)
 		out.append_array([near, mid])
+	_chunk_shadow(k, out, _last)
 	return out
+
+
+## Keskitason varjot vain lohkoille, joiden lähin kohta on auringon varjoetäisyyden sisällä kamerasta (lohkossa c):
+## kauempana ne piirtyisivät turhaan neljään varjokaskadiin.
+func _chunk_shadow(k: Vector2i, nodes: Array, c: Vector2i) -> void:
+	var gap := maxf((Vector2(k - c).length() - 1.5) * near_chunk, 0.0)
+	var mode := GeometryInstance3D.SHADOW_CASTING_SETTING_ON if gap < SHADOW_END else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for i in range(1, nodes.size(), 2):
+		(nodes[i] as GeometryInstance3D).cast_shadow = mode
 
 
 ## Identiteetti-instanssit; lohkon alku custom datassa kahtena alle 2048 lukuna (yhteensopivuustilassa custom
@@ -270,6 +289,21 @@ static func _combine(parts: Array) -> ArrayMesh:
 	return am
 
 
+## Kaukopuun latvus: viisikulmainen kaksoispyramidi (10 kolmiota) pallon sijaan.
+static func _bipyramid(r: float, hgt: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var top := Vector3(0, hgt, 0)
+	var bot := Vector3(0, -hgt * 0.8, 0)
+	for k in 5:
+		var a := Vector3(cos(k * TAU / 5.0) * r, 0, sin(k * TAU / 5.0) * r)
+		var b := Vector3(cos((k + 1) * TAU / 5.0) * r, 0, sin((k + 1) * TAU / 5.0) * r)
+		for v in [top, b, a, bot, a, b]:
+			st.add_vertex(v)
+	st.generate_normals()
+	return st.commit()
+
+
 static func _flat_sphere(r: float, hgt: float, seg := 8) -> SphereMesh:
 	var s := SphereMesh.new()
 	s.radius = r
@@ -307,32 +341,31 @@ func _make_meshes() -> void:
 				var top := [B.cyl(0.07, 0.13, 4.6, 6), Vector3(0, 7.3, 0), upper]
 				near = [trunk, top, [Foliage.pine_crown(3), Vector3.ZERO,
 					_mat(card, {"leaf_tex": Foliage.pine_texture(), "color": s.crown, "sway": 0.05}, H, R)]]
-				mid = [trunk, top,
-					[_flat_sphere(1.7, 0.9), Vector3(0.2, 9.1, 0), crown_m],
-					[_flat_sphere(1.3, 0.8), Vector3(-0.8, 8.3, 0.4), crown_m],
-					[_flat_sphere(1.2, 0.7), Vector3(0.7, 8.0, -0.6), crown_m]]
-				far = [[B.cyl(0.1, 0.2, 7.0, 4), Vector3(0, 3.5, 0), trunk_m], [_flat_sphere(1.9, 1.3, 6), Vector3(0, 8.9, 0), crown_far]]
+				mid = [[B.cyl(0.1, 0.22, 9.6, 5), Vector3(0, 4.8, 0), trunk_m],
+					[_flat_sphere(1.7, 0.9, 7), Vector3(0.2, 9.1, 0), crown_m],
+					[_flat_sphere(1.3, 0.8, 6), Vector3(-0.8, 8.3, 0.4), crown_m],
+					[_flat_sphere(1.2, 0.7, 6), Vector3(0.7, 8.0, -0.6), crown_m]]
+				far = [[B.cyl(0.1, 0.2, 7.0, 3), Vector3(0, 3.5, 0), trunk_m], [_bipyramid(1.9, 1.3), Vector3(0, 8.9, 0), crown_far]]
 			SPRUCE:
 				var trunk := [B.cyl(0.15, 0.24, 2.2, 6), Vector3(0, 1.1, 0), trunk_m]
 				var inner := _mat(solid, {"color": Color(0.1, 0.2, 0.1)}, H, R)
 				near = [trunk, [Foliage.spruce_crown(5), Vector3.ZERO,
 					_mat(card, {"leaf_tex": Foliage.spruce_texture(), "color": s.crown, "sway": 0.04}, H, R)],
 					[B.cyl(0.0, 1.3, 7.6, 7), Vector3(0, 4.6, 0), inner]]
-				mid = [trunk,
-					[B.cyl(0.0, 2.1, 3.4, 8), Vector3(0, 2.9, 0), crown_m],
-					[B.cyl(0.0, 1.65, 3.0, 8), Vector3(0, 4.6, 0), crown_m],
-					[B.cyl(0.0, 1.15, 2.6, 8), Vector3(0, 6.2, 0), crown_m],
-					[B.cyl(0.0, 0.6, 1.8, 7), Vector3(0, 7.6, 0), crown_m]]
-				far = [[B.cyl(0.0, 2.1, 8.0, 5), Vector3(0, 4.6, 0), crown_far]]
+				mid = [[B.cyl(0.15, 0.24, 2.2, 5), Vector3(0, 1.1, 0), trunk_m],
+					[B.cyl(0.0, 2.1, 3.4, 7), Vector3(0, 2.9, 0), crown_m],
+					[B.cyl(0.0, 1.55, 3.4, 7), Vector3(0, 5.0, 0), crown_m],
+					[B.cyl(0.0, 0.9, 2.6, 6), Vector3(0, 7.0, 0), crown_m]]
+				far = [[B.cyl(0.0, 2.1, 8.0, 4), Vector3(0, 4.6, 0), crown_far]]  # 4 sivua, ei pohjaa näkyviin
 			_:
 				var trunk := [B.cyl(0.11, 0.2, 6.0, 7), Vector3(0, 3.0, 0), trunk_m]
 				near = [trunk, [Foliage.birch_crown(1 + sp), Vector3.ZERO,
 					_mat(card, {"leaf_tex": Foliage.leaf_texture(), "color": s.crown, "sway": 0.08}, H, R)]]
-				mid = [trunk,
-					[B.sphere(1.6, 8), Vector3(0, 5.9, 0), crown_m],
-					[B.sphere(1.3, 8), Vector3(0.9, 5.1, 0.35), crown_m],
-					[B.sphere(1.25, 8), Vector3(-0.75, 6.7, -0.35), crown_m]]
-				far = [[B.cyl(0.08, 0.18, 4.5, 4), Vector3(0, 2.25, 0), trunk_m], [_flat_sphere(1.9, 2.2, 6), Vector3(0, 5.9, 0), crown_far]]
+				mid = [[B.cyl(0.11, 0.2, 6.0, 5), Vector3(0, 3.0, 0), trunk_m],
+					[_flat_sphere(1.6, 1.6, 7), Vector3(0, 5.9, 0), crown_m],
+					[_flat_sphere(1.3, 1.3, 6), Vector3(0.9, 5.1, 0.35), crown_m],
+					[_flat_sphere(1.25, 1.25, 6), Vector3(-0.75, 6.7, -0.35), crown_m]]
+				far = [[B.cyl(0.08, 0.18, 4.5, 3), Vector3(0, 2.25, 0), trunk_m], [_bipyramid(1.9, 2.2), Vector3(0, 5.9, 0), crown_far]]
 		_meshes.near.append(_lod(_combine(near), 0.0, NEAR_END))
-		_meshes.mid.append(_lod(_combine(mid), NEAR_END, MID_END))
-		_meshes.far.append(_lod(_combine(far), MID_END, FAR_END))
+		_meshes.mid.append(_lod(_combine(mid), NEAR_END, BUSH_END if sp == BUSH else MID_END))
+		_meshes.far.append(_lod(_combine(far), MID_END, _far_end))
