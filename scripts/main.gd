@@ -8930,9 +8930,8 @@ func _maybe_screenshot() -> void:
 			if scene == "maptarget":
 				_paper.toggle()
 		"map":
-			for n in find_children("*", "Control", true, false):
-				if n.has_method("toggle"):
-					n.toggle()
+			_note.visible = false
+			_paper.toggle()  # vain paperikartta (ei reppua päälle)
 		"bikeside":
 			var cam := Camera3D.new()
 			cam.fov = 35.0

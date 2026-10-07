@@ -496,37 +496,6 @@ func _legend_vaala(p: Vector2) -> void:
 
 # --- Karttasisältö -----------------------------------------------------------
 
-## Pelialueen ulkopuoli (koillinen ja lounas): vinoviivoitus ja merkintä, ettei tyhjä kulma näytä virheeltä.
-## Piirretään karttakohteiden päälle, koska OSM-aineisto jatkuu pelialueen ulkopuolelle.
-func _draw_unmapped(v: CanvasItem) -> void:
-	var rects := [[Vector2(M.PLAY_AREA[1].x, 0), Vector2(M.SIZE.x, M.PLAY_AREA[2].y), true],
-		[Vector2(0, M.PLAY_AREA[2].y), Vector2(M.PLAY_AREA[5].x, M.SIZE.y), false]]
-	for rr in rects:
-		var out_lo := _px(rr[0])
-		var out_hi := _px(rr[1])
-		var out_r := Rect2(out_lo, out_hi - out_lo)
-		v.draw_rect(out_r, Color(0.8, 0.76, 0.64, 1.0))
-		var hy := -out_r.size.x
-		while hy < out_r.size.y:
-			var a0 := out_r.position + Vector2(0, hy)
-			var a1 := out_r.position + Vector2(out_r.size.x, hy + out_r.size.x)
-			if a0.y < out_r.position.y:
-				a0 = a0 + Vector2(out_r.position.y - a0.y, out_r.position.y - a0.y)
-			if a1.y > out_r.end.y:
-				a1 = a1 - Vector2(a1.y - out_r.end.y, a1.y - out_r.end.y)
-			v.draw_line(a0, a1, Color(0.55, 0.48, 0.36, 0.5), 1.0)
-			hy += 14.0
-		v.draw_rect(out_r, INK, false, 1.5)
-		if not rr[2]:
-			continue
-		var oc := out_r.get_center()
-		for i in 2:
-			var txt: String = ["KARTOITTAMATON", "(suota ja Pekan jäniksiä)"][i]
-			var fs := 18 if i == 0 else 13
-			var w := ThemeDB.fallback_font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			v.draw_string(ThemeDB.fallback_font, oc + Vector2(-w / 2.0, i * 22.0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, INK)
-
-
 func _draw_map() -> void:
 	if _vaala:
 		_draw_vaala_map()
@@ -596,7 +565,6 @@ func _draw_map() -> void:
 		var p := _px(n[1])
 		v.draw_string(font, p - Vector2(n[0].length() * 5.5, 0), n[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
 	# Tienimet eivät tukkeuta karttaa: nimi näkyy vain, kun hiiri on tien päällä (_hover_road).
-	_draw_unmapped(v)
 
 	# Naapurit (tarina lähettää heidän luokseen): pieni talomerkki ja nimi, nimet eri puolille ettei mene päällekkäin.
 	for n in [[M.NEIGHBOR_PEKKA, "Pekka", Vector2(8, -2)], [M.NEIGHBOR_SINIKKA, "Sinikka", Vector2(8, 10)],
