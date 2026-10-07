@@ -10468,6 +10468,29 @@ func _maybe_screenshot() -> void:
 			walker_out.set_carrying(true)
 			await _test_goto_stash("koti")
 			await snap.call("_jemma.png")
+		"lappupekka2":
+			# Koko ketju pelin funktioilla: kuutonen kotijemmaan -> Pekka kutsuu -> kotiin (uusi päivä) -> aamulappu.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			story = Story.new()
+			print("LAPPU2 alku: vaihe %s" % story.step)
+			for id in STASHES:
+				print("LAPPU2 jemma %s: koti %s" % [id, STASHES[id].home])
+			_stash_add("koti", 6)
+			print("LAPPU2 jemman jälkeen: vaihe %s" % story.step)
+			for case in ["kotiin kuutosen kanssa", "nukkumaan", "sammui ulos"]:
+				state = "to_home" if case == "kotiin kuutosen kanssa" else "to_shop"
+				if case == "sammui ulos":
+					_day_end = "ulko"
+					_new_day(home_zone + Vector3(0, 0, 4), false)
+				else:
+					_win()
+				for i in 5:
+					await get_tree().process_frame
+				var txt := " / ".join(_note.find_children("*", "Label", true, false).map(func(c): return c.text))
+				var at := txt.rfind("Pekka")
+				print("LAPPU2 %s: vaihe %s, lapussa Pekka: %s" % [case, story.step, txt.substr(maxi(0, at - 20), 120) if at >= 0 else "EI"])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"lappupekka":
 			# Päivin lappu, kun Pekalla on asiaa (kuutonen piilotettu, Pekan luona ei käyty).
 			story = Story.new()
