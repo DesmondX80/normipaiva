@@ -1226,6 +1226,11 @@ func _mount_logic() -> void:
 	if _talk_box.is_open():
 		return
 	var e: bool = Input.is_action_just_pressed("mount") and not player.is_stunned()
+	# Mökillä mopo parkissa: selkään kuten pyörän, matka alkaa heti (Vaalan maailma on jo rakennettu).
+	if e and player == walker_out and mokki != null and mokki.built and mokki.mopo_parked.visible \
+			and walker_out.global_position.distance_to(mokki.to_global(Mokki.MOPO_LOCAL)) < 2.2 and state in ["to_shop", "to_home"]:
+		_mount_mopo()
+		return
 	if bike_in_garage:
 		if e and player == walker_out:
 			_show_message("Pyörä on autotallissa. Hae se tallista.", 2.0)
@@ -4674,6 +4679,8 @@ func _ride_pekka_home(sub: String, kind: String) -> void:
 func _arrive_by_car(dest: Vector3) -> void:
 	_advance_clock(HOP_VAALA)  # Saloisten ja Vaalan väli autolla
 	mokki.ensure_built()  # mökkialue rakennetaan ensimmäisellä matkalla (ruutu on vielä pimeänä)
+	if _at_mokki_pos(dest):
+		_ensure_mopo_trip()  # mopomatka valmiiksi samalla pimeällä hetkellä
 	walker_out.global_position = dest
 	walker_out.rotation.y = 0.0
 	walker_out.activate_camera()
@@ -4730,12 +4737,11 @@ func _mokki_logic() -> void:
 	if _hommat_logic(e, near):
 		return
 	if near.call(Mokki.MOPO_LOCAL, 1.8):
-		_hint.text = "[E] Aja mopolla Vaalaan Hotelli-Ravintola Siitariin (11,6 km)%s" % (
-			"  · Santun hommat kesken!" if hommat.active and not hommat.all_done() else "")
+		# Mopon selkään F:llä kuten pyörän (_mount_logic); E toimii myös.
+		_hint.text = "%s Mopon selkään: Vaalaan Siitariin 11,6 km%s" % [Settings.cap("mount"),
+			"  · Santun hommat kesken!" if hommat.active and not hommat.all_done() else ""]
 		if e:
-			if hommat.active and not hommat.all_done():
-				_hommat_snitch()
-			_start_mopo()
+			_mount_mopo()
 		return
 	if near.call(Mokki.HUUSSI_LOCAL + Vector3(0, 0, 1.3), 1.0):
 		_hint.text = "[E] Käy huussissa"
@@ -5792,13 +5798,15 @@ func _atm_use() -> void:
 
 ## Mopolla Paapelista Vaalan Siitariin: Vaalan tasku rakennetaan ensimmäisellä kerralla, HUD:sta näkyvät
 ## matkan aikana vain kompassi, viestit, vihje ja mopon mittari (nopeus, tie, todellinen matka).
-func _start_mopo() -> void:
-	var from_mokki := _at_mokki()
-	_vaala_state = state
-	_in_vaala = true
-	walker_out.controls_enabled = false
-	walker_out.speed = 0.0
-	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+func _mount_mopo() -> void:
+	if hommat.active and not hommat.all_done():
+		_hommat_snitch()
+	_start_mopo()
+
+
+## Mopomatkan maailma (vaala.gd, ~1,2 s) valmiiksi, kun mökille saavutaan ruudun ollessa pimeänä: selkään noustessa
+## matka alkaa heti ilman latausta.
+func _ensure_mopo_trip() -> void:
 	if mopo_trip == null:
 		mopo_trip = MopoTrip.new()
 		mopo_trip.position = VAALA_POS
@@ -5811,6 +5819,17 @@ func _start_mopo() -> void:
 		mopo_trip.lava.connect(_enter_lava)
 		mopo_trip.crashed.connect(_on_mopo_crashed)
 		_paper.mopo_trip = mopo_trip
+	mopo_trip.ensure_built()
+
+
+func _start_mopo() -> void:
+	var from_mokki := _at_mokki()
+	_vaala_state = state
+	_in_vaala = true
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_ensure_mopo_trip()
 	mokki.mopo_parked.visible = false
 	walker_out.visible = false
 	mopo_trip.start("siitari", tilat.value("humala"))
@@ -5826,8 +5845,9 @@ func _start_mopo() -> void:
 	if _santtu_riding:
 		_show_message("Santtu hyppäsi mopon taakse: \"Lavalle! Oulujärven lava on Vuolijoentien varressa ennen Vaalaa, Pahalahdentietä niemen kärkeen.\"", 5.0)
 		return
-	_show_message("Mopo käynnistyi! Uutelanperäntie, Neittäväntie ja Vuolijoentie Vaalaan. Siitari on Vaalantiellä joen takana."
-		+ (" Kännissä tanko vaeltaa: pidä mopo tiellä!" if tilat.value("humala") > 0.1 else ""), 4.5)
+	if _once_today("mopo_ohje"):
+		_show_message("Uutelanperäntie, Neittäväntie ja Vuolijoentie Vaalaan. Siitari on Vaalantiellä joen takana."
+			+ (" Kännissä tanko vaeltaa: pidä mopo tiellä!" if tilat.value("humala") > 0.1 else ""), 3.5)
 
 
 ## Santtu pois mopon takaa ja takaisin kannolleen (matka päättyi mökille tai päivä vaihtui).
@@ -8044,6 +8064,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 			_flush_morning_info(intro), _jemma_choco)
 		return
 	if at_m:
+		_ensure_mopo_trip()  # aamun siirtymässä: mopon selkään noustessa matka alkaa heti
 		# Mökillä vain mökin asiat: Päivin värilista kerrotaan, kun palataan kotiin (ks. _arrive_by_car).
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		_list_pending = true
@@ -12029,6 +12050,36 @@ func _maybe_screenshot() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kartta.png"))
 			_paper.toggle()
+			get_tree().quit()
+		"mopoheti":
+			# Taksilla mökille (Vaalan maailma rakentuu pimeässä), kävely mopolle ja F: matka alkaa heti.
+			_toggle_mount()
+			var t0 := Time.get_ticks_msec()
+			_arrive_by_car(MOKKI_POS + Vector3(0, 0.5, 0))
+			print("HETI saapuminen %d ms, Vaala valmis %s" % [Time.get_ticks_msec() - t0, mopo_trip != null and mopo_trip.vaala.built])
+			for i in 10:
+				await get_tree().process_frame
+			walker_out.global_position = mokki.to_global(Mokki.MOPO_LOCAL + Vector3(1.0, 0.5, 0.0))
+			for i in 10:
+				await get_tree().physics_frame
+			_hint.text = ""
+			await get_tree().process_frame
+			await get_tree().process_frame
+			print("HETI vihje '%s'" % _hint.text)
+			var t1 := Time.get_ticks_usec()
+			Input.action_press("mount")
+			await get_tree().process_frame
+			Input.action_release("mount")
+			var frames := 0
+			while not (mopo_trip.active and player == mopo_trip.mopo) and frames < 30:
+				await get_tree().process_frame
+				frames += 1
+			print("HETI selkään: %.0f ms, %d ruutua, mopo aktiivinen %s, pelaaja mopo %s" % [(Time.get_ticks_usec() - t1) / 1000.0, frames,
+				mopo_trip.active, player == mopo_trip.mopo])
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path)
 			get_tree().quit()
 		"vaalakoodi":
 			# Huijauskoodi: "vaala" kotipihalla vie Vaalaan Gasthausin pihaan seuraavaan aamuun, mopo pihassa.
