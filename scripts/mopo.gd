@@ -93,6 +93,32 @@ func activate_camera() -> void:
 ## Jalan noustessa kuski pois selästä (mopo jää parkkiin tyhjänä), selkään noustessa takaisin.
 func set_rider_visible(v: bool) -> void:
 	_rider.visible = v
+	if _passenger != null:
+		_passenger.visible = v
+
+
+## Kyytiläinen satulan takaosassa (Santtu lavalle): sama ajoasento, kädet kuskin vyötäröllä. Tyhjä look = pois.
+var _passenger: Node3D
+
+
+func set_passenger(look: Dictionary) -> void:
+	if _passenger != null:
+		_passenger.queue_free()
+		_passenger = null
+	if look.is_empty():
+		return
+	_passenger = Looks.make(_visual, look)
+	_passenger.play("Driving", 0.0)
+	_passenger.anim.advance(0.01)
+	_passenger.position = Vector3(0, 0.84 + 0.1, 0.58) - _passenger.bone_position("pelvis")
+	_passenger.set_override("spine_01", Vector3.RIGHT, -0.1)
+	var inv := _passenger.transform.affine_inverse()
+	for side in [["_l", -1.0], ["_r", 1.0]]:
+		var s: float = side[1]
+		_passenger.set_ik("arm" + side[0], "upperarm" + side[0], "lowerarm" + side[0], "hand" + side[0],
+			inv * Vector3(0.2 * s, 1.15, 0.3), inv * Vector3(0.5 * s, 1.2, 0.5))
+		_passenger.set_ik("leg" + side[0], "thigh" + side[0], "calf" + side[0], "foot" + side[0],
+			inv * Vector3(0.24 * s, 0.4, 0.45), inv * Vector3(0.24 * s, 0.9, -0.1))
 
 
 func set_engine(on: bool) -> void:
