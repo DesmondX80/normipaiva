@@ -1028,8 +1028,8 @@ func _build_underpass() -> void:
 	var deck_c := Vector3(at.x, deck - 0.5, at.z)
 	var dm := B.mesh(self, B.boxm(Vector3(6.2, 0.8, dl)), deck_c, conc)
 	dm.basis = basis
-	# Välituet kuten videolla: tien kummallakin puolella kaksi neliöpilaria (radan suunnassa kannen leveydellä) ja
-	# niiden päällä poikkipalkki. Paikka haetaan radan akselilta mittaamalla todellinen etäisyys tien keskilinjaan
+	# Välituet: tien kummallakin puolella neliöpilari (rivin ulompi, radan suunnassa kannen leveydellä) ja sen
+	# päällä poikkipalkki. Paikka haetaan radan akselilta mittaamalla todellinen etäisyys tien keskilinjaan
 	# (tie kaartaa alikulussa), joten pilari ei osu kaistalle.
 	var pier_body := StaticBody3D.new()
 	add_child(pier_body)
@@ -1054,8 +1054,13 @@ func _build_underpass() -> void:
 			if ok:
 				break
 			along += 0.25
-		for w: float in [-2.2, 2.2]:
-			var pp := Vector3(at.x, 0, at.z) + basis.z * along * s + basis.x * w
+		# Vain ulompi pilari: tie kulkee alikulun läpi vinosti, joten rivin sisempi pilari jäi ajoradan reunaan
+		# mopon tielle. Poikkipalkki jää kannen alle koko leveydeltä.
+		var ws: Array[float] = [-2.2, 2.2]
+		var row := Vector3(at.x, 0, at.z) + basis.z * along * s
+		var outer := ws[0] if road_dist.call(row + basis.x * ws[0]) > road_dist.call(row + basis.x * ws[1]) else ws[1]
+		for w: float in [outer]:
+			var pp := row + basis.x * w
 			var gy := minf(h(pp.x, pp.z), at.y) - 0.3
 			var ph := deck - 1.35 - gy
 			var pm := B.mesh(self, B.boxm(Vector3(1.0, ph, 1.0)), Vector3(pp.x, gy + ph / 2.0, pp.z), pier_c)
@@ -1299,7 +1304,8 @@ func _build_buildings() -> void:
 		# Ikkunat kaikille sivuille, ovi tien puolelle, isoissa kerrostaloissa parvekkeet.
 		if kind != "shed":
 			var shop := type in ["retail", "commercial"] or name.contains("market") or name.contains("Market")
-			var door := _door(obb, base + 0.3)
+			var door := _door(obb, base + 0.3) if id != GASTHAUS_ID else \
+				(obb.center as Vector2) + _gasthaus_side(obb) * ((obb.size as Vector2).y / 2.0 + 0.05)
 			_windows(pts, base + 0.3, maxi(levels, 1) if id != HOTEL_ID else 2, wall_h, shop, door)
 			if type == "apartments":
 				_balcony_rows(pts, base + 0.3, levels, obb)
@@ -1459,9 +1465,10 @@ func _door(obb: Dictionary, y0: float) -> Vector2:
 
 
 # --- Vaalan tori: Zabuki ja Gasthaus ------------------------------------------------------------------------
-## Tori (OSM-kävelyalue "Vaalan tori") kivetään. Torin kioskin paikalla (lähin vaja torin laidalla) on Zabuki:
-## baaritiski luukulla, olutta ja hampurilaisia (main.gd keskustelu "zabuki"). Gasthaus on torin länsilaidan
-## kaksikerroksisessa talossa (OSM 534430535): huone yöksi kympillä (main.gd "gasthaus").
+## Gasthaus (OSM 534430535, huone yöksi kympillä, main.gd "gasthaus") on Siitaria vastapäätä tien toisella
+## puolella ja Zabuki (baaritiski luukulla, olutta ja hampurilaisia, main.gd "zabuki") sen vieressä, molemmat
+## julkisivu tielle. Tori ("Vaalan tori") on niiden takana, ja sinne vie asfalttitie Zabukin vierestä
+## (tools/vaala_keskusta.py; paikat ja julkisivut tie.json:n "keskusta"-osassa). Tori kivetään ja sille tulee kojuja.
 const GASTHAUS_ID := 534430535
 var _tori := PackedVector2Array()
 var _tori_c := Vector2.ZERO
@@ -1476,9 +1483,16 @@ func _tori_prep() -> void:
 				_tori.append(Vector2(q[0], q[1]))
 	if _tori.size() < 3:
 		return
+	if _tori[0].distance_to(_tori[_tori.size() - 1]) < 0.01:
+		_tori.remove_at(_tori.size() - 1)
 	for q in _tori:
 		_tori_c += q
 	_tori_c /= _tori.size()
+	var kz = data.get("keskusta", {}).get("zabuki")
+	if kz != null:
+		_zabuki = Vector3(kz.c[0], h(kz.c[0], kz.c[1]), kz.c[1])
+		_zabuki_face = Vector2(kz.face[0], kz.face[1]).normalized()
+		return
 	var at := Vector2.INF
 	for bd in data.buildings:
 		if bd.kind != "shed":
@@ -1511,7 +1525,39 @@ func _build_tori() -> void:
 		mi.material_override = _ground_mat(Color(0.56, 0.55, 0.52), Color(0.46, 0.45, 0.43), 0.9, 2.5)
 		mi.position.y = 0.02  # parkkien yläpuolelle
 		add_child(mi)
+	_build_stalls()
 	_build_zabuki()
+
+
+## Torikojut torin keskelle riviin: pöytä, neljä tolppaa ja raidallinen katos, kojuittain eri värit.
+func _build_stalls() -> void:
+	var ax := (_tori[1] - _tori[0]).normalized()
+	var ay := ax.orthogonal()
+	var yaw := atan2(ax.y, ax.x)
+	var deg := -rad_to_deg(yaw)
+	var cols := [Color(0.75, 0.1, 0.1), Color(0.1, 0.35, 0.7), Color(0.15, 0.5, 0.2), Color(0.9, 0.6, 0.1)]
+	var body := StaticBody3D.new()
+	add_child(body)
+	for k in 4:
+		var c := _tori_c + ax * (k - 1.5) * 6.0 + ay * 2.0
+		var y := h(c.x, c.y)
+		var at := func(u: float, v: float, up: float) -> Vector3:
+			var q: Vector2 = c + ax * u + ay * v
+			return Vector3(q.x, y + up, q.y)
+		B.mesh(self, B.boxm(Vector3(3.0, 0.08, 1.4)), at.call(0, 0, 0.85), Color(0.55, 0.4, 0.25), Vector3(0, deg, 0))
+		B.mesh(self, B.boxm(Vector3(3.0, 0.8, 0.06)), at.call(0, -0.68, 0.43), Color(0.45, 0.32, 0.2), Vector3(0, deg, 0))
+		for u in [-1.4, 1.4]:
+			for v in [-0.65, 0.65]:
+				B.mesh(self, B.cyl(0.04, 0.04, 2.3, 6), at.call(u, v, 1.15), Color(0.85, 0.85, 0.82))
+		for s in 6:
+			B.mesh(self, B.boxm(Vector3(0.52, 0.05, 1.7)), at.call(-1.3 + s * 0.52, 0, 2.32),
+				cols[k] if s % 2 == 0 else Color(0.97, 0.96, 0.92), Vector3(0, deg, 0))
+		# Myytävää: laatikoita pöydällä.
+		for u in [-0.9, 0.0, 0.9]:
+			B.mesh(self, B.boxm(Vector3(0.6, 0.18, 0.4)), at.call(u, -0.2, 0.98), cols[(k + int(u + 1.0)) % 4].lightened(0.3), Vector3(0, deg, 0))
+		var cs := B.box_shape(Vector3(3.0, 1.0, 1.4), Vector3.ZERO)
+		cs.transform = Transform3D(Basis(Vector3.UP, -yaw), at.call(0, 0, 0.5))
+		body.add_child(cs)
 
 
 ## Zabuki: matala tumma kioskibaari, punakeltainen markiisi, tiski luukulla ja baarijakkarat torin puolella.
@@ -1575,12 +1621,10 @@ func _build_zabuki() -> void:
 	doors.append({"id": "zabuki", "pos": front, "out": Vector3(f.x, 0, f.y), "hint": "Zabukin tiskille (olut ja hampurilaiset)"})
 
 
-## Gasthaus: kyltti ja ovi torin puoleiselle pitkälle sivulle, "Huoneet 10 €" oven pieleen.
+## Gasthaus: kyltti ja ovi tien (Siitarin) puoleiselle pitkälle sivulle, "Huoneet 10 €" oven pieleen.
 func _gasthaus_front(obb: Dictionary, base: float, top: float) -> void:
-	var ay: Vector2 = obb.ay
 	var c: Vector2 = obb.center
-	var to_tori := (_tori_c - c) if _tori.size() >= 3 else ay
-	var side: Vector2 = ay if ay.dot(to_tori) >= 0.0 else -ay
+	var side := _gasthaus_side(obb)
 	var ax: Vector2 = obb.ax
 	var hy: float = (obb.size as Vector2).y / 2.0
 	var dq := c + side * (hy + 0.05)
@@ -1602,6 +1646,14 @@ func _gasthaus_front(obb: Dictionary, base: float, top: float) -> void:
 	var out := Vector3(side.x, 0, side.y)
 	var front := Vector3(dq.x, h(dq.x, dq.y), dq.y) + out * 2.2
 	doors.append({"id": "gasthaus", "pos": front, "out": out, "hint": "Gasthausiin (huone yöksi 10 €)"})
+
+
+## Gasthausin julkisivun suunta (pitkän sivun normaali): tielle päin (tie.json), vanhassa datassa torille.
+func _gasthaus_side(obb: Dictionary) -> Vector2:
+	var ay: Vector2 = obb.ay
+	var gf = data.get("keskusta", {}).get("gasthaus_face")
+	var to_front: Vector2 = Vector2(gf[0], gf[1]) if gf != null else ((_tori_c - (obb.center as Vector2)) if _tori.size() >= 3 else ay)
+	return ay if ay.dot(to_front) >= 0.0 else -ay
 
 
 ## Parvekkeet kerrostalon pitkille sivuille (toinen kerros ylöspäin), 6 m välein.
