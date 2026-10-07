@@ -49,7 +49,8 @@ func _ready() -> void:
 	_cam.current = true
 	_build_hud()
 	_title.text = "OULUJÄRVEN LAVA"
-	_info.text = "Lauantain tanssit, bändi soittaa: %s.\nHae pari ja tanssi: vuorottele A ja D tahtimerkin tahdissa.\n\n[E] Hae pari" % _song
+	_info.text = "Lauantain tanssit, bändi soittaa: %s.\nHae pari ja tanssi: vuorottele %s ja %s tahtimerkin tahdissa.\n\n%s Hae pari" % [
+		_song, Settings.action_key("left"), Settings.action_key("right"), Settings.cap("interact")]
 	Sfx.music_play(1.0)
 
 
@@ -109,7 +110,7 @@ func _process(delta: float) -> void:
 				_me.play("Dance", 0.2)
 				_partner.play("Dance", 0.2)
 				_say(PARTNER_LINES[0])
-				_info.text = "A ja D vuorotellen, kun tahtimerkki sykähtää."
+				_info.text = "%s ja %s vuorotellen, kun tahtimerkki sykähtää." % [Settings.action_key("left"), Settings.action_key("right")]
 		"dance":
 			_dance(delta)
 		"result":
@@ -152,7 +153,7 @@ func _dance(_delta: float) -> void:
 	_me.position = Vector3(sin(turn) * 1.2, 0.06, 2.0 + cos(turn) * 1.2)
 	_partner.position = _me.position + Vector3(0, 0, -0.5).rotated(Vector3.UP, _me.rotation.y)
 	_score_bar.value = _score() * 100.0
-	_info.text = "%s · tahtiin %d, hutia %d · seuraavaksi %s" % [_song, _hits, _misses, "A" if _next == "left" else "D"]
+	_info.text = "%s · tahtiin %d, hutia %d · seuraavaksi %s" % [_song, _hits, _misses, Settings.action_key(_next)]
 	if _t >= SONG:
 		_phase = "result"
 		var s := _score()
@@ -161,7 +162,7 @@ func _dance(_delta: float) -> void:
 		_say("Kiitos tanssista!" if s > 0.5 else "No... kiitos.")
 		_title.text = "KAPPALE PÄÄTTYI"
 		_info.text = ("Tanssit kuin Kesäillan valssissa! Parisi hymyilee." if s > 0.75 else
-			("Ihan kelpo tanssi." if s > 0.45 else "Varpaat kärsivät, mutta ilta oli hauska.")) + "\n\n[E] Lavalta ulos"
+			("Ihan kelpo tanssi." if s > 0.45 else "Varpaat kärsivät, mutta ilta oli hauska.")) + "\n\n%s Lavalta ulos" % Settings.cap("interact")
 
 
 func _score() -> float:

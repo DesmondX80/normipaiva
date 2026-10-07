@@ -39,6 +39,9 @@ const KEY_ROWS := [
 	[["punch"], "Tappelu: lyönti", [KEY_J, 0, 0]],
 	[["kick"], "Tappelu: potku", [KEY_K, 0, 0]],
 	[["special"], "Tappelu: erikoisisku", [KEY_L, 0, 0]],
+	[["drone_down"], "Drooni: alas", [KEY_C, KEY_CTRL, 0]],
+	[["drone_home"], "Drooni: kotiin", [KEY_H, 0, 0]],
+	[["drone_photo"], "Drooni: kuva", [KEY_P, KEY_ENTER, 0]],
 ]
 const MOUSE_NAMES := {MOUSE_BUTTON_LEFT: "Hiiri vasen", MOUSE_BUTTON_RIGHT: "Hiiri oikea", MOUSE_BUTTON_MIDDLE: "Rullan painallus",
 	MOUSE_BUTTON_WHEEL_UP: "Rulla ylös", MOUSE_BUTTON_WHEEL_DOWN: "Rulla alas", MOUSE_BUTTON_XBUTTON1: "Hiiri sivu 1",
@@ -226,6 +229,17 @@ func _input(event: InputEvent) -> void:
 					get_tree().process_frame.connect(Input.action_release.bind(a), CONNECT_ONE_SHOT)
 			elif not wheel:
 				Input.action_release(a)
+
+
+## Ohjeiden näppäinhattu (hint_bar.gd) toiminnolle asetusten mukaan, esim. "[E]"; extra lisätään perään, esim.
+## hiiren nappi, jota minipeli lukee itse: cap("interact", "Hiiri vasen") = "[E / Hiiri vasen]".
+func cap(action: String, extra := "") -> String:
+	return "[%s]" % (action_key(action) + (" / " + extra if extra != "" else ""))
+
+
+## Kahden toiminnon pari samaan hattuun, esim. pair("left", "right") = "[A/D]".
+func pair(a: String, b: String) -> String:
+	return "[%s/%s]" % [action_key(a), action_key(b)]
 
 
 ## Toiminnon ensimmäisen näppäimen nimi ohjeisiin.

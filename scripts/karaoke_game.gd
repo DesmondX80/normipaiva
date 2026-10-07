@@ -55,6 +55,7 @@ var _voice_hz := 0.0
 var _draw_node: Control
 var _lyrics: Label
 var _info: Label
+var _keys: Control
 var _last_line := -1
 var _done := false
 var _hit_now := false
@@ -95,6 +96,11 @@ func _ready() -> void:
 	_info.add_theme_color_override("font_outline_color", Color.BLACK)
 	_info.add_theme_constant_override("outline_size", 8)
 	add_child(_info)
+	_keys = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
+	_keys.compact = true
+	_keys.centered = true
+	add_child(_keys)
+	_keys.set_text("%s pidä pallo palkin korkeudella (tai hiiri)" % Settings.pair("forward", "back"))
 	var gen := AudioStreamGenerator.new()
 	gen.mix_rate = RATE
 	gen.buffer_length = 0.15
@@ -143,7 +149,7 @@ func _process(delta: float) -> void:
 		_last_line = li
 		line.emit(_line_text(li, []))
 	_update_lyrics(cur)
-	_info.text = "KARAOKE · Mopolla Vaalaan    W/S tai hiiri: pidä pallo palkin korkeudella    %d %%" % roundi(_hit_time / _total_len * 100.0)
+	_info.text = "KARAOKE · Mopolla Vaalaan    %d %%" % roundi(_hit_time / _total_len * 100.0)
 	_fill_audio()
 	_draw_node.queue_redraw()
 	var end: float = _notes[-1][0] + _notes[-1][1] + 1.2

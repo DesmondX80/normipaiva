@@ -92,7 +92,8 @@ func _init() -> void:
 	lines = LINES
 	watcher_spots = {"raimo": Vector3(1.75, 0, 2.2), "veikko": Vector3(0.95, 0, 3.05)}
 	watch_at = Vector3(0, 0, 0.1)
-	help_text = "Hiiri tähtää · Vasen nappi / E: nosta, aseta, iske · Oikea nappi / Q / rulla: käännä pölkky · F: lopeta"
+	help_text = "%s nosta, aseta, iske   %s käännä pölkky (myös rulla)   %s lopeta" % [Settings.cap("interact", "Hiiri vasen"),
+		Settings.cap("bell", "Hiiri oikea"), Settings.cap("mount")]
 
 
 func _start() -> void:
