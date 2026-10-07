@@ -14386,7 +14386,7 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				print("HEITTO %d thrown=%d foe hp %.0f -> %.0f foe_state=%s cans=%d" % [k, fight._thrown, hp0, fight._j.hp,
 					fight._j.state, fight._cans.size()])
-			print("HEITTO help=", fight._help.text.right(40))
+			print("HEITTO help=", fight._help._text.replace("\n", " | ").right(60))
 			fight._j.hp = 0.0
 			fight._j.state = "ko"
 			for i in 300:
