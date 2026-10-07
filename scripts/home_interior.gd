@@ -67,6 +67,9 @@ var busy := false  # minipeli tai valikko auki (main.gd): toimintopisteet eivät
 var exit_door := "ovi"  # kummasta ovesta viimeksi lähdettiin ulos (ovi / takaovi)
 var walker: CharacterBody3D
 var hint := ""
+## main.gd: pisteet, joissa E tekee muuta kuin oletustoiminnon (Päivin ostokset paikoilleen): id -> vihje.
+## E lähettää silloin acted("laita_" + id).
+var overrides := {}
 var spot := ""  # lähin toimintopiste
 ## Kaljat tai kanisteri kädessä (main.gd): eteisestä ei pääse pidemmälle, Päivi näkisi. Piiloon eteisen kaappiin.
 var carrying := false
@@ -165,9 +168,14 @@ func _process(delta: float) -> void:
 			best = id
 	spot = best
 	hint = "" if best == "" else SPOTS[best][1]
+	if overrides.has(best):
+		hint = overrides[best]
 	if _blocked_t > 0.0 and best != "kaappi":
 		hint = "Kaljat kädessä ei pidemmälle – Päivi näkee! Piilota ne eteisen kaappiin."
 	if best == "" or best == "kaappi" or not Input.is_action_just_pressed("interact") or Engine.get_process_frames() == _enter_frame:
+		return
+	if overrides.has(best):
+		acted.emit("laita_" + best)
 		return
 	match best:
 		"ovi", "takaovi":
