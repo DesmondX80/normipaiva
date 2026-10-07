@@ -91,6 +91,7 @@ func _ready() -> void:
 	_build_nerd_room()
 	walker = Walker.new()
 	walker.position = SPOTS.ovi[0]
+	walker.bounds = [Rect2(-HALF, HALF * 2.0)]  # ulko- ja takaoven aukoista ei ulos
 	add_child(walker)
 
 

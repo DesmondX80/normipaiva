@@ -104,6 +104,7 @@ func _ready() -> void:
 	_build_alko()
 	walker = Walker.new()
 	walker.position = DOOR
+	walker.bounds = [Rect2(-12.0, -9.0, 24.0, 18.0)]  # myymälän seinät
 	add_child(walker)
 	for i in 3:
 		_queue.append(_grandpa(QUEUE_FRONT + QUEUE_STEP * i, i))
