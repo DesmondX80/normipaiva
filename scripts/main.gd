@@ -592,6 +592,7 @@ var _item_menu: PanelContainer
 var _talk_box: CanvasLayer
 var _talk_prompt: Control  # puhevihje ruudun alaosassa (talk_prompt.gd)
 var _hint_bar: Control  # toimintovihjeet näppäinhattuina (hint_bar.gd); _hint on sen lähdeteksti, itse ei näy
+var _help_bar: Control  # näppäinohjerivi vasemmassa alakulmassa (hint_bar.gd, compact)
 var _talk_who := ""
 var _talk_node: Node3D
 var _talk_kind := ""  # tila avattaessa (ulkona "ulko"); tilan vaihtuessa keskustelu katkeaa
@@ -7717,6 +7718,20 @@ func _setup_input() -> void:
 var _hint_shown := ""
 
 
+## Näppäinohjerivin teksti: syö, reppu ja kartta, pyörällä lisäksi jarru ja kello. Näppäimet asetuksista.
+func _help_text() -> String:
+	var k := func(action: String, what: String) -> String:
+		return "[%s] %s" % [Settings.action_key(action), what]
+	var parts: Array[String] = []
+	if player == bike and state in ["to_shop", "to_home"]:
+		parts.append(k.call("brake", "jarru"))
+		parts.append(k.call("bell", "kello"))
+	parts.append(k.call("eat", "syö"))
+	parts.append(k.call("inventory", "reppu"))
+	parts.append(k.call("map", "kartta"))
+	return "   ".join(parts)
+
+
 func _fix_hint_keys() -> void:
 	if _hint != null:
 		_hint.visible = _talk_box == null or not _talk_box.is_open()  # keskusteluikkuna peittää vihjerivin paikan
@@ -7725,6 +7740,8 @@ func _fix_hint_keys() -> void:
 		_hint.text = _hint_shown
 	if _hint_bar != null:
 		_hint_bar.set_text(_hint.text if _hint.visible and _hint.is_visible_in_tree() else "")
+	if _help_bar != null:
+		_help_bar.set_text(_help_text())
 
 
 func _setup_environment() -> void:
@@ -8033,12 +8050,11 @@ func _build_hud() -> void:
 	layer.add_child(_clock_hud)
 	_stats = _label(layer, 22)  # matkan tiedot (viinakätköt, Santun hommat) kellon alla; pitkä rivi ei ylety kompassiin
 	_stats.position = Vector2(20, 14 + ClockHud.SIZE.y + 6)
-	var help := _label(layer, 16)
-	help.text = "W/S polje · A/D ohjaa · E toiminto · F jalan/pyörälle · T syö · I reppu · M kartta · V FPS · hiiri kamera · Esc valikko"
-	help.anchor_top = 1.0
-	help.anchor_bottom = 1.0
-	help.offset_left = 20
-	help.offset_top = -36
+	# Näppäinohjerivi vasemmassa alakulmassa: vain ohjeet, joita ei voi arvata (vakiot WASD, Shift, Esc ja vihjepalkin
+	# E ja F jätetty pois). Pyörällä myös jarru ja kello. Näppäimet asetusten mukaan (_help_text).
+	_help_bar = HintBar.new()
+	_help_bar.compact = true
+	layer.add_child(_help_bar)
 	_status = _centered_label(layer, 30, 0.0, 66, 142)  # kompassin alle
 	_status.add_theme_color_override("font_color", Color(1, 0.25, 0.2))
 	_hint = _centered_label(layer, 30, 1.0, -130, -80)
