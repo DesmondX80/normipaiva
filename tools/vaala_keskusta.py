@@ -28,7 +28,7 @@ OUTSIDE = 255
 KMARKET_ID = 225699583
 SIITARI_ID = 225699578
 SIITARI_YARD = 10.0  # Siitarin ympäriltä puut pois (ovi ja terassi eivät avaudu metsään)
-KM_SAMPLE = 1110     # Vaalantien näyte, jonka kohdalle kauppa tulee (Siitarista n. 45 m lounaaseen)
+KM_FROM_END = 68     # Vaalantien näyte (tien lopusta laskien), jonka kohdalle kauppa tulee (Siitarista n. 45 m lounaaseen)
 KM_SIZE = (27.0, 18.0)  # julkisivu tielle x syvyys
 KM_SETBACK = 28.0    # tien keskiviivasta rakennuksen keskelle (edessä parkkipaikka)
 PARK_DEPTH = 12.0
@@ -104,13 +104,14 @@ def apply():
 
     # --- K-Market Siitarin viereen. --------------------------------------------------------------------------
     road = tie["road"]
-    a, b = road[KM_SAMPLE - 4], road[KM_SAMPLE + 4]
+    ki = len(road) - KM_FROM_END
+    a, b = road[ki - 4], road[ki + 4]
     d = (b[0] - a[0], b[2] - a[2])
     L = math.hypot(*d)
     ax = (d[0] / L, d[1] / L)  # tien suunta
     az = (-ax[1], ax[0])       # poispäin tiestä (Siitarin puolelle)
     sx, sz = tie["siitari"]
-    rp = (road[KM_SAMPLE][0], road[KM_SAMPLE][2])
+    rp = (road[ki][0], road[ki][2])
     if (sx - rp[0]) * az[0] + (sz - rp[1]) * az[1] < 0.0:
         az = (-az[0], -az[1])
     c = (rp[0] + az[0] * KM_SETBACK, rp[1] + az[1] * KM_SETBACK)

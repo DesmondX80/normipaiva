@@ -3751,16 +3751,22 @@ func _taxi_mokki() -> void:
 ## Huijauskoodi: kirjoita "paapeli" ulkona, niin hahmo siirtyy suoraan mökin pihatien päähän ilman
 ## kyytiä ja maksua. Paluu Pekan kyydillä pihatien päästä kuten aina.
 const CHEAT_MOKKI := "paapeli"
+## Huijauskoodi: "vaala" ulkona (Saloisissa, mökillä tai Vaalan matkalla) vie Vaalaan Gasthausin pihaan kuin yön
+## jälkeen: päivä vaihtuu kuten Gasthausissa nukkuessa (ilmaiseksi) ja mopo odottaa pihassa.
+const CHEAT_VAALA := "vaala"
 var _cheat_buf := ""
 
 
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo and event.unicode > 0):
 		return
-	_cheat_buf = (_cheat_buf + char(event.unicode).to_lower()).right(CHEAT_MOKKI.length())
-	if _cheat_buf == CHEAT_MOKKI:
+	_cheat_buf = (_cheat_buf + char(event.unicode).to_lower()).right(maxi(CHEAT_MOKKI.length(), CHEAT_VAALA.length()))
+	if _cheat_buf.ends_with(CHEAT_MOKKI):
 		_cheat_buf = ""
 		_cheat_mokki.call_deferred()
+	elif _cheat_buf.ends_with(CHEAT_VAALA):
+		_cheat_buf = ""
+		_cheat_vaala.call_deferred()
 
 
 func _cheat_mokki() -> void:
@@ -3775,6 +3781,20 @@ func _cheat_mokki() -> void:
 	_save_game()
 	_arrive_by_car(mokki.gpos(Mokki.RIDE_LOCAL + Vector3(0, 0.3, 2.2)))
 	_show_message("PAAPELI! Olet mökillä.", 2.5)
+
+
+func _cheat_vaala() -> void:
+	await get_tree().process_frame
+	if _inventory.visible:
+		_inventory.toggle()
+	if cutscene.busy or _talk_box.is_open():
+		return
+	if state not in ["to_shop", "to_home"]:
+		return  # sisätiloissa (myös Vaalan Siitari, kaupat ja lava)
+	if not _in_vaala and player == bike:
+		_place_on_foot(bike.global_position + bike.global_transform.basis.x * 1.1)  # pyörä jää Saloisiin
+	_gasthaus_morning("Heräsit Vaalan Gasthausista. Miten tänne tultiin? Lakanat oli puhtaat ja aamukahvi kuului hintaan.\n",
+		"VAALA! Huomenta Gasthausista, mopo odottaa pihassa. Paapeliin on n. 11 km.")
 
 
 func _taxi_trip(escape := false) -> void:
@@ -6055,29 +6075,43 @@ func _gasthaus_sleep() -> void:
 		return
 	money -= GASTHAUS_PRICE
 	Sfx.play("coin", -4.0)
+	tilat.first("gasthaus", 0.4)
+	_gasthaus_morning("Nukuit Vaalan Gasthausissa kympillä. Lakanat oli puhtaat ja aamukahvi kuului hintaan.\n",
+		"Huomenta Vaalasta! Gasthausin aamukahvit juotu, mopo odottaa pihassa. Paapeliin on n. 11 km.")
+
+
+## Yö Gasthausissa (maksettu tai huijauskoodilla): päivä vaihtuu, aamu alkaa Gasthausin pihasta mopon selästä.
+func _gasthaus_morning(intro: String, msg: String) -> void:
+	mokki.ensure_built()  # huijauskoodilla Saloisista: mökin pihaa (yön kirjanpito, mopon parkki) ei ole vielä tehty
+	if _in_vaala:
+		if mopo_trip.on_foot != null:
+			walker_out.controls_enabled = false
+			mopo_trip.on_foot = null
+		mopo_trip.stop()
+		_mopo_restore_hud()
+		state = _vaala_state
+	_new_day(mokki.porch_pos(0.9) - Vector3(0, 0.3, 0), false, intro)
+	# Aamu Vaalassa: mopo Gasthausin pihassa nokka kadulle, matka Paapeliin alkaa siitä.
+	_start_mopo()
+	mopo_trip.target = "paapeli"
 	var vl: Node3D = mopo_trip.vaala
 	var at: Vector3 = vl.door_pos("gasthaus")
 	var out := Vector3.FORWARD
 	for d in vl.doors:
 		if d.id == "gasthaus":
 			out = d.out
-	if mopo_trip.on_foot != null:
-		walker_out.controls_enabled = false
-		mopo_trip.on_foot = null
-	mopo_trip.stop()
-	_mopo_restore_hud()
-	state = _vaala_state
-	tilat.first("gasthaus", 0.4)
-	_new_day(mokki.porch_pos(0.9) - Vector3(0, 0.3, 0), false,
-		"Nukuit Vaalan Gasthausissa kympillä. Lakanat oli puhtaat ja aamukahvi kuului hintaan.\n")
-	# Aamu Vaalassa: mopo Gasthausin pihassa nokka kadulle, matka Paapeliin alkaa siitä.
-	_start_mopo()
-	mopo_trip.target = "paapeli"
 	var mp: CharacterBody3D = mopo_trip.mopo
 	mp.position = at + out * 1.5 + Vector3(0, 0.6, 0)
 	mp.rotation.y = atan2(-out.x, -out.z)
 	mp.speed = 0.0
-	_show_message("Huomenta Vaalasta! Gasthausin aamukahvit juotu, mopo odottaa pihassa. Paapeliin on n. 11 km.", 4.5)
+	# Matkamittari lähimmästä tien kohdasta (Gasthaus on yli 60 m Vaalantiestä, nearest() ei löydä sitä).
+	var best := INF
+	for i in vl.road.size():
+		var d2 := Vector2(vl.road[i][0] - at.x, vl.road[i][2] - at.z).length_squared()
+		if d2 < best:
+			best = d2
+			mopo_trip._sample = i
+	_show_message(msg, 4.5)
 
 
 ## Auto ajoi mopon päälle: WASTED Vaalan tiellä, Päivin motkotus ja uusi päivä kotoa Saloisista.
@@ -9812,7 +9846,7 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().process_frame
 			_paper.toggle()
-			var views := [["_koko.png", Vector2.ZERO, 0.0], ["_keskusta.png", Vector2(1100, -1150), 1.0],
+			var views := [["_koko.png", Vector2.ZERO, 0.0], ["_keskusta.png", Vector2(1000, -1200), 1.0],
 				["_lava.png", Vector2(560, -500), 2.0], ["_mokki.png", Vector2(0, 0), 2.5]]
 			for vw in views:
 				if vw[2] > 0.0:
@@ -10125,6 +10159,52 @@ func _maybe_screenshot() -> void:
 			var hi: int = vl.nearest(sc)[0] - 60
 			await snap.call("_talot.png", vl.road_pos(hi) + Vector3(0, 3, 0), vl.road_pos(hi + 20) + Vector3(0, 2, 0))
 			get_tree().quit()
+		"mokkimopo_koko":
+			# Koko reitti mökiltä Siitariin täysillä oikealla kaistalla (ilman liikennettä): pysähdykset ja seinäosumat.
+			tilat.add("humala", -1.0)
+			_start_mopo()
+			var mp: CharacterBody3D = mopo_trip.mopo
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var crashes := [0]
+			mopo_trip.crashed.connect(func(r: String) -> void:
+				crashes[0] += 1
+				print("KOKO kumoon (%s) näyte %d" % [r, vl.nearest(mp.position)[0]]))
+			var si := 12
+			var d: Vector3 = vl.road_dir(si)
+			mp.position = vl.road_pos(si) + Vector3(0, 0.6, 0) + d.cross(Vector3.UP) * 1.6
+			mp.rotation.y = atan2(-d.x, -d.z)
+			Input.action_press("forward")
+			var last := si
+			var slow := 0
+			var walls := {}
+			var t0 := Time.get_ticks_msec()
+			for i in 60 * 400:
+				await get_tree().physics_frame
+				var ni: Array = vl.nearest(mp.position)
+				if ni[0] >= 0:
+					last = maxi(last, ni[0])
+				var lane: Vector3 = vl.road_pos(mini(last + 3, vl.road.size() - 1)) + vl.road_dir(mini(last + 3, vl.road.size() - 1)).cross(Vector3.UP) * 1.6
+				var want := Vector3(lane.x - mp.position.x, 0, lane.z - mp.position.z)
+				var err := (-mp.global_transform.basis.z).signed_angle_to(want, Vector3.UP)
+				Input.action_press("left", clampf(err * 3.0, 0.0, 1.0))
+				Input.action_press("right", clampf(-err * 3.0, 0.0, 1.0))
+				if mp.is_on_wall():
+					walls[last] = true
+				slow = slow + 1 if absf(mp.speed) < 0.6 else 0
+				if slow == 60:
+					print("KOKO pysähtyi näytteellä %d (%s), y %.2f tie %.2f" % [last, vl.road_names[last], mp.position.y, vl.road_pos(last).y])
+				if i % 600 == 0:
+					print("KOKO %3d s: näyte %d/%d, %.1f km/h, tiestä %.1f m" % [i / 60, last, vl.road.size(), mp.speed * 3.6, ni[1]])
+				if last >= vl.road.size() - 30 or slow > 300:
+					break
+			Input.action_release("forward")
+			Input.action_release("left")
+			Input.action_release("right")
+			print("KOKO loppu: näyte %d/%d, aika %.0f s, seinäosumat näytteillä %s, kaatumisia %d" % [last, vl.road.size(),
+				(Time.get_ticks_msec() - t0) / 1000.0, str(walls.keys()), crashes[0]])
 		"mokkimopo_silta", "mokkimopo_kanni":
 			# mokkimopo_silta: oikealla kaistalla täysillä Oulujoen sillan yli (ei porrasta sillan päissä), kuva kannelta.
 			# mokkimopo_kanni: humala 0,8, kaasu pohjassa ilman ohjausta: kuinka pian mopo on ojassa.
@@ -11566,6 +11646,104 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("KOODI mökillä: %s, jalan %s, reppu auki %s, pyörä mökillä %s" % [_at_mokki(), player == walker_out,
 				_inventory.visible, _at_mokki_pos(bike.global_position)])
+		"mokkivaalatiet":
+			# Kaikki Vaalan tiet ajettaviksi: mopon kapseli (r 0,4, 1,8 m) 0,3 m maan yläpuolella 1,5 m välein reittiä,
+			# risteysten haaroja ja OSM-teitä pitkin. Osuma = este (rakennus, aita, kaide, puomi) tai liian jyrkkä maa.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			var mp: CharacterBody3D = mopo_trip.mopo
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			for i in 5:
+				await get_tree().physics_frame
+			var space := get_world_3d().direct_space_state
+			var cap := CapsuleShape3D.new()
+			cap.radius = 0.4
+			cap.height = 1.8
+			var q := PhysicsShapeQueryParameters3D.new()
+			q.shape = cap
+			q.collision_mask = mp.collision_mask
+			q.exclude = [mp.get_rid()]
+			var lines: Array = []  # [nimi, pisteet (paikallinen Vector3, y = tien taso tai NAN)]
+			var main_pts: Array = []
+			for i in range(6, vl.road.size()):  # alku on mökin pihassa (mopo lähtee parkista)
+				main_pts.append(vl.road_pos(i) + vl.road_dir(i).cross(Vector3.UP) * 1.6)  # oikea kaista
+			lines.append(["reitti", main_pts])
+			for b in vl.data.branches:
+				var bp: Array = []
+				for k in b.pts.size() - 3:  # umpitien puomi lopussa
+					bp.append(Vector3(b.pts[k][0], NAN, b.pts[k][2]))
+				lines.append(["haara " + b.name, bp])
+			for r in vl.data.side_roads:
+				if r.kind != "road" or r.hw in ["footway", "cycleway", "path", "pedestrian", "steps"]:
+					continue
+				var sp: Array = []
+				for k in r.pts.size():
+					sp.append(Vector3(r.pts[k][0], NAN, r.pts[k][1]))
+				lines.append(["%s (%s)" % [r.name if r.name != "" else "nimetön", r.hw], sp])
+			var bad := {}
+			var total_m := 0.0
+			for ln in lines:
+				var pts: Array = ln[1]
+				for k in pts.size() - 1:
+					var a: Vector3 = pts[k]
+					var b2: Vector3 = pts[k + 1]
+					var seg := Vector2(b2.x - a.x, b2.z - a.z).length()
+					total_m += seg
+					var steps := maxi(int(seg / 1.5), 1)
+					for t in steps:
+						var f := float(t) / steps
+						var x := lerpf(a.x, b2.x, f)
+						var z := lerpf(a.z, b2.z, f)
+						var gy: float = vl.h(x, z) if is_nan(a.y) else lerpf(a.y, b2.y, f)
+						# Maa törmäysmuodoista (silta, alikulku): säde ylhäältä.
+						var top := vl.to_global(Vector3(x, gy + 2.5, z))
+						var ray := PhysicsRayQueryParameters3D.create(top, top - Vector3(0, 8, 0), mp.collision_mask, [mp.get_rid()])
+						var hit := space.intersect_ray(ray)
+						var y := gy
+						if not hit.is_empty():
+							y = vl.to_local(hit.position).y
+						q.transform = Transform3D(Basis(), vl.to_global(Vector3(x, y + 0.9 + 0.3, z)))
+						var res := space.intersect_shape(q, 4)
+						var why := ""
+						if not hit.is_empty() and (hit.normal as Vector3).y < 0.7:
+							why = "jyrkkä/seinä (normaali %.2f)" % (hit.normal as Vector3).y
+						for rr in res:
+							var col: Object = rr.collider
+							why = "este %s/%s" % [col.name, (col.get_parent().name if col.get_parent() != null else "")]
+							break
+						if why != "":
+							var key := "%s @ %d,%d" % [ln[0], int(x / 10.0) * 10, int(z / 10.0) * 10]
+							if not bad.has(key):
+								bad[key] = why
+			print("TIET tarkistettu %d viivaa, %.1f km, ongelmia %d" % [lines.size(), total_m / 1000.0, bad.size()])
+			for key in bad:
+				print("TIET  ", key, ": ", bad[key])
+		"vaalakoodi":
+			# Huijauskoodi: "vaala" kotipihalla vie Vaalaan Gasthausin pihaan seuraavaan aamuun, mopo pihassa.
+			var d0 := day
+			for c in CHEAT_VAALA:
+				var ev := InputEventKey.new()
+				ev.pressed = true
+				ev.keycode = OS.find_keycode_from_string(c.to_upper())
+				ev.unicode = c.unicode_at(0)
+				Input.parse_input_event(ev)
+				await get_tree().process_frame
+				var up := ev.duplicate()
+				up.pressed = false
+				Input.parse_input_event(up)
+				await get_tree().process_frame
+			for i in 30:
+				await get_tree().process_frame
+			var vl: Node3D = mopo_trip.vaala if mopo_trip != null else null
+			for i in 60:
+				await get_tree().physics_frame
+			print("KOODI vaala: päivä %d -> %d, Vaalassa %s, mopo Gasthausilta %.1f m, maasta %.2f m, viesti '%s'" % [d0, day, _in_vaala,
+				mopo_trip.mopo.position.distance_to(vl.door_pos("gasthaus")) if vl != null else -1.0,
+				mopo_trip.mopo.position.y - vl.h(mopo_trip.mopo.position.x, mopo_trip.mopo.position.z) if vl != null else -99.0, _msg.text])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path)
 		"taksipaapeli":
 			# Kaupan taksilla Paapeliin (60 €, meno-paluu) ja mökiltä taksilla takaisin; Pekan kyyti lukossa.
 			story = Story.new()

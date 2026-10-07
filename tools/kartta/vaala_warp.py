@@ -21,6 +21,7 @@ REAL_CELL = 4.0    # todellisen kehyksen maankäyttö- ja puurasterin ruutu
 # sitten kerroin kasvaa tasaisesti LAT_G:hen LAT1 m:iin mennessä. Kaukana maisema on tasaisemmin kutistettu eikä
 # veny tien suunnassa 1:22 litistetyiksi juoviksi.
 LAT0, LAT1, LAT_G = 110.0, 400.0, 8.0
+LAT_C = 0.1  # sivulaajennus vain voimakkaasti tiivistetyillä kehyksillä (c < LAT_C), ei keskustan lievällä tiivistyksellä
 _LAT_A = (LAT_G - 1.0) / (2.0 * (LAT1 - LAT0))
 _LAT_F1 = LAT1 + _LAT_A * (LAT1 - LAT0) ** 2
 
@@ -94,7 +95,7 @@ class Warp:
             fd_, frd, fr, fc = d[idx], rd[idx], r[idx], self.c[idx]
             along = dx * fd_[..., 0] + dz * fd_[..., 1]
             lat = -dx * fd_[..., 1] + dz * fd_[..., 0]
-            lat = np.where(fc < 1.0, lat_out(lat), lat)
+            lat = np.where(fc < LAT_C, lat_out(lat), lat)
             k = along / fc
             ex = fr[..., 0] + frd[..., 0] * k - frd[..., 1] * lat
             ez = fr[..., 1] + frd[..., 1] * k + frd[..., 0] * lat
@@ -103,7 +104,7 @@ class Warp:
             rz[a:b] = ez[rr[:, 0], best]
             gi = self.y[idx] - self.q[idx] + self.f[idx] * dem_at(self.fd, ex, ez)
             ground[a:b] = (w * gi).sum(1)
-            one[a:b] = (w * (fc >= 1.0)).sum(1)
+            one[a:b] = (w * (fc >= LAT_C)).sum(1)  # lievä tiivistys (keskustan kaista) kuten 1:1
             if codes is not None:
                 ci = codes.at(ex, ez)
                 votes = np.stack([(w * (ci == c)).sum(1) for c in range(8)], 1)
