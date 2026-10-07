@@ -63,7 +63,7 @@ var _stars: Array[Label] = []
 var _round_label: Label
 var _rally_label: Label
 var _announce: Label
-var _help: Label
+var _help: Control  # ohjeet näppäinhattuina (hint_bar.gd)
 var _effects: Array = []
 var _shake := 0.0
 
@@ -183,11 +183,12 @@ func _start_serve() -> void:
 	_t = 0.0
 	_rally = 0
 	_serve_ai_t = randf_range(0.9, 1.6)
-	_help.text = _help_text() + ("\n[J] Syötä" if _server == 0 else "")
+	_help.set_text(_help_text() + ("\n%s syötä" % Settings.cap("punch") if _server == 0 else ""))
 
 
 func _help_text() -> String:
-	return "A/D liiku · W hyppy · J lyönti · K smash (korkeasta pallosta) · eteen/taakse + lyönti: pitkä/lyhyt · älä pudota palloa!"
+	return "%s lyönti   %s smash (korkeasta pallosta)   %s hyppy   eteen/taakse + lyönti: pitkä/lyhyt" % [
+		Settings.cap("punch"), Settings.cap("kick"), Settings.cap("forward")]
 
 
 func _end_game() -> void:
@@ -199,7 +200,7 @@ func _end_game() -> void:
 	(_pl[0 if won else 1].body as Node3D).play("Dance", 0.3)
 	(_pl[1 if won else 0].body as Node3D).play("Idle_Talking", 0.3)
 	Sfx.play("win" if won else "lose", -4.0)
-	_help.text = ""
+	_help.set_text("")
 
 
 # --- Ohjaus ---------------------------------------------------------------------------
@@ -295,7 +296,7 @@ func _serve(i: int) -> void:
 	p.hit_done = true
 	(p.body as Node3D).play("Punch_Jab", 0.05, 1.7)
 	_launch(i, randf_range(2.2, 3.4), 1.25, 0.05)
-	_help.text = _help_text()
+	_help.set_text(_help_text())
 
 
 ## Lyö pallon vastustajan puolelle etäisyydelle dist keskilinjasta, niin että se laskeutuu mailan korkeudelle
@@ -556,12 +557,10 @@ func _build_hud() -> void:
 	_announce.add_theme_color_override("font_color", Color(1.0, 0.85, 0.1))
 	_announce.add_theme_color_override("font_outline_color", Color(0.5, 0.05, 0.0))
 	_announce.add_theme_constant_override("outline_size", 20)
-	_help = _big_label(root, 16)
-	_help.anchor_right = 1.0
-	_help.anchor_top = 1.0
-	_help.anchor_bottom = 1.0
-	_help.offset_top = -64
-	_help.offset_bottom = -12
+	_help = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
+	_help.compact = true
+	_help.centered = true
+	root.add_child(_help)
 
 
 func _big_label(root: Control, size: int) -> Label:

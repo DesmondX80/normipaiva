@@ -406,8 +406,11 @@ func _build_hud() -> void:
 	_count = _label(22, 0.0, 16, 44)
 	_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_count.offset_left = 20
-	var help := _label(16, 1.0, -36, -12)
-	help.text = help_text
+	var keys: Control = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
+	keys.compact = true
+	keys.centered = true
+	_layer.add_child(keys)
+	keys.set_text(help_text)
 
 
 func _set_crosshair(v: bool) -> void:

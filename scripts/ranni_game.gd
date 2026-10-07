@@ -65,7 +65,9 @@ func _init() -> void:
 	# Pohja asettaa katsojan ennen _startia: Santtu siirretään _startissa oikean osion kohdalle.
 	watcher_spots = {"santtu": Vector3(SECTIONS[0] + 1.5, 0, -1.4)}
 	watch_at = Vector3(SECTIONS[0], 2.8, GUTTER_Z)
-	help_text = "Hiiri tähtää · Vasen nappi / E: kouraise lehdet, harjaa sammal · A/D: pidä tasapaino · Oikea nappi / Q: siirrä tikkaat · F: alas"
+	help_text = "%s kouraise lehdet, harjaa sammal   %s pidä tasapaino   %s siirrä tikkaat   %s alas" % [
+		Settings.cap("interact", "Hiiri vasen"), Settings.pair("left", "right"), Settings.cap("bell", "Hiiri oikea"),
+		Settings.cap("mount")]
 
 
 static func new_state(base_off: float, gutter_up: float) -> Array:
@@ -353,7 +355,7 @@ func _update_task() -> void:
 				left += 1
 	_count.text = "Putsattu %d / %d · kohta %d / %d" % [total - left, total, _sec + 1, state.size()]
 	if all_done:
-		_task.text = "Rännit ja katto puhtaat! F laskeutuu alas."
+		_task.text = "Rännit ja katto puhtaat! %s laskeutuu alas." % Settings.action_key("mount")
 	elif state[_sec].all(func(t): return t.hp <= 0):
 		_task.text = "Tämä kohta on puhdas: siirrä tikkaat (oikea nappi)"
 	else:

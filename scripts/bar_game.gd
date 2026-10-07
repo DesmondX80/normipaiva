@@ -50,7 +50,8 @@ func _ready() -> void:
 	_build_hud()
 	_title.text = "RAAHEN BAARI"
 	_info.text = "Terästehtaan Tero haastaa kädenvääntöön. Häviäjä tarjoaa kierroksen.\n" \
-		+ "Vuorottele A ja D tasaiseen tahtiin. Räpellys ei auta.\n\n[E] Tartu Teron kättä"
+		+ "Vuorottele %s ja %s tasaiseen tahtiin. Räpellys ei auta.\n\n%s Tartu Teron kättä" % [
+			Settings.action_key("left"), Settings.action_key("right"), Settings.cap("interact")]
 	_update_arms()
 
 
@@ -100,7 +101,7 @@ func _wrestle(delta: float) -> void:
 	_angle -= TERO_FORCE * wave * (1.0 + _t / TIME * 0.8) * delta
 	_angle = clampf(_angle, -1.0, 1.0)
 	_meter.value = (_angle + 1.0) * 50.0
-	_info.text = "%s   %d s" % ["[A]" if _next == "left" else "[D]", ceili(TIME - _t)]
+	_info.text = "%s   %d s" % [Settings.cap(_next), ceili(TIME - _t)]
 	_talk_t -= delta
 	if _talk_t <= 0.0:
 		_talk_t = randf_range(2.5, 4.0)

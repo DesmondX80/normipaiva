@@ -331,8 +331,12 @@ func _build_hud() -> void:
 	_score_l = _label(22, 0.0, 12, 120, HORIZONTAL_ALIGNMENT_LEFT)
 	_sub = _label(30, 1.0, -170, -120, HORIZONTAL_ALIGNMENT_CENTER)
 	_sub.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
-	var help := _label(16, 1.0, -36, -12, HORIZONTAL_ALIGNMENT_CENTER)
-	help.text = "Hiiri tähtää · vasen nappi / E heittää · oikea nappi pohjassa: keskity (hetken) · F lopeta"
+	var keys: Control = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
+	keys.compact = true
+	keys.centered = true
+	_layer.add_child(keys)
+	keys.set_text("%s heitä   [Hiiri oikea] keskity (pidä pohjassa, hetken)   %s lopeta" % [
+		Settings.cap("interact", "Hiiri vasen"), Settings.cap("mount")])
 
 
 func _label(size: int, anchor_y: float, top: float, bottom: float, align: HorizontalAlignment) -> Label:

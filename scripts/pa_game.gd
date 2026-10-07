@@ -117,7 +117,12 @@ func _ready() -> void:
 	_board.draw.connect(_draw_board)
 	add_child(_board)
 	_task = _make_label(24, Color(1.0, 0.85, 0.35), Control.PRESET_TOP_WIDE, Rect2(0, 12, 0, 0))
-	_sub = _make_label(24, Color.WHITE, Control.PRESET_BOTTOM_WIDE, Rect2(0, -48, 0, -12))
+	_sub = _make_label(24, Color.WHITE, Control.PRESET_BOTTOM_WIDE, Rect2(0, -100, 0, -64))
+	var keys: Control = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
+	keys.compact = true
+	keys.centered = true
+	add_child(keys)
+	keys.set_text("[Hiiri vasen] kytke tai irrota johto, vedä säädintä   [Rulla] säädä   %s lopeta" % Settings.cap("mount"))
 	_strike_label = _make_label(22, Color(1.0, 0.5, 0.4), Control.PRESET_TOP_RIGHT, Rect2(-330, 12, -20, 40))
 	_strike_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_title = _make_label(72, Color(1.0, 0.8, 0.2), Control.PRESET_CENTER, Rect2(-500, -60, 500, 60))
@@ -170,7 +175,7 @@ func _say(key: String) -> void:
 func _input(event: InputEvent) -> void:
 	if _done:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Q:
+	if event is InputEventKey and event.pressed and not event.echo and event.is_action("mount"):
 		_finish(false, true)
 		get_viewport().set_input_as_handled()
 		return
@@ -428,7 +433,7 @@ func _task_text(live: bool, music: float) -> String:
 	if not (_powered("mix_pow") and _powered("amp_pow")):
 		need.append("virrat jatkojohtoon")
 	if not need.is_empty():
-		return "1. Kytke johdot: " + ", ".join(need) + "   (Q lopettaa)"
+		return "1. Kytke johdot: " + ", ".join(need)
 	if not live:
 		return "2. Virrat päälle: mikseri ensin, pääte viimeisenä"
 	if music <= 0.05:

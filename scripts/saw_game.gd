@@ -89,7 +89,9 @@ func _init() -> void:
 	lines = LINES
 	watcher_spots = {"raimo": Vector3(1.6, 0, -0.55), "veikko": Vector3(1.75, 0, 1.35)}
 	watch_at = Vector3(0, 0, 0.7)
-	help_text = "Hiiri tähtää · Vasen nappi / E: aloita sahaus merkistä · Hiiri eteen-taakse / W-S: sahaa · Hiiri sivulle / A-D: pidä saha suorassa · Oikea nappi: nosta saha · F: lopeta"
+	help_text = "%s aloita sahaus merkistä   %s sahaa (tai hiiri eteen-taakse)   %s pidä saha suorassa (tai hiiri sivulle)\n%s nosta saha   %s lopeta" % [
+		Settings.cap("interact", "Hiiri vasen"), Settings.pair("forward", "back"), Settings.pair("left", "right"),
+		Settings.cap("bell", "Hiiri oikea"), Settings.cap("mount")]
 
 
 func _start() -> void:
@@ -343,7 +345,7 @@ func _update_mark() -> void:
 	_mark.position = Vector3(0, LOG_Y + R + 0.004, p.z)
 	var ok := p.z >= MIN_CUT_Z and _end_z - p.z >= 0.1
 	(_mark.material_override as StandardMaterial3D).albedo_color = Color(0.95, 0.95, 0.9) if ok else Color(1, 0.3, 0.2)
-	_task.text = "Pölkyn pituus %d cm  ·  [hiiri / E] aloita sahaus" % roundi((_end_z - p.z) * 100.0) if ok \
+	_task.text = "Pölkyn pituus %d cm  ·  %s tai hiiri: aloita sahaus" % [roundi((_end_z - p.z) * 100.0), Settings.action_key("interact")] if ok \
 		else "Pukin välistä ei sahata" if p.z < MIN_CUT_Z else "Liian lyhyt"
 
 
