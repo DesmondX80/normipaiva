@@ -19,6 +19,7 @@ from kartta import Mosaic, MokkiDem, Osm, fmt  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PATH = os.path.join(ROOT, "assets", "mokki", "kartta.json")
+FAR = (-1504, -2800, 1696, 1352)  # dem_far: x0, z0, x1, z1 (8 m), lehden R4333D sisällä
 
 
 def main():
@@ -33,9 +34,11 @@ def main():
         print(m.add(os.path.join(a.lehdet, sh + ".tif")))
     dem = MokkiDem(m)
 
-    def grid_json(x0, step, n, extra):
-        vals = dem.grid(x0, x0, step, n)
-        return ('{"x0":' + fmt(x0) + ',"z0":' + fmt(x0) + ',"step":' + fmt(step) + ',"n":' + str(n) + extra
+    def grid_json(x0, step, n, extra, z0=None, nz=None):
+        z0 = x0 if z0 is None else z0
+        vals = dem.grid(x0, z0, step, n, nz)
+        size = ',"n":' + str(n) if nz is None else ',"n":' + str(n) + ',"nx":' + str(n) + ',"nz":' + str(nz)
+        return ('{"x0":' + fmt(x0) + ',"z0":' + fmt(z0) + ',"step":' + fmt(step) + size + extra
                 + ',"values":[' + ",".join(fmt(round(v, 2)) for v in vals) + ']}')
 
     if a.osm:
@@ -56,9 +59,10 @@ def main():
     lik = re.search(r'\{"kind":"water","name":"Likanen"[^}]*"level":([0-9.]+)\}', features)
     water = lik.group(1) if lik else "125.34"
     dem_json = grid_json(-150, 2, 151, ',"water":' + water)
-    far_json = grid_json(-1000, 8, 251, "")
+    # Kaukoalue kävelyalueen (mokki.gd AREA_MIN..AREA_MAX, pohjoiseen Keskimmäiselle) ja näkymän ympäriltä.
+    far_json = grid_json(FAR[0], 8, int((FAR[2] - FAR[0]) / 8) + 1, "", FAR[1], int((FAR[3] - FAR[1]) / 8) + 1)
     src = ("OpenStreetMap (ODbL) ja MML korkeusmalli 2 m (CC BY 4.0, lehti R4333D; ETRS-TM35FIN E 484017.9 N 7153382.0) "
-           "koko alueella (dem 2 m, dem_far 8 m). Kaisuantie 62, Uutelanperä, Vaala: origo osoitepisteessa 64.5054523 N, "
+           "koko alueella (dem 2 m, dem_far 8 m, pohjoiseen Keskimmaiselle). Kaisuantie 62, Uutelanperä, Vaala: origo osoitepisteessa 64.5054523 N, "
            "26.6672225 E; x itaan, z etelaan, metreja. Tehty: tools/kartta/mokki.ps1.")
     out = '{"source":"' + src + '","dem":' + dem_json + ',"dem_far":' + far_json + ',"features":' + features + '}'
     with open(a.out, "w", encoding="utf-8", newline="") as fh:
