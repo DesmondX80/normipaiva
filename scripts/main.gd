@@ -10257,6 +10257,23 @@ func _maybe_screenshot() -> void:
 			for i in 3:
 				await get_tree().process_frame
 			print("HIIRI vasen nappi: kuutonen %s" % interior.has_beer)
+		"ohjerivi":
+			# Näppäinohjerivi seuraa asetuksia: syö T -> R ja takaisin.
+			var erow := -1
+			for r in Settings.KEY_ROWS.size():
+				if "eat" in Settings.KEY_ROWS[r][0]:
+					erow = r
+			for i in 5:
+				await get_tree().process_frame
+			print("OHJERIVI ennen: '%s'" % _help_text())
+			var old_k: int = Settings.keys_of(erow)[0]
+			Settings.bind_key(erow, 0, KEY_R)
+			for i in 5:
+				await get_tree().process_frame
+			print("OHJERIVI syö R:ään: '%s'" % _help_text())
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_r.png"))
+			Settings.bind_key(erow, 0, old_k)
 		"vihjeet":
 			# Vihjepalkki (hint_bar.gd): kaupan grilli, ovi maksamatta, jono ja kotijemma.
 			if player == bike:
