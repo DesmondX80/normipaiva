@@ -56,6 +56,7 @@ func _ready() -> void:
 	_build_bike()
 	_build_vat()
 	walker = Walker.new()
+	walker.bounds = [Rect2(-HALF, HALF * 2.0)]  # nosturioven aukosta ei ulos
 	add_child(walker)
 	walker.position = SPOTS.ovi[0] + Vector3(0, 0, -1.2)
 
