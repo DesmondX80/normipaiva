@@ -56,7 +56,7 @@ func _init() -> void:
 	eye = EYE
 	lines = LINES
 	watcher_spots = {"santtu": SANTTU_SPOT}
-	help_text = "Hiiri tähtää · Pidä vasen nappi / E pohjassa: suihkuta myrkkyä · F: lopeta"
+	help_text = "%s suihkuta myrkkyä (pidä pohjassa)   %s lopeta" % [Settings.cap("interact", "Hiiri vasen"), Settings.cap("mount")]
 
 
 func _start() -> void:
@@ -218,7 +218,7 @@ func _kill_nest() -> void:
 	_end_t = 0.0
 	_anger = 0.0
 	Sfx.play("win_small", -4.0)
-	_task.text = "Pesä tuhottu! F lopettaa."
+	_task.text = "Pesä tuhottu! %s lopettaa." % Settings.action_key("mount")
 	_say_kind("done")
 	var nest: Node3D = kota.wasp_nest
 	if nest != null:

@@ -1,6 +1,7 @@
 extends Node3D
 ## Drooninlennätys kotipihalta: kauko-ohjattava kuvauskopteri, jolla tutkitaan Saloisia ilmasta.
-## W/S eteen ja taakse, A/D sivuttain, hiiri tai Q/E kääntää, Space nousee, C/Ctrl laskee, Shift = sport-tila.
+## W/S eteen ja taakse, A/D sivuttain, hiiri tai Q/E kääntää, Space nousee, C/Ctrl laskee, Shift = sport-tila
+## (kaikki näppäinasetuksista: kääntö = kello ja toiminto, nousu = hyppy, lasku/kuva/kotiin = droonin omat rivit).
 ## Hiiren pystyliike kallistaa kameran gimbaalia. Vasen nappi / Enter ottaa ilmakuvan: tunnetut paikat ja hahmot
 ## (pois-lista) tunnistetaan kuvasta ja tallentuvat kokoelmaan (photographed-signaali). V vaihtaa FPV- ja
 ## seurantakameran, H palaa kotiin, F laskeutuu alustalle (vain alustan lähellä).
@@ -60,7 +61,7 @@ var _layer: CanvasLayer
 var _tele: Label
 var _warn: Label
 var _warn_t := 0.0
-var _help: Label
+var _help: Control  # ohjeet näppäinhattuina (hint_bar.gd)
 var _flash: ColorRect
 var _thumb: TextureRect
 var _thumb_t := 0.0
@@ -109,7 +110,7 @@ func _ready() -> void:
 		Touch.look.connect(_look)
 		Touch.set_extra([[KEY_P, "Kuva"], [KEY_C, "Alas"], [KEY_H, "Kotiin"]])
 	_build_hud()
-	_say("Drooni valmiina. Space nostaa ilmaan.", 3.0)
+	_say("Drooni valmiina. %s nostaa ilmaan." % Settings.action_key("jump"), 3.0)
 
 
 func _exit_tree() -> void:
@@ -179,18 +180,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and not Touch.active and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		take_photo()
 	elif event is InputEventKey and event.pressed and not event.echo:
-		match event.physical_keycode:
-			KEY_ENTER, KEY_P:
-				take_photo()
-			KEY_H:
-				if _mode == "fly" and not _landed:
-					_start_rth("Paluu kotiin.")
-			KEY_F:
-				if _home_dist() < 6.0 and _mode == "fly":
-					_mode = "landing"
-					_say("Laskeudutaan alustalle.", 2.0)
-				elif _mode == "fly":
-					_say("Alusta on %d m päässä. Lennä sen yläpuolelle tai paina H." % int(_home_dist()), 2.5)
+		if event.is_action("drone_photo"):
+			take_photo()
+		elif event.is_action("drone_home"):
+			if _mode == "fly" and not _landed:
+				_start_rth("Paluu kotiin.")
+		elif event.is_action("mount"):
+			if _home_dist() < 6.0 and _mode == "fly":
+				_mode = "landing"
+				_say("Laskeudutaan alustalle.", 2.0)
+			elif _mode == "fly":
+				_say("Alusta on %d m päässä. Lennä sen yläpuolelle tai paina %s." % [int(_home_dist()),
+					Settings.action_key("drone_home")], 2.5)
 
 
 func _physics_process(delta: float) -> void:
@@ -202,16 +203,16 @@ func _physics_process(delta: float) -> void:
 	var alt := pos.y - _home_ground
 	var target := Vector3.ZERO
 	var vy := 0.0
-	var sport := Input.is_key_pressed(KEY_SHIFT)
+	var sport := Input.is_action_pressed("sprint")
 	match _mode:
 		"fly":
 			var v := Input.get_vector("left", "right", "forward", "back")
-			var yk := (1.0 if Input.is_key_pressed(KEY_Q) else 0.0) - (1.0 if Input.is_key_pressed(KEY_E) else 0.0)
+			var yk := Input.get_action_strength("bell") - Input.get_action_strength("interact")  # Q/E kääntää
 			_yaw += yk * YAW_KEY * delta
 			target = Basis(Vector3.UP, _yaw) * Vector3(v.x, 0, v.y) * (SPORT if sport else SPEED)
 			if Input.is_action_pressed("jump"):
 				vy = VSPEED
-			elif Input.is_key_pressed(KEY_C) or Input.is_key_pressed(KEY_CTRL):
+			elif Input.is_action_pressed("drone_down"):
 				vy = -VSPEED
 		"rth":
 			var to := Vector2(_home.x - pos.x, _home.z - pos.z)
@@ -466,8 +467,13 @@ func _build_hud() -> void:
 	_rec.add_theme_color_override("font_color", Color(1, 0.3, 0.25))
 	_warn = _hud_label(30, Control.PRESET_CENTER, Rect2(-500, 60, 500, 160))
 	_warn.add_theme_color_override("font_color", Color(1, 0.85, 0.3))
-	_help = _hud_label(17, Control.PRESET_BOTTOM_WIDE, Rect2(0, -100, 0, -76))
-	_help.text = "W/S/A/D liiku · hiiri tai Q/E käänny · Space ylös · C alas · Shift sport · klikkaus kuva · V kamera · H kotiin · F laskeudu"
+	_help = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
+	_help.compact = true
+	_help.centered = true
+	_layer.add_child(_help)
+	_help.set_text("%s ylös   %s alas   %s käänny (tai hiiri)   %s sport\n%s kuva (tai klikkaus)   %s kamera   %s kotiin   %s laskeudu" % [
+		Settings.cap("jump"), Settings.cap("drone_down"), Settings.pair("bell", "interact"), Settings.cap("sprint"),
+		Settings.cap("drone_photo"), Settings.cap("camera"), Settings.cap("drone_home"), Settings.cap("mount")])
 	_thumb = TextureRect.new()
 	_thumb.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_thumb.offset_left = 76

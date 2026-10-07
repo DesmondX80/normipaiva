@@ -67,7 +67,8 @@ func _init() -> void:
 	lines = LINES
 	watcher_spots = {"santtu": Vector3(0.35, 0, 2.7)}  # laiturilla korjauskohdan takana, katse pelaajaan
 	watch_at = Vector3(0, 0, 0.55)
-	help_text = "Hiiri tähtää · Vasen nappi / E: väännä, aseta lauta, lyö naulaa · Oikea nappi / Q: vedä vino naula pois · F: lopeta"
+	help_text = "%s väännä, aseta lauta, lyö naulaa   %s vedä vino naula pois   %s lopeta" % [
+		Settings.cap("interact", "Hiiri vasen"), Settings.cap("bell", "Hiiri oikea"), Settings.cap("mount")]
 
 
 ## Uusi korjauspäivä: SLOTS lahoa lautaa.
@@ -328,7 +329,7 @@ func _process(delta: float) -> void:
 
 func _refresh_task() -> void:
 	if all_done:
-		_task.text = "Laituri korjattu! F lopettaa."
+		_task.text = "Laituri korjattu! %s lopettaa." % Settings.action_key("mount")
 		return
 	var a := _aim()
 	var i: int = a[1]
