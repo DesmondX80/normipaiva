@@ -9,6 +9,7 @@ const BOTTOM := 150.0  # keskikohdan etäisyys ruudun alareunasta (px), sama kui
 const GAP := 22.0  # toimintojen väli rivillä
 
 var compact := false  # näppäinohjerivi vasemmassa alakulmassa (aseta ennen add_child)
+var centered := false  # compact keskelle alareunaan (tappelun ohjeet, fight.gd)
 var left := 0.0  # vasen raja (lappu auki: main.gd _avoid_note)
 var right := 0.0  # varattu oikealta (minikartta: main.gd _avoid_note)
 var _text := ""
@@ -23,7 +24,7 @@ var _re := RegEx.new()
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	_re.compile(r"\[([^\]\n]{1,20})\]")
+	_re.compile(r"\[([^\]\n]{1,30})\]")
 	_pill = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.07, 0.07, 0.09, 0.55 if compact else 0.86)
@@ -71,7 +72,7 @@ func _process(delta: float) -> void:
 	_pill.reset_size()
 	var sz := _pill.get_combined_minimum_size()
 	if compact:
-		_pill.position = Vector2(16.0, vs.y - 12.0 - sz.y)
+		_pill.position = Vector2((vs.x - sz.x) / 2.0 if centered else 16.0, vs.y - 12.0 - sz.y)
 		modulate.a = _a
 		return
 	var lo := maxf(left, 12.0)

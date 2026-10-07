@@ -62,7 +62,7 @@ var _bar_p: ProgressBar
 var _bar_j: ProgressBar
 var _timer_label: Label
 var _announce: Label
-var _help: Label
+var _help: Control  # ohjeet näppäinhattuina (hint_bar.gd), näppäimet asetuksista
 var _phase := "intro"
 var _phase_t := 0.0
 var _time := ROUND_TIME
@@ -805,19 +805,22 @@ func _build_hud() -> void:
 	_announce.add_theme_color_override("font_outline_color", Color(0.5, 0.05, 0.0))
 	_announce.add_theme_constant_override("outline_size", 22)
 
-	_help = _big_label(root, 15)
-	_help.anchor_left = 0.0
-	_help.anchor_right = 1.0
-	_help.anchor_top = 1.0
-	_help.anchor_bottom = 1.0
-	_help.offset_top = -40
-	_help.offset_bottom = -12
+	_help = preload("res://scripts/hint_bar.gd").new()
+	_help.compact = true
+	_help.centered = true
+	root.add_child(_help)
 
 
+## Kaksi riviä: perusiskut, kalja, hyppy ja torjunta; toisella erikoisliikkeet. A/D (liikkuminen) on vakio, ei ohjetta.
 func _update_help() -> void:
 	var left := _beers_left()
-	_help.text = "A/D liiku · W hyppy · S torju · J lyönti · K potku · S+J pystykoukku · S+K pyyhkäisy · eteen+K kiertopotku · ilmassa K lentopotku · L kassi-isku · eteen+L heitä kalja (%s)" % (
-		"%d kaljaa" % left if left > 0 else "ei kaljoja")
+	var k := func(a: String) -> String: return Settings.action_key(a)
+	var row1 := "[%s] lyönti   [%s] potku   [%s] kassi-isku   [eteen+%s] heitä kalja (%s)   [%s] hyppy   [%s] torju" % [
+		k.call("punch"), k.call("kick"), k.call("special"), k.call("special"),
+		"%d kaljaa" % left if left > 0 else "ei kaljoja", k.call("forward"), k.call("back")]
+	var row2 := "[%s+%s] pystykoukku   [%s+%s] pyyhkäisy   [eteen+%s] kiertopotku   [%s] lentopotku (ilmassa)" % [
+		k.call("back"), k.call("punch"), k.call("back"), k.call("kick"), k.call("kick"), k.call("kick")]
+	_help.set_text(row1 + "\n" + row2)
 
 
 func _health_bar(root: Control, left: bool) -> ProgressBar:
