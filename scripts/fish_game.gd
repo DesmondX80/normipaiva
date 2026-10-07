@@ -71,11 +71,17 @@ var _power: ColorRect
 var _dist_label: Label
 
 
+## Laiturin pää ja suunta järvelle (oletus Likasen laituri; Keskimmäisellä mokki.north_dock).
+var dock := Mokki.DOCK_LOCAL
+var dock_dir := Vector2(0, 1)
+
+
 func _ready() -> void:
-	_lake = Mokki.water_at(Mokki.DOCK_LOCAL.x, Mokki.DOCK_LOCAL.z)
+	_lake = Mokki.water_at(dock.x + dock_dir.x * 2.0, dock.z + dock_dir.y * 2.0)
 	_wl = Mokki.water_level(_lake) if _lake >= 0 else Mokki.water_y()
-	_pos = Vector3(Mokki.DOCK_LOCAL.x + 1.8, _wl, Mokki.DOCK_LOCAL.z + 1.0)
-	_yaw = PI  # keula järvelle (+Z)
+	var sd := dock_dir.orthogonal()
+	_pos = Vector3(dock.x + sd.x * 1.8 + dock_dir.x, _wl, dock.z + sd.y * 1.8 + dock_dir.y)
+	_yaw = atan2(-dock_dir.x, -dock_dir.y)  # keula järvelle
 	_boat = Node3D.new()
 	add_child(_boat)
 	_oars = build_boat(_boat)

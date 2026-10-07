@@ -240,8 +240,8 @@ class MokkiDem:
         e, n = tm35(lat, lon)
         return self.m.at(e, n)
 
-    def grid(self, x0, z0, step, n):
-        return [self.at(x0 + i * step, z0 + j * step) for j in range(n) for i in range(n)]
+    def grid(self, x0, z0, step, n, nz=None):
+        return [self.at(x0 + i * step, z0 + j * step) for j in range(nz or n) for i in range(n)]
 
     @staticmethod
     def _inside(xs, zs, x, z):

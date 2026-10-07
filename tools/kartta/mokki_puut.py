@@ -1,6 +1,6 @@
 """Mökin metsä oikeista puista (assets/mokki/puut.bin, scripts/forest.gd): MML:n laserkeilaus 2011 ja Luken VMI 2023.
 
-Alle 650 m mökistä latvuston aukot täydennetään laserin näkemään latvustoon, kauempana (VIEW_HALF 950 m asti)
+Kävelyalueella ja 250 m sen ympärillä latvuston aukot täydennetään laserin näkemään latvustoon, kauempana (VIEW_PAD)
 vain laserin erottamat valtapuut. Puita ei vesistöihin, pelloille, teille, rakennusten
 päälle eikä pelin omiin aukkoihin (piha, laiturin polku, metsästyslavan aukea; vakiot scripts/mokki.gd:stä).
 Puun maanpinta lasketaan samoin kuin mokki.gd:n h() (kartta.json:n dem/dem_far ja vesistöt). Lisäksi
@@ -28,9 +28,10 @@ BUILD_OUT = os.path.join(ROOT, "assets", "mokki", "rakennukset.json")
 # scripts/mokki.gd
 YARD_C = (1.0, 2.35)
 YARD_ROT_DEG = 17.6
-AREA_HALF = 400.0
-VIEW_HALF = 950.0
-FILL_HALF = 650.0  # latvuston aukot täydennetään tähän asti, kauempana vain valtapuut
+AREA_MIN = (-400.0, -1750.0)  # kävelyalue karttakehyksessä
+AREA_MAX = (600.0, 400.0)
+VIEW_PAD = 550.0
+FILL_PAD = 250.0  # latvuston aukot täydennetään näin kauas kävelyalueesta, kauempana vain valtapuut
 YARD_CENTER = (-2.0, 10.0)
 YARD_R = (21.0, 19.0)
 DOCK = (8.9, 55.4)
@@ -56,10 +57,10 @@ def to_map(lx, lz):
 
 
 def grid(dem, mx, mz):
-    n = dem["n"]
-    v = np.asarray(dem["values"], np.float64).reshape(n, n)
+    n, nz = dem.get("nx", dem["n"]), dem.get("nz", dem["n"])
+    v = np.asarray(dem["values"], np.float64).reshape(nz, n)
     fx = np.clip((mx - dem["x0"]) / dem["step"], 0.0, n - 1.001)
-    fz = np.clip((mz - dem["z0"]) / dem["step"], 0.0, n - 1.001)
+    fz = np.clip((mz - dem["z0"]) / dem["step"], 0.0, nz - 1.001)
     i, j = fx.astype(int), fz.astype(int)
     u, w = fx - i, fz - j
     a = v[j, i] + (v[j, i + 1] - v[j, i]) * u
@@ -108,7 +109,8 @@ def main():
             builds.append(poly)
 
     def exclude_local(lx, lz):
-        bad = (np.abs(lx) > VIEW_HALF) | (np.abs(lz) > VIEW_HALF)
+        mx, mz = to_map(lx, lz)
+        bad = (mx < AREA_MIN[0] - VIEW_PAD) | (mx > AREA_MAX[0] + VIEW_PAD) | (mz < AREA_MIN[1] - VIEW_PAD) | (mz > AREA_MAX[1] + VIEW_PAD)
         bad |= ((lx - YARD_CENTER[0]) / YARD_R[0]) ** 2 + ((lz - YARD_CENTER[1]) / YARD_R[1]) ** 2 < 1.0
         bad |= seg_dist(lx, lz, *DOCK_PATH) < 3.0
         bad |= np.hypot(lx - HUNT_GLADE[0], lz - HUNT_GLADE[1]) < HUNT_GLADE_R
@@ -138,14 +140,17 @@ def main():
 
     def fill_mask(e, n):
         x, z = T.tm_to_frame(e, n)
-        return (np.abs(x) < FILL_HALF) & (np.abs(z) < FILL_HALF)
+        return (x > AREA_MIN[0] - FILL_PAD) & (x < AREA_MAX[0] + FILL_PAD) & (z > AREA_MIN[1] - FILL_PAD) & (z < AREA_MAX[1] + FILL_PAD)
 
-    ce, cn = T.frame_to_tm(0.0, 0.0)
-    r = VIEW_HALF * 1.45
-    dem = T.Dem(a.cache, ce - r, cn - r, ce + r, cn + r)
+    # Lähdeaineiston rajaus TM35:ssä: näkyvä alue (karttakehys, z etelään = pohjoinen pienenee) varalla.
+    ex = [T.frame_to_tm(x, z) for x in (AREA_MIN[0] - VIEW_PAD - 100, AREA_MAX[0] + VIEW_PAD + 100)
+          for z in (AREA_MIN[1] - VIEW_PAD - 100, AREA_MAX[1] + VIEW_PAD + 100)]
+    e0, e1 = min(float(q[0]) for q in ex), max(float(q[0]) for q in ex)
+    n0, n1 = min(float(q[1]) for q in ex), max(float(q[1]) for q in ex)
+    dem = T.Dem(a.cache, e0, n0, e1, n1)
     laser = T.Laser(a.cache, dem, LASER_TILES)
     e, n, h = laser.trees(rng, exclude, fill_mask)
-    species = T.Species(a.cache, ce - r, cn - r, ce + r, cn + r)
+    species = T.Species(a.cache, e0, n0, e1, n1)
     sp = species(rng, e, n, h)
     x, z = T.tm_to_frame(e, n)
     lx, lz = to_local(x, z)

@@ -844,7 +844,8 @@ func _draw_vaala_map() -> void:
 	if _vtex == null:
 		return
 	v.draw_texture_rect(_vtex, Rect2(_vpx(_vrect.position), _vrect.size * _vzoom), false)
-	_draw_mokki_overlay(v)
+	if _vaala_trip():
+		_draw_mokki_overlay(v)
 	var wz := func(half: float, lo: float, hi: float) -> float: return clampf(half * 2.0 * _vzoom, lo, hi)
 
 	# Sivutiet ja rata.
@@ -960,6 +961,9 @@ func _draw_vaala_map() -> void:
 		var ap: Vector3 = mopo_trip.vaala.atm_pos
 		_poi_icon_on(v, _vpx(Vector2(ap.x, ap.z)) + Vector2(0, 14), "atm")
 
+	# Mökillä mökin koko kävelyalue omasta aineistostaan kaiken päälle (mopomatkan tiivistetty kartta jää alle).
+	if not _vaala_trip():
+		_draw_mokki_overlay(v)
 	# Mopo: mökin pihassa tai Vaalassa parkissa; pelaaja.
 	var me := _vaala_me()
 	if mokki != null and not _vaala_trip() and mokki.mopo_parked != null and mokki.mopo_parked.visible:
@@ -974,12 +978,24 @@ func _draw_vaala_map() -> void:
 func _draw_mokki_overlay(v: Control) -> void:
 	var font := ThemeDB.fallback_font
 	var data: Dictionary = Mokki.map_data()
+	# Mökillä koko kävelyalue (pohjoiseen Salmisille ja Keskimmäiselle) mökin omasta 1:1-aineistosta mopomatkan
+	# tiivistetyn kartan päälle; matkalla vain mökin lähiympäristö.
+	var whole := not _vaala_trip()
+	var area: PackedVector2Array = data.area
+	if whole:
+		var ap := PackedVector2Array()
+		for q in area:
+			ap.append(_pxl(q))
+		v.draw_colored_polygon(ap, Color(0.66, 0.76, 0.52))
+		v.draw_polyline(ap + PackedVector2Array([ap[0]]), INK.lightened(0.4), 1.0)
+	var inside := func(p: Vector2) -> bool:
+		return Geometry2D.is_point_in_polygon(p, area) if whole else Mokki.to_map2(p).length() < MOKKI_DETAIL_R
 	var near := func(poly: PackedVector2Array) -> bool:
 		var cen := Vector2.ZERO
 		for p in poly:
 			cen += p
 		cen /= maxf(1.0, poly.size())
-		return Mokki.to_map2(cen).length() < MOKKI_DETAIL_R
+		return inside.call(cen)
 	var tr := func(poly: PackedVector2Array) -> PackedVector2Array:
 		var out := PackedVector2Array()
 		for p in poly:
@@ -1006,10 +1022,10 @@ func _draw_mokki_overlay(v: Control) -> void:
 	for r in data.roads:
 		var seg := PackedVector2Array()
 		for p in r.pts:
-			if Mokki.to_map2(p).length() < MOKKI_DETAIL_R:
+			if inside.call(p):
 				seg.append(_pxl(p))
 			elif seg.size() > 1:
-				v.draw_polyline(seg, Color(0.62, 0.52, 0.36), 2.0)
+				v.draw_polyline(seg, Color(0.55, 0.42, 0.26), 2.5)
 				seg = PackedVector2Array()
 			else:
 				seg = PackedVector2Array()
@@ -1018,6 +1034,17 @@ func _draw_mokki_overlay(v: Control) -> void:
 	for bd in data.buildings:
 		if not (bd.id in Mokki.OWN_BUILDINGS) and near.call(bd.poly):
 			v.draw_colored_polygon(tr.call(bd.poly), Color(0.42, 0.38, 0.34))
+	if whole and mokki != null and mokki.built:
+		var sites := [["Salmisen uimaranta", mokki.beach_pos, "beach"], ["Ranta-Rosvo", mokki.rosvo_pos, "statue"],
+			["Laavu ja tynnyrisauna", mokki.laavu_fire, "laavu"], ["Laituri ja soutuvene", mokki.north_dock, "dock"]]
+		for st in sites:
+			var p3: Vector3 = st[1]
+			if p3 == Vector3.ZERO:
+				continue
+			var sp := _pxl(Vector2(p3.x, p3.z))
+			_poi_icon_on(v, sp, st[2])
+			if _vzoom >= 0.5 and st[2] != "dock" or _vzoom >= 1.2:
+				_outlined(v, sp + Vector2(10, 5), st[0], 12, Color(0.12, 0.25, 0.5))
 	if _vzoom < 1.2:
 		return
 	# Piha lähempää: mökki, savusauna, palju, kesäkeittiö, tikkataulu, laituri, Pekan auto, Santtu ja riistapolku.
@@ -1117,6 +1144,20 @@ func _poi_icon_on(ci: CanvasItem, p: Vector2, kind: String) -> void:
 		"shop":
 			ci.draw_circle(p, 8.0, Color(1.0, 0.45, 0.0))
 			ci.draw_string(font, p + Vector2(-4, 5), "K", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+		"beach":
+			# Aurinkovarjo hiekalla.
+			ci.draw_rect(Rect2(p + Vector2(-8, 3), Vector2(16, 4)), Color(0.9, 0.8, 0.5))
+			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-8, -3), p + Vector2(0, -9), p + Vector2(8, -3)]), Color(0.9, 0.2, 0.2))
+			ci.draw_line(p + Vector2(0, -3), p + Vector2(0, 4), INK, 1.5)
+		"statue":
+			ci.draw_rect(Rect2(p + Vector2(-5, 2), Vector2(10, 5)), Color(0.45, 0.43, 0.42))
+			ci.draw_circle(p + Vector2(0, -7), 2.5, Color(0.42, 0.3, 0.16))
+			ci.draw_line(p + Vector2(0, -5), p + Vector2(0, 2), Color(0.42, 0.3, 0.16), 3.0)
+		"laavu":
+			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-8, 6), p + Vector2(-2, -7), p + Vector2(8, 6)]), Color(0.45, 0.33, 0.2))
+			ci.draw_circle(p + Vector2(5, 8), 2.5, Color(0.95, 0.5, 0.1))
+		"dock":
+			ci.draw_line(p + Vector2(-6, 0), p + Vector2(6, 0), Color(0.5, 0.38, 0.24), 4.0)
 		"smarket":
 			ci.draw_circle(p, 8.0, Color(0.1, 0.5, 0.25))
 			ci.draw_string(font, p + Vector2(-4, 5), "S", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
