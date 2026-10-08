@@ -6,7 +6,8 @@ Ajo: python3 tools/vaala_lava.py [--cache <välimuisti>]
 
 Lava oli Pahalahdentien päässä niemen kärjessä (64.550921 N, 26.822649 E), jossa Oulujoki alkaa Oulujärvestä:
 idässä joki, etelässä järvi ja lounaassa Pahalahti, kaikki samassa pinnassa (korkeusmallissa 122,74 m). Pelissä lava
-on hieman lähempänä Vuolijoentietä (LAVA_SHIFT) ja Pahalahdentie on asfaltoitu lavalle asti.
+on aivan rannassa (SHORE_GAP m vedestä, lähin sellainen paikka todellisesta) ja vähän pienempi, ja Pahalahdentie on
+asfaltoitu lavalle asti.
 
 Niemi (AREA) on mopomatkan 1:1-aluetta: vaala_bake.py kuvaa sen maaston, vedet ja metsän samalla saumattomalla
 kuvauksella kuin muunkin alueen (tools/kartta/vaala_warp.py, AREA:n ankkurit). Tämä lisää vain lavan omat asiat:
@@ -31,8 +32,8 @@ PUUT = os.path.join(ROOT, "assets", "vaala", "puut.bin")
 LAT0, LON0 = 64.5054523, 26.6672225  # Kaisuantie 62 (vaala_reitti.py)
 M_PER_DEG = 111320.0
 LAVA = (64.550921, 26.822649)
-LAVA_SHIFT = (-68.0, -65.0)  # pelissä niemen kärjestä n. 90 m lähemmäs Vuolijoentietä, Pahalahdentien länsipuolelle
-LAVA_SIZE = (34.0, 44.0)  # 1 500 m², pitkä sivu z-suunnassa (vaala.gd _build_lava)
+LAVA_SIZE = (28.0, 36.0)  # n. 1 000 m² (todellinen n. 1 500 m²), pitkä sivu z-suunnassa (vaala.gd _build_lava)
+SHORE_GAP = (3.0, 7.0)    # lava aivan rannassa: seinästä lähimpään veteen (m)
 ROAD_NAME = "Pahalahdentie"
 # Niemen 1:1-alue (x0, z0, x1, z1; vaala_bake.py:n ankkurit x0 + 60 m alkaen) todellisessa kehyksessä; pelissä
 # se siirtyy niemen siirron (tie.json "lava_off") mukana: area(off). AREA on viimeksi käytetty pelin alue.
@@ -156,7 +157,42 @@ def apply(cache=None):
 
     # --- Lava, Pahalahdentie (asfaltti lavalle asti) ja aita. ------------------------------------------------
     real = g(to_xz(*LAVA))
-    c = (real[0] + LAVA_SHIFT[0], real[1] + LAVA_SHIFT[1])
+    hw, hl = LAVA_SIZE[0] / 2.0, LAVA_SIZE[1] / 2.0
+
+    def game_wet(p):
+        i, j = int(round((p[0] - x0) / cell)), int(round((p[1] - z0) / cell))
+        return 0 <= i < nx and 0 <= j < nz and codes[j * nx + i] == WATER
+
+    # Lava rantaan: lähin paikka todellisesta, jossa lava on kuivalla ja seinästä veteen SHORE_GAP (pelin vesiruudut).
+    wet_pts = []
+    for j in range(int((real[1] - 260 - z0) / cell), int((real[1] + 260 - z0) / cell)):
+        for i in range(int((real[0] - 260 - x0) / cell), int((real[0] + 260 - x0) / cell)):
+            if 0 <= i < nx and 0 <= j < nz and codes[j * nx + i] == WATER:
+                wet_pts.append((x0 + i * cell, z0 + j * cell))
+    buckets = {}
+    for q in wet_pts:
+        buckets.setdefault((int(q[0] // 40), int(q[1] // 40)), []).append(q)
+    best = None
+    for dz in range(-200, 201, 4):
+        for dx in range(-200, 201, 4):
+            cc = (real[0] + dx, real[1] + dz)
+            gap = 1e9
+            bi, bj = int(cc[0] // 40), int(cc[1] // 40)
+            for di in (-1, 0, 1):
+                for dj in (-1, 0, 1):
+                    for q in buckets.get((bi + di, bj + dj), ()):
+                        ex = max(abs(q[0] - cc[0]) - hw, 0.0)
+                        ez = max(abs(q[1] - cc[1]) - hl, 0.0)
+                        gap = min(gap, math.hypot(ex, ez) - cell / 2.0)
+            if not (SHORE_GAP[0] <= gap <= SHORE_GAP[1]):
+                continue
+            score = math.hypot(dx, dz)
+            if best is None or score < best[0]:
+                best = (score, cc, gap)
+    if best is None:
+        sys.exit("lavalle ei löytynyt rantapaikkaa")
+    c = best[1]
+    print("lava rannassa: %.1f m vedestä, %.0f m todellisesta paikasta" % (best[2], best[0]))
     parts = [[tuple(q) for q in f["pts"]] for f in d["features"] if f["kind"] == "road" and f.get("name") == ROAD_NAME]
     road = []
     while parts:
@@ -181,9 +217,10 @@ def apply(cache=None):
     road = resample([g(p) for p in road], 2.0)
     if math.dist(road[0], real) < math.dist(road[-1], real):
         road.reverse()  # risteyksestä niemen kärkeen
-    hw, hl = LAVA_SIZE[0] / 2.0, LAVA_SIZE[1] / 2.0
     # Ovi tien puoleiselle pitkälle sivulle; tie loppuu ajotien liittymään (niemen kärkeen ei enää ajeta).
     side = 1.0 if min(road, key=lambda p: math.dist(p, c))[0] >= c[0] else -1.0
+    if game_wet((c[0] + side * (hw + 4.0), c[1])):
+        side = -side  # ovi ei rannan puolelle
     door = (c[0] + side * (hw + 4.0), c[1])
     road = road[:min(range(len(road)), key=lambda k: math.dist(road[k], door)) + 1]
     drive = [road[-1], door]
@@ -204,7 +241,7 @@ def apply(cache=None):
 
     def to_water(p, dx, dz):
         t = 0.0
-        while not wet((p[0] + dx * t, p[1] + dz * t)):
+        while not game_wet((p[0] + dx * t, p[1] + dz * t)):
             t += 1.0
             if t > 600.0:
                 sys.exit("aidan linja ei osu veteen")

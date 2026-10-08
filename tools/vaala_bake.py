@@ -17,8 +17,8 @@ Tiivistys: mökin pihassa (GRAVEL_S0), Neittäväntien risteyksessä (.. S_A), r
 (S_B..S_R, lavan niemi) ja Vaalan keskustassa (S_T ->) mittakaava on 1:1. Soratie mökiltä Neittäväntielle lyhenee
 GRAVEL_K-kertaisesti ja maantie Vaalaan K-kertaisesti; jokainen tien pala lyhenee samassa suhteessa, joten suunnat ja
 risteysten kulmat säilyvät. Oulujoen ylitys (TOWN_K) ja itärannan pätkä keskustan portille (EAST_K, ei taloja) ovat
-lineaarinen kaista kaistan akselin suunnassa: joki kapenee ja keskusta alkaa heti sillan jälkeen. Oulujärvi loppuu
-etelässä LAKE_Z:aan (muuten se olisi tiivistyksen takia mökin vieressä).
+lineaarinen kaista kaistan akselin suunnassa: joki kapenee ja keskusta alkaa heti sillan jälkeen. Oulujärven lounainen
+lahti on maata (lake_cut; muuten järvi olisi tiivistyksen takia mökin vieressä).
 Pelin koordinaatit: mökin osoitepiste origossa kuten reitti.json:ssa (x itään, z etelään), korkeus metreinä mpy.
 Kohteet tien varrelta siirretään tien mukana: todellinen paikka -> lähin tien kohta (matka s, sivuetäisyys d)
 -> pelissä sama d samasta tien kohdasta.
@@ -47,6 +47,7 @@ SRC = os.path.join(ROOT, "assets", "vaala", "reitti.json")
 OUT_JSON = os.path.join(ROOT, "assets", "vaala", "tie.json")
 OUT_BIN = os.path.join(ROOT, "assets", "vaala", "maasto.bin")
 OUT_TREES = os.path.join(ROOT, "assets", "vaala", "puut.bin")
+MOKKI_KARTTA = os.path.join(ROOT, "assets", "mokki", "kartta.json")
 
 K = 22.0           # tiivistyskerroin välimatkalla
 STEP = 2.0         # tien näytteiden väli pelissä (m)
@@ -76,13 +77,28 @@ EAST_KEEP_TYPES = ("retail", "commercial", "civic", "school", "church", "public"
 # joten kaupat, Siitari ja keskusta alkavat heti sillan jälkeen.
 EAST_K = 12.0
 TOWN_RMAX = 650.0  # kaistan kohteet (rakennukset, kadut) näin kauas kaistan akselilta
-LAKE_Z = -250.0    # Oulujärvi loppuu etelässä tähän (pelin z, aaltoileva ranta): todellisuudessa järvi on mökiltä
-                   # n. 7 km päässä, mutta tiivistys toisi sen 300 m päähän mökistä
+# Oulujärven lounainen lahti (pelissä Pahalahden eteläpuolella, länteen LAKE_CUT_X:stä ja etelään LAKE_CUT_Z:sta,
+# aaltoilevat rajat) maaksi: todellisuudessa järvi on mökiltä n. 7 km päässä, mutta tiivistys toisi sen 300 m päähän
+# mökistä. Pahalahti lavan niemen länsipuolella ja järven selkä kaakossa jäävät.
+LAKE_CUT_X = 560.0
+LAKE_CUT_Z = -60.0
 BAND_LAT = 1200.0  # kaistan maastokehykset näin kauas akselilta
 UNDER_CLEAR = 4.6  # alikulun vapaa korkeus tien pinnasta ratasillan alapintaan
 UNDER_DIP = 1.3    # tie painuu alikulussa
 UNDER_OPEN = 13.0  # alikulun aukko maastossa ajoradan reunasta (videon mukaan leveä: kansi pilareilla, maatuet kauempana)
-BRANCH_LEN = 90.0  # risteysten haarat väärään suuntaan: näin pitkä pätkä, sitten umpitie
+BRANCH_LEN = 90.0  # risteysten haarat väärään suuntaan: 1:1 näin pitkälle, sitten OSM-linjaa maaston kuvauksella
+# Neittävän järviseutu: mökin kävelyalueen pohjoisosan järvet (Salmiset, Pyöriäinen, Keskimmäinen; mökin kartta.json)
+# piirretään mopomatkan maailmaan Neittäväntien risteyksen luoteeseen loivalla kuvauksella T (todellinen -> peli:
+# NL_C + (p - NL_REF) * NL_S). Tiivistetyssä maailmassa ne puristuisivat tien suunnassa 22-kertaisesti sadan metrin
+# läikäksi; nyt paperikartan Salmisen uimaranta, Ranta-Rosvo ja laavu ovat Neittävällä omien järviensä rannoilla.
+NORTH_LAKES = ("Pyöriäinen", "Etu-Salminen", "Pikku-Salminen", "Taka-Salminen", "Keskimmäinen")
+NL_REF = (100.0, -700.0)
+NL_C = (-100.0, -300.0)
+NL_S = (0.6, 0.5)
+NL_BOX = (-470.0, -1060.0, 240.0, -290.0)  # järviseudun alue pelissä: muut pikkujärvet suoksi
+NL_ROAD = 35.0     # järvet näin kauas reitistä ja haaroista
+NL_BLEND = (-480.0, -700.0)  # paperikartta: todellinen z, jossa mökin alueen kuvaus vaihtuu maastosta T:hen
+THIN_CROSS = 120.0  # tiivistetyllä välillä reitin poikki menevät sivutiet vähintään näin kaukana toisistaan
 FAR_CELL = 32.0
 FAR_MARGIN = 700.0
 SIDE_D = 60.0      # sivukorkeuksien etäisyys tiestä (reitti.json "side")
@@ -156,9 +172,13 @@ def seg_dist(p, a, b):
     return math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dz * t), t
 
 
-def lake_edge(x):
-    """Oulujärven eteläranta pelissä (z) kohdassa x: LAKE_Z aaltoiltuna."""
-    return LAKE_Z + 70.0 * np.sin(np.asarray(x) / 190.0 + 1.3) + 35.0 * np.sin(np.asarray(x) / 67.0 + 0.4)
+def lake_cut(x, z):
+    """Pelin pisteet (taulukot), joissa Oulujärven lounainen lahti muuttuu maaksi (LAKE_CUT_X, LAKE_CUT_Z)."""
+    x = np.asarray(x, np.float64)
+    z = np.asarray(z, np.float64)
+    west = x < LAKE_CUT_X + 45.0 * np.sin(z / 95.0 + 0.7) + 18.0 * np.sin(z / 37.0 + 2.1)
+    south = z > LAKE_CUT_Z + 35.0 * np.sin(x / 80.0 + 1.1) + 14.0 * np.sin(x / 29.0)
+    return west & south
 
 
 def polys_near(a, b, gap):
@@ -671,7 +691,8 @@ def main():
                 gp = [(gj[0] + q[0] - J[0], gj[1] + q[1] - J[1]) for q in cut]
                 branches.append({"name": f.get("name", ""), "hw": hw, "gravel": 1 if surf == "gravel" else 0, "s": samples[ji]["s"],
                                  "pts": [[round(q[0], 2), round(y0, 2), round(q[1], 2)] for q in gp],
-                                 "real": [[round(q[0], 2), round(q[1], 2)] for q in cut]})
+                                 "real": [[round(q[0], 2), round(q[1], 2)] for q in cut],
+                                 "rest": line[len(cut):]})
                 branch_ways.add(f["id"])
     print("haaroja", len(branches), [(b["name"], len(b["pts"])) for b in branches])
 
@@ -745,6 +766,31 @@ def main():
             side_roads.append({"kind": f["kind"], "hw": hw, "name": f.get("name", ""), "surface": f.get("surface", ""), "pts": cur})
     # Talot eivät saa jäädä ajettavien sivuteiden päälle (tiivistetyllä välillä kadut kutistuvat pisteittäin, talot
     # siirtyvät kokonaisina): ajoradan puoliskon sisällä oleva talo pois.
+    # Tiivistetyllä välillä reitin poikki menevät metsätiet puristuvat yhdensuuntaisiksi raidoiksi: pisimmät jäävät
+    # THIN_CROSS m välein, muut pois.
+    gs_grid = Grid([smp["g"] for smp in samples], 20.0)
+    crossings = []
+    keep_sr = []
+    for r in side_roads:
+        if r["kind"] != "road":
+            keep_sr.append(r)
+            continue
+        bd_, bi_ = 1e9, -1
+        for q in r["pts"]:
+            i_, d_ = gs_grid.nearest(tuple(q), 40.0)
+            if i_ >= 0 and d_ < bd_:
+                bd_, bi_ = d_, i_
+        if bi_ >= 0 and bd_ < 30.0 and samples[bi_]["c"] < VW.LAT_C:
+            crossings.append((bi_, sum(math.dist(a, b) for a, b in zip(r["pts"], r["pts"][1:])), r))
+        else:
+            keep_sr.append(r)
+    taken = []
+    for bi_, _L, r in sorted(crossings, key=lambda c: -c[1]):
+        if all(abs(bi_ - t) * STEP >= THIN_CROSS for t in taken):
+            taken.append(bi_)
+            keep_sr.append(r)
+    print("tiivistetyn välin poikkitiet: %d -> %d" % (len(crossings), len(taken)))
+    side_roads = keep_sr
     SIDE_HW = {"secondary": 3.2, "tertiary": 3.2, "residential": 2.6, "service": 1.8}
     street_pts = []
     for r in side_roads:
@@ -803,7 +849,8 @@ def main():
     near_d = {}
     near_i = {}
     rcell = int(SHAPE / CELL) + 1
-    for si in list(range(0, n, 2)) + list(range(n, len(tsamp))):
+
+    def stamp_near(si):
         p = tsamp[si]["g"]
         ci = int((p[0] - x0) / CELL)
         cj = int((p[1] - z0) / CELL)
@@ -816,6 +863,9 @@ def main():
                 if dd < near_d.get(k, INF):
                     near_d[k] = dd
                     near_i[k] = si
+
+    for si in list(range(0, n, 2)) + list(range(n, len(tsamp))):
+        stamp_near(si)
 
     # Kehykset: reitti (6 m välein), haarat (siirtokehyksiä) ja 1:1-alueiden ankkurit.
     frames = {"g": [], "r": [], "d": [], "rd": [], "c": [], "y": [], "f": [], "bonus": []}
@@ -901,21 +951,90 @@ def main():
     CODE = np.where((ONE < 0.9) & ~road_near.reshape(nz, nx), votes.argmax(0), CODE).astype(np.uint8)
     # Pihat rakennusten ympärillä ja radat pelin kehyksessä.
     bmask = VW.game_raster([bd["pts"] for bd in out_buildings], x0, z0, nx, nz, CELL)
-    CODE[(ndimage.distance_transform_edt(~bmask) * CELL < 16.0) & (CODE == FOREST)] = YARD
+    bdist = ndimage.distance_transform_edt(~bmask) * CELL
+    CODE[(bdist < 16.0) & (CODE == FOREST)] = YARD
+    # Tiivistetyllä välillä taajamien pihamaat ilman taloja (talot jäivät pois tai ovat muualla) metsäksi.
+    nl_box = (GX > NL_BOX[0]) & (GX < NL_BOX[2]) & (GZ > NL_BOX[1]) & (GZ < NL_BOX[3])
+    CODE[(CODE == YARD) & ((ONE < 0.9) | nl_box) & (bdist > 30.0)] = FOREST
     rails = [r for r in side_roads if r["kind"] == "rail"]
     CODE[VW.game_raster([], x0, z0, nx, nz, CELL, [r["pts"] for r in rails], 5.6)] = RAIL
     VW.flatten_water(CODE, GROUND, water_level, CELL)
-    # Oulujärvi etelässä maaksi (lake_edge): ranta suota, sitten metsää, maa nousee loivasti rannasta.
+    # Oulujärven lounainen lahti maaksi (lake_cut): ranta suota, sitten metsää, maa nousee loivasti rannasta.
+    if os.environ.get("VAALA_DEBUG"):
+        np.savez_compressed(os.environ["VAALA_DEBUG"] + "_vesi.npz", code=CODE, ground=GROUND, gx=GX, gz=GZ)
+    # Vain järven selkään (kaakossa, x > LAKE_CUT_X) yhtyvä vesi: mökin omat järvet (Likanen) jäävät.
     lab, _nl = ndimage.label(CODE == WATER, structure=np.ones((3, 3)))
-    sizes = np.bincount(lab.ravel())
-    sizes[0] = 0
-    LAKE_CUT = (lab == sizes.argmax()) & (GZ > lake_edge(GX))
+    sel_ = np.unique(lab[(GX > LAKE_CUT_X + 60.0) & (GZ > LAKE_CUT_Z) & (lab > 0)])
+    LAKE_CUT = np.isin(lab, sel_[sel_ > 0]) & lake_cut(GX, GZ)
     if LAKE_CUT.any():
         CODE[LAKE_CUT] = FOREST
         dist = ndimage.distance_transform_edt(CODE != WATER) * CELL  # matka uudelta rannalta
         GROUND[LAKE_CUT] = water_level + 0.4 + np.minimum(dist[LAKE_CUT] * 0.03, 5.0)
         CODE[LAKE_CUT & (dist < 40.0)] = BOG
-    print("Oulujärvi etelästä maaksi %d ruutua" % LAKE_CUT.sum())
+    print("Oulujärven lounaislahti maaksi %d ruutua" % LAKE_CUT.sum())
+
+    # --- Eteenpäin-kuvaus (todellinen -> peli) tarkan maaston ruudukosta: haarojen jatkeet ja mökin alue. ------
+    fwd = VW.Forward(GX, GZ, RX, RZ)
+
+    def ground_at(q):
+        fx = min(max((q[0] - x0) / CELL, 0.0), nx - 1.001)
+        fz = min(max((q[1] - z0) / CELL, 0.0), nz - 1.001)
+        i, j = int(fx), int(fz)
+        u, v = fx - i, fz - j
+        return float(lerp(lerp(GROUND[j, i], GROUND[j, i + 1], u), lerp(GROUND[j + 1, i], GROUND[j + 1, i + 1], u), v))
+
+    # Risteysten haarat jatkuvat OSM-linjaansa pitkin samalla kuvauksella kuin maasto (ennen 90 m:n jälkeen umpitie
+    # ja tien penger jatkui metsässä paljaana harjanteena) tarkan alueen reunaan, veteen, taloon tai reitille asti.
+    bld_near = ndimage.distance_transform_edt(~bmask) * CELL < 6.0
+    route_g = Grid([smp["g"] for smp in samples], 20.0)
+    for b in branches:
+        rest = b.pop("rest", [])
+        if len(rest) < 6:
+            continue
+        gp, err = fwd(rest)
+        gp = ndimage.uniform_filter1d(gp, 9, axis=0, mode="nearest")  # 4 m ruudut sileäksi viivaksi
+        end = np.array([b["pts"][-1][0], b["pts"][-1][2]])
+        off0 = end - fwd([b["real"][-1]])[0][0]
+        ext = []
+        acc = 0.0
+        prev = end
+        for k in range(len(rest)):
+            acc += 2.0
+            q = gp[k] + off0 * max(0.0, 1.0 - acc / 60.0)
+            i_, j_ = int(round((q[0] - x0) / CELL)), int(round((q[1] - z0) / CELL))
+            if err[k] > 16.0 or not (15 <= i_ < nx - 15 and 15 <= j_ < nz - 15) or CODE[j_, i_] == WATER or bld_near[j_, i_]:
+                break
+            step_ = math.dist(q, prev)
+            if step_ > 14.0:
+                break  # kuvauksen hyppy (kehys vaihtui)
+            ri_, rd_ = route_g.nearest((q[0], q[1]), 30.0)
+            if ri_ >= 0 and abs(samples[ri_]["s"] - b["s"]) > 150.0:
+                break  # palaisi reitille muualla
+            if step_ < 1.8:
+                continue
+            ext.append((float(q[0]), float(q[1])))
+            prev = q
+        if len(ext) < 8:
+            continue
+        ext = resample([tuple(end)] + ext, 2.0)[1:]
+        ys = ndimage.uniform_filter1d(np.array([ground_at(q) for q in ext]), 11, mode="nearest")
+        for q, y in zip(ext, ys):
+            b["pts"].append([round(q[0], 2), round(float(y), 2), round(q[1], 2)])
+            tsamp.append({"g": q, "y": float(y), "hw": b["hw"], "s": b["s"], "r": None, "bridge": False})
+            stamp_near(len(tsamp) - 1)
+        print("haara %s jatkuu %.0f m" % (b["name"], 2.0 * len(ext)))
+
+    # Mökin kävelyalue (mokki.gd, todellinen 1:1) mopomatkan kehykseen: paperikartan kohteet ja pelaajan paikka.
+    MW = (-900.0, -2100.0, 20.0, 96, 141)  # x0, z0, askel, nx, nz todellisessa kehyksessä
+    mx, mz = np.meshgrid(MW[0] + np.arange(MW[3]) * MW[2], MW[1] + np.arange(MW[4]) * MW[2])
+    mg, merr = fwd(np.c_[mx.ravel(), mz.ravel()])
+    mokki_warp = {"x0": MW[0], "z0": MW[1], "step": MW[2], "nx": MW[3], "nz": MW[4],
+                  "g": [round(float(v), 1) for v in mg.ravel()]}
+    for nm, q in (("Salmisen uimaranta", (16.0, -931.0)), ("Ranta-Rosvo", (-327.0, -1242.0)), ("Keskimmäisen laavu", (456.0, -1653.0)),
+                  ("mökki", (0.0, 0.0))):
+        g_, e_ = fwd([q])
+        print("mökin kohde %s todellinen %s -> pelissä (%.0f, %.0f), virhe %.1f m" % (nm, q, g_[0][0], g_[0][1], e_[0]))
+    print("mökin alueen kuvaus: virhe mediaani %.1f m, max %.1f m" % (float(np.median(merr)), float(merr.max())))
     if os.environ.get("VAALA_DEBUG"):
         # Vianetsintä: maankäyttö ja 1:1-osuus (punainen = tiivistetyn tien kehykset) kuvaksi.
         from PIL import Image
@@ -960,6 +1079,83 @@ def main():
                     code = FIELD  # tien luiska rannassa
         heights[k] = round(h, 3)
         codes[k] = code
+
+    # --- Neittävän järviseutu (NORTH_LAKES, kuvaus T): järvet maastoon, muut pikkujärvet alueella suoksi. ---------
+    H2 = np.array(heights).reshape(nz, nx)
+    C2 = np.array(codes, np.uint8).reshape(nz, nx)
+    route_lines = [[smp["g"] for smp in samples]] + [[(q[0], q[2]) for q in b["pts"]] for b in branches]
+    near_route = VW.game_raster([], x0, z0, nx, nz, CELL, route_lines, 2.0 * NL_ROAD)
+    box = (GX > NL_BOX[0]) & (GX < NL_BOX[2]) & (GZ > NL_BOX[1]) & (GZ < NL_BOX[3])
+
+    def nl_t(p):
+        return (NL_C[0] + (p[0] - NL_REF[0]) * NL_S[0], NL_C[1] + (p[1] - NL_REF[1]) * NL_S[1])
+
+    wl_lab, _nw = ndimage.label(C2 == WATER, structure=np.ones((3, 3)))
+    wl_sizes = np.bincount(wl_lab.ravel())
+    old_lakes = np.zeros_like(box)
+    for k_, sl in enumerate(ndimage.find_objects(wl_lab), start=1):
+        m_ = wl_lab[sl] == k_
+        if wl_sizes[k_] > 3000 or box[sl][m_].mean() < 0.5:
+            continue  # Oulujärvi ja Oulujoki sekä alueen ulkopuoliset
+        old_lakes[sl] |= m_
+    if old_lakes.any():
+        # Alueen omat pikkujärvet suoksi: pohja täytetään ympäröivästä maasta (lähin rantaruutu) ja pehmennetään.
+        near_idx = ndimage.distance_transform_edt(old_lakes, return_distances=False, return_indices=True)
+        H2[old_lakes] = H2[near_idx[0], near_idx[1]][old_lakes] - 0.3
+        soft = ndimage.binary_dilation(old_lakes, iterations=3)
+        H2[soft] = ndimage.gaussian_filter(H2, 2.0)[soft]
+        C2[old_lakes] = BOG
+    mk = json.load(open(MOKKI_KARTTA))
+    north_lakes = []
+    nl_mask = np.zeros_like(box)
+    for f in mk["features"]:
+        if f["kind"] != "water" or f.get("name") not in NORTH_LAKES or len(f["pts"]) < 3:
+            continue
+        poly = [nl_t(q) for q in f["pts"]]
+        m_ = VW.game_raster([poly], x0, z0, nx, nz, CELL) & ~near_route & (C2 != WATER)
+        if m_.sum() < 20:
+            continue
+        d_out = ndimage.distance_transform_edt(~m_) * CELL
+        ring = (~m_) & (d_out <= 40.0) & (C2 != BOG)
+        lvl = float(np.percentile(H2[ring if ring.any() else (~m_) & (d_out <= 40.0)], 25)) - 0.5
+        shore = (~m_) & (d_out < 45.0) & ~near_route
+        t_ = np.sqrt(np.clip(d_out / 45.0, 0.0, 1.0))  # rannasta loivasti ylös, ei kuoppaa
+        new_h = np.maximum(lvl + 0.15, lvl + 0.35 + (H2 - lvl - 0.35) * t_)
+        H2[shore] = np.where(H2[shore] > lvl + 0.15, np.minimum(H2[shore], new_h[shore]), lvl + 0.15)
+        H2[m_] = lvl - 1.2
+        C2[m_] = WATER
+        C2[shore & (d_out < 8.0) & (C2 == YARD)] = FOREST
+        nl_mask |= m_
+        cz_, cx_ = np.argwhere(m_).mean(0)
+        north_lakes.append({"name": f["name"], "c": [round(float(x0 + cx_ * CELL), 1), round(float(z0 + cz_ * CELL), 1)],
+                            "level": round(lvl, 2)})
+    heights = [round(float(v), 3) for v in H2.ravel()]
+    codes = C2.ravel().tolist()
+    # Talot ja sivutiet pois järvistä.
+    wet_g = ndimage.binary_dilation(nl_mask, iterations=1)
+
+    def wet_at(q):
+        i_, j_ = int(round((q[0] - x0) / CELL)), int(round((q[1] - z0) / CELL))
+        return 0 <= i_ < nx and 0 <= j_ < nz and wet_g[j_, i_]
+
+    out_buildings = [bd for bd in out_buildings if not any(wet_at(q) for q in bd["pts"])]
+    cut_sr = []
+    for r in side_roads:
+        cur = []
+        for q in r["pts"]:
+            if wet_at(q):
+                if len(cur) > 1:
+                    cut_sr.append(dict(r, pts=cur))
+                cur = []
+            else:
+                cur.append(q)
+        if len(cur) > 1:
+            cut_sr.append(dict(r, pts=cur))
+    side_roads = cut_sr
+    rails = [r for r in side_roads if r["kind"] == "rail"]
+    print("Neittävän järviseutu:", [(nl["name"], nl["c"]) for nl in north_lakes],
+          "| kohteet:", {nm: [round(v) for v in nl_t(q)] for nm, q in (("uimaranta", (16.0, -931.0)), ("Ranta-Rosvo", (-327.0, -1242.0)),
+                                                                     ("laavu", (456.0, -1653.0)))})
 
     def grid_h(p):
         fx = min(max((p[0] - x0) / CELL, 0.0), nx - 1.001)
@@ -1032,7 +1228,7 @@ def main():
     FX, FZ = np.meshgrid(fx0 + np.arange(fnx) * FAR_CELL, fz0 + np.arange(fnz) * FAR_CELL)
     _frx, _frz, FG, _fone, fcode = warp.inv(FX, FZ, rc)
     main_lake = (fcode == WATER) & (np.abs(FG - water_level) < 2.5)
-    far_cut = main_lake & (FZ.ravel() > lake_edge(FX.ravel()))
+    far_cut = main_lake & lake_cut(FX.ravel(), FZ.ravel())
     fcode = np.where(far_cut, FOREST, fcode)
     far_d = (ndimage.distance_transform_edt(far_cut.reshape(fnz, fnx)) * FAR_CELL).ravel()
     FG = np.where(far_cut, water_level + 0.4 + np.minimum(far_d * 0.03, 5.0), FG)
@@ -1080,7 +1276,7 @@ def main():
     fpx = FX.ravel()[fsel] + rng.uniform(-FAR_CELL / 2, FAR_CELL / 2, len(fsel))
     fpz = FZ.ravel()[fsel] + rng.uniform(-FAR_CELL / 2, FAR_CELL / 2, len(fsel))
     _frx, _frz, fgy, _fone, fpc = warp.inv(fpx, fpz, rc)
-    fok = (fpc == FOREST) | ((fpc == WATER) & (fpz > lake_edge(fpx)))
+    fok = (fpc == FOREST) | ((fpc == WATER) & lake_cut(fpx, fpz))
     fh = np.clip(rng.normal(17.0, 4.0, len(fsel)), 8.0, 26.0)
     fs = rng.choice([0, 1, 2], len(fsel), p=[0.6, 0.25, 0.15])
     ty = np.array([grid_h((float(a), float(b))) for a, b in zip(tx, tz)], np.float32)
@@ -1119,6 +1315,9 @@ def main():
         "bridges": bridges, "signs": signs, "branches": [{k2: v for k2, v in b.items() if k2 != "real"} for b in branches], "buildings": out_buildings, "side_roads": side_roads,
         "water": out_water, "parkings": parkings, "river_half": RIVER_HALF,
         "underpass": {k2: v for k2, v in underpass.items() if k2 not in ("real", "rdir")} if underpass else None,
+        "mokki_warp": mokki_warp,
+        "north_lakes": north_lakes,
+        "mokki_map": {"ref": list(NL_REF), "c": list(NL_C), "s": list(NL_S), "blend": list(NL_BLEND)},
     }
     with open(OUT_JSON, "w") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))

@@ -17,9 +17,9 @@ const PAPER := Color(0.93, 0.88, 0.74)
 const VAALA_MAASTO := "res://assets/vaala/maasto.bin"
 const VAALA_TIE := "res://assets/vaala/tie.json"
 const GASTHAUS_ID := 534430535  # vaala.gd
-## Mökin oma kartta-aineisto (mokki.gd) piirretään tähän asti osoitepisteestä: sen jälkeen mopomatkan tie on
-## tiivistetty (Neittäväntie ja Vuolijoentie), eikä 1:1-aineisto enää osu kohdalleen.
-const MOKKI_DETAIL_R := 480.0
+## Mökin oma kartta-aineisto (mokki.gd) piirretään tähän asti osoitepisteestä: mopomatkan maailma on 1:1 vain mökin
+## pihassa (soratie on tiivistetty jo pihan jälkeen), joten kauempana näkyy mopomatkan oma maasto.
+const MOKKI_DETAIL_R := 90.0
 const VZOOM_MAX := 4.0  # px/m (Neittävä–Vaala)
 const VZOOM_MAX_KYLA := 2.0  # kyläkartan talot ovat merkkejä, ei pohjia: tätä lähemmäs ei kannata
 ## Mopomatkan tilat (main.gd state), joissa näytetään Neittävä–Vaala-kartta.
@@ -327,7 +327,31 @@ func _pts(arr: Array) -> PackedVector2Array:
 
 ## Mökin paikallinen koordinaatti (metrit mökin origosta) Neittävä–Vaala-kartan pikseleiksi (pohjoinen ylös).
 func _pxl(local: Vector2) -> Vector2:
-	return _vpx(Mokki.to_map2(local))
+	return _vpx(_mokki_trip(Mokki.to_map2(local)))
+
+
+## Mökin kävelyalueen (1:1, karttakehys) piste mopomatkan kehykseen: lähellä mökkiä maaston kuvauksella
+## (tie.json "mokki_warp", leivonnan käänteishaku), pohjoisessa Neittävän järviseudun kuvauksella ("mokki_map",
+## vaala_bake.py NORTH_LAKES), jolloin Salmiset, Ranta-Rosvo ja laavu ovat kartalla omien järviensä rannoilla
+## Neittävällä eivätkä 1:1-paikallaan Vaalassa. Väli liukuu pehmeästi.
+func _mokki_trip(p: Vector2) -> Vector2:
+	var mw = _vd.get("mokki_warp")
+	var mm = _vd.get("mokki_map")
+	if mw == null or mm == null:
+		return p
+	var fx := clampf((p.x - float(mw.x0)) / float(mw.step), 0.0, float(mw.nx) - 1.001)
+	var fz := clampf((p.y - float(mw.z0)) / float(mw.step), 0.0, float(mw.nz) - 1.001)
+	var i := int(fx)
+	var j := int(fz)
+	var g: Array = mw.g
+	var at := func(ii: int, jj: int) -> Vector2:
+		var q := (jj * int(mw.nx) + ii) * 2
+		return Vector2(g[q], g[q + 1])
+	var wp: Vector2 = (at.call(i, j) as Vector2).lerp(at.call(i + 1, j), fx - i).lerp(
+		(at.call(i, j + 1) as Vector2).lerp(at.call(i + 1, j + 1), fx - i), fz - j)
+	var tp := Vector2(mm.c[0] + (p.x - mm.ref[0]) * mm.s[0], mm.c[1] + (p.y - mm.ref[1]) * mm.s[1])
+	var t := smoothstep(float(mm.blend[0]), float(mm.blend[1]), p.y)
+	return wp.lerp(tp, t)
 
 
 ## Mopomatkan kehyksen (x itään, z etelään, origo mökin osoitepisteessä) piste näkymän pikseleiksi.
@@ -775,8 +799,9 @@ func _vaala_me() -> Array:
 	if mokki != null and player != null:
 		var lp: Vector3 = mokki.to_local(player.global_position)
 		var f := -player.global_transform.basis.z
-		var fm := Mokki.to_map2(Vector2(f.x, f.z)) - Mokki.to_map2(Vector2.ZERO)
-		return [Mokki.to_map2(Vector2(lp.x, lp.z)), atan2(fm.y, fm.x) + PI / 2.0]
+		var at := Mokki.to_map2(Vector2(lp.x, lp.z))
+		var fm := _mokki_trip(at + (Mokki.to_map2(Vector2(f.x, f.z)) - Mokki.to_map2(Vector2.ZERO)) * 5.0) - _mokki_trip(at)
+		return [_mokki_trip(at), atan2(fm.y, fm.x) + PI / 2.0]
 	return []
 
 
@@ -862,7 +887,7 @@ func _vaala_load() -> void:
 		for k in 4:
 			_vbld_cols.append(Color(0.55, 0.16, 0.11))
 	# Kohteet: [nimi, paikka, laji, aina nimellä].
-	_vpois = [["Mökki Paapeli", Mokki.to_map2(Mokki.COTTAGE_LOCAL), "home", true],
+	_vpois = [["Mökki Paapeli", _mokki_trip(Mokki.to_map2(Mokki.COTTAGE_LOCAL)), "home", true],
 		["Siitari", Vector2(_vd.siitari[0], _vd.siitari[1]), "siitari", true]]
 	if _vd.has("lava"):
 		_vpois.append(["Oulujärven lava", Vector2(_vd.lava.x, _vd.lava.z), "lava", true])
@@ -942,8 +967,7 @@ func _draw_vaala_map() -> void:
 	if _vtex == null:
 		return
 	v.draw_texture_rect(_vtex, Rect2(_vpx(_vrect.position), _vrect.size * _vzoom), false)
-	if _vaala_trip():
-		_draw_mokki_overlay(v)
+	_draw_mokki_overlay(v)
 	var wz := func(half: float, lo: float, hi: float) -> float: return clampf(half * 2.0 * _vzoom, lo, hi)
 
 	# Sivutiet ja rata.
@@ -1024,6 +1048,12 @@ func _draw_vaala_map() -> void:
 	var sz: float = _vd.siitari[1]
 	_place(v, "VAALA", _vpx(Vector2(sx + 150.0, sz - 260.0)), 26)
 	_place(v, "NEITTÄVÄ", _vpx(Vector2(-120.0, 120.0)), 20)
+	# Järvet: Oulujärvi luoteessa ja kaakossa, Neittävän järviseutu (vaala_bake.py NORTH_LAKES).
+	for lk in [["Oulujärvi", Vector2(-120.0, -1480.0)], ["Oulujärvi", Vector2(1380.0, 260.0)], ["Likanen", Vector2(80.0, 300.0)]]:
+		_place(v, lk[0], _vpx(lk[1]), 15, Color(0.15, 0.3, 0.55))
+	if _vzoom >= 0.45:
+		for nl in _vd.get("north_lakes", []):
+			_place(v, nl.name, _vpx(Vector2(nl.c[0], nl.c[1])), 12, Color(0.15, 0.3, 0.55))
 	for sg in _vd.signs:
 		if sg.kind == "river":
 			var q: Array = road[sg.i]
@@ -1059,9 +1089,6 @@ func _draw_vaala_map() -> void:
 		var ap: Vector3 = mopo_trip.vaala.atm_pos
 		_poi_icon_on(v, _vpx(Vector2(ap.x, ap.z)) + Vector2(0, 14), "atm")
 
-	# Mökillä mökin koko kävelyalue omasta aineistostaan kaiken päälle (mopomatkan tiivistetty kartta jää alle).
-	if not _vaala_trip():
-		_draw_mokki_overlay(v)
 	_draw_mokki_sites(v)
 	# Mopo: mökin pihassa tai Vaalassa parkissa; pelaaja.
 	var me := _vaala_me()
@@ -1077,18 +1104,10 @@ func _draw_vaala_map() -> void:
 func _draw_mokki_overlay(v: Control) -> void:
 	var font := ThemeDB.fallback_font
 	var data: Dictionary = Mokki.map_data()
-	# Mökillä koko kävelyalue (pohjoiseen Salmisille ja Keskimmäiselle) mökin omasta 1:1-aineistosta mopomatkan
-	# tiivistetyn kartan päälle; matkalla vain mökin lähiympäristö.
-	var whole := not _vaala_trip()
-	var area: PackedVector2Array = data.area
-	if whole:
-		var ap := PackedVector2Array()
-		for q in area:
-			ap.append(_pxl(q))
-		v.draw_colored_polygon(ap, Color(0.66, 0.76, 0.52))
-		v.draw_polyline(ap + PackedVector2Array([ap[0]]), INK.lightened(0.4), 1.0)
+	# Mökin lähiympäristö mökin omasta 1:1-aineistosta (myös mökillä: muu kävelyalue näkyy mopomatkan maastossa,
+	# pohjoisen järvet Neittävän järviseutuna).
 	var inside := func(p: Vector2) -> bool:
-		return Geometry2D.is_point_in_polygon(p, area) if whole else Mokki.to_map2(p).length() < MOKKI_DETAIL_R
+		return Mokki.to_map2(p).length() < MOKKI_DETAIL_R
 	var near := func(poly: PackedVector2Array) -> bool:
 		var cen := Vector2.ZERO
 		for p in poly:
