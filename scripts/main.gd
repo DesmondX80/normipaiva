@@ -10881,6 +10881,32 @@ func _maybe_screenshot() -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", spot[0] + ".png"))
 			get_tree().quit()
+		"saloisrata":
+			# Saloisten rata: asema ylhäältä, Ketunperäntien tasoristeys, kaarre etelään ja länsipää Valtatien yli.
+			if player != walker_out:
+				_toggle_mount()
+			_note.visible = false
+			var cam := Camera3D.new()
+			cam.far = 3000.0
+			add_child(cam)
+			var rp: PackedVector2Array = M.railway()
+			var w3 := func(px: Vector2, up: float) -> Vector3:
+				var q := M.w2(px)
+				return Vector3(q.x, Terrain.h(q.x, q.y) + up, q.y)
+			var views := [["_asema", w3.call(Vector2(80, 470), 60.0), w3.call(Vector2(80, 505), 0.0)],
+				["_risteys", w3.call(Vector2(120, 520), 4.0), w3.call(Vector2(106, 504), 1.0)],
+				["_kaarre", w3.call(Vector2(200, 480), 90.0), w3.call(Vector2(230, 580), 0.0)],
+				["_lansi", w3.call(Vector2(20, 520), 5.0), w3.call(Vector2(-200, 504), 2.0)],
+				["_kaakko", w3.call(Vector2(600, 1100), 6.0), w3.call(Vector2(900, 1620), 2.0)]]
+			for vw in views:
+				cam.look_at_from_position(vw[1], vw[2])
+				cam.current = true
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0] + ".png"))
+			print("RATA %d pistettä, %.0f m" % [rp.size(), rp[0].distance_to(rp[rp.size() - 1])])
+			get_tree().quit()
 		"mokkiajoalue":
 			# Mopon ajoalue (vaala.gd drivable) kuvaksi ja kokeet: tieltä suoraan ja viistosti metsään, sekä
 			# pysäköintipaikoilta liikkeelle.

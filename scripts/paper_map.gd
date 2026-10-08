@@ -625,6 +625,7 @@ func _draw_map() -> void:
 					if pass_i == 1:
 						for i in pts.size() - 1:
 							v.draw_dashed_line(pts[i], pts[i + 1], INK, 1.5, 5.0)
+	_rail_on(v, _pts(Array(M.railway())), clampf(3.0 * rw, 2.5, 6.0))  # Saloisten rata asemalta horisonttiin
 	# Talot pieninä mustina neliöinä.
 	if world != null:
 		for h in world._houses:

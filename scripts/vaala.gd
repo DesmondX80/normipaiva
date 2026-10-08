@@ -15,6 +15,7 @@ const TIE := "res://assets/vaala/tie.json"
 const MAASTO := "res://assets/vaala/maasto.bin"
 const TREES := "res://assets/vaala/puut.bin"
 const Forest := preload("res://scripts/forest.gd")
+const Train := preload("res://scripts/train.gd")
 ## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
 ## mökin omilla rakennusfunktioilla (mokki.gd ladataan ajonaikaisesti: mokki.gd -> mopo.gd -> vaala.gd).
 const MOKKI_PATH := "res://scripts/mokki.gd"
@@ -1165,7 +1166,7 @@ func _build_side_roads() -> void:
 			runs.append([sg[0], sg[1]])
 	for rn in runs:
 		if (rn[0] as Vector3).distance_to(rn[1]) > 8.0:
-			_build_truss(rn[0], rn[1])
+			Train.build_truss(self, rn[0], rn[1], water_level)
 	_build_train()
 
 
@@ -1240,102 +1241,6 @@ func _build_train() -> void:
 	add_child(train)
 	train.setup(path)
 	print("VAALA juna: rata %.0f m, %d pätkää" % [total, used.size()])
-
-
-## Oulujoen ratasilta valokuvan mukaan: teräksinen ristikkosilta (läpiajettava), jänteet n. 28 m, yläpaarre
-## puolisuunnikas (vinot päätysauvat, keskellä korkeampi), vinosauvat ja pystysauvat, yläsiteet ristiin, kannen
-## poikkipalkit ja huoltokäytävän kaide sivulla; jänteiden välissä ja päissä massiiviset betonipilarit veteen.
-## a ja b ovat kiskojen tasossa (kisko-ura = a.y).
-const TRUSS_W := 5.2     # ristikoiden väli
-const TRUSS_SPAN := 28.0
-const TRUSS_H0 := 4.6    # ristikon korkeus päätysauvan yläpäässä
-const TRUSS_H1 := 6.2    # keskellä
-
-
-func _build_truss(a: Vector3, b: Vector3) -> void:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var flat := Vector3(b.x - a.x, 0, b.z - a.z)
-	var length := flat.length()
-	var u := flat / length
-	var side := u.cross(Vector3.UP)
-	var spans := maxi(1, roundi(length / TRUSS_SPAN))
-	var sl := length / spans
-	var base := func(t: float) -> Vector3:  # kannen alapaarteen taso kohdassa t (0..length)
-		return a.lerp(b, t / length) + Vector3(0, -0.45, 0)
-	for k in spans:
-		var t0 := k * sl
-		var panels := maxi(4, roundi(sl / 4.6))
-		var pl := sl / panels
-		for sd: float in [-1.0, 1.0]:
-			var off := side * sd * TRUSS_W / 2.0
-			var bot := func(i: int) -> Vector3: return base.call(t0 + i * pl) + off
-			var top := func(i: int) -> Vector3:
-				var f := float(i) / panels
-				return base.call(t0 + i * pl) + off + Vector3(0, lerpf(TRUSS_H0, TRUSS_H1, sin(f * PI)), 0)
-			for i in panels:
-				_beam(st, bot.call(i), bot.call(i + 1), 0.5, 0.6)  # alapaarre
-			for i in range(1, panels - 1):
-				_beam(st, top.call(i), top.call(i + 1), 0.55, 0.5)  # yläpaarre
-			_beam(st, bot.call(0), top.call(1), 0.5, 0.5)  # vinot päätysauvat
-			_beam(st, bot.call(panels), top.call(panels - 1), 0.5, 0.5)
-			for i in range(1, panels):
-				_beam(st, bot.call(i), top.call(i), 0.28, 0.3)  # pystysauvat
-				if i < panels - 1:
-					# Vinosauvat V-muodossa keskeltä päihin päin.
-					if i < panels / 2:
-						_beam(st, top.call(i), bot.call(i + 1), 0.3, 0.32)
-					else:
-						_beam(st, bot.call(i), top.call(i + 1), 0.3, 0.32)
-			if panels % 2 == 1:
-				_beam(st, top.call(panels / 2), bot.call(panels / 2 + 1), 0.3, 0.32)
-			# Huoltokäytävän kaide ristikon ulkopuolella.
-			var ho := side * sd * 0.7
-			for i in panels:
-				_beam(st, bot.call(i) + ho + Vector3(0, 1.1, 0), bot.call(i + 1) + ho + Vector3(0, 1.1, 0), 0.06, 0.06)
-				_beam(st, bot.call(i) + ho, bot.call(i) + ho + Vector3(0, 1.1, 0), 0.07, 0.07)
-		# Poikkipalkit kannen alla ja yläsiteet ristiin.
-		for i in range(panels + 1):
-			var c: Vector3 = base.call(t0 + i * pl)
-			_beam(st, c - side * TRUSS_W / 2.0 - side * 0.7, c + side * TRUSS_W / 2.0 + side * 0.7, 0.4, 0.5)
-		for i in range(1, panels - 1):
-			var f0 := float(i) / panels
-			var f1 := float(i + 1) / panels
-			var c0: Vector3 = base.call(t0 + i * pl) + Vector3(0, lerpf(TRUSS_H0, TRUSS_H1, sin(f0 * PI)), 0)
-			var c1: Vector3 = base.call(t0 + (i + 1) * pl) + Vector3(0, lerpf(TRUSS_H0, TRUSS_H1, sin(f1 * PI)), 0)
-			var hw := side * TRUSS_W / 2.0
-			_beam(st, c0 - hw, c0 + hw, 0.25, 0.25)
-			_beam(st, c0 - hw, c1 + hw, 0.15, 0.15)
-			_beam(st, c0 + hw, c1 - hw, 0.15, 0.15)
-	st.generate_normals()
-	var mi := MeshInstance3D.new()
-	mi.mesh = st.commit()
-	var tm := B.mat(Color(0.33, 0.28, 0.25)).duplicate() as StandardMaterial3D
-	tm.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mi.material_override = tm
-	add_child(mi)
-	# Kansi (huoltokäytävät ja ratapölkkyjen alusta) ja betonipilarit jänteiden päihin.
-	var dm := B.mesh(self, B.boxm(Vector3(TRUSS_W + 1.6, 0.25, length)), (a + b) / 2.0 + Vector3(0, -0.3, 0), Color(0.3, 0.29, 0.27))
-	dm.basis = Basis.looking_at(u, Vector3.UP)
-	for k in spans + 1:
-		var c: Vector3 = base.call(k * sl)
-		var bottom := water_level - 2.5
-		var ph := c.y - 0.3 - bottom
-		var pm := B.mesh(self, B.boxm(Vector3(TRUSS_W + 2.2, ph, 2.6)), Vector3(c.x, bottom + ph / 2.0, c.z), Color(0.62, 0.61, 0.58))
-		pm.basis = Basis.looking_at(u, Vector3.UP)
-		var cap := B.mesh(self, B.boxm(Vector3(TRUSS_W + 2.8, 0.5, 3.2)), Vector3(c.x, c.y - 0.55, c.z), Color(0.68, 0.67, 0.64))
-		cap.basis = Basis.looking_at(u, Vector3.UP)
-
-
-## Suorakulmainen palkki pisteestä a pisteeseen b (leveys w vaakaan, korkeus hgt).
-func _beam(st: SurfaceTool, a: Vector3, b: Vector3, w: float, hgt: float) -> void:
-	var d := (b - a).normalized()
-	var ref := Vector3.UP if absf(d.y) < 0.95 else Vector3.RIGHT
-	var x := d.cross(ref).normalized() * w / 2.0
-	var y := x.cross(d).normalized() * hgt / 2.0
-	var c := [a - x - y, a + x - y, a + x + y, a - x + y, b - x - y, b + x - y, b + x + y, b - x + y]
-	for f in [[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7], [3, 2, 1, 0], [4, 5, 6, 7]]:
-		_quad(st, c[f[0]], c[f[1]], c[f[2]], c[f[3]])
 
 
 ## Radan alikulku (Vuolijoentie radan ali juuri ennen Oulujokea) ohikulkuvideon mukaan: harmaa betonikansi ohuine
