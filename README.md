@@ -100,11 +100,12 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     reunassa mopo liukuu kuin reunakiveä vasten (sivutiet, parkit, tori, lavan piha ja ovien edustat ovat ajettavia).
     Radan alikulku on ohikulkuvideon mukainen betonisilta pilaripareineen, ja penger laskee luiskana sillan alle.
     Rata ylittää Oulujoen tiesillan tasossa teräksisellä ristikkosillalla, ja radalla kulkee silloin tällöin juna
-    (punainen VR:n veturi, matkustajavaunu ja ravintolavaunu), joka vihellyttää ohittaessaan.
+    (punavalkoinen Sr1-veturi ja neljä sinistä VR:n vaunua, yksi niistä ravintolavaunu), joka vihellyttää ohittaessaan.
   - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa Zabukin ohi liikenneympyrään ja siitä
     oikealle Ratatietä rautatieasemalle (oikealla paikallaan radan varressa, laituri radan vieressä); Saloisissa
     asema on K-Marketin takana. Aseman ovella E: välikuvassa istutaan ravintolavaunussa kahvilla ja korvapuustilla
-    ja jutellaan mukavia naismatkustajien kanssa. Vaalaan tultaessa mopo odottaa aseman pihassa, ja Vaalasta
+    ja jutellaan mukavia naismatkustajien kanssa lirkuttelubossan soidessa (`tools/lirkuttelu.py` syntetisoi
+    biisin `assets/music/lirkuttelu.wav`). Vaalaan tultaessa mopo odottaa aseman pihassa, ja Vaalasta
     lähdettäessä se palaa mökin pihaan kuten muillakin paluureiteillä.
   - **Minikartta** näkyy myös Vaalan matkalla (mopolla ja jalan) ja mökillä koko kävelyalueella Salmisille asti.
     Salmisen uimarannalle, Ranta-Rosvolle ja Keskimmäisen laavulle (tynnyrisauna) vie soratie. Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet

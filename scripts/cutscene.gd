@@ -1136,7 +1136,7 @@ const TRAIN_TALK_SALOINEN := [
 func train_ride(to_vaala: bool, done: Callable) -> void:
 	_begin()
 	Sfx.play("door_close", -4.0)
-	Sfx.music_play(0.8)
+	Sfx.music_play(0.8, 0.0, Sfx.SONG_LIRKUTTELU)
 	await _fade_to(1.0, 0.4)
 	var root := Node3D.new()
 	root.position = TRAIN_POS
@@ -1146,7 +1146,7 @@ func train_ride(to_vaala: bool, done: Callable) -> void:
 	root.add_child(train)
 	var units: Array[Node3D] = []
 	var off := 0.0
-	for spec in [["loco", 18.96], ["coach", 26.4], ["dining", 26.4]]:
+	for spec in [["loco", 18.96], ["coach", 26.4], ["coach", 26.4], ["dining", 26.4], ["coach", 26.4]]:
 		var u := Node3D.new()
 		train.add_child(u)
 		if spec[0] == "loco":
@@ -1171,11 +1171,13 @@ func train_ride(to_vaala: bool, done: Callable) -> void:
 	var t0 := Time.get_ticks_msec()
 	var faded := false
 	var honked := false
-	while Time.get_ticks_msec() - t0 < 4500:
+	while Time.get_ticks_msec() - t0 < 6000:
 		var t := (Time.get_ticks_msec() - t0) / 1000.0
-		train.position.z = 60.0 - t * SPEED
-		_cam.global_position = root.to_global(Vector3(9.0, 2.2, -30.0))
-		_cam.look_at(train.global_position + Vector3(0, 2.0, 6.0), Vector3.UP)
+		train.position.z = 70.0 - t * SPEED
+		# Ratapenkan vierestä: veturi tulee kohti ja siniset vaunut lipuvat ohi.
+		_cam.global_position = root.to_global(Vector3(11.0, 2.0, -40.0))
+		var look_z := clampf(train.position.z + 12.0 + t * 6.0, -40.0, 80.0)
+		_cam.look_at(root.to_global(Vector3(0, 2.3, look_z)), Vector3.UP)
 		if not faded:
 			faded = true
 			_fade_to(0.0, 0.6)
@@ -1214,19 +1216,20 @@ func train_ride(to_vaala: bool, done: Callable) -> void:
 			for nm in ["marja", "liisa", "helena", "minä"]:
 				(cast[nm] as Node3D).play("Sitting_Talking" if nm == who else "Sitting_Idle", 0.3)
 		var names := {"minä": "Sinä", "marja": "Marja", "liisa": "Liisa", "helena": "Helena", "tarjoilija": "Tarjoilija"}
-		bubble.text = "%s: %s" % [names[who], lines[k][1]]
-		bubble.global_position = ch.global_position + Vector3(0, 1.75 if who != "tarjoilija" else 2.15, 0)
-		# Kamera vuorotellen: puhujan yli pöydän toiselta puolelta ja leveä kuva käytävältä.
-		var u := fmod(t, LINE * 2.0) / (LINE * 2.0)
-		if k % 3 == 2:
-			_cam.global_position = car.to_global(Vector3(-0.9, 1.75, 5.2))
-			_cam.look_at(car.to_global(Vector3(0.4, 1.05, 0.0)), Vector3.UP)
+		_sub.text = "%s: %s" % [names[who], lines[k][1]]  # tekstitys alareunassa (kupla leikkautui lähikuvissa)
+		bubble.text = ""
+		# Kamerat: leveä sivukuva käytävältä pöydän poikki (selkänojat eivät peitä), muuten puhujaa vastapäätä
+		# istuvien olan yli kevyesti liukuen.
+		var u := fmod(t, LINE) / LINE
+		if who == "tarjoilija" or k % 3 == 2:
+			_cam.global_position = car.to_global(Vector3(1.15, 1.35, lerpf(0.35, -0.35, u)))
+			_cam.look_at(car.to_global(Vector3(-0.85, 1.0, 0.0)), Vector3.UP)
+		elif who in ["marja", "liisa"]:
+			_cam.global_position = car.to_global(Vector3(lerpf(0.15, 0.05, u), 1.45, 1.6))
+			_cam.look_at(ch.global_position + Vector3(0, 1.0, 0), Vector3.UP)
 		else:
-			var focus := ch.global_position + Vector3(0, 1.15, 0)
-			var from := car.to_global(Vector3(-0.85, 1.55, lerpf(-2.3, -2.0, u))) if who in ["minä", "tarjoilija"] \
-				else car.to_global(Vector3(-0.85, 1.5, lerpf(2.4, 2.1, u)))
-			_cam.global_position = from
-			_cam.look_at(focus, Vector3.UP)
+			_cam.global_position = car.to_global(Vector3(lerpf(0.1, 0.0, u), 1.45, -1.6))
+			_cam.look_at(ch.global_position + Vector3(0, 1.0, 0), Vector3.UP)
 		await get_tree().process_frame
 	rumble.stop()
 	await _end(done)
@@ -1261,7 +1264,8 @@ func _build_train_land(r: Node3D) -> void:
 
 ## Ravintolavaunu sisältä: valkoiset pöytäliinat, punaiset istuimet, puupaneloidut seinät, ikkunarivit molemmin
 ## puolin (maisema liikkuu ulkona), tiski kahvinkeittimineen ja tarjoilija. Pelaaja istuu ikkunapöydässä Marjaa
-## ja Liisaa vastapäätä, Helena viereisessä pöydässä. Palauttaa hahmot ja maisemasolmun.
+## ja Liisaa vastapäätä, Helena pelaajan vieressä ikkunan puolella, tarjoilija käytävällä. Palauttaa hahmot ja
+## maisemasolmun.
 func _build_dining_car(car: Node3D) -> Dictionary:
 	const W := 2.8
 	const LEN := 16.0
@@ -1325,15 +1329,15 @@ func _build_dining_car(car: Node3D) -> Dictionary:
 		c.rotation.y = B.yaw_to(face)
 		c.play("Sitting_Idle", 0.0)
 		return c
-	var hero: Node3D = seat.call(Looks.PLAYER, Vector3(-0.6, 0.0, 0.85), Vector3(0, 0, -1))
+	var hero: Node3D = seat.call(Looks.PLAYER, Vector3(-0.58, 0.0, 0.85), Vector3(0, 0, -1))
 	Looks.add_cap(hero)
 	cast["minä"] = hero
 	cast["marja"] = seat.call(MARJA, Vector3(-1.05, 0.0, -0.85), Vector3(0, 0, 1))
 	cast["liisa"] = seat.call(LIISA, Vector3(-0.55, 0.0, -0.85), Vector3(0, 0, 1))
-	cast["helena"] = seat.call(HELENA, Vector3(-0.85, 0.0, 3.15), Vector3(0, 0, 1))
+	cast["helena"] = seat.call(HELENA, Vector3(-1.1, 0.0, 0.85), Vector3(0, 0, -1))
 	var waiter := Looks.make(car, WAITER)
-	waiter.position = Vector3(0.6, 0.0, -1.6)
-	waiter.rotation.y = B.yaw_to(Vector3(-1, 0, 0.3))
+	waiter.position = Vector3(0.35, 0.0, -1.55)
+	waiter.rotation.y = B.yaw_to(Vector3(-0.8, 0, 1.0))
 	waiter.play("Idle_Talking", 0.0)
 	cast["tarjoilija"] = waiter
 	return cast
