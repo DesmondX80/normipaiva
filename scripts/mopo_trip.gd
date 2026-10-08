@@ -34,6 +34,13 @@ var _sample := 0
 var _cars: Array = []
 var _line: Array = []
 var _down := 0.0  # kaatumisen jälkeen maassa (s)
+## Viimeisimmät ajopaikat [paikka, suunta] ajettavalla alueella (SAFE_EVERY s välein): kaatuneena kaukana päätiestä
+## (asema, järviseudun tiet) mopo nostetaan näistä taaemmas, ei päätien lähimpään näytteeseen (haku ei ulotu sinne).
+const SAFE_EVERY := 0.3
+const SAFE_KEEP := 12
+const ROAD_GETUP_R := 15.0  # päätie näin lähellä: noustaan päätielle ajosuuntaan
+var _safe: Array = []
+var _safe_t := 0.0
 var on_foot: CharacterBody3D = null  # jalan (main.gd:n kävelijä), mopo parkissa; null = mopon selässä
 
 
@@ -61,6 +68,7 @@ func start(to: String, drunk := 0.0) -> void:
 	mopo.drunk = drunk
 	mopo.reset_drunk()
 	_down = 0.0
+	_safe.clear()
 	var at: Vector3
 	var dir: Vector3
 	if to == "siitari":
@@ -153,11 +161,24 @@ func _on_crash(reason: String) -> void:
 
 func _get_up() -> void:
 	var ni: Array = vaala.nearest(mopo.position)
-	var i: int = maxi(ni[0], 3)
-	var dir: Vector3 = vaala.road_dir(i) * (1.0 if target == "siitari" else -1.0)
-	var right := dir.cross(Vector3.UP)
-	mopo.position = vaala.road_pos(i) + right * 1.6 + Vector3(0, 0.6, 0)
-	mopo.rotation.y = atan2(-dir.x, -dir.z)
+	if (ni[0] < 0 or ni[1] > ROAD_GETUP_R) and not _safe.is_empty():
+		# Sivutiellä: ajetulle reitille muutama metri ennen kaatumista, nokka ajosuuntaan.
+		var crash := mopo.position
+		var pick: Array = _safe[0]
+		for k in range(_safe.size() - 1, -1, -1):
+			if Vector2(crash.x - _safe[k][0].x, crash.z - _safe[k][0].z).length() > 4.0:
+				pick = _safe[k]
+				break
+		mopo.position = pick[0] + Vector3(0, 0.6, 0)
+		mopo.rotation.y = pick[1]
+	else:
+		var i: int = maxi(ni[0], 3)
+		var dir: Vector3 = vaala.road_dir(i) * (1.0 if target == "siitari" else -1.0)
+		var right := dir.cross(Vector3.UP)
+		mopo.position = vaala.road_pos(i) + right * 1.6 + Vector3(0, 0.6, 0)
+		mopo.rotation.y = atan2(-dir.x, -dir.z)
+	mopo.velocity = Vector3.ZERO
+	_safe.clear()
 	mopo.reset_drunk()
 	mopo.controls_enabled = true
 	mopo.set_engine(true)
@@ -249,6 +270,12 @@ func _process(delta: float) -> void:
 	var ni: Array = vaala.nearest(pos)
 	if ni[0] >= 0:
 		_sample = ni[0]
+	_safe_t -= delta
+	if on_foot == null and _safe_t <= 0.0 and not mopo.fallen and absf(mopo.speed) > 1.0 and vaala.drivable(pos.x, pos.z):
+		_safe_t = SAFE_EVERY
+		_safe.append([Vector3(pos.x, vaala.h(pos.x, pos.z), pos.z), mopo.rotation.y])
+		if _safe.size() > SAFE_KEEP:
+			_safe.pop_front()
 	var kmh := absf(mopo.speed) * 3.6
 	var left := real_left()
 	var name: String = vaala.road_names[_sample] if ni[0] >= 0 and ni[1] < 12.0 else vaala.north_road_name(pos)

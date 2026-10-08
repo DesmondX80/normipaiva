@@ -6706,7 +6706,8 @@ func _north_logic(p: Vector3) -> void:
 		_hint.text = "[E] Lue Ranta-Rosvon laatta"
 		if e:
 			tilat.first("ranta_rosvo", 0.2)
-			_show_message(ROSVO_TEXT, 6.0)
+			_show_message(ROSVO_TEXT + ("" if "viski" in viina_found else
+				"\nJalustan takana kivien välissä kiiltää jotain..."), 6.0)
 
 
 ## Uinti (Salminen tai laiturilta): kunto palautuu, stressi laskee; saunan jälkeen vilvoittelu tuntuu parhaalta.
@@ -6721,7 +6722,7 @@ func _swim(where: String, _from: Vector3) -> void:
 		tilat.add("moraali", 0.15 if where == "Salminen" else 0.08)
 	tilat.first("uinti_" + where.to_lower(), 0.3)
 	if where == "Salminen":
-		_show_message("Pulahdit Salmiseen. Hiekkapohja, lämmin pintavesi ja hiljaisuus: maailman paras uimaranta, ei epäilystäkään.", 4.0)
+		_salminen_swim()
 	elif after_sauna:
 		_show_message("Löylyistä suoraan Keskimmäiseen! Kylmä vesi kihelmöi, ja maailma on taas kohdallaan.", 4.0)
 		tilat.add("stressi", 0.1)
@@ -6732,18 +6733,52 @@ func _swim(where: String, _from: Vector3) -> void:
 var _barrel_sauna_t := -1.0
 
 
-## Tynnyrisauna Keskimmäisen rannassa: löylyt (sauna on aina lämmin), sitten pulahdus laiturilta.
+## Salmisen uinti välianimaationa: kahlaus hiekkapohjalle, uintia ja sukeltelua kirkkaassa vedessä.
+func _salminen_swim() -> void:
+	_mokki_prev = state
+	state = "cutscene"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	var ground := func(g: Vector3) -> float:
+		var l: Vector3 = mokki.to_local(g)
+		return mokki.to_global(Vector3(l.x, Mokki.h(l.x, l.z), l.z)).y
+	cutscene.swim_dive(mokki.beach_frame(), mokki.beach_water_y(), ground, func() -> void:
+		state = _mokki_prev
+		player.controls_enabled = true
+		player.activate_camera()
+		_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+		_hud.visible = true
+		_show_message("Pulahdit Salmiseen ja sukeltelit hiekkapohjalla. Lämmin pintavesi ja hiljaisuus: maailman paras uimaranta, ei epäilystäkään.", 4.0))
+
+
+## Tynnyrisauna Keskimmäisen rannassa: löylyt välianimaationa (sauna on aina lämmin), Santtu tulee kylmien kaljojen
+## kanssa kuten savusaunassa, sitten pulahdus laiturilta.
 func _barrel_sauna() -> void:
-	Sfx.play("water", -6.0, 0.6)
-	walker_out.stamina = 100.0
-	walker_out.exhausted = false
-	_barrel_sauna_t = Time.get_ticks_msec() / 1000.0
-	if _once_today("tynnyrisauna"):
-		tilat.add("stressi", 0.3)
-		tilat.add("vasymys", 0.3)
-		tilat.add("kipu", 0.2)
-	tilat.first("tynnyrisauna", 0.3)
-	_show_message("Tynnyrisaunan löylyt! Kiuas sihisee, ja tynnyrin kaari pitää lämmön. Laiturilta pääsee vilvoittelemaan (%s)." % Settings.cap("mount"), 4.0)
+	_mokki_prev = state
+	state = "cutscene"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	cutscene.sauna_relax(mokki.barrel_frame(), false, func() -> void:
+		walker_out.stamina = 100.0
+		walker_out.exhausted = false
+		_barrel_sauna_t = Time.get_ticks_msec() / 1000.0
+		if _once_today("tynnyrisauna"):
+			tilat.add("stressi", 0.3)
+			tilat.add("vasymys", 0.3)
+			tilat.add("kipu", 0.2)
+		tilat.first("tynnyrisauna", 0.3)
+		tilat.add("moraali", 0.1)  # Santun kylmä kalja löylyn päälle
+		state = _mokki_prev
+		player.controls_enabled = true
+		player.activate_camera()
+		_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+		_hud.visible = true
+		_show_message("Tynnyrisaunan löylyt ja Santun kaljat! Laiturilta pääsee vilvoittelemaan (%s)." % Settings.cap("mount"), 4.0),
+		Cutscene.SAUNA_TYNNYRI, true, mokki.santtu_nodes())
 
 
 ## Laavun nuotio: istahdus lepuuttaa, makkara paistuu jos mukana.
@@ -10792,6 +10827,36 @@ func _maybe_screenshot() -> void:
 						break
 				print("JUNA %s: kuvia %d, keula %.0f m" % [view[0], shots, tr._s])
 			get_tree().quit()
+		"mokkikaatuminen":
+			# Mopo kumoon aseman ajotiellä (kaukana päätiestä): nousee ajetulle tielle, ei Paapelin päähän.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			var mp: CharacterBody3D = mopo_trip.mopo
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var acc: Array = []
+			for r in vl.data.side_roads:
+				if r.get("name", "") == "Aseman piha":
+					acc = r.pts
+			var a := Vector3(acc[0][0], 0, acc[0][1])
+			var b := Vector3(acc[1][0], 0, acc[1][1])
+			var dir := (b - a).normalized()
+			mp.position = a + dir * 8.0 + Vector3(0, vl.h(a.x, a.z) + 0.6, 0)
+			mp.rotation.y = atan2(-dir.x, -dir.z)
+			Input.action_press("forward", 0.6)
+			for i in 150:
+				await get_tree().physics_frame
+			Input.action_release("forward")
+			var at := mp.position
+			mopo_trip._on_crash("ditch")
+			for i in 60 * 4:
+				await get_tree().process_frame
+			var sd: Vector3 = vl.station_door
+			print("KAATUMINEN kumoon %s, ylös %s (siirtymä %.1f m), asemalle %.0f m, Paapelin päähän %.0f m, pystyssä %s, ohjaus %s" % [at, mp.position,
+				Vector2(mp.position.x - at.x, mp.position.z - at.z).length(), Vector2(mp.position.x - sd.x, mp.position.z - sd.z).length(),
+				mp.position.distance_to(vl.road_pos(3)), not mp.fallen, mp.controls_enabled])
+			get_tree().quit()
 		"mokkiasema":
 			# Vaalan asema ja liikenneympyrä: kuvat ympyrästä, asemasta ja laiturilta sekä mopolla ympyrästä asemalle.
 			_start_mopo()
@@ -10963,6 +11028,36 @@ func _maybe_screenshot() -> void:
 					player.global_position, _msg.text])
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_perilla_%s.png" % leg))
+			get_tree().quit()
+		"mokkitynnyri", "mokkiuinti":
+			# Tynnyrisaunan löylyt (Santtu tuo kaljat) tai Salmisen uinti ja sukeltelu: välianimaatio kuvina.
+			_toggle_mount()
+			var spot: Vector3 = mokki.barrel_door if scene == "mokkitynnyri" else mokki.beach_pos - Vector3(0, 0, 0)
+			walker_out.global_position = mokki.gpos(spot + Vector3(0, 1.0, 0))
+			for i in 30:
+				await get_tree().physics_frame
+			if scene == "mokkiuinti":
+				var probe: Node3D = Looks.make(self, Cutscene.swim_look(Looks.PLAYER))
+				for an in ["Swim_Fwd", "Swim_Idle"]:
+					probe.play(an, 0.0)
+					probe.anim.advance(0.5)
+					print("UINTI %s: pää y %.2f, lantio y %.2f, jalka y %.2f, pää z %.2f" % [an, probe.bone_position("Head").y,
+						probe.bone_position("pelvis").y, probe.bone_position("foot_l").y, probe.bone_position("Head").z])
+				probe.queue_free()
+				_swim("Salminen", Vector3.ZERO)
+			else:
+				_barrel_sauna()
+			print("VÄLIKUVA %s alkoi: %s, tila %s" % [scene, cutscene.busy, state])
+			var k := 0
+			while cutscene.busy and k < 40:
+				await get_tree().create_timer(1.0).timeout
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%02d.png" % k))
+				k += 1
+			for i in 90:
+				await get_tree().process_frame
+			print("VÄLIKUVA %s loppui: tila %s, ohjaus %s, viesti '%s', viski %s" % [scene, state, player.controls_enabled,
+				_msg.text.replace("\n", " | "), Mokki.viina_positions()[-1]])
 			get_tree().quit()
 		"mokkisalminen":
 			# Jalan Salmisen rannalla, Ranta-Rosvolla ja Keskimmäisen laavulla: soratiet perille ja minikartta näkyvissä.
