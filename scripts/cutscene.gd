@@ -1165,7 +1165,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	_props.add_child(car)
 	var cast := _build_dining_car(car)
 	var scenery: Node3D = cast.scenery
-	await _fade_to(0.0, 0.5)
+	var faded := false  # häivytys vasta, kun kamera on vaunussa (muuten näkyi hetken tyhjä tehdaskohtauksen paikka)
 	var lines: Array = TRAIN_TALK_VAALA if to_vaala else TRAIN_TALK_SALOINEN
 	const LINE := 2.3
 	const SPEED := 24.0
@@ -1240,6 +1240,9 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 		else:
 			_cam.global_position = car.to_global(Vector3(lerpf(0.1, 0.0, u), 1.45, -1.6))
 			_cam.look_at(ch.global_position + Vector3(0, 1.0, 0), Vector3.UP)
+		if not faded:
+			faded = true
+			_fade_to(0.0, 0.5)
 		await get_tree().process_frame
 	await _fade_to(1.0, 0.4)
 	_sub.text = ""
@@ -1277,16 +1280,21 @@ func _train_outside(kind: String, title: String, sub: String) -> void:
 	_props.add_child(root)
 	var puffs: Array = []
 	var fog_saved := [env.fog_enabled, env.fog_light_color, env.fog_density, env.adjustment_saturation, env.fog_depth_begin,
-		env.fog_depth_end]
+		env.fog_depth_end, env.fog_mode, env.fog_sky_affect, env.fog_sun_scatter]
+	var haze: Array = []
+	var smog := func() -> void:
+		# Ruskea savusumu tehtaan yllä: eksponentiaalinen (syvyyssumussa tiheys ei vaikuta) ja taivaskin sameaksi.
+		env.fog_enabled = true
+		env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+		env.fog_light_color = Color(0.5, 0.43, 0.35)
+		env.fog_density = 0.011
+		env.fog_sky_affect = 0.8
+		env.fog_sun_scatter = 0.0
+		env.adjustment_saturation = 0.6
 	if kind == "steel":
 		puffs = _build_steel_land(root)
-		# Ruskea savusumu tehtaan yllä.
-		env.fog_enabled = true
-		env.fog_light_color = Color(0.5, 0.42, 0.33)
-		env.fog_density = 0.02
-		env.fog_depth_begin = 15.0
-		env.fog_depth_end = 260.0
-		env.adjustment_saturation = 0.6
+		haze = root.get_meta("haze", [])
+		smog.call()
 	else:
 		_build_bridge_land(root)
 	var train := _cut_train(root)
@@ -1306,6 +1314,11 @@ func _train_outside(kind: String, title: String, sub: String) -> void:
 			# Joen rannalta matalalta: juna ylittää ristikkosillan.
 			_cam.global_position = root.to_global(Vector3(42.0, -2.4, -6.0))
 			_cam.look_at(root.to_global(Vector3(0.0, 2.5, clampf(train.position.z + 20.0, -40.0, 30.0))), Vector3.UP)
+		if kind == "steel":
+			smog.call()  # päivän valaistus päivittää sumun värin joka ruudussa: pidetään savun sävy
+		for hz in haze:
+			var hm: MeshInstance3D = hz[0]
+			hm.position = (hz[1] as Vector3) + Vector3(t * 1.6 + sin(t * 0.4 + float(hz[2]) * TAU) * 3.0, 0, t * 0.8)
 		for pf in puffs:
 			var m: MeshInstance3D = pf[0]
 			var base: Vector3 = pf[1]
@@ -1332,6 +1345,9 @@ func _train_outside(kind: String, title: String, sub: String) -> void:
 	env.adjustment_saturation = fog_saved[3]
 	env.fog_depth_begin = fog_saved[4]
 	env.fog_depth_end = fog_saved[5]
+	env.fog_mode = fog_saved[6]
+	env.fog_sky_affect = fog_saved[7]
+	env.fog_sun_scatter = fog_saved[8]
 	root.queue_free()
 
 
@@ -1402,6 +1418,18 @@ func _build_steel_land(r: Node3D) -> Array:
 			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			pm.material_override = mat
 			puffs.append([pm, cp + Vector3(0, hgt + 2.0, 0), k / 10.0])
+	# Savusumu: matalia, läpikuultavia ruskeanharmaita pilviä tehtaan ja radan yllä (cutscene ajelehtii niitä,
+	# root-meta "haze": [mesh, lähtöpaikka, vaihe]). Kamera on radan itäpuolella, joten pilvet pysyvät sen ulkopuolella.
+	var haze: Array = []
+	var hmat := B.unshaded(Color(0.46, 0.4, 0.34, 0.2))
+	for i in 42:
+		var hp := Vector3(randf_range(-180, -5), randf_range(8, 34), randf_range(-280, 160))
+		var hz := B.mesh(r, B.sphere(1.0, 12), hp, Color.WHITE)
+		hz.scale = Vector3(randf_range(22, 42), randf_range(5, 11), randf_range(22, 42))
+		hz.material_override = hmat
+		hz.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		haze.append([hz, hp, randf()])
+	r.set_meta("haze", haze)
 	# Kasat, kuljettimet ja säiliöt radan itäpuolella.
 	for i in 5:
 		var p := Vector3(randf_range(25, 70), 0, -220.0 + i * 70.0)
