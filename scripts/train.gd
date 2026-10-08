@@ -158,7 +158,12 @@ func call_station(stop_t: float) -> void:
 		return
 	var cam := get_viewport().get_camera_3d()
 	var c := to_local(cam.global_position) if cam != null else path[0]
-	_start_at_station(stop_t, 1 if c.distance_to(path[0]) > c.distance_to(path[path.size() - 1]) else 0)
+	var from_start := 1 if c.distance_to(path[0]) > c.distance_to(path[path.size() - 1]) else 0
+	# Tulopäässä oltava tilaa saapua ja jarruttaa (asema voi olla lähellä reitin päätä).
+	var room := stop_t if from_start == 1 else _length - stop_t
+	if room < APPROACH * 0.75 and _length - room > room:
+		from_start = 1 - from_start
+	_start_at_station(stop_t, from_start)
 	_s = maxf(0.0, _stop_s - APPROACH)
 	_speed = CRUISE
 	_phase = "in"

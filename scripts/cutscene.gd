@@ -356,6 +356,155 @@ func laavu_sunset(pit: Vector3, fire: Node3D, title: String, stats: String, done
 	_title.add_theme_font_size_override("font_size", 150)
 
 
+# --- Makkaranpaisto laavulla --------------------------------------------------------
+
+const MAKKARA_LINES := ["Makkara tirisee ja pullistuu. Ei liian lähelle liekkiä.", "Kuori ruskistuu, rasva sihahtaa hiillokselle.",
+	"Kärsivällisyyttä. Hyvä makkara paistetaan hiilloksella, ei liekissä.", "Savu kääntyy aina sinne missä istut."]
+
+
+## Makkaranpaisto Keskimmäisen laavulla: nuotio rätisee, hahmo istuu laavun reunalla tikku kädessä ja kääntelee
+## makkaraa, kunnes kuori ruskistuu, ja haukkaa. pit = nuotion paikka maailmassa, lake = suunta järvelle
+## (laavu avautuu sinne, hahmo istuu nuotion takana kasvot järvelle).
+func makkara(pit: Vector3, lake: Vector3, done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.4)
+	_cam.current = true
+	_cam.fov = 52.0
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var d := Vector3(lake.x, 0, lake.z).normalized()
+	var side := d.cross(Vector3.UP)
+	# Nuotio: halot, hiillos, liekit ja lepattava valo.
+	var fire := Node3D.new()
+	_props.add_child(fire)
+	fire.global_position = pit
+	for k in 5:
+		var a := k * TAU / 5.0
+		var lg := B.mesh(fire, B.cyl(0.05, 0.06, 0.6, 8), Vector3(cos(a) * 0.12, 0.12, sin(a) * 0.12), Color(0.3, 0.2, 0.12))
+		lg.rotation = Vector3(0.0, -a, deg_to_rad(65.0))
+	for k in 6:
+		B.mesh(fire, B.sphere(0.05, 6), Vector3((k % 3) * 0.08 - 0.08, 0.03, (k / 3) * 0.08 - 0.04), Color.WHITE) \
+			.material_override = B.unshaded(Color(1.6, 0.5 + (k % 2) * 0.2, 0.1))
+	var flames := CPUParticles3D.new()
+	flames.amount = 36
+	flames.lifetime = 0.7
+	flames.direction = Vector3.UP
+	flames.spread = 15.0
+	flames.initial_velocity_min = 0.6
+	flames.initial_velocity_max = 1.2
+	flames.gravity = Vector3(0, 0.8, 0)
+	flames.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	flames.emission_sphere_radius = 0.15
+	var fc := Curve.new()
+	fc.add_point(Vector2(0, 1.0))
+	fc.add_point(Vector2(1, 0.1))
+	flames.scale_amount_curve = fc
+	var fr := Gradient.new()
+	fr.set_color(0, Color(1.0, 0.85, 0.3, 0.95))
+	fr.set_color(1, Color(0.9, 0.2, 0.05, 0.0))
+	flames.color_ramp = fr
+	var fq := QuadMesh.new()
+	fq.size = Vector2(0.28, 0.4)
+	var fm := StandardMaterial3D.new()
+	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	fm.vertex_color_use_as_albedo = true
+	fm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	fq.material = fm
+	flames.mesh = fq
+	fire.add_child(flames)
+	flames.position = Vector3(0, 0.15, 0)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.55, 0.2)
+	glow.light_energy = 2.0
+	glow.omni_range = 6.0
+	fire.add_child(glow)
+	glow.position = Vector3(0, 0.6, 0)
+	var crackle := Sfx.loop_on(fire, "fire", -6.0)
+	# Hahmo laavun reunalla nuotion takana kasvot järvelle, tikku oikeassa kädessä kohti hiillosta.
+	var hero := Looks.make(_props, Looks.PLAYER)
+	Looks.add_cap(hero)
+	hero.global_position = pit - d * 1.75
+	hero.global_rotation.y = B.yaw_to(d)
+	hero.play("Sitting_Idle", 0.0)
+	var stick := Node3D.new()
+	_props.add_child(stick)
+	B.tube(stick, Vector3.ZERO, Vector3(0, 0, -1.25), 0.012, Color(0.5, 0.35, 0.2))
+	var raw := Color(0.86, 0.45, 0.42)
+	var done_col := Color(0.42, 0.18, 0.08)
+	var sausage := B.mesh(stick, B.capsule(0.028, 0.17), Vector3(0, 0, -1.2), raw, Vector3(90, 0, 0))
+	var smat := (B.mat(raw) as StandardMaterial3D).duplicate() as StandardMaterial3D
+	sausage.material_override = smat
+	var st := {"cook": 0.0, "turn": 0.0, "eat": 0.0, "t": 0.0}
+	var tip_rest := pit + Vector3(0, 0.32, 0) + side * 0.05
+	var upd := func() -> void:
+		if not is_instance_valid(hero):
+			return
+		st.t += get_process_delta_time()
+		glow.light_energy = 1.8 + 0.35 * sin(st.t * 9.0) + 0.2 * sin(st.t * 23.0)
+		var shr: Vector3 = hero.to_global(hero.bone_position("upperarm_r"))
+		var head: Vector3 = hero.to_global(hero.bone_position("Head"))
+		var mouth := head + d * 0.12 + Vector3(0, -0.05, 0)
+		# Käsi syliin polvien päälle ja tikku nuotiolle; syödessä makkara suulle.
+		var hand: Vector3 = (hero.global_position + d * 0.45 + side * -0.12 + Vector3(0, 0.62, 0)).lerp(mouth + d * 0.05 - side * 0.05, st.eat)
+		hero.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", hero.to_local(hand), hero.to_local(shr + side * -0.4 + Vector3(0, -0.4, 0)))
+		var grip: Vector3 = hero.to_global(hero.bone_position("hand_r"))
+		var tip := tip_rest.lerp(grip + d * 0.6 + Vector3(0, 0.25, 0), st.eat)
+		stick.global_position = grip
+		if grip.distance_to(tip) > 0.05:
+			stick.look_at(tip, Vector3.UP)
+			stick.rotate_object_local(Vector3.FORWARD, st.turn)
+		smat.albedo_color = raw.lerp(done_col, st.cook)
+	get_tree().process_frame.connect(upd)
+	var glide := func(key: String, to: float, sec: float) -> Tween:
+		var t := _tween()
+		t.tween_method(func(v: float) -> void: st[key] = v, float(st[key]), to, sec).set_trans(Tween.TRANS_SINE)
+		return t
+	_title.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+	_title.add_theme_font_size_override("font_size", 80)
+	# 1. Kiertävä yleiskuva: laavu, nuotio ja järvi.
+	_fade_to(0.0, 0.8)
+	_title.text = "MAKKARANPAISTO"
+	_sub.text = "Keskimmäisen laavu. Nuotio rätisee, järvi kimaltaa."
+	glide.call("cook", 0.45, 10.0)
+	var yaw0 := atan2(d.z, d.x)
+	_orbit(pit, 4.2, 1.6, yaw0 + 0.6, yaw0 + 1.5, 5.0)
+	await _wait(2.6)
+	_title.text = ""
+	_sub.text = MAKKARA_LINES[0]
+	await _wait(2.6)
+	# 2. Lähikuva makkarasta: kääntö ja ruskistuminen.
+	_cam.global_position = pit + side * 0.9 + d * 0.5 + Vector3(0, 0.75, 0)
+	_cam.look_at(tip_rest, Vector3.UP)
+	Sfx.play("whoosh", -14.0, 0.5)
+	_sub.text = MAKKARA_LINES[1]
+	await (glide.call("turn", PI, 1.2) as Tween).finished
+	glide.call("cook", 1.0, 3.5)
+	await _wait(1.6)
+	_sub.text = MAKKARA_LINES.slice(2).pick_random()
+	await (glide.call("turn", TAU, 1.4) as Tween).finished
+	await _wait(1.4)
+	# 3. Haukkaus: kamera edestä, makkara suulle.
+	_cam.global_position = pit + d * 0.2 + side * -0.4 + Vector3(0, 1.0, 0)
+	_cam.look_at(hero.global_position + Vector3(0, 0.95, 0), Vector3.UP)
+	_sub.text = "Valmis! Kuuma, mutta pakko maistaa."
+	await (glide.call("eat", 1.0, 1.0) as Tween).finished
+	Sfx.play("pickup", -6.0, 0.7)
+	sausage.scale = Vector3(1.0, 0.6, 1.0)
+	_sub.text = "Nam. Paras makkara ikinä, joka kerta."
+	await _wait(2.4)
+	_sub.text = ""
+	await _end(func() -> void:
+		get_tree().process_frame.disconnect(upd)
+		if is_instance_valid(crackle):
+			crackle.stop()
+		_cam.fov = 50.0
+		done.call())
+	_title.add_theme_font_size_override("font_size", 150)
+
+
 # --- Savusaunan löyly ---------------------------------------------------------------
 
 const SAUNA_LINES := ["Löyly puree korvia. Ei kiirettä mihinkään.", "Savun ja tervan tuoksu. Ihan puhdas olo.",

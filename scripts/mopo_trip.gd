@@ -184,6 +184,43 @@ func _get_up() -> void:
 	mopo.set_engine(true)
 
 
+## Mopo kuivalle: vedessä tai ajoalueen ulkopuolella seisova mopo siirretään viimeisimpään ajopaikkaan (tai
+## päätielle), ettei se jää järveen, kun pelaaja lähtee siltä esim. uimaan.
+func park_safe() -> void:
+	if mopo == null:
+		return
+	var p := mopo.position
+	if not vaala.wet(p.x, p.z, 0.25) and vaala.drivable(p.x, p.z):
+		return
+	if not _safe.is_empty():
+		var s: Array = _safe[-1]
+		for k in range(_safe.size() - 1, -1, -1):
+			var q: Vector3 = _safe[k][0]
+			if not vaala.wet(q.x, q.z, 0.25):
+				s = _safe[k]
+				break
+		mopo.position = s[0] + Vector3(0, 0.6, 0)
+		mopo.rotation.y = s[1]
+	else:
+		# Lähin kuiva ajettava kohta (päätien haku ei ulotu sivuteille).
+		var dry := Vector3.INF
+		for r in range(2, 60, 2):
+			for k in 16:
+				var q := p + Vector3(cos(TAU * k / 16.0), 0, sin(TAU * k / 16.0)) * float(r)
+				if vaala.drivable(q.x, q.z) and not vaala.wet(q.x, q.z, 0.25):
+					dry = q
+					break
+			if dry != Vector3.INF:
+				break
+		if dry != Vector3.INF:
+			mopo.position = Vector3(dry.x, vaala.h(dry.x, dry.z) + 0.6, dry.z)
+		else:
+			var i: int = maxi(vaala.nearest(p)[0], 3)
+			mopo.position = vaala.road_pos(i) + vaala.road_dir(i).cross(Vector3.UP) * 1.6 + Vector3(0, 0.6, 0)
+	mopo.velocity = Vector3.ZERO
+	mopo.speed = 0.0
+
+
 func stop() -> void:
 	active = false
 	if mopo != null:
@@ -219,6 +256,7 @@ var _resume_frame := -1
 
 
 var menu_open := false  # main.gd: eväsvalikko auki, sen E ei avaa ovia
+var door_hidden := func(_id: String) -> bool: return false  # main.gd: käytetyt kertakohteet (löydetyt viinakätköt)
 
 
 func _interact() -> bool:
@@ -271,7 +309,8 @@ func _process(delta: float) -> void:
 	if ni[0] >= 0:
 		_sample = ni[0]
 	_safe_t -= delta
-	if on_foot == null and _safe_t <= 0.0 and not mopo.fallen and absf(mopo.speed) > 1.0 and vaala.drivable(pos.x, pos.z):
+	if on_foot == null and _safe_t <= 0.0 and not mopo.fallen and absf(mopo.speed) > 1.0 and vaala.drivable(pos.x, pos.z) \
+			and not vaala.wet(pos.x, pos.z, 0.25):
 		_safe_t = SAFE_EVERY
 		_safe.append([Vector3(pos.x, vaala.h(pos.x, pos.z), pos.z), mopo.rotation.y])
 		if _safe.size() > SAFE_KEEP:
@@ -287,7 +326,9 @@ func _process(delta: float) -> void:
 	var near_door := {}
 	var d_shop := INF
 	for d in vaala.doors:
-		var dd: float = pos.distance_to(d.pos)
+		if door_hidden.call(d.id):
+			continue
+		var dd: float = pos.distance_to(d.pos) - (d.get("r", 5.0) - 5.0)
 		if dd < d_shop:
 			d_shop = dd
 			near_door = d
@@ -304,7 +345,8 @@ func _process(delta: float) -> void:
 			lava.emit()
 		return
 	if d_shop < 5.0 and _actor_still():
-		hint = "[E] %s%s" % ["Mene " if on_foot != null else "Parkkeeraa mopo ja mene ", near_door.hint]
+		hint = "[E] %s" % (near_door.text if near_door.has("text") else
+			("Mene " if on_foot != null else "Parkkeeraa mopo ja mene ") + near_door.hint)
 		if _interact():
 			mopo.speed = 0.0
 			door.emit(near_door.id)

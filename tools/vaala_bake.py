@@ -97,8 +97,10 @@ BRANCH_LEN = 90.0  # risteysten haarat väärään suuntaan: 1:1 näin pitkälle
 # läikäksi; nyt paperikartan Salmisen uimaranta, Ranta-Rosvo ja laavu ovat Neittävällä omien järviensä rannoilla.
 NORTH_LAKES = ("Pyöriäinen", "Etu-Salminen", "Pikku-Salminen", "Taka-Salminen", "Keskimmäinen")
 NL_REF = (100.0, -700.0)
-NL_C = (-100.0, -300.0)
-NL_S = (0.6, 0.5)
+# Tiivistetty puoleen Neittäväntien haaran pään ympäri (tools/vaala_jarviseutu.py 0.5; ennen C (-100, -300), S (0.6, 0.5)):
+# Ranta-Rosvo, Salminen ja Keskimmäisen laavu lyhyemmän ajomatkan päässä.
+NL_C = (-208.66, -219.11)
+NL_S = (0.3, 0.25)
 NL_BOX = (-470.0, -1060.0, 240.0, -290.0)  # järviseudun alue pelissä: muut pikkujärvet suoksi
 NL_ROAD = 35.0     # järvet näin kauas reitistä ja haaroista
 NL_BLEND = (-480.0, -700.0)  # paperikartta: todellinen z, jossa mökin alueen kuvaus vaihtuu maastosta T:hen

@@ -103,7 +103,8 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     (punavalkoinen Sr1-veturi ja neljä sinistä VR:n vaunua, yksi niistä ravintolavaunu), joka vihellyttää ohittaessaan.
   - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa torilta asfalttia Zabukin ohi
     liikenneympyrään ja siitä oikealle Ratatietä ja aseman ajotietä rautatieasemalle (pelissä tuotu radan varteen
-    noin 100 m Siitarista, laituri radan vieressä; todellisuudessa n. 300 m kauempana); Saloisissa
+    noin 100 m Siitarista, laituri radan vieressä; todellisuudessa n. 300 m kauempana; junat eivät aja Oulujoen
+    ratasillalle, vaan Vaalan pään reitti alkaa sillan itäpuolelta); Saloisissa
     asema on K-Marketin takana, ja rata jatkuu asemalta länteen Valtatien yli ja idässä kaartaa heti pohjoiseen
     talojen välistä ja koilliseen horisonttiin, ei kylän läpi (tiet tasoristeyksinä). Juna tulee kummallekin
     asemalle satunnaisesti n. tunnin välein pelin kellossa ja seisoo laiturilla puoli minuuttia: vain silloin
@@ -119,7 +120,14 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     ovat välianimaatio: kaarevat paneelit ja pieni kiuas, ja Santtu tulee kylmien kaljojen kanssa viereen lauteelle
     (testi `--scene=mokkitynnyri`). Salmisessa uidaan ja sukellellaan välianimaationa: kahlaus hiekkarannalta,
     rintauintia, sukellus hiekkapohjalle ahvenparven ja kaislojen sekaan ja pinnalle polskimaan (`--scene=mokkiuinti`).
-    Ranta-Rosvon jalustan takana on viskikätkö (viinakätköjen seitsemäs). Mopo kaatuu kännissä myös sivuteillä
+    Laavun nuotiolla paistetaan makkara välianimaationa (makkara mukana), ja laiturilta lähdetään kalaan. Samat
+    toimivat mopomatkalla Vaalan maailman järviseudulla E:llä (tynnyrisauna, laavu, laituri, Salmisen ranta ja
+    viskikätkö; mopon selästä aloitettaessa hahmo nousee mopolta ja jatkaa jalan, testi `--scene=mokkijarvi_e`).
+    Ranta-Rosvon jalustan takana on viskikätkö (viinakätköjen seitsemäs, avataan kuten muutkin). Mopomaailmassa
+    järviseutu on tiivistetty puoleen Neittäväntien haaran pään ympäri (`tools/vaala_jarviseutu.py 0.5`, ilman
+    lähdeaineiston välimuistia; leivonnan NL_C ja NL_S vastaavat sitä), joten Rosvolle, Salmiselle ja laavulle on
+    lyhyt ajomatka. Järviin ja rannan matalikolle ei ajeta mopolla, ja uimaan lähtiessä mopo jää kuivalle
+    (`--scene=mokkiuinti_mopo`). Vaalan asfalttisivukaduilla ajetaan täyttä 60 km/h, soratiellä pientareen vauhtia. Mopo kaatuu kännissä myös sivuteillä
     (asema, järviseutu): se nostetaan ajetulle tielle muutama metri taaemmas (`--scene=mokkikaatuminen`). Ranta-Rosvo ja
     Salmisen uimaranta (Taka-Salmisen länsiranta) ovat asfaltoidun Nuojuankoskentien varrella. Mopolla: risteyksessä,
     jossa Siitariin käännytään oikealle, vasemmalle kääntyvä asfaltti vie Rosvolle ja rannalle, ja samasta
