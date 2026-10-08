@@ -10609,6 +10609,16 @@ func _maybe_screenshot() -> void:
 				if slow == 60:
 					print("PALUU pysähtyi näytteellä %d (%s), y %.2f tie %.2f, paikka %s" % [last, vl.road_names[last], mp.position.y,
 						vl.road_pos(last).y, mp.position])
+					var fw3 := -mp.global_transform.basis.z
+					var prow := ""
+					for a: float in [0.0, 0.45, -0.45, 1.1, -1.1, 1.57, -1.57, 3.14]:
+						var dd := Vector2(fw3.x, fw3.z).normalized().rotated(a)
+						var qq := Vector2(mp.position.x, mp.position.z) + dd * 1.0
+						prow += " %+.2f:%s" % [a, "#" if vl.drivable(qq.x, qq.y) else "."]
+					var col := mp.get_last_slide_collision()
+					print("PALUU jumi: ajettava %s, reuna %.2f, nopeus %.2f, suunta %s, kokeet%s, seinä %s, osuma %s, kaasu %.2f" % [
+						vl.drivable(mp.position.x, mp.position.z), mp._curb, mp.speed, fw3, prow, mp.is_on_wall(),
+						"" if col == null else "%s %s" % [col.get_collider(), col.get_normal()], Input.get_axis("back", "forward")])
 					await RenderingServer.frame_post_draw
 					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_jumi.png"))
 				if i % 300 == 0:
