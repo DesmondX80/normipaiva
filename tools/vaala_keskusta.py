@@ -48,6 +48,18 @@ ZB_SIZE = (9.0, 5.0)  # Zabukin kioski (vaala.gd _build_zabuki): leveys x syvyys
 TORI_U = (18.0, 56.0)
 TORI_V = (5.5, 26.0)
 ZB_END = 2.0         # Zabukin takaseinä näin kauas torin itäreunasta
+# Liikenneympyrä Zabukin jälkeen Vaalantien, Ratatien ja Koulutien risteykseen ja siitä oikealle (Ratatie) uusi
+# rautatieasema Zabukin taakse: asemarakennus, laituri ja asemaraide puskimineen (samassa kehyksessä kuin tori;
+# Siitarin puoli = v negatiivinen). Muita rakennuksia ei siirretä.
+RB_U = 68.0
+RB_R = 12.0
+ST_U = (84.0, 104.0)
+ST_V = (8.0, 16.0)
+PLAT_U = (82.0, 150.0)
+PLAT_V = (17.5, 20.5)
+TRACK_V = 23.0
+TRACK_U = (78.0, 152.0)
+OLD_STATION_ID = 178199720  # Vaalan rautatieasema (OSM): jää paikalleen vanhana asemarakennuksena
 
 
 def in_poly(p, poly):
@@ -194,6 +206,83 @@ def place_tori(tie, flatten):
                      "parkings": removed_parks}}
 
 
+def place_station(tie, flatten):
+    """Liikenneympyrä Vaalantielle Zabukin jälkeen ja rautatieasema laitureineen Zabukin taakse Ratatien varteen."""
+    road = tie["road"]
+    sx, sz = tie["siitari"]
+    last = len(road) - 30
+    ki = min(range(last - 120, last), key=lambda i: abs((sx - road[i][0]) * (road[i + 2][0] - road[i - 2][0])
+                                                        + (sz - road[i][2]) * (road[i + 2][2] - road[i - 2][2])))
+    a, b = road[ki - 4], road[ki + 4]
+    L = math.hypot(b[0] - a[0], b[2] - a[2])
+    ax = ((b[0] - a[0]) / L, (b[2] - a[2]) / L)
+    away = (-ax[1], ax[0])
+    rp = (road[ki][0], road[ki][2])
+    if (sx - rp[0]) * away[0] + (sz - rp[1]) * away[1] > 0.0:
+        away = (-away[0], -away[1])
+    at = lambda u, v: (rp[0] + ax[0] * u + away[0] * v, rp[1] + ax[1] * u + away[1] * v)  # noqa: E731
+    rb_c = at(RB_U, 0.5)
+    sv = -(ST_V[0] + ST_V[1]) / 2.0
+    station = rect(at((ST_U[0] + ST_U[1]) / 2.0, sv), ax, away, (ST_U[1] - ST_U[0]) / 2.0, (ST_V[1] - ST_V[0]) / 2.0)
+    platform = rect(at((PLAT_U[0] + PLAT_U[1]) / 2.0, -(PLAT_V[0] + PLAT_V[1]) / 2.0), ax, away,
+                    (PLAT_U[1] - PLAT_U[0]) / 2.0, (PLAT_V[1] - PLAT_V[0]) / 2.0)
+    track = [at(TRACK_U[0], -TRACK_V), at(TRACK_U[1], -TRACK_V)]
+    t_lot = rect(at((TRACK_U[0] + TRACK_U[1]) / 2.0, -TRACK_V), ax, away, (TRACK_U[1] - TRACK_U[0]) / 2.0, 2.2)
+    access = [at(66.0, -15.5), at(ST_U[0] - 1.5, -15.5), at(ST_U[0] - 1.5, sv)]
+    a_lot = rect(at((66.0 + ST_U[0]) / 2.0, -14.5), ax, away, (ST_U[0] - 66.0) / 2.0, 3.5)
+    door = at(ST_U[0] - 0.4, sv)
+    lots = [station, platform, t_lot, a_lot]
+    for bd in tie["buildings"]:
+        if any(in_poly(q, bd["pts"]) for p in lots for q in p) or min(poly_dist(q, p) for p in lots for q in bd["pts"]) < 1.0:
+            raise SystemExit("aseman paikka osuu rakennukseen %s %s" % (bd["id"], bd.get("name", "")))
+    # Ympyrän sisältä ja asemalta tiet ja polut pois (Vaalantie, Ratatie ja Koulutie päättyvät ympyrään).
+    cut_roads = []
+    pieces = []
+    for k, sr in enumerate(tie["side_roads"]):
+        if sr["kind"] == "rail" or sr.get("name") == "Vaalan tori":
+            continue
+
+        def gone(q):
+            return math.dist(q[:2], rb_c) < RB_R - 0.5 or any(poly_dist(q, p) < 1.0 for p in lots)
+        dense = []
+        for a2, b2 in zip(sr["pts"], sr["pts"][1:]):
+            n = max(1, int(math.dist(a2[:2], b2[:2]) / 2.0))
+            dense += [[round(a2[0] + (b2[0] - a2[0]) * t / n, 2), round(a2[1] + (b2[1] - a2[1]) * t / n, 2)] for t in range(n + 1)]
+        if not any(gone(q) for q in dense):
+            continue
+        cut_roads.append([k, sr])
+        cur = []
+        for q in dense:
+            if gone(q):
+                if len(cur) > 1:
+                    pieces.append(dict(sr, pts=cur, _asema=1))
+                cur = []
+            elif not cur or cur[-1] != q:
+                cur.append(q)
+        if len(cur) > 1:
+            pieces.append(dict(sr, pts=cur, _asema=1))
+    for k, _sr in reversed(cut_roads):
+        del tie["side_roads"][k]
+    tie["side_roads"] += pieces
+    tie["side_roads"].append({"kind": "road", "hw": "service", "name": "Aseman piha", "surface": "asphalt", "_asema": 1,
+                              "pts": [[round(q[0], 2), round(q[1], 2)] for q in access]})
+    tie["side_roads"].append({"kind": "rail", "hw": "", "name": "Asemaraide", "surface": "", "_asema": 1,
+                              "pts": [[round(q[0], 2), round(q[1], 2)] for q in track]})
+    old = next((b for b in tie["buildings"] if b["id"] == OLD_STATION_ID), None)
+    old_meta = None
+    if old is not None:
+        old_meta = {"name": old["name"], "type": old["type"]}
+        old["name"] = "Vanha asema"
+        old["type"] = "yes"
+    flat = flatten(lots + [rect(rb_c, ax, away, RB_R + 1.0, RB_R + 1.0)], 6.0)
+    print("Liikenneympyrä", [round(v, 1) for v in rb_c], "| asema", [round(v, 1) for v in at((ST_U[0] + ST_U[1]) / 2.0, sv)],
+          "%.1f m" % flat, "| katkaistu teitä", len(cut_roads))
+    return {"pts": station, "door": [round(door[0], 2), round(door[1], 2)], "out": [round(-ax[0], 4), round(-ax[1], 4)],
+            "along": [round(ax[0], 4), round(ax[1], 4)], "platform": platform,
+            "track": [[round(q[0], 2), round(q[1], 2)] for q in track], "roundabout": {"c": [round(rb_c[0], 2), round(rb_c[1], 2)], "r": RB_R},
+            "cut_roads": cut_roads, "old": old_meta}
+
+
 def apply():
     tie = json.load(open(TIE))
     raw = open(MAASTO, "rb").read()
@@ -211,6 +300,16 @@ def apply():
         for k, hv, cv in reversed(prev["cells"]):  # sama ruutu voi olla kahdesti: alkuperäinen arvo viimeiseksi
             heights[k] = hv
             codes[k] = cv
+        if "asema" in prev:
+            # Asema ensin pois (sen katkaisut ovat torin muutosten jälkeisessä listassa).
+            st_ = prev["asema"]
+            tie["side_roads"] = [r for r in tie["side_roads"] if not r.get("_asema")]
+            for k, r in st_["cut_roads"]:
+                tie["side_roads"].insert(k, r)
+            if st_.get("old"):
+                for b in tie["buildings"]:
+                    if b["id"] == OLD_STATION_ID:
+                        b.update(st_["old"])
         if "tori" in prev:
             # Torin muutokset ensin pois (K-Marketin sivutieindeksit viittaavat tilaan ennen niitä).
             t = prev["tori"]
@@ -313,8 +412,10 @@ def apply():
 
     flat = flatten([lot])
     tori = place_tori(tie, flatten)
+    asema = place_station(tie, flatten)
     tie["keskusta"] = {"kmarket_pts": orig_pts, "parking": parking, "cells": cells, "side_roads": moved_roads}
     tie["keskusta"].update(tori)
+    tie["keskusta"]["asema"] = asema
 
     with open(TIE, "w") as f:
         json.dump(tie, f, ensure_ascii=False, separators=(",", ":"))
@@ -354,6 +455,14 @@ def apply():
             add("poly", [q[:2] for q in sr["pts"][:-1]], PARK_MARGIN)
     for p in tie["parkings"]:
         add("poly", p, PARK_MARGIN)
+    # Asema, laituri, asemaraide ja liikenneympyrä (place_station) puista vapaiksi.
+    ast = tie["keskusta"]["asema"]
+    add("poly", ast["pts"], 3.0)
+    add("poly", ast["platform"], 1.5)
+    add("line", [tuple(ast["track"][0]), tuple(ast["track"][1])], 2.5)
+    rbc = ast["roundabout"]["c"]
+    rbr = ast["roundabout"]["r"]
+    add("poly", [[rbc[0] + rbr * math.cos(k * math.pi / 8), rbc[1] + rbr * math.sin(k * math.pi / 8)] for k in range(16)], 1.5)
     for k in range(len(road) - 1):
         r0, r1 = road[k], road[k + 1]
         add("line", [(r0[0], r0[2]), (r1[0], r1[2])], r0[4] + ROAD_MARGIN)

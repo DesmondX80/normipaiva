@@ -249,6 +249,12 @@ func _build_drive_mask() -> void:
 		for q in poly:
 			pts.append(Vector2(q[0], q[1]))
 		_drive_poly(pts, 1.0)
+	var ast = data.get("keskusta", {}).get("asema")
+	if ast != null:
+		var rcen := Vector2(ast.roundabout.c[0], ast.roundabout.c[1])
+		for k in 24:
+			_drive_seg(rcen + Vector2.from_angle(TAU * k / 24) * (float(ast.roundabout.r) - 3.2),
+				rcen + Vector2.from_angle(TAU * (k + 1) / 24) * (float(ast.roundabout.r) - 3.2), 4.2)
 	if data.has("lava"):
 		var lr: Array = data.lava.road
 		for k in lr.size() - 1:
@@ -334,6 +340,7 @@ func ensure_built() -> void:
 	_build_buildings()
 	_build_parkings()
 	_build_tori()
+	_build_station()
 	_build_signs()
 	_build_trees()
 	_build_lamps()
@@ -1166,7 +1173,7 @@ var train: Node3D
 func _build_train() -> void:
 	var lines: Array = []
 	for r in data.side_roads:
-		if r.kind != "rail" or r.pts.size() < 2:
+		if r.kind != "rail" or r.pts.size() < 2 or r.name == "Asemaraide":
 			continue
 		var pl := PackedVector3Array()
 		for q in r.pts:
@@ -1764,6 +1771,188 @@ func _tori_prep() -> void:
 		at = _tori_c + Vector2(0, -12.0)  # ei kioskia: torin pohjoislaidalle
 	_zabuki = Vector3(at.x, h(at.x, at.y), at.y)
 	_zabuki_face = (_tori_c - at).normalized()
+
+
+## Rautatieasema Zabukin takana (vaala_keskusta.py place_station): keltainen puinen asemarakennus valkoisine
+## nurkkalautoineen ja ikkunanpuitteineen, punainen harjakatto, laiturin puolella katos, VAALA-kyltti, betonilaituri
+## valkoisella reunaviivalla, penkit ja valaisimet sekä asemaraiteen puskimet. Ovi päädyssä (E: junalla Saloisiin).
+## Lisäksi Vaalantien liikenneympyrä: asfalttirengas ja reunakivetty nurmisaareke.
+var station_door := Vector3.ZERO
+
+
+func _build_station() -> void:
+	var st = data.get("keskusta", {}).get("asema")
+	if st == null:
+		return
+	# Liikenneympyrä.
+	var rb: Dictionary = st.roundabout
+	var rc := Vector2(rb.c[0], rb.c[1])
+	var rr: float = rb.r
+	var ring := SurfaceTool.new()
+	ring.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var isle := SurfaceTool.new()
+	isle.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var kerb := SurfaceTool.new()
+	kerb.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 40
+	var inner := rr - 6.5
+	for k in n:
+		var a0 := TAU * k / n
+		var a1 := TAU * (k + 1) / n
+		var p := func(r: float, a: float, lift: float) -> Vector3:
+			var q := rc + Vector2.from_angle(a) * r
+			return Vector3(q.x, h(q.x, q.y) + lift, q.y)
+		_quad(ring, p.call(inner, a0, 0.06), p.call(rr, a0, 0.06), p.call(rr, a1, 0.06), p.call(inner, a1, 0.06))
+		for v in [p.call(0.0, 0.0, 0.25), p.call(inner - 0.2, a0, 0.2), p.call(inner - 0.2, a1, 0.2)]:
+			isle.add_vertex(v)
+		_quad(kerb, p.call(inner - 0.2, a0, 0.2), p.call(inner, a0, 0.06), p.call(inner, a1, 0.06), p.call(inner - 0.2, a1, 0.2))
+	ring.generate_normals()
+	var rm := MeshInstance3D.new()
+	rm.mesh = ring.commit()
+	rm.material_override = _rmats.get("asphalt", B.mat(Color(0.24, 0.24, 0.25)))
+	add_child(rm)
+	kerb.generate_normals()
+	var km := MeshInstance3D.new()
+	km.mesh = kerb.commit()
+	var kmat := B.mat(Color(0.7, 0.7, 0.68)).duplicate() as StandardMaterial3D
+	kmat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	km.material_override = kmat
+	add_child(km)
+	isle.generate_normals()
+	var im := MeshInstance3D.new()
+	im.mesh = isle.commit()
+	im.material_override = B.mat(Color(0.32, 0.46, 0.2))
+	add_child(im)
+	var rsign := B.sign_pole(self, Vector3(rc.x, h(rc.x, rc.y) + 0.2, rc.y), 2.0)
+	var rplate := B.sign_plate(rsign, "↻", Color(0.1, 0.3, 0.65), Color.WHITE, 0.6, 80, Color.WHITE, "Helvetica Neue")
+	rplate.position.y = 1.8
+	# Asemarakennus.
+	var pts := PackedVector2Array()
+	for q in st.pts:
+		pts.append(Vector2(q[0], q[1]))
+	var obb := _obb(pts)
+	var c: Vector2 = obb.center
+	var along := Vector2(st.along[0], st.along[1])
+	var plat_c := Vector2.ZERO
+	for q in st.platform:
+		plat_c += Vector2(q[0], q[1])
+	plat_c /= float(st.platform.size())
+	var back := (plat_c - c).normalized()  # laiturin puoli
+	var L: float = (obb.size as Vector2).x if absf((obb.ax as Vector2).dot(along)) > 0.7 else (obb.size as Vector2).y
+	var D: float = (obb.size as Vector2).y if absf((obb.ax as Vector2).dot(along)) > 0.7 else (obb.size as Vector2).x
+	var base := INF
+	for q in pts:
+		base = minf(base, h(q.x, q.y))
+	var root := Node3D.new()
+	root.position = Vector3(c.x, base, c.y)
+	root.basis = Basis.looking_at(Vector3(back.x, 0, back.y), Vector3.UP)  # -Z laiturille, X radan suuntaan
+	add_child(root)
+	var body := StaticBody3D.new()
+	root.add_child(body)
+	var ochre := Color(0.86, 0.66, 0.3)
+	var white := Color(0.95, 0.94, 0.9)
+	var roof := Color(0.55, 0.12, 0.08)
+	var wall_h := 4.0
+	B.mesh(root, B.boxm(Vector3(L + 0.4, 0.5, D + 0.4)), Vector3(0, 0.0, 0), Color(0.55, 0.54, 0.5))  # sokkeli
+	B.mesh(root, B.boxm(Vector3(L, wall_h, D)), Vector3(0, 0.25 + wall_h / 2.0, 0), ochre)
+	body.add_child(B.box_shape(Vector3(L, wall_h, D), Vector3(0, wall_h / 2.0, 0)))
+	for cx: float in [-L / 2.0, L / 2.0]:
+		for cz: float in [-D / 2.0, D / 2.0]:
+			B.mesh(root, B.boxm(Vector3(0.22, wall_h, 0.22)), Vector3(cx, 0.25 + wall_h / 2.0, cz), white)  # nurkkalaudat
+	B.mesh(root, B.boxm(Vector3(L + 0.1, 0.25, D + 0.1)), Vector3(0, 0.25 + wall_h, 0), white)  # räystäslista
+	# Harjakatto: kaksi lappeen laattaa, harja radan suuntaan; laiturin puolella pidempi katos pilareilla.
+	var pitch := 0.5
+	var span := D / 2.0 + 0.8
+	var ridge := 0.25 + wall_h + span * tan(pitch) + 0.1
+	for sz: float in [-1.0, 1.0]:
+		var rl := B.mesh(root, B.boxm(Vector3(L + 1.2, 0.18, span / cos(pitch))), Vector3(0, ridge - span * tan(pitch) / 2.0, sz * span / 2.0), roof)
+		rl.rotation.x = sz * pitch
+	B.mesh(root, B.boxm(Vector3(L + 1.2, 0.2, 0.3)), Vector3(0, ridge + 0.05, 0), roof.darkened(0.2))
+	# Päätykolmiot seinän ja katon väliin.
+	for gx: float in [-L / 2.0, L / 2.0]:
+		var tri := SurfaceTool.new()
+		tri.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var y0 := 0.25 + wall_h
+		for v in [Vector3(gx, y0, -D / 2.0), Vector3(gx, y0, D / 2.0), Vector3(gx, y0 + (D / 2.0) * tan(pitch), 0)]:
+			tri.add_vertex(v)
+		tri.generate_normals()
+		var tm := MeshInstance3D.new()
+		tm.mesh = tri.commit()
+		var gm := B.mat(ochre).duplicate() as StandardMaterial3D
+		gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		tm.material_override = gm
+		root.add_child(tm)
+	# Laiturikatos: loiva lippa seinästä pilareille.
+	var canopy := B.mesh(root, B.boxm(Vector3(L + 0.4, 0.15, 4.4)), Vector3(0, 0.25 + wall_h - 0.25, -D / 2.0 - 2.2), roof)
+	canopy.rotation.x = -0.08
+	for k in 5:
+		var px := -L / 2.0 + 1.0 + k * (L - 2.0) / 4.0
+		B.mesh(root, B.boxm(Vector3(0.16, wall_h - 0.4, 0.16)), Vector3(px, 0.25 + (wall_h - 0.4) / 2.0, -D / 2.0 - 3.6), white)
+	# Ikkunat ja ovet: valkoiset puitteet, laiturin puolella ovi keskellä.
+	for sz: float in [-1.0, 1.0]:
+		for k in 5:
+			var wx := -L / 2.0 + 2.0 + k * (L - 4.0) / 4.0
+			if sz < 0.0 and k == 2:
+				B.mesh(root, B.boxm(Vector3(1.3, 2.3, 0.08)), Vector3(wx, 1.4, sz * (D / 2.0 + 0.03)), Color(0.45, 0.25, 0.12))
+				continue
+			B.mesh(root, B.boxm(Vector3(1.15, 1.45, 0.06)), Vector3(wx, 2.2, sz * (D / 2.0 + 0.03)), white)
+			B.mesh(root, B.boxm(Vector3(0.95, 1.25, 0.07)), Vector3(wx, 2.2, sz * (D / 2.0 + 0.04)), Color(0.12, 0.16, 0.2))
+			B.mesh(root, B.boxm(Vector3(0.06, 1.25, 0.09)), Vector3(wx, 2.2, sz * (D / 2.0 + 0.05)), white)
+	# Päätyovi (kadun puolella) ja kyltti VAALA laiturille ja kadulle.
+	var dside := 1.0 if (Vector2(st.door[0], st.door[1]) - c).dot(Vector2(root.basis.x.x, root.basis.x.z)) > 0.0 else -1.0
+	B.mesh(root, B.boxm(Vector3(0.08, 2.4, 1.4)), Vector3(dside * (L / 2.0 + 0.04), 1.45, 0), Color(0.45, 0.25, 0.12))
+	B.mesh(root, B.boxm(Vector3(0.1, 0.12, 1.6)), Vector3(dside * (L / 2.0 + 0.05), 2.7, 0), white)
+	for sz: float in [-1.0, 1.0]:
+		var sign := B.sign_plate(root, "VAALA", Color(0.95, 0.95, 0.95), Color(0.1, 0.1, 0.1), 0.7, 80, Color(0.1, 0.1, 0.1), "Helvetica Neue")
+		sign.position = Vector3(0, 3.6, sz * (D / 2.0 + 0.08))
+		sign.rotation.y = 0.0 if sz > 0.0 else PI
+	var dp := Vector2(st.door[0], st.door[1])
+	var dout := Vector3(st.out[0], 0, st.out[1])
+	station_door = Vector3(dp.x, h(dp.x, dp.y), dp.y) + dout * 2.2
+	doors.append({"id": "asema", "pos": station_door, "out": dout, "hint": "asemalle (juna Saloisiin 10 €)"})
+	# Laituri: betonilaatta reunaviivoineen, penkit ja valaisimet.
+	var ppts := PackedVector2Array()
+	for q in st.platform:
+		ppts.append(Vector2(q[0], q[1]))
+	var pob := _obb(ppts)
+	var pc: Vector2 = pob.center
+	var ph := h(pc.x, pc.y)
+	var proot := Node3D.new()
+	proot.position = Vector3(pc.x, ph, pc.y)
+	proot.basis = root.basis
+	add_child(proot)
+	var PL: float = maxf((pob.size as Vector2).x, (pob.size as Vector2).y)
+	var PW: float = minf((pob.size as Vector2).x, (pob.size as Vector2).y)
+	B.mesh(proot, B.boxm(Vector3(PL, 0.55, PW)), Vector3(0, 0.0, 0), Color(0.62, 0.61, 0.58))
+	B.mesh(proot, B.boxm(Vector3(PL, 0.02, 0.15)), Vector3(0, 0.29, -PW / 2.0 + 0.35), white)
+	var pbody := StaticBody3D.new()
+	proot.add_child(pbody)
+	pbody.add_child(B.box_shape(Vector3(PL, 0.55, PW), Vector3.ZERO))
+	for k in int(PL / 14.0):
+		var bx := -PL / 2.0 + 7.0 + k * 14.0
+		B.mesh(proot, B.boxm(Vector3(1.8, 0.08, 0.45)), Vector3(bx, 0.72, PW / 2.0 - 0.6), Color(0.45, 0.3, 0.18))
+		B.mesh(proot, B.boxm(Vector3(1.8, 0.45, 0.06)), Vector3(bx, 0.98, PW / 2.0 - 0.38), Color(0.45, 0.3, 0.18))
+		B.mesh(proot, B.cyl(0.06, 0.06, 4.0, 8), Vector3(bx + 3.5, 2.27, 0.2), Color(0.3, 0.3, 0.32))
+		var lamp := B.mesh(proot, B.boxm(Vector3(0.5, 0.15, 0.3)), Vector3(bx + 3.5, 4.25, 0.2), Color(1.0, 0.92, 0.7))
+		lamp.material_override = B.unshaded(Color(1.0, 0.92, 0.7))
+	# Puskimet asemaraiteen päihin.
+	var tr: Array = st.track
+	var t0 := Vector2(tr[0][0], tr[0][1])
+	var t1 := Vector2(tr[1][0], tr[1][1])
+	for e in 2:
+		var at := t0 if e == 0 else t1
+		var inward := (t1 - t0).normalized() * (1.0 if e == 0 else -1.0)
+		var bs := Node3D.new()
+		var y := maxf(h(at.x, at.y), water_level + 3.0)
+		bs.position = Vector3(at.x, y, at.y) + Vector3(inward.x, 0, inward.y) * 1.0
+		bs.basis = Basis.looking_at(Vector3(inward.x, 0, inward.y), Vector3.UP)
+		add_child(bs)
+		B.mesh(bs, B.boxm(Vector3(2.6, 0.5, 0.4)), Vector3(0, 1.0, 0), Color(0.8, 0.1, 0.08))
+		for sx: float in [-0.75, 0.75]:
+			B.mesh(bs, B.boxm(Vector3(0.18, 1.1, 0.18)), Vector3(sx, 0.55, 0), Color(0.25, 0.25, 0.25))
+			B.mesh(bs, B.cyl(0.18, 0.18, 0.3, 12), Vector3(sx, 1.0, -0.3), Color(0.3, 0.3, 0.3), Vector3(90, 0, 0))
+		for k in 4:
+			B.mesh(bs, B.boxm(Vector3(0.3, 0.5, 0.42)), Vector3(-1.05 + k * 0.7, 1.0, 0.01), Color(0.95, 0.95, 0.95) if k % 2 == 0 else Color(0.8, 0.1, 0.08))
 
 
 func _build_tori() -> void:

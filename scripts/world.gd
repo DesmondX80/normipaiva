@@ -79,6 +79,8 @@ var drone_pad_pos: Vector3  # droonin laskeutumisalusta kotipihan asfaltilla (ks
 var home_zone: Vector3
 var shop_zone: Vector3
 var taxi_pos: Vector3  # K-Marketin taksitolpalla odottava taksi
+var station_pos: Vector3  # Saloisten asema K-Marketin takana: oven edusta (E: junalla Vaalaan)
+var station_arrive: Vector3  # junalla tultaessa tästä
 ## Sinikan takapihan nurmikko (tarinan "Sinikan nurmikko, ettei Päivi nää"): pivot, koko, kulma ja leikkurin paikka.
 var sinikka_lawn := {}
 var follow: Node3D  # ruoho seuraa tätä (pelaaja)
@@ -181,6 +183,7 @@ func build(step: Callable) -> void:
 	_build_home()
 	await step.call("Avataan K-Market", 0.5)
 	_build_shop()
+	_build_station()
 	_build_agility()
 	await step.call("Laavu, grillikatos ja kota", 0.53)
 	_build_laavu()
@@ -1438,6 +1441,100 @@ func _build_shop() -> void:
 	B.parked_car(self, p + Vector3(9, 0, 20), 0.0, Color(0.6, 0.6, 0.55))
 	B.parked_car(self, p + Vector3(13, 0, 20), 0.0, Color(0.8, 0.8, 0.82))
 	_build_taxi(p + Vector3(-16.5, 0, 26.5))  # parkkipaikan länsikulmassa, kaupasta kauimpana
+
+
+## Saloisten rautatieasema K-Marketin takana: keltainen puuasema valkoisine listoineen ja punaisella harjakatolla,
+## laiturikatos, SALOINEN-kyltti, betonilaituri penkkeineen ja pistoraide puskimineen (päättyy ennen
+## Ketunperäntietä). Ovi kaupan puolella; E: junalla Vaalaan (main.gd _station_logic).
+func _build_station() -> void:
+	var c := M.w2(M.SHOP_BUILDING)
+	var root := Node3D.new()
+	root.position = Vector3(c.x - 4.0, 0, c.y - 24.0)
+	add_child(root)
+	var L := 16.0
+	var D := 8.0
+	var wall_h := 3.8
+	var ochre := Color(0.86, 0.66, 0.3)
+	var white := Color(0.95, 0.94, 0.9)
+	var roof := Color(0.55, 0.12, 0.08)
+	B.box(root, Vector3(L + 0.4, 0.5, D + 0.4), Vector3(0, 0.0, 0), Color(0.55, 0.54, 0.5), false)
+	B.box(root, Vector3(L, wall_h, D), Vector3(0, 0.25 + wall_h / 2.0, 0), ochre)
+	for cx: float in [-L / 2.0, L / 2.0]:
+		for cz: float in [-D / 2.0, D / 2.0]:
+			B.box(root, Vector3(0.22, wall_h, 0.22), Vector3(cx, 0.25 + wall_h / 2.0, cz), white, false)
+	B.box(root, Vector3(L + 0.1, 0.25, D + 0.1), Vector3(0, 0.25 + wall_h, 0), white, false)
+	var pitch := 0.5
+	var span := D / 2.0 + 0.8
+	var ridge := 0.25 + wall_h + span * tan(pitch) + 0.1
+	for sz: float in [-1.0, 1.0]:
+		var rl := B.mesh(root, B.boxm(Vector3(L + 1.2, 0.18, span / cos(pitch))), Vector3(0, ridge - span * tan(pitch) / 2.0, sz * span / 2.0), roof)
+		rl.rotation.x = sz * pitch
+	B.mesh(root, B.boxm(Vector3(L + 1.2, 0.2, 0.3)), Vector3(0, ridge + 0.05, 0), roof.darkened(0.2))
+	for gx: float in [-L / 2.0, L / 2.0]:
+		var tri := SurfaceTool.new()
+		tri.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var y0 := 0.25 + wall_h
+		for v in [Vector3(gx, y0, -D / 2.0), Vector3(gx, y0, D / 2.0), Vector3(gx, y0 + (D / 2.0) * tan(pitch), 0)]:
+			tri.add_vertex(v)
+		tri.generate_normals()
+		var tm := MeshInstance3D.new()
+		tm.mesh = tri.commit()
+		var gm := B.mat(ochre).duplicate() as StandardMaterial3D
+		gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		tm.material_override = gm
+		root.add_child(tm)
+	# Laiturikatos pohjoiseen (radan puolelle) pilareineen.
+	var canopy := B.mesh(root, B.boxm(Vector3(L + 0.4, 0.15, 4.4)), Vector3(0, 0.25 + wall_h - 0.25, -D / 2.0 - 2.2), roof)
+	canopy.rotation.x = 0.08
+	for k in 5:
+		B.box(root, Vector3(0.16, wall_h - 0.4, 0.16), Vector3(-L / 2.0 + 1.0 + k * (L - 2.0) / 4.0, 0.25 + (wall_h - 0.4) / 2.0, -D / 2.0 - 3.6), white, false)
+	for sz: float in [-1.0, 1.0]:
+		for k in 4:
+			var wx := -L / 2.0 + 2.0 + k * (L - 4.0) / 3.0
+			if sz > 0.0 and k == 1:
+				B.box(root, Vector3(1.4, 2.3, 0.08), Vector3(wx, 1.4, D / 2.0 + 0.03), Color(0.45, 0.25, 0.12), false)  # ovi kaupalle päin
+				B.box(root, Vector3(1.6, 0.12, 0.1), Vector3(wx, 2.65, D / 2.0 + 0.05), white, false)
+				continue
+			B.box(root, Vector3(1.15, 1.45, 0.06), Vector3(wx, 2.2, sz * (D / 2.0 + 0.03)), white, false)
+			B.box(root, Vector3(0.95, 1.25, 0.07), Vector3(wx, 2.2, sz * (D / 2.0 + 0.04)), Color(0.12, 0.16, 0.2), false)
+	for sz: float in [-1.0, 1.0]:
+		var sign := B.sign_plate(root, "SALOINEN", Color(0.95, 0.95, 0.95), Color(0.1, 0.1, 0.1), 0.6, 80, Color(0.1, 0.1, 0.1), "Helvetica Neue")
+		sign.position = Vector3(0, 3.5, sz * (D / 2.0 + 0.08))
+		sign.rotation.y = 0.0 if sz > 0.0 else PI
+	var door_x := -L / 2.0 + 2.0 + (L - 4.0) / 3.0
+	station_pos = root.position + Vector3(door_x, 0, D / 2.0 + 1.6)
+	station_arrive = root.position + Vector3(door_x + 2.0, 0, D / 2.0 + 2.5)
+	_add_house(Vector2(root.position.x, root.position.z))
+	# Laituri ja pistoraide pohjoisessa; puut pois koko alueelta.
+	var plat := Node3D.new()
+	plat.position = root.position + Vector3(-6.0, 0, -D / 2.0 - 5.5)
+	add_child(plat)
+	B.box(plat, Vector3(46, 0.55, 3.0), Vector3(0, 0.0, 0), Color(0.62, 0.61, 0.58))
+	B.box(plat, Vector3(46, 0.02, 0.15), Vector3(0, 0.29, -1.15), white, false)
+	for k in 3:
+		var bx := -15.0 + k * 15.0
+		B.box(plat, Vector3(1.8, 0.08, 0.45), Vector3(bx, 0.72, 0.9), Color(0.45, 0.3, 0.18), false)
+		B.box(plat, Vector3(1.8, 0.45, 0.06), Vector3(bx, 0.98, 1.12), Color(0.45, 0.3, 0.18), false)
+	var tz := plat.position.z - 3.5
+	for k in 14:
+		var seg := Node3D.new()
+		seg.position = Vector3(c.x - 46.0 + k * 4.4 + 2.2, 0, tz)
+		add_child(seg)
+		B.box(seg, Vector3(4.4, 0.2, 3.2), Vector3(0, 0.1, 0), Color(0.38, 0.35, 0.32), false)  # sepeli
+		for sl in 6:
+			B.box(seg, Vector3(0.24, 0.16, 2.4), Vector3(-1.85 + sl * 0.74, 0.25, 0), Color(0.4, 0.38, 0.35), false)
+		for rz: float in [-0.72, 0.72]:
+			B.box(seg, Vector3(4.4, 0.14, 0.08), Vector3(0, 0.38, rz), Color(0.5, 0.45, 0.4), false)
+	for e in 2:
+		var bs := Node3D.new()
+		bs.position = Vector3(c.x - 46.0 + (1.0 if e == 0 else 14 * 4.4 - 1.0), 0, tz)
+		bs.rotation.y = PI / 2.0 if e == 0 else -PI / 2.0
+		add_child(bs)
+		B.box(bs, Vector3(2.6, 0.5, 0.4), Vector3(0, 1.0, 0), Color(0.8, 0.1, 0.08), false)
+		for sx: float in [-0.75, 0.75]:
+			B.box(bs, Vector3(0.18, 1.1, 0.18), Vector3(sx, 0.55, 0), Color(0.25, 0.25, 0.25), false)
+	var lot := PackedVector2Array([c + Vector2(-50, -12), c + Vector2(16, -12), c + Vector2(16, -40), c + Vector2(-50, -40)])
+	_lots.append(lot)
 
 
 ## Taksi odottaa K-Marketin taksitolpalla: kuski ratissa ja radiosta soi tunnusbiisi hiljaa (kuuluu vain lähellä).
