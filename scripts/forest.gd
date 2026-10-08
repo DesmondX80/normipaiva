@@ -47,7 +47,9 @@ var _far_end := 1000.0  # kaukotason loppu: usva peittää puut näkyvyysetäisy
 
 
 ## Lataa puut tiedostosta ja rakentaa kaukotason. Palauttaa false, jos dataa ei ole.
-func load_data(path: String) -> bool:
+## clear (valinnainen): raivausruudukko {mask: PackedByteArray, x0, z0, cell, nx, nz}, jonka 1-ruuduista puut
+## jätetään pois (esim. käsin lisätyt tiet).
+func load_data(path: String, clear := {}) -> bool:
 	set_meta("ground", true)
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null or f.get_buffer(4).get_string_from_ascii() != "ONP3":
@@ -67,8 +69,28 @@ func load_data(path: String) -> bool:
 	near_tab = f.get_buffer(nnx * nnz * SPECIES * 8).to_int32_array()
 	var raw_a := f.get_buffer(w * h * 16)
 	var raw_b := f.get_buffer(w * h * 4)
+	if not clear.is_empty():
+		raw_a = _clear_trees(raw_a, clear)
 	_setup(raw_a, raw_b, w, h)
 	return true
+
+
+## Raivausruudukon kohdalla puut piiloon: pituus nollaan ja maan alle (lohkojen indeksit säilyvät).
+static func _clear_trees(raw_a: PackedByteArray, clear: Dictionary) -> PackedByteArray:
+	var a := raw_a.to_float32_array()
+	var mask: PackedByteArray = clear.mask
+	var x0: float = clear.x0
+	var z0: float = clear.z0
+	var cell: float = clear.cell
+	var nx: int = clear.nx
+	var nz: int = clear.nz
+	for i in a.size() / 4:
+		var ii := int((a[i * 4] - x0) / cell)
+		var jj := int((a[i * 4 + 2] - z0) / cell)
+		if ii >= 0 and jj >= 0 and ii < nx and jj < nz and mask[jj * nx + ii] != 0:
+			a[i * 4 + 1] = -1000.0
+			a[i * 4 + 3] = 0.0
+	return a.to_byte_array()
 
 
 ## Käsin sijoitetut puut (esim. mökin pihan männyt) samoilla malleilla kuin laserkeilattu metsä:

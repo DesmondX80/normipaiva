@@ -265,6 +265,22 @@ func _build_drive_mask() -> void:
 		for k in lr.size() - 1:
 			_drive_seg(Vector2(lr[k][0], lr[k][1]), Vector2(lr[k + 1][0], lr[k + 1][1]), 3.5)
 		_drive_ellipse(Vector2(lava_door.x, lava_door.z), 9.0, 9.0)
+	# Järviseudun tiet: Nuojuankoskentie Ranta-Rosvolle ja Salmiselle, soratie laavun ja tynnyrisaunan pihaan.
+	for r in north_roads:
+		var pts: PackedVector2Array = r.pts
+		for i in pts.size() - 1:
+			_drive_seg(pts[i], pts[i + 1], float(r.half) + 0.6)
+	for poly in north_areas:
+		_drive_poly(poly, 0.5)
+		# Rantapihoista vesi pois: mopolla ei ajeta järveen.
+		var bb := Rect2(poly[0], Vector2.ZERO)
+		for v in poly:
+			bb = bb.expand(v)
+		bb = bb.grow(2.0)
+		for j in range(maxi(int((bb.position.y - _z0) / DRIVE_CELL), 0), mini(int((bb.end.y - _z0) / DRIVE_CELL), _dnz - 1) + 1):
+			for i in range(maxi(int((bb.position.x - _x0) / DRIVE_CELL), 0), mini(int((bb.end.x - _x0) / DRIVE_CELL), _dnx - 1) + 1):
+				if code_at(_x0 + (i + 0.5) * DRIVE_CELL, _z0 + (j + 0.5) * DRIVE_CELL) == WATER:
+					_drive[j * _dnx + i] = 0
 	# Mökin piha (hiekkasoikio) ja mopon parkkipaikka tielle asti.
 	var MokkiScript: GDScript = load(MOKKI_PATH)
 	var yard := PackedVector2Array()
@@ -335,6 +351,7 @@ func ensure_built() -> void:
 		return
 	built = true
 	var t0 := Time.get_ticks_msec()
+	_plan_north()
 	_build_terrain()
 	_build_far()
 	_build_road()
@@ -352,6 +369,7 @@ func ensure_built() -> void:
 	_build_atm()
 	_build_lava()
 	_build_mokki_yard()
+	_build_north()
 	_build_drive_mask()
 	print("VAALA rakennettu %d ms" % (Time.get_ticks_msec() - t0))
 
@@ -639,6 +657,8 @@ func _build_road() -> void:
 		while skip < bp.size() - 2 and Vector2(bp[skip].x - bp[0].x, bp[skip].z - bp[0].z).length() < 3.0:
 			skip += 1
 		_road_strip(bp.slice(skip), bh.slice(skip), bg.slice(skip))
+		if br.name == "Neittäväntie" and not north_roads.is_empty():
+			continue  # haara jatkuu Nuojuankoskentienä Ranta-Rosvolle ja Salmiselle (_plan_north): ei puomia
 		_dead_end(bp[-1], (bp[-1] - bp[-2]).normalized(), br.hw)
 	for key in _strips:
 		var st: SurfaceTool = _strips[key]
@@ -2397,7 +2417,8 @@ func _build_signs() -> void:
 func _build_trees() -> void:
 	var f := Forest.new()
 	add_child(f)
-	f.load_data(TREES)
+	f.load_data(TREES, {} if _tree_clear.is_empty() else {"mask": _tree_clear, "x0": _x0, "z0": _z0, "cell": DRIVE_CELL,
+		"nx": _dnx, "nz": _dnz})
 
 
 ## Katuvalot keskustan tien varteen (30 m välein).
@@ -2416,6 +2437,337 @@ func _build_lamps() -> void:
 		var head: Vector3 = at + Vector3(0, 7.4, 0) + right * 1.2
 		B.tube(self, at + Vector3(0, 7.4, 0), head, 0.05, Color(0.5, 0.52, 0.55))
 		B.mesh(self, B.boxm(Vector3(0.6, 0.12, 0.3)), head, Color(0.85, 0.85, 0.8))
+
+
+# --- Neittävän järviseutu mopolla: Ranta-Rosvo, Salminen ja Keskimmäisen laavu ----------------------------------
+
+## Mökin pohjoiset järvet ovat tässä maailmassa loivalla kuvauksella T (vaala_bake.py NL_*, tie.json mokki_map:
+## todellinen karttapiste p -> c + (p - ref) * s). Tiet kuvataan T:llä, kohteet tehdään mökin rakennusfunktioilla
+## 1:1 ankkuripisteen ympärille (rakennukset eivät veny):
+## - Risteyksessä, jossa Siitariin käännytään oikealle, vasemmalle kääntyvä asfaltti (Neittäväntien haara) jatkuu
+##   Nuojuankoskentienä pohjoiseen: varrella Ranta-Rosvo ja Taka-Salmisen uimaranta.
+## - Samasta risteyksestä lähtee asfaltin yli suoraan soratie Keskimmäisen laavulle ja tynnyrisaunalle (pihaan asti
+##   ajettava). Tiet tasoitetaan maastoon, metsä raivataan ja pinta on ajettavaa (drive_code, drivable).
+const NUOJUA_Z := Vector2(-1560.0, -430.0)  # Nuojuankoskentie todellisessa kehyksessä tällä z-välillä (8794)
+## Soratien kulku risteyksestä laavulle (pelin kehys): Etu-Salmisen itäpuolelta ja suon (Keskimmäisen etelärannan
+## räme) itäpuolelta kaartaen laavun taakse. Päätepiste lasketaan laavun asettelusta (mokki.gd keskimmainen_layout).
+const LAAVU_ROAD := [Vector2(-12, -300), Vector2(-5, -380), Vector2(20, -450), Vector2(55, -520), Vector2(90, -590),
+	Vector2(125, -660), Vector2(135, -720)]
+const NORTH_ASPHALT_HALF := 3.0
+const NORTH_GRAVEL_HALF := 2.2
+const NORTH_SPUR_HALF := 1.8
+var north_roads: Array = []  # {pts: PackedVector2Array (n. 4 m välein), half, asphalt: bool, name}
+var north_areas: Array = []  # ajettavat ja raivatut pihat: PackedVector2Array-monikulmiot
+var rosvo_pos := Vector3.ZERO
+var beach_pos := Vector3.ZERO
+var laavu_fire := Vector3.ZERO
+var barrel_door := Vector3.ZERO
+var _north_anchor := {}  # kohde -> [mökin paikallinen ankkuri, pelin piste]
+var _tree_clear := PackedByteArray()  # DRIVE_CELL-ruudukko: 1 = puu pois (tiet ja pihat)
+
+
+## Järviseudun tien nimi, jos p on sen päällä (mopomatkan HUD), muuten "".
+func north_road_name(p: Vector3) -> String:
+	for r in north_roads:
+		var pts: PackedVector2Array = r.pts
+		var q := Vector2(p.x, p.z)
+		for i in pts.size() - 1:
+			if q.distance_to(Geometry2D.get_closest_point_to_segment(q, pts[i], pts[i + 1])) < float(r.half) + 3.0:
+				return r.name
+	return ""
+
+
+## Todellinen karttapiste mopomaailmaan järviseudun kuvauksella T.
+func nl_t(p: Vector2) -> Vector2:
+	var mm: Dictionary = data.mokki_map
+	return Vector2(mm.c[0] + (p.x - mm.ref[0]) * mm.s[0], mm.c[1] + (p.y - mm.ref[1]) * mm.s[1])
+
+
+## Mökin paikallinen piste p mopomaailmaan, kun kohde on ankkuroitu: mökin piste a on pelissä g (T:n kuva tai
+## pelin rantaviivalle kohdistettu) ja kohteen osat siitä 1:1 (karttakehyksen suunnissa).
+func _site_pt(a: Vector2, g: Vector2, p: Vector2) -> Vector2:
+	var M: GDScript = load(MOKKI_PATH)
+	return g + M.to_map2(p) - M.to_map2(a)
+
+
+## Rantakohteen ankkuri pelin rantaviivalle: mökin rantapiste q (suunta järvelle d) kuvataan T:llä ja siitä
+## kuljetaan järven suuntaan, kunnes vastaan tulee pelin vesi (tiivistetyn järven ranta ei osu T:n pisteeseen).
+func _shore_anchor(q: Vector2, d: Vector2) -> Vector2:
+	var M: GDScript = load(MOKKI_PATH)
+	var dm := _site_dir(d).normalized()
+	var start := nl_t(M.to_map2(q)) - dm * 40.0
+	for k in 120:
+		var p := start + dm * k
+		if code_at(p.x, p.y) == WATER:
+			return p - dm * 0.5
+	return nl_t(M.to_map2(q))
+
+
+## Mökin paikallinen suunta karttakehykseen.
+func _site_dir(v: Vector2) -> Vector2:
+	var M: GDScript = load(MOKKI_PATH)
+	return M.to_map2(v) - M.to_map2(Vector2.ZERO)
+
+
+## Polyline pehmeäksi (Chaikin) ja tasavälein näytteiksi.
+static func _smooth_line(raw: Array, step := 4.0, rounds := 2) -> PackedVector2Array:
+	var pts := PackedVector2Array(raw)
+	for _r in rounds:
+		var o := PackedVector2Array([pts[0]])
+		for i in pts.size() - 1:
+			o.append(pts[i].lerp(pts[i + 1], 0.25))
+			o.append(pts[i].lerp(pts[i + 1], 0.75))
+		o.append(pts[-1])
+		pts = o
+	var out := PackedVector2Array([pts[0]])
+	var carry := 0.0
+	for i in pts.size() - 1:
+		var a := pts[i]
+		var b := pts[i + 1]
+		var L := a.distance_to(b)
+		var t := step - carry
+		while t <= L:
+			out.append(a.lerp(b, t / L))
+			t += step
+		carry = L - (t - step)
+	if out[-1].distance_to(pts[-1]) > 0.5:
+		out.append(pts[-1])
+	return out
+
+
+## Tiet ja kohteiden ankkurit ennen maaston rakentamista: maasto tasoitetaan teiden kohdalta ja pinta merkitään
+## tieksi (asfaltti ROAD, sora SHOULDER), puut raivataan teiltä ja pihoilta.
+func _plan_north() -> void:
+	var M: GDScript = load(MOKKI_PATH)
+	var neitt: Dictionary = {}
+	for br in data.branches:
+		if br.name == "Neittäväntie":
+			neitt = br
+	if neitt.is_empty():
+		push_warning("Neittäväntien haaraa ei löydy: järviseudun tiet jäävät pois")
+		return
+	var bp: Array = neitt.pts
+	var junction := Vector2(bp[0][0], bp[0][2])
+	var bend := Vector2(bp[-1][0], bp[-1][2])
+	var bprev := Vector2(bp[-4][0], bp[-4][2])
+	# Asfaltti: haaran päästä Nuojuankoskentietä pohjoiseen.
+	var raw: Array = [bprev, bend]
+	for r in M.map_data().roads:
+		if r.name != "Nuojuankoskentie":
+			continue
+		for lp in r.pts:
+			var mp: Vector2 = M.to_map2(lp)
+			if mp.y > NUOJUA_Z.x and mp.y < NUOJUA_Z.y:
+				raw.append(nl_t(mp))
+		break
+	var asphalt := _smooth_line(raw)
+	asphalt.remove_at(0)  # haaran oma pätkä
+	north_roads.append({"pts": asphalt, "half": NORTH_ASPHALT_HALF, "asphalt": true, "name": "Nuojuankoskentie"})
+	# Ranta-Rosvo tien varressa: levike patsaan eteen.
+	var ra: Vector2 = M.to_local2(M.ROSVO_MAP)
+	var rg := nl_t(M.ROSVO_MAP)
+	_north_anchor.rosvo = [ra, rg]
+	var rface: Vector2 = M.to_local2(M.ROSVO_FACE_MAP) - M.to_local2(Vector2.ZERO)
+	var rfront := _site_pt(ra, rg, ra + rface.normalized() * 2.5)
+	north_roads.append({"pts": _smooth_line([_closest_on(asphalt, rfront), rfront], 2.0, 0), "half": NORTH_SPUR_HALF, "asphalt": false,
+		"name": "Ranta-Rosvo"})
+	north_areas.append(_circle(rfront, 4.0))
+	# Uimaranta: rantapiste ankkurina, levike rannan puolelle.
+	var bsh: Array = M.shore_near(M.BEACH_LAKE, M.to_local2(M.BEACH_MAP))
+	if not bsh.is_empty():
+		var q: Vector2 = bsh[0]
+		var d: Vector2 = bsh[1]
+		var bg := _shore_anchor(q, d)
+		_north_anchor.beach = [q, bg]
+		var bc := _site_pt(q, bg, q - d * 7.0)
+		north_roads.append({"pts": _smooth_line([_closest_on(asphalt, bc), bc], 2.0, 0), "half": NORTH_SPUR_HALF, "asphalt": false,
+			"name": "Salmisen uimaranta"})
+		var ring := PackedVector2Array()
+		for k in 16:
+			var lp: Vector2 = q - d * 6.0 + d * cos(TAU * k / 16) * 6.0 + d.orthogonal() * sin(TAU * k / 16) * 9.0
+			ring.append(_site_pt(q, bg, lp))
+		north_areas.append(ring)
+	# Soratie risteyksestä suoraan asfaltin yli laavulle; päättyy laavun ja saunan pihaan.
+	var lay: Dictionary = M.keskimmainen_layout()
+	if not lay.is_empty():
+		var q: Vector2 = lay.q
+		var d: Vector2 = lay.d
+		var side: Vector2 = lay.side
+		var lp: Vector2 = lay.laavu
+		var lg := _shore_anchor(q, d)
+		_north_anchor.laavu = [q, lg]
+		var end := _site_pt(q, lg, lp - d * 6.0 + side * 2.6)
+		var g: Array = [junction]
+		g.append_array(LAAVU_ROAD)
+		g.append(end)
+		north_roads.append({"pts": _smooth_line(g), "half": NORTH_GRAVEL_HALF, "asphalt": false, "name": "Keskimmäisentie"})
+		# Piha laavun takaa saunan ovelle ja rantaan: laavun ja saunan ympäri.
+		var yard := PackedVector2Array()
+		for c in [Vector2(-4.5, -7.0), Vector2(9.5, -7.0), Vector2(9.5, 11.0), Vector2(-4.5, 11.0)]:
+			yard.append(_site_pt(q, lg, lp + side * c.x + d * c.y))
+		north_areas.append(yard)
+	_north_ground()
+
+
+func _closest_on(line: PackedVector2Array, p: Vector2) -> Vector2:
+	var best := line[0]
+	for i in line.size() - 1:
+		var c := Geometry2D.get_closest_point_to_segment(p, line[i], line[i + 1])
+		if c.distance_squared_to(p) < best.distance_squared_to(p):
+			best = c
+	return best
+
+
+static func _circle(c: Vector2, r: float) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for k in 16:
+		out.append(c + Vector2.from_angle(TAU * k / 16) * r)
+	return out
+
+
+## Teiden kohdalla maasto tasoitetaan tien suuntaan pehmennettyyn korkeuteen (poikkisuunnassa tasainen) ja pinta
+## tieksi; raivausruudukko teille ja pihoille. Vesi, reitti ja sen pientareet jätetään ennalleen.
+func _north_ground() -> void:
+	var best := {}  # maastoruutu -> [etäisyys, tien korkeus, puolileveys, asfaltti]
+	for r in north_roads:
+		var pts: PackedVector2Array = r.pts
+		var raw := PackedFloat32Array()
+		for p in pts:
+			raw.append(h(p.x, p.y))
+		var ys := PackedFloat32Array()
+		for i in pts.size():
+			var s := 0.0
+			var n := 0
+			for k in range(maxi(i - 6, 0), mini(i + 7, pts.size())):
+				s += raw[k]
+				n += 1
+			ys.append(s / n)
+		var half: float = r.half
+		var reach := half + 6.0
+		for i in pts.size() - 1:
+			var a := pts[i]
+			var b := pts[i + 1]
+			var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y)) - Vector2(reach, reach)
+			var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y)) + Vector2(reach, reach)
+			for j in range(maxi(int((lo.y - _z0) / _cell), 0), mini(int(ceil((hi.y - _z0) / _cell)), _nz - 1) + 1):
+				for ii in range(maxi(int((lo.x - _x0) / _cell), 0), mini(int(ceil((hi.x - _x0) / _cell)), _nx - 1) + 1):
+					var c := Vector2(_x0 + ii * _cell, _z0 + j * _cell)
+					var cp := Geometry2D.get_closest_point_to_segment(c, a, b)
+					var dist := c.distance_to(cp)
+					if dist > reach:
+						continue
+					var q := j * _nx + ii
+					if best.has(q) and best[q][0] <= dist:
+						continue
+					var t := clampf(cp.distance_to(a) / maxf(a.distance_to(b), 0.01), 0.0, 1.0)
+					best[q] = [dist, lerpf(ys[i], ys[i + 1], t), half, r.asphalt]
+	for q in best:
+		var code: int = _codes[q]
+		if code in [WATER, ROAD, SHOULDER, RAIL]:
+			continue
+		var e: Array = best[q]
+		var w := 1.0 - smoothstep(float(e[2]) + 1.0, float(e[2]) + 6.0, float(e[0]))
+		_h[q] = lerpf(_h[q], float(e[1]) - 0.05, w)
+		if float(e[0]) < float(e[2]) + 2.5:
+			_codes[q] = ROAD if e[3] and float(e[0]) < float(e[2]) + 0.5 else SHOULDER
+	# Pihat (patsaan levike, uimaranta, laavun ja saunan piha) sorapinnaksi.
+	for poly in north_areas:
+		var bb := Rect2(poly[0], Vector2.ZERO)
+		for v in poly:
+			bb = bb.expand(v)
+		for j in range(maxi(int((bb.position.y - _z0) / _cell), 0), mini(int(ceil((bb.end.y - _z0) / _cell)), _nz - 1) + 1):
+			for ii in range(maxi(int((bb.position.x - _x0) / _cell), 0), mini(int(ceil((bb.end.x - _x0) / _cell)), _nx - 1) + 1):
+				var q := j * _nx + ii
+				if _codes[q] != WATER and Geometry2D.is_point_in_polygon(Vector2(_x0 + ii * _cell, _z0 + j * _cell), poly):
+					_codes[q] = SHOULDER
+	# Raivaus: tiet reunoineen ja pihat.
+	_dnx = int(_nx * _cell / DRIVE_CELL) + 1
+	_dnz = int(_nz * _cell / DRIVE_CELL) + 1
+	_tree_clear.resize(_dnx * _dnz)
+	_tree_clear.fill(0)
+	var keep := _drive
+	_drive = _tree_clear  # piirtoapurit kirjoittavat _driveen
+	for r in north_roads:
+		var pts: PackedVector2Array = r.pts
+		for i in pts.size() - 1:
+			_drive_seg(pts[i], pts[i + 1], float(r.half) + 2.0)
+	for poly in north_areas:
+		_drive_poly(poly, 2.0)
+	_tree_clear = _drive
+	_drive = keep
+
+
+## Tienpinnat, opaste ja kohteet (mökin rakennusfunktioilla, ankkuroituna T:n kuvaamaan pisteeseen).
+func _build_north() -> void:
+	if north_roads.is_empty():
+		return
+	var M: GDScript = load(MOKKI_PATH)
+	var asph := SurfaceTool.new()
+	asph.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var grav := SurfaceTool.new()
+	grav.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for r in north_roads:
+		var pts: PackedVector2Array = r.pts
+		var st: SurfaceTool = asph if r.asphalt else grav
+		var half: float = r.half
+		var edge := []
+		for i in pts.size():
+			var dir := (pts[mini(i + 1, pts.size() - 1)] - pts[maxi(i - 1, 0)]).normalized()
+			var n := dir.orthogonal() * half
+			edge.append([pts[i] + n, pts[i] - n])
+		var v := func(p: Vector2) -> Vector3: return Vector3(p.x, h(p.x, p.y) + (0.05 if r.asphalt else 0.04), p.y)
+		for i in pts.size() - 1:
+			_quad(st, v.call(edge[i][0]), v.call(edge[i + 1][0]), v.call(edge[i + 1][1]), v.call(edge[i][1]))
+	for pair in [[asph, Color(0.25, 0.25, 0.26)], [grav, Color(0.55, 0.49, 0.4)]]:
+		var st: SurfaceTool = pair[0]
+		st.generate_normals()
+		var mi := MeshInstance3D.new()
+		mi.name = "JarviseudunTiet"
+		mi.mesh = st.commit()
+		mi.material_override = B.mat(pair[1])
+		add_child(mi)
+	# Opaste soratien alkuun: laavu.
+	var gr: Dictionary = north_roads[-1]
+	if not gr.asphalt and gr.pts.size() > 6:
+		var p0: Vector2 = gr.pts[3]
+		var dir: Vector2 = (gr.pts[6] - gr.pts[3]).normalized()
+		var at: Vector2 = p0 + dir.orthogonal() * (NORTH_GRAVEL_HALF + 1.0)
+		B.trail_sign(self, Vector3(at.x, h(at.x, at.y), at.y), "Keskimmäisen laavu", atan2(-dir.y, dir.x))
+	# Kohteet.
+	var rep: Node3D = M.new()
+	rep.name = "Jarviseutu"
+	rep.set_process(false)
+	add_child(rep)
+	var lakes := {}
+	for nl in data.get("north_lakes", []):
+		lakes[nl.name] = float(nl.level)
+	var put := func(fn: String, key: String, wl_mokki: float, wl_game: float) -> void:
+		var a: Vector2 = _north_anchor[key][0]
+		var n0 := rep.get_child_count()
+		rep.call(fn)
+		for ch in rep.get_children().slice(n0):
+			if not ch is Node3D:
+				continue
+			var n3 := ch as Node3D
+			var g := _site_pt(a, _north_anchor[key][1], Vector2(n3.position.x, n3.position.z))
+			var y := n3.position.y + (wl_game - wl_mokki if n3.has_meta("ground") else h(g.x, g.y))
+			n3.position = Vector3(g.x, y, g.y)
+			n3.rotation.y -= deg_to_rad(M.YARD_ROT_DEG)
+	var to_game := func(key: String, lp: Vector3) -> Vector3:
+		var g := _site_pt(_north_anchor[key][0], _north_anchor[key][1], Vector2(lp.x, lp.z))
+		return Vector3(g.x, h(g.x, g.y), g.y)
+	if _north_anchor.has("rosvo"):
+		put.call("_build_rosvo", "rosvo", 0.0, 0.0)
+		rosvo_pos = to_game.call("rosvo", rep.rosvo_pos)
+	if _north_anchor.has("beach"):
+		put.call("_build_salminen_beach", "beach", 0.0, 0.0)
+		beach_pos = to_game.call("beach", rep.beach_pos)
+	if _north_anchor.has("laavu"):
+		var lay: Dictionary = M.keskimmainen_layout()
+		put.call("_build_keskimmainen", "laavu", M.water_level(lay.wi), lakes.get("Keskimmäinen", water_level))
+		laavu_fire = to_game.call("laavu", rep.laavu_fire)
+		barrel_door = to_game.call("laavu", rep.barrel_door)
+	print("VAALA järviseutu: rosvo %s ranta %s laavu %s sauna %s" % [rosvo_pos, beach_pos, laavu_fire, barrel_door])
 
 
 # --- Mökin pihapiiri (mopomatkan lähtö) -----------------------------------------------------------------------

@@ -251,7 +251,9 @@ func _process(delta: float) -> void:
 		_sample = ni[0]
 	var kmh := absf(mopo.speed) * 3.6
 	var left := real_left()
-	var name: String = vaala.road_names[_sample] if ni[0] >= 0 and ni[1] < 12.0 else "maastossa"
+	var name: String = vaala.road_names[_sample] if ni[0] >= 0 and ni[1] < 12.0 else vaala.north_road_name(pos)
+	if name == "":
+		name = "maastossa"
 	status = "%s\n%s · %s %s" % ["Jalan" if on_foot != null else "Mopo %d km/h" % roundi(kmh), name, "Siitari" if target == "siitari" else "Paapeli",
 		("%.1f km" % (left / 1000.0)).replace(".", ",") if left > 150.0 else "%d m" % roundi(left)]
 	hint = ""

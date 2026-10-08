@@ -11072,6 +11072,92 @@ func _maybe_screenshot() -> void:
 				var sp: Vector3 = stops[id]
 				print("AJO pysäkki %s %s ajettava %s" % [id, sp, vl.drivable(sp.x, sp.z)])
 			get_tree().quit()
+		"mokkimopo_jarviseutu":
+			# Risteyksestä mopolla: vasemmalle asfalttia Ranta-Rosvolle ja Salmisen rannalle, suoraan soratietä
+			# tynnyrisaunan ovelle (vaala.gd _plan_north). Ajo seuraa tietä; perillä kuva mopon takaa.
+			tilat.add("humala", -1.0)
+			_start_mopo()
+			var mp: CharacterBody3D = mopo_trip.mopo
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var roads := {}
+			for r in vl.north_roads:
+				roads[r.name] = r.pts
+			var branch := PackedVector2Array()
+			for br in vl.data.branches:
+				if br.name == "Neittäväntie":
+					for q in br.pts:
+						branch.append(Vector2(q[0], q[2]))
+			var upto := func(line: PackedVector2Array, goal: Vector2) -> PackedVector2Array:
+				var bi := 0
+				for i in line.size():
+					if line[i].distance_to(goal) < line[bi].distance_to(goal):
+						bi = i
+				return line.slice(0, bi + 1)
+			var asph: PackedVector2Array = roads["Nuojuankoskentie"]
+			var rspur: PackedVector2Array = roads["Ranta-Rosvo"]
+			var bspur: PackedVector2Array = roads["Salmisen uimaranta"]
+			var legs := [
+				["rosvo", branch + upto.call(asph, rspur[0]) + rspur, Vector2(vl.rosvo_pos.x, vl.rosvo_pos.z)],
+				["ranta", upto.call(asph, bspur[0]).slice(upto.call(asph, rspur[0]).size()) + bspur, Vector2(vl.beach_pos.x, vl.beach_pos.z)],
+				["sauna", roads["Keskimmäisentie"] + PackedVector2Array([Vector2(vl.barrel_door.x, vl.barrel_door.z)]),
+					Vector2(vl.barrel_door.x, vl.barrel_door.z)],
+			]
+			for leg in legs:
+				var line: PackedVector2Array = leg[1]
+				var goal: Vector2 = leg[2]
+				if true:
+					var d0 := (line[2] - line[0]).normalized()
+					mp.position = Vector3(line[0].x, vl.h(line[0].x, line[0].y) + 0.6, line[0].y)
+					mp.rotation.y = atan2(-d0.x, -d0.y)
+					mp.speed = 0.0
+				var at := 0
+				var stuck := 0
+				var off := 0
+				var t0 := Time.get_ticks_msec()
+				for i in 60 * 120:
+					await get_tree().physics_frame
+					var p2 := Vector2(mp.position.x, mp.position.z)
+					while at < line.size() - 1 and line[at].distance_to(p2) < 6.0:
+						at += 1
+					var want := Vector3(line[at].x - p2.x, 0, line[at].y - p2.y)
+					var err := (-mp.global_transform.basis.z).signed_angle_to(want, Vector3.UP)
+					Input.action_press("forward", 0.55 if absf(err) < 0.5 else 0.3)
+					Input.action_press("left", clampf(err * 3.0, 0.0, 1.0))
+					Input.action_press("right", clampf(-err * 3.0, 0.0, 1.0))
+					stuck = stuck + 1 if absf(mp.speed) < 0.5 else 0
+					if not vl.drivable(p2.x, p2.y):
+						off += 1
+					if i % 300 == 0:
+						print("JARVI %s %3d s: piste %d/%d, %.0f km/h, %s, pinta %d, maasto %d" % [leg[0], i / 60, at, line.size(), mp.speed * 3.6,
+							mopo_trip.status.replace("\n", " / "), vl.drive_code(mp.position), off])
+					if p2.distance_to(goal) < 3.5 or stuck > 240:
+						break
+				Input.action_release("forward")
+				Input.action_release("left")
+				Input.action_release("right")
+				for i in 40:
+					await get_tree().physics_frame
+				var p2 := Vector2(mp.position.x, mp.position.z)
+				print("JARVI %s: perillä %s (%.1f m kohteesta), aika %.0f s, jumissa %s, ajoalueen ulkona %d ruutua, tie '%s'" % [leg[0],
+					p2.distance_to(goal) < 4.5, p2.distance_to(goal), (Time.get_ticks_msec() - t0) / 1000.0, stuck > 240, off,
+					mopo_trip.status.replace("\n", " / ")])
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % leg[0]))
+			# Yleiskuva järviseudusta ylhäältä.
+			var oc := Camera3D.new()
+			oc.far = 3000.0
+			add_child(oc)
+			oc.global_position = mopo_trip.to_global(Vector3(-120, 420, -330))
+			oc.look_at(mopo_trip.to_global(Vector3(-120, 130, -520)), Vector3.FORWARD)
+			oc.current = true
+			for i in 30:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ylhaalta.png"))
+			get_tree().quit()
 		"mokkimopo_paluu":
 			# Paluu Siitarista mökille täysillä oikealla kaistalla (ilman liikennettä): pysähdykset ja seinäosumat,
 			# erityisesti Oulujoen sillalla.
