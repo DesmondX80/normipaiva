@@ -23,7 +23,7 @@ var model: Node3D
 var body_mat: ShaderMaterial
 
 var _overrides := {}  # luu -> [akseli hahmon avaruudessa, kulma]
-var _ik := {}  # nimi -> [luu a, luu b, luu c, kohde, polvi/kyynärpää-suunta] (hahmon avaruudessa)
+var _ik := {}  # nimi -> [luu a, luu b, luu c, kohde, polvi/kyynärpää-suunta, loppuluun lisäkierto] (hahmon avaruudessa)
 var _current := ""
 
 
@@ -130,8 +130,9 @@ func clear_overrides() -> void:
 
 ## Kaksiniveinen IK: ketju a -> b -> c (esim. reisi, sääri, jalkaterä) kurottaa c:n kohteeseen,
 ## taipuen pole-pisteen suuntaan. Kohde ja pole hahmon avaruudessa; päivitetään joka ruutu.
-func set_ik(chain: String, a: String, b: String, c: String, target: Vector3, pole: Vector3) -> void:
-	_ik[chain] = [a, b, c, target, pole]
+## twist: loppuluun (käsi, jalkaterä) lisäkierto hahmon avaruudessa ratkaisun jälkeen (esim. kämmen reiden suuntaan).
+func set_ik(chain: String, a: String, b: String, c: String, target: Vector3, pole: Vector3, twist := Basis()) -> void:
+	_ik[chain] = [a, b, c, target, pole, twist]
 
 
 func clear_ik() -> void:
@@ -218,6 +219,11 @@ func _apply_ik() -> void:
 		gc = skeleton.get_bone_global_pose(ic)
 		var q2 := _arc(gc.origin - gb.origin, (a + dir * d) - gb.origin)
 		_set_global_rot(ib, Basis(q2) * gb.basis)
+		var tw: Basis = c[5]
+		if tw != Basis():
+			var ts := to_skel.basis.orthonormalized()
+			gc = skeleton.get_bone_global_pose(ic)
+			_set_global_rot(ic, (ts * tw * ts.inverse()) * gc.basis)
 
 
 ## Asettaa luun globaalin kierron muuttamalla vain paikallista kiertoa (paikka ja mittakaava ennallaan).
