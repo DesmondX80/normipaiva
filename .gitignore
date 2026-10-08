@@ -4,3 +4,4 @@ export/
 *Zone.Identifier*
 __pycache__/
 venv/
+.DS_Store
