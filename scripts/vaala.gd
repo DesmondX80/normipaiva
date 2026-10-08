@@ -1619,8 +1619,26 @@ func _build_stalls() -> void:
 	var cols := [Color(0.75, 0.1, 0.1), Color(0.1, 0.35, 0.7), Color(0.15, 0.5, 0.2), Color(0.9, 0.6, 0.1)]
 	var body := StaticBody3D.new()
 	add_child(body)
-	for k in 4:
-		var c := _tori_c + ax * (k - 1.5) * 6.0 + ay * 2.0
+	# Kojut riviin torin pituussuunnassa 6 m välein: tien pihalenkki kulkee torin halki, joten kojut väistävät
+	# ajorataa (3,5 m reunasta) ja Zabukin edustaa.
+	var spots: Array[Vector2] = []
+	for side: float in [2.0, -4.0, 8.0]:
+		var off := -30.0
+		while off <= 30.0 and spots.size() < 4:
+			var c := _tori_c + ax * off + ay * side
+			var ni := nearest(Vector3(c.x, 0, c.y))
+			var clear: bool = ni[0] < 0 or ni[1] > float(road[ni[0]][4]) + 3.5
+			if clear and _zabuki != Vector3.INF:
+				clear = c.distance_to(Vector2(_zabuki.x, _zabuki.z)) > 9.0
+			for o in spots:
+				clear = clear and (absf((c - o).dot(ax)) >= 4.0 or absf((c - o).dot(ay)) >= 5.0)
+			for q in [ax * 2.0, -ax * 2.0, ay * 1.5, -ay * 1.5]:
+				clear = clear and Geometry2D.is_point_in_polygon(c + q, _tori)
+			if clear:
+				spots.append(c)
+			off += 0.5
+	for k in spots.size():
+		var c := spots[k]
 		var y := h(c.x, c.y)
 		var at := func(u: float, v: float, up: float) -> Vector3:
 			var q: Vector2 = c + ax * u + ay * v
