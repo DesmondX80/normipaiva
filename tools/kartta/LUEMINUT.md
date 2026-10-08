@@ -117,7 +117,10 @@ Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kart
   ja keskusta ovat kumpikin 1:1 omalla siirrollaan (`lava_off`, `town_off`). Oulujärven lounainen lahti mökin
   puolella on maata (`lake_cut`, `LAKE_CUT_X`, `LAKE_CUT_Z`), järven selkä jatkuu niemeltä kaakkoon.
   Radan alikulku on leveä (`UNDER_OPEN` 13 m ajoradan reunasta) ja penger nousee aukon reunasta luiskana
-  (`UNDER_SLOPE`) kannen alle; kansi pilareilla ja maatuet luiskien päällä (vaala.gd). Liian isot rakennukset
+  (`UNDER_SLOPE`) kannen alle; kansi pilareilla ja maatuet luiskien päällä (vaala.gd). Oulujoen ylityksessä rata
+  nostetaan tiesillan tasoon (`RIVER_RAIL_RAMP` m nousut penkereellä, sillan alla vesi ja saaret ennallaan), ja
+  vaala.gd tekee siihen teräsristikkosillan; juna (`scripts/train.gd`) ajaa radan OSM-pätkistä ketjutettua reittiä
+  (`--scene=mokkijuna`, sillan kuvat `--scene=mokkiratasilta`). S-Market on jätetty pois (`DROP_BUILDINGS`). Liian isot rakennukset
   pienennetään `BUILDING_SCALE`-taulukolla. Sivuteiden päälle jääneet talot
   ja sillan päihin liittyvät sivutiet karsitaan, tiivistetyllä välillä reitin poikki menevät metsätiet harvennetaan
   (`THIN_CROSS`) ja rakennuksettomat pihamaat muutetaan metsäksi.

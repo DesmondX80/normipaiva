@@ -77,7 +77,7 @@ var _items := {}  # tuote -> väri -> MeshInstance3D (valittu nostetaan esiin)
 var money := 20.0  # main päivittää ennen sisääntuloa
 ## Vaalan K-Market Tervaportti: Alkon hylly näkyvissä, eikä Saloisten naapuri (Anna-Liisa) tule kauppaan.
 var vaala := false
-var alko := true  # Vaalassa: Alkon hylly (Tervaportti), S-Marketissa ei
+var alko := true  # Vaalassa: Alkon hylly (Tervaportti)
 var _alko: Node3D
 
 var walker: CharacterBody3D

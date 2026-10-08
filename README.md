@@ -98,7 +98,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     (Uutelanperäntien sora Neittäväntielle, Vuolijoentie radan ali, Oulujoen silta, Vaalan keskusta 1:1: kirkko,
     rautatieasema, kaupat ja kunnantalo). Mopo pysyy teillä: metsään, pellolle ja pihoille ei köröttele, vaan tien
     reunassa mopo liukuu kuin reunakiveä vasten (sivutiet, parkit, tori, lavan piha ja ovien edustat ovat ajettavia).
-    Radan alikulku on ohikulkuvideon mukainen betonisilta pilaripareineen, ja penger laskee luiskana sillan alle. Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet
+    Radan alikulku on ohikulkuvideon mukainen betonisilta pilaripareineen, ja penger laskee luiskana sillan alle.
+    Rata ylittää Oulujoen tiesillan tasossa teräksisellä ristikkosillalla, ja radalla kulkee silloin tällöin juna
+    (punainen veturi henkilövaunuineen tai tukkijuna), joka vihellyttää ohittaessaan. Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet
     ja rakennusten pohjat maastotietokannasta, rakennusten korkeudet ja tienvarren metsä (noin 200 000 puuta)
     laserkeilauksesta ja puulajit Luken VMI:stä (`tools/vaala_bake.py`). Keskustassa on K-Market Tervaportti:
     sama kauppa kuin kylässä, ja vasemmalla seinällä Alkon hylly (Koskenkorva kätköviinaksi, T ottaa huikan).
