@@ -247,11 +247,16 @@ func ensure_built() -> void:
 
 # --- Pohjoiset kohteet: Salmisen uimaranta, Ranta-Rosvo ja Keskimmäisen laavu --------------------------------
 ## Karttakehyksessä (osoitepisteestä): Keskimmäisen laavu 64.520298 N 26.676739 E (tynnyrisauna, laituri, jolta
-## uidaan ja kalastetaan, ja soutuvene), Ranta-Rosvo (OSM historic=memorial) ja Salmisen uimaranta Etu-Salmisen
-## etelärannalla (OSM natural=beach). Paikat lasketaan järvien rantaviivasta (map_data), joten laituri osuu veteen.
+## uidaan ja kalastetaan, ja soutuvene). Ranta-Rosvo ja Salmisen uimaranta ovat asfaltoidun Nuojuankoskentien
+## (8794) varrella: patsas tien itäpuolella Taka- ja Pikku-Salmisen välissä, uimaranta Taka-Salmisen länsirannalla
+## tien vieressä (Google Mapsin kuvan mukaan). Paikat lasketaan järvien rantaviivasta (map_data), joten laituri
+## osuu veteen.
 const LAAVU_MAP := Vector2(456.0, -1653.0)
-const ROSVO_MAP := Vector2(-327.0, -1242.0)
-const BEACH_MAP := Vector2(16.0, -931.0)
+const ROSVO_MAP := Vector2(-340.0, -1256.0)
+const BEACH_MAP := Vector2(-315.0, -1450.0)
+const BEACH_LAKE := "Taka-Salminen"
+## Nuojuankoskentie Ranta-Rosvon kohdalla on patsaasta länteen (karttakehys): patsas katsoo tielle.
+const ROSVO_FACE_MAP := Vector2(-1.0, 0.0)
 var laavu_fire := Vector3.ZERO   # laavun nuotio (paikallinen, maan tasolla)
 var barrel_door := Vector3.ZERO  # tynnyrisaunan oven edusta
 var north_dock := Vector3.ZERO   # Keskimmäisen laiturin pää kannen tasolla
@@ -289,9 +294,10 @@ func _build_north_sites() -> void:
 	_build_keskimmainen()
 
 
-## Salmisen uimaranta: hiekka (OSM), kyltti "maailman paras uimaranta", pukukoppi ja penkki.
+## Salmisen uimaranta Taka-Salmisen länsirannalla: kyltti "maailman paras uimaranta", pukukoppi ja penkki
+## tien puolella.
 func _build_salminen_beach() -> void:
-	var sh := shore_near("Etu-Salminen", to_local2(BEACH_MAP))
+	var sh := shore_near(BEACH_LAKE, to_local2(BEACH_MAP))
 	if sh.is_empty():
 		return
 	var q: Vector2 = sh[0]
@@ -327,11 +333,13 @@ func _build_salminen_beach() -> void:
 		B.mesh(bench, B.boxm(Vector3(0.08, 0.45, 0.35)), Vector3(x, 0.22, 0), Color(0.35, 0.25, 0.15))
 
 
-## Ranta-Rosvo: pronssinen hahmo graniittijalustalla, laatassa nimi.
+## Ranta-Rosvo: pronssinen hahmo graniittijalustalla, laatassa nimi; patsas ja laatta tielle päin.
 func _build_rosvo() -> void:
 	var p := to_local2(ROSVO_MAP)
+	var face := to_local2(ROSVO_FACE_MAP) - to_local2(Vector2.ZERO)
 	var body := StaticBody3D.new()
 	body.position = Vector3(p.x, 0, p.y)
+	body.rotation.y = atan2(face.x, face.y)  # +Z (laatta ja patsaan katse) tielle
 	add_child(body)
 	B.mesh(body, B.boxm(Vector3(1.3, 1.4, 1.3)), Vector3(0, 0.7, 0), Color(0.45, 0.43, 0.42))
 	B.mesh(body, B.boxm(Vector3(1.5, 0.15, 1.5)), Vector3(0, 0.08, 0), Color(0.38, 0.36, 0.35))
@@ -347,26 +355,41 @@ func _build_rosvo() -> void:
 	Looks.add_cap(fig)
 	var plate := B.label(body, "RANTA-ROSVO", Vector3(0, 0.95, 0.67), 40, Color(0.85, 0.7, 0.35))
 	plate.outline_size = 0
-	rosvo_pos = Vector3(p.x, h(p.x, p.y), p.y + 1.8)
+	var fp := p + face.normalized() * 1.8
+	rosvo_pos = Vector3(fp.x, h(fp.x, fp.y), fp.y)
+
+
+## Keskimmäisen laavun asettelu paikallisessa kehyksessä (myös vaala.gd:n mopomaailma käyttää): rantapiste q ja
+## suunta järvelle d, sivusuunta, laavun, tynnyrisaunan ja nuotion paikat sekä saunan oven edusta. {} jos ei järveä.
+static func keskimmainen_layout() -> Dictionary:
+	var sh := shore_near("Keskimmäinen", to_local2(LAAVU_MAP))
+	if sh.is_empty():
+		return {}
+	var q: Vector2 = sh[0]
+	var d: Vector2 = sh[1]
+	var side := d.orthogonal()
+	var lp := to_local2(LAAVU_MAP)
+	if lp.distance_to(q) < 14.0:
+		lp = q - d * 14.0
+	var sp := lp + side * 5.2 + d * 0.6
+	return {"q": q, "d": d, "side": side, "wi": sh[2], "laavu": lp, "fire": lp + d * 3.4, "sauna": sp, "door": sp + d * 2.9}
 
 
 ## Keskimmäisen laavu: laavu nuotioineen, tynnyrisauna rannassa, laituri järvelle (uinti ja kalastus) ja soutuvene.
 func _build_keskimmainen() -> void:
-	var sh := shore_near("Keskimmäinen", to_local2(LAAVU_MAP))
-	if sh.is_empty():
+	var lay := keskimmainen_layout()
+	if lay.is_empty():
 		return
-	var q: Vector2 = sh[0]
-	var d: Vector2 = sh[1]
-	var wl := water_level(sh[2])
-	var side := d.orthogonal()
+	var q: Vector2 = lay.q
+	var d: Vector2 = lay.d
+	var wl := water_level(lay.wi)
+	var side: Vector2 = lay.side
 	var face := atan2(d.x, d.y)  # +Z kohti järveä
 	var wood := Color(0.5, 0.36, 0.22)
 	var logc := Color(0.42, 0.3, 0.18)
 	# Laavu (kuten Keskimmäisellä): pyöröhirret nurkat salvoksilla, tummista laudoista vino katto, avoin puoli
 	# järvelle; nuotio ja hirsipenkit edessä. Tynnyrisauna laavun vieressä perävaunun päällä.
-	var lp := to_local2(LAAVU_MAP)
-	if lp.distance_to(q) < 14.0:
-		lp = q - d * 14.0
+	var lp: Vector2 = lay.laavu
 	var laavu := StaticBody3D.new()
 	laavu.position = Vector3(lp.x, 0, lp.y)
 	laavu.rotation.y = face
@@ -386,7 +409,7 @@ func _build_keskimmainen() -> void:
 	laavu.add_child(B.box_shape(Vector3(4.6, 1.8, 0.3), Vector3(0, 0.9, -1.35)))
 	for sx in [-2.2, 2.2]:
 		laavu.add_child(B.box_shape(Vector3(0.3, 1.1, 2.9), Vector3(sx, 0.55, 0.1)))
-	var fire := lp + d * 3.4
+	var fire: Vector2 = lay.fire
 	laavu_fire = Vector3(fire.x, h(fire.x, fire.y), fire.y)
 	var pit := Node3D.new()
 	pit.position = Vector3(fire.x, 0, fire.y)
@@ -400,7 +423,7 @@ func _build_keskimmainen() -> void:
 		B.mesh(self, B.cyl(0.18, 0.18, 1.8, 8), Vector3(bpos.x, 0.2, bpos.y), silver, Vector3(90, rad_to_deg(face), 0))
 	# Tynnyrisauna laavun vieressä: harmaa laudoitus, yläpuoli bitumipaanua, ovi ja kuistilava päädyssä,
 	# punainen perävaunu pyörineen ja tukijalkoineen, rosteripiippu takana. Ovi ja kuisti laavun etupuolelle.
-	var sp := lp + side * 5.2 + d * 0.6
+	var sp: Vector2 = lay.sauna
 	var sauna := StaticBody3D.new()
 	sauna.position = Vector3(sp.x, 0, sp.y)
 	sauna.rotation.y = face
@@ -440,7 +463,7 @@ func _build_keskimmainen() -> void:
 	add_child(platform)
 	for k in 8:
 		B.mesh(platform, B.boxm(Vector3(2.4, 0.05, 0.14)), Vector3(0, 0.08, -0.6 + k * 0.17), Color(0.55, 0.5, 0.44).darkened(0.05 * (k % 2)))
-	var door := sp + d * 2.9
+	var door: Vector2 = lay.door
 	barrel_door = Vector3(door.x, h(door.x, door.y), door.y)
 	# Laituri rannasta järvelle (kansi pinnan yläpuolella, pukit pohjaan), luiska rannasta kannelle.
 	var start := q - d * 1.5

@@ -1116,7 +1116,8 @@ const WAITER := {
 ## Ravintolavaunun jutustelu: [puhuja, repliikki]; puhuja "minä", "marja", "liisa", "helena" tai "tarjoilija".
 ## Pelaaja juo olutta ja tarjoaa naisille Koskenkorvat; kolmas kenttä "treat" = repliikki, joka vaihtuu
 ## TRAIN_NO_TREAT:iin, jos rahat eivät riitä tarjoamiseen (naiset ostavat paukkunsa itse); "hand" = paukun
-## jälkeen vieressä istuva Helena laskee kätensä pelaajan reidelle (IK) ja pitää sen siinä loppumatkan.
+## jälkeen vieressä istuva Helena laskee kätensä pelaajan polven päälle (IK) ja liu'uttaa sen reittä pitkin
+## sisäreidelle, jossa se pysyy loppumatkan.
 const TRAIN_TALK_VAALA := [
 	["marja", "Onko tässä vapaata? Ravintolavaunusta näkee parhaiten."], ["minä", "Istukaa toki! Tuoppi on just kaadettu."],
 	["liisa", "Oletko menossa Vaalaan asti?"], ["minä", "Oulujärven rantaan, Paapeliin. Mökillä odottaa sauna."],
@@ -1172,7 +1173,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	for i in lines.size():
 		if lines[i].size() > 2 and lines[i][2] == "hand":
 			hand_from = i
-	var hand := {"w": 0.0, "rest": Vector3.ZERO}
+	var hand := {"w": 0.0, "slide": 0.0, "rest": Vector3.ZERO}
 	var t0 := Time.get_ticks_msec()
 	var last := -1
 	while Time.get_ticks_msec() - t0 < lines.size() * LINE * 1000.0:
@@ -1193,19 +1194,36 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 		# istuvien olan yli kevyesti liukuen.
 		var u := fmod(t, LINE) / LINE
 		if k >= hand_from:
-			# Helenan oikea käsi pelaajan vasemmalle reidelle: lepoasennosta liukuen polven ja lantion väliin.
+			# Helenan oikea käsi pelaajan vasemmalle reidelle: lepoasennosta polven päälle, sitten hitaasti reittä
+			# pitkin lantiota kohti ja kääntyen sisäreidelle (pois Helenan puolelta, kohti pelaajan toista jalkaa).
 			var hl: Node3D = cast.helena
 			var hero: Node3D = cast["minä"]
+			var hdt := get_process_delta_time()
 			if hand.w == 0.0:
 				hand.rest = hl.to_global(hl.bone_position("hand_r"))
-			hand.w = minf(1.0, hand.w + get_process_delta_time() * 1.4)
+			hand.w = minf(1.0, hand.w + hdt * 1.4)
+			if hand.w >= 1.0:
+				hand.slide = minf(1.0, hand.slide + hdt * 0.3)
 			var hip: Vector3 = hero.to_global(hero.bone_position("thigh_l"))
 			var knee: Vector3 = hero.to_global(hero.bone_position("calf_l"))
 			var side: Vector3 = hl.global_position - hero.global_position
 			side.y = 0.0
-			var on_thigh: Vector3 = hip.lerp(knee, 0.55) + Vector3(0, 0.2, 0) + side.normalized() * 0.04  # ranne reiden pinnan yllä (reisi on paksu, kämmen ei saa upota)
-			var goal: Vector3 = (hand.rest as Vector3).lerp(on_thigh, smoothstep(0.0, 1.0, hand.w))
+			side = side.normalized()
+			# Ranne reiden pinnan yllä (reisi on paksu, kämmen ei saa upota). Polven päältä liu'utaan reiden etuosaa
+			# pitkin ja sisäreidelle; lantiolle asti ei mennä (maha peittäisi käden). Jos Helenan käsi ei ylety, kohta
+			# siirtyy reittä pitkin lähemmäs, kunnes käsi ylettyy (muuten IK jättäisi käden ilmaan mahan kohdalle).
 			var sh: Vector3 = hl.to_global(hl.bone_position("upperarm_r"))
+			var elbow: Vector3 = hl.to_global(hl.bone_position("lowerarm_r"))
+			var reach: float = (sh.distance_to(elbow) + elbow.distance_to(hl.to_global(hl.bone_position("hand_r")))) * 0.95
+			var hs := smoothstep(0.0, 1.0, hand.slide)
+			var at_t := lerpf(0.93, 0.72, hs)
+			var on_thigh := Vector3.ZERO
+			while true:
+				on_thigh = hip.lerp(knee, at_t) + Vector3(0, 0.18 + 0.02 * sin(hs * PI), 0) + side * lerpf(0.05, -0.06, hs)
+				if on_thigh.distance_to(sh) <= reach or at_t <= 0.45:
+					break
+				at_t -= 0.03
+			var goal: Vector3 = (hand.rest as Vector3).lerp(on_thigh, smoothstep(0.0, 1.0, hand.w))
 			hl.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", hl.to_local(goal),
 				hl.to_local(sh + Vector3(0, -0.4, 0) + hl.global_basis.z * 0.25))
 		if k == hand_from or k == hand_from + 1:

@@ -109,12 +109,16 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     pääsee kyytiin (E). Muuten E = odota junaa, kello hyppää ja juna saapuu. Matkalla juna ohittaa Saloisten
     päässä savuavan Raahen terästehtaan ja ylittää Vaalan päässä Oulujoen ristikkosillan. Välikuvassa istutaan
     ravintolavaunussa tuopin kanssa, naisille tarjotaan Koskenkorvat (16 €, jos rahat riittävät) ja paukun
-    jälkeen vieressä istuva Helena laskee kätensä reidelle; taustalla soi hidas soul-lirkuttelu
+    jälkeen vieressä istuva Helena laskee kätensä polven päälle ja liu'uttaa sen reittä pitkin sisäreidelle; taustalla soi hidas soul-lirkuttelu
     (`tools/lirkuttelu.py` syntetisoi biisin `assets/music/lirkuttelu.wav`). Vaalaan tultaessa mopo odottaa
     aseman pihassa, ja Vaalasta
     lähdettäessä se palaa mökin pihaan kuten muillakin paluureiteillä.
   - **Minikartta** näkyy myös Vaalan matkalla (mopolla ja jalan) ja mökillä koko kävelyalueella Salmisille asti.
-    Salmisen uimarannalle, Ranta-Rosvolle ja Keskimmäisen laavulle (tynnyrisauna) vie soratie. Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet
+    Salmisen uimarannalle, Ranta-Rosvolle ja Keskimmäisen laavulle (tynnyrisauna) vie soratie. Ranta-Rosvo ja
+    Salmisen uimaranta (Taka-Salmisen länsiranta) ovat asfaltoidun Nuojuankoskentien varrella. Mopolla: risteyksessä,
+    jossa Siitariin käännytään oikealle, vasemmalle kääntyvä asfaltti vie Rosvolle ja rannalle, ja samasta
+    risteyksestä asfaltin yli suoraan lähtevä soratie Keskimmäisen laavun ja tynnyrisaunan pihaan (testi
+    `--scene=mokkimopo_jarviseutu`). Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet
     ja rakennusten pohjat maastotietokannasta, rakennusten korkeudet ja tienvarren metsä (noin 200 000 puuta)
     laserkeilauksesta ja puulajit Luken VMI:stä (`tools/vaala_bake.py`). Keskustassa on K-Market Tervaportti:
     sama kauppa kuin kylässä, ja vasemmalla seinällä Alkon hylly (Koskenkorva kätköviinaksi, T ottaa huikan).
