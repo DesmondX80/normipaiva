@@ -1,5 +1,5 @@
 extends CharacterBody3D
-## Paapelin mopo (Vaalan-matka, mopo_trip.gd): 45 km/h, moottorin pörinä kierrosten mukaan, kallistus kaarteissa
+## Paapelin mopo (Vaalan-matka, mopo_trip.gd): 60 km/h, moottorin pörinä kierrosten mukaan, kallistus kaarteissa
 ## ja takaa seuraava kamera kuten pyörällä. Pinta ja mäet tulevat Vaalan maailmasta (vaala.gd).
 ## Malli (build_model) on myös mökin pihalla parkissa.
 
@@ -7,7 +7,7 @@ const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Vaala := preload("res://scripts/vaala.gd")
 
-const MAX_SPEED := 12.5  # 45 km/h
+const MAX_SPEED := 16.7  # 60 km/h
 const REVERSE_SPEED := 1.5
 const ACCEL := 3.4
 const BRAKE := 9.0
@@ -185,12 +185,16 @@ func _physics_process(delta: float) -> void:
 			Sfx.play("horn", -8.0, 1.8)  # mopon piippari
 	var surf: Dictionary = {"speed": 1.0, "bump": 0.0}
 	if vaala != null:
-		_code = vaala.code_at(position.x, position.z)
+		_code = vaala.drive_code(position)
 		surf = Vaala.SURF.get(_code, surf)
-	# Mäet: nousu hidastaa, lasku kiihdyttää (vaalan korkeus 1 m edessä ja takana).
+	# Mäet: nousu hidastaa, lasku kiihdyttää. Kaltevuus pinnasta, jolla mopo ajaa (sillan kansi, alikulku), ei
+	# maastosta sen alla: sillalla joen pohja nousi rantaan ja mopo valui kannella taaksepäin.
 	var fwd := -global_transform.basis.z
 	var grade := 0.0
-	if vaala != null:
+	if is_on_floor():
+		var n := get_floor_normal()
+		grade = -(n.x * fwd.x + n.z * fwd.z) / maxf(n.y, 0.3)
+	elif vaala != null:
 		grade = (vaala.h(position.x + fwd.x, position.z + fwd.z) - vaala.h(position.x - fwd.x, position.z - fwd.z)) / 2.0
 	var max_s: float = MAX_SPEED * surf.speed * clampf(1.0 - grade * 2.5, 0.6, 1.2)
 	if throttle > 0.0:
@@ -215,6 +219,7 @@ func _physics_process(delta: float) -> void:
 	velocity.x = fwd.x * speed
 	velocity.z = fwd.z * speed
 	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
+	_keep_on_road(delta)
 	var was := speed
 	move_and_slide()
 	speed = Vector2(velocity.x, velocity.z).dot(Vector2(fwd.x, fwd.z))
@@ -242,6 +247,45 @@ func _physics_process(delta: float) -> void:
 	_cam_ready = true
 
 
+## Mopo pysyy teillä (vaala.gd drivable): jos etupyörän edessä on metsää tai peltoa, mopo liukuu reunaa pitkin
+## kuin reunakiveä vasten (lähin ajettava suunta, vauhti hidastuu kulman mukaan), ja suoraan päin se pysähtyy.
+## Ajoalueen ulkopuolelta (esim. pysäköity mopo) pääsee pois hitaasti mihin suuntaan tahansa.
+const OFFROAD_CREEP := 2.5
+var _curb := 0.0  # viimeisimmän reunaosuman kulma (rad), kännikaatumiseen
+
+
+func _keep_on_road(delta: float) -> void:
+	_curb = 0.0
+	if vaala == null or not vaala.has_method("drivable"):
+		return
+	var v := Vector2(velocity.x, velocity.z)
+	var sp := v.length()
+	if sp < 0.05:
+		return
+	var p := Vector2(position.x, position.z)
+	if not vaala.drivable(p.x, p.y):
+		if sp > OFFROAD_CREEP:
+			velocity.x *= OFFROAD_CREEP / sp
+			velocity.z *= OFFROAD_CREEP / sp
+			speed = clampf(speed, -OFFROAD_CREEP, OFFROAD_CREEP)
+		return
+	var dir := v / sp
+	var reach := 1.0 + sp * delta
+	for a: float in [0.0, 0.2, -0.2, 0.45, -0.45, 0.75, -0.75, 1.1, -1.1, 1.45, -1.45]:
+		var d := dir.rotated(a)
+		var q := p + d * reach
+		if vaala.drivable(q.x, q.y):
+			if a != 0.0:
+				var k := cos(a)
+				velocity.x = d.x * sp * k
+				velocity.z = d.y * sp * k
+				_curb = absf(a)
+			return
+	velocity.x = 0.0
+	velocity.z = 0.0
+	_curb = PI / 2.0
+
+
 ## Kännissä ohjaus: tanko vaeltaa itsestään (hidas huojunta), käsi reagoi viiveellä ja liian rajusti, ja
 ## muutaman sekunnin välein tanko nykäisee sivulle. Mitä kovempi humala ja vauhti, sitä pahempi. Jo parin
 ## kaljan humala (DRUNK_GAIN) tuntuu selvästi.
@@ -264,11 +308,15 @@ func _drunk_steer(steer: float, delta: float) -> float:
 	return clampf(_steer_lag + drift + _yank, -1.6, 1.6)
 
 
-## Kännissä kaatuminen: pehmeällä (metsä, pelto, suo, vesi) horjunta kasvaa vauhdin mukaan, ja päin estettä
-## (kaide, talo, puomi) kovaa ajettaessa mopo kaatuu heti.
+## Kännissä kaatuminen: tien reunaan jyrkässä kulmassa tai päin estettä (kaide, talo, puomi) kovaa ajettaessa
+## mopo kaatuu heti, ja pehmeällä (metsä, pelto, suo, vesi) horjunta kasvaa vauhdin mukaan.
 func _drunk_crash(was: float, delta: float) -> void:
 	if absf(was) > 5.0 and absf(speed) < absf(was) * 0.4 and is_on_wall():
 		crashed.emit("wall")
+		return
+	# Reunaan kovaa ja jyrkässä kulmassa: ojaan.
+	if _curb > 0.6 and absf(was) > 6.0:
+		crashed.emit("ditch")
 		return
 	var soft := _code in [Vaala.FOREST, Vaala.FIELD, Vaala.BOG, Vaala.WATER]
 	if soft and absf(speed) > 3.0:
