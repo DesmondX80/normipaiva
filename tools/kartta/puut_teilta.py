@@ -134,7 +134,49 @@ def mokki_segments():
             (2.6 if t == "unclassified" else (1.4 if t == "service" else 1.8)))
         half = max(half, 1.2)  # polulla kulkijalle tilaa
         segs += polyline([to_local(p) for p in f["pts"]], half)
+    segs += site_tracks(k, to_local)
     return segs
+
+
+# scripts/mokki.gd _add_site_tracks: soratiet Salmisen uimarannalle, Ranta-Rosvolle ja Keskimmäisen laavulle
+# (karttakehys). Sama laskenta: lähin tienkohta 4 m välein, josta suora linja ei kulje veden läpi, 5 m kohteesta.
+SITES = [(16.0, -931.0), (-327.0, -1242.0), (456.0, -1653.0)]
+
+
+def site_tracks(k, to_local):
+    waters = [[to_local(p) for p in f["pts"]] for f in k["features"] if f["kind"] == "water" and len(f["pts"]) >= 3]
+    roads = [[to_local(p) for p in f["pts"]] for f in k["features"] if f["kind"] == "road" and f.get("type") not in ("path", "footway")]
+
+    def crosses_water(q, goal, d):
+        ts = np.arange(1, int(d / 2.0)) * 2.0 / d
+        if len(ts) == 0:
+            return False
+        xs = q[0] + (goal[0] - q[0]) * ts
+        zs = q[1] + (goal[1] - q[1]) * ts
+        return any(in_poly(w, xs, zs).any() for w in waters)
+
+    out = []
+    for site in SITES:
+        goal = to_local(site)
+        best, bd = None, 1e9
+        for pts in roads:
+            for a, b in zip(pts, pts[1:]):
+                n = max(1, int(math.dist(a, b) / 4.0))
+                for i in range(n + 1):
+                    q = (a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n)
+                    d = math.dist(q, goal)
+                    if d >= bd or d > 400.0:
+                        continue
+                    if crosses_water(q, goal, d):
+                        continue
+                    best, bd = q, d
+        if best is None or bd < 8.0:
+            continue
+        u = ((best[0] - goal[0]) / bd, (best[1] - goal[1]) / bd)
+        end = (goal[0] + u[0] * 5.0, goal[1] + u[1] * 5.0)
+        out.append((best, end, 3.0))
+    print("mökin kohteiden soratiet:", [(round(a[0]), round(a[1]), round(b[0]), round(b[1])) for a, b, _h in out])
+    return out
 
 
 def vaala_segments():
