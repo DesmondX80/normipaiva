@@ -86,6 +86,7 @@ BAND_LAT = 1200.0  # kaistan maastokehykset näin kauas akselilta
 UNDER_CLEAR = 4.6  # alikulun vapaa korkeus tien pinnasta ratasillan alapintaan
 UNDER_DIP = 1.3    # tie painuu alikulussa
 UNDER_OPEN = 13.0  # alikulun aukko maastossa ajoradan reunasta (videon mukaan leveä: kansi pilareilla, maatuet kauempana)
+UNDER_SLOPE = 0.55  # aukon reunasta penger nousee luiskana kannen alle (ei pystyseinää; vaala.gd: maatuet luiskan päällä)
 BRANCH_LEN = 90.0  # risteysten haarat väärään suuntaan: 1:1 näin pitkälle, sitten OSM-linjaa maaston kuvauksella
 # Neittävän järviseutu: mökin kävelyalueen pohjoisosan järvet (Salmiset, Pyöriäinen, Keskimmäinen; mökin kartta.json)
 # piirretään mopomatkan maailmaan Neittäväntien risteyksen luoteeseen loivalla kuvauksella T (todellinen -> peli:
@@ -1179,6 +1180,8 @@ def main():
         underpass["dir"] = [round(rd_[0], 4), round(rd_[1], 4)]
         underpass["road_y"] = round(us["y"], 2)
         underpass["hw"] = us["hw"]
+        underpass["open"] = UNDER_OPEN
+        underpass["slope"] = UNDER_SLOPE
         deck = underpass["deck"]
         near_rail = []
         for r in rails:
@@ -1195,8 +1198,8 @@ def main():
                 for t in range(m):
                     near_rail.append([lerp(a[0], b[0], t / m), lerp(a[1], b[1], t / m), lerp(a[2], b[2], t / m)])
         ng = Grid([(q[0], q[1]) for q in near_rail], 12.0)
-        # Alikulun aukko: ajorata ja piennar tien tasossa, sen takana penger. Seinät ja niiden takana nurmettu reunus
-        # (vaala.gd _build_underpass) peittävät 4 m ruudukon luiskat.
+        # Alikulun aukko: ajorata ja leveä piennar tien tasossa, sen takana penger nousee luiskana (UNDER_SLOPE) kannen
+        # alle kuten videolla; vaala.gd _build_underpass: kansi pilareilla ja maatuet luiskien päällä.
         span = us["hw"] + UNDER_OPEN
         for j in range(nz):
             for i in range(nx):
@@ -1213,6 +1216,7 @@ def main():
                 if rdist < span:
                     continue
                 emb = top - max(0.0, dr - 2.8) * 0.75
+                emb = min(emb, us["y"] + 0.2 + (rdist - span) * UNDER_SLOPE)  # luiska aukon reunasta
                 if emb > heights[k]:
                     heights[k] = round(emb, 3)
                     if dr < 2.8:

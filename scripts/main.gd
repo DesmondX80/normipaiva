@@ -10294,6 +10294,10 @@ func _maybe_screenshot() -> void:
 			_start_mopo()
 			var vl: Node3D = mopo_trip.vaala
 			_msg.text = ""
+			_note.visible = false
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
 			for c in vl.get_children():
 				if c is Node3D and c.get_script() == load("res://scripts/forest.gd"):
 					c.visible = false
