@@ -81,6 +81,8 @@ var shop_zone: Vector3
 var taxi_pos: Vector3  # K-Marketin taksitolpalla odottava taksi
 var station_pos: Vector3  # Saloisten asema K-Marketin takana: oven edusta (E: junalla Vaalaan)
 var station_arrive: Vector3  # junalla tultaessa tästä
+var train: Node3D  # aikataulun juna Saloisten radalla (train.gd, ei satunnaisia ohikulkuja)
+var station_t := 0.0  # laiturin kohta junan reitillä
 ## Sinikan takapihan nurmikko (tarinan "Sinikan nurmikko, ettei Päivi nää"): pivot, koko, kulma ja leikkurin paikka.
 var sinikka_lawn := {}
 var follow: Node3D  # ruoho seuraa tätä (pelaaja)
@@ -1516,6 +1518,7 @@ func _build_station() -> void:
 		B.box(plat, Vector3(1.8, 0.08, 0.45), Vector3(bx, 0.72, 0.9), Color(0.45, 0.3, 0.18), false)
 		B.box(plat, Vector3(1.8, 0.45, 0.06), Vector3(bx, 0.98, 1.12), Color(0.45, 0.3, 0.18), false)
 	_build_railway()
+	station_t = train.nearest_t(plat.position)
 	var lot := PackedVector2Array([c + Vector2(-50, -12), c + Vector2(16, -12), c + Vector2(16, -34), c + Vector2(-50, -34)])
 	_lots.append(lot)
 
@@ -1593,6 +1596,16 @@ func _build_railway() -> void:
 	mmi.material_override = B.mat(Color(0.36, 0.32, 0.28))
 	mmi.set_meta("draped", true)
 	add_child(mmi)
+	var tp := PackedVector3Array()
+	for i in pts.size():
+		tp.append(Vector3(pts[i].x, ys[i] + 0.2, pts[i].y))  # train.gd: kiskon yläpinta RAIL_TOP yläpuolella
+	var tr = load("res://scripts/train.gd").new()
+	tr.name = "Juna"
+	tr.random = false
+	tr.set_meta("draped", true)
+	add_child(tr)
+	tr.setup(tp)
+	train = tr
 	# Tasoristeykset: Andreaksen risti tien kummallekin puolelle.
 	for r in M.ROADS:
 		if r.type == "path":

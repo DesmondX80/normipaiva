@@ -1240,7 +1240,9 @@ func _build_train() -> void:
 	train.name = "Juna"
 	add_child(train)
 	train.setup(path)
-	print("VAALA juna: rata %.0f m, %d pätkää" % [total, used.size()])
+	if station_plat != Vector3.ZERO:
+		station_t = train.nearest_t(station_plat)
+	print("VAALA juna: rata %.0f m, %d pätkää, laituri %.0f m radan alusta" % [total, used.size(), station_t])
 
 
 ## Radan alikulku (Vuolijoentie radan ali juuri ennen Oulujokea) ohikulkuvideon mukaan: harmaa betonikansi ohuine
@@ -1689,6 +1691,8 @@ func _tori_prep() -> void:
 ## valkoisella reunaviivalla, penkit ja valaisimet sekä asemaraiteen puskimet. Ovi päädyssä (E: junalla Saloisiin).
 ## Lisäksi Vaalantien liikenneympyrä: asfalttirengas ja reunakivetty nurmisaareke.
 var station_door := Vector3.ZERO
+var station_plat := Vector3.ZERO  # laiturin keskikohta (aikataulun juna pysähtyy tähän)
+var station_t := 0.0  # laiturin kohta junan reitillä (train.nearest_t)
 var station_id: int = -1  # keskusta.asema.id: tämän rakennuksen paikalle asema (yleinen piirto ohittaa)
 
 
@@ -1749,6 +1753,10 @@ func _build_station() -> void:
 	for q in st.platform:
 		plat_c += Vector2(q[0], q[1])
 	plat_c /= float(st.platform.size())
+	station_plat = Vector3(plat_c.x, h(plat_c.x, plat_c.y), plat_c.y)
+	if train != null:  # juna rakennetaan jo raiteiden kanssa (_build_side_roads)
+		station_t = train.nearest_t(station_plat)
+		print("VAALA laituri %.0f m radan alusta" % station_t)
 	var back := (plat_c - c).normalized()  # laiturin puoli
 	var L: float = (obb.size as Vector2).x if absf((obb.ax as Vector2).dot(along)) > 0.7 else (obb.size as Vector2).y
 	var D: float = (obb.size as Vector2).y if absf((obb.ax as Vector2).dot(along)) > 0.7 else (obb.size as Vector2).x

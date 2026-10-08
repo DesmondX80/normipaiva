@@ -128,12 +128,36 @@ const JUNTTI_SPOTS := [Vector2(160, 690), Vector2(311, 776), Vector2(452, 841), 
 
 
 ## Saloisten rata karttapikseleinä (1 px = 1 m): asemaraide K-Marketin takana (world.gd _build_station), josta
-## rata jatkuu länteen Valtatien yli kartan reunan taakse ja idässä Ketunperäntien jälkeen kaartaa etelään
-## (R 140 m, 60°) ja jatkuu suorana kaakkoon kartan reunan taakse. Linja on haettu kylän rakennusten välistä
-## (lähin seinä n. 5 m), tiet ylitetään tasoristeyksinä.
-const RAIL_ARC_X := 110.0
-const RAIL_ARC_R := 140.0
-const RAIL_ARC_TURN := PI / 3.0
+## rata jatkuu länteen Valtatien yli kartan reunan taakse. Idässä rata kaartaa heti aseman jälkeen pohjoiseen
+## (R ≥ 45 m) ja pujottelee talojen välistä (lähin seinä n. 7 m) kartan pohjoisreunan yli, kaartaa sitten
+## koilliseen ja jatkuu suorana horisonttiin: ei kulje kylän läpi. RAIL_NE on haettu tilahilahaulla
+## rakennusten etäisyyskentästä ja pehmennetty; tiet ylitetään tasoristeyksinä.
+const RAIL_NE := [
+	Vector2(101.5, 503.9), Vector2(107.2, 503.7), Vector2(112.7, 503.2), Vector2(118.2, 502.4), Vector2(123.7, 501.1),
+	Vector2(129.0, 499.1), Vector2(134.2, 496.5), Vector2(139.0, 493.3), Vector2(143.4, 489.5), Vector2(147.3, 485.2),
+	Vector2(150.7, 480.4), Vector2(153.7, 475.3), Vector2(156.4, 470.0), Vector2(158.9, 464.5), Vector2(161.2, 459.0),
+	Vector2(163.6, 453.5), Vector2(165.9, 448.0), Vector2(168.2, 442.4), Vector2(170.5, 436.9), Vector2(172.7, 431.3),
+	Vector2(175.0, 425.8), Vector2(177.3, 420.3), Vector2(179.6, 414.7), Vector2(181.9, 409.2), Vector2(184.2, 403.6),
+	Vector2(186.5, 398.1), Vector2(188.8, 392.5), Vector2(191.1, 387.0), Vector2(193.3, 381.4), Vector2(195.5, 375.8),
+	Vector2(197.5, 370.2), Vector2(199.3, 364.5), Vector2(200.8, 358.7), Vector2(202.1, 352.9), Vector2(203.2, 347.0),
+	Vector2(204.1, 341.1), Vector2(205.0, 335.1), Vector2(205.8, 329.2), Vector2(206.6, 323.3), Vector2(207.4, 317.3),
+	Vector2(208.3, 311.4), Vector2(209.3, 305.5), Vector2(210.4, 299.6), Vector2(211.5, 293.7), Vector2(212.5, 287.9),
+	Vector2(213.2, 282.0), Vector2(213.4, 276.1), Vector2(213.0, 270.2), Vector2(212.0, 264.4), Vector2(210.6, 258.7),
+	Vector2(208.8, 253.0), Vector2(206.8, 247.4), Vector2(205.0, 241.7), Vector2(203.3, 236.0), Vector2(202.0, 230.2),
+	Vector2(201.0, 224.3), Vector2(200.3, 218.4), Vector2(199.8, 212.4), Vector2(199.5, 206.4), Vector2(199.4, 200.4),
+	Vector2(199.3, 194.4), Vector2(199.3, 188.4), Vector2(199.3, 182.4), Vector2(199.3, 176.4), Vector2(199.3, 170.4),
+	Vector2(199.3, 164.4), Vector2(199.3, 158.4), Vector2(199.3, 152.4), Vector2(199.3, 146.4), Vector2(199.3, 140.4),
+	Vector2(199.3, 134.4), Vector2(199.3, 128.4), Vector2(199.3, 122.4), Vector2(199.3, 116.4), Vector2(199.3, 110.4),
+	Vector2(199.3, 104.4), Vector2(199.3, 98.4), Vector2(199.3, 92.4), Vector2(199.3, 86.4), Vector2(199.3, 80.4),
+	Vector2(199.3, 74.4), Vector2(199.3, 68.4), Vector2(199.3, 62.4), Vector2(199.3, 56.4), Vector2(199.3, 50.4),
+	Vector2(199.3, 44.4), Vector2(199.3, 38.4), Vector2(199.3, 32.4), Vector2(199.3, 26.4), Vector2(199.3, 20.4),
+	Vector2(199.3, 14.4), Vector2(199.3, 8.4), Vector2(199.3, 2.4), Vector2(199.3, -3.6), Vector2(199.3, -9.6),
+	Vector2(199.6, -15.6), Vector2(200.0, -21.5), Vector2(200.8, -27.5), Vector2(201.7, -33.4), Vector2(202.9, -39.3),
+	Vector2(204.3, -45.1), Vector2(206.0, -50.9), Vector2(207.9, -56.6), Vector2(210.0, -62.2), Vector2(212.3, -67.7),
+	Vector2(214.9, -73.2), Vector2(217.7, -78.5), Vector2(220.6, -83.7), Vector2(223.8, -88.8), Vector2(227.2, -93.7),
+	Vector2(230.8, -98.5), Vector2(234.6, -103.2), Vector2(238.5, -107.7), Vector2(242.7, -112.1),
+	Vector2(247.0, -116.2)
+]
 static var _railway := PackedVector2Array()
 
 
@@ -142,16 +166,14 @@ static func railway() -> PackedVector2Array:
 		return _railway
 	var y := SHOP_BUILDING.y - 37.0
 	var x := -1500.0
-	while x < RAIL_ARC_X:
+	while x < 100.0:
 		_railway.append(Vector2(x, y))
 		x += 8.0
-	var steps := int(RAIL_ARC_R * RAIL_ARC_TURN / 4.0)
-	for k in steps + 1:
-		var th := RAIL_ARC_TURN * k / steps
-		_railway.append(Vector2(RAIL_ARC_X + RAIL_ARC_R * sin(th), y + RAIL_ARC_R - RAIL_ARC_R * cos(th)))
+	for q: Vector2 in RAIL_NE:
+		_railway.append(q)
 	var p := _railway[_railway.size() - 1]
-	var d := Vector2(cos(RAIL_ARC_TURN), sin(RAIL_ARC_TURN))
-	while p.x < SIZE.x + 1200.0 and p.y < SIZE.y + 1200.0:
+	var d := (p - _railway[_railway.size() - 2]).normalized()
+	while p.y > -1200.0:
 		p += d * 8.0
 		_railway.append(p)
 	return _railway

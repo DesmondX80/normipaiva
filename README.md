@@ -103,11 +103,15 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     (punavalkoinen Sr1-veturi ja neljä sinistä VR:n vaunua, yksi niistä ravintolavaunu), joka vihellyttää ohittaessaan.
   - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa Zabukin ohi liikenneympyrään ja siitä
     oikealle Ratatietä rautatieasemalle (oikealla paikallaan radan varressa, laituri radan vieressä); Saloisissa
-    asema on K-Marketin takana, ja rata jatkuu asemalta länteen Valtatien yli ja itään kaarteen jälkeen kaakkoon
-    horisonttiin (tiet tasoristeyksinä). Matkalla juna ohittaa Saloisten päässä savuavan Raahen terästehtaan ja
-    ylittää Vaalan päässä Oulujoen ristikkosillan. Aseman ovella E: välikuvassa istutaan ravintolavaunussa kahvilla ja korvapuustilla
-    ja jutellaan mukavia naismatkustajien kanssa lirkuttelubossan soidessa (`tools/lirkuttelu.py` syntetisoi
-    biisin `assets/music/lirkuttelu.wav`). Vaalaan tultaessa mopo odottaa aseman pihassa, ja Vaalasta
+    asema on K-Marketin takana, ja rata jatkuu asemalta länteen Valtatien yli ja idässä kaartaa heti pohjoiseen
+    talojen välistä ja koilliseen horisonttiin, ei kylän läpi (tiet tasoristeyksinä). Juna tulee kummallekin
+    asemalle satunnaisesti n. tunnin välein pelin kellossa ja seisoo laiturilla puoli minuuttia: vain silloin
+    pääsee kyytiin (E). Muuten E = odota junaa, kello hyppää ja juna saapuu. Matkalla juna ohittaa Saloisten
+    päässä savuavan Raahen terästehtaan ja ylittää Vaalan päässä Oulujoen ristikkosillan. Välikuvassa istutaan
+    ravintolavaunussa tuopin kanssa, naisille tarjotaan Koskenkorvat (16 €, jos rahat riittävät) ja paukun
+    jälkeen vieressä istuva Helena laskee kätensä reidelle; taustalla soi hidas soul-lirkuttelu
+    (`tools/lirkuttelu.py` syntetisoi biisin `assets/music/lirkuttelu.wav`). Vaalaan tultaessa mopo odottaa
+    aseman pihassa, ja Vaalasta
     lähdettäessä se palaa mökin pihaan kuten muillakin paluureiteillä.
   - **Minikartta** näkyy myös Vaalan matkalla (mopolla ja jalan) ja mökillä koko kävelyalueella Salmisille asti.
     Salmisen uimarannalle, Ranta-Rosvolle ja Keskimmäisen laavulle (tynnyrisauna) vie soratie. Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet
