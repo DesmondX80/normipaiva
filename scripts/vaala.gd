@@ -76,6 +76,9 @@ func _init() -> void:
 	real_total = data.real_total
 	siitari = Vector2(data.siitari[0], data.siitari[1])
 	water_level = data.water_level
+	var ast0 = data.get("keskusta", {}).get("asema")
+	if ast0 != null and ast0.get("id") != null:
+		station_id = int(ast0.id)
 	var f := FileAccess.open(MAASTO, FileAccess.READ)
 	_nx = f.get_32()
 	_nz = f.get_32()
@@ -239,7 +242,8 @@ func _build_drive_mask() -> void:
 			_drive_poly(tp, 1.0)
 			continue
 		for k in r.pts.size() - 1:
-			_drive_seg(Vector2(r.pts[k][0], r.pts[k][1]), Vector2(r.pts[k + 1][0], r.pts[k + 1][1]), half + 1.0)
+			# Reunan yli 0,6 m: tienvarren puut ovat vähintään 0,8 m reunasta (puut_teilta.py), runkoon ei ajeta.
+			_drive_seg(Vector2(r.pts[k][0], r.pts[k][1]), Vector2(r.pts[k + 1][0], r.pts[k + 1][1]), half + 0.6)
 	var polys: Array = data.parkings.duplicate()
 	var ks: Dictionary = data.get("keskusta", {})
 	if ks.get("parking") != null:
@@ -1479,6 +1483,8 @@ func _build_buildings() -> void:
 		if id == SIITARI_ID:
 			_build_siitari(pts, body)
 			continue
+		if id == station_id:
+			continue  # asemarakennus omalla mallillaan (_build_station)
 		var name: String = bd.name
 		var type: String = bd.type
 		var levels: int = bd.levels
@@ -1778,6 +1784,7 @@ func _tori_prep() -> void:
 ## valkoisella reunaviivalla, penkit ja valaisimet sekä asemaraiteen puskimet. Ovi päädyssä (E: junalla Saloisiin).
 ## Lisäksi Vaalantien liikenneympyrä: asfalttirengas ja reunakivetty nurmisaareke.
 var station_door := Vector3.ZERO
+var station_id: int = -1  # keskusta.asema.id: tämän rakennuksen paikalle asema (yleinen piirto ohittaa)
 
 
 func _build_station() -> void:
@@ -1892,16 +1899,13 @@ func _build_station() -> void:
 	for sz: float in [-1.0, 1.0]:
 		for k in 5:
 			var wx := -L / 2.0 + 2.0 + k * (L - 4.0) / 4.0
-			if sz < 0.0 and k == 2:
+			if k == 2:  # ovet keskellä: laiturille ja kadulle (E: junalla Saloisiin)
 				B.mesh(root, B.boxm(Vector3(1.3, 2.3, 0.08)), Vector3(wx, 1.4, sz * (D / 2.0 + 0.03)), Color(0.45, 0.25, 0.12))
 				continue
 			B.mesh(root, B.boxm(Vector3(1.15, 1.45, 0.06)), Vector3(wx, 2.2, sz * (D / 2.0 + 0.03)), white)
 			B.mesh(root, B.boxm(Vector3(0.95, 1.25, 0.07)), Vector3(wx, 2.2, sz * (D / 2.0 + 0.04)), Color(0.12, 0.16, 0.2))
 			B.mesh(root, B.boxm(Vector3(0.06, 1.25, 0.09)), Vector3(wx, 2.2, sz * (D / 2.0 + 0.05)), white)
-	# Päätyovi (kadun puolella) ja kyltti VAALA laiturille ja kadulle.
-	var dside := 1.0 if (Vector2(st.door[0], st.door[1]) - c).dot(Vector2(root.basis.x.x, root.basis.x.z)) > 0.0 else -1.0
-	B.mesh(root, B.boxm(Vector3(0.08, 2.4, 1.4)), Vector3(dside * (L / 2.0 + 0.04), 1.45, 0), Color(0.45, 0.25, 0.12))
-	B.mesh(root, B.boxm(Vector3(0.1, 0.12, 1.6)), Vector3(dside * (L / 2.0 + 0.05), 2.7, 0), white)
+	# Kyltti VAALA laiturille ja kadulle.
 	for sz: float in [-1.0, 1.0]:
 		var sign := B.sign_plate(root, "VAALA", Color(0.95, 0.95, 0.95), Color(0.1, 0.1, 0.1), 0.7, 80, Color(0.1, 0.1, 0.1), "Helvetica Neue")
 		sign.position = Vector3(0, 3.6, sz * (D / 2.0 + 0.08))
@@ -1935,8 +1939,10 @@ func _build_station() -> void:
 		B.mesh(proot, B.cyl(0.06, 0.06, 4.0, 8), Vector3(bx + 3.5, 2.27, 0.2), Color(0.3, 0.3, 0.32))
 		var lamp := B.mesh(proot, B.boxm(Vector3(0.5, 0.15, 0.3)), Vector3(bx + 3.5, 4.25, 0.2), Color(1.0, 0.92, 0.7))
 		lamp.material_override = B.unshaded(Color(1.0, 0.92, 0.7))
-	# Puskimet asemaraiteen päihin.
+	# Puskimet asemaraiteen päihin (jos asemalla on oma pistoraide).
 	var tr: Array = st.track
+	if tr.size() < 2:
+		return
 	var t0 := Vector2(tr[0][0], tr[0][1])
 	var t1 := Vector2(tr[1][0], tr[1][1])
 	for e in 2:

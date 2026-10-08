@@ -146,7 +146,10 @@ Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kart
   Sen jälkeen `tools/vaala_silta_jarvi.py` suoristaa Oulujoen sillan (tiivistyskaistan sauma taittoi sen keskeltä)
   ja tasaa sen korkeuden penkereineen sekä täyttää Oulujärven kaukomaaston luoteiskulmaan, ja
   `tools/vaala_keskusta.py` siirtää K-Marketin ja Gasthausin Siitarin ympärille ja torin tien päähän Siitarin
-  pihalenkin kohdalle (`TORI_U`, `TORI_V`), Zabuki torin itäpäätyyn.
+  pihalenkin kohdalle (`TORI_U`, `TORI_V`), Zabuki torin itäpäätyyn, sekä liikenneympyrän Vaalantielle Zabukin
+  jälkeen (`RB_U`, `RB_R`) ja rautatieaseman todellisen asemarakennuksen paikalle (`STATION_ID`): laituri radan ja
+  aseman väliin radan suuntaisesti, ovi kadun puolelle ja asfaltoitu ajotie Ratatieltä/Asematieltä
+  (`--scene=mokkiasema`, junamatka `--scene=junamatka`).
   Molemmat ovat toistettavia ilman välimuistia (alkuarvot tie.json:ssa). Tarkistuskuvat:
   `--scene=mokkitori` (tori, Zabuki, Gasthaus) ja `--scene=mokkivaala` (silta `_silta*`, alikulku, keskusta).
 - **Puut pois teiltä**: molemmat leivonnat ajavat lopuksi `tools/kartta/puut_teilta.py`:n, joka poistaa valmiista
