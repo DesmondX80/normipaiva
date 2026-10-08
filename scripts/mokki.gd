@@ -299,8 +299,7 @@ func _build_north_sites() -> void:
 	_build_keskimmainen()
 
 
-## Salmisen uimaranta Taka-Salmisen länsirannalla: kyltti "maailman paras uimaranta", pukukoppi ja penkki
-## tien puolella.
+## Salmisen uimaranta Taka-Salmisen länsirannalla: kyltti "maailman paras uimaranta" ja penkki tien puolella.
 func _build_salminen_beach() -> void:
 	var sh := shore_near(BEACH_LAKE, to_local2(BEACH_MAP))
 	if sh.is_empty():
@@ -321,15 +320,7 @@ func _build_salminen_beach() -> void:
 	B.mesh(sign, B.boxm(Vector3(3.2, 1.0, 0.08)), Vector3(0, 2.0, 0), Color(0.1, 0.3, 0.6))
 	B.label(sign, "SALMINEN", Vector3(0, 2.25, 0.05), 56, Color(1, 1, 1))
 	B.label(sign, "maailman paras uimaranta", Vector3(0, 1.85, 0.05), 32, Color(1.0, 0.9, 0.4))
-	# Pukukoppi ja penkki rannan reunalla.
-	var hp := q - d * 9.0 - side * 5.0
-	var hut := StaticBody3D.new()
-	hut.position = Vector3(hp.x, 0, hp.y)
-	hut.rotation.y = atan2(d.x, d.y)
-	add_child(hut)
-	B.mesh(hut, B.boxm(Vector3(1.4, 2.1, 1.2)), Vector3(0, 1.05, 0), Color(0.75, 0.2, 0.15))
-	B.mesh(hut, B.boxm(Vector3(1.6, 0.08, 1.4)), Vector3(0, 2.14, 0), Color(0.3, 0.3, 0.32))
-	hut.add_child(B.box_shape(Vector3(1.4, 2.1, 1.2), Vector3(0, 1.05, 0)))
+	# Penkki rannan reunalla.
 	var bp := q - d * 4.0 - side * 1.0
 	var bench := Node3D.new()
 	bench.position = Vector3(bp.x, 0, bp.y)
@@ -364,6 +355,10 @@ func _build_rosvo() -> void:
 	plate.outline_size = 0
 	var fp := p + face.normalized() * 1.8
 	rosvo_pos = Vector3(fp.x, h(fp.x, fp.y), fp.y)
+	# Viskikätkö jalustan takana (VIINA "viski").
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 78
+	_viina_box(rosvo_stash(), atan2(face.x, face.y), rng)
 
 
 ## Keskimmäisen laavun asettelu paikallisessa kehyksessä (myös vaala.gd:n mopomaailma käyttää): rantapiste q ja
@@ -1919,25 +1914,33 @@ func _build_mopo() -> void:
 ## Viinakätköt: ruosteinen ammuslaatikko puoliksi kivien ja sammalen alla (kuten geokätkö), vieressä kuivunut
 ## oksa merkkinä. Laatikko jää paikalleen, kun viina on otettu.
 func _build_viina_caches() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	var pos := viina_positions()
+	for i in pos.size():
+		if VIINA[i].has("at"):
+			continue  # kiinteä kätkö kohteensa mukana (Ranta-Rosvo: _build_rosvo, myös mopomaailmassa)
+		_viina_box(pos[i], rng.randf() * TAU, rng)
+
+
+## Yksi viinakätkö: ruosteinen ammuslaatikko kivien ja sammalen alla, kuivunut oksa merkkinä.
+func _viina_box(p: Vector2, yaw: float, rng: RandomNumberGenerator) -> void:
 	var rust := Color(0.36, 0.3, 0.18)
 	var stone := Color(0.46, 0.46, 0.44)
 	var moss := Color(0.2, 0.24, 0.1)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 77
-	for p in viina_positions():
-		var c := Node3D.new()
-		c.position = Vector3(p.x, 0, p.y)
-		c.rotation.y = rng.randf() * TAU
-		add_child(c)
-		B.mesh(c, B.sphere(0.55, 10), Vector3(0, -0.3, 0), moss)
-		B.mesh(c, B.boxm(Vector3(0.36, 0.2, 0.2)), Vector3(0, 0.12, 0), rust)
-		B.mesh(c, B.boxm(Vector3(0.38, 0.04, 0.22)), Vector3(0, 0.23, 0), rust.darkened(0.25))
-		B.mesh(c, B.boxm(Vector3(0.1, 0.03, 0.04)), Vector3(0, 0.26, 0), rust.darkened(0.45))
-		for k in 4:
-			var ang := k * TAU / 4.0 + rng.randf_range(-0.3, 0.3)
-			var r := rng.randf_range(0.14, 0.24)
-			B.mesh(c, B.sphere(r, 8), Vector3(cos(ang) * 0.38, r * 0.4, sin(ang) * 0.3), stone.darkened(rng.randf_range(0.0, 0.25)))
-		B.tube(c, Vector3(0.45, 0.0, 0.25), Vector3(0.55, 0.9, 0.35), 0.025, Color(0.5, 0.42, 0.32))
+	var c := Node3D.new()
+	c.position = Vector3(p.x, 0, p.y)
+	c.rotation.y = yaw
+	add_child(c)
+	B.mesh(c, B.sphere(0.55, 10), Vector3(0, -0.3, 0), moss)
+	B.mesh(c, B.boxm(Vector3(0.36, 0.2, 0.2)), Vector3(0, 0.12, 0), rust)
+	B.mesh(c, B.boxm(Vector3(0.38, 0.04, 0.22)), Vector3(0, 0.23, 0), rust.darkened(0.25))
+	B.mesh(c, B.boxm(Vector3(0.1, 0.03, 0.04)), Vector3(0, 0.26, 0), rust.darkened(0.45))
+	for k in 4:
+		var ang := k * TAU / 4.0 + rng.randf_range(-0.3, 0.3)
+		var r := rng.randf_range(0.14, 0.24)
+		B.mesh(c, B.sphere(r, 8), Vector3(cos(ang) * 0.38, r * 0.4, sin(ang) * 0.3), stone.darkened(rng.randf_range(0.0, 0.25)))
+	B.tube(c, Vector3(0.45, 0.0, 0.25), Vector3(0.55, 0.9, 0.35), 0.025, Color(0.5, 0.42, 0.32))
 
 
 ## Pihapingiksen paikka: kaksi isoa puumailaa ja pallo kannon päällä, keskirajana köysi nurmella
