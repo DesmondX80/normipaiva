@@ -246,7 +246,8 @@ func _build_drive_mask() -> void:
 		_drive_poly(pts, 1.0)
 	if data.has("lava"):
 		var lr: Array = data.lava.road
-		_drive_seg(Vector2(lr[0][0], lr[0][1]), Vector2(lr[1][0], lr[1][1]), 3.5)
+		for k in lr.size() - 1:
+			_drive_seg(Vector2(lr[k][0], lr[k][1]), Vector2(lr[k + 1][0], lr[k + 1][1]), 3.5)
 		_drive_ellipse(Vector2(lava_door.x, lava_door.z), 9.0, 9.0)
 	# Mökin piha (hiekkasoikio) ja mopon parkkipaikka tielle asti.
 	var MokkiScript: GDScript = load(MOKKI_PATH)
@@ -868,9 +869,9 @@ func _build_lava() -> void:
 			Color(0.55, 0.55, 0.53))
 	# Ajotie kadulta ja parkkipaikka 90-luvun autoineen.
 	var road_pts: Array = lv.get("road", [])
-	if road_pts.size() >= 2:
-		var a := Vector2(road_pts[0][0], road_pts[0][1])
-		var b := Vector2(road_pts[1][0], road_pts[1][1])
+	for ri in road_pts.size() - 1:
+		var a := Vector2(road_pts[ri][0], road_pts[ri][1])
+		var b := Vector2(road_pts[ri + 1][0], road_pts[ri + 1][1])
 		var segs := maxi(1, int(a.distance_to(b) / 2.0))
 		for k in segs:
 			var p0 := a.lerp(b, float(k) / segs)
