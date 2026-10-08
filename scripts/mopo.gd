@@ -211,15 +211,17 @@ func _physics_process(delta: float) -> void:
 	if drunk > 0.0 and controls_enabled:
 		steer = _drunk_steer(steer, delta)
 	var steer_factor := clampf(absf(speed) / 3.0, 0.0, 1.0) * lerpf(1.0, 0.6, clampf(absf(speed) / MAX_SPEED, 0.0, 1.0))
+	if _curb > 0.4 and absf(speed) < 2.0 and throttle != 0.0:
+		steer_factor = maxf(steer_factor, 0.5)  # reunaa vasten pysähtynyt mopo kääntyy paikallaan (tanko käsin)
 	var heading0 := rotation.y
-	rotation.y += steer * STEER_SPEED * steer_factor * signf(speed) * delta
+	rotation.y += steer * STEER_SPEED * steer_factor * (signf(speed) if absf(speed) > 0.05 else signf(throttle)) * delta
 	if controls_enabled:
 		CamCtl.turned(rotation.y - heading0)
 	fwd = -global_transform.basis.z
 	velocity.x = fwd.x * speed
 	velocity.z = fwd.z * speed
 	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
-	_keep_on_road(delta)
+	_keep_on_road(delta, throttle)
 	var was := speed
 	move_and_slide()
 	speed = Vector2(velocity.x, velocity.z).dot(Vector2(fwd.x, fwd.z))
@@ -251,17 +253,22 @@ func _physics_process(delta: float) -> void:
 ## kuin reunakiveä vasten (lähin ajettava suunta, vauhti hidastuu kulman mukaan), ja suoraan päin se pysähtyy.
 ## Ajoalueen ulkopuolelta (esim. pysäköity mopo) pääsee pois hitaasti mihin suuntaan tahansa.
 const OFFROAD_CREEP := 2.5
+const CURB_CREEP := 1.2  # kaasulla reunaa vasten liu'utaan vähintään tätä vauhtia (ei juututa mutkan taskuun)
 var _curb := 0.0  # viimeisimmän reunaosuman kulma (rad), kännikaatumiseen
 
 
-func _keep_on_road(delta: float) -> void:
+func _keep_on_road(delta: float, throttle: float) -> void:
 	_curb = 0.0
 	if vaala == null or not vaala.has_method("drivable"):
 		return
 	var v := Vector2(velocity.x, velocity.z)
 	var sp := v.length()
 	if sp < 0.05:
-		return
+		if throttle <= 0.0:
+			return
+		var f := -global_transform.basis.z
+		v = Vector2(f.x, f.z) * 0.05  # kaasu pohjassa paikallaan reunaa vasten: haetaan liukusuunta
+		sp = 0.05
 	var p := Vector2(position.x, position.z)
 	if not vaala.drivable(p.x, p.y):
 		if sp > OFFROAD_CREEP:
@@ -276,9 +283,11 @@ func _keep_on_road(delta: float) -> void:
 		var q := p + d * reach
 		if vaala.drivable(q.x, q.y):
 			if a != 0.0:
-				var k := cos(a)
-				velocity.x = d.x * sp * k
-				velocity.z = d.y * sp * k
+				var k := sp * cos(a)
+				if throttle > 0.0:
+					k = maxf(k, CURB_CREEP)
+				velocity.x = d.x * k
+				velocity.z = d.y * k
 				_curb = absf(a)
 			return
 	velocity.x = 0.0

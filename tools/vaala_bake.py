@@ -967,6 +967,35 @@ def main():
     lab, _nl = ndimage.label(CODE == WATER, structure=np.ones((3, 3)))
     sel_ = np.unique(lab[(GX > LAKE_CUT_X + 60.0) & (GZ > LAKE_CUT_Z) & (lab > 0)])
     LAKE_CUT = np.isin(lab, sel_[sel_ > 0]) & lake_cut(GX, GZ)
+    # Tarkan alueen reunoilla Oulujärvi päättyy rantaan ennen reunaa, jos kaukomaasto reunan takana on maata (muuten
+    # ranta olisi suora viiva tarkan alueen reunassa). Reunan takaa näytteet 32 m välein samalla kuvauksella.
+    main_w = (CODE == WATER) & (np.abs(GROUND + 1.2 - water_level) < 0.05)
+    xa, za = x0, z0
+    xb, zb = x0 + (nx - 1) * CELL, z0 + (nz - 1) * CELL
+    edge_cut = np.zeros_like(main_w)
+    for side in ("w", "e", "n", "s"):
+        if side in ("w", "e"):
+            t_ = np.arange(za, zb + 1.0, 32.0)
+            ox = np.full_like(t_, xa - 24.0 if side == "w" else xb + 24.0)
+            oz = t_
+        else:
+            t_ = np.arange(xa, xb + 1.0, 32.0)
+            ox = t_
+            oz = np.full_like(t_, za - 24.0 if side == "n" else zb + 24.0)
+        _r1, _r2, og, _o1, oc = warp.inv(ox, oz, rc)
+        far_wet = (oc == WATER) & (np.abs(og - water_level) < 2.5)
+        if side in ("w", "e"):
+            wet_here = np.interp(GZ, t_, far_wet.astype(float)) > 0.5
+            dist_edge = (GX - xa) if side == "w" else (xb - GX)
+            along = GZ
+        else:
+            wet_here = np.interp(GX, t_, far_wet.astype(float)) > 0.5
+            dist_edge = (GZ - za) if side == "n" else (zb - GZ)
+            along = GX
+        width = 90.0 + 45.0 * np.sin(along / 97.0 + 0.6) + 20.0 * np.sin(along / 31.0 + 1.7)
+        edge_cut |= main_w & ~wet_here & (dist_edge < width)
+    print("Oulujärvi rantaan ennen tarkan alueen reunaa: %d ruutua" % edge_cut.sum())
+    LAKE_CUT |= edge_cut
     if LAKE_CUT.any():
         CODE[LAKE_CUT] = FOREST
         dist = ndimage.distance_transform_edt(CODE != WATER) * CELL  # matka uudelta rannalta

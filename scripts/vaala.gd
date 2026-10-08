@@ -211,6 +211,11 @@ func _build_drive_mask() -> void:
 	_drive.fill(0)
 	for i in road.size() - 1:
 		_drive_seg(Vector2(road[i][0], road[i][2]), Vector2(road[i + 1][0], road[i + 1][2]), float(road[i][4]) + 1.5)
+	# Jyrkät mutkat ja risteysten käännökset leveämmiksi (kulman ulkopuolelle ei jää taskua, johon mopo juuttuu).
+	for i in range(4, road.size() - 4):
+		var turn := road_dir(i - 4).angle_to(road_dir(i + 4))
+		if turn > 0.5:
+			_drive_seg(Vector2(road[i][0], road[i][2]), Vector2(road[i][0], road[i][2]), float(road[i][4]) + 1.5 + minf(turn, 1.6) * 4.0)
 	for br in data.branches:
 		for k in br.pts.size() - 1:
 			_drive_seg(Vector2(br.pts[k][0], br.pts[k][2]), Vector2(br.pts[k + 1][0], br.pts[k + 1][2]), float(br.hw) + 1.0)
@@ -1072,6 +1077,7 @@ func _build_side_roads() -> void:
 		sts[kind] = SurfaceTool.new()
 		sts[kind].begin(Mesh.PRIMITIVE_TRIANGLES)
 	var sleepers: Array[Transform3D] = []
+	var rail_pier_acc := 11.0
 	for r in data.side_roads:
 		var pts: Array = r.pts
 		var hw: String = r.hw
@@ -1126,14 +1132,31 @@ func _build_side_roads() -> void:
 				var up = data.get("underpass")
 				var at_under: bool = up != null and a.distance_to(Vector2(up.at[0], up.at[1])) < 60.0
 				if h(a.x, a.y) < water_level + 2.5 and not at_under:
-					# Teräksinen ristikkopalkki ja pilari veteen.
+					# Ratasilta veden yllä kuten alikulussa: betonikansi reunapalkkeineen ja kaiteineen, pyöreä
+					# pilaripari poikkipalkkeineen n. 22 m välein (ennen tumma palkki ja neliöpilari joka pätkällä).
 					var mid := (a + b) / 2.0
-					for s2 in [-1.0, 1.0]:
-						var q: Vector2 = mid + dir.orthogonal() * 1.9 * s2
-						B.mesh(self, B.boxm(Vector3(0.25, 1.6, a.distance_to(b) + 0.1)), Vector3(q.x, ya + 0.6, q.y), Color(0.3, 0.32, 0.3),
-							Vector3(0, rad_to_deg(atan2(dir.x, dir.y)), 0))
-					B.mesh(self, B.boxm(Vector3(3.2, ya - water_level + 2.0, 1.0)), Vector3(mid.x, (ya + water_level) / 2.0 - 1.2, mid.y),
-						Color(0.55, 0.55, 0.53), Vector3(0, rad_to_deg(atan2(dir.x, dir.y)), 0))
+					var seg_l := a.distance_to(b) + 0.1
+					var rot := Vector3(0, rad_to_deg(atan2(dir.x, dir.y)), 0)
+					var ym := (ya + yb) / 2.0
+					var conc := Color(0.7, 0.69, 0.66)
+					B.mesh(self, B.boxm(Vector3(4.8, 0.8, seg_l)), Vector3(mid.x, ym - 0.45, mid.y), Color(0.52, 0.52, 0.5), rot)
+					for s2: float in [-1.0, 1.0]:
+						var q: Vector2 = mid + dir.orthogonal() * 2.45 * s2
+						B.mesh(self, B.boxm(Vector3(0.3, 1.1, seg_l)), Vector3(q.x, ym - 0.2, q.y), conc, rot)
+						B.tube(self, Vector3(a.x, ya + 1.25, a.y) + Vector3(dir.orthogonal().x, 0, dir.orthogonal().y) * 2.45 * s2,
+							Vector3(b.x, yb + 1.25, b.y) + Vector3(dir.orthogonal().x, 0, dir.orthogonal().y) * 2.45 * s2, 0.035, Color(0.42, 0.44, 0.45))
+						B.mesh(self, B.boxm(Vector3(0.07, 0.95, 0.07)), Vector3(q.x, ym + 0.8, q.y), Color(0.42, 0.44, 0.45))
+					rail_pier_acc += seg_l
+					if rail_pier_acc >= 22.0:
+						rail_pier_acc = 0.0
+						var bottom := water_level - 2.5
+						var ph := ym - 1.3 - bottom
+						for s2: float in [-1.0, 1.0]:
+							var q: Vector2 = mid + dir.orthogonal() * 1.5 * s2
+							B.mesh(self, B.cyl(0.45, 0.45, ph, 14), Vector3(q.x, bottom + ph / 2.0, q.y), conc)
+						B.mesh(self, B.boxm(Vector3(4.6, 0.6, 1.1)), Vector3(mid.x, ym - 1.1, mid.y), conc, rot)
+				else:
+					rail_pier_acc = 11.0  # ensimmäinen pilari n. 11 m rannasta
 	var cols := {"asphalt": Color(0.24, 0.24, 0.25), "gravel": Color(0.56, 0.5, 0.42), "path": Color(0.5, 0.45, 0.36),
 		"rail": Color(0.38, 0.35, 0.32)}
 	for kind in sts:
