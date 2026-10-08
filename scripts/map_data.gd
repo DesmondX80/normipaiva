@@ -127,6 +127,36 @@ const STRAY_SPOTS := [Vector2(870, 1260), Vector2(700, 700), Vector2(215, 860), 
 const JUNTTI_SPOTS := [Vector2(160, 690), Vector2(311, 776), Vector2(452, 841), Vector2(235, 500), Vector2(688, 1118)]
 
 
+## Saloisten rata karttapikseleinä (1 px = 1 m): asemaraide K-Marketin takana (world.gd _build_station), josta
+## rata jatkuu länteen Valtatien yli kartan reunan taakse ja idässä Ketunperäntien jälkeen kaartaa etelään
+## (R 140 m, 60°) ja jatkuu suorana kaakkoon kartan reunan taakse. Linja on haettu kylän rakennusten välistä
+## (lähin seinä n. 5 m), tiet ylitetään tasoristeyksinä.
+const RAIL_ARC_X := 110.0
+const RAIL_ARC_R := 140.0
+const RAIL_ARC_TURN := PI / 3.0
+static var _railway := PackedVector2Array()
+
+
+static func railway() -> PackedVector2Array:
+	if not _railway.is_empty():
+		return _railway
+	var y := SHOP_BUILDING.y - 37.0
+	var x := -1500.0
+	while x < RAIL_ARC_X:
+		_railway.append(Vector2(x, y))
+		x += 8.0
+	var steps := int(RAIL_ARC_R * RAIL_ARC_TURN / 4.0)
+	for k in steps + 1:
+		var th := RAIL_ARC_TURN * k / steps
+		_railway.append(Vector2(RAIL_ARC_X + RAIL_ARC_R * sin(th), y + RAIL_ARC_R - RAIL_ARC_R * cos(th)))
+	var p := _railway[_railway.size() - 1]
+	var d := Vector2(cos(RAIL_ARC_TURN), sin(RAIL_ARC_TURN))
+	while p.x < SIZE.x + 1200.0 and p.y < SIZE.y + 1200.0:
+		p += d * 8.0
+		_railway.append(p)
+	return _railway
+
+
 ## Karttapikseli maailmaan maaston pinnalle (y = maaston korkeus).
 static func w(p: Vector2) -> Vector3:
 	var x := (p.x - ORIGIN.x) * SCALE

@@ -128,6 +128,7 @@ func _bake_village() -> void:
 					col = Color(0.85, 0.7, 0.5)
 					width = 1.5
 			c.draw_polyline(pts.call(r.pts), col, width * wscale)
+		c.draw_polyline(pts.call(Array(M.railway())), Color(0.15, 0.13, 0.12), 2.5 * wscale)  # rata
 	_village_tex = await _render(tex_size, paint)
 
 

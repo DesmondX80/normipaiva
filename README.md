@@ -103,7 +103,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     (punavalkoinen Sr1-veturi ja neljä sinistä VR:n vaunua, yksi niistä ravintolavaunu), joka vihellyttää ohittaessaan.
   - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa Zabukin ohi liikenneympyrään ja siitä
     oikealle Ratatietä rautatieasemalle (oikealla paikallaan radan varressa, laituri radan vieressä); Saloisissa
-    asema on K-Marketin takana. Aseman ovella E: välikuvassa istutaan ravintolavaunussa kahvilla ja korvapuustilla
+    asema on K-Marketin takana, ja rata jatkuu asemalta länteen Valtatien yli ja itään kaarteen jälkeen kaakkoon
+    horisonttiin (tiet tasoristeyksinä). Matkalla juna ohittaa Saloisten päässä savuavan Raahen terästehtaan ja
+    ylittää Vaalan päässä Oulujoen ristikkosillan. Aseman ovella E: välikuvassa istutaan ravintolavaunussa kahvilla ja korvapuustilla
     ja jutellaan mukavia naismatkustajien kanssa lirkuttelubossan soidessa (`tools/lirkuttelu.py` syntetisoi
     biisin `assets/music/lirkuttelu.wav`). Vaalaan tultaessa mopo odottaa aseman pihassa, ja Vaalasta
     lähdettäessä se palaa mökin pihaan kuten muillakin paluureiteillä.

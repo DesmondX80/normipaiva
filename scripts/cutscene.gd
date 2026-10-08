@@ -1095,7 +1095,7 @@ func _build_ride_road(guide: String, village: String) -> Node3D:
 
 # --- Junamatka ravintolavaunussa ----------------------------------------------------
 
-const TRAIN_POS := Vector3(-9000, 0, 3000)
+const TRAIN_POS := Vector3(-12000, 0, -9000)  # oma tasku (ennen sama kuin autotallin sisätila: talli näkyi kuvissa)
 const Train := preload("res://scripts/train.gd")
 const MARJA := {
 	"model": "female", "shirt": Color(0.2, 0.42, 0.68), "pants": Color(0.16, 0.16, 0.2), "shoes": Color(0.12, 0.1, 0.1),
@@ -1130,32 +1130,15 @@ const TRAIN_TALK_SALOINEN := [
 ]
 
 
-## Junamatka Saloisten ja Vaalan asemien välillä: ensin juna ohittaa kameran metsän ja peltojen halki, sitten
-## ravintolavaunussa pöydässä ikkunan vieressä jutellaan mukavia naismatkustajien kanssa (kahvia ja pullaa,
-## maisema vilistää ikkunoissa). done kutsutaan pimeällä.
+## Junamatka Saloisten ja Vaalan asemien välillä kolmessa osassa: lähtö (Saloisista Raahen terästehtaan ohi,
+## Vaalasta Oulujoen ristikkosillan yli), ravintolavaunussa jutellaan mukavia naismatkustajien kanssa (kahvia ja
+## pullaa, maisema vilistää ikkunoissa) ja saapuminen (Vaalaan sillan yli, Saloisiin terästehtaan ohi).
+## Taustalla soi lirkuttelubiisi. done kutsutaan pimeällä.
 func train_ride(to_vaala: bool, done: Callable) -> void:
 	_begin()
 	Sfx.play("door_close", -4.0)
 	Sfx.music_play(0.8, 0.0, Sfx.SONG_LIRKUTTELU)
 	await _fade_to(1.0, 0.4)
-	var root := Node3D.new()
-	root.position = TRAIN_POS
-	_props.add_child(root)
-	_build_train_land(root)
-	var train := Node3D.new()
-	root.add_child(train)
-	var units: Array[Node3D] = []
-	var off := 0.0
-	for spec in [["loco", 18.96], ["coach", 26.4], ["coach", 26.4], ["dining", 26.4], ["coach", 26.4]]:
-		var u := Node3D.new()
-		train.add_child(u)
-		if spec[0] == "loco":
-			Train.build_loco(u, spec[1])
-		else:
-			Train.build_coach(u, spec[1], spec[0] == "dining")
-		u.position.z = off + float(spec[1]) / 2.0
-		off += float(spec[1]) + 0.8
-		units.append(u)
 	var rumble := AudioStreamPlayer.new()
 	rumble.stream = Sfx.stream("tractor_engine")
 	rumble.pitch_scale = 0.42
@@ -1166,43 +1149,20 @@ func train_ride(to_vaala: bool, done: Callable) -> void:
 	_cam.current = true
 	_title.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
 	_title.add_theme_font_size_override("font_size", 80)
-	# 1) Juna ohittaa kameran.
-	const SPEED := 24.0
-	var t0 := Time.get_ticks_msec()
-	var faded := false
-	var honked := false
-	while Time.get_ticks_msec() - t0 < 6000:
-		var t := (Time.get_ticks_msec() - t0) / 1000.0
-		train.position.z = 70.0 - t * SPEED
-		# Ratapenkan vierestä: veturi tulee kohti ja siniset vaunut lipuvat ohi.
-		_cam.global_position = root.to_global(Vector3(11.0, 2.0, -40.0))
-		var look_z := clampf(train.position.z + 12.0 + t * 6.0, -40.0, 80.0)
-		_cam.look_at(root.to_global(Vector3(0, 2.3, look_z)), Vector3.UP)
-		if not faded:
-			faded = true
-			_fade_to(0.0, 0.6)
-			_title.text = "JUNALLA VAALAAN" if to_vaala else "JUNALLA SALOISIIN"
-			_sub.text = "Lippu %s. Ravintolavaunussa on kahvia ja pullaa." % "10 €"
-		if t > 1.0 and not honked:
-			honked = true
-			Sfx.play("horn", -2.0, 0.48, 2.5)
-		await get_tree().process_frame
-	await _fade_to(1.0, 0.4)
-	_title.text = ""
-	_sub.text = ""
-	train.visible = false
+	# 1) Lähtö.
+	await _train_outside("steel" if to_vaala else "bridge", "JUNALLA VAALAAN" if to_vaala else "JUNALLA SALOISIIN",
+		"Raahen terästehdas savuaa radan varressa." if to_vaala else "Oulujoen rautatiesilta. Vaala jää taakse.")
 	# 2) Ravintolavaunu sisältä.
 	var car := Node3D.new()
 	car.position = TRAIN_POS + Vector3(0, 40, 0)
 	_props.add_child(car)
 	var cast := _build_dining_car(car)
 	var scenery: Node3D = cast.scenery
-	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 0.8, false)
-	bubble.no_depth_test = true
 	await _fade_to(0.0, 0.5)
 	var lines: Array = TRAIN_TALK_VAALA if to_vaala else TRAIN_TALK_SALOINEN
 	const LINE := 2.3
-	t0 = Time.get_ticks_msec()
+	const SPEED := 24.0
+	var t0 := Time.get_ticks_msec()
 	var last := -1
 	while Time.get_ticks_msec() - t0 < lines.size() * LINE * 1000.0:
 		var t := (Time.get_ticks_msec() - t0) / 1000.0
@@ -1217,7 +1177,6 @@ func train_ride(to_vaala: bool, done: Callable) -> void:
 				(cast[nm] as Node3D).play("Sitting_Talking" if nm == who else "Sitting_Idle", 0.3)
 		var names := {"minä": "Sinä", "marja": "Marja", "liisa": "Liisa", "helena": "Helena", "tarjoilija": "Tarjoilija"}
 		_sub.text = "%s: %s" % [names[who], lines[k][1]]  # tekstitys alareunassa (kupla leikkautui lähikuvissa)
-		bubble.text = ""
 		# Kamerat: leveä sivukuva käytävältä pöydän poikki (selkänojat eivät peitä), muuten puhujaa vastapäätä
 		# istuvien olan yli kevyesti liukuen.
 		var u := fmod(t, LINE) / LINE
@@ -1231,35 +1190,224 @@ func train_ride(to_vaala: bool, done: Callable) -> void:
 			_cam.global_position = car.to_global(Vector3(lerpf(0.1, 0.0, u), 1.45, -1.6))
 			_cam.look_at(ch.global_position + Vector3(0, 1.0, 0), Vector3.UP)
 		await get_tree().process_frame
+	await _fade_to(1.0, 0.4)
+	_sub.text = ""
+	car.queue_free()
+	# 3) Saapuminen.
+	await _train_outside("bridge" if to_vaala else "steel", "", "Oulujoen silta. Kohta Vaalan asemalla." if to_vaala
+		else "Raahen terästehtaan ohi. Kohta Saloisten asemalla.")
 	rumble.stop()
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)
 
 
-## Maisema junan ohikulkukuvaan: rata sepeleineen, pellot, metsänreuna, sähköratapylväät ja järvi taustalla.
-func _build_train_land(r: Node3D) -> void:
-	B.box(r, Vector3(400, 0.1, 500), Vector3(0, -0.06, -60), Color(0.32, 0.46, 0.2), false)
-	B.box(r, Vector3(4.2, 0.4, 500), Vector3(0, 0.0, -60), Color(0.4, 0.37, 0.33), false)
-	for i in 600:
-		B.box(r, Vector3(2.5, 0.12, 0.25), Vector3(0, 0.24, 190.0 - i * 0.8), Color(0.38, 0.33, 0.28), false)
-	for sx: float in [-0.72, 0.72]:
-		B.box(r, Vector3(0.08, 0.14, 500), Vector3(sx, 0.36, -60), Color(0.5, 0.45, 0.4), false)
-	for i in 20:
-		var z := 180.0 - i * 25.0
-		B.box(r, Vector3(0.25, 7.5, 0.25), Vector3(-3.4, 3.75, z), Color(0.5, 0.5, 0.52), false)
-		B.box(r, Vector3(3.2, 0.15, 0.15), Vector3(-1.9, 7.2, z), Color(0.5, 0.5, 0.52), false)
-	B.tube(r, Vector3(0, 6.9, 190), Vector3(0, 6.9, -310), 0.02, Color(0.15, 0.15, 0.15))
-	for i in 160:
-		var side := -1.0 if i % 2 == 0 else 1.0
-		var x := side * randf_range(18, 120)
-		var z := randf_range(-300, 190)
-		var hgt := randf_range(10, 17)
-		if randf() < 0.55:
-			B.mesh(r, B.cyl(0.0, hgt * 0.22, hgt * 0.8, 7), Vector3(x, hgt * 0.5, z), Color(0.1, 0.24, 0.12))
+## Juna (Sr1 ja neljä sinistä vaunua, keula -Z) välikuviin.
+func _cut_train(parent: Node3D) -> Node3D:
+	var train := Node3D.new()
+	parent.add_child(train)
+	var off := 0.0
+	for spec in [["loco", 18.96], ["coach", 26.4], ["coach", 26.4], ["dining", 26.4], ["coach", 26.4]]:
+		var u := Node3D.new()
+		train.add_child(u)
+		if spec[0] == "loco":
+			Train.build_loco(u, spec[1])
 		else:
-			B.mesh(r, B.cyl(0.18, 0.25, hgt * 0.75, 6), Vector3(x, hgt * 0.37, z), Color(0.55, 0.32, 0.18))
-			B.mesh(r, B.sphere(hgt * 0.2, 7), Vector3(x, hgt * 0.8, z), Color(0.16, 0.32, 0.14))
-	B.box(r, Vector3(700, 0.05, 80), Vector3(-200, 0.03, -330), Color(0.25, 0.42, 0.62), false)
+			Train.build_coach(u, spec[1], spec[0] == "dining")
+		u.position.z = off + float(spec[1]) / 2.0
+		off += float(spec[1]) + 0.8
+	return train
+
+
+## Ulkokuva junasta: "steel" = Raahen terästehdas (savuavat piiput, masuuni, ruostuneet hallit, saastunut maa ja
+## ruskea savusumu) tai "bridge" = Oulujoen teräsristikkosilta Vaalassa (kamera joen rannalta). Pimeästä pimeään.
+func _train_outside(kind: String, title: String, sub: String) -> void:
+	var root := Node3D.new()
+	root.position = TRAIN_POS + (Vector3(0, 0, 0) if kind == "steel" else Vector3(2000, 0, 0))
+	_props.add_child(root)
+	var puffs: Array = []
+	var fog_saved := [env.fog_enabled, env.fog_light_color, env.fog_density, env.adjustment_saturation, env.fog_depth_begin,
+		env.fog_depth_end]
+	if kind == "steel":
+		puffs = _build_steel_land(root)
+		# Ruskea savusumu tehtaan yllä.
+		env.fog_enabled = true
+		env.fog_light_color = Color(0.5, 0.42, 0.33)
+		env.fog_density = 0.02
+		env.fog_depth_begin = 15.0
+		env.fog_depth_end = 260.0
+		env.adjustment_saturation = 0.6
+	else:
+		_build_bridge_land(root)
+	var train := _cut_train(root)
+	const SPEED := 24.0
+	var t0 := Time.get_ticks_msec()
+	var faded := false
+	var honked := false
+	while Time.get_ticks_msec() - t0 < 6500:
+		var t := (Time.get_ticks_msec() - t0) / 1000.0
+		train.position.z = 80.0 - t * SPEED
+		if kind == "steel":
+			# Radan vierestä: veturi tulee kohti tehtaan edessä, vaunut lipuvat ohi savun alla.
+			_cam.global_position = root.to_global(Vector3(14.0, 2.2, -45.0))
+			var look_z := clampf(train.position.z + 15.0 + t * 5.0, -45.0, 90.0)
+			_cam.look_at(root.to_global(Vector3(-8.0, 4.0 + t * 0.6, look_z)), Vector3.UP)
+		else:
+			# Joen rannalta matalalta: juna ylittää ristikkosillan.
+			_cam.global_position = root.to_global(Vector3(42.0, -2.4, -6.0))
+			_cam.look_at(root.to_global(Vector3(0.0, 2.5, clampf(train.position.z + 20.0, -40.0, 30.0))), Vector3.UP)
+		for pf in puffs:
+			var m: MeshInstance3D = pf[0]
+			var base: Vector3 = pf[1]
+			var ph: float = fmod(t * 0.25 + pf[2], 1.0)
+			m.position = base + Vector3(ph * 9.0, ph * 30.0, ph * 4.0)
+			m.scale = Vector3.ONE * (1.0 + ph * 3.5)
+		if not faded:
+			faded = true
+			_fade_to(0.0, 0.6)
+			_title.text = title
+			_sub.text = sub
+		if t > 3.0:
+			_title.text = ""
+		if t > 1.2 and not honked:
+			honked = true
+			Sfx.play("horn", -2.0, 0.48, 2.5)
+		await get_tree().process_frame
+	await _fade_to(1.0, 0.4)
+	_title.text = ""
+	_sub.text = ""
+	env.fog_enabled = fog_saved[0]
+	env.fog_light_color = fog_saved[1]
+	env.fog_density = fog_saved[2]
+	env.adjustment_saturation = fog_saved[3]
+	env.fog_depth_begin = fog_saved[4]
+	env.fog_depth_end = fog_saved[5]
+	root.queue_free()
+
+
+func _rails_along(r: Node3D, z0: float, z1: float, y: float) -> void:
+	B.box(r, Vector3(4.2, 0.4, z1 - z0), Vector3(0, y, (z0 + z1) / 2.0), Color(0.4, 0.37, 0.33), false)
+	var n := int((z1 - z0) / 0.8)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = B.boxm(Vector3(2.5, 0.12, 0.25))
+	mm.instance_count = n
+	for i in n:
+		mm.set_instance_transform(i, Transform3D(Basis(), Vector3(0, y + 0.24, z0 + i * 0.8)))
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = B.mat(Color(0.38, 0.33, 0.28))
+	r.add_child(mmi)
+	for sx: float in [-0.72, 0.72]:
+		B.box(r, Vector3(0.08, 0.14, z1 - z0), Vector3(sx, y + 0.36, (z0 + z1) / 2.0), Color(0.5, 0.45, 0.4), false)
+
+
+## Raahen terästehdas radan varressa: harmaanruskea saastunut maa, oranssit lätäköt ja kuolleet puut, masuuni
+## kehikkoineen, korkeat puna-valkoiset piiput ja savupilvet, ruostuneet hallit, kuljettimet, putkisillat, säiliöt
+## sekä malmi- ja koksikasat. Palauttaa savupilvet [mesh, lähtöpaikka, vaihe] animointia varten.
+func _build_steel_land(r: Node3D) -> Array:
+	B.box(r, Vector3(600, 0.1, 600), Vector3(0, -0.06, -60), Color(0.3, 0.27, 0.24), false)
+	_rails_along(r, -300, 220, 0.0)
+	var rust := Color(0.45, 0.27, 0.18)
+	var steel := Color(0.36, 0.36, 0.37)
+	for i in 10:  # lätäköt
+		var p := Vector3(randf_range(-60, 60), -0.0, randf_range(-250, 150))
+		if absf(p.x) < 5.0:
+			continue
+		B.mesh(r, B.cyl(randf_range(2, 5), randf_range(2, 5), 0.05, 12), p, Color(0.7, 0.4, 0.12))
+	for i in 25:  # kuolleet puut
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var p := Vector3(side * randf_range(8, 30), 0, randf_range(-250, 180))
+		var hgt := randf_range(5, 9)
+		B.mesh(r, B.cyl(0.1, 0.18, hgt, 6), p + Vector3(0, hgt / 2.0, 0), Color(0.3, 0.28, 0.26))
+		var br := B.mesh(r, B.cyl(0.03, 0.06, hgt * 0.4, 5), p + Vector3(0.6, hgt * 0.7, 0), Color(0.3, 0.28, 0.26))
+		br.rotation.z = -0.8
+	# Hallit radan länsipuolella.
+	for i in 6:
+		var z := 120.0 - i * 60.0
+		var w := randf_range(30, 45)
+		var hgt := randf_range(18, 30)
+		B.box(r, Vector3(w, hgt, 50), Vector3(-45 - w / 2.0, hgt / 2.0, z), rust if i % 2 == 0 else steel, false)
+		B.box(r, Vector3(w + 1, 1.2, 51), Vector3(-45 - w / 2.0, hgt, z), steel.darkened(0.3), false)
+		for k in 4:
+			B.box(r, Vector3(0.2, 3.0, 5.0), Vector3(-44.9, hgt * 0.6, z - 18.0 + k * 12.0), Color(0.15, 0.13, 0.12), false)
+	# Masuuni: tumma torni kehikkoineen ja kuumailmakuupat.
+	var bf := Vector3(-70, 0, -60)
+	B.mesh(r, B.cyl(7.0, 9.0, 45.0, 16), bf + Vector3(0, 22.5, 0), Color(0.22, 0.2, 0.19))
+	B.mesh(r, B.cyl(4.0, 7.0, 10.0, 16), bf + Vector3(0, 50.0, 0), Color(0.3, 0.26, 0.22))
+	for k in 4:
+		var a := TAU * k / 4.0
+		B.mesh(r, B.cyl(0.5, 0.5, 60.0, 6), bf + Vector3(cos(a) * 11.0, 30.0, sin(a) * 11.0), steel)
+		B.mesh(r, B.cyl(5.0, 5.0, 38.0, 14), bf + Vector3(-25.0, 19.0, -18.0 + k * 12.0), Color(0.48, 0.44, 0.4))  # kuupat
+	# Piiput puna-valkoisin raidoin ja savu.
+	var puffs: Array = []
+	for cp in [Vector3(-70, 0, 60), Vector3(-110, 0, 20), Vector3(-95, 0, -110), Vector3(-130, 0, -40), Vector3(60, 0, -150)]:
+		var hgt := 55.0 if cp.z > 40.0 else 85.0
+		for band in 8:
+			B.mesh(r, B.cyl(3.2 - band * 0.12, 3.3 - band * 0.12, hgt / 8.0, 14), cp + Vector3(0, hgt / 16.0 + band * hgt / 8.0, 0),
+				Color(0.75, 0.12, 0.08) if band % 2 == 1 else Color(0.9, 0.9, 0.88))
+		for k in 10:
+			var pm := B.mesh(r, B.sphere(4.5, 10), cp + Vector3(0, hgt, 0), Color(0.42, 0.38, 0.35))
+			var mat := B.mat(Color(0.4, 0.35, 0.3, 0.6)).duplicate() as StandardMaterial3D
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			pm.material_override = mat
+			puffs.append([pm, cp + Vector3(0, hgt + 2.0, 0), k / 10.0])
+	# Kasat, kuljettimet ja säiliöt radan itäpuolella.
+	for i in 5:
+		var p := Vector3(randf_range(25, 70), 0, -220.0 + i * 70.0)
+		var hgt := randf_range(8, 16)
+		B.mesh(r, B.cyl(0.0, hgt * 1.4, hgt, 14), p + Vector3(0, hgt / 2.0, 0), Color(0.18, 0.16, 0.15) if i % 2 == 0 else Color(0.45, 0.25, 0.15))
+	for i in 3:
+		var cv := B.mesh(r, B.boxm(Vector3(3.0, 2.0, 80.0)), Vector3(-30 + i * 45, 14.0, -90 + i * 30), steel.darkened(0.2))
+		cv.rotation.x = 0.18
+		cv.rotation.y = 0.6 + i * 0.3
+	for i in 3:
+		B.mesh(r, B.cyl(9.0, 9.0, 14.0, 18), Vector3(30 + i * 22, 7.0, 120), Color(0.55, 0.52, 0.48))
+	B.box(r, Vector3(160, 1.5, 2.0), Vector3(-10, 11.0, -170), rust, false)  # putkisilta radan yli
+	for sx: float in [-40.0, 30.0]:
+		B.box(r, Vector3(1.2, 11.0, 1.2), Vector3(sx, 5.5, -170), rust, false)
+	var sun_l := OmniLight3D.new()
+	sun_l.position = Vector3(0, 40, -60)
+	sun_l.light_color = Color(1.0, 0.8, 0.6)
+	sun_l.light_energy = 0.5
+	sun_l.omni_range = 300.0
+	r.add_child(sun_l)
+	return puffs
+
+
+## Oulujoki Vaalassa: rannat koivikkoineen, leveä joki, teräsristikkosilta (train.gd build_truss) penkereineen ja
+## Vaalan talot ja kirkontorni joen takana.
+func _build_bridge_land(r: Node3D) -> void:
+	const RIVER := Vector2(-45.0, 25.0)  # joen z-väli
+	const WATER_Y := -4.5
+	B.box(r, Vector3(500, 6.0, 300), Vector3(0, -3.0, RIVER.y + 150.0), Color(0.33, 0.47, 0.22), false)
+	B.box(r, Vector3(500, 6.0, 300), Vector3(0, -3.0, RIVER.x - 150.0), Color(0.33, 0.47, 0.22), false)
+	B.box(r, Vector3(500, 0.05, RIVER.y - RIVER.x + 20.0), Vector3(0, WATER_Y, (RIVER.x + RIVER.y) / 2.0), Color(0.2, 0.36, 0.55), false)
+	B.box(r, Vector3(500, 0.1, RIVER.y - RIVER.x + 20.0), Vector3(0, WATER_Y - 3.0, (RIVER.x + RIVER.y) / 2.0), Color(0.3, 0.28, 0.22), false)
+	for zz: float in [RIVER.x, RIVER.y]:  # rantaluiskat
+		var bank := B.mesh(r, B.boxm(Vector3(500, 0.2, 9.0)), Vector3(0, -2.2, zz + (3.5 if zz == RIVER.x else -3.5)), Color(0.42, 0.42, 0.3))
+		bank.rotation.x = 0.55 if zz == RIVER.x else -0.55
+	_rails_along(r, -300, RIVER.x - 2.0, 0.0)
+	_rails_along(r, RIVER.y + 2.0, 220, 0.0)
+	Train.build_truss(r, Vector3(0, 0.0, RIVER.y + 4.0), Vector3(0, 0.0, RIVER.x - 4.0), WATER_Y)
+	for i in 120:
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var x := side * randf_range(9, 150)
+		var z := randf_range(-250, 200)
+		if z > RIVER.x - 6.0 and z < RIVER.y + 6.0:
+			continue
+		var hgt := randf_range(8, 15)
+		if randf() < 0.5:
+			B.mesh(r, B.cyl(0.0, hgt * 0.22, hgt * 0.8, 7), Vector3(x, hgt * 0.4, z), Color(0.1, 0.24, 0.12))
+		else:
+			B.mesh(r, B.cyl(0.12, 0.16, hgt * 0.7, 6), Vector3(x, hgt * 0.35, z), Color(0.92, 0.92, 0.88))
+			B.mesh(r, B.sphere(hgt * 0.18, 7), Vector3(x, hgt * 0.75, z), Color(0.35, 0.55, 0.22))
+	# Vaala joen takana: talot ja kirkontorni.
+	for i in 8:
+		var p := Vector3(-120 + i * 30, 0, -110 - (i % 3) * 18)
+		B.box(r, Vector3(10, 6, 8), p + Vector3(0, 3, 0), [Color(0.85, 0.75, 0.4), Color(0.6, 0.15, 0.1), Color(0.9, 0.9, 0.86)][i % 3], false)
+		B.mesh(r, B.cyl(0.0, 7.0, 3.0, 4), p + Vector3(0, 7.5, 0), Color(0.2, 0.2, 0.22), Vector3(0, 45, 0))
+	B.box(r, Vector3(6, 24, 6), Vector3(70, 12, -140), Color(0.92, 0.9, 0.84), false)
+	B.mesh(r, B.cyl(0.0, 4.5, 9.0, 4), Vector3(70, 28.5, -140), Color(0.25, 0.25, 0.27), Vector3(0, 45, 0))
 
 
 ## Ravintolavaunu sisältä: valkoiset pöytäliinat, punaiset istuimet, puupaneloidut seinät, ikkunarivit molemmin

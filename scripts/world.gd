@@ -209,7 +209,7 @@ func build(step: Callable) -> void:
 	var n0 := _trees.size()
 	_trees = _trees.filter(func(t: Array) -> bool:
 		return not in_lawn(t[0], 2.5) and t[0].distance_to(still) > 6.5 and _road_clearance(t[0]) >= TREE_ROAD_GAP \
-			and not _in_any(t[0], _lots))
+			and not _in_any(t[0], _lots) and not _near_rail(t[0]))
 	if OS.get_cmdline_user_args().has("--puut"):
 		print("PUUT kylässä %d, pois %d · pensasaitaa tien kohdalta pois %.1f m" % [_trees.size(), n0 - _trees.size(),
 			hedges_cut * 0.25])
@@ -1515,26 +1515,119 @@ func _build_station() -> void:
 		var bx := -15.0 + k * 15.0
 		B.box(plat, Vector3(1.8, 0.08, 0.45), Vector3(bx, 0.72, 0.9), Color(0.45, 0.3, 0.18), false)
 		B.box(plat, Vector3(1.8, 0.45, 0.06), Vector3(bx, 0.98, 1.12), Color(0.45, 0.3, 0.18), false)
-	var tz := plat.position.z - 3.5
-	for k in 14:
-		var seg := Node3D.new()
-		seg.position = Vector3(c.x - 46.0 + k * 4.4 + 2.2, 0, tz)
-		add_child(seg)
-		B.box(seg, Vector3(4.4, 0.2, 3.2), Vector3(0, 0.1, 0), Color(0.38, 0.35, 0.32), false)  # sepeli
-		for sl in 6:
-			B.box(seg, Vector3(0.24, 0.16, 2.4), Vector3(-1.85 + sl * 0.74, 0.25, 0), Color(0.4, 0.38, 0.35), false)
-		for rz: float in [-0.72, 0.72]:
-			B.box(seg, Vector3(4.4, 0.14, 0.08), Vector3(0, 0.38, rz), Color(0.5, 0.45, 0.4), false)
-	for e in 2:
-		var bs := Node3D.new()
-		bs.position = Vector3(c.x - 46.0 + (1.0 if e == 0 else 14 * 4.4 - 1.0), 0, tz)
-		bs.rotation.y = PI / 2.0 if e == 0 else -PI / 2.0
-		add_child(bs)
-		B.box(bs, Vector3(2.6, 0.5, 0.4), Vector3(0, 1.0, 0), Color(0.8, 0.1, 0.08), false)
-		for sx: float in [-0.75, 0.75]:
-			B.box(bs, Vector3(0.18, 1.1, 0.18), Vector3(sx, 0.55, 0), Color(0.25, 0.25, 0.25), false)
-	var lot := PackedVector2Array([c + Vector2(-50, -12), c + Vector2(16, -12), c + Vector2(16, -40), c + Vector2(-50, -40)])
+	_build_railway()
+	var lot := PackedVector2Array([c + Vector2(-50, -12), c + Vector2(16, -12), c + Vector2(16, -34), c + Vector2(-50, -34)])
 	_lots.append(lot)
+
+
+## Saloisten rata (M.railway): sepelipenger, kiskot ja ratapölkyt maaston mukaan (korkeus pehmennetty, ei
+## kuoppia) asemalta horisonttiin molempiin suuntiin, tasoristeyksissä Andreaksen ristit. Puut pois radalta.
+var _rail_grid := {}
+
+
+func _build_railway() -> void:
+	var pts := PackedVector2Array()
+	for q in M.railway():
+		pts.append(M.w2(q))
+	var raw := PackedFloat32Array()
+	for p in pts:
+		raw.append(T.h(p.x, p.y))
+	var ys := PackedFloat32Array()
+	for i in pts.size():
+		var acc := 0.0
+		var nn := 0
+		for j in range(maxi(i - 4, 0), mini(i + 5, pts.size())):
+			acc += raw[j]
+			nn += 1
+		ys.append(maxf(acc / nn, raw[i]) + 0.05)
+	var ballast := _new_st()
+	var rails := _new_st()
+	var sleepers: Array[Transform3D] = []
+	for i in pts.size() - 1:
+		var a := pts[i]
+		var b := pts[i + 1]
+		var dir := (b - a).normalized()
+		var n := dir.orthogonal()
+		var ya := ys[i]
+		var yb := ys[i + 1]
+		var v := func(p: Vector2, y: float) -> Vector3: return Vector3(p.x, y, p.y)
+		for side: float in [-1.0, 1.0]:
+			for vv in [v.call(a + n * side * 1.7, ya + 0.22), v.call(b + n * side * 1.7, yb + 0.22), v.call(b + n * side * 2.8, yb - 0.3),
+					v.call(a + n * side * 1.7, ya + 0.22), v.call(b + n * side * 2.8, yb - 0.3), v.call(a + n * side * 2.8, ya - 0.3)]:
+				ballast.add_vertex(vv)
+		for vv in [v.call(a - n * 1.7, ya + 0.22), v.call(b - n * 1.7, yb + 0.22), v.call(b + n * 1.7, yb + 0.22),
+				v.call(a - n * 1.7, ya + 0.22), v.call(b + n * 1.7, yb + 0.22), v.call(a + n * 1.7, ya + 0.22)]:
+			ballast.add_vertex(vv)
+		for off: float in [-0.72, 0.72]:
+			var o := n * off
+			for vv in [v.call(a + o - n * 0.04, ya + 0.42), v.call(b + o - n * 0.04, yb + 0.42), v.call(b + o + n * 0.04, yb + 0.42),
+					v.call(a + o - n * 0.04, ya + 0.42), v.call(b + o + n * 0.04, yb + 0.42), v.call(a + o + n * 0.04, ya + 0.42)]:
+				rails.add_vertex(vv)
+		var segs := int(a.distance_to(b) / 0.75)
+		for k in segs:
+			var t := float(k) / segs
+			var p := a.lerp(b, t)
+			sleepers.append(Transform3D(Basis(Vector3.UP, atan2(-dir.x, -dir.y)), Vector3(p.x, lerpf(ya, yb, t) + 0.3, p.y)))
+		var key := Vector2i(floori(a.x / 20.0), floori(a.y / 20.0))
+		if not _rail_grid.has(key):
+			_rail_grid[key] = []
+		_rail_grid[key].append(a)
+	for pair in [[ballast, Color(0.42, 0.39, 0.35)], [rails, Color(0.55, 0.5, 0.45)]]:
+		var st: SurfaceTool = pair[0]
+		st.generate_normals()
+		var mi := MeshInstance3D.new()
+		mi.mesh = st.commit()
+		var m := B.mat(pair[1]).duplicate() as StandardMaterial3D
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mi.material_override = m
+		mi.set_meta("draped", true)
+		add_child(mi)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = B.boxm(Vector3(2.4, 0.16, 0.24))
+	mm.instance_count = sleepers.size()
+	for i in sleepers.size():
+		mm.set_instance_transform(i, sleepers[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = B.mat(Color(0.36, 0.32, 0.28))
+	mmi.set_meta("draped", true)
+	add_child(mmi)
+	# Tasoristeykset: Andreaksen risti tien kummallekin puolelle.
+	for r in M.ROADS:
+		if r.type == "path":
+			continue
+		var rp: Array = r.pts
+		for k in rp.size() - 1:
+			var ra := M.w2(rp[k])
+			var rb := M.w2(rp[k + 1])
+			for i in pts.size() - 1:
+				var hit = Geometry2D.segment_intersects_segment(ra, rb, pts[i], pts[i + 1])
+				if hit == null:
+					continue
+				var rdir := (rb - ra).normalized()
+				var tdir := (pts[i + 1] - pts[i]).normalized()
+				for sd: float in [-1.0, 1.0]:
+					var at: Vector2 = hit + rdir * sd * 5.5 + tdir * sd * 3.0
+					var pole := Node3D.new()
+					pole.position = Vector3(at.x, 0, at.y)
+					pole.rotation.y = atan2(rdir.x, rdir.y) + (PI if sd < 0.0 else 0.0)
+					add_child(pole)
+					B.box(pole, Vector3(0.1, 2.6, 0.1), Vector3(0, 1.3, 0), Color(0.9, 0.9, 0.9), false)
+					for tilt: float in [0.7, -0.7]:
+						var arm := B.mesh(pole, B.boxm(Vector3(1.2, 0.18, 0.04)), Vector3(0, 2.3, 0.07), Color(0.85, 0.1, 0.08))
+						arm.rotation.z = tilt
+
+
+func _near_rail(p: Vector2, r := 3.5) -> bool:
+	# Radan pisteet ovat 4-8 m välein: lähimmän pisteen etäisyys + puolikas väli riittää tähän tarkkuuteen.
+	var k0 := Vector2i(floori(p.x / 20.0), floori(p.y / 20.0))
+	for cx in range(k0.x - 1, k0.x + 2):
+		for cz in range(k0.y - 1, k0.y + 2):
+			for q: Vector2 in _rail_grid.get(Vector2i(cx, cz), []):
+				if q.distance_to(p) < r + 4.0:
+					return true
+	return false
 
 
 ## Taksi odottaa K-Marketin taksitolpalla: kuski ratissa ja radiosta soi tunnusbiisi hiljaa (kuuluu vain lähellä).
