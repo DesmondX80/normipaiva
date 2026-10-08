@@ -671,8 +671,48 @@ static func map_data() -> Dictionary:
 	for c in [AREA_MIN, Vector2(AREA_MAX.x, AREA_MIN.y), AREA_MAX, Vector2(AREA_MIN.x, AREA_MAX.y)]:
 		area.append(to_local2(c))
 	out.area = area
+	_add_site_tracks(out)
 	_map = out
 	return _map
+
+
+## Soratiet Salmisen uimarannalle, Ranta-Rosvolle sekä Keskimmäisen laavulle ja tynnyrisaunalle: lähimmästä
+## tienkohdasta, josta suora linja ei kulje veden läpi, 5 m päähän kohteesta (OSM:ssä laavulle oli yli 100 m metsää).
+static func _add_site_tracks(out: Dictionary) -> void:
+	var wet := func(p: Vector2) -> bool:
+		for w in out.water:
+			if Geometry2D.is_point_in_polygon(p, w):
+				return true
+		return false
+	for site in [BEACH_MAP, ROSVO_MAP, LAAVU_MAP]:
+		var goal := to_local2(site)
+		var best := Vector2.INF
+		var bd := INF
+		for r in out.roads:
+			if r.type in ["path", "footway"]:
+				continue
+			var pts: PackedVector2Array = r.pts
+			for k in pts.size() - 1:
+				var segs := maxi(1, int(pts[k].distance_to(pts[k + 1]) / 4.0))
+				for sgi in segs + 1:
+					var q := pts[k].lerp(pts[k + 1], float(sgi) / segs)
+					var d := q.distance_to(goal)
+					if d >= bd or d > 400.0:
+						continue
+					var dry := true
+					for t in range(1, int(d / 2.0)):
+						if wet.call(q.lerp(goal, t * 2.0 / d)):
+							dry = false
+							break
+					if dry:
+						bd = d
+						best = q
+		if best == Vector2.INF or bd < 8.0:
+			continue
+		var end := goal + (best - goal).normalized() * 5.0
+		var line := PackedVector2Array([best, best.lerp(end, 0.5), end])
+		var bb := Rect2(best, Vector2.ZERO).expand(end)
+		out.roads.append({"type": "track", "name": "", "pts": line, "bbox": bb.grow(6.0)})
 
 
 ## Onko paikallinen piste järvessä (tai lammessa).

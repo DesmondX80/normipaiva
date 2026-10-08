@@ -142,7 +142,7 @@ func _render(tex_size: Vector2i, paint: Callable) -> Texture2D:
 func _draw() -> void:
 	if player != null:
 		_origin = Vector2(player.global_position.x, player.global_position.z)
-	if mokki != null and player != null and player.global_position.distance_to(mokki.global_position) < MOKKI_SHOW_DIST:
+	if mokki != null and player != null and _near_mokki():
 		_draw_mokki()
 		return
 	if _village_tex != null:
@@ -176,6 +176,15 @@ func _draw() -> void:
 		draw_colored_polygon(PackedVector2Array([p + f * 8.0, p - f * 5.0 + r * 5.0, p - f * 5.0 - r * 5.0]), Color.WHITE)
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.85), false, 3.0)
 	draw_string(ThemeDB.fallback_font, Vector2(size.x / 2.0 - 4, 14), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+
+
+## Mökin kävelyalueella (myös Salmiset ja Keskimmäinen, n. 1,7 km mökistä) tai lähellä sitä: mökin lähikartta.
+## Ennen raja oli 650 m mökistä, ja kauempana tutka yritti näyttää kyläkarttaa mökin kehyksessä (tyhjä ruutu).
+func _near_mokki() -> bool:
+	if player.global_position.distance_to(mokki.global_position) < MOKKI_SHOW_DIST:
+		return true
+	var l: Vector3 = mokki.to_local(player.global_position)
+	return Mokki.in_area(l.x, l.z, -150.0)
 
 
 ## Mökin oma lähitutka: sama kehys, mutta sisältö on mökin piha, järvi ja rakennukset kyläkartan sijaan

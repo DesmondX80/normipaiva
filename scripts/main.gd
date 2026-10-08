@@ -10806,6 +10806,33 @@ func _maybe_screenshot() -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_perilla_%s.png" % leg))
 			get_tree().quit()
+		"mokkisalminen":
+			# Jalan Salmisen rannalla, Ranta-Rosvolla ja Keskimmäisen laavulla: soratiet perille ja minikartta näkyvissä.
+			_toggle_mount()
+			for spot in [["_ranta", mokki.beach_pos], ["_rosvo", mokki.rosvo_pos], ["_laavu", mokki.laavu_fire]]:
+				var lp: Vector3 = spot[1]
+				walker_out.global_position = mokki.gpos(lp + Vector3(0, 1.0, 0))
+				var sp := Vector2(lp.x, lp.z)
+				var data: Dictionary = Mokki.map_data()
+				var best := INF
+				var near := Vector2.ZERO
+				for r in data.roads:
+					var pts: PackedVector2Array = r.pts
+					for k in pts.size() - 1:
+						var q := Geometry2D.get_closest_point_to_segment(sp, pts[k], pts[k + 1])
+						if q.distance_to(sp) < best:
+							best = q.distance_to(sp)
+							near = q
+				var face := Vector3(near.x - lp.x, 0, near.y - lp.z)
+				walker_out.global_rotation.y = atan2(face.x, face.z) + mokki.global_rotation.y
+				walker_out.activate_camera()
+				for i in 30:
+					await get_tree().process_frame
+				print("SALMINEN %s: tiestä %.1f m, minikartta näkyy %s (mökin kartta %s), tila %s" % [spot[0], best, _minimap.visible,
+					_minimap._near_mokki(), state])
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", spot[0] + ".png"))
+			get_tree().quit()
 		"mokkiajoalue":
 			# Mopon ajoalue (vaala.gd drivable) kuvaksi ja kokeet: tieltä suoraan ja viistosti metsään, sekä
 			# pysäköintipaikoilta liikkeelle.
