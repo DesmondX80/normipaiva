@@ -18,6 +18,15 @@ var bike: Node3D  # näytetään kun liikutaan jalan
 var mokki: Node3D
 var target := Vector3.ZERO
 var show_target := true
+## Vaalan mopomatka (main.gd asettaa): vaala.gd, mopo ja onko pelaaja Vaalan maailmassa.
+var vaala: Node3D
+var vaala_mopo: Node3D
+var vaala_on := false
+const VAALA_RANGE := 220.0
+const VAALA_TEX_SCALE := 0.5
+var _vaala_tex: Texture2D
+var _vaala_origin := Vector2.ZERO
+var _vaala_building := false
 
 ## Staattinen kartta (pellot, metsät, vedet, tiet, rakennukset) piirretään kerran tekstuuriksi (SubViewport) ja
 ## joka ruudulla näytetään vain pelaajan ympärille leikattu pala. Ennen kartta piirrettiin kokonaan uudelleen joka
@@ -142,6 +151,9 @@ func _render(tex_size: Vector2i, paint: Callable) -> Texture2D:
 func _draw() -> void:
 	if player != null:
 		_origin = Vector2(player.global_position.x, player.global_position.z)
+	if vaala_on and vaala != null and player != null:
+		_draw_vaala()
+		return
 	if mokki != null and player != null and _near_mokki():
 		_draw_mokki()
 		return
@@ -176,6 +188,96 @@ func _draw() -> void:
 		draw_colored_polygon(PackedVector2Array([p + f * 8.0, p - f * 5.0 + r * 5.0, p - f * 5.0 - r * 5.0]), Color.WHITE)
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.85), false, 3.0)
 	draw_string(ThemeDB.fallback_font, Vector2(size.x / 2.0 - 4, 14), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+
+
+## Vaalan matkan tutka (mopolla tai jalan): Vaalan maailman kartta pelaajan ympäriltä, pohjoinen ylös.
+func _draw_vaala() -> void:
+	var k := (SIZE_PX / 2.0) / VAALA_RANGE
+	var lp: Vector3 = vaala.to_local(player.global_position)
+	var o := Vector2(lp.x, lp.z)
+	var vl := func(p: Vector2) -> Vector2: return (p - o) * k + _center
+	if _vaala_tex == null:
+		if not _vaala_building:
+			_vaala_building = true
+			_bake_vaala()
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.2, 0.3, 0.16, 0.95))
+	else:
+		var src := Rect2((o - _vaala_origin) * VAALA_TEX_SCALE - Vector2.ONE * VAALA_RANGE * VAALA_TEX_SCALE,
+			Vector2.ONE * 2.0 * VAALA_RANGE * VAALA_TEX_SCALE)
+		draw_texture_rect_region(_vaala_tex, Rect2(Vector2.ZERO, size), src)
+	var marks := [[vaala.siitari, Color(0.7, 0.1, 0.08), "S"]]
+	if vaala.kmarket_door != Vector3.ZERO:
+		marks.append([Vector2(vaala.kmarket_door.x, vaala.kmarket_door.z), Color(1.0, 0.5, 0.0), "K"])
+	if vaala.station_door != Vector3.ZERO:
+		marks.append([Vector2(vaala.station_door.x, vaala.station_door.z), Color(0.2, 0.4, 0.8), "J"])
+	if vaala.lava_door != Vector3.ZERO:
+		marks.append([Vector2(vaala.lava_door.x, vaala.lava_door.z), Color(0.6, 0.15, 0.1), "L"])
+	if vaala._zabuki != Vector3.INF:
+		marks.append([Vector2(vaala._zabuki.x, vaala._zabuki.z), Color(0.95, 0.7, 0.15), "Z"])
+	marks.append([Vector2(vaala.mokki_mopo.x, vaala.mokki_mopo.z), Color(0.8, 0.15, 0.1), "P"])
+	for m in marks:
+		_marker(_clamp_edge(vl.call(m[0])), m[1], m[2])
+	if vaala_mopo != null and vaala_mopo != player:
+		var mp: Vector3 = vaala.to_local(vaala_mopo.global_position)
+		_bike_icon(_clamp_edge(vl.call(Vector2(mp.x, mp.z))))
+	var fwd3 := vaala.global_transform.basis.inverse() * (-player.global_transform.basis.z)
+	var f := Vector2(fwd3.x, fwd3.z).normalized()
+	var r := f.orthogonal()
+	var p := _center
+	draw_colored_polygon(PackedVector2Array([p + f * 8.0, p - f * 5.0 + r * 5.0, p - f * 5.0 - r * 5.0]), Color.WHITE)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.85), false, 3.0)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x / 2.0 - 4, 14), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+
+
+## Vaalan maailman staattinen tutkakartta tekstuuriksi (kerran): maankäyttö vaala.gd:n ruudukosta, mopotie, sivutiet,
+## rata ja rakennukset.
+func _bake_vaala() -> void:
+	var nx: int = vaala._nx
+	var nz: int = vaala._nz
+	var cell: float = vaala._cell
+	var lo := Vector2(vaala._x0, vaala._z0) - Vector2.ONE * cell / 2.0
+	_vaala_origin = lo
+	var tex_size := Vector2i((Vector2(nx, nz) * cell * VAALA_TEX_SCALE).ceil())
+	var pal := [Color(0.2, 0.32, 0.16), Color(0.62, 0.6, 0.38), Color(0.45, 0.43, 0.3), Color(0.3, 0.5, 0.75),
+		Color(0.4, 0.48, 0.32), Color(0.5, 0.5, 0.42), Color(0.5, 0.5, 0.42), Color(0.45, 0.42, 0.38)]
+	var px := PackedByteArray()
+	px.resize(nx * nz * 3)
+	var codes: PackedByteArray = vaala._codes
+	for q in nx * nz:
+		var col: Color = pal[mini(codes[q], 7)]
+		px[q * 3] = int(col.r * 255.0)
+		px[q * 3 + 1] = int(col.g * 255.0)
+		px[q * 3 + 2] = int(col.b * 255.0)
+	var land := ImageTexture.create_from_image(Image.create_from_data(nx, nz, false, Image.FORMAT_RGB8, px))
+	var kk := (SIZE_PX / 2.0) / VAALA_RANGE
+	var wscale := VAALA_TEX_SCALE / kk
+	var tp := func(p: Vector2) -> Vector2: return (p - lo) * VAALA_TEX_SCALE
+	var data: Dictionary = vaala.data
+	var paint := func(c: Control) -> void:
+		c.draw_texture_rect(land, Rect2(Vector2.ZERO, Vector2(tex_size)), false)
+		for bd in data.buildings:
+			var bp := PackedVector2Array()
+			for q in bd.pts:
+				bp.append(tp.call(Vector2(q[0], q[1])))
+			if bp.size() >= 3 and not Geometry2D.triangulate_polygon(bp).is_empty():
+				c.draw_colored_polygon(bp, Color(0.62, 0.6, 0.56))
+		for r in data.side_roads:
+			var rp := PackedVector2Array()
+			for q in r.pts:
+				rp.append(tp.call(Vector2(q[0], q[1])))
+			if rp.size() < 2:
+				continue
+			if r.kind == "rail":
+				c.draw_polyline(rp, Color(0.25, 0.22, 0.2), 2.0 * wscale)
+			elif r.hw in ["footway", "cycleway", "path", "pedestrian", "track"]:
+				c.draw_polyline(rp, Color(0.8, 0.7, 0.55), 1.2 * wscale)
+			else:
+				c.draw_polyline(rp, Color(0.88, 0.88, 0.85), 2.5 * wscale)
+		var line := PackedVector2Array()
+		for q in data.road:
+			line.append(tp.call(Vector2(q[0], q[2])))
+		c.draw_polyline(line, Color(0.95, 0.8, 0.2), 4.0 * wscale)
+	_vaala_tex = await _render(tex_size, paint)
 
 
 ## Mökin kävelyalueella (myös Salmiset ja Keskimmäinen, n. 1,7 km mökistä) tai lähellä sitä: mökin lähikartta.

@@ -8792,7 +8792,11 @@ func _update_hud() -> void:
 	_clock_hud.day = day
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "lava"]) and not _in_vaala
+	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "lava", "cutscene"])
+	_minimap.vaala_on = _in_vaala and mopo_trip != null
+	if _minimap.vaala_on:
+		_minimap.vaala = mopo_trip.vaala
+		_minimap.vaala_mopo = mopo_trip.mopo
 	_minimap.mokki_forage = mokki_forage if mokki_forage_revealed else []
 	_minimap.target = shop_zone if state == "to_shop" else home_zone
 	_minimap.show_target = false  # ei tehtäväkohdetta: kauppa ja koti näkyvät kartalla merkkeinä
@@ -10738,11 +10742,50 @@ func _maybe_screenshot() -> void:
 			mp.position = vl.road_pos(si) + Vector3(0, 0.6, 0) + d.cross(Vector3.UP) * 1.6
 			mp.rotation.y = atan2(-d.x, -d.z)
 			mp.activate_camera()
-			var goals: Array = [rc + (vl.road_pos(si) - rc).normalized() * 9.0, rc + Vector3(ast.along[0], 0, ast.along[1]).rotated(Vector3.UP, -0.9) * 9.0,
-				Vector3(ast.door[0], 0, ast.door[1]) + Vector3(ast.out[0], 0, ast.out[1]) * 2.5]
+			# Reitti: ympyrän länsilaita, Ratatie ympyrästä eteenpäin pätkä pätkältä ja aseman ajotie ovelle.
+			var goals: Array = [rc + (vl.road_pos(si) - rc).normalized() * 9.0]
+			var chain: Array = []
+			var at2 := Vector2(rc.x, rc.z)
+			var used := {}
+			for step in 10:
+				var best_r = null
+				var best_d := 25.0
+				var rev := false
+				for r in vl.data.side_roads:
+					if not (r.get("name", "") in ["Ratatie", "Asematie"]) or used.has(r):
+						continue
+					var a2 := Vector2(r.pts[0][0], r.pts[0][1])
+					var b2 := Vector2(r.pts[-1][0], r.pts[-1][1])
+					for e in 2:
+						var d2 := (a2 if e == 0 else b2).distance_to(at2)
+						if d2 < best_d:
+							best_d = d2
+							best_r = r
+							rev = e == 1
+				if best_r == null:
+					break
+				used[best_r] = true
+				var rp: Array = best_r.pts.duplicate()
+				if rev:
+					rp.reverse()
+				chain.append_array(rp)
+				at2 = Vector2(rp[-1][0], rp[-1][1])
+			var acc_start := Vector2.ZERO
+			for r in vl.data.side_roads:
+				if r.get("name", "") == "Aseman piha":
+					acc_start = Vector2(r.pts[0][0], r.pts[0][1])
+					var kmin := 0
+					for k in chain.size():
+						if Vector2(chain[k][0], chain[k][1]).distance_to(acc_start) < Vector2(chain[kmin][0], chain[kmin][1]).distance_to(acc_start):
+							kmin = k
+					for k in range(0, kmin + 1, 2):
+						goals.append(Vector3(chain[k][0], 0, chain[k][1]))
+					for q in r.pts:
+						goals.append(Vector3(q[0], 0, q[1]))
+			print("ASEMA reitillä %d tavoitetta, Ratatietä %d pistettä" % [goals.size(), chain.size()])
 			var gi := 0
 			Input.action_press("forward", 0.5)
-			for i in 60 * 40:
+			for i in 60 * 90:
 				await get_tree().physics_frame
 				var goal: Vector3 = goals[gi]
 				var gd := Vector2(mp.position.x - goal.x, mp.position.z - goal.z).length()
@@ -10764,6 +10807,11 @@ func _maybe_screenshot() -> void:
 			for i in 20:
 				await get_tree().physics_frame
 			print("ASEMA mopolla ovelta %.1f m, vihje '%s'" % [Vector2(mp.position.x - tg.x, mp.position.z - tg.z).length(), mopo_trip.hint])
+			var rd := INF
+			for q in chain:
+				rd = minf(rd, Vector2(q[0] - mp.position.x, q[1] - mp.position.z).length())
+			print("ASEMA mopo %s, Ratatiestä %.1f m, ajettava %s, reuna %.2f, tavoite %d/%d %s, seinä %s" % [mp.position, rd,
+				vl.drivable(mp.position.x, mp.position.z), mp._curb, gi, goals.size(), goals[gi], mp.is_on_wall()])
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
 			get_tree().quit()

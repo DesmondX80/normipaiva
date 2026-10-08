@@ -100,14 +100,21 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     reunassa mopo liukuu kuin reunakiveä vasten (sivutiet, parkit, tori, lavan piha ja ovien edustat ovat ajettavia).
     Radan alikulku on ohikulkuvideon mukainen betonisilta pilaripareineen, ja penger laskee luiskana sillan alle.
     Rata ylittää Oulujoen tiesillan tasossa teräksisellä ristikkosillalla, ja radalla kulkee silloin tällöin juna
-    (punainen veturi henkilövaunuineen tai tukkijuna), joka vihellyttää ohittaessaan. Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet
+    (punainen VR:n veturi, matkustajavaunu ja ravintolavaunu), joka vihellyttää ohittaessaan.
+  - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa Zabukin ohi liikenneympyrään ja siitä
+    oikealle Ratatietä rautatieasemalle (oikealla paikallaan radan varressa, laituri radan vieressä); Saloisissa
+    asema on K-Marketin takana. Aseman ovella E: välikuvassa istutaan ravintolavaunussa kahvilla ja korvapuustilla
+    ja jutellaan mukavia naismatkustajien kanssa. Vaalaan tultaessa mopo odottaa aseman pihassa, ja Vaalasta
+    lähdettäessä se palaa mökin pihaan kuten muillakin paluureiteillä.
+  - **Minikartta** näkyy myös Vaalan matkalla (mopolla ja jalan) ja mökillä koko kävelyalueella Salmisille asti.
+    Salmisen uimarannalle, Ranta-Rosvolle ja Keskimmäisen laavulle (tynnyrisauna) vie soratie. Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet
     ja rakennusten pohjat maastotietokannasta, rakennusten korkeudet ja tienvarren metsä (noin 200 000 puuta)
     laserkeilauksesta ja puulajit Luken VMI:stä (`tools/vaala_bake.py`). Keskustassa on K-Market Tervaportti:
     sama kauppa kuin kylässä, ja vasemmalla seinällä Alkon hylly (Koskenkorva kätköviinaksi, T ottaa huikan).
     Pelissä kauppa on Siitarin vieressä Vaalantien varressa (todellisuudessa n. 400 m kauempana), ja
     pankkiautomaatti on kaupan seinällä. Jos rahat eivät riitä, kaljat ja Alkon pullot voi viedä ovesta
     juoksukaljoina maksamatta (kylän K-Marketissa samoin). Mopotie päättyy torille Siitarin viereen: torin päädyssä
-    on Zabuki (olut ja hampurilaiset) ja Siitaria vastapäätä Gasthaus. `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
+    on Zabuki (olut ja hampurilaiset) ja Siitaria vastapäätä Gasthaus. Zabukin jälkeen Vaalantiellä on liikenneympyrä. `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
     laserpuut rakennusten, parkkien ja teiden päältä (latvusmallissa katotkin näkyivät puina). Niemellä, jossa Oulujoki alkaa Oulujärvestä (Vuolijoentieltä oikealle
     asfaltoitua Pahalahdentietä juuri ennen radan alikulkua; `tools/vaala_lava.py` tekee niemen, leveän joen ja
     järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (punamullatut seinät, luukut auki, bändi
