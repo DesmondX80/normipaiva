@@ -10068,14 +10068,25 @@ func _maybe_screenshot() -> void:
 			print("LAVA aitaa päin: aidan pohjoispuolella %.1f m (negatiivinen = läpi)" % (beside.z - mp.position.z))
 			get_tree().quit()
 		"mokkivaalakartta":
-			# Neittävä–Vaala-kartta (M) mopolla lavan luona: koko alue, keskusta lähempää ja mökin piha.
+			# Neittävä–Vaala-kartta (M): ensin mökillä jalan Salmisen uimarannalla (_jalan), sitten mopolla lavan luona:
+			# koko alue, keskusta lähempää, lava ja mökin piha.
+			_toggle_mount()
+			walker_out.global_position = mokki.gpos(mokki.beach_pos + Vector3(0, 1.0, 3.0))
+			for i in 5:
+				await get_tree().process_frame
+			_paper.toggle()
+			for i in 12:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_jalan.png"))
+			_paper.toggle()
 			_start_mopo()
 			mopo_trip.mopo.position = mopo_trip.vaala.lava_door + Vector3(0, 0.6, 0)
 			for i in 10:
 				await get_tree().process_frame
 			_paper.toggle()
-			var views := [["_koko.png", Vector2.ZERO, 0.0], ["_keskusta.png", Vector2(1000, -1200), 1.0],
-				["_lava.png", Vector2(560, -500), 2.0], ["_mokki.png", Vector2(0, 0), 2.5]]
+			var views := [["_koko.png", Vector2.ZERO, 0.0], ["_keskusta.png", Vector2(800, -900), 1.0],
+				["_lava.png", Vector2(660, -270), 2.0], ["_mokki.png", Vector2(0, 0), 2.5], ["_neittava.png", Vector2(-120, -560), 0.7]]
 			for vw in views:
 				if vw[2] > 0.0:
 					_paper._vcenter = vw[1]

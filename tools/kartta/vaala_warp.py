@@ -112,6 +112,22 @@ class Warp:
         return rx, rz, ground, one, code
 
 
+class Forward:
+    """Todellinen piste -> pelin piste (Warp.inv käänteisenä): lähin pelin ruutu, jonka todellinen paikka on
+    lähimpänä. Ruudukko on tarkka maasto (4 m), joten tarkkuus on ruudun luokkaa 1:1-alueilla ja sivusuunnan
+    laajennuksen kohdalla sitä karkeampi (virhe palautetaan)."""
+
+    def __init__(self, gx, gz, rx, rz):
+        from scipy.spatial import cKDTree
+        self.g = np.c_[np.asarray(gx, np.float64).ravel(), np.asarray(gz, np.float64).ravel()]
+        self.tree = cKDTree(np.c_[np.asarray(rx, np.float64).ravel(), np.asarray(rz, np.float64).ravel()])
+
+    def __call__(self, pts):
+        """pts: [(x, z), ...] todellisessa kehyksessä -> (pelin pisteet N x 2, virhe m)."""
+        d, i = self.tree.query(np.asarray(pts, np.float64).reshape(-1, 2))
+        return self.g[i], d
+
+
 def dem_at(fd, x, z, smooth=0):
     """Korkeusmalli (vaala_tarkka.FrameDem) taulukoille, bilineaarisesti."""
     if smooth and smooth not in fd._smooth:
