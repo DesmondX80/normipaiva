@@ -63,6 +63,8 @@ NEITT_PAD = 20.0   # Neittäväntien risteys 1:1 näin kaukaa ennen käännöst�
 # Neittävän koulu soratien varressa.
 BUILDING_SCALE = {-100305: 0.5}
 GASTHAUS_ID = 534430535  # torin laidan talo, vaala.gd _gasthaus_front
+# Pois kokonaan: S-Market jäi tiivistyksessä Oulujoen ylityksen ja keskustan väliin ahtaalle.
+DROP_BUILDINGS = ("S-market",)
 TOWN_R = 480.0     # keskustan tarkka alue Siitarista (kaikki rakennukset, kadut ja rata)
 RAIL_1TO1 = 150.0  # 1:1 alkaa näin paljon ennen radan alikulkua (Vuolijoentie radan ali juuri ennen Oulujokea)
 # Alikulusta keskustaan: Oulujoen ylitys ja itärannan alku tiivistetään TOWN_K-kertaisesti länsirannalta (sillan alku)
@@ -71,7 +73,7 @@ RAIL_1TO1 = 150.0  # 1:1 alkaa näin paljon ennen radan alikulkua (Vuolijoentie 
 # toista (town_off), joka on siten lähempänä alikulkua kuin todellisuudessa.
 TOWN_K = 3.5
 TOWN_GATE = 130.0  # keskustan portti näin kaukana ennen Siitaria sillalta Siitariin -akselilla; sitä ennen olevista
-                   # vain palvelut (S-Market, terveysasema, Seurantalo...) siirretään kokonaisina heti sillan jälkeen
+                   # vain palvelut (terveysasema, Seurantalo...) siirretään kokonaisina heti sillan jälkeen
 EAST_KEEP_TYPES = ("retail", "commercial", "civic", "school", "church", "public", "hospital", "library", "supermarket")
 # Itäranta sillan päästä keskustan portille (pitkien talojen pätkä) lähes pois: EAST_K-kertaisesti tiivis, ei taloja,
 # joten kaupat, Siitari ja keskusta alkavat heti sillan jälkeen.
@@ -87,6 +89,7 @@ UNDER_CLEAR = 4.6  # alikulun vapaa korkeus tien pinnasta ratasillan alapintaan
 UNDER_DIP = 1.3    # tie painuu alikulussa
 UNDER_OPEN = 13.0  # alikulun aukko maastossa ajoradan reunasta (videon mukaan leveä: kansi pilareilla, maatuet kauempana)
 UNDER_SLOPE = 0.55  # aukon reunasta penger nousee luiskana kannen alle (ei pystyseinää; vaala.gd: maatuet luiskan päällä)
+RIVER_RAIL_RAMP = 90.0  # Oulujoen ratasilta tiesillan tasossa: radan nousu penkereellä näin pitkä kummallakin rannalla
 BRANCH_LEN = 90.0  # risteysten haarat väärään suuntaan: 1:1 näin pitkälle, sitten OSM-linjaa maaston kuvauksella
 # Neittävän järviseutu: mökin kävelyalueen pohjoisosan järvet (Salmiset, Pyöriäinen, Keskimmäinen; mökin kartta.json)
 # piirretään mopomatkan maailmaan Neittäväntien risteyksen luoteeseen loivalla kuvauksella T (todellinen -> peli:
@@ -578,7 +581,7 @@ def main():
     def in_band(p):
         return not west_of_bridge(p) and not past_gate(p)
 
-    # Itärannan palvelut (S-Market, terveysasema, ...) ensin: muut väistävät niitä. Sitten kaistan ulkopuoliset,
+    # Itärannan palvelut (terveysasema, ...) ensin: muut väistävät niitä. Sitten kaistan ulkopuoliset,
     # jotta kaistan talot väistävät niitäkin; kussakin isoimmat ensin.
     def east_service(f):
         c_ = b_centroid(f)
@@ -589,7 +592,8 @@ def main():
     def rank(f):
         return 0 if east_service(f) else (2 if in_band(b_centroid(f)) else 1)
 
-    for f in sorted((f for f in feats if f["kind"] == "building"), key=lambda f: (rank(f), -b_area(f))):
+    for f in sorted((f for f in feats if f["kind"] == "building" and not any(n_ in f.get("name", "") for n_ in DROP_BUILDINGS)),
+                    key=lambda f: (rank(f), -b_area(f))):
         pts = f["pts"][:-1] if f["pts"][0] == f["pts"][-1] else f["pts"]
         c = b_centroid(f)
         if f["id"] in BUILDING_SCALE:
@@ -958,8 +962,25 @@ def main():
     nl_box = (GX > NL_BOX[0]) & (GX < NL_BOX[2]) & (GZ > NL_BOX[1]) & (GZ < NL_BOX[3])
     CODE[(CODE == YARD) & ((ONE < 0.9) | nl_box) & (bdist > 30.0)] = FOREST
     rails = [r for r in side_roads if r["kind"] == "rail"]
-    CODE[VW.game_raster([], x0, z0, nx, nz, CELL, [r["pts"] for r in rails], 5.6)] = RAIL
+    rail_m = VW.game_raster([], x0, z0, nx, nz, CELL, [r["pts"] for r in rails], 5.6)
+    CODE[rail_m & (CODE != WATER)] = RAIL  # ratasillan alla vettä (ennen hiekkakaistale joen pohjassa)
     VW.flatten_water(CODE, GROUND, water_level, CELL)
+    # Pienet maaläikät keskellä Oulujoki/Oulujärveä (muutama 4 m ruutu) olivat terävinä hiekkapyramideina: vedeksi.
+    lab_, nl_ = ndimage.label(CODE != WATER)
+    isl = 0
+    for k_, sl in enumerate(ndimage.find_objects(lab_), start=1):
+        m_ = lab_[sl] == k_
+        if m_.sum() > 60:
+            continue
+        sl2 = tuple(slice(max(s_.start - 1, 0), s_.stop + 1) for s_ in sl)
+        mm = lab_[sl2] == k_
+        ring = ndimage.binary_dilation(mm) & ~mm
+        sub_c = CODE[sl2]
+        if ring.any() and np.all(sub_c[ring] == WATER) and np.all(np.abs(GROUND[sl2][ring] + 1.2 - water_level) < 0.05):
+            sub_c[mm] = WATER
+            GROUND[sl2][mm] = water_level - 1.2
+            isl += 1
+    print("pikkusaaret joessa vedeksi: %d" % isl)
     # Oulujärven lounainen lahti maaksi (lake_cut): ranta suota, sitten metsää, maa nousee loivasti rannasta.
     if os.environ.get("VAALA_DEBUG"):
         np.savez_compressed(os.environ["VAALA_DEBUG"] + "_vesi.npz", code=CODE, ground=GROUND, gx=GX, gz=GZ)
@@ -1200,6 +1221,25 @@ def main():
     for r in rails:
         for q in r["pts"]:
             q.append(round(grid_h(q), 2))
+    # Oulujoen ratasilta (teräsristikko, vaala.gd) samaan tasoon kuin tiesilta: kiskot joen yli kannen korkeudella ja
+    # rannoilla nousu penkereellä (penger tehdään alikulun penkereen kanssa samalla tavalla).
+    rb0, rb1 = bridges[-1]
+    # Tiesillan lopullinen taso (vaala_silta_jarvi.py: suora viiva RAMP näytettä sillan päiden ulkopuolelta).
+    bridge_y = (samples[max(rb0 - VS.RAMP, 0)]["y"] + samples[min(rb1 + VS.RAMP, n - 1)]["y"]) / 2.0
+    bgrid_ = Grid([samples[k]["g"] for k in range(rb0, rb1 + 1)], 20.0)
+    low = [(q[0], q[1]) for r in rails for q in r["pts"] if q[2] < water_level + 1.0 and bgrid_.nearest((q[0], q[1]), 150.0)[0] >= 0]
+    river_ab = None
+    if len(low) >= 2:
+        river_ab = max(((a, b) for a in low for b in low), key=lambda ab: math.dist(ab[0], ab[1]))
+        for r in rails:
+            for q in r["pts"]:
+                d_ = seg_dist((q[0], q[1]), river_ab[0], river_ab[1])[0]
+                if d_ < RIVER_RAIL_RAMP:
+                    q[2] = round(max(q[2], lerp(bridge_y, q[2], smooth(0.0, RIVER_RAIL_RAMP, d_))), 2)
+        print("Oulujoen ratasilta %s - %s tasossa %.2f m" % ([round(v) for v in river_ab[0]], [round(v) for v in river_ab[1]], bridge_y))
+
+    def near_river_rail(p, pad):
+        return river_ab is not None and seg_dist(p, river_ab[0], river_ab[1])[0] < RIVER_RAIL_RAMP + pad
     if underpass is not None:
         us = samples[underpass["i"]]
         ug = us["g"]
@@ -1221,7 +1261,8 @@ def main():
                     q[2] = round(max(q[2], top), 2)
             # Tiheä (1 m) viiva penkereen laskentaan.
             for a, b in zip(r["pts"], r["pts"][1:]):
-                if math.dist((a[0], a[1]), ug) > 350.0 and math.dist((b[0], b[1]), ug) > 350.0:
+                if math.dist((a[0], a[1]), ug) > 350.0 and math.dist((b[0], b[1]), ug) > 350.0 and \
+                        not near_river_rail((a[0], a[1]), 40.0):
                     continue
                 m = max(int(math.dist((a[0], a[1]), (b[0], b[1]))), 1)
                 for t in range(m):
@@ -1234,8 +1275,14 @@ def main():
             for i in range(nx):
                 k = j * nx + i
                 p = (x0 + i * CELL, z0 + j * CELL)
-                if codes[k] == 255 or math.dist(p, ug) > 360.0:
+                if codes[k] == 255 or (math.dist(p, ug) > 360.0 and not near_river_rail(p, 30.0)):
                     continue
+                if codes[k] == WATER or heights[k] < water_level + 0.3:
+                    continue  # joki ja sen ranta jäävät ratasillan alle
+                if river_ab is not None:
+                    d_, t_ = seg_dist(p, river_ab[0], river_ab[1])
+                    if d_ < 25.0 and 0.0 < t_ < 1.0:
+                        continue  # sillan alla saaret ja rantatöyräät ennallaan (ei penkereen kärkiä joessa)
                 qi, dr = ng.nearest(p, 16.0)
                 if qi < 0:
                     continue

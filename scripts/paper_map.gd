@@ -520,7 +520,7 @@ func _legend_vaala(p: Vector2) -> float:
 	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 	var items := [
 		["home", "Mökki Paapeli"], ["siitari", "Hotelli-Ravintola Siitari"], ["shop", "K-Market Tervaportti"],
-		["smarket", "S-Market"], ["zabuki", "Zabuki (olut, burgerit)"], ["gasthaus", "Gasthaus (yö 10 €)"],
+		["zabuki", "Zabuki (olut, burgerit)"], ["gasthaus", "Gasthaus (yö 10 €)"],
 		["atm", "Pankkiautomaatti"], ["lava", "Oulujärven lava"], ["church", "Kirkko"], ["station", "Rautatieasema"],
 		["beach", "Salmisen uimaranta"], ["statue", "Ranta-Rosvo"], ["laavu", "Keskimmäisen laavu"],
 		["barrel", "Tynnyrisauna"], ["dock", "Laituri ja soutuvene"], ["you", "Olet tässä"],
@@ -901,8 +901,6 @@ func _vaala_load() -> void:
 		cen /= float(bd.pts.size())
 		if nm.contains("K-Market"):
 			_vpois.append(["K-Market Tervaportti", cen, "shop", true])
-		elif nm.contains("S-market"):
-			_vpois.append(["S-Market", cen, "smarket", false])
 		elif int(bd.id) == GASTHAUS_ID:
 			_vpois.append(["Gasthaus", cen, "gasthaus", false])
 		elif bd.type == "train_station":
@@ -1082,7 +1080,7 @@ func _draw_vaala_map() -> void:
 		_poi_icon_on(v, p, kind)
 		if poi[3] or _vzoom >= 0.9:
 			var col := Color(0.7, 0.3, 0.0) if kind == "shop" else (Color(0.6, 0.08, 0.05) if kind in ["siitari", "lava", "home", "zabuki", "gasthaus"]
-				else (Color(0.1, 0.45, 0.2) if kind == "smarket" else INK))
+				else INK)
 			var tw := font.get_string_size(poi[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 			_outlined(v, p + (Vector2(-12 - tw, 5) if p.x + 12 + tw > v.size.x - 4 else Vector2(12, 5)), poi[0], 13, col)
 	if mopo_trip != null and mopo_trip.vaala.atm_pos != Vector3.ZERO:
@@ -1299,9 +1297,6 @@ func _poi_icon_on(ci: CanvasItem, p: Vector2, kind: String) -> void:
 			ci.draw_circle(p + Vector2(5, 7), 2.0, INK)
 		"sauna":
 			_house_icon_on(ci, p, Color(0.4, 0.22, 0.12))
-		"smarket":
-			ci.draw_circle(p, 8.0, Color(0.1, 0.5, 0.25))
-			ci.draw_string(font, p + Vector2(-4, 5), "S", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
 		"zabuki":
 			# Oluttuoppi: keltainen lasi, vaahto ja kahva.
 			ci.draw_rect(Rect2(p + Vector2(-5, -6), Vector2(9, 13)), Color(0.95, 0.7, 0.15))

@@ -18,7 +18,7 @@ signal arrived
 signal finished(result: String)
 signal killed  # auto ajoi mopon päälle
 signal atm     # pankkiautomaatilla E
-signal door(id: String)  # keskustan ovella E (vaala.gd doors: kmarket, smarket, zabuki, gasthaus)
+signal door(id: String)  # keskustan ovella E (vaala.gd doors: kmarket, zabuki, gasthaus)
 signal lava    # Oulujärven lavan ovella E (lavatanssit)
 
 const LAVA_TICKET := 12.0

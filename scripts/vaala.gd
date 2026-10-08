@@ -722,7 +722,7 @@ var kmarket_center := Vector3.ZERO  # rakennuksen keskipiste maan tasossa
 var kmarket_half := Vector2.ZERO  # puolikkaat: x = julkisivun suunta (kmarket_along), y = syvyys (kmarket_face)
 var kmarket_face := Vector3.ZERO  # julkisivun normaali kadulle (kmarket_out on vino: ovi ei ole keskellä)
 ## Keskustan ovet, joista mennään sisään E:llä (mopo_trip.gd door-signaali): {id, pos = oven edusta, out = ulospäin,
-## hint}. K-Market Tervaportti, S-Market, torin Zabuki ja Gasthaus.
+## hint}. K-Market Tervaportti, torin Zabuki ja Gasthaus.
 var doors: Array = []
 
 
@@ -1077,7 +1077,7 @@ func _build_side_roads() -> void:
 		sts[kind] = SurfaceTool.new()
 		sts[kind].begin(Mesh.PRIMITIVE_TRIANGLES)
 	var sleepers: Array[Transform3D] = []
-	var rail_pier_acc := 11.0
+	var rail_bridge: Array = []  # [a, b] kiskojen tasossa joen yli
 	for r in data.side_roads:
 		var pts: Array = r.pts
 		var hw: String = r.hw
@@ -1131,32 +1131,9 @@ func _build_side_roads() -> void:
 						0.04, Color(0.5, 0.45, 0.4))
 				var up = data.get("underpass")
 				var at_under: bool = up != null and a.distance_to(Vector2(up.at[0], up.at[1])) < 60.0
-				if h(a.x, a.y) < water_level + 2.5 and not at_under:
-					# Ratasilta veden yllä kuten alikulussa: betonikansi reunapalkkeineen ja kaiteineen, pyöreä
-					# pilaripari poikkipalkkeineen n. 22 m välein (ennen tumma palkki ja neliöpilari joka pätkällä).
-					var mid := (a + b) / 2.0
-					var seg_l := a.distance_to(b) + 0.1
-					var rot := Vector3(0, rad_to_deg(atan2(dir.x, dir.y)), 0)
-					var ym := (ya + yb) / 2.0
-					var conc := Color(0.7, 0.69, 0.66)
-					B.mesh(self, B.boxm(Vector3(4.8, 0.8, seg_l)), Vector3(mid.x, ym - 0.45, mid.y), Color(0.52, 0.52, 0.5), rot)
-					for s2: float in [-1.0, 1.0]:
-						var q: Vector2 = mid + dir.orthogonal() * 2.45 * s2
-						B.mesh(self, B.boxm(Vector3(0.3, 1.1, seg_l)), Vector3(q.x, ym - 0.2, q.y), conc, rot)
-						B.tube(self, Vector3(a.x, ya + 1.25, a.y) + Vector3(dir.orthogonal().x, 0, dir.orthogonal().y) * 2.45 * s2,
-							Vector3(b.x, yb + 1.25, b.y) + Vector3(dir.orthogonal().x, 0, dir.orthogonal().y) * 2.45 * s2, 0.035, Color(0.42, 0.44, 0.45))
-						B.mesh(self, B.boxm(Vector3(0.07, 0.95, 0.07)), Vector3(q.x, ym + 0.8, q.y), Color(0.42, 0.44, 0.45))
-					rail_pier_acc += seg_l
-					if rail_pier_acc >= 22.0:
-						rail_pier_acc = 0.0
-						var bottom := water_level - 2.5
-						var ph := ym - 1.3 - bottom
-						for s2: float in [-1.0, 1.0]:
-							var q: Vector2 = mid + dir.orthogonal() * 1.5 * s2
-							B.mesh(self, B.cyl(0.45, 0.45, ph, 14), Vector3(q.x, bottom + ph / 2.0, q.y), conc)
-						B.mesh(self, B.boxm(Vector3(4.6, 0.6, 1.1)), Vector3(mid.x, ym - 1.1, mid.y), conc, rot)
-				else:
-					rail_pier_acc = 11.0  # ensimmäinen pilari n. 11 m rannasta
+				# Joen yli (kiskot reilusti maan yläpuolella): teräsristikkosilta (_build_truss) koko jaksolle.
+				if not at_under and minf(ya, yb) - maxf(h(a.x, a.y), h(b.x, b.y)) > 2.0:
+					rail_bridge.append([Vector3(a.x, ya, a.y), Vector3(b.x, yb, b.y)])
 	var cols := {"asphalt": Color(0.24, 0.24, 0.25), "gravel": Color(0.56, 0.5, 0.42), "path": Color(0.5, 0.45, 0.36),
 		"rail": Color(0.38, 0.35, 0.32)}
 	for kind in sts:
@@ -1168,6 +1145,186 @@ func _build_side_roads() -> void:
 		add_child(mi)
 	if not sleepers.is_empty():
 		_multimesh(B.boxm(Vector3(2.4, 0.16, 0.24)), sleepers, Color(0.4, 0.38, 0.35))
+	# Peräkkäiset siltapätkät yhdeksi jaksoksi, kullekin oma ristikkosilta.
+	var runs: Array = []
+	for sg in rail_bridge:
+		if not runs.is_empty() and (runs[-1][1] as Vector3).distance_to(sg[0]) < 1.0:
+			runs[-1][1] = sg[1]
+		else:
+			runs.append([sg[0], sg[1]])
+	for rn in runs:
+		if (rn[0] as Vector3).distance_to(rn[1]) > 8.0:
+			_build_truss(rn[0], rn[1])
+	_build_train()
+
+
+## Satunnainen juna (train.gd) pääradalle: radan OSM-pätkät ketjutetaan läntisimmästä päästä eteenpäin (seuraava
+## pätkä alkaa edellisen päästä ja jatkaa samaan suuntaan), korkeus kuten kiskoilla.
+var train: Node3D
+
+
+func _build_train() -> void:
+	var lines: Array = []
+	for r in data.side_roads:
+		if r.kind != "rail" or r.pts.size() < 2:
+			continue
+		var pl := PackedVector3Array()
+		for q in r.pts:
+			var y := maxf(maxf(h(q[0], q[1]), q[2] if q.size() > 2 else -INF), water_level + 3.0)
+			pl.append(Vector3(q[0], y, q[1]))
+		lines.append(pl)
+	if lines.is_empty():
+		return
+	var start := -1
+	var rev := false
+	for li in lines.size():
+		var pl: PackedVector3Array = lines[li]
+		for e in 2:
+			var q: Vector3 = pl[0] if e == 0 else pl[pl.size() - 1]
+			if start < 0 or q.x < (lines[start][0] if not rev else lines[start][lines[start].size() - 1]).x:
+				start = li
+				rev = e == 1
+	var path := PackedVector3Array()
+	var used := {start: true}
+	var cur: PackedVector3Array = lines[start].duplicate()
+	if rev:
+		cur.reverse()
+	path.append_array(cur)
+	while true:
+		var end := path[path.size() - 1]
+		var d := (end - path[maxi(path.size() - 3, 0)])
+		d.y = 0.0
+		d = d.normalized()
+		var best := -1
+		var best_dot := 0.7
+		var best_rev := false
+		for li in lines.size():
+			if used.has(li):
+				continue
+			var pl: PackedVector3Array = lines[li]
+			for e in 2:
+				var a: Vector3 = pl[0] if e == 0 else pl[pl.size() - 1]
+				var b: Vector3 = pl[mini(2, pl.size() - 1)] if e == 0 else pl[maxi(pl.size() - 3, 0)]
+				if Vector2(a.x - end.x, a.z - end.z).length() > 1.5:
+					continue
+				var nd := Vector3(b.x - a.x, 0, b.z - a.z).normalized()
+				if nd.dot(d) > best_dot:
+					best_dot = nd.dot(d)
+					best = li
+					best_rev = e == 1
+		if best < 0:
+			break
+		used[best] = true
+		var nxt: PackedVector3Array = lines[best].duplicate()
+		if best_rev:
+			nxt.reverse()
+		path.append_array(nxt.slice(1))
+	var total := 0.0
+	for i in range(1, path.size()):
+		total += path[i].distance_to(path[i - 1])
+	if total < 300.0:
+		return
+	train = load("res://scripts/train.gd").new()
+	train.name = "Juna"
+	add_child(train)
+	train.setup(path)
+	print("VAALA juna: rata %.0f m, %d pätkää" % [total, used.size()])
+
+
+## Oulujoen ratasilta valokuvan mukaan: teräksinen ristikkosilta (läpiajettava), jänteet n. 28 m, yläpaarre
+## puolisuunnikas (vinot päätysauvat, keskellä korkeampi), vinosauvat ja pystysauvat, yläsiteet ristiin, kannen
+## poikkipalkit ja huoltokäytävän kaide sivulla; jänteiden välissä ja päissä massiiviset betonipilarit veteen.
+## a ja b ovat kiskojen tasossa (kisko-ura = a.y).
+const TRUSS_W := 5.2     # ristikoiden väli
+const TRUSS_SPAN := 28.0
+const TRUSS_H0 := 4.6    # ristikon korkeus päätysauvan yläpäässä
+const TRUSS_H1 := 6.2    # keskellä
+
+
+func _build_truss(a: Vector3, b: Vector3) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var flat := Vector3(b.x - a.x, 0, b.z - a.z)
+	var length := flat.length()
+	var u := flat / length
+	var side := u.cross(Vector3.UP)
+	var spans := maxi(1, roundi(length / TRUSS_SPAN))
+	var sl := length / spans
+	var base := func(t: float) -> Vector3:  # kannen alapaarteen taso kohdassa t (0..length)
+		return a.lerp(b, t / length) + Vector3(0, -0.45, 0)
+	for k in spans:
+		var t0 := k * sl
+		var panels := maxi(4, roundi(sl / 4.6))
+		var pl := sl / panels
+		for sd: float in [-1.0, 1.0]:
+			var off := side * sd * TRUSS_W / 2.0
+			var bot := func(i: int) -> Vector3: return base.call(t0 + i * pl) + off
+			var top := func(i: int) -> Vector3:
+				var f := float(i) / panels
+				return base.call(t0 + i * pl) + off + Vector3(0, lerpf(TRUSS_H0, TRUSS_H1, sin(f * PI)), 0)
+			for i in panels:
+				_beam(st, bot.call(i), bot.call(i + 1), 0.5, 0.6)  # alapaarre
+			for i in range(1, panels - 1):
+				_beam(st, top.call(i), top.call(i + 1), 0.55, 0.5)  # yläpaarre
+			_beam(st, bot.call(0), top.call(1), 0.5, 0.5)  # vinot päätysauvat
+			_beam(st, bot.call(panels), top.call(panels - 1), 0.5, 0.5)
+			for i in range(1, panels):
+				_beam(st, bot.call(i), top.call(i), 0.28, 0.3)  # pystysauvat
+				if i < panels - 1:
+					# Vinosauvat V-muodossa keskeltä päihin päin.
+					if i < panels / 2:
+						_beam(st, top.call(i), bot.call(i + 1), 0.3, 0.32)
+					else:
+						_beam(st, bot.call(i), top.call(i + 1), 0.3, 0.32)
+			if panels % 2 == 1:
+				_beam(st, top.call(panels / 2), bot.call(panels / 2 + 1), 0.3, 0.32)
+			# Huoltokäytävän kaide ristikon ulkopuolella.
+			var ho := side * sd * 0.7
+			for i in panels:
+				_beam(st, bot.call(i) + ho + Vector3(0, 1.1, 0), bot.call(i + 1) + ho + Vector3(0, 1.1, 0), 0.06, 0.06)
+				_beam(st, bot.call(i) + ho, bot.call(i) + ho + Vector3(0, 1.1, 0), 0.07, 0.07)
+		# Poikkipalkit kannen alla ja yläsiteet ristiin.
+		for i in range(panels + 1):
+			var c: Vector3 = base.call(t0 + i * pl)
+			_beam(st, c - side * TRUSS_W / 2.0 - side * 0.7, c + side * TRUSS_W / 2.0 + side * 0.7, 0.4, 0.5)
+		for i in range(1, panels - 1):
+			var f0 := float(i) / panels
+			var f1 := float(i + 1) / panels
+			var c0: Vector3 = base.call(t0 + i * pl) + Vector3(0, lerpf(TRUSS_H0, TRUSS_H1, sin(f0 * PI)), 0)
+			var c1: Vector3 = base.call(t0 + (i + 1) * pl) + Vector3(0, lerpf(TRUSS_H0, TRUSS_H1, sin(f1 * PI)), 0)
+			var hw := side * TRUSS_W / 2.0
+			_beam(st, c0 - hw, c0 + hw, 0.25, 0.25)
+			_beam(st, c0 - hw, c1 + hw, 0.15, 0.15)
+			_beam(st, c0 + hw, c1 - hw, 0.15, 0.15)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	var tm := B.mat(Color(0.33, 0.28, 0.25)).duplicate() as StandardMaterial3D
+	tm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = tm
+	add_child(mi)
+	# Kansi (huoltokäytävät ja ratapölkkyjen alusta) ja betonipilarit jänteiden päihin.
+	var dm := B.mesh(self, B.boxm(Vector3(TRUSS_W + 1.6, 0.25, length)), (a + b) / 2.0 + Vector3(0, -0.3, 0), Color(0.3, 0.29, 0.27))
+	dm.basis = Basis.looking_at(u, Vector3.UP)
+	for k in spans + 1:
+		var c: Vector3 = base.call(k * sl)
+		var bottom := water_level - 2.5
+		var ph := c.y - 0.3 - bottom
+		var pm := B.mesh(self, B.boxm(Vector3(TRUSS_W + 2.2, ph, 2.6)), Vector3(c.x, bottom + ph / 2.0, c.z), Color(0.62, 0.61, 0.58))
+		pm.basis = Basis.looking_at(u, Vector3.UP)
+		var cap := B.mesh(self, B.boxm(Vector3(TRUSS_W + 2.8, 0.5, 3.2)), Vector3(c.x, c.y - 0.55, c.z), Color(0.68, 0.67, 0.64))
+		cap.basis = Basis.looking_at(u, Vector3.UP)
+
+
+## Suorakulmainen palkki pisteestä a pisteeseen b (leveys w vaakaan, korkeus hgt).
+func _beam(st: SurfaceTool, a: Vector3, b: Vector3, w: float, hgt: float) -> void:
+	var d := (b - a).normalized()
+	var ref := Vector3.UP if absf(d.y) < 0.95 else Vector3.RIGHT
+	var x := d.cross(ref).normalized() * w / 2.0
+	var y := x.cross(d).normalized() * hgt / 2.0
+	var c := [a - x - y, a + x - y, a + x + y, a - x + y, b - x - y, b + x - y, b + x + y, b - x + y]
+	for f in [[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7], [3, 2, 1, 0], [4, 5, 6, 7]]:
+		_quad(st, c[f[0]], c[f[1]], c[f[2]], c[f[3]])
 
 
 ## Radan alikulku (Vuolijoentie radan ali juuri ennen Oulujokea) ohikulkuvideon mukaan: harmaa betonikansi ohuine
@@ -1451,26 +1608,17 @@ func _build_buildings() -> void:
 			var face: Vector2 = ay if ay.dot(kd - (obb.center as Vector2)) >= 0.0 else -ay
 			kmarket_face = Vector3(face.x, 0, face.y)
 			doors.append({"id": "kmarket", "pos": kmarket_door, "out": kmarket_out, "hint": "K-Market Tervaporttiin (myös Alko)"})
-		elif name.contains("S-market"):
-			# S-Market: ovi kadun puolella kuten Tervaportissa, sisällä sama kauppa (ilman Alkoa).
-			name = "S-MARKET"
-			var sd := _door(obb, base + 0.3)
-			var sout := (sd - (obb.center as Vector2)).normalized()
-			doors.append({"id": "smarket", "pos": Vector3(sd.x, h(sd.x, sd.y), sd.y) + Vector3(sout.x, 0, sout.y) * 2.5,
-				"out": Vector3(sout.x, 0, sout.y), "hint": "S-Marketiin"})
 		if name != "" and not church:
 			var fg := Color(0.98, 0.95, 0.85)
 			var bg := Color(0.12, 0.2, 0.35)
-			if name.contains("S-MARKET"):
-				bg = Color(0.0, 0.45, 0.25)
-			elif name.contains("K-Market") or name.contains("K-MARKET"):
+			if name.contains("K-Market") or name.contains("K-MARKET"):
 				bg = Color(0.9, 0.35, 0.05)
 			elif station:
 				name = "VAALA"
 				bg = Color(0.95, 0.95, 0.95)
 				fg = Color(0.1, 0.1, 0.1)
-			var big_sign := kind == "big" or station or name in ["K-MARKET TERVAPORTTI", "S-MARKET"]
-			var plate := B.sign_plate(self, name, bg, fg, (0.9 if name in ["K-MARKET TERVAPORTTI", "S-MARKET"] else 0.5) if big_sign else 0.35,
+			var big_sign := kind == "big" or station or name == "K-MARKET TERVAPORTTI"
+			var plate := B.sign_plate(self, name, bg, fg, (0.9 if name == "K-MARKET TERVAPORTTI" else 0.5) if big_sign else 0.35,
 				60 if big_sign else 44,
 				Color(0.1, 0.12, 0.2), "Helvetica Neue")
 			plate.position.y = minf(top - 0.9, base + 3.4)

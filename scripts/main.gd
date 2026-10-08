@@ -7028,7 +7028,7 @@ func _enter_shop() -> void:
 ## Vaalan keskustan ovet (vaala.gd doors): kaupat, torin Zabuki ja Gasthaus.
 func _on_vaala_door(id: String) -> void:
 	match id:
-		"kmarket", "smarket":
+		"kmarket":
 			_enter_vaala_shop(id)
 		"zabuki":
 			_talk_open("zabuki", null)
@@ -7055,8 +7055,7 @@ func _enter_vaala_shop(id := "kmarket") -> void:
 	interior.enter()
 	Sfx.play("door", -3.0)
 	tilat.first("kauppa_vaala", 0.2)
-	_show_message("K-Market Tervaportti, Vaala. Alkon hylly vasemmalla seinällä." if id == "kmarket"
-		else "S-Market, Vaala. Bonukset kertyy, Alko on Tervaportin puolella.", 3.0)
+	_show_message("K-Market Tervaportti, Vaala. Alkon hylly vasemmalla seinällä.", 3.0)
 
 
 func _on_vaala_shop_exited(bought: bool) -> void:
@@ -10325,7 +10324,7 @@ func _maybe_screenshot() -> void:
 			await snap.call("_lahto.png", vl.road_pos(ui + 20) + Vector3(0, 1.8, 0), up + Vector3(0, 2.0, 0))
 			await snap.call("_ali.png", vl.road_pos(ui - 3) + Vector3(0, 1.5, 0), vl.road_pos(ui + 6) + Vector3(0, 1.5, 0))
 		"mokkitori":
-			# Vaalan tori (Zabuki, Gasthaus) ja S-Market ylhäältä ja viistosti, sekä ovivihjeet jalan.
+			# Vaalan tori (Zabuki, Gasthaus) ylhäältä ja viistosti, sekä ovivihjeet jalan.
 			_start_mopo()
 			var vl: Node3D = mopo_trip.vaala
 			_msg.text = ""
@@ -10348,9 +10347,6 @@ func _maybe_screenshot() -> void:
 			await snap.call("_tie_tori.png", vl.road_pos(vl.nearest(sc)[0] - 25) + Vector3(0, 1.8, 0), tc + Vector3(0, 1.0, 0))
 			await snap.call("_tori_ylh.png", tc + Vector3(0, 90, 0), tc)
 			await snap.call("_tori_viisto.png", tc + Vector3(-35, 22, 30), tc)
-			var sm := Vector3(1048, 0, -1205)
-			sm.y = vl.h(sm.x, sm.z)
-			await snap.call("_smarket_ylh.png", sm + Vector3(0, 90, 0), sm)
 			for d in vl.doors:
 				var dp: Vector3 = d.pos
 				var out: Vector3 = d.out
@@ -10366,11 +10362,11 @@ func _maybe_screenshot() -> void:
 			print("TORI zabuki auki %s valinnat %s" % [_talk_box.is_open(), str(_talk_box._options.map(func(o): return o.text))])
 			_test_talk(["osta_tupla", "osta_tuoppi"])
 			print("TORI zabuki: rahaa %.2f, nälkä %.2f -> %.2f" % [money, n0, tilat.value("nalka")])
-			_on_vaala_door("smarket")
-			print("TORI smarket: tila %s, alko %s" % [state, interior._alko.visible])
+			_on_vaala_door("kmarket")
+			print("TORI kmarket: tila %s, alko %s" % [state, interior._alko.visible])
 			interior.walker.position = ShopInterior.ENTRY
 			_on_vaala_shop_exited(false)
-			print("TORI smarketista ulos: tila %s" % state)
+			print("TORI kaupasta ulos: tila %s" % state)
 			var d0 := day
 			_on_vaala_door("gasthaus")
 			_test_talk(["yo"])
@@ -10535,6 +10531,68 @@ func _maybe_screenshot() -> void:
 						await get_tree().process_frame
 					await RenderingServer.frame_post_draw
 					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s%03d.png" % ["p" if back else "r", si]))
+			get_tree().quit()
+		"mokkiratasilta":
+			# Oulujoen ratasilta (teräsristikko): joen pinnasta, tiesillalta, ylhäältä ja kiskoilta.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			_msg.text = ""
+			_note.visible = false
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var oc := Camera3D.new()
+			oc.far = 3000.0
+			oc.fov = 60.0
+			add_child(oc)
+			var snap := func(name: String, from: Vector3, to: Vector3) -> void:
+				oc.look_at_from_position(mopo_trip.to_global(from), mopo_trip.to_global(to))
+				oc.current = true
+				for i in 15:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var c := Vector3(610, 130.2, -704)
+			await snap.call("_joki.png", c + Vector3(-25, -6.5, 55), c + Vector3(0, 2, 0))
+			await snap.call("_joki2.png", c + Vector3(30, -6.0, 60), c + Vector3(-5, 2, 0))
+			await snap.call("_tiesilta.png", Vector3(560, 133, -738), c + Vector3(0, 2, 0))
+			await snap.call("_ylha.png", c + Vector3(0, 70, 30), c)
+			await snap.call("_kiskot.png", Vector3(545, 132.5, -686.5), c + Vector3(0, 2.5, 0))
+			get_tree().quit()
+		"mokkijuna":
+			# Juna Oulujoen ratasillalla ja radan alikulun yli: kamera paikallaan, juna liikkeelle heti, kuvat 1 s välein.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			_msg.text = ""
+			_note.visible = false
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var oc := Camera3D.new()
+			oc.far = 3000.0
+			oc.fov = 60.0
+			add_child(oc)
+			var tr: Node3D = vl.train
+			print("JUNA reitti %d pistettä, pituus %.0f m" % [tr.path.size(), tr._length])
+			var ui: int = vl.underpass_i
+			var ue: Vector3 = vl.road_pos(ui - 28) + Vector3(0, 1.8, 0)
+			for view in [["_silta", Vector3(612, 125.5, -670), Vector3(608, 131, -704), 0], ["_alikulku", ue, vl.road_pos(ui) + Vector3(0, 4.5, 0), 1]]:
+				oc.look_at_from_position(mopo_trip.to_global(view[1]), mopo_trip.to_global(view[2]))
+				oc.current = true
+				tr.spawn_now(view[3] == 0, view[3])
+				var shots := 0
+				for i in 60 * 70:
+					await get_tree().process_frame
+					var loco: Node3D = tr._units[0][0] if not tr._units.is_empty() else null
+					if loco == null:
+						break
+					if loco.visible and (loco.position as Vector3).distance_to(view[2]) < 45.0 and i % 50 == 0 and shots < 4:
+						await RenderingServer.frame_post_draw
+						get_viewport().get_texture().get_image().save_png(path.replace(".png", "%s%d.png" % [view[0], shots]))
+						shots += 1
+					if shots >= 4:
+						break
+				print("JUNA %s: kuvia %d, keula %.0f m" % [view[0], shots, tr._s])
 			get_tree().quit()
 		"mokkiajoalue":
 			# Mopon ajoalue (vaala.gd drivable) kuvaksi ja kokeet: tieltä suoraan ja viistosti metsään, sekä
