@@ -997,6 +997,7 @@ func _process(delta: float) -> void:
 	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
 	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
 	_night_tick(delta)
+	_train_update()
 	_rhythm_t -= delta
 	if _rhythm_t <= 0.0:
 		_rhythm_t = DAY_RHYTHM_STEP
@@ -3743,10 +3744,89 @@ func _on_taxi_choice(id: String) -> void:
 # --- Juna Saloisten ja Vaalan asemien välillä -------------------------------------------------------------------
 
 const TRAIN_FARE := 10.0  # suuntaansa
+const TRAIN_ROUND := 16.0  # ravintolavaunussa oma tuoppi ja kolme Koskenkorvaa naisille (jos rahat riittävät)
 const STATION_R := 3.0
+## Aikataulu: juna tulee kumpaankin asemaan satunnaisesti n. tunnin välein (TRAIN_GAP pelin minuutteina) ja seisoo
+## laiturilla train.gd STOP_DWELL s; kyytiin pääsee vain silloin. Asemalla E ilman junaa = odota: kello hyppää
+## siihen, että seuraava juna on tulossa laiturille. Kello lasketaan omana juoksevana laskurinaan (_train_clock),
+## koska clock_min kiertää vuorokauden ympäri ja hyppää matkoilla.
+const TRAIN_GAP := Vector2(40.0, 80.0)
+const Train := preload("res://scripts/train.gd")
+var _train_due := {}  # asema -> seuraavan junan saapumisaika (_train_clock)
+var _tclock := 0.0
+var _tclock_last := -1.0
 
 
-## Saloisten asema K-Marketin takana (world.gd _build_station): jalan E junalla Vaalaan.
+func _train_clock() -> float:
+	if _tclock_last >= 0.0:
+		_tclock += fposmod(clock_min - _tclock_last, 1440.0)
+	_tclock_last = clock_min
+	return _tclock
+
+
+## Aseman juna (train.gd) ja laiturin kohta sen reitillä, tai [null, 0] jos asemaa ei ole rakennettu.
+func _station_train(st: String) -> Array:
+	if st == "saloinen":
+		return [world.train, world.station_t] if world.train != null else [null, 0.0]
+	if _in_vaala and mopo_trip != null and mopo_trip.vaala != null and mopo_trip.vaala.train != null:
+		return [mopo_trip.vaala.train, mopo_trip.vaala.station_t]
+	return [null, 0.0]
+
+
+func _train_update() -> void:
+	var now := _train_clock()
+	var lead := Train.approach_secs() * CLOCK_RATE
+	for st in ["saloinen", "vaala"]:
+		if not _train_due.has(st):
+			_train_due[st] = now + randf_range(lead + 5.0, TRAIN_GAP.y)
+		var due: float = _train_due[st]
+		if now < due - lead:
+			continue
+		var tr: Array = _station_train(st)
+		if tr[0] != null and now < due - lead + 3.0 and not tr[0].calling() and state != "cutscene":
+			tr[0].call_station(tr[1])
+		while _train_due[st] - lead <= now:
+			_train_due[st] += randf_range(TRAIN_GAP.x, TRAIN_GAP.y)
+	if _in_vaala and mopo_trip != null and mopo_trip.vaala != null:
+		for d in mopo_trip.vaala.doors:
+			if d.id == "asema":
+				d.hint = "asemalle: %s" % _train_board_text("vaala", "Saloisiin")
+
+
+## Aseman tilanne vihjeeseen: juna laiturilla (kyytiin), tulossa tai seuraavan junan kellonaika.
+func _train_board_text(st: String, to: String) -> String:
+	var tr: Array = _station_train(st)
+	if tr[0] != null and tr[0].at_station():
+		return "juna %s laiturilla, kyytiin (%s €)" % [to, _eur(TRAIN_FARE)]
+	if tr[0] != null and tr[0].arriving():
+		return "juna %s saapuu laiturille" % to
+	return "odota junaa %s (seuraava n. klo %s)" % [to, _train_due_text(st)]
+
+
+func _train_due_text(st: String) -> String:
+	var m := fposmod(clock_min + float(_train_due.get(st, _tclock)) - _tclock, 1440.0)
+	return "%d.%02d" % [int(m) / 60, int(m) % 60]
+
+
+## Asemalla E: juna laiturilla -> matkaan; muuten odotetaan (kello hyppää junan tuloon) ja juna saapuu.
+func _station_use(st: String, to: String) -> void:
+	var tr: Array = _station_train(st)
+	if tr[0] != null and tr[0].at_station():
+		if money < TRAIN_FARE:
+			_show_message("Konduktööri: \"Lippu %s maksaa %s €.\"" % ["Vaalaan" if to == "vaala" else "Saloisiin", _eur(TRAIN_FARE)], 2.5)
+			return
+		_train_trip(to)
+		return
+	if tr[0] != null and tr[0].arriving():
+		_show_message("Juna on jo tulossa, odota laiturilla.", 2.0)
+		return
+	var lead := Train.approach_secs() * CLOCK_RATE
+	var wait := maxf(float(_train_due[st]) - lead - _train_clock(), 0.0)
+	_advance_clock(wait + 0.1)
+	_show_message("Odotit asemalla %d min. Juna tulee, kyytiin kun se seisoo laiturilla." % ceili(wait), 3.5)
+
+
+## Saloisten asema K-Marketin takana (world.gd _build_station): jalan E junalla Vaalaan, kun juna on laiturilla.
 func _station_logic() -> void:
 	if _hint.text != "" or world.station_pos == Vector3.ZERO:
 		return
@@ -3756,12 +3836,10 @@ func _station_logic() -> void:
 	if player == bike:
 		_hint.text = "[F] Pyörältä pois, niin pääset junaan"
 		return
-	_hint.text = "[E] Junalla Vaalaan (%s €)" % _eur(TRAIN_FARE)
+	var txt := _train_board_text("saloinen", "Vaalaan")
+	_hint.text = "[E] " + txt.substr(0, 1).to_upper() + txt.substr(1)
 	if Input.is_action_just_pressed("interact") and not player.is_stunned():
-		if money < TRAIN_FARE:
-			_show_message("Konduktööri: \"Lippu Vaalaan maksaa %s €.\"" % _eur(TRAIN_FARE), 2.5)
-			return
-		_train_trip("vaala")
+		_station_use("saloinen", "vaala")
 
 
 ## Junamatka (10 € suuntaansa): Saloisista Vaalan asemalle tai Vaalasta Saloisten asemalle. Välikuvassa istutaan
@@ -3787,11 +3865,19 @@ func _train_trip(to: String) -> void:
 	player.speed = 0.0
 	_hud.visible = false
 	tilat.first("juna", 0.3)
+	# Ravintolavaunu: tuoppi olutta aina (humalaa), paukut naisille jos rahaa jää.
+	var treat := money >= TRAIN_ROUND
+	_train_round_msg = ("Ravintolavaunun tuoppi ja naisten Koskenkorvat %s €. " % _eur(TRAIN_ROUND)) if treat else ""
+	if treat:
+		money -= TRAIN_ROUND
+		mielihyva = clampf(mielihyva + 5.0, 0.0, 100.0)
+	tilat.add("humala", 0.12)
 	_save_game()
-	cutscene.train_ride(to == "vaala", _arrive_vaala_by_train if to == "vaala" else _arrive_saloinen_by_train)
+	cutscene.train_ride(to == "vaala", _arrive_vaala_by_train if to == "vaala" else _arrive_saloinen_by_train, treat)
 
 
 var _train_prev := "to_shop"
+var _train_round_msg := ""
 
 
 func _arrive_saloinen_by_train() -> void:
@@ -3801,7 +3887,9 @@ func _arrive_saloinen_by_train() -> void:
 	var a: Vector3 = world.station_arrive
 	_arrive_by_car(Vector3(a.x, Terrain.h(a.x, a.z) + 0.3, a.z))
 	walker_out.rotation.y = 0.0  # selkä asemaan, kauppa edessä
-	_show_message("Saloisten asema. K-Market on heti aseman edessä.", 3.0)
+	if world.train != null:
+		world.train.arrive_stopped(world.station_t)  # juna, jolla tultiin, lähtee laiturilta
+	_show_message(_train_round_msg + "Saloisten asema. K-Market on heti aseman edessä.", 3.0)
 
 
 func _arrive_vaala_by_train() -> void:
@@ -3838,7 +3926,9 @@ func _arrive_vaala_by_train() -> void:
 	_mopo_follow(walker_out)
 	_mopo_dry = walker_out.global_position
 	_hud.visible = true
-	_show_message("Vaalan asema. Mopo odottaa aseman pihassa, Siitari ja tori ovat liikenneympyrän takana.", 4.0)
+	if vl.train != null:
+		vl.train.arrive_stopped(vl.station_t)  # juna, jolla tultiin, lähtee laiturilta
+	_show_message(_train_round_msg + "Vaalan asema. Mopo odottaa aseman pihassa, Siitari ja tori ovat liikenneympyrän takana.", 4.0)
 
 
 ## Kaupan taksilla Paapelin mökille (meno-paluu): paluu tilataan mökin pihatien päästä.
@@ -7133,7 +7223,7 @@ func _on_vaala_door(id: String) -> void:
 		"kmarket":
 			_enter_vaala_shop(id)
 		"asema":
-			_train_trip("saloinen")
+			_station_use("vaala", "saloinen")
 		"zabuki":
 			_talk_open("zabuki", null)
 		"gasthaus":
@@ -10838,12 +10928,32 @@ func _maybe_screenshot() -> void:
 				if leg == "vaala":
 					_train_trip("vaala")
 				else:
+					# Vaalan asemalla: juna ei ole laiturilla -> odotus, juna saapuu, kuva ja sitten kyytiin.
+					var vt: Node3D = mopo_trip.vaala.train
+					print("JUNA Vaalassa juna laiturilla heti %s (seisoo, %s), laituri %.0f m radalla" % [vt.at_station(), vt.calling(), mopo_trip.vaala.station_t])
+					var t1 := Time.get_ticks_msec()
+					while vt.calling() and Time.get_ticks_msec() - t1 < 30000:
+						await get_tree().process_frame
+					_on_vaala_door("asema")
+					print("JUNA odotus: '%s'" % _msg.text)
+					Engine.time_scale = 4.0
+					t1 = Time.get_ticks_msec()
+					while not vt.at_station() and Time.get_ticks_msec() - t1 < 60000:
+						await get_tree().process_frame
+					Engine.time_scale = 1.0
+					var vsp: Vector3 = mopo_trip.to_global(mopo_trip.vaala.station_plat)
+					var vcam := get_viewport().get_camera_3d()
+					vcam.global_position = vsp + Vector3(25, 8, 25)
+					vcam.look_at(vsp + Vector3(0, 2, 0))
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_vaalajuna.png"))
+					print("JUNA Vaalan laiturilla %s, raiteelta %.1f m" % [vt.at_station(), vt._at(vt._s - vt._train_len / 2.0).distance_to(mopo_trip.vaala.station_plat)])
 					_on_vaala_door("asema")
 				var shot := 0
 				var t0 := Time.get_ticks_msec()
 				while cutscene.busy:
 					await get_tree().process_frame
-					if Time.get_ticks_msec() - t0 > 2200 * (shot + 1) and shot < 9:
+					if Time.get_ticks_msec() - t0 > 2200 * (shot + 1) and shot < 14:
 						await RenderingServer.frame_post_draw
 						get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s%d.png" % [leg, shot]))
 						shot += 1
@@ -10882,7 +10992,7 @@ func _maybe_screenshot() -> void:
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", spot[0] + ".png"))
 			get_tree().quit()
 		"saloisrata":
-			# Saloisten rata: asema ylhäältä, Ketunperäntien tasoristeys, kaarre etelään ja länsipää Valtatien yli.
+			# Saloisten rata: asema ylhäältä, kaarre pohjoiseen, talojen välit, länsipää ja koillinen; aikataulun juna laiturilla.
 			if player != walker_out:
 				_toggle_mount()
 			_note.visible = false
@@ -10894,10 +11004,10 @@ func _maybe_screenshot() -> void:
 				var q := M.w2(px)
 				return Vector3(q.x, Terrain.h(q.x, q.y) + up, q.y)
 			var views := [["_asema", w3.call(Vector2(80, 470), 60.0), w3.call(Vector2(80, 505), 0.0)],
-				["_risteys", w3.call(Vector2(120, 520), 4.0), w3.call(Vector2(106, 504), 1.0)],
-				["_kaarre", w3.call(Vector2(200, 480), 90.0), w3.call(Vector2(230, 580), 0.0)],
+				["_kaarre", w3.call(Vector2(120, 540), 40.0), w3.call(Vector2(180, 420), 0.0)],
+				["_pohjoinen", w3.call(Vector2(230, 330), 50.0), w3.call(Vector2(200, 200), 0.0)],
 				["_lansi", w3.call(Vector2(20, 520), 5.0), w3.call(Vector2(-200, 504), 2.0)],
-				["_kaakko", w3.call(Vector2(600, 1100), 6.0), w3.call(Vector2(900, 1620), 2.0)]]
+				["_koillinen", w3.call(Vector2(170, 60), 8.0), w3.call(Vector2(220, -120), 2.0)]]
 			for vw in views:
 				cam.look_at_from_position(vw[1], vw[2])
 				cam.current = true
@@ -10905,6 +11015,25 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0] + ".png"))
+			# Aikataulun juna: odota asemalla (kello hyppää), juna tulee laiturille ja seisoo; kuva laiturilta.
+			Engine.time_scale = 4.0
+			var tr: Node3D = world.train
+			walker_out.global_position = world.station_pos + Vector3(0, 0.5, 0)
+			for i in 5:
+				await get_tree().process_frame
+			print("RATA vihje ennen: '%s'" % _hint.text)
+			_station_use("saloinen", "vaala")
+			var t0 := Time.get_ticks_msec()
+			while not tr.at_station() and Time.get_ticks_msec() - t0 < 30000:
+				await get_tree().process_frame
+			Engine.time_scale = 1.0
+			print("RATA juna laiturilla %s %.1f s, vihje '%s'" % [tr.at_station(), (Time.get_ticks_msec() - t0) / 1000.0, _hint.text])
+			cam.look_at_from_position(w3.call(Vector2(30, 520), 6.0), w3.call(Vector2(90, 504), 2.0))
+			cam.current = true
+			for i in 10:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_juna.png"))
 			print("RATA %d pistettä, %.0f m" % [rp.size(), rp[0].distance_to(rp[rp.size() - 1])])
 			get_tree().quit()
 		"mokkiajoalue":

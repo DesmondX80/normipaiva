@@ -3,10 +3,11 @@
 
 Ajo: venv/bin/python tools/lirkuttelu.py
 
-Hidas romanttinen bossa nova F-duurissa (92 bpm, 16 tahtia, n. 42 s, saumaton silmukka): sähköpiano soittaa
-sointuja bossa-rytmissä, kontrabasso pohjaa ja kvinttiä, harjat sihisevät kahdeksasosia ja vanne lyö bossan
-klaavia; saksofonimainen melodia (lisäävä synteesi, viivästetty vibrato, henkäys) lirkuttelee päälle. Lopuksi
-kevyt kaiku (Schroeder), jonka häntä taitetaan silmukan alkuun. Kaikki syntetisoidaan, ei ulkoisia näytteitä.
+Hidas, pehmeä 70-luvun soul-balladi (inspiraationa Chefin "No Substitute"): Es-duuri, 66 bpm, 16 tahtia
+(n. 58 s, saumaton silmukka). Sähköpiano soittaa pitkiä nonsointuja hiljaa, jousimatto kelluu taustalla,
+lämmin basso liukuu, wah-kitara näppäilee vaimeasti takaiskuilla, rummut harjoilla (pehmeä potku, vanne 2 ja 4,
+keinuvat hi-hatit) ja vaimea flyygelitorvimainen melodia soittaa harvakseltaan. Kaikki hiljaista ja väljää:
+ei päällekäyvä. Lopuksi kevyt kaiku (Schroeder), jonka häntä taitetaan silmukan alkuun. Kaikki syntetisoidaan.
 """
 import math
 import os
@@ -18,27 +19,27 @@ from scipy.signal import lfilter
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "assets", "music", "lirkuttelu.wav")
 SR = 32000
-BPM = 92.0
+BPM = 66.0
 BEAT = 60.0 / BPM
 BAR = 4 * BEAT
 BARS = 16
 LEN = BARS * BAR
 
-CHORDS = [["Fmaj7"], ["Gm7", "C7"], ["Fmaj7"], ["Am7", "D7"], ["Gm7"], ["C7"], ["Am7", "Dm7"], ["Gm7", "C7"],
-          ["Fmaj7"], ["Bbmaj7"], ["Am7"], ["D7"], ["Gm7"], ["C7"], ["Fmaj7"], ["C7"]]
-VOICING = {"Fmaj7": [57, 60, 64, 65], "Gm7": [58, 62, 65, 67], "C7": [58, 64, 67, 72], "Am7": [55, 60, 64, 67],
-           "D7": [54, 60, 62, 66], "Dm7": [57, 60, 62, 65], "Bbmaj7": [57, 62, 65, 70]}
-ROOT_NOTE = {"Fmaj7": 41, "Gm7": 43, "C7": 48, "Am7": 45, "D7": 50, "Dm7": 50, "Bbmaj7": 46}
-# Melodia tahdeittain: (midi, iskuja); None = tauko.
+CHORDS = [["Ebmaj9"], ["Gm7", "Cm9"], ["Fm9"], ["Bb13"], ["Ebmaj9"], ["Gm7", "Cm9"], ["Abmaj7"], ["Bb13"],
+          ["Abmaj7"], ["Gm7"], ["Fm9"], ["Bb13"], ["Ebmaj9"], ["Cm9"], ["Fm9"], ["Bb13"]]
+VOICING = {"Ebmaj9": [55, 58, 62, 65], "Gm7": [53, 58, 62, 65], "Cm9": [55, 58, 62, 63], "Fm9": [56, 60, 63, 67],
+           "Bb13": [56, 62, 67, 68], "Abmaj7": [55, 60, 63, 67]}
+ROOT_NOTE = {"Ebmaj9": 39, "Gm7": 43, "Cm9": 36, "Fm9": 41, "Bb13": 34, "Abmaj7": 44}
+# Melodia tahdeittain: (midi, iskuja); None = tauko. Harva, paljon taukoja.
 MELODY = [
-    [(69, 1.5), (67, 0.5), (69, 1), (72, 1)], [(70, 1.5), (69, 0.5), (67, 2)],
-    [(65, 1), (69, 1), (72, 1), (76, 1)], [(74, 3), (None, 1)],
-    [(74, 1.5), (72, 0.5), (70, 1), (69, 1)], [(67, 1.5), (69, 0.5), (70, 1), (72, 1)],
-    [(69, 2), (65, 1), (69, 1)], [(67, 3), (None, 1)],
-    [(72, 1.5), (69, 0.5), (72, 1), (77, 1)], [(74, 1.5), (72, 0.5), (69, 2)],
-    [(76, 1), (74, 1), (72, 1), (69, 1)], [(69, 1.5), (66, 0.5), (69, 1), (72, 1)],
-    [(70, 2), (74, 2)], [(76, 1.5), (74, 0.5), (72, 1), (70, 1)],
-    [(69, 2), (67, 1), (65, 1)], [(67, 3), (None, 1)],
+    [(None, 1), (70, 1.5), (67, 0.5), (70, 1)], [(72, 2), (None, 2)],
+    [(None, 1), (68, 1), (72, 1), (75, 1)], [(74, 3), (None, 1)],
+    [(None, 1), (70, 1.5), (67, 0.5), (65, 1)], [(67, 2), (63, 2)],
+    [(None, 1), (72, 1), (70, 1), (68, 1)], [(70, 3), (None, 1)],
+    [(None, 1), (75, 1.5), (74, 0.5), (72, 1)], [(70, 2), (None, 2)],
+    [(None, 1), (68, 1), (72, 1), (77, 1)], [(75, 1.5), (74, 0.5), (72, 2)],
+    [(None, 1), (70, 1.5), (67, 0.5), (70, 1)], [(72, 1.5), (70, 0.5), (67, 2)],
+    [(None, 1), (68, 1), (65, 1), (63, 1)], [(65, 3), (None, 1)],
 ]
 
 
@@ -77,7 +78,7 @@ def ep_note(m, dur, vel):
     n = int((dur + 1.2) * SR)
     t = np.arange(n) / SR
     f = hz(m)
-    idx = 1.6 * np.exp(-t * 6.0) + 0.25
+    idx = 0.9 * np.exp(-t * 5.0) + 0.15
     sig = np.sin(2 * math.pi * f * t + idx * np.sin(2 * math.pi * f * t))
     sig += 0.25 * np.sin(2 * math.pi * 2 * f * t) * np.exp(-t * 3.0)
     sig *= 1.0 + 0.12 * np.sin(2 * math.pi * 4.5 * t)
@@ -92,21 +93,51 @@ def bass_note(m, dur, vel):
     return sig * env(n, 0.01, 0.25, 0.6, 0.15, int(dur * SR)) * vel
 
 
-def sax_note(m, dur, vel, rng):
-    """Saksofonimainen ääni: harmoniset osasävelet (parittomat vahvempia), viivästetty vibrato ja henkäys."""
-    n = int((dur + 0.35) * SR)
+def pad_note(m, dur, vel, rng):
+    """Jousimatto: kolme hieman epävireistä sahaa, alipäästö ja hidas nousu/lasku."""
+    n = int((dur + 1.5) * SR)
+    t = np.arange(n) / SR
+    sig = np.zeros(n)
+    for det in (-0.07, 0.0, 0.08):
+        f = hz(m + det)
+        sig += 2.0 * ((t * f + rng.uniform()) % 1.0) - 1.0
+    sig = lfilter([0.06], [1, -0.94], sig)
+    return sig * env(n, 0.9, 0.5, 0.8, 1.4, int(dur * SR)) * vel
+
+
+def wah_note(m, dur, vel):
+    """Wah-kitara: lyhyt näppäys, jonka resonanssisuodin aukeaa ja sulkeutuu (kaistanpäästön keskitaajuus liukuu)."""
+    n = int((dur + 0.2) * SR)
     t = np.arange(n) / SR
     f = hz(m)
-    vib = 1.0 + 0.006 * np.sin(2 * math.pi * 5.3 * t) * np.clip((t - 0.25) / 0.4, 0.0, 1.0)
+    raw = 2.0 * ((t * f) % 1.0) - 1.0
+    out = np.zeros(n)
+    y1 = y2 = 0.0
+    for i in range(0, n, 64):
+        fc = 500.0 + 1300.0 * math.sin(min(t[i] / max(dur, 0.05), 1.0) * math.pi)
+        r = 0.97
+        th = 2 * math.pi * fc / SR
+        a1, a2 = -2 * r * math.cos(th), r * r
+        seg = raw[i:i + 64]
+        o = np.empty(len(seg))
+        for j, x in enumerate(seg):
+            y = (1 - r) * x - a1 * y1 - a2 * y2
+            y2, y1 = y1, y
+            o[j] = y
+        out[i:i + 64] = o
+    return out * env(n, 0.004, 0.12, 0.3, 0.08, int(dur * SR)) * vel * 6.0
+
+
+def horn_note(m, dur, vel, rng):
+    """Vaimea flyygelitorvi: pehmeät osasävelet, hidas nousu ja viivästetty vibrato."""
+    n = int((dur + 0.5) * SR)
+    t = np.arange(n) / SR
+    f = hz(m)
+    vib = 1.0 + 0.004 * np.sin(2 * math.pi * 4.8 * t) * np.clip((t - 0.35) / 0.5, 0.0, 1.0)
     ph = 2 * math.pi * f * np.cumsum(vib) / SR
-    bright = 0.6 + 0.4 * np.clip(t / 0.15, 0, 1)
-    sig = np.zeros(n)
-    for h in range(1, 9):
-        amp = (1.0 / h) * (1.0 if h % 2 else 0.55) * (bright ** (h - 1))
-        sig += amp * np.sin(h * ph)
-    breath = lfilter([0.05], [1, -0.95], rng.standard_normal(n)) * 0.25
-    sig = sig + breath
-    return sig * env(n, 0.06, 0.2, 0.8, 0.25, int(dur * SR)) * vel
+    sig = np.sin(ph) + 0.35 * np.sin(2 * ph) + 0.12 * np.sin(3 * ph) + 0.04 * np.sin(4 * ph)
+    sig += lfilter([0.03], [1, -0.97], rng.standard_normal(n)) * 0.15
+    return sig * env(n, 0.12, 0.3, 0.8, 0.4, int(dur * SR)) * vel
 
 
 def brush(n, rng):
@@ -148,48 +179,53 @@ def reverb(x):
 
 def main():
     rng = np.random.default_rng(812)
-    total = int((LEN + 3.0) * SR)
+    total = int((LEN + 4.0) * SR)
     ep = np.zeros(total)
+    pad = np.zeros(total)
+    gtr = np.zeros(total)
     bass = np.zeros(total)
     drums = np.zeros(total)
     lead = np.zeros(total)
+    swing = 0.62  # kahdeksasosien keinu
     for b in range(BARS):
         t0 = b * BAR
         chords = CHORDS[b]
         for ci, name in enumerate(chords):
             ct = t0 + ci * BAR / len(chords)
             span = 4.0 / len(chords)
-            for hit, dur in ((0.0, 0.9), (1.5, 0.6), (2.5, 0.5), (3.5, 0.4)):
-                if hit < span:
-                    vel = 0.11 if hit == 0.0 else 0.08
-                    for m in VOICING[name]:
-                        add(ep, ct + hit * BEAT + rng.uniform(0, 0.012), ep_note(m, dur * BEAT, vel))
+            for m in VOICING[name]:
+                add(ep, ct + rng.uniform(0, 0.03), ep_note(m, span * BEAT * 0.95, 0.07))
+                add(pad, ct, pad_note(m + 12, span * BEAT, 0.035, rng))
             r = ROOT_NOTE[name]
-            pat = ((0.0, r, 1.4), (1.5, r + 7 if r + 7 <= 55 else r - 5, 0.4), (2.0, r, 1.4), (3.5, r + 7 if r + 7 <= 55 else r - 5, 0.4))
+            pat = ((0.0, r, 1.3), (1.5, r + 12, 0.4), (2.0 if span > 2 else 9, r + 7, 0.9), (3.5, r, 0.4))
             for beat, m, dur in pat:
                 if beat < span:
-                    add(bass, ct + beat * BEAT, bass_note(m, dur * BEAT, 0.32))
+                    add(bass, ct + beat * BEAT, bass_note(m, dur * BEAT, 0.3))
+            for beat in (1.0, 3.0):  # wah takaiskuilla
+                if beat < span:
+                    add(gtr, ct + beat * BEAT + 0.01, wah_note(VOICING[name][-1], 0.35 * BEAT, 0.05))
         for k in range(8):
-            add(drums, t0 + k * BEAT / 2, brush(int(0.12 * SR), rng) * (0.05 if k % 2 == 0 else 0.03))
-        clave = (0.0, 1.5, 3.0) if b % 2 == 0 else (1.0, 2.5)
-        for c in clave:
-            add(drums, t0 + c * BEAT, rim(int(0.08 * SR)) * 0.08)
-        for c in (0.0, 2.0):
-            add(drums, t0 + c * BEAT, kick(int(0.3 * SR)) * 0.25)
+            off = (k // 2) * BEAT + (swing * BEAT if k % 2 else 0.0)
+            add(drums, t0 + off, brush(int(0.09 * SR), rng) * (0.025 if k % 2 == 0 else 0.016))
+        for c in (1.0, 3.0):
+            add(drums, t0 + c * BEAT, rim(int(0.08 * SR)) * 0.035)
+            add(drums, t0 + c * BEAT, brush(int(0.25 * SR), rng) * 0.04)
+        for c in (0.0, 1.5 + swing - 0.5, 2.5):
+            add(drums, t0 + c * BEAT, kick(int(0.35 * SR)) * 0.2)
         tb = t0
         for m, beats in MELODY[b]:
             if m is not None:
-                add(lead, tb + 0.01, sax_note(m, beats * BEAT * 0.95, 0.14, rng))
+                add(lead, tb + 0.02, horn_note(m, beats * BEAT * 0.92, 0.07, rng))
             tb += beats * BEAT
-    dry = ep + bass + drums + lead * 1.0
-    wet = reverb(ep * 0.6 + lead * 0.9 + drums * 0.3)
-    mix = dry + wet * 0.35
+    dry = ep + pad + gtr + bass + drums + lead
+    wet = reverb(ep * 0.7 + pad * 0.8 + lead * 0.9 + gtr * 0.5 + drums * 0.2)
+    mix = dry + wet * 0.45
     # Silmukka: kaiun ja soivien äänten häntä LEN:n jälkeen alkuun.
     n = int(LEN * SR)
     loop = mix[:n].copy()
     tail = mix[n:]
     loop[:len(tail)] += tail
-    loop = np.tanh(loop / max(np.max(np.abs(loop)), 1e-6) * 1.2) * 0.85
+    loop = loop / max(np.max(np.abs(loop)), 1e-6) * 0.6  # väljä taso, ei puristusta
     pcm = (loop * 32767).astype("<i2")
     with wave.open(OUT, "wb") as w:
         w.setnchannels(1)

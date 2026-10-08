@@ -1114,27 +1114,33 @@ const WAITER := {
 	"hair": "Hair_SimpleParted", "hair_color": Color(0.3, 0.25, 0.2), "height": 1.8,
 }
 ## Ravintolavaunun jutustelu: [puhuja, repliikki]; puhuja "minä", "marja", "liisa", "helena" tai "tarjoilija".
+## Pelaaja juo olutta ja tarjoaa naisille Koskenkorvat; kolmas kenttä "treat" = repliikki, joka vaihtuu
+## TRAIN_NO_TREAT:iin, jos rahat eivät riitä tarjoamiseen (naiset ostavat paukkunsa itse); "hand" = paukun
+## jälkeen vieressä istuva Helena laskee kätensä pelaajan reidelle (IK) ja pitää sen siinä loppumatkan.
 const TRAIN_TALK_VAALA := [
-	["marja", "Onko tässä vapaata? Ravintolavaunusta näkee parhaiten."], ["minä", "Istukaa toki! Kahvit on vasta kaadettu."],
-	["liisa", "Kiitos! Oletko menossa Vaalaan asti?"], ["minä", "Oulujärven rantaan, Paapeliin. Mökillä odottaa sauna."],
-	["marja", "Ihana! Oulujärven auringonlasku on maailman kaunein."], ["helena", "Ja Salmisen uimaranta on paras uimaranta."],
-	["minä", "Teillä on kyllä hyvä maku. Ja hyvä huivi, Liisa."], ["liisa", "No kiitos! Itse neuloin. Sinä olet mukavaa seuraa."],
-	["tarjoilija", "Saako olla korvapuustia? Uunista tulleita."], ["marja", "Hyvää matkaa, ja terveisiä Siitarin karaokeen!"],
+	["marja", "Onko tässä vapaata? Ravintolavaunusta näkee parhaiten."], ["minä", "Istukaa toki! Tuoppi on just kaadettu."],
+	["liisa", "Oletko menossa Vaalaan asti?"], ["minä", "Oulujärven rantaan, Paapeliin. Mökillä odottaa sauna."],
+	["tarjoilija", "Saako naisille olla jotain? Olutta, Koskenkorvaa?"],
+	["minä", "Kolme Koskenkorvaa naisille, minun piikkiin!", "treat"], ["helena", "No voi kiitos! Kippis!"],
+	["helena", "Sinä olet kyllä mukava mies.", "hand"], ["minä", "Tuota... Juna on kyllä mukava kulkuväline."],
+	["marja", "Kippis! Oulujärven auringonlasku on maailman kaunein."], ["liisa", "Sinä olet kyllä mukavaa seuraa."],
+	["minä", "Ja te kauniimpia kuin Salmisen ranta."], ["marja", "Hyvää matkaa, ja terveisiä Siitarin karaokeen!"],
 ]
 const TRAIN_TALK_SALOINEN := [
-	["helena", "Hei! Saanko istua? Tässä on niin kiva valo."], ["minä", "Tottahan toki. Kahvia?"],
-	["helena", "Mielelläni. Menetkö kotiin Saloisiin?"], ["minä", "Kotiin. Kuusi kaljaa ja nurmikko odottaa."],
-	["marja", "Saloisissa on kuulemma Raahen seudun paras K-Market."], ["minä", "Niin on. Ja mukavimmat mummot kaupan penkillä."],
+	["helena", "Hei! Saanko istua? Tässä on niin kiva valo."], ["minä", "Tottahan toki. Mulla on tuoppi, otatteko jotain?"],
+	["tarjoilija", "Olutta vai jotain vahvempaa?"], ["minä", "Kolme Koskenkorvaa naisille, minä tarjoan!", "treat"],
+	["marja", "Kippis! Menetkö kotiin Saloisiin?"], ["helena", "Älä vielä mene. Matkaa on jäljellä.", "hand"], ["minä", "Kotiin. Kuusi kaljaa ja nurmikko odottaa."],
 	["liisa", "Sinulla on hauska tapa kertoa asioista."], ["minä", "Ja teidän kanssanne matka meni hetkessä."],
-	["tarjoilija", "Pientä purtavaa? Lihapiirakoita on vielä."], ["helena", "Hyvää kotimatkaa! Oli ilo jutella."],
+	["helena", "Hyvää kotimatkaa! Oli ilo jutella."],
 ]
+const TRAIN_NO_TREAT := "Tarjoaisin teille paukut, mutta lompakko on laiha. Ottakaa omat, kippis silti!"
 
 
 ## Junamatka Saloisten ja Vaalan asemien välillä kolmessa osassa: lähtö (Saloisista Raahen terästehtaan ohi,
 ## Vaalasta Oulujoen ristikkosillan yli), ravintolavaunussa jutellaan mukavia naismatkustajien kanssa (kahvia ja
 ## pullaa, maisema vilistää ikkunoissa) ja saapuminen (Vaalaan sillan yli, Saloisiin terästehtaan ohi).
 ## Taustalla soi lirkuttelubiisi. done kutsutaan pimeällä.
-func train_ride(to_vaala: bool, done: Callable) -> void:
+func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	_begin()
 	Sfx.play("door_close", -4.0)
 	Sfx.music_play(0.8, 0.0, Sfx.SONG_LIRKUTTELU)
@@ -1162,6 +1168,11 @@ func train_ride(to_vaala: bool, done: Callable) -> void:
 	var lines: Array = TRAIN_TALK_VAALA if to_vaala else TRAIN_TALK_SALOINEN
 	const LINE := 2.3
 	const SPEED := 24.0
+	var hand_from := lines.size()
+	for i in lines.size():
+		if lines[i].size() > 2 and lines[i][2] == "hand":
+			hand_from = i
+	var hand := {"w": 0.0, "rest": Vector3.ZERO}
 	var t0 := Time.get_ticks_msec()
 	var last := -1
 	while Time.get_ticks_msec() - t0 < lines.size() * LINE * 1000.0:
@@ -1176,11 +1187,32 @@ func train_ride(to_vaala: bool, done: Callable) -> void:
 			for nm in ["marja", "liisa", "helena", "minä"]:
 				(cast[nm] as Node3D).play("Sitting_Talking" if nm == who else "Sitting_Idle", 0.3)
 		var names := {"minä": "Sinä", "marja": "Marja", "liisa": "Liisa", "helena": "Helena", "tarjoilija": "Tarjoilija"}
-		_sub.text = "%s: %s" % [names[who], lines[k][1]]  # tekstitys alareunassa (kupla leikkautui lähikuvissa)
+		var line: String = TRAIN_NO_TREAT if lines[k].size() > 2 and lines[k][2] == "treat" and not treat else lines[k][1]
+		_sub.text = "%s: %s" % [names[who], line]  # tekstitys alareunassa (kupla leikkautui lähikuvissa)
 		# Kamerat: leveä sivukuva käytävältä pöydän poikki (selkänojat eivät peitä), muuten puhujaa vastapäätä
 		# istuvien olan yli kevyesti liukuen.
 		var u := fmod(t, LINE) / LINE
-		if who == "tarjoilija" or k % 3 == 2:
+		if k >= hand_from:
+			# Helenan oikea käsi pelaajan vasemmalle reidelle: lepoasennosta liukuen polven ja lantion väliin.
+			var hl: Node3D = cast.helena
+			var hero: Node3D = cast["minä"]
+			if hand.w == 0.0:
+				hand.rest = hl.to_global(hl.bone_position("hand_r"))
+			hand.w = minf(1.0, hand.w + get_process_delta_time() * 1.4)
+			var hip: Vector3 = hero.to_global(hero.bone_position("thigh_l"))
+			var knee: Vector3 = hero.to_global(hero.bone_position("calf_l"))
+			var side: Vector3 = hl.global_position - hero.global_position
+			side.y = 0.0
+			var on_thigh: Vector3 = hip.lerp(knee, 0.55) + Vector3(0, 0.2, 0) + side.normalized() * 0.04  # ranne reiden pinnan yllä (reisi on paksu, kämmen ei saa upota)
+			var goal: Vector3 = (hand.rest as Vector3).lerp(on_thigh, smoothstep(0.0, 1.0, hand.w))
+			var sh: Vector3 = hl.to_global(hl.bone_position("upperarm_r"))
+			hl.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", hl.to_local(goal),
+				hl.to_local(sh + Vector3(0, -0.4, 0) + hl.global_basis.z * 0.25))
+		if k == hand_from or k == hand_from + 1:
+			# Käsi reidellä: kurkistus pöydän alta vastapäätä (pöytälevy peittää sylin ylhäältä).
+			_cam.global_position = car.to_global(Vector3(lerpf(-0.3, -0.38, u), 0.58, lerpf(-0.42, -0.5, u)))
+			_cam.look_at(car.to_global(Vector3(-0.85, 0.6, 0.75)), Vector3.UP)
+		elif who == "tarjoilija" or k % 3 == 2:
 			_cam.global_position = car.to_global(Vector3(1.15, 1.35, lerpf(0.35, -0.35, u)))
 			_cam.look_at(car.to_global(Vector3(-0.85, 1.0, 0.0)), Vector3.UP)
 		elif who in ["marja", "liisa"]:
@@ -1448,10 +1480,21 @@ func _build_dining_car(car: Node3D) -> Dictionary:
 		for sz: float in [-1.0, 1.0]:
 			B.box(car, Vector3(0.9, 0.45, 0.55), Vector3(-0.85, 0.22, tz + sz * 0.85), red, false)
 			B.box(car, Vector3(0.9, 0.8, 0.12), Vector3(-0.85, 0.85, tz + sz * 1.15), red, false)
+		if tz == 0.0:
+			continue  # oma pöytä: olut ja paukut alla
 		for cx: float in [-1.05, -0.65]:
 			B.mesh(car, B.cyl(0.045, 0.04, 0.09, 12), Vector3(cx, 0.82, tz - 0.15), Color(0.95, 0.95, 0.95))  # kahvikupit
 			B.mesh(car, B.cyl(0.045, 0.04, 0.09, 12), Vector3(cx, 0.82, tz + 0.15), Color(0.95, 0.95, 0.95))
 		B.mesh(car, B.sphere(0.07, 8), Vector3(-0.85, 0.82, tz), Color(0.78, 0.55, 0.25))  # korvapuusti
+	# Oma pöytä: pelaajalla tuoppi olutta vaahtoineen, naisilla Koskenkorvapaukut ja pöydän keskellä pullo.
+	B.mesh(car, B.cyl(0.042, 0.036, 0.16, 14), Vector3(-0.62, 0.855, 0.2), Color(0.86, 0.56, 0.12))
+	B.mesh(car, B.cyl(0.043, 0.043, 0.03, 14), Vector3(-0.62, 0.95, 0.2), Color(0.97, 0.95, 0.88))
+	for sp: Vector3 in [Vector3(-1.07, 0.0, 0.2), Vector3(-1.05, 0.0, -0.2), Vector3(-0.6, 0.0, -0.2)]:
+		B.mesh(car, B.cyl(0.02, 0.016, 0.055, 10), sp + Vector3(0, 0.805, 0), Color(0.8, 0.88, 0.92))
+		B.mesh(car, B.cyl(0.017, 0.015, 0.03, 10), sp + Vector3(0, 0.796, 0), Color(0.97, 0.97, 0.95))
+	B.mesh(car, B.cyl(0.035, 0.035, 0.2, 12), Vector3(-0.85, 0.88, 0.0), Color(0.85, 0.9, 0.93))  # Koskenkorva-pullo
+	B.mesh(car, B.cyl(0.036, 0.036, 0.06, 12), Vector3(-0.85, 0.86, 0.0), Color(0.15, 0.3, 0.65))  # etiketti
+	B.mesh(car, B.cyl(0.013, 0.013, 0.07, 8), Vector3(-0.85, 1.015, 0.0), Color(0.85, 0.9, 0.93))
 	# Tiski kahvinkeittimineen vaunun päässä.
 	B.box(car, Vector3(W - 0.4, 1.0, 0.6), Vector3(0, 0.5, -LEN / 2.0 + 0.5), wood, false)
 	B.box(car, Vector3(0.35, 0.45, 0.3), Vector3(0.7, 1.22, -LEN / 2.0 + 0.5), Color(0.2, 0.2, 0.22), false)

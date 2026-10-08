@@ -3,6 +3,10 @@ extends Node3D
 ## päästä päähän. Juna lähtee satunnaisin välein siitä päästä, joka on kauempana kamerasta (ilmestyminen ei näy), ja
 ## katoaa toiseen päähän. Sr1-veturi ja neljä sinistä vaunua (yksi ravintolavaunu), 70-90 km/h. Jyrinä 3D-äänenä
 ## veturissa, vihellys ohittaessa kameran.
+## Aikataulun mukainen juna (main.gd _train_schedule): call_station tuo matkustajajunan asemalle, joka jarruttaa
+## junan keskikohta laiturin kohdalle, seisoo STOP_DWELL s (vain silloin pääsee kyytiin, at_station) ja jatkaa
+## matkaa. arrive_stopped: juna jolla pelaaja juuri tuli, seisoo asemalla ja lähtee. random = false: ei
+## satunnaisia ohikulkujunia (Saloisissa vain aikataulun junat).
 
 const B := preload("res://scripts/build.gd")
 
@@ -21,6 +25,16 @@ var _wait := 0.0
 var _train_len := 0.0
 var _rumble: AudioStreamPlayer3D
 var _honked := false
+var random := true
+var _phase := ""                   # "" vapaa tai satunnainen, "in" saapuu, "stop" asemalla, "out" lähtee
+var _stop_s := 0.0                 # _s, jolla junan keskikohta on laiturilla
+var _dwell := 0.0
+var _pending := -1.0               # lähtevän junan aikana kutsuttu seuraava pysähdys (stop_t)
+const STOP_DWELL := 30.0
+const BRAKE := 0.8                 # m/s²
+const ACCEL := 0.5
+const CRUISE := 25.0
+const APPROACH := 600.0            # saapuva juna ilmestyy näin kauas laiturista
 
 
 func setup(p: PackedVector3Array) -> void:
@@ -42,11 +56,38 @@ func _process(delta: float) -> void:
 	if path.size() < 2:
 		return
 	if not _active:
+		if not random:
+			return
 		_wait -= delta
 		if _wait <= 0.0:
 			_spawn(randf() < 0.6)
 		return
+	match _phase:
+		"in":
+			var left := _stop_s - _s
+			_speed = minf(CRUISE, sqrt(2.0 * BRAKE * maxf(left, 0.0)) + 0.4)
+			if left <= 0.05:
+				_s = _stop_s
+				_speed = 0.0
+				_phase = "stop"
+				_dwell = STOP_DWELL
+		"stop":
+			_speed = 0.0
+			_dwell -= delta
+			if _dwell <= 0.0:
+				_phase = "out"
+				if _units.size() > 0:
+					Sfx.play_on(_units[0][0], "horn", 4.0, 0.48, 2.6)
+		"out":
+			_speed = minf(CRUISE, _speed + ACCEL * delta)
+			if _pending >= 0.0 and _s - _stop_s > _train_len + 150.0:
+				var t := _pending
+				_pending = -1.0
+				call_station(t)
+				return
 	_s += _speed * delta
+	if _rumble != null:
+		_rumble.volume_db = lerpf(-12.0, 6.0, clampf(_speed / CRUISE, 0.0, 1.0))
 	_place()
 	var cam := get_viewport().get_camera_3d()
 	if cam != null and not _honked and _units.size() > 0:
@@ -55,7 +96,10 @@ func _process(delta: float) -> void:
 			_honked = true
 			Sfx.play_on(loco, "horn", 6.0, 0.48, 2.6)
 	if _s - _train_len > _length + 5.0:
+		var pend := _pending
 		_despawn()
+		if pend >= 0.0:
+			call_station(pend)
 
 
 func _spawn(passenger: bool, from_start := -1) -> void:
@@ -100,7 +144,76 @@ func _despawn() -> void:
 		(u[0] as Node3D).queue_free()
 	_units.clear()
 	_active = false
+	_phase = ""
+	_pending = -1.0
+	_rumble = null
 	_wait = randf_range(WAIT.x, WAIT.y)
+
+
+## Aikataulun juna asemalle: stop_t = laiturin kohta reitillä (path-koordinaatti, ks. nearest_t). Tulee siitä
+## päästä, joka on kauempana kamerasta, APPROACH m:n päästä laiturista.
+func call_station(stop_t: float) -> void:
+	if _active and _phase == "out":
+		_pending = stop_t  # edellinen lähtee ensin laiturilta pois näkyvistä
+		return
+	var cam := get_viewport().get_camera_3d()
+	var c := to_local(cam.global_position) if cam != null else path[0]
+	_start_at_station(stop_t, 1 if c.distance_to(path[0]) > c.distance_to(path[path.size() - 1]) else 0)
+	_s = maxf(0.0, _stop_s - APPROACH)
+	_speed = CRUISE
+	_phase = "in"
+	_place()
+
+
+## Juna, jolla pelaaja juuri saapui: seisoo laiturilla hetken ja lähtee.
+func arrive_stopped(stop_t: float, dwell := 8.0) -> void:
+	_start_at_station(stop_t, randi() % 2)
+	_s = _stop_s
+	_speed = 0.0
+	_phase = "stop"
+	_dwell = dwell
+	_place()
+
+
+func _start_at_station(stop_t: float, from_start: int) -> void:
+	_spawn(true, from_start)
+	var d := stop_t if _dir == 1 else _length - stop_t
+	_stop_s = d + _train_len / 2.0
+
+
+func arriving() -> bool:
+	return _active and (_phase == "in" or _pending >= 0.0)
+
+
+func at_station() -> bool:
+	return _active and _phase == "stop"
+
+
+## Aikataulun juna tulossa tai asemalla (lähtevä ei enää).
+func calling() -> bool:
+	return arriving() or at_station()
+
+
+## Saapumiseen kuluva aika (s) call_stationista pysähdykseen.
+static func approach_secs() -> float:
+	var brake_d := CRUISE * CRUISE / (2.0 * BRAKE)
+	return (APPROACH - brake_d) / CRUISE + CRUISE / BRAKE
+
+
+## Lähimmän reitin kohdan path-koordinaatti (matka reitin alusta).
+func nearest_t(p: Vector3) -> float:
+	var best := INF
+	var bt := 0.0
+	for i in path.size() - 1:
+		var a := path[i]
+		var b := path[i + 1]
+		var ab := Vector2(b.x - a.x, b.z - a.z)
+		var u := clampf(Vector2(p.x - a.x, p.z - a.z).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+		var d := Vector2(p.x - a.x, p.z - a.z).distance_to(ab * u)
+		if d < best:
+			best = d
+			bt = _cum[i] + (_cum[i + 1] - _cum[i]) * u
+	return bt
 
 
 ## Piste reitillä matkan d kohdalla ajosuunnassa (d = 0 lähtöpäässä).
