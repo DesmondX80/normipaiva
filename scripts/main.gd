@@ -10465,8 +10465,9 @@ func _maybe_screenshot() -> void:
 				slow = slow + 1 if absf(mp.speed) < 0.6 else 0
 				if slow == 60:
 					print("KOKO pysähtyi näytteellä %d (%s), y %.2f tie %.2f" % [last, vl.road_names[last], mp.position.y, vl.road_pos(last).y])
-				if i % 600 == 0:
-					print("KOKO %3d s: näyte %d/%d, %.1f km/h, tiestä %.1f m" % [i / 60, last, vl.road.size(), mp.speed * 3.6, ni[1]])
+				if i % 600 == 0 or (slow > 0 and slow % 30 == 0):
+					print("KOKO %3d s: näyte %d/%d, %.1f km/h, tiestä %.1f m, ajettava %s, reuna %.2f, paikka %s" % [i / 60, last,
+						vl.road.size(), mp.speed * 3.6, ni[1], vl.drivable(mp.position.x, mp.position.z), mp._curb, mp.position])
 				if last >= vl.road.size() - 30 or slow > 300:
 					break
 			Input.action_release("forward")
@@ -10474,6 +10475,93 @@ func _maybe_screenshot() -> void:
 			Input.action_release("right")
 			print("KOKO loppu: näyte %d/%d, aika %.0f s, seinäosumat näytteillä %s, kaatumisia %d" % [last, vl.road.size(),
 				(Time.get_ticks_msec() - t0) / 1000.0, str(walls.keys()), crashes[0]])
+		"mokkiajoalue":
+			# Mopon ajoalue (vaala.gd drivable) kuvaksi ja kokeet: tieltä suoraan ja viistosti metsään, sekä
+			# pysäköintipaikoilta liikkeelle.
+			tilat.add("humala", -1.0)
+			_start_mopo()
+			var mp: CharacterBody3D = mopo_trip.mopo
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var img := Image.create(vl._dnx, vl._dnz, false, Image.FORMAT_L8)
+			for j in vl._dnz:
+				for i in vl._dnx:
+					img.set_pixel(i, j, Color.WHITE if vl._drive[j * vl._dnx + i] != 0 else Color.BLACK)
+			img.save_png(path.replace(".png", "_maski.png"))
+			print("AJO maski %d x %d, x0 %.1f z0 %.1f" % [vl._dnx, vl._dnz, vl._x0, vl._z0])
+			for t in [[200, 90.0], [400, 60.0], [560, -90.0], [700, 35.0], [300, -20.0]]:
+				var si: int = t[0]
+				var d: Vector3 = vl.road_dir(si).rotated(Vector3.UP, deg_to_rad(t[1]))
+				mp.position = vl.road_pos(si) + Vector3(0, 0.6, 0)
+				mp.rotation.y = atan2(-d.x, -d.z)
+				mp.speed = 10.0
+				Input.action_press("forward")
+				for i in 60 * 4:
+					await get_tree().physics_frame
+				Input.action_release("forward")
+				var ni: Array = vl.nearest(mp.position)
+				print("AJO näyte %d kulma %+.0f: tiestä %.1f m, ajettava %s, pinta %d, nopeus %.1f km/h" % [si, t[1], ni[1],
+					vl.drivable(mp.position.x, mp.position.z), vl.code_at(mp.position.x, mp.position.z), mp.speed * 3.6])
+			var stops := {"siitari": vl.siitari_park, "lava": vl.lava_door, "kmarket": vl.kmarket_door, "mokki": vl.mokki_mopo}
+			for d in vl.doors:
+				stops[d.id] = d.pos
+			for id in stops:
+				var sp: Vector3 = stops[id]
+				print("AJO pysäkki %s %s ajettava %s" % [id, sp, vl.drivable(sp.x, sp.z)])
+			get_tree().quit()
+		"mokkimopo_paluu":
+			# Paluu Siitarista mökille täysillä oikealla kaistalla (ilman liikennettä): pysähdykset ja seinäosumat,
+			# erityisesti Oulujoen sillalla.
+			tilat.add("humala", -1.0)
+			_start_mopo()
+			var mp: CharacterBody3D = mopo_trip.mopo
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var si: int = vl.road.size() - 12
+			var d: Vector3 = -vl.road_dir(si)
+			mp.position = vl.road_pos(si) + Vector3(0, 0.6, 0) + d.cross(Vector3.UP) * 1.6
+			mp.rotation.y = atan2(-d.x, -d.z)
+			Input.action_press("forward")
+			var last := si
+			var slow := 0
+			var walls := {}
+			var stuck_at := -1
+			var t0 := Time.get_ticks_msec()
+			for i in 60 * 400:
+				await get_tree().physics_frame
+				var ni: Array = vl.nearest(mp.position)
+				if ni[0] >= 0:
+					last = mini(last, ni[0])
+				var li := maxi(last - 3, 0)
+				var lane: Vector3 = vl.road_pos(li) - vl.road_dir(li).cross(Vector3.UP) * 1.6
+				var want := Vector3(lane.x - mp.position.x, 0, lane.z - mp.position.z)
+				var err := (-mp.global_transform.basis.z).signed_angle_to(want, Vector3.UP)
+				Input.action_press("left", clampf(err * 3.0, 0.0, 1.0))
+				Input.action_press("right", clampf(-err * 3.0, 0.0, 1.0))
+				if mp.is_on_wall():
+					walls[last] = true
+				slow = slow + 1 if absf(mp.speed) < 0.6 else 0
+				if slow == 60:
+					print("PALUU pysähtyi näytteellä %d (%s), y %.2f tie %.2f, paikka %s" % [last, vl.road_names[last], mp.position.y,
+						vl.road_pos(last).y, mp.position])
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_jumi.png"))
+				if i % 300 == 0:
+					print("PALUU %3d s: näyte %d, %.1f km/h, tiestä %.1f m, y %.2f" % [i / 60, last, mp.speed * 3.6, ni[1], mp.position.y])
+				if last <= 20 or slow > 300 or (i % 1200 == 0 and i > 0 and last == stuck_at):
+					break
+				if i % 1200 == 0:
+					stuck_at = last  # 20 s samassa kohdassa = jumissa
+			Input.action_release("forward")
+			Input.action_release("left")
+			Input.action_release("right")
+			print("PALUU loppu: näyte %d, aika %.0f s, seinäosumat näytteillä %s" % [last, (Time.get_ticks_msec() - t0) / 1000.0,
+				str(walls.keys())])
+			get_tree().quit()
 		"mokkimopo_silta", "mokkimopo_kanni":
 			# mokkimopo_silta: oikealla kaistalla täysillä Oulujoen sillan yli (ei porrasta sillan päissä), kuva kannelta.
 			# mokkimopo_kanni: humala 0,8, kaasu pohjassa ilman ohjausta: kuinka pian mopo on ojassa.

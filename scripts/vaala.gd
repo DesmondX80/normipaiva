@@ -135,6 +135,149 @@ func code_at(x: float, z: float) -> int:
 	return _codes[j * _nx + i]
 
 
+## Ajopinta kohdassa p: sillan kannella tie (maankäyttö kannen alla on vettä tai rantaa), muuten code_at.
+func drive_code(p: Vector3) -> int:
+	var ni := nearest(p)
+	if ni[0] >= 0:
+		var r: Array = road[ni[0]]
+		if int(r[6]) == 1 and ni[1] < float(r[4]) + 1.7 and absf(p.y - float(r[1])) < 2.0:
+			return ROAD
+	return code_at(p.x, p.z)
+
+
+## Mopolla ajettava alue (DRIVE_CELL m ruudukko tarkan maaston päällä): reitti pientareineen, risteysten haarat,
+## sivutiet ja polut, parkit, tori, lavan ajotie ja niitty, mökin piha ja ovien edustat. Mopo ei aja tämän
+## ulkopuolelle (mopo.gd _keep_on_road): metsään, pellolle ja pihoille ei köröttele.
+const DRIVE_CELL := 2.0
+var _drive := PackedByteArray()
+var _dnx := 0
+var _dnz := 0
+
+
+func drivable(x: float, z: float) -> bool:
+	if _drive.is_empty():
+		return true
+	var i := int((x - _x0) / DRIVE_CELL)
+	var j := int((z - _z0) / DRIVE_CELL)
+	if i < 0 or j < 0 or i >= _dnx or j >= _dnz:
+		return false
+	return _drive[j * _dnx + i] != 0
+
+
+func _drive_seg(a: Vector2, b: Vector2, r: float) -> void:
+	var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y)) - Vector2(r, r)
+	var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y)) + Vector2(r, r)
+	var i0 := maxi(int((lo.x - _x0) / DRIVE_CELL), 0)
+	var j0 := maxi(int((lo.y - _z0) / DRIVE_CELL), 0)
+	var i1 := mini(int((hi.x - _x0) / DRIVE_CELL), _dnx - 1)
+	var j1 := mini(int((hi.y - _z0) / DRIVE_CELL), _dnz - 1)
+	var r2 := (r + DRIVE_CELL * 0.5) * (r + DRIVE_CELL * 0.5)
+	for j in range(j0, j1 + 1):
+		var cz := _z0 + (j + 0.5) * DRIVE_CELL
+		for i in range(i0, i1 + 1):
+			var c := Vector2(_x0 + (i + 0.5) * DRIVE_CELL, cz)
+			if c.distance_squared_to(Geometry2D.get_closest_point_to_segment(c, a, b)) <= r2:
+				_drive[j * _dnx + i] = 1
+
+
+func _drive_poly(pts: PackedVector2Array, grow: float) -> void:
+	if pts.size() < 3:
+		return
+	var lo := pts[0]
+	var hi := pts[0]
+	for q in pts:
+		lo = Vector2(minf(lo.x, q.x), minf(lo.y, q.y))
+		hi = Vector2(maxf(hi.x, q.x), maxf(hi.y, q.y))
+	for j in range(maxi(int((lo.y - _z0) / DRIVE_CELL), 0), mini(int((hi.y - _z0) / DRIVE_CELL), _dnz - 1) + 1):
+		for i in range(maxi(int((lo.x - _x0) / DRIVE_CELL), 0), mini(int((hi.x - _x0) / DRIVE_CELL), _dnx - 1) + 1):
+			if Geometry2D.is_point_in_polygon(Vector2(_x0 + (i + 0.5) * DRIVE_CELL, _z0 + (j + 0.5) * DRIVE_CELL), pts):
+				_drive[j * _dnx + i] = 1
+	for k in pts.size():
+		_drive_seg(pts[k], pts[(k + 1) % pts.size()], grow)
+
+
+func _drive_ellipse(c: Vector2, rx: float, rz: float) -> void:
+	var pts := PackedVector2Array()
+	for k in 24:
+		pts.append(c + Vector2(cos(TAU * k / 24) * rx, sin(TAU * k / 24) * rz))
+	_drive_poly(pts, 0.0)
+
+
+func _build_drive_mask() -> void:
+	var t0 := Time.get_ticks_msec()
+	_dnx = int(_nx * _cell / DRIVE_CELL) + 1
+	_dnz = int(_nz * _cell / DRIVE_CELL) + 1
+	_drive.resize(_dnx * _dnz)
+	_drive.fill(0)
+	for i in road.size() - 1:
+		_drive_seg(Vector2(road[i][0], road[i][2]), Vector2(road[i + 1][0], road[i + 1][2]), float(road[i][4]) + 1.5)
+	for br in data.branches:
+		for k in br.pts.size() - 1:
+			_drive_seg(Vector2(br.pts[k][0], br.pts[k][2]), Vector2(br.pts[k + 1][0], br.pts[k + 1][2]), float(br.hw) + 1.0)
+	for r in data.side_roads:
+		if r.kind == "rail" or r.pts.size() < 2:
+			continue
+		var hw: String = r.hw
+		var half := 2.2
+		if hw in ["footway", "cycleway", "path", "pedestrian", "steps"]:
+			half = 1.3
+		elif hw in ["secondary", "tertiary"]:
+			half = 3.2
+		elif hw in ["residential", "unclassified"] or r.surface in ["asphalt", "paved"]:
+			half = 2.6
+		elif hw == "service":
+			half = 1.8
+		if r.name == "Vaalan tori":
+			var tp := PackedVector2Array()
+			for q in r.pts:
+				tp.append(Vector2(q[0], q[1]))
+			_drive_poly(tp, 1.0)
+			continue
+		for k in r.pts.size() - 1:
+			_drive_seg(Vector2(r.pts[k][0], r.pts[k][1]), Vector2(r.pts[k + 1][0], r.pts[k + 1][1]), half + 1.0)
+	var polys: Array = data.parkings.duplicate()
+	var ks: Dictionary = data.get("keskusta", {})
+	if ks.get("parking") != null:
+		polys.append(ks.parking)
+	for poly in polys:
+		var pts := PackedVector2Array()
+		for q in poly:
+			pts.append(Vector2(q[0], q[1]))
+		_drive_poly(pts, 1.0)
+	if data.has("lava"):
+		var lr: Array = data.lava.road
+		_drive_seg(Vector2(lr[0][0], lr[0][1]), Vector2(lr[1][0], lr[1][1]), 3.5)
+		_drive_ellipse(Vector2(lava_door.x, lava_door.z), 9.0, 9.0)
+	# Mökin piha (hiekkasoikio) ja mopon parkkipaikka tielle asti.
+	var MokkiScript: GDScript = load(MOKKI_PATH)
+	var yard := PackedVector2Array()
+	for k in 24:
+		var a := TAU * k / 24
+		yard.append(MokkiScript.to_map2(Vector2(-2.0 + cos(a) * 19.0, 6.0 + sin(a) * 17.0)))
+	_drive_poly(yard, 0.0)
+	var mm := Vector2(mokki_mopo.x, mokki_mopo.z)
+	_drive_seg(mm, mm, 4.0)
+	_drive_seg(mm, Vector2(road[0][0], road[0][2]), 2.5)
+	# Ovien ja pysäköintipaikkojen edustat: ovelle ja sieltä lähimmälle tielle.
+	var stops: Array[Vector3] = [siitari_park, siitari_door, kmarket_door, atm_pos, lava_door]
+	for d in doors:
+		stops.append(d.pos)
+	for sp in stops:
+		if sp == Vector3.ZERO:
+			continue
+		var p := Vector2(sp.x, sp.z)
+		var near_drive := drivable(p.x, p.y)
+		for k in 8:
+			var q := p + Vector2.from_angle(TAU * k / 8) * 6.0
+			near_drive = near_drive or drivable(q.x, q.y)
+		if not near_drive:
+			var ni := nearest(sp)
+			if ni[0] >= 0 and ni[1] < 40.0:
+				_drive_seg(p, Vector2(road[ni[0]][0], road[ni[0]][2]), 2.5)
+		_drive_seg(p, p, 5.0)
+	print("VAALA ajoalue %d ms, %.0f %% ruuduista" % [Time.get_ticks_msec() - t0, 100.0 * _drive.count(1) / _drive.size()])
+
+
 ## Lähin tien näyte ja etäisyys siitä (vaakatasossa). [-1, INF], jos tie on yli 60 m päässä.
 func nearest(p: Vector3) -> Array:
 	var ci := floori(p.x / 20.0)
@@ -191,6 +334,7 @@ func ensure_built() -> void:
 	_build_atm()
 	_build_lava()
 	_build_mokki_yard()
+	_build_drive_mask()
 	print("VAALA rakennettu %d ms" % (Time.get_ticks_msec() - t0))
 
 
