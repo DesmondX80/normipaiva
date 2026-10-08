@@ -7,10 +7,11 @@ Ajo: python3 tools/vaala_keskusta.py   (vaala_bake.py ajaa tämän lopuksi lavan
   Siitarin lounaispuolelle, jotta kauppa ja sen seinän pankkiautomaatti ovat Siitarin vieressä. Uusi pohja on
   suorakaide pitkä sivu tielle päin (ovi ja kyltti tien puolella, vaala.gd), eteen parkkipaikka. Tontin ja
   parkkipaikan maasto pihaksi ja tasaiseksi, reunat liitetään ympäristöön pehmeästi.
-- Gasthaus (OSM 534430535, torin laidalta) Siitaria vastapäätä tien toiselle puolelle, Zabuki seuraavaan
-  rakennukseen Gasthausin viereen (molemmat julkisivu tielle) ja tori niiden taakse. Asfalttitie lähtee Vaalantieltä
-  Zabukin vierestä torille. Alta jäävät talot ja polut poistetaan, tontit ja tori tasoitetaan pihaksi. vaala.gd lukee
-  Zabukin paikan ja julkisivut tie.json:sta ("keskusta": "zabuki", "gasthaus_face"), tori on "Vaalan tori".
+- Gasthaus (OSM 534430535, torin laidalta) Siitaria vastapäätä tien toiselle puolelle (julkisivu tielle). Tori tien
+  päähän: mopotie päättyy Siitarin pihalenkkiin, ja tori on lenkin kohdalla Siitarin vieressä (Siitari länsilaidalla),
+  Zabuki torin itäpäädyssä tiski torille päin. Alta jäävät talot, polut ja parkki poistetaan, tontit ja tori
+  tasoitetaan pihaksi. vaala.gd lukee Zabukin paikan ja julkisivut tie.json:sta ("keskusta": "zabuki",
+  "gasthaus_face"), tori on "Vaalan tori".
 - Puut pois rakennusten sisältä ja vierestä, parkkipaikoilta ja ajoradoilta: laserkeilauksen latvusmallin
   maksimeista tunnistuu "puiksi" myös kattoja, jotka kasvoivat pelissä seinien ja kattojen läpi. Siitarin ympäriltä
   raivataan piha, ettei ovi avaudu suoraan metsään.
@@ -42,11 +43,11 @@ ROAD_MARGIN = 1.5    # tien reunasta
 GASTHAUS_ID = 534430535
 GH_SETBACK = 9.0     # Gasthausin julkisivu näin kauas ajoradan reunasta (piha mopolle)
 ZB_SIZE = (9.0, 5.0)  # Zabukin kioski (vaala.gd _build_zabuki): leveys x syvyys
-ZB_SETBACK = 9.0     # Zabukin tiski näin kauas ajoradan reunasta (jakkarat ja seisomapöydät edessä)
-ZB_GAP = 6.0         # Gasthausin ja Zabukin väli
-LANE_GAP = 5.0       # torille vievän asfalttitien keskiviiva näin kauas Zabukin päädystä
-TORI_GAP = 5.0       # tori näin kauas rakennusten takaseinistä
-TORI_DEPTH = 30.0
+# Tori Siitarin puolella tien päässä tien suuntaisessa kehyksessä (u tien suuntaan Siitarin kohdalta, v poispäin
+# tiestä Siitarin puolelle): pihalenkki kulkee torin länsiosan halki, Siitari on sen länsilaidalla.
+TORI_U = (18.0, 56.0)
+TORI_V = (5.5, 26.0)
+ZB_END = 2.0         # Zabukin takaseinä näin kauas torin itäreunasta
 
 
 def in_poly(p, poly):
@@ -88,7 +89,7 @@ def rect(c, ax, az, hx, hz):
 
 
 def place_tori(tie, flatten):
-    """Gasthaus Siitaria vastapäätä, Zabuki sen viereen ja tori niiden taakse; asfalttitie Zabukin vierestä torille."""
+    """Gasthaus Siitaria vastapäätä, tori tien päähän Siitarin viereen ja Zabuki torin itäpäätyyn."""
     road = tie["road"]
     sx, sz = tie["siitari"]
     # Siitarin kohta tiellä: näyte, jonka kohdalla Siitari on suoraan sivulla (tien lopun lenkki parkkiin pois).
@@ -117,21 +118,20 @@ def place_tori(tie, flatten):
     gl, gw = max(us) - min(us), max(vs) - min(vs)
     gc = at(0.0, hw + GH_SETBACK + gw / 2.0)
     gh["pts"] = rect(gc, ax, away, gl / 2.0, gw / 2.0)
-    zu = gl / 2.0 + ZB_GAP + ZB_SIZE[0] / 2.0
-    zc = at(zu, hw + ZB_SETBACK + ZB_SIZE[1] / 2.0)
-    lane_u = zu + ZB_SIZE[0] / 2.0 + LANE_GAP
-    back = hw + max(GH_SETBACK + gw, ZB_SETBACK + ZB_SIZE[1]) + TORI_GAP
-    tu0, tu1 = -gl / 2.0 - 4.0, lane_u + 8.0
-    tc = at((tu0 + tu1) / 2.0, back + TORI_DEPTH / 2.0)
-    tori = rect(tc, ax, away, (tu1 - tu0) / 2.0, TORI_DEPTH / 2.0)
-    lane = [at(lane_u, 0.0), at(lane_u, back + 6.0)]
+    tv = -(TORI_V[0] + TORI_V[1]) / 2.0  # Siitarin puoli on -away
+    tc = at((TORI_U[0] + TORI_U[1]) / 2.0, tv)
+    tori = rect(tc, ax, away, (TORI_U[1] - TORI_U[0]) / 2.0, (TORI_V[1] - TORI_V[0]) / 2.0)
+    zu = TORI_U[1] - ZB_END - ZB_SIZE[1] / 2.0
+    zc = at(zu, tv)
+    face = (-ax[0], -ax[1])  # tiski länteen torille ja Siitarille päin
 
-    # Tontit: Gasthaus pihoineen, Zabuki edustoineen, asfalttitie ja tori.
+    # Tontit: Gasthaus pihoineen, tori ja Zabuki.
     g_lot = rect(at(0.0, hw + 1.0 + (GH_SETBACK - 1.0 + gw) / 2.0), ax, away, gl / 2.0 + 2.0, (GH_SETBACK - 1.0 + gw) / 2.0)
-    z_lot = rect(at(zu, hw + 1.0 + (ZB_SETBACK - 1.0 + ZB_SIZE[1]) / 2.0), ax, away, ZB_SIZE[0] / 2.0 + 1.5,
-                 (ZB_SETBACK - 1.0 + ZB_SIZE[1]) / 2.0)
-    l_lot = rect(at(lane_u, (hw + 1.0 + back + 6.0) / 2.0), ax, away, 3.5, (back + 5.0 - hw) / 2.0)
-    lots = [g_lot, z_lot, l_lot, tori]
+    z_lot = rect(zc, ax, away, ZB_SIZE[1] / 2.0 + 1.5, ZB_SIZE[0] / 2.0 + 1.5)
+    lots = [g_lot, z_lot, tori]
+    # Torin alle jäävät parkkipaikat pois (palautetaan uudessa ajossa).
+    removed_parks = [pk for pk in tie["parkings"] if any(in_poly(q, tori) for q in pk) or any(in_poly(q, pk) for q in tori)]
+    tie["parkings"] = [pk for pk in tie["parkings"] if pk not in removed_parks]
     keep = (SIITARI_ID, KMARKET_ID, GASTHAUS_ID)
     removed = []
     for bd in tie["buildings"]:
@@ -184,15 +184,14 @@ def place_tori(tie, flatten):
     for sr in tie["side_roads"]:
         if sr.get("name") == "Vaalan tori":
             sr["pts"] = tori + [tori[0]]
-    tie["side_roads"].append({"kind": "road", "hw": "service", "name": "", "surface": "asphalt", "_kesk": 1,
-                              "pts": [[round(q[0], 2), round(q[1], 2)] for q in lane]})
     flat = flatten(lots, 8.0)
     print("Gasthaus Siitaria vastapäätä", [round(v, 1) for v in gc], "%.0f x %.0f m" % (gl, gw),
           "| Zabuki", [round(v, 1) for v in zc], "| tori", [round(v, 1) for v in tc], "%.1f m" % flat,
-          "| poistettu talot", [b["id"] for b in removed], "| katkaistu polkuja", len(cut_roads))
-    return {"zabuki": {"c": [round(zc[0], 2), round(zc[1], 2)], "face": [round(-away[0], 4), round(-away[1], 4)]},
+          "| poistettu talot", [b["id"] for b in removed], "| katkaistu polkuja", len(cut_roads), "| parkkeja pois", len(removed_parks))
+    return {"zabuki": {"c": [round(zc[0], 2), round(zc[1], 2)], "face": [round(face[0], 4), round(face[1], 4)]},
             "gasthaus_face": [round(-away[0], 4), round(-away[1], 4)],
-            "tori": {"gasthaus_pts": gh_orig, "removed": removed, "cut_roads": cut_roads, "tori_pts": tori_pts}}
+            "tori": {"gasthaus_pts": gh_orig, "removed": removed, "cut_roads": cut_roads, "tori_pts": tori_pts,
+                     "parkings": removed_parks}}
 
 
 def apply():
@@ -222,6 +221,7 @@ def apply():
                 if r.get("name") == "Vaalan tori":
                     r["pts"] = t["tori_pts"]
             tie["buildings"] += t["removed"]
+            tie["parkings"] += t.get("parkings", [])
             for b in tie["buildings"]:
                 if b["id"] == GASTHAUS_ID:
                     b["pts"] = t["gasthaus_pts"]
