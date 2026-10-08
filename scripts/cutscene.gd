@@ -1216,16 +1216,17 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			var elbow: Vector3 = hl.to_global(hl.bone_position("lowerarm_r"))
 			var reach: float = (sh.distance_to(elbow) + elbow.distance_to(hl.to_global(hl.bone_position("hand_r")))) * 0.95
 			var hs := smoothstep(0.0, 1.0, hand.slide)
-			var at_t := lerpf(0.93, 0.72, hs)
+			var at_t := lerpf(0.96, 0.8, hs)
 			var on_thigh := Vector3.ZERO
 			while true:
-				on_thigh = hip.lerp(knee, at_t) + Vector3(0, 0.18 + 0.02 * sin(hs * PI), 0) + side * lerpf(0.05, -0.06, hs)
+				on_thigh = hip.lerp(knee, at_t) + Vector3(0, 0.12 + 0.02 * sin(hs * PI), 0) + side * lerpf(0.05, -0.06, hs)
 				if on_thigh.distance_to(sh) <= reach or at_t <= 0.45:
 					break
 				at_t -= 0.03
 			var goal: Vector3 = (hand.rest as Vector3).lerp(on_thigh, smoothstep(0.0, 1.0, hand.w))
+			# Kämmen kääntyy hieman myötäpäivään (ylhäältä katsottuna) reiden suuntaisemmaksi.
 			hl.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", hl.to_local(goal),
-				hl.to_local(sh + Vector3(0, -0.4, 0) + hl.global_basis.z * 0.25))
+				hl.to_local(sh + Vector3(0, -0.4, 0) + hl.global_basis.z * 0.25), Basis(Vector3.UP, -0.35 * hand.w))
 		if k == hand_from or k == hand_from + 1:
 			# Käsi reidellä: kurkistus pöydän alta vastapäätä (pöytälevy peittää sylin ylhäältä).
 			_cam.global_position = car.to_global(Vector3(lerpf(-0.3, -0.38, u), 0.58, lerpf(-0.42, -0.5, u)))
