@@ -91,7 +91,8 @@ const KORJAUS_OVI_LOCAL := Vector3(5.1, 0, 21.3)
 const BROKEN_HEAT := 0.55
 const BROKEN_SMOKE := 1.8
 ## Viinakätköt mökin ympäröivässä metsässä geokätköjen tapaan: kompassi ja HUD näyttävät lähimmän löytämättömän
-## kätkön suunnan ja matkan (main.gd _viina_logic). Paikat arvotaan kiinteällä siemenellä (viina_positions).
+## kätkön suunnan ja matkan (main.gd _viina_logic). Paikat arvotaan kiinteällä siemenellä (viina_positions);
+## "at" = kiinteä paikka (rosvo: viski Ranta-Rosvon patsaan takana), nämä listan lopussa.
 const VIINA := [
 	{"id": "kossu", "desc": "Koskenkorva 0,5 l", "spot": "kivikasan alla"},
 	{"id": "jallu", "desc": "Jaloviina 0,5 l", "spot": "kaatuneen kuusen juurakossa"},
@@ -99,6 +100,7 @@ const VIINA := [
 	{"id": "salmari", "desc": "Salmiakkikossu 0,5 l", "spot": "kannon kolossa"},
 	{"id": "lakka", "desc": "Lakkalikööri 0,5 l", "spot": "kiven kupeessa"},
 	{"id": "pontikka", "desc": "Pontikkapullo 0,7 l", "spot": "risukasan alla"},
+	{"id": "viski", "desc": "Viskipullo 0,7 l", "spot": "Ranta-Rosvon jalustan takana", "at": "rosvo"},
 ]
 const VIINA_R := Vector2(45.0, 220.0)  # etäisyys mökistä (min, max)
 const VIINA_GAP := 45.0                # kätköjen väli vähintään
@@ -264,6 +266,9 @@ var north_dock_dir := Vector2(0, 1)  # laiturilta järvelle
 var north_boat: Node3D           # soutuvene laiturin kyljessä (kalastus)
 var rosvo_pos := Vector3.ZERO    # patsaan edusta
 var beach_pos := Vector3.ZERO    # Salmisen uimarannan vesiraja
+var _beach_dir := Vector2(0, 1)  # rannalta järvelle
+var _beach_wl := 0.0             # Taka-Salmisen vedenpinta (paikallinen)
+var _barrel_body: Node3D         # tynnyrisauna (välianimaation kehys)
 
 
 ## Rantaviivan lähin piste järvellä nimeltä name pisteestä p (paikallinen) ja suunta järvelle. [] jos ei järveä.
@@ -304,6 +309,8 @@ func _build_salminen_beach() -> void:
 	var d: Vector2 = sh[1]
 	var side := d.orthogonal()
 	beach_pos = Vector3(q.x, h(q.x, q.y), q.y)
+	_beach_dir = d
+	_beach_wl = water_level(sh[2])
 	var sp := q - d * 7.0 + side * 4.0
 	var sign := Node3D.new()
 	sign.position = Vector3(sp.x, 0, sp.y)
@@ -428,6 +435,7 @@ func _build_keskimmainen() -> void:
 	sauna.position = Vector3(sp.x, 0, sp.y)
 	sauna.rotation.y = face
 	add_child(sauna)
+	_barrel_body = sauna
 	var r := 1.05
 	var cy := 1.55  # tynnyrin keskiviiva (vaunun päällä)
 	var staves := Color(0.6, 0.58, 0.54)
@@ -510,6 +518,21 @@ static func dart_board_center() -> Vector3:
 ## Savusaunan rungon kehys maailmassa (keskipiste lattiatasossa, +Z järvelle): välianimaatio rakentuu tähän.
 func sauna_frame() -> Transform3D:
 	return _sauna_body.global_transform
+
+
+## Tynnyrisaunan kehys maailmassa (perävaunun keskipiste maan tasossa, +Z ovelle ja järvelle).
+func barrel_frame() -> Transform3D:
+	return _barrel_body.global_transform
+
+
+## Salmisen uimarannan kehys maailmassa: vesirajassa, +Z järvelle. Uintivälianimaatio rakentuu tähän.
+func beach_frame() -> Transform3D:
+	return global_transform * Transform3D(Basis(Vector3.UP, atan2(_beach_dir.x, _beach_dir.y)), beach_pos)
+
+
+## Salmisen vedenpinta maailmassa (y).
+func beach_water_y() -> float:
+	return (global_transform * Vector3(beach_pos.x, _beach_wl, beach_pos.z)).y
 
 
 ## Löylyihin: kiuas lämmitetty täyteen, pesä palanut loppuun ja savut tuulettuneet.
@@ -851,7 +874,8 @@ static func viina_positions() -> Array[Vector2]:
 	var avoid := [Vector2(HUNT_LOCAL.x, HUNT_LOCAL.z), HUNT_GLADE, Vector2(DOCK_LOCAL.x, DOCK_LOCAL.z),
 		Vector2(RIDE_LOCAL.x, RIDE_LOCAL.z)]
 	var tries := 0
-	while _viina_pos.size() < VIINA.size() and tries < 5000:
+	var fixed := VIINA.filter(func(c: Dictionary) -> bool: return c.has("at"))
+	while _viina_pos.size() < VIINA.size() - fixed.size() and tries < 5000:
 		tries += 1
 		var a := rng.randf() * TAU
 		var p := COTTAGE_LOCAL + Vector2(cos(a), sin(a)) * rng.randf_range(VIINA_R.x, VIINA_R.y)
@@ -868,7 +892,17 @@ static func viina_positions() -> Array[Vector2]:
 				ok = false
 		if ok:
 			_viina_pos.append(p)
+	for c in fixed:
+		if c.at == "rosvo":
+			_viina_pos.append(rosvo_stash())
 	return _viina_pos
+
+
+## Ranta-Rosvon viskikätkö: patsaan jalustan takana (tieltä katsoen), vähän sivussa.
+static func rosvo_stash() -> Vector2:
+	var p := to_local2(ROSVO_MAP)
+	var face := (to_local2(ROSVO_FACE_MAP) - to_local2(Vector2.ZERO)).normalized()
+	return p - face * 1.7 + face.orthogonal() * 0.6
 
 
 ## Marja- ja sienipaikat mökin metsässä: [paikallinen x/z, laji]. Metsää kuten viinakätköillä, ei kätköjen eikä

@@ -1706,7 +1706,8 @@ func _tori_prep() -> void:
 	_zabuki_face = (_tori_c - at).normalized()
 
 
-## Rautatieasema Zabukin takana (vaala_keskusta.py place_station): keltainen puinen asemarakennus valkoisine
+## Rautatieasema radan varressa Siitarin kaakkoispuolella, liikenneympyrästä oikealle Ratatietä ja aseman ajotietä
+## (vaala_keskusta.py place_station; oikea asema jää piirtämättä): keltainen puinen asemarakennus valkoisine
 ## nurkkalautoineen ja ikkunanpuitteineen, punainen harjakatto, laiturin puolella katos, VAALA-kyltti, betonilaituri
 ## valkoisella reunaviivalla, penkit ja valaisimet sekä asemaraiteen puskimet. Ovi päädyssä (E: junalla Saloisiin).
 ## Lisäksi Vaalantien liikenneympyrä: asfalttirengas ja reunakivetty nurmisaareke.

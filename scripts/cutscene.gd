@@ -385,6 +385,25 @@ const SAUNA_SAVU := {
 	"seat": Vector3(-0.45, 0.6, -0.75),
 	"santtu_shot": [Vector3(1.3, 1.55, -0.95), Vector3(1.2, 1.5, -0.85), Vector3(-0.7, 1.0, 1.2), Vector3(-0.2, 1.0, 0.3), 6.0],
 }
+## Tynnyrisauna (mokki.gd _build_keskimmainen): rungon kehys perävaunun keskellä maan tasossa, +Z ovelle. Tynnyrin
+## keskiviiva y 1,55, säde 1,05, päädyt z ±1,6; barrel = [säde, keskiviiva, puolipituus] rakentaa sisustan
+## (_barrel_room): vaalea paneeli kaarelle, matala lattia, laude takapäädyssä ja kiuas keskellä vasemmalla (hahmon
+## vasemmalla kädellä). Santtu istuu hahmon oikealle puolelle; kamera tulee hänen kuvaansa takanurkasta.
+const SAUNA_TYNNYRI := {
+	"title": "TYNNYRISAUNA", "intro": "Kaarevat paneelit, pieni kiuas ja ovenraosta kajastaa Keskimmäinen.",
+	"hero": Vector3(0.15, 0.68, -1.15), "face": Vector3(0, 0, 1), "stones": Vector3(0.35, 1.3, 0.0),
+	"over": Vector3(0.32, 1.58, -0.05), "kiulu": Vector3(0.38, 0.92, -0.7), "rest_cup": Vector3(0.45, 0.98, -0.62),
+	"kiulu_prop": true, "ember": Vector3(0.35, 0.95, -0.4), "ember_shadow": false, "window": Vector3(0.0, 1.75, -1.25),
+	"coals": null, "haze": Vector3(0.0, 2.1, -0.4), "haze_ext": Vector3(0.55, 0.1, 1.0), "shell": null,
+	"barrel": [1.05, 1.55, 1.6],
+	"shots": [[Vector3(-0.35, 1.75, 1.3), Vector3(-0.3, 1.78, 1.15), Vector3(0.1, 1.35, -1.1), Vector3(0.1, 1.4, -1.1), 4.0],
+		[Vector3(-0.45, 1.7, 0.6), Vector3(-0.4, 1.68, 0.55), Vector3(0.35, 1.25, 0.0), Vector3(0.35, 1.3, 0.0), 4.0],
+		[Vector3(0.05, 1.85, -0.35), Vector3(0.05, 1.88, -0.5), Vector3(0.15, 1.88, -1.15), Vector3(0.15, 1.9, -1.15), 4.5],
+		[Vector3(-0.2, 1.8, 0.9), Vector3(-0.25, 1.85, 1.35), Vector3(0.0, 1.35, -0.9), Vector3(0.0, 1.4, -1.0), 7.0]],
+	"door": [Vector3(-0.12, 0.7, 1.45), Vector3(-0.12, 0.7, 0.6)], "stand": Vector3(-0.25, 0.7, -0.35),
+	"seat": Vector3(-0.45, 0.68, -1.15),
+	"santtu_shot": [Vector3(0.72, 1.75, -1.05), Vector3(0.7, 1.78, -0.95), Vector3(-0.12, 1.6, 1.4), Vector3(-0.3, 1.6, -0.5), 6.0],
+}
 const SAUNA_SANTTU_IN := ["Mahtuuko tänne? Otin kylmät mukaan.", "Löylyä ilman kaljaa? Ei meidän mökillä.",
 	"Kuulin ku kiuas sihahti. Tässä, kylmää."]
 const SAUNA_SANTTU_SIT := ["Kippis! Tää on mökin paras hetki.", "Aaah. Tätä varten tää mökki on olemassa.",
@@ -426,6 +445,8 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable, lay: Dictio
 	var hl := func(v: Vector3) -> Vector3: return frame * (L.hero + hero_rot * v)
 	if L.shell != null:
 		_sauna_shell(frame, L.shell)
+	if L.get("barrel") != null:
+		_barrel_room(frame, L.barrel)
 	# Hämärä: aurinko ja taivaan valo pois, valo tulee hiillokselta ja pienestä ikkunasta.
 	var saved := [sun.light_energy, env.ambient_light_energy, env.glow_intensity, env.glow_bloom, env.reflected_light_source]
 	sun.light_energy = 0.12
@@ -756,6 +777,369 @@ func _sauna_shell(frame: Transform3D, shell: Array) -> void:
 	part.call(Vector3(x1 - door.y, h, t), Vector3((door.y + x1) / 2.0, h / 2.0, z0))
 	part.call(Vector3(door.y - door.x, h - 2.0, t), Vector3((door.x + door.y) / 2.0, (h + 2.0) / 2.0, z0))
 	part.call(Vector3(x1 - x0, t, z1 - z0), Vector3((x0 + x1) / 2.0, h, (z0 + z1) / 2.0))
+
+
+## Tynnyrisaunan sisusta välianimaatioon (tynnyrin ulkokuori on jo mökin mallissa): vaalea haapapaneeli kaarelle
+## ja päätyihin, lautalattia, laude takapäädyssä, kiuas kivineen ja hehkuvine luukkuineen, piippu
+## kattoon, takapäädyn ikkuna ja ovesta päivänvalo. barrel = [säde, keskiviiva y, puolipituus].
+func _barrel_room(frame: Transform3D, barrel: Array) -> void:
+	var r: float = barrel[0] - 0.07
+	var cy: float = barrel[1]
+	var hl: float = barrel[2] - 0.06
+	var floor_y := cy - 0.87  # matala lattia: istuvan pää ei osu kattoon (Sitting_Idle: juuri jaloissa, pakarat ~0,45 m ylempänä)
+	var room := Node3D.new()
+	_props.add_child(room)
+	room.global_transform = frame
+	var pine := Color(0.8, 0.62, 0.4)
+	var n := 34
+	for k in n:
+		var a := k * TAU / n
+		if sin(a) < -0.86:
+			continue  # lattian alla
+		B.mesh(room, B.boxm(Vector3(r * TAU / n + 0.01, 0.03, hl * 2.0)), Vector3(cos(a) * r, cy + sin(a) * r, 0),
+			pine.darkened(0.05 * (k % 3)), Vector3(0, 0, rad_to_deg(a + PI / 2.0)))
+	B.mesh(room, B.boxm(Vector3(2.0 * sqrt(r * r - 0.87 * 0.87) + 0.12, 0.05, hl * 2.0)), Vector3(0, floor_y - 0.025, 0), Color(0.55, 0.42, 0.28))
+	# Päädyt pystylaudoista: edessä oviaukko (päivänvalo), takana ikkuna.
+	var door := Vector2(-0.4, 0.2)
+	for e: float in [-1.0, 1.0]:
+		var x := -r
+		while x < r:
+			var xc := x + 0.06
+			var top := cy + sqrt(maxf(r * r - xc * xc, 0.0))
+			var bot := maxf(floor_y, cy - sqrt(maxf(r * r - xc * xc, 0.0)))
+			if e > 0.0 and xc > door.x and xc < door.y:
+				bot = floor_y + 1.55
+			if top > bot:
+				B.mesh(room, B.boxm(Vector3(0.115, top - bot, 0.03)), Vector3(xc, (top + bot) / 2.0, e * hl), pine.darkened(0.04 * (absi(int(x * 10.0)) % 3)))
+			x += 0.12
+	var day := B.mesh(room, B.boxm(Vector3(door.y - door.x, 1.55, 0.01)), Vector3((door.x + door.y) / 2.0, floor_y + 0.775, hl + 0.03), Color.WHITE)
+	day.material_override = B.unshaded(Color(1.0, 0.96, 0.86))
+	var glass := B.mesh(room, B.boxm(Vector3(0.42, 0.3, 0.01)), Vector3(0, 1.85, -hl + 0.03), Color.WHITE)
+	glass.material_override = B.unshaded(Color(0.62, 0.78, 0.9))
+	B.mesh(room, B.boxm(Vector3(0.5, 0.04, 0.04)), Vector3(0, 1.85, -hl + 0.05), pine.darkened(0.3))
+	B.mesh(room, B.boxm(Vector3(0.04, 0.38, 0.04)), Vector3(0, 1.85, -hl + 0.05), pine.darkened(0.3))
+	# Laude takapäädyssä tukijalkoineen (jalat lattialle).
+	var bench := Color(0.86, 0.7, 0.48)
+	var top := 1.13
+	B.mesh(room, B.boxm(Vector3(1.8, 0.05, hl - 0.92)), Vector3(0, top - 0.025, -(hl + 0.92) / 2.0), bench)
+	B.mesh(room, B.boxm(Vector3(1.6, 0.18, 0.03)), Vector3(0, top - 0.14, -0.93), bench.darkened(0.12))
+	for x: float in [-0.55, 0.55]:
+		B.mesh(room, B.boxm(Vector3(0.05, top - floor_y, 0.05)), Vector3(x, (top + floor_y) / 2.0, -0.97), bench.darkened(0.25))
+	# Kiuas: musta pesä, kivikori ja hehkuva luukku hahmoon päin, piippu kattoon.
+	var iron := Color(0.12, 0.12, 0.13)
+	var sx := 0.35
+	B.mesh(room, B.boxm(Vector3(0.4, 0.55, 0.42)), Vector3(sx, floor_y + 0.275, 0.0), iron)
+	for k in 9:
+		var ang := k * TAU / 9.0
+		B.mesh(room, B.sphere(0.07 + (k % 3) * 0.012, 8), Vector3(sx + cos(ang) * 0.12, floor_y + 0.6 + (k % 2) * 0.04, sin(ang) * 0.12),
+			Color(0.42, 0.4, 0.38).darkened(0.08 * (k % 3)))
+	B.mesh(room, B.sphere(0.08, 8), Vector3(sx, floor_y + 0.66, 0.0), Color(0.4, 0.38, 0.36))
+	var hatch := B.mesh(room, B.boxm(Vector3(0.18, 0.1, 0.01)), Vector3(sx, floor_y + 0.18, -0.215), Color.WHITE)
+	hatch.material_override = B.unshaded(Color(1.6, 0.55, 0.12))
+	B.mesh(room, B.cyl(0.06, 0.06, 1.3, 10), Vector3(sx, floor_y + 1.3, 0.17), Color(0.7, 0.7, 0.72))
+
+
+# --- Salmisen uinti ja sukeltelu ----------------------------------------------------
+
+const SWIM_LINES := ["Vesi on silkkiä. Ei tarvitse olla missään muualla.", "Aurinko lämmittää selkää, varpaat ei ylety pohjaan.",
+	"Kaislikossa ruikuttaa sorsa. Muuten hiljaista.", "Tätä vartenhan kesä on keksitty."]
+const DIVE_LINES := ["Hiekkapohja aaltoilee kuin pyykkilauta.", "Ahvenparvi kääntyy kuin yksi kala.",
+	"Auringon säteet huojuvat pohjalla.", "Pohjassa kiiltää simpukankuori."]
+const UNDERWATER_POS := Vector3(9000, -600, 9000)  # oma tasku: vedenalainen hiekkapohja
+## Uintianimaatioiden juuren korkeus vedenpinnasta: Swim_Fwd on vaakatasossa juuren korkeudella (pää +0,02 m),
+## Swim_Idle polskii pystyssä (pää +0,31 m). Pää ja hartiat jäävät pinnalle.
+const SWIM_Y := -0.1
+const TREAD_Y := -0.22
+
+
+## Uima-asu: paljas iho ja siniset uimahousut (saunavaatteiden pohjalta).
+static func swim_look(base: Dictionary) -> Dictionary:
+	var look := sauna_look(base)
+	look.merge({"pants": Color(0.1, 0.28, 0.62), "bare_skin": Color(0.93, 0.74, 0.62)}, true)
+	return look
+
+
+## Salmisen uimarannalla: kahlaus hiekkapohjalle, rintauintia ja sukellus kirkkaaseen veteen (vedenalainen kuva:
+## aaltoileva hiekkapohja, kaisloja, ahvenparvi, valokiilat ja kuplat), sitten pinnalle polskimaan. frame =
+## rannan kehys vesirajassa (+Z järvelle, Mokki.beach_frame), wl = vedenpinnan korkeus maailmassa, ground(p) = maan
+## korkeus maailman pisteessä p (kahlaus).
+func swim_dive(frame: Transform3D, wl: float, ground: Callable, done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.4)
+	_cam.current = true
+	_cam.fov = 55.0
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var fwd := frame.basis * Vector3(0, 0, 1)
+	var side := frame.basis * Vector3(1, 0, 0)
+	# Paikka rannan kehyksessä: z järvelle, y vedenpinnasta (kahlatessa maan tasosta).
+	var at := func(x: float, z: float, y: float) -> Vector3:
+		var g := frame * Vector3(x, 0, z)
+		return Vector3(g.x, wl + y, g.z)
+	var hero := Looks.make(_props, swim_look(Looks.PLAYER))
+	var st := {"x": 0.0, "z": -5.0, "y": 0.0, "pitch": 0.0, "yaw": 0.0, "wade": true, "pocket": false, "t": 0.0}
+	var base_yaw := frame.basis.get_euler().y
+	var upd := func() -> void:
+		if not is_instance_valid(hero):
+			return
+		st.t += get_process_delta_time()
+		var p: Vector3
+		if st.pocket:
+			p = UNDERWATER_POS + Vector3(st.x, st.y, st.z)
+		elif st.wade:
+			# Hiekalla maan tasossa, vedessä pohja laskee vyötärölle asti.
+			p = frame * Vector3(st.x, 0, st.z)
+			p.y = maxf(ground.call(p), wl - 1.2)
+		else:
+			p = at.call(st.x, st.z, st.y)
+		hero.global_transform = Transform3D(Basis(Vector3.UP, (0.0 if st.pocket else base_yaw) + PI + st.yaw) * Basis(Vector3.RIGHT, st.pitch), p)
+	get_tree().process_frame.connect(upd)
+	var glide := func(key: String, to: float, sec: float, trans := Tween.TRANS_SINE) -> Tween:
+		var t := _tween()
+		t.tween_method(func(v: float) -> void: st[key] = v, float(st[key]), to, sec).set_trans(trans)
+		return t
+	var follow := func(off: Vector3, look_off: Vector3, sec: float) -> void:
+		var t0 := Time.get_ticks_msec()
+		while busy and Time.get_ticks_msec() - t0 < sec * 1000.0:
+			var hp := hero.global_position
+			var o: Vector3 = (fwd * off.z + side * off.x) if not st.pocket else Vector3(off.x, 0, off.z)
+			_cam.global_position = hp + o + Vector3(0, off.y, 0)
+			_cam.look_at(hp + Vector3(0, look_off.y, 0) + ((fwd * look_off.z) if not st.pocket else Vector3(0, 0, look_off.z)), Vector3.UP)
+			await get_tree().process_frame
+	# Roiskeet: valkoiset pisarat pinnalta.
+	var splash := CPUParticles3D.new()
+	splash.amount = 40
+	splash.lifetime = 0.9
+	splash.one_shot = true
+	splash.emitting = false
+	splash.explosiveness = 0.85
+	splash.direction = Vector3.UP
+	splash.spread = 35.0
+	splash.initial_velocity_min = 1.5
+	splash.initial_velocity_max = 3.2
+	splash.gravity = Vector3(0, -9.0, 0)
+	var sm := SphereMesh.new()
+	sm.radius = 0.035
+	sm.height = 0.07
+	sm.material = B.unshaded(Color(0.9, 0.95, 1.0, 0.85))
+	splash.mesh = sm
+	_props.add_child(splash)
+	var splash_at := func(p: Vector3) -> void:
+		splash.global_position = Vector3(p.x, wl + 0.05, p.z)
+		splash.restart()
+		Sfx.play("water", -2.0, randf_range(0.9, 1.2))
+	_title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.45))
+	_title.add_theme_font_size_override("font_size", 80)
+	# 1. Rannalta: kahlaus hiekalta veteen, kamera rannan kyltin puolelta.
+	hero.play("Walk", 0.0)
+	var cam0: Vector3 = frame * Vector3(-5.0, 0, -7.0)
+	_cam.global_position = Vector3(cam0.x, maxf(ground.call(cam0), wl) + 1.6, cam0.z)
+	_cam.look_at(at.call(0.0, 3.0, 0.4), Vector3.UP)
+	await _fade_to(0.0, 0.8)
+	_title.text = "SALMINEN"
+	_sub.text = "Maailman paras uimaranta. Hiekka lämmittää jalkapohjia."
+	var wade := glide.call("z", 4.5, 5.0, Tween.TRANS_LINEAR) as Tween
+	await _wait(2.4)
+	_title.text = ""
+	_sub.text = "Varpaat veteen... ihan lämmintä!"
+	Sfx.play("water", -10.0, 1.3)
+	await wade.finished
+	# 2. Rintauintia: kamera vedenpinnan tasolla sivusta.
+	st.wade = false
+	st.y = SWIM_Y
+	hero.play("Swim_Fwd", 0.3)
+	splash_at.call(hero.global_position)
+	_sub.text = "Pari vetoa rintauintia ulapalle."
+	glide.call("z", 13.0, 5.5, Tween.TRANS_LINEAR)
+	await follow.call(Vector3(2.0, 0.45, 0.8), Vector3(0, -0.1, 1.2), 2.8)
+	_sub.text = SWIM_LINES.pick_random()
+	await follow.call(Vector3(1.4, 0.4, 2.4), Vector3(0, -0.1, -0.5), 2.7)
+	# 3. Sukellus: henkäys, nokka alas ja pinnan alle.
+	_sub.text = "Syvä henkäys... ja sukellus!"
+	glide.call("pitch", -1.1, 0.7)
+	glide.call("y", SWIM_Y - 1.8, 1.0, Tween.TRANS_QUAD)
+	get_tree().create_timer(0.35, true, false, true).timeout.connect(func() -> void: splash_at.call(hero.global_position))
+	await follow.call(Vector3(1.8, 0.6, 1.2), Vector3(0, -0.4, 0.0), 1.1)
+	await _fade_to(1.0, 0.35)
+	# 4. Pinnan alla: oma tasku, sininen sumu, hiekkapohja ja kalat.
+	var saved := [env.fog_enabled, env.fog_light_color, env.fog_density, env.fog_mode, env.fog_sky_affect, env.fog_sun_scatter,
+		sun.light_energy, env.adjustment_saturation]
+	var deep := _underwater()
+	env.fog_enabled = true
+	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+	env.fog_light_color = Color(0.16, 0.42, 0.42)
+	env.fog_density = 0.12
+	env.fog_sky_affect = 1.0
+	env.fog_sun_scatter = 0.0
+	env.adjustment_saturation = 1.05
+	st.pocket = true
+	st.x = 0.0
+	st.z = 6.0
+	st.y = 1.4
+	st.yaw = PI  # kohti -Z:aa (tasku ilman rannan kiertoa)
+	st.pitch = -0.5
+	hero.play("Swim_Fwd", 0.0, 0.8)
+	var bubbles := _bubbles()
+	hero.add_child(bubbles)
+	bubbles.position = Vector3(0, 0.6, -0.6)
+	_cam.fov = 62.0
+	_fade_to(0.0, 0.6)
+	_sub.text = DIVE_LINES.pick_random()
+	glide.call("z", -6.0, 8.0, Tween.TRANS_LINEAR)
+	glide.call("pitch", 0.0, 1.5)
+	glide.call("y", 0.9, 2.0)
+	await follow.call(Vector3(-2.2, 0.4, -2.5), Vector3(0, 0.2, 0.5), 3.4)
+	_sub.text = DIVE_LINES.pick_random()
+	await follow.call(Vector3(1.6, -0.3, 1.8), Vector3(0, 0.4, -1.2), 3.0)
+	# Ylös kohti valoa.
+	_sub.text = "Keuhkot vaativat ilmaa. Ylös valoa kohti!"
+	glide.call("pitch", 1.0, 0.8)
+	glide.call("y", 4.6, 2.2, Tween.TRANS_QUAD)
+	await follow.call(Vector3(0.8, -0.5, 2.6), Vector3(0, 0.8, -0.5), 2.0)  # kamera pysyy pohjan yllä
+	await _fade_to(1.0, 0.3)
+	deep.queue_free()
+	env.fog_enabled = saved[0]
+	env.fog_light_color = saved[1]
+	env.fog_density = saved[2]
+	env.fog_mode = saved[3]
+	env.fog_sky_affect = saved[4]
+	env.fog_sun_scatter = saved[5]
+	env.adjustment_saturation = saved[7]
+	_cam.fov = 55.0
+	# 5. Pinnalle polskimaan, kasvot rannalle: kuva matalalta vedenpinnasta, ranta taustalla.
+	st.pocket = false
+	st.x = 0.0
+	st.z = 13.0
+	st.y = TREAD_Y - 1.2
+	st.pitch = 0.0
+	st.yaw = PI
+	hero.play("Swim_Idle", 0.0)
+	_fade_to(0.0, 0.3)
+	glide.call("y", TREAD_Y, 0.5, Tween.TRANS_BACK)
+	get_tree().create_timer(0.3, true, false, true).timeout.connect(func() -> void: splash_at.call(hero.global_position))
+	Sfx.play("whoosh", -8.0, 1.3)
+	_cam.global_position = at.call(1.2, 16.5, 0.45)
+	_cam.look_at(at.call(0.0, 12.0, 0.2), Vector3.UP)
+	_sub.text = "Pinnalle! Pwaah. Hiukset silmillä, iso virne."
+	await _wait(2.6)
+	bubbles.emitting = false
+	# Kamera nousee ja kääntyy rannalle: kyltti ja hiekkaranta taustalla.
+	var t0 := Time.get_ticks_msec()
+	_title.text = "SALMINEN"
+	_sub.text = "Maailman paras uimaranta. Ei epäilystäkään."
+	while busy and Time.get_ticks_msec() - t0 < 4200:
+		var u := clampf((Time.get_ticks_msec() - t0) / 4200.0, 0.0, 1.0)
+		var e := u * u * (3.0 - 2.0 * u)
+		_cam.global_position = at.call(lerpf(1.2, 3.5, e), lerpf(16.5, 19.0, e), lerpf(0.45, 2.6, e))
+		_cam.look_at(at.call(0.0, lerpf(12.0, 4.0, e), lerpf(0.2, 0.6, e)), Vector3.UP)
+		await get_tree().process_frame
+	_title.text = ""
+	_sub.text = ""
+	await _end(func() -> void:
+		get_tree().process_frame.disconnect(upd)
+		_cam.fov = 50.0
+		done.call())
+	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Vedenalainen hiekkapohja omassa taskussaan (UNDERWATER_POS): aaltoileva hiekka, kiviä, kaisloja ja vesikasveja,
+## ahvenparvi, valokiilat ja alapuolelta nähty vedenpinta.
+func _underwater() -> Node3D:
+	var root := Node3D.new()
+	_props.add_child(root)
+	root.global_position = UNDERWATER_POS
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4711
+	var sand := Color(0.78, 0.7, 0.5)
+	B.mesh(root, B.boxm(Vector3(80, 0.2, 80)), Vector3(0, -0.1, 0), sand)
+	for k in 40:  # hiekan aallot (pyykkilauta)
+		B.mesh(root, B.boxm(Vector3(30, 0.06, 0.25)), Vector3(rng.randf_range(-3, 3), 0.01, -20.0 + k * 1.0), sand.darkened(0.12),
+			Vector3(0, rng.randf_range(-4, 4), 0))
+	for k in 14:
+		var r := rng.randf_range(0.15, 0.6)
+		B.mesh(root, B.sphere(r, 10), Vector3(rng.randf_range(-9, 9), r * 0.3, rng.randf_range(-16, 16)),
+			Color(0.42, 0.42, 0.38).darkened(rng.randf_range(0.0, 0.3)))
+	var weed := Color(0.25, 0.42, 0.18)
+	for k in 70:
+		var x := rng.randf_range(-10.0, 10.0)
+		if absf(x) < 1.4:
+			x += signf(x) * 1.6  # uintilinja vapaaksi
+		var hgt := rng.randf_range(0.5, 2.2)
+		var w := B.mesh(root, B.boxm(Vector3(0.05, hgt, 0.02)), Vector3(x, hgt / 2.0, rng.randf_range(-16, 16)),
+			weed.lightened(rng.randf_range(0.0, 0.25)), Vector3(rng.randf_range(-12, 12), rng.randf_range(0, 180), rng.randf_range(-12, 12)))
+		w.set_meta("sway", rng.randf() * TAU)
+	var shell := B.mesh(root, B.sphere(0.06, 8), Vector3(0.6, 0.02, -2.0), Color(0.95, 0.92, 0.85))
+	shell.scale = Vector3(1.0, 0.35, 0.8)
+	# Vedenpinta alhaalta: kirkas, huojuva taso.
+	var surf := B.mesh(root, B.boxm(Vector3(80, 0.02, 80)), Vector3(0, 5.0, 0), Color.WHITE)
+	surf.material_override = B.unshaded(Color(0.55, 0.85, 0.85))
+	# Valokiilat: läpikuultavat vinot tasot.
+	var ray_mat := StandardMaterial3D.new()
+	ray_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ray_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ray_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	ray_mat.albedo_color = Color(0.85, 1.0, 0.9, 0.08)
+	ray_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	for k in 9:
+		var ray := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2(rng.randf_range(0.4, 1.0), 6.0)
+		ray.mesh = q
+		ray.material_override = ray_mat
+		root.add_child(ray)
+		ray.position = Vector3(rng.randf_range(-5, 5), 2.6, rng.randf_range(-10, 8))
+		ray.rotation = Vector3(0.25, rng.randf_range(0, PI), 0.15)
+	# Ahvenparvi: raidalliset kalat kiertävät kehää.
+	var school := Node3D.new()
+	root.add_child(school)
+	school.position = Vector3(1.5, 1.6, -3.0)
+	for k in 14:
+		var f := Node3D.new()
+		school.add_child(f)
+		var a := k * TAU / 14.0 + rng.randf_range(-0.2, 0.2)
+		var rr := rng.randf_range(1.6, 2.6)
+		f.position = Vector3(cos(a) * rr, rng.randf_range(-0.5, 0.5), sin(a) * rr)
+		f.rotation.y = -a
+		B.mesh(f, B.sphere(0.09, 8), Vector3.ZERO, Color(0.55, 0.6, 0.3)).scale = Vector3(0.6, 0.9, 2.0)
+		B.mesh(f, B.boxm(Vector3(0.01, 0.12, 0.08)), Vector3(0, 0, -0.2), Color(0.85, 0.35, 0.15))
+		for sx in 3:
+			B.mesh(f, B.boxm(Vector3(0.12, 0.13, 0.02)), Vector3(0, 0, -0.06 + sx * 0.07), Color(0.18, 0.2, 0.1)).scale = Vector3(0.62, 1, 1)
+	var sway := func() -> void:
+		if not is_instance_valid(root):
+			return
+		var t := Time.get_ticks_msec() / 1000.0
+		school.rotation.y = -t * 0.45
+		surf.position.y = 5.0 + sin(t * 1.3) * 0.05
+		for c in root.get_children():
+			if c.has_meta("sway"):
+				c.rotation.z = sin(t * 0.9 + float(c.get_meta("sway"))) * 0.18
+	get_tree().process_frame.connect(sway)
+	root.tree_exiting.connect(func() -> void: get_tree().process_frame.disconnect(sway))
+	return root
+
+
+## Kuplat suusta: pienet kirkkaat pallot nousevat huojuen.
+func _bubbles() -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.amount = 24
+	p.lifetime = 2.2
+	p.direction = Vector3.UP
+	p.spread = 12.0
+	p.initial_velocity_min = 0.6
+	p.initial_velocity_max = 1.2
+	p.gravity = Vector3(0, 0.6, 0)
+	p.scale_amount_min = 0.4
+	p.scale_amount_max = 1.2
+	var m := SphereMesh.new()
+	m.radius = 0.03
+	m.height = 0.06
+	var bm := B.unshaded(Color(0.85, 1.0, 1.0, 0.7))
+	bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.material = bm
+	p.mesh = m
+	p.local_coords = false
+	return p
 
 
 # --- Taksireissu Raaheen ----------------------------------------------------------

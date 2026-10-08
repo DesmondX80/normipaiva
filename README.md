@@ -101,8 +101,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     Radan alikulku on ohikulkuvideon mukainen betonisilta pilaripareineen, ja penger laskee luiskana sillan alle.
     Rata ylittää Oulujoen tiesillan tasossa teräksisellä ristikkosillalla, ja radalla kulkee silloin tällöin juna
     (punavalkoinen Sr1-veturi ja neljä sinistä VR:n vaunua, yksi niistä ravintolavaunu), joka vihellyttää ohittaessaan.
-  - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa Zabukin ohi liikenneympyrään ja siitä
-    oikealle Ratatietä rautatieasemalle (oikealla paikallaan radan varressa, laituri radan vieressä); Saloisissa
+  - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa torilta asfalttia Zabukin ohi
+    liikenneympyrään ja siitä oikealle Ratatietä ja aseman ajotietä rautatieasemalle (pelissä tuotu radan varteen
+    noin 100 m Siitarista, laituri radan vieressä; todellisuudessa n. 300 m kauempana); Saloisissa
     asema on K-Marketin takana, ja rata jatkuu asemalta länteen Valtatien yli ja idässä kaartaa heti pohjoiseen
     talojen välistä ja koilliseen horisonttiin, ei kylän läpi (tiet tasoristeyksinä). Juna tulee kummallekin
     asemalle satunnaisesti n. tunnin välein pelin kellossa ja seisoo laiturilla puoli minuuttia: vain silloin
@@ -114,7 +115,12 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     aseman pihassa, ja Vaalasta
     lähdettäessä se palaa mökin pihaan kuten muillakin paluureiteillä.
   - **Minikartta** näkyy myös Vaalan matkalla (mopolla ja jalan) ja mökillä koko kävelyalueella Salmisille asti.
-    Salmisen uimarannalle, Ranta-Rosvolle ja Keskimmäisen laavulle (tynnyrisauna) vie soratie. Ranta-Rosvo ja
+    Salmisen uimarannalle, Ranta-Rosvolle ja Keskimmäisen laavulle (tynnyrisauna) vie soratie. Tynnyrisaunan löylyt
+    ovat välianimaatio: kaarevat paneelit ja pieni kiuas, ja Santtu tulee kylmien kaljojen kanssa viereen lauteelle
+    (testi `--scene=mokkitynnyri`). Salmisessa uidaan ja sukellellaan välianimaationa: kahlaus hiekkarannalta,
+    rintauintia, sukellus hiekkapohjalle ahvenparven ja kaislojen sekaan ja pinnalle polskimaan (`--scene=mokkiuinti`).
+    Ranta-Rosvon jalustan takana on viskikätkö (viinakätköjen seitsemäs). Mopo kaatuu kännissä myös sivuteillä
+    (asema, järviseutu): se nostetaan ajetulle tielle muutama metri taaemmas (`--scene=mokkikaatuminen`). Ranta-Rosvo ja
     Salmisen uimaranta (Taka-Salmisen länsiranta) ovat asfaltoidun Nuojuankoskentien varrella. Mopolla: risteyksessä,
     jossa Siitariin käännytään oikealle, vasemmalle kääntyvä asfaltti vie Rosvolle ja rannalle, ja samasta
     risteyksestä asfaltin yli suoraan lähtevä soratie Keskimmäisen laavun ja tynnyrisaunan pihaan (testi

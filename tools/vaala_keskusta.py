@@ -49,12 +49,15 @@ TORI_U = (18.0, 56.0)
 TORI_V = (5.5, 26.0)
 ZB_END = 2.0         # Zabukin takaseinä näin kauas torin itäreunasta
 # Liikenneympyrä Zabukin jälkeen Vaalantien, Ratatien ja Koulutien risteykseen (samassa kehyksessä kuin tori); siitä
-# oikealle Ratatietä rautatieasemalle, joka on todellisella paikallaan radan varressa (laituri PLAT_L x PLAT_W).
+# oikealle Ratatietä rautatieasemalle, joka on tuotu radan varteen Siitarin lähelle: Siitaria lähimmästä radan
+# kohdasta ST_SHIFT m itään, rakennuksen keskikohta ST_FROM_RAIL m radasta (laituri PLAT_L x PLAT_W välissä).
 RB_U = 68.0
 RB_R = 12.0
 PLAT_L = 70.0
 PLAT_W = 3.0
-STATION_ID = 178199720  # Vaalan rautatieasema (OSM): pelin asema omalla paikallaan (vaala.gd _build_station)
+ST_SHIFT = 40.0
+ST_FROM_RAIL = 11.5
+STATION_ID = 178199720  # Vaalan rautatieasema (OSM): mitat pelin asemalle, oikea rakennus jää piirtämättä
 OLD_STATION_ID = STATION_ID
 
 
@@ -203,9 +206,10 @@ def place_tori(tie, flatten):
 
 
 def place_station(tie, flatten):
-    """Liikenneympyrä Vaalantielle Zabukin jälkeen (Ratatie oikealle) ja rautatieasema todellisen asemarakennuksen
-    paikalle radan varteen: laituri radan ja aseman väliin radan suuntaisesti, ovi kadun puolelle ja asfaltoitu
-    ajotie lähimmältä kadulta ovelle. Rakennuksia ei siirretä."""
+    """Liikenneympyrä Vaalantielle Zabukin jälkeen ja rautatieasema radan varteen Siitarin lähelle: torin päästä
+    asfalttia ympyrään, ympyrästä oikealle Ratatietä ja siitä asfaltoitu ajotie aseman ovelle. Asemarakennus
+    (todellisen aseman mitoin) radan suuntaisesti, laituri radan ja aseman väliin; alle jäävät pikkutalot ja polut
+    poistetaan. Todellinen asema (STATION_ID) jää piirtämättä (vaala.gd ohittaa sen)."""
     road = tie["road"]
     sx, sz = tie["siitari"]
     last = len(road) - 30
@@ -219,57 +223,106 @@ def place_station(tie, flatten):
     if (sx - rp[0]) * away[0] + (sz - rp[1]) * away[1] > 0.0:
         away = (-away[0], -away[1])
     rb_c = (rp[0] + ax[0] * RB_U + away[0] * 0.5, rp[1] + ax[1] * RB_U + away[1] * 0.5)
-    st = next(bd for bd in tie["buildings"] if bd["id"] == STATION_ID)
-    pts = st["pts"][:-1] if st["pts"][0] == st["pts"][-1] else st["pts"]
-    c = (sum(q[0] for q in pts) / len(pts), sum(q[1] for q in pts) / len(pts))
-    # Lähin pääradan kohta ja suunta.
+    real = next(bd for bd in tie["buildings"] if bd["id"] == STATION_ID)
+    rpts = real["pts"][:-1] if real["pts"][0] == real["pts"][-1] else real["pts"]
+    e = max(zip(rpts, rpts[1:] + rpts[:1]), key=lambda s: math.dist(s[0], s[1]))
+    st_l = math.dist(e[0], e[1])
+    st_d = min(math.dist(p0, p1) for p0, p1 in zip(rpts, rpts[1:] + rpts[:1]))
+    # Siitaria lähin pääradan kohta, siitä ST_SHIFT radan suuntaan (vaihteet ja ratapiha jäävät länteen).
     best = (1e9, None, None)
     for sr in tie["side_roads"]:
         if sr["kind"] != "rail":
             continue
         for p0, p1 in zip(sr["pts"], sr["pts"][1:]):
-            d, t = seg_dist2(c, p0[:2], p1[:2])
+            d, t = seg_dist2((sx, sz), p0[:2], p1[:2])
             if d < best[0]:
                 best = (d, (p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t), (p1[0] - p0[0], p1[1] - p0[1]))
     _d, rpt, rdir = best
     rl = math.hypot(*rdir)
     ra = (rdir[0] / rl, rdir[1] / rl)
-    n = (rpt[0] - c[0], rpt[1] - c[1])
-    nl = math.hypot(*n)
-    n = (n[0] / nl, n[1] / nl)  # asemalta radalle
-    depth = max(abs((q[0] - c[0]) * n[0] + (q[1] - c[1]) * n[1]) for q in pts)
+    if ra[0] < 0.0:
+        ra = (-ra[0], -ra[1])  # itään
+    rpt = (rpt[0] + ra[0] * ST_SHIFT, rpt[1] + ra[1] * ST_SHIFT)
+
+    def on_rail(p):
+        bb = (1e9, None)
+        for sr in tie["side_roads"]:
+            if sr["kind"] != "rail":
+                continue
+            for p0, p1 in zip(sr["pts"], sr["pts"][1:]):
+                d, t = seg_dist2(p, p0[:2], p1[:2])
+                if d < bb[0]:
+                    bb = (d, (p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t))
+        return bb[1]
+    # Laituri radan jänteen suuntaan (rata kaartaa loivasti): päiden kohdalta lähimmät radan pisteet.
+    pa = on_rail((rpt[0] - ra[0] * PLAT_L / 2.0, rpt[1] - ra[1] * PLAT_L / 2.0))
+    pb = on_rail((rpt[0] + ra[0] * PLAT_L / 2.0, rpt[1] + ra[1] * PLAT_L / 2.0))
+    rl = math.dist(pa, pb)
+    ra = ((pb[0] - pa[0]) / rl, (pb[1] - pa[1]) / rl)
+    rpt = ((pa[0] + pb[0]) / 2.0, (pa[1] + pb[1]) / 2.0)
+    n = (-ra[1], ra[0])  # asemalta radalle (Siitarin puolelta radalle)
+    if (rpt[0] - sx) * n[0] + (rpt[1] - sz) * n[1] < 0.0:
+        n = (-n[0], -n[1])
+    c = (rpt[0] - n[0] * ST_FROM_RAIL, rpt[1] - n[1] * ST_FROM_RAIL)
+    pts = rect(c, ra, n, st_l / 2.0, st_d / 2.0)
+    depth = st_d / 2.0
     pc = (rpt[0] - n[0] * (1.6 + 0.5 + PLAT_W / 2.0), rpt[1] - n[1] * (1.6 + 0.5 + PLAT_W / 2.0))
     platform = rect(pc, ra, n, PLAT_L / 2.0, PLAT_W / 2.0)
     door = (c[0] - n[0] * (depth + 0.4), c[1] - n[1] * (depth + 0.4))
     out = (-n[0], -n[1])
-    # Ajotie lähimmältä kadulta oven eteen.
+    front = (door[0] + out[0] * 7.0, door[1] + out[1] * 7.0)
+    # Ajotie Ratatieltä (ympyrästä oikealle) aseman pihaan: Ratatien lähin kohta aseman edustaa.
+    rata = [sr for sr in tie["side_roads"] if sr.get("name") == "Ratatie" and sr["kind"] == "road"]
     best = (1e9, None)
-    for sr in tie["side_roads"]:
-        if sr["kind"] != "road" or sr["hw"] not in ("residential", "tertiary", "secondary"):
-            continue  # kunnon katu (Ratatie, Asematie), joka jatkuu liikenneympyrään
+    for sr in rata:
         for p0, p1 in zip(sr["pts"], sr["pts"][1:]):
-            d, t = seg_dist2(door, p0[:2], p1[:2])
+            d, t = seg_dist2(front, p0[:2], p1[:2])
             if d < best[0]:
                 best = (d, (p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t))
-    front = (door[0] + out[0] * 6.0, door[1] + out[1] * 6.0)
+    if best[1] is None:
+        raise SystemExit("Ratatietä ei löydy")
     access = [best[1], front, (door[0] + out[0] * 1.5, door[1] + out[1] * 1.5)]
-    a_lot = [list(q) for q in access]
-    # Laiturin ja ajotien kohdalta polut pois.
+    yard = rect(((c[0] + front[0]) / 2.0, (c[1] + front[1]) / 2.0), ra, n, st_l / 2.0 + 2.0, (depth + 7.5) / 2.0 + 1.0)
+    # Torin päästä (mopotien lenkin ympyrää lähin kohta) asfaltti ympyrään.
+    tip = min(road[-40:], key=lambda r: math.dist((r[0], r[2]), rb_c))
+    to_rb = (tip[0] - rb_c[0], tip[2] - rb_c[1])
+    tl = math.hypot(*to_rb)
+    link = [[round(tip[0], 2), round(tip[2], 2)],
+            [round(rb_c[0] + to_rb[0] / tl * (RB_R - 0.5), 2), round(rb_c[1] + to_rb[1] / tl * (RB_R - 0.5), 2)]]
+    # Aseman, laiturin ja pihan alta pikkutalot pois (Siitari, kauppa ja Gasthaus eivät saa osua).
+    lots = [pts, platform, yard]
+    removed = []
+    for bd in tie["buildings"]:
+        if bd["id"] == STATION_ID:
+            continue
+        if any(in_poly(q, bd["pts"]) for p in lots for q in p) or min(poly_dist(q, p) for p in lots for q in bd["pts"]) < 2.0:
+            if bd["id"] in (SIITARI_ID, KMARKET_ID, GASTHAUS_ID):
+                raise SystemExit("aseman paikka osuu rakennukseen %s" % bd["id"])
+            removed.append(bd)
+    tie["buildings"] = [bd for bd in tie["buildings"] if bd not in removed]
+    # Laiturin, aseman, ympyrän ja ajoteiden kohdalta polut pois.
     cut_roads = []
     pieces = []
     for k, sr in enumerate(tie["side_roads"]):
         if sr["kind"] == "rail" or sr.get("name") == "Vaalan tori":
             continue
+        small = sr["hw"] in ("footway", "path", "cycleway", "track", "service", "steps")
 
         def gone(q):
-            return math.dist(q[:2], rb_c) < RB_R - 0.5 or poly_dist(q, platform) < 1.0 or \
-                (sr["hw"] in ("footway", "path", "cycleway", "track") and min(seg_dist(q, a_lot[i], a_lot[i + 1]) for i in range(2)) < 3.0)
+            if math.dist(q[:2], rb_c) < RB_R - 0.5:
+                return True
+            if not small:
+                return False
+            return any(poly_dist(q, p) < 1.5 for p in lots) or \
+                min(seg_dist(q, access[i], access[i + 1]) for i in range(2)) < 3.0 or seg_dist(q, link[0], link[1]) < 3.5
         dense = []
         for a2, b2 in zip(sr["pts"], sr["pts"][1:]):
             m = max(1, int(math.dist(a2[:2], b2[:2]) / 2.0))
             dense += [[round(a2[0] + (b2[0] - a2[0]) * t / m, 2), round(a2[1] + (b2[1] - a2[1]) * t / m, 2)] for t in range(m + 1)]
         if not any(gone(q) for q in dense):
             continue
+        if not small and any(poly_dist(q, p) < 0.5 for p in lots[:2] for q in dense):
+            raise SystemExit("asema osuu katuun %s" % sr.get("name", ""))
         cut_roads.append([k, sr])
         cur = []
         for q in dense:
@@ -284,14 +337,19 @@ def place_station(tie, flatten):
     for k, _sr in reversed(cut_roads):
         del tie["side_roads"][k]
     tie["side_roads"] += pieces
-    tie["side_roads"].append({"kind": "road", "hw": "service", "name": "Aseman piha", "surface": "asphalt", "_asema": 1,
+    tie["side_roads"].append({"kind": "road", "hw": "residential", "name": "Aseman piha", "surface": "asphalt", "_asema": 1,
                               "pts": [[round(q[0], 2), round(q[1], 2)] for q in access]})
+    tie["side_roads"].append({"kind": "road", "hw": "secondary", "name": "Vaalantie", "surface": "paved", "_asema": 1,
+                              "pts": link})
     flatten([rect(rb_c, ax, away, RB_R + 1.0, RB_R + 1.0)], 6.0)
-    print("Liikenneympyrä", [round(v, 1) for v in rb_c], "| asema", [round(v, 1) for v in c], "radalta %.1f m" % nl,
-          "| ajotie %.0f m kadulta" % best[0], "| katkaistu teitä", len(cut_roads))
+    flatten([pts, yard], 8.0)
+    print("Liikenneympyrä", [round(v, 1) for v in rb_c], "| asema", [round(v, 1) for v in c], "Siitarista %.0f m" % math.dist(c, (sx, sz)),
+          "| ajotie %.0f m Ratatieltä" % math.dist(access[0], access[1]), "| torilta ympyrään %.0f m" % math.dist(link[0], link[1]),
+          "| poistettu talot", [bd["id"] for bd in removed], "| katkaistu teitä", len(cut_roads))
     return {"id": STATION_ID, "pts": pts, "door": [round(door[0], 2), round(door[1], 2)], "out": [round(out[0], 4), round(out[1], 4)],
             "along": [round(ra[0], 4), round(ra[1], 4)], "platform": platform, "track": [],
-            "roundabout": {"c": [round(rb_c[0], 2), round(rb_c[1], 2)], "r": RB_R}, "cut_roads": cut_roads, "old": None}
+            "roundabout": {"c": [round(rb_c[0], 2), round(rb_c[1], 2)], "r": RB_R}, "cut_roads": cut_roads,
+            "removed": removed, "yard": yard, "old": None}
 
 
 def seg_dist2(p, a, b):
@@ -325,6 +383,7 @@ def apply():
             tie["side_roads"] = [r for r in tie["side_roads"] if not r.get("_asema")]
             for k, r in st_["cut_roads"]:
                 tie["side_roads"].insert(k, r)
+            tie["buildings"] += st_.get("removed", [])
             if st_.get("old"):
                 for b in tie["buildings"]:
                     if b["id"] == OLD_STATION_ID:
@@ -478,6 +537,8 @@ def apply():
     ast = tie["keskusta"]["asema"]
     add("poly", ast["pts"], 3.0)
     add("poly", ast["platform"], 1.5)
+    if ast.get("yard"):
+        add("poly", ast["yard"], 2.0)
     rbc = ast["roundabout"]["c"]
     rbr = ast["roundabout"]["r"]
     add("poly", [[rbc[0] + rbr * math.cos(k * math.pi / 8), rbc[1] + rbr * math.sin(k * math.pi / 8)] for k in range(16)], 1.5)
