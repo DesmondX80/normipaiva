@@ -1118,7 +1118,9 @@ func _build_side_roads() -> void:
 					var o: Vector2 = dir.orthogonal() * off
 					B.tube(self, Vector3(a.x + o.x, ya + 0.22, a.y + o.y), Vector3(b.x + o.x, yb + 0.22, b.y + o.y),
 						0.04, Color(0.5, 0.45, 0.4))
-				if h(a.x, a.y) < water_level + 2.5:
+				var up = data.get("underpass")
+				var at_under: bool = up != null and a.distance_to(Vector2(up.at[0], up.at[1])) < 60.0
+				if h(a.x, a.y) < water_level + 2.5 and not at_under:
 					# Teräksinen ristikkopalkki ja pilari veteen.
 					var mid := (a + b) / 2.0
 					for s2 in [-1.0, 1.0]:
@@ -1140,15 +1142,14 @@ func _build_side_roads() -> void:
 		_multimesh(B.boxm(Vector3(2.4, 0.16, 0.24)), sleepers, Color(0.4, 0.38, 0.35))
 
 
-## Radan alikulku (Vuolijoentie radan ali juuri ennen Oulujokea): ratapenkereen läpi kulkeva aukko, jonka
-## betoniseinät seuraavat tien kaarta (yläreuna penkereen luiskan mukaan), seinien päällä betonikansi siniseten
-## teräspalkkien ja kaiteiden kanssa ja seinän takana nurmettu reunus penkereeseen asti. Alikulkukorkeuden kilpi
-## kannen reunoissa. Penger, kiskot ja aukko maastossa ovat leivonnassa (vaala_bake.py, aukko UNDER_OPEN).
+## Radan alikulku (Vuolijoentie radan ali juuri ennen Oulujokea) ohikulkuvideon mukaan: harmaa betonikansi ohuine
+## reunapalkkeineen ja teräskaiteineen, tien molemmin puolin hoikka pilaripari poikkipalkin kanssa, ja kannen päät
+## maatukien varassa ratapenkereen luiskien päällä (ei pystymuureja: penger laskee luiskana tien tasoon). Alikulku-
+## korkeuden kilpi kannen reunoissa. Penger, luiskat ja kiskot ovat leivonnassa (vaala_bake.py UNDER_OPEN, UNDER_SLOPE).
 var underpass_i := -1
-const UNDER_INNER := 12.0  # maatukiseinän sisäpinta ajoradan reunasta (m), leivonnan aukko (UNDER_OPEN 13 m) vähän leveämpi
-const UNDER_WALL := 0.6
-const UNDER_CAP := 7.0  # reunus peittää leivonnan aukon reunan ja 4 m ruudukon luiskan
-const UNDER_PIER := 2.2  # välitukipilarit näin kauas ajoradan reunasta
+const UNDER_PIER := 2.4  # pilarit vähintään näin kauas ajoradan reunasta
+const DECK_W := 6.4      # kannen leveys radan poikki
+const PIER_R := 0.42     # pyöreä pilari
 
 
 func _build_underpass() -> void:
@@ -1165,17 +1166,31 @@ func _build_underpass() -> void:
 	var hw: float = u.hw
 	var deck: float = u.deck
 	var H := deck - 0.1 - at.y
-	var inner := hw + UNDER_INNER
-	var conc := Color(0.66, 0.65, 0.62)
-	# Kansi radan suuntaan seinältä seinälle.
-	var dl := (inner + UNDER_WALL) / sin_a * 2.0 + 1.2
+	var conc := Color(0.7, 0.69, 0.66)
+	var under := Color(0.5, 0.5, 0.48)
+	var steel := Color(0.42, 0.44, 0.45)
+	# Kansi radan suuntaan luiskan yläpäähän asti (tien keskilinjasta aukko + luiska).
+	var reach: float = hw + float(u.get("open", 13.0)) + H / float(u.get("slope", 0.55)) + 1.5
+	var dl := reach / sin_a * 2.0
 	var basis := Basis(Vector3.UP, atan2(rd.x, rd.z))
-	var deck_c := Vector3(at.x, deck - 0.5, at.z)
-	var dm := B.mesh(self, B.boxm(Vector3(6.2, 0.8, dl)), deck_c, conc)
-	dm.basis = basis
-	# Välituet: tien kummallakin puolella neliöpilari (rivin ulompi, radan suunnassa kannen leveydellä) ja sen
-	# päällä poikkipalkki. Paikka haetaan radan akselilta mittaamalla todellinen etäisyys tien keskilinjaan
-	# (tie kaartaa alikulussa), joten pilari ei osu kaistalle.
+	var deck_c := Vector3(at.x, deck - 0.45, at.z)
+	var slab := B.mesh(self, B.boxm(Vector3(DECK_W - 0.6, 0.7, dl)), deck_c, under)
+	slab.basis = basis
+	# Reunapalkit: vaalea betoni kannen pinnan yläpuolelle, alareuna laatan alle.
+	for e: float in [-1.0, 1.0]:
+		var em := B.mesh(self, B.boxm(Vector3(0.36, 1.25, dl)), deck_c + basis.x * e * (DECK_W / 2.0 - 0.18) + Vector3(0, 0.12, 0), conc)
+		em.basis = basis
+		# Kaide: tolpat 1,6 m välein, käsijohde ja välijohde.
+		var gp := deck_c + basis.x * e * (DECK_W / 2.0 - 0.18) + Vector3(0, 0.75, 0)
+		for k2 in int(dl / 1.6) + 1:
+			var pp: Vector3 = gp - basis.z * dl / 2.0 + basis.z * k2 * 1.6 + Vector3(0, 0.55, 0)
+			B.mesh(self, B.boxm(Vector3(0.07, 1.1, 0.07)), pp, steel)
+		for ry: float in [1.1, 0.55]:
+			var rt := gp + Vector3(0, ry, 0)
+			B.tube(self, rt - basis.z * dl / 2.0, rt + basis.z * dl / 2.0, 0.035, steel)
+	# Pilaririvit tien molemmin puolin: kaksi pyöreää pilaria kannen leveydellä ja poikkipalkki. Paikka haetaan radan
+	# akselilta mittaamalla todellinen etäisyys tien keskilinjaan (tie kaartaa alikulussa): kumpikaan pilari ei osu
+	# kaistalle eikä pientareelle.
 	var pier_body := StaticBody3D.new()
 	add_child(pier_body)
 	var road_dist := func(q: Vector3) -> float:
@@ -1186,122 +1201,43 @@ func _build_underpass() -> void:
 			var c := Geometry2D.get_closest_point_to_segment(Vector2(q.x, q.z), Vector2(pa.x, pa.z), Vector2(pb.x, pb.z))
 			best = minf(best, c.distance_to(Vector2(q.x, q.z)))
 		return best
-	var pier_c := Color(0.7, 0.69, 0.66)
+	var cols_x: Array[float] = [-(DECK_W / 2.0 - 1.0), DECK_W / 2.0 - 1.0]
 	for s: float in [-1.0, 1.0]:
 		var along := 0.0
-		# Pilaririvin molemmat pilarit (±2,2 m radan poikki) vähintään UNDER_PIER m ajoradan reunasta.
 		while along < 40.0:
 			var ok := true
-			for w: float in [-2.6, 2.6]:
+			for w: float in cols_x:
 				var q := Vector3(at.x, 0, at.z) + basis.z * along * s + basis.x * w
-				if road_dist.call(q) < hw + UNDER_PIER + 0.5:
+				if road_dist.call(q) < hw + UNDER_PIER + PIER_R:
 					ok = false
 			if ok:
 				break
 			along += 0.25
-		# Vain ulompi pilari: tie kulkee alikulun läpi vinosti, joten rivin sisempi pilari jäi ajoradan reunaan
-		# mopon tielle. Poikkipalkki jää kannen alle koko leveydeltä.
-		var ws: Array[float] = [-2.2, 2.2]
 		var row := Vector3(at.x, 0, at.z) + basis.z * along * s
-		var outer := ws[0] if road_dist.call(row + basis.x * ws[0]) > road_dist.call(row + basis.x * ws[1]) else ws[1]
-		for w: float in [outer]:
+		for w: float in cols_x:
 			var pp := row + basis.x * w
 			var gy := minf(h(pp.x, pp.z), at.y) - 0.3
-			var ph := deck - 1.35 - gy
-			var pm := B.mesh(self, B.boxm(Vector3(1.0, ph, 1.0)), Vector3(pp.x, gy + ph / 2.0, pp.z), pier_c)
-			pm.basis = basis
-			var pcs := B.box_shape(Vector3(1.0, ph, 1.0), Vector3.ZERO)
-			pcs.transform = Transform3D(basis, Vector3(pp.x, gy + ph / 2.0, pp.z))
+			var ph := deck - 1.45 - gy
+			B.mesh(self, B.cyl(PIER_R, PIER_R, ph, 14), Vector3(pp.x, gy + ph / 2.0, pp.z), conc)
+			var pcs := CollisionShape3D.new()
+			var cyl := CylinderShape3D.new()
+			cyl.radius = PIER_R
+			cyl.height = ph
+			pcs.shape = cyl
+			pcs.position = Vector3(pp.x, gy + ph / 2.0, pp.z)
 			pier_body.add_child(pcs)
-		var bp := Vector3(at.x, deck - 1.12, at.z) + basis.z * along * s
-		var bm := B.mesh(self, B.boxm(Vector3(6.4, 0.45, 1.3)), bp, pier_c)
+		var bm := B.mesh(self, B.boxm(Vector3(DECK_W - 0.4, 0.6, 1.1)), Vector3(row.x, deck - 1.15, row.z), conc)
 		bm.basis = basis
-	# Kannen reunapalkit (tummempi reuna) koko matkalta.
-	for e: float in [-1.0, 1.0]:
-		var em := B.mesh(self, B.boxm(Vector3(0.3, 0.55, dl)), deck_c + basis.x * e * 3.15 + Vector3(0, -0.05, 0), conc.darkened(0.15))
-		em.basis = basis
-	var steel := Color(0.2, 0.36, 0.55)
+	# Maatuet kannen päissä luiskan päällä (osin maan sisällä).
 	for s: float in [-1.0, 1.0]:
-		var gp := deck_c + basis.x * s * 3.25 + Vector3(0, 0.35, 0)
-		var g := B.mesh(self, B.boxm(Vector3(0.35, 1.6, dl)), gp, steel)
-		g.basis = basis
-		var rail_top := gp + Vector3(0, 1.3, 0)
-		B.tube(self, rail_top - basis.z * dl / 2.0, rail_top + basis.z * dl / 2.0, 0.05, steel)
-		for k2 in int(dl / 1.5) + 1:
-			var pp: Vector3 = gp - basis.z * dl / 2.0 + basis.z * k2 * 1.5 + Vector3(0, 1.05, 0)
-			B.mesh(self, B.boxm(Vector3(0.06, 0.5, 0.06)), pp, steel)
+		var ab := Vector3(at.x, deck - 1.5, at.z) + basis.z * s * (dl / 2.0 - 0.7)
+		var am := B.mesh(self, B.boxm(Vector3(DECK_W + 0.6, 2.2, 1.4)), ab, conc.darkened(0.08))
+		am.basis = basis
 	# Alikulkukorkeus kannen reunaan molempiin ajosuuntiin.
 	for s: float in [-1.0, 1.0]:
 		var plate := B.sign_plate(self, "4,6 m", Color(0.98, 0.98, 0.95), Color(0.05, 0.05, 0.05), 0.4, 60, Color(0.85, 0.1, 0.08), "Helvetica Neue")
-		plate.position = at - fd * s * (3.4 / sin_a + 0.1) + Vector3(0, H - 1.25, 0)
+		plate.position = at - fd * s * (DECK_W / 2.0 / sin_a + 0.1) + Vector3(0, H - 1.05, 0)
 		plate.rotation.y = atan2(-fd.x * s, -fd.z * s)
-	# Seinät tien kaarta pitkin: sisäpinta, betonireunus ja nurmettu reunus penkereeseen. Yläreuna laskee
-	# penkereen luiskan mukaan, päissä pääty.
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	st.set_color(Color(conc.r, conc.g, conc.b, CONCRETE))
-	var grass := SurfaceTool.new()
-	grass.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var body := StaticBody3D.new()
-	add_child(body)
-	var X := (2.8 + H / 0.75) / sin_a + 1.0
-	var segs := int(X)
-	for s: float in [-1.0, 1.0]:
-		var prev := {}
-		for k2 in segs * 2 + 1:
-			var x := -X + 2.0 * X * k2 / (segs * 2)
-			var c := _road_at(i, x)
-			var rn := _road_dir_at(i, x).cross(Vector3.UP) * s
-			var dr := absf(x) * sin_a
-			var top := at.y + maxf(H - maxf(0.0, dr - 2.8) * 0.75, 0.3) + 0.15
-			var cur := {
-				"b1": c + rn * inner - Vector3(0, 0.6, 0), "t1": Vector3(0, top - c.y, 0) + c + rn * inner,
-				"t2": Vector3(0, top - c.y, 0) + c + rn * (inner + UNDER_WALL),
-				"g": Vector3(0, top - c.y - 0.12, 0) + c + rn * (inner + UNDER_WALL + UNDER_CAP),
-				"b2": c + rn * (inner + UNDER_WALL) - Vector3(0, 0.6, 0),
-			}
-			if prev.is_empty():
-				_quad(st, cur.b1, cur.t1, cur.t2, cur.b2)
-			else:
-				if s > 0.0:
-					_quad(st, prev.b1, cur.b1, cur.t1, prev.t1)
-					_quad(st, prev.t1, cur.t1, cur.t2, prev.t2)
-					_quad(grass, prev.t2, cur.t2, cur.g, prev.g)
-				else:
-					_quad(st, prev.t1, cur.t1, cur.b1, prev.b1)
-					_quad(st, prev.t2, cur.t2, cur.t1, prev.t1)
-					_quad(grass, prev.g, cur.g, cur.t2, prev.t2)
-				var lo := minf(prev.b1.y, cur.b1.y)
-				var hi := maxf(prev.t1.y, cur.t1.y)
-				var mid: Vector3 = (prev.b1 + cur.b1 + prev.b2 + cur.b2) / 4.0
-				var cs := B.box_shape(Vector3(UNDER_WALL + 0.4, hi - lo, (prev.b1 as Vector3).distance_to(cur.b1) + 0.05), Vector3.ZERO)
-				cs.transform = Transform3D(Basis.looking_at(cur.b1 - prev.b1, Vector3.UP), Vector3(mid.x, (hi + lo) / 2.0, mid.z))
-				body.add_child(cs)
-			prev = cur
-		_quad(st, prev.b2, prev.t2, prev.t1, prev.b1)
-	st.generate_normals()
-	var mi := MeshInstance3D.new()
-	mi.mesh = st.commit()
-	mi.material_override = B.shader_mat("res://shaders/facade.gdshader")
-	add_child(mi)
-	grass.generate_normals()
-	var gm := MeshInstance3D.new()
-	gm.mesh = grass.commit()
-	var gmat := B.mat(Color(0.38, 0.44, 0.22)).duplicate() as StandardMaterial3D
-	gmat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	gm.material_override = gmat
-	add_child(gm)
-
-
-## Tien keskilinja ja suunta x metrin päässä näytteestä i (näytteiden välissä lineaarisesti).
-func _road_at(i: int, x: float) -> Vector3:
-	var f := x / float(data.step)
-	var k := clampi(i + floori(f), 0, road.size() - 2)
-	return road_pos(k).lerp(road_pos(k + 1), clampf(f - floori(f), 0.0, 1.0))
-
-
-func _road_dir_at(i: int, x: float) -> Vector3:
-	return road_dir(clampi(i + roundi(x / float(data.step)), 0, road.size() - 1))
 
 
 ## Rakennukset OSM:n pohjista: omakotitalot vaakapaneelilla ja harjakatolla, vajat pystylaudoituksella, isot
