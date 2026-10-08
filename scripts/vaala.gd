@@ -339,9 +339,9 @@ func ensure_built() -> void:
 	print("VAALA rakennettu %d ms" % (Time.get_ticks_msec() - t0))
 
 
-func _ground_mat(a: Color, b: Color, scale := 0.04, fine := 0.8) -> Material:
+func _ground_mat(a: Color, b: Color, scale := 0.04, fine := 0.8, bump := 0.7, rough := 0.95) -> Material:
 	return B.shader_mat("res://shaders/ground.gdshader", {
-		"color_a": a, "color_b": b, "scale": scale, "fine_scale": fine, "bump": 0.7, "roughness_v": 0.95, "stripes": 0.0,
+		"color_a": a, "color_b": b, "scale": scale, "fine_scale": fine, "bump": bump, "roughness_v": rough, "stripes": 0.0,
 	})
 
 
@@ -638,7 +638,7 @@ var _rmats := {}
 
 func _road_mats() -> void:
 	_rmats = {
-		"asphalt": _ground_mat(Color(0.17, 0.17, 0.18), Color(0.27, 0.27, 0.28), 0.3, 3.0),
+		"asphalt": _ground_mat(Color(0.2, 0.2, 0.21), Color(0.26, 0.26, 0.27), 0.12, 1.6, 0.22, 0.85),
 		"gravel": _ground_mat(Color(0.5, 0.45, 0.36), Color(0.68, 0.62, 0.5), 0.25, 3.5),
 		"rut": _ground_mat(Color(0.4, 0.35, 0.28), Color(0.5, 0.45, 0.36), 0.3, 3.0),
 		"white": B.mat(Color(0.92, 0.92, 0.9)),
@@ -673,8 +673,13 @@ func _road_strip(pts: Array, hws: Array, grav: Array) -> void:
 			_quad(_strips.asphalt, a - na * wa + lift, b - nb * wb + lift, b + nb * wb + lift, a + na * wa + lift)
 			var up := Vector3(0, 0.055, 0)
 			for s: float in [-1.0, 1.0]:
-				_quad(_strips.white, a + na * s * (wa - 0.3) + up, b + nb * s * (wb - 0.3) + up,
-					b + nb * s * (wb - 0.42) + up, a + na * s * (wa - 0.42) + up)
+				# Reunaviivat: sisäreunasta ulkoreunaan samassa kiertosuunnassa kummallakin puolella (materiaali
+				# karsii takapinnat, ennen oikea reunaviiva jäi näkymättömäksi).
+				var ia := na * minf(s * (wa - 0.3), s * (wa - 0.42))
+				var oa := na * maxf(s * (wa - 0.3), s * (wa - 0.42))
+				var ib := nb * minf(s * (wb - 0.3), s * (wb - 0.42))
+				var ob := nb * maxf(s * (wb - 0.3), s * (wb - 0.42))
+				_quad(_strips.white, a + ia + up, b + ib + up, b + ob + up, a + oa + up)
 			dash += a.distance_to(b)
 			if fmod(dash, 12.0) < 4.0:  # katkoviiva 4 m + 8 m väli
 				_quad(_strips.yellow, a - na * 0.07 + up, b - nb * 0.07 + up, b + nb * 0.07 + up, a + na * 0.07 + up)

@@ -10506,6 +10506,36 @@ func _maybe_screenshot() -> void:
 			Input.action_release("right")
 			print("KOKO loppu: näyte %d/%d, aika %.0f s, seinäosumat näytteillä %s, kaatumisia %d" % [last, vl.road.size(),
 				(Time.get_ticks_msec() - t0) / 1000.0, str(walls.keys()), crashes[0]])
+		"mokkireitti":
+			# Reitti ajajan silmin 60 näytteen välein (lappu ja liikenne piilossa): _r<näyte>.png ja vastasuuntaan _p<näyte>.png.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			var mp: CharacterBody3D = mopo_trip.mopo
+			_msg.text = ""
+			_note.visible = false
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			mp.process_mode = Node.PROCESS_MODE_DISABLED
+			var oc := Camera3D.new()
+			oc.far = 3000.0
+			oc.fov = 70.0
+			add_child(oc)
+			var step: int = 60
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--step="):
+					step = int(arg.substr(7))
+			for si in range(10, vl.road.size() - 5, step):
+				for back in [false, true]:
+					var d: Vector3 = vl.road_dir(si) * (-1.0 if back else 1.0)
+					var eye: Vector3 = vl.road_pos(si) + d.cross(Vector3.UP) * 1.6 + Vector3(0, 1.9, 0)
+					oc.look_at_from_position(mopo_trip.to_global(eye), mopo_trip.to_global(eye + d * 20.0 - Vector3(0, 1.2, 0)))
+					oc.current = true
+					for i in 12:
+						await get_tree().process_frame
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s%03d.png" % ["p" if back else "r", si]))
+			get_tree().quit()
 		"mokkiajoalue":
 			# Mopon ajoalue (vaala.gd drivable) kuvaksi ja kokeet: tieltä suoraan ja viistosti metsään, sekä
 			# pysäköintipaikoilta liikkeelle.
