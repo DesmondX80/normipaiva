@@ -223,7 +223,17 @@ def apply(cache=None):
         side = -side  # ovi ei rannan puolelle
     door = (c[0] + side * (hw + 4.0), c[1])
     road = road[:min(range(len(road)), key=lambda k: math.dist(road[k], door)) + 1]
-    drive = [road[-1], door]
+
+    def rect_d(p):
+        return math.hypot(max(abs(p[0] - c[0]) - hw, 0.0), max(abs(p[1] - c[1]) - hl, 0.0))
+
+    # Tie loppuu ennen lavan tonttia, ajotie kiertää kulman 4 m seinästä oven eteen (lava on niemen kärjessä
+    # tien vanhalla paikalla).
+    k_in = next((k for k, q in enumerate(road) if rect_d(q) < 9.0), len(road))
+    road = road[:max(k_in, 2)]
+    end = road[-1]
+    corner_p = (door[0], c[1] + (hl + 4.0) * (1.0 if end[1] > c[1] else -1.0))
+    drive = [end, corner_p, door] if abs(end[1] - c[1]) > hl else [end, door]
     tie["side_roads"] = [r for r in tie["side_roads"] if r.get("name") != ROAD_NAME]
     tie["side_roads"].append({"kind": "road", "hw": "unclassified", "name": ROAD_NAME, "surface": "asphalt",
                               "pts": [[round(x, 2), round(z, 2)] for x, z in road[:-1:2] + [road[-1]]]})

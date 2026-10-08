@@ -10036,14 +10036,30 @@ func _maybe_screenshot() -> void:
 				for i in int(60 * secs):
 					await get_tree().physics_frame
 					var goal: Vector3 = goals[gi]
-					if gi < goals.size() - 1 and Vector2(mp.position.x - goal.x, mp.position.z - goal.z).length() < 4.0:
+					var gd := Vector2(mp.position.x - goal.x, mp.position.z - goal.z).length()
+					if gi < goals.size() - 1 and gd < 4.0:
 						gi += 1
+						goal = goals[gi]
+						gd = Vector2(mp.position.x - goal.x, mp.position.z - goal.z).length()
+					elif gi == goals.size() - 1 and gd < 4.0:
+						break  # perillä: jarrutetaan
+					if gi == goals.size() - 1 and gd < 12.0:
+						# Loppumatka hiljaa: jarru päälle, jos vauhtia on yli 3 m/s.
+						if mp.speed > 3.0:
+							Input.action_press("brake")
+						else:
+							Input.action_release("brake")
+
 					var want := Vector3(goal.x - mp.position.x, 0, goal.z - mp.position.z)
 					var err := (-mp.global_transform.basis.z).signed_angle_to(want, Vector3.UP)
 					Input.action_press("left", clampf(err * 3.0, 0.0, 1.0))
 					Input.action_press("right", clampf(-err * 3.0, 0.0, 1.0))
 				for a in ["forward", "left", "right"]:
 					Input.action_release(a)
+				Input.action_press("brake")
+				for i in 40:
+					await get_tree().physics_frame
+				Input.action_release("brake")
 			# Pahalahdentie: 30 m ennen porttia, portin läpi, ajotien alkuun ja ovelle.
 			var pr: Array = []
 			for r in vl.data.side_roads:
@@ -10055,14 +10071,14 @@ func _maybe_screenshot() -> void:
 				if pr[k].distance_to(gt) < pr[gk].distance_to(gt):
 					gk = k
 			var rp0: Vector3 = Vector3(rp[0][0], 0, rp[0][1])
-			await drive.call(pr[maxi(gk - 5, 0)], pr.slice(gk - 3) + [rp0, vl.lava_door + vl.lava_out * 5.0], 16.0)
+			await drive.call(pr[maxi(gk - 5, 0)], pr.slice(gk - 3) + [rp0, vl.lava_door + vl.lava_out * 2.0], 30.0)
 			for i in 30:
 				await get_tree().physics_frame
 			print("LAVA portista: ovelta %.1f m, vihje '%s'" % [mp.position.distance_to(vl.lava_door), mopo_trip.hint])
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
-			# Aitaa päin 20 m portista länteen (pohjoisesta etelään).
-			var beside := gt + Vector3(-20, 0, 0)
+			# Aitaa päin 8 m portista itään (pohjoisesta etelään).
+			var beside := gt + Vector3(8, 0, 0)
 			beside.y = vl.h(beside.x, beside.z)
 			await drive.call(beside + Vector3(0, 0, -6), [beside + Vector3(0, 0, 20)], 5.0)
 			print("LAVA aitaa päin: aidan pohjoispuolella %.1f m (negatiivinen = läpi)" % (beside.z - mp.position.z))

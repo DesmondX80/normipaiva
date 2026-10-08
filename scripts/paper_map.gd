@@ -993,11 +993,11 @@ func _draw_vaala_map() -> void:
 		v.draw_polyline(pts, Color(0.62, 0.52, 0.36) if br.gravel else INK.lightened(0.15), wz.call(br.hw, 1.6, 6.0))
 	if _vd.has("lava") and _vd.lava.road.size() >= 2:
 		# Asfaltoitu ajotie Pahalahdentieltä ja aita joelta Pahalahteen (portti tiellä).
-		var lr: Array = _vd.lava.road
-		var la := _vpx(Vector2(lr[0][0], lr[0][1]))
-		var lb := _vpx(Vector2(lr[1][0], lr[1][1]))
-		v.draw_line(la, lb, INK.lightened(0.15), wz.call(2.2, 1.6, 6.0))
-		v.draw_line(la, lb, Color(0.97, 0.95, 0.88), wz.call(2.2, 1.6, 6.0) - 1.4)
+		var lp := PackedVector2Array()
+		for q in _vd.lava.road:
+			lp.append(_vpx(Vector2(q[0], q[1])))
+		v.draw_polyline(lp, INK.lightened(0.15), wz.call(2.2, 1.6, 6.0))
+		v.draw_polyline(lp, Color(0.97, 0.95, 0.88), wz.call(2.2, 1.6, 6.0) - 1.4)
 		if _vd.lava.has("fence") and _vzoom > 0.6:
 			var fp := PackedVector2Array()
 			for q in _vd.lava.fence:
