@@ -102,8 +102,11 @@ func stream(sound: String) -> AudioStream:
 const MUSIC_FILES := ["res://assets/music/normipaiva.ogg", "res://assets/music/normipaiva.mp3",
 	"res://assets/music/normipaiva.wav"]
 const MUSIC_DB := -4.0
+## Lirkuttelubiisi (junan ravintolavaunu): tools/lirkuttelu.py.
+const SONG_LIRKUTTELU := "res://assets/music/lirkuttelu.wav"
 var _music: AudioStreamPlayer
 var _music_tw: Tween
+var _music_file := ""  # "" = tunnusmusiikki
 
 
 func has_music() -> bool:
@@ -125,10 +128,21 @@ func music_stream() -> AudioStream:
 
 const MUSIC_CHORUS := 25.0  # kertosäe alkaa (s): onnelliset loput soivat tästä
 
-## Aloittaa (tai jatkaa) musiikin häivyttäen sisään; from = aloituskohta sekunteina.
-func music_play(fade := 1.5, from := 0.0) -> void:
+## Aloittaa (tai jatkaa) musiikin häivyttäen sisään; from = aloituskohta sekunteina. file = muu biisi kuin
+## tunnusmusiikki (esim. SONG_LIRKUTTELU); toinen biisi vaihtaa soittimen sisällön.
+func music_play(fade := 1.5, from := 0.0, file := "") -> void:
+	if _music != null and file != _music_file:
+		_music.stop()
+		_music.queue_free()
+		_music = null
 	if _music == null:
-		var st := music_stream()
+		_music_file = file
+		var st: AudioStream = music_stream()
+		if file != "":
+			st = null
+			if ResourceLoader.exists(file):
+				st = load(file)
+				_set_loop(st)
 		if st != null:
 			_music = AudioStreamPlayer.new()
 			_music.bus = "Music"
