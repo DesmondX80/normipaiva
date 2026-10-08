@@ -114,21 +114,36 @@ Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kart
   (650 m tiestä) on laserin valtapuita. Soratie mökiltä Neittäväntielle on tiivistetty `GRAVEL_K`-kertaisesti.
   Alikululta keskustaan Oulujoen ylitys (`TOWN_K`) ja itärannan pätkä keskustan portille (`EAST_K`, `TOWN_GATE`, ei
   taloja) on lineaarinen kaista: joki kapenee ja keskusta alkaa heti sillan jälkeen; lavan niemi (`vaala_lava.AREA_REAL`)
-  ja keskusta ovat kumpikin 1:1 omalla siirrollaan (`lava_off`, `town_off`). Oulujärvi loppuu etelässä `LAKE_Z`:aan.
-  Radan alikulku on leveä (`UNDER_OPEN` 13 m ajoradan reunasta): kansi pilareilla (vaala.gd). Liian isot rakennukset
+  ja keskusta ovat kumpikin 1:1 omalla siirrollaan (`lava_off`, `town_off`). Oulujärven lounainen lahti mökin
+  puolella on maata (`lake_cut`, `LAKE_CUT_X`, `LAKE_CUT_Z`), järven selkä jatkuu niemeltä kaakkoon.
+  Radan alikulku on leveä (`UNDER_OPEN` 13 m ajoradan reunasta) ja penger nousee aukon reunasta luiskana
+  (`UNDER_SLOPE`) kannen alle; kansi pilareilla ja maatuet luiskien päällä (vaala.gd). Liian isot rakennukset
   pienennetään `BUILDING_SCALE`-taulukolla. Sivuteiden päälle jääneet talot
-  ja sillan päihin liittyvät sivutiet karsitaan. Ajettavuus: `godot --path . -- --shot=<kansio>/t.png
-  --scene=mokkivaalatiet` (mopon kapseli kaikkia teitä pitkin) ja `--scene=mokkimopo_koko` (koko reitti ajaen). Lopuksi `tools/vaala_lava.py` tekee Oulujärven lavan niemen 1:1-maastoksi:
+  ja sillan päihin liittyvät sivutiet karsitaan, tiivistetyllä välillä reitin poikki menevät metsätiet harvennetaan
+  (`THIN_CROSS`) ja rakennuksettomat pihamaat muutetaan metsäksi.
+  Eteenpäin-kuvaus (`vaala_warp.Forward`: todellinen piste -> lähin pelin ruutu, jonka käänteiskuvaus osuu siihen)
+  jatkaa risteysten haarat OSM-linjaansa pitkin tarkan alueen reunaan ja kuvaa mökin kävelyalueen mopomatkan
+  kehykseen (tie.json "mokki_warp", paperikartta). Tiivistyksessä mökin pohjoiset järvet puristuisivat 22-kertaisesti
+  sadan metrin läikäksi, joten Neittävän järviseutu (`NORTH_LAKES`: Salmiset, Pyöriäinen, Keskimmäinen mökin
+  kartta.json:sta) piirretään Neittäväntien luoteeseen loivalla kuvauksella `NL_C + (p - NL_REF) * NL_S`; alueen
+  muut pikkujärvet muuttuvat suoksi. Paperikartta käyttää samaa kuvausta mökin kohteille ("mokki_map").
+  Ajettavuus: `godot --path . --disable-vsync -- --shot=<kansio>/t.png --scene=mokkivaalatiet` (mopon kapseli
+  kaikkia teitä pitkin), `--scene=mokkimopo_koko` ja `--scene=mokkimopo_paluu` (koko reitti ajaen kumpaankin suuntaan),
+  `--scene=mokkiajoalue` (mopon ajoalue kuvaksi, tieltä metsään ajo) ja `--scene=mokkireitti` (reitti ajajan silmin
+  60 näytteen välein, `--step=N`). `--disable-vsync` nopeuttaa kuvien ottoa, kun ikkuna on taustalla.
+  Lopuksi `tools/vaala_lava.py` tekee Oulujärven lavan niemen 1:1-maastoksi:
   Pahalahdentien risteys on 1:1-alueella, mutta niemen kaukomaasto tuli tiivistetyn tien suhteen (muualta), joten
   niemellä ei ollut vettä. Skripti tekee alueelle tarkan maaston korkeusmallista (vesi = korkeusmallin tasoitettu
   vedenpinta, Oulujoki ja Oulujärvi samassa 122,74 m:ssä), painaa järven kaukomaastoon (vaala.gd piirtää vedet),
-  asfaltoi Pahalahdentien lavalle, tekee aidan rannasta rantaan ja siistii puut. Korkeusmalli on tallessa
+  sijoittaa lavan rantaan (`SHORE_GAP` m vedestä, lähin paikka todellisesta), asfaltoi Pahalahdentien lavalle (ajotie
+  kiertää lavan kulman oven eteen), tekee aidan rannasta rantaan ja siistii puut. Korkeusmalli on tallessa
   reitti.json:ssa ("lava_dem", `--cache` hakee sen kerran); muuten ajo ei tarvitse välimuistia ja on toistettavissa.
   Tarkistuskuvat: `godot --path . -- --shot=<kansio>/v.png --scene=mokkivaalalava` (myös mopolla portista ovelle)
   ja `--scene=mokkivaalajalan` (moposta jalan, ovelle, rantaan ja takaisin selkään).
   Sen jälkeen `tools/vaala_silta_jarvi.py` suoristaa Oulujoen sillan (tiivistyskaistan sauma taittoi sen keskeltä)
   ja tasaa sen korkeuden penkereineen sekä täyttää Oulujärven kaukomaaston luoteiskulmaan, ja
-  `tools/vaala_keskusta.py` siirtää K-Marketin, Gasthausin ja Zabukin Siitarin ympärille ja torin niiden taakse.
+  `tools/vaala_keskusta.py` siirtää K-Marketin ja Gasthausin Siitarin ympärille ja torin tien päähän Siitarin
+  pihalenkin kohdalle (`TORI_U`, `TORI_V`), Zabuki torin itäpäätyyn.
   Molemmat ovat toistettavia ilman välimuistia (alkuarvot tie.json:ssa). Tarkistuskuvat:
   `--scene=mokkitori` (tori, Zabuki, Gasthaus) ja `--scene=mokkivaala` (silta `_silta*`, alikulku, keskusta).
 - **Puut pois teiltä**: molemmat leivonnat ajavat lopuksi `tools/kartta/puut_teilta.py`:n, joka poistaa valmiista

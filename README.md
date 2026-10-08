@@ -94,27 +94,32 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     Väsytyksessä E kelaa: pidä siiman kireys vihreällä, koska punaisella siima katkeaa ja löysällä kala karkaa.
     Parvien luona ja kauempana rannasta tulee isompia kaloja (hauki rimpuilee rajuimmin). Humala tärisyttää kättä.
     F soutaa takaisin laiturille. Saalis viedään savustimeen.
-  - **Mopolla Vaalaan:** mökin pihan mopolla ajetaan Hotelli-Ravintola Siitariin (Uutelanperäntien sora
-    Neittäväntielle oikean mittaisena, Vuolijoentie radan ali, Oulujoen silta, Vaalan keskusta 1:1: kirkko,
-    rautatieasema, kaupat ja kunnantalo). Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet
+  - **Mopolla Vaalaan:** mökin pihan mopolla (huippunopeus 60 km/h) ajetaan Hotelli-Ravintola Siitariin
+    (Uutelanperäntien sora Neittäväntielle, Vuolijoentie radan ali, Oulujoen silta, Vaalan keskusta 1:1: kirkko,
+    rautatieasema, kaupat ja kunnantalo). Mopo pysyy teillä: metsään, pellolle ja pihoille ei köröttele, vaan tien
+    reunassa mopo liukuu kuin reunakiveä vasten (sivutiet, parkit, tori, lavan piha ja ovien edustat ovat ajettavia).
+    Radan alikulku on ohikulkuvideon mukainen betonisilta pilaripareineen, ja penger laskee luiskana sillan alle. Maasto on Maanmittauslaitoksen 2 m korkeusmallista, pellot, suot, vedet
     ja rakennusten pohjat maastotietokannasta, rakennusten korkeudet ja tienvarren metsä (noin 200 000 puuta)
     laserkeilauksesta ja puulajit Luken VMI:stä (`tools/vaala_bake.py`). Keskustassa on K-Market Tervaportti:
     sama kauppa kuin kylässä, ja vasemmalla seinällä Alkon hylly (Koskenkorva kätköviinaksi, T ottaa huikan).
     Pelissä kauppa on Siitarin vieressä Vaalantien varressa (todellisuudessa n. 400 m kauempana), ja
     pankkiautomaatti on kaupan seinällä. Jos rahat eivät riitä, kaljat ja Alkon pullot voi viedä ovesta
-    juoksukaljoina maksamatta (kylän K-Marketissa samoin). `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
+    juoksukaljoina maksamatta (kylän K-Marketissa samoin). Mopotie päättyy torille Siitarin viereen: torin päädyssä
+    on Zabuki (olut ja hampurilaiset) ja Siitaria vastapäätä Gasthaus. `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
     laserpuut rakennusten, parkkien ja teiden päältä (latvusmallissa katotkin näkyivät puina). Niemellä, jossa Oulujoki alkaa Oulujärvestä (Vuolijoentieltä oikealle
     asfaltoitua Pahalahdentietä juuri ennen radan alikulkua; `tools/vaala_lava.py` tekee niemen, leveän joen ja
-    järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (1 500 m², punamullatut seinät, luukut auki,
-    bändi lavalla) lautatarha-aidan sisällä, jonka päät ulottuvat jokeen ja Pahalahteen: lipulla (12 €)
-    lavatansseihin, joissa A ja D vuorotellen tahdissa vievät parin tanssiin. Pelissä lava on vähän lähempänä
-    päätietä kuin todellisuudessa (niemen kärjessä).
+    järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (punamullatut seinät, luukut auki, bändi
+    lavalla) aivan rannassa niemen kärjessä lautatarha-aidan sisällä, jonka päät ulottuvat jokeen ja Pahalahteen:
+    lipulla (12 €) lavatansseihin, joissa A ja D vuorotellen tahdissa vievät parin tanssiin. Pelissä lava on
+    todellista (1 500 m²) vähän pienempi. Oulujärvi jatkuu niemeltä kaakkoon kartan reunaan asti.
     Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen; mopo jää parkkiin tyhjänä) ja kävellä; ovet ja automaatti toimivat jalankin,
     ja F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
     Paperikartta (M) on mökillä ja Vaalan matkalla yksi iso Neittävä–Vaala-kartta: mökin piha, mopotie ja Vaalan
     keskusta (Siitari, K-Market Tervaportti, pankkiautomaatti, Oulujärven lava, kirkko, rautatieasema ja muut
-    nimetyt talot), maankäyttö rinnevarjostuksineen. Rulla tai Q/E zoomaa ja WASD tai vetäminen siirtää; tiivistetty
-    tienpätkä on merkitty punaisella katkoviivalla.
+    nimetyt talot), maankäyttö rinnevarjostuksineen. Mökin pohjoiset järvet (Salmiset, Pyöriäinen ja Keskimmäinen)
+    ovat kartalla ja mopomatkan maisemassa Neittävällä Neittäväntien luoteispuolella loivasti tiivistettyinä, ja
+    Salmisen uimaranta, Ranta-Rosvo, Keskimmäisen laavu ja tynnyrisauna niiden rannoilla; mökillä jalan kulkiessa
+    "Olet tässä" näkyy samassa kartassa. Rulla tai Q/E zoomaa ja WASD tai vetäminen siirtää.
     Kännissä tanko vaeltaa, kuva huojuu ja ojaan on lyhyt matka. Siitarin baarissa on tiski, karaoke
     (W/S tai hiiri pitää äänen sävelpalkilla), tanssilattia, pajatso, pöytäseurue ja naapurin Sinikka. Jos Sinikan
     kanssa tanssii tai tarjoaa hänelle drinkin, Päivi kuulee siitä pian puhelimessa ja on seuraavana päivänä
