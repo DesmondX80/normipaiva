@@ -1305,6 +1305,7 @@ func _outside_logic() -> void:
 	_story_logic()
 	_pontikka_logic()
 	_taxi_logic()
+	_station_logic()
 	_mokki_logic()
 	if _hint.text != "":
 		return  # jemma, Päivin ostokset, haava tai muu toiminto ovella menee edelle
@@ -3737,6 +3738,107 @@ func _on_taxi_choice(id: String) -> void:
 		_taxi_mokki()
 	elif id == "raahe":
 		_taxi_trip()
+
+
+# --- Juna Saloisten ja Vaalan asemien välillä -------------------------------------------------------------------
+
+const TRAIN_FARE := 10.0  # suuntaansa
+const STATION_R := 3.0
+
+
+## Saloisten asema K-Marketin takana (world.gd _build_station): jalan E junalla Vaalaan.
+func _station_logic() -> void:
+	if _hint.text != "" or world.station_pos == Vector3.ZERO:
+		return
+	var p := player.global_position
+	if Vector2(p.x - world.station_pos.x, p.z - world.station_pos.z).length() > STATION_R:
+		return
+	if player == bike:
+		_hint.text = "[F] Pyörältä pois, niin pääset junaan"
+		return
+	_hint.text = "[E] Junalla Vaalaan (%s €)" % _eur(TRAIN_FARE)
+	if Input.is_action_just_pressed("interact") and not player.is_stunned():
+		if money < TRAIN_FARE:
+			_show_message("Konduktööri: \"Lippu Vaalaan maksaa %s €.\"" % _eur(TRAIN_FARE), 2.5)
+			return
+		_train_trip("vaala")
+
+
+## Junamatka (10 € suuntaansa): Saloisista Vaalan asemalle tai Vaalasta Saloisten asemalle. Välikuvassa istutaan
+## ravintolavaunussa ja jutellaan mukavia naismatkustajien kanssa (cutscene.train_ride). Vaalaan tultaessa mopo
+## odottaa aseman pihassa ja matka Paapeliin jatkuu siitä; Vaalasta lähdettäessä mopo jää Vaalaan (seuraavalla
+## kerralla se on taas mökin pihassa kuten muillakin paluureiteillä).
+func _train_trip(to: String) -> void:
+	money -= TRAIN_FARE
+	Sfx.play("coin", -6.0)
+	if to == "saloinen":
+		_santtu_home()
+		if mopo_trip.on_foot != null:
+			walker_out.controls_enabled = false
+			mopo_trip.on_foot = null
+		mopo_trip.stop()
+		_mopo_restore_hud()
+		state = _vaala_state
+	else:
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_train_prev = state
+	state = "cutscene"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hud.visible = false
+	tilat.first("juna", 0.3)
+	_save_game()
+	cutscene.train_ride(to == "vaala", _arrive_vaala_by_train if to == "vaala" else _arrive_saloinen_by_train)
+
+
+var _train_prev := "to_shop"
+
+
+func _arrive_saloinen_by_train() -> void:
+	state = _train_prev if _train_prev != "cutscene" else "to_shop"
+	walker_out.visible = true
+	_set_avatar(walker_out)
+	var a: Vector3 = world.station_arrive
+	_arrive_by_car(Vector3(a.x, Terrain.h(a.x, a.z) + 0.3, a.z))
+	walker_out.rotation.y = 0.0  # selkä asemaan, kauppa edessä
+	_show_message("Saloisten asema. K-Market on heti aseman edessä.", 3.0)
+
+
+func _arrive_vaala_by_train() -> void:
+	_advance_clock(HOP_VAALA)
+	state = _train_prev if _train_prev != "cutscene" else "to_shop"
+	mokki.ensure_built()
+	_ensure_mopo_trip()
+	_start_mopo()
+	mopo_trip.target = "paapeli"
+	var vl: Node3D = mopo_trip.vaala
+	var ast: Dictionary = vl.data.keskusta.asema
+	var out := Vector3(ast.out[0], 0, ast.out[1])
+	var side := out.cross(Vector3.UP)
+	var mp: CharacterBody3D = mopo_trip.mopo
+	mp.position = vl.station_door + out * 2.5 + side * 2.5 + Vector3(0, 0.6, 0)
+	mp.rotation.y = atan2(-out.x, -out.z)
+	mp.speed = 0.0
+	var best := INF
+	for i in vl.road.size():
+		var d2 := Vector2(vl.road[i][0] - mp.position.x, vl.road[i][2] - mp.position.z).length_squared()
+		if d2 < best:
+			best = d2
+			mopo_trip._sample = i
+	# Jalan aseman ovelta: mopo parkissa vieressä.
+	walker_out.global_position = mopo_trip.to_global(vl.station_door + out * 1.0 + Vector3(0, 0.4, 0))
+	walker_out.global_rotation.y = atan2(-out.x, -out.z) + mopo_trip.global_rotation.y
+	walker_out.velocity = Vector3.ZERO
+	walker_out.speed = 0.0
+	walker_out.visible = true
+	walker_out.process_mode = Node.PROCESS_MODE_INHERIT
+	walker_out.controls_enabled = true
+	walker_out.set_carrying(beers > 0)
+	mopo_trip.set_on_foot(walker_out)
+	_mopo_follow(walker_out)
+	_mopo_dry = walker_out.global_position
+	_hud.visible = true
+	_show_message("Vaalan asema. Mopo odottaa aseman pihassa, Siitari ja tori ovat liikenneympyrän takana.", 4.0)
 
 
 ## Kaupan taksilla Paapelin mökille (meno-paluu): paluu tilataan mökin pihatien päästä.
@@ -7030,6 +7132,8 @@ func _on_vaala_door(id: String) -> void:
 	match id:
 		"kmarket":
 			_enter_vaala_shop(id)
+		"asema":
+			_train_trip("saloinen")
 		"zabuki":
 			_talk_open("zabuki", null)
 		"gasthaus":
@@ -10593,6 +10697,114 @@ func _maybe_screenshot() -> void:
 					if shots >= 4:
 						break
 				print("JUNA %s: kuvia %d, keula %.0f m" % [view[0], shots, tr._s])
+			get_tree().quit()
+		"mokkiasema":
+			# Vaalan asema ja liikenneympyrä: kuvat ympyrästä, asemasta ja laiturilta sekä mopolla ympyrästä asemalle.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			_msg.text = ""
+			_note.visible = false
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var oc := Camera3D.new()
+			oc.far = 3000.0
+			oc.fov = 60.0
+			add_child(oc)
+			var snap := func(name: String, from: Vector3, to: Vector3) -> void:
+				oc.look_at_from_position(mopo_trip.to_global(from), mopo_trip.to_global(to))
+				oc.current = true
+				for i in 15:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var ast: Dictionary = vl.data.keskusta.asema
+			var rc := Vector3(ast.roundabout.c[0], 0, ast.roundabout.c[1])
+			rc.y = vl.h(rc.x, rc.z)
+			var sd: Vector3 = vl.station_door
+			await snap.call("_ympyra.png", rc + Vector3(0, 45, 20), rc)
+			await snap.call("_ylha.png", sd + Vector3(30, 70, 10), sd + Vector3(30, 0, 0))
+			await snap.call("_ovi.png", sd + Vector3(ast.out[0], 0, ast.out[1]) * 18.0 + Vector3(0, 3, 4), sd + Vector3(0, 2, 0))
+			var pc := Vector3.ZERO
+			for q in ast.platform:
+				pc += Vector3(q[0], 0, q[1])
+			pc /= float(ast.platform.size())
+			pc.y = vl.h(pc.x, pc.z)
+			await snap.call("_laituri.png", pc + Vector3(ast.along[0], 0, ast.along[1]) * 30.0 + Vector3(0, 2.5, 0), pc + Vector3(0, 2, 0))
+			var tg: Vector3 = vl.station_door
+			var mp: CharacterBody3D = mopo_trip.mopo
+			var si: int = vl.road.size() - 40
+			var d: Vector3 = vl.road_dir(si)
+			mp.position = vl.road_pos(si) + Vector3(0, 0.6, 0) + d.cross(Vector3.UP) * 1.6
+			mp.rotation.y = atan2(-d.x, -d.z)
+			mp.activate_camera()
+			var goals: Array = [rc + (vl.road_pos(si) - rc).normalized() * 9.0, rc + Vector3(ast.along[0], 0, ast.along[1]).rotated(Vector3.UP, -0.9) * 9.0,
+				Vector3(ast.door[0], 0, ast.door[1]) + Vector3(ast.out[0], 0, ast.out[1]) * 2.5]
+			var gi := 0
+			Input.action_press("forward", 0.5)
+			for i in 60 * 40:
+				await get_tree().physics_frame
+				var goal: Vector3 = goals[gi]
+				var gd := Vector2(mp.position.x - goal.x, mp.position.z - goal.z).length()
+				if gd < 4.0:
+					if gi == goals.size() - 1:
+						break
+					gi += 1
+				var want := Vector3(goal.x - mp.position.x, 0, goal.z - mp.position.z)
+				var err := (-mp.global_transform.basis.z).signed_angle_to(want, Vector3.UP)
+				Input.action_press("left", clampf(err * 3.0, 0.0, 1.0))
+				Input.action_press("right", clampf(-err * 3.0, 0.0, 1.0))
+				if mp.speed > 7.0:
+					Input.action_press("brake")
+				else:
+					Input.action_release("brake")
+			for a in ["forward", "left", "right", "brake"]:
+				Input.action_release(a)
+			mp.speed = 0.0
+			for i in 20:
+				await get_tree().physics_frame
+			print("ASEMA mopolla ovelta %.1f m, vihje '%s'" % [Vector2(mp.position.x - tg.x, mp.position.z - tg.z).length(), mopo_trip.hint])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
+			get_tree().quit()
+		"junamatka":
+			# Saloisten asemalta junalla Vaalaan (välikuva kuvina) ja Vaalan asemalta takaisin Saloisiin.
+			if player != walker_out:
+				_toggle_mount()
+			money = 40.0
+			var sp: Vector3 = world.station_pos
+			walker_out.global_position = Vector3(sp.x, Terrain.h(sp.x, sp.z) + 0.4, sp.z + 1.0)
+			walker_out.rotation.y = 0.0
+			for i in 20:
+				await get_tree().process_frame
+			var cam := get_viewport().get_camera_3d()
+			cam.global_position = Vector3(sp.x + 14, Terrain.h(sp.x, sp.z) + 6, sp.z + 16)
+			cam.look_at(Vector3(sp.x, Terrain.h(sp.x, sp.z) + 2, sp.z - 6))
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_saloinen.png"))
+			walker_out.activate_camera()
+			for i in 10:
+				await get_tree().process_frame
+			print("JUNA Saloisissa vihje '%s', rahaa %.2f" % [_hint.text, money])
+			for leg in ["vaala", "saloinen"]:
+				if leg == "vaala":
+					_train_trip("vaala")
+				else:
+					_on_vaala_door("asema")
+				var shot := 0
+				var t0 := Time.get_ticks_msec()
+				while cutscene.busy:
+					await get_tree().process_frame
+					if Time.get_ticks_msec() - t0 > 2200 * (shot + 1) and shot < 9:
+						await RenderingServer.frame_post_draw
+						get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s%d.png" % [leg, shot]))
+						shot += 1
+				for i in 40:
+					await get_tree().process_frame
+				print("JUNA %s: tila %s, Vaalassa %s, rahaa %.2f, pelaaja %s, viesti '%s'" % [leg, state, _in_vaala, money,
+					player.global_position, _msg.text])
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_perilla_%s.png" % leg))
 			get_tree().quit()
 		"mokkiajoalue":
 			# Mopon ajoalue (vaala.gd drivable) kuvaksi ja kokeet: tieltä suoraan ja viistosti metsään, sekä

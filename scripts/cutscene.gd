@@ -1093,6 +1093,252 @@ func _build_ride_road(guide: String, village: String) -> Node3D:
 	return r
 
 
+# --- Junamatka ravintolavaunussa ----------------------------------------------------
+
+const TRAIN_POS := Vector3(-9000, 0, 3000)
+const Train := preload("res://scripts/train.gd")
+const MARJA := {
+	"model": "female", "shirt": Color(0.2, 0.42, 0.68), "pants": Color(0.16, 0.16, 0.2), "shoes": Color(0.12, 0.1, 0.1),
+	"hair": "Hair_Long", "hair_color": Color(0.42, 0.26, 0.14), "height": 1.68,
+}
+const LIISA := {
+	"model": "female", "shirt": Color(0.9, 0.56, 0.18), "pants": Color(0.3, 0.26, 0.22), "shoes": Color(0.3, 0.2, 0.15),
+	"hair": "Hair_Buns", "hair_color": Color(0.9, 0.8, 0.52), "height": 1.64,
+}
+const HELENA := {
+	"model": "female", "shirt": Color(0.55, 0.15, 0.35), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.1, 0.1, 0.1),
+	"hair": "Hair_Long", "hair_color": Color(0.1, 0.08, 0.07), "height": 1.7,
+}
+const WAITER := {
+	"shirt": Color(0.95, 0.95, 0.95), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.05, 0.05, 0.05),
+	"hair": "Hair_SimpleParted", "hair_color": Color(0.3, 0.25, 0.2), "height": 1.8,
+}
+## Ravintolavaunun jutustelu: [puhuja, repliikki]; puhuja "minä", "marja", "liisa", "helena" tai "tarjoilija".
+const TRAIN_TALK_VAALA := [
+	["marja", "Onko tässä vapaata? Ravintolavaunusta näkee parhaiten."], ["minä", "Istukaa toki! Kahvit on vasta kaadettu."],
+	["liisa", "Kiitos! Oletko menossa Vaalaan asti?"], ["minä", "Oulujärven rantaan, Paapeliin. Mökillä odottaa sauna."],
+	["marja", "Ihana! Oulujärven auringonlasku on maailman kaunein."], ["helena", "Ja Salmisen uimaranta on paras uimaranta."],
+	["minä", "Teillä on kyllä hyvä maku. Ja hyvä huivi, Liisa."], ["liisa", "No kiitos! Itse neuloin. Sinä olet mukavaa seuraa."],
+	["tarjoilija", "Saako olla korvapuustia? Uunista tulleita."], ["marja", "Hyvää matkaa, ja terveisiä Siitarin karaokeen!"],
+]
+const TRAIN_TALK_SALOINEN := [
+	["helena", "Hei! Saanko istua? Tässä on niin kiva valo."], ["minä", "Tottahan toki. Kahvia?"],
+	["helena", "Mielelläni. Menetkö kotiin Saloisiin?"], ["minä", "Kotiin. Kuusi kaljaa ja nurmikko odottaa."],
+	["marja", "Saloisissa on kuulemma Raahen seudun paras K-Market."], ["minä", "Niin on. Ja mukavimmat mummot kaupan penkillä."],
+	["liisa", "Sinulla on hauska tapa kertoa asioista."], ["minä", "Ja teidän kanssanne matka meni hetkessä."],
+	["tarjoilija", "Pientä purtavaa? Lihapiirakoita on vielä."], ["helena", "Hyvää kotimatkaa! Oli ilo jutella."],
+]
+
+
+## Junamatka Saloisten ja Vaalan asemien välillä: ensin juna ohittaa kameran metsän ja peltojen halki, sitten
+## ravintolavaunussa pöydässä ikkunan vieressä jutellaan mukavia naismatkustajien kanssa (kahvia ja pullaa,
+## maisema vilistää ikkunoissa). done kutsutaan pimeällä.
+func train_ride(to_vaala: bool, done: Callable) -> void:
+	_begin()
+	Sfx.play("door_close", -4.0)
+	Sfx.music_play(0.8)
+	await _fade_to(1.0, 0.4)
+	var root := Node3D.new()
+	root.position = TRAIN_POS
+	_props.add_child(root)
+	_build_train_land(root)
+	var train := Node3D.new()
+	root.add_child(train)
+	var units: Array[Node3D] = []
+	var off := 0.0
+	for spec in [["loco", 18.96], ["coach", 26.4], ["dining", 26.4]]:
+		var u := Node3D.new()
+		train.add_child(u)
+		if spec[0] == "loco":
+			Train.build_loco(u, spec[1])
+		else:
+			Train.build_coach(u, spec[1], spec[0] == "dining")
+		u.position.z = off + float(spec[1]) / 2.0
+		off += float(spec[1]) + 0.8
+		units.append(u)
+	var rumble := AudioStreamPlayer.new()
+	rumble.stream = Sfx.stream("tractor_engine")
+	rumble.pitch_scale = 0.42
+	rumble.volume_db = -6.0
+	rumble.bus = "SFX"
+	_props.add_child(rumble)
+	rumble.play()
+	_cam.current = true
+	_title.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
+	_title.add_theme_font_size_override("font_size", 80)
+	# 1) Juna ohittaa kameran.
+	const SPEED := 24.0
+	var t0 := Time.get_ticks_msec()
+	var faded := false
+	var honked := false
+	while Time.get_ticks_msec() - t0 < 4500:
+		var t := (Time.get_ticks_msec() - t0) / 1000.0
+		train.position.z = 60.0 - t * SPEED
+		_cam.global_position = root.to_global(Vector3(9.0, 2.2, -30.0))
+		_cam.look_at(train.global_position + Vector3(0, 2.0, 6.0), Vector3.UP)
+		if not faded:
+			faded = true
+			_fade_to(0.0, 0.6)
+			_title.text = "JUNALLA VAALAAN" if to_vaala else "JUNALLA SALOISIIN"
+			_sub.text = "Lippu %s. Ravintolavaunussa on kahvia ja pullaa." % "10 €"
+		if t > 1.0 and not honked:
+			honked = true
+			Sfx.play("horn", -2.0, 0.48, 2.5)
+		await get_tree().process_frame
+	await _fade_to(1.0, 0.4)
+	_title.text = ""
+	_sub.text = ""
+	train.visible = false
+	# 2) Ravintolavaunu sisältä.
+	var car := Node3D.new()
+	car.position = TRAIN_POS + Vector3(0, 40, 0)
+	_props.add_child(car)
+	var cast := _build_dining_car(car)
+	var scenery: Node3D = cast.scenery
+	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 0.8, false)
+	bubble.no_depth_test = true
+	await _fade_to(0.0, 0.5)
+	var lines: Array = TRAIN_TALK_VAALA if to_vaala else TRAIN_TALK_SALOINEN
+	const LINE := 2.3
+	t0 = Time.get_ticks_msec()
+	var last := -1
+	while Time.get_ticks_msec() - t0 < lines.size() * LINE * 1000.0:
+		var t := (Time.get_ticks_msec() - t0) / 1000.0
+		scenery.position.z = fposmod(t * SPEED, 120.0)  # maisema vilistää ikkunoissa
+		car.position.y = TRAIN_POS.y + 40.0 + sin(t * 11.0) * 0.008  # kiskojen tasainen tärinä
+		var k := mini(int(t / LINE), lines.size() - 1)
+		var who: String = lines[k][0]
+		var ch: Node3D = cast[who]
+		if k != last:
+			last = k
+			for nm in ["marja", "liisa", "helena", "minä"]:
+				(cast[nm] as Node3D).play("Sitting_Talking" if nm == who else "Sitting_Idle", 0.3)
+		var names := {"minä": "Sinä", "marja": "Marja", "liisa": "Liisa", "helena": "Helena", "tarjoilija": "Tarjoilija"}
+		bubble.text = "%s: %s" % [names[who], lines[k][1]]
+		bubble.global_position = ch.global_position + Vector3(0, 1.75 if who != "tarjoilija" else 2.15, 0)
+		# Kamera vuorotellen: puhujan yli pöydän toiselta puolelta ja leveä kuva käytävältä.
+		var u := fmod(t, LINE * 2.0) / (LINE * 2.0)
+		if k % 3 == 2:
+			_cam.global_position = car.to_global(Vector3(-0.9, 1.75, 5.2))
+			_cam.look_at(car.to_global(Vector3(0.4, 1.05, 0.0)), Vector3.UP)
+		else:
+			var focus := ch.global_position + Vector3(0, 1.15, 0)
+			var from := car.to_global(Vector3(-0.85, 1.55, lerpf(-2.3, -2.0, u))) if who in ["minä", "tarjoilija"] \
+				else car.to_global(Vector3(-0.85, 1.5, lerpf(2.4, 2.1, u)))
+			_cam.global_position = from
+			_cam.look_at(focus, Vector3.UP)
+		await get_tree().process_frame
+	rumble.stop()
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Maisema junan ohikulkukuvaan: rata sepeleineen, pellot, metsänreuna, sähköratapylväät ja järvi taustalla.
+func _build_train_land(r: Node3D) -> void:
+	B.box(r, Vector3(400, 0.1, 500), Vector3(0, -0.06, -60), Color(0.32, 0.46, 0.2), false)
+	B.box(r, Vector3(4.2, 0.4, 500), Vector3(0, 0.0, -60), Color(0.4, 0.37, 0.33), false)
+	for i in 600:
+		B.box(r, Vector3(2.5, 0.12, 0.25), Vector3(0, 0.24, 190.0 - i * 0.8), Color(0.38, 0.33, 0.28), false)
+	for sx: float in [-0.72, 0.72]:
+		B.box(r, Vector3(0.08, 0.14, 500), Vector3(sx, 0.36, -60), Color(0.5, 0.45, 0.4), false)
+	for i in 20:
+		var z := 180.0 - i * 25.0
+		B.box(r, Vector3(0.25, 7.5, 0.25), Vector3(-3.4, 3.75, z), Color(0.5, 0.5, 0.52), false)
+		B.box(r, Vector3(3.2, 0.15, 0.15), Vector3(-1.9, 7.2, z), Color(0.5, 0.5, 0.52), false)
+	B.tube(r, Vector3(0, 6.9, 190), Vector3(0, 6.9, -310), 0.02, Color(0.15, 0.15, 0.15))
+	for i in 160:
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var x := side * randf_range(18, 120)
+		var z := randf_range(-300, 190)
+		var hgt := randf_range(10, 17)
+		if randf() < 0.55:
+			B.mesh(r, B.cyl(0.0, hgt * 0.22, hgt * 0.8, 7), Vector3(x, hgt * 0.5, z), Color(0.1, 0.24, 0.12))
+		else:
+			B.mesh(r, B.cyl(0.18, 0.25, hgt * 0.75, 6), Vector3(x, hgt * 0.37, z), Color(0.55, 0.32, 0.18))
+			B.mesh(r, B.sphere(hgt * 0.2, 7), Vector3(x, hgt * 0.8, z), Color(0.16, 0.32, 0.14))
+	B.box(r, Vector3(700, 0.05, 80), Vector3(-200, 0.03, -330), Color(0.25, 0.42, 0.62), false)
+
+
+## Ravintolavaunu sisältä: valkoiset pöytäliinat, punaiset istuimet, puupaneloidut seinät, ikkunarivit molemmin
+## puolin (maisema liikkuu ulkona), tiski kahvinkeittimineen ja tarjoilija. Pelaaja istuu ikkunapöydässä Marjaa
+## ja Liisaa vastapäätä, Helena viereisessä pöydässä. Palauttaa hahmot ja maisemasolmun.
+func _build_dining_car(car: Node3D) -> Dictionary:
+	const W := 2.8
+	const LEN := 16.0
+	var wood := Color(0.55, 0.36, 0.2)
+	var cream := Color(0.93, 0.9, 0.82)
+	B.box(car, Vector3(W, 0.1, LEN), Vector3(0, -0.05, 0), Color(0.3, 0.12, 0.1), false)  # lattiamatto
+	B.box(car, Vector3(W, 0.1, LEN), Vector3(0, 2.45, 0), cream, false)  # katto
+	for zz: float in [-LEN / 2.0, LEN / 2.0]:
+		B.box(car, Vector3(W, 2.5, 0.1), Vector3(0, 1.2, zz), wood, false)
+	# Seinät ikkunoineen: alaosa paneelia, ikkunoiden välissä pilarit, ylhäällä kaistale.
+	for sx: float in [-1.0, 1.0]:
+		var x := sx * W / 2.0
+		B.box(car, Vector3(0.08, 0.85, LEN), Vector3(x, 0.42, 0), wood, false)
+		B.box(car, Vector3(0.08, 0.55, LEN), Vector3(x, 2.15, 0), cream, false)
+		for k in 9:
+			B.box(car, Vector3(0.1, 1.05, 0.35), Vector3(x, 1.38, -LEN / 2.0 + k * 2.0), cream, false)
+	# Lamput.
+	for k in 4:
+		var lamp := B.mesh(car, B.boxm(Vector3(0.6, 0.05, 0.6)), Vector3(0, 2.38, -6.0 + k * 4.0), Color(1.0, 0.95, 0.8))
+		lamp.material_override = B.unshaded(Color(1.0, 0.95, 0.82))
+		var l := OmniLight3D.new()
+		l.position = Vector3(0, 2.2, -6.0 + k * 4.0)
+		l.light_color = Color(1.0, 0.9, 0.75)
+		l.light_energy = 0.8
+		l.omni_range = 5.0
+		car.add_child(l)
+	# Pöydät ja istuimet ikkunan vieressä (vasen rivi, x < 0), käytävä oikealla.
+	var red := Color(0.65, 0.1, 0.1)
+	for tz: float in [-4.0, 0.0, 4.0]:
+		B.box(car, Vector3(0.9, 0.05, 0.75), Vector3(-0.85, 0.75, tz), Color(0.97, 0.97, 0.96), false)  # liina
+		B.box(car, Vector3(0.08, 0.75, 0.08), Vector3(-0.85, 0.37, tz), Color(0.3, 0.3, 0.3), false)
+		for sz: float in [-1.0, 1.0]:
+			B.box(car, Vector3(0.9, 0.45, 0.55), Vector3(-0.85, 0.22, tz + sz * 0.85), red, false)
+			B.box(car, Vector3(0.9, 0.8, 0.12), Vector3(-0.85, 0.85, tz + sz * 1.15), red, false)
+		for cx: float in [-1.05, -0.65]:
+			B.mesh(car, B.cyl(0.045, 0.04, 0.09, 12), Vector3(cx, 0.82, tz - 0.15), Color(0.95, 0.95, 0.95))  # kahvikupit
+			B.mesh(car, B.cyl(0.045, 0.04, 0.09, 12), Vector3(cx, 0.82, tz + 0.15), Color(0.95, 0.95, 0.95))
+		B.mesh(car, B.sphere(0.07, 8), Vector3(-0.85, 0.82, tz), Color(0.78, 0.55, 0.25))  # korvapuusti
+	# Tiski kahvinkeittimineen vaunun päässä.
+	B.box(car, Vector3(W - 0.4, 1.0, 0.6), Vector3(0, 0.5, -LEN / 2.0 + 0.5), wood, false)
+	B.box(car, Vector3(0.35, 0.45, 0.3), Vector3(0.7, 1.22, -LEN / 2.0 + 0.5), Color(0.2, 0.2, 0.22), false)
+	# Maisema ikkunoiden takana: pellot, kuuset ja koivut liikkuvat (scenery.position.z).
+	var scenery := Node3D.new()
+	car.add_child(scenery)
+	B.box(scenery, Vector3(160, 0.05, 360), Vector3(0, -1.2, -60), Color(0.36, 0.5, 0.24), false)
+	for i in 120:
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var x := side * randf_range(6, 60)
+		var z := randf_range(-240, 120)
+		var hgt := randf_range(6, 14)
+		if randf() < 0.6:
+			B.mesh(scenery, B.cyl(0.0, hgt * 0.22, hgt * 0.8, 7), Vector3(x, hgt * 0.4 - 1.2, z), Color(0.1, 0.24, 0.12))
+		else:
+			B.mesh(scenery, B.cyl(0.12, 0.16, hgt * 0.7, 6), Vector3(x, hgt * 0.35 - 1.2, z), Color(0.92, 0.92, 0.88))
+			B.mesh(scenery, B.sphere(hgt * 0.18, 7), Vector3(x, hgt * 0.75 - 1.2, z), Color(0.3, 0.5, 0.2))
+	# Hahmot: pelaaja ja Helena käytävän puolella eri pöydissä, Marja ja Liisa pelaajaa vastapäätä.
+	var cast := {"scenery": scenery}
+	var seat := func(look: Dictionary, at: Vector3, face: Vector3) -> Node3D:
+		var c := Looks.make(car, look)
+		c.position = at
+		c.rotation.y = B.yaw_to(face)
+		c.play("Sitting_Idle", 0.0)
+		return c
+	var hero: Node3D = seat.call(Looks.PLAYER, Vector3(-0.6, 0.0, 0.85), Vector3(0, 0, -1))
+	Looks.add_cap(hero)
+	cast["minä"] = hero
+	cast["marja"] = seat.call(MARJA, Vector3(-1.05, 0.0, -0.85), Vector3(0, 0, 1))
+	cast["liisa"] = seat.call(LIISA, Vector3(-0.55, 0.0, -0.85), Vector3(0, 0, 1))
+	cast["helena"] = seat.call(HELENA, Vector3(-0.85, 0.0, 3.15), Vector3(0, 0, 1))
+	var waiter := Looks.make(car, WAITER)
+	waiter.position = Vector3(0.6, 0.0, -1.6)
+	waiter.rotation.y = B.yaw_to(Vector3(-1, 0, 0.3))
+	waiter.play("Idle_Talking", 0.0)
+	cast["tarjoilija"] = waiter
+	return cast
+
+
 # --- Autotalli ja karburaattori ---------------------------------------------------
 
 func garage(title: String, stats: String, done: Callable) -> void:
