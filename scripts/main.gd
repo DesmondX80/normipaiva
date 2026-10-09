@@ -1540,7 +1540,7 @@ func _on_garage_acted(kind: String) -> void:
 			garage_int.headphones_found = true
 			Sfx.play("pickup", -4.0)
 			tilat.first("kuulokkeet", 0.3)
-			_show_message("Pahvilaatikosta löytyi vanhat Valcon kuulokkeet! [H] päähän: linnut hiljenevät ja Suno-lista soi, [N] seuraava biisi. Päivin autoa ei sitten kuule yhtä hyvin.", 5.0)
+			_show_message("Pahvilaatikosta löytyi vanhat Valcon kuulokkeet! [H] päähän: linnut hiljenevät ja Suno-lista soi, [N] seuraava biisi. Kaikki hiljenee, Päivikin.", 5.0)
 			_save_game()
 
 
@@ -9732,7 +9732,7 @@ func inventory_items() -> Array:
 	if has_kanister:
 		add.call("kanisteri", "Pontikkakanisteri", 1, "Vastaa kotijemmassa %d kaljaa." % KANISTER_BEERS)
 	if headphones.found:
-		add.call("kuulokkeet", "Valcon kuulokkeet", 1, "%s päähän ja pois, %s seuraava biisi. Linnut hiljenevät, mutta niin hiljenee Päivin autokin." % [
+		add.call("kuulokkeet", "Valcon kuulokkeet", 1, "%s päähän ja pois, %s seuraava biisi. Kaikki hiljenee, Päivikin." % [
 			Settings.action_key("headphones"), Settings.action_key("next_song")])
 	if has_sausage:
 		add.call("makkara_valmis" if sausage_done else "makkara", "Grillimakkara" + (" (paistettu)" if sausage_done else ""), 1,
