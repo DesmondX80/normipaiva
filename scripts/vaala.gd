@@ -17,6 +17,7 @@ const TREES := "res://assets/vaala/puut.bin"
 const Forest := preload("res://scripts/forest.gd")
 const Train := preload("res://scripts/train.gd")
 const StationBuild := preload("res://scripts/station_build.gd")
+const Looks := preload("res://scripts/looks.gd")
 ## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
 ## mökin omilla rakennusfunktioilla (mokki.gd ladataan ajonaikaisesti: mokki.gd -> mopo.gd -> vaala.gd).
 const MOKKI_PATH := "res://scripts/mokki.gd"
@@ -997,6 +998,163 @@ func _build_lava() -> void:
 		add_child(car)
 		Vehicles.car(car, cols[k])
 	_build_lava_fence(lv)
+	_build_lava_youth(lv)
+
+
+## 90-luvun nuorison lavahommat: aidan järvenpuoleisen pään ympäri kahlataan pummilla sisään (pummi_out maalla aidan
+## ulkopuolella, pummi_in sisäpuolella), ja aidan takana metsässä porukka ryyppää nuotiolla mopot puiden välissä
+## ja kasettisoitin soimassa (party_pos). main.gd: ovet "pummi" ja "bileet".
+var pummi_out := Vector3.ZERO
+var pummi_in := Vector3.ZERO
+var party_pos := Vector3.ZERO
+var party_people: Array[Node3D] = []
+
+
+func _build_lava_youth(lv: Dictionary) -> void:
+	var pts: Array = lv.get("fence", [])
+	if pts.size() < 2:
+		return
+	var lc := Vector2(lv.x, lv.z)
+	# Pummireitti: aidan viimeisen pätkän vesipäästä kohti kulmaa, ensimmäinen kuiva kohta rannassa.
+	var a := Vector2(pts[-1][0], pts[-1][1])
+	var b := Vector2(pts[-2][0], pts[-2][1])
+	var dir := (b - a).normalized()
+	var nrm := Vector2(-dir.y, dir.x)
+	if nrm.dot(lc - a) > 0.0:
+		nrm = -nrm  # nrm osoittaa aidan ulkopuolelle
+	var shore := Vector2.INF
+	for k in int(a.distance_to(b)):
+		var q := a + dir * k
+		if not wet(q.x, q.y, 0.3) and not wet(q.x + nrm.x * 3.0, q.y + nrm.y * 3.0, 0.3) and not wet(q.x - nrm.x * 3.0, q.y - nrm.y * 3.0, 0.3):
+			shore = q + dir * 2.0
+			break
+	if shore != Vector2.INF:
+		var po := shore + nrm * 2.5
+		var pn := shore - nrm * 2.5
+		pummi_out = Vector3(po.x, h(po.x, po.y), po.y)
+		pummi_in = Vector3(pn.x, h(pn.x, pn.y), pn.y)
+		doors.append({"id": "pummi", "pos": pummi_out, "out": Vector3(nrm.x, 0, nrm.y), "r": 4.0, "walk": true, "hint": "pummilla",
+			"text": "Pummilla lavalle järven kautta (ilmainen, jos järkkäri ei näe)"})
+		# Polku on tallattu rannan kaislikkoon: muutama lankku märkään kohtaan.
+		for k in 3:
+			var q := shore + dir * (-1.5 - k * 1.2) + nrm * 0.8
+			var pl := B.mesh(self, B.boxm(Vector3(1.6, 0.06, 0.3)), Vector3(q.x, maxf(h(q.x, q.y), water_level) + 0.04, q.y), Color(0.45, 0.35, 0.22))
+			pl.rotation.y = atan2(dir.x, dir.y) + 0.2 * (k - 1)
+	# Bileet aidan takana: metsässä aidan pitkän sivun ulkopuolella, lavan kohdalla.
+	var fa := Vector2(pts[1][0], pts[1][1])
+	var fb := Vector2(pts[2][0], pts[2][1])
+	var fd := (fb - fa).normalized()
+	var fn := Vector2(-fd.y, fd.x)
+	if fn.dot(lc - fa) > 0.0:
+		fn = -fn
+	var along := clampf((lc - fa).dot(fd), 10.0, fa.distance_to(fb) - 10.0)
+	var spot := Vector2.INF
+	for off: float in [14.0, 18.0, 11.0, 22.0]:
+		for sl: float in [0.0, -10.0, 10.0, -20.0]:
+			var q := fa + fd * (along + sl) + fn * off
+			if not wet(q.x, q.y, 1.0) and spot == Vector2.INF:
+				spot = q
+	if spot == Vector2.INF:
+		return
+	party_pos = Vector3(spot.x, h(spot.x, spot.y), spot.y)
+	doors.append({"id": "bileet", "pos": party_pos, "out": Vector3(-fn.x, 0, -fn.y), "r": 6.0, "walk": true, "hint": "bileisiin",
+		"text": "Porukka aidan takana metsässä: liity seuraan"})
+	_build_party(spot, fn)
+
+
+## Nuotio kivirenkaineen, kaatuneet tukit penkkeinä, porukka (tuulitakit ja farkut, pipot ja lippikset), kaksi mopoa,
+## kasettisoitin (lavan humppa kuuluu aidan takaa) ja tyhjiä pulloja.
+func _build_party(c: Vector2, away: Vector2) -> void:
+	var root := Node3D.new()
+	root.position = Vector3(c.x, h(c.x, c.y), c.y)
+	add_child(root)
+	for k in 9:
+		var a := TAU * k / 9.0
+		B.mesh(root, B.sphere(0.16, 6), Vector3(cos(a) * 0.55, 0.08, sin(a) * 0.55), Color(0.42, 0.42, 0.4))
+	for k in 3:
+		var lg := B.mesh(root, B.cyl(0.05, 0.05, 0.7, 6), Vector3(0, 0.12, 0), Color(0.3, 0.2, 0.12))
+		lg.rotation = Vector3(PI / 2.0 - 0.3, k * TAU / 3.0, 0)
+	var fire := B.mesh(root, B.sphere(0.28, 8), Vector3(0, 0.3, 0), Color(1.0, 0.5, 0.1))
+	fire.scale = Vector3(1, 1.5, 1)
+	fire.material_override = B.unshaded(Color(1.0, 0.55, 0.15))
+	var fl := OmniLight3D.new()
+	fl.position = Vector3(0, 0.8, 0)
+	fl.light_color = Color(1.0, 0.6, 0.3)
+	fl.omni_range = 7.0
+	fl.light_energy = 1.2
+	root.add_child(fl)
+	var logs := [[Vector3(0, 0, 1.9), 0.0], [Vector3(1.8, 0, -0.6), 1.25], [Vector3(-1.8, 0, -0.6), -1.25]]
+	for lgd in logs:
+		var lg := B.mesh(root, B.cyl(0.2, 0.22, 2.2, 8), lgd[0] + Vector3(0, 0.2, 0), Color(0.35, 0.25, 0.16))
+		lg.rotation = Vector3(0, lgd[1], PI / 2.0)
+	var looks := [
+		{"shirt": Color(0.1, 0.35, 0.6), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buzzed",
+			"hair_color": Color(0.7, 0.55, 0.3), "height": 1.76, "bulk": -0.6, "shoulders": -0.5, "tracksuit": {"a": Color(0.9, 0.2, 0.3), "b": Color(0.1, 0.35, 0.6)}},
+		{"model": "female", "shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.38, 0.55), "shoes": Color(0.15, 0.15, 0.15), "hair": "Hair_Long",
+			"hair_color": Color(0.85, 0.75, 0.5), "height": 1.66, "bulk": -0.5},
+		{"shirt": Color(0.2, 0.45, 0.2), "pants": Color(0.15, 0.15, 0.17), "shoes": Color(0.2, 0.2, 0.2), "hair": "Hair_Long",
+			"hair_color": Color(0.15, 0.1, 0.08), "height": 1.82, "bulk": -0.7, "shoulders": -0.6},
+		{"model": "female", "shirt": Color(0.6, 0.1, 0.45), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buns",
+			"hair_color": Color(0.35, 0.2, 0.1), "height": 1.62, "bulk": -0.6},
+	]
+	var seats := [[Vector3(-0.5, 0.0, 1.9), "Sitting_Idle"], [Vector3(0.5, 0.0, 1.9), "Sitting_Talking"], [Vector3(1.75, 0.0, -0.6), "Sitting_Idle"],
+		[Vector3(-1.2, 0.0, -1.6), "Idle_Talking"]]
+	for i in looks.size():
+		var ch := Looks.make(root, looks[i])
+		ch.position = seats[i][0] + (Vector3(0, 0.02, 0) if seats[i][1].begins_with("Sitting") else Vector3.ZERO)
+		ch.rotation.y = B.yaw_to(-seats[i][0])
+		ch.play(seats[i][1], 0.0)
+		party_people.append(ch)
+		if i == 2:
+			Looks.add_cap(ch)
+	# Pullot ja tölkit.
+	for q in [Vector3(-0.9, 0.12, 1.4), Vector3(0.9, 0.12, 1.3), Vector3(1.3, 0.12, -0.2), Vector3(-1.5, 0.05, 0.6)]:
+		B.mesh(root, B.cyl(0.04, 0.05, 0.25, 8), q, Color(0.25, 0.45, 0.25) if q.y > 0.1 else Color(0.85, 0.85, 0.9))
+	B.mesh(root, B.cyl(0.035, 0.04, 0.12, 8), Vector3(0.2, 0.06, 1.45), Color(0.15, 0.35, 0.75))  # lonkerotölkki
+	# Kasettisoitin tukilla ja musiikki (aidan takaa kuuluva humppa).
+	var bb := B.mesh(root, B.boxm(Vector3(0.5, 0.22, 0.14)), Vector3(-1.0, 0.52, 1.9), Color(0.12, 0.12, 0.14))
+	for sx: float in [-0.15, 0.15]:
+		B.mesh(bb, B.cyl(0.07, 0.07, 0.02, 12), Vector3(sx, 0, 0.075), Color(0.4, 0.4, 0.42), Vector3(90, 0, 0))
+	var mus := AudioStreamPlayer3D.new()
+	mus.stream = Sfx.music_stream()
+	mus.bus = "Music"
+	mus.volume_db = -14.0
+	mus.unit_size = 3.0
+	mus.max_distance = 30.0
+	mus.autoplay = true
+	bb.add_child(mus)
+	# Mopot puiden välissä.
+	for k in 2:
+		var mp := Node3D.new()
+		var q := Vector3(away.x, 0, away.y) * (3.6 + k * 1.2) + Vector3(-away.y, 0, away.x) * (k * 1.6 - 0.8)
+		mp.position = q
+		mp.rotation.y = atan2(away.y, -away.x) + k * 0.4
+		root.add_child(mp)
+		var col: Color = [Color(0.85, 0.75, 0.1), Color(0.75, 0.1, 0.1)][k]
+		for wz: float in [-0.55, 0.55]:
+			B.mesh(mp, B.cyl(0.24, 0.24, 0.08, 14), Vector3(0, 0.24, wz), Color(0.08, 0.08, 0.08), Vector3(0, 0, 90))
+		B.mesh(mp, B.boxm(Vector3(0.22, 0.28, 0.75)), Vector3(0, 0.5, 0.05), col)
+		B.mesh(mp, B.boxm(Vector3(0.26, 0.1, 0.55)), Vector3(0, 0.7, 0.2), Color(0.1, 0.1, 0.1))
+		B.tube(mp, Vector3(0, 0.45, -0.5), Vector3(0, 0.95, -0.4), 0.025, Color(0.7, 0.7, 0.72))
+		B.tube(mp, Vector3(-0.3, 0.95, -0.4), Vector3(0.3, 0.95, -0.4), 0.02, Color(0.15, 0.15, 0.15))
+	var body := StaticBody3D.new()
+	root.add_child(body)
+	body.add_child(B.box_shape(Vector3(1.2, 0.6, 1.2), Vector3(0, 0.3, 0)))  # nuotiota ei kävellä läpi
+	# Kuusikko ympärillä (aidan puolelle aukko, josta lavan valot näkyvät).
+	for k in 9:
+		var a := TAU * k / 9.0 + 0.3
+		var dirv := Vector2.from_angle(a)
+		if dirv.dot(-away) > 0.6:
+			continue
+		var r := 5.5 + float(k % 3) * 1.6
+		var tp := Vector3(dirv.x * r, 0, dirv.y * r)
+		var th := 6.0 + float((k * 7) % 4)
+		var gy := h(c.x + tp.x, c.y + tp.z) - root.position.y
+		B.mesh(root, B.cyl(0.12, 0.18, th * 0.4, 6), tp + Vector3(0, gy + th * 0.2, 0), Color(0.3, 0.22, 0.15))
+		for t in 3:
+			var cr := (1.6 - t * 0.45) * (th / 7.0)
+			B.mesh(root, B.cyl(0.0, cr, th * 0.38, 8), tp + Vector3(0, gy + th * (0.35 + t * 0.2), 0), Color(0.12, 0.28, 0.14).lightened(t * 0.04))
+		body.add_child(B.box_shape(Vector3(0.4, 2.0, 0.4), tp + Vector3(0, gy + 1.0, 0)))
 
 
 ## Lavan aita: 2 m lautatarha punamullattuna, tolpat 2,4 m välein; päät vedessä (tolpat pohjaan asti), portti
@@ -2105,6 +2263,77 @@ func _build_zabuki() -> void:
 	var front: Vector3 = at.call(-0.6, 4.6, 0.0)
 	front.y = h(front.x, front.z)
 	doors.append({"id": "zabuki", "pos": front, "out": Vector3(f.x, 0, f.y), "hint": "Zabukin tiskille (olut ja hampurilaiset)"})
+	_build_race_crew(front, Vector3(f.x, 0, f.y))
+
+
+## Mopopojat Zabukin pihassa (kiihdytyskisan haastajat, mopo_race.gd): kaksi mopoa ja kaksi poikaa nojailemassa.
+var race_spot := Vector3.ZERO
+
+
+func _build_race_crew(front: Vector3, out: Vector3) -> void:
+	var side := out.cross(Vector3.UP)
+	var c := front + side * 7.0 + out * 1.5
+	c.y = h(c.x, c.z)
+	race_spot = c
+	var Mopo := load("res://scripts/mopo.gd")
+	for k in 2:
+		var mp := Node3D.new()
+		mp.position = c + side * (k * 1.6 - 0.8) + out * 1.2
+		mp.position.y = h(mp.position.x, mp.position.z)
+		mp.rotation.y = atan2(-out.x, -out.z) + 0.25 - k * 0.5
+		add_child(mp)
+		Mopo.build_model(mp)
+		if k == 1:
+			for n in mp.find_children("*", "MeshInstance3D", true, false):
+				if (n as MeshInstance3D).material_override == B.mat(Color(0.72, 0.08, 0.06)):
+					(n as MeshInstance3D).material_override = B.mat(Color(0.85, 0.72, 0.08))
+	var looks := [{"shirt": Color(0.1, 0.35, 0.6), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buzzed",
+		"hair_color": Color(0.7, 0.55, 0.3), "height": 1.76, "bulk": -0.6, "shoulders": -0.5, "tracksuit": {"a": Color(0.9, 0.2, 0.3), "b": Color(0.1, 0.35, 0.6)}},
+		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.2, 0.22, 0.3), "shoes": Color(0.15, 0.15, 0.15), "hair": "Hair_Long",
+		"hair_color": Color(0.2, 0.15, 0.1), "height": 1.8, "bulk": -0.7}]
+	for k in 2:
+		var ch := Looks.make(self, looks[k])
+		ch.position = c + side * (k * 2.4 - 1.2) - out * 0.4
+		ch.position.y = h(ch.position.x, ch.position.z)
+		ch.rotation.y = B.yaw_to(out + side * (0.4 - k * 0.8))
+		ch.play("Idle_Talking" if k == 0 else "Idle", 0.0)
+		if k == 1:
+			Looks.add_cap(ch)
+	doors.append({"id": "kiihdytys", "pos": c, "out": out, "r": 5.0, "hint": "kiihdytykseen",
+		"text": "Mopopojat: kiihdytyskisa Vaalantiellä"})
+
+
+## Kiihdytysrata: Vaalantien suorin 170 m pätkä Zabukin lähellä (ei siltaa eikä soraa), keskiviiva maastossa.
+func race_track(length := 170.0) -> Array[Vector3]:
+	var best: Array[Vector3] = []
+	var best_dev := INF
+	var near := Vector2(race_spot.x, race_spot.z)
+	for i in range(1, road.size() - 2, 2):
+		if Vector2(road[i][0], road[i][2]).distance_to(near) > 700.0:
+			continue
+		var pts: Array[Vector3] = [road_pos(i)]
+		var dist := 0.0
+		var ok := true
+		var j := i
+		while dist < length and j < road.size() - 1:
+			j += 1
+			if road[j][5] or road[j][6]:
+				ok = false
+				break
+			dist += road_pos(j - 1).distance_to(road_pos(j))
+			pts.append(road_pos(j))
+		if not ok or dist < length:
+			continue
+		var a := Vector2(pts[0].x, pts[0].z)
+		var b := Vector2(pts[-1].x, pts[-1].z)
+		var dev := 0.0
+		for q in pts:
+			dev = maxf(dev, Geometry2D.get_closest_point_to_segment(Vector2(q.x, q.z), a, b).distance_to(Vector2(q.x, q.z)))
+		dev += Vector2(pts[0].x, pts[0].z).distance_to(near) * 0.004  # lähempää parempi
+		if dev < best_dev:
+			best_dev = dev
+			best = pts
+	return best
 
 
 ## Gasthaus: kyltti ja ovi tien (Siitarin) puoleiselle pitkälle sivulle, "Huoneet 10 €" oven pieleen.

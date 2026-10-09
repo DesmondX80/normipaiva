@@ -156,6 +156,17 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     lavalla) aivan rannassa niemen kärjessä lautatarha-aidan sisällä, jonka päät ulottuvat jokeen ja Pahalahteen:
     lipulla (12 €) lavatansseihin, joissa A ja D vuorotellen tahdissa vievät parin tanssiin. Pelissä lava on
     todellista (1 500 m²) vähän pienempi. Oulujärvi jatkuu niemeltä kaakkoon kartan reunaan asti.
+  - **90-luvun nuorison hupihommat:** lavalle pääsee **pummilla** kahlaamalla aidan järvenpuoleisen pään ympäri
+    (ilmainen, mutta järkkäri voi odottaa rannassa ja käännyttää märkiä farkkuja; humalassa loiskuu enemmän).
+    **Aidan takana metsässä** porukka ryyppää nuotiolla kuusikossa, mopot puiden välissä ja kasettisoitin soimassa:
+    huikka kiertävästä kossu-vissypullosta (kolme päivässä), kalja porukalle (maine nousee ja saa vinkin
+    pummireitistä, jolloin järkkäri huomaa harvemmin) ja jutut lamasta, EU:sta, Dingosta ja mopojen virityksistä
+    (`--scene=mokkinuoret`). **Mopojen kiihdytys:** Zabukin pihan mopopojat haastavat 150 metrin kiihdytykseen
+    Vaalantien suoralla (Tunturi-Jani 5 € tai viritetyllä mopolla ajava Pakoputki-Pete 20 €): kolme punaista ja
+    vihreä, W kaasu (ennen vihreää = vilppilähtö), välilyönti vaihtaa ylös kierrosmittarin vihreällä alueella
+    (aikaisin moottori tukehtuu, rajoittimella aika valuu, kännissä vihreä alue heiluu). Voitto tuplaa panoksen
+    ja nostaa mainetta (`--scene=mokkikiihdytys`). Taustat: Oulujärven lava (Yle, Kaleva, Wikipedia) ja Oulujoen
+    voimalaitoskylien muistelmat (ponkkarit, kioskit, tanssipaikkojen portailla odottelevat nuoret).
     Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen; mopo jää parkkiin tyhjänä) ja kävellä; ovet ja automaatti toimivat jalankin,
     ja F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
     Paperikartta (M) on mökillä ja Vaalan matkalla yksi iso Neittävä–Vaala-kartta: mökin piha, mopotie ja Vaalan
