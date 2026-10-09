@@ -1,0 +1,14 @@
+Valcon kuulokkeiden soittolista (scripts/headphones.gd)
+
+Pudota tähän kansioon biisit ogg-, mp3- tai wav-muodossa. Peli soittaa ne
+satunnaisessa järjestyksessä, kun kuulokkeet ovat päässä (H päähän / pois,
+N seuraava biisi). Nimi näytetään tiedostonimestä: alkunumero ja
+alaviivat pois, esim. "03_Me_ollaan_rallikansa.mp3" -> "Me ollaan rallikansa".
+
+Suno-soittolista: https://suno.com/playlist/39c06a37-331a-43bc-8ea7-88ca6da92352
+Sunon äänitiedostot eivät ole ladattavissa koneellisesti (palvelu palauttaa
+"forbidden" / 403), joten lataa biisit Sunosta omilla tunnuksilla
+(Download -> MP3) ja kopioi ne tähän.
+
+Jos kansiossa ei ole biisejä, kuulokkeista soivat pelin omat
+(normipaiva.mp3 ja lirkuttelu.wav).

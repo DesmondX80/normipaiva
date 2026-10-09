@@ -229,11 +229,18 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   mökki, savusauna, palju, kesäkeittiö, laituri, metsästyslava, Santtu ja lähijärvet (Likanen, Tervalampi,
   Kiiskeroinen); lentoalue ulottuu noin 600 m:n päähän, ja järveen tipahtanut drooni on mennyttä. Moottoreista
   kuuluu vain pieni surina.
-- **Reppu (I tai Tab):** tavarat, kaljat, ostokset, sienet, kalat ja metsästyssaaliit näkyvät Minecraft-tyylisessä
-  ruudukossa pikselikuvakkeina ja pinoina, ja alarivillä ovat eväät (T syö). Samassa näkymässä ovat rahat,
-  kauppalista, jemmat, mielihyvä ja maine sekä droonin ilmakuvat, ja muotokuvaruudussa on pelaajan oma 3D-hahmo
-  lippiksineen ja tuulipukuineen, joka kääntyy katsomaan hiirtä. Päänäkymän HUD:ssa näkyvät enää aika ja
-  alusta (sekä varoitus, jos kotijemma on vaarassa).
+- **Reppu (I tai Tab):** pelaajan tuulipuvun värinen reppu (violetti, turkoosi ja musta raita, hihnat, soljet ja
+  NORMI-läppä). Etutaskuun mahtuu **yksi rivi** (9 taskua): tavarat, kaljat, ostokset, sienet, kalat, saaliit ja
+  eväät (T, klikkaus syö tai juo) pikselikuvakkeina ja pinoina. Täyden repun viimeisessä taskussa näkyy "+N", ja
+  sen vihje kertoo, mitä repun pohjalla on. Rahat, päivän tilanne, kauppalista, jemmat ja tehtävät ovat
+  keltaisilla heippalapuilla kuten Päivin lappu, ja polaroidissa on pelaajan oma 3D-hahmo lippiksineen, joka
+  kääntyy katsomaan hiirtä. Päänäkymän HUD:ssa näkyvät enää aika ja alusta (sekä varoitus, jos kotijemma on
+  vaarassa).
+- **Valcon kuulokkeet (H päähän / pois, N seuraava biisi):** pölyisessä pahvilaatikossa autotallin työkalukaapin
+  päällä. Päässä ollessaan linnut, varikset ja muu ympäristö vaimenevat selvästi, mutta myös Päivin auto, poliisi
+  ja muut äänet kuuluvat heikommin ja tunkkaisemmin (alipäästö). Samalla soi soittolista kansiosta
+  `assets/music/kuulokkeet/` (Suno-biisit ogg/mp3/wav, ks. LUEMINUT.txt; tyhjällä kansiolla pelin omat biisit),
+  ja vasemmassa alakulmassa näkyy soiva biisi. Löytö säilyy (testi `--scene=kuulokkeet`).
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
 
