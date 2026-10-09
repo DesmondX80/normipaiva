@@ -106,7 +106,7 @@ func toggle() -> void:
 					var t: Array = world._trees[i]
 					if t[3]:
 						_tree_pts.append(t[0])
-			var lo := M.w2(Vector2.ZERO)
+			var lo := M.w2(M.MAP_MIN)
 			_vrect = Rect2(lo, M.w2(M.SIZE) - lo).abs()
 			_vzoom = maxf(ZOOM_OPEN, _fit_zoom())
 			_center_on_me()  # rajaa myös reunat

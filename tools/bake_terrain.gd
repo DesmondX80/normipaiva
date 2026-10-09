@@ -25,7 +25,7 @@ func _init() -> void:
 			_elev[k] = raw.decode_s16(2 * k) / 100.0
 	else:
 		_elev = PackedFloat32Array(_d.elev)
-	var lo := M.w2(Vector2.ZERO) - Vector2(MARGIN, MARGIN)
+	var lo := M.w2(M.MAP_MIN) - Vector2(MARGIN, MARGIN)
 	var hi := M.w2(M.SIZE) + Vector2(MARGIN, MARGIN)
 	var nx := int(ceil((hi.x - lo.x) / T.CELL)) + 1
 	var nz := int(ceil((hi.y - lo.y) / T.CELL)) + 1
@@ -155,7 +155,7 @@ func _poly_dist(poly: PackedVector2Array, p: Vector2) -> float:
 
 
 func _bake_splat() -> void:
-	var lo := M.w2(Vector2.ZERO)
+	var lo := M.w2(M.MAP_MIN)
 	var hi := M.w2(M.SIZE)
 	var w := int(ceil((hi.x - lo.x) / SPLAT_PX))
 	var hgt := int(ceil((hi.y - lo.y) / SPLAT_PX))
