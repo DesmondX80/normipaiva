@@ -34,6 +34,16 @@ var drunk := 0.0
 var _drunk_wobble := DrunkWobble.new()
 ## Stamina-tilan palkinto (main.gd _stat_effects): spurtin kerroin SPRINT -> sprint_mult.
 var sprint_mult := SPRINT
+## Sähköpyörä (ebike.gd asettaa ajossa): avustus 0..1 nostaa kiihtyvyyttä ja huippunopeutta, ja avustettu spurtti
+## ei kuluta kuntoa. heavy = akku tyhjä tai irti: raskas pyörä. root_hits kasvaa joka juurakosta (teippi irtoaa).
+const ASSIST_SPEED := 0.22
+const ASSIST_ACCEL := 0.7
+var assist := 0.0
+var heavy := false
+var root_hits := 0
+var _ebike: Node3D
+var _ebike_key := ""
+var _whine: AudioStreamPlayer
 var _thief: Node3D  # varkaan hahmo satulassa (pelaajan kuski piilossa)
 
 ## Hiukkasten värit alustan mukaan (sora pöllyää, vesi roiskuu, vilja lentelee).
@@ -111,6 +121,11 @@ func _ready() -> void:
 	_squeal.volume_db = -80.0
 	add_child(_squeal)
 	_squeal.play()
+	# Napamoottorin surina: moottoriääni korkealla ja hiljaa.
+	_whine = AudioStreamPlayer.new()
+	_whine.stream = Sfx.stream("engine")
+	_whine.volume_db = -80.0
+	add_child(_whine)
 
 
 func set_carrying(carrying: bool) -> void:
@@ -207,7 +222,7 @@ func _physics_process(delta: float) -> void:
 		_sprint_start()
 	sprinting = want_sprint
 	if legs != null and controls_enabled:  # vain ajettaessa: parkissa jalat hoitavat kunnon itse
-		legs.tire(sprinting, absf(speed) < 0.2, delta)
+		legs.tire(sprinting and assist <= 0.0, absf(speed) < 0.2, delta)  # avustettu spurtti ei väsytä
 
 	_update_surface()
 	var t := _terrain
@@ -223,6 +238,12 @@ func _physics_process(delta: float) -> void:
 	if sprinting:
 		max_s *= sprint_mult
 		accel *= sprint_mult
+	if assist > 0.0:
+		max_s *= 1.0 + ASSIST_SPEED * assist
+		accel *= 1.0 + ASSIST_ACCEL * assist
+	elif heavy:
+		max_s *= 0.85  # tyhjä akku ja moottori painavat
+		accel *= 0.75
 	if throttle > 0.0:
 		speed = move_toward(speed, max_s, accel * throttle * delta)
 	elif throttle < 0.0:
@@ -314,6 +335,96 @@ func _update_roll_sound() -> void:
 	var coasting := controls_enabled and absf(speed) > 1.0 and not Input.is_action_pressed("forward")
 	_chain.volume_db = lerpf(_chain.volume_db, (linear_to_db(k * 0.7 + 0.0001) - 6.0 + mute) if coasting else -80.0, 0.25)
 	_chain.pitch_scale = 0.6 + k * 0.8
+	var pedal := controls_enabled and Input.is_action_pressed("forward")
+	var hum := assist > 0.0 and pedal and absf(speed) > 0.5
+	_whine.volume_db = lerpf(_whine.volume_db, (linear_to_db(0.15 + k * 0.35) - 14.0 + mute) if hum else -80.0, 0.2)
+	_whine.pitch_scale = 2.4 + k * 1.6
+	if hum and not _whine.playing:
+		_whine.play()
+	elif not hum and _whine.playing and _whine.volume_db < -60.0:
+		_whine.stop()
+
+
+## Alustan kuoppaisuus (world.TERRAIN.bump): sähköpyörän teippiliitokset irtoavat kuopissa.
+func terrain_bump() -> float:
+	return _terrain.get("bump", 0.0)
+
+
+## Sähköpyörän osat näkyviin: {"joints": liitos -> kiinnitys, "loose": liitos -> true}. Tyhjä = tavallinen pyörä.
+## Rakennetaan uudelleen vain, kun jokin muuttuu.
+func set_ebike(state: Dictionary) -> void:
+	var key := var_to_str(state)
+	if key == _ebike_key:
+		return
+	_ebike_key = key
+	if _ebike != null:
+		_ebike.queue_free()
+		_ebike = null
+	var joints: Dictionary = state.get("joints", {})
+	if joints.is_empty():
+		return
+	var loose: Dictionary = state.get("loose", {})
+	_ebike = Node3D.new()
+	_visual.add_child(_ebike)
+	var dark := Color(0.12, 0.12, 0.13)
+	var teal := Color(0.0, 0.55, 0.55)  # Makitan turkoosi
+	var tape := Color(0.62, 0.63, 0.6)
+	# Napamoottori takanavassa (pyörii pyörän mukana).
+	if joints.has("moottori"):
+		var hub := B.mesh(_wheels[1], B.cyl(0.11, 0.11, 0.09, 16), Vector3.ZERO, dark, Vector3(0, 0, 90))
+		if loose.has("moottori"):
+			hub.rotation_degrees.y = 8.0
+		_fastener(Vector3(0.07, 0.38, 0.55), joints.moottori, tape)
+	# Akku tarakalla (irti: roikkuu kyljellä johtojen varassa).
+	if joints.has("akku"):
+		var box := B.mesh(_ebike, B.boxm(Vector3(0.14, 0.12, 0.34)), Vector3(0, 0.82, 0.55), teal)
+		B.mesh(box, B.boxm(Vector3(0.145, 0.03, 0.08)), Vector3(0, 0.0, -0.1), dark)
+		if loose.has("akku"):
+			box.position = Vector3(0.2, 0.55, 0.6)
+			box.rotation_degrees = Vector3(10, 0, 70)
+		else:
+			_fastener(Vector3(0, 0.88, 0.5), joints.akku, tape, true)
+	# Ohjainkotelo rungon alaputkessa ja kaasukahva oikeassa kahvassa.
+	if joints.has("ohjain"):
+		var ctl := B.mesh(_ebike, B.boxm(Vector3(0.07, 0.06, 0.18)), Vector3(0, 0.6, -0.17), dark)
+		ctl.rotation_degrees.x = -50.0
+		if loose.has("ohjain"):
+			ctl.position = Vector3(0.12, 0.42, -0.1)
+			ctl.rotation_degrees = Vector3(0, 0, 80)
+		else:
+			_fastener(Vector3(0, 0.6, -0.17), joints.ohjain, tape)
+	if joints.has("kaasu"):
+		var grip := B.mesh(_ebike, B.cyl(0.025, 0.025, 0.07, 10), Vector3(0.19, 1.22, -0.36), Color(0.85, 0.75, 0.1), Vector3(0, 0, 90))
+		if loose.has("kaasu"):
+			grip.rotation_degrees.x = 30.0
+	# Johdot: musta johto ohjaimelta akulle ja moottorille, irti roikkuu.
+	if joints.has("johdot"):
+		var wire := Color(0.05, 0.05, 0.05)
+		if loose.has("johdot"):
+			B.tube(_ebike, Vector3(0, 0.6, -0.17), Vector3(0.08, 0.25, 0.05), 0.008, wire)
+		else:
+			B.tube(_ebike, Vector3(0, 0.6, -0.17), Vector3(0, 0.78, 0.4), 0.008, wire)
+			B.tube(_ebike, Vector3(0, 0.6, -0.17), Vector3(0, 1.1, -0.38), 0.008, wire)
+			B.tube(_ebike, Vector3(0, 0.78, 0.4), Vector3(0.06, 0.38, 0.55), 0.008, wire)
+			if joints.johdot == "sahkoteippi":
+				B.mesh(_ebike, B.cyl(0.014, 0.014, 0.05, 8), Vector3(0, 0.69, 0.12), Color(0.1, 0.2, 0.7), Vector3(70, 0, 0))
+			else:
+				B.mesh(_ebike, B.cyl(0.016, 0.016, 0.06, 8), Vector3(0, 0.69, 0.12), tape, Vector3(70, 0, 0))
+
+
+## Kiinnityksen näkyvä merkki liitoksessa: teippikiepit, nippusiteet tai rautalankakierre (ruuvit eivät näy).
+func _fastener(at: Vector3, kind: String, tape: Color, wide := false) -> void:
+	var w := 0.18 if wide else 0.1
+	match kind:
+		"teippi":
+			for i in 3:
+				B.mesh(_ebike, B.boxm(Vector3(w, 0.025, 0.035)), at + Vector3(0, 0, -0.06 + i * 0.06), tape)
+		"nippu":
+			for i in 2:
+				B.mesh(_ebike, B.boxm(Vector3(w, 0.008, 0.012)), at + Vector3(0, 0.02, -0.05 + i * 0.1), Color(0.95, 0.95, 0.92))
+		"rautalanka":
+			for i in 4:
+				B.mesh(_ebike, B.boxm(Vector3(w, 0.006, 0.006)), at + Vector3(0, 0.02, -0.06 + i * 0.04), Color(0.55, 0.55, 0.58))
 
 
 func _update_surface() -> void:
@@ -335,6 +446,7 @@ func _apply_bumps(delta: float) -> void:
 	if t.bump >= 0.08 and randf() < 0.03 * k:
 		# Juurakko metsässä: tärähdys ja vauhti hidastuu.
 		bump += 0.12
+		root_hits += 1
 		_sfx("rattle_hard", -2.0, randf_range(0.9, 1.1))
 		speed *= 0.85
 		_shake = 0.25
