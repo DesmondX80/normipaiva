@@ -5150,7 +5150,7 @@ func _edge_logic() -> void:
 	var side := "any"
 	if px.x < 25.0:
 		side = "west"
-	elif px.y < 25.0:
+	elif px.y < M.MAP_MIN.y + 25.0:
 		side = "north"
 	elif px.y > M.SIZE.y - 25.0:
 		side = "south"
@@ -10366,10 +10366,33 @@ func _maybe_screenshot() -> void:
 			cam.size = 1600.0
 			cam.far = 3000.0
 			add_child(cam)
-			cam.global_position = M.w(M.SIZE / 2.0) + Vector3(0, 1200, 0)
+			cam.global_position = M.w((M.MAP_MIN + M.SIZE) / 2.0) + Vector3(0, 1200, 0)
 			cam.rotation_degrees = Vector3(-90, 0, 0)
 			cam.current = true
 			$WorldEnvironment.environment.fog_enabled = false
+		"pohjoinen":
+			# Pohjoinen laajennus (map_data.MAP_MIN): Seuranmäki, Reippari, Tokola, rossirata, rata ja pohjoisreuna.
+			_note.visible = false
+			var oc := Camera3D.new()
+			oc.far = 3000.0
+			oc.fov = 60.0
+			add_child(oc)
+			var snap := func(name: String, from: Vector2, h: float, to: Vector2) -> void:
+				oc.look_at_from_position(M.w(from) + Vector3(0, h, 0), M.w(to) + Vector3(0, 1.5, 0))
+				oc.current = true
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			await snap.call("_ilma.png", Vector2(330, 150), 520.0, Vector2(380, -450))
+			await snap.call("_seuranmaki.png", Vector2(470, -200), 25.0, Vector2(410, -280))
+			await snap.call("_reippari.png", Vector2(450, -250), 2.0, Vector2(434, -281))
+			await snap.call("_tokola.png", Vector2(420, -440), 6.0, Vector2(350, -540))
+			await snap.call("_rossirata.png", Vector2(200, -700), 60.0, Vector2(100, -796))
+			await snap.call("_rata.png", Vector2(240, -330), 4.0, Vector2(300, -620))
+			await snap.call("_reuna.png", Vector2(500, -700), 6.0, Vector2(500, -950))
+			await snap.call("_sauma.png", Vector2(300, 80), 30.0, Vector2(300, -120))
+			get_tree().quit()
 		"route":
 			player.position = M.w(Vector2(440, 850)) + Vector3(0, 0.3, 0)
 			player.rotation.y = B.yaw_to(M.w(M.J_K) - M.w(Vector2(440, 850)))
