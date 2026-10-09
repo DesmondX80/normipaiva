@@ -7841,7 +7841,7 @@ func _pummi_lava() -> void:
 ## Poliisin moporatsia (ratsia.gd) mopomatkan varrella: joka matkalla mahdollinen, iltaisin todennäköisempi.
 ## Mopolla ohi ajettaessa konstaapeli viittoo sivuun; pysähdyttäessä puhalluskoe ja mopon tarkastus. Promillet
 ## humalatilasta: alle 0,5 ‰ huomautus tai pieni sakko mopon vioista, 0,5–1,2 ‰ rattijuopumus (sakko ja avaimet
-## tunniksi pois), yli 1,2 ‰ törkeä rattijuopumus (iso sakko ja yö putkassa). Ratsian ohittaminen pysähtymättä
+## tunniksi pois), yli 1,2 ‰ törkeä rattijuopumus (iso sakko). Ratsian ohittaminen pysähtymättä
 ## = isompi sakko ja maine laskee. Jalan kulkiessa ratsia ei koske pelaajaa.
 const Ratsia := preload("res://scripts/ratsia.gd")
 const RATSIA_CHANCE := 0.3
@@ -7855,7 +7855,6 @@ const MOPO_FAULTS := ["Takavalo ei pala.", "Taustapeili puuttuu.", "Rekisterikil
 var _ratsia: Node3D
 var _ratsia_stage := ""  # "" vapaa, "warned" viittoo, "puhallus", "tulos", "done"
 var _ratsia_min_d := INF
-var _ratsia_putka := false
 var ratsia_force := false  # testit: ratsia aina
 
 
@@ -7950,9 +7949,8 @@ func _ratsia_blow(excuse: bool) -> Array:
 		tilat.add("moraali", -0.2)
 		tilat.first("ratsia_torkea", 0.4)
 		Sfx.play("lose", -4.0)
-		_ratsia_putka = true
-		return [pre + "%s. Törkeä rattijuopumus. Mopo jää tähän ja te lähdette meidän kyydillä putkaan selviämään." % pt,
-			"Sakko %s €%s. Yö Vaalan poliisiaseman putkassa." % [_eur(fine), "" if fine >= RATSIA_FINE_DUI_BAD else " (enempää ei ollut)"]]
+		return [pre + "%s. Törkeä rattijuopumus! Tästä tulee kunnon sakot. Ajakaa nyt sitten hiljaa." % pt,
+			"Sakko %s €%s." % [_eur(fine), "" if fine >= RATSIA_FINE_DUI_BAD else " (enempää ei ollut)"]]
 	if pr >= 0.5:
 		var fine := minf(RATSIA_FINE_DUI, money)
 		money -= fine
@@ -7977,14 +7975,6 @@ func _ratsia_blow(excuse: bool) -> Array:
 
 func _ratsia_release() -> void:
 	_ratsia_stage = "done"
-	if _ratsia_putka:
-		_ratsia_putka = false
-		if is_instance_valid(_ratsia):
-			_ratsia.queue_free()
-		_ratsia = null
-		_gasthaus_morning("Heräsit Vaalan poliisiaseman putkasta. Roivainen palautti avaimet aamulla: mopo on hinattu Gasthausin pihaan.\n",
-			"Aamu putkan jälkeen. Mopo odottaa Gasthausin pihassa, Paapeliin on n. 11 km.")
-		return
 	mopo_trip.mopo.controls_enabled = true
 	_ratsia.say_wave("Hyvää matkaa.")
 
@@ -11760,7 +11750,7 @@ func _maybe_screenshot() -> void:
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
 			get_tree().quit()
 		"mokkiratsia":
-			# Moporatsia: selvänä, rattijuopumus (0,7 ‰), ratsian ohitus ja törkeä rattijuopumus (putka, uusi päivä).
+			# Moporatsia: selvänä, rattijuopumus (0,7 ‰), ratsian ohitus ja törkeä rattijuopumus (iso sakko).
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
 			var snap := func(name: String) -> void:
 				for i in 10:
@@ -11769,7 +11759,7 @@ func _maybe_screenshot() -> void:
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
 			ratsia_force = true
 			_note.visible = false
-			for case in [["selva", 0.0], ["ratti", 0.3], ["ohitus", 0.0], ["putka", 0.6]]:
+			for case in [["selva", 0.0], ["ratti", 0.3], ["ohitus", 0.0], ["torkea", 0.6]]:
 				money = 300.0
 				maine = 50.0
 				tilat.values["humala"] = case[1]

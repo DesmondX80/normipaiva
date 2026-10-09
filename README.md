@@ -170,7 +170,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     vilkkuva poliisiauto, viittova Ratsupoliisi Roivainen ja toinen konstaapeli tarkastamassa mopopojan porattua
     Tunturia ("Omalla kylällä saa ajaa kännissä, mutta varo Ratsupoliisi Roivaista"). Pelaajakin viitotaan sivuun: pysähdy auton eteen, niin edessä on puhalluskoe ja mopon tarkastus. Alle 0,5 ‰ = matka
     jatkuu (joskus rikesakko mopon viasta), 0,5–1,2 ‰ = rattijuopumus (sakko 120 €, avaimet tunniksi pois),
-    yli 1,2 ‰ = törkeä rattijuopumus (sakko 250 €, yö putkassa, aamulla mopo Gasthausin pihassa). Ratsian
+    yli 1,2 ‰ = törkeä rattijuopumus (sakko 250 €). Ratsian
     ohittaminen pysähtymättä = sakko postissa ja maine laskee (`--scene=mokkiratsia`). Taustat: Oulujärven lava (Yle, Kaleva, Wikipedia) ja Oulujoen
     voimalaitoskylien muistelmat (ponkkarit, kioskit, tanssipaikkojen portailla odottelevat nuoret).
     Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen; mopo jää parkkiin tyhjänä) ja kävellä; ovet ja automaatti toimivat jalankin,
