@@ -11,6 +11,7 @@ signal finished(score: float)
 
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
+const Headphones := preload("res://scripts/headphones.gd")
 
 const BPM := 104.0
 const DISCO_BPM := 126.0
@@ -268,6 +269,10 @@ func _start_dance(mode: String) -> void:
 		_partner = Looks.make(self, {"model": "female", "shirt": Color(0.1, 0.9, 0.9), "pants": Color(0.15, 0.2, 0.45),
 			"hair": "Hair_Buns", "hair_color": Color(0.85, 0.7, 0.4), "height": 1.65})
 		_title.text = "LAVAN DISKO"
+		var track := Headphones.random_90s_path()  # DJ soittaa 90-luvun eurodancea
+		if track != "":
+			Sfx.music_play(0.8, 0.0, track)
+			_song = Headphones.song_title(track)
 	_partner.position = _me.position + Vector3(0, 0, -0.5)
 	_partner.rotation.y = PI
 	_me.rotation.y = 0.0

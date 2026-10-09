@@ -259,7 +259,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   päällä. Päässä ollessaan linnut, varikset ja muu ympäristö vaimenevat selvästi, mutta myös Päivin auto, poliisi
   ja muut äänet kuuluvat heikommin ja tunkkaisemmin (alipäästö). Samalla soi soittolista kansiosta
   `assets/music/kuulokkeet/` (Suno-biisit ogg/mp3/wav, ks. LUEMINUT.txt; tyhjällä kansiolla pelin omat biisit),
-  ja vasemmassa alakulmassa näkyy soiva biisi. Löytö säilyy (testi `--scene=kuulokkeet`).
+  ja vasemmassa alakulmassa näkyy soiva biisi. Mukana on seitsemän 90-luvun tyylistä eurodance-, techno- ja
+  rave-biisiä (CC BY, tekijät alla), jotka soivat myös lavan diskopuolella ja teinien kasettisoittimista.
+  Löytö säilyy (testi `--scene=kuulokkeet`).
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
 
@@ -507,6 +509,12 @@ Työpöydällä ohjaimia voi kokeilla käynnistämällä pelin `godot --path . -
 - Kylän kartta (`scripts/map_osm.gd`): © OpenStreetMap-tekijät (ODbL); korkeudet © Maanmittauslaitos
   (korkeusmalli 2 m, CC BY 4.0).
 - Äänet: CC0-äänitteitä OpenGameArtista ja Kenneyltä (lähteet: `assets/sounds/LICENSE.md`).
+- 90-luvun tyyliset biisit (`assets/music/kuulokkeet/`, kuulokkeet, lavan disko ja teinien kasettisoittimet),
+  uudelleenkoodattu pienemmiksi (MP3 128 kbps, Ogg Vorbis q4):
+  - "Robotertanz" – Shane Ivers, https://www.silvermansound.com (CC BY 4.0)
+  - "90s Racer Techno" ja "Acid Action" – Bogart VGM, OpenGameArt (CC BY 4.0)
+  - "I´m Free", "It´s Love" ja "Dance and Jump" – Snabisch, OpenGameArt (CC BY 3.0)
+  - "Bitten by the Rave Spider" – Woolly Jammoth, OpenGameArt (CC BY 4.0)
 - Mökin ympäristö (`assets/mokki/kartta.json`): © OpenStreetMap-tekijät (ODbL) ja korkeudet Maanmittauslaitoksen
   korkeusmalli 2 m (CC BY 4.0, lehti R4333D, 2023; Kapsin peilistä).
 - **Haapajärven tekoaltaan kota** (sijainti OpenStreetMapista) on n. 2 km laavulta etelään Kotapolkua pitkin.

@@ -1117,7 +1117,8 @@ func _build_party(c: Vector2, away: Vector2) -> void:
 	for sx: float in [-0.15, 0.15]:
 		B.mesh(bb, B.cyl(0.07, 0.07, 0.02, 12), Vector3(sx, 0, 0.075), Color(0.4, 0.4, 0.42), Vector3(90, 0, 0))
 	var mus := AudioStreamPlayer3D.new()
-	mus.stream = Sfx.music_stream()
+	var st90: AudioStream = load("res://scripts/headphones.gd").random_90s()
+	mus.stream = st90 if st90 != null else Sfx.music_stream()  # kasetilla 90-luvun eurodancea
 	mus.bus = "Music"
 	mus.volume_db = -14.0
 	mus.unit_size = 3.0
@@ -2377,7 +2378,17 @@ func _build_yard_teens(c: Vector2, face: Vector2) -> void:
 		party_people.append(ch)
 	for q in [Vector3(-0.5, 0.12, 1.0), Vector3(0.9, 0.12, 1.1), Vector3(1.8, 0.05, 0.7), Vector3(-1.3, 0.05, 0.9)]:
 		B.mesh(root, B.cyl(0.04, 0.05, 0.25, 8), q, Color(0.25, 0.45, 0.25) if q.y > 0.1 else Color(0.85, 0.85, 0.9))
-	B.mesh(root, B.boxm(Vector3(0.5, 0.22, 0.14)), Vector3(0.0, 0.11, 1.4), Color(0.12, 0.12, 0.14))  # kasettisoitin
+	var bb := B.mesh(root, B.boxm(Vector3(0.5, 0.22, 0.14)), Vector3(0.0, 0.11, 1.4), Color(0.12, 0.12, 0.14))  # kasettisoitin
+	var mus := AudioStreamPlayer3D.new()
+	var st90: AudioStream = load("res://scripts/headphones.gd").random_90s()
+	if st90 != null:
+		mus.stream = st90
+		mus.bus = "Music"
+		mus.volume_db = -14.0
+		mus.unit_size = 3.0
+		mus.max_distance = 28.0
+		mus.autoplay = true
+		bb.add_child(mus)
 	var body := StaticBody3D.new()
 	root.add_child(body)
 	body.add_child(B.box_shape(Vector3(1.0, 0.5, 1.0), Vector3(0.4, 0.25, 0.6)))
