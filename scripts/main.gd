@@ -642,7 +642,7 @@ const TALKERS := {
 	"gasthaus": ["Gasthausin emäntä", Color(0.75, 0.9, 0.6)],
 	"nuoret": ["Porukka aidan takana", Color(0.6, 0.9, 1.0)],
 	"mopopojat": ["Mopopojat", Color(1.0, 0.85, 0.3)],
-	"poliisi": ["Vaalan poliisi", Color(0.55, 0.7, 1.0)],
+	"poliisi": ["Ratsupoliisi Roivainen", Color(0.55, 0.7, 1.0)],
 	"kauppias": ["Kauppias", Color(0.6, 0.82, 1.0)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
@@ -656,8 +656,8 @@ const TALK_HELLO := {
 	"kauppias": ["Päivää! Löytykö kaikki?", "Seuraava, olkaa hyvä."],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
 	"gasthaus": ["Iltaa. Huonetta vailla?", "Tervetuloa Gasthausiin. Yö maksaa kympin."],
-	"poliisi": ["Iltaa, Vaalan poliisi. Rutiinitarkastus. Puhaltakaa tähän, olkaa hyvä.",
-		"Päivää. Moporatsia. Sammuttakaa moottori ja puhaltakaa tähän."],
+	"poliisi": ["Iltaa. Roivainen, Vaalan poliisi. Rutiinitarkastus. Puhaltakaa tähän, olkaa hyvä.",
+		"Kas, mopomies. Roivainen tässä. Sammuttakaa moottori ja puhaltakaa."],
 	"mopopojat": ["No, ukko mopolla. Uskallatko kiihdytykseen?", "Meiän Tunturit vetää. Mitä sun romu tekee?",
 		"Vaalantien suora on vapaa. Kisataanko?"],
 	"nuoret": ["No moi! Tuu istuun, tukilla on tilaa.", "Ei kai sää oo järkkäri? Ai et. No istu alas.",
@@ -4641,7 +4641,7 @@ func _talk_end() -> void:
 		# Ikkuna suljettiin kesken (Esc): puhaltamatta ei lähdetä, tulos luetaan viestinä ja matka jatkuu.
 		if _ratsia_stage == "puhallus":
 			var r := _ratsia_blow(false)
-			_show_message("Konstaapeli: \"%s\" %s" % [r[0], r[1]], 5.0)
+			_show_message("Roivainen: \"%s\" %s" % [r[0], r[1]], 5.0)
 		_ratsia_release.call_deferred()
 	_talk_who = ""
 	_talk_node = null
@@ -6605,7 +6605,7 @@ func _on_siitari(id: String) -> Array:
 		var drunk: float = tilat.value("humala")
 		if drunk > 0.1:
 			# Omalla kylällä saa ajaa kännissä, mutta helppoa se ei ole: tanko vaeltaa ja ojaan on lyhyt matka.
-			_show_message("Omalla kylällä saa ajaa kännissä, kunhan kytät ei pidä ratsiaa! Tanko vaeltaa ja käsi laahaa: pidä mopo tiellä ja vauhti maltillisena.", 4.5)
+			_show_message("Omalla kylällä saa ajaa kännissä, mutta varo Ratsupoliisi Roivaista! Tanko vaeltaa ja käsi laahaa: pidä mopo tiellä ja vauhti maltillisena.", 4.5)
 			tilat.first("mopo_kannissa", 0.3)
 		else:
 			_show_message("Takaisin Paapeliin: Vaalantie, Vuolijoentie ja Neittäväntie.", 3.0)
@@ -7900,7 +7900,7 @@ func _ratsia_logic() -> void:
 		_ratsia.wave()
 		_ratsia.say_wave("Sivuun ja seis!")
 		Sfx.play("alert", -6.0, 1.4)
-		_show_message("POLIISIN MOPORATSIA! Konstaapeli viittoo sivuun: pysähdy auton eteen.", 3.5)
+		_show_message("RATSUPOLIISI ROIVAISEN RATSIA! Roivainen viittoo sivuun: pysähdy auton eteen.", 3.5)
 	if _ratsia_stage != "warned":
 		return
 	_ratsia_min_d = minf(_ratsia_min_d, d)
@@ -7919,7 +7919,7 @@ func _ratsia_logic() -> void:
 		tilat.first("ratsia_ohi", 0.3)
 		Sfx.play("lose", -4.0)
 		_ratsia.say_wave("Seis! Perkele...")
-		_show_message("Ajoit ratsian ohi! Konstaapeli kirjasi rekisterinumeron: sakko %s € postissa ja maine Vaalassa laski." % _eur(fine), 4.5)
+		_show_message("Ajoit ratsian ohi! Roivainen kirjasi rekisterinumeron: sakko %s € postissa ja maine Vaalassa laski." % _eur(fine), 4.5)
 
 
 func _ratsia_stop() -> void:
@@ -7982,7 +7982,7 @@ func _ratsia_release() -> void:
 		if is_instance_valid(_ratsia):
 			_ratsia.queue_free()
 		_ratsia = null
-		_gasthaus_morning("Heräsit Vaalan poliisiaseman putkasta. Konstaapeli palautti avaimet aamulla: mopo on hinattu Gasthausin pihaan.\n",
+		_gasthaus_morning("Heräsit Vaalan poliisiaseman putkasta. Roivainen palautti avaimet aamulla: mopo on hinattu Gasthausin pihaan.\n",
 			"Aamu putkan jälkeen. Mopo odottaa Gasthausin pihassa, Paapeliin on n. 11 km.")
 		return
 	mopo_trip.mopo.controls_enabled = true
