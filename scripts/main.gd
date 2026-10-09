@@ -31,6 +31,9 @@ const AmpiaisGame := preload("res://scripts/ampiais_game.gd")
 const TiskiGame := preload("res://scripts/tiski_game.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
 const SiitariInterior := preload("res://scripts/siitari_interior.gd")
+## Rautatieasemien odotussali (station_interior.gd): juopot ja narkkarit, rahakätkö viinahörpystä.
+const StationInterior := preload("res://scripts/station_interior.gd")
+const ASEMA_INT_POS := Vector3(0, 0, -16000)
 ## Raahen baari: Kapteenin Kulma ja Kellari (raahe_interior.gd), taksilla kotoa.
 const RaaheInterior := preload("res://scripts/raahe_interior.gd")
 const RAAHE_INT_POS := Vector3(-16000, 0, 0)
@@ -274,6 +277,7 @@ var mwine_endings := 0
 var mokki_forage: Array = []
 var mokki_forage_revealed := false
 var siitari_int: Node3D
+var asema_int: Node3D
 var raahe_int: Node3D
 var _raahe := {}  # illan tapahtumat Raahen baarissa (kädenvääntö, visa, karaoke)
 var _quiz: Array = []  # visan kysymykset [kysymys, vaihtoehdot sekoitettuna, oikea]
@@ -834,6 +838,11 @@ func _ready() -> void:
 	add_child(siitari_int)
 	siitari_int.exited.connect(_on_siitari_exited)
 	siitari_int.acted.connect(_on_siitari_acted)
+	asema_int = StationInterior.new()
+	asema_int.position = ASEMA_INT_POS
+	add_child(asema_int)
+	asema_int.exited.connect(_on_asema_exited)
+	asema_int.acted.connect(_on_asema_acted)
 	raahe_int = RaaheInterior.new()
 	raahe_int.position = RAAHE_INT_POS
 	add_child(raahe_int)
@@ -992,7 +1001,7 @@ func _loading_hide() -> void:
 
 
 func _process(delta: float) -> void:
-	CamCtl.indoors = state in ["in_shop", "in_home", "in_mokki", "in_garage", "in_siitari", "in_raahe"]
+	CamCtl.indoors = state in ["in_shop", "in_home", "in_mokki", "in_garage", "in_siitari", "in_raahe", "in_asema"]
 	var at_mokki := _at_mokki()
 	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
 	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
@@ -1028,6 +1037,10 @@ func _process(delta: float) -> void:
 			_hint.text = interior.hint
 			if interior.at_till and not interior.busy and not _talk_box.is_open():
 				_talk_hint("kauppias", null)
+		"in_asema":
+			if not _item_menu.is_open():
+				_hint.text = asema_int.hint
+			asema_int.set_board(_asema_board())
 		"in_siitari":
 			if not _item_menu.is_open():
 				_hint.text = siitari_int.hint
@@ -2828,6 +2841,8 @@ func _active_walker() -> CharacterBody3D:
 			return interior.walker
 		"in_siitari":
 			return siitari_int.walker
+		"in_asema":
+			return asema_int.walker
 		"in_raahe":
 			return raahe_int.walker
 		"in_home":
@@ -2841,7 +2856,7 @@ func _active_walker() -> CharacterBody3D:
 
 ## T sisätiloissa: sama syö/juo-valikko kuin ulkona, kun hahmo on vapaana (ei minipeliä, keskustelua tai valikkoa).
 func _indoor_eat() -> void:
-	if not state in ["in_shop", "in_siitari", "in_raahe", "in_home", "in_mokki", "in_garage"] or _item_menu.is_open() \
+	if not state in ["in_shop", "in_siitari", "in_raahe", "in_home", "in_mokki", "in_garage", "in_asema"] or _item_menu.is_open() \
 			or _talk_box.is_open():
 		return
 	if Input.is_action_just_pressed("eat") and _active_walker().controls_enabled:
@@ -2919,7 +2934,7 @@ func _own_drink_in_bar() -> void:
 ## toimia hyllyllä. Suljettaessa vielä saman ruudun yli (_enter_frame).
 func _interior_busy(on: bool) -> void:
 	var it: Node = {"in_home": home_int, "in_garage": garage_int, "in_mokki": mokki_int, "in_shop": interior,
-		"in_raahe": raahe_int, "in_siitari": siitari_int}.get(state)
+		"in_raahe": raahe_int, "in_siitari": siitari_int, "in_asema": asema_int}.get(state)
 	if it == null:
 		return
 	it.busy = on
@@ -3789,8 +3804,9 @@ func _train_update() -> void:
 			_train_due[st] += randf_range(TRAIN_GAP.x, TRAIN_GAP.y)
 	if _in_vaala and mopo_trip != null and mopo_trip.vaala != null:
 		for d in mopo_trip.vaala.doors:
-			if d.id == "asema":
-				d.hint = "asemalle: %s" % _train_board_text("vaala", "Saloisiin")
+			if d.id == "laituri":
+				var txt := _train_board_text("vaala", "Saloisiin")
+				d.text = txt.substr(0, 1).to_upper() + txt.substr(1)
 
 
 ## Aseman tilanne vihjeeseen: juna laiturilla (kyytiin), tulossa tai seuraavan junan kellonaika.
@@ -3826,20 +3842,246 @@ func _station_use(st: String, to: String) -> void:
 	_show_message("Odotit asemalla %d min. Juna tulee, kyytiin kun se seisoo laiturilla." % ceili(wait), 3.5)
 
 
-## Saloisten asema K-Marketin takana (world.gd _build_station): jalan E junalla Vaalaan, kun juna on laiturilla.
+## Saloisten asema K-Marketin takana (world.gd _build_station): kaupan puoleisesta ovesta odotussaliin, laiturilta
+## jalan E junalla Vaalaan, kun juna on laiturilla. Radan varressa narkkarin rahakätkö, kun paikka on kuultu.
 func _station_logic() -> void:
 	if _hint.text != "" or world.station_pos == Vector3.ZERO:
 		return
 	var p := player.global_position
-	if Vector2(p.x - world.station_pos.x, p.z - world.station_pos.z).length() > STATION_R:
+	var p2 := Vector2(p.x, p.z)
+	if _cache_logic(p):
+		return
+	var at_door := p2.distance_to(Vector2(world.station_pos.x, world.station_pos.z)) < STATION_R
+	var at_plat: bool = world.platform_rect.grow(1.2).has_point(p2) or \
+		p2.distance_to(Vector2(world.station_plat_door.x, world.station_plat_door.z)) < STATION_R
+	if not at_door and not at_plat:
 		return
 	if player == bike:
-		_hint.text = "[F] Pyörältä pois, niin pääset junaan"
+		_hint.text = "[F] Pyörältä pois, niin pääset %s" % ("asemalle" if at_door else "junaan")
+		return
+	if at_door:
+		_hint.text = "[E] Asemalle (odotussali)"
+		if Input.is_action_just_pressed("interact") and not player.is_stunned():
+			_enter_asema("saloinen")
 		return
 	var txt := _train_board_text("saloinen", "Vaalaan")
 	_hint.text = "[E] " + txt.substr(0, 1).to_upper() + txt.substr(1)
 	if Input.is_action_just_pressed("interact") and not player.is_stunned():
 		_station_use("saloinen", "vaala")
+
+
+# --- Aseman odotussali: juopot, narkkarit ja rahakätkö --------------------------------------------------------
+
+const CACHE_MONEY := 100.0
+const CACHE_R := 2.0
+## Kätköjen tila asemittain: 0 = ei kuultu, 1 = paikka kerrottu (merkki kartalla), 2 = tyhjennetty. Säilyy.
+var asema_katkot := {}
+var _asema_town := "saloinen"
+var _asema_prev := "to_shop"
+var _asema_npc := 0
+
+
+func _enter_asema(town: String) -> void:
+	_asema_town = town
+	_asema_prev = state
+	if town == "vaala":
+		mopo_trip.stop()
+		_mopo_foot_inside()
+		_mopo_label.visible = false
+		_compass.visible = false
+	else:
+		player.controls_enabled = false
+		player.speed = 0.0
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	state = "in_asema"
+	Sfx.play("door", -3.0)
+	tilat.first("asema", 0.2)
+	asema_int.enter("Vaala" if town == "vaala" else "Saloinen")
+	_show_message("%s asema. Lippuluukku on kiinni, mutta penkeillä on väkeä." % ("Vaalan" if town == "vaala" else "Saloisten"), 3.0)
+
+
+## Odotussalista ulos: kadulle (tultu ovi) tai laiturille junaa odottamaan.
+func _on_asema_exited(where: String) -> void:
+	asema_int.leave()
+	Sfx.play("door_close", -3.0)
+	state = _asema_prev
+	if _asema_town == "vaala":
+		var vl: Node3D = mopo_trip.vaala
+		_mopo_label.visible = true
+		_compass.visible = true
+		if where == "laituri":
+			# Laiturille aina jalan: mopo jää aseman eteen parkkiin.
+			mopo_trip.resume()
+			walker_out.global_position = mopo_trip.to_global(vl.station_back + Vector3(0, 0.4, 0))
+			walker_out.global_rotation.y = atan2(vl.station_back.x - vl.station_board.x, vl.station_back.z - vl.station_board.z) + mopo_trip.global_rotation.y
+			walker_out.velocity = Vector3.ZERO
+			walker_out.speed = 0.0
+			walker_out.visible = true
+			walker_out.process_mode = Node.PROCESS_MODE_INHERIT
+			walker_out.controls_enabled = true
+			walker_out.set_carrying(beers > 0)
+			mopo_trip.set_on_foot(walker_out)
+			_mopo_follow(walker_out)
+			_mopo_dry = walker_out.global_position
+			mopo_trip._resume_frame = Engine.get_process_frames()
+			var bt := _train_board_text("vaala", "Saloisiin")
+			_show_message("Laiturilla. %s." % (bt.substr(0, 1).to_upper() + bt.substr(1)), 3.0)
+		else:
+			_mopo_resume()
+			mopo_trip._resume_frame = Engine.get_process_frames()
+		return
+	var to: Vector3 = world.station_plat_door if where == "laituri" else world.station_pos
+	player.global_position = Vector3(to.x, Terrain.h(to.x, to.z) + 0.3, to.z)
+	player.rotation.y = 0.0 if where == "laituri" else PI
+	player.controls_enabled = true
+	player.activate_camera()
+	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+	if where == "laituri":
+		var bt := _train_board_text("saloinen", "Vaalaan")
+		_show_message("Laiturilla. %s." % (bt.substr(0, 1).to_upper() + bt.substr(1)), 3.0)
+
+
+## Lähtevien junien taulu odotussalissa.
+func _asema_board() -> String:
+	var to := "SALOINEN" if _asema_town == "vaala" else "VAALA"
+	var tr: Array = _station_train(_asema_town)
+	var when := "LAITURILLA" if tr[0] != null and tr[0].at_station() else ("SAAPUU" if tr[0] != null and tr[0].arriving()
+		else "klo " + _train_due_text(_asema_town))
+	return "LÄHTEVÄT JUNAT\n%s  %s\nRaide 1" % [to, when]
+
+
+func _on_asema_acted(kind: String) -> void:
+	match kind:
+		"taulu":
+			_show_message("Seuraava juna %s: %s." % ["Saloisiin" if _asema_town == "vaala" else "Vaalaan",
+				_train_board_text(_asema_town, "Saloisiin" if _asema_town == "vaala" else "Vaalaan")], 3.0)
+		"automaatti":
+			if money < 1.0:
+				_show_message("Automaatti haluaa euron. Ei ole.", 2.0)
+				return
+			money -= 1.0
+			Sfx.play("coin", -6.0)
+			_coffee()
+			_show_message("Automaattikahvi: haaleaa ja pahaa, mutta herättää.", 2.5)
+		_:
+			if not kind.begins_with("hlo"):
+				return
+			_asema_npc = int(kind.substr(3))
+			var items := _asema_drinks()
+			if items.is_empty():
+				asema_int.no_drink(_asema_npc)
+				return
+			asema_int.beg(_asema_npc)
+			asema_int.walker.controls_enabled = false
+			_interior_busy(true)
+			_menu_mode = "asema"
+			_item_menu.open(items, "Anna hörppy: %s" % StationInterior.PEOPLE[_asema_npc].name)
+
+
+func _asema_drinks() -> Array:
+	var items: Array = []
+	if beers > 0:
+		items.append(["kalja", "Kalja (%d)" % beers])
+	if viina_pullot > 0:
+		items.append(["viina", "Huikka Koskenkorvaa (%d pulloa)" % viina_pullot])
+	if pontikka > 0:
+		items.append(["pontikka", "Huikka pontikkaa (%d pulloa)" % pontikka])
+	return items
+
+
+## Juoma juopolle tai narkkarille: ensimmäisestä hörpystä kätkön paikka ja merkki kartalle, sitten pelkkä kiitos.
+func _on_asema_give(id: String) -> void:
+	_menu_mode = "give"
+	_interior_busy(false)
+	asema_int.walker.controls_enabled = true
+	match id:
+		"kalja":
+			beers -= 1
+			player.set_carrying(beers > 0)
+			asema_int.walker.set_carrying(beers > 0)
+		"viina":
+			viina_pullot -= 1  # pullo menee kiertoon eikä palaa
+		"pontikka":
+			pontikka -= 1
+	Sfx.play("glass", -6.0, 1.1)
+	tilat.first("asema_horppy", 0.1)
+	if asema_katkot.get(_asema_town, 0) == 0 and _cache_pos(_asema_town) != Vector3.INF:
+		asema_katkot[_asema_town] = 1
+		asema_int.thank(_asema_npc, _cache_where(_asema_town))
+		Sfx.play("win_small", -6.0)
+		_show_message("Rahakätkön paikka merkitty karttaan (%s). Ratapölkkypino radan varressa, %s." % [
+			Settings.action_key("map"), _dist_text(_cache_station(_asema_town), _cache_pos(_asema_town))], 4.5)
+		_save_game()
+	else:
+		asema_int.thank(_asema_npc, "")
+		tilat.add("moraali", 0.05)
+		_show_message("%s kiittää hörpystä.%s" % [StationInterior.PEOPLE[_asema_npc].name,
+			" Kätkö on jo kerrottu." if asema_katkot.get(_asema_town, 0) == 1 else ""], 2.5)
+
+
+## Kätkön paikka maailmassa (Vaalassa mopomatkan kehyksestä) ja asema, josta se on kerrottu.
+func _cache_pos(town: String) -> Vector3:
+	if town == "vaala":
+		if mopo_trip == null or mopo_trip.vaala == null or mopo_trip.vaala.cache_pos == Vector3.INF:
+			return Vector3.INF
+		return mopo_trip.to_global(mopo_trip.vaala.cache_pos)
+	return world.cache_pos
+
+
+func _cache_station(town: String) -> Vector3:
+	if town == "vaala":
+		return mopo_trip.to_global(mopo_trip.vaala.station_back)
+	return world.station_plat_door
+
+
+## Juopon kuvaus kätkön paikasta: ilmansuunta ja matka asemalta.
+func _cache_where(town: String) -> String:
+	var a := _cache_station(town)
+	var b := _cache_pos(town)
+	var d := Vector2(b.x - a.x, b.z - a.z)
+	if town == "vaala":  # Vaalan kehys on pohjoinen ylös (mopomatka voi olla käännetty)
+		var vl: Node3D = mopo_trip.vaala
+		d = Vector2(vl.cache_pos.x - vl.station_back.x, vl.cache_pos.z - vl.station_back.z)
+	var names := ["itään", "kaakkoon", "etelään", "lounaaseen", "länteen", "luoteeseen", "pohjoiseen", "koilliseen"]
+	var way: String = names[posmod(roundi(d.angle() / (TAU / 8.0)), 8)]
+	return "radan vartta %d metriä %s, vanhojen ratapölkkyjen alla on muovikassi" % [roundi(d.length() / 10.0) * 10, way]
+
+
+## Saloisten kätkö: jalan pinon vieressä E (paikka pitää olla kuultu odotussalissa).
+func _cache_logic(p: Vector3) -> bool:
+	if asema_katkot.get("saloinen", 0) != 1 or world.cache_pos == Vector3.INF:
+		return false
+	if Vector2(p.x - world.cache_pos.x, p.z - world.cache_pos.z).length() > CACHE_R:
+		return false
+	if player == bike:
+		_hint.text = "[F] Pyörältä pois, niin pääset kaivamaan kätköä"
+		return true
+	_hint.text = "[E] Kaiva narkkarin rahakätkö ratapölkkyjen alta"
+	if Input.is_action_just_pressed("interact") and not player.is_stunned():
+		_take_cache("saloinen")
+	return true
+
+
+func _take_cache(town: String) -> void:
+	if asema_katkot.get(town, 0) != 1:
+		return
+	asema_katkot[town] = 2
+	money += CACHE_MONEY
+	Sfx.play("win", -4.0)
+	tilat.add("moraali", 0.2)
+	tilat.first("asema_katko", 0.3)
+	_show_message("Muovikassissa rypistynyt satanen! +%s €. Juoppo puhui totta." % _eur(CACHE_MONEY), 4.0)
+	_save_game()
+
+
+## Kartan kätkömerkit: [asema, paikka (Saloisissa maailman x/z, Vaalassa Vaalan kehyksen x/z)] kerrotuille kätköille.
+func cache_markers() -> Array:
+	var out := []
+	if asema_katkot.get("saloinen", 0) == 1 and world.cache_pos != Vector3.INF:
+		out.append(["saloinen", Vector2(world.cache_pos.x, world.cache_pos.z)])
+	if asema_katkot.get("vaala", 0) == 1 and mopo_trip != null and mopo_trip.vaala != null and mopo_trip.vaala.cache_pos != Vector3.INF:
+		out.append(["vaala", Vector2(mopo_trip.vaala.cache_pos.x, mopo_trip.vaala.cache_pos.z)])
+	return out
 
 
 ## Junamatka (10 € suuntaansa): Saloisista Vaalan asemalle tai Vaalasta Saloisten asemalle. Välikuvassa istutaan
@@ -3886,10 +4128,10 @@ func _arrive_saloinen_by_train() -> void:
 	_set_avatar(walker_out)
 	var a: Vector3 = world.station_arrive
 	_arrive_by_car(Vector3(a.x, Terrain.h(a.x, a.z) + 0.3, a.z))
-	walker_out.rotation.y = 0.0  # selkä asemaan, kauppa edessä
+	walker_out.rotation.y = PI  # laiturilla kasvot asemaan päin
 	if world.train != null:
 		world.train.arrive_stopped(world.station_t)  # juna, jolla tultiin, lähtee laiturilta
-	_show_message(_train_round_msg + "Saloisten asema. K-Market on heti aseman edessä.", 3.0)
+	_show_message(_train_round_msg + "Saloisten asema. Odotussalin läpi kadulle, K-Market on aseman toisella puolella.", 3.5)
 
 
 func _arrive_vaala_by_train() -> void:
@@ -3913,8 +4155,8 @@ func _arrive_vaala_by_train() -> void:
 		if d2 < best:
 			best = d2
 			mopo_trip._sample = i
-	# Jalan aseman ovelta: mopo parkissa vieressä.
-	walker_out.global_position = mopo_trip.to_global(vl.station_door + out * 1.0 + Vector3(0, 0.4, 0))
+	# Junasta laiturille jalan, kasvot asemaan päin; mopo parkissa aseman edessä.
+	walker_out.global_position = mopo_trip.to_global(vl.station_board + Vector3(0, 0.2, 0))
 	walker_out.global_rotation.y = atan2(-out.x, -out.z) + mopo_trip.global_rotation.y
 	walker_out.velocity = Vector3.ZERO
 	walker_out.speed = 0.0
@@ -3928,7 +4170,7 @@ func _arrive_vaala_by_train() -> void:
 	_hud.visible = true
 	if vl.train != null:
 		vl.train.arrive_stopped(vl.station_t)  # juna, jolla tultiin, lähtee laiturilta
-	_show_message(_train_round_msg + "Vaalan asema. Mopo odottaa aseman pihassa, Siitari ja tori ovat liikenneympyrän takana.", 4.0)
+	_show_message(_train_round_msg + "Vaalan asema. Mopo odottaa aseman edessä: odotussalin läpi tai aseman ympäri. Siitari ja tori ovat liikenneympyrän takana.", 4.0)
 
 
 ## Kaupan taksilla Paapelin mökille (meno-paluu): paluu tilataan mökin pihatien päästä.
@@ -5999,7 +6241,8 @@ func _ensure_mopo_trip() -> void:
 		mopo_trip.door.connect(_on_vaala_door)
 		mopo_trip.lava.connect(_enter_lava)
 		mopo_trip.crashed.connect(_on_mopo_crashed)
-		mopo_trip.door_hidden = func(id: String) -> bool: return id == "viski" and "viski" in viina_found
+		mopo_trip.door_hidden = func(id: String) -> bool: return (id == "viski" and "viski" in viina_found) or \
+			(id == "katko" and asema_katkot.get("vaala", 0) != 1)
 		_paper.mopo_trip = mopo_trip
 	mopo_trip.ensure_built()
 
@@ -7345,7 +7588,11 @@ func _on_vaala_door(id: String) -> void:
 		"kmarket":
 			_enter_vaala_shop(id)
 		"asema":
+			_enter_asema("vaala")
+		"laituri":
 			_station_use("vaala", "saloinen")
+		"katko":
+			_take_cache("vaala")
 		"zabuki":
 			_talk_open("zabuki", null)
 		"gasthaus":
@@ -8007,6 +8254,7 @@ func _load_game() -> void:
 	drone_photos = cfg.get_value("drooni", "kuvat", [])
 	pontikka_found = cfg.get_value("drooni", "pontikka", false)
 	viina_found = cfg.get_value("mokki", "viinakatkot", [])
+	asema_katkot = cfg.get_value("asema", "katkot", {})
 	viina_pullot = cfg.get_value("mokki", "viinapullot", 0)
 	atm_day = cfg.get_value("peli", "otto_paiva", 0)
 	maine = cfg.get_value("peli", "maine", 0.0)
@@ -8081,6 +8329,7 @@ func _save_game() -> void:
 	cfg.set_value("drooni", "kuvat", drone_photos)
 	cfg.set_value("drooni", "pontikka", pontikka_found)
 	cfg.set_value("mokki", "viinakatkot", viina_found)
+	cfg.set_value("asema", "katkot", asema_katkot)
 	cfg.set_value("mokki", "viinapullot", viina_pullot)
 	cfg.set_value("peli", "otto_paiva", atm_day)
 	cfg.set_value("peli", "maine", maine)
@@ -8498,7 +8747,7 @@ var _hint_shown := ""
 ## Näppäimet asetuksista.
 func _help_text() -> String:
 	if cutscene.busy or not state in ["to_shop", "to_home", "in_shop", "in_home", "in_garage", "in_mokki", "in_raahe",
-			"in_siitari"]:
+			"in_siitari", "in_asema"]:
 		return ""  # minipeleillä ja välianimaatioilla omat ohjeensa
 	var k := func(action: String, what: String) -> String:
 		return "[%s] %s" % [Settings.action_key(action), what]
@@ -8926,6 +9175,7 @@ func _build_hud() -> void:
 	_minimap.world = world
 	_minimap.bike = bike
 	_minimap.mokki = mokki
+	_minimap.game = self
 	layer.add_child(_minimap)
 
 	_talk_box = DialogueBox.new()
@@ -8942,14 +9192,16 @@ func _build_hud() -> void:
 		elif _menu_mode == "wc":
 			_start_wc(id)
 		elif _menu_mode == "viini":
-			_on_vat_menu(id))
+			_on_vat_menu(id)
+		elif _menu_mode == "asema":
+			_on_asema_give(id))
 	_item_menu.cancelled.connect(func() -> void:
 		if _menu_mode == "wc":
 			_menu_mode = "give"
 			_wc_release()
 		else:
 			_mopo_menu(false)
-			if _menu_mode in ["eat", "viini"]:
+			if _menu_mode in ["eat", "viini", "asema"]:
 				_menu_mode = "give"
 				_interior_busy(false)
 				_active_walker().controls_enabled = true
@@ -9016,7 +9268,7 @@ func _update_hud() -> void:
 	_clock_hud.day = day
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "lava", "cutscene"])
+	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "lava", "cutscene"])
 	_minimap.vaala_on = _in_vaala and mopo_trip != null
 	if _minimap.vaala_on:
 		_minimap.vaala = mopo_trip.vaala
@@ -9055,7 +9307,7 @@ func _update_hud() -> void:
 
 	var nb: CharacterBody3D = interior.neighbor
 	_sus_box.visible = state == "in_shop" and nb != null
-	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe"]
+	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema"]
 	_stat_bars.offset_top = 90 if _sus_box.visible else 36
 	if _sus_box.visible:
 		_sus_bar.value = nb.suspicion
@@ -9325,7 +9577,7 @@ func _coffee() -> void:
 	_night_coffee += 1
 
 
-const NIGHT_STATES := ["to_shop", "to_home", "in_shop", "in_home", "in_garage", "in_mokki", "in_siitari", "in_raahe"]
+const NIGHT_STATES := ["to_shop", "to_home", "in_shop", "in_home", "in_garage", "in_mokki", "in_siitari", "in_raahe", "in_asema"]
 
 
 func _night_tick(delta: float) -> void:
@@ -9377,6 +9629,17 @@ func _pass_out() -> void:
 			raahe_int.leave()
 			spawn = home_zone + Vector3(0, 0, 4)
 			intro = "Sammuit Kapteenin Kulman nurkkapöytään. Baarimikko soitti taksin, ja Päivi maksoi sen.\n"
+		"in_asema":
+			asema_int.leave()
+			if _asema_town == "vaala":
+				if mopo_trip.active:
+					mopo_trip.stop()
+					_mopo_restore_hud()
+				spawn = mokki.porch_pos(0.9) - Vector3(0, 0.3, 0)
+			else:
+				state = _asema_prev
+				spawn = world.station_pos
+			intro = "Sammuit aseman penkille. Rane oli peitellyt sut sanomalehdellä ja juonut loput kaljoista.\n"
 		"in_siitari":
 			siitari_int.leave()
 			if mopo_trip.active:
@@ -11078,6 +11341,116 @@ func _maybe_screenshot() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
 			get_tree().quit()
+		"asema":
+			# Asemat: Saloisten asema ulkoa (katu ja laituri), odotussali, hörppy juopolle -> kätkö kartalle, kätkön
+			# tyhjennys, laiturille ja junan vihje; sama Vaalassa. Tallennus palautetaan lopuksi.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var view := [null, null]  # kameran paikka ja kohde (null = pelin oma kamera)
+			var snap := func(name: String) -> void:
+				for i in 12:
+					if view[0] != null:
+						get_viewport().get_camera_3d().look_at_from_position(view[0], view[1])
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				view[0] = null
+			if player != walker_out:
+				_toggle_mount()
+			_msg.text = ""
+			_note.visible = false
+			asema_katkot = {}
+			beers = 2
+			viina_pullot = 1
+			money = 20.0
+			var sp: Vector3 = world.station_pos
+			var look := func(from: Vector3, to: Vector3) -> void:
+				view[0] = from
+				view[1] = to
+			walker_out.global_position = Vector3(sp.x, Terrain.h(sp.x, sp.z) + 0.4, sp.z + 1.0)
+			look.call(sp + Vector3(-9, 4.5, 15), sp + Vector3(1, 2.5, -4))
+			await snap.call("_katu.png")
+			look.call(sp + Vector3(16, 9, 10), sp + Vector3(1, 3, -4))
+			await snap.call("_katto.png")
+			var pd: Vector3 = world.station_plat_door
+			look.call(pd + Vector3(12, 3.5, -10), pd + Vector3(-2, 2, 2))
+			await snap.call("_laituri.png")
+			walker_out.activate_camera()
+			for i in 10:
+				await get_tree().process_frame
+			print("ASEMA ovella vihje '%s'" % _hint.text)
+			_enter_asema("saloinen")
+			await snap.call("_sali.png")
+			asema_int.walker.position = StationInterior.PEOPLE[0].at + Vector3(0.8, 0, 1.0)
+			for i in 5:
+				await get_tree().process_frame
+			print("ASEMA salissa vihje '%s', tila %s" % [_hint.text, state])
+			_on_asema_acted("hlo0")
+			print("ASEMA valikko auki %s" % _item_menu.is_open())
+			await snap.call("_valikko.png")
+			_item_menu.visible = false
+			_item_menu.chosen.emit("kalja")
+			await snap.call("_kerto.png")
+			print("ASEMA kätkö %s, kaljat %d, viesti '%s', merkit %s, kätkö %s, asemalta %.0f m" % [asema_katkot, beers, _msg.text,
+				cache_markers(), world.cache_pos, Vector2(world.cache_pos.x - sp.x, world.cache_pos.z - sp.z).length()])
+			_paper.toggle()
+			await snap.call("_kartta.png")
+			_paper.toggle()
+			_on_asema_exited("laituri")
+			for i in 10:
+				await get_tree().process_frame
+			print("ASEMA laiturilla vihje '%s', paikka %s, tila %s" % [_hint.text, player.global_position, state])
+			var cp: Vector3 = world.cache_pos
+			walker_out.global_position = cp + Vector3(0, 0.5, 1.9)
+			walker_out.rotation.y = 0.0
+			for i in 10:
+				await get_tree().process_frame
+			print("ASEMA kätköllä vihje '%s', maa %.2f, kätkö y %.2f" % [_hint.text, Terrain.h(cp.x, cp.z), cp.y])
+			look.call(cp + Vector3(5, 3, 5), cp)
+			await snap.call("_katko.png")
+			_take_cache("saloinen")
+			print("ASEMA kätkö tyhjennetty: rahaa %.2f, tila %s" % [money, asema_katkot])
+			# Vaala: asema ulkoa, odotussali, hörppy, kätkö ja laituri.
+			mokki.ensure_built()
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var sd: Vector3 = mopo_trip.to_global(vl.station_door)
+			var sb: Vector3 = mopo_trip.to_global(vl.station_back)
+			var outv := (sd - sb).normalized()
+			look.call(sd + outv * 16.0 + outv.cross(Vector3.UP) * 8.0 + Vector3(0, 5, 0), sd - outv * 4.0 + Vector3(0, 2, 0))
+			await snap.call("_vaala_katu.png")
+			look.call(sb - outv * 14.0 + outv.cross(Vector3.UP) * 10.0 + Vector3(0, 4, 0), sb + Vector3(0, 2, 0))
+			await snap.call("_vaala_laituri.png")
+			_on_vaala_door("asema")
+			await snap.call("_vaala_sali.png")
+			_on_asema_acted("hlo2")
+			_item_menu.visible = false
+			_item_menu.chosen.emit("viina")
+			print("VAALA kätkö %s, viesti '%s', merkit %s" % [asema_katkot, _msg.text, cache_markers()])
+			_on_asema_exited("laituri")
+			for i in 15:
+				await get_tree().process_frame
+			print("VAALA laiturilla vihje '%s' (%s), jalan %s, laiturilta %.1f m" % [mopo_trip.hint, _hint.text, mopo_trip.on_foot != null,
+				player.global_position.distance_to(mopo_trip.to_global(vl.station_board))])
+			await snap.call("_vaala_laituri_jalan.png")
+			var vc: Vector3 = _cache_pos("vaala")
+			walker_out.global_position = vc + Vector3(1.0, 0.5, 0)
+			for i in 15:
+				await get_tree().process_frame
+			print("VAALA kätköllä vihje '%s', asemalta %.0f m" % [mopo_trip.hint, vc.distance_to(sb)])
+			look.call(vc + Vector3(5, 3, 5), vc)
+			await snap.call("_vaala_katko.png")
+			_paper.toggle()
+			await snap.call("_vaala_kartta.png")
+			_paper.toggle()
+			_on_vaala_door("katko")
+			print("VAALA kätkö tyhjennetty: rahaa %.2f, tila %s" % [money, asema_katkot])
+			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f.store_buffer(saved)
+			f.close()
+			get_tree().quit()
 		"junamatka":
 			# Saloisten asemalta junalla Vaalaan (välikuva kuvina) ja Vaalan asemalta takaisin Saloisiin.
 			if player != walker_out:
@@ -11107,7 +11480,7 @@ func _maybe_screenshot() -> void:
 					var t1 := Time.get_ticks_msec()
 					while vt.calling() and Time.get_ticks_msec() - t1 < 30000:
 						await get_tree().process_frame
-					_on_vaala_door("asema")
+					_on_vaala_door("laituri")
 					print("JUNA odotus: '%s'" % _msg.text)
 					Engine.time_scale = 4.0
 					t1 = Time.get_ticks_msec()
@@ -11121,7 +11494,7 @@ func _maybe_screenshot() -> void:
 					await RenderingServer.frame_post_draw
 					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_vaalajuna.png"))
 					print("JUNA Vaalan laiturilla %s, raiteelta %.1f m" % [vt.at_station(), vt._at(vt._s - vt._train_len / 2.0).distance_to(mopo_trip.vaala.station_plat)])
-					_on_vaala_door("asema")
+					_on_vaala_door("laituri")
 				var shot := 0
 				var t0 := Time.get_ticks_msec()
 				while cutscene.busy:

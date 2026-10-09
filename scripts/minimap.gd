@@ -16,6 +16,7 @@ var wife: Node3D
 var world: Node3D
 var bike: Node3D  # näytetään kun liikutaan jalan
 var mokki: Node3D
+var game: Node  # main.gd: cache_markers()
 var target := Vector3.ZERO
 var show_target := true
 ## Vaalan mopomatka (main.gd asettaa): vaala.gd, mopo ja onko pelaaja Vaalan maailmassa.
@@ -174,6 +175,10 @@ func _draw() -> void:
 				var fp := _w(f.pos)
 				if Rect2(Vector2.ZERO, size).has_point(fp):
 					draw_circle(fp, 3.0, world.FORAGE_KINDS[f.kind].color)
+	if game != null:
+		for m in game.cache_markers():
+			if m[0] == "saloinen":
+				_cache_icon(_clamp_edge(_w(Vector3(m[1].x, 0, m[1].y))))
 	if show_target:
 		var t := _clamp_edge(_w(target))
 		draw_arc(t, 8.0, 0, TAU, 20, Color(1, 0.9, 0.1), 2.5)
@@ -218,6 +223,10 @@ func _draw_vaala() -> void:
 	marks.append([Vector2(vaala.mokki_mopo.x, vaala.mokki_mopo.z), Color(0.8, 0.15, 0.1), "P"])
 	for m in marks:
 		_marker(_clamp_edge(vl.call(m[0])), m[1], m[2])
+	if game != null:
+		for m in game.cache_markers():
+			if m[0] == "vaala":
+				_cache_icon(_clamp_edge(vl.call(m[1])))
 	if vaala_mopo != null and vaala_mopo != player:
 		var mp: Vector3 = vaala.to_local(vaala_mopo.global_position)
 		_bike_icon(_clamp_edge(vl.call(Vector2(mp.x, mp.z))))
@@ -393,6 +402,13 @@ func _bike_icon(p: Vector2) -> void:
 		draw_arc(p + Vector2(o, 1.5), 2.6, 0, TAU, 10, Color.WHITE, 1.3)
 	draw_line(p + Vector2(-3.5, 1.5), p + Vector2(0, -2.5), Color.WHITE, 1.3)
 	draw_line(p + Vector2(0, -2.5), p + Vector2(3.5, 1.5), Color.WHITE, 1.3)
+
+
+## Rahakätkö: kultainen €-merkki.
+func _cache_icon(p: Vector2) -> void:
+	draw_circle(p, 7.5, Color(0.1, 0.1, 0.1))
+	draw_circle(p, 6.0, Color(1.0, 0.82, 0.15))
+	draw_string(ThemeDB.fallback_font, p + Vector2(-4, 5), "€", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.BLACK)
 
 
 func _marker(p: Vector2, col: Color, txt: String) -> void:

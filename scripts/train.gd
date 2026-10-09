@@ -221,6 +221,22 @@ func nearest_t(p: Vector3) -> float:
 	return bt
 
 
+## Piste reitillä matkan t kohdalla reitin alusta (ajosuunnasta riippumatta) ja radan suunta siinä.
+func point_t(t: float) -> Vector3:
+	var d := clampf(t, 0.0, _length)
+	return _at(d if _dir == 1 else _length - d)
+
+
+func dir_t(t: float) -> Vector3:
+	var a := point_t(t - 2.0)
+	var b := point_t(t + 2.0)
+	return Vector3(b.x - a.x, 0, b.z - a.z).normalized()
+
+
+func length() -> float:
+	return _length
+
+
 ## Piste reitillä matkan d kohdalla ajosuunnassa (d = 0 lähtöpäässä).
 func _at(d: float) -> Vector3:
 	var t := d if _dir == 1 else _length - d
