@@ -743,6 +743,9 @@ func _draw_map() -> void:
 			var hp := _px(M.HOME_ZONE) + Vector2(10, 10)
 			_stash_icon_on(v, hp)
 			v.draw_string(font, hp + Vector2(8, 12), "jemmat %d" % home_n, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.45, 0.25, 0.05))
+		for m in game.cache_markers():
+			if m[0] == "saloinen":
+				_cache_icon_on(v, _w2(m[1]))
 	if has_target:
 		_target_icon_on(v, _w2(target))
 	if player != null:
@@ -1088,6 +1091,10 @@ func _draw_vaala_map() -> void:
 		var ap: Vector3 = mopo_trip.vaala.atm_pos
 		_poi_icon_on(v, _vpx(Vector2(ap.x, ap.z)) + Vector2(0, 14), "atm")
 
+	if game != null:
+		for m in game.cache_markers():
+			if m[0] == "vaala":
+				_cache_icon_on(v, _vpx(m[1]))
 	_draw_mokki_sites(v)
 	# Mopo: mökin pihassa tai Vaalassa parkissa; pelaaja.
 	var me := _vaala_me()
@@ -1374,6 +1381,15 @@ func _stash_icon_on(ci: CanvasItem, p: Vector2) -> void:
 	ci.draw_rect(Rect2(p + Vector2(-3, -2), Vector2(6, 9)), col)
 	ci.draw_rect(Rect2(p + Vector2(-1.2, -7), Vector2(2.4, 5)), col)
 	ci.draw_rect(Rect2(p + Vector2(-3, 1), Vector2(6, 3)), Color(0.95, 0.85, 0.5))
+
+
+## Juopon kertoma rahakätkö: käsin piirretty rasti ympyrässä ja €.
+func _cache_icon_on(ci: CanvasItem, p: Vector2) -> void:
+	var col := Color(0.75, 0.5, 0.0)
+	ci.draw_arc(p, 10.0, 0, TAU, 20, col, 2.0)
+	ci.draw_line(p - Vector2(5, 5), p + Vector2(5, 5), Color(0.6, 0.1, 0.05), 2.2)
+	ci.draw_line(p + Vector2(-5, 5), p + Vector2(5, -5), Color(0.6, 0.1, 0.05), 2.2)
+	_outlined(ci, p + Vector2(13, 5), "Kätkö 100 €", 13, col)
 
 
 func _target_icon_on(ci: CanvasItem, p: Vector2) -> void:

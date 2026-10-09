@@ -16,6 +16,7 @@ const MAASTO := "res://assets/vaala/maasto.bin"
 const TREES := "res://assets/vaala/puut.bin"
 const Forest := preload("res://scripts/forest.gd")
 const Train := preload("res://scripts/train.gd")
+const StationBuild := preload("res://scripts/station_build.gd")
 ## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
 ## mökin omilla rakennusfunktioilla (mokki.gd ladataan ajonaikaisesti: mokki.gd -> mopo.gd -> vaala.gd).
 const MOKKI_PATH := "res://scripts/mokki.gd"
@@ -1814,6 +1815,9 @@ func _tori_prep() -> void:
 var station_door := Vector3.ZERO
 var station_plat := Vector3.ZERO  # laiturin keskikohta (aikataulun juna pysähtyy tähän)
 var station_t := 0.0  # laiturin kohta junan reitillä (train.nearest_t)
+var station_back := Vector3.ZERO  # odotussalin laiturin puoleisen oven edusta
+var station_board := Vector3.ZERO  # laiturilla junaan nousun kohta
+var cache_pos := Vector3.INF  # narkkarin rahakätkö radan varressa (odotussalin juopot kertovat paikan)
 var station_id: int = -1  # keskusta.asema.id: tämän rakennuksen paikalle asema (yleinen piirto ohittaa)
 
 
@@ -1888,66 +1892,13 @@ func _build_station() -> void:
 	root.position = Vector3(c.x, base, c.y)
 	root.basis = Basis.looking_at(Vector3(back.x, 0, back.y), Vector3.UP)  # -Z laiturille, X radan suuntaan
 	add_child(root)
-	var body := StaticBody3D.new()
-	root.add_child(body)
-	var ochre := Color(0.86, 0.66, 0.3)
+	var sdoors: Dictionary = StationBuild.build(root, L, D, 4.0, "Vaala", 0.0, 0.0)
 	var white := Color(0.95, 0.94, 0.9)
-	var roof := Color(0.55, 0.12, 0.08)
-	var wall_h := 4.0
-	B.mesh(root, B.boxm(Vector3(L + 0.4, 0.5, D + 0.4)), Vector3(0, 0.0, 0), Color(0.55, 0.54, 0.5))  # sokkeli
-	B.mesh(root, B.boxm(Vector3(L, wall_h, D)), Vector3(0, 0.25 + wall_h / 2.0, 0), ochre)
-	body.add_child(B.box_shape(Vector3(L, wall_h, D), Vector3(0, wall_h / 2.0, 0)))
-	for cx: float in [-L / 2.0, L / 2.0]:
-		for cz: float in [-D / 2.0, D / 2.0]:
-			B.mesh(root, B.boxm(Vector3(0.22, wall_h, 0.22)), Vector3(cx, 0.25 + wall_h / 2.0, cz), white)  # nurkkalaudat
-	B.mesh(root, B.boxm(Vector3(L + 0.1, 0.25, D + 0.1)), Vector3(0, 0.25 + wall_h, 0), white)  # räystäslista
-	# Harjakatto: kaksi lappeen laattaa, harja radan suuntaan; laiturin puolella pidempi katos pilareilla.
-	var pitch := 0.5
-	var span := D / 2.0 + 0.8
-	var ridge := 0.25 + wall_h + span * tan(pitch) + 0.1
-	for sz: float in [-1.0, 1.0]:
-		var rl := B.mesh(root, B.boxm(Vector3(L + 1.2, 0.18, span / cos(pitch))), Vector3(0, ridge - span * tan(pitch) / 2.0, sz * span / 2.0), roof)
-		rl.rotation.x = sz * pitch
-	B.mesh(root, B.boxm(Vector3(L + 1.2, 0.2, 0.3)), Vector3(0, ridge + 0.05, 0), roof.darkened(0.2))
-	# Päätykolmiot seinän ja katon väliin.
-	for gx: float in [-L / 2.0, L / 2.0]:
-		var tri := SurfaceTool.new()
-		tri.begin(Mesh.PRIMITIVE_TRIANGLES)
-		var y0 := 0.25 + wall_h
-		for v in [Vector3(gx, y0, -D / 2.0), Vector3(gx, y0, D / 2.0), Vector3(gx, y0 + (D / 2.0) * tan(pitch), 0)]:
-			tri.add_vertex(v)
-		tri.generate_normals()
-		var tm := MeshInstance3D.new()
-		tm.mesh = tri.commit()
-		var gm := B.mat(ochre).duplicate() as StandardMaterial3D
-		gm.cull_mode = BaseMaterial3D.CULL_DISABLED
-		tm.material_override = gm
-		root.add_child(tm)
-	# Laiturikatos: loiva lippa seinästä pilareille.
-	var canopy := B.mesh(root, B.boxm(Vector3(L + 0.4, 0.15, 4.4)), Vector3(0, 0.25 + wall_h - 0.25, -D / 2.0 - 2.2), roof)
-	canopy.rotation.x = -0.08
-	for k in 5:
-		var px := -L / 2.0 + 1.0 + k * (L - 2.0) / 4.0
-		B.mesh(root, B.boxm(Vector3(0.16, wall_h - 0.4, 0.16)), Vector3(px, 0.25 + (wall_h - 0.4) / 2.0, -D / 2.0 - 3.6), white)
-	# Ikkunat ja ovet: valkoiset puitteet, laiturin puolella ovi keskellä.
-	for sz: float in [-1.0, 1.0]:
-		for k in 5:
-			var wx := -L / 2.0 + 2.0 + k * (L - 4.0) / 4.0
-			if k == 2:  # ovet keskellä: laiturille ja kadulle (E: junalla Saloisiin)
-				B.mesh(root, B.boxm(Vector3(1.3, 2.3, 0.08)), Vector3(wx, 1.4, sz * (D / 2.0 + 0.03)), Color(0.45, 0.25, 0.12))
-				continue
-			B.mesh(root, B.boxm(Vector3(1.15, 1.45, 0.06)), Vector3(wx, 2.2, sz * (D / 2.0 + 0.03)), white)
-			B.mesh(root, B.boxm(Vector3(0.95, 1.25, 0.07)), Vector3(wx, 2.2, sz * (D / 2.0 + 0.04)), Color(0.12, 0.16, 0.2))
-			B.mesh(root, B.boxm(Vector3(0.06, 1.25, 0.09)), Vector3(wx, 2.2, sz * (D / 2.0 + 0.05)), white)
-	# Kyltti VAALA laiturille ja kadulle.
-	for sz: float in [-1.0, 1.0]:
-		var sign := B.sign_plate(root, "VAALA", Color(0.95, 0.95, 0.95), Color(0.1, 0.1, 0.1), 0.7, 80, Color(0.1, 0.1, 0.1), "Helvetica Neue")
-		sign.position = Vector3(0, 3.6, sz * (D / 2.0 + 0.08))
-		sign.rotation.y = 0.0 if sz > 0.0 else PI
 	var dp := Vector2(st.door[0], st.door[1])
 	var dout := Vector3(st.out[0], 0, st.out[1])
 	station_door = Vector3(dp.x, h(dp.x, dp.y), dp.y) + dout * 2.2
-	doors.append({"id": "asema", "pos": station_door, "out": dout, "hint": "asemalle (juna Saloisiin 10 €)"})
+	doors.append({"id": "asema", "pos": station_door, "out": dout, "hint": "asemalle (odotussali)"})
+	station_back = root.transform * (sdoors.plat_door as Vector3)
 	# Laituri: betonilaatta reunaviivoineen, penkit ja valaisimet.
 	var ppts := PackedVector2Array()
 	for q in st.platform:
@@ -1963,6 +1914,24 @@ func _build_station() -> void:
 	var PW: float = minf((pob.size as Vector2).x, (pob.size as Vector2).y)
 	B.mesh(proot, B.boxm(Vector3(PL, 0.55, PW)), Vector3(0, 0.0, 0), Color(0.62, 0.61, 0.58))
 	B.mesh(proot, B.boxm(Vector3(PL, 0.02, 0.15)), Vector3(0, 0.29, -PW / 2.0 + 0.35), white)
+	# Junaan noustaan laiturilta: kohta aseman takaoven kohdalla laiturin keskiviivalla (main.gd päivittää tekstin).
+	var pax := proot.basis.x
+	var u := clampf(Vector2(station_back.x - pc.x, station_back.z - pc.y).dot(Vector2(pax.x, pax.z)), -PL / 2.0 + 3.0, PL / 2.0 - 3.0)
+	var bp := Vector2(pc.x, pc.y) + Vector2(pax.x, pax.z) * u
+	station_board = Vector3(bp.x, h(bp.x, bp.y) + 0.3, bp.y)
+	doors.append({"id": "laituri", "pos": station_board, "out": -dout, "r": 7.0, "walk": true, "hint": "laiturille", "text": "Odota junaa Saloisiin"})
+	# Narkkarin rahakätkö ratapölkkypinon alla radan varressa, kuivalla maalla (main.gd piilottaa oven, kunnes paikka
+	# on kuultu odotussalissa).
+	if train != null:
+		cache_pos = StationBuild.pick_cache(train, station_t, func(q: Vector3) -> bool:
+			return not wet(q.x, q.z, 1.5) and h(q.x, q.z) > water_level + 1.0 and Vector2(q.x - c.x, q.z - c.y).length() > 25.0 \
+				and not _near_rail(Vector2(q.x, q.z), 4.0))
+		if cache_pos != Vector3.INF:
+			cache_pos.y = h(cache_pos.x, cache_pos.z)
+			var cd: Vector3 = train.dir_t(train.nearest_t(cache_pos))
+			StationBuild.cache_prop(self, cache_pos, atan2(cd.x, cd.z))
+			doors.append({"id": "katko", "pos": cache_pos, "out": Vector3.FORWARD, "r": 3.0, "walk": true, "hint": "kätkölle",
+				"text": "Kaiva narkkarin rahakätkö ratapölkkyjen alta"})
 	var pbody := StaticBody3D.new()
 	proot.add_child(pbody)
 	pbody.add_child(B.box_shape(Vector3(PL, 0.55, PW), Vector3.ZERO))
@@ -1993,6 +1962,19 @@ func _build_station() -> void:
 			B.mesh(bs, B.cyl(0.18, 0.18, 0.3, 12), Vector3(sx, 1.0, -0.3), Color(0.3, 0.3, 0.3), Vector3(90, 0, 0))
 		for k in 4:
 			B.mesh(bs, B.boxm(Vector3(0.3, 0.5, 0.42)), Vector3(-1.05 + k * 0.7, 1.0, 0.01), Color(0.95, 0.95, 0.95) if k % 2 == 0 else Color(0.8, 0.1, 0.08))
+
+
+## Onko kohta lähempänä kuin d mitä tahansa raidetta (asemalla rinnakkaisia raiteita ja pistoraide).
+func _near_rail(p: Vector2, d: float) -> bool:
+	for r in data.side_roads:
+		if r.kind != "rail":
+			continue
+		for k in r.pts.size() - 1:
+			var a := Vector2(r.pts[k][0], r.pts[k][1])
+			var b := Vector2(r.pts[k + 1][0], r.pts[k + 1][1])
+			if Geometry2D.get_closest_point_to_segment(p, a, b).distance_to(p) < d:
+				return true
+	return false
 
 
 func _build_tori() -> void:
