@@ -9927,6 +9927,13 @@ func _day_rhythm() -> void:
 	_wife_rhythm(t)
 
 
+## Päivin auton yöpaikka: oman autotallin edessä nosturioven vieressä (ei ovella, ettei se tuki tallin ovea).
+func _wife_park_pos() -> Vector3:
+	var out: Vector3 = world.garage_out
+	var p: Vector3 = world.garage_door + out.cross(Vector3.UP) * 3.3 + out * 2.4
+	return Vector3(p.x, Terrain.h(p.x, p.z) + 0.3, p.z)
+
+
 ## Päivi: töissä WIFE_WORK (auto pois tieverkolta, ellei naapuri ole käräyttänyt), illalla partioi, yöllä kotona
 ## auto pihassa (ei jahtaa). Vaihtuu vain, kun Päivi ei ole jahtaamassa.
 func _wife_rhythm(t: float) -> void:
@@ -9949,7 +9956,8 @@ func _wife_rhythm(t: float) -> void:
 			wife.global_position = Vector3(0, -500, 0)
 		"koti":
 			wife.reset_to(world.nearest_node(home_zone))
-			wife.global_position = home_zone + Vector3(4.0, 0.3, -2.0)
+			wife.global_position = _wife_park_pos()
+			wife.rotation.y = B.yaw_to(-world.garage_out)  # nokka talliin
 			wife.parked = true
 			wife.visible = true
 			wife.process_mode = Node.PROCESS_MODE_INHERIT
@@ -11748,6 +11756,23 @@ func _maybe_screenshot() -> void:
 				vl.drivable(mp.position.x, mp.position.z), mp._curb, gi, goals.size(), goals[gi], mp.is_on_wall()])
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
+			get_tree().quit()
+		"paivikoti":
+			# Päivin auto kotipihassa pelin alussa: paikka suhteessa kotiin ja autotalliin, kuvat ylhäältä ja kadulta.
+			for i in 30:
+				await get_tree().process_frame
+			var wp: Vector3 = wife.global_position
+			print("PAIVI vaihe %s, pysäköity %s, auto %s, koti %s, tallin ovi %s, kello %s" % [_wife_phase, wife.parked, wp, home_zone,
+				world.garage_door, _clock_text()])
+			var cam := get_viewport().get_camera_3d()
+			var gd: Vector3 = world.garage_door
+			print("PAIVI tallin suunta %s" % world.garage_out)
+			for v in [["_ylha", wp + Vector3(0, 28, 6), wp], ["_viisto", wp + Vector3(-10, 6, 12), wp], ["_talli", gd + Vector3(0, 22, 4), gd]]:
+				for i in 10:
+					cam.look_at_from_position(v[1], v[2])
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", v[0] + ".png"))
 			get_tree().quit()
 		"mokkiratsia":
 			# Moporatsia: selvänä, rattijuopumus (0,7 ‰), ratsian ohitus ja törkeä rattijuopumus (iso sakko).
