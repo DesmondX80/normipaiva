@@ -635,6 +635,47 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			for i in 10:
 				_r(img, 2 + i, 12 - i, 3, 3, Color(0.86, 0.72, 0.48))
 				_r(img, 2 + i, 11 - i, 2, 1, Color(0.42, 0.28, 0.14))
+		"sp_moottori":  # napamoottori: musta napa ja pinnojen reiät
+			_c(img, 8, 8, 6.5, Color(0.14, 0.14, 0.15))
+			_c(img, 8, 8, 4.0, Color(0.3, 0.3, 0.32))
+			_c(img, 8, 8, 1.6, Color(0.7, 0.7, 0.72))
+			for k in 8:
+				var a := k * TAU / 8.0
+				_r(img, int(8 + cos(a) * 5.3), int(8 + sin(a) * 5.3), 1, 1, Color(0.7, 0.7, 0.72))
+		"sp_akku":  # Makitan turkoosi akku
+			_r(img, 2, 5, 12, 8, Color(0.0, 0.55, 0.55))
+			_r(img, 2, 5, 4, 8, Color(0.12, 0.12, 0.13))
+			_r(img, 8, 3, 4, 2, Color(0.12, 0.12, 0.13))
+			_r(img, 7, 8, 5, 1, Color(0.9, 0.95, 0.95))
+		"sp_ohjain":  # ohjainkotelo ja keltainen kaasukahva
+			_r(img, 2, 7, 9, 6, Color(0.14, 0.14, 0.15))
+			_r(img, 3, 8, 3, 1, Color(0.7, 0.7, 0.7))
+			_r(img, 9, 2, 6, 3, Color(0.85, 0.75, 0.1))
+			_r(img, 11, 5, 1, 3, Color(0.05, 0.05, 0.05))
+		"sp_johdot":  # johtonippu
+			for i in 4:
+				var col: Color = [Color(0.85, 0.1, 0.1), Color(0.05, 0.05, 0.05), Color(0.1, 0.25, 0.8), Color(0.9, 0.8, 0.1)][i]
+				for x in 12:
+					_r(img, 2 + x, 4 + i * 2 + int(sin(x * 0.7 + i) * 1.2), 1, 1, col)
+			_r(img, 13, 3, 2, 10, Color(0.75, 0.55, 0.2))
+		"sp_ruuvit":
+			for p in [Vector2i(3, 3), Vector2i(9, 5), Vector2i(5, 10)]:
+				_r(img, p.x, p.y, 4, 2, Color(0.75, 0.75, 0.78))
+				_r(img, p.x + 1, p.y + 2, 2, 3, Color(0.6, 0.6, 0.63))
+		"sp_teippi", "sp_sahkoteippi":  # teippirulla: harmaa jeesusteippi tai sininen sähköteippi
+			var col := Color(0.62, 0.63, 0.6) if id == "sp_teippi" else Color(0.1, 0.2, 0.75)
+			_c(img, 8, 8, 6.0, col)
+			_c(img, 8, 8, 2.8, Color(0.85, 0.75, 0.55))
+			_c(img, 8, 8, 1.8, Color(0, 0, 0, 0))
+			_r(img, 13, 9, 2, 5, col.darkened(0.2))
+		"sp_nippu":  # nippusiteitä nipussa
+			for i in 4:
+				_r(img, 3 + i * 3, 2, 1, 12, Color(0.95, 0.95, 0.92))
+				_r(img, 2 + i * 3, 2, 3, 2, Color(0.85, 0.85, 0.82))
+		"sp_rautalanka":  # rautalankakerä
+			for k in 3:
+				_c(img, 8, 8, 6.0 - k * 1.6, Color(0.55, 0.55, 0.58))
+				_c(img, 8, 8, 5.3 - k * 1.6, Color(0, 0, 0, 0))
 		"tuote":
 			_r(img, 4, 2, 8, 12, tint)
 			_r(img, 5, 5, 6, 4, Color(0.97, 0.97, 0.95))
