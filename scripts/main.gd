@@ -640,6 +640,8 @@ const TALKERS := {
 	"siitari_sinikka": ["Sinikka", Color(1.0, 0.55, 0.75)],
 	"zabuki": ["Zabuki", Color(1.0, 0.78, 0.1)],
 	"gasthaus": ["Gasthausin emäntä", Color(0.75, 0.9, 0.6)],
+	"nuoret": ["Porukka aidan takana", Color(0.6, 0.9, 1.0)],
+	"mopopojat": ["Mopopojat", Color(1.0, 0.85, 0.3)],
 	"kauppias": ["Kauppias", Color(0.6, 0.82, 1.0)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
@@ -652,7 +654,11 @@ const TALK_HELLO := {
 	"taksi": ["No mihinkäs lähetään?", "Kyytiä vailla?"],
 	"kauppias": ["Päivää! Löytykö kaikki?", "Seuraava, olkaa hyvä."],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
-	"gasthaus": ["Iltaa. Huonetta vailla?", "Tervetuloa Gasthausiin. Yö maksaa kympin."]}
+	"gasthaus": ["Iltaa. Huonetta vailla?", "Tervetuloa Gasthausiin. Yö maksaa kympin."],
+	"mopopojat": ["No, ukko mopolla. Uskallatko kiihdytykseen?", "Meiän Tunturit vetää. Mitä sun romu tekee?",
+		"Vaalantien suora on vapaa. Kisataanko?"],
+	"nuoret": ["No moi! Tuu istuun, tukilla on tilaa.", "Ei kai sää oo järkkäri? Ai et. No istu alas.",
+		"Shh, kytät käy joskus portilla. Tänne metsään ne ei tuu."]}
 const POJAT_LINES := ["Meiän isä sanoo, että Saloisissa on Suomen parhaat mansikat.", "Setä, osaatko pallotella?",
 	"Me pelataan tässä joka päivä. Paitsi kun sataa.", "Meiän pallo on ihan uus. Tai oli."]
 var _menu_mode := "give"  # esinevalikon käyttö: "give" (pojat) tai "eat" (T: syö)
@@ -4594,6 +4600,10 @@ func _talk_open_info(who: String) -> String:
 			return interior.price_note()
 		"raahe", "siitari", "zabuki", "gasthaus":
 			return "Rahaa %s €." % _eur(money)
+		"mopopojat":
+			return "Rahaa %s €. Kisoja voitettu %d." % [_eur(money), _race_wins]
+		"nuoret":
+			return "Lavalta kuuluu humppa aidan yli. Kaljoja mukana %d." % beers
 	return ""
 
 
@@ -4756,6 +4766,14 @@ func _talk_options(who := "") -> Array:
 				var q: Array = _quiz[_quiz_i]
 				for k in (q[1] as Array).size():
 					o.append(_opt("visa_%d" % k, q[1][k]))
+		"mopopojat":
+			o.append(_opt("kisa", "Kiihdytys Tunturi-Janin kanssa (panos %s €)" % _eur(RACE_BET), money >= RACE_BET, "rahat ei riitä", true))
+			o.append(_opt("kisa_iso", "Kiihdytys Pakoputki-Peteä vastaan (panos %s €, viritetty mopo)" % _eur(RACE_BET_BIG),
+				money >= RACE_BET_BIG, "rahat ei riitä", true))
+		"nuoret":
+			_nuoret_new_day()
+			o.append(_opt("huikka", "Ota huikka kossu-vissystä", _nuoret_huikat < NUORET_HUIKAT, "pullo on tyhjä"))
+			o.append(_opt("tarjoa", "Tarjoa kalja porukalle", beers > 0, "ei kaljaa mukana"))
 		"zabuki":
 			for id in ZABUKI_MENU:
 				var m: Array = ZABUKI_MENU[id]
@@ -4826,6 +4844,12 @@ func _talk_choose(id: String) -> void:
 				_talk_box.reply(r[0], _talk_options(), r[1])
 		"kauppias":
 			_talk_kauppias(id)
+		"mopopojat":
+			_talk_box.close()
+			_start_race(RACE_BET_BIG if id == "kisa_iso" else RACE_BET, id == "kisa_iso")
+		"nuoret":
+			var r := _on_nuoret(id)
+			_talk_box.reply(r[0], _talk_options(), r[1])
 		"zabuki":
 			var r := _on_zabuki(id.trim_prefix("osta_"))
 			_talk_box.reply(r[0], _talk_options(), r[1] + "   Rahaa %s €." % _eur(money))
@@ -5002,6 +5026,10 @@ func _talk_chat_line() -> String:
 			return SINIKKA_BAR_LINES.pick_random()
 		"zabuki":
 			return ZABUKI_LINES.pick_random()
+		"nuoret":
+			return NUORET_LINES.pick_random()
+		"mopopojat":
+			return MOPOPOJAT_LINES.pick_random()
 		"gasthaus":
 			return GASTHAUS_LINES.pick_random()
 	return ""
@@ -7627,6 +7655,12 @@ func _on_vaala_door(id: String) -> void:
 			_take_cache("vaala")
 		"zabuki":
 			_talk_open("zabuki", null)
+		"bileet":
+			_talk_open("nuoret", null)
+		"kiihdytys":
+			_talk_open("mopopojat", null)
+		"pummi":
+			_pummi_lava()
 		"gasthaus":
 			_talk_open("gasthaus", null)
 		"tynnyrisauna":
@@ -7713,13 +7747,22 @@ func _on_vaala_shop_exited(bought: bool) -> void:
 var _lava_game: Node3D
 
 
-func _enter_lava() -> void:
+func _enter_lava(free := false) -> void:
+	if _lava_game != null:
+		return
+	if free:
+		_lava_start()
+		return
 	if money < MopoTrip.LAVA_TICKET:
 		_show_message("Lippu maksaa %s €. Rahat ei riitä – pankkiautomaatti on K-Market Tervaportin seinällä." %
 			_eur(MopoTrip.LAVA_TICKET), 3.5)
 		return
 	money -= MopoTrip.LAVA_TICKET
 	Sfx.play("coin", -4.0)
+	_lava_start()
+
+
+func _lava_start() -> void:
 	mopo_trip.stop()
 	_mopo_foot_inside()
 	state = "lava"
@@ -7735,6 +7778,159 @@ func _enter_lava() -> void:
 	mopo_trip.vaala.add_child(_lava_game)
 	_lava_game.position = mopo_trip.vaala.lava_center
 	_lava_game.finished.connect(_on_lava_finished)
+
+
+# --- 90-luvun nuorison lavahommat (vaala.gd _build_lava_youth) ------------------------------------------------
+
+## Pummilla lavalle: aidan järvenpuoleisen pään ympäri kahlaten. Järkkäri saattaa odottaa rannassa (vinkin kuullut
+## osaa mennä oikeaan aikaan, humalassa loiskuu enemmän). Kiinni jäädessä takaisin aidan taakse märkänä.
+const PUMMI_CAUGHT := 0.35
+const PUMMI_CAUGHT_TIP := 0.15
+var _pummi_tip := false  # porukka aidan takana kertoi reitin ja järkkärin tavat
+
+
+func _pummi_lava() -> void:
+	if _lava_game != null:
+		return
+	Sfx.play("water", -2.0, 1.0, 1.4)
+	tilat.first("pummi_lava", 0.3)
+	tilat.add("kipu", 0.05)  # vesi on kylmää
+	var chance: float = (PUMMI_CAUGHT_TIP if _pummi_tip else PUMMI_CAUGHT) + tilat.value("humala") * 0.3
+	if randf() < chance:
+		maine = clampf(maine - 3.0, 0.0, 100.0)
+		tilat.add("moraali", -0.1)
+		Sfx.play("alert", -6.0)
+		_show_message("Kahlasit vyötäröä myöten aidan pään ympäri, mutta järkkäri odotti rannassa taskulampun kanssa: \"Märät farkut paljastaa. Takasin aidan taakse!\"", 4.5)
+		return
+	tilat.add("moraali", 0.1)
+	tilat.add("stressi", 0.1)
+	mielihyva = clampf(mielihyva + 3.0, 0.0, 100.0)
+	_msg.text = ""
+	_msg_time = 0.0
+	_enter_lava(true)
+	if _lava_game != null:
+		_lava_game._intro_text("Pummilla sisään järven kautta, eikä järkkäri nähnyt!\nFarkut märkänä polviin asti, mutta lippu jäi ostamatta.\n")
+
+
+## Mopojen kiihdytyskisa (mopo_race.gd): Zabukin pihan mopopojat, 150 m Vaalantien suoralla. Voitto tuplaa
+## panoksen ja nostaa mainetta; humala heiluttaa vaihtoikkunaa.
+const RACE_BET := 5.0
+const RACE_BET_BIG := 20.0
+const MopoRace := preload("res://scripts/mopo_race.gd")
+const MOPOPOJAT_LINES := ["Pete poras sylinterin seiskytkuutoseks. Kytät ei tiiä.",
+	"Lähtö on kaikki kaikessa. Vihreä palaa ja kaasu pohjaan, ei yhtään aikasemmin.",
+	"Vaihda ku kierrokset on ylhäällä, mutta ei rajottimella. Muuten Jani vie.",
+	"Tää suora on Vaalan paras. Paitsi ku tulee rekka.",
+	"Viime viikolla Pete veti 150 metriä alle kahentoista sekunnin. Väittää ainakin.",
+	"Kesäduunirahat meni pakoputkeen. Kuulostaa ainakin nopealta."]
+var _race: Node3D
+var _race_bet := 0.0
+var _race_wins := 0
+
+
+func _start_race(bet: float, big: bool) -> void:
+	if _race != null or money < bet:
+		return
+	var vl: Node3D = mopo_trip.vaala
+	var track: Array[Vector3] = vl.race_track()
+	if track.size() < 2:
+		_show_message("Suora on tänään täynnä rekkoja. Ei kisata.", 2.5)
+		return
+	_race_bet = bet
+	mopo_trip.stop()
+	_mopo_foot_inside()
+	state = "mopokisa"
+	_hud.visible = false
+	_mopo_label.visible = false
+	_compass.visible = false
+	tilat.first("mopokisa", 0.3)
+	_race = MopoRace.new()
+	_race.track = track
+	_race.drunk = tilat.value("humala")
+	_race.opp_skill = randf_range(0.75, 0.95) if big else randf_range(0.3, 0.6)
+	_race.opp_name = "Pakoputki-Pete" if big else "Tunturi-Jani"
+	_race.finished.connect(_on_race_finished)
+	vl.add_child(_race)
+
+
+func _on_race_finished(won: bool, my_time: float, opp_time: float) -> void:
+	_race.queue_free()
+	_race = null
+	state = _vaala_state
+	_hud.visible = true
+	_mopo_label.visible = true
+	_compass.visible = true
+	_mopo_resume()
+	mopo_trip._resume_frame = Engine.get_process_frames()
+	var t := ("%.2f s" % my_time).replace(".", ",") if my_time < 90.0 else "ei aikaa"
+	if won:
+		money += _race_bet
+		_race_wins += 1
+		maine = clampf(maine + 3.0, 0.0, 100.0)
+		mielihyva = clampf(mielihyva + 4.0, 0.0, 100.0)
+		tilat.add("moraali", 0.15)
+		tilat.first("mopokisa_voitto", 0.3)
+		_show_message("Voitit kiihdytyksen (%s)! +%s €. Mopopojat katsoo mopoa uusin silmin." % [t, _eur(_race_bet)], 4.0)
+	else:
+		money -= _race_bet
+		tilat.add("moraali", -0.05)
+		_show_message("Hävisit kiihdytyksen (%s). Panos %s € meni. \"Hanki parempi mopo, ukko.\"" % [t, _eur(_race_bet)], 4.0)
+
+
+## Porukka aidan takana metsässä: huikat kiertävästä pullosta (kolme päivässä), kalja porukalle ja jutut.
+const NUORET_HUIKAT := 3
+const NUORET_LINES := [
+	"Sisällä soittaa joku humppabändi. Me mennään diskopuolelle vasta, ku on tarpeeks rohkeutta.",
+	"Lippu maksaa ihan liikaa. Ens kerralla kahlataan taas aidan päästä, vesi on vaan polviin.",
+	"Mun Tunturi kulkee kuuttakymppiä alamäkeen. Kaveri poras sylinterin, ei kerrota kenellekään.",
+	"Iskä on ollu työttömänä koko laman. Lavalla siitä ei ainakaan puhuta.",
+	"Mummo sano, että Kesäillan valssi kuvataan täällä. Mä meen eturiviin ja vilkutan.",
+	"Dingo soitti täällä joskus. Äiti meinas pyörtyä, kun Neumann katto sitä.",
+	"Pullo kiertää myötäpäivään, älä jää pitämään.",
+	"Ku lava loppuu, mennään Zabukille ranskalaisille ja Siitarin pihaan pyörimään.",
+	"Kossu-vissy on paras. Pelkkä kossu on pahaa ja pelkkä vissy on lasten juoma.",
+	"Iskä sanoo, että EU vie meiltä maitokiintiöt. En tiiä mikä se on, mutta iskä on vihanen.",
+	"Kesäduunissa voimayhtiöllä siivottiin rantoja. Rahat meni mopon pakoputkeen.",
+	"Viime lauantaina joku oksens järkkärin kenkiin. Se oli Make. Make ei oo täällä tänään.",
+	"Kasetti on äänitetty radiosta, alussa puhuu Radio Mafian juontaja.",
+]
+var _nuoret_day := -1
+var _nuoret_huikat := 0
+
+
+func _nuoret_new_day() -> void:
+	if _nuoret_day != day:
+		_nuoret_day = day
+		_nuoret_huikat = 0
+
+
+func _on_nuoret(id: String) -> Array:
+	_nuoret_new_day()
+	match id:
+		"huikka":
+			_nuoret_huikat += 1
+			tilat.add("humala", 0.12)
+			tilat.add("stressi", 0.05)
+			tilat.add("moraali", 0.05)
+			tilat.first("nuoret_huikka", 0.2)
+			Sfx.play("glass", -6.0, 0.9)
+			if _nuoret_huikat >= NUORET_HUIKAT:
+				return ["Viimeset tipat meni sulle. Hae Tervaportista uus pullo, ni jatketaan.", "Pullo tyhjä."]
+			return [["Glug. Vissyä on ihan liian vähän.", "Kurkkua polttaa? Se kuuluu asiaan.", "Noni, nyt sää oot yks meistä."].pick_random(),
+				"Huikka kossu-vissyä. Humala nousee."]
+		"tarjoa":
+			beers -= 1
+			player.set_carrying(beers > 0)
+			maine = clampf(maine + 2.0, 0.0, 100.0)
+			tilat.add("moraali", 0.1)
+			tilat.first("nuoret_kalja", 0.2)
+			Sfx.play("glass", -6.0, 1.1)
+			if not _pummi_tip:
+				_pummi_tip = true
+				return ["Sää oot legenda! Kuule: lavalle pääsee ilmaseks. Aidan pää on järvessä, kahlaa rantaa pitkin ympäri. Järkkäri vahtii yleensä porttia, ei rantaa.",
+					"Vinkki: pummireitti on aidan järvenpuoleisessa päässä (järkkäri huomaa harvemmin)."]
+			return [["Kiitti! Kalja kiertää.", "Joku osaa käyttäytyä!", "Tölkki auki ja kippis."].pick_random(), "Tarjosit kaljan porukalle. Maine +2."]
+	return ["", ""]
 
 
 ## Lavan baari: tuoppi tiskiltä (kuten Zabukissa).
@@ -9310,7 +9506,7 @@ func _update_hud() -> void:
 	_clock_hud.day = day
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "lava", "cutscene"])
+	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "lava", "mopokisa", "cutscene"])
 	_minimap.vaala_on = _in_vaala and mopo_trip != null
 	if _minimap.vaala_on:
 		_minimap.vaala = mopo_trip.vaala
@@ -11385,6 +11581,112 @@ func _maybe_screenshot() -> void:
 				vl.drivable(mp.position.x, mp.position.z), mp._curb, gi, goals.size(), goals[gi], mp.is_on_wall()])
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
+			get_tree().quit()
+		"mokkikiihdytys":
+			# Mopojen kiihdytys: Zabukin pihan mopopojat, kisa (botti lähtee vihreällä ja vaihtaa vihreällä alueella).
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			_note.visible = false
+			money = 30.0
+			_mopo_dismount()
+			walker_out.global_position = mopo_trip.to_global(vl.race_spot + Vector3(0, 0.5, 0) + vl.doors.filter(func(d): return d.id == "kiihdytys")[0].out * 3.0)
+			for i in 15:
+				await get_tree().process_frame
+			print("KISA pihassa vihje '%s'" % mopo_trip.hint)
+			await snap.call("_piha.png")
+			var tr: Array = vl.race_track()
+			print("KISA rata %d pistettä, %.0f m suoraan" % [tr.size(), Vector2(tr[0].x, tr[0].z).distance_to(Vector2(tr[-1].x, tr[-1].z)) if tr.size() > 1 else 0.0])
+			_on_vaala_door("kiihdytys")
+			print("KISA valikko: %s" % str(_talk_options().map(func(o): return o.text)))
+			_talk_choose("kisa")
+			for i in 30:
+				await get_tree().process_frame
+			await snap.call("_valot.png")
+			var rc: Node3D = _race
+			while rc._green_at == 0.0:
+				await get_tree().process_frame
+			for i in 12:
+				await get_tree().process_frame
+			Input.action_press("forward")
+			await get_tree().process_frame
+			Input.action_release("forward")
+			var shot := 0
+			var t0 := Time.get_ticks_msec()
+			while is_instance_valid(rc) and rc._phase == "race" and Time.get_ticks_msec() - t0 < 30000:
+				var r: float = rc._rpm(rc._me)
+				if r > 0.86 and rc._me.gear < 3 and rc._me.shift <= 0.0:
+					Input.action_press("jump")
+					await get_tree().process_frame
+					Input.action_release("jump")
+					print("KISA vaihto %d: %s" % [rc._me.gear, rc._note])
+				await get_tree().process_frame
+				if Time.get_ticks_msec() - t0 > 3000 * (shot + 1) and shot < 3:
+					await snap.call("_ajo%d.png" % shot)
+					shot += 1
+			await snap.call("_maali.png")
+			print("KISA tulos: oma %.2f, vastustaja %.2f, '%s'" % [rc._me.time, rc._opp.time, rc._big.text])
+			t0 = Time.get_ticks_msec()
+			while state == "mopokisa" and Time.get_ticks_msec() - t0 < 8000:
+				await get_tree().process_frame
+			print("KISA jälkeen: tila %s, rahaa %.2f, viesti '%s', voitot %d" % [state, money, _msg.text, _race_wins])
+			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f.store_buffer(saved)
+			f.close()
+			get_tree().quit()
+		"mokkinuoret":
+			# Lavan nuorisohommat: porukka aidan takana (huikka, kalja -> pummivinkki), pummireitti järven kautta lavalle.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(name: String) -> void:
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_note.visible = false
+			beers = 2
+			_mopo_dismount()
+			print("NUORET bileet %s, pummi ulkona %s sisällä %s, lavan ovi %s" % [vl.party_pos, vl.pummi_out, vl.pummi_in, vl.lava_door])
+			var pp: Vector3 = vl.party_pos
+			walker_out.global_position = mopo_trip.to_global(pp + Vector3(0, 0.5, 0) + vl.doors.filter(func(d): return d.id == "bileet")[0].out * -3.5)
+			walker_out.global_rotation.y = atan2(pp.x - mopo_trip.to_local(walker_out.global_position).x, pp.z - mopo_trip.to_local(walker_out.global_position).z) + PI
+			for i in 15:
+				await get_tree().process_frame
+			print("NUORET bileissä vihje '%s'" % mopo_trip.hint)
+			await snap.call("_bileet.png")
+			_on_vaala_door("bileet")
+			print("NUORET valikko: %s" % str(_talk_options().map(func(o): return o.text)))
+			_talk_choose("huikka")
+			_talk_choose("tarjoa")
+			print("NUORET huikat %d, humala %.2f, kaljat %d, vinkki %s, vastaus '%s'" % [_nuoret_huikat, tilat.value("humala"), beers, _pummi_tip,
+				_talk_box._line])
+			await snap.call("_juttu.png")
+			_talk_box.close()
+			for i in 5:
+				await get_tree().process_frame
+			var po: Vector3 = vl.pummi_out
+			walker_out.global_position = mopo_trip.to_global(po + Vector3(0, 0.5, 0))
+			for i in 15:
+				await get_tree().process_frame
+			print("NUORET rannassa vihje '%s', kuiva %s" % [mopo_trip.hint, not vl.wet(po.x, po.z)])
+			await snap.call("_ranta.png")
+			var tries := 0
+			while _lava_game == null and tries < 12:
+				tries += 1
+				_pummi_lava()
+				print("NUORET pummiyritys %d: lavalla %s, viesti '%s'" % [tries, _lava_game != null, _msg.text])
+			await snap.call("_lava.png")
+			print("NUORET lavalla rahat %.2f, tila %s" % [money, state])
+			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f.store_buffer(saved)
+			f.close()
 			get_tree().quit()
 		"kuulokkeet":
 			# Valcon kuulokkeet: autotallin laatikosta, H päähän (väylien suotimet päälle, biisi soi), N seuraava, H pois.
