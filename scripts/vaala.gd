@@ -999,6 +999,7 @@ func _build_lava() -> void:
 		Vehicles.car(car, cols[k])
 	_build_lava_fence(lv)
 	_build_lava_youth(lv)
+	_build_lava_gate(lv, side)
 
 
 ## 90-luvun nuorison lavahommat: aidan järvenpuoleisen pään ympäri kahlataan pummilla sisään (pummi_out maalla aidan
@@ -1034,7 +1035,7 @@ func _build_lava_youth(lv: Dictionary) -> void:
 		pummi_out = Vector3(po.x, h(po.x, po.y), po.y)
 		pummi_in = Vector3(pn.x, h(pn.x, pn.y), pn.y)
 		doors.append({"id": "pummi", "pos": pummi_out, "out": Vector3(nrm.x, 0, nrm.y), "r": 4.0, "walk": true, "hint": "pummilla",
-			"text": "Pummilla lavalle järven kautta (ilmainen, jos järkkäri ei näe)"})
+			"text": "Pummilla lavan pihalle järven kautta (kahlaa aidan pään ympäri)"})
 		# Polku on tallattu rannan kaislikkoon: muutama lankku märkään kohtaan.
 		for k in 3:
 			var q := shore + dir * (-1.5 - k * 1.2) + nrm * 0.8
@@ -2264,6 +2265,122 @@ func _build_zabuki() -> void:
 	front.y = h(front.x, front.z)
 	doors.append({"id": "zabuki", "pos": front, "out": Vector3(f.x, 0, f.y), "hint": "Zabukin tiskille (olut ja hampurilaiset)"})
 	_build_race_crew(front, Vector3(f.x, 0, f.y))
+
+
+## Lavan portti: lippu ostetaan portilla (main.gd ovi "portti"), portsari kiertää pihaa (portsari.gd) ja portin
+## aukossa on näkymätön este, joka avataan leimalla (open_gate). Pihan teinit ryyppäävät parkkipaikan laidalla.
+var gate_out := Vector3.ZERO  # portin edusta ulkona (lipunosto, ulos heitetty)
+var gate_in := Vector3.ZERO
+var portsari_path: Array[Vector3] = []
+var yard_teens_pos := Vector3.ZERO
+var _gate_block: CollisionShape3D
+var _yard_lines: Array = []  # [rajaviivan piste, sisäänpäin osoittava normaali] aidan pätkittäin
+
+
+func _build_lava_gate(lv: Dictionary, side: float) -> void:
+	var pts: Array = lv.get("fence", [])
+	if pts.size() < 2 or lv.get("gate") == null:
+		return
+	var lc := Vector2(lv.x, lv.z)
+	for k in pts.size() - 1:
+		var a := Vector2(pts[k][0], pts[k][1])
+		var b := Vector2(pts[k + 1][0], pts[k + 1][1])
+		var d := (b - a).normalized()
+		var n := Vector2(-d.y, d.x)
+		if n.dot(lc - a) < 0.0:
+			n = -n
+		_yard_lines.append([a, n])
+	var g := Vector2(lv.gate[0], lv.gate[1])
+	var gd := (Vector2(pts[1][0], pts[1][1]) - Vector2(pts[0][0], pts[0][1])).normalized()
+	var inward: Vector2 = _yard_lines[0][1]
+	var go := g - inward * 3.0
+	var gi := g + inward * 3.0
+	gate_out = Vector3(go.x, h(go.x, go.y), go.y)
+	gate_in = Vector3(gi.x, h(gi.x, gi.y), gi.y)
+	var body := StaticBody3D.new()
+	body.position = Vector3(g.x, h(g.x, g.y), g.y)
+	body.rotation.y = atan2(gd.x, gd.y)
+	add_child(body)
+	_gate_block = B.box_shape(Vector3(0.4, 3.0, float(lv.get("gate_w", 6.0))), Vector3(0, 1.5, 0))
+	body.add_child(_gate_block)
+	doors.append({"id": "portti", "pos": gate_out, "out": Vector3(-inward.x, 0, -inward.y), "r": 5.5, "hint": "portille",
+		"text": "Oulujärven lava: lippu portilla"})
+	# Portsarin kierros: portilta lavan ovelle, oven eteen ja pihan nurkkaan.
+	var w: float = lv.w
+	var l: float = lv.l
+	var door := Vector2(lava_door.x, lava_door.z)
+	var route: Array[Vector2] = [gi + inward * 2.0, door + Vector2(side * 4.0, -l * 0.3), door + Vector2(side * 4.0, 0),
+		door + Vector2(side * 4.0, l * 0.35), door + Vector2(side * 4.0, 0), lc + Vector2(side * (w / 2.0 + 6.0), -l / 2.0 - 6.0)]
+	for q in route:
+		if in_lava_yard(Vector3(q.x, 0, q.y)) and not wet(q.x, q.y, 0.3):
+			portsari_path.append(Vector3(q.x, h(q.x, q.y), q.y))
+	# Teinit parkkipaikan laidalla: mopot, pullot ja kasettisoitin, nojailevat ja istuvat kivellä.
+	var tp := door + Vector2(side * 9.0, l * 0.3)
+	if not in_lava_yard(Vector3(tp.x, 0, tp.y)) or wet(tp.x, tp.y, 0.5):
+		tp = door + Vector2(side * 7.0, -l * 0.15)
+	yard_teens_pos = Vector3(tp.x, h(tp.x, tp.y), tp.y)
+	_build_yard_teens(tp, Vector2(-side, 0))
+	doors.append({"id": "pihanuoret", "pos": yard_teens_pos, "out": Vector3(-side, 0, 0), "r": 5.0, "walk": true, "hint": "teineille",
+		"text": "Teinit lavan pihalla: juttele"})
+
+
+## Onko kohta lavan aidan sisäpuolella (kaikkien aidan pätkien lavan puolella).
+func in_lava_yard(p: Vector3) -> bool:
+	if _yard_lines.is_empty():
+		return false
+	for ln in _yard_lines:
+		if (Vector2(p.x, p.z) - (ln[0] as Vector2)).dot(ln[1]) < 0.0:
+			return false
+	return true
+
+
+## Portin este pois (leima tai pummi pihalla) tai takaisin (heitetty ulos, uusi päivä).
+func open_gate(on: bool) -> void:
+	if _gate_block != null:
+		_gate_block.set_deferred("disabled", on)
+
+
+func _build_yard_teens(c: Vector2, face: Vector2) -> void:
+	var root := Node3D.new()
+	root.position = Vector3(c.x, h(c.x, c.y), c.y)
+	root.rotation.y = atan2(face.x, face.y)
+	add_child(root)
+	var Mopo := load("res://scripts/mopo.gd")
+	for k in 2:
+		var mp := Node3D.new()
+		mp.position = Vector3(-1.6 + k * 3.4, 0, -1.4)
+		mp.rotation.y = 0.4 - k * 0.9
+		root.add_child(mp)
+		Mopo.build_model(mp)
+		if k == 0:
+			for n in mp.find_children("*", "MeshInstance3D", true, false):
+				if (n as MeshInstance3D).material_override == B.mat(Color(0.72, 0.08, 0.06)):
+					(n as MeshInstance3D).material_override = B.mat(Color(0.15, 0.3, 0.75))
+	B.mesh(root, B.sphere(0.45, 8), Vector3(0.4, 0.2, 0.6), Color(0.5, 0.5, 0.48))  # istumakivi
+	var looks := [
+		{"shirt": Color(0.75, 0.75, 0.78), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buzzed",
+			"hair_color": Color(0.85, 0.75, 0.5), "height": 1.74, "bulk": -0.6, "tracksuit": {"a": Color(0.1, 0.5, 0.3), "b": Color(0.85, 0.85, 0.85)}},
+		{"model": "female", "shirt": Color(0.9, 0.85, 0.3), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.15, 0.15, 0.15), "hair": "Hair_Long",
+			"hair_color": Color(0.3, 0.18, 0.1), "height": 1.63, "bulk": -0.6},
+		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.3, 0.33), "shoes": Color(0.2, 0.2, 0.2), "hair": "Hair_SimpleParted",
+			"hair_color": Color(0.12, 0.1, 0.08), "height": 1.8, "bulk": -0.7},
+	]
+	var spots := [[Vector3(-0.9, 0, 0.3), "Idle_Talking", Vector3(1, 0, 0.2)], [Vector3(0.4, 0.42, 0.6), "Sitting_Talking", Vector3(-0.3, 0, -1)],
+		[Vector3(1.4, 0, 0.0), "Idle", Vector3(-1, 0, 0.3)]]
+	for i in looks.size():
+		var ch := Looks.make(root, looks[i])
+		ch.position = spots[i][0]
+		ch.rotation.y = B.yaw_to(spots[i][2])
+		ch.play(spots[i][1], 0.0)
+		if i == 2:
+			Looks.add_cap(ch)
+		party_people.append(ch)
+	for q in [Vector3(-0.5, 0.12, 1.0), Vector3(0.9, 0.12, 1.1), Vector3(1.8, 0.05, 0.7), Vector3(-1.3, 0.05, 0.9)]:
+		B.mesh(root, B.cyl(0.04, 0.05, 0.25, 8), q, Color(0.25, 0.45, 0.25) if q.y > 0.1 else Color(0.85, 0.85, 0.9))
+	B.mesh(root, B.boxm(Vector3(0.5, 0.22, 0.14)), Vector3(0.0, 0.11, 1.4), Color(0.12, 0.12, 0.14))  # kasettisoitin
+	var body := StaticBody3D.new()
+	root.add_child(body)
+	body.add_child(B.box_shape(Vector3(1.0, 0.5, 1.0), Vector3(0.4, 0.25, 0.6)))
 
 
 ## Mopopojat Zabukin pihassa (kiihdytyskisan haastajat, mopo_race.gd): kaksi mopoa ja kaksi poikaa nojailemassa.

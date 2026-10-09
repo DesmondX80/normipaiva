@@ -256,6 +256,7 @@ var _resume_frame := -1
 
 
 var menu_open := false  # main.gd: eväsvalikko auki, sen E ei avaa ovia
+var lava_hint := ""  # main.gd: lavan oven vihje leiman tai pummin mukaan (tyhjä = lippu ovella)
 var door_hidden := func(_id: String) -> bool: return false  # main.gd: käytetyt kertakohteet (löydetyt viinakätköt)
 
 
@@ -339,7 +340,7 @@ func _process(delta: float) -> void:
 			atm.emit()
 		return
 	if vaala.lava_door != Vector3.ZERO and pos.distance_to(vaala.lava_door) < 6.0 and _actor_still():
-		hint = "[E] Oulujärven lava: lavatanssit (lippu %s €)" % ("%.2f" % LAVA_TICKET).replace(".", ",")
+		hint = lava_hint if lava_hint != "" else "[E] Oulujärven lava: lavatanssit (lippu %s €)" % ("%.2f" % LAVA_TICKET).replace(".", ",")
 		if _interact():
 			mopo.speed = 0.0
 			lava.emit()
@@ -351,16 +352,16 @@ func _process(delta: float) -> void:
 			mopo.speed = 0.0
 			door.emit(near_door.id)
 		return
-	if target == "siitari":
-		if pos.distance_to(vaala.siitari_park) < ARRIVE_R + 6.0 or \
-				Vector2(pos.x - vaala.siitari_door.x, pos.z - vaala.siitari_door.z).length() < ARRIVE_R:
-			hint = "[E] %s Siitariin" % ("Mene" if on_foot != null else "Parkkeeraa mopo ja mene")
-			if _interact():
-				mopo.position = vaala.siitari_park + Vector3(0, 0.3, 0)
-				mopo.speed = 0.0
-				stop()
-				arrived.emit()
-	elif on_foot == null and pos.distance_to(vaala.mokki_mopo) < HOME_YARD_R:
+	# Siitariin pääsee aina (myös junalla tai Gasthausista tultaessa ja toisella käynnillä, kun matka on jo kotiin).
+	if pos.distance_to(vaala.siitari_park) < ARRIVE_R + 6.0 or \
+			Vector2(pos.x - vaala.siitari_door.x, pos.z - vaala.siitari_door.z).length() < ARRIVE_R:
+		hint = "[E] %s Siitariin" % ("Mene" if on_foot != null else "Parkkeeraa mopo ja mene")
+		if _interact():
+			mopo.position = vaala.siitari_park + Vector3(0, 0.3, 0)
+			mopo.speed = 0.0
+			stop()
+			arrived.emit()
+	elif target != "siitari" and on_foot == null and pos.distance_to(vaala.mokki_mopo) < HOME_YARD_R:
 		# Mökin pihaan ajettaessa kartta vaihtuu mökille itsestään (mopo parkkiin kuten lähtiessä).
 		stop()
 		finished.emit("home")

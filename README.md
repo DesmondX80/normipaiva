@@ -154,13 +154,15 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     asfaltoitua Pahalahdentietä juuri ennen radan alikulkua; `tools/vaala_lava.py` tekee niemen, leveän joen ja
     järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (punamullatut seinät, luukut auki, bändi
     lavalla) aivan rannassa niemen kärjessä lautatarha-aidan sisällä, jonka päät ulottuvat jokeen ja Pahalahteen:
-    lipulla (12 €) lavatansseihin, joissa A ja D vuorotellen tahdissa vievät parin tanssiin. Pelissä lava on
+    lippu (12 €) ostetaan aidan portilta, jossa portsari leimaa käden ja portti aukeaa koko päiväksi; lavatansseihin, joissa A ja D vuorotellen tahdissa vievät parin tanssiin. Pelissä lava on
     todellista (1 500 m²) vähän pienempi. Oulujärvi jatkuu niemeltä kaakkoon kartan reunaan asti.
-  - **90-luvun nuorison hupihommat:** lavalle pääsee **pummilla** kahlaamalla aidan järvenpuoleisen pään ympäri
-    (ilmainen, mutta järkkäri voi odottaa rannassa ja käännyttää märkiä farkkuja; humalassa loiskuu enemmän).
-    **Aidan takana metsässä** porukka ryyppää nuotiolla kuusikossa, mopot puiden välissä ja kasettisoitin soimassa:
+  - **90-luvun nuorison hupihommat:** rahaton pääsee lavan pihalle **pummilla** kahlaamalla aidan järvenpuoleisen
+    pään ympäri (mopo jää rantaan). Leimaa ei silloin ole, ja **portsari** kiertää pihaa portilta lavan ovelle
+    näkökenttä maassa kuten Saloisten K-Marketin Anna-Liisa: liian pitkä katse ja portsari taluttaa niskasta portista
+    ulos (maine laskee). Lavan pihalla parkkipaikan laidalla **teinit** ryyppäävät mopojensa vieressä (huikat ja
+    jutut kuten aidan takana). **Aidan takana metsässä** porukka ryyppää nuotiolla kuusikossa, mopot puiden välissä ja kasettisoitin soimassa:
     huikka kiertävästä kossu-vissypullosta (kolme päivässä), kalja porukalle (maine nousee ja saa vinkin
-    pummireitistä, jolloin järkkäri huomaa harvemmin) ja jutut lamasta, EU:sta, Dingosta ja mopojen virityksistä
+    pummireitistä ja portsarin tavoista, jolloin portsari huomaa hitaammin) ja jutut lamasta, EU:sta, Dingosta ja mopojen virityksistä
     (`--scene=mokkinuoret`). **Mopojen kiihdytys:** Zabukin pihan mopopojat haastavat 150 metrin kiihdytykseen
     Vaalantien suoralla (Tunturi-Jani 5 € tai viritetyllä mopolla ajava Pakoputki-Pete 20 €): kolme punaista ja
     vihreä, W kaasu (ennen vihreää = vilppilähtö), välilyönti vaihtaa ylös kierrosmittarin vihreällä alueella

@@ -4234,19 +4234,34 @@ const CHEAT_MOKKI := "paapeli"
 ## Huijauskoodi: "vaala" ulkona (Saloisissa, mökillä tai Vaalan matkalla) vie Vaalaan Gasthausin pihaan kuin yön
 ## jälkeen: päivä vaihtuu kuten Gasthausissa nukkuessa (ilmaiseksi) ja mopo odottaa pihassa.
 const CHEAT_VAALA := "vaala"
+## Huijauskoodi: "rahaa" missä tahansa antaa 20 €.
+const CHEAT_RAHAA := "rahaa"
+const CHEAT_RAHAA_EUR := 20.0
 var _cheat_buf := ""
 
 
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo and event.unicode > 0):
 		return
-	_cheat_buf = (_cheat_buf + char(event.unicode).to_lower()).right(maxi(CHEAT_MOKKI.length(), CHEAT_VAALA.length()))
+	_cheat_buf = (_cheat_buf + char(event.unicode).to_lower()).right(maxi(CHEAT_MOKKI.length(), maxi(CHEAT_VAALA.length(), CHEAT_RAHAA.length())))
 	if _cheat_buf.ends_with(CHEAT_MOKKI):
 		_cheat_buf = ""
 		_cheat_mokki.call_deferred()
 	elif _cheat_buf.ends_with(CHEAT_VAALA):
 		_cheat_buf = ""
 		_cheat_vaala.call_deferred()
+	elif _cheat_buf.ends_with(CHEAT_RAHAA):
+		_cheat_buf = ""
+		_cheat_rahaa.call_deferred()
+
+
+func _cheat_rahaa() -> void:
+	await get_tree().process_frame
+	if _inventory.visible:
+		_inventory.toggle()  # koodin I ei kirjoita, mutta varmuuden vuoksi kuten muissa koodeissa
+	money += CHEAT_RAHAA_EUR
+	Sfx.play("coin", -4.0)
+	_show_message("Taskusta löytyi kaksikymppinen! +%s €. Rahaa %s €." % [_eur(CHEAT_RAHAA_EUR), _eur(money)], 2.5)
 
 
 func _cheat_mokki() -> void:
@@ -6325,7 +6340,7 @@ func _ensure_mopo_trip() -> void:
 		mopo_trip.lava.connect(_enter_lava)
 		mopo_trip.crashed.connect(_on_mopo_crashed)
 		mopo_trip.door_hidden = func(id: String) -> bool: return (id == "viski" and "viski" in viina_found) or \
-			(id == "katko" and asema_katkot.get("vaala", 0) != 1)
+			(id == "katko" and asema_katkot.get("vaala", 0) != 1) or (id == "portti" and _lava_pass_now() != "")
 		_paper.mopo_trip = mopo_trip
 	mopo_trip.ensure_built()
 
@@ -6387,6 +6402,7 @@ func _vaala_logic() -> void:
 		("%.1f" % (left / 1000.0)).replace(".", ",")])
 	_mopo_mount_logic()
 	_ratsia_logic()
+	_lava_yard_logic()
 
 
 var _mopo_dry := Vector3.ZERO  # jalan: viimeisin kuiva paikka
@@ -7681,8 +7697,10 @@ func _on_vaala_door(id: String) -> void:
 			_take_cache("vaala")
 		"zabuki":
 			_talk_open("zabuki", null)
-		"bileet":
+		"bileet", "pihanuoret":
 			_talk_open("nuoret", null)
+		"portti":
+			_lava_gate()
 		"kiihdytys":
 			_talk_open("mopopojat", null)
 		"pummi":
@@ -7776,16 +7794,12 @@ var _lava_game: Node3D
 func _enter_lava(free := false) -> void:
 	if _lava_game != null:
 		return
-	if free:
+	if free or _lava_pass_now() != "":
 		_lava_start()
+		if _lava_pass_now() == "pummi" and _lava_game != null:
+			_lava_game._intro_text("Pummilla sisällä! Farkut märkänä polviin asti, mutta lippu jäi ostamatta.\n")
 		return
-	if money < MopoTrip.LAVA_TICKET:
-		_show_message("Lippu maksaa %s €. Rahat ei riitä – pankkiautomaatti on K-Market Tervaportin seinällä." %
-			_eur(MopoTrip.LAVA_TICKET), 3.5)
-		return
-	money -= MopoTrip.LAVA_TICKET
-	Sfx.play("coin", -4.0)
-	_lava_start()
+	_show_message("Lippu ostetaan aidan portilta (%s €), portsari leimaa käden." % _eur(MopoTrip.LAVA_TICKET), 3.0)
 
 
 func _lava_start() -> void:
@@ -7810,32 +7824,100 @@ func _lava_start() -> void:
 
 ## Pummilla lavalle: aidan järvenpuoleisen pään ympäri kahlaten. Järkkäri saattaa odottaa rannassa (vinkin kuullut
 ## osaa mennä oikeaan aikaan, humalassa loiskuu enemmän). Kiinni jäädessä takaisin aidan taakse märkänä.
-const PUMMI_CAUGHT := 0.35
-const PUMMI_CAUGHT_TIP := 0.15
 var _pummi_tip := false  # porukka aidan takana kertoi reitin ja järkkärin tavat
 
 
 func _pummi_lava() -> void:
 	if _lava_game != null:
 		return
+	if _lava_pass_now() != "":
+		_show_message("Leima on jo kädessä, ei tarvi kahlata. Portti on auki.", 2.5)
+		return
+	if mopo_trip.on_foot == null:
+		_mopo_dismount()  # mopolla ei kahlata: mopo jää rantaan aidan ulkopuolelle
+	var vl: Node3D = mopo_trip.vaala
+	walker_out.global_position = mopo_trip.to_global(vl.pummi_in + Vector3(0, 0.5, 0))
+	walker_out.velocity = Vector3.ZERO
+	_mopo_dry = walker_out.global_position
 	Sfx.play("water", -2.0, 1.0, 1.4)
 	tilat.first("pummi_lava", 0.3)
 	tilat.add("kipu", 0.05)  # vesi on kylmää
-	var chance: float = (PUMMI_CAUGHT_TIP if _pummi_tip else PUMMI_CAUGHT) + tilat.value("humala") * 0.3
-	if randf() < chance:
-		maine = clampf(maine - 3.0, 0.0, 100.0)
-		tilat.add("moraali", -0.1)
-		Sfx.play("alert", -6.0)
-		_show_message("Kahlasit vyötäröä myöten aidan pään ympäri, mutta järkkäri odotti rannassa taskulampun kanssa: \"Märät farkut paljastaa. Takasin aidan taakse!\"", 4.5)
+	tilat.add("stressi", 0.05)
+	_lava_pass = "pummi"
+	_lava_pass_day = day
+	_show_message("Kahlasit vyötäröä myöten aidan pään ympäri lavan pihalle! Leimaa ei ole: varo portsaria ja sen katsetta.", 4.5)
+
+
+## Lavan portti ja leima: lippu ostetaan portilla (portsari leimaa käden, portti auki koko päivän). Pummilla pihalle
+## tullut on portsarin silmätikkuna (portsari.gd): kiinni jäänyt heitetään portista ulos. Leima vanhenee yön yli.
+var _lava_pass := ""  # "" | "lippu" | "pummi"
+var _lava_pass_day := -1
+var _portsari: CharacterBody3D
+const Portsari := preload("res://scripts/portsari.gd")
+
+
+func _lava_pass_now() -> String:
+	return _lava_pass if _lava_pass_day == day else ""
+
+
+func _lava_gate() -> void:
+	if _lava_pass_now() != "":
 		return
-	tilat.add("moraali", 0.1)
-	tilat.add("stressi", 0.1)
-	mielihyva = clampf(mielihyva + 3.0, 0.0, 100.0)
-	_msg.text = ""
-	_msg_time = 0.0
-	_enter_lava(true)
-	if _lava_game != null:
-		_lava_game._intro_text("Pummilla sisään järven kautta, eikä järkkäri nähnyt!\nFarkut märkänä polviin asti, mutta lippu jäi ostamatta.\n")
+	if money < MopoTrip.LAVA_TICKET:
+		if _portsari != null:
+			_portsari.say("Lippu %s €. Ei rahaa, ei lavaa." % _eur(MopoTrip.LAVA_TICKET))
+		_show_message("Lippu maksaa %s €, rahaa %s €. Portsari ei päästä. %s" % [_eur(MopoTrip.LAVA_TICKET), _eur(money),
+			"Rahaton pääsee pummilla: aidan pää on järvessä, kahlaa ympäri (varo portsaria)."], 4.0)
+		return
+	money -= MopoTrip.LAVA_TICKET
+	Sfx.play("coin", -4.0)
+	_lava_pass = "lippu"
+	_lava_pass_day = day
+	tilat.first("lava_lippu", 0.1)
+	if _portsari != null:
+		_portsari.say("Kättä. Noin, leima. Hyvää iltaa!")
+	_show_message("Lippu %s €, portsari leimasi käden. Portti auki: lavan ovelle!" % _eur(MopoTrip.LAVA_TICKET), 3.0)
+
+
+func _lava_yard_logic() -> void:
+	var vl: Node3D = mopo_trip.vaala
+	if vl == null or vl.portsari_path.is_empty():
+		return
+	if _portsari == null or not is_instance_valid(_portsari):
+		_portsari = Portsari.new()
+		_portsari.waypoints = vl.portsari_path
+		_portsari.pauses = {0: 6.0, 2: 5.0}
+		_portsari.ground = vl.h
+		vl.add_child(_portsari)
+		_portsari.position = vl.portsari_path[0]
+		_portsari.busted.connect(_on_portsari_busted)
+	var pass_now := _lava_pass_now()
+	vl.open_gate(pass_now != "")
+	_portsari.target = player
+	_portsari.tip = _pummi_tip
+	_portsari.watch = pass_now == "pummi" and _lava_game == null and vl.in_lava_yard(mopo_trip.to_local(player.global_position))
+	mopo_trip.lava_hint = ("[E] Oulujärven lava: lavatanssit (leima kädessä)" if pass_now == "lippu" else
+		("[E] Oulujärven lava: livahda sisään (pummilla, varo portsaria)" if pass_now == "pummi" else ""))
+
+
+## Portsari bongasi pummin: portista ulos, leima (pummi) pois ja maine laskee.
+func _on_portsari_busted() -> void:
+	var vl: Node3D = mopo_trip.vaala
+	_lava_pass = ""
+	maine = clampf(maine - 3.0, 0.0, 100.0)
+	tilat.add("moraali", -0.1)
+	tilat.add("stressi", -0.1)
+	tilat.first("portsari_ulos", 0.2)
+	var out: Vector3 = mopo_trip.to_global(vl.gate_out + Vector3(0, 0.5, 0))
+	if mopo_trip.on_foot != null:
+		walker_out.global_position = out
+		walker_out.velocity = Vector3.ZERO
+		_mopo_dry = out
+	else:
+		mopo_trip.mopo.position = vl.gate_out + Vector3(0, 0.6, 0)
+		mopo_trip.mopo.speed = 0.0
+	Sfx.play("lose", -4.0)
+	_show_message("Portsari talutti sinut niskasta portista ulos: \"Leimaa ei näy! Lippu %s € tai kotiin.\"" % _eur(MopoTrip.LAVA_TICKET), 4.0)
 
 
 ## Poliisin moporatsia (ratsia.gd) mopomatkan varrella: joka matkalla mahdollinen, iltaisin todennäköisempi.
@@ -7985,7 +8067,7 @@ const RACE_BET := 5.0
 const RACE_BET_BIG := 20.0
 const MopoRace := preload("res://scripts/mopo_race.gd")
 const MOPOPOJAT_LINES := ["Pete poras sylinterin seiskytkuutoseks. Kytät ei tiiä.",
-	"Lähtö on kaikki kaikessa. Vihreä palaa ja kaasu pohjaan, ei yhtään aikasemmin.",
+	"Pidä kaasu pohjassa jo punaisilla, mutta ei rajottimella. Vihreällä kytkin irti.",
 	"Vaihda ku kierrokset on ylhäällä, mutta ei rajottimella. Muuten Jani vie.",
 	"Tää suora on Vaalan paras. Paitsi ku tulee rekka.",
 	"Viime viikolla Pete veti 150 metriä alle kahentoista sekunnin. Väittää ainakin.",
@@ -8014,7 +8096,7 @@ func _start_race(bet: float, big: bool) -> void:
 	_race = MopoRace.new()
 	_race.track = track
 	_race.drunk = tilat.value("humala")
-	_race.opp_skill = randf_range(0.75, 0.95) if big else randf_range(0.3, 0.6)
+	_race.opp_skill = randf_range(0.6, 0.85) if big else randf_range(0.15, 0.45)
 	_race.opp_name = "Pakoputki-Pete" if big else "Tunturi-Jani"
 	_race.finished.connect(_on_race_finished)
 	vl.add_child(_race)
@@ -10511,6 +10593,7 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ulko.png"))
+			_lava_gate()  # lippu portilta (leima), sitten ovesta sisään
 			_enter_lava()
 			for i in 20:
 				await get_tree().process_frame
@@ -11757,6 +11840,27 @@ func _maybe_screenshot() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
 			get_tree().quit()
+		"mokkisiitariovi":
+			# Siitarin ovi: mopolla ja jalan, matkan kohde Siitari ja Paapeli (junalla tai Gasthausista tultaessa).
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+			var near := []
+			for d in vl.doors:
+				if d.pos.distance_to(vl.siitari_door) < 25.0:
+					near.append("%s %.1f m (r %.1f)" % [d.id, d.pos.distance_to(vl.siitari_door), d.get("r", 5.0)])
+			print("SIITARI ovi %s, parkki %s, ovet lähellä: %s" % [vl.siitari_door, vl.siitari_park, near])
+			for tg in ["siitari", "paapeli"]:
+				mopo_trip.target = tg
+				var mp: CharacterBody3D = mopo_trip.mopo
+				for at in [["parkki", vl.siitari_park], ["ovi", vl.siitari_door]]:
+					mp.position = at[1] + Vector3(0, 0.6, 0)
+					mp.speed = 0.0
+					for i in 10:
+						await get_tree().process_frame
+					print("SIITARI kohde %s, %s: vihje '%s', tila %s" % [tg, at[0], mopo_trip.hint, state])
+			get_tree().quit()
 		"paivikoti":
 			# Päivin auto kotipihassa pelin alussa: paikka suhteessa kotiin ja autotalliin, kuvat ylhäältä ja kadulta.
 			for i in 30:
@@ -11773,6 +11877,70 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", v[0] + ".png"))
+			get_tree().quit()
+		"mokkilavaportti":
+			# Lavan portti: ilman rahaa käännytys, lipulla leima ja portti auki; pummilla järven kautta pihalle ja
+			# portsari heittää ulos, kun näkee.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(name: String) -> void:
+				for i in 15:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_note.visible = false
+			_mopo_dismount()
+			var go: Vector3 = vl.gate_out
+			walker_out.global_position = mopo_trip.to_global(go + Vector3(0, 0.5, 0))
+			for i in 15:
+				await get_tree().process_frame
+			print("LAVA portilla vihje '%s', portsarin reitti %d pistettä, teinit %s" % [mopo_trip.hint, vl.portsari_path.size(), vl.yard_teens_pos])
+			money = 5.0
+			_on_vaala_door("portti")
+			print("LAVA ilman rahaa: leima '%s', viesti '%s'" % [_lava_pass_now(), _msg.text])
+			await snap.call("_portti.png")
+			money = 30.0
+			_on_vaala_door("portti")
+			for i in 5:
+				await get_tree().process_frame
+			print("LAVA lipulla: leima '%s', rahaa %.2f, portin ovi piilossa %s, lavan vihje '%s'" % [_lava_pass_now(), money,
+				mopo_trip.door_hidden.call("portti"), mopo_trip.lava_hint])
+			# Pummireitti: leima pois, rahat loppu, järven kautta pihalle.
+			_lava_pass = ""
+			money = 0.0
+			walker_out.global_position = mopo_trip.to_global(vl.pummi_out + Vector3(0, 0.5, 0))
+			for i in 10:
+				await get_tree().process_frame
+			print("LAVA rannassa vihje '%s'" % mopo_trip.hint)
+			_on_vaala_door("pummi")
+			for i in 10:
+				await get_tree().process_frame
+			var wl: Vector3 = mopo_trip.to_local(walker_out.global_position)
+			print("LAVA pummilla: pihalla %s, leima '%s', portsari vahtii %s, viesti '%s'" % [vl.in_lava_yard(wl), _lava_pass_now(), _portsari.watch, _msg.text])
+			var ps: Vector3 = _portsari.position
+			var fwd: Vector3 = -_portsari.global_transform.basis.z
+			walker_out.global_position = mopo_trip.to_global(vl.yard_teens_pos + Vector3(2.5, 0.5, 2.5))
+			await snap.call("_piha.png")
+			var wps: Array[Vector3] = [ps]
+			_portsari.waypoints = wps
+			_portsari.rotation.y = 0.0
+			var front: Vector3 = ps + Vector3(0, 0, -4.0)
+			walker_out.global_position = mopo_trip.to_global(front + Vector3(0, 0.5, 0))
+			var t0 := Time.get_ticks_msec()
+			while _lava_pass_now() == "pummi" and Time.get_ticks_msec() - t0 < 8000:
+				walker_out.global_position = mopo_trip.to_global(Vector3(front.x, vl.h(front.x, front.z) + 0.5, front.z))
+				await get_tree().process_frame
+			wl = mopo_trip.to_local(walker_out.global_position)
+			print("LAVA portsari: leima '%s', pihalla %s, portilta %.1f m, maine %.0f, viesti '%s'" % [_lava_pass_now(), vl.in_lava_yard(wl),
+				wl.distance_to(vl.gate_out), maine, _msg.text])
+			await snap.call("_ulos.png")
+			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f.store_buffer(saved)
+			f.close()
 			get_tree().quit()
 		"mokkiratsia":
 			# Moporatsia: selvänä, rattijuopumus (0,7 ‰), ratsian ohitus ja törkeä rattijuopumus (iso sakko).
@@ -11861,13 +12029,15 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await snap.call("_valot.png")
 			var rc: Node3D = _race
+			Input.action_press("forward")  # kaasu pohjassa jo punaisilla: ei vilppilähtöä, lähtö vihreällä
+			for i in 40:
+				await get_tree().process_frame
+			print("KISA punaisilla kaasu pohjassa: vaihe %s, kierrokset %.2f, matka %.1f m" % [rc._phase, rc._idle_rpm, rc._me.s])
 			while rc._green_at == 0.0:
 				await get_tree().process_frame
-			for i in 12:
+			for i in 3:
 				await get_tree().process_frame
-			Input.action_press("forward")
-			await get_tree().process_frame
-			Input.action_release("forward")
+			print("KISA lähtö: %s" % rc._note)
 			var shot := 0
 			var t0 := Time.get_ticks_msec()
 			while is_instance_valid(rc) and rc._phase == "race" and Time.get_ticks_msec() - t0 < 30000:
@@ -11881,6 +12051,7 @@ func _maybe_screenshot() -> void:
 				if Time.get_ticks_msec() - t0 > 3000 * (shot + 1) and shot < 3:
 					await snap.call("_ajo%d.png" % shot)
 					shot += 1
+			Input.action_release("forward")
 			await snap.call("_maali.png")
 			print("KISA tulos: oma %.2f, vastustaja %.2f, '%s'" % [rc._me.time, rc._opp.time, rc._big.text])
 			t0 = Time.get_ticks_msec()

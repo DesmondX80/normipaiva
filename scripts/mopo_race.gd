@@ -1,8 +1,10 @@
 extends Node3D
 ## Mopojen kiihdytyskisa (90-luvun Vaala): Zabukin pihan mopopojat haastavat 150 metrin kiihdytykseen Vaalantien
-## suoralla. Valot: kolme punaista, sitten vihreä -> [W] kaasu pohjaan (liian aikaisin = vilppilähtö, hävitty).
-## Kierrosmittari nousee vaihteella; [välilyönti] vaihtaa ylös. Vihreällä alueella vaihdettu = täysi veto, liian
-## aikaisin = moottori tukehtuu hetkeksi, rajoittimella = aikaa kuluu turhaan. Neljä vaihdetta, huippu 60 km/h
+## suoralla. Kaasu pohjassa ([W] tai nuoli ylös): punaisilla moottori vain huutaa paikallaan (ei vilppilähtöä),
+## ja vihreällä mopo lähtee. Lähtökierrokset vihreällä alueella = täydellinen lähtö, rajoittimella keula nousee.
+## Kierrosmittari nousee vaihteella; [välilyönti] (tai E / Shift) vaihtaa ylös. Vihreällä alueella vaihdettu = täysi
+## veto, liian aikaisin = moottori tukehtuu hetkeksi, rajoittimella = aikaa kuluu turhaan. Kaasun irrottaminen
+## rullaa. Neljä vaihdetta, huippu 60 km/h
 ## (pelaajan mopo build_model) ja vastustajalla viritetty Tunturi, joka vaihtaa omaan tahtiinsa. Humala heiluttaa
 ## vihreää aluetta. Lopuksi finished(voitto, oma aika, vastustajan aika); kutsuja hoitaa panokset.
 ## Solmu sijoitetaan Vaalan kehykseen (vaala.gd) ja track on tien keskiviiva (lähtöviivasta maaliin, y maastossa).
@@ -18,7 +20,7 @@ const LANE := 1.4
 const TOPS := [5.0, 9.0, 13.0, 16.7]   # vaihteiden huippunopeudet (m/s)
 const ACC := [3.6, 2.7, 1.9, 1.25]      # kiihtyvyys vaihteella (m/s²)
 const SHIFT_T := 0.22                   # vaihtoon kuluva aika ilman vetoa
-const ZONE := Vector2(0.8, 0.96)        # vaihtoikkuna kierroksina (0..1)
+const ZONE := Vector2(0.72, 0.97)       # vaihtoikkuna kierroksina (0..1)
 const OPP_NAMES := ["Tunturi-Jani", "Pakoputki-Pete", "Kuskin Kimmo"]
 
 var track: Array[Vector3] = []
@@ -48,6 +50,7 @@ var _engine: AudioStreamPlayer
 var _note := ""  # viimeisimmän vaihdon arvio
 var _note_t := 0.0
 var _wob := 0.0
+var _idle_rpm := 0.15  # lähtöviivalla kaasu pohjassa: kierrokset nousevat paikallaan
 
 
 func _ready() -> void:
@@ -168,14 +171,26 @@ func _process(delta: float) -> void:
 					l.modulate = Color(0.2, 1.0, 0.3)
 				Sfx.play("whoosh", -10.0, 1.4)
 			_big.text = "VALMIINA..." if lit < 4 else "NYT!"
-			if Input.is_action_just_pressed("forward"):
-				if _green_at == 0.0:
-					_finish(false, "VILPPILÄHTÖ! Kaasu pohjaan ennen vihreää.")
-					return
+			var gas := _gas()
+			# Kaasu pohjassa kierrokset sahaavat vaihtoikkunan ympärillä (joskus rajoittimelle), irti ne laskevat.
+			var want := 0.86 + 0.13 * sin(_t * 4.5) if gas else 0.15
+			_idle_rpm = clampf(move_toward(_idle_rpm, want, 2.5 * delta), 0.15, 1.0)
+			if _green_at == 0.0 and gas and _note_t <= 0.0:
+				_note = "Kaasu pohjassa: lähtö heti vihreällä. Pidä kierrokset vihreällä alueella!"
+				_note_t = 1.0
+			if _green_at > 0.0 and gas:
 				_me.go = true
 				_phase = "race"
-				_note = "Reaktio %.2f s" % (_t - _green_at)
-				_note_t = 1.5
+				var z := _zone()
+				if _idle_rpm >= z.x and _idle_rpm <= z.y:
+					_me.v = 1.2  # täydellinen lähtö: kytkin irti oikeilla kierroksilla
+					_note = "TÄYDELLINEN LÄHTÖ! (reaktio %.2f s)" % (_t - _green_at)
+				elif _idle_rpm > z.y:
+					_me.bog = 0.5
+					_note = "Keula nousi, rajoittimella lähtö! (reaktio %.2f s)" % (_t - _green_at)
+				else:
+					_note = "Lähtö! Reaktio %.2f s" % (_t - _green_at)
+				_note_t = 1.6
 			if _green_at > 0.0 and _t - _green_at > 2.5 and not _me.go:
 				_me.go = true  # nukahti lähtöön
 				_phase = "race"
@@ -189,7 +204,7 @@ func _process(delta: float) -> void:
 			_big.text = ""
 			if _green_at > 0.0 and _t - _green_at > _opp_react:
 				_opp.go = true
-			if Input.is_action_just_pressed("jump"):
+			if Input.is_action_just_pressed("jump") or Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("sprint"):
 				_shift(_me, true)
 			_step(_me, delta, false)
 			_step(_opp, delta, true)
@@ -200,6 +215,10 @@ func _process(delta: float) -> void:
 	if _phase != "done":
 		_update_hud()
 		_place()
+
+
+func _gas() -> bool:
+	return Input.is_action_pressed("forward")
 
 
 func _rpm(st: Dictionary) -> float:
@@ -217,6 +236,8 @@ func _step(st: Dictionary, delta: float, ai: bool) -> void:
 		_shift(st, false)
 	if st.shift > 0.0:
 		st.shift -= delta
+	elif not ai and not _gas():
+		st.v = maxf(st.v - 0.6 * delta, 0.0)  # kaasu irti: rullaa
 	else:
 		var a: float = ACC[st.gear] * (0.45 if st.bog > 0.0 else 1.0)
 		if ai:
@@ -367,10 +388,10 @@ func _update_hud() -> void:
 	var z := _zone()
 	_zone_rect.position = Vector2(520.0 * z.x, 0)
 	_zone_rect.size = Vector2(520.0 * (z.y - z.x), 30)
-	_rev.value = _rpm(_me) if _me.go else 0.15 + 0.1 * sin(_t * 18.0)
+	_rev.value = _rpm(_me) if _me.go else _idle_rpm + (0.03 * sin(_t * 40.0) if _idle_rpm > 0.97 else 0.0)
 	var kmh := roundi(_me.v * 3.6)
 	var lead := "johdat" if _me.s >= _opp.s else "%s edellä %d m" % [opp_name, roundi(_opp.s - _me.s)]
-	var keys := "[%s] kaasu lähtövaloissa · [%s] vaihda ylös vihreällä" % [Settings.action_key("forward"), Settings.action_key("jump")]
+	var keys := "Pidä [%s / ↑] kaasu pohjassa · [%s] vaihda ylös, kun mittari on vihreällä" % [Settings.action_key("forward"), Settings.action_key("jump")]
 	_info.text = "Vaihde %d · %d km/h · %d / %d m · %s\n%s" % [_me.gear + 1, kmh, mini(roundi(_me.s), int(DIST)), int(DIST), lead,
 		_note if _note_t > 0.0 else keys]
-	_engine.pitch_scale = 0.7 + _rpm(_me) * 1.1 if _me.go else 0.8
+	_engine.pitch_scale = 0.7 + (_rpm(_me) if _me.go else _idle_rpm) * 1.1
