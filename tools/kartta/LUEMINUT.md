@@ -38,10 +38,18 @@ Kartan pikselit ovat yhdessä todellisessa kehyksessä (`kehys.ps1`, Pythonissa 
 kiinnittää sen, J_K (Ketunperäntie / Tarpiontie) = px (195, 765) ja J_PATO (Ketunperäntie / Patotie) = px (1304, 3778),
 mittakaava n. 1,22 m/px. Uusi alue laajennetaan samaan kehykseen, jolloin kaikki kohteet osuvat kohdalleen.
 
-1. **OSM-ote**: hae `map.osm` bbox-kyselyllä niin, että se kattaa uuden alueen (nykyinen: `bbox=24.43,64.595,24.53,64.66`).
+1. **OSM-ote**: hae `map.osm` bbox-kyselyllä niin, että se kattaa uuden alueen (nykyinen: `bbox=24.43,64.595,24.53,64.672`).
+   Koko alue ylittää API:n 50 000 solmun rajan, joten se haetaan leveyspiirien kaistoina (64.595–64.62, 64.62–64.645,
+   64.645–64.672) ja yhdistetään yhdeksi otteeksi elementtien id:iden mukaan (sama solmu tai tie vain kerran).
+   Pohjoisosa (Seuranmäki, Saloisten Reippari, Tokola, Tokolanperän rossirata) on karttapikseleissä negatiivisilla
+   y:illä (`map_data.MAP_MIN`), jotta vanhat paikat pysyvät ennallaan.
 2. **Tiet, rakennukset, maankäyttö** → `scripts/map_osm.gd` koko kartan alueelta (rajausruutu px skriptissä):
    - `powershell -File tools\kartta\kyla_osm.ps1 -Osm <map.osm>`
    - `python tools/kartta/kyla_osm.py --osm <map.osm> [--out <tiedosto>]`
+   - `python tools/kartta/kyla_osm.py --osm <map.osm> --pohjoinen`: vain pohjoinen laajennus (px y -960..-60)
+     liitetään olemassa olevan `map_osm.gd`:n osioiden loppuun, jolloin vanhan alueen kohteet pysyvät täsmälleen
+     ennallaan. Saumassa kohteet leikataan samasta raakageometriasta kuin vanhassa otteessa (`SAUMA`-korjaukset
+     skriptissä). Nykyinen `map_osm.gd` on tehty näin.
 
    Luokittelu (`osm.cs` / `kartta.py`): highway → highway/road/street/path, landuse/natural → metsä/pelto/suo/vesi,
    waterway → purot, building → talot (suunnattu pohjapiirros). Käsin tehdyt kohteet (vain se, mitä OSM:ssä ei ole,

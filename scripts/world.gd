@@ -689,7 +689,7 @@ func _commit_batches() -> void:
 # --- Maasto & tiet -----------------------------------------------------------
 
 func _build_ground() -> void:
-	var lo := M.w2(Vector2.ZERO)
+	var lo := M.w2(M.MAP_MIN)
 	var hi := M.w2(M.SIZE)
 	var c := (lo + hi) / 2.0
 	var size := hi - lo
@@ -1999,7 +1999,7 @@ func _scatter_trees() -> void:
 				x += step
 			y += step
 	# Harvat puut niityillä.
-	var lo2 := M.w2(Vector2.ZERO)
+	var lo2 := M.w2(M.MAP_MIN)
 	var hi2 := M.w2(M.SIZE)
 	var y2 := lo2.y
 	while y2 < hi2.y:
@@ -2416,7 +2416,7 @@ func _build_clearcuts() -> void:
 
 ## Maskikuva: R = ruohon tiheys, G = viljapelto. Tiet, vesi ja talot nollataan.
 func _build_mask() -> ImageTexture:
-	var lo := M.w2(Vector2.ZERO)
+	var lo := M.w2(M.MAP_MIN)
 	var size := M.w2(M.SIZE) - lo
 	var w := ceili(size.x / MASK_PX)
 	var h := ceili(size.y / MASK_PX)
@@ -2499,7 +2499,7 @@ func _build_grass() -> void:
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = st.commit()
 	mm.instance_count = grid * grid
-	var lo := M.w2(Vector2.ZERO)
+	var lo := M.w2(M.MAP_MIN)
 	_grass_mat = B.shader_mat("res://shaders/grass.gdshader", {
 		"mask": _build_mask(), "map_origin": lo, "map_size": M.w2(M.SIZE) - lo,
 		"grid": grid, "spacing": 0.5,

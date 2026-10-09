@@ -20,13 +20,13 @@ def main():
     ap.add_argument("--sheets", nargs="+", default=["R4132H", "R4134B", "R4141G", "R4143A"])
     ap.add_argument("--out-dir", default=os.path.join(ROOT, "assets", "terrain"))
     a = ap.parse_args()
-    # Mosaiikki kattaa kartan (px -320..1940 x -320..4280) marginaaleineen: E 376..383 km, N 7165..7175 km.
+    # Mosaiikki kattaa kartan (px -320..1940 x -1220..4280) marginaaleineen: E 376..383 km, N 7165..7175 km.
     m = Mosaic(376000, 7175000, 3500, 5000)
     for sh in a.sheets:
         print(m.add(os.path.join(a.lehdet, sh + ".tif")))
-    # Ruudukko täsmälleen pelin maastoruudukon pisteisiin (bake_terrain.gd: 5 m, alku px (-300, -300)),
+    # Ruudukko täsmälleen pelin maastoruudukon pisteisiin (bake_terrain.gd: 5 m, alku w2(MAP_MIN) - 300 = px (-300, -1200)),
     # arvo suoraan 2 m mallista (bilineaarinen, ei keskiarvoa).
-    px0, py0, step, nx, ny = -300, -300, 5, 445, 913
+    px0, py0, step, nx, ny = -300, -1200, 5, 445, 1093
     vals = m.sample(px0, py0, step, nx, ny, 0)
     nan = 0
     out = bytearray()
