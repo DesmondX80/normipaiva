@@ -34,6 +34,10 @@ const SiitariInterior := preload("res://scripts/siitari_interior.gd")
 ## Rautatieasemien odotussali (station_interior.gd): juopot ja narkkarit, rahakätkö viinahörpystä.
 const StationInterior := preload("res://scripts/station_interior.gd")
 const ASEMA_INT_POS := Vector3(0, 0, -16000)
+## Valcon kuulokkeet (headphones.gd, #15): autotallista, vaimentavat linnut ja vaarat, soittavat Suno-listaa.
+const Headphones := preload("res://scripts/headphones.gd")
+var headphones: Node
+var _hp_label: Label
 ## Raahen baari: Kapteenin Kulma ja Kellari (raahe_interior.gd), taksilla kotoa.
 const RaaheInterior := preload("res://scripts/raahe_interior.gd")
 const RAAHE_INT_POS := Vector3(-16000, 0, 0)
@@ -838,6 +842,8 @@ func _ready() -> void:
 	add_child(siitari_int)
 	siitari_int.exited.connect(_on_siitari_exited)
 	siitari_int.acted.connect(_on_siitari_acted)
+	headphones = Headphones.new()
+	add_child(headphones)
 	asema_int = StationInterior.new()
 	asema_int.position = ASEMA_INT_POS
 	add_child(asema_int)
@@ -1024,6 +1030,7 @@ func _process(delta: float) -> void:
 	if not away:
 		_traffic_tick(delta)
 	_indoor_eat()
+	_headphones_keys()
 	match state:
 		"to_shop", "to_home":
 			_outside_logic()
@@ -1453,6 +1460,7 @@ func _enter_garage() -> void:
 	player.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	tilat.first("autotalli_sisalla", 0.1)
+	garage_int.headphones_found = headphones.found
 	garage_int.enter(bike_in_garage)
 	garage_int.set_wine(_wine_stage())
 	garage_int.walker.set_carrying(beers > 0 or has_kanister)
@@ -1518,6 +1526,13 @@ func _on_garage_acted(kind: String) -> void:
 			_on_garage_exited(true)
 		"saavi":
 			_wine_act()
+		"laatikko":
+			headphones.found = true
+			garage_int.headphones_found = true
+			Sfx.play("pickup", -4.0)
+			tilat.first("kuulokkeet", 0.3)
+			_show_message("Pahvilaatikosta löytyi vanhat Valcon kuulokkeet! [H] päähän: linnut hiljenevät ja Suno-lista soi, [N] seuraava biisi. Päivin autoa ei sitten kuule yhtä hyvin.", 5.0)
+			_save_game()
 
 
 ## Paras saatavilla oleva hiiva: korpihiiva (5 pv) > turbohiiva (7 pv) > tavallinen (21 pv). "" = ei hiivaa.
@@ -3840,6 +3855,23 @@ func _station_use(st: String, to: String) -> void:
 	var wait := maxf(float(_train_due[st]) - lead - _train_clock(), 0.0)
 	_advance_clock(wait + 0.1)
 	_show_message("Odotit asemalla %d min. Juna tulee, kyytiin kun se seisoo laiturilla." % ceili(wait), 3.5)
+
+
+## Kuulokkeet päähän / pois (H) ja seuraava biisi (N): kävellen, pyörällä, mopolla ja sisätiloissa, ei minipeleissä
+## tai valikoissa. HUD-rivi näyttää soivan biisin.
+func _headphones_keys() -> void:
+	_hp_label.text = headphones.hud_text(Settings.action_key("next_song"))
+	_hp_label.visible = _hud.visible and _hp_label.text != ""
+	if not headphones.found or cutscene.busy or _talk_box.is_open() or _item_menu.is_open() or _paper.visible \
+			or _inventory.visible or not state in NIGHT_STATES:
+		return
+	if Input.is_action_just_pressed("headphones"):
+		headphones.toggle()
+		Sfx.play("cloth", -8.0)
+		_show_message(("Valcot päähän. ♫ %s" % headphones.title) if headphones.on else "Kuulokkeet pois. Linnut huutaa taas.", 2.0)
+	elif Input.is_action_just_pressed("next_song") and headphones.on:
+		headphones.next()
+		_show_message("♫ %s" % headphones.title, 1.8)
 
 
 ## Saloisten asema K-Marketin takana (world.gd _build_station): kaupan puoleisesta ovesta odotussaliin, laiturilta
@@ -8255,6 +8287,7 @@ func _load_game() -> void:
 	pontikka_found = cfg.get_value("drooni", "pontikka", false)
 	viina_found = cfg.get_value("mokki", "viinakatkot", [])
 	asema_katkot = cfg.get_value("asema", "katkot", {})
+	headphones.found = cfg.get_value("kuulokkeet", "loydetty", false)
 	viina_pullot = cfg.get_value("mokki", "viinapullot", 0)
 	atm_day = cfg.get_value("peli", "otto_paiva", 0)
 	maine = cfg.get_value("peli", "maine", 0.0)
@@ -8330,6 +8363,7 @@ func _save_game() -> void:
 	cfg.set_value("drooni", "pontikka", pontikka_found)
 	cfg.set_value("mokki", "viinakatkot", viina_found)
 	cfg.set_value("asema", "katkot", asema_katkot)
+	cfg.set_value("kuulokkeet", "loydetty", headphones.found)
 	cfg.set_value("mokki", "viinapullot", viina_pullot)
 	cfg.set_value("peli", "otto_paiva", atm_day)
 	cfg.set_value("peli", "maine", maine)
@@ -8762,6 +8796,8 @@ func _help_text() -> String:
 	parts.append(k.call("eat", "syö"))
 	parts.append(k.call("inventory", "reppu"))
 	parts.append(k.call("map", "kartta"))
+	if headphones.found:
+		parts.append(k.call("headphones", "kuulokkeet"))
 	return "   ".join(parts)
 
 
@@ -9208,6 +9244,12 @@ func _build_hud() -> void:
 			else:
 				player.controls_enabled = true)
 
+	_hp_label = _label(layer, 18)
+	_hp_label.anchor_top = 1.0
+	_hp_label.anchor_bottom = 1.0
+	_hp_label.offset_left = 20
+	_hp_label.offset_top = -78
+	_hp_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 	_mopo_label = _label(layer, 22)
 	_mopo_label.position = Vector2(20, 12)
 	_mopo_label.visible = false
@@ -9326,6 +9368,9 @@ func inventory_items() -> Array:
 		{"use": "kalja", "use_label": "juo yksi"})
 	if has_kanister:
 		add.call("kanisteri", "Pontikkakanisteri", 1, "Vastaa kotijemmassa %d kaljaa." % KANISTER_BEERS)
+	if headphones.found:
+		add.call("kuulokkeet", "Valcon kuulokkeet", 1, "%s päähän ja pois, %s seuraava biisi. Linnut hiljenevät, mutta niin hiljenee Päivin autokin." % [
+			Settings.action_key("headphones"), Settings.action_key("next_song")])
 	if has_sausage:
 		add.call("makkara_valmis" if sausage_done else "makkara", "Grillimakkara" + (" (paistettu)" if sausage_done else ""), 1,
 			"Paistetaan laavulla tai mökin savustimessa.")
@@ -11340,6 +11385,55 @@ func _maybe_screenshot() -> void:
 				vl.drivable(mp.position.x, mp.position.z), mp._curb, gi, goals.size(), goals[gi], mp.is_on_wall()])
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
+			get_tree().quit()
+		"kuulokkeet":
+			# Valcon kuulokkeet: autotallin laatikosta, H päähän (väylien suotimet päälle, biisi soi), N seuraava, H pois.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(name: String) -> void:
+				for i in 15:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var press := func(action: String) -> void:
+				await get_tree().process_frame  # kuvakaappauksen jälkeen: painallus seuraavan ruudun alkuun
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			headphones.found = false
+			if player != walker_out:
+				_toggle_mount()
+			_note.visible = false
+			_enter_garage()
+			garage_int.walker.position = garage_int.SPOTS.laatikko[0]
+			for i in 5:
+				await get_tree().process_frame
+			print("KUULOKKEET laatikolla vihje '%s'" % _hint.text)
+			await snap.call("_talli.png")
+			await press.call("interact")
+			print("KUULOKKEET löydetty %s, laatikko näkyy %s, viesti '%s'" % [headphones.found, garage_int._box.visible, _msg.text])
+			_on_garage_exited(false)
+			for i in 5:
+				await get_tree().process_frame
+			print("KUULOKKEET lista %s" % [Headphones.playlist()])
+			await press.call("headphones")
+			var amb := AudioServer.get_bus_index("Ambience")
+			var sfx := AudioServer.get_bus_index("SFX")
+			print("KUULOKKEET päässä %s, soi %s '%s', ambience-suotimet %s/%s, sfx %s, HUD '%s'" % [headphones.on,
+				headphones._player.playing and not headphones._player.stream_paused, headphones.title,
+				AudioServer.is_bus_effect_enabled(amb, headphones._fx.Ambience[0]), AudioServer.is_bus_effect_enabled(amb, headphones._fx.Ambience[1]),
+				AudioServer.is_bus_effect_enabled(sfx, headphones._fx.SFX[0]), _hp_label.text])
+			await snap.call("_paassa.png")
+			var t1: String = headphones.title
+			await press.call("next_song")
+			print("KUULOKKEET seuraava '%s' -> '%s'" % [t1, headphones.title])
+			await press.call("headphones")
+			print("KUULOKKEET pois: päässä %s, tauolla %s, suotimet %s, HUD näkyy %s" % [headphones.on, headphones._player.stream_paused,
+				AudioServer.is_bus_effect_enabled(amb, headphones._fx.Ambience[0]), _hp_label.visible])
+			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f.store_buffer(saved)
+			f.close()
 			get_tree().quit()
 		"asema":
 			# Asemat: Saloisten asema ulkoa (katu ja laituri), odotussali, hörppy juopolle -> kätkö kartalle, kätkön
@@ -15799,6 +15893,13 @@ func _maybe_screenshot() -> void:
 			_inventory._hover = 0
 			_inventory.queue_redraw()
 			await snap.call("_reppu.png")
+			_inventory._hover = _inventory.SLOTS - 1
+			Input.warp_mouse(_inventory._slots[_inventory.SLOTS - 1].get_center())
+			for i in 3:
+				await get_tree().process_frame
+			_inventory._hover = _inventory.SLOTS - 1
+			_inventory.queue_redraw()
+			await snap.call("_reppu_pohja.png")
 			_inventory.toggle()
 			await get_tree().process_frame
 			_toggle_mount()

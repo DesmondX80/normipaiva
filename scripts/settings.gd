@@ -36,6 +36,8 @@ const KEY_ROWS := [
 	[["map"], "Kartta", [KEY_M, 0, MOUSE_BASE + MOUSE_BUTTON_XBUTTON1]],
 	[["inventory"], "Reppu", [KEY_I, KEY_TAB, MOUSE_BASE + MOUSE_BUTTON_XBUTTON2]],
 	[["camera"], "Kamera (FPS / 3. persoona)", [KEY_V, 0, 0]],
+	[["headphones"], "Kuulokkeet päähän / pois", [KEY_H, 0, 0]],
+	[["next_song"], "Kuulokkeet: seuraava biisi", [KEY_N, 0, 0]],
 	[["punch"], "Tappelu: lyönti", [KEY_J, 0, 0]],
 	[["kick"], "Tappelu: potku", [KEY_K, 0, 0]],
 	[["special"], "Tappelu: erikoisisku", [KEY_L, 0, 0]],
@@ -48,7 +50,7 @@ const MOUSE_NAMES := {MOUSE_BUTTON_LEFT: "Hiiri vasen", MOUSE_BUTTON_RIGHT: "Hii
 	MOUSE_BUTTON_XBUTTON2: "Hiiri sivu 2"}
 ## Ohjeteksteissä oletuskirjain hakasulkeissa ([E]) vaihtuu käyttäjän valitsemaan näppäimeen.
 const HINT_KEYS := {"E": "interact", "F": "mount", "T": "eat", "Q": "bell", "M": "map", "I": "inventory", "V": "camera",
-	"J": "punch"}
+	"J": "punch", "H": "headphones", "N": "next_song"}
 const KEY_NAMES := {KEY_SPACE: "Välilyönti", KEY_UP: "Nuoli ylös", KEY_DOWN: "Nuoli alas", KEY_LEFT: "Nuoli vas.",
 	KEY_RIGHT: "Nuoli oik.", KEY_SHIFT: "Shift", KEY_CTRL: "Ctrl", KEY_ALT: "Alt", KEY_TAB: "Tab", KEY_ENTER: "Enter",
 	KEY_BACKSPACE: "Askelpalautin", KEY_CAPSLOCK: "Caps Lock"}

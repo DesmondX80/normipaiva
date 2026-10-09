@@ -23,6 +23,7 @@ const SPOTS := {
 	"arkku": [Vector3(-3.0, 0, -3.4), "[E] Avaa pakastearkku"],
 	"pyora": [Vector3(2.6, 0, 3.0), ""],
 	"saavi": [Vector3(-3.0, 0, -2.2), ""],  # kotiviini: vihje main.gd:stä
+	"laatikko": [Vector3(3.2, 0, 0.55), "[E] Pölyinen pahvilaatikko työkalukaapin päällä"],  # Valcon kuulokkeet
 }
 
 signal exited
@@ -35,6 +36,12 @@ var hint := ""
 var spot := ""  # lähin toimintopiste
 var radio_on := false
 var bike_in := false
+var headphones_found := false:  # main.gd: kuulokkeet otettu, laatikko tyhjä ja pois
+	set(v):
+		headphones_found = v
+		if _box != null:
+			_box.visible = not v
+var _box: Node3D
 var _enter_frame := -1
 var _bike: Node3D
 var _radio: Node3D
@@ -146,6 +153,8 @@ func _process(delta: float) -> void:
 	var bd := 1.3
 	for id in SPOTS:
 		if id == "pyora" and not bike_in:
+			continue
+		if id == "laatikko" and headphones_found:
 			continue
 		var d := Vector2(p.x - SPOTS[id][0].x, p.z - SPOTS[id][0].z).length()
 		if d < bd:
@@ -271,6 +280,16 @@ func _build_cabinet_and_freezer() -> void:
 		B.mesh(self, B.boxm(Vector3(0.02, 0.2, 1.0)), Vector3(3.54, 0.25 + k * 0.24, -0.6), red.darkened(0.2))
 		B.mesh(self, B.boxm(Vector3(0.03, 0.03, 0.4)), Vector3(3.52, 0.3 + k * 0.24, -0.6), Color(0.8, 0.8, 0.82))
 	B.guide(self, "Työkalukaappi", Vector3(3.6, 1.55, -0.6), 22, Color(1, 1, 1), true)
+	# Pölyinen pahvilaatikko kaapin päällä: sisällä Valcon kuulokkeet (johto kiepillä laatikon reunalla).
+	_box = Node3D.new()
+	_box.position = Vector3(3.85, 1.3, -0.35)
+	_box.rotation.y = 0.25
+	add_child(_box)
+	B.mesh(_box, B.boxm(Vector3(0.45, 0.28, 0.4)), Vector3(0, 0.14, 0), Color(0.62, 0.48, 0.3))
+	B.mesh(_box, B.boxm(Vector3(0.46, 0.01, 0.06)), Vector3(0, 0.285, 0), Color(0.75, 0.68, 0.5))  # teippi
+	B.mesh(_box, B.cyl(0.07, 0.07, 0.02, 12), Vector3(-0.1, 0.3, 0.05), Color(0.1, 0.1, 0.12), Vector3(90, 0, 0))
+	B.tube(_box, Vector3(-0.17, 0.3, 0.05), Vector3(-0.03, 0.3, 0.05), 0.012, Color(0.1, 0.1, 0.12))
+	_box.visible = not headphones_found
 	B.box(self, Vector3(1.3, 0.85, 0.7), Vector3(-3.3, 0.425, -4.4), Color(0.95, 0.95, 0.94))  # pakastearkku
 	B.mesh(self, B.boxm(Vector3(1.32, 0.05, 0.72)), Vector3(-3.3, 0.87, -4.4), Color(0.88, 0.88, 0.9))
 	B.mesh(self, B.boxm(Vector3(0.3, 0.04, 0.04)), Vector3(-3.3, 0.8, -4.04), Color(0.6, 0.6, 0.62))
