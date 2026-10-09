@@ -80,6 +80,7 @@ var drone_pad_pos: Vector3  # droonin laskeutumisalusta kotipihan asfaltilla (ks
 var home_zone: Vector3
 var shop_zone: Vector3
 var taxi_pos: Vector3  # K-Marketin taksitolpalla odottava taksi
+var kirppis_door: Vector3  # Saloisten seuraintalon pääoven edusta (E: kirpputorille)
 var station_pos: Vector3  # Saloisten asema K-Marketin takana: kadun puoleisen oven edusta (E: odotussaliin)
 var station_arrive: Vector3  # junalla tultaessa tästä
 var train: Node3D  # aikataulun juna Saloisten radalla (train.gd, ei satunnaisia ohikulkuja)
@@ -189,6 +190,7 @@ func build(step: Callable) -> void:
 	_build_home()
 	await step.call("Avataan K-Market", 0.5)
 	_build_shop()
+	_build_seuraintalo()
 	_build_station()
 	_build_agility()
 	await step.call("Laavu, grillikatos ja kota", 0.53)
@@ -1018,6 +1020,37 @@ func _nearest_road(p: Vector2) -> Array:
 			best = d
 			out = [c, s[2]]
 	return out
+
+
+## Saloisten seuraintalo Seuranmäellä: punamullattu puutalo valkoisin nurkkalaudoin OSM-pohjan mukaan, pääovi
+## tien puolella, kyltti päädyssä ja kirppiksen banderolli. Sisällä kirpputori ja huutokauppa (main.gd).
+func _build_seuraintalo() -> void:
+	var f := _osm_fit_at(M.SEURAINTALO)
+	if f.is_empty():
+		return
+	var h := 4.6
+	_house(f.c, f.yaw, f.l, f.d, h, Color(0.62, 0.16, 0.1), Color(0.22, 0.22, 0.24), f.gap, false)
+	_add_house(f.c)
+	var nrm: Vector2 = f.nrm
+	var front: Vector2 = f.c + nrm * (f.d / 2.0)
+	var dp: Vector2 = front + nrm * 2.4
+	kirppis_door = Vector3(dp.x, T.h(dp.x, dp.y), dp.y)
+	var root := Node3D.new()
+	root.position = Vector3(front.x, 0, front.y)  # _lift_node nostaa maastoon
+	root.rotation.y = f.yaw  # paikallinen -Z = poispäin seinästä
+	add_child(root)
+	# Kuisti portaineen ja pariovi.
+	B.box(root, Vector3(3.6, 0.35, 1.8), Vector3(0, 0.17, -0.9), Color(0.55, 0.55, 0.55))
+	B.box(root, Vector3(2.0, 2.4, 0.12), Vector3(0, 1.55, 0.02), Color(0.92, 0.9, 0.85), false)
+	B.box(root, Vector3(1.7, 2.2, 0.14), Vector3(0, 1.45, 0.0), Color(0.45, 0.25, 0.12), false)
+	B.box(root, Vector3(3.8, 0.12, 2.0), Vector3(0, 3.0, -0.9), Color(0.25, 0.25, 0.27), false)
+	for x in [-1.6, 1.6]:
+		B.box(root, Vector3(0.14, 2.7, 0.14), Vector3(x, 1.65, -1.7), Color(0.92, 0.9, 0.85), false)
+	var sign := B.label(root, "SALOISTEN SEURAINTALO", Vector3(0, 3.5, -0.08), 64, Color(0.95, 0.93, 0.85))
+	sign.rotation.y = PI
+	var banner := B.mesh(root, B.boxm(Vector3(3.6, 0.8, 0.04)), Vector3(0, 2.6, -1.74), Color(1.0, 0.85, 0.15))
+	var bl := B.label(banner, "KIRPPIS + HUUTOKAUPPA\nklo 10–18", Vector3(0, 0, -0.03), 56, Color(0.6, 0.1, 0.05))
+	bl.rotation.y = PI
 
 
 ## Talot OpenStreetMapin rakennuksista (map_osm.gd BUILDINGS): paikka, suunta ja koko pohjapiirroksesta,
