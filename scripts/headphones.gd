@@ -7,6 +7,16 @@ extends Node
 
 const MUSIC_DIR := "res://assets/music/kuulokkeet"
 const FALLBACK := ["res://assets/music/normipaiva.mp3", "res://assets/music/lirkuttelu.wav"]
+## 90-luvun tyyliset CC BY -biisit (README: tekijät ja lisenssit). Tiedostonimi -> näytettävä nimi.
+const TITLES := {
+	"01_Robotertanz": "Robotertanz – Shane Ivers",
+	"02_90s_Racer_Techno": "90s Racer Techno – Bogart VGM",
+	"03_Acid_Action": "Acid Action – Bogart VGM",
+	"04_Im_Free": "I´m Free – Snabisch",
+	"05_Its_Love": "It´s Love – Snabisch",
+	"06_Dance_and_Jump": "Dance and Jump – Snabisch",
+	"07_Bitten_by_the_Rave_Spider": "Bitten by the Rave Spider – Woolly Jammoth",
+}
 const AMB_DB := -20.0     # ympäristöäänet kuulokkeiden läpi
 const AMB_CUTOFF := 700.0
 const SFX_DB := -9.0      # vaarat ja muut äänet kuuluvat heikommin
@@ -66,6 +76,8 @@ static func playlist() -> Array[String]:
 
 ## Biisin nimi tiedostonimestä: "02_Me_ollaan_rallikansa.mp3" -> "Me ollaan rallikansa".
 static func song_title(path: String) -> String:
+	if TITLES.has(path.get_file().get_basename()):
+		return TITLES[path.get_file().get_basename()]
 	var t := path.get_file().get_basename().replace("_", " ").strip_edges()
 	var rx := RegEx.create_from_string(r"^\d+\s*[-.]?\s*")
 	t = rx.sub(t, "")
@@ -120,6 +132,32 @@ func _apply() -> void:
 		var bi := AudioServer.get_bus_index(b)
 		for e in _fx[b]:
 			AudioServer.set_bus_effect_enabled(bi, e, on)
+
+
+## Satunnainen 90-luvun biisi (lavan disko, teinien kasettisoittimet) silmukkana; null, jos biisejä ei ole.
+static func random_90s() -> AudioStream:
+	var keys := TITLES.keys()
+	keys.shuffle()
+	for k in keys:
+		for ext in ["mp3", "ogg"]:
+			var path := MUSIC_DIR.path_join("%s.%s" % [k, ext])
+			if ResourceLoader.exists(path):
+				var st: AudioStream = load(path).duplicate()
+				if st is AudioStreamMP3 or st is AudioStreamOggVorbis:
+					st.loop = true
+				return st
+	return null
+
+
+static func random_90s_path() -> String:
+	var keys := TITLES.keys()
+	keys.shuffle()
+	for k in keys:
+		for ext in ["mp3", "ogg"]:
+			var path := MUSIC_DIR.path_join("%s.%s" % [k, ext])
+			if ResourceLoader.exists(path):
+				return path
+	return ""
 
 
 ## HUD-rivi (tyhjä, kun kuulokkeet eivät ole päässä).

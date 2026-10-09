@@ -10,5 +10,8 @@ Sunon äänitiedostot eivät ole ladattavissa koneellisesti (palvelu palauttaa
 "forbidden" / 403), joten lataa biisit Sunosta omilla tunnuksilla
 (Download -> MP3) ja kopioi ne tähän.
 
-Jos kansiossa ei ole biisejä, kuulokkeista soivat pelin omat
-(normipaiva.mp3 ja lirkuttelu.wav).
+Kansiossa on valmiina seitsemän 90-luvun tyylistä CC BY -biisiä (01_–07_,
+tekijät ja lisenssit README.md:n Tekijänoikeudet-osiossa; näytettävät nimet
+scripts/headphones.gd TITLES). Ne soivat myös Oulujärven lavan diskopuolella
+ja teinien kasettisoittimista. Jos kansio on tyhjä, kuulokkeista soivat pelin
+omat biisit (normipaiva.mp3 ja lirkuttelu.wav).
