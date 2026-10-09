@@ -642,6 +642,7 @@ const TALKERS := {
 	"gasthaus": ["Gasthausin emäntä", Color(0.75, 0.9, 0.6)],
 	"nuoret": ["Porukka aidan takana", Color(0.6, 0.9, 1.0)],
 	"mopopojat": ["Mopopojat", Color(1.0, 0.85, 0.3)],
+	"poliisi": ["Vaalan poliisi", Color(0.55, 0.7, 1.0)],
 	"kauppias": ["Kauppias", Color(0.6, 0.82, 1.0)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
@@ -655,6 +656,8 @@ const TALK_HELLO := {
 	"kauppias": ["Päivää! Löytykö kaikki?", "Seuraava, olkaa hyvä."],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
 	"gasthaus": ["Iltaa. Huonetta vailla?", "Tervetuloa Gasthausiin. Yö maksaa kympin."],
+	"poliisi": ["Iltaa, Vaalan poliisi. Rutiinitarkastus. Puhaltakaa tähän, olkaa hyvä.",
+		"Päivää. Moporatsia. Sammuttakaa moottori ja puhaltakaa tähän."],
 	"mopopojat": ["No, ukko mopolla. Uskallatko kiihdytykseen?", "Meiän Tunturit vetää. Mitä sun romu tekee?",
 		"Vaalantien suora on vapaa. Kisataanko?"],
 	"nuoret": ["No moi! Tuu istuun, tukilla on tilaa.", "Ei kai sää oo järkkäri? Ai et. No istu alas.",
@@ -4634,6 +4637,12 @@ func _talk_end() -> void:
 			raahe_int.block_interact()
 		elif state == "in_siitari":
 			siitari_int.block_interact()
+	if _talk_who == "poliisi" and _ratsia_stage in ["puhallus", "tulos"]:
+		# Ikkuna suljettiin kesken (Esc): puhaltamatta ei lähdetä, tulos luetaan viestinä ja matka jatkuu.
+		if _ratsia_stage == "puhallus":
+			var r := _ratsia_blow(false)
+			_show_message("Konstaapeli: \"%s\" %s" % [r[0], r[1]], 5.0)
+		_ratsia_release.call_deferred()
 	_talk_who = ""
 	_talk_node = null
 
@@ -4766,6 +4775,13 @@ func _talk_options(who := "") -> Array:
 				var q: Array = _quiz[_quiz_i]
 				for k in (q[1] as Array).size():
 					o.append(_opt("visa_%d" % k, q[1][k]))
+		"poliisi":
+			chat = false
+			if _ratsia_stage == "puhallus":
+				o.append(_opt("puhalla", "Puhalla", true, "", true))
+				o.append(_opt("selitys", "Mää en oo juonu ku yhen", true, "", true))
+			else:
+				o.append(_opt("jatka", "Jatka matkaa", true, "", true))
 		"mopopojat":
 			o.append(_opt("kisa", "Kiihdytys Tunturi-Janin kanssa (panos %s €)" % _eur(RACE_BET), money >= RACE_BET, "rahat ei riitä", true))
 			o.append(_opt("kisa_iso", "Kiihdytys Pakoputki-Peteä vastaan (panos %s €, viritetty mopo)" % _eur(RACE_BET_BIG),
@@ -4796,7 +4812,8 @@ func _talk_options(who := "") -> Array:
 			o.append(_opt("neuvo", "Mistä löytyy mitäkin?"))
 	if chat:
 		o.append(_opt("juttu", "Mitä kuuluu?"))
-	o.append(_opt("lopeta", "Lopeta"))
+	if who != "poliisi":  # ratsiasta ei kävellä pois kesken
+		o.append(_opt("lopeta", "Lopeta"))
 	return o
 
 
@@ -4844,6 +4861,12 @@ func _talk_choose(id: String) -> void:
 				_talk_box.reply(r[0], _talk_options(), r[1])
 		"kauppias":
 			_talk_kauppias(id)
+		"poliisi":
+			if id == "jatka":
+				_talk_box.close()  # _talk_end päästää matkaan (_ratsia_release)
+			else:
+				var r := _ratsia_blow(id == "selitys")
+				_talk_box.reply(r[0], _talk_options(), r[1])
 		"mopopojat":
 			_talk_box.close()
 			_start_race(RACE_BET_BIG if id == "kisa_iso" else RACE_BET, id == "kisa_iso")
@@ -6318,6 +6341,7 @@ func _start_mopo() -> void:
 	mokki.mopo_parked.visible = false
 	walker_out.visible = false
 	mopo_trip.start("siitari", tilat.value("humala"))
+	_ratsia_roll()
 	_set_avatar(mopo_trip.mopo)
 	_mopo_label.visible = true
 	tilat.first("mopo", 0.3)
@@ -6362,6 +6386,7 @@ func _vaala_logic() -> void:
 	_compass.cache_text = ("%s %s km" % ["Siitari" if mopo_trip.target == "siitari" else "Paapeli",
 		("%.1f" % (left / 1000.0)).replace(".", ",")])
 	_mopo_mount_logic()
+	_ratsia_logic()
 
 
 var _mopo_dry := Vector3.ZERO  # jalan: viimeisin kuiva paikka
@@ -6580,11 +6605,12 @@ func _on_siitari(id: String) -> Array:
 		var drunk: float = tilat.value("humala")
 		if drunk > 0.1:
 			# Omalla kylällä saa ajaa kännissä, mutta helppoa se ei ole: tanko vaeltaa ja ojaan on lyhyt matka.
-			_show_message("Omalla kylällä saa ajaa kännissä! Tanko vaeltaa ja käsi laahaa: pidä mopo tiellä ja vauhti maltillisena.", 4.5)
+			_show_message("Omalla kylällä saa ajaa kännissä, kunhan kytät ei pidä ratsiaa! Tanko vaeltaa ja käsi laahaa: pidä mopo tiellä ja vauhti maltillisena.", 4.5)
 			tilat.first("mopo_kannissa", 0.3)
 		else:
 			_show_message("Takaisin Paapeliin: Vaalantie, Vuolijoentie ja Neittäväntie.", 3.0)
 		mopo_trip.start("paapeli", drunk)
+		_ratsia_roll()
 		return ["", ""]
 	var m: Array = SIITARI_MENU[id]
 	if money < m[1]:
@@ -7810,6 +7836,157 @@ func _pummi_lava() -> void:
 	_enter_lava(true)
 	if _lava_game != null:
 		_lava_game._intro_text("Pummilla sisään järven kautta, eikä järkkäri nähnyt!\nFarkut märkänä polviin asti, mutta lippu jäi ostamatta.\n")
+
+
+## Poliisin moporatsia (ratsia.gd) mopomatkan varrella: joka matkalla mahdollinen, iltaisin todennäköisempi.
+## Mopolla ohi ajettaessa konstaapeli viittoo sivuun; pysähdyttäessä puhalluskoe ja mopon tarkastus. Promillet
+## humalatilasta: alle 0,5 ‰ huomautus tai pieni sakko mopon vioista, 0,5–1,2 ‰ rattijuopumus (sakko ja avaimet
+## tunniksi pois), yli 1,2 ‰ törkeä rattijuopumus (iso sakko ja yö putkassa). Ratsian ohittaminen pysähtymättä
+## = isompi sakko ja maine laskee. Jalan kulkiessa ratsia ei koske pelaajaa.
+const Ratsia := preload("res://scripts/ratsia.gd")
+const RATSIA_CHANCE := 0.3
+const RATSIA_CHANCE_NIGHT := 0.6
+const RATSIA_FINE_FAULT := 20.0
+const RATSIA_FINE_DUI := 120.0
+const RATSIA_FINE_DUI_BAD := 250.0
+const RATSIA_FINE_FLEE := 100.0
+const PROMILLE_PER_HUMALA := 2.4
+const MOPO_FAULTS := ["Takavalo ei pala.", "Taustapeili puuttuu.", "Rekisterikilpi on teipattu kiinni.", "Etujarru laahaa."]
+var _ratsia: Node3D
+var _ratsia_stage := ""  # "" vapaa, "warned" viittoo, "puhallus", "tulos", "done"
+var _ratsia_min_d := INF
+var _ratsia_putka := false
+var ratsia_force := false  # testit: ratsia aina
+
+
+func _ratsia_roll() -> void:
+	if _ratsia != null and is_instance_valid(_ratsia):
+		_ratsia.queue_free()
+	_ratsia = null
+	_ratsia_stage = ""
+	_ratsia_min_d = INF
+	var night := clock_min >= 20.0 * 60.0 or clock_min < 4.0 * 60.0
+	if not ratsia_force and randf() > (RATSIA_CHANCE_NIGHT if night else RATSIA_CHANCE):
+		return
+	var vl: Node3D = mopo_trip.vaala
+	var n: int = vl.road.size()
+	for attempt in 30:
+		var i := randi_range(int(n * 0.3), int(n * 0.85))
+		var r: Array = vl.road[i]
+		if r[5] or r[6]:
+			continue
+		var at: Vector3 = vl.road_pos(i)
+		var dir: Vector3 = vl.road_dir(i)
+		var side := dir.cross(Vector3.UP)
+		var sh := at + side * (float(r[4]) + 2.4)
+		if vl.wet(sh.x, sh.z, 0.5):
+			side = -side
+		_ratsia = Ratsia.new()
+		vl.add_child(_ratsia)
+		_ratsia.setup(at, dir, side, float(r[4]), vl.h)
+		return
+
+
+func _ratsia_logic() -> void:
+	if _ratsia == null or not is_instance_valid(_ratsia) or _ratsia_stage in ["puhallus", "tulos", "done"]:
+		return
+	if mopo_trip.on_foot != null or _talk_box.is_open():
+		return
+	var mp: CharacterBody3D = mopo_trip.mopo
+	var sp: Vector3 = _ratsia.stop_pos
+	var d := Vector2(mp.position.x - sp.x, mp.position.z - sp.z).length()
+	if d < 45.0 and _ratsia_stage == "":
+		_ratsia_stage = "warned"
+		_ratsia.wave()
+		_ratsia.say_wave("Sivuun ja seis!")
+		Sfx.play("alert", -6.0, 1.4)
+		_show_message("POLIISIN MOPORATSIA! Konstaapeli viittoo sivuun: pysähdy auton eteen.", 3.5)
+	if _ratsia_stage != "warned":
+		return
+	_ratsia_min_d = minf(_ratsia_min_d, d)
+	if d < 9.0:
+		if _hint.text == "":
+			_hint.text = "Pysähdy poliisin kohdalle (jarruta)"
+		if absf(mp.speed) < 2.0:
+			_ratsia_stop()
+			return
+	if _ratsia_min_d < 14.0 and d > 30.0:
+		_ratsia_stage = "done"
+		var fine := minf(RATSIA_FINE_FLEE, money)
+		money -= fine
+		maine = clampf(maine - 8.0, 0.0, 100.0)
+		tilat.add("stressi", -0.2)
+		tilat.first("ratsia_ohi", 0.3)
+		Sfx.play("lose", -4.0)
+		_ratsia.say_wave("Seis! Perkele...")
+		_show_message("Ajoit ratsian ohi! Konstaapeli kirjasi rekisterinumeron: sakko %s € postissa ja maine Vaalassa laski." % _eur(fine), 4.5)
+
+
+func _ratsia_stop() -> void:
+	_ratsia_stage = "puhallus"
+	var mp: CharacterBody3D = mopo_trip.mopo
+	mp.speed = 0.0
+	mp.velocity = Vector3.ZERO
+	tilat.first("ratsia", 0.3)
+	_talk_open("poliisi", null)
+
+
+func _promille() -> float:
+	return tilat.value("humala") * PROMILLE_PER_HUMALA
+
+
+## Puhalluskoe ja mopon tarkastus: palauttaa [konstaapelin repliikki, inforivi]; rahat, maine ja seuraukset tässä.
+func _ratsia_blow(excuse: bool) -> Array:
+	_ratsia_stage = "tulos"
+	var pr := _promille()
+	var pt := ("%.2f ‰" % pr).replace(".", ",")
+	var pre := "\"Jaaha, yhen. Puhalletaan nyt kuitenkin.\" " if excuse else ""
+	Sfx.play("whoosh", -10.0, 2.0)
+	if pr >= 1.2:
+		var fine := minf(RATSIA_FINE_DUI_BAD, money)
+		money -= fine
+		maine = clampf(maine - 12.0, 0.0, 100.0)
+		tilat.add("stressi", -0.3)
+		tilat.add("moraali", -0.2)
+		tilat.first("ratsia_torkea", 0.4)
+		Sfx.play("lose", -4.0)
+		_ratsia_putka = true
+		return [pre + "%s. Törkeä rattijuopumus. Mopo jää tähän ja te lähdette meidän kyydillä putkaan selviämään." % pt,
+			"Sakko %s €%s. Yö Vaalan poliisiaseman putkassa." % [_eur(fine), "" if fine >= RATSIA_FINE_DUI_BAD else " (enempää ei ollut)"]]
+	if pr >= 0.5:
+		var fine := minf(RATSIA_FINE_DUI, money)
+		money -= fine
+		maine = clampf(maine - 6.0, 0.0, 100.0)
+		tilat.add("stressi", -0.2)
+		tilat.first("ratsia_ratti", 0.3)
+		Sfx.play("lose", -4.0)
+		_advance_clock(60.0)
+		tilat.add("humala", -0.2)
+		return [pre + "%s. Rattijuopumus. Avaimet otetaan tunniksi, istukaa tuohon pientareelle selviämään." % pt,
+			"Sakko %s €%s. Tunti pientareella, humala laski." % [_eur(fine), "" if fine >= RATSIA_FINE_DUI else " (enempää ei ollut)"]]
+	var hum := "Nollat." if pr < 0.05 else "%s, alle rajan." % pt
+	if randf() < 0.35:
+		var fault: String = MOPO_FAULTS.pick_random()
+		var fine := minf(RATSIA_FINE_FAULT, money)
+		money -= fine
+		tilat.add("stressi", -0.05)
+		return [pre + "%s Mutta mopossa on vikaa: %s Korjatkaa se." % [hum, fault], "Rikesakko %s €." % _eur(fine)]
+	tilat.add("moraali", 0.05)
+	return [pre + "%s Mopo on kunnossa. Hyvää illanjatkoa ja ajakaa varovasti." % hum, "Puhallus puhdas. Matka jatkuu."]
+
+
+func _ratsia_release() -> void:
+	_ratsia_stage = "done"
+	if _ratsia_putka:
+		_ratsia_putka = false
+		if is_instance_valid(_ratsia):
+			_ratsia.queue_free()
+		_ratsia = null
+		_gasthaus_morning("Heräsit Vaalan poliisiaseman putkasta. Konstaapeli palautti avaimet aamulla: mopo on hinattu Gasthausin pihaan.\n",
+			"Aamu putkan jälkeen. Mopo odottaa Gasthausin pihassa, Paapeliin on n. 11 km.")
+		return
+	mopo_trip.mopo.controls_enabled = true
+	_ratsia.say_wave("Hyvää matkaa.")
 
 
 ## Mopojen kiihdytyskisa (mopo_race.gd): Zabukin pihan mopopojat, 150 m Vaalantien suoralla. Voitto tuplaa
@@ -11581,6 +11758,68 @@ func _maybe_screenshot() -> void:
 				vl.drivable(mp.position.x, mp.position.z), mp._curb, gi, goals.size(), goals[gi], mp.is_on_wall()])
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
+			get_tree().quit()
+		"mokkiratsia":
+			# Moporatsia: selvänä, rattijuopumus (0,7 ‰), ratsian ohitus ja törkeä rattijuopumus (putka, uusi päivä).
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(name: String) -> void:
+				for i in 10:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			ratsia_force = true
+			_note.visible = false
+			for case in [["selva", 0.0], ["ratti", 0.3], ["ohitus", 0.0], ["putka", 0.6]]:
+				money = 300.0
+				maine = 50.0
+				tilat.values["humala"] = case[1]
+				_start_mopo()
+				var vl: Node3D = mopo_trip.vaala
+				for car in mopo_trip._cars:
+					car.process_mode = Node.PROCESS_MODE_DISABLED
+					car.visible = false
+				var rz: Node3D = _ratsia
+				var sp: Vector3 = rz.stop_pos
+				var ni: int = vl.nearest(sp)[0]
+				var dir: Vector3 = vl.road_dir(ni)
+				var mp: CharacterBody3D = mopo_trip.mopo
+				mp.position = sp - dir * 40.0 + Vector3(0, 0.6, 0)
+				mp.position.y = vl.h(mp.position.x, mp.position.z) + 0.6
+				mp.rotation.y = atan2(-dir.x, -dir.z)
+				for i in 10:
+					await get_tree().process_frame
+				print("RATSIA %s: vaihe '%s', viesti '%s'" % [case[0], _ratsia_stage, _msg.text])
+				if case[0] == "selva":
+					await snap.call("_lahestyy.png")
+				if case[0] == "ohitus":
+					mp.position = sp + Vector3(0, 0.6, 0)
+					mp.speed = 12.0
+					for i in 3:
+						await get_tree().process_frame
+					mp.position = sp + dir * 40.0 + Vector3(0, 0.6, 0)
+					mp.position.y = vl.h(mp.position.x, mp.position.z) + 0.6
+					for i in 5:
+						await get_tree().process_frame
+					print("RATSIA ohitus: vaihe '%s', rahaa %.0f, maine %.0f, viesti '%s'" % [_ratsia_stage, money, maine, _msg.text])
+					continue
+				mp.position = sp + Vector3(0, 0.6, 0) - dir * 2.0
+				mp.speed = 0.0
+				for i in 10:
+					await get_tree().process_frame
+				print("RATSIA %s: pysähtyi, vaihe '%s', valikko %s" % [case[0], _ratsia_stage, str(_talk_options().map(func(o): return o.text))])
+				if case[0] == "selva":
+					await snap.call("_puhallus.png")
+				_talk_choose("puhalla")
+				print("RATSIA %s: %.2f ‰ -> '%s' / '%s', rahaa %.0f, maine %.0f" % [case[0], _promille(), _talk_box._line, _talk_box._info, money, maine])
+				if case[0] == "ratti":
+					await snap.call("_tulos.png")
+				_talk_choose("jatka")
+				for i in 30:
+					await get_tree().process_frame
+				print("RATSIA %s: jatko, tila %s, mopo ohjattavissa %s, päivä %d, viesti '%s'" % [case[0], state, mopo_trip.mopo.controls_enabled, day, _msg.text.replace("\n", " ")])
+			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f.store_buffer(saved)
+			f.close()
 			get_tree().quit()
 		"mokkikiihdytys":
 			# Mopojen kiihdytys: Zabukin pihan mopopojat, kisa (botti lähtee vihreällä ja vaihtaa vihreällä alueella).

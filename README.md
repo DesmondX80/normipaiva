@@ -165,7 +165,13 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     Vaalantien suoralla (Tunturi-Jani 5 € tai viritetyllä mopolla ajava Pakoputki-Pete 20 €): kolme punaista ja
     vihreä, W kaasu (ennen vihreää = vilppilähtö), välilyönti vaihtaa ylös kierrosmittarin vihreällä alueella
     (aikaisin moottori tukehtuu, rajoittimella aika valuu, kännissä vihreä alue heiluu). Voitto tuplaa panoksen
-    ja nostaa mainetta (`--scene=mokkikiihdytys`). Taustat: Oulujärven lava (Yle, Kaleva, Wikipedia) ja Oulujoen
+    ja nostaa mainetta (`--scene=mokkikiihdytys`).
+  - **Poliisin moporatsia:** mopomatkalla poliisi pitää välillä ratsiaa tien varressa (iltaisin useammin):
+    vilkkuva poliisiauto, viittova konstaapeli ja toinen tarkastamassa mopopojan porattua Tunturia. Pelaajakin
+    viitotaan sivuun: pysähdy auton eteen, niin edessä on puhalluskoe ja mopon tarkastus. Alle 0,5 ‰ = matka
+    jatkuu (joskus rikesakko mopon viasta), 0,5–1,2 ‰ = rattijuopumus (sakko 120 €, avaimet tunniksi pois),
+    yli 1,2 ‰ = törkeä rattijuopumus (sakko 250 €, yö putkassa, aamulla mopo Gasthausin pihassa). Ratsian
+    ohittaminen pysähtymättä = sakko postissa ja maine laskee (`--scene=mokkiratsia`). Taustat: Oulujärven lava (Yle, Kaleva, Wikipedia) ja Oulujoen
     voimalaitoskylien muistelmat (ponkkarit, kioskit, tanssipaikkojen portailla odottelevat nuoret).
     Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen; mopo jää parkkiin tyhjänä) ja kävellä; ovet ja automaatti toimivat jalankin,
     ja F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
