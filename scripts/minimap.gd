@@ -90,7 +90,7 @@ func _pts(arr: Array) -> PackedVector2Array:
 ## marginaalin, jotta leike ei koskaan ulotu tekstuurin ulkopuolelle.
 func _bake_village() -> void:
 	var pad := FAR_RANGE + 10.0
-	var lo := M.w2(Vector2.ZERO) - Vector2(pad, pad)
+	var lo := M.w2(M.MAP_MIN) - Vector2(pad, pad)
 	var hi := M.w2(M.SIZE) + Vector2(pad, pad)
 	_village_origin = lo
 	var tex_size := Vector2i(((hi - lo) * TEX_SCALE).ceil())
