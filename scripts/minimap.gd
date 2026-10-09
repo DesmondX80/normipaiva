@@ -184,7 +184,7 @@ func _draw() -> void:
 		draw_arc(t, 8.0, 0, TAU, 20, Color(1, 0.9, 0.1), 2.5)
 	if bike != null and bike != player:
 		_bike_icon(_clamp_edge(_w(bike.global_position)))
-	if wife != null and wife.is_inside_tree():
+	if wife != null and wife.is_inside_tree() and wife.visible:  # töissä auto on piilossa origon alla
 		draw_circle(_clamp_edge(_w(wife.global_position)), 4.5, Color(0.95, 0.1, 0.1))
 	if player != null:
 		var fwd3 := -player.global_transform.basis.z
