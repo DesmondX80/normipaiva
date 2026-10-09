@@ -167,8 +167,8 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     (aikaisin moottori tukehtuu, rajoittimella aika valuu, kännissä vihreä alue heiluu). Voitto tuplaa panoksen
     ja nostaa mainetta (`--scene=mokkikiihdytys`).
   - **Poliisin moporatsia:** mopomatkalla poliisi pitää välillä ratsiaa tien varressa (iltaisin useammin):
-    vilkkuva poliisiauto, viittova konstaapeli ja toinen tarkastamassa mopopojan porattua Tunturia. Pelaajakin
-    viitotaan sivuun: pysähdy auton eteen, niin edessä on puhalluskoe ja mopon tarkastus. Alle 0,5 ‰ = matka
+    vilkkuva poliisiauto, viittova Ratsupoliisi Roivainen ja toinen konstaapeli tarkastamassa mopopojan porattua
+    Tunturia ("Omalla kylällä saa ajaa kännissä, mutta varo Ratsupoliisi Roivaista"). Pelaajakin viitotaan sivuun: pysähdy auton eteen, niin edessä on puhalluskoe ja mopon tarkastus. Alle 0,5 ‰ = matka
     jatkuu (joskus rikesakko mopon viasta), 0,5–1,2 ‰ = rattijuopumus (sakko 120 €, avaimet tunniksi pois),
     yli 1,2 ‰ = törkeä rattijuopumus (sakko 250 €, yö putkassa, aamulla mopo Gasthausin pihassa). Ratsian
     ohittaminen pysähtymättä = sakko postissa ja maine laskee (`--scene=mokkiratsia`). Taustat: Oulujärven lava (Yle, Kaleva, Wikipedia) ja Oulujoen
