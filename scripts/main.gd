@@ -10178,19 +10178,25 @@ func _advance_clock(minutes: float) -> void:
 
 
 # --- Debug -------------------------------------------------------------------
-# `godot --path . -- --shot=/polku/kuva.png [--scene=shop|juntti|wife]`
-# ottaa kuvakaappauksen n. 1,5 s jälkeen ja sulkee pelin.
+# `godot --path . -- --shot=/polku/kuva.png [--scene=shop|juntti|wife] [--nohud]`
+# ottaa kuvakaappauksen n. 1,5 s jälkeen ja sulkee pelin. --nohud piilottaa HUDin (lappu, minikartta, palkit)
+# julisteen kuvia varten; minipelien omat kerrokset jäävät näkyviin.
 
 func _maybe_screenshot() -> void:
 	var path := ""
 	var scene := ""
+	var nohud := false
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shot="):
 			path = arg.substr(7)
 		elif arg.begins_with("--scene="):
 			scene = arg.substr(8)
+		elif arg == "--nohud":
+			nohud = true
 	if path.is_empty():
 		return
+	if nohud:
+		get_tree().process_frame.connect(func() -> void: _hud.visible = false)
 	await get_tree().process_frame
 	if scene.begins_with("mokki") or scene == "kuisti":
 		var tb := Time.get_ticks_msec()
