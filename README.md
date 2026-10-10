@@ -97,6 +97,15 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Lihapiirakkahaaste (4,90 €): välilyönti haukkaa, A ja D vuorotellen pureskelevat ja W juo limua, ennen kuin vatsa
   täyttyy. Juntin seitsemän piirakan ennätyksen rikkominen on oma onnellinen loppunsa "Lihapiirakkakuningas", ja
   Päivi haistaa sipulin aamulla. Testi `--scene=reippari`.
+- **Honganpalon koulu:** 270 m kodista tiilinen koulu kylttineen, lipputanko, pyörätelineet ja kenttä maaleineen.
+  Vahtimestari Reijo (8–16) maksaa 15 €, kun keräät iltaporukan roskat pihalta; ikkunasta näkyy Päivin luokkakuva
+  vuodelta 1989. Illalla (19–23) portailla istuu porukka mopoineen ja juoruaa, torstaisin (17–19) pihalla on
+  jäätelöauto, ja päivisin pojat lyövät rankkareita. **Legenda: Lapinraunion aarnivalkea** (keksitty, pelissä
+  totta): Mummo Hilkka kertoo Isonvihan hopeista ja sinisestä liekistä raunion luona. Arto, Anna-Liisa ja Pekka
+  epäilevät. Yöllä (22–4) raunion luona liekin takana on ensin Pannu-Sulo kaasupolttimineen, Saloisten Pirtin
+  käräjäpöytäkirja kertoo "kivien alle, sammalen sekaan", ja sitten oikea aarnivalkea palaa sammaloituneen kivikasan
+  päällä (tai näkyy droonin yökuvassa). Hopeat Pirttiin (loppu "Isonvihan hopeat") tai Veksille (rahaa, poliisi).
+  Testi `--scene=honganpalo`.
 - **Saloisten kenttä ja kaukalo:** Seuranmäellä jalkapallokenttä viivoineen, maalit verkkoineen, katsomo ja
   valomastot, vieressä jääkiekkokaukalo laitoineen. Pojat pelaavat päivisin (10–20): rankkarit-minipeli, viisi
   laukausta (tähtäin heiluu, välilyönti lukitsee suunnan ja korkeuden; kulmaan vaikea torjua, liian laaja menee
@@ -357,7 +366,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Onnelliset loput** kerätään kokoelmaan: juhlat autotallissa, viinibileet, laavulla kaljoilla, legendaarinen
   normipäivä, Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit, karaokekuningas, kiihdytyksen voittaja,
   sähköpyörä, seuraintalon tanssit, bingon jättipotti, Tokolan aarre, Vanhan Sulon pannu, lihapiirakkakuningas ja
-  viimeisen sepän kirves. Päiväkirjassa "Erilaisia onnellisia loppuja X / 16" (löytämättömät ???) ja onnellisten loppujen yhteismäärä. Testi
+  viimeisen sepän kirves ja Isonvihan hopeat. Päiväkirjassa "Erilaisia onnellisia loppuja X / 17" (löytämättömät ???) ja onnellisten loppujen yhteismäärä. Testi
   `--scene=paivakirja`.
 
 ## Jalan vai pyörällä?
