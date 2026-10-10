@@ -217,6 +217,8 @@ const EBike := preload("res://scripts/ebike.gd")
 const EBikeGame := preload("res://scripts/ebike_game.gd")
 const KirppisInterior := preload("res://scripts/kirppis_interior.gd")
 const AuctionGame := preload("res://scripts/auction_game.gd")
+const TanssiGame := preload("res://scripts/tanssi_game.gd")
+const BingoGame := preload("res://scripts/bingo_game.gd")
 const Tokola := preload("res://scripts/tokola.gd")
 const TokolaVarasto := preload("res://scripts/tokola_varasto.gd")
 const KORJAUS_VAIHEET := {"kiuas": "kiuaskivet", "lauteet": "lauteiden laudat", "terva": "seinien tervaus", "luukku": "savuluukku ja ovi"}
@@ -665,7 +667,8 @@ const TALKERS := {
 	"tauno": ["Tauno", Color(0.75, 0.8, 0.55)],
 	"huutaja": ["Huutaja Erkki", Color(1.0, 0.85, 0.3)],
 	"annaliisa": ["Anna-Liisa", Color(0.95, 0.7, 0.75)],
-	"aaro": ["Tokolan Aaro", Color(0.8, 0.75, 0.65)]}
+	"aaro": ["Tokolan Aaro", Color(0.8, 0.75, 0.65)],
+	"sinikka_seura": ["Sinikka", Color(1.0, 0.55, 0.75)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
 	"pekka": ["No perkele, naapuri!", "Terve terve, saatana.", "Kas, sieltähän se tulee."],
@@ -681,6 +684,7 @@ const TALK_HELLO := {
 	"tauno": ["Jaa, työkaluja vailla?", "Ruuveja, lankaa, teippiä. Mitä tarttet?"],
 	"huutaja": ["Huutokauppa käy! Kohde lavalla, tule huutamaan!", "Erkki tässä, huutaja. Mennäänkö?"],
 	"annaliisa": ["No kas, naapuri. Mitäs sää täältä etit?", "Päivi tietää kyllä, että sää oot täällä."],
+	"sinikka_seura": ["No hei! Tuliks sää tanssimaan?", "Kas, komistus seuraintalolla. Päivi kotona?"],
 	"aaro": ["Jaa, nuori mies. Tokolassa ei paljon vieraita käy.", "Päivää päivää. Istu vaikka tuohon kivelle.",
 		"Kas. Sinä oot se Järvikujan poika."],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
@@ -2022,15 +2026,51 @@ func _kirppis_logic() -> void:
 	if player == bike:
 		_hint.text = "[F] Pyörältä pois, niin pääset seuraintaloon"
 		return
-	if not _between(clock_min, KIRPPIS_OPEN):
-		_hint.text = "Kirpputori on kiinni (auki klo 10–18)."
-		return
-	_hint.text = "[E] Seuraintaloon: kirpputori ja huutokauppa"
-	if Input.is_action_just_pressed("interact") and not player.is_stunned():
-		_enter_kirppis()
+	var mode := _seura_mode()
+	var e: bool = Input.is_action_just_pressed("interact") and not player.is_stunned()
+	match mode:
+		"kirppis":
+			_hint.text = "[E] Seuraintaloon: kirpputori ja huutokauppa"
+		"bingo":
+			_hint.text = "[E] Seuraintaloon: BINGO (lappu 2 € sisällä)"
+		"tanssit":
+			if _tanssi_paid_day == day:
+				_hint.text = "[E] Tansseihin (lippu maksettu)"
+			elif money < TANSSI_LIPPU:
+				_hint.text = "Tanssit! Lippu %s €, rahat ei riitä." % _eur(TANSSI_LIPPU)
+				return
+			else:
+				_hint.text = "[E] Tansseihin: Saloisten Saapasjalat (lippu %s €)" % _eur(TANSSI_LIPPU)
+				if e:
+					money -= TANSSI_LIPPU
+					_tanssi_paid_day = day
+					Sfx.play("coin", -6.0)
+		_:
+			_hint.text = "Seuraintalo on kiinni. Kirppis joka päivä 10–18 · bingo ti 18–20 · tanssit la 21–01."
+			return
+	if e:
+		_enter_kirppis(mode)
 
 
-func _enter_kirppis() -> void:
+## Seuraintalon tilaisuus kellon ja viikonpäivän mukaan: "kirppis" 10–18, "bingo" tiistaina 18–20, "tanssit"
+## lauantaina 21–01 (yli puolenyön sama päivä, koska päivä vaihtuu vasta nukkuessa); "" = kiinni.
+func _seura_mode() -> String:
+	if _between(clock_min, KIRPPIS_OPEN):
+		return "kirppis"
+	var wd := _weekday()
+	if wd == 1 and _between(clock_min, BINGO_OPEN):
+		return "bingo"
+	if wd == 5 and _between(clock_min, TANSSI_OPEN):
+		return "tanssit"
+	return ""
+
+
+## Viikonpäivä: päivä 1 on maanantai (0 = ma … 6 = su).
+func _weekday() -> int:
+	return (day - 1) % 7
+
+
+func _enter_kirppis(mode := "kirppis") -> void:
 	_kirppis_prev = state
 	player.controls_enabled = false
 	player.speed = 0.0
@@ -2039,7 +2079,9 @@ func _enter_kirppis() -> void:
 	Sfx.play("door", -3.0)
 	tilat.first("kirppis", 0.2)
 	kirppis_int.lot_visible = _auction_lot().get("id", "") == "moottori"
-	kirppis_int.enter()
+	kirppis_int.enter(mode)
+	if mode != "kirppis":
+		tilat.first("seura_" + mode, 0.3)
 
 
 func _on_kirppis_exited() -> void:
@@ -2055,19 +2097,170 @@ func _on_kirppis_exited() -> void:
 
 ## Sulkemisaika: Hilkka ilmoittaa ja ohjaa ulos (ei heitetä heti).
 func _kirppis_closing() -> void:
-	if _between(clock_min, KIRPPIS_OPEN) or _talk_box.is_open() or kirppis_int.busy:
+	if _seura_mode() == kirppis_int.mode or _talk_box.is_open() or kirppis_int.busy:
 		return
-	if _once_today("kirppis_kiinni"):
-		kirppis_int.say_id("hilkka", "Kello on kuus, me suljetaan! Tervetuloa huomenna uudestaan.", 4.0)
+	var bye := {"kirppis": "Kirpputori sulki ovensa. Tervetuloa huomenna uudestaan.",
+		"bingo": "Bingo loppui. Mummot lähtee kotiin kinkkujensa kanssa.",
+		"tanssit": "Saapasjalat soitti viimeisen valssin. Tanssit on ohi, valot syttyy."}
 	_on_kirppis_exited()
-	_show_message("Kirpputori sulki ovensa. Tervetuloa huomenna uudestaan.", 3.0)
+	_show_message(bye.get(kirppis_int.mode, ""), 3.5)
 
 
 func _on_kirppis_acted(kind: String) -> void:
+	if kind == "takaovi":
+		_seura_ukot()
+		kirppis_int.block_interact()
+		return
 	if not kind.begins_with("hlo"):
 		return
 	var who: String = KirppisInterior.PEOPLE[int(kind.substr(3))].id
 	_talk_open(who, null)
+
+
+## --- Seuraintalon tanssit ja bingo (#129) --------------------------------------------------------------------
+const WEEKDAYS := ["maanantai", "tiistai", "keskiviikko", "torstai", "perjantai", "lauantai", "sunnuntai"]
+const BINGO_OPEN := Vector2(18 * 60, 20 * 60)
+const TANSSI_OPEN := Vector2(21 * 60, 60)  # yli puolenyön
+const TANSSI_LIPPU := 8.0
+const BINGO_LAPPU := 2.0
+const SEURA_KAHVI := 2.0
+const BINGO_PRIZES := [["kahvipaketti", "Kahvipaketti! Juhla Mokka, Päivi tykkää."], ["liina", "Virkkuuliina Hilkan pöydältä."],
+	["lahjakortti", "K-Marketin lahjakortti, 10 €!"], ["kinkku", "JÄTTIPOTTI: joulukinkku! Mummot ei ikinä anna anteeks."]]
+var _tanssi_paid_day := -1
+var _danced := {}  # pari -> päivä
+var _bingo_day := -1
+var _ukot_day := -1
+
+
+func _seura_options(who: String, o: Array) -> void:
+	var mode: String = kirppis_int.mode
+	if who == "raili":
+		o.append(_opt("kahvi", "Kahvi ja munkki (%s €)" % _eur(SEURA_KAHVI), money >= SEURA_KAHVI, "rahat ei riitä"))
+	if mode == "tanssit" and who in ["hilkka", "annaliisa", "sinikka_seura"]:
+		var nm: String = TALKERS[who][0]
+		o.append(_opt("tanssi", "Hae %s tanssiin" % nm, _danced.get(who, -1) != day, "tanssittu jo tänään", true))
+	if mode == "bingo" and who == "huutaja":
+		o.append(_opt("bingo", "Osta bingolappu (%s €)" % _eur(BINGO_LAPPU), money >= BINGO_LAPPU and _bingo_day != day,
+			"tämän illan bingo pelattu" if _bingo_day == day else "rahat ei riitä", true))
+
+
+func _seura_act(id: String) -> bool:
+	match id:
+		"kahvi":
+			money -= SEURA_KAHVI
+			tilat.add("vireys", 0.25)
+			_eat(0.25)
+			Sfx.play("coin", -6.0)
+			_talk_box.reply("Tässä, kahvi ja lämmin munkki. Hillo on pohjalla.", _talk_options(), "Vireys ja nälkä paranee. Rahaa %s €." % _eur(money))
+		"tanssi":
+			var who := _talk_who
+			_talk_box.close()
+			_start_tanssi(who)
+		"bingo":
+			_talk_box.close()
+			_start_bingo()
+		_:
+			return false
+	return true
+
+
+func _start_tanssi(who: String) -> void:
+	_danced[who] = day
+	kirppis_int.busy = true
+	kirppis_int.walker.controls_enabled = false
+	_hud.visible = false
+	var g := TanssiGame.new()
+	g.partner = who
+	g.drunk = _hand_shake()
+	g.finished.connect(func(score: float) -> void: _tanssi_done(who, score))
+	add_child(g)
+
+
+## Tanssin tulos: moraali ja maine, Sinikan kanssa Päivi kuulee, Anna-Liisa juoruaa varpaista.
+func _tanssi_done(who: String, score: float) -> void:
+	kirppis_int.busy = false
+	kirppis_int.walker.controls_enabled = true
+	kirppis_int.walker.activate()
+	kirppis_int.block_interact()
+	_hud.visible = true
+	var good := score >= 0.65
+	tilat.first("tanssit", 0.3)
+	if good:
+		tilat.add("moraali", 0.2)
+		tilat.add("stressi", 0.15)
+		maine = clampf(maine + 3.0, 0.0, 100.0)
+	else:
+		tilat.add("stressi", -0.05)
+	match who:
+		"sinikka_seura":
+			_sinikka_flirt()  # Päivi kuulee siitä pian puhelimessa
+			_show_message("Tanssi Sinikan kanssa (%d %%). %s" % [roundi(score * 100.0),
+				"Sinikka hymyilee pitkään. Joku näki." if good else "Sinikka nauraa varpailleen. Joku näki silti."], 4.0)
+		"annaliisa":
+			_show_message("Tanssi Anna-Liisan kanssa (%d %%). %s" % [roundi(score * 100.0),
+				"Anna-Liisa on niin hämillään, että unohtaa juoruta tänään." if good else "Anna-Liisa kertoo varpaistaan koko kylälle."], 4.0)
+			if not good:
+				maine = clampf(maine - 2.0, 0.0, 100.0)
+		_:
+			_show_message("Tanssi Hilkan kanssa (%d %%). %s" % [roundi(score * 100.0),
+				"Hilkka: \"Niin sitä viiskytluvulla tanssittiin!\" Mummot taputtaa." if good else "Hilkka: \"Harjoittele, nuori mies.\""], 4.0)
+
+
+func _start_bingo() -> void:
+	money -= BINGO_LAPPU
+	_bingo_day = day
+	kirppis_int.busy = true
+	kirppis_int.walker.controls_enabled = false
+	_hud.visible = false
+	CamCtl.free_mouse = true
+	var g := BingoGame.new()
+	g.drunk = _hand_shake()
+	g.rival_at = randi_range(18, 26)
+	g.finished.connect(func(won: bool, false_calls: int) -> void:
+		CamCtl.free_mouse = false
+		kirppis_int.busy = false
+		kirppis_int.walker.controls_enabled = true
+		kirppis_int.walker.activate()
+		kirppis_int.block_interact()
+		_hud.visible = true
+		maine = clampf(maine - 2.0 * false_calls, 0.0, 100.0)
+		tilat.first("bingo", 0.3)
+		if not won:
+			_show_message("Mummo Elvi vei bingon.%s Ensi tiistaina uudestaan." % (" Ja väärät huudot nolottaa." if false_calls > 0 else ""), 3.5)
+			return
+		var prize: Array = BINGO_PRIZES[3] if randf() < 0.15 else BINGO_PRIZES[randi() % 3]
+		match prize[0]:
+			"kahvipaketti":
+				tilat.add("vireys", 0.2)
+				tilat.add("stressi", 0.1)
+			"liina":
+				tilat.add("moraali", 0.15)
+			"lahjakortti":
+				money += 10.0
+			"kinkku":
+				tilat.add("moraali", 0.3)
+				tilat.add("stressi", 0.3)
+				maine = clampf(maine + 5.0, 0.0, 100.0)
+		Sfx.play("win_small", -4.0)
+		_show_message("BINGO! " + prize[1], 4.5)
+		_save_game())
+	add_child(g)
+
+
+## Tanssien takaovi: ukot ryyppäävät pihalla auton takakontilla. Huikka kerran illassa; Anna-Liisa voi nähdä.
+func _seura_ukot() -> void:
+	if _ukot_day == day:
+		_show_message("Ukot: \"Ei enää, pullo on tyhjä. Mee tanssiin!\"", 2.5)
+		return
+	_ukot_day = day
+	_drink(1)
+	tilat.add("moraali", 0.1)
+	Sfx.play("glass", -6.0)
+	if randf() < 0.3:
+		tilat.add("stressi", -0.1)
+		_show_message("Takakontista huikka kossua. Anna-Liisa näki ikkunasta. Huomenna Päivi tietää.", 4.0)
+	else:
+		_show_message("Takakontista huikka kossua ukkojen kanssa. \"Nuorisoseuran talolla ei juoda!\" Hah.", 3.5)
 
 
 func _kirppis_ask(k: String) -> float:
@@ -2087,6 +2280,8 @@ func _talk_kirppis(id: String) -> void:
 	if id == "huuto":
 		_talk_box.close()
 		_start_auction()
+		return
+	if _seura_act(id):
 		return
 	if id == "markat":
 		tokola.markat = false
@@ -5315,20 +5510,25 @@ func _talk_options(who := "") -> Array:
 					why = "ei kaljaa eikä %s € bensarahaa" % _eur(PEKKA_RIDE_PRICE)
 				o.append(_opt("kyyti", "Kyyti mökille Vaalaan (%s)" % ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €"),
 					why == "", why))
+		"annaliisa", "sinikka_seura":
+			_seura_options(who, o)
 		"hilkka", "raili", "tauno":
-			if who == "raili" and tokola.markat:
-				o.append(_opt("markat", "Myy vanhat markat keräilijälle (%s €)" % _eur(TOKOLA_MARKAT), true, "", true))
-			for k in KIRPPIS_STOCK:
-				var it: Dictionary = KIRPPIS_STOCK[k]
-				if it.seller != who:
-					continue
-				if _kirppis_sold.get(k, -1) == day:
-					o.append(_opt("x_" + k, "%s (myyty)" % it.name, false, "uusia huomenna"))
-					continue
-				var ask := _kirppis_ask(k)
-				o.append(_opt("osta_" + k, "Osta %s (%s €)" % [it.name.to_lower(), _eur(ask)], money >= ask - 0.001, "rahat ei riitä"))
-				if _kirppis_angry.get(who, -1) != day and ask > snappedf(it.price * 0.4, 0.5) + 0.001:
-					o.append(_opt("tingi_" + k, "Tingi: tarjoa %s € (%s)" % [_eur(_kirppis_offer(ask)), it.name.to_lower()]))
+			if kirppis_int.mode != "kirppis":
+				_seura_options(who, o)
+			else:
+				if who == "raili" and tokola.markat:
+					o.append(_opt("markat", "Myy vanhat markat keräilijälle (%s €)" % _eur(TOKOLA_MARKAT), true, "", true))
+				for k in KIRPPIS_STOCK:
+					var it: Dictionary = KIRPPIS_STOCK[k]
+					if it.seller != who:
+						continue
+					if _kirppis_sold.get(k, -1) == day:
+						o.append(_opt("x_" + k, "%s (myyty)" % it.name, false, "uusia huomenna"))
+						continue
+					var ask := _kirppis_ask(k)
+					o.append(_opt("osta_" + k, "Osta %s (%s €)" % [it.name.to_lower(), _eur(ask)], money >= ask - 0.001, "rahat ei riitä"))
+					if _kirppis_angry.get(who, -1) != day and ask > snappedf(it.price * 0.4, 0.5) + 0.001:
+						o.append(_opt("tingi_" + k, "Tingi: tarjoa %s € (%s)" % [_eur(_kirppis_offer(ask)), it.name.to_lower()]))
 		"aaro":
 			if not tokola.key:
 				o.append(_opt("piirakka", "Anna lihapiirakka (varaston avain)", food.get("piirakka", 0) > 0,
@@ -5340,7 +5540,9 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("kauppias", "Kerro siitä Tokolan kauppiaasta"))
 		"huutaja":
 			var lot := _auction_lot()
-			if lot.is_empty():
+			if kirppis_int.mode != "kirppis":
+				_seura_options(who, o)
+			elif lot.is_empty():
 				o.append(_opt("x_huuto", "Tämän päivän huutokauppa on pidetty", false, "uusi kohde huomenna"))
 			else:
 				o.append(_opt("huuto", "Huutamaan: %s (lähtö %s €)" % [lot.name, _eur(lot.start)], true, "", true))
@@ -5498,7 +5700,7 @@ func _talk_choose(id: String) -> void:
 			_talk_box.reply(r[0], _talk_options(), r[1] + "   Rahaa %s €." % _eur(money))
 		"visa":
 			_quiz_answer(int(id.trim_prefix("visa_")))
-		"hilkka", "raili", "tauno", "huutaja", "annaliisa":
+		"hilkka", "raili", "tauno", "huutaja", "annaliisa", "sinikka_seura":
 			_talk_kirppis(id)
 		"aaro":
 			_talk_aaro(id)
@@ -5730,8 +5932,9 @@ func _talk_chat_line() -> String:
 			return MOPOPOJAT_LINES.pick_random()
 		"gasthaus":
 			return GASTHAUS_LINES.pick_random()
-		"hilkka", "raili", "tauno", "huutaja", "annaliisa":
-			return KirppisInterior.AMBIENT[_talk_who].pick_random()
+		"hilkka", "raili", "tauno", "huutaja", "annaliisa", "sinikka_seura":
+			var pool: Dictionary = KirppisInterior.AMBIENT_MODE.get(kirppis_int.mode, {})
+			return (pool.get(_talk_who, KirppisInterior.AMBIENT.get(_talk_who, [""])) as Array).pick_random()
 	return ""
 
 
@@ -10607,7 +10810,7 @@ func inventory_info() -> Dictionary:
 				info.list.append(Hommat.TASKS[t].nimi + ("  ✔" if t in hommat.done else ""))
 		info.tasks = story.list()
 		return info
-	info.lines = ["Päivä %d · Järvikuja 1, Saloinen" % day, "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
+	info.lines = ["Päivä %d (%s) · Järvikuja 1, Saloinen" % [day, WEEKDAYS[_weekday()]], "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
 		"Kello %s · nukahdat n. klo %s" % [_clock_text(), _pass_out_text()], "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
 	if not _list_done:
 		# Keskittyminen: palkintona ensimmäisen tuotteen väri näkyy, haittana viimeinen tuote unohtuu listasta.
@@ -13796,6 +13999,89 @@ func _maybe_screenshot() -> void:
 				_talk_who = "pekka"
 				lines[_talk_chat_line()] = true
 			print("TK pekka todistettu repliikki: %s" % [TOKOLA_PROVEN.pekka.any(func(l): return lines.has(l))])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"seurailta":
+			# Seuraintalon tanssit ja bingo (#129): ovi kiinni keskiviikkoiltana, tanssit lauantaina (lippu, sali, tanssi
+			# Sinikan kanssa, ukot takakontilla, sulkeminen), bingo tiistaina (sali, lappu, pakotettu bingo ja palkinto).
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var door: Vector3 = world.kirppis_door
+			money = 40.0
+			day = 3
+			clock_min = 19 * 60
+			walker_out.global_position = door + Vector3(0, 0.3, 0)
+			await frames.call(10)
+			print("SE ke ilta (%s): '%s'" % [WEEKDAYS[_weekday()], _hint.text])
+			day = 6
+			clock_min = 21 * 60 + 30
+			await frames.call(5)
+			print("SE la ilta (%s): '%s'" % [WEEKDAYS[_weekday()], _hint.text])
+			await press.call("interact")
+			print("SE tansseihin: tila %s, tila sisällä %s, rahaa %s" % [state, kirppis_int.mode, _eur(money)])
+			await frames.call(30)
+			await snap.call("_tanssit_sali.png")
+			print("SE sinikka: %s" % [_talk_options("sinikka_seura").map(func(o): return o.id)])
+			print("SE raili: %s" % [_talk_options("raili").map(func(o): return o.id)])
+			_talk_open("sinikka_seura", null)
+			_talk_box._pages.clear()
+			_talk_choose("tanssi")
+			var tg: Node = get_children().filter(func(c): return c is TanssiGame).front()
+			print("SE tanssi auki: %s" % [tg != null])
+			await get_tree().create_timer(3.5).timeout
+			await snap.call("_tanssi.png")
+			tg._hits = 30
+			tg._misses = 3
+			tg._finish()
+			await frames.call(5)
+			print("SE tanssi ohi: viesti '%s', soitto %.1f" % [_msg.text, _paivi_call_t])
+			_on_kirppis_acted("takaovi")
+			print("SE ukot: '%s'" % _msg.text)
+			clock_min = 60 + 5
+			await frames.call(5)
+			print("SE tanssit loppu: tila %s, viesti '%s'" % [state, _msg.text])
+			day = 2
+			clock_min = 18 * 60 + 15
+			walker_out.global_position = door + Vector3(0, 0.3, 0)
+			await frames.call(10)
+			print("SE ti ilta (%s): '%s'" % [WEEKDAYS[_weekday()], _hint.text])
+			await press.call("interact")
+			print("SE bingoon: tila %s, %s" % [state, kirppis_int.mode])
+			await frames.call(30)
+			await snap.call("_bingo_sali.png")
+			print("SE erkki: %s" % [_talk_options("huutaja").map(func(o): return o.id)])
+			_talk_open("huutaja", null)
+			_talk_box._pages.clear()
+			_talk_choose("bingo")
+			var bg: Node = get_children().filter(func(c): return c is BingoGame).front()
+			print("SE bingo auki: %s" % [bg != null])
+			bg.rival_at = 99
+			await get_tree().create_timer(7.0).timeout
+			for i in 5:  # ylärivi merkityksi kuin huudettuna
+				if not (bg._card[i] in bg._called):
+					bg._called.append(bg._card[i])
+				bg._marked[i] = true
+			await get_tree().create_timer(0.3).timeout
+			await snap.call("_bingo.png")
+			print("SE bingo rivi: %s" % [bg._has_line()])
+			bg._end(true)
+			await get_tree().create_timer(2.0).timeout
+			print("SE bingo voitto: viesti '%s'" % _msg.text)
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"kirppis":

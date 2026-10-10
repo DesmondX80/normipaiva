@@ -90,6 +90,14 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   tekee vastatarjouksen tai suuttuu loppupäiväksi; maine auttaa, eikä alle 40 %:n mennä. Huutokauppa kerran
   päivässä: Erkki vilkuilee yleisöä, ja huuto menee läpi vain, kun hän katsoo sinua; "ensimmäisen, toisen…
   kolmannen kerran!" Testi `--scene=kirppis`.
+- **Seuraintalon tanssit ja bingo:** päivillä on viikonpäivät (päivä 1 = maanantai, näkyy repun tiedoissa).
+  Lauantaisin klo 21–01 tanssit (lippu 8 €): lavalla Saloisten Saapasjalat, viirit ja värivalot, lattialla pareja.
+  Tanssiin voi hakea Sinikan (Päivi soittaa perään kuten Siitarissa), Hilkan tai Anna-Liisan: A ja D vuorotellen
+  tahdissa nuottiradalla, ja hyvä tanssi nostaa moraalia ja mainetta (kömpelö tanssi Anna-Liisan kanssa leviää
+  kylälle). Kahviossa Raili myy kahvia ja munkkia, takaovesta pihalle ukkojen luo takakontille (huikka kossua,
+  Anna-Liisa voi nähdä). Tiistaisin klo 18–20 bingo: lappu 2 €, Erkki arpoo pallokoneesta, huudetut numerot
+  merkitään omaan lappuun, ja täysi rivi BINGO-napilla voittaa (kahvipaketti, virkkuuliina, lahjakortti tai
+  harvoin joulukinkku), jos ehtii ennen mummoja. Väärä bingohuuto nolaa ja vie mainetta. Testi `--scene=seurailta`.
 - **Tokola ja kauppiaan aarre:** Tokolantien varressa Tokolan kaupan vanha varasto (kauppa lopetti 1950–60-luvulla;
   varasto on pelin keksintö). Avain on vanhalla Aarolla, joka antaa sen lihapiirakkaa vastaan ja kertoo
   legendan: kauppias ei vienyt rahojaan pankkiin. Varastosta ohjain, rautalankaa ja kauppiaan tilikirja, jonka
