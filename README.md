@@ -422,7 +422,8 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 ## Päivät, turvapaikat ja välianimaatiot
 
 - Peli jatkuu päivästä toiseen. Kun jäät kiinni, tulee **WASTED** ja Päivin motkotus, ja uusi päivä alkaa
-  lähimmästä turvapaikasta: kotoa tai laavulta (kun olet vallannut sen).
+  lähimmästä turvapaikasta: kotoa, laavulta (kun olet vallannut sen) tai Viitajärven laavulta (kun olet saanut
+  erämaan laavun lopun).
 - Onnellinen loppu kotona: karburaattorin säätöä autotallissa kalja kädessä. Laavulla: makkaranpaistoa
   auringonlaskussa.
 - **Jemmat:** piilota kaljat itse kotijemmoihin (eteisen kaappi, autotalli, komposti), laavun halkovajaan tai
@@ -434,7 +435,8 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   ja juoda ne laavulla. Onnellinen loppu juo kyseisen jemman tyhjäksi (autotalli kotijemman, laavu laavun jemman).
 - **Kantoraja:** jalan jaksaa kantaa 12 kaljaa, pyörän kyytiin mahtuu 6. Liian täysin käsin ei pääse pyörän
   selkään, ja kalja kädessä ei pääse kauppaan (kauppias kieltää).
-- **Kiilinlammen grillikatos** on turvapaikka: sinne Päivi ei tule Hyundailla perään.
+- **Turvapaikat Päiviltä:** Kiilinlammen grillikatos, Viitajärven laavu ja länsilaidan rauniot. Niihin Päivi ei tule
+  Hyundailla perään. Testi `--scene=turvapaikat`.
 - Esc avaa valikon: asetukset (grafiikan laatu, koko näyttö, V-Sync, renderöintiskaala, FOV, FPS-näyttö,
   leijuvat opasteet eli paikkojen ja hahmojen nimet (oletuksena pois), äänenvoimakkuudet, hiiren herkkyys, käänteinen Y, kameran automaattikeskitys), ohjaimet ja tekijät.
 
