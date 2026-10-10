@@ -222,8 +222,9 @@ func _build_room() -> void:
 	for x in [-4.4, 4.4]:
 		B.mesh(self, B.boxm(Vector3(1.0, WALL_H, 0.2)), Vector3(x, WALL_H / 2.0, -HALF.y + 0.2), Color(0.6, 0.08, 0.1))
 	B.mesh(self, B.boxm(Vector3(9.8, 0.6, 0.2)), Vector3(0, WALL_H - 0.3, -HALF.y + 0.2), Color(0.6, 0.08, 0.1))
-	var stage_sign := B.label(self, "HUUTOKAUPPA", Vector3(0, 2.9, -HALF.y + 0.32), 64, Color(1.0, 0.85, 0.2))
-	stage_sign.outline_modulate = Color(0.3, 0.05, 0.05)
+	var stage_sign := B.sign_plate(self, "HUUTOKAUPPA", Color(0.95, 0.78, 0.15), Color(0.45, 0.06, 0.05), 0.5, 72,
+		Color(0.35, 0.2, 0.08), "Helvetica Neue")
+	stage_sign.position = Vector3(0, 2.9, -HALF.y + 0.33)
 	# Huutajan pöytä ja nuija, myytävä kohde (napamoottori) lavan pöydällä.
 	_solid(Vector3(1.2, 0.9, 0.6), Vector3(-1.6, 0.95, -HALF.y + 1.6), Color(0.42, 0.28, 0.16))
 	B.mesh(self, B.cyl(0.05, 0.05, 0.25, 8), Vector3(-1.5, 1.45, -HALF.y + 1.6), Color(0.35, 0.2, 0.1), Vector3(0, 0, 90))
@@ -233,16 +234,34 @@ func _build_room() -> void:
 	add_child(_lot)
 	B.mesh(_lot, B.cyl(0.24, 0.24, 0.16, 18), Vector3.ZERO, Color(0.13, 0.13, 0.14), Vector3(0, 0, 90))
 	B.mesh(_lot, B.cyl(0.06, 0.06, 0.3, 8), Vector3.ZERO, Color(0.7, 0.7, 0.72), Vector3(0, 0, 90))
-	var tag := B.label(_lot, "NAPAMOOTTORI\nlähtöhinta 5 €", Vector3(0, 0.42, 0.3), 22, Color(0.1, 0.1, 0.1))
-	tag.outline_modulate = Color(1, 1, 1)
+	# Hintalappu tikun nokassa kohteen vieressä.
+	B.mesh(_lot, B.cyl(0.01, 0.01, 0.4, 6), Vector3(0.35, 0.05, 0.25), Color(0.5, 0.35, 0.2))
+	var tag := B.sign_plate(_lot, "NAPAMOOTTORI\nlähtö 5 €", Color(0.98, 0.97, 0.92), Color(0.1, 0.1, 0.1), 0.09, 22,
+		Color(0.8, 0.15, 0.1))
+	tag.position = Vector3(0.35, 0.32, 0.25)
 	# Ovi, takahuone ja seinäjulisteet.
 	B.mesh(self, B.boxm(Vector3(2.0, 0.08, 0.15)), Vector3(0, 0.04, HALF.y), Color(0.3, 0.3, 0.3))
 	B.label(self, "ULOS", Vector3(0, 0.9, HALF.y), 40, Color(0.3, 1.0, 0.4), true)
 	B.mesh(self, B.boxm(Vector3(0.08, 2.2, 1.1)), Vector3(-HALF.x + 0.08, 1.1, -4.4), Color(0.4, 0.26, 0.14))
-	var priv := B.label(self, "YKSITYINEN", Vector3(-HALF.x + 0.15, 2.0, -4.4), 24, Color(0.85, 0.1, 0.1))
+	var priv := B.sign_plate(self, "YKSITYINEN", Color(0.97, 0.97, 0.95), Color(0.8, 0.08, 0.06), 0.16, 30,
+		Color(0.8, 0.08, 0.06), "Helvetica Neue")
+	priv.position = Vector3(-HALF.x + 0.14, 1.75, -4.4)
 	priv.rotation.y = PI / 2.0
-	var info := B.label(self, "Saloisten Nuorisoseura\nTANSSIT la klo 21\nBINGO ti klo 18", Vector3(HALF.x - 0.15, 2.3, 1.5), 22, Color(0.15, 0.15, 0.4))
-	info.rotation.y = -PI / 2.0
+	# Ilmoitustaulu: korkkitaulu, jolla nuorisoseuran ilmoitukset nastoilla.
+	var board := Node3D.new()
+	board.position = Vector3(HALF.x - 0.12, 2.0, 1.5)
+	board.rotation.y = -PI / 2.0
+	add_child(board)
+	B.mesh(board, B.boxm(Vector3(1.8, 1.2, 0.04)), Vector3.ZERO, Color(0.4, 0.26, 0.12))
+	B.mesh(board, B.boxm(Vector3(1.68, 1.08, 0.05)), Vector3.ZERO, Color(0.72, 0.55, 0.36))
+	var notes := [["Saloisten\nNuorisoseura\nTANSSIT\nla klo 21", Color(1.0, 0.95, 0.75), Vector3(-0.42, 0.05, 0.04)],
+		["BINGO\nti klo 18", Color(0.85, 0.95, 1.0), Vector3(0.4, 0.18, 0.04)],
+		["Myydään\nmopo,\nsoita Jani", Color(0.95, 0.85, 0.95), Vector3(0.42, -0.3, 0.04)]]
+	for n in notes:
+		var np := B.sign_plate(board, n[0], n[1], Color(0.12, 0.12, 0.2), 0.08, 18, Color(0.85, 0.85, 0.82))
+		np.position = n[2]
+		np.rotation.z = randf_range(-0.08, 0.08)
+		B.mesh(np, B.sphere(0.02, 6), Vector3(0, np.get_meta("height") / 2.0 - 0.03, 0.03), Color(0.85, 0.1, 0.1))
 	for i in 4:  # lamput
 		var lx := -6.0 + i * 4.0
 		B.mesh(self, B.cyl(0.25, 0.4, 0.25, 12), Vector3(lx, WALL_H - 0.3, 0), Color(0.95, 0.9, 0.7))
@@ -282,7 +301,11 @@ func _build_tables() -> void:
 	# Kahvipöytä oven vieressä.
 	_table(Vector3(-5.5, 0, 4.0), Vector2(1.6, 0.8))
 	B.mesh(self, B.cyl(0.1, 0.12, 0.3, 10), Vector3(-5.8, 0.9, 4.0), Color(0.8, 0.1, 0.1))
-	B.label(self, "KAHVI + PULLA 1 €", Vector3(-5.5, 1.3, 4.45), 20, Color(0.2, 0.1, 0.05), true)
+	# Pöytäkyltti teltan muotoon taiteltuna.
+	var tent := B.sign_plate(self, "KAHVI + PULLA 1 €", Color(0.98, 0.96, 0.9), Color(0.45, 0.12, 0.06), 0.1, 26,
+		Color(0.45, 0.12, 0.06))
+	tent.position = Vector3(-5.2, 0.9, 4.15)
+	tent.rotation.x = -0.25
 
 
 func _build_people() -> void:
