@@ -85,6 +85,11 @@ var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
 var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
 var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
 var museum_door: Vector3  # Saloisten Pirtin (kotiseutumuseo) oven edusta
+var korpela_door: Vector3  # korjaamot (#142)
+var simo_pos: Vector3  # Simon pakettiauton liukuovi
+var heiskanen_door: Vector3
+var huhtala_door: Vector3
+var huhtala_trunk: Vector3  # romuauton takakontti (jemma)
 var viita_fire: Node3D  # Viitajärven laavun nuotio (#147)
 var viita_pos: Vector3  # laavun tulisija
 var kaitasaari_pos: Vector3
@@ -265,6 +270,7 @@ func build(step: Callable) -> void:
 	_build_honganpalo()
 	_build_seppo()
 	_build_eramaa()
+	_build_korjaamot()
 	_build_rauniot()
 	for i in M.PLAYGROUNDS.size():
 		_playground(M.PLAYGROUNDS[i][0], M.PLAYGROUNDS[i][1], i)
@@ -1452,6 +1458,113 @@ func _build_kentta() -> void:
 		var lp := Vector3((-1.0 if k < 2 else 1.0) * (RW / 2.0 + 1.5), 0, (-1.0 if k % 2 == 0 else 1.0) * RL / 3.0)
 		B.mesh(rink, B.cyl(0.1, 0.14, 9.0, 8), lp + Vector3(0, 4.5, 0), Color(0.55, 0.56, 0.58))
 		B.mesh(rink, B.boxm(Vector3(1.0, 0.5, 0.5)), lp + Vector3(0, 9.0, 0), Color(0.3, 0.3, 0.32))
+
+
+## Korjaamot (#142): Korpelan ja Heiskasen hallit kylttineen, Korpelan pihassa Volvo nostimella, Simon valkoinen
+## pakettiauto kyltteineen ja Huhtalan halli romuautoineen (yhden takakontti jemmana).
+func _build_korjaamot() -> void:
+	korpela_door = _hall(M.KORPELA, 4.5, Color(0.78, 0.78, 0.74), Color(0.55, 0.2, 0.15), "P. KORPELA\nMOOTTORIAJONEUVOJEN HUOLTO",
+		Color(0.95, 0.95, 0.92), Color(0.1, 0.2, 0.5), 1)
+	heiskanen_door = _hall(M.HEISKANEN, 4.2, Color(0.85, 0.82, 0.7), Color(0.3, 0.3, 0.32), "HEISKANEN KY\nKAASU- JA SAMMUTINHUOLTO",
+		Color(0.85, 0.1, 0.1), Color.WHITE, 1)
+	huhtala_door = _hall(M.HUHTALA, 5.5, Color(0.55, 0.6, 0.62), Color(0.35, 0.37, 0.4), "HUHTALAN AUTO JA VARAOSAT",
+		Color(0.12, 0.12, 0.14), Color(1.0, 0.8, 0.15), 2)
+	var car := func(p: Vector2, yaw: float, col: Color, wreck: bool) -> Node3D:
+		var n := Node3D.new()
+		n.position = Vector3(p.x, 0, p.y)
+		n.rotation.y = yaw
+		add_child(n)
+		var body := B.mesh(n, B.boxm(Vector3(1.75, 0.7, 4.6)), Vector3(0, 0.65, 0), col)
+		B.mesh(n, B.boxm(Vector3(1.6, 0.6, 2.4)), Vector3(0, 1.25, -0.1), col.darkened(0.1))
+		B.mesh(n, B.boxm(Vector3(1.55, 0.45, 0.05)), Vector3(0, 1.3, 1.12), Color(0.5, 0.62, 0.7) if not wreck else Color(0.2, 0.2, 0.2))
+		for z in [1.4, -1.4]:
+			for x in [-0.88, 0.88]:
+				if wreck and x < 0 and z > 0:
+					continue  # yksi pyörä puuttuu
+				B.mesh(n, B.cyl(0.33, 0.33, 0.22, 12), Vector3(x, 0.33 if not wreck else 0.25, z), Color(0.08, 0.08, 0.08), Vector3(0, 0, 90))
+		if wreck:
+			body.rotation.z = 0.06
+			for k in 5:  # ruostetta
+				B.mesh(n, B.boxm(Vector3(0.4, 0.25, 0.02)), Vector3(-0.6 + k * 0.3, 0.6, 2.31), Color(0.55, 0.28, 0.12))
+		var cb := StaticBody3D.new()
+		cb.add_child(B.box_shape(Vector3(1.8, 1.5, 4.6), Vector3(0, 0.75, 0)))
+		n.add_child(cb)
+		return n
+	# Korpelan pihassa Pekan Volvo -tyyppinen farmari nostimella.
+	var kf := _osm_fit_at(M.KORPELA)
+	if not kf.is_empty():
+		var lp: Vector2 = kf.c + kf.nrm * (kf.d / 2.0 + 5.0)
+		var lift := Node3D.new()
+		lift.position = Vector3(lp.x, 0, lp.y)
+		lift.rotation.y = kf.yaw
+		add_child(lift)
+		for x in [-1.3, 1.3]:
+			B.mesh(lift, B.boxm(Vector3(0.25, 2.2, 0.25)), Vector3(x, 1.1, 0), Color(0.85, 0.15, 0.1))
+		var volvo: Node3D = car.call(lp, kf.yaw, Color(0.55, 0.12, 0.1), false)
+		volvo.position.y = 0.8
+	# Simon pakettiauto.
+	var sv := M.w2(M.SIMO_VAN)
+	var van := Node3D.new()
+	van.position = Vector3(sv.x, 0, sv.y)
+	van.rotation.y = 0.4
+	add_child(van)
+	B.mesh(van, B.boxm(Vector3(1.95, 1.9, 5.0)), Vector3(0, 1.3, 0), Color(0.96, 0.96, 0.96))
+	B.mesh(van, B.boxm(Vector3(1.9, 0.9, 0.05)), Vector3(0, 1.8, 2.51), Color(0.5, 0.62, 0.7))
+	for z in [1.7, -1.6]:
+		for x in [-0.95, 0.95]:
+			B.mesh(van, B.cyl(0.35, 0.35, 0.24, 12), Vector3(x, 0.35, z), Color(0.08, 0.08, 0.08), Vector3(0, 0, 90))
+	var vs := B.sign_plate(van, "AUTOSÄHKÖ\nSIMO NIEMELÄ\n040-LIIKKUVA", Color(0.96, 0.96, 0.96), Color(0.1, 0.3, 0.7), 0.3, 50,
+		Color(0.96, 0.96, 0.96), "Helvetica Neue")
+	vs.position = Vector3(0.99, 1.5, -0.4)
+	vs.rotation.y = PI / 2.0
+	B.mesh(van, B.boxm(Vector3(0.05, 0.12, 5.0)), Vector3(0.99, 0.75, 0), Color(0.95, 0.75, 0.1))
+	var vb := StaticBody3D.new()
+	vb.add_child(B.box_shape(Vector3(2.0, 2.3, 5.0), Vector3(0, 1.15, 0)))
+	van.add_child(vb)
+	var sp: Vector3 = van.to_global(Vector3(2.0, 0, -0.4))
+	simo_pos = Vector3(sp.x, T.h(sp.x, sp.z), sp.z)
+	# Huhtalan romuautot ja rengaskasat.
+	var hf := _osm_fit_at(M.HUHTALA)
+	if not hf.is_empty():
+		var cols := [Color(0.3, 0.45, 0.25), Color(0.75, 0.7, 0.6), Color(0.2, 0.25, 0.45), Color(0.65, 0.3, 0.12)]
+		var placed: Array = []
+		var tries: Array = []
+		for ring in [6.0, 9.0, 12.0, 15.0]:
+			for k in 16:
+				var a := k * TAU / 16.0
+				tries.append(hf.c + Vector2(cos(a), sin(a)) * (maxf(hf.l, hf.d) / 2.0 + ring - 4.0))
+		for tp in tries:
+			if placed.size() >= 4:
+				break
+			if not _yard_free(tp, 3.0) or placed.any(func(q): return q.distance_to(tp) < 5.5):
+				continue
+			placed.append(tp)
+		for i in placed.size():
+			var p: Vector2 = placed[i]
+			car.call(p, hf.yaw + 0.4 * i, cols[i], true)
+			if i == 0:
+				huhtala_trunk = Vector3(p.x, T.h(p.x, p.y), p.y) + Vector3(2.0, 0, 0)
+		var tires := Node3D.new()
+		var trp: Vector2 = placed[0] + Vector2(3.5, 0) if not placed.is_empty() else hf.c + hf.nrm * (hf.d / 2.0 + 2.0)
+		tires.position = Vector3(trp.x, 0, trp.y)
+		add_child(tires)
+		for k in 7:
+			B.mesh(tires, B.cyl(0.35, 0.35, 0.22, 12), Vector3((k % 2) * 0.1, 0.11 + k * 0.23, 0), Color(0.07, 0.07, 0.07))
+
+
+## Piha-alue vapaana: ei tiellä (clear m tien reunasta) eikä minkään OSM-rakennuksen pohjan sisällä (+1 m).
+func _yard_free(p: Vector2, clear: float) -> bool:
+	if _road_clearance(p) < clear or _in_any(p, _water):
+		return false
+	for b in M.Osm.BUILDINGS:
+		var c := M.w2(b.c)
+		if c.distance_squared_to(p) > 900.0:
+			continue
+		var ax := Vector2(cos(b.a), sin(b.a))
+		var d := p - c
+		if absf(d.dot(ax)) < b.l * M.SCALE / 2.0 + 2.0 and absf(d.dot(ax.orthogonal())) < b.d * M.SCALE / 2.0 + 2.0:
+			return false
+	return true
 
 
 ## Etelän erämaa (#147): Viitajärven laavu (katos, tulisija nuotioineen, halkopino, kyltti), Kaitasaaren
