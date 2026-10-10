@@ -85,6 +85,23 @@ var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
 var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
 var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
 var museum_door: Vector3  # Saloisten Pirtin (kotiseutumuseo) oven edusta
+var kentta_spot: Vector3  # Saloisten kentän rankkaripiste (maalin edessä) (#116)
+var kentta_kids: Array = []  # kentän pojat (näkyvät päivällä)
+var kentta_laps: Array = []  # juoksulenkin kulmat kentän ympäri
+var uimaranta_pos: Vector3  # uimaan lähtö rannalla (#117)
+var uimaranta_bench: Vector3
+var uimaranta_people: Array = []  # rannan perheet ja mummot (näkyvyys main.gd)
+var pukukoppi_pos: Vector3  # pukukopin edusta (jemma)
+var grilli_ranta_pos: Vector3
+var seo_door: Vector3  # SEO:n myymälän ovi (#118)
+var aplus_door: Vector3  # ravintola A+:n ovi
+var seo_truck: Node3D  # rekka pihalla (liftari)
+var katsastus_door: Vector3  # katsastusaseman halliovi (#119)
+var arttim_door: Vector3  # metallipajan ovi
+var rudus_gate: Vector3  # Ruduksen portti (keikkatyö)
+var rossi_gate: Vector3  # rossiradan lähtöportti (#121)
+var rossi_boys: Node3D  # crossipojat lähtöportilla
+var rossi_jumps: Array = []  # hyppyrien harjat [paikka Vector3, suunta Vector2]
 var kertun_taulu_pos: Vector3  # Kertunkankaan opastaulun lukupaikka (#122)
 var kertun_bench_pos: Vector3  # penkki röykkiöiden laidalla
 var kertun_isokivi: Node3D  # isokivi kivirivin päässä (kirves alla; main.gd kallistaa löydettäessä)
@@ -216,6 +233,11 @@ func build(step: Callable) -> void:
 	_build_kota()
 	_build_pontikka()
 	_build_kertunkangas()
+	_build_kentta()
+	_build_uimaranta()
+	_build_seo()
+	_build_kinnapotti()
+	_build_rossi()
 	_build_bales()
 	await step.call("Rakennetaan Saloisten talot", 0.56)
 	_build_houses()
@@ -1272,6 +1294,505 @@ func _build_pirtti() -> void:
 	var sign := B.sign_plate(root, "SALOISTEN PIRTTI\nkotiseutumuseo", Color(0.2, 0.3, 0.2), Color(0.95, 0.92, 0.8), 0.18, 36,
 		Color(0.5, 0.4, 0.25), "Helvetica Neue")
 	sign.position = Vector3(1.8, 1.3, -1.2)
+
+
+## --- Kylän pohjoisosan paikat (#116, #117, #118, #119, #121) -------------------------------------------------------
+
+## Saloisten kenttä (#116): jalkapallokenttä viivoineen, maalit verkkoineen, katsomopenkki ja valot sekä
+## jääkiekkokaukalo laitoineen. Pojat pelaavat päivällä (main.gd näyttää), rankkaripiste maalin edessä.
+func _build_kentta() -> void:
+	var c := M.w2(M.KENTTA)
+	var root := Node3D.new()
+	root.position = Vector3(c.x, 0, c.y)
+	root.rotation.y = 0.35
+	add_child(root)
+	var L := 56.0
+	var W := 34.0
+	_tree_free.append([c, 40.0])
+	var white := Color(0.95, 0.95, 0.92)
+	var line := func(size: Vector3, pos: Vector3) -> void:
+		B.mesh(root, B.boxm(size), pos, white)
+	B.mesh(root, B.boxm(Vector3(W + 4, 0.02, L + 4)), Vector3(0, 0.02, 0), Color(0.3, 0.55, 0.22))  # nurmi
+	line.call(Vector3(W, 0.03, 0.12), Vector3(0, 0.035, -L / 2.0))
+	line.call(Vector3(W, 0.03, 0.12), Vector3(0, 0.035, L / 2.0))
+	line.call(Vector3(0.12, 0.03, L), Vector3(-W / 2.0, 0.035, 0))
+	line.call(Vector3(0.12, 0.03, L), Vector3(W / 2.0, 0.035, 0))
+	line.call(Vector3(W, 0.03, 0.12), Vector3(0, 0.035, 0))
+	for k in 24:  # keskiympyrä
+		var a := k * TAU / 24.0
+		var seg := B.mesh(root, B.boxm(Vector3(0.12, 0.03, 1.6)), Vector3(cos(a) * 6.0, 0.035, sin(a) * 6.0), white)
+		seg.rotation.y = -a
+	for side in [-1.0, 1.0]:
+		var z: float = side * L / 2.0
+		line.call(Vector3(16, 0.03, 0.12), Vector3(0, 0.035, z - side * 8.0))  # rangaistusalue
+		line.call(Vector3(0.12, 0.03, 8), Vector3(-8, 0.035, z - side * 4.0))
+		line.call(Vector3(0.12, 0.03, 8), Vector3(8, 0.035, z - side * 4.0))
+		B.mesh(root, B.cyl(0.15, 0.15, 0.03, 10), Vector3(0, 0.036, z - side * 6.0), white)  # rankkaripiste
+		# Maali: tolpat, rima ja verkko.
+		for x in [-2.5, 2.5]:
+			B.mesh(root, B.cyl(0.06, 0.06, 2.0, 8), Vector3(x, 1.0, z), white)
+		B.mesh(root, B.cyl(0.06, 0.06, 5.1, 8), Vector3(0, 2.0, z), white, Vector3(0, 0, 90))
+		var net := B.mesh(root, B.boxm(Vector3(5.0, 2.0, 0.02)), Vector3(0, 1.0, z + side * 1.2), Color(0.9, 0.9, 0.9))
+		net.transparency = 0.6
+		var top := B.mesh(root, B.boxm(Vector3(5.0, 0.02, 1.2)), Vector3(0, 1.98, z + side * 0.6), Color(0.9, 0.9, 0.9))
+		top.transparency = 0.6
+		var gb := StaticBody3D.new()
+		gb.position = Vector3(0, 0, z + side * 0.6)
+		gb.add_child(B.box_shape(Vector3(5.2, 2.0, 1.3), Vector3(0, 1.0, 0)))
+		root.add_child(gb)
+	var spot: Vector3 = root.to_global(Vector3(0, 0, -L / 2.0 + 7.0))
+	kentta_spot = Vector3(spot.x, T.h(spot.x, spot.z), spot.z)
+	for corner in [Vector3(-W / 2.0 - 2.5, 0, -L / 2.0 - 2.5), Vector3(W / 2.0 + 2.5, 0, -L / 2.0 - 2.5),
+			Vector3(W / 2.0 + 2.5, 0, L / 2.0 + 2.5), Vector3(-W / 2.0 - 2.5, 0, L / 2.0 + 2.5)]:
+		var g: Vector3 = root.to_global(corner)
+		kentta_laps.append(Vector3(g.x, T.h(g.x, g.z), g.z))
+	# Katsomo pitkällä sivulla ja valomastot kulmissa.
+	for i in 3:
+		B.mesh(root, B.boxm(Vector3(10, 0.08, 0.5)), Vector3(-W / 2.0 - 4.0 - i * 0.6, 0.45 + i * 0.4, 0), Color(0.55, 0.4, 0.25),
+			Vector3(0, 90, 0))
+		B.mesh(root, B.boxm(Vector3(10, 0.4 + i * 0.4, 0.1)), Vector3(-W / 2.0 - 4.0 - i * 0.6, 0.2 + i * 0.2, 0), Color(0.4, 0.4, 0.42),
+			Vector3(0, 90, 0))
+	for cx in [-1.0, 1.0]:
+		for cz in [-1.0, 1.0]:
+			var mp := Vector3(cx * (W / 2.0 + 4.0), 0, cz * (L / 2.0 - 4.0))
+			B.mesh(root, B.cyl(0.12, 0.18, 12.0, 8), mp + Vector3(0, 6.0, 0), Color(0.55, 0.56, 0.58))
+			B.mesh(root, B.boxm(Vector3(1.6, 0.8, 0.3)), mp + Vector3(0, 12.0, 0), Color(0.3, 0.3, 0.32))
+			B.mesh(root, B.boxm(Vector3(1.4, 0.6, 0.05)), mp + Vector3(0, 12.0, -cx * 0.0 + 0.16), Color(1.0, 0.98, 0.85))
+	var sign := B.sign_plate(root, "SALOISTEN KENTTÄ", Color(0.1, 0.35, 0.15), Color(0.98, 0.98, 0.9), 0.3, 40, Color(0.95, 0.95, 0.9),
+		"Helvetica Neue")
+	sign.position = Vector3(-W / 2.0 - 3.0, 3.2, -6.0)
+	sign.rotation.y = PI / 2.0
+	for y in [0.0]:
+		B.mesh(root, B.boxm(Vector3(0.1, 3.2, 0.1)), Vector3(-W / 2.0 - 3.0, 1.6, -6.0 + (sign.get_meta("width") as float) * 0.45 + y), Color(0.3, 0.3, 0.3))
+		B.mesh(root, B.boxm(Vector3(0.1, 3.2, 0.1)), Vector3(-W / 2.0 - 3.0, 1.6, -6.0 - (sign.get_meta("width") as float) * 0.45), Color(0.3, 0.3, 0.3))
+	# Pojat: maalivahti ja kaksi potkijaa.
+	var kid_cols := [Color(0.9, 0.2, 0.15), Color(0.15, 0.4, 0.85), Color(0.95, 0.8, 0.15)]
+	var kid_pos := [Vector3(0, 0.0, -L / 2.0 + 0.8), Vector3(-3.0, 0.0, -L / 2.0 + 9.0), Vector3(4.0, 0.0, -L / 2.0 + 11.0)]
+	for i in 3:
+		var kid := Looks.make(root, {"model": "male", "shirt": kid_cols[i], "pants": Color(0.15, 0.15, 0.2), "shoes": Color(0.9, 0.9, 0.9),
+			"hair": "Hair_Buzzed", "hair_color": Color(0.6, 0.45, 0.2).darkened(i * 0.2), "height": 1.45 + i * 0.05, "skin": Color(0.95, 0.8, 0.7)})
+		kid.position = kid_pos[i]
+		kid.rotation.y = 0.0 if i == 0 else PI
+		kid.play("Idle", 0.0)
+		kentta_kids.append(kid)
+	# Jääkiekkokaukalo: puulaidat, päätyjen kaarret, maalit ja valot.
+	var kc := M.w2(M.KAUKALO)
+	var rink := Node3D.new()
+	rink.position = Vector3(kc.x, 0, kc.y)
+	rink.rotation.y = 0.35
+	add_child(rink)
+	_tree_free.append([kc, 30.0])
+	var RL := 50.0
+	var RW := 24.0
+	B.mesh(rink, B.boxm(Vector3(RW, 0.03, RL)), Vector3(0, 0.03, 0), Color(0.62, 0.6, 0.55))  # asfaltti kesällä
+	B.mesh(rink, B.boxm(Vector3(RW, 0.031, 0.25)), Vector3(0, 0.04, 0), Color(0.85, 0.15, 0.1))
+	for z in [-RL / 6.0, RL / 6.0]:
+		B.mesh(rink, B.boxm(Vector3(RW, 0.031, 0.25)), Vector3(0, 0.04, z), Color(0.15, 0.3, 0.8))
+	var board := Color(0.92, 0.9, 0.82)
+	for side in [-1.0, 1.0]:
+		var sb := StaticBody3D.new()
+		sb.position = Vector3(side * RW / 2.0, 0, 0)
+		sb.add_child(B.box_shape(Vector3(0.15, 1.1, RL - 8.0), Vector3(0, 0.55, 0)))
+		rink.add_child(sb)
+		B.mesh(sb, B.boxm(Vector3(0.12, 1.1, RL - 8.0)), Vector3(0, 0.55, 0), board)
+		B.mesh(sb, B.boxm(Vector3(0.16, 0.1, RL - 8.0)), Vector3(0, 1.12, 0), Color(0.8, 0.2, 0.12))
+		for k in 7:  # pyöristetyt päädyt
+			var a := PI / 2.0 * (k + 0.5) / 7.0
+			for e in [-1.0, 1.0]:
+				var bp := Vector3(side * (RW / 2.0 - 4.0 + sin(a) * 4.0), 0.55, e * (RL / 2.0 - 4.0 + cos(a) * 4.0))
+				var bm := B.mesh(rink, B.boxm(Vector3(0.12, 1.1, 1.0)), bp, board)
+				bm.rotation.y = side * e * (PI / 2.0 - a) * -1.0
+		for e in [-1.0, 1.0]:
+			var gz: float = e * (RL / 2.0 - 3.0)
+			B.mesh(rink, B.boxm(Vector3(1.8, 1.2, 0.05)), Vector3(0, 0.6, gz + e * 0.6), Color(0.85, 0.85, 0.85)).transparency = 0.5
+			for x in [-0.9, 0.9]:
+				B.mesh(rink, B.cyl(0.04, 0.04, 1.2, 6), Vector3(x, 0.6, gz), Color(0.85, 0.1, 0.08))
+	var es := StaticBody3D.new()
+	for e in [-1.0, 1.0]:
+		es.add_child(B.box_shape(Vector3(RW - 8.0, 1.1, 0.15), Vector3(0, 0.55, e * RL / 2.0)))
+		B.mesh(rink, B.boxm(Vector3(RW - 8.0, 1.1, 0.12)), Vector3(0, 0.55, e * RL / 2.0), board)
+	rink.add_child(es)
+	for k in 4:
+		var lp := Vector3((-1.0 if k < 2 else 1.0) * (RW / 2.0 + 1.5), 0, (-1.0 if k % 2 == 0 else 1.0) * RL / 3.0)
+		B.mesh(rink, B.cyl(0.1, 0.14, 9.0, 8), lp + Vector3(0, 4.5, 0), Color(0.55, 0.56, 0.58))
+		B.mesh(rink, B.boxm(Vector3(1.0, 0.5, 0.5)), lp + Vector3(0, 9.0, 0), Color(0.3, 0.3, 0.32))
+
+
+## Oravajärven uimaranta (#117): hiekkaranta, laituri järvelle, pukukoppi (OSM-rakennus), grillipaikka, penkki,
+## huussi ja rantakyltti. Rannalla väkeä kellonajan mukaan (main.gd).
+func _build_uimaranta() -> void:
+	var bp := M.w2(M.UIMARANTA)
+	var dir: Vector2 = M.UIMARANTA_DIR
+	var side := dir.orthogonal()
+	_tree_free.append([bp - dir * 6.0, 16.0])
+	uimaranta_pos = Vector3(bp.x, T.h(bp.x, bp.y), bp.y)
+	var site := Node3D.new()
+	add_child(site)
+	var sand := Color(0.88, 0.8, 0.6)
+	for k in 9:  # hiekka laikkuina rantaviivaa pitkin
+		var sp := bp - dir * (2.0 + (k % 3) * 2.5) + side * (k / 3 - 1) * 5.0
+		var m := B.mesh(site, B.cyl(3.6, 3.6, 0.03, 18), Vector3(sp.x, 0.05, sp.y), sand.darkened((k % 2) * 0.05))
+		m.scale = Vector3(1.3, 1, 1.0)
+	# Laituri: lankut ja paalut järvelle.
+	var dock := Node3D.new()
+	var d0 := bp + side * 6.0
+	dock.position = Vector3(d0.x, 0, d0.y)
+	dock.rotation.y = B.yaw_to(Vector3(-dir.x, 0, -dir.y))  # paikallinen +Z järvelle
+	add_child(dock)
+	var wood := Color(0.62, 0.5, 0.36)
+	for i in 14:
+		B.mesh(dock, B.boxm(Vector3(1.8, 0.06, 0.6)), Vector3(0, 0.5, i * 0.65), wood.darkened((i % 3) * 0.06))
+	for i in 4:
+		for x in [-0.8, 0.8]:
+			B.mesh(dock, B.cyl(0.08, 0.08, 1.4, 6), Vector3(x, -0.15, i * 2.8 + 0.3), wood.darkened(0.3))
+	B.mesh(dock, B.cyl(0.03, 0.03, 0.9, 6), Vector3(0.7, 0.9, 8.6), Color(0.7, 0.7, 0.72))  # tikkaat
+	# Pukukoppi OSM-rakennuksen paikalle: kaksi koppia, ovet M ja N.
+	var f := _osm_fit_at(M.PUKUKOPPI)
+	if not f.is_empty():
+		var c: Vector2 = f.c
+		var root := Node3D.new()
+		root.position = Vector3(c.x, 0, c.y)
+		root.rotation.y = f.yaw
+		add_child(root)
+		blockers.append([c, Vector2(f.l / 2.0, f.d / 2.0), f.yaw])
+		_add_house(c)
+		var body := StaticBody3D.new()
+		body.add_child(B.box_shape(Vector3(f.l, 2.3, f.d), Vector3(0, 1.15, 0)))
+		root.add_child(body)
+		B.mesh(root, B.boxm(Vector3(f.l, 2.2, f.d)), Vector3(0, 1.1, 0), Color(0.55, 0.3, 0.18))
+		for i in int(f.l / 0.3):
+			B.mesh(root, B.boxm(Vector3(0.05, 2.1, 0.04)), Vector3(-f.l / 2.0 + 0.15 + i * 0.3, 1.05, -f.d / 2.0 - 0.02), Color(0.45, 0.24, 0.14))
+		B.mesh(root, B.boxm(Vector3(f.l + 0.4, 0.12, f.d + 0.5)), Vector3(0, 2.3, 0), Color(0.25, 0.25, 0.27), Vector3(6, 0, 0))
+		for i in 2:
+			var dx: float = (i - 0.5) * f.l * 0.5
+			B.mesh(root, B.boxm(Vector3(0.8, 1.8, 0.05)), Vector3(dx, 0.95, -f.d / 2.0 - 0.05), Color(0.9, 0.86, 0.75))
+			var ds := B.sign_plate(root, ["MIEHET", "NAISET"][i], Color(0.15, 0.3, 0.55), Color.WHITE, 0.1, 22, Color.WHITE, "Helvetica Neue")
+			ds.position = Vector3(dx, 1.6, -f.d / 2.0 - 0.09)
+		var fp: Vector2 = c + f.nrm * (f.d / 2.0 + 1.2)
+		pukukoppi_pos = Vector3(fp.x, T.h(fp.x, fp.y), fp.y)
+	# Grillipaikka kivikehineen, penkki, huussi ja rantakyltti.
+	var gp := bp - dir * 9.0 + side * 3.5
+	grilli_ranta_pos = Vector3(gp.x, T.h(gp.x, gp.y), gp.y)
+	for k in 10:
+		var a := k * TAU / 10.0
+		var st := B.mesh(site, B.sphere(0.25, 8), Vector3(gp.x + cos(a) * 0.8, 0.12, gp.y + sin(a) * 0.8), Color(0.5, 0.48, 0.45))
+		st.scale = Vector3(1.2, 0.7, 1.0)
+	B.mesh(site, B.cyl(0.6, 0.6, 0.04, 12), Vector3(gp.x, 0.06, gp.y), Color(0.15, 0.12, 0.1))
+	B.mesh(site, B.boxm(Vector3(1.0, 0.04, 0.7)), Vector3(gp.x, 0.55, gp.y), Color(0.2, 0.2, 0.2))  # ritilä
+	var bench_p := bp - dir * 5.5 - side * 3.0
+	uimaranta_bench = Vector3(bench_p.x, T.h(bench_p.x, bench_p.y), bench_p.y)
+	var bench := Node3D.new()
+	bench.position = Vector3(bench_p.x, 0, bench_p.y)
+	bench.rotation.y = B.yaw_to(Vector3(dir.x, 0, dir.y))
+	add_child(bench)
+	B.mesh(bench, B.boxm(Vector3(1.8, 0.06, 0.45)), Vector3(0, 0.45, 0), wood)
+	B.mesh(bench, B.boxm(Vector3(1.8, 0.4, 0.05)), Vector3(0, 0.7, 0.22), wood)
+	for x in [-0.8, 0.8]:
+		B.mesh(bench, B.boxm(Vector3(0.08, 0.45, 0.4)), Vector3(x, 0.22, 0), wood.darkened(0.3))
+	var hp := bp - dir * 15.0 - side * 9.0
+	var hut := Node3D.new()
+	hut.position = Vector3(hp.x, 0, hp.y)
+	hut.rotation.y = B.yaw_to(Vector3(dir.x, 0, dir.y))
+	add_child(hut)
+	var hb := StaticBody3D.new()
+	hb.add_child(B.box_shape(Vector3(1.3, 2.2, 1.3), Vector3(0, 1.1, 0)))
+	hut.add_child(hb)
+	B.mesh(hut, B.boxm(Vector3(1.3, 2.1, 1.3)), Vector3(0, 1.05, 0), Color(0.55, 0.3, 0.18))
+	B.mesh(hut, B.boxm(Vector3(1.5, 0.1, 1.6)), Vector3(0, 2.2, 0), Color(0.25, 0.25, 0.27), Vector3(8, 0, 0))
+	B.mesh(hut, B.boxm(Vector3(0.7, 1.7, 0.04)), Vector3(0, 0.9, -0.67), Color(0.9, 0.86, 0.75))
+	B.mesh(hut, B.cyl(0.08, 0.08, 0.03, 4), Vector3(0, 1.55, -0.7), Color(0.3, 0.15, 0.1), Vector3(90, 45, 0))  # sydän-aukko (salmiakki)
+	var sp2 := bp - dir * 11.0
+	var sign := B.sign_plate(site, "ORAVAJÄRVEN UIMARANTA\nUinti omalla vastuulla", Color(0.1, 0.35, 0.6), Color.WHITE, 0.18, 30,
+		Color.WHITE, "Helvetica Neue")
+	sign.position = Vector3(sp2.x, 1.9, sp2.y)
+	sign.rotation.y = B.yaw_to(Vector3(-dir.x, 0, -dir.y))
+	for o in [-1.0, 1.0]:
+		var pp: Vector2 = sp2 + side * o * (sign.get_meta("width") as float) * 0.42
+		B.mesh(site, B.boxm(Vector3(0.08, 1.9, 0.08)), Vector3(pp.x, 0.95, pp.y), Color(0.4, 0.4, 0.42))
+	# Rannan väki: aamun mummot ja iltapäivän perheet (pyyhkeet ja hahmot).
+	var looks := [
+		{"model": "female", "shirt": Color(0.95, 0.4, 0.5), "pants": Color(0.95, 0.4, 0.5), "hair": "Hair_Long", "hair_color": Color(0.5, 0.35, 0.2), "height": 1.65, "skin": Color(0.95, 0.78, 0.68)},
+		{"model": "male", "shirt": Color(0.95, 0.75, 0.68), "pants": Color(0.2, 0.4, 0.75), "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "height": 1.8, "skin": Color(0.95, 0.75, 0.68), "belly": 0.6},
+		{"model": "male", "shirt": Color(0.95, 0.85, 0.2), "pants": Color(0.9, 0.3, 0.2), "hair": "Hair_Buzzed", "hair_color": Color(0.9, 0.8, 0.5), "height": 1.2, "skin": Color(0.95, 0.8, 0.7)},
+		{"model": "female", "shirt": Color(0.2, 0.3, 0.6), "pants": Color(0.2, 0.3, 0.6), "hair": "Hair_Buns", "hair_color": Color(0.85, 0.85, 0.85), "height": 1.58, "skin": Color(0.95, 0.8, 0.72), "belly": 0.4},
+	]
+	for i in looks.size():
+		var pp: Vector2 = bp - dir * (3.0 + (i % 2) * 2.0) + side * (i - 1.5) * 3.2
+		var holder := Node3D.new()
+		holder.position = Vector3(pp.x, 0, pp.y)
+		holder.rotation.y = B.yaw_to(Vector3(dir.x, 0, dir.y)) + randf_range(-0.5, 0.5)
+		add_child(holder)
+		var towel := B.mesh(holder, B.boxm(Vector3(0.9, 0.02, 1.8)), Vector3(0, 0.07, 0), [Color(0.9, 0.2, 0.2), Color(0.2, 0.5, 0.9), Color(0.95, 0.85, 0.2), Color(0.3, 0.75, 0.4)][i])
+		towel.name = "Towel"
+		var person := Looks.make(holder, looks[i])
+		person.play("Sitting_Idle" if i != 2 else "Idle", 0.0)
+		person.position.y = 0.05
+		if i != 2:  # rantatuoli
+			var cc: Color = [Color(0.95, 0.85, 0.2), Color(0.2, 0.5, 0.9), Color(0.9, 0.3, 0.3), Color(0.3, 0.7, 0.4)][i]
+			B.mesh(holder, B.boxm(Vector3(0.5, 0.04, 0.45)), Vector3(0, 0.42, -0.05), cc)
+			var back := B.mesh(holder, B.boxm(Vector3(0.5, 0.6, 0.04)), Vector3(0, 0.72, -0.32), cc)
+			back.rotation.x = 0.35
+			for lx in [-0.23, 0.23]:
+				for lz in [-0.25, 0.15]:
+					B.mesh(holder, B.cyl(0.015, 0.015, 0.44, 5), Vector3(lx, 0.21, lz), Color(0.7, 0.7, 0.72))
+		holder.set_meta("mummo", i == 3)
+		uimaranta_people.append(holder)
+
+
+## SEO Saloinen ja ravintola A+ (#118): tankkauskatos mittareineen (OSM roof), myymälä ja ravintola (OSM rakennus),
+## SEO-pylväs ja rekka pihassa. Auki 24/7.
+func _build_seo() -> void:
+	var f := _osm_fit_at(M.SEO_KATOS)
+	if not f.is_empty():
+		var c: Vector2 = f.c
+		var root := Node3D.new()
+		root.position = Vector3(c.x, 0, c.y)
+		root.rotation.y = f.yaw
+		add_child(root)
+		_add_house(c)
+		B.mesh(root, B.boxm(Vector3(f.l, 0.03, f.d)), Vector3(0, 0.03, 0), Color(0.38, 0.38, 0.4))
+		B.mesh(root, B.boxm(Vector3(f.l, 0.7, f.d)), Vector3(0, 4.6, 0), Color(0.96, 0.96, 0.96))
+		B.mesh(root, B.boxm(Vector3(f.l + 0.05, 0.25, f.d + 0.05)), Vector3(0, 4.45, 0), Color(0.0, 0.42, 0.25))  # SEO:n vihreä raita
+		for x in [-f.l / 4.0, f.l / 4.0]:
+			var pb := StaticBody3D.new()
+			pb.position = Vector3(x, 0, 0)
+			pb.add_child(B.box_shape(Vector3(0.6, 4.3, 0.6), Vector3(0, 2.15, 0)))
+			root.add_child(pb)
+			B.mesh(pb, B.boxm(Vector3(0.5, 4.3, 0.5)), Vector3(0, 2.15, 0), Color(0.85, 0.85, 0.85))
+			B.mesh(pb, B.boxm(Vector3(1.6, 0.25, 1.0)), Vector3(0, 0.12, 0), Color(0.7, 0.7, 0.7))  # saareke
+			for s2 in [-1.0, 1.0]:  # mittarit
+				var mtr := Node3D.new()
+				mtr.position = Vector3(s2 * 0.55, 0.25, 0)
+				pb.add_child(mtr)
+				B.mesh(mtr, B.boxm(Vector3(0.45, 1.6, 0.7)), Vector3(0, 0.8, 0), Color(0.95, 0.95, 0.95))
+				B.mesh(mtr, B.boxm(Vector3(0.47, 0.35, 0.72)), Vector3(0, 1.45, 0), Color(0.0, 0.42, 0.25))
+				B.mesh(mtr, B.boxm(Vector3(0.02, 0.3, 0.4)), Vector3(s2 * 0.24, 1.0, 0), Color(0.1, 0.12, 0.1))  # näyttö
+				B.mesh(mtr, B.cyl(0.03, 0.03, 0.5, 6), Vector3(s2 * 0.26, 0.6, 0.2), Color(0.1, 0.1, 0.1), Vector3(0, 0, 30))  # letku
+		var light := OmniLight3D.new()
+		light.position = Vector3(0, 4.0, 0)
+		light.light_color = Color(1.0, 0.97, 0.9)
+		light.light_energy = 1.0
+		light.omni_range = 12.0
+		root.add_child(light)
+		# SEO-pylväs tien varressa.
+		var pyl: Vector2 = c + f.nrm * (f.d / 2.0 + 5.0) + f.ax * (f.l / 2.0 + 2.0)
+		var pole := Node3D.new()
+		pole.position = Vector3(pyl.x, 0, pyl.y)
+		pole.rotation.y = f.yaw + PI / 2.0
+		add_child(pole)
+		B.mesh(pole, B.boxm(Vector3(0.3, 5.0, 0.3)), Vector3(0, 2.5, 0), Color(0.85, 0.85, 0.85))
+		var seo := B.sign_plate(pole, "SEO", Color(0.0, 0.42, 0.25), Color(1.0, 0.85, 0.1), 0.7, 110, Color.WHITE, "Helvetica Neue")
+		seo.position = Vector3(0, 5.2, 0)
+		var prices := B.sign_plate(pole, "95E10  1,899\nDIESEL  1,749\nAUKI 24/7", Color(0.08, 0.08, 0.1), Color(1.0, 0.75, 0.2), 0.26, 34,
+			Color(0.85, 0.85, 0.85), "Helvetica Neue")
+		prices.position = Vector3(0, 3.6, 0)
+	var g := _osm_fit_at(M.SEO)
+	if not g.is_empty():
+		var c: Vector2 = g.c
+		var root := Node3D.new()
+		root.position = Vector3(c.x, 0, c.y)
+		root.rotation.y = g.yaw
+		add_child(root)
+		blockers.append([c, Vector2(g.l / 2.0, g.d / 2.0), g.yaw])
+		_add_house(c)
+		var h := 3.6
+		var body := StaticBody3D.new()
+		body.add_child(B.box_shape(Vector3(g.l, h, g.d), Vector3(0, h / 2.0, 0)))
+		root.add_child(body)
+		B.mesh(root, B.boxm(Vector3(g.l, h, g.d)), Vector3(0, h / 2.0, 0), Color(0.9, 0.9, 0.88))
+		B.mesh(root, B.boxm(Vector3(g.l + 0.3, 0.4, g.d + 0.3)), Vector3(0, h + 0.2, 0), Color(0.0, 0.42, 0.25))
+		# Julkisivu: isot ikkunat, ovet ja kyltit.
+		var fz: float = -g.d / 2.0 - 0.03
+		for k in 4:
+			var wx: float = -g.l / 2.0 + 1.5 + k * (g.l - 3.0) / 3.0
+			if k == 1 or k == 3:
+				continue
+			B.mesh(root, B.boxm(Vector3(2.2, 1.6, 0.05)), Vector3(wx, 1.6, fz), Color(0.55, 0.7, 0.8))
+			var glow := B.mesh(root, B.boxm(Vector3(2.0, 1.4, 0.04)), Vector3(wx, 1.6, fz - 0.01), Color(1.0, 0.92, 0.7))
+			glow.transparency = 0.5
+		for k in 2:
+			var dx: float = -g.l / 4.0 + k * g.l / 2.0
+			B.mesh(root, B.boxm(Vector3(1.4, 2.2, 0.05)), Vector3(dx, 1.1, fz), Color(0.3, 0.45, 0.55))
+			B.mesh(root, B.boxm(Vector3(0.04, 2.2, 0.06)), Vector3(dx, 1.1, fz - 0.01), Color(0.7, 0.7, 0.7))
+			var dp: Vector2 = c + g.nrm * (g.d / 2.0 + 1.3) + g.ax * dx * Vector2(1, 1).x
+			var door := Vector3(dp.x, T.h(dp.x, dp.y), dp.y)
+			if k == 0:
+				seo_door = door
+			else:
+				aplus_door = door
+		var s1 := B.sign_plate(root, "SEO SALOINEN · MYYMÄLÄ", Color(0.0, 0.42, 0.25), Color(1.0, 0.85, 0.1), 0.3, 40, Color.WHITE, "Helvetica Neue")
+		s1.position = Vector3(-g.l / 4.0, h - 0.5, fz - 0.06)
+		var s2 := B.sign_plate(root, "RAVINTOLA A+\nLounas ma–pe 10.30–14", Color(0.6, 0.08, 0.08), Color(1.0, 0.95, 0.85), 0.2, 30,
+			Color(1.0, 0.95, 0.85), "Helvetica Neue")
+		s2.position = Vector3(g.l / 4.0, h - 0.6, fz - 0.06)
+		# Rekka pihassa (liftari).
+		var tp: Vector2 = c + g.nrm * (g.d / 2.0 + 10.0) - g.ax * (g.l / 2.0 + 6.0)
+		seo_truck = Node3D.new()
+		seo_truck.position = Vector3(tp.x, 0, tp.y)
+		seo_truck.rotation.y = g.yaw + PI / 2.0
+		add_child(seo_truck)
+		var tb := StaticBody3D.new()
+		tb.add_child(B.box_shape(Vector3(2.5, 3.6, 14.0), Vector3(0, 1.8, -2.0)))
+		seo_truck.add_child(tb)
+		B.mesh(seo_truck, B.boxm(Vector3(2.5, 3.0, 2.4)), Vector3(0, 1.9, 3.6), Color(0.15, 0.3, 0.65))  # ohjaamo
+		B.mesh(seo_truck, B.boxm(Vector3(2.3, 1.0, 0.05)), Vector3(0, 2.6, 4.82), Color(0.5, 0.65, 0.75))  # tuulilasi
+		B.mesh(seo_truck, B.boxm(Vector3(2.55, 3.2, 10.5)), Vector3(0, 2.2, -3.2), Color(0.92, 0.92, 0.9))  # perävaunu
+		var ts := B.sign_plate(seo_truck, "RAAHEN KULJETUS", Color(0.92, 0.92, 0.9), Color(0.15, 0.3, 0.65), 0.5, 70, Color(0.92, 0.92, 0.9),
+			"Helvetica Neue")
+		ts.position = Vector3(1.29, 2.4, -3.2)
+		ts.rotation.y = PI / 2.0
+		for z in [3.6, -1.5, -6.5, -7.8]:
+			for x in [-1.15, 1.15]:
+				B.mesh(seo_truck, B.cyl(0.5, 0.5, 0.35, 12), Vector3(x, 0.5, z), Color(0.1, 0.1, 0.1), Vector3(0, 0, 90))
+
+
+## Kinnapotin teollisuusalue (#119): katsastusasema, Arttim metal works ja Rudus (betoniasema siiloineen)
+## OSM-rakennusten paikoille peltihalleina.
+func _build_kinnapotti() -> void:
+	katsastus_door = _hall(M.KATSASTUS, 6.0, Color(0.85, 0.86, 0.88), Color(0.2, 0.35, 0.6), "SALOISTEN KATSASTUS",
+		Color(0.1, 0.25, 0.55), Color.WHITE, 2)
+	arttim_door = _hall(M.ARTTIM, 6.5, Color(0.42, 0.44, 0.46), Color(0.7, 0.3, 0.1), "ARTTIM METAL WORKS",
+		Color(0.12, 0.12, 0.13), Color(1.0, 0.55, 0.15), 1)
+	rudus_gate = _hall(M.RUDUS, 7.0, Color(0.75, 0.75, 0.72), Color(0.6, 0.6, 0.62), "RUDUS · BETONI",
+		Color(0.85, 0.1, 0.1), Color.WHITE, 1)
+	var f := _osm_fit_at(M.RUDUS)
+	if not f.is_empty():  # siilot ja hiekkakasa hallin päätyyn
+		var c: Vector2 = f.c + f.ax * (f.l / 2.0 + 5.0)
+		for k in 2:
+			var sp: Vector2 = c + f.nrm * (k * 4.5 - 2.0)
+			var silo := StaticBody3D.new()
+			silo.position = Vector3(sp.x, 0, sp.y)
+			silo.add_child(B.capsule_shape(1.8, 14.0))
+			add_child(silo)
+			B.mesh(silo, B.cyl(1.8, 1.8, 10.0, 16), Vector3(0, 9.0, 0), Color(0.85, 0.85, 0.85))
+			B.mesh(silo, B.cyl(0.4, 1.8, 2.5, 16), Vector3(0, 2.75, 0), Color(0.8, 0.8, 0.8))
+			for lx in [-1.0, 1.0]:
+				B.mesh(silo, B.boxm(Vector3(0.2, 4.0, 0.2)), Vector3(lx * 1.5, 2.0, 0), Color(0.6, 0.6, 0.62))
+		var hp: Vector2 = c + f.ax * 9.0
+		var heap := B.mesh(self, B.sphere(4.0, 12), Vector3(hp.x, -1.2, hp.y), Color(0.7, 0.62, 0.48))
+		heap.scale = Vector3(1.4, 0.7, 1.0)
+
+
+## Peltihalli OSM-rakennuksen paikalle: profiilipeltiseinät, matala harjakatto, nosto-ovet julkisivussa, ovi ja
+## kyltti. Palauttaa jalankulkuoven edustan (Vector3.ZERO, jos rakennusta ei ole).
+func _hall(px: Vector2, h: float, wall: Color, roof: Color, text: String, sbg: Color, sfg: Color, doors: int) -> Vector3:
+	var f := _osm_fit_at(px)
+	if f.is_empty():
+		return Vector3.ZERO
+	var c: Vector2 = f.c
+	var l: float = f.l
+	var d: float = f.d
+	var root := Node3D.new()
+	root.position = Vector3(c.x, 0, c.y)
+	root.rotation.y = f.yaw
+	add_child(root)
+	blockers.append([c, Vector2(l / 2.0, d / 2.0), f.yaw])
+	_add_house(c)
+	var body := StaticBody3D.new()
+	body.add_child(B.box_shape(Vector3(l, h + 1.0, d), Vector3(0, (h + 1.0) / 2.0, 0)))
+	root.add_child(body)
+	B.mesh(root, B.boxm(Vector3(l, h, d)), Vector3(0, h / 2.0, 0), wall)
+	for side in [-1.0, 1.0]:  # profiilipellin rimat pitkille sivuille
+		for i in int(l / 0.5):
+			B.mesh(root, B.boxm(Vector3(0.06, h, 0.05)), Vector3(-l / 2.0 + 0.25 + i * 0.5, h / 2.0, side * (d / 2.0 + 0.02)), wall.darkened(0.12))
+	var prism := PrismMesh.new()
+	prism.size = Vector3(d + 0.6, 1.0, l + 0.6)
+	var rf := B.mesh(root, prism, Vector3(0, h + 0.5, 0), roof)
+	rf.rotation.y = PI / 2.0
+	var fz := -d / 2.0 - 0.05
+	for i in doors:  # nosto-ovet
+		var dx := -l / 2.0 + (i + 1) * l / (doors + 2.0)
+		B.mesh(root, B.boxm(Vector3(4.0, 4.2, 0.06)), Vector3(dx, 2.1, fz), Color(0.82, 0.82, 0.8))
+		for k in 7:
+			B.mesh(root, B.boxm(Vector3(4.0, 0.04, 0.08)), Vector3(dx, 0.3 + k * 0.6, fz - 0.01), Color(0.6, 0.6, 0.6))
+	var px2 := l / 2.0 - 1.5
+	B.mesh(root, B.boxm(Vector3(1.0, 2.1, 0.06)), Vector3(px2, 1.05, fz), Color(0.3, 0.3, 0.32))  # jalankulkuovi
+	var lamp := B.mesh(root, B.boxm(Vector3(0.3, 0.15, 0.2)), Vector3(px2, 2.5, fz - 0.1), Color(1.0, 0.95, 0.75))
+	lamp.name = "Lamppu"
+	var sign := B.sign_plate(root, text, sbg, sfg, 0.9, 120, sfg, "Helvetica Neue")
+	sign.position = Vector3(0, h - 0.9, fz - 0.06)
+	var dp: Vector2 = c + f.nrm * (d / 2.0 + 1.3) + f.ax * px2
+	# Paikallinen +X vastaa f.ax:ää vain, kun yaw osoittaa normaalia pitkin: tarkistetaan to_global.
+	var g: Vector3 = root.to_global(Vector3(px2, 0, -d / 2.0 - 1.3))
+	dp = Vector2(g.x, g.z)
+	return Vector3(dp.x, T.h(dp.x, dp.y), dp.y)
+
+
+## Tokolanperän rossirata (#121): lähtöportti kyltteineen ja ajanottokellolla, kierroksen viitat, hyppyrit
+## (kiilat törmäyksellä) ja crossipojat crossipyörineen.
+func _build_rossi() -> void:
+	var pts: Array = M.ROSSI
+	var g0 := M.w2(pts[0])
+	var g1 := M.w2(pts[1])
+	var dir := (g1 - g0).normalized()
+	rossi_gate = Vector3(g0.x, T.h(g0.x, g0.y), g0.y)
+	var gate := Node3D.new()
+	gate.position = Vector3(g0.x, 0, g0.y)
+	gate.rotation.y = B.yaw_to(Vector3(dir.x, 0, dir.y))
+	add_child(gate)
+	var red := Color(0.85, 0.1, 0.1)
+	for x in [-3.5, 3.5]:
+		B.mesh(gate, B.boxm(Vector3(0.25, 3.6, 0.25)), Vector3(x, 1.8, 0), Color(0.15, 0.15, 0.15))
+	var banner := B.sign_plate(gate, "TOKOLANPERÄN ROSSIRATA · START", red, Color.WHITE, 0.45, 60, Color.WHITE, "Helvetica Neue")
+	banner.position = Vector3(0, 3.4, 0)
+	for k in 14:  # ruutulippuraita maassa
+		B.mesh(gate, B.boxm(Vector3(0.5, 0.02, 0.5)), Vector3(-3.25 + k * 0.5, 0.04, 0), Color.BLACK if k % 2 == 0 else Color.WHITE)
+	var clock := B.sign_plate(gate, "ENNÄTYS", Color(0.05, 0.05, 0.05), Color(1.0, 0.4, 0.1), 0.3, 40, Color(0.4, 0.4, 0.4), "Helvetica Neue")
+	clock.position = Vector3(-4.6, 2.2, 0)
+	clock.name = "Kello"
+	B.mesh(gate, B.boxm(Vector3(0.12, 2.2, 0.12)), Vector3(-4.6, 1.1, 0.1), Color(0.3, 0.3, 0.3))
+	_tree_free.append([M.w2(Vector2(98, -812)), 38.0])
+	# Kierroksen viitat (rengasreunat mutkissa) ja hyppyrit.
+	for i in pts.size():
+		var a := M.w2(pts[i])
+		for k in 3:
+			var tp := a + Vector2(cos(i * 1.7 + k * 2.1), sin(i * 1.7 + k * 2.1)) * 3.2
+			B.mesh(self, B.cyl(0.4, 0.4, 0.3, 12), Vector3(tp.x, 0.15, tp.y), Color(0.08, 0.08, 0.08), Vector3(90, 0, 0))
+	for j in M.ROSSI_JUMPS:
+		var a := M.w2(pts[j])
+		var b := M.w2(pts[(j + 1) % pts.size()])
+		var mid := (a + b) / 2.0
+		var jd := (b - a).normalized()
+		var ramp := StaticBody3D.new()
+		ramp.position = Vector3(mid.x, 0, mid.y)
+		ramp.rotation.y = B.yaw_to(Vector3(jd.x, 0, jd.y))
+		add_child(ramp)
+		var len := 3.2
+		var hgt := 0.8
+		var ang := atan2(hgt, len)
+		for e in [-1.0, 1.0]:  # nousu ja lasku: kaksi kallistettua laattaa
+			var slab := Vector3(3.0, 0.3, sqrt(len * len + hgt * hgt))
+			var pos := Vector3(0, hgt / 2.0 - 0.1, e * len / 2.0)
+			var col := CollisionShape3D.new()
+			var bs := BoxShape3D.new()
+			bs.size = slab
+			col.shape = bs
+			col.position = pos
+			col.rotation.x = e * ang
+			ramp.add_child(col)
+			var m := B.mesh(ramp, B.boxm(slab), pos, Color(0.5, 0.36, 0.22))
+			m.rotation.x = e * ang
+		rossi_jumps.append([Vector3(mid.x, 0, mid.y), jd])
+	# Crossipojat ja crossipyörät.
+	rossi_boys = Node3D.new()
+	var bp: Vector2 = g0 - dir.orthogonal() * 6.0
+	rossi_boys.position = Vector3(bp.x, 0, bp.y)
+	rossi_boys.rotation.y = B.yaw_to(Vector3(dir.orthogonal().x, 0, dir.orthogonal().y))
+	add_child(rossi_boys)
+	for i in 2:
+		var boy := Looks.make(rossi_boys, {"model": "male", "shirt": [Color(0.95, 0.5, 0.05), Color(0.1, 0.6, 0.3)][i], "pants": Color(0.12, 0.12, 0.14),
+			"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.25, 0.15), "height": 1.72, "skin": Color(0.95, 0.78, 0.68)})
+		boy.position = Vector3(i * 1.4 - 0.7, 0, 0)
+		boy.play("Idle", 0.0)
+		var moto := Node3D.new()
+		moto.position = Vector3(i * 1.4 - 0.7, 0, 1.5)
+		moto.rotation.y = PI / 2.0
+		rossi_boys.add_child(moto)
+		B.mesh(moto, B.cyl(0.33, 0.33, 0.1, 14), Vector3(-0.65, 0.33, 0), Color(0.1, 0.1, 0.1), Vector3(90, 0, 0))
+		B.mesh(moto, B.cyl(0.33, 0.33, 0.1, 14), Vector3(0.65, 0.33, 0), Color(0.1, 0.1, 0.1), Vector3(90, 0, 0))
+		B.mesh(moto, B.boxm(Vector3(1.1, 0.35, 0.3)), Vector3(0, 0.75, 0), [Color(0.95, 0.5, 0.05), Color(0.1, 0.6, 0.3)][i])
+		B.mesh(moto, B.boxm(Vector3(0.5, 0.1, 0.3)), Vector3(-0.2, 0.95, 0), Color(0.1, 0.1, 0.1))
+		B.mesh(moto, B.cyl(0.03, 0.03, 0.6, 6), Vector3(0.55, 1.05, 0), Color(0.3, 0.3, 0.3), Vector3(90, 0, 0))
 
 
 ## Kertunkankaan kehäröykkiöt (#122): oikean muinaisjäännöksen mukaan vähintään kolme keskuskuopallista
