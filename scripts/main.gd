@@ -225,6 +225,7 @@ const SuloPannu := preload("res://scripts/sulo_pannu.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 const Journal := preload("res://scripts/journal.gd")
+const PiirakkaGame := preload("res://scripts/piirakka_game.gd")
 const KORJAUS_VAIHEET := {"kiuas": "kiuaskivet", "lauteet": "lauteiden laudat", "terva": "seinien tervaus", "luukku": "savuluukku ja ovi"}
 const GARAGE_INT_POS := Vector3(-9000, 0, 3000)
 const BIKE_TUNE := 1.1  # työpöydällä huollettu pyörä: huippunopeus ja kiihtyvyys päivän ajan
@@ -677,7 +678,9 @@ const TALKERS := {
 	"huutaja": ["Huutaja Erkki", Color(1.0, 0.85, 0.3)],
 	"annaliisa": ["Anna-Liisa", Color(0.95, 0.7, 0.75)],
 	"aaro": ["Tokolan Aaro", Color(0.8, 0.75, 0.65)],
-	"sinikka_seura": ["Sinikka", Color(1.0, 0.55, 0.75)]}
+	"sinikka_seura": ["Sinikka", Color(1.0, 0.55, 0.75)],
+	"reippari": ["Reipparin Raija", Color(1.0, 0.6, 0.25)],
+	"reippari_nuoret": ["Kioskin porukka", Color(0.6, 0.9, 1.0)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
 	"pekka": ["No perkele, naapuri!", "Terve terve, saatana.", "Kas, sieltähän se tulee."],
@@ -693,6 +696,8 @@ const TALK_HELLO := {
 	"tauno": ["Jaa, työkaluja vailla?", "Ruuveja, lankaa, teippiä. Mitä tarttet?"],
 	"huutaja": ["Huutokauppa käy! Kohde lavalla, tule huutamaan!", "Erkki tässä, huutaja. Mennäänkö?"],
 	"annaliisa": ["No kas, naapuri. Mitäs sää täältä etit?", "Päivi tietää kyllä, että sää oot täällä."],
+	"reippari": ["No mitäs saisi olla?", "Grilli on kuuma, sano vaan.", "Kas, Järvikujan mies. Taas nälkä?"],
+	"reippari_nuoret": ["No moi. Ootko sää se tyyppi Järvikujalta?", "Mitä sää tuijotat? Ai, juttelemaan vaan.", "Moro. Ei oo mitään kiellettyä tässä."],
 	"sinikka_seura": ["No hei! Tuliks sää tanssimaan?", "Kas, komistus seuraintalolla. Päivi kotona?"],
 	"aaro": ["Jaa, nuori mies. Tokolassa ei paljon vieraita käy.", "Päivää päivää. Istu vaikka tuohon kivelle.",
 		"Kas. Sinä oot se Järvikujan poika."],
@@ -721,6 +726,9 @@ const FOODS := {
 	"karrella": {"name": "Karrelle savustunut saalis", "nalka": 0.25},
 	"viina": {"name": "Kätköviina", "nalka": 0.0, "stressi": 0.15, "moraali": 0.05},
 	"mustikkapiirakka": {"name": "Sinikan mustikkapiirakka", "nalka": 0.45, "stressi": 0.1, "moraali": 0.15},
+	"makkaraperunat": {"name": "Reipparin makkaraperunat", "nalka": 0.6, "stressi": 0.1},
+	"piirakka_kaikilla": {"name": "Lihapiirakka kaikilla (Reippari)", "nalka": 0.5, "stressi": 0.05},
+	"hampurilainen": {"name": "Reipparin hampurilainen", "nalka": 0.55, "moraali": 0.05},
 }
 ## Päivittäiset tilat (#18, day_stats.gd): kolme arvottua tilaa HUD:ssa, toiminnot nostavat ja laskevat niitä.
 ## Jokaisella tilalla on palkinto ja haitta (_stat_effects). Eilinen ei vaikuta, paitsi humala (krapula).
@@ -1393,6 +1401,7 @@ func _outside_logic() -> void:
 	_kirppis_logic()
 	_tokola_logic()
 	_pannu_logic()
+	_reippari_logic()
 	_atm_logic()
 	_drone_logic()
 	if player == bike and Input.is_action_just_pressed("bell") and mummot.distance_to_target() < 10.0:
@@ -2587,6 +2596,167 @@ func _pannu_tasks() -> Array:
 	return [["Vanhan Sulon pannu: " + step, false]]
 
 
+## --- Saloisten Reippari (#115): grillikioski, iltaporukka, ilmoitustaulu, Miisu ja lihapiirakkahaaste ----------
+const REIPPARI_OPEN := Vector2(11 * 60, 23 * 60)
+const REIPPARI_YOUTH := Vector2(18 * 60, 23 * 60)
+const REIPPARI_MENU := {"makkaraperunat": ["Makkaraperunat", 6.5], "piirakka_kaikilla": ["Lihapiirakka kaikilla", 4.9],
+	"hampurilainen": ["Hampurilainen", 5.9], "kahvi": ["Kahvi", 1.5]}
+const REIPPARI_HAASTE := 4.9
+const REIPPARI_LINES := ["Juntti söi seittemän piirakkaa ja oksensi parkkipaikalle. Ennätys on ennätys.",
+	"Kaikilla mausteilla tarkottaa kaikilla. Sipuli, kurkku, sinappi, ketsuppi.", "Illalla tässä notkuu nuoriso. Hyviä poikia ne on, melkein.",
+	"Ilmoitustaululta kannattaa katsoa. Aaron kissa on taas karkuteillä."]
+## Iltaporukan juorut: [repliikki, ensikerta (sivutehtävä tiedoksi) tai ""].
+const REIPPARI_JUORUT := [
+	["Pannu-Sulo keittää jossain Antinsuonkankaan kuusikossa. Haju kantautuu tänne asti, kun tuuli on oikea.", "juoru_pontikka"],
+	["Väinö karkaa joka viikko. Viimeksi se söi meidän makkarat ja juoksi Pekan perään.", ""],
+	["Juntti treenaa karatepotkuja Ketunperäntien varressa. Älä mene liian lähelle.", ""],
+	["Tokolassa on vanha varasto. Sanotaan että siellä on aarre. Aaro sen tietää.", "juoru_tokola"],
+	["Seuraintalolla on lauantaina tanssit. Mummotkin tanssii. Jopa Hilkka.", ""],
+	["Kuka sitä sähköpyörää rakentaa? Tokolan varastossa kuulemma vanhan sähkömopon osia.", ""],
+]
+const MIISU_HINTS := ["Heinimäelle, sen kuolleen kuusen luo", "Tokolankujan päähän", "Junnilanmäen sähköasemalle, sielä on lämmin",
+	"Tokolantien varteen, kaupan vanhan varaston taakse"]
+const MIISU_PALKKIO := 10.0
+var _piirakka_record := 7
+var _piirakka_holder := "Juntti"
+var _haaste_day := -1
+var _reippari_onion := false
+var _miisu := {"spot": -1, "state": ""}  # state: "" / "ilmoitus" / "sylissa" / "palautettu"
+var _miisu_node: Node3D
+
+
+func _reippari_logic() -> void:
+	if world.reippari_youth != null:
+		world.reippari_youth.visible = _between(clock_min, REIPPARI_YOUTH)
+	if _hint.text != "" or world.reippari_window == Vector3.ZERO:
+		return
+	var p := player.global_position
+	var near := func(at: Vector3, r: float) -> bool: return Vector2(p.x - at.x, p.z - at.z).length() < r
+	if near.call(world.reippari_window, 3.0):
+		tilat.first("reippari", 0.2)
+		if _between(clock_min, REIPPARI_OPEN):
+			_talk_hint("reippari", null, player != bike)
+		else:
+			_hint.text = "Reipparin luukku on kiinni (auki klo 11–23). Ennätystaulu: %s %d piirakkaa." % [_piirakka_holder, _piirakka_record]
+		return
+	if world.reippari_youth.visible and near.call(world.reippari_youth_pos, 3.5):
+		_talk_hint("reippari_nuoret", null, player != bike)
+		return
+	if near.call(world.reippari_board, 2.5) and player != bike:
+		_hint.text = "[E] Lue Reipparin ilmoitustaulu"
+		if Input.is_action_just_pressed("interact"):
+			_reippari_board_read()
+		return
+	_miisu_logic(p)
+
+
+func _reippari_board_read() -> void:
+	tilat.first("reippari", 0.2)
+	var miisu := ""
+	match _miisu.state:
+		"":
+			_miisu.spot = day % M.MIISU_SPOTS.size()
+			_miisu.state = "ilmoitus"
+			tilat.first("miisu_ilmoitus", 0.1)
+			_reippari_update()
+			_save_game()
+			miisu = "KADONNUT: harmaa kissa Miisu, Tokola. Löytäjälle palkkio! T. Aaro"
+		"ilmoitus", "sylissa":
+			miisu = "KADONNUT: harmaa kissa Miisu, Tokola. Löytäjälle palkkio! T. Aaro"
+		_:
+			miisu = "LÖYTYI! Miisu on kotona. Kiitos löytäjälle! T. Aaro"
+	_show_message("Ilmoitustaulu: %s  ·  Myydään vanhan sähkömopon osia, kysy Tokolan varastosta.  ·  Kirppis joka päivä 10–18, bingo ti, tanssit la."
+		% miisu, 7.0)
+
+
+## Ennätystaulun teksti ja Miisu piilopaikassaan.
+func _reippari_update() -> void:
+	if world == null:
+		return
+	if world.reippari_record != null:
+		for l in world.reippari_record.find_children("*", "Label3D", true, false):
+			(l as Label3D).text = "LIHAPIIRAKKA-\nENNÄTYS\n%s %d" % [_piirakka_holder, _piirakka_record]
+	if _miisu_node == null and _miisu.state == "ilmoitus" and _miisu.spot >= 0:
+		_miisu_node = Node3D.new()
+		add_child(_miisu_node)
+		_miisu_node.position = M.w(M.MIISU_SPOTS[_miisu.spot])
+		var grey := Color(0.55, 0.55, 0.58)
+		B.mesh(_miisu_node, B.sphere(0.16, 10), Vector3(0, 0.16, 0), grey).scale = Vector3(1.0, 0.8, 1.6)
+		B.mesh(_miisu_node, B.sphere(0.1, 10), Vector3(0, 0.3, -0.22), grey)
+		for x in [-0.05, 0.05]:
+			B.mesh(_miisu_node, PrismMesh.new(), Vector3(x, 0.4, -0.24), grey).scale = Vector3(0.05, 0.07, 0.03)
+		var tail := B.mesh(_miisu_node, B.cyl(0.02, 0.02, 0.3, 6), Vector3(0, 0.3, 0.3), grey)
+		tail.rotation_degrees.x = 40.0
+	if _miisu_node != null:
+		_miisu_node.visible = _miisu.state == "ilmoitus"
+
+
+func _miisu_logic(p: Vector3) -> void:
+	if _miisu.state != "ilmoitus" or _miisu_node == null or player == bike:
+		return
+	var at: Vector3 = _miisu_node.global_position
+	if Vector2(p.x - at.x, p.z - at.z).length() > 2.5:
+		return
+	_hint.text = "[E] \"Miisu-Miisu!\" Ota kissa syliin"
+	if Input.is_action_just_pressed("interact"):
+		_miisu.state = "sylissa"
+		_reippari_update()
+		Sfx.play("pickup", -6.0, 1.6)
+		_save_game()
+		_show_message("Miisu kehrää sylissä. Vie se Aarolle Tokolantien varteen.", 3.5)
+
+
+func _talk_reippari(id: String) -> void:
+	if id.begins_with("grilli_"):
+		var k := id.trim_prefix("grilli_")
+		var it: Array = REIPPARI_MENU[k]
+		money -= it[1]
+		Sfx.play("coin", -6.0)
+		if k == "kahvi":
+			tilat.add("vireys", 0.25)
+			_talk_box.reply("Kahvi, musta. Pullat loppu jo aamupäivällä.", _talk_options(), "Vireys paranee. Rahaa %s €." % _eur(money))
+		else:
+			food[k] = food.get(k, 0) + 1
+			_talk_box.reply(["Tässä, kuumana. Servetit on tiskillä.", "Kaikilla, niinku kuuluu.", "Hyvää ruokahalua!"].pick_random(),
+				_talk_options(), "%s reppuun (T syö). Rahaa %s €." % [it[0], _eur(money)])
+		return
+	if id == "haaste":
+		money -= REIPPARI_HAASTE
+		_haaste_day = day
+		_talk_box.close()
+		_start_piirakka()
+
+
+func _start_piirakka() -> void:
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	_hud.visible = false
+	var g := PiirakkaGame.new()
+	g.record = _piirakka_record
+	g.record_holder = _piirakka_holder
+	g.drunk = _hand_shake()
+	g.finished.connect(func(pies: int) -> void:
+		walker_out.controls_enabled = true
+		_hud.visible = true
+		_eat(minf(pies * 0.18, 1.0))
+		if pies >= 4:
+			_reippari_onion = true
+		tilat.first("piirakkahaaste", 0.2)
+		if pies > _piirakka_record:
+			_piirakka_record = pies
+			_piirakka_holder = "Järvikuja 1"
+			tilat.first("piirakkaennatys", 0.5)
+			maine = clampf(maine + 5.0, 0.0, 100.0)
+			_reippari_update()
+			_ending("piirakkakuningas")
+			_show_message("UUSI ENNÄTYS: %d lihapiirakkaa! Raija kirjoittaa tussilla taululle \"Järvikuja 1\". Juntti ei tule uskomaan." % pies, 5.0)
+		else:
+			tilat.add("stressi", -0.05)
+			_show_message("%d lihapiirakkaa. Ennätys (%s %d) jäi elämään. Vatsa on eri mieltä." % [pies, _piirakka_holder, _piirakka_record], 4.0)
+		_save_game())
+	add_child(g)
+
+
 ## --- Tarina, tehtävät ja onnelliset loput (#132) ----------------------------------------------------------------
 
 ## Onnellinen loppu: kirjaa kokoelmaan ja ilmoittaa (uusi loppu erikseen).
@@ -2788,6 +2958,18 @@ func _pannu_scrap() -> void:
 
 func _talk_aaro(id: String) -> void:
 	match id:
+		"miisu":
+			_miisu.state = "palautettu"
+			money += MIISU_PALKKIO
+			_task_done(true)
+			tilat.first("miisu_palautettu", 0.4)
+			Sfx.play("win_small", -4.0)
+			_save_game()
+			_talk_box.reply("MIISU! Voi sinua, kissanpentu. Kiitos, poika. Tässä kymppi, ja tule kahville joskus. Miisu tykkää susta.",
+				_talk_options(), "+%s €. Miisu kotona." % _eur(MIISU_PALKKIO))
+		"miisu_missa":
+			_talk_box.reply("Miisu? Se karkaa aina %s. Hiiriä se jahtaa. Sano sille \"Miisu-Miisu\", niin se tulee." % MIISU_HINTS[_miisu.spot],
+				_talk_options())
 		"varasto":
 			_talk_box.reply("Se on Tokolan kaupan varasto. Kauppa lopetti kuuskytluvulla, ja avain jäi mulle. "
 				+ "Mitä sinne kuuluu, ei kuulu kenellekään. Paitsi jos joku tois lihapiirakan.", _talk_options())
@@ -4003,7 +4185,7 @@ func _on_eat(id: String) -> void:
 	_active_walker().controls_enabled = true
 	_mopo_menu(false)
 	match id:
-		"pulla", "piirakka", "savukala", "savuriista", "karrella", "mustikkapiirakka":
+		"pulla", "piirakka", "savukala", "savuriista", "karrella", "mustikkapiirakka", "makkaraperunat", "piirakka_kaikilla", "hampurilainen":
 			food[id] -= 1
 			if food[id] <= 0:
 				food.erase(id)
@@ -5788,7 +5970,20 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("osta_" + k, "Osta %s (%s €)" % [it.name.to_lower(), _eur(ask)], money >= ask - 0.001, "rahat ei riitä"))
 					if _kirppis_angry.get(who, -1) != day and ask > snappedf(it.price * 0.4, 0.5) + 0.001:
 						o.append(_opt("tingi_" + k, "Tingi: tarjoa %s € (%s)" % [_eur(_kirppis_offer(ask)), it.name.to_lower()]))
+		"reippari":
+			if not _between(clock_min, REIPPARI_OPEN):
+				chat = false
+			else:
+				for k in REIPPARI_MENU:
+					var it: Array = REIPPARI_MENU[k]
+					o.append(_opt("grilli_" + k, "%s (%s €)" % [it[0], _eur(it[1])], money >= it[1], "rahat ei riitä"))
+				o.append(_opt("haaste", "Lihapiirakkahaaste! (%s €, ennätys %s %d)" % [_eur(REIPPARI_HAASTE), _piirakka_holder, _piirakka_record],
+					money >= REIPPARI_HAASTE and _haaste_day != day, "yksi haaste päivässä" if _haaste_day == day else "rahat ei riitä", true))
 		"aaro":
+			if _miisu.state == "sylissa":
+				o.append(_opt("miisu", "Tässä on Miisu!", true, "", true))
+			elif _miisu.state == "ilmoitus":
+				o.append(_opt("miisu_missa", "Missä se Miisu yleensä käy?"))
 			if not tokola.key:
 				o.append(_opt("piirakka", "Anna lihapiirakka (varaston avain)", food.get("piirakka", 0) > 0,
 					"ei lihapiirakkaa (K-Marketin leipähylly)", true))
@@ -5970,6 +6165,8 @@ func _talk_choose(id: String) -> void:
 			_talk_kirppis(id)
 		"aaro":
 			_talk_aaro(id)
+		"reippari":
+			_talk_reippari(id)
 		"siitari_sinikka":
 			if id == "tanssi":
 				_talk_box.close()
@@ -6178,6 +6375,13 @@ func _talk_chat_line() -> String:
 	match _talk_who:
 		"aaro":
 			return AARO_LINES.pick_random()
+		"reippari":
+			return REIPPARI_LINES.pick_random()
+		"reippari_nuoret":
+			var j: Array = REIPPARI_JUORUT.pick_random()
+			if j[1] != "":
+				tilat.first(j[1], 0.0)
+			return j[0]
 		"arto":
 			return ARTO_LINES.pick_random()
 		"pekka":
@@ -9950,6 +10154,10 @@ func _load_game() -> void:
 	tokola.load_from(cfg)
 	pannu.load_from(cfg)
 	quests.load_from(cfg)
+	_piirakka_record = cfg.get_value("reippari", "ennatys", 7)
+	_piirakka_holder = cfg.get_value("reippari", "ennatyksen_haltija", "Juntti")
+	_miisu = cfg.get_value("reippari", "miisu", {"spot": -1, "state": ""})
+	_reippari_onion = cfg.get_value("reippari", "sipuli", false)
 	_taxi_mokki_return = cfg.get_value("tarina", "taksi_paluu", false)
 	if cfg.has_section_key("peli", "pyora"):
 		_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
@@ -10035,6 +10243,10 @@ func _save_game() -> void:
 		endings.save_to(cfg)
 	if quests != null:
 		quests.save_to(cfg)
+	cfg.set_value("reippari", "ennatys", _piirakka_record)
+	cfg.set_value("reippari", "ennatyksen_haltija", _piirakka_holder)
+	cfg.set_value("reippari", "miisu", _miisu)
+	cfg.set_value("reippari", "sipuli", _reippari_onion)
 	if bike != null:
 		cfg.set_value("peli", "pyora", bike.global_position)
 		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
@@ -10192,6 +10404,9 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_beast_forest_t = 0.0
 	_bike_tuned = false
 	bike.tune = 1.0
+	if _reippari_onion and not at_m:
+		_reippari_onion = false
+		bonus += "\nKuka on syöny Reipparissa sipulia ja lihapiirakoita?! Koko makuuhuone haisee!"
 	if ebike.built() and not at_m and (bike_in_garage or bike.global_position.distance_to(home_zone) < 25.0) and ebike.battery < 1.0:
 		ebike.battery = 1.0
 		bonus += "\nKUKA on jättäny jonkun akkuröykkiön latautumaan seinään?! Sähkölasku tulee sun rahoista!"
@@ -10571,6 +10786,7 @@ func _spawn_hazards() -> void:
 	sulo = _villager("Pannu-Sulo", Looks.SULO, SULO_LINES, "sulo", M.PONTIKKA + Vector2(-2.2, -1.2))
 	aaro = _villager("Tokolan Aaro", AARO_LOOK, AARO_LINES, "arto", M.to_px(world.aaro_pos))
 	_pannu_update()
+	_reippari_update()
 
 
 var _traffic_t := 0.0
@@ -11076,7 +11292,7 @@ func inventory_items() -> Array:
 		var col: String = bought[prod]
 		add.call("tuote", "%s %s" % [col.capitalize(), prod], 1, "Päivin ostos", {"tint": ShopInterior.COLORS.get(col, Color.GRAY)})
 	for k in food:
-		var icon: String = {"karrella": "karrella", "suklaa": "suklaa", "mustikkapiirakka": "piirakka"}.get(k, k)
+		var icon: String = {"karrella": "karrella", "suklaa": "suklaa", "mustikkapiirakka": "piirakka", "piirakka_kaikilla": "piirakka"}.get(k, k)
 		add.call(icon, FOODS[k].name, food[k], "T syö", {"food": true, "use": k, "use_label": "syö"})
 	add.call("viina", "Kätköviina", viina_pullot, "Pulloja mökin metsän kätköistä · T ottaa huikan",
 		{"food": true, "use": "viina", "use_label": "ota huikka"})
@@ -14302,6 +14518,94 @@ func _maybe_screenshot() -> void:
 				_talk_who = "pekka"
 				lines[_talk_chat_line()] = true
 			print("TK pekka todistettu repliikki: %s" % [TOKOLA_PROVEN.pekka.any(func(l): return lines.has(l))])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"reippari":
+			# Saloisten Reippari (#115): luukku kiinni ja auki, ostos reppuun, ilmoitustaulu (Miisu), iltaporukan juoru,
+			# Miisu syliin ja Aarolle, lihapiirakkahaaste ennätyksineen (uusi loppu). Kuvat kioskista ja haasteesta.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			quests = Quests.new()
+			endings = Endings.new()
+			_miisu = {"spot": -1, "state": ""}
+			_piirakka_record = 7
+			_piirakka_holder = "Juntti"
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			money = 40.0
+			var win: Vector3 = world.reippari_window
+			clock_min = 9 * 60
+			walker_out.global_position = win + Vector3(0, 0.3, 0)
+			await frames.call(10)
+			print("RE kiinni: '%s'" % _hint.text)
+			clock_min = 12 * 60
+			print("RE valikko: %s" % [_talk_options("reippari").map(func(o): return o.id)])
+			_talk_open("reippari", null)
+			_talk_box._pages.clear()
+			_talk_choose("grilli_makkaraperunat")
+			_talk_box.close()
+			print("RE ostettu: %s, rahaa %s" % [food, _eur(money)])
+			walker_out.global_position = world.reippari_board + Vector3(0, 0.3, 0)
+			await frames.call(10)
+			print("RE taulu: '%s'" % _hint.text)
+			await press.call("interact")
+			print("RE miisu: %s, viesti '%s'" % [_miisu, _msg.text.left(70)])
+			clock_min = 19 * 60
+			await frames.call(5)
+			print("RE porukka näkyy: %s" % world.reippari_youth.visible)
+			for i in 12:
+				_talk_who = "reippari_nuoret"
+				_talk_chat_line()
+			print("RE juorut: pontikka %s, tokola %s" % ["juoru_pontikka" in tilat.firsts, "juoru_tokola" in tilat.firsts])
+			var oc := Camera3D.new()
+			add_child(oc)
+			var kc := M.w(M.REIPPARI)
+			oc.look_at_from_position(win + (win - kc).normalized() * 10.0 + Vector3(4, 3.5, 0), kc + Vector3(0, 1.5, 0))
+			oc.current = true
+			await frames.call(30)
+			await snap.call("_kioski.png")
+			oc.current = false
+			player.activate_camera()
+			walker_out.global_position = _miisu_node.global_position + Vector3(1.0, 0.3, 0)
+			await frames.call(10)
+			print("RE kissa: '%s'" % _hint.text)
+			await press.call("interact")
+			print("RE aaro: %s" % [_talk_options("aaro").map(func(o): return o.id)])
+			_talk_open("aaro", aaro)
+			_talk_box._pages.clear()
+			_talk_choose("miisu")
+			_talk_box.close()
+			print("RE miisu kotona: %s, rahaa %s" % [_miisu.state, _eur(money)])
+			_talk_who = "reippari"
+			_talk_reippari("haaste")
+			var g: Node = get_children().filter(func(c): return c is PiirakkaGame).front()
+			print("RE haaste auki: %s" % [g != null])
+			await get_tree().create_timer(3.5).timeout
+			g._chew = 2
+			g._bite = 2
+			g._pies = 3
+			g._belly = 0.55
+			await get_tree().create_timer(0.3).timeout
+			await snap.call("_haaste.png")
+			g._pies = 8
+			g._finish("testi")
+			await get_tree().create_timer(2.5).timeout
+			print("RE ennätys: %s %d, viesti '%s', loput %d/%d" % [_piirakka_holder, _piirakka_record, _msg.text.left(60), endings.distinct(), Endings.max_count()])
+			var d := journal_data()
+			print("RE tehtävät: %s" % [d.side.map(func(q): return "%s%s" % [q.title, "✔" if q.done else ""])])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"paivakirja":
