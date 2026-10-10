@@ -124,6 +124,8 @@ var kentta_laps: Array = []  # juoksulenkin kulmat kentän ympäri
 var uimaranta_pos: Vector3  # uimaan lähtö rannalla (#117)
 var uimaranta_bench: Vector3
 var uimaranta_people: Array = []  # rannan perheet ja mummot (näkyvyys main.gd)
+var uimaranta_sinikka: Node3D  # Sinikka aamu-uinnilla narubikineissä (näkyvyys main.gd)
+var uimaranta_sinikka_pos: Vector3
 var pukukoppi_pos: Vector3  # pukukopin edusta (jemma)
 var grilli_ranta_pos: Vector3
 var seo_door: Vector3  # SEO:n myymälän ovi (#118)
@@ -2304,6 +2306,21 @@ func _build_uimaranta() -> void:
 					B.mesh(holder, B.cyl(0.015, 0.015, 0.44, 5), Vector3(lx, 0.21, lz), Color(0.7, 0.7, 0.72))
 		holder.set_meta("mummo", i == 3)
 		uimaranta_people.append(holder)
+	# Sinikka aamu-uinnilla: punaiset narubikinit (kapea yläosa ja korkea alaosa), pyyhe vesirajassa.
+	var sk := bp - dir * 1.5 - side * 4.5
+	uimaranta_sinikka_pos = Vector3(sk.x, T.h(sk.x, sk.y), sk.y)
+	uimaranta_sinikka = Node3D.new()
+	uimaranta_sinikka.position = Vector3(sk.x, 0, sk.y)
+	uimaranta_sinikka.rotation.y = B.yaw_to(Vector3(-dir.x, 0, -dir.y))
+	add_child(uimaranta_sinikka)
+	B.mesh(uimaranta_sinikka, B.boxm(Vector3(0.9, 0.02, 1.8)), Vector3(0, 0.07, 0.3), Color(0.95, 0.2, 0.45))
+	var bikini: Dictionary = Looks.SINIKKA.duplicate()
+	bikini.merge({"shirt": Color(0.9, 0.05, 0.12), "pants": Color(0.9, 0.05, 0.12), "shoes": Color(0.95, 0.75, 0.62), "shine": 0.7,
+		"denim": false, "crop_y": 1.34, "tube_y": 1.42, "sleeve_x": 0.12, "shorts_y": 0.9}, true)
+	var sini := Looks.make(uimaranta_sinikka, bikini)
+	sini.position.y = 0.05
+	sini.play("Idle", 0.0)
+	uimaranta_sinikka.visible = false
 
 
 ## SEO Saloinen ja ravintola A+ (#118): tankkauskatos mittareineen (OSM roof), myymälä ja ravintola (OSM rakennus),

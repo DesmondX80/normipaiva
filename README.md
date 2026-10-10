@@ -27,8 +27,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   pysyvät pelaajan ympärillä, ajavat jonossa toistensa (ja Päivin) perässä ja jarruttavat pelaajalle, mutta
   pysähtymismatka on pitkä. Arto asuu heti kodin vasemmalla puolella ja Pekka Lehtikujan päässä.
   Leipähyllystä saa korvapuusteja ja lihapiirakoita evääksi: T syö ne (tai suklaan tai marjat ämpäristä) ja juo kannossa olevan kaljan.
-- **Jalkapallopojat:** joka toinen päivä jossain tien varressa on kolme poikaa, joiden pallo on hukassa. Pojat
-  kertovat suunnan, ja pallo on 100–300 m päässä. Palautus: poikien luona E avaa esinevalikon (W/S valitse, E anna,
+- **Jalkapallopojat:** joka toinen päivä kolme poikaa pelaa vuorotellen Saloisten kentällä tai Honganpalon koulun
+  kentällä (aamuviesti kertoo kummalla), ja Jere on potkaissut pallon aidan yli. Pojat kertovat suunnan, ja pallo on
+  60–200 m päässä. Palautus: poikien luona E avaa esinevalikon (W/S valitse, E anna,
   Q peruuta). Pallo = 1 € (ja moraali ja kokemus nousevat), kalja = pojat juoksevat nauraen pois, muu esine =
   pojat heittävät sen takaisin ja alkavat heitellä kivillä.
 - **Penkin mummot:** K-Marketin edustan penkillä istuu kolme mummoa. Jos kurvaat pyörällä lujaa aivan vierestä tai
@@ -142,7 +143,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Oravajärven uimaranta:** hiekkaranta, laituri, pukukoppi (uusi kaljajemma penkin alla), rantagrilli, penkki,
   huussi ja rantakyltti. Uinti kuten Salmisessa, ja joka päivä pohjasta voi löytyä jotain (aurinkolasit, vanha
   Nokia, kultasormus Sinikalle 20 €:lla). Aamuisin mummot, iltapäivisin perheet: kalja penkillä perheiden edessä
-  maksaa mainetta.
+  maksaa mainetta. Aamuisin (8–10) Sinikka käy uimassa punaisissa narubikineissä: hänen näkemisensä piristää kerran
+  päivässä (moraali, vireys, stressi), rannalla voi jutella ja antaa sormuksen, mutta jos jäät tuijottamaan mummojen
+  nähden, Päivi kuulee siitä aamulla. Testi `--scene=sinikkaranta`.
 - **SEO Saloinen ja ravintola A+:** tankkauskatos mittareineen, SEO-pylväs hintoineen ja rekka pihassa. Myymälä
   auki 24/7: kahvi (vireys), munkki reppuun ja rekkakuskin ilmainen kyyti Raaheen (6–23). A+: lounas ma–pe
   10.30–14 ja tuoppi illalla 16–22; pöydissä rekkamiesten ja vuoromiesten juttuja.
