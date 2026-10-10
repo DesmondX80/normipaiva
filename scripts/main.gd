@@ -227,6 +227,7 @@ const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 const Journal := preload("res://scripts/journal.gd")
 const PiirakkaGame := preload("res://scripts/piirakka_game.gd")
+const RankkuGame := preload("res://scripts/rankku_game.gd")
 const KORJAUS_VAIHEET := {"kiuas": "kiuaskivet", "lauteet": "lauteiden laudat", "terva": "seinien tervaus", "luukku": "savuluukku ja ovi"}
 const GARAGE_INT_POS := Vector3(-9000, 0, 3000)
 const BIKE_TUNE := 1.1  # työpöydällä huollettu pyörä: huippunopeus ja kiihtyvyys päivän ajan
@@ -519,6 +520,8 @@ const STASHES := {
 		"home": false, "cap": 24, "steal": 0.3},
 	"torni": {"name": "lintutornin alus", "short": "torni", "into": "lintutornin alle", "from": "lintutornin alta",
 		"home": false, "cap": 24, "steal": 0.15},
+	"uimaranta": {"name": "pukukopin penkin alus", "short": "ranta", "into": "pukukopin penkin alle",
+		"from": "pukukopin penkin alta", "home": false, "cap": 12, "steal": 0.25},
 }
 var stash := {}
 var _stashed_today := 0  # tänään jemmoihin piilotetut (kotimatkan tappio vain, jos mitään ei ole piilossa)
@@ -683,7 +686,11 @@ const TALKERS := {
 	"sinikka_seura": ["Sinikka", Color(1.0, 0.55, 0.75)],
 	"reippari": ["Reipparin Raija", Color(1.0, 0.6, 0.25)],
 	"reippari_nuoret": ["Kioskin porukka", Color(0.6, 0.9, 1.0)],
-	"veksi": ["Veksi", Color(0.75, 0.65, 0.95)]}
+	"veksi": ["Veksi", Color(0.75, 0.65, 0.95)],
+	"seo": ["Huoltiksen myyjä", Color(0.4, 0.85, 0.55)],
+	"aplus": ["Ravintola A+", Color(1.0, 0.6, 0.55)],
+	"katsastaja": ["Katsastusmies", Color(0.6, 0.75, 1.0)],
+	"hitsari": ["Arttimin hitsari", Color(1.0, 0.65, 0.3)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
 	"pekka": ["No perkele, naapuri!", "Terve terve, saatana.", "Kas, sieltähän se tulee."],
@@ -702,6 +709,10 @@ const TALK_HELLO := {
 	"reippari": ["No mitäs saisi olla?", "Grilli on kuuma, sano vaan.", "Kas, Järvikujan mies. Taas nälkä?"],
 	"reippari_nuoret": ["No moi. Ootko sää se tyyppi Järvikujalta?", "Mitä sää tuijotat? Ai, juttelemaan vaan.", "Moro. Ei oo mitään kiellettyä tässä."],
 	"sinikka_seura": ["No hei! Tuliks sää tanssimaan?", "Kas, komistus seuraintalolla. Päivi kotona?"],
+	"seo": ["Moi. Kahvi on keitetty, munkit tuoreita. Melkein.", "SEO Saloinen, auki aina. Mitä saisi olla?"],
+	"aplus": ["Päivää! Tänään lihapullia ja muusia.", "Tervetuloa A+:aan. Istu vaan, rekkamiehet ei pure."],
+	"katsastaja": ["Saloisten katsastus. Mitäs tuotiin?", "Päivää. Rekisteriote mukana? No ei se mitään."],
+	"hitsari": ["Arttim metal works. Hitsataan mitä vaan, paitsi sydäntä.", "Terve. Arto on tauolla, mää oon hitsari."],
 	"veksi": ["Takahuone. Ei asiakkaille. ...Ai, sulla on jotain? Laita ovi kiinni.", "Kuka sut päästi tänne? No, näytä mitä sulla on."],
 	"aaro": ["Jaa, nuori mies. Tokolassa ei paljon vieraita käy.", "Päivää päivää. Istu vaikka tuohon kivelle.",
 		"Kas. Sinä oot se Järvikujan poika."],
@@ -732,6 +743,7 @@ const FOODS := {
 	"mustikkapiirakka": {"name": "Sinikan mustikkapiirakka", "nalka": 0.45, "stressi": 0.1, "moraali": 0.15},
 	"makkaraperunat": {"name": "Reipparin makkaraperunat", "nalka": 0.6, "stressi": 0.1},
 	"piirakka_kaikilla": {"name": "Lihapiirakka kaikilla (Reippari)", "nalka": 0.5, "stressi": 0.05},
+	"munkki": {"name": "SEO:n munkki", "nalka": 0.25, "stressi": 0.05, "vireys": 0.05},
 	"hampurilainen": {"name": "Reipparin hampurilainen", "nalka": 0.55, "moraali": 0.05},
 }
 ## Päivittäiset tilat (#18, day_stats.gd): kolme arvottua tilaa HUD:ssa, toiminnot nostavat ja laskevat niitä.
@@ -1407,6 +1419,7 @@ func _outside_logic() -> void:
 	_tokola_logic()
 	_pannu_logic()
 	_kertun_logic()
+	_pohjoiset_logic()
 	_reippari_logic()
 	_atm_logic()
 	_drone_logic()
@@ -2605,6 +2618,515 @@ func _pannu_tasks() -> Array:
 	return [["Vanhan Sulon pannu: " + step, false]]
 
 
+## --- Kylän pohjoisosan paikat (#116 kenttä, #117 uimaranta, #118 SEO ja A+, #119 Kinnapotti, #121 rossirata) ----
+const RANKKU_OPEN := Vector2(10 * 60, 20 * 60)
+const ORAVA_FINDS := [["aurinkolasit", "Pohjasta löytyi aurinkolasit! Ray-Ban-tyyppiset, eli feikit. Hyvät silti."],
+	["nokia", "Pohjasta löytyi vanha Nokia 3310. Akussa on vieläkin virtaa. Tietysti on."],
+	["sormus", "Pohjasta löytyi kultasormus! Kenenkähän? Sinikka käy täällä aamuisin uimassa..."]]
+const ORAVA_MUMMOT := Vector2(7 * 60, 10 * 60)
+const ORAVA_PERHEET := Vector2(11 * 60, 18 * 60)
+const SEO_KAHVI := 2.2
+const SEO_MUNKKI := 2.5
+const APLUS_LOUNAS := Vector2(10 * 60 + 30, 14 * 60)
+const APLUS_ILTA := Vector2(16 * 60, 22 * 60)
+const APLUS_LOUNAS_HINTA := 11.5
+const APLUS_KALJA := 6.5
+const KATSASTUS_HINTA := 10.0
+const HITSARI_RUUVIT := 6.0
+const HITSARI_TELINE := 15.0
+const KEIKKA_PALKKA := 30.0
+const KEIKKA_AIKA := Vector2(7 * 60, 15 * 60)
+const ROSSI_RECORD := 42.0  # crossipoikien kierrosennätys pyörällä (s)
+const POHJOISET_JUTUT := ["Rekkamies: \"Raahessa terästehdas savuaa taas. Kakskytäviis vuotta ajanu sitä väliä.\"",
+	"Rekkamies: \"Kantatiellä oli hirvi taas aamulla. Isompi ku mun auto.\"", "Myyjä: \"Yövuorossa käy kaikenlaista. Viime yönä joku tuli traktorilla ostamaan munkkia.\"",
+	"Vuoromies: \"Ruukilla haetaan keikkamiehiä. Kinnapotissa kans, kysy Ruduksen portilta.\"",
+	"Rekkamies: \"Pekan Volvon tunnen. Se tankkaa täällä aina viidellä eurolla.\""]
+var _rankku_day := -1
+var _lenkki := {"on": false, "next": 0, "laps": 0}
+var _orava_finds: Array = []
+var _orava_find_day := -1
+var _sormus_given := false
+var _lunch_day := -1
+var _keikka_day := -1
+var katsastus := ""  # "" / "hylatty" / "hyvaksytty"
+var _rossi := {"on": false, "t": 0.0, "next": 1}
+var _rossi_best := 0.0
+var _rossi_won := false
+var _rossi_air := 0.0
+
+
+func _pohjoiset_save(cfg: ConfigFile) -> void:
+	cfg.set_value("pohjoiset", "rankkari_paiva", _rankku_day)
+	cfg.set_value("pohjoiset", "orava_loydot", _orava_finds)
+	cfg.set_value("pohjoiset", "sormus_annettu", _sormus_given)
+	cfg.set_value("pohjoiset", "katsastus", katsastus)
+	cfg.set_value("pohjoiset", "keikka_paiva", _keikka_day)
+	cfg.set_value("pohjoiset", "rossi_paras", _rossi_best)
+	cfg.set_value("pohjoiset", "rossi_voitto", _rossi_won)
+
+
+func _pohjoiset_load(cfg: ConfigFile) -> void:
+	_rankku_day = cfg.get_value("pohjoiset", "rankkari_paiva", -1)
+	_orava_finds = cfg.get_value("pohjoiset", "orava_loydot", [])
+	_sormus_given = cfg.get_value("pohjoiset", "sormus_annettu", false)
+	katsastus = cfg.get_value("pohjoiset", "katsastus", "")
+	_keikka_day = cfg.get_value("pohjoiset", "keikka_paiva", -1)
+	_rossi_best = cfg.get_value("pohjoiset", "rossi_paras", 0.0)
+	_rossi_won = cfg.get_value("pohjoiset", "rossi_voitto", false)
+
+
+func _near_xz(at: Vector3, r: float) -> bool:
+	if at == Vector3.ZERO:
+		return false
+	var p := player.global_position
+	return Vector2(p.x - at.x, p.z - at.z).length() < r
+
+
+func _pohjoiset_logic() -> void:
+	if world == null or world.kentta_laps.is_empty():
+		return
+	_pohjoiset_visuals()
+	_rossi_tick()
+	if _hint.text != "" or player.is_stunned():
+		return
+	var e := Input.is_action_just_pressed("interact")
+	if player == bike:
+		_rossi_gate_logic(e)
+		return
+	_kentta_logic(e)
+	if _hint.text != "":
+		return
+	_uimaranta_logic(e)
+	if _hint.text != "":
+		return
+	_seo_logic(e)
+	if _hint.text != "":
+		return
+	_kinnapotti_logic(e)
+
+
+## Väki paikoillaan kellonajan mukaan: kentän pojat, rannan mummot ja perheet, crossipojat viikonloppuna.
+func _pohjoiset_visuals() -> void:
+	var kids := _between(clock_min, RANKKU_OPEN)
+	for k in world.kentta_kids:
+		k.visible = kids
+	for h in world.uimaranta_people:
+		h.visible = _between(clock_min, ORAVA_MUMMOT) if h.get_meta("mummo") else _between(clock_min, ORAVA_PERHEET)
+	if world.rossi_boys != null:
+		world.rossi_boys.visible = _weekday() >= 5 and _between(clock_min, Vector2(10 * 60, 20 * 60))
+
+
+func _orava_families() -> bool:
+	return _between(clock_min, ORAVA_PERHEET)
+
+
+# Saloisten kenttä: rankkarit poikien kanssa ja juoksulenkki.
+func _kentta_logic(e: bool) -> void:
+	if not _near_xz(world.kentta_spot, 80.0):
+		_lenkki.on = false
+		return
+	tilat.first("kentta", 0.1)
+	if _lenkki.on:
+		var c: Vector3 = world.kentta_laps[_lenkki.next]
+		_hint.text = "Juoksulenkki: kierros %d, seuraava kulma %d/4" % [_lenkki.laps + 1, _lenkki.next + 1]
+		if _near_xz(c, 3.5):
+			_lenkki.next = (_lenkki.next + 1) % 4
+			Sfx.play("step_grass", -4.0, 1.2)
+			if _lenkki.next == 0:
+				_lenkki.laps += 1
+				tilat.add("stamina", -0.04)
+				if _once_today("lenkki"):
+					tilat.add("vireys", 0.15)
+					tilat.add("stressi", 0.15)
+					tilat.first("juoksulenkki", 0.2)
+				_show_message("Kierros %d juostu! Pojat huutelee: \"Setä hölkkää!\"" % _lenkki.laps if world.kentta_kids[0].visible else
+					"Kierros %d juostu! Hiki virtaa." % _lenkki.laps, 2.5)
+		return
+	if _near_xz(world.kentta_spot, 3.0):
+		if not world.kentta_kids[0].visible:
+			_hint.text = "Rankkaripiste. Pojat pelaa täällä päivisin (10–20)."
+		elif _rankku_day == day:
+			_hint.text = "Pojat: \"Huomenna uusiks, setä!\""
+		else:
+			_hint.text = "[E] Rankkarit poikien kanssa (viisi kumpikin)"
+			if e:
+				_start_rankku()
+		return
+	if _near_xz(world.kentta_laps[0], 3.0):
+		_hint.text = "[E] Juoksulenkki kentän ympäri (kulmasta kulmaan)"
+		if e:
+			_lenkki = {"on": true, "next": 1, "laps": 0}
+			_show_message("Lenkille! Kentän kulmat vastapäivään. Kunto kiittää.", 2.5)
+
+
+func _start_rankku() -> void:
+	_rankku_day = day
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	_hud.visible = false
+	var g := RankkuGame.new()
+	g.drunk = _hand_shake()
+	g.finished.connect(func(mine: int, theirs: int) -> void:
+		walker_out.controls_enabled = true
+		_hud.visible = true
+		tilat.first("rankkarit", 0.2)
+		tilat.add("stamina", -0.05)
+		if mine > theirs:
+			tilat.first("rankkarit_voitto", 0.4)
+			maine = clampf(maine + 3.0, 0.0, 100.0)
+			tilat.add("moraali", 0.15)
+			_show_message("Voitit pojat rankkareissa %d–%d! Maine +3. Pojat lupaa olla heittelemättä kiviä... tänään." % [mine, theirs], 4.0)
+		else:
+			tilat.add("stressi", -0.05)
+			_show_message("Rankkarit %d–%d. Pojat nauraa, mutta kutsuu huomenna uudestaan." % [mine, theirs], 3.5)
+		_save_game())
+	add_child(g)
+
+
+# Oravajärven uimaranta: uinti, löydöt pohjasta, rantagrilli, kalja penkillä ja pukukopin jemma (_stash_logic).
+func _uimaranta_logic(e: bool) -> void:
+	if not _near_xz(world.uimaranta_pos, 40.0):
+		return
+	tilat.first("oravajarvi", 0.1)
+	if _near_xz(world.uimaranta_pos, 4.0):
+		_hint.text = "[E] Uimaan: Oravajärvi"
+		if e:
+			_swim("Oravajärvi", Vector3.ZERO)
+		return
+	if _near_xz(world.grilli_ranta_pos, 2.2):
+		if has_sausage and not sausage_done:
+			_hint.text = "[E] Paista makkara rantagrillillä"
+			if e:
+				sausage_done = true
+				Sfx.play("whoosh", -6.0, 0.6)
+				tilat.first("rantagrilli", 0.2)
+				_show_message("Makkara tirisee rantagrillillä. %s" % ("Perheiden lapset tuijottaa nälkäisinä." if _orava_families()
+					else "Rauhallista, vain lokit seuraa."), 3.0)
+		else:
+			_hint.text = "Rantagrilli. Makkara mukaan kaupasta."
+		return
+	if _near_xz(world.uimaranta_bench, 1.8):
+		if beers > 0 and not ("ranta_kalja" in _today):
+			_hint.text = "[E] Kalja penkillä rannalla"
+			if e:
+				_today.append("ranta_kalja")
+				beers -= 1
+				player.set_carrying(beers > 0)
+				_drink(1)
+				Sfx.play("glass", -6.0, 0.9)
+				if _orava_families():
+					tilat.add("stressi", -0.2)
+					maine = clampf(maine - 2.0, 0.0, 100.0)
+					_show_message("Lapsiperheen äiti katsoo pitkään ja kaivaa puhelimen. Päivi tietää tästä illalla. Maine −2.", 4.0)
+				else:
+					tilat.add("stressi", 0.25)
+					tilat.first("ranta_kalja", 0.2)
+					_show_message("Järvi välkkyy, kaislikossa narskuttaa sorsa. Kalja rannalla ilman yleisöä: täydellistä.", 4.0)
+		else:
+			_hint.text = "Penkki rannalla."
+
+
+## Oravajärven uinti välianimaationa (Salmisen uinnin kehyksellä) ja joka päivä yksi löytö pohjasta.
+func _orava_swim() -> void:
+	_act_begin()
+	var dir: Vector2 = M.UIMARANTA_DIR
+	var bp: Vector3 = world.uimaranta_pos
+	var frame := Transform3D(Basis(Vector3.UP, atan2(dir.x, dir.y)), bp)
+	var lake := bp + Vector3(dir.x, 0, dir.y) * 12.0
+	var wl := Terrain.h(lake.x, lake.z) + 0.01
+	var ground := func(g: Vector3) -> float:
+		var along := Vector2(g.x - bp.x, g.z - bp.z).dot(dir)
+		return Terrain.h(g.x, g.z) - clampf((along - 1.5) * 0.3, 0.0, 1.6)
+	var crowd := "Perheet kirkuu matalikossa." if _orava_families() else ("Mummot uivat rintaa jonossa." if _between(clock_min, ORAVA_MUMMOT) else "Rannalla ei ketään.")
+	cutscene.swim_dive(frame, wl, ground, func() -> void:
+		_act_end()
+		var found := ""
+		if _orava_find_day != day:
+			for f in ORAVA_FINDS:
+				if not f[0] in _orava_finds:
+					_orava_finds.append(f[0])
+					_orava_find_day = day
+					found = " " + f[1]
+					if f[0] == "aurinkolasit":
+						tilat.add("moraali", 0.1)
+					break
+		_save_game()
+		_show_message("Pulahdit Oravajärveen. Turvevetistä mutta raikasta, kunto palautui.%s" % found, 5.0),
+		"ORAVAJÄRVI", "Kylän oma uimaranta. %s" % crowd, "Oravajärvi. Kotoa vartti pyörällä.")
+
+
+# SEO Saloinen 24/7 ja ravintola A+.
+func _seo_logic(e: bool) -> void:
+	if not _near_xz(world.seo_door, 60.0):
+		return
+	tilat.first("seo", 0.1)
+	if _near_xz(world.seo_door, 2.2):
+		_hint.text = "[E] SEO Saloinen: myymälä (auki 24/7)"
+		if e:
+			_talk_open("seo", null, "Yövuoro. Kahvi on keitetty kolmelta, munkit eiliseltä." if not _between(clock_min, Vector2(6 * 60, 22 * 60)) else "")
+		return
+	if _near_xz(world.aplus_door, 2.2):
+		if _between(clock_min, APLUS_ILTA) or (_weekday() < 5 and _between(clock_min, APLUS_LOUNAS)):
+			_hint.text = "[E] Ravintola A+"
+			if e:
+				_talk_open("aplus", null)
+		else:
+			_hint.text = "Ravintola A+ on kiinni. Lounas ma–pe 10.30–14, ilta 16–22."
+		return
+	if world.seo_truck != null and _near_xz(world.seo_truck.global_position, 4.5):
+		_hint.text = "Raahen Kuljetuksen rekka. Kuski on myymälässä kahvilla."
+
+
+func _pohjoiset_options(who: String, o: Array) -> void:
+	match who:
+		"seo":
+			o.append(_opt("kahvi", "Kahvi (%s €)" % _eur(SEO_KAHVI), money >= SEO_KAHVI, "rahat ei riitä"))
+			o.append(_opt("munkki", "Munkki (%s €, reppuun)" % _eur(SEO_MUNKKI), money >= SEO_MUNKKI, "rahat ei riitä"))
+			o.append(_opt("rekka", "Kysy rekkakuskilta kyytiä Raaheen", not _in_vaala and _between(clock_min, Vector2(6 * 60, 23 * 60)),
+				"kuski nukkuu ohjaamossa (6–23)", true))
+		"aplus":
+			if _weekday() < 5 and _between(clock_min, APLUS_LOUNAS):
+				o.append(_opt("lounas", "Lounas: lihapullat, muusi ja kotikalja (%s €)" % _eur(APLUS_LOUNAS_HINTA),
+					money >= APLUS_LOUNAS_HINTA and _lunch_day != day, "jo syöty tänään" if _lunch_day == day else "rahat ei riitä", true))
+			if _between(clock_min, APLUS_ILTA):
+				o.append(_opt("tuoppi", "Tuoppi tiskiltä (%s €)" % _eur(APLUS_KALJA), money >= APLUS_KALJA, "rahat ei riitä"))
+		"katsastaja":
+			var why := ""
+			if not ebike.built():
+				why = "ei kasattua sähköpyörää"
+			elif not is_instance_valid(bike) or bike.global_position.distance_to(world.katsastus_door) > 18.0:
+				why = "sähköpyörä pitää tuoda pihaan"
+			elif money < KATSASTUS_HINTA:
+				why = "rahat ei riitä"
+			o.append(_opt("katsasta", "Katsasta sähköpyörä (%s €)%s" % [_eur(KATSASTUS_HINTA), "  ✔ hyväksytty" if katsastus == "hyvaksytty" else ""],
+				why == "", why, katsastus != "hyvaksytty"))
+		"hitsari":
+			o.append(_opt("ruuvit", "Osta ruuvipussi (%s €, 4 ruuvia)" % _eur(HITSARI_RUUVIT), money >= HITSARI_RUUVIT, "rahat ei riitä"))
+			if ebike.joints.has("akku") and (ebike.joints.akku != "ruuvi" or ebike.loose.has("akku")):
+				o.append(_opt("teline", "Hitsaa sähköpyörään akkuteline (%s)" % ("kalja" if beers > 0 else _eur(HITSARI_TELINE) + " €"),
+					beers > 0 or money >= HITSARI_TELINE, "ei kaljaa eikä rahaa", true))
+
+
+func _pohjoiset_choose(id: String) -> void:
+	match id:
+		"kahvi":
+			money -= SEO_KAHVI
+			tilat.add("vireys", 0.2)
+			tilat.add("stressi", 0.05)
+			Sfx.play("register", -6.0)
+			tilat.first("seo_kahvi", 0.1)
+			_talk_box.reply("Tässä. Pahvimukissa, kansi ei pysy. %s" % POHJOISET_JUTUT.pick_random(), _talk_options(), "Vireys nousee.")
+		"munkki":
+			money -= SEO_MUNKKI
+			food["munkki"] = food.get("munkki", 0) + 1
+			Sfx.play("register", -6.0)
+			_talk_box.reply("Munkki. Sokeria joka puolella, varo paitaa.", _talk_options(), "Munkki reppuun (T syö).")
+		"rekka":
+			_talk_box.close()
+			_rekka_trip()
+		"lounas":
+			money -= APLUS_LOUNAS_HINTA
+			_lunch_day = day
+			_eat(0.8)
+			tilat.add("vireys", 0.1)
+			tilat.add("moraali", 0.1)
+			tilat.first("aplus_lounas", 0.2)
+			Sfx.play("register", -6.0)
+			_talk_box.reply("Lihapullat, muusi, ruskeekastike ja puolukkaa. Kotikaljaa saa hakea lisää. Pöydässä vuoromiehet: "
+				+ POHJOISET_JUTUT.pick_random(), _talk_options(), "Nälkä poissa.")
+		"tuoppi":
+			money -= APLUS_KALJA
+			_drink(1)
+			tilat.add("stressi", 0.1)
+			Sfx.play("glass", -4.0)
+			_talk_box.reply("Tuoppi. Rekkamies nostaa maljan: \"Terästehtaalle!\"", _talk_options(), "")
+		"katsasta":
+			_katsasta()
+		"ruuvit":
+			money -= HITSARI_RUUVIT
+			ebike.supplies.ruuvit += 4
+			Sfx.play("register", -6.0)
+			_save_game()
+			_talk_box.reply("Kuusi euroa. Arto ostaa näitä joka viikko, en tiä mitä se niillä tekee.", _talk_options(), "Ruuveja %d." % ebike.supplies.ruuvit)
+		"teline":
+			if beers > 0:
+				beers -= 1
+				player.set_carrying(beers > 0)
+			else:
+				money -= HITSARI_TELINE
+			ebike.fasten("akku", "ruuvi")
+			bike.set_ebike({"joints": ebike.joints, "loose": ebike.loose})
+			Sfx.play("rattle_hard", -4.0, 1.3)
+			_save_game()
+			_talk_box.reply("Tsssshhhh... Kas niin. Akkuteline kiinni runkoon. Tuo ei irtoa, vaikka ajaisit rossiradalla.", _talk_options(),
+				"Akku hitsattu kiinni (ei irtoa enää).")
+
+
+func _rekka_trip() -> void:
+	tilat.first("rekkakyyti", 0.3)
+	state = "cutscene"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	_queue_message("Rekkakuski puhui koko matkan: terästehtaasta, ex-vaimosta ja siitä hirvestä. Ilmainen kyyti Raaheen.", 5.0)
+	Sfx.play("horn", -4.0, 0.8)
+	cutscene.taxi_to_raahe(_enter_raahe)
+
+
+## Sähköpyörän katsastus: katsastusmies käy liitokset läpi. Teippi, rautalanka, irronneet osat, oikosulku ja tyhjä
+## akku hylkäävät; muuten leima ja mainetta.
+func _katsasta() -> void:
+	money -= KATSASTUS_HINTA
+	var faults: Array = []
+	for j in EBike.JOINTS:
+		var k: String = ebike.joints.get(j, "")
+		if ebike.loose.has(j):
+			faults.append("%s irti" % EBike.JOINT_SHORT[j])
+		elif k == "teippi":
+			faults.append("jeesusteipillä kiinni oleva %s" % EBike.JOINT_SHORT[j])
+		elif k == "rautalanka":
+			faults.append("rautalangalla sidottu %s" % EBike.JOINT_SHORT[j])
+	if ebike.shorted:
+		faults.append("johdoista nousee savua")
+	if ebike.battery < 0.15:
+		faults.append("akku tyhjä")
+	tilat.first("katsastus", 0.2)
+	Sfx.play("register", -6.0)
+	if faults.is_empty():
+		katsastus = "hyvaksytty"
+		maine = clampf(maine + 5.0, 0.0, 100.0)
+		tilat.first("katsastus_ok", 0.5)
+		_save_game()
+		_talk_box.reply("Hmm. Hmmmm. ...Ruuvit kireellä, nippusiteet vihreellä. Tämä on... hyväksytty. Ensimmäinen saloislainen sähköpyörä "
+			+ "mun uralla. Leima tähän.", _talk_options(), "HYVÄKSYTTY! Leima pyörän runkoon. Maine +5.")
+	else:
+		katsastus = "hylatty"
+		_save_game()
+		var txt := ", ".join(faults.slice(0, 3))
+		var f0: String = faults[0]
+		_talk_box.reply("%s... HYLÄTTY. %s. Korjaa ja tuo uudestaan." % [f0.left(1).to_upper() + f0.substr(1), "Lisäksi " + ", ".join(faults.slice(1, 3)) if faults.size() > 1 else "Ei muuta"],
+			_talk_options(), "Korjattavaa: %s." % txt)
+
+
+# Kinnapotti: katsastus, metallipaja ja Ruduksen keikkatyö.
+func _kinnapotti_logic(e: bool) -> void:
+	if not (_near_xz(world.katsastus_door, 90.0) or _near_xz(world.rudus_gate, 60.0)):
+		return
+	tilat.first("kinnapotti", 0.1)
+	if _near_xz(world.katsastus_door, 2.2):
+		_hint.text = "[E] Saloisten katsastus"
+		if e:
+			_talk_open("katsastaja", null)
+		return
+	if _near_xz(world.arttim_door, 2.2):
+		_hint.text = "[E] Arttim metal works: hitsari"
+		if e:
+			_talk_open("hitsari", null)
+		return
+	if _near_xz(world.rudus_gate, 2.4):
+		if _keikka_day == day:
+			_hint.text = "Työnjohtaja: \"Huomenna taas, jos selkä kestää.\""
+		elif not _between(clock_min, KEIKKA_AIKA):
+			_hint.text = "Ruduksen portti. Keikkatöitä aamuisin 7–15."
+		else:
+			_hint.text = "[E] Keikkatöihin: lapiohommia urakoitsijalle (3 h, %s €)" % _eur(KEIKKA_PALKKA)
+			if e:
+				_keikka_day = day
+				money += KEIKKA_PALKKA
+				_advance_clock(180.0)
+				tilat.add("stamina", -0.3)
+				tilat.add("vasymys", -0.2)
+				tilat.add("kipu", -0.1)
+				tilat.first("keikkatyo", 0.3)
+				Sfx.play("coin", -4.0)
+				_save_game()
+				_show_message("Kolme tuntia lapiota soramontussa. Selkä huutaa, mutta käteen jäi %s €. Työnjohtaja: \"Huomenna taas?\"" % _eur(KEIKKA_PALKKA), 5.0)
+
+
+# Tokolanperän rossirata: kierrosaika pyörällä crossipoikien ennätystä vastaan ja hyppyrit.
+func _rossi_gate_logic(e: bool) -> void:
+	if _rossi.on or not _near_xz(world.rossi_gate, 4.5):
+		return
+	tilat.first("rossirata", 0.1)
+	var best := " · oma %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""
+	_hint.text = "[E] Kierrosaika! Crossipoikien ennätys %s%s" % [_laptime(ROSSI_RECORD), best]
+	if e:
+		_rossi = {"on": true, "t": 0.0, "next": 1}
+		Sfx.play("horn", -6.0, 1.3)
+		_show_message("KOLME... KAKS... YKS... AJA! Kierros merkattuja mutkia pitkin takaisin lähtöön.", 2.5)
+
+
+func _laptime(t: float) -> String:
+	return "%d:%04.1f" % [int(t) / 60, fmod(t, 60.0)]
+
+
+func _rossi_tick() -> void:
+	var dt := get_process_delta_time()
+	_rossi_air = maxf(0.0, _rossi_air - dt)
+	if player == bike and _rossi_air <= 0.0:
+		for j in world.rossi_jumps:
+			var jp: Vector3 = j[0]
+			var bp := bike.global_position
+			if Vector2(bp.x - jp.x, bp.z - jp.z).length() < 1.4 and absf(bike.speed) > 5.0 and bike.has_method("hop"):
+				bike.hop(minf(absf(bike.speed) * 0.45, 6.0))
+				_rossi_air = 1.2
+				Sfx.play("whoosh", -4.0, 1.2)
+				tilat.first("rossi_hyppy", 0.2)
+				if not _rossi.on:
+					_show_message("Ilmalento!", 1.2)
+	if not _rossi.on:
+		return
+	_rossi.t += dt
+	var pts: Array = M.ROSSI
+	if player != bike or _rossi.t > 150.0:
+		_rossi.on = false
+		_show_message("Kierros keskeytyi.", 2.0)
+		return
+	var target: Vector3 = M.w(pts[_rossi.next % pts.size()])
+	_hint.text = "Kierrosaika %s · mutka %d/%d" % [_laptime(_rossi.t), mini(_rossi.next, pts.size()), pts.size()]
+	if _near_xz(target, 7.0):
+		if _rossi.next == pts.size():
+			_rossi_finish()
+		else:
+			_rossi.next += 1
+			Sfx.play("pickup", -8.0, 1.4)
+
+
+func _rossi_finish() -> void:
+	_rossi.on = false
+	var t: float = _rossi.t
+	var first_best := _rossi_best <= 0.0 or t < _rossi_best
+	if first_best:
+		_rossi_best = t
+	tilat.first("rossi_kierros", 0.2)
+	if t < ROSSI_RECORD and not _rossi_won:
+		_rossi_won = true
+		ebike.supplies.nippu += 4
+		ebike.supplies.ruuvit += 4
+		maine = clampf(maine + 5.0, 0.0, 100.0)
+		tilat.first("rossi_voitto", 0.5)
+		Sfx.play("win", -4.0)
+		_show_message("%s! Crossipoikien ennätys rikki! Pojat antaa palkinnoksi nippusiteitä ja ruuveja sähköpyörään. Maine +5." % _laptime(t), 5.0)
+	elif t < ROSSI_RECORD:
+		Sfx.play("win_small", -4.0)
+		_show_message("%s! Taas alle crossipoikien ennätyksen. Pojat: \"Se on joku ammattilainen.\"" % _laptime(t), 4.0)
+	else:
+		Sfx.play("win_small", -8.0)
+		_show_message("Kierros %s%s. Crossipoikien ennätys %s." % [_laptime(t), " (oma paras!)" if first_best else "", _laptime(ROSSI_RECORD)], 4.0)
+	_rossi_update_clock()
+	_save_game()
+
+
+func _rossi_update_clock() -> void:
+	if world == null:
+		return
+	for l in world.find_children("Kello", "Node3D", true, false):
+		for lab in l.find_children("*", "Label3D", true, false):
+			(lab as Label3D).text = "ENNÄTYS %s%s" % [_laptime(minf(ROSSI_RECORD, _rossi_best) if _rossi_won else ROSSI_RECORD),
+				"\nOMA %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""]
+
+
 ## --- Kertunkankaan rauta (#122): kehäröykkiöt, opastaulu ja legenda viimeisen sepän kirveestä ------------------
 ## Opastaulun teksti oikeista tiedoista (Visit Raahe / Outdooractive "Kertunkangas" ja Raahen Seutu "Rauta-aika on hyvinkin
 ## lähellä"). Legenda (kirves, seppä) on keksitty ja pidetään erillään taulusta.
@@ -3603,6 +4125,8 @@ func _stash_pos(id: String) -> Vector3:
 			return M.w(M.GRILLIKATOS)
 		"torni":
 			return world.kota.to_global(Kota.TOWER_LOCAL) if world.kota != null else M.w(M.KOTA)
+		"uimaranta":
+			return world.pukukoppi_pos if world.pukukoppi_pos != Vector3.ZERO else M.w(M.PUKUKOPPI)
 	return Vector3.ZERO
 
 
@@ -6256,6 +6780,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("malmi", "Näytä Kertunkankaan suolta nostettu ruosteinen möykky", true, "", true))
 			if tokola.key and not pannu.heard:
 				o.append(_opt("vanhasulo", "Kuka oli se S. S. kauppiaan kirjoissa?", true, "", tokola.tilikirja))
+		"seo", "aplus", "katsastaja", "hitsari":
+			_pohjoiset_options(who, o)
 		"veksi":
 			if kertun.found and kertun.choice == "":
 				o.append(_opt("kirves", "Myy rautakautinen kirves (%s €)" % _eur(KertunRauta.KERAILIJA_HINTA), true, "", true))
@@ -6269,6 +6795,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("huuto", "Huutamaan: %s (lähtö %s €)" % [lot.name, _eur(lot.start)], true, "", true))
 		"sinikka":
 			var berries: int = bucket.get("mustikka", 0)
+			if "sormus" in _orava_finds and not _sormus_given:
+				o.append(_opt("sormus", "Tämä sormus löytyi Oravajärven pohjasta. Onko tää sun?", true, "", true))
 			if sinikka_task == 1:
 				o.append(_opt("mustikat", "Anna %d l mustikoita" % SINIKKA_BERRIES, berries >= SINIKKA_BERRIES,
 					"ämpärissä %d l" % berries, true))
@@ -6433,6 +6961,8 @@ func _talk_choose(id: String) -> void:
 		"veksi":
 			if id == "kirves":
 				_kertun_sell()
+		"seo", "aplus", "katsastaja", "hitsari":
+			_pohjoiset_choose(id)
 		"reippari":
 			_talk_reippari(id)
 		"siitari_sinikka":
@@ -6559,6 +7089,15 @@ func _talk_neighbor(id: String) -> void:
 				"avaimet_mukana":
 					_story_step("valmis")
 					_talk_box.reply(Story.PEKKA_THANKS, _talk_options(), "Pekan kyyti Paapeliin on nyt auki!")
+		"sormus":
+			_sormus_given = true
+			money += 20.0
+			tilat.add("moraali", 0.2)
+			tilat.first("sormus_sinikalle", 0.3)
+			Sfx.play("win_small", -4.0)
+			_save_game()
+			_talk_box.reply("Mun sormus! Se lipes sormesta aamu-uinnilla viime kesänä. Voi kiitos... Tässä kakskymppiä. Ja älä kerro "
+				+ "Päiville, että mää halasin sua.", _talk_options(), "+20 €. Sinikka on ikuisesti kiitollinen.")
 		"mustikat":
 			bucket["mustikka"] = int(bucket.get("mustikka", 0)) - SINIKKA_BERRIES
 			if bucket["mustikka"] <= 0:
@@ -6643,6 +7182,14 @@ func _talk_chat_line() -> String:
 	if _talk_who == "aaro" and pannu.choice == "romu":
 		return ["Romuksi myit sen pannun. Kuuskymmentä vuotta odotin, ja romuksi.", "Mee pois. En puhu romukauppiaille."].pick_random()
 	match _talk_who:
+		"seo", "aplus":
+			return POHJOISET_JUTUT.pick_random()
+		"katsastaja":
+			return ["Viime viikolla toi joku traktorin, jossa ei ollu jarruja. Sanoi, että ei se kovaa mene.",
+				"Mää oon katsastanu kaikki Saloisten autot. Pekan Volvo on ihme, että se vielä kulkee."].pick_random()
+		"hitsari":
+			return ["Arto tekee täällä vuoroja. Kotiin kantaa johtoja ja liittimiä, minkä kerkiää.",
+				"Hitsaus on kuin runoutta. Paitsi että kuumempaa."].pick_random()
 		"aaro":
 			return AARO_LINES.pick_random()
 		"reippari":
@@ -8683,7 +9230,9 @@ func _swim(where: String, _from: Vector3) -> void:
 		tilat.add("vireys", 0.25)
 		tilat.add("moraali", 0.15 if where == "Salminen" else 0.08)
 	tilat.first("uinti_" + where.to_lower(), 0.3)
-	if where == "Salminen":
+	if where == "Oravajärvi":
+		_orava_swim()
+	elif where == "Salminen":
 		_salminen_swim()
 	elif after_sauna:
 		_show_message("Löylyistä suoraan Keskimmäiseen! Kylmä vesi kihelmöi, ja maailma on taas kohdallaan.", 4.0)
@@ -10441,6 +10990,7 @@ func _load_game() -> void:
 	tokola.load_from(cfg)
 	pannu.load_from(cfg)
 	kertun.load_from(cfg)
+	_pohjoiset_load(cfg)
 	quests.load_from(cfg)
 	_piirakka_record = cfg.get_value("reippari", "ennatys", 7)
 	_piirakka_holder = cfg.get_value("reippari", "ennatyksen_haltija", "Juntti")
@@ -10529,6 +11079,7 @@ func _save_game() -> void:
 		pannu.save_to(cfg)
 	if kertun != null:
 		kertun.save_to(cfg)
+	_pohjoiset_save(cfg)
 	if endings != null:
 		endings.save_to(cfg)
 	if quests != null:
@@ -11555,6 +12106,8 @@ func inventory_items() -> Array:
 		add.call("lipas", "Kauppiaan rahalipas", 1, "Näytä Aarolle. Tai anna tilikirja Pannu-Sulolle.")
 	if tokola.markat:
 		add.call("markat", "Vanhoja markkoja", 1, "Kirppiksen Raili ostaa keräilijöille.")
+	if "sormus" in _orava_finds and not _sormus_given:
+		add.call("sormus", "Kultasormus", 1, "Oravajärven pohjasta. Kenenkähän? Sinikka käy siellä aamuisin uimassa.")
 	if kertun.malmi and not kertun.found:
 		add.call("suomalmi", "Suomalmin pala", 1, "Ruosteinen, raskas möykky Kertunkankaan suolta." + ("" if kertun.malmi_known else " Aaro tietäis?"))
 	if kertun.kuona and not kertun.found:
@@ -15032,6 +15585,199 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 			_talk_who = "aaro"
 			print("PA romu: valinta %s, rahaa %s -> %s, kanisteri %s €, Aaro: '%s'" % [pannu.choice, _eur(m0), _eur(money), _eur(_kanister_price()), _talk_chat_line()])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"pohjoiset":
+			# Kylän pohjoisosan paikat: kenttä (rankkarit, lenkki), Oravajärven uimaranta (uinti, löydöt, grilli,
+			# kalja, jemma, sormus Sinikalle), SEO ja A+ (kahvi, munkki, lounas, rekka), Kinnapotti (katsastus hylätty ja
+			# hyväksytty, hitsari, keikkatyö) ja rossirata (kierros ja palkinto). Kuvat paikoista ja minipelistä.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			quests = Quests.new()
+			_rankku_day = -1
+			_orava_finds = []
+			_orava_find_day = -1
+			_sormus_given = false
+			katsastus = ""
+			_keikka_day = -1
+			_rossi_best = 0.0
+			_rossi_won = false
+			day = 3  # keskiviikko
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var at := func(pos: Vector3) -> void:
+				walker_out.global_position = pos + Vector3(0, 0.3, 0)
+				await frames.call(8)
+			var oc := Camera3D.new()
+			add_child(oc)
+			var view := func(name: String, from: Vector3, to: Vector3) -> void:
+				oc.look_at_from_position(from, to)
+				oc.current = true
+				await frames.call(30)
+				await snap.call(name)
+				oc.current = false
+				player.activate_camera()
+			money = 100.0
+			clock_min = 12 * 60
+			# Kenttä.
+			var kc := M.w(M.KENTTA)
+			await view.call("_kentta.png", kc + Vector3(-30, 14, 34), kc + Vector3(10, 0, -8))
+			await at.call(world.kentta_spot)
+			print("PO kenttä: '%s', pojat näkyy %s" % [_hint.text, world.kentta_kids[0].visible])
+			await press.call("interact")
+			var g: Node = get_children().filter(func(c): return c is RankkuGame).front()
+			await get_tree().create_timer(2.6).timeout
+			await snap.call("_rankku.png")
+			g._round = 1
+			g._start_round()
+			await get_tree().create_timer(1.4).timeout
+			await snap.call("_torjunta.png")
+			g._mine = 4
+			g._theirs = 1
+			g._finish("testi")
+			await get_tree().create_timer(2.6).timeout
+			print("PO rankkarit: '%s', päivä %d" % [_msg.text.left(50), _rankku_day])
+			await at.call(world.kentta_laps[0])
+			await press.call("interact")
+			for i in [1, 2, 3, 0]:
+				await at.call(world.kentta_laps[i])
+			print("PO lenkki: kierroksia %d, '%s'" % [_lenkki.laps, _msg.text.left(40)])
+			_lenkki.on = false
+			await at.call(world.kentta_spot + Vector3(0, 0, 200))
+			# Uimaranta.
+			var up: Vector3 = world.uimaranta_pos
+			var dir3 := Vector3(M.UIMARANTA_DIR.x, 0, M.UIMARANTA_DIR.y)
+			await view.call("_uimaranta.png", up - dir3 * 22.0 + Vector3(-8, 7, 0), up + dir3 * 2.0)
+			await at.call(up)
+			await frames.call(3)
+			print("PO ranta: '%s'" % _hint.text)
+			_swim("Oravajärvi", Vector3.ZERO)
+			await get_tree().create_timer(4.0).timeout
+			await snap.call("_uinti.png")
+			for i in 80:
+				if state != "cutscene":
+					break
+				await get_tree().create_timer(0.5).timeout
+			print("PO uinti: tila %s, löydöt %s, '%s'" % [state, _orava_finds, _msg.text.right(60)])
+			has_sausage = true
+			sausage_done = false
+			await at.call(world.grilli_ranta_pos + Vector3(1.2, 0, 0))
+			print("PO grilli: '%s'" % _hint.text)
+			await press.call("interact")
+			print("PO makkara paistettu %s" % sausage_done)
+			beers = 2
+			var m0 := maine
+			await at.call(world.uimaranta_bench + Vector3(0.6, 0, 0))
+			await press.call("interact")
+			print("PO kalja perheiden edessä: maine %d -> %d" % [roundi(m0), roundi(maine)])
+			await at.call(world.pukukoppi_pos)
+			print("PO pukukoppi: '%s'" % _hint.text)
+			_orava_finds = ["aurinkolasit", "nokia", "sormus"]
+			print("PO sinikka: %s" % [_talk_options("sinikka").map(func(o): return o.id)])
+			_talk_open("sinikka", sinikka)
+			_talk_box._pages.clear()
+			_talk_choose("sormus")
+			_talk_box.close()
+			print("PO sormus annettu %s" % _sormus_given)
+			await frames.call(20)
+			# SEO ja A+.
+			var sd: Vector3 = world.seo_door
+			var sdir := (sd - M.w(M.SEO)) * Vector3(1, 0, 1)
+			await view.call("_seo.png", sd + sdir.normalized() * 16.0 + sdir.normalized().cross(Vector3.UP) * 10.0 + Vector3(0, 5, 0), M.w(M.SEO) + Vector3(0, 2, 0))
+			clock_min = 3 * 60
+			await at.call(sd)
+			print("PO seo yöllä: '%s'" % _hint.text)
+			print("PO seo: %s" % [_talk_options("seo").map(func(o): return "%s%s" % [o.id, "" if o.enabled else "(x)"])])
+			_talk_open("seo", null)
+			_talk_box._pages.clear()
+			_talk_choose("kahvi")
+			_talk_choose("munkki")
+			_talk_box.close()
+			print("PO ostettu: munkki %d, rahaa %s" % [food.get("munkki", 0), _eur(money)])
+			clock_min = 12 * 60
+			await at.call(world.aplus_door)
+			print("PO A+: '%s', %s" % [_hint.text, _talk_options("aplus").map(func(o): return o.id)])
+			_talk_open("aplus", null)
+			_talk_box._pages.clear()
+			_talk_choose("lounas")
+			_talk_box.close()
+			print("PO lounas päivä %d" % _lunch_day)
+			await frames.call(20)
+			# Kinnapotti.
+			var kd: Vector3 = world.katsastus_door
+			var kdir := (kd - M.w(M.KATSASTUS)) * Vector3(1, 0, 1)
+			var cKATSASTUS := M.w(M.KATSASTUS)
+			var nKATSASTUS := (world._osm_fit_at(M.KATSASTUS).nrm as Vector2)
+			await view.call("_kinnapotti.png", cKATSASTUS + Vector3(nKATSASTUS.x, 0, nKATSASTUS.y) * 26.0 + Vector3(0, 7, 0), cKATSASTUS + Vector3(0, 2, 0))
+			var ad: Vector3 = world.arttim_door
+			var cARTTIM := M.w(M.ARTTIM)
+			var nARTTIM := (world._osm_fit_at(M.ARTTIM).nrm as Vector2)
+			await view.call("_arttim.png", cARTTIM + Vector3(nARTTIM.x, 0, nARTTIM.y) * 26.0 + Vector3(0, 7, 0), cARTTIM + Vector3(0, 2, 0))
+			for j in EBike.JOINTS:
+				ebike.joints[j] = "teippi" if j == "akku" else ("sahkoteippi" if j == "johdot" else "ruuvi")
+			ebike.loose = {}
+			ebike.shorted = false
+			ebike.battery = 1.0
+			bike.global_position = kd + Vector3(3, 0.5, 3)
+			await at.call(kd)
+			print("PO katsastus: '%s', %s" % [_hint.text, _talk_options("katsastaja").map(func(o): return "%s%s" % [o.id, "" if o.enabled else "(x)"])])
+			_talk_open("katsastaja", null)
+			_talk_box._pages.clear()
+			_talk_choose("katsasta")
+			_talk_box.close()
+			print("PO katsastus 1: %s" % katsastus)
+			print("PO hitsari: %s" % [_talk_options("hitsari").map(func(o): return o.id)])
+			_talk_open("hitsari", null)
+			_talk_box._pages.clear()
+			_talk_choose("teline")
+			_talk_choose("ruuvit")
+			_talk_box.close()
+			print("PO akku %s, ruuvit %d" % [ebike.joints.akku, ebike.supplies.ruuvit])
+			_talk_open("katsastaja", null)
+			_talk_box._pages.clear()
+			_talk_choose("katsasta")
+			_talk_box.close()
+			print("PO katsastus 2: %s, maine %d" % [katsastus, roundi(maine)])
+			clock_min = 9 * 60
+			var mk := money
+			await at.call(world.rudus_gate)
+			print("PO rudus: '%s'" % _hint.text)
+			await press.call("interact")
+			print("PO keikka: rahaa +%s, kello %d:%02d" % [_eur(money - mk), int(clock_min) / 60, int(clock_min) % 60])
+			# Rossirata.
+			var rg: Vector3 = world.rossi_gate
+			await view.call("_rossi.png", rg + Vector3(-18, 12, 10), M.w(Vector2(100, -815)))
+			walker_out.global_position = rg + Vector3(0, 0.3, 0)
+			bike.global_position = rg + Vector3(0.5, 0.5, 0)
+			await frames.call(5)
+			_toggle_mount()
+			await frames.call(8)
+			print("PO rossi: '%s'" % _hint.text)
+			await press.call("interact")
+			for i in range(1, M.ROSSI.size()):
+				bike.global_position = M.w(M.ROSSI[i]) + Vector3(0, 0.5, 0)
+				await frames.call(6)
+			_rossi.t = 37.5
+			bike.global_position = rg + Vector3(0, 0.5, 0)
+			await frames.call(6)
+			print("PO rossi maali: paras %s, voitto %s, '%s'" % [_laptime(_rossi_best), _rossi_won, _msg.text.left(60)])
+			var j0: Array = world.rossi_jumps[0]
+			print("PO hyppyrit %d, hop %s" % [world.rossi_jumps.size(), bike.has_method("hop")])
+			var d := journal_data()
+			print("PO tehtävät: %s" % [d.side.map(func(q): return "%s%s" % [q.title, "✔" if q.done else ""])])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"kertunkangas":
