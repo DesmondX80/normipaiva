@@ -471,6 +471,7 @@ var has_sausage := false
 var has_matches := false
 ## Suklaalevy taskussa: saattaa lepyttää Päivin (salainen mekaniikka, ei vinkkejä pelissä).
 var has_chocolate := false
+var has_flowers := false  # kukkakimppu Päiville (säästöpiha, #141)
 var _choco_mercy := false  # Päivi leppyi WASTED-motkotuksessa: seuraavana aamuna ylimääräistä rahaa
 ## Raahen reissujen mittarit 0–100 (tallentuvat): mielihyvä ja maine kovana jätkänä.
 var mielihyva := 0.0
@@ -691,6 +692,8 @@ const TALKERS := {
 	"veksi": ["Veksi", Color(0.75, 0.65, 0.95)],
 	"seo": ["Huoltiksen myyjä", Color(0.4, 0.85, 0.55)],
 	"vahtimestari": ["Vahtimestari Reijo", Color(0.7, 0.75, 0.8)],
+	"seppo": ["Seppo", Color(0.95, 0.75, 0.4)],
+	"saasto": ["Säästöpihan Marja", Color(0.55, 0.9, 0.55)],
 	"hongan_nuoret": ["Portailla istuva porukka", Color(0.6, 0.9, 1.0)],
 	"aplus": ["Ravintola A+", Color(1.0, 0.6, 0.55)],
 	"katsastaja": ["Katsastusmies", Color(0.6, 0.75, 1.0)],
@@ -713,6 +716,8 @@ const TALK_HELLO := {
 	"reippari": ["No mitäs saisi olla?", "Grilli on kuuma, sano vaan.", "Kas, Järvikujan mies. Taas nälkä?"],
 	"reippari_nuoret": ["No moi. Ootko sää se tyyppi Järvikujalta?", "Mitä sää tuijotat? Ai, juttelemaan vaan.", "Moro. Ei oo mitään kiellettyä tässä."],
 	"sinikka_seura": ["No hei! Tuliks sää tanssimaan?", "Kas, komistus seuraintalolla. Päivi kotona?"],
+	"seppo": ["No terve! Kato rauhassa, kaikki on myytävänä. Paitsi se mopo.", "Seppo. Varastomyynti. Mitä tarvitaan?"],
+	"saasto": ["Päivää! Kukkia, taimia, multaa?", "Tervetuloa säästöpihaan. Päiville kukkia?"],
 	"vahtimestari": ["No? Kesäloma on. Koulu on kiinni.", "Reijo, vahtimestari. Mitäs täällä pyöritään?"],
 	"hongan_nuoret": ["Mitä sää setä täällä teet?", "Moro. Ei me mitään tehty.", "Ootko sää se Järvikujan tyyppi?"],
 	"seo": ["Moi. Kahvi on keitetty, munkit tuoreita. Melkein.", "SEO Saloinen, auki aina. Mitä saisi olla?"],
@@ -1429,6 +1434,7 @@ func _outside_logic() -> void:
 	_kertun_logic()
 	_pohjoiset_logic()
 	_hongan_logic()
+	_seppo_logic()
 	_aarni_logic()
 	_reippari_logic()
 	_atm_logic()
@@ -3146,6 +3152,261 @@ func _rossi_update_clock() -> void:
 				"\nOMA %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""]
 
 
+## --- Sepon varastomyynti (#140) ja Saloisten säästöpiha (#141) ----------------------------------------------
+## Sepon tavarat: [nimi, perushinta, tarvike (ebike.supplies) tai "", määrä]. Päivän valikoima ja hinnat vaihtelevat.
+const SEPPO_STOCK := {
+	"teippi": ["Jeesusteippirulla (melkein täysi)", 4.0, "teippi", 3],
+	"nippu": ["Pussi nippusiteitä", 3.0, "nippu", 5],
+	"sahkoteippi": ["Sähköteippiä, kolme rullaa", 3.5, "sahkoteippi", 3],
+	"rautalanka": ["Rautalankakerä", 2.0, "rautalanka", 3],
+	"ruuvit": ["Ruuvipurkki, sekalaisia", 4.0, "ruuvit", 5],
+	"telkkari": ["Mustavalkotelkkari (toimii, kai)", 8.0, "", 0],
+	"vhs": ["VHS: Pekka ja Pätkä lumimiehen jäljillä", 1.5, "", 0],
+	"onki": ["Bambuonki", 3.0, "", 0],
+}
+const SEPPO_OPEN := Vector2(10 * 60, 18 * 60)
+const SEPPO_MOODS := [["Seppo on hyvällä tuulella", 0.75], ["Seppo on ihan tavallinen", 1.0], ["Seppo on huonolla päällä", 1.4],
+	["Seppo on löytäny jotain varastosta ja on innoissaan", 0.85], ["Sepon selkä on kipee", 1.25]]
+const SEPPO_LAATIKKO := 5.0
+const KEKKONEN_HINTA := 30.0
+const MARJA_HINTA := 1.5  # €/l
+const SAASTO_OPEN := Vector2(9 * 60, 18 * 60)
+const KUKAT_HINTA := 12.0
+const TAIMET_HINTA := 6.0
+const MULTA_HINTA := 5.0
+const SAASTO_JUTUT := ["Nurmikolle kannattaa antaa kalkkia keväällä. Ja leikata useammin kuin kerran kesässä.",
+	"Päivi kävi viime viikolla. Katteli ruusuja pitkään ja huokaili. Sano vaan.",
+	"Sinikka ostaa täältä aina tomaatintaimia. Se kasvattaa niitä paremmin ku kukaan.",
+	"Multaa? Kompostin viereen, niin saa ensi kesänä kunnon perunat."]
+var _kekkonen := 0  # 0 ei, 1 mukana, 2 myyty
+var _nokia_sold := false
+var _seppo_day := {}  # "laatikko", "kehu", "ostettu_<id>" -> päivä
+var _seppo_kehu := 1.0
+var _has_taimet := false
+var _flowers_day := -1
+var _multa_day := -1
+var sinikka_taimet := 0  # 0 = ei pyydetty, 1 = Sinikka odottaa taimia, 2 = viety
+
+
+func _seppo_open() -> bool:
+	return _weekday() != 0 and _between(clock_min, SEPPO_OPEN) and (day * 7) % 5 != 0
+
+
+func _saasto_open() -> bool:
+	var wd := _weekday()
+	return wd != 6 and _between(clock_min, SAASTO_OPEN if wd != 5 else Vector2(9 * 60, 15 * 60))
+
+
+func _seppo_mood() -> Array:
+	return SEPPO_MOODS[(day * 13 + 5) % SEPPO_MOODS.size()]
+
+
+## Päivän kolme tuotetta ja Sepon hinta.
+func _seppo_today() -> Array:
+	var keys := SEPPO_STOCK.keys()
+	var out: Array = []
+	for i in 3:
+		var k: String = keys[(day * 3 + i * 5) % keys.size()]
+		if not k in out:
+			out.append(k)
+	return out
+
+
+func _seppo_price(k: String) -> float:
+	return snappedf(SEPPO_STOCK[k][1] * float(_seppo_mood()[1]) * (_seppo_kehu if _seppo_day.get("kehu", -1) == day else 1.0), 0.5)
+
+
+func _seppo_logic() -> void:
+	if world == null or world.seppo_door == Vector3.ZERO:
+		return
+	world.seppo_npc.visible = _seppo_open()
+	if _hint.text != "" or player == bike or player.is_stunned():
+		return
+	var e := Input.is_action_just_pressed("interact")
+	if _near_xz(world.seppo_door, 3.0) or (world.seppo_npc.visible and _near_xz(world.seppo_npc.global_position, 2.2)):
+		tilat.first("seppo", 0.1)
+		if _seppo_open():
+			_hint.text = "[E] Sepon varastomyynti (%s)" % _seppo_mood()[0]
+			if e:
+				_talk_open("seppo", world.seppo_npc)
+		else:
+			_hint.text = "Ovessa lappu: \"%s\"" % ("Ma suljettu." if _weekday() == 0 else ("Kalassa. T. Seppo" if (day * 7) % 5 == 0 else "Auki 10–18 kun ollaan."))
+		return
+	if _near_xz(world.seppo_tarp, 2.0):
+		_hint.text = "Pressun alla vanha mopo. Seppo: \"Ei oo myytävänä. Vielä.\""
+		return
+	if _near_xz(world.saasto_door, 2.4):
+		tilat.first("saastopiha", 0.1)
+		if _saasto_open():
+			_hint.text = "[E] Saloisten säästöpiha"
+			if e:
+				_talk_open("saasto", null)
+		else:
+			_hint.text = "Säästöpiha on kiinni. Ma–pe 9–18, la 9–15."
+
+
+func _seppo_options(who: String, o: Array) -> void:
+	match who:
+		"seppo":
+			for k in _seppo_today():
+				var it: Array = SEPPO_STOCK[k]
+				var price := _seppo_price(k)
+				if _seppo_day.get("ostettu_" + k, -1) == day:
+					o.append(_opt("x_" + k, "%s (myyty)" % it[0], false, "Seppo kaivaa huomenna lisää"))
+					continue
+				o.append(_opt("osta_" + k, "Osta %s (%s €)" % [it[0].to_lower(), _eur(price)], money >= price - 0.001, "rahat ei riitä"))
+				if beers > 0 and price <= 5.0:
+					o.append(_opt("vaihda_" + k, "Vaihtokauppa: kalja %s vastaan" % it[0].to_lower()))
+			if _seppo_day.get("kehu", -1) != day:
+				o.append(_opt("kehu", "Kehu Sepon varastoa (hinnat?)"))
+			o.append(_opt("laatikko", "Yllätyslaatikko (%s €)" % _eur(SEPPO_LAATIKKO), money >= SEPPO_LAATIKKO and _seppo_day.get("laatikko", -1) != day,
+				"yksi päivässä" if _seppo_day.get("laatikko", -1) == day else "rahat ei riitä", true))
+			var berries: int = int(bucket.get("puolukka", 0)) + int(bucket.get("mustikka", 0))
+			if berries > 0:
+				o.append(_opt("marjat", "Myy marjat (%d l, %s €)" % [berries, _eur(berries * MARJA_HINTA)]))
+			if "nokia" in _orava_finds and not _nokia_sold:
+				o.append(_opt("nokia", "Myy vanha Nokia 3310 (5 €)"))
+		"saasto":
+			o.append(_opt("kukat", "Kukkakimppu Päiville (%s €)" % _eur(KUKAT_HINTA), money >= KUKAT_HINTA and not has_flowers,
+				"kimppu on jo mukana" if has_flowers else "rahat ei riitä", _paivi_bday_near()))
+			if sinikka_taimet == 1 and not _has_taimet:
+				o.append(_opt("taimet", "Tomaatintaimet Sinikalle (%s €)" % _eur(TAIMET_HINTA), money >= TAIMET_HINTA, "rahat ei riitä", true))
+			o.append(_opt("multa", "Multasäkki kotiin (%s €)" % _eur(MULTA_HINTA), money >= MULTA_HINTA and _multa_day != day,
+				"jo ostettu tänään" if _multa_day == day else "rahat ei riitä"))
+
+
+func _seppo_choose(id: String) -> void:
+	if id.begins_with("osta_") or id.begins_with("vaihda_"):
+		var k := id.trim_prefix("osta_").trim_prefix("vaihda_")
+		var it: Array = SEPPO_STOCK[k]
+		if id.begins_with("vaihda_"):
+			beers -= 1
+			player.set_carrying(beers > 0)
+		else:
+			money -= _seppo_price(k)
+		_seppo_day["ostettu_" + k] = day
+		var note := ""
+		if it[2] != "":
+			ebike.supplies[it[2]] += int(it[3])
+			note = "%s: %d." % [EBike.SUPPLIES[it[2]], ebike.supplies[it[2]]]
+		else:
+			tilat.add("moraali", 0.05)
+			note = {"telkkari": "Telkkari jää Sepon varastoon odottamaan. \"Haet kun haet.\"", "vhs": "VHS reppuun. Ei oo videoita, mutta silti.",
+				"onki": "Bambuonki. Ehkä joskus Oravajärvellä."}.get(k, "")
+		Sfx.play("register", -6.0)
+		_save_game()
+		_talk_box.reply(["Kaupat on kaupat. Ei palautuksia.", "Hyvä valinta. Mulla oli kaks tommosta, nyt yks.",
+			"Sitä mää just ajattelin, että joku tarvii tuota."][randi() % 3], _talk_options(), note)
+		return
+	match id:
+		"kehu":
+			_seppo_day["kehu"] = day
+			if randf() < 0.5 + maine / 200.0:
+				_seppo_kehu = 0.75
+				_talk_box.reply("No kiitos! Kolkytä vuotta kerätty. Sulle halvemmalla tänään.", _talk_options(), "Hinnat −25 % tänään.")
+			else:
+				_seppo_kehu = 1.1
+				_talk_box.reply("Älä nuoleskele. Hinnat nousi just.", _talk_options(), "Hinnat +10 % tänään.")
+		"laatikko":
+			_seppo_day["laatikko"] = day
+			money -= SEPPO_LAATIKKO
+			Sfx.play("rattle", -4.0)
+			var r := randf()
+			var txt := ""
+			if r < 0.2 and _kekkonen == 0:
+				_kekkonen = 1
+				_kertun_sync()
+				txt = "Laatikon pohjalla Kekkosen rintamerkki! Kirppiksen takahuoneen Veksi maksaa tällaisista."
+			elif r < 0.3:
+				money += 20.0
+				txt = "Vanhan kirjan välistä löytyi kakskymppinen! Seppo ei huomannut."
+			elif r < 0.6:
+				var sup: String = ["teippi", "nippu", "ruuvit", "rautalanka"].pick_random()
+				ebike.supplies[sup] += 2
+				txt = "Laatikossa %s. Hyödyllistä!" % EBike.SUPPLIES[sup].to_lower()
+			else:
+				txt = ["Laatikossa rikkinäinen kaukosäädin, kolme korkkia ja Aku Ankka vuodelta 1978.", "Laatikossa pelkkiä sulakkeita. Palaneita.",
+					"Laatikossa joulukoristeita ja yksi sukka."].pick_random()
+			_save_game()
+			_talk_box.reply("Yllätyslaatikko! Ei kurkita etukäteen.", _talk_options(), txt)
+		"marjat":
+			var n: int = int(bucket.get("puolukka", 0)) + int(bucket.get("mustikka", 0))
+			bucket.erase("puolukka")
+			bucket.erase("mustikka")
+			money += n * MARJA_HINTA
+			Sfx.play("coin", -4.0)
+			_save_game()
+			_talk_box.reply("Marjoja! Mun muija tekee näistä hilloa koko talveksi.", _talk_options(), "+%s €." % _eur(n * MARJA_HINTA))
+		"nokia":
+			_nokia_sold = true
+			money += 5.0
+			Sfx.play("coin", -4.0)
+			_save_game()
+			_talk_box.reply("3310! Näitä ei tapa mikään. Vitonen.", _talk_options(), "+5,00 €.")
+		"kukat":
+			money -= KUKAT_HINTA
+			has_flowers = true
+			tilat.first("kukat", 0.1)
+			Sfx.play("register", -6.0)
+			_save_game()
+			_talk_box.reply("Ruusuja ja neilikoita. Päivi tykkää, uskokaa pois. Muista viedä ne kotiin ennen ku Päivi tulee riitelemään.",
+				_talk_options(), "Kukkakimppu mukana. Vie se kotiin illaksi.")
+		"taimet":
+			money -= TAIMET_HINTA
+			_has_taimet = true
+			Sfx.play("register", -6.0)
+			_talk_box.reply("Sinikalle? Sinikka ostaa aina näitä. Hyviä lajikkeita, isot tomaatit.", _talk_options(), "Taimet Sinikalle.")
+		"multa":
+			money -= MULTA_HINTA
+			_multa_day = day
+			tilat.add("moraali", 0.05)
+			Sfx.play("register", -6.0)
+			_talk_box.reply("Multasäkki. Kompostin viereen, niin Päivi saa kukkapenkin.", _talk_options(), "Päivi huomaa huomenna.")
+
+
+## Päivin syntymäpäivä joka 14. päivä (päivä % 14 == 7): aamulla vihje päivää ennen.
+func _paivi_bday(d: int) -> bool:
+	return d % 14 == 7
+
+
+func _paivi_bday_near() -> bool:
+	return _paivi_bday(day) or _paivi_bday(day + 1)
+
+
+## Aamun kukkaviestit: kimppu kotiin illaksi, syntymäpäivä muistettu tai unohdettu, multasäkki.
+func _flowers_morning(lost: bool, at_m: bool) -> String:
+	if at_m:
+		return ""
+	var prev := day - 1
+	var out := ""
+	if has_flowers and not lost:
+		has_flowers = false
+		_flowers_day = prev
+		tilat.first("kukat_paiville", 0.3)
+		if _paivi_bday(prev):
+			money += 20.0
+			tilat.add("stressi", 0.3)
+			tilat.add("moraali", 0.25)
+			out += "\nMUISTIT MUN SYNTYMÄPÄIVÄN! Ruusuja ja kaikkea. Tässä kakskymppiä, ja tänään saat mennä minne haluat."
+		else:
+			money += 10.0
+			tilat.add("stressi", 0.2)
+			out += "\nKukkia? Mitä sää oot tehny?! ...No kiitos. Tässä kymppi ylimääräistä."
+	elif _paivi_bday(prev) and _flowers_day != prev:
+		tilat.add("stressi", -0.3)
+		tilat.add("moraali", -0.2)
+		_no_allowance = true
+		out += "\nEilen oli mun syntymäpäivä. EIKÄ SULTA TULLU EES KUKKAA. Kauppa-rahoja ei tänään tule."
+	if _multa_day == prev:
+		money += 5.0
+		out += "\nKuka toi multasäkin? ...Saan vihdoin kukkapenkin. Tässä vitonen."
+	if _paivi_bday(day + 1):
+		out += "\nHuomenna on muuten mun syntymäpäivä. Ihan vaan sanon."
+	elif _paivi_bday(day):
+		out += "\nTänään on mun syntymäpäivä. Katotaan muistaako kukaan."
+	return out
+
+
 ## --- Honganpalon koulu (#138) ------------------------------------------------------------------------------
 const HONGAN_PALKKA := 15.0
 const HONGAN_JANITOR := Vector2(8 * 60, 16 * 60)
@@ -3472,7 +3733,8 @@ func _kertun_sync() -> void:
 	if world.kertun_isokivi != null:
 		world.kertun_isokivi.rotation.z = 0.35 if kertun.found else 0.0
 	if kirppis_int != null and "veksi_open" in kirppis_int:
-		kirppis_int.veksi_open = (kertun.found and kertun.choice == "") or (aarni != null and aarni.found and aarni.choice == "")
+		kirppis_int.veksi_open = (kertun.found and kertun.choice == "") or (aarni != null and aarni.found and aarni.choice == "") \
+			or _kekkonen == 1
 
 
 func _kertun_heard() -> void:
@@ -7098,6 +7360,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("vanhasulo", "Kuka oli se S. S. kauppiaan kirjoissa?", true, "", tokola.tilikirja))
 		"seo", "aplus", "katsastaja", "hitsari":
 			_pohjoiset_options(who, o)
+		"seppo", "saasto":
+			_seppo_options(who, o)
 		"vahtimestari":
 			if _hongan_keikka:
 				o.append(_opt("x_keikka", "Roskat kesken (%d jäljellä)" % _hongan_trash_left(), false, "kerää ensin roskat pihalta"))
@@ -7105,6 +7369,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("keikka", "Onko hommia? (roskat pihalta, %s €)" % _eur(HONGAN_PALKKA), _hongan_day != day,
 					"huomenna taas", true))
 		"veksi":
+			if _kekkonen == 1:
+				o.append(_opt("kekkonen", "Myy Kekkosen rintamerkki (%s €)" % _eur(KEKKONEN_HINTA), true, "", true))
 			if aarni.found and aarni.choice == "":
 				o.append(_opt("hopeat", "Myy Isonvihan hopeat (%s €)" % _eur(Aarnivalkea.KERAILIJA_HINTA), true, "", true))
 		"veksi":
@@ -7120,6 +7386,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("huuto", "Huutamaan: %s (lähtö %s €)" % [lot.name, _eur(lot.start)], true, "", true))
 		"sinikka":
 			var berries: int = bucket.get("mustikka", 0)
+			if sinikka_taimet == 1 and _has_taimet:
+				o.append(_opt("taimet", "Toin tomaatintaimet säästöpihasta", true, "", true))
 			if "sormus" in _orava_finds and not _sormus_given:
 				o.append(_opt("sormus", "Tämä sormus löytyi Oravajärven pohjasta. Onko tää sun?", true, "", true))
 			if sinikka_task == 1:
@@ -7288,8 +7556,18 @@ func _talk_choose(id: String) -> void:
 				_kertun_sell()
 			elif id == "hopeat":
 				_aarni_sell()
+			elif id == "kekkonen":
+				_kekkonen = 2
+				money += KEKKONEN_HINTA
+				_kertun_sync()
+				Sfx.play("coin", -4.0)
+				_save_game()
+				_talk_box.reply("Kekkonen! Aito, 1960-luvulta. Kolkytä euroa, ja Sepolle ei sanota mitään.", _talk_options(),
+					"+%s €." % _eur(KEKKONEN_HINTA))
 		"seo", "aplus", "katsastaja", "hitsari":
 			_pohjoiset_choose(id)
+		"seppo", "saasto":
+			_seppo_choose(id)
 		"vahtimestari":
 			if id == "keikka":
 				_hongan_start_keikka()
@@ -7419,6 +7697,16 @@ func _talk_neighbor(id: String) -> void:
 				"avaimet_mukana":
 					_story_step("valmis")
 					_talk_box.reply(Story.PEKKA_THANKS, _talk_options(), "Pekan kyyti Paapeliin on nyt auki!")
+		"taimet":
+			sinikka_taimet = 2
+			_has_taimet = false
+			food["pulla"] = food.get("pulla", 0) + 2
+			tilat.add("moraali", 0.15)
+			tilat.first("sinikka_taimet", 0.3)
+			Sfx.play("pickup", -4.0)
+			_save_game()
+			_talk_box.reply("Tomaatintaimet! Ja vielä niitä hyviä, säästöpihan omia. Ota pullaa, kaks kappaletta. Ja Päiville ei "
+				+ "tarvi kertoa, että kävit täällä.", _talk_options(), "Kaksi korvapuustia reppuun.")
 		"sormus":
 			_sormus_given = true
 			money += 20.0
@@ -7545,6 +7833,9 @@ func _talk_chat_line() -> String:
 		"pekka":
 			return (Story.PEKKA_WAITING if story.step == "tehtavat" else PEKKA_LINES).pick_random()
 		"sinikka":
+			if sinikka_taimet == 0 and randf() < 0.4:
+				sinikka_taimet = 1
+				return "Mun pitäis saada tomaatintaimia säästöpihasta, mutta en millään ehdi. Jos sää satut menemään sinne..."
 			return (SINIKKA_WAIT if sinikka_task == 1 else SINIKKA_LINES).pick_random()
 		"santtu":
 			tilat.first("santtu")
@@ -11267,6 +11558,11 @@ func _load_game() -> void:
 	day = cfg.get_value("peli", "paiva", 1)
 	clock_min = cfg.get_value("peli", "kello", DAY_START)
 	has_chocolate = cfg.get_value("peli", "suklaa", false)
+	has_flowers = cfg.get_value("peli", "kukat", false)
+	_kekkonen = cfg.get_value("seppo", "kekkonen", 0)
+	_nokia_sold = cfg.get_value("seppo", "nokia_myyty", false)
+	_flowers_day = cfg.get_value("saastopiha", "kukat_paiva", -1)
+	sinikka_taimet = cfg.get_value("saastopiha", "sinikka_taimet", 0)
 	mielihyva = cfg.get_value("peli", "mielihyva", 0.0)
 	drone_photos = cfg.get_value("drooni", "kuvat", [])
 	pontikka_found = cfg.get_value("drooni", "pontikka", false)
@@ -11357,6 +11653,11 @@ func _save_game() -> void:
 	cfg.set_value("peli", "paiva", day)
 	cfg.set_value("peli", "kello", clock_min)
 	cfg.set_value("peli", "suklaa", has_chocolate)
+	cfg.set_value("peli", "kukat", has_flowers)
+	cfg.set_value("seppo", "kekkonen", _kekkonen)
+	cfg.set_value("seppo", "nokia_myyty", _nokia_sold)
+	cfg.set_value("saastopiha", "kukat_paiva", _flowers_day)
+	cfg.set_value("saastopiha", "sinikka_taimet", sinikka_taimet)
 	cfg.set_value("peli", "mielihyva", mielihyva)
 	cfg.set_value("drooni", "kuvat", drone_photos)
 	cfg.set_value("drooni", "pontikka", pontikka_found)
@@ -11492,6 +11793,9 @@ func _lose(reason: String, cause := "default", at := Vector3.INF) -> void:
 	_day_end = {"car": "auto", "police": "poliisi", "wife": "paivi"}.get(cause, "ulko")
 	var choco := _offer_chocolate()
 	_choco_mercy = choco == "ok"
+	if has_flowers:
+		has_flowers = false
+		_morning_info.append("Kukkakimppu lytistyi jossain matkalla.")
 	cutscene.wasted(player.global_position if at == Vector3.INF else at, reason, cause, home_zone,
 		func() -> void: _new_day(spawn, true), choco)
 
@@ -11591,6 +11895,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_beast_forest_t = 0.0
 	_bike_tuned = false
 	bike.tune = 1.0
+	bonus += _flowers_morning(lost, at_m)
 	if _reippari_onion and not at_m:
 		_reippari_onion = false
 		bonus += "\nKuka on syöny Reipparissa sipulia ja lihapiirakoita?! Koko makuuhuone haisee!"
@@ -12452,6 +12757,12 @@ func inventory_items() -> Array:
 		add.call("lipas", "Kauppiaan rahalipas", 1, "Näytä Aarolle. Tai anna tilikirja Pannu-Sulolle.")
 	if tokola.markat:
 		add.call("markat", "Vanhoja markkoja", 1, "Kirppiksen Raili ostaa keräilijöille.")
+	if has_flowers:
+		add.call("kukat", "Kukkakimppu Päiville", 1, "Vie kotiin illaksi. Lytistyy, jos jäät kiinni.")
+	if _has_taimet:
+		add.call("taimet", "Tomaatintaimet", 1, "Sinikalle.")
+	if _kekkonen == 1:
+		add.call("kekkonen", "Kekkosen rintamerkki", 1, "Sepon yllätyslaatikosta. Kirppiksen takahuoneen Veksi maksaa keräilyesineistä.")
 	if aarni.found and aarni.choice == "":
 		add.call("hopeat", "Isonvihan hopeat", 1, "Mustuneita hopearahoja ja lusikoita. Saloisten Pirttiin vai kirppiksen takahuoneeseen?")
 	if "sormus" in _orava_finds and not _sormus_given:
@@ -15933,6 +16244,128 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 			_talk_who = "aaro"
 			print("PA romu: valinta %s, rahaa %s -> %s, kanisteri %s €, Aaro: '%s'" % [pannu.choice, _eur(m0), _eur(money), _eur(_kanister_price()), _talk_chat_line()])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"seppo":
+			# Sepon varastomyynti (#140) ja säästöpiha (#141): aukiolo, päivän tuotteet ja hinnat, kehu, yllätyslaatikko
+			# (Kekkonen Veksille), marjojen ja Nokian myynti; kukat, multa, Sinikan taimet ja aamun kukkaviestit
+			# (tavallinen, syntymäpäivä muistettu ja unohdettu). Kuvat paikoista.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			quests = Quests.new()
+			_seppo_day = {}
+			_kekkonen = 0
+			_nokia_sold = false
+			has_flowers = false
+			_has_taimet = false
+			sinikka_taimet = 0
+			day = 2  # tiistai
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var at := func(pos: Vector3) -> void:
+				walker_out.global_position = pos + Vector3(0, 0.3, 0)
+				await frames.call(10)
+			var oc := Camera3D.new()
+			add_child(oc)
+			var view := func(name: String, from: Vector3, to: Vector3) -> void:
+				oc.look_at_from_position(from, to)
+				oc.current = true
+				await frames.call(30)
+				await snap.call(name)
+				oc.current = false
+				player.activate_camera()
+			var opts := func(who: String) -> Array:
+				return _talk_options(who).map(func(o): return "%s%s" % [o.id, "" if o.enabled else "(x)"])
+			money = 80.0
+			clock_min = 12 * 60
+			var sd: Vector3 = world.seppo_door
+			var sc := M.w(M.SEPPO)
+			var sn := (world._osm_fit_at(M.SEPPO).nrm as Vector2)
+			await view.call("_seppo.png", sc + Vector3(sn.x, 0, sn.y) * 18.0 + Vector3(6, 5, 0), sc + Vector3(0, 1.5, 0))
+			await at.call(world.seppo_npc.global_position + Vector3(1.0, 0, 0))
+			print("SE seppo: '%s'" % _hint.text)
+			print("SE päivän tuotteet %s, hinnat %s" % [_seppo_today(), _seppo_today().map(func(k): return _eur(_seppo_price(k)))])
+			print("SE valinnat: %s" % [opts.call("seppo")])
+			_talk_open("seppo", world.seppo_npc)
+			_talk_box._pages.clear()
+			var k0: String = _seppo_today()[0]
+			var sup0: int = ebike.supplies.get(SEPPO_STOCK[k0][2], 0) if SEPPO_STOCK[k0][2] != "" else 0
+			_talk_choose("osta_" + k0)
+			_talk_choose("kehu")
+			print("SE ostettu %s (tarvike %d -> %d), kehu: %.2f" % [k0, sup0, ebike.supplies.get(SEPPO_STOCK[k0][2], 0) if SEPPO_STOCK[k0][2] != "" else 0, _seppo_kehu])
+			for i in 30:
+				_seppo_day.erase("laatikko")
+				money += SEPPO_LAATIKKO
+				_talk_choose("laatikko")
+				if _kekkonen == 1:
+					break
+			print("SE laatikko: kekkonen %d" % _kekkonen)
+			bucket["puolukka"] = 3
+			_orava_finds = ["aurinkolasit", "nokia"]
+			var m0 := money
+			_talk_choose("marjat")
+			_talk_choose("nokia")
+			_talk_box.close()
+			print("SE myynti +%s, marjat jäljellä %d" % [_eur(money - m0), bucket.get("puolukka", 0)])
+			print("SE veksi auki %s: %s" % [kirppis_int.veksi_open, opts.call("veksi")])
+			_talk_who = "veksi"
+			_talk_choose("kekkonen")
+			_talk_box.close()
+			print("SE kekkonen myyty %d" % _kekkonen)
+			day = 8  # maanantai: kiinni
+			await frames.call(3)
+			await at.call(sd)
+			print("SE maanantaina: '%s'" % _hint.text)
+			day = 2
+			# Säästöpiha.
+			var pd: Vector3 = world.saasto_door
+			var pc := M.w(M.SAASTOPIHA)
+			var pn := (world._osm_fit_at(M.SAASTOPIHA).nrm as Vector2)
+			await view.call("_saastopiha.png", pc + Vector3(pn.x, 0, pn.y) * 15.0 + Vector3(-5, 5, 0), pc + Vector3(3, 1.5, 0))
+			await at.call(pd)
+			print("SE säästöpiha: '%s'" % _hint.text)
+			for i in 20:
+				_talk_who = "sinikka"
+				_talk_chat_line()
+			print("SE sinikka pyytää taimia %d" % sinikka_taimet)
+			print("SE valinnat: %s" % [opts.call("saasto")])
+			_talk_open("saasto", null)
+			_talk_box._pages.clear()
+			_talk_choose("kukat")
+			_talk_choose("taimet")
+			_talk_choose("multa")
+			_talk_box.close()
+			print("SE kukat %s, taimet %s, multa %d" % [has_flowers, _has_taimet, _multa_day])
+			print("SE sinikka: %s" % [opts.call("sinikka")])
+			_talk_open("sinikka", sinikka)
+			_talk_box._pages.clear()
+			_talk_choose("taimet")
+			_talk_box.close()
+			print("SE taimet viety %d, pullat %d" % [sinikka_taimet, food.get("pulla", 0)])
+			day = 3
+			var mm := money
+			print("SE aamu (kukat, multa): '%s' rahaa +%s" % [_flowers_morning(false, false).strip_edges().replace("\n", " | "), _eur(money - mm)])
+			has_flowers = true
+			day = 8
+			mm = money
+			print("SE aamu (syntymäpäivä muistettu): '%s' +%s" % [_flowers_morning(false, false).strip_edges().left(60), _eur(money - mm)])
+			day = 22
+			_flowers_day = -1
+			print("SE aamu (syntymäpäivä unohdettu): '%s', ei kauppa-rahaa %s" % [_flowers_morning(false, false).strip_edges().left(60), _no_allowance])
+			_no_allowance = false
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"honganpalo":
