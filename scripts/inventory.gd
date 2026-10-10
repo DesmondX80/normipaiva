@@ -635,6 +635,27 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			for i in 10:
 				_r(img, 2 + i, 12 - i, 3, 3, Color(0.86, 0.72, 0.48))
 				_r(img, 2 + i, 11 - i, 2, 1, Color(0.42, 0.28, 0.14))
+		"avain":  # ruosteinen vanha avain
+			_c(img, 4.5, 8, 3.2, Color(0.55, 0.32, 0.18))
+			_c(img, 4.5, 8, 1.4, Color(0, 0, 0, 0))
+			_r(img, 7, 7, 8, 2, Color(0.55, 0.32, 0.18))
+			_r(img, 12, 9, 1, 2, Color(0.55, 0.32, 0.18))
+			_r(img, 14, 9, 1, 3, Color(0.55, 0.32, 0.18))
+		"kirja":  # tilikirja: punaruskeat kannet ja kellastuneet sivut
+			_r(img, 3, 2, 10, 12, Color(0.4, 0.13, 0.1))
+			_r(img, 4, 3, 8, 10, Color(0.92, 0.86, 0.68))
+			_r(img, 5, 5, 6, 1, Color(0.4, 0.35, 0.3))
+			_r(img, 5, 7, 5, 1, Color(0.4, 0.35, 0.3))
+			_r(img, 5, 9, 6, 1, Color(0.4, 0.35, 0.3))
+		"lipas":  # ruosteinen rahalipas
+			_r(img, 2, 5, 12, 8, Color(0.45, 0.3, 0.2))
+			_r(img, 2, 5, 12, 2, Color(0.55, 0.38, 0.25))
+			_r(img, 7, 8, 2, 2, Color(0.85, 0.7, 0.2))
+		"markat":  # setelinippu
+			_r(img, 2, 4, 12, 7, Color(0.55, 0.62, 0.45))
+			_r(img, 3, 6, 10, 7, Color(0.65, 0.72, 0.55))
+			_c(img, 8, 9.5, 2.0, Color(0.4, 0.48, 0.35))
+			_r(img, 7, 4, 2, 9, Color(0.8, 0.2, 0.15))
 		"sp_moottori":  # napamoottori: musta napa ja pinnojen reiät
 			_c(img, 8, 8, 6.5, Color(0.14, 0.14, 0.15))
 			_c(img, 8, 8, 4.0, Color(0.3, 0.3, 0.32))
