@@ -222,6 +222,9 @@ const BingoGame := preload("res://scripts/bingo_game.gd")
 const Tokola := preload("res://scripts/tokola.gd")
 const TokolaVarasto := preload("res://scripts/tokola_varasto.gd")
 const SuloPannu := preload("res://scripts/sulo_pannu.gd")
+const Endings := preload("res://scripts/endings.gd")
+const Quests := preload("res://scripts/quests.gd")
+const Journal := preload("res://scripts/journal.gd")
 const KORJAUS_VAIHEET := {"kiuas": "kiuaskivet", "lauteet": "lauteiden laudat", "terva": "seinien tervaus", "luukku": "savuluukku ja ovi"}
 const GARAGE_INT_POS := Vector3(-9000, 0, 3000)
 const BIKE_TUNE := 1.1  # työpöydällä huollettu pyörä: huippunopeus ja kiihtyvyys päivän ajan
@@ -298,6 +301,9 @@ var varasto_int: Node3D
 var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.gd, #120)
 var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
+var endings: RefCounted  # onnellisten loppujen kokoelma (endings.gd, #132)
+var quests: RefCounted  # tarinan luvut ja sivutehtävät (quests.gd, #132)
+var _journal: Control  # Normipäiväkirja (O), journal.gd
 var _pannu_node: Node3D  # kuparin läikkä Pilkkarinnevalla (näkyy kun legenda on kuultu)
 var raahe_int: Node3D
 var _raahe := {}  # illan tapahtumat Raahen baarissa (kädenvääntö, visa, karaoke)
@@ -928,6 +934,9 @@ func _ready() -> void:
 	_inventory = Inventory.new()
 	_inventory.game = self
 	map_layer.add_child(_inventory)
+	_journal = Journal.new()
+	_journal.game = self
+	map_layer.add_child(_journal)
 	_drone_parked = Node3D.new()
 	add_child(_drone_parked)
 	_drone_parked.position = _drone_pad(false) + Vector3(0, 0.16, 0)
@@ -949,6 +958,8 @@ func _ready() -> void:
 	ebike = EBike.new()
 	tokola = Tokola.new()
 	pannu = SuloPannu.new()
+	endings = Endings.new()
+	quests = Quests.new()
 	_load_game()
 	_pannu_update()
 	if story.step == "avaimet":
@@ -1934,6 +1945,7 @@ func _start_ebike_game(todo: Array) -> void:
 		_save_game()
 		if ebike.built() and not was_built:
 			tilat.first("sahkopyora", 0.5)
+			_ending("sahkopyora")
 			tilat.add("moraali", 0.3)
 			Sfx.play("win_small", -4.0)
 			_show_message("SÄHKÖPYÖRÄ VALMIS! Ruuveilla, teipillä ja toivolla. Akku %d %%. Kaasu pohjaan ja Saloisten teille!" % roundi(ebike.battery * 100.0), 5.0)
@@ -2195,6 +2207,7 @@ func _tanssi_done(who: String, score: float) -> void:
 		tilat.add("moraali", 0.2)
 		tilat.add("stressi", 0.15)
 		maine = clampf(maine + 3.0, 0.0, 100.0)
+		_ending("tanssit")
 	else:
 		tilat.add("stressi", -0.05)
 	match who:
@@ -2244,6 +2257,7 @@ func _start_bingo() -> void:
 			"lahjakortti":
 				money += 10.0
 			"kinkku":
+				_ending("kinkku")
 				tilat.add("moraali", 0.3)
 				tilat.add("stressi", 0.3)
 				maine = clampf(maine + 5.0, 0.0, 100.0)
@@ -2573,6 +2587,103 @@ func _pannu_tasks() -> Array:
 	return [["Vanhan Sulon pannu: " + step, false]]
 
 
+## --- Tarina, tehtävät ja onnelliset loput (#132) ----------------------------------------------------------------
+
+## Onnellinen loppu: kirjaa kokoelmaan ja ilmoittaa (uusi loppu erikseen).
+func _ending(id: String) -> void:
+	var new: bool = endings.record(id, day)
+	Sfx.play("win_small", -6.0, 1.1)
+	_queue_message("ONNELLINEN LOPPU: %s%s  ·  yhteensä %d" % [Endings.name_of(id),
+		"  ·  UUSI! %d / %d" % [endings.distinct(), Endings.max_count()] if new else "", endings.total()], 4.5)
+	_save_game()
+
+
+## Loppukohtauksen tilastoriville: kirjaa lopun ja palauttaa tekstin (ei erillistä viestiä).
+func _ending_line(id: String) -> String:
+	var new: bool = endings.record(id, day)
+	return "%s%s  ·  Onnellisia loppuja %d (erilaisia %d / %d)" % [Endings.name_of(id), "  UUSI!" if new else "",
+		endings.total(), endings.distinct(), Endings.max_count()]
+
+
+## Tarinan vihje puhujalta (quests.gd): tervehdyksessä aina, kun vihje on uusi; jutellessa uusi tai joskus toistona.
+func _story_hint(who: String, hello: bool) -> String:
+	var before: int = quests.heard.size()
+	var line: String = quests.hint_for(who, tilat.firsts, quest_flag)
+	if line == "":
+		return ""
+	var fresh: bool = quests.heard.size() > before
+	if fresh:
+		_save_game()
+		_queue_message("Päiväkirjaan (%s) tuli uutta." % Settings.action_key("journal"), 2.5)
+	return line if fresh or (not hello and randf() < 0.4) else ""
+
+
+## Tehtävien liput (quests.gd "flag:nimi").
+func quest_flag(name: String) -> bool:
+	if name.begins_with("ending_"):
+		return endings.counts.has(name.trim_prefix("ending_"))
+	match name:
+		"paapeli":
+			return endings.counts.has("paapeli")
+		"sauna_fixed":
+			return mokki != null and mokki.sauna_fixed
+		"tokola_key":
+			return tokola.key
+		"tokola_done":
+			return tokola.legend != ""
+		"pannu_heard":
+			return pannu.heard
+		"pannu_done":
+			return pannu.choice != ""
+		"pontikka_found":
+			return pontikka_found
+		"drone_all":
+			return _drone_photo_count(DRONE_POIS) >= DRONE_POIS.size()
+		"ebike_started":
+			return ebike.started
+		"ebike_built":
+			return ebike.built()
+		"santtu_5":
+			return hommat != null and 5 in hommat.reviews
+		"viina_all":
+			return viina_found.size() >= Mokki.VIINA.size()
+		"asema_all":
+			return asema_katkot.get("saloinen", 0) == 2 and asema_katkot.get("vaala", 0) == 2
+	return false
+
+
+## Sivutehtävän edistyminen päiväkirjaan.
+func quest_progress(key: String) -> String:
+	match key:
+		"drooni":
+			return "ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]
+		"sahkopyora":
+			return "valmis" if ebike.built() else "osat %d / %d" % [ebike.parts.size(), EBike.PARTS.size()]
+		"viinakatkot":
+			return "%d / %d" % [viina_found.size(), Mokki.VIINA.size()]
+		"asemakatkot":
+			var n := 0
+			for t in ["saloinen", "vaala"]:
+				if asema_katkot.get(t, 0) == 2:
+					n += 1
+			return "%d / 2" % n
+	return ""
+
+
+## Päiväkirjan sisältö (journal.gd).
+func journal_data() -> Dictionary:
+	var d: Dictionary = quests.build(tilat.firsts, quest_flag, story.list(), quest_progress, day)
+	var list: Array = []
+	for e in Endings.ENDINGS:
+		if endings.counts.has(e[0]):
+			list.append({"name": e[1], "desc": e[2], "count": endings.counts[e[0]], "day": endings.first_day.get(e[0], 0)})
+		else:
+			list.append(null)
+	d["endings"] = {"distinct": endings.distinct(), "max": Endings.max_count(), "total": endings.total(), "list": list}
+	_save_game()
+	return d
+
+
 ## --- Legenda: Sulon isän kadonnut pannu (#130) -----------------------------------------------------------------
 const PANNU_ROMU := 20.0
 const PANNU_DOUBT := {
@@ -2645,6 +2756,7 @@ func _pannu_museum(p: Vector3) -> void:
 		_hint.text = "[E] Saloisten Pirtti: lahjoita kuparipannu kotiseutumuseolle"
 		if Input.is_action_just_pressed("interact"):
 			pannu.choice = "museo"
+			_ending("sulon_pannu")
 			maine = clampf(maine + 8.0, 0.0, 100.0)
 			tilat.add("moraali", 0.2)
 			Sfx.play("win_small", -4.0)
@@ -2655,6 +2767,7 @@ func _pannu_museum(p: Vector3) -> void:
 
 func _pannu_to_sulo() -> void:
 	pannu.choice = "sulo"
+	_ending("sulon_pannu")
 	tilat.add("moraali", 0.2)
 	Sfx.play("glass", -4.0, 0.8)
 	_save_game()
@@ -2704,6 +2817,7 @@ func _talk_aaro(id: String) -> void:
 			maine = clampf(maine + 10.0, 0.0, 100.0)
 			tilat.add("moraali", 0.3)
 			tilat.first("tokolan_legenda", 0.8)
+			_ending("tokolan_aarre")
 			Sfx.play("win_small", -4.0)
 			_save_game()
 			_talk_box.reply("KYLLÄ MÄÄ SANOIN! Kuuskymmentä vuotta ne on nauranu! Sormus oli kauppiaan vaimon, se jää mulle "
@@ -4551,6 +4665,7 @@ func _vaino_escape() -> void:
 	var a := randf() * TAU
 	vaino.bolt(Vector3(cos(a), 0, sin(a)), randf_range(15.0, 25.0))
 	pekka.say("VÄINÖ PERKELE!")
+	tilat.first("vaino_karkasi", 0.0)
 	Sfx.play("dog", 0.0, 0.95)
 	Sfx.play("alert", -6.0, 0.6)
 	_show_message("Pekka: \"VÄINÖ PERKELE!\" (Kuului Pattijoelle asti.)\nPekan koira Väinö karkasi! Ota se kiinni jalan.", 4.5)
@@ -5327,6 +5442,8 @@ func _raahe_wrestle() -> void:
 		raahe_int.walker.controls_enabled = true
 		raahe_int.walker.activate()
 		raahe_int.block_interact()
+		if won:
+			tilat.first("tero_voitto", 0.3)
 		if _raahe.won < 0:
 			tilat.add("moraali", 0.2 if won else -0.1)
 			maine = clampf(maine + (15.0 if won else -5.0), 0.0, 100.0)
@@ -5395,6 +5512,7 @@ func _raahe_karaoke() -> void:
 		tilat.first("karaoke_raahe", 0.3)
 		var pct := roundi(score * 100.0)
 		if score >= 0.7:
+			_ending("karaoke")
 			Sfx.play("win", -4.0)
 			tilat.add("moraali", 0.25)
 			mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0)
@@ -5518,6 +5636,9 @@ func _santtu_offers_lava() -> bool:
 
 
 func _talk_hello(who: String) -> String:
+	var sh := _story_hint(who, true)
+	if sh != "":
+		return sh
 	if who == "santtu" and _santtu_offers_lava():
 		return SANTTU_LAVA_HELLO
 	if who == "pekka" and story.step in ["pekka_kutsuu", "pekka_avaimet"]:
@@ -6043,6 +6164,9 @@ func _talk_kauppias(id: String) -> void:
 
 
 func _talk_chat_line() -> String:
+	var sh := _story_hint(_talk_who, false)
+	if sh != "":
+		return sh
 	if _talk_who in ["pekka", "arto"] and tokola.proven() and randf() < 0.4:
 		return (TOKOLA_PROVEN[_talk_who] as Array).pick_random()
 	if _talk_who in ["pekka", "arto", "sulo"] and pannu.heard and randf() < 0.5:
@@ -6254,6 +6378,8 @@ func _pekka_ride() -> void:
 		money -= PEKKA_RIDE_PRICE
 		paid = _eur(PEKKA_RIDE_PRICE) + " €"
 	tilat.first("mokki", 0.4)
+	if story.step == "valmis":
+		_ending("paapeli")
 	_hud.visible = false
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
@@ -7593,6 +7719,7 @@ func _start_karaoke() -> void:
 		tilat.first("karaoke", 0.3)
 		var pct := roundi(score * 100.0)
 		if score >= 0.7:
+			_ending("karaoke")
 			Sfx.play("win", -4.0)
 			tilat.add("moraali", 0.25)
 			tilat.add("stressi", 0.15)
@@ -7794,6 +7921,9 @@ func _sauna_cutscene(indoor := false) -> void:
 		player.controls_enabled = false
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		hide = mokki.santtu_nodes()  # pihan Santtu tulee löylyihin
+		if mokki.sauna_fixed:  # korjatun savusaunan löylyt: tarinan vaihe ja onnellinen loppu
+			tilat.first("savusauna_loylyt", 0.3)
+			_ending("savusauna")
 	_hud.visible = false
 	var frame: Transform3D = mokki_int.global_transform if indoor else mokki.sauna_frame()
 	var lay: Dictionary = mokki_int.sauna_layout() if indoor else {}
@@ -8358,6 +8488,8 @@ func _start_pingis() -> void:
 		_hazards.process_mode = Node.PROCESS_MODE_INHERIT
 		_hud.visible = true
 		tilat.first("pingis", 0.3)
+		if won:
+			tilat.first("pingis_voitto", 0.3)
 		tilat.add("stamina", -0.1)
 		tilat.add("nalka", -0.05)
 		if _once_today("pingis"):
@@ -8674,8 +8806,9 @@ func _win_laavu() -> void:
 	_task_done()
 	tilat.first("laavu", 0.5)
 	_drink(mini(drunk, 6))
-	var stats := "Nuotio %s  ·  Makkara %s  ·  Kaljoja juotiin %d  ·  Kello %s" % [
-		"✔" if fire_lit else "✘", "✔" if sausage_done else "✘", drunk, _clock_text()]
+	var stats := "Nuotio %s  ·  Makkara %s  ·  Kaljoja juotiin %d  ·  %s" % [
+		"✔" if fire_lit else "✘", "✔" if sausage_done else "✘", drunk,
+		_ending_line("legendaarinen" if fire_lit and sausage_done else "laavu")]
 	beers = 0
 	stash_laavu = 0
 	player.set_carrying(false)
@@ -9136,6 +9269,7 @@ func _on_race_finished(won: bool, my_time: float, opp_time: float) -> void:
 		mielihyva = clampf(mielihyva + 4.0, 0.0, 100.0)
 		tilat.add("moraali", 0.15)
 		tilat.first("mopokisa_voitto", 0.3)
+		_ending("kiihdytys")
 		_show_message("Voitit kiihdytyksen (%s)! +%s €. Mopopojat katsoo mopoa uusin silmin." % [t, _eur(_race_bet)], 4.0)
 	else:
 		money -= _race_bet
@@ -9223,6 +9357,8 @@ func _on_lava_finished(score: float) -> void:
 	tilat.add("moraali", 0.1 + score * 0.25)
 	tilat.add("stressi", 0.1 + score * 0.15)
 	mielihyva += 2.0 + score * 6.0
+	if score > 0.6:
+		_ending("lavatanssit")
 	state = _vaala_state
 	_mopo_label.visible = true
 	_compass.visible = true
@@ -9695,12 +9831,13 @@ func _win(party := false, wine := false) -> void:
 			Sfx.play("win")
 		_drink(6)
 		wine_endings += 1
+		var wend := _ending_line("viinibileet")
 		var used := wine_days
 		wine_start = -1
 		wine_locked = true  # lupaus: viiniä ei tehdä enää ikinä
 		garage_int.set_wine("")
 		_save_game()
-		var wstats := "Kotiviiniä %d päivän käymisen jälkeen  ·  Pekka, Arto ja Sinikka  ·  Viinibileitä: %d" % [used, wine_endings]
+		var wstats := "Kotiviiniä %d päivän käymisen jälkeen  ·  Pekka, Arto ja Sinikka  ·  %s" % [used, wend]
 		var who: String = WINE_WAKE.keys().pick_random()
 		cutscene.wine_party(wstats, func() -> void:
 			var yard: Array = world.neighbor_yards[who]
@@ -9722,8 +9859,9 @@ func _win(party := false, wine := false) -> void:
 		_drink(6)  # juhlat autotallissa
 		jemma = 0  # onnellinen loppu juo kotijemman tyhjäksi
 		jemma_endings += 1
+		var pend := _ending_line("juhlat")
 		_save_game()
-		var stats := "Jemmassa oli %d olutta – juhlan paikka!  ·  Onnellisia loppuja: %d" % [had, jemma_endings]
+		var stats := "Jemmassa oli %d olutta – juhlan paikka!  ·  %s" % [had, pend]
 		cutscene.garage("KARBURAATTORIA SÄÄTÄMÄSSÄ", stats, func() -> void: _new_day(home_zone + Vector3(0, 0, 4), false))
 		return
 	Sfx.play("win_small")
@@ -9758,6 +9896,8 @@ func _load_game() -> void:
 	atm_day = cfg.get_value("peli", "otto_paiva", 0)
 	maine = cfg.get_value("peli", "maine", 0.0)
 	jemma_endings = cfg.get_value("jemma", "loput", 0)
+	if endings != null:
+		endings.load_from(cfg, jemma_endings, wine_endings if "wine_endings" in self else 0)
 	wine_start = cfg.get_value("viini", "alku", -1)
 	wine_days = cfg.get_value("viini", "paivat", 0)
 	wine_locked = cfg.get_value("viini", "lukossa", false)
@@ -9809,6 +9949,7 @@ func _load_game() -> void:
 	ebike.load_from(cfg)
 	tokola.load_from(cfg)
 	pannu.load_from(cfg)
+	quests.load_from(cfg)
 	_taxi_mokki_return = cfg.get_value("tarina", "taksi_paluu", false)
 	if cfg.has_section_key("peli", "pyora"):
 		_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
@@ -9890,6 +10031,10 @@ func _save_game() -> void:
 		tokola.save_to(cfg)
 	if pannu != null:
 		pannu.save_to(cfg)
+	if endings != null:
+		endings.save_to(cfg)
+	if quests != null:
+		quests.save_to(cfg)
 	if bike != null:
 		cfg.set_value("peli", "pyora", bike.global_position)
 		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
@@ -10986,6 +11131,7 @@ func inventory_info() -> Dictionary:
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
 	info.tasks = story.list() + ebike.tasks() + _tokola_tasks() + _pannu_tasks()
+	info.lines.append("Päiväkirja (%s): tarina, tehtävät ja onnelliset loput" % Settings.action_key("journal"))
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if stash.get(id, 0) > 0:
@@ -14156,6 +14302,48 @@ func _maybe_screenshot() -> void:
 				_talk_who = "pekka"
 				lines[_talk_chat_line()] = true
 			print("TK pekka todistettu repliikki: %s" % [TOKOLA_PROVEN.pekka.any(func(l): return lines.has(l))])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"paivakirja":
+			# Normipäiväkirja (#132): alussa vain luku 1 ja itsestäänselvät tehtävät, Paapelin loppu avaa luvun 2,
+			# Santun vihje tervehdyksessä, sivutehtävät ilmestyvät, loppujen kirjaus (erilaiset ja yhteensä) ja kuvat
+			# kolmesta välilehdestä. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			quests = Quests.new()
+			endings = Endings.new()
+			story = Story.new()
+			ebike = EBike.new()
+			tilat.firsts = []
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var summary := func() -> String:
+				var d := journal_data()
+				return "luvut %s, tehtävät %s, loput %d/%d yht %d" % [d.chapters.map(func(c): return "%s(%d rivi%s)" % [c.title.left(2), c.rows.size(), ",valmis" if c.done else ""]),
+					d.side.map(func(q): return q.title), d.endings.distinct, d.endings.max, d.endings.total]
+			print("PK alku: ", summary.call())
+			story.step = "valmis"
+			_ending("paapeli")
+			tilat.first("mokki")
+			print("PK paapeli: ", summary.call())
+			tilat.first("santtu")
+			print("PK santtu tervehtii: '%s'" % _talk_hello("santtu"))
+			print("PK santun jälkeen: ", summary.call())
+			for k in ["drooni", "kirppis", "pojat", "raahe", "kotiviini"]:
+				tilat.first(k)
+			ebike.started = true
+			_ending("juhlat")
+			_ending("juhlat")
+			_ending("legendaarinen")
+			print("PK lisää: ", summary.call())
+			print("PK viesti: '%s'" % [_msg_queue.back() if not _msg_queue.is_empty() else _msg.text])
+			_journal.toggle()
+			for t in ["tarina", "tehtavat", "loput"]:
+				_journal._set_tab(t)
+				for i in 4:
+					await get_tree().process_frame
+				await snap.call("_%s.png" % t)
+			_journal.toggle()
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"pannu":

@@ -305,6 +305,24 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
 
+## Normipäiväkirja: tarina, tehtävät ja onnelliset loput (O)
+
+- **Tarina** etenee luvuittain: 1. Paapeliin pääsee, kunhan… (naapurien hommat ja Pekan kyyti mökille), 2. Paapelin
+  isäntä (Santun hommat ja savusaunan korjaus), 3. Mopolla Vaalaan (Siitari, Oulujärven lava, kiihdytys), 4. Junalla
+  kotiin ja 5. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu). Seuraavaan
+  vaiheeseen vihjataan puheissa: Santtu, Siitarin baarimikko, aidan takana porukka, Gasthausin emäntä, Pekka,
+  Tauno ja Aaro kertovat, mitä seuraavaksi.
+- **Sivutehtävät**: kauppalista, nurmikko, laavu, Väinö, jalkapallopojat, pontikka, ilmakuvat, kotiviini,
+  sähköpyörä, huutokauppa, tanssit ja bingo, Teron kädenvääntö, Santun viisi tähteä, viina- ja rahakätköt,
+  eräjorma, pihapingis ja pummilla lavalle.
+- **Päiväkirja (O)** ei paljasta mitään etukäteen: luku näkyy, kun siihen päästään, vaihe, kun siitä on kuultu, ja
+  sivutehtävä, kun siitä on kerrottu. Uusista vihjeistä tulee ilmoitus "Päiväkirjaan tuli uutta".
+- **Onnelliset loput** kerätään kokoelmaan: juhlat autotallissa, viinibileet, laavulla kaljoilla, legendaarinen
+  normipäivä, Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit, karaokekuningas, kiihdytyksen voittaja,
+  sähköpyörä, seuraintalon tanssit, bingon jättipotti, Tokolan aarre ja Vanhan Sulon pannu. Päiväkirjassa
+  "Erilaisia onnellisia loppuja X / 14" (löytämättömät ???) ja onnellisten loppujen yhteismäärä. Testi
+  `--scene=paivakirja`.
+
 ## Jalan vai pyörällä?
 
 - **Vain jalan:** kauppaan meno, marjojen ja sienten poiminta, laavun toiminnot, kaupat naapureiden kanssa
