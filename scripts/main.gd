@@ -12493,13 +12493,30 @@ func _apply_settings() -> void:
 	get_tree().call_group(B.GUIDES, "set_visible", Settings.get_v("show_guides"))
 
 
-## Lähin turvapaikka: koti tai laavu (kun se on vallattu).
+## Paikat, joihin Päivi ei tule Hyundailla perään: Kiilinlammen grillikatos, Viitajärven laavu ("kukaan ei tiedä,
+## missä oot") ja länsilaidan rauniot ("tänne ei tuu kukaan").
+func _wife_safe_zones() -> Array:
+	var out: Array = [[M.w(M.GRILLIKATOS), 7.5]]
+	if world.viita_pos != Vector3.ZERO:
+		out.append([world.viita_pos, 10.0])
+	if world.rauniot_youth_pos != Vector3.ZERO:
+		out.append([world.rauniot_youth_pos, 12.0])
+	return out
+
+
+## Lähin turvapaikka: koti, laavu (kun se on vallattu) tai Viitajärven laavu (erämaan laavun lopun jälkeen).
 func _nearest_safe() -> Vector3:
 	var p := player.global_position
-	var laavu := M.w(M.LAAVU) + Vector3(-3.0, 0, -6.0)
-	if laavu_conquered and p.distance_to(laavu) < p.distance_to(home_zone):
-		return laavu
-	return home_zone + Vector3(0, 0, 4)
+	var best := home_zone + Vector3(0, 0, 4)
+	var cands: Array = []
+	if laavu_conquered:
+		cands.append(M.w(M.LAAVU) + Vector3(-3.0, 0, -6.0))
+	if endings.counts.has("eramaan_laavu") and world.viita_pos != Vector3.ZERO:
+		cands.append(world.viita_pos + Vector3(0, 0, 2.5))
+	for c in cands:
+		if p.distance_to(c) < p.distance_to(best):
+			best = c
+	return best
 
 
 ## Uusi päivä turvapaikasta: vaarat ja kauppa nollautuvat, jemma, rahat ja laavun valtaus säilyvät.
@@ -13057,7 +13074,7 @@ func _spawn_threats() -> void:
 			_show_message("Vieras koira murisee. Tuohon ei kannata mennä rapsuttelemaan.", 2.5))
 	stray.bit.connect(_on_bitten)
 	_hazards.add_child(stray)
-	wife.safe_zones = [[M.w(M.GRILLIKATOS), 7.5]]
+	wife.safe_zones = _wife_safe_zones()
 
 
 ## Kotipihan nurmikon kulma maailmassa (sx, sz = ±1 nurmikon omassa kehyksessä), paikkatarkistusta varten.
@@ -17086,6 +17103,24 @@ func _maybe_screenshot() -> void:
 			clock_min = 11 * 60
 			await get_tree().create_timer(1.5).timeout
 			print("SR klo 11: pihan Sinikka %s, rannan %s" % [sinikka.visible, world.uimaranta_sinikka.visible])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"turvapaikat":
+			# Turvapaikat: Päivi ei tule grillikatokselle, Viitajärven laavulle eikä raunioille; Viitajärven laavu on
+			# päivän aloituspaikka erämaan laavun lopun jälkeen.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			if player == bike:
+				_toggle_mount()
+			print("TU vyöhykkeitä %d" % wife.safe_zones.size())
+			for spot in [["grillikatos", M.w(M.GRILLIKATOS)], ["viitajärvi", world.viita_pos], ["rauniot", world.rauniot_youth_pos], ["koti", home_zone]]:
+				walker_out.global_position = spot[1] + Vector3(1.0, 0.3, 0)
+				await get_tree().physics_frame
+				print("TU %s: turvassa %s" % [spot[0], wife.is_target_safe()])
+			walker_out.global_position = world.viita_pos + Vector3(30, 0.3, 0)
+			endings.counts.erase("eramaan_laavu")
+			print("TU aloitus ennen loppua: %.0f m kodista" % _nearest_safe().distance_to(home_zone))
+			endings.counts["eramaan_laavu"] = 1
+			print("TU aloitus lopun jälkeen: %.0f m Viitajärven laavulta" % _nearest_safe().distance_to(world.viita_pos))
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"junttikierto":
