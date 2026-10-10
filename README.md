@@ -97,6 +97,13 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Lihapiirakkahaaste (4,90 €): välilyönti haukkaa, A ja D vuorotellen pureskelevat ja W juo limua, ennen kuin vatsa
   täyttyy. Juntin seitsemän piirakan ennätyksen rikkominen on oma onnellinen loppunsa "Lihapiirakkakuningas", ja
   Päivi haistaa sipulin aamulla. Testi `--scene=reippari`.
+- **Etelän erämaa:** Viitajärven laavu kartan lounaiskulmassa: tulitikuilla nuotio, makkara ja kalja tuovat
+  onnellisen lopun "Erämaan laavu" (18 loppua), ja Viitajärvessä voi uida. Kaitasaaren kärjestä auringonlasku
+  tekojärvellä (19–23), luonnonsuojelualueen kyltit (maastopyöräily paheksutaan) ja metson soidin aamuisin (8–10),
+  Puntarimäeltä maisema.
+- **Rauniot:** länsilaidan metsässä sammaloituneet kivijalat ja sortunut kiviaita (OSM:n nimetön raunio). Kivijalan
+  kolo on uusi kaljajemma, iltaisin (20–01) teinit istuvat nuotiolla, ja kaljaa vastaan he vinkkaavat uunin
+  raunioista: vanha valokuva, joka pääsee Saloisten Pirtin seinälle (maine). Testi `--scene=eramaa`.
 - **Leikkipuistot:** Käpykadunpuisto, Herukkapolunpuisto ja neljä koulujen ja päiväkotien leikkipaikkaa: keinut,
   liukumäki, hiekkalaatikko, jousikeinu, penkki ja aita, päivisin (9–19) äidit penkillä. Keinuhyppy-minipeli:
   vauhtia oikeaan tahtiin (W eteen, S taakse heilahtaessa; liian kova vauhti löysää ketjut), välilyönnillä hyppy
@@ -384,7 +391,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Onnelliset loput** kerätään kokoelmaan: juhlat autotallissa, viinibileet, laavulla kaljoilla, legendaarinen
   normipäivä, Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit, karaokekuningas, kiihdytyksen voittaja,
   sähköpyörä, seuraintalon tanssit, bingon jättipotti, Tokolan aarre, Vanhan Sulon pannu, lihapiirakkakuningas ja
-  viimeisen sepän kirves ja Isonvihan hopeat. Päiväkirjassa "Erilaisia onnellisia loppuja X / 17" (löytämättömät ???) ja onnellisten loppujen yhteismäärä. Testi
+  viimeisen sepän kirves, Isonvihan hopeat ja erämaan laavu. Päiväkirjassa "Erilaisia onnellisia loppuja X / 18" (löytämättömät ???) ja onnellisten loppujen yhteismäärä. Testi
   `--scene=paivakirja`.
 
 ## Jalan vai pyörällä?
