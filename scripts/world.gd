@@ -1050,11 +1050,20 @@ func _build_seuraintalo() -> void:
 	B.box(root, Vector3(3.8, 0.12, 2.0), Vector3(0, 3.0, -0.9), Color(0.25, 0.25, 0.27), false)
 	for x in [-1.6, 1.6]:
 		B.box(root, Vector3(0.14, 2.7, 0.14), Vector3(x, 1.65, -1.7), Color(0.92, 0.9, 0.85), false)
-	var sign := B.label(root, "SALOISTEN SEURAINTALO", Vector3(0, 3.5, -0.08), 64, Color(0.95, 0.93, 0.85))
-	sign.rotation.y = PI
-	var banner := B.mesh(root, B.boxm(Vector3(3.6, 0.8, 0.04)), Vector3(0, 2.6, -1.74), Color(1.0, 0.85, 0.15))
-	var bl := B.label(banner, "KIRPPIS + HUUTOKAUPPA\nklo 10–18", Vector3(0, 0, -0.03), 56, Color(0.6, 0.1, 0.05))
-	bl.rotation.y = PI
+	# Nimikyltti seinässä kuistin katon yläpuolella: valkoinen levy, punaruskea teksti ja reunus.
+	var sign := B.sign_plate(root, "SALOISTEN SEURAINTALO", Color(0.96, 0.94, 0.88), Color(0.4, 0.08, 0.05), 0.42, 60,
+		Color(0.4, 0.08, 0.05), "Helvetica Neue")
+	sign.position = Vector3(0, 3.65, -0.05)
+	# Ständikyltti oven vieressä: keltainen levy kahdella jalalla.
+	var stand := Node3D.new()
+	stand.position = Vector3(2.4, 0, -2.6)
+	stand.rotation.y = 0.35
+	root.add_child(stand)
+	for x in [-0.55, 0.55]:
+		B.mesh(stand, B.boxm(Vector3(0.06, 1.3, 0.06)), Vector3(x, 0.65, 0), Color(0.3, 0.3, 0.32))
+	var ad := B.sign_plate(stand, "KIRPPIS +\nHUUTOKAUPPA\nklo 10–18", Color(1.0, 0.85, 0.15), Color(0.55, 0.08, 0.05), 0.2, 40,
+		Color(0.55, 0.08, 0.05), "Helvetica Neue")
+	ad.position = Vector3(0, 1.0, 0)
 
 
 ## Tokola (#120): kauppiaan vanha varasto (harmaantunut lautarakennus, ruosteinen peltikatto ja ovi, haalistunut
@@ -1066,7 +1075,7 @@ func _build_tokola() -> void:
 	var yaw := B.yaw_to(Vector3(nrm.x, 0, nrm.y))
 	var l := 7.0
 	var d := 5.0
-	_house(c, yaw, l, d, 3.2, Color(0.5, 0.47, 0.42), Color(0.45, 0.25, 0.15), -1.0, false)
+	_barn(c, yaw, l, d, 3.0)
 	_add_house(c)
 	var front: Vector2 = c + nrm * (d / 2.0)
 	var dp: Vector2 = front + nrm * 1.6
@@ -1075,11 +1084,15 @@ func _build_tokola() -> void:
 	root.position = Vector3(front.x, 0, front.y)  # _lift_node nostaa maastoon
 	root.rotation.y = yaw
 	add_child(root)
-	B.box(root, Vector3(1.6, 2.2, 0.12), Vector3(0, 1.1, -0.05), Color(0.5, 0.25, 0.12), false)  # ruosteinen ovi
-	B.box(root, Vector3(0.12, 0.12, 0.08), Vector3(0.5, 1.1, -0.12), Color(0.3, 0.3, 0.3), false)  # riippulukko
-	var sign := B.label(root, "TOKOLAN KAUPPA", Vector3(0, 2.75, -0.1), 48, Color(0.85, 0.8, 0.65))
-	sign.rotation.y = PI
-	sign.modulate = Color(1, 1, 1, 0.55)
+	B.box(root, Vector3(1.8, 2.3, 0.12), Vector3(0, 1.15, -0.06), Color(0.48, 0.24, 0.12), false)  # ruosteinen pariovi
+	B.box(root, Vector3(0.04, 2.3, 0.14), Vector3(0, 1.15, -0.07), Color(0.3, 0.15, 0.08), false)
+	B.box(root, Vector3(1.8, 0.08, 0.14), Vector3(0, 1.6, -0.08), Color(0.35, 0.2, 0.1), false)  # salpa
+	B.box(root, Vector3(0.12, 0.14, 0.08), Vector3(0.12, 1.5, -0.16), Color(0.3, 0.3, 0.3), false)  # riippulukko
+	# Haalistunut puukyltti oven yllä: kauppa lopetti kuuskytluvulla.
+	var sign := B.sign_plate(root, "TOKOLAN KAUPPA", Color(0.58, 0.48, 0.34), Color(0.93, 0.88, 0.72), 0.32, 44,
+		Color(0.32, 0.22, 0.13))
+	sign.position = Vector3(0, 2.6, -0.05)
+	sign.rotation.z = -0.04  # vino, toinen naula löystynyt
 	var f := _osm_fit_at(M.AARO_HOUSE)
 	if not f.is_empty():
 		var ap: Vector2 = f.c + f.nrm * (f.d / 2.0 + 3.0)
@@ -1092,15 +1105,50 @@ func _build_tokola() -> void:
 	add_child(tree)
 	B.mesh(tree, B.cyl(0.18, 0.32, 6.5, 10), Vector3(0, 3.25, 0), Color(0.38, 0.32, 0.27))
 	B.mesh(tree, B.cyl(0.05, 0.18, 0.6, 8), Vector3(0.05, 6.75, 0), Color(0.5, 0.42, 0.33), Vector3(0, 0, 18))
-	for k in 6:
-		var a := k * 1.1
-		var br := B.mesh(tree, B.cyl(0.02, 0.04, 1.2, 6), Vector3(cos(a) * 0.5, 2.2 + k * 0.6, sin(a) * 0.5), Color(0.33, 0.27, 0.22))
-		br.rotation = Vector3(sin(a) * 1.1, 0, -cos(a) * 1.1)
+	for k in 14:  # kuivat, alaspäin roikkuvat oksat
+		var a := k * 2.3
+		var y := 1.6 + k * 0.33
+		var len := 1.6 - k * 0.07
+		var br := B.mesh(tree, B.cyl(0.03, 0.08, len, 6), Vector3(cos(a) * len * 0.45, y - 0.15, sin(a) * len * 0.45), Color(0.33, 0.27, 0.22))
+		br.rotation = Vector3(sin(a) * 1.25, 0, -cos(a) * 1.25)
+		for t in 2:  # sivuoksat
+			var tw := B.mesh(br, B.cyl(0.015, 0.03, len * 0.4, 5), Vector3(0, -len * 0.1 + t * len * 0.25, 0), Color(0.36, 0.3, 0.24))
+			tw.rotation = Vector3(0.9 * (1 if t == 0 else -1), 0, 0.5)
 	var body := StaticBody3D.new()
 	body.position = Vector3(hp.x, 0, hp.y)
 	body.add_child(B.capsule_shape(0.35, 6.0))
 	add_child(body)
 	_add_house(hp)
+
+
+## Vanha lato tai varasto: harmaantunut pystylautaseinä (rimat), ei ikkunoita, ruosteinen peltikatto
+## harjalla, kivijalka. Paikallinen -Z = julkisivu. Törmäys ja reitinhaun este kuten _house.
+func _barn(pos: Vector2, yaw: float, l: float, d: float, h: float) -> void:
+	var body := StaticBody3D.new()
+	body.position = Vector3(pos.x, 0, pos.y)
+	body.rotation.y = yaw
+	add_child(body)
+	body.add_child(B.box_shape(Vector3(l, h, d), Vector3(0, h / 2.0, 0)))
+	blockers.append([pos, Vector2(l / 2.0, d / 2.0), yaw])
+	var board := Color(0.6, 0.55, 0.46)  # harmaantunut puu
+	B.mesh(body, B.boxm(Vector3(l + 0.2, 0.35, d + 0.2)), Vector3(0, 0.17, 0), Color(0.45, 0.45, 0.45))  # kivijalka
+	B.mesh(body, B.boxm(Vector3(l, h - 0.3, d)), Vector3(0, 0.3 + (h - 0.3) / 2.0, 0), board)
+	for side in [-1.0, 1.0]:  # pystyrimat pitkille sivuille ja päätyihin
+		for i in int(l / 0.35):
+			B.mesh(body, B.boxm(Vector3(0.06, h - 0.35, 0.05)), Vector3(-l / 2.0 + 0.18 + i * 0.35, 0.3 + (h - 0.35) / 2.0, side * (d / 2.0 + 0.02)),
+				board.darkened(0.15 + 0.1 * (i % 3) / 2.0))
+		for i in int(d / 0.35):
+			B.mesh(body, B.boxm(Vector3(0.05, h - 0.35, 0.06)), Vector3(side * (l / 2.0 + 0.02), 0.3 + (h - 0.35) / 2.0, -d / 2.0 + 0.18 + i * 0.35),
+				board.darkened(0.15))
+	var rh := 1.4
+	var prism := PrismMesh.new()
+	prism.size = Vector3(d + 0.8, rh, l + 0.6)
+	var roof := B.mesh(body, prism, Vector3(0, h + rh / 2.0, 0), Color(0.5, 0.28, 0.16))
+	roof.rotation.y = PI / 2.0
+	for i in 9:  # ruosteläiskät peltikatossa
+		var rx := -l / 2.0 + 0.4 + i * (l - 0.8) / 8.0
+		B.mesh(body, B.boxm(Vector3(0.25, 0.02, 0.9)), Vector3(rx, h + rh * 0.55, -d * 0.2 * (1 if i % 2 == 0 else -1)),
+			Color(0.62, 0.32, 0.14), Vector3(-25.0 * (1 if i % 2 == 0 else -1), 0, 0))
 
 
 ## Talot OpenStreetMapin rakennuksista (map_osm.gd BUILDINGS): paikka, suunta ja koko pohjapiirroksesta,

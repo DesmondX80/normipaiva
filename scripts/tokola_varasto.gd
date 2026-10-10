@@ -132,8 +132,11 @@ func _build() -> void:
 		var x := -HALF.x + 0.7 + (i % 6) * 1.2
 		var y := 0.6 + (i / 6) * 0.9
 		B.mesh(self, B.boxm(Vector3(0.6, 0.4, 0.35)), Vector3(x, y, -HALF.y + 0.45), [Color(0.6, 0.5, 0.35), Color(0.5, 0.42, 0.3), Color(0.35, 0.3, 0.25)][i % 3])
-	var sign := B.label(self, "TOKOLAN KAUPPA", Vector3(0, 2.6, -HALF.y + 0.12), 40, Color(0.75, 0.68, 0.5))
-	sign.modulate = Color(1, 1, 1, 0.6)
+	# Kaupan vanha kyltti nostettu hyllyn päälle seinää vasten.
+	var sign := B.sign_plate(self, "TOKOLAN KAUPPA", Color(0.55, 0.45, 0.32), Color(0.92, 0.86, 0.68), 0.3, 44,
+		Color(0.3, 0.2, 0.12))
+	sign.position = Vector3(-0.4, 2.55, -HALF.y + 0.14)
+	sign.rotation.z = 0.05
 	# Pahvilaatikko (ohjain ja kaasukahva), rautalankakelat ja tilikirja.
 	_box = Node3D.new()
 	_box.position = spots.laatikko[0] + Vector3(-0.3, 0, -0.5)

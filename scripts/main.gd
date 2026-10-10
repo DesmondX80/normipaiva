@@ -13954,6 +13954,19 @@ func _maybe_screenshot() -> void:
 			await frames.call(5)
 			await press.call("interact")
 			print("SP ulos pyörällä: selässä %s" % [player == bike])
+			await frames.call(20)
+			var sc := Camera3D.new()
+			add_child(sc)
+			var bp := bike.global_position
+			var side := bike.global_transform.basis.x
+			sc.look_at_from_position(bp + side * 2.4 + Vector3(0, 1.1, 0.3), bp + Vector3(0, 0.7, 0))
+			sc.current = true
+			_hud.visible = false
+			await frames.call(10)
+			await snap.call("_sivu.png")
+			sc.queue_free()
+			_hud.visible = true
+			bike.activate_camera()
 			# Ajo suoralla asfaltilla: avustuksella ja ilman.
 			var road := M.w(Vector2(829, 1240))
 			var top := func(battery: float) -> float:
