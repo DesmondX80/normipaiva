@@ -1441,6 +1441,7 @@ func _outside_logic() -> void:
 		_paper.clear_target()
 		Sfx.play("pickup", -10.0, 1.3)
 
+	_juntti_roam()
 	_lawn_logic()
 	_ebike_logic()
 	_kirppis_logic()
@@ -3169,6 +3170,50 @@ func _rossi_update_clock() -> void:
 		for lab in l.find_children("*", "Label3D", true, false):
 			(lab as Label3D).text = "ENNÄTYS %s%s" % [_laptime(minf(ROSSI_RECORD, _rossi_best) if _rossi_won else ROSSI_RECORD),
 				"\nOMA %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""]
+
+
+## --- Juntti kiertää paikkojaan: kun pelaaja lähestyy jotakin Juntin paikkaa (JUNTTI_SPOTS) ja Juntti on kaukana
+## poissa näkyvistä, Juntti on jo siellä odottamassa. Ei kesken jahdin, potkun jälkeen eikä nöyrtyneenä. ----------
+const JUNTTI_ARRIVE := Vector2(40.0, 90.0)  # pelaajan etäisyys paikasta: lähempänä kuin y, kauempana kuin x
+const JUNTTI_HIDDEN := 120.0  # Juntti siirtyy vain, kun pelaaja on häntä kauempana
+const JUNTTI_HOP_GAP := 20.0  # sekuntia siirtojen välillä
+var _juntti_hop_t := 0.0
+
+
+func _juntti_roam() -> void:
+	if juntti == null or not is_instance_valid(juntti) or not (juntti.mode in ["idle", "return"]):
+		return
+	if not state in ["to_shop", "to_home"] or _in_vaala or _at_mokki():
+		return
+	_juntti_hop_t -= get_process_delta_time()
+	if _juntti_hop_t > 0.0:
+		return
+	_juntti_hop_t = 1.0
+	var p := player.global_position
+	if Vector2(p.x - juntti.global_position.x, p.z - juntti.global_position.z).length() < JUNTTI_HIDDEN:
+		return
+	var best := Vector3.ZERO
+	var best_d := INF
+	for px in M.JUNTTI_SPOTS:
+		var at := M.w(px)
+		var d := Vector2(p.x - at.x, p.z - at.z).length()
+		if d > JUNTTI_ARRIVE.x and d < JUNTTI_ARRIVE.y and d < best_d:
+			best = at
+			best_d = d
+	if best == Vector3.ZERO or best.distance_to(juntti.home_pos) < 5.0:
+		return
+	# Ei siirretä pelaajan nähden: vanha paikka ja uusi paikka eivät saa näkyä kamerassa (vanha saa, jos se on kaukana).
+	var cam := get_viewport().get_camera_3d()
+	if cam != null:
+		var up := Vector3(0, 1.0, 0)
+		var old := juntti.global_position
+		var old_far := Vector2(p.x - old.x, p.z - old.z).length() > 250.0
+		if (cam.is_position_in_frustum(old + up) and not old_far) or cam.is_position_in_frustum(best + up):
+			return
+	juntti.home_pos = best
+	juntti.global_position = best
+	juntti.mode = "idle"
+	_juntti_hop_t = JUNTTI_HOP_GAP
 
 
 ## --- Korjaamot (#142): Pekan Volvo Korpelalle, Simo korjaa sähköpyörän oikosulun, Heiskasen kaasupullo Sululle ja
@@ -16925,6 +16970,36 @@ func _maybe_screenshot() -> void:
 			print("ER lahjoitettu %d" % _valokuva)
 			await at.call(world.rauniot_stash)
 			print("ER jemma: '%s'" % _hint.text)
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"junttikierto":
+			# Juntti kiertää paikkojaan: pelaaja menee eri paikkojen lähelle (selin paikkaan), ja Juntti on siellä; kun
+			# paikka näkyy kamerassa, Juntti ei siirry.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			if player == bike:
+				_toggle_mount()
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			for k in [5, 6, 0, 2]:
+				var at := M.w(M.JUNTTI_SPOTS[k])
+				walker_out.global_position = at + Vector3(60, 0.3, 0)
+				var cam := get_viewport().get_camera_3d()
+				cam.look_at_from_position(walker_out.global_position + Vector3(-3, 2, 0), walker_out.global_position + Vector3(10, 1, 0))
+				_juntti_hop_t = 0.0
+				await frames.call(5)
+				var seen := cam.is_position_in_frustum(at + Vector3(0, 1, 0))
+				var jd := Vector2(juntti.global_position.x - at.x, juntti.global_position.z - at.z).length()
+				print("JU paikka %d %s: Juntti %.1f m paikasta (paikka kamerassa %s), tila %s" % [k, M.JUNTTI_SPOTS[k], jd, seen, juntti.mode])
+			# Katse kohti paikkaa: Juntti ei saa ilmestyä silmien eteen.
+			var at2 := M.w(M.JUNTTI_SPOTS[4])
+			walker_out.global_position = at2 + Vector3(60, 0.3, 0)
+			var cam2 := get_viewport().get_camera_3d()
+			cam2.look_at_from_position(walker_out.global_position + Vector3(3, 2, 0), at2 + Vector3(0, 1, 0))
+			_juntti_hop_t = 0.0
+			await frames.call(5)
+			print("JU katse paikkaan 4: kamerassa %s, Juntti %.1f m paikasta" % [cam2.is_position_in_frustum(at2 + Vector3(0, 1, 0)),
+				Vector2(juntti.global_position.x - at2.x, juntti.global_position.z - at2.z).length()])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"korjaamot":

@@ -378,6 +378,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Löytö säilyy (testi `--scene=kuulokkeet`).
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
+  Juntilla on seitsemän paikkaa reittien varrella ja Seuranmäellä (Reipparin edusta ja kentän laita), ja hän ehtii
+  sinne, minne olet menossa: kun lähestyt jotakin paikkaa ja Juntti on kaukana poissa näkyvistä, hän on jo siellä.
+  Juntti ei siirry kenenkään nähden (kumpikaan paikka ei saa näkyä kamerassa) eikä kesken jahdin. Testi
+  `--scene=junttikierto`.
 
 ## Normipäiväkirja: tarina, tehtävät ja onnelliset loput (O)
 

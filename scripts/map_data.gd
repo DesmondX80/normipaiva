@@ -189,8 +189,10 @@ const GRILLIKATOS := Vector2(806, 812)
 const STRAY_SPOTS := [Vector2(870, 1260), Vector2(700, 700), Vector2(215, 860), Vector2(160, 1260), Vector2(620, 1690),
 	Vector2(760, 1480)]
 
-## Juntin mahdolliset olinpaikat reitin varrella.
-const JUNTTI_SPOTS := [Vector2(160, 690), Vector2(311, 776), Vector2(452, 841), Vector2(235, 500), Vector2(688, 1118)]
+## Juntin mahdolliset olinpaikat reitin varrella. Kaksi viimeistä Seuranmäellä: Reipparin edusta (Juntin
+## lihapiirakkaennätys) ja Saloisten kentän laita.
+const JUNTTI_SPOTS := [Vector2(160, 690), Vector2(311, 776), Vector2(452, 841), Vector2(235, 500), Vector2(688, 1118),
+	Vector2(447, -268), Vector2(557, -235)]
 
 
 ## Saloisten rata karttapikseleinä (1 px = 1 m): asemaraide K-Marketin takana (world.gd _build_station), josta
