@@ -75,6 +75,16 @@ const HEINIMAKI := Vector2(412, -684)
 ## varrella (#122). Legendan paikat: kertun_rauta.gd.
 const KERTUNKANGAS := Vector2(1342, -333)
 const KERTUN_TAULU := Vector2(1352, -321)
+## Etelän erämaa (#147, OSM): Viitajärven laavu ja järvi, Kaitasaaren niemi tekojärvellä, luonnonsuojelualueet
+## ja Puntarimäki.
+const VIITA_LAAVU := Vector2(105, 3810)
+const VIITAJARVI := Vector2(61, 3676)
+const KAITASAARI := Vector2(1596, 3622)
+const SUOJELU := [Vector2(914, 3401), Vector2(564, 3640)]
+const PUNTARIMAKI := Vector2(846, 3295)
+## Rauniot Saloisten länsilaidalla (#145): OSM historic=ruins, nimetön n. 120 m viiva metsässä (maastokartan
+## raunio, kartoitettu 2021). Pelissä kivijalkoja ja sortunut kiviaita; ei esitetä oikeana historiana.
+const RAUNIOT := [Vector2(114, 96), Vector2(152, 52), Vector2(165, 40), Vector2(202, 16)]
 ## Leikkipuistot (#146, OSM leisure=playground): [nimi tai "", paikka]. Nimettömät ovat koulujen ja päiväkotien pihoilla.
 const PLAYGROUNDS := [["Käpykadunpuisto", Vector2(1306, 807)], ["Herukkapolunpuisto", Vector2(1569, 634)],
 	["", Vector2(731, -23)], ["", Vector2(592, 14)], ["", Vector2(582, 37)], ["", Vector2(666, 81)]]

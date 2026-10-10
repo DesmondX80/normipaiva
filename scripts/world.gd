@@ -85,6 +85,16 @@ var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
 var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
 var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
 var museum_door: Vector3  # Saloisten Pirtin (kotiseutumuseo) oven edusta
+var viita_fire: Node3D  # Viitajärven laavun nuotio (#147)
+var viita_pos: Vector3  # laavun tulisija
+var kaitasaari_pos: Vector3
+var suojelu_pos: Array = []
+var metso: Node3D  # metso soidinpaikalla aamuisin
+var puntari_pos: Vector3
+var rauniot_stash: Vector3  # kivijalan kolo (jemma) (#145)
+var rauniot_uuni: Vector3  # uunin rauniot (löytö)
+var rauniot_youth: Node3D  # iltanuotio ja teinit
+var rauniot_youth_pos: Vector3
 var playgrounds: Array = []  # [{"name", "swing", "sandbox", "bench", "mums": Node3D}] (#146)
 var seppo_door: Vector3  # Sepon varaston ovi (#140)
 var seppo_npc: Node3D
@@ -254,6 +264,8 @@ func build(step: Callable) -> void:
 	_build_kentta()
 	_build_honganpalo()
 	_build_seppo()
+	_build_eramaa()
+	_build_rauniot()
 	for i in M.PLAYGROUNDS.size():
 		_playground(M.PLAYGROUNDS[i][0], M.PLAYGROUNDS[i][1], i)
 	_build_saastopiha()
@@ -1440,6 +1452,187 @@ func _build_kentta() -> void:
 		var lp := Vector3((-1.0 if k < 2 else 1.0) * (RW / 2.0 + 1.5), 0, (-1.0 if k % 2 == 0 else 1.0) * RL / 3.0)
 		B.mesh(rink, B.cyl(0.1, 0.14, 9.0, 8), lp + Vector3(0, 4.5, 0), Color(0.55, 0.56, 0.58))
 		B.mesh(rink, B.boxm(Vector3(1.0, 0.5, 0.5)), lp + Vector3(0, 9.0, 0), Color(0.3, 0.3, 0.32))
+
+
+## Etelän erämaa (#147): Viitajärven laavu (katos, tulisija nuotioineen, halkopino, kyltti), Kaitasaaren
+## penkki niemen kärjessä, luonnonsuojelualueiden kyltit ja metso soidinpaikalla, Puntarimäen kyltti ja kivikasa.
+func _build_eramaa() -> void:
+	var lp := M.w2(M.VIITA_LAAVU)
+	var jp := M.w2(M.VIITAJARVI)
+	var to_lake := (jp - lp).normalized()
+	_tree_free.append([lp, 9.0])
+	var root := Node3D.new()
+	root.position = Vector3(lp.x, 0, lp.y)
+	root.rotation.y = B.yaw_to(Vector3(to_lake.x, 0, to_lake.y))  # paikallinen -Z järvelle
+	add_child(root)
+	var wood := Color(0.5, 0.36, 0.22)
+	# Laavu: kalteva katto, takaseinä ja lattia.
+	var shelter := Node3D.new()
+	shelter.position = Vector3(0, 0, 2.5)
+	root.add_child(shelter)
+	var rf := B.mesh(shelter, B.boxm(Vector3(4.2, 0.12, 3.2)), Vector3(0, 2.0, 0), wood.darkened(0.15))
+	rf.rotation.x = 0.45
+	B.mesh(shelter, B.boxm(Vector3(4.2, 2.6, 0.12)), Vector3(0, 1.2, 1.45), wood)
+	for x in [-2.0, 2.0]:
+		B.mesh(shelter, B.boxm(Vector3(0.12, 2.6, 3.0)), Vector3(x, 1.0, 0.1), wood.darkened(0.05))
+	B.mesh(shelter, B.boxm(Vector3(4.0, 0.15, 2.4)), Vector3(0, 0.35, 0.2), wood.lightened(0.1))
+	var sb := StaticBody3D.new()
+	sb.add_child(B.box_shape(Vector3(4.2, 2.6, 0.2), Vector3(0, 1.3, 1.45)))
+	shelter.add_child(sb)
+	# Tulisija ja nuotio.
+	for k in 10:
+		var a := k * TAU / 10.0
+		var st := B.mesh(root, B.sphere(0.22, 8), Vector3(cos(a) * 0.75, 0.1, -1.0 + sin(a) * 0.75), Color(0.45, 0.44, 0.42))
+		st.scale = Vector3(1.2, 0.7, 1.0)
+	viita_pos = root.to_global(Vector3(0, 0, -1.0))
+	viita_pos.y = T.h(viita_pos.x, viita_pos.z)
+	viita_fire = Node3D.new()
+	viita_fire.position = Vector3(0, 0, -1.0)
+	root.add_child(viita_fire)
+	for k in 3:
+		var fl := B.mesh(viita_fire, B.cyl(0.0, 0.28 - k * 0.07, 0.7 + k * 0.15, 8), Vector3(0, 0.35 + k * 0.05, 0), [Color(1.0, 0.45, 0.1), Color(1.0, 0.7, 0.2), Color(1.0, 0.9, 0.5)][k])
+		fl.material_override = B.unshaded([Color(1.0, 0.45, 0.1), Color(1.0, 0.7, 0.2), Color(1.0, 0.9, 0.5)][k])
+	var fire_light := OmniLight3D.new()
+	fire_light.position = Vector3(0, 0.8, 0)
+	fire_light.light_color = Color(1.0, 0.6, 0.3)
+	fire_light.light_energy = 1.6
+	fire_light.omni_range = 7.0
+	viita_fire.add_child(fire_light)
+	viita_fire.visible = false
+	for k in 6:  # halkopino
+		B.mesh(root, B.cyl(0.09, 0.09, 0.6, 8), Vector3(2.6, 0.1 + (k / 3) * 0.17, 1.5 + (k % 3) * 0.18), wood.lightened(0.15), Vector3(90, 0, 0))
+	var sign := B.sign_plate(root, "VIITAJÄRVEN LAAVU", Color(0.36, 0.2, 0.1), Color(0.98, 0.95, 0.86), 0.25, 40, Color(0.98, 0.95, 0.86),
+		"Helvetica Neue")
+	sign.position = Vector3(-3.2, 1.7, -0.5)
+	sign.rotation.y = PI / 2.0
+	B.mesh(root, B.boxm(Vector3(0.1, 1.7, 0.1)), Vector3(-3.25, 0.85, -0.5), wood.darkened(0.2))
+	# Kaitasaari: penkki niemen kärjessä järvelle päin ja kyltti.
+	var kp := M.w2(M.KAITASAARI)
+	kaitasaari_pos = Vector3(kp.x, T.h(kp.x, kp.y), kp.y)
+	_tree_free.append([kp, 6.0])
+	var kb := Node3D.new()
+	kb.position = Vector3(kp.x, 0, kp.y)
+	add_child(kb)
+	B.mesh(kb, B.boxm(Vector3(1.8, 0.06, 0.45)), Vector3(0, 0.45, 0), wood)
+	B.mesh(kb, B.boxm(Vector3(1.8, 0.4, 0.05)), Vector3(0, 0.7, 0.22), wood)
+	for x in [-0.8, 0.8]:
+		B.mesh(kb, B.boxm(Vector3(0.08, 0.45, 0.4)), Vector3(x, 0.22, 0), wood.darkened(0.3))
+	var ks := B.sign_plate(kb, "KAITASAARI", Color(0.36, 0.2, 0.1), Color(0.98, 0.95, 0.86), 0.22, 36, Color(0.98, 0.95, 0.86), "Helvetica Neue")
+	ks.position = Vector3(1.6, 1.4, 0.3)
+	B.mesh(kb, B.boxm(Vector3(0.08, 1.4, 0.08)), Vector3(1.6, 0.7, 0.32), wood.darkened(0.2))
+	# Luonnonsuojelualueet: kyltit tolpissa, ensimmäisellä metso soidinpaikalla.
+	for i in M.SUOJELU.size():
+		var sp := M.w2(M.SUOJELU[i])
+		suojelu_pos.append(Vector3(sp.x, T.h(sp.x, sp.y), sp.y))
+		var post := Node3D.new()
+		post.position = Vector3(sp.x, 0, sp.y)
+		post.rotation.y = i * 1.3
+		add_child(post)
+		B.mesh(post, B.boxm(Vector3(0.1, 1.8, 0.1)), Vector3(0, 0.9, 0), Color(0.35, 0.35, 0.37))
+		var ss := B.sign_plate(post, "LUONNONSUOJELUALUE\nMaastoliikenne ja tulenteko kielletty", Color(0.1, 0.42, 0.22), Color.WHITE, 0.2, 28,
+			Color.WHITE, "Helvetica Neue")
+		ss.position = Vector3(0, 1.8, 0.07)
+	var mp: Vector2 = M.w2(M.SUOJELU[0]) + Vector2(6, 4)
+	metso = Node3D.new()
+	metso.position = Vector3(mp.x, 0, mp.y)
+	add_child(metso)
+	var body := B.mesh(metso, B.sphere(0.32, 10), Vector3(0, 0.45, 0), Color(0.12, 0.13, 0.15))
+	body.scale = Vector3(0.8, 0.9, 1.3)
+	B.mesh(metso, B.sphere(0.16, 8), Vector3(0, 0.82, -0.32), Color(0.12, 0.13, 0.15))
+	B.mesh(metso, B.cyl(0.0, 0.05, 0.12, 6), Vector3(0, 0.8, -0.5), Color(0.85, 0.8, 0.6), Vector3(-90, 0, 0))
+	B.mesh(metso, B.sphere(0.04, 6), Vector3(0.08, 0.9, -0.38), Color(0.85, 0.1, 0.1))  # punainen kulmakarvas
+	for k in 9:  # pyrstöviuhka
+		var a := -0.9 + k * 0.225
+		var fe := B.mesh(metso, B.boxm(Vector3(0.06, 0.55, 0.02)), Vector3(sin(a) * 0.25, 0.75, 0.42), Color(0.1, 0.1, 0.12))
+		fe.rotation = Vector3(-0.5, 0, -a)
+	for x in [-0.08, 0.08]:
+		B.mesh(metso, B.cyl(0.02, 0.02, 0.25, 5), Vector3(x, 0.12, 0), Color(0.35, 0.3, 0.25))
+	metso.visible = false
+	# Puntarimäki: kivikasa ja kyltti laella.
+	var pp := M.w2(M.PUNTARIMAKI)
+	puntari_pos = Vector3(pp.x, T.h(pp.x, pp.y), pp.y)
+	_tree_free.append([pp, 5.0])
+	for k in 12:
+		var a := k * 2.4
+		var r := 0.3 + (k % 4) * 0.25
+		B.mesh(self, B.sphere(0.25, 8), Vector3(pp.x + cos(a) * r, 0.15 + (3 - k % 4) * 0.12, pp.y + sin(a) * r), Color(0.5, 0.49, 0.46))
+	var pst := Node3D.new()
+	pst.position = Vector3(pp.x + 1.5, 0, pp.y)
+	add_child(pst)
+	B.mesh(pst, B.boxm(Vector3(0.08, 1.5, 0.08)), Vector3(0, 0.75, 0), wood.darkened(0.2))
+	var psg := B.sign_plate(pst, "PUNTARIMÄKI", Color(0.36, 0.2, 0.1), Color(0.98, 0.95, 0.86), 0.22, 36, Color(0.98, 0.95, 0.86), "Helvetica Neue")
+	psg.position = Vector3(0, 1.5, 0.05)
+
+
+## Rauniot (#145): kaksi sammaloitunutta kivijalkaa, sortunut kiviaita OSM-viivaa pitkin, uunin rauniot
+## (löytö), kivijalan kolo (jemma) ja iltaisin teinien nuotio. Ei oikeaa historiaa: "vanha talo".
+func _build_rauniot() -> void:
+	var pts: Array = M.RAUNIOT
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 145
+	var site := Node3D.new()
+	add_child(site)
+	var granite := Color(0.5, 0.49, 0.46)
+	var moss := Color(0.34, 0.43, 0.22)
+	for i in pts.size() - 1:  # sortunut kiviaita
+		var a := M.w2(pts[i])
+		var b := M.w2(pts[i + 1])
+		var t := 0.0
+		while t < a.distance_to(b):
+			var p := a.lerp(b, t / a.distance_to(b)) + Vector2(rng.randf_range(-0.4, 0.4), rng.randf_range(-0.4, 0.4))
+			var st := B.mesh(site, B.sphere(rng.randf_range(0.22, 0.38), 8), Vector3(p.x, 0.12, p.y), granite.lerp(moss, rng.randf() * 0.6))
+			st.scale = Vector3(1.2, 0.65, 1.0)
+			t += rng.randf_range(0.7, 1.4)
+	var found := [M.w2(Vector2(150, 56)), M.w2(Vector2(188, 26))]
+	for fi in found.size():
+		var c: Vector2 = found[fi]
+		_tree_free.append([c, 8.0])
+		var w := 7.0 if fi == 0 else 5.0
+		var d := 5.0 if fi == 0 else 4.0
+		for side in 4:  # kivijalan kehä
+			var horiz := side % 2 == 0
+			var n := int((w if horiz else d) / 0.55)
+			for k in n:
+				var off := -((w if horiz else d) / 2.0) + 0.27 + k * 0.55
+				var lp := Vector2(off, (d / 2.0) * (1 if side == 0 else -1)) if horiz else Vector2((w / 2.0) * (1 if side == 1 else -1), off)
+				var st2 := B.mesh(site, B.boxm(Vector3(0.5, 0.35 + rng.randf() * 0.25, 0.45)), Vector3(c.x + lp.x, 0.18, c.y + lp.y),
+					granite.lerp(moss, rng.randf() * 0.5))
+				st2.rotation.y = rng.randf_range(-0.1, 0.1)
+		if fi == 0:  # uunin rauniot nurkassa ja kolo kivijalassa
+			var up := c + Vector2(-w / 2.0 + 1.2, -d / 2.0 + 1.2)
+			for k in 14:
+				B.mesh(site, B.boxm(Vector3(0.28, 0.12, 0.14)), Vector3(up.x + (k % 4) * 0.3 - 0.45, 0.06 + (k / 4) * 0.13, up.y + (k % 2) * 0.16),
+					Color(0.6, 0.28, 0.18).darkened(rng.randf() * 0.2))  # tiilet
+			B.mesh(site, B.boxm(Vector3(0.6, 0.5, 0.5)), Vector3(up.x + 0.6, 0.25, up.y - 0.4), Color(0.22, 0.2, 0.2))  # ruostunut uuninluukku
+			rauniot_uuni = Vector3(up.x, T.h(up.x, up.y), up.y)
+			var sp := c + Vector2(w / 2.0, d / 2.0 - 0.8)
+			rauniot_stash = Vector3(sp.x + 0.8, T.h(sp.x + 0.8, sp.y), sp.y)
+			B.mesh(site, B.boxm(Vector3(0.3, 0.25, 0.3)), Vector3(sp.x, 0.13, sp.y), Color(0.08, 0.08, 0.08))  # kolo
+		else:  # teinien nuotiopaikka kivijalan sisällä
+			rauniot_youth_pos = Vector3(c.x, T.h(c.x, c.y), c.y)
+			rauniot_youth = Node3D.new()
+			rauniot_youth.position = Vector3(c.x, 0, c.y)
+			add_child(rauniot_youth)
+			for k in 8:
+				var a := k * TAU / 8.0
+				B.mesh(rauniot_youth, B.sphere(0.15, 6), Vector3(cos(a) * 0.5, 0.06, sin(a) * 0.5), granite)
+			for k in 2:
+				var fl := B.mesh(rauniot_youth, B.cyl(0.0, 0.22 - k * 0.08, 0.55, 8), Vector3(0, 0.3, 0), [Color(1.0, 0.5, 0.1), Color(1.0, 0.85, 0.4)][k])
+				fl.material_override = B.unshaded([Color(1.0, 0.5, 0.1), Color(1.0, 0.85, 0.4)][k])
+			var l := OmniLight3D.new()
+			l.position = Vector3(0, 0.7, 0)
+			l.light_color = Color(1.0, 0.6, 0.3)
+			l.omni_range = 6.0
+			rauniot_youth.add_child(l)
+			var looks := [{"model": "male", "shirt": Color(0.1, 0.1, 0.12), "hair": "Hair_Buzzed"}, {"model": "female", "shirt": Color(0.6, 0.2, 0.5), "hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.1)},
+				{"model": "male", "shirt": Color(0.25, 0.35, 0.2), "hair": "Hair_SimpleParted"}]
+			for k in 3:
+				var a := k * TAU / 3.0 + 0.4
+				var tn := Looks.make(rauniot_youth, looks[k].merged({"pants": Color(0.15, 0.18, 0.3), "skin": Color(0.95, 0.8, 0.7), "height": 1.7}))
+				tn.position = Vector3(cos(a) * 1.4, 0.0, sin(a) * 1.4)
+				tn.rotation.y = -a + PI / 2.0
+				tn.play("Sitting_Idle" if k == 1 else "Idle", 0.0)
+			rauniot_youth.visible = false
 
 
 ## Leikkipuisto (#146): hiekka-alue, keinuteline kahdella keinulla, liukumäki, hiekkalaatikko lapioineen,
