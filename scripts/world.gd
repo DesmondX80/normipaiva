@@ -84,6 +84,7 @@ var kirppis_door: Vector3  # Saloisten seuraintalon pääoven edusta (E: kirpput
 var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
 var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
 var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
+var museum_door: Vector3  # Saloisten Pirtin (kotiseutumuseo) oven edusta
 var station_pos: Vector3  # Saloisten asema K-Marketin takana: kadun puoleisen oven edusta (E: odotussaliin)
 var station_arrive: Vector3  # junalla tultaessa tästä
 var train: Node3D  # aikataulun juna Saloisten radalla (train.gd, ei satunnaisia ohikulkuja)
@@ -195,6 +196,7 @@ func build(step: Callable) -> void:
 	_build_shop()
 	_build_seuraintalo()
 	_build_tokola()
+	_build_pirtti()
 	_build_station()
 	_build_agility()
 	await step.call("Laavu, grillikatos ja kota", 0.53)
@@ -1119,6 +1121,27 @@ func _build_tokola() -> void:
 	body.add_child(B.capsule_shape(0.35, 6.0))
 	add_child(body)
 	_add_house(hp)
+
+
+## Saloisten Pirtti (kotiseutumuseo): OSM-rakennus jää paikalleen, oven viereen museokyltti ja oven edusta
+## main.gd:lle (pannun lahjoitus).
+func _build_pirtti() -> void:
+	var f := _osm_fit_at(M.PIRTTI)
+	if f.is_empty():
+		return
+	var nrm: Vector2 = f.nrm
+	var front: Vector2 = f.c + nrm * (f.d / 2.0)
+	var dp: Vector2 = front + nrm * 2.0
+	museum_door = Vector3(dp.x, T.h(dp.x, dp.y), dp.y)
+	var root := Node3D.new()
+	root.position = Vector3(front.x, 0, front.y)  # _lift_node nostaa maastoon
+	root.rotation.y = f.yaw
+	add_child(root)
+	for x in [-0.5, 0.5]:
+		B.mesh(root, B.boxm(Vector3(0.06, 1.2, 0.06)), Vector3(1.8 + x, 0.6, -1.2), Color(0.3, 0.2, 0.12))
+	var sign := B.sign_plate(root, "SALOISTEN PIRTTI\nkotiseutumuseo", Color(0.2, 0.3, 0.2), Color(0.95, 0.92, 0.8), 0.18, 36,
+		Color(0.5, 0.4, 0.25), "Helvetica Neue")
+	sign.position = Vector3(1.8, 1.3, -1.2)
 
 
 ## Vanha lato tai varasto: harmaantunut pystylautaseinä (rimat), ei ikkunoita, ruosteinen peltikatto

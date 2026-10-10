@@ -105,6 +105,13 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Aarolle (legenda todistettu, maine nousee ja epäilijät joutuvat myöntämään) tai tilikirja annetaan Pannu-Sululle
   pulloja vastaan (sen isän nimikirjaimet ovat "sokerin" ostajissa). Markat myydään kirppiksen Railille.
   Heinimäeltä näkyy terästehtaan savut. Testi `--scene=tokola`.
+- **Legenda: Sulon isän kadonnut pannu:** Tokolan Aaro tietää, kuka on "S. S." kauppiaan kirjoissa: Pannu-Sulon isä,
+  pitäjän paras keittäjä, upotti kuparipannunsa Pilkkarinnevan rämeeseen ratsiayönä 1966. Sulo, Pekka ja Arto
+  kiistävät koko jutun. Droonin ilmakuva paljastaa rämeellä kuparin vihreän läikän (merkki karttaan), ja pannu
+  kahlataan ja kaivetaan esiin. Valinta: pannu Sululle (keittää isän reseptillä, kanisteri vastaa 32 kaljaa),
+  Saloisten Pirtin kotiseutumuseoon (maine, lehtijuttu, mutta Sulo nostaa kanisterin hintaa) tai Taunolle romuksi
+  (20 €, Sulo ja Aaro suuttuvat). Löydön jälkeen Sulo myöntää: "No... isä keitti. Ja hyvää keitti."
+  Testi `--scene=pannu`.
 - **Mökki:** mökille pääsee vain naapurin Pekan kyydillä: Pekka on menossa Neittävälle kyyhkyjahtiin ja ottaa
   kyytiin kaljalla tai 10 eurolla (jalan E Pekan luona). Pekan auto odottaa mökin pihatien päässä, ja sillä
   pääsee kotipihaan ilmaiseksi (bensat maksettiin menomatkalla). Välikuvassa Pekan vihreä Volvo kaahaa kesäistä maantietä peltojen, säilörehupaalien ja männikön
