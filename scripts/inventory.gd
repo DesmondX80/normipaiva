@@ -654,6 +654,21 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_c(img, 10, 11, 1.8, Color(0.35, 0.6, 0.45))
 			_r(img, 7, 2, 2, 3, Color(0.6, 0.35, 0.15))
 			_r(img, 9, 2, 5, 1, Color(0.6, 0.35, 0.15))
+		"kukat":  # ruusukimppu paperissa
+			_r(img, 7, 7, 2, 8, Color(0.2, 0.55, 0.2))
+			_c(img, 5, 5, 2.2, Color(0.9, 0.15, 0.25))
+			_c(img, 10, 5, 2.2, Color(0.95, 0.3, 0.45))
+			_c(img, 7.5, 3, 2.2, Color(0.85, 0.1, 0.2))
+			_r(img, 5, 10, 6, 4, Color(0.95, 0.92, 0.8))
+		"taimet":  # tomaatintaimi ruukussa
+			_r(img, 5, 10, 6, 5, Color(0.65, 0.35, 0.2))
+			_r(img, 7, 4, 2, 6, Color(0.25, 0.55, 0.2))
+			_c(img, 5, 6, 2.0, Color(0.3, 0.6, 0.25))
+			_c(img, 11, 5, 2.0, Color(0.3, 0.6, 0.25))
+		"kekkonen":  # rintamerkki
+			_c(img, 8, 8, 5.5, Color(0.85, 0.7, 0.2))
+			_c(img, 8, 8, 4.0, Color(0.15, 0.25, 0.55))
+			_c(img, 8, 7, 1.8, Color(0.95, 0.85, 0.7))
 		"hopeat":  # mustuneita hopearahoja ja lusikka
 			_c(img, 6, 9, 3.2, Color(0.6, 0.6, 0.62))
 			_c(img, 10, 10, 3.2, Color(0.5, 0.5, 0.52))

@@ -85,6 +85,10 @@ var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
 var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
 var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
 var museum_door: Vector3  # Saloisten Pirtin (kotiseutumuseo) oven edusta
+var seppo_door: Vector3  # Sepon varaston ovi (#140)
+var seppo_npc: Node3D
+var seppo_tarp: Vector3  # pressun alla vanha mopo
+var saasto_door: Vector3  # säästöpihan myymälän ovi (#141)
 var hongan_door: Vector3  # Honganpalon koulun pääovi (#138)
 var hongan_window: Vector3  # ikkuna, josta näkyy käytävän luokkakuva
 var hongan_spot: Vector3  # kentän rankkaripiste
@@ -248,6 +252,8 @@ func build(step: Callable) -> void:
 	_build_kertunkangas()
 	_build_kentta()
 	_build_honganpalo()
+	_build_seppo()
+	_build_saastopiha()
 	_build_lapinraunio()
 	_build_uimaranta()
 	_build_seo()
@@ -1431,6 +1437,143 @@ func _build_kentta() -> void:
 		var lp := Vector3((-1.0 if k < 2 else 1.0) * (RW / 2.0 + 1.5), 0, (-1.0 if k % 2 == 0 else 1.0) * RL / 3.0)
 		B.mesh(rink, B.cyl(0.1, 0.14, 9.0, 8), lp + Vector3(0, 4.5, 0), Color(0.55, 0.56, 0.58))
 		B.mesh(rink, B.boxm(Vector3(1.0, 0.5, 0.5)), lp + Vector3(0, 9.0, 0), Color(0.3, 0.3, 0.32))
+
+
+## Sepon varastomyyntipiste (#140): ruskea lautavarasto (halli) käsin maalatulla kyltillä, pihalla rojua
+## (telkkaripino, renkaat, sukset, pyörä, kalastusvälineet), pressun alla vanha mopo ja Seppo ovella.
+func _build_seppo() -> void:
+	seppo_door = _hall(M.SEPPO, 4.2, Color(0.5, 0.33, 0.2), Color(0.35, 0.35, 0.37), "SEPON VARASTOMYYNTI\nKAIKKEA – AUKI KUN OLLAAN",
+		Color(0.95, 0.92, 0.82), Color(0.6, 0.12, 0.08), 1)
+	var f := _osm_fit_at(M.SEPPO)
+	if f.is_empty():
+		return
+	var front: Vector2 = f.c + f.nrm * (f.d / 2.0 + 4.0)
+	var ax: Vector2 = f.ax
+	var site := Node3D.new()
+	add_child(site)
+	var put := func(p: Vector2, node: Node3D) -> void:
+		node.position = Vector3(p.x, 0, p.y)
+		node.rotation.y = f.yaw
+		site.add_child(node)
+	# Telkkaripino.
+	var tv := Node3D.new()
+	for i in 4:
+		var w := 0.7 - (i % 2) * 0.1
+		B.mesh(tv, B.boxm(Vector3(w, 0.5, 0.5)), Vector3(i * 0.05, 0.25 + i * 0.5, 0), Color(0.25, 0.22, 0.2).lightened(i * 0.05))
+		B.mesh(tv, B.boxm(Vector3(w * 0.75, 0.36, 0.02)), Vector3(i * 0.05, 0.27 + i * 0.5, -0.26), Color(0.15, 0.2, 0.2))
+	put.call(front - ax * 6.0, tv)
+	# Rengaspino ja sukset seinää vasten.
+	var tires := Node3D.new()
+	for i in 5:
+		B.mesh(tires, B.cyl(0.35, 0.35, 0.2, 14), Vector3(0, 0.1 + i * 0.21, 0), Color(0.08, 0.08, 0.08))
+	put.call(front - ax * 4.0, tires)
+	var skis := Node3D.new()
+	for i in 4:
+		var sk := B.mesh(skis, B.boxm(Vector3(0.08, 1.9, 0.02)), Vector3(i * 0.15, 0.95, 0), [Color(0.8, 0.1, 0.1), Color(0.1, 0.3, 0.8), Color(0.9, 0.85, 0.2), Color(0.95, 0.95, 0.95)][i])
+		sk.rotation.z = 0.12
+	put.call(f.c + f.nrm * (f.d / 2.0 + 0.3) + ax * 3.0, skis)
+	# Pressun alla vanha mopo.
+	var tarp := Node3D.new()
+	var tm := B.mesh(tarp, B.boxm(Vector3(1.9, 1.0, 0.8)), Vector3(0, 0.5, 0), Color(0.15, 0.35, 0.65))
+	tm.rotation.z = 0.05
+	B.mesh(tarp, B.cyl(0.28, 0.28, 0.1, 12), Vector3(0.75, 0.28, 0.42), Color(0.08, 0.08, 0.08), Vector3(90, 0, 0))  # rengas pilkottaa
+	var tp: Vector2 = front + ax * 5.0
+	put.call(tp, tarp)
+	seppo_tarp = Vector3(tp.x, T.h(tp.x, tp.y), tp.y)
+	# Pöytä rojua täynnä.
+	var table := Node3D.new()
+	B.mesh(table, B.boxm(Vector3(2.0, 0.06, 0.9)), Vector3(0, 0.8, 0), Color(0.5, 0.38, 0.25))
+	for lx in [-0.9, 0.9]:
+		for lz in [-0.4, 0.4]:
+			B.mesh(table, B.boxm(Vector3(0.06, 0.8, 0.06)), Vector3(lx, 0.4, lz), Color(0.4, 0.3, 0.2))
+	var junk := [Color(0.8, 0.2, 0.1), Color(0.2, 0.6, 0.3), Color(0.9, 0.8, 0.2), Color(0.3, 0.3, 0.35), Color(0.6, 0.4, 0.8)]
+	for i in 8:
+		B.mesh(table, B.boxm(Vector3(0.2 + (i % 3) * 0.08, 0.15 + (i % 2) * 0.12, 0.2)), Vector3(-0.8 + i * 0.22, 0.9 + (i % 2) * 0.05, (i % 3) * 0.15 - 0.15), junk[i % junk.size()])
+	put.call(front + ax * 1.5, table)
+	# Seppo: lippis, verkkarit, iso vatsa.
+	var sp: Vector2 = front + ax * 0.0 - f.nrm * 1.5
+	seppo_npc = Looks.make(self, {"model": "male", "shirt": Color(0.2, 0.3, 0.5), "pants": Color(0.12, 0.12, 0.14), "shoes": Color(0.9, 0.9, 0.9),
+		"hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.45, 0.4), "height": 1.76, "skin": Color(0.93, 0.74, 0.62), "belly": 0.9, "beard": true})
+	seppo_npc.position = Vector3(sp.x, 0, sp.y)
+	seppo_npc.rotation.y = f.yaw + PI
+	seppo_npc.play("Idle", 0.0)
+
+
+## Saloisten säästöpiha (#141): punainen puutarhamyymälä OSM-pohjalle, kasvihuone, taimipöydät kukkineen,
+## multasäkkipino ja kyltti.
+func _build_saastopiha() -> void:
+	var f := _osm_fit_at(M.SAASTOPIHA)
+	if f.is_empty():
+		return
+	var c: Vector2 = f.c
+	var l: float = f.l
+	var d: float = f.d
+	var root := Node3D.new()
+	root.position = Vector3(c.x, 0, c.y)
+	root.rotation.y = f.yaw
+	add_child(root)
+	blockers.append([c, Vector2(l / 2.0, d / 2.0), f.yaw])
+	_add_house(c)
+	var body := StaticBody3D.new()
+	body.add_child(B.box_shape(Vector3(l, 3.0, d), Vector3(0, 1.5, 0)))
+	root.add_child(body)
+	B.mesh(root, B.boxm(Vector3(l, 2.8, d)), Vector3(0, 1.4, 0), Color(0.62, 0.15, 0.1))
+	for i in int(l / 0.35):  # pystylaudoitus
+		B.mesh(root, B.boxm(Vector3(0.05, 2.7, 0.04)), Vector3(-l / 2.0 + 0.17 + i * 0.35, 1.35, -d / 2.0 - 0.02), Color(0.52, 0.12, 0.08))
+	var prism := PrismMesh.new()
+	prism.size = Vector3(d + 0.6, 1.4, l + 0.5)
+	var roof := B.mesh(root, prism, Vector3(0, 3.5, 0), Color(0.2, 0.2, 0.22))
+	roof.rotation.y = PI / 2.0
+	var fz := -d / 2.0
+	B.mesh(root, B.boxm(Vector3(1.6, 2.2, 0.06)), Vector3(-l / 4.0, 1.1, fz - 0.03), Color(0.95, 0.95, 0.9))
+	B.mesh(root, B.boxm(Vector3(1.4, 2.0, 0.07)), Vector3(-l / 4.0, 1.1, fz - 0.04), Color(0.55, 0.7, 0.75))
+	for x in [l / 8.0, l / 3.0]:
+		B.mesh(root, B.boxm(Vector3(1.5, 1.1, 0.06)), Vector3(x, 1.6, fz - 0.03), Color(0.95, 0.95, 0.9))
+		B.mesh(root, B.boxm(Vector3(1.3, 0.9, 0.07)), Vector3(x, 1.6, fz - 0.04), Color(0.55, 0.7, 0.75))
+	var sign := B.sign_plate(root, "SALOISTEN SÄÄSTÖPIHA\nKukat · taimet · multa", Color(0.15, 0.4, 0.2), Color(1.0, 0.97, 0.85), 0.42, 72,
+		Color(1.0, 0.97, 0.85), "Helvetica Neue")
+	sign.position = Vector3(l / 8.0, 3.3, fz - 0.06)
+	var dp: Vector3 = root.to_global(Vector3(-l / 4.0, 0, fz - 1.4))
+	saasto_door = Vector3(dp.x, T.h(dp.x, dp.z), dp.z)
+	# Kasvihuone päädyssä.
+	var gh := Node3D.new()
+	gh.position = Vector3(l / 2.0 + 3.2, 0, 0)
+	root.add_child(gh)
+	var glass := Color(0.75, 0.9, 0.85)
+	for side in [-1.0, 1.0]:
+		var wall := B.mesh(gh, B.boxm(Vector3(5.0, 2.0, 0.04)), Vector3(0, 1.0, side * 2.0), glass)
+		wall.transparency = 0.55
+		var rf := B.mesh(gh, B.boxm(Vector3(5.0, 0.04, 2.3)), Vector3(0, 2.55, side * 1.0), glass)
+		rf.rotation.x = side * 0.5
+		rf.transparency = 0.55
+	for e in [-2.5, 2.5]:
+		var ew := B.mesh(gh, B.boxm(Vector3(0.04, 2.0, 4.0)), Vector3(e, 1.0, 0), glass)
+		ew.transparency = 0.55
+	for k in 6:  # rungot
+		B.mesh(gh, B.boxm(Vector3(0.06, 3.1, 0.06)), Vector3(-2.5 + k, 1.5, 2.0), Color(0.9, 0.9, 0.9))
+		B.mesh(gh, B.boxm(Vector3(0.06, 3.1, 0.06)), Vector3(-2.5 + k, 1.5, -2.0), Color(0.9, 0.9, 0.9))
+	for k in 10:  # tomaatintaimet sisällä
+		B.mesh(gh, B.cyl(0.12, 0.08, 0.7, 6), Vector3(-2.0 + (k % 5), 0.35, -1.0 + (k / 5) * 2.0), Color(0.25, 0.55, 0.2))
+	var gb := StaticBody3D.new()
+	gb.add_child(B.box_shape(Vector3(5.0, 2.8, 4.0), Vector3(0, 1.4, 0)))
+	gh.add_child(gb)
+	# Taimipöydät kukkineen ja multasäkit.
+	var flower_cols := [Color(0.95, 0.2, 0.3), Color(0.98, 0.85, 0.2), Color(0.6, 0.3, 0.85), Color(1.0, 0.55, 0.15), Color(0.95, 0.95, 0.95)]
+	for t in 2:
+		var tb := Node3D.new()
+		tb.position = Vector3(l / 8.0 + t * 2.6 - 1.0, 0, fz - 3.0)
+		root.add_child(tb)
+		B.mesh(tb, B.boxm(Vector3(2.2, 0.06, 0.9)), Vector3(0, 0.75, 0), Color(0.55, 0.42, 0.28))
+		for lx in [-1.0, 1.0]:
+			B.mesh(tb, B.boxm(Vector3(0.06, 0.75, 0.8)), Vector3(lx, 0.37, 0), Color(0.45, 0.33, 0.2))
+		for k in 10:
+			var pp := Vector3(-0.9 + (k % 5) * 0.45, 0.83, -0.2 + (k / 5) * 0.4)
+			B.mesh(tb, B.cyl(0.1, 0.08, 0.14, 8), pp, Color(0.65, 0.35, 0.2))
+			B.mesh(tb, B.sphere(0.09, 6), pp + Vector3(0, 0.15, 0), Color(0.25, 0.55, 0.2))
+			B.mesh(tb, B.sphere(0.06, 6), pp + Vector3(0, 0.24, 0), flower_cols[(k + t * 3) % flower_cols.size()])
+	for i in 6:
+		var bag := B.mesh(root, B.boxm(Vector3(0.6, 0.18, 0.4)), Vector3(-l / 2.0 + 0.8 + (i % 3) * 0.05, 0.1 + i * 0.18, fz - 1.5), Color(0.15, 0.4, 0.15) if i % 2 == 0 else Color(0.1, 0.3, 0.12))
+		bag.rotation.y = (i % 2) * 0.2
 
 
 ## Honganpalon koulu (#138): tiilinen koulurakennus OSM-pohjalle (ikkunarivit, katos ja pääovi, kyltti,

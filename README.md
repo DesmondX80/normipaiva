@@ -97,6 +97,16 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Lihapiirakkahaaste (4,90 €): välilyönti haukkaa, A ja D vuorotellen pureskelevat ja W juo limua, ennen kuin vatsa
   täyttyy. Juntin seitsemän piirakan ennätyksen rikkominen on oma onnellinen loppunsa "Lihapiirakkakuningas", ja
   Päivi haistaa sipulin aamulla. Testi `--scene=reippari`.
+- **Sepon varastomyyntipiste:** K-Marketin vieressä Sepon ruskea varasto rojuineen (telkkaripino, renkaat,
+  sukset, pressun alla vanha mopo, joka "ei oo myytävänä, vielä"). Auki ti–su 10–18, ellei Seppo ole kalassa. Päivän
+  kolme tuotetta (teippiä, nippusiteitä, ruuveja, rautalankaa, sähköteippiä tai kummallisuuksia) ja hinnat Sepon
+  mielialan mukaan; kehuminen laskee tai nostaa hintoja, kaljan voi vaihtaa halpaan tavaraan. Yllätyslaatikko
+  (5 €): roskaa, tarvikkeita, kakskymppinen tai Kekkosen rintamerkki, jonka Veksi ostaa 30 €:lla. Seppo ostaa marjat
+  ja vanhan Nokian.
+- **Saloisten säästöpiha:** punainen puutarhamyymälä, kasvihuone ja taimipöydät (ma–pe 9–18, la 9–15). Kukkakimppu
+  Päiville: kotiin illaksi, niin aamulla kymppi ylimääräistä; joka 14. päivä on Päivin syntymäpäivä (vihje
+  edellisenä aamuna), jolloin kukat tuovat kakskymppiä ja unohdus vie kauppa-rahat. Sinikka pyytää tomaatintaimia
+  (palkkiona pullaa), ja multasäkistä Päivi saa kukkapenkin. Testi `--scene=seppo`.
 - **Honganpalon koulu:** 270 m kodista tiilinen koulu kylttineen, lipputanko, pyörätelineet ja kenttä maaleineen.
   Vahtimestari Reijo (8–16) maksaa 15 €, kun keräät iltaporukan roskat pihalta; ikkunasta näkyy Päivin luokkakuva
   vuodelta 1989. Illalla (19–23) portailla istuu porukka mopoineen ja juoruaa, torstaisin (17–19) pihalla on
