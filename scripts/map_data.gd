@@ -75,6 +75,12 @@ const HEINIMAKI := Vector2(412, -684)
 ## varrella (#122). Legendan paikat: kertun_rauta.gd.
 const KERTUNKANGAS := Vector2(1342, -333)
 const KERTUN_TAULU := Vector2(1352, -321)
+## Honganpalon koulu (#138): OSM-koulurakennus, kenttä ja jäätelöauton paikka.
+const HONGAN_KOULU := Vector2(897, 908.7)
+const HONGAN_KENTTA := Vector2(852, 922)
+## Lapinraunio (#139, OSM historic=archaeological_site) ja legendan aarnivalkean paikka (keksitty).
+const LAPINRAUNIO := Vector2(747, 506)
+const AARNI_SPOT := Vector2(729, 487)
 ## Kylän pohjoisosan paikat (#116, #117, #118, #119, #121): OSM-paikat ja -rakennukset.
 const KENTTA := Vector2(569, -279)  # Saloisten kenttä (landuse=recreation_ground)
 const KAUKALO := Vector2(639, -303)
@@ -103,7 +109,7 @@ const NEIGHBOR_SINIKKA := Vector2(855.5, 1204.2)
 const MAILBOX := Vector2(814, 1169)
 ## OSM-rakennukset, joiden tilalle tehdään oma malli (koti, autotalli, naapurit, kauppa).
 const OWN_BUILDINGS := [Vector2(812.4, 1177.9), GARAGE, NEIGHBOR_ARTO, NEIGHBOR_PEKKA, NEIGHBOR_SINIKKA,
-	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO, REIPPARI, PUKUKOPPI, SEO_KATOS, SEO, KATSASTUS, ARTTIM, RUDUS]
+	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO, REIPPARI, PUKUKOPPI, SEO_KATOS, SEO, KATSASTUS, ARTTIM, RUDUS, HONGAN_KOULU]
 
 ## type: highway | road | street | path. h = katuvalot/kylämäisyys tien varrella (0..1).
 ## Tiet ja polut: Osm.ROADS (OpenStreetMap). Tässä vain käsin tehdyt laavupolut (laavu ei ole OSM:ssä).
