@@ -85,6 +85,19 @@ var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
 var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
 var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
 var museum_door: Vector3  # Saloisten Pirtin (kotiseutumuseo) oven edusta
+var hongan_door: Vector3  # Honganpalon koulun pääovi (#138)
+var hongan_window: Vector3  # ikkuna, josta näkyy käytävän luokkakuva
+var hongan_spot: Vector3  # kentän rankkaripiste
+var hongan_kids: Array = []
+var hongan_youth: Node3D  # iltaporukka portailla
+var hongan_youth_pos: Vector3
+var hongan_janitor: Node3D  # vahtimestari Reijo
+var hongan_janitor_pos: Vector3
+var hongan_trash: Array = []  # keikkatyön roskat pihalla
+var hongan_truck: Node3D  # jäätelöauto (torstaisin)
+var hongan_truck_pos: Vector3
+var raunio_pos: Vector3  # Lapinraunion keskipiste (#139)
+var aarni_stone: Node3D  # sammaloitunut kivikasa, hopeat alla
 var kentta_spot: Vector3  # Saloisten kentän rankkaripiste (maalin edessä) (#116)
 var kentta_kids: Array = []  # kentän pojat (näkyvät päivällä)
 var kentta_laps: Array = []  # juoksulenkin kulmat kentän ympäri
@@ -234,6 +247,8 @@ func build(step: Callable) -> void:
 	_build_pontikka()
 	_build_kertunkangas()
 	_build_kentta()
+	_build_honganpalo()
+	_build_lapinraunio()
 	_build_uimaranta()
 	_build_seo()
 	_build_kinnapotti()
@@ -1416,6 +1431,205 @@ func _build_kentta() -> void:
 		var lp := Vector3((-1.0 if k < 2 else 1.0) * (RW / 2.0 + 1.5), 0, (-1.0 if k % 2 == 0 else 1.0) * RL / 3.0)
 		B.mesh(rink, B.cyl(0.1, 0.14, 9.0, 8), lp + Vector3(0, 4.5, 0), Color(0.55, 0.56, 0.58))
 		B.mesh(rink, B.boxm(Vector3(1.0, 0.5, 0.5)), lp + Vector3(0, 9.0, 0), Color(0.3, 0.3, 0.32))
+
+
+## Honganpalon koulu (#138): tiilinen koulurakennus OSM-pohjalle (ikkunarivit, katos ja pääovi, kyltti,
+## lipputanko, pyörätelineet), kenttä maaleineen, pojat, portaiden iltaporukka mopoineen, vahtimestari Reijo,
+## keikkatyön roskat pihalla ja jäätelöauto. Näkyvyydet kellonajan mukaan main.gd:ssä.
+func _build_honganpalo() -> void:
+	var f := _osm_fit_at(M.HONGAN_KOULU)
+	if f.is_empty():
+		return
+	var c: Vector2 = f.c
+	var l: float = f.l
+	var d: float = f.d
+	var h := 4.2
+	var root := Node3D.new()
+	root.position = Vector3(c.x, 0, c.y)
+	root.rotation.y = f.yaw  # paikallinen -Z = julkisivu tielle
+	add_child(root)
+	blockers.append([c, Vector2(l / 2.0, d / 2.0), f.yaw])
+	_add_house(c)
+	for k in [-1.0, 1.0]:
+		_add_house(c + f.ax * k * l * 0.35)
+	var body := StaticBody3D.new()
+	body.add_child(B.box_shape(Vector3(l, h, d), Vector3(0, h / 2.0, 0)))
+	root.add_child(body)
+	var brick := Color(0.62, 0.3, 0.22)
+	B.mesh(root, B.boxm(Vector3(l, h, d)), Vector3(0, h / 2.0, 0), brick)
+	B.mesh(root, B.boxm(Vector3(l + 0.5, 0.35, d + 0.5)), Vector3(0, h + 0.17, 0), Color(0.25, 0.25, 0.27))  # tasakatto
+	B.mesh(root, B.boxm(Vector3(l + 0.02, 0.5, d + 0.02)), Vector3(0, 0.25, 0), Color(0.45, 0.45, 0.45))  # sokkeli
+	var win := Color(0.55, 0.7, 0.82)
+	for side in [-1.0, 1.0]:  # ikkunanauhat pitkille sivuille
+		var n := int(l / 3.2)
+		for i in n:
+			var x := -l / 2.0 + 1.6 + i * (l - 3.2) / maxf(n - 1, 1)
+			if side < 0 and absf(x) < 3.0:
+				continue  # pääoven kohta
+			B.mesh(root, B.boxm(Vector3(2.2, 1.5, 0.06)), Vector3(x, 2.2, side * (d / 2.0 + 0.02)), Color(0.95, 0.95, 0.93))
+			B.mesh(root, B.boxm(Vector3(2.0, 1.3, 0.07)), Vector3(x, 2.2, side * (d / 2.0 + 0.03)), win)
+	# Pääovi katoksineen julkisivun keskellä, portaat.
+	var fz := -d / 2.0
+	B.mesh(root, B.boxm(Vector3(2.6, 2.4, 0.08)), Vector3(0, 1.4, fz - 0.03), Color(0.3, 0.45, 0.55))
+	B.mesh(root, B.boxm(Vector3(0.06, 2.4, 0.1)), Vector3(0, 1.4, fz - 0.05), Color(0.75, 0.75, 0.75))
+	B.mesh(root, B.boxm(Vector3(5.0, 0.2, 2.6)), Vector3(0, 3.0, fz - 1.3), Color(0.3, 0.3, 0.32))  # katos
+	for x in [-2.3, 2.3]:
+		B.mesh(root, B.cyl(0.08, 0.08, 3.0, 8), Vector3(x, 1.5, fz - 2.4), Color(0.6, 0.6, 0.62))
+	for k in 3:  # portaat
+		B.box(root, Vector3(4.0, 0.15, 0.4), Vector3(0, 0.07 + k * 0.15, fz - 1.4 + k * 0.4), Color(0.6, 0.6, 0.58))
+	var sign := B.sign_plate(root, "HONGANPALON KOULU", Color(0.12, 0.25, 0.5), Color.WHITE, 0.4, 60, Color.WHITE, "Helvetica Neue")
+	sign.position = Vector3(0, 3.35, fz - 2.62)
+	var dp: Vector3 = root.to_global(Vector3(0, 0, fz - 3.2))
+	hongan_door = Vector3(dp.x, T.h(dp.x, dp.z), dp.z)
+	var wp: Vector3 = root.to_global(Vector3(-l / 2.0 + 1.6 + (l - 3.2) / maxf(int(l / 3.2) - 1, 1), 0, fz - 1.2))
+	hongan_window = Vector3(wp.x, T.h(wp.x, wp.z), wp.z)
+	# Lipputanko ja Suomen lippu, pyörätelineet.
+	var fp := Vector3(l / 2.0 - 4.0, 0, fz - 6.0)
+	B.mesh(root, B.cyl(0.06, 0.08, 10.0, 8), fp + Vector3(0, 5.0, 0), Color(0.95, 0.95, 0.95))
+	var flag := Node3D.new()
+	flag.position = fp + Vector3(0.9, 9.3, 0)
+	root.add_child(flag)
+	B.mesh(flag, B.boxm(Vector3(1.8, 1.1, 0.02)), Vector3.ZERO, Color(0.97, 0.97, 0.97))
+	B.mesh(flag, B.boxm(Vector3(1.81, 0.3, 0.03)), Vector3.ZERO, Color(0.0, 0.2, 0.55))
+	B.mesh(flag, B.boxm(Vector3(0.3, 1.11, 0.03)), Vector3(-0.25, 0, 0), Color(0.0, 0.2, 0.55))
+	for i in 6:
+		var bx := -l / 2.0 + 4.0 + i * 0.7
+		B.mesh(root, B.boxm(Vector3(0.05, 0.5, 0.6)), Vector3(bx, 0.25, fz - 1.5), Color(0.6, 0.6, 0.62))
+		if i % 2 == 0:
+			B.mesh(root, B.cyl(0.33, 0.33, 0.04, 12), Vector3(bx, 0.35, fz - 1.5), [Color(0.8, 0.1, 0.1), Color(0.1, 0.4, 0.8), Color(0.1, 0.6, 0.3)][i / 2], Vector3(0, 0, 90))
+	# Iltaporukka portailla ja mopo.
+	var yp: Vector3 = root.to_global(Vector3(1.0, 0, fz - 1.6))
+	hongan_youth_pos = Vector3(yp.x, T.h(yp.x, yp.z), yp.z)
+	hongan_youth = Node3D.new()
+	hongan_youth.position = Vector3(yp.x, 0, yp.z)
+	hongan_youth.rotation.y = f.yaw + PI
+	add_child(hongan_youth)
+	var ylooks := [{"model": "male", "shirt": Color(0.1, 0.1, 0.12), "hair": "Hair_Buzzed", "height": 1.75},
+		{"model": "female", "shirt": Color(0.85, 0.3, 0.6), "hair": "Hair_Long", "hair_color": Color(0.9, 0.8, 0.5), "height": 1.62},
+		{"model": "male", "shirt": Color(0.2, 0.5, 0.25), "hair": "Hair_SimpleParted", "height": 1.7}]
+	for i in 3:
+		var lk: Dictionary = ylooks[i].merged({"pants": Color(0.15, 0.18, 0.3), "shoes": Color(0.9, 0.9, 0.9), "skin": Color(0.95, 0.8, 0.7)})
+		var t := Looks.make(hongan_youth, lk)
+		t.position = Vector3(i * 1.0 - 1.0, 0.3 if i == 1 else 0.0, 0.3 * (i % 2))
+		t.play("Sitting_Idle" if i == 1 else "Idle", 0.0)
+	var moped := Node3D.new()
+	moped.position = Vector3(2.4, 0, 0.6)
+	moped.rotation.y = 0.6
+	hongan_youth.add_child(moped)
+	for z in [-0.55, 0.55]:
+		B.mesh(moped, B.cyl(0.25, 0.25, 0.08, 12), Vector3(0, 0.25, z), Color(0.1, 0.1, 0.1), Vector3(0, 0, 90))
+	B.mesh(moped, B.boxm(Vector3(0.3, 0.35, 1.0)), Vector3(0, 0.55, 0), Color(0.9, 0.75, 0.1))
+	B.mesh(moped, B.boxm(Vector3(0.28, 0.1, 0.5)), Vector3(0, 0.78, -0.15), Color(0.1, 0.1, 0.1))
+	# Vahtimestari Reijo: harmaa työtakki, avainnippu.
+	var jp: Vector3 = root.to_global(Vector3(-3.5, 0, fz - 2.2))
+	hongan_janitor_pos = Vector3(jp.x, T.h(jp.x, jp.z), jp.z)
+	hongan_janitor = Looks.make(self, {"model": "male", "shirt": Color(0.45, 0.48, 0.5), "pants": Color(0.2, 0.22, 0.3), "shoes": Color(0.1, 0.1, 0.1),
+		"hair": "Hair_SimpleParted", "hair_color": Color(0.75, 0.75, 0.75), "height": 1.78, "skin": Color(0.92, 0.74, 0.64), "belly": 0.5, "beard": true})
+	hongan_janitor.position = Vector3(jp.x, 0, jp.z)
+	hongan_janitor.rotation.y = f.yaw + PI
+	hongan_janitor.play("Idle", 0.0)
+	# Keikkatyön roskat pihalla (näkyvät, kun keikka on käynnissä).
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 138
+	for i in 7:
+		var tp: Vector3 = root.to_global(Vector3(rng.randf_range(-l / 2.0, l / 2.0), 0, fz - rng.randf_range(4.0, 14.0)))
+		var trash := Node3D.new()
+		trash.position = Vector3(tp.x, 0, tp.z)
+		add_child(trash)
+		if i % 3 == 0:  # tölkki
+			B.mesh(trash, B.cyl(0.04, 0.04, 0.12, 8), Vector3(0, 0.04, 0), Color(0.75, 0.75, 0.8), Vector3(0, 0, 90))
+		elif i % 3 == 1:  # karkkipaperi
+			B.mesh(trash, B.boxm(Vector3(0.15, 0.02, 0.1)), Vector3(0, 0.02, 0), Color(0.95, 0.3, 0.6))
+		else:  # sipsipussi
+			B.mesh(trash, B.boxm(Vector3(0.22, 0.04, 0.3)), Vector3(0, 0.03, 0), Color(0.95, 0.75, 0.1))
+		trash.visible = false
+		hongan_trash.append(trash)
+	# Jäätelöauto pihalla (torstaisin).
+	var ip: Vector3 = root.to_global(Vector3(-l / 2.0 + 3.0, 0, fz - 9.0))
+	hongan_truck_pos = Vector3(ip.x, T.h(ip.x, ip.z), ip.z)
+	hongan_truck = Node3D.new()
+	hongan_truck.position = Vector3(ip.x, 0, ip.z)
+	hongan_truck.rotation.y = f.yaw + PI / 2.0
+	add_child(hongan_truck)
+	B.mesh(hongan_truck, B.boxm(Vector3(2.0, 2.2, 4.6)), Vector3(0, 1.4, 0), Color(0.97, 0.97, 0.97))
+	B.mesh(hongan_truck, B.boxm(Vector3(2.02, 0.4, 4.62)), Vector3(0, 0.7, 0), Color(0.2, 0.55, 0.9))
+	B.mesh(hongan_truck, B.boxm(Vector3(1.9, 0.9, 0.05)), Vector3(0, 1.9, 2.31), Color(0.5, 0.65, 0.75))
+	B.mesh(hongan_truck, B.boxm(Vector3(0.05, 0.9, 1.6)), Vector3(1.01, 1.7, -0.6), Color(0.15, 0.12, 0.1))  # myyntiluukku
+	var ts := B.sign_plate(hongan_truck, "JÄÄTELÖ", Color(0.95, 0.35, 0.55), Color.WHITE, 0.4, 60, Color.WHITE, "Helvetica Neue")
+	ts.position = Vector3(1.03, 2.75, -0.6)
+	ts.rotation.y = PI / 2.0
+	for z in [1.5, -1.5]:
+		for x in [-0.95, 0.95]:
+			B.mesh(hongan_truck, B.cyl(0.38, 0.38, 0.25, 12), Vector3(x, 0.38, z), Color(0.1, 0.1, 0.1), Vector3(0, 0, 90))
+	hongan_truck.visible = false
+	# Kenttä: viivat, maalit ja pojat.
+	var kc := M.w2(M.HONGAN_KENTTA)
+	var field := Node3D.new()
+	field.position = Vector3(kc.x, 0, kc.y)
+	field.rotation.y = f.yaw
+	add_child(field)
+	_tree_free.append([kc, 26.0])
+	var W := 20.0
+	var L := 32.0
+	B.mesh(field, B.boxm(Vector3(W + 2, 0.02, L + 2)), Vector3(0, 0.02, 0), Color(0.33, 0.55, 0.24))
+	for z in [-L / 2.0, 0.0, L / 2.0]:
+		B.mesh(field, B.boxm(Vector3(W, 0.03, 0.1)), Vector3(0, 0.035, z), Color(0.95, 0.95, 0.92))
+	for x in [-W / 2.0, W / 2.0]:
+		B.mesh(field, B.boxm(Vector3(0.1, 0.03, L)), Vector3(x, 0.035, 0), Color(0.95, 0.95, 0.92))
+	for side in [-1.0, 1.0]:
+		var z: float = side * L / 2.0
+		for x in [-1.6, 1.6]:
+			B.mesh(field, B.cyl(0.05, 0.05, 1.6, 8), Vector3(x, 0.8, z), Color(0.95, 0.95, 0.95))
+		B.mesh(field, B.cyl(0.05, 0.05, 3.3, 8), Vector3(0, 1.6, z), Color(0.95, 0.95, 0.95), Vector3(0, 0, 90))
+		B.mesh(field, B.boxm(Vector3(3.2, 1.6, 0.02)), Vector3(0, 0.8, z + side * 0.9), Color(0.9, 0.9, 0.9)).transparency = 0.6
+	var sp: Vector3 = field.to_global(Vector3(0, 0, -L / 2.0 + 5.5))
+	hongan_spot = Vector3(sp.x, T.h(sp.x, sp.z), sp.z)
+	var kid_cols := [Color(0.2, 0.7, 0.3), Color(0.95, 0.5, 0.1)]
+	for i in 2:
+		var kid := Looks.make(field, {"model": "male", "shirt": kid_cols[i], "pants": Color(0.15, 0.15, 0.2), "shoes": Color(0.9, 0.9, 0.9),
+			"hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.35, 0.2), "height": 1.4 + i * 0.08, "skin": Color(0.95, 0.8, 0.7)})
+		kid.position = Vector3(0, 0, -L / 2.0 + 0.6) if i == 0 else Vector3(2.5, 0, -L / 2.0 + 8.0)
+		kid.rotation.y = 0.0 if i == 0 else PI
+		kid.play("Idle", 0.0)
+		hongan_kids.append(kid)
+
+
+## Lapinraunio (#139): iso sammaloitunut kiviröykkiö metsässä (rauhoitettu) ja legendan aarnivalkean paikalla
+## pienempi sammaloitunut kivikasa, jonka alla Isonvihan hopeat. Liekit ja Pannu-Sulo main.gd:ssä.
+func _build_lapinraunio() -> void:
+	var c := M.w2(M.LAPINRAUNIO)
+	raunio_pos = Vector3(c.x, T.h(c.x, c.y), c.y)
+	_tree_free.append([c, 10.0])
+	var site := Node3D.new()
+	add_child(site)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 139
+	var granite := Color(0.5, 0.49, 0.46)
+	var moss := Color(0.34, 0.43, 0.22)
+	for k in 70:  # röykkiö: kivet kasassa, keskeltä korkein
+		var a := rng.randf() * TAU
+		var r := sqrt(rng.randf()) * 4.2
+		var sz := rng.randf_range(0.3, 0.55)
+		var y := (4.2 - r) * 0.28 + sz * 0.3
+		var st := B.mesh(site, B.sphere(sz, 9), Vector3(c.x + cos(a) * r, y, c.y + sin(a) * r),
+			granite.lerp(moss, rng.randf() * 0.6).darkened(rng.randf() * 0.15))
+		st.scale = Vector3(rng.randf_range(0.9, 1.2), 0.7, rng.randf_range(0.9, 1.2))
+	var mound := B.mesh(site, B.sphere(4.3, 16), Vector3(c.x, -2.9, c.y), moss.darkened(0.1))
+	mound.scale = Vector3(1.0, 0.95, 1.0)
+	var rb := StaticBody3D.new()
+	rb.position = Vector3(c.x, 0, c.y)
+	rb.add_child(B.capsule_shape(3.2, 2.0))
+	add_child(rb)
+	var ap := M.w2(M.AARNI_SPOT)
+	aarni_stone = Node3D.new()
+	aarni_stone.position = Vector3(ap.x, 0, ap.y)
+	add_child(aarni_stone)
+	for k in 9:
+		var a := k * TAU / 9.0
+		var st2 := B.mesh(aarni_stone, B.sphere(rng.randf_range(0.22, 0.32), 8), Vector3(cos(a) * 0.55, 0.12, sin(a) * 0.55), granite.lerp(moss, 0.7))
+		st2.scale = Vector3(1.1, 0.6, 1.0)
+	B.mesh(aarni_stone, B.sphere(0.45, 10), Vector3(0, 0.18, 0), granite.lerp(moss, 0.5)).scale = Vector3(1.2, 0.6, 1.0)
+	_tree_free.append([ap, 4.0])
 
 
 ## Oravajärven uimaranta (#117): hiekkaranta, laituri järvelle, pukukoppi (OSM-rakennus), grillipaikka, penkki,

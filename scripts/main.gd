@@ -223,6 +223,7 @@ const Tokola := preload("res://scripts/tokola.gd")
 const TokolaVarasto := preload("res://scripts/tokola_varasto.gd")
 const SuloPannu := preload("res://scripts/sulo_pannu.gd")
 const KertunRauta := preload("res://scripts/kertun_rauta.gd")
+const Aarnivalkea := preload("res://scripts/aarnivalkea.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 const Journal := preload("res://scripts/journal.gd")
@@ -305,6 +306,7 @@ var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.g
 var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
+var aarni: RefCounted  # legenda: Lapinraunion aarnivalkea (aarnivalkea.gd, #139)
 var endings: RefCounted  # onnellisten loppujen kokoelma (endings.gd, #132)
 var quests: RefCounted  # tarinan luvut ja sivutehtävät (quests.gd, #132)
 var _journal: Control  # Normipäiväkirja (O), journal.gd
@@ -688,6 +690,8 @@ const TALKERS := {
 	"reippari_nuoret": ["Kioskin porukka", Color(0.6, 0.9, 1.0)],
 	"veksi": ["Veksi", Color(0.75, 0.65, 0.95)],
 	"seo": ["Huoltiksen myyjä", Color(0.4, 0.85, 0.55)],
+	"vahtimestari": ["Vahtimestari Reijo", Color(0.7, 0.75, 0.8)],
+	"hongan_nuoret": ["Portailla istuva porukka", Color(0.6, 0.9, 1.0)],
 	"aplus": ["Ravintola A+", Color(1.0, 0.6, 0.55)],
 	"katsastaja": ["Katsastusmies", Color(0.6, 0.75, 1.0)],
 	"hitsari": ["Arttimin hitsari", Color(1.0, 0.65, 0.3)]}
@@ -709,6 +713,8 @@ const TALK_HELLO := {
 	"reippari": ["No mitäs saisi olla?", "Grilli on kuuma, sano vaan.", "Kas, Järvikujan mies. Taas nälkä?"],
 	"reippari_nuoret": ["No moi. Ootko sää se tyyppi Järvikujalta?", "Mitä sää tuijotat? Ai, juttelemaan vaan.", "Moro. Ei oo mitään kiellettyä tässä."],
 	"sinikka_seura": ["No hei! Tuliks sää tanssimaan?", "Kas, komistus seuraintalolla. Päivi kotona?"],
+	"vahtimestari": ["No? Kesäloma on. Koulu on kiinni.", "Reijo, vahtimestari. Mitäs täällä pyöritään?"],
+	"hongan_nuoret": ["Mitä sää setä täällä teet?", "Moro. Ei me mitään tehty.", "Ootko sää se Järvikujan tyyppi?"],
 	"seo": ["Moi. Kahvi on keitetty, munkit tuoreita. Melkein.", "SEO Saloinen, auki aina. Mitä saisi olla?"],
 	"aplus": ["Päivää! Tänään lihapullia ja muusia.", "Tervetuloa A+:aan. Istu vaan, rekkamiehet ei pure."],
 	"katsastaja": ["Saloisten katsastus. Mitäs tuotiin?", "Päivää. Rekisteriote mukana? No ei se mitään."],
@@ -743,6 +749,7 @@ const FOODS := {
 	"mustikkapiirakka": {"name": "Sinikan mustikkapiirakka", "nalka": 0.45, "stressi": 0.1, "moraali": 0.15},
 	"makkaraperunat": {"name": "Reipparin makkaraperunat", "nalka": 0.6, "stressi": 0.1},
 	"piirakka_kaikilla": {"name": "Lihapiirakka kaikilla (Reippari)", "nalka": 0.5, "stressi": 0.05},
+	"jaatelo": {"name": "Jäätelötuutti (jäätelöauto)", "nalka": 0.15, "stressi": 0.1, "moraali": 0.05},
 	"munkki": {"name": "SEO:n munkki", "nalka": 0.25, "stressi": 0.05, "vireys": 0.05},
 	"hampurilainen": {"name": "Reipparin hampurilainen", "nalka": 0.55, "moraali": 0.05},
 }
@@ -983,6 +990,7 @@ func _ready() -> void:
 	tokola = Tokola.new()
 	pannu = SuloPannu.new()
 	kertun = KertunRauta.new()
+	aarni = Aarnivalkea.new()
 	endings = Endings.new()
 	quests = Quests.new()
 	_load_game()
@@ -1420,6 +1428,8 @@ func _outside_logic() -> void:
 	_pannu_logic()
 	_kertun_logic()
 	_pohjoiset_logic()
+	_hongan_logic()
+	_aarni_logic()
 	_reippari_logic()
 	_atm_logic()
 	_drone_logic()
@@ -2337,6 +2347,15 @@ func _talk_kirppis(id: String) -> void:
 	if id == "romu":
 		_pannu_scrap()
 		return
+	if id == "aarnivalkea":
+		aarni.heard = true
+		tilat.first("aarni_legenda", 0.2)
+		_save_game()
+		_talk_box.reply("Lapinraunio? No kuule. Mun mummo kertoi: Isonvihan aikaan, kun kasakat tuli, talolliset kätki hopeansa "
+			+ "raunion lähelle. Ja sen jälkeen siellä on palanu öisin aarnivalkea, sininen liekki aarteen päällä. Kaikki nauraa, "
+			+ "mutta mää näin sen kerran tyttönä. Mene yöllä kattomaan, jos uskallat.", _talk_options(),
+			"Legenda: Lapinraunion aarnivalkea. Raunio on Kiilinlammen pohjoispuolella. Yöllä (22–4) kannattaa käydä.")
+		return
 	if id == "markat":
 		tokola.markat = false
 		money += TOKOLA_MARKAT
@@ -3127,6 +3146,284 @@ func _rossi_update_clock() -> void:
 				"\nOMA %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""]
 
 
+## --- Honganpalon koulu (#138) ------------------------------------------------------------------------------
+const HONGAN_PALKKA := 15.0
+const HONGAN_JANITOR := Vector2(8 * 60, 16 * 60)
+const HONGAN_YOUTH := Vector2(19 * 60, 23 * 60)
+const HONGAN_TRUCK := Vector2(17 * 60, 19 * 60)  # torstaisin
+const JAATELO := 2.5
+const HONGAN_JUORUT := [
+	["Lapinrauniolla palaa yöllä sininen tuli! Ihan totta, Jere näki. Mummo Hilkka sanoo, että se on aarnivalkea.", "juoru_aarnivalkea"],
+	["Reijo-vahtimestari jahtas meitä eilen luudan kanssa. Sillä on avaimet joka oveen.", ""],
+	["Torstaisin tulee jäätelöauto. Se soittaa sitä samaa biisiä, joka on soinu kaheksankymmentäluvulta asti.", ""],
+	["Sun vaimo oli tän koulun oppilas. Reijo kertoo siitä aina. Etupenkki ja kantelupukki.", ""],
+	["Saloisten kentällä pojat pelaa rankkareita. Ne on ihan hyviä.", ""],
+]
+const LUOKKAKUVAT := ["Käytävän seinällä luokkakuva vuodelta 1989: Päivi etupenkissä, permanentti ja pipo. Tästä saa vielä irti.",
+	"Ikkunan takana tyhjä luokka. Liitutaululla lukee \"HYVÄÄ KESÄÄ\" ja joku on piirtänyt sen alle jotain, mitä ei kehtaa sanoa.",
+	"Käytävällä pokaalikaappi: \"Honganpalon koulu, hiihtokisat 1991, 3. sija\". Kolme osallistujaa."]
+var _hongan_day := -1
+var _hongan_keikka := false
+
+
+func _hongan_trash_left() -> int:
+	return world.hongan_trash.filter(func(t): return t.visible).size()
+
+
+func _hongan_logic() -> void:
+	if world == null or world.hongan_door == Vector3.ZERO:
+		return
+	var day_janitor := _between(clock_min, HONGAN_JANITOR)
+	world.hongan_janitor.visible = day_janitor
+	world.hongan_youth.visible = _between(clock_min, HONGAN_YOUTH)
+	world.hongan_truck.visible = _weekday() == 3 and _between(clock_min, HONGAN_TRUCK)
+	for k in world.hongan_kids:
+		k.visible = _between(clock_min, RANKKU_OPEN)
+	if _hint.text != "" or player == bike or player.is_stunned() or not _near_xz(world.hongan_door, 70.0):
+		return
+	tilat.first("honganpalo", 0.1)
+	var e := Input.is_action_just_pressed("interact")
+	if _hongan_keikka:
+		for t in world.hongan_trash:
+			if t.visible and _near_xz(t.global_position, 1.5):
+				_hint.text = "[E] Poimi roska"
+				if e:
+					t.visible = false
+					Sfx.play("pickup", -6.0, 1.2)
+					if _hongan_trash_left() == 0:
+						_hongan_keikka = false
+						money += HONGAN_PALKKA
+						tilat.first("vahtimestari_keikka", 0.3)
+						tilat.add("stamina", -0.05)
+						Sfx.play("coin", -4.0)
+						_save_game()
+						_show_message("Piha puhdas! Reijo ojentaa %s €: \"Ei paha. Päivi ei ois ikinä kerännyt mitään.\"" % _eur(HONGAN_PALKKA), 4.0)
+				return
+	if world.hongan_janitor.visible and _near_xz(world.hongan_janitor_pos, 2.2):
+		_hint.text = "[E] Vahtimestari Reijo"
+		if e:
+			_talk_open("vahtimestari", world.hongan_janitor)
+		return
+	if world.hongan_youth.visible and _near_xz(world.hongan_youth_pos, 3.0):
+		_hint.text = "[E] Juttele portailla istuvan porukan kanssa"
+		if e:
+			_talk_open("hongan_nuoret", null)
+		return
+	if world.hongan_truck.visible and _near_xz(world.hongan_truck_pos, 3.5):
+		_hint.text = "[E] Jäätelöauto: tuutti (%s €)" % _eur(JAATELO)
+		if e:
+			if money < JAATELO:
+				_show_message("Rahat ei riitä edes tuuttiin.", 2.0)
+			else:
+				money -= JAATELO
+				food["jaatelo"] = food.get("jaatelo", 0) + 1
+				tilat.first("jaateloauto", 0.1)
+				Sfx.play("register", -6.0)
+				_show_message("Tuutti reppuun. Jäätelöauton kaiuttimesta soi sama melodia kuin vuonna 1985.", 3.0)
+		return
+	if _near_xz(world.hongan_window, 2.0):
+		_hint.text = "[E] Kurkkaa koulun ikkunasta"
+		if e:
+			var first: bool = not ("luokkakuva" in tilat.firsts)
+			tilat.first("luokkakuva", 0.2)
+			if first:
+				tilat.add("moraali", 0.15)
+			_show_message(LUOKKAKUVAT[0] if first else LUOKKAKUVAT.pick_random(), 4.5)
+		return
+	if _near_xz(world.hongan_spot, 3.0):
+		if not world.hongan_kids[0].visible:
+			_hint.text = "Koulun kenttä. Pojat pelaa täällä päivisin."
+		elif _rankku_day == day:
+			_hint.text = "Pojat: \"Huomenna uusiks, setä!\""
+		else:
+			_hint.text = "[E] Rankkarit Honganpalon poikien kanssa"
+			if e:
+				_start_rankku()
+		return
+	if world.hongan_janitor.visible and beers > 0 and _near_xz(world.hongan_janitor_pos, 9.0) and _once_today("reijo_kalja"):
+		_show_message("Reijo: \"Ja kaljat pysyy repussa koulun pihalla!\"", 2.5)
+
+
+func _hongan_start_keikka() -> void:
+	_hongan_day = day
+	_hongan_keikka = true
+	for t in world.hongan_trash:
+		t.visible = true
+	_save_game()
+	_talk_box.reply("Hommia? No, iltaporukka jätti taas tölkit ja karkkipaperit pitkin pihaa. Seittemän roskaa, viistoista euroa. "
+		+ "Ja älä kerro kenellekään, että mää maksoin.", _talk_options(), "Kerää 7 roskaa koulun pihalta.")
+
+
+## --- Lapinraunion aarnivalkea (#139) -------------------------------------------------------------------------
+const AARNI_DOUBT := {
+	"arto": ["Sininen liekki? Se on Pannu-Sulon pannun alla oleva kaasupoltin.", "Lapinraunio on kivikasa. Kivikasoja on joka metsässä."],
+	"annaliisa": ["Juhannusyönä näkee kaikenlaista, kun on juonut.", "Hilkka kertoo noita juttuja kaikille. Älä usko."],
+	"pekka": ["Kasakat, perkele. Hopeat on viety jo sata vuotta sitten.", "Aarnivalkea? Mää näin kerran sinisen tulen. Se oli Volvon jarruvalo."],
+}
+const AARNI_PROVEN := {
+	"arto": ["Hopeat Lapinrauniosta! No en mää sitä ihan valheeksi sanonu…", "Hilkka oli oikeessa. Kerro se sille, se tykkää."],
+	"annaliisa": ["Lehdessä se oli, kuvan kanssa. Isonvihan hopeat Saloisista!", "No en mää sitä ihan valheeksi sanonu…"],
+	"pekka": ["Perkele, kasakoiden aikaiset hopeat! Mää tarjoan kierroksen.", "Kaljapuhetta, sanoin. Taas väärin, saatana."],
+}
+var _aarni_flame: Node3D
+var _aarni_sulo: Node3D
+
+
+func _aarni_nodes() -> void:
+	if _aarni_flame != null or world == null or world.aarni_stone == null:
+		return
+	_aarni_flame = Node3D.new()
+	add_child(_aarni_flame)
+	var core := B.mesh(_aarni_flame, B.cyl(0.0, 0.32, 1.05, 12), Vector3(0, 0.6, 0), Color(0.35, 0.6, 1.0))
+	core.material_override = B.unshaded(Color(0.4, 0.65, 1.0, 0.85))
+	core.material_override.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var inner := B.mesh(_aarni_flame, B.cyl(0.0, 0.12, 0.45, 8), Vector3(0, 0.35, 0), Color(0.8, 0.9, 1.0))
+	inner.material_override = B.unshaded(Color(0.85, 0.95, 1.0, 0.9))
+	var sparks := CPUParticles3D.new()  # leijuvat siniset kipinät
+	sparks.amount = 24
+	sparks.lifetime = 1.6
+	sparks.direction = Vector3.UP
+	sparks.spread = 25.0
+	sparks.initial_velocity_min = 0.3
+	sparks.initial_velocity_max = 0.8
+	sparks.gravity = Vector3(0, 0.2, 0)
+	sparks.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	sparks.emission_sphere_radius = 0.25
+	var sm := SphereMesh.new()
+	sm.radius = 0.03
+	sm.height = 0.06
+	sm.material = B.unshaded(Color(0.6, 0.8, 1.0, 0.9))
+	sparks.mesh = sm
+	sparks.position = Vector3(0, 0.7, 0)
+	_aarni_flame.add_child(sparks)
+	var light := OmniLight3D.new()
+	light.position = Vector3(0, 0.6, 0)
+	light.light_color = Color(0.4, 0.6, 1.0)
+	light.light_energy = 2.0
+	light.omni_range = 6.0
+	_aarni_flame.add_child(light)
+	_aarni_flame.visible = false
+	_aarni_sulo = Looks.make(self, Looks.SULO)
+	_aarni_sulo.visible = false
+
+
+func _aarni_tasks() -> Array:
+	if not aarni.heard or aarni.choice != "":
+		return []
+	var step := "kaiva sammaloituneen kivikasan alta (liekin kohta)"
+	if aarni.found:
+		step = "Saloisten Pirttiin vai kirppiksen takahuoneeseen?"
+	elif not aarni.sulo:
+		step = "käy yöllä (22–4) Lapinraunion luona"
+	elif not aarni.poytakirja:
+		step = "kysy Saloisten Pirtistä vanhoja käräjäpöytäkirjoja"
+	elif not (aarni.liekki or aarni.spotted):
+		step = "katso yöllä uudestaan, tai droonin yökuva"
+	return [["Lapinraunion aarnivalkea: " + step, false]]
+
+
+func _aarni_logic() -> void:
+	if aarni == null or world == null or world.aarni_stone == null:
+		return
+	_aarni_nodes()
+	var night := _between(clock_min, Aarnivalkea.NIGHT)
+	var p := player.global_position
+	var rp: Vector3 = world.raunio_pos
+	var ap := M.w(M.AARNI_SPOT)
+	# Liekki: ensin Pannu-Sulon kaasupoltin raunion vieressä, sitten oikea aarnivalkea kivikasan kohdalla.
+	var show_sulo: bool = aarni.heard and night and not aarni.sulo
+	var show_real: bool = aarni.heard and night and aarni.sulo and aarni.poytakirja and not aarni.found
+	_aarni_flame.visible = show_sulo or show_real
+	if show_sulo:
+		_aarni_flame.global_position = rp + Vector3(4.6, 0, 1.0)
+		_aarni_sulo.visible = true
+		_aarni_sulo.global_position = rp + Vector3(5.4, 0, 1.6)
+		_aarni_sulo.look_at(rp + Vector3(4.6, 0, 1.0), Vector3.UP, true)
+	else:
+		_aarni_sulo.visible = false
+		if show_real:
+			_aarni_flame.global_position = ap + Vector3(0, 0.3, 0)
+	if _aarni_flame.visible:
+		_aarni_flame.scale = Vector3.ONE * (0.9 + sin(Time.get_ticks_msec() * 0.012) * 0.1)
+	if _hint.text != "" or player == bike or player.is_stunned():
+		return
+	var e := Input.is_action_just_pressed("interact")
+	var dr := Vector2(p.x - rp.x, p.z - rp.z).length()
+	if show_sulo and dr < 9.0:
+		aarni.sulo = true
+		_save_game()
+		Sfx.play("whoosh", -6.0, 0.6)
+		_show_message("Sininen liekki... ja sen takana Pannu-Sulo kaasupolttimen ja pannun kanssa! Sulo: \"ET NÄHNY MITÄÄN. "
+			+ "Tää on... kaasugrilli.\" Hän pakkaa tavaransa ja katoaa metsään. Aarnivalkea oli siis Sulo... vai oliko?", 6.0)
+		return
+	if dr < 5.5:
+		_hint.text = "Lapinraunio: rauhoitettu muinaisjäännös. Sammal ja kivet, ei kaiveta."
+		return
+	var da := Vector2(p.x - ap.x, p.z - ap.z).length()
+	if show_real and da < 14.0 and not aarni.liekki:
+		aarni.liekki = true
+		_save_game()
+		_show_message("Toinen sininen liekki, tällä kertaa sammaloituneen kivikasan päällä. Ketään ei ole täällä. Aarnivalkea palaa aarteen päällä!", 5.5)
+		return
+	if da < 2.0 and aarni.heard and not aarni.found:
+		if aarni.poytakirja and (aarni.liekki or aarni.spotted):
+			_hint.text = "[E] Siirrä kiviä ja kaiva sammalen alta"
+			if e:
+				aarni.found = true
+				_aarni_flame.visible = false
+				world.aarni_stone.rotation.z = 0.3
+				_kertun_sync()
+				tilat.add("vasymys", -0.12)
+				tilat.first("aarni_hopeat", 0.6)
+				Sfx.play("rattle_hard", -4.0, 0.8)
+				_save_game()
+				_show_message("Sammalen alla tuohikontti, ja sen sisällä mustuneita hopearahoja ja lusikoita! Isonvihan hopeat. "
+					+ "Hilkka oli oikeassa. Saloisten Pirttiin vai kirppiksen takahuoneeseen?", 6.0)
+		else:
+			_hint.text = "Sammaloitunut kivikasa. Ihan tavallinen... vai onko?"
+
+
+## Saloisten Pirtti: vanha käräjäpöytäkirja ja hopeiden lahjoitus.
+func _aarni_museum() -> void:
+	if aarni == null or not aarni.heard or aarni.choice != "" or _hint.text != "":
+		return
+	var md: Vector3 = world.museum_door
+	if not _near_xz(md, 3.0):
+		return
+	if aarni.found:
+		_hint.text = "[E] Saloisten Pirtti: vie Isonvihan hopeat kotiseutumuseolle"
+		if Input.is_action_just_pressed("interact"):
+			aarni.choice = "museo"
+			_kertun_sync()
+			_ending("aarnivalkea")
+			money += Aarnivalkea.MUSEO_PALKKIO
+			maine = clampf(maine + Aarnivalkea.MUSEO_MAINE, 0.0, 100.0)
+			tilat.add("moraali", 0.3)
+			Sfx.play("win_small", -4.0)
+			_save_game()
+			_show_message("Opas vertaa rahoja käräjäpöytäkirjaan: \"Juuri nämä!\" Raahen museo vahvistaa 1700-luvun alun hopeat. Löytöpalkkio "
+				+ "%s €, lehtijuttu kuvan kera ja maine +%d. Hilkka saa kuulla tästä." % [_eur(Aarnivalkea.MUSEO_PALKKIO), roundi(Aarnivalkea.MUSEO_MAINE)], 6.5)
+	elif not aarni.poytakirja:
+		_hint.text = "[E] Saloisten Pirtti: kysy vanhoja käräjäpöytäkirjoja"
+		if Input.is_action_just_pressed("interact"):
+			aarni.poytakirja = true
+			tilat.first("aarni_poytakirja", 0.2)
+			_save_game()
+			_show_message("Pirtin opas kaivaa esiin vanhan käräjäpöytäkirjan jäljennöksen: talollinen \"ei tiennyt, mihin hopeat "
+				+ "jäivät, kun kasakat tuli\". Hopeat piilotettiin \"Lapinraunion luo, kivien alle, sammalen sekaan\". Ei raunion sisään!", 6.5)
+
+
+func _aarni_sell() -> void:
+	aarni.choice = "kerailija"
+	money += Aarnivalkea.KERAILIJA_HINTA
+	maine = clampf(maine - 5.0, 0.0, 100.0)
+	_kertun_sync()
+	Sfx.play("coin", -4.0)
+	_save_game()
+	_talk_box.reply("Veksi punnitsee hopeat kädessä. \"Satakaheksankymmentä. Ja Hilkalle et kerro mitään.\"", _talk_options(),
+		"+%s €. Legenda jää todistamatta, ja Hilkka jää naurunalaiseksi. Kylällä alkaa liikkua juttuja..." % _eur(Aarnivalkea.KERAILIJA_HINTA))
+
+
 ## --- Kertunkankaan rauta (#122): kehäröykkiöt, opastaulu ja legenda viimeisen sepän kirveestä ------------------
 ## Opastaulun teksti oikeista tiedoista (Visit Raahe / Outdooractive "Kertunkangas" ja Raahen Seutu "Rauta-aika on hyvinkin
 ## lähellä"). Legenda (kirves, seppä) on keksitty ja pidetään erillään taulusta.
@@ -3175,7 +3472,7 @@ func _kertun_sync() -> void:
 	if world.kertun_isokivi != null:
 		world.kertun_isokivi.rotation.z = 0.35 if kertun.found else 0.0
 	if kirppis_int != null and "veksi_open" in kirppis_int:
-		kirppis_int.veksi_open = kertun.found and kertun.choice == ""
+		kirppis_int.veksi_open = (kertun.found and kertun.choice == "") or (aarni != null and aarni.found and aarni.choice == "")
 
 
 func _kertun_heard() -> void:
@@ -3225,11 +3522,18 @@ func _kertun_near(px: Vector2, r: float) -> bool:
 func _kertun_logic() -> void:
 	if kertun == null or world == null:
 		return
+	if aarni.choice == "kerailija" and not aarni.poliisi and state in ["to_shop", "to_home"]:
+		aarni.poliisi = true
+		_save_game()
+		_call_police("kirves")
 	if kertun.choice == "kerailija" and not kertun.poliisi and state in ["to_shop", "to_home"]:
 		kertun.poliisi = true
 		_save_game()
 		_call_police("kirves")
 	if _hint.text != "" or player == bike:
+		return
+	_aarni_museum()
+	if _hint.text != "":
 		return
 	_kertun_museum()
 	if _hint.text != "" or not _kertun_near(M.KERTUNKANGAS, 120.0):
@@ -3566,6 +3870,10 @@ func quest_flag(name: String) -> bool:
 			return pannu.heard
 		"pannu_done":
 			return pannu.choice != ""
+		"aarni_heard":
+			return aarni.heard
+		"aarni_done":
+			return aarni.choice != ""
 		"kertun_heard":
 			return kertun.heard
 		"kertun_done":
@@ -4568,6 +4876,9 @@ func _drone_pois() -> Array:
 	for id in fixed:
 		var at: Vector3 = M.w(fixed[id])
 		out.append({"id": id, "name": DRONE_POIS[id], "pos": func() -> Vector3: return at + Vector3(0, 1.0, 0)})
+	if aarni.sulo and not aarni.spotted and not aarni.found and _between(clock_min, Aarnivalkea.NIGHT):
+		var aat: Vector3 = M.w(M.AARNI_SPOT)
+		out.append({"id": "aarni_hehku", "name": "Sinertävä hehku sammalten alla Lapinraunion luona!", "pos": func() -> Vector3: return aat + Vector3(0, 0.3, 0)})
 	if kertun.heard and not kertun.spotted:
 		var rat: Vector3 = M.w((KertunRauta.RIVI_A + KertunRauta.RIVI_B) / 2.0)
 		out.append({"id": "kertun_rivi", "name": "Suora kivirivi sammaleen alla Kertunkankaalla!", "pos": func() -> Vector3: return rat + Vector3(0, 0.3, 0)})
@@ -4618,6 +4929,9 @@ func _on_drone_photo(id: String) -> void:
 		_drone.photo_count = n
 	tilat.add("kokemus", 0.05)
 	Sfx.play("win_small", -8.0, 1.2)
+	if id == "aarni_hehku" and not aarni.spotted:
+		aarni.spotted = true
+		_queue_message("Yökuvassa kivikasan kohdalla hehkuu sinistä, vaikka siellä ei ole ketään. Aarnivalkea? Merkki karttaan (M).", 5.0)
 	if id == "kertun_rivi" and not kertun.spotted:
 		kertun.spotted = true
 		_queue_message("Kankaalla sammaleen alla kulkee suora kivirivi, luonto ei tee noin. Rivi päättyy isoon kiveen. Merkki karttaan (M).", 5.0)
@@ -6739,6 +7053,8 @@ func _talk_options(who := "") -> Array:
 			if kirppis_int.mode != "kirppis":
 				_seura_options(who, o)
 			else:
+				if who == "hilkka" and not aarni.heard:
+					o.append(_opt("aarnivalkea", "Onko Lapinrauniosta jotain juttuja?", true, "", "juoru_aarnivalkea" in tilat.firsts))
 				if who == "tauno" and pannu.found and pannu.choice == "":
 					o.append(_opt("romu", "Myy vanha kuparipannu romuksi (%s €)" % _eur(PANNU_ROMU), true, "", true))
 				if who == "raili" and tokola.markat:
@@ -6782,6 +7098,15 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("vanhasulo", "Kuka oli se S. S. kauppiaan kirjoissa?", true, "", tokola.tilikirja))
 		"seo", "aplus", "katsastaja", "hitsari":
 			_pohjoiset_options(who, o)
+		"vahtimestari":
+			if _hongan_keikka:
+				o.append(_opt("x_keikka", "Roskat kesken (%d jäljellä)" % _hongan_trash_left(), false, "kerää ensin roskat pihalta"))
+			else:
+				o.append(_opt("keikka", "Onko hommia? (roskat pihalta, %s €)" % _eur(HONGAN_PALKKA), _hongan_day != day,
+					"huomenna taas", true))
+		"veksi":
+			if aarni.found and aarni.choice == "":
+				o.append(_opt("hopeat", "Myy Isonvihan hopeat (%s €)" % _eur(Aarnivalkea.KERAILIJA_HINTA), true, "", true))
 		"veksi":
 			if kertun.found and kertun.choice == "":
 				o.append(_opt("kirves", "Myy rautakautinen kirves (%s €)" % _eur(KertunRauta.KERAILIJA_HINTA), true, "", true))
@@ -6961,8 +7286,13 @@ func _talk_choose(id: String) -> void:
 		"veksi":
 			if id == "kirves":
 				_kertun_sell()
+			elif id == "hopeat":
+				_aarni_sell()
 		"seo", "aplus", "katsastaja", "hitsari":
 			_pohjoiset_choose(id)
+		"vahtimestari":
+			if id == "keikka":
+				_hongan_start_keikka()
 		"reippari":
 			_talk_reippari(id)
 		"siitari_sinikka":
@@ -7173,6 +7503,8 @@ func _talk_chat_line() -> String:
 		return sh
 	if _talk_who in ["pekka", "arto"] and tokola.proven() and randf() < 0.4:
 		return (TOKOLA_PROVEN[_talk_who] as Array).pick_random()
+	if AARNI_DOUBT.has(_talk_who) and aarni.heard and randf() < 0.45:
+		return ((AARNI_PROVEN if aarni.proven() else AARNI_DOUBT)[_talk_who] as Array).pick_random()
 	if KERTUN_DOUBT.has(_talk_who) and kertun.heard and randf() < 0.45:
 		return ((KERTUN_PROVEN if kertun.proven() else KERTUN_DOUBT)[_talk_who] as Array).pick_random()
 	if _talk_who in ["pekka", "arto", "sulo"] and pannu.heard and randf() < 0.5:
@@ -7182,6 +7514,15 @@ func _talk_chat_line() -> String:
 	if _talk_who == "aaro" and pannu.choice == "romu":
 		return ["Romuksi myit sen pannun. Kuuskymmentä vuotta odotin, ja romuksi.", "Mee pois. En puhu romukauppiaille."].pick_random()
 	match _talk_who:
+		"vahtimestari":
+			return ["Kolkytä vuotta oon tätä koulua pitäny. Päivinkin muistan, istui etupenkissä ja kanteli kaikista.",
+				"Iltaisin noi nuoret istuu portailla. Ei ne mitään pahaa, mutta tölkit jää.",
+				"Mopolla ei sitten ajeta koulun pihalla. Kerro sille keltaisen mopon pojalle."].pick_random()
+		"hongan_nuoret":
+			var j: Array = HONGAN_JUORUT.pick_random()
+			if j[1] != "":
+				tilat.first(j[1], 0.0)
+			return j[0]
 		"seo", "aplus":
 			return POHJOISET_JUTUT.pick_random()
 		"katsastaja":
@@ -10991,6 +11332,8 @@ func _load_game() -> void:
 	pannu.load_from(cfg)
 	kertun.load_from(cfg)
 	_pohjoiset_load(cfg)
+	aarni.load_from(cfg)
+	_hongan_day = cfg.get_value("honganpalo", "keikka_paiva", -1)
 	quests.load_from(cfg)
 	_piirakka_record = cfg.get_value("reippari", "ennatys", 7)
 	_piirakka_holder = cfg.get_value("reippari", "ennatyksen_haltija", "Juntti")
@@ -11080,6 +11423,9 @@ func _save_game() -> void:
 	if kertun != null:
 		kertun.save_to(cfg)
 	_pohjoiset_save(cfg)
+	if aarni != null:
+		aarni.save_to(cfg)
+	cfg.set_value("honganpalo", "keikka_paiva", _hongan_day)
 	if endings != null:
 		endings.save_to(cfg)
 	if quests != null:
@@ -12106,6 +12452,8 @@ func inventory_items() -> Array:
 		add.call("lipas", "Kauppiaan rahalipas", 1, "Näytä Aarolle. Tai anna tilikirja Pannu-Sulolle.")
 	if tokola.markat:
 		add.call("markat", "Vanhoja markkoja", 1, "Kirppiksen Raili ostaa keräilijöille.")
+	if aarni.found and aarni.choice == "":
+		add.call("hopeat", "Isonvihan hopeat", 1, "Mustuneita hopearahoja ja lusikoita. Saloisten Pirttiin vai kirppiksen takahuoneeseen?")
 	if "sormus" in _orava_finds and not _sormus_given:
 		add.call("sormus", "Kultasormus", 1, "Oravajärven pohjasta. Kenenkähän? Sinikka käy siellä aamuisin uimassa.")
 	if kertun.malmi and not kertun.found:
@@ -12196,7 +12544,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list() + ebike.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks()
+	info.tasks = story.list() + ebike.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks()
 	info.lines.append("Päiväkirja (%s): tarina, tehtävät ja onnelliset loput" % Settings.action_key("journal"))
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
@@ -15585,6 +15933,134 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 			_talk_who = "aaro"
 			print("PA romu: valinta %s, rahaa %s -> %s, kanisteri %s €, Aaro: '%s'" % [pannu.choice, _eur(m0), _eur(money), _eur(_kanister_price()), _talk_chat_line()])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"honganpalo":
+			# Honganpalon koulu (#138) ja Lapinraunion aarnivalkea (#139): vahtimestarin keikka, luokkakuva, jäätelöauto,
+			# iltaporukan juoru, rankkaripiste; Hilkan legenda, Pannu-Sulo yöllä, Pirtin pöytäkirja, oikea liekki,
+			# droonikohde, hopeat, Pirtti (loppu) ja Veksi. Kuvat koulusta, raunioista ja yöliekistä.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			aarni = Aarnivalkea.new()
+			quests = Quests.new()
+			endings = Endings.new()
+			_hongan_day = -1
+			_hongan_keikka = false
+			_rankku_day = -1
+			day = 4  # torstai
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var at := func(pos: Vector3) -> void:
+				walker_out.global_position = pos + Vector3(0, 0.3, 0)
+				await frames.call(10)
+			var oc := Camera3D.new()
+			add_child(oc)
+			var view := func(name: String, from: Vector3, to: Vector3) -> void:
+				oc.look_at_from_position(from, to)
+				oc.current = true
+				await frames.call(30)
+				await snap.call(name)
+				oc.current = false
+				player.activate_camera()
+			money = 50.0
+			clock_min = 10 * 60
+			var hd: Vector3 = world.hongan_door
+			var hc := M.w(M.HONGAN_KOULU)
+			var hdir := ((hd - hc) * Vector3(1, 0, 1)).normalized()
+			await view.call("_koulu.png", hd + hdir * 16.0 + hdir.cross(Vector3.UP) * 12.0 + Vector3(0, 5, 0), hc + Vector3(0, 2, 0))
+			await at.call(world.hongan_janitor_pos + Vector3(1.2, 0, 0))
+			print("HO reijo: '%s' näkyy %s" % [_hint.text, world.hongan_janitor.visible])
+			print("HO reijo valinnat: %s" % [_talk_options("vahtimestari").map(func(o): return o.id)])
+			_talk_open("vahtimestari", world.hongan_janitor)
+			_talk_box._pages.clear()
+			_talk_choose("keikka")
+			_talk_box.close()
+			await frames.call(20)
+			var m0 := money
+			for t in world.hongan_trash:
+				await at.call(t.global_position)
+				await press.call("interact")
+			print("HO keikka: roskia jäljellä %d, rahaa +%s, '%s'" % [_hongan_trash_left(), _eur(money - m0), _msg.text.left(40)])
+			await at.call(world.hongan_window)
+			print("HO ikkuna: '%s'" % _hint.text)
+			await press.call("interact")
+			print("HO luokkakuva: '%s'" % _msg.text.left(50))
+			await at.call(world.hongan_spot)
+			print("HO kenttä: '%s'" % _hint.text)
+			clock_min = 18 * 60
+			await at.call(world.hongan_truck_pos + Vector3(2.0, 0, 0))
+			print("HO jäätelöauto näkyy %s: '%s'" % [world.hongan_truck.visible, _hint.text])
+			await press.call("interact")
+			print("HO jäätelö %d" % food.get("jaatelo", 0))
+			await view.call("_jaatelo.png", world.hongan_truck_pos + hdir * 9.0 + Vector3(0, 3, 0), world.hongan_truck_pos + Vector3(0, 1, 0))
+			clock_min = 20 * 60
+			await at.call(world.hongan_youth_pos + hdir * 2.0)
+			print("HO porukka: '%s'" % _hint.text)
+			for i in 15:
+				_talk_who = "hongan_nuoret"
+				_talk_chat_line()
+			print("HO juoru aarnivalkea %s" % ("juoru_aarnivalkea" in tilat.firsts))
+			# Legenda.
+			_talk_who = "hilkka"
+			_talk_kirppis("aarnivalkea")
+			_talk_box.close()
+			print("HO kuultu %s, tehtävät %s" % [aarni.heard, _aarni_tasks()])
+			var rp: Vector3 = world.raunio_pos
+			clock_min = 12 * 60
+			await view.call("_raunio.png", rp + Vector3(-9, 5, 10), rp + Vector3(-4, 0, -4))
+			clock_min = 23 * 60
+			await at.call(rp + Vector3(14, 0, 0))
+			await frames.call(5)
+			await view.call("_sulo.png", rp + Vector3(12, 2.5, 6), rp + Vector3(5, 0.8, 1))
+			await at.call(rp + Vector3(8, 0, 1))
+			print("HO sulo: %s, '%s'" % [aarni.sulo, _msg.text.left(60)])
+			await at.call(rp + Vector3(5, 0, 0))
+			print("HO raunio: '%s'" % _hint.text)
+			clock_min = 12 * 60
+			await at.call(world.museum_door)
+			print("HO pirtti: '%s'" % _hint.text)
+			await press.call("interact")
+			print("HO pöytäkirja %s" % aarni.poytakirja)
+			clock_min = 23 * 60
+			print("HO droonikohde %s" % [_drone_pois().any(func(d): return d.id == "aarni_hehku")])
+			var ap := M.w(M.AARNI_SPOT)
+			await at.call(ap + Vector3(10, 0, 0))
+			print("HO liekki %s, '%s'" % [aarni.liekki, _msg.text.left(50)])
+			await view.call("_aarnivalkea.png", ap + Vector3(4, 1.8, 3), ap + Vector3(0, 0.4, 0))
+			await at.call(ap + Vector3(1.2, 0, 0))
+			print("HO kivikasa: '%s'" % _hint.text)
+			await press.call("interact")
+			print("HO hopeat %s, tehtävät %s, veksi %s" % [aarni.found, _aarni_tasks(), kirppis_int.veksi_open])
+			clock_min = 12 * 60
+			await at.call(world.museum_door)
+			print("HO pirtti 2: '%s'" % _hint.text)
+			await press.call("interact")
+			print("HO museo: %s, loppu %s, loput %d/%d" % [aarni.choice, endings.counts.has("aarnivalkea"), endings.distinct(), Endings.max_count()])
+			var pr := {}
+			for who in ["arto", "annaliisa", "pekka"]:
+				for i in 15:
+					_talk_who = who
+					pr[_talk_chat_line()] = true
+			print("HO todistettu: %s" % [AARNI_PROVEN.keys().filter(func(w): return AARNI_PROVEN[w].any(func(l): return pr.has(l)))])
+			aarni.choice = ""
+			print("HO veksi: %s" % [_talk_options("veksi").map(func(o): return o.id)])
+			_talk_who = "veksi"
+			_aarni_sell()
+			_talk_box.close()
+			print("HO myyty: %s" % aarni.choice)
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"pohjoiset":
