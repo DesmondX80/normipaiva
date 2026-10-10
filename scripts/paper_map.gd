@@ -718,6 +718,11 @@ func _draw_map() -> void:
 		v.draw_circle(pp, 5.0, Color(0.55, 0.2, 0.1))
 		v.draw_arc(pp, 9.0, 0, TAU, 16, Color(0.55, 0.2, 0.1), 1.5)
 		v.draw_string(font, pp + Vector2(12, 4), "Pontikkapannu (ilmakuva)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.5, 0.15, 0.05))
+	if game != null and game.pannu != null and game.pannu.spotted and not game.pannu.found:  # kuparin läikkä ilmakuvasta
+		var kp := _px(game.SuloPannu.SPOT)
+		v.draw_circle(kp, 5.0, Color(0.2, 0.55, 0.4))
+		v.draw_arc(kp, 9.0, 0, TAU, 16, Color(0.2, 0.55, 0.4), 1.5)
+		v.draw_string(font, kp + Vector2(12, 4), "Kuparin läikkä (ilmakuva)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.1, 0.4, 0.3))
 	if bike != null and bike != player:
 		var bp := _w2(Vector2(bike.global_position.x, bike.global_position.z))
 		for o in [-5.0, 5.0]:

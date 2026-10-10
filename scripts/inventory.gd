@@ -635,6 +635,12 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			for i in 10:
 				_r(img, 2 + i, 12 - i, 3, 3, Color(0.86, 0.72, 0.48))
 				_r(img, 2 + i, 11 - i, 2, 1, Color(0.42, 0.28, 0.14))
+		"kuparipannu":  # vihertynyt kuparinen pontikkapannu
+			_c(img, 8, 9, 5.5, Color(0.72, 0.42, 0.2))
+			_c(img, 6.5, 7.5, 2.0, Color(0.85, 0.55, 0.3))
+			_c(img, 10, 11, 1.8, Color(0.35, 0.6, 0.45))
+			_r(img, 7, 2, 2, 3, Color(0.6, 0.35, 0.15))
+			_r(img, 9, 2, 5, 1, Color(0.6, 0.35, 0.15))
 		"avain":  # ruosteinen vanha avain
 			_c(img, 4.5, 8, 3.2, Color(0.55, 0.32, 0.18))
 			_c(img, 4.5, 8, 1.4, Color(0, 0, 0, 0))
