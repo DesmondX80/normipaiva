@@ -376,6 +376,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Sivutehtävät**: kauppalista, nurmikko, laavu, Väinö, jalkapallopojat, pontikka, ilmakuvat, kotiviini,
   sähköpyörä, huutokauppa, tanssit ja bingo, Teron kädenvääntö, Santun viisi tähteä, viina- ja rahakätköt,
   eräjorma, pihapingis ja pummilla lavalle.
+- **Jemmat**-välilehti: kaikki löydetyt jemmapaikat täyttöpalkkeineen (kaljat / tila), kotijemma tavoitteeseen
+  nähden tölkkiriveinä, ulkojemmat ja yhteensä sekä riskit: Päivin löytöriski kotijemmoissa ja teinien pöllimisriski
+  ulkojemmoissa. Reppu (I) näyttää myös tyhjät löydetyt jemmat. Testi `--scene=jemmat`.
 - **Päiväkirja (O)** ei paljasta mitään etukäteen: luku näkyy, kun siihen päästään, vaihe, kun siitä on kuultu, ja
   sivutehtävä, kun siitä on kerrottu. Uusista vihjeistä tulee ilmoitus "Päiväkirjaan tuli uutta".
 - **Onnelliset loput** kerätään kokoelmaan: juhlat autotallissa, viinibileet, laavulla kaljoilla, legendaarinen

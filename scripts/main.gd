@@ -4309,6 +4309,7 @@ func journal_data() -> Dictionary:
 		else:
 			list.append(null)
 	d["endings"] = {"distinct": endings.distinct(), "max": Endings.max_count(), "total": endings.total(), "list": list}
+	d["stashes"] = _stash_journal()
 	_save_game()
 	return d
 
@@ -4802,6 +4803,39 @@ func _leave_interior_quiet() -> void:
 		garage_int.leave()
 		state = _garage_prev
 	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+
+
+## Päiväkirjan Jemmat-välilehti: löydetyt jemmapaikat (kotijemmat ensin), kaljat / tila ja riski.
+func _stash_journal() -> Dictionary:
+	var rows: Array = []
+	var out_n := 0
+	var ids: Array = STASHES.keys().filter(func(i): return i in stash_used)
+	ids.sort_custom(func(a, b): return int(STASHES[a].home) > int(STASHES[b].home))
+	for id in ids:
+		var st: Dictionary = STASHES[id]
+		var n: int = stash.get(id, 0)
+		var note := ""
+		var warn := false
+		if st.home:
+			var ch := _find_chance(id)
+			warn = ch > 0.0
+			note = "Päivi voi löytää! (%d %%)" % roundi(ch * 100.0) if warn else "Päivi ei huomaa (alle %d)" % (st.safe + 1)
+		else:
+			out_n += n
+			if id == "laavu" and not laavu_conquered:
+				note = "laavu valtaajilla, ei pääse käsiksi"
+				warn = true
+			else:
+				note = "teinit voi pölliä yöllä (%d %%)" % roundi(st.steal * 100.0) if n > 0 else "tyhjä"
+		rows.append({"name": st.name.left(1).to_upper() + st.name.substr(1), "n": n, "cap": st.cap, "home": st.home, "note": note, "warn": warn})
+	var extra: Array = []
+	if wine_start >= 0:
+		extra.append("Kotiviini saavissa: %s" % ("valmis!" if _wine_ready() else "valmis %d pv päästä" % (wine_days - (day - wine_start))))
+	if has_kanister:
+		extra.append("Pontikkakanisteri mukana (= %d kaljaa)" % _kanister_beers())
+	if beers > 0:
+		extra.append("Kaljoja mukana: %d" % beers)
+	return {"rows": rows, "home": jemma, "goal": JEMMA_GOAL, "out": out_n, "found": ids.size(), "all": STASHES.size(), "extra": extra}
 
 
 ## Jemman paikka maailmassa.
@@ -12989,8 +13023,8 @@ func inventory_info() -> Dictionary:
 	info.lines.append("Päiväkirja (%s): tarina, tehtävät ja onnelliset loput" % Settings.action_key("journal"))
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
-		if stash.get(id, 0) > 0:
-			info.stashes.append("%s: %d" % [STASHES[id].name.capitalize(), stash[id]])
+		if id in stash_used or stash.get(id, 0) > 0:
+			info.stashes.append("%s: %d / %d" % [STASHES[id].name.left(1).to_upper() + STASHES[id].name.substr(1), stash.get(id, 0), STASHES[id].cap])
 	if wine_start >= 0:
 		info.lines.append("Kotiviini: %s" % ("valmis!" if _wine_ready() else "valmis %d pv päästä" % (wine_days - (day - wine_start))))
 	return info
@@ -16374,6 +16408,29 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 			_talk_who = "aaro"
 			print("PA romu: valinta %s, rahaa %s -> %s, kanisteri %s €, Aaro: '%s'" % [pannu.choice, _eur(m0), _eur(money), _eur(_kanister_price()), _talk_chat_line()])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"jemmat":
+			# Päiväkirjan Jemmat-välilehti: löydetyt jemmat, kaljat / tila, riskit ja yhteensä. Kuva välilehdestä.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			stash = {"koti": 3, "autotalli": 12, "komposti": 0, "grilli": 7, "uimaranta": 2}
+			stash_used = ["koti", "autotalli", "komposti", "grilli", "uimaranta"]
+			beers = 4
+			var d: Dictionary = _stash_journal()
+			print("JE yhteensä koti %d/%d, ulko %d, löydetty %d/%d" % [d.home, d.goal, d.out, d.found, d.all])
+			for r in d.rows:
+				print("JE %s %d/%d %s%s" % [r.name, r.n, r.cap, r.note, " ⚠" if r.warn else ""])
+			print("JE muut %s" % [d.extra])
+			print("JE reppu %s" % [inventory_info().stashes])
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_journal.toggle()
+			_journal._set_tab("jemmat")
+			for i in 4:
+				await get_tree().process_frame
+			await snap.call("_jemmat.png")
+			_journal.toggle()
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"leikki":
