@@ -635,6 +635,19 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			for i in 10:
 				_r(img, 2 + i, 12 - i, 3, 3, Color(0.86, 0.72, 0.48))
 				_r(img, 2 + i, 11 - i, 2, 1, Color(0.42, 0.28, 0.14))
+		"makkaraperunat":  # pahvivuoka, ranskalaiset ja makkaranpalat ketsupilla
+			_r(img, 2, 8, 12, 6, Color(0.95, 0.93, 0.88))
+			for k in 5:
+				_r(img, 3 + k * 2, 4 + (k % 2), 1, 5, Color(0.95, 0.8, 0.25))
+			_c(img, 6, 8, 1.6, Color(0.6, 0.25, 0.15))
+			_c(img, 10, 8, 1.6, Color(0.6, 0.25, 0.15))
+			_r(img, 4, 7, 8, 1, Color(0.85, 0.1, 0.08))
+		"hampurilainen":
+			_r(img, 3, 4, 10, 3, Color(0.85, 0.55, 0.2))
+			_r(img, 3, 7, 10, 1, Color(0.3, 0.65, 0.2))
+			_r(img, 3, 8, 10, 2, Color(0.45, 0.22, 0.12))
+			_r(img, 3, 10, 10, 1, Color(0.95, 0.8, 0.15))
+			_r(img, 3, 11, 10, 2, Color(0.85, 0.55, 0.2))
 		"kuparipannu":  # vihertynyt kuparinen pontikkapannu
 			_c(img, 8, 9, 5.5, Color(0.72, 0.42, 0.2))
 			_c(img, 6.5, 7.5, 2.0, Color(0.85, 0.55, 0.3))

@@ -62,6 +62,10 @@ const LAWN_AXIS := HOME_YAW_DIR
 const MOWER_PARK := Vector2(798.4, 1192.1)  # ruohonleikkurin paikka nurmikon eteläreunalla
 ## Saloisten seuraintalo Seuranmäellä (OSM-rakennus): kirpputori ja huutokauppa sisällä (kirppis_interior.gd).
 const SEURAINTALO := Vector2(394.3, -272.8)
+## Saloisten Reippari, grillikioski seuraintalon vieressä (OSM retail-rakennus, amenity=fast_food) (#115).
+const REIPPARI := Vector2(432.8, -282.4)
+## Aaron kissan Miisun mahdolliset piilopaikat Tokolan ympäristössä (ilmoitustaulun sivutehtävä).
+const MIISU_SPOTS := [Vector2(405, -668), Vector2(318, -650), Vector2(290, -790), Vector2(372, -470)]
 ## Tokola (#120): kauppias Tokolan vanha varasto Tokolantien varressa (keksitty paikka oikean historian pohjalta),
 ## vanhan Aaron talo (OSM, Tokolantie) ja Heinimäen laki (OSM natural=peak), jossa latvaton kuusi.
 const TOKOLA_VARASTO := Vector2(350, -520)
@@ -80,7 +84,7 @@ const NEIGHBOR_SINIKKA := Vector2(855.5, 1204.2)
 const MAILBOX := Vector2(814, 1169)
 ## OSM-rakennukset, joiden tilalle tehdään oma malli (koti, autotalli, naapurit, kauppa).
 const OWN_BUILDINGS := [Vector2(812.4, 1177.9), GARAGE, NEIGHBOR_ARTO, NEIGHBOR_PEKKA, NEIGHBOR_SINIKKA,
-	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO]
+	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO, REIPPARI]
 
 ## type: highway | road | street | path. h = katuvalot/kylämäisyys tien varrella (0..1).
 ## Tiet ja polut: Osm.ROADS (OpenStreetMap). Tässä vain käsin tehdyt laavupolut (laavu ei ole OSM:ssä).

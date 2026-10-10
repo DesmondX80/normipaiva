@@ -85,6 +85,11 @@ var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
 var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
 var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
 var museum_door: Vector3  # Saloisten Pirtin (kotiseutumuseo) oven edusta
+var reippari_window: Vector3  # Reipparin luukun edusta (tilaus)
+var reippari_board: Vector3  # Reipparin ilmoitustaulun edusta
+var reippari_youth: Node3D  # iltaporukka kioskin edessä (main.gd näyttää illalla)
+var reippari_youth_pos: Vector3
+var reippari_record: Node3D  # ennätystaulu (main.gd päivittää tekstin)
 var station_pos: Vector3  # Saloisten asema K-Marketin takana: kadun puoleisen oven edusta (E: odotussaliin)
 var station_arrive: Vector3  # junalla tultaessa tästä
 var train: Node3D  # aikataulun juna Saloisten radalla (train.gd, ei satunnaisia ohikulkuja)
@@ -197,6 +202,7 @@ func build(step: Callable) -> void:
 	_build_seuraintalo()
 	_build_tokola()
 	_build_pirtti()
+	_build_reippari()
 	_build_station()
 	_build_agility()
 	await step.call("Laavu, grillikatos ja kota", 0.53)
@@ -1121,6 +1127,124 @@ func _build_tokola() -> void:
 	body.add_child(B.capsule_shape(0.35, 6.0))
 	add_child(body)
 	_add_house(hp)
+
+
+## Saloisten Reippari (#115): valkoinen grillikioski oranssein raidoin, palveluluukku markiiseineen ja luukulla
+## Raija, katolla kyltti, hintataulu, lihapiirakkaennätyksen taulu, ilmoitustaulu, penkkipöytä aurinkovarjoineen ja
+## illan teiniporukka (näkyvyys main.gd:ssä). Seinät tehdään itse, jotta luukun läpi näkyy sisälle.
+func _build_reippari() -> void:
+	var f := _osm_fit_at(M.REIPPARI)
+	if f.is_empty():
+		return
+	var l := 6.0
+	var d := 4.0
+	var h := 2.8
+	var c: Vector2 = f.c
+	var nrm: Vector2 = f.nrm
+	var root := Node3D.new()
+	root.position = Vector3(c.x, 0, c.y)  # _lift_node nostaa maastoon
+	root.rotation.y = f.yaw  # paikallinen -Z = julkisivu tielle
+	add_child(root)
+	blockers.append([c, Vector2(l / 2.0, d / 2.0), f.yaw])
+	_add_house(c)
+	var white := Color(0.96, 0.95, 0.9)
+	var orange := Color(0.95, 0.45, 0.1)
+	var wall := func(size: Vector3, pos: Vector3, col: Color) -> void:
+		B.box(root, size, pos, col)
+	# Seinät: julkisivussa luukun aukko (x -0.6..1.4, korkeus 1.0..2.0).
+	wall.call(Vector3(l, h, 0.15), Vector3(0, h / 2.0, d / 2.0), white)
+	wall.call(Vector3(0.15, h, d), Vector3(-l / 2.0, h / 2.0, 0), white)
+	wall.call(Vector3(0.15, h, d), Vector3(l / 2.0, h / 2.0, 0), white)
+	wall.call(Vector3(2.4, h, 0.15), Vector3(-1.8, h / 2.0, -d / 2.0), white)
+	wall.call(Vector3(1.6, h, 0.15), Vector3(2.2, h / 2.0, -d / 2.0), white)
+	wall.call(Vector3(2.0, 1.0, 0.15), Vector3(0.4, 0.5, -d / 2.0), white)
+	wall.call(Vector3(2.0, 0.8, 0.15), Vector3(0.4, 2.4, -d / 2.0), white)
+	B.box(root, Vector3(l + 0.02, 0.3, d + 0.02), Vector3(0, 0.55, 0), orange, false)  # oranssi raita
+	B.box(root, Vector3(2.2, 0.08, 0.5), Vector3(0.4, 1.04, -d / 2.0 - 0.15), Color(0.7, 0.7, 0.72), false)  # tiski
+	B.box(root, Vector3(l + 0.6, 0.2, d + 0.6), Vector3(0, h + 0.1, 0), Color(0.3, 0.3, 0.32), false)  # katto
+	B.box(root, Vector3(l - 0.4, 0.1, d - 0.4), Vector3(0, 0.05, 0), Color(0.55, 0.55, 0.55), false)  # lattia
+	var lamp := OmniLight3D.new()
+	lamp.position = Vector3(0.4, 2.2, 0.6)
+	lamp.light_color = Color(1.0, 0.9, 0.7)
+	lamp.light_energy = 0.8
+	lamp.omni_range = 4.0
+	root.add_child(lamp)
+	for k in 6:  # markiisi raidoin luukun yllä
+		var strip := B.mesh(root, B.boxm(Vector3(0.36, 0.04, 0.9)), Vector3(-0.5 + k * 0.36, 2.15, -d / 2.0 - 0.4), orange if k % 2 == 0 else white)
+		strip.rotation_degrees.x = 18.0
+	# Raija luukulla, katse ulos.
+	var raija := Looks.make(root, {"model": "female", "shirt": orange, "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.9, 0.9, 0.9),
+		"hair": "Hair_Long", "hair_color": Color(0.7, 0.3, 0.15), "height": 1.66, "skin": Color(0.95, 0.78, 0.68), "belly": 0.4})
+	raija.position = Vector3(0.4, 0.1, -d / 2.0 + 0.55)
+	raija.rotation.y = PI
+	raija.play("Idle", 0.0)
+	# Kyltit: nimi katolla, hintataulu ja ennätystaulu seinässä.
+	var sign := B.sign_plate(root, "SALOISTEN REIPPARI", Color(0.8, 0.1, 0.08), Color(1.0, 0.88, 0.2), 0.5, 64, Color(1.0, 0.88, 0.2), "Helvetica Neue")
+	sign.position = Vector3(0, h + 0.55, -d / 2.0 - 0.1)
+	var menu := B.sign_plate(root, "MAKKARAPERUNAT  6,50
+LIHAPIIRAKKA KAIKILLA  4,90
+HAMPURILAINEN  5,90
+KAHVI  1,50",
+		Color(0.97, 0.95, 0.85), Color(0.55, 0.1, 0.05), 0.16, 26, Color(0.55, 0.1, 0.05), "Helvetica Neue")
+	menu.position = Vector3(-1.8, 1.6, -d / 2.0 - 0.1)
+	reippari_record = B.sign_plate(root, "LIHAPIIRAKKA-
+ENNÄTYS
+Juntti 7", Color(0.1, 0.1, 0.12), Color(1, 1, 0.85), 0.16, 24,
+		Color(0.85, 0.85, 0.82), "Helvetica Neue")
+	reippari_record.position = Vector3(2.2, 1.6, -d / 2.0 - 0.1)
+	var win := root.to_global(Vector3(0.4, 0, -d / 2.0 - 1.2))
+	reippari_window = Vector3(win.x, T.h(win.x, win.z), win.z)
+	# Ilmoitustaulu jalustalla vasemmalla.
+	var board := Node3D.new()
+	board.position = Vector3(-l / 2.0 - 1.4, 0, -d / 2.0 - 1.2)
+	root.add_child(board)
+	for x in [-0.6, 0.6]:
+		B.mesh(board, B.boxm(Vector3(0.08, 1.8, 0.08)), Vector3(x, 0.9, 0), Color(0.35, 0.22, 0.12))
+	B.mesh(board, B.boxm(Vector3(1.4, 0.9, 0.06)), Vector3(0, 1.45, 0), Color(0.72, 0.55, 0.36))
+	var notes := [["KADONNUT
+Miisu-kissa
+Tokola", Color(1.0, 0.95, 0.75), Vector3(-0.35, 1.55, -0.04)],
+		["Myydään
+mopon osia", Color(0.85, 0.95, 1.0), Vector3(0.35, 1.6, -0.04)],
+		["Kirppis
+10–18", Color(0.95, 0.85, 0.95), Vector3(0.1, 1.2, -0.04)]]
+	for n in notes:
+		var np := B.sign_plate(board, n[0], n[1], Color(0.12, 0.12, 0.2), 0.07, 16, Color(0.85, 0.85, 0.82))
+		np.position = n[2]
+		np.rotation.y = PI
+	var bp := root.to_global(board.position + Vector3(0, 0, -1.0))
+	reippari_board = Vector3(bp.x, T.h(bp.x, bp.z), bp.z)
+	# Penkkipöytä ja aurinkovarjo oikealla.
+	var table := Node3D.new()
+	table.position = Vector3(l / 2.0 + 1.8, 0, -d / 2.0 - 1.8)
+	root.add_child(table)
+	B.box(table, Vector3(1.6, 0.08, 0.8), Vector3(0, 0.75, 0), Color(0.55, 0.38, 0.2))
+	for z in [-0.6, 0.6]:
+		B.mesh(table, B.boxm(Vector3(1.6, 0.06, 0.3)), Vector3(0, 0.45, z), Color(0.55, 0.38, 0.2))
+	B.mesh(table, B.cyl(0.03, 0.03, 2.2, 6), Vector3(0, 1.1, 0), Color(0.8, 0.8, 0.8))
+	var umb := B.mesh(table, B.cyl(0.05, 1.2, 0.35, 12), Vector3(0, 2.2, 0), Color(0.85, 0.12, 0.1))
+	umb.rotation_degrees.x = 0.0
+	# Iltaporukka: kolme teiniä mopon kanssa pöydän luona.
+	reippari_youth = Node3D.new()
+	reippari_youth.position = table.position + Vector3(0, 0, -1.4)
+	root.add_child(reippari_youth)
+	var teens := [{"shirt": Color(0.1, 0.1, 0.12), "pants": Color(0.2, 0.25, 0.45), "hair": "Hair_Buzzed", "height": 1.72},
+		{"model": "female", "shirt": Color(0.75, 0.2, 0.5), "pants": Color(0.12, 0.12, 0.15), "hair": "Hair_Long", "height": 1.64},
+		{"shirt": Color(0.9, 0.9, 0.85), "pants": Color(0.25, 0.25, 0.3), "hair": "Hair_SimpleParted", "height": 1.78}]
+	for k in teens.size():
+		var t := Looks.make(reippari_youth, teens[k])
+		t.position = Vector3(-0.9 + k * 0.9, 0, 0.2 * (k % 2))
+		t.rotation.y = PI + (k - 1) * 0.5
+		t.play("Idle_Talking" if k == 1 else "Idle", 0.0)
+	var moped := Node3D.new()
+	moped.position = Vector3(1.6, 0, 0.3)
+	reippari_youth.add_child(moped)
+	B.mesh(moped, B.boxm(Vector3(0.3, 0.5, 1.3)), Vector3(0, 0.55, 0), Color(0.1, 0.35, 0.75))
+	for z in [-0.55, 0.55]:
+		B.mesh(moped, B.cyl(0.25, 0.25, 0.1, 12), Vector3(0, 0.25, z), Color(0.08, 0.08, 0.08), Vector3(0, 0, 90))
+	var yp := root.to_global(reippari_youth.position)
+	reippari_youth_pos = Vector3(yp.x, T.h(yp.x, yp.z), yp.z)
+	reippari_youth.visible = false
 
 
 ## Saloisten Pirtti (kotiseutumuseo): OSM-rakennus jää paikalleen, oven viereen museokyltti ja oven edusta
