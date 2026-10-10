@@ -221,6 +221,7 @@ const TanssiGame := preload("res://scripts/tanssi_game.gd")
 const BingoGame := preload("res://scripts/bingo_game.gd")
 const Tokola := preload("res://scripts/tokola.gd")
 const TokolaVarasto := preload("res://scripts/tokola_varasto.gd")
+const SuloPannu := preload("res://scripts/sulo_pannu.gd")
 const KORJAUS_VAIHEET := {"kiuas": "kiuaskivet", "lauteet": "lauteiden laudat", "terva": "seinien tervaus", "luukku": "savuluukku ja ovi"}
 const GARAGE_INT_POS := Vector3(-9000, 0, 3000)
 const BIKE_TUNE := 1.1  # työpöydällä huollettu pyörä: huippunopeus ja kiihtyvyys päivän ajan
@@ -296,6 +297,8 @@ var kirppis_int: Node3D
 var varasto_int: Node3D
 var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.gd, #120)
 var aaro: CharacterBody3D  # vanha tokolalainen Aaro
+var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
+var _pannu_node: Node3D  # kuparin läikkä Pilkkarinnevalla (näkyy kun legenda on kuultu)
 var raahe_int: Node3D
 var _raahe := {}  # illan tapahtumat Raahen baarissa (kädenvääntö, visa, karaoke)
 var _quiz: Array = []  # visan kysymykset [kysymys, vaihtoehdot sekoitettuna, oikea]
@@ -945,7 +948,9 @@ func _ready() -> void:
 	story = Story.new()
 	ebike = EBike.new()
 	tokola = Tokola.new()
+	pannu = SuloPannu.new()
 	_load_game()
+	_pannu_update()
 	if story.step == "avaimet":
 		_place_keys()
 	_stat_bars.stats = tilat
@@ -1376,6 +1381,7 @@ func _outside_logic() -> void:
 	_ebike_logic()
 	_kirppis_logic()
 	_tokola_logic()
+	_pannu_logic()
 	_atm_logic()
 	_drone_logic()
 	if player == bike and Input.is_action_just_pressed("bell") and mummot.distance_to_target() < 10.0:
@@ -2283,6 +2289,9 @@ func _talk_kirppis(id: String) -> void:
 		return
 	if _seura_act(id):
 		return
+	if id == "romu":
+		_pannu_scrap()
+		return
 	if id == "markat":
 		tokola.markat = false
 		money += TOKOLA_MARKAT
@@ -2552,6 +2561,118 @@ func _tokola_tasks() -> Array:
 	return [["Tokolan kauppiaan aarre: " + step, false]]
 
 
+## Sulon pannun legenda repun Tehtävät-lapulle.
+func _pannu_tasks() -> Array:
+	if not pannu.heard or pannu.choice != "":
+		return []
+	var step := "ota ilmakuva Pilkkarinnevasta (drooni)"
+	if pannu.found:
+		step = "Sululle, Saloisten Pirttiin vai Taunolle romuksi?"
+	elif pannu.spotted:
+		step = "kahlaa ja kaiva kuparin läikän kohdalta (kartta)"
+	return [["Vanhan Sulon pannu: " + step, false]]
+
+
+## --- Legenda: Sulon isän kadonnut pannu (#130) -----------------------------------------------------------------
+const PANNU_ROMU := 20.0
+const PANNU_DOUBT := {
+	"sulo": ["Isä ei koskaan ollu missään tekemisissä minkään kanssa. Kuka sulle tommosia puhuu?",
+		"Pilkkarinneva? Siellä on vaan suota ja sääskiä. Unohda koko juttu."],
+	"pekka": ["Se kupari myytiin romuna jo kasikymppisillä, perkele. Kaljapuhetta.", "Vanha Sulo? Se keitti korkeintaan kahvia."],
+	"arto": ["Pilkkarinnevalla ei oo muuta ku karpaloita. Ja niitäkin vähän.", "Aaro muistaa kaikki väärin, usko pois."],
+}
+const PANNU_PROVEN := {
+	"sulo": ["No... isä keitti. Ja hyvää keitti.", "Kuuskymmentä vuotta se pannu oli suossa. Isä ois ylpee."],
+	"pekka": ["Perkele, Vanhan Sulon pannu oli ihan oikea! Mää maksan kierroksen.", "Kaljapuhetta, sanoin. Taas väärin."],
+	"arto": ["Pilkkarinnevalta löyty muutakin ku karpaloita. Kuka ois uskonu.", "Aaro muisti oikein. Ensimmäistä kertaa."],
+}
+
+
+## Kanisterin arvo kotijemmassa: isän reseptillä enemmän.
+func _kanister_beers() -> int:
+	return SuloPannu.RESEPTI_BEERS if pannu != null and pannu.choice == "sulo" else KANISTER_BEERS
+
+
+func _kanister_price() -> float:
+	return KANISTER_PRICE + (SuloPannu.ANGRY_PRICE if pannu != null and pannu.sulo_angry() else 0.0)
+
+
+## Kuparin läikkä rämeessä: näkyy, kun legenda on kuultu ja pannu on vielä suossa.
+func _pannu_update() -> void:
+	if pannu == null or world == null:
+		return
+	if _pannu_node == null:
+		_pannu_node = Node3D.new()
+		add_child(_pannu_node)
+		_pannu_node.position = M.w(SuloPannu.SPOT)
+		var patch := B.mesh(_pannu_node, B.cyl(1.4, 1.4, 0.02, 16), Vector3(0, 0.03, 0), Color(0.25, 0.55, 0.42))
+		patch.transparency = 0.35
+		B.mesh(_pannu_node, B.cyl(0.05, 0.05, 0.5, 8), Vector3(0.2, 0.15, 0.1), Color(0.35, 0.6, 0.45), Vector3(60, 0, 20))  # kahva pilkottaa
+	_pannu_node.visible = pannu.heard and not pannu.found
+
+
+func _pannu_logic() -> void:
+	if _hint.text != "" or not pannu.heard or player == bike:
+		return
+	var p := player.global_position
+	if pannu.found:
+		_pannu_museum(p)
+		return
+	var at := M.w(SuloPannu.SPOT)
+	var d := Vector2(p.x - at.x, p.z - at.z).length()
+	if d < 3.0:
+		if not pannu.spotted:
+			_hint.text = "Rämettä silmänkantamattomiin. Mistä tästä kaivaisi? Ilmakuva auttaisi."
+			return
+		_hint.text = "[E] Kahlaa ja kaiva kuparin läikän kohdalta"
+		if Input.is_action_just_pressed("interact"):
+			pannu.found = true
+			_pannu_update()
+			tilat.add("vasymys", -0.15)
+			tilat.first("sulon_pannu", 0.6)
+			Sfx.play("rattle_hard", -4.0, 0.6)
+			_save_game()
+			_show_message("Saappaat uppoaa, mutta kädet tavoittaa jotain kovaa... Vihertynyt kuparipannu! Vanhan Sulon pannu oli totta. "
+				+ "Sululle, Saloisten Pirttiin vai Taunolle romuksi?", 6.0)
+	elif d < 25.0 and pannu.spotted:
+		_hint.text = "Kuparin vihertävä läikkä näkyy rämeellä (merkki kartalla)."
+
+
+## Saloisten Pirtti: pannun lahjoitus kotiseutumuseoon.
+func _pannu_museum(p: Vector3) -> void:
+	var md: Vector3 = world.museum_door
+	if pannu.choice == "" and md != Vector3.ZERO and Vector2(p.x - md.x, p.z - md.z).length() < 3.0:
+		_hint.text = "[E] Saloisten Pirtti: lahjoita kuparipannu kotiseutumuseolle"
+		if Input.is_action_just_pressed("interact"):
+			pannu.choice = "museo"
+			maine = clampf(maine + 8.0, 0.0, 100.0)
+			tilat.add("moraali", 0.2)
+			Sfx.play("win_small", -4.0)
+			_save_game()
+			_show_message("Pirtin opas on haltioissaan: \"1960-luvun kuparipannu, Vanhan Sulon!\" Lehteen tulee juttu kuvan kera. "
+				+ "Maine +8. Pannu-Sulo ei tykkää: kanisteri kallistuu.", 6.0)
+
+
+func _pannu_to_sulo() -> void:
+	pannu.choice = "sulo"
+	tilat.add("moraali", 0.2)
+	Sfx.play("glass", -4.0, 0.8)
+	_save_game()
+	var extra := " Ja sulla oli jo sen kauppiaan kirjakin... Sää oot meikäläisten puolella." if tokola.legend == "sulo" else ""
+	_talk_box.reply("...Isän pannu. Kuuskymmentä vuotta suossa. No... isä keitti. Ja hyvää keitti. Tästä lähtien keitän hänen "
+		+ "reseptillään, ja sinä saat ekat kanisterit." + extra, _talk_options(),
+		"Sulo keittää isän reseptillä: kanisteri vastaa nyt %d kaljaa." % SuloPannu.RESEPTI_BEERS)
+
+
+func _pannu_scrap() -> void:
+	pannu.choice = "romu"
+	money += PANNU_ROMU
+	Sfx.play("coin", -4.0)
+	_save_game()
+	_talk_box.reply("Kuparia, vanhaa ja paksua. Kakskymppiä. Mistä sää tämän sait? Älä kerro, en haluu tietää.", _talk_options(),
+		"+%s €. Pannu-Sulo ja Aaro saavat kuulla tästä." % _eur(PANNU_ROMU))
+
+
 func _talk_aaro(id: String) -> void:
 	match id:
 		"varasto":
@@ -2570,6 +2691,14 @@ func _talk_aaro(id: String) -> void:
 		"kauppias":
 			_talk_box.reply("Kauppias myi tiskin alta sokeria koko pitäjälle, jos ymmärrät mitä tarkotan. Rahat ja kirjanpito "
 				+ "katos, kun kauppa lopetti. Pekka sanoo kaljapuheeks. Kato hyllyiltä, siellä on hänen kirjojaan.", _talk_options())
+		"vanhasulo":
+			pannu.heard = true
+			_pannu_update()
+			_save_game()
+			_talk_box.reply("Vanha Sulo, Pannu-Sulon isä. Pitäjän paras keittäjä, kuparipannu kiilsi ku kirkonkello. Kun poliisi "
+				+ "teki ratsian kuuskytkuutosen syksyllä, Vanha Sulo käveli yöllä Pilkkarinnevalle pannu selässä ja tuli takasin "
+				+ "ilman. Pannua ei ikinä löydetty. Nimismieskin osti siitä pannusta, sanotaan. Kaikki nauraa, mutta mää näin sen yön.",
+				_talk_options(), "Legenda: Sulon isän kadonnut pannu. Pilkkarinneva on iso räme... ilmakuva auttaisi.")
 		"lipas":
 			tokola.legend = "kyla"
 			maine = clampf(maine + 10.0, 0.0, 100.0)
@@ -2846,7 +2975,7 @@ func _stash_ui(id: String) -> void:
 	if party:
 		opts.append("[E] Aloita juhlat autotallissa (kotipiiloissa %d kaljaa)" % jemma)
 	elif kanister:
-		opts.append("[E] Piilota kanisteri (= %d kaljaa)" % KANISTER_BEERS)
+		opts.append("[E] Piilota kanisteri (= %d kaljaa)" % _kanister_beers())
 	elif beers > 0 and room > 0:
 		opts.append("[E] Piilota 1   [Shift+E] Piilota %d" % mini(beers, room))
 	if can_take > 0:
@@ -2861,13 +2990,13 @@ func _stash_ui(id: String) -> void:
 		_win(true)
 		return
 	if Input.is_action_just_pressed("interact") and kanister:
-		_stash_add(id, KANISTER_BEERS)
+		_stash_add(id, _kanister_beers())
 		has_kanister = false
 		walker_out.set_kanister(false)
 		_set_beer_carry()
-		_stashed_today += KANISTER_BEERS
+		_stashed_today += _kanister_beers()
 		Sfx.play("pickup", -2.0, 0.6)
-		_show_message("Kanisteri piiloon %s (= %d kaljaa, siellä nyt %d).%s" % [st.into, KANISTER_BEERS, stash[id],
+		_show_message("Kanisteri piiloon %s (= %d kaljaa, siellä nyt %d).%s" % [st.into, _kanister_beers(), stash[id],
 			_stash_warning(id)], 3.0)
 	elif Input.is_action_just_pressed("interact") and beers > 0 and room > 0:
 		var n := mini(beers, room) if all else 1
@@ -3369,6 +3498,9 @@ func _drone_pois() -> Array:
 	for id in fixed:
 		var at: Vector3 = M.w(fixed[id])
 		out.append({"id": id, "name": DRONE_POIS[id], "pos": func() -> Vector3: return at + Vector3(0, 1.0, 0)})
+	if pannu.heard and not pannu.spotted:
+		var pat: Vector3 = M.w(SuloPannu.SPOT)
+		out.append({"id": "kuparipannu", "name": "Kuparin vihreä läikkä Pilkkarinnevalla!", "pos": func() -> Vector3: return pat + Vector3(0, 0.3, 0)})
 	var movers := {"paivi": wife, "juntti": juntti, "jyvajemmari": tractor, "mummot": mummot, "arto": arto, "pekka": pekka,
 		"sinikka": sinikka,
 		"vaino": vaino, "pojat": boys}
@@ -3409,9 +3541,13 @@ func _on_drone_photo(id: String) -> void:
 	drone_photos.append(id)
 	var names := _drone_names(id.begins_with("m_"))
 	var n := _drone_photo_count(names)
-	_drone.photo_count = n
+	if _drone != null:
+		_drone.photo_count = n
 	tilat.add("kokemus", 0.05)
 	Sfx.play("win_small", -8.0, 1.2)
+	if id == "kuparipannu" and not pannu.spotted:
+		pannu.spotted = true
+		_queue_message("Rämeen keskellä vihertää jotain... kuparia! Vanhan Sulon pannu? Paikka merkittiin karttaan (M).", 4.5)
 	if id == "pontikka" and not pontikka_found:
 		pontikka_found = true
 		_queue_message("Kuusikosta nousee savua... Pannu-Sulon pontikkapannu! Paikka merkittiin karttaan (M).", 4.0)
@@ -5516,6 +5652,8 @@ func _talk_options(who := "") -> Array:
 			if kirppis_int.mode != "kirppis":
 				_seura_options(who, o)
 			else:
+				if who == "tauno" and pannu.found and pannu.choice == "":
+					o.append(_opt("romu", "Myy vanha kuparipannu romuksi (%s €)" % _eur(PANNU_ROMU), true, "", true))
 				if who == "raili" and tokola.markat:
 					o.append(_opt("markat", "Myy vanhat markat keräilijälle (%s €)" % _eur(TOKOLA_MARKAT), true, "", true))
 				for k in KIRPPIS_STOCK:
@@ -5538,6 +5676,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("lipas", "Näytä kauppiaan rahalipas ja tilikirja", true, "", true))
 			elif tokola.legend == "":
 				o.append(_opt("kauppias", "Kerro siitä Tokolan kauppiaasta"))
+			if tokola.key and not pannu.heard:
+				o.append(_opt("vanhasulo", "Kuka oli se S. S. kauppiaan kirjoissa?", true, "", tokola.tilikirja))
 		"huutaja":
 			var lot := _auction_lot()
 			if kirppis_int.mode != "kirppis":
@@ -5589,10 +5729,12 @@ func _talk_options(who := "") -> Array:
 			var why := ""
 			if has_kanister or _sulo_sold:
 				why = "tänään ei enää"
-			elif money < KANISTER_PRICE:
+			elif money < _kanister_price():
 				why = "rahat ei riitä"
-			o.append(_opt("kanisteri", "Osta pontikkakanisteri (%s €, = %d kaljaa)" % [_eur(KANISTER_PRICE), KANISTER_BEERS],
+			o.append(_opt("kanisteri", "Osta pontikkakanisteri (%s €, = %d kaljaa)" % [_eur(_kanister_price()), _kanister_beers()],
 				why == "", why))
+			if pannu.found and pannu.choice == "":
+				o.append(_opt("pannu", "Tässä on isäsi kuparipannu Pilkkarinnevalta", true, "", true))
 			if tokola.tilikirja and tokola.lipas and tokola.legend == "":
 				o.append(_opt("tilikirja", "Tokolan kauppiaan tilikirja... siinä on sun isän nimikirjaimet", true, "", true))
 		"pojat":
@@ -5681,7 +5823,10 @@ func _talk_choose(id: String) -> void:
 			if id == "tilikirja":
 				_tokola_sulo_deal()
 				return
-			money -= KANISTER_PRICE
+			if id == "pannu":
+				_pannu_to_sulo()
+				return
+			money -= _kanister_price()
 			has_kanister = true
 			tilat.first("pontikka", 0.5)
 			_sulo_sold = true
@@ -5689,7 +5834,7 @@ func _talk_choose(id: String) -> void:
 			state = "to_home"
 			Sfx.play("coin", -4.0)
 			_talk_box.reply("Kakskymppiä ja suu suppuun. Ja kanisteri takasin, kun on tyhjä.", _talk_options(),
-				"Pontikkakanisteri mukana, vastaa %d kaljaa! Vie se kotiin jemmaan." % KANISTER_BEERS)
+				"Pontikkakanisteri mukana, vastaa %d kaljaa! Vie se kotiin jemmaan." % _kanister_beers())
 		"pojat":
 			_talk_pojat(id)
 		"taksi":
@@ -5900,6 +6045,12 @@ func _talk_kauppias(id: String) -> void:
 func _talk_chat_line() -> String:
 	if _talk_who in ["pekka", "arto"] and tokola.proven() and randf() < 0.4:
 		return (TOKOLA_PROVEN[_talk_who] as Array).pick_random()
+	if _talk_who in ["pekka", "arto", "sulo"] and pannu.heard and randf() < 0.5:
+		var pool: Dictionary = PANNU_PROVEN if pannu.proven() else PANNU_DOUBT
+		if pool.has(_talk_who):
+			return (pool[_talk_who] as Array).pick_random()
+	if _talk_who == "aaro" and pannu.choice == "romu":
+		return ["Romuksi myit sen pannun. Kuuskymmentä vuotta odotin, ja romuksi.", "Mee pois. En puhu romukauppiaille."].pick_random()
 	match _talk_who:
 		"aaro":
 			return AARO_LINES.pick_random()
@@ -9657,6 +9808,7 @@ func _load_game() -> void:
 	story.load_from(cfg)
 	ebike.load_from(cfg)
 	tokola.load_from(cfg)
+	pannu.load_from(cfg)
 	_taxi_mokki_return = cfg.get_value("tarina", "taksi_paluu", false)
 	if cfg.has_section_key("peli", "pyora"):
 		_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
@@ -9736,6 +9888,8 @@ func _save_game() -> void:
 		ebike.save_to(cfg)
 	if tokola != null:
 		tokola.save_to(cfg)
+	if pannu != null:
+		pannu.save_to(cfg)
 	if bike != null:
 		cfg.set_value("peli", "pyora", bike.global_position)
 		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
@@ -10271,6 +10425,7 @@ func _spawn_hazards() -> void:
 	sinikka.chores.assign(["Fixing_Kneeling", "Crouch_Idle", "PickUp_Table", "Fixing_Kneeling"])  # kitkee, kastelee, istuttaa
 	sulo = _villager("Pannu-Sulo", Looks.SULO, SULO_LINES, "sulo", M.PONTIKKA + Vector2(-2.2, -1.2))
 	aaro = _villager("Tokolan Aaro", AARO_LOOK, AARO_LINES, "arto", M.to_px(world.aaro_pos))
+	_pannu_update()
 
 
 var _traffic_t := 0.0
@@ -10712,7 +10867,7 @@ func inventory_items() -> Array:
 	add.call("kalja", "Kalja", beers, "Jalan jaksaa kantaa %d, pyörän kyytiin mahtuu %d." % [CARRY_FOOT, CARRY_BIKE],
 		{"use": "kalja", "use_label": "juo yksi"})
 	if has_kanister:
-		add.call("kanisteri", "Pontikkakanisteri", 1, "Vastaa kotijemmassa %d kaljaa." % KANISTER_BEERS)
+		add.call("kanisteri", "Pontikkakanisteri", 1, "Vastaa kotijemmassa %d kaljaa." % _kanister_beers())
 	if headphones.found:
 		add.call("kuulokkeet", "Valcon kuulokkeet", 1, "%s päähän ja pois, %s seuraava biisi. Kaikki hiljenee, Päivikin." % [
 			Settings.action_key("headphones"), Settings.action_key("next_song")])
@@ -10748,6 +10903,8 @@ func inventory_items() -> Array:
 		add.call("lipas", "Kauppiaan rahalipas", 1, "Näytä Aarolle. Tai anna tilikirja Pannu-Sulolle.")
 	if tokola.markat:
 		add.call("markat", "Vanhoja markkoja", 1, "Kirppiksen Raili ostaa keräilijöille.")
+	if pannu.found and pannu.choice == "":
+		add.call("kuparipannu", "Vanhan Sulon kuparipannu", 1, "Sululle, Saloisten Pirttiin vai Taunolle romuksi?")
 	if has_ball:
 		add.call("jalkapallo", "Jalkapallo", 1, "Poikien hukattu pallo.")
 	for k in ["kantarelli", "herkkutatti"]:
@@ -10828,7 +10985,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list() + ebike.tasks() + _tokola_tasks()
+	info.tasks = story.list() + ebike.tasks() + _tokola_tasks() + _pannu_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if stash.get(id, 0) > 0:
@@ -13999,6 +14156,93 @@ func _maybe_screenshot() -> void:
 				_talk_who = "pekka"
 				lines[_talk_chat_line()] = true
 			print("TK pekka todistettu repliikki: %s" % [TOKOLA_PROVEN.pekka.any(func(l): return lines.has(l))])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"pannu":
+			# Legenda: Sulon isän kadonnut pannu (#130): Aaron kertomus, epäilijät, droonikuva, kaivaminen rämeestä ja
+			# kolme valintaa (Sulo, Pirtti, romu) seurauksineen. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			pannu = SuloPannu.new()
+			tokola.key = true
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			print("PA aaro: %s" % [_talk_options("aaro").map(func(o): return o.id)])
+			_talk_open("aaro", aaro)
+			_talk_box._pages.clear()
+			_talk_choose("vanhasulo")
+			_talk_box.close()
+			print("PA kuultu %s, läikkä näkyy %s, tehtävät %s" % [pannu.heard, _pannu_node.visible, _pannu_tasks()])
+			var doubt := {}
+			for i in 20:
+				_talk_who = "sulo"
+				doubt[_talk_chat_line()] = true
+			print("PA sulo epäilee: %s" % [PANNU_DOUBT.sulo.any(func(l): return doubt.has(l))])
+			var spot := M.w(SuloPannu.SPOT)
+			walker_out.global_position = spot + Vector3(1.0, 0.3, 0)
+			await frames.call(10)
+			print("PA rämeellä ilman kuvaa: '%s'" % _hint.text)
+			print("PA droonikohde: %s" % [_drone_pois().any(func(d): return d.id == "kuparipannu")])
+			var oc := Camera3D.new()
+			add_child(oc)
+			oc.look_at_from_position(spot + Vector3(6, 9, 6), spot)
+			oc.current = true
+			await frames.call(20)
+			await snap.call("_rame.png")
+			oc.current = false
+			player.activate_camera()
+			_on_drone_photo("kuparipannu")
+			await frames.call(5)
+			print("PA kuvattu: %s, tehtävät %s" % [pannu.spotted, _pannu_tasks()])
+			await press.call("interact")
+			print("PA kaivettu: %s, viesti '%s'" % [pannu.found, _msg.text.left(90)])
+			print("PA sulo: %s, tauno: %s" % [_talk_options("sulo").map(func(o): return o.id), _talk_options("tauno").map(func(o): return o.id)])
+			# Valinta 1: Pirtti.
+			var md: Vector3 = world.museum_door
+			walker_out.global_position = md + Vector3(0, 0.3, 0)
+			await frames.call(10)
+			print("PA pirtti: '%s'" % _hint.text)
+			oc.look_at_from_position(md + (md - M.w(M.PIRTTI)).normalized() * 9.0 + Vector3(0, 3, 0), M.w(M.PIRTTI) + Vector3(0, 1.5, 0))
+			oc.current = true
+			await frames.call(20)
+			await snap.call("_pirtti.png")
+			oc.current = false
+			player.activate_camera()
+			await press.call("interact")
+			print("PA museo: valinta %s, maine %d, kanisteri %s € / %d kaljaa" % [pannu.choice, roundi(maine), _eur(_kanister_price()), _kanister_beers()])
+			# Valinta 2: Sulo.
+			pannu.choice = ""
+			_talk_open("sulo", sulo)
+			_talk_box._pages.clear()
+			_talk_choose("pannu")
+			_talk_box.close()
+			var proven := {}
+			for i in 20:
+				_talk_who = "sulo"
+				proven[_talk_chat_line()] = true
+			print("PA sulo: valinta %s, kanisteri %s € / %d kaljaa, myöntää %s" % [pannu.choice, _eur(_kanister_price()), _kanister_beers(),
+				PANNU_PROVEN.sulo.any(func(l): return proven.has(l))])
+			# Valinta 3: romu.
+			pannu.choice = ""
+			var m0 := money
+			_talk_who = "tauno"
+			_talk_kirppis("romu")
+			_talk_box.close()
+			_talk_who = "aaro"
+			print("PA romu: valinta %s, rahaa %s -> %s, kanisteri %s €, Aaro: '%s'" % [pannu.choice, _eur(m0), _eur(money), _eur(_kanister_price()), _talk_chat_line()])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"seurailta":
