@@ -21,6 +21,7 @@ const ENDINGS := [
 	["tokolan_aarre", "Tokolan kauppiaan aarre", "Legenda todistettu: Aaro oli oikeassa."],
 	["sulon_pannu", "Vanhan Sulon pannu", "Kuparipannu nousi Pilkkarinnevalta, ja Sulo myönsi."],
 	["piirakkakuningas", "Lihapiirakkakuningas", "Reipparin ennätystauluun uusi nimi. Juntti ei usko."],
+	["eramaan_laavu", "Erämaan laavu", "Viitajärven laavulla nuotio, makkara ja kalja. Kukaan ei tiedä, missä oot."],
 	["aarnivalkea", "Isonvihan hopeat", "Lapinraunion aarnivalkea paloi oikean aarteen päällä. Hilkka oli oikeassa."],
 	["kertun_rauta", "Viimeisen sepän kirves", "Kertunkankaan legenda todistettu: Raimo oli oikeassa, ja Veikko tarjosi."],
 ]

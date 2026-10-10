@@ -526,6 +526,8 @@ const STASHES := {
 		"home": false, "cap": 24, "steal": 0.15},
 	"uimaranta": {"name": "pukukopin penkin alus", "short": "ranta", "into": "pukukopin penkin alle",
 		"from": "pukukopin penkin alta", "home": false, "cap": 12, "steal": 0.25},
+	"rauniot": {"name": "raunioiden kivijalan kolo", "short": "rauniot", "into": "kivijalan koloon", "from": "kivijalan kolosta",
+		"home": false, "cap": 18, "steal": 0.3},
 }
 var stash := {}
 var _stashed_today := 0  # tänään jemmoihin piilotetut (kotimatkan tappio vain, jos mitään ei ole piilossa)
@@ -694,6 +696,7 @@ const TALKERS := {
 	"seo": ["Huoltiksen myyjä", Color(0.4, 0.85, 0.55)],
 	"vahtimestari": ["Vahtimestari Reijo", Color(0.7, 0.75, 0.8)],
 	"seppo": ["Seppo", Color(0.95, 0.75, 0.4)],
+	"rauniot_nuoret": ["Nuotioporukka raunioilla", Color(1.0, 0.7, 0.4)],
 	"saasto": ["Säästöpihan Marja", Color(0.55, 0.9, 0.55)],
 	"hongan_nuoret": ["Portailla istuva porukka", Color(0.6, 0.9, 1.0)],
 	"aplus": ["Ravintola A+", Color(1.0, 0.6, 0.55)],
@@ -717,6 +720,7 @@ const TALK_HELLO := {
 	"reippari": ["No mitäs saisi olla?", "Grilli on kuuma, sano vaan.", "Kas, Järvikujan mies. Taas nälkä?"],
 	"reippari_nuoret": ["No moi. Ootko sää se tyyppi Järvikujalta?", "Mitä sää tuijotat? Ai, juttelemaan vaan.", "Moro. Ei oo mitään kiellettyä tässä."],
 	"sinikka_seura": ["No hei! Tuliks sää tanssimaan?", "Kas, komistus seuraintalolla. Päivi kotona?"],
+	"rauniot_nuoret": ["Hei, ei tänne aikuiset tuu. ...No istu sitte.", "Ootko sää poliisi? Et näytä poliisilta."],
 	"seppo": ["No terve! Kato rauhassa, kaikki on myytävänä. Paitsi se mopo.", "Seppo. Varastomyynti. Mitä tarvitaan?"],
 	"saasto": ["Päivää! Kukkia, taimia, multaa?", "Tervetuloa säästöpihaan. Päiville kukkia?"],
 	"vahtimestari": ["No? Kesäloma on. Koulu on kiinni.", "Reijo, vahtimestari. Mitäs täällä pyöritään?"],
@@ -1437,6 +1441,8 @@ func _outside_logic() -> void:
 	_hongan_logic()
 	_seppo_logic()
 	_leikki_logic()
+	_eramaa_logic()
+	_rauniot_logic()
 	_aarni_logic()
 	_reippari_logic()
 	_atm_logic()
@@ -3154,6 +3160,191 @@ func _rossi_update_clock() -> void:
 				"\nOMA %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""]
 
 
+## --- Etelän erämaa (#147) ja rauniot (#145) -------------------------------------------------------------------
+const KAITA_ILTA := Vector2(19 * 60, 23 * 60)
+const METSO_AIKA := Vector2(8 * 60, 10 * 60)  # päivä alkaa klo 8: aikainen aamu
+const RAUNIOT_ILTA := Vector2(20 * 60, 60)  # yli puolenyön
+var _viita_fire_day := -1
+var _viita_kalja_day := -1
+var _viita_shore := Vector3.ZERO
+var _viita_dir := Vector2.ZERO
+var _valokuva := 0  # 0 ei, 1 mukana, 2 Pirtissä
+
+
+## Viitajärven ranta: laavulta järvelle päin ensimmäinen vesi (lasketaan kerran).
+func _viita_find_shore() -> void:
+	if _viita_shore != Vector3.ZERO or world.viita_pos == Vector3.ZERO:
+		return
+	var a := M.w2(M.VIITA_LAAVU)
+	var b := M.w2(M.VIITAJARVI)
+	_viita_dir = (b - a).normalized()
+	var last := a
+	var t := 0.0
+	while t < a.distance_to(b):
+		var p := a + _viita_dir * t
+		if world.surface_at(Vector3(p.x, 0, p.y)) == "water":
+			break
+		last = p
+		t += 1.0
+	_viita_shore = Vector3(last.x, Terrain.h(last.x, last.y), last.y)
+
+
+func _eramaa_logic() -> void:
+	if world == null or world.viita_fire == null:
+		return
+	world.viita_fire.visible = _viita_fire_day == day
+	world.metso.visible = _between(clock_min, METSO_AIKA)
+	if _hint.text != "" or player.is_stunned():
+		return
+	var e := Input.is_action_just_pressed("interact")
+	if player == bike:
+		for sp in world.suojelu_pos:
+			if _near_xz(sp, 30.0) and _once_today("suojelu_pyora"):
+				_show_message("Luonnonsuojelualue: maastoliikenne kielletty! Metsot paheksuu.", 2.5)
+		return
+	if _near_xz(world.viita_pos, 40.0):
+		tilat.first("viitajarvi", 0.2)
+		_viita_find_shore()
+	if _near_xz(world.viita_pos, 2.4):
+		if _viita_fire_day != day:
+			if has_matches:
+				_hint.text = "[E] Sytytä nuotio Viitajärven laavulla"
+				if e:
+					_viita_fire_day = day
+					Sfx.play("whoosh", 0.0, 0.5)
+					tilat.add("stressi", 0.1)
+					_show_message("Nuotio rätisee. Viitajärvi on tyyni, eikä tänne asti tule kukaan. Ei Päivi, ei teinit, ei valtaajat.", 4.0)
+			else:
+				_hint.text = "Viitajärven laavu. Tulitikut tarvitaan (K-Market)."
+		elif has_sausage and not sausage_done:
+			_hint.text = "[E] Paista makkara nuotiolla"
+			if e:
+				sausage_done = true
+				Sfx.play("whoosh", -6.0, 0.6)
+				_show_message("Makkara tirisee kepin päässä. Erämaan paras tuoksu.", 2.5)
+		elif beers > 0 and _viita_kalja_day != day:
+			_hint.text = "[E] Avaa kalja nuotiolla"
+			if e:
+				_viita_kalja_day = day
+				beers -= 1
+				player.set_carrying(beers > 0)
+				_drink(1)
+				tilat.add("stressi", 0.3)
+				tilat.add("moraali", 0.2)
+				Sfx.play("glass", -4.0, 0.9)
+				if sausage_done:
+					_ending("eramaan_laavu")
+					_show_message("Nuotio, makkara ja kalja Viitajärven laavulla. Kukaan ei tiedä, missä oot. Tätä se on.", 5.0)
+				else:
+					_show_message("Kalja nuotiolla. Makkaraa ois kiva paistaa (K-Market).", 3.0)
+		else:
+			_hint.text = "Nuotio palaa. Viitajärvi on tyyni."
+		return
+	if _viita_shore != Vector3.ZERO and _near_xz(_viita_shore, 3.0):
+		_hint.text = "[E] Uimaan: Viitajärvi"
+		if e:
+			_swim("Viitajärvi", Vector3.ZERO)
+		return
+	if _near_xz(world.kaitasaari_pos, 2.5):
+		tilat.first("kaitasaari", 0.2)
+		if _between(clock_min, KAITA_ILTA):
+			_hint.text = "[E] Katsele auringonlaskua tekojärvellä"
+			if e and _once_today("kaitasaari"):
+				tilat.add("stressi", 0.3)
+				tilat.add("moraali", 0.2)
+				tilat.first("kaitasaari_ilta", 0.3)
+				_show_message("Aurinko laskee Haapajärven tekojärven taakse. Kuikka huutaa jossain. Kaitasaaren kärjessä ei oo kiirettä mihinkään.", 5.0)
+		else:
+			_hint.text = "Kaitasaaren kärki. Illalla täältä näkee auringonlaskun."
+		return
+	if world.metso.visible and _near_xz(world.metso.global_position, 8.0):
+		_hint.text = "[E] Kuuntele metson soidinta (hiljaa!)"
+		if e and _once_today("metso"):
+			tilat.add("moraali", 0.2)
+			tilat.add("vireys", 0.1)
+			tilat.first("metso", 0.4)
+			Sfx.play("crow", -14.0, 0.5)
+			_show_message("Naksutusta, pulputusta ja hiontaa. Metso soitimella, pyrstö viuhkana. Harva saloislainen on tätä nähny.", 5.0)
+		return
+	for sp in world.suojelu_pos:
+		if _near_xz(sp, 2.2):
+			tilat.first("suojelualue", 0.1)
+			_hint.text = "Luonnonsuojelualue. Maastoliikenne ja tulenteko kielletty.%s" % (" Aamuisin täällä soitimella metso." if sp == world.suojelu_pos[0] else "")
+			return
+	if _near_xz(world.puntari_pos, 3.0):
+		_hint.text = "[E] Katsele maisemaa Puntarimäeltä"
+		if e:
+			tilat.first("puntarimaki", 0.3)
+			if _once_today("puntari"):
+				tilat.add("stressi", 0.15)
+			_show_message("Puntarimäeltä näkyy suota ja metsää horisonttiin asti, ja etelässä tekojärvi. Saloinen näyttää täältä pieneltä.", 4.5)
+
+
+func _viita_swim() -> void:
+	_viita_find_shore()
+	_act_begin()
+	var dir: Vector2 = _viita_dir
+	var bp: Vector3 = _viita_shore
+	var frame := Transform3D(Basis(Vector3.UP, atan2(dir.x, dir.y)), bp)
+	var lake := bp + Vector3(dir.x, 0, dir.y) * 10.0
+	var wl := Terrain.h(lake.x, lake.z) + 0.01
+	var ground := func(g: Vector3) -> float:
+		var along := Vector2(g.x - bp.x, g.z - bp.z).dot(dir)
+		return Terrain.h(g.x, g.z) - clampf((along - 1.0) * 0.3, 0.0, 1.6)
+	cutscene.swim_dive(frame, wl, ground, func() -> void:
+		_act_end()
+		tilat.first("viita_uinti", 0.2)
+		_save_game()
+		_show_message("Viitajärvi on kylmä ja kirkas. Kukaan ei näe, kun pulahdat. Kunto palautui.", 4.0),
+		"VIITAJÄRVI", "Erämaajärvi kartan lounaiskulmassa. Laavulla ei ketään.", "Viitajärvi. Hiljaisuus.")
+
+
+# Rauniot: jemma (_stash_logic), teinien iltanuotio ja uunin raunioiden valokuva Saloisten Pirttiin.
+func _rauniot_logic() -> void:
+	if world == null or world.rauniot_youth == null:
+		return
+	world.rauniot_youth.visible = _between(clock_min, RAUNIOT_ILTA)
+	if _hint.text != "" or player == bike or player.is_stunned():
+		return
+	if not _near_xz(world.rauniot_youth_pos, 70.0):
+		return
+	tilat.first("rauniot", 0.1)
+	var e := Input.is_action_just_pressed("interact")
+	if world.rauniot_youth.visible and _near_xz(world.rauniot_youth_pos, 3.5):
+		_hint.text = "[E] Juttele nuotiolla istuvien teinien kanssa"
+		if e:
+			_talk_open("rauniot_nuoret", null)
+		return
+	if _near_xz(world.rauniot_uuni, 1.8):
+		if _valokuva == 0:
+			_hint.text = "[E] Penko uunin raunioita"
+			if e:
+				_valokuva = 1
+				tilat.first("rauniot_loyto", 0.3)
+				Sfx.play("pickup", -4.0)
+				_save_game()
+				_show_message("Tiilten välissä peltirasia, ja sen sisällä mustavalkoinen valokuva: talo, perhe portailla ja koira. "
+					+ "Takana lyijykynällä \"Kotona, kesä\". Saloisten Pirtissä tiedettäis ehkä, kenen talo.", 6.0)
+		else:
+			_hint.text = "Uunin rauniot: tiiliä ja ruostunut uuninluukku."
+		return
+
+
+func _rauniot_museum() -> void:
+	if _valokuva != 1 or _hint.text != "" or not _near_xz(world.museum_door, 3.0):
+		return
+	_hint.text = "[E] Saloisten Pirtti: näytä raunioiden vanha valokuva"
+	if Input.is_action_just_pressed("interact"):
+		_valokuva = 2
+		maine = clampf(maine + 3.0, 0.0, 100.0)
+		tilat.add("moraali", 0.15)
+		tilat.first("rauniot_valokuva", 0.3)
+		Sfx.play("win_small", -6.0)
+		_save_game()
+		_show_message("Pirtin opas tutkii kuvaa suurennuslasilla: \"Tuo kivijalka... ja koira! Mää kysyn kyläyhdistykseltä.\" "
+			+ "Kuva pääsee Pirtin seinälle, ja sun nimi lapulle sen alle. Maine +3.", 5.5)
+
+
 ## --- Leikkipuistot (#146): keinuhyppykisa, hiekkalaatikon kätköt ja kalja penkillä ---------------------------
 const LEIKKI_MUMS := Vector2(9 * 60, 19 * 60)
 const SANDBOX_FINDS := [
@@ -3917,6 +4108,9 @@ func _kertun_logic() -> void:
 		_save_game()
 		_call_police("kirves")
 	if _hint.text != "" or player == bike:
+		return
+	_rauniot_museum()
+	if _hint.text != "":
 		return
 	_aarni_museum()
 	if _hint.text != "":
@@ -4855,6 +5049,8 @@ func _stash_pos(id: String) -> Vector3:
 			return world.kota.to_global(Kota.TOWER_LOCAL) if world.kota != null else M.w(M.KOTA)
 		"uimaranta":
 			return world.pukukoppi_pos if world.pukukoppi_pos != Vector3.ZERO else M.w(M.PUKUKOPPI)
+		"rauniot":
+			return world.rauniot_stash if world.rauniot_stash != Vector3.ZERO else M.w(M.RAUNIOT[1])
 	return Vector3.ZERO
 
 
@@ -7520,6 +7716,9 @@ func _talk_options(who := "") -> Array:
 			_pohjoiset_options(who, o)
 		"seppo", "saasto":
 			_seppo_options(who, o)
+		"rauniot_nuoret":
+			if beers > 0 and not ("rauniot_kalja" in _today):
+				o.append(_opt("tarjoa", "Tarjoa kalja nuotiolle", true, "", _valokuva == 0))
 		"vahtimestari":
 			if _hongan_keikka:
 				o.append(_opt("x_keikka", "Roskat kesken (%d jäljellä)" % _hongan_trash_left(), false, "kerää ensin roskat pihalta"))
@@ -7726,6 +7925,17 @@ func _talk_choose(id: String) -> void:
 			_pohjoiset_choose(id)
 		"seppo", "saasto":
 			_seppo_choose(id)
+		"rauniot_nuoret":
+			if id == "tarjoa":
+				_today.append("rauniot_kalja")
+				beers -= 1
+				player.set_carrying(beers > 0)
+				tilat.add("moraali", 0.15)
+				tilat.first("rauniot_nuotio", 0.2)
+				Sfx.play("glass", -6.0)
+				_save_game()
+				_talk_box.reply("No nyt! Sää oot ihan ok. Kuule, Jere löys kerran uunin raunioista vanhan valokuvan. Pelkäs ja pani "
+					+ "takasin. Sano että talossa kummittelee. Hah.", _talk_options(), "Uunin raunioissa kivijalan nurkassa on jotain.")
 		"vahtimestari":
 			if id == "keikka":
 				_hongan_start_keikka()
@@ -7960,6 +8170,10 @@ func _talk_chat_line() -> String:
 	if _talk_who == "aaro" and pannu.choice == "romu":
 		return ["Romuksi myit sen pannun. Kuuskymmentä vuotta odotin, ja romuksi.", "Mee pois. En puhu romukauppiaille."].pick_random()
 	match _talk_who:
+		"rauniot_nuoret":
+			return ["Täällä oli joskus talo. Kukaan ei tiedä kenen. Ehkä joku muistaa Pirtissä.",
+				"Tänne ei tuu kukaan. Ei Reijo, ei poliisi, ei äidit. Paras paikka koko kylässä.",
+				"Kivijalan kolossa voi pitää kaljoja. Mut älä kerro kenellekään.", "Jere sanoo, että öisin täällä kuuluu askelia. Jere on pelkuri."].pick_random()
 		"vahtimestari":
 			return ["Kolkytä vuotta oon tätä koulua pitäny. Päivinkin muistan, istui etupenkissä ja kanteli kaikista.",
 				"Iltaisin noi nuoret istuu portailla. Ei ne mitään pahaa, mutta tölkit jää.",
@@ -10022,6 +10236,8 @@ func _swim(where: String, _from: Vector3) -> void:
 	tilat.first("uinti_" + where.to_lower(), 0.3)
 	if where == "Oravajärvi":
 		_orava_swim()
+	elif where == "Viitajärvi":
+		_viita_swim()
 	elif where == "Salminen":
 		_salminen_swim()
 	elif after_sauna:
@@ -11717,6 +11933,7 @@ func _load_game() -> void:
 	clock_min = cfg.get_value("peli", "kello", DAY_START)
 	has_chocolate = cfg.get_value("peli", "suklaa", false)
 	has_flowers = cfg.get_value("peli", "kukat", false)
+	_valokuva = cfg.get_value("rauniot", "valokuva", 0)
 	_keinu_record = cfg.get_value("leikkipuistot", "ennatys", 3.4)
 	_keinu_holder = cfg.get_value("leikkipuistot", "haltija", "Honganpalon Jere")
 	_keinu_best = cfg.get_value("leikkipuistot", "oma", 0.0)
@@ -11815,6 +12032,7 @@ func _save_game() -> void:
 	cfg.set_value("peli", "kello", clock_min)
 	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("peli", "kukat", has_flowers)
+	cfg.set_value("rauniot", "valokuva", _valokuva)
 	cfg.set_value("leikkipuistot", "ennatys", _keinu_record)
 	cfg.set_value("leikkipuistot", "haltija", _keinu_holder)
 	cfg.set_value("leikkipuistot", "oma", _keinu_best)
@@ -12921,6 +13139,8 @@ func inventory_items() -> Array:
 		add.call("lipas", "Kauppiaan rahalipas", 1, "Näytä Aarolle. Tai anna tilikirja Pannu-Sulolle.")
 	if tokola.markat:
 		add.call("markat", "Vanhoja markkoja", 1, "Kirppiksen Raili ostaa keräilijöille.")
+	if _valokuva == 1:
+		add.call("valokuva", "Vanha valokuva", 1, "Raunioiden uunista. Talo, perhe portailla ja koira. Saloisten Pirtti haluaisi nähdä.")
 	if has_flowers:
 		add.call("kukat", "Kukkakimppu Päiville", 1, "Vie kotiin illaksi. Lytistyy, jos jäät kiinni.")
 	if _has_taimet:
@@ -16408,6 +16628,119 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 			_talk_who = "aaro"
 			print("PA romu: valinta %s, rahaa %s -> %s, kanisteri %s €, Aaro: '%s'" % [pannu.choice, _eur(m0), _eur(money), _eur(_kanister_price()), _talk_chat_line()])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"eramaa":
+			# Etelän erämaa (#147) ja rauniot (#145): laavun nuotio, makkara ja kalja (loppu), Viitajärven uinti,
+			# Kaitasaaren ilta, metso aamulla, suojelualueen kyltti, Puntarimäki; rauniot: teinit, kalja, valokuva,
+			# Pirtti ja jemma. Kuvat.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			quests = Quests.new()
+			endings = Endings.new()
+			_valokuva = 0
+			_viita_fire_day = -1
+			_viita_kalja_day = -1
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var at := func(pos: Vector3) -> void:
+				walker_out.global_position = pos + Vector3(0, 0.3, 0)
+				await frames.call(10)
+			var oc := Camera3D.new()
+			add_child(oc)
+			var view := func(name: String, from: Vector3, to: Vector3) -> void:
+				oc.look_at_from_position(from, to)
+				oc.current = true
+				await frames.call(30)
+				await snap.call(name)
+				oc.current = false
+				player.activate_camera()
+			clock_min = 8 * 60 + 30
+			await frames.call(3)
+			var mp: Vector3 = world.metso.global_position
+			await view.call("_metso.png", mp + Vector3(2.2, 1.0, -1.5), mp + Vector3(0, 0.5, 0))
+			await at.call(mp + Vector3(4, 0, 0))
+			print("ER metso: '%s' (näkyy %s, kello %d, etäisyys %.1f, stun %s, bike %s)" % [_hint.text, world.metso.visible, clock_min, walker_out.global_position.distance_to(mp), player.is_stunned(), player == bike])
+			await press.call("interact")
+			print("ER soidin %s" % ("metso" in tilat.firsts))
+			clock_min = 20 * 60 + 30
+			has_matches = true
+			has_sausage = true
+			sausage_done = false
+			beers = 3
+			var vp: Vector3 = world.viita_pos
+			await at.call(vp + Vector3(1.6, 0, 0))
+			print("ER laavu: '%s'" % _hint.text)
+			await press.call("interact")
+			await frames.call(3)
+			print("ER makkara: '%s'" % _hint.text)
+			await press.call("interact")
+			await frames.call(3)
+			print("ER kalja: '%s'" % _hint.text)
+			await press.call("interact")
+			print("ER loppu %s, loput %d/%d" % [endings.counts.has("eramaan_laavu"), endings.distinct(), Endings.max_count()])
+			await view.call("_laavu.png", vp + Vector3(5, 2.5, -5), vp + Vector3(0, 0.6, 2))
+			_viita_find_shore()
+			print("ER ranta %s, suunta %s" % [_viita_shore, _viita_dir])
+			await at.call(_viita_shore)
+			print("ER uinti: '%s'" % _hint.text)
+			clock_min = 12 * 60
+			_swim("Viitajärvi", Vector3.ZERO)
+			await get_tree().create_timer(3.5).timeout
+			await snap.call("_viitauinti.png")
+			for i in 80:
+				if state != "cutscene":
+					break
+				await get_tree().create_timer(0.5).timeout
+			print("ER uitu: %s, '%s'" % [state, _msg.text.left(40)])
+			clock_min = 20 * 60
+			await at.call(world.kaitasaari_pos + Vector3(1.0, 0, 0))
+			print("ER kaitasaari: '%s'" % _hint.text)
+			await press.call("interact")
+			print("ER ilta: '%s'" % _msg.text.left(40))
+			await at.call(world.suojelu_pos[1] + Vector3(1, 0, 0))
+			print("ER suojelu: '%s'" % _hint.text)
+			await at.call(world.puntari_pos + Vector3(2, 0, 0))
+			print("ER puntari: '%s'" % _hint.text)
+			# Rauniot.
+			var ry: Vector3 = world.rauniot_youth_pos
+			clock_min = 12 * 60
+			await view.call("_rauniot.png", ry + Vector3(-14, 8, 10), M.w(Vector2(160, 45)))
+			clock_min = 21 * 60
+			await at.call(ry + Vector3(3, 0, 0))
+			print("ER teinit: '%s', näkyy %s" % [_hint.text, world.rauniot_youth.visible])
+			await view.call("_nuotio.png", ry + Vector3(4, 2, 4), ry + Vector3(0, 0.6, 0))
+			beers = 2
+			print("ER valinnat: %s (kaljoja %d)" % [_talk_options("rauniot_nuoret").map(func(o): return o.id), beers])
+			_talk_open("rauniot_nuoret", null)
+			_talk_box._pages.clear()
+			_talk_choose("tarjoa")
+			_talk_box.close()
+			await frames.call(20)
+			await at.call(world.rauniot_uuni + Vector3(0.8, 0, 0.8))
+			print("ER uuni: '%s'" % _hint.text)
+			await press.call("interact")
+			print("ER valokuva %d" % _valokuva)
+			clock_min = 12 * 60
+			await at.call(world.museum_door)
+			print("ER pirtti: '%s'" % _hint.text)
+			await press.call("interact")
+			print("ER lahjoitettu %d" % _valokuva)
+			await at.call(world.rauniot_stash)
+			print("ER jemma: '%s'" % _hint.text)
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"jemmat":
