@@ -108,12 +108,14 @@ func _draw() -> void:
 	# Kansi, sivut ja kierrerengas.
 	MG.box(self, _book.grow(14), LEATHER, 18, 16)
 	MG.box(self, _book.grow(6), LEATHER.darkened(0.25), 14)
+	draw_arc(_book.position + Vector2(_book.size.x - 60, _book.size.y - 4), 30.0, PI * 1.1, PI * 1.9, 24, Color(0.15, 0.08, 0.04, 0.5), 3.0)
 	for side in [false, true]:
 		var pg := _page(side)
 		MG.box(self, pg, PAPER, 6)
 		for y in range(int(pg.position.y) + 70, int(pg.end.y) - 10, 30):
 			draw_line(Vector2(pg.position.x + 10, y), Vector2(pg.end.x - 10, y), LINE, 1.0)
 		draw_line(Vector2(pg.position.x + 46, pg.position.y + 6), Vector2(pg.position.x + 46, pg.end.y - 6), MARGIN, 1.5)
+		_stains(pg, 7 if side else 3)
 	var mid := _book.position.x + _book.size.x / 2.0
 	for y in range(int(_book.position.y) + 30, int(_book.end.y) - 20, 34):
 		MG.ball(self, Vector2(mid, y), 8.0, Color(0.7, 0.7, 0.74), 0.6)
@@ -272,6 +274,51 @@ func _draw_endings() -> void:
 			draw_string(_hand, r.position + Vector2(70, 50), ("ekan kerran päivänä %d" % it.day) if it.day > 0 else "", HORIZONTAL_ALIGNMENT_LEFT,
 				r.size.x - 76, 14, Color(0.45, 0.4, 0.35))
 			draw_string(_hand, r.position + Vector2(12, 68), it.desc, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 20, 12, INK)
+
+
+## Tahrat pelin tapaan: kahvikupin renkaat, oluttahrat roiskeineen, makkaran rasvatäplä ja sinappi. Paikat
+## kiinteästä siemenestä, jotta tahrat pysyvät paikallaan; piirretään tekstin alle, ettei luettavuus kärsi.
+func _stains(pg: Rect2, seed_i: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_i
+	var at := func(fx: float, fy: float) -> Vector2:
+		return pg.position + Vector2(pg.size.x * fx, pg.size.y * fy)
+	# Kahvikupin rengas: epätasainen ruskea kehä, sisältä vaaleampi, yksi valuma.
+	for k in 2 if seed_i == 3 else 1:
+		var c: Vector2 = at.call(rng.randf_range(0.55, 0.85), rng.randf_range(0.15, 0.75))
+		var r := rng.randf_range(38.0, 50.0)
+		draw_circle(c, r, Color(0.55, 0.35, 0.15, 0.06))
+		for ring in 3:
+			var a0 := rng.randf() * TAU
+			draw_arc(c, r - ring * 1.8, a0, a0 + TAU * rng.randf_range(0.7, 1.0), 48,
+				Color(0.45, 0.27, 0.1, 0.28 - ring * 0.07), 3.0 - ring * 0.6, true)
+		var drip := c + Vector2(cos(1.1), sin(1.1)) * r
+		draw_line(drip, drip + Vector2(rng.randf_range(-4, 4), rng.randf_range(10, 22)), Color(0.45, 0.27, 0.1, 0.22), 3.0)
+	# Oluttahra: kellertävä läikkä tummemmin reunoin ja pieniä roiskeita.
+	var bc: Vector2 = at.call(rng.randf_range(0.2, 0.5), rng.randf_range(0.55, 0.85))
+	var blob := PackedVector2Array()
+	var radii: Array = []
+	for k in 18:
+		radii.append(rng.randf_range(26.0, 44.0))
+	for k in 18:
+		var a := k * TAU / 18.0
+		blob.append(bc + Vector2(cos(a), sin(a) * 0.75) * radii[k])
+	draw_colored_polygon(blob, Color(0.85, 0.62, 0.15, 0.13))
+	blob.append(blob[0])
+	draw_polyline(blob, Color(0.7, 0.45, 0.1, 0.25), 2.0, true)
+	for k in 7:
+		var a := rng.randf() * TAU
+		draw_circle(bc + Vector2(cos(a), sin(a)) * rng.randf_range(50.0, 85.0), rng.randf_range(2.0, 5.0), Color(0.8, 0.55, 0.12, 0.2))
+	# Makkaran rasvatäplä: läpikuultava tumma täplä paperissa.
+	if seed_i == 7:
+		var gc: Vector2 = at.call(0.3, 0.2)
+		draw_circle(gc, 18.0, Color(0.6, 0.5, 0.3, 0.12))
+		draw_circle(gc + Vector2(6, 4), 10.0, Color(0.55, 0.45, 0.25, 0.1))
+	# Sinappiroiske sivun kulmassa.
+	if seed_i == 3:
+		var mc: Vector2 = at.call(0.88, 0.9)
+		draw_circle(mc, 7.0, Color(0.85, 0.7, 0.1, 0.35))
+		draw_line(mc, mc + Vector2(-18, -6), Color(0.85, 0.7, 0.1, 0.3), 3.0)
 
 
 func _star(c: Vector2, r: float, col: Color) -> void:
