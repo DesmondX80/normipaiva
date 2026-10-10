@@ -39,6 +39,7 @@ var sprint_mult := SPRINT
 const ASSIST_SPEED := 0.22
 const ASSIST_ACCEL := 0.7
 var assist := 0.0
+var _hop := 0.0
 var heavy := false
 var root_hits := 0
 var _ebike: Node3D
@@ -275,7 +276,10 @@ func _physics_process(delta: float) -> void:
 	var fwd := -global_transform.basis.z
 	velocity.x = fwd.x * speed
 	velocity.z = fwd.z * speed
-	if is_on_floor():
+	if _hop > 0.0:
+		velocity.y = _hop  # hyppyri (rossirata)
+		_hop = 0.0
+	elif is_on_floor():
 		velocity.y = 0.0
 	else:
 		velocity.y -= GRAVITY * delta
@@ -352,6 +356,11 @@ func terrain_bump() -> float:
 
 ## Sähköpyörän osat näkyviin: {"joints": liitos -> kiinnitys, "loose": liitos -> true}. Tyhjä = tavallinen pyörä.
 ## Rakennetaan uudelleen vain, kun jokin muuttuu.
+## Hyppyri: pystyvauhti seuraavaan fysiikkaruutuun (rossiradan kiilat, main.gd).
+func hop(v: float) -> void:
+	_hop = v
+
+
 func set_ebike(state: Dictionary) -> void:
 	var key := var_to_str(state)
 	if key == _ebike_key:
