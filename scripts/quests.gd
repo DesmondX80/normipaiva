@@ -88,6 +88,8 @@ const SIDE := [
 		"known": "first:kalastus|first:metsastys", "done": "first:savustin"},
 	{"id": "pingis", "title": "Pihapingismestari", "text": "Santtu on pihapingismestari. Voita hänet.",
 		"known": "first:pingis", "done": "first:pingis_voitto"},
+	{"id": "keinu", "title": "Keinuhyppyennätys", "text": "Leikkipuistojen keinuhyppyennätys on Honganpalon Jerellä. Aikuinen mies voi parempaan.",
+		"known": "first:leikkipuisto", "done": "first:keinu_ennatys"},
 	{"id": "kukat", "title": "Kukat Päiville", "text": "Säästöpihasta kukkakimppu, ja kotiin ennen iltaa. Syntymäpäivänä erityisen tärkeää.",
 		"known": "first:saastopiha", "done": "first:kukat_paiville"},
 	{"id": "taimet", "title": "Sinikan tomaatintaimet", "text": "Sinikka ei ehdi säästöpihaan. Taimet sieltä Sinikalle.",

@@ -97,6 +97,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Lihapiirakkahaaste (4,90 €): välilyönti haukkaa, A ja D vuorotellen pureskelevat ja W juo limua, ennen kuin vatsa
   täyttyy. Juntin seitsemän piirakan ennätyksen rikkominen on oma onnellinen loppunsa "Lihapiirakkakuningas", ja
   Päivi haistaa sipulin aamulla. Testi `--scene=reippari`.
+- **Leikkipuistot:** Käpykadunpuisto, Herukkapolunpuisto ja neljä koulujen ja päiväkotien leikkipaikkaa: keinut,
+  liukumäki, hiekkalaatikko, jousikeinu, penkki ja aita, päivisin (9–19) äidit penkillä. Keinuhyppy-minipeli:
+  vauhtia oikeaan tahtiin (W eteen, S taakse heilahtaessa; liian kova vauhti löysää ketjut), välilyönnillä hyppy
+  hiekalle; Honganpalon Jeren 3,40 m ennätyksen rikkominen tuo maineen. Hiekkalaatikosta voi kaivaa kolikoita tai
+  leluja kerran päivässä, ja kalja penkillä äitien edessä maksaa mainetta (illalla rauhassa). Testi `--scene=leikki`.
 - **Sepon varastomyyntipiste:** K-Marketin vieressä Sepon ruskea varasto rojuineen (telkkaripino, renkaat,
   sukset, pressun alla vanha mopo, joka "ei oo myytävänä, vielä"). Auki ti–su 10–18, ellei Seppo ole kalassa. Päivän
   kolme tuotetta (teippiä, nippusiteitä, ruuveja, rautalankaa, sähköteippiä tai kummallisuuksia) ja hinnat Sepon

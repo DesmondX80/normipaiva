@@ -85,6 +85,7 @@ var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
 var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
 var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
 var museum_door: Vector3  # Saloisten Pirtin (kotiseutumuseo) oven edusta
+var playgrounds: Array = []  # [{"name", "swing", "sandbox", "bench", "mums": Node3D}] (#146)
 var seppo_door: Vector3  # Sepon varaston ovi (#140)
 var seppo_npc: Node3D
 var seppo_tarp: Vector3  # pressun alla vanha mopo
@@ -253,6 +254,8 @@ func build(step: Callable) -> void:
 	_build_kentta()
 	_build_honganpalo()
 	_build_seppo()
+	for i in M.PLAYGROUNDS.size():
+		_playground(M.PLAYGROUNDS[i][0], M.PLAYGROUNDS[i][1], i)
 	_build_saastopiha()
 	_build_lapinraunio()
 	_build_uimaranta()
@@ -1437,6 +1440,107 @@ func _build_kentta() -> void:
 		var lp := Vector3((-1.0 if k < 2 else 1.0) * (RW / 2.0 + 1.5), 0, (-1.0 if k % 2 == 0 else 1.0) * RL / 3.0)
 		B.mesh(rink, B.cyl(0.1, 0.14, 9.0, 8), lp + Vector3(0, 4.5, 0), Color(0.55, 0.56, 0.58))
 		B.mesh(rink, B.boxm(Vector3(1.0, 0.5, 0.5)), lp + Vector3(0, 9.0, 0), Color(0.3, 0.3, 0.32))
+
+
+## Leikkipuisto (#146): hiekka-alue, keinuteline kahdella keinulla, liukumäki, hiekkalaatikko lapioineen,
+## jousikeinu, penkki, puinen aita ja nimetyissä puistoissa kyltti. Päivisin penkillä äitejä (main.gd näyttää).
+func _playground(name: String, px: Vector2, idx: int) -> void:
+	var c := M.w2(px)
+	var root := Node3D.new()
+	root.position = Vector3(c.x, 0, c.y)
+	root.rotation.y = idx * 0.9 + 0.3
+	add_child(root)
+	_tree_free.append([c, 11.0])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 146 + idx
+	var accent: Color = [Color(0.9, 0.2, 0.15), Color(0.15, 0.45, 0.85), Color(0.95, 0.75, 0.1), Color(0.2, 0.65, 0.3),
+		Color(0.85, 0.35, 0.7), Color(1.0, 0.5, 0.1)][idx % 6]
+	var sand := B.mesh(root, B.cyl(7.0, 7.0, 0.03, 24), Vector3(0, 0.03, 0), Color(0.86, 0.78, 0.58))
+	sand.scale = Vector3(1.0, 1.0, 0.8)
+	# Keinuteline: A-kehikot, orsi ja kaksi keinua ketjuineen.
+	var sw := Node3D.new()
+	sw.position = Vector3(-2.5, 0, -2.0)
+	root.add_child(sw)
+	for e in [-1.6, 1.6]:
+		for t in [-1.0, 1.0]:
+			var leg := B.mesh(sw, B.cyl(0.06, 0.06, 2.6, 8), Vector3(e, 1.2, t * 0.55), accent)
+			leg.rotation.x = t * 0.42
+	B.mesh(sw, B.cyl(0.07, 0.07, 3.4, 8), Vector3(0, 2.4, 0), accent.darkened(0.2), Vector3(0, 0, 90))
+	for x in [-0.7, 0.7]:
+		for cz in [-0.18, 0.18]:
+			B.mesh(sw, B.cyl(0.012, 0.012, 1.9, 4), Vector3(x, 1.45, cz), Color(0.7, 0.7, 0.72))
+		B.mesh(sw, B.boxm(Vector3(0.45, 0.04, 0.2)), Vector3(x, 0.5, 0), Color(0.1, 0.1, 0.1))
+	var swb := StaticBody3D.new()
+	for e in [-1.6, 1.6]:
+		swb.add_child(B.box_shape(Vector3(0.2, 2.4, 1.6), Vector3(e, 1.2, 0)))
+	sw.add_child(swb)
+	# Liukumäki: tikkaat, taso ja liuku.
+	var sl := Node3D.new()
+	sl.position = Vector3(2.8, 0, -1.5)
+	sl.rotation.y = 0.4
+	root.add_child(sl)
+	for x in [-0.3, 0.3]:
+		B.mesh(sl, B.cyl(0.04, 0.04, 1.6, 6), Vector3(x, 0.8, -0.9), Color(0.75, 0.75, 0.78))
+	for k in 5:
+		B.mesh(sl, B.cyl(0.025, 0.025, 0.6, 6), Vector3(0, 0.25 + k * 0.3, -0.9), Color(0.75, 0.75, 0.78), Vector3(0, 0, 90))
+	B.mesh(sl, B.boxm(Vector3(0.7, 0.06, 0.6)), Vector3(0, 1.55, -0.6), accent)
+	var chute := B.mesh(sl, B.boxm(Vector3(0.55, 0.05, 2.4)), Vector3(0, 0.85, 0.6), Color(0.85, 0.85, 0.88))
+	chute.rotation.x = 0.58
+	for x in [-0.29, 0.29]:
+		var rail := B.mesh(sl, B.boxm(Vector3(0.04, 0.12, 2.4)), Vector3(x, 0.92, 0.6), accent)
+		rail.rotation.x = 0.58
+	var slb := StaticBody3D.new()
+	slb.add_child(B.box_shape(Vector3(0.7, 1.6, 0.7), Vector3(0, 0.8, -0.7)))
+	sl.add_child(slb)
+	# Hiekkalaatikko lapioineen ja ämpäreineen.
+	var sb := Vector3(1.0, 0, 2.8)
+	for k in 4:
+		var a := k * PI / 2.0
+		var plank := B.mesh(root, B.boxm(Vector3(2.4, 0.25, 0.12)), sb + Vector3(cos(a) * 1.2, 0.12, sin(a) * 1.2), Color(0.6, 0.45, 0.28))
+		plank.rotation.y = a + PI / 2.0
+	B.mesh(root, B.boxm(Vector3(2.3, 0.04, 2.3)), sb + Vector3(0, 0.12, 0), Color(0.92, 0.85, 0.62))
+	B.mesh(root, B.cyl(0.12, 0.09, 0.15, 10), sb + Vector3(0.4, 0.2, -0.3), accent.lightened(0.2))
+	B.mesh(root, B.boxm(Vector3(0.08, 0.03, 0.35)), sb + Vector3(-0.3, 0.16, 0.2), Color(1.0, 0.3, 0.2))
+	# Jousikeinu (hevonen).
+	var sr := Vector3(-3.2, 0, 2.4)
+	B.mesh(root, B.cyl(0.06, 0.06, 0.5, 8), sr + Vector3(0, 0.25, 0), Color(0.3, 0.3, 0.3))
+	B.mesh(root, B.boxm(Vector3(0.25, 0.3, 0.7)), sr + Vector3(0, 0.6, 0), accent.lightened(0.15))
+	B.mesh(root, B.boxm(Vector3(0.2, 0.35, 0.2)), sr + Vector3(0, 0.85, 0.3), accent.lightened(0.15))
+	# Penkki ja äidit (päivisin).
+	var bench := Node3D.new()
+	bench.position = Vector3(0, 0, -5.0)
+	root.add_child(bench)
+	B.mesh(bench, B.boxm(Vector3(1.8, 0.06, 0.45)), Vector3(0, 0.45, 0), Color(0.55, 0.4, 0.25))
+	B.mesh(bench, B.boxm(Vector3(1.8, 0.4, 0.05)), Vector3(0, 0.7, -0.22), Color(0.55, 0.4, 0.25))
+	for x in [-0.8, 0.8]:
+		B.mesh(bench, B.boxm(Vector3(0.08, 0.45, 0.4)), Vector3(x, 0.22, 0), Color(0.3, 0.3, 0.3))
+	var mums := Node3D.new()
+	mums.position = Vector3(0, 0, -5.0)
+	root.add_child(mums)
+	for i in 2:
+		var mum := Looks.make(mums, {"model": "female", "shirt": [Color(0.6, 0.75, 0.9), Color(0.9, 0.6, 0.5)][i], "pants": Color(0.2, 0.22, 0.3),
+			"hair": ["Hair_Long", "Hair_Buns"][i], "hair_color": Color(0.45, 0.3, 0.2).lightened(i * 0.3), "height": 1.65, "skin": Color(0.95, 0.8, 0.7)})
+		mum.position = Vector3(i * 0.8 - 0.4, 0.05, 0)
+		mum.play("Sitting_Idle", 0.0)
+	var kid := Looks.make(mums, {"model": "male", "shirt": accent, "pants": Color(0.2, 0.3, 0.6), "hair": "Hair_Buzzed",
+		"hair_color": Color(0.85, 0.75, 0.4), "height": 1.05, "skin": Color(0.97, 0.82, 0.72)})
+	kid.position = Vector3(1.0, 0.0, 7.6)
+	kid.play("Idle", 0.0)
+	# Aita kolmelle sivulle ja kyltti.
+	for k in 24:
+		var a := PI * 0.15 + k * (PI * 1.7) / 23.0
+		var fp := Vector3(cos(a) * 7.6, 0.4, sin(a) * 6.2)
+		B.mesh(root, B.boxm(Vector3(0.08, 0.8, 0.08)), fp, Color(0.5, 0.35, 0.2))
+	if name != "":
+		var sign := B.sign_plate(root, name.to_upper(), Color(0.12, 0.35, 0.18), Color.WHITE, 0.25, 40, Color.WHITE, "Helvetica Neue")
+		sign.position = Vector3(6.5, 1.6, -3.0)
+		sign.rotation.y = -PI / 2.0
+		B.mesh(root, B.boxm(Vector3(0.08, 1.6, 0.08)), Vector3(6.55, 0.8, -3.0), Color(0.35, 0.35, 0.37))
+	var g := func(local: Vector3) -> Vector3:
+		var w: Vector3 = root.to_global(local)
+		return Vector3(w.x, T.h(w.x, w.z), w.z)
+	playgrounds.append({"name": name if name != "" else "leikkipuisto", "swing": g.call(Vector3(-1.8, 0, -1.2)),
+		"sandbox": g.call(sb + Vector3(0, 0, -1.5)), "bench": g.call(Vector3(0, 0, -4.2)), "mums": mums})
 
 
 ## Sepon varastomyyntipiste (#140): ruskea lautavarasto (halli) käsin maalatulla kyltillä, pihalla rojua
