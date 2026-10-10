@@ -21,6 +21,7 @@ const ENDINGS := [
 	["tokolan_aarre", "Tokolan kauppiaan aarre", "Legenda todistettu: Aaro oli oikeassa."],
 	["sulon_pannu", "Vanhan Sulon pannu", "Kuparipannu nousi Pilkkarinnevalta, ja Sulo myönsi."],
 	["piirakkakuningas", "Lihapiirakkakuningas", "Reipparin ennätystauluun uusi nimi. Juntti ei usko."],
+	["kertun_rauta", "Viimeisen sepän kirves", "Kertunkankaan legenda todistettu: Raimo oli oikeassa, ja Veikko tarjosi."],
 ]
 
 var counts := {}  # id -> kerrat
