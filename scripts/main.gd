@@ -34,6 +34,8 @@ const SiitariInterior := preload("res://scripts/siitari_interior.gd")
 ## Rautatieasemien odotussali (station_interior.gd): juopot ja narkkarit, rahakätkö viinahörpystä.
 const StationInterior := preload("res://scripts/station_interior.gd")
 const ASEMA_INT_POS := Vector3(0, 0, -16000)
+const KIRPPIS_INT_POS := Vector3(16000, 0, 16000)  # Saloisten seuraintalon kirpputori (kirppis_interior.gd)
+const VARASTO_INT_POS := Vector3(-16000, 0, 16000)  # Tokolan vanha varasto (tokola_varasto.gd)
 ## Valcon kuulokkeet (headphones.gd, #15): autotallista, vaimentavat linnut ja vaarat, soittavat Suno-listaa.
 const Headphones := preload("res://scripts/headphones.gd")
 var headphones: Node
@@ -211,6 +213,12 @@ const CarbGame := preload("res://scripts/carb_game.gd")
 ## Savusaunan korjaus (Santun homma "saunakorjaus", saunakorjaus_game.gd): kivet rannalta, kiuas ja lauteet sisällä,
 ## tervaus takaseinällä, savuluukku ja ovi terassilla. Korjattu sauna lämpiää normaalisti (mokki.sauna_fixed).
 const SaunaKorjaus := preload("res://scripts/saunakorjaus_game.gd")
+const EBike := preload("res://scripts/ebike.gd")
+const EBikeGame := preload("res://scripts/ebike_game.gd")
+const KirppisInterior := preload("res://scripts/kirppis_interior.gd")
+const AuctionGame := preload("res://scripts/auction_game.gd")
+const Tokola := preload("res://scripts/tokola.gd")
+const TokolaVarasto := preload("res://scripts/tokola_varasto.gd")
 const KORJAUS_VAIHEET := {"kiuas": "kiuaskivet", "lauteet": "lauteiden laudat", "terva": "seinien tervaus", "luukku": "savuluukku ja ovi"}
 const GARAGE_INT_POS := Vector3(-9000, 0, 3000)
 const BIKE_TUNE := 1.1  # työpöydällä huollettu pyörä: huippunopeus ja kiihtyvyys päivän ajan
@@ -282,6 +290,10 @@ var mokki_forage: Array = []
 var mokki_forage_revealed := false
 var siitari_int: Node3D
 var asema_int: Node3D
+var kirppis_int: Node3D
+var varasto_int: Node3D
+var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.gd, #120)
+var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var raahe_int: Node3D
 var _raahe := {}  # illan tapahtumat Raahen baarissa (kädenvääntö, visa, karaoke)
 var _quiz: Array = []  # visan kysymykset [kysymys, vaihtoehdot sekoitettuna, oikea]
@@ -470,6 +482,8 @@ var bike: CharacterBody3D
 var walker_out: CharacterBody3D
 var _paper: Control
 var _stamina_box: Control
+var _akku_label: Label
+var _akku_bar: ProgressBar
 var _stamina_bar: ProgressBar
 var _bike_away_t := 0.0
 ## Paikat, joihin teinit voivat viedä lukitsemattoman pyörän.
@@ -599,6 +613,8 @@ var wound_big := false  # karhun raatelema
 const Mummot := preload("res://scripts/mummot.gd")
 var mummot: Node3D
 const PEKKA_CARE := 3.0
+## Sähköpyörän osat naapureilta: Pekan Makitan akut litrasta sieniä, Arton johdot kaljasta.
+const EBIKE_AKKU_SIENET := 1
 const WOUND_PAIVI := ["Taas sää oot ollu vieraitten koirien kans!", "Istu siihen. Ja älä vingu.",
 	"Ei ne koirat ite purase, jos niitä ei mene rapsuttelemaan."]
 ## Jalkapallopojat (#29, boys.gd): joka toinen päivä kolme poikaa jossain tien varressa, pallo hukassa 100–300 m päässä.
@@ -643,7 +659,13 @@ const TALKERS := {
 	"nuoret": ["Porukka aidan takana", Color(0.6, 0.9, 1.0)],
 	"mopopojat": ["Mopopojat", Color(1.0, 0.85, 0.3)],
 	"poliisi": ["Ratsupoliisi Roivainen", Color(0.55, 0.7, 1.0)],
-	"kauppias": ["Kauppias", Color(0.6, 0.82, 1.0)]}
+	"kauppias": ["Kauppias", Color(0.6, 0.82, 1.0)],
+	"hilkka": ["Mummo Hilkka", Color(0.9, 0.65, 0.85)],
+	"raili": ["Raili", Color(0.5, 0.85, 0.75)],
+	"tauno": ["Tauno", Color(0.75, 0.8, 0.55)],
+	"huutaja": ["Huutaja Erkki", Color(1.0, 0.85, 0.3)],
+	"annaliisa": ["Anna-Liisa", Color(0.95, 0.7, 0.75)],
+	"aaro": ["Tokolan Aaro", Color(0.8, 0.75, 0.65)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
 	"pekka": ["No perkele, naapuri!", "Terve terve, saatana.", "Kas, sieltähän se tulee."],
@@ -654,6 +676,13 @@ const TALK_HELLO := {
 	"pojat": ["Moi setä!", "Mitä setä?", "Setä, ootko nähny meiän palloa?"],
 	"taksi": ["No mihinkäs lähetään?", "Kyytiä vailla?"],
 	"kauppias": ["Päivää! Löytykö kaikki?", "Seuraava, olkaa hyvä."],
+	"hilkka": ["No päivää! Itte virkattuja, katoppa.", "Kas, nuori mies. Liina äidille?"],
+	"raili": ["Kaikki puoleen hintaan! Melkein kaikki.", "Katoppa näitä VHS:iä, harvinaisia."],
+	"tauno": ["Jaa, työkaluja vailla?", "Ruuveja, lankaa, teippiä. Mitä tarttet?"],
+	"huutaja": ["Huutokauppa käy! Kohde lavalla, tule huutamaan!", "Erkki tässä, huutaja. Mennäänkö?"],
+	"annaliisa": ["No kas, naapuri. Mitäs sää täältä etit?", "Päivi tietää kyllä, että sää oot täällä."],
+	"aaro": ["Jaa, nuori mies. Tokolassa ei paljon vieraita käy.", "Päivää päivää. Istu vaikka tuohon kivelle.",
+		"Kas. Sinä oot se Järvikujan poika."],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
 	"gasthaus": ["Iltaa. Huonetta vailla?", "Tervetuloa Gasthausiin. Yö maksaa kympin."],
 	"poliisi": ["Iltaa. Roivainen, Vaalan poliisi. Rutiinitarkastus. Puhaltakaa tähän, olkaa hyvä.",
@@ -724,6 +753,7 @@ var _santtu_chat_t := 6.0
 ## Santun hommat (santun_hommat.gd): päivän hommat, hermot ja arvostelut.
 var hommat: RefCounted
 var story: RefCounted  # tarina (story.gd): ohjaa naapurilta toiselle, Pekan kyyti Paapeliin aukeaa lopuksi
+var ebike: RefCounted  # sähköpyörä (ebike.gd, #107): osat, tarvikkeet, liitokset ja akku
 var sinikka_lawn: Node3D  # Sinikan takapihan nurmikko (tarinatehtävä)
 var _keys_node: Node3D  # Pekan autonavaimet kodalla
 var _taxi_mokki_return := false  # taksilla Paapeliin: paluu maksettu
@@ -858,6 +888,16 @@ func _ready() -> void:
 	add_child(asema_int)
 	asema_int.exited.connect(_on_asema_exited)
 	asema_int.acted.connect(_on_asema_acted)
+	kirppis_int = KirppisInterior.new()
+	kirppis_int.position = KIRPPIS_INT_POS
+	add_child(kirppis_int)
+	kirppis_int.exited.connect(_on_kirppis_exited)
+	kirppis_int.acted.connect(_on_kirppis_acted)
+	varasto_int = TokolaVarasto.new()
+	varasto_int.position = VARASTO_INT_POS
+	add_child(varasto_int)
+	varasto_int.exited.connect(_on_varasto_exited)
+	varasto_int.acted.connect(_on_varasto_acted)
 	raahe_int = RaaheInterior.new()
 	raahe_int.position = RAAHE_INT_POS
 	add_child(raahe_int)
@@ -899,6 +939,8 @@ func _ready() -> void:
 	tilat = DayStats.new()
 	hommat = Hommat.new()
 	story = Story.new()
+	ebike = EBike.new()
+	tokola = Tokola.new()
 	_load_game()
 	if story.step == "avaimet":
 		_place_keys()
@@ -1016,7 +1058,7 @@ func _loading_hide() -> void:
 
 
 func _process(delta: float) -> void:
-	CamCtl.indoors = state in ["in_shop", "in_home", "in_mokki", "in_garage", "in_siitari", "in_raahe", "in_asema"]
+	CamCtl.indoors = state in ["in_shop", "in_home", "in_mokki", "in_garage", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto"]
 	var at_mokki := _at_mokki()
 	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
 	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
@@ -1048,6 +1090,7 @@ func _process(delta: float) -> void:
 			if not away:
 				_bike_theft(delta)
 				_thief_tick(delta)
+				_ebike_tick(delta)
 			_stats_tick(delta)
 		"in_shop":
 			_hint.text = interior.hint
@@ -1057,6 +1100,12 @@ func _process(delta: float) -> void:
 			if not _item_menu.is_open():
 				_hint.text = asema_int.hint
 			asema_int.set_board(_asema_board())
+		"in_kirppis":
+			_hint.text = kirppis_int.hint
+			_kirppis_closing()
+		"in_varasto":
+			_varasto_hints()
+			_hint.text = varasto_int.hint
 		"in_siitari":
 			if not _item_menu.is_open():
 				_hint.text = siitari_int.hint
@@ -1136,9 +1185,10 @@ func _bike_theft(delta: float) -> void:
 		_bike_away_t += delta
 	else:
 		_bike_away_t = maxf(0.0, _bike_away_t - delta)
-	if _bike_away_t > 60.0 and _thief.is_empty():
+	var wired: bool = ebike.built() and "rautalanka" in ebike.joints.values()
+	if _bike_away_t > (40.0 if wired else 60.0) and _thief.is_empty():
 		_bike_away_t = 0.0
-		if randf() < 0.6:
+		if randf() < (0.85 if wired else 0.6):  # rautalankapyörä kolisee: teinit kiinnostuvat
 			_thief_start()
 
 
@@ -1319,6 +1369,9 @@ func _outside_logic() -> void:
 		Sfx.play("pickup", -10.0, 1.3)
 
 	_lawn_logic()
+	_ebike_logic()
+	_kirppis_logic()
+	_tokola_logic()
 	_atm_logic()
 	_drone_logic()
 	if player == bike and Input.is_action_just_pressed("bell") and mummot.distance_to_target() < 10.0:
@@ -1506,16 +1559,20 @@ func _on_garage_acted(kind: String) -> void:
 		"auto":
 			_start_carb()
 		"tyopoyta":
+			if bike_in_garage and _ebike_bench():
+				return
 			if not bike_in_garage:
 				_show_message("Työpöydällä ruuvipenkki, jakoavaimia ja tyhjiä tölkkejä. Tuo pyörä talliin, niin sen voi huoltaa.", 3.5)
 			elif _bike_tuned:
-				_show_message("Pyörä on jo huollettu tänään. Ketju kiiltää.", 2.0)
+				_show_message("Pyörä on jo huollettu tänään. Ketju kiiltää." + _ebike_bench_note(), 4.0)
 			else:
 				_bike_tuned = true
 				bike.tune = BIKE_TUNE
 				Sfx.play("rattle", -6.0, 1.2)
 				tilat.first("pyora_huolto", 0.3)
-				_show_message("Ketju öljytty, renkaat pumpattu ja jarrut säädetty. Pyörä kulkee tänään kevyemmin!", 3.5)
+				var note := _ebike_bench_note()
+				_show_message("Ketju öljytty, renkaat pumpattu ja jarrut säädetty. Pyörä kulkee tänään kevyemmin!" + note,
+					3.5 if note == "" else 7.0)
 		"arkku":
 			if not _freezer_bottle:
 				_freezer_bottle = true
@@ -1812,6 +1869,532 @@ func _start_carb() -> void:
 		else:
 			_show_message("Karburaattori jäi vielä vähän sinne päin. Huomenna uusiks.", 2.5))
 	add_child(g)
+
+
+## Sähköpyörä autotallin työpöydällä (pyörä tallissa): kasaus, kun osat on koossa, ja korjaus, jos liitos on irti
+## tai johdoissa oikosulku. false = ei kasattavaa (tavallinen huolto, viestiin _ebike_bench_note()).
+func _ebike_bench() -> bool:
+	var todo: Array = ebike.todo()
+	if todo.is_empty() or (not ebike.built() and not ebike.has_all_parts()):
+		return false
+	_start_ebike_game(todo)
+	return true
+
+
+## Huollon viestin perään: ensimmäisellä kerralla sähköpyörän idea (ja työkalutaulun teippi ja ruuvit), sitten
+## puuttuvat osat, kunnes pyörä on kasattu.
+func _ebike_bench_note() -> String:
+	if ebike.built():
+		return ""
+	if not ebike.started or not ebike.board_taken:
+		ebike.started = true
+		ebike.board_taken = true
+		ebike.supplies.teippi += 1
+		ebike.supplies.ruuvit += 2
+		Sfx.play("pickup", -6.0)
+		_save_game()
+		return "\nTästähän sais sähköpyörän! Osat sieltä täältä: napamoottori, akku, ohjain ja johdot. Työkalutaululta " \
+			+ "puolikas rulla jeesusteippiä ja purkki ruuveja. Osalista repussa (I)."
+	var miss := PackedStringArray()
+	for k in ebike.missing_parts():
+		miss.append(EBike.PARTS[k].low)
+	return "\nSähköpyörästä puuttuu vielä: %s." % ", ".join(miss)
+
+
+func _start_ebike_game(todo: Array) -> void:
+	garage_int.busy = true
+	garage_int.walker.controls_enabled = false
+	_hud.visible = false
+	CamCtl.free_mouse = true
+	var g := EBikeGame.new()
+	g.todo = todo
+	g.supplies = ebike.supplies.duplicate()
+	g.drunk = _hand_shake()
+	g.finished.connect(func(results: Dictionary) -> void:
+		CamCtl.free_mouse = false
+		garage_int.busy = false
+		garage_int.walker.controls_enabled = true
+		_hud.visible = true
+		for k in g.used:
+			ebike.supplies[k] = maxi(0, ebike.supplies[k] - g.used[k])
+		var was_built: bool = ebike.built()
+		for j in results:
+			ebike.fasten(j, results[j])
+		bike.set_ebike({"joints": ebike.joints, "loose": ebike.loose})
+		_save_game()
+		if ebike.built() and not was_built:
+			tilat.first("sahkopyora", 0.5)
+			tilat.add("moraali", 0.3)
+			Sfx.play("win_small", -4.0)
+			_show_message("SÄHKÖPYÖRÄ VALMIS! Ruuveilla, teipillä ja toivolla. Akku %d %%. Kaasu pohjaan ja Saloisten teille!" % roundi(ebike.battery * 100.0), 5.0)
+		elif ebike.todo().is_empty():
+			Sfx.play("win_small", -6.0)
+			_show_message("Sähköpyörä korjattu. Avustus toimii taas.", 3.0)
+		elif not results.is_empty():
+			_show_message("Liitoksia tehty %d. Jäljellä: %s." % [results.size(), ", ".join(ebike.todo().map(func(j): return EBike.JOINT_SHORT[j]))], 3.5))
+	add_child(g)
+
+
+## Kaupan rautahyllyn tarvikkeet ostoskassista sähköpyörän tarvikkeiksi (kassalla maksetut).
+func _ebike_cart(cart: Dictionary) -> void:
+	for k in ShopInterior.TARVIKE:
+		if cart.has(k):
+			ebike.supplies[k] += ShopInterior.TARVIKE[k][2]
+			ebike.started = true
+
+
+func _ebike_parts_note() -> String:
+	var miss: Array = ebike.missing_parts()
+	if miss.is_empty():
+		return "   ·   Kaikki osat koossa! Pyörä talliin ja työpöydälle."
+	return "   ·   Puuttuu: %s" % ", ".join(miss.map(func(k): return EBike.PARTS[k].low))
+
+
+## Sähköpyörän ajo: avustus, akku, irtoavat liitokset ja oikosulku pelaajan ajaessa; tallissa akku latautuu.
+## Osat näkyvät pyörässä aina (parkissakin).
+func _ebike_tick(delta: float) -> void:
+	if bike_in_garage:
+		ebike.charge(delta)
+	if player == bike and not bike.autopilot:
+		var msg: String = ebike.ride_tick(bike, delta)
+		if msg != "":
+			Sfx.play("rattle_hard", -2.0, 0.9)
+			_show_message(msg, 3.5)
+			_save_game()
+	else:
+		bike.assist = 0.0
+		bike.set_ebike({"joints": ebike.joints, "loose": ebike.loose} if ebike.built() else {})
+
+
+## Jalan pyörän vieressä: irronnut liitos teipataan takaisin repun jeesusteipillä.
+func _ebike_logic() -> void:
+	if _hint.text != "" or player != walker_out or not ebike.built() or bike_in_garage:
+		return
+	if ebike.loose.is_empty() and not ebike.shorted:
+		return
+	var bp := bike.global_position
+	var p := player.global_position
+	if Vector2(p.x - bp.x, p.z - bp.z).length() > 2.2:
+		return
+	if ebike.loose.is_empty():
+		_hint.text = "Johdoissa oikosulku. Sähköteippiä ja korjaus autotallin työpöydällä."
+		return
+	var j: String = ebike.loose.keys()[0]
+	if ebike.supplies.teippi <= 0:
+		_hint.text = "%s on irti. Jeesusteippiä K-Marketin rautahyllystä." % EBike.JOINT_SHORT[j].capitalize()
+		return
+	_hint.text = "[E] Teippaa %s takaisin (jeesusteippiä %d)" % [EBike.JOINT_SHORT[j], ebike.supplies.teippi]
+	if Input.is_action_just_pressed("interact"):
+		ebike.tape_loose()
+		Sfx.play("whoosh", -8.0, 1.6)
+		bike.set_ebike({"joints": ebike.joints, "loose": ebike.loose})
+		_save_game()
+		_show_message(["Jeesusteippi korjaa kaiken. Melkein.", "Kolme kierrosta teippiä ja homma pelittää.",
+			"Pekka sanois: teippi riittää, perkele."].pick_random(), 2.5)
+
+
+## --- Saloisten seuraintalo: kirpputori ja huutokauppa (#114) ---------------------------------------------------
+## Auki klo 10–18. Myyjät tinkivät: tarjous voi mennä läpi (maine auttaa), muuten vastatarjous, ja liika tinkiminen
+## suututtaa myyjän loppupäiväksi. Tavarat uusiutuvat päivittäin. Huutokauppa kerran päivässä: napamoottori, kunnes
+## se on ostettu, sitten muuta rihkamaa.
+const KIRPPIS_OPEN := Vector2(10 * 60, 18 * 60)
+const KIRPPIS_STOCK := {
+	"ruuvipurkki": {"seller": "tauno", "name": "Ruuvipurkki", "price": 3.0},
+	"rautalanka": {"seller": "tauno", "name": "Rautalankakerä", "price": 2.5},
+	"teippi": {"seller": "tauno", "name": "Puolikas jeesusteippi", "price": 1.5},
+	"liina": {"seller": "hilkka", "name": "Virkkuuliina", "price": 5.0},
+	"vhs": {"seller": "raili", "name": "VHS: Uuno Turhapuro", "price": 2.0},
+	"koira": {"seller": "raili", "name": "Posliinikoira", "price": 6.0},
+}
+var _kirppis_prev := "to_shop"
+var _kirppis_sold := {}  # tuote -> päivä, jolloin ostettu
+var _kirppis_angry := {}  # myyjä -> päivä, jolloin suuttui tinkimisestä
+var _haggle := {}  # tuote -> {"ask", "patience", "day"}
+var _auction_day := -1
+
+
+func _kirppis_logic() -> void:
+	if _hint.text != "" or world.kirppis_door == Vector3.ZERO:
+		return
+	var p := player.global_position
+	if Vector2(p.x - world.kirppis_door.x, p.z - world.kirppis_door.z).length() > 3.0:
+		return
+	if player == bike:
+		_hint.text = "[F] Pyörältä pois, niin pääset seuraintaloon"
+		return
+	if not _between(clock_min, KIRPPIS_OPEN):
+		_hint.text = "Kirpputori on kiinni (auki klo 10–18)."
+		return
+	_hint.text = "[E] Seuraintaloon: kirpputori ja huutokauppa"
+	if Input.is_action_just_pressed("interact") and not player.is_stunned():
+		_enter_kirppis()
+
+
+func _enter_kirppis() -> void:
+	_kirppis_prev = state
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	state = "in_kirppis"
+	Sfx.play("door", -3.0)
+	tilat.first("kirppis", 0.2)
+	kirppis_int.lot_visible = _auction_lot().get("id", "") == "moottori"
+	kirppis_int.enter()
+
+
+func _on_kirppis_exited() -> void:
+	kirppis_int.leave()
+	Sfx.play("door_close", -3.0)
+	state = _kirppis_prev
+	var to: Vector3 = world.kirppis_door
+	player.global_position = Vector3(to.x, Terrain.h(to.x, to.z) + 0.3, to.z)
+	player.controls_enabled = true
+	player.activate_camera()
+	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+
+
+## Sulkemisaika: Hilkka ilmoittaa ja ohjaa ulos (ei heitetä heti).
+func _kirppis_closing() -> void:
+	if _between(clock_min, KIRPPIS_OPEN) or _talk_box.is_open() or kirppis_int.busy:
+		return
+	if _once_today("kirppis_kiinni"):
+		kirppis_int.say_id("hilkka", "Kello on kuus, me suljetaan! Tervetuloa huomenna uudestaan.", 4.0)
+	_on_kirppis_exited()
+	_show_message("Kirpputori sulki ovensa. Tervetuloa huomenna uudestaan.", 3.0)
+
+
+func _on_kirppis_acted(kind: String) -> void:
+	if not kind.begins_with("hlo"):
+		return
+	var who: String = KirppisInterior.PEOPLE[int(kind.substr(3))].id
+	_talk_open(who, null)
+
+
+func _kirppis_ask(k: String) -> float:
+	var h: Dictionary = _haggle.get(k, {})
+	if h.get("day", -1) != day:
+		return KIRPPIS_STOCK[k].price
+	return h.ask
+
+
+## Tarjous: noin 60 % pyyntihinnasta puolen euron tarkkuudella.
+func _kirppis_offer(ask: float) -> float:
+	return maxf(0.5, snappedf(ask * 0.6, 0.5))
+
+
+func _talk_kirppis(id: String) -> void:
+	var who := _talk_who
+	if id == "huuto":
+		_talk_box.close()
+		_start_auction()
+		return
+	if id == "markat":
+		tokola.markat = false
+		money += TOKOLA_MARKAT
+		Sfx.play("coin", -4.0)
+		_save_game()
+		_talk_box.reply("Kuusikymmentäluvun markkoja, kauppiaan leimalla! Keräilijät maksaa näistä. Mistä sää nää sait?",
+			_talk_options(), "+%s €. Rahaa %s €." % [_eur(TOKOLA_MARKAT), _eur(money)])
+		return
+	if id.begins_with("osta_"):
+		var k := id.trim_prefix("osta_")
+		var ask := _kirppis_ask(k)
+		money -= ask
+		_kirppis_sold[k] = day
+		_haggle.erase(k)
+		Sfx.play("coin", -4.0)
+		_talk_box.reply(["Kiitos kaupasta!", "Hyvä ostos, usko pois.", "Tuu toistekin!"].pick_random(), _talk_options(),
+			_kirppis_give(k) + "   Rahaa %s €." % _eur(money))
+		_save_game()
+		return
+	if id.begins_with("tingi_"):
+		var k := id.trim_prefix("tingi_")
+		var ask := _kirppis_ask(k)
+		var floor_p: float = snappedf(KIRPPIS_STOCK[k].price * 0.4, 0.5)
+		var offer := maxf(floor_p, _kirppis_offer(ask))
+		var h: Dictionary = _haggle.get(k, {})
+		if h.get("day", -1) != day:
+			h = {"ask": ask, "patience": 2 + int(maine / 40.0), "day": day, "deals": 0}
+		# Maine kovana jätkänä auttaa, Tauno joustaa sähköpyörän rakentajalle; jokainen myönnytys tekee seuraavasta
+		# vaikeamman, eikä alle 40 %:n mennä.
+		var chance := (0.2 + maine / 150.0 + (0.15 if who == "tauno" and ebike.started else 0.0)) * pow(0.5, h.deals)
+		if offer >= ask - 0.001:
+			chance = 0.0
+		if randf() < chance:
+			h.deals += 1
+			h.ask = offer
+			_haggle[k] = h
+			tilat.first("tinkiminen", 0.2)
+			_talk_box.reply(["No olkoon, %s euroa. Ryöstöä, mutta olkoon." % _eur(offer),
+				"Hmph. %s euroa sitten. Älä kerro muille." % _eur(offer)].pick_random(), _talk_options())
+		else:
+			h.patience -= 1
+			if h.patience <= 0:
+				_kirppis_angry[who] = day
+				_haggle.erase(k)
+				_talk_box.reply("Nyt riittää! Ei myydä sulle tänään mitään tinkimällä. Täyteen hintaan kyllä.", _talk_options())
+			else:
+				h.ask = maxf(offer, snappedf((ask + offer) / 2.0, 0.5))
+				_haggle[k] = h
+				_talk_box.reply("Ei käy. %s euroa, ja se on viimeinen hinta. Melkein." % _eur(h.ask), _talk_options())
+		if randf() < 0.35:
+			kirppis_int.say_id("annaliisa", ["Kyllä mää kerron Päiville, että sää tingit mummoilta.",
+				"Pihi kuin Pekka, ja Pekka on pihi.", "Hah! Ei se tollasella tarjouksella."].pick_random())
+		return
+
+
+## Ostettu tavara käyttöön: palauttaa lisätiedon keskusteluikkunaan.
+func _kirppis_give(k: String) -> String:
+	match k:
+		"ruuvipurkki":
+			ebike.supplies.ruuvit += 3
+			ebike.started = true
+			return "Ruuveja kolmeen liitokseen (sähköpyörä)."
+		"rautalanka":
+			ebike.supplies.rautalanka += 2
+			ebike.started = true
+			return "Rautalankaa kahteen liitokseen. Pitää, mutta kolisee."
+		"teippi":
+			ebike.supplies.teippi += 1
+			ebike.started = true
+			return "Jeesusteippiä yhteen liitokseen."
+		"liina":
+			tilat.add("moraali", 0.15)
+			tilat.add("stressi", 0.1)
+			return "Virkkuuliina Päiville. Ehkä se leppyy."
+		"vhs":
+			mielihyva = clampf(mielihyva + 8.0, 0.0, 100.0)
+			return "Uuno Turhapuro illaksi. Mielihyvä nousee."
+		"koira":
+			maine = clampf(maine + 3.0, 0.0, 100.0)
+			return "Posliinikoira ikkunalle vahtimaan. Naapurit näkee."
+	return ""
+
+
+## Päivän huutokauppakohde: napamoottori, kunnes se on ostettu, sitten rihkamaa. Tyhjä = pidetty tänään.
+func _auction_lot() -> Dictionary:
+	if _auction_day == day:
+		return {}
+	if not ebike.parts.has("moottori") and not ebike.built():
+		return {"id": "moottori", "name": "Napamoottori, vähän käytetty", "start": 5.0,
+			"rivals": [["Mummo Elvi", randf_range(9.0, 14.0)], ["Ukko Veikkonen", randf_range(12.0, 19.0)]]}
+	return [
+		{"id": "vhs", "name": "Laatikollinen VHS-kasetteja", "start": 2.0, "rivals": [["Mummo Elvi", 5.0], ["Ukko Veikkonen", randf_range(4.0, 9.0)]]},
+		{"id": "kahvinkeitin", "name": "Moccamaster, toimii", "start": 4.0, "rivals": [["Mummo Elvi", randf_range(8.0, 14.0)], ["Ukko Veikkonen", 6.0]]},
+	][day % 2]
+
+
+func _start_auction() -> void:
+	var lot := _auction_lot()
+	if lot.is_empty():
+		return
+	kirppis_int.busy = true
+	kirppis_int.walker.controls_enabled = false
+	_hud.visible = false
+	var g := AuctionGame.new()
+	g.lot = lot.name
+	g.start_price = lot.start
+	g.money = money
+	g.rivals = lot.rivals
+	g.drunk = _hand_shake()
+	g.finished.connect(func(won: bool, price: float) -> void:
+		_auction_day = day
+		kirppis_int.busy = false
+		kirppis_int.walker.controls_enabled = true
+		kirppis_int.walker.activate()
+		kirppis_int.block_interact()
+		_hud.visible = true
+		if not won:
+			kirppis_int.say_id("huutaja", "Myyty muualle! Huomenna uusi kohde, tervetuloa.")
+			_show_message("Huutokauppa hävitty. Huomenna uusi yritys.", 3.0)
+			return
+		money -= price
+		tilat.first("huutokauppa", 0.4)
+		maine = clampf(maine + 2.0, 0.0, 100.0)
+		Sfx.play("win_small", -4.0)
+		match lot.id:
+			"moottori":
+				ebike.parts["moottori"] = true
+				ebike.started = true
+				kirppis_int.lot_visible = false
+				_show_message("Napamoottori %s eurolla! Mummo Elvi mulkoilee. Sähköpyörän osa.%s" % [_eur(price), _ebike_parts_note()], 5.0)
+			"vhs":
+				mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0)
+				_show_message("Laatikollinen VHS-kasetteja %s eurolla. Uunot, Rambot ja yks hääjuhla vuodelta -87." % _eur(price), 4.0)
+			_:
+				tilat.add("vireys", 0.2)
+				_show_message("Moccamaster %s eurolla! Päivi ei ihan ymmärrä, miksi tarvitaan toinen." % _eur(price), 4.0)
+		_save_game())
+	add_child(g)
+
+
+## --- Tokola: vanha varasto, Aaro ja kauppiaan aarre (#120) --------------------------------------------------
+const AARO_LOOK := {"shirt": Color(0.4, 0.38, 0.3), "pants": Color(0.25, 0.22, 0.2), "shoes": Color(0.2, 0.15, 0.1),
+	"hair": "Hair_Buzzed", "hair_color": Color(0.9, 0.9, 0.88), "beard": true, "height": 1.7, "skin": Color(0.92, 0.72, 0.64),
+	"belly": 0.3}
+const AARO_LINES := ["Tokolan kauppa oli auki kuuskytluvulle. Siellä sai kaikkea, sokeriakin. Varsinkin sokeria.",
+	"Nuorena mää kävin kaupassa hakemassa isälle tupakat. Kauppias anto aina karamellin.",
+	"Heinimäeltä näkee terästehtaan savut. Ennen siellä näki vaan metsää.",
+	"Lihapiirakkaa mää en oo syöny sitten kasikutosen. Muija ei anna.",
+	"Kauppias oli tarkka mies. Ei luottanu pankkeihin, ei hallitukseen eikä naapuriin."]
+const TOKOLA_PROVEN := {
+	"pekka": ["No perkele, se Tokolan aarre oli ihan totta! Ja mää nauroin Aarolle.", "Kaljapuhetta, sanoin. Perkele. Hyvä jätkä."],
+	"arto": ["Joka poika koluaa sitä varastoa, sanoin. Väärin sanoin.", "Lähekkö puolukkaan? Tai aarteenetsintään, sullahan on onnea."],
+}
+const TOKOLA_MARKAT := 15.0
+var _varasto_prev := "to_shop"
+
+
+func _tokola_logic() -> void:
+	if _hint.text != "":
+		return
+	var p := player.global_position
+	if is_instance_valid(aaro) and aaro.distance_to_player() < 4.2:
+		_talk_hint("aaro", aaro, player != bike)
+		return
+	if Vector2(p.x - world.varasto_door.x, p.z - world.varasto_door.z).length() < 2.6:
+		if player == bike:
+			_hint.text = "[F] Pyörältä pois, niin pääset varastolle"
+		elif not tokola.key:
+			_hint.text = "Ruosteinen ovi on lukossa. Avain on kuulemma vanhalla Aarolla Tokolantien varressa."
+		else:
+			_hint.text = "[E] Tokolan vanhaan varastoon (avain)"
+			if Input.is_action_just_pressed("interact") and not player.is_stunned():
+				_enter_varasto()
+		return
+	if Vector2(p.x - world.heinimaki_pos.x, p.z - world.heinimaki_pos.z).length() < 3.5 and player != bike:
+		if tokola.lankku and not tokola.lipas:
+			_hint.text = "[E] Kaiva latvattoman kuusen juurelta"
+			if Input.is_action_just_pressed("interact"):
+				tokola.lipas = true
+				tokola.markat = true
+				Sfx.play("rattle_hard", -4.0, 0.7)
+				tilat.first("tokolan_aarre", 0.6)
+				_save_game()
+				_show_message("Juurakon alta kolahtaa! Ruosteinen rahalipas: nippu vanhoja markkoja ja kultasormus. Tokolan kauppiaan aarre oli totta! Näytä se Aarolle.", 6.0)
+		elif _once_today("heinimaki_nakyma"):
+			_hint.text = "[E] Katsele Heinimäeltä"
+			if Input.is_action_just_pressed("interact"):
+				tilat.add("stressi", 0.1)
+				tilat.first("heinimaki", 0.2)
+				_show_message("Heinimäeltä näkyy Raahen terästehtaan savut ja meri. Tokolan katot. Latvaton kuusi narisee tuulessa.", 4.5)
+		else:
+			_hint.text = "Latvaton kuusi narisee tuulessa."
+
+
+func _enter_varasto() -> void:
+	_varasto_prev = state
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	state = "in_varasto"
+	Sfx.play("door", -3.0, 0.7)
+	tilat.first("tokolan_varasto", 0.3)
+	varasto_int.set_taken(ebike.parts.has("ohjain") or ebike.built(), tokola.rautalanka, tokola.tilikirja, tokola.lankku)
+	varasto_int.enter()
+	_show_message("Pölyä ja hiirenpapanoita. Hyllyillä Tokolan kaupan tavaraa kuuskytluvulta.", 3.0)
+
+
+func _on_varasto_exited() -> void:
+	varasto_int.leave()
+	Sfx.play("door_close", -3.0, 0.7)
+	state = _varasto_prev
+	var to: Vector3 = world.varasto_door
+	player.global_position = Vector3(to.x, Terrain.h(to.x, to.z) + 0.3, to.z)
+	player.controls_enabled = true
+	player.activate_camera()
+	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+
+
+## Varaston vihjeet tilan mukaan (tyhjä = ei toimintoa): löydetyt pois, lankku vasta tilikirjan jälkeen.
+func _varasto_hints() -> void:
+	var have_ohjain: bool = ebike.parts.has("ohjain") or ebike.built()
+	varasto_int.hints = {
+		"laatikko": "" if have_ohjain else "[E] Pölyinen pahvilaatikko hyllyn perällä",
+		"kelat": "" if tokola.rautalanka else "[E] Ruosteiset rautalankakelat",
+		"hylly": "" if tokola.tilikirja else "[E] Kauppiaan hylly: vanhoja kirjoja ja kuitteja",
+		"lankku": "[E] Nariseva lankku (tilikirjan piirros): väännä irti" if tokola.tilikirja and not tokola.lankku else "",
+	}
+
+
+func _on_varasto_acted(kind: String) -> void:
+	match kind:
+		"laatikko":
+			ebike.parts["ohjain"] = true
+			ebike.started = true
+			Sfx.play("pickup", -4.0)
+			_show_message("Pahvilaatikossa vanhan sähkömopon ohjain ja kaasukahva! Sähköpyörän osa.%s" % _ebike_parts_note(), 5.0)
+		"kelat":
+			tokola.rautalanka = true
+			ebike.supplies.rautalanka += 3
+			Sfx.play("rattle", -6.0, 1.4)
+			_show_message("Rautalankaa kolmeen liitokseen. Pitää, mutta kolisee.", 3.0)
+		"hylly":
+			tokola.tilikirja = true
+			Sfx.play("pickup", -6.0, 0.8)
+			_show_message("Kauppiaan tilikirja! \"Sokeria\" kymmenille ostajille nimikirjaimin, joukossa S. S. (Sulon isä?). "
+				+ "Viimeisellä sivulla piirros varaston lattiasta ja rasti yhden lankun kohdalla.", 7.0)
+		"lankku":
+			tokola.lankku = true
+			Sfx.play("rattle_hard", -6.0, 1.3)
+			_show_message("Lankku narahtaa irti. Alla peltirasia... tyhjä! Paitsi kellastunut lappu: \"Heinimäen kuusen juurella.\"", 6.0)
+	varasto_int.set_taken(ebike.parts.has("ohjain") or ebike.built(), tokola.rautalanka, tokola.tilikirja, tokola.lankku)
+	varasto_int.block_interact()
+	_save_game()
+
+
+## Tokolan legendan eteneminen repun Tehtävät-lapulle (vasta kun avain on saatu).
+func _tokola_tasks() -> Array:
+	if not tokola.key or tokola.legend != "":
+		return []
+	var step := "Tutki Tokolan varaston hyllyt"
+	if tokola.lipas:
+		step = "Näytä rahalipas Aarolle (tai tilikirja Pannu-Sulolle)"
+	elif tokola.lankku:
+		step = "Heinimäen kuusen juurella"
+	elif tokola.tilikirja:
+		step = "Tilikirjan piirros: rasti varaston lattialankussa"
+	return [["Tokolan kauppiaan aarre: " + step, false]]
+
+
+func _talk_aaro(id: String) -> void:
+	match id:
+		"varasto":
+			_talk_box.reply("Se on Tokolan kaupan varasto. Kauppa lopetti kuuskytluvulla, ja avain jäi mulle. "
+				+ "Mitä sinne kuuluu, ei kuulu kenellekään. Paitsi jos joku tois lihapiirakan.", _talk_options())
+		"piirakka":
+			food["piirakka"] -= 1
+			if food["piirakka"] <= 0:
+				food.erase("piirakka")
+			tokola.key = true
+			Sfx.play("pickup", -4.0)
+			_save_game()
+			_talk_box.reply("Lihapiirakka! Kasikutosen jälkeen ensimmäinen. Tässä avain. Ja kuule: kauppias ei koskaan vieny "
+				+ "rahojaan pankkiin. Ne on vieläkin jossain. Kaikki nauraa mulle, mutta mää tiän.", _talk_options(),
+				"Tokolan varaston avain mukana.")
+		"kauppias":
+			_talk_box.reply("Kauppias myi tiskin alta sokeria koko pitäjälle, jos ymmärrät mitä tarkotan. Rahat ja kirjanpito "
+				+ "katos, kun kauppa lopetti. Pekka sanoo kaljapuheeks. Kato hyllyiltä, siellä on hänen kirjojaan.", _talk_options())
+		"lipas":
+			tokola.legend = "kyla"
+			maine = clampf(maine + 10.0, 0.0, 100.0)
+			tilat.add("moraali", 0.3)
+			tilat.first("tokolan_legenda", 0.8)
+			Sfx.play("win_small", -4.0)
+			_save_game()
+			_talk_box.reply("KYLLÄ MÄÄ SANOIN! Kuuskymmentä vuotta ne on nauranu! Sormus oli kauppiaan vaimon, se jää mulle "
+				+ "muistoks. Markat on sun, keräilijät maksaa niistä. Ja tilikirja menee kotiseutumuseoon.", _talk_options(),
+				"Legenda todistettu! Maine +10. Kyläläiset joutuvat myöntämään.")
+
+
+## Tilikirja Sululle: Sulon isän nimikirjaimet "sokerin" ostajissa. Sulo maksaa pullolla, legenda jää todistamatta.
+func _tokola_sulo_deal() -> void:
+	tokola.legend = "sulo"
+	pontikka += 3
+	Sfx.play("glass", -4.0)
+	_save_game()
+	_talk_box.reply("...Mistä sää tämän sait? Ei puhuta tästä kenellekään. Ota nää kolme pulloa, ja kirja jää mulle. "
+		+ "Isä vaan auttoi kauppiasta. Sokerin kanssa.", _talk_options(), "Kolme pulloa pontikkaa. Tilikirja jäi Sululle.")
 
 
 func _enter_home(door: String) -> void:
@@ -2867,6 +3450,10 @@ func _active_walker() -> CharacterBody3D:
 			return siitari_int.walker
 		"in_asema":
 			return asema_int.walker
+		"in_kirppis":
+			return kirppis_int.walker
+		"in_varasto":
+			return varasto_int.walker
 		"in_raahe":
 			return raahe_int.walker
 		"in_home":
@@ -2880,7 +3467,7 @@ func _active_walker() -> CharacterBody3D:
 
 ## T sisätiloissa: sama syö/juo-valikko kuin ulkona, kun hahmo on vapaana (ei minipeliä, keskustelua tai valikkoa).
 func _indoor_eat() -> void:
-	if not state in ["in_shop", "in_siitari", "in_raahe", "in_home", "in_mokki", "in_garage", "in_asema"] or _item_menu.is_open() \
+	if not state in ["in_shop", "in_siitari", "in_raahe", "in_home", "in_mokki", "in_garage", "in_asema", "in_kirppis", "in_varasto"] or _item_menu.is_open() \
 			or _talk_box.is_open():
 		return
 	if Input.is_action_just_pressed("eat") and _active_walker().controls_enabled:
@@ -2958,7 +3545,7 @@ func _own_drink_in_bar() -> void:
 ## toimia hyllyllä. Suljettaessa vielä saman ruudun yli (_enter_frame).
 func _interior_busy(on: bool) -> void:
 	var it: Node = {"in_home": home_int, "in_garage": garage_int, "in_mokki": mokki_int, "in_shop": interior,
-		"in_raahe": raahe_int, "in_siitari": siitari_int, "in_asema": asema_int}.get(state)
+		"in_raahe": raahe_int, "in_siitari": siitari_int, "in_asema": asema_int, "in_kirppis": kirppis_int, "in_varasto": varasto_int}.get(state)
 	if it == null:
 		return
 	it.busy = on
@@ -4652,6 +5239,10 @@ func _talk_end() -> void:
 			raahe_int.block_interact()
 		elif state == "in_siitari":
 			siitari_int.block_interact()
+		elif state == "in_kirppis":
+			kirppis_int.block_interact()
+		elif state == "in_varasto":
+			varasto_int.block_interact()
 	if _talk_who == "poliisi" and _ratsia_stage in ["puhallus", "tulos"]:
 		# Ikkuna suljettiin kesken (Esc): puhaltamatta ei lähdetä, tulos luetaan viestinä ja matka jatkuu.
 		if _ratsia_stage == "puhallus":
@@ -4691,6 +5282,8 @@ func _talk_options(who := "") -> Array:
 					"rahat ei riitä"))
 			if not world.forage_revealed:
 				o.append(_opt("paikat", "Missä on hyviä marja- ja sienipaikkoja?"))
+			if ebike.started and not ebike.parts.has("johdot"):
+				o.append(_opt("johdot", "Ois sulla johtoja ja liittimiä? (kalja)", beers > 0, "ei kaljaa"))
 		"pekka":
 			if is_instance_valid(vaino) and vaino.mode == "follow":
 				o.append(_opt("vaino", "Palauta Väinö", vaino.distance_to_target() <= 6.0,
@@ -4704,6 +5297,10 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("tarina", "Missä ne autonavaimet olikaan?"))
 				"avaimet_mukana":
 					o.append(_opt("tarina", "Anna autonavaimet", true, "", true))
+			if ebike.started and not ebike.parts.has("akku"):
+				var shrooms: int = bucket.get("kantarelli", 0) + bucket.get("herkkutatti", 0)
+				o.append(_opt("akku", "Ne sun vanhat porakoneen akut? (%d l sieniä)" % EBIKE_AKKU_SIENET,
+					shrooms >= EBIKE_AKKU_SIENET, "ämpärissä ei sieniä"))
 			var sale := _goods_value("pekka")
 			o.append(_opt("myy", "Myy sienet (%s €)" % _eur(sale) if sale > 0.0 else "Myy sienet", sale > 0.0,
 				"ämpärissä ei kantarelleja eikä herkkutatteja"))
@@ -4718,6 +5315,35 @@ func _talk_options(who := "") -> Array:
 					why = "ei kaljaa eikä %s € bensarahaa" % _eur(PEKKA_RIDE_PRICE)
 				o.append(_opt("kyyti", "Kyyti mökille Vaalaan (%s)" % ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €"),
 					why == "", why))
+		"hilkka", "raili", "tauno":
+			if who == "raili" and tokola.markat:
+				o.append(_opt("markat", "Myy vanhat markat keräilijälle (%s €)" % _eur(TOKOLA_MARKAT), true, "", true))
+			for k in KIRPPIS_STOCK:
+				var it: Dictionary = KIRPPIS_STOCK[k]
+				if it.seller != who:
+					continue
+				if _kirppis_sold.get(k, -1) == day:
+					o.append(_opt("x_" + k, "%s (myyty)" % it.name, false, "uusia huomenna"))
+					continue
+				var ask := _kirppis_ask(k)
+				o.append(_opt("osta_" + k, "Osta %s (%s €)" % [it.name.to_lower(), _eur(ask)], money >= ask - 0.001, "rahat ei riitä"))
+				if _kirppis_angry.get(who, -1) != day and ask > snappedf(it.price * 0.4, 0.5) + 0.001:
+					o.append(_opt("tingi_" + k, "Tingi: tarjoa %s € (%s)" % [_eur(_kirppis_offer(ask)), it.name.to_lower()]))
+		"aaro":
+			if not tokola.key:
+				o.append(_opt("piirakka", "Anna lihapiirakka (varaston avain)", food.get("piirakka", 0) > 0,
+					"ei lihapiirakkaa (K-Marketin leipähylly)", true))
+				o.append(_opt("varasto", "Mikä se vanha varasto on?"))
+			elif tokola.lipas and tokola.legend == "":
+				o.append(_opt("lipas", "Näytä kauppiaan rahalipas ja tilikirja", true, "", true))
+			elif tokola.legend == "":
+				o.append(_opt("kauppias", "Kerro siitä Tokolan kauppiaasta"))
+		"huutaja":
+			var lot := _auction_lot()
+			if lot.is_empty():
+				o.append(_opt("x_huuto", "Tämän päivän huutokauppa on pidetty", false, "uusi kohde huomenna"))
+			else:
+				o.append(_opt("huuto", "Huutamaan: %s (lähtö %s €)" % [lot.name, _eur(lot.start)], true, "", true))
 		"sinikka":
 			var berries: int = bucket.get("mustikka", 0)
 			if sinikka_task == 1:
@@ -4765,6 +5391,8 @@ func _talk_options(who := "") -> Array:
 				why = "rahat ei riitä"
 			o.append(_opt("kanisteri", "Osta pontikkakanisteri (%s €, = %d kaljaa)" % [_eur(KANISTER_PRICE), KANISTER_BEERS],
 				why == "", why))
+			if tokola.tilikirja and tokola.lipas and tokola.legend == "":
+				o.append(_opt("tilikirja", "Tokolan kauppiaan tilikirja... siinä on sun isän nimikirjaimet", true, "", true))
 		"pojat":
 			if _ball_quest == "":
 				o.append(_opt("pallo_kysy", "Mitäs pojat, onko kaikki hyvin?", true, "", true))
@@ -4848,6 +5476,9 @@ func _talk_choose(id: String) -> void:
 		"kalle":
 			_talk_kalle(id)
 		"sulo":
+			if id == "tilikirja":
+				_tokola_sulo_deal()
+				return
 			money -= KANISTER_PRICE
 			has_kanister = true
 			tilat.first("pontikka", 0.5)
@@ -4867,6 +5498,10 @@ func _talk_choose(id: String) -> void:
 			_talk_box.reply(r[0], _talk_options(), r[1] + "   Rahaa %s €." % _eur(money))
 		"visa":
 			_quiz_answer(int(id.trim_prefix("visa_")))
+		"hilkka", "raili", "tauno", "huutaja", "annaliisa":
+			_talk_kirppis(id)
+		"aaro":
+			_talk_aaro(id)
 		"siitari_sinikka":
 			if id == "tanssi":
 				_talk_box.close()
@@ -4915,6 +5550,27 @@ func _talk_neighbor(id: String) -> void:
 			if _talk_who == "arto" and story.done.puolukat and not was_done:
 				line = "Nyt riittää hilloon! Pekka on kyllä koko kesän puhunu siitä Paapelista."
 			_talk_box.reply(line, _talk_options(), "+%s €%s" % [_eur(sale), "   ·   " + note if note != "" else ""])
+		"akku":
+			var need := EBIKE_AKKU_SIENET
+			for k in ["kantarelli", "herkkutatti"]:
+				var take := mini(need, bucket.get(k, 0))
+				need -= take
+				bucket[k] = bucket.get(k, 0) - take
+				if bucket[k] <= 0:
+					bucket.erase(k)
+			ebike.parts["akku"] = true
+			Sfx.play("pickup", -4.0)
+			_save_game()
+			_talk_box.reply("Makitan akut, perkele, ne kestää! Neljä kappaletta, kytke sarjaan. Sienet tänne.", _talk_options(),
+				"Sähköpyörän akku mukana.%s" % _ebike_parts_note())
+		"johdot":
+			beers -= 1
+			player.set_carrying(beers > 0)
+			ebike.parts["johdot"] = true
+			Sfx.play("pickup", -4.0)
+			_save_game()
+			_talk_box.reply("Autotallissa on laatikollinen johtoja ja liittimiä. Ota vaan, kalja kelpaa. Sähköpyörä? Kova jätkä.",
+				_talk_options(), "Johdot ja liittimet mukana.%s" % _ebike_parts_note())
 		"varaosa":
 			money -= LAWN_PART_PRICE
 			has_mower_part = true
@@ -5040,7 +5696,11 @@ func _talk_kauppias(id: String) -> void:
 
 
 func _talk_chat_line() -> String:
+	if _talk_who in ["pekka", "arto"] and tokola.proven() and randf() < 0.4:
+		return (TOKOLA_PROVEN[_talk_who] as Array).pick_random()
 	match _talk_who:
+		"aaro":
+			return AARO_LINES.pick_random()
 		"arto":
 			return ARTO_LINES.pick_random()
 		"pekka":
@@ -5070,6 +5730,8 @@ func _talk_chat_line() -> String:
 			return MOPOPOJAT_LINES.pick_random()
 		"gasthaus":
 			return GASTHAUS_LINES.pick_random()
+		"hilkka", "raili", "tauno", "huutaja", "annaliisa":
+			return KirppisInterior.AMBIENT[_talk_who].pick_random()
 	return ""
 
 
@@ -7758,6 +8420,7 @@ func _on_vaala_shop_exited(bought: bool) -> void:
 		for k in ShopInterior.BAKERY:
 			if interior.cart.has(k):
 				food[k] = food.get(k, 0) + 1
+		_ebike_cart(interior.cart)
 		var bottles: int = interior.alko_count()
 		_chase_viina = bottles if interior.stolen else 0
 		if bottles > 0:
@@ -8254,6 +8917,7 @@ func _on_shop_exited(bought: bool) -> void:
 		for k in ShopInterior.BAKERY:
 			if interior.cart.has(k):
 				food[k] = food.get(k, 0) + 1
+		_ebike_cart(interior.cart)
 		for k in interior.bag:
 			paivi_bag[k] = interior.bag[k]
 		if not interior.bag.is_empty() and not bought and not interior.stolen:
@@ -8443,6 +9107,9 @@ func _reclaim_loot() -> PackedStringArray:
 				has_turbo = false
 			"sokeri":
 				has_sugar = false
+			"teippi", "nippu", "sahkoteippi":
+				ebike.supplies[k] = maxi(0, ebike.supplies[k] - ShopInterior.TARVIKE[k][2])
+				out.append("tarvikkeet")
 			"pulla", "piirakka":
 				food[k] = food.get(k, 0) - 1
 				if food[k] <= 0:
@@ -8785,6 +9452,8 @@ func _load_game() -> void:
 	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
 	tilat.load_from(cfg)
 	story.load_from(cfg)
+	ebike.load_from(cfg)
+	tokola.load_from(cfg)
 	_taxi_mokki_return = cfg.get_value("tarina", "taksi_paluu", false)
 	if cfg.has_section_key("peli", "pyora"):
 		_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
@@ -8860,6 +9529,10 @@ func _save_game() -> void:
 	if story != null:
 		story.save_to(cfg)
 		cfg.set_value("tarina", "taksi_paluu", _taxi_mokki_return)
+	if ebike != null:
+		ebike.save_to(cfg)
+	if tokola != null:
+		tokola.save_to(cfg)
 	if bike != null:
 		cfg.set_value("peli", "pyora", bike.global_position)
 		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
@@ -9017,6 +9690,9 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_beast_forest_t = 0.0
 	_bike_tuned = false
 	bike.tune = 1.0
+	if ebike.built() and not at_m and (bike_in_garage or bike.global_position.distance_to(home_zone) < 25.0) and ebike.battery < 1.0:
+		ebike.battery = 1.0
+		bonus += "\nKUKA on jättäny jonkun akkuröykkiön latautumaan seinään?! Sähkölasku tulee sun rahoista!"
 	_kalle_sold = 0
 	if kalle != null:
 		kalle.set_hiding(false)
@@ -9226,7 +9902,7 @@ var _hint_shown := ""
 ## Näppäimet asetuksista.
 func _help_text() -> String:
 	if cutscene.busy or not state in ["to_shop", "to_home", "in_shop", "in_home", "in_garage", "in_mokki", "in_raahe",
-			"in_siitari", "in_asema"]:
+			"in_siitari", "in_asema", "in_kirppis", "in_varasto"]:
 		return ""  # minipeleillä ja välianimaatioilla omat ohjeensa
 	var k := func(action: String, what: String) -> String:
 		return "[%s] %s" % [Settings.action_key(action), what]
@@ -9391,6 +10067,7 @@ func _spawn_hazards() -> void:
 	sinikka = _neighbor("Naapurin Sinikka", Looks.SINIKKA, SINIKKA_LINES, "sinikka")
 	sinikka.chores.assign(["Fixing_Kneeling", "Crouch_Idle", "PickUp_Table", "Fixing_Kneeling"])  # kitkee, kastelee, istuttaa
 	sulo = _villager("Pannu-Sulo", Looks.SULO, SULO_LINES, "sulo", M.PONTIKKA + Vector2(-2.2, -1.2))
+	aaro = _villager("Tokolan Aaro", AARO_LOOK, AARO_LINES, "arto", M.to_px(world.aaro_pos))
 
 
 var _traffic_t := 0.0
@@ -9643,6 +10320,14 @@ func _build_hud() -> void:
 	_stamina_bar.add_theme_stylebox_override("background", sbg)
 	_stamina_box.add_child(_stamina_bar)
 	_stamina_box.visible = false
+	_akku_label = st_l.duplicate()
+	_akku_label.text = "Akku"
+	_stamina_box.add_child(_akku_label)
+	_akku_bar = _stamina_bar.duplicate()
+	var afill := StyleBoxFlat.new()
+	afill.bg_color = Color(0.0, 0.7, 0.75)
+	_akku_bar.add_theme_stylebox_override("fill", afill)
+	_stamina_box.add_child(_akku_bar)
 
 	_minimap = Minimap.new()
 	_minimap.anchor_left = 1.0
@@ -9748,6 +10433,18 @@ func _update_hud() -> void:
 		lines.append("⚠ Kotijemma vaarassa (I)")
 	_stamina_box.visible = state in ["to_shop", "to_home"]  # juoksu ja pyörän spurtti kuluttavat samaa kuntoa
 	if _stamina_box.visible:
+		var akku: bool = ebike.built()
+		_akku_label.visible = akku
+		_akku_bar.visible = akku
+		_stamina_box.offset_top = -16 - 210 - (88 if akku else 44)
+		if akku:
+			_akku_bar.value = ebike.battery * 100.0
+			var warn := ""
+			if ebike.shorted:
+				warn = "  ⚠ oikosulku"
+			elif not ebike.loose.is_empty():
+				warn = "  ⚠ irti"
+			_akku_label.text = "Akku %d %%%s" % [roundi(ebike.battery * 100.0), warn]
 		_stamina_bar.value = walker_out.stamina
 		(_stamina_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = Color(0.9, 0.3, 0.2) if walker_out.exhausted else Color(0.3, 0.8, 0.4)
 	_stats.text = "\n".join(lines)
@@ -9755,7 +10452,7 @@ func _update_hud() -> void:
 	_clock_hud.day = day
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "lava", "mopokisa", "cutscene"])
+	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "lava", "mopokisa", "cutscene"])
 	_minimap.vaala_on = _in_vaala and mopo_trip != null
 	if _minimap.vaala_on:
 		_minimap.vaala = mopo_trip.vaala
@@ -9794,7 +10491,7 @@ func _update_hud() -> void:
 
 	var nb: CharacterBody3D = interior.neighbor
 	_sus_box.visible = state == "in_shop" and nb != null
-	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema"]
+	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto"]
 	_stat_bars.offset_top = 90 if _sus_box.visible else 36
 	if _sus_box.visible:
 		_sus_bar.value = nb.suspicion
@@ -9835,6 +10532,19 @@ func inventory_items() -> Array:
 		add.call("sokeri", "Sokeri", 1, "Kotiviiniin (autotallin saavi).")
 	if has_mower_part:
 		add.call("varaosa", "Leikkurin varaosa", 1, "Kalja vielä, niin leikkuri korjataan.")
+	if not ebike.built():
+		for k in ebike.parts:
+			add.call("sp_" + k, EBike.PARTS[k].name, 1, "Sähköpyörän osa · kasaus autotallin työpöydällä")
+	for k in EBike.SUPPLIES:
+		add.call("sp_" + k, EBike.SUPPLIES[k], ebike.supplies[k], "Sähköpyörän kiinnitykseen (%d liitosta)" % ebike.supplies[k])
+	if tokola.key:
+		add.call("avain", "Tokolan varaston avain", 1, "Ruosteinen avain vanhaan varastoon Tokolantien varressa.")
+	if tokola.tilikirja and tokola.legend == "":
+		add.call("kirja", "Kauppiaan tilikirja", 1, "\"Sokeria\" nimikirjaimin. Viimeisellä sivulla piirros varaston lattiasta.")
+	if tokola.lipas and tokola.legend == "":
+		add.call("lipas", "Kauppiaan rahalipas", 1, "Näytä Aarolle. Tai anna tilikirja Pannu-Sulolle.")
+	if tokola.markat:
+		add.call("markat", "Vanhoja markkoja", 1, "Kirppiksen Raili ostaa keräilijöille.")
 	if has_ball:
 		add.call("jalkapallo", "Jalkapallo", 1, "Poikien hukattu pallo.")
 	for k in ["kantarelli", "herkkutatti"]:
@@ -9915,7 +10625,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list()
+	info.tasks = story.list() + ebike.tasks() + _tokola_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if stash.get(id, 0) > 0:
@@ -10075,7 +10785,7 @@ func _coffee() -> void:
 	_night_coffee += 1
 
 
-const NIGHT_STATES := ["to_shop", "to_home", "in_shop", "in_home", "in_garage", "in_mokki", "in_siitari", "in_raahe", "in_asema"]
+const NIGHT_STATES := ["to_shop", "to_home", "in_shop", "in_home", "in_garage", "in_mokki", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto"]
 
 
 func _night_tick(delta: float) -> void:
@@ -10123,6 +10833,16 @@ func _pass_out() -> void:
 			state = _garage_prev
 			spawn = world.garage_door + world.garage_out * 1.0
 			intro = "Heräsit autotallin lattialta SLN-73:n vierestä. Radio soi vieläkin.\n"
+		"in_varasto":
+			varasto_int.leave()
+			state = _varasto_prev
+			spawn = world.varasto_door
+			intro = "Nukahdit Tokolan varaston säkkien päälle. Hiiret kävivät tutkimassa taskut.\n"
+		"in_kirppis":
+			kirppis_int.leave()
+			state = _kirppis_prev
+			spawn = world.kirppis_door
+			intro = "Nukahdit seuraintalon kahvipöydän ääreen. Hilkka peitteli virkkuuliinalla.\n"
 		"in_raahe":
 			raahe_int.leave()
 			spawn = home_zone + Vector3(0, 0, 4)
@@ -12987,6 +13707,316 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % v[0]))
+		"tokola":
+			# Tokola (#120): ulkokuvat varastosta ja Heinimäen kuusesta, lukittu ovi, Aaron avain lihapiirakasta,
+			# varaston löydöt (ohjain, rautalanka, tilikirja, lankku), kaivaminen Heinimäellä, markat Railille ja
+			# legendan todistus Aarolle; epäilijän repliikki. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			ebike = EBike.new()
+			tokola = Tokola.new()
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var oc := Camera3D.new()
+			oc.far = 2000.0
+			add_child(oc)
+			var vd: Vector3 = world.varasto_door
+			var vc := M.w(M.TOKOLA_VARASTO)
+			var out := (vd - vc).normalized()
+			oc.look_at_from_position(vd + out * 12.0 + Vector3(0, 4.0, 0) + out.cross(Vector3.UP) * 5.0, vc + Vector3(0, 1.5, 0))
+			oc.current = true
+			await frames.call(30)
+			await snap.call("_varasto_ulko.png")
+			var hp: Vector3 = world.heinimaki_pos
+			oc.look_at_from_position(hp + Vector3(9, 4, 9), hp + Vector3(0, 3, 0))
+			await frames.call(20)
+			await snap.call("_heinimaki.png")
+			oc.current = false
+			player.activate_camera()
+			print("TK paikat: ovi px %s, aaro px %s, kuusi px %s" % [M.to_px(vd), M.to_px(world.aaro_pos), M.to_px(hp)])
+			walker_out.global_position = vd + Vector3(0, 0.3, 0)
+			await frames.call(10)
+			print("TK ovi lukossa: '%s'" % _hint.text)
+			food["piirakka"] = 1
+			print("TK aaro: %s" % [_talk_options("aaro").map(func(o): return o.id)])
+			_talk_open("aaro", aaro)
+			_talk_box._pages.clear()
+			_talk_choose("piirakka")
+			_talk_box.close()
+			await frames.call(5)
+			print("TK avain: %s, piirakat %d" % [tokola.key, food.get("piirakka", 0)])
+			walker_out.global_position = vd + Vector3(0, 0.3, 0)
+			await frames.call(10)
+			print("TK ovi: '%s'" % _hint.text)
+			await press.call("interact")
+			print("TK sisällä: %s" % state)
+			await frames.call(20)
+			await snap.call("_varasto_sisa.png")
+			for sp in ["laatikko", "kelat", "lankku", "hylly", "lankku"]:
+				varasto_int.walker.position = varasto_int.spots[sp][0]
+				await frames.call(5)
+				var h: String = _hint.text
+				await press.call("interact")
+				print("TK %s: vihje '%s', viesti '%s'" % [sp, h, _msg.text.left(80)])
+			print("TK tila: ohjain %s, rautalanka %d, tilikirja %s, lankku %s, tehtävät %s" % [ebike.parts.has("ohjain"), ebike.supplies.rautalanka, tokola.tilikirja, tokola.lankku, _tokola_tasks()])
+			varasto_int.walker.position = varasto_int.spots.ovi[0]
+			await frames.call(5)
+			await press.call("interact")
+			walker_out.global_position = hp + Vector3(2.0, 0.3, 0)
+			await frames.call(10)
+			print("TK kuusi: '%s'" % _hint.text)
+			await press.call("interact")
+			print("TK lipas: %s, markat %s" % [tokola.lipas, tokola.markat])
+			print("TK sulo: %s" % [_talk_options("sulo").map(func(o): return o.id)])
+			_talk_open("aaro", aaro)
+			_talk_box._pages.clear()
+			_talk_choose("lipas")
+			_talk_box.close()
+			print("TK legenda: %s, maine %d" % [tokola.legend, roundi(maine)])
+			var m0 := money
+			_talk_who = "raili"
+			_talk_kirppis("markat")
+			_talk_box.close()
+			print("TK markat: rahaa %s -> %s" % [_eur(m0), _eur(money)])
+			var lines := {}
+			for i in 30:
+				_talk_who = "pekka"
+				lines[_talk_chat_line()] = true
+			print("TK pekka todistettu repliikki: %s" % [TOKOLA_PROVEN.pekka.any(func(l): return lines.has(l))])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"kirppis":
+			# Seuraintalo ja kirpputori (#114): ulkokuva, ovi kiinni ja auki, sisätila, Taunon tinkiminen ja osto,
+			# huutokauppa (kuva ja pakotettu voitto: napamoottori sähköpyörään) ja sulkemisaika. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			ebike = EBike.new()
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var door: Vector3 = world.kirppis_door
+			print("KP ovi: %s (px %s)" % [door, M.to_px(door)])
+			var oc := Camera3D.new()
+			oc.far = 2000.0
+			add_child(oc)
+			var away := door + (door - M.w(M.SEURAINTALO)).normalized() * 22.0
+			oc.look_at_from_position(Vector3(away.x, door.y + 6.0, away.z), M.w(M.SEURAINTALO) + Vector3(0, 2.0, 0))
+			oc.current = true
+			await frames.call(30)
+			await snap.call("_ulko.png")
+			oc.current = false
+			player.activate_camera()
+			clock_min = 8 * 60
+			walker_out.global_position = door + Vector3(0, 0.3, 0)
+			await frames.call(10)
+			print("KP kiinni: '%s'" % _hint.text)
+			clock_min = 12 * 60
+			await frames.call(5)
+			print("KP auki: '%s'" % _hint.text)
+			await press.call("interact")
+			print("KP sisällä: tila %s" % state)
+			await frames.call(20)
+			await snap.call("_sisa.png")
+			money = 30.0
+			maine = 0.0
+			_talk_open("tauno", null)
+			print("KP tauno: %s" % [_talk_options().map(func(o): return o.id)])
+			for i in 4:
+				_talk_box._pages.clear()
+				var o: Array = _talk_options().map(func(o): return o.id)
+				if "tingi_ruuvipurkki" in o:
+					_talk_choose("tingi_ruuvipurkki")
+					print("KP tingi: pyyntö %s €" % _eur(_kirppis_ask("ruuvipurkki")))
+			_talk_box._pages.clear()
+			_talk_choose("osta_ruuvipurkki")
+			_talk_box._pages.clear()
+			_talk_choose("osta_rautalanka")
+			print("KP ostettu: tarvikkeet %s, rahaa %s" % [ebike.supplies, _eur(money)])
+			await frames.call(10)
+			await snap.call("_tinki.png")
+			_talk_box.close()
+			await frames.call(5)
+			_talk_open("huutaja", null)
+			print("KP huutaja: %s" % [_talk_options().map(func(o): return o.text)])
+			_talk_box._pages.clear()
+			_talk_choose("huuto")
+			var g: Node = get_children().filter(func(c): return c is AuctionGame).front()
+			print("KP huutokauppa auki: %s" % [g != null])
+			await get_tree().create_timer(2.5).timeout
+			await snap.call("_huuto.png")
+			g.rivals = [["Mummo Elvi", 6.0], ["Ukko Veikkonen", 7.0]]
+			for i in 40:
+				if g._leader != 1:
+					g._gaze = 1
+					g._player_bid()
+				await get_tree().create_timer(0.3).timeout
+				if not is_instance_valid(g):
+					break
+			await get_tree().create_timer(2.0).timeout
+			print("KP huutokauppa: moottori %s, rahaa %s, viesti '%s'" % [ebike.parts.has("moottori"), _eur(money), _msg.text])
+			print("KP huutaja uudestaan: %s" % [_talk_options("huutaja").map(func(o): return o.id)])
+			clock_min = 18 * 60 + 1
+			await frames.call(10)
+			print("KP sulkeminen: tila %s" % state)
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"sahkopyora":
+			# Sähköpyörä (#107): tarvikkeet kaupasta, idea ja kasaus työpöydällä (kuvat vaiheista), ajo avustuksella
+			# ja ilman, akku irtoaa juurakoissa, tienvarsikorjaus teipillä ja oikosulku vedessä. Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			ebike = EBike.new()
+			if player == bike:
+				_toggle_mount()
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_ebike_cart({"teippi": 4.9, "nippu": 2.5, "sahkoteippi": 2.2})
+			print("SP kauppa: tarvikkeet %s, aloitettu %s" % [ebike.supplies, ebike.started])
+			bucket["kantarelli"] = 2
+			beers = 1
+			var po: Array = _talk_options("pekka").map(func(o): return o.id)
+			var ao: Array = _talk_options("arto").map(func(o): return o.id)
+			print("SP naapurit: pekka akku %s, arto johdot %s" % ["akku" in po, "johdot" in ao])
+			ebike.started = false
+			# Pyörä talliin.
+			bike.global_position = world.garage_door + world.garage_out * 2.5 + Vector3(0, 0.4, 0)
+			walker_out.global_position = bike.global_position + Vector3(1.0, 0, 0)
+			beers = 0
+			await frames.call(5)
+			_toggle_mount()
+			bike.global_position = world.garage_door + world.garage_out * 0.5 + Vector3(0, 0.4, 0)
+			await frames.call(10)
+			await press.call("interact")
+			print("SP talliin: tila %s, tallissa %s" % [state, bike_in_garage])
+			garage_int.walker.position = GarageInterior.SPOTS.tyopoyta[0]
+			await frames.call(5)
+			await press.call("interact")
+			print("SP idea + huolto: aloitettu %s, tune %.2f, tarvikkeet %s, viesti '%s'" % [ebike.started, bike.tune, ebike.supplies, _msg.text])
+			await press.call("interact")
+			print("SP osat puuttuu: viesti '%s'" % _msg.text)
+			for k in EBike.PARTS:
+				ebike.parts[k] = true
+			ebike.supplies.rautalanka = 1
+			await press.call("interact")
+			var g: Node = get_children().filter(func(c): return c is EBikeGame).front()
+			print("SP kasaus auki: %s, liitokset %s" % [g != null, g.todo if g != null else []])
+			await get_tree().create_timer(0.5).timeout
+			await snap.call("_valinta.png")
+			var plan := {"moottori": "ruuvi", "akku": "teippi", "ohjain": "nippu", "kaasu": "rautalanka", "johdot": "teippi"}
+			for j in ebike.JOINTS:
+				g._choose(plan[j])
+				if j in ["moottori", "akku", "ohjain"]:
+					g._progress = 0.4
+					g._threaded = true
+					g._tension = 0.75
+					await get_tree().create_timer(0.3).timeout
+					await snap.call("_%s.png" % plan[j])
+				g._joint_done()
+				await frames.call(2)
+			await get_tree().create_timer(1.5).timeout
+			print("SP kasattu: valmis %s, liitokset %s, tarvikkeet %s, viesti '%s'" % [ebike.built(), ebike.joints, ebike.supplies, _msg.text])
+			garage_int.walker.position = GarageInterior.SPOTS.pyora[0]
+			await frames.call(5)
+			await press.call("interact")
+			print("SP ulos pyörällä: selässä %s" % [player == bike])
+			await frames.call(20)
+			var sc := Camera3D.new()
+			add_child(sc)
+			var bp := bike.global_position
+			var side := bike.global_transform.basis.x
+			sc.look_at_from_position(bp + side * 2.4 + Vector3(0, 1.1, 0.3), bp + Vector3(0, 0.7, 0))
+			sc.current = true
+			_hud.visible = false
+			await frames.call(10)
+			await snap.call("_sivu.png")
+			sc.queue_free()
+			_hud.visible = true
+			bike.activate_camera()
+			# Ajo suoralla asfaltilla: avustuksella ja ilman.
+			var road := M.w(Vector2(829, 1240))
+			var top := func(battery: float) -> float:
+				ebike.battery = battery
+				bike.global_position = road + Vector3(0, 0.4, 0)
+				bike.rotation.y = B.yaw_to(M.w(Vector2(844, 1300)) - road)
+				bike.speed = 0.0
+				Input.action_press("forward")
+				await frames.call(240)
+				Input.action_release("forward")
+				var v: float = bike.speed
+				bike.speed = 0.0
+				return v
+			var v_on: float = await top.call(1.0)
+			var akku_after: float = ebike.battery
+			var v_off: float = await top.call(0.0)
+			print("SP huippu: avustus %.1f km/h (akku %.3f), tyhjä akku %.1f km/h, raskas %s" % [v_on * 3.6, akku_after, v_off * 3.6, bike.heavy])
+			ebike.battery = 1.0
+			# Juurakot irrottavat teipatun akun.
+			bike.speed = 8.0
+			for i in 60:
+				bike.root_hits += 1
+				await frames.call(1)
+				if not ebike.loose.is_empty():
+					break
+			print("SP irtoaminen: irti %s, avustus %.1f, viesti '%s'" % [ebike.loose.keys(), bike.assist, _msg.text])
+			bike.speed = 0.0
+			await frames.call(20)
+			bike.global_position = road + Vector3(0, 0.4, 0)
+			bike.rotation.y = PI * 0.6
+			await frames.call(30)
+			await snap.call("_irti.png")
+			_toggle_mount()
+			walker_out.global_position = bike.global_position + Vector3(1.2, 0.3, 0)
+			await frames.call(5)
+			print("SP korjausvihje: '%s'" % _hint.text)
+			await press.call("interact")
+			print("SP teipattu: irti %s, teippiä %d, toimii %s" % [ebike.loose.keys(), ebike.supplies.teippi, ebike.working()])
+			_toggle_mount()
+			# Oikosulku vedessä (johdot jeesusteipillä).
+			bike.surface = "water"
+			bike.speed = 3.0
+			var m: String = ebike.ride_tick(bike, 0.016)
+			bike.speed = 0.0
+			print("SP oikosulku: %s, viesti '%s', todo %s" % [ebike.shorted, m, ebike.todo()])
+			await frames.call(30)
+			await snap.call("_hud.png")
+			print("SP tehtävät: %s" % [ebike.tasks()])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
 		"autotalli":
 			# Autotalli: sisään kaljat kädessä, työkalukaappiin, radio, arkku, karburaattori (kuva + pakotettu
 			# onnistuminen), ulos; pyörä talliin, huolto ja ulos pyörällä; eteisen kaappi kodin sisällä.
