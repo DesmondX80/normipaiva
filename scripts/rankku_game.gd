@@ -136,7 +136,7 @@ func _process(delta: float) -> void:
 				_ball_from = Vector2(_root.size.x / 2.0, _root.size.y * 0.66)
 				_ball_to = Vector2(_root.size.x / 2.0 + _kick_dir * _root.size.x * 0.33, _root.size.y * randf_range(0.42, 0.6))
 				_keeper_dive = 2  # ei vielä heittäytynyt
-				Sfx.play("thud", -4.0, 1.1)
+				Sfx.play("punch", -6.0, 1.3)
 			for k in [["left", -1], ["back", 0], ["right", 1]]:
 				if Input.is_action_just_pressed(k[0]):
 					_tip.text = "Liian aikaisin! Potkija näki sen."
@@ -204,7 +204,7 @@ func _kick() -> void:
 		guess = signi(roundi(_aim.x * 1.4))
 	_keeper_dive = guess
 	_keeper_u = 0.0
-	Sfx.play("thud", -2.0, 0.9)
+	Sfx.play("punch", -4.0, 1.2)
 
 
 func _resolve() -> void:
@@ -219,7 +219,7 @@ func _resolve() -> void:
 		if wide:
 			_goal = false
 			_tip.text = ["OHI! Pallo lensi aidan yli.", "Tolppaan ja ulos! KLONK."][int(absf(_aim.x) < 1.08)]
-			Sfx.play("thud", -2.0, 0.6)
+			Sfx.play("punch_heavy", -6.0, 1.4)
 		elif randf() < reach:
 			_goal = false
 			_tip.text = "TORJUTTU! " + TAUNTS.pick_random()
@@ -245,7 +245,7 @@ func _resolve() -> void:
 			_theirs += 1
 			_net = 1.0
 			_tip.text = "Maali. " + TAUNTS.pick_random()
-			Sfx.play("thud", -4.0, 0.7)
+			Sfx.play("punch", -6.0, 0.9)
 	_results.append([_shooting(), _goal])
 
 
