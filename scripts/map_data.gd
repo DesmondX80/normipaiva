@@ -75,6 +75,12 @@ const HEINIMAKI := Vector2(412, -684)
 ## varrella (#122). Legendan paikat: kertun_rauta.gd.
 const KERTUNKANGAS := Vector2(1342, -333)
 const KERTUN_TAULU := Vector2(1352, -321)
+## Korjaamot (#142, OSM): P. Korpelan moottoriajoneuvohuolto, Simo Niemelän liikkuva autosähkökorjaamo (pakettiauto
+## Pirtin lähellä), Heiskasen kaasu- ja sammutinhuolto sekä Huhtalan auto ja varaosat (romuautot).
+const KORPELA := Vector2(98.9, 146.3)
+const SIMO_VAN := Vector2(280, 423)
+const HEISKANEN := Vector2(299.8, 417.5)
+const HUHTALA := Vector2(1574.6, 306.1)
 ## Etelän erämaa (#147, OSM): Viitajärven laavu ja järvi, Kaitasaaren niemi tekojärvellä, luonnonsuojelualueet
 ## ja Puntarimäki.
 const VIITA_LAAVU := Vector2(105, 3810)
@@ -125,7 +131,7 @@ const NEIGHBOR_SINIKKA := Vector2(855.5, 1204.2)
 const MAILBOX := Vector2(814, 1169)
 ## OSM-rakennukset, joiden tilalle tehdään oma malli (koti, autotalli, naapurit, kauppa).
 const OWN_BUILDINGS := [Vector2(812.4, 1177.9), GARAGE, NEIGHBOR_ARTO, NEIGHBOR_PEKKA, NEIGHBOR_SINIKKA,
-	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO, REIPPARI, PUKUKOPPI, SEO_KATOS, SEO, KATSASTUS, ARTTIM, RUDUS, HONGAN_KOULU, SEPPO, SAASTOPIHA]
+	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO, REIPPARI, PUKUKOPPI, SEO_KATOS, SEO, KATSASTUS, ARTTIM, RUDUS, HONGAN_KOULU, SEPPO, SAASTOPIHA, KORPELA, HEISKANEN, HUHTALA]
 
 ## type: highway | road | street | path. h = katuvalot/kylämäisyys tien varrella (0..1).
 ## Tiet ja polut: Osm.ROADS (OpenStreetMap). Tässä vain käsin tehdyt laavupolut (laavu ei ole OSM:ssä).
