@@ -90,6 +90,13 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   tekee vastatarjouksen tai suuttuu loppupäiväksi; maine auttaa, eikä alle 40 %:n mennä. Huutokauppa kerran
   päivässä: Erkki vilkuilee yleisöä, ja huuto menee läpi vain, kun hän katsoo sinua; "ensimmäisen, toisen…
   kolmannen kerran!" Testi `--scene=kirppis`.
+- **Saloisten Reippari:** grillikioski seuraintalon vieressä (auki 11–23). Luukulta Raijalta makkaraperunat,
+  lihapiirakka kaikilla, hampurilainen ja kahvi (ruoat reppuun, T syö). Illalla 18–23 kioskin edessä notkuu porukka
+  mopoineen, ja juoruista kuulee mm. Pannu-Sulon kuusikosta ja Tokolan varastosta. Ilmoitustaululta alkaa
+  sivutehtävä "Kadonnut Miisu": Tokolan Aaron kissa löytyy Aaron vihjeellä ja viedään takaisin (10 €).
+  Lihapiirakkahaaste (4,90 €): välilyönti haukkaa, A ja D vuorotellen pureskelevat ja W juo limua, ennen kuin vatsa
+  täyttyy. Juntin seitsemän piirakan ennätyksen rikkominen on oma onnellinen loppunsa "Lihapiirakkakuningas", ja
+  Päivi haistaa sipulin aamulla. Testi `--scene=reippari`.
 - **Seuraintalon tanssit ja bingo:** päivillä on viikonpäivät (päivä 1 = maanantai, näkyy repun tiedoissa).
   Lauantaisin klo 21–01 tanssit (lippu 8 €): lavalla Saloisten Saapasjalat, viirit ja värivalot, lattialla pareja.
   Tanssiin voi hakea Sinikan (Päivi soittaa perään kuten Siitarissa), Hilkan tai Anna-Liisan: A ja D vuorotellen
@@ -319,8 +326,8 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   sivutehtävä, kun siitä on kerrottu. Uusista vihjeistä tulee ilmoitus "Päiväkirjaan tuli uutta".
 - **Onnelliset loput** kerätään kokoelmaan: juhlat autotallissa, viinibileet, laavulla kaljoilla, legendaarinen
   normipäivä, Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit, karaokekuningas, kiihdytyksen voittaja,
-  sähköpyörä, seuraintalon tanssit, bingon jättipotti, Tokolan aarre ja Vanhan Sulon pannu. Päiväkirjassa
-  "Erilaisia onnellisia loppuja X / 14" (löytämättömät ???) ja onnellisten loppujen yhteismäärä. Testi
+  sähköpyörä, seuraintalon tanssit, bingon jättipotti, Tokolan aarre, Vanhan Sulon pannu ja lihapiirakkakuningas.
+  Päiväkirjassa "Erilaisia onnellisia loppuja X / 15" (löytämättömät ???) ja onnellisten loppujen yhteismäärä. Testi
   `--scene=paivakirja`.
 
 ## Jalan vai pyörällä?
