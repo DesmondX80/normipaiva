@@ -1,9 +1,10 @@
 extends Control
-## Normipäiväkirja (#132, näppäin O): nahkakantinen vihko kolmella välilehdellä.
+## Normipäiväkirja (#132, näppäin O): nahkakantinen vihko neljällä välilehdellä.
 ## "Tarina": luvut sitä mukaa kuin niihin päästään ja vaiheet sitä mukaa kuin niistä kuullaan (quests.gd).
 ## "Tehtävät": sivutehtävät, kun niistä on kuultu; tehdyt leimataan.
 ## "Loput": onnellisten loppujen kokoelma (endings.gd): erilaiset X / Y (löytämättömät ???) ja yhteismäärä.
-## Mikään ei paljastu etukäteen. Peli on tauolla auki ollessa. Hiiri: välilehdet ja rulla, näppäimet 1–3, Esc / O sulkee.
+## "Jemmat": löydetyt jemmapaikat, kaljat / tila ja riski, kotijemma tavoitteeseen nähden.
+## Mikään ei paljastu etukäteen. Peli on tauolla auki ollessa. Hiiri: välilehdet ja rulla, näppäimet 1–4, Esc / O sulkee.
 
 const MG := preload("res://scripts/mg_draw.gd")
 const PAPER := Color(0.97, 0.94, 0.85)
@@ -12,7 +13,7 @@ const MARGIN := Color(0.85, 0.35, 0.35, 0.6)
 const INK := Color(0.14, 0.17, 0.4)
 const LEATHER := Color(0.36, 0.2, 0.12)
 const TABS := [["tarina", "Tarina", Color(0.85, 0.35, 0.25)], ["tehtavat", "Tehtävät", Color(0.25, 0.55, 0.75)],
-	["loput", "Loput", Color(0.9, 0.7, 0.15)]]
+	["loput", "Loput", Color(0.9, 0.7, 0.15)], ["jemmat", "Jemmat", Color(0.3, 0.6, 0.3)]]
 
 var game: Node
 
@@ -138,7 +139,9 @@ func _draw() -> void:
 			_draw_side()
 		"loput":
 			_draw_endings()
-	draw_string(ThemeDB.fallback_font, Vector2(0, _book.end.y + 32), "1–3 välilehdet · rulla selaa · %s / Esc sulje" % Settings.cap("journal"),
+		"jemmat":
+			_draw_stashes()
+	draw_string(ThemeDB.fallback_font, Vector2(0, _book.end.y + 32), "1–4 välilehdet · rulla selaa · %s / Esc sulje" % Settings.cap("journal"),
 		HORIZONTAL_ALIGNMENT_CENTER, size.x, 16, Color(0.85, 0.85, 0.85))
 
 
@@ -274,6 +277,68 @@ func _draw_endings() -> void:
 			draw_string(_hand, r.position + Vector2(70, 50), ("ekan kerran päivänä %d" % it.day) if it.day > 0 else "", HORIZONTAL_ALIGNMENT_LEFT,
 				r.size.x - 76, 14, Color(0.45, 0.4, 0.35))
 			draw_string(_hand, r.position + Vector2(12, 68), it.desc, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 20, 12, INK)
+
+
+## Jemmat: kotijemma tavoitteeseen nähden, ulkojemmat ja yhteensä vasemmalla, löydetyt jemmapaikat palkkeineen
+## oikealla (kalja / tila ja riski: Päivi kotijemmoissa, teinit ulkojemmoissa).
+func _draw_stashes() -> void:
+	var s: Dictionary = _data.get("stashes", {})
+	var lp := _page(false)
+	var font := ThemeDB.fallback_font
+	var x0 := lp.position.x + 54
+	var red := Color(0.45, 0.12, 0.08)
+	draw_string(font, Vector2(x0, lp.position.y + 70), "Kotijemma", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, red)
+	var home: int = s.get("home", 0)
+	var goal: int = s.get("goal", 24)
+	draw_string(font, Vector2(x0, lp.position.y + 128), "%d / %d" % [home, goal], HORIZONTAL_ALIGNMENT_LEFT, -1, 50,
+		Color(0.2, 0.45, 0.2) if home >= goal else Color(0.85, 0.55, 0.05))
+	for i in goal:  # tölkkirivi: täynnä = kalja
+		var c := Vector2(x0 + 6 + (i % 12) * 26, lp.position.y + 152 + (i / 12) * 40)
+		var got := i < home
+		MG.box(self, Rect2(c, Vector2(18, 32)), Color(0.85, 0.7, 0.15) if got else Color(0.85, 0.83, 0.78), 5, 0,
+			Color(0.55, 0.4, 0.1) if got else Color(0.7, 0.68, 0.62), 1)
+		if got:
+			draw_rect(Rect2(c + Vector2(2, 9), Vector2(14, 8)), Color(0.15, 0.3, 0.6))
+	var y := lp.position.y + 262
+	draw_string(font, Vector2(x0, y), "Ulkojemmoissa %d" % s.get("out", 0), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, red)
+	y += 34
+	draw_string(font, Vector2(x0, y), "Jemmoissa yhteensä %d kaljaa" % (home + int(s.get("out", 0))), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, red)
+	y += 34
+	draw_string(_hand, Vector2(x0, y), "Jemmapaikkoja löydetty %d / %d" % [s.get("found", 0), s.get("all", 0)], HORIZONTAL_ALIGNMENT_LEFT, -1, 19, INK)
+	y += 40
+	for l in s.get("extra", []):
+		draw_string(_hand, Vector2(x0, y), "• " + str(l), HORIZONTAL_ALIGNMENT_LEFT, lp.size.x - 90, 18, INK)
+		y += 30
+	var note := "Kotijemma täyteen, niin kaverit tulee juhlimaan. Liian täysi kaappi on kuitenkin riski: Päivi siivoaa."
+	for l in _wrap(note, 16, lp.size.x - 90, _hand):
+		if y > lp.end.y - 20:
+			break
+		draw_string(_hand, Vector2(x0, y), l, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.4, 0.35, 0.3))
+		y += 24
+	# Oikea sivu: jemmapaikat.
+	var rp := _page(true)
+	var rows: Array = s.get("rows", [])
+	if rows.is_empty():
+		draw_string(_hand, rp.position + Vector2(54, 80), "Ei vielä yhtään jemmaa. Piilota kalja jonnekin!", HORIZONTAL_ALIGNMENT_LEFT,
+			rp.size.x - 80, 18, INK)
+		return
+	var ry := rp.position.y + 40 - _scroll
+	for r in rows:
+		if ry > rp.end.y - 70:
+			break
+		if ry >= rp.position.y + 10:
+			var title: String = str(r.name)
+			draw_string(font, Vector2(rp.position.x + 54, ry + 20), title, HORIZONTAL_ALIGNMENT_LEFT, rp.size.x - 150, 18,
+				red if r.home else Color(0.2, 0.35, 0.15))
+			draw_string(font, Vector2(rp.position.x + 54, ry + 20), "%d / %d" % [r.n, r.cap], HORIZONTAL_ALIGNMENT_RIGHT, rp.size.x - 80, 18, INK)
+			var bar := Rect2(Vector2(rp.position.x + 54, ry + 28), Vector2(rp.size.x - 80, 12))
+			MG.box(self, bar, Color(0.85, 0.83, 0.78), 6)
+			var f := clampf(float(r.n) / maxf(r.cap, 1.0), 0.0, 1.0)
+			if f > 0.0:
+				MG.box(self, Rect2(bar.position, Vector2(bar.size.x * f, bar.size.y)), Color(0.85, 0.3, 0.2) if r.warn else Color(0.85, 0.65, 0.15), 6)
+			draw_string(_hand, Vector2(rp.position.x + 54, ry + 60), ("Koti · " if r.home else "Ulkona · ") + str(r.note), HORIZONTAL_ALIGNMENT_LEFT,
+				rp.size.x - 80, 15, Color(0.75, 0.2, 0.15) if r.warn else Color(0.4, 0.38, 0.33))
+		ry += 76
 
 
 ## Tahrat pelin tapaan: kahvikupin renkaat, oluttahrat roiskeineen, makkaran rasvatäplä ja sinappi. Paikat
