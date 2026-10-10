@@ -718,6 +718,16 @@ func _draw_map() -> void:
 		v.draw_circle(pp, 5.0, Color(0.55, 0.2, 0.1))
 		v.draw_arc(pp, 9.0, 0, TAU, 16, Color(0.55, 0.2, 0.1), 1.5)
 		v.draw_string(font, pp + Vector2(12, 4), "Pontikkapannu (ilmakuva)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.5, 0.15, 0.05))
+	var kk := _px(M.KERTUNKANGAS)  # muinaisjäännös: kehäröykkiön merkki
+	v.draw_arc(kk, 4.5, 0, TAU, 12, Color(0.4, 0.2, 0.08), 1.5)
+	v.draw_circle(kk, 1.5, Color(0.4, 0.2, 0.08))
+	v.draw_string(font, kk + Vector2(9, 4), "Kertunkankaan kehäröykkiöt", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.35, 0.2, 0.08))
+	if game != null and game.kertun != null and game.kertun.spotted and not game.kertun.found:  # kivirivi ilmakuvasta
+		var ka := _px(game.KertunRauta.RIVI_A)
+		var kb := _px(game.KertunRauta.ISOKIVI)
+		v.draw_line(ka, kb, Color(0.45, 0.45, 0.45), 2.0)
+		v.draw_circle(kb, 4.0, Color(0.45, 0.45, 0.45))
+		v.draw_string(font, kb + Vector2(-10, -10), "Kivirivi (ilmakuva)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.3, 0.3, 0.3))
 	if game != null and game.pannu != null and game.pannu.spotted and not game.pannu.found:  # kuparin läikkä ilmakuvasta
 		var kp := _px(game.SuloPannu.SPOT)
 		v.draw_circle(kp, 5.0, Color(0.2, 0.55, 0.4))

@@ -654,6 +654,21 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_c(img, 10, 11, 1.8, Color(0.35, 0.6, 0.45))
 			_r(img, 7, 2, 2, 3, Color(0.6, 0.35, 0.15))
 			_r(img, 9, 2, 5, 1, Color(0.6, 0.35, 0.15))
+		"kirves":  # ruosteinen rautakautinen kirves: puuton terä ja hela
+			for i in 9:
+				_r(img, 3 + i, 12 - i, 2, 2, Color(0.45, 0.28, 0.15))
+			_r(img, 9, 2, 5, 6, Color(0.52, 0.3, 0.16))
+			_r(img, 12, 2, 2, 8, Color(0.62, 0.38, 0.2))
+			_r(img, 10, 4, 2, 2, Color(0.35, 0.2, 0.1))
+		"suomalmi":  # ruosteenruskea möykky
+			_c(img, 8, 9, 5.0, Color(0.5, 0.25, 0.1))
+			_c(img, 6.5, 7.5, 2.0, Color(0.68, 0.36, 0.14))
+			_c(img, 10, 11, 1.5, Color(0.32, 0.15, 0.07))
+		"kuona":  # musta, kuplainen kuona
+			_c(img, 8, 9, 5.0, Color(0.16, 0.14, 0.13))
+			for o in [Vector2(6, 7), Vector2(10, 8), Vector2(8, 11), Vector2(11, 11)]:
+				_c(img, o.x, o.y, 1.0, Color(0.05, 0.05, 0.05))
+			_c(img, 6, 10, 1.0, Color(0.45, 0.22, 0.1))
 		"avain":  # ruosteinen vanha avain
 			_c(img, 4.5, 8, 3.2, Color(0.55, 0.32, 0.18))
 			_c(img, 4.5, 8, 1.4, Color(0, 0, 0, 0))

@@ -124,6 +124,7 @@ var busy := false
 var walker: CharacterBody3D
 var hint := ""
 var mode := "kirppis"
+var veksi_open := false  # Veksi ottaa vastaan takahuoneessa (Kertunkankaan kirves mukana, main.gd)
 var lot_visible := true:  # huutokaupan napamoottori lavan pöydällä (main.gd piilottaa myynnin jälkeen)
 	set(v):
 		lot_visible = v
@@ -305,7 +306,10 @@ func _process(delta: float) -> void:
 		"ovi":
 			exited.emit()
 		"takahuone":
-			say_id("raili", "Takahuone on Veksin varasto. Ei asiakkaille. Älä ees kysy.")
+			if veksi_open:
+				acted.emit("takahuone")
+			else:
+				say_id("raili", "Takahuone on Veksin varasto. Ei asiakkaille. Älä ees kysy.")
 		_:
 			acted.emit(best)
 
