@@ -26,6 +26,11 @@ const BAKERY := {"pulla": ["korvapuusti", 1.50], "piirakka": ["lihapiirakka", 2.
 ## Kotiviinihylly etuseinällä oven vasemmalla: turbohiiva ja sokeri (kotiviini autotallin saavissa, main.gd).
 const BREW_SPOT := Vector3(-4.0, 0, 7.2)
 const BREW := {"turbohiiva": ["turbohiiva", 4.90], "sokeri": ["sokeri 1 kg", 1.60]}
+## Rautahylly etuseinällä kotiviinihyllyn vasemmalla: sähköpyörän kiinnitystarvikkeet (ebike.gd).
+## Avain -> [nimi, hinta, liitoksia].
+const TARVIKE_SPOT := Vector3(-6.6, 0, 7.2)
+const TARVIKE := {"teippi": ["jeesusteippi", 4.90, 3], "nippu": ["nippusiteet 50 kpl", 2.50, 4],
+	"sahkoteippi": ["sähköteippi", 2.20, 2]}
 ## Päivin hylly oikealla seinällä (kauppalistan muistipeli, #12): jokaisella tuotteella oma lokero, jossa kaikki
 ## värit. Tuotteet maksetaan Päivin rahoilla. Tuote -> laatikon koko (muoto erottaa tuotteet toisistaan).
 const PRODUCTS := {
@@ -231,6 +236,21 @@ func _process(delta: float) -> void:
 				walker.set_carrying(true)
 				Sfx.play("pickup", -4.0, 1.0)
 		_return_logic(BREW)
+	elif _flat(p, TARVIKE_SPOT) < 1.2 and not has_paid:
+		var next := ""
+		for k in TARVIKE:
+			if not cart.has(k):
+				next = k
+				break
+		if next == "":
+			hint = "Teipit ja nippusiteet kassissa."
+		else:
+			hint = "[E] Ota %s (%s €)" % [TARVIKE[next][0], _eur(TARVIKE[next][1])]
+			if e:
+				cart[next] = TARVIKE[next][1]
+				walker.set_carrying(true)
+				Sfx.play("pickup", -4.0, 1.2)
+		_return_logic(TARVIKE)
 	elif _flat(p, CANDY_SPOT) < 1.2 and not has_paid:
 		if cart.has(CANDY[0]):
 			hint = "[E] Palauta %s telineeseen" % CANDY[1]
@@ -267,7 +287,7 @@ Rahat ei riitä (%s / %s €): palauta tavaraa samaan hyllyyn, josta otit" % [_e
 
 ## Mistä mitäkin löytyy (vihje ja kauppiaan neuvo).
 func where_text() -> String:
-	return "Kaljat takaseinältä, grillitarvikkeet oven vierestä, Päivin tuotteet oikealta seinältä" + \
+	return "Kaljat takaseinältä, grillitarvikkeet oven vierestä, teipit rautahyllystä, Päivin tuotteet oikealta seinältä" + \
 		(", Alko vasemmalta seinältä" if vaala and alko else "")
 
 
@@ -588,6 +608,16 @@ func _build_room() -> void:
 		var turbo := i < 4
 		B.box(self, Vector3(0.14, 0.2 if turbo else 0.24, 0.1), BREW_SPOT + Vector3(-0.33 + (i % 4) * 0.22, 1.2, 1.08 + (i / 4) * 0.16),
 			Color(0.15, 0.25, 0.6) if turbo else Color(0.95, 0.95, 0.93), false)
+	# Rautahylly: jeesusteippirullat, nippusidepussit ja siniset sähköteipit.
+	B.box(self, Vector3(1.0, 1.1, 0.5), TARVIKE_SPOT + Vector3(0, 0.55, 1.2), Color(0.55, 0.57, 0.6))
+	for i in 8:
+		var at := TARVIKE_SPOT + Vector3(-0.33 + (i % 4) * 0.22, 1.16, 1.08 + (i / 4) * 0.16)
+		if i % 4 < 2:
+			B.mesh(self, B.cyl(0.07, 0.07, 0.06, 12), at, Color(0.62, 0.63, 0.6) if i % 4 == 0 else Color(0.1, 0.2, 0.7))
+		else:
+			B.box(self, Vector3(0.14, 0.18, 0.04), at + Vector3(0, 0.04, 0), Color(0.95, 0.95, 0.92), false)
+	var rauta_sign := B.sign_plate(self, "RAUTA", Color(0.2, 0.22, 0.25), Color.WHITE, 0.14, 26, Color.WHITE)
+	rauta_sign.position = TARVIKE_SPOT + Vector3(0, 1.5, 1.4)
 	var brew_sign := B.sign_plate(self, "KOTIVIINI", Color(0.45, 0.1, 0.3), Color.WHITE, 0.14, 26, Color.WHITE)
 	brew_sign.position = BREW_SPOT + Vector3(0, 1.5, 1.4)
 	# Hyllynreunakyltti grillihyllyn päällä, käytävän puolelle päin.
