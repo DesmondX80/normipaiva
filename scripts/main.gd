@@ -526,6 +526,8 @@ const STASHES := {
 		"home": false, "cap": 24, "steal": 0.15},
 	"uimaranta": {"name": "pukukopin penkin alus", "short": "ranta", "into": "pukukopin penkin alle",
 		"from": "pukukopin penkin alta", "home": false, "cap": 12, "steal": 0.25},
+	"huhtala": {"name": "Huhtalan romuauton takakontti", "short": "romuauto", "into": "romuauton takakonttiin",
+		"from": "romuauton takakontista", "home": false, "cap": 20, "steal": 0.15},
 	"rauniot": {"name": "raunioiden kivijalan kolo", "short": "rauniot", "into": "kivijalan koloon", "from": "kivijalan kolosta",
 		"home": false, "cap": 18, "steal": 0.3},
 }
@@ -697,6 +699,10 @@ const TALKERS := {
 	"vahtimestari": ["Vahtimestari Reijo", Color(0.7, 0.75, 0.8)],
 	"seppo": ["Seppo", Color(0.95, 0.75, 0.4)],
 	"rauniot_nuoret": ["Nuotioporukka raunioilla", Color(1.0, 0.7, 0.4)],
+	"korpela": ["Korpela", Color(0.6, 0.75, 1.0)],
+	"simo": ["Autosähkö-Simo", Color(0.95, 0.85, 0.4)],
+	"heiskanen": ["Heiskanen", Color(1.0, 0.5, 0.45)],
+	"huhtala": ["Huhtala", Color(0.85, 0.8, 0.6)],
 	"saasto": ["Säästöpihan Marja", Color(0.55, 0.9, 0.55)],
 	"hongan_nuoret": ["Portailla istuva porukka", Color(0.6, 0.9, 1.0)],
 	"aplus": ["Ravintola A+", Color(1.0, 0.6, 0.55)],
@@ -720,6 +726,10 @@ const TALK_HELLO := {
 	"reippari": ["No mitäs saisi olla?", "Grilli on kuuma, sano vaan.", "Kas, Järvikujan mies. Taas nälkä?"],
 	"reippari_nuoret": ["No moi. Ootko sää se tyyppi Järvikujalta?", "Mitä sää tuijotat? Ai, juttelemaan vaan.", "Moro. Ei oo mitään kiellettyä tässä."],
 	"sinikka_seura": ["No hei! Tuliks sää tanssimaan?", "Kas, komistus seuraintalolla. Päivi kotona?"],
+	"korpela": ["Korpela. Mikä on rikki? Ei sillä väliä, kaikki korjataan.", "Päivää. Öljyiset kädet, älä kättele."],
+	"simo": ["Simo, autosähkö! Liikkuva, mutta tänään paikallaan. Mikä surisee väärin?", "Terve. Ootko sää se sähköpyörän tyyppi?"],
+	"heiskanen": ["Heiskanen. Kaasut ja sammuttimet. Ei tulipaloja, kiitos.", "Päivää. Onko jotain syttymässä?"],
+	"huhtala": ["Huhtala. Romuja ja varaosia. Etsi vapaasti, mutta älä nuku autoissa.", "Kaikki on myytävänä, paitsi koira."],
 	"rauniot_nuoret": ["Hei, ei tänne aikuiset tuu. ...No istu sitte.", "Ootko sää poliisi? Et näytä poliisilta."],
 	"seppo": ["No terve! Kato rauhassa, kaikki on myytävänä. Paitsi se mopo.", "Seppo. Varastomyynti. Mitä tarvitaan?"],
 	"saasto": ["Päivää! Kukkia, taimia, multaa?", "Tervetuloa säästöpihaan. Päiville kukkia?"],
@@ -1443,6 +1453,7 @@ func _outside_logic() -> void:
 	_leikki_logic()
 	_eramaa_logic()
 	_rauniot_logic()
+	_korjaamo_logic()
 	_aarni_logic()
 	_reippari_logic()
 	_atm_logic()
@@ -3160,6 +3171,142 @@ func _rossi_update_clock() -> void:
 				"\nOMA %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""]
 
 
+## --- Korjaamot (#142): Pekan Volvo Korpelalle, Simo korjaa sähköpyörän oikosulun, Heiskasen kaasupullo Sululle ja
+## sammutin, Huhtalan romuautot (takakontti jemmana) ja varaosat. ------------------------------------------------
+const VOLVO_HINTA := 25.0
+const SIMO_HINTA := 10.0
+const KAASU_HINTA := 12.0
+const SAMMUTIN_HINTA := 15.0
+const HUHTALA_OSA := 5.0
+var _volvo_fixed_day := -1
+var _has_kaasu := false
+var _has_sammutin := false
+var _kaasu_given := false
+var _huhtala_day := -1
+
+
+## Pekan Volvo ei lähde joka kuudes päivä (päivä % 6 == 4), kunnes Korpela korjaa sen.
+func _volvo_broken() -> bool:
+	return story.ride_unlocked() and day % 6 == 4 and _volvo_fixed_day != day
+
+
+func _korjaamo_logic() -> void:
+	if world == null or world.korpela_door == Vector3.ZERO:
+		return
+	if _hint.text != "" or player.is_stunned():
+		return
+	var e := Input.is_action_just_pressed("interact")
+	var spots := [["korpela", world.korpela_door, "[E] P. Korpela, moottoriajoneuvojen huolto"],
+		["simo", world.simo_pos, "[E] Autosähkö-Simo pakettiautollaan"],
+		["heiskanen", world.heiskanen_door, "[E] Heiskanen Ky, kaasu- ja sammutinhuolto"],
+		["huhtala", world.huhtala_door, "[E] Huhtalan auto ja varaosat"]]
+	for s in spots:
+		if _near_xz(s[1], 2.4):
+			tilat.first("korjaamo", 0.1)
+			if not _between(clock_min, Vector2(8 * 60, 17 * 60)):
+				_hint.text = "Kiinni. Auki 8–17, ja vähän yli jos on kiire."
+				return
+			_hint.text = s[2]
+			if e:
+				_talk_open(s[0], null)
+			return
+
+
+## Kaasupullo Pannu-Sululle: ilmainen kanisteri.
+func _sulo_kaasu() -> void:
+	_has_kaasu = false
+	_kaasu_given = true
+	has_kanister = true
+	walker_out.set_kanister(true)
+	_sulo_sold = true
+	tilat.first("sulo_kaasu", 0.3)
+	Sfx.play("glass", -4.0)
+	_save_game()
+	_talk_box.reply("Kaasupullo! Mistä sää tiesit? ...Älä vastaa. Tässä kanisteri, ilmaiseksi. Ja nyt mee.", _talk_options(),
+		"Ilmainen pontikkakanisteri (= %d kaljaa)." % _kanister_beers())
+
+
+func _korjaamo_options(who: String, o: Array) -> void:
+	match who:
+		"korpela":
+			if _volvo_broken():
+				o.append(_opt("volvo", "Korjaa Pekan Volvo (%s)" % ("2 kaljaa" if beers >= 2 else _eur(VOLVO_HINTA) + " €"),
+					beers >= 2 or money >= VOLVO_HINTA, "2 kaljaa tai %s €" % _eur(VOLVO_HINTA), true))
+			else:
+				o.append(_opt("x_volvo", "Pekan Volvo on kunnossa", false, "tänään ei hajonnut"))
+		"simo":
+			o.append(_opt("oikosulku", "Korjaa sähköpyörän oikosulku (%s €)" % _eur(SIMO_HINTA), ebike.shorted and money >= SIMO_HINTA,
+				"ei oikosulkua" if not ebike.shorted else "rahat ei riitä", ebike.shorted))
+			o.append(_opt("lataa", "Lataa sähköpyörän akku pakusta (5 €)", ebike.built() and ebike.battery < 0.99 and money >= 5.0,
+				"akku täynnä tai pyörää ei ole" if not (ebike.built() and ebike.battery < 0.99) else "rahat ei riitä"))
+		"heiskanen":
+			o.append(_opt("osta_kaasu", "Kaasupullo (%s €)" % _eur(KAASU_HINTA), not _has_kaasu and not _kaasu_given and money >= KAASU_HINTA,
+				"jo ostettu" if _has_kaasu or _kaasu_given else "rahat ei riitä", pannu.heard or aarni.sulo))
+			o.append(_opt("sammutin", "Sammutin kotiin (%s €)" % _eur(SAMMUTIN_HINTA), not _has_sammutin and money >= SAMMUTIN_HINTA,
+				"kotona on jo" if _has_sammutin else "rahat ei riitä"))
+		"huhtala":
+			o.append(_opt("osa", "Penko romuista varaosia (%s €)" % _eur(HUHTALA_OSA), _huhtala_day != day and money >= HUHTALA_OSA,
+				"huomenna taas" if _huhtala_day == day else "rahat ei riitä"))
+
+
+func _korjaamo_choose(id: String) -> void:
+	match id:
+		"volvo":
+			if beers >= 2:
+				beers -= 2
+				player.set_carrying(beers > 0)
+			else:
+				money -= VOLVO_HINTA
+			_volvo_fixed_day = day
+			_advance_clock(60.0)
+			tilat.first("volvo_korjattu", 0.3)
+			Sfx.play("rattle_hard", -4.0, 0.9)
+			_save_game()
+			_talk_box.reply("Hinataan... no niin. Sytytystulpat oli ku Pekan hampaat. Tunti meni. Kerro Pekalle, että seuraavalla "
+				+ "kerralla hän tuo makkaraa.", _talk_options(), "Pekan Volvo korjattu: tämän päivän kyyti Paapeliin on ilmainen.")
+		"oikosulku":
+			money -= SIMO_HINTA
+			ebike.fasten("johdot", "sahkoteippi")
+			if is_instance_valid(bike):
+				bike.set_ebike({"joints": ebike.joints, "loose": ebike.loose})
+			tilat.first("simo_korjasi", 0.3)
+			Sfx.play("rattle", -4.0, 1.3)
+			_save_game()
+			_talk_box.reply("Johdot kastui ja meni oikosulkuun. Klassikko. Uudet liittimet ja kunnon sähköteippi. Pysy pois rämeiltä.",
+				_talk_options(), "Oikosulku korjattu, johdot sähköteipillä.")
+		"lataa":
+			money -= 5.0
+			ebike.battery = 1.0
+			Sfx.play("register", -6.0)
+			_save_game()
+			_talk_box.reply("Pakussa on invertteri. Täyteen vitosella, ja Päivi ei huomaa sähkölaskua.", _talk_options(), "Akku täynnä.")
+		"osta_kaasu":
+			money -= KAASU_HINTA
+			_has_kaasu = true
+			Sfx.play("register", -6.0)
+			_save_game()
+			_talk_box.reply("Kaasupullo. Pannu-Sulo ostaa näitä, mutta sen pullo on tyhjä, kuulemma. Viet sille?", _talk_options(),
+				"Kaasupullo mukana. Pannu-Sulo tarvitsisi sellaisen.")
+		"sammutin":
+			money -= SAMMUTIN_HINTA
+			_has_sammutin = true
+			tilat.first("sammutin", 0.2)
+			tilat.add("moraali", 0.05)
+			Sfx.play("register", -6.0)
+			_save_game()
+			_talk_box.reply("Sammutin eteiseen. Saunan ja grillin kanssa ei leikitä. Päivi tykkää, kun mies huolehtii.", _talk_options(),
+				"Sammutin kotona. Päivi huomaa huomenna.")
+		"osa":
+			money -= HUHTALA_OSA
+			_huhtala_day = day
+			var sup: String = ["ruuvit", "rautalanka", "nippu"].pick_random()
+			ebike.supplies[sup] += 3
+			Sfx.play("rattle", -4.0, 0.9)
+			_save_game()
+			_talk_box.reply("Romujen seasta löytyy aina jotain. Vitonen, ja ota mitä kannat.", _talk_options(),
+				"%s +3." % EBike.SUPPLIES[sup])
+
+
 ## --- Etelän erämaa (#147) ja rauniot (#145) -------------------------------------------------------------------
 const KAITA_ILTA := Vector2(19 * 60, 23 * 60)
 const METSO_AIKA := Vector2(8 * 60, 10 * 60)  # päivä alkaa klo 8: aikainen aamu
@@ -3712,6 +3859,10 @@ func _flowers_morning(lost: bool, at_m: bool) -> String:
 		tilat.add("moraali", -0.2)
 		_no_allowance = true
 		out += "\nEilen oli mun syntymäpäivä. EIKÄ SULTA TULLU EES KUKKAA. Kauppa-rahoja ei tänään tule."
+	if _has_sammutin and not ("sammutin_paivi" in tilat.firsts):
+		tilat.first("sammutin_paivi", 0.0)
+		tilat.add("stressi", 0.1)
+		out += "\nEteisessä on sammutin?! ...No, ainakin joku tässä talossa ajattelee. Hyvä."
 	if _multa_day == prev:
 		money += 5.0
 		out += "\nKuka toi multasäkin? ...Saan vihdoin kukkapenkin. Tässä vitonen."
@@ -5051,6 +5202,8 @@ func _stash_pos(id: String) -> Vector3:
 			return world.pukukoppi_pos if world.pukukoppi_pos != Vector3.ZERO else M.w(M.PUKUKOPPI)
 		"rauniot":
 			return world.rauniot_stash if world.rauniot_stash != Vector3.ZERO else M.w(M.RAUNIOT[1])
+		"huhtala":
+			return world.huhtala_trunk if world.huhtala_trunk != Vector3.ZERO else M.w(M.HUHTALA)
 	return Vector3.ZERO
 
 
@@ -7659,9 +7812,13 @@ func _talk_options(who := "") -> Array:
 				var why := ""
 				if hommat.banned_day == day:
 					why = "Santtu häätänyt mökiltä tänään"
+				elif _volvo_broken():
+					why = "Volvo ei lähde (Korpelan korjaamo)"
+				elif _volvo_fixed_day == day:
+					why = ""
 				elif beers <= 0 and money < PEKKA_RIDE_PRICE:
 					why = "ei kaljaa eikä %s € bensarahaa" % _eur(PEKKA_RIDE_PRICE)
-				o.append(_opt("kyyti", "Kyyti mökille Vaalaan (%s)" % ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €"),
+				o.append(_opt("kyyti", "Kyyti mökille Vaalaan (%s)" % ("ilmainen, Volvo korjattu" if _volvo_fixed_day == day else ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €")),
 					why == "", why))
 		"annaliisa", "sinikka_seura":
 			_seura_options(who, o)
@@ -7716,6 +7873,8 @@ func _talk_options(who := "") -> Array:
 			_pohjoiset_options(who, o)
 		"seppo", "saasto":
 			_seppo_options(who, o)
+		"korpela", "simo", "heiskanen", "huhtala":
+			_korjaamo_options(who, o)
 		"rauniot_nuoret":
 			if beers > 0 and not ("rauniot_kalja" in _today):
 				o.append(_opt("tarjoa", "Tarjoa kalja nuotiolle", true, "", _valokuva == 0))
@@ -7794,6 +7953,8 @@ func _talk_options(who := "") -> Array:
 				why == "", why))
 			if pannu.found and pannu.choice == "":
 				o.append(_opt("pannu", "Tässä on isäsi kuparipannu Pilkkarinnevalta", true, "", true))
+			if _has_kaasu:
+				o.append(_opt("sulo_kaasu", "Toin kaasupullon Heiskaselta", true, "", true))
 			if tokola.tilikirja and tokola.lipas and tokola.legend == "":
 				o.append(_opt("tilikirja", "Tokolan kauppiaan tilikirja... siinä on sun isän nimikirjaimet", true, "", true))
 		"pojat":
@@ -7885,6 +8046,9 @@ func _talk_choose(id: String) -> void:
 			if id == "pannu":
 				_pannu_to_sulo()
 				return
+			if id == "sulo_kaasu":
+				_sulo_kaasu()
+				return
 			money -= _kanister_price()
 			has_kanister = true
 			tilat.first("pontikka", 0.5)
@@ -7925,6 +8089,8 @@ func _talk_choose(id: String) -> void:
 			_pohjoiset_choose(id)
 		"seppo", "saasto":
 			_seppo_choose(id)
+		"korpela", "simo", "heiskanen", "huhtala":
+			_korjaamo_choose(id)
 		"rauniot_nuoret":
 			if id == "tarjoa":
 				_today.append("rauniot_kalja")
@@ -8170,6 +8336,14 @@ func _talk_chat_line() -> String:
 	if _talk_who == "aaro" and pannu.choice == "romu":
 		return ["Romuksi myit sen pannun. Kuuskymmentä vuotta odotin, ja romuksi.", "Mee pois. En puhu romukauppiaille."].pick_random()
 	match _talk_who:
+		"korpela":
+			return ["Pekan Volvo käy täällä useammin ku Pekka kirkossa.", "Raahen jätkät tuo tänne kaikki rämät. Ja maksaa makkaralla."].pick_random()
+		"simo":
+			return ["Mää korjaan kaikki sähköt Raahesta Vaalaan. Pakettiautossa on kaikki.", "Johdoissa on aina vika. Aina."].pick_random()
+		"heiskanen":
+			return ["Pannu-Sulo ostaa multa kaasua. En kysy mihin.", "Joka kotiin sammutin. Varsinkin jos on sauna ja kaljaa."].pick_random()
+		"huhtala":
+			return ["Noissa romuissa on vielä paljon elämää. Tai ainakin hiiriä.", "Takakontteihin ei kukaan kato. Ihan vinkkinä vaan."].pick_random()
 		"rauniot_nuoret":
 			return ["Täällä oli joskus talo. Kukaan ei tiedä kenen. Ehkä joku muistaa Pirtissä.",
 				"Tänne ei tuu kukaan. Ei Reijo, ei poliisi, ei äidit. Paras paikka koko kylässä.",
@@ -8396,7 +8570,9 @@ func _arrive_by_car(dest: Vector3) -> void:
 ## Ainoa tie mökille; paluu Pekan autolla mökin pihatien päästä (_mokki_ride_logic).
 func _pekka_ride() -> void:
 	var paid := "kalja"
-	if beers > 0:
+	if _volvo_fixed_day == day:
+		paid = "ei mitään, Volvo korjattu"
+	elif beers > 0:
 		beers -= 1
 		player.set_carrying(beers > 0)
 	else:
@@ -11934,6 +12110,9 @@ func _load_game() -> void:
 	has_chocolate = cfg.get_value("peli", "suklaa", false)
 	has_flowers = cfg.get_value("peli", "kukat", false)
 	_valokuva = cfg.get_value("rauniot", "valokuva", 0)
+	_has_kaasu = cfg.get_value("korjaamot", "kaasu", false)
+	_kaasu_given = cfg.get_value("korjaamot", "kaasu_annettu", false)
+	_has_sammutin = cfg.get_value("korjaamot", "sammutin", false)
 	_keinu_record = cfg.get_value("leikkipuistot", "ennatys", 3.4)
 	_keinu_holder = cfg.get_value("leikkipuistot", "haltija", "Honganpalon Jere")
 	_keinu_best = cfg.get_value("leikkipuistot", "oma", 0.0)
@@ -12033,6 +12212,9 @@ func _save_game() -> void:
 	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("peli", "kukat", has_flowers)
 	cfg.set_value("rauniot", "valokuva", _valokuva)
+	cfg.set_value("korjaamot", "kaasu", _has_kaasu)
+	cfg.set_value("korjaamot", "kaasu_annettu", _kaasu_given)
+	cfg.set_value("korjaamot", "sammutin", _has_sammutin)
 	cfg.set_value("leikkipuistot", "ennatys", _keinu_record)
 	cfg.set_value("leikkipuistot", "haltija", _keinu_holder)
 	cfg.set_value("leikkipuistot", "oma", _keinu_best)
@@ -13139,6 +13321,8 @@ func inventory_items() -> Array:
 		add.call("lipas", "Kauppiaan rahalipas", 1, "Näytä Aarolle. Tai anna tilikirja Pannu-Sulolle.")
 	if tokola.markat:
 		add.call("markat", "Vanhoja markkoja", 1, "Kirppiksen Raili ostaa keräilijöille.")
+	if _has_kaasu:
+		add.call("kaasu", "Kaasupullo", 1, "Heiskaselta. Pannu-Sulo tarvitsee.")
 	if _valokuva == 1:
 		add.call("valokuva", "Vanha valokuva", 1, "Raunioiden uunista. Talo, perhe portailla ja koira. Saloisten Pirtti haluaisi nähdä.")
 	if has_flowers:
@@ -16741,6 +16925,112 @@ func _maybe_screenshot() -> void:
 			print("ER lahjoitettu %d" % _valokuva)
 			await at.call(world.rauniot_stash)
 			print("ER jemma: '%s'" % _hint.text)
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"korjaamot":
+			# Korjaamot (#142): Volvo rikki ja Korpela korjaa (ilmainen kyyti), Simo korjaa oikosulun ja lataa akun,
+			# Heiskasen kaasupullo Sululle (ilmainen kanisteri) ja sammutin, Huhtalan varaosat ja romuauton jemma. Kuvat.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			quests = Quests.new()
+			_volvo_fixed_day = -1
+			_has_kaasu = false
+			_kaasu_given = false
+			_has_sammutin = false
+			_huhtala_day = -1
+			story.step = "valmis"
+			day = 10  # 10 % 6 == 4: Volvo rikki
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var at := func(pos: Vector3) -> void:
+				walker_out.global_position = pos + Vector3(0, 0.3, 0)
+				await frames.call(10)
+			var oc := Camera3D.new()
+			add_child(oc)
+			var view := func(name: String, from: Vector3, to: Vector3) -> void:
+				oc.look_at_from_position(from, to)
+				oc.current = true
+				await frames.call(30)
+				await snap.call(name)
+				oc.current = false
+				player.activate_camera()
+			var opts := func(who: String) -> Array:
+				return _talk_options(who).map(func(o): return "%s%s" % [o.id, "" if o.enabled else "(x)"])
+			money = 100.0
+			beers = 2
+			clock_min = 10 * 60
+			print("KO pekka (rikki): %s" % [opts.call("pekka")])
+			var kd: Vector3 = world.korpela_door
+			var kc := M.w(M.KORPELA)
+			var kn := (world._osm_fit_at(M.KORPELA).nrm as Vector2)
+			await view.call("_korpela.png", kc + Vector3(kn.x, 0, kn.y) * 18.0 + Vector3(5, 5, 0), kc + Vector3(0, 1.5, 0))
+			await at.call(kd)
+			print("KO korpela: '%s', %s" % [_hint.text, opts.call("korpela")])
+			_talk_open("korpela", null)
+			_talk_box._pages.clear()
+			_talk_choose("volvo")
+			_talk_box.close()
+			print("KO volvo korjattu %s, kello %d, kaljoja %d, pekka: %s" % [_volvo_fixed_day == day, clock_min, beers, opts.call("pekka")])
+			ebike.joints = {"moottori": "ruuvi", "akku": "ruuvi", "ohjain": "ruuvi", "kaasu": "ruuvi", "johdot": "teippi"}
+			ebike.shorted = true
+			ebike.battery = 0.3
+			await frames.call(20)
+			await at.call(world.simo_pos)
+			print("KO simo: '%s', %s" % [_hint.text, opts.call("simo")])
+			await view.call("_simo.png", world.simo_pos + Vector3(4, 2.5, 5), world.simo_pos + Vector3(-1.5, 1.2, 0))
+			_talk_open("simo", null)
+			_talk_box._pages.clear()
+			_talk_choose("oikosulku")
+			_talk_choose("lataa")
+			_talk_box.close()
+			print("KO oikosulku %s, johdot %s, akku %.1f" % [ebike.shorted, ebike.joints.johdot, ebike.battery])
+			await frames.call(20)
+			await at.call(world.heiskanen_door)
+			print("KO heiskanen: '%s', %s" % [_hint.text, opts.call("heiskanen")])
+			_talk_open("heiskanen", null)
+			_talk_box._pages.clear()
+			_talk_choose("osta_kaasu")
+			_talk_choose("sammutin")
+			_talk_box.close()
+			print("KO sulo: %s" % [opts.call("sulo")])
+			_talk_open("sulo", sulo)
+			_talk_box._pages.clear()
+			_talk_choose("sulo_kaasu")
+			_talk_box.close()
+			print("KO kanisteri %s, kaasu annettu %s, rahaa %s" % [has_kanister, _kaasu_given, _eur(money)])
+			day = 11
+			print("KO aamu: '%s'" % _flowers_morning(false, false).strip_edges().left(60))
+			await frames.call(20)
+			var hd: Vector3 = world.huhtala_door
+			var hc := M.w(M.HUHTALA)
+			var hn := (world._osm_fit_at(M.HUHTALA).nrm as Vector2)
+			var tk: Vector3 = world.huhtala_trunk
+			await view.call("_huhtala.png", tk + Vector3(10, 7, 10), tk + Vector3(-2, 0.5, 0))
+			await at.call(hd)
+			print("KO huhtala: '%s', %s" % [_hint.text, opts.call("huhtala")])
+			_talk_open("huhtala", null)
+			_talk_box._pages.clear()
+			_talk_choose("osa")
+			_talk_box.close()
+			await frames.call(20)
+			await at.call(world.huhtala_trunk)
+			print("KO takakontti: '%s'" % _hint.text)
+			clock_min = 20 * 60
+			await at.call(kd)
+			print("KO illalla: '%s'" % _hint.text)
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"jemmat":

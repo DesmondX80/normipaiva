@@ -97,6 +97,12 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Lihapiirakkahaaste (4,90 €): välilyönti haukkaa, A ja D vuorotellen pureskelevat ja W juo limua, ennen kuin vatsa
   täyttyy. Juntin seitsemän piirakan ennätyksen rikkominen on oma onnellinen loppunsa "Lihapiirakkakuningas", ja
   Päivi haistaa sipulin aamulla. Testi `--scene=reippari`.
+- **Korjaamot:** P. Korpelan moottoriajoneuvohuolto (Volvo nostimella), Simo Niemelän liikkuva autosähkö
+  (pakettiauto Pirtin lähellä), Heiskasen kaasu- ja sammutinhuolto sekä Huhtalan auto ja varaosat romuautoineen
+  (auki 8–17). Pekan Volvo ei lähde joka kuudes päivä: Korpela korjaa sen kahdella kaljalla tai 25 €:lla, ja sen
+  päivän kyyti Paapeliin on ilmainen. Simo korjaa sähköpyörän oikosulun ja lataa akun pakusta, Heiskaselta kaasupullo
+  Pannu-Sululle (ilmainen kanisteri) ja sammutin kotiin (Päivi ilahtuu), Huhtalan romuista varaosia, ja romuauton
+  takakontti on uusi jemma. Testi `--scene=korjaamot`.
 - **Etelän erämaa:** Viitajärven laavu kartan lounaiskulmassa: tulitikuilla nuotio, makkara ja kalja tuovat
   onnellisen lopun "Erämaan laavu" (18 loppua), ja Viitajärvessä voi uida. Kaitasaaren kärjestä auringonlasku
   tekojärvellä (19–23), luonnonsuojelualueen kyltit (maastopyöräily paheksutaan) ja metson soidin aamuisin (8–10),
