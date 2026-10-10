@@ -67,6 +67,8 @@ const SEURAINTALO := Vector2(394.3, -272.8)
 const TOKOLA_VARASTO := Vector2(350, -520)
 const AARO_HOUSE := Vector2(362, -571)
 const HEINIMAKI := Vector2(412, -684)
+## Saloisten Pirtti, kotiseutumuseo (OSM tourism=museum, rakennus): Sulon pannun lahjoitus (#130).
+const PIRTTI := Vector2(269.7, 439.9)
 const SHOP_BUILDING := Vector2(86, 541)
 const SHOP_ZONE := Vector2(90, 567)
 ## Naapuritalot (world.gd _build_neighbors) OSM-rakennusten keskipisteissä; malli tehdään OSM-pohjan mukaan.
