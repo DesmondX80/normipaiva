@@ -4819,14 +4819,14 @@ func _stash_journal() -> Dictionary:
 		if st.home:
 			var ch := _find_chance(id)
 			warn = ch > 0.0
-			note = "Päivi voi löytää! (%d %%)" % roundi(ch * 100.0) if warn else "Päivi ei huomaa (alle %d)" % (st.safe + 1)
+			note = "Päivi voi löytää!" if warn else "Päivi ei huomaa (alle %d)" % (st.safe + 1)
 		else:
 			out_n += n
 			if id == "laavu" and not laavu_conquered:
 				note = "laavu valtaajilla, ei pääse käsiksi"
 				warn = true
 			else:
-				note = "teinit voi pölliä yöllä (%d %%)" % roundi(st.steal * 100.0) if n > 0 else "tyhjä"
+				note = "teinit voi pölliä yöllä" if n > 0 else "tyhjä"
 		rows.append({"name": st.name.left(1).to_upper() + st.name.substr(1), "n": n, "cap": st.cap, "home": st.home, "note": note, "warn": warn})
 	var extra: Array = []
 	if wine_start >= 0:
