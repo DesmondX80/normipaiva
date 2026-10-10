@@ -97,6 +97,17 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Lihapiirakkahaaste (4,90 €): välilyönti haukkaa, A ja D vuorotellen pureskelevat ja W juo limua, ennen kuin vatsa
   täyttyy. Juntin seitsemän piirakan ennätyksen rikkominen on oma onnellinen loppunsa "Lihapiirakkakuningas", ja
   Päivi haistaa sipulin aamulla. Testi `--scene=reippari`.
+- **Kertunkankaan kehäröykkiöt:** Palonkyläntien pohjoispuolella metsässä Muinaispolun päässä oikea muinaisjäännös:
+  kolme keskuskuopallista kehäröykkiötä, röykkiö, kivikkoon kaivetut kuopat, 140 metrin kivivalli ja opastaulu
+  "Rautakaudelta Rautaruukille" (tiedot Visit Raahen ja Raahen Seudun mukaan). Röykkiöihin ei kosketa: toinen
+  kaivuuyritys tuo poliisin. Penkillä saa juoda kaljan yksin metsässä. **Legenda: Kertunkankaan rauta**
+  (keksitty, pelissä totta): kodan Raimo kertoo, että kankaan väki teki rautaa suomalmista ennen Raahea ja viimeinen
+  seppä kätki kirveensä. Arto, Anna-Liisa, Pekka ja Reipparin Raija epäilevät. Opastaulun pohjakartan
+  merkitsemätön kivi, droonin ilmakuva suorasta kivirivistä, suon ruosteveden suomalmi Tokolan Aarolle ja kuona
+  pajakiven juurelta johtavat kirveeseen isokiven alla. Saloisten Pirttiin: museo vahvistaa, lehtijuttu, maine ja
+  uusi loppu "Viimeisen sepän kirves", Veikko tarjoaa kaljat ja epäilijät perääntyvät. Kirppiksen takahuoneen
+  Veksille: 150 €, mutta legenda jää todistamatta, Raimo naurunalaiseksi ja poliisi perään. Testi
+  `--scene=kertunkangas`.
 - **Seuraintalon tanssit ja bingo:** päivillä on viikonpäivät (päivä 1 = maanantai, näkyy repun tiedoissa).
   Lauantaisin klo 21–01 tanssit (lippu 8 €): lavalla Saloisten Saapasjalat, viirit ja värivalot, lattialla pareja.
   Tanssiin voi hakea Sinikan (Päivi soittaa perään kuten Siitarissa), Hilkan tai Anna-Liisan: A ja D vuorotellen
@@ -316,7 +327,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 
 - **Tarina** etenee luvuittain: 1. Paapeliin pääsee, kunhan… (naapurien hommat ja Pekan kyyti mökille), 2. Paapelin
   isäntä (Santun hommat ja savusaunan korjaus), 3. Mopolla Vaalaan (Siitari, Oulujärven lava, kiihdytys), 4. Junalla
-  kotiin ja 5. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu). Seuraavaan
+  kotiin ja 5. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu, Kertunkankaan rauta). Seuraavaan
   vaiheeseen vihjataan puheissa: Santtu, Siitarin baarimikko, aidan takana porukka, Gasthausin emäntä, Pekka,
   Tauno ja Aaro kertovat, mitä seuraavaksi.
 - **Sivutehtävät**: kauppalista, nurmikko, laavu, Väinö, jalkapallopojat, pontikka, ilmakuvat, kotiviini,
@@ -326,8 +337,8 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   sivutehtävä, kun siitä on kerrottu. Uusista vihjeistä tulee ilmoitus "Päiväkirjaan tuli uutta".
 - **Onnelliset loput** kerätään kokoelmaan: juhlat autotallissa, viinibileet, laavulla kaljoilla, legendaarinen
   normipäivä, Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit, karaokekuningas, kiihdytyksen voittaja,
-  sähköpyörä, seuraintalon tanssit, bingon jättipotti, Tokolan aarre, Vanhan Sulon pannu ja lihapiirakkakuningas.
-  Päiväkirjassa "Erilaisia onnellisia loppuja X / 15" (löytämättömät ???) ja onnellisten loppujen yhteismäärä. Testi
+  sähköpyörä, seuraintalon tanssit, bingon jättipotti, Tokolan aarre, Vanhan Sulon pannu, lihapiirakkakuningas ja
+  viimeisen sepän kirves. Päiväkirjassa "Erilaisia onnellisia loppuja X / 16" (löytämättömät ???) ja onnellisten loppujen yhteismäärä. Testi
   `--scene=paivakirja`.
 
 ## Jalan vai pyörällä?

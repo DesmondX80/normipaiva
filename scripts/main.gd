@@ -222,6 +222,7 @@ const BingoGame := preload("res://scripts/bingo_game.gd")
 const Tokola := preload("res://scripts/tokola.gd")
 const TokolaVarasto := preload("res://scripts/tokola_varasto.gd")
 const SuloPannu := preload("res://scripts/sulo_pannu.gd")
+const KertunRauta := preload("res://scripts/kertun_rauta.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 const Journal := preload("res://scripts/journal.gd")
@@ -302,6 +303,7 @@ var varasto_int: Node3D
 var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.gd, #120)
 var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
+var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
 var endings: RefCounted  # onnellisten loppujen kokoelma (endings.gd, #132)
 var quests: RefCounted  # tarinan luvut ja sivutehtävät (quests.gd, #132)
 var _journal: Control  # Normipäiväkirja (O), journal.gd
@@ -680,7 +682,8 @@ const TALKERS := {
 	"aaro": ["Tokolan Aaro", Color(0.8, 0.75, 0.65)],
 	"sinikka_seura": ["Sinikka", Color(1.0, 0.55, 0.75)],
 	"reippari": ["Reipparin Raija", Color(1.0, 0.6, 0.25)],
-	"reippari_nuoret": ["Kioskin porukka", Color(0.6, 0.9, 1.0)]}
+	"reippari_nuoret": ["Kioskin porukka", Color(0.6, 0.9, 1.0)],
+	"veksi": ["Veksi", Color(0.75, 0.65, 0.95)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
 	"pekka": ["No perkele, naapuri!", "Terve terve, saatana.", "Kas, sieltähän se tulee."],
@@ -699,6 +702,7 @@ const TALK_HELLO := {
 	"reippari": ["No mitäs saisi olla?", "Grilli on kuuma, sano vaan.", "Kas, Järvikujan mies. Taas nälkä?"],
 	"reippari_nuoret": ["No moi. Ootko sää se tyyppi Järvikujalta?", "Mitä sää tuijotat? Ai, juttelemaan vaan.", "Moro. Ei oo mitään kiellettyä tässä."],
 	"sinikka_seura": ["No hei! Tuliks sää tanssimaan?", "Kas, komistus seuraintalolla. Päivi kotona?"],
+	"veksi": ["Takahuone. Ei asiakkaille. ...Ai, sulla on jotain? Laita ovi kiinni.", "Kuka sut päästi tänne? No, näytä mitä sulla on."],
 	"aaro": ["Jaa, nuori mies. Tokolassa ei paljon vieraita käy.", "Päivää päivää. Istu vaikka tuohon kivelle.",
 		"Kas. Sinä oot se Järvikujan poika."],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
@@ -966,6 +970,7 @@ func _ready() -> void:
 	ebike = EBike.new()
 	tokola = Tokola.new()
 	pannu = SuloPannu.new()
+	kertun = KertunRauta.new()
 	endings = Endings.new()
 	quests = Quests.new()
 	_load_game()
@@ -1401,6 +1406,7 @@ func _outside_logic() -> void:
 	_kirppis_logic()
 	_tokola_logic()
 	_pannu_logic()
+	_kertun_logic()
 	_reippari_logic()
 	_atm_logic()
 	_drone_logic()
@@ -2134,6 +2140,9 @@ func _kirppis_closing() -> void:
 
 
 func _on_kirppis_acted(kind: String) -> void:
+	if kind == "takahuone":
+		_talk_open("veksi", null)
+		return
 	if kind == "takaovi":
 		_seura_ukot()
 		kirppis_int.block_interact()
@@ -2596,6 +2605,236 @@ func _pannu_tasks() -> Array:
 	return [["Vanhan Sulon pannu: " + step, false]]
 
 
+## --- Kertunkankaan rauta (#122): kehäröykkiöt, opastaulu ja legenda viimeisen sepän kirveestä ------------------
+## Opastaulun teksti oikeista tiedoista (Visit Raahe / Outdooractive "Kertunkangas" ja Raahen Seutu "Rauta-aika on hyvinkin
+## lähellä"). Legenda (kirves, seppä) on keksitty ja pidetään erillään taulusta.
+const KERTUN_TAULU_TEKSTI := "RAUTAKAUDELTA RAUTARUUKILLE · Kertunkangas\nKankaalla on mahdollinen rautakautinen kalmisto: ainakin kolme " \
+	+ "keskuskuopallista kehäröykkiötä, yksi röykkiö ja 7–8 kivikkoon kaivettua kuoppaa. Isojen kivien vieressä olevat kuopat " \
+	+ "voivat olla avattuja hautoja. Itärinteellä kulkee 140 metrin kivivalli luoteesta kaakkoon. Maankohoamisen perusteella " \
+	+ "paikka ajoittuu rautakauden loppuun: se on pitäjän vanhimman kylän, Salon, asutushistorian alku. Paikkaa ei ole tutkittu " \
+	+ "tarkemmin. Muinaispolku jatkuu vanhojen talojen, pappilan ja ruukin paikan ohi. Muinaisjäännös on rauhoitettu."
+const KERTUN_TARINA := [
+	["raimo", "Tiäkkö sää, mitä Kertunkankaalla on? Kivikehiä. Rautakautisia, sanoo museo."],
+	["veikko", "Hautoja ne on. Tai kylmäkellareita. Ei kukaan tiedä."],
+	["raimo", "Mun ukki sano, että sen kankaan väki osas tehdä rautaa suomalmista. Ennen ku Raahessa oli yhtään mitään."],
+	["veikko", "Ja ennen ku sun ukki oli kertaakaan selvin päin."],
+	["raimo", "Viimeinen seppä takoi kirveen, joka ei tylsyny. Ja kätki sen kankaalle, ettei kukaan muu saa."],
+	["veikko", "Sama juttu ku se Tokolan kauppiaan aarre. Kaljapuhetta, sanoo Pekkakin."],
+	["raimo", "Kato sitä opastaulua tarkkaan. Ja suolla on vieläkin ruosteista vettä. Siitä ne sen raudan teki."],
+	["veikko", "Jos sää sen kirveen löydät, mää tarjoan kaljat. Ja Raimo saa olla oikeessa kerran elämässään."],
+]
+const KERTUN_KIITOS := [
+	["raimo", "No? NO? Mitä mää sanoin! Lehdessä! Kuvan kanssa!"],
+	["veikko", "...Museo sano, että rautakautinen. Perkele."],
+	["veikko", "Lupaus on lupaus. Kaljat on mulla."],
+	["raimo", "Ukki ois ylpee. Ja se viimeinen seppä kans."],
+]
+const KERTUN_DOUBT := {
+	"arto": ["Kertunkankaalta löytyy vain puolukkaa. Ja sääskiä.", "Raimo ja sen seppä. Kodassa kaljan kanssa kaikki on totta."],
+	"annaliisa": ["Se oli joku turistihuijaus, se koko kirvesjuttu.", "Älä sää rupea kaivelemaan mitään röykkiöitä, mää soitan poliisille."],
+	"pekka": ["Sama ku se Tokolan kauppiaan aarre, perkele. Kaljapuhetta.", "Raimon seppä? Raimo ei erota kirvestä kirkonavaimesta."],
+	"reippari": ["Mun isä oli Ruukilla kolkytä vuotta. Rautaa tehtiin vasta tehtaalla, se sano aina.",
+		"Kertunkankaalla? Siellä on vaan kiviä. Isä sano, että rautaa tehtiin vasta tehtaalla."],
+}
+const KERTUN_PROVEN := {
+	"arto": ["Kertunkankaalta löyty muutakin ku puolukkaa. No en mää sitä ihan valheeksi sanonu…", "Raimo oli oikeessa. Ei kerro kenellekään."],
+	"annaliisa": ["No en mää sitä ihan valheeksi sanonu… Lehdessä se oli, kuvan kanssa.", "Rautakautinen kirves Saloisista. Kerroin jo Päiville."],
+	"pekka": ["Raimon seppä oli oikea, perkele! Maailma on täynnä yllätyksiä.", "Kaljapuhetta, sanoin. Taas väärin, saatana."],
+	"reippari": ["Isä ei ois uskonu. Rautaa ennen Ruukkia! Lehtijuttu on tuossa luukun vieressä.", "Saloisissa tehtiin rautaa ennen Ruukkia. Kuka ois arvannu."],
+}
+
+
+## Legendan tila näkyviin maailmassa (isokivi, kuona) ja kirppiksen takahuone auki, kun kirves on mukana.
+func _kertun_sync() -> void:
+	if kertun == null or world == null:
+		return
+	if world.kertun_kuona != null:
+		world.kertun_kuona.visible = not kertun.kuona
+	if world.kertun_isokivi != null:
+		world.kertun_isokivi.rotation.z = 0.35 if kertun.found else 0.0
+	if kirppis_int != null and "veksi_open" in kirppis_int:
+		kirppis_int.veksi_open = kertun.found and kertun.choice == ""
+
+
+func _kertun_heard() -> void:
+	kertun.heard = true
+	tilat.first("kertun_legenda", 0.2)
+	_save_game()
+	_show_message("Legenda: Kertunkankaan rauta. Röykkiöt ovat Muinaispolun varrella Palonkyläntien pohjoispuolella. "
+		+ "Lue opastaulu, ja suolla on ruosteista vettä...", 6.0)
+
+
+func _kertun_thanks() -> void:
+	kertun.kiitetty = true
+	beers += 3
+	player.set_carrying(true)
+	tilat.add("moraali", 0.3)
+	tilat.first("kertun_kiitos", 0.3)
+	Sfx.play("glass", -4.0, 0.8)
+	_save_game()
+	_show_message("Veikko antaa kolme kaljaa. Raimo on oikeassa, ja koko kota tietää sen. Kaljoja mukana %d." % beers, 4.5)
+
+
+func _kertun_tasks() -> Array:
+	if not kertun.heard or kertun.choice != "":
+		return []
+	var step := "kaiva kivirivin päästä isokiven alta"
+	if kertun.found:
+		step = "Saloisten Pirttiin vai kirppiksen takahuoneeseen?"
+	elif not kertun.taulu:
+		step = "lue opastaulu Muinaispolun päässä"
+	elif not kertun.spotted:
+		step = "ota ilmakuva Kertunkankaasta (drooni)"
+	elif not kertun.malmi:
+		step = "ruosteinen vesi suolla kankaan pohjoispuolella"
+	elif not kertun.malmi_known:
+		step = "näytä suomalmi Tokolan Aarolle"
+	elif not kertun.kuona:
+		step = "kuonaa litteän pajakiven juurelta"
+	return [["Kertunkankaan rauta: " + step, false]]
+
+
+func _kertun_near(px: Vector2, r: float) -> bool:
+	var at := M.w2(px)
+	var p := player.global_position
+	return Vector2(p.x - at.x, p.z - at.y).length() < r
+
+
+func _kertun_logic() -> void:
+	if kertun == null or world == null:
+		return
+	if kertun.choice == "kerailija" and not kertun.poliisi and state in ["to_shop", "to_home"]:
+		kertun.poliisi = true
+		_save_game()
+		_call_police("kirves")
+	if _hint.text != "" or player == bike:
+		return
+	_kertun_museum()
+	if _hint.text != "" or not _kertun_near(M.KERTUNKANGAS, 120.0):
+		return
+	var e := Input.is_action_just_pressed("interact")
+	var p := player.global_position
+	var tp: Vector3 = world.kertun_taulu_pos
+	if Vector2(p.x - tp.x, p.z - tp.z).length() < 2.2:
+		_hint.text = "[E] Lue opastaulu: Rautakaudelta Rautaruukille"
+		if e:
+			tilat.first("kertunkangas", 0.2)
+			var extra := ""
+			if kertun.heard:
+				if not kertun.taulu:
+					kertun.taulu = true
+					_save_game()
+				extra = "\n\nPohjakartassa on röykkiöiden luoteispuolella yksi harmaa kivi ilman selitystä. Miksi se on merkitty?"
+			_show_message(KERTUN_TAULU_TEKSTI + extra, 14.0)
+		return
+	var bp: Vector3 = world.kertun_bench_pos
+	if Vector2(p.x - bp.x, p.z - bp.z).length() < 1.8:
+		if beers > 0 and not ("kertun_penkki" in _today):
+			_hint.text = "[E] Istu penkille ja avaa kalja (Päivi ei löydä tänne)"
+			if e:
+				_today.append("kertun_penkki")
+				beers -= 1
+				player.set_carrying(beers > 0)
+				_drink(1)
+				tilat.add("stressi", 0.3)
+				tilat.first("kertun_penkki", 0.2)
+				Sfx.play("glass", -6.0, 0.9)
+				_show_message("Tikka nakuttaa jossain, tuuli suhisee männyissä. Tuhat vuotta sitten joku istui tässä samassa. Hiljaista.", 4.5)
+		else:
+			_hint.text = "Penkki röykkiöiden laidalla. Hiljainen paikka."
+		return
+	for cp in [Vector2(1338, -329), Vector2(1347, -336), Vector2(1340, -340), Vector2(1333, -333)]:
+		if _kertun_near(cp, 2.8):
+			_hint.text = "Kehäröykkiö: rauhoitettu muinaisjäännös.  [E] Kaiva"
+			if e:
+				kertun.cairn_tries += 1
+				if kertun.cairn_tries >= 2:
+					kertun.cairn_tries = 0
+					maine = clampf(maine - 5.0, 0.0, 100.0)
+					_call_police("roykkio")
+				else:
+					_show_message("Muinaisjäännöksiin ei kosketa. Ne on rauhoitettu lailla, ja Anna-Liisa tietää sen kyllä. "
+						+ "Jos legendassa on perää, todiste on jossain muualla kuin röykkiön sisällä.", 5.0)
+			return
+	if _kertun_near(KertunRauta.MALMI, 2.6):
+		if kertun.heard and not kertun.malmi and not kertun.found:
+			_hint.text = "[E] Nosta pala ruosteenpunaisesta vedestä"
+			if e:
+				kertun.malmi = true
+				Sfx.play("pickup", -4.0, 0.7)
+				_save_game()
+				_show_message("Raskas, ruosteenruskea möykky. Ei ihan tavallinen kivi. Kuka tietäis tällaisista? Vanhat tokolalaiset ehkä.", 4.5)
+		else:
+			_hint.text = "Suolla on ruosteenpunaista vettä."
+		return
+	if _kertun_near(KertunRauta.PAJAKIVI, 2.0) and kertun.heard:
+		if kertun.malmi_known and not kertun.kuona:
+			_hint.text = "[E] Kaiva litteän kiven juurelta"
+			if e:
+				kertun.kuona = true
+				_kertun_sync()
+				tilat.add("vasymys", -0.05)
+				Sfx.play("rattle_hard", -6.0, 1.1)
+				_save_game()
+				_show_message("Sammalen alta raskasta, kuplaista mustaa kiveä: kuonaa! Tässä on ollut paja. Raimo ei valehdellut.", 4.5)
+		elif not kertun.kuona:
+			_hint.text = "Litteä kivi kuin pöytä. Juurella mustaa sammalen alla."
+		return
+	if _kertun_near(KertunRauta.ISOKIVI, 2.8) and kertun.heard and not kertun.found:
+		if kertun.spotted and kertun.kuona:
+			_hint.text = "[E] Kaiva kivirivin päästä isokiven alta"
+			if e:
+				kertun.found = true
+				_kertun_sync()
+				tilat.add("vasymys", -0.15)
+				tilat.first("kertun_kirves", 0.6)
+				Sfx.play("rattle_hard", -4.0, 0.6)
+				_save_game()
+				_show_message("Kivi keikahtaa, ja sen alta paljastuu ruosteinen, mutta tunnistettava kirves. Viimeisen sepän kirves! "
+					+ "Saloisten Pirttiin vai kirppiksen takahuoneeseen?", 6.0)
+		elif kertun.spotted:
+			_hint.text = "Kivirivi päättyy tähän isokiveen. Täällä on tehty jotain... rautaa? Kuonaa pitäis löytää."
+		else:
+			_hint.text = "Iso kivi. Kankaalla on paljon kiviä. Ilmakuva näyttäis kokonaisuuden."
+		return
+	if kertun.spotted and not kertun.found and _kertun_near((KertunRauta.RIVI_A + KertunRauta.RIVI_B) / 2.0, 12.0):
+		_hint.text = "Sammaleen alla kulkee suora kivirivi (ilmakuva, kartta)."
+
+
+## Saloisten Pirtti: kirves kotiseutumuseoon. Legenda todistettu.
+func _kertun_museum() -> void:
+	if not kertun.found or kertun.choice != "" or _hint.text != "":
+		return
+	var md: Vector3 = world.museum_door
+	var p := player.global_position
+	if md == Vector3.ZERO or Vector2(p.x - md.x, p.z - md.z).length() >= 3.0:
+		return
+	_hint.text = "[E] Saloisten Pirtti: vie rautakautinen kirves kotiseutumuseolle"
+	if Input.is_action_just_pressed("interact"):
+		kertun.choice = "museo"
+		_kertun_sync()
+		_ending("kertun_rauta")
+		money += KertunRauta.MUSEO_PALKKIO
+		maine = clampf(maine + KertunRauta.MUSEO_MAINE, 0.0, 100.0)
+		tilat.add("moraali", 0.3)
+		Sfx.play("win_small", -4.0)
+		_save_game()
+		_show_message("Opas soittaa Raahen museoon, ja museo vahvistaa: rautakautinen kirves! Löytöpalkkio %s €, ja lehteen tulee "
+			% _eur(KertunRauta.MUSEO_PALKKIO) + "juttu kuvan kera. Maine +%d. Raimo ja Veikko haluu varmaan nähdä lehden." % roundi(KertunRauta.MUSEO_MAINE), 6.5)
+
+
+## Kirppiksen takahuone: kirves Veksille. Rahaa, mutta legenda jää todistamatta ja poliisi kiinnostuu.
+func _kertun_sell() -> void:
+	kertun.choice = "kerailija"
+	money += KertunRauta.KERAILIJA_HINTA
+	maine = clampf(maine - 5.0, 0.0, 100.0)
+	_kertun_sync()
+	Sfx.play("coin", -4.0)
+	_save_game()
+	_talk_box.reply("Veksi kääräisee kirveen sanomalehteen. \"Sataviiskymmentä. Ja tätä ei sitten ikinä nähty, eikä sää oo ikinä ollu täällä.\"",
+		_talk_options(), "+%s €. Legenda jää todistamatta, ja Raimo naurunalaiseksi. Kylällä alkaa liikkua juttuja..." % _eur(KertunRauta.KERAILIJA_HINTA))
+
+
 ## --- Saloisten Reippari (#115): grillikioski, iltaporukka, ilmoitustaulu, Miisu ja lihapiirakkahaaste ----------
 const REIPPARI_OPEN := Vector2(11 * 60, 23 * 60)
 const REIPPARI_YOUTH := Vector2(18 * 60, 23 * 60)
@@ -2805,6 +3044,10 @@ func quest_flag(name: String) -> bool:
 			return pannu.heard
 		"pannu_done":
 			return pannu.choice != ""
+		"kertun_heard":
+			return kertun.heard
+		"kertun_done":
+			return kertun.choice != ""
 		"pontikka_found":
 			return pontikka_found
 		"drone_all":
@@ -2958,6 +3201,13 @@ func _pannu_scrap() -> void:
 
 func _talk_aaro(id: String) -> void:
 	match id:
+		"malmi":
+			kertun.malmi_known = true
+			_save_game()
+			_talk_box.reply("Näytäs... Suomalmia! Tällasesta ne vanhat teki rautaa. Isä näytti mulle poikasena: malmi paahdettiin ja "
+				+ "sulatettiin savipesässä, ja jäljelle jäi kuonaa, raskasta ja kuplaista kiveä. Missä on kuonaa, siellä on ollu paja. "
+				+ "Kato isojen litteiden kivien juurelta. Kertunkankaalla, sanoit? Raimon seppä... no voi pojat.", _talk_options(),
+				"Kuonaa pajan paikalta: litteän kiven juurelta Kertunkankaalla.")
 		"miisu":
 			_miisu.state = "palautettu"
 			money += MIISU_PALKKIO
@@ -3794,6 +4044,9 @@ func _drone_pois() -> Array:
 	for id in fixed:
 		var at: Vector3 = M.w(fixed[id])
 		out.append({"id": id, "name": DRONE_POIS[id], "pos": func() -> Vector3: return at + Vector3(0, 1.0, 0)})
+	if kertun.heard and not kertun.spotted:
+		var rat: Vector3 = M.w((KertunRauta.RIVI_A + KertunRauta.RIVI_B) / 2.0)
+		out.append({"id": "kertun_rivi", "name": "Suora kivirivi sammaleen alla Kertunkankaalla!", "pos": func() -> Vector3: return rat + Vector3(0, 0.3, 0)})
 	if pannu.heard and not pannu.spotted:
 		var pat: Vector3 = M.w(SuloPannu.SPOT)
 		out.append({"id": "kuparipannu", "name": "Kuparin vihreä läikkä Pilkkarinnevalla!", "pos": func() -> Vector3: return pat + Vector3(0, 0.3, 0)})
@@ -3841,6 +4094,9 @@ func _on_drone_photo(id: String) -> void:
 		_drone.photo_count = n
 	tilat.add("kokemus", 0.05)
 	Sfx.play("win_small", -8.0, 1.2)
+	if id == "kertun_rivi" and not kertun.spotted:
+		kertun.spotted = true
+		_queue_message("Kankaalla sammaleen alla kulkee suora kivirivi, luonto ei tee noin. Rivi päättyy isoon kiveen. Merkki karttaan (M).", 5.0)
 	if id == "kuparipannu" and not pannu.spotted:
 		pannu.spotted = true
 		_queue_message("Rämeen keskellä vihertää jotain... kuparia! Vanhan Sulon pannu? Paikka merkittiin karttaan (M).", 4.5)
@@ -3933,8 +4189,8 @@ func _call_police(reason := "siili") -> void:
 	police.world = world
 	police.caught.connect(func() -> void:
 		if state in ["to_shop", "to_home"]:
-			_lose("Poliisi pidätti: %s!" % ("myymälävarkaus ja pahoinpitely" if reason == "varkaus" else "eläinsuojelurikos"),
-				"police"))
+			_lose("Poliisi pidätti: %s!" % {"varkaus": "myymälävarkaus ja pahoinpitely", "roykkio": "muinaisjäännöksen kaivaminen",
+				"kirves": "muinaisjäännösrike ja pimeät kaupat"}.get(reason, "eläinsuojelurikos"), "police"))
 	police.escaped.connect(func() -> void:
 		tilat.first("poliisipako", 0.5)
 		tilat.add("stressi", 0.2)
@@ -3943,6 +4199,10 @@ func _call_police(reason := "siili") -> void:
 	Sfx.play("alert", 0.0, 0.8)
 	if reason == "varkaus":
 		_show_message("Kauppias soitti poliisit!\nPOLIISI TULEE, KARKUUN!", 4.0)
+	elif reason == "roykkio":
+		_show_message("Anna-Liisa näki sun kaivavan röykkiötä ja soitti poliisit!\nPOLIISI TULEE – KARKUUN!", 4.0)
+	elif reason == "kirves":
+		_show_message("Veksin takahuoneen kaupat kiinnosti poliisia: muinaisjäännösrike!\nPOLIISI TULEE – KARKUUN!", 4.0)
 	else:
 		_show_message("TOINEN SIILI! Anna-Liisa soitti poliisit.\nPOLIISI TULEE – KARKUUN!", 4.0)
 
@@ -5992,8 +6252,13 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("lipas", "Näytä kauppiaan rahalipas ja tilikirja", true, "", true))
 			elif tokola.legend == "":
 				o.append(_opt("kauppias", "Kerro siitä Tokolan kauppiaasta"))
+			if kertun.malmi and not kertun.malmi_known:
+				o.append(_opt("malmi", "Näytä Kertunkankaan suolta nostettu ruosteinen möykky", true, "", true))
 			if tokola.key and not pannu.heard:
 				o.append(_opt("vanhasulo", "Kuka oli se S. S. kauppiaan kirjoissa?", true, "", tokola.tilikirja))
+		"veksi":
+			if kertun.found and kertun.choice == "":
+				o.append(_opt("kirves", "Myy rautakautinen kirves (%s €)" % _eur(KertunRauta.KERAILIJA_HINTA), true, "", true))
 		"huutaja":
 			var lot := _auction_lot()
 			if kirppis_int.mode != "kirppis":
@@ -6165,6 +6430,9 @@ func _talk_choose(id: String) -> void:
 			_talk_kirppis(id)
 		"aaro":
 			_talk_aaro(id)
+		"veksi":
+			if id == "kirves":
+				_kertun_sell()
 		"reippari":
 			_talk_reippari(id)
 		"siitari_sinikka":
@@ -6366,6 +6634,8 @@ func _talk_chat_line() -> String:
 		return sh
 	if _talk_who in ["pekka", "arto"] and tokola.proven() and randf() < 0.4:
 		return (TOKOLA_PROVEN[_talk_who] as Array).pick_random()
+	if KERTUN_DOUBT.has(_talk_who) and kertun.heard and randf() < 0.45:
+		return ((KERTUN_PROVEN if kertun.proven() else KERTUN_DOUBT)[_talk_who] as Array).pick_random()
 	if _talk_who in ["pekka", "arto", "sulo"] and pannu.heard and randf() < 0.5:
 		var pool: Dictionary = PANNU_PROVEN if pannu.proven() else PANNU_DOUBT
 		if pool.has(_talk_who):
@@ -8809,7 +9079,10 @@ func _kota_logic() -> void:
 	_kota_chat_t -= get_process_delta_time()
 	if _kota_chat_t <= 0.0 and dk < 9.0:
 		_kota_chat_t = randf_range(9.0, 15.0)
-		if k.fire_on:
+		if kertun.choice == "kerailija" and randf() < 0.4:
+			k.say(["raimo", "veikko"][randi() % 2], ["Joku löys sen kirveen ja myi pimeesti. Nyt kukaan ei usko mua.",
+				"Raimon sepän kirves on jossain takahuoneessa. Hah!"][randi() % 2])
+		elif k.fire_on:
 			k.say(["raimo", "veikko"].pick_random(), ["Tule istumaan, kerrotaan tarina.", "Hyvin palaa.", "Kato ettei tipu makkara tuleen. Siitä on kyltti."].pick_random())
 		else:
 			k.say(["raimo", "veikko"].pick_random(), ["Hae puita, niin kerrotaan tarinoita.", "Kylmä kota ilman tulta.",
@@ -8871,6 +9144,16 @@ func _kota_logic() -> void:
 				kota_halot -= 1
 				k.fire_time = minf(k.fire_time + 70.0, 420.0)
 				Sfx.play("whoosh", -6.0, 0.5)
+			return
+		if kertun.proven() and not kertun.kiitetty:
+			_hint.text = "[E] Näytä Raimolle ja Veikolle lehtijuttu kirveestä"
+			if e:
+				_tell_story(KERTUN_KIITOS, _kertun_thanks)
+			return
+		if not kertun.heard and tarinat_kuultu.size() >= 1:
+			_hint.text = "[E] Kuuntele tarina (Raimolla on uusi)"
+			if e:
+				_tell_story(KERTUN_TARINA, _kertun_heard)
 			return
 		_hint.text = "[E] Kuuntele tarina (kuultu %d/%d)" % [tarinat_kuultu.size(), Kota.STORIES.size()]
 		if e:
@@ -8944,7 +9227,7 @@ func _start_kota_game(game: Node3D, local: Vector3, rot_y: float, message: Calla
 
 
 ## Tarinatuokio kodassa: kamera kertojiin, repliikit puhekuplina ja tekstityksenä. E ohittaa repliikin.
-func _tell_story() -> void:
+func _tell_story(custom: Array = [], done := Callable()) -> void:
 	var k: Node3D = world.kota
 	var unheard := []
 	for i in Kota.STORIES.size():
@@ -8965,7 +9248,7 @@ func _tell_story() -> void:
 	player.visible = false
 	k.say("raimo", "")
 	k.say("veikko", "")
-	for line in Kota.STORIES[idx]:
+	for line in (custom if not custom.is_empty() else Kota.STORIES[idx]):
 		var who: String = line[0]
 		var dur := clampf(1.5 + line[1].length() * 0.055, 2.5, 7.0)
 		(k.raimo if who == "raimo" else k.veikko).play("Sitting_Talking", 0.2)
@@ -8983,6 +9266,10 @@ func _tell_story() -> void:
 	player.controls_enabled = true
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 	state = prev
+	if not custom.is_empty():
+		if done.is_valid():
+			done.call()
+		return
 	var fresh := not tarinat_kuultu.has(idx)
 	if fresh:
 		tarinat_kuultu.append(idx)
@@ -10153,6 +10440,7 @@ func _load_game() -> void:
 	ebike.load_from(cfg)
 	tokola.load_from(cfg)
 	pannu.load_from(cfg)
+	kertun.load_from(cfg)
 	quests.load_from(cfg)
 	_piirakka_record = cfg.get_value("reippari", "ennatys", 7)
 	_piirakka_holder = cfg.get_value("reippari", "ennatyksen_haltija", "Juntti")
@@ -10239,6 +10527,8 @@ func _save_game() -> void:
 		tokola.save_to(cfg)
 	if pannu != null:
 		pannu.save_to(cfg)
+	if kertun != null:
+		kertun.save_to(cfg)
 	if endings != null:
 		endings.save_to(cfg)
 	if quests != null:
@@ -10786,6 +11076,7 @@ func _spawn_hazards() -> void:
 	sulo = _villager("Pannu-Sulo", Looks.SULO, SULO_LINES, "sulo", M.PONTIKKA + Vector2(-2.2, -1.2))
 	aaro = _villager("Tokolan Aaro", AARO_LOOK, AARO_LINES, "arto", M.to_px(world.aaro_pos))
 	_pannu_update()
+	_kertun_sync()
 	_reippari_update()
 
 
@@ -11264,6 +11555,12 @@ func inventory_items() -> Array:
 		add.call("lipas", "Kauppiaan rahalipas", 1, "Näytä Aarolle. Tai anna tilikirja Pannu-Sulolle.")
 	if tokola.markat:
 		add.call("markat", "Vanhoja markkoja", 1, "Kirppiksen Raili ostaa keräilijöille.")
+	if kertun.malmi and not kertun.found:
+		add.call("suomalmi", "Suomalmin pala", 1, "Ruosteinen, raskas möykky Kertunkankaan suolta." + ("" if kertun.malmi_known else " Aaro tietäis?"))
+	if kertun.kuona and not kertun.found:
+		add.call("kuona", "Kuonaa", 1, "Raskasta, kuplaista kiveä pajakiven juurelta. Täällä on tehty rautaa.")
+	if kertun.found and kertun.choice == "":
+		add.call("kirves", "Rautakautinen kirves", 1, "Ruosteinen mutta tunnistettava. Saloisten Pirttiin vai kirppiksen takahuoneeseen?")
 	if pannu.found and pannu.choice == "":
 		add.call("kuparipannu", "Vanhan Sulon kuparipannu", 1, "Sululle, Saloisten Pirttiin vai Taunolle romuksi?")
 	if has_ball:
@@ -11346,7 +11643,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list() + ebike.tasks() + _tokola_tasks() + _pannu_tasks()
+	info.tasks = story.list() + ebike.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks()
 	info.lines.append("Päiväkirja (%s): tarina, tehtävät ja onnelliset loput" % Settings.action_key("journal"))
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
@@ -14735,6 +15032,146 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 			_talk_who = "aaro"
 			print("PA romu: valinta %s, rahaa %s -> %s, kanisteri %s €, Aaro: '%s'" % [pannu.choice, _eur(m0), _eur(money), _eur(_kanister_price()), _talk_chat_line()])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"kertunkangas":
+			# Kertunkankaan rauta (#122): opastaulu, röykkiön kaivuuyritys, kodan tarina, epäilijät, drooni, suomalmi
+			# Aarolle, kuona, kirves isokiven alta, Veksi, Pirtti (loppu) ja Veikon kaljat, sekä Veksin kaupat ja poliisi.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			kertun = KertunRauta.new()
+			endings = Endings.new()
+			quests = Quests.new()
+			tarinat_kuultu = [0]
+			_kertun_sync()
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var go := func(px: Vector2, off := Vector3(0.8, 0.3, 0)) -> void:
+				walker_out.global_position = M.w(px) + off
+				await frames.call(8)
+			var oc := Camera3D.new()
+			add_child(oc)
+			var c0 := M.w(M.KERTUNKANGAS)
+			clock_min = 13 * 60
+			oc.look_at_from_position(c0 + Vector3(-14, 9, 16), c0 + Vector3(-2, 0, -3))
+			oc.current = true
+			await frames.call(40)
+			await snap.call("_roykkiot.png")
+			var tp: Vector3 = world.kertun_taulu_pos
+			oc.look_at_from_position(tp + Vector3(-0.6, 1.4, 0), tp + Vector3(1.6, 1.3, 0))
+			await frames.call(10)
+			await snap.call("_taulu.png")
+			var ik := M.w(KertunRauta.ISOKIVI)
+			oc.look_at_from_position(ik + Vector3(8, 4.5, 6), ik + Vector3(5, 0, 7))
+			await frames.call(10)
+			await snap.call("_kivirivi.png")
+			oc.current = false
+			player.activate_camera()
+			walker_out.global_position = tp + Vector3(0, 0.3, 0)
+			await frames.call(8)
+			print("KE taulu: '%s'" % _hint.text)
+			await press.call("interact")
+			print("KE taulu luettu (ei legendaa): taulu %s, '%s'" % [kertun.taulu, _msg.text.left(60)])
+			await go.call(Vector2(1338, -329))
+			print("KE röykkiö: '%s'" % _hint.text)
+			await press.call("interact")
+			print("KE kaivu 1: '%s'" % _msg.text.left(60))
+			var kp: Vector3 = world.kota.global_position
+			walker_out.global_position = kp + Vector3(1.0, 0.3, 0)
+			world.kota.set_fire(true)
+			await frames.call(8)
+			print("KE kota: '%s'" % _hint.text)
+			_kertun_heard()
+			print("KE kuultu %s, tehtävät %s" % [kertun.heard, _kertun_tasks()])
+			var doubt := {}
+			for who in ["arto", "annaliisa", "pekka", "reippari"]:
+				for i in 15:
+					_talk_who = who
+					doubt[_talk_chat_line()] = true
+			print("KE epäilijät: %s" % [KERTUN_DOUBT.keys().filter(func(w): return KERTUN_DOUBT[w].any(func(l): return doubt.has(l)))])
+			walker_out.global_position = tp + Vector3(0, 0.3, 0)
+			await frames.call(8)
+			await press.call("interact")
+			print("KE taulu: taulu %s, '%s'" % [kertun.taulu, _msg.text.right(80)])
+			await go.call(KertunRauta.ISOKIVI, Vector3(2.0, 0.3, 0))
+			print("KE isokivi ilman kuvaa: '%s'" % _hint.text)
+			print("KE droonikohde: %s" % [_drone_pois().any(func(d): return d.id == "kertun_rivi")])
+			_on_drone_photo("kertun_rivi")
+			await frames.call(3)
+			print("KE kuvattu: %s, isokivi '%s'" % [kertun.spotted, _hint.text])
+			await go.call(KertunRauta.MALMI, Vector3(1.0, 0.3, 0))
+			print("KE suo: '%s'" % _hint.text)
+			await press.call("interact")
+			print("KE malmi %s, tehtävät %s" % [kertun.malmi, _kertun_tasks()])
+			print("KE aaro: %s" % [_talk_options("aaro").map(func(o): return o.id)])
+			_talk_open("aaro", aaro)
+			_talk_box._pages.clear()
+			_talk_choose("malmi")
+			_talk_box.close()
+			print("KE tunnistettu %s" % kertun.malmi_known)
+			await go.call(KertunRauta.PAJAKIVI, Vector3(1.2, 0.3, 0.6))
+			print("KE pajakivi: '%s'" % _hint.text)
+			await press.call("interact")
+			print("KE kuona %s, palat näkyy %s" % [kertun.kuona, world.kertun_kuona.visible])
+			await go.call(KertunRauta.ISOKIVI, Vector3(2.0, 0.3, 0))
+			print("KE isokivi: '%s'" % _hint.text)
+			await press.call("interact")
+			print("KE kirves %s, '%s', tehtävät %s" % [kertun.found, _msg.text.left(70), _kertun_tasks()])
+			oc.look_at_from_position(ik + Vector3(5, 3, 4), ik)
+			oc.current = true
+			await frames.call(8)
+			await snap.call("_kirves.png")
+			oc.current = false
+			player.activate_camera()
+			print("KE veksi auki %s, valinnat %s" % [kirppis_int.veksi_open, _talk_options("veksi").map(func(o): return o.id)])
+			_paper.toggle()
+			for i in 4:
+				await get_tree().process_frame
+			_paper.toggle()
+			var md: Vector3 = world.museum_door
+			walker_out.global_position = md + Vector3(0, 0.3, 0)
+			await frames.call(8)
+			print("KE pirtti: '%s'" % _hint.text)
+			var m0 := money
+			await press.call("interact")
+			print("KE museo: %s, rahaa +%s, loppu %s, loput %d/%d" % [kertun.choice, _eur(money - m0), endings.counts.has("kertun_rauta"), endings.distinct(), Endings.max_count()])
+			var proven := {}
+			for who in ["arto", "annaliisa", "pekka", "reippari"]:
+				for i in 15:
+					_talk_who = who
+					proven[_talk_chat_line()] = true
+			print("KE todistettu: %s" % [KERTUN_PROVEN.keys().filter(func(w): return KERTUN_PROVEN[w].any(func(l): return proven.has(l)))])
+			walker_out.global_position = kp + Vector3(1.0, 0.3, 0)
+			await frames.call(8)
+			print("KE kota kiitos: '%s'" % _hint.text)
+			var b0 := beers
+			_kertun_thanks()
+			print("KE kaljat %d -> %d" % [b0, beers])
+			var d := journal_data()
+			print("KE päiväkirja: %s" % [d.chapters.back().rows.map(func(r): return str(r[0]).left(30) + ("✔" if r[1] else ""))])
+			kertun.choice = ""
+			_talk_who = "veksi"
+			_talk_open("veksi", null)
+			_talk_box._pages.clear()
+			_talk_choose("kirves")
+			_talk_box.close()
+			print("KE veksi: %s, todistettu %s" % [kertun.choice, kertun.proven()])
+			state = "to_home"
+			_kertun_logic()
+			print("KE poliisi: %s, '%s'" % [police != null and is_instance_valid(police), _msg.text.left(60)])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"seurailta":

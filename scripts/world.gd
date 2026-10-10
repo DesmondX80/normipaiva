@@ -85,6 +85,10 @@ var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
 var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
 var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
 var museum_door: Vector3  # Saloisten Pirtin (kotiseutumuseo) oven edusta
+var kertun_taulu_pos: Vector3  # Kertunkankaan opastaulun lukupaikka (#122)
+var kertun_bench_pos: Vector3  # penkki röykkiöiden laidalla
+var kertun_isokivi: Node3D  # isokivi kivirivin päässä (kirves alla; main.gd kallistaa löydettäessä)
+var kertun_kuona: Node3D  # kuonapalat pajakiven juurella (main.gd piilottaa, kun otettu)
 var reippari_window: Vector3  # Reipparin luukun edusta (tilaus)
 var reippari_board: Vector3  # Reipparin ilmoitustaulun edusta
 var reippari_youth: Node3D  # iltaporukka kioskin edessä (main.gd näyttää illalla)
@@ -135,6 +139,7 @@ var edge_bodies: Array[StaticBody3D] = []  # pelialueen reunaseinät (reunakomme
 var _grass_mat: ShaderMaterial
 var _lawn_st: SurfaceTool
 var _clearcuts: Array[PackedVector2Array] = []
+var _tree_free: Array = []  # [keskipiste, säde]: puuttomat kohdat (Kertunkankaan röykkiöt)
 ## Suorakaiteet, joilta ruoho poistetaan maskista: [keskipiste, puolileveys, puolisyvyys, kierto].
 var _mask_clear: Array = []
 ## Rakennusten ja pihaesteiden pohjat [keskipiste, puolikoko (x, z), yaw] naapurien reitinhakuun (villager.gd).
@@ -210,6 +215,7 @@ func build(step: Callable) -> void:
 	_build_grillikatos()
 	_build_kota()
 	_build_pontikka()
+	_build_kertunkangas()
 	_build_bales()
 	await step.call("Rakennetaan Saloisten talot", 0.56)
 	_build_houses()
@@ -1268,6 +1274,175 @@ func _build_pirtti() -> void:
 	sign.position = Vector3(1.8, 1.3, -1.2)
 
 
+## Kertunkankaan kehäröykkiöt (#122): oikean muinaisjäännöksen mukaan vähintään kolme keskuskuopallista
+## kehäröykkiötä, yksi röykkiö, 7–8 kivikkoon kaivettua kuoppaa (isojen kivien vierellä mahdollisesti avattuja hautoja)
+## ja itärinteellä 140 metrin luode–kaakko-suuntainen kivivalli. Opastaulu "Rautakaudelta Rautaruukille" Muinaispolun
+## päässä ja penkki. Legendan osat (kertun_rauta.gd): sammaloitunut kivirivi, isokivi, pajakivi kuonineen ja suon
+## ruosteenpunainen vesi. Kivet ovat keräävän solmun lapsia, jotta _lift_node nostaa jokaisen omaan kohtaansa.
+func _build_kertunkangas() -> void:
+	var KR := preload("res://scripts/kertun_rauta.gd")
+	var site := Node3D.new()
+	add_child(site)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1220
+	var granite := Color(0.52, 0.5, 0.47)
+	var moss := Color(0.34, 0.43, 0.22)
+	var stone := func(p: Vector2, r: float, squash: float, col: Color, sink := 0.35) -> MeshInstance3D:
+		var mi := B.mesh(site, B.sphere(r, 10), Vector3(p.x, r * squash * (1.0 - sink * 2.0), p.y),
+			col.lerp(Color(0.6, 0.58, 0.55), rng.randf() * 0.25).darkened(rng.randf() * 0.15))
+		mi.scale = Vector3(rng.randf_range(0.85, 1.2), squash, rng.randf_range(0.85, 1.2))
+		mi.rotation.y = rng.randf() * TAU
+		return mi
+	var disc := func(p: Vector2, r: float, col: Color, y := 0.03) -> MeshInstance3D:
+		return B.mesh(site, B.cyl(r, r, 0.03, 16), Vector3(p.x, y, p.y), col)
+	var c0 := M.w2(M.KERTUNKANGAS)
+	_tree_free.append([c0, 16.0])
+	var toW := func(px: Vector2) -> Vector2: return M.w2(px)
+	# Kolme kehäröykkiötä: kivikehä, sammaloitunut täyte ja keskuskuoppa.
+	for cp in [Vector2(1338, -329), Vector2(1347, -336), Vector2(1340, -340)]:
+		var c: Vector2 = toW.call(cp)
+		disc.call(c, 2.3, moss.darkened(0.1), 0.06)
+		for k in 18:
+			var a := k * TAU / 18.0 + rng.randf_range(-0.08, 0.08)
+			stone.call(c + Vector2(cos(a), sin(a)) * rng.randf_range(2.0, 2.4), rng.randf_range(0.3, 0.45), 0.6, granite)
+		for k in 9:  # matala täyte kehän sisällä
+			var a := rng.randf() * TAU
+			stone.call(c + Vector2(cos(a), sin(a)) * rng.randf_range(1.0, 1.6), rng.randf_range(0.2, 0.32), 0.5, granite.lerp(moss, 0.35))
+		disc.call(c, 0.8, Color(0.2, 0.16, 0.11), 0.08)  # keskuskuoppa
+		disc.call(c, 0.5, Color(0.12, 0.1, 0.07), 0.09)
+	# Röykkiö: kivikasa.
+	var rc: Vector2 = toW.call(Vector2(1333, -333))
+	for k in 16:
+		var a := rng.randf() * TAU
+		var rr := rng.randf() * 1.3
+		stone.call(rc + Vector2(cos(a), sin(a)) * rr, rng.randf_range(0.3, 0.45), 0.65, granite, -0.2 + (1.3 - rr) * 0.25)
+	# Kivikkoon kaivetut kuopat, osa ison kiven vieressä.
+	var pits := [Vector2(1345, -327), Vector2(1353, -333), Vector2(1336, -345), Vector2(1345, -345), Vector2(1330, -338),
+		Vector2(1355, -341), Vector2(1349, -344)]
+	for i in pits.size():
+		var pc: Vector2 = toW.call(pits[i])
+		disc.call(pc, 0.75, Color(0.22, 0.18, 0.12), 0.04)
+		disc.call(pc, 0.45, Color(0.13, 0.11, 0.08), 0.05)
+		for k in 6:
+			var a := k * TAU / 6.0
+			stone.call(pc + Vector2(cos(a), sin(a)) * 0.95, 0.18, 0.5, granite)
+		if i % 2 == 0:
+			stone.call(pc + Vector2(1.5, -0.6), 0.75, 0.7, granite, 0.25)
+	# Kivikkoa ympärillä.
+	for k in 50:
+		var a := rng.randf() * TAU
+		stone.call(c0 + Vector2(cos(a), sin(a)) * rng.randf_range(4.0, 16.0), rng.randf_range(0.12, 0.3), 0.55, granite.lerp(moss, rng.randf() * 0.5))
+	# Kivivalli itärinteellä, 140 m luoteesta kaakkoon; polku kulkee aukosta.
+	var va: Vector2 = toW.call(Vector2(1358, -385))
+	var vb: Vector2 = toW.call(Vector2(1457, -286))
+	var vdir := (vb - va).normalized()
+	var t := 0.0
+	while t < va.distance_to(vb):
+		var vp := va + vdir * t + vdir.orthogonal() * rng.randf_range(-0.4, 0.4)
+		if _road_clearance(vp) > 2.0:
+			stone.call(vp, rng.randf_range(0.3, 0.5), 0.6, granite.lerp(moss, 0.3))
+			if rng.randf() < 0.5:
+				stone.call(vp + vdir.orthogonal() * rng.randf_range(-0.6, 0.6), rng.randf_range(0.22, 0.35), 0.6, granite, 0.1)
+		t += 1.1
+	# Legendan kivirivi: suora, matala, sammalen peittämä. Maasta tuskin erottaa, ilmasta kyllä.
+	var ra: Vector2 = toW.call(KR.RIVI_A)
+	var rb: Vector2 = toW.call(KR.RIVI_B)
+	var rdir := (rb - ra).normalized()
+	t = 0.0
+	while t <= ra.distance_to(rb):
+		var rp := ra + rdir * t
+		stone.call(rp, 0.3, 0.32, granite.lerp(moss, 0.55).darkened(0.1), 0.4)
+		t += 1.1
+	_tree_free.append([(ra + rb) / 2.0, 16.0])
+	_tree_free.append([M.w2(KR.ISOKIVI), 7.0])
+	# Isokivi rivin päässä.
+	var ik: Vector2 = toW.call(KR.ISOKIVI)
+	kertun_isokivi = Node3D.new()
+	kertun_isokivi.position = Vector3(ik.x, 0, ik.y)
+	add_child(kertun_isokivi)
+	var big := B.mesh(kertun_isokivi, B.sphere(1.15, 14), Vector3(0, 0.55, 0), granite.darkened(0.08))
+	big.scale = Vector3(1.25, 0.8, 1.0)
+	var cap := B.mesh(kertun_isokivi, B.sphere(0.9, 10), Vector3(-0.2, 1.05, 0.1), moss)  # sammallakki
+	cap.scale = Vector3(1.1, 0.25, 0.9)
+	var kb := StaticBody3D.new()
+	kb.add_child(B.box_shape(Vector3(2.4, 1.4, 1.9), Vector3(0, 0.7, 0)))
+	kertun_isokivi.add_child(kb)
+	# Pajakivi: litteä kivi, kuonapalat juurella.
+	var pk: Vector2 = toW.call(KR.PAJAKIVI)
+	var flat := B.mesh(site, B.cyl(0.75, 0.85, 0.4, 12), Vector3(pk.x, 0.15, pk.y), granite.darkened(0.15))
+	flat.scale = Vector3(1.2, 1, 0.9)
+	kertun_kuona = Node3D.new()
+	kertun_kuona.position = Vector3(pk.x + 0.9, 0, pk.y + 0.3)
+	add_child(kertun_kuona)
+	for k in 4:
+		var lump := B.mesh(kertun_kuona, B.sphere(0.09 + k * 0.015, 7), Vector3(k * 0.12 - 0.18, 0.05, (k % 2) * 0.1),
+			Color(0.16, 0.13, 0.12).lerp(Color(0.4, 0.2, 0.1), (k % 2) * 0.4))
+		lump.scale = Vector3(1.3, 0.7, 1.0)
+	# Suon ruosteenpunainen vesi (suomalmia).
+	var mp: Vector2 = toW.call(KR.MALMI)
+	var rust := B.mesh(site, B.cyl(1.7, 1.7, 0.02, 18), Vector3(mp.x, 0.03, mp.y), Color(0.6, 0.27, 0.08))
+	rust.transparency = 0.25
+	for k in 7:
+		var a := rng.randf() * TAU
+		stone.call(mp + Vector2(cos(a), sin(a)) * rng.randf_range(0.3, 1.4), rng.randf_range(0.08, 0.14), 0.5, Color(0.5, 0.25, 0.1), 0.2)
+	# Opastaulu: katettu puukehys kahdella tolpalla, otsikkokyltti ja pohjakartta. Taulu katsoo länteen polulle.
+	var tp: Vector2 = toW.call(M.KERTUN_TAULU)
+	var board := Node3D.new()
+	board.position = Vector3(tp.x, 0, tp.y)
+	board.rotation.y = -PI / 2.0  # paikallinen +Z = länsi
+	add_child(board)
+	kertun_taulu_pos = Vector3(tp.x - 1.6, T.h(tp.x - 1.6, tp.y), tp.y)
+	var wood := Color(0.36, 0.22, 0.12)
+	for x in [-1.0, 1.0]:  # tolpat kehyksen takana
+		B.mesh(board, B.boxm(Vector3(0.12, 2.1, 0.12)), Vector3(x, 1.05, -0.1), wood)
+	B.mesh(board, B.boxm(Vector3(2.4, 0.06, 0.6)), Vector3(0, 2.15, 0.0), wood.darkened(0.2), Vector3(-12, 0, 0))  # katos
+	B.mesh(board, B.boxm(Vector3(2.0, 1.3, 0.06)), Vector3(0, 1.3, -0.02), wood)  # kehys
+	var head := B.sign_plate(board, "RAUTAKAUDELTA RAUTARUUKILLE\nKertunkangas", Color(0.28, 0.17, 0.09), Color(0.98, 0.93, 0.78),
+		0.11, 21, Color(0.62, 0.45, 0.22), "Helvetica Neue")
+	head.position = Vector3(0, 1.83, 0.04)
+	var paper := B.mesh(board, B.boxm(Vector3(1.8, 0.95, 0.02)), Vector3(0, 1.2, 0.04), Color(0.93, 0.89, 0.76))
+	paper.name = "Pohjakartta"
+	for i in 7:  # tekstipalsta kartan oikealla puolella
+		B.mesh(board, B.boxm(Vector3(0.55 - (0.2 if i == 6 else 0.0), 0.02, 0.005)), Vector3(0.52 - (0.1 if i == 6 else 0.0), 1.58 - i * 0.055, 0.052),
+			Color(0.45, 0.4, 0.33))
+	# Pohjakartta: kolme kehää, röykkiö, kuopat, kivivalli ja yksi merkitsemätön kivi (vihje).
+	var mapz := 0.055
+	var mapc := Vector3(-0.2, 1.18, mapz)
+	var px := func(p: Vector2) -> Vector3:
+		var d := (p - M.KERTUNKANGAS) * 0.011
+		return mapc + Vector3(d.x, -d.y, 0)  # pohjoinen ylös, itä oikealle
+	for cp in [Vector2(1338, -329), Vector2(1347, -336), Vector2(1340, -340)]:
+		for k in 10:
+			var a := k * TAU / 10.0
+			B.mesh(board, B.boxm(Vector3(0.018, 0.018, 0.01)), px.call(cp) + Vector3(cos(a), sin(a), 0) * 0.032, Color(0.3, 0.18, 0.08))
+	B.mesh(board, B.cyl(0.035, 0.035, 0.01, 10), px.call(Vector2(1333, -333)), Color(0.3, 0.18, 0.08), Vector3(90, 0, 0))
+	for pc in pits:
+		B.mesh(board, B.cyl(0.015, 0.015, 0.01, 8), px.call(pc), Color(0.45, 0.3, 0.15), Vector3(90, 0, 0))
+	B.mesh(board, B.cyl(0.02, 0.02, 0.01, 8), px.call(KR.ISOKIVI), Color(0.45, 0.45, 0.45), Vector3(90, 0, 0))  # merkitsemätön kivi
+	var la: Vector3 = px.call(Vector2(1358, -360))
+	var lb: Vector3 = px.call(Vector2(1385, -333))
+	var vl := B.mesh(board, B.boxm(Vector3(la.distance_to(lb), 0.012, 0.01)), (la + lb) / 2.0, Color(0.3, 0.18, 0.08))
+	vl.rotation.z = atan2(lb.y - la.y, lb.x - la.x)
+	var legend := Label3D.new()
+	legend.text = "kehäröykkiö  ○\nkuoppa  •\nkivivalli  —"
+	legend.font_size = 18
+	legend.pixel_size = 0.004
+	legend.modulate = Color(0.25, 0.15, 0.07)
+	legend.outline_size = 0
+	legend.position = Vector3(0.55, 0.92, mapz + 0.005)
+	board.add_child(legend)
+	# Penkki röykkiöiden laidalla.
+	var bp: Vector2 = toW.call(Vector2(1349, -327))
+	kertun_bench_pos = Vector3(bp.x, T.h(bp.x, bp.y), bp.y)
+	var bench := Node3D.new()
+	bench.position = Vector3(bp.x, 0, bp.y)
+	bench.rotation.y = PI * 0.75
+	add_child(bench)
+	B.mesh(bench, B.cyl(0.16, 0.16, 1.6, 10), Vector3(0, 0.45, 0), Color(0.5, 0.38, 0.25), Vector3(0, 0, 90))
+	for x in [-0.6, 0.6]:
+		B.mesh(bench, B.cyl(0.18, 0.2, 0.32, 10), Vector3(x, 0.16, 0), Color(0.44, 0.32, 0.2))
+
+
 ## Vanha lato tai varasto: harmaantunut pystylautaseinä (rimat), ei ikkunoita, ruosteinen peltikatto
 ## harjalla, kivijalka. Paikallinen -Z = julkisivu. Törmäys ja reitinhaun este kuten _house.
 func _barn(pos: Vector2, yaw: float, l: float, d: float, h: float) -> void:
@@ -2312,6 +2487,9 @@ func _try_tree(p: Vector2, kind: String, s: float, road_gap: float) -> void:
 		return
 	if Geometry2D.is_point_in_polygon(p, _agility):
 		return
+	for tf in _tree_free:
+		if p.distance_to(tf[0]) < tf[1]:
+			return
 	_trees.append([p, kind, s, true])
 
 

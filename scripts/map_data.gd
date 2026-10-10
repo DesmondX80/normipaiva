@@ -71,6 +71,10 @@ const MIISU_SPOTS := [Vector2(405, -668), Vector2(318, -650), Vector2(290, -790)
 const TOKOLA_VARASTO := Vector2(350, -520)
 const AARO_HOUSE := Vector2(362, -571)
 const HEINIMAKI := Vector2(412, -684)
+## Kertunkankaan kehäröykkiöt (OSM historic=archaeological_site) ja opastaulu "Rautakaudelta Rautaruukille" Muinaispolun
+## varrella (#122). Legendan paikat: kertun_rauta.gd.
+const KERTUNKANGAS := Vector2(1342, -333)
+const KERTUN_TAULU := Vector2(1352, -321)
 ## Saloisten Pirtti, kotiseutumuseo (OSM tourism=museum, rakennus): Sulon pannun lahjoitus (#130).
 const PIRTTI := Vector2(269.7, 439.9)
 const SHOP_BUILDING := Vector2(86, 541)

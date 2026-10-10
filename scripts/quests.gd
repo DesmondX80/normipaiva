@@ -43,6 +43,8 @@ const CHAPTERS := [
 			"hint": "flag:tokola_key"},
 		{"id": "pannu", "text": "Vanhan Sulon pannu upotettiin Pilkkarinnevalle ratsiayönä.", "done": "flag:pannu_done",
 			"hint": "flag:pannu_heard"},
+		{"id": "kertun", "text": "Kertunkankaan rauta: kodan Raimon mukaan viimeinen seppä kätki kirveensä kankaalle.",
+			"done": "flag:kertun_done", "hint": "flag:kertun_heard"},
 	]},
 ]
 const STORY_MORE := "Tarina jatkuu…"
