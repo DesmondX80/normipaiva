@@ -229,6 +229,7 @@ const Quests := preload("res://scripts/quests.gd")
 const Journal := preload("res://scripts/journal.gd")
 const PiirakkaGame := preload("res://scripts/piirakka_game.gd")
 const RankkuGame := preload("res://scripts/rankku_game.gd")
+const KeinuGame := preload("res://scripts/keinu_game.gd")
 const KORJAUS_VAIHEET := {"kiuas": "kiuaskivet", "lauteet": "lauteiden laudat", "terva": "seinien tervaus", "luukku": "savuluukku ja ovi"}
 const GARAGE_INT_POS := Vector3(-9000, 0, 3000)
 const BIKE_TUNE := 1.1  # työpöydällä huollettu pyörä: huippunopeus ja kiihtyvyys päivän ajan
@@ -1435,6 +1436,7 @@ func _outside_logic() -> void:
 	_pohjoiset_logic()
 	_hongan_logic()
 	_seppo_logic()
+	_leikki_logic()
 	_aarni_logic()
 	_reippari_logic()
 	_atm_logic()
@@ -3150,6 +3152,128 @@ func _rossi_update_clock() -> void:
 		for lab in l.find_children("*", "Label3D", true, false):
 			(lab as Label3D).text = "ENNÄTYS %s%s" % [_laptime(minf(ROSSI_RECORD, _rossi_best) if _rossi_won else ROSSI_RECORD),
 				"\nOMA %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""]
+
+
+## --- Leikkipuistot (#146): keinuhyppykisa, hiekkalaatikon kätköt ja kalja penkillä ---------------------------
+const LEIKKI_MUMS := Vector2(9 * 60, 19 * 60)
+const SANDBOX_FINDS := [
+	[0.3, "Hiekasta löytyi kolikoita! %s €.", "raha"],
+	[0.2, "Hiekasta löytyi pieni Volvo-leluauto. Ihan kuin Pekan, mutta ehjä.", "lelu"],
+	[0.1, "Hiekkaan on haudattu tikkari. Käytetty. Jätä se.", ""],
+	[0.1, "Joku on rakentanut hiekkalinnan, ja nyt se on rikki. Pikkupoika katsoo sua syyttävästi.", ""],
+	[0.3, "Pelkkää hiekkaa ja yksi muovilapio.", ""],
+]
+var _keinu_record := 3.4
+var _keinu_holder := "Honganpalon Jere"
+var _keinu_best := 0.0
+var _sandbox_day := {}  # leikkipuiston indeksi -> päivä
+
+
+func _leikki_logic() -> void:
+	if world == null or world.playgrounds.is_empty():
+		return
+	var mums := _between(clock_min, LEIKKI_MUMS)
+	for pg in world.playgrounds:
+		pg.mums.visible = mums
+	if _hint.text != "" or player == bike or player.is_stunned():
+		return
+	var e := Input.is_action_just_pressed("interact")
+	for i in world.playgrounds.size():
+		var pg: Dictionary = world.playgrounds[i]
+		if not _near_xz(pg.bench, 14.0):
+			continue
+		tilat.first("leikkipuisto", 0.1)
+		if _near_xz(pg.swing, 1.8):
+			_hint.text = "[E] Keinuhyppy (ennätys %s %s m)" % [_keinu_holder, KeinuGame._m(_keinu_record)]
+			if e:
+				_start_keinu()
+			return
+		if _near_xz(pg.sandbox, 1.8):
+			if _sandbox_day.get(i, -1) == day:
+				_hint.text = "Hiekkalaatikko on jo kaiveltu tänään."
+			else:
+				_hint.text = "[E] Kaivele hiekkalaatikkoa"
+				if e:
+					_sandbox_day[i] = day
+					_sandbox_dig(mums)
+			return
+		if _near_xz(pg.bench, 1.6):
+			if beers > 0 and not ("leikki_kalja" in _today):
+				_hint.text = "[E] Kalja leikkipuiston penkillä"
+				if e:
+					_today.append("leikki_kalja")
+					beers -= 1
+					player.set_carrying(beers > 0)
+					_drink(1)
+					Sfx.play("glass", -6.0, 0.9)
+					if mums:
+						tilat.add("stressi", -0.25)
+						maine = clampf(maine - 3.0, 0.0, 100.0)
+						_show_message("Äidit nousee penkiltä lapsineen ja kaivaa puhelimet. Yksi soittaa Päiville. Maine −3.", 4.0)
+					else:
+						tilat.add("stressi", 0.25)
+						tilat.first("leikki_kalja", 0.2)
+						_show_message("Tyhjä leikkipuisto illalla. Keinu narisee tuulessa, ja kalja maistuu. Kukaan ei näe.", 4.0)
+			else:
+				_hint.text = "Leikkipuiston penkki."
+			return
+
+
+func _sandbox_dig(mums: bool) -> void:
+	Sfx.play("step_grass", -2.0, 0.7)
+	tilat.first("hiekkalaatikko", 0.1)
+	var r := randf()
+	var txt := ""
+	for f in SANDBOX_FINDS:
+		r -= f[0]
+		if r <= 0.0:
+			txt = f[1]
+			if f[2] == "raha":
+				var coins := snappedf(randf_range(1.0, 3.0), 0.1)
+				money += coins
+				txt = txt % _eur(coins)
+				Sfx.play("coin", -6.0)
+			elif f[2] == "lelu":
+				tilat.add("moraali", 0.1)
+			break
+	if txt == "":
+		txt = SANDBOX_FINDS.back()[1]
+	if mums:
+		txt += " Äidit katsoo, kun aikuinen mies kaivaa hiekkalaatikkoa."
+		tilat.add("stressi", -0.05)
+	_save_game()
+	_show_message(txt, 4.0)
+
+
+func _start_keinu() -> void:
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	_hud.visible = false
+	var g := KeinuGame.new()
+	g.record = _keinu_record
+	g.record_holder = _keinu_holder
+	g.best = _keinu_best
+	g.drunk = _hand_shake()
+	g.finished.connect(func(dist: float, crashed: bool) -> void:
+		walker_out.controls_enabled = true
+		_hud.visible = true
+		tilat.first("keinuhyppy", 0.2)
+		if crashed:
+			tilat.add("kipu", -0.1)
+			tilat.add("stressi", -0.05)
+		elif dist > 0.0:
+			_keinu_best = maxf(_keinu_best, dist)
+			if dist > _keinu_record:
+				_keinu_record = dist
+				_keinu_holder = "Järvikuja 1"
+				maine = clampf(maine + 3.0, 0.0, 100.0)
+				tilat.add("moraali", 0.2)
+				tilat.first("keinu_ennatys", 0.4)
+				_show_message("UUSI KEINUHYPPYENNÄTYS: %s m! Honganpalon Jere ei tule ikinä toipumaan. Maine +3." % KeinuGame._m(dist), 4.5)
+			else:
+				tilat.add("stressi", 0.05)
+		_save_game())
+	add_child(g)
 
 
 ## --- Sepon varastomyynti (#140) ja Saloisten säästöpiha (#141) ----------------------------------------------
@@ -11559,6 +11683,9 @@ func _load_game() -> void:
 	clock_min = cfg.get_value("peli", "kello", DAY_START)
 	has_chocolate = cfg.get_value("peli", "suklaa", false)
 	has_flowers = cfg.get_value("peli", "kukat", false)
+	_keinu_record = cfg.get_value("leikkipuistot", "ennatys", 3.4)
+	_keinu_holder = cfg.get_value("leikkipuistot", "haltija", "Honganpalon Jere")
+	_keinu_best = cfg.get_value("leikkipuistot", "oma", 0.0)
 	_kekkonen = cfg.get_value("seppo", "kekkonen", 0)
 	_nokia_sold = cfg.get_value("seppo", "nokia_myyty", false)
 	_flowers_day = cfg.get_value("saastopiha", "kukat_paiva", -1)
@@ -11654,6 +11781,9 @@ func _save_game() -> void:
 	cfg.set_value("peli", "kello", clock_min)
 	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("peli", "kukat", has_flowers)
+	cfg.set_value("leikkipuistot", "ennatys", _keinu_record)
+	cfg.set_value("leikkipuistot", "haltija", _keinu_holder)
+	cfg.set_value("leikkipuistot", "oma", _keinu_best)
 	cfg.set_value("seppo", "kekkonen", _kekkonen)
 	cfg.set_value("seppo", "nokia_myyty", _nokia_sold)
 	cfg.set_value("saastopiha", "kukat_paiva", _flowers_day)
@@ -16244,6 +16374,78 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 			_talk_who = "aaro"
 			print("PA romu: valinta %s, rahaa %s -> %s, kanisteri %s €, Aaro: '%s'" % [pannu.choice, _eur(m0), _eur(money), _eur(_kanister_price()), _talk_chat_line()])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"leikki":
+			# Leikkipuistot (#146): kuusi puistoa, keinuhyppy (vauhti, hyppy, uusi ennätys), hiekkalaatikko, kalja penkillä
+			# äitien edessä ja illalla. Kuvat puistosta ja minipelistä.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			quests = Quests.new()
+			_keinu_record = 3.4
+			_keinu_holder = "Honganpalon Jere"
+			_keinu_best = 0.0
+			_sandbox_day = {}
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var at := func(pos: Vector3) -> void:
+				walker_out.global_position = pos + Vector3(0, 0.3, 0)
+				await frames.call(10)
+			clock_min = 12 * 60
+			print("LE puistoja %d: %s" % [world.playgrounds.size(), world.playgrounds.map(func(p): return p.name)])
+			var pg: Dictionary = world.playgrounds[0]
+			var oc := Camera3D.new()
+			add_child(oc)
+			oc.look_at_from_position(pg.bench + Vector3(-9, 6, -7), pg.bench + Vector3(2, 0, 4))
+			oc.current = true
+			await frames.call(30)
+			await snap.call("_puisto.png")
+			oc.current = false
+			player.activate_camera()
+			await at.call(pg.swing)
+			print("LE keinu: '%s'" % _hint.text)
+			await press.call("interact")
+			var g: Node = get_children().filter(func(c): return c is KeinuGame).front()
+			await get_tree().create_timer(1.6).timeout
+			g._th = 0.9
+			g._w = 0.4
+			await get_tree().create_timer(0.3).timeout
+			await snap.call("_keinu.png")
+			g._th = 0.35
+			g._w = 3.4
+			await press.call("jump")
+			await get_tree().create_timer(0.45).timeout
+			await snap.call("_lento.png")
+			await get_tree().create_timer(5.0).timeout
+			print("LE hyppy: ennätys %s %s, oma %s, '%s'" % [_keinu_holder, KeinuGame._m(_keinu_record), KeinuGame._m(_keinu_best), _msg.text.left(50)])
+			await at.call(pg.sandbox)
+			print("LE hiekkalaatikko: '%s'" % _hint.text)
+			await press.call("interact")
+			print("LE kaivettu: '%s'" % _msg.text.left(70))
+			beers = 2
+			var m0 := maine
+			await at.call(pg.bench)
+			await press.call("interact")
+			print("LE kalja äitien edessä: maine %d -> %d, äidit näkyy %s" % [roundi(m0), roundi(maine), pg.mums.visible])
+			_today.erase("leikki_kalja")
+			clock_min = 22 * 60
+			await frames.call(5)
+			await at.call(pg.bench)
+			await press.call("interact")
+			print("LE kalja illalla: '%s', äidit näkyy %s" % [_msg.text.left(40), pg.mums.visible])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"seppo":

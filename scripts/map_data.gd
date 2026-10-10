@@ -75,6 +75,9 @@ const HEINIMAKI := Vector2(412, -684)
 ## varrella (#122). Legendan paikat: kertun_rauta.gd.
 const KERTUNKANGAS := Vector2(1342, -333)
 const KERTUN_TAULU := Vector2(1352, -321)
+## Leikkipuistot (#146, OSM leisure=playground): [nimi tai "", paikka]. Nimettömät ovat koulujen ja päiväkotien pihoilla.
+const PLAYGROUNDS := [["Käpykadunpuisto", Vector2(1306, 807)], ["Herukkapolunpuisto", Vector2(1569, 634)],
+	["", Vector2(731, -23)], ["", Vector2(592, 14)], ["", Vector2(582, 37)], ["", Vector2(666, 81)]]
 ## Sepon varastomyyntipiste (#140, OSM shop=second_hand) ja Saloisten säästöpiha (#141, OSM shop=garden_centre).
 const SEPPO := Vector2(94.4, 600)
 const SAASTOPIHA := Vector2(187.7, 482)
