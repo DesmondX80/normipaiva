@@ -72,6 +72,31 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   haava paranee yön aikana.
 - **Pontikka:** jossain metsässä Pannu-Sulo keittää pontikkaa. Paikka ei näy kartalla, mutta kodan tarinoista
   saattaa kuulla vihjeen. Sulo myy päivässä yhden kanisterin (20 €), joka vastaa kotijemmassa 24 kaljaa.
+- **Saloislainen sähköpyörä:** autotallin työpöydällä syntyy idea: tavallinen pyörä sähköpyöräksi osilla sieltä
+  täältä. Napamoottori huudetaan Seuranmäen kirppiksen huutokaupasta, Makitan akut saa Pekalta litrasta sieniä,
+  ohjain ja kaasukahva löytyvät Tokolan vanhasta varastosta ja johdot Artolta kaljaa vastaan. Kiinnitystarvikkeet
+  K-Marketin rautahyllystä (jeesusteippi, nippusiteet, sähköteippi), kirppikseltä (ruuvipurkki, rautalanka) ja
+  työkalutaululta. Kasaus on työpöydän minipeli: jokaiseen liitokseen (moottori, akku, ohjain, kaasukahva, johdot)
+  valitaan kiinnitys. Ruuvit väännetään hiirtä pyörittämällä ja pysyvät, jeesusteippi kierretään (liian kova veto
+  rypistää) ja irtoaa kuopissa ja juurakoissa, nippuside kiristetään vihreälle (yli punaisen katkeaa) ja irtoaa
+  harvemmin, rautalanka väännetään A/D ja pitää mutta kolisee (teinit kiinnostuvat pyörästä). Johdot ilman
+  sähköteippiä oikosulkevat vedessä ja rämeessä. Ajossa avustus nostaa kiihtyvyyttä ja huippunopeutta, eikä
+  avustettu spurtti väsytä; akku (palkki kunnon alla) tyhjenee ja latautuu tallissa ja kotona yön yli (Päivi
+  huomaa sähkölaskun). Tyhjä tai irronnut akku tekee pyörästä raskaan. Irronnut osa teipataan tien varressa
+  jalan E:llä, oikosulku korjataan tallissa. Testi `--scene=sahkopyora`.
+- **Seuranmäen seuraintalo:** kartan pohjoisosassa punainen seuraintalo, sisällä kirpputori (auki klo 10–18):
+  mummo Hilkan virkkuuliinat, Railin rihkama (VHS-kasetit, posliinikoirat), Taunon työkalut ja lavalla huutaja
+  Erkki. Naapurin Anna-Liisa tinkii vieressä ja kommentoi. Tinkiminen keskustellen: myyjä hyväksyy tarjouksen,
+  tekee vastatarjouksen tai suuttuu loppupäiväksi; maine auttaa, eikä alle 40 %:n mennä. Huutokauppa kerran
+  päivässä: Erkki vilkuilee yleisöä, ja huuto menee läpi vain, kun hän katsoo sinua; "ensimmäisen, toisen…
+  kolmannen kerran!" Testi `--scene=kirppis`.
+- **Tokola ja kauppiaan aarre:** Tokolantien varressa Tokolan kaupan vanha varasto (kauppa lopetti 1950–60-luvulla;
+  varasto on pelin keksintö). Avain on vanhalla Aarolla, joka antaa sen lihapiirakkaa vastaan ja kertoo
+  legendan: kauppias ei vienyt rahojaan pankkiin. Varastosta ohjain, rautalankaa ja kauppiaan tilikirja, jonka
+  piirros vie narisevan lattialankun alle ja lappu Heinimäen latvattoman kuusen juurelle. Rahalipas näytetään
+  Aarolle (legenda todistettu, maine nousee ja epäilijät joutuvat myöntämään) tai tilikirja annetaan Pannu-Sululle
+  pulloja vastaan (sen isän nimikirjaimet ovat "sokerin" ostajissa). Markat myydään kirppiksen Railille.
+  Heinimäeltä näkyy terästehtaan savut. Testi `--scene=tokola`.
 - **Mökki:** mökille pääsee vain naapurin Pekan kyydillä: Pekka on menossa Neittävälle kyyhkyjahtiin ja ottaa
   kyytiin kaljalla tai 10 eurolla (jalan E Pekan luona). Pekan auto odottaa mökin pihatien päässä, ja sillä
   pääsee kotipihaan ilmaiseksi (bensat maksettiin menomatkalla). Välikuvassa Pekan vihreä Volvo kaahaa kesäistä maantietä peltojen, säilörehupaalien ja männikön

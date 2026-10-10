@@ -62,6 +62,11 @@ const LAWN_AXIS := HOME_YAW_DIR
 const MOWER_PARK := Vector2(798.4, 1192.1)  # ruohonleikkurin paikka nurmikon eteläreunalla
 ## Saloisten seuraintalo Seuranmäellä (OSM-rakennus): kirpputori ja huutokauppa sisällä (kirppis_interior.gd).
 const SEURAINTALO := Vector2(394.3, -272.8)
+## Tokola (#120): kauppias Tokolan vanha varasto Tokolantien varressa (keksitty paikka oikean historian pohjalta),
+## vanhan Aaron talo (OSM, Tokolantie) ja Heinimäen laki (OSM natural=peak), jossa latvaton kuusi.
+const TOKOLA_VARASTO := Vector2(350, -520)
+const AARO_HOUSE := Vector2(362, -571)
+const HEINIMAKI := Vector2(412, -684)
 const SHOP_BUILDING := Vector2(86, 541)
 const SHOP_ZONE := Vector2(90, 567)
 ## Naapuritalot (world.gd _build_neighbors) OSM-rakennusten keskipisteissä; malli tehdään OSM-pohjan mukaan.

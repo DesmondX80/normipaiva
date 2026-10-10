@@ -81,6 +81,9 @@ var home_zone: Vector3
 var shop_zone: Vector3
 var taxi_pos: Vector3  # K-Marketin taksitolpalla odottava taksi
 var kirppis_door: Vector3  # Saloisten seuraintalon pääoven edusta (E: kirpputorille)
+var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
+var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
+var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
 var station_pos: Vector3  # Saloisten asema K-Marketin takana: kadun puoleisen oven edusta (E: odotussaliin)
 var station_arrive: Vector3  # junalla tultaessa tästä
 var train: Node3D  # aikataulun juna Saloisten radalla (train.gd, ei satunnaisia ohikulkuja)
@@ -191,6 +194,7 @@ func build(step: Callable) -> void:
 	await step.call("Avataan K-Market", 0.5)
 	_build_shop()
 	_build_seuraintalo()
+	_build_tokola()
 	_build_station()
 	_build_agility()
 	await step.call("Laavu, grillikatos ja kota", 0.53)
@@ -1051,6 +1055,52 @@ func _build_seuraintalo() -> void:
 	var banner := B.mesh(root, B.boxm(Vector3(3.6, 0.8, 0.04)), Vector3(0, 2.6, -1.74), Color(1.0, 0.85, 0.15))
 	var bl := B.label(banner, "KIRPPIS + HUUTOKAUPPA\nklo 10–18", Vector3(0, 0, -0.03), 56, Color(0.6, 0.1, 0.05))
 	bl.rotation.y = PI
+
+
+## Tokola (#120): kauppiaan vanha varasto (harmaantunut lautarakennus, ruosteinen peltikatto ja ovi, haalistunut
+## TOKOLAN KAUPPA -teksti) julkisivu Tokolantielle, vanhan Aaron paikka pihallaan ja Heinimäen latvaton kuusi.
+func _build_tokola() -> void:
+	var c := M.w2(M.TOKOLA_VARASTO)
+	var near := _nearest_road(c)
+	var nrm: Vector2 = Vector2(1, 0) if near.is_empty() else (near[0] - c).normalized()
+	var yaw := B.yaw_to(Vector3(nrm.x, 0, nrm.y))
+	var l := 7.0
+	var d := 5.0
+	_house(c, yaw, l, d, 3.2, Color(0.5, 0.47, 0.42), Color(0.45, 0.25, 0.15), -1.0, false)
+	_add_house(c)
+	var front: Vector2 = c + nrm * (d / 2.0)
+	var dp: Vector2 = front + nrm * 1.6
+	varasto_door = Vector3(dp.x, T.h(dp.x, dp.y), dp.y)
+	var root := Node3D.new()
+	root.position = Vector3(front.x, 0, front.y)  # _lift_node nostaa maastoon
+	root.rotation.y = yaw
+	add_child(root)
+	B.box(root, Vector3(1.6, 2.2, 0.12), Vector3(0, 1.1, -0.05), Color(0.5, 0.25, 0.12), false)  # ruosteinen ovi
+	B.box(root, Vector3(0.12, 0.12, 0.08), Vector3(0.5, 1.1, -0.12), Color(0.3, 0.3, 0.3), false)  # riippulukko
+	var sign := B.label(root, "TOKOLAN KAUPPA", Vector3(0, 2.75, -0.1), 48, Color(0.85, 0.8, 0.65))
+	sign.rotation.y = PI
+	sign.modulate = Color(1, 1, 1, 0.55)
+	var f := _osm_fit_at(M.AARO_HOUSE)
+	if not f.is_empty():
+		var ap: Vector2 = f.c + f.nrm * (f.d / 2.0 + 3.0)
+		aaro_pos = Vector3(ap.x, T.h(ap.x, ap.y), ap.y)
+	# Heinimäen laki: kuollut, latvaton kuusi ja muutama kuiva oksa.
+	var hp := M.w2(M.HEINIMAKI)
+	heinimaki_pos = Vector3(hp.x, T.h(hp.x, hp.y), hp.y)
+	var tree := Node3D.new()
+	tree.position = Vector3(hp.x, 0, hp.y)
+	add_child(tree)
+	B.mesh(tree, B.cyl(0.18, 0.32, 6.5, 10), Vector3(0, 3.25, 0), Color(0.38, 0.32, 0.27))
+	B.mesh(tree, B.cyl(0.05, 0.18, 0.6, 8), Vector3(0.05, 6.75, 0), Color(0.5, 0.42, 0.33), Vector3(0, 0, 18))
+	for k in 6:
+		var a := k * 1.1
+		var br := B.mesh(tree, B.cyl(0.02, 0.04, 1.2, 6), Vector3(cos(a) * 0.5, 2.2 + k * 0.6, sin(a) * 0.5), Color(0.33, 0.27, 0.22))
+		br.rotation = Vector3(sin(a) * 1.1, 0, -cos(a) * 1.1)
+	var body := StaticBody3D.new()
+	body.position = Vector3(hp.x, 0, hp.y)
+	body.add_child(B.capsule_shape(0.35, 6.0))
+	add_child(body)
+	_add_house(hp)
 
 
 ## Talot OpenStreetMapin rakennuksista (map_osm.gd BUILDINGS): paikka, suunta ja koko pohjapiirroksesta,
