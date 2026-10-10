@@ -1012,7 +1012,8 @@ static func swim_look(base: Dictionary) -> Dictionary:
 ## aaltoileva hiekkapohja, kaisloja, ahvenparvi, valokiilat ja kuplat), sitten pinnalle polskimaan. frame =
 ## rannan kehys vesirajassa (+Z järvelle, Mokki.beach_frame), wl = vedenpinnan korkeus maailmassa, ground(p) = maan
 ## korkeus maailman pisteessä p (kahlaus).
-func swim_dive(frame: Transform3D, wl: float, ground: Callable, done: Callable) -> void:
+func swim_dive(frame: Transform3D, wl: float, ground: Callable, done: Callable, title := "SALMINEN",
+		sub := "Maailman paras uimaranta. Hiekka lämmittää jalkapohjia.", sub_end := "Maailman paras uimaranta. Ei epäilystäkään.") -> void:
 	_begin()
 	await _fade_to(1.0, 0.4)
 	_cam.current = true
@@ -1086,8 +1087,8 @@ func swim_dive(frame: Transform3D, wl: float, ground: Callable, done: Callable) 
 	_cam.global_position = Vector3(cam0.x, maxf(ground.call(cam0), wl) + 1.6, cam0.z)
 	_cam.look_at(at.call(0.0, 3.0, 0.4), Vector3.UP)
 	await _fade_to(0.0, 0.8)
-	_title.text = "SALMINEN"
-	_sub.text = "Maailman paras uimaranta. Hiekka lämmittää jalkapohjia."
+	_title.text = title
+	_sub.text = sub
 	var wade := glide.call("z", 4.5, 5.0, Tween.TRANS_LINEAR) as Tween
 	await _wait(2.4)
 	_title.text = ""
@@ -1175,8 +1176,8 @@ func swim_dive(frame: Transform3D, wl: float, ground: Callable, done: Callable) 
 	bubbles.emitting = false
 	# Kamera nousee ja kääntyy rannalle: kyltti ja hiekkaranta taustalla.
 	var t0 := Time.get_ticks_msec()
-	_title.text = "SALMINEN"
-	_sub.text = "Maailman paras uimaranta. Ei epäilystäkään."
+	_title.text = title
+	_sub.text = sub_end
 	while busy and Time.get_ticks_msec() - t0 < 4200:
 		var u := clampf((Time.get_ticks_msec() - t0) / 4200.0, 0.0, 1.0)
 		var e := u * u * (3.0 - 2.0 * u)

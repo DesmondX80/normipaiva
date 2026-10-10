@@ -75,6 +75,21 @@ const HEINIMAKI := Vector2(412, -684)
 ## varrella (#122). Legendan paikat: kertun_rauta.gd.
 const KERTUNKANGAS := Vector2(1342, -333)
 const KERTUN_TAULU := Vector2(1352, -321)
+## Kylän pohjoisosan paikat (#116, #117, #118, #119, #121): OSM-paikat ja -rakennukset.
+const KENTTA := Vector2(569, -279)  # Saloisten kenttä (landuse=recreation_ground)
+const KAUKALO := Vector2(639, -303)
+const UIMARANTA := Vector2(797, -181)  # Oravajärven uimaranta vesirajassa
+const UIMARANTA_DIR := Vector2(0.77, 0.64)  # rannalta järvelle
+const PUKUKOPPI := Vector2(786.8, -193.2)
+const SEO_KATOS := Vector2(755.6, -553.8)  # SEO Saloinen: tankkauskatos (OSM building=roof)
+const SEO := Vector2(765.8, -545)  # SEO:n myymälä ja ravintola A+
+const KATSASTUS := Vector2(576.3, -501.3)
+const ARTTIM := Vector2(571.5, -554.5)  # Arttim metal works
+const RUDUS := Vector2(458.4, -489.3)
+## Tokolanperän rossirata: kierros OSM-uraa pitkin (lähtö ensimmäisessä pisteessä) ja hypyt [paikka, suunta].
+const ROSSI := [Vector2(87, -791), Vector2(74, -818), Vector2(73, -826), Vector2(105, -838), Vector2(117, -833),
+	Vector2(123, -807), Vector2(105, -793), Vector2(107, -822), Vector2(102, -829), Vector2(82, -822)]
+const ROSSI_JUMPS := [2, 5, 8]  # hyppyrit näiden pisteiden jälkeisen osuuden puolivälissä
 ## Saloisten Pirtti, kotiseutumuseo (OSM tourism=museum, rakennus): Sulon pannun lahjoitus (#130).
 const PIRTTI := Vector2(269.7, 439.9)
 const SHOP_BUILDING := Vector2(86, 541)
@@ -88,7 +103,7 @@ const NEIGHBOR_SINIKKA := Vector2(855.5, 1204.2)
 const MAILBOX := Vector2(814, 1169)
 ## OSM-rakennukset, joiden tilalle tehdään oma malli (koti, autotalli, naapurit, kauppa).
 const OWN_BUILDINGS := [Vector2(812.4, 1177.9), GARAGE, NEIGHBOR_ARTO, NEIGHBOR_PEKKA, NEIGHBOR_SINIKKA,
-	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO, REIPPARI]
+	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO, REIPPARI, PUKUKOPPI, SEO_KATOS, SEO, KATSASTUS, ARTTIM, RUDUS]
 
 ## type: highway | road | street | path. h = katuvalot/kylämäisyys tien varrella (0..1).
 ## Tiet ja polut: Osm.ROADS (OpenStreetMap). Tässä vain käsin tehdyt laavupolut (laavu ei ole OSM:ssä).

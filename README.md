@@ -97,6 +97,25 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Lihapiirakkahaaste (4,90 €): välilyönti haukkaa, A ja D vuorotellen pureskelevat ja W juo limua, ennen kuin vatsa
   täyttyy. Juntin seitsemän piirakan ennätyksen rikkominen on oma onnellinen loppunsa "Lihapiirakkakuningas", ja
   Päivi haistaa sipulin aamulla. Testi `--scene=reippari`.
+- **Saloisten kenttä ja kaukalo:** Seuranmäellä jalkapallokenttä viivoineen, maalit verkkoineen, katsomo ja
+  valomastot, vieressä jääkiekkokaukalo laitoineen. Pojat pelaavat päivisin (10–20): rankkarit-minipeli, viisi
+  laukausta (tähtäin heiluu, välilyönti lukitsee suunnan ja korkeuden; kulmaan vaikea torjua, liian laaja menee
+  ohi) ja viisi torjuntaa maalivahdin silmin (potkijan lantio paljastaa suunnan, A / S / D heittäytyy). Juoksulenkki
+  kentän kulmasta kulmaan. Testi `--scene=pohjoiset`.
+- **Oravajärven uimaranta:** hiekkaranta, laituri, pukukoppi (uusi kaljajemma penkin alla), rantagrilli, penkki,
+  huussi ja rantakyltti. Uinti kuten Salmisessa, ja joka päivä pohjasta voi löytyä jotain (aurinkolasit, vanha
+  Nokia, kultasormus Sinikalle 20 €:lla). Aamuisin mummot, iltapäivisin perheet: kalja penkillä perheiden edessä
+  maksaa mainetta.
+- **SEO Saloinen ja ravintola A+:** tankkauskatos mittareineen, SEO-pylväs hintoineen ja rekka pihassa. Myymälä
+  auki 24/7: kahvi (vireys), munkki reppuun ja rekkakuskin ilmainen kyyti Raaheen (6–23). A+: lounas ma–pe
+  10.30–14 ja tuoppi illalla 16–22; pöydissä rekkamiesten ja vuoromiesten juttuja.
+- **Kinnapotin teollisuusalue:** Saloisten katsastus, Arttim metal works ja Rudus siiloineen peltihalleina.
+  Katsastusmies tutkii sähköpyörän (teippi, rautalanka, irronneet osat, oikosulku ja tyhjä akku hylkäävät;
+  hyväksytty saa leiman ja maineen). Hitsari myy ruuveja ja hitsaa akkutelineen (akku ei enää irtoa). Ruduksen
+  portilla keikkatyötä aamuisin: kolme tuntia lapiota, 30 €.
+- **Tokolanperän rossirata:** OSM-uran kierros mutkien rengasmerkkeineen, lähtöportti ajanottokylttineen ja kolme
+  hyppyriä, joista pyörä lähtee ilmaan. Kierrosaika pyörällä crossipoikien ennätystä (0:42) vastaan; voitto antaa
+  nippusiteitä, ruuveja ja mainetta. Crossipojat paikalla viikonloppuisin.
 - **Kertunkankaan kehäröykkiöt:** Palonkyläntien pohjoispuolella metsässä Muinaispolun päässä oikea muinaisjäännös:
   kolme keskuskuopallista kehäröykkiötä, röykkiö, kivikkoon kaivetut kuopat, 140 metrin kivivalli ja opastaulu
   "Rautakaudelta Rautaruukille" (tiedot Visit Raahen ja Raahen Seudun mukaan). Röykkiöihin ei kosketa: toinen
