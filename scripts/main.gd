@@ -642,7 +642,8 @@ const PEKKA_CARE := 3.0
 const EBIKE_AKKU_SIENET := 1
 const WOUND_PAIVI := ["Taas sää oot ollu vieraitten koirien kans!", "Istu siihen. Ja älä vingu.",
 	"Ei ne koirat ite purase, jos niitä ei mene rapsuttelemaan."]
-## Jalkapallopojat (#29, boys.gd): joka toinen päivä kolme poikaa jossain tien varressa, pallo hukassa 100–300 m päässä.
+## Jalkapallopojat (#29, boys.gd): joka toinen päivä kolme poikaa Saloisten tai Honganpalon kentällä, pallo hukassa
+## 60–200 m päässä.
 ## Palautus esinevalikosta: pallo = 1 € ja moraali/kokemus, kalja = pojat juoksevat nauraen pois, muu = kivisade.
 const Boys := preload("res://scripts/boys.gd")
 const ItemMenu := preload("res://scripts/item_menu.gd")
@@ -2687,6 +2688,7 @@ const POHJOISET_JUTUT := ["Rekkamies: \"Raahessa terästehdas savuaa taas. Kaksk
 	"Vuoromies: \"Ruukilla haetaan keikkamiehiä. Kinnapotissa kans, kysy Ruduksen portilta.\"",
 	"Rekkamies: \"Pekan Volvon tunnen. Se tankkaa täällä aina viidellä eurolla.\""]
 var _rankku_day := -1
+var _boys_field := ""  # "saloinen" / "honganpalo": jalkapallopojat tänään tällä kentällä
 var _lenkki := {"on": false, "next": 0, "laps": 0}
 var _orava_finds: Array = []
 var _orava_find_day := -1
@@ -2754,11 +2756,55 @@ func _pohjoiset_logic() -> void:
 func _pohjoiset_visuals() -> void:
 	var kids := _between(clock_min, RANKKU_OPEN)
 	for k in world.kentta_kids:
-		k.visible = kids
+		k.visible = kids and _boys_field != "saloinen"
 	for h in world.uimaranta_people:
 		h.visible = _between(clock_min, ORAVA_MUMMOT) if h.get_meta("mummo") else _between(clock_min, ORAVA_PERHEET)
+	if world.uimaranta_sinikka != null:
+		world.uimaranta_sinikka.visible = _sinikka_swimming()
 	if world.rossi_boys != null:
 		world.rossi_boys.visible = _weekday() >= 5 and _between(clock_min, Vector2(10 * 60, 20 * 60))
+
+
+## Sinikka käy aamuisin (8–10) uimassa Oravajärvellä narubikineissä; pihalla häntä ei silloin näy.
+const SINIKKA_UINTI := Vector2(8 * 60, 10 * 60)
+var _sinikka_seen_day := -1
+var _sinikka_stare_t := 0.0
+var _sinikka_tattle_day := -1
+
+
+func _sinikka_swimming() -> bool:
+	return _between(clock_min, SINIKKA_UINTI) and sinikka != null
+
+
+## Sinikka rannalla: näkemisbonus kerran päivässä, jutteleminen (sormuksen voi antaa) ja mummojen kantelu, jos
+## jää tuijottamaan. Palauttaa true, jos vihje asetettiin.
+func _sinikka_beach(e: bool) -> bool:
+	if not _sinikka_swimming() or world.uimaranta_sinikka == null:
+		_sinikka_stare_t = 0.0
+		return false
+	var sp: Vector3 = world.uimaranta_sinikka_pos
+	if not _near_xz(sp, 8.0):
+		_sinikka_stare_t = 0.0
+		return false
+	if _sinikka_seen_day != day:
+		_sinikka_seen_day = day
+		tilat.add("moraali", 0.15)
+		tilat.add("vireys", 0.15)
+		tilat.add("stressi", 0.15)
+		tilat.first("sinikka_ranta", 0.3)
+		Sfx.play("water", -14.0, 1.2)
+		_show_message("Sinikka nousee vedestä punaisissa narubikineissä ja heilauttaa kättä: \"Huomenta naapuri! Vesi on ihanaa.\" "
+			+ "Aamu parani heti.", 4.5)
+	_sinikka_stare_t += get_process_delta_time()
+	if _sinikka_stare_t > 8.0 and _between(clock_min, ORAVA_MUMMOT) and _sinikka_tattle_day != day:
+		_sinikka_tattle_day = day
+		_show_message("Rannan mummot kuiskuttelee ja katsoo sua pitkään. Tästä kuullaan vielä.", 3.5)
+	if _near_xz(sp, 2.5):
+		_hint.text = "[E] Juttele Sinikan kanssa (aamu-uinnilla)"
+		if e:
+			_talk_open("sinikka", world.uimaranta_sinikka, "Huomenta! Mää käyn täällä joka aamu. Älä kerro Päiville, että nähtiin, se on niin mustasukkainen.")
+		return true
+	return false
 
 
 func _orava_families() -> bool:
@@ -2784,11 +2830,11 @@ func _kentta_logic(e: bool) -> void:
 					tilat.add("vireys", 0.15)
 					tilat.add("stressi", 0.15)
 					tilat.first("juoksulenkki", 0.2)
-				_show_message("Kierros %d juostu! Pojat huutelee: \"Setä hölkkää!\"" % _lenkki.laps if world.kentta_kids[0].visible else
+				_show_message("Kierros %d juostu! Pojat huutelee: \"Setä hölkkää!\"" % _lenkki.laps if _between(clock_min, RANKKU_OPEN) else
 					"Kierros %d juostu! Hiki virtaa." % _lenkki.laps, 2.5)
 		return
 	if _near_xz(world.kentta_spot, 3.0):
-		if not world.kentta_kids[0].visible:
+		if not _between(clock_min, RANKKU_OPEN):
 			_hint.text = "Rankkaripiste. Pojat pelaa täällä päivisin (10–20)."
 		elif _rankku_day == day:
 			_hint.text = "Pojat: \"Huomenna uusiks, setä!\""
@@ -2833,6 +2879,8 @@ func _uimaranta_logic(e: bool) -> void:
 	if not _near_xz(world.uimaranta_pos, 40.0):
 		return
 	tilat.first("oravajarvi", 0.1)
+	if _sinikka_beach(e):
+		return
 	if _near_xz(world.uimaranta_pos, 4.0):
 		_hint.text = "[E] Uimaan: Oravajärvi"
 		if e:
@@ -3904,6 +3952,9 @@ func _flowers_morning(lost: bool, at_m: bool) -> String:
 		tilat.add("moraali", -0.2)
 		_no_allowance = true
 		out += "\nEilen oli mun syntymäpäivä. EIKÄ SULTA TULLU EES KUKKAA. Kauppa-rahoja ei tänään tule."
+	if _sinikka_tattle_day == prev:
+		tilat.add("stressi", -0.15)
+		out += "\nMummot soitti. Mitä sää Oravajärvellä aamulla tuijottelit? Sinikkaa vai?"
 	if _has_sammutin and not ("sammutin_paivi" in tilat.firsts):
 		tilat.first("sammutin_paivi", 0.0)
 		tilat.add("stressi", 0.1)
@@ -3950,7 +4001,7 @@ func _hongan_logic() -> void:
 	world.hongan_youth.visible = _between(clock_min, HONGAN_YOUTH)
 	world.hongan_truck.visible = _weekday() == 3 and _between(clock_min, HONGAN_TRUCK)
 	for k in world.hongan_kids:
-		k.visible = _between(clock_min, RANKKU_OPEN)
+		k.visible = _between(clock_min, RANKKU_OPEN) and _boys_field != "honganpalo"
 	if _hint.text != "" or player == bike or player.is_stunned() or not _near_xz(world.hongan_door, 70.0):
 		return
 	tilat.first("honganpalo", 0.1)
@@ -4003,7 +4054,7 @@ func _hongan_logic() -> void:
 			_show_message(LUOKKAKUVAT[0] if first else LUOKKAKUVAT.pick_random(), 4.5)
 		return
 	if _near_xz(world.hongan_spot, 3.0):
-		if not world.hongan_kids[0].visible:
+		if not _between(clock_min, RANKKU_OPEN):
 			_hint.text = "Koulun kenttä. Pojat pelaa täällä päivisin."
 		elif _rankku_day == day:
 			_hint.text = "Pojat: \"Huomenna uusiks, setä!\""
@@ -5870,21 +5921,27 @@ func _lawn_nag() -> String:
 	return s
 
 
-## Joka toinen päivä pojat johonkin tien varteen. Palauttaa true, jos pojat ovat tänään kylillä.
+## Joka toinen päivä pojat jommallakummalla kentällä vuorotellen: Saloisten kenttä ja Honganpalon kenttä. Kentän
+## omat pojat piilotetaan sinä päivänä (ne ovat samat pojat). Palauttaa true, jos pojat ovat tänään kentällä.
 func _spawn_boys() -> bool:
 	boys = null
 	ball = null
 	has_ball = false
 	_ball_quest = ""
+	_boys_field = ""
 	if day % 2 != 0:
 		return false
-	for attempt in 40:
-		var n: Vector3 = world.graph_nodes.pick_random()
-		var a := randf() * TAU
-		var p := n + Vector3(cos(a), 0, sin(a)) * randf_range(7.0, 11.0)
-		if not world._in_bounds(Vector2(p.x, p.z), 25.0) or world.surface_at(p) == "water" \
-				or world._near_house(Vector2(p.x, p.z), 9.0) or p.distance_to(home_zone) < 40.0:
+	var fields := [["saloinen", world.kentta_spot], ["honganpalo", world.hongan_spot]]
+	var pick: Array = fields[(day / 2) % 2]
+	if pick[1] == Vector3.ZERO:
+		pick = fields[0]
+	for attempt in 20:
+		var a := attempt * 0.9
+		var c: Vector3 = pick[1]
+		var p := c + Vector3(cos(a), 0, sin(a)) * (4.0 + attempt * 0.4)
+		if world.surface_at(p) == "water":
 			continue
+		_boys_field = pick[0]
 		boys = Boys.new()
 		boys.position = Vector3(p.x, Terrain.h(p.x, p.z), p.z)
 		boys.target = player
@@ -5924,13 +5981,13 @@ func _boys_logic() -> void:
 	_talk_hint("pojat", boys, player != bike)
 
 
-## Pallo arvotaan 100–300 m päähän pelialueelle (ei veteen); pojat kertovat suunnan.
+## Pallo arvotaan 60–200 m päähän kentältä pelialueelle (ei veteen); pojat kertovat suunnan.
 func _give_ball_quest() -> String:
 	var c: Vector3 = boys.global_position
 	for attempt in 60:
 		var a := randf() * TAU
 		var dir := Vector3(cos(a), 0, sin(a))
-		var q := c + dir * randf_range(100.0, 300.0)
+		var q := c + dir * randf_range(60.0, 200.0)
 		if not world._in_bounds(Vector2(q.x, q.z), 10.0) or world.surface_at(q) == "water":
 			continue
 		ball = Boys.make_ball()
@@ -5940,7 +5997,7 @@ func _give_ball_quest() -> String:
 		var names := ["itään", "kaakkoon", "etelään", "lounaaseen", "länteen", "luoteeseen", "pohjoiseen", "koilliseen"]
 		var way: String = names[posmod(roundi(a / (TAU / 8.0)), 8)]
 		tilat.first("pojat")
-		return "Meiän pallo on hukassa! Se lensi tosi kauas %s." % way
+		return "Jere potkas pallon aidan yli! Se lensi tosi kauas %s." % way
 	return "Ei me tarvita mitään, kiitti."
 
 
@@ -12573,7 +12630,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	_spawn_threats()
 	_apply_day_base()
 	if _spawn_boys() and not at_m:
-		_morning_info.append("Jossain päin kylää pojat pelaa jalkapalloa.")
+		_morning_info.append("Pojat pelaa tänään jalkapalloa %s." % ("Saloisten kentällä" if _boys_field == "saloinen" else "Honganpalon koulun kentällä"))
 	if laavu_conquered:
 		guard.vanish()
 	_minimap.wife = wife
@@ -13555,10 +13612,11 @@ func _day_rhythm() -> void:
 	# Naapurit yöllä sisällä (piilossa ovella), aamulla taas pihalla.
 	var inside := _between(t, NEIGHBORS_INSIDE)
 	for n in [arto, pekka, sinikka]:
-		if n != null and n.visible == inside:
-			n.visible = not inside
-			n.process_mode = Node.PROCESS_MODE_DISABLED if inside else Node.PROCESS_MODE_INHERIT
-			if inside:
+		var away: bool = inside or (n == sinikka and _sinikka_swimming())
+		if n != null and n.visible == away:
+			n.visible = not away
+			n.process_mode = Node.PROCESS_MODE_DISABLED if away else Node.PROCESS_MODE_INHERIT
+			if away:
 				n.global_position = n.yard[0]
 	_wife_rhythm(t)
 
@@ -16970,6 +17028,64 @@ func _maybe_screenshot() -> void:
 			print("ER lahjoitettu %d" % _valokuva)
 			await at.call(world.rauniot_stash)
 			print("ER jemma: '%s'" % _hint.text)
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"sinikkaranta":
+			# Jalkapallopojat kentillä vuorotellen (kentän omat pojat piilossa) ja Sinikan aamu-uinti Oravajärvellä:
+			# pihalta poissa, bonus kerran, mummojen kantelu tuijottaessa, jutteleminen ja sormus, Päivin aamukysymys.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			if player == bike:
+				_toggle_mount()
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			clock_min = 12 * 60
+			for d in [2, 4, 3]:
+				day = d
+				if is_instance_valid(boys):
+					boys.queue_free()
+				var ok := _spawn_boys()
+				await get_tree().create_timer(1.5).timeout
+				print("SR päivä %d: pojat %s kentällä '%s', Saloisten pojat näkyy %s, Honganpalon %s" % [d, ok, _boys_field,
+					world.kentta_kids[0].visible, world.hongan_kids[0].visible])
+			day = 2
+			if is_instance_valid(boys):
+				boys.queue_free()
+			_spawn_boys()
+			_give_ball_quest()
+			print("SR pallo %.0f m kentältä, viesti '%s'" % [ball.global_position.distance_to(boys.global_position), _give_ball_quest().left(40) if false else "ok"])
+			clock_min = 8 * 60 + 30
+			_sinikka_seen_day = -1
+			_sinikka_tattle_day = -1
+			await get_tree().create_timer(1.5).timeout
+			print("SR pihan Sinikka näkyy %s, rannan Sinikka näkyy %s" % [sinikka.visible, world.uimaranta_sinikka.visible])
+			var sp: Vector3 = world.uimaranta_sinikka_pos
+			var m0: float = tilat.values.get("moraali", 0.0)
+			walker_out.global_position = sp + Vector3(1.5, 0.3, 0)
+			await frames.call(5)
+			print("SR bonus: moraali %.2f -> %.2f, '%s', vihje '%s'" % [m0, tilat.values.get("moraali", 0.0), _msg.text.left(50), _hint.text])
+			var dir3 := Vector3(M.UIMARANTA_DIR.x, 0, M.UIMARANTA_DIR.y)
+			var oc := Camera3D.new()
+			add_child(oc)
+			oc.look_at_from_position(sp + dir3 * 3.5 + Vector3(0, 1.5, 0), sp + Vector3(0, 1.0, 0))
+			oc.current = true
+			await frames.call(20)
+			await snap.call("_sinikka.png")
+			oc.current = false
+			player.activate_camera()
+			await get_tree().create_timer(9.0).timeout
+			print("SR kantelu päivä %d" % _sinikka_tattle_day)
+			_orava_finds = ["aurinkolasit", "nokia", "sormus"]
+			_sormus_given = false
+			print("SR valinnat rannalla: %s" % [_talk_options("sinikka").map(func(o): return o.id)])
+			day += 1
+			print("SR aamu: '%s'" % _flowers_morning(false, false).strip_edges().left(70))
+			clock_min = 11 * 60
+			await get_tree().create_timer(1.5).timeout
+			print("SR klo 11: pihan Sinikka %s, rannan %s" % [sinikka.visible, world.uimaranta_sinikka.visible])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"junttikierto":
