@@ -1773,7 +1773,7 @@ func _playground(name: String, px: Vector2, idx: int) -> void:
 	for e in [-1.6, 1.6]:
 		for t in [-1.0, 1.0]:
 			var leg := B.mesh(sw, B.cyl(0.06, 0.06, 2.6, 8), Vector3(e, 1.2, t * 0.55), accent)
-			leg.rotation.x = t * 0.42
+			leg.rotation.x = -t * 0.42  # A-kehikko: jalat haralla maassa, yhdessä orren kohdalla
 	B.mesh(sw, B.cyl(0.07, 0.07, 3.4, 8), Vector3(0, 2.4, 0), accent.darkened(0.2), Vector3(0, 0, 90))
 	for k in 2:  # keinut omina solmuinaan: keinuhyppy (keinu_game.gd) piilottaa käytössä olevan ja heiluttaa omaansa
 		var hang := Node3D.new()
@@ -1831,9 +1831,10 @@ func _playground(name: String, px: Vector2, idx: int) -> void:
 	mums.position = Vector3(0, 0, -5.0)
 	root.add_child(mums)
 	for i in 2:
-		var mum := Looks.make(mums, {"model": "female", "shirt": [Color(0.6, 0.75, 0.9), Color(0.9, 0.6, 0.5)][i], "pants": Color(0.2, 0.22, 0.3),
+		var mum := Looks.make(mums, {"model": "female", "shirt": [Color(0.6, 0.75, 0.9), Color(0.75, 0.22, 0.32)][i], "pants": Color(0.2, 0.22, 0.3),
 			"hair": ["Hair_Long", "Hair_Buns"][i], "hair_color": Color(0.45, 0.3, 0.2).lightened(i * 0.3), "height": 1.65, "skin": Color(0.95, 0.8, 0.7)})
 		mum.position = Vector3(i * 0.8 - 0.4, 0.05, 0)
+		mum.rotation.y = PI  # kasvot leikkipuistoon päin (hahmo katsoo -Z, penkin selkänoja on -Z:ssa)
 		mum.play("Sitting_Idle", 0.0)
 	var kid := Looks.make(mums, {"model": "male", "shirt": accent, "pants": Color(0.2, 0.3, 0.6), "hair": "Hair_Buzzed",
 		"hair_color": Color(0.85, 0.75, 0.4), "height": 1.05, "skin": Color(0.97, 0.82, 0.72)})
