@@ -6,6 +6,7 @@ const Terrain := preload("res://scripts/terrain.gd")
 const Looks := preload("res://scripts/looks.gd")
 const DrunkWobble := preload("res://scripts/drunk_wobble.gd")
 const Mopo := preload("res://scripts/mopo.gd")
+const TwoStroke := preload("res://scripts/two_stroke.gd")
 
 const MAX_SPEED := 14.0
 const REVERSE_SPEED := 3.0
@@ -60,7 +61,7 @@ var mopo_dry := false
 var _frame: Node3D  # pyörän runko, polkimet ja pyörät
 var _moped: Node3D
 var _moped_wheels: Array[Node3D] = []
-var _engine: AudioStreamPlayer
+var _engine: TwoStroke  # mopon syntetisoitu kaksitahtipärinä
 
 ## Hiukkasten värit alustan mukaan (sora pöllyää, vesi roiskuu, vilja lentelee).
 const DEBRIS := {
@@ -142,10 +143,8 @@ func _ready() -> void:
 	_whine.stream = Sfx.stream("engine")
 	_whine.volume_db = -80.0
 	add_child(_whine)
-	_engine = AudioStreamPlayer.new()
-	_engine.stream = Sfx.stream("engine")
-	_engine.bus = "SFX"
-	_engine.volume_db = -80.0
+	_engine = TwoStroke.new()
+	_engine.volume_db = -4.0
 	add_child(_engine)
 
 
@@ -165,7 +164,7 @@ func set_mopo(on: bool) -> void:
 	if _thief != null:
 		_seat_rider(_thief)
 	if not on:
-		_engine.stop()
+		_engine.running = false
 		mopo_dry = false
 
 
@@ -404,15 +403,13 @@ func _update_roll_sound() -> void:
 		_whine.stop()
 	# Mopon kaksitahtinen: tyhjäkäynnillä pärisee, kaasulla kierrokset nousevat. Tyhjällä tankilla hiljaa.
 	var run := mopo and not mopo_dry and (controls_enabled or autopilot or _thief != null)
-	if run and not _engine.playing:
-		_engine.play()
-	elif not run and _engine.playing:
-		_engine.stop()
+	_engine.running = run
 	if run:
 		var km := clampf(absf(speed) / maxf(mopo_max, 1.0), 0.0, 1.0)
 		var gas := controls_enabled and Input.is_action_pressed("forward")
-		_engine.pitch_scale = lerpf(1.1, 2.6, km) + (0.25 if gas else 0.0)
-		_engine.volume_db = lerpf(-14.0, -6.0, maxf(km, 0.4 if gas else 0.0)) + mute
+		_engine.target_rpm = lerpf(TwoStroke.IDLE, 7600.0, km) + (900.0 if gas else 0.0)
+		_engine.throttle = 1.0 if gas else 0.2
+		_engine.level = h
 
 
 ## Alustan kuoppaisuus (world.TERRAIN.bump): sähköpyörän teippiliitokset irtoavat kuopissa.

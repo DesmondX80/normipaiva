@@ -90,8 +90,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   heti puoleen hintaan. Hinta riippuu Sepon mielialasta. Mopo tulee talliin romuna: ketju ja ratas Huhtalan
   romuista (Datsunin alta), sytytys Autosähkö-Simolta, satula Sepolta (muistoesine, maksaa erikseen) ja ajovalo
   Tokolan Aarolta (pojan sähkömopo vuodelta -82). Tallissa kokoaminen, kaasarin säätö (sama minipeli kuin SLN-73:lla),
-  bensa SEO:n kanisterista ja potkukäynnistys: rikastin päälle, potku vihreälle kahdesti, rikastin pois ja vielä
-  kerran. Liian kova potku potkaisee nilkkaan, ja Päivi kommentoi ikkunasta. Mopolla ajetaan pyörän tapaan (F ja
+  bensa SEO:n kanisterista ja potkukäynnistys tallin oikealla mopolla (hahmo potkii polkimesta): rikastin päälle, potku vihreälle kahdesti, rikastin pois ja vielä
+  kerran. Liian kova potku potkaisee nilkkaan, ja Päivi tulee talliin kommentoimaan. Käynnistyessä pakoputki
+  tupruttaa, talli täyttyy sinisestä huurusta, ja Päivi lähtee yskien ulos. Pärinä on syntetisoitu kaksitahtiääni
+  (two_stroke.gd: sytytyspamaukset kierrosten tahdissa, epätasainen käynti ja ohilyönnit), sama ajossa. Mopolla ajetaan pyörän tapaan (F ja
   talliovi), mutta kaasulla ilman kuntoa: Sepon vuonna 1979 irrottama rajoitin pois 21 m/s, rajoittimella 15 m/s.
   Bensa kuluu (palkki kunnon alla), tyhjällä tankilla mopoa taluttaa, ja SEO:lla tankataan. Katsastus hylkää ilman
   ajovaloa ja rajoitinta. Rossiradalla mopolla on oma kierrosaika, ja Päivi motkottaa romusta aamuisin. Testi
