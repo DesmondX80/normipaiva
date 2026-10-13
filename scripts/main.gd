@@ -233,6 +233,8 @@ const CarbGame := preload("res://scripts/carb_game.gd")
 const SaunaKorjaus := preload("res://scripts/saunakorjaus_game.gd")
 const EBike := preload("res://scripts/ebike.gd")
 const EBikeGame := preload("res://scripts/ebike_game.gd")
+const OmaMopo := preload("res://scripts/oma_mopo.gd")
+const MopoKickGame := preload("res://scripts/mopo_kick_game.gd")
 const KirppisInterior := preload("res://scripts/kirppis_interior.gd")
 const AuctionGame := preload("res://scripts/auction_game.gd")
 const TanssiGame := preload("res://scripts/tanssi_game.gd")
@@ -873,6 +875,7 @@ var _santtu_chat_t := 6.0
 var hommat: RefCounted
 var story: RefCounted  # tarina (story.gd): ohjaa naapurilta toiselle, Pekan kyyti Paapeliin aukeaa lopuksi
 var ebike: RefCounted  # sähköpyörä (ebike.gd, #107): osat, tarvikkeet, liitokset ja akku
+var oma_mopo: RefCounted  # oma mopo (oma_mopo.gd, #155): Sepon luottamus, osat, kunnostus, bensa ja ajo
 var sinikka_lawn: Node3D  # Sinikan takapihan nurmikko (tarinatehtävä)
 var _keys_node: Node3D  # Pekan autonavaimet kodalla
 var _taxi_mokki_return := false  # taksilla Paapeliin: paluu maksettu
@@ -1065,6 +1068,7 @@ func _ready() -> void:
 	hommat = Hommat.new()
 	story = Story.new()
 	ebike = EBike.new()
+	oma_mopo = OmaMopo.new()
 	tokola = Tokola.new()
 	pannu = SuloPannu.new()
 	kertun = KertunRauta.new()
@@ -1292,6 +1296,8 @@ func _process(delta: float) -> void:
 			_hint.text = garage_int.hint
 			if garage_int.spot == "kaappi":
 				_stash_ui("autotalli")
+			elif garage_int.spot in ["mopo", "rajoitin"]:
+				_hint.text = _mopo_garage_hint(garage_int.spot)
 			elif garage_int.spot == "saavi":
 				_hint.text = _wine_hint()
 			if garage_int.radio_on:
@@ -1466,7 +1472,7 @@ func _mount_logic() -> void:
 		var d: float = walker_out.global_position.distance_to(bike.global_position)
 		if d < 2.6:
 			if _hint.text == "":
-				_hint.text = "[F] Nouse pyörän selkään" if beers <= CARRY_BIKE else \
+				_hint.text = ("[F] Nouse mopon selkään" if oma_mopo.riding else "[F] Nouse pyörän selkään") if beers <= CARRY_BIKE else \
 					"Pyörän kyytiin mahtuu vain %d kaljaa (sinulla %d). Jemmaa tai juo loput." % [CARRY_BIKE, beers]
 			if e:
 				if beers > CARRY_BIKE:
@@ -1656,7 +1662,7 @@ func _garage_door_logic() -> void:
 	var e: bool = Input.is_action_just_pressed("interact") and not player.is_stunned() \
 		and Engine.get_process_frames() != _garage_exit_frame
 	if player == bike:
-		_hint.text = "[E] Vie pyörä talliin"
+		_hint.text = "[E] Vie mopo talliin" if oma_mopo.riding else "[E] Vie pyörä talliin"
 		if e:
 			if absf(bike.speed) > 3.0:
 				_show_message("Hidasta ensin!", 1.2)
@@ -1673,6 +1679,9 @@ func _garage_door_logic() -> void:
 ## Pyörä talliin (piiloon, ei varkaita) tai pois.
 func _store_bike(on: bool) -> void:
 	bike_in_garage = on
+	if on and oma_mopo.riding:  # mopo talliin: pyöräsolmu takaisin pyöräksi (pyörä odotti tallissa)
+		oma_mopo.riding = false
+		bike.set_mopo(false)
 	bike.visible = not on
 	bike.process_mode = Node.PROCESS_MODE_DISABLED if on else Node.PROCESS_MODE_INHERIT
 	if on:
@@ -1688,6 +1697,8 @@ func _enter_garage() -> void:
 	tilat.first("autotalli_sisalla", 0.1)
 	garage_int.headphones_found = headphones.found
 	garage_int.enter(bike_in_garage)
+	garage_int.set_bike(bike_in_garage or oma_mopo.riding)  # mopolla ajettaessa pyörä odottaa tallissa
+	garage_int.set_mopo(oma_mopo.owned and not oma_mopo.riding, oma_mopo.running)
 	garage_int.set_wine(_wine_stage())
 	garage_int.walker.set_carrying(beers > 0 or has_kanister)
 	Sfx.play("door", -3.0, 0.7)
@@ -1722,6 +1733,10 @@ func _on_garage_acted(kind: String) -> void:
 	match kind:
 		"auto":
 			_start_carb()
+		"mopo":
+			_mopo_garage()
+		"rajoitin":
+			_mopo_rajoitin()
 		"tyopoyta":
 			if bike_in_garage and _ebike_bench():
 				return
@@ -1753,7 +1768,10 @@ func _on_garage_acted(kind: String) -> void:
 		"radio":
 			_show_message("Radio Iskelmä soi. Stressi hellittää." if garage_int.radio_on else "Radio hiljeni.", 2.0)
 		"pyora":
-			_on_garage_exited(true)
+			if oma_mopo.riding:
+				_show_message("Mopo on pihalla. Tuo se ensin talliin, niin pyöräkin pääsee ulos.", 3.0)
+			else:
+				_on_garage_exited(true)
 		"saavi":
 			_wine_act()
 		"laatikko":
@@ -2011,8 +2029,8 @@ func _wine_start_ferment() -> void:
 		{"korpi": "korpihiiva", "turbo": "turbohiiva"}.get(yeast, "hiiva"), wine_days], 4.0)
 
 
-## Karburaattorin säätö autotallissa (carb_game.gd).
-func _start_carb() -> void:
+## Karburaattorin säätö autotallissa (carb_game.gd). for_mopo = oman mopon kaasari (#155).
+func _start_carb(for_mopo := false) -> void:
 	garage_int.busy = true
 	garage_int.walker.controls_enabled = false
 	_hud.visible = false
@@ -2022,7 +2040,9 @@ func _start_carb() -> void:
 		garage_int.busy = false
 		garage_int.walker.controls_enabled = true
 		_hud.visible = true
-		if ok:
+		if for_mopo:
+			_mopo_carb_done(ok)
+		elif ok:
 			if _once_today("karburaattori"):
 				tilat.add("moraali", 0.15)
 				tilat.add("stressi", 0.1)
@@ -2033,6 +2053,308 @@ func _start_carb() -> void:
 		else:
 			_show_message("Karburaattori jäi vielä vähän sinne päin. Huomenna uusiks.", 2.5))
 	add_child(g)
+
+
+## --- Oma mopo (#155): Sepon pressun alla ollut Hopeanuoli (oma_mopo.gd) -----------------------------------------
+const MOPO_PAIVI := ["Taas joku romu tallissa! Mihin mää ens talvena laitan joulukuusen?",
+	"Se mopo vie puolet tallista. Ja haisee. Ja on ruma. Muuten ihan kiva.",
+	"Pekka kysy, ootko sää ostanu mopon. Mää sanoin, että ei se oo mopo, se on keski-iän kriisi.",
+	"Joku on pyyhkiny öljyset kädet mun keittiöpyyhkeeseen. Arvaa kuka."]
+const MOPO_PAIVI_VALMIS := ["Koko eteinen haisee kaksitahtiselle. Mää en kommentoi enempää.",
+	"Anna-Liisa kysy, että ajaako sun mies nyt mopolla. Mää sanoin, että joo, ku ajokortti on kerran vielä voimassa."]
+
+
+func _mopo_garage_hint(spot: String) -> String:
+	if spot == "rajoitin":
+		if not oma_mopo.rajoitin_have:
+			return "Mopon perä. Pakoputkeen on raaputettu \"SEPPO 79\"."
+		return "[E] Irrota rajoitin (katsastus on katsastus)" if oma_mopo.rajoitin else "[E] Asenna rajoitin takaisin (katsastusta varten)"
+	if not oma_mopo.assembled:
+		var miss: Array = oma_mopo.missing_run()
+		if miss.is_empty():
+			return "[E] Kokoa mopo: ketju, sytytys ja satula paikoilleen"
+		return "[E] Hopeanuoli romuna. Puuttuu: %s" % ", ".join(miss.map(func(k): return OmaMopo.PARTS[k].low))
+	if oma_mopo.parts.has("valo") and not oma_mopo.valo_on:
+		return "[E] Asenna ajovalo ja vilkut"
+	if not oma_mopo.carb_ok:
+		return "[E] Säädä mopon kaasari (täynnä 70-luvun bensaa)"
+	if oma_mopo.fuel <= 0.05:
+		return "[E] Kaada bensaa kanisterista tankkiin" if oma_mopo.kanisteri else "Tankki on tyhjä. Bensaa kanisteriin SEO:lta."
+	if not oma_mopo.running:
+		return "[E] Potkaise mopo käyntiin"
+	return "[E] Ota mopo ja aja ulos (bensaa %d %%)" % roundi(oma_mopo.fuel * 100.0)
+
+
+func _mopo_garage() -> void:
+	if not oma_mopo.assembled:
+		var miss: Array = oma_mopo.missing_run()
+		if not miss.is_empty():
+			_show_message("Hopeanuoli seisoo tallissa ilman: %s. Hae %s." % [", ".join(miss.map(func(k): return OmaMopo.PARTS[k].low)),
+				", ".join(miss.map(func(k): return OmaMopo.PARTS[k].where))], 5.0)
+			return
+		oma_mopo.assembled = true
+		oma_mopo.valo_on = oma_mopo.parts.has("valo")
+		_advance_clock(60.0)
+		tilat.first("mopo_koottu", 0.3)
+		tilat.add("moraali", 0.1)
+		Sfx.play("rattle_hard", -4.0, 0.9)
+		_save_game()
+		_show_message("Ketju paikalleen, sytytys kiinni ja satula päälle. Tunti meni, ja kolme ruuvia jäi yli. Ne on varmaan varaosia.", 5.0)
+		return
+	if oma_mopo.parts.has("valo") and not oma_mopo.valo_on:
+		oma_mopo.valo_on = true
+		Sfx.play("rattle", -4.0, 1.2)
+		_save_game()
+		_show_message("Ajovalo ja vilkut kiinni. Vilkut vilkkuu molemmat yhtä aikaa, mutta se on tyylikysymys.", 4.0)
+		return
+	if not oma_mopo.carb_ok:
+		_start_carb(true)
+		return
+	if oma_mopo.fuel <= 0.05:
+		if not oma_mopo.kanisteri:
+			_show_message("Tankki kumisee tyhjyyttään. Seppo: \"Bensaa ei kuulu kauppaan.\" Kanisteri täyteen SEO:lta.", 4.0)
+			return
+		oma_mopo.kanisteri = false
+		oma_mopo.fuel = 1.0
+		Sfx.play("water", -6.0, 1.4)
+		_save_game()
+		_show_message("Glug glug. Kaksitahtiöljy sekaan silmämääräisesti. Päivi haistaa tämän eteisessä asti.", 4.0)
+		return
+	if not oma_mopo.running:
+		_start_kick()
+		return
+	if not bike_in_garage:
+		_show_message("Pyörä on pihalla. Tuo se ensin talliin: kaksi ajopeliä pihalla, ja Päivi alkaa laskea, paljonko ne maksoi.", 4.5)
+		return
+	oma_mopo.riding = true
+	bike.set_mopo(true)
+	garage_int.set_mopo(false)
+	_on_garage_exited(true)
+	_show_message("Hopeanuoli pärisee pihalle. Naapurin verhot heilahtaa.", 3.0)
+
+
+func _mopo_rajoitin() -> void:
+	if not oma_mopo.rajoitin_have:
+		_show_message("Pakoputkessa lukee \"SEPPO 79\". Siihen aikaan rajoittimet oli suosituksia.", 3.0)
+		return
+	oma_mopo.rajoitin = not oma_mopo.rajoitin
+	Sfx.play("rattle", -4.0, 1.1)
+	_save_game()
+	if oma_mopo.rajoitin:
+		_show_message("Rajoitin paikallaan. Nyt Hopeanuoli kulkee juuri ja juuri pyörää lujempaa. Katsastusmies tykkää.", 4.0)
+	else:
+		_show_message("Rajoitin pois. Laki on laki, mutta Saloisten mäet on Saloisten mäet.", 3.5)
+
+
+## Mopon kaasari säädetty (sama minipeli kuin SLN-73:lla, _start_carb).
+func _mopo_carb_done(ok: bool) -> void:
+	if ok:
+		oma_mopo.carb_ok = true
+		tilat.first("mopo_kaasari", 0.3)
+		Sfx.play("win_small", -4.0)
+		_save_game()
+		_show_message("Kaasarista valui 70-luvun bensaa, joka oli muuttunut hilloksi. Nyt se on puhdas ja säädetty.", 4.5)
+	else:
+		_show_message("Kaasari jäi vielä vähän sinne päin. Huomenna uusiks.", 2.5)
+
+
+## Potkukäynnistys (mopo_kick_game.gd).
+func _start_kick() -> void:
+	garage_int.busy = true
+	garage_int.walker.controls_enabled = false
+	_hud.visible = false
+	var g := MopoKickGame.new()
+	g.drunk = _hand_shake()
+	g.finished.connect(func(ok: bool) -> void:
+		garage_int.busy = false
+		garage_int.walker.controls_enabled = true
+		_hud.visible = true
+		if ok:
+			oma_mopo.running = true
+			oma_mopo.fuel = maxf(0.0, oma_mopo.fuel - 0.02)
+			garage_int.set_mopo(true, true)
+			tilat.first("mopo_kaynnissa", 0.6)
+			tilat.add("moraali", 0.2)
+			maine = clampf(maine + 2.0, 0.0, 100.0)
+			Sfx.play("win", -4.0)
+			_save_game()
+			_show_message("HOPEANUOLI KÄY! Talli on sinisenä savusta, ja Päivi seisoo ovella nenä kiinni. Maine +2.", 5.0)
+		else:
+			tilat.add("stressi", -0.05)
+			_show_message("Mopo ei lähtenyt. Nilkka on hellä, mutta ylpeys vielä hellempi. Huomenna uusiks.", 3.5))
+	add_child(g)
+
+
+## Mopon valinnat kylän ihmisillä (_talk_options lisää ne loppuun).
+func _mopo_options(who: String, o: Array) -> void:
+	var m := oma_mopo
+	match who:
+		"seppo":
+			if _kekkonen == 1:
+				o.append(_opt("mopo_kekkonen", "Näytä Kekkosen rintamerkki", true, "", true))
+			if not m.owned:
+				o.append(_opt("mopo_kysy", "Entäs se mopo pressun alla?"))
+				if m.trust >= OmaMopo.TRUST_NEED and _seppo_day.get("mopo", -1) == day:
+					var p: float = _mopo_price()
+					o.append(_opt("mopo_osta", "Osta Hopeanuoli (%s €)" % _eur(p), money >= p - 0.001, "rahat ei riitä", true))
+			elif not m.parts.has("satula"):
+				o.append(_opt("mopo_satula", "Mopon satula (%s €)" % _eur(OmaMopo.SATULA_HINTA), money >= OmaMopo.SATULA_HINTA,
+					"rahat ei riitä", true))
+		"huhtala":
+			if m.owned and not m.parts.has("ketju"):
+				o.append(_opt("mopo_ketju", "Mopon ketju ja ratas romuista (%s)" % ("kalja" if beers > 0 else _eur(OmaMopo.KETJU_HINTA) + " €"),
+					beers > 0 or money >= OmaMopo.KETJU_HINTA, "ei kaljaa eikä rahaa", true))
+		"simo":
+			if m.owned and not m.parts.has("sytytys"):
+				o.append(_opt("mopo_sytytys", "Sytytyspuola ja tulppa mopoon (%s €)" % _eur(OmaMopo.SYTYTYS_HINTA),
+					money >= OmaMopo.SYTYTYS_HINTA, "rahat ei riitä", true))
+		"aaro":
+			if m.owned and not m.parts.has("valo"):
+				o.append(_opt("mopo_valo", "Reipparin taululla luki sähkömopon osista", true, "", true))
+		"seo":
+			var full: float = OmaMopo.TANK_L * OmaMopo.BENSA_L
+			if m.owned and not m.kanisteri:
+				o.append(_opt("mopo_kanisteri", "Bensaa kanisteriin mopolle (%s €)" % _eur(full), money >= full, "rahat ei riitä",
+					m.fuel <= 0.05))
+			if m.riding and is_instance_valid(bike) and bike.global_position.distance_to(world.seo_door) < 30.0:
+				var need: float = snappedf((1.0 - m.fuel) * full, 0.1)
+				o.append(_opt("mopo_tankkaa", "Tankkaa mopo (%s €)" % _eur(need), m.fuel < 0.98 and money >= need,
+					"tankki täynnä" if m.fuel >= 0.98 else "rahat ei riitä", m.fuel < 0.3))
+		"katsastaja":
+			if m.running:
+				var why := ""
+				if not m.riding or not is_instance_valid(bike) or bike.global_position.distance_to(world.katsastus_door) > 18.0:
+					why = "mopo pitää tuoda pihaan"
+				elif money < KATSASTUS_HINTA:
+					why = "rahat ei riitä"
+				o.append(_opt("mopo_katsasta", "Katsasta mopo (%s €)%s" % [_eur(KATSASTUS_HINTA), "  ✔ hyväksytty" if m.katsastettu else ""],
+					why == "", why, not m.katsastettu))
+
+
+## Sepon mopohinta: perushinta mielialan ja päivän kehun mukaan (Kekkosen merkin jälkeen puolet).
+func _mopo_price() -> float:
+	return oma_mopo.price(float(_seppo_mood()[1]) * (_seppo_kehu if _seppo_day.get("kehu", -1) == day else 1.0))
+
+
+func _mopo_choose(id: String) -> void:
+	var m := oma_mopo
+	match id:
+		"mopo_kysy":
+			if m.trust < OmaMopo.TRUST_NEED:
+				var line: String = ["Mopo? Mikä mopo? Ei täällä mitään mopoa oo.",
+					"Se on Hopeanuoli. Ajoin sillä Raahen Rantatorille vuonna 79. Kolme kertaa. Kerran perille asti. Ei oo myytävänä.",
+					"No... ehkä. Mää en myy Hopeanuolta kenelle tahansa. Pitää tuntea ihminen. Ja ihmisen marjat."][mini(int(m.trust / 2.0), 2)]
+				_talk_box.reply(line, _talk_options(), "Seppo ei vielä luota (%d / %d). Ostokset, marjat ja vanhat löydöt auttaa."
+					% [m.trust, OmaMopo.TRUST_NEED])
+				return
+			_seppo_day["mopo"] = day
+			_talk_box.reply(("...No. Sää oot käyny täällä niin monta kertaa, että sää oot melkein perhettä. Hopeanuoli on sun %s eurolla. "
+				% _eur(_mopo_price())) + "Hinta riippuu siitä, miten mun selkä tänään jaksaa.", _talk_options(), _seppo_mood()[0] + ".")
+		"mopo_osta":
+			money -= _mopo_price()
+			m.owned = true
+			m.rajoitin_have = true
+			m.trust += 1
+			_mopo_tarp_sync()
+			tilat.first("mopo_ostettu", 0.5)
+			Sfx.play("register", -4.0)
+			_save_game()
+			_talk_box.reply("Kaupat on kaupat. Satula maksaa erikseen, koska se on muistoesine. Rajoitin on tässä laatikossa, mää "
+				+ "irrotin sen 1979. Bensaa ei kuulu kauppaan. Tuon Hopeanuolen illalla peräkärryllä teidän talliin.", _talk_options(),
+				"Mopo talliin! Puuttuu ketju (Huhtala), sytytys (Autosähkö-Simo), satula (Seppo) ja ajovalo (Tokolan Aaro).")
+		"mopo_satula":
+			money -= OmaMopo.SATULA_HINTA
+			m.parts["satula"] = true
+			Sfx.play("register", -6.0)
+			_save_game()
+			_talk_box.reply("Satula. Tällä on istunu Raahen Rantatorilla yks jos toinenkin. Älä kysy enempää.", _talk_options(),
+				"Mopon satula mukana.%s" % _mopo_parts_note())
+		"mopo_kekkonen":
+			_kekkonen = 3
+			m.seppo_kekkonen = true
+			m.trust = maxi(m.trust, OmaMopo.TRUST_NEED) + 2
+			_kertun_sync()
+			tilat.first("kekkonen_sepolle", 0.4)
+			tilat.add("moraali", 0.15)
+			Sfx.play("win_small", -4.0)
+			_save_game()
+			_talk_box.reply("Tää on... isävainaan merkki! Mää oon ettiny tätä kakskytä vuotta. Se oli siinä YLLÄTYSLAATIKOSSA? "
+				+ "No voi perkele. ...Kuule. Jos sää joskus haluat sen mopon, puoleen hintaan.", _talk_options(),
+				"Seppo liikuttui. Luottamus täynnä, ja Hopeanuoli puoleen hintaan.")
+		"mopo_ketju":
+			if beers > 0:
+				beers -= 1
+				player.set_carrying(beers > 0)
+			else:
+				money -= OmaMopo.KETJU_HINTA
+			m.parts["ketju"] = true
+			Sfx.play("rattle_hard", -4.0, 0.8)
+			_save_game()
+			_talk_box.reply("Ketju? Tuolla Datsunin alla on mopon ketju ja ratas. Se Datsun ei oo liikkunu sitten Kekkosen. "
+				+ "Ketju on vähän ruosteessa, mutta niin on Huhtalakin.", _talk_options(), "Ketju ja ratas mukana.%s" % _mopo_parts_note())
+		"mopo_sytytys":
+			money -= OmaMopo.SYTYTYS_HINTA
+			m.parts["sytytys"] = true
+			Sfx.play("register", -6.0)
+			_save_game()
+			_talk_box.reply("Sytytyspuola ja tulppa seitkytluvun mopoon? Mulla on pakussa kaikkea, mitä ihminen ei tarvii. Tässä. "
+				+ "Jos se ei syty, vika on kuskissa.", _talk_options(), "Sytytys mukana.%s" % _mopo_parts_note())
+		"mopo_valo":
+			m.parts["valo"] = true
+			Sfx.play("pickup", -4.0)
+			_save_game()
+			_talk_box.reply("Ai se. Poika rakensi sähkömopon vuonna kasikaks. Akku painoi enemmän ku mopo, ja se kulki kakskytä metriä. "
+				+ "Ajovalo ja vilkut toimi aina. Ota ne, ne on ainoot ehjät osat.", _talk_options(),
+				"Ajovalo ja vilkut mukana (katsastukseen).%s" % _mopo_parts_note())
+		"mopo_kanisteri":
+			money -= OmaMopo.TANK_L * OmaMopo.BENSA_L
+			m.kanisteri = true
+			Sfx.play("register", -6.0)
+			_save_game()
+			_talk_box.reply("Kakskasi ja kaksitahtiöljy. Yks pullo per kanisteri. Tai silmämääräisesti, kuten kaikki muutkin.", _talk_options(),
+				"Bensakanisteri talliin (mopon tankkiin tallissa).")
+		"mopo_tankkaa":
+			money -= snappedf((1.0 - m.fuel) * OmaMopo.TANK_L * OmaMopo.BENSA_L, 0.1)
+			m.fuel = 1.0
+			Sfx.play("register", -6.0)
+			_save_game()
+			_talk_box.reply("Hopeanuoli! Mun isä ajo tommosella kirkkoon. Kerran. Sitten se ajo kirkon aitaan.", _talk_options(), "Tankki täynnä.")
+		"mopo_katsasta":
+			_katsasta_mopo()
+
+
+func _mopo_parts_note() -> String:
+	var miss: Array = OmaMopo.PARTS.keys().filter(func(k): return not oma_mopo.parts.has(k))
+	if miss.is_empty():
+		return "   ·   Kaikki mopon osat koossa: autotalliin!"
+	return "   ·   Mopolta puuttuu: %s" % ", ".join(miss.map(func(k): return OmaMopo.PARTS[k].low))
+
+
+## Mopon katsastus: ajovalo, rajoitin ja bensa. Hyväksytty mopo saa leiman ja mainetta.
+func _katsasta_mopo() -> void:
+	money -= KATSASTUS_HINTA
+	var faults: Array = oma_mopo.faults()
+	tilat.first("katsastus", 0.2)
+	Sfx.play("register", -6.0)
+	if faults.is_empty():
+		oma_mopo.katsastettu = true
+		maine = clampf(maine + 5.0, 0.0, 100.0)
+		tilat.first("mopo_katsastettu", 0.5)
+		_save_game()
+		_talk_box.reply("Hmm. Valot palaa, rajoitin paikallaan, jarrut... jarruttaa. HYVÄKSYTTY. Ja kuule: jos se rajoitin sattuu "
+			+ "joskus irtoamaan, mää en oo nähny mitään.", _talk_options(), "HYVÄKSYTTY! Leima mopon kilpeen. Maine +5.")
+	else:
+		_save_game()
+		var f0: String = faults[0]
+		_talk_box.reply("%s. HYLÄTTY.%s Korjaa ja tuo uudestaan." % [f0.left(1).to_upper() + f0.substr(1),
+			(" Lisäksi " + ", ".join(faults.slice(1)) + ".") if faults.size() > 1 else ""], _talk_options(),
+			"Hylkäyslista: %s." % ", ".join(faults))
+
+
+## Pressu mopoineen Sepon pihalta pois, kun mopo on ostettu.
+func _mopo_tarp_sync() -> void:
+	if world != null and world.seppo_tarp_node != null:
+		world.seppo_tarp_node.visible = not oma_mopo.owned
 
 
 ## Sähköpyörä autotallin työpöydällä (pyörä tallissa): kasaus, kun osat on koossa, ja korjaus, jos liitos on irti
@@ -2120,6 +2442,15 @@ func _ebike_parts_note() -> String:
 func _ebike_tick(delta: float) -> void:
 	if bike_in_garage:
 		ebike.charge(delta)
+	if oma_mopo.riding:  # oma mopo: bensa kuluu, sähköpyörän osat odottavat tallissa
+		bike.assist = 0.0
+		bike.heavy = false
+		if player == bike and not bike.autopilot:
+			var mmsg: String = oma_mopo.ride_tick(bike, delta)
+			if mmsg != "":
+				_show_message(mmsg, 4.0)
+				_save_game()
+		return
 	if player == bike and not bike.autopilot:
 		var msg: String = ebike.ride_tick(bike, delta)
 		if msg != "":
@@ -2133,7 +2464,7 @@ func _ebike_tick(delta: float) -> void:
 
 ## Jalan pyörän vieressä: irronnut liitos teipataan takaisin repun jeesusteipillä.
 func _ebike_logic() -> void:
-	if _hint.text != "" or player != walker_out or not ebike.built() or bike_in_garage:
+	if _hint.text != "" or player != walker_out or not ebike.built() or bike_in_garage or oma_mopo.riding:
 		return
 	if ebike.loose.is_empty() and not ebike.shorted:
 		return
@@ -3267,6 +3598,18 @@ func _rossi_tick() -> void:
 func _rossi_finish() -> void:
 	_rossi.on = false
 	var t: float = _rossi.t
+	if oma_mopo.riding:
+		# Mopolla oma kierrosaika (#155): crossipoikien pyöräennätys ei kelpaa vertailuksi.
+		var mbest: bool = oma_mopo.rossi_best <= 0.0 or t < oma_mopo.rossi_best
+		if mbest:
+			oma_mopo.rossi_best = t
+		tilat.first("rossi_mopolla", 0.3)
+		Sfx.play("win_small", -6.0)
+		_show_message("Mopolla %s%s. Crossipojat: \"Mopolla ei lasketa! ...Mutta kova se oli. Saako kokeilla?\"" % [_laptime(t),
+			" (mopon oma paras!)" if mbest else ""], 4.5)
+		_rossi_update_clock()
+		_save_game()
+		return
 	var first_best := _rossi_best <= 0.0 or t < _rossi_best
 	if first_best:
 		_rossi_best = t
@@ -3853,6 +4196,7 @@ func _seppo_logic() -> void:
 	if world == null or world.seppo_door == Vector3.ZERO:
 		return
 	world.seppo_npc.visible = _seppo_open()
+	_mopo_tarp_sync()
 	if _hint.text != "" or player == bike or player.is_stunned():
 		return
 	var e := Input.is_action_just_pressed("interact")
@@ -3865,7 +4209,7 @@ func _seppo_logic() -> void:
 		else:
 			_hint.text = "Ovessa lappu: \"%s\"" % ("Ma suljettu." if _weekday() == 0 else ("Kalassa. T. Seppo" if (day * 7) % 5 == 0 else "Auki 10–18 kun ollaan."))
 		return
-	if _near_xz(world.seppo_tarp, 2.0):
+	if _near_xz(world.seppo_tarp, 2.0) and not oma_mopo.owned:
 		_hint.text = "Pressun alla vanha mopo. Seppo: \"Ei oo myytävänä. Vielä.\""
 		return
 	if _near_xz(world.saasto_door, 2.4):
@@ -3918,6 +4262,7 @@ func _seppo_choose(id: String) -> void:
 		else:
 			money -= _seppo_price(k)
 		_seppo_day["ostettu_" + k] = day
+		oma_mopo.trust += 1  # Seppo muistaa asiakkaansa (mopo, #155)
 		var note := ""
 		if it[2] != "":
 			ebike.supplies[it[2]] += int(it[3])
@@ -3936,12 +4281,14 @@ func _seppo_choose(id: String) -> void:
 			_seppo_day["kehu"] = day
 			if randf() < 0.5 + maine / 200.0:
 				_seppo_kehu = 0.75
+				oma_mopo.trust += 1
 				_talk_box.reply("No kiitos! Kolkytä vuotta kerätty. Sulle halvemmalla tänään.", _talk_options(), "Hinnat −25 % tänään.")
 			else:
 				_seppo_kehu = 1.1
 				_talk_box.reply("Älä nuoleskele. Hinnat nousi just.", _talk_options(), "Hinnat +10 % tänään.")
 		"laatikko":
 			_seppo_day["laatikko"] = day
+			oma_mopo.trust += 1
 			money -= SEPPO_LAATIKKO
 			Sfx.play("rattle", -4.0)
 			var r := randf()
@@ -3967,11 +4314,13 @@ func _seppo_choose(id: String) -> void:
 			bucket.erase("puolukka")
 			bucket.erase("mustikka")
 			money += n * MARJA_HINTA
+			oma_mopo.trust += 2
 			Sfx.play("coin", -4.0)
 			_save_game()
 			_talk_box.reply("Marjoja! Mun muija tekee näistä hilloa koko talveksi.", _talk_options(), "+%s €." % _eur(n * MARJA_HINTA))
 		"nokia":
 			_nokia_sold = true
+			oma_mopo.trust += 1
 			money += 5.0
 			Sfx.play("coin", -4.0)
 			_save_game()
@@ -8281,6 +8630,7 @@ func _talk_options(who := "") -> Array:
 				if not interior.can_pay() and interior.own_items():
 					o.append(_opt("jata", "Jätä omat ostokset tiskille"))
 			o.append(_opt("neuvo", "Mistä löytyy mitäkin?"))
+	_mopo_options(who, o)  # oma mopo (#155): Seppo, Huhtala, Simo, Aaro, SEO ja katsastus
 	if chat:
 		o.append(_opt("juttu", "Mitä kuuluu?"))
 	if who != "poliisi":  # ratsiasta ei kävellä pois kesken
@@ -8291,6 +8641,9 @@ func _talk_options(who := "") -> Array:
 func _talk_choose(id: String) -> void:
 	if id == "lopeta":
 		_talk_box.close()
+		return
+	if id.begins_with("mopo_"):
+		_mopo_choose(id)
 		return
 	if id == "juttu":
 		_talk_box.reply(_talk_chat_line(), _talk_options(), _talk_chat_info())
@@ -12658,6 +13011,7 @@ func _load_game() -> void:
 	tilat.load_from(cfg)
 	story.load_from(cfg)
 	ebike.load_from(cfg)
+	oma_mopo.load_from(cfg)
 	tokola.load_from(cfg)
 	pannu.load_from(cfg)
 	kertun.load_from(cfg)
@@ -12758,6 +13112,8 @@ func _save_game() -> void:
 		cfg.set_value("tarina", "taksi_paluu", _taxi_mokki_return)
 	if ebike != null:
 		ebike.save_to(cfg)
+	if oma_mopo != null:
+		oma_mopo.save_to(cfg)
 	if tokola != null:
 		tokola.save_to(cfg)
 	if pannu != null:
@@ -12962,6 +13318,9 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	if ebike.built() and not at_m and (bike_in_garage or bike.global_position.distance_to(home_zone) < 25.0) and ebike.battery < 1.0:
 		ebike.battery = 1.0
 		bonus += "\nKUKA on jättäny jonkun akkuröykkiön latautumaan seinään?! Sähkölasku tulee sun rahoista!"
+	# Oma mopo tallissa (#155): Päivi motkottaa romusta joka aamu, valmiista mopostakin välillä.
+	if oma_mopo.owned and not at_m and (not oma_mopo.running or randf() < 0.4):
+		bonus += "\n" + (MOPO_PAIVI_VALMIS if oma_mopo.running else MOPO_PAIVI).pick_random()
 	_kalle_sold = 0
 	if kalle != null:
 		kalle.set_hiding(false)
@@ -13122,6 +13481,7 @@ func _apply_saved_bike() -> String:
 		return ""
 	bike.global_position = _bike_saved[0]
 	bike.rotation.y = _bike_saved[1]
+	bike.set_mopo(oma_mopo.riding)
 	_place_on_foot(home_zone + Vector3(0, 0.3, 4))
 	if _bike_garage_saved:
 		_store_bike(true)
@@ -13184,9 +13544,10 @@ func _help_text() -> String:
 	var parts: Array[String] = []
 	var outside: bool = state in ["to_shop", "to_home"]
 	if player == bike and outside:
-		parts.append(k.call("sprint", "spurtti"))
+		if not oma_mopo.riding:  # mopolla ei spurtata (kaasukahva), ja kellon tilalla piippari
+			parts.append(k.call("sprint", "spurtti"))
 		parts.append(k.call("brake", "jarru"))
-		parts.append(k.call("bell", "kello"))
+		parts.append(k.call("bell", "piippari" if oma_mopo.riding else "kello"))
 	elif player == walker_out and outside:
 		parts.append(k.call("sprint", "juoksu"))
 	parts.append(k.call("eat", "syö"))
@@ -13711,11 +14072,14 @@ func _update_hud() -> void:
 		lines.append("⚠ Kotijemma vaarassa (I)")
 	_stamina_box.visible = state in ["to_shop", "to_home"]  # juoksu ja pyörän spurtti kuluttavat samaa kuntoa
 	if _stamina_box.visible:
-		var akku: bool = ebike.built()
+		var akku: bool = ebike.built() or oma_mopo.riding
 		_akku_label.visible = akku
 		_akku_bar.visible = akku
 		_stamina_box.offset_top = -16 - 210 - (88 if akku else 44)
-		if akku:
+		if oma_mopo.riding:  # sama palkki mopon bensalle (#155)
+			_akku_bar.value = oma_mopo.fuel * 100.0
+			_akku_label.text = "Bensa %d %%%s" % [roundi(oma_mopo.fuel * 100.0), "  ⚠ tyhjä, taluta" if oma_mopo.fuel <= 0.0 else ""]
+		elif akku:
 			_akku_bar.value = ebike.battery * 100.0
 			var warn := ""
 			if ebike.shorted:
@@ -13813,6 +14177,11 @@ func inventory_items() -> Array:
 	if not ebike.built():
 		for k in ebike.parts:
 			add.call("sp_" + k, EBike.PARTS[k].name, 1, "Sähköpyörän osa · kasaus autotallin työpöydällä")
+	for k in oma_mopo.parts:
+		if not (oma_mopo.valo_on if k == "valo" else oma_mopo.assembled):
+			add.call("mp_" + k, OmaMopo.PARTS[k].name, 1, "Oman mopon osa · asennus autotallissa")
+	if oma_mopo.kanisteri:
+		add.call("mp_kanisteri", "Bensakanisteri", 1, "Tallissa. Mopon tankkiin (kaksitahtiöljy sekaan silmämääräisesti).")
 	for k in EBike.SUPPLIES:
 		add.call("sp_" + k, EBike.SUPPLIES[k], ebike.supplies[k], "Sähköpyörän kiinnitykseen (%d liitosta)" % ebike.supplies[k])
 	if tokola.key:
@@ -13925,7 +14294,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list() + ebike.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks()
+	info.tasks = story.list() + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks()
 	info.lines.append("Päiväkirja (%s): tarina, tehtävät ja onnelliset loput" % Settings.action_key("journal"))
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
@@ -17937,6 +18306,211 @@ func _maybe_screenshot() -> void:
 			await frames.call(5)
 			print("JU katse paikkaan 4: kamerassa %s, Juntti %.1f m paikasta" % [cam2.is_position_in_frustum(at2 + Vector3(0, 1, 0)),
 				Vector2(juntti.global_position.x - at2.x, juntti.global_position.z - at2.z).length()])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"mopo":
+			# Oma mopo (#155): Sepon luottamus (kieltäytyminen, Kekkosen merkki), osto, pressu pois, osat Huhtalalta,
+			# Simolta, Aarolta ja Sepolta, kokoaminen, kaasari, bensakanisteri ja potkukäynnistys tallissa (kuvat), ajo
+			# ulos mopona (nopeus, bensa, tyhjä tankki = taluttaminen), tankkaus SEO:lla, katsastus (hylätty, sitten
+			# hyväksytty rajoittimella), takaisin talliin ja tallennus.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			quests = Quests.new()
+			oma_mopo = OmaMopo.new()
+			_seppo_day = {}
+			_kekkonen = 0
+			day = 2  # tiistai: Seppo auki
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var at := func(pos: Vector3) -> void:
+				walker_out.global_position = pos + Vector3(0, 0.3, 0)
+				await frames.call(10)
+			var oc := Camera3D.new()
+			add_child(oc)
+			var view := func(name: String, from: Vector3, to: Vector3) -> void:
+				oc.look_at_from_position(from, to)
+				oc.current = true
+				await frames.call(30)
+				await snap.call(name)
+				oc.current = false
+				player.activate_camera()
+			var opts := func(who: String) -> Array:
+				return _talk_options(who).map(func(o): return "%s%s" % [o.id, "" if o.enabled else "(x)"])
+			var talk := func(who: String, ids: Array) -> void:
+				_talk_open(who, null)
+				_talk_box._pages.clear()
+				for id in ids:
+					_talk_choose(id)
+				print("MO %s %s: '%s' [%s]" % [who, ids, _talk_box._line, _talk_box._info])
+				_talk_box.close()
+			money = 200.0
+			beers = 1
+			clock_min = 12 * 60
+			# Seppo: ensin kieltäytyy, Kekkosen merkki liikuttaa, sitten kaupat.
+			var tp: Vector3 = world.seppo_tarp
+			await at.call(tp + Vector3(1.0, 0, 1.0))
+			print("MO pressu: '%s'" % _hint.text)
+			await view.call("_pressu.png", tp + Vector3(4, 2.5, 4), tp + Vector3(0, 0.5, 0))
+			await talk.call("seppo", ["mopo_kysy"])
+			print("MO seppo ennen merkkiä: luottamus %d, %s" % [oma_mopo.trust, opts.call("seppo")])
+			_kekkonen = 1
+			await talk.call("seppo", ["mopo_kekkonen", "mopo_kysy"])
+			print("MO merkin jälkeen: kekkonen %d, luottamus %d, hinta %s, %s" % [_kekkonen, oma_mopo.trust, _eur(_mopo_price()), opts.call("seppo")])
+			var m0 := money
+			await talk.call("seppo", ["mopo_osta", "mopo_satula"])
+			print("MO ostettu %s (%s €), pressu näkyy %s, osat %s" % [oma_mopo.owned, _eur(m0 - money), world.seppo_tarp_node.visible, oma_mopo.parts.keys()])
+			await at.call(tp + Vector3(1.0, 0, 1.0))
+			print("MO pressun paikalla: '%s'" % _hint.text)
+			# Osat kylältä.
+			print("MO huhtala %s, simo %s, aaro %s" % [opts.call("huhtala"), opts.call("simo"), opts.call("aaro")])
+			await talk.call("huhtala", ["mopo_ketju"])
+			await talk.call("simo", ["mopo_sytytys"])
+			await talk.call("aaro", ["mopo_valo"])
+			print("MO osat %s, kaljoja %d, tehtävät %s" % [oma_mopo.parts.keys(), beers, oma_mopo.tasks()])
+			# Talli: romu, kokoaminen, kaasari, bensa ja potkukäynnistys.
+			bike.global_position = world.garage_door + world.garage_out * 2.5 + Vector3(0, 0.4, 0)
+			_store_bike(true)
+			await at.call(world.garage_door)
+			_enter_garage()
+			garage_int.walker.position = GarageInterior.SPOTS.mopo[0]
+			await frames.call(10)
+			print("MO tallissa: mopo näkyy %s, hint '%s'" % [garage_int.mopo_in, _hint.text])
+			await snap.call("_talli_romu.png")
+			await press.call("interact")
+			print("MO koottu %s, valo %s, kello %d, hint '%s'" % [oma_mopo.assembled, oma_mopo.valo_on, clock_min, garage_int.hint if _hint.text == "" else _hint.text])
+			await frames.call(3)
+			print("MO hint '%s'" % _hint.text)
+			await press.call("interact")
+			var cg: Node = get_children().filter(func(c): return c is CarbGame).front()
+			print("MO kaasari auki %s" % [cg != null])
+			if cg != null:
+				cg._finish(true)
+			await frames.call(3)
+			print("MO kaasari ok %s, hint '%s'" % [oma_mopo.carb_ok, _hint.text])
+			await press.call("interact")
+			print("MO ilman bensaa: '%s'" % _msg.text)
+			_talk_who = "seo"
+			print("MO seo %s" % [opts.call("seo")])
+			await talk.call("seo", ["mopo_kanisteri"])
+			await frames.call(3)
+			await press.call("interact")
+			print("MO tankattu kanisterista: bensa %.2f, hint '%s'" % [oma_mopo.fuel, _hint.text])
+			await press.call("interact")
+			var kg: Node = get_children().filter(func(c): return c is MopoKickGame).front()
+			print("MO potkupeli auki %s" % [kg != null])
+			if kg != null:
+				kg._kick(0.2)
+				kg._kick(0.97)
+				kg._choke = true
+				kg._kick(0.7)
+				kg._kicks = 4
+				kg._kick(0.5)
+				print("MO potkut %d, köhäisyt %d" % [kg._kicks, kg._coughs])
+				Input.action_press("interact")  # lataus kuvaan: vaihe ~0.66 = voima ~0.75
+				kg._phase = 0.64
+				await get_tree().process_frame
+				await snap.call("_potku.png")
+				kg._holding = false  # ei potkua irti päästettäessä
+				Input.action_release("interact")
+				await get_tree().process_frame
+				kg._kick(0.74)  # toinen köhäisy
+				print("MO köhäisyt %d" % kg._coughs)
+				kg._choke = false
+				kg._kick(0.75)  # käy
+				await get_tree().create_timer(1.0).timeout
+				await snap.call("_potku_kay.png")
+				await get_tree().create_timer(3.0).timeout
+			print("MO käy %s, peli ohi %s, viesti '%s'" % [oma_mopo.running, not is_instance_valid(kg), _msg.text])
+			await frames.call(10)
+			await snap.call("_talli_valmis.png")
+			garage_int.walker.position = GarageInterior.SPOTS.rajoitin[0]
+			for i in 3:  # hidas kone: fysiikkaruudut voivat mennä yhden piirtoruudun sisällä
+				await get_tree().process_frame
+			print("MO rajoitin: '%s'" % _hint.text)
+			await press.call("interact")
+			print("MO rajoitin asennettu %s, max %.1f" % [oma_mopo.rajoitin, oma_mopo.max_speed()])
+			await press.call("interact")
+			garage_int.walker.position = GarageInterior.SPOTS.mopo[0]
+			for i in 3:
+				await get_tree().process_frame
+			print("MO valmis: '%s'" % _hint.text)
+			await press.call("interact")
+			await frames.call(10)
+			print("MO ulos: tila %s, mopon selässä %s, mopotila %s, ajaa %s, näppäimet '%s'" % [state, player == bike, bike.mopo,
+				oma_mopo.riding, _help_text()])
+			# Ajo: kaasu pohjassa tieverkon pisimmällä suoralla.
+			var best := [0.0, Vector3.ZERO, Vector3.ZERO]
+			for i in world.graph_nodes.size():
+				for nb in world.graph_adj[i]:
+					var j: int = nb if nb is int else nb[0]
+					var d: float = world.graph_nodes[i].distance_to(world.graph_nodes[j])
+					if d > best[0]:
+						best = [d, world.graph_nodes[i], world.graph_nodes[j]]
+			bike.global_position = best[1] + Vector3(0, 0.5, 0)
+			bike.look_at(Vector3(best[2].x, bike.global_position.y, best[2].z), Vector3.UP)
+			bike.speed = 0.0
+			await frames.call(10)
+			print("MO suora %.0f m" % best[0])
+			var start := bike.global_position
+			Input.action_press("forward")
+			await get_tree().create_timer(5.0).timeout
+			await snap.call("_mopo_ajo.png")
+			print("MO ajo: nopeus %.1f m/s (max %.1f, pyörä %.1f), matka %.0f m, bensa %.3f" % [bike.speed, bike.mopo_max, bike.MAX_SPEED,
+				bike.global_position.distance_to(start), oma_mopo.fuel])
+			Input.action_release("forward")
+			bike.speed = 0.0
+			bike.velocity = Vector3.ZERO
+			await frames.call(10)
+			var bp: Vector3 = bike.global_position
+			var fw: Vector3 = -bike.global_transform.basis.z
+			await view.call("_mopo_sivu.png", bp + bike.global_transform.basis.x * 3.5 + Vector3(0, 1.4, 0) + fw * 0.5, bp + Vector3(0, 0.7, 0))
+			oma_mopo.fuel = 0.0001
+			Input.action_press("forward")
+			await get_tree().create_timer(3.0).timeout
+			print("MO tyhjä tankki: kuiva %s, nopeus %.1f, viesti '%s', HUD '%s'" % [bike.mopo_dry, bike.speed, _msg.text, _akku_label.text])
+			Input.action_release("forward")
+			# SEO: tankkaus mopon kanssa.
+			bike.global_position = world.seo_door + Vector3(4, 0.5, 4)
+			await frames.call(10)
+			print("MO seo mopolla %s" % [opts.call("seo")])
+			await talk.call("seo", ["mopo_tankkaa"])
+			print("MO tankattu: bensa %.2f, kuiva %s" % [oma_mopo.fuel, bike.mopo_dry])
+			# Katsastus: rajoitin puuttuu, sitten hyväksytty.
+			bike.global_position = world.katsastus_door + Vector3(3, 0.5, 3)
+			await frames.call(10)
+			print("MO katsastaja %s" % [opts.call("katsastaja")])
+			await talk.call("katsastaja", ["mopo_katsasta"])
+			oma_mopo.rajoitin = true
+			await frames.call(5)
+			await talk.call("katsastaja", ["mopo_katsasta"])
+			print("MO katsastettu %s, max %.1f" % [oma_mopo.katsastettu, oma_mopo.max_speed()])
+			# Takaisin talliin: pyöräsolmu palaa pyöräksi.
+			bike.global_position = world.garage_door + world.garage_out * 0.5 + Vector3(0, 0.4, 0)
+			bike.speed = 0.0
+			await frames.call(10)
+			print("MO ovella: '%s'" % _hint.text)
+			await press.call("interact")
+			print("MO talliin: tila %s, ajaa %s, mopotila %s, tallissa %s, mopo tallissa %s" % [state, oma_mopo.riding, bike.mopo,
+				bike_in_garage, garage_int.mopo_in])
+			var cfg := ConfigFile.new()
+			oma_mopo.save_to(cfg)
+			var back: RefCounted = OmaMopo.new()
+			back.load_from(cfg)
+			print("MO tallennus: omistaa %s, käy %s, osat %s, katsastettu %s, luottamus %d" % [back.owned, back.running, back.parts.keys(),
+				back.katsastettu, back.trust])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"korjaamot":
