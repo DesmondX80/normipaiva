@@ -2424,3 +2424,107 @@ func _build_wine_party(g: Node3D) -> void:
 	_face(_party.sinikka, _party.hero.position)
 	_face(_party.pekka, _party.arto.position)
 	_face(_party.arto, _party.pekka.position)
+
+
+# --- Kesäillan valssi: Päivi näkee tanssin telkkarista ------------------------------------------------
+
+const TV_ROOM := Vector3(7000, 0, -7000)  # oma tasku: Järvikujan olohuone illalla
+const TV_LINES := ["Mitäs tänään tulee... Kesäillan valssi. Suora lähetys Oulujärven lavalta.",
+	"Kato nyt noita... hetkinen. Onks toi... ei voi olla.", "SE ON SE! Mitä PERKELETTÄ?! Mun mies! Telkkarissa! LAVALLA!",
+	"Ja kenen kanssa se tanssii?! Kuka toi blondi on?!", "Voi vittu, koko Suomi näkee tämän! Äitikin kattoo Kesäillan valssia!",
+	"Pekan kanssa muka kyyhkyjahdissa. Odota vaan, kun tuut kotiin..."]
+
+
+## Päivi sohvalla katsoo TV:tä: ruudulla TV-kameran kuva pelaajan tanssista (shot), lähetyksen tekstit. Päivi tunnistaa
+## miehensä, nousee ylös ja kiroilee. Lopuksi otsikko kuten muissa välikuvissa.
+func paivi_tv(shot: Texture2D, done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.5)
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var o := TV_ROOM
+	# Olohuone: lattia, seinät, matto, sohva, sohvapöytä ja TV-taso, lamppu ja verhot.
+	B.mesh(_props, B.boxm(Vector3(8, 0.1, 7)), o + Vector3(0, -0.05, 0), Color(0.55, 0.42, 0.3))
+	B.mesh(_props, B.boxm(Vector3(8, 2.7, 0.1)), o + Vector3(0, 1.35, -3.5), Color(0.85, 0.82, 0.72))
+	B.mesh(_props, B.boxm(Vector3(0.1, 2.7, 7)), o + Vector3(-4, 1.35, 0), Color(0.82, 0.8, 0.7))
+	B.mesh(_props, B.boxm(Vector3(0.1, 2.7, 7)), o + Vector3(4, 1.35, 0), Color(0.82, 0.8, 0.7))
+	B.mesh(_props, B.boxm(Vector3(8, 0.1, 7)), o + Vector3(0, 2.75, 0), Color(0.92, 0.9, 0.85))  # katto
+	B.mesh(_props, B.boxm(Vector3(8, 2.7, 0.1)), o + Vector3(0, 1.35, 3.5), Color(0.85, 0.82, 0.72))  # takaseinä
+	B.mesh(_props, B.boxm(Vector3(1.6, 1.1, 0.05)), o + Vector3(-1.8, 1.6, 3.43), Color(0.1, 0.12, 0.2))  # ikkuna (ilta)
+	B.mesh(_props, B.boxm(Vector3(0.6, 1.5, 0.05)), o + Vector3(-2.8, 1.5, 3.4), Color(0.7, 0.55, 0.3))  # verho
+	B.mesh(_props, B.boxm(Vector3(0.9, 0.6, 0.05)), o + Vector3(1.6, 1.7, 3.43), Color(0.75, 0.6, 0.35))  # hääkuva seinällä
+	B.mesh(_props, B.boxm(Vector3(3.0, 0.02, 2.2)), o + Vector3(0, 0.01, -0.4), Color(0.6, 0.15, 0.15))
+	var sofa := Color(0.35, 0.4, 0.5)
+	B.mesh(_props, B.boxm(Vector3(2.4, 0.45, 0.9)), o + Vector3(0, 0.23, 1.6), sofa)
+	B.mesh(_props, B.boxm(Vector3(2.4, 0.6, 0.25)), o + Vector3(0, 0.65, 2.0), sofa)
+	for sx in [-1.2, 1.2]:
+		B.mesh(_props, B.boxm(Vector3(0.22, 0.6, 0.9)), o + Vector3(sx, 0.35, 1.6), sofa)
+	B.mesh(_props, B.boxm(Vector3(1.2, 0.4, 0.6)), o + Vector3(0, 0.2, 0.2), Color(0.45, 0.3, 0.2))
+	B.mesh(_props, B.cyl(0.05, 0.05, 0.12, 10), o + Vector3(0.3, 0.46, 0.2), Color(0.9, 0.9, 0.9))  # kahvikuppi
+	B.mesh(_props, B.boxm(Vector3(1.8, 0.5, 0.5)), o + Vector3(0, 0.25, -3.0), Color(0.3, 0.2, 0.12))  # TV-taso
+	var tv := B.mesh(_props, B.boxm(Vector3(1.3, 0.85, 0.12)), o + Vector3(0, 0.95, -3.0), Color(0.08, 0.08, 0.09))
+	var screen := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2(1.18, 0.74)
+	screen.mesh = quad
+	var sm := StandardMaterial3D.new()
+	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sm.albedo_texture = shot
+	if shot == null:
+		sm.albedo_color = Color(0.2, 0.3, 0.4)
+	screen.material_override = sm
+	screen.position = tv.position + Vector3(0, 0, 0.065)
+	_props.add_child(screen)
+	B.label(_props, "KESÄILLAN VALSSI", tv.position + Vector3(-0.3, 0.29, 0.075), 22, Color(1, 1, 0.7)).pixel_size = 0.004
+	B.label(_props, "● SUORA · OULUJÄRVEN LAVA", tv.position + Vector3(0.25, -0.3, 0.075), 16, Color(1, 0.4, 0.4)).pixel_size = 0.004
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(0.6, 0.75, 1.0)
+	glow.light_energy = 1.4
+	glow.omni_range = 5.0
+	glow.position = o + Vector3(0, 1.0, -2.4)
+	_props.add_child(glow)
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Color(1.0, 0.8, 0.55)
+	lamp.light_energy = 0.9
+	lamp.omni_range = 7.0
+	lamp.position = o + Vector3(-3.0, 2.0, 1.5)
+	_props.add_child(lamp)
+	var paivi := Looks.make(_props, Looks.PAIVI)
+	paivi.global_position = o + Vector3(0.2, 0.12, 1.55)
+	paivi.rotation.y = 0.0  # kohti TV:tä (-Z)
+	paivi.play("Sitting_Idle", 0.0)
+	var bubble := B.bubble(_props, o + Vector3(0.2, 1.75, 1.55), Color.WHITE, 1.0, false)
+	_cam.current = true
+	# 1) Olan yli: telkkari ja lähetys.
+	_cam.global_position = o + Vector3(0.9, 1.35, 2.6)
+	_cam.look_at(o + Vector3(0, 0.95, -3.0), Vector3.UP)
+	env.adjustment_saturation = 1.12
+	_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_sub.text = "Samaan aikaan Järvikujalla..."
+	await _fade_to(0.0, 0.6)
+	bubble.text = "Päivi: " + TV_LINES[0]
+	await _wait(2.4)
+	# Zoom ruutuun: kuva lavalta.
+	var tw := _tween()
+	tw.tween_property(_cam, "global_position", o + Vector3(0.0, 1.0, -1.7), 2.2).set_trans(Tween.TRANS_SINE)
+	_sub.text = ""
+	bubble.text = "Päivi: " + TV_LINES[1]
+	await _wait(2.6)
+	# 2) Päivin kasvot: nousee sohvalta.
+	_cam.global_position = o + Vector3(-0.9, 1.6, -1.4)
+	_cam.look_at(o + Vector3(0.2, 1.55, 1.05), Vector3.UP)
+	paivi.play("Idle_Talking", 0.2)
+	paivi.global_position = o + Vector3(0.2, 0, 1.05)
+	Sfx.play("alert", -4.0, 0.8)
+	for line in TV_LINES.slice(2, 5):
+		bubble.position = paivi.global_position + Vector3(0, 1.9, 0)
+		bubble.text = "Päivi: " + line
+		await _wait(2.3)
+	_band.visible = true
+	_title.add_theme_color_override("font_color", Color(0.95, 0.3, 0.3))
+	_title.text = "KESÄILLAN VALSSI"
+	_sub.text = "Koko Suomi näki tanssisi. Päivikin."
+	bubble.text = "Päivi: " + TV_LINES[5]
+	await _wait(2.8)
+	await _end(done)

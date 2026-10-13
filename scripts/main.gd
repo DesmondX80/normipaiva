@@ -407,6 +407,21 @@ const HOP_NAP := 60.0  # nokoset sohvalla
 ## Tappelun häviö ei päätä päivää: tyrmäys vie aikaa, kipu, moraali ja maine kärsivät.
 const KO_MINUTES := 60.0
 var clock_min := DAY_START
+## Aukioloajat (#85): paikka -> [aukeaa, sulkeutuu] minuutteina vuorokauden alusta (loppu ennen alkua = yli
+## puolenyön). Tarkistus ovella ja mopomatkan kohteessa, taksi varoittaa, ja sulkemisaikaan sisällä kehotetaan
+## lähtemään: baareista ja lavalta ohjataan ulos CLOSE_GRACE minuutin päästä, kaupassa kauppias vain hoputtaa.
+## Pankkiautomaatti ja Hotelli Siitarin vastaanotto ovat aina auki.
+const OPEN_HOURS := {
+	"kauppa": Vector2(7 * 60, 21 * 60),   # K-Market (Saloinen) ja K-Market Tervaportti (Vaala)
+	"alko": Vector2(9 * 60, 18 * 60),     # Alkon hylly Tervaportissa
+	"siitari": Vector2(11 * 60, 2 * 60),  # Hotelli-Ravintola Siitarin baari
+	"raahe": Vector2(14 * 60, 2 * 60),    # Kapteenin Kulma ja Kellari
+	"lava": Vector2(20 * 60, 1 * 60),     # Oulujärven lavan tanssit
+}
+const OPEN_NAMES := {"kauppa": "K-Market", "alko": "Alko", "siitari": "Siitari", "raahe": "Kapteenin Kulma", "lava": "Lavatanssit"}
+const CLOSE_GRACE := 15.0
+var _closing_at := -1.0  # sulkemisvaroituksen kellonaika (sisällä), -1 = ei varoitettu
+var _closing_nag := 0.0
 ## Ilta ja yön raja (#86): klo 22 alkaen ilta (väsymys kasvaa), klo 2 sammutaan siihen missä ollaan. Kahvi
 ## (NIGHT_COFFEE min/kuppi) ja alkoholi (päivän humalan huippu, NIGHT_DRUNK min täydestä humalasta) siirtävät rajaa
 ## enintään NIGHT_EXTRA_MAX, eli klo 4 asti. Herätys klo 10 paikasta riippuen; humalasta krapula kuten ennenkin.
@@ -1212,6 +1227,7 @@ func _process(delta: float) -> void:
 			_hint.text = interior.hint
 			if interior.at_till and not interior.busy and not _talk_box.is_open():
 				_talk_hint("kauppias", null)
+			_closing_logic("kauppa", "Kauppias: \"Suljetaan! Ostokset kassalle ja ulos, olkaa hyvä.\"", Callable())
 		"in_asema":
 			if not _item_menu.is_open():
 				_hint.text = asema_int.hint
@@ -1232,6 +1248,12 @@ func _process(delta: float) -> void:
 				_paivi_call_t -= delta
 				if _paivi_call_t <= 0.0:
 					_paivi_calls()
+			siitari_int.bar_closed = not is_open("siitari")
+			if not siitari_int.in_hotel() and not siitari_int.busy:  # hotellin vastaanotto on aina auki
+				_closing_logic("siitari", "Baarimikko: \"Valomerkki! Viimeiset tilaukset, ja sitten ulos.\"",
+					func() -> void:
+						_show_message("Baarimikko saattoi ulos ja lukitsi Siitarin oven.", 3.0)
+						_on_siitari("lahde"))
 		"in_raahe":
 			if not _item_menu.is_open():
 				_hint.text = raahe_int.hint
@@ -1247,6 +1269,15 @@ func _process(delta: float) -> void:
 					_show_message("PÄIVI TULI BAARIIN ETSIMÄÄN SINUA! Pakoon: Kellariin portaita, ympäri pöytiä tai ulos taksiin.", 4.5)
 			tilat.add("humala", -0.002 * delta)
 			tilat.add("stressi", 0.004 * delta)
+			if not raahe_int.busy:
+				_closing_logic("raahe", "Baarimikko: \"Valomerkki! Juokaa loppuun, taksit odottaa.\"", func() -> void:
+					_show_message("Valot syttyi ja baarimikko ohjasi ulos taksiin.", 3.0)
+					_on_raahe_exited())
+		"lava":
+			if _lava_game != null:
+				_closing_logic("lava", "Bändi soittaa viimeisen valssin. Lava suljetaan!", func() -> void:
+					_show_message("Tanssit loppui. Valot syttyi, ja järkkärit ohjasi kaikki pihalle.", 3.0)
+					_lava_game._leave())
 		"in_home":
 			home_int.overrides = _put_away_hints()
 			_hint.text = home_int.hint
@@ -1534,6 +1565,10 @@ func _outside_logic() -> void:
 
 ## K-Marketin ovi: kauppaan milloin vain, kuten mihin tahansa hommaan, paitsi kalja kädessä (kauppias kieltää).
 func _shop_door_logic() -> void:
+	var shut := closed_text("kauppa")
+	if shut != "":
+		_hint.text = shut
+		return
 	if player == bike:
 		_hint.text = "[F] Nouse pyörän selästä ja kävele kauppaan"
 		return
@@ -8180,7 +8215,9 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("anna_", "Anna jotain", false, "ei mitään annettavaa, pallo pitää ensin löytää"))
 		"taksi":
 			chat = false
-			o.append(_opt("raahe", "Raahen baariin (%s €, meno-paluu)" % _eur(TAXI_FARE), money >= TAXI_FARE, "rahat ei riitä"))
+			var shut := closed_text("raahe", fposmod(clock_min + HOP_RAAHE, 1440.0))
+			o.append(_opt("raahe", "Raahen baariin (%s €, meno-paluu)" % _eur(TAXI_FARE), money >= TAXI_FARE and shut == "",
+				"baari on kiinni perillä, aukeaa klo %d" % int(OPEN_HOURS.raahe.x / 60.0) if shut != "" else "rahat ei riitä"))
 			o.append(_opt("paapeli", "Paapelin mökille (%s €, meno-paluu)" % _eur(TAXI_MOKKI_FARE), money >= TAXI_MOKKI_FARE,
 				"rahat ei riitä"))
 		"raahe", "siitari":
@@ -9938,7 +9975,9 @@ func _ensure_mopo_trip() -> void:
 		mopo_trip.door.connect(_on_vaala_door)
 		mopo_trip.lava.connect(_enter_lava)
 		mopo_trip.crashed.connect(_on_mopo_crashed)
-		mopo_trip.door_hidden = func(id: String) -> bool: return (id == "viski" and "viski" in viina_found) or \
+		mopo_trip.closed = func(id: String) -> String:
+			return closed_text({"kmarket": "kauppa", "siitari": "siitari", "lava": "lava"}[id]) if id in ["kmarket", "siitari", "lava"] else ""
+		mopo_trip.door_hidden = func(id: String) -> bool: return (id == "kokko" and not _juhannus()) or (id == "viski" and "viski" in viina_found) or \
 			(id == "katko" and asema_katkot.get("vaala", 0) != 1) or (id == "portti" and _lava_pass_now() != "")
 		_paper.mopo_trip = mopo_trip
 	mopo_trip.ensure_built()
@@ -9991,6 +10030,7 @@ func _vaala_logic() -> void:
 	if not mopo_trip.active:
 		return
 	_hint.text = mopo_trip.hint
+	mopo_trip.vaala.set_kokko(_juhannus(), _kokko_lit())
 	_pontikka_sell_logic()
 	_mopo_label.text = mopo_trip.status
 	var tg: Vector3 = mopo_trip.target_global()
@@ -10024,13 +10064,17 @@ func _mopo_mount_logic() -> void:
 	var vl: Node3D = mopo_trip.vaala
 	var lp: Vector3 = mopo_trip.to_local(walker_out.global_position)
 	var on_deck: bool = lp.y > vl.h(lp.x, lp.z) + 0.4  # laiturilla
-	if not on_deck and vl.h(lp.x, lp.z) < maxf(vl.water_level, vl.lake_level_at(lp.x, lp.z)) - 0.3:
+	var depth: float = maxf(vl.water_level, vl.lake_level_at(lp.x, lp.z)) - vl.h(lp.x, lp.z)
+	var wade: bool = vl.can_wade(lp.x, lp.z)
+	if not on_deck and depth > (vl.WADE_DEPTH if wade else 0.3):
 		walker_out.global_position = _mopo_dry
 		walker_out.velocity = Vector3.ZERO
 		if _hint.text == "":
-			_hint.text = "Vesi on kylmää. Ei uimaan."
+			_hint.text = "Liian syvää kahlata." if wade else "Vesi on kylmää. Ei uimaan."
 	else:
 		_mopo_dry = walker_out.global_position
+		if wade:
+			_pummi_wading(not on_deck and depth > 0.3)
 	var d := walker_out.global_position.distance_to(mp.global_position)
 	if d < 2.6:
 		if _hint.text == "":
@@ -11404,6 +11448,8 @@ func _on_vaala_door(id: String) -> void:
 			_talk_open("tyokkari", null)
 		"hotelli":
 			_enter_hotel()
+		"kokko":
+			_kokko_visit()
 		"bileet", "pihanuoret":
 			_talk_open("nuoret", null)
 		"portti":
@@ -11442,9 +11488,11 @@ func _enter_vaala_shop(id := "kmarket") -> void:
 	_mopo_label.visible = false
 	_compass.visible = false
 	interior.vaala = true
-	interior.alko = id == "kmarket"
+	interior.alko = id == "kmarket" and is_open("alko")
 	interior.money = money
 	interior.enter()
+	if id == "kmarket" and not interior.alko:
+		_queue_message(closed_text("alko").replace(".", ": hylly on lukossa ja ritilä edessä."), 3.0)
 	Sfx.play("door", -3.0)
 	tilat.first("kauppa_vaala", 0.2)
 	_show_message("K-Market Tervaportti, Vaala. Alkon hylly vasemmalla seinällä.", 3.0)
@@ -11523,6 +11571,15 @@ func _lava_start() -> void:
 	_lava_game.door_side = float(mopo_trip.vaala.data.lava.get("door_side", 1.0))
 	_lava_game.bar = _lava_bar
 	_lava_game.buddy = Mokki.SANTTU_LOOK if _santtu_riding else {}
+	_lava_game.juhannus = _juhannus()
+	_lava_game.tv = _juhannus() and _tv_day != day
+	if _lava_game.juhannus:
+		_lava_game.band = LavaGame.JUHANNUS_BAND
+	_tv_shot = null
+	_lava_game.tv_shot.connect(func(tex: Texture2D) -> void: _tv_shot = tex)
+	_lava_game.danced.connect(func(score: float, mode: String) -> void:
+		if _lava_game.tv and mode == "humppa" and score >= TV_SCORE and _tv_shot != null:
+			_tv_pending = _tv_shot)
 	mopo_trip.vaala.add_child(_lava_game)
 	_lava_game.position = mopo_trip.vaala.lava_center
 	_lava_game.finished.connect(_on_lava_finished)
@@ -11554,6 +11611,67 @@ func _pummi_lava() -> void:
 	_lava_pass = "pummi"
 	_lava_pass_day = day
 	_show_message("Kahlasit vyötäröä myöten aidan pään ympäri lavan pihalle! Leimaa ei ole: varo portsaria ja sen katsetta.", 4.5)
+
+
+## Juhannus (#58 idea 6) ja Kesäillan valssi (idea 7): juhannusaattona (perjantai) Oulujärven rannalla palaa kokko,
+## lavalla soittaa isompi orkesteri ja TV kuvaa tansseja. Humppa vähintään TV_SCORE -tasolla pääsee lähetykseen:
+## lavalta lähtiessä välikuva, jossa Päivi katsoo Kesäillan valssia kotona ja tunnistaa miehensä (cutscene.paivi_tv).
+const JUHANNUS_WD := 4
+const TV_SCORE := 0.5
+const KOKKO_AIKA := Vector2(21 * 60, 3 * 60)
+var _tv_shot: Texture2D = null
+var _tv_pending: Texture2D = null
+var _tv_day := -1
+var _tv_gossip := false
+var _kokko_day := -1
+
+
+func _juhannus() -> bool:
+	return _weekday() == JUHANNUS_WD
+
+
+func _kokko_lit() -> bool:
+	return _juhannus() and _between(clock_min, KOKKO_AIKA)
+
+
+## Kokolla: E katsoo juhannuskokkoa (kerran illassa moraali ja mielihyvä).
+func _kokko_visit() -> void:
+	if not _kokko_lit():
+		_show_message("Rannalla on juhannuskokon pino valmiina. Se sytytetään klo 21." if _juhannus() else "Rannalla on vanhan kokon hiiltynyt pohja.", 3.0)
+		return
+	if _kokko_day == day:
+		_show_message("Kokko roihuaa. Kipinät nousee kesäyön taivaalle ja joku laulaa juhannusvirttä väärillä sanoilla.", 3.0)
+		return
+	_kokko_day = day
+	tilat.add("moraali", 0.15)
+	tilat.add("stressi", 0.1)
+	mielihyva += 4.0
+	tilat.first("juhannuskokko", 0.4)
+	Sfx.play("win_small", -6.0)
+	_show_message("Juhannuskokko roihuaa Oulujärven rannalla! Lavalta kuuluu juhannustanssit, ja järvi on peilityyni. Hyvää juhannusta!", 4.5)
+
+
+## Pummilla kävellen: aidan vesipään ympäri kahlatessa loiskuu, ja kun kahlaaja nousee lavan pihalle ilman leimaa,
+## hän on pummilla sisällä (kuten E:llä rannasta).
+var _wade_splash := 0.0
+
+
+func _pummi_wading(in_water: bool) -> void:
+	if in_water:
+		_wade_splash -= get_process_delta_time()
+		if _wade_splash <= 0.0:
+			_wade_splash = 0.9
+			Sfx.play("water", -8.0, randf_range(0.9, 1.15), 0.8)
+		if _hint.text == "":
+			_hint.text = "Kahlaat aidan pään ympäri. Vesi on kylmää!"
+	var lp: Vector3 = mopo_trip.to_local(walker_out.global_position)
+	if _lava_pass_now() == "" and mopo_trip.vaala.in_lava_yard(lp):
+		tilat.first("pummi_lava", 0.3)
+		tilat.add("kipu", 0.05)
+		tilat.add("stressi", 0.05)
+		_lava_pass = "pummi"
+		_lava_pass_day = day
+		_show_message("Kahlasit vyötäröä myöten aidan pään ympäri lavan pihalle! Leimaa ei ole: varo portsaria ja sen katsetta.", 4.5)
 
 
 ## Lavan portti ja leima: lippu ostetaan portilla (portsari leimaa käden, portti auki koko päivän). Pummilla pihalle
@@ -11912,16 +12030,39 @@ func _lava_bar() -> Array:
 func _on_lava_finished(score: float) -> void:
 	_lava_game.queue_free()
 	_lava_game = null
-	tilat.add("moraali", 0.1 + score * 0.25)
-	tilat.add("stressi", 0.1 + score * 0.15)
-	mielihyva += 2.0 + score * 6.0
-	if score > 0.6:
-		_ending("lavatanssit")
+	if score >= 0.0:  # -1 = käytiin lavalla tanssimatta (vain baarissa)
+		tilat.add("moraali", 0.1 + score * 0.25)
+		tilat.add("stressi", 0.1 + score * 0.15)
+		mielihyva += 2.0 + score * 6.0
+		if score > 0.6:
+			_ending("lavatanssit")
+	var msg := "Lavatanssit Oulujärven lavalla! %s" % ("Ilta jää mieleen." if score > 0.6 else ("Varpaat muistavat illan." if score >= 0.0 else
+		"Tällä kertaa vain baaritiskillä."))
+	if _tv_pending != null:
+		# Kesäillan valssi: samaan aikaan Järvikujalla Päivi katsoo lähetystä.
+		var tex: Texture2D = _tv_pending
+		_tv_pending = null
+		_tv_day = day
+		_tv_gossip = true
+		_paivi_mad = true
+		maine += 5.0
+		tilat.add("stressi", -0.15)
+		tilat.first("kesaillan_valssi", 0.5)
+		state = "cutscene"
+		_hud.visible = false
+		cutscene.paivi_tv(tex, func() -> void:
+			_hud.visible = true
+			_lava_resume("Tanssisi meni suorana koko Suomeen. Puhelin värisee taskussa: viisi vastaamatonta puhelua Päiviltä. Maine +5."))
+		return
+	_lava_resume(msg)
+
+
+func _lava_resume(msg: String) -> void:
 	state = _vaala_state
 	_mopo_label.visible = true
 	_compass.visible = true
 	_mopo_resume()
-	_show_message("Lavatanssit Oulujärven lavalla! %s" % ("Ilta jää mieleen." if score > 0.6 else "Varpaat muistavat illan."), 3.0)
+	_show_message(msg, 3.5)
 
 
 ## Kaupan sisätila uudeksi (kuten uutena päivänä): edellisen käynnin tila ei siirry seuraavaan käyntiin.
@@ -12847,6 +12988,12 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		_paivi_mad = true
 		tilat.add("stressi", -0.1)
 		bonus += "\n" + PAIVI_MORNING_SINIKKA.pick_random()
+	if _tv_gossip and not at_m:
+		_tv_gossip = false
+		tilat.add("stressi", -0.1)
+		bonus += "\nNäin sut telkkarissa. KESÄILLAN VALSSISSA. Kyyhkyjahdissa, vai? Me puhutaan tästä vielä."
+	if _juhannus():
+		_morning_info.append("Tänään on juhannusaatto! Illalla kokko Oulujärven rannalla ja juhannustanssit lavalla (TV kuvaa).")
 	if _santtu_gossip and not at_m:
 		_santtu_gossip = false
 		_paivi_mad = true
@@ -13831,6 +13978,42 @@ func _eur(v: float) -> String:
 ## Kellonaika tekstinä "14.30".
 func _clock_text() -> String:
 	return "%d.%02d" % [int(clock_min) / 60, int(clock_min) % 60]
+
+
+func is_open(place: String, at := -1.0) -> bool:
+	return _between(clock_min if at < 0.0 else at, OPEN_HOURS[place])
+
+
+## "K-Market on kiinni, aukeaa klo 7" (ja aukioloaika), tai "" jos auki.
+func closed_text(place: String, at := -1.0) -> String:
+	if is_open(place, at):
+		return ""
+	var span: Vector2 = OPEN_HOURS[place]
+	var verb := "alkaa" if place == "lava" else "aukeaa"
+	return "%s on kiinni: %s klo %d (auki %d–%02d)." % [OPEN_NAMES[place], verb, int(span.x / 60.0), int(span.x / 60.0),
+		int(span.y / 60.0)] if place != "lava" else "Lavatanssit alkaa klo %d (tanssit %d–%02d)." % [int(span.x / 60.0),
+		int(span.x / 60.0), int(span.y / 60.0)]
+
+
+## Sisällä sulkemisaikaan: kehotus lähteä, ja baareista ja lavalta ulos CLOSE_GRACE minuutin kuluttua.
+func _closing_logic(place: String, say: String, out: Callable) -> void:
+	if is_open(place):
+		_closing_at = -1.0
+		return
+	if _closing_at < 0.0:
+		_closing_at = clock_min
+		_closing_nag = 0.0
+		Sfx.play("alert", -10.0, 0.9)
+		_show_message(say, 4.0)
+		return
+	var past := fposmod(clock_min - _closing_at, 1440.0)
+	_closing_nag += get_process_delta_time()
+	if out.is_valid() and past >= CLOSE_GRACE and not _talk_box.is_open():
+		_closing_at = -1.0
+		out.call()
+	elif _closing_nag > 25.0:
+		_closing_nag = 0.0
+		_show_message(say, 3.0)
 
 
 func _between(t: float, span: Vector2) -> bool:
@@ -15848,6 +16031,7 @@ func _maybe_screenshot() -> void:
 			get_tree().quit()
 		"mokkikauppaauto":
 			# Kauppa-auto mökillä: tulee Kaisuantietä pihatien päähän, tööttää, luukulla ostokset, lähtee pois.
+			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
 			_toggle_mount()
 			_note.visible = false
 			money = 40.0
@@ -15890,9 +16074,13 @@ func _maybe_screenshot() -> void:
 					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lahtee.png"))
 			print("KAUPPA-AUTO lähti: tila '%s' %.0f s, päivän käynti %d / päivä %d" % [ka.state, (Time.get_ticks_msec() - t0) / 1000.0,
 				_kauppa_auto_day, day])
+			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			_sf.store_buffer(_save_bak)
+			_sf.close()
 			get_tree().quit()
 		"mokkilama":
 			# Lama Vaalassa: työvoimatoimiston jono ja laput, jonotus, automaatin oikut.
+			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
 			_start_mopo()
 			var vl: Node3D = mopo_trip.vaala
 			for car in mopo_trip._cars:
@@ -15947,9 +16135,13 @@ func _maybe_screenshot() -> void:
 					_atm_use()
 					got["uusi yritys " + str(money - m1)] = got.get("uusi yritys " + str(money - m1), 0) + 1
 			print("LAMA automaatti 40 päivää: %s" % got)
+			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			_sf.store_buffer(_save_bak)
+			_sf.close()
 			get_tree().quit()
 		"mokkihotelli":
 			# Hotelli Siitari: hotellisiiven ovi, vastaanotto, huone 12 (Dingo), väliovet baariin; keskustan puut ylhäältä.
+			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
 			_start_mopo()
 			var vl: Node3D = mopo_trip.vaala
 			for car in mopo_trip._cars:
@@ -16008,6 +16200,196 @@ func _maybe_screenshot() -> void:
 			for i in 5:
 				await get_tree().process_frame
 			print("HOTELLI baariin: hotellissa %s, paikka %s" % [siitari_int.in_hotel(), siitari_int.walker.position])
+			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			_sf.store_buffer(_save_bak)
+			_sf.close()
+			get_tree().quit()
+		"mokkikahlaus":
+			# Pummilla kävellen: rannasta aidan vesipään ympäri lavan pihalle (kahlausalue, ei teleporttia).
+			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_note.visible = false
+			_mopo_dismount()
+			var po: Vector3 = vl.pummi_out
+			var pn: Vector3 = vl.pummi_in
+			var tip := Vector3(vl._wade_c.x, 0, vl._wade_c.y)
+			var mid := (po + pn) / 2.0
+			var away := Vector3(tip.x - mid.x, 0, tip.z - mid.z).normalized()
+			var nrm := Vector3(po.x - pn.x, 0, po.z - pn.z).normalized()
+			var way: Array[Vector3] = [po, tip + nrm * 2.0 + away * 1.0, tip + away * 2.0, tip - nrm * 2.0 + away * 1.0, pn]
+			walker_out.global_position = mopo_trip.to_global(po + Vector3(0, 0.5, 0))
+			for i in 5:
+				await get_tree().physics_frame
+			var blocked := 0
+			var deepest := 0.0
+			for k in way.size() - 1:
+				var a2: Vector3 = way[k]
+				var b2: Vector3 = way[k + 1]
+				var n := int(a2.distance_to(b2) / 0.4) + 1
+				for j in n:
+					var q := a2.lerp(b2, float(j + 1) / n)
+					var want := mopo_trip.to_global(Vector3(q.x, vl.h(q.x, q.z) + 0.5, q.z))
+					if walker_out.test_move(walker_out.global_transform, want - walker_out.global_position):
+						blocked += 1
+					walker_out.global_position = want
+					await get_tree().physics_frame
+					await get_tree().process_frame
+					deepest = maxf(deepest, vl.water_level - vl.h(q.x, q.z))
+					var gp := walker_out.global_position
+					if Vector2(gp.x - want.x, gp.z - want.z).length() > 0.3:
+						print("KAHLAUS palautettiin kuivalle kohdassa %s (syvyys %.2f m), vihje '%s'" % [q, vl.water_level - vl.h(q.x, q.z), _hint.text])
+						blocked += 100
+						break
+				if blocked >= 100:
+					break
+				if k == 1:
+					print("KAHLAUS kärjessä: vihje '%s'" % _hint.text)
+			print("KAHLAUS: syvin %.2f m, törmäyksiä %d, leima '%s', pihalla %s, viesti '%s'" % [deepest, blocked, _lava_pass_now(),
+				vl.in_lava_yard(mopo_trip.to_local(walker_out.global_position)), _msg.text])
+			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			_sf.store_buffer(_save_bak)
+			_sf.close()
+			get_tree().quit()
+		"mokkijuhannus":
+			# Juhannusaatto: kokko rannalla, juhannustanssit isommalla bändillä, TV kuvaa, Päivi näkee lähetyksen.
+			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			day = 5 + 7 * 0  # perjantai
+			print("JUHANNUS viikonpäivä %s, juhannus %s" % [WEEKDAYS[_weekday()], _juhannus()])
+			clock_min = 21.5 * 60.0
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_note.visible = false
+			money = 100.0
+			var snap := func(name: String) -> void:
+				for i in 25:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_mopo_dismount()
+			var kd: Array = vl.doors.filter(func(d): return d.id == "kokko")
+			print("JUHANNUS kokko %s, ovi %s" % [vl.kokko_pos, kd.size()])
+			if kd.size() > 0:
+				walker_out.global_position = mopo_trip.to_global(kd[0].pos + Vector3(0, 0.5, 0))
+				for i in 10:
+					await get_tree().process_frame
+				print("JUHANNUS kokolla vihje '%s'" % mopo_trip.hint)
+				var kc := Camera3D.new()
+				add_child(kc)
+				kc.look_at_from_position(mopo_trip.to_global(vl.kokko_pos + kd[0].out * 11.0 + Vector3(0, 3.5, 0)), mopo_trip.to_global(vl.kokko_pos + Vector3(0, 2, 0)))
+				kc.current = true
+				await snap.call("_kokko.png")
+				kc.current = false
+				_on_vaala_door("kokko")
+				print("JUHANNUS kokko: '%s'" % _msg.text)
+			_enter_lava(true)
+			var lg: Node3D = _lava_game
+			print("JUHANNUS lava: juhannus %s, tv %s, bändi '%s'" % [lg.juhannus, lg.tv, lg.band])
+			await snap.call("_lava.png")
+			lg._start_dance("humppa")
+			lg._t = LavaGame.SONG * 0.55
+			for i in 20:
+				await get_tree().process_frame
+			print("JUHANNUS TV-kuva otettu: %s" % (_tv_shot != null))
+			if _tv_shot != null:
+				_tv_shot.get_image().save_png(path.replace(".png", "_tvkuva.png"))
+			lg._hits = 30
+			lg._misses = 0
+			lg._t = LavaGame.SONG
+			for i in 5:
+				await get_tree().process_frame
+			print("JUHANNUS tanssi: vaihe %s, paras %.2f, lähetykseen %s" % [lg._phase, lg._best, _tv_pending != null])
+			lg._back_to_hall()
+			for i in 5:
+				await get_tree().process_frame
+			print("JUHANNUS takaisin saliin: vaihe %s, teksti '%s'" % [lg._phase, lg._info.text.get_slice("\n", 0)])
+			lg._order()
+			print("JUHANNUS baari: rahaa %.2f" % money)
+			lg._leave()
+			for i in 300:
+				await get_tree().process_frame
+				if i == 200:
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_paivi1.png"))
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_paivi2.png"))
+			var tc := Time.get_ticks_msec()
+			var shot3 := false
+			while cutscene.busy:
+				await get_tree().process_frame
+				if not shot3 and Time.get_ticks_msec() - tc > 6500:
+					shot3 = true
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_paivi3.png"))
+			print("JUHANNUS lähetyksen jälkeen: tila %s, maine %.0f, Päivi vihainen %s, viesti '%s'" % [state, maine, _paivi_mad, _msg.text])
+			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			_sf.store_buffer(_save_bak)
+			_sf.close()
+			get_tree().quit()
+		"mokkiaukiolot":
+			# Aukioloajat: tekstit, Saloisten kaupan ovi, taksi Raaheen, Vaalan ovet ja valomerkki Siitarissa.
+			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			for t in [6.5, 8.0, 12.0, 19.0, 21.5, 1.5]:
+				clock_min = t * 60.0
+				print("AUKI klo %.1f: kauppa %s alko %s siitari %s raahe %s lava %s | '%s'" % [t, is_open("kauppa"), is_open("alko"),
+					is_open("siitari"), is_open("raahe"), is_open("lava"), closed_text("kauppa")])
+			clock_min = 22.0 * 60.0
+			if player != walker_out:
+				_toggle_mount()
+			walker_out.global_position = shop_door + Vector3(0, 0.5, 0)
+			for i in 10:
+				await get_tree().process_frame
+			print("AUKI kaupan ovi klo 22: '%s'" % _hint.text)
+			clock_min = 12.0 * 60.0
+			print("AUKI taksi klo 12: %s" % str(_talk_options("taksi").filter(func(o): return o.id == "raahe").map(func(o): return [o.enabled, o.reason])))
+			clock_min = 15.0 * 60.0
+			print("AUKI taksi klo 15: %s" % str(_talk_options("taksi").filter(func(o): return o.id == "raahe").map(func(o): return [o.enabled, o.reason])))
+			clock_min = 9.5 * 60.0
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var mp: CharacterBody3D = mopo_trip.mopo
+			mp.position = vl.siitari_park + Vector3(0, 0.6, 0)
+			mp.speed = 0.0
+			for i in 10:
+				await get_tree().process_frame
+			print("AUKI Siitari klo 9.30: '%s'" % mopo_trip.hint)
+			mp.position = vl.lava_door + Vector3(0, 0.6, 0)
+			for i in 10:
+				await get_tree().process_frame
+			print("AUKI lava klo 9.30: '%s'" % mopo_trip.hint)
+			clock_min = 12.0 * 60.0
+			mp.position = vl.kmarket_door + Vector3(0, 0.6, 0)
+			for i in 10:
+				await get_tree().process_frame
+			print("AUKI Tervaportti klo 12: '%s'" % mopo_trip.hint)
+			mp.position = vl.siitari_park + Vector3(0, 0.6, 0)
+			for i in 10:
+				await get_tree().process_frame
+			print("AUKI Siitari klo 12: '%s'" % mopo_trip.hint)
+			_on_mopo_arrived()
+			clock_min = 1.95 * 60.0
+			for i in 60:
+				await get_tree().process_frame
+			clock_min = 2.05 * 60.0
+			for i in 5:
+				await get_tree().process_frame
+			print("AUKI Siitari klo 2.03: tila %s, viesti '%s'" % [state, _msg.text])
+			clock_min = 2.4 * 60.0
+			for i in 5:
+				await get_tree().process_frame
+			print("AUKI Siitari klo 2.24: tila %s, viesti '%s'" % [state, _msg.text])
+			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			_sf.store_buffer(_save_bak)
+			_sf.close()
 			get_tree().quit()
 		"mokkiratsia":
 			# Moporatsia: selvänä, rattijuopumus (0,7 ‰), ratsian ohitus ja törkeä rattijuopumus (iso sakko).
@@ -19986,7 +20368,7 @@ func _maybe_screenshot() -> void:
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
 			money = 40.0
 			mp.position = mopo_trip.vaala.lava_door + Vector3(0, 0.6, 0)
-			_enter_lava()
+			_enter_lava(true)  # lippu ostettu
 			for i in 30:
 				await get_tree().process_frame
 			_lava_game._cam.look_at_from_position(_lava_game.to_global(Vector3(-2.5, 2.2, 6.5)), _lava_game.to_global(Vector3(-2.5, 1.2, 2.4)))

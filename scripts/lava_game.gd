@@ -4,10 +4,14 @@ extends Node3D
 ## diskopuoli, jossa nuorempi porukka hyppii DJ:n ja peilipallon alla. Pelaaja hakee parin jommallakummalla puolella
 ## ja tanssii: A ja D vuorotellen tahdissa (sykkivä tahtimerkki; diskossa tahti on nopeampi). Osumat tahtiin pitävät
 ## tanssin kauniina, hutit ja räpellys horjuttavat. Baarista saa tuopin (bar, main.gd hoitaa rahat). Kappaleen
-## lopuksi finished(score 0..1); kutsuja antaa moraalit ja poistaa solmun. Solmu sijoitetaan lavan lattian keskelle
+## jälkeen danced(score, mode) ja takaisin saliin (uusi tanssi tai baaritiski); Q:lla lavalta ulos, jolloin
+## finished(illan paras tanssi 0..1, -1 = ei tanssittu); kutsuja antaa moraalit ja poistaa solmun. Solmu sijoitetaan lavan lattian keskelle
 ## (+z = etelään, lava 34 x 44 m, esiintymislava pohjoispäädyssä, ovi door_side-puolen kyljessä).
 
 signal finished(score: float)
+signal danced(score: float, mode: String)
+## TV-kuvaus (Kesäillan valssi): kesken tanssin TV-kamera ottaa kuvan parista (oma kamera, ei käyttöliittymää).
+signal tv_shot(tex: Texture2D)
 
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
@@ -20,6 +24,15 @@ const WINDOW := 0.16     # osuman sallittu poikkeama tahdista (s)
 const COUPLES := 7
 const YOUTH := 12
 const BAND := "OULUJÄRVEN HUMPPAVEIKOT"
+## Esiintyjä (main.gd voi vaihtaa: juhannuksena isompi bändi).
+var band := BAND
+const JUHANNUS_BAND := "VAALAN TÄHTIORKESTERI"
+## Juhannustanssit (main.gd): isompi bändi puhaltimineen ja taustalaulajineen, koivunoksat ja tupaten täysi lattia.
+var juhannus := false
+## TV-kuvaus: kameraryhmä tanssilattian laidalla, ja tanssista otetaan kuva lähetykseen (tv_shot).
+var tv := false
+var _tv_cam_pos := Vector3(7.5, 1.7, 7.0)
+var _tv_taken := false
 const SONGS := ["Humppa Oulujärven rannalla", "Letkajenkka", "Vaalan humppa", "Säkkijärven polkka humpaten",
 	"Kesäillan valssi"]
 const DISCO_SONGS := ["90-luvun eurodance-mix", "Teknohumppa (DJ-remix)", "Bilebiisi Oulusta", "Lavan disko-medley"]
@@ -45,6 +58,7 @@ var _hits := 0
 var _misses := 0
 var _last_press := -1.0
 var _song := ""
+var _best := -1.0  # illan paras tanssi
 
 var _cam: Camera3D
 var _prev_cam: Camera3D
@@ -79,9 +93,11 @@ func _ready() -> void:
 
 
 func _intro_text(extra := "") -> void:
-	_info.text = "%sLauantain tanssit: %s soittaa \"%s\".\nVäliseinän takana diskopuoli nuorisolle.\nTanssi: vuorottele %s ja %s tahtimerkin tahdissa.\n\n%s Hae pari tanssipuolelta\n%s Diskopuolelle\n%s Baarista tuoppi (6,50 €)" % [
-		extra, BAND.capitalize(), _song, Settings.action_key("left"), Settings.action_key("right"), Settings.cap("interact"),
-		Settings.cap("mount"), Settings.cap("eat")]
+	var head := "Juhannustanssit" if juhannus else "Lauantain tanssit"
+	_info.text = "%s%s: %s soittaa \"%s\".%s\nVäliseinän takana diskopuoli nuorisolle.\nTanssi: vuorottele %s ja %s tahtimerkin tahdissa.\n\n%s Hae pari tanssipuolelta\n%s Diskopuolelle\n%s Baaritiskiltä tuoppi (6,50 €)\n%s Lavalta ulos" % [
+		extra, head, band.capitalize(), _song, "\nTV kuvaa: Kesäillan valssi! Hyvä tanssi pääsee lähetykseen." if tv else "",
+		Settings.action_key("left"), Settings.action_key("right"), Settings.cap("interact"),
+		Settings.cap("mount"), Settings.cap("eat"), Settings.cap("bell")]
 
 
 ## Tanssipuolen baari, väliseinä ja diskopuolen DJ-koppi, peilipallo ja värivalot (lava itse: vaala.gd _build_lava).
@@ -89,7 +105,7 @@ func _build_props() -> void:
 	var dark := Color(0.12, 0.1, 0.12)
 	var wood := Color(0.42, 0.26, 0.16)
 	# Bändin banderolli lavan takaseinään.
-	B.label(self, BAND, Vector3(0, 3.55, -L / 2.0 + 0.75), 64, Color(1.0, 0.85, 0.3))
+	B.label(self, band, Vector3(0, 3.55, -L / 2.0 + 0.75), 64, Color(1.0, 0.85, 0.3))
 	# Baari: tiski vastapäätä ovea tanssipuolen keskivaiheilla, hyllyt pulloineen seinällä.
 	var bx := -door_side * (W / 2.0 - 1.6)
 	B.mesh(self, B.boxm(Vector3(0.8, 1.1, 8.0)), Vector3(bx, 0.55, -4.0), wood)
@@ -104,6 +120,17 @@ func _build_props() -> void:
 	for k in 4:
 		B.mesh(self, B.cyl(0.2, 0.2, 0.06, 12), Vector3(bx + door_side * 0.75, 0.75, -6.8 + k * 1.8), Color(0.6, 0.1, 0.1))
 		B.mesh(self, B.cyl(0.04, 0.04, 0.72, 6), Vector3(bx + door_side * 0.75, 0.36, -6.8 + k * 1.8), Color(0.6, 0.6, 0.62))
+	if juhannus:
+		# Koivunoksat esiintymislavan kulmiin ja oven pieliin, juhannusbanderolli.
+		for q in [Vector3(-6.5, 1.0, -L / 2.0 + 4.6), Vector3(6.5, 1.0, -L / 2.0 + 4.6), Vector3(door_side * (W / 2.0 - 0.8), 0.0, -1.5),
+				Vector3(door_side * (W / 2.0 - 0.8), 0.0, 1.5)]:
+			B.mesh(self, B.cyl(0.05, 0.08, 2.6, 6), q + Vector3(0, 1.3, 0), Color(0.92, 0.92, 0.88))
+			for k in 6:
+				B.mesh(self, B.sphere(0.45, 6), q + Vector3(sin(k * 1.7) * 0.3, 1.9 + k * 0.18, cos(k * 1.7) * 0.3),
+					Color(0.35, 0.6, 0.2).lightened(0.05 * k))
+		B.label(self, "HYVÄÄ JUHANNUSTA!", Vector3(0, 4.3, -L / 2.0 + 0.75), 56, Color(0.5, 1.0, 0.5))
+	if tv:
+		_build_tv_crew()
 	# Väliseinä, oviaukko keskellä ja neonkyltti.
 	for sx in [-1.0, 1.0]:
 		B.mesh(self, B.boxm(Vector3(W / 2.0 - 1.6, 3.0, 0.15)), Vector3(sx * (W / 4.0 + 0.8), 1.5, DISCO_Z), dark)
@@ -142,18 +169,82 @@ func _build_props() -> void:
 		_lights.append(li)
 
 
+## TV-ryhmä tanssilattian laidalla: kamera jalustalla, kuvaaja, äänimies puomimikin kanssa, valo ja kyltti.
+func _build_tv_crew() -> void:
+	var c := _tv_cam_pos
+	for k in 3:  # jalusta
+		var a := TAU * k / 3.0
+		B.mesh(self, B.cyl(0.02, 0.02, 1.4, 6), Vector3(c.x + cos(a) * 0.25, 0.65, c.z + sin(a) * 0.25), Color(0.15, 0.15, 0.15))
+	var cam := Node3D.new()
+	cam.position = c
+	add_child(cam)
+	B.mesh(cam, B.boxm(Vector3(0.3, 0.32, 0.7)), Vector3.ZERO, Color(0.12, 0.12, 0.13))
+	B.mesh(cam, B.cyl(0.1, 0.12, 0.3, 12), Vector3(0, 0, -0.45), Color(0.05, 0.05, 0.06)).rotation.x = PI / 2.0
+	B.mesh(cam, B.boxm(Vector3(0.05, 0.05, 0.05)), Vector3(0.1, 0.2, 0.25), Color(1, 0.1, 0.1))  # REC-valo
+	cam.look_at(to_global(Vector3(0, 1.2, 2.0)), Vector3.UP)
+	var looks := [{"shirt": Color(0.2, 0.2, 0.22), "pants": Color(0.3, 0.3, 0.35), "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.25, 0.2),
+		"height": 1.8}, {"shirt": Color(0.85, 0.85, 0.8), "pants": Color(0.2, 0.2, 0.25), "hair": "Hair_SimpleParted",
+		"hair_color": Color(0.5, 0.4, 0.3), "height": 1.76}]
+	var crew := Looks.make(self, looks[0])
+	crew.position = c + Vector3(0.6, -1.7, 0.6)
+	crew.look_at(to_global(Vector3(0, crew.position.y, 2.0)), Vector3.UP)
+	crew.play("Idle", 0.0)
+	var sound := Looks.make(self, looks[1])
+	sound.position = c + Vector3(-1.4, -1.7, -0.6)
+	sound.look_at(to_global(Vector3(0, sound.position.y, 2.0)), Vector3.UP)
+	sound.play("Idle", 0.0)
+	B.mesh(self, B.cyl(0.015, 0.015, 2.6, 6), c + Vector3(-2.0, 0.6, -1.2), Color(0.3, 0.3, 0.3)).rotation.z = 1.0  # puomi
+	B.mesh(self, B.cyl(0.03, 0.03, 2.6, 6), c + Vector3(1.6, -0.4, -1.0), Color(0.2, 0.2, 0.2))  # valojalka
+	var spot := SpotLight3D.new()
+	spot.position = c + Vector3(1.6, 1.0, -1.0)
+	spot.light_energy = 3.0
+	spot.spot_range = 16.0
+	spot.light_color = Color(1.0, 0.95, 0.85)
+	add_child(spot)
+	spot.look_at(to_global(Vector3(0, 0.5, 2.0)), Vector3.UP)
+	B.label(self, "KESÄILLAN VALSSI · TV-KUVAUKSET", c + Vector3(0, 1.4, 0.0), 40, Color(1.0, 1.0, 0.6), true)
+
+
+## Tanssin keskellä TV-kameran kuva parista: oma näkymä samaan maailmaan (ilman käyttöliittymää) kuvaksi.
+func _capture_tv() -> void:
+	_tv_taken = true
+	var sv := SubViewport.new()
+	sv.size = Vector2i(640, 400)
+	sv.world_3d = get_viewport().world_3d
+	sv.render_target_update_mode = SubViewport.UPDATE_ONCE
+	add_child(sv)
+	var cam := Camera3D.new()
+	cam.fov = 38.0
+	sv.add_child(cam)
+	var focus := to_global((_me.position + _partner.position) / 2.0 + Vector3(0, 1.1, 0))
+	var eye := to_global(_tv_cam_pos)
+	cam.look_at_from_position(eye + (focus - eye).normalized() * 1.0, focus)  # linssin edestä, ei oman kameran läpi
+	cam.current = true
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var img := sv.get_texture().get_image()
+	sv.queue_free()
+	if img != null:
+		tv_shot.emit(ImageTexture.create_from_image(img))
+
+
 func _spawn_people() -> void:
 	var shirts := [Color(0.85, 0.2, 0.3), Color(0.2, 0.35, 0.75), Color(0.95, 0.85, 0.3), Color(0.25, 0.55, 0.3),
 		Color(0.95, 0.95, 0.95), Color(0.5, 0.2, 0.55), Color(0.15, 0.15, 0.17), Color(0.85, 0.5, 0.2)]
 	var hairs := ["Hair_SimpleParted", "Hair_Buzzed", "Hair_Long", "Hair_Buns"]
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	# Humppabändi lavalla samoissa punaisissa liiveissä: laulaja, harmonikka, basso ja rummut.
-	for k in 4:
-		var look := {"shirt": Color(0.75, 0.1, 0.12), "pants": Color(0.1, 0.1, 0.12), "hair": hairs[k % 3],
-			"hair_color": Color(0.3, 0.2, 0.12), "height": 1.8, "belly": 0.5}
+	# Humppabändi lavalla samoissa punaisissa liiveissä: laulaja, harmonikka, basso ja rummut. Juhannuksena isompi
+	# orkesteri valkoisissa takeissa: lisäksi trumpetti, saksofoni ja kaksi taustalaulajaa.
+	var nb := 7 if juhannus else 4
+	for k in nb:
+		var look := {"shirt": Color(0.75, 0.1, 0.12) if not juhannus else Color(0.95, 0.95, 0.92), "pants": Color(0.1, 0.1, 0.12),
+			"hair": hairs[k % 3], "hair_color": Color(0.3, 0.2, 0.12), "height": 1.8, "belly": 0.5}
+		if k >= 5:
+			look = {"model": "female", "shirt": Color(0.85, 0.1, 0.35), "pants": Color(0.85, 0.1, 0.35), "hair": "Hair_Long",
+				"hair_color": Color(0.9, 0.75, 0.4), "height": 1.68}
 		var m := Looks.make(self, look)
-		var at_band := Vector3(-3.0 + k * 2.0, 1.0, -L / 2.0 + 3.2 + (-0.6 if k == 3 else 0.6))
+		var at_band := Vector3((k - (nb - 1) / 2.0) * (1.9 if juhannus else 2.0), 1.0, -L / 2.0 + 3.2 + (-0.6 if k == 3 else 0.6))
 		m.position = at_band
 		m.play("Dance" if k < 2 else "Idle", 0.0, 0.9)
 		if k == 1:  # harmonikka rinnalla
@@ -163,6 +254,10 @@ func _spawn_people() -> void:
 			B.mesh(m, B.boxm(Vector3(0.3, 0.9, 0.08)), Vector3(0.1, 1.0, -0.2), Color(0.45, 0.25, 0.1)).rotation.z = 0.5
 		elif k == 0:  # mikrofoniteline
 			B.mesh(self, B.cyl(0.015, 0.015, 1.5, 6), at_band + Vector3(0, 0.75, -0.5), Color(0.2, 0.2, 0.2))
+		elif k == 4:  # trumpetti
+			B.mesh(m, B.cyl(0.02, 0.07, 0.45, 8), Vector3(0, 1.45, -0.35), Color(0.85, 0.7, 0.2)).rotation.x = PI / 2.0
+		if k >= 5:
+			m.play("Dance", 0.0, 0.8)
 	# Baarimikko tiskin takana.
 	_bartender = Looks.make(self, {"shirt": Color(0.95, 0.95, 0.95), "pants": Color(0.1, 0.1, 0.12), "hair": "Hair_Buzzed",
 		"hair_color": Color(0.2, 0.15, 0.1), "height": 1.78})
@@ -190,7 +285,7 @@ func _spawn_people() -> void:
 		y.play("Dance", 0.0, rng.randf_range(1.2, 1.5))
 		_youth.append(y)
 	# Parit tanssipuolella.
-	for k in COUPLES:
+	for k in (COUPLES * 2 if juhannus else COUPLES):
 		var at := Vector3(rng.randf_range(-11.0, 11.0), 0.06, rng.randf_range(-13.0, DISCO_Z - 2.0))
 		if at.length() < 4.0:
 			at += at.normalized() * 4.0
@@ -245,15 +340,47 @@ func _process(delta: float) -> void:
 				_start_dance("disco")
 			elif Input.is_action_just_pressed("eat"):
 				_order()
+			elif Input.is_action_just_pressed("bell"):
+				_leave()
 		"dance":
 			_dance(delta)
 		"result":
 			if Input.is_action_just_pressed("interact"):
-				Sfx.music_stop(1.0)
-				if _prev_cam != null and is_instance_valid(_prev_cam):
-					_prev_cam.current = true
-				_layer.queue_free()
-				finished.emit(_score())
+				_back_to_hall()
+			elif Input.is_action_just_pressed("bell"):
+				_leave()
+
+
+func _leave() -> void:
+	Sfx.music_stop(1.0)
+	if _prev_cam != null and is_instance_valid(_prev_cam):
+		_prev_cam.current = true
+	_layer.queue_free()
+	finished.emit(_best)
+
+
+## Kappaleen jälkeen takaisin saliin: pari jää lattialle, pelaaja kävelee baaritiskin suuntaan, ja valikossa on
+## uusi tanssi, diskopuoli, baari tai lähtö.
+func _back_to_hall() -> void:
+	_phase = "intro"
+	_tv_taken = false
+	_t = 0.0
+	_hits = 0
+	_misses = 0
+	_next = "left"
+	_score_bar.value = 0.0
+	_title.text = "OULUJÄRVEN LAVA"
+	if _mode == "disco":
+		_mode = "humppa"
+		_beat = 60.0 / BPM
+		Sfx.music_play(1.0)
+	_song = SONGS.pick_random()
+	_me.position = Vector3(-door_side * (W / 2.0 - 3.2), 0.06, -4.0)  # tiskin edessä
+	_me.rotation.y = -door_side * PI / 2.0 + PI
+	_me.play("Idle", 0.3)
+	_partner.position = Vector3(1.6, 0.06, 0.6)
+	_partner.play("Idle", 0.3)
+	_intro_text("Tanssi on tanssittu. Baaritiski on tuossa, ja bändi soittaa jo seuraavaa.\n")
 
 
 ## Pari haetaan tanssipuolelta (humppa) tai diskosta (nuorempi pari, nopeampi tahti).
@@ -320,6 +447,8 @@ func _dance(_delta: float) -> void:
 				_say("Auts! Varpaat!")
 				Sfx.play("grunt", -6.0)
 	_me.rotation.y = lerp_angle(_me.rotation.y, 0.0, 0.05)
+	if tv and not _tv_taken and _mode == "humppa" and _t > SONG * 0.5:
+		_capture_tv()
 	# Pari pyörii hitaasti lattialla.
 	var turn := _t * 0.35
 	var base := Vector3(0, 0.08, (DISCO_Z + L / 2.0) / 2.0) if _mode == "disco" else Vector3(0, 0.06, 2.0)
@@ -330,6 +459,8 @@ func _dance(_delta: float) -> void:
 	if _t >= SONG:
 		_phase = "result"
 		var s := _score()
+		_best = maxf(_best, s)
+		danced.emit(s, _mode)
 		_me.play("Idle", 0.4)
 		_partner.play("Idle", 0.4)
 		_say("Kiitos tanssista!" if s > 0.5 else "No... kiitos.")
@@ -337,7 +468,8 @@ func _dance(_delta: float) -> void:
 		if _buddy != null:
 			_say("Santtu: \"Kyllä kannatti tulla!\"" if s > 0.45 else "Santtu: \"Hyvin se meni. Melkein.\"")
 		_info.text = (("Diskon kunkku! Nuoret hurraa." if _mode == "disco" else "Humppasit kuin Humppaveikot itse! Parisi hymyilee.") if s > 0.75 else
-			("Ihan kelpo tanssi." if s > 0.45 else "Varpaat kärsivät, mutta ilta oli hauska.")) + "\n\n%s Lavalta ulos" % Settings.cap("interact")
+			("Ihan kelpo tanssi." if s > 0.45 else "Varpaat kärsivät, mutta ilta oli hauska.")) + \
+			"\n\n%s Takaisin saliin (tanssi, baaritiski)\n%s Lavalta ulos" % [Settings.cap("interact"), Settings.cap("bell")]
 
 
 func _score() -> float:

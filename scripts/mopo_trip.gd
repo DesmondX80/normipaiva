@@ -258,6 +258,8 @@ var _resume_frame := -1
 var menu_open := false  # main.gd: eväsvalikko auki, sen E ei avaa ovia
 var lava_hint := ""  # main.gd: lavan oven vihje leiman tai pummin mukaan (tyhjä = lippu ovella)
 var door_hidden := func(_id: String) -> bool: return false  # main.gd: käytetyt kertakohteet (löydetyt viinakätköt)
+## Aukioloajat (main.gd OPEN_HOURS): kiinni olevan kohteen vihje ("K-Market aukeaa klo 7"), "" = auki.
+var closed := func(_id: String) -> String: return ""
 
 
 func _interact() -> bool:
@@ -339,11 +341,17 @@ func _process(delta: float) -> void:
 		if _interact():
 			atm.emit()
 		return
+	if vaala.lava_door != Vector3.ZERO and pos.distance_to(vaala.lava_door) < 6.0 and _actor_still() and closed.call("lava") != "":
+		hint = closed.call("lava")
+		return
 	if vaala.lava_door != Vector3.ZERO and pos.distance_to(vaala.lava_door) < 6.0 and _actor_still():
 		hint = lava_hint if lava_hint != "" else "[E] Oulujärven lava: lavatanssit (lippu %s €)" % ("%.2f" % LAVA_TICKET).replace(".", ",")
 		if _interact():
 			mopo.speed = 0.0
 			lava.emit()
+		return
+	if d_shop < 5.0 and _actor_still() and closed.call(near_door.id) != "":
+		hint = closed.call(near_door.id)
 		return
 	if d_shop < 5.0 and _actor_still():
 		hint = "[E] %s" % (near_door.text if near_door.has("text") else
@@ -353,8 +361,11 @@ func _process(delta: float) -> void:
 			door.emit(near_door.id)
 		return
 	# Siitariin pääsee aina (myös junalla tai Gasthausista tultaessa ja toisella käynnillä, kun matka on jo kotiin).
-	if pos.distance_to(vaala.siitari_park) < ARRIVE_R + 6.0 or \
-			Vector2(pos.x - vaala.siitari_door.x, pos.z - vaala.siitari_door.z).length() < ARRIVE_R:
+	var at_siitari := pos.distance_to(vaala.siitari_park) < ARRIVE_R + 6.0 or \
+			Vector2(pos.x - vaala.siitari_door.x, pos.z - vaala.siitari_door.z).length() < ARRIVE_R
+	if at_siitari and closed.call("siitari") != "":
+		hint = closed.call("siitari")
+	elif at_siitari:
 		hint = "[E] %s Siitariin" % ("Mene" if on_foot != null else "Parkkeeraa mopo ja mene")
 		if _interact():
 			mopo.position = vaala.siitari_park + Vector3(0, 0.3, 0)
