@@ -3100,6 +3100,7 @@ const POHJOISET_JUTUT := ["Rekkamies: \"Raahessa terästehdas savuaa taas. Kaksk
 	"Vuoromies: \"Ruukilla haetaan keikkamiehiä. Kinnapotissa kans, kysy Ruduksen portilta.\"",
 	"Rekkamies: \"Pekan Volvon tunnen. Se tankkaa täällä aina viidellä eurolla.\""]
 var _rankku_day := -1
+var _rankku: Node3D  # rankkarit käynnissä (rankku_game.gd)
 var _boys_field := ""  # "saloinen" / "honganpalo": jalkapallopojat tänään tällä kentällä
 var _lenkki := {"on": false, "next": 0, "laps": 0}
 var _orava_finds: Array = []
@@ -3168,7 +3169,7 @@ func _pohjoiset_logic() -> void:
 func _pohjoiset_visuals() -> void:
 	var kids := _between(clock_min, RANKKU_OPEN)
 	for k in world.kentta_kids:
-		k.visible = kids and _boys_field != "saloinen"
+		k.visible = kids and _boys_field != "saloinen" and _rankku == null  # rankkareissa pelin omat pojat
 	for h in world.uimaranta_people:
 		h.visible = _between(clock_min, ORAVA_MUMMOT) if h.get_meta("mummo") else _between(clock_min, ORAVA_PERHEET)
 	if world.uimaranta_sinikka != null:
@@ -3253,7 +3254,7 @@ func _kentta_logic(e: bool) -> void:
 		else:
 			_hint.text = "[E] Rankkarit poikien kanssa (viisi kumpikin)"
 			if e:
-				_start_rankku()
+				_start_rankku("saloinen")
 		return
 	if _near_xz(world.kentta_laps[0], 3.0):
 		_hint.text = "[E] Juoksulenkki kentän ympäri (kulmasta kulmaan)"
@@ -3262,15 +3263,33 @@ func _kentta_logic(e: bool) -> void:
 			_show_message("Lenkille! Kentän kulmat vastapäivään. Kunto kiittää.", 2.5)
 
 
-func _start_rankku() -> void:
+## Rankkarit oikealla kentällä (rankku_game.gd maalin kehyksessä): "saloinen" tai "honganpalo".
+func _start_rankku(field: String) -> void:
+	if _rankku != null:
+		return
 	_rankku_day = day
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
+	walker_out.visible = false
 	_hud.visible = false
+	if is_instance_valid(boys):  # samat pojat pelaavat rankkareita: kivenheittäjät pois pelin ajaksi
+		boys.visible = false
+		boys.process_mode = Node.PROCESS_MODE_DISABLED
 	var g := RankkuGame.new()
+	_rankku = g
 	g.drunk = _hand_shake()
+	g.size = world.hongan_goal_size if field == "honganpalo" else world.kentta_goal_size
+	var back: Vector3 = walker_out.global_position
 	g.finished.connect(func(mine: int, theirs: int) -> void:
+		_rankku = null
+		if is_instance_valid(boys):
+			boys.visible = true
+			boys.process_mode = Node.PROCESS_MODE_INHERIT
+		walker_out.global_position = back
+		walker_out.velocity = Vector3.ZERO
+		walker_out.visible = true
 		walker_out.controls_enabled = true
+		walker_out.activate_camera()
 		_hud.visible = true
 		tilat.first("rankkarit", 0.2)
 		tilat.add("stamina", -0.05)
@@ -3283,7 +3302,8 @@ func _start_rankku() -> void:
 			tilat.add("stressi", -0.05)
 			_show_message("Rankkarit %d–%d. Pojat nauraa, mutta kutsuu huomenna uudestaan." % [mine, theirs], 3.5)
 		_save_game())
-	add_child(g)
+	world.add_child(g)
+	g.global_transform = world.hongan_goal if field == "honganpalo" else world.kentta_goal
 
 
 # Oravajärven uimaranta: uinti, löydöt pohjasta, rantagrilli, kalja penkillä ja pukukopin jemma (_stash_logic).
@@ -4446,7 +4466,7 @@ func _hongan_logic() -> void:
 	world.hongan_youth.visible = _between(clock_min, HONGAN_YOUTH)
 	world.hongan_truck.visible = _weekday() == 3 and _between(clock_min, HONGAN_TRUCK)
 	for k in world.hongan_kids:
-		k.visible = _between(clock_min, RANKKU_OPEN) and _boys_field != "honganpalo"
+		k.visible = _between(clock_min, RANKKU_OPEN) and _boys_field != "honganpalo" and _rankku == null
 	if _hint.text != "" or player == bike or player.is_stunned() or not _near_xz(world.hongan_door, 70.0):
 		return
 	tilat.first("honganpalo", 0.1)
@@ -4506,7 +4526,7 @@ func _hongan_logic() -> void:
 		else:
 			_hint.text = "[E] Rankkarit Honganpalon poikien kanssa"
 			if e:
-				_start_rankku()
+				_start_rankku("honganpalo")
 		return
 	if world.hongan_janitor.visible and beers > 0 and _near_xz(world.hongan_janitor_pos, 9.0) and _once_today("reijo_kalja"):
 		_show_message("Reijo: \"Ja kaljat pysyy repussa koulun pihalla!\"", 2.5)
@@ -19072,18 +19092,41 @@ func _maybe_screenshot() -> void:
 			await at.call(world.kentta_spot)
 			print("PO kenttä: '%s', pojat näkyy %s" % [_hint.text, world.kentta_kids[0].visible])
 			await press.call("interact")
-			var g: Node = get_children().filter(func(c): return c is RankkuGame).front()
-			await get_tree().create_timer(2.6).timeout
+			var g: Node = _rankku
+			print("PO maalin kehys pilkulta %.1f m (pitää olla 0: maan tasolla ja oikeassa kohdassa)" % (g.global_transform * Vector3(0, 0, 7)).distance_to(world.kentta_spot))
+			print("PO rankkarit kentällä %s, kentän pojat piilossa %s, pelaaja piilossa %s" % [g != null and g.get_parent() == world,
+				not world.kentta_kids[0].visible, not walker_out.visible])
+			await get_tree().create_timer(2.0).timeout
+			g._phase = "aim_y"
+			g._t = 0.0
+			g._aim = Vector2(0.75, 0.5)
+			await get_tree().create_timer(0.2).timeout
 			await snap.call("_rankku.png")
+			g._aim = Vector2(0.75, 0.65)
+			g._kick()
+			g._keeper_dive = -1
+			await get_tree().create_timer(0.25).timeout
+			await snap.call("_laukaus.png")
+			await get_tree().create_timer(0.5).timeout
+			await snap.call("_maali.png")
+			print("PO laukaus: %d – %d, '%s'" % [g._mine, g._theirs, g._tip.text])
 			g._round = 1
 			g._start_round()
-			await get_tree().create_timer(1.4).timeout
+			await get_tree().create_timer(1.5).timeout
 			await snap.call("_torjunta.png")
+			while g._phase == "runup":
+				await get_tree().process_frame
+			g._keeper_dive = g._kick_dir
+			g._keeper_u = 0.0
+			await get_tree().create_timer(0.3).timeout
+			await snap.call("_heittaytyy.png")
+			await get_tree().create_timer(0.6).timeout
+			print("PO torjunta: %d – %d, '%s'" % [g._mine, g._theirs, g._tip.text])
 			g._mine = 4
 			g._theirs = 1
 			g._finish("testi")
 			await get_tree().create_timer(2.6).timeout
-			print("PO rankkarit: '%s', päivä %d" % [_msg.text.left(50), _rankku_day])
+			print("PO rankkarit: '%s', päivä %d, peli ohi %s, pelaaja näkyy %s, pojat näkyy %s" % [_msg.text.left(50), _rankku_day, _rankku == null, walker_out.visible, world.kentta_kids[0].visible])
 			await at.call(world.kentta_laps[0])
 			await press.call("interact")
 			for i in [1, 2, 3, 0]:
