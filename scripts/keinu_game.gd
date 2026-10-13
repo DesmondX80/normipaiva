@@ -1,16 +1,21 @@
-extends CanvasLayer
-## Aikuisen keinuhyppykisa leikkipuistossa (#146): keinu vauhtiin oikeaan tahtiin ja hyppy hiekalle. W eteenpäin
-## heilahtaessa ja S taaksepäin heilahtaessa lisää vauhtia, väärä tahti hidastaa. Liian kova vauhti löysää ketjut.
+extends Node3D
+## Aikuisen keinuhyppykisa leikkipuistossa (#146), pelataan oikealla keinulla: pelaajan hahmo istuu keinussa kädet
+## ketjuissa, kamera kuvaa sivulta ja penkin äidit katsovat taustalla. W eteenpäin heilahtaessa ja S taaksepäin
+## heilahtaessa lisää vauhtia (jalat ojentuvat ja koukistuvat), väärä tahti hidastaa. Liian kova vauhti löysää ketjut.
 ## Välilyönti hyppää: eteenpäin heilahduksen nousussa pitkä lento, taaksepäin heilahtaessa selälleen hiekkaan.
-## Pituus mitataan keinutelineen alta. F / Esc luovuttaa. finished(metrit, kaatui).
+## Pituus mitataan keinutelineen alta; hiekassa ennätyslippu, oma paras ja metrimerkit. F / Esc luovuttaa.
+## Solmu lisätään keinutelineen (world.gd playgrounds[i].frame) lapseksi: paikallinen orsi on X-akselin suuntainen
+## korkeudella PIVOT_H, keinu SEAT_X:ssä ja hyppy +Z-suuntaan. finished(metrit, kaatui); landing = alastulopaikka.
 
 signal finished(dist: float, crashed: bool)
 
 const MG := preload("res://scripts/mg_draw.gd")
+const B := preload("res://scripts/build.gd")
+const Looks := preload("res://scripts/looks.gd")
 const L := 1.9  # ketjun pituus (m)
 const PIVOT_H := 2.4
+const SEAT_X := 0.7  # käytettävä keinu (world.gd Keinu1)
 const G := 9.81
-const PPM := 110.0  # pikseliä metrille
 const PUMP := 0.32
 const TIME := 30.0
 const MUM_LINES := ["Äiti penkillä: \"Joko se setä lopettaa?\"", "Äiti penkillä: \"Eetu, tuu pois sieltä keinun läheltä.\"",
@@ -20,8 +25,10 @@ var record := 3.4
 var record_holder := "Honganpalon Jere"
 var best := 0.0
 var drunk := 0.0
+var landing := Vector3.ZERO  # alastulopaikka maailmassa (main.gd siirtää pelaajan siihen)
 
-var _root: Control
+var _hud: CanvasLayer
+var _gauge: Control
 var _info: Label
 var _tip: Label
 var _keys: Control
@@ -35,28 +42,121 @@ var _vel := Vector2.ZERO
 var _crash := false
 var _dist := 0.0
 var _shake := 0.0
-var _sparks: Array = []
-var _trail: Array = []
 var _tip_t := 5.0
 var _slack := 0.0
+var _leg := 0.0  # -1 jalat koukussa taakse .. 1 ojennettu eteen
+var _hidden: Node3D  # maailman oma keinu piilossa pelin ajan
+
+var _pivot: Node3D
+var _chains: Array[MeshInstance3D] = []
+var _seat: Node3D
+var _rider: Node3D
+var _cam: Camera3D
+var _cam_z := 1.0
+var _dust: CPUParticles3D
+var _dist_sign: Node3D
 
 
 func _ready() -> void:
-	layer = 6
-	_root = Control.new()
-	_root.anchor_right = 1.0
-	_root.anchor_bottom = 1.0
-	_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	_root.draw.connect(_draw_root)
-	add_child(_root)
+	_hidden = get_parent().get_node_or_null("Keinu1")
+	if _hidden != null:
+		_hidden.visible = false
+	_build_swing()
+	_build_marks()
+	_cam = Camera3D.new()
+	_cam.fov = 55.0
+	add_child(_cam)
+	_cam.current = true
+	_place_camera(1.0, true)
+	_build_hud()
+	_tip.text = "Keinuhyppy! Ennätys %s %s m. Vauhtia oikeaan tahtiin." % [record_holder, _m(record)]
+
+
+static func _m(v: float) -> String:
+	return ("%.2f" % v).replace(".", ",")
+
+
+# --- Rakennus ------------------------------------------------------------------
+
+func _build_swing() -> void:
+	_pivot = Node3D.new()
+	_pivot.position = Vector3(SEAT_X, PIVOT_H, 0)
+	add_child(_pivot)
+	for cx in [-0.2, 0.2]:
+		var ch := B.mesh(_pivot, B.cyl(0.012, 0.012, L, 4), Vector3(cx, -L / 2.0, 0), Color(0.7, 0.7, 0.72))
+		_chains.append(ch)
+	_seat = Node3D.new()
+	_seat.position = Vector3(0, -L, 0)
+	_pivot.add_child(_seat)
+	B.mesh(_seat, B.boxm(Vector3(0.45, 0.04, 0.2)), Vector3.ZERO, Color(0.1, 0.1, 0.1))
+	_rider = Looks.make(self, Looks.PLAYER)
+	Looks.add_cap(_rider)
+	_rider.play("Sitting_Idle", 0.0)
+	_rider.anim.advance(0.01)
+	_dust = CPUParticles3D.new()
+	_dust.emitting = false
+	_dust.one_shot = true
+	_dust.amount = 40
+	_dust.lifetime = 0.9
+	_dust.explosiveness = 0.95
+	_dust.direction = Vector3(0, 1, 0)
+	_dust.spread = 70.0
+	_dust.initial_velocity_min = 1.0
+	_dust.initial_velocity_max = 2.6
+	_dust.gravity = Vector3(0, -6, 0)
+	_dust.scale_amount_min = 0.6
+	_dust.scale_amount_max = 1.4
+	var dm := BoxMesh.new()
+	dm.size = Vector3(0.06, 0.06, 0.06)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.88, 0.8, 0.58)
+	mat.roughness = 1.0
+	dm.material = mat
+	_dust.mesh = dm
+	add_child(_dust)
+
+
+## Hiekkaan liidulla metrimerkit, kyltit parillisille metreille, ennätyslippu ja oma paras.
+func _build_marks() -> void:
+	for m in range(1, 8):
+		B.mesh(self, B.boxm(Vector3(0.7, 0.005, 0.04)), Vector3(SEAT_X, 0.035, m), Color(0.97, 0.97, 0.95))
+		if m % 2 == 0:
+			B.mesh(self, B.boxm(Vector3(0.03, 0.4, 0.03)), Vector3(SEAT_X + 0.5, 0.2, m), Color(0.5, 0.35, 0.2))
+			var s := B.sign_plate(self, "%d m" % m, Color(0.95, 0.93, 0.85), Color(0.2, 0.15, 0.1), 0.12, 32, Color(0.5, 0.35, 0.2))
+			s.position = Vector3(SEAT_X + 0.5, 0.45, m)
+			s.rotation.y = -PI / 2.0
+	_flag(record, Color(0.9, 0.15, 0.15), "%s %s" % [record_holder.get_slice(" ", record_holder.get_slice_count(" ") - 1).to_upper(), _m(record)], -0.45)
+	if best > 0.0:
+		_flag(best, Color(0.2, 0.5, 0.9), "OMA %s" % _m(best), -0.75)
+
+
+func _flag(at: float, col: Color, text: String, dx: float) -> void:
+	var p := Vector3(SEAT_X + dx, 0, at)
+	B.mesh(self, B.cyl(0.015, 0.015, 1.2, 6), p + Vector3(0, 0.6, 0), Color(0.75, 0.75, 0.78))
+	var flag := B.mesh(self, B.boxm(Vector3(0.01, 0.2, 0.32)), p + Vector3(0, 1.08, -0.16), col)
+	flag.rotation.x = 0.05
+	var s := B.sign_plate(self, text, col.darkened(0.2), Color.WHITE, 0.1, 28, Color.WHITE)
+	s.position = p + Vector3(0, 0.8, 0)
+	s.rotation.y = -PI / 2.0
+
+
+func _build_hud() -> void:
+	_hud = CanvasLayer.new()
+	_hud.layer = 6
+	add_child(_hud)
+	_gauge = Control.new()
+	_gauge.position = Vector2(40, 80)
+	_gauge.size = Vector2(240, 120)
+	_gauge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_gauge.draw.connect(_draw_gauge)
+	_hud.add_child(_gauge)
 	_info = _label(26, 18.0, false)
 	_tip = _label(24, -90.0, true)
 	_tip.add_theme_color_override("font_color", Color(1.0, 0.9, 0.55))
 	_keys = preload("res://scripts/hint_bar.gd").new()
 	_keys.compact = true
 	_keys.centered = true
-	add_child(_keys)
-	_tip.text = "Keinuhyppy! Ennätys %s %s m. Vauhtia oikeaan tahtiin." % [record_holder, _m(record)]
+	_hud.add_child(_keys)
 
 
 func _label(size: int, y: float, bottom: bool) -> Label:
@@ -71,15 +171,13 @@ func _label(size: int, y: float, bottom: bool) -> Label:
 	l.offset_top = y
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(l)
+	_hud.add_child(l)
 	return l
 
 
-static func _m(v: float) -> String:
-	return ("%.2f" % v).replace(".", ",")
+# --- Peli ----------------------------------------------------------------------
 
-
-func _seat() -> Vector2:
+func _seat_pos() -> Vector2:
 	return Vector2(sin(_th) * L, PIVOT_H - cos(_th) * L)
 
 
@@ -87,29 +185,30 @@ func _process(delta: float) -> void:
 	_t += delta
 	_shake = maxf(0.0, _shake - delta * 3.0)
 	_slack = maxf(0.0, _slack - delta)
-	MG.sparks_step(_sparks, delta)
-	_root.queue_redraw()
-	if _phase == "done":
-		return
-	if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
-		_finish("Luovutit. Pikkupoika pääsee vihdoin keinuun.")
-		return
-	match _phase:
-		"swing":
-			_swing(delta)
-		"fly":
-			_fly(delta)
-		"landed":
-			if _t > 2.0:
-				var txt := ""
-				if _crash:
-					txt = "Selälleen hiekkaan! %s m. Äidit pudistelee päätään." % _m(_dist)
-				elif _dist > record:
-					txt = "%s METRIÄ! UUSI ENNÄTYS! %s jää historiaan." % [_m(_dist), record_holder]
-				else:
-					txt = "%s metriä. Ennätys %s %s m pitää." % [_m(_dist), record_holder, _m(record)]
-				_finish(txt)
+	_gauge.queue_redraw()
+	if _phase != "done":
+		if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
+			_finish("Luovutit. Pikkupoika pääsee vihdoin keinuun.")
+		else:
+			match _phase:
+				"swing":
+					_swing(delta)
+				"fly":
+					_fly(delta)
+				"landed":
+					if _t > 2.0:
+						var txt := ""
+						if _crash:
+							txt = "Selälleen hiekkaan! %s m. Äidit pudistelee päätään." % _m(_dist)
+						elif _dist > record:
+							txt = "%s METRIÄ! UUSI ENNÄTYS! %s jää historiaan." % [_m(_dist), record_holder]
+						else:
+							txt = "%s metriä. Ennätys %s %s m pitää." % [_m(_dist), record_holder, _m(record)]
+						_finish(txt)
+	_pose(delta)
 	_info.text = "Keinuhyppy · ennätys %s %s m%s" % [record_holder, _m(record), (" · oma %s m" % _m(best)) if best > 0.0 else ""]
+	if _phase in ["landed", "done"] and _dist > 0.0:
+		_info.text = "%s m" % _m(_dist) + ("  ·  UUSI ENNÄTYS!" if _dist > record and not _crash else "")
 	_keys.set_text("%s eteen heilahtaessa · %s taakse heilahtaessa · %s hyppää · %s luovuta" % [Settings.cap("forward"),
 		Settings.cap("back"), Settings.cap("jump"), Settings.cap("mount")])
 
@@ -138,13 +237,14 @@ func _swing(delta: float) -> void:
 				_tip.text = "Väärä tahti! Keinu hidastuu."
 			_last = k[0]
 	if Input.is_action_just_pressed("jump"):
-		var s := _seat()
+		var s := _seat_pos()
 		_pos = s + Vector2(0, 0.45)
 		var v := _w * L
 		_vel = Vector2(cos(_th), sin(_th)) * v
 		_crash = _w < 0.0 or absf(v) < 0.6
 		_phase = "fly"
 		_t = 0.0
+		_rider.restart("Jump", 0.1)
 		Sfx.play("whoosh", -4.0, 1.0)
 		return
 	if _t > TIME:
@@ -158,118 +258,101 @@ func _swing(delta: float) -> void:
 func _fly(delta: float) -> void:
 	_vel.y -= G * delta
 	_pos += _vel * delta
-	_trail.append(_pos)
+	# Tyhjä keinu heiluu vielä hetken ja hiljenee.
+	_w += (-G / L * sin(_th) - 0.6 * _w) * delta
+	_th += _w * delta
 	if _pos.y <= 0.0:
 		_pos.y = 0.0
 		_dist = maxf(0.0, _pos.x)
 		_phase = "landed"
 		_t = 0.0
 		_shake = 1.0 if _crash else 0.6
-		MG.sparks_burst(_sparks, _to_screen(_pos), Color(0.9, 0.8, 0.55), 30)
+		landing = to_global(Vector3(SEAT_X, 0, _dist))
+		_dust.position = Vector3(SEAT_X, 0.1, _dist)
+		_dust.restart()
+		if _crash:
+			_rider.restart("Death01", 0.15)
+		else:
+			_rider.restart("Jump_Land", 0.1)
 		Sfx.play("body_fall" if _crash else "step_grass", -2.0, 0.8)
+		var s := B.sign_plate(self, "%s m" % _m(_dist), Color(1.0, 0.92, 0.3), Color(0.15, 0.1, 0.05), 0.16, 40, Color(0.2, 0.15, 0.1))
+		s.position = Vector3(SEAT_X + 0.6, 0.95, _dist)  # merkkikepin nokassa hiekassa keinujan takana
+		B.mesh(self, B.boxm(Vector3(0.03, 0.9, 0.03)), Vector3(SEAT_X + 0.6, 0.45, _dist), Color(0.5, 0.35, 0.2))
+		s.rotation.y = -PI / 2.0
+		_dist_sign = s
+
+
+## Keinu, ketjut ja keinuja: istuessa kädet ketjuissa ja jalat pumppaavat, lennossa hyppy (kaatuessa
+## selkä edellä pyörähtäen), alastulon jälkeen hiekalla.
+func _pose(delta: float) -> void:
+	_pivot.rotation.x = -_th
+	var sag := _slack * 0.12
+	for ch in _chains:
+		ch.scale.y = 1.0 - sag * 0.2
+	if _phase == "swing":
+		var want := clampf(_w * 1.5, -1.0, 1.0)
+		_leg = lerpf(_leg, want, 1.0 - exp(-6.0 * delta))
+		var seat_g: Vector3 = _seat.position.rotated(Vector3.RIGHT, -_th) + _pivot.position
+		_rider.position = seat_g + Vector3(0, 0.03, 0)
+		_rider.rotation = Vector3(-_th * 0.85, PI, 0)
+		_rider.position -= _rider.basis * _rider.bone_position("pelvis")
+		var inv: Transform3D = _rider.transform.affine_inverse()
+		var pv: Vector3 = _pivot.position
+		for side in [["_l", -1.0], ["_r", 1.0]]:
+			var s: float = side[1]
+			# Ote ketjusta 0,55 m istuimen yläpuolelta.
+			var grip: Vector3 = pv + Vector3(0.2 * s, -(L - 0.6), 0).rotated(Vector3.RIGHT, -_th)
+			_rider.set_ik("arm" + side[0], "upperarm" + side[0], "lowerarm" + side[0], "hand" + side[0],
+				inv * grip, inv * (grip + Vector3(0.4 * s, -0.3, -0.3)))
+			# Jalat: ojennettu eteen tai koukussa istuimen alle.
+			var fwd := Vector3(0.14 * s, -0.12 + 0.12 * _leg, 0.25 + 0.4 * maxf(_leg, 0.0) - 0.4 * maxf(-_leg, 0.0))
+			var foot: Vector3 = seat_g + fwd.rotated(Vector3.RIGHT, -_th) - Vector3(0, 0.35 * (1.0 - absf(_leg)) * 0.5, 0)
+			_rider.set_ik("leg" + side[0], "thigh" + side[0], "calf" + side[0], "foot" + side[0],
+				inv * foot, inv * (seat_g + Vector3(0.14 * s, 0.4, 1.0)))
+		_place_camera(delta)
+		return
+	_rider.clear_ik()
+	if _phase == "fly":
+		_rider.position = Vector3(SEAT_X, _pos.y - 0.5, _pos.x)
+		var spin := (-_t * 6.0) if _crash else -0.25
+		_rider.rotation = Vector3(spin, PI, 0)
+	else:
+		_rider.position = Vector3(SEAT_X, 0.0, _dist)
+		_rider.rotation = Vector3(0, PI, 0)
+		if _t > 0.6 and not _crash:
+			_rider.play("Idle", 0.3)
+	_place_camera(delta)
+
+
+## Kamera sivulta (-X, liukumäen vastapuolelta: penkin äidit näkyvät taustalla), seuraa lentoa ja alastuloa; tärähtää ketjujen kolahtaessa ja alastulossa.
+func _place_camera(delta: float, snap := false) -> void:
+	var target_z := 0.8
+	if _phase in ["fly", "landed", "done"]:
+		target_z = maxf(0.8, _pos.x * 0.75 + 0.4)
+	_cam_z = target_z if snap else lerpf(_cam_z, target_z, 1.0 - exp(-3.0 * delta))
+	var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.08
+	_cam.position = Vector3(SEAT_X - 6.4, 2.0, _cam_z + 0.4) + shake
+	_cam.look_at(to_global(Vector3(SEAT_X, 1.25, _cam_z)), Vector3.UP)
 
 
 func _finish(text: String) -> void:
 	_phase = "done"
 	_tip.text = text
 	get_tree().create_timer(2.2).timeout.connect(func() -> void:
+		if _hidden != null:
+			_hidden.visible = true
 		finished.emit(_dist, _crash)
 		queue_free())
 
 
-# --- Piirto -------------------------------------------------------------------
+# --- HUD -----------------------------------------------------------------------
 
-func _origin() -> Vector2:
-	return Vector2(_root.size.x * 0.28, _root.size.y * 0.8)  # keinutelineen jalan kohta maassa
-
-
-func _to_screen(m: Vector2) -> Vector2:
-	return _origin() + Vector2(m.x, -m.y) * PPM
-
-
-func _draw_root() -> void:
-	var sz := _root.size
-	var font := ThemeDB.fallback_font
-	var sh := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake * 8.0
-	_root.draw_set_transform(sh, 0.0, Vector2.ONE)
-	MG.grad_rect(_root, Rect2(Vector2.ZERO, sz), Color(0.5, 0.72, 0.95), Color(0.9, 0.93, 0.95))
-	for k in 14:  # metsänreuna
-		var x := k * sz.x / 13.0
-		var th := 120.0 + float((k * 41) % 70)
-		_root.draw_colored_polygon(PackedVector2Array([Vector2(x - 50, sz.y * 0.62), Vector2(x, sz.y * 0.62 - th), Vector2(x + 50, sz.y * 0.62)]),
-			Color(0.15, 0.36, 0.18).darkened((k % 3) * 0.08))
-	_root.draw_rect(Rect2(Vector2(0, sz.y * 0.62), Vector2(sz.x, sz.y * 0.38)), Color(0.34, 0.6, 0.26))
-	var o := _origin()
-	# Hiekka ja pituusmerkit.
-	MG.box(_root, Rect2(Vector2(o.x - 140, o.y - 6), Vector2(sz.x - o.x + 160, 40)), Color(0.88, 0.8, 0.58), 14)
-	for m in range(1, 8):
-		var mx := o.x + m * PPM
-		_root.draw_line(Vector2(mx, o.y), Vector2(mx, o.y + 18), Color(0.55, 0.45, 0.3), 2.0)
-		_root.draw_string(font, Vector2(mx - 10, o.y + 34), "%d m" % m, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.4, 0.3, 0.2))
-	var rx := o.x + record * PPM  # ennätyslippu
-	_root.draw_line(Vector2(rx, o.y), Vector2(rx, o.y - 70), Color(0.3, 0.3, 0.3), 3.0)
-	_root.draw_colored_polygon(PackedVector2Array([Vector2(rx, o.y - 70), Vector2(rx + 40, o.y - 60), Vector2(rx, o.y - 50)]), Color(0.9, 0.15, 0.15))
-	_root.draw_string(font, Vector2(rx - 30, o.y - 76), record_holder.get_slice(" ", record_holder.get_slice_count(" ") - 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.6, 0.1, 0.1))
-	if best > 0.0:
-		var bx := o.x + best * PPM
-		_root.draw_line(Vector2(bx, o.y), Vector2(bx, o.y - 50), Color(0.3, 0.3, 0.3), 3.0)
-		_root.draw_colored_polygon(PackedVector2Array([Vector2(bx, o.y - 50), Vector2(bx + 30, o.y - 42), Vector2(bx, o.y - 34)]), Color(0.2, 0.5, 0.9))
-	# Penkki ja äidit taustalla.
-	var bp := Vector2(sz.x * 0.82, sz.y * 0.6)
-	MG.wood(_root, Rect2(bp + Vector2(-90, 30), Vector2(180, 16)), Color(0.55, 0.4, 0.25), 60.0, 7)
-	MG.person(_root, bp + Vector2(-40, -30), 0.55, {"skin": Color(0.95, 0.8, 0.7), "hair": "long", "hair_col": Color(0.45, 0.3, 0.2),
-		"shirt": Color(0.6, 0.75, 0.9)}, Vector2(-0.8, 0), _tip_t > 4.5)
-	MG.person(_root, bp + Vector2(40, -30), 0.55, {"skin": Color(0.95, 0.8, 0.7), "hair": "long", "hair_col": Color(0.85, 0.7, 0.4),
-		"shirt": Color(0.9, 0.6, 0.5)}, Vector2(-0.8, 0))
-	# Keinuteline: A-kehikko ja orsi.
-	var pv := _to_screen(Vector2(0, PIVOT_H))
-	var frame_col := Color(0.15, 0.45, 0.85)
-	for e in [-1.0, 1.0]:
-		_root.draw_line(pv, o + Vector2(e * 90, 0), frame_col, 10.0)
-	_root.draw_circle(pv, 9.0, frame_col.darkened(0.3))
-	# Ketjut ja istuin tai lentävä keinuja.
-	var seat := _to_screen(_seat())
-	var chain_col := Color(0.6, 0.6, 0.62)
-	if _phase == "swing":
-		var sag := Vector2(0, 14) * _slack
-		for k in 10:
-			var a := pv.lerp(seat, k / 10.0) + sag * sin(k / 10.0 * PI)
-			var b := pv.lerp(seat, (k + 1) / 10.0) + sag * sin((k + 1) / 10.0 * PI)
-			_root.draw_line(a, b, chain_col, 3.0)
-		_root.draw_rect(Rect2(seat + Vector2(-26, -4), Vector2(52, 8)), Color(0.1, 0.1, 0.1))
-		var leg := 1.0 if _w > 0.0 else -1.0
-		_draw_rider(seat + Vector2(0, -50), _th, leg)
-	else:
-		for k in 10:
-			_root.draw_line(pv.lerp(seat, k / 10.0), pv.lerp(seat, (k + 1) / 10.0), chain_col, 3.0)
-		_root.draw_rect(Rect2(seat + Vector2(-26, -4), Vector2(52, 8)), Color(0.1, 0.1, 0.1))
-		for i in range(1, _trail.size(), 3):
-			_root.draw_circle(_to_screen(_trail[i]), 3.0, Color(1, 1, 1, 0.5))
-		var spin := 0.0 if not _crash else _t * -6.0
-		if _phase == "landed":
-			spin = PI / 2.0 if _crash else 0.0
-		_draw_rider(_to_screen(_pos) + Vector2(0, -50), spin, 1.0)
-		if _phase == "landed":
-			var lx := _to_screen(Vector2(_dist, 0))
-			MG.bubble(_root, Rect2(lx + Vector2(-60, -170), Vector2(130, 46)), lx + Vector2(0, -120), "%s m" % _m(_dist), 26)
-	MG.sparks_draw(_root, _sparks)
-	_root.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	# Vauhtimittari: kulma.
-	var g := Rect2(Vector2(40, 80), Vector2(240, 120))
-	MG.box(_root, g, Color(0.08, 0.08, 0.1, 0.85), 10)
+## Vauhtimittari: keinun kulma.
+func _draw_gauge() -> void:
+	var g := Rect2(Vector2.ZERO, _gauge.size)
+	MG.box(_gauge, g, Color(0.08, 0.08, 0.1, 0.85), 10)
 	var gc := g.position + Vector2(g.size.x / 2.0, g.size.y - 14)
-	_root.draw_arc(gc, 90.0, PI, TAU, 30, Color(0.4, 0.4, 0.45), 8.0)
-	_root.draw_arc(gc, 90.0, PI + PI * 0.06, PI + PI * 0.94, 30, Color(0.95, 0.3, 0.2, 0.0), 1.0)
+	_gauge.draw_arc(gc, 90.0, PI, TAU, 30, Color(0.4, 0.4, 0.45), 8.0)
 	var amp := clampf(absf(_th) / 1.45, 0.0, 1.0)
-	_root.draw_arc(gc, 90.0, PI, PI + PI * amp, 30, Color(0.3, 0.9, 0.3).lerp(Color(0.95, 0.3, 0.2), maxf(0.0, amp - 0.75) * 4.0), 8.0)
-	_root.draw_string(font, gc + Vector2(-60, -20), "VAUHTI", HORIZONTAL_ALIGNMENT_CENTER, 120, 20, Color.WHITE)
-
-
-## Keinuja: aikuinen tuulipuvussa, jalat heilahtavat vauhdin suuntaan.
-func _draw_rider(c: Vector2, tilt: float, leg: float) -> void:
-	_root.draw_set_transform(c, tilt * 0.6, Vector2.ONE)
-	_root.draw_line(Vector2(-6, 40), Vector2(-6 + leg * 34, 70), Color(0.42, 0.2, 0.62), 12.0)
-	_root.draw_line(Vector2(6, 40), Vector2(6 + leg * 34, 72), Color(0.42, 0.2, 0.62), 12.0)
-	MG.person(_root, Vector2(0, -10), 0.6, {"skin": Color(0.95, 0.76, 0.66), "hair": "short", "hair_col": Color(0.2, 0.15, 0.1),
-		"shirt": Color(0.42, 0.2, 0.62), "cap": true, "stripes": true}, Vector2(leg * 0.6, 0), _phase == "fly", 1.0)
-	_root.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_gauge.draw_arc(gc, 90.0, PI, PI + PI * amp, 30, Color(0.3, 0.9, 0.3).lerp(Color(0.95, 0.3, 0.2), maxf(0.0, amp - 0.75) * 4.0), 8.0)
+	_gauge.draw_string(ThemeDB.fallback_font, gc + Vector2(-60, -20), "VAUHTI", HORIZONTAL_ALIGNMENT_CENTER, 120, 20, Color.WHITE)
