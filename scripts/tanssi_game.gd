@@ -1,33 +1,34 @@
-extends CanvasLayer
-## Tanssit Saloisten seuraintalolla (#129): pari tanssii salin lattialla, lavalla Saloisten Saapasjalat. Askeleet
-## A ja D vuorotellen tahdissa: nuotit liukuvat kohti osumarengasta, ja painallus osuman hetkellä vie paria eteenpäin.
-## Väärä näppäin tai ohi tahdin: kompastus ("Auts, varpaat!"). Humala levittää ikkunaa mutta heiluttaa nuotteja.
-## Kappale kestää SONG sekuntia. F / Esc lopettaa kesken (tulos tähän asti). finished(score 0..1).
+extends Node3D
+## Tanssit Saloisten seuraintalolla (#129), pelataan salin tanssilattialla: pelaaja ja tanssipari (salin oma Sinikka,
+## Hilkka tai Anna-Liisa) tanssivat lattian keskellä, muut parit kiertävät ympärillä ja Saloisten Saapasjalat soittaa
+## lavalla. Kamera kiertää paria hitaasti. Askeleet A ja D vuorotellen tahdissa: nuotit liukuvat ruudun alareunassa
+## kohti osumarengasta, ja painallus osuman hetkellä vie paria eteenpäin. Väärä näppäin tai ohi tahdin: kompastus
+## (horjahdus ja "Auts, varpaat!" puhekuplassa). Humala levittää ikkunaa mutta heiluttaa nuotteja. Kappale kestää SONG
+## sekuntia. F / Esc lopettaa kesken (tulos tähän asti). Solmu lisätään salin (kirppis_interior.gd) lapseksi.
+## finished(score 0..1).
 
 signal finished(score: float)
 
 const MG := preload("res://scripts/mg_draw.gd")
+const Looks := preload("res://scripts/looks.gd")
 const BPM := 112.0
 const SONG := 24.0
 const WINDOW := 0.15
 const LEAD := 1.6  # sekuntia, jonka nuotti näkyy ennen osumaa
 const SONGS := ["Saapasjalkavalssi", "Seuraintalon humppa", "Tokolan tango", "Saloisten letkajenkka"]
 const PARTNER := {
-	"sinikka_seura": {"name": "Sinikka", "look": {"skin": Color(0.97, 0.8, 0.72), "hair": "long", "hair_col": Color(0.85, 0.65, 0.3),
-		"shirt": Color(0.9, 0.35, 0.55)}, "hit": ["Hyvin viet!", "Ooh, sää osaat!", "Lähemmäs vaan..."], "miss": ["Auts, varpaat!", "Hups!"]},
-	"hilkka": {"name": "Hilkka", "look": {"skin": Color(0.95, 0.8, 0.74), "hair": "buns", "hair_col": Color(0.88, 0.88, 0.88),
-		"shirt": Color(0.55, 0.3, 0.45), "glasses": true}, "hit": ["Niin sitä ennen tanssittiin!", "Kevyt jalka!"],
-		"miss": ["Varovasti, nuori mies!", "Lonkka, lonkka!"]},
-	"annaliisa": {"name": "Anna-Liisa", "look": {"skin": Color(0.95, 0.8, 0.74), "hair": "buns", "hair_col": Color(0.55, 0.45, 0.35),
-		"shirt": Color(0.75, 0.55, 0.6)}, "hit": ["Päivi ei kyllä tanssi näin hyvin.", "No kappas."],
+	"sinikka_seura": {"name": "Sinikka", "hit": ["Hyvin viet!", "Ooh, sää osaat!", "Lähemmäs vaan..."], "miss": ["Auts, varpaat!", "Hups!"]},
+	"hilkka": {"name": "Hilkka", "hit": ["Niin sitä ennen tanssittiin!", "Kevyt jalka!"], "miss": ["Varovasti, nuori mies!", "Lonkka, lonkka!"]},
+	"annaliisa": {"name": "Anna-Liisa", "hit": ["Päivi ei kyllä tanssi näin hyvin.", "No kappas."],
 		"miss": ["Tästä mää kerron Päiville!", "Auts! Kömpelö."]},
 }
-const ME := {"skin": Color(0.95, 0.76, 0.66), "hair": "short", "hair_col": Color(0.2, 0.15, 0.1), "shirt": Color(0.42, 0.2, 0.62), "cap": true, "stripes": true}
 
 var partner := "hilkka"
 var drunk := 0.0
+var interior  # kirppis_interior.gd: salin pari piiloon tanssin ajaksi ja sen ulkonäkö
 
-var _root: Control
+var _hud: CanvasLayer
+var _ui: Control
 var _info: Label
 var _keys: Control
 var _done := false
@@ -36,22 +37,68 @@ var _beat := 60.0 / BPM
 var _beats: Array = []  # [aika, "A"/"D", tila: 0 tulossa, 1 osui, 2 ohi]
 var _hits := 0
 var _misses := 0
-var _say := ""
-var _say_t := 0.0
 var _stumble := 0.0
 var _song := ""
 var _sparks: Array = []
-var _spin := 0.0
+var _turn := 0.0
+
+var _me: Node3D
+var _her: Node3D
+var _bubble: Label3D
+var _bubble_t := 0.0
+var _hidden: Node3D  # salin oma pari piilossa
+var _cam: Camera3D
+var _center := Vector3(0, 0, 0.6)
 
 
 func _ready() -> void:
-	layer = 6
-	_root = Control.new()
-	_root.anchor_right = 1.0
-	_root.anchor_bottom = 1.0
-	_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	_root.draw.connect(_draw_root)
-	add_child(_root)
+	var look: Dictionary = {"model": "female"}
+	if interior != null:
+		_center = interior.DANCE_C
+		var i: int = interior.person_index(partner)
+		if i >= 0:
+			var p: Dictionary = interior.PEOPLE[i]
+			look = p.look if p.has("look") else (Looks.SINIKKA if p.look_ref == "SINIKKA" else Looks.PLAYER)  # kuten salissa
+			_hidden = interior._holders[i]
+			_hidden.visible = false
+		if interior.walker != null:
+			interior.walker.visible = false
+	_me = Looks.make(self, Looks.PLAYER)
+	Looks.add_cap(_me)
+	_her = Looks.make(self, look)
+	for c in [_me, _her]:
+		c.play("Idle", 0.0)
+	_bubble = Label3D.new()
+	_bubble.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_bubble.font_size = 44
+	_bubble.pixel_size = 0.004
+	_bubble.outline_size = 12
+	_bubble.modulate = Color(1.0, 0.95, 0.85)
+	_bubble.no_depth_test = true
+	add_child(_bubble)
+	_cam = Camera3D.new()
+	_cam.fov = 48.0
+	add_child(_cam)
+	_cam.current = true
+	_build_hud()
+	_song = SONGS.pick_random()
+	var n := int(SONG / _beat)
+	for i in n:
+		_beats.append([1.0 + i * _beat, "A" if i % 2 == 0 else "D", 0])
+	_say(["Tanssitaanko?", "No niin, viepä sitten."].pick_random(), 2.5)
+	_place(0.0)
+
+
+func _build_hud() -> void:
+	_hud = CanvasLayer.new()
+	_hud.layer = 6
+	add_child(_hud)
+	_ui = Control.new()
+	_ui.anchor_right = 1.0
+	_ui.anchor_bottom = 1.0
+	_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui.draw.connect(_draw_ui)
+	_hud.add_child(_ui)
 	_info = Label.new()
 	_info.add_theme_font_size_override("font_size", 24)
 	_info.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -59,30 +106,29 @@ func _ready() -> void:
 	_info.anchor_right = 1.0
 	_info.offset_top = 24.0
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	add_child(_info)
+	_hud.add_child(_info)
 	_keys = preload("res://scripts/hint_bar.gd").new()
 	_keys.compact = true
 	_keys.centered = true
-	add_child(_keys)
-	_song = SONGS.pick_random()
-	var n := int(SONG / _beat)
-	for i in n:
-		_beats.append([1.0 + i * _beat, "A" if i % 2 == 0 else "D", 0])
-	_say = "%s: \"%s\"" % [PARTNER[partner].name, ["Tanssitaanko?", "No niin, viepä sitten."].pick_random()]
-	_say_t = 2.5
+	_hud.add_child(_keys)
 
 
 func _process(delta: float) -> void:
 	if _done:
 		return
 	_t += delta
-	_say_t -= delta
 	_stumble = maxf(0.0, _stumble - delta)
+	_bubble_t -= delta
+	if _bubble_t <= 0.0:
+		_bubble.text = ""
 	MG.sparks_step(_sparks, delta)
-	_root.queue_redraw()
+	_ui.queue_redraw()
 	if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
 		_finish()
 		return
+	if _t >= 0.0 and _me.current() != "Dance":
+		_me.play("Dance", 0.3, BPM / 104.0)
+		_her.play("Dance", 0.3, BPM / 104.0)
 	var win := WINDOW * (1.0 + drunk * 0.5)
 	for key in [["left", "A"], ["right", "D"]]:
 		if Input.is_action_just_pressed(key[0]):
@@ -91,11 +137,36 @@ func _process(delta: float) -> void:
 		if b[2] == 0 and _t - b[0] > win:
 			b[2] = 2
 			_miss()
-	_spin += delta * (2.0 if _stumble <= 0.0 else -1.0)
+	if _t > 0.0:
+		_turn += delta * (0.7 if _stumble <= 0.0 else -0.4)
+	_place(delta)
 	if _t > SONG + 1.5:
 		_finish()
 	_info.text = "%s · %s · osumat %d, kompastukset %d" % [PARTNER[partner].name, _song, _hits, _misses]
 	_keys.set_text("%s / %s askel tahdissa   %s lopeta" % [Settings.cap("left"), Settings.cap("right"), Settings.cap("mount")])
+
+
+## Pari pyörii lattian keskellä kasvokkain; kompastuessa pelaaja horjahtaa. Kamera kiertää hitaasti.
+func _place(_delta: float) -> void:
+	var sway := sin(_t * 1.3) * 0.35
+	var jolt := Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * 0.06 * (_stumble / 0.4)
+	var ax := Vector3(sin(_turn), 0, cos(_turn))
+	var mid := _center + Vector3(sway, 0, 0)
+	_me.position = mid - ax * 0.27 + jolt
+	_her.position = mid + ax * 0.27 - jolt * 0.5
+	# Kasvokkain: hahmo katsoo -Z:aan, joten käännös kohti toista.
+	_me.rotation = Vector3(0, atan2(-ax.x, -ax.z) + PI, (_stumble / 0.4) * 0.25)
+	_her.rotation = Vector3(0, atan2(-ax.x, -ax.z), 0)
+	_bubble.position = _her.position + Vector3(0, 2.05, 0)
+	var a := _t * 0.18 + 0.4
+	var focus := mid + Vector3(0, 1.15, 0)
+	# Kiertorata taustaparien radan ulkopuolella ja korkealla: muut parit kulkevat katseen alta.
+	_cam.look_at_from_position(to_global(focus + Vector3(sin(a) * 5.0, 1.65, cos(a) * 3.8)), to_global(focus))
+
+
+func _say(text: String, t := 2.0) -> void:
+	_bubble.text = "%s: \"%s\"" % [PARTNER[partner].name, text]
+	_bubble_t = t
 
 
 func _press(key: String, win: float) -> void:
@@ -114,8 +185,7 @@ func _press(key: String, win: float) -> void:
 		MG.sparks_burst(_sparks, _hit_pos(), Color(1.0, 0.85, 0.3), 10)
 		Sfx.play("pickup", -14.0, 1.6 if key == "A" else 1.8)
 		if randf() < 0.18:
-			_say = "%s: \"%s\"" % [PARTNER[partner].name, (PARTNER[partner].hit as Array).pick_random()]
-			_say_t = 2.0
+			_say((PARTNER[partner].hit as Array).pick_random())
 	else:
 		best[2] = 2
 		_miss()
@@ -126,88 +196,34 @@ func _miss() -> void:
 	_stumble = 0.4
 	Sfx.play("body_fall", -18.0, 1.6)
 	if randf() < 0.35:
-		_say = "%s: \"%s\"" % [PARTNER[partner].name, (PARTNER[partner].miss as Array).pick_random()]
-		_say_t = 2.0
+		_say((PARTNER[partner].miss as Array).pick_random())
 
 
 func _finish() -> void:
 	if _done:
 		return
 	_done = true
+	if _hidden != null:
+		_hidden.visible = true
+	if interior != null and interior.walker != null:
+		interior.walker.visible = true
 	var total := float(maxi(1, _hits + _misses))
 	finished.emit(clampf(_hits / maxf(total, float(_beats.size()) * 0.6), 0.0, 1.0))
 	queue_free()
 
 
-# --- Piirto -------------------------------------------------------------------
+# --- HUD: nuottirata -----------------------------------------------------------
 
 func _hit_pos() -> Vector2:
-	return Vector2(_root.size.x * 0.5, _root.size.y * 0.86)
+	return Vector2(_ui.size.x * 0.5, _ui.size.y * 0.84)
 
 
-func _draw_root() -> void:
-	var sz := _root.size
+func _draw_ui() -> void:
+	var sz := _ui.size
 	var font := ThemeDB.fallback_font
-	# Sali: vaalea paneliseinä, lava verhoineen ja viirit.
-	MG.grad_rect(_root, Rect2(Vector2.ZERO, Vector2(sz.x, sz.y * 0.55)), Color(0.9, 0.84, 0.7), Color(0.75, 0.68, 0.55))
-	for x in range(0, int(sz.x), 60):
-		_root.draw_line(Vector2(x, 0), Vector2(x, sz.y * 0.55), Color(0.7, 0.62, 0.48), 2.0)
-	var stage := Rect2(Vector2(sz.x * 0.2, sz.y * 0.1), Vector2(sz.x * 0.6, sz.y * 0.32))
-	MG.grad_rect(_root, stage, Color(0.25, 0.1, 0.12), Color(0.12, 0.05, 0.06))
-	for side in [0, 1]:
-		var cx := stage.position.x - 30 if side == 0 else stage.end.x - 40
-		for k in 5:
-			MG.grad_rect(_root, Rect2(Vector2(cx + k * 14, stage.position.y - 8), Vector2(15, stage.size.y + 30)),
-				Color(0.7, 0.1, 0.12) if k % 2 == 0 else Color(0.55, 0.06, 0.08), Color(0.35, 0.03, 0.05))
-	MG.sign(_root, Rect2(Vector2(sz.x * 0.5 - 200, stage.position.y + 8), Vector2(400, 40)), "SALOISTEN SAAPASJALAT", Color(0.1, 0.1, 0.35), Color(1.0, 0.85, 0.3), 22)
-	# Bändi heiluu tahdissa: haitari, kitara ja rummut.
-	var bob := sin(_t * TAU * BPM / 60.0) * 3.0
-	var band := [Vector2(0.36, 0.3), Vector2(0.5, 0.29), Vector2(0.64, 0.3)]
-	var shirt := {"skin": Color(0.95, 0.76, 0.66), "shirt": Color(0.75, 0.1, 0.1), "hair": "parted", "hair_col": Color(0.25, 0.2, 0.15)}
-	for k in 3:
-		var p := Vector2(sz.x * band[k].x, sz.y * band[k].y + (bob if k != 1 else -bob))
-		MG.person(_root, p, 0.55, shirt, Vector2.ZERO, false)
-		match k:
-			0:
-				MG.solid(_root, Rect2(p + Vector2(-22, 22), Vector2(44, 30)), Color(0.75, 0.1, 0.12))
-				for f in 5:
-					_root.draw_line(p + Vector2(-20 + f * 9, 22), p + Vector2(-20 + f * 9, 52), Color(0.95, 0.95, 0.9), 2.0)
-			1:
-				_root.draw_circle(p + Vector2(4, 44), 16.0, Color(0.6, 0.3, 0.12))
-				_root.draw_line(p + Vector2(4, 44), p + Vector2(-30, 14), Color(0.3, 0.18, 0.08), 5.0)
-			2:
-				MG.ball(_root, p + Vector2(0, 46), 20.0, Color(0.9, 0.9, 0.95), 0.4)
-				_root.draw_circle(p + Vector2(-26, 30), 10.0, Color(0.85, 0.7, 0.2))
-	for k in 16:  # viirit
-		var x := k * sz.x / 15.0
-		var y := sz.y * 0.05 + absf(sin(k * 0.6)) * 12.0
-		_root.draw_colored_polygon(PackedVector2Array([Vector2(x - 14, y), Vector2(x + 14, y), Vector2(x, y + 24)]),
-			[Color.RED, Color.YELLOW, Color(0.2, 0.5, 1.0), Color.WHITE][k % 4])
-	# Lattia ja muut tanssijat taustalla.
-	MG.wood(_root, Rect2(Vector2(0, sz.y * 0.55), Vector2(sz.x, sz.y * 0.45)), Color(0.62, 0.45, 0.28), 70.0, 11, false)
-	for k in 4:
-		var a := _t * 0.5 + k * TAU / 4.0
-		var p := Vector2(sz.x * (0.5 + cos(a) * 0.38), sz.y * (0.6 + sin(a) * 0.04))
-		var pl := {"skin": Color(0.94, 0.76, 0.68), "shirt": [Color(0.2, 0.3, 0.5), Color(0.5, 0.45, 0.35), Color(0.3, 0.45, 0.3), Color(0.45, 0.3, 0.2)][k],
-			"hair": "short", "hair_col": Color(0.3, 0.22, 0.15)}
-		var pr := {"skin": Color(0.97, 0.8, 0.72), "shirt": [Color(0.85, 0.3, 0.35), Color(0.4, 0.6, 0.85), Color(0.55, 0.25, 0.6), Color(0.9, 0.7, 0.2)][k],
-			"hair": "long", "hair_col": Color(0.55, 0.4, 0.25)}
-		MG.person(_root, p + Vector2(-16, 0), 0.5, pl)
-		MG.person(_root, p + Vector2(16, 0), 0.5, pr)
-	# Pelaaja ja pari keskellä: pyörivät tahdissa, kompastuessa nytkähtää.
-	var c := Vector2(sz.x * 0.5, sz.y * 0.56)
-	var sway := sin(_spin) * 26.0
-	var jolt := Vector2(randf_range(-6, 6), randf_range(-3, 3)) * (_stumble / 0.4)
-	var hop := absf(sin(_t * PI * BPM / 60.0)) * -8.0
-	MG.person(_root, c + Vector2(-46 + sway, hop) + jolt, 1.05, ME, Vector2(1, 0), false)
-	MG.person(_root, c + Vector2(46 + sway, hop) - jolt, 1.0, PARTNER[partner].look, Vector2(-1, 0), _say_t > 0.0)
-	_root.draw_line(c + Vector2(-14 + sway, 60 + hop), c + Vector2(14 + sway, 60 + hop), Color(0.95, 0.78, 0.68), 10.0)  # kädet kiinni
-	if _say_t > 0.0 and _say != "":
-		MG.bubble(_root, Rect2(c + Vector2(80 + sway, -150), Vector2(360, 50)), c + Vector2(60 + sway, -40), _say, 20)
-	# Nuottirata: nuotit liukuvat osumarenkaaseen.
 	var hp := _hit_pos()
-	MG.box(_root, Rect2(Vector2(sz.x * 0.1, hp.y - 34), Vector2(sz.x * 0.8, 68)), Color(0, 0, 0, 0.55), 30)
-	_root.draw_arc(hp, 30.0, 0, TAU, 32, Color(1, 1, 1, 0.9), 4.0)
+	MG.box(_ui, Rect2(Vector2(sz.x * 0.1, hp.y - 34), Vector2(sz.x * 0.8, 68)), Color(0, 0, 0, 0.55), 30)
+	_ui.draw_arc(hp, 30.0, 0, TAU, 32, Color(1, 1, 1, 0.9), 4.0)
 	for b in _beats:
 		var dt: float = b[0] - _t
 		if dt < -0.3 or dt > LEAD:
@@ -219,8 +235,9 @@ func _draw_root() -> void:
 			col = Color(0.4, 1.0, 0.5, 0.5)
 		elif b[2] == 2:
 			col = Color(1.0, 0.25, 0.2, 0.5)
-		MG.ball(_root, Vector2(x, y), 22.0, col, 0.5)
-		_root.draw_string(font, Vector2(x - 12, y + 9), b[1], HORIZONTAL_ALIGNMENT_CENTER, 24, 24, Color(0.1, 0.1, 0.1))
+		MG.ball(_ui, Vector2(x, y), 22.0, col, 0.5)
+		_ui.draw_string(font, Vector2(x - 12, y + 9), b[1], HORIZONTAL_ALIGNMENT_CENTER, 24, 24, Color(0.1, 0.1, 0.1))
 	if _t < 0.0:
-		_root.draw_string(font, Vector2(0, sz.y * 0.5), str(ceili(-_t)), HORIZONTAL_ALIGNMENT_CENTER, sz.x, 80, Color(1.0, 0.9, 0.3))
-	MG.sparks_draw(_root, _sparks)
+		_ui.draw_string_outline(font, Vector2(0, sz.y * 0.45), str(ceili(-_t)), HORIZONTAL_ALIGNMENT_CENTER, sz.x, 80, 10, Color.BLACK)
+		_ui.draw_string(font, Vector2(0, sz.y * 0.45), str(ceili(-_t)), HORIZONTAL_ALIGNMENT_CENTER, sz.x, 80, Color(1.0, 0.9, 0.3))
+	MG.sparks_draw(_ui, _sparks)

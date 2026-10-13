@@ -186,8 +186,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   `--scene=kertunkangas`.
 - **Seuraintalon tanssit ja bingo:** päivillä on viikonpäivät (päivä 1 = maanantai, näkyy repun tiedoissa).
   Lauantaisin klo 21–01 tanssit (lippu 8 €): lavalla Saloisten Saapasjalat, viirit ja värivalot, lattialla pareja.
-  Tanssiin voi hakea Sinikan (Päivi soittaa perään kuten Siitarissa), Hilkan tai Anna-Liisan: A ja D vuorotellen
-  tahdissa nuottiradalla, ja hyvä tanssi nostaa moraalia ja mainetta (kömpelö tanssi Anna-Liisan kanssa leviää
+  Tanssiin voi hakea Sinikan (Päivi soittaa perään kuten Siitarissa), Hilkan tai Anna-Liisan: tanssitaan salin
+  lattialla salin omien ihmisten kanssa muiden parien kiertäessä ympärillä ja kameran kiertäessä paria, A ja D
+  vuorotellen tahdissa nuottiradalla (kompastuessa horjahdus ja pari sanoo sanansa), ja hyvä tanssi nostaa moraalia ja mainetta (kömpelö tanssi Anna-Liisan kanssa leviää
   kylälle). Kahviossa Raili myy kahvia ja munkkia, takaovesta pihalle ukkojen luo takakontille (huikka kossua,
   Anna-Liisa voi nähdä). Tiistaisin klo 18–20 bingo: lappu 2 €, Erkki arpoo pallokoneesta, huudetut numerot
   merkitään omaan lappuun, ja täysi rivi BINGO-napilla voittaa (kahvipaketti, virkkuuliina, lahjakortti tai
