@@ -102,8 +102,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   mummo Hilkan virkkuuliinat, Railin rihkama (VHS-kasetit, posliinikoirat), Taunon työkalut ja lavalla huutaja
   Erkki. Naapurin Anna-Liisa tinkii vieressä ja kommentoi. Tinkiminen keskustellen: myyjä hyväksyy tarjouksen,
   tekee vastatarjouksen tai suuttuu loppupäiväksi; maine auttaa, eikä alle 40 %:n mennä. Huutokauppa kerran
-  päivässä: Erkki vilkuilee yleisöä, ja huuto menee läpi vain, kun hän katsoo sinua; "ensimmäisen, toisen…
-  kolmannen kerran!" Testi `--scene=kirppis`.
+  päivässä salin lavan edessä: pelaaja istuu tuolirivissä mummo Elvin ja ukko Veikkosen välissä, Erkki kääntyy
+  vilkuilemaan yleisöä ja valokeila osoittaa katsottavaa, ja huuto menee läpi vain, kun hän katsoo sinua (käsi ja
+  numerolappu ylös); "ensimmäisen, toisen… kolmannen kerran!" Erkin puhekuplassa ja nuija kopahtaa.
+  Testi `--scene=kirppis`.
 - **Saloisten Reippari:** grillikioski seuraintalon vieressä (auki 11–23). Luukulta Raijalta makkaraperunat,
   lihapiirakka kaikilla, hampurilainen ja kahvi (ruoat reppuun, T syö). Illalla 18–23 kioskin edessä notkuu porukka
   mopoineen, ja juoruista kuulee mm. Pannu-Sulon kuusikosta ja Tokolan varastosta. Ilmoitustaululta alkaa
