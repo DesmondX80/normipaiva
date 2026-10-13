@@ -2905,6 +2905,7 @@ func _start_auction() -> void:
 	g.money = money
 	g.rivals = lot.rivals
 	g.drunk = _hand_shake()
+	g.interior = kirppis_int  # huutokauppa salin lavan edessä salin Erkin kanssa
 	g.finished.connect(func(won: bool, price: float) -> void:
 		_auction_day = day
 		kirppis_int.busy = false
@@ -2933,7 +2934,7 @@ func _start_auction() -> void:
 				tilat.add("vireys", 0.2)
 				_show_message("Moccamaster %s eurolla! Päivi ei ihan ymmärrä, miksi tarvitaan toinen." % _eur(price), 4.0)
 		_save_game())
-	add_child(g)
+	kirppis_int.add_child(g)
 
 
 ## --- Tokola: vanha varasto, Aaro ja kauppiaan aarre (#120) --------------------------------------------------
@@ -19552,10 +19553,23 @@ func _maybe_screenshot() -> void:
 			print("KP huutaja: %s" % [_talk_options().map(func(o): return o.text)])
 			_talk_box._pages.clear()
 			_talk_choose("huuto")
-			var g: Node = get_children().filter(func(c): return c is AuctionGame).front()
+			var g: Node = kirppis_int.get_children().filter(func(c): return c is AuctionGame).front()
 			print("KP huutokauppa auki: %s" % [g != null])
 			await get_tree().create_timer(2.5).timeout
 			await snap.call("_huuto.png")
+			g._gaze = 0
+			g._gaze_t = 5.0
+			g._bid(0)
+			await get_tree().create_timer(0.3).timeout
+			await snap.call("_huuto_mummo.png")
+			g._gaze = 1
+			g._gaze_t = 5.0
+			await get_tree().create_timer(0.5).timeout
+			await snap.call("_huuto_katsoo.png")
+			g._player_bid()
+			await get_tree().create_timer(0.3).timeout
+			await snap.call("_huuto_oma.png")
+			print("KP huuto salissa: johtaja %d, hinta %s, Erkin katse %.2f" % [g._leader, g._eur(g._price), g._erkki.rotation.y])
 			g.rivals = [["Mummo Elvi", 6.0], ["Ukko Veikkonen", 7.0]]
 			for i in 40:
 				if g._leader != 1:
@@ -19565,7 +19579,7 @@ func _maybe_screenshot() -> void:
 				if not is_instance_valid(g):
 					break
 			await get_tree().create_timer(2.0).timeout
-			print("KP huutokauppa: moottori %s, rahaa %s, viesti '%s'" % [ebike.parts.has("moottori"), _eur(money), _msg.text])
+			print("KP huutokauppa: moottori %s, rahaa %s, viesti '%s', kävelijä näkyy %s, pöydän moottori näkyy %s" % [ebike.parts.has("moottori"), _eur(money), _msg.text, kirppis_int.walker.visible, kirppis_int._lot.visible])
 			print("KP huutaja uudestaan: %s" % [_talk_options("huutaja").map(func(o): return o.id)])
 			clock_min = 18 * 60 + 1
 			await frames.call(10)
