@@ -75,19 +75,32 @@ func load_data(path: String, clear := {}) -> bool:
 	return true
 
 
-## Raivausruudukon kohdalla puut piiloon: pituus nollaan ja maan alle (lohkojen indeksit säilyvät).
+## Raivausruudukon kohdalla puut piiloon: pituus nollaan ja maan alle (lohkojen indeksit säilyvät). Valinnainen
+## harvennus thin = {c: Vector2, r: float, keep: float}: ympyrän keskellä puista jää osuus keep, ja osuus kasvaa
+## reunaa kohti täyteen metsään (puun paikasta laskettu tiiviste: sama puu jää joka kerta).
 static func _clear_trees(raw_a: PackedByteArray, clear: Dictionary) -> PackedByteArray:
 	var a := raw_a.to_float32_array()
-	var mask: PackedByteArray = clear.mask
-	var x0: float = clear.x0
-	var z0: float = clear.z0
-	var cell: float = clear.cell
-	var nx: int = clear.nx
-	var nz: int = clear.nz
+	var mask: PackedByteArray = clear.get("mask", PackedByteArray())
+	var x0: float = clear.get("x0", 0.0)
+	var z0: float = clear.get("z0", 0.0)
+	var cell: float = clear.get("cell", 1.0)
+	var nx: int = clear.get("nx", 0)
+	var nz: int = clear.get("nz", 0)
+	var thin: Dictionary = clear.get("thin", {})
 	for i in a.size() / 4:
-		var ii := int((a[i * 4] - x0) / cell)
-		var jj := int((a[i * 4 + 2] - z0) / cell)
-		if ii >= 0 and jj >= 0 and ii < nx and jj < nz and mask[jj * nx + ii] != 0:
+		var x := a[i * 4]
+		var z := a[i * 4 + 2]
+		var gone := false
+		if not mask.is_empty():
+			var ii := int((x - x0) / cell)
+			var jj := int((z - z0) / cell)
+			gone = ii >= 0 and jj >= 0 and ii < nx and jj < nz and mask[jj * nx + ii] != 0
+		if not gone and not thin.is_empty():
+			var d: float = Vector2(x, z).distance_to(thin.c) / float(thin.r)
+			if d < 1.0:
+				var keep: float = lerpf(float(thin.keep), 1.0, d * d)
+				gone = float(absi(hash(Vector2i(roundi(x * 10.0), roundi(z * 10.0)))) % 1000) / 1000.0 >= keep
+		if gone:
 			a[i * 4 + 1] = -1000.0
 			a[i * 4 + 3] = 0.0
 	return a.to_byte_array()

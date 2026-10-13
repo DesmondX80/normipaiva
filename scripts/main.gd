@@ -96,6 +96,24 @@ const SIITARI_MENU := {
 	"jallu": ["Jallupaukku 4 cl", 6.5, 0.12, 0.08, 0.03],
 	"kahvi": ["Kahvi ja munkki", 3.5, 0.0, 0.05, 0.03],
 }
+## Lama Vaalassa (#58 idea 4): työvoimatoimiston jono Siitarin lähellä (vaala.gd TYOKKARI_ID, ovi "tyokkari"),
+## lopettaneiden liikkeiden laput ja pankkiautomaatin oikut (_atm_use: hylätty kortti, laskettu nostoraja).
+const TYOKKARI_LINES := ["Sahalta lähti viiskymmentä miestä kerralla. Mää olin yks niistä.",
+	"Kolmas kuukausi jonossa. Virkailija tuntee jo mun nimen.", "Vaimo sanoo, että hae etelästä. Mistä etelästä? Siellä on sama.",
+	"Pankki vei talon, mutta mopo jäi. Sillä tänne tullaan.", "Kurssi on kuulemma hyvä. Atk-kurssi. Mää en oo ikinä nähny tietokonetta.",
+	"Kyläkauppa lopetti, koulu lopettaa, ja nyt mää jonotan tässä.", "EU tuo kuulemma töitä. Kattotaan.",
+	"Mun veli lähti Ruotsiin Volvon tehtaalle. Ei soita."]
+const TYOKKARI_VIRKAILIJA := [
+	["\"Ei ole tällä hetkellä avoimia paikkoja. Täyttäkää tämä lomake ja tulkaa ensi kuussa.\"", "Lomake kolmena kappaleena. Moraali −."],
+	["\"Kurssipaikkoja olis: atk-alkeet Kajaanissa. Bussilippu omasta pussista.\"", "Kurssiesite taskuun. Moraali −."],
+	["\"Leimataanpa kortti. Seuraava!\"", "Puoli tuntia jonoa yhteen leimaan."],
+	["\"Olette väärässä jonossa. Tämä on työttömyysturva. Työnhaku on tuolla.\" Toinen jono on pidempi.", "Moraali −."],
+	["\"Kesäksi haetaan marjanpoimijoita. Palkka kilon mukaan.\" Marjat poimit jo ilmaiseksikin.", "Moraali −."]]
+var _tyokkari_day := -1
+const ATM_LAMA := ["KORTTI HYLÄTTY. Ottakaa yhteys pankkiinne.", "PALVELU EI OLE KÄYTETTÄVISSÄ. Yrittäkää myöhemmin uudelleen.",
+	"Tilillä ei ole katetta... ai, ei vaan. Kone sylkäisi kortin takaisin. Kokeile uudestaan."]
+const ATM_LIMIT_LAMA := 10.0  # pankki laski nostorajaa
+var _atm_lama_day := -1  # päivä, jona automaatin oikku on jo koettu
 ## Vaalan torin Zabuki: vain baaritiski ja hampurilaiset. id -> [nimi, hinta, humala, stressi, moraali, nälkä].
 const ZABUKI_MENU := {
 	"tuoppi": ["Tuoppi Lapin Kultaa 0,5 l", 6.5, 0.14, 0.1, 0.05, 0.0],
@@ -333,6 +351,10 @@ var _shop_exit_frame := -1  # ulos tullessa painettu E ei vie heti takaisin sis�
 var _shop_prev := "to_shop"  # ulkotila ennen kauppaan menoa (to_home = kuutonen jo ostettu tänään)
 const DOOR_RADIUS := 1.8  # kotiovi: tyhjin käsin tästä sisään (eteisen jemma on ovesta 4,8 m, ei päällekkäin)
 const SHOP_DOOR_R := 2.4  # Saloisten K-Marketin ovi: tästä sisään (E)
+## Päivin motkotus rahasta (lama): aamun lapussa rahan kanssa joskus.
+const PAIVI_RAHA := ["Ja kuitti mukaan! Pankista soitettiin taas lainasta.", "Ei mitään turhaa. Meillä ei oo varaa sun kaljoihin.",
+	"Sähkölasku tuli. Laske ne kolikot tarkkaan.", "Rahat on tiukilla, joten EI kaljaa näillä!",
+	"Naapurin Arton työpaikalla on taas yt:t. Säästetään."]
 ## Päivi, kun kotiin tullaan ilman hänen ostoksiaan.
 const PAIVI_NO_SHOPPING := [
 	"Missä mun ostokset?!",
@@ -600,6 +622,13 @@ const RAID_BUY := 0.15  # nimismies tulee pannulle oston jälkeen
 const RAID_SELL := 0.25  # nimismies näkee kaupanteon
 const SAKKO := 40.0
 var kalle: Node3D
+## Kauppa-auto (kauppa_auto.gd): Neittävän kyläkauppa lopetti laman alla, joten auto käy mökin pihatien päässä
+## kerran päivässä KAUPPA_AUTO_DELAY s mökille tulon jälkeen (_kauppa_auto_logic).
+const KauppaAuto := preload("res://scripts/kauppa_auto.gd")
+const KAUPPA_AUTO_DELAY := 50.0
+var kauppa_auto: Node3D
+var _kauppa_auto_day := -1  # päivä, jona auto on jo lähtenyt liikkeelle
+var _kauppa_auto_t := 0.0
 var pontikka := 0  # pulloja repussa
 var _kalle_sold := 0  # tänään myydyt
 var _nimismies: Node3D = null
@@ -686,6 +715,10 @@ const TALKERS := {
 	"mopopojat": ["Mopopojat", Color(1.0, 0.85, 0.3)],
 	"poliisi": ["Ratsupoliisi Roivainen", Color(0.55, 0.7, 1.0)],
 	"kauppias": ["Kauppias", Color(0.6, 0.82, 1.0)],
+	"kauppa_auto": ["Kauppa-auton Eila", Color(0.55, 0.75, 1.0)],
+	"vastaanotto": ["Vastaanoton Marjatta", Color(0.85, 0.75, 0.95)],
+	"dingo": ["Dingo", Color(1.0, 0.45, 0.6)],
+	"tyokkari": ["Työvoimatoimiston jono", Color(0.8, 0.8, 0.7)],
 	"hilkka": ["Mummo Hilkka", Color(0.9, 0.65, 0.85)],
 	"raili": ["Raili", Color(0.5, 0.85, 0.75)],
 	"tauno": ["Tauno", Color(0.75, 0.8, 0.55)],
@@ -719,6 +752,12 @@ const TALK_HELLO := {
 	"pojat": ["Moi setä!", "Mitä setä?", "Setä, ootko nähny meiän palloa?"],
 	"taksi": ["No mihinkäs lähetään?", "Kyytiä vailla?"],
 	"kauppias": ["Päivää! Löytykö kaikki?", "Seuraava, olkaa hyvä."],
+	"kauppa_auto": KauppaAuto.HELLO,
+	"vastaanotto": ["Hotelli Siitari, iltaa. Huoneet on täynnä.", "Jos se on huoneesta kakstoista, mää tiedän jo."],
+	"dingo": ["Kuka sä oot? Roudari? Tuu sisään!", "Hei, fani! Ota kalja, ota tuoli. Tai heitä se.",
+		"Shh, ei kerrota vastaanottoon. Tuu sisään."],
+	"tyokkari": ["Jonon perälle siitä. Numeroita ei oo, ne loppu.", "Ootko sääki täällä? No, kaikki on.",
+		"Virkailija on kahvilla. Jo tunnin."],
 	"hilkka": ["No päivää! Itte virkattuja, katoppa.", "Kas, nuori mies. Liina äidille?"],
 	"raili": ["Kaikki puoleen hintaan! Melkein kaikki.", "Katoppa näitä VHS:iä, harvinaisia."],
 	"tauno": ["Jaa, työkaluja vailla?", "Ruuveja, lankaa, teippiä. Mitä tarttet?"],
@@ -919,6 +958,9 @@ func _ready() -> void:
 	kalle.position = Vector3(kp.x, Mokki.h(kp.x, kp.y), kp.y)
 	kalle.rotation.y = B.yaw_to(Vector3(Mokki.COTTAGE_LOCAL.x - kp.x, 0, Mokki.COTTAGE_LOCAL.y - kp.y))
 	mokki.add_child(kalle)
+	kauppa_auto = KauppaAuto.new()
+	mokki.add_child(kauppa_auto)
+	kauppa_auto.arrived.connect(_on_kauppa_auto_arrived)
 	for fp in Mokki.forage_positions():
 		var lp: Vector2 = fp[0]
 		var node: Node3D = mokki.forage_visual(fp[1], lp)
@@ -1183,7 +1225,7 @@ func _process(delta: float) -> void:
 		"in_siitari":
 			if not _item_menu.is_open():
 				_hint.text = siitari_int.hint
-				_bar_prompt(siitari_int, {"tiski": "siitari", "sinikka": "siitari_sinikka"})
+				_bar_prompt(siitari_int, {"tiski": "siitari", "sinikka": "siitari_sinikka", "vastaanotto": "vastaanotto", "dingo": "dingo"})
 			tilat.add("humala", -0.002 * delta)
 			tilat.add("stressi", 0.004 * delta)
 			if _paivi_call_t > 0.0 and _hud.visible:  # karaoken aikana puhelin ei kuulu
@@ -1433,6 +1475,7 @@ func _outside_logic() -> void:
 		_mokki_ride_logic()
 		_viina_logic()
 		_kalle_logic()
+		_kauppa_auto_logic()
 		_mokki_logic()
 		return
 	_compass.has_cache = false
@@ -6832,6 +6875,72 @@ func _kalle_logic() -> void:
 	_talk_hint("kalle", kalle)
 
 
+## Kauppa-auto mökin pihatien päässä: lähtee liikkeelle KAUPPA_AUTO_DELAY s mökille tulon jälkeen (kerran päivässä),
+## odottaa luukulla asiakasta ja ajaa pois, kun odotus on kulunut eikä kukaan asioi.
+func _kauppa_auto_logic() -> void:
+	if kauppa_auto == null:
+		return
+	var ka: Node3D = kauppa_auto
+	match ka.state:
+		"away":
+			if _kauppa_auto_day == day or state == "cutscene" or cutscene.busy:
+				return
+			_kauppa_auto_t += get_process_delta_time()
+			if _kauppa_auto_t >= KAUPPA_AUTO_DELAY:
+				_kauppa_auto_day = day
+				_kauppa_auto_t = 0.0
+				ka.come()
+		"parked":
+			var near := player == walker_out and walker_out.global_position.distance_to(mokki.to_global(ka.hatch_pos())) < 2.4
+			if _talk_who != "kauppa_auto" and not near:
+				ka.wait_t -= get_process_delta_time()
+				if ka.wait_t <= 0.0:
+					ka.say("No, eipä tänään kauppa käy. Ensi kertaan!")
+					ka.leave()
+					return
+			if near and _hint.text == "" and not player.is_stunned():
+				_talk_hint("kauppa_auto", ka.seller)
+
+
+func _on_kauppa_auto_arrived() -> void:
+	if _at_mokki():
+		_show_message("Tööt tööt! Kauppa-auto seisoo pihatien päässä Kaisuantiellä. Se ei jää odottelemaan kauaa.", 4.0)
+
+
+## Kauppa-auton ostos: tavara reppuun, Iltalehdestä päivän lama-lööppi.
+func _kauppa_auto_buy(k: String) -> void:
+	var m: Array = KauppaAuto.MENU[k]
+	if money < m[1]:
+		_talk_box.reply("Velaksi en anna, ei lamassa.", _talk_options(), "Rahaa %s €." % _eur(money))
+		return
+	money -= m[1]
+	Sfx.play("coin", -4.0)
+	tilat.first("kauppa_auto", 0.3)
+	var note := "%s, −%s €." % [m[0], _eur(m[1])]
+	match k:
+		"kalja":
+			beers += 6
+			player.set_carrying(true)
+			note += " Kaljoja mukana %d." % beers
+		"makkara":
+			has_sausage = true
+		"tikut":
+			has_matches = true
+		"pulla", "piirakka":
+			food[k] = food.get(k, 0) + 1
+			note += " Syö T:llä."
+		"sokeri":
+			has_sugar = true
+		"turbohiiva":
+			has_turbo = true
+		"lehti":
+			tilat.add("moraali", -0.03)
+			note = "Iltalehden lööppi: \"%s\"" % KauppaAuto.HEADLINES.pick_random()
+	_save_game()
+	_talk_box.reply(["Kiitos! Käteinen on kuningas.", "Tässä, ja kuitti mukaan.", "Ensi viikolla taas, jos auto kestää."].pick_random(),
+		_talk_options(), note + "   Rahaa %s €." % _eur(money))
+
+
 ## Nimismies tulee metsätieltä Kallen pannulle: juokse karkuun (nimismies.gd).
 func _nimismies_raid() -> void:
 	if _nimismies != null and is_instance_valid(_nimismies):
@@ -7740,7 +7849,8 @@ func _bar_prompt(bar: Node, talkers: Dictionary) -> void:
 	if bar.busy or _talk_box.is_open() or not talkers.has(bar.spot):
 		return
 	var who: String = talkers[bar.spot]
-	var sub := "Juomat ja kahvit" if who in ["raahe", "siitari"] else ("Tiistain pubivisa" if who == "visa" else "Tanssi · Tarjoa lonkero")
+	var sub: String = {"raahe": "Juomat ja kahvit", "siitari": "Juomat ja kahvit", "visa": "Tiistain pubivisa",
+		"vastaanotto": "Huoneet · Meteli", "dingo": "Nimmari · Huikka · Telkkari"}.get(who, "Tanssi · Tarjoa lonkero")
 	_hint.text = " "
 	_talk_prompt.show_for(null, Settings.action_key("interact"), "Puhu", TALKERS[who][0], TALKERS[who][1], sub)
 
@@ -7806,7 +7916,7 @@ func _talk_open_info(who: String) -> String:
 				return "Santun hermot: %s %s" % [hommat.bar(), hommat.mood()]
 		"kauppias":
 			return interior.price_note()
-		"raahe", "siitari", "zabuki", "gasthaus":
+		"raahe", "siitari", "zabuki", "gasthaus", "kauppa_auto":
 			return "Rahaa %s €." % _eur(money)
 		"mopopojat":
 			return "Rahaa %s €. Kisoja voitettu %d." % [_eur(money), _race_wins]
@@ -8099,6 +8209,21 @@ func _talk_options(who := "") -> Array:
 			_nuoret_new_day()
 			o.append(_opt("huikka", "Ota huikka kossu-vissystä", _nuoret_huikat < NUORET_HUIKAT, "pullo on tyhjä"))
 			o.append(_opt("tarjoa", "Tarjoa kalja porukalle", beers > 0, "ei kaljaa mukana"))
+		"kauppa_auto":
+			for k in KauppaAuto.MENU:
+				var m: Array = KauppaAuto.MENU[k]
+				var has: bool = {"makkara": has_sausage, "tikut": has_matches, "sokeri": has_sugar, "turbohiiva": has_turbo}.get(k, false)
+				var why := "on jo mukana" if has else ("rahat ei riitä" if money < m[1] else "")
+				o.append(_opt("auto_" + k, "%s (%s €)" % [m[0], _eur(m[1])], why == "", why))
+		"vastaanotto":
+			o.append(_opt("huone", "Saisiko huoneen yöksi?"))
+			o.append(_opt("valita", "Huoneesta 12 kuuluu kauhea meteli"))
+		"dingo":
+			o.append(_opt("nimmari", "Pyydä nimikirjoitus", _dingo_nimmari_day != day, "jo pyydetty tänään", true))
+			o.append(_opt("huikka", "Ota huikka bändin Koskenkorvasta", _dingo_huikat < DINGO_HUIKAT, "pullo on tyhjä"))
+			o.append(_opt("telkkari", "Auta heittämään telkkari ikkunasta", _dingo_tv_day != day, "telkkari on jo pihalla"))
+		"tyokkari":
+			o.append(_opt("jonota", "Jonota virkailijalle (puoli tuntia)", _tyokkari_day != day, "kävit jo tänään", true))
 		"zabuki":
 			for id in ZABUKI_MENU:
 				var m: Array = ZABUKI_MENU[id]
@@ -8230,6 +8355,12 @@ func _talk_choose(id: String) -> void:
 		"nuoret":
 			var r := _on_nuoret(id)
 			_talk_box.reply(r[0], _talk_options(), r[1])
+		"kauppa_auto":
+			_kauppa_auto_buy(id.trim_prefix("auto_"))
+		"tyokkari":
+			_tyokkari_jonota()
+		"vastaanotto", "dingo":
+			_talk_hotel(id)
 		"zabuki":
 			var r := _on_zabuki(id.trim_prefix("osta_"))
 			_talk_box.reply(r[0], _talk_options(), r[1] + "   Rahaa %s €." % _eur(money))
@@ -8502,6 +8633,14 @@ func _talk_chat_line() -> String:
 			return SINIKKA_BAR_LINES.pick_random()
 		"zabuki":
 			return ZABUKI_LINES.pick_random()
+		"kauppa_auto":
+			return KauppaAuto.LINES.pick_random()
+		"tyokkari":
+			return TYOKKARI_LINES.pick_random()
+		"vastaanotto":
+			return SiitariInterior.RECEPTION_LINES.pick_random()
+		"dingo":
+			return SiitariInterior.DINGO_LINES.pick_random()
 		"nuoret":
 			return NUORET_LINES.pick_random()
 		"mopopojat":
@@ -9753,10 +9892,25 @@ func _atm_use() -> void:
 		_show_message("Päivän nostoraja on käytetty. Huomenna taas 20 €.", 2.5)
 		Sfx.play("alert", -8.0)
 		return
+	# Lama: joskus kortti hylätään (uusi yritys onnistuu) tai pankki on laskenut nostorajaa. Kerran päivässä.
+	var amount := Atm.DAILY
+	if _atm_lama_day != day:
+		var roll := randf()
+		if roll < 0.15:
+			_atm_lama_day = day
+			_show_message("Otto: \"%s\"" % ATM_LAMA.pick_random(), 3.0)
+			Sfx.play("alert", -8.0)
+			return
+		if roll < 0.25:
+			_atm_lama_day = day
+			amount = ATM_LIMIT_LAMA
 	atm_day = day
-	money += Atm.DAILY
+	money += amount
 	Sfx.play("coin", -2.0)
-	_show_message("Nostit %s €. Rahaa nyt %s €." % [_eur(Atm.DAILY), _eur(money)], 2.5)
+	if amount < Atm.DAILY:
+		_show_message("Pankki on laskenut nostorajaa: vain %s €. Rahaa nyt %s €." % [_eur(amount), _eur(money)], 3.0)
+	else:
+		_show_message("Nostit %s €. Rahaa nyt %s €." % [_eur(amount), _eur(money)], 2.5)
 	_save_game()
 
 
@@ -9949,6 +10103,17 @@ func _on_mopo_arrived() -> void:
 	siitari_int.enter()
 
 
+## Hotellisiiven ovelta: mopo Siitarin parkkiin kuten ravintolaan tultaessa, ja sisälle vastaanottoon.
+func _enter_hotel() -> void:
+	var mp: CharacterBody3D = mopo_trip.mopo
+	mp.position = mopo_trip.vaala.siitari_park + Vector3(0, 0.3, 0)
+	mp.speed = 0.0
+	mopo_trip.stop()
+	_on_mopo_arrived()
+	_show_message("Hotelli Siitari. Käytävän perältä kuuluu rämpytystä ja lasin helinää...", 3.0)
+	siitari_int.enter_hotel()
+
+
 func _on_siitari_exited() -> void:
 	_on_siitari("lahde")
 
@@ -9956,6 +10121,8 @@ func _on_siitari_exited() -> void:
 ## Siitarin sisätoiminnot: tiski (valikko), karaoke, Sinikka (valikko) ja pajatso.
 func _on_siitari_acted(kind: String) -> void:
 	match kind:
+		"vastaanotto", "dingo":
+			_talk_open(kind, null)
 		"tiski":
 			_talk_open("siitari", null, "Mitäs laitetaan?")
 		"karaoke":
@@ -10109,6 +10276,69 @@ func _on_zabuki(id: String) -> Array:
 	Sfx.play("glass", -6.0, 0.9)
 	tilat.first("zabuki_" + id, 0.1)
 	return [ZABUKI_LINES.pick_random(), "%s, −%s €." % [m[0], _eur(m[1])]]
+
+
+## Hotelli Siitari (siitari_interior.gd): vastaanotto ja huoneessa 12 riehuva Dingo. Nimmari kerran päivässä,
+## huikat bändin pullosta ja telkkari ikkunasta (moraali ja maine nousevat, mutta Marjatta voi nähdä: vahingot maksuun).
+const DINGO_HUIKAT := 3
+const DINGO_TV_CAUGHT := 0.35
+const DINGO_TV_SAKKO := 40.0
+var _dingo_nimmari_day := -1
+var _dingo_tv_day := -1
+var _dingo_huikat := 0
+var _dingo_huikka_day := -1
+
+
+func _talk_hotel(id: String) -> void:
+	if _dingo_huikka_day != day:
+		_dingo_huikka_day = day
+		_dingo_huikat = 0
+	match id:
+		"huone":
+			_talk_box.reply("Ei oo. Bändi varas koko kerroksen, ja ne käyttää niistä yhtä. Gasthausista vastapäätä saa huoneen.",
+				_talk_options(), "Gasthaus on Siitaria vastapäätä tien toisella puolella.")
+		"valita":
+			_talk_box.reply("Se on Dingo. Ne maksaa käteisellä ja etukäteen, ja johtaja sano, että kaikki korvataan. Mää en mene sinne.",
+				_talk_options(), "")
+		"nimmari":
+			_dingo_nimmari_day = day
+			tilat.add("moraali", 0.1)
+			tilat.first("dingo_nimmari", 0.4)
+			Sfx.play("pickup", -6.0)
+			_talk_box.reply("Mihin? Paitaan? Otsaan? No, tähän tupakka-askiin. Ja \"Vaalan parhaalle fanille\".", _talk_options(),
+				"Dingon nimikirjoitus tupakka-askissa. Moraali +.")
+		"huikka":
+			_dingo_huikat += 1
+			tilat.add("humala", 0.12)
+			tilat.add("stressi", 0.05)
+			Sfx.play("glass", -6.0, 0.9)
+			_talk_box.reply(["Kippis! Ei kerrota Porissa.", "Ota toinenki, ei tää lopu. Paitsi että loppuu.",
+				"Tuo on kiertueen viimenen pullo. Tai ensimmäinen."].pick_random(), _talk_options(), "Huikka Koskenkorvaa.")
+		"telkkari":
+			_dingo_tv_day = day
+			siitari_int.throw_tv()
+			tilat.add("moraali", 0.15)
+			maine += 3.0
+			tilat.first("dingo_telkkari", 0.5)
+			if randf() < DINGO_TV_CAUGHT:
+				var paid := minf(money, DINGO_TV_SAKKO)
+				money -= paid
+				_talk_box.reply("KUKA HEITTI?! ...Sää. Sää et oo bändissä. Vahingot sun piikkiin! – Marjatta ovella", _talk_options(),
+					"Marjatta näki: huoneen vahingot −%s €. Maine +3 bändin silmissä." % _eur(paid))
+			else:
+				_talk_box.reply("YEAH! Suoraan parkkipaikalle! Sää oot kunniajäsen!", _talk_options(),
+					"Telkkari lensi ikkunasta. Moraali +, maine +3.")
+			_save_game()
+
+
+## Työvoimatoimiston jono: puoli tuntia jonoa ja virkailijan vastaus (kerran päivässä).
+func _tyokkari_jonota() -> void:
+	_tyokkari_day = day
+	_advance_clock(30.0)
+	tilat.add("moraali", -0.05)
+	tilat.first("tyokkari", 0.2)
+	var v: Array = TYOKKARI_VIRKAILIJA.pick_random()
+	_talk_box.reply(v[0], _talk_options(), v[1])
 
 
 ## Gasthaus: kympillä huone yöksi. Päivä päättyy kuten mökillä nukkuessa, ja aamu alkaa Vaalasta Gasthausin
@@ -11170,6 +11400,10 @@ func _on_vaala_door(id: String) -> void:
 			_take_cache("vaala")
 		"zabuki":
 			_talk_open("zabuki", null)
+		"tyokkari":
+			_talk_open("tyokkari", null)
+		"hotelli":
+			_enter_hotel()
 		"bileet", "pihanuoret":
 			_talk_open("nuoret", null)
 		"portti":
@@ -12563,6 +12797,8 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 			_morning_info.append("Takin taskusta löytyi vähän rahaa.")
 		else:
 			bonus = "\nLaitoin %s € kauppaa varten." % _eur(START_MONEY - money)
+			if randf() < 0.35:
+				bonus += " " + PAIVI_RAHA.pick_random()
 		money = START_MONEY
 	if _choco_mercy:
 		_choco_mercy = false
@@ -15610,6 +15846,169 @@ func _maybe_screenshot() -> void:
 			f.store_buffer(saved)
 			f.close()
 			get_tree().quit()
+		"mokkikauppaauto":
+			# Kauppa-auto mökillä: tulee Kaisuantietä pihatien päähän, tööttää, luukulla ostokset, lähtee pois.
+			_toggle_mount()
+			_note.visible = false
+			money = 40.0
+			beers = 0
+			var w0 := mokki.to_global(Mokki.RIDE_LOCAL + Vector3(6.0, 0, 3.0))
+			walker_out.global_position = Vector3(w0.x, mokki.global_position.y + Mokki.h(Mokki.RIDE_LOCAL.x + 6.0, Mokki.RIDE_LOCAL.z + 3.0) + 0.5, w0.z)
+			_kauppa_auto_t = KAUPPA_AUTO_DELAY
+			var ka: Node3D = kauppa_auto
+			var t0 := Time.get_ticks_msec()
+			while ka.state != "parked" and Time.get_ticks_msec() - t0 < 90000:
+				await get_tree().process_frame
+			print("KAUPPA-AUTO tila '%s' %.0f s, paikka %s, luukku %s, viesti '%s'" % [ka.state, (Time.get_ticks_msec() - t0) / 1000.0,
+				ka.position, ka.hatch_pos(), _msg.text])
+			var hp: Vector3 = mokki.to_global(ka.hatch_pos())
+			walker_out.global_position = hp + Vector3(0, 0.5, 0)
+			walker_out.rotation.y = B.yaw_to(mokki.to_global(ka.position) - hp)
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.look_at_from_position(hp + (hp - mokki.to_global(ka.position)).normalized() * 7.0 + Vector3(0, 2.5, 0), mokki.to_global(ka.position) + Vector3(0, 1.2, 0))
+			cam.current = true
+			for i in 20:
+				await get_tree().process_frame
+			print("KAUPPA-AUTO vihje '%s'" % _hint.text)
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_luukku.png"))
+			_talk_open("kauppa_auto", ka.seller)
+			print("KAUPPA-AUTO valikko: %s" % str(_talk_options().map(func(o): return o.text + ("" if o.enabled else " [" + o.reason + "]"))))
+			for k in ["auto_kalja", "auto_sokeri", "auto_lehti", "auto_turbohiiva", "auto_makkara"]:
+				_talk_choose(k)
+				print("KAUPPA-AUTO %s: rahaa %.2f, kaljat %d, sokeri %s, turbo %s, makkara %s, info '%s'" % [k, money, beers, has_sugar, has_turbo,
+					has_sausage, _talk_box._info if "_info" in _talk_box else ""])
+			_talk_box.close()
+			walker_out.global_position = w0 + Vector3(0, 30, 0)  # pois luukulta: odotus kuluu
+			ka.wait_t = 0.5
+			t0 = Time.get_ticks_msec()
+			while ka.state != "away" and Time.get_ticks_msec() - t0 < 90000:
+				await get_tree().process_frame
+				if ka.state == "leaving" and Time.get_ticks_msec() - t0 > 2500 and Time.get_ticks_msec() - t0 < 2550:
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lahtee.png"))
+			print("KAUPPA-AUTO lähti: tila '%s' %.0f s, päivän käynti %d / päivä %d" % [ka.state, (Time.get_ticks_msec() - t0) / 1000.0,
+				_kauppa_auto_day, day])
+			get_tree().quit()
+		"mokkilama":
+			# Lama Vaalassa: työvoimatoimiston jono ja laput, jonotus, automaatin oikut.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_note.visible = false
+			_mopo_dismount()
+			var td: Dictionary = vl.doors.filter(func(d): return d.id == "tyokkari")[0]
+			walker_out.global_position = mopo_trip.to_global(td.pos + Vector3(0, 0.5, 0))
+			for i in 15:
+				await get_tree().process_frame
+			print("LAMA työkkäri ovi %s, vihje '%s'" % [vl.tyokkari_door, mopo_trip.hint])
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.look_at_from_position(mopo_trip.to_global(td.pos + td.out * 12.0 + Vector3(0, 4, 0)), mopo_trip.to_global(vl.tyokkari_door + Vector3(0, 1.5, 0)))
+			cam.current = true
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_jono.png"))
+			cam.look_at_from_position(mopo_trip.to_global(vl.tyokkari_door + td.out * 9.0 + Vector3(0, 2.2, 0)), mopo_trip.to_global(vl.tyokkari_door + Vector3(0, 2.4, 0)))
+			for i in 10:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_julkisivu.png"))
+			var shop := Vector3(926, 0, -926)
+			var ni: int = vl.nearest(shop)[0]
+			var rp: Vector3 = vl.road_pos(ni)
+			cam.look_at_from_position(mopo_trip.to_global(rp + (rp - shop).normalized() * 6.0 + Vector3(0, 4, 0)), mopo_trip.to_global(Vector3(shop.x, rp.y + 2, shop.z)))
+			for i in 10:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lappu.png"))
+			cam.current = false
+			_on_vaala_door("tyokkari")
+			var c0 := clock_min
+			print("LAMA valikko: %s" % str(_talk_options().map(func(o): return o.text)))
+			_talk_choose("jonota")
+			print("LAMA jonotus: kello %+.0f min, vastaus '%s', uudestaan %s" % [clock_min - c0, _talk_box._line,
+				str(_talk_options().map(func(o): return o.text + ("" if o.enabled else " [" + o.reason + "]")))])
+			_talk_box.close()
+			var got := {}
+			for n in 40:
+				atm_day = -1
+				_atm_lama_day = -1
+				var m0 := money
+				_atm_use()
+				var k := "hylätty" if money == m0 else ("raja" if money - m0 < Atm.DAILY else "ok")
+				got[k] = got.get(k, 0) + 1
+				if k == "hylätty":
+					var m1 := money
+					_atm_use()
+					got["uusi yritys " + str(money - m1)] = got.get("uusi yritys " + str(money - m1), 0) + 1
+			print("LAMA automaatti 40 päivää: %s" % got)
+			get_tree().quit()
+		"mokkihotelli":
+			# Hotelli Siitari: hotellisiiven ovi, vastaanotto, huone 12 (Dingo), väliovet baariin; keskustan puut ylhäältä.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_note.visible = false
+			money = 100.0
+			var snap := func(name: String) -> void:
+				for i in 25:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var oc := Camera3D.new()
+			oc.far = 2000.0
+			add_child(oc)
+			oc.look_at_from_position(mopo_trip.to_global(Vector3(700, 260, -760)), mopo_trip.to_global(Vector3(820, 130, -930)))
+			oc.current = true
+			await snap.call("_keskusta.png")
+			oc.current = false
+			var mp: CharacterBody3D = mopo_trip.mopo
+			mp.position = vl.hotel_door + Vector3(0, 0.6, 0)
+			mp.speed = 0.0
+			for i in 20:
+				await get_tree().process_frame
+			print("HOTELLI ovi %s, Siitarin ovi %s (%.1f m), vihje '%s'" % [vl.hotel_door, vl.siitari_door,
+				vl.hotel_door.distance_to(vl.siitari_door), mopo_trip.hint])
+			_on_vaala_door("hotelli")
+			for i in 10:
+				await get_tree().process_frame
+			print("HOTELLI sisällä: tila %s, hotellissa %s, vihje '%s'" % [state, siitari_int.in_hotel(), _hint.text])
+			await snap.call("_vastaanotto.png")
+			siitari_int.walker.position = siitari_int.spots.dingo[0]
+			for i in 10:
+				await get_tree().process_frame
+			print("HOTELLI huone 12 vihje '%s', spot %s" % [_hint.text, siitari_int.spot])
+			await snap.call("_huone12.png")
+			_talk_open("dingo", null)
+			print("HOTELLI dingo valikko: %s" % str(_talk_options().map(func(o): return o.text)))
+			for k in ["nimmari", "huikka", "telkkari"]:
+				_talk_choose(k)
+				print("HOTELLI %s: '%s' / '%s', rahaa %.0f, maine %.0f" % [k, _talk_box._line, _talk_box._info, money, maine])
+			_talk_box.close()
+			await snap.call("_telkkari.png")
+			_talk_open("vastaanotto", null)
+			_talk_choose("huone")
+			print("HOTELLI vastaanotto: '%s'" % _talk_box._line)
+			_talk_box.close()
+			for i in 5:
+				await get_tree().process_frame
+			siitari_int.walker.position = siitari_int.spots.baariin[0]
+			for i in 5:
+				await get_tree().process_frame
+			Input.action_press("interact")
+			await get_tree().process_frame
+			Input.action_release("interact")
+			for i in 5:
+				await get_tree().process_frame
+			print("HOTELLI baariin: hotellissa %s, paikka %s" % [siitari_int.in_hotel(), siitari_int.walker.position])
+			get_tree().quit()
 		"mokkiratsia":
 			# Moporatsia: selvänä, rattijuopumus (0,7 ‰), ratsian ohitus ja törkeä rattijuopumus (iso sakko).
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
@@ -16299,6 +16698,11 @@ func _maybe_screenshot() -> void:
 					if line[i].distance_to(goal) < line[bi].distance_to(goal):
 						bi = i
 				return line.slice(0, bi + 1)
+			# Jokainen tien näyte ajoalueella ja kuivalla (tiivistetyllä järviseudulla tie kulkee järvien pintaa alempana).
+			for rn in roads:
+				var pl: PackedVector2Array = roads[rn]
+				var bad := Array(pl).filter(func(q: Vector2) -> bool: return not vl.drivable(q.x, q.y) or vl.wet(q.x, q.y, 0.25))
+				print("JARVI tie %s: %d / %d näytettä ajokelvottomia" % [rn, bad.size(), pl.size()])
 			var asph: PackedVector2Array = roads["Nuojuankoskentie"]
 			var rspur: PackedVector2Array = roads["Ranta-Rosvo"]
 			var bspur: PackedVector2Array = roads["Salmisen uimaranta"]

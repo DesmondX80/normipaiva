@@ -6,6 +6,9 @@ extends Node3D
 ## Kävely player_walker.gd:llä ylhäältä kuvattuna. Toiminnot ilmoitetaan acted-signaalilla (valikot, karaoke,
 ## Sinikka ja Päivin motkotus main.gd:ssä), ulko-ovelta exited (mopolla takaisin Paapeliin).
 ## Paikallinen +X = ulko-ovi ja parkkipaikka, -Z = baaritiski takaseinällä, +Z = tien puoli (kamera).
+## Hotellin puoli (HOTEL, samassa taskussa baarin takana): vastaanotto, käytävän ovet ja huone 12, jossa
+## Dingo-yhtye kiertueellaan hajottaa hotellihuonetta (tuoli lentää, telkkari lattialla, patja seinää vasten).
+## Baarin takaseinän ovesta ja hotellin ulko-ovelta (Vaalassa hotellisiiven ovi, main.gd "hotelli").
 
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -25,7 +28,23 @@ var spots := {
 	"seurue": [Vector3(2.6, 0, 1.3), "[E] Juttele pöytäseurueen kanssa"],
 	"pajatso": [Vector3(6.6, 0, -4.2), "[E] Pelaa pajatsoa (1 €)"],
 	"kortit": [Vector3(3.6, 0, -1.2), "[E] Katso korttipeliä"],
+	"hotelli": [Vector3(5.2, 0, -4.7), "[E] Hotellin puolelle (vastaanotto ja huoneet)"],
+	"baariin": [HOTEL + Vector3(-6.0, 0, 4.9), "[E] Ravintolan puolelle"],
+	"hotelli_ovi": [HOTEL + Vector3(-8.2, 0, 0.6), "[E] Ulos ja mopolla takaisin Paapeliin"],
+	"vastaanotto": [HOTEL + Vector3(-5.6, 0, -2.4), "[E] Vastaanoton tiski"],
+	"dingo": [HOTEL + Vector3(4.2, 0, 1.6), "[E] Huone 12: Dingo"],
 }
+## Hotellin puoli: alueen keskipiste taskussa ja puolikoko. Väliseinä x = HOTEL_WALL_X (oviaukko z 2,4–4,2)
+## erottaa vastaanoton ja käytävän (vasen) huoneesta 12 (oikea).
+const HOTEL := Vector3(0, 0, -30)
+const HOTEL_HALF := Vector2(9.0, 6.0)
+const HOTEL_WALL_X := 0.5
+const DINGO_LINES := ["Pori ei kestäny meitä, ei kestä Vaalakaan!", "Huonepalvelu! Lisää kaljaa ja uus telkkari!",
+	"Kiertue jatkuu huomenna Kajaaniin. Jos bussi lähtee.", "Tää huone oli valmiiks rikki. Ihan totta.",
+	"Rock'n'roll, Vaala!", "Ei me sitä telkkaria heitetty. Se lensi itte.", "Kuka vei mun kampauksen? Ai se on tässä.",
+	"Kaheksankymmentäluku ei loppunu, se vaan muutti hotelliin."]
+const RECEPTION_LINES := ["Huone kakstoista. Taas.", "Ne maksaa käteisellä ja etukäteen. Ei voi mitään.",
+	"Mää en mene sinne. Viimeks lensi lamppu.", "Kahvia? Mää tarviin itte."]
 const SEURUE_LINES := [
 	"Istu vaan! Mistäs päin sitä ollaan?", "Paapelista mopolla? Sehän on ihan tuossa lähellä.",
 	"Täällä on karaokessa hyvä äänentoisto. Laula sinäkin jotain!", "Meillä on serkun synttärit, tultiin koko porukalla.",
@@ -70,9 +89,10 @@ func _ready() -> void:
 	_build_stage()
 	_build_tables()
 	_build_people()
+	_build_hotel()
 	walker = Walker.new()
 	walker.position = spots.ovi[0]
-	walker.bounds = [Rect2(-HALF, HALF * 2.0)]  # oviaukosta ei ulos
+	walker.bounds = [Rect2(-HALF, HALF * 2.0), Rect2(Vector2(HOTEL.x, HOTEL.z) - HOTEL_HALF, HOTEL_HALF * 2.0)]  # oviaukoista ei ulos
 	add_child(walker)
 
 
@@ -83,6 +103,40 @@ func enter() -> void:
 	walker.rotation.y = B.yaw_to(Vector3(1, 0, 0))
 	walker.activate()
 	say(_bartender, "Iltaa! Tervetuloa Siitariin.")
+
+
+## Hotellin ulko-ovelta suoraan vastaanottoon.
+func enter_hotel() -> void:
+	enter()
+	walker.position = spots.hotelli_ovi[0] + Vector3(1.2, 0, 0)
+	walker.rotation.y = B.yaw_to(Vector3(1, 0, 0))
+	say(_receptionist, "Tervetuloa Hotelli Siitariin. Huoneet on täynnä. Kiitos vaan Dingolle.")
+
+
+func in_hotel() -> bool:
+	return walker.position.z < HOTEL.z + HOTEL_HALF.y + 2.0
+
+
+func reception_say(text: String) -> void:
+	say(_receptionist, text, 3.6)
+
+
+func dingo_say(text: String) -> void:
+	say(_band.pick_random(), text, 3.6)
+
+
+## Pelaajan apu bändille: telkkari ikkunasta (lentää ikkunasta ulos, lasinsirpaleet).
+func throw_tv() -> void:
+	_tv.visible = true
+	var tw := create_tween()
+	var a := _tv.position
+	var b := HOTEL + Vector3(6.5, 2.4, -HOTEL_HALF.y - 1.5)
+	tw.tween_method(func(t: float) -> void:
+		_tv.position = a.lerp(b, t) + Vector3(0, sin(t * PI) * 1.2, 0)
+		_tv.rotation = Vector3(t * 5.0, t * 3.0, 0), 0.0, 1.0, 0.9)
+	tw.tween_callback(func() -> void:
+		Sfx.play("glass", -2.0, 0.8)
+		_tv.visible = false)
 
 
 func leave() -> void:
@@ -180,11 +234,18 @@ func _process(delta: float) -> void:
 			walker.controls_enabled = active
 			walker._body.play("Idle", 0.3)
 			acted.emit("tanssi_loppu")
+	_band_tick(delta)
 	if not active or busy or not walker.controls_enabled:
 		hint = ""
 		return
 	_chat_t -= delta
-	if _chat_t <= 0.0:
+	if _chat_t <= 0.0 and in_hotel():
+		_chat_t = randf_range(6.0, 11.0)
+		if randi() % 4 == 0:
+			say(_receptionist, RECEPTION_LINES.pick_random())
+		else:
+			say(_band.pick_random(), DINGO_LINES.pick_random())
+	elif _chat_t <= 0.0:
 		_chat_t = randf_range(10.0, 18.0)
 		match randi() % 3:
 			0:
@@ -215,6 +276,19 @@ func _process(delta: float) -> void:
 			say(_seurue.pick_random(), SEURUE_LINES.pick_random())
 		"kortit":
 			say(_cardplayers.pick_random(), CARD_LINES.pick_random())
+		"hotelli":
+			walker.position = spots.baariin[0] + Vector3(0, 0, -1.0)
+			walker.rotation.y = B.yaw_to(Vector3(0, 0, -1))
+			Sfx.play("door_open", -6.0)
+			say(_receptionist, "Iltaa. Jos tuut valittamaan metelistä, jonota.")
+			block_interact()
+		"baariin":
+			walker.position = spots.hotelli[0] + Vector3(0, 0, 1.0)
+			walker.rotation.y = B.yaw_to(Vector3(0, 0, 1))
+			Sfx.play("door_close", -6.0)
+			block_interact()
+		"hotelli_ovi":
+			exited.emit()
 		_:
 			acted.emit(best)
 
@@ -467,3 +541,182 @@ func _build_people() -> void:
 	# Paikalliset korttipelissä.
 	_cardplayers.append(_seat(Looks.GRANDPAS[0], Vector3(3.6, 0, -1.1), Vector3(0, 0, -1)))
 	_cardplayers.append(_seat(Looks.GRANDPAS[2], Vector3(3.6, 0, -2.7), Vector3(0, 0, 1)))
+
+
+# --- Hotellin puoli ---------------------------------------------------------------
+
+var _receptionist: Node3D
+var _band: Array[Node3D] = []
+var _chair: Node3D
+var _tv: Node3D
+var _jumper: Node3D
+var _band_t := 3.0
+var _music: AudioStreamPlayer3D
+
+
+func _hwall(a: Vector2, b: Vector2, h: float, col: Color) -> void:
+	_wall(a + Vector2(HOTEL.x, HOTEL.z), b + Vector2(HOTEL.x, HOTEL.z), h, col, WALL_H)
+
+
+func _hmesh(size: Vector3, pos: Vector3, col: Color, rot := Vector3.ZERO) -> MeshInstance3D:
+	return B.mesh(self, B.boxm(size), HOTEL + pos, col, rot)
+
+
+func _build_hotel() -> void:
+	var wall := Color(0.78, 0.72, 0.6)   # 80-luvun beige tapetti
+	var carpet := Color(0.45, 0.12, 0.14)  # viininpunainen hotellimatto
+	var hx := HOTEL_HALF.x
+	var hz := HOTEL_HALF.y
+	_hmesh(Vector3(hx * 2.0, 0.1, hz * 2.0), Vector3(0, -0.05, 0), carpet)
+	for i in 9:  # maton kuvio
+		_hmesh(Vector3(0.08, 0.01, hz * 2.0), Vector3(-hx + 1.0 + i * 2.0, 0.005, 0), Color(0.6, 0.45, 0.2))
+	_hwall(Vector2(-hx, -hz), Vector2(hx, -hz), WALL_H, wall)
+	_hwall(Vector2(-hx, -hz), Vector2(-hx, hz), WALL_H, wall)
+	_hwall(Vector2(hx, -hz), Vector2(hx, hz), WALL_H, wall)
+	_hwall(Vector2(-hx, hz), Vector2(hx, hz), 0.6, wall)
+	# Väliseinä oviaukolla huoneeseen 12.
+	_hwall(Vector2(HOTEL_WALL_X, -hz), Vector2(HOTEL_WALL_X, 2.4), WALL_H, wall)
+	_hwall(Vector2(HOTEL_WALL_X, 4.2), Vector2(HOTEL_WALL_X, hz), WALL_H, wall)
+	# Huoneen 12 ovi rikki: sarana irti, ovi lattialla.
+	_hmesh(Vector3(0.9, 0.05, 2.0), Vector3(HOTEL_WALL_X + 1.2, 0.03, 3.3), Color(0.5, 0.33, 0.2), Vector3(0, 20, 0))
+	B.label(self, "12", HOTEL + Vector3(HOTEL_WALL_X - 0.08, 2.5, 3.3), 60, Color(0.95, 0.8, 0.3)).rotation.y = -PI / 2.0
+	# Vastaanotto: tiski, avaintaulu, kyltti, palmu ja nojatuolit; ulko-ovi vasemmassa päädyssä.
+	var desk := Color(0.4, 0.25, 0.15)
+	_hmesh(Vector3(3.4, 1.1, 0.7), Vector3(-5.6, 0.55, -3.3), desk)
+	var db := StaticBody3D.new()
+	db.position = HOTEL + Vector3(-5.6, 0.55, -3.3)
+	db.add_child(B.box_shape(Vector3(3.4, 1.1, 0.7)))
+	add_child(db)
+	_hmesh(Vector3(3.6, 0.06, 0.9), Vector3(-5.6, 1.13, -3.3), Color(0.25, 0.15, 0.08))
+	_hmesh(Vector3(0.3, 0.12, 0.2), Vector3(-4.6, 1.22, -3.3), Color(0.85, 0.75, 0.2))  # soittokello
+	_hmesh(Vector3(1.6, 1.0, 0.06), Vector3(-5.6, 1.9, -hz + 0.05), Color(0.35, 0.22, 0.12))  # avaintaulu
+	for k in 12:
+		_hmesh(Vector3(0.05, 0.14, 0.03), Vector3(-6.2 + (k % 6) * 0.24, 1.75 + (k / 6) * 0.3, -hz + 0.1),
+			Color(0.9, 0.8, 0.3) if k != 11 else Color(0.35, 0.22, 0.12))  # huoneen 12 avain puuttuu
+	B.label(self, "HOTELLI SIITARI · VASTAANOTTO", HOTEL + Vector3(-5.6, 2.65, -hz + 0.1), 34, Color(0.95, 0.85, 0.5))
+	_hmesh(Vector3(0.08, 2.3, 1.6), Vector3(-hx + 0.02, 1.15, 0.6), Color(0.85, 0.85, 0.82))  # ulko-ovi
+	_hmesh(Vector3(0.1, 2.1, 1.4), Vector3(-hx + 0.03, 1.1, 0.6), Color(0.3, 0.42, 0.45))
+	B.label(self, "ULOS", HOTEL + Vector3(-hx + 0.1, 2.5, 0.6), 40, Color(0.3, 1.0, 0.4)).rotation.y = PI / 2.0
+	_hmesh(Vector3(1.2, 2.2, 0.08), Vector3(-6.0, 1.1, hz - 0.3), Color(0.5, 0.33, 0.2))  # ovi ravintolaan
+	B.label(self, "RAVINTOLA", HOTEL + Vector3(-6.0, 2.45, hz - 0.35), 34, Color(0.95, 0.85, 0.5)).rotation.y = PI
+	for cx in [-7.8, -3.4]:  # nojatuolit
+		_hmesh(Vector3(0.8, 0.45, 0.8), Vector3(cx, 0.22, 2.4), Color(0.25, 0.4, 0.3))
+		_hmesh(Vector3(0.8, 0.5, 0.15), Vector3(cx, 0.65, 2.75), Color(0.25, 0.4, 0.3))
+	B.mesh(self, B.cyl(0.25, 0.3, 0.5, 10), HOTEL + Vector3(-8.3, 0.25, -5.2), Color(0.55, 0.3, 0.2))  # palmu ruukussa
+	for k in 5:
+		_hmesh(Vector3(0.12, 0.05, 0.9), Vector3(-8.3, 1.1 + k * 0.08, -5.2), Color(0.2, 0.5, 0.2), Vector3(30 - k * 15, k * 72, 0))
+	# Käytävän ovet 10 ja 11 (kiinni).
+	for d in [[-2.6, "10"], [-0.8, "11"]]:
+		_hmesh(Vector3(1.0, 2.2, 0.08), Vector3(d[0], 1.1, -hz + 0.05), Color(0.5, 0.33, 0.2))
+		B.label(self, d[1], HOTEL + Vector3(d[0], 2.45, -hz + 0.12), 40, Color(0.95, 0.8, 0.3))
+	# Baarin puolella takaseinän ovi hotelliin.
+	B.mesh(self, B.boxm(Vector3(1.1, 2.2, 0.08)), Vector3(5.2, 1.1, -HALF.y + 0.05), Color(0.55, 0.38, 0.22))
+	B.label(self, "HOTELLI", Vector3(5.2, 2.45, -HALF.y + 0.12), 34, Color(0.95, 0.85, 0.5))
+	_receptionist = Looks.make(self, {"model": "female", "shirt": Color(0.2, 0.25, 0.45), "pants": Color(0.15, 0.15, 0.2),
+		"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_Buns", "hair_color": Color(0.45, 0.3, 0.2), "height": 1.64})
+	_receptionist.position = HOTEL + Vector3(-5.6, 0, -4.3)
+	_receptionist.rotation.y = B.yaw_to(Vector3(0, 0, 1))
+	_receptionist.play("Idle", 0.0)
+	_add_bubble(_receptionist)
+	_build_room_12()
+
+
+## Huone 12 sekaisin: sänky nurin, patja seinää vasten, telkkari lattialla, ikkuna rikki, pullot, kitarat ja vahvistin,
+## tyynyjen höyhenet. Neljä 80-luvun rokkaria (tupeeratut pitkät hiukset, nahkatakit, valkoiset farkut).
+func _build_room_12() -> void:
+	var hz := HOTEL_HALF.y
+	_hmesh(Vector3(2.0, 0.5, 2.2), Vector3(6.6, 0.25, -3.6), Color(0.45, 0.3, 0.2), Vector3(0, 0, 160))  # sänky nurin
+	_hmesh(Vector3(1.8, 2.0, 0.25), Vector3(8.7, 1.0, -1.0), Color(0.9, 0.88, 0.8), Vector3(0, 90, 12))  # patja seinää vasten
+	_hmesh(Vector3(2.2, 1.4, 0.1), Vector3(6.0, 1.7, -hz + 0.02), Color(0.2, 0.25, 0.3))  # ikkuna
+	for k in 4:  # sirpaleet ikkunan reunassa
+		_hmesh(Vector3(0.3, 0.4, 0.04), Vector3(5.2 + k * 0.5, 1.2 + (k % 2) * 0.9, -hz + 0.08), Color(0.7, 0.85, 0.9),
+			Vector3(0, 0, 25 * k))
+	_hmesh(Vector3(0.5, 1.8, 0.05), Vector3(7.4, 1.6, -hz + 0.12), Color(0.6, 0.2, 0.2), Vector3(0, 0, -15))  # verho repaleena
+	# Rikkinäinen telkkari lattialla (kuvaputki säröillä) ja toinen, jonka pelaaja voi auttaa heittämään ikkunasta.
+	_hmesh(Vector3(0.7, 0.55, 0.5), Vector3(2.2, 0.28, -4.4), Color(0.15, 0.15, 0.17), Vector3(0, 30, 80))
+	_tv = Node3D.new()
+	add_child(_tv)
+	_tv.position = HOTEL + Vector3(4.6, 0.3, -2.4)
+	B.mesh(_tv, B.boxm(Vector3(0.7, 0.55, 0.5)), Vector3.ZERO, Color(0.18, 0.15, 0.12))
+	B.mesh(_tv, B.boxm(Vector3(0.55, 0.42, 0.02)), Vector3(0, 0, 0.26), Color(0.1, 0.2, 0.18))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 12
+	for k in 9:  # pullot
+		var p := Vector3(rng.randf_range(1.2, 8.4), 0.08, rng.randf_range(-5.4, 5.4))
+		B.mesh(self, B.cyl(0.05, 0.05, 0.28, 8), HOTEL + p, [Color(0.2, 0.45, 0.2), Color(0.45, 0.3, 0.1), Color(0.85, 0.85, 0.9)][k % 3],
+			Vector3(90, rng.randf() * 360.0, 0))
+	for k in 30:  # höyhenet
+		_hmesh(Vector3(0.06, 0.01, 0.03), Vector3(rng.randf_range(1.5, 8.5), 0.02, rng.randf_range(-4.5, 4.5)), Color.WHITE,
+			Vector3(0, rng.randf() * 180.0, 0))
+	for g in [[Vector3(3.0, 0.08, 4.6), Color(0.8, 0.1, 0.1)], [Vector3(7.6, 0.08, 4.2), Color(0.95, 0.95, 0.95)]]:  # kitarat
+		var gp: Vector3 = g[0]
+		_hmesh(Vector3(0.38, 0.06, 0.45), gp, g[1], Vector3(0, 35, 0))
+		_hmesh(Vector3(0.06, 0.04, 0.6), gp + Vector3(0.3, 0, -0.42), Color(0.3, 0.2, 0.1), Vector3(0, 35, 0))
+	_hmesh(Vector3(0.7, 0.8, 0.4), Vector3(8.4, 0.4, 3.2), Color(0.08, 0.08, 0.08))  # vahvistin
+	B.label(self, "DINGO", HOTEL + Vector3(8.4, 0.6, 2.98), 30, Color(0.95, 0.85, 0.2)).rotation.y = PI
+	# Tuoli, joka lentää välillä seinään.
+	_chair = Node3D.new()
+	add_child(_chair)
+	B.mesh(_chair, B.boxm(Vector3(0.45, 0.06, 0.45)), Vector3(0, 0.45, 0), Color(0.5, 0.35, 0.2))
+	B.mesh(_chair, B.boxm(Vector3(0.45, 0.5, 0.06)), Vector3(0, 0.72, -0.2), Color(0.5, 0.35, 0.2))
+	for lx in [-0.18, 0.18]:
+		for lz in [-0.18, 0.18]:
+			B.mesh(_chair, B.boxm(Vector3(0.04, 0.45, 0.04)), Vector3(lx, 0.22, lz), Color(0.4, 0.28, 0.15))
+	_chair.position = HOTEL + Vector3(3.2, 0, -0.6)
+	var hair := [Color(0.95, 0.85, 0.55), Color(0.12, 0.08, 0.05), Color(0.55, 0.3, 0.15), Color(0.9, 0.8, 0.6)]
+	var spots_b := [[Vector3(4.6, 0, -0.8), "Dance"], [Vector3(6.6, 0, 1.2), "Punch_Cross"], [Vector3(3.2, 0, 1.0), "Dance"],
+		[Vector3(6.4, 0, -2.0), "Idle_Talking"]]
+	for i in 4:
+		var c := Looks.make(self, {"shirt": Color(0.06, 0.06, 0.07) if i != 2 else Color(0.95, 0.95, 0.95),
+			"pants": Color(0.92, 0.92, 0.9) if i % 2 == 0 else Color(0.25, 0.3, 0.45), "shoes": Color(0.9, 0.9, 0.9),
+			"hair": "Hair_Long", "hair_color": hair[i], "height": 1.76 + i * 0.03, "bulk": -0.4})
+		c.position = HOTEL + spots_b[i][0]
+		c.rotation.y = B.yaw_to(Vector3(-0.3 + i * 0.5, 0, 1 - i * 0.4))
+		c.play(spots_b[i][1], 0.0)
+		_add_bubble(c)
+		_band.append(c)
+	_jumper = _band[3]
+	_music = AudioStreamPlayer3D.new()
+	var st: AudioStream = load("res://scripts/headphones.gd").random_90s()
+	if st != null:
+		_music.stream = st
+		_music.bus = "Music"
+		_music.volume_db = -8.0
+		_music.unit_size = 4.0
+		_music.max_distance = 22.0
+		_music.position = HOTEL + Vector3(8.4, 1.0, 3.2)
+		add_child(_music)
+		_music.finished.connect(_music.play)
+
+
+## Bändi riehuu: tuoli lentää seinään, joku hyppii sängyllä, musiikki soi vain kun pelaaja on hotellin puolella.
+func _band_tick(delta: float) -> void:
+	if _music.stream != null:
+		var want := active and in_hotel()
+		if want and not _music.playing:
+			_music.play()
+		elif not want and _music.playing:
+			_music.stop()
+	if not active or not in_hotel():
+		return
+	_band_t -= delta
+	if _band_t > 0.0:
+		return
+	_band_t = randf_range(5.0, 8.0)
+	if randi() % 2 == 0:
+		var a := HOTEL + Vector3(3.2, 0, -0.6)
+		var b := HOTEL + Vector3(randf_range(5.0, 8.0), 0, -HOTEL_HALF.y + 0.6)
+		var tw := create_tween()
+		tw.tween_method(func(t: float) -> void:
+			_chair.position = a.lerp(b, t) + Vector3(0, sin(t * PI) * 1.6, 0)
+			_chair.rotation = Vector3(t * 6.0, t * 2.0, 0), 0.0, 1.0, 0.7)
+		tw.tween_callback(func() -> void: Sfx.play("rattle_hard", -6.0))
+		tw.tween_interval(1.6)
+		tw.tween_callback(func() -> void:
+			_chair.position = a
+			_chair.rotation = Vector3.ZERO)
+		_band[0].play("Punch_Cross", 0.2)
+		say(_band[0], ["HEP!", "Kattoon asti!", "Tilaa uus!"].pick_random(), 1.6)
+	else:
+		_jumper.play("Jump", 0.2)
+		say(_jumper, ["Encore!", "Vaala, ootteko valmiina?!", "Kitarasoolo!"].pick_random(), 1.6)

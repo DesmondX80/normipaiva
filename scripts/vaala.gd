@@ -174,9 +174,19 @@ func lake_level_at(x: float, z: float) -> float:
 	return lvl
 
 
-## Vedessä: maankäyttö vettä tai järviseudulla maasto järven pinnan alla (pinta piirtyy rannan matalikon päälle).
+## Vedessä: maankäyttö vettä tai järviseudulla rannan matalikko järven pinnan alla (pinta piirtyy vesiruutujen
+## päälle ruudun verran rannan yli, _build_water). Pelkkä pinnan alla oleva maa ei ole vettä: tiivistetyllä
+## järviseudulla tiet kulkevat soiden ja notkojen kautta lähimmän järven pintaa alempana.
 func wet(x: float, z: float, margin := 0.05) -> bool:
-	return code_at(x, z) == WATER or h(x, z) < lake_level_at(x, z) + margin
+	if code_at(x, z) == WATER:
+		return true
+	if h(x, z) >= lake_level_at(x, z) + margin:
+		return false
+	for dz in [-_cell, 0.0, _cell]:
+		for dx in [-_cell, 0.0, _cell]:
+			if code_at(x + dx, z + dz) == WATER:
+				return true
+	return false
 
 
 ## Sivuteiden pinta ajoalueen ruudukossa: 0 = maasto, 1 = sora, 2 = asfaltti tai kiveys (_build_drive_mask).
@@ -1795,6 +1805,28 @@ func _build_buildings() -> void:
 			_gasthaus_front(obb, base, top)
 		if id == HOTEL_ID:
 			name = "HOTELLI SIITARI"
+			# Hotellin ovi tien puolelle: vastaanotto ja huone 12, jossa Dingo riehuu (main.gd "hotelli").
+			var hd := _door(obb, base + 0.3)
+			var hay: Vector2 = obb.ay
+			var hout := hay if hay.dot(hd - (obb.center as Vector2)) > 0.0 else -hay
+			hotel_door = Vector3(hd.x, h(hd.x, hd.y), hd.y) + Vector3(hout.x, 0, hout.y) * 2.5
+			doors.append({"id": "hotelli", "pos": hotel_door, "out": Vector3(hout.x, 0, hout.y), "r": 4.0,
+				"hint": "Hotelli Siitarin vastaanottoon"})
+		if id == TYOKKARI_ID:
+			name = "TYÖVOIMATOIMISTO"
+			var td := _door(obb, base + 0.3)
+			var tay: Vector2 = obb.ay
+			var tout := tay if tay.dot(td - (obb.center as Vector2)) > 0.0 else -tay  # seinän normaali ulos
+			tyokkari_door = Vector3(td.x, h(td.x, td.y), td.y)
+			_build_tyokkari_queue(td, tout)
+			doors.append({"id": "tyokkari", "pos": tyokkari_door + Vector3(tout.x, 0, tout.y) * 2.5,
+				"out": Vector3(tout.x, 0, tout.y), "r": 6.0, "walk": true, "hint": "jonoon",
+				"text": "Työvoimatoimiston jono: juttele"})
+		elif name == "" and type in ["retail", "commercial"] and kind != "shed":
+			var lap := B.sign_plate(self, LAMA_SIGNS[hsh % LAMA_SIGNS.size()], Color(0.97, 0.96, 0.92), Color(0.75, 0.08, 0.06),
+				0.3, 40, Color(0.97, 0.96, 0.92))
+			lap.position.y = base + 1.6
+			_face_road(lap, obb)
 		if name.contains("K-Market"):
 			# K-Market Tervaportti: ovi kadun puolella, pankkiautomaatti oven viereen (_build_atm), mopolla E kauppaan.
 			name = "K-MARKET TERVAPORTTI"
@@ -1923,11 +1955,51 @@ func _door(obb: Dictionary, y0: float) -> Vector2:
 
 
 # --- Vaalan tori: Zabuki ja Gasthaus ------------------------------------------------------------------------
+## Työvoimatoimiston jono oven edestä ulospäin: kuusi ihmistä tuulitakeissa ja verkkareissa odottaa, osa tupakalla.
+func _build_tyokkari_queue(door: Vector2, out: Vector2) -> void:
+	var side := Vector2(-out.y, out.x)
+	var looks := [
+		{"shirt": Color(0.3, 0.35, 0.3), "pants": Color(0.2, 0.22, 0.3), "hair": "Hair_Buzzed", "hair_color": Color(0.4, 0.35, 0.3),
+			"height": 1.78, "belly": 0.3},
+		{"model": "female", "shirt": Color(0.6, 0.2, 0.3), "pants": Color(0.15, 0.15, 0.2), "hair": "Hair_Long",
+			"hair_color": Color(0.35, 0.25, 0.15), "height": 1.64},
+		{"shirt": Color(0.15, 0.2, 0.45), "pants": Color(0.25, 0.25, 0.28), "hair": "Hair_SimpleParted",
+			"hair_color": Color(0.15, 0.12, 0.1), "height": 1.82, "tracksuit": {"a": Color(0.15, 0.2, 0.55), "b": Color(0.9, 0.9, 0.9)}},
+		{"shirt": Color(0.5, 0.45, 0.35), "pants": Color(0.3, 0.28, 0.22), "hair": "Hair_Buzzed", "beard": true, "hair_color": Color(0.55, 0.5, 0.45),
+			"height": 1.72, "belly": 0.5},
+		{"model": "female", "shirt": Color(0.75, 0.7, 0.55), "pants": Color(0.2, 0.25, 0.4), "hair": "Hair_Buns",
+			"hair_color": Color(0.6, 0.58, 0.55), "height": 1.6, "belly": 0.2},
+		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.35, 0.5), "hair": "Hair_Buzzed", "hair_color": Color(0.8, 0.7, 0.45),
+			"height": 1.76, "bulk": -0.5},
+	]
+	var anims := ["Idle", "Idle_Talking", "Idle", "Idle", "Idle_Talking", "Idle"]
+	for i in looks.size():
+		var q := door + out * (1.6 + i * 0.95) + side * (0.25 if i % 2 == 0 else -0.2)
+		var ch := Looks.make(self, looks[i])
+		ch.position = Vector3(q.x, h(q.x, q.y), q.y)
+		ch.rotation.y = B.yaw_to(Vector3(-out.x, 0, -out.y)) + (0.6 if anims[i] == "Idle_Talking" else 0.0)  # kohti ovea, juttelijat sivuttain
+		ch.play(anims[i], 0.0)
+		if i == 2:
+			Looks.add_cap(ch)
+	# Ilmoitustaulu oven vieressä: tyhjä paikkalista.
+	var board := B.sign_plate(self, "AVOIMET TYÖPAIKAT\n–", Color(0.95, 0.95, 0.9), Color(0.1, 0.1, 0.12), 0.35, 36,
+		Color(0.4, 0.3, 0.2))
+	var bp := door + side * 2.2 + out * 0.1
+	board.position = Vector3(bp.x, h(bp.x, bp.y) + 1.5, bp.y)
+	board.rotation.y = atan2(out.x, out.y)
+
+
 ## Gasthaus (OSM 534430535, huone yöksi kympillä, main.gd "gasthaus") on Siitaria vastapäätä tien toisella
 ## puolella ja Zabuki (baaritiski luukulla, olutta ja hampurilaisia, main.gd "zabuki") sen vieressä, molemmat
 ## julkisivu tielle. Tori ("Vaalan tori") on niiden takana, ja sinne vie asfalttitie Zabukin vierestä
 ## (tools/vaala_keskusta.py; paikat ja julkisivut tie.json:n "keskusta"-osassa). Tori kivetään ja sille tulee kojuja.
 const GASTHAUS_ID := 534430535
+## Lama (#58): työvoimatoimisto Siitarin lounaispuolella (OSM:n nimetön liikerakennus) jonoineen, ja muiden nimettömien
+## liikerakennusten ikkunoissa lopettaneiden liikkeiden laput (main.gd: ovi "tyokkari").
+const TYOKKARI_ID := 1555230428
+const LAMA_SIGNS := ["LIIKE LOPETTAA\nKAIKKI -50 %", "LOPPUUNMYYNTI", "TILA VUOKRATTAVANA\npuh. 981-23 112", "SULJETTU\nKonkurssipesä"]
+var tyokkari_door := Vector3.ZERO
+var hotel_door := Vector3.ZERO  # Hotelli Siitarin oven edusta
 var _tori := PackedVector2Array()
 var _tori_c := Vector2.ZERO
 var _zabuki := Vector3.INF  # Zabukin keskipiste maan tasossa; INF = toria ei ole datassa
@@ -2851,14 +2923,21 @@ func _build_signs() -> void:
 			break
 
 
+## Vaalan keskusta harvemmaksi (Siitarin, torin, kunnanviraston ja kirkon seutu): laserkeilauksen pihapuut ja
+## metsiköt peittivät taajaman, joten keskellä puista jää TOWN_THIN_KEEP ja reunaa kohti enemmän.
+const TOWN_THIN_C := Vector2(800.0, -960.0)
+const TOWN_THIN_R := 300.0
+const TOWN_THIN_KEEP := 0.15
 ## Mäntymetsä metsäruuduille (ei tien, pihojen eikä radan viereen), koivuja pihoille; puille törmäys tien lähellä.
 ## Metsä oikeista puista: MML:n laserkeilaus (paikka, pituus, latvus) ja Luken VMI (laji) tien suhteen pelin
 ## kehykseen, tiivistetyllä välillä harvennettuna (tools/vaala_bake.py -> assets/vaala/puut.bin, forest.gd).
 func _build_trees() -> void:
 	var f := Forest.new()
 	add_child(f)
-	f.load_data(TREES, {} if _tree_clear.is_empty() else {"mask": _tree_clear, "x0": _x0, "z0": _z0, "cell": DRIVE_CELL,
-		"nx": _dnx, "nz": _dnz})
+	var clear := {"thin": {"c": TOWN_THIN_C, "r": TOWN_THIN_R, "keep": TOWN_THIN_KEEP}}
+	if not _tree_clear.is_empty():
+		clear.merge({"mask": _tree_clear, "x0": _x0, "z0": _z0, "cell": DRIVE_CELL, "nx": _dnx, "nz": _dnz})
+	f.load_data(TREES, clear)
 
 
 ## Katuvalot keskustan tien varteen (30 m välein).

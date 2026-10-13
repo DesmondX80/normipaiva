@@ -292,6 +292,17 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     yli 1,2 ‰ = törkeä rattijuopumus (sakko 250 €). Ratsian
     ohittaminen pysähtymättä = sakko postissa ja maine laskee (`--scene=mokkiratsia`). Taustat: Oulujärven lava (Yle, Kaleva, Wikipedia) ja Oulujoen
     voimalaitoskylien muistelmat (ponkkarit, kioskit, tanssipaikkojen portailla odottelevat nuoret).
+  - **Lama Vaalassa:** Siitarin lounaispuolella on työvoimatoimisto, jonka ovella jonottaa kuusi ihmistä ("Sahalta
+    lähti viiskymmentä miestä kerralla") ja ilmoitustaululla lukee "AVOIMET TYÖPAIKAT –". Jonoon pääsee kerran
+    päivässä (puoli tuntia), ja virkailija antaa lomakkeen tai kurssiesitteen. Muiden liiketilojen ikkunoissa on lappuja
+    "LIIKE LOPETTAA", "LOPPUUNMYYNTI" ja "TILA VUOKRATTAVANA". Pankkiautomaatti (Vaalassa ja Saloisissa) voi hylätä
+    kortin, jolloin uusi yritys onnistuu, tai pankki on laskenut nostorajaa ja koneesta tulee vain 10 €. Päivin aamulapussa
+    on välillä motkotusta rahasta (`--scene=mokkilama`). Keskustassa laserpuita on harvennettu, jotta taajama erottuu.
+  - **Hotelli Siitari:** hotellisiiven ovelta (tai baarin takaseinän HOTELLI-ovesta) pääsee vastaanottoon, jossa
+    Marjatta kertoo, että huoneet ovat täynnä. Käytävän perällä huoneessa 12 riehuu Dingo kiertueellaan: sänky on nurin,
+    patja seinää vasten, ikkuna rikki, tuoli lentää seinään ja joku hyppii. Bändiltä voi pyytää nimmarin, ottaa huikan
+    Koskenkorvasta tai auttaa heittämään telkkarin ikkunasta (moraali ja maine nousevat, mutta jos Marjatta näkee,
+    vahingot maksetaan, 40 €) (`--scene=mokkihotelli`).
     Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen; mopo jää parkkiin tyhjänä) ja kävellä; ovet ja automaatti toimivat jalankin,
     ja F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
     Paperikartta (M) on mökillä ja Vaalan matkalla yksi iso Neittävä–Vaala-kartta: mökin piha, mopotie ja Vaalan
@@ -304,6 +315,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     (W/S tai hiiri pitää äänen sävelpalkilla), tanssilattia, pajatso, pöytäseurue ja naapurin Sinikka. Jos Sinikan
     kanssa tanssii tai tarjoaa hänelle drinkin, Päivi kuulee siitä pian puhelimessa ja on seuraavana päivänä
     vauhdissa.
+  - **Kauppa-auto:** Neittävän kyläkauppa lopetti laman alla, joten kerran päivässä noin minuutti mökille tulon
+    jälkeen Kaisuantietä tulee kauppa-auto. Pihalta katsottuna se tulee vasemmalta, pysähtyy pihatien päähän Pekan
+    auton viereen ja tööttää. Myyjä Eila myy luukulta kuutosen, grillimakkaraa, tulitikkuja, korvapuusteja,
+    lihapiirakoita, kotiviinin sokeria ja turbohiivaa sekä Iltalehteä lama-lööppeineen. Myynti on vain käteisellä.
+    Kun kukaan ei asioi, auto jatkaa parin minuutin päästä oikealle naapuriin (`--scene=mokkikauppaauto`).
   - **Pihapingis Santtua vastaan:** mailat ovat kannolla Santun vieressä (E). Street Fighter -tyyliin sivulta:
     isoilla puumailoilla lyödään palloa ilmassa puolelta toiselle ilman pöytää, ja se, jonka puolelle pallo
     putoaa maahan, häviää erän. Kaksi erävoittoa voittaa, ja pallo kiihtyy rallin pidetessä.
