@@ -120,6 +120,12 @@ var hongan_truck_pos: Vector3
 var raunio_pos: Vector3  # Lapinraunion keskipiste (#139)
 var aarni_stone: Node3D  # sammaloitunut kivikasa, hopeat alla
 var kentta_spot: Vector3  # Saloisten kentän rankkaripiste (maalin edessä) (#116)
+## Rankkarimaali (rankku_game.gd): origo maaliviivan keskellä maassa, +Z kentälle päin; koko = (leveys, korkeus,
+## pilkun etäisyys).
+var kentta_goal: Transform3D
+var kentta_goal_size := Vector3(5.0, 2.0, 7.0)
+var hongan_goal: Transform3D
+var hongan_goal_size := Vector3(3.2, 1.6, 5.5)
 var kentta_kids: Array = []  # kentän pojat (näkyvät päivällä)
 var kentta_laps: Array = []  # juoksulenkin kulmat kentän ympäri
 var uimaranta_pos: Vector3  # uimaan lähtö rannalla (#117)
@@ -1387,6 +1393,8 @@ func _build_kentta() -> void:
 		root.add_child(gb)
 	var spot: Vector3 = root.to_global(Vector3(0, 0, -L / 2.0 + 7.0))
 	kentta_spot = Vector3(spot.x, T.h(spot.x, spot.z), spot.z)
+	kentta_goal = root.global_transform * Transform3D(Basis(), Vector3(0, 0, -L / 2.0))
+	kentta_goal.origin.y = kentta_spot.y  # maaston korkeudelle (kenttä on maastossa, ei y = 0:ssa)
 	for corner in [Vector3(-W / 2.0 - 2.5, 0, -L / 2.0 - 2.5), Vector3(W / 2.0 + 2.5, 0, -L / 2.0 - 2.5),
 			Vector3(W / 2.0 + 2.5, 0, L / 2.0 + 2.5), Vector3(-W / 2.0 - 2.5, 0, L / 2.0 + 2.5)]:
 		var g: Vector3 = root.to_global(corner)
@@ -2149,6 +2157,8 @@ func _build_honganpalo() -> void:
 		B.mesh(field, B.boxm(Vector3(3.2, 1.6, 0.02)), Vector3(0, 0.8, z + side * 0.9), Color(0.9, 0.9, 0.9)).transparency = 0.6
 	var sp: Vector3 = field.to_global(Vector3(0, 0, -L / 2.0 + 5.5))
 	hongan_spot = Vector3(sp.x, T.h(sp.x, sp.z), sp.z)
+	hongan_goal = field.global_transform * Transform3D(Basis(), Vector3(0, 0, -L / 2.0))
+	hongan_goal.origin.y = hongan_spot.y
 	var kid_cols := [Color(0.2, 0.7, 0.3), Color(0.95, 0.5, 0.1)]
 	for i in 2:
 		var kid := Looks.make(field, {"model": "male", "shirt": kid_cols[i], "pants": Color(0.15, 0.15, 0.2), "shoes": Color(0.9, 0.9, 0.9),
