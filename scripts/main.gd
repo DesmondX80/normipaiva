@@ -4018,11 +4018,14 @@ const SANDBOX_FINDS := [
 var _keinu_record := 3.4
 var _keinu_holder := "Honganpalon Jere"
 var _keinu_best := 0.0
+var _keinu: Node3D  # keinuhyppy käynnissä
 var _sandbox_day := {}  # leikkipuiston indeksi -> päivä
 
 
 func _leikki_logic() -> void:
 	if world == null or world.playgrounds.is_empty():
+		return
+	if _keinu != null:
 		return
 	var mums := _between(clock_min, LEIKKI_MUMS)
 	for pg in world.playgrounds:
@@ -4038,7 +4041,7 @@ func _leikki_logic() -> void:
 		if _near_xz(pg.swing, 1.8):
 			_hint.text = "[E] Keinuhyppy (ennätys %s %s m)" % [_keinu_holder, KeinuGame._m(_keinu_record)]
 			if e:
-				_start_keinu()
+				_start_keinu(pg)
 			return
 		if _near_xz(pg.sandbox, 1.8):
 			if _sandbox_day.get(i, -1) == day:
@@ -4097,17 +4100,29 @@ func _sandbox_dig(mums: bool) -> void:
 	_show_message(txt, 4.0)
 
 
-func _start_keinu() -> void:
+## Keinuhyppy oikealla keinulla (keinu_game.gd keinutelineen lapsena): pelaaja istuu keinussa ja jää hiekkaan
+## alastulopaikalleen.
+func _start_keinu(pg: Dictionary) -> void:
+	if _keinu != null:
+		return
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
+	walker_out.visible = false
 	_hud.visible = false
 	var g := KeinuGame.new()
+	_keinu = g
 	g.record = _keinu_record
 	g.record_holder = _keinu_holder
 	g.best = _keinu_best
 	g.drunk = _hand_shake()
 	g.finished.connect(func(dist: float, crashed: bool) -> void:
+		_keinu = null
+		if g.landing != Vector3.ZERO:
+			walker_out.global_position = g.landing + Vector3(0, 0.3, 0)
+			walker_out.velocity = Vector3.ZERO
+		walker_out.visible = true
 		walker_out.controls_enabled = true
+		walker_out.activate_camera()
 		_hud.visible = true
 		tilat.first("keinuhyppy", 0.2)
 		if crashed:
@@ -4125,7 +4140,7 @@ func _start_keinu() -> void:
 			else:
 				tilat.add("stressi", 0.05)
 		_save_game())
-	add_child(g)
+	pg.frame.add_child(g)
 
 
 ## --- Sepon varastomyynti (#140) ja Saloisten säästöpiha (#141) ----------------------------------------------
@@ -17945,7 +17960,7 @@ func _maybe_screenshot() -> void:
 			_talk_reippari("haaste")
 			var g: Node = get_children().filter(func(c): return c is PiirakkaGame).front()
 			print("RE haaste auki: %s" % [g != null])
-			await get_tree().create_timer(3.5).timeout
+			await get_tree().create_timer(5.5).timeout
 			g._chew = 2
 			g._bite = 2
 			g._pies = 3
@@ -18158,7 +18173,7 @@ func _maybe_screenshot() -> void:
 			print("ER uinti: '%s'" % _hint.text)
 			clock_min = 12 * 60
 			_swim("Viitajärvi", Vector3.ZERO)
-			await get_tree().create_timer(3.5).timeout
+			await get_tree().create_timer(5.5).timeout
 			await snap.call("_viitauinti.png")
 			for i in 80:
 				if state != "cutscene":
@@ -18684,19 +18699,30 @@ func _maybe_screenshot() -> void:
 			await at.call(pg.swing)
 			print("LE keinu: '%s'" % _hint.text)
 			await press.call("interact")
-			var g: Node = get_children().filter(func(c): return c is KeinuGame).front()
+			var g: Node = _keinu
+			print("LE peli keinutelineessä %s, oma keinu piilossa %s, pelaaja piilossa %s" % [g != null and g.get_parent() == pg.frame,
+				not pg.frame.get_node("Keinu1").visible, not walker_out.visible])
 			await get_tree().create_timer(1.6).timeout
 			g._th = 0.9
 			g._w = 0.4
 			await get_tree().create_timer(0.3).timeout
 			await snap.call("_keinu.png")
+			g._th = -0.8
+			g._w = -0.5
+			await get_tree().create_timer(0.3).timeout
+			await snap.call("_keinu_taakse.png")
 			g._th = 0.35
 			g._w = 3.4
 			await press.call("jump")
-			await get_tree().create_timer(0.45).timeout
+			await get_tree().create_timer(0.35).timeout
 			await snap.call("_lento.png")
-			await get_tree().create_timer(5.0).timeout
+			await get_tree().create_timer(1.2).timeout
+			await snap.call("_alastulo.png")
+			var land: Vector3 = g.landing
+			await get_tree().create_timer(5.5).timeout
 			print("LE hyppy: ennätys %s %s, oma %s, '%s'" % [_keinu_holder, KeinuGame._m(_keinu_record), KeinuGame._m(_keinu_best), _msg.text.left(50)])
+			print("LE peli ohi %s, keinu takaisin %s, pelaaja näkyy %s, %.1f m alastulopaikasta" % [_keinu == null,
+				pg.frame.get_node("Keinu1").visible, walker_out.visible, Vector2(walker_out.global_position.x - land.x, walker_out.global_position.z - land.z).length()])
 			await at.call(pg.sandbox)
 			print("LE hiekkalaatikko: '%s'" % _hint.text)
 			await press.call("interact")
@@ -19339,7 +19365,7 @@ func _maybe_screenshot() -> void:
 			_talk_choose("tanssi")
 			var tg: Node = get_children().filter(func(c): return c is TanssiGame).front()
 			print("SE tanssi auki: %s" % [tg != null])
-			await get_tree().create_timer(3.5).timeout
+			await get_tree().create_timer(5.5).timeout
 			await snap.call("_tanssi.png")
 			tg._hits = 30
 			tg._misses = 3

@@ -100,7 +100,7 @@ var rauniot_stash: Vector3  # kivijalan kolo (jemma) (#145)
 var rauniot_uuni: Vector3  # uunin rauniot (löytö)
 var rauniot_youth: Node3D  # iltanuotio ja teinit
 var rauniot_youth_pos: Vector3
-var playgrounds: Array = []  # [{"name", "swing", "sandbox", "bench", "mums": Node3D}] (#146)
+var playgrounds: Array = []  # [{"name", "swing", "sandbox", "bench", "mums": Node3D, "frame": keinuteline}] (#146)
 var seppo_door: Vector3  # Sepon varaston ovi (#140)
 var seppo_npc: Node3D
 var seppo_tarp: Vector3  # pressun alla vanha mopo
@@ -1775,10 +1775,14 @@ func _playground(name: String, px: Vector2, idx: int) -> void:
 			var leg := B.mesh(sw, B.cyl(0.06, 0.06, 2.6, 8), Vector3(e, 1.2, t * 0.55), accent)
 			leg.rotation.x = t * 0.42
 	B.mesh(sw, B.cyl(0.07, 0.07, 3.4, 8), Vector3(0, 2.4, 0), accent.darkened(0.2), Vector3(0, 0, 90))
-	for x in [-0.7, 0.7]:
-		for cz in [-0.18, 0.18]:
-			B.mesh(sw, B.cyl(0.012, 0.012, 1.9, 4), Vector3(x, 1.45, cz), Color(0.7, 0.7, 0.72))
-		B.mesh(sw, B.boxm(Vector3(0.45, 0.04, 0.2)), Vector3(x, 0.5, 0), Color(0.1, 0.1, 0.1))
+	for k in 2:  # keinut omina solmuinaan: keinuhyppy (keinu_game.gd) piilottaa käytössä olevan ja heiluttaa omaansa
+		var hang := Node3D.new()
+		hang.name = "Keinu%d" % k
+		hang.position.x = [-0.7, 0.7][k]
+		sw.add_child(hang)
+		for cx in [-0.2, 0.2]:
+			B.mesh(hang, B.cyl(0.012, 0.012, 1.9, 4), Vector3(cx, 1.45, 0), Color(0.7, 0.7, 0.72))
+		B.mesh(hang, B.boxm(Vector3(0.45, 0.04, 0.2)), Vector3(0, 0.5, 0), Color(0.1, 0.1, 0.1))
 	var swb := StaticBody3D.new()
 	for e in [-1.6, 1.6]:
 		swb.add_child(B.box_shape(Vector3(0.2, 2.4, 1.6), Vector3(e, 1.2, 0)))
@@ -1849,7 +1853,7 @@ func _playground(name: String, px: Vector2, idx: int) -> void:
 		var w: Vector3 = root.to_global(local)
 		return Vector3(w.x, T.h(w.x, w.z), w.z)
 	playgrounds.append({"name": name if name != "" else "leikkipuisto", "swing": g.call(Vector3(-1.8, 0, -1.2)),
-		"sandbox": g.call(sb + Vector3(0, 0, -1.5)), "bench": g.call(Vector3(0, 0, -4.2)), "mums": mums})
+		"sandbox": g.call(sb + Vector3(0, 0, -1.5)), "bench": g.call(Vector3(0, 0, -4.2)), "mums": mums, "frame": sw})
 
 
 ## Sepon varastomyyntipiste (#140): ruskea lautavarasto (halli) käsin maalatulla kyltillä, pihalla rojua
