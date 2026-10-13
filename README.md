@@ -85,6 +85,17 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   avustettu spurtti väsytä; akku (palkki kunnon alla) tyhjenee ja latautuu tallissa ja kotona yön yli (Päivi
   huomaa sähkölaskun). Tyhjä tai irronnut akku tekee pyörästä raskaan. Irronnut osa teipataan tien varressa
   jalan E:llä, oikosulku korjataan tallissa. Testi `--scene=sahkopyora`.
+- **Oma mopo (#155):** Sepon pressun alla ollut Hopeanuoli. Seppo myy sen vasta tutulle: ostokset, marjat, Nokia ja
+  yllätyslaatikot kasvattavat luottamusta, ja Kekkosen rintamerkin palauttaminen ("isävainaan merkki!") avaa kaupan
+  heti puoleen hintaan. Hinta riippuu Sepon mielialasta. Mopo tulee talliin romuna: ketju ja ratas Huhtalan
+  romuista (Datsunin alta), sytytys Autosähkö-Simolta, satula Sepolta (muistoesine, maksaa erikseen) ja ajovalo
+  Tokolan Aarolta (pojan sähkömopo vuodelta -82). Tallissa kokoaminen, kaasarin säätö (sama minipeli kuin SLN-73:lla),
+  bensa SEO:n kanisterista ja potkukäynnistys: rikastin päälle, potku vihreälle kahdesti, rikastin pois ja vielä
+  kerran. Liian kova potku potkaisee nilkkaan, ja Päivi kommentoi ikkunasta. Mopolla ajetaan pyörän tapaan (F ja
+  talliovi), mutta kaasulla ilman kuntoa: Sepon vuonna 1979 irrottama rajoitin pois 21 m/s, rajoittimella 15 m/s.
+  Bensa kuluu (palkki kunnon alla), tyhjällä tankilla mopoa taluttaa, ja SEO:lla tankataan. Katsastus hylkää ilman
+  ajovaloa ja rajoitinta. Rossiradalla mopolla on oma kierrosaika, ja Päivi motkottaa romusta aamuisin. Testi
+  `--scene=mopo`.
 - **Seuranmäen seuraintalo:** kartan pohjoisosassa punainen seuraintalo, sisällä kirpputori (auki klo 10–18):
   mummo Hilkan virkkuuliinat, Railin rihkama (VHS-kasetit, posliinikoirat), Taunon työkalut ja lavalla huutaja
   Erkki. Naapurin Anna-Liisa tinkii vieressä ja kommentoi. Tinkiminen keskustellen: myyjä hyväksyy tarjouksen,
