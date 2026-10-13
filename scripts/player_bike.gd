@@ -5,6 +5,7 @@ const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Looks := preload("res://scripts/looks.gd")
 const DrunkWobble := preload("res://scripts/drunk_wobble.gd")
+const Mopo := preload("res://scripts/mopo.gd")
 
 const MAX_SPEED := 14.0
 const REVERSE_SPEED := 3.0
@@ -46,6 +47,20 @@ var _ebike: Node3D
 var _ebike_key := ""
 var _whine: AudioStreamPlayer
 var _thief: Node3D  # varkaan hahmo satulassa (pelaajan kuski piilossa)
+## Oma mopo (oma_mopo.gd, #155): sama solmu mopotilassa. Pyörän runko piiloon ja mopon malli (mopo.gd build_model)
+## näkyviin, kaasu ilman polkemista, moottorin pörinä ja huippunopeus mopo_max. mopo_dry = tankki tyhjä: talutetaan.
+const MOPO_ACCEL := 5.0
+const MOPO_DRAG := 0.9
+const PUSH_SPEED := 2.2  # tyhjä tankki: mopoa taluttaa
+const MOPO_SEAT := Vector3(0, 0.82, 0.25)
+const BIKE_SEAT := Vector3(0, 0.9, 0.28)
+var mopo := false
+var mopo_max := 21.0
+var mopo_dry := false
+var _frame: Node3D  # pyörän runko, polkimet ja pyörät
+var _moped: Node3D
+var _moped_wheels: Array[Node3D] = []
+var _engine: AudioStreamPlayer
 
 ## Hiukkasten värit alustan mukaan (sora pöllyää, vesi roiskuu, vilja lentelee).
 const DEBRIS := {
@@ -127,6 +142,36 @@ func _ready() -> void:
 	_whine.stream = Sfx.stream("engine")
 	_whine.volume_db = -80.0
 	add_child(_whine)
+	_engine = AudioStreamPlayer.new()
+	_engine.stream = Sfx.stream("engine")
+	_engine.bus = "SFX"
+	_engine.volume_db = -80.0
+	add_child(_engine)
+
+
+## Mopotila päälle tai pois (oma mopo ulos tallista / takaisin talliin).
+func set_mopo(on: bool) -> void:
+	mopo = on
+	if on and _moped == null:
+		_moped = Node3D.new()
+		_visual.add_child(_moped)
+		_moped_wheels = Mopo.build_model(_moped)
+	_frame.visible = not on
+	if _moped != null:
+		_moped.visible = on
+	if _ebike != null:
+		_ebike.visible = not on
+	_seat_rider(_rider)
+	if _thief != null:
+		_seat_rider(_thief)
+	if not on:
+		_engine.stop()
+		mopo_dry = false
+
+
+func _seat_rider(who: Node3D) -> void:
+	who.position = (MOPO_SEAT + Vector3(0, 0.1, 0) if mopo else BIKE_SEAT + Vector3(0, 0.12, 0.02)) - who.bone_position("pelvis")
+	who.set_override("spine_01", Vector3.RIGHT, -0.15 if mopo else -0.4)
 
 
 func set_carrying(carrying: bool) -> void:
@@ -151,9 +196,7 @@ func set_thief(look: Dictionary) -> void:
 	_thief = Looks.make(_visual, look)
 	_thief.play("Driving", 0.0)
 	_thief.anim.advance(0.01)
-	var pelvis: Vector3 = _thief.bone_position("pelvis")
-	_thief.position = Vector3(0, 0.9, 0.28) + Vector3(0, 0.12, 0.02) - pelvis
-	_thief.set_override("spine_01", Vector3.RIGHT, -0.4)
+	_seat_rider(_thief)
 
 
 func activate_camera() -> void:
@@ -215,10 +258,13 @@ func _physics_process(delta: float) -> void:
 		steer = clampf(Input.get_axis("right", "left") + CamCtl.vehicle_steer(speed), -1.0, 1.0)
 		braking = Input.is_action_pressed("brake")
 		if Input.is_action_just_pressed("bell"):
-			Sfx.play("bell", -4.0)
-	# Shift: spurtti, kun poljetaan eteenpäin ja kuntoa on jäljellä.
+			if mopo:
+				Sfx.play("horn", -8.0, 1.8)  # mopon piippari
+			else:
+				Sfx.play("bell", -4.0)
+	# Shift: spurtti, kun poljetaan eteenpäin ja kuntoa on jäljellä. Mopolla ei polje.
 	var want_sprint: bool = controls_enabled and Input.is_action_pressed("sprint") and throttle > 0.0 \
-		and legs != null and not legs.exhausted and not legs.no_sprint
+		and legs != null and not legs.exhausted and not legs.no_sprint and not mopo
 	if want_sprint and not sprinting:
 		_sprint_start()
 	sprinting = want_sprint
@@ -245,6 +291,10 @@ func _physics_process(delta: float) -> void:
 	elif heavy:
 		max_s *= 0.85  # tyhjä akku ja moottori painavat
 		accel *= 0.75
+	if mopo:
+		# Kaasukahva: ei kuntoa, spurttia eikä huoltoa. Tyhjällä tankilla mopoa taluttaa kävelyvauhtia.
+		max_s = (PUSH_SPEED if mopo_dry else mopo_max) * t.speed * clampf(1.0 - grade * 2.5, 0.6, 1.2)
+		accel = (2.0 if mopo_dry else MOPO_ACCEL) * t.accel
 	if throttle > 0.0:
 		speed = move_toward(speed, max_s, accel * throttle * delta)
 	elif throttle < 0.0:
@@ -253,7 +303,7 @@ func _physics_process(delta: float) -> void:
 		else:
 			speed = move_toward(speed, -REVERSE_SPEED * t.speed, accel * delta)
 	else:
-		speed = move_toward(speed, 0.0, (DRAG + t.drag) * delta)
+		speed = move_toward(speed, 0.0, ((MOPO_DRAG if mopo else DRAG) + t.drag) * delta)
 	if braking:
 		speed = move_toward(speed, 0.0, BRAKE * delta)
 	elif absf(grade) > 0.01 and (absf(speed) > 0.3 or throttle != 0.0):
@@ -291,9 +341,14 @@ func _physics_process(delta: float) -> void:
 	_wobble = maxf(0.0, _wobble - delta)
 	_visual.rotation.z = _lean + sin(_wobble * 30.0) * _wobble * 0.5  # kettukarkki osui: heilahdus
 	_apply_bumps(delta)
-	for w in _wheels:
-		w.rotation.x -= speed * delta / 0.35
-	_animate_pedals(delta)
+	if mopo:
+		for w in _moped_wheels:
+			w.rotation.x -= speed * delta / 0.3
+		_pose_mopo_rider(_thief if _thief != null else _rider)
+	else:
+		for w in _wheels:
+			w.rotation.x -= speed * delta / 0.35
+		_animate_pedals(delta)
 
 	_update_camera(delta)
 	_update_roll_sound()
@@ -336,7 +391,7 @@ func _update_roll_sound() -> void:
 	_roll.volume_db = linear_to_db(k * 0.6 + 0.0001) + r[1] - 2.0 + mute
 	_roll.pitch_scale = (0.75 + k * 0.5) * r[0]
 	# Vapaaratas naksuu vain, kun rullataan polkematta.
-	var coasting := controls_enabled and absf(speed) > 1.0 and not Input.is_action_pressed("forward")
+	var coasting := controls_enabled and absf(speed) > 1.0 and not Input.is_action_pressed("forward") and not mopo
 	_chain.volume_db = lerpf(_chain.volume_db, (linear_to_db(k * 0.7 + 0.0001) - 6.0 + mute) if coasting else -80.0, 0.25)
 	_chain.pitch_scale = 0.6 + k * 0.8
 	var pedal := controls_enabled and Input.is_action_pressed("forward")
@@ -347,6 +402,17 @@ func _update_roll_sound() -> void:
 		_whine.play()
 	elif not hum and _whine.playing and _whine.volume_db < -60.0:
 		_whine.stop()
+	# Mopon kaksitahtinen: tyhjäkäynnillä pärisee, kaasulla kierrokset nousevat. Tyhjällä tankilla hiljaa.
+	var run := mopo and not mopo_dry and (controls_enabled or autopilot or _thief != null)
+	if run and not _engine.playing:
+		_engine.play()
+	elif not run and _engine.playing:
+		_engine.stop()
+	if run:
+		var km := clampf(absf(speed) / maxf(mopo_max, 1.0), 0.0, 1.0)
+		var gas := controls_enabled and Input.is_action_pressed("forward")
+		_engine.pitch_scale = lerpf(1.1, 2.6, km) + (0.25 if gas else 0.0)
+		_engine.volume_db = lerpf(-14.0, -6.0, maxf(km, 0.4 if gas else 0.0)) + mute
 
 
 ## Alustan kuoppaisuus (world.TERRAIN.bump): sähköpyörän teippiliitokset irtoavat kuopissa.
@@ -375,6 +441,7 @@ func set_ebike(state: Dictionary) -> void:
 	var loose: Dictionary = state.get("loose", {})
 	_ebike = Node3D.new()
 	_visual.add_child(_ebike)
+	_ebike.visible = not mopo
 	var dark := Color(0.12, 0.12, 0.13)
 	var teal := Color(0.0, 0.55, 0.55)  # Makitan turkoosi
 	var tape := Color(0.62, 0.63, 0.6)
@@ -513,11 +580,13 @@ func _build_bike() -> void:
 	var frame_col := Color(0.78, 0.08, 0.08)
 	var black := Color(0.06, 0.06, 0.06)
 	var steel := Color(0.72, 0.72, 0.75)
+	_frame = Node3D.new()
+	_visual.add_child(_frame)
 
 	for z in [-0.55, 0.55]:
 		var pivot := Node3D.new()
 		pivot.position = Vector3(0, 0.35, z)
-		_visual.add_child(pivot)
+		_frame.add_child(pivot)
 		var tire := TorusMesh.new()
 		tire.inner_radius = 0.3
 		tire.outer_radius = 0.36
@@ -533,25 +602,25 @@ func _build_bike() -> void:
 	var seat := Vector3(0, 0.9, 0.28)
 	var crank := Vector3(0, 0.36, 0.05)
 	var head := Vector3(0, 0.88, -0.42)
-	B.tube(_visual, seat, head, 0.025, frame_col)
-	B.tube(_visual, head + Vector3(0, -0.1, 0), crank, 0.028, frame_col)
-	B.tube(_visual, seat + Vector3(0, 0.05, 0), crank, 0.025, frame_col)
-	B.tube(_visual, crank, Vector3(0, 0.35, 0.55), 0.018, frame_col)
-	B.tube(_visual, seat, Vector3(0, 0.35, 0.55), 0.018, frame_col)
-	B.tube(_visual, head + Vector3(0, 0.12, 0), Vector3(0, 0.35, -0.55), 0.02, steel)
-	B.tube(_visual, Vector3(-0.3, 1.22, -0.36), Vector3(0.3, 1.22, -0.36), 0.018, black)
+	B.tube(_frame, seat, head, 0.025, frame_col)
+	B.tube(_frame, head + Vector3(0, -0.1, 0), crank, 0.028, frame_col)
+	B.tube(_frame, seat + Vector3(0, 0.05, 0), crank, 0.025, frame_col)
+	B.tube(_frame, crank, Vector3(0, 0.35, 0.55), 0.018, frame_col)
+	B.tube(_frame, seat, Vector3(0, 0.35, 0.55), 0.018, frame_col)
+	B.tube(_frame, head + Vector3(0, 0.12, 0), Vector3(0, 0.35, -0.55), 0.02, steel)
+	B.tube(_frame, Vector3(-0.3, 1.22, -0.36), Vector3(0.3, 1.22, -0.36), 0.018, black)
 	for gx in [-0.27, 0.27]:
-		B.tube(_visual, Vector3(gx - 0.04, 1.22, -0.36), Vector3(gx + 0.04, 1.22, -0.36), 0.03, Color(0.15, 0.1, 0.08))
-	B.tube(_visual, head, Vector3(0, 1.22, -0.36), 0.02, steel)
-	B.mesh(_visual, B.boxm(Vector3(0.16, 0.06, 0.28)), seat + Vector3(0, 0.05, 0.02), black)
-	B.mesh(_visual, B.cyl(0.1, 0.1, 0.02, 16), crank + Vector3(0.05, 0, 0), steel, Vector3(0, 0, 90))
+		B.tube(_frame, Vector3(gx - 0.04, 1.22, -0.36), Vector3(gx + 0.04, 1.22, -0.36), 0.03, Color(0.15, 0.1, 0.08))
+	B.tube(_frame, head, Vector3(0, 1.22, -0.36), 0.02, steel)
+	B.mesh(_frame, B.boxm(Vector3(0.16, 0.06, 0.28)), seat + Vector3(0, 0.05, 0.02), black)
+	B.mesh(_frame, B.cyl(0.1, 0.1, 0.02, 16), crank + Vector3(0.05, 0, 0), steel, Vector3(0, 0, 90))
 	# Lokasuoja ja tavarateline.
-	B.mesh(_visual, B.boxm(Vector3(0.1, 0.02, 0.5)), Vector3(0, 0.74, 0.6), frame_col)
-	B.tube(_visual, Vector3(0, 0.74, 0.4), Vector3(0, 0.55, 0.62), 0.012, steel)
+	B.mesh(_frame, B.boxm(Vector3(0.1, 0.02, 0.5)), Vector3(0, 0.74, 0.6), frame_col)
+	B.tube(_frame, Vector3(0, 0.74, 0.4), Vector3(0, 0.55, 0.62), 0.012, steel)
 
 	_crank = Node3D.new()
 	_crank.position = crank
-	_visual.add_child(_crank)
+	_frame.add_child(_crank)
 	for side in [-1.0, 1.0]:
 		var arm := B.mesh(_crank, B.boxm(Vector3(0.02, 0.17, 0.03)), Vector3(0.08 * side, -0.085 * side, 0), steel)
 		arm.name = "Arm%d" % int(side)
@@ -599,3 +668,14 @@ func _animate_pedals(delta: float) -> void:
 		var shoulder := Vector3(0.2 * s, 1.5, 0.05)
 		who.set_ik("arm" + side[0], "upperarm" + side[0], "lowerarm" + side[0], "hand" + side[0],
 			inv * grip, inv * (shoulder + Vector3(0.35 * s, -0.35, 0.1)))
+
+
+## Mopolla kädet tangolle ja jalat jalkatapeille (sama asento kuin mopo.gd:ssä).
+func _pose_mopo_rider(who: Node3D) -> void:
+	var inv := who.transform.affine_inverse()
+	for side in [["_l", -1.0], ["_r", 1.0]]:
+		var s: float = side[1]
+		who.set_ik("arm" + side[0], "upperarm" + side[0], "lowerarm" + side[0], "hand" + side[0],
+			inv * Vector3(0.3 * s, 1.1, -0.44), inv * Vector3(0.55 * s, 1.2, 0.0))
+		who.set_ik("leg" + side[0], "thigh" + side[0], "calf" + side[0], "foot" + side[0],
+			inv * Vector3(0.2 * s, 0.35, -0.05), inv * Vector3(0.2 * s, 0.9, -0.6))
