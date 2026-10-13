@@ -2165,9 +2165,12 @@ func _start_kick() -> void:
 	_hud.visible = false
 	var g := MopoKickGame.new()
 	g.drunk = _hand_shake()
+	g.mopo = garage_int._mopo  # pelataan tallin oikealla mopolla
+	g.walker = garage_int.walker
 	g.finished.connect(func(ok: bool) -> void:
 		garage_int.busy = false
 		garage_int.walker.controls_enabled = true
+		garage_int.walker.activate()  # tallin kamera takaisin
 		_hud.visible = true
 		if ok:
 			oma_mopo.running = true
@@ -2178,11 +2181,11 @@ func _start_kick() -> void:
 			maine = clampf(maine + 2.0, 0.0, 100.0)
 			Sfx.play("win", -4.0)
 			_save_game()
-			_show_message("HOPEANUOLI KÄY! Talli on sinisenä savusta, ja Päivi seisoo ovella nenä kiinni. Maine +2.", 5.0)
+			_show_message("HOPEANUOLI KÄY! Talli on sininen kuin savusauna, ja Päivi lähti yskien sisälle. Maine +2.", 5.0)
 		else:
 			tilat.add("stressi", -0.05)
 			_show_message("Mopo ei lähtenyt. Nilkka on hellä, mutta ylpeys vielä hellempi. Huomenna uusiks.", 3.5))
-	add_child(g)
+	garage_int.add_child(g)
 
 
 ## Mopon valinnat kylän ihmisillä (_talk_options lisää ne loppuun).
@@ -18424,7 +18427,12 @@ func _maybe_screenshot() -> void:
 			await press.call("interact")
 			print("MO tankattu kanisterista: bensa %.2f, hint '%s'" % [oma_mopo.fuel, _hint.text])
 			await press.call("interact")
-			var kg: Node = get_children().filter(func(c): return c is MopoKickGame).front()
+			var kg: Node = garage_int.get_children().filter(func(c): return c is MopoKickGame).front()
+			var rec: AudioEffectRecord = null  # pärinä talteen kuunneltavaksi
+			if AudioServer.get_bus_count() > 0:
+				rec = AudioEffectRecord.new()
+				AudioServer.add_bus_effect(0, rec)
+				rec.set_recording_active(true)
 			print("MO potkupeli auki %s" % [kg != null])
 			if kg != null:
 				kg._kick(0.2)
@@ -18436,6 +18444,7 @@ func _maybe_screenshot() -> void:
 				print("MO potkut %d, köhäisyt %d" % [kg._kicks, kg._coughs])
 				Input.action_press("interact")  # lataus kuvaan: vaihe ~0.66 = voima ~0.75
 				kg._phase = 0.64
+				kg._paivi_say(kg.PAIVI_LINES[0], 3.0)
 				await get_tree().process_frame
 				await snap.call("_potku.png")
 				kg._holding = false  # ei potkua irti päästettäessä
@@ -18443,11 +18452,25 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 				kg._kick(0.74)  # toinen köhäisy
 				print("MO köhäisyt %d" % kg._coughs)
+				await get_tree().create_timer(0.35).timeout
+				await snap.call("_potku_kohaisy.png")
 				kg._choke = false
 				kg._kick(0.75)  # käy
 				await get_tree().create_timer(1.0).timeout
 				await snap.call("_potku_kay.png")
-				await get_tree().create_timer(3.0).timeout
+				await get_tree().create_timer(2.4).timeout
+				await snap.call("_potku_yskii.png")
+				print("MO Päivi: %s, huuru %.2f" % [kg._paivi_state, kg._fog.color.a])
+				await get_tree().create_timer(1.9).timeout
+				await snap.call("_potku_lahtee.png")
+				print("MO Päivi: %s, huuru %.2f" % [kg._paivi_state, kg._fog.color.a])
+				await get_tree().create_timer(3.5).timeout
+				if rec != null:
+					rec.set_recording_active(false)
+					var wav: AudioStreamWAV = rec.get_recording()
+					if wav != null:
+						wav.save_to_wav(path.replace(".png", "_parina.wav"))
+					AudioServer.remove_bus_effect(0, AudioServer.get_bus_effect_count(0) - 1)
 			print("MO käy %s, peli ohi %s, viesti '%s'" % [oma_mopo.running, not is_instance_valid(kg), _msg.text])
 			await frames.call(10)
 			await snap.call("_talli_valmis.png")
