@@ -2670,8 +2670,9 @@ func _start_tanssi(who: String) -> void:
 	var g := TanssiGame.new()
 	g.partner = who
 	g.drunk = _hand_shake()
+	g.interior = kirppis_int  # tanssitaan salin lattialla salin omien ihmisten kanssa
 	g.finished.connect(func(score: float) -> void: _tanssi_done(who, score))
-	add_child(g)
+	kirppis_int.add_child(g)
 
 
 ## Tanssin tulos: moraali ja maine, Sinikan kanssa Päivi kuulee, Anna-Liisa juoruaa varpaista.
@@ -19437,15 +19438,19 @@ func _maybe_screenshot() -> void:
 			_talk_open("sinikka_seura", null)
 			_talk_box._pages.clear()
 			_talk_choose("tanssi")
-			var tg: Node = get_children().filter(func(c): return c is TanssiGame).front()
-			print("SE tanssi auki: %s" % [tg != null])
+			var tg: Node = kirppis_int.get_children().filter(func(c): return c is TanssiGame).front()
+			print("SE tanssi auki salissa: %s, salin Sinikka piilossa %s, kävelijä piilossa %s" % [tg != null, not kirppis_int._holders[kirppis_int.person_index("sinikka_seura")].visible, not kirppis_int.walker.visible])
 			await get_tree().create_timer(5.5).timeout
 			await snap.call("_tanssi.png")
+			tg._miss()
+			tg._say("Auts, varpaat!", 2.0)
+			await get_tree().create_timer(0.15).timeout
+			await snap.call("_tanssi_kompastus.png")
 			tg._hits = 30
 			tg._misses = 3
 			tg._finish()
 			await frames.call(5)
-			print("SE tanssi ohi: viesti '%s', soitto %.1f" % [_msg.text, _paivi_call_t])
+			print("SE tanssi ohi: viesti '%s', soitto %.1f, Sinikka takaisin %s, kävelijä näkyy %s" % [_msg.text, _paivi_call_t, kirppis_int._holders[kirppis_int.person_index("sinikka_seura")].visible, kirppis_int.walker.visible])
 			_on_kirppis_acted("takaovi")
 			print("SE ukot: '%s'" % _msg.text)
 			clock_min = 60 + 5
