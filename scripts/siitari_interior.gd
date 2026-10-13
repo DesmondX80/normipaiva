@@ -65,6 +65,7 @@ var busy := false
 var walker: CharacterBody3D
 var hint := ""
 var sinikka_dancing := false
+var bar_closed := false  # aukioloajat (main.gd): hotellin puolelta ei pääse kiinni olevaan ravintolaan
 var _enter_frame := -1
 
 var _bartender: Node3D
@@ -267,6 +268,9 @@ func _process(delta: float) -> void:
 	if best == "":
 		return
 	hint = spots[best][1]
+	if best == "baariin" and bar_closed:
+		hint = "Ravintola on kiinni (auki 11–02). Ovi on lukossa."
+		return
 	if not Input.is_action_just_pressed("interact") or Engine.get_process_frames() == _enter_frame:
 		return
 	match best:

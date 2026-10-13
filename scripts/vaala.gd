@@ -1017,6 +1017,15 @@ func _build_lava() -> void:
 ## ja kasettisoitin soimassa (party_pos). main.gd: ovet "pummi" ja "bileet".
 var pummi_out := Vector3.ZERO
 var pummi_in := Vector3.ZERO
+## Kahlausalue aidan vesipään ympärillä: jalan saa kahlata vyötäröä myöten (WADE_DEPTH), muualla ei veteen.
+const WADE_DEPTH := 1.3
+var _wade_c := Vector2.INF
+var _wade_r := 0.0
+## Juhannuskokko lavan niemen rannassa aidan ulkopuolella (main.gd: pino juhannuksena, palaa KOKKO_AIKA).
+var kokko_pos := Vector3.INF
+var _kokko: Node3D
+var _kokko_fire: Node3D
+var _kokko_people: Node3D
 var party_pos := Vector3.ZERO
 var party_people: Array[Node3D] = []
 
@@ -1039,6 +1048,8 @@ func _build_lava_youth(lv: Dictionary) -> void:
 		if not wet(q.x, q.y, 0.3) and not wet(q.x + nrm.x * 3.0, q.y + nrm.y * 3.0, 0.3) and not wet(q.x - nrm.x * 3.0, q.y - nrm.y * 3.0, 0.3):
 			shore = q + dir * 2.0
 			break
+	_wade_c = a
+	_wade_r = (a.distance_to(shore) if shore != Vector2.INF else 10.0) + 9.0
 	if shore != Vector2.INF:
 		var po := shore + nrm * 2.5
 		var pn := shore - nrm * 2.5
@@ -1046,6 +1057,13 @@ func _build_lava_youth(lv: Dictionary) -> void:
 		pummi_in = Vector3(pn.x, h(pn.x, pn.y), pn.y)
 		doors.append({"id": "pummi", "pos": pummi_out, "out": Vector3(nrm.x, 0, nrm.y), "r": 4.0, "walk": true, "hint": "pummilla",
 			"text": "Pummilla lavan pihalle järven kautta (kahlaa aidan pään ympäri)"})
+		for off: float in [12.0, 15.0, 9.0, 18.0]:
+			var kq := shore + nrm * off + dir * 3.0
+			if not wet(kq.x, kq.y, 0.3) and not wet(kq.x + 2.0, kq.y, 0.3) and not wet(kq.x - 2.0, kq.y, 0.3):
+				_build_kokko(kq, -dir)
+				doors.append({"id": "kokko", "pos": kokko_pos + Vector3(nrm.x, 0, nrm.y) * 3.5, "out": Vector3(nrm.x, 0, nrm.y), "r": 5.0,
+					"walk": true, "hint": "kokolle", "text": "Juhannuskokko rannalla"})
+				break
 		# Polku on tallattu rannan kaislikkoon: muutama lankku märkään kohtaan.
 		for k in 3:
 			var q := shore + dir * (-1.5 - k * 1.2) + nrm * 0.8
@@ -2395,6 +2413,85 @@ func _build_lava_gate(lv: Dictionary, side: float) -> void:
 	_build_yard_teens(tp, Vector2(-side, 0))
 	doors.append({"id": "pihanuoret", "pos": yard_teens_pos, "out": Vector3(-side, 0, 0), "r": 5.0, "walk": true, "hint": "teineille",
 		"text": "Teinit lavan pihalla: juttele"})
+
+
+## Kokko: koivuhalkojen ja risujen pino kartioksi, liekit, valo ja kipinät sekä juhlaväki ympärillä (piilossa, kunnes
+## main.gd sytyttää). face = kohti järveä.
+func _build_kokko(c: Vector2, face: Vector2) -> void:
+	kokko_pos = Vector3(c.x, h(c.x, c.y), c.y)
+	_kokko = Node3D.new()
+	_kokko.position = kokko_pos
+	add_child(_kokko)
+	_kokko.visible = false
+	for k in 16:
+		var a := TAU * k / 16.0
+		var lg := B.mesh(_kokko, B.cyl(0.08, 0.1, 3.2, 6), Vector3(cos(a) * 0.9, 1.3, sin(a) * 0.9),
+			Color(0.9, 0.88, 0.82) if k % 3 != 0 else Color(0.4, 0.28, 0.18))
+		lg.rotation = Vector3(sin(a) * 0.45, 0, -cos(a) * 0.45)
+	B.mesh(_kokko, B.cyl(0.0, 1.3, 2.4, 10), Vector3(0, 1.1, 0), Color(0.3, 0.22, 0.12))  # risut sisällä
+	_kokko_fire = Node3D.new()
+	_kokko.add_child(_kokko_fire)
+	var glow := B.unshaded(Color(1.0, 0.5, 0.1))
+	for k in 6:
+		var f := MeshInstance3D.new()
+		f.mesh = B.boxm(Vector3(1.4 - k * 0.15, 1.6 + k * 0.3, 0.1))
+		f.material_override = glow
+		f.position = Vector3(0, 1.4 + k * 0.25, 0)
+		f.rotation.y = k * PI / 6.0
+		_kokko_fire.add_child(f)
+	var li := OmniLight3D.new()
+	li.light_color = Color(1.0, 0.55, 0.2)
+	li.light_energy = 4.0
+	li.omni_range = 22.0
+	li.position = Vector3(0, 3.0, 0)
+	_kokko_fire.add_child(li)
+	var sparks := CPUParticles3D.new()
+	sparks.amount = 60
+	sparks.lifetime = 2.5
+	sparks.position = Vector3(0, 3.0, 0)
+	sparks.direction = Vector3.UP
+	sparks.spread = 25.0
+	sparks.initial_velocity_min = 2.0
+	sparks.initial_velocity_max = 4.5
+	sparks.gravity = Vector3(0, 0.5, 0)
+	var sm := SphereMesh.new()
+	sm.radius = 0.04
+	sm.height = 0.08
+	sm.material = B.unshaded(Color(1.0, 0.7, 0.2))
+	sparks.mesh = sm
+	_kokko_fire.add_child(sparks)
+	_kokko_people = Node3D.new()
+	_kokko.add_child(_kokko_people)
+	var looks := [
+		{"shirt": Color(0.9, 0.9, 0.85), "pants": Color(0.25, 0.3, 0.45), "hair": "Hair_SimpleParted", "hair_color": Color(0.5, 0.4, 0.3), "height": 1.8},
+		{"model": "female", "shirt": Color(0.95, 0.85, 0.9), "pants": Color(0.3, 0.5, 0.35), "hair": "Hair_Long", "hair_color": Color(0.85, 0.7, 0.4),
+			"height": 1.66},
+		{"shirt": Color(0.2, 0.4, 0.25), "pants": Color(0.2, 0.2, 0.25), "hair": "Hair_Buzzed", "beard": true, "hair_color": Color(0.4, 0.3, 0.2),
+			"height": 1.76, "belly": 0.4},
+		{"model": "female", "shirt": Color(0.7, 0.2, 0.25), "pants": Color(0.15, 0.15, 0.2), "hair": "Hair_Buns", "hair_color": Color(0.6, 0.55, 0.5),
+			"height": 1.62},
+	]
+	for i in looks.size():
+		var a := PI * 0.25 + i * 0.5 + atan2(-face.y, -face.x)  # rannan puolelle, kasvot kokolle
+		var ch := Looks.make(_kokko_people, looks[i])
+		ch.position = Vector3(cos(a) * 4.2, 0, sin(a) * 4.2)
+		ch.position.y = h(c.x + ch.position.x, c.y + ch.position.z) - kokko_pos.y
+		ch.rotation.y = B.yaw_to(-Vector3(cos(a), 0, sin(a)))
+		ch.play("Idle_Talking" if i % 2 == 0 else "Idle", 0.0)
+
+
+## Kokko näkyviin juhannuksena (pile) ja tuleen (lit).
+func set_kokko(pile: bool, lit: bool) -> void:
+	if _kokko == null:
+		return
+	_kokko.visible = pile
+	_kokko_fire.visible = lit
+	_kokko_people.visible = lit
+
+
+## Saako kohdassa kahlata (lavan aidan vesipään ympäri pummilla).
+func can_wade(x: float, z: float) -> bool:
+	return _wade_c != Vector2.INF and Vector2(x, z).distance_to(_wade_c) < _wade_r
 
 
 ## Onko kohta lavan aidan sisäpuolella (kaikkien aidan pätkien lavan puolella).

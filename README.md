@@ -271,10 +271,19 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     asfaltoitua Pahalahdentietä juuri ennen radan alikulkua; `tools/vaala_lava.py` tekee niemen, leveän joen ja
     järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (punamullatut seinät, luukut auki, bändi
     lavalla) aivan rannassa niemen kärjessä lautatarha-aidan sisällä, jonka päät ulottuvat jokeen ja Pahalahteen:
-    lippu (12 €) ostetaan aidan portilta, jossa portsari leimaa käden ja portti aukeaa koko päiväksi; lavatansseihin, joissa A ja D vuorotellen tahdissa vievät parin tanssiin. Pelissä lava on
+    lippu (12 €) ostetaan aidan portilta, jossa portsari leimaa käden ja portti aukeaa koko päiväksi; lavatansseihin (klo 20–01), joissa A ja D vuorotellen tahdissa vievät parin tanssiin. Kappaleen jälkeen palataan saliin:
+    voi tanssia uudestaan, mennä diskopuolelle tai baaritiskille tuopille, ja Q vie lavalta ulos. Pelissä lava on
     todellista (1 500 m²) vähän pienempi. Oulujärvi jatkuu niemeltä kaakkoon kartan reunaan asti.
+  - **Juhannus ja Kesäillan valssi:** juhannusaattona (perjantai) lavan niemen rannassa aidan ulkopuolella palaa
+    juhannuskokko klo 21–03 juhlaväen keskellä (E: moraali ja mielihyvä). Lavalla soittaa isompi Vaalan Tähtiorkesteri
+    (valkoiset takit, trumpetti ja taustalaulajat), koivunoksat koristavat lavaa, ja tanssilattia on tupaten täynnä.
+    TV-ryhmä kuvaa Kesäillan valssia tanssilattian laidalla (kamera jalustalla, äänimies ja valot). Jos humppa onnistuu
+    (vähintään 50 %), se menee suorana lähetykseen, ja lavalta lähtiessä välikuvassa Päivi katsoo Kesäillan valssia
+    kotona sohvalla: ruudulla on TV-kameran kuva pelaajan tanssista, ja Päivi tunnistaa miehensä ja kiroilee
+    ("Mitä PERKELETTÄ?! Mun mies! Telkkarissa!"). Maine nousee, ja aamulla lapussa on motkotusta (`--scene=mokkijuhannus`).
   - **90-luvun nuorison hupihommat:** rahaton pääsee lavan pihalle **pummilla** kahlaamalla aidan järvenpuoleisen
-    pään ympäri (mopo jää rantaan). Leimaa ei silloin ole, ja **portsari** kiertää pihaa portilta lavan ovelle
+    pään ympäri (mopo jää rantaan). Ympäri voi myös kävellä itse: aidan vesipään ympärillä saa kahlata vyötäröä
+    myöten (`--scene=mokkikahlaus`). Leimaa ei silloin ole, ja **portsari** kiertää pihaa portilta lavan ovelle
     näkökenttä maassa kuten Saloisten K-Marketin Anna-Liisa: liian pitkä katse ja portsari taluttaa niskasta portista
     ulos (maine laskee). Lavan pihalla parkkipaikan laidalla **teinit** ryyppäävät mopojensa vieressä (huikat ja
     jutut kuten aidan takana). **Aidan takana metsässä** porukka ryyppää nuotiolla kuusikossa, mopot puiden välissä ja kasettisoitin soimassa:
@@ -298,6 +307,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     "LIIKE LOPETTAA", "LOPPUUNMYYNTI" ja "TILA VUOKRATTAVANA". Pankkiautomaatti (Vaalassa ja Saloisissa) voi hylätä
     kortin, jolloin uusi yritys onnistuu, tai pankki on laskenut nostorajaa ja koneesta tulee vain 10 €. Päivin aamulapussa
     on välillä motkotusta rahasta (`--scene=mokkilama`). Keskustassa laserpuita on harvennettu, jotta taajama erottuu.
+  - **Aukioloajat:** K-Marketit 7–21, Alkon hylly 9–18, Siitarin baari 11–02 (hotellin vastaanotto aina auki),
+    Kapteenin Kulma 14–02 ja lavatanssit 20–01, pankkiautomaatti aina. Suljetulla ovella kerrotaan, milloin paikka
+    aukeaa, ja taksi Raaheen ei lähde, jos baari on perillä kiinni. Sulkemisaikaan sisällä tulee valomerkki: kaupassa
+    kauppias hoputtaa, ja baareista ja lavalta ohjataan ulos vartin päästä (`--scene=mokkiaukiolot`).
   - **Hotelli Siitari:** hotellisiiven ovelta (tai baarin takaseinän HOTELLI-ovesta) pääsee vastaanottoon, jossa
     Marjatta kertoo, että huoneet ovat täynnä. Käytävän perällä huoneessa 12 riehuu Dingo kiertueellaan: sänky on nurin,
     patja seinää vasten, ikkuna rikki, tuoli lentää seinään ja joku hyppii. Bändiltä voi pyytää nimmarin, ottaa huikan
