@@ -151,9 +151,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   päällä (tai näkyy droonin yökuvassa). Hopeat Pirttiin (loppu "Isonvihan hopeat") tai Veksille (rahaa, poliisi).
   Testi `--scene=honganpalo`.
 - **Saloisten kenttä ja kaukalo:** Seuranmäellä jalkapallokenttä viivoineen, maalit verkkoineen, katsomo ja
-  valomastot, vieressä jääkiekkokaukalo laitoineen. Pojat pelaavat päivisin (10–20): rankkarit-minipeli, viisi
-  laukausta (tähtäin heiluu, välilyönti lukitsee suunnan ja korkeuden; kulmaan vaikea torjua, liian laaja menee
-  ohi) ja viisi torjuntaa maalivahdin silmin (potkijan lantio paljastaa suunnan, A / S / D heittäytyy). Juoksulenkki
+  valomastot, vieressä jääkiekkokaukalo laitoineen. Pojat pelaavat päivisin (10–20): rankkarit pelataan oikealla
+  kentällä oikeaa maalia kohti (myös Honganpalon koulun kentällä), viisi laukausta pelaajan takaa (tähtäin heiluu
+  maalin suulla, välilyönti lukitsee suunnan ja korkeuden, hahmo potkaisee ja poikien maalivahti heittäytyy; kulmaan
+  vaikea torjua, liian laaja menee ohi) ja viisi torjuntaa maalin suulta (potkija juoksee pilkulle ja lantio
+  paljastaa suunnan, A / S / D heittäytyy). Muut pojat katsovat rangaistusalueen reunalla. Juoksulenkki
   kentän kulmasta kulmaan. Testi `--scene=pohjoiset`.
 - **Oravajärven uimaranta:** hiekkaranta, laituri, pukukoppi (uusi kaljajemma penkin alla), rantagrilli, penkki,
   huussi ja rantakyltti. Uinti kuten Salmisessa, ja joka päivä pohjasta voi löytyä jotain (aurinkolasit, vanha
