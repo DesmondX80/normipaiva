@@ -18697,7 +18697,7 @@ func _maybe_screenshot() -> void:
 			var mp: Vector3 = pg.mums.global_position
 			var fr: Node3D = pg.frame
 			for v in [["_penkki_edesta.png", pg.mums.to_global(Vector3(0.3, 1.4, 3.2)), mp + Vector3(0, 0.7, 0)],
-					["_penkki_takaa.png", pg.mums.to_global(Vector3(-0.8, 1.6, -3.0)), mp + Vector3(0, 0.7, 0)],
+					["_penkki_sivu.png", pg.mums.to_global(Vector3(-3.2, 1.1, 0.4)), mp + Vector3(0, 0.7, 0)],
 					["_teline.png", fr.to_global(Vector3(4.5, 1.8, 3.0)), fr.to_global(Vector3(0, 1.2, 0))]]:
 				oc.look_at_from_position(v[1], v[2])
 				await frames.call(20)
