@@ -1833,9 +1833,12 @@ func _playground(name: String, px: Vector2, idx: int) -> void:
 	for i in 2:
 		var mum := Looks.make(mums, {"model": "female", "shirt": [Color(0.6, 0.75, 0.9), Color(0.75, 0.22, 0.32)][i], "pants": Color(0.2, 0.22, 0.3),
 			"hair": ["Hair_Long", "Hair_Buns"][i], "hair_color": Color(0.45, 0.3, 0.2).lightened(i * 0.3), "height": 1.65, "skin": Color(0.95, 0.8, 0.7)})
-		mum.position = Vector3(i * 0.8 - 0.4, 0.05, 0)
 		mum.rotation.y = PI  # kasvot leikkipuistoon päin (hahmo katsoo -Z, penkin selkänoja on -Z:ssa)
 		mum.play("Sitting_Idle", 0.0)
+		mum.anim.advance(0.01)
+		# Istuma-asennossa lantio on hahmon origon takana: lantio istuimelle selkänojan eteen.
+		var pelvis: Vector3 = mum.basis * mum.bone_position("pelvis")
+		mum.position = Vector3(i * 0.8 - 0.4 - pelvis.x, 0.05, -0.07 - pelvis.z)
 	var kid := Looks.make(mums, {"model": "male", "shirt": accent, "pants": Color(0.2, 0.3, 0.6), "hair": "Hair_Buzzed",
 		"hair_color": Color(0.85, 0.75, 0.4), "height": 1.05, "skin": Color(0.97, 0.82, 0.72)})
 	kid.position = Vector3(1.0, 0.0, 7.6)
