@@ -123,9 +123,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   kolo on uusi kaljajemma, iltaisin (20–01) teinit istuvat nuotiolla, ja kaljaa vastaan he vinkkaavat uunin
   raunioista: vanha valokuva, joka pääsee Saloisten Pirtin seinälle (maine). Testi `--scene=eramaa`.
 - **Leikkipuistot:** Käpykadunpuisto, Herukkapolunpuisto ja neljä koulujen ja päiväkotien leikkipaikkaa: keinut,
-  liukumäki, hiekkalaatikko, jousikeinu, penkki ja aita, päivisin (9–19) äidit penkillä. Keinuhyppy-minipeli:
-  vauhtia oikeaan tahtiin (W eteen, S taakse heilahtaessa; liian kova vauhti löysää ketjut), välilyönnillä hyppy
-  hiekalle; Honganpalon Jeren 3,40 m ennätyksen rikkominen tuo maineen. Hiekkalaatikosta voi kaivaa kolikoita tai
+  liukumäki, hiekkalaatikko, jousikeinu, penkki ja aita, päivisin (9–19) äidit penkillä. Keinuhyppy pelataan
+  oikealla keinulla: pelaajan hahmo istuu keinussa kädet ketjuissa, kamera kuvaa sivulta ja penkin äidit katsovat
+  taustalla. Vauhtia oikeaan tahtiin (W eteen, S taakse heilahtaessa, jalat pumppaavat; liian kova vauhti löysää
+  ketjut), välilyönnillä hyppy hiekalle (onnistunut alastulo tai selälleen), ja pelaaja jää alastulopaikalleen.
+  Hiekassa metrimerkit, ennätyslippu ja oma paras; Honganpalon Jeren 3,40 m ennätyksen rikkominen tuo maineen. Hiekkalaatikosta voi kaivaa kolikoita tai
   leluja kerran päivässä, ja kalja penkillä äitien edessä maksaa mainetta (illalla rauhassa). Testi `--scene=leikki`.
 - **Sepon varastomyyntipiste:** K-Marketin vieressä Sepon ruskea varasto rojuineen (telkkaripino, renkaat,
   sukset, pressun alla vanha mopo, joka "ei oo myytävänä, vielä"). Auki ti–su 10–18, ellei Seppo ole kalassa. Päivän
