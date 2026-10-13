@@ -18694,6 +18694,14 @@ func _maybe_screenshot() -> void:
 			oc.current = true
 			await frames.call(30)
 			await snap.call("_puisto.png")
+			var mp: Vector3 = pg.mums.global_position
+			var fr: Node3D = pg.frame
+			for v in [["_penkki_edesta.png", pg.mums.to_global(Vector3(0.3, 1.4, 3.2)), mp + Vector3(0, 0.7, 0)],
+					["_penkki_takaa.png", pg.mums.to_global(Vector3(-0.8, 1.6, -3.0)), mp + Vector3(0, 0.7, 0)],
+					["_teline.png", fr.to_global(Vector3(4.5, 1.8, 3.0)), fr.to_global(Vector3(0, 1.2, 0))]]:
+				oc.look_at_from_position(v[1], v[2])
+				await frames.call(20)
+				await snap.call(v[0])
 			oc.current = false
 			player.activate_camera()
 			await at.call(pg.swing)
