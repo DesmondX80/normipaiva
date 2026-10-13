@@ -10,6 +10,7 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Vehicles := preload("res://scripts/vehicles.gd")
 const Walker := preload("res://scripts/player_walker.gd")
+const Mopo := preload("res://scripts/mopo.gd")
 
 const HALF := Vector2(4.2, 5.0)
 const WALL_H := 2.6
@@ -24,6 +25,8 @@ const SPOTS := {
 	"pyora": [Vector3(2.6, 0, 3.0), ""],
 	"saavi": [Vector3(-3.0, 0, -2.2), ""],  # kotiviini: vihje main.gd:stä
 	"laatikko": [Vector3(3.2, 0, 0.55), "[E] Pölyinen pahvilaatikko työkalukaapin päällä"],  # Valcon kuulokkeet
+	"mopo": [Vector3(0.45, 0, 1.2), ""],  # oma mopo (#155): vihje main.gd:stä
+	"rajoitin": [Vector3(1.35, 0, -0.75), ""],
 }
 
 signal exited
@@ -36,6 +39,8 @@ var hint := ""
 var spot := ""  # lähin toimintopiste
 var radio_on := false
 var bike_in := false
+var mopo_in := false  # oma mopo tallissa (#155)
+var _mopo: Node3D
 var headphones_found := false:  # main.gd: kuulokkeet otettu, laatikko tyhjä ja pois
 	set(v):
 		headphones_found = v
@@ -62,6 +67,7 @@ func _ready() -> void:
 	_build_cabinet_and_freezer()
 	_build_bike()
 	_build_vat()
+	_build_mopo()
 	walker = Walker.new()
 	walker.bounds = [Rect2(-HALF, HALF * 2.0)]  # nosturioven aukosta ei ulos
 	add_child(walker)
@@ -153,6 +159,8 @@ func _process(delta: float) -> void:
 	var bd := 1.3
 	for id in SPOTS:
 		if id == "pyora" and not bike_in:
+			continue
+		if id in ["mopo", "rajoitin"] and not mopo_in:
 			continue
 		if id == "laatikko" and headphones_found:
 			continue
@@ -329,3 +337,31 @@ func _build_bike() -> void:
 	B.tube(_bike, Vector3(0, 0.8, -0.45), Vector3(0, 1.0, -0.45), 0.02, Color(0.7, 0.7, 0.72))
 	B.mesh(_bike, B.boxm(Vector3(0.14, 0.05, 0.26)), Vector3(0, 0.82, 0.1), Color(0.08, 0.08, 0.08))
 	_bike.visible = false
+
+
+## Oma mopo (#155) keskellä tallia keula ovelle päin: sama malli kuin mökin mopolla. Satula ja ajovalo puuttuvat,
+## kunnes ne on asennettu (set_mopo).
+func _build_mopo() -> void:
+	_mopo = Node3D.new()
+	_mopo.position = Vector3(1.35, 0, 0.75)
+	_mopo.rotation.y = PI
+	add_child(_mopo)
+	Mopo.build_model(_mopo)
+	var body := StaticBody3D.new()
+	body.add_child(B.box_shape(Vector3(0.5, 1.1, 1.6), Vector3(0, 0.55, 0)))
+	_mopo.add_child(body)
+	# Romuvaiheen rojut: irtosatula puuttuu, joten satulan paikalla on vanha Apu-lehti ja lattialla öljyinen rätti.
+	var junk := Node3D.new()
+	junk.name = "Romu"
+	_mopo.add_child(junk)
+	B.mesh(junk, B.boxm(Vector3(0.26, 0.11, 0.52)), Vector3(0, 0.84, 0.25), Color(0.55, 0.12, 0.08))  # paljas satulapohja
+	B.mesh(junk, B.boxm(Vector3(0.21, 0.01, 0.28)), Vector3(0.02, 0.9, 0.2), Color(0.85, 0.82, 0.7), Vector3(0, 12, 0))  # lehti
+	B.mesh(self, B.boxm(Vector3(0.3, 0.01, 0.25)), Vector3(0.6, 0.006, 1.6), Color(0.3, 0.25, 0.2), Vector3(0, 25, 0))  # rätti
+	_mopo.visible = false
+
+
+## Mopo tallissa (in) vai ei (ulkona tai ei vielä ostettu). running = valmis: romuvaiheen rojut pois.
+func set_mopo(on: bool, running := false) -> void:
+	mopo_in = on
+	_mopo.visible = on
+	_mopo.get_node("Romu").visible = not running

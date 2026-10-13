@@ -104,6 +104,7 @@ var playgrounds: Array = []  # [{"name", "swing", "sandbox", "bench", "mums": No
 var seppo_door: Vector3  # Sepon varaston ovi (#140)
 var seppo_npc: Node3D
 var seppo_tarp: Vector3  # pressun alla vanha mopo
+var seppo_tarp_node: Node3D  # pressu mopoineen (piiloon, kun oma mopo on ostettu, #155)
 var saasto_door: Vector3  # säästöpihan myymälän ovi (#141)
 var hongan_door: Vector3  # Honganpalon koulun pääovi (#138)
 var hongan_window: Vector3  # ikkuna, josta näkyy käytävän luokkakuva
@@ -1892,6 +1893,7 @@ func _build_seppo() -> void:
 	var tp: Vector2 = front + ax * 5.0
 	put.call(tp, tarp)
 	seppo_tarp = Vector3(tp.x, T.h(tp.x, tp.y), tp.y)
+	seppo_tarp_node = tarp
 	# Pöytä rojua täynnä.
 	var table := Node3D.new()
 	B.mesh(table, B.boxm(Vector3(2.0, 0.06, 0.9)), Vector3(0, 0.8, 0), Color(0.5, 0.38, 0.25))
