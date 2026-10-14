@@ -5087,16 +5087,21 @@ func _talk_reippari(id: String) -> void:
 		_start_piirakka()
 
 
+## Lihapiirakkahaaste FPS-näkymässä Reipparin pihapöydässä (piirakka_game.gd kioskin kehyksessä).
 func _start_piirakka() -> void:
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
+	walker_out.visible = false
 	_hud.visible = false
 	var g := PiirakkaGame.new()
 	g.record = _piirakka_record
 	g.record_holder = _piirakka_holder
 	g.drunk = _hand_shake()
+	g.raija = world.reippari_raija
 	g.finished.connect(func(pies: int) -> void:
+		walker_out.visible = true
 		walker_out.controls_enabled = true
+		walker_out.activate_camera()
 		_hud.visible = true
 		_eat(minf(pies * 0.18, 1.0))
 		if pies >= 4:
@@ -5114,7 +5119,8 @@ func _start_piirakka() -> void:
 			tilat.add("stressi", -0.05)
 			_show_message("%d lihapiirakkaa. Ennätys (%s %d) jäi elämään. Vatsa on eri mieltä." % [pies, _piirakka_holder, _piirakka_record], 4.0)
 		_save_game())
-	add_child(g)
+	g.transform = world.global_transform.affine_inverse() * world.reippari_root.global_transform  # kehys ennen _readya
+	world.add_child(g)
 
 
 ## --- Tarina, tehtävät ja onnelliset loput (#132) ----------------------------------------------------------------
@@ -17984,15 +17990,39 @@ func _maybe_screenshot() -> void:
 			print("RE miisu kotona: %s, rahaa %s" % [_miisu.state, _eur(money)])
 			_talk_who = "reippari"
 			_talk_reippari("haaste")
-			var g: Node = get_children().filter(func(c): return c is PiirakkaGame).front()
+			var g: Node = world.get_children().filter(func(c): return c is PiirakkaGame).front()
 			print("RE haaste auki: %s" % [g != null])
 			await get_tree().create_timer(5.5).timeout
+			for k in 2:  # kaksi haukkua piirakasta
+				g._slices[k].visible = false
+			g._bitten[2].visible = true
 			g._chew = 2
 			g._bite = 2
 			g._pies = 3
 			g._belly = 0.55
+			g._event("doubt")
 			await get_tree().create_timer(0.3).timeout
 			await snap.call("_haaste.png")
+			g._soda_t = g.SODA_T * 0.5
+			await get_tree().process_frame
+			await snap.call("_limu.png")
+			g._soda_t = 0.0
+			g._belly = 0.9
+			g._event("full")
+			await get_tree().create_timer(0.4).timeout
+			await snap.call("_taysi.png")
+			print("RE puhujat: %s" % [g._bubbles.keys()])
+			# Syömisen vaiheet: koko piirakka ja haukut 1–4 (kuten _process haukatessa).
+			g._belly = 0.2
+			g._chew = 0
+			g._jaw = 0.0
+			for b in g.BITES:
+				for k in g.BITES:
+					g._slices[k].visible = k >= b
+					g._bitten[k].visible = k == b and b > 0
+				g._bite = b
+				await get_tree().create_timer(0.2).timeout
+				await snap.call("_vaihe_%d.png" % b)
 			g._pies = 8
 			g._finish("testi")
 			await get_tree().create_timer(2.5).timeout

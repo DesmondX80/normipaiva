@@ -153,6 +153,8 @@ var reippari_board: Vector3  # Reipparin ilmoitustaulun edusta
 var reippari_youth: Node3D  # iltaporukka kioskin edessä (main.gd näyttää illalla)
 var reippari_youth_pos: Vector3
 var reippari_record: Node3D  # ennätystaulu (main.gd päivittää tekstin)
+var reippari_root: Node3D  # kioskin kehys (piirakkahaaste: piirakka_game.gd), -Z = julkisivu
+var reippari_raija: Node3D  # Raija luukulla
 var station_pos: Vector3  # Saloisten asema K-Marketin takana: kadun puoleisen oven edusta (E: odotussaliin)
 var station_arrive: Vector3  # junalla tultaessa tästä
 var train: Node3D  # aikataulun juna Saloisten radalla (train.gd, ei satunnaisia ohikulkuja)
@@ -1223,6 +1225,7 @@ func _build_reippari() -> void:
 	var root := Node3D.new()
 	root.position = Vector3(c.x, 0, c.y)  # _lift_node nostaa maastoon
 	root.rotation.y = f.yaw  # paikallinen -Z = julkisivu tielle
+	reippari_root = root
 	add_child(root)
 	blockers.append([c, Vector2(l / 2.0, d / 2.0), f.yaw])
 	_add_house(c)
@@ -1255,8 +1258,9 @@ func _build_reippari() -> void:
 	var raija := Looks.make(root, {"model": "female", "shirt": orange, "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.9, 0.9, 0.9),
 		"hair": "Hair_Long", "hair_color": Color(0.7, 0.3, 0.15), "height": 1.66, "skin": Color(0.95, 0.78, 0.68), "belly": 0.4})
 	raija.position = Vector3(0.4, 0.1, -d / 2.0 + 0.55)
-	raija.rotation.y = PI
+	raija.rotation.y = 0.0  # kasvot ulos luukusta (hahmo katsoo -Z:aan, julkisivu on -Z)
 	raija.play("Idle", 0.0)
+	reippari_raija = raija
 	# Kyltit: nimi katolla, hintataulu ja ennätystaulu seinässä.
 	var sign := B.sign_plate(root, "SALOISTEN REIPPARI", Color(0.8, 0.1, 0.08), Color(1.0, 0.88, 0.2), 0.5, 64, Color(1.0, 0.88, 0.2), "Helvetica Neue")
 	sign.position = Vector3(0, h + 0.55, -d / 2.0 - 0.1)
