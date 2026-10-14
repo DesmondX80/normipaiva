@@ -1093,8 +1093,8 @@ func _ready() -> void:
 	add_child(menu)
 	var debug_shot := false
 	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--shot=") and not arg.ends_with("menu.png"):
-			debug_shot = true
+		if arg.begins_with("--shot=") and not arg.ends_with("menu.png") or arg == "--scene=vaanto_pelaa":
+			debug_shot = true  # ei päävalikkoa (pikakäynnistys kädenvääntöön ohittaa myös valikon)
 	Sfx.music_stop(0.8)  # esim. "Uusi peli" latasi kentän valikosta: musiikki pois, ellei valikko aukea
 	# Ennen valikkoa: pelaajan kamera aktivoituu tässä, ja valikon kiertävän kameran pitää jäädä voimaan.
 	var bike_note := "" if debug_shot else _apply_saved_bike()  # testikuvat alkavat aina pyörän selästä kotoa
@@ -14656,6 +14656,17 @@ func _advance_clock(minutes: float) -> void:
 # ottaa kuvakaappauksen n. 1,5 s jälkeen ja sulkee pelin. --nohud piilottaa HUDin (lappu, minikartta, palkit)
 # julisteen kuvia varten; minipelien omat kerrokset jäävät näkyviin.
 
+## Testaus: --scene=vaanto_pelaa avaa kädenväännön heti (pelattava), ja ottelun jälkeen alkaa uusi.
+func _play_wrestle_loop() -> void:
+	_hud.visible = false
+	var bar := BarGame.new()
+	bar.position = BAR_POS
+	add_child(bar)
+	bar.finished.connect(func(_won: bool) -> void:
+		bar.queue_free()
+		_play_wrestle_loop.call_deferred())
+
+
 func _maybe_screenshot() -> void:
 	var path := ""
 	var scene := ""
@@ -14667,6 +14678,9 @@ func _maybe_screenshot() -> void:
 			scene = arg.substr(8)
 		elif arg == "--nohud":
 			nohud = true
+	if scene == "vaanto_pelaa":
+		_play_wrestle_loop()  # kädenvääntö suoraan pelattavaksi (ilman taksia), uusi ottelu aina edellisen jälkeen
+		return
 	if path.is_empty():
 		return
 	if nohud:
@@ -14868,6 +14882,41 @@ func _maybe_screenshot() -> void:
 					await ksnap.call("_%s%d_taka.png" % [act, k], Vector3(1.4 * signf(hand.x), 1.2, 2.2), Vector3(hand.x, 0.7, 0))
 			Input.action_release("forward")
 			Input.action_release("sprint")
+			get_tree().quit()
+		"vaanto":
+			# Kädenvääntö suoraan (ilman taksimatkaa): pelin kamera kolmessa kulmassa, sivukuva, takaa ja kourat.
+			_hud.visible = false
+			var vb := BarGame.new()
+			vb.position = BAR_POS
+			add_child(vb)
+			vb._phase = "test"
+			var vsnap := func(name: String) -> void:
+				for i in 12:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			for ang in [0.0, 0.7, -0.7]:
+				vb._angle = ang
+				await vsnap.call("_%s.png" % str(ang))
+			var sc := Camera3D.new()
+			sc.fov = 45.0
+			vb.add_child(sc)
+			sc.look_at_from_position(vb.to_global(Vector3(1.7, 1.25, 0.1)), vb.to_global(Vector3(0, 0.95, 0.1)))
+			sc.current = true
+			vb._angle = 0.0
+			await vsnap.call("_sivu.png")
+			sc.look_at_from_position(vb.to_global(Vector3(-0.9, 1.5, 1.6)), vb.to_global(Vector3(0, 0.95, 0.1)))
+			await vsnap.call("_taka.png")
+			# Kourat läheltä: pelaajan kämmenselän puolelta (+x), Teron kämmenselän puolelta (-x) ja ylhäältä.
+			# Lisäksi pelin kameran suunnasta suurennettuna.
+			var grip_c := vb.to_global(Vector3(0, vb.TABLE_Y + 0.36, 0))
+			sc.near = 0.02
+			sc.look_at_from_position(grip_c + (vb._cam.global_position - grip_c).normalized() * 0.35, grip_c)
+			await vsnap.call("_kourat_peli.png")
+			for v in [["_kourat.png", Vector3(0.28, 0.04, 0.05)], ["_kourat2.png", Vector3(-0.28, 0.04, -0.05)],
+					["_kourat3.png", Vector3(0.05, 0.3, 0.02)]]:
+				sc.look_at_from_position(grip_c + v[1], grip_c, Vector3.FORWARD if v[0] == "_kourat3.png" else Vector3.UP)
+				await vsnap.call(v[0])
 			get_tree().quit()
 		"overview":
 			var cam := Camera3D.new()

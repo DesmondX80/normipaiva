@@ -14,9 +14,18 @@ const PUSH := 0.07  # oikea painallus oikeaan tahtiin
 const SLIP := 0.03  # väärä nappi
 const TOO_FAST := 0.09  # s: nopeampi näpyttely on räpellystä
 const TERO_FORCE := 0.2  # Teron perusvääntö (/s), kasvaa loppua kohti
-const TABLE_Y := 0.76
-const HANDS_Z := -0.1  # kourien kohta pöydällä (Teron puolella keskikohtaa)
-const SKIN := Color(0.93, 0.76, 0.64)
+const TABLE_Y := 0.86  # korkea vääntöpöytä: olkapäät ylettyvät kyynärpäihin pöydällä
+const SEAT_Z := 0.55  # lantion etäisyys pöydän keskeltä (polvet pöydän alla)
+const UPPERARM := 0.245  # olkavarsi (hahmon luut)
+const ELBOW_Z := 0.12  # kyynärpää pöydällä keskeltä omalle puolelle
+const FOREARM_UP := 0.218  # ranteen korkeus kyynärpäästä (kyynärvarsi 0.24, kallellaan keskelle)
+const FOREARM_IN := 0.07  # ranne kyynärpäätä lähempänä keskeä: kämmenet kohtaavat keskellä
+const SIDE := 0.15  # hahmo oman kätensä vasemmalla puolella: olkapää kyynärpään linjassa, päät ohi toistensa
+const LEAN := 0.2  # kumarrus pöydän yli (rad, jaetaan kahdelle selkänikamalle)
+const CURL := 1.4  # sormien taivutus nivelessä (rad)
+const CURL_JOINT := [1.0, 0.9, 0.45]  # tyvi-, keski- ja kärkinivelen osuus taivutuksesta
+const HAND_TILT := 0.87  # kämmenen kallistus vastustajaa kohti (50°)
+const THUMB_CURL := 0.9  # peukalon taivutus vastustajan peukalon yli
 const TERO_LINES := ["Hnnngh!", "Saloisista vai? Heh.", "Terästehtaalla nostellaan isompia!", "Nyt se lähtee!"]
 
 var _phase := "intro"  # intro | count | wrestle | result
@@ -28,8 +37,7 @@ var _talk_t := 2.0
 
 var _cam: Camera3D
 var _prev_cam: Camera3D
-var _hand: MeshInstance3D
-var _my_arm: MeshInstance3D
+var _me: Node3D  # pelaaja tuulipuvussa pöydän tällä puolella (kamera sivulta pelaajan takaviistosta)
 var _tero: Node3D
 var _bubble: Label3D
 var _layer: CanvasLayer
@@ -39,13 +47,14 @@ var _meter: ProgressBar
 
 
 func _ready() -> void:
+	process_priority = 10  # hahmojen animaation ja IK:n jälkeen (sormet nyrkkiin)
 	_build_room()
 	_prev_cam = get_viewport().get_camera_3d()
+	# Kamera sivulta pelaajan takaviistosta: kummankin koko vartalo, ote keskellä.
 	_cam = Camera3D.new()
-	_cam.fov = 62.0
-	_cam.near = 0.05
+	_cam.fov = 45.0
 	add_child(_cam)
-	_cam.look_at_from_position(to_global(Vector3(0.08, 1.32, 0.95)), to_global(Vector3(0, 0.98, -0.45)), Vector3.UP)
+	_cam.look_at_from_position(to_global(Vector3(1.55, 1.4, 0.75)), to_global(Vector3(0, TABLE_Y + 0.25, -0.05)), Vector3.UP)
 	_cam.current = true
 	_build_hud()
 	_title.text = "RAAHEN BAARI"
@@ -79,6 +88,8 @@ func _process(delta: float) -> void:
 					_prev_cam.current = true
 				finished.emit(_angle > 0.0)
 	_update_arms()
+	_fist(_me, CURL)
+	_fist(_tero, CURL)
 
 
 func _wrestle(delta: float) -> void:
@@ -125,23 +136,69 @@ func _finish() -> void:
 	_tero.play("Sitting_Talking", 0.2)
 
 
-## Kädet: kyynärpäät pöydällä, kourat yhdessä; kulma kallistaa kouria voittajan vasemmalle.
-## Pelaajan kyynärvarsi on oma kappaleensa (ensimmäinen persoona), Tero kurottaa omalla kädellään (IK).
+## Kädet: kyynärpäät pöydällä omalla puolellaan, kyynärvarret pystyssä otteeseen; kulma kaataa otetta
+## kyynärpäiden kautta kulkevan akselin ympäri voittajan vasemmalle.
 func _update_arms() -> void:
 	var a := _angle * 1.2
-	var hand := Vector3(-sin(a) * 0.28, TABLE_Y + 0.05 + cos(a) * 0.28, HANDS_Z)
-	_hand.position = hand
-	_place_arm(_my_arm, Vector3(0.03, TABLE_Y + 0.05, HANDS_Z + 0.28), hand)
-	var inv := _tero.transform.affine_inverse()
-	_tero.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * (hand + Vector3(0, 0, -0.06)),
-		inv * Vector3(-0.35, TABLE_Y - 0.1, HANDS_Z - 0.35))
-	_tero.set_override("spine_01", Vector3.RIGHT, 0.15 + maxf(0.0, -_angle) * 0.15)
+	_reach(_tero, -1.0, a, LEAN + maxf(0.0, -_angle) * 0.15)
+	_reach(_me, 1.0, a, LEAN + maxf(0.0, _angle) * 0.15)
 
 
-func _place_arm(arm: MeshInstance3D, elbow: Vector3, hand: Vector3) -> void:
-	(arm.mesh as BoxMesh).size = Vector3(0.09, 0.09, elbow.distance_to(hand))
-	arm.position = (elbow + hand) / 2.0
-	arm.look_at(to_global(hand), Vector3.RIGHT)
+## Oikea käsi otteeseen (s = 1 pelaaja +z, -1 Tero): kyynärpää pöydällä ELBOW_Z:n kohdalla, ranne kyynärvarren
+## mitan päässä sen yläpuolella (kämmenet vastakkain kuin kättelyssä). Hahmo liukuu jakkarallaan niin, että
+## olkapää on olkavarren mitan päässä kyynärpäästä: muuten käsi ei ylety tai kyynärpää nousee ilmaan.
+func _reach(ch: Node3D, s: float, a: float, lean: float) -> void:
+	var elbow := Vector3(0.025 * s, TABLE_Y + 0.07, ELBOW_Z * s)
+	var wrist := Vector3(0, elbow.y, 0) + Basis(Vector3.BACK, a) * Vector3(0.022 * s, FOREARM_UP, 0) \
+		+ Vector3(0, 0, (ELBOW_Z - FOREARM_IN) * s)
+	var shoulder := to_local(ch.to_global(ch.bone_position("upperarm_r")))
+	var dy := shoulder.y - elbow.y
+	var reach := sqrt(maxf(UPPERARM * UPPERARM - dy * dy, 0.0)) * 0.95
+	var h := Vector2(shoulder.x - elbow.x, shoulder.z - elbow.z).length()
+	ch.position.z = clampf(ch.position.z - s * (h - reach) * 0.3, ch.get_meta("seat_z") - 0.2, ch.get_meta("seat_z") + 0.1)
+	var inv := ch.transform.affine_inverse()
+	ch.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * wrist, inv * (elbow + Vector3(0, -0.3, 0.05 * s)))
+	ch.set_override("spine_01", Vector3.RIGHT, -lean * 0.5)  # negatiivinen = eteen
+	ch.set_override("spine_03", Vector3.RIGHT, -lean * 0.5)
+
+
+## Sormet nyrkkiin toisen kouran ympäri: jokainen nivel lepoasennosta (suorat sormet) taivutetaan kämmenen
+## puolelle (jokainen nivel jänteen ja kämmenen normaalin mukaan). Ajetaan IK:n jälkeen joka ruutu.
+func _fist(ch: Node3D, curl: float) -> void:
+	var sk: Skeleton3D = ch.skeleton
+	# Kämmen kyynärvarren jatkona mutta kallistettuna vastustajaa kohti (HAND_TILT): sormet osoittavat vinosti
+	# eteen, etusormi ylimpänä, ja kiertyvät vaakasuoraan vastustajan kämmenselän ympäri kuten oikeassa otteessa.
+	# Kämmen vasemmalle vastustajan kämmentä vasten. Lepoasennon T-asennossa sormet oikealle, kämmen alas.
+	var to_char: Basis = (ch.model.transform * sk.transform).basis
+	var hi := sk.find_bone("hand_r")
+	var fore := (to_char * (sk.get_bone_global_pose(hi).origin
+		- sk.get_bone_global_pose(sk.find_bone("lowerarm_r")).origin)).normalized()
+	var toward := (Vector3.FORWARD - fore * Vector3.FORWARD.dot(fore)).normalized()  # vastustajaa kohti
+	var fingers := fore * cos(HAND_TILT) + toward * sin(HAND_TILT)
+	var palm := (Vector3.LEFT - fingers * Vector3.LEFT.dot(fingers)).normalized()  # kämmenen normaali
+	var hand_b := Basis(fingers, -palm, fingers.cross(-palm))  # T-asennon akselit (sormet, kämmenselkä, ...) -> nyt
+	ch._set_global_rot(hi, to_char.inverse() * hand_b * to_char * sk.get_bone_global_rest(hi).basis)
+	# Jokainen nivel taipuu kämmenen puolelle: akseli = jänteen suunta x kämmenen normaali, jolloin positiivinen
+	# kierto vie jänteen kärjen kohti kämmentä. Tyvi- ja keskinivel paljon, kärkinivel vähemmän, jotta sormet
+	# kiertävät toisen kämmenselän ympäri eivätkä puristu nyrkiksi sen läpi.
+	var palm_skel := (to_char.inverse() * palm).normalized()  # kämmenen puoli luurangon avaruudessa
+	for f in ["index", "middle", "ring", "pinky"]:
+		for k in [1, 2, 3]:
+			var i := sk.find_bone("%s_0%d_r" % [f, k])
+			sk.set_bone_pose_rotation(i, sk.get_bone_rest(i).basis.get_rotation_quaternion())
+			var nxt := sk.find_bone("%s_0%d_r" % [f, k + 1] if k < 3 else "%s_04_leaf_r" % f)
+			var seg := (sk.get_bone_global_pose(nxt).origin - sk.get_bone_global_pose(i).origin).normalized()
+			ch._set_global_rot(i, Basis(seg.cross(palm_skel).normalized(), curl * CURL_JOINT[k - 1])
+				* sk.get_bone_global_pose(i).basis)
+	# Peukalo lukitsee vastustajan peukalon (kädenväännön ote "peukaloista", yläknoa näkyvissä): kärki taipuu
+	# kämmenen puolelle vastustajan käden yli samalla tavalla.
+	for k in ["02", "03"]:
+		var i := sk.find_bone("thumb_%s_r" % k)
+		sk.set_bone_pose_rotation(i, sk.get_bone_rest(i).basis.get_rotation_quaternion())
+		var tip := sk.get_bone_global_pose(sk.find_bone("thumb_03_r" if k == "02" else "thumb_04_leaf_r")).origin
+		var t_dir := (tip - sk.get_bone_global_pose(i).origin).normalized()
+		var t_axis := t_dir.cross(palm_skel).normalized()
+		ch._set_global_rot(i, Basis(t_axis, THUMB_CURL) * sk.get_bone_global_pose(i).basis)
 
 
 func _build_room() -> void:
@@ -159,22 +216,18 @@ func _build_room() -> void:
 		B.mesh(self, B.cyl(0.04, 0.04, 0.3, 8), Vector3(-2.6 + i * 0.28, 1.75, -3.3), c)
 	B.box(self, Vector3(4.2, 0.04, 0.25), Vector3(-0.8, 1.58, -3.3), wood, false)
 	# Pöytä, jonka ääressä väännetään, ja tuopit sivussa.
-	B.box(self, Vector3(1.2, 0.06, 0.9), Vector3(0, TABLE_Y, 0), wood, false)
+	B.box(self, Vector3(1.0, 0.06, 0.7), Vector3(0, TABLE_Y, 0), wood, false)
 	B.box(self, Vector3(0.12, TABLE_Y, 0.12), Vector3(0, TABLE_Y / 2.0, 0), Color(0.15, 0.15, 0.15), false)
-	for x in [-0.45, 0.45]:
-		B.mesh(self, B.cyl(0.045, 0.04, 0.15, 10), Vector3(x, TABLE_Y + 0.1, 0.25 if x > 0 else -0.25), Color(0.9, 0.7, 0.2))
-	B.box(self, Vector3(0.5, 0.45, 0.45), Vector3(0, 0.22, -0.72), wood, false)  # Teron jakkara
-	_tero = Looks.make(self, Looks.TERO)
-	_tero.position = Vector3(0, 0.0, -0.62)
-	_tero.rotation.y = PI
-	_tero.play("Sitting_Idle", 0.0)
-	_bubble = B.bubble(self, Vector3(0.35, 1.72, -0.62), Color.WHITE)
-	# Kädet.
-	_my_arm = _arm_mesh()
-	_hand = MeshInstance3D.new()
-	_hand.mesh = B.sphere(0.075, 10)
-	_hand.material_override = _skin()
-	add_child(_hand)
+	for z in [-0.2, 0.2]:  # tuopit pöydän päässä, ei kameran ja otteen välissä
+		B.mesh(self, B.cyl(0.045, 0.04, 0.15, 10), Vector3(-0.4, TABLE_Y + 0.1, z), Color(0.9, 0.7, 0.2))
+	# Tero ja pelaaja jakkaroillaan vastakkain; istuma-animaatio vie lantion origon taakse, joten hahmo
+	# asetetaan lantion mukaan (kuten bingossa).
+	B.box(self, Vector3(0.45, 0.45, 0.4), Vector3(0, 0.22, -SEAT_Z - 0.05), wood, false)
+	B.box(self, Vector3(0.45, 0.45, 0.4), Vector3(0, 0.22, SEAT_Z + 0.05), wood, false)
+	_tero = _seat(Looks.TERO, -1.0)
+	_bubble = B.bubble(self, Vector3(0.35, 1.72, -SEAT_Z), Color.WHITE)
+	_me = _seat(Looks.PLAYER, 1.0)
+	Looks.add_cap(_me)
 	for p in [Vector3(-1.5, 2.6, -1.5), Vector3(1.2, 2.6, 0.8)]:
 		var l := OmniLight3D.new()
 		l.position = p
@@ -184,19 +237,16 @@ func _build_room() -> void:
 		add_child(l)
 
 
-func _arm_mesh() -> MeshInstance3D:
-	var m := MeshInstance3D.new()
-	m.mesh = BoxMesh.new()
-	m.material_override = _skin()
-	add_child(m)
-	return m
-
-
-func _skin() -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = SKIN
-	m.roughness = 0.7
-	return m
+## Hahmo istumaan pöydän puolelle s (1 = +z, kasvot pöytään päin).
+func _seat(look: Dictionary, s: float) -> Node3D:
+	var c := Looks.make(self, look)
+	c.rotation.y = 0.0 if s > 0.0 else PI
+	c.play("Sitting_Idle", 0.0)
+	c.anim.advance(0.01)
+	var pel: Vector3 = c.basis * c.bone_position("pelvis")
+	c.position = Vector3(-pel.x - SIDE * s, 0.0, SEAT_Z * s - pel.z)
+	c.set_meta("seat_z", c.position.z)  # _reach liu'uttaa tästä
+	return c
 
 
 func _build_hud() -> void:
