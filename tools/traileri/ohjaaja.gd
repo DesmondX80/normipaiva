@@ -248,8 +248,13 @@ func _hide_hud() -> void:
 		if not _games.has(f) or not is_instance_valid(_games[f]):
 			_games[f] = Otokset._find(main, f)
 		var g: Node = _games[f]
-		if g != null and g.get("_hud") is CanvasLayer:
-			g._hud.visible = false
+		if g == null:
+			continue
+		if g is CanvasLayer:  # koko minipeli on käyttöliittymää (karaoke): 3D-kuva näkyy alta
+			g.visible = false
+		for k in ["_hud", "_ui", "_layer"]:
+			if g.get(k) is CanvasLayer:
+				g.get(k).visible = false
 	if main._msg:  # pelin ilmoitukset (voivat olla eri kerroksessa kuin HUD)
 		main._msg.visible = _spec.get("hud", false)
 	# Muut käyttöliittymän osat, joista osa on HUD-kerroksen ulkopuolella (mopon palkit, vihjeet, puhe-ikkuna).
