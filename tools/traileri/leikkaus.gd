@@ -137,6 +137,56 @@ const SHOTS := [
 	{"id": "loppu_logo", "g": "kortit", "at": 197.65, "s": 7.0, "logo": true},
 ]
 
+## Kuvauspaikkojen kierros (--set=kierros): visuaaliset setit pitkinä ottoina (s sekuntia), kuusi kuvaa kustakin.
+## Ei kuulu traileriin: pohjaa uudelle paperileikkaukselle. Samat id:t kuin trailerissa käyttävät samaa lavastusta.
+const KIERROS := [
+	# Välianimaatiot
+	{"id": "f_uinti", "g": "k_uinti", "s": 24.0},
+	{"id": "s_sauna", "g": "k_sauna", "s": 16.0},
+	{"id": "f_nuotio", "g": "k_makkara", "s": 18.0},
+	{"id": "f_auringonlasku", "g": "k_laavu", "s": 10.0},
+	{"id": "s_kyyti", "g": "k_kyyti", "s": 20.0},
+	{"id": "m_juna", "g": "k_juna", "s": 30.0},
+	{"id": "s_taksi", "g": "k_taksi", "s": 14.0},
+	{"id": "s_mokkibileet", "g": "k_mokkibileet", "s": 16.0},
+	{"id": "s_viinibileet", "g": "k_viinibileet", "s": 14.0},
+	{"id": "s_paivi_tv", "g": "k_tv", "s": 12.0},
+	{"id": "f_wasted", "g": "k_wasted", "s": 7.0},
+	# Minipelit
+	{"id": "f_pingis", "g": "k_pingis", "s": 10.0},
+	{"id": "k_juntti", "g": "k_tappelu", "s": 10.0},
+	{"id": "f_lava_tanssi", "g": "k_lavatanssi", "s": 10.0},
+	{"id": "m_kala", "g": "k_kala", "s": 12.0},
+	{"id": "f_jahti", "g": "k_jahti", "s": 10.0},
+	{"id": "k_keinu", "g": "k_keinu", "s": 8.0},
+	{"id": "k_piirakka", "g": "k_piirakka", "s": 8.0},
+	{"id": "k_huutokauppa", "g": "k_huutokauppa", "s": 10.0},
+	{"id": "k_vaanto", "g": "k_vaanto", "s": 8.0},
+	{"id": "f_kiihdytys", "g": "k_kiihdytys", "s": 10.0},
+	{"id": "s_halot", "g": "k_halot", "s": 10.0},
+	{"id": "s_drooni", "g": "k_drooni", "s": 12.0},
+	{"id": "v_mopo_potku", "g": "k_potku", "s": 8.0},
+	# Pelimaailman hetket (samassa pelissä)
+	{"id": "s_aarnivalkea", "g": "k_ulko", "s": 8.0},
+	{"id": "k_rossi", "g": "k_ulko", "s": 8.0},
+	{"id": "s_sinikka", "g": "k_ulko", "s": 8.0},
+	{"id": "f_hyundai2", "g": "k_ulko", "s": 8.0},
+	{"id": "f_poliisi", "g": "k_ulko", "s": 8.0},
+	{"id": "v_mummot", "g": "k_ulko", "s": 8.0},
+	{"id": "f_drooni", "g": "k_ulko", "s": 8.0},
+	{"id": "f_mopo_silta", "g": "k_vaala", "s": 8.0},
+]
+const KIERROS_SNAPS := 6
+
+
+## Kierros (--set=kierros / --trailer-set=kierros komentorivillä)?
+static func kierros() -> bool:
+	for a in OS.get_cmdline_user_args():
+		if a == "--set=kierros" or a == "--trailer-set=kierros":
+			return true
+	return false
+
+
 static var _timeline: Array = []
 
 
@@ -173,13 +223,15 @@ static func timeline() -> Array:
 
 
 static func shot(id: String) -> Dictionary:
-	for s in SHOTS:
+	for s in (KIERROS if kierros() else SHOTS):
 		if s.id == id:
 			return s
 	return {}
 
 
 static func frames_of(id: String) -> int:
+	if kierros():
+		return roundi(float(shot(id).get("s", 8.0)) * FPS)
 	for e in timeline():
 		if e.id == id:
 			return e.frames
@@ -188,7 +240,7 @@ static func frames_of(id: String) -> int:
 
 static func groups() -> Dictionary:
 	var g := {}
-	for s in SHOTS:
+	for s in (KIERROS if kierros() else SHOTS):
 		if not g.has(s.g):
 			g[s.g] = []
 		g[s.g].append(s.id)

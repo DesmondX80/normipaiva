@@ -42,10 +42,14 @@ func _sheets() -> void:
 
 func _sheet_page(g: String, page: int, ids: Array, tw: int, th: int) -> void:
 	if true:
-		var img := Image.create(tw * 3 + 8, (th + 4) * ids.size(), false, Image.FORMAT_RGB8)
+		var cols := 0
+		while FileAccess.file_exists(dir.path_join("%s_%d.png" % [ids[0], cols])):
+			cols += 1
+		cols = maxi(cols, 1)
+		var img := Image.create((tw + 4) * cols, (th + 4) * ids.size(), false, Image.FORMAT_RGB8)
 		img.fill(Color(0.15, 0.15, 0.15))
 		for r in ids.size():
-			for c in 3:
+			for c in cols:
 				var p := dir.path_join("%s_%d.png" % [ids[r], c])
 				if not FileAccess.file_exists(p):
 					continue

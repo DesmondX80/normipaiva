@@ -75,7 +75,10 @@ func run() -> void:
 ## Kuvaus: tämä silmukka pyörii ruudun alussa (process_frame), joten painallukset (spec.keys) ja tick ehtivät
 ## pelin _processiin samalla ruudulla. Kamera ja tekstit päivitetään _processissa ruudun lopussa.
 func _film(id: String, shot: Dictionary, frames: int) -> void:
-	var snaps := [0, frames / 2, frames - 1]
+	var n := Leikkaus.KIERROS_SNAPS if Leikkaus.kierros() else 3
+	var snaps := []
+	for k in n:
+		snaps.append(int(k * (frames - 1) / float(n - 1)))
 	_shot = shot
 	_length = float(frames) / Leikkaus.FPS
 	_filming = true
@@ -92,7 +95,7 @@ func _film(id: String, shot: Dictionary, frames: int) -> void:
 		await get_tree().process_frame
 	if preview:
 		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(out_dir.path_join("%s_2.png" % id))
+		get_viewport().get_texture().get_image().save_png(out_dir.path_join("%s_%d.png" % [id, n - 1]))
 	_filming = false
 	for k in _spec.get("keys", []):
 		Input.action_release(k[1])

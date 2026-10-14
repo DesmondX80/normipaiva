@@ -796,6 +796,78 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var f := _dir(M.HOME_YAW_DIR)
 			var p := _person(main, d, Looks().ANNA_LIISA, c + f * 8.0 - _side(f) * 6.0, f + _side(f) * 0.5, "Idle_Talking")
 			return _portrait(main, p, f, 1.0)
+		# --- Kuvauspaikkojen kierros (leikkaus.gd KIERROS): välianimaatiot ja minipelit pitkinä ottoina ------------
+		"s_sauna":  # savusaunan löylyt sisältä (välianimaatio)
+			var mk: Node3D = _mokki(main)
+			_time(main, 21, 0)
+			_foot(main, mk.gpos(mk.SAUNA_LOCAL + Vector3(-2, 0, -2)), Vector3.FORWARD)
+			mk.sauna_fixed = true
+			main._sauna_cutscene(false)
+			return {"warm": 10}
+		"s_kyyti":  # Pekan kyyti mökille (välianimaatio)
+			_time(main, 17, 30)
+			main._hud.visible = false
+			main.state = "cutscene"
+			main.cutscene.pekka_ride("Naapurin Pekka on menossa Neittävälle kyyhkyjahtiin.", func() -> void: pass)
+			return {"warm": 10}
+		"s_taksi":  # taksi Raaheen (välianimaatio)
+			_time(main, 21, 0)
+			main.state = "cutscene"
+			main.cutscene.taxi_to_raahe(func() -> void: pass)
+			return {"warm": 10}
+		"s_mokkibileet":
+			var mk: Node3D = _mokki(main)
+			_time(main, 22, 30)
+			main.state = "cutscene"
+			main.cutscene.mokki_party(mk.porch_pos(6.0), mk.global_rotation.y, "Santtu, Sinikka ja Korpi-Kalle", func() -> void: pass)
+			return {"warm": 10}
+		"s_viinibileet":
+			_time(main, 22, 0)
+			main.state = "cutscene"
+			main.cutscene.wine_party("Pekka, Arto ja Sinikka", func() -> void: pass)
+			return {"warm": 10}
+		"s_paivi_tv":  # Päivi näkee miehensä tanssivan TV:ssä (ruudulle kuva kylästä)
+			_time(main, 22, 30)
+			var img: Image = main.get_viewport().get_texture().get_image()
+			main.state = "cutscene"
+			main.cutscene.paivi_tv(ImageTexture.create_from_image(img), func() -> void: pass)
+			return {"warm": 10}
+		"s_halot":  # halonhakkuu kodalla (FPS-minipeli)
+			_time(main, 18, 0)
+			var k: Node3D = main.world.kota
+			_foot(main, k.to_global(preload("res://scripts/kota.gd").CHOP_LOCAL) + Vector3(1.0, 0, 0), Vector3.FORWARD)
+			main.kota_polkyt = 5
+			main._start_chop()
+			var keys := []
+			for i in 6:
+				keys.append([0.3 + i * 1.4, "interact"])
+			return {"warm": 30, "keys": keys, "hide_games": ["chop_game.gd"]}
+		"s_drooni":  # drooni nousee kotipihalta ja lentää kylän yli
+			_time(main, 9, 30)
+			_foot(main, main.home_zone, Vector3.FORWARD)
+			main.drone_battery = 1.0
+			main._start_drone()
+			return {"warm": 20, "keys": [[0.0, "jump", 3.0], [1.5, "forward", 99.0], [1.5, "sprint", 99.0]], "hide_games": ["drone_game.gd"]}
+		"s_aarnivalkea":  # sininen liekki yöllä kivikasan päällä
+			_time(main, 23, 0)
+			var aa = main.aarni
+			aa.heard = true
+			aa.sulo = true
+			aa.poytakirja = true
+			aa.found = false
+			var ap := M.w(M.AARNI_SPOT)
+			_foot(main, ap + Vector3(7, 0, 5), Vector3(-1, 0, -0.7))
+			var look := ap + Vector3(0, 0.6, 0)
+			return {"warm": 30, "cam": dolly(ap + Vector3(4.5, 1.4, 3.0), ap + Vector3(3.0, 1.1, 2.0), look, look), "fov": 42.0, "dof": 5.0,
+				"brightness": 0.85}
+		"s_sinikka":  # Sinikka aamu-uinnilla Oravajärvellä
+			_time(main, 8, 30)
+			var sp: Vector3 = main.world.uimaranta_sinikka_pos
+			var dir := _dir(M.UIMARANTA_DIR)
+			_foot(main, sp - dir * 9.0, dir)
+			var look := sp + Vector3(0, 1.3, 0)
+			return {"warm": 40, "cam": dolly(sp + dir * 4.0 + _side(dir) * 2.0 + Vector3(0, 1.1, 0), sp + dir * 3.0 + _side(dir) * 1.4 + Vector3(0, 1.2, 0),
+				look, look), "fov": 40.0, "dof": 6.0}
 	push_warning("Otos puuttuu: " + id)
 	_time(main, 12, 0)
 	var p := _player_pos(main)
