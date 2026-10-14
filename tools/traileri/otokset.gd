@@ -84,14 +84,14 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 		"i_pekka":
 			_time(main, 11, 0)
 			var pk: Node3D = main.pekka
-			pk.process_mode = Node.PROCESS_MODE_DISABLED
+			_hold(main, pk)
 			var pp := pk.global_position
 			var f := _out_dir(main, pp)
 			var w := _foot(main, pp + f * 1.7, -f)
 			pk.rotation.y = B.yaw_to(w.global_position - pp)
 			pk._body.play("Idle_Talking", 0.2)
 			d.bubble(pk, "Pekka: Paapeliin pääsee, kunhan...", 3.2)
-			return {"cam": _two_shot(pp, w.global_position, 1.0), "fov": 40.0, "dof": 7.0, "done": func() -> void: pk.process_mode = Node.PROCESS_MODE_INHERIT}
+			return {"cam": _two_shot(main, pp, w.global_position, -1.0), "fov": 40.0, "dof": 7.0, "done": func() -> void: _release(pk)}
 
 		# --- Tarina ------------------------------------------------------------------------------------------------
 		"t_jemma":
@@ -107,23 +107,24 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 		"t_arto":
 			_time(main, 13, 0)
 			var ar: Node3D = main.arto
-			ar.process_mode = Node.PROCESS_MODE_DISABLED
+			_hold(main, ar)
 			var ap := ar.global_position
 			var f := _out_dir(main, ap)
 			var w := _foot(main, ap + f * 1.7, -f)
 			ar.rotation.y = B.yaw_to(w.global_position - ap)
 			ar._body.play("Idle_Talking", 0.2)
 			d.bubble(ar, "Arto: Lähekkö puolukkaan? Mää tiiän paikat.", 3.2)
-			return {"cam": _two_shot(ap, w.global_position, -1.0), "fov": 40.0, "dof": 7.0,
-				"done": func() -> void: ar.process_mode = Node.PROCESS_MODE_INHERIT}
+			return {"cam": _two_shot(main, ap, w.global_position, -1.0), "fov": 40.0, "dof": 7.0,
+				"done": func() -> void: _release(ar)}
 		"t_sienet":
 			_time(main, 14, 10)
 			var f := _forage(main, ["kantarelli", "herkkutatti"])
 			var w := _foot(main, f.pos + Vector3(1.6, 0, 0.4), Vector3(-1, 0, -0.2))
 			w._body.play("Crouch_Idle", 0.2)
 			var c: Vector3 = f.pos
-			return {"cam": dolly(c + Vector3(-1.4, 0.25, 1.2), c + Vector3(-0.9, 0.3, 1.0), c + Vector3(0.6, 0.3, 0), c + Vector3(0.8, 0.5, 0)),
-				"fov": 40.0, "dof": 3.0}
+			var face := c + Vector3(1.6, 1.4, 0.4)
+			return {"cam": dolly(c + Vector3(-1.3, 0.3, -0.5), c + Vector3(-0.9, 0.35, -0.3), c + Vector3(0.4, 0.4, 0.1), face), "fov": 42.0,
+				"dof": 4.0}
 		"t_puolukka":
 			_time(main, 14, 40)
 			var f := _forage(main, ["puolukka", "mustikka"])
@@ -173,26 +174,26 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 		"t_avaimet":
 			_time(main, 17, 0)
 			var pk: Node3D = main.pekka
-			pk.process_mode = Node.PROCESS_MODE_DISABLED
+			_hold(main, pk)
 			var pp := pk.global_position
 			var f := _out_dir(main, pp)
 			var w := _foot(main, pp + f * 1.4, -f)
 			pk.rotation.y = B.yaw_to(w.global_position - pp)
 			pk._body.play("Idle_Talking", 0.2)
 			d.bubble(pk, "Pekka: MUN AVAIMET! Missä ne oli?!", 3.0)
-			return {"cam": _two_shot(pp, w.global_position, 1.0), "fov": 40.0, "dof": 6.0,
-				"done": func() -> void: pk.process_mode = Node.PROCESS_MODE_INHERIT}
+			return {"cam": _two_shot(main, pp, w.global_position, -1.0), "fov": 40.0, "dof": 6.0,
+				"done": func() -> void: _release(pk)}
 		"t_volvo":
 			_time(main, 17, 20)
 			var pk: Node3D = main.pekka
-			pk.process_mode = Node.PROCESS_MODE_DISABLED
+			_hold(main, pk)
 			var pp := pk.global_position
 			var out := _out_dir(main, pp)
 			var w := _foot(main, pp + out * 1.7, -out)
 			pk.rotation.y = B.yaw_to(w.global_position - pp)
 			pk._body.play("Idle_Talking", 0.2)
 			d.bubble(pk, "Pekka: No niin! Hyppää kyytiin.", 3.0)
-			return {"cam": _two_shot(pp, w.global_position, -1.0), "fov": 40.0, "dof": 6.0, "done": func() -> void: pk.process_mode = Node.PROCESS_MODE_INHERIT}
+			return {"cam": _two_shot(main, pp, w.global_position, -1.0), "fov": 40.0, "dof": 6.0, "done": func() -> void: _release(pk)}
 		"t_kyyti":
 			_time(main, 20, 30)
 			var car := _car(main, d, M.w(Vector2(640, 1180)), M.w(M.J_W), 14.0)
@@ -240,14 +241,16 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			_time(main, 13, 30)
 			main._vaino_escape()
 			var v: Node3D = main.vaino
-			if id == "p_vaino":
+			main.pekka.quiet = true  # Pekan omat sienirepliikit eivät jää kuvaan
+			if main.pekka.get("_bubble") is Label3D:
+				main.pekka._bubble.text = ""
+			if id == "p_vaino":  # puhelimella perään: kuvaaja seisoo, koira juoksee ohi
 				var at: Vector3 = v.global_position
-				return {"warm": 20, "cam": func(t: float) -> Array:
+				var eye0 := _best_eye(main, at + Vector3(0, 0.5, 0), _ring(at, Vector3(1, 0, 1), 5.0, 1.1))
+				return {"warm": 2, "cam": func(t: float) -> Array:
 					var shake := Vector3(sin(t * 6.3) * 0.06, sin(t * 8.7) * 0.05, 0)
-					return [at + Vector3(8, 1.6, 8) + shake, v.global_position + Vector3(0, 0.4, 0)], "fov": 52.0}
-			var pk: Node3D = main.pekka
-			return {"warm": 4, "cam": dolly(pk.global_position + Vector3(4, 1.6, 4), pk.global_position + Vector3(3.2, 1.6, 3.2),
-				pk.global_position + Vector3(0, 1.4, 0), v.global_position + Vector3(0, 0.6, 0)), "fov": 46.0}
+					return [eye0 + shake, v.global_position + Vector3(0, 0.5, 0) + shake], "fov": 50.0}
+			return {"warm": 2, "cam": follow(v, Vector3(-2.6, 1.4, -3.6), Vector3(-3.0, 1.5, 1.5), Vector3(0, 0.4, 0), 3.5, main), "fov": 46.0, "dof": 8.0}
 		"v_koira":
 			_time(main, 16, 0)
 			var s: Node3D = main.stray
@@ -259,14 +262,14 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			_time(main, 18, 0)
 			var sl: Node3D = main.sulo
 			var sp := sl.global_position
-			sl.process_mode = Node.PROCESS_MODE_DISABLED
+			_hold(main, sl)
 			var out := _out_dir(main, sp)
 			sl.rotation.y = B.yaw_to(out)
 			sl._body.play("Idle_Talking", 0.2)
 			d.bubble(sl, "Sulo: Kaksikymppiä. Ja sää et oo nähny mitään.", 3.0)
-			return {"done": func() -> void: sl.process_mode = Node.PROCESS_MODE_INHERIT,
-				"cam": dolly(sp + out * 3.0 + _side(out) * 1.0 + Vector3(0, 1.5, 0), sp + out * 2.4 + _side(out) * 0.8 + Vector3(0, 1.5, 0),
-				sp + Vector3(0, 1.4, 0), sp + Vector3(0, 1.4, 0)),
+			return {"done": func() -> void: _release(sl),
+				"cam": dolly(sp + out * 4.0 + _side(out) * 1.3 + Vector3(0, 1.65, 0), sp + out * 3.3 + _side(out) * 1.0 + Vector3(0, 1.65, 0),
+				sp + Vector3(0, 1.75, 0), sp + Vector3(0, 1.75, 0)),
 				"fov": 40.0, "dof": 6.0}
 		"v_seppo":
 			_time(main, 12, 30)
@@ -275,35 +278,43 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			if sn:
 				d.bubble(sn, "Seppo: Hopeanuoli. Isävainaan. Ei oo myynnissä.", 3.0)
 			var tarp: Vector3 = main.world.seppo_tarp
-			return {"cam": dolly(tarp + Vector3(4, 1.4, 4), tarp + Vector3(3, 1.2, 3), tarp + Vector3(0, 0.6, 0), tarp + Vector3(0, 0.6, 0)),
-				"fov": 44.0}
+			var mid: Vector3 = (tarp + sn.global_position) / 2.0 + Vector3(0, 1.3, 0) if sn else tarp + Vector3(0, 0.8, 0)
+			var eye := _best_eye(main, mid, _ring(mid, _out_dir(main, mid), 6.5, 0.5, 16))
+			return {"cam": dolly(eye, mid + (eye - mid) * 0.8, mid, mid), "fov": 44.0, "dof": 9.0}
 		"v_korjaamo":
 			_time(main, 10, 30)
 			var kd: Vector3 = _g(main.world.korpela_door)
-			var out := _out_dir(main, kd)
-			return {"cam": dolly(kd + out * 9.0 + _side(out) * 4.0 + Vector3(0, 2.0, 0), kd + out * 6.0 + _side(out) * 2.0 + Vector3(0, 1.7, 0),
-				kd - out * 2.0 + Vector3(0, 1.5, 0), kd - out * 2.0 + Vector3(0, 1.4, 0)),
-				"fov": 46.0}
+			var kc := M.w(M.KORPELA)
+			var front := kd - kc
+			front.y = 0.0
+			front = front.normalized()
+			var look := kc + Vector3(0, 1.8, 0)
+			var eye := kc + front * 17.0 + _side(front) * 6.0 + Vector3(0, 6.5, 0)
+			return {"cam": dolly(eye, look + (eye - look) * 0.72, look, look), "fov": 46.0}
 		"v_miisu":
 			_time(main, 12, 0)
 			var aa: Node3D = main.aaro
-			aa.process_mode = Node.PROCESS_MODE_DISABLED
+			_hold(main, aa)
 			var ap := aa.global_position
 			var out := _out_dir(main, ap)
 			aa.rotation.y = B.yaw_to(out)
 			aa._body.play("Idle_Talking", 0.2)
 			d.bubble(aa, "Aaro: Miisu! Miisu! Onko kukaan nähny Miisua?", 3.0)
-			return {"cam": dolly(ap + out * 3.0 + _side(out) * 1.2 + Vector3(0, 1.5, 0), ap + out * 2.4 + _side(out) * 0.9 + Vector3(0, 1.5, 0),
-				ap + Vector3(0, 1.4, 0), ap + Vector3(0, 1.4, 0)), "fov": 40.0, "dof": 6.0,
-				"done": func() -> void: aa.process_mode = Node.PROCESS_MODE_INHERIT}
+			var look := ap + Vector3(0, 1.75, 0)
+			var eye := _best_eye(main, look, _ring(look, out + _side(out) * 0.35, 4.0, -0.1))
+			return {"cam": dolly(eye, look + (eye - look) * 0.82, look, look), "fov": 40.0, "dof": 6.0,
+				"done": func() -> void: _release(aa)}
 		"p_siili":
 			_time(main, 16, 30)
 			var lw: Node3D = main.lawn
-			var c := Vector3(lw.pivot.x, 0, lw.pivot.y)
-			c.y = T.h(c.x, c.z)
-			return {"cam": func(t: float) -> Array:
+			_foot(main, lw.mower_park + Vector3(1.2, 0, 0.8), Vector3.FORWARD)
+			main._start_mowing(lw)
+			var w: Node3D = main.walker_out
+			var eye0 := _best_eye(main, w.global_position + Vector3(0, 1.0, 0), _ring(w.global_position, Vector3(-1, 0, 1), 7.0, 1.8))
+			return {"keys": [[0.0, "forward", 99.0]], "cam": func(t: float) -> Array:
 				var shake := Vector3(sin(t * 6.1) * 0.05, sin(t * 8.9) * 0.04, 0)
-				return [c + Vector3(-7.0, 2.2, 8.0) + shake, c + shake * 2.0], "fov": 52.0}
+				return [eye0 + shake, w.global_position + Vector3(0, 0.8, 0) + shake * 2.0], "fov": 48.0,
+				"done": func() -> void: main._stop_mowing()}
 
 		# --- Kertosäe ja kliimaksi (Saloinen) ------------------------------------------------------------------------
 		"k_laavu":
@@ -319,8 +330,9 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var u := M.w(M.UIMARANTA)
 			var dir := _dir(M.UIMARANTA_DIR)
 			_foot(main, u - dir * 2.0, dir)
-			return {"keys": [[0.0, "forward", 99.0], [0.0, "sprint", 99.0]], "cam": dolly(u + dir * 6.0 + _side(dir) * 3.0 + Vector3(0, 0.6, 0),
-				u + dir * 5.0 + _side(dir) * 2.0 + Vector3(0, 0.8, 0), u + Vector3(0, 1.0, 0), u + dir * 2.0 + Vector3(0, 1.0, 0)), "fov": 44.0}
+			return {"keys": [[0.0, "forward", 99.0], [0.0, "sprint", 99.0]], "cam": dolly(u + dir * 4.5 + _side(dir) * 1.8 + Vector3(0, 0.7, 0),
+				u + dir * 3.8 + _side(dir) * 1.2 + Vector3(0, 0.8, 0), u - dir * 1.5 + Vector3(0, 1.1, 0), u + dir * 1.5 + Vector3(0, 1.0, 0)),
+				"fov": 40.0, "dof": 9.0}
 		"k_rossi":
 			_time(main, 13, 0)
 			_on_bike(main)
@@ -365,8 +377,10 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var po: Node3D = main.police
 			if is_instance_valid(po):
 				var wd: Node3D = main.world
-				po.setup(wd.graph_nodes, wd.graph_adj, wd.nearest_node(main.bike.global_position + main.bike.global_transform.basis.z * 25.0), main.player)
-				return {"tick": tick, "cam": follow(po, Vector3(-2.0, 0.6, -4.0), Vector3(-1.5, 0.7, -3.0), Vector3(0, 1.0, -20.0)), "fov": 46.0}
+				po.setup(wd.graph_nodes, wd.graph_adj, wd.nearest_node(main.bike.global_position + main.bike.global_transform.basis.z * 18.0), main.player)
+				po.start_chase()
+				return {"tick": tick, "cam": follow(main.bike, Vector3(0.9, 1.2, -4.5), Vector3(0.7, 1.0, -3.8), Vector3(0, 1.0, 10.0)), "fov": 46.0,
+					"warm": 10}
 			return {"tick": tick, "cam": follow(main.bike, Vector3(2.0, 1.0, 4.0), Vector3(1.5, 1.0, 3.5), Vector3(0, 1.0, 0)), "fov": 46.0}
 		"f_traktori":
 			_time(main, 14, 30)
@@ -423,7 +437,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			main.sausage_done = true
 			main.stash_laavu = 7
 			main._win_laavu()
-			return {"warm": 6}
+			return {"warm": 40}
 		"f_nuotio":  # makkaranpaisto Keskimmäisen laavulla (mökki): hahmo istuu ja kääntelee makkaraa
 			var mk: Node3D = _mokki(main)
 			_time(main, 21, 50)
@@ -443,8 +457,10 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var tk := func(t: float) -> void:
 				if absf(t - 0.8) < 0.02:
 					d.bubble(pv, "Päivi: Missä sää oikein olit?!", 4.0, 2.05)
-			return {"tick": tk, "cam": dolly(door + f * 7.5 + _side(f) * 1.2 + Vector3(0, 1.5, 0), door + f * 5.0 + _side(f) * 0.8 + Vector3(0, 1.55, 0),
-				door + f * 0.6 + Vector3(0, 1.5, 0), door + f * 0.6 + Vector3(0, 1.6, 0), 5.0), "fov": 38.0, "dof": 6.0, "brightness": 0.9}
+			var look := door + f * 0.6 + Vector3(0, 1.3, 0)
+			var eye := door + f * 6.5 + _side(f) * 1.5 + Vector3(0, 3.4, 0)  # pihan autojen katon yli
+			return {"tick": tk, "cam": dolly(eye, look + (eye - look) * 0.6, look, look + Vector3(0, 0.15, 0), 5.0), "fov": 38.0, "dof": 6.0,
+				"brightness": 0.9}
 		"i_kassa":
 			_time(main, 10, 10)
 			main.beers = 6
@@ -487,7 +503,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var keys := []
 			for i in 16:
 				keys.append([0.3 + i * 0.1, "left" if i % 2 == 0 else "right"])
-			return {"warm": 95, "keys": keys}
+			return {"warm": 95, "keys": keys, "hide_games": ["bar_game.gd"]}
 		"k_karaoke", "f_karaoke":
 			_time(main, 22, 0)
 			var again: bool = id == "f_karaoke" and _find(main, "karaoke_game.gd") != null  # sama laulu jatkuu
@@ -504,7 +520,17 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 					var cur: Array = g._note_at(g._t + 0.05)
 					if not cur.is_empty():
 						g._pitch = float(cur[2])
-			return {"warm": 60, "tick": tk}
+			var ri2: Node3D = main.raahe_int
+			var sw: Node3D = ri2.walker
+			var sing := sw.global_position + Vector3(0, 1.5, 0)
+			for b in ri2._bubbles.values():  # baarimikon tervehdys pois
+				b.text = ""
+			var facing := -sw.global_transform.basis.z
+			# Kellari on katoton: kamera ylempää alaviistoon, laulajan edestä vähän sivusta.
+			var eye := _best_eye(main, sing, _ring(sing, facing + _side(facing) * 0.4, 3.6, 0.7))
+			d.bubble(sw, "♪ Ruukin valot syttyy yöhön ♪", 9.0, 2.1)
+			return {"warm": 60, "tick": tk, "hide_games": ["karaoke_game.gd"], "cam": dolly(eye, sing + (eye - sing) * 0.75, sing, sing),
+				"fov": 46.0, "dof": 6.0}
 		"k_huutokauppa", "k_nuija":
 			_time(main, 13, 0)
 			if main.state != "in_kirppis":
@@ -561,7 +587,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			if id == "v_mopo_potku":
 				main.garage_int.set_mopo(true, false)
 				main._start_kick()
-				return {"warm": 40, "keys": [[0.2, "back"], [0.9, "back"]]}
+				return {"warm": 40, "keys": [[0.2, "back"], [0.9, "back"]], "hide_games": ["mopo_kick_game.gd"]}
 			var gi: Node3D = main.garage_int
 			gi.set_bike(true)
 			gi.walker.position = Vector3(-0.5, 0, -3.4)
@@ -575,24 +601,30 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var mk: Node3D = _mokki(main)
 			_time(main, 18, 0) if id != "m_sauna" else _time(main, 21, 40)
 			_foot(main, mk.to_global(Vector3(-2, 0, -14)), Vector3.FORWARD)
-			if id == "t_mokki_saapuu":
-				return {"cam": dolly(mk.to_global(Vector3(-16, 9, -22)), mk.to_global(Vector3(-12, 7.5, -17)), mk.to_global(Vector3(2, 1.5, -1)),
-					mk.to_global(Vector3(2, 1.5, 0))), "fov": 55.0}
+			var lg := func(x: float, z: float, y: float) -> Vector3:  # mökin paikallinen piste maaston päällä
+				return mk.to_global(Vector3(x, mk.h(x, z) + y, z))
+			if id == "t_mokki_saapuu":  # puiden latvojen yli, alas pihaan
+				return {"cam": dolly(lg.call(-18, -26, 24.0), lg.call(-12, -18, 14.0), lg.call(0, -1, 1.5), lg.call(0, -1, 1.5)), "fov": 52.0}
 			if id == "m_sauna":
 				mk.set_sauna_fire(true)
 				mk.set_tub_fire(true)
-				return {"cam": dolly(mk.to_global(Vector3(0, 3.5, 12)), mk.to_global(Vector3(2, 3.0, 11)), mk.to_global(Vector3(9, 1.2, 6.5)),
-					mk.to_global(Vector3(9, 1.4, 6.5))), "fov": 55.0}
+				var look: Vector3 = lg.call(3.0, 17.0, 1.2)
+				var eye := _best_eye(main, look, [lg.call(-5, 10, 2.4), lg.call(-6, 14, 2.2), lg.call(0, 9, 2.6), lg.call(10, 10, 2.4)])
+				return {"cam": dolly(eye, look + (eye - look) * 0.75, look, look), "fov": 55.0}
 			return {"cam": dolly(mk.to_global(Vector3(-6, 4, 22)), mk.to_global(Vector3(-3, 3, 20)), mk.to_global(Vector3(7, 1.2, 24)),
 				mk.to_global(Vector3(7, 1.2, 22))), "fov": 55.0}
 		"m_laituri":
 			var mk: Node3D = _mokki(main)
 			_time(main, 22, 10)
 			var dl: Vector3 = mk.DOCK_LOCAL
-			var w := _foot(main, mk.to_global(Vector3(dl.x, 0, dl.z - 2.0)), mk.global_transform.basis * Vector3(0, 0, 1))
-			w.global_position.y = mk.to_global(dl).y + 0.5
-			return {"cam": dolly(mk.to_global(dl + Vector3(-2.5, 1.7, -7)), mk.to_global(dl + Vector3(-1.8, 1.6, -5)), mk.to_global(dl + Vector3(0, 1.0, 4)),
-				mk.to_global(dl + Vector3(0, 1.0, 6))), "fov": 44.0, "fog": 1.5}
+			var deck: float = mk.to_global(Vector3(dl.x, mk.h(dl.x, dl.z - 11.6), dl.z)).y  # laiturin kansi (kuten m_kala)
+			var w := _foot(main, mk.to_global(Vector3(dl.x, 0, dl.z - 1.5)), mk.global_transform.basis * Vector3(0, 0, 1))
+			w.global_position.y = deck + 0.7
+			var at := func(x: float, y: float, z: float) -> Vector3:
+				var g := mk.to_global(Vector3(dl.x + x, 0, dl.z + z))
+				return Vector3(g.x, deck + y, g.z)
+			return {"cam": dolly(at.call(-2.6, 1.6, -8.0), at.call(-1.8, 1.5, -6.0), at.call(0, 1.1, -1.5), at.call(0, 1.0, 4.0)), "fov": 44.0,
+				"fog": 1.5}
 		"m_kala":
 			var mk: Node3D = _mokki(main)
 			_time(main, 19, 30)
@@ -600,7 +632,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			_foot(main, mk.to_global(Vector3(dl.x, 0, dl.z)), Vector3.FORWARD)
 			main.walker_out.global_position.y = mk.to_global(Vector3(dl.x, mk.h(dl.x, dl.z - 11.6), dl.z)).y + 0.7
 			main._start_fishing()
-			return {"warm": 30, "keys": [[0.3, "interact"], [1.2, "forward", 0.8]]}
+			return {"warm": 30, "keys": [[0.3, "interact"], [1.2, "forward", 0.8]], "hide_games": ["fish_game.gd"]}
 		"f_uinti":
 			var mk: Node3D = _mokki(main)
 			_time(main, 15, 0)
@@ -627,7 +659,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			for i in 90:
 				tk.call(0.0)
 				await main.get_tree().process_frame
-			return {"warm": 1, "tick": tk}
+			return {"warm": 1, "tick": tk, "hide_games": ["pingis_game.gd"]}
 		"f_jahti":
 			var mk: Node3D = _mokki(main)
 			_time(main, 7, 0)
@@ -636,7 +668,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			main._start_hunt()
 			var hg: Node3D = mk.get_children().filter(func(c): return c.get_script() and c.get_script().resource_path.ends_with("hunt_game.gd"))[0]
 			hg._spawn_t = 0.0
-			return {"warm": 120, "tick": func(t: float) -> void:
+			return {"warm": 120, "hide_games": ["hunt_game.gd"], "tick": func(t: float) -> void:
 				if absf(t - 1.0) < 0.02 and hg._reload_t <= 0.0:
 					hg._shoot()}
 
@@ -674,7 +706,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 				await main.get_tree().process_frame
 			main._lava_gate()
 			main._enter_lava(true)
-			return {"warm": 60}
+			return {"warm": 60, "hide_games": ["lava_game.gd"]}
 		"f_siitari":
 			_time(main, 21, 0)
 			var mt: Node3D = _vaala(main)
@@ -702,14 +734,14 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 				await main.get_tree().process_frame
 			main._on_vaala_door("kiihdytys")
 			main._talk_choose("kisa")
-			return {"warm": 90, "keys": [[0.0, "forward", 99.0]]}
+			return {"warm": 90, "keys": [[0.0, "forward", 99.0]], "hide_games": ["mopo_race.gd"]}
 		"f_nuoret":
 			_time(main, 22, 30)
 			var mt: Node3D = _vaala(main)
 			var vl: Node3D = mt.vaala
 			var pp: Vector3 = mt.to_global(vl.party_pos)
-			return {"cam": dolly(pp + Vector3(-7, 4.5, 9), pp + Vector3(-5, 3.6, 7), pp + Vector3(0, 1.0, 0), pp + Vector3(0, 1.2, 0)), "fov": 46.0,
-				"dof": 9.0}
+			var look := pp + Vector3(0, 0.8, 0)
+			return {"cam": dolly(pp + Vector3(3.4, 1.3, 2.6), pp + Vector3(2.6, 1.15, 2.0), look, look + Vector3(0, 0.15, 0)), "fov": 48.0, "dof": 6.0}
 		"m_juna":
 			_time(main, 9, 0)
 			var sp: Vector3 = main.world.station_pos
@@ -728,31 +760,31 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			w.global_position = h - f * 3.0 + _side(f) * 4.0 + Vector3(0, 0.3, 0)
 			w.rotation.y = B.yaw_to(-f)
 			var p := _person(main, d, Looks().PAIVI, h + f * 0.5 + _side(f) * 2.2, -_side(f) * 0.3 + f, "Idle_Talking")
-			return _portrait(p, f, 1.0)
+			return _portrait(main, p, f, 1.0)
 		"h_pekka":
 			_time(main, 16, 0)
 			var c := M.w(M.NEIGHBOR_PEKKA)
 			var f := _dir(M.HOME_YAW_DIR)
 			var p := _person(main, d, Looks().PEKKA, c + f * 9.0, f, "Idle_Talking")
-			return _portrait(p, f, -1.0)
+			return _portrait(main, p, f, -1.0)
 		"h_arto":
 			_time(main, 15, 0)
 			var c := M.w(M.NEIGHBOR_ARTO)
 			var f := _dir(M.HOME_YAW_DIR)
 			var p := _person(main, d, Looks().ARTO, c + f * 9.0, f, "Idle")
-			return _portrait(p, f, 1.0)
+			return _portrait(main, p, f, 1.0)
 		"h_juntti":
 			_time(main, 14, 0)
 			var j: Node3D = main.juntti
 			var f: Vector3 = -j.global_transform.basis.z
 			f.y = 0.0
-			return _portrait(j, f, -1.0)
+			return _portrait(main, j, f, -1.0)
 		"h_annaliisa":
 			_time(main, 11, 0)
 			var c := M.w(M.NEIGHBOR_SINIKKA)
 			var f := _dir(M.HOME_YAW_DIR)
 			var p := _person(main, d, Looks().ANNA_LIISA, c + f * 8.0 - _side(f) * 6.0, f + _side(f) * 0.5, "Idle_Talking")
-			return _portrait(p, f, 1.0)
+			return _portrait(main, p, f, 1.0)
 	push_warning("Otos puuttuu: " + id)
 	_time(main, 12, 0)
 	var p := _player_pos(main)
@@ -794,6 +826,57 @@ static func _g(p: Vector3) -> Vector3:
 	return Vector3(p.x, T.h(p.x, p.z), p.z)
 
 
+## Näkyykö katsepiste silmästä (ei seinää, puuta, autoa tai maastoa välissä). Hahmon oma törmäysmuoto katsepisteen
+## lähellä ei estä.
+static func _clear(main: Node3D, eye: Vector3, look: Vector3) -> bool:
+	if eye.y < T.h(eye.x, eye.z) + 0.25:
+		return false
+	var ss: PhysicsDirectSpaceState3D = main.get_world_3d().direct_space_state
+	var ex: Array[RID] = []
+	for c in main.find_children("*", "CharacterBody3D", true, false):  # hahmot ja ajoneuvot eivät ole esteitä
+		ex.append((c as CharacterBody3D).get_rid())
+	for target in [look, look - Vector3(0, 1.0, 0)]:  # rinta ja polvet: auto edessä peittää jalat
+		var q := PhysicsRayQueryParameters3D.create(eye, target)
+		q.exclude = ex
+		var hit := ss.intersect_ray(q)
+		if not hit.is_empty() and (hit.position as Vector3).distance_to(target) > 0.6:
+			return false
+	return true
+
+
+## Ensimmäinen ehdokassilmä, josta katsepiste näkyy (muuten ensimmäinen).
+static func _best_eye(main: Node3D, look: Vector3, cands: Array) -> Vector3:
+	for e in cands:
+		if _clear(main, e, look):
+			return e
+	return cands[0]
+
+
+## Silmäehdokkaat kehänä katsepisteen ympärillä (alkaen suunnasta first), korkeudella h.
+static func _ring(look: Vector3, first: Vector3, r: float, h: float, n := 12) -> Array:
+	var out := []
+	var f := Vector3(first.x, 0, first.z).normalized()
+	for i in n:
+		var k := (i + 1) / 2 * (1 if i % 2 == 0 else -1)  # 0, +1, -1, +2, -2 ... kehää molempiin suuntiin
+		out.append(look + f.rotated(Vector3.UP, k * TAU / n) * r + Vector3(0, h, 0))
+	return out
+
+
+## Kyläläinen paikalleen otoksen ajaksi: oma liike ja repliikit pois, animaatio jatkuu (AnimationPlayer).
+static func _hold(_main: Node3D, v: Node3D) -> void:
+	v.set_process(false)
+	v.set_physics_process(false)
+	if v.get("_bubble") is Label3D:
+		v._bubble.text = ""
+	if "velocity" in v:
+		v.velocity = Vector3.ZERO
+
+
+static func _release(v: Node3D) -> void:
+	v.set_process(true)
+	v.set_physics_process(true)
+
+
 ## Suunta pisteestä p lähimmälle tielle (pihoilta kadulle päin: kamera ei jää talon seinän sisään).
 static func _out_dir(main: Node3D, p: Vector3) -> Vector3:
 	var wd: Node3D = main.world
@@ -803,21 +886,33 @@ static func _out_dir(main: Node3D, p: Vector3) -> Vector3:
 	return v.normalized() if v.length() > 0.5 else Vector3.FORWARD
 
 
-## Kahden hahmon keskustelu sivulta (side = kummalta puolelta): molemmat profiilissa, hidas työntö.
-static func _two_shot(a: Vector3, b: Vector3, side: float) -> Callable:
+## Kahden hahmon keskustelu sivulta (side = kummalta puolelta ensisijaisesti): molemmat profiilissa, hidas työntö.
+## Puolta ja etäisyyttä vaihdetaan, jos este (pylväs, pensas, seinä) on edessä. Katse ylempänä, jotta puhekupla
+## mahtuu mustien palkkien väliin.
+static func _two_shot(main: Node3D, a: Vector3, b: Vector3, side: float) -> Callable:
 	var mid := (a + b) / 2.0
 	var ab := b - a
 	ab.y = 0.0
-	var perp := _side(ab.normalized()) * side
-	var dist := maxf(ab.length() * 1.5, 3.2)
-	return dolly(mid + perp * dist + Vector3(0, 1.55, 0), mid + perp * dist * 0.85 + Vector3(0, 1.5, 0), mid + Vector3(0, 1.45, 0),
-		mid + Vector3(0, 1.45, 0))
+	var look := mid + Vector3(0, 1.75, 0)
+	var cands := []
+	for sd in [side, -side]:
+		var perp: Vector3 = _side(ab.normalized()) * sd
+		for dist in [maxf(ab.length() * 1.6, 4.2), 5.5, 3.4]:
+			for tilt in [0.0, 0.35, -0.35]:
+				cands.append(look + (perp + ab.normalized() * tilt).normalized() * dist + Vector3(0, -0.05, 0))
+	var eye := _best_eye(main, look, cands)
+	return dolly(eye, look + (eye - look) * 0.86, look, look)
 
 
 ## Hahmoesittelyn kuva: puolilähikuva hahmon edestä vähän sivusta (side = -1 / 1), hidas työntö kohti, tausta sumea.
-static func _portrait(p: Node3D, face: Vector3, side: float) -> Dictionary:
+static func _portrait(main: Node3D, p: Node3D, face: Vector3, side: float) -> Dictionary:
 	var f := face.normalized()
 	var s := _side(f) * side
+	var c0 := p.global_position
+	if not _clear(main, c0 + f * 3.6 + s * 1.6 + Vector3(0, 1.45, 0), c0 + Vector3(0, 1.35, 0)):
+		s = -s  # este (puu, pylväs) toisella puolella: kuvataan toiselta
+		if not _clear(main, c0 + f * 3.6 + s * 1.6 + Vector3(0, 1.45, 0), c0 + Vector3(0, 1.35, 0)):
+			s = Vector3.ZERO
 	return {"cam": func(t: float) -> Array:
 		var c := p.global_position
 		var k := clampf(t / 3.0, 0.0, 1.0)
@@ -827,6 +922,11 @@ static func _portrait(p: Node3D, face: Vector3, side: float) -> Dictionary:
 
 ## Jokaisen otoksen alussa: Päivi parkkiin (ei jahtaa), pelaaja pyörän selkään ja ohjaus pois.
 static func _reset(main: Node3D) -> void:
+	var mm: Node3D = main.mummot
+	if is_instance_valid(mm):  # mummojen repliikit eivät jää muiden otosten taustalle
+		for b in mm._bubbles:
+			b.text = ""
+		mm._chat_t = 999.0
 	main.wife.parked = true
 	main.wife.mode = "patrol"
 	main.bike.autopilot = false
@@ -977,8 +1077,8 @@ static func dolly(e0: Vector3, e1: Vector3, l0: Vector3, l1: Vector3, length := 
 
 ## Kohdetta seuraava kamera: siirtymä kohteen omassa kehyksessä (x oikealle, z taakse) liukuu off0 -> off1.
 ## Kohteen suunta pehmennetään, ettei kamera nyi mutkissa.
-static func follow(node: Node3D, off0: Vector3, off1: Vector3, look: Vector3, length := 4.0) -> Callable:
-	var st := {"yaw": node.global_rotation.y, "last": -1.0}
+static func follow(node: Node3D, off0: Vector3, off1: Vector3, look: Vector3, length := 4.0, main: Node3D = null) -> Callable:
+	var st := {"yaw": node.global_rotation.y, "last": -1.0, "lift": 0.0}
 	return func(t: float) -> Array:
 		if not is_instance_valid(node):
 			return [Vector3.ZERO, Vector3.ZERO]
@@ -992,7 +1092,13 @@ static func follow(node: Node3D, off0: Vector3, off1: Vector3, look: Vector3, le
 		k = k * k * (3.0 - 2.0 * k)
 		var off := off0.lerp(off1, k).rotated(Vector3.UP, st.yaw)
 		var p := node.global_position
-		return [p + off, p + look.rotated(Vector3.UP, st.yaw)]
+		var tgt := p + look.rotated(Vector3.UP, st.yaw)
+		if main != null:  # este (seinä, talo) välissä: kamera nousee pehmeästi yli
+			var want := 0.0
+			while want < 6.0 and not _clear(main, p + off + Vector3(0, want, 0), tgt + Vector3(0, 0.6, 0)):
+				want += 1.0
+			st.lift = lerpf(st.lift, want, 0.15)
+		return [p + off + Vector3(0, st.lift, 0), tgt]
 
 
 static func _ease(t: float, length: float) -> float:
