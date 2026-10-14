@@ -231,7 +231,7 @@ func _apply_look() -> void:
 	env.adjustment_contrast = _spec.get("contrast", 1.06)
 	env.adjustment_brightness = _spec.get("brightness", 1.0)
 	env.glow_enabled = true
-	env.glow_intensity = 0.5
+	env.glow_intensity = _spec.get("glow", 0.5)
 	env.glow_bloom = 0.04
 	if not preview:
 		env.ssao_enabled = true
