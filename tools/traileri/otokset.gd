@@ -623,8 +623,17 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			if id == "v_mopo_potku":
 				main.garage_int.set_mopo(true, false)
 				main._start_kick()
-				return {"warm": 40, "keys": [[0.2, "back"], [0.5, "interact", 0.85], [2.2, "interact", 0.85], [3.9, "back"], [4.4, "interact", 0.85],
-					[6.1, "interact", 0.85]], "hide_games": ["mopo_kick_game.gd"]}
+				var kg: Node = _find(main, "mopo_kick_game.gd")
+				var ks := {"n": 0}
+				var ktk := func(t: float) -> void:
+					if kg == null or not is_instance_valid(kg) or kg._running:
+						return
+					var plan := [[0.6, true], [2.0, true], [3.6, false]]  # [aika, rikastin]
+					if ks.n < plan.size() and t >= plan[ks.n][0]:
+						kg._choke = plan[ks.n][1]
+						kg._kick(0.74)
+						ks.n += 1
+				return {"warm": 40, "tick": ktk, "hide_games": ["mopo_kick_game.gd"]}
 			var gi: Node3D = main.garage_int
 			gi.set_bike(true)
 			gi.walker.position = Vector3(-0.5, 0, -3.4)
@@ -713,12 +722,12 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 					return [Vector3.ZERO, Vector3.ZERO]
 				var a: Vector3 = pg._pl[0].body.global_position
 				var b: Vector3 = pg._pl[1].body.global_position
-				var mid := (a + b) / 2.0 + Vector3(0, 1.3, 0)
+				var mid := a.lerp(b, 0.25) + Vector3(0, 1.2, 0)
 				var away: Vector3 = (pg._cam.global_position - mid) * Vector3(1, 0, 1)
-				var want := mid + away.normalized() * 6.0 + Vector3(0, 0.3, 0)
+				var want := mid + away.normalized() * 3.6 + (b - a).normalized() * -1.2 + Vector3(0, 0.1, 0)
 				pst.eye = want if pst.eye == Vector3.ZERO else pst.eye.lerp(want, 0.1)
 				return [pst.eye, mid]
-			return {"warm": 1, "tick": tk, "hide_games": ["pingis_game.gd"], "cam": pcam, "fov": 48.0, "dof": 8.0}
+			return {"warm": 1, "tick": tk, "hide_games": ["pingis_game.gd"], "cam": pcam, "fov": 42.0, "dof": 5.0}
 		"f_jahti":
 			var mk: Node3D = _mokki(main)
 			_time(main, 7, 0)
@@ -745,7 +754,14 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			mp.position = vl.road_pos(si) + Vector3(0, 0.6, 0) + dr.cross(Vector3.UP) * 0.9
 			mp.rotation.y = atan2(-dr.x, -dr.z)
 			mp.speed = 10.0
-			return {"keys": [[0.0, "forward", 99.0]], "cam": follow(mp, Vector3(-3.0, 1.0, 3.5), Vector3(-4.0, 2.5, 6.0), Vector3(0, 0.8, 0)),
+			var ms := {"i": si}
+			var mtk := func(_t: float) -> void:  # ohjaus tietä pitkin (muuten mopo ajaa suoraan mutkasta ojaan)
+				while vl.road_pos(ms.i + 1).distance_to(mp.position) < vl.road_pos(ms.i).distance_to(mp.position):
+					ms.i += 1
+				var tgt: Vector3 = vl.road_pos(ms.i + 4) + vl.road_dir(ms.i + 4).cross(Vector3.UP) * 0.9
+				var v := tgt - mp.position
+				mp.rotation.y = lerp_angle(mp.rotation.y, atan2(-v.x, -v.z), 0.2)
+			return {"tick": mtk, "keys": [[0.0, "forward", 99.0]], "cam": follow(mp, Vector3(-3.0, 1.0, 3.5), Vector3(-4.0, 2.5, 6.0), Vector3(0, 0.8, 0)),
 				"fov": 46.0, "warm": 6}
 		"f_lava":
 			_time(main, 21, 30)
@@ -886,8 +902,30 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			main.state = "cutscene"
 			main.cutscene.wine_party("Pekka, Arto ja Sinikka", func() -> void: pass)
 			return {"warm": 10}
-		"s_paivi_tv":  # Päivi näkee miehensä tanssivan TV:ssä (ruudulle kuva kylästä)
-			_time(main, 22, 30)
+		"s_paivi_tv":  # Päivi näkee miehensä tanssivan TV:ssä: ruudulle oikea kuva lavatansseista (kuten pelissä)
+			_time(main, 22, 0)
+			var mt: Node3D = _vaala(main)
+			var mp: CharacterBody3D = mt.mopo
+			mp.position = mt.vaala.lava_door + Vector3(0, 0.6, 0)
+			mp.speed = 0.0
+			main.money = 40.0
+			for i in 10:
+				await main.get_tree().process_frame
+			main._lava_gate()
+			main._enter_lava(true)
+			var lg: Node = _find(main, "lava_game.gd")
+			if lg != null:
+				var tvc := Camera3D.new()  # TV-kameran kuva: pari tanssilattialla
+				main.add_child(tvc)
+				var mid: Vector3 = (lg._me.global_position + lg._partner.global_position) / 2.0 + Vector3(0, 1.2, 0)
+				tvc.look_at_from_position(mid + Vector3(3.0, 1.5, 3.0), mid)
+				tvc.fov = 45.0
+				tvc.current = true
+				if lg.get("_layer") is CanvasLayer:
+					lg._layer.visible = false
+				for i in 90:
+					await main.get_tree().process_frame
+				await RenderingServer.frame_post_draw
 			var img: Image = main.get_viewport().get_texture().get_image()
 			main.state = "cutscene"
 			main.cutscene.paivi_tv(ImageTexture.create_from_image(img), func() -> void: pass)
@@ -926,7 +964,8 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var dir := _dir(M.UIMARANTA_DIR)
 			_foot(main, sp - dir * 9.0, dir)
 			var look := sp + Vector3(0, 1.3, 0)
-			return {"warm": 40, "cam": dolly(sp - dir * 4.2 + _side(dir) * 1.6 + Vector3(0, 1.1, 0), sp - dir * 3.2 + _side(dir) * 1.1 + Vector3(0, 1.2, 0),
+			var fr: Vector3 = (-main.world.uimaranta_sinikka.global_basis.z * Vector3(1, 0, 1)).normalized()  # mallin etupuoli
+			return {"warm": 40, "cam": dolly(sp + fr * 4.2 + _side(fr) * 1.6 + Vector3(0, 1.1, 0), sp + fr * 3.2 + _side(fr) * 1.1 + Vector3(0, 1.2, 0),
 				look, look), "fov": 40.0, "dof": 6.0}
 	push_warning("Otos puuttuu: " + id)
 	_time(main, 12, 0)
