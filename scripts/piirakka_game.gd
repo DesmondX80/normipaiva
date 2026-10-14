@@ -320,7 +320,7 @@ func _build_hand() -> void:
 		s.position = Vector3(k * 0.042, 0, 0)
 		_pie.add_child(s)
 		_pie_slice(s, k, -1 if k == 0 else (1 if k == BITES - 1 else 0))
-		# Puraisujälki: katkaistujen nakkien poikkipinnat ja kapea sisuskaistale kuoren pohjalla.
+		# Puraisujälki: katkaistujen nakkien poikkipinnat (kuori jatkuu hieman puraisukohdan yli, _fit_shell).
 		var bite := Node3D.new()
 		bite.position = Vector3(-0.0215, 0, 0)
 		s.add_child(bite)
@@ -328,8 +328,6 @@ func _build_hand() -> void:
 		for i in 3:
 			var z: float = (-0.022 + i * 0.022) * r / 0.042
 			B.mesh(bite, B.cyl(0.012, 0.012, 0.002, 12), Vector3(0, 0.034 - absf(z) * 0.12, z - 0.003), SAUSAGE.lightened(0.15), Vector3(0, 0, 90))
-		var crumb := B.mesh(bite, B.cyl(1.0, 1.0, 0.002, 16), Vector3(0, 0.017, 0), CRUMB, Vector3(0, 0, 90))
-		crumb.scale = Vector3(0.006, 1.0, r * 0.9)  # kyljellään: x = korkeus, z = leveys
 		bite.visible = false
 		_slices.append(s)
 		_bitten.append(bite)
@@ -449,7 +447,7 @@ func _process(delta: float) -> void:
 			_bite += 1
 			if _bite < BITES:
 				_bitten[_bite].visible = true
-				_fit_shell(_hand_shell, _bite * 0.042 - 0.021, (BITES - 1) * 0.042 + 0.03)  # kuori lyhenee
+				_fit_shell(_hand_shell, _bite * 0.042 - 0.033, (BITES - 1) * 0.042 + 0.03)  # kuori lyhenee, pää hieman yli
 			_chew = CHEWS
 			_belly += BITE_FILL * (1.0 + drunk * 0.3)
 			_jaw = 1.0

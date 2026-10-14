@@ -17996,7 +17996,7 @@ func _maybe_screenshot() -> void:
 			for k in 2:  # kaksi haukkua piirakasta
 				g._slices[k].visible = false
 			g._bitten[2].visible = true
-			g._fit_shell(g._hand_shell, 2 * 0.042 - 0.021, (g.BITES - 1) * 0.042 + 0.03)
+			g._fit_shell(g._hand_shell, 2 * 0.042 - 0.033, (g.BITES - 1) * 0.042 + 0.03)
 			g._chew = 2
 			g._bite = 2
 			g._pies = 3
