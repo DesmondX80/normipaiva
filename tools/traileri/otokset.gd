@@ -503,7 +503,18 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var keys := []
 			for i in 16:
 				keys.append([0.3 + i * 0.1, "left" if i % 2 == 0 else "right"])
-			return {"warm": 95, "keys": keys, "hide_games": ["bar_game.gd"]}
+			var bg: Node3D = _find(main, "bar_game.gd")
+			if bg == null:
+				return {"warm": 95, "keys": keys, "hide_games": ["bar_game.gd"]}
+			var ty: float = bg.TABLE_Y
+			var grip: Vector3 = bg.to_global(Vector3(0, ty + 0.25, -0.05))
+			# Ote heiluu puolelta toiselle (jännite), kamera matalalta sivusta hitaasti otetta kohti.
+			var tk := func(t: float) -> void:
+				if is_instance_valid(bg) and bg._phase == "wrestle":
+					bg._angle = sin(t * 2.4) * 0.45 + sin(t * 5.3) * 0.08
+			return {"warm": 95, "keys": keys, "hide_games": ["bar_game.gd"], "tick": tk,
+				"cam": dolly(bg.to_global(Vector3(1.25, ty + 0.35, 0.45)), bg.to_global(Vector3(0.8, ty + 0.3, 0.25)), grip + Vector3(0, 0.05, 0), grip),
+				"fov": 40.0, "dof": 2.5}
 		"k_karaoke", "f_karaoke":
 			_time(main, 22, 0)
 			var again: bool = id == "f_karaoke" and _find(main, "karaoke_game.gd") != null  # sama laulu jatkuu
