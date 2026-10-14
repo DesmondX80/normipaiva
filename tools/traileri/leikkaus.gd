@@ -156,7 +156,7 @@ const KIERROS := [
 	{"id": "f_pingis", "g": "k_pingis", "s": 10.0},
 	{"id": "k_juntti", "g": "k_tappelu", "s": 10.0},
 	{"id": "f_lava_tanssi", "g": "k_lavatanssi", "s": 10.0},
-	{"id": "m_kala", "g": "k_kala", "s": 12.0},
+	{"id": "m_kala", "g": "k_kala", "s": 14.0},
 	{"id": "f_jahti", "g": "k_jahti", "s": 10.0},
 	{"id": "k_keinu", "g": "k_keinu", "s": 8.0},
 	{"id": "k_piirakka", "g": "k_piirakka", "s": 8.0},
@@ -165,7 +165,7 @@ const KIERROS := [
 	{"id": "f_kiihdytys", "g": "k_kiihdytys", "s": 10.0},
 	{"id": "s_halot", "g": "k_halot", "s": 10.0},
 	{"id": "s_drooni", "g": "k_drooni", "s": 12.0},
-	{"id": "v_mopo_potku", "g": "k_potku", "s": 8.0},
+	{"id": "v_mopo_potku", "g": "k_potku", "s": 9.0},
 	# Pelimaailman hetket (samassa pelissä)
 	{"id": "s_aarnivalkea", "g": "k_ulko", "s": 8.0},
 	{"id": "k_rossi", "g": "k_ulko", "s": 8.0},
