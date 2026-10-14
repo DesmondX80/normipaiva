@@ -41,6 +41,7 @@ func _init(m: Node3D, shot_ids: PackedStringArray, prev: bool, out: String) -> v
 
 func run() -> void:
 	DirAccess.make_dir_recursive_absolute(out_dir)
+	get_viewport().set_disable_input(true)  # hiiri ja näppäimistö eivät pääse kuvaan (ohjaus Input.action_pressillä)
 	_quality()
 	_build_overlay()
 	cam = Camera3D.new()
@@ -62,6 +63,7 @@ func run() -> void:
 		for i in int(_spec.get("warm", WARM_FRAMES)):
 			_hide_hud()
 			await get_tree().process_frame
+		await _settle()
 		_apply_look()
 		await _film(id, shot, frames)
 		await _separator()
@@ -72,10 +74,50 @@ func run() -> void:
 	f.close()
 
 
+## Hahmot ja ajoneuvot maahan ennen kuvausta: lavastus asettaa ne usein hieman maan yläpuolelle, eikä
+## tippumista haluta kuvaan. Odotetaan (enintään SETTLE_MAX ruutua), kunnes mikään CharacterBody3D ei enää putoa
+## (korkeus laskee eikä kappale ole lattialla). Paikallaan olevat ja pysäytetyt eivät odota. spec.settle = false ohittaa.
+const SETTLE_MAX := 45
+
+
+func _settle() -> void:
+	if not _spec.get("settle", true):
+		return
+	var bodies := get_tree().root.find_children("*", "CharacterBody3D", true, false).filter(func(b: Node) -> bool:
+		return (b as CharacterBody3D).motion_mode == CharacterBody3D.MOTION_MODE_GROUNDED)  # autot asettavat korkeutensa itse
+	var ys := {}
+	var falling_names: PackedStringArray = []
+	for b in bodies:
+		ys[b] = (b as Node3D).global_position.y
+	for i in SETTLE_MAX:
+		_hide_hud()
+		await get_tree().physics_frame
+		await get_tree().process_frame
+		var falling := []
+		falling_names.clear()
+		for b in bodies:
+			if not is_instance_valid(b):
+				continue
+			var y: float = b.global_position.y
+			if y < ys[b] - 0.002 and not b.is_on_floor():
+				falling.append(b)
+				var sc: Script = b.get_script()
+				falling_names.append("%s(%s)" % [b.name, sc.resource_path.get_file() if sc else "-"])
+			ys[b] = y
+		if falling.is_empty():
+			if i > 0:
+				print("TRAILER asettuminen: %d ruutua" % (i + 1))
+			return
+	print("TRAILER asettuminen: %d ruutua, putoaa yhä: %s" % [SETTLE_MAX, ", ".join(falling_names)])
+
+
 ## Kuvaus: tämä silmukka pyörii ruudun alussa (process_frame), joten painallukset (spec.keys) ja tick ehtivät
 ## pelin _processiin samalla ruudulla. Kamera ja tekstit päivitetään _processissa ruudun lopussa.
 func _film(id: String, shot: Dictionary, frames: int) -> void:
 	var n := Leikkaus.KIERROS_SNAPS if Leikkaus.kierros() else 3
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--trailer-snaps="):
+			n = maxi(2, int(a.substr(16)))
 	var skip := Leikkaus.in_frames(id)
 	var snaps := []
 	for k in n:
