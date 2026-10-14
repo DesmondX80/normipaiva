@@ -138,16 +138,23 @@ func open_main() -> void:
 		get_tree().quit())
 
 
-func open_pause() -> void:
+func open_pause(saved := false) -> void:
 	_mode = "pause"
 	_show()
-	_title("TAUKO", "Päivä %d · jemmassa %d kaljaa" % [game.day, game.jemma])
+	_title("TAUKO", "Peli tallennettu · päivä %d" % game.day if saved
+		else "Päivä %d · jemmassa %d kaljaa" % [game.day, game.jemma])
 	_button("Jatka", close)
+	# Tallentaa saman kuin automaattitallennus, myös pelaajan paikan: "Jatka peliä" jatkaa tästä.
+	_button("Tallenna peli", func() -> void:
+		game._save_game()
+		Sfx.play("pickup")
+		open_pause(true))
 	_button("Asetukset", func() -> void: _settings("sub_pause"))
 	_button("Ohjaimet", func() -> void: _controls("sub_pause"))
 	_button("Aloita päivä alusta", func() -> void:
 		get_tree().paused = false
 		game.get_script().skip_menu = true
+		game.get_script().no_resume = true  # kotoa, ei tallennetusta paikasta
 		get_tree().reload_current_scene())
 	_button("Päävalikkoon", func() -> void:
 		get_tree().paused = false
