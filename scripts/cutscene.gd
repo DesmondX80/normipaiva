@@ -43,6 +43,19 @@ var _props: Node3D
 var _prev_cam: Camera3D
 
 
+## Välianimaatioiden kello (ms): ruutujen skaalaamattomat deltat yhteen. Pelissä sama kuin seinäkello, mutta
+## Movie Maker -tallennuksessa (traileri, kiinteä fps) kulkee videon tahtiin, kun Time.get_ticks_msec ei kulkisi.
+var _clock_ms := 0.0
+
+
+func _process(delta: float) -> void:
+	_clock_ms += delta / maxf(Engine.time_scale, 0.001) * 1000.0
+
+
+func _now_ms() -> float:
+	return _clock_ms
+
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_cam = Camera3D.new()
@@ -165,9 +178,9 @@ func _fade_to(a: float, t: float) -> void:
 
 ## Kamera kiertää pistettä sec sekuntia (reaaliajassa).
 func _orbit(center: Vector3, radius: float, height: float, from_a: float, to_a: float, sec: float) -> void:
-	var t0 := Time.get_ticks_msec()
+	var t0 := _now_ms()
 	while true:
-		var u := clampf((Time.get_ticks_msec() - t0) / (sec * 1000.0), 0.0, 1.0)
+		var u := clampf((_now_ms() - t0) / (sec * 1000.0), 0.0, 1.0)
 		var a := lerpf(from_a, to_a, u)
 		_cam.global_position = center + Vector3(cos(a) * radius, height, sin(a) * radius)
 		_cam.look_at(center + Vector3.UP * 1.0, Vector3.UP)
@@ -782,9 +795,9 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable, lay: Dictio
 	var cam_move := func(from: Vector3, to: Vector3, look_from: Vector3, look_to: Vector3, sec: float) -> void:
 		st.shot += 1
 		var my: int = st.shot
-		var t0 := Time.get_ticks_msec()
+		var t0 := _now_ms()
 		while my == st.shot:
-			var u := clampf((Time.get_ticks_msec() - t0) / (sec * 1000.0), 0.0, 1.0)
+			var u := clampf((_now_ms() - t0) / (sec * 1000.0), 0.0, 1.0)
 			var e := u * u * (3.0 - 2.0 * u)
 			_cam.global_position = at.call(from.lerp(to, e))
 			_cam.look_at(at.call(look_from.lerp(look_to, e)), Vector3.UP)
@@ -1050,8 +1063,8 @@ func swim_dive(frame: Transform3D, wl: float, ground: Callable, done: Callable, 
 		t.tween_method(func(v: float) -> void: st[key] = v, float(st[key]), to, sec).set_trans(trans)
 		return t
 	var follow := func(off: Vector3, look_off: Vector3, sec: float) -> void:
-		var t0 := Time.get_ticks_msec()
-		while busy and Time.get_ticks_msec() - t0 < sec * 1000.0:
+		var t0 := _now_ms()
+		while busy and _now_ms() - t0 < sec * 1000.0:
 			var hp := hero.global_position
 			var o: Vector3 = (fwd * off.z + side * off.x) if not st.pocket else Vector3(off.x, 0, off.z)
 			_cam.global_position = hp + o + Vector3(0, off.y, 0)
@@ -1175,11 +1188,11 @@ func swim_dive(frame: Transform3D, wl: float, ground: Callable, done: Callable, 
 	await _wait(2.6)
 	bubbles.emitting = false
 	# Kamera nousee ja kääntyy rannalle: kyltti ja hiekkaranta taustalla.
-	var t0 := Time.get_ticks_msec()
+	var t0 := _now_ms()
 	_title.text = title
 	_sub.text = sub_end
-	while busy and Time.get_ticks_msec() - t0 < 4200:
-		var u := clampf((Time.get_ticks_msec() - t0) / 4200.0, 0.0, 1.0)
+	while busy and _now_ms() - t0 < 4200:
+		var u := clampf((_now_ms() - t0) / 4200.0, 0.0, 1.0)
 		var e := u * u * (3.0 - 2.0 * u)
 		_cam.global_position = at.call(lerpf(1.2, 3.5, e), lerpf(16.5, 19.0, e), lerpf(0.45, 2.6, e))
 		_cam.look_at(at.call(0.0, lerpf(12.0, 4.0, e), lerpf(0.2, 0.6, e)), Vector3.UP)
@@ -1258,7 +1271,7 @@ func _underwater() -> Node3D:
 	var sway := func() -> void:
 		if not is_instance_valid(root):
 			return
-		var t := Time.get_ticks_msec() / 1000.0
+		var t := _now_ms() / 1000.0
 		school.rotation.y = -t * 0.45
 		surf.position.y = 5.0 + sin(t * 1.3) * 0.05
 		for c in root.get_children():
@@ -1320,10 +1333,10 @@ func taxi_ride(title: String, sub: String, lines: Array, done: Callable) -> void
 	_cam.current = true
 	_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
 	_title.add_theme_font_size_override("font_size", 90)
-	var t0 := Time.get_ticks_msec()
+	var t0 := _now_ms()
 	var faded := false
-	while Time.get_ticks_msec() - t0 < 8000:
-		var t := (Time.get_ticks_msec() - t0) / 1000.0
+	while _now_ms() - t0 < 8000:
+		var t := (_now_ms() - t0) / 1000.0
 		taxi.position.z = -t * 16.0
 		var tp := taxi.global_position
 		_cam.global_position = tp + Vector3(lerpf(4.0, 2.2, t / 8.0), 1.7, 6.5)
@@ -1357,10 +1370,10 @@ func taxi_home(home: Vector3, stats: String, done: Callable) -> void:
 	_cam.current = true
 	_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
 	_title.add_theme_font_size_override("font_size", 80)
-	var t0 := Time.get_ticks_msec()
+	var t0 := _now_ms()
 	var faded := false
-	while Time.get_ticks_msec() - t0 < 6500:
-		var t := (Time.get_ticks_msec() - t0) / 1000.0
+	while _now_ms() - t0 < 6500:
+		var t := (_now_ms() - t0) / 1000.0
 		taxi.position.z = -150.0 + t * 16.0
 		# Edestä viistosti: kuski ratissa ja Raahen valot taustalla.
 		_cam.global_position = taxi.to_global(Vector3(lerpf(2.8, 1.8, t / 6.5), 1.5, -7.5))
@@ -1508,11 +1521,11 @@ func pekka_ride(sub: String, done: Callable, kind := "meno") -> void:
 	_title.add_theme_font_size_override("font_size", 80)
 	const SEC := 12.0
 	const SPEED := 22.0
-	var t0 := Time.get_ticks_msec()
+	var t0 := _now_ms()
 	var faded := false
 	var honked := false
-	while Time.get_ticks_msec() - t0 < SEC * 1000.0:
-		var t := (Time.get_ticks_msec() - t0) / 1000.0
+	while _now_ms() - t0 < SEC * 1000.0:
+		var t := (_now_ms() - t0) / 1000.0
 		# Kevyt hölskyntä soratiellä ja pyörät pyörivät.
 		car.position = Vector3(sin(t * 0.7) * 0.25, absf(sin(t * 9.0)) * 0.02, -t * SPEED)
 		car.rotation.z = sin(t * 5.3) * 0.012
@@ -1708,10 +1721,10 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 		if lines[i].size() > 2 and lines[i][2] == "hand":
 			hand_from = i
 	var hand := {"w": 0.0, "slide": 0.0, "rest": Vector3.ZERO}
-	var t0 := Time.get_ticks_msec()
+	var t0 := _now_ms()
 	var last := -1
-	while Time.get_ticks_msec() - t0 < lines.size() * LINE * 1000.0:
-		var t := (Time.get_ticks_msec() - t0) / 1000.0
+	while _now_ms() - t0 < lines.size() * LINE * 1000.0:
+		var t := (_now_ms() - t0) / 1000.0
 		scenery.position.z = fposmod(t * SPEED, 120.0)  # maisema vilistää ikkunoissa
 		car.position.y = TRAIN_POS.y + 40.0 + sin(t * 11.0) * 0.008  # kiskojen tasainen tärinä
 		var k := mini(int(t / LINE), lines.size() - 1)
@@ -1833,11 +1846,11 @@ func _train_outside(kind: String, title: String, sub: String) -> void:
 		_build_bridge_land(root)
 	var train := _cut_train(root)
 	const SPEED := 24.0
-	var t0 := Time.get_ticks_msec()
+	var t0 := _now_ms()
 	var faded := false
 	var honked := false
-	while Time.get_ticks_msec() - t0 < 6500:
-		var t := (Time.get_ticks_msec() - t0) / 1000.0
+	while _now_ms() - t0 < 6500:
+		var t := (_now_ms() - t0) / 1000.0
 		train.position.z = 80.0 - t * SPEED
 		if kind == "steel":
 			# Radan vierestä: veturi tulee kohti tehtaan edessä, vaunut lipuvat ohi savun alla.
@@ -2130,9 +2143,9 @@ func garage(title: String, stats: String, done: Callable) -> void:
 	await _fade_to(0.0, 0.8)
 	_title.text = title
 	_sub.text = stats
-	var t0 := Time.get_ticks_msec()
-	while Time.get_ticks_msec() - t0 < 7500:
-		var u := (Time.get_ticks_msec() - t0) / 7500.0
+	var t0 := _now_ms()
+	while _now_ms() - t0 < 7500:
+		var u := (_now_ms() - t0) / 7500.0
 		_cam.global_position = GARAGE_POS + Vector3(lerpf(3.2, 2.2, u), lerpf(1.9, 1.5, u), lerpf(5.4, 4.3, u))
 		_cam.look_at(GARAGE_POS + Vector3(0.6, 0.9, 1.4), Vector3.UP)
 		await get_tree().process_frame
@@ -2166,9 +2179,9 @@ func wine_party(stats: String, done: Callable) -> void:
 	await _fade_to(0.0, 0.8)
 	_title.text = "VIINIBILEET!"
 	_sub.text = stats
-	var t0 := Time.get_ticks_msec()
-	while Time.get_ticks_msec() - t0 < 6500:
-		var u := (Time.get_ticks_msec() - t0) / 6500.0
+	var t0 := _now_ms()
+	while _now_ms() - t0 < 6500:
+		var u := (_now_ms() - t0) / 6500.0
 		_cam.global_position = g + Vector3(lerpf(3.4, 2.0, u), lerpf(2.0, 1.6, u), lerpf(5.6, 4.8, u))
 		_cam.look_at(g + Vector3(-0.8, 1.0, 1.6), Vector3.UP)
 		await get_tree().process_frame
@@ -2182,9 +2195,9 @@ func wine_party(stats: String, done: Callable) -> void:
 		_wine_pose(i)
 		await _fade_to(0.15, 0.35)
 		_sub.text = fb[0]
-		var t1 := Time.get_ticks_msec()
-		while Time.get_ticks_msec() - t1 < 2600:
-			var w := (Time.get_ticks_msec() - t1) / 1000.0
+		var t1 := _now_ms()
+		while _now_ms() - t1 < 2600:
+			var w := (_now_ms() - t1) / 1000.0
 			_cam.global_position = g + (fb[1] as Vector3) + Vector3(sin(w * 1.3) * 0.15, sin(w * 0.9) * 0.08, 0)
 			_cam.look_at(g + (fb[2] as Vector3), Vector3.UP)
 			_cam.rotate_object_local(Vector3.FORWARD, 0.18 * sin(w * 0.7 + i))
@@ -2263,9 +2276,9 @@ func mokki_party(center: Vector3, yaw: float, stats: String, done: Callable) -> 
 	await _fade_to(0.0, 0.8)
 	_title.text = "MÖKKIBILEET!"
 	_sub.text = stats
-	var t0 := Time.get_ticks_msec()
-	while Time.get_ticks_msec() - t0 < 6500:
-		var u := (Time.get_ticks_msec() - t0) / 6500.0
+	var t0 := _now_ms()
+	while _now_ms() - t0 < 6500:
+		var u := (_now_ms() - t0) / 6500.0
 		_cam.global_position = tg.call(Vector3(lerpf(4.5, 2.5, u), lerpf(2.6, 1.9, u), lerpf(6.5, 5.2, u)))
 		_cam.look_at(tg.call(Vector3(0.2, 1.0, 1.2)), Vector3.UP)
 		await get_tree().process_frame
@@ -2292,9 +2305,9 @@ func mokki_party(center: Vector3, yaw: float, stats: String, done: Callable) -> 
 				_face(_party.santtu, Vector3(-1.0, 0, 2.0))
 		await _fade_to(0.15, 0.35)
 		_sub.text = fb[0]
-		var t1 := Time.get_ticks_msec()
-		while Time.get_ticks_msec() - t1 < 2600:
-			var w := (Time.get_ticks_msec() - t1) / 1000.0
+		var t1 := _now_ms()
+		while _now_ms() - t1 < 2600:
+			var w := (_now_ms() - t1) / 1000.0
 			_cam.global_position = tg.call((fb[1] as Vector3) + Vector3(sin(w * 1.3) * 0.15, sin(w * 0.9) * 0.08, 0))
 			_cam.look_at(tg.call(fb[2]), Vector3.UP)
 			_cam.rotate_object_local(Vector3.FORWARD, 0.18 * sin(w * 0.7 + i))
