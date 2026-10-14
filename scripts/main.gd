@@ -576,6 +576,12 @@ var _stashed_today := 0  # tänään jemmoihin piilotetut (kotimatkan tappio vai
 var stash_used: Array = []
 ## Pyörä jää sinne, minne sen jättää (myös yön yli ja pelikerrasta toiseen): tallennettu paikka ja suunta.
 var _bike_saved = null  # [Vector3, float] tai null
+## Pelaajan paikka tallennukseen: viimeisin kohta, jossa liikuttiin vapaasti ulkona Saloisissa maan pinnalla
+## ([paikka, kulma, pyörällä]). Sisätiloissa, minipeleissä, mökillä ja Vaalassa jää viimeisin ulkopaikka, joten
+## lataus jatkaa oven edestä. _resume_saved on tallennuksesta luettu paikka, johon peli jatkuu käynnistettäessä.
+var _resume_spot: Array = []
+var _resume_saved: Array = []
+static var no_resume := false  # "Aloita päivä alusta": aloitetaan kotoa, ei tallennetusta paikasta
 var _old_stash_lost := 0  # vanhan tallennuksen jemmat, jotka menetettiin päivityksessä
 ## Kotijemmojen summa (onnellinen loppu, kun JEMMA_GOAL täynnä). Asetus tyhjentää kotijemmat ja
 ## laittaa arvon eteisen kaappiin (testit ja loppukohtaus).
@@ -1220,6 +1226,8 @@ func _process(delta: float) -> void:
 	match state:
 		"to_shop", "to_home":
 			_outside_logic()
+			if not away and player.is_on_floor():
+				_resume_spot = [player.global_position, player.rotation.y, player == bike]
 			if not _in_vaala:
 				_mount_logic()  # Vaalassa mopon selkään ja pois: _vaala_logic
 			if not away:
@@ -13074,6 +13082,7 @@ func _load_game() -> void:
 	if cfg.has_section_key("peli", "pyora"):
 		_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
 		_bike_garage_saved = cfg.get_value("peli", "pyora_tallissa", false)
+	_resume_saved = cfg.get_value("peli", "paikka", [])
 
 
 func _save_game() -> void:
@@ -13183,6 +13192,8 @@ func _save_game() -> void:
 		cfg.set_value("peli", "pyora", bike.global_position)
 		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
 		cfg.set_value("peli", "pyora_tallissa", bike_in_garage)
+	if not _resume_spot.is_empty():
+		cfg.set_value("peli", "paikka", _resume_spot)
 	cfg.save(SAVE_PATH)
 
 
@@ -13524,11 +13535,24 @@ func _flush_morning_info(intro := "") -> void:
 
 ## Tallennettu pyörä paikalleen ja pelaaja jalan kotiin. Palauttaa aamumuistutuksen.
 func _apply_saved_bike() -> String:
+	if _bike_saved != null:
+		bike.global_position = _bike_saved[0]
+		bike.rotation.y = _bike_saved[1]
+		bike.set_mopo(oma_mopo.riding)
+	# Peli jatkuu tallennetusta paikasta (Tallenna peli tai automaattitallennus), paitsi "Aloita päivä alusta".
+	var resume := _resume_saved.size() == 3 and not no_resume
+	no_resume = false
+	if resume:
+		_resume_spot = _resume_saved
+		if _resume_saved[2] and _bike_saved != null and not _bike_garage_saved:
+			return ""  # pyörän selässä: pyörän tallennettu paikka on pelaajan paikka
+		_place_on_foot(_resume_saved[0] + Vector3(0, 0.05, 0))
+		walker_out.rotation.y = _resume_saved[1]
+		if _bike_garage_saved:
+			_store_bike(true)
+		return ""
 	if _bike_saved == null:
 		return ""
-	bike.global_position = _bike_saved[0]
-	bike.rotation.y = _bike_saved[1]
-	bike.set_mopo(oma_mopo.riding)
 	_place_on_foot(home_zone + Vector3(0, 0.3, 4))
 	if _bike_garage_saved:
 		_store_bike(true)
@@ -23110,6 +23134,63 @@ func _maybe_screenshot() -> void:
 			print("BIKESTAY on_foot=", player == walker_out, " bike_moved=%.2f" % bike.global_position.distance_to(left),
 				" walker_home=%.1f" % walker_out.global_position.distance_to(home_zone), " msg=", _msg.text.replace("\n", " | "))
 			_save_game()
+		"tallennus":
+			# Tallennus ja jatko tallennetusta paikasta: jalan ulkona, pyörän selässä ja kaupassa (viimeisin
+			# ulkopaikka). Jokainen: tallennus, pelaaja kotiin, luku tiedostosta ja _apply_saved_bike.
+			var saved_cfg := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var check := func(label: String, want: Vector3, want_bike: bool) -> void:
+				_save_game()
+				var cfg := ConfigFile.new()
+				cfg.load(SAVE_PATH)
+				_place_on_foot(home_zone + Vector3(0, 0.3, 4))  # pelaaja muualle, kuin uusi käynnistys
+				_resume_saved = cfg.get_value("peli", "paikka", [])
+				_bike_saved = [cfg.get_value("peli", "pyora"), cfg.get_value("peli", "pyora_kulma", 0.0)]
+				if want_bike:
+					walker_out.visible = false
+					walker_out.process_mode = Node.PROCESS_MODE_DISABLED
+					_set_avatar(bike)  # käynnistyksessä pelaaja on pyörän selässä ennen _apply_saved_bikea
+				_apply_saved_bike()
+				for i in 5:
+					await get_tree().physics_frame
+				print("TALLENNUS %s: paikka %s ero %.2f m, pyörällä %s (odotus %s), jalan näkyvissä %s" % [label,
+					str(player.global_position.snapped(Vector3.ONE * 0.1)), player.global_position.distance_to(want),
+					player == bike, want_bike, walker_out.visible])
+			# 1) Jalan kaupan pihalla.
+			if player != walker_out:
+				_toggle_mount()
+			var spot := shop_zone + Vector3(8, 0, 10)
+			spot.y = Terrain.h(spot.x, spot.z) + 0.3
+			walker_out.global_position = spot
+			for i in 40:
+				await get_tree().physics_frame
+				await get_tree().process_frame
+			var foot_at := walker_out.global_position
+			await check.call("jalan", foot_at, false)
+			# 2) Pyörän selässä tien varressa.
+			bike.global_position = spot + Vector3(4, 0, 0)
+			_toggle_mount()
+			for i in 40:
+				await get_tree().physics_frame
+				await get_tree().process_frame
+			await check.call("pyörällä", bike.global_position, true)
+			# 3) Kaupassa: tallennus jatkaa viimeisimmästä ulkopaikasta.
+			if player != walker_out:
+				_toggle_mount()
+			for i in 20:
+				await get_tree().physics_frame
+				await get_tree().process_frame
+			var outside := walker_out.global_position
+			_enter_shop()
+			for i in 10:
+				await get_tree().process_frame
+			print("TALLENNUS kaupassa: state=%s" % state)
+			await check.call("kaupasta", outside, false)
+			# Taukovalikko tallennuksen jälkeen.
+			menu.open_pause(true)
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path)
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_cfg)
+			get_tree().quit()
 		"bikeload":
 			print("BIKELOAD saved=", _bike_saved, " note=", _apply_saved_bike().strip_edges(), " on_foot=", player == walker_out,
 				" bike_at_shop=%.1f" % bike.global_position.distance_to(shop_zone))
