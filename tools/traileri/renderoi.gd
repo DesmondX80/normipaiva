@@ -10,6 +10,7 @@ extends SceneTree
 ##     --groups=ulko,mokki  vain nämä ryhmät (muuten kaikki); valmiit ryhmät ohitetaan, --again kuvaa uudelleen
 ##     --ids=i_ilma,i_koti  vain nämä otokset (kokeiluun)
 ##     --preview          ei videota: kuvat jokaisen otoksen alusta, keskeltä ja lopusta (esikatselu.png kokoaa)
+##     --snaps=6          esikatselukuvia otosta kohden (oletus 3; arkki kokoaa vain kolme, muut <id>_<n>.png)
 ##     --quality=0.95     MJPEG-laatu
 ## Pelin tallennus (user://normipaiva.cfg) varmuuskopioidaan ennen jokaista ajoa ja palautetaan sen jälkeen.
 
@@ -27,6 +28,7 @@ func _initialize() -> void:
 	var preview := false
 	var again := false
 	var only_ids: PackedStringArray = []
+	var snaps := ""
 	var kierros := Leikkaus.kierros()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):
@@ -43,6 +45,8 @@ func _initialize() -> void:
 			preview = true
 		elif a == "--again":
 			again = true
+		elif a.begins_with("--snaps="):
+			snaps = a.substr(8)
 		elif a.begins_with("--ids="):
 			only_ids = a.substr(6).split(",")
 	out = ProjectSettings.globalize_path(out)
@@ -87,6 +91,8 @@ func _initialize() -> void:
 			args += ["--", "--shot=" + out.path_join("%s.png" % g), "--trailer=" + ",".join(ids), "--trailer-ss=" + ss]
 		if preview:
 			args.append("--trailer-preview")
+			if snaps != "":
+				args.append("--trailer-snaps=" + snaps)
 		if kierros:
 			args.append("--trailer-set=kierros")
 		print("Ryhmä %s (%d otosta) ..." % [g, ids.size()])
