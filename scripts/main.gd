@@ -17996,7 +17996,6 @@ func _maybe_screenshot() -> void:
 			for k in 2:  # kaksi haukkua piirakasta
 				g._slices[k].visible = false
 			g._bitten[2].visible = true
-			g._fit_shell(g._hand_shell, 2 * 0.042 - 0.033, (g.BITES - 1) * 0.042 + 0.03)
 			g._chew = 2
 			g._bite = 2
 			g._pies = 3
@@ -18013,6 +18012,17 @@ func _maybe_screenshot() -> void:
 			await get_tree().create_timer(0.4).timeout
 			await snap.call("_taysi.png")
 			print("RE puhujat: %s" % [g._bubbles.keys()])
+			# Syömisen vaiheet: koko piirakka ja haukut 1–4 (kuten _process haukatessa).
+			g._belly = 0.2
+			g._chew = 0
+			g._jaw = 0.0
+			for b in g.BITES:
+				for k in g.BITES:
+					g._slices[k].visible = k >= b
+					g._bitten[k].visible = k == b and b > 0
+				g._bite = b
+				await get_tree().create_timer(0.2).timeout
+				await snap.call("_vaihe_%d.png" % b)
 			g._pies = 8
 			g._finish("testi")
 			await get_tree().create_timer(2.5).timeout
