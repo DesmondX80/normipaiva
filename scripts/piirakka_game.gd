@@ -212,21 +212,25 @@ static func _pie_slice(s: Node3D, k: int, ends := 0) -> void:
 			var tip := B.mesh(s, B.sphere(0.0125, 10), Vector3(ends * (L * 0.5 + 0.004 + i * 0.003), y, z - 0.003), SAUSAGE)
 			tip.material_override = _gloss(SAUSAGE, 0.3)
 			tip.scale = Vector3(1.4, 1.0, 1.0)
-	# Kurkkusalaatti: kiiltävä kasa pieniä paloja, pursuaa nakkien väliin ja yli reunojen.
+	# Kannen alapinta palan kohdalla: täytteet pysyvät sen alla (kansi on saranoitu pohjan takareunaan).
+	var under := func(z: float) -> float:
+		return LID_Y + (z + BUN_W) * tan(LID_TILT) - 0.005  # sarana takareunassa z = -BUN_W
+	# Kurkkusalaatti: kiiltävä kasa pieniä paloja, pursuaa nakkien väliin ja yli etureunan.
 	var heap := 9 if ends != 0 else 18
 	for i in heap:
-		var p := Vector3(rng.randf_range(-0.019, 0.019), 0.044 + rng.randf_range(0.0, 0.018) * (1.0 - absf(float(ends)) * 0.4),
-			rng.randf_range(-0.032, 0.028) * r / 0.042)
+		var z := rng.randf_range(-0.026, 0.03) * r / 0.042
+		var p := Vector3(rng.randf_range(-0.019, 0.019), minf(0.044 + rng.randf_range(0.0, 0.014), under.call(z)), z)
 		var col := RELISH.lightened(rng.randf_range(-0.2, 0.25))
 		var c := B.mesh(s, B.boxm(Vector3(0.007, 0.005, 0.007) * rng.randf_range(0.8, 1.5)), p, col)
 		c.material_override = _gloss(col, 0.25)
 		c.rotation = Vector3(rng.randf(), rng.randf(), rng.randf()) * 1.5
-	# Ketsupin ja sinapin siksakit (kolme lenkkiä palassa) ja valuvat pisarat reunoilta.
-	for sauce in [[KETCHUP, -0.008, 0.058], [MUSTARD, 0.009, 0.061]]:
+	# Ketsupin ja sinapin siksakit nakkien päällä halkion etupuolella (kolme lenkkiä palassa) ja valuvat pisarat.
+	for sauce in [[KETCHUP, 0.004], [MUSTARD, 0.018]]:
 		for i in 3:
 			var x := -L * 0.5 + (i + 0.5) * L / 3.0
-			var dz: float = (0.012 if (i + k) % 2 == 0 else -0.012) * r / 0.042
-			var seg := B.mesh(s, B.boxm(Vector3(0.016, 0.004, 0.006)), Vector3(x, sauce[2], sauce[1] + dz * 0.5), sauce[0])
+			var dz: float = (0.01 if (i + k) % 2 == 0 else -0.01) * r / 0.042
+			var sz: float = sauce[1] + dz * 0.5
+			var seg := B.mesh(s, B.boxm(Vector3(0.016, 0.004, 0.006)), Vector3(x, minf(0.05, under.call(sz)), sz), sauce[0])
 			seg.material_override = _gloss(sauce[0], 0.2)
 			seg.rotation.y = 0.8 if dz > 0.0 else -0.8
 	for i in 2:
@@ -234,10 +238,10 @@ static func _pie_slice(s: Node3D, k: int, ends := 0) -> void:
 		var d := B.mesh(s, B.sphere(0.005, 8), Vector3(rng.randf_range(-0.015, 0.015), 0.018 - i * 0.008, -r * 0.98), drip_c)
 		d.material_override = _gloss(drip_c, 0.2)
 		d.scale = Vector3(1.0, 1.6, 0.8)  # valuva tippa
-	for i in 4:  # sipulisilppu
-		B.mesh(s, B.boxm(Vector3(0.005, 0.004, 0.005)), Vector3(rng.randf_range(-0.018, 0.018), 0.064 + rng.randf() * 0.004,
-			rng.randf_range(-0.022, 0.016)), Color(0.97, 0.95, 0.88))
-
+	for i in 4:  # sipulisilppu halkion etuosassa nakkien päällä
+		var oz := rng.randf_range(0.008, 0.03) * r / 0.042
+		B.mesh(s, B.boxm(Vector3(0.005, 0.004, 0.005)), Vector3(rng.randf_range(-0.018, 0.018), minf(0.05, under.call(oz)), oz),
+			Color(0.97, 0.95, 0.88))
 
 ## Kuoren pala (pohja ja kansi) umpinaisena kappaleena, kuten nakit: haukku piilottaa koko palan, ja seuraavan palan
 ## oma vaalea päätypinta jää näkyviin. Palan paksuus seuraa piirakan soikeaa muotoa (_bun_f), joten ehjä piirakka on
