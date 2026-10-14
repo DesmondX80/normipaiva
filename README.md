@@ -192,9 +192,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   lattialla salin omien ihmisten kanssa muiden parien kiertäessä ympärillä ja kameran kiertäessä paria, A ja D
   vuorotellen tahdissa nuottiradalla (kompastuessa horjahdus ja pari sanoo sanansa), ja hyvä tanssi nostaa moraalia ja mainetta (kömpelö tanssi Anna-Liisan kanssa leviää
   kylälle). Kahviossa Raili myy kahvia ja munkkia, takaovesta pihalle ukkojen luo takakontille (huikka kossua,
-  Anna-Liisa voi nähdä). Tiistaisin klo 18–20 bingo: lappu 2 €, Erkki arpoo pallokoneesta, huudetut numerot
+  Anna-Liisa voi nähdä). Tiistaisin klo 18–20 bingo: lappu 2 €, pelaaja istuu bingopöydän päässä mummojen rivissä, ja Erkki
+  pyörittää lavalla pallokonetta ja huutaa numerot puhekuplassa. Huudetut numerot
   merkitään omaan lappuun, ja täysi rivi BINGO-napilla voittaa (kahvipaketti, virkkuuliina, lahjakortti tai
-  harvoin joulukinkku), jos ehtii ennen mummoja. Väärä bingohuuto nolaa ja vie mainetta. Testi `--scene=seurailta`.
+  harvoin joulukinkku), jos ehtii ennen mummoja. Väärä bingohuuto nolaa (pöydän väki kääntyy mulkoilemaan) ja vie mainetta. Testi `--scene=seurailta`.
 - **Tokola ja kauppiaan aarre:** Tokolantien varressa Tokolan kaupan vanha varasto (kauppa lopetti 1950–60-luvulla;
   varasto on pelin keksintö). Avain on vanhalla Aarolla, joka antaa sen lihapiirakkaa vastaan ja kertoo
   legendan: kauppias ei vienyt rahojaan pankkiin. Varastosta ohjain, rautalankaa ja kauppiaan tilikirja, jonka
