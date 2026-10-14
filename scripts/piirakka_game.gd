@@ -88,6 +88,7 @@ var _pie: Node3D
 var _slices: Array[Node3D] = []
 var _bitten: Array[Node3D] = []  # puraisupinnat (näkyy edessä olevassa palassa)
 var _hand_shell: Array = []  # kädessä olevan piirakan kuori (_shell)
+var _cap_bite := -1  # minkä haukun päätypinnat on rakennettu
 var _bottle: Node3D
 var _crumbs: CPUParticles3D
 var _plate_pies: Array[Node3D] = []
@@ -194,6 +195,8 @@ func _bubble(at: Vector3, global := false) -> Label3D:
 ## kurkkusalaattikasa, ketsupin ja sinapin siksakit valumineen ja sipulisilppu. k = palan järjestys, ends = -1 / 1
 ## pyöristetty pää (0 keskipala).
 const PROFILE := [0.74, 0.95, 1.0, 0.95, 0.74]
+const HAND_X0 := -0.03  # kädessä olevan piirakan kuoren X-väli
+const HAND_X1 := 0.198
 
 
 static func _pie_slice(s: Node3D, k: int, ends := 0) -> void:
@@ -295,68 +298,96 @@ static func _fit_shell(sh: Array, x0: float, x1: float) -> void:
 	var hinge: Node3D = sh[1]
 	hinge.position = Vector3(cx, 0.024, -0.045)
 	var lid: Node3D = sh[2]
+
 	lid.scale = Vector3(hl * 0.98, 0.022, 0.044)  # matala kupu
 
-
-## Puraisu: kuoresta leikataan pois kaikki x < cut (piirakan avaruudessa, parent = piirakan solmu); cut = null-arvo
-## -INF ei leikkaa. Varjostin tarvitsee leikkauksen maailman koordinaateissa, joten kutsutaan joka ruutu (kamera liikkuu).
+## Puraisu: kuoresta leikataan suoraan pois kaikki x < cut (piirakan avaruudessa; -INF = ei puraisua). Varjostin
+## tarvitsee leikkaustason maailman koordinaateissa, joten kutsutaan joka ruutu (kamera liikkuu).
 static func _set_cut(sh: Array, pie: Node3D, cut: float) -> void:
 	var gt := pie.global_transform
 	var o: Vector3 = gt * Vector3(cut, 0, 0)
 	var ax: Vector3 = gt.basis.x.normalized()
-	var az: Vector3 = gt.basis.z.normalized()
 	if cut <= -1.0:  # ei puraisua: taso kauas
 		o = Vector3(0, -1000, 0)
 		ax = Vector3.UP
 	for root in [sh[0], sh[1]]:
 		for mi in (root as Node).find_children("*", "MeshInstance3D", true, false):
+			if mi.name == "Puraisu":
+				continue
 			var g := mi as GeometryInstance3D
 			g.set_instance_shader_parameter("cut_o", o)
 			g.set_instance_shader_parameter("cut_x", ax)
-			g.set_instance_shader_parameter("cut_z", az)
+
+
+## Puraisukohdan umpinaiset päätypinnat kuoren puolikkaille (kuten nakkien lieriöillä on omat päätynsä). Leikkaus on
+## suora, joten kuoren poikkileikkaus on tarkalleen puolisoikio: yksikköpuolipallon leikkaus kohdassa u on
+## puoliympyrä säteellä sqrt(1 - u²), ja puolikkaan solmun skaalaus venyttää sen kuoren muotoon. Keskeltä leivän
+## sisuksen värinen, reunalta paahtunut. Rakennetaan uudelleen vain haukun vaihtuessa.
+static func _bite_caps(sh: Array, cut: float, x0: float, x1: float) -> void:
+	var cx := (x0 + x1) / 2.0
+	var hl := (x1 - x0) / 2.0
+	for half in [[sh[0], -1.0, hl], [sh[2], 1.0, hl * 0.98]]:
+		var node: Node3D = half[0]
+		var old := node.get_node_or_null("Puraisu")
+		if old != null:
+			old.free()
+		if cut <= -1.0:
+			continue
+		var u := (cut + 0.0004 - cx) / float(half[2])  # hieman leikkauksen sisäpuolelle, ettei rakoa näy
+		var rho := sqrt(maxf(0.0, 1.0 - u * u))
+		var sgn: float = half[1]
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var n := 32
+		for i in n:
+			var a0 := PI * i / n
+			var a1 := PI * (i + 1) / n
+			for p in [[Vector3(u, 0, 0), Color(0.95, 0.9, 0.76)],
+					[Vector3(u, sgn * sin(a0) * rho, cos(a0) * rho), Color(0.82, 0.58, 0.32)],
+					[Vector3(u, sgn * sin(a1) * rho, cos(a1) * rho), Color(0.82, 0.58, 0.32)]]:
+				st.set_color(p[1])
+				st.add_vertex(p[0])
+		var mi := MeshInstance3D.new()
+		mi.name = "Puraisu"
+		mi.mesh = st.commit()
+		mi.material_override = _cap_mat()
+		node.add_child(mi)
+
+
+static var _cap_m: StandardMaterial3D
+
+
+## Päätypinta: valaisematon (pinnan suunta on venytetyssä kuoressa mikä sattuu), väri pistekohtaisesti.
+static func _cap_mat() -> StandardMaterial3D:
+	if _cap_m == null:
+		_cap_m = StandardMaterial3D.new()
+		_cap_m.vertex_color_use_as_albedo = true
+		_cap_m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_cap_m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return _cap_m
 
 
 const BUN_SHADER := """
 shader_type spatial;
-render_mode cull_disabled;
-// Lihapiirakan kuori: kiiltävä pinta, puraisu leikkaa pois kaiken tason takaa (kaareva, hammasjäljet) ja
-// leikkauksesta näkyvä sisäpinta on leivän sisuksen väristä.
+// Lihapiirakan kuori: kiiltävä pinta, ja puraisu leikkaa suoraan pois kaiken leikkaustason takaa (päätypinta
+// _bite_caps sulkee leikkauksen).
 instance uniform vec4 albedo : source_color = vec4(1.0);
 instance uniform float rough = 0.3;
 instance uniform vec3 cut_o = vec3(0.0, -1000.0, 0.0);
 instance uniform vec3 cut_x = vec3(0.0, 1.0, 0.0);
-instance uniform vec3 cut_z = vec3(0.0, 0.0, 1.0);
 varying vec3 wpos;
 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
-// Kaareva puraisu: reunoilta vähemmän (kuori ulottuu pidemmälle), keskeltä syvemmälle; päälle hammasjäljet.
-float bite_edge(float side) {
-	return -0.012 * clamp(side * side / (0.045 * 0.045), 0.0, 1.0) + 0.0025 * abs(sin(side * 150.0));
-}
-
 void fragment() {
-	vec3 d = wpos - cut_o;
-	if (dot(d, cut_x) < bite_edge(dot(d, cut_z))) {
+	if (dot(wpos - cut_o, cut_x) < 0.0) {
 		discard;
 	}
 	ALBEDO = albedo.rgb;
 	ROUGHNESS = rough;
 	SPECULAR = 0.7;
-	if (!FRONT_FACING) {
-		// Takapinta näkyy vain puraisun läpi (ulkokuori peittää muualla): väritetään ja valaistaan kuin tasainen
-		// leivän poikkileikkaus puraisutasossa, joten ontto kuori näyttää umpinaiselta leivältä. Reunoilla (lähellä
-		// puraisutasoa) hieman paahtunut.
-		float depth_in = cut_o.y > -500.0 ? dot(d, cut_x) : 1.0;
-		ALBEDO = mix(vec3(0.86, 0.68, 0.45), vec3(0.95, 0.9, 0.76), clamp(depth_in * 120.0, 0.0, 1.0));
-		ROUGHNESS = 0.95;
-		SPECULAR = 0.1;
-		if (cut_o.y > -500.0) {
-			NORMAL = normalize((VIEW_MATRIX * vec4(-cut_x, 0.0)).xyz);
-		}
-	}
 }
 """
 static var _bun_sh: Shader
@@ -412,7 +443,7 @@ func _build_hand() -> void:
 		_slices.append(s)
 		_bitten.append(bite)
 	_hand_shell = _shell(_pie, 7)
-	_fit_shell(_hand_shell, -0.03, (BITES - 1) * 0.042 + 0.03)
+	_fit_shell(_hand_shell, HAND_X0, HAND_X1)
 	_bottle = Node3D.new()
 	_cam.add_child(_bottle)
 	var glass := B.mesh(_bottle, B.cyl(0.026, 0.028, 0.16, 12), Vector3(0, 0.08, 0), Color(0.2, 0.55, 0.25))
@@ -616,6 +647,9 @@ func _animate(delta: float) -> void:
 	_pie.rotation = Vector3(0.6 - bite_u * 0.2, 0.15 + bite_u * 0.3, 0.0)
 	if not _hand_shell.is_empty():  # puraisu leikkaa kuoren (maailman koordinaateissa, joten joka ruutu)
 		_set_cut(_hand_shell, _pie, _bite * 0.042 - 0.021 if _bite > 0 else -INF)
+		if _cap_bite != _bite:
+			_cap_bite = _bite
+			_bite_caps(_hand_shell, _bite * 0.042 - 0.021 if _bite > 0 else -INF, HAND_X0, HAND_X1)
 	# Pullo vasemmassa kädessä: juodessa huulille kallellaan.
 	var drink := sin(clampf(_soda_t / SODA_T, 0.0, 1.0) * PI)
 	_bottle.position = Vector3(-0.22, -0.26, -0.42).lerp(Vector3(-0.05, -0.1, -0.2), drink)
