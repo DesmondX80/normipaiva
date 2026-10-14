@@ -250,8 +250,8 @@ const BOTTOM_D := 0.024  # pohjan syvyys
 const LID_H := 0.026  # kannen korkeus
 const BOTTOM_Y := 0.022
 const LID_Y := 0.022  # sama halkiotaso kuin pohjalla: puoliskot kiinni takareunasta
-const LID_TILT := 0.62  # kansi aukeaa takareunan saranasta täytteiden päälle
-const BUN_BACK := -0.012  # kuori hieman täytteiden takana: halkio aukeaa eteen
+const LID_TILT := 0.55  # kansi aukeaa takareunan saranasta täytteiden päälle
+const BUN_BACK := 0.0  # täytteet kuoren keskellä (takimmaiset painautuvat kanteen)
 
 
 static func _bun_f(x: float) -> float:
