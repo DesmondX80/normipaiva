@@ -110,8 +110,12 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   lihapiirakka kaikilla, hampurilainen ja kahvi (ruoat reppuun, T syö). Illalla 18–23 kioskin edessä notkuu porukka
   mopoineen, ja juoruista kuulee mm. Pannu-Sulon kuusikosta ja Tokolan varastosta. Ilmoitustaululta alkaa
   sivutehtävä "Kadonnut Miisu": Tokolan Aaron kissa löytyy Aaron vihjeellä ja viedään takaisin (10 €).
-  Lihapiirakkahaaste (4,90 €): välilyönti haukkaa, A ja D vuorotellen pureskelevat ja W juo limua, ennen kuin vatsa
-  täyttyy. Juntin seitsemän piirakan ennätyksen rikkominen on oma onnellinen loppunsa "Lihapiirakkakuningas", ja
+  Lihapiirakkahaaste (4,90 €) syödään FPS-näkymässä pihapöydän penkillä: kädessä haastekokoinen lihapiirakka
+  kaikilla (uppopaistettu kiiltävä kuori auki kuin simpukka, kolme nakkia, kurkkusalaatti, ketsuppi, sinappi ja
+  sipuli), lautasella keko lisää, ja Raija, grillin omistaja Reiska, Juntti, rekkamies ja mummo kerääntyvät pöydän
+  ympärille kommentoimaan, kannustamaan ja epäilemään puhekuplissa. Välilyönti haukkaa (pala lähtee), A ja D
+  vuorotellen pureskelevat (kamera nyökkää) ja W juo limua (pullo huulille), ennen kuin vatsa täyttyy (kuva huojuu
+  ja reunat vihertävät). Juntin seitsemän piirakan ennätyksen rikkominen on oma onnellinen loppunsa "Lihapiirakkakuningas", ja
   Päivi haistaa sipulin aamulla. Testi `--scene=reippari`.
 - **Korjaamot:** P. Korpelan moottoriajoneuvohuolto (Volvo nostimella), Simo Niemelän liikkuva autosähkö
   (pakettiauto Pirtin lähellä), Heiskasen kaasu- ja sammutinhuolto sekä Huhtalan auto ja varaosat romuautoineen
