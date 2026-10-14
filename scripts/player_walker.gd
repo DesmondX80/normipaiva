@@ -13,7 +13,7 @@ var controls_enabled := false
 
 var _body: Node3D
 var _cam: Camera3D
-var _bag: MeshInstance3D
+var _bag: Node3D
 var _anim_t := 0.0
 
 
@@ -22,9 +22,10 @@ func _ready() -> void:
 	add_child(B.capsule_shape(0.3, 1.8))
 	_body = Looks.make(self, Looks.PLAYER)
 	Looks.add_cap(_body)
-	var bag := Node3D.new()
-	_bag = B.mesh(bag, B.boxm(Vector3(0.26, 0.34, 0.18)), Vector3(0, -0.2, 0), Color(1.0, 0.45, 0.0))
-	_body.attach("hand_r", bag, Vector3(0, -0.05, 0))
+	# Kuutonen K-Marketin kassissa oikeassa kädessä (Looks.hang_bag joka ruutu).
+	_bag = Looks.beer_bag()
+	_bag.top_level = true
+	_body.add_child(_bag)
 	_bag.visible = false
 	_cam = Camera3D.new()
 	_cam.fov = 60.0
@@ -36,6 +37,11 @@ func activate() -> void:
 	controls_enabled = true
 	_cam.current = true
 	_update_camera()
+
+
+func _process(delta: float) -> void:
+	if _bag.visible:
+		Looks.hang_bag(_body, _bag, delta)
 
 
 func set_carrying(carrying: bool) -> void:

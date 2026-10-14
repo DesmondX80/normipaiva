@@ -158,6 +158,47 @@ static func add_glam(c: Node3D) -> void:
 		c.attach("Head", ring, Vector3(s * 0.072, 0.015, 0.005))
 
 
+## K-Marketin muovikassi, jossa kuutonen: origo on sankojen kädensija, kassi roikkuu sen alla. Kapea kylki
+## (x) on hahmon kylkeä vasten, tölkkien kannet näkyvät avoimesta suusta ja K-logo on molemmissa kyljissä.
+static func beer_bag() -> Node3D:
+	var bag := Node3D.new()
+	var orange := Color(1.0, 0.45, 0.0)
+	B.mesh(bag, B.boxm(Vector3(0.15, 0.24, 0.27)), Vector3(0, -0.29, 0), orange)
+	B.mesh(bag, B.boxm(Vector3(0.13, 0.03, 0.25)), Vector3(0, -0.42, 0), orange.darkened(0.2))  # pullistunut pohja
+	for i in 2:
+		for j in 3:
+			var p := Vector3((i - 0.5) * 0.066, -0.22, (j - 1) * 0.083)
+			B.mesh(bag, B.cyl(0.031, 0.031, 0.12, 12), p, Color(0.12, 0.22, 0.55))
+			var lid := B.mesh(bag, B.cyl(0.027, 0.029, 0.006, 12), p + Vector3(0, 0.062, 0), Color(0.8, 0.8, 0.82))
+			(lid.material_override as StandardMaterial3D).metallic = 0.8
+			(lid.material_override as StandardMaterial3D).roughness = 0.3
+	# Sangat: kummankin kyljen reunoista kädensijaan, kassin suu rypistyy kasaan.
+	for s in [-1.0, 1.0]:
+		for e in [-1.0, 1.0]:
+			B.tube(bag, Vector3(s * 0.07, -0.17, e * 0.1), Vector3(s * 0.012, 0.0, e * 0.02), 0.009, orange)
+	for s in [-1.0, 1.0]:
+		var k := B.label(bag, "K", Vector3(s * 0.077, -0.29, 0), 16, Color.WHITE)
+		k.rotation.y = s * PI / 2.0
+	return bag
+
+
+## Kassi roikkuu kädestä pystyssä (ei käänny käden luun mukana, muuten se kääntyisi lepoasennon T-asennosta
+## kyljen sisään) hieman kyljen ulkopuolella, ja alapää heilahtaa jäljessä, kun käsi liikkuu hahmoon nähden.
+## bag on hahmon lapsi top_level-tilassa.
+static func hang_bag(c: Node3D, bag: Node3D, delta: float) -> void:
+	var hand: Vector3 = c.bone_position("hand_r")
+	var grip := hand + Vector3(signf(hand.x) * 0.04, -0.06, 0)
+	var vel: Vector3 = (grip - bag.get_meta("prev", grip)) / maxf(delta, 0.001)
+	bag.set_meta("prev", grip)
+	var sw: Vector3 = bag.get_meta("swing", Vector3.ZERO)
+	sw = sw.lerp((-vel * 0.12).limit_length(0.6), 1.0 - exp(-6.0 * delta))
+	bag.set_meta("swing", sw)
+	var down := (Vector3.DOWN + Vector3(sw.x, 0, sw.z)).normalized()
+	var basis := Basis(Quaternion(Vector3.DOWN, down))
+	var gb := c.global_basis.orthonormalized()
+	bag.global_transform = Transform3D(gb * basis, c.global_transform * grip)
+
+
 ## Pelaajan lippis päähän.
 const CAP_NAVY := Color(0.035, 0.035, 0.04)  # musta kuten Karhu-lippiksissä
 const CAP_PIPING := Color(1.0, 0.82, 0.1)  # keltainen kerrosraita lipan reunassa

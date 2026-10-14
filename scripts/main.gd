@@ -14834,6 +14834,41 @@ func _maybe_screenshot() -> void:
 				_msg.text.replace("\n", " | ")])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"kuutonen":
+			# Kuutonen kädessä jalan: seisten edestä, sivulta ja takaa, sitten kävellen ja juosten sivulta.
+			if player != walker_out:
+				_toggle_mount()
+			beers = 6
+			_set_beer_carry()
+			_hud.visible = false
+			var kc := Camera3D.new()
+			kc.fov = 40.0
+			add_child(kc)
+			var ksnap := func(name: String, local_eye: Vector3, at := Vector3(0, 0.9, 0)) -> void:
+				var w := walker_out.global_transform
+				kc.look_at_from_position(w * local_eye, w * at)
+				kc.current = true
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			for i in 30:
+				await get_tree().process_frame
+			await ksnap.call("_edesta.png", Vector3(0, 1.1, -3.2))
+			await ksnap.call("_sivu.png", Vector3(-3.2, 1.1, 0))
+			await ksnap.call("_takaa.png", Vector3(0.8, 1.3, 3.0))
+			var hand := Vector3(walker_out._body.bone_position("hand_r").x, 0.65, 0)
+			await ksnap.call("_lahi_edesta.png", hand + Vector3(0.3, 0.2, -1.2), hand)
+			await ksnap.call("_lahi_takaa.png", hand + Vector3(0.3, 0.3, 1.2), hand)
+			await ksnap.call("_lahi_ulko.png", hand + Vector3(1.2 * signf(hand.x), 0.2, 0), hand)
+			for act in ["forward", "sprint"]:
+				Input.action_press(act)
+				for k in 3:
+					for i in 9:
+						await get_tree().process_frame
+					await ksnap.call("_%s%d.png" % [act, k], Vector3(2.6 * signf(hand.x), 1.0, 0), Vector3(hand.x, 0.8, 0))
+					await ksnap.call("_%s%d_taka.png" % [act, k], Vector3(1.4 * signf(hand.x), 1.2, 2.2), Vector3(hand.x, 0.7, 0))
+			Input.action_release("forward")
+			Input.action_release("sprint")
+			get_tree().quit()
 		"overview":
 			var cam := Camera3D.new()
 			cam.projection = Camera3D.PROJECTION_ORTHOGONAL
