@@ -53,7 +53,7 @@ func run() -> void:
 		if shot.is_empty():
 			push_error("Trailer: tuntematon otos " + id)
 			continue
-		var frames: int = Leikkaus.frames_of(id)
+		var frames: int = Leikkaus.frames_of(id) + Leikkaus.in_frames(id)  # pitkä otto: alku (in) jää leikkauksesta pois
 		print("TRAILER otos %s: %d ruutua" % [id, frames])
 		seed(hash(id))  # sama otos näyttää samalta esikatselussa ja lopullisessa
 		main.trailer_safe = true
@@ -76,11 +76,13 @@ func run() -> void:
 ## pelin _processiin samalla ruudulla. Kamera ja tekstit päivitetään _processissa ruudun lopussa.
 func _film(id: String, shot: Dictionary, frames: int) -> void:
 	var n := Leikkaus.KIERROS_SNAPS if Leikkaus.kierros() else 3
+	var skip := Leikkaus.in_frames(id)
 	var snaps := []
 	for k in n:
-		snaps.append(int(k * (frames - 1) / float(n - 1)))
+		snaps.append(skip + int(k * (frames - skip - 1) / float(n - 1)))
+	_skip_t = float(skip) / Leikkaus.FPS
 	_shot = shot
-	_length = float(frames) / Leikkaus.FPS
+	_length = float(frames - skip) / Leikkaus.FPS
 	_filming = true
 	for i in frames:
 		_t = float(i) / Leikkaus.FPS
@@ -102,6 +104,7 @@ func _film(id: String, shot: Dictionary, frames: int) -> void:
 
 
 var _shot: Dictionary = {}
+var _skip_t := 0.0  # pitkän oton käyttämätön alku: tekstit alkavat vasta leikkauksen kohdalta
 var _length := 1.0
 var _filming := false
 
@@ -110,8 +113,8 @@ func _process(_d: float) -> void:
 	if _spec.is_empty():
 		return
 	_update_camera()
-	if _filming:
-		_update_texts(_shot, _t, _length)
+	if _filming and _t >= _skip_t:
+		_update_texts(_shot, _t - _skip_t, _length)
 
 
 ## spec.keys: [[aika, toiminto, pito (s)]...]: painetaan ruudun alussa ajassa ja vapautetaan pidon jälkeen
@@ -268,6 +271,11 @@ func _hide_hud() -> void:
 			c.visible = _spec.get("hud", false)
 	if main._note:
 		main._note.visible = _spec.get("note", false)
+	# Välianimaatioiden tekstitykset pois (otsikot kuten LEGENDAARINEN NORMIPÄIVÄ! jäävät, ellei title = false).
+	var cs: Node = main.cutscene
+	if cs != null and cs.get("_sub") is Label:
+		cs._sub.visible = false
+		cs._title.visible = _spec.get("title", true)
 
 
 # --- Kamera -------------------------------------------------------------------
@@ -339,7 +347,7 @@ func _layout_bars() -> void:
 ## Otoksen päällystekstit (leikkaus.gd "teksti", "nimi", "puhelin") rakennetaan ensimmäisellä ruudulla ja
 ## häivytetään ajan mukaan.
 func _update_texts(shot: Dictionary, t: float, length: float) -> void:
-	if _texts.get_child_count() == 0 and t == 0.0:
+	if _texts.get_child_count() == 0 and t < 0.5 / Leikkaus.FPS:
 		Teksti.build_texts(_texts, shot, get_viewport().get_visible_rect().size)
 		for b in _bars:
 			b.visible = not shot.has("puhelin")  # pystyvideo käyttää koko korkeuden

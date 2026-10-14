@@ -138,12 +138,14 @@ func _split_group(g: String, ids: Array) -> Dictionary:
 			push_error("Ryhmässä %s ei ole otosta %s" % [g, ids[k]])
 			break
 		var want := Leikkaus.frames_of(ids[k])
+		var take := want + Leikkaus.in_frames(ids[k])  # pitkä otto: käytetään viimeiset want ruutua
 		var seg: Array = segs[k]
-		if absi(seg[1] - seg[0] - want) > 2:
-			push_warning("Otos %s: %d ruutua, odotettiin %d" % [ids[k], seg[1] - seg[0], want])
+		if absi(seg[1] - seg[0] - take) > 2:
+			push_warning("Otos %s: %d ruutua, odotettiin %d" % [ids[k], seg[1] - seg[0], take])
+		var start := maxi(seg[0], seg[1] - want)
 		var frames := []
 		for j in want:
-			var idx := mini(seg[0] + j, seg[1] - 1)
+			var idx := mini(start + j, seg[1] - 1)
 			frames.append([avi.video[idx], avi.audio[idx] if idx < avi.audio.size() else null])
 		res.shots[ids[k]] = frames
 	return res

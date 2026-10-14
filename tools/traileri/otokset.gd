@@ -872,6 +872,32 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var f := _dir(M.HOME_YAW_DIR)
 			var p := _person(main, d, Looks().ANNA_LIISA, c + f * 8.0 - _side(f) * 6.0, f + _side(f) * 0.5, "Idle_Talking")
 			return _portrait(main, p, f, 1.0)
+		# --- Prologin uudet otokset (PAPERILEIKKAUS.md) ------------------------------------------------------------
+		"p_hyundai_lahtee":  # aamu: Päivin Hyundai lähtee pihasta töihin, pelaaja jää pihalle katsomaan
+			_time(main, 7, 40)
+			var h := M.w(M.HOME_ZONE)
+			var f := _dir(M.HOME_YAW_DIR)
+			_foot(main, h + f * 2.0 + _side(f) * 2.5, -_side(f))
+			var wf: Node3D = _wife(main)
+			wf.mode = "patrol"
+			wf.reset_to(main.world.nearest_node(h))
+			var look := wf.global_position + Vector3(0, 0.9, 0)
+			var eye := _best_eye(main, look, _ring(look, f + _side(f), 7.0, 0.3, 16))
+			return {"warm": 4, "cam": func(_t: float) -> Array:
+				return [eye, wf.global_position + Vector3(0, 0.9, 0)], "fov": 38.0, "dof": 12.0}
+		"p_talli":  # tallin ovi auki: pelaaja taluttaa pyörän ulos kohti kameraa (vastavalo)
+			_time(main, 8, 10)
+			var gd: Vector3 = _g(main.world.garage_door)
+			var out: Vector3 = main.world.garage_out
+			out.y = 0.0
+			out = out.normalized()
+			var w := _foot(main, gd - out * 1.2, out)
+			main.bike.global_position = gd - out * 1.2 + _side(out) * 0.8 + Vector3(0, 0.3, 0)
+			main.bike.rotation.y = B.yaw_to(out)
+			var look := gd + Vector3(0, 1.0, 0)
+			return {"keys": [[0.4, "forward", 1.6]], "cam": dolly(gd + out * 5.5 + _side(out) * 1.5 + Vector3(0, 0.6, 0),
+				gd + out * 4.6 + _side(out) * 1.2 + Vector3(0, 0.6, 0), look, look + out * 1.5), "fov": 40.0, "dof": 7.0}
+
 		# --- Kuvauspaikkojen kierros (leikkaus.gd KIERROS): välianimaatiot ja minipelit pitkinä ottoina ------------
 		"s_sauna":  # savusaunan löylyt sisältä (välianimaatio)
 			var mk: Node3D = _mokki(main)
@@ -923,6 +949,10 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 				tvc.current = true
 				if lg.get("_layer") is CanvasLayer:
 					lg._layer.visible = false
+				for n in ["_hud", "_talk_box", "_talk_prompt", "_hint_bar", "_msg"]:  # pelin laatikot pois TV-kuvasta
+					var c = main.get(n)
+					if c is CanvasItem or c is CanvasLayer:
+						c.visible = false
 				for i in 90:
 					await main.get_tree().process_frame
 				await RenderingServer.frame_post_draw
