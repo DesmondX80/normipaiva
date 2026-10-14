@@ -27,6 +27,7 @@ func _initialize() -> void:
 	var preview := false
 	var again := false
 	var only_ids: PackedStringArray = []
+	var kierros := Leikkaus.kierros()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):
 			out = a.substr(6)
@@ -46,7 +47,7 @@ func _initialize() -> void:
 			only_ids = a.substr(6).split(",")
 	out = ProjectSettings.globalize_path(out)
 	if preview:
-		out = out.path_join("esikatselu")
+		out = out.path_join("kierros" if kierros else "esikatselu")
 	DirAccess.make_dir_recursive_absolute(out)
 	var wh := res.split("x")
 	var had_override := FileAccess.file_exists(OVERRIDE)
@@ -86,6 +87,8 @@ func _initialize() -> void:
 			args += ["--", "--shot=" + out.path_join("%s.png" % g), "--trailer=" + ",".join(ids), "--trailer-ss=" + ss]
 		if preview:
 			args.append("--trailer-preview")
+		if kierros:
+			args.append("--trailer-set=kierros")
 		print("Ryhmä %s (%d otosta) ..." % [g, ids.size()])
 		var t := Time.get_ticks_msec()
 		var output := []
@@ -99,7 +102,8 @@ func _initialize() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(OVERRIDE))
 	print("Kuvaus valmis %.1f min." % ((Time.get_ticks_msec() - t0) / 60000.0))
 	if preview:
-		OS.execute(exe, ["--path", proj, "--headless", "-s", "res://tools/traileri/kokoa.gd", "--", "--in=" + out, "--sheet"], [], true)
+		OS.execute(exe, ["--path", proj, "--headless", "-s", "res://tools/traileri/kokoa.gd", "--", "--in=" + out, "--sheet"]
+			+ (["--set=kierros"] if kierros else []), [], true)
 		print("Esikatselu: ", out.path_join("esikatselu.png"))
 	else:
 		var output := []
