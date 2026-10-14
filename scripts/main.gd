@@ -2716,6 +2716,7 @@ func _start_bingo() -> void:
 	var g := BingoGame.new()
 	g.drunk = _hand_shake()
 	g.rival_at = randi_range(18, 26)
+	g.interior = kirppis_int  # bingopöydässä salin mummojen kanssa
 	g.finished.connect(func(won: bool, false_calls: int) -> void:
 		CamCtl.free_mouse = false
 		kirppis_int.busy = false
@@ -2745,7 +2746,7 @@ func _start_bingo() -> void:
 		Sfx.play("win_small", -4.0)
 		_show_message("BINGO! " + prize[1], 4.5)
 		_save_game())
-	add_child(g)
+	kirppis_int.add_child(g)
 
 
 ## Tanssien takaovi: ukot ryyppäävät pihalla auton takakontilla. Huikka kerran illassa; Anna-Liisa voi nähdä.
@@ -19470,10 +19471,18 @@ func _maybe_screenshot() -> void:
 			_talk_open("huutaja", null)
 			_talk_box._pages.clear()
 			_talk_choose("bingo")
-			var bg: Node = get_children().filter(func(c): return c is BingoGame).front()
+			var bg: Node = kirppis_int.get_children().filter(func(c): return c is BingoGame).front()
 			print("SE bingo auki: %s" % [bg != null])
 			bg.rival_at = 99
 			await get_tree().create_timer(7.0).timeout
+			var click := InputEventMouseButton.new()  # väärä bingo: mummot mulkoilevat
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = true
+			bg._mouse = bg._bingo_rect().get_center()
+			bg._gui(click)
+			await get_tree().create_timer(0.4).timeout
+			await snap.call("_bingo_vaara.png")
+			print("SE väärä bingo: %d, '%s'" % [bg._false, bg._tip.text])
 			for i in 5:  # ylärivi merkityksi kuin huudettuna
 				if not (bg._card[i] in bg._called):
 					bg._called.append(bg._card[i])
