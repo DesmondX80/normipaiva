@@ -22,116 +22,83 @@ const SFX_MUSIC := 0.55  # pelin äänet musiikin alla
 const SFX_PRE := 1.0
 
 const SHOTS := [
-	# --- Kylmä avaus: ei musiikkia, vain pelin äänet -------------------------------------------------------------------
-	{"id": "avaus_yo", "g": "ulko", "s": 4.0, "teksti": ""},
-	{"id": "avaus_paivi", "g": "ulko", "s": 5.0},
-	{"id": "avaus_lappu", "g": "kortit", "s": 5.0, "lappu": [["Huomenta! Mää lähin jo.", Color(0.1, 0.1, 0.25)],
+	# --- Prologi ilman musiikkia: pelin äänet (PAPERILEIKKAUS.md P1–P8) --------------------------------------------
+	{"id": "avaus_paivi", "g": "ulko", "s": 6.0},
+	{"id": "avaus_musta", "g": "kortit", "s": 1.5, "kortti": ""},
+	{"id": "avaus_lappu", "g": "kortit", "s": 6.0, "lappu": [["Huomenta! Mää lähin jo.", Color(0.1, 0.1, 0.25)],
 		["Kauppaan:", Color(0.1, 0.1, 0.25)], ["vihreä tamponi", Color(0.1, 0.55, 0.2)], ["punainen maito", Color(0.8, 0.1, 0.1)],
 		["sininen ristikkolehti", Color(0.1, 0.25, 0.75)], ["EI KALJAA!!!", Color(0.8, 0.1, 0.1)], ["– Päivi", Color(0.1, 0.1, 0.25)]]},
-	{"id": "avaus_kortti", "g": "kortit", "s": 2.5, "kortti": "SALOINEN", "ala": "Raahen kupeessa. Joskus 2000-luvulla."},
+	{"id": "p_hyundai_lahtee", "g": "ulko", "s": 6.0},
+	{"id": "i_pekka", "g": "ulko", "s": 6.0},
+	{"id": "t_kortti", "g": "kortit", "s": 3.0, "kortti": "PAAPELIIN PÄÄSEE,", "ala": "kunhan…"},
+	{"id": "p_talli", "g": "ulko", "s": 5.0},
+	{"id": "i_talli", "g": "ulko", "s": 4.0},
 
-	# --- Intro 0–32 s: rauhallinen nousu, paikat esittäytyvät ----------------------------------------------------------
-	{"id": "i_ilma", "g": "ulko", "b": 8},
-	{"id": "i_koti", "g": "ulko", "b": 8, "teksti": "Järvikuja 1."},
-	{"id": "i_talli", "g": "ulko", "b": 8},
-	{"id": "i_kylatie", "g": "ulko", "b": 8},
-	{"id": "i_kmarket", "g": "ulko", "b": 8},
-	{"id": "i_kassa", "g": "kauppa", "b": 8},
-	{"id": "i_kuutonen", "g": "ulko", "b": 8},
-	{"id": "i_hyundai", "g": "ulko", "b": 8, "teksti": "Jokainen päivä on normipäivä."},
-	{"id": "i_pekka", "g": "ulko", "b": 8},
+	# --- Intro 0–32 s: SALOINEN ------------------------------------------------------------------------------------
+	{"id": "s_drooni", "g": "drooni", "b": 16, "in": 2.4, "teksti": "SALOINEN"},
+	{"id": "i_koti", "g": "ulko", "b": 12},
+	{"id": "i_kylatie", "g": "ulko", "b": 12},
+	{"id": "i_kmarket", "g": "ulko", "b": 12},
+	{"id": "i_kassa", "g": "kauppa", "b": 12},
+	{"id": "i_kuutonen", "g": "ulko", "b": 14},
 
-	# --- Säkeistö 32–78 s: tarina "Paapeliin pääsee, kunhan…" ----------------------------------------------------------
-	{"id": "t_kortti", "g": "kortit", "b": 8, "kortti": "PAAPELIIN PÄÄSEE,", "ala": "kunhan…"},
-	{"id": "t_jemma", "g": "ulko", "b": 8},
-	{"id": "t_arto", "g": "ulko", "b": 8},
-	{"id": "t_sienet", "g": "ulko", "b": 8},
-	{"id": "t_puolukka", "g": "ulko", "b": 8},
-	{"id": "t_nurmikko", "g": "ulko", "b": 8},
-	{"id": "t_paivi_nakee", "g": "ulko", "b": 8},
-	{"id": "t_kota", "g": "ulko", "b": 8},
-	{"id": "t_lintutorni", "g": "ulko", "b": 8},
-	{"id": "t_volvo", "g": "ulko", "b": 8},
-	{"id": "t_avaimet", "g": "ulko", "b": 8},
-	{"id": "t_kyyti", "g": "ulko", "b": 8, "teksti": "Paapeliin."},
-	{"id": "t_mokki_saapuu", "g": "mokki", "b": 8},
-	{"id": "t_taksi", "g": "ulko", "b": 8},
-	{"id": "t_paapeli", "g": "mokki", "b": 8},
+	# --- Säkeistö 32–78 s: tarina ja Saloisten sivutehtävät ------------------------------------------------------
+	{"id": "i_hyundai", "g": "ulko", "b": 10},
+	{"id": "t_paivi_nakee", "g": "ulko", "b": 10},
+	{"id": "t_avaimet", "g": "ulko", "b": 12},
+	{"id": "t_nurmikko", "g": "ulko", "b": 8, "in": 1.0},
+	{"id": "k_huutokauppa", "g": "kirppis", "b": 12, "in": 6.0},
+	{"id": "k_piirakka", "g": "reippari", "b": 10},
+	{"id": "k_rossi", "g": "ulko", "b": 8, "in": 4.0},
+	{"id": "k_keinu", "g": "leikki", "b": 12, "in": 1.8},
+	{"id": "s_sinikka", "g": "ulko", "b": 8},
+	{"id": "k_uimaranta", "g": "ulko", "b": 8},
+	{"id": "v_mopo_potku", "g": "potku", "b": 15, "in": 1.0},
 
-	# --- Nousu 78–98 s: sivutehtävät nopeassa tahdissa -----------------------------------------------------------------
-	{"id": "v_pojat", "g": "ulko", "b": 4, "at": 78.04},
-	{"id": "v_pallo", "g": "ulko", "b": 4},
-	{"id": "v_mummot", "g": "ulko", "b": 4},
-	{"id": "v_lista", "g": "kauppa", "b": 4},
-	{"id": "v_vaino", "g": "ulko", "b": 4},
-	{"id": "v_koira", "g": "ulko", "b": 4},
-	{"id": "v_sulo", "g": "ulko", "b": 4},
-	{"id": "v_sahkopyora", "g": "talli", "b": 4},
-	{"id": "v_mopo_potku", "g": "potku", "b": 4},
-	{"id": "v_seppo", "g": "ulko", "b": 4},
-	{"id": "v_korjaamo", "g": "ulko", "b": 4},
-	{"id": "v_miisu", "g": "ulko", "b": 4},
+	# --- Nousu 78–98 s ----------------------------------------------------------------------------------------------
+	{"id": "s_aarnivalkea", "g": "ulko", "b": 10, "at": 78.04, "in": 1.6},
+	{"id": "v_sahkopyora", "g": "talli", "b": 8},
+	{"id": "f_sahkopyora_ajo", "g": "ulko", "b": 8},
+	{"id": "v_mummot", "g": "ulko", "b": 8, "in": 3.0},
+	{"id": "s_taksi", "g": "taksi", "b": 6, "in": 2.8},
+	{"id": "k_vaanto", "g": "raahe", "b": 9, "in": 1.6},
 
-	# --- Tauko 98–111,6 s: hahmoesittelyt -------------------------------------------------------------------------------
-	{"id": "h_paivi", "g": "ulko", "b": 6, "at": 98.0, "nimi": "Päivi", "rooli": "Vaimo. Näkee kaiken."},
-	{"id": "h_pekka", "g": "ulko", "b": 6, "nimi": "Pekka", "rooli": "Naapuri. 14 kyyhkyä."},
-	{"id": "h_arto", "g": "ulko", "b": 6, "nimi": "Arto", "rooli": "Lähekkö puolukkaan?"},
-	{"id": "h_juntti", "g": "ulko", "b": 6, "nimi": "Juntti", "rooli": "Raahen karateklubin perustaja."},
-	{"id": "h_annaliisa", "g": "ulko", "b": 5, "nimi": "Anna-Liisa", "rooli": "Kuulee kaiken aidan takaa."},
-	{"id": "h_musta", "g": "kortit", "b": 3, "kortti": ""},
-
-	# --- Kertosäe 111,6–140 s: iso montaasi -----------------------------------------------------------------------------
-	{"id": "k_kulma", "g": "raahe", "b": 4, "at": 111.646},
-	{"id": "k_vaanto", "g": "raahe", "b": 4},
-	{"id": "k_karaoke", "g": "karaoke", "b": 4},
-	{"id": "k_huutokauppa", "g": "kirppis", "b": 4},
-	{"id": "k_nuija", "g": "kirppis", "b": 4},
-	{"id": "k_piirakka", "g": "reippari", "b": 4},
-	{"id": "k_piirakka2", "g": "reippari", "b": 4},
-	{"id": "p_mummot", "g": "ulko", "b": 6, "puhelin": {"ryhma": "Saloisten Puskaradio", "nimi": "Raija K.",
-		"teksti": "Taas yks pyöräilijä kaahas penkin ohi. Mummot hoiti homman 👏", "tyk": 214}},
-	{"id": "k_keinu", "g": "leikki", "b": 4},
-	{"id": "k_rossi", "g": "ulko", "b": 4},
-	{"id": "k_laavu", "g": "ulko", "b": 4},
-	{"id": "p_vaino", "g": "ulko", "b": 6, "puhelin": {"ryhma": "Saloisten Puskaradio", "nimi": "Sinikka H.",
-		"teksti": "Onko kukaan nähny Pekan Väinöä?? Juoksi just Järvikujaa pitkin.", "tyk": 87}},
-	{"id": "k_uimaranta", "g": "ulko", "b": 4},
-	{"id": "k_juntti", "g": "tappelu", "b": 4},
-	{"id": "p_siili", "g": "ulko", "b": 6, "puhelin": {"ryhma": "Saloisten Puskaradio", "nimi": "Anna-Liisa",
+	# --- Tauko 98–111,6 s: hahmot ja Puskaradio --------------------------------------------------------------------
+	{"id": "h_paivi", "g": "ulko", "b": 10, "at": 98.0, "nimi": "Päivi", "rooli": "Vaimo. Näkee kaiken."},
+	{"id": "h_juntti", "g": "ulko", "b": 10, "nimi": "Juntti", "rooli": "Raahen karateklubin perustaja."},
+	{"id": "p_siili", "g": "ulko", "b": 13, "puhelin": {"ryhma": "Saloisten Puskaradio", "nimi": "Anna-Liisa",
 		"teksti": "POLIISI Järvikujalla. Siili ja ruohonleikkuri. En sano enempää.", "tyk": 403}},
 
-	# --- Silta 140–152 s: Mökki ja Vaala --------------------------------------------------------------------------------
-	{"id": "m_kortti", "g": "kortit", "b": 6, "at": 140.0, "kortti": "VAALA", "ala": "Mökki Neittävällä. Oulujärvi."},
-	{"id": "m_juna", "g": "juna", "b": 6},
-	{"id": "m_laituri", "g": "mokki", "b": 6},
-	{"id": "m_kala", "g": "kala", "b": 6},
-	{"id": "m_sauna", "g": "mokki", "b": 5},
+	# --- Kertosäe 111,6–140 s: Saloisten kaaos ----------------------------------------------------------------------
+	{"id": "k_juntti", "g": "tappelu", "b": 8, "at": 111.646},
+	{"id": "f_tappelu", "g": "tappelu", "b": 7, "in": 3.0},
+	{"id": "f_hyundai2", "g": "ulko", "b": 7, "in": 4.0},
+	{"id": "f_poliisi", "g": "ulko", "b": 7, "in": 2.5},
+	{"id": "f_traktori", "g": "ulko", "b": 7, "in": 1.5},
+	{"id": "p_mummot", "g": "ulko", "b": 10, "puhelin": {"ryhma": "Saloisten Puskaradio", "nimi": "Raija K.",
+		"teksti": "Taas yks pyöräilijä kaahas penkin ohi. Mummot hoiti homman 👏", "tyk": 214}},
+	{"id": "s_viinibileet", "g": "viinibileet", "b": 8, "in": 2.4},
+	{"id": "f_wasted", "g": "wasted", "b": 8, "in": 1.0, "sfx": 1.0},
+	{"id": "s_kyyti", "g": "kyyti", "b": 8, "in": 4.0},
 
-	# --- Loppukertosäe 152–197,6 s: Vaala ja kliimaksi -----------------------------------------------------------------
-	{"id": "f_lava", "g": "vaala", "b": 4, "at": 151.955},
-	{"id": "f_siitari", "g": "siitari", "b": 4},
-	{"id": "f_kiihdytys", "g": "kiihdytys", "b": 4},
-	{"id": "f_mopo_silta", "g": "vaala", "b": 4},
-	{"id": "f_uinti", "g": "uinti", "b": 4},
-	{"id": "f_pingis", "g": "pingis", "b": 4},
-	{"id": "f_jahti", "g": "jahti", "b": 4},
-	{"id": "f_nuoret", "g": "vaala", "b": 4},
-	{"id": "f_hyundai", "g": "ulko", "b": 4},
-	{"id": "f_hyundai2", "g": "ulko", "b": 4},
-	{"id": "f_poliisi", "g": "ulko", "b": 4},
-	{"id": "f_traktori", "g": "ulko", "b": 4},
-	{"id": "f_tappelu", "g": "tappelu", "b": 4},
-	{"id": "f_sahkopyora_ajo", "g": "ulko", "b": 4},
-	{"id": "f_mopo_ajo", "g": "ulko", "b": 4},
-	{"id": "f_lava_tanssi", "g": "lavatanssi", "b": 4},
-	{"id": "f_karaoke", "g": "karaoke", "b": 4},
-	{"id": "f_drooni", "g": "ulko", "b": 4},
-	{"id": "f_kaitasaari", "g": "ulko", "b": 4},
-	{"id": "f_kaatuminen", "g": "ulko", "b": 4},
-	{"id": "f_wasted", "g": "wasted", "b": 8},
-	{"id": "f_auringonlasku", "g": "laavu", "b": 8},
-	{"id": "f_nuotio", "g": "makkara", "b": 8},
-	{"id": "f_kalja", "g": "makkara", "b": 6},
+	# --- Silta 140–152 s: PAAPELI ------------------------------------------------------------------------------------
+	{"id": "t_mokki_saapuu", "g": "mokki", "b": 8, "at": 140.0, "teksti": "PAAPELI"},
+	{"id": "s_sauna", "g": "sauna", "b": 11, "in": 6.0},
+	{"id": "f_uinti", "g": "uinti", "b": 11, "in": 13.5},
+
+	# --- Loppukertosäe 152–197,6 s: Paapeli ja VAALA, huipennus -------------------------------------------------------
+	{"id": "m_kala", "g": "kala", "b": 8, "at": 151.955, "in": 5.0},
+	{"id": "f_pingis", "g": "pingis", "b": 8, "in": 5.0},
+	{"id": "s_mokkibileet", "g": "mokkibileet", "b": 10, "in": 3.0},
+	{"id": "m_juna", "g": "juna", "b": 10, "teksti": "VAALA"},
+	{"id": "f_mopo_silta", "g": "vaala", "b": 8, "in": 1.5},
+	{"id": "f_siitari", "g": "siitari", "b": 8, "in": 1.5},
+	{"id": "k_karaoke", "g": "karaoke", "b": 8, "in": 1.5},
+	{"id": "f_kiihdytys", "g": "kiihdytys", "b": 8, "in": 2.0},
+	{"id": "f_lava_tanssi", "g": "lavatanssi", "b": 10, "in": 4.0},
+	{"id": "s_paivi_tv", "g": "tv", "b": 14, "in": 4.0},
+	{"id": "f_nuoret", "g": "vaala", "b": 8},
+	{"id": "f_auringonlasku", "g": "laavu", "b": 12},
 
 	# --- Loppu: logo ------------------------------------------------------------------------------------------------
 	{"id": "loppu_logo", "g": "kortit", "at": 197.65, "s": 7.0, "logo": true},
@@ -227,6 +194,13 @@ static func shot(id: String) -> Dictionary:
 		if s.id == id:
 			return s
 	return {}
+
+
+## Pitkän oton alku (s), jota ei käytetä: leikkaus alkaa tästä kohdasta (kokoa.gd ottaa oton viimeiset ruudut).
+static func in_frames(id: String) -> int:
+	if kierros():
+		return 0
+	return roundi(float(shot(id).get("in", 0.0)) * FPS)
 
 
 static func frames_of(id: String) -> int:
