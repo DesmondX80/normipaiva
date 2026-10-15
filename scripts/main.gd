@@ -1237,6 +1237,8 @@ func _process(delta: float) -> void:
 				_bike_theft(delta)
 				_thief_tick(delta)
 				_ebike_tick(delta)
+				if world.train != null and world.train.hits(player.global_position):
+					_lose("Jäit junan alle Saloisten radalla.", "train")
 			_stats_tick(delta)
 		"in_shop":
 			_hint.text = interior.hint
@@ -10438,6 +10440,7 @@ func _ensure_mopo_trip() -> void:
 		mopo_trip.arrived.connect(_on_mopo_arrived)
 		mopo_trip.finished.connect(_on_mopo_finished)
 		mopo_trip.killed.connect(_on_mopo_killed)
+		mopo_trip.train_hit.connect(_on_mopo_killed.bind("train"))
 		mopo_trip.atm.connect(_atm_use)
 		mopo_trip.door.connect(_on_vaala_door)
 		mopo_trip.lava.connect(_enter_lava)
@@ -10498,6 +10501,7 @@ func _vaala_logic() -> void:
 		return
 	_hint.text = mopo_trip.hint
 	mopo_trip.vaala.set_kokko(_juhannus(), _kokko_lit())
+	mopo_trip.vaala.set_lava_live(is_open("lava"))
 	_pontikka_sell_logic()
 	_mopo_label.text = mopo_trip.status
 	var tg: Vector3 = mopo_trip.target_global()
@@ -10901,7 +10905,7 @@ func _gasthaus_morning(intro: String, msg: String) -> void:
 
 
 ## Auto ajoi mopon päälle: WASTED Vaalan tiellä, Päivin motkotus ja uusi päivä kotoa Saloisista.
-func _on_mopo_killed() -> void:
+func _on_mopo_killed(cause := "car") -> void:
 	var walking: bool = mopo_trip.on_foot != null
 	var at: Vector3 = walker_out.global_position if walking else mopo_trip.mopo.global_position
 	var road_name: String = mopo_trip.status.get_slice("\n", 1).get_slice(" · ", 0)
@@ -10911,7 +10915,8 @@ func _on_mopo_killed() -> void:
 	_mopo_restore_hud()
 	_santtu_home()
 	state = _vaala_state
-	_lose("Jäit auton alle %s (%s)." % ["jalan" if walking else "mopolla", road_name], "car", at)
+	_lose("Jäit %s alle %s (%s)." % ["junan" if cause == "train" else "auton", "jalan" if walking else "mopolla", road_name],
+		cause, at)
 	mopo_trip.stop()
 
 
@@ -12036,6 +12041,8 @@ func _lava_start() -> void:
 	_lava_game = LavaGame.new()
 	_lava_game.courage = 1.0 if _lava_courage_day == day else 0.0
 	_lava_game.door_side = float(mopo_trip.vaala.data.lava.get("door_side", 1.0))
+	_lava_game.W = float(mopo_trip.vaala.data.lava.w)
+	_lava_game.L = float(mopo_trip.vaala.data.lava.l)
 	_lava_game.bar = _lava_bar
 	_lava_game.buddy = Mokki.SANTTU_LOOK if _santtu_riding else {}
 	_lava_game.juhannus = _juhannus()
@@ -13304,7 +13311,7 @@ func _lose(reason: String, cause := "default", at := Vector3.INF) -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
 	_hud.visible = false
 	var spawn := _nearest_safe() if at == Vector3.INF else home_zone + Vector3(0, 0, 4)
-	_day_end = {"car": "auto", "police": "poliisi", "wife": "paivi"}.get(cause, "ulko")
+	_day_end = {"car": "auto", "train": "auto", "police": "poliisi", "wife": "paivi"}.get(cause, "ulko")
 	var choco := _offer_chocolate()
 	_choco_mercy = choco == "ok"
 	if has_flowers:
@@ -14796,6 +14803,14 @@ func _maybe_screenshot() -> void:
 		mokki.ensure_built()  # testikohtaukset menevät mökille ilman taksia
 		print("MOKKI rakennettu %d ms" % (Time.get_ticks_msec() - tb))
 	match scene:
+		"vaala_ajo":
+			# Vaalan tiet, kohteet ja juna mopolla autopilotilla (tools/testit/vaala_ajo.gd).
+			var ajo: Node = load("res://tools/testit/vaala_ajo.gd").new()
+			ajo.main = self
+			add_child(ajo)
+			await ajo.run()
+			get_tree().quit()
+			return
 		"shop":
 			_enter_shop()
 			interior.has_beer = true

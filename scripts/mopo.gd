@@ -26,6 +26,8 @@ var drunk := 0.0
 var surface := "asphalt"  # main.gd:n tilat (lepo luonnossa): mopo on aina tiellä
 var fallen := false  # kaatunut: malli kyljellään
 var vaala: Node3D  # vaala.gd (paikallinen kehys = mopo_trip.gd:n kehys)
+## Testien autopilotti (tools/testit/vaala_ajo.gd): x = kaasu (-1…1), y = ohjaus (+ = vasen) näppäinten sijaan.
+var autopilot := Vector2.INF
 
 var _visual: Node3D
 var _rider: Node3D
@@ -183,6 +185,10 @@ func _physics_process(delta: float) -> void:
 		braking = Input.is_action_pressed("brake")
 		if Input.is_action_just_pressed("bell"):
 			Sfx.play("horn", -8.0, 1.8)  # mopon piippari
+	if autopilot != Vector2.INF:
+		throttle = autopilot.x
+		steer = autopilot.y
+		braking = false
 	var surf: Dictionary = {"speed": 1.0, "bump": 0.0}
 	if vaala != null:
 		_code = vaala.drive_code(position)

@@ -7,11 +7,13 @@ render_mode cull_disabled;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
 
 varying vec3 wpos;
-varying flat vec3 wnrm;  // tahkon normaali vakiona: suunta ei saa vaihdella pikseleittäin (isot koordinaatit)
+varying flat vec3 wnrm;
+varying flat vec2 zone;  // UV: x = seinän alareunan korkeus, y = kerroskorkeus (0 = ei vyöhykkeitä)  // tahkon normaali vakiona: suunta ei saa vaihdella pikseleittäin (isot koordinaatit)
 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnrm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	zone = UV;
 }
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -52,7 +54,7 @@ void fragment() {
 		vec2 f = fract(p);
 		float joint = clamp(step(f.x, 0.06) + step(f.y, 0.16), 0.0, 1.0);
 		float tone = hash(floor(p)) * 0.3 - 0.12;
-		float detail = 1.0 - smoothstep(0.25, 0.7, max(fwidth(p.x), fwidth(p.y)));
+		float detail = 1.0 - smoothstep(0.12, 0.35, max(fwidth(p.x), fwidth(p.y)));
 		vec3 mortar = vec3(0.72, 0.7, 0.66);
 		col = mix(mix(base, mortar, 0.18), mix(base * (1.0 + tone), mortar, joint), detail);
 		rough = 0.9;
@@ -70,6 +72,19 @@ void fragment() {
 		float detail = 1.0 - smoothstep(0.02, 0.06, fw * 0.3);
 		col = base * (0.85 + 0.22 * g + tone) * mix(1.0, 1.0 - 0.5 * seam, detail);
 		rough = 0.95;
+	}
+	// Julkisivun jäsennys (rakennukset, joilla kerroskorkeus): tumma sokkeli, kerrosvälien vaaleat listat ja
+	// 5-6 m:n osiin vaihteleva sävy, jotta laajat seinät eivät ole yhtä tasaista pintaa.
+	if (zone.y > 0.5) {
+		float lh = v - zone.x;
+		float socle = 1.0 - smoothstep(0.62, 0.68, lh);
+		float fl = fract(lh / zone.y);
+		float band = lh > zone.y * 0.9 ? 1.0 - smoothstep(0.04, 0.055, fl) : 0.0;
+		float bay = hash(vec2(floor(u / 5.6), 7.0)) * 0.1 - 0.05;
+		float detail = 1.0 - smoothstep(0.08, 0.3, fw);
+		col *= 1.0 + bay;
+		col = mix(col, vec3(0.86, 0.85, 0.8), band * 0.55 * detail);
+		col = mix(col, vec3(0.3, 0.29, 0.28), socle * 0.85);
 	}
 	// Likaa ja sävyvaihtelua koko seinälle.
 	col *= 0.92 + 0.12 * grime;

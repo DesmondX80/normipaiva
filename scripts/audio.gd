@@ -129,8 +129,9 @@ func music_stream() -> AudioStream:
 const MUSIC_CHORUS := 25.0  # kertosäe alkaa (s): onnelliset loput soivat tästä
 
 ## Aloittaa (tai jatkaa) musiikin häivyttäen sisään; from = aloituskohta sekunteina. file = muu biisi kuin
-## tunnusmusiikki (esim. SONG_LIRKUTTELU); toinen biisi vaihtaa soittimen sisällön.
-func music_play(fade := 1.5, from := 0.0, file := "") -> void:
+## tunnusmusiikki (esim. SONG_LIRKUTTELU); toinen biisi vaihtaa soittimen sisällön. stream = valmis ääni (esim.
+## lavabändin syntetisoima humppa, humppa_synth.gd), file on silloin sen tunniste.
+func music_play(fade := 1.5, from := 0.0, file := "", stream: AudioStream = null) -> void:
 	if _music != null and file != _music_file:
 		_music.stop()
 		_music.queue_free()
@@ -138,7 +139,9 @@ func music_play(fade := 1.5, from := 0.0, file := "") -> void:
 	if _music == null:
 		_music_file = file
 		var st: AudioStream = music_stream()
-		if file != "":
+		if stream != null:
+			st = stream
+		elif file != "":
 			st = null
 			if ResourceLoader.exists(file):
 				st = load(file)

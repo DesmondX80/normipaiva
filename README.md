@@ -253,6 +253,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     Radan alikulku on ohikulkuvideon mukainen betonisilta pilaripareineen, ja penger laskee luiskana sillan alle.
     Rata ylittää Oulujoen tiesillan tasossa teräksisellä ristikkosillalla, ja radalla kulkee silloin tällöin juna
     (punavalkoinen Sr1-veturi ja neljä sinistä VR:n vaunua, yksi niistä ravintolavaunu), joka vihellyttää ohittaessaan.
+    Radalla ei kannata seisoa: liikkuva juna tappaa (Vaalassa ja Saloisissa), ja Päivi motkottaa: "Minun piti parsia
+    sinut kokoon palasista!" Seisovan junan läpi ei kävellä eikä ajeta.
+    Testi `--scene=vaala_ajo` (ilman ikkunaa `--headless`): autopilotti ajaa mopolla 60 km/h jokaisen Vaalan tien
+    (n. 190 tietä, 21 km) ja jokaiseen kohteeseen ja kirjaa jumit ja törmäykset (`--ajo=tiet|kohteet|juna|lava`).
   - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa torilta asfalttia Zabukin ohi
     liikenneympyrään ja siitä oikealle Ratatietä ja aseman ajotietä rautatieasemalle (pelissä tuotu radan varteen
     noin 100 m Siitarista, laituri radan vieressä; todellisuudessa n. 300 m kauempana; junat eivät aja Oulujoen
@@ -307,7 +311,12 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (punamullatut seinät, luukut auki, bändi
     lavalla) aivan rannassa niemen kärjessä lautatarha-aidan sisällä, jonka päät ulottuvat jokeen ja Pahalahteen:
     lippu (12 €) ostetaan aidan portilta, jossa portsari leimaa käden ja portti aukeaa koko päiväksi; lavatansseihin (klo 20–01), joissa A ja D vuorotellen tahdissa vievät parin tanssiin. Kappaleen jälkeen palataan saliin:
-    voi tanssia uudestaan, mennä diskopuolelle tai baaritiskille tuopille, ja Q vie lavalta ulos. Pelissä lava on
+    voi tanssia uudestaan, mennä diskopuolelle tai baaritiskille tuopille, ja Q vie lavalta ulos. Lavalla soittaa
+    Humppaveikot (`humppa_band.gd`): laulaja, harmonikka palkeineen, kitara, basso ja rummut, kädet soittimilla
+    tahdin mukaan. W:llä bändiltä voi toivoa humppaiskelmän listalta ("Vaalan valot", "Pontikkapolkka"...): kappale
+    syntetisoidaan (`humppa_synth.gd`, välimuisti `user://humppa`), ja tanssin tahti seuraa sen tempoa. Tanssien
+    aikaan humppa kuuluu pihalle, salissa tanssitaan ja seinien penkeillä istutaan, ja pihalla on grillikioski
+    jonoineen ja tupakkapaikka. Lavan ympärillä kasvaa koivikkoa ja katajaa paljaan niityn sijaan. Pelissä lava on
     todellista (1 500 m²) vähän pienempi. Oulujärvi jatkuu niemeltä kaakkoon kartan reunaan asti.
   - **Juhannus ja Kesäillan valssi:** juhannusaattona (perjantai) lavan niemen rannassa aidan ulkopuolella palaa
     juhannuskokko klo 21–03 juhlaväen keskellä (E: moraali ja mielihyvä). Lavalla soittaa isompi Vaalan Tähtiorkesteri

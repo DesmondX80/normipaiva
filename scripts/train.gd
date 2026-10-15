@@ -121,6 +121,11 @@ func _spawn(passenger: bool, from_start := -1) -> void:
 				build_loco(n, ln)
 			_:
 				build_coach(n, ln, sp[0] == "dining")
+		# Törmäyslaatikko: seisovan junan läpi ei kävellä eikä ajeta (liikkuva tappaa, ks. hits).
+		var body := AnimatableBody3D.new()
+		body.sync_to_physics = false
+		body.add_child(B.box_shape(Vector3(3.1, 3.4, ln - 0.2), Vector3(0, 2.5, 0)))
+		n.add_child(body)
 		_units.append([n, ln, off + ln / 2.0])
 		off += ln + 0.8
 	_train_len = off
@@ -184,6 +189,20 @@ func _start_at_station(stop_t: float, from_start: int) -> void:
 	_spawn(true, from_start)
 	var d := stop_t if _dir == 1 else _length - stop_t
 	_stop_s = d + _train_len / 2.0
+
+
+## Osuuko liikkuva juna maailman pisteeseen gp (pelaajan jalat), r = pelaajan säde. Seisova juna ei tapa.
+func hits(gp: Vector3, r := 0.5) -> bool:
+	if not _active or _speed < 0.8:
+		return false
+	for u in _units:
+		var n: Node3D = u[0]
+		if not n.visible:
+			continue
+		var q := n.to_local(gp)
+		if absf(q.x) < 1.55 + r and absf(q.z) < float(u[1]) / 2.0 + r and q.y > -1.0 and q.y < 4.2:
+			return true
+	return false
 
 
 func arriving() -> bool:
