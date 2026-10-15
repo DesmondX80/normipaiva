@@ -96,8 +96,8 @@ const SHOTS := [
 	{"id": "f_kiihdytys", "g": "kiihdytys", "b": 8, "in": 2.0},
 	{"id": "f_lava_tanssi", "g": "lavatanssi", "b": 10, "in": 4.0},
 	{"id": "s_paivi_tv", "g": "tv", "b": 14, "in": 4.0},
-	{"id": "m_juna", "g": "juna", "b": 10},  # junalla Vaalasta takaisin Saloisiin (terästehtaan ohi) ennen nuotioita
 	{"id": "f_nuoret", "g": "vaala", "b": 8},
+	{"id": "m_juna", "g": "juna", "b": 10},  # Vaala päättyy nuotioon, juna vie takaisin Saloisiin ennen laavua
 	{"id": "f_auringonlasku", "g": "laavu", "b": 12},
 
 	# --- Loppu: logo ------------------------------------------------------------------------------------------------
