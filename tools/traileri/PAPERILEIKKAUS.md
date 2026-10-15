@@ -95,13 +95,13 @@ Rakenne: prologi ilman musiikkia → tunnari kokonaan kappaleen osien mukaan →
 | 39 | `m_kala` | Soutuvene Likasella | Kiertävä veneen vierestä | 8 b | 2 | |
 | 40 | `f_pingis` | Pihapingis, lyönti | Lähikuva | 8 b | 3 | |
 | 41 | `s_mokkibileet` | MÖKKIBILEET!, kokko | Välianimaatio | 10 b | 1 | |
-| 42 | `m_juna` | Juna Raahen terästehtaan ohi | Välianimaatio | 10 b | 0 | VAALA |
-| 43 | `f_mopo_silta` | Mopolla Vaalan tiellä | Sivuseuranta | 8 b | 1 | |
+| 43 | `f_mopo_silta` | Mopolla Vaalan tiellä | Sivuseuranta | 8 b | 1 | VAALA |
 | 44 | `f_siitari` | Siitarin tanssilattia | Alaviisto | 8 b | 1 | |
 | 45 | `k_karaoke` | Karaoke Siitarissa | Laulajan edestä | 8 b | 1 | |
 | 46 | `f_kiihdytys` | Kiihdytys Zabukin pihalta | Kilpailun kamera | 8 b | 1 | |
 | 47 | `f_lava_tanssi` | Kesäillan valssi lavalla | Kiertää paria | 10 b | 2 | |
 | 48 | `s_paivi_tv` | Päivi näkee tanssin telkkarista: "SE ON SE! Mun mies!" | Välianimaatio | 14 b | 2 | |
+| 42 | `m_juna` | Junalla Vaalasta takaisin Raaheen, terästehtaan ohi | Välianimaatio | 10 b | 0 | |
 | 49 | `f_nuoret` | Nuorten nuotio Vaalassa | Matala | 8 b | 0 | |
 | 50 | `f_auringonlasku` | Laavu auringonlaskussa: LEGENDAARINEN NORMIPÄIVÄ! | Välianimaatio | 12 b | 0 | |
 

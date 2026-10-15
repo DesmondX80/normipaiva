@@ -90,13 +90,13 @@ const SHOTS := [
 	{"id": "m_kala", "g": "kala", "b": 8, "at": 151.955, "in": 5.0},
 	{"id": "f_pingis", "g": "pingis", "b": 8, "in": 5.0},
 	{"id": "s_mokkibileet", "g": "mokkibileet", "b": 10, "in": 3.0},
-	{"id": "m_juna", "g": "juna", "b": 10, "teksti": "VAALA"},
-	{"id": "f_mopo_silta", "g": "vaala", "b": 8, "in": 1.5},
+	{"id": "f_mopo_silta", "g": "vaala", "b": 8, "in": 1.5, "teksti": "VAALA"},
 	{"id": "f_siitari", "g": "siitari", "b": 8, "in": 1.5},
 	{"id": "k_karaoke", "g": "karaoke", "b": 8, "in": 1.5},
 	{"id": "f_kiihdytys", "g": "kiihdytys", "b": 8, "in": 2.0},
 	{"id": "f_lava_tanssi", "g": "lavatanssi", "b": 10, "in": 4.0},
 	{"id": "s_paivi_tv", "g": "tv", "b": 14, "in": 4.0},
+	{"id": "m_juna", "g": "juna", "b": 10},  # junalla Vaalasta takaisin Raaheen ennen nuotioita
 	{"id": "f_nuoret", "g": "vaala", "b": 8},
 	{"id": "f_auringonlasku", "g": "laavu", "b": 12},
 
