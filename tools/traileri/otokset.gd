@@ -758,30 +758,52 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			main._start_pingis()
 			var pg: Node3D = main.get_children().filter(func(c): return c.get_script() and c.get_script().resource_path.ends_with("pingis_game.gd"))[0]
 			var PG = pg.get_script()
-			var tk := func(_t: float) -> void:
+			# Elokuvamainen pingis: kamera maan rajassa keskiköyden kohdalla Santun puolella, pallo lentää taivasta vasten
+			# kameran yli. Pelaaja lyö aina smashin; osuman hetkellä peli hidastuu hetkeksi (slow motion).
+			var slow := {"t": -1.0, "last": -1}
+			var tk := func(t: float) -> void:
 				if not is_instance_valid(pg):
+					Engine.time_scale = 1.0
 					return
 				if pg._phase == "serve" and pg._server == 0:
 					pg._serve(0)
 				elif pg._phase == "rally" and pg._last == 1 and pg._pl[0].swing_t < 0.0:
 					pg._pl[0].x = move_toward(pg._pl[0].x, clampf(pg._land_x(PG.HIT_Y) - 0.45, -PG.X_MAX, -PG.X_MIN), 0.06)
 					if pg._ball.distance_to(pg._paddle(0)) < 0.6:
-						pg._swing(0, "smash" if pg._ball.y > 1.8 else "normal", 0.0)
+						pg._swing(0, "smash", 0.0)
+				if pg._last == 0 and slow.last != 0 and pg._pl[0].kind == "smash" and slow.t < 0.0 and t > 0.0:
+					slow.t = t  # pelaajan smash osui
+					print("TRAILER pingis: smash %.2f s" % t)
+				slow.last = pg._last
+				var k := 1.0
+				if slow.t >= 0.0:
+					var u: float = t - slow.t
+					k = 0.3 if u < 0.9 else lerpf(0.3, 1.0, clampf((u - 0.9) / 0.4, 0.0, 1.0))
+				Engine.time_scale = k
+				for e in pg._effects:  # pelin omat "SMASH!"-tekstit pois
+					if is_instance_valid(e[0]):
+						e[0].visible = false
 			for i in 90:
 				tk.call(0.0)
 				await main.get_tree().process_frame
-			var pst := {"eye": Vector3.ZERO}
+			# Santun olan yli: Santtu etualalla epätarkkana, pelaaja tarkkana kasvot kameraan, pallo lentää välissä.
+			# Kapea kuvakulma tiivistää syvyyden; kamera seuraa Santun paikkaa pehmeästi.
+			var pst := {"eye": Vector3.ZERO, "look": Vector3.ZERO}
 			var pcam := func(_t: float) -> Array:
 				if not is_instance_valid(pg):
-					return [Vector3.ZERO, Vector3.ZERO]
-				var a: Vector3 = pg._pl[0].body.global_position
-				var b: Vector3 = pg._pl[1].body.global_position
-				var mid := a.lerp(b, 0.25) + Vector3(0, 1.2, 0)
-				var away: Vector3 = (pg._cam.global_position - mid) * Vector3(1, 0, 1)
-				var want := mid + away.normalized() * 3.6 + (b - a).normalized() * -1.2 + Vector3(0, 0.1, 0)
-				pst.eye = want if pst.eye == Vector3.ZERO else pst.eye.lerp(want, 0.1)
-				return [pst.eye, mid]
-			return {"warm": 1, "tick": tk, "hide_games": ["pingis_game.gd"], "cam": pcam, "fov": 42.0, "dof": 5.0}
+					return [pst.eye, pst.look]
+				var me: Vector3 = pg._pl[0].body.global_position
+				var st: Vector3 = pg._pl[1].body.global_position
+				var want_eye: Vector3 = st + Vector3(1.3, 1.25, 0.95)
+				var want_look: Vector3 = me + Vector3(0.0, 1.15, 0.0)
+				if pst.eye == Vector3.ZERO:
+					pst.eye = want_eye
+					pst.look = want_look
+				pst.eye = (pst.eye as Vector3).lerp(want_eye, 0.06)
+				pst.look = (pst.look as Vector3).lerp(want_look, 0.08)
+				return [pst.eye, pst.look]
+			return {"warm": 1, "tick": tk, "hide_games": ["pingis_game.gd"], "cam": pcam, "fov": 24.0, "dof": 6.5,
+				"done": func() -> void: Engine.time_scale = 1.0}
 		"f_jahti":
 			var mk: Node3D = _mokki(main)
 			_time(main, 7, 0)
