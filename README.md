@@ -38,6 +38,13 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   poimia jalan (kunto +15). Rollaattorimummon eteen ei kannata mennä: hän nostaa kepin olan yli ja huitaisee.
   Ehdit perääntyä, kun keppi nousee. Osuma päähän on kuolema, ja Päivi motkottaa: "Älä kiusaa mummoja! Ne tappaa!"
   Testit `--scene=mummokeppi` ja `tools/testit/mummo_kuvat.tscn`.
+- **Rasvanappi (vain aikuisille):** aseman takana on rapistunut tavaramakasiini. Länsipäädyn takaovella palaa punainen
+  lamppu häkissä: koputa (E), niin kurkistusluukku aukeaa ja portsari kysyy salasanan. Oikea on "Rasvanappi", ja
+  väärästä luukku paukahtaa kiinni. Sisällä pelaajat (Pekka, Arto, Sinikka, Raimo ja Helena) esittäytyvät pyyhkeissään.
+  Muista, kuka kiroilee, hyräilee, kikattaa, niiskuttaa tai huokailee, sillä pimeässä muut tunnistaa vain äänestä.
+  Valojen sammuttua kontataan (WASD, Shift ripeästi mutta kolisten). Rasvanappi tökkää jotakuta takaapäin peppuun
+  (E) ja huutaa nimen. Jos arvaus osuu, tökätty nuolee sormen ja on seuraava nappi. Jos ei, tökkääjä nuolee itse.
+  Kun nappi on joku muu, se jahtaa pimeässä. Testit `--scene=rasvanappi` ja `tools/testit/rasvanappi_kuvat.tscn`.
 - **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (kauppalista ja Päivin omin sanoin
   kirjoittamat muistutukset; mökillä lapun kirjoittaa Santtu). Pelin tiedot, kuten jemmojen tilanne ja varoitukset,
   tulevat ruudun viesteinä. Kauppalistan neljä tuotetta on kirjoitettu kukin omanvärisellä kynällä ("vihreä tamponi,
