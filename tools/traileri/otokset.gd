@@ -10,6 +10,9 @@ extends RefCounted
 const M := preload("res://scripts/map_data.gd")
 const T := preload("res://scripts/terrain.gd")
 const B := preload("res://scripts/build.gd")
+## m_juna: ruutuja paluujunan välianimaation alusta ravintolavaunun "hand"-repliikkiin (häivytys 0,4 s + ulkokuva
+## 6,5 s + häivytys 0,4 s + 5 repliikkiä × 2,3 s) ja 0,2 s päälle (cutscene.gd TRAIN_TALK_SALOINEN).
+const JUNA_HAND_FRAMES := 570
 
 
 
@@ -880,14 +883,14 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var pp: Vector3 = mt.to_global(vl.party_pos)
 			var look := pp + Vector3(0, 0.8, 0)
 			return {"cam": dolly(pp + Vector3(3.4, 1.3, 2.6), pp + Vector3(2.6, 1.15, 2.0), look, look + Vector3(0, 0.15, 0)), "fov": 48.0, "dof": 6.0}
-		"m_juna":  # paluumatka illalla: Vaalasta junalla takaisin Saloisiin (pelin oma paluuvälianimaatio)
+		"m_juna":  # paluumatka illalla Vaalasta Saloisiin: kuvaus alkaa ravintolavaunussa, kun Helenan käsi lähtee reidelle
 			_time(main, 21, 0)
 			_vaala(main)
 			for i in 5:
 				await main.get_tree().process_frame
-			main.money = 40.0
+			main.money = 40.0  # riittää tarjoamiseen: repliikit (ja käden hetki) kuten JUNA_HAND_FRAMES olettaa
 			main._train_trip("saloinen")
-			return {"warm": 150}
+			return {"warm": JUNA_HAND_FRAMES}
 
 		# --- Hahmoesittelyt: hahmo omassa ympäristössään, hidas työntö kohti -------------------------------------------
 		"h_paivi":
