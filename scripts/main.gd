@@ -946,6 +946,7 @@ func _ready() -> void:
 		await world.build(_loading_step)
 		await _loading_step.call("Mökki, Siitari ja Raahen baari", 0.97)
 	home_zone = world.home_zone
+	_ajastus("maailma")
 	shop_zone = world.shop_zone
 	var sb := M.w2(M.SHOP_BUILDING)
 	shop_door = Vector3(sb.x + 11.0, 0, sb.y + 10.2)  # oven edusta (world.gd _build_shop: ovi x +11, julkisivu z +9)
@@ -977,6 +978,7 @@ func _ready() -> void:
 	player.world = world
 	_spawn_hazards()
 	_spawn_interior()
+	_ajastus("pelaaja, vaarat ja kauppa")
 	mokki = Mokki.new()
 	mokki.position = MOKKI_POS
 	add_child(mokki)
@@ -987,6 +989,7 @@ func _ready() -> void:
 	mokki.add_child(kalle)
 	kauppa_auto = KauppaAuto.new()
 	mokki.add_child(kauppa_auto)
+	_ajastus("mökki")
 	kauppa_auto.arrived.connect(_on_kauppa_auto_arrived)
 	for fp in Mokki.forage_positions():
 		var lp: Vector2 = fp[0]
@@ -1039,6 +1042,7 @@ func _ready() -> void:
 	raahe_int.acted.connect(_on_raahe_acted)
 	raahe_int.paivi_caught.connect(_on_raahe_paivi_caught)
 	fight = Fight.new()
+	_ajastus("sisätilat")
 	fight.position = Vector3(-3000, 0, 0)
 	add_child(fight)
 	fight.finished.connect(_on_fight_finished)
@@ -1069,6 +1073,7 @@ func _ready() -> void:
 	paper.bike = bike
 	_build_hud()
 	cutscene = Cutscene.new()
+	_ajastus("kartta, reppu ja ääni")
 	cutscene.env = _env
 	cutscene.sun = _sun
 	cutscene.hide_nodes = [bike, walker_out]
@@ -1098,6 +1103,7 @@ func _ready() -> void:
 	Settings.changed.connect(_apply_settings)
 	_apply_settings()
 	menu = Menu.new()
+	_ajastus("tarinat ja tilat")
 	menu.game = self
 	add_child(menu)
 	var debug_shot := false
@@ -1129,12 +1135,26 @@ func _ready() -> void:
 	if loading:
 		_loading_hide()
 		set_process(true)
+	_ajastus("valikko ja aamu")
 	_maybe_screenshot()
 
 
 var _loading_layer: CanvasLayer
 var _loading_bar: ProgressBar
 var _loading_text: Label
+var _ajastus_t := -1
+
+
+## --ajastus: käynnistyksen vaiheiden kestot (latausajan hiontaan).
+func _ajastus(label: String) -> void:
+	if not "--ajastus" in OS.get_cmdline_user_args():
+		return
+	var now := Time.get_ticks_msec()
+	print("AJASTUS main: %-30s %5d ms (yht. %d ms) · muisti %d Mt, video %d Mt, tekstuurit %d Mt, puskurit %d Mt, objekteja %d" % [
+		label, now - (_ajastus_t if _ajastus_t >= 0 else now), now, Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576,
+		Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576, Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576,
+		Performance.get_monitor(Performance.RENDER_BUFFER_MEM_USED) / 1048576, Performance.get_monitor(Performance.OBJECT_COUNT)])
+	_ajastus_t = now
 
 
 ## Latausruutu: tumma tausta, pelin nimi, vaiheen nimi ja edistymispalkki.
@@ -14805,10 +14825,13 @@ func _maybe_screenshot() -> void:
 	match scene:
 		"vaala_ajo":
 			# Vaalan tiet, kohteet ja juna mopolla autopilotilla (tools/testit/vaala_ajo.gd).
+			var saved_ajo := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
 			var ajo: Node = load("res://tools/testit/vaala_ajo.gd").new()
 			ajo.main = self
 			add_child(ajo)
 			await ajo.run()
+			if not saved_ajo.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_ajo)
 			get_tree().quit()
 			return
 		"shop":
