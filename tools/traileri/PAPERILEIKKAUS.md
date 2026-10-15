@@ -52,7 +52,7 @@ Rakenne: prologi ilman musiikkia → tunnari kokonaan kappaleen osien mukaan →
 | # | Otos | Kuva | Kamera | Kesto | In |
 |---|---|---|---|---|---|
 | 18 | `s_aarnivalkea` | Sininen liekki yöllä metsässä | Hidas työntö | 10 b | 1 |
-| 19 | `v_sahkopyora` | Sähköpyörän kasaus tallissa | Alaviisto | 8 b | 0 |
+| 19 | `f_mopo_ajo` | Omalla mopolla illalla kylätiellä (korvasi sähköpyörän kasauksen) | Sivuseuranta | 8 b | 0 |
 | 20 | `f_sahkopyora_ajo` | Sähköpyörällä mäkeä alas | Matala edestä | 8 b | 0 |
 | 21 | `v_mummot` | Mummojen kettukarkit lentävät | Sivu | 8 b | 2 |
 | 22 | `s_taksi` | Taksi Raaheen katuvaloissa | Välianimaatio, vain alku | 6 b | 1 |
