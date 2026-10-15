@@ -1646,17 +1646,25 @@ func _build_ride_road(guide: String, village: String) -> Node3D:
 
 const TRAIN_POS := Vector3(-12000, 0, -9000)  # oma tasku (ennen sama kuin autotallin sisätila: talli näkyi kuvissa)
 const Train := preload("res://scripts/train.gd")
+var train_cast := {}  # ravintolavaunun hahmot (testikuvat)
+const PALM_TURN := PI  # Helenan kämmenen kierto kyynärvarren ympäri (kämmen alas reittä vasten)
+## Naismatkustajat iltajunassa juhlatamineissa 90-luvun tapaan: Marjalla musta hihaton satiininen slip-mekko,
+## Liisalla valkoinen napapaita ja farkkuminihame, Helenalla punainen olkaimeton bodycon-minimekko, korkokengät
+## ja kultaiset rengaskorvakorut (_hoops).
 const MARJA := {
-	"model": "female", "shirt": Color(0.2, 0.42, 0.68), "pants": Color(0.16, 0.16, 0.2), "shoes": Color(0.12, 0.1, 0.1),
-	"hair": "Hair_Long", "hair_color": Color(0.42, 0.26, 0.14), "height": 1.68,
+	"model": "female", "shirt": Color(0.05, 0.05, 0.07), "pants": Color(0.05, 0.05, 0.07), "shoes": Color(0.05, 0.05, 0.05),
+	"hair": "Hair_Long", "hair_color": Color(0.42, 0.26, 0.14), "height": 1.68, "shine": 0.75, "sleeve_x": 0.2,
+	"shorts_y": 0.74, "bare_skin": Color(0.88, 0.68, 0.56), "curves": 0.6, "bulk": -0.2,
 }
 const LIISA := {
-	"model": "female", "shirt": Color(0.9, 0.56, 0.18), "pants": Color(0.3, 0.26, 0.22), "shoes": Color(0.3, 0.2, 0.15),
-	"hair": "Hair_Buns", "hair_color": Color(0.9, 0.8, 0.52), "height": 1.64,
+	"model": "female", "shirt": Color(0.95, 0.95, 0.93), "pants": Color(0.38, 0.5, 0.7), "shoes": Color(0.92, 0.9, 0.88),
+	"hair": "Hair_Buns", "hair_color": Color(0.9, 0.8, 0.52), "height": 1.64, "crop_y": 1.23, "sleeve_x": 0.22,
+	"shorts_y": 0.78, "denim": true, "bare_skin": Color(0.85, 0.64, 0.52), "curves": 0.6, "bulk": -0.25,
 }
 const HELENA := {
-	"model": "female", "shirt": Color(0.55, 0.15, 0.35), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.1, 0.1, 0.1),
-	"hair": "Hair_Long", "hair_color": Color(0.1, 0.08, 0.07), "height": 1.7,
+	"model": "female", "shirt": Color(0.82, 0.03, 0.12), "pants": Color(0.82, 0.03, 0.12), "shoes": Color(0.78, 0.02, 0.08),
+	"hair": "Hair_Long", "hair_color": Color(0.1, 0.08, 0.07), "height": 1.72, "shine": 0.9, "tube_y": 1.41, "sleeve_x": 0.2,
+	"shorts_y": 0.8, "bare_skin": Color(0.84, 0.62, 0.5), "curves": 1.0, "bulk": -0.2,
 }
 const WAITER := {
 	"shirt": Color(0.95, 0.95, 0.95), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.05, 0.05, 0.05),
@@ -1665,8 +1673,8 @@ const WAITER := {
 ## Ravintolavaunun jutustelu: [puhuja, repliikki]; puhuja "minä", "marja", "liisa", "helena" tai "tarjoilija".
 ## Pelaaja juo olutta ja tarjoaa naisille Koskenkorvat; kolmas kenttä "treat" = repliikki, joka vaihtuu
 ## TRAIN_NO_TREAT:iin, jos rahat eivät riitä tarjoamiseen (naiset ostavat paukkunsa itse); "hand" = paukun
-## jälkeen vieressä istuva Helena laskee kätensä pelaajan polven päälle (IK) ja liu'uttaa sen reittä pitkin
-## sisäreidelle, jossa se pysyy loppumatkan.
+## jälkeen vieressä istuva Helena laskee kätensä vaivihkaa pelaajan polven päälle (IK) ja sivelee reittä
+## hitaasti edestakaisin loppumatkan. Pelaaja tarttuu tuoppiinsa, ja ohimolta valuu silloin tällöin hikipisara.
 const TRAIN_TALK_VAALA := [
 	["marja", "Onko tässä vapaata? Ravintolavaunusta näkee parhaiten."], ["minä", "Istukaa toki! Tuoppi on just kaadettu."],
 	["liisa", "Oletko menossa Vaalaan asti?"], ["minä", "Oulujärven rantaan, Paapeliin. Mökillä odottaa sauna."],
@@ -1713,6 +1721,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	car.position = TRAIN_POS + Vector3(0, 40, 0)
 	_props.add_child(car)
 	var cast := _build_dining_car(car)
+	train_cast = cast
 	var scenery: Node3D = cast.scenery
 	var faded := false  # häivytys vasta, kun kamera on vaunussa (muuten näkyi hetken tyhjä tehdaskohtauksen paikka)
 	var lines: Array = TRAIN_TALK_VAALA if to_vaala else TRAIN_TALK_SALOINEN
@@ -1722,7 +1731,8 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	for i in lines.size():
 		if lines[i].size() > 2 and lines[i][2] == "hand":
 			hand_from = i
-	var hand := {"w": 0.0, "slide": 0.0, "rest": Vector3.ZERO}
+	var hand := {"w": 0.0, "slide": 0.0, "rest": Vector3.ZERO, "stroke0": -1.0}
+	var sweat := {"t": 0.0, "drops": []}
 	var t0 := _now_ms()
 	var last := -1
 	while _now_ms() - t0 < lines.size() * LINE * 1000.0:
@@ -1753,6 +1763,8 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			hand.w = minf(1.0, hand.w + hdt * 1.4)
 			if hand.w >= 1.0:
 				hand.slide = minf(1.0, hand.slide + hdt * 0.3)
+				if hand.slide >= 1.0 and hand.stroke0 < 0.0:
+					hand.stroke0 = t
 			var hip: Vector3 = hero.to_global(hero.bone_position("thigh_l"))
 			var knee: Vector3 = hero.to_global(hero.bone_position("calf_l"))
 			var side: Vector3 = hl.global_position - hero.global_position
@@ -1765,17 +1777,29 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			var elbow: Vector3 = hl.to_global(hl.bone_position("lowerarm_r"))
 			var reach: float = (sh.distance_to(elbow) + elbow.distance_to(hl.to_global(hl.bone_position("hand_r")))) * 0.95
 			var hs := smoothstep(0.0, 1.0, hand.slide)
-			var at_t := lerpf(0.96, 0.8, hs)
+			# Perillä käsi sivelee reiden päällä hitaasti edestakaisin.
+			var at_t := lerpf(0.96, 0.8, hs) + (0.07 * sin((t - hand.stroke0) * 1.3) if hand.slide >= 1.0 else 0.0)
 			var on_thigh := Vector3.ZERO
 			while true:
-				on_thigh = hip.lerp(knee, at_t) + Vector3(0, 0.12 + 0.02 * sin(hs * PI), 0) + side * lerpf(0.05, -0.06, hs)
+				on_thigh = hip.lerp(knee, at_t) + Vector3(0, 0.12 + 0.02 * sin(hs * PI), 0) + side * lerpf(0.05, 0.015, hs)
 				if on_thigh.distance_to(sh) <= reach or at_t <= 0.45:
 					break
 				at_t -= 0.03
 			var goal: Vector3 = (hand.rest as Vector3).lerp(on_thigh, smoothstep(0.0, 1.0, hand.w))
-			# Kämmen kääntyy hieman myötäpäivään (ylhäältä katsottuna) reiden suuntaisemmaksi.
+			# Kämmen kääntyy kyynärvarren ympäri alaspäin reittä vasten (IK jättäisi sen ylöspäin) ja hieman
+			# myötäpäivään (ylhäältä katsottuna) reiden suuntaisemmaksi.
+			var fore: Vector3 = (hl.bone_position("hand_r") - hl.bone_position("lowerarm_r")).normalized()
 			hl.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", hl.to_local(goal),
-				hl.to_local(sh + Vector3(0, -0.4, 0) + hl.global_basis.z * 0.25), Basis(Vector3.UP, -0.35 * hand.w))
+				hl.to_local(sh + Vector3(0, -0.4, 0) + hl.global_basis.z * 0.25),
+				Basis(fore, PALM_TURN * hand.w) * Basis(Vector3.UP, -0.35 * hand.w))
+			# Pelaaja nostaa oman kätensä reideltä ja tarttuu hermostuneena tuoppiinsa.
+			var mug: Vector3 = hero.to_local(car.to_global(Vector3(-0.67, 0.86, 0.22)))
+			var own: Vector3 = hero.bone_position("hand_l").lerp(mug, smoothstep(0.0, 1.0, hand.w)) if not hand.has("own0") \
+				else (hand.own0 as Vector3).lerp(mug, smoothstep(0.0, 1.0, hand.w))
+			if not hand.has("own0"):
+				hand.own0 = hero.bone_position("hand_l")
+			hero.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", own, own + Vector3(-0.4, -0.3, 0.3))
+		_train_sweat(cast["minä"], car, sweat, hand.w)
 		if k == hand_from or k == hand_from + 1:
 			# Käsi reidellä: kurkistus pöydän alta vastapäätä (pöytälevy peittää sylin ylhäältä).
 			_cam.global_position = car.to_global(Vector3(lerpf(-0.3, -0.38, u), 0.58, lerpf(-0.42, -0.5, u)))
@@ -2122,12 +2146,53 @@ func _build_dining_car(car: Node3D) -> Dictionary:
 	cast["marja"] = seat.call(MARJA, Vector3(-1.05, 0.0, -0.85), Vector3(0, 0, 1))
 	cast["liisa"] = seat.call(LIISA, Vector3(-0.55, 0.0, -0.85), Vector3(0, 0, 1))
 	cast["helena"] = seat.call(HELENA, Vector3(-1.1, 0.0, 0.85), Vector3(0, 0, -1))
+	_hoops(cast["helena"])
 	var waiter := Looks.make(car, WAITER)
 	waiter.position = Vector3(0.35, 0.0, -1.55)
 	waiter.rotation.y = B.yaw_to(Vector3(-0.8, 0, 1.0))
 	waiter.play("Idle_Talking", 0.0)
 	cast["tarjoilija"] = waiter
 	return cast
+
+
+## Pelaajan ohimolta valuu silloin tällöin pieni hikipisara, kun Helenan käsi on reidellä (w = käden paino 0..1).
+func _train_sweat(hero: Node3D, car: Node3D, sweat: Dictionary, w: float) -> void:
+	var dt := get_process_delta_time()
+	if w > 0.5:
+		sweat.t -= dt
+		if sweat.t <= 0.0:
+			sweat.t = randf_range(1.2, 1.8)
+			var hp: Vector3 = hero.to_global(hero.bone_position("Head") + Vector3([-0.085, 0.085].pick_random(), 0.1, -0.04))
+			var d := B.mesh(car, B.sphere(0.008, 6), car.to_local(hp), Color(0.75, 0.9, 1.0))
+			d.scale = Vector3(1.0, 1.5, 1.0)
+			var dm := d.material_override as StandardMaterial3D
+			dm.metallic_specular = 1.0
+			dm.roughness = 0.05
+			sweat.drops.append({"node": d, "age": 0.0})
+	for dr in sweat.drops.duplicate():
+		dr.age += dt
+		var n: Node3D = dr.node
+		n.position.y -= dt * (0.03 + dr.age * 0.12)
+		if dr.age > 1.0:
+			n.queue_free()
+			sweat.drops.erase(dr)
+
+
+## Kultaiset rengaskorvakorut.
+static func _hoops(c: Node3D) -> void:
+	for s in [-1.0, 1.0]:
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.022
+		tm.outer_radius = 0.027
+		tm.rings = 16
+		tm.ring_segments = 6
+		ring.mesh = tm
+		ring.material_override = B.mat(Color(0.95, 0.75, 0.25))
+		(ring.material_override as StandardMaterial3D).metallic = 0.9
+		(ring.material_override as StandardMaterial3D).roughness = 0.25
+		ring.rotation = Vector3(0, 0, PI / 2.0)
+		c.attach("Head", ring, Vector3(s * 0.072, 0.0, 0.005))
 
 
 # --- Autotalli ja karburaattori ---------------------------------------------------

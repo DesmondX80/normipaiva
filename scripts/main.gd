@@ -24791,6 +24791,48 @@ func _maybe_screenshot() -> void:
 				if state != "fight":
 					break
 			print("HEITTO after fight beers=%d state=%s msg=%s" % [beers, state, _msg.text.replace("\n", " | ")])
+		"junavaunu", "junavaunu_saloinen":
+			# Ravintolavaunun välianimaatio: kuva jokaisesta repliikistä (Helenan lähentely, pelaajan hiki).
+			var done := [false]
+			cutscene.train_ride(scene == "junavaunu", func() -> void: done[0] = true, true)
+			var seen := ""
+			var due := -1
+			var n := 0
+			var close_n := 0
+			var close_due := 0
+			var cast_hand := func(tc: Dictionary) -> Vector3:
+				return tc.helena.to_global(tc.helena.bone_position("hand_r")) if tc.has("helena") else Vector3.ZERO
+			var t0 := Time.get_ticks_msec()
+			while not done[0] and Time.get_ticks_msec() - t0 < 90000:
+				await get_tree().process_frame
+				var sub: String = cutscene._sub.text
+				if sub != seen and sub.contains(": "):
+					seen = sub
+					due = Time.get_ticks_msec() + 1500
+				# Käsi reidellä: suurennos pelaajan vasemmasta reidestä pöydän yli ja sivusta (0.7 s välein).
+				var tc: Dictionary = cutscene.train_cast
+				if not tc.is_empty() and is_instance_valid(tc.helena) and tc.helena._ik.has("arm_r") and close_n < 24 \
+						and Time.get_ticks_msec() >= close_due and (cast_hand.call(tc) != Vector3.ZERO):
+					close_due = Time.get_ticks_msec() + 900
+					var hero: Node3D = tc["minä"]
+					var th: Vector3 = hero.to_global(hero.bone_position("thigh_l").lerp(hero.bone_position("calf_l"), 0.55))
+					var cc := Camera3D.new()
+					cc.fov = 38.0
+					add_child(cc)
+					for view in [["e", Vector3(0.12, 0.12, -0.55)], ["s", Vector3(-0.55, 0.25, -0.15)], ["v", Vector3(-0.35, 0.5, -0.35)]]:
+						cc.look_at_from_position(th + hero.global_basis * view[1], th, Vector3.UP)
+						cc.current = true
+						await RenderingServer.frame_post_draw
+						get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kasi%02d%s.png" % [close_n, view[0]]))
+					cc.queue_free()
+					cutscene._cam.current = true
+					close_n += 1
+				if due > 0 and Time.get_ticks_msec() >= due:
+					due = -1
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%02d.png" % n))
+					print("JUNAVAUNU %02d %s" % [n, seen])
+					n += 1
 		"mummokeppi":
 			# Jalan rollaattorimummon eteen: keppi nousee, osuu päähän -> WASTED ja Päivin motkotus mummoista.
 			_toggle_mount()
