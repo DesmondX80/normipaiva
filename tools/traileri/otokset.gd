@@ -945,6 +945,16 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 				wf.global_position = Vector3(p.x, T.h(p.x, p.z), p.z)
 				wf.rotation.y = yaw
 			place.call(p0, yaw0)
+			# Pelaaja jää tallin viereen katsomaan autoa (kasvot kameraan päin, profiili).
+			var me := p0 - out * 0.5 - _side(out) * 4.5
+			_foot(main, me, p1 - me)
+			# Pyörä pystyssä auton peruutusreitillä poikittain: auton perä kaataa sen (otoksen alussa n. 1,5 s).
+			var bk: Node3D = main.bike
+			var bp := p0 + out * 5.6 + _side(out) * 0.4
+			bk.global_position = Vector3(bp.x, T.h(bp.x, bp.z), bp.z)
+			bk.rotation = Vector3(0, B.yaw_to(_side(out)), 0)
+			bk.set_physics_process(false)  # kaatuminen käsin (tick)
+			var fall := {"t": -1.0, "a": 0.0}
 			var tick := func(t: float) -> void:
 				if t < 3.0:  # peruutus ja käännös
 					var k := smoothstep(0.3, 3.0, t)
@@ -952,14 +962,24 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 				else:  # liikkeelle
 					var u := t - 3.0
 					place.call(p1 + go * (1.2 * u * u), yaw1)
-			# Pelaaja jää tallin viereen katsomaan autoa (kasvot kameraan päin, profiili).
-			var me := p0 - out * 0.5 - _side(out) * 4.5
-			_foot(main, me, p1 - me)
+				if fall.t < 0.0 and (bp - wf.global_position).dot(out) < 3.0:  # perä osuu
+					fall.t = t
+					Sfx.play("rattle_hard", -2.0, 0.8)
+				if fall.t >= 0.0:
+					var f := clampf((t - fall.t) / 0.45, 0.0, 1.0)
+					var a := f * f * 1.45  # kiihtyvä kaatuminen kyljelleen auton liikesuuntaan
+					bk.rotate_object_local(Vector3(0, 0, 1), a - fall.a)
+					fall.a = a
+					var q := bp + out * 1.0 * f
+					bk.global_position = Vector3(q.x, T.h(q.x, q.z), q.z)
 			var mid := (p0 + p1) * 0.5
 			var look := mid + Vector3(0, 0.9, 0)
 			var eye := _best_eye(main, look, _ring(look, out - _side(out) * 0.6, 12.0, 0.5, 16))
 			return {"warm": 4, "tick": tick, "cam": func(_t: float) -> Array:
-				return [eye, look.lerp(wf.global_position + Vector3(0, 0.9, 0), 0.6)], "fov": 42.0, "dof": 14.0}
+				return [eye, look.lerp(wf.global_position + Vector3(0, 0.9, 0), 0.6)], "fov": 42.0, "dof": 14.0,
+				"done": func() -> void:  # pyörä pystyyn seuraaviin otoksiin
+					bk.rotation = Vector3(0, bk.rotation.y, 0)
+					bk.set_physics_process(true)}
 		"p_talli":  # tallin ovi auki (lavastettu aukko), pelaaja tulee ulos, nousee pyörän selkään ja ajaa kohti kameraa
 			_time(main, 8, 40)  # Päivi on jo lähtenyt
 			var gd: Vector3 = _g(main.world.garage_door)
