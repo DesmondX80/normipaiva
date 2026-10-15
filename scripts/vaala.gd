@@ -18,6 +18,7 @@ const Forest := preload("res://scripts/forest.gd")
 const Train := preload("res://scripts/train.gd")
 const StationBuild := preload("res://scripts/station_build.gd")
 const Looks := preload("res://scripts/looks.gd")
+const HumppaBand := preload("res://scripts/humppa_band.gd")
 ## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
 ## mökin omilla rakennusfunktioilla (mokki.gd ladataan ajonaikaisesti: mokki.gd -> mopo.gd -> vaala.gd).
 const MOKKI_PATH := "res://scripts/mokki.gd"
@@ -68,6 +69,7 @@ var _road_grid := {}  # ruutu (20 m) -> näytteiden indeksit
 var _walls: SurfaceTool
 var _roofs: SurfaceTool
 var _win_frames: Array[Transform3D] = []
+var _bld_polys: Array[PackedVector2Array] = []  # rakennusten pohjat (törmäys): ajoalueesta pois (_build_drive_mask)
 var _win_glass: Array[Transform3D] = []
 
 
@@ -364,6 +366,7 @@ func _build_drive_mask() -> void:
 	var mm := Vector2(mokki_mopo.x, mokki_mopo.z)
 	_drive_seg(mm, mm, 4.0)
 	_drive_seg(mm, Vector2(road[0][0], road[0][2]), 2.5)
+	_clear_buildings()
 	# Ovien ja pysäköintipaikkojen edustat: ovelle ja sieltä lähimmälle tielle.
 	var stops: Array[Vector3] = [siitari_park, siitari_door, kmarket_door, atm_pos, lava_door]
 	for d in doors:
@@ -382,7 +385,124 @@ func _build_drive_mask() -> void:
 			if ni[0] >= 0 and ni[1] < 40.0:
 				_drive_seg(p, Vector2(road[ni[0]][0], road[ni[0]][2]), 2.5)
 		_drive_seg(p, p, 5.0)
+	_carve_obstacles()
+	_connect_stops(stops)
+	_clear_buildings()  # ovien edustat eivät ulotu seinien sisään
 	print("VAALA ajoalue %d ms, %.0f %% ruuduista" % [Time.get_ticks_msec() - t0, 100.0 * _drive.count(1) / _drive.size()])
+
+
+## Rakennusten sisään ei ajeta: pohja pois ajoalueesta, ettei mopo juutu seinään (reunaa vasten se liukuu).
+func _clear_buildings() -> void:
+	for poly in _bld_polys:
+		var lo := poly[0]
+		var hi := poly[0]
+		for q in poly:
+			lo = lo.min(q)
+			hi = hi.max(q)
+		for j in range(maxi(int((lo.y - _z0) / DRIVE_CELL), 0), mini(int((hi.y - _z0) / DRIVE_CELL), _dnz - 1) + 1):
+			for i in range(maxi(int((lo.x - _x0) / DRIVE_CELL), 0), mini(int((hi.x - _x0) / DRIVE_CELL), _dnx - 1) + 1):
+				if Geometry2D.is_point_in_polygon(Vector2(_x0 + (i + 0.5) * DRIVE_CELL, _z0 + (j + 0.5) * DRIVE_CELL), poly):
+					_drive[j * _dnx + i] = 0
+
+
+## Pienet esteet (kojut, penkit, laavu, kyltit ja aidanpätkät) pois ajoalueelta: mopo liukuu niiden ohi reunaa
+## pitkin eikä juutu niihin. Isot laatikot (rakennukset, lattiat, sillankannet) ja lavan portti jäävät.
+func _carve_obstacles() -> void:
+	for body in find_children("*", "StaticBody3D", true, false):
+		for cs in (body as Node).get_children():
+			if not (cs is CollisionShape3D) or cs == _gate_block or not ((cs as CollisionShape3D).shape is BoxShape3D):
+				continue
+			var size: Vector3 = ((cs as CollisionShape3D).shape as BoxShape3D).size
+			if maxf(size.x, size.z) > 12.0 or size.y < 0.5:
+				continue
+			var xf := Transform3D()
+			var n: Node = cs
+			while n != self and n != null:
+				xf = (n as Node3D).transform * xf
+				n = n.get_parent()
+			if n == null:
+				continue
+			var gy := h(xf.origin.x, xf.origin.z)
+			if xf.origin.y - size.y / 2.0 > gy + 1.2 or xf.origin.y + size.y / 2.0 < gy + 0.3:
+				continue  # maan alla tai yläpuolella (kansi, katos)
+			var poly := PackedVector2Array()
+			for c in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+				# Kasvatus puolella ruudulla: ohuetkin esteet (penkki, aidanpätkä) osuvat ruutujen keskipisteisiin.
+				var q := xf * Vector3(c.x * (size.x / 2.0 + 0.4 + DRIVE_CELL * 0.5), 0, c.y * (size.z / 2.0 + 0.4 + DRIVE_CELL * 0.5))
+				poly.append(Vector2(q.x, q.z))
+			var lo := poly[0]
+			var hi := poly[0]
+			for q in poly:
+				lo = lo.min(q)
+				hi = hi.max(q)
+			for j in range(maxi(int((lo.y - _z0) / DRIVE_CELL), 0), mini(int((hi.y - _z0) / DRIVE_CELL), _dnz - 1) + 1):
+				for i in range(maxi(int((lo.x - _x0) / DRIVE_CELL), 0), mini(int((hi.x - _x0) / DRIVE_CELL), _dnx - 1) + 1):
+					if Geometry2D.is_point_in_polygon(Vector2(_x0 + (i + 0.5) * DRIVE_CELL, _z0 + (j + 0.5) * DRIVE_CELL), poly):
+						_drive[j * _dnx + i] = 0
+
+
+## Ovien edustat, joihin ei pääse tieverkosta (ajoalueen saareke rakennusten välissä): kapea ajoura lähimpään
+## tieverkon ruutuun, jonka suora ei kulje rakennuksen läpi.
+func _connect_stops(stops: Array) -> void:
+	var mid: Array = road[road.size() / 2]  # reitin keskikohta on varmasti ajoaluetta (alku on mökin pihassa)
+	var reach := _drive_flood(Vector2(mid[0], mid[2]))
+	for sp in stops:
+		if sp == Vector3.ZERO:
+			continue
+		var p := Vector2(sp.x, sp.z)
+		var c := _dcell(p)
+		if c >= 0 and reach[c] == 1:
+			continue
+		var best := Vector2.INF
+		var steps := int(60.0 / DRIVE_CELL)
+		var ci := c % _dnx
+		var cj := c / _dnx
+		for dj in range(-steps, steps + 1):
+			for di in range(-steps, steps + 1):
+				var i := ci + di
+				var j := cj + dj
+				if i < 0 or j < 0 or i >= _dnx or j >= _dnz or reach[j * _dnx + i] == 0:
+					continue
+				var q := Vector2(_x0 + (i + 0.5) * DRIVE_CELL, _z0 + (j + 0.5) * DRIVE_CELL)
+				if q.distance_squared_to(p) < best.distance_squared_to(p) and not _hits_building(p, q):
+					best = q
+		if best != Vector2.INF:
+			_drive_seg(p, best, 2.5)
+		if best == Vector2.INF:
+			push_warning("VAALA: ovelta %s ei löytynyt yhteyttä tieverkkoon" % p.round())
+
+
+func _dcell(p: Vector2) -> int:
+	var i := int((p.x - _x0) / DRIVE_CELL)
+	var j := int((p.y - _z0) / DRIVE_CELL)
+	return j * _dnx + i if i >= 0 and j >= 0 and i < _dnx and j < _dnz else -1
+
+
+## Ajoalueen ruudut, joihin pääsee pisteestä (1 = tavoitettava).
+func _drive_flood(from: Vector2) -> PackedByteArray:
+	var seen := PackedByteArray()
+	seen.resize(_drive.size())
+	var c := _dcell(from)
+	if c < 0 or _drive[c] == 0:
+		return seen
+	var stack := PackedInt32Array([c])
+	seen[c] = 1
+	while not stack.is_empty():
+		var id := stack[stack.size() - 1]
+		stack.resize(stack.size() - 1)
+		var i := id % _dnx
+		for nb in [id - 1 if i > 0 else -1, id + 1 if i < _dnx - 1 else -1, id - _dnx, id + _dnx]:
+			if nb >= 0 and nb < _drive.size() and _drive[nb] == 1 and seen[nb] == 0:
+				seen[nb] = 1
+				stack.append(nb)
+	return seen
+
+
+func _hits_building(a: Vector2, b: Vector2) -> bool:
+	for poly in _bld_polys:
+		if not Geometry2D.intersect_polyline_with_polygon(PackedVector2Array([a, b]), poly).is_empty():
+			return true
+	return false
 
 
 ## Lähin tien näyte ja etäisyys siitä (vaakatasossa). [-1, INF], jos tie on yli 60 m päässä.
@@ -425,26 +545,16 @@ func ensure_built() -> void:
 		return
 	built = true
 	var t0 := Time.get_ticks_msec()
-	_plan_north()
-	_build_terrain()
-	_build_far()
-	_build_road()
-	_build_bridges()
-	_build_side_roads()
-	_build_underpass()
-	_tori_prep()
-	_build_buildings()
-	_build_parkings()
-	_build_tori()
-	_build_station()
-	_build_signs()
-	_build_trees()
-	_build_lamps()
-	_build_atm()
-	_build_lava()
-	_build_mokki_yard()
-	_build_north()
-	_build_drive_mask()
+	var times: Array[String] = []
+	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
+			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_station, _build_signs,
+			_build_trees, _build_lamps, _build_atm, _build_lava, _build_mokki_yard, _build_north, _build_drive_mask,
+			_build_lava_grounds]:
+		var ts := Time.get_ticks_msec()
+		step.call()
+		if Time.get_ticks_msec() - ts > 60:
+			times.append("%s %d" % [step.get_method().trim_prefix("_build_"), Time.get_ticks_msec() - ts])
+	print("VAALA vaiheet (ms): ", ", ".join(times))
 	print("VAALA rakennettu %d ms" % (Time.get_ticks_msec() - t0))
 
 
@@ -874,6 +984,292 @@ var lava_door := Vector3.ZERO    # oven edusta ulkona (mopon pysäköinti)
 var lava_out := Vector3.ZERO     # ovelta ulospäin
 
 
+var lava_band: Node3D  # humppa_band.gd
+var _lava_crowd: Node3D
+var _lava_root: Node3D
+var _lava_dims := Vector3.ZERO
+var _lava_dancers: Node3D
+var _lava_live := false
+var _lava_cars: Array[Vector2] = []
+var lava_kiosk := Vector3.INF  # grillikioskin paikka (testikuvat)
+var _kiosk: Node3D
+var _kiosk_table: Node3D
+var _smoke_c := Vector2.INF
+var _lava_outside: Node3D  # pihan väki (grillikioski, tupakkapaikka) tanssien aikaan
+
+
+## Tanssit käynnissä (main.gd aukioloaika): bändi soittaa ja väki tanssii. in_game = pelaaja on sisällä
+## (lava_game.gd tuo omat tanssijansa ja soittaa kappaleen musiikkina): ulkoyleisö pois ja kaiutin hiljaiseksi.
+func set_lava_live(on: bool, in_game := false) -> void:
+	if lava_band == null:
+		return
+	if (on or in_game) and _lava_crowd == null:
+		# Ensimmäinen kerta tanssien aikaan: bändi, väki ja pihan väki (hahmojen luonti vie sekunnin).
+		lava_band.build()
+		_build_lava_crowd(_lava_root, _lava_dims.x, _lava_dims.y, _lava_dims.z)
+		_build_lava_kiosk_people()
+	if _lava_crowd == null:
+		return
+	lava_band.visible = on or in_game
+	_lava_crowd.visible = on or in_game
+	if _lava_outside != null:
+		_lava_outside.visible = on or in_game
+	_lava_dancers.visible = on and not in_game  # sisällä lava_game.gd tuo omat tanssijansa
+	# Piilossa tai kaukana väki ei animoi (hahmojen luustot ovat kalliita).
+	var cam := get_viewport().get_camera_3d()
+	var near := cam != null and cam.global_position.distance_to(to_global(lava_center)) < 120.0
+	_lava_crowd.process_mode = Node.PROCESS_MODE_INHERIT if _lava_crowd.visible and near else Node.PROCESS_MODE_DISABLED
+	if _lava_outside != null:
+		_lava_outside.process_mode = _lava_crowd.process_mode
+	lava_band.set_speaker(not in_game)
+	if on == _lava_live and not (in_game and lava_band.speaker):
+		return
+	_lava_live = on
+	if on and lava_band.current_song.is_empty():
+		lava_band.request(HumppaBand.Synth.SONGS.pick_random())
+	elif not on and not in_game:
+		lava_band.stop_playing()
+
+
+## Lavan piha pienemmäksi ja eläväksi: niityn paljaat laidat koivikoksi, katajiksi ja männiköksi (aukio jää
+## vain lavan ympärille, ajoteille ja kohteiden ympärille), grillikioski parkin laitaan ja tupakkapaikka oven
+## pieleen. Puut kasvavat vain ajoalueen ulkopuolelle (ajetaan _build_drive_maskin jälkeen).
+func _build_lava_grounds() -> void:
+	var lv: Dictionary = data.get("lava", {})
+	if lv.is_empty():
+		return
+	var c := Vector2(lv.x, lv.z)
+	var hw: float = float(lv.w) / 2.0
+	var hl: float = float(lv.l) / 2.0
+	var side: float = lv.get("door_side", 1.0)
+	var fence: Array[Vector2] = []
+	for q in lv.get("fence", []):
+		fence.append(Vector2(q[0], q[1]))
+	var keep_out: Array = []  # [piste, säde]
+	for d in doors:
+		keep_out.append([Vector2(d.pos.x, d.pos.z), 9.0])
+	for q in [pummi_in, pummi_out, kokko_pos, party_pos, yard_teens_pos, gate_out, gate_in, race_spot]:
+		if q != Vector3.ZERO and q != Vector3.INF:
+			keep_out.append([Vector2(q.x, q.z), 10.0])
+	keep_out.append([Vector2(lava_door.x, lava_door.z), 16.0])
+	for cp in _lava_cars:
+		keep_out.append([cp, 5.0])
+	if _wade_c != Vector2.INF:
+		keep_out.append([_wade_c, _wade_r])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9031
+	var trees: Array = []
+	var step := 4.0
+	var reach := Vector2(hw + 110.0, hl + 110.0)
+	var why := {}
+	var x := -reach.x
+	while x <= reach.x:
+		var z := -reach.y
+		while z <= reach.y:
+			var p := c + Vector2(x, z) + Vector2(rng.randf_range(-1.6, 1.6), rng.randf_range(-1.6, 1.6))
+			z += step
+			var rect_d := Vector2(maxf(absf(p.x - c.x) - hw, 0.0), maxf(absf(p.y - c.y) - hl, 0.0)).length()
+			if rect_d < 11.0 or code_at(p.x, p.y) in [ROAD, SHOULDER, WATER, RAIL, OUTSIDE] or wet(p.x, p.y, 0.12):
+				var wk := "lähellä" if rect_d < 11.0 else ("märkä" if wet(p.x, p.y, 0.12) else "koodi%d" % code_at(p.x, p.y))
+				why[wk] = why.get(wk, 0) + 1
+				continue
+			if code_at(p.x, p.y) == FOREST and rng.randf() < 0.45:
+				why["metsä"] = why.get("metsä", 0) + 1
+				continue  # metsämaalla on jo puita (siirretyn lavan alta puut on raivattu): harvemmin lisää
+			if rng.randf() > clampf((rect_d - 11.0) / 18.0, 0.3, 0.9):
+				continue
+			var blocked := false
+			for o in [Vector2.ZERO, Vector2(3.5, 0), Vector2(-3.5, 0), Vector2(0, 3.5), Vector2(0, -3.5)]:
+				if drivable(p.x + o.x, p.y + o.y):
+					blocked = true
+					break
+			for ko in keep_out:
+				if blocked or p.distance_to(ko[0]) < ko[1]:
+					blocked = true
+					break
+			for k in fence.size() - 1:
+				if blocked or Geometry2D.get_closest_point_to_segment(p, fence[k], fence[k + 1]).distance_to(p) < 3.0:
+					blocked = true
+					break
+			if blocked:
+				why["este"] = why.get("este", 0) + 1
+				continue
+			var r := rng.randf()
+			var sp := Forest.BIRCH if r < 0.5 else (Forest.PINE if r < 0.68 else (Forest.SPRUCE if r < 0.8 else Forest.BUSH))
+			if rect_d < 18.0 and rng.randf() < 0.6:
+				sp = Forest.BUSH  # aukion reunassa katajaa ja pajua
+			var hh := rng.randf_range(1.2, 2.6) if sp == Forest.BUSH else rng.randf_range(8.0, 15.0)
+			trees.append({"pos": Vector3(p.x, h(p.x, p.y), p.y), "h": hh, "sp": sp})
+		x += step
+	if not trees.is_empty():
+		var f := Forest.new()
+		f.name = "LavanLehto"
+		add_child(f)
+		f.load_list(trees, 77)
+	_build_lava_kiosk(c, hw, hl, side)
+	print("VAALA lavan piha: %d puuta ja pensasta, karsittu %s" % [trees.size(), why])
+
+
+## Grillikioski parkin laitaan (makkaraperunat ja kahvit), jono ja penkkipöytä; tupakkapaikka oven pieleen.
+func _build_lava_kiosk(c: Vector2, hw: float, hl: float, side: float) -> void:
+	_lava_outside = Node3D.new()
+	_lava_outside.visible = false
+	add_child(_lava_outside)
+	# Kioskin paikka: oven puolella lavan päädyn kohdalla, ajoalueen ulkopuolella.
+	var spot := Vector2.INF
+	for dz: float in [hl - 4.0, -hl + 4.0, hl + 4.0, -hl - 4.0, 0.0]:
+		for dx: float in [9.0, 12.0, 15.0]:
+			var q := c + Vector2(side * (hw + dx), dz)
+			if spot == Vector2.INF and not drivable(q.x, q.y) and not drivable(q.x + 2.5, q.y) and not drivable(q.x - 2.5, q.y) \
+					and not wet(q.x, q.y, 0.5) and Vector2(lava_door.x, lava_door.z).distance_to(q) > 11.0:
+				spot = q
+	if spot == Vector2.INF:
+		return
+	var face := Vector3(-side, 0, 0)  # luukku lavan suuntaan
+	lava_kiosk = Vector3(spot.x, h(spot.x, spot.y), spot.y)
+	var k := Node3D.new()
+	k.position = Vector3(spot.x, h(spot.x, spot.y), spot.y)
+	k.rotation.y = B.yaw_to(face)
+	add_child(k)  # kioski näkyy aina, väki vain tanssien aikaan
+	var body := StaticBody3D.new()
+	k.add_child(body)
+	body.add_child(B.box_shape(Vector3(2.6, 2.4, 2.0), Vector3(0, 1.2, 0)))
+	var white := Color(0.94, 0.93, 0.88)
+	var red := Color(0.72, 0.1, 0.08)
+	B.mesh(k, B.boxm(Vector3(2.6, 0.9, 2.0)), Vector3(0, 0.45, 0), red)  # alaosa
+	B.mesh(k, B.boxm(Vector3(2.6, 1.3, 2.0)), Vector3(0, 1.55, 0.0), white)
+	B.mesh(k, B.boxm(Vector3(1.8, 0.8, 0.04)), Vector3(0, 1.5, -1.01), Color(0.15, 0.12, 0.1))  # luukku auki
+	B.mesh(k, B.boxm(Vector3(2.0, 0.06, 0.45)), Vector3(0, 0.95, -1.2), Color(0.85, 0.85, 0.82))  # tiski
+	B.mesh(k, B.boxm(Vector3(2.9, 0.12, 2.4)), Vector3(0, 2.26, 0), Color(0.25, 0.25, 0.27))  # katto
+	for st in 6:  # raidallinen markiisi
+		var aw := B.mesh(k, B.boxm(Vector3(0.48, 0.03, 0.8)), Vector3(-1.2 + st * 0.48, 2.05, -1.32), red if st % 2 == 0 else white)
+		aw.rotation.x = 0.35
+	var sign := B.sign_plate(k, "GRILLI · MAKKARAPERUNAT", Color(0.95, 0.85, 0.2), Color(0.55, 0.05, 0.05), 0.3, 40, Color(0.55, 0.05, 0.05))
+	sign.position = Vector3(0, 2.5, -1.0)
+	sign.rotation.y = PI
+	var lamp := OmniLight3D.new()
+	lamp.position = Vector3(0, 2.0, -1.6)
+	lamp.light_color = Color(1.0, 0.85, 0.55)
+	lamp.light_energy = 1.2
+	lamp.omni_range = 7.0
+	k.add_child(lamp)
+	# Penkkipöytä kioskin vieressä ja kaksi syöjää.
+	var tbl := Node3D.new()
+	tbl.position = to_local(k.to_global(Vector3(3.2, 0, -1.5)))
+	tbl.position.y = h(tbl.position.x, tbl.position.z)
+	tbl.rotation.y = k.rotation.y
+	add_child(tbl)
+	var wood := Color(0.55, 0.38, 0.22)
+	B.mesh(tbl, B.boxm(Vector3(0.8, 0.05, 1.8)), Vector3(0, 0.75, 0), wood)
+	for sx in [-0.65, 0.65]:
+		B.mesh(tbl, B.boxm(Vector3(0.3, 0.05, 1.8)), Vector3(sx, 0.45, 0), wood)
+		for lz in [-0.7, 0.7]:
+			B.mesh(tbl, B.boxm(Vector3(0.06, 0.45, 0.06)), Vector3(sx, 0.22, lz), wood.darkened(0.2))
+	for lz in [-0.7, 0.7]:
+		B.mesh(tbl, B.boxm(Vector3(0.06, 0.75, 0.06)), Vector3(0, 0.37, lz), wood.darkened(0.2))
+	_kiosk = k
+	_kiosk_table = tbl
+	for sx in [-1.0, 1.0]:
+		B.mesh(tbl, B.boxm(Vector3(0.2, 0.03, 0.14)), Vector3(sx * 0.2, 0.79, 0.3 * sx), Color(0.95, 0.95, 0.9))  # pahvilautanen
+	# Tupakkapaikka oven pielessä (ajoalueen ulkopuolella): kolme tupakoijaa ja tuhkakuppi tolpassa.
+	var smoke_c := Vector2(lava_door.x, lava_door.z) + Vector2(side * 2.5, -11.0)
+	if drivable(smoke_c.x, smoke_c.y):
+		smoke_c = Vector2(lava_door.x, lava_door.z) + Vector2(side * 2.5, 11.0)
+	if not drivable(smoke_c.x, smoke_c.y) and not wet(smoke_c.x, smoke_c.y, 0.3):
+		var sy := h(smoke_c.x, smoke_c.y)
+		B.mesh(_lava_outside, B.cyl(0.03, 0.03, 1.0, 6), Vector3(smoke_c.x, sy + 0.5, smoke_c.y), Color(0.3, 0.3, 0.32))
+		B.mesh(_lava_outside, B.cyl(0.12, 0.1, 0.12, 10), Vector3(smoke_c.x, sy + 1.02, smoke_c.y), Color(0.55, 0.55, 0.58))
+		_smoke_c = smoke_c
+
+
+## Kioskin ja tupakkapaikan väki (rakennetaan tanssien alkaessa, set_lava_live).
+func _build_lava_kiosk_people() -> void:
+	if _kiosk == null:
+		return
+	var k := _kiosk
+	var tbl := _kiosk_table
+	# Grillaaja luukulla ja jono.
+	var cook := Looks.make(_lava_outside, {"shirt": Color(0.95, 0.95, 0.95), "pants": Color(0.2, 0.2, 0.22), "hair": "Hair_Buzzed",
+		"hair_color": Color(0.3, 0.25, 0.2), "height": 1.76, "belly": 0.6})
+	cook.position = to_local(k.to_global(Vector3(0.2, 0.0, -0.3)))
+	cook.rotation.y = k.rotation.y
+	cook.play("Idle_Talking", 0.0)
+	var looks := [
+		{"shirt": Color(0.2, 0.35, 0.7), "pants": Color(0.25, 0.3, 0.45), "hair": "Hair_SimpleParted", "hair_color": Color(0.5, 0.4, 0.3), "height": 1.82, "belly": 0.5},
+		{"model": "female", "shirt": Color(0.85, 0.3, 0.45), "pants": Color(0.2, 0.2, 0.3), "hair": "Hair_Long", "hair_color": Color(0.85, 0.7, 0.4), "height": 1.65},
+		{"shirt": Color(0.3, 0.45, 0.25), "pants": Color(0.15, 0.15, 0.17), "hair": "Hair_Buzzed", "hair_color": Color(0.6, 0.6, 0.6), "height": 1.75, "belly": 0.7},
+	]
+	for i in looks.size():
+		var q := Looks.make(_lava_outside, looks[i])
+		var lp := Vector3(-0.3 + i * 0.25, 0, -1.9 - i * 0.9)
+		q.position = to_local(k.to_global(lp))
+		q.position.y = h(q.position.x, q.position.z)
+		q.rotation.y = k.rotation.y + PI
+		q.play("Idle_Talking" if i == 0 else "Idle", 0.0)
+	for sx in [-1.0, 1.0]:
+		var e := Looks.make(_lava_outside, looks[1 if sx < 0 else 2])
+		e.position = to_local(tbl.to_global(Vector3(sx * 0.7, 0.04, 0.3 * sx)))
+		e.rotation.y = tbl.rotation.y + (PI / 2.0 if sx < 0 else -PI / 2.0)
+		e.play("Sitting_Talking" if sx < 0 else "Sitting_Idle", 0.0)
+	if _smoke_c == Vector2.INF:
+		return
+	var smoke_c := _smoke_c
+	var smokers := [
+		{"shirt": Color(0.1, 0.1, 0.12), "pants": Color(0.25, 0.3, 0.45), "hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.1), "height": 1.84},
+		{"model": "female", "shirt": Color(0.95, 0.85, 0.3), "pants": Color(0.12, 0.12, 0.2), "hair": "Hair_Buns", "hair_color": Color(0.35, 0.2, 0.1), "height": 1.64},
+		{"shirt": Color(0.6, 0.15, 0.12), "pants": Color(0.2, 0.2, 0.25), "hair": "Hair_SimpleParted", "hair_color": Color(0.7, 0.7, 0.7), "height": 1.78, "belly": 0.8},
+	]
+	for i in smokers.size():
+		var a := TAU * i / 3.0 + 0.3
+		var q := Looks.make(_lava_outside, smokers[i])
+		q.position = Vector3(smoke_c.x + cos(a) * 0.9, 0, smoke_c.y + sin(a) * 0.9)
+		q.position.y = h(q.position.x, q.position.z)
+		q.rotation.y = B.yaw_to(Vector3(smoke_c.x, 0, smoke_c.y) - Vector3(q.position.x, 0, q.position.z))
+		q.play("Idle_Talking" if i != 1 else "Idle", 0.0)
+
+
+## Lavan väki tanssien aikaan: pareja tanssilattialla ja penkeillä seinien vierillä istujia ja juttelijoita.
+func _build_lava_crowd(root: Node3D, w: float, l: float, side: float) -> void:
+	_lava_crowd = Node3D.new()
+	_lava_crowd.visible = false
+	root.add_child(_lava_crowd)
+	_lava_dancers = Node3D.new()
+	_lava_crowd.add_child(_lava_dancers)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	var shirts := [Color(0.85, 0.2, 0.3), Color(0.2, 0.35, 0.75), Color(0.95, 0.85, 0.3), Color(0.25, 0.55, 0.3),
+		Color(0.95, 0.95, 0.95), Color(0.5, 0.2, 0.55), Color(0.15, 0.15, 0.17), Color(0.85, 0.5, 0.2)]
+	var hairs := ["Hair_SimpleParted", "Hair_Buzzed", "Hair_Long", "Hair_Buns"]
+	var person := func(female: bool) -> Dictionary:
+		return {"model": "female" if female else "male", "shirt": shirts[rng.randi() % shirts.size()],
+			"pants": Color(0.15, 0.15, 0.25) if not female else shirts[rng.randi() % shirts.size()],
+			"hair": hairs[rng.randi() % hairs.size()] if female else hairs[rng.randi() % 2],
+			"hair_color": Color(rng.randf_range(0.1, 0.85), rng.randf_range(0.08, 0.65), 0.1),
+			"height": 1.66 if female else 1.8, "belly": rng.randf_range(0.0, 0.6) if not female else 0.0}
+	for k in 9:
+		var at := Vector3(rng.randf_range(-w / 2.0 + 4.0, w / 2.0 - 4.0), 0.06, rng.randf_range(-l / 2.0 + 8.5, l / 2.0 - 5.0))
+		for s2 in 2:
+			var d := Looks.make(_lava_dancers, person.call(s2 == 1))
+			d.position = at + Vector3(0, 0, 0.45 if s2 == 0 else -0.45)
+			d.rotation.y = 0.0 if s2 == 0 else PI
+			d.play("Dance", 0.0, rng.randf_range(0.8, 1.1))
+	# Penkit pitkien seinien vierellä (ovi ei peity) ja niillä istujat.
+	for sx in [-1.0, 1.0]:
+		for k in 3:
+			var z := -l / 2.0 + 9.0 + k * 8.0
+			if sx == side and absf(z) < 4.0:
+				continue
+			var bx: float = sx * (w / 2.0 - 0.7)
+			B.mesh(_lava_crowd, B.boxm(Vector3(0.45, 0.06, 3.0)), Vector3(bx, 0.45, z), Color(0.5, 0.33, 0.18))
+			for lz in [-1.3, 1.3]:
+				B.mesh(_lava_crowd, B.boxm(Vector3(0.4, 0.42, 0.06)), Vector3(bx, 0.21, z + lz), Color(0.4, 0.26, 0.14))
+			for p in 2:
+				var c := Looks.make(_lava_crowd, person.call(rng.randf() < 0.5))
+				c.position = Vector3(bx - sx * 0.08, 0.08, z - 0.7 + p * 1.3)
+				c.rotation.y = sx * PI / 2.0  # kasvot salin keskelle
+				c.play("Sitting_Talking" if p == 0 else "Sitting_Idle", 0.0)
+
+
 func _build_lava() -> void:
 	var lv: Dictionary = data.get("lava", {})
 	if lv.is_empty():
@@ -949,9 +1345,14 @@ func _build_lava() -> void:
 	B.mesh(root, B.boxm(Vector3(14, 2.8, 0.2)), st + Vector3(0, 2.4, -2.7), Color(0.12, 0.12, 0.2))
 	for x in [-5.5, 5.5]:
 		B.mesh(root, B.boxm(Vector3(1.0, 1.6, 0.7)), st + Vector3(x, 1.8, -1.6), Color(0.1, 0.1, 0.1))
-	for k in 3:
-		B.mesh(root, B.cyl(0.32, 0.32, 0.3, 14), st + Vector3(-1.0 + k * 0.8, 1.3 + (0.25 if k == 1 else 0.0), -1.2), Color(0.85, 0.2, 0.15),
-			Vector3(90 if k == 1 else 0, 0, 0))
+	# Bändi soittaa lavalla (näkyy ikkunoista, humppa kuuluu pihalle), kun tanssit ovat käynnissä (set_lava_live).
+	lava_band = HumppaBand.new()
+	lava_band.position = st + Vector3(0, 1.0, 0)
+	lava_band.rotation.y = PI  # yleisö (bändin -Z) tanssilattialle
+	root.add_child(lava_band)
+	lava_band.visible = false
+	_lava_root = root
+	_lava_dims = Vector3(w, l, side)  # bändi ja väki rakennetaan vasta tanssien alkaessa (hahmot ovat raskaita)
 	var band := B.sign_plate(root, "TANSSIT", Color(0.9, 0.75, 0.2), Color(0.12, 0.1, 0.2), 0.5, 70, Color(0.12, 0.1, 0.2))
 	band.position = st + Vector3(0, 3.3, -2.55)
 	# Valot sisällä (lämmin), lyhdyt räystään alla.
@@ -1004,6 +1405,7 @@ func _build_lava() -> void:
 			continue
 		var car := Node3D.new()
 		car.position = Vector3(pz.x, h(pz.x, pz.y), pz.y)
+		_lava_cars.append(pz)
 		car.rotation.y = PI / 2.0
 		add_child(car)
 		Vehicles.car(car, cols[k])
@@ -1669,11 +2071,15 @@ var _chimneys: Array[Transform3D] = []
 var _balconies: Array[Transform3D] = []
 var _win_mull: Array[Transform3D] = []
 var _shop_glass: Array[Transform3D] = []
+var _shop_frames: Array[Transform3D] = []
+var _garage_doors: Array[Transform3D] = []
 
 
 func _build_buildings() -> void:
 	_walls = SurfaceTool.new()
 	_walls.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_walls.set_uv(Vector2.ZERO)  # UV = (sokkelin korkeus, kerroskorkeus) julkisivun vyöhykkeille (facade.gdshader)
+	var path_grid := _side_road_grid()
 	_roofs = SurfaceTool.new()
 	_roofs.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var body := StaticBody3D.new()
@@ -1701,6 +2107,36 @@ func _build_buildings() -> void:
 			continue
 		if id == station_id:
 			continue  # asemarakennus omalla mallillaan (_build_station)
+		if bd.kind == "shed" and _on_side_road(pts, path_grid):
+			continue  # OSM:n vaja polun tai pihatien päällä (kartat eivät täsmää): tie jää ajettavaksi
+
+		# Isot laatikot pienemmiksi: laajat yksiväriset seinät näyttävät pelin mittakaavassa autioilta.
+		if not id in [HOTEL_ID, GASTHAUS_ID, TYOKKARI_ID] and not str(bd.name).contains("kirkko"):
+			var area0 := absf(_poly_area(pts))
+			if area0 > BIG_AREA:
+				var f := clampf(pow(BIG_AREA / area0, 0.25), 0.72, 1.0)
+				var cc := cen / pts.size()
+				for k in pts.size():
+					pts[k] = cc + (pts[k] - cc) * f
+		# Tie tai polku kulkee pohjan läpi tai aivan seinän vierestä (aineistot eivät täsmää): rakennusta kutistetaan,
+		# kunnes tielle jää tilaa, tai se jätetään pois.
+		if not id in [HOTEL_ID, GASTHAUS_ID, TYOKKARI_ID] and not str(bd.name).contains("Market"):
+			var cc2 := Vector2.ZERO
+			for q in pts:
+				cc2 += q
+			cc2 /= pts.size()
+			var fit := false
+			for f2: float in [1.0, 0.9, 0.8, 0.7]:
+				var test := PackedVector2Array()
+				for q in pts:
+					test.append(cc2 + (q - cc2) * f2)
+				var grown := Geometry2D.offset_polygon(test, 1.8)
+				if grown.is_empty() or not _crossed_by_road(grown[0], path_grid):
+					pts = test
+					fit = true
+					break
+			if not fit:
+				continue
 		var name: String = bd.name
 		var type: String = bd.type
 		var levels: int = bd.levels
@@ -1782,8 +2218,11 @@ func _build_buildings() -> void:
 		elif id == GASTHAUS_ID:
 			col = Color(0.93, 0.84, 0.6)  # keltainen rappaus, valkoiset nurkat kuin vanhassa majatalossa
 			mat = PLASTER
+		if flat and wall_h > 9.0 and not id in [HOTEL_ID, GASTHAUS_ID]:
+			levels = mini(maxi(levels, 1), 3)
+			wall_h = minf(wall_h, 2.9 * maxi(levels, 2) + 0.6)  # matalammiksi: Vaalan liikerakennukset ovat 1-3-kerroksisia
 		var top := base + wall_h + 0.3
-		_prism(pts, base, top, col, mat)
+		_prism(pts, base, top, col, mat, wall_h / maxi(levels, 1) if kind != "shed" else 0.0)
 		if flat:
 			_flat_roof(pts, top, roof_col)
 			_parapet(pts, top, col, mat)
@@ -1797,14 +2236,26 @@ func _build_buildings() -> void:
 				var cq: Vector2 = obb.center + (obb.ax as Vector2) * obb.size.x * 0.2 + (obb.ay as Vector2) * 0.6
 				_chimneys.append(Transform3D(Basis(Vector3.UP, -obb.angle), Vector3(cq.x, top + rise - 0.2, cq.y)))
 		# Ikkunat kaikille sivuille, ovi tien puolelle, isoissa kerrostaloissa parvekkeet.
+		if kind == "shed" and area > 70.0:
+			# Iso varasto tai halli: rivi ikkunoita ja nosto-ovi tien puolelle (muuten laaja umpiseinä).
+			var pd := _door(obb, base + 0.3)
+			var gay: Vector2 = obb.ay
+			var gout := gay if gay.dot(pd - (obb.center as Vector2)) > 0.0 else -gay
+			var gd: Vector2 = pd - (obb.ax as Vector2) * (obb.size as Vector2).x * 0.36  # nosto-ovi keskeltä toiselle puolelle
+			_windows(pts, base + 0.3, 1, wall_h, false, gd, Vector2(1.1, 0.8), 2.6, pd)
+			var gs := minf(1.0, (wall_h - 0.2) / 3.0)
+			_garage_doors.append(Transform3D(Basis(Vector3.UP, atan2(gout.x, gout.y)) * Basis.from_scale(Vector3(1.0, gs, 1.0)),
+				Vector3(gd.x, base + 0.3, gd.y) + Vector3(gout.x, 0, gout.y) * 0.05))
 		if kind != "shed":
 			var shop := type in ["retail", "commercial"] or name.contains("market") or name.contains("Market")
 			var door := _door(obb, base + 0.3) if id != GASTHAUS_ID else \
 				(obb.center as Vector2) + _gasthaus_side(obb) * ((obb.size as Vector2).y / 2.0 + 0.05)
-			_windows(pts, base + 0.3, maxi(levels, 1) if id != HOTEL_ID else 2, wall_h, shop, door)
+			_windows(pts, base + 0.3, maxi(levels, 1) if id != HOTEL_ID else 2, wall_h, shop, door,
+				Vector2(1.25, 1.2) if not flat else Vector2(1.5, 1.3))
 			if type == "apartments":
 				_balcony_rows(pts, base + 0.3, levels, obb)
-		if boxy:
+		_bld_polys.append(pts)
+		if area > 0.96 * obb.size.x * obb.size.y:  # suorakaide: yksi laatikko (muuten laatikko ulottuisi pohjan yli)
 			var cs := B.box_shape(Vector3(obb.size.x, wall_h + 2.0, obb.size.y), Vector3.ZERO)
 			cs.transform = Transform3D(Basis(Vector3.UP, -obb.angle), Vector3(obb.center.x, base + wall_h / 2.0, obb.center.y))
 			body.add_child(cs)
@@ -1888,7 +2339,13 @@ func _build_buildings() -> void:
 	glass.roughness = 0.08
 	_multimesh_mat(B.boxm(Vector3(0.94, 1.14, 0.07)), _win_glass, glass)
 	_multimesh(_mullion_mesh(), _win_mull, Color(0.93, 0.93, 0.9))
-	_multimesh_mat(B.boxm(Vector3(2.8, 2.2, 0.07)), _shop_glass, glass)
+	var shop_glass := StandardMaterial3D.new()
+	shop_glass.albedo_color = Color(0.22, 0.32, 0.4)
+	shop_glass.metallic = 0.5
+	shop_glass.roughness = 0.05
+	_multimesh(B.boxm(Vector3(3.1, 2.6, 0.05)), _shop_frames, Color(0.85, 0.86, 0.85))  # karmit ja välipuitteet
+	_multimesh_mat(B.boxm(Vector3(2.7, 2.2, 0.07)), _shop_glass, shop_glass)
+	_multimesh(_garage_door_mesh(), _garage_doors)
 	_multimesh(_door_mesh(), _doors)
 	_multimesh(_chimney_mesh(), _chimneys)
 	_multimesh(_balcony_mesh(), _balconies)
@@ -1937,6 +2394,15 @@ func _door_mesh() -> ArrayMesh:
 		[B.boxm(Vector3(1.6, 0.18, 1.0)), Vector3(0, -0.2, 0.45), Color(0.55, 0.55, 0.53)],  # porraskivi
 		[B.boxm(Vector3(1.8, 0.08, 1.2)), Vector3(0, 2.55, 0.5), Color(0.25, 0.25, 0.27)],  # lippa
 	])
+
+
+## Hallin nosto-ovi: valkoinen karmi, vaakalamellit ja tumma alalista.
+func _garage_door_mesh() -> ArrayMesh:
+	var parts := [[B.boxm(Vector3(3.4, 3.0, 0.08)), Vector3(0, 1.5, 0), Color(0.9, 0.9, 0.88)]]
+	for k in 6:
+		parts.append([B.boxm(Vector3(3.0, 0.42, 0.1)), Vector3(0, 0.27 + k * 0.45, 0.02), Color(0.62, 0.64, 0.66).lightened(0.04 * (k % 2))])
+	parts.append([B.boxm(Vector3(3.0, 0.06, 0.12)), Vector3(0, 0.05, 0.03), Color(0.15, 0.15, 0.15)])
+	return _parts_mesh(parts)
 
 
 func _chimney_mesh() -> ArrayMesh:
@@ -2737,12 +3203,76 @@ func _obb(pts: PackedVector2Array) -> Dictionary:
 	return {"center": ax * c.x + ay * c.y, "size": mx - mn, "angle": ang, "ax": ax, "ay": ay}
 
 
-func _prism(pts: PackedVector2Array, y0: float, y1: float, col: Color, kind := WOOD) -> void:
+## storey > 0: julkisivuun sokkeli ja kerrosvälien listat (facade.gdshader UV:stä).
+func _prism(pts: PackedVector2Array, y0: float, y1: float, col: Color, kind := WOOD, storey := 0.0) -> void:
 	_walls.set_color(Color(col.r, col.g, col.b, kind))
+	_walls.set_uv(Vector2(y0, storey))
 	for i in pts.size():
 		var a := pts[i]
 		var b := pts[(i + 1) % pts.size()]
 		_quad(_walls, Vector3(a.x, y0, a.y), Vector3(b.x, y0, b.y), Vector3(b.x, y1, b.y), Vector3(a.x, y1, a.y))
+
+
+const BIG_AREA := 450.0  # tätä suuremmat pohjat kutistetaan (_build_buildings)
+
+
+## Sivuteiden ja polkujen janat 20 m ruudukossa (vajojen karsinta).
+func _side_road_grid() -> Dictionary:
+	var g := {}
+	for r in data.side_roads:
+		if r.kind == "rail" or r.pts.size() < 2:
+			continue
+		for k in r.pts.size() - 1:
+			var a := Vector2(r.pts[k][0], r.pts[k][1])
+			var b := Vector2(r.pts[k + 1][0], r.pts[k + 1][1])
+			var lo := Vector2i(floori(minf(a.x, b.x) / 20.0), floori(minf(a.y, b.y) / 20.0))
+			var hi := Vector2i(floori(maxf(a.x, b.x) / 20.0), floori(maxf(a.y, b.y) / 20.0))
+			for j in range(lo.y, hi.y + 1):
+				for i in range(lo.x, hi.x + 1):
+					if not g.has(Vector2i(i, j)):
+						g[Vector2i(i, j)] = []
+					g[Vector2i(i, j)].append([a, b])
+	return g
+
+
+func _on_side_road(pts: PackedVector2Array, grid: Dictionary) -> bool:
+	for q in pts:
+		for sg in grid.get(Vector2i(floori(q.x / 20.0), floori(q.y / 20.0)), []):
+			if Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1]).distance_to(q) < 1.6:
+				return true
+	# Polku voi kulkea myös vajan läpi ilman kulmaa lähellä: keskipiste.
+	var c := Vector2.ZERO
+	for q in pts:
+		c += q
+	c /= pts.size()
+	for sg in grid.get(Vector2i(floori(c.x / 20.0), floori(c.y / 20.0)), []):
+		if Geometry2D.get_closest_point_to_segment(c, sg[0], sg[1]).distance_to(c) < 3.0:
+			return true
+	return false
+
+
+## Kulkeeko jokin sivutie tai polku pohjan läpi (yli 3 m pohjan sisällä)?
+func _crossed_by_road(pts: PackedVector2Array, grid: Dictionary) -> bool:
+	var lo := pts[0]
+	var hi := pts[0]
+	for q in pts:
+		lo = lo.min(q)
+		hi = hi.max(q)
+	var seen := {}
+	for j in range(floori(lo.y / 20.0), floori(hi.y / 20.0) + 1):
+		for i in range(floori(lo.x / 20.0), floori(hi.x / 20.0) + 1):
+			for sg in grid.get(Vector2i(i, j), []):
+				var key := str(sg)
+				if seen.has(key):
+					continue
+				seen[key] = true
+				var inside := 0.0
+				for part in Geometry2D.intersect_polyline_with_polygon(PackedVector2Array([sg[0], sg[1]]), pts):
+					for k in part.size() - 1:
+						inside += part[k].distance_to(part[k + 1])
+				if inside > 3.0:
+					return true
+	return false
 
 
 func _flat_roof(pts: PackedVector2Array, y: float, col: Color) -> void:
@@ -2801,7 +3331,9 @@ func _gable(obb: Dictionary, y: float, rise: float, col: Color, wall_col := Colo
 
 ## Ikkunat seinille kerroksittain (tummat heijastavat lasit, valkoiset karmit, puitteet ja vesipelti). Liiketiloissa
 ## maantasoon leveät näyteikkunat.
-func _windows(pts: PackedVector2Array, y0: float, levels: int, wall_h := 3.2, shop := false, door := Vector2(INF, INF)) -> void:
+## size = ikkunan koko suhteessa perusikkunaan (1,1 x 1,3 m): isot ikkunat rikkovat laajat seinäpinnat.
+func _windows(pts: PackedVector2Array, y0: float, levels: int, wall_h := 3.2, shop := false, door := Vector2(INF, INF),
+		size := Vector2.ONE, door_r := 1.4, door2 := Vector2(INF, INF)) -> void:
 	var c := Vector2.ZERO
 	for p in pts:
 		c += p
@@ -2817,20 +3349,23 @@ func _windows(pts: PackedVector2Array, y0: float, levels: int, wall_h := 3.2, sh
 		var out := dir.orthogonal()
 		if out.dot((a + b) / 2.0 - c) < 0.0:
 			out = -out
-		var basis := Basis(Vector3.UP, atan2(out.x, out.y))
-		var n := int(L / 3.0)
+		var sy := minf(size.y, storey * 0.62 / 1.3)
+		var basis := Basis(Vector3.UP, atan2(out.x, out.y)) * Basis.from_scale(Vector3(size.x, sy, 1.0))
+		var n := int(L / (1.4 + 1.3 * size.x))
 		for lv in levels:
 			if shop and lv == 0 and L > 8.0:
 				var m := int(L / 3.2)
 				for w in m:
 					var q := a + dir * (L * (w + 0.5) / m) + out * 0.04
-					_shop_glass.append(Transform3D(basis, Vector3(q.x, y0 + 1.4, q.y)))
+					var sb := Basis(Vector3.UP, atan2(out.x, out.y))
+					_shop_frames.append(Transform3D(sb, Vector3(q.x, y0 + 1.4, q.y)))
+					_shop_glass.append(Transform3D(sb, Vector3(q.x, y0 + 1.4, q.y) + Vector3(out.x, 0, out.y) * 0.02))
 				continue
 			for w in n:
 				var q := a + dir * (L * (w + 0.5) / n) + out * 0.04
-				if lv == 0 and q.distance_to(door) < 1.4:
+				if lv == 0 and (q.distance_to(door) < door_r or q.distance_to(door2) < 1.4):
 					continue
-				var xf := Transform3D(basis, Vector3(q.x, y0 + minf(1.5, storey * 0.55) + lv * storey, q.y))
+				var xf := Transform3D(basis, Vector3(q.x, y0 + minf(1.5, storey * 0.55) + lv * storey + 0.1 * (sy - 1.0), q.y))
 				_win_frames.append(xf)
 				_win_glass.append(xf.translated_local(Vector3(0, 0, 0.01)))
 				_win_mull.append(xf.translated_local(Vector3(0, 0, 0.02)))
@@ -2860,7 +3395,7 @@ func _build_siitari(pts: PackedVector2Array, body: StaticBody3D) -> void:
 	base -= 0.2
 	var wall_h := 4.2
 	var wood := Color(0.36, 0.22, 0.13)
-	_prism(pts, base, base + wall_h, wood)
+	_prism(pts, base, base + wall_h, wood, WOOD, wall_h)
 	_gable(obb, base + wall_h, 2.4, Color(0.2, 0.2, 0.22), wood, WOOD, SEAM_ROOF)
 	var cs := B.box_shape(Vector3(obb.size.x, wall_h + 3.0, obb.size.y), Vector3.ZERO)
 	cs.transform = Transform3D(Basis(Vector3.UP, -obb.angle), Vector3(obb.center.x, base + wall_h / 2.0, obb.center.y))
@@ -2882,6 +3417,22 @@ func _build_siitari(pts: PackedVector2Array, body: StaticBody3D) -> void:
 	for u in [-8.5, -4.5, -0.5, 3.5]:
 		B.mesh(self, B.boxm(Vector3(3.0, 1.9, 0.08)), at.call(u, hy + 0.04, 1.9), Color(0.9, 0.88, 0.8), Vector3(0, rad_to_deg(yaw), 0))
 		B.mesh(self, B.boxm(Vector3(2.8, 1.7, 0.09)), at.call(u, hy + 0.05, 1.9), Color(0.95, 0.8, 0.45), Vector3(0, rad_to_deg(yaw), 0))
+	# Takasivulle (pysäköinti) keittiön ja salin ikkunat ja takapäätyyn kaksi: ei umpiseinää.
+	var wb := Basis(Vector3.UP, atan2(-front.x, -front.y)) * Basis.from_scale(Vector3(1.4, 1.2, 1.0))
+	var nu := int((hx * 2.0 - 3.0) / 3.4)
+	for k in nu:
+		var u := -hx + 1.5 + (k + 0.5) * (hx * 2.0 - 3.0) / nu
+		var xf := Transform3D(wb, at.call(u, -hy - 0.04, 1.9))
+		_win_frames.append(xf)
+		_win_glass.append(xf.translated_local(Vector3(0, 0, 0.01)))
+		_win_mull.append(xf.translated_local(Vector3(0, 0, 0.02)))
+	var eb := Basis(Vector3.UP, atan2(-ax.x, -ax.y)) * Basis.from_scale(Vector3(1.3, 1.2, 1.0))
+	for v in [-hy * 0.5, hy * 0.5]:
+		var q2: Vector2 = c - ax * (hx + 0.04) + front * v
+		var xf := Transform3D(eb, Vector3(q2.x, base + 1.9, q2.y))
+		_win_frames.append(xf)
+		_win_glass.append(xf.translated_local(Vector3(0, 0, 0.01)))
+		_win_mull.append(xf.translated_local(Vector3(0, 0, 0.02)))
 	# Valomainos katon lappeella.
 	var logo := B.sign_plate(self, "SIITARI", Color(0.55, 0.05, 0.06), Color(1.0, 0.92, 0.6), 1.3, 120,
 		Color(0.3, 0.02, 0.03), "Helvetica Neue")
@@ -3487,8 +4038,27 @@ func _build_mokki_yard() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1762
 	var trees: Array = []
+	# Pihan läpi ja ohi kulkevat OSM-tiet ja polut (mopolla ajettavia): männyt eivät kasva niillä.
+	var near_segs: Array = []
+	var yc := c
+	for r in data.side_roads:
+		if r.kind == "rail" or r.pts.size() < 2:
+			continue
+		for k in r.pts.size() - 1:
+			var a := Vector2(r.pts[k][0], r.pts[k][1])
+			var b := Vector2(r.pts[k + 1][0], r.pts[k + 1][1])
+			if Geometry2D.get_closest_point_to_segment(yc, a, b).distance_to(yc) < 160.0:
+				near_segs.append([a, b])
+	var on_path := func(g: Vector3) -> bool:
+		var q := Vector2(g.x, g.z)
+		for sg in near_segs:
+			if Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1]).distance_to(q) < 4.5:
+				return true
+		return false
 	for tp in MokkiScript.YARD_PINES:
 		var g: Vector3 = to_vaala.call(Vector3(tp.x, 0, tp.y))
+		if on_path.call(g):
+			continue
 		trees.append({"pos": Vector3(tp.x, g.y, tp.y), "h": rng.randf_range(9.5, 13.5), "sp": Forest.PINE})
 	for i in 1400:  # mökin männikön tiheys (n. puu / 20 m²)
 		var a := rng.randf() * TAU
@@ -3499,7 +4069,7 @@ func _build_mokki_yard() -> void:
 		if code in [ROAD, SHOULDER, WATER, OUTSIDE] or g.y < water_level + 0.5:
 			continue
 		var ni: Array = nearest(g)
-		if ni[0] >= 0 and ni[1] < float(road[ni[0]][4]) + 4.0:
+		if ni[0] >= 0 and ni[1] < float(road[ni[0]][4]) + 4.0 or on_path.call(g):
 			continue
 		trees.append({"pos": Vector3(lp.x, g.y, lp.z), "h": rng.randf_range(10.0, 17.0), "sp": Forest.PINE})
 	var forest := Forest.new()

@@ -161,7 +161,10 @@ func _process(delta: float) -> void:
 			_blocked_t = 2.0
 	var best := ""
 	var bd := 1.3
+	var room := room_at(p)
 	for id in SPOTS:
+		if room_at(SPOTS[id][0]) != room:
+			continue  # seinän takana olevaan pisteeseen ei ylety (esim. WC:n kaappi makuuhuoneesta)
 		var d := Vector2(p.x - SPOTS[id][0].x, p.z - SPOTS[id][0].z).length()
 		if d < bd:
 			bd = d
@@ -195,6 +198,16 @@ func _process(delta: float) -> void:
 			acted.emit("wc")  # kylpyhuoneen pönttö toimii kuten WC:n
 		_:
 			acted.emit(best)
+
+
+## Huone, jossa paikallinen piste on. Toimintopisteet toimivat vain samasta huoneesta, ettei seinän läpi
+## voi käydä pöntöllä tai laittaa tavaroita WC:n kaappiin makuuhuoneesta.
+static func room_at(p: Vector3) -> String:
+	if p.x < LEFT_X:
+		return "makkari1" if p.z > FRONT_Z else ("wc" if p.z > WC_Z else "makkari2")
+	if p.z > FRONT_Z:
+		return "eteinen" if p.x < HALL_X else ("kylpyhuone" if p.x < BATH_X else "sauna")
+	return "nortti" if p.x > NERD_X else "tupa"
 
 
 # --- Rakennus ---------------------------------------------------------------------

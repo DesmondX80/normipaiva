@@ -17,6 +17,7 @@ const HOME_YARD_R := 12.0  # mökin parkkipaikasta: pihaan ajettaessa matka pä�
 signal arrived
 signal finished(result: String)
 signal killed  # auto ajoi mopon päälle
+signal train_hit  # juna ajoi mopon tai kävelijän päälle
 signal atm     # pankkiautomaatilla E
 signal door(id: String)  # keskustan ovella E (vaala.gd doors: kmarket, zabuki, gasthaus)
 signal lava    # Oulujärven lavan ovella E (lavatanssit)
@@ -308,6 +309,15 @@ func _process(delta: float) -> void:
 		hint = ""
 		return
 	var pos := _actor_pos()
+	if vaala.train != null and vaala.train.hits(on_foot.global_position if on_foot != null else mopo.global_position):
+		active = false
+		mopo.controls_enabled = false
+		mopo.speed = 0.0
+		mopo.set_engine(false)
+		Sfx.play("punch_heavy", 4.0)
+		Sfx.play("bike_fall", 0.0)
+		train_hit.emit()
+		return
 	var ni: Array = vaala.nearest(pos)
 	if ni[0] >= 0:
 		_sample = ni[0]
