@@ -14,6 +14,8 @@ signal comment(text: String)
 signal thumb
 
 const NEED_STONES := 6
+const HIT_R := 13.0  # vasaran osuma naulan kantaan (px)
+const BENT_R := 24.0  # tätä kauempaa lyönti taivuttaa naulan (sitten peukalo tai ohi)
 const LINES := {
 	"kivet": ["Pyöreitä ja tummia. Liuskekivi halkeaa kiukaassa.", "Oliviinidiabaasia ois paras, mutta rantakivikin käy."],
 	"kiuas": ["Rapautuneet pois, ne murenee käsiin.", "Isot alas, pienet päälle. Ilman pitää kulkea."],
@@ -37,7 +39,9 @@ var _keys: Control
 var _tip: Label
 var _done := false
 var _t := 0.0
-var _mouse := Vector2.ZERO
+var _mouse := Vector2.ZERO  # kursori (+ humalan huojunta), jota pelin osumat käyttävät
+var _raw := Vector2.ZERO  # viimeisin hiiritapahtuman paikka
+var _lmb := false  # vasen nappi pohjassa (tapahtumista: tervaus vedetään napin ollessa pohjassa)
 var _area := Rect2()
 # kivet
 var _stones: Array = []  # {p, r, good, taken}
@@ -82,6 +86,7 @@ func _ready() -> void:
 	_tip.add_theme_color_override("font_color", Color(1.0, 0.9, 0.55))
 	comment.connect(func(t: String) -> void: _tip.text = t)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_raw = _root.get_local_mouse_position()
 	_setup.call_deferred()
 
 
@@ -141,7 +146,7 @@ func _process(delta: float) -> void:
 	if _done:
 		return
 	_t += delta
-	_mouse = _root.get_local_mouse_position() + Vector2(sin(_t * 5.0), cos(_t * 4.3)) * drunk * 18.0
+	_mouse = _raw + _wobble()
 	_root.queue_redraw()
 	if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
 		_finish(false)
@@ -178,7 +183,19 @@ func _status() -> String:
 	return ""
 
 
+## Humalan huojunta kursorissa.
+func _wobble() -> Vector2:
+	return Vector2(sin(_t * 5.0), cos(_t * 4.3)) * drunk * 18.0
+
+
+## Hiiren paikka otetaan tapahtumasta: klikkaus osuu siihen, missä nappia painettiin (ei edellisen ruudun paikkaan).
 func _gui(ev: InputEvent) -> void:
+	if ev is InputEventMouse:
+		_raw = ev.position
+		_mouse = _raw + _wobble()
+		_lmb = (ev.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0
+	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+		_lmb = ev.pressed
 	if _done or not (ev is InputEventMouseButton) or not ev.pressed:
 		return
 	var left: bool = ev.button_index == MOUSE_BUTTON_LEFT
@@ -257,11 +274,17 @@ func _click_kiuas() -> void:
 				comment.emit("Kiuas on kunnossa! Ilma kulkee kivien välistä.")
 				get_tree().create_timer(0.8).timeout.connect(_finish.bind(true))
 			return
-	if old_left == 0 and _held == "":
+	if old_left == 0:
 		for i in _bag.size():
 			if _bag_rect(i).has_point(_mouse):
-				_held = _bag[i]
+				# Kädessä oleva kivi vaihtuu sangosta otettuun (muuten pieni kivi kädessä jumittaisi: alariviin
+				# kelpaa vain iso, eikä isoa saisi otettua).
+				var pick: String = _bag[i]
 				_bag.remove_at(i)
+				if _held != "":
+					_bag.append(_held)
+				_held = pick
+				Sfx.play("rattle", -10.0, 1.1)
 				return
 
 
@@ -296,7 +319,7 @@ func _hammer() -> void:
 				var d := _mouse.distance_to(np)
 				if pl.nails[k] >= 1.0 or pl.bent[k]:
 					continue
-				if d < 9.0:
+				if d < HIT_R:
 					pl.nails[k] = minf(1.0, pl.nails[k] + 0.34)
 					Sfx.play("punch", -6.0, 1.4)
 					if pl.nails[0] >= 1.0 and pl.nails[1] >= 1.0:
@@ -305,7 +328,7 @@ func _hammer() -> void:
 							comment.emit("Lauteet kunnossa! Istumaan kelpaa.")
 							get_tree().create_timer(0.8).timeout.connect(_finish.bind(true))
 					return
-				if d < 20.0:
+				if d < BENT_R:
 					pl.bent[k] = true
 					Sfx.play("punch", -8.0, 0.9)
 					comment.emit((LINES.vino as Array).pick_random())
@@ -337,7 +360,7 @@ func _wall() -> Rect2:
 
 func _terva_tick(delta: float) -> void:
 	var w := _wall()
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and w.has_point(_mouse):
+	if _lmb and w.has_point(_mouse):
 		var speed := 0.0 if _last_paint == Vector2.INF else _mouse.distance_to(_last_paint) / maxf(delta, 0.001)
 		_last_paint = _mouse
 		var cw := w.size.x / TW
@@ -632,13 +655,16 @@ func _draw_lauteet(_font: Font) -> void:
 	_box(Rect2(jar, Vector2(56, 52)), Color(0.55, 0.6, 0.62), 8)
 	for k in 5:
 		_root.draw_line(jar + Vector2(10 + k * 9, 4), jar + Vector2(14 + k * 8, -10), Color(0.7, 0.7, 0.72), 2.0)
-	# Vasara: puuvarsi ja teräspää kiiltoineen.
+	# Vasara sivulta: teräspää pystyssä, lyöntipinta (alapää) kursorin kohdalla, puuvarsi oikealle.
 	var hv := _mouse
-	_root.draw_line(hv + Vector2(-4, -4), hv + Vector2(-46, -46), Color(0.55, 0.38, 0.2), 9.0)
-	_root.draw_line(hv + Vector2(-6, -8), hv + Vector2(-44, -48), Color(0.7, 0.52, 0.3), 3.0)
-	var head_r := Rect2(hv + Vector2(-64, -70), Vector2(46, 22))
-	_box(head_r, Color(0.3, 0.3, 0.33), 4)
-	_root.draw_rect(Rect2(head_r.position + Vector2(4, 3), Vector2(head_r.size.x - 8, 5)), Color(1, 1, 1, 0.25))
+	_root.draw_line(hv + Vector2(8, -24), hv + Vector2(86, -8), Color(0.55, 0.38, 0.2), 11.0)
+	_root.draw_line(hv + Vector2(10, -28), hv + Vector2(86, -12), Color(0.72, 0.54, 0.32), 3.0)
+	_root.draw_line(hv + Vector2(62, -13), hv + Vector2(86, -8), Color(0.25, 0.15, 0.08), 12.0)  # kahvan pää
+	var head_r := Rect2(hv + Vector2(-11, -44), Vector2(22, 44))
+	_box(Rect2(head_r.position + Vector2(3, 4), head_r.size), Color(0, 0, 0, 0.3), 3)
+	_box(head_r, Color(0.3, 0.3, 0.33), 3)
+	_root.draw_rect(Rect2(head_r.position + Vector2(3, 3), Vector2(5, head_r.size.y - 6)), Color(1, 1, 1, 0.25))
+	_root.draw_rect(Rect2(Vector2(head_r.position.x, hv.y - 5), Vector2(head_r.size.x, 5)), Color(0.18, 0.18, 0.2))  # lyöntipinta
 
 
 ## Lauta syineen ja oksankohtineen.

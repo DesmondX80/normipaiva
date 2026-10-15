@@ -9283,6 +9283,7 @@ func _mokki_logic() -> void:
 		_north_logic(p)
 		return
 	var dt := get_process_delta_time()
+	mokki.sauna_cutaway(p)  # katto pois näkyvistä, kun pelaaja on saunan sisällä
 	_smoker_tick(dt)
 	_hommat_tick(dt)
 	_santtu_chatter(dt)
@@ -9290,8 +9291,8 @@ func _mokki_logic() -> void:
 	if mowing:
 		_mow()
 		return
-	if _hint.text != "" or player == bike or player.is_stunned():
-		return
+	if _hint.text != "" or player == bike or player.is_stunned() or not walker_out.controls_enabled:
+		return  # minipeli auki (esim. savusaunan oven kiinnitys E:llä ei saa avata uutta peliä)
 	var e := Input.is_action_just_pressed("interact")
 	var near := func(local: Vector3, r: float) -> bool:
 		var g: Vector3 = mokki.to_global(local)
@@ -10054,7 +10055,9 @@ func _watch_context() -> Array:
 		return ["metsastys", Mokki.HUNT_LOCAL]
 	if hommat.pending("saunakorjaus") and (near.call(Mokki.KORJAUS_TERVA_LOCAL, 3.5) or near.call(Mokki.KORJAUS_OVI_LOCAL, 3.5)
 			or near.call(Mokki.KIVI_LOCAL, 3.5)):
-		return ["saunakorjaus", Mokki.KORJAUS_OVI_LOCAL + Vector3(-1.5, 0, 1.2)]
+		# Santtu katsoo pihan puolelta saunan lounaiskulman takaa: ei terassin portailla, oven edessä, kivikasan
+		# reitillä eikä tervattavan seinän vieressä (ennen hän seisoi terassin edessä ja esti kulun saunaan).
+		return ["saunakorjaus", Mokki.SAUNA_C + Vector3(-4.4, 0, -2.6)]
 	return []
 
 
@@ -14695,6 +14698,16 @@ func _play_wrestle_loop() -> void:
 		_play_wrestle_loop.call_deferred())
 
 
+## Testien hiiren nappi (painallus tai vapautus) kohdassa pos.
+static func _mb(pos: Vector2, pressed: bool, button := MOUSE_BUTTON_LEFT) -> InputEventMouseButton:
+	var ev := InputEventMouseButton.new()
+	ev.position = pos
+	ev.global_position = pos
+	ev.button_index = button
+	ev.pressed = pressed
+	return ev
+
+
 func _maybe_screenshot() -> void:
 	var path := ""
 	var scene := ""
@@ -15345,6 +15358,273 @@ func _maybe_screenshot() -> void:
 			mokki_int.walker.position = mokki_int.SPOTS.sangot[0]
 			await frames.call(5)
 			print("PAAPELI lukossa: hint '%s'" % _hint.text)
+		"saunakorjaus_pelaa":
+			# Savusaunan korjaus oikeasti pelaten: kävely paikoille törmäyksineen, E ja minipelit hiiren klikkauksilla ja
+			# näppäimillä (ei _finish-oikotietä). Kiukaalla otetaan ensin pieni kivi (ennen jumittui) ja vaihdetaan isoon.
+			if player == bike:
+				_toggle_mount()
+			mokki.ensure_built()
+			mokki.set_sauna_fixed(false)
+			hommat.sauna_fixed = false
+			hommat.active = true
+			hommat.tasks = ["saunakorjaus"]
+			hommat.done.clear()
+			hommat.progress.clear()
+			_note.visible = false
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().process_frame
+			var key := func(action: String) -> void:
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var move := func(pos: Vector2, mask := 0) -> void:
+				var ev := InputEventMouseMotion.new()
+				ev.position = pos
+				ev.global_position = pos
+				ev.button_mask = mask
+				Input.parse_input_event(ev)
+				await get_tree().process_frame
+			var click := func(pos: Vector2, button := MOUSE_BUTTON_LEFT) -> void:
+				await move.call(pos)
+				for pressed in [true, false]:
+					var ev := InputEventMouseButton.new()
+					ev.position = pos
+					ev.global_position = pos
+					ev.button_index = button
+					ev.pressed = pressed
+					Input.parse_input_event(ev)
+					await get_tree().process_frame
+			# Kävely oikeilla ohjaimilla: hahmo käännetään kohti reittipistettä ja "eteen" pohjassa (rinteet, seinät ja
+			# lauteet kuten pelaajalla). Jumiin jäädessä (ei edistystä 1,5 s) kuva ja seuraava piste.
+			var walk := func(points: Array, tag: String) -> float:
+				Input.action_press("forward")
+				for wp in points:
+					var goal: Vector3 = mokki.gpos(wp)
+					var best := INF
+					var still := 0
+					for i in 1800:
+						var d: Vector3 = goal - walker_out.global_position
+						d.y = 0.0
+						if d.length() < (0.35 if wp == points[-1] else 0.5):
+							break
+						walker_out.rotation.y = atan2(-d.x, -d.z)
+						if d.length() < best - 0.02:
+							best = d.length()
+							still = 0
+						else:
+							still += 1
+							if still > 90:
+								print("KORJAUS %s: jumissa paikassa %s (kohde %s, matkaa %.1f m)" % [tag,
+									mokki.to_local(walker_out.global_position), wp, d.length()])
+								Input.action_release("forward")
+								var jc := Camera3D.new()
+								add_child(jc)
+								jc.look_at_from_position(walker_out.global_position + Vector3(0, 7, 6), walker_out.global_position)
+								jc.current = true
+								await RenderingServer.frame_post_draw
+								await RenderingServer.frame_post_draw
+								get_viewport().get_texture().get_image().save_png(path.replace(".png", "_jumi_%s.png" % tag))
+								jc.queue_free()
+								walker_out.activate_camera()
+								Input.action_press("forward")
+								break
+						await get_tree().physics_frame
+				Input.action_release("forward")
+				for i in 10:
+					await get_tree().physics_frame
+				var last: Vector3 = mokki.gpos(points[-1])
+				return Vector2(walker_out.global_position.x - last.x, walker_out.global_position.z - last.z).length()
+			# Reitinhaku 0,4 m:n ruudukossa: ruutu on vapaa, jos pelaajan kapseli mahtuu (seinät, puut, lauteet), se ei
+			# ole vedessä eikä nousu naapuriin ole jyrkkä. Maan korkeus säteellä ylhäältä (lattiat mukaan).
+			var space := walker_out.get_world_3d().direct_space_state
+			var CELL := 0.4
+			var x0 := -14.0
+			var z0 := 6.0
+			var nx := 95
+			var nz := 110
+			var ground := {}
+			var cell_y := func(ix: int, iz: int) -> float:
+				var gk := ix * 1000 + iz
+				if ground.has(gk):
+					return ground[gk]
+				var lx := x0 + ix * CELL
+				var lz := z0 + iz * CELL
+				var y := INF
+				if not Mokki.in_water(lx, lz):
+					var top: Vector3 = mokki.gpos(Vector3(lx, 1.6, lz))
+					var rq := PhysicsRayQueryParameters3D.create(top, top + Vector3(0, -4.0, 0))
+					rq.exclude = [walker_out.get_rid()]
+					var hit := space.intersect_ray(rq)
+					var gy: float = hit.position.y if not hit.is_empty() else mokki.gpos(Vector3(lx, 0, lz)).y
+					var sh := CapsuleShape3D.new()
+					sh.radius = 0.28
+					sh.height = 1.1
+					var q := PhysicsShapeQueryParameters3D.new()
+					q.shape = sh
+					q.transform = Transform3D(Basis(), Vector3(top.x, gy + 0.32 + 0.55, top.z))
+					q.exclude = [walker_out.get_rid()]
+					if space.intersect_shape(q, 1).is_empty():
+						y = gy
+				ground[gk] = y
+				return y
+			var find_path := func(from: Vector3, to: Vector3) -> Array:
+				var a := Vector2i(roundi((from.x - x0) / CELL), roundi((from.z - z0) / CELL))
+				var b := Vector2i(roundi((to.x - x0) / CELL), roundi((to.z - z0) / CELL))
+				var prev := {a: a}
+				var queue: Array[Vector2i] = [a]
+				var head := 0
+				while head < queue.size():
+					var c: Vector2i = queue[head]
+					head += 1
+					if c.distance_to(b) < 2.0:
+						var pts: Array = []
+						var k := c
+						while k != a:
+							pts.push_front(Vector3(x0 + k.x * CELL, 0, z0 + k.y * CELL))
+							k = prev[k]
+						pts.append(to)
+						return pts
+					var cy: float = cell_y.call(c.x, c.y)
+					for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, 1),
+							Vector2i(1, -1), Vector2i(-1, -1)]:
+						var n: Vector2i = c + d
+						if prev.has(n) or n.x < 0 or n.y < 0 or n.x >= nx or n.y >= nz:
+							continue
+						var ny: float = cell_y.call(n.x, n.y)
+						if ny == INF or (cy != INF and absf(ny - cy) > 0.3):
+							continue
+						prev[n] = c
+						queue.append(n)
+				return []
+			var start: Vector3 = Mokki.KORJAUS_OVI_LOCAL + Vector3(-4.0, 0, 0)
+			walker_out.global_position = mokki.gpos(start) + Vector3(0, 0.5, 0)
+			await frames.call(10)
+			var game := func() -> Node:
+				var gs := get_children().filter(func(c): return c is SaunaKorjaus)
+				return null if gs.is_empty() else gs[0]
+			var open_game := func(step: String) -> Node:
+				print("KORJAUS %s: vihje '%s'" % [step, _hint.text])
+				await key.call("interact")
+				await frames.call(3)
+				return game.call()
+			var shot := func(step: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % step))
+			var routes := {"kivet": [start, Mokki.KIVI_LOCAL],
+				"kiuas": [start, Mokki.KORJAUS_OVI_LOCAL, Mokki.KORJAUS_IN_LOCAL],
+				"lauteet": [Mokki.KORJAUS_IN_LOCAL],
+				"terva": [Mokki.KORJAUS_OVI_LOCAL, start, Mokki.KORJAUS_TERVA_LOCAL],
+				"luukku": [start, Mokki.KORJAUS_OVI_LOCAL]}
+			for step in ["kivet", "kiuas", "lauteet", "terva", "luukku"]:
+				var here: Vector3 = mokki.to_local(walker_out.global_position)
+				var route: Array = find_path.call(here, routes[step][-1])
+				print("KORJAUS %s: reitti %d pistettä" % [step, route.size()] if not route.is_empty() else "KORJAUS %s: EI REITTIÄ %s -> %s" % [step, here, routes[step][-1]])
+				var miss: float = await walk.call(route if not route.is_empty() else routes[step], step)
+				print("KORJAUS %s: kävely perillä %.2f m päässä, paikka %s" % [step, miss, mokki.to_local(walker_out.global_position)])
+				if miss > 0.6:
+					walker_out.global_position = mokki.gpos(routes[step][-1]) + Vector3(0, 0.3, 0)  # jatketaan, vika kirjattu
+					await frames.call(5)
+				for i in 20:
+					await get_tree().process_frame
+				await shot.call("paikka_" + step)  # pelikamerasta: saunan sisällä katon pitää olla poissa
+				var g: Node = await open_game.call(step)
+				if g == null:
+					print("KORJAUS %s: peli ei auennut" % step)
+					continue
+				var ok := [false]
+				g.finished.connect(func(r: bool) -> void: ok[0] = r)
+				await frames.call(3)
+				var probe: Vector2 = g._area.get_center()
+				await move.call(probe)
+				var hov := get_viewport().gui_get_hovered_control()
+				print("KORJAUS hiiri: lähetetty %s, pelissä %s, hiiren alla %s (%s)" % [probe, g._root.get_local_mouse_position(),
+					hov, hov.get_path() if hov != null else ""])
+				var gui_n := [0]
+				g._root.gui_input.connect(func(ev: InputEvent) -> void:
+					if ev is InputEventMouseButton:
+						gui_n[0] += 1)
+				match step:
+					"kivet":
+						for st in g._stones.duplicate():
+							if st.good and is_instance_valid(g) and not g._done:
+								await click.call(st.p)
+								print("KORJAUS kivi %s: pelin hiiri %s, kerätty %d, humala %.2f" % [st.p, g._mouse, g._got, g.drunk])
+					"kiuas":
+						for sl in g._slots:
+							await click.call((sl.rect as Rect2).get_center())
+							await click.call((sl.rect as Rect2).get_center())
+						await shot.call("kiuas_tyhja")
+						# Ensin pieni kivi käteen (ennen tästä ei päässyt eteenpäin), sitten vaihto isoon.
+						await click.call(g._bag_rect(g._bag.find("pieni")).get_center())
+						print("KORJAUS kiuas: kädessä '%s'" % g._held)
+						for sl in g._slots:
+							if not is_instance_valid(g) or g._done:
+								break
+							var want := "iso" if sl.row == 0 else "pieni"
+							if g._held != want:
+								await click.call(g._bag_rect(g._bag.find(want)).get_center())
+							await click.call((sl.rect as Rect2).get_center())
+					"lauteet":
+						for i in 3:
+							for k in 4:
+								await click.call(g._plank_rect(i).get_center() + Vector2(0, -12))
+							for k in 2:
+								for h in 3:
+									if is_instance_valid(g) and not g._done:
+										await click.call(g._nail_pos(i, k) + Vector2(8, -6))  # vähän ohi kannan keskeltä
+							if i == 0:
+								await shot.call("lauteet")
+					"terva":
+						var w: Rect2 = g._wall()
+						var lh: float = w.size.y / g.TH
+						for row in g.TH:
+							var y: float = w.position.y + (row + 0.5) * lh
+							var x: float = w.position.x + 2.0
+							while x < w.end.x - 2.0 and is_instance_valid(g) and not g._done:
+								Input.parse_input_event(_mb(Vector2(x, y), true)) if x == w.position.x + 2.0 else null
+								await move.call(Vector2(x, y), MOUSE_BUTTON_MASK_LEFT)
+								x += 300.0 * get_process_delta_time()  # rauhallinen veto, ~300 px/s
+							Input.parse_input_event(_mb(Vector2(x, y), false))
+							await frames.call(2)
+							for dr in g._drips.duplicate():
+								await click.call(dr.p + Vector2(0, 6), MOUSE_BUTTON_RIGHT)
+							if row == 2:
+								await shot.call("terva")
+						for dr in g._drips.duplicate() if is_instance_valid(g) else []:
+							await click.call(dr.p + Vector2(0, 6), MOUSE_BUTTON_RIGHT)
+						await get_tree().create_timer(1.3).timeout
+						if is_instance_valid(g) and not g._done:
+							print("KORJAUS terva: kattavuus %.2f valumia %d" % [g._coverage(), g._drips.size()])
+					"luukku":
+						for i in 16:
+							await key.call("left" if i % 2 == 0 else "right")
+						print("KORJAUS luukku: vaihe %s" % g._phase)
+						Input.action_press("forward")
+						for i in 300:
+							await get_tree().process_frame
+							if g._lift > 0.68:
+								break
+						await key.call("interact")
+						Input.action_release("forward")
+						await frames.call(3)
+						print("KORJAUS luukku: vaihe %s, nosto %.2f, pelejä auki %d" % [g._phase, g._lift,
+							get_children().filter(func(c): return c is SaunaKorjaus).size()])
+						var c: Vector2 = g._area.position + Vector2(g._area.size.x / 2.0, 260)
+						var a := -PI / 2.0
+						for i in 400:
+							if not is_instance_valid(g) or g._done:
+								break
+							a += 0.25
+							await move.call(c + Vector2(cos(a), sin(a)) * 90.0)
+						await shot.call("luukku")
+				await get_tree().create_timer(1.3).timeout  # vaihe kuitataan 0,8 s viiveellä
+				print("KORJAUS %s: nappitapahtumia pelissä %d" % [step, gui_n[0]])
+				print("KORJAUS %s: valmis %s, edistyminen %s, viesti '%s'" % [step, ok[0], hommat.progress.get("korjaus", {}).keys()
+					if step != "kivet" else hommat.progress.get("kivet", false), _msg.text.replace("\n", " | ")])
+			print("KORJAUS lopuksi: homma tehty %s, sauna korjattu %s" % ["saunakorjaus" in hommat.done, mokki.sauna_fixed])
 		"saunakorjaus":
 			# Savusaunan korjaus: Santun homma, kivikasa, neljä vaihetta (kuvat minipeleistä, vaiheet kuitataan), lopuksi
 			# korjattu sauna (tervatut seinät, suora ovi) ja lämpenemisen vertailu.

@@ -193,6 +193,8 @@ var sauna_smoke := 0.0
 var sauna_heated := false
 var sauna_fixed := false  # savusauna korjattu (Santun homma): lämpiää ja tuulettuu normaalisti
 var _sauna_logs: Array[MeshInstance3D] = []
+var _sauna_roof: Array[MeshInstance3D] = []  # katto, päätykolmiot ja sisäkatto (piilotetaan, kun pelaaja on sisällä)
+var _sauna_cut := false
 var _sauna_door: Node3D
 var _sauna_body: StaticBody3D
 signal sauna_event(kind: String)  # "sammui", "kuuma", "valmis"
@@ -1612,6 +1614,20 @@ func _build_summer_kitchen() -> void:
 
 # --- Savusauna ------------------------------------------------------------------
 
+## Sims-tyylinen leikkaus: kun pelaaja on savusaunan sisällä (korjaamassa tai lämmittämässä), katto, päätykolmiot ja
+## sisäkatto katoavat, jotta sisälle näkee ylhäältä ja valo pääsee sisään.
+func sauna_cutaway(player_pos: Vector3) -> void:
+	if _sauna_body == null:
+		return
+	var lp := _sauna_body.to_local(player_pos)
+	var inside := absf(lp.x) < SAUNA_SIZE.x / 2.0 + 0.05 and absf(lp.z) < SAUNA_SIZE.y / 2.0 + 0.05 and lp.y < 2.0
+	if inside == _sauna_cut:
+		return
+	_sauna_cut = inside
+	for m in _sauna_roof:
+		m.visible = not inside
+
+
 func _build_savusauna() -> void:
 	var w := SAUNA_SIZE.x
 	var d := SAUNA_SIZE.y
@@ -1663,14 +1679,14 @@ func _build_savusauna() -> void:
 	# Yhteinen harjakatto saunan ja terassin yllä: harja Z-suunnassa kohtisuoraan järvelle, päätykolmio järvelle.
 	var roof := PrismMesh.new()
 	roof.size = Vector3(w + 1.0, rise, d + ter + 0.7)
-	B.mesh(sauna, roof, Vector3(0, wall_h + rise / 2.0, ter / 2.0), roof_col)
+	_sauna_roof.append(B.mesh(sauna, roof, Vector3(0, wall_h + rise / 2.0, ter / 2.0), roof_col))
 	# Päätykolmiot: saunan etuseinän yläpuolella (terassin puolelta näkyvä) ja järvenpuoleinen päätylauta.
 	var gable := PrismMesh.new()
 	gable.size = Vector3(w + 0.18, rise - 0.05, 0.14)
-	B.mesh(sauna, gable, Vector3(0, wall_h + (rise - 0.05) / 2.0, fz), log_col.darkened(0.2))
+	_sauna_roof.append(B.mesh(sauna, gable, Vector3(0, wall_h + (rise - 0.05) / 2.0, fz), log_col.darkened(0.2)))
 	var gable2 := PrismMesh.new()
 	gable2.size = Vector3(w + 0.3, rise - 0.05, 0.08)
-	B.mesh(sauna, gable2, Vector3(0, wall_h + (rise - 0.05) / 2.0, fz + ter + 0.1), Color(0.3, 0.22, 0.14))
+	_sauna_roof.append(B.mesh(sauna, gable2, Vector3(0, wall_h + (rise - 0.05) / 2.0, fz + ter + 0.1), Color(0.3, 0.22, 0.14)))
 	B.mesh(sauna, B.boxm(Vector3(w + 0.4, 0.16, 0.16)), Vector3(0, wall_h - 0.06, fz + ter + 0.1), log_col.darkened(0.15))  # päätyorsi
 	for sx in [-1.0, 1.0]:
 		B.mesh(sauna, B.boxm(Vector3(0.14, 0.14, ter + 0.2)), Vector3(sx * w / 2.0, wall_h - 0.06, fz + ter / 2.0), log_col.darkened(0.15))
@@ -1748,7 +1764,7 @@ func _build_savusauna() -> void:
 	_sauna_fire = _make_fire(sauna, Vector3(kl.x - 0.05, 0.08, kl.z), 0.55)
 	B.mesh(sauna, B.cyl(0.13, 0.1, 0.24, 10), SAUNA_KIULU, Color(0.55, 0.4, 0.25))  # tuohinen kiulu
 	B.mesh(sauna, B.cyl(0.12, 0.12, 0.01, 10), SAUNA_KIULU + Vector3(0, 0.1, 0), Color(0.3, 0.38, 0.42))  # vesi
-	B.mesh(sauna, B.boxm(Vector3(w - 0.1, 0.03, d - 0.1)), Vector3(0, wall_h - 0.02, 0), Color(0.09, 0.08, 0.07))  # nokinen sisäkatto
+	_sauna_roof.append(B.mesh(sauna, B.boxm(Vector3(w - 0.1, 0.03, d - 0.1)), Vector3(0, wall_h - 0.02, 0), Color(0.09, 0.08, 0.07)))  # nokinen sisäkatto
 	# Savusaunan savu: lämmittäessä paksua savua ovesta ja räppänästä, tuulettuessa ohenee.
 	_sauna_smoke_fx = _smoke_fx(Vector3(dx, 1.7, fz + 0.3))
 	sauna.add_child(_sauna_smoke_fx)
