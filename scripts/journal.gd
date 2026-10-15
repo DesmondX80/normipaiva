@@ -23,6 +23,7 @@ var _book := Rect2()
 var _scroll := 0.0
 var _hand: SystemFont
 var _hover_tab := -1
+var _keys: Control  # näppäinohjeet hattuina alareunassa (hint_bar.gd)
 
 
 func _ready() -> void:
@@ -33,6 +34,10 @@ func _ready() -> void:
 	_hand = SystemFont.new()
 	_hand.font_names = PackedStringArray(["Bradley Hand", "Segoe Print", "Comic Sans MS", "Chalkboard SE", "Marker Felt",
 		"Noteworthy", "sans-serif"])
+	_keys = preload("res://scripts/hint_bar.gd").new()
+	_keys.compact = true
+	_keys.centered = true
+	add_child(_keys)
 
 
 func toggle() -> void:
@@ -44,6 +49,7 @@ func toggle() -> void:
 		_data = game.journal_data() if game != null else {}
 		_scroll = 0.0
 		Sfx.play("cloth", -8.0, 0.9)
+	_keys.set_text("[1–4] välilehdet   [Rulla] selaa   %s sulje" % Settings.cap("journal", "Esc") if visible else "")
 	queue_redraw()
 
 
@@ -141,8 +147,6 @@ func _draw() -> void:
 			_draw_endings()
 		"jemmat":
 			_draw_stashes()
-	draw_string(ThemeDB.fallback_font, Vector2(0, _book.end.y + 32), "1–4 välilehdet · rulla selaa · %s / Esc sulje" % Settings.cap("journal"),
-		HORIZONTAL_ALIGNMENT_CENTER, size.x, 16, Color(0.85, 0.85, 0.85))
 
 
 ## Kirjoittaa rivejä sivuille: vasen sivu ensin, sitten oikea. Palauttaa false, kun tila loppui.

@@ -4203,6 +4203,17 @@ const SAASTO_OPEN := Vector2(9 * 60, 18 * 60)
 const KUKAT_HINTA := 12.0
 const TAIMET_HINTA := 6.0
 const MULTA_HINTA := 5.0
+## Sepon jutut "Mitä kuuluu?" -kysymykseen; päivän mielialan mukaan (SEPPO_MOODS-järjestys).
+const SEPPO_JUTUT := [
+	["No hyvin! Ihan hyvin. Osta jotain, niin menee vielä paremmin.", "Aurinko paistaa ja varasto on täynnä. Mitäpä tässä muuta."],
+	["Mitäpä tässä. Varasto ei tyhjene, vaikka kuinka myisi.", "Samaa vanhaa. Telkkaripino ei oo pienentyny, jos sitä meinasit."],
+	["Huonosti. Kaikki kattoo, kukaan ei osta.", "Älä kysy. Ja älä koske siihen pressuun."],
+	["Arvaa mitä löysin varaston perältä! No en kerro. Mutta hienoa on.", "Sieltä perältä löytyy aina jotain. Kymmenen vuotta kaivanu, eikä pohja näy."],
+	["Selkä on kipee. Telkkaria kannoin. Älä osta telkkaria, niin ei tarvi kantaa takaisin.", "Kipee selkä. Ei kannata kumartua noiden rojujen perään, usko pois."],
+]
+const VEKSI_JUTUT := ["Keräilyesineitä otan. Kekkosta, hopeaa, vanhaa. Rihkamaa en.",
+	"Mitä tässä. Hilkka myy edessä virkkuuliinoja, mää takana sitä, mikä oikeesti maksaa.",
+	"Kukaan ei tiedä, mitä varastoissa ja ullakoilla lojuu. Paitsi mää. Tuo näytille."]
 const SAASTO_JUTUT := ["Nurmikolle kannattaa antaa kalkkia keväällä. Ja leikata useammin kuin kerran kesässä.",
 	"Päivi kävi viime viikolla. Katteli ruusuja pitkään ja huokaili. Sano vaan.",
 	"Sinikka ostaa täältä aina tomaatintaimia. Se kasvattaa niitä paremmin ku kukaan.",
@@ -5919,7 +5930,7 @@ func _pick_berries(dt: float) -> void:
 	_pick_idle += dt
 	if walker_out.exhausted:
 		walker_out.pose = ""
-		_hint.text = "Selkä! Suorista hetki ennen kuin jatkat %s poimintaa. (W/S lopettaa)" % goods
+		_hint.text = "Selkä! Suorista hetki ennen kuin jatkat %s poimintaa.   %s lopeta" % [goods, Settings.pair("forward", "back")]
 		return
 	walker_out.stamina = maxf(0.0, walker_out.stamina - BEND_DRAIN * dt)
 	if walker_out.stamina <= 0.0:
@@ -5947,7 +5958,8 @@ func _pick_berries(dt: float) -> void:
 		_pick_meter -= PICK_DECAY * dt
 	_pick_meter = clampf(_pick_meter, 0.0, 1.0)
 	var bar := "▮".repeat(roundi(_pick_meter * 10.0)) + "▯".repeat(10 - roundi(_pick_meter * 10.0))
-	_hint.text = "Poimitaan %s %s   %s   (W/S lopettaa)" % [goods, bar, "[D] ylös" if _pick_down else "[A] kyykkyyn"]
+	_hint.text = "Poimitaan %s %s   %s   %s lopeta" % [goods, bar,
+		Settings.cap("right") + " ylös" if _pick_down else Settings.cap("left") + " kyykkyyn", Settings.pair("forward", "back")]
 	if _pick_meter >= 1.0:
 		_pick_done()
 
@@ -9148,10 +9160,16 @@ func _talk_chat_line() -> String:
 			return MOPOPOJAT_LINES.pick_random()
 		"gasthaus":
 			return GASTHAUS_LINES.pick_random()
+		"seppo":
+			return (SEPPO_JUTUT[SEPPO_MOODS.find(_seppo_mood())] as Array).pick_random()
+		"saasto":
+			return SAASTO_JUTUT.pick_random()
+		"veksi":
+			return VEKSI_JUTUT.pick_random()
 		"hilkka", "raili", "tauno", "huutaja", "annaliisa", "sinikka_seura":
 			var pool: Dictionary = KirppisInterior.AMBIENT_MODE.get(kirppis_int.mode, {})
 			return (pool.get(_talk_who, KirppisInterior.AMBIENT.get(_talk_who, [""])) as Array).pick_random()
-	return ""
+	return "No mitäpä tässä. Ihan normipäivä."  # varalla, ettei kysymys jää ilman vastausta
 
 
 func _talk_chat_info() -> String:
@@ -15166,6 +15184,9 @@ func _maybe_screenshot() -> void:
 						key = "right" if key == "left" else "left"
 					for w in tr[1]:
 						await get_tree().process_frame
+					if n == 6 and tr == tries[0]:  # ohjeen näppäinhatut kuvaan kesken poiminnan
+						await RenderingServer.frame_post_draw
+						get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ohje.png"))
 				print("PICK %s: valmis=%s aika=%.1f s mittari=%.2f kunto=%.0f ämpäri=%s ohjaus=%s" % [tr[0], _pick_t < 0.0,
 					(Time.get_ticks_msec() - t0) / 1000.0, _pick_meter, walker_out.stamina, bucket, walker_out.controls_enabled])
 				_stop_picking()
@@ -18563,7 +18584,21 @@ func _maybe_screenshot() -> void:
 				for i in 4:
 					await get_tree().process_frame
 				await snap.call("_%s.png" % t)
-			_journal.toggle()
+			# Esc sulkee päiväkirjan eikä avaa taukovalikkoa (ennen valikko jäi auki ja peli pyöri taustalla).
+			var esc := InputEventKey.new()
+			esc.physical_keycode = KEY_ESCAPE
+			esc.keycode = KEY_ESCAPE
+			esc.pressed = true
+			Input.parse_input_event(esc)
+			for i in 3:
+				await get_tree().process_frame
+			esc = esc.duplicate()
+			esc.pressed = false
+			Input.parse_input_event(esc)
+			await get_tree().process_frame
+			print("PK esc: päiväkirja auki %s, valikko auki %s, tauko %s" % [_journal.visible, menu.visible, get_tree().paused])
+			if _journal.visible:
+				_journal.toggle()
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"pannu":
@@ -19372,6 +19407,7 @@ func _maybe_screenshot() -> void:
 			print("SE valinnat: %s" % [opts.call("seppo")])
 			_talk_open("seppo", world.seppo_npc)
 			_talk_box._pages.clear()
+			print("SE mitä kuuluu: '%s'" % _talk_chat_line())
 			var k0: String = _seppo_today()[0]
 			var sup0: int = ebike.supplies.get(SEPPO_STOCK[k0][2], 0) if SEPPO_STOCK[k0][2] != "" else 0
 			_talk_choose("osta_" + k0)
