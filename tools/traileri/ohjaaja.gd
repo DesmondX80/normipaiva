@@ -99,7 +99,7 @@ func _settle() -> void:
 			if not is_instance_valid(b):
 				continue
 			var y: float = b.global_position.y
-			if y < ys[b] - 0.002 and not b.is_on_floor():
+			if y < ys[b] - 0.002 and not b.is_on_floor() and b.is_visible_in_tree() and b.is_physics_processing():
 				falling.append(b)
 				var sc: Script = b.get_script()
 				falling_names.append("%s(%s)" % [b.name, sc.resource_path.get_file() if sc else "-"])
@@ -199,6 +199,7 @@ func _separator() -> void:
 
 
 func _cleanup() -> void:
+	_game_labels.clear()
 	if get_tree().paused:
 		get_tree().paused = false
 	for c in _texts.get_children():
@@ -289,6 +290,9 @@ func _apply_look() -> void:
 		env.fog_depth_end *= _spec.fog
 
 
+var _game_labels := {}
+
+
 func _hide_hud() -> void:
 	if not _spec.get("hud", false):
 		main._hud.visible = false
@@ -303,6 +307,11 @@ func _hide_hud() -> void:
 		for k in ["_hud", "_ui", "_layer"]:
 			if g.get(k) is CanvasLayer:
 				g.get(k).visible = false
+		if not _game_labels.has(f):  # minipelin omat 3D-tekstit (ohjeet, puhekuplat)
+			_game_labels[f] = g.find_children("*", "Label3D", true, false)
+		for l in _game_labels[f]:
+			if is_instance_valid(l):
+				l.visible = false
 	if main._msg:  # pelin ilmoitukset (voivat olla eri kerroksessa kuin HUD)
 		main._msg.visible = _spec.get("hud", false)
 	# Muut käyttöliittymän osat, joista osa on HUD-kerroksen ulkopuolella (mopon palkit, vihjeet, puhe-ikkuna).
@@ -318,6 +327,10 @@ func _hide_hud() -> void:
 	if cs != null and cs.get("_sub") is Label:
 		cs._sub.visible = false
 		cs._title.visible = _spec.get("title", true)
+		# Välianimaation repliikkikuplat (3D) pois, ellei otos käytä niitä tekstinä (spec.cs_bubbles, esim. Päivin TV).
+		if cs.get("_props") is Node3D:
+			for l in (cs._props as Node3D).find_children("*", "Label3D", true, false):
+				l.visible = _spec.get("cs_bubbles", false)
 
 
 # --- Kamera -------------------------------------------------------------------

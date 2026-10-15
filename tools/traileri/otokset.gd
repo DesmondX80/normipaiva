@@ -356,7 +356,16 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 					hop.done = true
 					main.bike.hop(6.0)
 					Sfx.play("whoosh", -4.0, 1.2)
-			return {"warm": 2, "tick": rtk, "cam": follow(main.bike, Vector3(3.0, 0.6, -2.0), Vector3(3.5, 1.0, 1.5), Vector3(0, 0.8, 0)), "fov": 44.0,
+			# Matala kiinteä kamera hyppyrin sivulla harjan jälkeen: mopo nousee taivasta vasten, katse kääntyy mukana.
+			var jg := Vector3(j.x, T.h(j.x, j.z), j.z)
+			var reye := jg + _side(jd) * 4.2 + jd * 1.8
+			if not _clear(main, reye + Vector3(0, 0.35, 0), jg + Vector3(0, 1.2, 0)):
+				reye = jg - _side(jd) * 4.2 + jd * 1.8
+			reye.y = T.h(reye.x, reye.z) + 0.35
+			var rcam := {"look": jg + Vector3(0, 0.9, 0) - jd * 4.0}
+			return {"warm": 2, "tick": rtk, "fov": 50.0, "dof": 6.0, "cam": func(_t: float) -> Array:
+				rcam.look = (rcam.look as Vector3).lerp(main.bike.global_position + Vector3(0, 0.9, 0), 0.25)
+				return [reye, rcam.look],
 				"done": func() -> void: main.bike.set_mopo(false)}
 		"k_juntti", "f_tappelu":
 			_time(main, 14, 0)
@@ -366,7 +375,19 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var keys := []
 			for i in 8:
 				keys.append([0.2 + i * 0.35, "punch" if i % 3 != 2 else "kick"])
-			return {"warm": 50, "keys": keys, "lose": true}
+			# Tappelun HUDista pois palkit, nimet, ajastin ja ohjerivi; FIGHT!, iskutekstit ja COMBO jäävät.
+			var ftk := func(_t: float) -> void:
+				var fg: Node = _find(main, "fight.gd")
+				if fg == null:
+					return
+				for k in ["_bar_p", "_bar_j", "_timer_label", "_foe_name", "_help"]:
+					if fg.get(k) is CanvasItem:
+						fg.get(k).visible = false
+				if fg.get("_bar_p") is Control:
+					for c in (fg._bar_p as Control).get_parent().get_children():
+						if c is Label and c.text == "SÄÄ":
+							c.visible = false
+			return {"warm": 50, "keys": keys, "lose": true, "tick": ftk}
 		"f_hyundai", "f_hyundai2":
 			_time(main, 16, 0)
 			var a := M.w(Vector2(470, 1000)) if id == "f_hyundai" else M.w(Vector2(250, 760))
@@ -418,11 +439,10 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			return {"tick": tick, "cam": follow(main.bike, Vector3(-0.5, 0.3, 2.5), Vector3(-0.3, 0.35, 2.0), Vector3(0, 0.9, -4.0)), "fov": 60.0}
 		"f_mopo_ajo":
 			_time(main, 19, 30)
-			_on_bike(main)
-			main.bike.set_mopo(true)
 			var a := M.w(Vector2(250, 760))
 			var tick := ride(main, a, M.w(Vector2(470, 1000)), 1.0)
-			return {"tick": tick, "cam": follow(main.bike, Vector3(2.6, 0.7, 1.5), Vector3(2.4, 0.8, -1.0), Vector3(0, 0.8, 0)), "fov": 44.0,
+			main.bike.set_mopo(true)  # ride() nostaa polkupyörän selkään: mopoksi vasta sen jälkeen
+			return {"tick": tick, "cam": follow(main.bike, Vector3(3.4, 1.1, 1.2), Vector3(3.2, 1.2, -1.2), Vector3(0, 1.0, 0)), "fov": 44.0,
 				"done": func() -> void: main.bike.set_mopo(false)}
 		"f_kaatuminen":
 			_time(main, 15, 0)
@@ -571,7 +591,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			if id == "k_huutokauppa":
 				main._start_auction()
 				var ag: Node = _find(main, "auction_game.gd")
-				var keys := [[1.0, "interact"], [3.0, "interact"], [5.0, "interact"]]
+				var keys := [[1.0, "interact"], [3.0, "interact"]]  # ei huutoja laskennan aikana
 				if ag == null:
 					return {"warm": 40, "keys": keys, "hide_games": ["auction_game.gd"]}
 				var er: Node3D = ag._erkki
@@ -579,7 +599,12 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 				var gcam: Vector3 = ag._cam.global_position
 				var tow := ((gcam - ef) * Vector3(1, 0, 1)).normalized()
 				var look := ef + Vector3(0, 1.5, 0)
-				return {"warm": 40, "keys": keys, "hide_games": ["auction_game.gd"],
+				# Kilpailijat lopettavat huutamisen 3,2 s kohdalla: Erkki laskee kerrat (toisen kerran n. 5 s, MYYTY n. 8 s).
+				var atk := func(t: float) -> void:
+					if t > 3.2 and is_instance_valid(ag):
+						for r in ag.rivals:
+							r[1] = 0.0
+				return {"warm": 40, "keys": keys, "tick": atk, "hide_games": ["auction_game.gd"],
 					"cam": dolly(look + tow * 3.6 + _side(tow) * 1.2 + Vector3(0, -0.3, 0), look + tow * 2.8 + _side(tow) * 0.9 + Vector3(0, -0.3, 0), look, look),
 					"fov": 42.0, "dof": 4.0}
 			var ki: Node3D = main.kirppis_int
@@ -658,6 +683,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			gi.walker.position = Vector3(-0.5, 0, -3.4)
 			gi.walker.rotation.y = B.yaw_to(Vector3(0, 0, -1))
 			# Talli on katoton (peli kuvaa ylhäältä): kamera katsoo alaviistoon, ettei taivas näy seinien yli.
+			# (Ei trailerissa: kasaus ei taipunut otokseksi, tilalla f_mopo_ajo.)
 			return {"cam": dolly(gi.to_global(Vector3(3.0, 3.2, 3.6)), gi.to_global(Vector3(2.4, 2.9, 2.6)), gi.to_global(Vector3(-1.2, 0.6, -2.6)),
 				gi.to_global(Vector3(-0.9, 0.7, -3.0))), "fov": 50.0, "dof": 7.0}
 
@@ -665,9 +691,10 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 		"t_mokki_saapuu", "t_paapeli", "m_sauna":
 			var mk: Node3D = _mokki(main)
 			_time(main, 18, 0) if id != "m_sauna" else _time(main, 21, 40)
-			_foot(main, mk.to_global(Vector3(-2, 0, -14)), Vector3.FORWARD)
 			var lg := func(x: float, z: float, y: float) -> Vector3:  # mökin paikallinen piste maaston päällä
 				return mk.to_global(Vector3(x, mk.h(x, z) + y, z))
+			_foot(main, mk.to_global(Vector3(-2, 0, -14)), Vector3.FORWARD)
+			main.walker_out.global_position = lg.call(-2, -14, 0.05)  # mökin oma maasto (ei Saloisten T.h)
 			if id == "t_mokki_saapuu":  # puiden latvojen yli, alas pihaan
 				return {"cam": dolly(lg.call(-18, -26, 24.0), lg.call(-12, -18, 14.0), lg.call(0, -1, 1.5), lg.call(0, -1, 1.5)), "fov": 52.0}
 			if id == "m_sauna":
@@ -1021,7 +1048,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var img: Image = main.get_viewport().get_texture().get_image()
 			main.state = "cutscene"
 			main.cutscene.paivi_tv(ImageTexture.create_from_image(img), func() -> void: pass)
-			return {"warm": 10}
+			return {"warm": 10, "cs_bubbles": true}  # "SE ON SE! Mun mies!" kuuluu leikkaukseen
 		"s_halot":  # halonhakkuu kodalla (FPS-minipeli)
 			_time(main, 18, 0)
 			var k: Node3D = main.world.kota

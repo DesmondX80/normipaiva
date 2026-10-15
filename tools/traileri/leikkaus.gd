@@ -47,9 +47,9 @@ const SHOTS := [
 	{"id": "t_paivi_nakee", "g": "ulko", "b": 10},
 	{"id": "t_avaimet", "g": "ulko", "b": 12},
 	{"id": "t_nurmikko", "g": "ulko", "b": 8, "in": 1.0},
-	{"id": "k_huutokauppa", "g": "kirppis", "b": 12, "in": 6.0},
+	{"id": "k_huutokauppa", "g": "kirppis", "b": 12, "in": 3.5},
 	{"id": "k_piirakka", "g": "reippari", "b": 10},
-	{"id": "k_rossi", "g": "ulko", "b": 8, "in": 0.5},
+	{"id": "k_rossi", "g": "ulko", "b": 8, "in": 0.3},
 	{"id": "k_keinu", "g": "leikki", "b": 12, "in": 1.8},
 	{"id": "s_sinikka", "g": "ulko", "b": 8},
 	{"id": "k_uimaranta", "g": "ulko", "b": 8},
@@ -57,7 +57,7 @@ const SHOTS := [
 
 	# --- Nousu 78–98 s ----------------------------------------------------------------------------------------------
 	{"id": "s_aarnivalkea", "g": "ulko", "b": 10, "at": 78.04, "in": 1.6},
-	{"id": "v_sahkopyora", "g": "talli", "b": 8},
+	{"id": "f_mopo_ajo", "g": "ulko", "b": 8},  # sähköpyörän kasaus ei taipunut otokseksi
 	{"id": "f_sahkopyora_ajo", "g": "ulko", "b": 8},
 	{"id": "v_mummot", "g": "ulko", "b": 8, "in": 0.8},
 	{"id": "s_taksi", "g": "taksi", "b": 6, "in": 2.8},
@@ -84,7 +84,7 @@ const SHOTS := [
 	# --- Silta 140–152 s: PAAPELI ------------------------------------------------------------------------------------
 	{"id": "t_mokki_saapuu", "g": "mokki", "b": 8, "at": 140.0, "teksti": "PAAPELI"},
 	{"id": "s_sauna", "g": "sauna", "b": 11, "in": 6.0},
-	{"id": "f_uinti", "g": "uinti", "b": 11, "in": 13.5},
+	{"id": "f_uinti", "g": "uinti", "b": 11, "in": 12.8},
 
 	# --- Loppukertosäe 152–197,6 s: Paapeli ja VAALA, huipennus -------------------------------------------------------
 	{"id": "m_kala", "g": "kala", "b": 8, "at": 151.955, "in": 5.0},
