@@ -42,10 +42,14 @@ func _sheets() -> void:
 
 func _sheet_page(g: String, page: int, ids: Array, tw: int, th: int) -> void:
 	if true:
-		var img := Image.create(tw * 3 + 8, (th + 4) * ids.size(), false, Image.FORMAT_RGB8)
+		var cols := 0
+		while FileAccess.file_exists(dir.path_join("%s_%d.png" % [ids[0], cols])):
+			cols += 1
+		cols = maxi(cols, 1)
+		var img := Image.create((tw + 4) * cols, (th + 4) * ids.size(), false, Image.FORMAT_RGB8)
 		img.fill(Color(0.15, 0.15, 0.15))
 		for r in ids.size():
-			for c in 3:
+			for c in cols:
 				var p := dir.path_join("%s_%d.png" % [ids[r], c])
 				if not FileAccess.file_exists(p):
 					continue
@@ -134,12 +138,14 @@ func _split_group(g: String, ids: Array) -> Dictionary:
 			push_error("Ryhmässä %s ei ole otosta %s" % [g, ids[k]])
 			break
 		var want := Leikkaus.frames_of(ids[k])
+		var take := want + Leikkaus.in_frames(ids[k])  # pitkä otto: käytetään viimeiset want ruutua
 		var seg: Array = segs[k]
-		if absi(seg[1] - seg[0] - want) > 2:
-			push_warning("Otos %s: %d ruutua, odotettiin %d" % [ids[k], seg[1] - seg[0], want])
+		if absi(seg[1] - seg[0] - take) > 2:
+			push_warning("Otos %s: %d ruutua, odotettiin %d" % [ids[k], seg[1] - seg[0], take])
+		var start := maxi(seg[0], seg[1] - want)
 		var frames := []
 		for j in want:
-			var idx := mini(seg[0] + j, seg[1] - 1)
+			var idx := mini(start + j, seg[1] - 1)
 			frames.append([avi.video[idx], avi.audio[idx] if idx < avi.audio.size() else null])
 		res.shots[ids[k]] = frames
 	return res
