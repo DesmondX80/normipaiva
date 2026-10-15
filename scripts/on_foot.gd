@@ -145,8 +145,8 @@ func tire(exerting: bool, resting: bool, delta: float, drain := 18.0) -> void:
 	if exhausted:
 		_breath_t -= delta
 		if _breath_t <= 0.0:
-			_breath_t = 0.75
-			Sfx.play("whoosh", -10.0, 0.5)
+			_breath_t = randf_range(0.6, 0.8)
+			Sfx.play("breath", -12.0, randf_range(0.92, 1.08))
 
 
 func _physics_process(delta: float) -> void:
