@@ -1,47 +1,10 @@
 extends CanvasLayer
-## Alkuvalikko, taukovalikko (Esc) ja asetukset: grafiikka, ääni, ohjaus. Ohjeet ja tekijät.
+## Alkuvalikko, taukovalikko (Esc) ja asetukset: grafiikka, ääni, ohjaus. Tekijät.
 ## Peli on pysäytetty valikon ollessa auki; alkuvalikon taustalla kamera kiertää Järvikujaa.
 
 const M := preload("res://scripts/map_data.gd")
 const SAVE_PATH := "user://normipaiva.cfg"
 const YELLOW := Color(1.0, 0.8, 0.1)
-const CONTROLS := """Näppäimet voi vaihtaa: Asetukset → Näppäimet (alla oletukset).
-PYÖRÄLLÄ
-W / S	polje / jarruta ja peruuta
-A / D	ohjaa
-Välilyönti	jarru
-Q	soittokello
-Shift	spurtti (kuluttaa kuntoa)
-F	nouse pyörän selästä / takaisin pyörälle
-JALAN
-W / S, A / D	kävele ja käänny
-Shift	juokse (kuluttaa kuntoa)
-A / D	marjoja poimiessa: kyykkyyn ja ylös vuorotellen
-YLEISET
-E	toiminto (kauppa, poiminta, nuotio, myynti)
-M	paperikartta (W/S tai rulla vierittää)
-V	FPS / kolmas persoona
-Hiiri	kamera (Esc vapauttaa hiiren valikkoon)
-Esc	taukovalikko (myös päivän aloitus alusta)
-SAHAUS (kodan sahapukilla)
-Hiiri / E	merkkaa katkaisukohta ja aloita
-Hiiri eteen-taakse / W-S	sahaa (pitkät, rauhalliset vedot)
-Hiiri sivulle / A-D	pidä saha suorassa
-Oikea nappi	nosta saha pois (ennen kuin ura on syvä)
-HALONHAKKUU (kodan pilkkomispölkyllä)
-Hiiri	tähtää (kädet huojuvat, tuuli puuskii)
-Vasen nappi / E	nosta pölkky, aseta pölkylle, iske
-Oikea nappi / Q / rulla	käännä pölkky (tasainen pää alas)
-F	lopeta hakkuu
-KÄDENVÄÄNTÖ (Raahen baarissa)
-E	tartu kättä
-A / D	vuorotellen tasaiseen, reippaaseen tahtiin
-TAPPELU
-A / D, W, S	liiku, hyppää, torju
-J / K	lyönti / potku
-S+J, S+K	pystykoukku, jalkapyyhkäisy
-eteen+K, ilmassa K	kiertopotku, lentopotku
-L	kassi-isku (rikkoo kaljan)"""
 
 var game: Node3D
 var _root: Control
@@ -98,7 +61,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				open_pause()
 			get_viewport().set_input_as_handled()
 		elif game != null and game.state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_home", "in_garage", "minigame"] and not game._paper.visible \
-				and not game._inventory.visible:
+				and not game._inventory.visible and not game._journal.visible:
 			open_pause()
 			get_viewport().set_input_as_handled()
 
@@ -131,7 +94,6 @@ func open_main() -> void:
 	if has_save:
 		_button("Uusi peli", _confirm_new)
 	_button("Asetukset", func() -> void: _settings("sub_main"))
-	_button("Ohjaimet", func() -> void: _controls("sub_main"))
 	_button("Tekijät", func() -> void: _credits("sub_main"))
 	_button("Lopeta", func() -> void:
 		game._save_game()
@@ -150,7 +112,6 @@ func open_pause(saved := false) -> void:
 		Sfx.play("pickup")
 		open_pause(true))
 	_button("Asetukset", func() -> void: _settings("sub_pause"))
-	_button("Ohjaimet", func() -> void: _controls("sub_pause"))
 	_button("Aloita päivä alusta", func() -> void:
 		get_tree().paused = false
 		game.get_script().skip_menu = true
@@ -191,22 +152,6 @@ func _confirm_new() -> void:
 		game.get_script().skip_menu = true
 		get_tree().reload_current_scene())
 	_button("Takaisin", open_main)
-
-
-func _controls(from: String) -> void:
-	_mode = from
-	_clear()
-	_title("OHJAIMET", "")
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 28)
-	for line in CONTROLS.split("\n"):
-		var parts := line.split("\t")
-		var k := _label(parts[0], 17, YELLOW if parts.size() == 1 else Color(0.9, 0.9, 0.85))
-		grid.add_child(k)
-		grid.add_child(_label(parts[1] if parts.size() > 1 else "", 17, Color.WHITE))
-	_box.add_child(grid)
-	_button("Takaisin", func() -> void: _back(from))
 
 
 func _credits(from: String) -> void:

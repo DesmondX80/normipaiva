@@ -67,6 +67,39 @@ func _ready() -> void:
 			list.append(st)
 		if not list.is_empty():
 			_streams[key] = list  # äänite korvaa syntetisoidun
+	# Puuskutus (hengästynyt hahmo): ei äänitettä, joten suodatettua kohinaa hengityksen verhokäyrällä.
+	_streams["breath"] = [_breath(0.42, 0.62, 1), _breath(0.5, 0.48, 2), _breath(0.38, 0.7, 3)]
+
+
+## Uloshengitys "hhah": kohina alipäästön (pehmeä huohotus) ja kaistanpäästön (kurkun "aa") läpi. Nopea nousu,
+## pitkä häivytys. dur = kesto (s), tone = kaistan korkeus (0–1).
+func _breath(dur: float, tone: float, seed_i: int) -> AudioStreamWAV:
+	var rate := 22050
+	var n := int(dur * rate)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_i
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var lp := 0.0
+	var bp_lo := 0.0
+	var bp_hi := 0.0
+	var a_lp := 0.12
+	var a_hi := lerpf(0.12, 0.3, tone)
+	var a_lo := a_hi * 0.35
+	for i in n:
+		var t := float(i) / n
+		var env := smoothstep(0.0, 0.12, t) * pow(1.0 - t, 1.6)
+		var w := rng.randf_range(-1.0, 1.0)
+		lp += a_lp * (w - lp)
+		bp_hi += a_hi * (w - bp_hi)
+		bp_lo += a_lo * (bp_hi - bp_lo)
+		var v := (lp * 0.9 + (bp_hi - bp_lo) * 1.6) * env * 0.9
+		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 32000.0))
+	var st := AudioStreamWAV.new()
+	st.format = AudioStreamWAV.FORMAT_16_BITS
+	st.mix_rate = rate
+	st.data = data
+	return st
 
 
 ## Suljettaessa soimassa olevat äänet pysäytetään ja irrotetaan, muuten äänipalvelin pitää äänitteen varattuna
