@@ -13878,6 +13878,9 @@ func _spawn_threats() -> void:
 		_eat(0.1)
 		_show_message("Kettukarkki maasta. Kunto +15", 1.5))
 	mummot.angered.connect(func() -> void: tilat.add("moraali", -0.1))
+	mummot.killed.connect(func() -> void:
+		if state in ["to_shop", "to_home"]:
+			_lose("Rollaattorimummo huitaisi kepillä päähän.", "mummo"))
 	_hazards.add_child(mummot)
 
 	stray = StrayDog.new()
@@ -24788,6 +24791,36 @@ func _maybe_screenshot() -> void:
 				if state != "fight":
 					break
 			print("HEITTO after fight beers=%d state=%s msg=%s" % [beers, state, _msg.text.replace("\n", " | ")])
+		"mummokeppi":
+			# Jalan rollaattorimummon eteen: keppi nousee, osuu päähän -> WASTED ja Päivin motkotus mummoista.
+			_toggle_mount()
+			var st: Node3D = mummot._stand
+			var front: Vector3 = st.global_transform * Vector3(0.1, 0, 1.25)
+			walker_out.global_position = front + Vector3(0, 0.3, 0)
+			walker_out.rotation.y = B.yaw_to(st.global_position - front)
+			var sc := Camera3D.new()
+			add_child(sc)
+			sc.look_at_from_position(st.global_transform * Vector3(-3.2, 1.6, 0.8), st.global_transform * Vector3(0, 1.2, 0.7))
+			sc.current = true
+			var shots := 0
+			for i in 400:
+				await get_tree().process_frame
+				if mummot._swing_t > 0.72 and shots == 0:
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_isku.png"))
+					shots = 1
+				if state == "cutscene":
+					break
+			print("MUMMOKEPPI state=%s msg=%s" % [state, _msg.text.replace("\n", " | ")])
+			for i in 150:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_wasted.png"))
+			for k in 4:
+				for i in 100:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_paivi%d.png" % k))
 		"mummot":
 			# Pyörällä lujaa penkin ohi: mummot suuttuvat ja heittävät kettukarkkeja. Sitten jalan poimimaan.
 			var hits := [0]

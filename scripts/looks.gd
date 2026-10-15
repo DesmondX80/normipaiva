@@ -100,14 +100,22 @@ const POJAT := [
 	{"shirt": Color(0.95, 0.85, 0.15), "pants": Color(0.25, 0.3, 0.45), "shoes": Color(0.9, 0.3, 0.2),
 		"hair": "Hair_Buzzed", "hair_color": Color(0.15, 0.1, 0.08), "height": 1.3, "bulk": -0.8, "shoulders": -0.85},
 ]
-## Kaupan penkin mummot (kettukarkit taskussa).
+## Kaupan edustan mummot (kettukarkit taskussa): suomalaisen mummon esikuvan mukaan tiivis valkoinen permanentti,
+## silmälasit, villatakki, polvipituinen hame ja ruskeat sukkahousut (shorts_y polvessa, bare_skin = sukkahousut)
+## tai housut ja kävelykengät. Kaksi ensimmäistä istuu penkillä, kolmas seisoo rollaattorin takana kävelytakissa
+## ja huopahatussa. Asusteet (perm, glasses, hat, skirt, lap_skirt) rakentaa mummot.gd.
 const MUMMOT := [
-	{"model": "female", "shirt": Color(0.55, 0.3, 0.45), "pants": Color(0.25, 0.22, 0.28), "shoes": Color(0.2, 0.15, 0.12),
-		"hair": "Hair_Buns", "hair_color": Color(0.82, 0.82, 0.8), "height": 1.58, "skin": Color(1.0, 0.9, 0.86)},
-	{"model": "female", "shirt": Color(0.3, 0.45, 0.6), "pants": Color(0.3, 0.3, 0.32), "shoes": Color(0.2, 0.15, 0.12),
-		"hair": "Hair_Long", "hair_color": Color(0.9, 0.9, 0.88), "height": 1.6, "skin": Color(1.0, 0.9, 0.86)},
-	{"model": "female", "shirt": Color(0.75, 0.6, 0.3), "pants": Color(0.35, 0.25, 0.2), "shoes": Color(0.2, 0.15, 0.12),
-		"hair": "Hair_BuzzedFemale", "hair_color": Color(0.7, 0.68, 0.66), "height": 1.56, "skin": Color(1.0, 0.9, 0.86)},
+	{"model": "female", "shirt": Color(0.56, 0.36, 0.55), "pants": Color(0.32, 0.24, 0.2), "shoes": Color(0.22, 0.14, 0.1),
+		"hair": "", "perm": Color(0.93, 0.92, 0.9), "glasses": true, "lap_skirt": true, "shorts_y": 0.5,
+		"bare_skin": Color(0.62, 0.48, 0.4), "hair_color": Color(0.85, 0.85, 0.83), "height": 1.56,
+		"skin": Color(1.0, 0.9, 0.86), "bulk": 0.35, "belly": 0.3, "shoulders": -0.4, "muscle": -1.0},
+	{"model": "female", "shirt": Color(0.36, 0.5, 0.66), "pants": Color(0.4, 0.4, 0.42), "shoes": Color(0.15, 0.12, 0.1),
+		"hair": "", "perm": Color(0.78, 0.78, 0.8), "glasses": true, "hair_color": Color(0.75, 0.75, 0.75), "height": 1.6,
+		"skin": Color(1.0, 0.9, 0.86), "bulk": 0.15, "belly": 0.2, "shoulders": -0.4, "muscle": -1.0},
+	{"model": "female", "shirt": Color(0.66, 0.58, 0.44), "pants": Color(0.2, 0.24, 0.32), "shoes": Color(0.12, 0.1, 0.1),
+		"hair": "", "perm": Color(0.95, 0.94, 0.92), "glasses": true, "hat": Color(0.45, 0.1, 0.16),
+		"skirt": Color(0.2, 0.24, 0.32), "coat_hem": true, "shorts_y": 0.62, "bare_skin": Color(0.62, 0.48, 0.4),
+		"hair_color": Color(0.85, 0.85, 0.83), "height": 1.54, "skin": Color(1.0, 0.9, 0.86), "bulk": 0.25, "belly": 0.35, "shoulders": -0.5, "muscle": -1.0},
 ]
 ## Pannu-Sulo, metsän pontikankeittäjä: ruutupaita, maastohousut, harmaa parta.
 const SULO := {

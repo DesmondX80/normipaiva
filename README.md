@@ -32,9 +32,12 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   60–200 m päässä. Palautus: poikien luona E avaa esinevalikon (W/S valitse, E anna,
   Q peruuta). Pallo = 1 € (ja moraali ja kokemus nousevat), kalja = pojat juoksevat nauraen pois, muu esine =
   pojat heittävät sen takaisin ja alkavat heitellä kivillä.
-- **Penkin mummot:** K-Marketin edustan penkillä istuu kolme mummoa. Jos kurvaat pyörällä lujaa aivan vierestä tai
-  soitat kelloa (Q), he suuttuvat ja heittelevät kettukarkkeja: osuma heilauttaa pyörää tai horjauttaa. Maahan
-  jääneet karkit voi poimia jalan (kunto +15).
+- **Kaupan mummot:** K-Marketin edustan penkillä istuu kaksi permanenttipäistä mummoa, ja vieressä seisoo kolmas
+  rollaattorinsa takana keppi kahvassa. Jos kurvaat pyörällä lujaa aivan vierestä tai soitat kelloa (Q), penkin
+  mummot suuttuvat ja heittelevät kettukarkkeja: osuma heilauttaa pyörää tai horjauttaa. Maahan jääneet karkit voi
+  poimia jalan (kunto +15). Rollaattorimummon eteen ei kannata mennä: hän nostaa kepin olan yli ja huitaisee.
+  Ehdit perääntyä, kun keppi nousee. Osuma päähän on kuolema, ja Päivi motkottaa: "Älä kiusaa mummoja! Ne tappaa!"
+  Testit `--scene=mummokeppi` ja `tools/testit/mummo_kuvat.tscn`.
 - **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (kauppalista ja Päivin omin sanoin
   kirjoittamat muistutukset; mökillä lapun kirjoittaa Santtu). Pelin tiedot, kuten jemmojen tilanne ja varoitukset,
   tulevat ruudun viesteinä. Kauppalistan neljä tuotetta on kirjoitettu kukin omanvärisellä kynällä ("vihreä tamponi,

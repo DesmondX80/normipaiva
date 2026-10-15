@@ -20,6 +20,8 @@ const PAIVI_LINES := {
 		"Ja kotiin siitä, heti!"],
 	"car": ["Miksi sää menit kuolemaan?!", "Auton alle! Ihan keskellä tietä!", "Ja katso nyt tätäkin!",
 		"Kotiin siitä, heti!"],
+	"mummo": ["Kaupan Raija soitti. Kepillä päähän!", "Älä kiusaa mummoja!", "Ne tappaa! Ne oikeesti tappaa!",
+		"Ja kotiin siitä, heti!"],
 	"raahe": ["Missä sää oot ollu koko yön?!", "Raahessa?! Taksilla?!", "Kaljanhaju tuntuu tänne asti!",
 		"Huomenna ei tule rahaa kauppaan!"],
 }
