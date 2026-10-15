@@ -22,41 +22,40 @@ const SFX_MUSIC := 0.55  # pelin äänet musiikin alla
 const SFX_PRE := 1.0
 
 const SHOTS := [
-	# --- Kylmä avaus: ei musiikkia, vain pelin äänet -------------------------------------------------------------------
-	{"id": "avaus_yo", "g": "ulko", "s": 4.0, "teksti": ""},
-	{"id": "avaus_paivi", "g": "ulko", "s": 5.0},
-	{"id": "avaus_lappu", "g": "kortit", "s": 5.0, "lappu": [["Huomenta! Mää lähin jo.", Color(0.1, 0.1, 0.25)],
+	# --- Kylmä avaus: ei musiikkia, vain pelin äänet. Suoraan asiaan: Päivi odottaa, lappu, Saloinen -----------------
+	{"id": "avaus_paivi", "g": "ulko", "s": 4.0},
+	{"id": "avaus_lappu", "g": "kortit", "s": 4.5, "lappu": [["Huomenta! Mää lähin jo.", Color(0.1, 0.1, 0.25)],
 		["Kauppaan:", Color(0.1, 0.1, 0.25)], ["vihreä tamponi", Color(0.1, 0.55, 0.2)], ["punainen maito", Color(0.8, 0.1, 0.1)],
 		["sininen ristikkolehti", Color(0.1, 0.25, 0.75)], ["EI KALJAA!!!", Color(0.8, 0.1, 0.1)], ["– Päivi", Color(0.1, 0.1, 0.25)]]},
 	{"id": "avaus_kortti", "g": "kortit", "s": 2.5, "kortti": "SALOINEN", "ala": "Raahen kupeessa. Joskus 2000-luvulla."},
 
-	# --- Intro 0–32 s: rauhallinen nousu, paikat esittäytyvät ----------------------------------------------------------
-	{"id": "i_ilma", "g": "ulko", "b": 8},
-	{"id": "i_koti", "g": "ulko", "b": 8, "teksti": "Järvikuja 1."},
-	{"id": "i_talli", "g": "ulko", "b": 8},
-	{"id": "i_kylatie", "g": "ulko", "b": 8},
-	{"id": "i_kmarket", "g": "ulko", "b": 8},
-	{"id": "i_kassa", "g": "kauppa", "b": 8},
-	{"id": "i_kuutonen", "g": "ulko", "b": 8},
-	{"id": "i_hyundai", "g": "ulko", "b": 8, "teksti": "Jokainen päivä on normipäivä."},
+	# --- Intro 0–13 s: normipäivä Saloisissa lyhyesti, sitten Pekan koukku ------------------------------------------
+	{"id": "i_ilma", "g": "ulko", "b": 4},
+	{"id": "i_koti", "g": "ulko", "b": 6, "teksti": "Järvikuja 1."},
+	{"id": "i_kmarket", "g": "ulko", "b": 4},
+	{"id": "i_kuutonen", "g": "ulko", "b": 4},
+	{"id": "i_hyundai", "g": "ulko", "b": 6, "teksti": "Jokainen päivä on normipäivä."},
 	{"id": "i_pekka", "g": "ulko", "b": 8},
 
-	# --- Säkeistö 32–78 s: tarina "Paapeliin pääsee, kunhan…" ----------------------------------------------------------
+	# --- Tarina 13–78 s: "Paapeliin pääsee, kunhan…" ------------------------------------------------------------------
 	{"id": "t_kortti", "g": "kortit", "b": 8, "kortti": "PAAPELIIN PÄÄSEE,", "ala": "kunhan…"},
+	{"id": "i_kassa", "g": "kauppa", "b": 8},
 	{"id": "t_jemma", "g": "ulko", "b": 8},
-	{"id": "t_arto", "g": "ulko", "b": 8},
+	{"id": "t_arto", "g": "ulko", "b": 10},
+	{"id": "i_kylatie", "g": "ulko", "b": 8},
 	{"id": "t_sienet", "g": "ulko", "b": 8},
 	{"id": "t_puolukka", "g": "ulko", "b": 8},
 	{"id": "t_nurmikko", "g": "ulko", "b": 8},
-	{"id": "t_paivi_nakee", "g": "ulko", "b": 8},
+	{"id": "t_paivi_nakee", "g": "ulko", "b": 10},
 	{"id": "t_kota", "g": "ulko", "b": 8},
+	{"id": "i_talli", "g": "ulko", "b": 8},
 	{"id": "t_lintutorni", "g": "ulko", "b": 8},
 	{"id": "t_volvo", "g": "ulko", "b": 8},
-	{"id": "t_avaimet", "g": "ulko", "b": 8},
-	{"id": "t_kyyti", "g": "ulko", "b": 8, "teksti": "Paapeliin."},
-	{"id": "t_mokki_saapuu", "g": "mokki", "b": 8},
+	{"id": "t_avaimet", "g": "ulko", "b": 10},
+	{"id": "t_kyyti", "g": "ulko", "b": 10, "teksti": "Paapeliin."},
+	{"id": "t_mokki_saapuu", "g": "mokki", "b": 10},
 	{"id": "t_taksi", "g": "ulko", "b": 8},
-	{"id": "t_paapeli", "g": "mokki", "b": 8},
+	{"id": "t_paapeli", "g": "mokki", "b": 12},
 
 	# --- Nousu 78–98 s: sivutehtävät nopeassa tahdissa -----------------------------------------------------------------
 	{"id": "v_pojat", "g": "ulko", "b": 4, "at": 78.04},
@@ -102,10 +101,9 @@ const SHOTS := [
 
 	# --- Silta 140–152 s: Mökki ja Vaala --------------------------------------------------------------------------------
 	{"id": "m_kortti", "g": "kortit", "b": 6, "at": 140.0, "kortti": "VAALA", "ala": "Mökki Neittävällä. Oulujärvi."},
-	{"id": "m_juna", "g": "juna", "b": 6},
-	{"id": "m_laituri", "g": "mokki", "b": 6},
-	{"id": "m_kala", "g": "kala", "b": 6},
-	{"id": "m_sauna", "g": "mokki", "b": 5},
+	{"id": "m_laituri", "g": "mokki", "b": 8},
+	{"id": "m_kala", "g": "kala", "b": 8},
+	{"id": "m_sauna", "g": "mokki", "b": 7},
 
 	# --- Loppukertosäe 152–197,6 s: Vaala ja kliimaksi -----------------------------------------------------------------
 	{"id": "f_lava", "g": "vaala", "b": 4, "at": 151.955},
@@ -128,10 +126,12 @@ const SHOTS := [
 	{"id": "f_drooni", "g": "ulko", "b": 4},
 	{"id": "f_kaitasaari", "g": "ulko", "b": 4},
 	{"id": "f_kaatuminen", "g": "ulko", "b": 4},
-	{"id": "f_wasted", "g": "wasted", "b": 8},
-	{"id": "f_auringonlasku", "g": "laavu", "b": 8},
-	{"id": "f_nuotio", "g": "makkara", "b": 8},
-	{"id": "f_kalja", "g": "makkara", "b": 6},
+	{"id": "f_wasted", "g": "wasted", "b": 6},
+	{"id": "f_nuotio", "g": "makkara", "b": 6},
+	{"id": "f_kalja", "g": "makkara", "b": 4},
+	# Illan päätteeksi junalla Saloisiin: ravintolavaunussa Helenan käsi reidellä (pelin lirkuttelubiisi hiljaa alla).
+	{"id": "f_juna", "g": "juna", "b": 8, "sfx": 0.35},
+	{"id": "f_auringonlasku", "g": "laavu", "b": 6},
 
 	# --- Loppu: logo ------------------------------------------------------------------------------------------------
 	{"id": "loppu_logo", "g": "kortit", "at": 197.65, "s": 7.0, "logo": true},

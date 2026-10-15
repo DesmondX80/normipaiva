@@ -24,7 +24,8 @@ var overlay: CanvasLayer
 var _sep: ColorRect
 var _bars: Array[ColorRect] = []
 var _texts: Control
-var _bubbles: Array = []  # [Label3D, loppuaika]
+var _bubbles: Array = []  # [kupla, alkuaika, loppuaika, hahmo, korkeus]
+var _bubble_root: Control
 var props: Array = []  # otoksen omat solmut (otokset.gd), poistetaan otoksen jälkeen
 var _spec: Dictionary = {}
 var _t := 0.0  # otoksen aika (s)
@@ -56,12 +57,16 @@ func run() -> void:
 		var frames: int = Leikkaus.frames_of(id)
 		print("TRAILER otos %s: %d ruutua" % [id, frames])
 		seed(hash(id))  # sama otos näyttää samalta esikatselussa ja lopullisessa
+		# Erotin peittää myös lavastuksen ja asettumisen: muuten ne jäisivät tallenteeseen otoksen alkuun, ja kokoa.gd
+		# poimisi otoksen ruudut niistä.
+		_sep.visible = true
 		main.trailer_safe = true
 		_spec = await Otokset.setup(main, id, self)
 		main.trailer_safe = not _spec.get("lose", false)
 		for i in int(_spec.get("warm", WARM_FRAMES)):
 			_hide_hud()
 			await get_tree().process_frame
+		_sep.visible = false
 		_apply_look()
 		await _film(id, shot, frames)
 		await _separator()
@@ -85,7 +90,6 @@ func _film(id: String, shot: Dictionary, frames: int) -> void:
 		_keys()
 		if _spec.has("tick"):
 			_spec.tick.call(_t)
-		_update_bubbles()
 		if preview and i - 1 in snaps:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(out_dir.path_join("%s_%d.png" % [id, snaps.find(i - 1)]))
@@ -107,6 +111,7 @@ func _process(_d: float) -> void:
 	if _spec.is_empty():
 		return
 	_update_camera()
+	_update_bubbles()
 	if _filming:
 		_update_texts(_shot, _t, _length)
 
@@ -315,6 +320,10 @@ func _build_overlay() -> void:
 	_texts.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_texts)
+	_bubble_root = Control.new()
+	_bubble_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_bubble_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_bubble_root)
 	_sep = ColorRect.new()
 	_sep.color = SEP_COLOR
 	_sep.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -345,17 +354,55 @@ func _update_texts(shot: Dictionary, t: float, length: float) -> void:
 			c.get_meta("anim").call(c, t, length)
 
 
-## Puhekupla hahmon päälle (otokset.gd): teksti näkyy sekunteina annetun ajan.
+## Puhekupla hahmon päälle (otokset.gd): teksti näkyy sekunteina annetun ajan. Piirretään 2D-päällykseen (ei Label3D),
+## jotta syväterävyys, FXAA ja hehku eivät sumenna sitä: paikka lasketaan joka ruudulla hahmon pään kohdalle.
 func bubble(who: Node3D, text: String, seconds := 2.6, height := 2.15) -> void:
-	var b := B.bubble(who, Vector3(0, height, 0))
-	b.text = text
-	_bubbles.append([b, _t + seconds])
+	var size := get_viewport().get_visible_rect().size
+	var u := size.y / 1080.0
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", int(-6 * u))
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bubble_root.add_child(box)
+	var line := text
+	var at := text.find(": ")
+	if at > 0 and at < 16:  # "Pekka: ..." -> nimi keltaisella omalle rivilleen
+		var n := Teksti.label(box, text.substr(0, at).to_upper(), int(34 * u), Teksti.YELLOW, Teksti.font(), int(10 * u))
+		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		line = text.substr(at + 2)
+	var l := Teksti.label(box, line, int(50 * u), Color.WHITE, Teksti.font(), int(14 * u))
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = 760 * u
+	box.reset_size()
+	_bubbles.append([box, _t, _t + seconds, who, height])
 
 
 func _update_bubbles() -> void:
+	var size := get_viewport().get_visible_rect().size
+	var bar := maxf(0.0, (size.y - size.x / Leikkaus.ASPECT) / 2.0)
+	var cam3 := get_viewport().get_camera_3d()
 	for b in _bubbles:
-		if is_instance_valid(b[0]) and _t >= b[1]:
-			b[0].queue_free()
+		var box: Control = b[0]
+		if not is_instance_valid(box):
+			continue
+		var who: Node3D = b[3]
+		if _t >= b[2] or not is_instance_valid(who) or cam3 == null:
+			box.visible = false
+			continue
+		var p := who.global_position + Vector3(0, b[4], 0)
+		if cam3.is_position_behind(p):
+			box.visible = false
+			continue
+		box.visible = true
+		box.reset_size()
+		var s := cam3.unproject_position(p)
+		var pos := Vector2(s.x - box.size.x / 2.0, s.y - box.size.y)
+		var m := 24.0 * size.y / 1080.0
+		pos.x = clampf(pos.x, m, size.x - box.size.x - m)
+		pos.y = clampf(pos.y, bar + m, size.y - bar - box.size.y - m)
+		box.position = pos.round()
+		var k := clampf((_t - b[1]) / 0.15, 0.0, 1.0) * clampf((b[2] - _t) / 0.15, 0.0, 1.0)
+		box.modulate.a = k
 
 
 func now() -> float:

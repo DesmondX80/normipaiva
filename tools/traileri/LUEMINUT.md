@@ -1,6 +1,6 @@
 # Normipäivä: traileri
 
-GTA-tyylinen traileri (n. 3 min 40 s) pelikuvasta, tahdistettuna tunnariin (`assets/music/normipaiva.mp3`).
+GTA-tyylinen traileri (n. 3 min 35 s) pelikuvasta, tahdistettuna tunnariin (`assets/music/normipaiva.mp3`).
 Kaikki tehdään Godotilla: ei erillistä editointiohjelmaa. Kone ei vaikuta laatuun, vain kestoon:
 Movie Maker -tila renderöi jokaisen ruudun täydellä laadulla kiinteällä 30 fps:llä.
 

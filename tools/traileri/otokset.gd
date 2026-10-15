@@ -10,6 +10,9 @@ extends RefCounted
 const M := preload("res://scripts/map_data.gd")
 const T := preload("res://scripts/terrain.gd")
 const B := preload("res://scripts/build.gd")
+## f_juna: ruutuja junamatkan alusta ravintolavaunun "hand"-repliikkiin (häivytys 0,4 s + ulkokuva 6,5 s + häivytys
+## 0,4 s + 5 repliikkiä × 2,3 s) ja 0,2 s päälle.
+const JUNA_HAND_FRAMES := 570
 
 
 
@@ -113,7 +116,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var w := _foot(main, ap + f * 1.7, -f)
 			ar.rotation.y = B.yaw_to(w.global_position - ap)
 			ar._body.play("Idle_Talking", 0.2)
-			d.bubble(ar, "Arto: Lähekkö puolukkaan? Mää tiiän paikat.", 3.2)
+			d.bubble(ar, "Arto: Lähekkö puolukkaan? Mää tiiän paikat.", 4.0)
 			return {"cam": _two_shot(main, ap, w.global_position, -1.0), "fov": 40.0, "dof": 7.0,
 				"done": func() -> void: _release(ar)}
 		"t_sienet":
@@ -753,13 +756,15 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var pp: Vector3 = mt.to_global(vl.party_pos)
 			var look := pp + Vector3(0, 0.8, 0)
 			return {"cam": dolly(pp + Vector3(3.4, 1.3, 2.6), pp + Vector3(2.6, 1.15, 2.0), look, look + Vector3(0, 0.15, 0)), "fov": 48.0, "dof": 6.0}
-		"m_juna":
-			_time(main, 9, 0)
+		"f_juna":  # illan päätteeksi junalla Vaalasta Saloisiin: kuvaus alkaa, kun Helenan käsi lähtee reidelle
+			_time(main, 23, 10)
 			var sp: Vector3 = main.world.station_pos
 			_foot(main, sp + Vector3(0, 0, 1.0), Vector3.FORWARD)
-			main.money = 40.0
-			main._train_trip("vaala")
-			return {"warm": 150}
+			# Välianimaatio suoraan: _train_trip("saloinen") olettaa, että pelaaja on Vaalassa (mopomatka käynnissä).
+			main.state = "cutscene"
+			main.player.controls_enabled = false
+			main.cutscene.train_ride(false, func() -> void: pass, true)
+			return {"warm": JUNA_HAND_FRAMES}
 
 		# --- Hahmoesittelyt: hahmo omassa ympäristössään, hidas työntö kohti -------------------------------------------
 		"h_paivi":
