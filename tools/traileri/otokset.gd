@@ -436,7 +436,12 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			_time(main, 18, 30)
 			var a := M.w(Vector2(830, 1240))
 			var tick := ride(main, a, M.w(M.J_KL), 1.0)
-			return {"tick": tick, "cam": follow(main.bike, Vector3(-0.5, 0.3, 2.5), Vector3(-0.3, 0.35, 2.0), Vector3(0, 0.9, -4.0)), "fov": 60.0}
+			var fc := follow(main.bike, Vector3(-0.5, 0.3, 2.5), Vector3(-0.3, 0.35, 2.0), Vector3(0, 0.9, -4.0))
+			return {"tick": tick, "fov": 60.0, "cam": func(t: float) -> Array:
+				var r: Array = fc.call(t)
+				var e: Vector3 = r[0]
+				e.y = maxf(e.y, T.h(e.x, e.z) + 0.25)  # mäessä takaa matala kamera painuisi maan alle
+				return [e, r[1]]}
 		"f_mopo_ajo":
 			_time(main, 19, 30)
 			var a := M.w(Vector2(250, 760))
