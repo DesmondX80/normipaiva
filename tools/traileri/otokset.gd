@@ -880,12 +880,13 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var pp: Vector3 = mt.to_global(vl.party_pos)
 			var look := pp + Vector3(0, 0.8, 0)
 			return {"cam": dolly(pp + Vector3(3.4, 1.3, 2.6), pp + Vector3(2.6, 1.15, 2.0), look, look + Vector3(0, 0.15, 0)), "fov": 48.0, "dof": 6.0}
-		"m_juna":  # trailerissa paluumatka illalla (pelin junamatka Vaalaan, suunta ei erotu)
+		"m_juna":  # paluumatka illalla: Vaalasta junalla takaisin Saloisiin (pelin oma paluuvälianimaatio)
 			_time(main, 21, 0)
-			var sp: Vector3 = main.world.station_pos
-			_foot(main, sp + Vector3(0, 0, 1.0), Vector3.FORWARD)
+			_vaala(main)
+			for i in 5:
+				await main.get_tree().process_frame
 			main.money = 40.0
-			main._train_trip("vaala")
+			main._train_trip("saloinen")
 			return {"warm": 150}
 
 		# --- Hahmoesittelyt: hahmo omassa ympäristössään, hidas työntö kohti -------------------------------------------
