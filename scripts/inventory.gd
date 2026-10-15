@@ -143,7 +143,7 @@ func _draw() -> void:
 	# Heippalaput: tilanne, kauppalista ja jemmat, tehtävät.
 	var lines: Array = ["Rahaa %s €" % _info.get("money", "0,00")]
 	lines.append_array(_info.get("lines", []))
-	var x := _note(Vector2(port.end.x + 40.0, p.y + 8.0), "", lines, 1.5) + 24.0
+	var x := _note(Vector2(port.end.x + 32.0, p.y + 8.0), "", lines, 1.5) + 20.0
 	var col: Array = []
 	var list: Array = _info.get("list", [])
 	if not list.is_empty():
@@ -156,7 +156,7 @@ func _draw() -> void:
 		col.append("Jemmat:")
 		col.append_array(stashes)
 	if not col.is_empty():
-		x = _note(Vector2(x, p.y + 20.0), "", col, -2.0) + 24.0
+		x = _note(Vector2(x, p.y + 20.0), "", col, -2.0) + 20.0
 	var tasks: Array = _info.get("tasks", [])
 	if not tasks.is_empty():
 		var tl: Array = []
@@ -370,7 +370,7 @@ func _outlined(at: Vector2, s: String, fs: int, col: Color) -> void:
 
 
 func _portrait_rect() -> Rect2:
-	return Rect2(_panel.position + Vector2(24, 24), PORTRAIT)
+	return Rect2(Vector2(28, _panel.position.y + 24), PORTRAIT)  # ruudun vasempaan reunaan: lapuille enemmän tilaa
 
 
 ## Pelaajan hahmo samasta mallista kuin pelissä: oma 3D-maailma, kamera, valot ja lepoanimaatio.
