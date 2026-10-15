@@ -109,6 +109,23 @@ func _refresh() -> void:
 
 # --- Piirto -------------------------------------------------------------------------
 
+## Rivi sanojen kohdalta leveyteen w (jatkorivit sisennetään, ettei ne sekoitu uusiin kohtiin).
+func _wrap(text: String, w: float, fs: int) -> Array:
+	if text == "" or _hand.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x <= w:
+		return [text]
+	var out: Array = []
+	var cur := ""
+	for word in text.split(" "):
+		var cand := word if cur == "" else cur + " " + word
+		if cur != "" and _hand.get_string_size(cand, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w:
+			out.append(cur)
+			cur = "   " + word
+		else:
+			cur = cand
+	out.append(cur)
+	return out
+
+
 func _draw() -> void:
 	if not visible:
 		return
@@ -222,8 +239,13 @@ func _note(at: Vector2, title: String, lines: Array, tilt_deg: float, paper := P
 		w = maxf(w, _hand.get_string_size(str(l), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
 	if title != "":
 		w = maxf(w, _hand.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x)
-	w = clampf(w + 34.0, 150.0, 320.0)
-	var rows := lines.size() + (1 if title != "" else 0)
+	# Lappu mahtuu ruudulle: leveys enintään jäljellä oleva tila oikeaan reunaan, pitkät rivit rivitetään.
+	var room := size.x - 16.0 - at.x
+	w = clampf(w + 34.0, minf(150.0, room), minf(320.0, room))
+	var rowsl: Array = []
+	for l in lines:
+		rowsl.append_array(_wrap(str(l), w - 24.0, fs))
+	var rows := rowsl.size() + (1 if title != "" else 0)
 	var h := minf(26.0 + rows * 23.0, _bag.position.y - _panel.position.y - 70.0)
 	var r := Rect2(at, Vector2(w, h))
 	draw_set_transform(r.get_center(), deg_to_rad(tilt_deg), Vector2.ONE)
@@ -234,7 +256,7 @@ func _note(at: Vector2, title: String, lines: Array, tilt_deg: float, paper := P
 	if title != "":
 		draw_string(_hand, Vector2(lr.position.x + 16, y), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
 		y += 25.0
-	for l in lines:
+	for l in rowsl:
 		if y > lr.end.y - 6.0:
 			break
 		draw_string(_hand, Vector2(lr.position.x + 16, y), str(l), HORIZONTAL_ALIGNMENT_LEFT, lr.size.x - 24.0, fs,
