@@ -29,6 +29,8 @@ const LaituriGame := preload("res://scripts/laituri_game.gd")
 const RanniGame := preload("res://scripts/ranni_game.gd")
 const AmpiaisGame := preload("res://scripts/ampiais_game.gd")
 const TiskiGame := preload("res://scripts/tiski_game.gd")
+## Rasvanappi aseman takana makasiinissa (vain aikuisille): salasana luukulle ja peli pimeässä.
+const RasvanappiGame := preload("res://scripts/rasvanappi_game.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
 const SiitariInterior := preload("res://scripts/siitari_interior.gd")
 ## Rautatieasemien odotussali (station_interior.gd): juopot ja narkkarit, rahakätkö viinahörpystä.
@@ -1563,6 +1565,7 @@ func _outside_logic() -> void:
 	_story_logic()
 	_pontikka_logic()
 	_taxi_logic()
+	_makasiini_logic()
 	_station_logic()
 	_mokki_logic()
 	if _hint.text != "":
@@ -7642,6 +7645,58 @@ func _station_logic() -> void:
 	_hint.text = "[E] " + txt.substr(0, 1).to_upper() + txt.substr(1)
 	if Input.is_action_just_pressed("interact") and not player.is_stunned():
 		_station_use("saloinen", "vaala")
+
+
+# --- Makasiinin takaovi: rasvanappi --------------------------------------------------------------------------
+
+var _rasva_game: CanvasLayer
+
+
+## Aseman takana makasiinin takaovi (world.gd _build_makasiini): koputus avaa kurkistusluukun (rasvanappi_game.gd).
+func _makasiini_logic() -> void:
+	if _hint.text != "" or world.makasiini_door == Vector3.ZERO or _rasva_game != null:
+		return
+	var p := player.global_position
+	if Vector2(p.x, p.z).distance_to(Vector2(world.makasiini_door.x, world.makasiini_door.z)) > 2.2:
+		return
+	if player == bike:
+		_hint.text = "[F] Pyörältä pois, niin voit koputtaa makasiinin takaoveen"
+		return
+	_hint.text = "[E] Koputa takaoveen (punainen lamppu palaa)"
+	if Input.is_action_just_pressed("interact") and not player.is_stunned():
+		_start_rasvanappi()
+
+
+func _start_rasvanappi() -> void:
+	player.controls_enabled = false
+	player.speed = 0.0
+	player.velocity = Vector3.ZERO
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	var g := RasvanappiGame.new()
+	g.drunk = _hand_shake()
+	g.finished.connect(_rasvanappi_result)
+	add_child(g)
+	_rasva_game = g
+
+
+func _rasvanappi_result(r: Dictionary) -> void:
+	_rasva_game = null
+	_hud.visible = true
+	player.controls_enabled = true
+	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+	if not r.got_in:
+		_show_message("Luukku paukahtaa kiinni. Punainen lamppu palaa edelleen.", 3.0)
+		return
+	tilat.first("rasvanappi", 0.5)
+	tilat.add("stressi", 0.1)
+	tilat.add("moraali", 0.04 * r.hits - 0.03 * r.licks)
+	if r.early:
+		_show_message("Pukeuduit pimeässä. Toinen sukka jäi jonnekin makasiiniin.", 3.5)
+	elif r.hits > 0:
+		_show_message("Rasvanappi pelattu: arvasit oikein %d kertaa, nuolit sormia %d. Tästä ei puhuta K-Marketissa." % [r.hits, r.licks], 4.5)
+	else:
+		_show_message("Rasvanappi pelattu: nuolit sormia %d kertaa. Suussa maistuu margariini koko illan." % r.licks, 4.5)
 
 
 # --- Aseman odotussali: juopot, narkkarit ja rahakätkö --------------------------------------------------------
@@ -17537,6 +17592,43 @@ func _maybe_screenshot() -> void:
 			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 			f.store_buffer(saved)
 			f.close()
+			get_tree().quit()
+		"rasvanappi":
+			# Makasiini aseman takana ulkoa ja takaoven vihje, sitten minipeli luukulta (tools/testit/rasvanappi_kuvat.gd
+			# kuvaa minipelin vaiheet erikseen).
+			if player != walker_out:
+				_toggle_mount()
+			_msg.text = ""
+			_note.visible = false
+			var md: Vector3 = world.makasiini_door
+			md.y = Terrain.h(md.x, md.z)
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.current = true
+			var views := [["_ylla", Vector3(14, 30, 18), Vector3(8, 0, 0)], ["_kadulta", Vector3(14, 4, 14), Vector3(8, 2, 0)],
+				["_takaovi", Vector3(-6, 2.2, 3), Vector3(1.5, 1.6, 0)], ["_laituri", Vector3(16, 5, -12), Vector3(8, 2, 0)],
+				["_ovi_lahelta", Vector3(-2.2, 1.9, 0.6), Vector3(1.5, 1.6, 0)]]
+			for v in views:
+				cam.look_at_from_position(md + v[1], md + v[2])
+				for i in 15:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", v[0] + ".png"))
+			cam.current = false
+			walker_out.activate_camera()
+			walker_out.global_position = Vector3(md.x, Terrain.h(md.x, md.z) + 0.4, md.z)
+			for i in 10:
+				await get_tree().process_frame
+			print("RASVA ovi %s pelaaja %s" % [md, walker_out.global_position])
+			print("RASVA ovella vihje '%s'" % _hint.text)
+			_start_rasvanappi()
+			for i in 200:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_luukku.png"))
+			_rasva_game._done(true)
+			await get_tree().process_frame
+			print("RASVA tulos viesti '%s', ohjaus %s" % [_msg.text, player.controls_enabled])
 			get_tree().quit()
 		"junamatka":
 			# Saloisten asemalta junalla Vaalaan (välikuva kuvina) ja Vaalan asemalta takaisin Saloisiin.
