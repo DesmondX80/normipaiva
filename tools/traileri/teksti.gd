@@ -120,6 +120,7 @@ void fragment() {
 	who.position = bottom.position + Vector2(24 * u, 14 * u)
 	var txt := label(root, p.teksti, int(31 * u), Color.WHITE, font(false))
 	txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	txt.custom_minimum_size = Vector2(w - 48 * u, 0)  # rivitys puhelimen leveyteen (pelkkä size ei riitä)
 	txt.size = Vector2(w - 48 * u, 130 * u)
 	txt.position = bottom.position + Vector2(24 * u, 62 * u)
 	var likes := label(root, "", int(30 * u), Color(1, 0.6, 0.65), font(false))

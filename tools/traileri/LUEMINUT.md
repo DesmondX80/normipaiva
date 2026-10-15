@@ -6,6 +6,8 @@ Movie Maker -tila renderöi jokaisen ruudun täydellä laadulla kiinteällä 30 
 
 ## Tiedostot
 
+Ennen leikkauksen muokkaamista lue [OHJEET.md](OHJEET.md): hyvän pelitrailerin periaatteet, rytmi ja otosten säännöt.
+
 | Tiedosto | Mitä |
 |---|---|
 | `leikkaus.gd` | Otosten järjestys, kestot iskuina, tekstit, ryhmät. Leikkausta muokataan täällä. |

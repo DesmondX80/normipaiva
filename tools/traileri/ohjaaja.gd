@@ -41,6 +41,7 @@ func _init(m: Node3D, shot_ids: PackedStringArray, prev: bool, out: String) -> v
 
 func run() -> void:
 	DirAccess.make_dir_recursive_absolute(out_dir)
+	get_viewport().set_disable_input(true)  # hiiri ja näppäimistö eivät pääse kuvaan (ohjaus Input.action_pressillä)
 	_quality()
 	_build_overlay()
 	cam = Camera3D.new()
@@ -53,7 +54,7 @@ func run() -> void:
 		if shot.is_empty():
 			push_error("Trailer: tuntematon otos " + id)
 			continue
-		var frames: int = Leikkaus.frames_of(id)
+		var frames: int = Leikkaus.frames_of(id) + Leikkaus.in_frames(id)  # pitkä otto: alku (in) jää leikkauksesta pois
 		print("TRAILER otos %s: %d ruutua" % [id, frames])
 		seed(hash(id))  # sama otos näyttää samalta esikatselussa ja lopullisessa
 		main.trailer_safe = true
@@ -62,6 +63,7 @@ func run() -> void:
 		for i in int(_spec.get("warm", WARM_FRAMES)):
 			_hide_hud()
 			await get_tree().process_frame
+		await _settle()
 		_apply_look()
 		await _film(id, shot, frames)
 		await _separator()
@@ -72,12 +74,57 @@ func run() -> void:
 	f.close()
 
 
+## Hahmot ja ajoneuvot maahan ennen kuvausta: lavastus asettaa ne usein hieman maan yläpuolelle, eikä
+## tippumista haluta kuvaan. Odotetaan (enintään SETTLE_MAX ruutua), kunnes mikään CharacterBody3D ei enää putoa
+## (korkeus laskee eikä kappale ole lattialla). Paikallaan olevat ja pysäytetyt eivät odota. spec.settle = false ohittaa.
+const SETTLE_MAX := 45
+
+
+func _settle() -> void:
+	if not _spec.get("settle", true):
+		return
+	var bodies := get_tree().root.find_children("*", "CharacterBody3D", true, false).filter(func(b: Node) -> bool:
+		return (b as CharacterBody3D).motion_mode == CharacterBody3D.MOTION_MODE_GROUNDED)  # autot asettavat korkeutensa itse
+	var ys := {}
+	var falling_names: PackedStringArray = []
+	for b in bodies:
+		ys[b] = (b as Node3D).global_position.y
+	for i in SETTLE_MAX:
+		_hide_hud()
+		await get_tree().physics_frame
+		await get_tree().process_frame
+		var falling := []
+		falling_names.clear()
+		for b in bodies:
+			if not is_instance_valid(b):
+				continue
+			var y: float = b.global_position.y
+			if y < ys[b] - 0.002 and not b.is_on_floor() and b.is_visible_in_tree() and b.is_physics_processing():
+				falling.append(b)
+				var sc: Script = b.get_script()
+				falling_names.append("%s(%s)" % [b.name, sc.resource_path.get_file() if sc else "-"])
+			ys[b] = y
+		if falling.is_empty():
+			if i > 0:
+				print("TRAILER asettuminen: %d ruutua" % (i + 1))
+			return
+	print("TRAILER asettuminen: %d ruutua, putoaa yhä: %s" % [SETTLE_MAX, ", ".join(falling_names)])
+
+
 ## Kuvaus: tämä silmukka pyörii ruudun alussa (process_frame), joten painallukset (spec.keys) ja tick ehtivät
 ## pelin _processiin samalla ruudulla. Kamera ja tekstit päivitetään _processissa ruudun lopussa.
 func _film(id: String, shot: Dictionary, frames: int) -> void:
-	var snaps := [0, frames / 2, frames - 1]
+	var n := Leikkaus.KIERROS_SNAPS if Leikkaus.kierros() else 3
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--trailer-snaps="):
+			n = maxi(2, int(a.substr(16)))
+	var skip := Leikkaus.in_frames(id)
+	var snaps := []
+	for k in n:
+		snaps.append(skip + int(k * (frames - skip - 1) / float(n - 1)))
+	_skip_t = float(skip) / Leikkaus.FPS
 	_shot = shot
-	_length = float(frames) / Leikkaus.FPS
+	_length = float(frames - skip) / Leikkaus.FPS
 	_filming = true
 	for i in frames:
 		_t = float(i) / Leikkaus.FPS
@@ -92,13 +139,14 @@ func _film(id: String, shot: Dictionary, frames: int) -> void:
 		await get_tree().process_frame
 	if preview:
 		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(out_dir.path_join("%s_2.png" % id))
+		get_viewport().get_texture().get_image().save_png(out_dir.path_join("%s_%d.png" % [id, n - 1]))
 	_filming = false
 	for k in _spec.get("keys", []):
 		Input.action_release(k[1])
 
 
 var _shot: Dictionary = {}
+var _skip_t := 0.0  # pitkän oton käyttämätön alku: tekstit alkavat vasta leikkauksen kohdalta
 var _length := 1.0
 var _filming := false
 
@@ -107,8 +155,8 @@ func _process(_d: float) -> void:
 	if _spec.is_empty():
 		return
 	_update_camera()
-	if _filming:
-		_update_texts(_shot, _t, _length)
+	if _filming and _t >= _skip_t:
+		_update_texts(_shot, _t - _skip_t, _length)
 
 
 ## spec.keys: [[aika, toiminto, pito (s)]...]: painetaan ruudun alussa ajassa ja vapautetaan pidon jälkeen
@@ -151,6 +199,7 @@ func _separator() -> void:
 
 
 func _cleanup() -> void:
+	_game_labels.clear()
 	if get_tree().paused:
 		get_tree().paused = false
 	for c in _texts.get_children():
@@ -228,7 +277,7 @@ func _apply_look() -> void:
 	env.adjustment_contrast = _spec.get("contrast", 1.06)
 	env.adjustment_brightness = _spec.get("brightness", 1.0)
 	env.glow_enabled = true
-	env.glow_intensity = 0.5
+	env.glow_intensity = _spec.get("glow", 0.5)
 	env.glow_bloom = 0.04
 	if not preview:
 		env.ssao_enabled = true
@@ -239,6 +288,9 @@ func _apply_look() -> void:
 		env.fog_enabled = _spec.fog > 0.0
 		env.fog_depth_begin *= _spec.fog
 		env.fog_depth_end *= _spec.fog
+
+
+var _game_labels := {}
 
 
 func _hide_hud() -> void:
@@ -255,6 +307,11 @@ func _hide_hud() -> void:
 		for k in ["_hud", "_ui", "_layer"]:
 			if g.get(k) is CanvasLayer:
 				g.get(k).visible = false
+		if not _game_labels.has(f):  # minipelin omat 3D-tekstit (ohjeet, puhekuplat)
+			_game_labels[f] = g.find_children("*", "Label3D", true, false)
+		for l in _game_labels[f]:
+			if is_instance_valid(l):
+				l.visible = false
 	if main._msg:  # pelin ilmoitukset (voivat olla eri kerroksessa kuin HUD)
 		main._msg.visible = _spec.get("hud", false)
 	# Muut käyttöliittymän osat, joista osa on HUD-kerroksen ulkopuolella (mopon palkit, vihjeet, puhe-ikkuna).
@@ -265,6 +322,15 @@ func _hide_hud() -> void:
 			c.visible = _spec.get("hud", false)
 	if main._note:
 		main._note.visible = _spec.get("note", false)
+	# Välianimaatioiden tekstitykset pois (otsikot kuten LEGENDAARINEN NORMIPÄIVÄ! jäävät, ellei title = false).
+	var cs: Node = main.cutscene
+	if cs != null and cs.get("_sub") is Label:
+		cs._sub.visible = false
+		cs._title.visible = _spec.get("title", true)
+		# Välianimaation repliikkikuplat (3D) pois, ellei otos käytä niitä tekstinä (spec.cs_bubbles, esim. Päivin TV).
+		if cs.get("_props") is Node3D:
+			for l in (cs._props as Node3D).find_children("*", "Label3D", true, false):
+				l.visible = _spec.get("cs_bubbles", false)
 
 
 # --- Kamera -------------------------------------------------------------------
@@ -336,7 +402,7 @@ func _layout_bars() -> void:
 ## Otoksen päällystekstit (leikkaus.gd "teksti", "nimi", "puhelin") rakennetaan ensimmäisellä ruudulla ja
 ## häivytetään ajan mukaan.
 func _update_texts(shot: Dictionary, t: float, length: float) -> void:
-	if _texts.get_child_count() == 0 and t == 0.0:
+	if _texts.get_child_count() == 0 and t < 0.5 / Leikkaus.FPS:
 		Teksti.build_texts(_texts, shot, get_viewport().get_visible_rect().size)
 		for b in _bars:
 			b.visible = not shot.has("puhelin")  # pystyvideo käyttää koko korkeuden
