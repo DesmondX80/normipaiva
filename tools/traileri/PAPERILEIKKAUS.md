@@ -102,7 +102,7 @@ Rakenne: prologi ilman musiikkia → tunnari kokonaan kappaleen osien mukaan →
 | 47 | `f_lava_tanssi` | Kesäillan valssi lavalla | Kiertää paria | 10 b | 2 | |
 | 48 | `s_paivi_tv` | Päivi näkee tanssin telkkarista: "SE ON SE! Mun mies!" | Välianimaatio | 14 b | 2 | |
 | 49 | `f_nuoret` | Nuorten nuotio Vaalassa | Matala | 8 b | 0 | |
-| 42 | `m_juna` | Junalla Vaalasta takaisin Saloisiin: rautatiesilta ja ravintolavaunu (pelin paluumatka) | Välianimaatio | 10 b | 0 | |
+| 42 | `m_juna` | Paluujuna Saloisiin: ravintolavaunussa Helenan käsi lähtee reidelle (pelin paluumatka) | Välianimaatio | 10 b | 0 | |
 | 50 | `f_auringonlasku` | Laavu auringonlaskussa: LEGENDAARINEN NORMIPÄIVÄ! | Välianimaatio | 12 b | 0 | |
 
 ## Logo (197,65 s →)

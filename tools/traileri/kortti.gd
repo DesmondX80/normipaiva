@@ -92,7 +92,7 @@ func _build(shot: Dictionary, size: Vector2) -> Array:
 	title.size = Vector2(size.x, 160 * u)
 	title.position = Vector2(0, size.y * 0.5 - 120 * u)
 	title.material = _gradient_mat(title, 160 * u)
-	var sub := Teksti.label(root_c, shot.get("ala", ""), int(42 * u), Color(0.92, 0.9, 0.86), Teksti.font(false, true), 0)
+	var sub := Teksti.label(root_c, shot.get("ala", ""), int(46 * u), Color(0.95, 0.93, 0.88), Teksti.font(false), 0)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.size = Vector2(size.x, 80 * u)
 	sub.position = Vector2(0, size.y * 0.5 + 50 * u)
@@ -215,6 +215,7 @@ void fragment() {
 
 ## Pystysuuntainen auringonlaskuliukuväri tekstille (kirjainten alfa säilyy).
 func _gradient_mat(l: Label, h: float) -> ShaderMaterial:
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))  # varjostin värjäisi varjon: haamukopio
 	var m := Teksti.shader_mat("""shader_type canvas_item;
 uniform vec4 c0 : source_color;
 uniform vec4 c1 : source_color;
