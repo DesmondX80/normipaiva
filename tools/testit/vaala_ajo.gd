@@ -17,6 +17,9 @@ var problems: Array[String] = []
 func run() -> void:
 	for i in 10:
 		await get_tree().process_frame
+	if "--ajo=runko" in OS.get_cmdline_user_args():
+		await _trunk_test()
+		return
 	main.mokki.ensure_built()
 	main._start_mopo()
 	trip = main.mopo_trip
@@ -570,3 +573,25 @@ func _lava_shots(mode: String) -> void:
 			vl.lava_band.current_song.get("title", "-"), vl.lava_band.bpm, lg._beat, Sfx._music_file,
 			Sfx._music.playing if Sfx._music != null else false])
 		await _snap(cam, c + Vector3(-1.5, 2.6, -float(lv.l) / 2.0 + 9.0), c + Vector3(0, 1.6, -float(lv.l) / 2.0 + 2.0), "_toive", 10)
+
+
+# --- Saloisten puunrungot (world.gd lähilohkot) -------------------------------------------------------------------
+
+## Kävelijä lähimmän rungon viereen ja kävellen sitä päin: rungon pitää pysäyttää.
+func _trunk_test() -> void:
+	var w: Node3D = main.world
+	var pl: Node3D = main.player
+	var c := Vector2i(floori(pl.global_position.x / w.TRUNK_CELL), floori(pl.global_position.z / w.TRUNK_CELL))
+	var best := Vector3.INF
+	for dz in range(-2, 3):
+		for dx in range(-2, 3):
+			for p in w._trunk_grid.get(c + Vector2i(dx, dz), PackedVector3Array()):
+				if best == Vector3.INF or p.distance_to(pl.global_position) < best.distance_to(pl.global_position):
+					best = p
+	print("RUNKO lähin %s, kappaleita %d" % [best, w._trunk_bodies.size()])
+	if best == Vector3.INF:
+		return
+	var space := pl.get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(best + Vector3(-3, -0.5, 0), best + Vector3(3, -0.5, 0))
+	var hit := space.intersect_ray(q)
+	print("RUNKO säde osui: %s %s" % [not hit.is_empty(), hit.get("collider")])

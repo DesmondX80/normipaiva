@@ -233,13 +233,24 @@ func _ready() -> void:
 	lawn_angle = M.LAWN_AXIS.angle()
 	lawn_rect = Rect2(-M.LAWN_SIZE * M.SCALE / 2.0, M.LAWN_SIZE * M.SCALE)
 	if not deferred:
-		build(func(_text: String, _frac: float) -> void: pass)
+		# --ajastus: vaiheiden kestot (latausajan hiontaan).
+		var timing := "--ajastus" in OS.get_cmdline_user_args()
+		var last := [Time.get_ticks_msec(), "alku"]
+		build(func(text: String, _frac: float) -> void:
+			if timing:
+				print("AJASTUS maailma: %-40s %5d ms · muisti %d Mt, objekteja %d" % [last[1], Time.get_ticks_msec() - last[0],
+					Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576, Performance.get_monitor(Performance.OBJECT_COUNT)])
+				last[0] = Time.get_ticks_msec()
+				last[1] = text)
 
 
 ## Maailman rakennus vaiheittain. step(teksti, osuus 0..1) kutsutaan ennen kutakin vaihetta ja odotetaan: latausruutu
 ## odottaa siinä ruudunpäivityksen, testiajossa (deferred = false) se palaa heti eikä rakennus keskeydy.
 func build(step: Callable) -> void:
 	await step.call("Luetaan karttaa", 0.01)
+	_drape_cache = MeshBundle.load_dict("verhot", _drape_key())
+	B.Batch.disk = MeshBundle.load_dict("erat", _drape_key())
+	B.Batch.disk_new = 0
 	for p in M.WATER:
 		_water.append(_poly(p))
 	for p in M.FORESTS:
@@ -306,7 +317,15 @@ func build(step: Callable) -> void:
 	_build_clearcuts()
 	_commit_batches()
 	await step.call("Istutetaan metsää", 0.75)
-	_scatter_trees()
+	# Metsän sirottelu (tuhansia pistetestejä) välimuistista: sama satunnaistila, kartta ja talot = samat puut.
+	var tkey := "v1/%d/%d/%d/%d/%d/%s" % [_rng.state, _trees.size(), hash(_houses), hash(_tree_free), hash(M.FORESTS), _drape_key()]
+	var tc := MeshBundle.load_dict("metsa", tkey)
+	if tc.has("trees"):
+		_trees = tc.trees
+		_rng.state = tc.state
+	else:
+		_scatter_trees()
+		MeshBundle.save_dict("metsa", tkey, {"trees": _trees, "state": _rng.state})
 	var still := M.w2(M.PONTIKKA)
 	var n0 := _trees.size()
 	_trees = _trees.filter(func(t: Array) -> bool:
@@ -325,6 +344,15 @@ func build(step: Callable) -> void:
 	_build_names()
 	_lift_objects()
 	build_lamps()
+	if _drape_new > 0:
+		MeshBundle.save_dict("verhot", _drape_key(), _drape_used)  # seuraava käynnistys ilman pilkkomista
+	_drape_cache = {}
+	_drape_used = {}
+	if B.Batch.disk_new > 0:
+		MeshBundle.save_dict("erat", _drape_key(), B.Batch.used)
+	B.Batch.disk = {}
+	B.Batch.used = {}
+	await step.call("Viimeistellään", 0.96)
 
 
 var _near_trees: Array[GeometryInstance3D] = []
@@ -347,6 +375,43 @@ func _process(_delta: float) -> void:
 	if follow != null and _grass_mat != null:
 		_grass_mat.set_shader_parameter("center", follow.global_position)
 	_process_fire()
+	_update_trunks()
+
+
+## Puunrunkojen törmäys lohkoittain (TRUNK_CELL) pelaajan ympärillä TRUNK_R lohkon säteellä; kauempana ei muotoja.
+const TRUNK_CELL := 64.0
+const TRUNK_R := 2
+var _trunk_grid := {}  # lohko -> rungon keskipisteet (maailma)
+var _trunk_bodies := {}  # lohko -> StaticBody3D
+var _trunk_shape: Shape3D
+var _trunk_at := Vector2i(1 << 30, 0)
+
+
+func _update_trunks(force := false) -> void:
+	var cam := get_viewport().get_camera_3d()
+	var at: Vector3 = follow.global_position if follow != null and follow.is_inside_tree() else (cam.global_position if cam != null else Vector3.ZERO)
+	var c := Vector2i(floori(at.x / TRUNK_CELL), floori(at.z / TRUNK_CELL))
+	if c == _trunk_at and not force:
+		return
+	_trunk_at = c
+	for key in _trunk_bodies.keys():
+		if absi(key.x - c.x) > TRUNK_R + 1 or absi(key.y - c.y) > TRUNK_R + 1:
+			_trunk_bodies[key].queue_free()
+			_trunk_bodies.erase(key)
+	for dz in range(-TRUNK_R, TRUNK_R + 1):
+		for dx in range(-TRUNK_R, TRUNK_R + 1):
+			var key := c + Vector2i(dx, dz)
+			if _trunk_bodies.has(key) or not _trunk_grid.has(key):
+				continue
+			var body := StaticBody3D.new()
+			body.set_meta("draped", true)
+			for p in _trunk_grid[key]:
+				var cs := CollisionShape3D.new()
+				cs.shape = _trunk_shape
+				cs.position = p
+				body.add_child(cs)
+			add_child(body)  # muodot ennen puuhun lisäämistä: kappale rakennetaan kerran
+			_trunk_bodies[key] = body
 
 
 # --- Apurit ------------------------------------------------------------------
@@ -404,6 +469,12 @@ func _commit_strip(st: SurfaceTool, material: Material) -> void:
 	var src: PackedVector3Array = st.commit_to_arrays()[Mesh.ARRAY_VERTEX]
 	if src.is_empty():
 		return
+	# Valmis verho välimuistista (sama syötegeometria ja maasto = sama tulos).
+	var ck := "%d_%d" % [hash(src), src.size()]
+	if _drape_cache.has(ck):
+		_drape_used[ck] = _drape_cache[ck]
+		_add_drape(_drape_cache[ck], material)
+		return
 	# Maakerros myötäilee maastoa: kolmiot pilkotaan maastoruudukon kolmioiden mukaan ja nostetaan maaston
 	# korkeudelle, jolloin jokainen pala on täsmälleen maastokolmion tasossa (2 m mallin ojat eivät pistä läpi).
 	var out := PackedVector3Array()
@@ -425,12 +496,30 @@ func _commit_strip(st: SurfaceTool, material: Material) -> void:
 	arr[Mesh.ARRAY_NORMAL] = nrm
 	var am := ArrayMesh.new()
 	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	_drape_cache[ck] = am
+	_drape_used[ck] = am
+	_drape_new += 1
+	_add_drape(am, material)
+
+
+func _add_drape(am: ArrayMesh, material: Material) -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = am
 	mi.material_override = material
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.set_meta("draped", true)
 	add_child(mi)
+
+
+## Maastoa myötäilevien pintojen (_commit_strip) levyvälimuisti: avain maaston ja laskentatavan mukaan.
+const DRAPE_CACHE_VERSION := 1
+var _drape_cache := {}
+var _drape_new := 0
+var _drape_used := {}  # tällä käynnistyksellä käytetyt: vain ne tallennetaan
+
+
+func _drape_key() -> String:
+	return "v%d/%d/%d/%d" % [DRAPE_CACHE_VERSION, T.nx, T.nz, hash(T.heights)]
 
 
 ## Leikkaa kolmion maastoruudukon viivoilla (x-, z- ja lävistäjäviivat kuten Terrain.h:n kolmioinnissa), niin että
@@ -821,10 +910,8 @@ func _build_ground() -> void:
 		edge_bodies.append(body)
 
 
-## Korkeusmallin maastoverkko (5 m ruudut) laattoina pintakarttoineen + korkeuskenttä törmäyksiin.
-## Laatat, jotka ovat kaukana pelialueen ulkopuolella, jätetään pois (niitä ei koskaan näe).
-const TERRAIN_TILE := 40  # ruutua
-func _build_terrain(lo: Vector2, hi: Vector2) -> void:
+## Maastolaatat (ilman pelialueen ulkopuolisia): MeshBundle-välimuistin laskenta.
+func _terrain_tiles() -> Array[ArrayMesh]:
 	var nx := T.nx
 	var nz := T.nz
 	var tiles: Array[ArrayMesh] = []
@@ -859,6 +946,19 @@ func _build_terrain(lo: Vector2, hi: Vector2) -> void:
 			var am := ArrayMesh.new()
 			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 			tiles.append(am)
+	return tiles
+
+
+## Korkeusmallin maastoverkko (5 m ruudut) laattoina pintakarttoineen + korkeuskenttä törmäyksiin.
+## Laatat, jotka ovat kaukana pelialueen ulkopuolella, jätetään pois (niitä ei koskaan näe).
+const TERRAIN_TILE := 40  # ruutua
+const TERRAIN_CACHE_VERSION := 1  # nosta, kun laattojen laskenta muuttuu
+func _build_terrain(lo: Vector2, hi: Vector2) -> void:
+	var nx := T.nx
+	var nz := T.nz
+	# Laatat lasketaan kerran ja haetaan sitten levyvälimuistista (laskenta vie GDScriptillä pari sekuntia).
+	var key := "v%d/%d/%d/%d/%d" % [TERRAIN_CACHE_VERSION, nx, nz, hash(T.heights), hash(str(M.PLAY_AREA))]
+	var tiles: Array[ArrayMesh] = MeshBundle.get_or_make("maasto", key, _terrain_tiles)
 	var params := {"splat": load(T.SPLAT), "map_lo": lo, "map_size": hi - lo, "noise_tex": B.noise_tex(),
 		"field_stripes": SURFACES.field[6], "stripe_angle": 0.35}
 	for pair in [["meadow", "meadow"], ["forest", "forest"], ["field", "field"], ["bog", "bog"], ["cut", "clearcut"]]:
@@ -4032,10 +4132,7 @@ func _build_trees() -> void:
 		],
 	}
 
-	# Rungot yhteen kappaleeseen, joka lisätään maailmaan vasta lopuksi: muotojen lisääminen
-	# fysiikkamaailmassa olevaan kappaleeseen rakentaisi sen joka kerta uudelleen (hidas).
-	var colliders := StaticBody3D.new()
-	colliders.set_meta("draped", true)
+	# Rungon törmäysmuoto (yhteinen kaikille): kappaleet lohkoittain pelaajan ympärille (_update_trunks).
 	var shape := CylinderShape3D.new()
 	shape.radius = 0.35
 	shape.height = 4.0
@@ -4101,14 +4198,16 @@ func _build_trees() -> void:
 					mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 					_far_trees.append(mmi)
 				add_child(mmi)
+	# Rungot törmäävät vain pelaajan lähilohkoissa (_update_trunks): kymmenet tuhannet muodot yhdessä kappaleessa
+	# veivät muistia ja fysiikan aikaa.
+	_trunk_shape = shape
 	for t in _trees:
 		if not t[3]:
 			continue
-		var cs := CollisionShape3D.new()
-		cs.shape = shape
-		cs.position = Vector3(t[0].x, 2.0 + T.h(t[0].x, t[0].y), t[0].y)
-		colliders.add_child(cs)
-	add_child(colliders)
+		var key := Vector2i(floori(t[0].x / TRUNK_CELL), floori(t[0].y / TRUNK_CELL))
+		if not _trunk_grid.has(key):
+			_trunk_grid[key] = PackedVector3Array()
+		_trunk_grid[key].append(Vector3(t[0].x, 2.0 + T.h(t[0].x, t[0].y), t[0].y))
 
 
 # --- Metsän antimet -----------------------------------------------------------
@@ -4355,7 +4454,18 @@ func _build_clearcuts() -> void:
 # --- Ruoho -------------------------------------------------------------------
 
 ## Maskikuva: R = ruohon tiheys, G = viljapelto. Tiet, vesi ja talot nollataan.
+## Ruohomaski välimuistista (pikseli kerrallaan maalaaminen vie GDScriptillä yli sekunnin).
 func _build_mask() -> ImageTexture:
+	var key := "v1/%d/%d/%d/%d/%d" % [hash(_houses), hash(_mask_clear), hash(M.ROADS), hash(M.FORESTS), hash(M.FIELDS)]
+	var c := MeshBundle.load_dict("ruohomaski", key)
+	if c.get("img") is Image:
+		return ImageTexture.create_from_image(c.img)
+	var img := _paint_mask()
+	MeshBundle.save_dict("ruohomaski", key, {"img": img})
+	return ImageTexture.create_from_image(img)
+
+
+func _paint_mask() -> Image:
 	var lo := M.w2(M.MAP_MIN)
 	var size := M.w2(M.SIZE) - lo
 	var w := ceili(size.x / MASK_PX)
@@ -4419,7 +4529,7 @@ func _build_mask() -> ImageTexture:
 	for dx in range(-18, 19, 2):
 		for dz in range(-9, 32, 2):
 			stamp.call(shop + Vector2(dx, dz), 1.0)
-	return ImageTexture.create_from_image(img)
+	return img
 
 
 func _build_grass() -> void:
@@ -4635,9 +4745,7 @@ func _waste_sign(pos: Vector3, yaw: float) -> void:
 		curl.rotation = Vector3(-0.9 - i * 0.2, 0.2 * i, 0.15)
 	B.mesh(s, B.boxm(Vector3(0.06, 0.55, 0.006)), Vector3(fw / 2.0 - 0.03, cy + 0.05, -0.004), back_col.lightened(0.05))  # kuoriutunut oikea reuna
 	# Teksti.
-	var sf := SystemFont.new()
-	sf.font_names = PackedStringArray(["Helvetica Neue", "Helvetica", "Arial", "Liberation Sans"])
-	sf.font_weight = 600
+	var sf := B.sys_font(PackedStringArray(["Helvetica Neue", "Helvetica", "Arial", "Liberation Sans"]), 600)
 	var line := func(text: String, y: float, size: int) -> void:
 		var l := Label3D.new()
 		l.text = text
