@@ -14354,7 +14354,6 @@ func inventory_info() -> Dictionary:
 			for t in hommat.tasks:
 				info.list.append(Hommat.TASKS[t].nimi + ("  ✔" if t in hommat.done else ""))
 		info.tasks = story.list()
-		info.lines.append("Päiväkirja (%s)" % Settings.action_key("journal"))
 		return info
 	info.lines = ["Päivä %d (%s) · Järvikuja 1, Saloinen" % [day, WEEKDAYS[_weekday()]], "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
 		"Kello %s · nukahdat n. klo %s" % [_clock_text(), _pass_out_text()], "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
@@ -14375,7 +14374,6 @@ func inventory_info() -> Dictionary:
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
 	info.tasks = story.list() + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks()
-	info.lines.append("Päiväkirja (%s)" % Settings.action_key("journal"))
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
