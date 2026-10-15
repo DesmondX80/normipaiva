@@ -580,6 +580,54 @@ func _build_terrain() -> void:
 	var lin := {}
 	for c in pal:
 		lin[c] = [(pal[c][0] as Color).srgb_to_linear(), (pal[c][1] as Color).srgb_to_linear(), pal[c][2]]
+	var mat := B.shader_mat("res://shaders/ground_blend.gdshader")
+	var lods := [[1, 0.0, TLOD[0]], [2, TLOD[0], TLOD[1]], [4, TLOD[1], 0.0]]
+	var half := TCHUNK * _cell * 0.71
+	# Lohkot levyvälimuistista (laskenta vie GDScriptillä puoli sekuntia): avain korkeuksista ja maankäytöstä.
+	var tkey := "v%d/%d/%d/%d/%d" % [TERRAIN_CACHE_VERSION, _nx, _nz, hash(_h), hash(_codes)]
+	var tc := MeshBundle.load_dict("vaala_maasto", tkey)
+	var chunks: Array = tc.get("chunks", [])
+	if chunks.is_empty():
+		chunks = _terrain_chunks(lin, lods)
+		MeshBundle.save_dict("vaala_maasto", tkey, {"chunks": chunks})
+	for ch in chunks:
+		var lod: Array = lods[ch[1]]
+		var mi := MeshInstance3D.new()
+		mi.mesh = ch[0]
+		mi.material_override = mat
+		mi.visibility_range_begin = maxf(lod[1] - half, 0.0) if lod[1] > 0.0 else 0.0
+		mi.visibility_range_end = lod[2] + half if lod[2] > 0.0 else 0.0
+		if lod[0] > 1:
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+	_build_water()
+	# Törmäys koko tarkalle ruudukolle (tarkan alueen ulkopuoli kaukomaaston korkeudella).
+	var body := StaticBody3D.new()
+	body.collision_layer = Terrain.COLLISION_LAYER
+	body.collision_mask = 0
+	var hm := HeightMapShape3D.new()
+	hm.map_width = _nx
+	hm.map_depth = _nz
+	hm.map_data = _h
+	var cs := CollisionShape3D.new()
+	cs.shape = hm
+	cs.scale = Vector3(_cell, 1.0, _cell)
+	body.position = Vector3(_x0 + (_nx - 1) * _cell * 0.5, 0.0, _z0 + (_nz - 1) * _cell * 0.5)
+	body.add_child(cs)
+	add_child(body)
+	# Näkymättömät seinät tarkan ruudukon reunoille (kaukomaastoon ei ajeta).
+	for side in [[Vector3(_x0, 0, _z0 + _nz * _cell / 2.0), Vector3(1, 400, _nz * _cell)],
+			[Vector3(_x0 + (_nx - 1) * _cell, 0, _z0 + _nz * _cell / 2.0), Vector3(1, 400, _nz * _cell)],
+			[Vector3(_x0 + _nx * _cell / 2.0, 0, _z0), Vector3(_nx * _cell, 400, 1)],
+			[Vector3(_x0 + _nx * _cell / 2.0, 0, _z0 + (_nz - 1) * _cell), Vector3(_nx * _cell, 400, 1)]]:
+		var wall := StaticBody3D.new()
+		wall.position = side[0]
+		wall.add_child(B.box_shape(side[1], Vector3(0, 120, 0)))
+		add_child(wall)
+
+
+## Maaston lohkot [mesh, tarkkuustaso] (MeshBundle-välimuistin laskenta).
+func _terrain_chunks(lin: Dictionary, lods: Array) -> Array:
 	var n := _nx * _nz
 	var verts := PackedVector3Array()
 	var norms := PackedVector3Array()
@@ -608,51 +656,19 @@ func _build_terrain() -> void:
 	# Lohkot (TCHUNK ruutua) kolmella tarkkuudella: lähellä joka ruutu, kauempana joka toinen ja neljäs piste.
 	# Harvempien tasojen reunoilla helma alaspäin peittää saumat. Lohkot karsitaan näkymästä erikseen, ja vain
 	# lähin taso heittää varjoja.
-	var mat := B.shader_mat("res://shaders/ground_blend.gdshader")
-	var lods := [[1, 0.0, TLOD[0]], [2, TLOD[0], TLOD[1]], [4, TLOD[1], 0.0]]
-	var half := TCHUNK * _cell * 0.71
+	var out: Array = []
 	for cj in range(0, _nz - 1, TCHUNK):
 		for ci in range(0, _nx - 1, TCHUNK):
-			for lod in lods:
-				var am := _terrain_chunk(ci, cj, mini(ci + TCHUNK, _nx - 1), mini(cj + TCHUNK, _nz - 1), lod[0], verts, norms, cols, cust)
-				if am == null:
-					continue
-				var mi := MeshInstance3D.new()
-				mi.mesh = am
-				mi.material_override = mat
-				mi.visibility_range_begin = maxf(lod[1] - half, 0.0) if lod[1] > 0.0 else 0.0
-				mi.visibility_range_end = lod[2] + half if lod[2] > 0.0 else 0.0
-				if lod[0] > 1:
-					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				add_child(mi)
-	_build_water()
-	# Törmäys koko tarkalle ruudukolle (tarkan alueen ulkopuoli kaukomaaston korkeudella).
-	var body := StaticBody3D.new()
-	body.collision_layer = Terrain.COLLISION_LAYER
-	body.collision_mask = 0
-	var hm := HeightMapShape3D.new()
-	hm.map_width = _nx
-	hm.map_depth = _nz
-	hm.map_data = _h
-	var cs := CollisionShape3D.new()
-	cs.shape = hm
-	cs.scale = Vector3(_cell, 1.0, _cell)
-	body.position = Vector3(_x0 + (_nx - 1) * _cell * 0.5, 0.0, _z0 + (_nz - 1) * _cell * 0.5)
-	body.add_child(cs)
-	add_child(body)
-	# Näkymättömät seinät tarkan ruudukon reunoille (kaukomaastoon ei ajeta).
-	for side in [[Vector3(_x0, 0, _z0 + _nz * _cell / 2.0), Vector3(1, 400, _nz * _cell)],
-			[Vector3(_x0 + (_nx - 1) * _cell, 0, _z0 + _nz * _cell / 2.0), Vector3(1, 400, _nz * _cell)],
-			[Vector3(_x0 + _nx * _cell / 2.0, 0, _z0), Vector3(_nx * _cell, 400, 1)],
-			[Vector3(_x0 + _nx * _cell / 2.0, 0, _z0 + (_nz - 1) * _cell), Vector3(_nx * _cell, 400, 1)]]:
-		var wall := StaticBody3D.new()
-		wall.position = side[0]
-		wall.add_child(B.box_shape(side[1], Vector3(0, 120, 0)))
-		add_child(wall)
+			for li in lods.size():
+				var am := _terrain_chunk(ci, cj, mini(ci + TCHUNK, _nx - 1), mini(cj + TCHUNK, _nz - 1), lods[li][0], verts, norms, cols, cust)
+				if am != null:
+					out.append([am, li])
+	return out
 
 
 ## Maaston lohko ruuduista [i0, i1] x [j0, j1] askeleella st (1, 2 tai 4); harvoilla tasoilla helma reunoille.
 const TCHUNK := 32
+const TERRAIN_CACHE_VERSION := 1  # nosta, kun lohkojen laskenta muuttuu
 const TLOD := [320.0, 700.0]
 
 
