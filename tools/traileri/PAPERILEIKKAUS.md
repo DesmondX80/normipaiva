@@ -101,7 +101,7 @@ Rakenne: prologi ilman musiikkia → tunnari kokonaan kappaleen osien mukaan →
 | 46 | `f_kiihdytys` | Kiihdytys Zabukin pihalta | Kilpailun kamera | 8 b | 1 | |
 | 47 | `f_lava_tanssi` | Kesäillan valssi lavalla | Kiertää paria | 10 b | 2 | |
 | 48 | `s_paivi_tv` | Päivi näkee tanssin telkkarista: "SE ON SE! Mun mies!" | Välianimaatio | 14 b | 2 | |
-| 42 | `m_juna` | Junalla Vaalasta takaisin Raaheen, terästehtaan ohi | Välianimaatio | 10 b | 0 | |
+| 42 | `m_juna` | Junalla Vaalasta takaisin Saloisiin, Raahen terästehtaan ohi | Välianimaatio | 10 b | 0 | |
 | 49 | `f_nuoret` | Nuorten nuotio Vaalassa | Matala | 8 b | 0 | |
 | 50 | `f_auringonlasku` | Laavu auringonlaskussa: LEGENDAARINEN NORMIPÄIVÄ! | Välianimaatio | 12 b | 0 | |
 
