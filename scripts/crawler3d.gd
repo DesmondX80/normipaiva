@@ -10,7 +10,6 @@ const B := preload("res://scripts/build.gd")
 const HIP_H := 0.5  # lantion korkeus polvillaan
 const PITCH := -1.32  # vartalon kallistus konttaessa (rad), hartiat hieman lantiota alempana
 const STRIDE := 0.11
-const R := -1.0  # oikeanpuoleiset luut (_r) ovat solmun -X:ssä (malli käännetty)
 
 var ch: Node3D
 var stance := "crawl"
@@ -37,7 +36,7 @@ func setup(look: Dictionary, towel: Color, woman := false) -> void:
 	var skin: Color = lk.get("skin", Color(1.0, 0.9, 0.85))
 	lk["shirt"] = skin
 	lk["pants"] = skin
-	lk["shoes"] = skin
+	lk["shoes"] = skin.darkened(0.25)  # kenkäalue on varjostimessa kiiltävä: paljaat jalat tummemmalla
 	lk["tube_y"] = 0.01  # paljas yläkroppa ja jalat, pyyhe erillisenä
 	lk["sleeve_x"] = 0.0
 	lk["shorts_y"] = 1.4
@@ -108,7 +107,7 @@ func _build_towel(col: Color, bulk: float, belly: float, woman: bool) -> void:
 	tuck.material_override = tm
 	_towel_mats.append(tm)
 	if woman:  # naisilla taite rinnan sivussa, vartaloon maalatun yläosan reunassa
-		ch.attach("spine_03", tuck, Vector3(R * 0.12, 0.08, -0.08))
+		ch.attach("spine_03", tuck, Vector3(0.12, 0.08, -0.08))
 		_chest_tuck = tuck
 	else:
 		tuck.position = Vector3(top * 0.7, 0.0, -top * 0.55)
@@ -165,16 +164,16 @@ func pose(phase: float, moving: float) -> void:
 		var sfx := "_r" if side > 0.0 else "_l"
 		var s := sin(phase + (0.0 if side > 0.0 else PI))  # oikea käsi ja vasen polvi samaan tahtiin
 		var lift := maxf(0.0, cos(phase + (0.0 if side > 0.0 else PI))) * 0.05 * moving
-		var hand := Vector3(R * side * 0.19, 0.03 + lift, sh_z - 0.04 - s * STRIDE * moving)
-		var elbow := Vector3(R * side * 0.45, 0.6, sh_z + 0.5)
+		var hand := Vector3(side * 0.19, 0.03 + lift, sh_z - 0.04 - s * STRIDE * moving)
+		var elbow := Vector3(side * 0.45, 0.6, sh_z + 0.5)
 		if side > 0.0 and reach > 0.0:  # tökkäys: käsi eteen lantion korkeudelle
-			hand = hand.lerp(Vector3(R * 0.1, 0.5, sh_z - 0.5), reach)
-			elbow = elbow.lerp(Vector3(R * 0.5, 0.3, sh_z), reach)
+			hand = hand.lerp(Vector3(0.1, 0.5, sh_z - 0.5), reach)
+			elbow = elbow.lerp(Vector3(0.5, 0.3, sh_z), reach)
 		ch.set_ik("arm" + sfx, "upperarm" + sfx, "lowerarm" + sfx, "hand" + sfx, _ch(hand), _ch(elbow))
 		var ks := -s  # polvi vastavaiheessa samanpuoleiseen käteen
 		var klift := maxf(0.0, -cos(phase + (0.0 if side > 0.0 else PI))) * 0.04 * moving
-		var foot := Vector3(R * side * 0.14, 0.07 + klift, 0.42 - ks * STRIDE * moving)
-		var knee := Vector3(R * side * 0.12, -0.6, -0.4)
+		var foot := Vector3(side * 0.14, 0.07 + klift, 0.42 - ks * STRIDE * moving)
+		var knee := Vector3(side * 0.12, -0.6, -0.4)
 		ch.set_ik("leg" + sfx, "thigh" + sfx, "calf" + sfx, "foot" + sfx, _ch(foot), _ch(knee))
 	_tilt.position.y = HIP_H + sin(jolt * PI) * 0.12
 	_tilt.rotation.x = PITCH + sin(jolt * PI) * 0.15

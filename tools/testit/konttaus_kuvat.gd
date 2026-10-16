@@ -28,8 +28,8 @@ func _ready() -> void:
 	B.box(self, Vector3(10, 0.2, 10), Vector3(0, -0.1, 0), Color(0.45, 0.35, 0.25), false)
 	var c := Crawler.new()
 	add_child(c)
-	c.setup({"shirt": Color(0.95, 0.75, 0.62), "pants": Color(0.25, 0.45, 0.25), "skin": Color(0.95, 0.75, 0.62),
-		"hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.2, 0.12), "beard": true, "belly": 0.6, "bulk": 0.3})
+	c.setup({"skin": Color(0.95, 0.75, 0.62), "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.2, 0.12), "beard": true,
+		"belly": 0.6, "bulk": 0.3}, Color(0.25, 0.45, 0.25))
 	var cam := Camera3D.new()
 	add_child(cam)
 	cam.current = true
@@ -38,7 +38,7 @@ func _ready() -> void:
 
 func _run(c: Node3D, cam: Camera3D) -> void:
 	var views := [["sivu", Vector3(2.6, 0.7, 0), Vector3(0, 0.4, 0)], ["edesta", Vector3(0.6, 0.9, -2.4), Vector3(0, 0.4, -0.2)],
-		["ylha", Vector3(0.01, 4.0, 0), Vector3(0, 0, 0)], ["takaa", Vector3(-1.2, 1.4, 2.2), Vector3(0, 0.4, 0)]]
+		["ylha", Vector3(0.01, 4.0, 0), Vector3(0, 0, 0)], ["takaa", Vector3(0.0, 0.9, 2.2), Vector3(0, 0.35, 0)]]
 	for ph in [0.0, PI / 2.0, PI]:
 		for f in 4:
 			c.pose(ph, 1.0)
