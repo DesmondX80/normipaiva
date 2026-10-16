@@ -376,8 +376,28 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 			_reshape(arr, shape)
 		for c in [Mesh.ARRAY_CUSTOM0, Mesh.ARRAY_CUSTOM1, Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3]:
 			arr[c] = null  # lisäkanavia ei tarvita
-		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], _source_lods(mesh, s, verts.size()),
+			fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
 	_meshes[key] = out
+	return out
+
+
+## Tuonnissa luodut LOD-tasot (generate_lods) alkuperäisestä pinnasta: vaatemesh pitää verteksien järjestyksen,
+## joten samat indeksilistat kelpaavat. Ilman niitä jokainen hahmo piirtyi täysin kolmioin joka etäisyydellä ja
+## jokaiseen varjokaskadiin (lavalla 2,6 M kolmiota).
+static func _source_lods(mesh: Mesh, surface: int, vert_count: int) -> Dictionary:
+	var out := {}
+	var sd: Dictionary = RenderingServer.mesh_get_surface(mesh.get_rid(), surface)
+	for lod in sd.get("lods", []):
+		var data: PackedByteArray = lod.index_data
+		var idx := PackedInt32Array()
+		if vert_count <= 65535:
+			idx.resize(data.size() / 2)
+			for i in idx.size():
+				idx[i] = data.decode_u16(i * 2)
+		else:
+			idx = data.to_int32_array()
+		out[float(lod.edge_length)] = idx
 	return out
 
 
