@@ -1,5 +1,6 @@
 # Buildaa selainversion (Godotin Web-export) ja julkaisee sen GitHub Pagesiin jokaisesta mainin pushista.
-# PR:issä vain buildataan, jotta rikkinäinen Web-export huomataan ennen mergeä. Käsin: Actions → Selainversio → Run workflow.
+# PR:issä vain buildataan ja tarkistetaan, että peli kääntyy myös ilman editoria, jotta vika huomataan ennen
+# mergeä. Käsin: Actions → Selainversio → Run workflow.
 # Kertaluontoinen asetus (repon omistaja): Settings → Pages → Source: GitHub Actions.
 #
 # GitHub Pages ei salli COOP/COEP-otsakkeita, joten käytetään säikeetöntä templatea (Web-preset: thread_support=false).
@@ -65,6 +66,11 @@ jobs:
           test -s build/web/index.wasm
           touch build/web/.nojekyll
           ls -la build/web
+
+      # Export rakentaa luokkalistan editorin tapaan, joten se ei huomaa esim. puuttuvaa class_name-nimeä.
+      # Tämä ajaa pelin ilman luokkalistaa, kuten `godot ./` tuoreella checkoutilla.
+      - name: Kääntyykö ilman editoria
+        run: tools/testit/kaantyyko.sh ~/godot/godot
 
       - uses: actions/upload-pages-artifact@v5
         with:
