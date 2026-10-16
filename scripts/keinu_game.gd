@@ -1,6 +1,6 @@
 extends Node3D
 ## Aikuisen keinuhyppykisa leikkipuistossa (#146), pelataan oikealla keinulla: pelaajan hahmo istuu keinussa kädet
-## ketjuissa, kamera kuvaa sivulta ja penkin äidit katsovat taustalla. W eteenpäin heilahtaessa ja S taaksepäin
+## ketjuissa, kamera kuvaa sivulta ja penkin äidit katsovat taustalla. D eteenpäin heilahtaessa ja A taaksepäin
 ## heilahtaessa lisää vauhtia (jalat ojentuvat ja koukistuvat), väärä tahti hidastaa. Liian kova vauhti löysää ketjut.
 ## Välilyönti hyppää: eteenpäin heilahduksen nousussa pitkä lento, taaksepäin heilahtaessa selälleen hiekkaan.
 ## Pituus mitataan keinutelineen alta; hiekassa ennätyslippu, oma paras ja metrimerkit. F / Esc luovuttaa.
@@ -209,8 +209,8 @@ func _process(delta: float) -> void:
 	_info.text = "Keinuhyppy · ennätys %s %s m%s" % [record_holder, _m(record), (" · oma %s m" % _m(best)) if best > 0.0 else ""]
 	if _phase in ["landed", "done"] and _dist > 0.0:
 		_info.text = "%s m" % _m(_dist) + ("  ·  UUSI ENNÄTYS!" if _dist > record and not _crash else "")
-	_keys.set_text("%s eteen heilahtaessa · %s taakse heilahtaessa · %s hyppää · %s luovuta" % [Settings.cap("forward"),
-		Settings.cap("back"), Settings.cap("jump"), Settings.cap("mount")])
+	_keys.set_text("%s eteen heilahtaessa · %s taakse heilahtaessa · %s hyppää · %s luovuta" % [Settings.cap("right"),
+		Settings.cap("left"), Settings.cap("jump"), Settings.cap("mount")])
 
 
 func _swing(delta: float) -> void:
@@ -226,7 +226,7 @@ func _swing(delta: float) -> void:
 		_shake = 0.6
 		Sfx.play("rattle_hard", -6.0, 1.3)
 		_tip.text = "KLONK! Ketjut löystyi. Äidit kirkaisee."
-	for k in [["forward", 1.0], ["back", -1.0]]:
+	for k in [["right", 1.0], ["left", -1.0]]:  # kamera sivulta: eteenpäin heilahdus menee ruudulla oikealle
 		if Input.is_action_just_pressed(k[0]):
 			var right: bool = signf(_w) == k[1] and absf(_th) < 0.9
 			if right and k[0] != _last:
