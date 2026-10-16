@@ -506,6 +506,15 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_r(img, 11, 8, 4, 6, Color(0.75, 0.1, 0.1))
 			_r(img, 2, 9, 1, 3, Color(0.95, 0.5, 0.45))
 			_r(img, 12, 9, 1, 3, Color(0.95, 0.5, 0.45))
+		"puhelin":  # Päivin vanha kännykkä: petrooli runko, antennin nysä, vihreä näyttö ja näppäimet
+			_r(img, 4, 0, 2, 3, Color(0.1, 0.12, 0.13))
+			_r(img, 4, 2, 8, 13, Color(0.16, 0.28, 0.32))
+			_r(img, 5, 3, 6, 1, Color(0.3, 0.45, 0.5))
+			_r(img, 5, 4, 6, 4, Color(0.55, 0.6, 0.6))
+			_r(img, 6, 5, 4, 2, Color(0.62, 0.78, 0.42))
+			for ky in [9, 11, 13]:
+				for kx in [5, 7, 9]:
+					_r(img, kx, ky, 1, 1, Color(0.85, 0.87, 0.82))
 		"kalja":
 			_r(img, 7, 1, 2, 1, Color(0.9, 0.75, 0.2))
 			_r(img, 7, 2, 2, 3, Color(0.42, 0.22, 0.06))

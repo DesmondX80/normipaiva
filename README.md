@@ -316,8 +316,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     lippu (12 €) ostetaan aidan portilta, jossa portsari leimaa käden ja portti aukeaa koko päiväksi; lavatansseihin (klo 20–01), joissa A ja D vuorotellen tahdissa vievät parin tanssiin. Kappaleen jälkeen palataan saliin:
     voi tanssia uudestaan, mennä diskopuolelle tai baaritiskille tuopille, ja Q vie lavalta ulos. Lavalla soittaa
     Humppaveikot (`humppa_band.gd`): laulaja, harmonikka palkeineen, kitara, basso ja rummut, kädet soittimilla
-    tahdin mukaan. W:llä bändiltä voi toivoa humppaiskelmän listalta ("Vaalan valot", "Pontikkapolkka"...): kappale
-    syntetisoidaan (`humppa_synth.gd`, välimuisti `user://humppa`), ja tanssin tahti seuraa sen tempoa. Tanssien
+    tahdin mukaan. Bändi soittaa vanhoja iskelmiä ja lavamusiikkia 78 kierroksen levyiltä (`iskelmat.gd`, sama
+    lista kuin Päivin kännykässä), ja W:llä bändiltä voi toivoa kappaleen ("Säkkijärven polkka", "Orpopojan
+    valssi"...). Tanssin tahti seuraa kappaleen tempoa, ja kappaleen loputtua bändi soittaa seuraavan. Jos
+    äänitteitä ei ole, kappaleet syntetisoidaan (`humppa_synth.gd`). S:llä DJ:ltä voi toivoa diskobiisin pelin
+    90-luvun biiseistä: se alkaa heti, ja diskopuolelta haetaan pari (testi `--scene=lavatoiveet`). Tanssien
     aikaan humppa kuuluu pihalle, salissa tanssitaan ja seinien penkeillä istutaan, ja pihalla on grillikioski
     jonoineen ja tupakkapaikka. Lavan ympärillä kasvaa koivikkoa ja katajaa paljaan niityn sijaan. Pelissä lava on
     todellista (1 500 m²) vähän pienempi. Oulujärvi jatkuu niemeltä kaakkoon kartan reunaan asti.
@@ -455,6 +458,13 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   ja vasemmassa alakulmassa näkyy soiva biisi. Mukana on seitsemän 90-luvun tyylistä eurodance-, techno- ja
   rave-biisiä (CC BY, tekijät alla), jotka soivat myös lavan diskopuolella ja teinien kasettisoittimista.
   Löytö säilyy (testi `--scene=kuulokkeet`).
+- **Päivin vanha kännykkä (P soimaan / taskuun, N seuraava, U voimakkuus):** kodin makuuhuoneen yöpöydällä
+  parisängyn vieressä. Soittaa vanhoja iskelmiä 78 kierroksen levyiltä (`assets/music/iskelma/`, sama lista kuin
+  lavabändillä) pienestä kaiuttimesta: oma ääniväylä kaistanpäästöllä ja säröllä, joten ääni on ohut kuin taskusta.
+  Soidessa puhelin näkyy minikartan vieressä: näytöllä juokseva biisin nimi, esittäjä, aika, taajuuspalkit ja
+  voimakkuus, ja kaiuttimesta nousee nuotteja. Kuulokkeet ja pelin oma musiikki tauottavat puhelimen. Kansioon
+  lisätyt biisit (esim. Eräät Jormat Suno-soittolistalta, ks. LUEMINUT.txt) soivat myös. Löytö ja voimakkuus
+  säilyvät (testi `--scene=puhelin`).
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
   Juntilla on seitsemän paikkaa reittien varrella ja Seuranmäellä (Reipparin edusta ja kentän laita), ja hän ehtii
@@ -735,6 +745,13 @@ Työpöydällä ohjaimia voi kokeilla käynnistämällä pelin `godot --path . -
   - "90s Racer Techno" ja "Acid Action" – Bogart VGM, OpenGameArt (CC BY 4.0)
   - "I´m Free", "It´s Love" ja "Dance and Jump" – Snabisch, OpenGameArt (CC BY 3.0)
   - "Bitten by the Rave Spider" – Woolly Jammoth, OpenGameArt (CC BY 4.0)
+- Iskelmät ja lavamusiikki (`assets/music/iskelma/`, Päivin kännykkä ja Oulujärven lavan bändi): Kansalliskirjaston
+  [Raita](https://www.doria.fi/handle/10024/66373) – musiikkia vanhoilta äänilevyiltä, Public Domain. Uudelleenkoodattu
+  (mono, MP3 80 kbps, hiljaiset alut pois); esittäjät, vuodet ja Doria-tunnisteet `scripts/iskelmat.gd`:ssä:
+  Säkkijärven polkka (Willy Larsen 1928), Orpopojan valssi ja Kulkurin valssi (J. Alfred Tanner 1926),
+  Juhannusvalssi, Kylän jenkka ja Immu-polkka (Nils ja Wilhelm Ekman 1929), Lappeenrannan rakuuna (Matti Söderlund
+  1928), Tanssit Tarvaisen torpassa (Kuuno Sevander 1929), Pääskysvalssi (Viola Turpeinen ja John Rosendahl 1928) ja
+  Muistoja Karpaateilta (Willy Larsen trio 1930).
 - Mökin ympäristö (`assets/mokki/kartta.json`): © OpenStreetMap-tekijät (ODbL) ja korkeudet Maanmittauslaitoksen
   korkeusmalli 2 m (CC BY 4.0, lehti R4333D, 2023; Kapsin peilistä).
 - **Haapajärven tekoaltaan kota** (sijainti OpenStreetMapista) on n. 2 km laavulta etelään Kotapolkua pitkin.

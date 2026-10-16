@@ -1,0 +1,12 @@
+Päivin vanhan kännykän soittolista ja Oulujärven lavabändin ohjelmisto (scripts/iskelmat.gd, phone.gd,
+humppa_band.gd)
+
+01_–10_ ovat vanhoja suomalaisia 78 kierroksen levytyksiä vuosilta 1926–1930 Kansalliskirjaston
+Raita-kokoelmasta (https://www.doria.fi/handle/10024/66373), lisenssi Public Domain
+(https://creativecommons.org/publicdomain/mark/1.0/). Uudelleenkoodattu: mono, MP3 80 kbps, hiljaiset alut ja
+loput pois, huippu -1 dBFS. Esittäjät, vuodet, tempot ja Doria-tunnisteet: scripts/iskelmat.gd SONGS.
+
+Kansioon voi pudottaa lisää biisejä (ogg, mp3, wav), esim. Eräät Jormat omalta Suno-soittolistalta
+(https://suno.com/playlist/39c06a37-331a-43bc-8ea7-88ca6da92352; Sunosta biisit ladataan omilla tunnuksilla,
+Download -> MP3). Ne soivat kännykässä. Nimi näytetään tiedostonimestä: alkunumero ja alaviivat pois.
+Lavabändi soittaa vain SONGS-listan kappaleet.

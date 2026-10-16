@@ -43,6 +43,7 @@ const SPOTS := {
 	"tv": [Vector3(-0.2, 0, -4.3), "[E] Katso telkkaria"],
 	"sohva": [Vector3(1.7, 0, -2.8), "[E] Ota nokoset sohvalla"],
 	"nortti": [Vector3(8.0, 0, -3.6), "[E] Jutskaa nörtin kanssa"],
+	"puhelin": [Vector3(-8.7, 0, -1.4), "[E] Päivin vanha kännykkä yöpöydällä"],
 }
 const NERD_LOOK := {
 	"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.25, 0.27, 0.32), "shoes": Color(0.9, 0.9, 0.9),
@@ -57,6 +58,14 @@ const NERD_LINES := [
 	"Mää rakensin tähän kolmannen näytön. Päivi sano, että sähkölasku tuplaantu.",
 	"Jos sää löydät mun energiajuomat jääkaapista, ne on mun.",
 ]
+
+## Päivin vanha kännykkä (phone.gd, main.gd): otettu yöpöydältä, piste ja malli pois.
+var phone_found := false:
+	set(v):
+		phone_found = v
+		if _phone != null:
+			_phone.visible = not v
+var _phone: Node3D
 
 signal exited
 signal slept
@@ -163,6 +172,8 @@ func _process(delta: float) -> void:
 	var bd := 1.3
 	var room := room_at(p)
 	for id in SPOTS:
+		if id == "puhelin" and phone_found:
+			continue
 		if room_at(SPOTS[id][0]) != room:
 			continue  # seinän takana olevaan pisteeseen ei ylety (esim. WC:n kaappi makuuhuoneesta)
 		var d := Vector2(p.x - SPOTS[id][0].x, p.z - SPOTS[id][0].z).length()
@@ -329,6 +340,27 @@ func _build_bedrooms() -> void:
 	for sz in [-1.3, 1.3]:
 		_solid(Vector3(0.5, 0.5, 0.45), bed + Vector3(-0.8, 0.25, sz), Color(0.6, 0.45, 0.3))
 	_solid(Vector3(1.6, 2.0, 0.55), Vector3(-6.0, 1.0, -HALF.y + 0.32), Color(0.88, 0.86, 0.8))  # vaatekaappi
+	_build_phone(bed + Vector3(-0.8, 0.5, 1.3))
+
+
+## Päivin vanha kännykkä yöpöydällä virkatun liinan päällä: petroolinvärinen runko, vihreä näyttö, näppäimet ja
+## antennin nysä ja laturin johto.
+func _build_phone(top: Vector3) -> void:
+	B.mesh(self, B.cyl(0.17, 0.17, 0.005, 16), top + Vector3(0, 0.003, 0), Color(0.95, 0.93, 0.86))  # pitsiliina
+	_phone = Node3D.new()
+	_phone.position = top + Vector3(0.02, 0.006, 0)
+	_phone.rotation.y = 0.35
+	add_child(_phone)
+	var shell := Color(0.16, 0.28, 0.32)
+	B.mesh(_phone, B.boxm(Vector3(0.07, 0.024, 0.15)), Vector3(0, 0.012, 0), shell)
+	B.mesh(_phone, B.boxm(Vector3(0.06, 0.004, 0.13)), Vector3(0, 0.025, 0), shell.lightened(0.15))
+	B.mesh(_phone, B.boxm(Vector3(0.046, 0.003, 0.036)), Vector3(0, 0.028, -0.035), Color(0.55, 0.6, 0.6))
+	B.mesh(_phone, B.boxm(Vector3(0.038, 0.002, 0.028)), Vector3(0, 0.0295, -0.035), Color(0.6, 0.75, 0.4))
+	for i in 12:
+		B.mesh(_phone, B.boxm(Vector3(0.012, 0.004, 0.008)), Vector3(-0.016 + (i % 3) * 0.016, 0.028, 0.008 + int(i / 3) * 0.013),
+			Color(0.8, 0.82, 0.78))
+	B.mesh(_phone, B.boxm(Vector3(0.014, 0.02, 0.022)), Vector3(-0.022, 0.014, -0.083), Color(0.1, 0.12, 0.13))  # antenni
+	B.mesh(_phone, B.boxm(Vector3(0.004, 0.004, 0.09)), Vector3(0, 0.004, 0.12), Color(0.1, 0.1, 0.1))  # laturin johto
 
 
 func _build_bath_sauna() -> void:

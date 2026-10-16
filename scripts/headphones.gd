@@ -150,14 +150,20 @@ static func random_90s() -> AudioStream:
 
 
 static func random_90s_path() -> String:
-	var keys := TITLES.keys()
-	keys.shuffle()
-	for k in keys:
+	var tracks := disco_tracks()
+	return tracks.pick_random() if not tracks.is_empty() else ""
+
+
+## Pelin 90-luvun biisit (TITLES) järjestyksessä: lavan DJ:n toivelista.
+static func disco_tracks() -> Array[String]:
+	var out: Array[String] = []
+	for k in TITLES:
 		for ext in ["mp3", "ogg"]:
 			var path := MUSIC_DIR.path_join("%s.%s" % [k, ext])
 			if ResourceLoader.exists(path):
-				return path
-	return ""
+				out.append(path)
+				break
+	return out
 
 
 ## HUD-rivi (tyhjä, kun kuulokkeet eivät ole päässä).
