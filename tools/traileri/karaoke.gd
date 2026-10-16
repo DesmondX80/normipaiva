@@ -33,6 +33,8 @@ var region_h := 0.0  # piirtoalueen korkeus ruudun alareunasta (px)
 var cur_y := 0.0     # laulettavan rivin yläreuna piirtoalueessa
 var next_y := 0.0
 var shade: TextureRect  # kuva-tyyli: tumma liukuväri tekstin takana
+var status: Label  # ikkunassa: eteneminen ja viimeksi piirretty ruutu (ikkuna ei saa jäädä harmaaksi)
+var preview: TextureRect
 var lines: Array = []
 var vp: SubViewport
 var cur_base: Label
@@ -90,6 +92,7 @@ func _run() -> void:
 		quit(1)
 		return
 	_build()
+	_build_window()
 	var song_pcm := PackedByteArray()  # --soitto: korvaava ääni (16-bit stereo 48 kHz, kokoa.gd:n wav)
 	if soitto:
 		var wp := dir.path_join("traileri_soitto.wav")
@@ -139,6 +142,14 @@ func _run() -> void:
 			jf.store_buffer(jpeg)
 		if fi % 300 == 0:
 			print("karaoke %d/%d ruutua (%d s)" % [fi, frames, (Time.get_ticks_msec() - t0) / 1000])
+		if fi % 30 == 0:
+			status.text = "Karaoke: ruutu %d / %d (%d %%)  ·  ikkuna sulkeutuu itse, kun video on valmis" % [
+				fi, frames, 100 * fi / frames]
+			if drawn > 0 and fi % 90 == 0:
+				var shot := Image.new()
+				shot.load_jpg_from_buffer(jpeg)
+				preview.texture = ImageTexture.create_from_image(shot)
+			await process_frame
 	if from_avi:
 		k._finish(out, idx, movi_pos, frames)
 	print("Valmis: %d ruutua, sanat %d ruudussa" % [frames, drawn])
@@ -151,6 +162,27 @@ func _run() -> void:
 
 func _out_name(base: String) -> String:
 	return base + ("_kuva" if style == "kuva" else "") + ("_soitto" if soitto else "")
+
+
+## Ikkunassa näkyy eteneminen ja välillä valmis ruutu, ettei ikkuna näytä jumittuneelta harmaalta.
+func _build_window() -> void:
+	var bg := ColorRect.new()
+	bg.color = Color(0.08, 0.08, 0.1)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(bg)
+	preview = TextureRect.new()
+	preview.set_anchors_preset(Control.PRESET_FULL_RECT)
+	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	preview.offset_bottom = -48
+	root.add_child(preview)
+	status = Label.new()
+	status.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	status.offset_top = -44
+	status.add_theme_font_size_override("font_size", 20)
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status.text = "Karaoke: luetaan traileria..."
+	root.add_child(status)
 
 
 ## Piirtoalusta ruudun alareunassa läpinäkyvänä SubViewportina: palkki-tyylissä alempi musta palkki (kuva-ala
