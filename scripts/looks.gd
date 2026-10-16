@@ -241,14 +241,18 @@ static func add_army_uniform(c: Node3D) -> void:
 		B.mesh(board, B.boxm(Vector3(0.114, 0.008, 0.06)), Vector3(0, -0.003, 0), Color(0.55, 0.08, 0.08))  # punainen reunus
 		B.mesh(board, B.cyl(0.007, 0.007, 0.006, 8), Vector3(-s * 0.04, 0.008, 0), brass)  # nappi
 	c.attach("spine_03", shoulders, Vector3.ZERO)
+	# Rintataskut hahmon lapsina pystytasossa (rintarangan luu kiertyy Idle-animaatiossa niin paljon, että luuhun
+	# kiinnitetyt taskut kallistuivat irti rinnasta).
 	var chest := Node3D.new()
+	chest.rotation.x = 0.12  # rinnan pieni kaltevuus: alareuna vatsaa vasten
 	for s in [-1.0, 1.0]:
 		B.mesh(chest, B.boxm(Vector3(0.11, 0.12, 0.012)), Vector3(s * 0.085, -0.02, 0), khaki.darkened(0.05))  # tasku
 		B.mesh(chest, B.boxm(Vector3(0.115, 0.035, 0.016)), Vector3(s * 0.085, 0.045, -0.002), khaki.darkened(0.12))  # läppä
 		B.mesh(chest, B.cyl(0.007, 0.007, 0.006, 8), Vector3(s * 0.085, 0.04, -0.011), brass, Vector3(90, 0, 0))
 	for k in 3:  # kauluksen napitus
 		B.mesh(chest, B.cyl(0.006, 0.006, 0.006, 8), Vector3(0, 0.1 - k * 0.05, -0.006), brass, Vector3(90, 0, 0))
-	c.attach("spine_03", chest, Vector3(0, 0.1, -0.16))  # taskut rinnan korkeudelle
+	chest.position = c.bone_position("spine_03") + Vector3(0, 0.08, -0.155)
+	c.add_child(chest)
 	var belt := Node3D.new()
 	var band := MeshInstance3D.new()
 	var bt := TorusMesh.new()
@@ -264,7 +268,8 @@ static func add_army_uniform(c: Node3D) -> void:
 	B.mesh(belt, B.boxm(Vector3(0.07, 0.05, 0.01)), Vector3(0, 0, -0.228), brass)  # solki
 	B.mesh(belt, B.boxm(Vector3(0.05, 0.03, 0.012)), Vector3(0, 0, -0.231), brass.darkened(0.25))
 	c.attach("spine_01", belt, Vector3(0, -0.04, 0.0))
-	# Punainen käsivarsinauha vasempaan olkavarteen, nauhassa valkoinen pyöreä laatta olkavarren ulkosivulla.
+	# Punainen käsivarsinauha vasempaan olkavarteen, nauhassa valkoinen pyöreä laatta olkavarren ulkosivulla ja siinä
+	# Raahen karateklubin tunnus.
 	# Lepoasennossa (T) vasen käsi osoittaa -X:ään: nauhan akseli X:n suuntaan, ulkosivu (+Y) kääntyy käden
 	# laskiessa sivulle.
 	var arm := Node3D.new()
@@ -273,6 +278,13 @@ static func add_army_uniform(c: Node3D) -> void:
 	arm.add_child(band2)
 	B.mesh(band2, B.cyl(0.068, 0.068, 0.075, 18), Vector3.ZERO, Color(0.72, 0.06, 0.06))
 	B.mesh(arm, B.cyl(0.03, 0.03, 0.006, 20), Vector3(0, 0.069, 0), Color(0.96, 0.95, 0.92))
+	# Raahen karateklubin tunnus: kaksi mustaa karatevyötä vinoristissä ja solmu keskellä.
+	var emblem := Node3D.new()
+	emblem.position = Vector3(0, 0.0725, 0)
+	arm.add_child(emblem)
+	for a in [PI / 4.0, -PI / 4.0]:
+		B.mesh(emblem, B.boxm(Vector3(0.046, 0.002, 0.008)), Vector3.ZERO, Color(0.04, 0.04, 0.04), Vector3(0, rad_to_deg(a), 0))
+	B.mesh(emblem, B.boxm(Vector3(0.011, 0.003, 0.011)), Vector3(0, 0.0005, 0), Color(0.08, 0.08, 0.08))  # solmu
 	c.attach("upperarm_l", arm, Vector3(-0.14, 0.0, 0.0))
 
 
