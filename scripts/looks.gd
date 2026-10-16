@@ -131,6 +131,12 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 	c.setup(look)
 	if look.get("glam", false):
 		add_glam(c)
+	if look.get("chaplin", false):
+		add_chaplin(c)
+	if look.get("fringe", false):
+		add_fringe(c, look.get("hair_color", Color(0.05, 0.04, 0.04)))
+	if look.get("army", false):
+		add_army_uniform(c)
 	return c
 
 
@@ -164,6 +170,99 @@ static func add_glam(c: Node3D) -> void:
 		(ring.material_override as StandardMaterial3D).roughness = 0.25
 		ring.rotation = Vector3(0, 0, PI / 2.0)
 		c.attach("Head", ring, Vector3(s * 0.072, 0.015, 0.005))
+
+
+## Charlie Chaplinin hammasharjaviikset nenän alle: pieni musta, hieman pyöristetty töyhtö (mitat kuten glam-asusteissa
+## pääluun lepopaikasta hahmon avaruudessa, kasvot -Z).
+static func add_chaplin(c: Node3D) -> void:
+	var m := Node3D.new()
+	var black := Color(0.04, 0.035, 0.03)
+	B.mesh(m, B.boxm(Vector3(0.034, 0.014, 0.012)), Vector3.ZERO, black)
+	for s in [-1.0, 1.0]:  # pyöristetyt kulmat
+		B.mesh(m, B.cyl(0.007, 0.007, 0.012, 8), Vector3(s * 0.017, 0, 0), black, Vector3(90, 0, 0))
+	for k in 5:  # karvan suunta: ohuet pystyurat
+		B.mesh(m, B.boxm(Vector3(0.002, 0.015, 0.002)), Vector3(-0.012 + k * 0.006, 0, -0.0065), Color(0.1, 0.09, 0.08))
+	c.attach("Head", m, Vector3(0, 0.04, -0.104))
+
+
+## Otsalle vinosti kammattu kiiltävä sivujakaus: litistetty suortuva otsan poikki ohimolta toiselle kulmakarvan
+## yläpuolelle (lyhyt tukka "Hair_SimpleParted" pohjana, look.fringe).
+static func add_fringe(c: Node3D, col: Color) -> void:
+	var f := Node3D.new()  # attach() asettaa tämän muunnoksen: kierto lapsessa
+	var piv := Node3D.new()
+	f.add_child(piv)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = col
+	mat.roughness = 0.35
+	mat.metallic = 0.1
+	var lock := MeshInstance3D.new()
+	lock.mesh = B.sphere(0.5, 14)
+	lock.material_override = mat
+	lock.scale = Vector3(0.17, 0.028, 0.085)
+	piv.add_child(lock)
+	var tip := MeshInstance3D.new()  # suortuvan kärki kapenee kulmakarvan päälle
+	tip.mesh = B.sphere(0.5, 10)
+	tip.material_override = mat
+	tip.scale = Vector3(0.08, 0.02, 0.05)
+	tip.position = Vector3(0.075, 0.0, 0.006)
+	piv.add_child(tip)
+	# Otsan myötäisesti (kallistus eteen ylhäältä) ja vinoon: korkealta vasemmalta alas oikean kulmakarvan päälle.
+	piv.rotation = Vector3(1.15, 0.0, 0.5)
+	c.attach("Head", f, Vector3(-0.005, 0.15, -0.07))
+
+
+## Ruskea venäläinen sotilaspuku (gymnastjorka): pystykaulus, olkalaput punaisin reunoin, napitetut rintataskut,
+## nahkavyö messinkisoljella ja saappaat. Paidan ja housujen värit tulevat lookista (shirt, pants, shoes).
+static func add_army_uniform(c: Node3D) -> void:
+	var khaki := Color(0.4, 0.31, 0.19)
+	var leather := Color(0.24, 0.14, 0.07)
+	var brass := Color(0.8, 0.62, 0.25)
+	var collar := Node3D.new()
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.055
+	tm.outer_radius = 0.075
+	tm.rings = 18
+	tm.ring_segments = 6
+	ring.mesh = tm
+	ring.material_override = B.mat(khaki.darkened(0.08))
+	ring.scale = Vector3(1.0, 1.4, 1.0)
+	collar.add_child(ring)
+	for s in [-1.0, 1.0]:  # kauluslaatat
+		B.mesh(collar, B.boxm(Vector3(0.03, 0.025, 0.004)), Vector3(s * 0.035, 0.0, -0.06), Color(0.55, 0.08, 0.08), Vector3(0, s * 30, 0))
+	c.attach("neck_01", collar, Vector3(0, 0.0, 0.0))
+	var shoulders := Node3D.new()  # olkalaput rintarangassa (olkavarren luu kääntyisi käsien mukana)
+	for s in [-1.0, 1.0]:
+		var board := Node3D.new()
+		board.position = Vector3(s * 0.15, 0.195, 0.03)
+		board.rotation.z = -s * 0.32  # olan kaltevuus
+		shoulders.add_child(board)
+		B.mesh(board, B.boxm(Vector3(0.11, 0.012, 0.055)), Vector3.ZERO, khaki)
+		B.mesh(board, B.boxm(Vector3(0.114, 0.008, 0.06)), Vector3(0, -0.003, 0), Color(0.55, 0.08, 0.08))  # punainen reunus
+		B.mesh(board, B.cyl(0.007, 0.007, 0.006, 8), Vector3(-s * 0.04, 0.008, 0), brass)  # nappi
+	c.attach("spine_03", shoulders, Vector3.ZERO)
+	var chest := Node3D.new()
+	for s in [-1.0, 1.0]:
+		B.mesh(chest, B.boxm(Vector3(0.11, 0.12, 0.012)), Vector3(s * 0.085, -0.02, 0), khaki.darkened(0.05))  # tasku
+		B.mesh(chest, B.boxm(Vector3(0.115, 0.035, 0.016)), Vector3(s * 0.085, 0.045, -0.002), khaki.darkened(0.12))  # läppä
+		B.mesh(chest, B.cyl(0.007, 0.007, 0.006, 8), Vector3(s * 0.085, 0.04, -0.011), brass, Vector3(90, 0, 0))
+	for k in 3:  # kauluksen napitus
+		B.mesh(chest, B.cyl(0.006, 0.006, 0.006, 8), Vector3(0, 0.1 - k * 0.05, -0.006), brass, Vector3(90, 0, 0))
+	c.attach("spine_03", chest, Vector3(0, 0.02, -0.15))
+	var belt := Node3D.new()
+	var band := MeshInstance3D.new()
+	var bt := TorusMesh.new()
+	bt.inner_radius = 0.2
+	bt.outer_radius = 0.225
+	bt.rings = 24
+	bt.ring_segments = 4
+	band.mesh = bt
+	band.material_override = B.mat(leather)
+	band.scale = Vector3(1.0, 1.6, 0.85)
+	belt.add_child(band)
+	B.mesh(belt, B.boxm(Vector3(0.07, 0.05, 0.01)), Vector3(0, 0, -0.195), brass)  # solki
+	B.mesh(belt, B.boxm(Vector3(0.05, 0.03, 0.012)), Vector3(0, 0, -0.198), brass.darkened(0.25))
+	c.attach("spine_01", belt, Vector3(0, -0.04, -0.01))
 
 
 ## K-Marketin muovikassi, jossa kuutonen: origo on sankojen kädensija, kassi roikkuu sen alla. Kapea kylki
