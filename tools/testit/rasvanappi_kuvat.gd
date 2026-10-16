@@ -11,6 +11,7 @@ const B := preload("res://scripts/build.gd")
 var out := "user://rasvanappi"
 var g: CanvasLayer
 var door: Node3D
+var moon: DirectionalLight3D
 
 
 func _ready() -> void:
@@ -21,6 +22,7 @@ func _ready() -> void:
 	_build_night()
 	g = Game.new()
 	g.door = door
+	g.sun = moon
 	add_child(g)
 	_run.call_deferred()
 
@@ -39,7 +41,7 @@ func _build_night() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	w.add_child(we)
-	var moon := DirectionalLight3D.new()
+	moon = DirectionalLight3D.new()
 	moon.light_color = Color(0.6, 0.68, 0.9)
 	moon.light_energy = 0.35
 	moon.shadow_enabled = true
@@ -92,11 +94,8 @@ func _run() -> void:
 	await _wait(1.6)
 	await _shot("07_pimea")
 	# Valot päälle tarkistusta varten.
-	g._dmat.set_shader_parameter("dark", 0.0)
 	g.set_process(false)
-	g._dark.visible = false
-	g._root.queue_redraw()
-	g._top.queue_redraw()
+	g._hall.set_lit(1.0)
 	await get_tree().process_frame
 	await _shot("08_valot")
 	g.set_process(true)
@@ -141,6 +140,7 @@ func _run() -> void:
 	# Väärä salasana: portsari suuttuu ja luukku paukahtaa kiinni.
 	g = Game.new()
 	g.door = door
+	g.sun = moon
 	add_child(g)
 	await _wait(2.6)
 	g._sel = g._opts.find(1)
