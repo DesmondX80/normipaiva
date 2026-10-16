@@ -211,7 +211,9 @@ func _gui_input(event: InputEvent) -> void:
 				_view.queue_redraw()
 		if not _vaala:
 			_hover_px = event.position - _view.position
-			var nm := _road_at(_hover_px)
+			var nm := _place_at(_hover_px)
+			if nm == "":
+				nm = _road_at(_hover_px)
 			if nm != _hover_name or nm != "":
 				_hover_name = nm
 				_view.queue_redraw()
@@ -292,6 +294,12 @@ func _snap_points() -> Array[Vector2]:
 		out.append(M.w2(p))
 	for n in M.PLACE_NAMES:
 		out.append(M.w2(n[1]))
+	for pl in _public_places():
+		out.append(pl[1])
+	if game != null:
+		for qm in game.quest_marks(true):
+			if not qm[3]:
+				out.append(qm[1])
 	if bike != null and bike != player:
 		out.append(Vector2(bike.global_position.x, bike.global_position.z))
 	if world != null and world.forage_revealed:
@@ -420,6 +428,11 @@ func _draw() -> void:
 		if cand * _vzoom <= 100.0:
 			m = cand
 	_scale_bar(side + Vector2(10, 180), m, _vzoom)
+	if not _vaala:  # puhtaalla paperilla kartan vasemman alakulman alla: montako kylän kiinnostavaa paikkaa on käyty
+		var pls := _public_places()
+		var seen := pls.filter(func(q: Array) -> bool: return q[2]).size()
+		draw_string(font, Vector2(_view.position.x - 9, _view.position.y + _view.size.y + 30), "Kylää kierretty %d / %d" % [seen, pls.size()],
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK)
 	var end_y := 0.0
 	if _vaala:
 		end_y = _legend_vaala(side + Vector2(10, 228))
@@ -761,6 +774,12 @@ func _draw_map() -> void:
 		for m in game.cache_markers():
 			if m[0] == "saloinen":
 				_cache_icon_on(v, _w2(m[1]))
+	# Kylän julkiset paikat pienenä kuulakärkikynän ympyränä ("täällä on jotain"), nimi hiiren alla (_place_at).
+	for pl in _public_places():
+		_place_mark_on(v, _w2(pl[1]))
+	if game != null:
+		for qm in game.quest_marks(true):
+			_pencil_ring_on(v, qm)
 	if has_target:
 		_target_icon_on(v, _w2(target))
 	if player != null:
@@ -1388,6 +1407,86 @@ func _laavu_icon_on(ci: CanvasItem, p: Vector2) -> void:
 	ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-9, 6), p + Vector2(3, -8), p + Vector2(9, 6)]), Color(0.45, 0.28, 0.12))
 	ci.draw_line(p + Vector2(-9, 6), p + Vector2(9, 6), INK, 2.0)
 	ci.draw_circle(p + Vector2(-2, 3), 2.5, Color(0.95, 0.45, 0.1))
+
+
+## Kylän julkiset paikat, joissa on jotain tekemistä: [nimi, paikka, käyty]. Kartalla vain yhteinen pieni kynäympyrä
+## (ei kerrota, mitä paikassa on), nimi hiiren alla (_place_at). Käyty = paikan ensikäynti (tilat.first) kirjattu.
+## Paikat, jotka kuka tahansa saloislainen tietää; Sepon varasto ja rossirata vasta kun niistä kuulee (main.gd
+## HEARD_PLACES). Salaiset ja syrjäiset löytyvät kuulemalla tehtävinä (lyijykynämerkinnät, _pencil_ring_on).
+func _public_places() -> Array:
+	var firsts: Array = game.tilat.firsts if game != null and game.tilat != null else []
+	var out: Array = []
+	for p in [["Honganpalon koulu", M.HONGAN_KOULU, "honganpalo"], ["Saloisten kenttä", M.KENTTA, "kentta"],
+			["Seuraintalo", M.SEURAINTALO, "kirppis"], ["Reippari", M.REIPPARI, "reippari"], ["SEO Saloinen", M.SEO, "seo"],
+			["Oravajärven uimaranta", M.UIMARANTA, "oravajarvi"], ["Katsastus", M.KATSASTUS, "kinnapotti"],
+			["Korpelan korjaamo", M.KORPELA, "korjaamo"], ["Säästöpiha", M.SAASTOPIHA, "saastopiha"]]:
+		out.append([p[0], M.w2(p[1]), p[2] in firsts])
+	# Kuulemalla kartalle (main.gd HEARD_PLACES), tai kun paikassa on käyty.
+	if "kuultu_seppo" in firsts or "seppo" in firsts:
+		out.append(["Sepon varasto", M.w2(M.SEPPO), "seppo" in firsts])
+	if "kuultu_rossirata" in firsts or "rossirata" in firsts:
+		out.append(["Rossirata", M.w2(M.ROSSI[0]), "rossirata" in firsts])
+	if world != null:
+		if world.station_pos != Vector3.ZERO:
+			out.append(["Asema", Vector2(world.station_pos.x, world.station_pos.z), "asema" in firsts])
+		for pg in world.playgrounds:
+			out.append(["Leikkipuisto", Vector2(pg.swing.x, pg.swing.z), "leikkipuisto" in firsts])
+	return out
+
+
+## Hiiren alla olevan julkisen paikan nimi (alle 10 px merkistä), muuten "".
+func _place_at(local: Vector2) -> String:
+	if not Rect2(Vector2.ZERO, _view.size).has_point(local):
+		return ""
+	for pl in _public_places():
+		if _w2(pl[1]).distance_to(local) < 10.0:
+			return pl[0]
+	return ""
+
+
+## "Täällä on jotain": pieni kuulakärkikynällä sutaistu ympyrä (vähän yli kierroksen, ei aivan pyöreä).
+func _place_mark_on(ci: CanvasItem, p: Vector2) -> void:
+	var pts := PackedVector2Array()
+	var h := absi(int(p.x * 7.0 + p.y * 13.0))
+	var a0 := (h % 628) / 100.0
+	for s in 17:
+		var a := a0 + s * TAU * 1.15 / 16.0
+		var r := 4.2 + 0.7 * sin(a * 2.0 + h % 5) + s * 0.04
+		pts.append(p + Vector2(cos(a), sin(a) * 0.85) * r)
+	ci.draw_polyline(pts, Color(0.12, 0.18, 0.55, 0.9), 1.3, true)
+
+
+## Lyijykynämerkintä tiedossa olevasta tehtävästä (main.gd quest_marks): kaksi vähän eri kokoista, käsin vedetyn
+## näköistä rengasta ja otsikko renkaan yläpuolella. Tehty vedetään yli ja haalistuu.
+func _pencil_ring_on(ci: CanvasItem, qm: Array) -> void:
+	var c := _w2(qm[1])
+	var r := maxf(9.0, float(qm[2]) * _vzoom)
+	var done: bool = qm[3]
+	var col := Color(0.32, 0.32, 0.36, 0.45 if done else 0.85)
+	var h := absi(hash(qm[4]))
+	for k in 2:
+		var pts := PackedVector2Array()
+		var a0 := (h % 628) / 100.0 + k * 0.7
+		for s in 33:
+			var a := a0 + s * TAU / 30.0  # yli kierroksen: kynä jatkaa vähän alkukohdan ohi
+			var rr := r * (1.0 + 0.06 * sin(a * 3.0 + h % 7 + k) + k * 0.05)
+			pts.append(c + Vector2(cos(a), sin(a) * 0.92) * rr)
+		ci.draw_polyline(pts, col, 1.4 if k == 0 else 1.0, true)
+	var font := ThemeDB.fallback_font
+	var txt: String = qm[0]
+	var fs := 12
+	var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var at := c + Vector2(-w / 2.0, -r - 4.0)
+	if done:
+		ci.draw_line(c + Vector2(-r, r) * 0.6, c + Vector2(r, -r) * 0.6, col, 1.4)
+	if _vzoom < 0.45:
+		return  # kaukaa pelkkä rengas, otsikko vasta lähempää
+	for pl in _public_places():
+		if (pl[1] as Vector2).distance_to(qm[1]) < 90.0:
+			return  # julkisen paikan symboli ja hiirivihje kertovat jo; ei päällekkäistä tekstiä
+	ci.draw_string(font, at, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+	if done:
+		ci.draw_line(at + Vector2(0, -4), at + Vector2(w, -4), col, 1.2)
 
 
 ## Kaljapullo: ruskea runko ja kaula.

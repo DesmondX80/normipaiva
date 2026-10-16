@@ -16,6 +16,7 @@ const TABS := [["tarina", "Tarina", Color(0.85, 0.35, 0.25)], ["tehtavat", "Teht
 	["loput", "Loput", Color(0.9, 0.7, 0.15)], ["jemmat", "Jemmat", Color(0.3, 0.6, 0.3)]]
 
 var game: Node
+var _links: Array = []  # [Rect2, tehtävän id] "Näytä kartalla" -linkit, piirretty tällä ruudulla
 
 var _tab := "tarina"
 var _data := {}
@@ -80,6 +81,12 @@ func _gui_input(event: InputEvent) -> void:
 				for i in TABS.size():
 					if _tab_rect(i).has_point(event.position):
 						_set_tab(TABS[i][0])
+				if _tab == "tehtavat":
+					for l in _links:
+						if (l[0] as Rect2).has_point(event.position):
+							Sfx.play("pickup", -10.0, 1.3)
+							game.show_quest_on_map(l[1])
+							break
 			MOUSE_BUTTON_WHEEL_DOWN:
 				_scroll += 40.0
 				queue_redraw()
@@ -156,6 +163,7 @@ class Writer:
 	var pi := 0
 	var y := 0.0
 	var skip := 0.0
+	var last := Rect2()  # viimeksi piirretyn rivin alue (tyhjä, jos rivi jäi vierityksen alle)
 
 	func _init(journal: Control, p: Array, scroll: float) -> void:
 		j = journal
@@ -164,6 +172,7 @@ class Writer:
 		skip = scroll
 
 	func line(text: String, size: int, col: Color, indent := 0.0, lh := 30.0, font: Font = null) -> bool:
+		last = Rect2()
 		if skip >= lh:
 			skip -= lh
 			return true
@@ -177,6 +186,7 @@ class Writer:
 		var f: Font = font if font != null else ThemeDB.fallback_font
 		j.draw_string(f, Vector2(pg.position.x + 54 + indent, y + lh - 9), text, HORIZONTAL_ALIGNMENT_LEFT,
 			pg.size.x - 70 - indent, size, col)
+		last = Rect2(Vector2(pg.position.x + 54 + indent, y), Vector2(pg.size.x - 70 - indent, lh))
 		y += lh
 		return true
 
@@ -216,6 +226,7 @@ func _draw_story() -> void:
 
 
 func _draw_side() -> void:
+	_links.clear()
 	var wr := Writer.new(self, [_page(false), _page(true)], _scroll)
 	var width := _page(false).size.x - 90
 	var side: Array = _data.get("side", [])
@@ -233,6 +244,17 @@ func _draw_side() -> void:
 		for l in _wrap(String(q.text), 17, width - 20, _hand):
 			if not wr.line(l, 17, INK, 14.0, 26.0, _hand):
 				return
+		if q.get("spot", false):
+			# Lyijykynällä tekstin alle: klikkaus asettaa kompassin (main.gd show_quest_on_map).
+			if not wr.line("", 16, INK, 14.0, 26.0):
+				return
+			if wr.last.size.x > 0.0:
+				var lt := "→ näytä kartalla"
+				var lw := _hand.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+				var lr := Rect2(wr.last.position + Vector2(-4, 2), Vector2(lw + 8, wr.last.size.y - 2))
+				draw_string(_hand, Vector2(wr.last.position.x, wr.last.end.y - 8), lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.6, 0.18, 0.12))
+				draw_line(Vector2(wr.last.position.x, wr.last.end.y - 5), Vector2(wr.last.position.x + lw, wr.last.end.y - 5), Color(0.6, 0.18, 0.12, 0.6), 1.0)
+				_links.append([lr, q.id])
 		wr.line("", 10, INK, 0.0, 10.0)
 
 
