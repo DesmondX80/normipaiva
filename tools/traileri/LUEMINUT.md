@@ -17,6 +17,8 @@ Ennen leikkauksen muokkaamista lue [OHJEET.md](OHJEET.md): hyvän pelitrailerin 
 | `teksti.gd` | Tekstit: nimiesittelyt, Puskaradio-puhelinkehys. |
 | `renderoi.gd` | Ajaa kaiken: ryhmä kerrallaan oma pelin käynnistys, sitten kokoaminen. |
 | `kokoa.gd` | Liittää otokset ja miksaa tunnarin ja pelin äänet: `traileri.avi` + `traileri.wav`. |
+| `karaoke.gd` | Karaokeversio valmiista trailerista: tunnarin sanat alempaan palkkiin (`traileri_karaoke.avi`). |
+| `karaoke.json` | Sanat ja jokaisen sanan alku ja loppu tunnarissa (s). Tekee `karaoke_ajoitus.py`. |
 
 ## Renderöinti (tehokkaampi kone)
 
@@ -47,3 +49,32 @@ godot --path . --headless -s res://tools/traileri/renderoi.gd -- --preview --res
 
 Kuvat jokaisen otoksen alusta, keskeltä ja lopusta, ja ryhmittäin arkki `esikatselu/esikatselu_<ryhmä>.png`.
 `--ids=i_ilma,i_koti` kuvaa vain annetut otokset.
+
+## Karaokeversio
+
+Valmiin trailerin (`traileri.avi` tai `ruudut/`) alempaan mustaan palkkiin piirretään tunnarin sanat: laulettava
+rivi täyttyy kullankeltaiseksi sana sanalta, seuraava rivi näkyy himmeänä alla, ja pitkän tauon jälkeen kolme
+pistettä laskee rivin sisään iskujen tahdissa. Peliä ei kuvata uudelleen, ja ääni kopioidaan sellaisenaan.
+Tekstit piirretään näytönohjaimella, joten ajo ei voi olla `--headless` (n. 30 s 720p:llä, pidempään 1080p:llä):
+
+```
+godot --path . -s res://tools/traileri/karaoke.gd -- --in=C:/traileri
+```
+
+Lopuksi tulostuu ffmpeg-komento `traileri_karaoke.mp4`:lle.
+
+### Sanojen ajoitus (`karaoke.json`)
+
+Sanat on kuunneltu tunnarin lauluraidasta ja tarkistettu käsin (`karaoke_ajoitus.py`, LINES/CHUNKS). Jokaisen sanan
+aika on pakotetulla kohdistuksella: suomenkielinen wav2vec2-puhemalli kohdistaa tunnetut sanat kirjain kirjaimelta
+lauluraitaan. Ajoitus on tarkistettu leikkaamalla lauluraidasta kunkin rivin aikaväli ja tunnistamalla se Whisperillä:
+jokaisesta ikkunasta kuuluvat juuri sen rivin sanat. Jos sanoja tai tunnaria muutetaan, aja uudelleen:
+
+```
+python -m demucs --two-stems=vocals -n htdemucs tunnari44.wav        # laulu erilleen soittimista
+ffmpeg -i separated/htdemucs/tunnari44/vocals.wav -ar 16000 -ac 1 vocals16k.wav
+pip install torch torchaudio transformers
+python tools/traileri/karaoke_ajoitus.py vocals16k.wav > tools/traileri/karaoke.json
+```
+
+Sanojen kuunteluun (uusi biisi): `whisper-cli -m ggml-large-v3-turbo.bin -l fi -f vocals16k.wav` (whisper.cpp).

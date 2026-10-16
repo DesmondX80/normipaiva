@@ -1,0 +1,976 @@
+{
+ "source": "assets/music/normipaiva.mp3",
+ "model": "jonatasgrosman/wav2vec2-large-xlsr-53-finnish",
+ "lines": [
+  {
+   "text": "Aamulla herään Järvikujalla,",
+   "start": 13.7,
+   "end": 16.64,
+   "words": [
+    [
+     "Aamulla",
+     13.7,
+     14.52
+    ],
+    [
+     "herään",
+     14.62,
+     15.2
+    ],
+    [
+     "Järvikujalla,",
+     15.28,
+     16.64
+    ]
+   ]
+  },
+  {
+   "text": "jääkaappi tyhjänä, kurkku on kuiva",
+   "start": 16.86,
+   "end": 19.72,
+   "words": [
+    [
+     "jääkaappi",
+     16.86,
+     17.72
+    ],
+    [
+     "tyhjänä,",
+     17.84,
+     18.5
+    ],
+    [
+     "kurkku",
+     18.64,
+     19.0
+    ],
+    [
+     "on",
+     19.1,
+     19.2
+    ],
+    [
+     "kuiva",
+     19.26,
+     19.72
+    ]
+   ]
+  },
+  {
+   "text": "Ruosteinen pyörä se narisee pihalla,",
+   "start": 20.12,
+   "end": 23.33,
+   "words": [
+    [
+     "Ruosteinen",
+     20.12,
+     20.96
+    ],
+    [
+     "pyörä",
+     21.06,
+     21.52
+    ],
+    [
+     "se",
+     21.62,
+     21.74
+    ],
+    [
+     "narisee",
+     21.84,
+     22.49
+    ],
+    [
+     "pihalla,",
+     22.69,
+     23.33
+    ]
+   ]
+  },
+  {
+   "text": "polkimet kirskuu ja matka on pitkä",
+   "start": 23.45,
+   "end": 26.17,
+   "words": [
+    [
+     "polkimet",
+     23.45,
+     24.19
+    ],
+    [
+     "kirskuu",
+     24.27,
+     24.83
+    ],
+    [
+     "ja",
+     24.89,
+     24.97
+    ],
+    [
+     "matka",
+     25.05,
+     25.39
+    ],
+    [
+     "on",
+     25.51,
+     25.61
+    ],
+    [
+     "pitkä",
+     25.71,
+     26.17
+    ]
+   ]
+  },
+  {
+   "text": "Päivi ei tiedä, Päivi ei nää,",
+   "start": 26.67,
+   "end": 29.35,
+   "words": [
+    [
+     "Päivi",
+     26.67,
+     27.03
+    ],
+    [
+     "ei",
+     27.11,
+     27.25
+    ],
+    [
+     "tiedä,",
+     27.33,
+     27.79
+    ],
+    [
+     "Päivi",
+     28.09,
+     28.63
+    ],
+    [
+     "ei",
+     28.83,
+     28.87
+    ],
+    [
+     "nää,",
+     28.93,
+     29.35
+    ]
+   ]
+  },
+  {
+   "text": "punainen Hyundai kulmalla kääntää",
+   "start": 29.93,
+   "end": 34.11,
+   "words": [
+    [
+     "punainen",
+     29.93,
+     30.63
+    ],
+    [
+     "Hyundai",
+     30.69,
+     31.39
+    ],
+    [
+     "kulmalla",
+     31.51,
+     32.17
+    ],
+    [
+     "kääntää",
+     32.31,
+     34.11
+    ]
+   ]
+  },
+  {
+   "text": "Normipäivä Saloisissa,",
+   "start": 35.33,
+   "end": 37.43,
+   "words": [
+    [
+     "Normipäivä",
+     35.33,
+     36.19
+    ],
+    [
+     "Saloisissa,",
+     36.29,
+     37.43
+    ]
+   ]
+  },
+  {
+   "text": "kuutonen kassissa, kotiin on kiire",
+   "start": 38.33,
+   "end": 41.4,
+   "words": [
+    [
+     "kuutonen",
+     38.33,
+     38.89
+    ],
+    [
+     "kassissa,",
+     38.93,
+     39.99
+    ],
+    [
+     "kotiin",
+     40.32,
+     40.74
+    ],
+    [
+     "on",
+     40.78,
+     40.86
+    ],
+    [
+     "kiire",
+     40.94,
+     41.4
+    ]
+   ]
+  },
+  {
+   "text": "Normipäivä Saloisissa,",
+   "start": 41.74,
+   "end": 43.82,
+   "words": [
+    [
+     "Normipäivä",
+     41.74,
+     42.62
+    ],
+    [
+     "Saloisissa,",
+     42.72,
+     43.82
+    ]
+   ]
+  },
+  {
+   "text": "kaljajemma kasvaa, ei Päivi sitä löydä",
+   "start": 44.14,
+   "end": 48.04,
+   "words": [
+    [
+     "kaljajemma",
+     44.14,
+     44.98
+    ],
+    [
+     "kasvaa,",
+     45.12,
+     45.98
+    ],
+    [
+     "ei",
+     46.34,
+     46.48
+    ],
+    [
+     "Päivi",
+     46.54,
+     47.0
+    ],
+    [
+     "sitä",
+     47.14,
+     47.38
+    ],
+    [
+     "löydä",
+     47.52,
+     48.04
+    ]
+   ]
+  },
+  {
+   "text": "Kassalla harmaapäät kolikoita laskee:",
+   "start": 61.74,
+   "end": 64.9,
+   "words": [
+    [
+     "Kassalla",
+     61.74,
+     62.62
+    ],
+    [
+     "harmaapäät",
+     62.74,
+     63.56
+    ],
+    [
+     "kolikoita",
+     63.6,
+     64.24
+    ],
+    [
+     "laskee:",
+     64.34,
+     64.9
+    ]
+   ]
+  },
+  {
+   "text": "viis senttiä, kymmenen ja Ässä-arpa vielä",
+   "start": 64.96,
+   "end": 68.04,
+   "words": [
+    [
+     "viis",
+     64.96,
+     65.1
+    ],
+    [
+     "senttiä,",
+     65.16,
+     65.82
+    ],
+    [
+     "kymmenen",
+     65.96,
+     66.52
+    ],
+    [
+     "ja",
+     66.58,
+     66.68
+    ],
+    [
+     "Ässä-arpa",
+     66.78,
+     67.46
+    ],
+    [
+     "vielä",
+     67.56,
+     68.04
+    ]
+   ]
+  },
+  {
+   "text": "Ai niin, se paketti, ja jono ei liiku,",
+   "start": 68.22,
+   "end": 71.06,
+   "words": [
+    [
+     "Ai",
+     68.22,
+     68.48
+    ],
+    [
+     "niin,",
+     68.56,
+     68.88
+    ],
+    [
+     "se",
+     68.96,
+     69.02
+    ],
+    [
+     "paketti,",
+     69.18,
+     69.68
+    ],
+    [
+     "ja",
+     69.8,
+     69.88
+    ],
+    [
+     "jono",
+     70.0,
+     70.3
+    ],
+    [
+     "ei",
+     70.42,
+     70.52
+    ],
+    [
+     "liiku,",
+     70.6,
+     71.06
+    ]
+   ]
+  },
+  {
+   "text": "Anna-Liisa hyllyn takaa jo Päiville soittaa",
+   "start": 71.22,
+   "end": 74.41,
+   "words": [
+    [
+     "Anna-Liisa",
+     71.22,
+     71.88
+    ],
+    [
+     "hyllyn",
+     71.98,
+     72.3
+    ],
+    [
+     "takaa",
+     72.38,
+     72.8
+    ],
+    [
+     "jo",
+     73.0,
+     73.08
+    ],
+    [
+     "Päiville",
+     73.18,
+     73.64
+    ],
+    [
+     "soittaa",
+     73.81,
+     74.41
+    ]
+   ]
+  },
+  {
+   "text": "Päivi jo tietää, Päivi jo nää,",
+   "start": 74.81,
+   "end": 77.45,
+   "words": [
+    [
+     "Päivi",
+     74.81,
+     75.13
+    ],
+    [
+     "jo",
+     75.21,
+     75.31
+    ],
+    [
+     "tietää,",
+     75.43,
+     76.15
+    ],
+    [
+     "Päivi",
+     76.23,
+     76.75
+    ],
+    [
+     "jo",
+     76.85,
+     76.97
+    ],
+    [
+     "nää,",
+     77.03,
+     77.45
+    ]
+   ]
+  },
+  {
+   "text": "punainen Hyundai perässä kiitää",
+   "start": 78.07,
+   "end": 80.99,
+   "words": [
+    [
+     "punainen",
+     78.07,
+     78.81
+    ],
+    [
+     "Hyundai",
+     78.85,
+     79.57
+    ],
+    [
+     "perässä",
+     79.65,
+     80.15
+    ],
+    [
+     "kiitää",
+     80.29,
+     80.99
+    ]
+   ]
+  },
+  {
+   "text": "Normipäivä Saloisissa,",
+   "start": 83.45,
+   "end": 85.55,
+   "words": [
+    [
+     "Normipäivä",
+     83.45,
+     84.33
+    ],
+    [
+     "Saloisissa,",
+     84.45,
+     85.55
+    ]
+   ]
+  },
+  {
+   "text": "kuutonen kassissa, kotiin on kiire",
+   "start": 86.69,
+   "end": 89.57,
+   "words": [
+    [
+     "kuutonen",
+     86.69,
+     87.23
+    ],
+    [
+     "kassissa,",
+     87.27,
+     88.13
+    ],
+    [
+     "kotiin",
+     88.47,
+     88.89
+    ],
+    [
+     "on",
+     88.95,
+     89.03
+    ],
+    [
+     "kiire",
+     89.09,
+     89.57
+    ]
+   ]
+  },
+  {
+   "text": "Normipäivä Saloisissa,",
+   "start": 89.89,
+   "end": 91.95,
+   "words": [
+    [
+     "Normipäivä",
+     89.89,
+     90.75
+    ],
+    [
+     "Saloisissa,",
+     90.87,
+     91.95
+    ]
+   ]
+  },
+  {
+   "text": "kaljajemma kasvaa, ei Päivi sitä löydä",
+   "start": 92.27,
+   "end": 96.15,
+   "words": [
+    [
+     "kaljajemma",
+     92.27,
+     93.15
+    ],
+    [
+     "kasvaa,",
+     93.27,
+     93.77
+    ],
+    [
+     "ei",
+     94.49,
+     94.61
+    ],
+    [
+     "Päivi",
+     94.69,
+     95.17
+    ],
+    [
+     "sitä",
+     95.29,
+     95.55
+    ],
+    [
+     "löydä",
+     95.69,
+     96.15
+    ]
+   ]
+  },
+  {
+   "text": "Juntti tulee vastaan, karateklubin mies",
+   "start": 97.25,
+   "end": 100.08,
+   "words": [
+    [
+     "Juntti",
+     97.25,
+     97.57
+    ],
+    [
+     "tulee",
+     97.67,
+     98.01
+    ],
+    [
+     "vastaan,",
+     98.09,
+     98.77
+    ],
+    [
+     "karateklubin",
+     98.87,
+     99.62
+    ],
+    [
+     "mies",
+     99.7,
+     100.08
+    ]
+   ]
+  },
+  {
+   "text": "haastaa ja kassi heilahtaa",
+   "start": 100.4,
+   "end": 103.14,
+   "words": [
+    [
+     "haastaa",
+     100.4,
+     101.38
+    ],
+    [
+     "ja",
+     101.48,
+     101.56
+    ],
+    [
+     "kassi",
+     101.66,
+     102.0
+    ],
+    [
+     "heilahtaa",
+     102.08,
+     103.14
+    ]
+   ]
+  },
+  {
+   "text": "Pellolla jyväjemmari traktorilla jahtaa,",
+   "start": 103.5,
+   "end": 106.62,
+   "words": [
+    [
+     "Pellolla",
+     103.5,
+     103.98
+    ],
+    [
+     "jyväjemmari",
+     104.06,
+     105.14
+    ],
+    [
+     "traktorilla",
+     105.24,
+     105.96
+    ],
+    [
+     "jahtaa,",
+     106.08,
+     106.62
+    ]
+   ]
+  },
+  {
+   "text": "ja Pekka huutaa:",
+   "start": 106.68,
+   "end": 108.14,
+   "words": [
+    [
+     "ja",
+     106.68,
+     106.76
+    ],
+    [
+     "Pekka",
+     106.9,
+     107.38
+    ],
+    [
+     "huutaa:",
+     107.5,
+     108.14
+    ]
+   ]
+  },
+  {
+   "text": "”Neljätoista kyyhkyä, perkele!”",
+   "start": 108.54,
+   "end": 111.34,
+   "words": [
+    [
+     "”Neljätoista",
+     108.54,
+     109.32
+    ],
+    [
+     "kyyhkyä,",
+     109.44,
+     110.08
+    ],
+    [
+     "perkele!”",
+     110.44,
+     111.34
+    ]
+   ]
+  },
+  {
+   "text": "Laavulla nuotio ja makkara paistuu,",
+   "start": 139.18,
+   "end": 142.32,
+   "words": [
+    [
+     "Laavulla",
+     139.18,
+     139.88
+    ],
+    [
+     "nuotio",
+     139.98,
+     140.54
+    ],
+    [
+     "ja",
+     140.64,
+     140.72
+    ],
+    [
+     "makkara",
+     140.84,
+     141.52
+    ],
+    [
+     "paistuu,",
+     141.64,
+     142.32
+    ]
+   ]
+  },
+  {
+   "text": "aurinko laskee Antinsuonkankaan taa",
+   "start": 142.38,
+   "end": 145.18,
+   "words": [
+    [
+     "aurinko",
+     142.38,
+     143.18
+    ],
+    [
+     "laskee",
+     143.28,
+     143.68
+    ],
+    [
+     "Antinsuonkankaan",
+     143.78,
+     144.86
+    ],
+    [
+     "taa",
+     144.96,
+     145.18
+    ]
+   ]
+  },
+  {
+   "text": "Kun jemmassa on kakskytneljä,",
+   "start": 145.56,
+   "end": 148.73,
+   "words": [
+    [
+     "Kun",
+     145.56,
+     145.72
+    ],
+    [
+     "jemmassa",
+     145.78,
+     146.72
+    ],
+    [
+     "on",
+     146.94,
+     147.08
+    ],
+    [
+     "kakskytneljä,",
+     147.2,
+     148.73
+    ]
+   ]
+  },
+  {
+   "text": "tallissa karburaattori säätöä saa",
+   "start": 148.87,
+   "end": 152.87,
+   "words": [
+    [
+     "tallissa",
+     148.87,
+     149.73
+    ],
+    [
+     "karburaattori",
+     149.85,
+     151.35
+    ],
+    [
+     "säätöä",
+     151.49,
+     152.17
+    ],
+    [
+     "saa",
+     152.41,
+     152.87
+    ]
+   ]
+  },
+  {
+   "text": "Normipäivä Saloisissa,",
+   "start": 154.59,
+   "end": 156.71,
+   "words": [
+    [
+     "Normipäivä",
+     154.59,
+     155.49
+    ],
+    [
+     "Saloisissa,",
+     155.59,
+     156.71
+    ]
+   ]
+  },
+  {
+   "text": "kuutonen kassissa, kotiin on kiire",
+   "start": 157.85,
+   "end": 160.71,
+   "words": [
+    [
+     "kuutonen",
+     157.85,
+     158.39
+    ],
+    [
+     "kassissa,",
+     158.43,
+     159.31
+    ],
+    [
+     "kotiin",
+     159.63,
+     160.05
+    ],
+    [
+     "on",
+     160.11,
+     160.17
+    ],
+    [
+     "kiire",
+     160.27,
+     160.71
+    ]
+   ]
+  },
+  {
+   "text": "Normipäivä Saloisissa,",
+   "start": 161.05,
+   "end": 163.13,
+   "words": [
+    [
+     "Normipäivä",
+     161.05,
+     161.93
+    ],
+    [
+     "Saloisissa,",
+     162.05,
+     163.13
+    ]
+   ]
+  },
+  {
+   "text": "huomenna taas sama,",
+   "start": 163.45,
+   "end": 165.03,
+   "words": [
+    [
+     "huomenna",
+     163.45,
+     164.13
+    ],
+    [
+     "taas",
+     164.25,
+     164.57
+    ],
+    [
+     "sama,",
+     164.69,
+     165.03
+    ]
+   ]
+  },
+  {
+   "text": "normipäivä vaan",
+   "start": 165.51,
+   "end": 168.49,
+   "words": [
+    [
+     "normipäivä",
+     165.51,
+     166.59
+    ],
+    [
+     "vaan",
+     166.69,
+     168.49
+    ]
+   ]
+  },
+  {
+   "text": "Normipäivä vaan",
+   "start": 173.98,
+   "end": 176.78,
+   "words": [
+    [
+     "Normipäivä",
+     173.98,
+     174.88
+    ],
+    [
+     "vaan",
+     174.98,
+     176.78
+    ]
+   ]
+  }
+ ]
+}
