@@ -329,6 +329,12 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 		shaped = shaped or absf(shape[k]) > 0.001
 	if _meshes.has(key):
 		return _meshes[key]
+	var cache := _cache_path(key)
+	if FileAccess.file_exists(cache):
+		var cached := ResourceLoader.load(cache, "ArrayMesh", ResourceLoader.CACHE_MODE_IGNORE) as ArrayMesh
+		if cached != null and cached.get_surface_count() == mesh.get_surface_count():
+			_meshes[key] = cached
+			return cached
 	var out := ArrayMesh.new()
 	for s in mesh.get_surface_count():
 		var arr := mesh.surface_get_arrays(s)
@@ -376,16 +382,45 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 			_reshape(arr, shape)
 		for c in [Mesh.ARRAY_CUSTOM0, Mesh.ARRAY_CUSTOM1, Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3]:
 			arr[c] = null  # lisäkanavia ei tarvita
-		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], _source_lods(mesh, s, verts.size()),
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], _source_lods(kind, mesh, s, verts.size()),
 			fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
 	_meshes[key] = out
+	DirAccess.make_dir_recursive_absolute(MESH_CACHE)
+	ResourceSaver.save(out, cache)
 	return out
+
+
+## Vaatemeshien levyvälimuisti: laskenta (vartalon muoto verteksi kerrallaan GDScriptillä) vei käynnistyksestä 2,7 s
+## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
+## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
+const MESH_CACHE := "user://hahmot"
+const CACHE_VERSION := 1
+static var _cache_tag := ""
+
+
+static func _cache_path(key: String) -> String:
+	if _cache_tag == "":
+		var src := FileAccess.get_file_as_string("res://scripts/character.gd")
+		_cache_tag = "v%d_%x" % [CACHE_VERSION, src.hash() & 0xffffffff]
+		# Vanhan version tiedostot pois.
+		if DirAccess.dir_exists_absolute(MESH_CACHE):
+			for f in DirAccess.get_files_at(MESH_CACHE):
+				if not f.begins_with(_cache_tag + "_"):
+					DirAccess.remove_absolute(MESH_CACHE.path_join(f))
+	return MESH_CACHE.path_join("%s_%x.res" % [_cache_tag, key.hash() & 0xffffffff])
 
 
 ## Tuonnissa luodut LOD-tasot (generate_lods) alkuperäisestä pinnasta: vaatemesh pitää verteksien järjestyksen,
 ## joten samat indeksilistat kelpaavat. Ilman niitä jokainen hahmo piirtyi täysin kolmioin joka etäisyydellä ja
 ## jokaiseen varjokaskadiin (lavalla 2,6 M kolmiota).
-static func _source_lods(mesh: Mesh, surface: int, vert_count: int) -> Dictionary:
+## Topologia on sama kaikilla saman mallin vartaloilla, joten indeksit puretaan kerran mallia ja pintaa kohden.
+static var _lods := {}
+
+
+static func _source_lods(kind: String, mesh: Mesh, surface: int, vert_count: int) -> Dictionary:
+	var key := "%s/%d" % [kind, surface]
+	if _lods.has(key):
+		return _lods[key]
 	var out := {}
 	var sd: Dictionary = RenderingServer.mesh_get_surface(mesh.get_rid(), surface)
 	for lod in sd.get("lods", []):
@@ -398,6 +433,7 @@ static func _source_lods(mesh: Mesh, surface: int, vert_count: int) -> Dictionar
 		else:
 			idx = data.to_int32_array()
 		out[float(lod.edge_length)] = idx
+	_lods[key] = out
 	return out
 
 
@@ -413,9 +449,10 @@ static func _reshape(arr: Array, shape: Dictionary) -> void:
 		var d := _shape_offset(p, shape)
 		if d.length_squared() < 1e-10:
 			continue
-		var jx := (_shape_offset(p + Vector3(h, 0, 0), shape) - _shape_offset(p - Vector3(h, 0, 0), shape)) / (2.0 * h)
-		var jy := (_shape_offset(p + Vector3(0, h, 0), shape) - _shape_offset(p - Vector3(0, h, 0), shape)) / (2.0 * h)
-		var jz := (_shape_offset(p + Vector3(0, 0, h), shape) - _shape_offset(p - Vector3(0, 0, h), shape)) / (2.0 * h)
+		# Jacobin matriisi eteenpäin erotuksin (d on jo laskettu): 4 _shape_offset-kutsua 7:n sijaan.
+		var jx := (_shape_offset(p + Vector3(h, 0, 0), shape) - d) / h
+		var jy := (_shape_offset(p + Vector3(0, h, 0), shape) - d) / h
+		var jz := (_shape_offset(p + Vector3(0, 0, h), shape) - d) / h
 		var m := Basis(Vector3(1, 0, 0) + jx, Vector3(0, 1, 0) + jy, Vector3(0, 0, 1) + jz)
 		verts[v] = p + d
 		if m.determinant() < 0.02:
