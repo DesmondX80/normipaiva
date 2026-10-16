@@ -241,18 +241,24 @@ static func add_army_uniform(c: Node3D) -> void:
 		B.mesh(board, B.boxm(Vector3(0.114, 0.008, 0.06)), Vector3(0, -0.003, 0), Color(0.55, 0.08, 0.08))  # punainen reunus
 		B.mesh(board, B.cyl(0.007, 0.007, 0.006, 8), Vector3(-s * 0.04, 0.008, 0), brass)  # nappi
 	c.attach("spine_03", shoulders, Vector3.ZERO)
-	# Rintataskut hahmon lapsina pystytasossa (rintarangan luu kiertyy Idle-animaatiossa niin paljon, että luuhun
-	# kiinnitetyt taskut kallistuivat irti rinnasta).
+	# Rintataskut rintarankaan, jotta ne seuraavat vartaloa (kumarrus, nojaus). Luu kiertyy animaatiossa kauas
+	# lepoasennosta, joten taskut suoristetaan kerran animaation jo pyöriessä: pystyyn rinnan kohdalle hahmon
+	# kehyksessä (_align_chest), minkä jälkeen luu kantaa ne.
+	var chest_root := Node3D.new()  # attach() asettaa tämän muunnoksen
 	var chest := Node3D.new()
-	chest.rotation.x = 0.12  # rinnan pieni kaltevuus: alareuna vatsaa vasten
+	chest_root.add_child(chest)
 	for s in [-1.0, 1.0]:
-		B.mesh(chest, B.boxm(Vector3(0.11, 0.12, 0.012)), Vector3(s * 0.085, -0.02, 0), khaki.darkened(0.05))  # tasku
-		B.mesh(chest, B.boxm(Vector3(0.115, 0.035, 0.016)), Vector3(s * 0.085, 0.045, -0.002), khaki.darkened(0.12))  # läppä
+		B.mesh(chest, B.boxm(Vector3(0.11, 0.12, 0.012)), Vector3(s * 0.085, -0.02, 0), khaki.darkened(0.3))  # tasku (tummempi: kangasvarjostin valaisee paitaa himmeämmin)
+		B.mesh(chest, B.boxm(Vector3(0.115, 0.035, 0.016)), Vector3(s * 0.085, 0.045, -0.002), khaki.darkened(0.38))  # läppä
 		B.mesh(chest, B.cyl(0.007, 0.007, 0.006, 8), Vector3(s * 0.085, 0.04, -0.011), brass, Vector3(90, 0, 0))
 	for k in 3:  # kauluksen napitus
 		B.mesh(chest, B.cyl(0.006, 0.006, 0.006, 8), Vector3(0, 0.1 - k * 0.05, -0.006), brass, Vector3(90, 0, 0))
-	chest.position = c.bone_position("spine_03") + Vector3(0, 0.08, -0.155)
-	c.add_child(chest)
+	c.attach("spine_03", chest_root, Vector3.ZERO)
+	chest.visible = false  # näkyviin vasta suoristettuna
+	if c.is_inside_tree():
+		c.get_tree().create_timer(0.15).timeout.connect(_align_chest.bind(c, chest))
+	else:
+		c.ready.connect(func() -> void: c.get_tree().create_timer(0.15).timeout.connect(_align_chest.bind(c, chest)), CONNECT_ONE_SHOT)
 	var belt := Node3D.new()
 	var band := MeshInstance3D.new()
 	var bt := TorusMesh.new()
@@ -286,6 +292,15 @@ static func add_army_uniform(c: Node3D) -> void:
 		B.mesh(emblem, B.boxm(Vector3(0.046, 0.002, 0.008)), Vector3.ZERO, Color(0.04, 0.04, 0.04), Vector3(0, rad_to_deg(a), 0))
 	B.mesh(emblem, B.boxm(Vector3(0.011, 0.003, 0.011)), Vector3(0, 0.0005, 0), Color(0.08, 0.08, 0.08))  # solmu
 	c.attach("upperarm_l", arm, Vector3(-0.14, 0.0, 0.0))
+
+
+## Rintataskut pystyyn rinnan kohdalle hahmon kehyksessä (rinnan pieni kaltevuus: alareuna vatsaa vasten).
+static func _align_chest(c: Node3D, chest: Node3D) -> void:
+	if not is_instance_valid(c) or not is_instance_valid(chest):
+		return
+	var at: Vector3 = c.bone_position("spine_03") + Vector3(0, 0.08, -0.155)
+	chest.global_transform = c.global_transform * Transform3D(Basis(Vector3.RIGHT, 0.12), at)
+	chest.visible = true
 
 
 ## K-Marketin muovikassi, jossa kuutonen: origo on sankojen kädensija, kassi roikkuu sen alla. Kapea kylki
