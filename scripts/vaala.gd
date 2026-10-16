@@ -9,6 +9,7 @@ extends Node3D
 
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
+const MeshBundle := preload("res://scripts/mesh_bundle.gd")
 const Atm := preload("res://scripts/atm.gd")
 const Vehicles := preload("res://scripts/vehicles.gd")
 const TIE := "res://assets/vaala/tie.json"
