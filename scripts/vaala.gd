@@ -18,6 +18,7 @@ const TREES := "res://assets/vaala/puut.bin"
 const Forest := preload("res://scripts/forest.gd")
 const Train := preload("res://scripts/train.gd")
 const StationBuild := preload("res://scripts/station_build.gd")
+const Makasiini := preload("res://scripts/makasiini.gd")
 const Looks := preload("res://scripts/looks.gd")
 const HumppaBand := preload("res://scripts/humppa_band.gd")
 ## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
@@ -2665,6 +2666,7 @@ func _build_station() -> void:
 			StationBuild.cache_prop(self, cache_pos, atan2(cd.x, cd.z))
 			doors.append({"id": "katko", "pos": cache_pos, "out": Vector3.FORWARD, "r": 3.0, "walk": true, "hint": "kätkölle",
 				"text": "Kaiva narkkarin rahakätkö ratapölkkyjen alta"})
+	_build_makasiini(root, L, Vector2(c.x, c.y))
 	var pbody := StaticBody3D.new()
 	proot.add_child(pbody)
 	pbody.add_child(B.box_shape(Vector3(PL, 0.55, PW), Vector3.ZERO))
@@ -2695,6 +2697,100 @@ func _build_station() -> void:
 			B.mesh(bs, B.cyl(0.18, 0.18, 0.3, 12), Vector3(sx, 1.0, -0.3), Color(0.3, 0.3, 0.3), Vector3(90, 0, 0))
 		for k in 4:
 			B.mesh(bs, B.boxm(Vector3(0.3, 0.5, 0.42)), Vector3(-1.05 + k * 0.7, 1.0, 0.01), Color(0.95, 0.95, 0.95) if k % 2 == 0 else Color(0.8, 0.1, 0.08))
+
+
+var makasiini_door := Vector3.ZERO  # rasvanappimakasiinin takaoven edusta (main.gd: ovi "makasiini")
+var makasiini_root: Node3D
+
+
+## Rasvanappimakasiini (makasiini.gd) aseman viereen kuten Saloisissa: aseman kehyksessä (X radan suuntaan, -Z
+## laiturille) radan suuntaan aseman päätyjen ohi, ensimmäiseen kuivaan ja tasaiseen kohtaan, jossa ei ole
+## rakennuksia, teitä, raiteita eikä rahakätköä. Pihan puut raivataan ja pohja jää ajoalueen ulkopuolelle.
+func _build_makasiini(station: Node3D, station_l: float, c: Vector2) -> void:
+	var fp := Makasiini.FOOTPRINT
+	var best := Transform3D()
+	var best_base := INF
+	for gap in [6.0, 10.0, 15.0, 22.0, 30.0, 40.0]:
+		for side in [-1.0, 1.0]:
+			for dz in [0.0, 3.0, 6.0, -3.0]:
+				var x: float = side * (station_l / 2.0 + gap + Makasiini.L / 2.0 + 1.0)
+				var xf := Transform3D(station.basis, Vector3(c.x, 0, c.y) + station.basis * Vector3(x, 0, dz))
+				var lo := INF
+				var hi := -INF
+				var ok := true
+				for i in 9:
+					for j in 6:
+						var q := xf * Vector3(fp.position.x + fp.size.x * i / 8.0, 0, fp.position.y + fp.size.y * j / 5.0)
+						var p := Vector2(q.x, q.z)
+						var near_road: Array = nearest(q)
+						if wet(q.x, q.z, 1.5) or _near_rail(p, 4.5) or _in_building(p, 2.0) or _near_side_road(p, 3.0) \
+								or (near_road[0] >= 0 and near_road[1] < float(road[near_road[0]][4]) + 3.0) \
+								or (cache_pos != Vector3.INF and p.distance_to(Vector2(cache_pos.x, cache_pos.z)) < 6.0):
+							ok = false
+							break
+						var y := h(q.x, q.z)
+						lo = minf(lo, y)
+						hi = maxf(hi, y)
+					if not ok:
+						break
+				if ok and hi - lo < 1.0:
+					best = xf
+					best_base = lo
+					break
+			if best_base != INF:
+				break
+		if best_base != INF:
+			break
+	if best_base == INF:
+		push_warning("Vaalan makasiinille ei löytynyt paikkaa aseman vierestä")
+		return
+	var root := Node3D.new()
+	root.transform = Transform3D(best.basis, Vector3(best.origin.x, best_base + 0.05, best.origin.z))
+	add_child(root)
+	Makasiini.build(root)
+	makasiini_root = root
+	makasiini_door = root.transform * Makasiini.DOOR
+	makasiini_door.y = h(makasiini_door.x, makasiini_door.z)
+	doors.append({"id": "makasiini", "pos": makasiini_door, "out": -root.basis.x, "r": 2.2, "walk": true,
+		"hint": "makasiinin takaovelle", "text": "Koputa takaoveen (punainen lamppu palaa)"})
+	# Pohja ajoalueen ulkopuolelle (_clear_buildings) ja puut pois ympäriltä (raivaus tehty jo _plan_northissa).
+	var poly := PackedVector2Array()
+	for k in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]:
+		var q := root.transform * Vector3(-Makasiini.L / 2.0 - 0.1 + k.x * (Makasiini.L + 0.2), 0, -Makasiini.D / 2.0 - 0.1 + k.y * (Makasiini.D + 0.2))
+		poly.append(Vector2(q.x, q.z))
+	_bld_polys.append(poly)
+	if not _tree_clear.is_empty():
+		var yard := PackedVector2Array()
+		for k in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]:
+			var q := root.transform * Vector3(fp.position.x + k.x * fp.size.x, 0, fp.position.y + k.y * fp.size.y)
+			yard.append(Vector2(q.x, q.z))
+		var keep := _drive
+		_drive = _tree_clear  # piirtoapurit kirjoittavat _driveen
+		_drive_poly(yard, 4.0)
+		_tree_clear = _drive
+		_drive = keep
+
+
+func _in_building(p: Vector2, margin: float) -> bool:
+	for poly in _bld_polys:
+		if Geometry2D.is_point_in_polygon(p, poly):
+			return true
+		for k in poly.size():
+			if Geometry2D.get_closest_point_to_segment(p, poly[k], poly[(k + 1) % poly.size()]).distance_to(p) < margin:
+				return true
+	return false
+
+
+func _near_side_road(p: Vector2, d: float) -> bool:
+	for r in data.side_roads:
+		if r.kind == "rail":
+			continue
+		for k in r.pts.size() - 1:
+			var a := Vector2(r.pts[k][0], r.pts[k][1])
+			var b := Vector2(r.pts[k + 1][0], r.pts[k + 1][1])
+			if Geometry2D.get_closest_point_to_segment(p, a, b).distance_to(p) < d:
+				return true
+	return false
 
 
 ## Onko kohta lähempänä kuin d mitä tahansa raidetta (asemalla rinnakkaisia raiteita ja pistoraide).

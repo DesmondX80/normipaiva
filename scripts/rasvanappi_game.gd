@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Rasvanappi Saloisten aseman makasiinin takahuoneessa (vain aikuisille, world.gd _build_makasiini).
+## Rasvanappi aseman makasiinin takahuoneessa Saloisissa ja Vaalassa (vain aikuisille, makasiini.gd).
 ## 1. Takaovella koputetaan, kurkistusluukku aukeaa ja portsari kysyy salasanan (väärä = luukku kiinni).
 ## 2. Sisällä pelaajat esittäytyvät pyyhkeissään: kuka kiroilee, kuka kikattaa, kuka niiskuttaa. Muista äänet.
 ## 3. Valot pois, kaikki konttaavat pimeässä (ylhäältä kuvattu halli, näkyy vain käsivarren mitta). Rasvanappi
@@ -72,6 +72,7 @@ const OBST := [
 ]
 
 var drunk := 0.0
+var town := "SALOINEN"  # kaupunki takaoven graffitissa (main.gd: Vaalassa VAALA)
 
 var _root: Control
 var _top: Control
@@ -193,6 +194,12 @@ func _quit_pressed() -> bool:
 	return Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE)
 
 
+## Konttauksen näppäimet ohjeriville: ylös, vasen, alas, oikea (oletuksena [W/A/S/D]).
+func _move_keys() -> String:
+	return "[%s/%s/%s/%s]" % [Settings.action_key("forward"), Settings.action_key("left"), Settings.action_key("back"),
+		Settings.action_key("right")]
+
+
 func _size() -> Vector2:
 	return _root.size if _root.size.x > 10.0 else Vector2(1280, 720)
 
@@ -276,11 +283,11 @@ func _update_texts() -> void:
 			var left := maxf(0.0, MAX_TIME - _game_t)
 			if nappi == -1:
 				_info.text = "Olet RASVANAPPI · tökkää jotakuta takaapäin peppuun · tökkäyksiä %d/%d" % [pokes, MAX_POKES]
-				_keys.set_text("%s konttaa   %s ripeästi (kolisee)   [%s] tökkää   %s lopeta" % [Settings.pair("left", "right"),
+				_keys.set_text("%s konttaa   %s ripeästi (kolisee)   [%s] tökkää   %s lopeta" % [_move_keys(),
 					Settings.cap("sprint"), Settings.action_key("interact"), Settings.cap("mount")])
 			else:
 				_info.text = "Rasvanappi liikkuu pimeässä · älä anna takapuolta · %d:%02d" % [int(left) / 60, int(left) % 60]
-				_keys.set_text("%s konttaa   %s ripeästi (kolisee)   %s lopeta" % [Settings.pair("left", "right"),
+				_keys.set_text("%s konttaa   %s ripeästi (kolisee)   %s lopeta" % [_move_keys(),
 					Settings.cap("sprint"), Settings.cap("mount")])
 		"nimi":
 			_info.text = "Tökkäsit! Kuka se oli?"
@@ -439,7 +446,9 @@ func _dark_step(delta: float) -> void:
 	me.moving = dir.length() > 0.1
 	if me.moving:
 		var spd := (HURRY if hurry else CRAWL) * (1.0 - drunk * 0.25)
-		me.ang = lerp_angle(me.ang, dir.angle(), 1.0 - exp(-9.0 * delta))
+		# Vartalo kääntyy heti liikesuuntaan, ettei hahmo kontaa takaperin tai sivuttain kääntyessään.
+		var turn := angle_difference(me.ang, dir.angle())
+		me.ang = dir.angle() if absf(turn) > PI * 0.4 else me.ang + turn * (1.0 - exp(-25.0 * delta))
 		_move(me, dir.normalized() * spd * delta, -1)
 		me.phase += delta * spd * 9.0
 	if me.moving and hurry:
@@ -826,7 +835,7 @@ func _draw_door_scene() -> void:
 	# Graffiti vasemmalla ja vanha "EI MYYJIÄ" -lappu.
 	var gf := ThemeDB.fallback_font
 	ci.draw_string(gf, Vector2(s.x * 0.05, s.y * 0.42), "RN", HORIZONTAL_ALIGNMENT_LEFT, -1, int(90 * k), Color(0.2, 0.55, 0.75, 0.55))
-	ci.draw_string(gf, Vector2(s.x * 0.74, s.y * 0.3), "SALOINEN", HORIZONTAL_ALIGNMENT_LEFT, -1, int(40 * k), Color(0.85, 0.85, 0.8, 0.35))
+	ci.draw_string(gf, Vector2(s.x * 0.74, s.y * 0.3), town, HORIZONTAL_ALIGNMENT_LEFT, -1, int(40 * k), Color(0.85, 0.85, 0.8, 0.35))
 	var note := Rect2(s.x * 0.69, s.y * 0.42, 120 * k, 70 * k)
 	ci.draw_set_transform(note.get_center(), 0.06, Vector2.ONE)
 	MG.box(ci, Rect2(-note.size / 2.0, note.size), Color(0.88, 0.85, 0.72), 2, 3)

@@ -29,7 +29,7 @@ const LaituriGame := preload("res://scripts/laituri_game.gd")
 const RanniGame := preload("res://scripts/ranni_game.gd")
 const AmpiaisGame := preload("res://scripts/ampiais_game.gd")
 const TiskiGame := preload("res://scripts/tiski_game.gd")
-## Rasvanappi aseman takana makasiinissa (vain aikuisille): salasana luukulle ja peli pimeässä.
+## Rasvanappi aseman takana makasiinissa Saloisissa ja Vaalassa (vain aikuisille): salasana luukulle ja peli pimeässä.
 const RasvanappiGame := preload("res://scripts/rasvanappi_game.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
 const SiitariInterior := preload("res://scripts/siitari_interior.gd")
@@ -7686,7 +7686,8 @@ func _station_logic() -> void:
 var _rasva_game: CanvasLayer
 
 
-## Aseman takana makasiinin takaovi (world.gd _build_makasiini): koputus avaa kurkistusluukun (rasvanappi_game.gd).
+## Aseman takana makasiinin takaovi (makasiini.gd): koputus avaa kurkistusluukun (rasvanappi_game.gd). Vaalassa
+## sama makasiini on aseman vieressä (vaala.gd _build_makasiini, ovi "makasiini" _on_vaala_door).
 func _makasiini_logic() -> void:
 	if _hint.text != "" or world.makasiini_door == Vector3.ZERO or _rasva_game != null:
 		return
@@ -7702,13 +7703,12 @@ func _makasiini_logic() -> void:
 
 
 func _start_rasvanappi() -> void:
-	player.controls_enabled = false
-	player.speed = 0.0
-	player.velocity = Vector3.ZERO
-	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
-	_hud.visible = false
+	_act_begin()
+	if not _in_vaala:
+		player.velocity = Vector3.ZERO
 	var g := RasvanappiGame.new()
 	g.drunk = _hand_shake()
+	g.town = "VAALA" if _in_vaala else "SALOINEN"
 	g.finished.connect(_rasvanappi_result)
 	add_child(g)
 	_rasva_game = g
@@ -7716,9 +7716,7 @@ func _start_rasvanappi() -> void:
 
 func _rasvanappi_result(r: Dictionary) -> void:
 	_rasva_game = null
-	_hud.visible = true
-	player.controls_enabled = true
-	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+	_act_end()
 	if not r.got_in:
 		_show_message("Luukku paukahtaa kiinni. Punainen lamppu palaa edelleen.", 3.0)
 		return
@@ -11952,6 +11950,8 @@ func _on_vaala_door(id: String) -> void:
 			_station_use("vaala", "saloinen")
 		"katko":
 			_take_cache("vaala")
+		"makasiini":
+			_start_rasvanappi()
 		"zabuki":
 			_talk_open("zabuki", null)
 		"tyokkari":
@@ -17648,6 +17648,59 @@ func _maybe_screenshot() -> void:
 			_paper.toggle()
 			_on_vaala_door("katko")
 			print("VAALA kätkö tyhjennetty: rahaa %.2f, tila %s" % [money, asema_katkot])
+			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f.store_buffer(saved)
+			f.close()
+			get_tree().quit()
+		"vaala_makasiini":
+			# Vaalan makasiini aseman vieressä ulkoa (yltä, kadulta, takaovelta), takaoven vihje ja minipeli luukulta.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			if player != walker_out:
+				_toggle_mount()
+			_msg.text = ""
+			_note.visible = false
+			mokki.ensure_built()
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var mr: Node3D = vl.makasiini_root
+			print("VAALA makasiini %s, ovi %s, asemalta %.0f m" % [mr.global_position if mr != null else null, vl.makasiini_door,
+				vl.makasiini_door.distance_to(vl.station_door)])
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.current = true
+			var views := [["_ylla", Vector3(14, 34, 22), Vector3(0, 0, 0)], ["_kadulta", Vector3(6, 3.5, 18), Vector3(0, 2, 0)],
+				["_takaovi", Vector3(-13, 2.6, 4), Vector3(-6, 1.6, 1.2)], ["_laituri", Vector3(10, 5, -16), Vector3(0, 2, 0)],
+				["_asema", Vector3(-40, 14, 30), Vector3(0, 2, 0)]]
+			for v in views:
+				cam.look_at_from_position(mr.global_transform * (v[1] as Vector3), mr.global_transform * (v[2] as Vector3))
+				for i in 15:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", v[0] + ".png"))
+			cam.current = false
+			cam.queue_free()
+			var md: Vector3 = mopo_trip.to_global(vl.makasiini_door)
+			if mopo_trip.on_foot == null:
+				_mopo_dismount()
+			mopo_trip.on_foot.global_position = md + Vector3(0, 0.5, 0)
+			mopo_trip.on_foot.activate_camera()
+			for i in 15:
+				await get_tree().process_frame
+			print("VAALA makasiinilla vihje '%s'" % mopo_trip.hint)
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ovella.png"))
+			_on_vaala_door("makasiini")
+			for i in 200:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_luukku.png"))
+			_rasva_game._done(true)
+			for i in 10:
+				await get_tree().process_frame
+			print("VAALA rasvanappi viesti '%s', tila %s, jalan %s" % [_msg.text, state, mopo_trip.on_foot != null])
 			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 			f.store_buffer(saved)
 			f.close()
