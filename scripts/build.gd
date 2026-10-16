@@ -569,9 +569,9 @@ class Batch:
 		if m is PrismMesh:
 			return str(m.size)
 		if m is CylinderMesh:
-			return "%s/%s/%s/%s" % [m.top_radius, m.bottom_radius, m.height, m.radial_segments]
+			return "%s/%s/%s/%s/%s/%s/%s" % [m.top_radius, m.bottom_radius, m.height, m.radial_segments, m.rings, m.cap_top, m.cap_bottom]
 		if m is SphereMesh:
-			return "%s/%s" % [m.radius, m.radial_segments]
+			return "%s/%s/%s/%s/%s" % [m.radius, m.height, m.radial_segments, m.rings, m.is_hemisphere]
 		if m is QuadMesh:
 			return str(m.size)
 		return str(m.get_instance_id())

@@ -4216,6 +4216,16 @@ func _build_trees() -> void:
 		],
 	}
 
+	var merged := {}  # laji -> [[mesh, materiaali]]: saman materiaalin osat yhdistettyinä
+	for kind in parts:
+		var by_mat := {}
+		var order: Array = []
+		for part in parts[kind]:
+			if not by_mat.has(part[3]):
+				by_mat[part[3]] = B.Batch.new()
+				order.append(part[3])
+			(by_mat[part[3]] as B.Batch).add(part[0], Transform3D(Basis(), part[1]), part[2])
+		merged[kind] = order.map(func(m: Material) -> Array: return [(by_mat[m] as B.Batch).commit(), m])
 	# Rungon törmäysmuoto (yhteinen kaikille): kappaleet lohkoittain pelaajan ympärille (_update_trunks).
 	# Kapseli: sylinteriä selvästi kevyempi törmäystesteissä.
 	var shape := CapsuleShape3D.new()
@@ -4263,21 +4273,22 @@ func _build_trees() -> void:
 					near_mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 					add_child(near_mmi)
 					_near_trees.append(near_mmi)
-			for part in parts[kind]:
+			# Saman materiaalin osat yhtenä meshinä (osien värit verteksiväreinä, puukohtainen sävy instanssivärinä):
+			# runko ja latvus kaksi MultiMeshiä lohkoa ja lajia kohden (oli 4-6).
+			for group in merged[kind]:
 				var mm := MultiMesh.new()
 				mm.transform_format = MultiMesh.TRANSFORM_3D
 				mm.use_colors = true
-				mm.mesh = part[0]
+				mm.mesh = group[0]
 				mm.instance_count = mine.size()
 				for i in mine.size():
-					var xf := xforms[i]
-					mm.set_instance_transform(i, Transform3D(xf.basis, xf.origin + xf.basis * part[1]))
-					var base: Color = part[2]
-					mm.set_instance_color(i, base.lightened(tints[i]) if tints[i] > 0.0 else base.darkened(-tints[i]))
+					mm.set_instance_transform(i, xforms[i])
+					var tn: float = tints[i]
+					mm.set_instance_color(i, Color.WHITE * (1.0 + tn * 2.0) if tn > 0.0 else Color.WHITE * (1.0 + tn))
 				var mmi := MultiMeshInstance3D.new()
 				mmi.multimesh = mm
-				mmi.material_override = part[3]
-				if part[3] != bark and part[3] != wood:
+				mmi.material_override = group[1]
+				if group[1] != bark and group[1] != wood:
 					mmi.visibility_range_begin = TREE_NEAR - 10.0  # perusmuotoinen latvus vain kaukana
 					mmi.visibility_range_begin_margin = 15.0
 					mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF

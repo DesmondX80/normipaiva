@@ -613,7 +613,7 @@ func _trunk_test() -> void:
 
 ## Keskimääräinen ruutuaika, skriptien ja fysiikan aika, piirtokutsut, kolmiot ja solmut 180 ruudun ajalta.
 func _sample(name: String) -> void:
-	for i in 60:
+	for i in 240:  # metsän lähilohkot rakentuvat vähitellen (8 ruudussa): mitataan vasta valmiista näkymästä
 		await get_tree().process_frame
 	var n := 180
 	var acc := {"ms": 0.0, "proc": 0.0, "phys": 0.0, "draw": 0.0, "obj": 0.0, "prim": 0.0}
@@ -723,7 +723,7 @@ func _forest_probe() -> void:
 	main._note.visible = false
 	main.mokki.ensure_built()
 	main._start_mopo()
-	for i in 90:
+	for i in 240:  # lähilohkoja rakennetaan 8 ruudussa: odotetaan, että kaikki ovat valmiina
 		await get_tree().process_frame
 	var forests := get_tree().root.find_children("*", "Node3D", true, false).filter(func(n: Node) -> bool:
 		return n.get_script() != null and (n.get_script() as Script).resource_path.ends_with("forest.gd"))
@@ -760,6 +760,12 @@ func _forest_probe() -> void:
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var ns := await _frame_stats()
 	print("METSÄ lähitaso ilman varjoja: piirtoja -%d, kolmioita -%.0f k" % [base[0] - ns[0], (base[1] - ns[1]) / 1000.0])
+	for mmi in groups["lähi"]:
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	for mmi in groups["keski"]:
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var ms := await _frame_stats()
+	print("METSÄ keskitaso ilman varjoja: piirtoja -%d, kolmioita -%.0f k" % [base[0] - ms[0], (base[1] - ms[1]) / 1000.0])
 
 
 ## Kylän (world.gd) erilliset MeshInstance3D-solmut maailman suorien lasten mukaan: mistä rakenteesta niitä tulee.

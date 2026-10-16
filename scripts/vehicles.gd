@@ -6,6 +6,41 @@ extends RefCounted
 const B := preload("res://scripts/build.gd")
 
 static var _mats := {}
+static var _merged := {}  # avain -> ArrayMesh (yksi pinta materiaalia kohden)
+
+
+## Solmun suorat MeshInstance3D-lapset indeksistä from alkaen yhdeksi meshiksi, jossa yksi pinta materiaalia
+## kohden: auto oli ~70 osaa ja pyörä ~13 (kymmeniä piirtokutsuja autoa kohden). Valmis mesh jaetaan avaimen
+## mukaan (sama malli ja väri = sama mesh). Osiin ei viitata myöhemmin, joten ne vapautetaan.
+static func _merge_parts(parent: Node3D, from: int, key: String) -> MeshInstance3D:
+	var parts: Array[MeshInstance3D] = []
+	for c in parent.get_children().slice(from):
+		if c is MeshInstance3D and c.get_child_count() == 0:
+			parts.append(c)
+	if parts.is_empty():
+		return null
+	var am: ArrayMesh = _merged.get(key)
+	if am == null:
+		var by_mat := {}
+		var order: Array = []
+		for mi in parts:
+			var m: Material = mi.material_override
+			if not by_mat.has(m):
+				var st := SurfaceTool.new()
+				by_mat[m] = st
+				order.append(m)
+			(by_mat[m] as SurfaceTool).append_from(mi.mesh, 0, mi.transform)
+		am = ArrayMesh.new()
+		for m in order:
+			(by_mat[m] as SurfaceTool).commit(am)
+			am.surface_set_material(am.get_surface_count() - 1, m)
+		_merged[key] = am
+	var out := MeshInstance3D.new()
+	out.mesh = am
+	parent.add_child(out)
+	for mi in parts:
+		mi.free()
+	return out
 
 
 static func paint(color: Color) -> StandardMaterial3D:
@@ -109,6 +144,7 @@ static func wheel(parent: Node3D, pos: Vector3, r: float, w: float, lugs: int, r
 				lug.basis = Basis(Vector3.RIGHT, a) * Basis(Vector3.UP, side * 0.45)
 	else:
 		part(piv, B.cyl(r, r, w * 0.8, 24), Vector3.ZERO, rubber(), Vector3(0, 0, PI / 2.0))
+	_merge_parts(piv, 0, "wheel/%s/%s/%d/%s/%s" % [r, w, lugs, rim_mat.get_instance_id(), rim_r])
 	return piv
 
 
@@ -132,6 +168,7 @@ static func _plate(parent: Node3D, pos: Vector3, back: bool, text: String) -> vo
 
 ## Henkilöauto -Z-suuntaan, n. 1,8 × 1,45 × 4,3 m. Palauttaa pyörät pyöritystä varten.
 static func car(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
+	var first := parent.get_child_count()
 	var body := paint(color)
 	if plate == "":
 		plate = "%s%s%s-%d" % [char(65 + randi() % 26), char(65 + randi() % 26), char(65 + randi() % 26), 100 + randi() % 900]
@@ -175,6 +212,7 @@ static func car(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	part(parent, B.boxm(Vector3(1.84, 0.18, 0.12)), Vector3(0, 0.45, 2.18), plastic())
 	_plate(parent, Vector3(0, 0.47, -2.25), false, plate)
 	_plate(parent, Vector3(0, 0.62, 2.18), true, plate)
+	_merge_parts(parent, first, "car/" + color.to_html())
 	var wheels: Array[Node3D] = []
 	for sx in [-0.84, 0.84]:
 		for wz in [-1.35, 1.35]:
@@ -185,6 +223,7 @@ static func car(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 ## Pakettiauto -Z-suuntaan (Transit-tyyppinen): lyhyt keula, korkea umpinainen tavaratila, takaovien sauma.
 ## Palauttaa pyörät kuten car().
 static func van(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
+	var first := parent.get_child_count()
 	var body := paint(color)
 	if plate == "":
 		plate = "%s%s%s-%d" % [char(65 + randi() % 26), char(65 + randi() % 26), char(65 + randi() % 26), 100 + randi() % 900]
@@ -205,6 +244,7 @@ static func van(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	part(parent, B.boxm(Vector3(1.96, 0.2, 0.12)), Vector3(0, 0.52, 2.45), plastic())
 	_plate(parent, Vector3(0, 0.55, -2.54), false, plate)
 	_plate(parent, Vector3(0, 0.62, 2.45), true, plate)
+	_merge_parts(parent, first, "van/" + color.to_html())
 	var wheels: Array[Node3D] = []
 	for sx in [-0.86, 0.86]:
 		for wz in [-1.65, 1.55]:

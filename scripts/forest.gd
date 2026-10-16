@@ -20,7 +20,7 @@ const NEAR_END := 80.0
 const MID_END := 260.0
 const MID_RADIUS := 320.0
 const BUSH_END := 140.0  # pensaat (alle 3 m) eivät erotu kauempaa: ei keski- eikä kaukotasoa
-const SHADOW_END := 110.0  # kaukaisemmissa varjokaskadeissa puiden varjot eivät erotu (enintään 180 m, main.gd)
+const SHADOW_END := 45.0  # keskitason (yli 80 m) puiden varjot vain lähimmistä lohkoista: kauempana ne eivät erotu, ja ne maksoivat mökillä 2,5 M kolmiota
 const COLLIDE_RADIUS := 1
 const MIN_COLLIDE_H := 2.5
 
