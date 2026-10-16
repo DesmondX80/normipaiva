@@ -77,7 +77,14 @@ var _twitch_t := 2.0
 var _t := 0.0
 
 
-func _ready() -> void:
+## Rakennetaan vasta ensimmäisellä käynnillä (ensure_built): huone, kalusteet ja väki veivät käynnistyksestä 0,3 s.
+var built := false
+
+
+func ensure_built() -> void:
+	if built:
+		return
+	built = true
 	_build_room()
 	_build_furniture()
 	_build_people()
@@ -89,6 +96,7 @@ func _ready() -> void:
 
 ## from: "ovi" (kadulta) tai "laituri" (laiturilta sisään).
 func enter(town_name: String, from := "ovi") -> void:
+	ensure_built()
 	town = town_name
 	_sign.text = town.to_upper()
 	for who in _bubbles:  # edellisen käynnin (toisen aseman) puheet pois
@@ -106,11 +114,13 @@ func enter(town_name: String, from := "ovi") -> void:
 
 func leave() -> void:
 	active = false
-	walker.controls_enabled = false
+	if walker != null:
+		walker.controls_enabled = false
 
 
 func set_board(text: String) -> void:
-	_board.text = text
+	if _board != null:
+		_board.text = text
 
 
 func person(i: int) -> Node3D:
@@ -149,6 +159,8 @@ func block_interact() -> void:
 
 
 func _process(delta: float) -> void:
+	if not built:
+		return
 	_t += delta
 	for who in _bubbles:
 		var b: Label3D = _bubbles[who]

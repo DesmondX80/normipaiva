@@ -84,7 +84,14 @@ var _dance_t := 0.0
 var _t := 0.0
 
 
-func _ready() -> void:
+## Rakennetaan vasta ensimmäisellä käynnillä (ensure_built): baari, lava, väki ja hotelli veivät käynnistyksestä 0,17 s.
+var built := false
+
+
+func ensure_built() -> void:
+	if built:
+		return
+	built = true
 	_build_room()
 	_build_bar()
 	_build_stage()
@@ -98,6 +105,7 @@ func _ready() -> void:
 
 
 func enter() -> void:
+	ensure_built()
 	active = true
 	_enter_frame = Engine.get_process_frames()
 	walker.position = spots.ovi[0] + Vector3(-1.2, 0, 0)
@@ -115,7 +123,7 @@ func enter_hotel() -> void:
 
 
 func in_hotel() -> bool:
-	return walker.position.z < HOTEL.z + HOTEL_HALF.y + 2.0
+	return walker != null and walker.position.z < HOTEL.z + HOTEL_HALF.y + 2.0
 
 
 func reception_say(text: String) -> void:
@@ -142,6 +150,8 @@ func throw_tv() -> void:
 
 func leave() -> void:
 	active = false
+	if not built:
+		return
 	walker.controls_enabled = false
 	sinikka_dancing = false
 	_place_sinikka()
@@ -188,6 +198,8 @@ func _place_sinikka() -> void:
 
 
 func _process(delta: float) -> void:
+	if not built:
+		return
 	_t += delta
 	for who in _bubbles:
 		var b: Label3D = _bubbles[who]
@@ -304,7 +316,8 @@ func block_interact() -> void:
 
 ## Karaokeruudun teksti (karaoke_game.gd päivittää laulaessa).
 func set_screen(text: String) -> void:
-	_screen.text = text
+	if _screen != null:
+		_screen.text = text
 
 
 ## Pelaaja lavalle mikin taakse (karaoke).
