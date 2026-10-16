@@ -431,6 +431,11 @@ func _draw() -> void:
 	if not _vaala:  # puhtaalla paperilla kartan vasemman alakulman alla: montako kylän kiinnostavaa paikkaa on käyty
 		var pls := _public_places()
 		var seen := pls.filter(func(q: Array) -> bool: return q[2]).size()
+		var firsts: Array = game.tilat.firsts if game != null and game.tilat != null else []
+		for n in NEIGHBORS:  # naapurit mukaan laskuriin: käyty = juteltu
+			pls.append(n)
+			if n[2] in firsts:
+				seen += 1
 		draw_string(font, Vector2(_view.position.x - 9, _view.position.y + _view.size.y + 30), "Kylää kierretty %d / %d" % [seen, pls.size()],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK)
 	var end_y := 0.0
@@ -1401,8 +1406,8 @@ func _laavu_icon_on(ci: CanvasItem, p: Vector2) -> void:
 ## (ei kerrota, mitä paikassa on), nimi hiiren alla (_place_at). Käyty = paikan ensikäynti (tilat.first) kirjattu.
 ## Paikat, jotka kuka tahansa saloislainen tietää; Sepon varasto ja rossirata vasta kun niistä kuulee (main.gd
 ## HEARD_PLACES). Salaiset ja syrjäiset löytyvät kuulemalla tehtävinä (lyijykynämerkinnät, _pencil_ring_on).
-## Naapurit kartalla: [paikka (karttapikseli), nimi].
-const NEIGHBORS := [[M.NEIGHBOR_PEKKA, "Pekka"], [M.NEIGHBOR_SINIKKA, "Sinikka"], [M.NEIGHBOR_ARTO, "Arto"]]
+## Naapurit kartalla: [paikka (karttapikseli), nimi, tapaamisen merkintä (main.gd _talk_open)].
+const NEIGHBORS := [[M.NEIGHBOR_PEKKA, "Pekka", "pekka"], [M.NEIGHBOR_SINIKKA, "Sinikka", "sinikka"], [M.NEIGHBOR_ARTO, "Arto", "arto"]]
 
 
 func _public_places() -> Array:

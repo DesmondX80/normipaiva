@@ -8714,6 +8714,8 @@ func _talk_state_kind() -> String:
 ## Avaa keskustelun: ohjattava hahmo pysähtyy, sisätilan toimintopisteet ja hahmon omat repliikit tauolle.
 func _talk_open(who: String, node: Node3D, hello := "") -> void:
 	_talk_who = who
+	if who in ["pekka", "arto", "sinikka"]:
+		tilat.first(who, 0.0)  # naapuri tavattu: kartan laskuri ja tehtävien ehdot (first:sinikka)
 	_talk_node = node
 	_talk_kind = _talk_state_kind()
 	var w := _active_walker()
