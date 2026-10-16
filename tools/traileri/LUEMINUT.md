@@ -61,7 +61,22 @@ Tekstit piirretään näytönohjaimella, joten ajo ei voi olla `--headless` (n. 
 godot --path . -s res://tools/traileri/karaoke.gd -- --in=C:/traileri
 ```
 
-Lopuksi tulostuu ffmpeg-komento `traileri_karaoke.mp4`:lle.
+Lopuksi tulostuu ffmpeg-komento `traileri_karaoke.mp4`:lle. Valinnat (voi yhdistää):
+
+- `--tyyli=kuva`: traileri pyörii taustalla ja sanat ovat isompina kuvan päällä sen alaosassa (pehmeä tumma
+  liukuväri tekstin takana), seuraava rivi palkissa. Tulos `traileri_karaoke_kuva.avi`.
+- `--soitto`: tunnari ilman laulua, joten katsoja laulaa itse. Aja ensin ääni (vain ääni, video ei muutu):
+
+  ```
+  godot --path . --headless -s res://tools/traileri/kokoa.gd -- --in=C:/traileri --soitto
+  godot --path . -s res://tools/traileri/karaoke.gd -- --in=C:/traileri --tyyli=kuva --soitto
+  ```
+
+  `kokoa.gd --soitto` miksaa `traileri_soitto.wav`:n samoin kuin trailerin äänen, mutta tunnarin tilalla on
+  `assets/music/normipaiva_soitto.mp3` (laulu erotettu Demucsin htdemucs_ft-mallilla, sama ajoitus). Pelin äänet
+  pysyvät. Tulos `traileri_karaoke[_kuva]_soitto.avi`.
+  Uuden musiikkitiedoston on oltava tuotu ennen kokoamista (`godot --headless --path . --import` tai editorin avaus),
+  muuten kokoa.gd ilmoittaa, ettei musiikkia voi ladata.
 
 ### Sanojen ajoitus (`karaoke.json`)
 

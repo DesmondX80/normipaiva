@@ -15,6 +15,8 @@ extends RefCounted
 const FPS := 30
 const ASPECT := 2.2  # mustat palkit: kuva-ala 2.2:1
 const MUSIC := "res://assets/music/normipaiva.mp3"
+## Tunnari ilman laulua (karaokeversio, kokoa.gd --soitto): laulu erotettu Demucsilla (htdemucs_ft), sama ajoitus.
+const MUSIC_SOITTO := "res://assets/music/normipaiva_soitto.mp3"
 const BEAT := 60.0 / 147.5
 const BEAT0 := 0.1995  # ensimmäinen isku (s)
 const MUSIC_GAIN := 0.9

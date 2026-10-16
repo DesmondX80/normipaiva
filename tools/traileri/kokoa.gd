@@ -5,6 +5,8 @@ extends SceneTree
 ## Jos video kasvaisi yli 1,9 Gt (AVI-raja), ruudut kirjoitetaan JPEG-kuviksi kansioon ruudut/.
 ##   godot --path . --headless -s tools/traileri/kokoa.gd -- --in=KANSIO
 ##   --sheet: esikatselukuvista arkki per ryhmä (esikatselu_<ryhmä>.png: rivi per otos, alku | keski | loppu)
+##   --soitto: vain ääni karaokeversioon: tunnarin tilalla soittoraita ilman laulua (Leikkaus.MUSIC_SOITTO), pelin
+##             äänet samoin kuin trailerissa -> traileri_soitto.wav (video ei muutu, karaoke.gd --soitto käyttää tätä)
 
 const Leikkaus := preload("res://tools/traileri/leikkaus.gd")
 const RATE := 48000
@@ -12,6 +14,7 @@ const SPF := RATE / Leikkaus.FPS  # näytettä ruutua kohti (1600)
 const AVI_LIMIT := 1_900_000_000
 
 var dir := ""
+var soitto := false
 
 
 func _initialize() -> void:
@@ -21,6 +24,8 @@ func _initialize() -> void:
 			dir = a.substr(5)
 		elif a == "--sheet":
 			sheet = true
+		elif a == "--soitto":
+			soitto = true
 	if sheet:
 		_sheets()
 	else:
@@ -155,7 +160,11 @@ func _split_group(g: String, ids: Array) -> Dictionary:
 
 ## Tunnari 48 kHz:n stereona (PackedVector2Array).
 func _music() -> PackedVector2Array:
-	var s: AudioStream = load(Leikkaus.MUSIC)
+	var path := Leikkaus.MUSIC_SOITTO if soitto else Leikkaus.MUSIC
+	var s: AudioStream = load(path) if ResourceLoader.exists(path) else null
+	if s == null:
+		push_error("Musiikkia ei voi ladata: %s (uusi tiedosto? aja ensin: godot --headless --path . --import)" % path)
+		return PackedVector2Array()
 	var pb := s.instantiate_playback()
 	pb.start(0.0)
 	var src := PackedVector2Array()
@@ -203,7 +212,7 @@ func _assemble() -> void:
 		for id in parts[g].shots:
 			for fr in parts[g].shots[id]:
 				est += fr[0][1] + 8
-	var to_avi := est + total * (SPF * 4 + 8) < AVI_LIMIT
+	var to_avi := est + total * (SPF * 4 + 8) < AVI_LIMIT and not soitto
 	var w := 1920
 	var h := 1080
 	var avi: FileAccess
@@ -217,7 +226,7 @@ func _assemble() -> void:
 		avi = FileAccess.open(dir.path_join("traileri.avi"), FileAccess.WRITE)
 		_write_header(avi, w, h, total)
 		movi_pos = avi.get_position() - 4  # 'movi'-tunnisteen paikka (idx1-siirtymät tästä)
-	else:
+	elif not soitto:
 		DirAccess.make_dir_recursive_absolute(dir.path_join("ruudut"))
 	var wav := PackedByteArray()
 	wav.resize(total * SPF * 4)
@@ -260,7 +269,9 @@ func _assemble() -> void:
 				wav.encode_s16((fi * SPF + s) * 4, int(v.x * 32767.0))
 				wav.encode_s16((fi * SPF + s) * 4 + 2, int(v.y * 32767.0))
 			var pcm_out := wav.slice(fi * SPF * 4, (fi + 1) * SPF * 4)
-			if to_avi:
+			if soitto:
+				pass  # vain ääni
+			elif to_avi:
 				_chunk(avi, idx, movi_pos, "00db", jpeg)
 				_chunk(avi, idx, movi_pos, "01wb", pcm_out)
 			else:
@@ -269,6 +280,10 @@ func _assemble() -> void:
 		print("  %s: %d ruutua" % [e.id, e.frames])
 	if to_avi:
 		_finish(avi, idx, movi_pos, total)
+	if soitto:
+		_write_wav(dir.path_join("traileri_soitto.wav"), wav)
+		print("Valmis: %s (huippu %.2f)" % [dir.path_join("traileri_soitto.wav"), peak])
+		return
 	_write_wav(dir.path_join("traileri.wav"), wav)
 	print("Huippu %.2f" % peak)
 	var src := "traileri.avi" if to_avi else "-framerate 30 -i ruudut/%05d.jpg"

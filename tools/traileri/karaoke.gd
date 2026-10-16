@@ -4,8 +4,13 @@ extends SceneTree
 ## alla, ja pitkän tauon jälkeen kolme pistettä laskee rivin sisään iskujen tahdissa. Ajoitus: karaoke.json
 ## (karaoke_ajoitus.py: sanat kohdistettu lauluraitaan). Ääni kopioidaan sellaisenaan.
 ## Tekstit piirretään näytönohjaimella, joten ajo ei voi olla --headless:
-##   godot --path . -s res://tools/traileri/karaoke.gd -- --in=KANSIO
-## Tulos: KANSIO/traileri_karaoke.avi (tai ruudut_karaoke/, jos traileri on JPEG-ruutuina). MP4: tulostettu ffmpeg-komento.
+##   godot --path . -s res://tools/traileri/karaoke.gd -- --in=KANSIO [--tyyli=kuva]
+## --tyyli=palkki (oletus): sanat alemmassa mustassa palkissa. --tyyli=kuva: traileri pyörii taustalla ja sanat ovat
+## isompina kuvan päällä sen alaosassa (pehmeä tumma liukuväri tekstin takana), seuraava rivi palkissa.
+## --soitto: ääneksi traileri_soitto.wav (kokoa.gd --soitto: tunnari ilman laulua, pelin äänet mukana), jolloin
+## katsoja laulaa itse; tiedostonimiin _soitto.
+## Tulos: KANSIO/traileri_karaoke[_kuva][_soitto].avi (JPEG-ruuduista ruudut_karaoke[_kuva][_soitto]/).
+## MP4: tulostettu ffmpeg-komento.
 
 const Leikkaus := preload("res://tools/traileri/leikkaus.gd")
 const Kokoa := preload("res://tools/traileri/kokoa.gd")
@@ -22,6 +27,12 @@ const FADE := 0.25
 const JPEG_Q := 0.92
 
 var dir := ""
+var style := "palkki"  # palkki | kuva
+var soitto := false  # ääni ilman laulua (traileri_soitto.wav)
+var region_h := 0.0  # piirtoalueen korkeus ruudun alareunasta (px)
+var cur_y := 0.0     # laulettavan rivin yläreuna piirtoalueessa
+var next_y := 0.0
+var shade: TextureRect  # kuva-tyyli: tumma liukuväri tekstin takana
 var lines: Array = []
 var vp: SubViewport
 var cur_base: Label
@@ -39,6 +50,10 @@ func _initialize() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--in="):
 			dir = a.substr(5)
+		elif a.begins_with("--tyyli="):
+			style = a.substr(8)
+		elif a == "--soitto":
+			soitto = true
 	lines = JSON.parse_string(FileAccess.get_file_as_string(LYRICS)).lines
 	_run.call_deferred()
 
@@ -69,17 +84,25 @@ func _run() -> void:
 		var first := Image.load_from_file(jpeg_dir.path_join(names[0]))
 		w = first.get_width()
 		h = first.get_height()
-		DirAccess.make_dir_recursive_absolute(dir.path_join("ruudut_karaoke"))
+		DirAccess.make_dir_recursive_absolute(dir.path_join(_out_name("ruudut_karaoke")))
 	if frames == 0:
 		push_error("Karaoke: trailerin ruutuja ei löydy kansiosta " + dir)
 		quit(1)
 		return
 	_build()
+	var song_pcm := PackedByteArray()  # --soitto: korvaava ääni (16-bit stereo 48 kHz, kokoa.gd:n wav)
+	if soitto:
+		var wp := dir.path_join("traileri_soitto.wav")
+		if not FileAccess.file_exists(wp):
+			push_error("Karaoke: %s puuttuu (aja ensin kokoa.gd --soitto)" % wp)
+			quit(1)
+			return
+		song_pcm = FileAccess.get_file_as_bytes(wp).slice(44)
 	var out: FileAccess
 	var idx := StreamPeerBuffer.new()
 	var movi_pos := 0
 	if from_avi:
-		out = FileAccess.open(dir.path_join("traileri_karaoke.avi"), FileAccess.WRITE)
+		out = FileAccess.open(dir.path_join(_out_name("traileri_karaoke") + ".avi"), FileAccess.WRITE)
 		k._write_header(out, w, h, frames)
 		movi_pos = out.get_position() - 4
 	var drawn := 0
@@ -106,41 +129,79 @@ func _run() -> void:
 			drawn += 1
 		if from_avi:
 			k._chunk(out, idx, movi_pos, "00db", jpeg)
-			if fi < hdr.audio.size():
+			if soitto:
+				k._chunk(out, idx, movi_pos, "01wb", song_pcm.slice(fi * Kokoa.SPF * 4, (fi + 1) * Kokoa.SPF * 4))
+			elif fi < hdr.audio.size():
 				f.seek(hdr.audio[fi][0])
 				k._chunk(out, idx, movi_pos, "01wb", f.get_buffer(hdr.audio[fi][1]))
 		else:
-			var jf := FileAccess.open(dir.path_join("ruudut_karaoke/%05d.jpg" % fi), FileAccess.WRITE)
+			var jf := FileAccess.open(dir.path_join(_out_name("ruudut_karaoke") + "/%05d.jpg" % fi), FileAccess.WRITE)
 			jf.store_buffer(jpeg)
 		if fi % 300 == 0:
 			print("karaoke %d/%d ruutua (%d s)" % [fi, frames, (Time.get_ticks_msec() - t0) / 1000])
 	if from_avi:
 		k._finish(out, idx, movi_pos, frames)
 	print("Valmis: %d ruutua, sanat %d ruudussa" % [frames, drawn])
-	var vin := "-i traileri_karaoke.avi" if from_avi else "-framerate 30 -i ruudut_karaoke/%05d.jpg"
-	print("MP4 (ffmpeg): cd \"%s\" && ffmpeg %s -i traileri.wav -map 0:v -map 1:a -c:v libx264 -preset slow -crf 16 -pix_fmt yuv420p -c:a aac -b:a 320k -shortest traileri_karaoke.mp4"
-		% [dir, vin])
+	var vin := ("-i %s.avi" % _out_name("traileri_karaoke")) if from_avi else ("-framerate 30 -i %s/%%05d.jpg" % _out_name("ruudut_karaoke"))
+	print("MP4 (ffmpeg): cd \"%s\" && ffmpeg %s -i %s -map 0:v -map 1:a -c:v libx264 -preset slow -crf 16 -pix_fmt yuv420p -c:a aac -b:a 320k -shortest %s.mp4"
+		% [dir, vin, "traileri_soitto.wav" if soitto else "traileri.wav", _out_name("traileri_karaoke")])
 	k.free()
 	quit()
 
 
-## Piirtoalusta: alempi musta palkki (kuva-ala ASPECT:n mukaan) läpinäkyvänä SubViewportina.
+func _out_name(base: String) -> String:
+	return base + ("_kuva" if style == "kuva" else "") + ("_soitto" if soitto else "")
+
+
+## Piirtoalusta ruudun alareunassa läpinäkyvänä SubViewportina: palkki-tyylissä alempi musta palkki (kuva-ala
+## ASPECT:n mukaan), kuva-tyylissä myös kuvan alaosa palkin yläpuolelta.
 func _build() -> void:
-	bar_h = maxf((h - w / Leikkaus.ASPECT) / 2.0, h * 0.12)
+	bar_h = (h - w / Leikkaus.ASPECT) / 2.0
+	if bar_h < h * 0.06:
+		bar_h = h * 0.12  # ei palkkeja (muu kuvasuhde): sanat ruudun alareunaan
+	var cs: int
+	var ns: int
+	if style == "kuva":
+		region_h = bar_h + h * 0.2
+		cs = roundi(h * 0.062)
+		ns = roundi(h * 0.036)
+		cur_y = region_h - bar_h - cs * 1.45  # rivi kuvan alaosassa juuri palkin yläpuolella
+		next_y = region_h - bar_h + (bar_h - ns * 1.3) / 2.0  # seuraava rivi palkin keskellä
+	else:
+		region_h = bar_h
+		cs = roundi(bar_h * 0.4)
+		ns = roundi(bar_h * 0.24)
+		cur_y = bar_h * 0.06
+		next_y = bar_h * 0.6
 	vp = SubViewport.new()
-	vp.size = Vector2i(w, ceili(bar_h))
+	vp.size = Vector2i(w, ceili(region_h))
 	vp.transparent_bg = true
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	root.add_child(vp)
 	font = Teksti.font(true)
-	var cs := roundi(bar_h * 0.4)
+	if style == "kuva":
+		var g := Gradient.new()
+		g.set_color(0, Color(0, 0, 0, 0))
+		g.set_color(1, Color(0, 0, 0, 0.6))
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.fill_from = Vector2(0, 0)
+		gt.fill_to = Vector2(0, 1)
+		gt.width = 4
+		gt.height = 64
+		shade = TextureRect.new()
+		shade.texture = gt
+		shade.stretch_mode = TextureRect.STRETCH_SCALE
+		shade.position = Vector2(0, 0)
+		shade.size = Vector2(w, region_h - bar_h)
+		vp.add_child(shade)
 	cur_base = _label(cs, UNSUNG)
 	cur_clip = Control.new()
 	cur_clip.clip_contents = true
 	vp.add_child(cur_clip)
 	cur_fill = _label(cs, SUNG)
 	cur_fill.reparent(cur_clip)
-	next_lbl = _label(roundi(bar_h * 0.24), Color(1, 1, 1, NEXT_ALPHA))
+	next_lbl = _label(ns, Color(1, 1, 1, NEXT_ALPHA if style != "kuva" else 0.65))
 	dots = _label(cs, SUNG)
 
 
@@ -177,7 +238,7 @@ func _layout(t: float) -> bool:
 	var text: String = line.text
 	var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	var x0 := (w - tw) / 2.0
-	var y0 := bar_h * 0.06
+	var y0 := cur_y
 	for l in [cur_base, cur_fill]:
 		l.text = text
 		l.position = Vector2(0, 0)
@@ -188,13 +249,15 @@ func _layout(t: float) -> bool:
 	cur_clip.size = Vector2(size * 0.2 + _sung_px(line, t, size), size * 1.4)
 	cur_base.modulate.a = a
 	cur_clip.modulate.a = a
+	if shade != null:
+		shade.modulate.a = a
 	# Seuraava rivi himmeänä alla, jos se tulee pian.
 	next_lbl.visible = false
 	if i + 1 < lines.size() and lines[i + 1].start - line.end < COUNT_GAP:
 		var ns := next_lbl.get_theme_font_size("font_size")
 		next_lbl.text = lines[i + 1].text
 		var nw := font.get_string_size(next_lbl.text, HORIZONTAL_ALIGNMENT_LEFT, -1, ns).x
-		next_lbl.position = Vector2((w - nw) / 2.0, bar_h * 0.6)
+		next_lbl.position = Vector2((w - nw) / 2.0, next_y)
 		next_lbl.modulate.a = a
 		next_lbl.visible = true
 	# Sisäänlaskenta: kolme pistettä sammuu yksi kerrallaan viimeisinä iskuina ennen riviä.
