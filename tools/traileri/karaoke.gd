@@ -7,6 +7,7 @@ extends SceneTree
 ##   godot --path . -s res://tools/traileri/karaoke.gd -- --in=KANSIO [--tyyli=kuva]
 ## --tyyli=palkki (oletus): sanat alemmassa mustassa palkissa. --tyyli=kuva: traileri pyörii taustalla ja sanat ovat
 ## isompina kuvan päällä sen alaosassa (pehmeä tumma liukuväri tekstin takana), seuraava rivi palkissa.
+## Kuva-tyylissä Puskaradio-puhelinvideoissa ja hahmoesittelyissä (omat tekstit kuvan alaosassa) sanat ovat palkissa.
 ## --soitto: ääneksi traileri_soitto.wav (kokoa.gd --soitto: tunnari ilman laulua, pelin äänet mukana), jolloin
 ## katsoja laulaa itse; tiedostonimiin _soitto.
 ## Tulos: KANSIO/traileri_karaoke[_kuva][_soitto].avi (JPEG-ruuduista ruudut_karaoke[_kuva][_soitto]/).
@@ -32,6 +33,12 @@ var soitto := false  # ääni ilman laulua (traileri_soitto.wav)
 var region_h := 0.0  # piirtoalueen korkeus ruudun alareunasta (px)
 var cur_y := 0.0     # laulettavan rivin yläreuna piirtoalueessa
 var next_y := 0.0
+var cur_size := 0
+var next_size := 0
+## Palkkiasettelu (kuva-tyylissä niissä otoksissa, joissa trailerin oma teksti on kuvan alaosassa): [rivin y, seuraavan
+## y, rivin koko, seuraavan koko].
+var bar_layout := []
+var avoid := {}  # ruutu -> "palkki" (hahmoesittely, "nimi") tai "sivu" (Puskaradio-puhelinvideo, "puhelin")
 var shade: TextureRect  # kuva-tyyli: tumma liukuväri tekstin takana
 var status: Label  # ikkunassa: eteneminen ja viimeksi piirretty ruutu (ikkuna ei saa jäädä harmaaksi)
 var preview: TextureRect
@@ -118,7 +125,7 @@ func _run() -> void:
 		else:
 			jpeg = FileAccess.get_file_as_bytes(jpeg_dir.path_join(hdr.names[fi]))
 		var t := float(fi - music_from) / Leikkaus.FPS
-		if _layout(t):
+		if _layout(t, "palkki" if style == "palkki" else avoid.get(fi, "kuva")):
 			await process_frame
 			await RenderingServer.frame_post_draw
 			var over := vp.get_texture().get_image()
@@ -193,6 +200,13 @@ func _build() -> void:
 		bar_h = h * 0.12  # ei palkkeja (muu kuvasuhde): sanat ruudun alareunaan
 	var cs: int
 	var ns: int
+	# Palkissa: rivi palkin yläosassa, seuraava sen alla (piirtoalueen alareunassa).
+	bar_layout = [0.0, 0.0, roundi(bar_h * 0.4), roundi(bar_h * 0.24)]
+	for e in Leikkaus.timeline():
+		var sh := Leikkaus.shot(e.id)
+		if sh.has("puhelin") or sh.has("nimi"):
+			for j in e.frames:
+				avoid[e.start + j] = "sivu" if sh.has("puhelin") else "palkki"
 	if style == "kuva":
 		region_h = bar_h + h * 0.2
 		cs = roundi(h * 0.062)
@@ -205,6 +219,10 @@ func _build() -> void:
 		ns = roundi(bar_h * 0.24)
 		cur_y = bar_h * 0.06
 		next_y = bar_h * 0.6
+	bar_layout[0] = region_h - bar_h + bar_h * 0.06
+	bar_layout[1] = region_h - bar_h + bar_h * 0.6
+	cur_size = cs
+	next_size = ns
 	vp = SubViewport.new()
 	vp.size = Vector2i(w, ceili(region_h))
 	vp.transparent_bg = true
@@ -249,7 +267,15 @@ func _label(size: int, col: Color) -> Label:
 
 
 ## Hetken t (musiikin kohta, s) karaokerivit; false = ei mitään piirrettävää.
-func _layout(t: float) -> bool:
+func _set_size(l: Label, size: int) -> void:
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_constant_override("outline_size", maxi(4, size / 7))
+
+
+## mode: kuva = kuvan alaosassa, palkki = alemmassa palkissa (palkki-tyyli tai hahmoesittely), sivu = Puskaradio-
+## puhelinvideon vasemmalla puolella sumealla taustalla (palkkeja ei ole, puhelin on keskellä koko korkeudelta).
+func _layout(t: float, mode := "kuva") -> bool:
+	var in_bar := mode == "palkki"
 	var i := _current(t)
 	if i < 0:
 		return false
@@ -266,11 +292,24 @@ func _layout(t: float) -> bool:
 	var follows: bool = i + 1 < lines.size() and lines[i + 1].start - line.end < COUNT_GAP
 	if not follows:
 		a *= clampf((_switch(i) - t) / FADE, 0.0, 1.0)
-	var size := cur_base.get_theme_font_size("font_size")
+	var size: int = bar_layout[2] if in_bar else cur_size
+	var nsize: int = bar_layout[3] if in_bar else next_size
+	var cx := w / 2.0
+	if mode == "sivu":
+		var gap := (w - h * 0.94 * 9.0 / 16.0) / 2.0  # puhelimen kehys: teksti.gd _phone
+		cx = gap / 2.0
+		for tx in [lines[i].text] + ([lines[i + 1].text] if i + 1 < lines.size() else []):
+			var fit := gap * 0.88 / maxf(font.get_string_size(tx, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x, 1.0)
+			if fit < 1.0:
+				nsize = int(nsize * minf(fit, 1.0))
+				size = int(size * fit)
+	for l in [cur_base, cur_fill, dots]:
+		_set_size(l, size)
+	_set_size(next_lbl, nsize)
 	var text: String = line.text
 	var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	var x0 := (w - tw) / 2.0
-	var y0 := cur_y
+	var x0 := cx - tw / 2.0
+	var y0: float = bar_layout[0] if in_bar else cur_y
 	for l in [cur_base, cur_fill]:
 		l.text = text
 		l.position = Vector2(0, 0)
@@ -283,13 +322,13 @@ func _layout(t: float) -> bool:
 	cur_clip.modulate.a = a
 	if shade != null:
 		shade.modulate.a = a
+		shade.visible = mode == "kuva"
 	# Seuraava rivi himmeänä alla, jos se tulee pian.
 	next_lbl.visible = false
 	if i + 1 < lines.size() and lines[i + 1].start - line.end < COUNT_GAP:
-		var ns := next_lbl.get_theme_font_size("font_size")
 		next_lbl.text = lines[i + 1].text
-		var nw := font.get_string_size(next_lbl.text, HORIZONTAL_ALIGNMENT_LEFT, -1, ns).x
-		next_lbl.position = Vector2((w - nw) / 2.0, next_y)
+		var nw := font.get_string_size(next_lbl.text, HORIZONTAL_ALIGNMENT_LEFT, -1, nsize).x
+		next_lbl.position = Vector2(cx - nw / 2.0, bar_layout[1] if in_bar else next_y)
 		next_lbl.modulate.a = a
 		next_lbl.visible = true
 	# Sisäänlaskenta: kolme pistettä sammuu yksi kerrallaan viimeisinä iskuina ennen riviä.
