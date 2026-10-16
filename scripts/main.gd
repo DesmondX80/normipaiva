@@ -22639,6 +22639,14 @@ func _maybe_screenshot() -> void:
 			for i in 3:
 				await get_tree().process_frame
 			print("HIIRI paikan päällä: '%s'" % _paper._hover_name)
+			_paper._vcenter = M.w2(M.HOME_ZONE)
+			_paper._view.queue_redraw()
+			hv.position = _paper._px(M.NEIGHBOR_PEKKA) + _paper._view.position
+			_paper._gui_input(hv)
+			for i in 3:
+				await get_tree().process_frame
+			print("HIIRI naapurin päällä: '%s'" % _paper._hover_name)
+			await qshot.call("naapuri")
 			await qshot.call("hiiri")
 			_paper.toggle()
 			for i in 5:

@@ -690,14 +690,9 @@ func _draw_map() -> void:
 			_outlined(v, at, n[0], place_fs, INK)
 	# Tienimet eivät tukkeuta karttaa: nimi näkyy vain, kun hiiri on tien päällä (_hover_road).
 
-	# Naapurit (tarina lähettää heidän luokseen): pieni talomerkki ja nimi, nimet eri puolille ettei mene päällekkäin.
-	# Nimet vasta lähempää: kaukaa ne peittäisivät kodin.
-	for n in [[M.NEIGHBOR_PEKKA, "Pekka", Vector2(8, -2)], [M.NEIGHBOR_SINIKKA, "Sinikka", Vector2(8, 10)],
-			[M.NEIGHBOR_ARTO, "Arto", Vector2(-10, 20)]]:
-		var np := _px(n[0])
-		_neighbor_icon_on(v, np)
-		if _vzoom >= 0.45:
-			v.draw_string(font, np + n[2], n[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.35, 0.22, 0.1))
+	# Naapurit (tarina lähettää heidän luokseen): kuulakärkikynän ympyrä, nimi hiiren alla (_place_at).
+	for n in NEIGHBORS:
+		_place_mark_on(v, _px(n[0]))
 	_house_icon_on(v, _px(M.HOME_ZONE), Color(0.8, 0.15, 0.1))
 	_outlined(v, lb_at.koti, "Järvikuja 1", 13, Color(0.7, 0.1, 0.05))
 	var sp := _px(M.SHOP_ZONE)
@@ -1392,13 +1387,6 @@ func _house_icon_on(ci: CanvasItem, p: Vector2, col: Color) -> void:
 	ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-8, -2), p + Vector2(0, -10), p + Vector2(8, -2)]), col.darkened(0.2))
 
 
-## Naapurin talo: pieni ruskea talomerkki.
-func _neighbor_icon_on(ci: CanvasItem, p: Vector2) -> void:
-	var col := Color(0.55, 0.35, 0.15)
-	ci.draw_rect(Rect2(p + Vector2(-4, -1), Vector2(8, 6)), col)
-	ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-5.5, -1), p + Vector2(0, -6), p + Vector2(5.5, -1)]), col.darkened(0.2))
-
-
 func _laavu_icon(p: Vector2) -> void:
 	_laavu_icon_on(self, p)
 
@@ -1413,6 +1401,10 @@ func _laavu_icon_on(ci: CanvasItem, p: Vector2) -> void:
 ## (ei kerrota, mitä paikassa on), nimi hiiren alla (_place_at). Käyty = paikan ensikäynti (tilat.first) kirjattu.
 ## Paikat, jotka kuka tahansa saloislainen tietää; Sepon varasto ja rossirata vasta kun niistä kuulee (main.gd
 ## HEARD_PLACES). Salaiset ja syrjäiset löytyvät kuulemalla tehtävinä (lyijykynämerkinnät, _pencil_ring_on).
+## Naapurit kartalla: [paikka (karttapikseli), nimi].
+const NEIGHBORS := [[M.NEIGHBOR_PEKKA, "Pekka"], [M.NEIGHBOR_SINIKKA, "Sinikka"], [M.NEIGHBOR_ARTO, "Arto"]]
+
+
 func _public_places() -> Array:
 	var firsts: Array = game.tilat.firsts if game != null and game.tilat != null else []
 	var out: Array = []
@@ -1441,6 +1433,9 @@ func _place_at(local: Vector2) -> String:
 	for pl in _public_places():
 		if _w2(pl[1]).distance_to(local) < 10.0:
 			return pl[0]
+	for n in NEIGHBORS:
+		if _px(n[0]).distance_to(local) < 8.0:
+			return n[1]
 	return ""
 
 
