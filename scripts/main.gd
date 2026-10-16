@@ -175,7 +175,8 @@ const GOODS := {
 	"herkkutatti": {"price": 8.0, "buyer": "pekka", "name": "herkkutatteja"},
 }
 const ARTO_LINES := ["Lähekkö puolukkaan?", "Antinsuonkankaalla on puolukkaa ku mettä!", "Mustikkaa löytyy kuusikosta.",
-	"Tuu myymään marjat mulle, maksan hyvin!", "Lähekkö huomenna puolukkaan?"]
+	"Tuu myymään marjat mulle, maksan hyvin!", "Lähekkö huomenna puolukkaan?",
+	"K-Marketin vieressä on Sepon varasto. Seppo myy kaiken, mitä romuista irtoaa."]
 const PEKKA_LINES := [
 	"Perkele, ammuin toissapäivänä neljätoista saatanan kyyhkyä!",
 	"Yks oli vittu ihan kalkkunan kokonen, usko pois perkele.",
@@ -836,7 +837,8 @@ const TALK_HELLO := {
 		"Shh, kytät käy joskus portilla. Tänne metsään ne ei tuu."]}
 const POJAT_LINES := ["Meiän isä sanoo, että Saloisissa on Suomen parhaat mansikat.", "Setä, osaatko pallotella?",
 	"Me pelataan tässä joka päivä. Paitsi kun sataa.", "Meiän pallo on ihan uus. Tai oli.",
-	"Setä, kentän laidassa on kori. Ei setä saa kuuttatoista putkeen!"]
+	"Setä, kentän laidassa on kori. Ei setä saa kuuttatoista putkeen!",
+	"Tokolanperällä on crossipoikien rossirata. Ne hyppää ihan hulluja hyppyjä."]
 var _menu_mode := "give"  # esinevalikon käyttö: "give" (pojat) tai "eat" (T: syö)
 ## Eväät kaupan leipähyllystä: avain -> kpl (syödään T:llä, häviävät yöllä kuten kaljat).
 var food := {}
@@ -5357,8 +5359,109 @@ func journal_data() -> Dictionary:
 			list.append(null)
 	d["endings"] = {"distinct": endings.distinct(), "max": Endings.max_count(), "total": endings.total(), "list": list}
 	d["stashes"] = _stash_journal()
+	for s in d.side:
+		s["spot"] = not s.done and not quest_spots(s.id).is_empty()
 	_save_game()
 	return d
+
+
+## Sivutehtävän paikat (maailman x/z) kartan lyijykynämerkintöihin ja päiväkirjan "Näytä kartalla" -linkkiin.
+## Tyhjä: ei merkkiä (liikkuva kohde, mökin homma tai salaisuus, jota ei ole vielä löydetty).
+func quest_spots(id: String) -> Array:
+	var v3 := func(p: Vector3) -> Vector2:
+		return Vector2(p.x, p.z)
+	match id:
+		"kauppalista":
+			return [M.w2(M.SHOP_ZONE)]
+		"nurmikko", "pensasaita", "drooni":
+			return [M.w2(M.HOME_ZONE)]
+		"kotiviini", "sahkopyora":
+			return [M.w2(M.GARAGE)]
+		"koris":
+			return [M.w2(M.KENTTA), M.w2(M.HONGAN_KENTTA)]
+		"rankkarit":
+			return [M.w2(M.KENTTA)]
+		"laavu":
+			return [M.w2(M.LAAVU)]
+		"pontikka":
+			return [M.w2(M.PONTIKKA)] if pontikka_found else []
+		"huutokauppa", "seurailta":
+			return [M.w2(M.SEURAINTALO)]
+		"raahe":
+			return [v3.call(world.taxi_pos)] if world.taxi_pos != Vector3.ZERO else []
+		"asemakatkot":
+			return [v3.call(world.station_pos)] if world.station_pos != Vector3.ZERO else []
+		"volvo":
+			return [M.w2(M.KORPELA)]
+		"kaasu":
+			return [M.w2(M.HEISKANEN)]
+		"eramaa":
+			return [M.w2(M.VIITA_LAAVU)]
+		"metso":
+			return [M.w2(M.SUOJELU[0])]
+		"rauniot":
+			return [M.w2(M.RAUNIOT[0])]
+		"keinu":
+			return world.playgrounds.map(func(pg: Dictionary) -> Vector2: return v3.call(pg.swing))
+		"kukat", "taimet":
+			return [M.w2(M.SAASTOPIHA)]
+		"seppo":
+			return [M.w2(M.SEPPO)]
+		"honganpalo":
+			return [M.w2(M.HONGAN_KOULU)]
+		"oravajarvi", "sormus":
+			return [M.w2(M.UIMARANTA)]
+		"huoltis":
+			return [M.w2(M.SEO)]
+		"katsastus":
+			return [M.w2(M.KATSASTUS)]
+		"rossi":
+			return [M.w2(M.ROSSI[0])]
+		"piirakka":
+			return [M.w2(M.REIPPARI)]
+		"miisu":
+			return [M.w2(M.AARO_HOUSE)]
+	return []
+
+
+## Kartan lyijykynämerkinnät tiedossa olevista sivutehtävistä: [otsikko, keskipiste, säde (m), tehty, id]. Rengas on
+## väljä: keskipiste on siirretty paikasta 18–40 m (aina sama tehtävälle), joten perillä pitää vielä katsella.
+## on_map: kartalle piirrettävät (kodin hommat pois).
+const QUEST_RING := 70.0
+func quest_marks(on_map := false) -> Array:
+	var out: Array = []
+	var home := M.w2(M.HOME_ZONE)
+	if quests == null or world == null:
+		return out
+	for q in quests.SIDE:
+		if not quests.known.has(q.id):
+			continue
+		var spots := quest_spots(q.id)
+		var d: bool = quests.check(q.done, tilat.firsts, quest_flag)
+		for i in spots.size():
+			if on_map and (spots[i] as Vector2).distance_to(home) < 40.0:
+				continue  # kodin hommat: koti on kartalla muutenkin
+			var h := absi(hash(q.id + str(i)))
+			var a := (h % 1000) / 1000.0 * TAU
+			var off := 18.0 + ((h / 1000) % 1000) / 1000.0 * 22.0
+			out.append([q.title, (spots[i] as Vector2) + Vector2(cos(a), sin(a)) * off, QUEST_RING, d, q.id])
+	return out
+
+
+## Päiväkirjan "Näytä kartalla": kompassi osoittaa merkinnän keskelle (ei tarkkaan paikkaan), päiväkirja sulkeutuu.
+func show_quest_on_map(id: String) -> void:
+	var near := Vector2.INF
+	var p := Vector2(player.global_position.x, player.global_position.z)
+	for m in quest_marks():
+		if m[4] == id and not m[3] and (near == Vector2.INF or p.distance_to(m[1]) < p.distance_to(near)):
+			near = m[1]
+	if near == Vector2.INF:
+		return
+	_paper.target = near
+	_paper.has_target = true
+	if _journal.visible:
+		_journal.toggle()
+	_show_message("Kompassi näyttää suunnan. Kartalla (%s) paikka on ympyröity lyijykynällä." % Settings.action_key("map"), 3.5)
 
 
 ## --- Legenda: Sulon isän kadonnut pannu (#130) -----------------------------------------------------------------
@@ -9016,7 +9119,9 @@ func _talk_choose(id: String) -> void:
 		_mopo_choose(id)
 		return
 	if id == "juttu":
-		_talk_box.reply(_talk_chat_line(), _talk_options(), _talk_chat_info())
+		var line := _talk_chat_line()
+		var heard := _note_places(line)
+		_talk_box.reply(line, _talk_options(), ("Kartalle kynällä: %s" % heard) if heard != "" else _talk_chat_info())
 		return
 	match _talk_who:
 		"arto", "pekka", "sinikka":
@@ -9315,6 +9420,19 @@ func _talk_kauppias(id: String) -> void:
 				"Laitan ne takaisin. Päivin tavarat on Päivin piikkiin.", _talk_options())
 		"neuvo":
 			_talk_box.reply(interior.where_text() + ". Liiat voi viedä takaisin samaan hyllyyn.", _talk_options())
+
+
+## Paikat, jotka tulevat kartalle kynäympyränä vasta, kun niistä kuulee: repliikin sanan alku -> [kuultu-merkintä, nimi].
+const HEARD_PLACES := {"rossira": ["kuultu_rossirata", "Rossirata"], "sepon varast": ["kuultu_seppo", "Sepon varasto"]}
+
+
+## Kirjaa repliikissä mainitun paikan kuulluksi (paper_map.gd _public_places). Palauttaa uuden paikan nimen tai "".
+func _note_places(line: String) -> String:
+	var low := line.to_lower()
+	for k in HEARD_PLACES:
+		if k in low and tilat.first(HEARD_PLACES[k][0], 0.0):
+			return HEARD_PLACES[k][1]
+	return ""
 
 
 func _talk_chat_line() -> String:
@@ -22486,6 +22604,62 @@ func _maybe_screenshot() -> void:
 			touch.call(1, vc, false)
 			print("KARTTAVETO mökki vaala=%s nipistys: zoom %.3f -> %.3f" % [_paper._vaala, z0, _paper._vzoom])
 			_paper.toggle()
+		"karttamerkit":
+			# Lyijykynämerkinnät: muutama sivutehtävä tiedossa (yksi tehty), kartta kaukaa ja läheltä, päiväkirjan
+			# "näytä kartalla" -linkki asettaa kompassin. Tallennus palautetaan.
+			var saved_q := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var qshot := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+			_note.visible = false
+			_msg.text = ""
+			for id in ["kauppalista", "nurmikko", "koris", "rankkarit", "piirakka", "oravajarvi", "keinu", "honganpalo", "kukat", "vaino"]:
+				quests.known[id] = day
+			tilat.first("kauppalista")
+			print("KUULTU %s, uudestaan %s" % [_note_places("Tokolanperällä on crossipoikien rossirata."), _note_places("rossiradalla")])
+			print("MERKIT %d kpl: %s" % [quest_marks().size(), quest_marks().map(func(q): return "%s %s" % [q[0], q[3]])])
+			_paper.toggle()
+			for i in 10:
+				await get_tree().process_frame
+			_paper._vzoom = 0.22
+			_paper._vcenter = M.w2(Vector2(560, 450))
+			_paper._view.queue_redraw()
+			for i in 5:
+				await get_tree().process_frame
+			await qshot.call("kaukaa")
+			_paper._vzoom = 0.6
+			_paper._vcenter = M.w2(M.HONGAN_KENTTA)
+			_paper._view.queue_redraw()
+			for i in 5:
+				await get_tree().process_frame
+			await qshot.call("lahelta")
+			var hv := InputEventMouseMotion.new()
+			hv.position = _paper._w2(M.w2(M.HONGAN_KOULU)) + _paper._view.position
+			_paper._gui_input(hv)
+			for i in 3:
+				await get_tree().process_frame
+			print("HIIRI paikan päällä: '%s'" % _paper._hover_name)
+			await qshot.call("hiiri")
+			_paper.toggle()
+			for i in 5:
+				await get_tree().process_frame
+			_journal.toggle()
+			_journal._set_tab("tehtavat")
+			for i in 5:
+				await get_tree().process_frame
+			await qshot.call("paivakirja")
+			print("LINKIT %s" % [_journal._links.map(func(l): return l[1])])
+			var ev := InputEventMouseButton.new()
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.pressed = true
+			ev.position = (_journal._links[0][0] as Rect2).get_center()
+			_journal._gui_input(ev)
+			for i in 10:
+				await get_tree().process_frame
+			print("KOMPASSI kohde %s %s, päiväkirja auki %s, viesti '%s'" % [_paper.has_target, _paper.target, _journal.visible, _msg.text])
+			await qshot.call("kompassi")
+			if not saved_q.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_q)
 		"karttanaapurit":
 			# Paperikartta: naapurien merkit kodin ympärillä.
 			_note.visible = false

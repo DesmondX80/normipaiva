@@ -282,7 +282,7 @@ func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable,
 		if d and not done_day.has(q.id):
 			done_day[q.id] = day
 		var p: String = progress.call(q.progress) if q.has("progress") else ""
-		side.append({"title": q.title, "text": q.text, "done": d, "progress": p, "day": known[q.id]})
+		side.append({"id": q.id, "title": q.title, "text": q.text, "done": d, "progress": p, "day": known[q.id]})
 	return {"chapters": chapters, "more": more, "side": side}
 
 
