@@ -52,7 +52,8 @@ const CHAPTERS := [
 const STORY_MORE := "Tarina jatkuu…"
 
 ## Sivutehtävät: id, otsikko, kuvaus (kun tiedossa), tiedossa-ehto, valmis-ehto ja valinnainen edistymisavain
-## (main.gd quest_progress).
+## (main.gd quest_progress). Idea: pelaajan ajatus tai huomio, joka näytetään, kun tehtävä tulee tiedoksi, jotta tehtävä
+## ei ilmesty päiväkirjaan tyhjästä (main.gd _quest_ideas).
 const SIDE := [
 	{"id": "kauppalista", "title": "Päivin kauppalista", "text": "Heippalapussa kauppalista värikynillä. Oikeat tuotteet oikean värisinä.",
 		"known": "always", "done": "first:kauppalista"},
@@ -61,76 +62,110 @@ const SIDE := [
 	{"id": "laavu", "title": "Laavu Antinsuonkankaalla", "text": "Nuotio, makkara ja kalja laavulla, jos valtaajat väistyy.",
 		"known": "always", "done": "flag:ending_legendaarinen"},
 	{"id": "vaino", "title": "Väinö karkuteillä", "text": "Pekan koira karkasi. Hiivi viereen jalan, makkara houkuttaa.",
-		"known": "first:vaino_karkasi|first:vaino", "done": "first:vaino"},
+		"known": "first:vaino_karkasi|first:vaino", "done": "first:vaino",
+		"idea": "Väinö karkas taas! Pyörällä se säikähtää. Jalan perään, ja makkara houkuttaa."},
 	{"id": "pojat", "title": "Jalkapallopoikien pallo", "text": "Pojilla on pallo hukassa. Pojat kertoivat suunnan.",
-		"known": "first:pojat", "done": "first:jalkapallo"},
+		"known": "first:pojat", "done": "first:jalkapallo",
+		"idea": "Pojilta jäi pallo hukkaan. Ne näytti suuntaa, kattelen sitä, ku kuljen sinne päin."},
 	{"id": "pontikka", "title": "Pontikkaa kuusikossa", "text": "Joku keittää kuusikossa pontikkaa. Kodan tarinat ja ilmakuvat auttaa.",
-		"known": "flag:pontikka_found|first:pontikka|first:juoru_pontikka", "done": "first:pontikka"},
+		"known": "flag:pontikka_found|first:pontikka|first:juoru_pontikka", "done": "first:pontikka",
+		"idea": "Kuusikosta tuoksahti tuttu haju. Joku keittää siellä! Ilmasta näkis savun."},
 	{"id": "drooni", "title": "Saloinen ilmasta", "text": "Kuvauskopterilla ilmakuvat kylän kohteista.",
-		"known": "first:drooni", "done": "flag:drone_all", "progress": "drooni"},
+		"known": "first:drooni", "done": "flag:drone_all", "progress": "drooni",
+		"idea": "Kopteri lentää! Tällä sais koko Saloisten ilmasta: kirkon, koulun, järvet. Kuvat talteen."},
 	{"id": "kotiviini", "title": "Kotiviini", "text": "Marjat, sokeri ja hiiva autotallin saaviin. Kypsä viini, ja juhlat.",
-		"known": "first:kotiviini", "done": "flag:ending_viinibileet"},
+		"known": "first:kotiviini", "done": "flag:ending_viinibileet",
+		"idea": "Viini käy. Ku se on kypsää, pidetään kunnon juhlat."},
 	{"id": "sahkopyora", "title": "Saloislainen sähköpyörä", "text": "Osat sieltä täältä ja kasaus autotallin työpöydällä.",
-		"known": "flag:ebike_started", "done": "flag:ebike_built", "progress": "sahkopyora"},
+		"known": "flag:ebike_started", "done": "flag:ebike_built", "progress": "sahkopyora",
+		"idea": "Hetkinen… mähän oon meinannu kasata sähköpyörän! Pekalla on vanhoja akkuja, ja Seppo tietää romut."},
 	{"id": "huutokauppa", "title": "Huutokaupan voittaja", "text": "Seuraintalon lavalla huutokauppa. Huuto menee läpi vain, kun Erkki katsoo.",
-		"known": "first:kirppis", "done": "first:huutokauppa"},
+		"known": "first:kirppis", "done": "first:huutokauppa",
+		"idea": "Lavalla Erkki huutaa kauppaa. Huuto menee läpi vaan, ku Erkki kattoo sun suuntaan."},
 	{"id": "seurailta", "title": "Tanssit ja bingo", "text": "Ilmoitustaulu: tanssit lauantaisin klo 21, bingo tiistaisin klo 18.",
-		"known": "first:kirppis", "done": "first:tanssit&first:bingo"},
+		"known": "first:kirppis", "done": "first:tanssit&first:bingo",
+		"idea": "Seuraintalon ilmoitustaululla: tanssit lauantaisin yheksältä, bingo tiistaisin kuudelta."},
 	{"id": "raahe", "title": "Kapteenin Kulman Tero", "text": "Raahen baarissa terästehtaan Tero haastaa kädenvääntöön.",
-		"known": "first:raahe", "done": "first:tero_voitto"},
+		"known": "first:raahe", "done": "first:tero_voitto",
+		"idea": "Tiskin takana Tero kääntää hihat. Kädenvääntöön ois haastajaa."},
 	{"id": "santtu5", "title": "Viisi tähteä Santulta", "text": "Santtu arvostelee päivän hommat. Täydet tähdet tarvitaan.",
-		"known": "first:santtu", "done": "flag:santtu_5"},
+		"known": "first:santtu", "done": "flag:santtu_5",
+		"idea": "Santtu kattoo päivän hommat tarkkaan ja antaa tähtiä. Viis tähteä, se ois jotain."},
 	{"id": "viinakatkot", "title": "Mökin viinakätköt", "text": "Mökin metsissä on vanhoja viinakätköjä.",
-		"known": "first:viinakatko", "done": "flag:viina_all", "progress": "viinakatkot"},
+		"known": "first:viinakatko", "done": "flag:viina_all", "progress": "viinakatkot",
+		"idea": "Lokikirjassa on muitakin nimiä. Mökin metsissä on näitä kätköjä enemmänkin."},
 	{"id": "asemakatkot", "title": "Aseman rahakätköt", "text": "Odotussalin juopot ja narkkarit tietää kätköjen paikat hörppyä vastaan.",
-		"known": "first:asema_horppy|first:asema_katko", "done": "flag:asema_all", "progress": "asemakatkot"},
+		"known": "first:asema_horppy|first:asema_katko", "done": "flag:asema_all", "progress": "asemakatkot",
+		"idea": "Odotussalin porukka tietää kätköjen paikat. Hörppy auttaa muistamaan."},
 	{"id": "era", "title": "Eräjorma", "text": "Kalaa järvestä ja riistaa metsästä mökin savustimeen.",
-		"known": "first:kalastus|first:metsastys", "done": "first:savustin"},
+		"known": "first:kalastus|first:metsastys", "done": "first:savustin",
+		"idea": "Saalis! Mökin savustimessa kalasta ja riistasta tulis herkkua."},
 	{"id": "pingis", "title": "Pihapingismestari", "text": "Santtu on pihapingismestari. Voita hänet.",
-		"known": "first:pingis", "done": "first:pingis_voitto"},
+		"known": "first:pingis", "done": "first:pingis_voitto",
+		"idea": "Santtu pelaa pingistä ku vanha mestari. Kerran se on voitettava."},
 	{"id": "volvo", "title": "Pekan Volvo ei lähde", "text": "Välillä Pekan Volvo ei käynnisty. Korpelan korjaamo laittaa sen kuntoon, ja kyyti Paapeliin on sinä päivänä ilmainen.",
-		"known": "first:korjaamo", "done": "first:volvo_korjattu"},
+		"known": "first:korjaamo", "done": "first:volvo_korjattu",
+		"idea": "Pekan Volvo ei aina lähe. Korpela sen korjais, ja Pekka heittäis ilmaseks Paapeliin."},
 	{"id": "kaasu", "title": "Kaasua Pannu-Sululle", "text": "Pannu-Sulon kaasupullo on tyhjä. Heiskaselta saa uuden.",
-		"known": "first:korjaamo", "done": "first:sulo_kaasu"},
+		"known": "first:korjaamo", "done": "first:sulo_kaasu",
+		"idea": "Heiskasella kaasupulloja. Pannu-Sulon pullo on kuulemma tyhjä."},
 	{"id": "eramaa", "title": "Erämaan laavu", "text": "Kartan lounaiskulmassa Viitajärven laavu: nuotio, makkara ja kalja, eikä kukaan tiedä, missä oot.",
-		"known": "first:viitajarvi", "done": "flag:ending_eramaan_laavu"},
+		"known": "first:viitajarvi", "done": "flag:ending_eramaan_laavu",
+		"idea": "Viitajärvi. Ei ketään missään. Laavulle nuotio, makkara ja kalja, eikä kukaan tiedä."},
 	{"id": "metso", "title": "Metson soidin", "text": "Luonnonsuojelualueella soitimella metso aamuisin (8–10). Hiljaa lähelle.",
-		"known": "first:suojelualue", "done": "first:metso"},
+		"known": "first:suojelualue", "done": "first:metso",
+		"idea": "Kyltissä lukee: aamusin täällä soitimella metso, kaheksasta kymmeneen. Hiljaa lähelle."},
 	{"id": "rauniot", "title": "Raunioiden valokuva", "text": "Länsilaidan raunioilla iltaisin teinien nuotio. Uunin raunioissa jotain, kenen talo?",
-		"known": "first:rauniot", "done": "first:rauniot_valokuva"},
+		"known": "first:rauniot", "done": "first:rauniot_valokuva",
+		"idea": "Raunioilla teinien nuotio. Vanhan uunin raunioissa jotain… kenen talo tää oli?"},
 	{"id": "keinu", "title": "Keinuhyppyennätys", "text": "Leikkipuistojen keinuhyppyennätys on Honganpalon Jerellä. Aikuinen mies voi parempaan.",
-		"known": "first:leikkipuisto", "done": "first:keinu_ennatys"},
+		"known": "first:leikkipuisto", "done": "first:keinu_ennatys",
+		"idea": "Keinutelineeseen raapustettu Jeren ennätys. Aikuinen mies hyppää kyllä pidemmälle."},
 	{"id": "kukat", "title": "Kukat Päiville", "text": "Säästöpihasta kukkakimppu, ja kotiin ennen iltaa. Syntymäpäivänä erityisen tärkeää.",
-		"known": "first:saastopiha", "done": "first:kukat_paiville"},
+		"known": "first:saastopiha", "done": "first:kukat_paiville",
+		"idea": "Säästöpihalla kukkia. Päivi ilahtuis kimpusta, ku sen vie kotiin ennen iltaa."},
 	{"id": "taimet", "title": "Sinikan tomaatintaimet", "text": "Sinikka ei ehdi säästöpihaan. Taimet sieltä Sinikalle.",
-		"known": "first:saastopiha&first:sinikka", "done": "first:sinikka_taimet"},
+		"known": "first:saastopiha&first:sinikka", "done": "first:sinikka_taimet",
+		"idea": "Säästöpihan tomaatintaimet… Sinikka puhu, ettei se ehdi tänne itte."},
 	{"id": "seppo", "title": "Sepon varastomyynti", "text": "K-Marketin vieressä Sepon varasto: tarvikkeita sähköpyörään, yllätyslaatikko ja Sepon päivän hinnat.",
-		"known": "first:seppo", "done": "first:seppo"},
+		"known": "first:seppo", "done": "first:seppo",
+		"idea": "Sepon varastossa tarvikkeita ja yllätyslaatikko. Hinnat riippuu Sepon päivästä."},
 	{"id": "honganpalo", "title": "Honganpalon koulu", "text": "Vahtimestari Reijo maksaa, jos kerää iltaporukan roskat pihalta.",
-		"known": "first:honganpalo", "done": "first:vahtimestari_keikka"},
+		"known": "first:honganpalo", "done": "first:vahtimestari_keikka",
+		"idea": "Koulun pihalla roskia iltaporukan jäljiltä. Vahtimestari Reijo maksais, jos joku keräis."},
 	{"id": "rankkarit", "title": "Rankkarit Saloisten kentällä", "text": "Pojat pelaa kentällä päivisin. Voita heidät rankkareissa.",
-		"known": "first:kentta", "done": "first:rankkarit_voitto"},
+		"known": "first:kentta", "done": "first:rankkarit_voitto",
+		"idea": "Kentällä pojat potkii rankkareita. Ne haastaa kaikki, aikuisetkin."},
 	{"id": "oravajarvi", "title": "Oravajärven uimaranta", "text": "Kylän oma uimaranta kotoa pohjoiseen. Uimaan, ja pohjasta voi löytyä kaikenlaista.",
-		"known": "first:oravajarvi", "done": "first:uinti_oravajärvi"},
+		"known": "first:oravajarvi", "done": "first:uinti_oravajärvi",
+		"idea": "Oravajärven uimaranta. Pulahdus virkistää, ja pohjasta voi löytyä kaikenlaista."},
 	{"id": "sormus", "title": "Sormus järven pohjasta", "text": "Oravajärven pohjasta löytyi kultasormus. Kuka siellä käy aamuisin uimassa?",
-		"known": "first:uinti_oravajärvi", "done": "first:sormus_sinikalle"},
+		"known": "first:uinti_oravajärvi", "done": "first:sormus_sinikalle",
+		"idea": "Kultasormus järven pohjasta! Joku aamu-uimari on sen hukannu."},
 	{"id": "huoltis", "title": "SEO Saloinen 24/7", "text": "Huoltis on aina auki. Rekkakuskit ajaa Raaheen, jos kehtaa kysyä kyytiä.",
-		"known": "first:seo", "done": "first:rekkakyyti"},
+		"known": "first:seo", "done": "first:rekkakyyti",
+		"idea": "Rekkakuskit ajaa SEO:lta Raaheen. Kehtaiskohan kysyä kyytiä?"},
 	{"id": "katsastus", "title": "Sähköpyörän katsastus", "text": "Kinnapotin katsastusmies katsoo kasatun sähköpyörän. Teipillä ei pääse läpi.",
-		"known": "first:kinnapotti", "done": "first:katsastus_ok"},
+		"known": "first:kinnapotti", "done": "first:katsastus_ok",
+		"idea": "Katsastusasema. Kasatun sähköpyörän vois tuua tänne. Teipillä ei kuulemma pääse läpi."},
 	{"id": "rossi", "title": "Tokolanperän rossirata", "text": "Crossipoikien kierrosennätys pyörällä. Hyppyreistä ilmaan.",
-		"known": "first:rossirata", "done": "first:rossi_voitto"},
+		"known": "first:rossirata", "done": "first:rossi_voitto",
+		"idea": "Crossipoikien rata. Taululla kierrosennätys, ja hyppyreistä pääsee ilmaan."},
 	{"id": "piirakka", "title": "Reipparin lihapiirakkahaaste", "text": "Kioskin seinällä ennätystaulu: Juntti söi seitsemän lihapiirakkaa kaikilla. Pystytkö parempaan?",
-		"known": "first:reippari", "done": "first:piirakkaennatys"},
+		"known": "first:reippari", "done": "first:piirakkaennatys",
+		"idea": "Reipparin ennätystaulu: Juntti söi seittemän lihapiirakkaa kaikilla. Pystyiskö parempaan?"},
 	{"id": "miisu", "title": "Kadonnut Miisu", "text": "Reipparin ilmoitustaulu: Tokolan Aaron kissa Miisu on kadonnut. Aaro tietää, missä se tykkää käydä.",
-		"known": "first:miisu_ilmoitus", "done": "first:miisu_palautettu"},
+		"known": "first:miisu_ilmoitus", "done": "first:miisu_palautettu",
+		"idea": "Ilmoitustaululla lappu: Aaron Miisu-kissa kadonnu. Aaro tietää, missä se tykkää käydä."},
 	{"id": "pummi", "title": "Pummilla lavalle", "text": "Porukka aidan takana tietää reitin lavalle ilman lippua.",
-		"known": "first:nuoret_kalja|first:pummi_lava", "done": "first:pummi_lava"},
+		"known": "first:nuoret_kalja|first:pummi_lava", "done": "first:pummi_lava",
+		"idea": "Porukka aidan takana kuiskaa: lavalle pääsee ilman lippua, ku tietää reitin."},
 ]
 
 var known := {}  # sivutehtävä -> päivä, jolloin tuli tiedoksi
 var heard := {}  # tarinan vaihe -> true (vihje kuultu)
 var done_day := {}  # tehtävä tai vaihe -> päivä, jolloin valmistui (päiväkirjaan)
+var primed := false  # alkutilanne kirjattu hiljaa: idea näytetään vain sen jälkeen tiedoksi tulleille
 
 
 ## Ehto: firsts = tilat.firsts, flag = Callable(nimi) -> bool.
@@ -187,6 +222,20 @@ func hint_for(who: String, firsts: Array, flag: Callable) -> String:
 	return h.get_slice("|", 1)
 
 
+## Uudet tiedoksi tulleet sivutehtävät (niiden idea näytetään). Ensimmäinen kutsu uuden pelin tai latauksen jälkeen
+## kirjaa jo täyttyneet hiljaa.
+func newly_known(firsts: Array, flag: Callable, day: int) -> Array:
+	var out: Array = []
+	for q in SIDE:
+		if known.has(q.id) or not check(q.known, firsts, flag):
+			continue
+		known[q.id] = day
+		if primed:
+			out.append(q)
+	primed = true
+	return out
+
+
 ## Päiväkirjan sisältö. story_rows = story.list() (luku 1), progress = Callable(avain) -> String, day = nykyinen päivä.
 func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable, day: int) -> Dictionary:
 	var chapters: Array = []
@@ -241,3 +290,4 @@ func load_from(cfg: ConfigFile) -> void:
 	known = cfg.get_value("tehtavat", "tiedossa", {})
 	heard = cfg.get_value("tehtavat", "kuultu", {})
 	done_day = cfg.get_value("tehtavat", "valmis", {})
+	primed = false

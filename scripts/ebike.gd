@@ -44,6 +44,7 @@ const GARAGE_CHARGE_S := 600.0
 
 var started := false  # idea syntynyt (työpöytä tai napamoottorin osto)
 var parts := {}  # osa -> true
+var heard := {}  # osa -> true: joku kertoi, mistä sen saa (main.gd _ebike_tip), vasta sitten paikka osalistaan
 var supplies := {"ruuvit": 0, "teippi": 0, "nippu": 0, "sahkoteippi": 0, "rautalanka": 0}
 var board_taken := false  # autotallin työkalutaulun puolikas teippirulla ja ruuvipurkki otettu
 var joints := {}  # liitos -> kiinnitys
@@ -184,13 +185,15 @@ func tasks() -> Array:
 		return [["Sähköpyörä: %s (teippaa tai korjaa tallissa)" % ", ".join(probs), false]]
 	var out: Array = [["Sähköpyörä: osat kasaan ja kasaus autotallin työpöydällä", false]]
 	for k in PARTS:
-		out.append(["  %s (%s)" % [PARTS[k].name, PARTS[k].where], parts.has(k)])
+		out.append(["  %s (%s)" % [PARTS[k].name, PARTS[k].where if heard.has(k) or parts.has(k) else "kysele kylältä"],
+			parts.has(k)])
 	return out
 
 
 func save_to(cfg: ConfigFile) -> void:
 	cfg.set_value("sahkopyora", "aloitettu", started)
 	cfg.set_value("sahkopyora", "osat", parts)
+	cfg.set_value("sahkopyora", "kuultu", heard)
 	cfg.set_value("sahkopyora", "tarvikkeet", supplies)
 	cfg.set_value("sahkopyora", "taulu", board_taken)
 	cfg.set_value("sahkopyora", "liitokset", joints)
@@ -202,6 +205,10 @@ func save_to(cfg: ConfigFile) -> void:
 func load_from(cfg: ConfigFile) -> void:
 	started = cfg.get_value("sahkopyora", "aloitettu", false)
 	parts = cfg.get_value("sahkopyora", "osat", {})
+	heard = cfg.get_value("sahkopyora", "kuultu", {})
+	if started and not cfg.has_section_key("sahkopyora", "kuultu"):
+		for k in PARTS:
+			heard[k] = true  # vanha tallennus: paikat näkyivät jo osalistassa
 	var s: Dictionary = cfg.get_value("sahkopyora", "tarvikkeet", {})
 	for k in supplies:
 		supplies[k] = int(s.get(k, 0))

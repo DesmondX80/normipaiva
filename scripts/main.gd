@@ -1350,6 +1350,11 @@ func _process(delta: float) -> void:
 			if mokki_int.pa_on:
 				tilat.add("moraali", 0.003 * delta)  # tunnari soi
 	_update_hud()
+	_idea_t -= delta
+	if _idea_t <= 0.0:
+		_idea_t = 0.5
+		_quest_ideas()
+		_hunger_thought(away)
 
 	if _msg_time > 0.0:
 		_msg_time -= delta
@@ -2297,7 +2302,8 @@ func _mopo_choose(id: String) -> void:
 			Sfx.play("register", -4.0)
 			_save_game()
 			_talk_box.reply("Kaupat on kaupat. Satula maksaa erikseen, koska se on muistoesine. Rajoitin on tässä laatikossa, mää "
-				+ "irrotin sen 1979. Bensaa ei kuulu kauppaan. Tuon Hopeanuolen illalla peräkärryllä teidän talliin.", _talk_options(),
+				+ "irrotin sen 1979. Bensaa ei kuulu kauppaan. Ketjun ja rattaan löydät Huhtalan romuista, sytytyksen saa " \
+				+ "Autosähkö-Simolta, ja Tokolan Aarolla on vanhan sähkömopon valot. Tuon Hopeanuolen illalla peräkärryllä teidän talliin.", _talk_options(),
 				"Mopo talliin! Puuttuu ketju (Huhtala), sytytys (Autosähkö-Simo), satula (Seppo) ja ajovalo (Tokolan Aaro).")
 		"mopo_satula":
 			money -= OmaMopo.SATULA_HINTA
@@ -2416,8 +2422,9 @@ func _ebike_bench_note() -> String:
 		ebike.supplies.ruuvit += 2
 		Sfx.play("pickup", -6.0)
 		_save_game()
-		return "\nTästähän sais sähköpyörän! Osat sieltä täältä: napamoottori, akku, ohjain ja johdot. Työkalutaululta " \
-			+ "puolikas rulla jeesusteippiä ja purkki ruuveja. Osalista repussa (I)."
+		return "\nTästähän sais sähköpyörän! Osat sieltä täältä: napamoottori, akku, ohjain ja johdot. Pekalla oli vanhoja " \
+			+ "porakoneen akkuja, ja Seppo tietää kylän romut. Työkalutaululta puolikas rulla jeesusteippiä ja purkki ruuveja. " \
+			+ "Osalista repussa (I)."
 	var miss := PackedStringArray()
 	for k in ebike.missing_parts():
 		miss.append(EBike.PARTS[k].low)
@@ -5197,6 +5204,58 @@ func _story_hint(who: String, hello: bool) -> String:
 		_save_game()
 		_queue_message("Päiväkirjaan (%s) tuli uutta." % Settings.action_key("journal"), 2.5)
 	return line if fresh or (not hello and randf() < 0.4) else ""
+
+
+## Uusi sivutehtävä tiedoksi: pelaajan ajatus (quests.gd idea) viestinä, ettei tehtävä ilmesty päiväkirjaan tyhjästä.
+var _idea_t := 0.0
+
+
+func _quest_ideas() -> void:
+	for q in quests.newly_known(tilat.firsts, quest_flag, day):
+		if q.id == "sahkopyora":
+			ebike.heard["akku"] = true  # idea muistuttaa Pekan porakoneen akuista
+		var idea: String = q.get("idea", q.text)
+		_queue_message("%s\nPäiväkirjaan (%s): %s" % [idea, Settings.action_key("journal"), q.title],
+			clampf(idea.length() / 16.0, 4.0, 7.0))
+		_save_game()
+
+
+## Kova nälkä Saloisissa: kerran päivässä ajatus, mistä saisi syötävää.
+func _hunger_thought(away: bool) -> void:
+	if away or not state in ["to_shop", "to_home"] or not "nalka" in tilat.chosen or tilat.value("nalka") >= -0.5:
+		return
+	if _msg_time > 0.0 or not _once_today("nalka_ajatus"):
+		return
+	if _between(clock_min, REIPPARI_OPEN):
+		_show_message("Vatsa kurnii… Nyt maistuis Reipparin eväät. Makkaraperunat tai lihapiirakka kaikilla.", 4.5)
+	else:
+		_show_message("Vatsa kurnii… Reippari on kiinni, mutta SEO:lla on munkkeja yötä päivää.", 4.5)
+
+
+## Sähköpyörän osien paikat kuullaan kyläläisiltä: [osa, repliikki]. Vasta kuultu paikka näkyy osalistassa.
+const EBIKE_TIPS := {
+	"seppo": [["moottori", "Sähköpyörä? Napamoottoria mulla ei oo. Mut Seuranmäen kirppiksen huutokaupassa oli yks, Erkki huutaa sen jollekin."],
+		["ohjain", "Tokolan vanhassa varastossa on vanhan sähkömopon romuja. Ohjain ja kaasukahva kans. Avain on Aarolla."]],
+	"pekka": [["akku", "Sähköpyörä, perkele! Mulla on tallissa vanhoja Makitan akkuja. Sienistä luopuisin niistä."],
+		["johdot", "Johtoja? Arto purkaa kaikki romut. Kaljalla se antaa vaikka mitä."],
+		["moottori", "Seuranmäen huutokaupassa oli napamoottori. Mummo Elvi kytti sitä."]],
+	"arto": [["johdot", "Kuulin, että sää kasaat sähköpyörää. Mulla on laatikollinen johtoja ja liittimiä. Kalja ois hyvä vaihtoraha."]],
+	"aaro": [["ohjain", "Sähköpyörä? Kaupan vanhassa varastossa on vanhan sähkömopon osia pahvilaatikossa. Ohjain ja kaasukahva."]],
+}
+
+
+## Puhujan vinkki sähköpyörän osan paikasta, jos sitä ei ole vielä kuultu (ja osaa ei ole).
+func _ebike_tip(who: String) -> String:
+	if not ebike.started or ebike.built() or not EBIKE_TIPS.has(who):
+		return ""
+	for t in EBIKE_TIPS[who]:
+		if ebike.heard.has(t[0]) or ebike.parts.has(t[0]):
+			continue
+		ebike.heard[t[0]] = true
+		_save_game()
+		_queue_message("Sähköpyörän osalistaan (I): %s %s." % [EBike.PARTS[t[0]].low, EBike.PARTS[t[0]].where], 3.5)
+		return t[1]
+	return ""
 
 
 ## Tehtävien liput (quests.gd "flag:nimi").
@@ -8433,6 +8492,9 @@ func _talk_hello(who: String) -> String:
 		return "Hei! Tuu tänne, mulla ois asiaa!"
 	if who == "pekka" and is_instance_valid(vaino) and vaino.mode == "follow":
 		return "VÄINÖ! Siinähän se on, perkele!"
+	sh = _ebike_tip(who)
+	if sh != "":
+		return sh
 	return TALK_HELLO[who].pick_random() if TALK_HELLO.has(who) else ""
 
 
@@ -9087,6 +9149,9 @@ func _talk_kauppias(id: String) -> void:
 
 func _talk_chat_line() -> String:
 	var sh := _story_hint(_talk_who, false)
+	if sh != "":
+		return sh
+	sh = _ebike_tip(_talk_who)
 	if sh != "":
 		return sh
 	if _talk_who in ["pekka", "arto"] and tokola.proven() and randf() < 0.4:
@@ -20243,6 +20308,47 @@ func _maybe_screenshot() -> void:
 			clock_min = 18 * 60 + 1
 			await frames.call(10)
 			print("KP sulkeminen: tila %s" % state)
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"ideat":
+			# Tehtävien ideat: uusi sivutehtävä tiedoksi ajatuksena, sähköpyörän osien paikat kyläläisiltä ja nälkäajatus.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			quests = Quests.new()
+			ebike = EBike.new()
+			if player == bike:
+				_toggle_mount()
+			var idle := func(n: int) -> void:
+				for i in n:
+					await get_tree().process_frame
+			var snap := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			await idle.call(40)
+			print("ID alku: hiljaa tiedossa %d, viesti '%s'" % [quests.known.size(), _msg.text])
+			_msg_queue.clear()
+			_show_message("", 0.0)
+			print("ID kirppis: %s" % _kirppis_give("ruuvipurkki"))
+			await idle.call(40)
+			print("ID idea: '%s'" % _msg.text)
+			await snap.call("_idea.png")
+			print("ID osalista ennen: %s" % [ebike.tasks()])
+			_msg_queue.clear()
+			_show_message("", 0.0)
+			print("ID seppo: '%s'" % _ebike_tip("seppo"))
+			print("ID seppo 2: '%s'" % _ebike_tip("seppo"))
+			print("ID arto: '%s'" % _ebike_tip("arto"))
+			await idle.call(5)
+			print("ID vinkkiviesti: '%s'" % _msg.text)
+			print("ID osalista jälkeen: %s" % [ebike.tasks()])
+			_msg_queue.clear()
+			_show_message("", 0.0)
+			if not "nalka" in tilat.chosen:
+				tilat.chosen.append("nalka")
+			tilat.add("nalka", -3.0)
+			clock_min = 12 * 60
+			await idle.call(40)
+			print("ID nälkä (%.2f): '%s'" % [tilat.value("nalka"), _msg.text])
+			await snap.call("_nalka.png")
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"sahkopyora":
