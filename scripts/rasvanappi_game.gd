@@ -18,10 +18,12 @@ const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
 const Hall := preload("res://scripts/rasvanappi_hall.gd")
 const HAIRS := {"short": "Hair_Buzzed", "parted": "Hair_SimpleParted", "long": "Hair_Long"}
-## Portsari luukun takana: musta pusero, siilitukka ja parta, tukeva.
+## Portsari luukun takana: ruskea venäläinen sotilaspuku (Looks.add_army_uniform), mustat otsalle vinosti kammatut
+## hiukset (Looks.add_fringe) ja Charlie Chaplinin viikset (Looks.add_chaplin), tukeva.
 const BOUNCER := {
-	"shirt": Color(0.07, 0.07, 0.08), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.08, 0.08, 0.08),
-	"hair": "Hair_Buzzed", "hair_color": Color(0.12, 0.09, 0.07), "beard": true, "height": 1.78,
+	"shirt": Color(0.4, 0.31, 0.19), "pants": Color(0.34, 0.27, 0.17), "shoes": Color(0.05, 0.05, 0.05),
+	"hair": "Hair_SimpleParted", "hair_color": Color(0.04, 0.035, 0.03), "chaplin": true, "fringe": true, "army": true,
+	"height": 1.78,
 	"skin": Color(0.95, 0.76, 0.66), "belly": 0.45, "bulk": 0.45, "shoulders": 0.5, "muscle": -0.4,
 }
 

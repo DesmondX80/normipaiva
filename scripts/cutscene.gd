@@ -195,7 +195,8 @@ func _orbit(center: Vector3, radius: float, height: float, from_a: float, to_a: 
 
 # --- WASTED + motkotus ------------------------------------------------------------
 
-func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Callable, choco := "") -> void:
+## WASTED-alku: hidastus, värit pois, kamera kiertää paikkaa ja punainen otsikko; lopuksi pimeään.
+func _wasted_intro(at: Vector3, reason: String) -> void:
 	_begin()
 	_cam.current = true
 	Sfx.play("lose", 0.0)
@@ -218,6 +219,10 @@ func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Cal
 	env.adjustment_saturation = 1.12
 	_band.visible = false
 	_title.text = ""
+
+
+func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Callable, choco := "") -> void:
+	await _wasted_intro(at, reason)
 	# Päivin motkotus kotipihalla (oikea pelaajahahmo piiloon).
 	for n in hide_nodes:
 		if is_instance_valid(n):
@@ -248,6 +253,92 @@ func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Cal
 	for line in lines:
 		bubble.text = "Päivi: " + line
 		await _wait(1.7)
+	await _end(done)
+
+
+# --- Kuolema Vaalassa: herätys Gasthausissa tai Paapelissa, Päivi soittaa ---------------------------------------
+
+const PHONE_LINES := {
+	"car": ["Missä sää oot?! ...VAALASSA?!", "Auton alle! Mopolla! Taas!", "Mää sanoin, että se mopo on hengenvaarallinen!",
+		"Ja kotiin siitä, heti kun pystyt!"],
+	"train": ["Junan alle! JUNAN!", "Minun piti parsia sinut kokoon palasista!", "Koko yö neulan ja lankarullan kanssa!",
+		"Ja kotiin siitä, heti kun pystyt!"],
+	"default": ["Missä sää oot?! ...VAALASSA?!", "Taas jotain kaljareissuja!", "Kuinka monta kertaa pitää sanoa!",
+		"Ja kotiin siitä, heti!"],
+}
+const PHONE_REPLIES := ["K-kyllä kulta...", "Kyllä kulta...", "Joo... kyllä kulta...", "Kyllä kulta. Anteeks."]
+
+
+## 90-luvun kännykkä (Nokia-tyyppinen): tumma runko, vihreä näyttö, näppäimistö ja antennin nysä. +Y ylös, näyttö +Z.
+static func _phone() -> Node3D:
+	var ph := Node3D.new()
+	var body := Color(0.13, 0.14, 0.16)
+	B.mesh(ph, B.boxm(Vector3(0.05, 0.13, 0.022)), Vector3.ZERO, body)
+	B.mesh(ph, B.boxm(Vector3(0.036, 0.026, 0.004)), Vector3(0, 0.035, 0.012), Color(0.55, 0.7, 0.35))  # näyttö
+	for r in 4:
+		for c in 3:
+			B.mesh(ph, B.boxm(Vector3(0.009, 0.006, 0.004)), Vector3(-0.012 + c * 0.012, -0.004 - r * 0.01, 0.012),
+				Color(0.75, 0.77, 0.75))
+	B.mesh(ph, B.cyl(0.004, 0.005, 0.03, 6), Vector3(0.016, 0.08, 0), Color(0.08, 0.08, 0.09))  # antenni
+	return ph
+
+
+## WASTED, sitten aamu herätyspaikassa (wake, katse face): puhelin soi, Santtu vastaa pelokkaana ja Päivi motkottaa
+## puhelimessa ("Kyllä kulta..."). done vaihtaa päivän ja vie pelaajan herätyspaikkaan.
+func wasted_phone(at: Vector3, reason: String, cause: String, wake: Vector3, face: Vector3, place: String, done: Callable) -> void:
+	await _wasted_intro(at, reason)
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var hero := Looks.make(_props, Looks.PLAYER)
+	Looks.add_cap(hero)
+	hero.global_position = wake
+	hero.rotation.y = B.yaw_to(face)
+	hero.play("Idle", 0.0)
+	var phone := _phone()
+	hero.add_child(phone)
+	var ear: Vector3 = hero.bone_position("Head") + Vector3(0.1, 0.07, -0.01)  # oikean korvan kohta (hahmon +X = oikea)
+	var pocket := Vector3(0.22, 0.95, 0.02)
+	phone.position = pocket
+	var fwd := Vector3(face.x, 0, face.z).normalized()
+	var side := fwd.cross(Vector3.UP)
+	_cam.global_position = wake + fwd * 1.9 + side * 0.55 + Vector3(0, 1.62, 0)
+	_cam.look_at(wake + Vector3(0, 1.5, 0), Vector3.UP)
+	_sub.text = place
+	await _fade_to(0.0, 0.6)
+	# Puhelin soi taskussa: hätkähdys.
+	var phone_bubble := B.bubble(_props, wake + Vector3(0, 1.3, 0) + side * 0.25, Color(1.0, 0.85, 0.85), 0.9, false)
+	phone_bubble.no_depth_test = true
+	for k in 3:
+		Sfx.play("alert", -6.0, 1.7)
+		phone_bubble.text = "*pirr pirr*"
+		phone.position = pocket + Vector3(0, 0, 0.01 * (k % 2))
+		await _wait(0.5)
+		phone_bubble.text = ""
+		await _wait(0.35)
+	Looks.hunch(hero, 0.5)  # pelokas: hartiat kumarassa ja pää painuksissa
+	hero.set_override("neck_01", Vector3.RIGHT, 0.4)
+	# Puhelin korvalle (oikea käsi IK:lla), pientä vapinaa.
+	var shake := create_tween().set_loops()
+	shake.tween_method(func(v: float) -> void:
+		phone.position = ear + Vector3(0, sin(v * 40.0) * 0.004, 0)
+		phone.rotation = Vector3(0.2, -0.3, 0.1 + sin(v * 30.0) * 0.03)
+		hero.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", ear + Vector3(0.02, -0.07, 0.0),
+			ear + Vector3(0.12, -0.9, 0.15)), 0.0, 1.0, 1.0)
+	var lines: Array = PHONE_LINES.get(cause, PHONE_LINES.default)
+	# Päivin ääni puhelimesta tekstityksenä alhaalla, Santun vastaus kuplana pään vieressä.
+	var hero_bubble := B.bubble(_props, wake + Vector3(0, 1.95, 0) - side * 0.45, Color.WHITE, 1.0, false)
+	hero_bubble.no_depth_test = true
+	for i in lines.size():
+		_sub.text = "Päivi puhelimessa: \"%s\"" % lines[i]
+		hero_bubble.text = ""
+		await _wait(2.2)
+		hero_bubble.text = PHONE_REPLIES[mini(i, PHONE_REPLIES.size() - 1)]
+		await _wait(1.4)
+	hero_bubble.text = ""
+	shake.kill()
+	_sub.text = "Päivi ei ollut tyytyväinen."
+	await _wait(1.0)
 	await _end(done)
 
 

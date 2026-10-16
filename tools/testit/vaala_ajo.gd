@@ -20,6 +20,35 @@ func run() -> void:
 	if "--ajo=runko" in OS.get_cmdline_user_args():
 		await _trunk_test()
 		return
+	if "--ajo=kuolema_saloinen" in OS.get_cmdline_user_args():
+		# Kuolema kaukana kotoa (laavulla): herätys kotona ja Päivi motkottaa pihalla.
+		var M := preload("res://scripts/map_data.gd")
+		var w2: Vector2 = M.w2(M.LAAVU)
+		main.laavu_conquered = true
+		main.player.global_position = Vector3(w2.x, 2.0, w2.y)
+		for i in 10:
+			await get_tree().process_frame
+		main._lose("Rollaattorimummo huitaisi kepillä päähän.", "mummo")
+		var t := 0.0
+		var k := 0
+		while main.state == "cutscene" and t < 40.0:
+			await get_tree().process_frame
+			t += get_process_delta_time()
+			if t > 7.0 + k * 2.0 and k < 2:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(_shot_path("_s%d" % k))
+				k += 1
+		print("KUOLEMA saloinen: tila %s, kotiin %.0f m" % [main.state, main.player.global_position.distance_to(main.home_zone)])
+		return
+	if "--ajo=kuolema" in OS.get_cmdline_user_args():
+		await _death_test()
+		return
+	if "--ajo=vapautus" in OS.get_cmdline_user_args():
+		await _unload_test()
+		return
+	if "--ajo=muisti" in OS.get_cmdline_user_args():
+		await _memory_parts()
+		return
 	if "--ajo=kylakuvat" in OS.get_cmdline_user_args():
 		await _village_shots()
 		return
@@ -808,3 +837,90 @@ func _village_shots() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(_shot_path("_%s_%s" % [sp[0], v[1]]))
+
+
+## Pelin osien koko: solmut ja muisti, kun osa vapautetaan (mökki ja Vaala rakennettuina kuten matkan jälkeen).
+func _memory_parts() -> void:
+	main.mokki.ensure_built()
+	main._start_mopo()
+	for i in 30:
+		await get_tree().process_frame
+	var rows: Array = []
+	for c in main.get_children():
+		var n := c.find_children("*", "", true, false).size() + 1
+		if n > 200:
+			rows.append([n, c.name, (c.get_script() as Script).resource_path.get_file() if c.get_script() != null else c.get_class()])
+	rows.sort_custom(func(a, b) -> bool: return a[0] > b[0])
+	for r in rows:
+		print("MUISTI %6d solmua  %-28s %s" % r)
+	for target in ["mopo_trip", "raahe_int", "mokki", "siitari_int", "kirppis_int", "asema_int", "varasto_int", "garage_int", "home_int", "mokki_int"]:
+		var node: Node = main.get(target)
+		if node == null:
+			continue
+		var m0 := Performance.get_monitor(Performance.MEMORY_STATIC)
+		var o0 := Performance.get_monitor(Performance.OBJECT_COUNT)
+		var copy_parent := node.get_parent()
+		copy_parent.remove_child(node)
+		node.free()
+		for i in 5:
+			await get_tree().process_frame
+		print("MUISTI vapautus %-12s  -%4d Mt  -%6d objektia" % [target, (m0 - Performance.get_monitor(Performance.MEMORY_STATIC)) / 1048576,
+			o0 - Performance.get_monitor(Performance.OBJECT_COUNT)])
+		main.set(target, null)
+
+
+## Kaukaisten paikkojen vapautus (main.gd _unload_far_places): Vaalaan, kuolema ja koti, junalla takaisin, Raaheen.
+func _unload_test() -> void:
+	var mem := func() -> String:
+		return "%d Mt, %d oliota" % [Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576, Performance.get_monitor(Performance.OBJECT_COUNT)]
+	print("VAPAUTUS alussa: Vaala %s, Raahe %s, %s" % [main.mopo_trip != null, main.raahe_int != null, mem.call()])
+	main.mokki.ensure_built()
+	main._start_mopo()
+	for i in 10:
+		await get_tree().process_frame
+	print("VAPAUTUS Vaalassa: Vaala %s, Raahe %s, %s" % [main.mopo_trip != null, main.raahe_int != null, mem.call()])
+	main.money = 100.0
+	main._train_trip("saloinen")  # junalla takaisin Saloisiin (välianimaatio ravintolavaunussa)
+	var t := 0.0
+	while main.mopo_trip != null and t < 90.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	print("VAPAUTUS Saloisissa %.0f s: Vaala %s, tila %s, %s" % [t, main.mopo_trip != null, main.state, mem.call()])
+	main._enter_raahe()
+	for i in 30:
+		await get_tree().process_frame
+	print("VAPAUTUS Raaheen: tila %s, Raahe %s, vihje '%s'" % [main.state, main.raahe_int != null, main._hint.text])
+	main.raahe_int.leave()
+	main.state = "to_shop"
+	main._arrive_vaala_by_train()
+	for i in 60:
+		await get_tree().process_frame
+	print("VAPAUTUS junalla Vaalaan: Vaala %s, rakennettu %s, Vaalassa %s, Raahe %s" % [main.mopo_trip != null,
+		main.mopo_trip.vaala.built if main.mopo_trip != null else false, main._in_vaala, main.raahe_int != null])
+
+
+## Kuolema Vaalassa (--kohta=gasthaus tai mokki): WASTED, puhelinkohtaus ja herätys. Kuvat kohtauksen aikana.
+func _death_test() -> void:
+	var where := "gasthaus"
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--kohta="):
+			where = a.substr(8)
+	main.mokki.ensure_built()
+	main._start_mopo()
+	var vl2: Node3D = main.mopo_trip.vaala
+	var mp2: CharacterBody3D = main.mopo_trip.mopo
+	mp2.position = (vl2.door_pos("gasthaus") + Vector3(8, 0.6, 0)) if where == "gasthaus" else (vl2.mokki_mopo + Vector3(0, 0.6, 30))
+	for i in 20:
+		await get_tree().process_frame
+	main.mopo_trip._on_hit()
+	var k := 0
+	var t := 0.0
+	while main.state == "cutscene" and t < 60.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+		if t > 9.3 + k * 1.8 and k < 9:
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(_shot_path("_%s%d" % [where, k]))
+			k += 1
+	print("KUOLEMA %s: tila %s, Vaalassa %s, mökillä %s, pelaaja %s, viesti '%s'" % [where, main.state, main._in_vaala,
+		main._at_mokki(), main.player.global_position.round(), main._msg.text.replace("\n", " ")])
