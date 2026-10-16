@@ -16,6 +16,8 @@ const MG := preload("res://scripts/mg_draw.gd")
 const Makasiini := preload("res://scripts/makasiini.gd")
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
+const Hall := preload("res://scripts/rasvanappi_hall.gd")
+const HAIRS := {"short": "Hair_Buzzed", "parted": "Hair_SimpleParted", "long": "Hair_Long"}
 ## Portsari luukun takana: musta pusero, siilitukka ja parta, tukeva.
 const BOUNCER := {
 	"shirt": Color(0.07, 0.07, 0.08), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.08, 0.08, 0.08),
@@ -84,6 +86,12 @@ const OBST := [
 
 var drunk := 0.0
 var door: Node3D  # makasiinin takaovi (makasiini.gd "Takaovi"), main.gd asettaa ennen add_childia
+var sun: DirectionalLight3D  # maailman aurinko: rajataan pois hallin kerrokselta (rasvanappi_hall.gd)
+
+# Halli 3D:nä (rasvanappi_hall.gd) kaukana taivaalla makasiinin yllä; konttaajat 0..4 = npcs, 5 = pelaaja.
+var _hall: Node3D
+var _poke_anim := {}  # {"who", "poked", "t"}: tökkääjän käsi kurottaa, tökätty säpsähtää
+var _disguised := false
 
 # 3D-ovikohtaus: kamera, portsari ja valot oven lapsina (_rig), ovilehti, luukun kansi ja lamppu oven omia.
 var _rig: Node3D
@@ -210,6 +218,7 @@ void fragment() {
 		npcs[i].goal = npcs[i].ang
 	if door != null:
 		_setup_door()
+		_setup_hall()
 
 
 # --- Yleiset ---------------------------------------------------------------------------------------------------
@@ -279,7 +288,9 @@ func _process(delta: float) -> void:
 		if _puffs[i].t > _puffs[i].life:
 			_puffs.remove_at(i)
 	MG.sparks_step(_sparks, delta)
-	_dark.visible = _mode in ["pimea", "nimi", "vastaus", "nuolu", "loppu"] or (_mode == "sammutus" and _t > 0.35)
+	if _hall != null and _mode in ["sammutus", "pimea", "nimi", "vastaus", "nuolu", "loppu"]:
+		_hall_step(delta)
+	_dark.visible = _hall == null and (_mode in ["pimea", "nimi", "vastaus", "nuolu", "loppu"] or (_mode == "sammutus" and _t > 0.35))
 	if _dark.visible:
 		_update_dark()
 	_update_texts()
@@ -393,6 +404,10 @@ func _luukku_step(delta: float) -> void:
 		if a > 4.8:
 			_mode = "esittely"
 			_t = 0.0
+			if _hall != null:
+				_hall.lineup()
+				_hall.set_lit(1.0)
+				_hall.line_cam.current = true
 			Sfx.play("door_close", -4.0)
 	else:
 		if a > 2.2 and a - delta <= 2.2:
@@ -478,7 +493,59 @@ func _setup_door() -> void:
 	_rig.add_child(_dust)
 
 
+## Halli rakennetaan heti (hahmojen lataus ei nyki valojen sammuessa), kauas makasiinin yläpuolelle.
+func _setup_hall() -> void:
+	var looks: Array = []
+	for p: Dictionary in PEOPLE:
+		var lk: Dictionary = p.look
+		var woman: bool = p.get("woman", false)
+		looks.append({"towel": p.towel, "woman": woman, "look": {"model": "female" if woman else "male", "skin": lk.skin,
+			"hair": HAIRS[lk.hair], "hair_color": lk.hair_col, "beard": lk.get("beard", false), "height": 1.64 if woman else 1.76,
+			"bulk": (p.bulk - 1.0) * 2.0, "belly": 0.6 if p.bulk > 1.1 else 0.25, "muscle": -0.9}})
+	looks.append({"towel": Color(0.95, 0.95, 0.92), "woman": false, "look": {"skin": Color(0.98, 0.8, 0.7),
+		"hair": "Hair_SimpleParted", "hair_color": Color(0.22, 0.15, 0.1), "belly": 0.75, "bulk": 0.1, "height": 1.8}})
+	_hall = Hall.new()
+	_hall.room = ROOM
+	_hall.door_y = DOOR_Y
+	door.get_parent().add_child(_hall)
+	_hall.top_level = true
+	_hall.global_transform = Transform3D(Basis(), door.global_position + Vector3(0, 250, 0))
+	_hall.build(OBST, looks, BOUNCER, sun)
+
+
+## Konttaajat, valot ja tökkäysten liike joka ruutu (hallin tiloissa).
+func _hall_step(delta: float) -> void:
+	var lit := 0.0
+	match _mode:
+		"sammutus":
+			lit = 1.0 if _t < 0.35 else 0.0
+		"loppu":
+			lit = minf(0.75, _t * 0.9)
+	_hall.set_lit(lit)
+	_hall.set_sight(me.pos, LIGHT_R)
+	var dark := lit < 0.5
+	if dark != _disguised:
+		_disguised = dark
+		for c in _hall.crawlers:
+			c.disguise(dark)
+	if not _poke_anim.is_empty():
+		_poke_anim.t += delta
+		if _poke_anim.t > 1.2:
+			_poke_anim = {}
+	for i in npcs.size() + 1:
+		var who: Dictionary = me if i == npcs.size() else npcs[i]
+		var idx := -1 if i == npcs.size() else i
+		var c: Node3D = _hall.crawlers[i]
+		var pt: float = _poke_anim.get("t", 9.0)
+		c.reach = sin(clampf(pt / 0.6, 0.0, 1.0) * PI) if _poke_anim.get("who", -2) == idx else 0.0
+		c.jolt = clampf((pt - 0.15) / 0.45, 0.0, 1.0) if _poke_anim.get("poked", -2) == idx and pt > 0.15 else 0.0
+		c.set_butter(nappi == idx and (idx == -1 or npcs[idx].butter_t <= 0.0))
+		_hall.place(i, who.pos, who.ang, who.phase, who.moving)
+
+
 func _exit_tree() -> void:
+	if _hall != null and is_instance_valid(_hall):
+		_hall.queue_free()
 	if door == null or not is_instance_valid(door):
 		return
 	_leaf.rotation.y = 0.0
@@ -561,6 +628,9 @@ func _hatch_rect() -> Rect2:
 func _lights_out() -> void:
 	_mode = "sammutus"
 	_t = 0.0
+	if _hall != null:
+		_hall.crawl_start()
+		_hall.cam.current = true
 	Sfx.play("rattle", -2.0, 2.2)  # katkaisijan naksahdus
 	_shake = 0.2
 
@@ -777,6 +847,7 @@ func _name_of(i: int) -> String:
 
 func _begin_poke(poker: int, poked: int) -> void:
 	_pending = {"poker": poker, "poked": poked}
+	_poke_anim = {"who": poker, "poked": poked, "t": 0.0}
 	pokes += 1
 	_shake = 0.7
 	var bp: Vector2 = _butt(me.pos, me.ang) if poked == -1 else _butt(npcs[poked].pos, npcs[poked].ang)
@@ -910,12 +981,17 @@ var _org := Vector2.ZERO
 
 
 func _layout() -> void:
+	if _hall != null:
+		_ppm = _hall.ppm()
+		return
 	var s := _size()
 	_ppm = minf((s.x - 60.0) / ROOM.x, (s.y - 130.0) / ROOM.y)
 	_org = Vector2((s.x - ROOM.x * _ppm) / 2.0, 62.0 + (s.y - 130.0 - ROOM.y * _ppm) / 2.0)
 
 
 func _w2s(p: Vector2) -> Vector2:
+	if _hall != null:
+		return _hall.w2s(p)
 	return _org + p * _ppm
 
 
@@ -942,9 +1018,10 @@ func _draw_root() -> void:
 			if door == null:
 				_root.draw_rect(Rect2(Vector2(-20, -20), _size() + Vector2(40, 40)), Color(0.05, 0.03, 0.03))
 		"esittely":
-			_draw_lineup()
+			if _hall == null:
+				_draw_lineup()
 		"sammutus":
-			if _t < 0.35:
+			if _t < 0.35 and _hall == null:
 				_draw_lineup()
 			else:
 				_draw_hall()
@@ -962,7 +1039,10 @@ func _draw_top() -> void:
 	if _mode == "esittely":
 		var k := s.y / 720.0
 		var pc := Vector2(s.x * 0.91, s.y * 0.47)
-		_hand_draw(_top, pc + Vector2(-70, 210) * k, 0.55 * k, -0.25, Color(0.92, 0.72, 0.6), minf(1.0, _t * 0.8))
+		if _hall != null:
+			_draw_lineup_tags()
+		else:
+			_hand_draw(_top, pc + Vector2(-70, 210) * k, 0.55 * k, -0.25, Color(0.92, 0.72, 0.6), minf(1.0, _t * 0.8))
 		_top.draw_string_outline(ThemeDB.fallback_font, Vector2(s.x * 0.74, s.y * 0.93), "Portsari voitelee sormesi: aloitat napin.",
 			HORIZONTAL_ALIGNMENT_CENTER, s.x * 0.25, int(16 * k), 5, Color.BLACK)
 		_top.draw_string(ThemeDB.fallback_font, Vector2(s.x * 0.74, s.y * 0.93), "Portsari voitelee sormesi: aloitat napin.",
@@ -1096,6 +1176,29 @@ func _draw_lineup() -> void:
 	ci.draw_string(ThemeDB.fallback_font, pc + Vector2(-80, 180) * k, "Portsari", HORIZONTAL_ALIGNMENT_CENTER, 160 * k, int(18 * k), Color(0.8, 0.85, 1.0))
 
 
+## 3D-esittelyn nimikyltit, tunnusmerkit ja repliikit hahmojen kohdalle (rasvanappi_hall.gd lineup).
+func _draw_lineup_tags() -> void:
+	var k := _size().y / 720.0
+	var cam: Camera3D = _hall.line_cam
+	var font := ThemeDB.fallback_font
+	for i in PEOPLE.size():
+		var p: Dictionary = PEOPLE[i]
+		var c: Node3D = _hall.crawlers[i]
+		var feet := cam.unproject_position(c.global_position + Vector3(0, -0.05, 0.3))
+		var head := cam.unproject_position(c.global_position + Vector3(0, 1.95, 0))
+		var w := 112.0 * k
+		MG.sign(_top, Rect2(feet + Vector2(-w / 2.0, 4 * k), Vector2(w, 30 * k)), p.name, Color(0.12, 0.1, 0.08), p.col, int(20 * k),
+			Color(0.75, 0.7, 0.6))
+		_top.draw_string_outline(font, feet + Vector2(-w, 54 * k), "(%s)" % p.desc, HORIZONTAL_ALIGNMENT_CENTER, w * 2.0, int(17 * k), 6,
+			Color.BLACK)
+		_top.draw_string(font, feet + Vector2(-w, 54 * k), "(%s)" % p.desc, HORIZONTAL_ALIGNMENT_CENTER, w * 2.0, int(17 * k),
+			Color(0.98, 0.92, 0.8))
+		if fmod(_t + i * 0.7, 3.5) < 1.2:
+			var tic: String = p.tics[int(_t / 3.5 + i) % p.tics.size()]
+			var tw := font.get_string_size(tic, HORIZONTAL_ALIGNMENT_LEFT, -1, int(18 * k)).x + 26 * k
+			MG.bubble(_top, Rect2(head + Vector2(-tw / 2.0, -46 * k), Vector2(tw, 40 * k)), head + Vector2(0, 6 * k), tic, int(18 * k))
+
+
 func _tub(ci: CanvasItem, c: Vector2, k: float) -> void:
 	var r := Rect2(c - Vector2(42, 26) * k, Vector2(84, 52) * k)
 	MG.box(ci, r, Color(0.98, 0.85, 0.2), int(10 * k), 3, MG.OUTLINE, 2)
@@ -1113,6 +1216,8 @@ func _rect_px(r: Rect2) -> Rect2:
 
 func _draw_hall() -> void:
 	_layout()
+	if _hall != null:
+		return  # halli on 3D:nä (rasvanappi_hall.gd)
 	var ci := _root
 	var s := _size()
 	ci.draw_rect(Rect2(Vector2(-20, -20), s + Vector2(40, 40)), Color(0.03, 0.03, 0.04))
@@ -1272,7 +1377,7 @@ func _draw_puffs() -> void:
 		var c := _w2s(p.pos)
 		var col: Color = p.col
 		# Ääniaalto: rengas laajenee kohdasta, josta ääni kuului.
-		var rr: float = (0.3 + p.t * 1.6) * _ppm
+		var rr: float = (0.3 + minf(p.t, 0.8) * 1.5) * _ppm
 		_top.draw_arc(c, rr, 0, TAU, 32, Color(col.r, col.g, col.b, 0.35 * a), 2.0, true)
 		if p.t < 0.6:
 			_top.draw_arc(c, rr * 0.6, 0, TAU, 24, Color(col.r, col.g, col.b, 0.25 * a), 1.5, true)
@@ -1445,6 +1550,8 @@ func _draw_end() -> void:
 	var s := _size()
 	var k := s.y / 720.0
 	var r := Rect2(s.x * 0.5 - 300 * k, s.y * 0.5 - 170 * k, 600 * k, 340 * k)
+	if _hall != null:  # valaistu halli näkyy: taulu alareunaan
+		r.position.y = s.y - 70 * k - r.size.y
 	MG.box(_top, r, Color(0.05, 0.04, 0.04, 0.94), 18, 10, Color(0.95, 0.8, 0.3), 3)
 	var font := ThemeDB.fallback_font
 	_top.draw_string(font, r.position + Vector2(0, 54 * k), "KESKEN LÄHTÖ" if _early else "VALOT PÄÄLLE", HORIZONTAL_ALIGNMENT_CENTER, r.size.x,

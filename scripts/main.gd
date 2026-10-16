@@ -7769,6 +7769,7 @@ func _start_rasvanappi() -> void:
 	g.drunk = _hand_shake()
 	var mr: Node3D = mopo_trip.vaala.makasiini_root if _in_vaala else world.makasiini_root
 	g.door = mr.get_node_or_null("Takaovi") if mr != null else null
+	g.sun = _sun
 	g.finished.connect(_rasvanappi_result)
 	add_child(g)
 	_rasva_game = g
