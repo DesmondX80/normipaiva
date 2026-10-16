@@ -7767,7 +7767,8 @@ func _start_rasvanappi() -> void:
 		player.velocity = Vector3.ZERO
 	var g := RasvanappiGame.new()
 	g.drunk = _hand_shake()
-	g.town = "VAALA" if _in_vaala else "SALOINEN"
+	var mr: Node3D = mopo_trip.vaala.makasiini_root if _in_vaala else world.makasiini_root
+	g.door = mr.get_node_or_null("Takaovi") if mr != null else null
 	g.finished.connect(_rasvanappi_result)
 	add_child(g)
 	_rasva_game = g

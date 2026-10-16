@@ -163,6 +163,7 @@ var train: Node3D  # aikataulun juna Saloisten radalla (train.gd, ei satunnaisia
 var station_t := 0.0  # laiturin kohta junan reitillä
 var station_plat_door: Vector3  # odotussalin laiturin puoleisen oven edusta
 var makasiini_door := Vector3.ZERO  # aseman takana rapistuneen makasiinin takaoven edusta (rasvanappi, main.gd)
+var makasiini_root: Node3D  # makasiinin juuri: takaovi lapsena "Takaovi" (rasvanappi_game.gd)
 var platform_rect := Rect2()  # laituri maailman x/z:na (junaan noustaan täältä)
 var cache_pos := Vector3.INF  # rahakätkö radan varressa (ratapölkkypino)
 ## Sinikan takapihan nurmikko (tarinan "Sinikan nurmikko, ettei Päivi nää"): pivot, koko, kulma ja leikkurin paikka.
@@ -3396,6 +3397,7 @@ func _build_makasiini(c: Vector3) -> void:
 	add_child(root)
 	_add_house(Vector2(c.x, c.z))
 	Makasiini.build(root)
+	makasiini_root = root
 	makasiini_door = root.position + Makasiini.DOOR
 
 

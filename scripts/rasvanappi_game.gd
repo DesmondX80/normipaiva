@@ -1,6 +1,8 @@
 extends CanvasLayer
 ## Rasvanappi aseman makasiinin takahuoneessa Saloisissa ja Vaalassa (vain aikuisille, makasiini.gd).
-## 1. Takaovella koputetaan, kurkistusluukku aukeaa ja portsari kysyy salasanan (väärä = luukku kiinni).
+## 1. Takaovella koputetaan, kurkistusluukku aukeaa ja portsari kysyy salasanan (väärä = luukku kiinni). Kohtaus on
+##    3D:nä makasiinin oikealla takaovella (makasiini.gd _build_door): kamera oven edessä, portsari eteiskomerossa
+##    luukun takana, oikealla salasanalla ovi aukeaa.
 ## 2. Sisällä pelaajat esittäytyvät pyyhkeissään: kuka kiroilee, kuka kikattaa, kuka niiskuttaa. Muista äänet.
 ## 3. Valot pois, kaikki konttaavat pimeässä (ylhäältä kuvattu halli, näkyy vain käsivarren mitta). Rasvanappi
 ##    hiipii jonkun taakse, tökkää peppuun ja huutaa nimen. Oikein = tökätty nuolee sormen ja on seuraava nappi,
@@ -11,6 +13,15 @@ extends CanvasLayer
 signal finished(r: Dictionary)
 
 const MG := preload("res://scripts/mg_draw.gd")
+const Makasiini := preload("res://scripts/makasiini.gd")
+const Looks := preload("res://scripts/looks.gd")
+const B := preload("res://scripts/build.gd")
+## Portsari luukun takana: musta pusero, siilitukka ja parta, tukeva.
+const BOUNCER := {
+	"shirt": Color(0.07, 0.07, 0.08), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.08, 0.08, 0.08),
+	"hair": "Hair_Buzzed", "hair_color": Color(0.12, 0.09, 0.07), "beard": true, "height": 1.78,
+	"skin": Color(0.95, 0.76, 0.66), "belly": 0.45, "bulk": 0.45, "shoulders": 0.5, "muscle": -0.4,
+}
 
 const ROOM := Vector2(12.0, 7.0)  # halli metreinä, ovi vasemmalla seinällä
 const DOOR_Y := 3.5
@@ -72,7 +83,22 @@ const OBST := [
 ]
 
 var drunk := 0.0
-var town := "SALOINEN"  # kaupunki takaoven graffitissa (main.gd: Vaalassa VAALA)
+var door: Node3D  # makasiinin takaovi (makasiini.gd "Takaovi"), main.gd asettaa ennen add_childia
+
+# 3D-ovikohtaus: kamera, portsari ja valot oven lapsina (_rig), ovilehti, luukun kansi ja lamppu oven omia.
+var _rig: Node3D
+var _cam: Camera3D
+var _zoom := 0.0  # kamera luukulla (0 = oven edessä portailla, 1 = lähellä luukkua)
+var _bouncer: Node3D
+var _leaf: Node3D
+var _cover: Node3D
+var _lamp: OmniLight3D
+var _lamp_e := 2.0
+var _dust: CPUParticles3D
+var _open := 0.0  # ovilehti auki (0..1)
+var _rattle := 0.0  # ovilehden tärinä koputuksesta
+var _flicker := 0.0  # lampun lepatus paukahduksesta
+var _talk_t := 0.0
 
 var _root: Control
 var _top: Control
@@ -182,6 +208,8 @@ void fragment() {
 		npcs[i].pos = starts[i]
 		npcs[i].ang = randf() * TAU
 		npcs[i].goal = npcs[i].ang
+	if door != null:
+		_setup_door()
 
 
 # --- Yleiset ---------------------------------------------------------------------------------------------------
@@ -270,7 +298,7 @@ func _done(got_in: bool) -> void:
 func _update_texts() -> void:
 	match _mode:
 		"luukku":
-			_info.text = "Makasiinin takaovi"
+			_info.text = ""
 			if _answered < 0 and _hatch > 0.9 and _t > 2.4:
 				_keys.set_text("%s valitse   [%s] sano   %s lähde" % [Settings.pair("forward", "back"), Settings.action_key("interact"),
 					Settings.cap("mount")])
@@ -303,20 +331,27 @@ func _update_texts() -> void:
 # --- 1. Kurkistusluukku ------------------------------------------------------------------------------------------
 
 func _luukku_step(delta: float) -> void:
-	_hatch = move_toward(_hatch, _hatch_to, delta * 4.0)
+	var slam: bool = _answered >= 0 and not PASSWORDS[_answered][1] and _hatch_to == 0.0
+	_hatch = move_toward(_hatch, _hatch_to, delta * (14.0 if slam else 3.0))
+	_door_step(delta)
 	for k in [0.15, 0.42, 0.69]:
 		if _t - delta < k and _t >= k:
 			Sfx.play("punch", -6.0, 0.6)
 			_shake = 0.35
+			_rattle = 1.0
 			_knocks.append([_t, Vector2(randf_range(-40, 40), randf_range(-30, 30))])
+			if k > 0.6:
+				_puff_dust()
 	if _t - delta < 1.5 and _t >= 1.5:
 		_hatch_to = 1.0
 		Sfx.play("rattle", -6.0, 0.7)
 	if _t - delta < 1.8 and _t >= 1.8:
 		_bubble = "Mitä?"
+		_talk_t = 0.8
 		Sfx.play("grunt", -8.0, 0.6)
 	if _t - delta < 2.4 and _t >= 2.4:
 		_bubble = "Salasana."
+		_talk_t = 0.8
 	if _answered < 0:
 		if _quit_pressed():
 			_done(false)
@@ -346,11 +381,16 @@ func _luukku_step(delta: float) -> void:
 			Sfx.play("rattle", -5.0, 0.7)
 		if a > 2.4 and a - delta <= 2.4:
 			Sfx.play("rattle_hard", -4.0, 0.8)
-		if a > 3.0 and a - delta <= 3.0:
+		if a > 2.9 and a - delta <= 2.9:
 			Sfx.play("door", -2.0, 0.8)
-		if a > 3.0:
-			_fade = minf(1.0, (a - 3.0) * 1.6)
-		if a > 3.8:
+		if a > 2.9:
+			_open = minf(1.0, (a - 2.9) / 1.1)
+		if a > 3.3 and a - delta <= 3.3:
+			_bubble = "Sisään."
+			_talk_t = 0.8
+		if a > 4.0:
+			_fade = minf(1.0, (a - 4.0) * 1.6)
+		if a > 4.8:
 			_mode = "esittely"
 			_t = 0.0
 			Sfx.play("door_close", -4.0)
@@ -360,6 +400,9 @@ func _luukku_step(delta: float) -> void:
 			_bubble = ""
 			Sfx.play("punch_heavy", -2.0, 0.7)
 			_shake = 1.0
+			_rattle = 1.0
+			_flicker = 1.0
+			_puff_dust()
 		if a > 3.6:
 			_done(false)
 
@@ -370,7 +413,147 @@ func _answer() -> void:
 	var pw: Array = PASSWORDS[_answered]
 	_bubble = pw[2]
 	_eyes = pw[3]
+	_talk_t = 1.6
 	Sfx.play("grunt", -6.0, 0.6 if pw[1] else 0.5)
+
+
+# --- 1b. Ovi 3D:nä -------------------------------------------------------------------------------------------------
+
+## Kamera oven eteen portaiden yläpäähän, portsari eteiskomeroon silmät luukun korkeudelle, valot komeroon ja
+## pölypilvi karmin yläreunaan. Kaikki oven paikallisessa kehyksessä (+Z ulos).
+func _setup_door() -> void:
+	_leaf = door.get_node("Ovi")
+	_cover = door.get_node("Ovi/Luukku")
+	_lamp = door.get_node("Lamppu")
+	_lamp_e = _lamp.light_energy
+	_rig = Node3D.new()
+	door.add_child(_rig)
+	_cam = Camera3D.new()
+	_cam.fov = 50.0
+	_cam.near = 0.03
+	_rig.add_child(_cam)
+	_cam.current = true
+	_bouncer = Looks.make(_rig, BOUNCER)
+	_bouncer.rotation.y = PI  # kasvot ulos (+Z)
+	var head: Vector3 = _bouncer.bone_position("Head")
+	_bouncer.position = Vector3(0, Makasiini.HATCH_Y - head.y - 0.075, -0.25)
+	_bouncer.play("Idle")
+	# Kädet selän takana ristissä oven ollessa kiinni (animaation heilunta ei tuo niitä ovilehden läpi); ovi auki =
+	# vapaat kädet (_door_step).
+	var hip: Vector3 = _bouncer.bone_position("pelvis")
+	for sd in [1.0, -1.0]:
+		var sfx := "_r" if sd > 0.0 else "_l"
+		_bouncer.set_ik("arm" + sfx, "upperarm" + sfx, "lowerarm" + sfx, "hand" + sfx, hip + Vector3(sd * 0.05, 0.02, 0.17),
+			hip + Vector3(sd * 0.45, 0.25, 0.3))
+	var fill := OmniLight3D.new()  # komeron hehkulamppu kasvojen edessä: näkyy vain luukusta
+	fill.light_color = Color(1.0, 0.9, 0.78)
+	fill.light_energy = 0.7
+	fill.omni_range = 0.7
+	fill.position = Vector3(0.06, Makasiini.HATCH_Y + 0.12, -0.03)
+	_rig.add_child(fill)
+	var hall := OmniLight3D.new()  # hallin valo komeron perällä: näkyy, kun ovi aukeaa
+	hall.light_color = Color(1.0, 0.72, 0.45)
+	hall.light_energy = 0.7
+	hall.omni_range = 1.8
+	hall.position = Vector3(0.3, 2.0, -0.35)
+	_rig.add_child(hall)
+	_dust = CPUParticles3D.new()
+	_dust.one_shot = true
+	_dust.emitting = false
+	_dust.amount = 60
+	_dust.lifetime = 1.4
+	_dust.explosiveness = 0.85
+	_dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_dust.emission_box_extents = Vector3(0.55, 0.02, 0.04)
+	_dust.direction = Vector3(0, -1, 0.4)
+	_dust.spread = 35.0
+	_dust.initial_velocity_min = 0.05
+	_dust.initial_velocity_max = 0.25
+	_dust.gravity = Vector3(0, -0.5, 0)
+	_dust.scale_amount_min = 0.5
+	_dust.scale_amount_max = 1.4
+	_dust.mesh = B.sphere(0.004, 4)
+	_dust.material_override = B.mat(Color(0.55, 0.5, 0.44))
+	_dust.position = Vector3(0, Makasiini.HOLE.y - 0.06, 0.1)
+	_rig.add_child(_dust)
+
+
+func _exit_tree() -> void:
+	if door == null or not is_instance_valid(door):
+		return
+	_leaf.rotation.y = 0.0
+	_cover.position.x = -0.5
+	_lamp.light_energy = _lamp_e
+	_rig.queue_free()
+
+
+func _puff_dust() -> void:
+	if _dust != null:
+		_dust.restart()
+
+
+## Ovikohtauksen liike joka ruutu: luukun kansi, ovilehden tärinä ja aukeaminen, kameran tärähdys ja humalan huojunta,
+## lampun lepatus ja portsarin pään liikkeet mielialan mukaan (_eyes).
+func _door_step(delta: float) -> void:
+	if door == null:
+		return
+	_rattle = maxf(0.0, _rattle - delta * 4.0)
+	_flicker = maxf(0.0, _flicker - delta * 1.5)
+	_talk_t = maxf(0.0, _talk_t - delta)
+	var e := _hatch * _hatch * (3.0 - 2.0 * _hatch)
+	_cover.position.x = -0.5 + e * Makasiini.HATCH_TRAVEL
+	var o := _open * _open * (3.0 - 2.0 * _open)
+	if _open > 0.0:
+		_bouncer.clear_ik()
+	_leaf.rotation.y = o * 1.75 + sin(_t * 70.0) * 0.006 * _rattle
+	# Kamera: koputus portailta, luukun auettua lähelle kasvoja, oven auetessa taas taakse.
+	var want := 1.0 if _hatch > 0.5 and _open == 0.0 else 0.0
+	_zoom = move_toward(_zoom, want, delta * 1.3)
+	var z := _zoom * _zoom * (3.0 - 2.0 * _zoom)
+	var eye := Vector3(-0.3, 1.62, 2.6).lerp(Vector3(-0.07, 1.66, 1.0), z)
+	var look := Vector3(0.0, 1.58, 0).lerp(Vector3(0.0, 1.62, 0), z)
+	var sway := Vector3(sin(_t * 0.7), sin(_t * 1.1) * 0.5, 0) * drunk * 0.04
+	var jolt := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.012
+	_cam.transform = Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye).translated_local(sway + jolt + Vector3(0, 0, o * 0.3))
+	var buzz := 0.92 + 0.08 * sin(_t * 23.0) * sin(_t * 3.7)
+	if _flicker > 0.0 and fmod(_t * 17.0, 1.0) < _flicker:
+		buzz = 0.15
+	_lamp.light_energy = _lamp_e * buzz
+	# Portsari: nojaa luukulle, vilkuilee, tuijottaa, säikähtää tai nyökkää.
+	var b: Node = _bouncer
+	b.play("Idle_Talking" if _talk_t > 0.0 else "Idle", 0.3)
+	var lean := -0.12
+	var yaw := 0.0
+	var nod := 0.0
+	match _eyes:
+		"epaily":
+			yaw = sin(_t * 0.9) * 0.3
+			nod = 0.05
+		"viha":
+			lean = -0.17
+			nod = 0.14
+			yaw = sin(_t * 2.3) * 0.04
+		"pelko":
+			lean = 0.18
+			yaw = sin(_t * 9.0) * 0.28
+		"ok":
+			nod = 0.18 * maxf(0.0, sin((_t - _answer_t) * 7.0)) if _t - _answer_t < 1.4 else 0.0
+	b.set_override("spine_01", Vector3.RIGHT, lean * 0.5)
+	b.set_override("spine_03", Vector3.RIGHT, lean * 0.5)
+	b.set_override("neck_01", Vector3.RIGHT, nod)
+	b.set_override("Head", Vector3.UP, yaw)
+
+
+## Luukun aukko ruudulla (puhekuplan ja valikon paikka); ilman ovea ruudun keskeltä.
+func _hatch_rect() -> Rect2:
+	var s := _size()
+	if door == null or _cam == null:
+		return Rect2(s.x * 0.42, s.y * 0.3, s.x * 0.16, s.y * 0.08)
+	var hw := Makasiini.HATCH.x / 2.0
+	var hh := Makasiini.HATCH.y / 2.0
+	var a := _cam.unproject_position(door.to_global(Vector3(-hw, Makasiini.HATCH_Y + hh, 0.06)))
+	var c := _cam.unproject_position(door.to_global(Vector3(hw, Makasiini.HATCH_Y - hh, 0.06)))
+	return Rect2(a, c - a).abs()
 
 
 # --- 2. Esittely ja valot pois ---------------------------------------------------------------------------------
@@ -756,7 +939,8 @@ func _update_dark() -> void:
 func _draw_root() -> void:
 	match _mode:
 		"luukku":
-			_draw_door_scene()
+			if door == null:
+				_root.draw_rect(Rect2(Vector2(-20, -20), _size() + Vector2(40, 40)), Color(0.05, 0.03, 0.03))
 		"esittely":
 			_draw_lineup()
 		"sammutus":
@@ -810,154 +994,20 @@ func _draw_top() -> void:
 
 # --- Ovikohtaus --------------------------------------------------------------------------------------------------
 
-func _door_rect() -> Rect2:
-	var s := _size()
-	return Rect2(s.x * 0.34, s.y * 0.1, s.x * 0.32, s.y * 0.78)
-
-
-func _hatch_rect() -> Rect2:
-	var d := _door_rect()
-	return Rect2(d.position.x + d.size.x * 0.25, d.position.y + d.size.y * 0.2, d.size.x * 0.5, d.size.y * 0.12)
-
-
-func _draw_door_scene() -> void:
-	var ci := _root
-	var s := _size()
-	var k := s.y / 720.0
-	# Seinä: haalistunut punamultalaudoitus, maalia lohkeillut, yö.
-	MG.wood(ci, Rect2(Vector2.ZERO, s), Color(0.3, 0.12, 0.09), 46.0 * k, 7, false)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 11
-	for i in 26:
-		var p := Vector2(rng.randf_range(0, s.x), rng.randf_range(0, s.y * 0.85))
-		var w := rng.randf_range(10, 46) * k
-		ci.draw_rect(Rect2(p, Vector2(w, rng.randf_range(5, 18) * k)), Color(0.36, 0.33, 0.3, 0.55))  # lohkeillut maali
-	# Graffiti vasemmalla ja vanha "EI MYYJIÄ" -lappu.
-	var gf := ThemeDB.fallback_font
-	ci.draw_string(gf, Vector2(s.x * 0.05, s.y * 0.42), "RN", HORIZONTAL_ALIGNMENT_LEFT, -1, int(90 * k), Color(0.2, 0.55, 0.75, 0.55))
-	ci.draw_string(gf, Vector2(s.x * 0.74, s.y * 0.3), town, HORIZONTAL_ALIGNMENT_LEFT, -1, int(40 * k), Color(0.85, 0.85, 0.8, 0.35))
-	var note := Rect2(s.x * 0.69, s.y * 0.42, 120 * k, 70 * k)
-	ci.draw_set_transform(note.get_center(), 0.06, Vector2.ONE)
-	MG.box(ci, Rect2(-note.size / 2.0, note.size), Color(0.88, 0.85, 0.72), 2, 3)
-	ci.draw_string(gf, Vector2(-note.size.x / 2.0, -4 * k), "EI MYYJIÄ", HORIZONTAL_ALIGNMENT_CENTER, note.size.x, int(18 * k), Color(0.15, 0.1, 0.1))
-	ci.draw_string(gf, Vector2(-note.size.x / 2.0, 20 * k), "eikä poliisia", HORIZONTAL_ALIGNMENT_CENTER, note.size.x, int(13 * k), Color(0.3, 0.1, 0.1))
-	ci.draw_circle(Vector2(0, -note.size.y / 2.0 + 6 * k), 3.0 * k, Color(0.7, 0.1, 0.1))
-	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
-	# Punainen lamppu häkissä oven yllä ja sen valo.
-	var d := _door_rect()
-	var bulb := Vector2(d.get_center().x, d.position.y - 34 * k)
-	MG.glow(ci, bulb + Vector2(0, 80 * k), 380 * k, Color(1.0, 0.15, 0.1, 0.5))
-	# Ovenpielet ja ovi.
-	MG.solid(ci, d.grow(14 * k), Color(0.16, 0.16, 0.17))
-	var dc := Color(0.2, 0.28, 0.25)
-	MG.grad_rect(ci, d, dc.lightened(0.1), dc.darkened(0.3))
-	ci.draw_rect(d, MG.OUTLINE, false, 3.0)
-	# Ruoste ja niitit reunoilla.
-	for i in 9:
-		for side in [0.04, 0.96]:
-			var rp := Vector2(d.position.x + d.size.x * side, d.position.y + d.size.y * (0.05 + i * 0.112))
-			ci.draw_line(rp, rp + Vector2(rng.randf_range(-3, 3), rng.randf_range(20, 60) * k), Color(0.45, 0.22, 0.1, 0.5), 3.0 * k)
-			MG.ball(ci, rp, 4.5 * k, Color(0.35, 0.38, 0.36), 0.3)
-	# Potkulevy ja lommot.
-	var kick := Rect2(d.position.x, d.end.y - d.size.y * 0.14, d.size.x, d.size.y * 0.14)
-	MG.solid(ci, kick, Color(0.42, 0.42, 0.4))
-	for j in 3:
-		ci.draw_arc(kick.position + Vector2(kick.size.x * (0.25 + j * 0.25), kick.size.y * 0.5), 12 * k, 0, TAU, 14, Color(0.25, 0.25, 0.24), 2.0)
-	# Kahva ja lukko.
-	var hx := d.end.x - d.size.x * 0.14
-	var hy := d.position.y + d.size.y * 0.55
-	MG.ball(ci, Vector2(hx, hy - 50 * k), 9 * k, Color(0.7, 0.68, 0.6), 0.6)
-	ci.draw_circle(Vector2(hx, hy - 50 * k), 3 * k, Color(0.1, 0.1, 0.1))
-	MG.box(ci, Rect2(hx - 10 * k, hy - 14 * k, 20 * k, 28 * k), Color(0.55, 0.53, 0.48), 4, 2, MG.OUTLINE, 2)
-	ci.draw_line(Vector2(hx, hy), Vector2(hx - 62 * k, hy + 4 * k), Color(0.15, 0.15, 0.15), 15 * k)
-	ci.draw_line(Vector2(hx, hy), Vector2(hx - 62 * k, hy + 4 * k), Color(0.66, 0.64, 0.58), 10 * k)
-	ci.draw_line(Vector2(hx - 2, hy - 3 * k), Vector2(hx - 60 * k, hy + 1 * k), Color(0.9, 0.88, 0.8), 2.0)
-	# Kurkistusluukku: aukko, sisällä silmät, kansi liukuu vasemmalle.
-	var hr := _hatch_rect()
-	ci.draw_rect(hr.grow(6 * k), Color(0.1, 0.1, 0.1))
-	MG.grad_rect(ci, hr, Color(0.12, 0.05, 0.12), Color(0.04, 0.02, 0.05))
-	if _hatch > 0.05:
-		_draw_eyes(ci, hr)
-	var cover := Rect2(hr.position - Vector2(hr.size.x * _hatch, 0), hr.size)
-	MG.solid(ci, cover, Color(0.3, 0.36, 0.33))
-	MG.ball(ci, cover.position + Vector2(cover.size.x - 18 * k, cover.size.y / 2.0), 6 * k, Color(0.6, 0.6, 0.55), 0.6)
-	for x in [0.15, 0.85]:
-		MG.ball(ci, hr.position + Vector2(hr.size.x * x, -12 * k), 4 * k, Color(0.35, 0.38, 0.36), 0.3)
-	# Lamppu ja häkki.
-	MG.ball(ci, bulb, 22 * k, Color(0.95, 0.15, 0.1), 0.7)
-	for a in 5:
-		var x := bulb.x - 24 * k + a * 12 * k
-		ci.draw_line(Vector2(x, bulb.y - 26 * k), Vector2(x, bulb.y + 24 * k), Color(0.1, 0.1, 0.1), 2.5)
-	ci.draw_arc(bulb, 26 * k, PI, TAU, 16, Color(0.1, 0.1, 0.1), 3.0)
-	ci.draw_rect(Rect2(bulb.x - 30 * k, bulb.y - 34 * k, 60 * k, 10 * k), Color(0.12, 0.12, 0.12))
-	# Betoniportaat ja asfaltti, tumpit ja kaljakori.
-	var ground_y := d.end.y + 8 * k
-	MG.grad_rect(ci, Rect2(0, ground_y, s.x, s.y - ground_y), Color(0.16, 0.13, 0.13), Color(0.07, 0.06, 0.06))
-	MG.solid(ci, Rect2(d.position.x - 40 * k, d.end.y, d.size.x + 80 * k, 22 * k), Color(0.45, 0.42, 0.42))
-	MG.solid(ci, Rect2(d.position.x - 80 * k, d.end.y + 22 * k, d.size.x + 160 * k, 30 * k), Color(0.4, 0.37, 0.37))
-	for i in 9:
-		var bp := Vector2(rng.randf_range(s.x * 0.1, s.x * 0.9), rng.randf_range(ground_y + 60 * k, s.y - 10))
-		var ang := rng.randf_range(0, PI)
-		ci.draw_line(bp, bp + Vector2(cos(ang), sin(ang)) * 14 * k, Color(0.9, 0.88, 0.8), 4 * k)
-		ci.draw_line(bp, bp + Vector2(cos(ang), sin(ang)) * 5 * k, Color(0.8, 0.55, 0.25), 4 * k)
-	var crate := Rect2(s.x * 0.06, s.y * 0.7, 190 * k, 120 * k)
-	MG.solid(ci, crate, Color(0.75, 0.6, 0.12))
-	for i in 4:
-		ci.draw_rect(Rect2(crate.position + Vector2(14 + i * 44, 14) * k, Vector2(32, 30) * k), Color(0.25, 0.2, 0.05))
-	ci.draw_rect(Rect2(crate.position + Vector2(50, 66) * k, Vector2(90, 26) * k), Color(0.55, 0.42, 0.08))
-	# Kolkutusäänet.
-	for kn in _knocks:
-		var age: float = _t - kn[0]
-		if age < 0.6:
-			var col := Color(1, 0.95, 0.85, 1.0 - age / 0.6)
-			ci.draw_string(gf, d.get_center() + kn[1] * k + Vector2(-40, -age * 40) * k, "KOP", HORIZONTAL_ALIGNMENT_CENTER, 80 * k, int(34 * k), col)
-
-
-func _draw_eyes(ci: CanvasItem, hr: Rect2) -> void:
-	var k := _size().y / 720.0
-	var c := hr.get_center() + Vector2(0, 6 * k)
-	var skin := Color(0.62, 0.42, 0.36)
-	MG.box(ci, Rect2(c - Vector2(hr.size.x * 0.46, hr.size.y * 0.42), Vector2(hr.size.x * 0.92, hr.size.y * 0.9)), skin, int(20 * k))
-	ci.draw_rect(Rect2(c + Vector2(-9, 4) * k, Vector2(18, hr.size.y * 0.5)), skin.lightened(0.08))  # nenänvarsi
-	var look := Vector2(sin(_t * 0.9) * 0.4, 0.2)
-	var wide := _eyes == "pelko"
-	for ex in [-1.0, 1.0]:
-		var e: Vector2 = c + Vector2(ex * hr.size.x * 0.2, 0)
-		var rx := 24.0 * k
-		var ry := (15.0 if wide else 9.0) * k
-		if _eyes == "ok" and _t - _answer_t > 0.6:
-			ry = 4.0 * k  # siristää hyväksyvästi
-		var pts := PackedVector2Array()
-		for a in 16:
-			var t := a / 16.0 * TAU
-			pts.append(e + Vector2(cos(t) * rx, sin(t) * ry))
-		ci.draw_colored_polygon(pts, Color(0.95, 0.92, 0.88))
-		ci.draw_circle(e + look * rx * 0.5, minf(ry, 8.0 * k), Color(0.28, 0.18, 0.1))
-		ci.draw_circle(e + look * rx * 0.5, minf(ry, 8.0 * k) * 0.5, Color(0.05, 0.03, 0.02))
-		ci.draw_circle(e + look * rx * 0.5 + Vector2(-2, -2) * k, 2.0 * k, Color.WHITE)
-		pts.append(pts[0])
-		ci.draw_polyline(pts, Color(0.2, 0.1, 0.08), 2.0)
-		# Kulmakarvat mielialan mukaan.
-		var tilt := 0.0
-		match _eyes:
-			"viha":
-				tilt = 10.0
-			"epaily":
-				tilt = 6.0 if ex < 0 else -8.0
-			"pelko":
-				tilt = -9.0
-		var b0: Vector2 = e + Vector2(-ex * 26.0, -ry / k - 10.0 + tilt) * k
-		var b1: Vector2 = e + Vector2(ex * 26.0, -ry / k - 12.0 - tilt * 0.4) * k
-		ci.draw_line(b0, b1, Color(0.12, 0.08, 0.06), 9.0 * k)
-	# Arpi kulmassa.
-	ci.draw_line(c + Vector2(hr.size.x * 0.28, -hr.size.y * 0.35), c + Vector2(hr.size.x * 0.24, -hr.size.y * 0.05), Color(0.8, 0.55, 0.5), 3.0 * k)
-
-
 func _draw_door_ui() -> void:
 	var s := _size()
 	var k := s.y / 720.0
 	var hr := _hatch_rect()
-	if _bubble != "" and _hatch > 0.5:
+	var gf := ThemeDB.fallback_font
+	for kn in _knocks:  # koputukset oven keskeltä
+		var age: float = _t - kn[0]
+		if age < 0.6 and door != null:
+			var dc := _cam.unproject_position(door.to_global(Vector3(-0.15, 1.25, 0.1)))
+			_top.draw_string_outline(gf, dc + kn[1] * k + Vector2(-40, -age * 40) * k, "KOP", HORIZONTAL_ALIGNMENT_CENTER, 80 * k,
+				int(38 * k), 8, Color(0, 0, 0, 1.0 - age / 0.6))
+			_top.draw_string(gf, dc + kn[1] * k + Vector2(-40, -age * 40) * k, "KOP", HORIZONTAL_ALIGNMENT_CENTER, 80 * k, int(38 * k),
+				Color(1, 0.95, 0.85, 1.0 - age / 0.6))
+	if _bubble != "" and (_hatch > 0.5 or _open > 0.3):
 		var w := clampf(ThemeDB.fallback_font.get_string_size(_bubble, HORIZONTAL_ALIGNMENT_LEFT, -1, int(24 * k)).x + 40 * k, 160 * k, 560 * k)
 		var r := Rect2(hr.end.x + 30 * k, hr.position.y - 90 * k, w, 60 * k)
 		if r.end.x > s.x - 10:
