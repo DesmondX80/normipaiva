@@ -385,9 +385,9 @@ func _make_meshes() -> void:
 				near = [trunk, top, [Foliage.pine_crown(3), Vector3.ZERO,
 					_mat(card, {"leaf_tex": Foliage.pine_texture(), "color": s.crown, "sway": 0.05}, H, R)]]
 				mid = [[B.cyl(0.1, 0.22, 9.6, 5), Vector3(0, 4.8, 0), trunk_m],
-					[_flat_sphere(1.7, 0.9, 6, 3), Vector3(0.2, 9.1, 0), crown_m],
-					[_flat_sphere(1.3, 0.8, 5, 3), Vector3(-0.8, 8.3, 0.4), crown_m],
-					[_flat_sphere(1.2, 0.7, 5, 3), Vector3(0.7, 8.0, -0.6), crown_m]]
+					[_flat_sphere(1.7, 0.9, 5, 2), Vector3(0.2, 9.1, 0), crown_m],
+					[_flat_sphere(1.3, 0.8, 5, 2), Vector3(-0.8, 8.3, 0.4), crown_m],
+					[_flat_sphere(1.2, 0.7, 5, 2), Vector3(0.7, 8.0, -0.6), crown_m]]
 				far = [[B.cyl(0.1, 0.2, 7.0, 3), Vector3(0, 3.5, 0), trunk_m], [_bipyramid(1.9, 1.3), Vector3(0, 8.9, 0), crown_far]]
 			SPRUCE:
 				var trunk := [B.cyl(0.15, 0.24, 2.2, 6), Vector3(0, 1.1, 0), trunk_m]
@@ -405,9 +405,9 @@ func _make_meshes() -> void:
 				near = [trunk, [Foliage.birch_crown(1 + sp), Vector3.ZERO,
 					_mat(card, {"leaf_tex": Foliage.leaf_texture(), "color": s.crown, "sway": 0.08}, H, R)]]
 				mid = [[B.cyl(0.11, 0.2, 6.0, 5), Vector3(0, 3.0, 0), trunk_m],
-					[_flat_sphere(1.6, 1.6, 6, 3), Vector3(0, 5.9, 0), crown_m],
-					[_flat_sphere(1.3, 1.3, 5, 3), Vector3(0.9, 5.1, 0.35), crown_m],
-					[_flat_sphere(1.25, 1.25, 5, 3), Vector3(-0.75, 6.7, -0.35), crown_m]]
+					[_flat_sphere(1.6, 1.6, 5, 2), Vector3(0, 5.9, 0), crown_m],
+					[_flat_sphere(1.3, 1.3, 5, 2), Vector3(0.9, 5.1, 0.35), crown_m],
+					[_flat_sphere(1.25, 1.25, 5, 2), Vector3(-0.75, 6.7, -0.35), crown_m]]
 				far = [[B.cyl(0.08, 0.18, 4.5, 3), Vector3(0, 2.25, 0), trunk_m], [_bipyramid(1.9, 2.2), Vector3(0, 5.9, 0), crown_far]]
 		_meshes.near.append(_lod(_combine(near), 0.0, NEAR_END))
 		_meshes.mid.append(_lod(_combine(mid), NEAR_END, BUSH_END if sp == BUSH else MID_END))
