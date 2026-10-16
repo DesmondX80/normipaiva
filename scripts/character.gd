@@ -158,9 +158,45 @@ func attach(bone: String, node: Node3D, offset: Vector3) -> BoneAttachment3D:
 	return ba
 
 
+## Kaukana tai piilossa olevat hahmot päivittyvät harvemmin (luuston animaatio ja IK ovat kalliita: kylässä on
+## 130-190 hahmoa): kertynyt aika ajetaan kerralla, joten animaatio ei hidastu. Lähellä joka ruutu.
+const LOD_STEPS := [[35.0, 1], [80.0, 2], [160.0, 4], [INF, 8]]
+static var _cam_frame := -1
+static var _cam_pos := Vector3.INF
+var _pending := 0.0
+var _phase := -1
+
+
+func _lod_interval() -> int:
+	var f := Engine.get_process_frames()
+	if f != _cam_frame:
+		_cam_frame = f
+		var cam := get_viewport().get_camera_3d()
+		_cam_pos = cam.global_position if cam != null else Vector3.INF
+	if _cam_pos == Vector3.INF:
+		return 1
+	var d := global_position.distance_to(_cam_pos)
+	for st in LOD_STEPS:
+		if d < st[0]:
+			return st[1]
+	return 8
+
+
 func _process(delta: float) -> void:
 	if anim == null:
 		return
+	_pending += delta
+	if not is_visible_in_tree():
+		_pending = minf(_pending, 2.0)  # piilossa ei päivitetä; näkyviin tullessa animaatio jatkuu luontevasti
+		return
+	var every := _lod_interval()
+	if every > 1:
+		if _phase < 0:
+			_phase = get_instance_id() % 8
+		if (Engine.get_process_frames() + _phase) % every != 0:
+			return
+	delta = _pending
+	_pending = 0.0
 	# Luut, joilla ei ole animaatioraitaa, eivät nollaudu itsestään: palautetaan lepoon ennen animaatiota.
 	for bone in _overrides:
 		var bi := skeleton.find_bone(bone)

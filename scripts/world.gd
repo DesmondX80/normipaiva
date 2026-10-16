@@ -382,7 +382,7 @@ func _process(_delta: float) -> void:
 
 ## Puunrunkojen törmäys lohkoittain (TRUNK_CELL) pelaajan ympärillä TRUNK_R lohkon säteellä; kauempana ei muotoja.
 const TRUNK_CELL := 64.0
-const TRUNK_R := 2
+const TRUNK_R := 1  # 3 x 3 lohkoa (vähintään 64 m joka suuntaan): pyörällä ja jalan riittää
 var _trunk_grid := {}  # lohko -> rungon keskipisteet (maailma)
 var _trunk_bodies := {}  # lohko -> StaticBody3D
 var _trunk_shape: Shape3D
@@ -4217,7 +4217,8 @@ func _build_trees() -> void:
 	}
 
 	# Rungon törmäysmuoto (yhteinen kaikille): kappaleet lohkoittain pelaajan ympärille (_update_trunks).
-	var shape := CylinderShape3D.new()
+	# Kapseli: sylinteriä selvästi kevyempi törmäystesteissä.
+	var shape := CapsuleShape3D.new()
 	shape.radius = 0.35
 	shape.height = 4.0
 

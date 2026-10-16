@@ -275,7 +275,7 @@ func _update_bodies(c: Vector2i) -> void:
 		if not want.has(k):
 			_bodies[k].queue_free()
 			_bodies.erase(k)
-	var shape := CylinderShape3D.new()
+	var shape := CapsuleShape3D.new()  # sylinteriä kevyempi törmäystesteissä
 	shape.radius = 0.22
 	shape.height = 4.0
 	for k in want:
