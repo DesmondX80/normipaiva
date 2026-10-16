@@ -1,5 +1,10 @@
 # Normipäivä: ohjeet Claudelle
 
+## Skriptien lataus
+
+Ei `class_name`-luokkia: skriptit ladataan `preload`:lla (`const MeshBundle := preload("res://scripts/mesh_bundle.gd")`).
+`class_name` vaatii editorin luokkalistan (`.godot/`, ei gitissä), joten suoraan ajettuna (`godot ./`) peli ei käänny.
+
 ## Minipelien grafiikka
 
 Minipeleihin (CanvasLayer-piirretyt kuten `carb_game.gd`, `saunakorjaus_game.gd`, `ebike_game.gd`,

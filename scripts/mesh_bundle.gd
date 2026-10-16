@@ -1,10 +1,11 @@
-class_name MeshBundle
 extends Resource
 ## Laskettujen meshien levyvälimuisti (user://cache): esim. maastolaatat lasketaan GDScriptillä sekunteja, mutta
 ## valmiin binääriresurssin lataus vie murto-osan. key kertoo, mistä syötteistä meshit on laskettu; jos se ei
 ## täsmää (korkeusmalli, kartta tai laskentatapa muuttui), lasketaan uudelleen.
 
 const DIR := "user://cache"
+## Itse skripti (ei class_namea: projekti lataa skriptit preloadilla, ja class_name vaatii editorin luokkalistan).
+const MeshBundle := preload("res://scripts/mesh_bundle.gd")
 
 @export var key := ""
 @export var meshes: Array[ArrayMesh] = []
