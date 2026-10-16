@@ -314,13 +314,21 @@ static func _lod(am: ArrayMesh, lo: float, hi: float) -> ArrayMesh:
 	return am
 
 
+## Osat yhdeksi meshiksi: samaa materiaalia käyttävät osat samaan pintaan (yksi piirtokutsu materiaalia kohden;
+## keskitason kolme latvuspalloa olivat kolme piirtoa jokaisessa lohkossa ja varjokaskadissa).
 static func _combine(parts: Array) -> ArrayMesh:
 	var am := ArrayMesh.new()
+	var by_mat := {}
+	var order: Array = []
 	for part in parts:
-		var st := SurfaceTool.new()
-		st.append_from(part[0], 0, Transform3D(Basis(), part[1]))
-		st.commit(am)
-		am.surface_set_material(am.get_surface_count() - 1, part[2])
+		if not by_mat.has(part[2]):
+			var st := SurfaceTool.new()
+			by_mat[part[2]] = st
+			order.append(part[2])
+		(by_mat[part[2]] as SurfaceTool).append_from(part[0], 0, Transform3D(Basis(), part[1]))
+	for m in order:
+		(by_mat[m] as SurfaceTool).commit(am)
+		am.surface_set_material(am.get_surface_count() - 1, m)
 	return am
 
 
@@ -339,12 +347,12 @@ static func _bipyramid(r: float, hgt: float) -> ArrayMesh:
 	return st.commit()
 
 
-static func _flat_sphere(r: float, hgt: float, seg := 8) -> SphereMesh:
+static func _flat_sphere(r: float, hgt: float, seg := 8, rings := -1) -> SphereMesh:
 	var s := SphereMesh.new()
 	s.radius = r
 	s.height = hgt * 2.0
 	s.radial_segments = seg
-	s.rings = maxi(3, seg / 2)
+	s.rings = rings if rings > 0 else maxi(3, seg / 2)
 	return s
 
 
@@ -377,9 +385,9 @@ func _make_meshes() -> void:
 				near = [trunk, top, [Foliage.pine_crown(3), Vector3.ZERO,
 					_mat(card, {"leaf_tex": Foliage.pine_texture(), "color": s.crown, "sway": 0.05}, H, R)]]
 				mid = [[B.cyl(0.1, 0.22, 9.6, 5), Vector3(0, 4.8, 0), trunk_m],
-					[_flat_sphere(1.7, 0.9, 7), Vector3(0.2, 9.1, 0), crown_m],
-					[_flat_sphere(1.3, 0.8, 6), Vector3(-0.8, 8.3, 0.4), crown_m],
-					[_flat_sphere(1.2, 0.7, 6), Vector3(0.7, 8.0, -0.6), crown_m]]
+					[_flat_sphere(1.7, 0.9, 6, 3), Vector3(0.2, 9.1, 0), crown_m],
+					[_flat_sphere(1.3, 0.8, 5, 3), Vector3(-0.8, 8.3, 0.4), crown_m],
+					[_flat_sphere(1.2, 0.7, 5, 3), Vector3(0.7, 8.0, -0.6), crown_m]]
 				far = [[B.cyl(0.1, 0.2, 7.0, 3), Vector3(0, 3.5, 0), trunk_m], [_bipyramid(1.9, 1.3), Vector3(0, 8.9, 0), crown_far]]
 			SPRUCE:
 				var trunk := [B.cyl(0.15, 0.24, 2.2, 6), Vector3(0, 1.1, 0), trunk_m]
@@ -397,9 +405,9 @@ func _make_meshes() -> void:
 				near = [trunk, [Foliage.birch_crown(1 + sp), Vector3.ZERO,
 					_mat(card, {"leaf_tex": Foliage.leaf_texture(), "color": s.crown, "sway": 0.08}, H, R)]]
 				mid = [[B.cyl(0.11, 0.2, 6.0, 5), Vector3(0, 3.0, 0), trunk_m],
-					[_flat_sphere(1.6, 1.6, 7), Vector3(0, 5.9, 0), crown_m],
-					[_flat_sphere(1.3, 1.3, 6), Vector3(0.9, 5.1, 0.35), crown_m],
-					[_flat_sphere(1.25, 1.25, 6), Vector3(-0.75, 6.7, -0.35), crown_m]]
+					[_flat_sphere(1.6, 1.6, 6, 3), Vector3(0, 5.9, 0), crown_m],
+					[_flat_sphere(1.3, 1.3, 5, 3), Vector3(0.9, 5.1, 0.35), crown_m],
+					[_flat_sphere(1.25, 1.25, 5, 3), Vector3(-0.75, 6.7, -0.35), crown_m]]
 				far = [[B.cyl(0.08, 0.18, 4.5, 3), Vector3(0, 2.25, 0), trunk_m], [_bipyramid(1.9, 2.2), Vector3(0, 5.9, 0), crown_far]]
 		_meshes.near.append(_lod(_combine(near), 0.0, NEAR_END))
 		_meshes.mid.append(_lod(_combine(mid), NEAR_END, BUSH_END if sp == BUSH else MID_END))

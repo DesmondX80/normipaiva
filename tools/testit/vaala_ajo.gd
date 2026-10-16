@@ -20,6 +20,18 @@ func run() -> void:
 	if "--ajo=runko" in OS.get_cmdline_user_args():
 		await _trunk_test()
 		return
+	if "--ajo=kylakuvat" in OS.get_cmdline_user_args():
+		await _village_shots()
+		return
+	if "--ajo=meshit" in OS.get_cmdline_user_args():
+		_world_meshes()
+		return
+	if "--ajo=metsa" in OS.get_cmdline_user_args():
+		await _forest_probe()
+		return
+	if "--ajo=mittaa" in OS.get_cmdline_user_args():
+		await _measure()
+		return
 	main.mokki.ensure_built()
 	main._start_mopo()
 	trip = main.mopo_trip
@@ -595,3 +607,198 @@ func _trunk_test() -> void:
 	var q := PhysicsRayQueryParameters3D.create(best + Vector3(-3, -0.5, 0), best + Vector3(3, -0.5, 0))
 	var hit := space.intersect_ray(q)
 	print("RUNKO säde osui: %s %s" % [not hit.is_empty(), hit.get("collider")])
+
+
+# --- Ajonaikaiset kustannukset paikoittain ------------------------------------------------------------------------
+
+## Keskimääräinen ruutuaika, skriptien ja fysiikan aika, piirtokutsut, kolmiot ja solmut 180 ruudun ajalta.
+func _sample(name: String) -> void:
+	for i in 60:
+		await get_tree().process_frame
+	var n := 180
+	var acc := {"ms": 0.0, "proc": 0.0, "phys": 0.0, "draw": 0.0, "obj": 0.0, "prim": 0.0}
+	var worst := 0.0
+	var t0 := Time.get_ticks_usec()
+	var last := t0
+	for i in n:
+		await get_tree().process_frame
+		var now := Time.get_ticks_usec()
+		var ms := (now - last) / 1000.0
+		last = now
+		worst = maxf(worst, ms)
+		acc.ms += ms
+		acc.proc += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+		acc.phys += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+		acc.draw += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+		acc.obj += Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)
+		acc.prim += Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)
+	var chars := 0
+	var chars_on := 0
+	for c in get_tree().root.find_children("*", "Node3D", true, false):
+		if c.get_script() != null and (c.get_script() as Script).resource_path.ends_with("character.gd"):
+			chars += 1
+			if c.can_process() and c.is_visible_in_tree():
+				chars_on += 1
+	print("MITTA %-16s fysiikka: aktiivisia %d, pareja %d · hahmoja %d (päivittyy näkyvinä %d)" % [name,
+		Performance.get_monitor(Performance.PHYSICS_3D_ACTIVE_OBJECTS), Performance.get_monitor(Performance.PHYSICS_3D_COLLISION_PAIRS), chars, chars_on])
+	if not "--ei-erittelya" in OS.get_cmdline_user_args():
+		await _attribute(name)
+	print("MITTA %-16s ruutu %5.1f ms (pahin %5.1f) · skriptit %5.2f ms · fysiikka %5.2f ms · piirtoja %5d · objekteja %5d · kolmioita %6.0f k · solmuja %d · muisti %d Mt" % [
+		name, acc.ms / n, worst, acc.proc / n, acc.phys / n, roundi(acc.draw / n), roundi(acc.obj / n), acc.prim / n / 1000.0,
+		Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576])
+
+
+func _measure() -> void:
+	main._note.visible = false
+	var M := preload("res://scripts/map_data.gd")
+	var T := preload("res://scripts/terrain.gd")
+	var pl: Node3D = main.player
+	await _sample("koti")
+	for spot in [["kauppa", M.SHOP_BUILDING + Vector2(0, 30)], ["laavu (metsä)", M.LAAVU + Vector2(10, 10)]]:
+		var w: Vector2 = M.w2(spot[1])
+		pl.global_position = Vector3(w.x, T.h(w.x, w.y) + 0.5, w.y)
+		await _sample(spot[0])
+	main.mokki.ensure_built()
+	main._start_mopo()
+	trip = main.mopo_trip
+	vl = trip.vaala
+	mp = trip.mopo
+	await _sample("mökki (mopo)")
+	var sc: Vector3 = vl.siitari_park
+	mp.position = sc + Vector3(0, 0.6, 0)
+	await _sample("Vaala keskusta")
+	main.clock_min = 21.0 * 60.0
+	mp.position = vl.lava_door + Vector3(0, 0.6, 0) + vl.lava_out * 10.0
+	await _sample("Vaala lava")
+
+
+## Piirtokutsujen ja kolmioiden jakautuma: piilotetaan solmuryhmä kerrallaan ja katsotaan, paljonko lukemat putoavat.
+func _attribute(name: String) -> void:
+	var groups := {}
+	for c in get_tree().root.find_children("*", "GeometryInstance3D", true, false):
+		var gi := c as GeometryInstance3D
+		if not gi.is_visible_in_tree():
+			continue
+		var owner_name := "?"
+		var n: Node = gi
+		while n != null:
+			if n.get_script() != null:
+				owner_name = (n.get_script() as Script).resource_path.get_file()
+				break
+			n = n.get_parent()
+		var kind := gi.get_class()
+		if gi is MultiMeshInstance3D:
+			kind = "MultiMesh"
+		var key := "%s / %s" % [owner_name, kind]
+		if not groups.has(key):
+			groups[key] = []
+		groups[key].append(gi)
+	var base := await _frame_stats()
+	var rows: Array = []
+	for key in groups:
+		for gi in groups[key]:
+			gi.visible = false
+		var st := await _frame_stats()
+		for gi in groups[key]:
+			gi.visible = true
+		rows.append([key, base[0] - st[0], base[1] - st[1], groups[key].size()])
+	rows.sort_custom(func(a, b) -> bool: return a[1] > b[1])
+	for r in rows.slice(0, 10):
+		print("MITTA %-16s   %-40s piirtoja %5d · kolmioita %7.0f k · solmuja %d" % [name, r[0], r[1], r[2] / 1000.0, r[3]])
+	rows.sort_custom(func(a, b) -> bool: return a[2] > b[2])
+	for r in rows.slice(0, 5):
+		print("MITTA %-16s   kolmiot: %-31s %7.0f k" % [name, r[0], r[2] / 1000.0])
+
+
+func _frame_stats() -> Array:
+	for i in 3:
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	return [Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)]
+
+
+
+## Metsän (forest.gd) kolmiot tasoittain mökillä: lähi-, keski- ja kaukotaso sekä varjojen osuus.
+func _forest_probe() -> void:
+	main._note.visible = false
+	main.mokki.ensure_built()
+	main._start_mopo()
+	for i in 90:
+		await get_tree().process_frame
+	var forests := get_tree().root.find_children("*", "Node3D", true, false).filter(func(n: Node) -> bool:
+		return n.get_script() != null and (n.get_script() as Script).resource_path.ends_with("forest.gd"))
+	var groups := {"lähi": [], "keski": [], "kauko": []}
+	var tris := {}
+	for f in forests:
+		for c in f.get_children():
+			if c is MultiMeshInstance3D:
+				var mmi := c as MultiMeshInstance3D
+				var g := "kauko" if mmi.multimesh.mesh in f._meshes.far else ("lähi" if mmi.multimesh.mesh in f._meshes.near else "keski")
+				groups[g].append(mmi)
+	for sp in 5:
+		var f0: Node = forests[0]
+		var t := 0
+		for lvl in ["near", "mid", "far"]:
+			var m: ArrayMesh = f0._meshes[lvl][sp]
+			var n := 0
+			for si in m.get_surface_count():
+				n += m.surface_get_array_index_len(si) / 3 if m.surface_get_array_index_len(si) > 0 else m.surface_get_array_len(si) / 3
+			tris["%d %s" % [sp, lvl]] = n
+	print("METSÄ mallien kolmiot: ", tris)
+	var base := await _frame_stats()
+	print("METSÄ kaikki: piirtoja %d, kolmioita %.0f k" % [base[0], base[1] / 1000.0])
+	for g in groups:
+		var inst := 0
+		for mmi in groups[g]:
+			inst += (mmi as MultiMeshInstance3D).multimesh.instance_count
+			mmi.visible = false
+		var st := await _frame_stats()
+		for mmi in groups[g]:
+			mmi.visible = true
+		print("METSÄ %-6s solmuja %4d, instansseja %6d: piirtoja %5d, kolmioita %7.0f k" % [g, groups[g].size(), inst, base[0] - st[0], (base[1] - st[1]) / 1000.0])
+	for mmi in groups["lähi"]:
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var ns := await _frame_stats()
+	print("METSÄ lähitaso ilman varjoja: piirtoja -%d, kolmioita -%.0f k" % [base[0] - ns[0], (base[1] - ns[1]) / 1000.0])
+
+
+## Kylän (world.gd) erilliset MeshInstance3D-solmut maailman suorien lasten mukaan: mistä rakenteesta niitä tulee.
+func _world_meshes() -> void:
+	var w: Node3D = main.world
+	var rows: Array = []
+	var total := 0
+	var direct := 0
+	for c in w.get_children():
+		if c is MeshInstance3D:
+			direct += 1
+			continue
+		var n := c.find_children("*", "MeshInstance3D", true, false).size()
+		total += n
+		if n > 0:
+			rows.append([n, c.get_class(), str((c as Node3D).global_position.round()) if c is Node3D else "", c.name])
+	rows.sort_custom(func(a, b) -> bool: return a[0] > b[0])
+	print("MESHIT suoraan maailmassa %d, alisolmuissa %d (%d alisolmua)" % [direct, total, rows.size()])
+	for r in rows.slice(0, 25):
+		print("MESHIT %5d  %-14s %-22s %s" % r)
+
+
+## Kiinteät kuvat kylästä (sama kellonaika): rakennusten yhdistämisen ja metsän muutosten vertailuun.
+func _village_shots() -> void:
+	var M := preload("res://scripts/map_data.gd")
+	var T := preload("res://scripts/terrain.gd")
+	main.clock_min = 12.0 * 60.0
+	main._hud.visible = false
+	var cam := Camera3D.new()
+	cam.far = 2000.0
+	main.add_child(cam)
+	var spots := [["koti", M.HOME_BUILDING], ["kauppa", M.SHOP_BUILDING], ["laavu", M.LAAVU], ["kota", M.KOTA]]
+	for sp in spots:
+		var w: Vector2 = M.w2(sp[1])
+		var g := Vector3(w.x, T.h(w.x, w.y), w.y)
+		for v in [[Vector3(18, 9, 22), "a"], [Vector3(-25, 14, -20), "b"]]:
+			cam.look_at_from_position(g + v[0], g + Vector3(0, 1.5, 0))
+			cam.current = true
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(_shot_path("_%s_%s" % [sp[0], v[1]]))

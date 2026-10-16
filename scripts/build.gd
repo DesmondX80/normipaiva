@@ -40,6 +40,17 @@ static func vcol_mat() -> StandardMaterial3D:
 	return _mats["vcol"]
 
 
+## Verteksiväri sRGB:nä (kuten mat(color):n väri): yhdistetyt koristeet näyttävät samalta kuin erillisinä.
+static func vcol_srgb_mat() -> StandardMaterial3D:
+	if not _mats.has("vcol_srgb"):
+		var m := StandardMaterial3D.new()
+		m.vertex_color_use_as_albedo = true
+		m.vertex_color_is_srgb = true
+		m.roughness = 0.85
+		_mats["vcol_srgb"] = m
+	return _mats["vcol_srgb"]
+
+
 static func unshaded(color: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
