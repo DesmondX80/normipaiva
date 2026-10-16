@@ -551,13 +551,22 @@ func ensure_built() -> void:
 	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
 			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_station, _build_signs,
 			_build_trees, _build_lamps, _build_atm, _build_lava, _build_mokki_yard, _build_north, _build_drive_mask,
-			_build_lava_grounds]:
+			_build_lava_grounds, _merge_static_meshes]:
 		var ts := Time.get_ticks_msec()
 		step.call()
 		if Time.get_ticks_msec() - ts > 60:
 			times.append("%s %d" % [step.get_method().trim_prefix("_build_"), Time.get_ticks_msec() - ts])
 	print("VAALA vaiheet (ms): ", ", ".join(times))
 	print("VAALA rakennettu %d ms" % (Time.get_ticks_msec() - t0))
+
+
+## Kylttien, kojujen, aitojen ja pihojen staattiset osat lohkoittain erämesheiksi (B.merge_static): Vaalan
+## keskustassa ~3 400 erillistä meshiä teki 700-900 piirtokutsua.
+func _merge_static_meshes() -> void:
+	if "--ei-yhdistelya" in OS.get_cmdline_user_args():
+		return
+	var r := B.merge_static(self, 150.0)
+	print("VAALA yhdistetty %d meshiä %d erään" % r)
 
 
 func _ground_mat(a: Color, b: Color, scale := 0.04, fine := 0.8, bump := 0.7, rough := 0.95) -> Material:

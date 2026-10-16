@@ -874,86 +874,15 @@ func _commit_batches() -> void:
 	_batches.clear()
 
 
-## Rakennusten ja pihojen staattiset koristeosat (B.mesh-laatikot, -sylinterit ja -pallot tavallisella
-## värimateriaalilla) yhdistetään lohkoittain erämesheiksi: 7 000 erillistä meshiä teki 1 300-1 600 piirtokutsua
-## ruudussa. Ulkopuolelle jäävät osat, joihin jokin skripti viittaa (esim. avattavat ovet, piilotettavat porukat),
-## skriptilliset solmut lapsineen (hahmot, minipelit), liikkuvat kappaleet, näkyvyysetäisyyksin rajatut ja muut kuin
-## perusmateriaalit (läpinäkyvyys, hehku, metallinen, tekstuuri).
-const MERGE_CELL := 150.0
-
-
+## Rakennusten ja pihojen staattiset koristeosat lohkoittain erämesheiksi (B.merge_static): 7 000 erillistä meshiä
+## teki 1 300-1 600 piirtokutsua ruudussa.
 func _merge_static_meshes() -> void:
 	if "--ei-yhdistelya" in OS.get_cmdline_user_args():
 		return
 	var t0 := Time.get_ticks_msec()
-	var refs := {}
-	for n in get_tree().root.find_children("*", "Node", true, false) + [self]:
-		if n.get_script() == null:
-			continue
-		for prop in n.get_property_list():
-			if not (prop.usage & PROPERTY_USAGE_SCRIPT_VARIABLE):
-				continue
-			_collect_refs(n.get(prop.name), refs, 2)
-	var plain := {}  # materiaali -> ok (välimuisti tarkistukselle)
-	var batches := {}
-	var merged: Array[MeshInstance3D] = []
-	for node in find_children("*", "MeshInstance3D", true, false):
-		var mi := node as MeshInstance3D
-		if refs.has(mi) or mi.get_child_count() > 0 or not (mi.mesh is PrimitiveMesh) or not mi.visible:
-			continue
-		if mi.visibility_range_begin > 0.0 or mi.visibility_range_end > 0.0 or mi.mesh.surface_get_material(0) != null:
-			continue
-		var m := mi.material_override as StandardMaterial3D
-		if m == null:
-			continue
-		if not plain.has(m):
-			plain[m] = m.get_class() == "StandardMaterial3D" and m.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED \
-				and not m.emission_enabled and m.metallic == 0.0 and is_equal_approx(m.roughness, 0.85) and m.albedo_texture == null \
-				and m.shading_mode == BaseMaterial3D.SHADING_MODE_PER_PIXEL and not m.vertex_color_use_as_albedo \
-				and m.albedo_color.a >= 1.0 and m.cull_mode == BaseMaterial3D.CULL_BACK
-		if not plain[m]:
-			continue
-		var ok := true
-		var a: Node = mi.get_parent()
-		while a != self:
-			if a == null or refs.has(a) or a.get_script() != null or (a is PhysicsBody3D and not (a is StaticBody3D)) \
-					or (a is Node3D and not (a as Node3D).visible):
-				ok = false
-				break
-			a = a.get_parent()
-		if not ok:
-			continue
-		var xf := global_transform.affine_inverse() * mi.global_transform
-		var key := Vector3i(floori(xf.origin.x / MERGE_CELL), floori(xf.origin.z / MERGE_CELL), mi.cast_shadow)
-		if not batches.has(key):
-			batches[key] = B.Batch.new()
-		(batches[key] as B.Batch).add(mi.mesh, xf, m.albedo_color)
-		merged.append(mi)
-	for key in batches:
-		var out := MeshInstance3D.new()
-		out.mesh = (batches[key] as B.Batch).commit()
-		out.material_override = B.vcol_srgb_mat()
-		out.cast_shadow = key.z
-		out.set_meta("draped", true)
-		add_child(out)
-	for mi in merged:
-		mi.queue_free()
+	var r := B.merge_static(self, 150.0)
 	if "--ajastus" in OS.get_cmdline_user_args():
-		print("AJASTUS yhdistetty %d meshiä %d erään, %d ms" % [merged.size(), batches.size(), Time.get_ticks_msec() - t0])
-
-
-func _collect_refs(v: Variant, refs: Dictionary, depth: int) -> void:
-	if v is Node:
-		refs[v] = true
-	elif depth > 0 and v is Array:
-		for e in v:
-			if e is Node or e is Array or e is Dictionary:
-				_collect_refs(e, refs, depth - 1)
-	elif depth > 0 and v is Dictionary:
-		for k in v:
-			var e: Variant = v[k]
-			if e is Node or e is Array or e is Dictionary:
-				_collect_refs(e, refs, depth - 1)
+		print("AJASTUS yhdistetty %d meshiä %d erään, %d ms" % [r[0], r[1], Time.get_ticks_msec() - t0])
 
 
 # --- Maasto & tiet -----------------------------------------------------------
