@@ -14,6 +14,7 @@ const Makasiini := preload("res://scripts/makasiini.gd")
 const DroneGame := preload("res://scripts/drone_game.gd")
 const HedgeNode := preload("res://scripts/hedge.gd")
 const BasketGame := preload("res://scripts/basket_game.gd")
+const RankkuGame := preload("res://scripts/rankku_game.gd")
 const DRAPE_EDGE := 3.0  # maakerrosten kolmioiden maksimisivu, jotta ne myötäilevät maastoa
 ## Lehvästökorttien näkyvyysraja: tätä kauempana puut piirretään kevyinä perusmuotoina.
 const TREE_NEAR := 210.0
@@ -1511,10 +1512,7 @@ func _build_kentta() -> void:
 		for x in [-2.5, 2.5]:
 			B.mesh(root, B.cyl(0.06, 0.06, 2.0, 8), Vector3(x, 1.0, z), white)
 		B.mesh(root, B.cyl(0.06, 0.06, 5.1, 8), Vector3(0, 2.0, z), white, Vector3(0, 0, 90))
-		var net := B.mesh(root, B.boxm(Vector3(5.0, 2.0, 0.02)), Vector3(0, 1.0, z + side * 1.2), Color(0.9, 0.9, 0.9))
-		net.transparency = 0.6
-		var top := B.mesh(root, B.boxm(Vector3(5.0, 0.02, 1.2)), Vector3(0, 1.98, z + side * 0.6), Color(0.9, 0.9, 0.9))
-		top.transparency = 0.6
+		RankkuGame.build_net(root, z, side, 5.0, 2.0, 1.2)
 		var gb := StaticBody3D.new()
 		gb.position = Vector3(0, 0, z + side * 0.6)
 		gb.add_child(B.box_shape(Vector3(5.2, 2.0, 1.3), Vector3(0, 1.0, 0)))
@@ -2285,7 +2283,7 @@ func _build_honganpalo() -> void:
 		for x in [-1.6, 1.6]:
 			B.mesh(field, B.cyl(0.05, 0.05, 1.6, 8), Vector3(x, 0.8, z), Color(0.95, 0.95, 0.95))
 		B.mesh(field, B.cyl(0.05, 0.05, 3.3, 8), Vector3(0, 1.6, z), Color(0.95, 0.95, 0.95), Vector3(0, 0, 90))
-		B.mesh(field, B.boxm(Vector3(3.2, 1.6, 0.02)), Vector3(0, 0.8, z + side * 0.9), Color(0.9, 0.9, 0.9)).transparency = 0.6
+		RankkuGame.build_net(field, z, side, 3.2, 1.6, 0.9)
 	var sp: Vector3 = field.to_global(Vector3(0, 0, -L / 2.0 + 5.5))
 	hongan_spot = Vector3(sp.x, T.h(sp.x, sp.z), sp.z)
 	hongan_goal = field.global_transform * Transform3D(Basis(), Vector3(0, 0, -L / 2.0))

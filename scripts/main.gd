@@ -26497,6 +26497,94 @@ func _maybe_screenshot() -> void:
 			await kshot.call("loppu")
 			if not saved_k.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_k)
+		"rankkarit_kuvat":
+			# Rankkarit kentällä: laukauksen tähtäys, voimapalkki, lento, maali verkkoon, yli, torjunnan minäkuva ja
+			# heittäytyminen ylä- ja alakulmaan. Kuvat --shot-polun viereen.
+			var rshot := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+			var rwait := func(sec: float) -> void:
+				await get_tree().create_timer(sec).timeout
+			if player != walker_out:
+				_toggle_mount()
+			walker_out.global_position = world.kentta_spot + Vector3(0, 0.5, 0)
+			await rwait.call(0.5)
+			_boys_field = "saloinen"
+			_start_rankku("saloinen")
+			var g: Node = _rankku
+			await rwait.call(2.2)
+			print("RK verkkoja löytyi %d" % g._nets.size())
+			g._t = 0.4
+			await rwait.call(0.3)
+			await rshot.call("tahtays")
+			g._phase = "aim_y"
+			g._t = 1.2
+			g._aim.x = 0.7
+			await rwait.call(0.4)
+			g._phase = "power"
+			g._t = 0.55
+			await rwait.call(0.1)
+			await rshot.call("voima")
+			g._aim = Vector2(0.7, 0.4)
+			g._power = 0.7
+			g._kick()
+			g._keeper_dive = -1
+			await rwait.call(0.3)
+			await rshot.call("vauhti")
+			await rwait.call(0.2)
+			await rshot.call("lento")
+			while g._phase in ["strike", "flight"]:
+				await get_tree().process_frame
+			await rwait.call(0.15)
+			print("RK laukaus 1: maali %s, '%s'" % [g._goal, g._tip.text])
+			await rshot.call("maali")
+			# Toinen laukaus: liian kova yläkulmaan.
+			g._round = 2
+			g._start_round()
+			await rwait.call(0.3)
+			g._aim = Vector2(-0.6, 0.85)
+			g._power = 0.97
+			g._kick()
+			while g._phase in ["strike", "flight"]:
+				await get_tree().process_frame
+			print("RK laukaus 2: yli %s, maali %s, '%s'" % [g._over, g._goal, g._tip.text])
+			await rwait.call(0.3)
+			await rshot.call("yli")
+			# Torjunta: minäkuva, potkija juoksee.
+			g._round = 1
+			g._start_round()
+			g._kick_dir = 1
+			g._kick_high = true
+			await rwait.call(1.4)
+			await rshot.call("torjunta")
+			while g._phase == "runup":
+				await get_tree().process_frame
+			g._keeper_dive = 1
+			g._keeper_high = true
+			g._keeper_u = 0.0
+			await rwait.call(0.25)
+			await rshot.call("heittaytyy_yla")
+			while g._phase == "dive":
+				await get_tree().process_frame
+			print("RK torjunta ylä: '%s'" % g._tip.text)
+			g._round = 3
+			g._start_round()
+			g._kick_dir = -1
+			g._kick_high = false
+			while g._phase == "runup":
+				await get_tree().process_frame
+			g._keeper_dive = -1
+			g._keeper_high = true
+			g._keeper_u = 0.0
+			await rwait.call(0.25)
+			await rshot.call("heittaytyy_vaara")
+			while g._phase == "dive":
+				await get_tree().process_frame
+			await rwait.call(0.1)
+			print("RK torjunta väärä korkeus: '%s'" % g._tip.text)
+			await rshot.call("maali_omaan")
+			get_tree().quit()
+			return
 		"pensasaita":
 			# Pensasaidan leikkuu (3D, minäkuvakulma): rehottava aita ja trimmeri pihalla, sitten pelin vaiheet kuviksi:
 			# alku johto aidan päällä, leikkuu silppuineen, kolo ja Päivi, johto poikki, teippaus, kyljet, valmis ja aita
