@@ -12,6 +12,7 @@ const Looks := preload("res://scripts/looks.gd")
 const StationBuild := preload("res://scripts/station_build.gd")
 const Makasiini := preload("res://scripts/makasiini.gd")
 const DroneGame := preload("res://scripts/drone_game.gd")
+const HedgeNode := preload("res://scripts/hedge.gd")
 const DRAPE_EDGE := 3.0  # maakerrosten kolmioiden maksimisivu, jotta ne myötäilevät maastoa
 ## Lehvästökorttien näkyvyysraja: tätä kauempana puut piirretään kevyinä perusmuotoina.
 const TREE_NEAR := 210.0
@@ -78,6 +79,10 @@ var graph_fast: Array = []  # solmu maantiellä ("road"): liikenne ajaa kovempaa
 var ride := AStar3D.new()
 var neighbor_yards := {}  # "arto" / "pekka" / "sinikka" -> pihan puuhapisteet (ensimmäinen = ulko-ovi)
 var neighbor_faces := {}  # nimi -> suunta, johon puuhapisteessä katsotaan (valinnainen, sama järjestys)
+var hedge_spot := Vector3.ZERO  # pensasaidan leikkuupaikka kotipihalla (trimmerin vieressä, aita edessä)
+var hedge_yaw := 0.0  # katse kohti aitaa
+var home_hedge: Node3D  # hedge.gd
+var hedge_prop: Node3D  # trimmeri aidan vieressä (piilossa leikkuun ajan)
 var drone_pad_pos: Vector3  # droonin laskeutumisalusta kotipihan asfaltilla (ks. main.gd _drone_logic)
 var home_zone: Vector3
 var shop_zone: Vector3
@@ -3077,10 +3082,18 @@ func _build_home() -> void:
 	# Droonin laskeutumisalusta autojen vieressä: tumma kiekko, keltainen H.
 	drone_pad_pos = xf * Vector3(-6.0, 0, fz - 7.0)
 	DroneGame.make_pad(self, drone_pad_pos + Vector3(0, T.h(drone_pad_pos.x, drone_pad_pos.z), 0), body.rotation.y)
-	# Tumma havupensasaita (tuija/kataja) kadun puolella.
-	for seg in [[-l / 2.0, -4.5], [5.0, l / 2.0]]:
-		var hl: float = seg[1] - seg[0]
-		_add_hedge(xf, Vector3((seg[0] + seg[1]) / 2.0, 0.75, fz - 9.0), Vector3(hl, 1.5, 1.0), Color(0.18, 0.34, 0.16))
+	# Tumma tuija-aita kadun puolella: leikattava ja päivä päivältä rehottava (hedge.gd, main.gd _hedge_logic).
+	home_hedge = HedgeNode.new()
+	home_hedge.segs = [[-l / 2.0, -4.5], [5.0, l / 2.0]]
+	home_hedge.zc = fz - 9.0
+	var hc: Vector3 = xf * Vector3(0, 0, fz - 9.0)
+	home_hedge.transform = Transform3D(body.basis, Vector3(body.position.x, T.h(hc.x, hc.z), body.position.z))
+	add_child(home_hedge)
+	# Pensasaidan trimmeri aidan oikeassa päässä pihan puolella (hedge_game.gd).
+	hedge_prop = _hedge_trimmer(body, fz)
+	hedge_spot = xf * Vector3(7.5, 0, fz - 7.6)
+	hedge_spot.y = T.h(hedge_spot.x, hedge_spot.z)
+	hedge_yaw = body.rotation.y
 	for bx in [-0.4, 0.2]:
 		_static_bike(body, Vector3(bx - 1.0, 0, fz - 0.35), 0.15)
 	# Takapihan nurmikko: nurmipinta maahan, ruohon kasvattaa ja leikkaa lawn.gd (yleinen ruoho pois).
@@ -3290,6 +3303,37 @@ func _build_neighbors() -> void:
 	for k in 16:
 		B.mesh(gar, B.boxm(Vector3(0.1, 1.6, 0.03)), Vector3(3.8 + k * 0.14, 0.8, -3.0 + k * 0.0), Color(0.72, 0.6, 0.42))
 	B.mesh(gar, B.boxm(Vector3(2.4, 0.07, 0.05)), Vector3(4.9, 1.2, -3.0), Color(0.62, 0.5, 0.35))
+
+
+## Sähkötrimmeri asfaltilla aidan juurella ja oranssi jatkojohto talon päädyn pistorasiasta (talon kehyksessä).
+func _hedge_trimmer(body_node: Node3D, fz: float) -> Node3D:
+	var body := Node3D.new()
+	body_node.add_child(body)
+	var o := Vector3(7.95, 0, fz - 7.85)
+	var yellow := Color(0.96, 0.7, 0.1)
+	var dark := Color(0.13, 0.13, 0.14)
+	var steel := Color(0.72, 0.74, 0.78)
+	B.mesh(body, B.boxm(Vector3(0.36, 0.07, 0.11)), o + Vector3(0, 0.075, 0), yellow)
+	B.mesh(body, B.boxm(Vector3(0.34, 0.04, 0.1)), o + Vector3(0, 0.025, 0), dark)
+	B.mesh(body, B.boxm(Vector3(0.012, 0.13, 0.17)), o + Vector3(-0.19, 0.07, 0), Color(0.25, 0.27, 0.3))  # käsisuoja
+	B.mesh(body, B.boxm(Vector3(0.56, 0.012, 0.05)), o + Vector3(-0.47, 0.04, 0), steel)  # terä
+	B.mesh(body, B.boxm(Vector3(0.56, 0.016, 0.014)), o + Vector3(-0.47, 0.048, 0), dark)  # selkäkisko
+	for k in 14:
+		for sz in [-1.0, 1.0]:
+			B.mesh(body, B.boxm(Vector3(0.014, 0.01, 0.026)), o + Vector3(-0.73 + k * 0.038, 0.04, sz * 0.035), steel.darkened(0.15))
+	var arch := [Vector3(-0.15, 0.1, 0), Vector3(-0.11, 0.2, 0), Vector3(0.0, 0.2, 0), Vector3(0.04, 0.1, 0)]
+	for k in 3:  # etukahvan kaari
+		B.tube(body, o + arch[k], o + arch[k + 1], 0.014, dark)
+	var rear := [Vector3(0.16, 0.1, 0), Vector3(0.3, 0.12, 0), Vector3(0.32, 0.03, 0), Vector3(0.18, 0.02, 0)]
+	for k in 3:  # takakahva
+		B.tube(body, o + rear[k], o + rear[k + 1], 0.016, dark)
+	B.mesh(body, B.boxm(Vector3(0.03, 0.025, 0.02)), o + Vector3(0.24, 0.1, 0), Color(0.85, 0.15, 0.1))  # liipaisin
+	var cord := [o + Vector3(0.32, 0.02, 0), o + Vector3(0.6, 0.015, 0.4), Vector3(8.85, 0.015, fz - 5.5), Vector3(8.9, 0.015, fz - 2.0),
+		Vector3(9.0, 0.015, fz - 0.25), Vector3(9.0, 0.45, fz - 0.06)]
+	for k in cord.size() - 1:
+		B.tube(body, cord[k], cord[k + 1], 0.009, Color(0.98, 0.5, 0.08))
+	B.mesh(body, B.boxm(Vector3(0.09, 0.12, 0.05)), Vector3(9.0, 0.5, fz - 0.03), Color(0.92, 0.92, 0.9))  # pistorasia
+	return body
 
 
 ## Pensasaita naapurin etupihan reunaan kadun varteen (talon kehyksessä, f = _build_neighbors fit). Ajotien

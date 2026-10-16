@@ -239,6 +239,8 @@ const OmaMopo := preload("res://scripts/oma_mopo.gd")
 const MopoKickGame := preload("res://scripts/mopo_kick_game.gd")
 const KirppisInterior := preload("res://scripts/kirppis_interior.gd")
 const AuctionGame := preload("res://scripts/auction_game.gd")
+## Kadun puolen pensasaidan leikkuu sähkötrimmerillä minäkuvakulmasta (hedge_game.gd), Päivi vahtii narun kanssa.
+const HedgeGame := preload("res://scripts/hedge_game.gd")
 const TanssiGame := preload("res://scripts/tanssi_game.gd")
 const BingoGame := preload("res://scripts/bingo_game.gd")
 const Tokola := preload("res://scripts/tokola.gd")
@@ -632,6 +634,15 @@ const LAWN_NAG_PAIVI := ["Se nurmikko ei leikkaa itseään!", "Takapiha näyttä
 const LAWN_NAG_ANNALIISA := ["Anna-Liisa sano aidan takaa, että meillä on kohta ihan heinäpelto!",
 	"Anna-Liisan mukaan siilit on muuttanu meidän nurmikolle asumaan.",
 	"Anna-Liisa muisti taas mainita, että niillä leikataan nurmikko joka lauantai."]
+## Pensasaita (hedge_game.gd): rehottaa narun yli HEDGE_GROW m päivässä. Siisti leikkuu ilman koloja tuo aamulla
+## ylimääräistä, rehottava aita tuo lappuun motkotuksen (ja tehtävän idean, quests.gd "pensasaita").
+const HEDGE_GROW := 0.05
+const HEDGE_NEED := 0.08  # tätä vähemmän rehottava aita on vielä siisti
+const HEDGE_NAG := 0.2
+const HEDGE_BONUS := 5.0
+const HEDGE_NAG_PAIVI := ["Se pensasaita rehottaa jo kadulle. Trimmeri on aidan päässä, mää vedin narun valmiiks.",
+	"Anna-Liisa kysy, onko meillä viidakko. Leikkaa se pensasaita! Trimmeri on aidan päässä.",
+	"Kadun puolen aita näyttää ihan karvalakilta. Naru on valmiina, trimmeri aidan vieressä."]
 ## Pannu-Sulon pontikkakanisteri metsästä: vastaa kotijemmassa 24 kaljaa. Yksi kanisteri päivässä.
 const KANISTER_BEERS := 24
 const KANISTER_PRICE := 20.0
@@ -878,6 +889,10 @@ var mower_broken := false
 var has_mower_part := false
 var _lawn_praise := false  # nurmikko leikattu: aamulla ylimääräistä rahaa
 var _lawn_done_today := false
+var hedge_nagged := false  # Päivi on motkottanut aidasta (tehtävä tiedossa)
+var _hedge_praise := false
+var _hedge_done_today := false
+var _hedge_game: Node = null
 var mokki: Node3D
 var _santtu_chat_t := 6.0
 ## Santun hommat (santun_hommat.gd): päivän hommat, hermot ja arvostelut.
@@ -1128,7 +1143,7 @@ func _ready() -> void:
 		_save_game()
 	if Settings.renderer_auto_saved:
 		_morning_info.append("Yhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä (vaihda Asetuksista).")
-	jemma_note = bike_note + jemma_note + _lawn_nag()
+	jemma_note = bike_note + jemma_note + _lawn_nag() + _hedge_nag()
 	_roll_list()
 	_day_note(MORNING_HEAD.koti.pick_random(), jemma_note)
 	_flush_morning_info()
@@ -1562,6 +1577,7 @@ func _outside_logic() -> void:
 
 	_juntti_roam()
 	_lawn_logic()
+	_hedge_logic()
 	_ebike_logic()
 	_kirppis_logic()
 	_tokola_logic()
@@ -5285,6 +5301,8 @@ func quest_flag(name: String) -> bool:
 			return kertun.choice != ""
 		"pontikka_found":
 			return pontikka_found
+		"pensas_nag":
+			return hedge_nagged
 		"drone_all":
 			return _drone_photo_count(DRONE_POIS) >= DRONE_POIS.size()
 		"ebike_started":
@@ -6498,6 +6516,70 @@ func _lawn_nag() -> String:
 	if avg >= 0.5:
 		s += "\n" + LAWN_NAG_ANNALIISA.pick_random()
 	return s
+
+
+## Aamun motkotus rehottavasta pensasaidasta. Lappu kertoo samalla, missä trimmeri ja naru on.
+func _hedge_nag() -> String:
+	if world.home_hedge.overgrowth() < HEDGE_NAG:
+		return ""
+	hedge_nagged = true
+	return "\n" + HEDGE_NAG_PAIVI.pick_random()
+
+
+## Pensasaita kadun puolella: trimmerin luona E aloittaa leikkuun (hedge_game.gd).
+func _hedge_logic() -> void:
+	if _hedge_game != null or mowing or _hint.text != "" or player != walker_out or player.is_stunned():
+		return
+	var p := player.global_position
+	var hp: Vector3 = world.hedge_spot
+	if Vector2(p.x - hp.x, p.z - hp.z).length() > 1.4:
+		return
+	var over: float = world.home_hedge.overgrowth()
+	if over < HEDGE_NEED or _hedge_done_today:
+		_hint.text = "Pensasaita on narun tasalla. Trimmeri saa levätä."
+		return
+	_hint.text = "[E] Leikkaa pensasaita trimmerillä (rehottaa %d cm narun yli)" % roundi(over * 100.0)
+	if Input.is_action_just_pressed("interact"):
+		_start_hedge()
+
+
+func _start_hedge() -> void:
+	walker_out.controls_enabled = false
+	walker_out.velocity = Vector3.ZERO
+	walker_out.global_position = world.hedge_spot + Vector3(0, 0.3, 0)
+	walker_out.rotation.y = world.hedge_yaw
+	walker_out.visible = false  # minäkuvakulma: oma hahmo ei näy
+	world.hedge_prop.visible = false  # trimmeri on käsissä
+	_hud.visible = false
+	var g := HedgeGame.new()
+	g.hedge = world.home_hedge
+	g.start_x = 7.5
+	g.drunk = _hand_shake()
+	_hedge_game = g
+	g.finished.connect(func(result: String) -> void:
+		_hedge_game = null
+		walker_out.controls_enabled = true
+		walker_out.visible = true
+		world.hedge_prop.visible = true
+		_hud.visible = true
+		tilat.add("vasymys", -0.04)  # trimmeri painaa käsissä
+		if result != "ok":
+			tilat.add("stressi", -0.05)
+			_show_message("Pensasaita jäi kesken. Päivi huomaa sen kyllä.", 2.5)
+			return
+		_hedge_done_today = true
+		tilat.first("pensasaita", 0.4)
+		if g.holes == 0:
+			_hedge_praise = true
+			_task_done(true)
+			Sfx.play("win_small")
+			_show_message("Pensasaita leikattu narun tasalle! Päivi on tyytyväinen.\nHuomenna tulee %s € ylimääräistä kauppaan." % _eur(HEDGE_BONUS), 4.0)
+		else:
+			tilat.add("moraali", 0.1)
+			tilat.add("stressi", -0.05)
+			_show_message("Pensasaita leikattu, mutta koloja jäi %d. Päivi ei anna ylimääräistä." % g.holes, 3.5)
+		_save_game())
+	world.home_hedge.add_child(g)
 
 
 ## Joka toinen päivä pojat jommallakummalla kentällä vuorotellen: Saloisten kenttä ja Honganpalon kenttä. Kentän
@@ -13234,6 +13316,9 @@ func _load_game() -> void:
 	tikka_ennatys = cfg.get_value("mokki", "tikka_ennatys", 0)
 	hommat.reviews = cfg.get_value("mokki", "arvostelut", [])
 	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
+	world.home_hedge.load_state(cfg.get_value("pensasaita", "aita", {}))
+	hedge_nagged = cfg.get_value("pensasaita", "motkotettu", false)
+	_hedge_praise = cfg.get_value("pensasaita", "kehu", false)
 	tilat.load_from(cfg)
 	story.load_from(cfg)
 	ebike.load_from(cfg)
@@ -13332,6 +13417,10 @@ func _save_game() -> void:
 	if hommat != null:
 		cfg.set_value("mokki", "arvostelut", hommat.reviews)
 	cfg.set_value("nurmikko", "kehu", _lawn_praise)
+	if world != null and world.home_hedge != null:
+		cfg.set_value("pensasaita", "aita", world.home_hedge.save_state())
+	cfg.set_value("pensasaita", "motkotettu", hedge_nagged)
+	cfg.set_value("pensasaita", "kehu", _hedge_praise)
 	if tilat != null:
 		tilat.save_to(cfg)
 	if story != null:
@@ -13607,8 +13696,14 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	lawn.grow()
 	lawn.park_mower()
 	lawn.spawn_objects()
+	if _hedge_praise:
+		_hedge_praise = false
+		money += HEDGE_BONUS
+		bonus += "\nPensasaita on suora ku viivotin! Tässä %s € ylimääräistä." % _eur(HEDGE_BONUS)
+	_hedge_done_today = false
+	world.home_hedge.grow(HEDGE_GROW)
 	if not at_m:
-		bonus += _lawn_nag()
+		bonus += _lawn_nag() + _hedge_nag()
 	wife_alerted = false
 	police = null
 	vaino = null  # karkuri palaa yöksi itse kotiin
@@ -25808,6 +25903,149 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"pensasaita":
+			# Pensasaidan leikkuu (3D, minäkuvakulma): rehottava aita ja trimmeri pihalla, sitten pelin vaiheet kuviksi:
+			# alku johto aidan päällä, leikkuu silppuineen, kolo ja Päivi, johto poikki, teippaus, kyljet, valmis ja aita
+			# leikattuna pelimaailmassa. Tallennus palautetaan.
+			var saved_h := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var hshot := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+			var hframes := func(n: int) -> void:
+				for i in n:
+					await get_tree().process_frame
+			if player != walker_out:
+				_toggle_mount()
+			_hud.visible = false
+			var hh: Node3D = world.home_hedge
+			hh.grow(0.1)
+			_hedge_done_today = false
+			var fwd := Vector3(-sin(world.hedge_yaw), 0, -cos(world.hedge_yaw))
+			walker_out.global_position = world.hedge_spot - fwd * 3.0 + Vector3(0, 0.3, 0)
+			walker_out.rotation.y = world.hedge_yaw
+			walker_out.velocity = Vector3.ZERO
+			await hframes.call(60)
+			await hshot.call("piha")
+			_hud.visible = true
+			walker_out.global_position = world.hedge_spot + Vector3(0, 0.3, 0)
+			await hframes.call(5)
+			print("PENSAS vihje '%s', rehotus %.2f" % [_hint.text, hh.overgrowth()])
+			Input.action_press("interact")
+			await hframes.call(2)
+			Input.action_release("interact")
+			await hframes.call(10)
+			var g: Node = _hedge_game
+			print("PENSAS peli auki %s" % [g != null])
+			if g == null:
+				get_tree().quit()
+				return
+			var aim := func(y: float) -> float:  # katseen kulma, jolla terä on korkeudella y
+				return atan((y - g.EYE) / g.STAND)
+			g._pitch = aim.call(1.75)
+			await hframes.call(10)
+			await hshot.call("alku")
+			# Johto aidan päällä: oikea nappi nostaa sen pois.
+			g._x = g._cord_x + 0.3
+			g._pitch = aim.call(hh.top_at(g._cord_x) + 0.1)
+			await hframes.call(6)
+			await hshot.call("johto")
+			g._x = g._cord_x
+			g._pitch = aim.call(hh.top_at(g._cord_x))
+			await hframes.call(3)
+			g._lift_cord()
+			await hframes.call(3)
+			print("PENSAS johto nostettu pois: %s, Päivi '%s'" % [not g._cord_on, g._bubble.text])
+			await hshot.call("johto_pois")
+			# Kaksi vetoa: ensin pala latvasta, sitten narun tasalle; kävellään ja heilutetaan terää sivulta sivulle.
+			for pass_y in [1.74, 1.62, 1.52]:
+				g._lmb = true
+				for f in 110:
+					g._x = 8.6 - f * 0.03
+					g._yaw = sin(f * 0.25) * 0.5
+					g._pitch = aim.call(pass_y)
+					await get_tree().process_frame
+					if pass_y > 1.7 and f == 60:
+						print("PENSAS silppua %d, lätsähdyksiä %d, fps %d" % [g._chip_data.size(), g._splat_data.size(), Engine.get_frames_per_second()])
+						await hshot.call("leikkuu")
+			g._lmb = false
+			g._yaw = 0.0
+			g._x = 6.2
+			g._pitch = aim.call(1.6)
+			await hframes.call(10)
+			print("PENSAS tasalla %.2f, fps %d" % [hh.level_share(), Engine.get_frames_per_second()])
+			await hshot.call("leikattu")
+			# Kolo: terä narun alle, ja Päivi ajotien aukossa osoittaa.
+			g._lmb = true
+			g._x = 6.4
+			for f in 14:
+				g._pitch = aim.call(1.38)
+				await get_tree().process_frame
+			g._lmb = false
+			g._yaw = 0.75
+			g._pitch = aim.call(1.3)
+			await hframes.call(8)
+			print("PENSAS koloja %d, Päivi '%s'" % [g.holes, g._bubble.text])
+			await hshot.call("kolo")
+			# Johto takaisin aidan päälle ja terä siihen.
+			g._cord_on = true
+			g._cord_path(false)
+			g._yaw = 0.0
+			g._x = g._cord_x - 0.04
+			g._lmb = true
+			for f in 30:
+				g._pitch = aim.call(hh.top_at(g._cord_x) - 0.03)
+				await get_tree().process_frame
+				if g._phase == "johto":
+					break
+			g._lmb = false
+			await hframes.call(5)
+			print("PENSAS vaihe %s, Päivi '%s'" % [g._phase, g._bubble.text])
+			await hshot.call("johto_poikki")
+			Input.action_press("interact")
+			await get_tree().create_timer(0.9).timeout
+			await hshot.call("teippaus")
+			await get_tree().create_timer(1.0).timeout
+			Input.action_release("interact")
+			await hframes.call(3)
+			print("PENSAS teipattu: vaihe %s, johto aidalla %s" % [g._phase, g._cord_on])
+			# Latva valmiiksi koko aidalta, kylkiversot jäljellä.
+			for i in hh.tops.size():
+				if hh.tops[i] > 1.52:
+					hh.tops[i] = 1.51
+					hh.state[i] = 1
+			for sh in hh.shoots:
+				sh[1] = minf(sh[1], 1.51)
+			hh.grow(0.0)
+			var side: Array = hh.sides[0]
+			g._x = side[0] + 0.5
+			g._yaw = 0.3
+			g._pitch = aim.call(side[1]) - 0.15
+			await hframes.call(6)
+			print("PENSAS kyljet %d" % hh.sides_left())
+			await hshot.call("kyljet")
+			g._yaw = 0.0
+			g._lmb = true
+			for sd in hh.sides:
+				g._x = sd[0] - 0.04
+				for f in 3:
+					g._pitch = aim.call(sd[1])
+					await get_tree().process_frame
+			g._lmb = true
+			g._pitch = aim.call(1.51)
+			await hframes.call(3)
+			g._lmb = false
+			await hframes.call(20)
+			print("PENSAS vaihe %s, kyljet %d, latva ok %s, tasalla %.2f, koloja %d, Päivi '%s'" % [g._phase, hh.sides_left(),
+				hh.shoots_ok(), hh.level_share(), g.holes, g._bubble.text])
+			await hshot.call("valmis")
+			await get_tree().create_timer(3.6).timeout
+			print("PENSAS loppu: peli %s, rehotus %.2f, kehu %s, viesti '%s'" % [_hedge_game, hh.overgrowth(), _hedge_praise, _msg.text.replace("\n", " | ")])
+			_hud.visible = false
+			walker_out.global_position = world.hedge_spot - fwd * 3.0 + Vector3(0, 0.3, 0)
+			await hframes.call(30)
+			await hshot.call("loppu")
+			if not saved_h.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_h)
 		"lawnday":
 			# Kasvu, kehu ja motkotus aamulla, varaosa Artolta ja korjaus kaljalla. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
