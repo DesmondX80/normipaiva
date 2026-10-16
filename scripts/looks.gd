@@ -248,7 +248,7 @@ static func add_army_uniform(c: Node3D) -> void:
 		B.mesh(chest, B.cyl(0.007, 0.007, 0.006, 8), Vector3(s * 0.085, 0.04, -0.011), brass, Vector3(90, 0, 0))
 	for k in 3:  # kauluksen napitus
 		B.mesh(chest, B.cyl(0.006, 0.006, 0.006, 8), Vector3(0, 0.1 - k * 0.05, -0.006), brass, Vector3(90, 0, 0))
-	c.attach("spine_03", chest, Vector3(0, 0.02, -0.15))
+	c.attach("spine_03", chest, Vector3(0, 0.1, -0.16))  # taskut rinnan korkeudelle
 	var belt := Node3D.new()
 	var band := MeshInstance3D.new()
 	var bt := TorusMesh.new()
@@ -258,11 +258,12 @@ static func add_army_uniform(c: Node3D) -> void:
 	bt.ring_segments = 4
 	band.mesh = bt
 	band.material_override = B.mat(leather)
-	band.scale = Vector3(1.0, 1.6, 0.85)
+	band.scale = Vector3(1.0, 1.6, 1.0)  # selän puolelle asti (pyöreä tukeva vartalo)
+	band.rotation.x = -0.22  # selän puoli ylemmäs (ryhti kallistaa lantiota)
 	belt.add_child(band)
-	B.mesh(belt, B.boxm(Vector3(0.07, 0.05, 0.01)), Vector3(0, 0, -0.195), brass)  # solki
-	B.mesh(belt, B.boxm(Vector3(0.05, 0.03, 0.012)), Vector3(0, 0, -0.198), brass.darkened(0.25))
-	c.attach("spine_01", belt, Vector3(0, -0.04, -0.01))
+	B.mesh(belt, B.boxm(Vector3(0.07, 0.05, 0.01)), Vector3(0, 0, -0.228), brass)  # solki
+	B.mesh(belt, B.boxm(Vector3(0.05, 0.03, 0.012)), Vector3(0, 0, -0.231), brass.darkened(0.25))
+	c.attach("spine_01", belt, Vector3(0, -0.04, 0.0))
 	# Punainen käsivarsinauha vasempaan olkavarteen, nauhassa valkoinen pyöreä laatta olkavarren ulkosivulla.
 	# Lepoasennossa (T) vasen käsi osoittaa -X:ään: nauhan akseli X:n suuntaan, ulkosivu (+Y) kääntyy käden
 	# laskiessa sivulle.
