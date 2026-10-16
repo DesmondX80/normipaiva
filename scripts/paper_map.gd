@@ -785,8 +785,8 @@ func _draw_map() -> void:
 	if player != null:
 		var f := -player.global_transform.basis.z
 		_you_icon_on(v, _w2(Vector2(player.global_position.x, player.global_position.z)), atan2(f.z, f.x) + PI / 2.0)
-	_draw_road_hover(v)
 	_mask_outside(v)
+	_draw_road_hover(v)  # viimeisenä: kartan reunan paperi ei peitä nimeä
 
 
 ## Kartta-alueen ulkopuoli paperiksi (OSM-aineisto jatkuu pelialueen yli) ja alueen reunaviiva, kun kartta on
@@ -1292,8 +1292,14 @@ func _draw_road_hover(v: Control) -> void:
 		return
 	var font := ThemeDB.fallback_font
 	var w := font.get_string_size(_hover_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+	# Nimi kursorin oikealle yläpuolelle; jos tila loppuu reunassa, vasemmalle tai alapuolelle. Aina kokonaan kartan sisällä.
 	var at := _hover_px + Vector2(12, -10)
-	at.x = minf(at.x, v.size.x - w - 12)
+	if at.x + w + 8 > v.size.x:
+		at.x = _hover_px.x - 12 - w
+	if at.y - 16 < 0.0:
+		at.y = _hover_px.y + 26
+	at.x = clampf(at.x, 7.0, maxf(7.0, v.size.x - w - 7.0))
+	at.y = clampf(at.y, 16.0, v.size.y - 7.0)
 	v.draw_rect(Rect2(at - Vector2(5, 14), Vector2(w + 10, 19)), Color(0.98, 0.95, 0.85, 0.95))
 	v.draw_rect(Rect2(at - Vector2(5, 14), Vector2(w + 10, 19)), Color(0.35, 0.18, 0.08), false, 1.0)
 	v.draw_string(font, at, _hover_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.35, 0.18, 0.08))

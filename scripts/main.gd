@@ -22649,6 +22649,14 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("HIIRI naapurin päällä: '%s'" % _paper._hover_name)
 			await qshot.call("naapuri")
+			for cn in [["reuna_oikea", Vector2(_paper._view.size.x - 3, 300)], ["reuna_ylä", Vector2(400, 3)]]:
+				hv.position = cn[1] + _paper._view.position
+				_paper._gui_input(hv)
+				_paper._hover_name = "Oravajärven uimaranta"
+				_paper._view.queue_redraw()
+				for i in 3:
+					await get_tree().process_frame
+				await qshot.call(cn[0])
 			await qshot.call("hiiri")
 			_paper.toggle()
 			for i in 5:
