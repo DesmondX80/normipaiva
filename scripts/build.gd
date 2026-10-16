@@ -550,16 +550,18 @@ static func merge_static(root: Node3D, cell: float) -> Array:
 
 
 static func _collect_refs(v: Variant, refs: Dictionary, depth: int) -> void:
+	if typeof(v) == TYPE_OBJECT and not is_instance_valid(v):
+		return  # muuttujassa vanha viittaus jo vapautettuun olioon
 	if v is Node:
 		refs[v] = true
 	elif depth > 0 and v is Array:
 		for e in v:
-			if e is Node or e is Array or e is Dictionary:
+			if typeof(e) == TYPE_OBJECT or e is Array or e is Dictionary:
 				_collect_refs(e, refs, depth - 1)
 	elif depth > 0 and v is Dictionary:
 		for k in v:
 			var e: Variant = v[k]
-			if e is Node or e is Array or e is Dictionary:
+			if typeof(e) == TYPE_OBJECT or e is Array or e is Dictionary:
 				_collect_refs(e, refs, depth - 1)
 
 ## Kerää monta primitiiviä yhdeksi verteksivärilliseksi meshiksi (vähemmän piirtokutsuja).

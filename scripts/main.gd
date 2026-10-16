@@ -1035,12 +1035,7 @@ func _ready() -> void:
 	add_child(varasto_int)
 	varasto_int.exited.connect(_on_varasto_exited)
 	varasto_int.acted.connect(_on_varasto_acted)
-	raahe_int = RaaheInterior.new()
-	raahe_int.position = RAAHE_INT_POS
-	add_child(raahe_int)
-	raahe_int.exited.connect(_on_raahe_exited)
-	raahe_int.acted.connect(_on_raahe_acted)
-	raahe_int.paivi_caught.connect(_on_raahe_paivi_caught)
+	_ensure_raahe()
 	fight = Fight.new()
 	_ajastus("sisätilat")
 	fight.position = Vector3(-3000, 0, 0)
@@ -1228,6 +1223,7 @@ func _process(delta: float) -> void:
 	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
 	_night_tick(delta)
 	_train_update()
+	_unload_far_places(delta)
 	_rhythm_t -= delta
 	if _rhythm_t <= 0.0:
 		_rhythm_t = DAY_RHYTHM_STEP
@@ -8194,6 +8190,7 @@ func _enter_raahe() -> void:
 		"paivi_t": randf_range(40.0, 90.0) if randf() < 0.5 else -1.0}
 	tilat.first("raahe", 0.5)
 	_own_drink_warned = false
+	_ensure_raahe()
 	raahe_int.enter()
 	_show_message("Kapteenin Kulma, Kirkkokatu 32, Raahe. Kellarissa karaoke, tiistaisin visa ja Tero odottaa kädenvääntöä.", 4.0)
 
@@ -10535,6 +10532,47 @@ func _mount_mopo() -> void:
 
 ## Mopomatkan maailma (vaala.gd, ~1,2 s) valmiiksi, kun mökille saavutaan ruudun ollessa pimeänä: selkään noustessa
 ## matka alkaa heti ilman latausta.
+## Raahen baari (raahe_interior.gd): vapautetaan Vaalassa ja mökillä (_unload_far_places), luodaan tarvittaessa.
+func _ensure_raahe() -> void:
+	if raahe_int != null:
+		return
+	raahe_int = RaaheInterior.new()
+	raahe_int.position = RAAHE_INT_POS
+	add_child(raahe_int)
+	raahe_int.exited.connect(_on_raahe_exited)
+	raahe_int.acted.connect(_on_raahe_acted)
+	raahe_int.paivi_caught.connect(_on_raahe_paivi_caught)
+
+
+## Kaukaiset paikat pois muistista: Vaalan maailma (noin 100 Mt ja 12 000 oliota) kun on oltu Saloisissa hetki
+## (mopomatka alkaa mökiltä, junalla tullessa se rakennetaan uudelleen välimuistista), ja Raahen baari, kun ollaan
+## Vaalassa tai mökillä (taksi Raaheen lähtee Saloisista).
+const UNLOAD_AFTER := 10.0  # s Saloisissa ennen Vaalan vapautusta (ei heti junalta tai kuolemasta)
+var _vaala_away_t := 0.0
+const SALOINEN_STATES := ["to_shop", "to_home", "in_home", "in_shop", "in_garage", "in_kirppis", "in_varasto", "in_raahe"]
+
+
+func _unload_far_places(delta: float) -> void:
+	var in_saloinen := not _in_vaala and not _at_mokki() and state in SALOINEN_STATES and _lava_game == null
+	if (_in_vaala or _at_mokki()) and raahe_int != null and state != "in_raahe":
+		raahe_int.queue_free()
+		raahe_int = null
+	if mopo_trip == null or not in_saloinen:
+		_vaala_away_t = 0.0
+		return
+	_vaala_away_t += delta
+	if _vaala_away_t < UNLOAD_AFTER:
+		return
+	_vaala_away_t = 0.0
+	# Vaalan lapsina olevat apuoliot lähtevät mukana: viittaukset pois.
+	_portsari = null
+	_ratsia = null
+	_race = null
+	_paper.mopo_trip = null
+	mopo_trip.queue_free()
+	mopo_trip = null
+
+
 func _ensure_mopo_trip() -> void:
 	if mopo_trip == null:
 		mopo_trip = MopoTrip.new()
@@ -11015,12 +11053,50 @@ func _on_mopo_killed(cause := "car") -> void:
 	if walking:
 		walker_out.controls_enabled = false
 		mopo_trip.on_foot = null
+	var reason := "Jäit %s alle %s (%s)." % ["junan" if cause == "train" else "auton", "jalan" if walking else "mopolla", road_name]
+	if state == "cutscene" or trailer_safe:
+		return
+	# Herätys lähemmästä paikasta: Gasthaus Vaalan keskustassa tai Paapeli (mökki). Päivi soittaa aamulla.
+	var vl: Node3D = mopo_trip.vaala
+	var here: Vector3 = mopo_trip.to_local(at)
+	var gast: Vector3 = vl.door_pos("gasthaus")
+	var to_gast := Vector2(here.x - gast.x, here.z - gast.z).length() < Vector2(here.x - vl.mokki_mopo.x, here.z - vl.mokki_mopo.z).length()
+	var out := Vector3.FORWARD
+	for d in vl.doors:
+		if d.id == "gasthaus":
+			out = d.out
 	_mopo_restore_hud()
 	_santtu_home()
-	state = _vaala_state
-	_lose("Jäit %s alle %s (%s)." % ["junan" if cause == "train" else "auton", "jalan" if walking else "mopolla", road_name],
-		cause, at)
+	state = "cutscene"
+	_stop_mowing()
+	_task_failed()
+	player.controls_enabled = false
+	_hud.visible = false
+	_day_end = "auto"
+	if has_flowers:
+		has_flowers = false
+		_morning_info.append("Kukkakimppu lytistyi jossain matkalla.")
 	mopo_trip.stop()
+	var wake: Vector3
+	var face: Vector3
+	var place: String
+	if to_gast:
+		wake = mopo_trip.to_global(gast + out * 2.2)
+		face = out
+		place = "Aamu Gasthausin pihassa, Vaala. Kaikki paikat on kipeinä."
+	else:
+		wake = mokki.porch_pos(0.9) - Vector3(0, 0.3, 0)
+		face = wake - mokki.gpos(Vector3(Mokki.COTTAGE_LOCAL.x, 0, Mokki.COTTAGE_LOCAL.y))  # kuistilta poispäin mökistä
+		face.y = 0.0
+		place = "Aamu Paapelin kuistilla. Kaikki paikat on kipeinä."
+	cutscene.wasted_phone(at, reason, cause, wake, face, place, func() -> void:
+		if to_gast:
+			_gasthaus_morning("Heräsit Gasthausin huoneesta. Joku oli kantanut sut sinne.\n",
+				"Gasthaus, Vaala. Mopo on pihassa, matka Paapeliin alkaa tästä.")
+		else:
+			state = _vaala_state
+			_mopo_end_quiet()
+			_new_day(mokki.porch_pos(0.9) - Vector3(0, 0.3, 0), true, "Heräsit Paapelin kuistilta. Joku oli tuonut sut ja mopon pihaan.\n"))
 
 
 ## Kännissä kumoon: kipua ja nolous, mopo nostetaan tielle ja matka jatkuu.
@@ -11043,6 +11119,16 @@ func _on_mopo_finished(_result: String) -> void:
 	_advance_clock(HOP_MOPO)
 	_show_message("Mopo parkissa Paapelin pihassa.", 2.5)
 	_mopo_end()
+
+
+## Mopomatka loppuu ilman viestiä ja tallennusta (päivä vaihtuu heti perään).
+func _mopo_end_quiet() -> void:
+	_santtu_home()
+	mopo_trip.stop()
+	_mopo_restore_hud()
+	walker_out.velocity = Vector3.ZERO
+	walker_out.visible = true
+	_set_avatar(walker_out)
 
 
 func _mopo_end() -> void:
@@ -13415,7 +13501,7 @@ func _lose(reason: String, cause := "default", at := Vector3.INF) -> void:
 	player.controls_enabled = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
 	_hud.visible = false
-	var spawn := _nearest_safe() if at == Vector3.INF else home_zone + Vector3(0, 0, 4)
+	var spawn := home_zone + Vector3(0, 0, 4)  # kuolemasta herätään aina kotona, ja Päivi motkottaa pihalla
 	_day_end = {"car": "auto", "train": "auto", "police": "poliisi", "wife": "paivi"}.get(cause, "ulko")
 	var choco := _offer_chocolate()
 	_choco_mercy = choco == "ok"

@@ -255,6 +255,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     (punavalkoinen Sr1-veturi ja neljä sinistä VR:n vaunua, yksi niistä ravintolavaunu), joka vihellyttää ohittaessaan.
     Radalla ei kannata seisoa: liikkuva juna tappaa (Vaalassa ja Saloisissa), ja Päivi motkottaa: "Minun piti parsia
     sinut kokoon palasista!" Seisovan junan läpi ei kävellä eikä ajeta.
+    Vaalassa kuollessa herätään lähemmästä paikasta, Gasthausista tai Paapelista, ja aamulla Päivi soittaa: Santtu
+    vastaa kännykkään pää painuksissa ("Kyllä kulta..."). Saloisissa kuollessa herätään aina kotona, ja Päivi motkottaa
+    pihalla (`--scene=vaala_ajo --ajo=kuolema --kohta=gasthaus|mokki` ja `--ajo=kuolema_saloinen`).
     Testi `--scene=vaala_ajo` (ilman ikkunaa `--headless`): autopilotti ajaa mopolla 60 km/h jokaisen Vaalan tien
     (n. 190 tietä, 21 km) ja jokaiseen kohteeseen ja kirjaa jumit ja törmäykset (`--ajo=tiet|kohteet|juna|lava`).
   - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa torilta asfalttia Zabukin ohi
