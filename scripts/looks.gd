@@ -263,6 +263,16 @@ static func add_army_uniform(c: Node3D) -> void:
 	B.mesh(belt, B.boxm(Vector3(0.07, 0.05, 0.01)), Vector3(0, 0, -0.195), brass)  # solki
 	B.mesh(belt, B.boxm(Vector3(0.05, 0.03, 0.012)), Vector3(0, 0, -0.198), brass.darkened(0.25))
 	c.attach("spine_01", belt, Vector3(0, -0.04, -0.01))
+	# Punainen käsivarsinauha vasempaan olkavarteen, nauhassa valkoinen pyöreä laatta olkavarren ulkosivulla.
+	# Lepoasennossa (T) vasen käsi osoittaa -X:ään: nauhan akseli X:n suuntaan, ulkosivu (+Y) kääntyy käden
+	# laskiessa sivulle.
+	var arm := Node3D.new()
+	var band2 := Node3D.new()
+	band2.rotation.z = PI / 2.0
+	arm.add_child(band2)
+	B.mesh(band2, B.cyl(0.068, 0.068, 0.075, 18), Vector3.ZERO, Color(0.72, 0.06, 0.06))
+	B.mesh(arm, B.cyl(0.03, 0.03, 0.006, 20), Vector3(0, 0.069, 0), Color(0.96, 0.95, 0.92))
+	c.attach("upperarm_l", arm, Vector3(-0.14, 0.0, 0.0))
 
 
 ## K-Marketin muovikassi, jossa kuutonen: origo on sankojen kädensija, kassi roikkuu sen alla. Kapea kylki
