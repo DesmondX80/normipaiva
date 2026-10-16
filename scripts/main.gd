@@ -13833,7 +13833,7 @@ func _apply_settings() -> void:
 	_env.glow_enabled = q >= 2
 	_sun.shadow_enabled = q >= 1
 	_sun.directional_shadow_max_distance = [70.0, 70.0, 120.0, 180.0][q]
-	_sun.shadow_blur = [0.5, 0.5, 1.0, 1.5][q]
+	_sun.shadow_blur = [0.5, 0.5, 1.0, 1.0][q]
 	world.set_quality(q)
 	# Näkyvyysetäisyys: usva ja kameran kaukoraja (cam_ctl.gd) yhdessä; täydellä 900 m on entiset 90–700 m.
 	var far: float = Settings.view_far()
@@ -14261,7 +14261,8 @@ func _setup_environment() -> void:
 	sun.light_color = Color(1.0, 0.93, 0.82)
 	sun.light_energy = 1.35
 	sun.shadow_enabled = true
-	sun.shadow_blur = 1.5
+	sun.shadow_blur = 1.0
+	# Varjoatlas 4096 (project.godot): 8192 maksoi mökillä 4 ms ruudussa (13,3 -> 9,4 ms), eikä ero näy suurennettunakaan.
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_max_distance = 180.0
 	sun.directional_shadow_blend_splits = true

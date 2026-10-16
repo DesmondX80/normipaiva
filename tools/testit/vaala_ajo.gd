@@ -644,8 +644,14 @@ func _trunk_test() -> void:
 func _sample(name: String) -> void:
 	for i in 240:  # metsän lähilohkot rakentuvat vähitellen (8 ruudussa): mitataan vasta valmiista näkymästä
 		await get_tree().process_frame
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)  # asetukset palauttavat sen: pois joka mittauksella
+	Engine.max_fps = 0
+	for i in 20:
+		await get_tree().process_frame
 	var n := 180
-	var acc := {"ms": 0.0, "proc": 0.0, "phys": 0.0, "draw": 0.0, "obj": 0.0, "prim": 0.0}
+	var acc := {"ms": 0.0, "proc": 0.0, "phys": 0.0, "draw": 0.0, "obj": 0.0, "prim": 0.0, "rcpu": 0.0, "gpu": 0.0, "setup": 0.0}
+	var vrid := get_viewport().get_viewport_rid()
+	RenderingServer.viewport_set_measure_render_time(vrid, true)
 	var worst := 0.0
 	var t0 := Time.get_ticks_usec()
 	var last := t0
@@ -661,6 +667,9 @@ func _sample(name: String) -> void:
 		acc.draw += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 		acc.obj += Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)
 		acc.prim += Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)
+		acc.rcpu += RenderingServer.viewport_get_measured_render_time_cpu(vrid)
+		acc.gpu += RenderingServer.viewport_get_measured_render_time_gpu(vrid)
+		acc.setup += RenderingServer.get_frame_setup_time_cpu()
 	var chars := 0
 	var chars_on := 0
 	for c in get_tree().root.find_children("*", "Node3D", true, false):
@@ -672,13 +681,39 @@ func _sample(name: String) -> void:
 		Performance.get_monitor(Performance.PHYSICS_3D_ACTIVE_OBJECTS), Performance.get_monitor(Performance.PHYSICS_3D_COLLISION_PAIRS), chars, chars_on])
 	if not "--ei-erittelya" in OS.get_cmdline_user_args():
 		await _attribute(name)
-	print("MITTA %-16s ruutu %5.1f ms (pahin %5.1f) · skriptit %5.2f ms · fysiikka %5.2f ms · piirtoja %5d · objekteja %5d · kolmioita %6.0f k · solmuja %d · muisti %d Mt" % [
+	if "--mitta-kuvat" in OS.get_cmdline_user_args():
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(_shot_path("_" + name.split(" ")[0] + ".png"))
+	print("MITTA %-16s renderöinti: suoritin %5.2f ms (valmistelu %5.2f ms) · näytönohjain %5.2f ms" % [name,
+		acc.rcpu / n, acc.setup / n, acc.gpu / n])
+	print("MITTA %-16s ruutu %5.1f ms (pahin %5.1f) · koko ruutu (TIME_PROCESS) %5.2f ms · fysiikka %5.2f ms · piirtoja %5d · objekteja %5d · kolmioita %6.0f k · solmuja %d · muisti %d Mt" % [
 		name, acc.ms / n, worst, acc.proc / n, acc.phys / n, roundi(acc.draw / n), roundi(acc.obj / n), acc.prim / n / 1000.0,
 		Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576])
 
 
 func _measure() -> void:
 	main._note.visible = false
+	# Todellinen ruutuaika ilman pystytahdistusta; --mitta-skaala=0.5 puolittaa 3D-resoluution (näytönohjainraja?).
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	Engine.max_fps = 0
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--mitta-skaala="):
+			get_viewport().scaling_3d_scale = float(a.substr(15))
+		elif a.begins_with("--mitta-varjo="):
+			# Kokeilu: suodatin:N (pehmeiden varjojen laatu 0–5), jaot:2|4 (kaskadit), koko:N (atlas), matka:N (m)
+			for kv in a.substr(14).split(","):
+				var p := kv.split(":")
+				match p[0]:
+					"suodatin":
+						RenderingServer.directional_soft_shadow_filter_set_quality(int(p[1]))
+					"jaot":
+						main._sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if p[1] == "2" else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+					"koko":
+						RenderingServer.directional_shadow_atlas_set_size(int(p[1]), true)
+					"matka":
+						main._sun.directional_shadow_max_distance = float(p[1])
+					"sumeus":
+						main._sun.shadow_blur = float(p[1])
 	var M := preload("res://scripts/map_data.gd")
 	var T := preload("res://scripts/terrain.gd")
 	var pl: Node3D = main.player
