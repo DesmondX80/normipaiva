@@ -13,6 +13,7 @@ const StationBuild := preload("res://scripts/station_build.gd")
 const Makasiini := preload("res://scripts/makasiini.gd")
 const DroneGame := preload("res://scripts/drone_game.gd")
 const HedgeNode := preload("res://scripts/hedge.gd")
+const BasketGame := preload("res://scripts/basket_game.gd")
 const DRAPE_EDGE := 3.0  # maakerrosten kolmioiden maksimisivu, jotta ne myötäilevät maastoa
 ## Lehvästökorttien näkyvyysraja: tätä kauempana puut piirretään kevyinä perusmuotoina.
 const TREE_NEAR := 210.0
@@ -116,6 +117,8 @@ var saasto_door: Vector3  # säästöpihan myymälän ovi (#141)
 var hongan_door: Vector3  # Honganpalon koulun pääovi (#138)
 var hongan_window: Vector3  # ikkuna, josta näkyy käytävän luokkakuva
 var hongan_spot: Vector3  # kentän rankkaripiste
+var kentta_hoop: Node3D  # koripallokori kentän laidassa (basket_game.gd), pojat haastavat
+var hongan_hoop: Node3D
 var hongan_kids: Array = []
 var hongan_youth: Node3D  # iltaporukka portailla
 var hongan_youth_pos: Vector3
@@ -1524,6 +1527,9 @@ func _build_kentta() -> void:
 			Vector3(W / 2.0 + 2.5, 0, L / 2.0 + 2.5), Vector3(-W / 2.0 - 2.5, 0, L / 2.0 + 2.5)]:
 		var g: Vector3 = root.to_global(corner)
 		kentta_laps.append(Vector3(g.x, T.h(g.x, g.z), g.z))
+	# Koripallokori asfalttikenttineen pitkän sivun takana, kenttä kohti jalkapallokenttää.
+	var kp: Vector3 = root.to_global(Vector3(W / 2.0 + 9.0, 0, 0))
+	kentta_hoop = BasketGame.build_hoop(self, Vector3(kp.x, 0, kp.z), root.rotation.y - PI / 2.0)
 	# Katsomo pitkällä sivulla ja valomastot kulmissa.
 	for i in 3:
 		B.mesh(root, B.boxm(Vector3(10, 0.08, 0.5)), Vector3(-W / 2.0 - 4.0 - i * 0.6, 0.45 + i * 0.4, 0), Color(0.55, 0.4, 0.25),
@@ -2292,6 +2298,9 @@ func _build_honganpalo() -> void:
 		kid.rotation.y = 0.0 if i == 0 else PI
 		kid.play("Idle", 0.0)
 		hongan_kids.append(kid)
+	# Koulun pihan koripallokori kentän sivulla.
+	var hp: Vector3 = field.to_global(Vector3(W / 2.0 + 9.0, 0, 0))
+	hongan_hoop = BasketGame.build_hoop(self, Vector3(hp.x, 0, hp.z), field.rotation.y - PI / 2.0)
 
 
 ## Lapinraunio (#139): iso sammaloitunut kiviröykkiö metsässä (rauhoitettu) ja legendan aarnivalkean paikalla
@@ -3086,8 +3095,7 @@ func _build_home() -> void:
 	home_hedge = HedgeNode.new()
 	home_hedge.segs = [[-l / 2.0, -4.5], [5.0, l / 2.0]]
 	home_hedge.zc = fz - 9.0
-	var hc: Vector3 = xf * Vector3(0, 0, fz - 9.0)
-	home_hedge.transform = Transform3D(body.basis, Vector3(body.position.x, T.h(hc.x, hc.z), body.position.z))
+	home_hedge.transform = Transform3D(body.basis, Vector3(body.position.x, 0, body.position.z))  # _lift_objects nostaa maastoon
 	add_child(home_hedge)
 	# Pensasaidan trimmeri aidan oikeassa päässä pihan puolella (hedge_game.gd).
 	hedge_prop = _hedge_trimmer(body, fz)

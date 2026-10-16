@@ -241,6 +241,8 @@ const KirppisInterior := preload("res://scripts/kirppis_interior.gd")
 const AuctionGame := preload("res://scripts/auction_game.gd")
 ## Kadun puolen pensasaidan leikkuu sähkötrimmerillä minäkuvakulmasta (hedge_game.gd), Päivi vahtii narun kanssa.
 const HedgeGame := preload("res://scripts/hedge_game.gd")
+## Koripallo kentän laidan korilla: pojat lyövät vetoa 16 korista putkeen (basket_game.gd), palkkiona kalja.
+const BasketGame := preload("res://scripts/basket_game.gd")
 const TanssiGame := preload("res://scripts/tanssi_game.gd")
 const BingoGame := preload("res://scripts/bingo_game.gd")
 const Tokola := preload("res://scripts/tokola.gd")
@@ -828,7 +830,8 @@ const TALK_HELLO := {
 	"nuoret": ["No moi! Tuu istuun, tukilla on tilaa.", "Ei kai sää oo järkkäri? Ai et. No istu alas.",
 		"Shh, kytät käy joskus portilla. Tänne metsään ne ei tuu."]}
 const POJAT_LINES := ["Meiän isä sanoo, että Saloisissa on Suomen parhaat mansikat.", "Setä, osaatko pallotella?",
-	"Me pelataan tässä joka päivä. Paitsi kun sataa.", "Meiän pallo on ihan uus. Tai oli."]
+	"Me pelataan tässä joka päivä. Paitsi kun sataa.", "Meiän pallo on ihan uus. Tai oli.",
+	"Setä, kentän laidassa on kori. Ei setä saa kuuttatoista putkeen!"]
 var _menu_mode := "give"  # esinevalikon käyttö: "give" (pojat) tai "eat" (T: syö)
 ## Eväät kaupan leipähyllystä: avain -> kpl (syödään T:llä, häviävät yöllä kuten kaljat).
 var food := {}
@@ -893,6 +896,8 @@ var hedge_nagged := false  # Päivi on motkottanut aidasta (tehtävä tiedossa)
 var _hedge_praise := false
 var _hedge_done_today := false
 var _hedge_game: Node = null
+var _basket_game: Node = null
+var koris_best := 0  # pisin koriputki
 var mokki: Node3D
 var _santtu_chat_t := 6.0
 ## Santun hommat (santun_hommat.gd): päivän hommat, hermot ja arvostelut.
@@ -6578,6 +6583,45 @@ func _start_hedge() -> void:
 	world.home_hedge.add_child(g)
 
 
+## Koripallo pojan kentän korilla (basket_game.gd). Pojat ovat pelin omina hahmoina korin luona.
+func _start_basket() -> void:
+	var hoop: Node3D = world.kentta_hoop if _boys_field != "honganpalo" else world.hongan_hoop
+	walker_out.controls_enabled = false
+	walker_out.velocity = Vector3.ZERO
+	walker_out.visible = false
+	if is_instance_valid(boys):
+		boys.visible = false
+	_hud.visible = false
+	var g := BasketGame.new()
+	g.drunk = _hand_shake()
+	g.best = koris_best
+	_basket_game = g
+	g.finished.connect(func(result: String) -> void:
+		_basket_game = null
+		koris_best = maxi(koris_best, g.best)
+		walker_out.global_position = hoop.to_global(g._spot) + Vector3(0, 0.3, 0)
+		walker_out.controls_enabled = true
+		walker_out.visible = true
+		if is_instance_valid(boys):
+			boys.visible = true
+		_hud.visible = true
+		tilat.add("vasymys", -0.03)
+		if result != "voitto":
+			_show_message("Pisin putki %d. Pojat nauraa vielä huomennakin." % g.best if g.best > 0 else "Ei yhtään koria. Pojat nauraa.", 2.5)
+			_save_game()
+			return
+		tilat.first("koris16", 0.5)
+		tilat.add("moraali", 0.25)
+		if _once_today("koris_kalja"):
+			beers += 1
+			player.set_carrying(true)
+			_show_message("16 koria putkeen! Pojat antoi Jeren isän kaljan.", 3.5)
+		else:
+			_show_message("16 koria putkeen taas! Kaljaa ei oo enää, mutta kunnia on.", 3.0)
+		_save_game())
+	hoop.add_child(g)
+
+
 ## Joka toinen päivä pojat jommallakummalla kentällä vuorotellen: Saloisten kenttä ja Honganpalon kenttä. Kentän
 ## omat pojat piilotetaan sinä päivänä (ne ovat samat pojat). Palauttaa true, jos pojat ovat tänään kentällä.
 func _spawn_boys() -> bool:
@@ -8840,6 +8884,8 @@ func _talk_options(who := "") -> Array:
 			if tokola.tilikirja and tokola.lipas and tokola.legend == "":
 				o.append(_opt("tilikirja", "Tokolan kauppiaan tilikirja... siinä on sun isän nimikirjaimet", true, "", true))
 		"pojat":
+			if _ball_quest != "search":
+				o.append(_opt("kori", "Lyödäänkö vetoa koriksesta? Kuustoista putkeen.", true, "", true))
 			if _ball_quest == "":
 				o.append(_opt("pallo_kysy", "Mitäs pojat, onko kaikki hyvin?", true, "", true))
 			elif _ball_quest == "search":
@@ -9203,6 +9249,11 @@ func _talk_kalle(id: String) -> void:
 ## Pojat: pallotehtävä ja esineen antaminen. Pallo = palkkio; kalja ja muut lopettavat keskustelun (pojat juoksevat
 ## karkuun tai heittelevät kivillä).
 func _talk_pojat(id: String) -> void:
+	if id == "kori":
+		tilat.first("koris_haaste", 0.1)
+		_talk_box.close()
+		_start_basket()
+		return
 	if id == "pallo_kysy":
 		_talk_box.reply(_give_ball_quest(), _talk_options(), "Etsi pallo ja tuo se pojille.")
 		return
@@ -13405,6 +13456,7 @@ func _load_game() -> void:
 	world.home_hedge.load_state(cfg.get_value("pensasaita", "aita", {}))
 	hedge_nagged = cfg.get_value("pensasaita", "motkotettu", false)
 	_hedge_praise = cfg.get_value("pensasaita", "kehu", false)
+	koris_best = cfg.get_value("koris", "ennatys", 0)
 	tilat.load_from(cfg)
 	story.load_from(cfg)
 	ebike.load_from(cfg)
@@ -13507,6 +13559,7 @@ func _save_game() -> void:
 		cfg.set_value("pensasaita", "aita", world.home_hedge.save_state())
 	cfg.set_value("pensasaita", "motkotettu", hedge_nagged)
 	cfg.set_value("pensasaita", "kehu", _hedge_praise)
+	cfg.set_value("koris", "ennatys", koris_best)
 	if tilat != null:
 		tilat.save_to(cfg)
 	if story != null:
@@ -25989,6 +26042,78 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"koris":
+			# Koripallo kentän laidan korilla: kori pelimaailmassa, sitten pelin vaiheet kuviksi: alku, lataus, lento,
+			# kori (verkko heilahtaa), ohi (pojat nauraa), rengas, heittopaikan vaihto, voitto ja kalja. Tallennus palautetaan.
+			var saved_k := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var kshot := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+			var kframes := func(n: int) -> void:
+				for i in n:
+					await get_tree().process_frame
+			if player != walker_out:
+				_toggle_mount()
+			_hud.visible = false
+			var hoop: Node3D = world.kentta_hoop
+			walker_out.global_position = hoop.to_global(Vector3(2.5, 0, 9.0)) + Vector3(0, 0.5, 0)
+			walker_out.rotation.y = B.yaw_to(hoop.global_position - walker_out.global_position)
+			walker_out.velocity = Vector3.ZERO
+			await kframes.call(90)
+			await kshot.call("kentta")
+			var beers0 := beers
+			_boys_field = "saloinen"
+			_start_basket()
+			await kframes.call(15)
+			var g: Node = _basket_game
+			await kshot.call("alku")
+			var throw := func(pw: float, label: String) -> void:
+				g._phase = "lataa"
+				g._power = pw
+				g._lmb = true
+				await kframes.call(2)
+				g._power = pw
+				g._release(pw)
+				var shot_done := false
+				for f in 400:
+					await get_tree().process_frame
+					if not shot_done and label != "" and (g._scored or g._clang_t > 0.0):
+						shot_done = true
+						await kframes.call(2)
+						await kshot.call(label)
+					if g._phase != "lento":
+						break
+				print("KORIS heitto %.2f: kori %s, putki %d, vaihe %s, poika '%s'" % [pw, g._scored, g.streak, g._phase, g._bubbles[1].text + " / " + g._bubbles[0].text])
+				for f in 200:
+					if g._phase in ["kasissa", "voitto"]:
+						break
+					await get_tree().process_frame
+			g._phase = "lataa"
+			g._power = 0.5
+			g._lmb = true
+			await kframes.call(1)
+			g._power = 0.5
+			await kshot.call("lataus")
+			g._phase = "kasissa"
+			await throw.call(0.5, "kori")
+			await throw.call(0.0, "")
+			await kframes.call(1)
+			await kshot.call("ohi")
+			await throw.call(0.72, "rengas")
+			g.streak = 3
+			await throw.call(0.5, "")
+			await kframes.call(5)
+			await kshot.call("paikka")
+			g.streak = 15
+			await throw.call(0.5, "")
+			await kframes.call(20)
+			await kshot.call("voitto")
+			await get_tree().create_timer(4.5).timeout
+			print("KORIS loppu: peli %s, kaljat %d -> %d, ennätys %d, viesti '%s'" % [_basket_game, beers0, beers, koris_best, _msg.text.replace("\n", " | ")])
+			await kframes.call(30)
+			await kshot.call("loppu")
+			if not saved_k.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_k)
 		"pensasaita":
 			# Pensasaidan leikkuu (3D, minäkuvakulma): rehottava aita ja trimmeri pihalla, sitten pelin vaiheet kuviksi:
 			# alku johto aidan päällä, leikkuu silppuineen, kolo ja Päivi, johto poikki, teippaus, kyljet, valmis ja aita
