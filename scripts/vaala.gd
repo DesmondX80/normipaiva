@@ -1053,7 +1053,7 @@ func set_lava_live(on: bool, in_game := false) -> void:
 		return
 	_lava_live = on
 	if on and lava_band.current_song.is_empty():
-		lava_band.request(HumppaBand.Synth.SONGS.pick_random())
+		lava_band.request(HumppaBand.repertoire().pick_random())
 	elif not on and not in_game:
 		lava_band.stop_playing()
 

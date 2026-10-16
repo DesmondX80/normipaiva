@@ -38,7 +38,9 @@ const KEY_ROWS := [
 	[["journal"], "Päiväkirja (tarina, tehtävät, loput)", [KEY_O, 0, 0]],
 	[["camera"], "Kamera (FPS / 3. persoona)", [KEY_V, 0, 0]],
 	[["headphones"], "Kuulokkeet päähän / pois", [KEY_H, 0, 0]],
-	[["next_song"], "Kuulokkeet: seuraava biisi", [KEY_N, 0, 0]],
+	[["next_song"], "Kuulokkeet ja puhelin: seuraava biisi", [KEY_N, 0, 0]],
+	[["phone"], "Puhelin: soita / tauko", [KEY_P, 0, 0]],
+	[["phone_volume"], "Puhelin: voimakkuus", [KEY_U, 0, 0]],
 	[["punch"], "Tappelu: lyönti", [KEY_J, 0, 0]],
 	[["kick"], "Tappelu: potku", [KEY_K, 0, 0]],
 	[["special"], "Tappelu: erikoisisku", [KEY_L, 0, 0]],
@@ -51,7 +53,7 @@ const MOUSE_NAMES := {MOUSE_BUTTON_LEFT: "Hiiri vasen", MOUSE_BUTTON_RIGHT: "Hii
 	MOUSE_BUTTON_XBUTTON2: "Hiiri sivu 2"}
 ## Ohjeteksteissä oletuskirjain hakasulkeissa ([E]) vaihtuu käyttäjän valitsemaan näppäimeen.
 const HINT_KEYS := {"E": "interact", "F": "mount", "T": "eat", "Q": "bell", "M": "map", "I": "inventory", "O": "journal", "V": "camera",
-	"J": "punch", "H": "headphones", "N": "next_song"}
+	"J": "punch", "H": "headphones", "N": "next_song", "P": "phone", "U": "phone_volume"}
 const KEY_NAMES := {KEY_SPACE: "Välilyönti", KEY_UP: "Nuoli ylös", KEY_DOWN: "Nuoli alas", KEY_LEFT: "Nuoli vas.",
 	KEY_RIGHT: "Nuoli oik.", KEY_SHIFT: "Shift", KEY_CTRL: "Ctrl", KEY_ALT: "Alt", KEY_TAB: "Tab", KEY_ENTER: "Enter",
 	KEY_BACKSPACE: "Askelpalautin", KEY_CAPSLOCK: "Caps Lock"}

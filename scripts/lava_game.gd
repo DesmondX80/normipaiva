@@ -7,6 +7,8 @@ extends Node3D
 ## jälkeen danced(score, mode) ja takaisin saliin (uusi tanssi tai baaritiski); Q:lla lavalta ulos, jolloin
 ## finished(illan paras tanssi 0..1, -1 = ei tanssittu); kutsuja antaa moraalit ja poistaa solmun. Solmu sijoitetaan lavan lattian keskelle
 ## (+z = etelään, lava 34 x 44 m, esiintymislava pohjoispäädyssä, ovi door_side-puolen kyljessä).
+## Toiveet: bändiltä voi toivoa iskelmän (humppa_band.gd repertoire, iskelmat.gd) ja DJ:ltä diskobiisin
+## (headphones.gd disco_tracks); DJ:n toive alkaa heti diskotanssina.
 
 signal finished(score: float)
 signal danced(score: float, mode: String)
@@ -16,7 +18,7 @@ signal tv_shot(tex: Texture2D)
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
 const Headphones := preload("res://scripts/headphones.gd")
-const Synth := preload("res://scripts/humppa_synth.gd")
+const Band := preload("res://scripts/humppa_band.gd")
 
 const BPM := 104.0
 const DISCO_BPM := 126.0
@@ -79,6 +81,8 @@ var _ball: Node3D
 var _bartender: Node3D
 var _band: Node3D  # vaala.gd:n lavabändi (humppa_band.gd); null testeissä ilman Vaalaa
 var _menu := -1  # toivelistan valinta (-1 = lista kiinni)
+var _menu_kind := "band"  # band = bändin iskelmät, dj = DJ:n diskobiisit
+var _menu_items: Array = []  # bändi: kappaleet (repertoire), DJ: tiedostopolut
 var _wish := ""  # pelaajan toivoma kappale (soi seuraavaksi)
 
 
@@ -105,7 +109,7 @@ func _ready() -> void:
 	_intro_text()
 	if _band != null:
 		if _band.current_song.is_empty():
-			_band.request(Synth.SONGS.pick_random())
+			_band.request(Band.repertoire().pick_random())
 		else:
 			_on_band_song(_band.current_song, _band._player.stream)
 	else:
@@ -114,10 +118,10 @@ func _ready() -> void:
 
 func _intro_text(extra := "") -> void:
 	var head := "Juhannustanssit" if juhannus else "Lauantain tanssit"
-	_info.text = "%s%s: %s soittaa \"%s\".%s\nVäliseinän takana diskopuoli nuorisolle.\nTanssi: vuorottele %s ja %s tahtimerkin tahdissa.\n\n%s Hae pari tanssipuolelta\n%s Diskopuolelle\n%s Baaritiskiltä tuoppi (6,50 €)\n%s Toivo bändiltä humppaa\n%s Lavalta ulos" % [
+	_info.text = "%s%s: %s soittaa \"%s\".%s\nVäliseinän takana diskopuoli nuorisolle.\nTanssi: vuorottele %s ja %s tahtimerkin tahdissa.\n\n%s Hae pari tanssipuolelta\n%s Diskopuolelle\n%s Baaritiskiltä tuoppi (6,50 €)\n%s Toivo bändiltä iskelmää\n%s Toivo DJ:ltä diskobiisi\n%s Lavalta ulos" % [
 		extra, head, band.capitalize(), _song, "\nTV kuvaa: Kesäillan valssi! Hyvä tanssi pääsee lähetykseen." if tv else "",
 		Settings.action_key("left"), Settings.action_key("right"), Settings.cap("interact"),
-		Settings.cap("mount"), Settings.cap("eat"), Settings.cap("forward"), Settings.cap("bell")]
+		Settings.cap("mount"), Settings.cap("eat"), Settings.cap("forward"), Settings.cap("back"), Settings.cap("bell")]
 
 
 ## Tanssipuolen baari, väliseinä ja diskopuolen DJ-koppi, peilipallo ja värivalot (lava itse: vaala.gd _build_lava).
@@ -328,7 +332,11 @@ func _process(delta: float) -> void:
 	# Kamera kiertää hitaasti paria.
 	var a := _t * 0.12
 	var focus := (_me.position + _partner.position) / 2.0 + Vector3(0, 1.2, 0)
-	_cam.look_at_from_position(to_global(focus + Vector3(sin(a) * 6.0, 2.2, cos(a) * 6.0)), to_global(focus))
+	var cp := focus + Vector3(sin(a) * 6.0, 2.2, cos(a) * 6.0)
+	# Kamera pysyy salin sisällä (diskopuolella kierros kävi päätyseinän takana).
+	cp.x = clampf(cp.x, -W / 2.0 + 1.0, W / 2.0 - 1.0)
+	cp.z = clampf(cp.z, -L / 2.0 + 1.0, L / 2.0 - 1.0)
+	_cam.look_at_from_position(to_global(cp), to_global(focus))
 	# Disko: peilipallo pyörii, värivalot sykkivät ja kiertävät.
 	_ball.rotation.y += delta * 1.2
 	for k in _lights.size():
@@ -340,8 +348,9 @@ func _process(delta: float) -> void:
 			if _menu >= 0:
 				_menu_input()
 			elif Input.is_action_just_pressed("forward") and _band != null:
-				_menu = 0
-				_show_menu()
+				_open_menu("band")
+			elif Input.is_action_just_pressed("back") and not Headphones.disco_tracks().is_empty():
+				_open_menu("dj")
 			elif Input.is_action_just_pressed("interact"):
 				_start_dance("humppa")
 			elif Input.is_action_just_pressed("mount"):
@@ -389,8 +398,7 @@ func _back_to_hall() -> void:
 			Sfx.music_play(1.0)
 	if _band != null:
 		# Bändi soittaa seuraavan: toive, jos sellainen on, muuten jokin muu listalta.
-		var next: Dictionary = _wish_song() if _wish != "" else Synth.SONGS.filter(func(sg: Dictionary) -> bool:
-			return sg.title != _band.current_song.get("title", "")).pick_random()
+		var next: Dictionary = _wish_song() if _wish != "" else _band.next_song()
 		_wish = ""
 		_band.request(next)
 	else:
@@ -404,7 +412,7 @@ func _back_to_hall() -> void:
 
 
 ## Pari haetaan tanssipuolelta (humppa) tai diskosta (nuorempi pari, nopeampi tahti).
-func _start_dance(mode: String) -> void:
+func _start_dance(mode: String, track := "") -> void:
 	_mode = mode
 	_phase = "dance"
 	_t = 0.0
@@ -418,7 +426,8 @@ func _start_dance(mode: String) -> void:
 		_partner = Looks.make(self, {"model": "female", "shirt": Color(0.1, 0.9, 0.9), "pants": Color(0.15, 0.2, 0.45),
 			"hair": "Hair_Buns", "hair_color": Color(0.85, 0.7, 0.4), "height": 1.65})
 		_title.text = "LAVAN DISKO"
-		var track := Headphones.random_90s_path()  # DJ soittaa 90-luvun eurodancea
+		if track == "":
+			track = Headphones.random_90s_path()  # DJ soittaa 90-luvun eurodancea, ellei toivottu muuta
 		if track != "":
 			Sfx.music_play(0.8, 0.0, track)
 			_song = Headphones.song_title(track)
@@ -434,37 +443,66 @@ func _start_dance(mode: String) -> void:
 # --- Toivekappaleet -----------------------------------------------------------------------------------------------
 
 func _wish_song() -> Dictionary:
-	for sg in Synth.SONGS:
+	var songs := Band.repertoire()
+	for sg in songs:
 		if sg.title == _wish:
 			return sg
-	return Synth.SONGS[0]
+	return songs[0]
+
+
+## Toivelista auki: bändin iskelmät (band) tai DJ:n diskobiisit (dj).
+func _open_menu(kind: String) -> void:
+	_menu_kind = kind
+	_menu_items = Band.repertoire() if kind == "band" else Headphones.disco_tracks()
+	_menu = 0
+	_show_menu()
 
 
 func _show_menu() -> void:
 	var lines: Array[String] = []
-	for i in Synth.SONGS.size():
-		lines.append(("▶ " if i == _menu else "   ") + Synth.SONGS[i].title)
-	_info.text = "Laulaja kumartuu lavan reunalle: \"No, mitäs soitetaan?\"\n\n%s\n\n%s valitse · %s toivo · %s peruuta" % [
-		"\n".join(lines), Settings.pair("forward", "back"), Settings.cap("interact"), Settings.cap("bell")]
+	for i in _menu_items.size():
+		var it = _menu_items[i]
+		var name: String = Headphones.song_title(it) if _menu_kind == "dj" else (
+			"%s – %s (%d)" % [it.title, it.artist, it.year] if it.has("artist") else it.title)
+		lines.append(("▶ " if i == _menu else "   ") + name)
+	var head := "Laulaja kumartuu lavan reunalle: \"No, mitäs soitetaan?\"" if _menu_kind == "band" else \
+		"DJ nostaa kuulokkeen korvalta: \"Mikä biisi? Huuda kovempaa!\""
+	_info.text = "%s\n\n%s\n\n%s valitse · %s toivo · %s peruuta" % [
+		head, "\n".join(lines), Settings.pair("forward", "back"), Settings.cap("interact"), Settings.cap("bell")]
 
 
 func _menu_input() -> void:
 	if Input.is_action_just_pressed("forward"):
-		_menu = posmod(_menu - 1, Synth.SONGS.size())
+		_menu = posmod(_menu - 1, _menu_items.size())
 		_show_menu()
 	elif Input.is_action_just_pressed("back"):
-		_menu = posmod(_menu + 1, Synth.SONGS.size())
+		_menu = posmod(_menu + 1, _menu_items.size())
 		_show_menu()
 	elif Input.is_action_just_pressed("interact"):
-		request_song(_menu)
+		if _menu_kind == "dj":
+			request_disco(_menu)
+		else:
+			request_song(_menu)
 	elif Input.is_action_just_pressed("bell"):
 		_menu = -1
 		_intro_text()
 
 
+## Toive DJ:lle: biisi alkaa heti, ja diskopuolelta haetaan pari sen tahtiin.
+func request_disco(i: int) -> void:
+	var tracks := Headphones.disco_tracks()
+	_menu = -1
+	if tracks.is_empty():
+		return
+	var track: String = tracks[clampi(i, 0, tracks.size() - 1)]
+	_start_dance("disco", track)
+	_info.text = "DJ: \"%s, tulee!\"\n%s" % [Headphones.song_title(track).get_slice(" – ", 0), _info.text]
+
+
 ## Toive bändille: kappale alkaa heti (bändi vaihtaa lennosta), ja sen tahtiin tanssitaan.
 func request_song(i: int) -> void:
-	var sg: Dictionary = Synth.SONGS[clampi(i, 0, Synth.SONGS.size() - 1)]
+	var songs := Band.repertoire()
+	var sg: Dictionary = songs[clampi(i, 0, songs.size() - 1)]
 	_menu = -1
 	if _band == null:
 		return
@@ -480,7 +518,7 @@ func _on_band_song(song: Dictionary, stream: AudioStream) -> void:
 	if _mode == "humppa" and _phase != "dance":
 		_beat = 60.0 / float(song.bpm)
 	if not (_mode == "disco" and _phase == "dance") and stream != null:
-		Sfx.music_play(0.6, 0.0, "humppa:" + Synth.song_key(song), stream)
+		Sfx.music_play(0.6, 0.0, "humppa:" + Band.song_id(song), stream)
 	if _phase == "intro" and _menu < 0:
 		_intro_text()
 

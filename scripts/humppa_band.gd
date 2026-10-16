@@ -6,10 +6,13 @@ extends Node3D
 ## heilahtavat. Päät nyökkäävät tahdissa.
 ## Paikallinen kehys: yleisö -Z:n suunnassa (hahmojen oletuskatse), lavan takaseinä +Z. Lavan pinta y = 0.
 ## Käyttö: vaala.gd (lava ulkoa, ikkunoista näkyy) ja lava_game.gd (tanssit). bpm ja playing ohjaavat soittoa.
+## Ohjelmisto: vanhat iskelmät ja lavamusiikki äänitteinä (iskelmat.gd); jos tiedostoja ei ole, syntetisoitu humppa
+## (humppa_synth.gd). Äänitteen loputtua bändi soittaa seuraavan.
 
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Synth := preload("res://scripts/humppa_synth.gd")
+const Iskelmat := preload("res://scripts/iskelmat.gd")
 
 signal song_started(song: Dictionary, stream: AudioStream)
 
@@ -30,10 +33,33 @@ var speaker := true
 var current_song := {}
 var _player: AudioStreamPlayer3D
 var _pending := {}
+var _song_left := -1.0  # äänitteen jäljellä oleva aika (s); -1 = syntetisoitu silmukka
 
 
-## Toivekappale (humppa_synth.gd SONGS): valmis kappale alkaa heti, muuten se renderöidään taustasäikeessä.
+## Bändin ohjelmisto (toivelista): iskelmäaänitteet, tai syntetisoitu humppa, jos tiedostoja ei ole.
+static func repertoire() -> Array:
+	var songs := Iskelmat.available()
+	return songs if not songs.is_empty() else Synth.SONGS
+
+
+## Kappaleen tunniste (Sfx.music_play vaihtaa soittimen sisällön, kun tunniste vaihtuu).
+static func song_id(song: Dictionary) -> String:
+	return song.path if song.has("path") else Synth.song_key(song)
+
+
+## Seuraava kappale ohjelmistosta: jokin muu kuin juuri soinut.
+func next_song() -> Dictionary:
+	var songs := repertoire().filter(func(sg: Dictionary) -> bool: return sg.title != current_song.get("title", ""))
+	return songs.pick_random() if not songs.is_empty() else repertoire()[0]
+
+
+## Toivekappale (repertoire): äänite tai valmis syntetisoitu kappale alkaa heti, muuten se renderöidään
+## taustasäikeessä.
 func request(song: Dictionary) -> void:
+	if song.has("path"):
+		_pending = {}
+		_start(song, Iskelmat.stream(song.path))
+		return
 	var wav := Synth.cached(song)
 	if wav != null:
 		_start(song, wav)
@@ -73,6 +99,7 @@ func _start(song: Dictionary, wav: AudioStream) -> void:
 		add_child(_player)
 	_player.stream = wav
 	_player.volume_db = -4.0
+	_song_left = wav.get_length() if song.has("path") else -1.0
 	if speaker:
 		_player.play()
 	else:
@@ -388,6 +415,10 @@ func _build_lights() -> void:
 func _process(delta: float) -> void:
 	if not _built:
 		return
+	if playing and _song_left > 0.0:
+		_song_left -= delta
+		if _song_left <= 0.0:
+			request(next_song())  # äänite loppui: bändi soittaa seuraavan (myös kun lavapeli soittaa samaa sisällä)
 	var cam := get_viewport().get_camera_3d()
 	var near := cam != null and cam.global_position.distance_to(global_position) < active_range and is_visible_in_tree()
 	for m in _members:

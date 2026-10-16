@@ -21,6 +21,7 @@ const ChopGame := preload("res://scripts/chop_game.gd")
 const SawGame := preload("res://scripts/saw_game.gd")
 const BarGame := preload("res://scripts/bar_game.gd")
 const LavaGame := preload("res://scripts/lava_game.gd")
+const HumppaBand := preload("res://scripts/humppa_band.gd")
 const PingisGame := preload("res://scripts/pingis_game.gd")
 const PaGame := preload("res://scripts/pa_game.gd")
 ## Santun hommat mökillä (santun_hommat.gd) ja niiden minipelit.
@@ -41,6 +42,10 @@ const VARASTO_INT_POS := Vector3(-16000, 0, 16000)  # Tokolan vanha varasto (tok
 ## Valcon kuulokkeet (headphones.gd, #15): autotallista, vaimentavat linnut ja vaarat, soittavat Suno-listaa.
 const Headphones := preload("res://scripts/headphones.gd")
 var headphones: Node
+## Päivin vanha kännykkä (phone.gd, #16): kodin yöpöydältä, soittaa iskelmiä pienestä kaiuttimesta.
+const Phone := preload("res://scripts/phone.gd")
+const Iskelmat := preload("res://scripts/iskelmat.gd")
+var phone: Node
 var _hp_label: Label
 ## Raahen baari: Kapteenin Kulma ja Kellari (raahe_interior.gd), taksilla kotoa.
 const RaaheInterior := preload("res://scripts/raahe_interior.gd")
@@ -1040,6 +1045,9 @@ func _ready() -> void:
 	siitari_int.acted.connect(_on_siitari_acted)
 	headphones = Headphones.new()
 	add_child(headphones)
+	phone = Phone.new()
+	phone.headphones = headphones
+	add_child(phone)
 	asema_int = StationInterior.new()
 	asema_int.position = ASEMA_INT_POS
 	add_child(asema_int)
@@ -1262,6 +1270,7 @@ func _process(delta: float) -> void:
 		_traffic_tick(delta)
 	_indoor_eat()
 	_headphones_keys()
+	_phone_keys()
 	match state:
 		"to_shop", "to_home":
 			_outside_logic()
@@ -5530,6 +5539,7 @@ func _enter_home(door: String) -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	tilat.first("koti_sisalla", 0.1)
 	home_int.carrying = beers > 0 or has_kanister
+	home_int.phone_found = phone.found
 	home_int.enter(door)
 	home_int.walker.set_carrying(beers > 0 or has_kanister)
 	Sfx.play("door", -3.0)
@@ -5710,6 +5720,14 @@ func _on_home_acted(kind: String) -> void:
 				tilat.add("stressi", 0.05)
 				tilat.add("kokemus", -0.02)
 			_show_message("\"%s\"" % TV_SHOWS.pick_random(), 3.0)
+		"puhelin":
+			phone.found = true
+			home_int.phone_found = true
+			Sfx.play("pickup", -4.0)
+			tilat.first("puhelin", 0.3)
+			_show_message("Päivin vanha kännykkä! Siihen on ladattu vanhoja iskelmiä. %s soimaan, %s seuraava, %s äänenvoimakkuus." % [
+				Settings.action_key("phone"), Settings.action_key("next_song"), Settings.action_key("phone_volume")], 5.0)
+			_save_game()
 		"sohva":
 			if _once_today("sohva"):
 				_advance_clock(HOP_NAP)
@@ -7832,6 +7850,26 @@ func _headphones_keys() -> void:
 	elif Input.is_action_just_pressed("next_song") and headphones.on:
 		headphones.next()
 		_show_message("♫ %s" % headphones.title, 1.8)
+
+
+## Päivin kännykkä: P soimaan / taskuun, N seuraava (kun kuulokkeet eivät ole päässä), U voimakkuus. Kuulokkeet pois päästä, kun
+## puhelin alkaa soida, ettei puhelin jää hiljaa tauolle.
+func _phone_keys() -> void:
+	phone.set_shown(_hud.visible)
+	if not phone.found or cutscene.busy or _talk_box.is_open() or _item_menu.is_open() or _paper.visible \
+			or _inventory.visible or not state in NIGHT_STATES:
+		return
+	if Input.is_action_just_pressed("phone"):
+		phone.toggle()
+		if phone.on and headphones.on:
+			headphones.toggle()
+		_show_message(("Päivin kännykkä soimaan. ♫ %s" % phone.title) if phone.on else "Kännykkä taskuun.", 2.0)
+	elif Input.is_action_just_pressed("next_song") and phone.on and not headphones.on:
+		phone.next()
+		_show_message("♫ %s" % phone.title, 1.8)
+	elif Input.is_action_just_pressed("phone_volume") and phone.on:
+		phone.volume_up()
+		_show_message("Kännykän ääni: %s" % Phone.VOL_NAMES[phone.volume], 1.5)
 
 
 ## Saloisten asema K-Marketin takana (world.gd _build_station): kaupan puoleisesta ovesta odotussaliin, laiturilta
@@ -13401,6 +13439,8 @@ func _load_game() -> void:
 	viina_found = cfg.get_value("mokki", "viinakatkot", [])
 	asema_katkot = cfg.get_value("asema", "katkot", {})
 	headphones.found = cfg.get_value("kuulokkeet", "loydetty", false)
+	phone.found = cfg.get_value("puhelin", "loydetty", false)
+	phone.volume = cfg.get_value("puhelin", "voimakkuus", 2)
 	viina_pullot = cfg.get_value("mokki", "viinapullot", 0)
 	atm_day = cfg.get_value("peli", "otto_paiva", 0)
 	maine = cfg.get_value("peli", "maine", 0.0)
@@ -13509,6 +13549,8 @@ func _save_game() -> void:
 	cfg.set_value("mokki", "viinakatkot", viina_found)
 	cfg.set_value("asema", "katkot", asema_katkot)
 	cfg.set_value("kuulokkeet", "loydetty", headphones.found)
+	cfg.set_value("puhelin", "loydetty", phone.found)
+	cfg.set_value("puhelin", "voimakkuus", phone.volume)
 	cfg.set_value("mokki", "viinapullot", viina_pullot)
 	cfg.set_value("peli", "otto_paiva", atm_day)
 	cfg.set_value("peli", "maine", maine)
@@ -14032,6 +14074,8 @@ func _help_text() -> String:
 	parts.append(k.call("journal", "päiväkirja"))
 	if headphones.found:
 		parts.append(k.call("headphones", "kuulokkeet"))
+	if phone.found:
+		parts.append(k.call("phone", "puhelin"))
 	return "   ".join(parts)
 
 
@@ -14635,6 +14679,9 @@ func inventory_items() -> Array:
 	if headphones.found:
 		add.call("kuulokkeet", "Valcon kuulokkeet", 1, "%s päähän ja pois, %s seuraava biisi. Kaikki hiljenee, Päivikin." % [
 			Settings.action_key("headphones"), Settings.action_key("next_song")])
+	if phone.found:
+		add.call("puhelin", "Päivin vanha kännykkä", 1, "Vanhoja iskelmiä. %s soimaan ja taskuun, %s seuraava, %s äänenvoimakkuus." % [
+			Settings.action_key("phone"), Settings.action_key("next_song"), Settings.action_key("phone_volume")])
 	if has_sausage:
 		add.call("makkara_valmis" if sausage_done else "makkara", "Grillimakkara" + (" (paistettu)" if sausage_done else ""), 1,
 			"Paistetaan laavulla tai mökin savustimessa.")
@@ -17842,6 +17889,150 @@ func _maybe_screenshot() -> void:
 			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 			f.store_buffer(saved)
 			f.close()
+			get_tree().quit()
+		"puhelin":
+			# Päivin kännykkä (#16): kodin yöpöydältä, P soimaan, N seuraava, U voimakkuus, kuulokkeet tauottavat, P taskuun.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(name: String) -> void:
+				for i in 15:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			phone.found = false
+			if player != walker_out:
+				_toggle_mount()
+			_note.visible = false
+			_enter_home("ovi")
+			home_int.walker.position = home_int.SPOTS.puhelin[0]
+			for i in 5:
+				await get_tree().process_frame
+			print("PUHELIN yöpöydällä vihje '%s', malli näkyy %s" % [_hint.text, home_int._phone.visible])
+			await snap.call("_koti.png")
+			var pc := Camera3D.new()
+			home_int.add_child(pc)
+			pc.fov = 40.0
+			pc.look_at_from_position(home_int.to_global(home_int._phone.position + Vector3(0.35, 0.45, 0.35)), home_int.to_global(home_int._phone.position))
+			pc.current = true
+			await snap.call("_lahikuva.png")
+			pc.queue_free()
+			await press.call("interact")
+			print("PUHELIN löydetty %s, malli näkyy %s, viesti '%s'" % [phone.found, home_int._phone.visible, _msg.text])
+			home_int.exit_door = "ovi"
+			_on_home_exited()
+			for i in 5:
+				await get_tree().process_frame
+			print("PUHELIN lista %d biisiä: %s" % [Iskelmat.playlist().size(), Iskelmat.playlist().slice(0, 3)])
+			await press.call("phone")
+			for i in 30:
+				await get_tree().process_frame
+			print("PUHELIN soi %s '%s', väylä %s -> %s, viesti '%s'" % [phone.audible(), phone.title, phone._player.bus,
+				AudioServer.get_bus_send(AudioServer.get_bus_index(phone._player.bus)), _msg.text])
+			await snap.call("_soi.png")
+			var t1: String = phone.title
+			await press.call("next_song")
+			print("PUHELIN seuraava '%s' -> '%s'" % [t1, phone.title])
+			await press.call("phone_volume")
+			print("PUHELIN voimakkuus %d (%.0f dB), viesti '%s'" % [phone.volume, phone._player.volume_db, _msg.text])
+			await snap.call("_seuraava.png")
+			headphones.found = true
+			await press.call("headphones")
+			for i in 5:
+				await get_tree().process_frame
+			print("PUHELIN kuulokkeet päässä: puhelin kuuluu %s, kuulokkeet soi %s" % [phone.audible(), headphones._player.playing and not headphones._player.stream_paused])
+			await press.call("headphones")
+			for i in 5:
+				await get_tree().process_frame
+			print("PUHELIN kuulokkeet pois: puhelin kuuluu %s" % phone.audible())
+			await press.call("phone")
+			for i in 30:
+				await get_tree().process_frame
+			print("PUHELIN taskuun: soi %s, viesti '%s'" % [phone.audible(), _msg.text])
+			await snap.call("_taskussa.png")
+			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f.store_buffer(saved)
+			f.close()
+			get_tree().quit()
+		"lavatoiveet":
+			# Oulujärven lava: bändin iskelmätoiveet (äänitteet) ja DJ:n diskotoiveet, bändi vaihtaa biisin itse.
+			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)
+			mokki.ensure_built()  # mopomatka lähtee mökiltä
+			day = 6
+			clock_min = 21.5 * 60.0
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_note.visible = false
+			money = 100.0
+			var snap := func(name: String) -> void:
+				for i in 25:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			_mopo_dismount()
+			_enter_lava(true)
+			var lg: Node3D = _lava_game
+			var band: Node3D = lg._band
+			for i in 10:
+				await get_tree().process_frame
+			print("TOIVEET ohjelmisto %d: %s" % [HumppaBand.repertoire().size(), HumppaBand.repertoire().map(func(sg): return sg.title)])
+			print("TOIVEET bändi soittaa '%s' (%s), bpm %.0f, musiikki '%s'" % [band.current_song.get("title", ""),
+				band.current_song.get("path", "synth"), band.bpm, Sfx._music_file])
+			await press.call("forward")
+			await press.call("back")
+			await press.call("back")
+			print("TOIVEET bändin lista auki %s, valinta %d" % [lg._menu >= 0, lg._menu])
+			await snap.call("_bandilista.png")
+			await press.call("interact")
+			for i in 10:
+				await get_tree().process_frame
+			print("TOIVEET toivottu: bändi '%s', bpm %.0f, musiikki '%s', teksti '%s'" % [band.current_song.get("title", ""), band.bpm,
+				Sfx._music_file, lg._info.text.get_slice("\n", 0)])
+			await snap.call("_bandi.png")
+			band._song_left = 0.05
+			for i in 10:
+				await get_tree().process_frame
+			print("TOIVEET äänite loppui -> bändi '%s', musiikki '%s'" % [band.current_song.get("title", ""), Sfx._music_file])
+			await press.call("back")
+			await press.call("back")
+			print("TOIVEET DJ:n lista auki %s (%s), valinta %d" % [lg._menu >= 0, lg._menu_kind, lg._menu])
+			await snap.call("_djlista.png")
+			await press.call("interact")
+			for i in 10:
+				await get_tree().process_frame
+			print("TOIVEET DJ: tila %s/%s, musiikki '%s', teksti '%s'" % [lg._mode, lg._phase, Sfx._music_file, lg._info.text.get_slice("\n", 0)])
+			await snap.call("_disko.png")
+			for k in 3:
+				for i in 60:
+					await get_tree().process_frame
+				print("TOIVEET disko kamera %s, minä %s" % [lg.to_local(lg._cam.global_position), lg._me.position])
+				await snap.call("_disko%d.png" % (k + 1))
+			lg._t = LavaGame.SONG
+			for i in 5:
+				await get_tree().process_frame
+			lg._back_to_hall()
+			for i in 10:
+				await get_tree().process_frame
+			print("TOIVEET takaisin saliin: bändi '%s', musiikki '%s'" % [band.current_song.get("title", ""), Sfx._music_file])
+			lg._leave()
+			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			_sf.store_buffer(_save_bak)
+			_sf.close()
 			get_tree().quit()
 		"asema":
 			# Asemat: Saloisten asema ulkoa (katu ja laituri), odotussali, hörppy juopolle -> kätkö kartalle, kätkön
