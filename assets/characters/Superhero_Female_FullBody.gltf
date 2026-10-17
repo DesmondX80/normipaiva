@@ -1473,7 +1473,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"T_Eye_Normal.png",
-			"uri":"T_Eye_Normal_png.png"
+			"uri":"T_Eye_Normal.png"
 		},
 		{
 			"mimeType":"image/png",
@@ -1488,7 +1488,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"T_Superhero_Female_Dark_BaseColor",
-			"uri":"T_Superhero_Female_Dark_BaseColor.png"
+			"uri":"T_Superhero_Female_Light.png"
 		},
 		{
 			"mimeType":"image/png",

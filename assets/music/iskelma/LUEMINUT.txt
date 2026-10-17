@@ -3,7 +3,7 @@ humppa_band.gd)
 
 01_–10_ ovat vanhoja suomalaisia 78 kierroksen levytyksiä vuosilta 1926–1930 Kansalliskirjaston
 Raita-kokoelmasta (https://www.doria.fi/handle/10024/66373), lisenssi Public Domain
-(https://creativecommons.org/publicdomain/mark/1.0/). Uudelleenkoodattu: mono, MP3 80 kbps, hiljaiset alut ja
+(https://creativecommons.org/publicdomain/mark/1.0/). Uudelleenkoodattu: mono, MP3 48 kbps 22 kHz, hiljaiset alut ja
 loput pois, huippu -1 dBFS. Esittäjät, vuodet, tempot ja Doria-tunnisteet: scripts/iskelmat.gd SONGS.
 
 Kansioon voi pudottaa lisää biisejä (ogg, mp3, wav), esim. Eräät Jormat omalta Suno-soittolistalta

@@ -747,7 +747,7 @@ Työpöydällä ohjaimia voi kokeilla käynnistämällä pelin `godot --path . -
   - "Bitten by the Rave Spider" – Woolly Jammoth, OpenGameArt (CC BY 4.0)
 - Iskelmät ja lavamusiikki (`assets/music/iskelma/`, Päivin kännykkä ja Oulujärven lavan bändi): Kansalliskirjaston
   [Raita](https://www.doria.fi/handle/10024/66373) – musiikkia vanhoilta äänilevyiltä, Public Domain. Uudelleenkoodattu
-  (mono, MP3 80 kbps, hiljaiset alut pois); esittäjät, vuodet ja Doria-tunnisteet `scripts/iskelmat.gd`:ssä:
+  (mono, MP3 48 kbps 22 kHz, hiljaiset alut pois); esittäjät, vuodet ja Doria-tunnisteet `scripts/iskelmat.gd`:ssä:
   Säkkijärven polkka (Willy Larsen 1928), Orpopojan valssi ja Kulkurin valssi (J. Alfred Tanner 1926),
   Juhannusvalssi, Kylän jenkka ja Immu-polkka (Nils ja Wilhelm Ekman 1929), Lappeenrannan rakuuna (Matti Söderlund
   1928), Tanssit Tarvaisen torpassa (Kuuno Sevander 1929), Pääskysvalssi (Viola Turpeinen ja John Rosendahl 1928) ja

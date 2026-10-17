@@ -1352,12 +1352,12 @@
 		{
 			"mimeType":"image/png",
 			"name":"T_Hair_2_Normal",
-			"uri":"T_Hair_2_Normal.png"
+			"uri":"../T_Hair_2_Normal.png"
 		},
 		{
 			"mimeType":"image/png",
 			"name":"T_Hair_2_BaseColor",
-			"uri":"T_Hair_2_BaseColor.png"
+			"uri":"../T_Hair_2_BaseColor.png"
 		}
 	],
 	"skins":[

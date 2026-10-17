@@ -2,7 +2,7 @@ extends RefCounted
 ## Iskelmät ja lavamusiikki vanhoilta 78 kierroksen levyiltä (Kansalliskirjaston Raita-kokoelma, Public Domain,
 ## https://www.doria.fi/handle/10024/66373): Päivin vanhan puhelimen soittolista (phone.gd) sekä lavabändin
 ## ohjelmisto ja toivekappaleet Oulujärven lavalla (humppa_band.gd, lava_game.gd). Tiedostot on uudelleenkoodattu
-## (mono, MP3 80 kbps, hiljaiset alut pois). bpm on tanssin ja bändin tahti (iskua/min), arvioitu äänitteestä; nopeista
+## (mono, MP3 48 kbps 22 kHz, hiljaiset alut pois). bpm on tanssin ja bändin tahti (iskua/min), arvioitu äänitteestä; nopeista
 ## valsseista ja jenkoista se on puolet iskuista, jotta tahtiin ehtii askeltaa.
 ## Kansioon voi pudottaa lisää biisejä (esim. Eräät Jormat Suno-soittolistalta): ne soivat puhelimessa.
 
