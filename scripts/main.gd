@@ -26897,6 +26897,7 @@ func _maybe_screenshot() -> void:
 			var n := 0
 			var close_n := 0
 			var close_due := 0
+			var phase_due: Array = []
 			var cast_hand := func(tc: Dictionary) -> Vector3:
 				return tc.helena.to_global(tc.helena.bone_position("hand_r")) if tc.has("helena") else Vector3.ZERO
 			var t0 := Time.get_ticks_msec()
@@ -26906,6 +26907,14 @@ func _maybe_screenshot() -> void:
 				if sub != seen and sub.contains(": "):
 					seen = sub
 					due = Time.get_ticks_msec() + 1500
+					if sub.ends_with("Mmm..."):
+						# Vihjaileva ilme (verkkopaita): vaiheet koko repliikin ajalta.
+						for ms in [150, 450, 750, 1050, 1350, 1650, 1950, 2200]:
+							phase_due.append(Time.get_ticks_msec() + ms)
+				if not phase_due.is_empty() and Time.get_ticks_msec() >= phase_due[0]:
+					phase_due.pop_front()
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ilme%d.png" % (8 - phase_due.size())))
 				# Käsi reidellä: suurennos pelaajan vasemmasta reidestä pöydän yli ja sivusta (0.7 s välein).
 				var tc: Dictionary = cutscene.train_cast
 				if not tc.is_empty() and is_instance_valid(tc.helena) and tc.helena._ik.has("arm_r") and close_n < 24 \
@@ -26918,6 +26927,13 @@ func _maybe_screenshot() -> void:
 					add_child(cc)
 					for view in [["e", Vector3(0.12, 0.12, -0.55)], ["s", Vector3(-0.55, 0.25, -0.15)], ["v", Vector3(-0.35, 0.5, -0.35)]]:
 						cc.look_at_from_position(th + hero.global_basis * view[1], th, Vector3.UP)
+						cc.current = true
+						await RenderingServer.frame_post_draw
+						get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kasi%02d%s.png" % [close_n, view[0]]))
+					# Ylävartalo edestä ja ylhäältä takaa (verkkopaidassa vasen käsi Helenan ympärillä).
+					var chest: Vector3 = hero.to_global(hero.bone_position("Head")) + Vector3(0, -0.3, 0)
+					for view in [["f", Vector3(-0.35, 0.15, -1.3)], ["t", Vector3(-0.2, 0.9, 0.6)]]:
+						cc.look_at_from_position(chest + hero.global_basis * view[1], chest, Vector3.UP)
 						cc.current = true
 						await RenderingServer.frame_post_draw
 						get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kasi%02d%s.png" % [close_n, view[0]]))

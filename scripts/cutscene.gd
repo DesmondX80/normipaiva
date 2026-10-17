@@ -1855,11 +1855,20 @@ const TRAIN_NO_TREAT := "Tarjoaisin teille paukut, mutta lompakko on laiha. Otta
 ## -> uusi), ja kosketuksen jälkeen hän liukuu pelaajaa vasten ja painaa päänsä tämän olalle.
 const TRAIN_NET_LINES := {
 	"Sinä olet kyllä mukava mies.": "Tuo verkkopaita... Saanko istua vähän lähempänä?",
+	"Tuota... Juna on kyllä mukava kulkuväline.": "Istu vaan. Juna on mukava, mutta seura vielä mukavampi.",
 	"Älä vielä mene. Matkaa on jäljellä.": "Älä vielä mene. Tässä on niin lämmin olla.",
 	"Hei! Saanko istua? Tässä on niin kiva valo.": "Hei komistus! Saanko istua viereen? Verkkopaita on rohkea valinta.",
 	"No voi kiitos! Kippis!": "Kiitos, kulta! Kippis meille kahdelle.",
 	"Hyvää kotimatkaa! Oli ilo jutella.": "Soita joskus. Ja tule samassa paidassa.",
 }
+## Verkkopaidassa lisärepliikit kosketusta seuraavan repliikin jälkeen: Helena ihailee asua, rohkeampi pelaaja
+## vihjailee ("flirt" = lähikuva: pää Helenaan, kulmakarvat nousevat kahdesti ja suukko ohimolle) ja tarjoutuu oppaaksi määränpäähän (%s = Vaalassa tai Saloisissa).
+const TRAIN_NET_EXTRA := [
+	["helena", "Ja nuo henkselit ja rasvaletti... Ihan kuin Miami Vicestä."],
+	["minä", "Mmm...", "flirt"],
+	["minä", "Mä voin olla sun opas %s. Tiedän kaikki parhaat maisemat."],
+	["helena", "Oma opas! Sopii, komistus."],
+]
 
 
 ## Junamatka Saloisten ja Vaalan asemien välillä kolmessa osassa: lähtö (Saloisista Raahen terästehtaan ohi,
@@ -1900,11 +1909,19 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 		if lines[i].size() > 2 and lines[i][2] == "hand":
 			hand_from = i
 	var net := Looks.outfit == "farkut"
+	var flirt := {}
 	if net:
 		lines = lines.map(func(l: Array) -> Array:
 			var c := l.duplicate()
 			c[1] = TRAIN_NET_LINES.get(l[1], l[1])
 			return c)
+		var extra := mini(hand_from + 2, lines.size())
+		var town := "Vaalassa" if to_vaala else "Saloisissa"
+		lines = lines.slice(0, extra) + TRAIN_NET_EXTRA.map(func(l: Array) -> Array:
+			var c := l.duplicate()
+			c[1] = (c[1] as String).replace("%s", town)
+			return c) + lines.slice(extra)
+		flirt = _flirt_setup(cast["minä"])
 	var hand := {"w": 0.0, "slide": 0.0, "rest": Vector3.ZERO, "stroke0": -1.0}
 	var sweat := {"t": 0.0, "drops": []}
 	var t0 := _now_ms()
@@ -1958,6 +1975,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 				var toward: Vector3 = hero.position - (hand.h0 as Vector3)
 				toward.y = 0.0
 				hl.position = (hand.h0 as Vector3) + toward.normalized() * float(hand.near) * lean
+				hand.lean = lean
 				hl.set_override("spine_02", Vector3(0, 0, 1), -0.22 * lean)
 				hl.set_override("neck_01", Vector3(0, 0, 1), -0.35 * lean)
 			if hand.w == 0.0:
@@ -2005,15 +2023,38 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			# Kämmen alas reittä vasten ja kämmenselkä ylös: käden asento suoraan (sormet kyynärvarren jatkeena vaakatasossa).
 			var flat := Vector3(fore.x, 0.0, fore.z).normalized()
 			hl.set_ik_orient("arm_r", _palm_down(flat), smoothstep(0.0, 1.0, hand.w))
+			if net:
+				# Verkkopaidassa pelaaja ei hermoile: kun Helena painautuu kiinni, vasen käsi nousee hänen ympärilleen
+				# kaulan takaa toiselle olalle (kämmen olan päällä, kyynärpää selän takana ylhäällä).
+				if not hand.has("own0"):
+					hand.own0 = hero.bone_position("hand_l")
+				var far: Vector3 = hero.to_local(hl.to_global(hl.bone_position("upperarm_l")))
+				var hug: Vector3 = far + Vector3(0.07, 0.04, -0.02)
+				var hw := smoothstep(0.0, 1.0, float(hand.get("lean", 0.0)))
+				var hsh: Vector3 = hero.bone_position("upperarm_l")
+				hero.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", (hand.own0 as Vector3).lerp(hug, hw),
+					hsh + Vector3(-0.15, 0.5, 0.05))
+				# Vasen käsi on peilikuva: kämmenakseli vastakkainen, joten käännetään sormien ympäri puoli kierrosta.
+				hero.set_ik_orient("arm_l", _palm_down(Vector3(-0.3, -0.4, -1.0)) * Basis(Vector3.UP, PI), hw)
+		if k >= hand_from and not net:
 			# Pelaaja nostaa oman kätensä reideltä ja tarttuu hermostuneena tuoppiinsa.
+			var hero: Node3D = cast["minä"]
 			var mug: Vector3 = hero.to_local(car.to_global(Vector3(-0.67, 0.86, 0.22)))
 			var own: Vector3 = hero.bone_position("hand_l").lerp(mug, smoothstep(0.0, 1.0, hand.w)) if not hand.has("own0") \
 				else (hand.own0 as Vector3).lerp(mug, smoothstep(0.0, 1.0, hand.w))
 			if not hand.has("own0"):
 				hand.own0 = hero.bone_position("hand_l")
 			hero.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", own, own + Vector3(-0.4, -0.3, 0.3))
-		_train_sweat(cast["minä"], car, sweat, hand.w)
-		if k == hand_from or k == hand_from + 1:
+		_train_sweat(cast["minä"], car, sweat, 0.0 if net else hand.w)  # verkkopaidassa ei hikoilla
+		var flirting: bool = lines[k].size() > 2 and lines[k][2] == "flirt"
+		if not flirt.is_empty():
+			_flirt_pose(cast["minä"], flirt, u if flirting else -1.0)
+		if flirting:
+			# Lähikuva puhujan kasvoista pöydän toiselta puolelta.
+			var head: Vector3 = ch.to_global(ch.bone_position("Head"))
+			_cam.global_position = head + ch.global_basis * Vector3(lerpf(0.1, 0.06, u), 0.0, -lerpf(0.85, 0.75, u))
+			_cam.look_at(head + Vector3(0, 0.04, 0), Vector3.UP)
+		elif k == hand_from or k == hand_from + 1:
 			# Käsi reidellä: kurkistus pöydän alta vastapäätä (pöytälevy peittää sylin ylhäältä).
 			_cam.global_position = car.to_global(Vector3(lerpf(-0.3, -0.38, u), 0.58, lerpf(-0.42, -0.5, u)))
 			_cam.look_at(car.to_global(Vector3(-0.85, 0.6, 0.75)), Vector3.UP)
@@ -2392,6 +2433,44 @@ func _train_sweat(hero: Node3D, car: Node3D, sweat: Dictionary, w: float) -> voi
 
 
 ## Kultaiset rengaskorvakorut.
+## Vihjailun valmistelu: kulmakarvaverkolle oma Skin, jonka sidosasentoja siirtämällä kulmat nousevat pään mukana.
+static func _flirt_setup(c: Node3D) -> Dictionary:
+	var st := {"brows": null, "binds": [], "on": false}
+	for mi in c.skeleton.get_children():
+		if mi is MeshInstance3D and mi.name == "Eyebrows" and (mi as MeshInstance3D).skin != null:
+			var sk: Skin = (mi as MeshInstance3D).skin.duplicate()
+			(mi as MeshInstance3D).skin = sk
+			st.brows = sk
+			for i in sk.get_bind_count():
+				st.binds.append(sk.get_bind_pose(i))
+	return st
+
+
+## Vihjaileva ilme repliikin aikana (u = 0..1, < 0 = lepo): pää kääntyy olalla nojaavaa Helenaa kohti, kulmakarvat
+## nousevat kahdesti nopeasti ("kulmien heiluttelu") ja pää painuu antamaan suukon Helenan ohimolle. Kädet eivät
+## osallistu (vasen on Helenan ympärillä).
+static func _flirt_pose(c: Node3D, st: Dictionary, u: float) -> void:
+	if u < 0.0:
+		if st.on:
+			st.on = false
+			c.set_override("neck_01", Vector3.UP, 0.0)
+			c.set_override("Head", Vector3.RIGHT, 0.0)
+		return
+	st.on = true
+	var turn := smoothstep(0.0, 0.15, u) * (1.0 - smoothstep(0.88, 1.0, u))
+	var kiss := smoothstep(0.5, 0.65, u) * (1.0 - smoothstep(0.8, 0.92, u))
+	c.set_override("neck_01", Vector3.UP, 0.5 * turn + 0.25 * kiss)
+	c.set_override("Head", Vector3.RIGHT, 0.3 * kiss)  # nyökkäys alas ohimolle
+	# Kulmat: kaksi nopeaa nostoa alkupuoliskolla (verkon avaruudessa ylös).
+	var lift := 0.0
+	if u > 0.08 and u < 0.48:
+		lift = 0.018 * absf(sin((u - 0.08) / 0.4 * TAU))
+	if st.brows != null:
+		var sk: Skin = st.brows
+		for i in sk.get_bind_count():
+			sk.set_bind_pose(i, (st.binds[i] as Transform3D) * Transform3D(Basis(), Vector3(0, lift, 0)))
+
+
 static func _hoops(c: Node3D) -> void:
 	for s in [-1.0, 1.0]:
 		var ring := MeshInstance3D.new()
