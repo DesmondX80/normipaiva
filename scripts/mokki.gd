@@ -11,6 +11,7 @@ extends Node3D
 ## Karttadata on osoitepisteen kehyksessä (x itään, z etelään); mökki on kiertynyt siihen nähden YARD_ROT_DEG.
 
 const B := preload("res://scripts/build.gd")
+const MeshBundle := preload("res://scripts/mesh_bundle.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const DroneGame := preload("res://scripts/drone_game.gd")
@@ -1113,24 +1114,36 @@ func _build_ground() -> void:
 		"bog": _ground_mat(Color(0.4, 0.38, 0.22), Color(0.55, 0.45, 0.3), 0.03, 0.5),
 		"sand": _ground_mat(Color(0.72, 0.64, 0.46), Color(0.82, 0.75, 0.56), 0.06, 1.2),
 	}
-	var sts := {}
-	for k in mats:
-		sts[k] = SurfaceTool.new()
-		sts[k].begin(Mesh.PRIMITIVE_TRIANGLES)
-	_ground_grid(sts, Rect2(-Vector2.ONE * INNER_HALF, Vector2.ONE * INNER_HALF * 2.0), GRID_STEP, false)
-	# Kaukoverkko näkyvän alueen yli, ruudut tarkan verkon reunan kanssa samassa linjassa.
+	# Maastoverkot ja törmäyksen korkeudet levyvälimuistista: ruutu kerrallaan GDScriptillä laskettuna ne veivät
+	# mökin rakennuksesta 1,8 s. Avain karttadatasta (korkeudet, vedet, pellot, suot) ja verkon mitoista.
 	var vr := view_rect()
-	var lo := Vector2(-INNER_HALF - ceilf((vr.position.x + INNER_HALF) / -FAR_GRID) * FAR_GRID,
-		-INNER_HALF - ceilf((vr.position.y + INNER_HALF) / -FAR_GRID) * FAR_GRID)
-	_ground_grid(sts, Rect2(lo, (vr.end - lo).snappedf(FAR_GRID)), FAR_GRID, true)
-	for k in sts:
-		var st: SurfaceTool = sts[k]
-		st.generate_normals()
+	var key := "v%d/%s/%s/%s/%s/%d" % [GROUND_CACHE_VERSION, INNER_HALF, GRID_STEP, FAR_GRID, vr, hash(map_data())]
+	var cached := MeshBundle.load_dict("mokki_maasto", key)
+	if cached.is_empty():
+		var sts := {}
+		for k in mats:
+			sts[k] = SurfaceTool.new()
+			sts[k].begin(Mesh.PRIMITIVE_TRIANGLES)
+		var grids := [_ground_grid(sts, Rect2(-Vector2.ONE * INNER_HALF, Vector2.ONE * INNER_HALF * 2.0), GRID_STEP, false)]
+		# Kaukoverkko näkyvän alueen yli, ruudut tarkan verkon reunan kanssa samassa linjassa.
+		var lo := Vector2(-INNER_HALF - ceilf((vr.position.x + INNER_HALF) / -FAR_GRID) * FAR_GRID,
+			-INNER_HALF - ceilf((vr.position.y + INNER_HALF) / -FAR_GRID) * FAR_GRID)
+		grids.append(_ground_grid(sts, Rect2(lo, (vr.end - lo).snappedf(FAR_GRID)), FAR_GRID, true))
+		var meshes := {}
+		for k in sts:
+			var st: SurfaceTool = sts[k]
+			st.generate_normals()
+			meshes[k] = st.commit()
+		cached = {"meshes": meshes, "grids": grids}
+		MeshBundle.save_dict("mokki_maasto", key, cached)
+	for k in cached.meshes:
 		var mi := MeshInstance3D.new()
-		mi.mesh = st.commit()
+		mi.mesh = cached.meshes[k]
 		mi.material_override = mats[k]
 		mi.set_meta("ground", true)
 		add_child(mi)
+	for g in cached.grids:
+		_ground_body(g)
 	# Horisontti: laaja metsänvärinen taso maaston alla, ettei reunan takana näy tyhjää.
 	var far_vals: Array = map_data().dem_far.get("values", [0.0])
 	var lowest := INF
@@ -1152,9 +1165,13 @@ func _build_ground() -> void:
 		add_child(wall)
 
 
-## Yksi maastoverkko (suorakaide rect, ruutu step) materiaaleittain ja törmäyksenä. hole = tarkan verkon alue
-## ohitetaan (sen korkeudet painetaan syvälle, jotta karkea törmäys ei nouse tarkan maaston päälle).
-func _ground_grid(sts: Dictionary, rect: Rect2, step: float, hole: bool) -> void:
+## Yksi maastoverkko (suorakaide rect, ruutu step) materiaaleittain; palauttaa törmäyksen korkeusruudukon
+## {hs, n, nz, lo, step} (_ground_body). hole = tarkan verkon alue ohitetaan (sen korkeudet painetaan syvälle, jotta
+## karkea törmäys ei nouse tarkan maaston päälle).
+const GROUND_CACHE_VERSION := 1  # nosta, kun maaston laskenta (_ground_grid, h, materiaalien valinta) muuttuu
+
+
+func _ground_grid(sts: Dictionary, rect: Rect2, step: float, hole: bool) -> Dictionary:
 	var data := map_data()
 	var lo := rect.position
 	var n := int(roundf(rect.size.x / step)) + 1
@@ -1192,6 +1209,15 @@ func _ground_grid(sts: Dictionary, rect: Rect2, step: float, hole: bool) -> void
 				return Vector3(q.x, hs[(j + dj) * n + i + di], q.y)
 			for corner in [v.call(0, 0), v.call(1, 0), v.call(1, 1), v.call(0, 0), v.call(1, 1), v.call(0, 1)]:
 				st.add_vertex(corner)
+	return {"hs": hs, "n": n, "nz": nz, "lo": lo, "step": step}
+
+
+func _ground_body(g: Dictionary) -> void:
+	var hs: PackedFloat32Array = g.hs
+	var n: int = g.n
+	var nz: int = g.nz
+	var lo: Vector2 = g.lo
+	var step: float = g.step
 	var ground_body := StaticBody3D.new()
 	ground_body.collision_layer = Terrain.COLLISION_LAYER
 	ground_body.collision_mask = 0
