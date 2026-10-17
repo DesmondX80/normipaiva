@@ -450,9 +450,8 @@ var _humala_peak := 0.0  # tänään juotu humala (aamun krapulan pohjahumala ei
 var _humala_base := 0.0
 var _night_warned := 0  # 1 = ilta ilmoitettu, 2 = viimeinen varoitus
 ## Vuorokausirytmi (#87): aurinko, taivas, valo ja usva kellon mukaan (kesäyö ei pimene, vain sinertää), katuvalot
-## illalla, Päivi töissä (WIFE_WORK) ja yöllä kotona, naapurit yöllä sisällä. Päivitys DAY_RHYTHM_STEP välein.
+## illalla, Päivi teillä koko päivän ja yöllä kotona nukkumassa, naapurit yöllä sisällä. Päivitys DAY_RHYTHM_STEP välein.
 const DAY_RHYTHM_STEP := 0.25
-const WIFE_WORK := Vector2(8.5 * 60.0, 15.5 * 60.0)  # Päivi töissä (min)
 const WIFE_HOME := Vector2(22.0 * 60.0, 8.5 * 60.0)  # Päivi kotona, auto pihassa
 const NEIGHBORS_INSIDE := Vector2(23.0 * 60.0, 7.0 * 60.0)
 const LAMPS_ON := Vector2(21.5 * 60.0, 4.5 * 60.0)
@@ -461,6 +460,10 @@ var _wife_phase := ""
 var _sky_mat: ShaderMaterial
 var _clock_hud: Control
 var wife_alerted := false
+## Anna-Liisa käräytti kaupassa: Päivi lähti heti autolla kaupalle. Kaupassa vaarat ovat pysähdyksissä, joten matka
+## lasketaan ulos tultaessa: [hälytyksen hetki (ms), Päivin paikka silloin]. Tyhjä = ei matkalla.
+var _wife_bust: Array = []
+const WIFE_BUST_SPEED := 9.5  # keskinopeus tieverkolla (m/s): suora matka on mutkia lyhyempi
 
 var _hazards: Node3D
 var _stats: Label
@@ -13097,6 +13100,7 @@ func _on_shop_exited(bought: bool) -> void:
 	player.controls_enabled = true
 	player.activate_camera()
 	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+	_wife_bust_arrive()
 	if interior.has_paid:
 		has_sausage = has_sausage or interior.cart.has("makkara")
 		has_matches = has_matches or interior.cart.has("tikut")
@@ -13122,11 +13126,7 @@ func _on_shop_exited(bought: bool) -> void:
 	beers += 6
 	state = "to_home"  # = kuutonen ostettu tänään (ei tehtävä: kotiin tai kauppaan voi mennä milloin vain)
 	player.set_carrying(true)
-	if wife_alerted:
-		wife.alerted = true
-		wife.reset_to(wife.farthest_node_from(shop_zone))
-		_show_message("Anna-Liisa soitti Päiville.\nPÄIVI TIETÄÄ MISSÄ OLET!", 3.5)
-	elif interior.stolen:
+	if interior.stolen and not wife_alerted:
 		_show_message("JUOKSUKALJAT! Kauppias juoksee perään – se on nopeampi kuin pyörä!\nTaksiin, tai heitä kaljoja päin!", 4.0)
 	if interior.stolen:
 		_start_shop_chase(shop_door, true)
@@ -13140,7 +13140,36 @@ func _on_paid(total: float) -> void:
 
 func _on_busted() -> void:
 	wife_alerted = true
-	_show_message("Naapurin Anna-Liisa näki sinut!\nKohta Päivi tietää...", 3.0)
+	if _wife_bust.is_empty() and wife != null and is_instance_valid(wife):
+		_wife_bust = [Time.get_ticks_msec(), wife.global_position]
+	_show_message("Naapurin Anna-Liisa näki sinut ja soitti Päiville!\nPäivi lähti jo autolla tänne...", 3.0)
+
+
+## Ulos kaupasta hälytyksen jälkeen: Päivi on ajanut kaupalle sen ajan, minkä olit sisällä (kaupassa vaarat ovat
+## pysähdyksissä). Perillä hän odottaa pihassa; muuten hän on matkalla jossain kodin ja kaupan välillä. Kummassakin
+## tapauksessa hän tietää, missä olet, ja jahtaa heti (alerted).
+func _wife_bust_arrive() -> void:
+	if _wife_bust.is_empty() or wife == null or not is_instance_valid(wife):
+		return
+	var secs: float = (Time.get_ticks_msec() - int(_wife_bust[0])) / 1000.0
+	var from: Vector3 = _wife_bust[1]
+	_wife_bust = []
+	var left := maxf(0.0, Vector2(from.x - shop_door.x, from.z - shop_door.z).length() - secs * WIFE_BUST_SPEED)
+	var at := shop_door
+	if left > 15.0:
+		var dir := Vector3(from.x - shop_door.x, 0, from.z - shop_door.z).normalized()
+		at = shop_door + dir * left
+	wife.reset_to(world.nearest_node(at))
+	wife.parked = false
+	wife.visible = true
+	wife.process_mode = Node.PROCESS_MODE_INHERIT
+	wife.alerted = true
+	wife.mode = "chase"
+	_wife_phase = "partio"
+	if left <= 15.0:
+		_show_message("PÄIVI ODOTTAA JO KAUPAN PIHASSA!\nPakoon!", 3.5)
+	else:
+		_show_message("Päivi on matkalla tänne, %d metrin päässä.\nPÄIVI TIETÄÄ MISSÄ OLET!" % (roundi(left / 10.0) * 10), 3.5)
 
 
 func _on_wife_spotted() -> void:
@@ -14057,6 +14086,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	if not at_m:
 		bonus += _lawn_nag() + _hedge_nag()
 	wife_alerted = false
+	_wife_bust = []
 	police = null
 	vaino = null  # karkuri palaa yöksi itse kotiin
 	_roll_vaino()
@@ -15133,26 +15163,17 @@ func _wife_park_pos() -> Vector3:
 	return Vector3(p.x, Terrain.h(p.x, p.z) + 0.3, p.z)
 
 
-## Päivi: töissä WIFE_WORK (auto pois tieverkolta, ellei naapuri ole käräyttänyt), illalla partioi, yöllä kotona
-## auto pihassa (ei jahtaa). Vaihtuu vain, kun Päivi ei ole jahtaamassa.
+## Päivi: koko päivän teillä (partio), kotona vain nukkumassa WIFE_HOME (auto pihassa, ei jahtaa). Vaihtuu vain,
+## kun Päivi ei ole jahtaamassa. Anna-Liisan hälytys vie hänet heti kaupalle (_on_busted, _wife_bust_arrive).
 func _wife_rhythm(t: float) -> void:
 	if wife == null or not is_instance_valid(wife):
 		return
-	var want := "partio"
-	if _between(t, WIFE_HOME):
-		want = "koti"
-	elif _between(t, WIFE_WORK) and not wife_alerted:
-		want = "toissa"
+	var want := "koti" if _between(t, WIFE_HOME) else "partio"
 	if want == _wife_phase or wife.mode == "chase":
 		return
 	var prev := _wife_phase
 	_wife_phase = want
 	match want:
-		"toissa":
-			wife.parked = false
-			wife.visible = false
-			wife.process_mode = Node.PROCESS_MODE_DISABLED
-			wife.global_position = Vector3(0, -500, 0)
 		"koti":
 			wife.reset_to(world.nearest_node(home_zone))
 			wife.global_position = _wife_park_pos()
@@ -15162,12 +15183,12 @@ func _wife_rhythm(t: float) -> void:
 			wife.process_mode = Node.PROCESS_MODE_INHERIT
 		"partio":
 			wife.parked = false
-			if prev == "toissa" or prev == "":
+			if prev == "":
 				wife.reset_to(wife.farthest_node_from(player.global_position))
 			wife.visible = true
 			wife.process_mode = Node.PROCESS_MODE_INHERIT
-			if prev == "toissa" and state in ["to_shop", "to_home"] and not _at_mokki():
-				_queue_message("Päivi pääsi töistä. Punainen Hyundai on taas teillä!", 3.0)
+			if prev == "koti" and state in ["to_shop", "to_home"] and not _at_mokki():
+				_queue_message("Päivi lähti liikkeelle. Punainen Hyundai on teillä!", 3.0)
 
 
 ## Valveilla oloa päivän alusta (min): yli puolenyön kello jatkaa yli 1440:n.
@@ -17401,6 +17422,41 @@ func _maybe_screenshot() -> void:
 						await get_tree().process_frame
 					print("SIITARI kohde %s, %s: vihje '%s', tila %s" % [tg, at[0], mopo_trip.hint, state])
 			get_tree().quit()
+		"paivihalytys":
+			# Päivi koko päivän teillä (ei enää töissä), ja Anna-Liisan hälytyksestä hän ajaa heti kaupalle: nopea ja hidas
+			# kauppareissu hälytyksen jälkeen, Päivin etäisyys kaupan ovelta ulos tultaessa ja jahti. Tallennus palautetaan.
+			var saved_w := FileAccess.get_file_as_bytes(SAVE_PATH)
+			for hour in [7.0, 9.0, 12.0, 15.0, 21.0, 23.0]:
+				clock_min = hour * 60.0
+				_wife_rhythm(clock_min)
+				print("PAIVI klo %d: vaihe %s, näkyy %s, pysäköity %s" % [int(hour), _wife_phase, wife.visible, wife.parked])
+			for wait in [1.5, 12.0]:
+				clock_min = 12 * 60.0
+				_wife_rhythm(clock_min)
+				wife_alerted = false
+				wife.alerted = false
+				wife.reset_to(wife.farthest_node_from(shop_zone))
+				var d0 := Vector2(wife.global_position.x - shop_door.x, wife.global_position.z - shop_door.z).length()
+				if player != walker_out:
+					_toggle_mount()
+				walker_out.global_position = shop_door + Vector3(0, 0.3, 1.6)
+				for i in 5:
+					await get_tree().process_frame
+				_enter_shop()
+				for i in 10:
+					await get_tree().process_frame
+				_on_busted()
+				await get_tree().create_timer(wait).timeout
+				_on_shop_exited(false)
+				for i in 30:
+					await get_tree().physics_frame
+				var d1 := Vector2(wife.global_position.x - shop_door.x, wife.global_position.z - shop_door.z).length()
+				print("PAIVI hälytys, kaupassa %.1f s: alussa %.0f m, ulos tullessa %.0f m, tila %s, tietää %s, viesti '%s'" % [wait, d0, d1,
+					wife.mode, wife.alerted, _msg.text.replace("\n", " | ")])
+			if not saved_w.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_w)
+			get_tree().quit()
+			return
 		"paivikoti":
 			# Päivin auto kotipihassa pelin alussa: paikka suhteessa kotiin ja autotalliin, kuvat ylhäältä ja kadulta.
 			for i in 30:
