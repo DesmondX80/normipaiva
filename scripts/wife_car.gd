@@ -24,6 +24,7 @@ var alerted := false  # naapuri käräytti: vaimo tietää koko ajan missä olet
 var speed_mult := 1.0  # päivän tilat (#18): huonon päivän jälkeen nopeampi, hyvän jälkeen hitaampi
 var mode := "patrol"  # patrol, chase, return
 var parked := false  # yöllä kotipihassa: Päivi sisällä, auto ei liiku eikä jahtaa (main.gd _day_rhythm)
+var grace := 0.0  # anteeksi annettu: hetken ei näe eikä saa kiinni (main.gd _on_wife_caught)
 var pick_dest: Callable  # () -> Vector3: seuraava määränpää; tyhjä = sattumanvarainen harhailu risteyksittäin
 var dest := Vector3.ZERO  # nykyinen määränpää (testit)
 var arrived := Vector3.ZERO  # viimeksi saavutettu määränpää (testit)
@@ -99,7 +100,8 @@ func _physics_process(delta: float) -> void:
 	to_p.y = 0.0
 	var d := to_p.length()
 	var in_safe := is_target_safe()
-	var sees := not in_safe and (alerted or (d < SIGHT and B.line_of_sight(
+	grace = maxf(0.0, grace - delta)
+	var sees := grace <= 0.0 and not in_safe and (alerted or (d < SIGHT and B.line_of_sight(
 		self, global_position + Vector3.UP * 1.3, target.global_position + Vector3.UP,
 		[get_rid(), (target as CollisionObject3D).get_rid()])))
 
@@ -140,8 +142,17 @@ func _physics_process(delta: float) -> void:
 				_advance()
 	_drive(delta, want * speed_mult)
 
-	if d < CATCH_DIST and not in_safe:
+	if d < CATCH_DIST and not in_safe and grace <= 0.0:
 		caught.emit()
+
+
+## Päivi päästää menemään: jahti loppuu, hälytys unohtuu ja hän jatkaa partiota hetken katsomatta perään.
+func forgive(secs: float) -> void:
+	grace = secs
+	alerted = false
+	mode = "return"
+	_cur = _nearest_node()
+	_goal = _nodes[_cur]
 
 
 func _drive(delta: float, want: float) -> void:
