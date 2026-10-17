@@ -1587,6 +1587,7 @@ func _outside_logic() -> void:
 		return
 	_compass.has_cache = false
 	var ppos := player.global_position
+	_wife_note_player(ppos)
 	# Kompassin kohde poistuu, kun sinne päästään.
 	if _paper.has_target and Vector2(ppos.x, ppos.z).distance_to(_paper.target) < 10.0:
 		_paper.clear_target()
@@ -14489,6 +14490,7 @@ func _spawn_threats() -> void:
 	_wife_phase = ""
 	wife.setup(world.graph_nodes, world.graph_adj, world.nearest_node(M.w(M.J_T)), player)
 	wife.world = world
+	wife.pick_dest = _wife_dest
 	wife.spotted.connect(_on_wife_spotted)
 	wife.caught.connect(_on_wife_caught)
 
@@ -15161,6 +15163,53 @@ func _wife_park_pos() -> Vector3:
 	var out: Vector3 = world.garage_out
 	var p: Vector3 = world.garage_door + out.cross(Vector3.UP) * 3.3 + out * 2.4
 	return Vector3(p.x, Terrain.h(p.x, p.z) + 0.3, p.z)
+
+
+## Päivin partiokohteet: [nimi, paikka (karttapikseli), perustodennäköisyys]. Kauppa painavampi: sinne pelaaja menee
+## kaljalle joka päivä.
+const WIFE_SPOTS := [["kauppa", M.SHOP_ZONE, 2.0], ["reippari", M.REIPPARI, 1.0], ["seo", M.SEO, 1.0],
+	["kentta", M.KENTTA, 1.0], ["hongan", M.HONGAN_KENTTA, 1.0], ["seuraintalo", M.SEURAINTALO, 1.0],
+	["uimaranta", M.UIMARANTA, 0.8], ["saastopiha", M.SAASTOPIHA, 0.8], ["seppo", M.SEPPO, 0.6], ["koti", M.HOME_ZONE, 1.0]]
+const WIFE_RUMOR_R := 150.0  # tämän lähellä käynyt pelaaja "nähtiin siellä"
+const WIFE_RUMOR_MIN := 90.0  # juoru elää pelimin.
+var _wife_rumor := {}  # kohde -> pelimin. (päivä * 1440 + kello), jolloin pelaaja oli viimeksi lähellä
+var _wife_rumor_t := 0.0
+
+
+## Kirjaa, minkä partiokohteen lähellä pelaaja on (kerran sekunnissa): kylällä puhutaan, ja juoru kulkee Päiville.
+func _wife_note_player(p: Vector3) -> void:
+	_wife_rumor_t -= get_process_delta_time()
+	if _wife_rumor_t > 0.0:
+		return
+	_wife_rumor_t = 1.0
+	for s in WIFE_SPOTS:
+		var q := M.w2(s[1])
+		if Vector2(p.x - q.x, p.z - q.y).length() < WIFE_RUMOR_R:
+			_wife_rumor[s[0]] = day * 1440.0 + clock_min
+
+
+## Päivin seuraava partiokohde: painotettu arvonta. Paikka, jossa pelaaja on käynyt viime aikoina, on moninkertaisesti
+## todennäköisempi (juoru haalistuu WIFE_RUMOR_MIN:ssä); juuri käytyyn ei palata heti.
+func _wife_dest() -> Vector3:
+	var now := day * 1440.0 + clock_min
+	var cur: Vector3 = wife.dest
+	var total := 0.0
+	var ws: Array[float] = []
+	for s in WIFE_SPOTS:
+		var q := M.w(s[1])
+		var w: float = s[2]
+		if _wife_rumor.has(s[0]):
+			w += 5.0 * clampf(1.0 - (now - float(_wife_rumor[s[0]])) / WIFE_RUMOR_MIN, 0.0, 1.0)
+		if cur != Vector3.ZERO and Vector2(q.x - cur.x, q.z - cur.z).length() < 60.0:
+			w = 0.0
+		ws.append(w)
+		total += w
+	var r := randf() * total
+	for i in WIFE_SPOTS.size():
+		r -= ws[i]
+		if r <= 0.0:
+			return M.w(WIFE_SPOTS[i][1])
+	return M.w(WIFE_SPOTS[0][1])
 
 
 ## Päivi: koko päivän teillä (partio), kotona vain nukkumassa WIFE_HOME (auto pihassa, ei jahtaa). Vaihtuu vain,
@@ -17422,6 +17471,53 @@ func _maybe_screenshot() -> void:
 						await get_tree().process_frame
 					print("SIITARI kohde %s, %s: vihje '%s', tila %s" % [tg, at[0], mopo_trip.hint, state])
 			get_tree().quit()
+		"paivipartio":
+			# Päivin partio: kohteiden arvonta ilman juoruja ja kun pelaaja on käynyt SEO:lla, sekä ajo kohteesta toiseen
+			# nopeutetulla ajalla (määränpäät, perillä pysähtyminen, ajettu matka).
+			clock_min = 12 * 60.0
+			_wife_rhythm(clock_min)
+			var names := {}
+			for sp in WIFE_SPOTS:
+				names[M.w(sp[1])] = sp[0]
+			for case in ["ei juoruja", "pelaaja kävi SEO:lla"]:
+				_wife_rumor.clear()
+				if case != "ei juoruja":
+					_wife_rumor["seo"] = day * 1440.0 + clock_min
+				var cnt := {}
+				for i in 2000:
+					var nm: String = names.get(_wife_dest(), "?")
+					cnt[nm] = cnt.get(nm, 0) + 1
+				var parts: Array = []
+				for k in cnt:
+					parts.append("%s %d %%" % [k, roundi(cnt[k] / 20.0)])
+				print("PARTIO %s: %s" % [case, ", ".join(parts)])
+			_wife_rumor.clear()
+			if player != walker_out:
+				_toggle_mount()
+			walker_out.global_position = home_zone + Vector3(0, 0.5, 0)
+			wife.global_position = M.w(M.J_T) + Vector3(0, 0.5, 0)
+			wife.reset_to(world.nearest_node(M.w(M.J_T)))
+			wife.safe_zones = [[walker_out.global_position, 5000.0]]  # testissä ei jahtia
+			Engine.time_scale = 8.0
+			var last := Vector3.ZERO
+			var seen: Array = []
+			var odo := 0.0
+			var prev_p: Vector3 = wife.global_position
+			var stops := 0
+			var was_still := false
+			for f in 60 * 45:
+				await get_tree().physics_frame
+				odo += Vector2(wife.global_position.x - prev_p.x, wife.global_position.z - prev_p.z).length()
+				var still: bool = wife._linger > 0.0
+				if still and not was_still:
+					stops += 1
+					seen.append("%s(%.0f m)" % [names.get(wife.arrived, "?"), Vector2(wife.global_position.x - wife.arrived.x, wife.global_position.z - wife.arrived.z).length()])
+				was_still = still
+				prev_p = wife.global_position
+			Engine.time_scale = 1.0
+			print("PARTIO ajo: matka %.0f m, pysähdyksiä %d, perillä: %s, nyt matkalla kohteeseen %s" % [odo, stops, ", ".join(seen), names.get(wife.dest, "?")])
+			get_tree().quit()
+			return
 		"paivihalytys":
 			# Päivi koko päivän teillä (ei enää töissä), ja Anna-Liisan hälytyksestä hän ajaa heti kaupalle: nopea ja hidas
 			# kauppareissu hälytyksen jälkeen, Päivin etäisyys kaupan ovelta ulos tultaessa ja jahti. Tallennus palautetaan.
