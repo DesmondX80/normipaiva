@@ -1798,6 +1798,15 @@ const TRAIN_TALK_SALOINEN := [
 	["helena", "Hyvää kotimatkaa! Oli ilo jutella."],
 ]
 const TRAIN_NO_TREAT := "Tarjoaisin teille paukut, mutta lompakko on laiha. Ottakaa omat, kippis silti!"
+## Verkkopaidassa (Looks.outfit "farkut") Helena ei peittele: repliikit vaihtuvat näihin (puhuja ja vanha repliikki
+## -> uusi), ja kosketuksen jälkeen hän liukuu pelaajaa vasten ja painaa päänsä tämän olalle.
+const TRAIN_NET_LINES := {
+	"Sinä olet kyllä mukava mies.": "Tuo verkkopaita... Saanko istua vähän lähempänä?",
+	"Älä vielä mene. Matkaa on jäljellä.": "Älä vielä mene. Tässä on niin lämmin olla.",
+	"Hei! Saanko istua? Tässä on niin kiva valo.": "Hei komistus! Saanko istua viereen? Verkkopaita on rohkea valinta.",
+	"No voi kiitos! Kippis!": "Kiitos, kulta! Kippis meille kahdelle.",
+	"Hyvää kotimatkaa! Oli ilo jutella.": "Soita joskus. Ja tule samassa paidassa.",
+}
 
 
 ## Junamatka Saloisten ja Vaalan asemien välillä kolmessa osassa: lähtö (Saloisista Raahen terästehtaan ohi,
@@ -1837,6 +1846,12 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	for i in lines.size():
 		if lines[i].size() > 2 and lines[i][2] == "hand":
 			hand_from = i
+	var net := Looks.outfit == "farkut"
+	if net:
+		lines = lines.map(func(l: Array) -> Array:
+			var c := l.duplicate()
+			c[1] = TRAIN_NET_LINES.get(l[1], l[1])
+			return c)
 	var hand := {"w": 0.0, "slide": 0.0, "rest": Vector3.ZERO, "stroke0": -1.0}
 	var sweat := {"t": 0.0, "drops": []}
 	var t0 := _now_ms()
@@ -1864,6 +1879,16 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			var hl: Node3D = cast.helena
 			var hero: Node3D = cast["minä"]
 			var hdt := get_process_delta_time()
+			if net:
+				# Verkkopaidassa Helena painautuu kiinni: liukuu penkillä viereen, kallistuu ja nojaa päänsä olalle.
+				if not hand.has("h0"):
+					hand.h0 = hl.position
+				var lean := smoothstep(0.0, 1.0, minf(1.0, hand.w * 0.6 + hand.slide * 0.6))
+				var toward: Vector3 = hero.position - (hand.h0 as Vector3)
+				toward.y = 0.0
+				hl.position = (hand.h0 as Vector3) + toward.normalized() * 0.3 * lean
+				hl.set_override("spine_02", Vector3(0, 0, 1), -0.22 * lean)
+				hl.set_override("neck_01", Vector3(0, 0, 1), -0.35 * lean)
 			if hand.w == 0.0:
 				hand.rest = hl.to_global(hl.bone_position("hand_r"))
 			hand.w = minf(1.0, hand.w + hdt * 1.4)

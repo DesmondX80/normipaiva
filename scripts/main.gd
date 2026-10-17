@@ -26392,6 +26392,9 @@ func _maybe_screenshot() -> void:
 			print("HEITTO after fight beers=%d state=%s msg=%s" % [beers, state, _msg.text.replace("\n", " | ")])
 		"junavaunu", "junavaunu_saloinen":
 			# Ravintolavaunun välianimaatio: kuva jokaisesta repliikistä (Helenan lähentely, pelaajan hiki).
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--asu="):
+					Looks.outfit = arg.substr(6)  # esim. farkut: verkkopaidassa Helena painautuu kiinni
 			var done := [false]
 			cutscene.train_ride(scene == "junavaunu", func() -> void: done[0] = true, true)
 			var seen := ""
