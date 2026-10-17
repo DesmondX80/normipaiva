@@ -89,7 +89,7 @@ func _build_swing() -> void:
 	_seat.position = Vector3(0, -L, 0)
 	_pivot.add_child(_seat)
 	B.mesh(_seat, B.boxm(Vector3(0.45, 0.04, 0.2)), Vector3.ZERO, Color(0.1, 0.1, 0.1))
-	_rider = Looks.make(self, Looks.PLAYER)
+	_rider = Looks.make(self, Looks.player())
 	Looks.add_cap(_rider)
 	_rider.play("Sitting_Idle", 0.0)
 	_rider.anim.advance(0.01)

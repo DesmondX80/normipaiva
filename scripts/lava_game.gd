@@ -316,7 +316,7 @@ func _spawn_people() -> void:
 		bp.rotation.y = PI
 		bp.play("Dance", 0.0, 0.95)
 		B.label(self, "Santtu", _buddy.position + Vector3(0, 2.2, 0), 24, Color(0.45, 0.75, 1.0), true).pixel_size = 0.005
-	_me = Looks.make(self, Looks.PLAYER)
+	_me = Looks.make(self, Looks.player())
 	_me.position = Vector3(0, 0.06, 2.0)
 	_me.play("Idle", 0.0)
 	_partner = Looks.make(self, {"model": "female", "shirt": Color(0.9, 0.25, 0.4), "pants": Color(0.12, 0.12, 0.2),

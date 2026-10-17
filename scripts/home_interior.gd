@@ -44,6 +44,7 @@ const SPOTS := {
 	"sohva": [Vector3(1.7, 0, -2.8), "[E] Ota nokoset sohvalla"],
 	"nortti": [Vector3(8.0, 0, -3.6), "[E] Jutskaa nörtin kanssa"],
 	"puhelin": [Vector3(-8.7, 0, -1.4), "[E] Päivin vanha kännykkä yöpöydällä"],
+	"vaatekaappi": [Vector3(-6.0, 0, -4.9), "[E] Vaatekaappi: vaihda vaatteet"],
 }
 const NERD_LOOK := {
 	"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.25, 0.27, 0.32), "shoes": Color(0.9, 0.9, 0.9),

@@ -47,7 +47,8 @@ const SPOTS := {
 	"sauna": [Vector3(2.85, 0, -1.7), "[E] Käy sisäsaunassa"],
 	"pa": [Vector3(-0.9, 0, 1.55), "[E] Kytke Santun PA-laitteet"],
 	"sokeri": [Vector3(-1.4, 0, -3.7), "[E] Ota sokeria Santun keittiön kaapista (Santtu suuttuu!)"],
-	"sangot": [Vector3(5.55, 0, -1.6), ""],  # Paapelin viinisaavi pöntön takana olevalla seinällä: vihje main.gd:stä
+	"sangot": [Vector3(5.55, 0, -1.6), ""],
+	"vaatekaappi": [Vector3(2.0, 0, 0.4), "[E] Vaatekaappi: työvaatteet ja Karjala-lippis"],  # Paapelin viinisaavi pöntön takana olevalla seinällä: vihje main.gd:stä
 }
 ## PA-kaiuttimet (jalustoilla sohvien päädyissä) ja tunnusmusiikin voimakkuus: taso 0..1 -> dB.
 const PA_SPEAKERS := [Vector3(-4.95, 0, 3.2), Vector3(0.2, 0, 3.2)]
@@ -591,6 +592,13 @@ func _build_bedroom() -> void:
 	_solid(Vector3(1.3, 0.7, 0.6), Vector3(4.3, 0.35, HALF.y - 0.4), Color(0.93, 0.92, 0.88))
 	B.mesh(self, B.boxm(Vector3(0.3, 0.18, 0.12)), Vector3(4.7, 0.8, HALF.y - 0.4), Color(0.2, 0.2, 0.22))
 	B.mesh(self, B.boxm(Vector3(0.42, 0.45, 0.42)), Vector3(4.0, 0.22, 2.75), Color(0.85, 0.55, 0.15))
+	# Vaatekaappi väliseinää vasten oven vieressä: mäntyovet, nupit ja kaapin päällä Karjala-lippis.
+	var pine := Color(0.78, 0.58, 0.34)
+	_solid(Vector3(0.55, 1.9, 1.1), Vector3(1.32, 0.95, 0.4), pine)
+	for dz in [-0.27, 0.27]:
+		B.mesh(self, B.boxm(Vector3(0.02, 1.75, 0.52)), Vector3(1.6, 0.95, 0.4 + dz), pine.lightened(0.08))
+		B.mesh(self, B.sphere(0.02, 8), Vector3(1.62, 1.0, 0.4 + dz * 0.15), Color(0.3, 0.25, 0.2))
+	B.mesh(self, B.boxm(Vector3(0.24, 0.07, 0.2)), Vector3(1.32, 1.94, 0.4), Color(0.6, 0.05, 0.06))
 
 
 func _build_bath_sauna() -> void:

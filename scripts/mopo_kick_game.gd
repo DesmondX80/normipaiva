@@ -94,7 +94,7 @@ func _ready() -> void:
 	_lamp.omni_range = 4.0
 	_lamp.light_energy = 0.0
 	_rig.add_child(_lamp)
-	_player = Looks.make(_rig, Looks.PLAYER)
+	_player = Looks.make(_rig, Looks.player())
 	Looks.add_cap(_player)
 	_player.position = STAND
 	_player.play("Idle", 0.0)

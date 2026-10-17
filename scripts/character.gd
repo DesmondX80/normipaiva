@@ -61,7 +61,8 @@ func setup(look: Dictionary) -> void:
 	# Kaljamaha pehmentää superhero-lihakset kankaan alla.
 	var mus := float(look.get("muscle", DEFAULT_MUSCLE))
 	body_mat.set_shader_parameter("muscle_def", (1.0 - 0.8 * clampf(float(look.get("belly", 0.0)), 0.0, 1.0)) * (1.0 + 0.6 * mus))
-	for k in ["shorts_y", "crop_y", "sleeve_x", "tube_y", "denim", "bare_skin"]:
+	for k in ["shorts_y", "crop_y", "sleeve_x", "tube_y", "denim", "bare_skin", "jeans", "belt_y", "belt_col", "net_shirt",
+			"suspenders", "strap_col", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff"]:
 		if look.has(k):
 			body_mat.set_shader_parameter(k, look[k])
 	if look.has("stripe_color"):
@@ -97,6 +98,29 @@ func setup(look: Dictionary) -> void:
 	anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	play("Idle", 0.0)
 	anim.seek(randf() * 2.0, true)
+
+
+## Uusi ulkonäkö paikallaan (pelaajan asun vaihto, looks.gd restyle_player): malli vaihdetaan, mutta tämä solmu,
+## sen lapset (kassit) ja luiden ohitukset ja IK-ketjut säilyvät, joten viittaukset hahmoon pysyvät voimassa.
+## Luihin kiinnitetyt (attach) lähtevät mallin mukana; kutsuja lisää ne uudelleen.
+func restyle(look: Dictionary) -> void:
+	var cur := _current
+	var spd := anim.speed_scale if anim != null else 1.0
+	var pos := anim.current_animation_position if anim != null and anim.is_playing() else 0.0
+	var layers := 0
+	for mi in model.find_children("*", "VisualInstance3D", true, false):
+		layers = (mi as VisualInstance3D).layers
+		break
+	remove_child(model)
+	model.free()
+	_current = ""
+	setup(look)
+	if layers != 0 and layers != 1:
+		for mi in model.find_children("*", "VisualInstance3D", true, false):
+			(mi as VisualInstance3D).layers = layers
+	if cur != "":
+		play(cur, 0.0, spd)
+		anim.seek(pos, true)
 
 
 func play(anim_name: String, blend := 0.2, speed := 1.0) -> void:

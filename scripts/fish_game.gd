@@ -85,7 +85,7 @@ func _ready() -> void:
 	_boat = Node3D.new()
 	add_child(_boat)
 	_oars = build_boat(_boat)
-	_rower = Looks.make(_boat, Looks.PLAYER)
+	_rower = Looks.make(_boat, Looks.player())
 	Looks.add_cap(_rower)
 	_rower.play("Sitting_Idle", 0.0)
 	_rower.position = Vector3(0, 0.05, 0.25)

@@ -624,7 +624,7 @@ func _build_bike() -> void:
 		B.mesh(_crank, B.boxm(Vector3(0.1, 0.02, 0.06)), Vector3(0.12 * side, -0.17 * side, 0), black)
 
 	# Kuski tuulipuvussa: istuva ajoasento, jalat polkevat luiden ohituksilla.
-	_rider = Looks.make(_visual, Looks.PLAYER)
+	_rider = Looks.make(_visual, Looks.player())
 	Looks.add_cap(_rider)
 	CamCtl.mark_own_body(_rider)
 	_rider.play("Driving", 0.0)

@@ -228,7 +228,7 @@ func _build_scene() -> void:
 
 	# Grillikatos Kiilinlammella: turvapaikka, Päivin Hyundai ei pääse perille.
 	var gp := M.w(M.GRILLIKATOS)
-	var chill := Looks.make(set3d, Looks.PLAYER)
+	var chill := Looks.make(set3d, Looks.player())
 	Looks.add_cap(chill)
 	chill.position = gp + Vector3(0.6, 0, 0.8)
 	chill.rotation.y = -0.4
@@ -239,7 +239,7 @@ func _build_scene() -> void:
 
 	# Loppu 1: WASTED – Päivi motkottaa kotipihalla (harmaaksi haalistettuna).
 	var home: Vector3 = _world.home_zone
-	var hero := Looks.make(set3d, Looks.PLAYER)
+	var hero := Looks.make(set3d, Looks.player())
 	Looks.add_cap(hero)
 	hero.position = home + Vector3(0, 0, 1.0)
 	hero.rotation.y = PI * 0.5

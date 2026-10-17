@@ -227,7 +227,7 @@ func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Cal
 	for n in hide_nodes:
 		if is_instance_valid(n):
 			n.visible = false
-	var hero := Looks.make(_props, Looks.PLAYER)
+	var hero := Looks.make(_props, Looks.player())
 	Looks.add_cap(hero)
 	hero.global_position = home + Vector3(0, 0, 1.0)
 	hero.rotation.y = PI * 0.5
@@ -290,7 +290,7 @@ func wasted_phone(at: Vector3, reason: String, cause: String, wake: Vector3, fac
 	for n in hide_nodes:
 		if is_instance_valid(n):
 			n.visible = false
-	var hero := Looks.make(_props, Looks.PLAYER)
+	var hero := Looks.make(_props, Looks.player())
 	Looks.add_cap(hero)
 	hero.global_position = wake
 	hero.rotation.y = B.yaw_to(face)
@@ -370,7 +370,7 @@ func jemma_found(home: Vector3, lost: int, left: int, done: Callable, choco := "
 	var can := Node3D.new()
 	B.mesh(can, B.cyl(0.033, 0.033, 0.12, 12), Vector3.ZERO, Color(0.8, 0.75, 0.2))
 	paivi.attach("hand_r", can, Vector3(0, -0.02, 0))
-	var hero := Looks.make(_props, Looks.PLAYER)
+	var hero := Looks.make(_props, Looks.player())
 	Looks.add_cap(hero)
 	hero.global_position = home + Vector3(0.9, 0, 1.2)
 	hero.rotation.y = PI - 0.7
@@ -432,7 +432,7 @@ func laavu_sunset(pit: Vector3, fire: Node3D, title: String, stats: String, done
 	var old_rot := sun.rotation_degrees
 	var old_col := sun.light_color
 	var old_en := sun.light_energy
-	var hero := Looks.make(_props, Looks.PLAYER)
+	var hero := Looks.make(_props, Looks.player())
 	Looks.add_cap(hero)
 	hero.global_position = pit + Vector3(-2.1, 0.12, 0)
 	hero.rotation.y = -PI * 0.5
@@ -532,7 +532,7 @@ func makkara(pit: Vector3, lake: Vector3, done: Callable) -> void:
 	glow.position = Vector3(0, 0.6, 0)
 	var crackle := Sfx.loop_on(fire, "fire", -6.0)
 	# Hahmo laavun reunalla nuotion takana kasvot järvelle, tikku oikeassa kädessä kohti hiillosta.
-	var hero := Looks.make(_props, Looks.PLAYER)
+	var hero := Looks.make(_props, Looks.player())
 	Looks.add_cap(hero)
 	hero.global_position = pit - d * 1.75
 	hero.global_rotation.y = B.yaw_to(d)
@@ -670,7 +670,8 @@ const SAUNA_SANTTU_SIT := ["Kippis! Tää on mökin paras hetki.", "Aaah. Tätä
 ## Saunavaatteet: paljas, löylystä punertava iho ja valkoinen pyyhe lanteilla.
 static func sauna_look(base: Dictionary) -> Dictionary:
 	var look: Dictionary = base.duplicate()
-	look.erase("tracksuit")
+	for k in ["tracksuit", "jeans", "belt_y", "net_shirt", "suspenders", "workwear", "flannel", "chain", "shirt_puff", "pants_puff"]:
+		look.erase(k)
 	look.merge({"stripes": false, "shine": 0.0, "tube_y": 0.01, "shorts_y": 0.72,
 		"pants": Color(0.9, 0.88, 0.84), "shoes": Color(0.86, 0.62, 0.52), "bare_skin": Color(0.96, 0.68, 0.58)}, true)
 	return look
@@ -734,7 +735,7 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable, lay: Dictio
 		B.mesh(_props, B.cyl(0.13, 0.1, 0.24, 10), at.call(ki), Color(0.55, 0.4, 0.25))
 		B.mesh(_props, B.cyl(0.12, 0.12, 0.01, 10), at.call(ki + Vector3(0, 0.1, 0)), Color(0.3, 0.38, 0.42))
 	# Ylälauteella, kasvot oveen ja kiukaaseen päin (savusaunassa +Z). Kiuas jää vasemmalle kädelle.
-	var hero := Looks.make(_props, sauna_look(Looks.PLAYER))
+	var hero := Looks.make(_props, sauna_look(Looks.player()))
 	hero.global_position = at.call(L.hero)
 	hero.global_rotation.y = frame.basis.get_euler().y + B.yaw_to(L.face)
 	hero.play("Sitting_Idle", 0.0)
@@ -1135,7 +1136,7 @@ func swim_dive(frame: Transform3D, wl: float, ground: Callable, done: Callable, 
 	var at := func(x: float, z: float, y: float) -> Vector3:
 		var g := frame * Vector3(x, 0, z)
 		return Vector3(g.x, wl + y, g.z)
-	var hero := Looks.make(_props, swim_look(Looks.PLAYER))
+	var hero := Looks.make(_props, swim_look(Looks.player()))
 	var st := {"x": 0.0, "z": -5.0, "y": 0.0, "pitch": 0.0, "yaw": 0.0, "wade": true, "pocket": false, "t": 0.0}
 	var base_yaw := frame.basis.get_euler().y
 	var upd := func() -> void:
@@ -1487,7 +1488,7 @@ func taxi_home(home: Vector3, stats: String, done: Callable) -> void:
 	for n in hide_nodes:
 		if is_instance_valid(n):
 			n.visible = false
-	var hero := Looks.make(_props, Looks.PLAYER)
+	var hero := Looks.make(_props, Looks.player())
 	Looks.add_cap(hero)
 	hero.global_position = home + Vector3(0, 0, 1.0)
 	hero.rotation.y = PI * 0.5
@@ -1584,7 +1585,7 @@ func _pekka_car(parent: Node3D) -> Dictionary:
 	var pekka := Looks.make(car, Looks.PEKKA)
 	pekka.position = Vector3(-0.4, 0.05, 0.1)
 	pekka.play("Driving", 0.0)
-	var hero := Looks.make(car, Looks.PLAYER)
+	var hero := Looks.make(car, Looks.player())
 	Looks.add_cap(hero)
 	hero.position = Vector3(0.4, 0.05, 0.15)
 	hero.play("Sitting_Idle", 0.0)
@@ -2233,7 +2234,7 @@ func _build_dining_car(car: Node3D) -> Dictionary:
 		c.rotation.y = B.yaw_to(face)
 		c.play("Sitting_Idle", 0.0)
 		return c
-	var hero: Node3D = seat.call(Looks.PLAYER, Vector3(-0.58, 0.0, 0.85), Vector3(0, 0, -1))
+	var hero: Node3D = seat.call(Looks.player(), Vector3(-0.58, 0.0, 0.85), Vector3(0, 0, -1))
 	Looks.add_cap(hero)
 	cast["minä"] = hero
 	cast["marja"] = seat.call(MARJA, Vector3(-1.05, 0.0, -0.85), Vector3(0, 0, 1))
@@ -2415,7 +2416,7 @@ func mokki_party(center: Vector3, yaw: float, stats: String, done: Callable) -> 
 	for k in 2:
 		B.mesh(g, B.cyl(0.26, 0.22, 0.5, 14), Vector3(-2.9 + k * 0.6, 0.25, 1.4), Color(0.95, 0.95, 0.93))
 	_party.clear()
-	var cast := [["hero", Looks.PLAYER, Vector3(-0.4, 0, 2.2), "Dance"], ["santtu", Mokki.SANTTU_LOOK, Vector3(-1.4, 0, -0.4), "Dance"],
+	var cast := [["hero", Looks.player(), Vector3(-0.4, 0, 2.2), "Dance"], ["santtu", Mokki.SANTTU_LOOK, Vector3(-1.4, 0, -0.4), "Dance"],
 		["sinikka", Looks.SINIKKA, Vector3(1.8, 0, 2.4), "Dance"], ["kalle", Kalle.KALLE, Vector3(2.2, 0, 1.2), "Dance"]]
 	for c in cast:
 		var ch := Looks.make(g, c[1])
@@ -2552,7 +2553,7 @@ func _build_garage(party := false) -> void:
 		_build_wine_party(g)
 	else:
 		# Sankari kumarassa moottorin kimpussa, kalja kädessä.
-		var hero := Looks.make(g, Looks.PLAYER)
+		var hero := Looks.make(g, Looks.player())
 		Looks.add_cap(hero)
 		hero.position = Vector3(0.9, 0, 2.2)
 		hero.play("Fixing_Kneeling", 0.0)
@@ -2582,7 +2583,7 @@ func _build_wine_party(g: Node3D) -> void:
 	for k in 6:  # tyhjiä pulloja lattialla
 		var bt := B.mesh(g, B.cyl(0.035, 0.04, 0.26, 8), Vector3(-1.9 + k * 0.18, 0.04, -1.6 + (k % 2) * 0.2), Color(0.2, 0.4, 0.22))
 		bt.rotation.z = PI / 2.0
-	var cast := [["hero", Looks.PLAYER, Vector3(-0.3, 0, 2.6), "Dance"], ["sinikka", Looks.SINIKKA, Vector3(0.5, 0, 2.9), "Dance"],
+	var cast := [["hero", Looks.player(), Vector3(-0.3, 0, 2.6), "Dance"], ["sinikka", Looks.SINIKKA, Vector3(0.5, 0, 2.9), "Dance"],
 		["pekka", Looks.PEKKA, Vector3(-1.9, 0, 0.9), "Idle_Talking"], ["arto", Looks.ARTO, Vector3(-1.3, 0, 1.7), "Idle_Talking"]]
 	_party.clear()
 	for c in cast:

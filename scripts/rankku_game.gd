@@ -111,7 +111,7 @@ func _build() -> void:
 		var p := B.mesh(_ball, B.cyl(0.045, 0.045, 0.012, 5), d * (BALL_R - 0.004), Color(0.08, 0.08, 0.08))
 		if absf(d.y) < 0.5:
 			p.rotation = Vector3(PI / 2.0, 0, 0) if absf(d.z) > 0.5 else Vector3(0, 0, PI / 2.0)
-	_player = Looks.make(self, Looks.PLAYER)
+	_player = Looks.make(self, Looks.player())
 	Looks.add_cap(_player)
 	for i in 3:
 		var kid := Looks.make(self, {"model": "male", "shirt": KID_COLS[i] if i > 0 else Color(0.2, 0.2, 0.22), "pants": Color(0.15, 0.15, 0.2),

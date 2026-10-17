@@ -71,7 +71,7 @@ var _shake := 0.0
 func _ready() -> void:
 	Touch.set_extra([[KEY_J, "Lyönti"], [KEY_K, "Smash"]])
 	_build_stage()
-	_pl.append(_make_player(Looks.PLAYER, -2.6, 1.0, true))
+	_pl.append(_make_player(Looks.player(), -2.6, 1.0, true))
 	_pl.append(_make_player(Mokki.SANTTU_LOOK, 2.6, -1.0, false))
 	_ball_node = MeshInstance3D.new()
 	_ball_node.mesh = B.sphere(R, 12)

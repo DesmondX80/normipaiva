@@ -180,7 +180,7 @@ func _ready() -> void:
 	_cam.near = 0.03
 	add_child(_cam)
 	_cam.current = true
-	_body = Looks.make(self, Looks.PLAYER)
+	_body = Looks.make(self, Looks.player())
 	_body.play("Idle", 0.0)
 	_ball = make_ball(self)
 	var kid_cols := [Color(0.2, 0.7, 0.3), Color(0.95, 0.5, 0.1)]

@@ -58,7 +58,7 @@ func _ready() -> void:
 	for i in range(1, track.size()):
 		_cum.append(_cum[i - 1] + track[i - 1].distance_to(track[i]))
 	_prev_cam = get_viewport().get_camera_3d()
-	_my_model = _make_mopo(Looks.PLAYER, Color(0.72, 0.08, 0.06), true)
+	_my_model = _make_mopo(Looks.player(), Color(0.72, 0.08, 0.06), true)
 	_opp_model = _make_mopo({"shirt": Color(0.1, 0.35, 0.6), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9),
 		"hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.55, 0.3), "height": 1.76, "bulk": -0.6, "shoulders": -0.5,
 		"tracksuit": {"a": Color(0.9, 0.2, 0.3), "b": Color(0.1, 0.35, 0.6)}}, Color(0.85, 0.72, 0.08), false)

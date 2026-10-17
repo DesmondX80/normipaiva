@@ -98,7 +98,7 @@ func _build() -> void:
 		for lz in [-0.17, 0.17]:
 			B.mesh(self, B.boxm(Vector3(0.04, 0.45, 0.04)), SEAT + Vector3(lx, 0.22, lz), wood.darkened(0.2))
 	B.mesh(self, B.boxm(Vector3(0.3, 0.01, 0.3)), Vector3(1.32, 0.76, 0.25), Color(0.98, 0.97, 0.9))
-	_me = Looks.make(self, Looks.PLAYER)
+	_me = Looks.make(self, Looks.player())
 	Looks.add_cap(_me)
 	_me.play("Sitting_Idle", 0.0)
 	_me.anim.advance(0.01)

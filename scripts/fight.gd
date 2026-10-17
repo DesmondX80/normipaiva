@@ -94,7 +94,7 @@ func _ready() -> void:
 	_build_stage()
 	_p = Fighter.new()
 	add_child(_p)
-	_p.setup(Looks.PLAYER)
+	_p.setup(Looks.player())
 	Looks.add_cap(_p.body)
 	_p.display_name = "SÄÄ"
 	_p.special = "bag"

@@ -410,7 +410,7 @@ func _ensure_portrait() -> void:
 	cam.rotation_degrees = Vector3(-2, 0, 0)
 	root.add_child(cam)
 	cam.current = true
-	_pchar = Looks.make(root, Looks.PLAYER)
+	_pchar = Looks.make(root, Looks.player())
 	Looks.add_cap(_pchar)
 	_pchar.rotation.y = PI  # kasvot -Z:aan: käännetään kameraa kohti
 	_pchar.play("Idle")

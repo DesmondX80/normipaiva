@@ -458,6 +458,13 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   ja vasemmassa alakulmassa näkyy soiva biisi. Mukana on seitsemän 90-luvun tyylistä eurodance-, techno- ja
   rave-biisiä (CC BY, tekijät alla), jotka soivat myös lavan diskopuolella ja teinien kasettisoittimista.
   Löytö säilyy (testi `--scene=kuulokkeet`).
+- **Vaatekaapit ja asut:** pelaaja on vaaleahiuksinen ja pukinpartainen, ja hänellä on kello, rannekoru ja tatuointi
+  vasemmassa olkavarressa. Oletuksena tuulipuku, Karhu-lippis ja peililasiset pilottilasit. Kodin makuuhuoneen
+  vaatekaapista vaihdetaan farkkuihin, verkkopaitaan ja henkseleihin (vyö, kultaketju, valkoiset ovaalit lasit ja
+  taakse kammattu rasvaletti), Paapelin makuuhuoneen kaapista työhousuihin, flanelliin ja Karjala-lippikseen. Asu
+  vaihtuu kaikkiin pelaajan malleihin paikallaan (pyörä, kävely, mopo, sisätilat) ja säilyy tallennuksessa. Vaatteet
+  piirretään varjostimessa pikseleinä (`shaders/character.gdshader`), asusteet ovat muutama pieni mesh luissa
+  (`looks.gd`, testit `--scene=asut` ja `--scene=vaatekaappi`).
 - **Päivin vanha kännykkä (P soimaan / taskuun, N seuraava, U voimakkuus):** kodin makuuhuoneen yöpöydällä
   parisängyn vieressä. Soittaa vanhoja iskelmiä 78 kierroksen levyiltä (`assets/music/iskelma/`, sama lista kuin
   lavabändillä) pienestä kaiuttimesta: oma ääniväylä kaistanpäästöllä ja säröllä, joten ääni on ohut kuin taskusta.

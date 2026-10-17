@@ -57,7 +57,7 @@ func _ready() -> void:
 	_visual = Node3D.new()
 	add_child(_visual)
 	_wheels = build_model(_visual)
-	_rider = Looks.make(_visual, Looks.PLAYER)
+	_rider = Looks.make(_visual, Looks.player())
 	Looks.add_cap(_rider)
 	CamCtl.mark_own_body(_rider)
 	_rider.play("Driving", 0.0)

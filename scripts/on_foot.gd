@@ -57,7 +57,7 @@ var _step_t := 0.0
 func _ready() -> void:
 	collision_mask |= 16  # maasto (Terrain.COLLISION_LAYER)
 	add_child(B.capsule_shape(0.3, 1.8))
-	_body = Looks.make(self, Looks.PLAYER)
+	_body = Looks.make(self, Looks.player())
 	Looks.add_cap(_body)
 	CamCtl.mark_own_body(_body)
 	# Kuutonen K-Marketin kassissa oikeassa kädessä (Looks.hang_bag joka ruutu).

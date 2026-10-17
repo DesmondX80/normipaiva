@@ -117,7 +117,7 @@ func _build_cards() -> void:
 	var cam_std := [Vector3(0.0, 1.25, 3.6), Vector3(0.0, 0.95, 0.0), 30.0]
 	# Pääkortti: SÄÄ kalja kädessä, pyörä vieressä.
 	var h := _stage(Vector2i(1040, 560), Vector3(0.0, 1.25, 2.9), Vector3(0.0, 1.05, 0.0), 30.0)
-	var hero := _person(h[1], Looks.PLAYER, "Idle", -0.3)
+	var hero := _person(h[1], Looks.player(), "Idle", -0.3)
 	Looks.add_cap(hero)
 	_can(hero)
 	_cards.append([h[0], Rect2(20, 190, 1040, 560), -0.5, "SÄÄ", "Päähenkilö. Tuulipuku, Karhu-lippis, kaljamaha.",

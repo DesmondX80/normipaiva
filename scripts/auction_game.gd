@@ -95,7 +95,7 @@ func _build() -> void:
 		for lx in [-0.19, 0.19]:
 			for lz in [-0.17, 0.17]:
 				B.mesh(self, B.boxm(Vector3(0.04, 0.45, 0.04)), at + Vector3(lx, 0.22, lz), wood.darkened(0.2))
-		var c := Looks.make(self, [ELVI, Looks.PLAYER, VEIKKONEN][k])
+		var c := Looks.make(self, [ELVI, Looks.player(), VEIKKONEN][k])
 		if k == 1:
 			Looks.add_cap(c)
 		c.play("Sitting_Idle", 0.0)

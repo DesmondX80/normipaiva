@@ -5825,6 +5825,8 @@ func _on_home_acted(kind: String) -> void:
 				tilat.add("stressi", 0.05)
 				tilat.add("kokemus", -0.02)
 			_show_message("\"%s\"" % TV_SHOWS.pick_random(), 3.0)
+		"vaatekaappi":
+			_open_wardrobe(["tuulipuku", "farkut"], "Kotona vaatekaapilla: mitä tänään päälle?")
 		"puhelin":
 			phone.found = true
 			home_int.phone_found = true
@@ -7955,6 +7957,44 @@ func _headphones_keys() -> void:
 	elif Input.is_action_just_pressed("next_song") and headphones.on:
 		headphones.next()
 		_show_message("♫ %s" % headphones.title, 1.8)
+
+
+## Vaatekaappi (koti: tuulipuku tai farkut ja verkkopaita; Paapeli: työvaatteet tai tuulipuku): valikko asuista.
+func _open_wardrobe(ids: Array, title: String) -> void:
+	_interior_busy(true)
+	_active_walker().controls_enabled = false
+	_menu_mode = "asu"
+	var items := []
+	for id in ids:
+		items.append([id, Looks.OUTFITS[id].name + ("  (päällä)" if id == Looks.outfit else "")])
+	_item_menu.open(items, title)
+
+
+func _on_wardrobe(id: String) -> void:
+	_menu_mode = "give"
+	_interior_busy(false)
+	_active_walker().controls_enabled = true
+	if id == Looks.outfit:
+		return
+	_set_outfit(id)
+	Sfx.play("cloth", -2.0)
+	_show_message({"tuulipuku": "Tuulipuku päälle ja Karhu-lippis päähän. Normipäivän univormu.",
+		"farkut": "Farkut, verkkopaita ja henkselit. Tukka rasvalla taakse ja valkoiset lasit nenälle.",
+		"tyovaatteet": "Työhousut, flanelli ja Karjala-lippis. Nyt kelpaa tehdä Paapelin hommia."}[id], 3.5)
+	_save_game()
+
+
+## Pelaajan asu (Looks.outfit): kaikki pelaajan mallit (pyörä, kävely, sisätilat, mopo) vaihtavat ulkonäön paikallaan.
+func _set_outfit(id: String) -> void:
+	if not Looks.OUTFITS.has(id):
+		id = "tuulipuku"
+	if id == Looks.outfit:
+		return
+	Looks.outfit = id
+	var bodies := get_tree().root.find_children("*", "Node3D", true, false).filter(func(n: Node) -> bool:
+		return n.has_meta("player_body"))  # ensin lista: restyle vapauttaa mallien solmuja
+	for n in bodies:
+		Looks.restyle_player(n)
 
 
 ## Päivin kännykkä: P soimaan / taskuun, N seuraava (kun kuulokkeet eivät ole päässä), U voimakkuus. Kuulokkeet pois päästä, kun
@@ -11537,6 +11577,8 @@ func _on_mokki_slept() -> void:
 ## Mökin sisätoiminnot: tilavaikutukset (kerran päivässä) ja viestit.
 func _on_mokki_acted(kind: String) -> void:
 	match kind:
+		"vaatekaappi":
+			_open_wardrobe(["tyovaatteet", "tuulipuku"], "Paapelin vaatekaappi: työvaatteet vai tuulipuku?")
 		"kahvi":
 			_coffee()
 			tilat.first("suodatinkahvi")
@@ -13562,6 +13604,7 @@ func _load_game() -> void:
 	asema_katkot = cfg.get_value("asema", "katkot", {})
 	headphones.found = cfg.get_value("kuulokkeet", "loydetty", false)
 	phone.found = cfg.get_value("puhelin", "loydetty", false)
+	_set_outfit(cfg.get_value("pelaaja", "asu", "tuulipuku"))
 	phone.volume = cfg.get_value("puhelin", "voimakkuus", 2)
 	viina_pullot = cfg.get_value("mokki", "viinapullot", 0)
 	atm_day = cfg.get_value("peli", "otto_paiva", 0)
@@ -13672,6 +13715,7 @@ func _save_game() -> void:
 	cfg.set_value("asema", "katkot", asema_katkot)
 	cfg.set_value("kuulokkeet", "loydetty", headphones.found)
 	cfg.set_value("puhelin", "loydetty", phone.found)
+	cfg.set_value("pelaaja", "asu", Looks.outfit)
 	cfg.set_value("puhelin", "voimakkuus", phone.volume)
 	cfg.set_value("mokki", "viinapullot", viina_pullot)
 	cfg.set_value("peli", "otto_paiva", atm_day)
@@ -14651,14 +14695,16 @@ func _build_hud() -> void:
 		elif _menu_mode == "viini":
 			_on_vat_menu(id)
 		elif _menu_mode == "asema":
-			_on_asema_give(id))
+			_on_asema_give(id)
+		elif _menu_mode == "asu":
+			_on_wardrobe(id))
 	_item_menu.cancelled.connect(func() -> void:
 		if _menu_mode == "wc":
 			_menu_mode = "give"
 			_wc_release()
 		else:
 			_mopo_menu(false)
-			if _menu_mode in ["eat", "viini", "asema"]:
+			if _menu_mode in ["eat", "viini", "asema", "asu"]:
 				_menu_mode = "give"
 				_interior_busy(false)
 				_active_walker().controls_enabled = true
@@ -18018,6 +18064,104 @@ func _maybe_screenshot() -> void:
 			f.store_buffer(saved)
 			f.close()
 			get_tree().quit()
+		"vaatekaappi":
+			# Vaatekaappi kotona (farkut) ja asun vaihto kaikkiin pelaajan malleihin; kuva pyörällä pihalla.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(name: String) -> void:
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_note.visible = false
+			if player != walker_out:
+				_toggle_mount()
+			_enter_home("ovi")
+			home_int.walker.position = home_int.SPOTS.vaatekaappi[0]
+			for i in 5:
+				await get_tree().process_frame
+			print("KAAPPI vihje '%s'" % _hint.text)
+			await get_tree().process_frame
+			Input.action_press("interact")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().process_frame
+			print("KAAPPI valikko auki %s, tila %s, valinnat %s" % [_item_menu.is_open(), _menu_mode, _item_menu._items])
+			await snap.call("_valikko.png")
+			_item_menu.chosen.emit("farkut")
+			_item_menu.close() if _item_menu.has_method("close") else null
+			var bodies := get_tree().root.find_children("*", "Node3D", true, false).filter(func(n): return n.has_meta("player_body"))
+			print("KAAPPI asu %s, pelaajan malleja %d, viesti '%s'" % [Looks.outfit, bodies.size(), _msg.text])
+			await snap.call("_koti.png")
+			home_int.exit_door = "ovi"
+			_on_home_exited()
+			if player == walker_out:
+				_toggle_mount()
+			for i in 30:
+				await get_tree().process_frame
+			await snap.call("_pyora.png")
+			# Paapelin vaatekaappi: työvaatteet ja Karjala-lippis.
+			mokki.ensure_built()
+			_enter_mokki("ovi")
+			mokki_int.walker.position = mokki_int.SPOTS.vaatekaappi[0]
+			for i in 5:
+				await get_tree().process_frame
+			print("KAAPPI Paapeli vihje '%s'" % _hint.text)
+			Input.action_press("interact")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().process_frame
+			print("KAAPPI Paapeli valinnat %s" % [_item_menu._items])
+			_item_menu.visible = false
+			_item_menu.chosen.emit("tyovaatteet")
+			print("KAAPPI Paapeli asu %s, viesti '%s'" % [Looks.outfit, _msg.text])
+			await snap.call("_paapeli.png")
+			Looks.outfit = "tuulipuku"
+			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f.store_buffer(saved)
+			f.close()
+			get_tree().quit()
+		"asut":
+			# Pelaajan asut rinnakkain kodin pihalla: edestä, takaa ja päät lähikuvina (--asu-kohta=etu|taka|paa).
+			_note.visible = false
+			_hud.visible = false
+			var stage := Node3D.new()
+			add_child(stage)
+			var base := home_zone + Vector3(6, 0, 10)
+			base.y = Terrain.h(base.x, base.z)
+			stage.position = base
+			var cs: Array = []
+			var ids := ["tuulipuku", "farkut", "tyovaatteet"]
+			for k in ids.size():
+				var ch: Node3D = Looks.make(stage, Looks.player(ids[k]))
+				Looks.add_cap(ch)
+				ch.position = Vector3((k - 1) * 1.1, 0, 0)
+				ch.play("Idle", 0.0)
+				cs.append(ch)
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.current = true
+			player.visible = false
+			var shoot := func(name: String, from: Vector3, to: Vector3, fov: float) -> void:
+				cam.fov = fov
+				cam.look_at_from_position(stage.to_global(from), stage.to_global(to))
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			await shoot.call("_etu.png", Vector3(0, 1.2, -4.2), Vector3(0, 1.0, 0), 45.0)
+			await shoot.call("_taka.png", Vector3(0, 1.3, 4.2), Vector3(0, 1.0, 0), 45.0)
+			for k in 3:
+				var hx := (k - 1) * 1.1
+				await shoot.call("_paa%d.png" % k, Vector3(hx + 0.25, 1.72, -0.75), Vector3(hx, 1.62, 0), 30.0)
+				await shoot.call("_paataka%d.png" % k, Vector3(hx - 0.35, 1.75, 0.8), Vector3(hx, 1.55, 0), 30.0)
+			# Asun vaihto paikallaan: tuulipukuhahmo farkkuihin.
+			Looks.outfit = "farkut"
+			Looks.restyle_player(cs[0])
+			await shoot.call("_vaihto.png", Vector3(-1.1, 1.2, -2.6), Vector3(-1.1, 1.0, 0), 45.0)
+			Looks.outfit = "tuulipuku"
+			get_tree().quit()
 		"puhelin":
 			# Päivin kännykkä (#16): kodin yöpöydältä, P soimaan, N seuraava, U voimakkuus, kuulokkeet tauottavat, P taskuun.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
@@ -18429,7 +18573,7 @@ func _maybe_screenshot() -> void:
 			for i in 30:
 				await get_tree().physics_frame
 			if scene == "mokkiuinti":
-				var probe: Node3D = Looks.make(self, Cutscene.swim_look(Looks.PLAYER))
+				var probe: Node3D = Looks.make(self, Cutscene.swim_look(Looks.player()))
 				for an in ["Swim_Fwd", "Swim_Idle"]:
 					probe.play(an, 0.0)
 					probe.anim.advance(0.5)

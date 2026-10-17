@@ -226,7 +226,7 @@ func _build_room() -> void:
 	B.box(self, Vector3(0.45, 0.45, 0.4), Vector3(0, 0.22, SEAT_Z + 0.05), wood, false)
 	_tero = _seat(Looks.TERO, -1.0)
 	_bubble = B.bubble(self, Vector3(0.35, 1.72, -SEAT_Z), Color.WHITE)
-	_me = _seat(Looks.PLAYER, 1.0)
+	_me = _seat(Looks.player(), 1.0)
 	Looks.add_cap(_me)
 	for p in [Vector3(-1.5, 2.6, -1.5), Vector3(1.2, 2.6, 0.8)]:
 		var l := OmniLight3D.new()

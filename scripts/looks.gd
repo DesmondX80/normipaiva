@@ -12,6 +12,49 @@ const PLAYER := {
 	"stripes": true, "stripe_color": Color(0.08, 0.66, 0.64),
 	"belly": 0.75, "bulk": 0.1, "shoulders": -0.55,
 }
+## Pelaajan asut (vaatekaappi kotona ja Paapelin makuuhuoneessa, main.gd tallentaa valinnan): tuulipuku ja
+## Karhu-lippis on oletus. Kaikissa vaaleat hiukset, pukinparta, kello, rannekoru ja tatuointi vasemmassa olkavarressa.
+const OUTFITS := {
+	"tuulipuku": {"name": "Tuulipuku ja Karhu-lippis"},
+	"farkut": {"name": "Farkut, verkkopaita ja rasvaletti"},
+	"tyovaatteet": {"name": "Työvaatteet ja Karjala-lippis"},
+}
+const PLAYER_HAIR := Color(0.82, 0.66, 0.4)
+static var outfit := "tuulipuku"
+
+
+## Pelaajan ulkonäkö valitussa asussa (Looks.make lisää asusteet, add_cap lippiksen asun mukaan).
+static func player(which := "") -> Dictionary:
+	var o := which if which != "" else outfit
+	var look: Dictionary = PLAYER.duplicate(true)
+	look.merge({"player": true, "outfit": o, "hair_color": PLAYER_HAIR, "skin": Color(1.0, 0.92, 0.84), "tattoo": true,
+		"cap": "karhu", "shades": "pilotti", "bare_skin": Color(0.95, 0.75, 0.6)}, true)
+	match o:
+		"farkut":
+			for k in ["tracksuit", "stripe_color"]:
+				look.erase(k)
+			look.merge({"shirt": Color(0.78, 0.68, 0.5), "net_shirt": true, "shirt_puff": 0.006, "suspenders": true,
+				"pants": Color(0.46, 0.6, 0.78), "jeans": true, "belt_y": 0.99, "pants_puff": 0.01,
+				"shoes": Color(0.33, 0.22, 0.13), "stripes": false, "shine": 0.0, "hair": "", "letti": true,
+				"shades": "valkoiset", "chain": true, "cap": ""}, true)
+		"tyovaatteet":
+			for k in ["tracksuit", "stripe_color"]:
+				look.erase(k)
+			look.merge({"shirt": Color(0.62, 0.1, 0.08), "flannel": true, "pants": Color(0.24, 0.25, 0.27), "workwear": true,
+				"shoes": Color(0.1, 0.09, 0.08), "stripes": false, "shine": 0.0, "cap": "karjala", "shades": ""}, true)
+	return look
+
+
+## Pelaajan malli uuteen asuun paikallaan (asun vaihto vaatekaapilla): asusteet ja lippis uudelleen.
+static func restyle_player(c: Node3D) -> void:
+	var look := player()
+	var capped: bool = c.get_meta("capped", false)
+	c.restyle(look)
+	_add_player_gear(c, look)
+	if capped:
+		add_cap(c)
+
+
 const JUNTTI := {
 	"shirt": Color(0.06, 0.06, 0.07), "pants": Color(0.06, 0.06, 0.07), "shoes": Color(0.95, 0.95, 0.95),
 	"hair": "Hair_Long", "hair_color": Color(0.85, 0.72, 0.42), "stripes": true, "shine": 0.35, "height": 1.86, "belly": 1.0, "bulk": 0.35, "shoulders": 0.5, "muscle": -0.35,
@@ -129,6 +172,9 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 	var c := Character.new()
 	parent.add_child(c)
 	c.setup(look)
+	if look.get("player", false):
+		c.set_meta("player_body", true)
+		_add_player_gear(c, look)
 	if look.get("glam", false):
 		add_glam(c)
 	if look.get("chaplin", false):
@@ -344,9 +390,195 @@ static func hang_bag(c: Node3D, bag: Node3D, delta: float) -> void:
 	bag.global_transform = Transform3D(gb * basis, c.global_transform * grip)
 
 
+## Pelaajan omat yksityiskohdat (inspiraatio: vaaleat hiukset, pukinparta, kello ja rannekoru, asun mukaan
+## peililasiset pilottilasit tai valkoiset ovaalit lasit, kultaketju ja rasvaletti). Muutama pieni mesh luissa.
+static func _add_player_gear(c: Node3D, look: Dictionary) -> void:
+	c.set_meta("cap", look.get("cap", "karhu"))
+	var gold := B.mat(Color(0.95, 0.76, 0.3))
+	gold.metallic = 0.95
+	gold.roughness = 0.22
+	# Pukinparta: leukatupsu ja ohuet viikset suupielistä alas.
+	var beard := Node3D.new()
+	var bc: Color = (look.get("hair_color", PLAYER_HAIR) as Color).darkened(0.25)
+	# Leuan pinnalla: leukaparta (litistetty pallo), alahuulen tupsu ja ohuet viikset; suupielet yhdistävät.
+	B.mesh(beard, B.sphere(0.5, 12), Vector3(0, -0.006, 0.002), bc).scale = Vector3(0.042, 0.036, 0.018)
+	B.mesh(beard, B.sphere(0.5, 8), Vector3(0, 0.02, -0.004), bc).scale = Vector3(0.014, 0.014, 0.008)
+	B.mesh(beard, B.sphere(0.5, 10), Vector3(0, 0.046, -0.009), bc).scale = Vector3(0.044, 0.008, 0.009)
+	c.attach("Head", beard, Vector3(0, -0.005, -0.088))
+	match String(look.get("shades", "")):
+		"pilotti":
+			# Peililasiset pilottilasit: pisaranmuotoiset linssit (kirkas metalli heijastaa taivaan), kultasanka.
+			var sh := Node3D.new()
+			var lens := StandardMaterial3D.new()
+			lens.albedo_color = Color(0.9, 0.62, 0.8)
+			lens.metallic = 1.0
+			lens.roughness = 0.04
+			for sx in [-1.0, 1.0]:
+				var l := MeshInstance3D.new()
+				l.mesh = B.sphere(0.5, 14)
+				l.material_override = lens
+				l.position = Vector3(sx * 0.034, -0.004, 0)
+				l.scale = Vector3(0.05, 0.046, 0.012)
+				l.rotation.z = sx * -0.25
+				sh.add_child(l)
+				var tm := MeshInstance3D.new()  # sanka korvan taakse
+				tm.mesh = B.boxm(Vector3(0.003, 0.003, 0.1))
+				tm.material_override = gold
+				tm.position = Vector3(sx * 0.068, 0.008, 0.048)
+				sh.add_child(tm)
+			for y in [0.012, 0.0]:
+				var br := MeshInstance3D.new()  # kaksoissilta
+				br.mesh = B.boxm(Vector3(0.022, 0.0025, 0.003))
+				br.material_override = gold
+				br.position = Vector3(0, y, -0.002)
+				sh.add_child(br)
+			c.attach("Head", sh, Vector3(0, 0.07, -0.105))
+		"valkoiset":
+			# Valkoiset ovaalit lasit (ysärin rantalasit): paksu kiiltävä kehys, tummat linssit.
+			var sh := Node3D.new()
+			var frame := B.mat(Color(0.96, 0.96, 0.94))
+			frame.roughness = 0.2
+			for sx in [-1.0, 1.0]:
+				var f := MeshInstance3D.new()
+				f.mesh = B.sphere(0.5, 14)
+				f.material_override = frame
+				f.position = Vector3(sx * 0.036, 0, 0.002)
+				f.scale = Vector3(0.056, 0.032, 0.014)
+				sh.add_child(f)
+				var l := MeshInstance3D.new()
+				l.mesh = B.sphere(0.5, 14)
+				l.material_override = B.mat(Color(0.05, 0.05, 0.06))
+				(l.material_override as StandardMaterial3D).roughness = 0.05
+				l.position = Vector3(sx * 0.036, 0, -0.004)
+				l.scale = Vector3(0.042, 0.022, 0.006)
+				sh.add_child(l)
+				var tm := MeshInstance3D.new()
+				tm.mesh = B.boxm(Vector3(0.006, 0.006, 0.1))
+				tm.material_override = frame
+				tm.position = Vector3(sx * 0.068, 0.006, 0.048)
+				sh.add_child(tm)
+			var bridge := MeshInstance3D.new()
+			bridge.mesh = B.boxm(Vector3(0.02, 0.006, 0.006))
+			bridge.material_override = frame
+			bridge.position = Vector3(0, 0.006, 0)
+			sh.add_child(bridge)
+			c.attach("Head", sh, Vector3(0, 0.07, -0.105))
+	if look.get("chain", false):
+		# Kultaketju kaulassa paidan päällä.
+		var ch := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.07
+		tm.outer_radius = 0.075
+		tm.rings = 24
+		tm.ring_segments = 4
+		ch.mesh = tm
+		ch.material_override = gold
+		ch.scale = Vector3(1.0, 1.0, 0.85)
+		ch.rotation.x = deg_to_rad(-18)
+		c.attach("neck_01", ch, Vector3(0, -0.035, -0.012))
+	# Musta älykello vasemmassa ranteessa, hopeinen rannekoru oikeassa.
+	var watch := Node3D.new()
+	B.mesh(watch, B.cyl(0.031, 0.031, 0.022, 12), Vector3.ZERO, Color(0.05, 0.05, 0.055), Vector3(0, 0, 90))
+	B.mesh(watch, B.boxm(Vector3(0.022, 0.012, 0.03)), Vector3(0, 0.03, 0), Color(0.03, 0.03, 0.035))
+	c.attach("hand_l", watch, Vector3(-0.045, 0, 0))
+	var bracelet := MeshInstance3D.new()
+	var bt := TorusMesh.new()
+	bt.inner_radius = 0.03
+	bt.outer_radius = 0.034
+	bt.rings = 16
+	bt.ring_segments = 4
+	bracelet.mesh = bt
+	var silver := B.mat(Color(0.82, 0.83, 0.86))
+	silver.metallic = 0.9
+	silver.roughness = 0.25
+	bracelet.material_override = silver
+	bracelet.rotation.z = PI / 2.0
+	c.attach("hand_r", bracelet, Vector3(0.045, 0, 0))
+	if look.get("letti", false):
+		_add_letti(c, look.get("hair_color", PLAYER_HAIR))
+
+
+## Rasvaletti: taakse kammattu kiiltävä tukka (kuori kallon pinnasta kuten lippiksen kupu, reuna otsalta niskaan)
+## ja niskaan valuva letti. Kampauksen urat ja geelin kiilto varjostimessa.
+static func _add_letti(c: Node3D, col: Color) -> void:
+	var sk: Skeleton3D = c.skeleton
+	var rest := sk.get_bone_global_rest(sk.find_bone("Head"))
+	var mb: Basis = (c.model.transform * sk.transform).basis
+	var body: MeshInstance3D = null
+	for mi in sk.get_children():
+		if mi is MeshInstance3D and (body == null or mi.mesh.surface_get_array_len(0) > body.mesh.surface_get_array_len(0)):
+			body = mi
+	var key := "letti/" + str(body.mesh.get_rid())
+	if not _cap_cache.has(key):
+		var grid := _skull_grid(body.mesh, rest.origin, mb)
+		_cap_cache[key] = _letti_mesh(grid)
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/hair_gel.gdshader")
+	mat.set_shader_parameter("hair", col)
+	var mi := MeshInstance3D.new()
+	mi.mesh = _cap_cache[key]
+	mi.material_override = mat
+	c.attach("Head", mi, CAP_OFFSET)
+
+
+static func _letti_mesh(grid: Array) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var margin := 0.0045
+	# Hiusraja: otsalla korkealla (kaljuuntuva otsa taakse kammattuna), ohimoilla korvien yläpuolella, niskassa alhaalla.
+	var rim := func(th: float) -> float:
+		var y := lerpf(0.035, -0.1, pow((1.0 - cos(th)) * 0.5, 2.0)) - CAP_C.y
+		var ps := 0.0
+		for it in 4:
+			ps = asin(clampf(y / (_skull_r(grid, th, ps) + margin), -0.95, 0.95))
+		return ps
+	var pt := func(i: int, j: int, nv: int) -> Vector3:
+		var th := TAU * i / NT
+		var ps := lerpf(rim.call(th), PI * 0.5, float(j) / nv)
+		return CAP_C + _dir(th, ps) * (_skull_r(grid, th, ps) + margin)
+	var nv := 14
+	for i in NT:
+		for j in nv:
+			for q in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j], [i + 1, j + 1], [i, j + 1]]:
+				var p: Vector3 = pt.call(q[0], q[1], nv)
+				st.set_normal((p - CAP_C).normalized())
+				st.set_uv(Vector2(float(q[0]) / NT, float(q[1]) / nv))
+				st.add_vertex(p)
+	# Letti niskaan: kaartuva nauha takaraivolta alas hartioiden päälle, kapenee ja ohenee kärkeä kohti.
+	# Alkaa takaraivolta hiusrajan yläpuolelta ja seuraa niskaa alas (hahmon kasvot -Z, niska takaraivon edessä).
+	var top: Vector3 = pt.call(NT / 2, 2, nv) + Vector3(0, 0, -0.004)
+	var segs := 7
+	var sides := 6
+	var prev := []
+	for s in segs + 1:
+		var t := float(s) / segs
+		var cen := top + Vector3(0, -0.15 * t, -0.03 * t + 0.012 * sin(t * PI))
+		var hw := lerpf(0.026, 0.014, t)
+		var hd := lerpf(0.02, 0.011, t)
+		var ring := []
+		for e in sides:
+			var a := TAU * e / sides
+			ring.append(cen + Vector3(cos(a) * hw, 0, sin(a) * hd))
+		if s > 0:
+			for e in sides:
+				var a: Vector3 = prev[e]
+				var b: Vector3 = prev[(e + 1) % sides]
+				var a2: Vector3 = ring[e]
+				var b2: Vector3 = ring[(e + 1) % sides]
+				var mid := (a + b + a2 + b2) / 4.0
+				var n := (mid - cen).normalized()
+				for v in [[a, float(e)], [b, e + 1.0], [b2, e + 1.0], [a, float(e)], [b2, e + 1.0], [a2, float(e)]]:
+					st.set_normal(n)
+					st.set_uv(Vector2(v[1] / sides, 1.0 + t))
+					st.add_vertex(v[0])
+		prev = ring
+	return st.commit()
+
+
 ## Pelaajan lippis päähän.
 const CAP_NAVY := Color(0.035, 0.035, 0.04)  # musta kuten Karhu-lippiksissä
 const CAP_PIPING := Color(1.0, 0.82, 0.1)  # keltainen kerrosraita lipan reunassa
+const KARJALA_RED := Color(0.6, 0.05, 0.06)  # Karjala-lippis (Paapelin työvaatteet): punainen, valkoinen reunus
 const CAP_OFFSET := Vector3(0, 0.15, 0.005)  # lippiksen origo pääluun lepopaikasta (hahmon avaruudessa)
 const CAP_C := Vector3(0, -0.035, -0.015)  # kallon keskipiste lippiksen avaruudessa
 const CAP_RIM_FRONT := -0.004  # reunan korkeus otsalla
@@ -361,6 +593,11 @@ static var _cap_cache := {}
 ## Karhu-lippis, joka mukailee kaljun pään muotoja: kupu mallinnetaan hahmon oman kallon pinnasta,
 ## tukka painetaan kuvun alle (näkyy vain reunan alta). Merkki painettuna etupaneeliin, kaareva lippa.
 static func add_cap(c: Node3D) -> void:
+	var kind: String = c.get_meta("cap", "karhu")
+	c.set_meta("capped", true)
+	if kind == "":
+		return  # asussa ei lippistä (rasvaletti)
+	var cloth := CAP_NAVY if kind == "karhu" else KARJALA_RED
 	var sk: Skeleton3D = c.skeleton
 	var rest := sk.get_bone_global_rest(sk.find_bone("Head"))
 	var mb: Basis = (c.model.transform * sk.transform).basis
@@ -368,10 +605,11 @@ static func add_cap(c: Node3D) -> void:
 	for mi in sk.get_children():
 		if mi is MeshInstance3D and (body == null or mi.mesh.surface_get_array_len(0) > body.mesh.surface_get_array_len(0)):
 			body = mi
-	var key := str(body.mesh.get_rid())
+	var key := kind + "/" + str(body.mesh.get_rid())
 	if not _cap_cache.has(key):
 		var grid := _skull_grid(body.mesh, rest.origin, mb)
-		_cap_cache[key] = {"grid": grid, "crown": _cap_crown(grid), "brim": _cap_brim(grid)}
+		_cap_cache[key] = {"grid": grid, "crown": _cap_crown(grid), "brim": _cap_brim(grid, cloth,
+			CAP_PIPING if kind == "karhu" else Color(0.95, 0.95, 0.92))}
 	var data: Dictionary = _cap_cache[key]
 	_tuck_hair(sk, body, data.grid, rest.origin, mb)
 	var cap := Node3D.new()
@@ -379,8 +617,8 @@ static func add_cap(c: Node3D) -> void:
 	crown.mesh = data.crown
 	var cm := ShaderMaterial.new()
 	cm.shader = load("res://shaders/cap.gdshader")
-	cm.set_shader_parameter("cloth", CAP_NAVY)
-	cm.set_shader_parameter("logo", load("res://assets/cap_logo.png"))
+	cm.set_shader_parameter("cloth", cloth)
+	cm.set_shader_parameter("logo", load("res://assets/cap_logo.png" if kind == "karhu" else "res://assets/cap_logo_karjala.png"))
 	crown.material_override = cm
 	cap.add_child(crown)
 	var brim := MeshInstance3D.new()
@@ -393,7 +631,7 @@ static func add_cap(c: Node3D) -> void:
 	brim.material_override = bm
 	cap.add_child(brim)
 	var top := _cap_point(data.grid, 0.0, PI * 0.5)
-	B.mesh(cap, B.sphere(0.009, 10), top + Vector3(0, 0.001, 0), CAP_NAVY).scale = Vector3(1, 0.55, 1)  # nappi
+	B.mesh(cap, B.sphere(0.009, 10), top + Vector3(0, 0.001, 0), cloth).scale = Vector3(1, 0.55, 1)  # nappi
 	c.attach("Head", cap, CAP_OFFSET)
 
 
@@ -520,10 +758,9 @@ static func _cap_crown(grid: Array) -> ArrayMesh:
 	return st.commit()
 
 
-static func _cap_brim(grid: Array) -> ArrayMesh:
+static func _cap_brim(grid: Array, top_col := CAP_NAVY, piping := CAP_PIPING) -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var top_col := CAP_NAVY
 	var under_col := Color(0.03, 0.03, 0.035)
 	var n := 24
 	var thick := 0.006
@@ -598,7 +835,7 @@ static func _cap_brim(grid: Array) -> ArrayMesh:
 			st.set_normal(fwd)
 			st.add_vertex(v)
 		for v in [b0 + mid, b0 + dn, b1 + dn, b0 + mid, b1 + dn, b1 + mid]:
-			st.set_color(CAP_PIPING)
+			st.set_color(piping)
 			st.set_normal(fwd)
 			st.add_vertex(v)
 	return st.commit()

@@ -144,7 +144,7 @@ func _ready() -> void:
 	_cam.current = true
 	_build_trimmer()
 	_build_paivi()
-	_body = Looks.make(self, Looks.PLAYER)
+	_body = Looks.make(self, Looks.player())
 	_body.play("Idle", 0.0)
 	_build_cord()
 	_build_string()

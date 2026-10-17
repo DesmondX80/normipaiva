@@ -58,12 +58,12 @@ func _ready() -> void:
 		var i: int = interior.person_index(partner)
 		if i >= 0:
 			var p: Dictionary = interior.PEOPLE[i]
-			look = p.look if p.has("look") else (Looks.SINIKKA if p.look_ref == "SINIKKA" else Looks.PLAYER)  # kuten salissa
+			look = p.look if p.has("look") else (Looks.SINIKKA if p.look_ref == "SINIKKA" else Looks.player())  # kuten salissa
 			_hidden = interior._holders[i]
 			_hidden.visible = false
 		if interior.walker != null:
 			interior.walker.visible = false
-	_me = Looks.make(self, Looks.PLAYER)
+	_me = Looks.make(self, Looks.player())
 	Looks.add_cap(_me)
 	_her = Looks.make(self, look)
 	for c in [_me, _her]:
