@@ -4492,6 +4492,7 @@ func _flowers_morning(lost: bool, at_m: bool) -> String:
 		has_flowers = false
 		_flowers_day = prev
 		tilat.first("kukat_paiville", 0.3)
+		_paivi_credit_add("kukat")
 		if _paivi_bday(prev):
 			money += 20.0
 			tilat.add("stressi", 0.3)
@@ -6342,6 +6343,7 @@ func _mow() -> void:
 	if ratio >= LAWN_DONE and not _lawn_done_today:
 		_lawn_done_today = true
 		_lawn_praise = true
+		_paivi_credit_add("nurmikko")
 		_task_done(true)
 		tilat.first("nurmikko", 0.4)
 		_stop_mowing()
@@ -6701,6 +6703,7 @@ func _start_hedge() -> void:
 		tilat.first("pensasaita", 0.4)
 		if g.holes == 0:
 			_hedge_praise = true
+			_paivi_credit_add("pensasaita")
 			_task_done(true)
 			Sfx.play("win_small")
 			_show_message("Pensasaita leikattu narun tasalle! Päivi on tyytyväinen.\nHuomenna tulee %s € ylimääräistä kauppaan." % _eur(HEDGE_BONUS), 4.0)
@@ -7423,6 +7426,7 @@ func _check_list(spoiled: Array = [], spoil_word := "pilalla") -> Array[String]:
 			big = true
 	paivi_bag = {}
 	if lines.is_empty():
+		_paivi_credit_add("kauppalista")
 		_task_done(true)
 		tilat.first("kauppalista", 0.4)
 	else:
@@ -13185,8 +13189,39 @@ func _on_wife_spotted() -> void:
 
 
 func _on_wife_caught() -> void:
-	if state in ["to_shop", "to_home"]:
-		_lose("Päivi nappasi kiinni!", "wife")
+	if not state in ["to_shop", "to_home"]:
+		return
+	if not paivi_credit.is_empty():
+		# Kotihommista hyvitys: Päivi päästää tämän kerran (vanhin hyvitys ensin).
+		var why: String = paivi_credit.pop_front()
+		wife_alerted = false
+		_wife_bust = []
+		wife.forgive(12.0)
+		Sfx.play("horn", -6.0, 0.8)
+		var left := "Hyvityksiä jäljellä %d." % paivi_credit.size() if not paivi_credit.is_empty() else "Seuraavalla kerralla ei armoa."
+		_show_message("Päivi: \"%s\"\n%s" % [PAIVI_FORGIVE[why].pick_random(), left], 4.0)
+		_save_game()
+		return
+	_lose("Päivi nappasi kiinni!", "wife")
+
+
+## Päivin kotihommat: tehty homma antaa yhden hyvityksen, joka pyyhkii yhden kiinnijäämisen (_on_wife_caught).
+## Hyvitykset säilyvät päivästä toiseen (enintään PAIVI_CREDIT_MAX); kauppalista ja kukat lasketaan, kun Päivi ne näkee.
+const PAIVI_CREDIT_MAX := 3
+const PAIVI_FORGIVE := {
+	"nurmikko": ["No... sää sentään leikkasit nurmikon. Mee nyt.", "Nurmikko on hieno, sen myönnän. Tämän kerran päästän."],
+	"pensasaita": ["Aita on suora ku viivotin. Hyvä on, mee.", "Sen aidan takia päästän. Mutta kotiin ennen pimeää!"],
+	"kauppalista": ["Ostokset oli oikein... Hyvä on, tämän kerran.", "Muistit värit oikein. Mee nyt, ennen ku kaduttaa."],
+	"kukat": ["Kukat oli kauniita. Mutta tää on viimenen kerta!", "Niiden kukkien takia... no, mee."],
+}
+var paivi_credit: Array = []  # ansaitut hyvitykset (homman id), vanhin ensin
+
+
+func _paivi_credit_add(why: String) -> void:
+	if paivi_credit.size() >= PAIVI_CREDIT_MAX:
+		return
+	paivi_credit.append(why)
+	_queue_message("Päivi muistaa tämän: yksi kiinnijääminen anteeksi (%d)." % paivi_credit.size(), 3.0)
 
 
 ## Juntti sai kiinni -> Street Fighter -kaksintaistelu.
@@ -13691,6 +13726,7 @@ func _load_game() -> void:
 	world.home_hedge.load_state(cfg.get_value("pensasaita", "aita", {}))
 	hedge_nagged = cfg.get_value("pensasaita", "motkotettu", false)
 	_hedge_praise = cfg.get_value("pensasaita", "kehu", false)
+	paivi_credit = cfg.get_value("paivi", "hyvitykset", [])
 	koris_best = cfg.get_value("koris", "ennatys", 0)
 	tilat.load_from(cfg)
 	story.load_from(cfg)
@@ -13797,6 +13833,7 @@ func _save_game() -> void:
 		cfg.set_value("pensasaita", "aita", world.home_hedge.save_state())
 	cfg.set_value("pensasaita", "motkotettu", hedge_nagged)
 	cfg.set_value("pensasaita", "kehu", _hedge_praise)
+	cfg.set_value("paivi", "hyvitykset", paivi_credit)
 	cfg.set_value("koris", "ennatys", koris_best)
 	if tilat != null:
 		tilat.save_to(cfg)
@@ -17516,6 +17553,40 @@ func _maybe_screenshot() -> void:
 				prev_p = wife.global_position
 			Engine.time_scale = 1.0
 			print("PARTIO ajo: matka %.0f m, pysähdyksiä %d, perillä: %s, nyt matkalla kohteeseen %s" % [odo, stops, ", ".join(seen), names.get(wife.dest, "?")])
+			get_tree().quit()
+			return
+		"paivihyvitys":
+			# Kotihommien hyvitys: nurmikko ja kauppalista antavat hyvityksen, kiinnijääminen kuluttaa yhden ja Päivi
+			# päästää (jahti loppuu, hetki armoa), ilman hyvitystä peli päättyy. Tallennus palautetaan.
+			var saved_h2 := FileAccess.get_file_as_bytes(SAVE_PATH)
+			paivi_credit.clear()
+			_paivi_credit_add("nurmikko")
+			_paivi_credit_add("kauppalista")
+			print("HYVITYS ansaittu %s" % [paivi_credit])
+			if player != walker_out:
+				_toggle_mount()
+			state = "to_shop"
+			wife.global_position = walker_out.global_position + Vector3(2.0, 0, 0)
+			wife.mode = "chase"
+			wife.alerted = true
+			for i in 10:
+				await get_tree().physics_frame
+			print("HYVITYS 1: tila %s, jahti %s, armoa %.1f s, jäljellä %s, viesti '%s'" % [state, wife.mode, wife.grace, paivi_credit,
+				_msg.text.replace("\n", " | ")])
+			await get_tree().create_timer(1.0).timeout
+			print("HYVITYS armon aikana lähellä: tila %s, jahti %s" % [state, wife.mode])
+			wife.grace = 0.0
+			wife.global_position = walker_out.global_position + Vector3(2.0, 0, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("HYVITYS 2: tila %s, jäljellä %s, viesti '%s'" % [state, paivi_credit, _msg.text.replace("\n", " | ")])
+			wife.grace = 0.0
+			wife.global_position = walker_out.global_position + Vector3(2.0, 0, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			print("HYVITYS 3 (ei hyvityksiä): tila %s" % state)
+			if not saved_h2.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_h2)
 			get_tree().quit()
 			return
 		"paivihalytys":
