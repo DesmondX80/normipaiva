@@ -1,5 +1,6 @@
 extends CharacterBody3D
-## Vaimo Päivin punainen Hyundai: partioi tieverkkoa, jahtaa kun näkee pelaajan.
+## Vaimo Päivin punainen Hyundai: partioi kylän paikkoja (pick_dest valitsee määränpään, main.gd _wife_dest), ajaa
+## sinne lyhintä tietä, pysähtyy hetkeksi katselemaan ja jatkaa seuraavaan. Jahtaa, kun näkee pelaajan.
 
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
@@ -23,6 +24,12 @@ var alerted := false  # naapuri käräytti: vaimo tietää koko ajan missä olet
 var speed_mult := 1.0  # päivän tilat (#18): huonon päivän jälkeen nopeampi, hyvän jälkeen hitaampi
 var mode := "patrol"  # patrol, chase, return
 var parked := false  # yöllä kotipihassa: Päivi sisällä, auto ei liiku eikä jahtaa (main.gd _day_rhythm)
+var pick_dest: Callable  # () -> Vector3: seuraava määränpää; tyhjä = sattumanvarainen harhailu risteyksittäin
+var dest := Vector3.ZERO  # nykyinen määränpää (testit)
+var arrived := Vector3.ZERO  # viimeksi saavutettu määränpää (testit)
+
+var _path: Array[int] = []  # jäljellä olevat tieverkon pisteet määränpäähän
+var _linger := 0.0  # perillä: katselee hetken ennen seuraavaa
 
 var _nodes: Array[Vector3] = []
 var _adj: Array = []
@@ -56,8 +63,11 @@ func setup(nodes: Array[Vector3], adj: Array, start: int, player: Node3D) -> voi
 
 
 func reset_to(index: int) -> void:
+	dest = Vector3.ZERO
 	_cur = index
 	_prev = -1
+	_path.clear()
+	_linger = 0.0
 	position = _nodes[index]
 	mode = "patrol"
 	_speed = 0.0
@@ -117,12 +127,16 @@ func _physics_process(delta: float) -> void:
 				Sfx.play_on(self, "horn", 2.0)
 				_honk_t = randf_range(2.5, 4.0)
 		"patrol":
-			if _flat_dist(_goal) < 3.0:
+			if _linger > 0.0:
+				_linger -= delta
+				want = 0.0
+			elif _flat_dist(_goal) < 3.0:
 				_advance()
 		"return":
 			if _flat_dist(_goal) < 3.0:
 				mode = "patrol"
 				_prev = -1
+				_path.clear()
 				_advance()
 	_drive(delta, want * speed_mult)
 
@@ -158,6 +172,20 @@ func _drive(delta: float, want: float) -> void:
 
 
 func _advance() -> void:
+	if pick_dest.is_valid():
+		if _path.is_empty():
+			if dest != Vector3.ZERO:
+				_linger = randf_range(4.0, 10.0)  # perillä (lähin tien kohta): katselee ympärilleen
+				arrived = dest
+			dest = pick_dest.call()
+			_path = _route(_cur, _nearest_node_to(dest))
+		if not _path.is_empty():
+			var nxt: int = _path.pop_front()
+			var dr := (_nodes[nxt] - _nodes[_cur]).normalized()
+			_prev = _cur
+			_cur = nxt
+			_goal = _nodes[nxt] + Vector3(-dr.z, 0, dr.x) * LANE
+			return
 	var options: Array = _adj[_cur].filter(func(n: int) -> bool: return n != _prev)
 	if options.is_empty():
 		options = _adj[_cur]  # umpikuja: käännytään takaisin
@@ -166,6 +194,57 @@ func _advance() -> void:
 	_prev = _cur
 	_cur = next
 	_goal = _nodes[next] + Vector3(-dir.z, 0, dir.x) * LANE
+
+
+## Lyhin reitti tieverkossa (Dijkstra): pisteet a:n jälkeen b:hen asti; tyhjä, jos a == b tai ei yhteyttä.
+func _route(a: int, b: int) -> Array[int]:
+	var out: Array[int] = []
+	if a == b:
+		return out
+	var n := _nodes.size()
+	var dist := PackedFloat32Array()
+	dist.resize(n)
+	dist.fill(INF)
+	var prev := PackedInt32Array()
+	prev.resize(n)
+	prev.fill(-1)
+	var done := PackedByteArray()
+	done.resize(n)
+	dist[a] = 0.0
+	var open: Array[int] = [a]
+	while not open.is_empty():
+		var bi := 0
+		for i in open.size():
+			if dist[open[i]] < dist[open[bi]]:
+				bi = i
+		var u: int = open[bi]
+		open.remove_at(bi)
+		if u == b:
+			break
+		if done[u]:
+			continue
+		done[u] = 1
+		for v: int in _adj[u]:
+			var nd := dist[u] + _nodes[u].distance_to(_nodes[v])
+			if nd < dist[v]:
+				dist[v] = nd
+				prev[v] = u
+				open.append(v)
+	if prev[b] < 0:
+		return out
+	var c := b
+	while c != a:
+		out.push_front(c)
+		c = prev[c]
+	return out
+
+
+func _nearest_node_to(p: Vector3) -> int:
+	var best := 0
+	for i in _nodes.size():
+		if Vector2(_nodes[i].x - p.x, _nodes[i].z - p.z).length_squared() < Vector2(_nodes[best].x - p.x, _nodes[best].z - p.z).length_squared():
+			best = i
+	return best
 
 
 func _nearest_node() -> int:
