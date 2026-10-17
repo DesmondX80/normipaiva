@@ -44,6 +44,10 @@ var _bodies := {}
 var _queue: Array[Vector2i] = []
 var _last := Vector2i(-99999, -99999)
 var _far_end := 1000.0  # kaukotason loppu: usva peittää puut näkyvyysetäisyyden takana
+## Lähi- ja keskitason rajat laatutason mukaan (_setup): matalalla raskaat korttilatvukset vain lähimmille puille.
+## Asetuksen muutos tulee voimaan, kun metsä rakennetaan seuraavan kerran.
+var near_end := NEAR_END
+var mid_end := MID_END
 
 
 ## Lataa puut tiedostosta ja rakentaa kaukotason. Palauttaa false, jos dataa ei ole.
@@ -149,6 +153,9 @@ func load_list(trees: Array, seed := 1) -> void:
 
 func _setup(raw_a: PackedByteArray, raw_b: PackedByteArray, w: int, h: int) -> void:
 	_far_end = Settings.view_far() + 100.0
+	var q: int = Settings.get_v("quality")
+	near_end = [45.0, 55.0, 70.0, NEAR_END][q]
+	mid_end = [200.0, 220.0, 240.0, MID_END][q]
 	data_a = raw_a.to_float32_array()
 	_tex_a = ImageTexture.create_from_image(Image.create_from_data(w, h, false, Image.FORMAT_RGBAF, raw_a))
 	_tex_b = ImageTexture.create_from_image(Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, raw_b))
@@ -214,7 +221,7 @@ func _build_far() -> void:
 				if r.y == 0 or sp == BUSH:
 					continue
 				var mmi := _mmi(_meshes.far[sp], r, _aabb(i, j, far_chunk))
-				mmi.visibility_range_begin = maxf(0.0, MID_END - far_chunk * 0.71 - 20.0)
+				mmi.visibility_range_begin = maxf(0.0, mid_end - far_chunk * 0.71 - 20.0)
 				mmi.visibility_range_end = _far_end + far_chunk * 0.71
 				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				add_child(mmi)
@@ -227,11 +234,11 @@ func _build_near_chunk(k: Vector2i) -> Array:
 		if r.y == 0:
 			continue
 		var near := _mmi(_meshes.near[sp], r, _aabb(k.x, k.y, near_chunk))
-		near.visibility_range_end = NEAR_END + near_chunk * 0.71 + 10.0
+		near.visibility_range_end = near_end + near_chunk * 0.71 + 10.0
 		add_child(near)
 		var mid := _mmi(_meshes.mid[sp], r, _aabb(k.x, k.y, near_chunk))
-		mid.visibility_range_begin = maxf(0.0, NEAR_END - near_chunk * 0.71 - 10.0)
-		mid.visibility_range_end = (BUSH_END if sp == BUSH else MID_END) + near_chunk * 0.71 + 10.0
+		mid.visibility_range_begin = maxf(0.0, near_end - near_chunk * 0.71 - 10.0)
+		mid.visibility_range_end = (BUSH_END if sp == BUSH else mid_end) + near_chunk * 0.71 + 10.0
 		add_child(mid)
 		out.append_array([near, mid])
 	_chunk_shadow(k, out, _last)
@@ -409,6 +416,6 @@ func _make_meshes() -> void:
 					[_flat_sphere(1.3, 1.3, 5, 2), Vector3(0.9, 5.1, 0.35), crown_m],
 					[_flat_sphere(1.25, 1.25, 5, 2), Vector3(-0.75, 6.7, -0.35), crown_m]]
 				far = [[B.cyl(0.08, 0.18, 4.5, 3), Vector3(0, 2.25, 0), trunk_m], [_bipyramid(1.9, 2.2), Vector3(0, 5.9, 0), crown_far]]
-		_meshes.near.append(_lod(_combine(near), 0.0, NEAR_END))
-		_meshes.mid.append(_lod(_combine(mid), NEAR_END, BUSH_END if sp == BUSH else MID_END))
-		_meshes.far.append(_lod(_combine(far), MID_END, _far_end))
+		_meshes.near.append(_lod(_combine(near), 0.0, near_end))
+		_meshes.mid.append(_lod(_combine(mid), near_end, BUSH_END if sp == BUSH else mid_end))
+		_meshes.far.append(_lod(_combine(far), mid_end, _far_end))

@@ -86,6 +86,11 @@ func setup(look: Dictionary) -> void:
 	if look.get("beard", false):
 		_attach_hair(HAIR_DIR + "Hair_Beard.gltf", hair_color)
 
+	# Matalilla laatutasoilla kaukaiset hahmot jäävät piirtämättä (kylässä 130–190 hahmoa, jokaisella oma luusto).
+	var q: int = Settings.get_v("quality")
+	if q <= 1:
+		for gi in model.find_children("*", "GeometryInstance3D", true, false):
+			(gi as GeometryInstance3D).visibility_range_end = [60.0, 90.0][q]
 	anim = AnimationPlayer.new()
 	model.add_child(anim)
 	anim.add_animation_library("", _library())
