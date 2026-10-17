@@ -93,7 +93,13 @@ func _ready() -> void:
 			AudioServer.set_bus_name(i, bus)
 			AudioServer.set_bus_send(i, "Master")
 	var cfg := ConfigFile.new()
-	if cfg.load(PATH) == OK:
+	if cfg.load(PATH) != OK and (OS.has_feature("web") or renderer_current() == 1):
+		# Ensimmäinen käynnistys selaimessa tai yhteensopivuusmoottorilla (vanhat koneet): kevyet oletukset, jotka
+		# pelaaja voi nostaa asetuksista. Selain ajaa pelin yhdellä säikeellä ja WebGL:llä.
+		values.quality = 1
+		values.view_distance = 1
+		values.render_scale = 0.8
+	elif cfg.get_sections().size() > 0:
 		for k in values:
 			values[k] = cfg.get_value("settings", k, values[k])
 		# Vanha kolmiportainen laatu (0 matala – 2 korkea): siirretään asteikolle, jonka alussa on erittäin matala.
@@ -286,6 +292,9 @@ func apply() -> void:
 			DisplayServer.window_set_mode(want)
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if values.vsync else DisplayServer.VSYNC_DISABLED)
 	win.scaling_3d_scale = values.render_scale
+	# Pienennetty 3D-resoluutio skaalataan FSR:llä (terävämpi kuin bilineaarinen); yhteensopivuusmoottorissa ei FSR:ää.
+	win.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if values.render_scale < 0.99 and renderer_current() == 0 \
+		else Viewport.SCALING_3D_MODE_BILINEAR
 	win.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][values.quality]
 	for b in [["Master", "vol_master"], ["SFX", "vol_sfx"], ["Ambience", "vol_ambience"], ["Music", "vol_music"]]:
 		var i := AudioServer.get_bus_index(b[0])

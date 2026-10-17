@@ -697,7 +697,12 @@ func _measure() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = 0
 	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--mitta-skaala="):
+		if a.begins_with("--mitta-laatu="):
+			# Laatutaso (0–3) kuten asetuksista, tallentamatta asetuksia.
+			Settings.values.quality = int(a.substr(14))
+			Settings.apply()
+			main._apply_settings()
+		elif a.begins_with("--mitta-skaala="):
 			get_viewport().scaling_3d_scale = float(a.substr(15))
 		elif a.begins_with("--mitta-varjo="):
 			# Kokeilu: suodatin:N (pehmeiden varjojen laatu 0–5), jaot:2|4 (kaskadit), koko:N (atlas), matka:N (m)

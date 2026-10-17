@@ -13834,6 +13834,11 @@ func _apply_settings() -> void:
 	_sun.shadow_enabled = q >= 1
 	_sun.directional_shadow_max_distance = [70.0, 70.0, 120.0, 180.0][q]
 	_sun.shadow_blur = [0.5, 0.5, 1.0, 1.0][q]
+	# Varjojen hinta laatutason mukaan: atlas, pehmeiden reunojen suodatus ja kaskadit (matalalla kaksi neljän sijaan:
+	# lähimaailma piirtyy varjoihin kahdesti eikä neljästi).
+	RenderingServer.directional_shadow_atlas_set_size([2048, 2048, 4096, 4096][q], true)
+	RenderingServer.directional_soft_shadow_filter_set_quality([0, 1, 2, 3][q])
+	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q <= 1 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	world.set_quality(q)
 	# Näkyvyysetäisyys: usva ja kameran kaukoraja (cam_ctl.gd) yhdessä; täydellä 900 m on entiset 90–700 m.
 	var far: float = Settings.view_far()
