@@ -1234,8 +1234,8 @@ func _ground_body(g: Dictionary) -> void:
 	add_child(ground_body)
 
 
-## Maaston myötäinen nauha (tie, puro) murtoviivaa pitkin.
-func _strip(pts: PackedVector2Array, half_w: float, lift: float, mat: Material) -> void:
+## Maaston myötäinen nauha (tie, puro) murtoviivaa pitkin (mesh; _build_waters_and_roads tekee solmut).
+func _strip_mesh(pts: PackedVector2Array, half_w: float, lift: float) -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for k in pts.size() - 1:
@@ -1249,11 +1249,7 @@ func _strip(pts: PackedVector2Array, half_w: float, lift: float, mat: Material) 
 			for v in [p0 + nrm, p1 + nrm, p1 - nrm, p0 + nrm, p1 - nrm, p0 - nrm]:
 				st.add_vertex(Vector3(v.x, h(v.x, v.y) + lift, v.y))
 	st.generate_normals()
-	var mi := MeshInstance3D.new()
-	mi.mesh = st.commit()
-	mi.material_override = mat
-	mi.set_meta("ground", true)
-	add_child(mi)
+	return st.commit()
 
 
 ## Järvet ja lammet (OSM-monikulmiot) pinnan korkeudelle, puro ja tiet maaston myötäisinä, ruovikko rannoille.
@@ -1291,18 +1287,31 @@ func _build_waters_and_roads() -> void:
 					Color(0.42, 0.5, 0.22).lightened(randf() * 0.15))
 				reed.rotation.x = (randf() - 0.5) * 0.15
 				reed.set_meta("ground", true)
-	for s in data.streams:
-		_strip(s, 0.8, 0.02, water_mat)
-	var gravel := _ground_mat(Color(0.53, 0.47, 0.37), Color(0.64, 0.57, 0.45), 0.08, 1.1)
-	var asphalt := _ground_mat(Color(0.2, 0.2, 0.21), Color(0.3, 0.3, 0.31), 0.1, 1.5)
-	for r in data.roads:
-		match r.type:
-			"tertiary", "secondary":
-				_strip(r.pts, 3.2, 0.06, asphalt)  # Neittäväntie ja Nuojuankoskentie päällystettyjä
-			"path", "footway":
-				_strip(r.pts, 0.6, 0.04, gravel)
-			_:
-				_strip(r.pts, 2.6 if r.type == "unclassified" else (1.4 if r.type == "service" else 1.8), 0.05, gravel)
+	# Purot ja tiet maaston myötäisinä nauhoina, levyvälimuistista (maaston korkeus joka pisteessä vei 0,6 s).
+	var mats := {"water": water_mat,
+		"gravel": _ground_mat(Color(0.53, 0.47, 0.37), Color(0.64, 0.57, 0.45), 0.08, 1.1),
+		"asphalt": _ground_mat(Color(0.2, 0.2, 0.21), Color(0.3, 0.3, 0.31), 0.1, 1.5)}
+	var key := "v%d/%d" % [GROUND_CACHE_VERSION, hash(data)]
+	var strips: Array = MeshBundle.load_dict("mokki_tiet", key).get("strips", [])
+	if strips.is_empty():
+		for st in data.streams:
+			strips.append([_strip_mesh(st, 0.8, 0.02), "water"])
+		for r in data.roads:
+			match r.type:
+				"tertiary", "secondary":
+					strips.append([_strip_mesh(r.pts, 3.2, 0.06), "asphalt"])  # Neittäväntie ja Nuojuankoskentie päällystettyjä
+				"path", "footway":
+					strips.append([_strip_mesh(r.pts, 0.6, 0.04), "gravel"])
+				_:
+					strips.append([_strip_mesh(r.pts, 2.6 if r.type == "unclassified" else (1.4 if r.type == "service" else 1.8), 0.05),
+						"gravel"])
+		MeshBundle.save_dict("mokki_tiet", key, {"strips": strips})
+	for e in strips:
+		var mi := MeshInstance3D.new()
+		mi.mesh = e[0]
+		mi.material_override = mats[e[1]]
+		mi.set_meta("ground", true)
+		add_child(mi)
 	Sfx.loop_on(self, "water", -14.0).position = Vector3(DOCK_LOCAL.x, water_y(), DOCK_LOCAL.z - 4.0)
 
 
