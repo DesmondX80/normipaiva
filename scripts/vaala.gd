@@ -105,6 +105,28 @@ func _init() -> void:
 		if not _road_grid.has(key):
 			_road_grid[key] = []
 		_road_grid[key].append(i)
+	_move_hotel()
+
+
+## Hotelli Siitari omaksi rakennuksekseen ravintolan taakse (_hotel_pts) jo aineistossa, jotta kartat (minimap.gd,
+## paper_map.gd) näyttävät sen samassa paikassa. Uuden pohjan alle jäävät OSM-talot pois.
+func _move_hotel() -> void:
+	var hp := _hotel_pts()
+	if hp.is_empty():
+		return
+	var grown := _hotel_pts(4.0)
+	var keep := []
+	for bd in data.buildings:
+		if bd.id == HOTEL_ID:
+			bd.pts = Array(hp).map(func(q: Vector2) -> Array: return [q.x, q.y])
+		elif bd.id != SIITARI_ID:
+			var cen := Vector2.ZERO
+			for q in bd.pts:
+				cen += Vector2(q[0], q[1]) / bd.pts.size()
+			if Geometry2D.is_point_in_polygon(cen, grown):
+				continue
+		keep.append(bd)
+	data.buildings = keep
 
 
 # --- Kyselyt (paikallinen kehys) --------------------------------------------------------------------------------
@@ -2257,7 +2279,7 @@ func _build_buildings() -> void:
 		if id == HOTEL_ID:
 			col = Color(0.78, 0.62, 0.46)
 			mat = BRICK
-			wall_h = 6.4
+			wall_h = 9.0  # kolme kerrosta: kyltti näkyy tielle ravintolan katon yli
 			flat = false
 		elif id == GASTHAUS_ID:
 			col = Color(0.93, 0.84, 0.6)  # keltainen rappaus, valkoiset nurkat kuin vanhassa majatalossa
@@ -2292,9 +2314,9 @@ func _build_buildings() -> void:
 				Vector3(gd.x, base + 0.3, gd.y) + Vector3(gout.x, 0, gout.y) * 0.05))
 		if kind != "shed":
 			var shop := type in ["retail", "commercial"] or name.contains("market") or name.contains("Market")
-			var door := _door(obb, base + 0.3) if id != GASTHAUS_ID else \
-				(obb.center as Vector2) + _gasthaus_side(obb) * ((obb.size as Vector2).y / 2.0 + 0.05)
-			_windows(pts, base + 0.3, maxi(levels, 1) if id != HOTEL_ID else 2, wall_h, shop, door,
+			var door := _hotel_door_q(obb, base + 0.3) if id == HOTEL_ID else (_door(obb, base + 0.3) if id != GASTHAUS_ID else \
+				(obb.center as Vector2) + _gasthaus_side(obb) * ((obb.size as Vector2).y / 2.0 + 0.05))
+			_windows(pts, base + 0.3, maxi(levels, 1) if id != HOTEL_ID else 3, wall_h, shop, door,
 				Vector2(1.25, 1.2) if not flat else Vector2(1.5, 1.3))
 			if type == "apartments":
 				_balcony_rows(pts, base + 0.3, levels, obb)
@@ -2317,12 +2339,12 @@ func _build_buildings() -> void:
 		if id == GASTHAUS_ID:
 			_gasthaus_front(obb, base, top)
 		if id == HOTEL_ID:
-			name = "HOTELLI SIITARI"
-			# Hotellin ovi tien puolelle: vastaanotto ja huone 12, jossa Dingo riehuu (main.gd "hotelli").
-			var hd := _door(obb, base + 0.3)
-			var hay: Vector2 = obb.ay
-			var hout := hay if hay.dot(hd - (obb.center as Vector2)) > 0.0 else -hay
+			# Hotellin ovi pysäköinnin puoleisessa päädyssä kuten ravintolan: vastaanotto ja huone 12, jossa Dingo
+			# riehuu (main.gd "hotelli"). Kyltit _hotel_signs.
+			var hd := _hotel_door_q(obb, base + 0.3, false)
+			var hout := (hd - (obb.center as Vector2)).normalized()
 			hotel_door = Vector3(hd.x, h(hd.x, hd.y), hd.y) + Vector3(hout.x, 0, hout.y) * 2.5
+			_hotel_signs(obb, base, top, hd, hout)
 			doors.append({"id": "hotelli", "pos": hotel_door, "out": Vector3(hout.x, 0, hout.y), "r": 4.0,
 				"hint": "Hotelli Siitarin vastaanottoon"})
 		if id == TYOKKARI_ID:
@@ -2369,6 +2391,7 @@ func _build_buildings() -> void:
 				Color(0.1, 0.12, 0.2), "Helvetica Neue")
 			plate.position.y = minf(top - 0.9, base + 3.4)
 			_face_road(plate, obb)
+	_hotel_yard()
 	for pair in [[_walls, "res://shaders/facade.gdshader"], [_roofs, "res://shaders/roof.gdshader"]]:
 		var st: SurfaceTool = pair[0]
 		st.generate_normals()
@@ -2528,6 +2551,99 @@ const TYOKKARI_ID := 1555230428
 const LAMA_SIGNS := ["LIIKE LOPETTAA\nKAIKKI -50 %", "LOPPUUNMYYNTI", "TILA VUOKRATTAVANA\npuh. 981-23 112", "SULJETTU\nKonkurssipesä"]
 var tyokkari_door := Vector3.ZERO
 var hotel_door := Vector3.ZERO  # Hotelli Siitarin oven edusta
+
+
+## Hotelli Siitari omana rakennuksenaan suoraan ravintolan takana (OSM:n hotellisiipi on kauempana): sama suunta
+## kuin ravintolalla, 5 m väli takaseinään, pituus 0,85 ravintolan pituudesta ja syvyys 12 m. grow kasvattaa
+## pohjaa (hotellin alle jäävät OSM-talot jätetään pois).
+func _hotel_pts(grow := 0.0) -> PackedVector2Array:
+	var so := _siitari_obb()
+	if so.is_empty():
+		return PackedVector2Array()
+	var front: Vector2 = so.front
+	var ax: Vector2 = so.ax
+	var depth := 12.0
+	var c: Vector2 = (so.center as Vector2) - front * ((so.size as Vector2).y / 2.0 + 5.0 + depth / 2.0)
+	var hx: float = (so.size as Vector2).x * 0.85 / 2.0 + grow
+	var hy := depth / 2.0 + grow
+	return PackedVector2Array([c - ax * hx - front * hy, c + ax * hx - front * hy, c + ax * hx + front * hy, c - ax * hx + front * hy])
+
+
+## Ravintolan pohja (_build_siitari): keskipiste, koko, akselit ja front = tien puoleinen pitkä sivu.
+var _siitari_obb_cache := {}
+
+
+func _siitari_obb() -> Dictionary:
+	if _siitari_obb_cache.is_empty():
+		for bd in data.buildings:
+			if bd.id == SIITARI_ID:
+				var sp := PackedVector2Array()
+				for q in bd.pts:
+					sp.append(Vector2(q[0], q[1]))
+				var obb := _obb(sp)
+				var rp := road_pos(nearest(Vector3(obb.center.x, 0, obb.center.y))[0])
+				var ay: Vector2 = obb.ay
+				obb.front = ay if ay.dot(Vector2(rp.x, rp.z) - (obb.center as Vector2)) > 0.0 else -ay
+				_siitari_obb_cache = obb
+	return _siitari_obb_cache
+
+
+## Hotellin ovi pysäköinnin puoleiseen päätyyn kuten ravintolalla (sen ovi on pohjan +ax-päädyssä).
+func _hotel_door_q(obb: Dictionary, y0: float, mesh := true) -> Vector2:
+	var ax: Vector2 = obb.ax
+	var side := ax if ax.dot(_siitari_obb().ax) > 0.0 else -ax
+	var q: Vector2 = (obb.center as Vector2) + side * ((obb.size as Vector2).x / 2.0 + 0.05)
+	if mesh:
+		var y := h(q.x, q.y) + 0.1
+		_doors.append(Transform3D(Basis(Vector3.UP, atan2(side.x, side.y)), Vector3(q.x, maxf(y, y0 - 0.1), q.y)))
+	return q
+
+
+## HOTELLI SIITARI valomainoksena katon harjalle (näkyy tielle ravintolan katon yli) ja vastaanoton kyltti oven
+## yläpuolelle.
+func _hotel_signs(obb: Dictionary, base: float, top: float, door: Vector2, out: Vector2) -> void:
+	var to_bar: Vector2 = _siitari_obb().front
+	# Valomainos harjalla tolppien päällä (harja _gable: nousu 0,32 x syvyys, enintään 3,2 m).
+	var ridge := top + clampf((obb.size as Vector2).y * 0.32, 0.8, 3.2)
+	var big := B.sign_plate(self, "HOTELLI SIITARI", Color(0.55, 0.05, 0.06), Color(1.0, 0.92, 0.6), 2.0, 120,
+		Color(0.3, 0.02, 0.03), "Helvetica Neue")
+	var bq: Vector2 = (obb.center as Vector2) + to_bar * 0.3
+	big.position = Vector3(bq.x, ridge + 1.3, bq.y)
+	big.rotation.y = atan2(to_bar.x, to_bar.y)
+	var ax: Vector2 = obb.ax
+	for k in [-4.5, 4.5]:
+		var pq: Vector2 = bq + ax * k - to_bar * 0.15
+		B.mesh(self, B.cyl(0.08, 0.08, 1.4, 8), Vector3(pq.x, ridge + 0.1, pq.y), Color(0.2, 0.2, 0.22))
+	var small := B.sign_plate(self, "HOTELLI SIITARI\nVASTAANOTTO", Color(0.12, 0.1, 0.08), Color(0.98, 0.95, 0.85), 0.55, 48,
+		Color(0.55, 0.05, 0.06), "Helvetica Neue")
+	small.position = Vector3(door.x, base + 2.95, door.y) + Vector3(out.x, 0, out.y) * 0.12  # oven ja ikkunan väliin
+	small.rotation.y = atan2(out.x, out.y)
+
+
+## Hotellin piha: puut pois pohjan ympäriltä ja ravintolan parkkipaikalta hotellin ovelle, ja väliin asfalttipolku
+## (kutsutaan rakennusten jälkeen, kun siitari_park ja hotel_door tunnetaan).
+func _hotel_yard() -> void:
+	if hotel_door == Vector3.ZERO or siitari_park == Vector3.ZERO:
+		return
+	var a := Vector2(siitari_park.x, siitari_park.z)
+	var b := Vector2(hotel_door.x, hotel_door.z)
+	if not _tree_clear.is_empty():
+		var keep := _drive
+		_drive = _tree_clear  # piirtoapurit kirjoittavat _driveen
+		_drive_poly(_hotel_pts(), 4.0)
+		_drive_seg(a, b, 4.0)
+		_tree_clear = _drive
+		_drive = keep
+	# Polku 2 m paloina maaston mukaan (pitkä laatta kelluisi rinteessä).
+	var d := b - a
+	var n := maxi(1, ceili(d.length() / 2.0))
+	var yaw := rad_to_deg(atan2(d.x, d.y))
+	for k in n:
+		var q := a + d * ((k + 0.5) / n)
+		B.mesh(self, B.boxm(Vector3(2.2, 0.1, d.length() / n + 0.05)), Vector3(q.x, h(q.x, q.y) + 0.03, q.y),
+			Color(0.3, 0.3, 0.32), Vector3(0, yaw, 0))
+
+
 var _tori := PackedVector2Array()
 var _tori_c := Vector2.ZERO
 var _zabuki := Vector3.INF  # Zabukin keskipiste maan tasossa; INF = toria ei ole datassa

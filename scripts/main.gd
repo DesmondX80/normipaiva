@@ -17951,6 +17951,37 @@ func _maybe_screenshot() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mopo.png"))
 			get_tree().quit()
+		"siitarihotelli":
+			# Hotelli Siitari omana rakennuksenaan ravintolan takana: _ylhaalta, _edesta (tieltä), _takaa (hotellin ovelta).
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			mopo_trip.stop()
+			var sc := Vector3(vl.siitari.x, vl.h(vl.siitari.x, vl.siitari.y), vl.siitari.y)
+			print("HOTELLI siitari %s ovi %s parkki %s hotellin ovi %s" % [sc, vl.siitari_door, vl.siitari_park, vl.hotel_door])
+			var cam := Camera3D.new()
+			cam.far = 2000.0
+			vl.add_child(cam)
+			cam.current = true
+			var out: Vector3 = (vl.siitari_door - sc) * Vector3(1, 0, 1)
+			out = out.normalized()
+			var so: Dictionary = vl._siitari_obb()
+			var fr := Vector3(so.front.x, 0, so.front.y)
+			var hc := sc - fr * 19.6 + Vector3(0, 5, 0)
+			var hd: Vector3 = vl.hotel_door
+			var hout := (hd - hc) * Vector3(1, 0, 1)
+			hout = hout.normalized()
+			for v in [["_ylhaalta", sc + Vector3(0, 70, 0) + out * 10.0, sc - out * 8.0], ["_tielta", sc + fr * 38.0 + Vector3(0, 2.5, 0), hc + Vector3(0, 1, 0)],
+					["_ovi", hd + hout * 14.0 + Vector3(0, 2.5, 0), hd + Vector3(0, 2, 0)],
+					["_parkki", vl.siitari_park + Vector3(0, 1.7, 0) + out * 2.0, hd + Vector3(0, 3, 0)],
+					["_kyltti", sc + fr * 4.0 + Vector3(0, 12, 0), hc + Vector3(0, 9, 0)],
+					["_ovikyltti", hd + hout * 5.0 + Vector3(0, 1.7, 0), hd + Vector3(0, 2.4, 0)]]:
+				cam.position = v[1]
+				cam.look_at(vl.to_global(v[2]), Vector3.UP if v[0] != "_ylhaalta" else -out)
+				for i in 30:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", v[0] + ".png"))
+			get_tree().quit()
 		"mokkisiitariovi":
 			# Siitarin ovi: mopolla ja jalan, matkan kohde Siitari ja Paapeli (junalla tai Gasthausista tultaessa).
 			_start_mopo()
@@ -18280,7 +18311,7 @@ func _maybe_screenshot() -> void:
 			_sf.close()
 			get_tree().quit()
 		"mokkihotelli":
-			# Hotelli Siitari: hotellisiiven ovi, vastaanotto, huone 12 (Dingo), väliovet baariin; keskustan puut ylhäältä.
+			# Hotelli Siitari: hotellin ovi ravintolan takana, vastaanotto, huone 12 (Dingo), ulos; keskusta ylhäältä.
 			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
 			_start_mopo()
 			var vl: Node3D = mopo_trip.vaala
@@ -18331,7 +18362,7 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 			for i in 5:
 				await get_tree().process_frame
-			siitari_int.walker.position = siitari_int.spots.baariin[0]
+			siitari_int.walker.position = siitari_int.spots.hotelli_ovi[0]
 			for i in 5:
 				await get_tree().process_frame
 			Input.action_press("interact")
@@ -18339,7 +18370,7 @@ func _maybe_screenshot() -> void:
 			Input.action_release("interact")
 			for i in 5:
 				await get_tree().process_frame
-			print("HOTELLI baariin: hotellissa %s, paikka %s" % [siitari_int.in_hotel(), siitari_int.walker.position])
+			print("HOTELLI ulos: tila %s, mopomatka %s, vihje '%s'" % [state, mopo_trip.active, mopo_trip.hint])
 			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 			_sf.store_buffer(_save_bak)
 			_sf.close()

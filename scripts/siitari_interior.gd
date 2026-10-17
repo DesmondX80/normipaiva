@@ -6,9 +6,9 @@ extends Node3D
 ## Kävely player_walker.gd:llä ylhäältä kuvattuna. Toiminnot ilmoitetaan acted-signaalilla (valikot, karaoke,
 ## Sinikka ja Päivin motkotus main.gd:ssä), ulko-ovelta exited (mopolla takaisin Paapeliin).
 ## Paikallinen +X = ulko-ovi ja parkkipaikka, -Z = baaritiski takaseinällä, +Z = tien puoli (kamera).
-## Hotellin puoli (HOTEL, samassa taskussa baarin takana): vastaanotto, käytävän ovet ja huone 12, jossa
-## Dingo-yhtye kiertueellaan hajottaa hotellihuonetta (tuoli lentää, telkkari lattialla, patja seinää vasten).
-## Baarin takaseinän ovesta ja hotellin ulko-ovelta (Vaalassa hotellisiiven ovi, main.gd "hotelli").
+## Hotelli (HOTEL, samassa taskussa, mutta Vaalassa oma rakennus ravintolan takana): vastaanotto, käytävän ovet ja
+## huone 12, jossa Dingo-yhtye kiertueellaan hajottaa hotellihuonetta (tuoli lentää, telkkari lattialla, patja
+## seinää vasten). Sisään vain hotellin omasta ovesta (main.gd "hotelli"), baarista ei ole käyntiä hotelliin.
 
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -45,8 +45,6 @@ var spots := {
 	"hedelmapeli": [Vector3(1.4, 0, -4.2), "[E] Pelaa hedelmäpeliä (1 €)"],
 	"kortit": [Vector3(3.6, 0, -1.2), "[E] Katso korttipeliä"],
 	"jukeboksi": [Vector3(4.4, 0, -4.2), "[E] Jukeboksi: toivo biisi (50 snt)"],
-	"hotelli": [Vector3(5.2, 0, -4.7), "[E] Hotellin puolelle (vastaanotto ja huoneet)"],
-	"baariin": [HOTEL + Vector3(-6.0, 0, 4.9), "[E] Ravintolan puolelle"],
 	"hotelli_ovi": [HOTEL + Vector3(-8.2, 0, 0.6), "[E] Ulos ja mopolla takaisin Paapeliin"],
 	"vastaanotto": [HOTEL + Vector3(-5.6, 0, -2.4), "[E] Vastaanoton tiski"],
 	"dingo": [HOTEL + Vector3(4.2, 0, 1.6), "[E] Huone 12: Dingo"],
@@ -372,9 +370,6 @@ func _process(delta: float) -> void:
 		hint = "[E] Raahen jätkät pajatsolla: \"Ei oo sun vuoro, äijä!\""
 	if best == "hedelmapeli" and hedelma_busy:
 		hint = "[E] Seurue pelaa hedelmäpeliä: kysy vuoroa"
-	if best == "baariin" and bar_closed:
-		hint = "Ravintola on kiinni (auki 11–02). Ovi on lukossa."
-		return
 	if not Input.is_action_just_pressed("interact") or Engine.get_process_frames() == _enter_frame:
 		return
 	match best:
@@ -384,17 +379,6 @@ func _process(delta: float) -> void:
 			say(_seurue.pick_random(), SEURUE_LINES.pick_random())
 		"kortit":
 			say(_cardplayers.pick_random(), CARD_LINES.pick_random())
-		"hotelli":
-			walker.position = spots.baariin[0] + Vector3(0, 0, -1.0)
-			walker.rotation.y = B.yaw_to(Vector3(0, 0, -1))
-			Sfx.play("door_open", -6.0)
-			say(_receptionist, "Iltaa. Jos tuut valittamaan metelistä, jonota.")
-			block_interact()
-		"baariin":
-			walker.position = spots.hotelli[0] + Vector3(0, 0, 1.0)
-			walker.rotation.y = B.yaw_to(Vector3(0, 0, 1))
-			Sfx.play("door_close", -6.0)
-			block_interact()
 		"hotelli_ovi":
 			exited.emit()
 		_:
@@ -752,12 +736,12 @@ func _build_hotel() -> void:
 	for k in 12:
 		_hmesh(Vector3(0.05, 0.14, 0.03), Vector3(-6.2 + (k % 6) * 0.24, 1.75 + (k / 6) * 0.3, -hz + 0.1),
 			Color(0.9, 0.8, 0.3) if k != 11 else Color(0.35, 0.22, 0.12))  # huoneen 12 avain puuttuu
-	B.label(self, "HOTELLI SIITARI · VASTAANOTTO", HOTEL + Vector3(-5.6, 2.65, -hz + 0.1), 34, Color(0.95, 0.85, 0.5))
+	var rs := B.sign_plate(self, "HOTELLI SIITARI · VASTAANOTTO", Color(0.12, 0.1, 0.08), Color(0.98, 0.95, 0.85), 0.18, 34,
+		Color(0.95, 0.8, 0.3))
+	rs.position = HOTEL + Vector3(-5.6, 2.65, -hz + 0.1)
 	_hmesh(Vector3(0.08, 2.3, 1.6), Vector3(-hx + 0.02, 1.15, 0.6), Color(0.85, 0.85, 0.82))  # ulko-ovi
 	_hmesh(Vector3(0.1, 2.1, 1.4), Vector3(-hx + 0.03, 1.1, 0.6), Color(0.3, 0.42, 0.45))
 	B.label(self, "ULOS", HOTEL + Vector3(-hx + 0.1, 2.5, 0.6), 40, Color(0.3, 1.0, 0.4)).rotation.y = PI / 2.0
-	_hmesh(Vector3(1.2, 2.2, 0.08), Vector3(-6.0, 1.1, hz - 0.3), Color(0.5, 0.33, 0.2))  # ovi ravintolaan
-	B.label(self, "RAVINTOLA", HOTEL + Vector3(-6.0, 2.45, hz - 0.35), 34, Color(0.95, 0.85, 0.5)).rotation.y = PI
 	for cx in [-7.8, -3.4]:  # nojatuolit
 		_hmesh(Vector3(0.8, 0.45, 0.8), Vector3(cx, 0.22, 2.4), Color(0.25, 0.4, 0.3))
 		_hmesh(Vector3(0.8, 0.5, 0.15), Vector3(cx, 0.65, 2.75), Color(0.25, 0.4, 0.3))
@@ -768,9 +752,6 @@ func _build_hotel() -> void:
 	for d in [[-2.6, "10"], [-0.8, "11"]]:
 		_hmesh(Vector3(1.0, 2.2, 0.08), Vector3(d[0], 1.1, -hz + 0.05), Color(0.5, 0.33, 0.2))
 		B.label(self, d[1], HOTEL + Vector3(d[0], 2.45, -hz + 0.12), 40, Color(0.95, 0.8, 0.3))
-	# Baarin puolella takaseinän ovi hotelliin.
-	B.mesh(self, B.boxm(Vector3(1.1, 2.2, 0.08)), Vector3(5.2, 1.1, -HALF.y + 0.05), Color(0.55, 0.38, 0.22))
-	B.label(self, "HOTELLI", Vector3(5.2, 2.45, -HALF.y + 0.12), 34, Color(0.95, 0.85, 0.5))
 	_receptionist = Looks.make(self, {"model": "female", "shirt": Color(0.2, 0.25, 0.45), "pants": Color(0.15, 0.15, 0.2),
 		"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_Buns", "hair_color": Color(0.45, 0.3, 0.2), "height": 1.64})
 	_receptionist.position = HOTEL + Vector3(-5.6, 0, -4.3)

@@ -373,7 +373,8 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     Kapteenin Kulma 14–02 ja lavatanssit 20–01, pankkiautomaatti aina. Suljetulla ovella kerrotaan, milloin paikka
     aukeaa, ja taksi Raaheen ei lähde, jos baari on perillä kiinni. Sulkemisaikaan sisällä tulee valomerkki: kaupassa
     kauppias hoputtaa, ja baareista ja lavalta ohjataan ulos vartin päästä (`--scene=mokkiaukiolot`).
-  - **Hotelli Siitari:** hotellisiiven ovelta (tai baarin takaseinän HOTELLI-ovesta) pääsee vastaanottoon, jossa
+  - **Hotelli Siitari:** oma kolmikerroksinen rakennus ravintolan takana (HOTELLI SIITARI -valomainos harjalla,
+    polku parkkipaikalta ovelle, `--scene=siitarihotelli`). Ovesta pääsee vastaanottoon, jossa
     Marjatta kertoo, että huoneet ovat täynnä. Käytävän perällä huoneessa 12 riehuu Dingo kiertueellaan: sänky on nurin,
     patja seinää vasten, ikkuna rikki, tuoli lentää seinään ja joku hyppii. Bändiltä voi pyytää nimmarin, ottaa huikan
     Koskenkorvasta tai auttaa heittämään telkkarin ikkunasta (moraali ja maine nousevat, mutta jos Marjatta näkee,
