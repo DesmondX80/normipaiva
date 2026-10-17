@@ -1741,7 +1741,19 @@ func _build_ride_road(guide: String, village: String) -> Node3D:
 const TRAIN_POS := Vector3(-12000, 0, -9000)  # oma tasku (ennen sama kuin autotallin sisätila: talli näkyi kuvissa)
 const Train := preload("res://scripts/train.gd")
 var train_cast := {}  # ravintolavaunun hahmot (testikuvat)
-const PALM_TURN := PI  # Helenan kämmenen kierto kyynärvarren ympäri (kämmen alas reittä vasten)
+## Käden luun akselit (Quaternius): Y sormia kohti; PALM_AXIS = akseli, joka osoittaa kämmenestä ulos.
+const PALM_AXIS := 2  # 0 = X, 2 = Z
+const PALM_SIGN := 1.0
+
+
+## Käden asento hahmon avaruudessa: sormet suuntaan fingers (vaakataso), kämmen alas.
+static func _palm_down(fingers: Vector3) -> Basis:
+	var y := fingers.normalized()
+	var palm := Vector3.DOWN * PALM_SIGN
+	var other := y.cross(palm).normalized()
+	if PALM_AXIS == 2:
+		return Basis(other, y, palm).orthonormalized()
+	return Basis(palm, y, -other).orthonormalized()
 ## Naismatkustajat iltajunassa juhlatamineissa 90-luvun tapaan: Marjalla musta hihaton satiininen slip-mekko,
 ## Liisalla valkoinen napapaita ja farkkuminihame, Helenalla punainen olkaimeton bodycon-minimekko, korkokengät
 ## ja kultaiset rengaskorvakorut (_hoops).
@@ -1885,7 +1897,10 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			var fore: Vector3 = (hl.bone_position("hand_r") - hl.bone_position("lowerarm_r")).normalized()
 			hl.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", hl.to_local(goal),
 				hl.to_local(sh + Vector3(0, -0.4, 0) + hl.global_basis.z * 0.25),
-				Basis(fore, PALM_TURN * hand.w) * Basis(Vector3.UP, -0.35 * hand.w))
+				Basis())
+			# Kämmen alas reittä vasten ja kämmenselkä ylös: käden asento suoraan (sormet kyynärvarren jatkeena vaakatasossa).
+			var flat := Vector3(fore.x, 0.0, fore.z).normalized()
+			hl.set_ik_orient("arm_r", _palm_down(flat), smoothstep(0.0, 1.0, hand.w))
 			# Pelaaja nostaa oman kätensä reideltä ja tarttuu hermostuneena tuoppiinsa.
 			var mug: Vector3 = hero.to_local(car.to_global(Vector3(-0.67, 0.86, 0.22)))
 			var own: Vector3 = hero.bone_position("hand_l").lerp(mug, smoothstep(0.0, 1.0, hand.w)) if not hand.has("own0") \

@@ -164,6 +164,16 @@ func set_ik(chain: String, a: String, b: String, c: String, target: Vector3, pol
 	_ik[chain] = [a, b, c, target, pole, twist]
 
 
+## Loppuluun (käsi, jalkaterä) asento suoraan hahmon avaruudessa painolla w (0 = IK:n tulos, 1 = orient), kun
+## suhteellinen kierto (twist) vaihtelisi kyynärvarren asennon mukana. Kutsu set_ik:n jälkeen.
+func set_ik_orient(chain: String, orient: Basis, w: float) -> void:
+	if _ik.has(chain):
+		var c: Array = _ik[chain]
+		c.resize(8)
+		c[6] = orient
+		c[7] = w
+
+
 func clear_ik() -> void:
 	_ik.clear()
 
@@ -289,6 +299,11 @@ func _apply_ik() -> void:
 			var ts := to_skel.basis.orthonormalized()
 			gc = skeleton.get_bone_global_pose(ic)
 			_set_global_rot(ic, (ts * tw * ts.inverse()) * gc.basis)
+		if c.size() > 7 and c[6] != null and float(c[7]) > 0.0:
+			gc = skeleton.get_bone_global_pose(ic)
+			var want: Basis = to_skel.basis.orthonormalized() * (c[6] as Basis)
+			var q := gc.basis.orthonormalized().get_rotation_quaternion().slerp(want.get_rotation_quaternion(), clampf(float(c[7]), 0.0, 1.0))
+			_set_global_rot(ic, Basis(q))
 
 
 ## Asettaa luun globaalin kierron muuttamalla vain paikallista kiertoa (paikka ja mittakaava ennallaan).
