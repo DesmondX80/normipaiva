@@ -11135,6 +11135,8 @@ func _on_siitari_acted(kind: String) -> void:
 			_start_karaoke()
 		"sinikka":
 			_talk_open("siitari_sinikka", null, SINIKKA_BAR_LINES.pick_random())
+		"jukeboksi":
+			_jukebox_menu()
 		"pajatso":
 			if siitari_int.raahe_on:
 				_raahe_quarrel()
@@ -11234,6 +11236,7 @@ func _paivi_calls() -> void:
 
 ## Karaoke: lavalle, laulu (karaoke_game.gd), yleisön reaktio ja tilavaikutukset.
 func _start_karaoke() -> void:
+	_jukebox_stop()
 	siitari_int.to_stage()
 	_hud.visible = false
 	var game := KaraokeGame.new()
@@ -11283,6 +11286,7 @@ func _on_siitari(id: String) -> Array:
 				return ["Sää oot kyllä herrasmies. Kippis, naapuri!", "Tarjosit Sinikalle lonkeron. Baarimikko vilkaisi puhelintaan..."]
 	if id == "lahde":
 		if state == "in_siitari":
+			_jukebox_stop()
 			siitari_int.leave()
 			Sfx.play("door_close", -3.0)
 			state = _vaala_state
@@ -13326,41 +13330,152 @@ func _start_fight(foe_key: String, source: String, direction: Vector3) -> void:
 func _raahe_quarrel() -> void:
 	siitari_int.raahe_say("Ei oo sun vuoro, äijä. Painu muualle!", 0)
 	siitari_int.raahe_say("Vai haluutko pihalle?", 1)
+	_quarrel_foe = "raahelainen"
+	_quarrel_cause = "pajatso"
+	_quarrel_menu([["tappele", "\"Pihalle siitä, ni katotaan kenen pajatso on!\""],
+		["anna", "Anna pojille pelivuoro"]], "Raahen jätkät pajatsolla haastaa riitaa")
+
+
+## Riita Siitarissa: kuka haastaa (fight.gd vastustaja) ja mistä (pajatso tai jukeboksin biisi).
+var _quarrel_foe := "raahelainen"
+var _quarrel_cause := "pajatso"
+
+
+func _quarrel_menu(items: Array, title: String) -> void:
 	_interior_busy(true)
 	_active_walker().controls_enabled = false
 	_menu_mode = "raahe"
-	_item_menu.open([["tappele", "\"Pihalle siitä, ni katotaan kenen pajatso on!\""],
-		["anna", "Anna pojille pelivuoro"]], "Raahen jätkät pajatsolla haastaa riitaa")
+	_item_menu.open(items, title)
 
 
 func _on_raahe_choice(id: String) -> void:
 	_menu_mode = "give"
+	var raahe := _quarrel_foe == "raahelainen"
 	if id == "tappele":
-		siitari_int.raahe_say("No nyt! Ulos!", 0)
-		_start_siitari_fight()
+		if raahe:
+			siitari_int.raahe_say("No nyt! Ulos!", 0)
+		else:
+			siitari_int.hedelma_say("Pihalle! Elsa, pidä mun vuoroa!", 1)
+		_start_siitari_fight(_quarrel_foe)
 		return
 	_interior_busy(false)
 	_active_walker().controls_enabled = true
-	siitari_int.raahe_say("Niin sitä pitää. Mene istumaan.", 1)
-	_show_message("Annoit jätkien pelata. Pajatso kilkattaa, ja ne nauraa makealla.", 3.0)
+	if _quarrel_cause == "pajatso":
+		siitari_int.raahe_say("Niin sitä pitää. Mene istumaan.", 1)
+		_show_message("Annoit jätkien pelata. Pajatso kilkattaa, ja ne nauraa makealla.", 3.0)
+		return
+	# Jukeboksiriita: periksi antaessa biisi loppuu.
+	_jukebox_stop()
+	if raahe:
+		siitari_int.raahe_say("Parempi. Ei täällä mitään mummojen polkkia kuunnella.", 0)
+	else:
+		siitari_int.hedelma_say("No niin. Ysärit voi soittaa kotona.", 1)
+	_show_message("Jukeboksi hiljeni. Rauha palasi Siitariin, ja 50 senttiä meni hukkaan.", 3.0)
+
+
+## Jukeboksi (siitari_interior.gd "jukeboksi"): iskelmät (iskelmat.gd) ja ysärit (kuulokkeiden soittolista,
+## headphones.gd). Lauantaina iskelmä suututtaa Raahen jätkät, ja ysäri suututtaa aina hedelmäpelin miehen:
+## riita ratkaistaan Street Fighter -tappelulla pihalla (kerran päivässä). Häviäjä maksaa vitosen, voittaja saa kaljan.
+const JUKEBOX_PRICE := 0.5
+var _jukebox_songs := {}  # valikon id -> [polku, nimi, laji]
+var _jukebox_on := false
+
+
+func _jukebox_list() -> Dictionary:
+	var out := {}
+	for sg in Iskelmat.available():
+		out["isk_%s" % sg.file] = [sg.path, "%s – %s" % [sg.title, sg.artist], "iskelma"]
+	for f in Headphones.TITLES:
+		for ext in ["mp3", "ogg"]:
+			var p: String = Headphones.MUSIC_DIR.path_join("%s.%s" % [f, ext])
+			if ResourceLoader.exists(p):
+				out["ysa_%s" % f] = [p, Headphones.TITLES[f], "ysari"]
+				break
+	return out
+
+
+func _jukebox_menu() -> void:
+	_jukebox_songs = _jukebox_list()
+	if _jukebox_songs.is_empty():
+		_show_message("Jukeboksi on tyhjä. Joku on vienyt levytkin.", 2.5)
+		return
+	if money < JUKEBOX_PRICE:
+		_show_message("Biisi maksaa 50 senttiä. Rahat ei riitä.", 2.5)
+		return
+	var items := []
+	for id in _jukebox_songs:
+		var sg: Array = _jukebox_songs[id]
+		items.append([id, ("Iskelmä: " if sg[2] == "iskelma" else "Ysäri: ") + sg[1]])
+	if _jukebox_on:
+		items.append(["hiljaa", "Hiljaa (pysäytä biisi)"])
+	_interior_busy(true)
+	_active_walker().controls_enabled = false
+	_menu_mode = "jukeboksi"
+	_item_menu.open(items, "Jukeboksi: biisi 50 snt")
+
+
+func _on_jukebox(id: String) -> void:
+	_menu_mode = "give"
+	_interior_busy(false)
+	_active_walker().controls_enabled = true
+	if id == "hiljaa":
+		_jukebox_stop()
+		_show_message("Jukeboksi hiljeni.", 2.0)
+		return
+	var sg: Array = _jukebox_songs[id]
+	money -= JUKEBOX_PRICE
+	Sfx.play("coin" if Sfx.FILES.has("coin") else "glass", -6.0)
+	Sfx.music_play(1.0, 0.0, sg[0])
+	_jukebox_on = true
+	_show_message("Kolikko sisään, levy vaihtuu: %s" % sg[1], 3.0)
+	var fought := "siitari_tappelu" in _today
+	if sg[2] == "iskelma" and siitari_int.raahe_on:
+		siitari_int.raahe_say("Mitä mummojen polkkaa tää on?!", 0)
+		siitari_int.raahe_say("Vaihda tai pihalle, äijä!", 1)
+		if fought:
+			return
+		_quarrel_foe = "raahelainen"
+		_quarrel_cause = "jukeboksi"
+		await get_tree().create_timer(1.2).timeout
+		if state == "in_siitari" and not siitari_int.busy:
+			_quarrel_menu([["tappele", "\"Pihalle siitä, ni katotaan kuka valitsee biisit!\""],
+				["anna", "Pysäytä polkka"]], "Raahen jätkät suuttui iskelmästä")
+	elif sg[2] == "ysari":
+		siitari_int.hedelma_say("Mitä tümpsytystä tää on? Tää on iskelmäilta!", 1)
+		if fought:
+			return
+		_quarrel_foe = "hedelmamies"
+		_quarrel_cause = "jukeboksi"
+		await get_tree().create_timer(1.2).timeout
+		if state == "in_siitari" and not siitari_int.busy:
+			_quarrel_menu([["tappele", "\"Pihalle, ni katotaan, mikä täällä soi!\""],
+				["anna", "Pysäytä ysäri"]], "Hedelmäpelin mies suuttui ysäristä")
+
+
+func _jukebox_stop() -> void:
+	if _jukebox_on:
+		_jukebox_on = false
+		Sfx.music_stop(1.0)
 
 
 ## Street Fighter -tappelu Siitarin pihalla (fight.gd: lavastus "siitari", vastustaja "raahelainen").
-func _start_siitari_fight() -> void:
+func _start_siitari_fight(foe := "raahelainen") -> void:
 	_today.append("siitari_tappelu")
+	_quarrel_foe = foe
+	_jukebox_stop()
 	_fight_source = "siitari"
 	var hp := 120.0 if tilat.effect("kipu") > 0 else 100.0
 	var dmg := 1.2 if tilat.effect("humala") > 0 else 1.0
 	tilat.add("stressi", -0.15)
 	tilat.add("kipu", -0.3)
 	tilat.add("stamina", -0.2)
-	tilat.first("tappelu_raahelainen", 0.3)
+	tilat.first("tappelu_" + foe, 0.3)
 	_fight_prev = state
 	state = "fight"
 	siitari_int.busy = true
 	_hud.visible = false
 	fight.set_stage("siitari")
-	fight.start(beers, "raahelainen", hp, dmg)
+	fight.start(beers, foe, hp, dmg)
 
 
 func _siitari_fight_end(won: bool, bags_used: int, thrown: int) -> void:
@@ -13371,8 +13486,12 @@ func _siitari_fight_end(won: bool, bags_used: int, thrown: int) -> void:
 	siitari_int.busy = false
 	siitari_int._enter_frame = Engine.get_process_frames()
 	siitari_int.walker.activate()
+	var raahe := _quarrel_foe == "raahelainen"
 	if won:
-		siitari_int.raahe_leave()
+		if raahe:
+			siitari_int.raahe_leave()
+		else:
+			siitari_int.hedelma_leave()
 		# Voittajalle talo tarjoaa kaljan.
 		tilat.add("humala", 0.08)
 		tilat.add("moraali", 0.15)
@@ -13381,15 +13500,21 @@ func _siitari_fight_end(won: bool, bags_used: int, thrown: int) -> void:
 		maine = clampf(maine + 3.0, 0.0, 100.0)
 		Sfx.play("pour" if Sfx.FILES.has("pour") else "glass", -6.0)
 		siitari_int.bartender_say("Tuosta hyvästä talo tarjoaa! Kalja voittajalle.")
-		_show_message("K.O.! Raahen jätkät häipyi pihalta. Baarimikko tarjoaa voittajalle kaljan, ja pajatso on vapaa.", 4.0)
+		_show_message(("K.O.! Raahen jätkät häipyi pihalta. Baarimikko tarjoaa voittajalle kaljan, ja pajatso on vapaa." if raahe
+			else "K.O.! Hedelmäpelin mies istui seurueen pöytään nuolemaan haavojaan. Baarimikko tarjoaa voittajalle kaljan."), 4.0)
 	else:
 		var took := minf(5.0, money)
 		money -= took
 		tilat.add("kipu", -0.2)
 		tilat.add("moraali", -0.1)
 		maine = clampf(maine - 3.0, 0.0, 100.0)
-		siitari_int.raahe_say("Pajatso on meiän, sanoin mää!", 0)
-		_show_message("Hävisit! Raahen jätkät vei %s ja jatkaa pajatsoa." % ("%s €" % _eur(took) if took > 0.0 else "ylpeyden"), 3.5)
+		var lost := "%s €" % _eur(took) if took > 0.0 else "ylpeyden"
+		if raahe:
+			siitari_int.raahe_say("Pajatso on meiän, sanoin mää!", 0)
+			_show_message("Hävisit! Raahen jätkät vei %s ja jatkaa pajatsoa." % lost, 3.5)
+		else:
+			siitari_int.hedelma_say("Ja nyt soi iskelmä. Kiitos vitosesta!", 1)
+			_show_message("Hävisit! Hedelmäpelin mies vei %s ja jatkaa peliä." % lost, 3.5)
 
 
 func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
@@ -14902,14 +15027,16 @@ func _build_hud() -> void:
 		elif _menu_mode == "asu":
 			_on_wardrobe(id)
 		elif _menu_mode == "raahe":
-			_on_raahe_choice(id))
+			_on_raahe_choice(id)
+		elif _menu_mode == "jukeboksi":
+			_on_jukebox(id))
 	_item_menu.cancelled.connect(func() -> void:
 		if _menu_mode == "wc":
 			_menu_mode = "give"
 			_wc_release()
 		else:
 			_mopo_menu(false)
-			if _menu_mode in ["eat", "viini", "asema", "asu", "raahe"]:
+			if _menu_mode in ["eat", "viini", "asema", "asu", "raahe", "jukeboksi"]:
 				_menu_mode = "give"
 				_interior_busy(false)
 				_active_walker().controls_enabled = true
@@ -16178,6 +16305,63 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("RAAHE tappelun jälkeen: tila %s, jätkät %s, viesti '%s'" % [state, siitari_int.raahe_on, _msg.text])
 			await snap.call("_voitto.png")
+			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			_sf.store_buffer(_save_bak)
+			_sf.close()
+			get_tree().quit()
+		"siitarijukeboksi":
+			# Jukeboksi lauantaina: _valikko, iskelmä -> Raahen jätkien riita (_riita_r) ja tappelu (_tappelu_r),
+			# sitten ysäri -> hedelmäpelin miehen riita (_riita_h), tappelu (_tappelu_h) ja häviö (_jalkeen_h).
+			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)
+			day = 6
+			clock_min = 20.0 * 60.0
+			_start_mopo()
+			var mp: CharacterBody3D = mopo_trip.mopo
+			mp.position = mopo_trip.vaala.siitari_park + Vector3(0, 0.5, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			mopo_trip.stop()
+			_on_mopo_arrived()
+			money = 30.0
+			var snap := func(name: String, frames := 30) -> void:
+				for i in frames:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			siitari_int.walker.position = siitari_int.spots.jukeboksi[0]
+			for i in 5:
+				await get_tree().process_frame
+			print("JUKE vihje '%s'" % _hint.text)
+			_on_siitari_acted("jukeboksi")
+			print("JUKE valikko %s: %s" % [_item_menu.is_open(), _item_menu._items])
+			await snap.call("_valikko.png", 10)
+			for round in [["isk_01_Sakkijarven_polkka", "_r", false], ["ysa_02_90s_Racer_Techno", "_h", true]]:
+				_today.erase("siitari_tappelu")
+				_item_menu.visible = false
+				_menu_mode = "jukeboksi"
+				_item_menu.chosen.emit(round[0])
+				print("JUKE soi '%s', rahaa %.2f" % [Sfx._music_file, money])
+				var tq := Time.get_ticks_msec()
+				while not _item_menu.is_open() and Time.get_ticks_msec() - tq < 3000:
+					await get_tree().process_frame
+				print("JUKE riita %s: %s" % [_item_menu.is_open(), _item_menu._items])
+				await snap.call("_riita%s.png" % round[1], 10)
+				_item_menu.visible = false
+				_item_menu.chosen.emit("tappele")
+				print("JUKE tila %s, vastustaja %s, musiikki soi %s" % [state, fight.foe.get("short", ""), _jukebox_on])
+				await snap.call("_tappelu%s.png" % round[1], 90)
+				if round[2]:
+					fight._p.hp = 0.0
+					fight._p.state = "ko"
+				else:
+					fight._j.hp = 0.0
+					fight._j.state = "ko"
+				var tw := Time.get_ticks_msec()
+				while state == "fight" and Time.get_ticks_msec() - tw < 20000:
+					await get_tree().process_frame
+				print("JUKE jälkeen: tila %s, rahaa %.2f, humala %.2f, viesti '%s'" % [state, money, tilat.value("humala"), _msg.text])
+				await snap.call("_jalkeen%s.png" % round[1])
+				siitari_int.walker.position = siitari_int.spots.jukeboksi[0]
 			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 			_sf.store_buffer(_save_bak)
 			_sf.close()

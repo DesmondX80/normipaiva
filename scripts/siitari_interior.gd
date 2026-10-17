@@ -44,6 +44,7 @@ var spots := {
 	"pajatso": [Vector3(6.6, 0, -4.2), "[E] Pelaa pajatsoa (1 €)"],
 	"hedelmapeli": [Vector3(1.4, 0, -4.2), "[E] Pelaa hedelmäpeliä (1 €)"],
 	"kortit": [Vector3(3.6, 0, -1.2), "[E] Katso korttipeliä"],
+	"jukeboksi": [Vector3(4.4, 0, -4.2), "[E] Jukeboksi: toivo biisi (50 snt)"],
 	"hotelli": [Vector3(5.2, 0, -4.7), "[E] Hotellin puolelle (vastaanotto ja huoneet)"],
 	"baariin": [HOTEL + Vector3(-6.0, 0, 4.9), "[E] Ravintolan puolelle"],
 	"hotelli_ovi": [HOTEL + Vector3(-8.2, 0, 0.6), "[E] Ulos ja mopolla takaisin Paapeliin"],
@@ -176,6 +177,11 @@ func _place_hedelma(busy_now: bool) -> void:
 		c.rotation.y = B.yaw_to(at[i][1])
 		c.play("Idle" if busy_now and i == 0 else "Idle_Talking", 0.3)
 		(c.get_meta("body") as Node3D).position = at[i][0]
+
+
+## Hedelmäpelin mies (tappeli pihalla) palaa seurueen luo: kone jää vapaaksi.
+func hedelma_leave() -> void:
+	_place_hedelma(false)
 
 
 func hedelma_say(text: String, who := 0) -> void:
@@ -680,12 +686,7 @@ func _build_people() -> void:
 		_seurue.append(_seat(looks[i], seats[i][0], seats[i][1]))
 	_singer = _seurue[3]
 	# Seurueen kaksi hedelmäpelillä: nainen pelaa, mies katsoo vieressä.
-	var hl := [
-		{"model": "female", "shirt": Color(0.9, 0.85, 0.95), "pants": skirt, "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_Long",
-			"hair_color": Color(0.07, 0.05, 0.04), "height": 1.6, "skin": Color(0.92, 0.76, 0.62), "shine": 0.7},
-		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.12, 0.12, 0.14), "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_SimpleParted",
-			"hair_color": Color(0.1, 0.08, 0.06), "height": 1.76, "skin": Color(0.9, 0.74, 0.6), "belly": 0.5},
-	]
+	var hl := Looks.HEDELMA_PELAAJAT
 	for i in hl.size():
 		var c := Looks.make(self, hl[i])
 		_add_bubble(c)

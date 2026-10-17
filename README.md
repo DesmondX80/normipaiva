@@ -254,6 +254,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     Valikosta pihalle tai antaa olla; pihalla Street Fighter -tappelu hotelli-ravintolan edessä mopojen ja
     katsojien keskellä. Voittajalle baarimikko tarjoaa kaljan ja jätkät häipyvät, häviäjältä ne vievät vitosen
     (`--scene=mokkisiitaritappelu`). Rannekellossa näkyy viikonpäivä (MA–SU), perjantaisin juhannuskokon merkki.
+  - **Jukeboksi Siitarissa:** biisi 50 senttiä: iskelmät (vanhat 78-levyt) ja ysärit (kuulokkeiden soittolista).
+    Lauantaina iskelmä suututtaa Raahen jätkät, ja ysäri suututtaa aina hedelmäpelin miehen: riita pihalle Street
+    Fighter -tappeluna (kerran päivässä) tai biisi pois. Häviäjä maksaa vitosen, voittajalle talo tarjoaa kaljan
+    (`--scene=siitarijukeboksi`).
   - **Mopolla Vaalaan:** mökin pihan mopolla (huippunopeus 60 km/h) ajetaan Hotelli-Ravintola Siitariin
     (Uutelanperäntien sora Neittäväntielle, Vuolijoentie radan ali, Oulujoen silta, Vaalan keskusta 1:1: kirkko,
     rautatieasema, kaupat ja kunnantalo). Mopo pysyy teillä: metsään, pellolle ja pihoille ei köröttele, vaan tien

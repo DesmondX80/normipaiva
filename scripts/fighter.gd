@@ -63,6 +63,11 @@ var _celebrating := false
 
 func setup(look: Dictionary) -> void:
 	body = Looks.make(self, look)
+	_attach_gear()
+
+
+## Kauppakassi ja kaljatölkki oikeaan käteen (piilossa, näkyvät vain iskussa ja heitossa).
+func _attach_gear() -> void:
 	var bag := Node3D.new()
 	_bag = B.mesh(bag, B.boxm(Vector3(0.26, 0.34, 0.18)), Vector3(0, -0.2, 0), Color(1.0, 0.45, 0.0))
 	body.attach("hand_r", bag, Vector3(0, -0.05, 0))
@@ -231,6 +236,8 @@ func take_hit(dmg: float, dir: float, push: float, launch := 0.0, stun := 0.32, 
 func _pose(delta: float) -> void:
 	var k := 1.0 - exp(-18.0 * delta)
 	rotation.y = lerp_angle(rotation.y, -PI / 2.0 if facing > 0.0 else PI / 2.0, k)
+	if not is_instance_valid(_bag) or not is_instance_valid(_can):
+		_attach_gear()  # asun vaihto (main.gd _set_outfit) vaihtoi mallin, ja luihin kiinnitetyt lähtivät sen mukana
 	_bag.visible = state == "attack" and _attack == "bag"
 	_can.visible = state == "attack" and _attack == "throw" and _t < ATTACKS.throw.startup
 	if _celebrating:

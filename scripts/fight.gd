@@ -41,6 +41,12 @@ const FOES := {
 		"win": ["Pajatso on meiän, sanoin mää!", "Mene Saloisiin pelaamaan!"],
 		"wave": "KOLIKKOSADE!", "wave_cry": "JACKPOT!", "hp": 105.0, "dmg": 1.05, "aggr": 1.05,
 	},
+	"hedelmamies": {
+		"look": Looks.HEDELMA_PELAAJAT[1], "name": "HEDELMÄPELIN MIES – Tää on iskelmäilta!", "short": "HEDELMÄMIES", "voice": "pekka",
+		"intro": ["Tää on iskelmäilta, poika!", "Tümpsytystä Siitarissa? Ei käy!", "Tuu ni opetan, mikä on musiikkia!"],
+		"win": ["Ja nyt soi Säkkijärven polkka!", "Ysärit voi soittaa kotona!"],
+		"wave": "KIRSIKKA!", "wave_cry": "KOLME KELLOA!", "hp": 110.0, "dmg": 1.0, "aggr": 0.95,
+	},
 	"teens": {
 		"look": Looks.TEENS[0], "name": "TEINIJENGIN POMO – Raahe 4ever", "short": "TEINI", "voice": "teini",
 		"intro": ["Mitä sää tuijotat, setä?", "Tää on meiän mesta!", "Ok boomer."],

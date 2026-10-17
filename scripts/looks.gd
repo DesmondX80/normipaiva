@@ -63,6 +63,14 @@ const RAAHEN_JATKAT := [
 	{"shirt": Color(0.07, 0.07, 0.08), "pants": Color(0.32, 0.44, 0.62), "shoes": Color(0.1, 0.08, 0.06), "hair": "Hair_Buzzed",
 		"hair_color": Color(0.3, 0.22, 0.14), "beard": true, "height": 1.8, "belly": 0.7, "bulk": 0.35},
 ]
+## Siitarin seurueen kaksi hedelmäpelillä (siitari_interior.gd): nainen pelaa, mies katsoo vieressä. Mies
+## tappelee pihalla, jos jukeboksista laitetaan ysäriä (fight.gd "hedelmamies").
+const HEDELMA_PELAAJAT := [
+	{"model": "female", "shirt": Color(0.9, 0.85, 0.95), "pants": Color(0.04, 0.04, 0.05), "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_Long",
+		"hair_color": Color(0.07, 0.05, 0.04), "height": 1.6, "skin": Color(0.92, 0.76, 0.62), "shine": 0.7},
+	{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.12, 0.12, 0.14), "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_SimpleParted",
+		"hair_color": Color(0.1, 0.08, 0.06), "height": 1.76, "skin": Color(0.9, 0.74, 0.6), "belly": 0.5},
+]
 const JUNTTI := {
 	"shirt": Color(0.06, 0.06, 0.07), "pants": Color(0.06, 0.06, 0.07), "shoes": Color(0.95, 0.95, 0.95),
 	"hair": "Hair_Long", "hair_color": Color(0.85, 0.72, 0.42), "stripes": true, "shine": 0.35, "height": 1.86, "belly": 1.0, "bulk": 0.35, "shoulders": 0.5, "muscle": -0.35,
