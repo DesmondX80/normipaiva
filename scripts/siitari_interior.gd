@@ -25,6 +25,14 @@ var spot := ""  # lähin toimintopiste (main.gd näyttää puhuttaville puhevihj
 var raahe_on := false
 var _raahe: Array[Node3D] = []
 var _raahe_t := 4.0
+## Hedelmäpelillä pelaa romaniseurueen kaksi jäsentä joka käynnillä. Vuoron saa kysymällä (main.gd), jolloin he
+## siirtyvät tanssilattian laitaan juttelemaan, ja kone on vapaa.
+var hedelma_busy := true
+var _hedelma: Array[Node3D] = []
+const HEDELMA_LINES := ["Kirsikka, kirsikka... ja sitruuna. Voi että!", "Lukitse ne kaks kelloa, Elsa!",
+	"Tänään tää kone on ollu nuuka.", "Vielä yks kierros, sitten mennään laulamaan."]
+const HEDELMA_AT := [[Vector3(1.4, 0, -4.35), Vector3(0, 0, -1)], [Vector3(2.15, 0, -4.05), Vector3(-0.8, 0, -0.6)]]
+const HEDELMA_AWAY := [[Vector3(0.9, 0, 2.3), Vector3(1, 0, 0.2)], [Vector3(1.0, 0, 3.2), Vector3(1, 0, -0.2)]]
 const RAAHE_LINES := ["Perkele, taas meni ohi!", "Tää kone on viritetty, sanon mää!", "Mitä sää siinä tuijotat?",
 	"Ei oo sun vuoro, äijä. Me pelataan tätä koko ilta.", "Raahessa on paremmat pajatsot.", "Anna sitä kolikkoa, Make!"]
 var spots := {
@@ -34,6 +42,7 @@ var spots := {
 	"sinikka": [Vector3(-0.6, 0, -3.3), "[E] Sinikka baaritiskillä"],
 	"seurue": [Vector3(2.6, 0, 1.3), "[E] Juttele pöytäseurueen kanssa"],
 	"pajatso": [Vector3(6.6, 0, -4.2), "[E] Pelaa pajatsoa (1 €)"],
+	"hedelmapeli": [Vector3(1.4, 0, -4.2), "[E] Pelaa hedelmäpeliä (1 €)"],
 	"kortit": [Vector3(3.6, 0, -1.2), "[E] Katso korttipeliä"],
 	"hotelli": [Vector3(5.2, 0, -4.7), "[E] Hotellin puolelle (vastaanotto ja huoneet)"],
 	"baariin": [HOTEL + Vector3(-6.0, 0, 4.9), "[E] Ravintolan puolelle"],
@@ -114,6 +123,7 @@ func ensure_built() -> void:
 func enter() -> void:
 	ensure_built()
 	_apply_raahe()
+	_place_hedelma(true)
 	active = true
 	_enter_frame = Engine.get_process_frames()
 	walker.position = spots.ovi[0] + Vector3(-1.2, 0, 0)
@@ -154,6 +164,28 @@ func raahe_say(text: String, who := 0) -> void:
 func raahe_leave() -> void:
 	raahe_on = false
 	_apply_raahe()
+
+
+## Hedelmäpelin pelaajat koneelle (busy) tai juttelemaan tanssilattian laitaan.
+func _place_hedelma(busy_now: bool) -> void:
+	hedelma_busy = busy_now
+	var at: Array = HEDELMA_AT if busy_now else HEDELMA_AWAY
+	for i in _hedelma.size():
+		var c := _hedelma[i]
+		c.position = at[i][0]
+		c.rotation.y = B.yaw_to(at[i][1])
+		c.play("Idle" if busy_now and i == 0 else "Idle_Talking", 0.3)
+		(c.get_meta("body") as Node3D).position = at[i][0]
+
+
+func hedelma_say(text: String, who := 0) -> void:
+	if who < _hedelma.size():
+		say(_hedelma[who], text, 3.5)
+
+
+## Seurue antaa vuoron: pelaajat siirtyvät pois koneelta.
+func hedelma_free() -> void:
+	_place_hedelma(false)
 
 
 ## Hotellin ulko-ovelta suoraan vastaanottoon.
@@ -263,6 +295,8 @@ func _process(delta: float) -> void:
 		if _raahe_t <= 0.0:
 			_raahe_t = randf_range(6.0, 11.0)
 			raahe_say(RAAHE_LINES.pick_random(), randi() % _raahe.size())
+	if hedelma_busy and not busy and randf() < delta / 9.0:
+		hedelma_say(HEDELMA_LINES.pick_random(), randi() % _hedelma.size())
 	# Karaokeruutu ja valot sykkivät, discopallo pyörii.
 	_disco.rotation.y += delta * 0.8
 	for i in _lights.size():
@@ -330,6 +364,8 @@ func _process(delta: float) -> void:
 	hint = spots[best][1]
 	if best == "pajatso" and raahe_on:
 		hint = "[E] Raahen jätkät pajatsolla: \"Ei oo sun vuoro, äijä!\""
+	if best == "hedelmapeli" and hedelma_busy:
+		hint = "[E] Seurue pelaa hedelmäpeliä: kysy vuoroa"
 	if best == "baariin" and bar_closed:
 		hint = "Ravintola on kiinni (auki 11–02). Ovi on lukossa."
 		return
@@ -499,10 +535,48 @@ func _build_bar() -> void:
 	# Pajatso ja jukeboksi oven puolella.
 	B.mesh(self, B.boxm(Vector3(0.9, 1.7, 0.6)), Vector3(6.6, 0.85, -5.0), Color(0.75, 0.1, 0.12))
 	B.mesh(self, B.boxm(Vector3(0.7, 0.9, 0.05)), Vector3(6.6, 1.25, -4.68), Color(0.95, 0.85, 0.3))
-	B.label(self, "PAJATSO", Vector3(6.6, 1.8, -4.66), 28, Color(1.0, 0.95, 0.8))
+	var ps := B.sign_plate(self, "PAJATSO", Color(0.12, 0.1, 0.3), Color(1.0, 0.82, 0.15), 0.16, 40, Color(0.95, 0.8, 0.3))
+	ps.position = Vector3(6.6, 1.82, -4.66)
+	_build_hedelmapeli(Vector3(1.4, 0, -5.0))
 	var jb := _solid(Vector3(1.0, 1.5, 0.6), Vector3(4.6, 0.75, -5.0), Color(0.25, 0.12, 0.3))
 	jb.material_override = B.unshaded(Color(0.55, 0.25, 0.6))
 	B.label(self, "JUKEBOKSI", Vector3(4.6, 1.6, -4.66), 22, Color(1.0, 0.9, 0.5))
+
+
+## Hedelmäpeli takaseinällä baaritiskin päädyssä: musta kaappi punaisin kyljin, valaistu yläpaneeli, kolme
+## rullaa voittolinjoineen, nappirivi ja kolikkotarjotin (minipeli hedelmapeli_game.gd).
+func _build_hedelmapeli(at: Vector3) -> void:
+	var front := at.z + 0.3
+	_solid(Vector3(0.75, 1.55, 0.6), at + Vector3(0, 0.775, 0), Color(0.06, 0.06, 0.08))
+	for sx in [-0.39, 0.39]:
+		B.mesh(self, B.boxm(Vector3(0.04, 1.6, 0.62)), at + Vector3(sx, 0.8, 0), Color(0.75, 0.1, 0.1))
+	var top := B.mesh(self, B.boxm(Vector3(0.72, 0.32, 0.5)), at + Vector3(0, 1.72, -0.04), Color(1.0, 0.5, 0.15))
+	top.material_override = B.unshaded(Color(1.0, 0.55, 0.2))
+	var hs := B.sign_plate(self, "HEDELMÄPELI", Color(0.6, 0.05, 0.15), Color(1.0, 0.92, 0.3), 0.12, 34, Color(0.95, 0.8, 0.3))
+	hs.position = Vector3(at.x, 1.74, front - 0.05)
+	# Rullaikkuna: kromikehys ja kolme valkoista rullaa, punainen voittolinja.
+	B.mesh(self, B.boxm(Vector3(0.6, 0.3, 0.02)), Vector3(at.x, 1.28, front + 0.005), Color(0.75, 0.76, 0.8))
+	for k in 3:
+		var reel := B.mesh(self, B.boxm(Vector3(0.16, 0.24, 0.02)), Vector3(at.x - 0.19 + k * 0.19, 1.28, front + 0.012), Color(0.97, 0.96, 0.92))
+		reel.material_override = B.unshaded(Color(0.95, 0.94, 0.9))
+		B.mesh(self, B.sphere(0.03, 8), Vector3(at.x - 0.19 + k * 0.19, 1.28, front + 0.02), [Color(0.9, 0.1, 0.1), Color(1.0, 0.85, 0.1),
+			Color(0.5, 0.15, 0.55)][k])
+	B.mesh(self, B.boxm(Vector3(0.6, 0.012, 0.01)), Vector3(at.x, 1.28, front + 0.03), Color(0.95, 0.15, 0.1))
+	# Voittotaulukko rullien yllä ja nappihylly alla.
+	var pt := B.mesh(self, B.boxm(Vector3(0.6, 0.16, 0.02)), Vector3(at.x, 1.5, front + 0.005), Color(0.08, 0.1, 0.3))
+	pt.material_override = B.unshaded(Color(0.12, 0.15, 0.4))
+	B.mesh(self, B.boxm(Vector3(0.72, 0.05, 0.2)), Vector3(at.x, 1.02, front + 0.08), Color(0.2, 0.2, 0.22))
+	for k in 5:
+		var bcol: Color = [Color(0.95, 0.95, 0.9), Color(0.95, 0.95, 0.9), Color(0.95, 0.95, 0.9), Color(0.95, 0.8, 0.2), Color(0.25, 0.8, 0.3)][k]
+		var b := B.mesh(self, B.sphere(0.025, 8), Vector3(at.x - 0.26 + k * 0.13, 1.055, front + 0.1), bcol)
+		b.material_override = B.unshaded(bcol)
+	B.mesh(self, B.boxm(Vector3(0.4, 0.08, 0.14)), Vector3(at.x, 0.3, front + 0.05), Color(0.7, 0.72, 0.76))
+	var glow := OmniLight3D.new()
+	glow.position = Vector3(at.x, 1.6, front + 0.5)
+	glow.omni_range = 2.2
+	glow.light_energy = 0.6
+	glow.light_color = Color(1.0, 0.55, 0.35)
+	add_child(glow)
 
 
 ## Karaokelava: koroke, mikkiteline, ruutu seinällä sanoille ja kaiuttimet.
@@ -605,6 +679,23 @@ func _build_people() -> void:
 	for i in looks.size():
 		_seurue.append(_seat(looks[i], seats[i][0], seats[i][1]))
 	_singer = _seurue[3]
+	# Seurueen kaksi hedelmäpelillä: nainen pelaa, mies katsoo vieressä.
+	var hl := [
+		{"model": "female", "shirt": Color(0.9, 0.85, 0.95), "pants": skirt, "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_Long",
+			"hair_color": Color(0.07, 0.05, 0.04), "height": 1.6, "skin": Color(0.92, 0.76, 0.62), "shine": 0.7},
+		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.12, 0.12, 0.14), "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_SimpleParted",
+			"hair_color": Color(0.1, 0.08, 0.06), "height": 1.76, "skin": Color(0.9, 0.74, 0.6), "belly": 0.5},
+	]
+	for i in hl.size():
+		var c := Looks.make(self, hl[i])
+		_add_bubble(c)
+		var body := StaticBody3D.new()
+		body.add_child(B.capsule_shape(0.3, 1.8))
+		c.add_child(body)
+		body.top_level = true
+		c.set_meta("body", body)
+		_hedelma.append(c)
+	_place_hedelma(true)
 	# Paikalliset korttipelissä.
 	_cardplayers.append(_seat(Looks.GRANDPAS[0], Vector3(3.6, 0, -1.1), Vector3(0, 0, -1)))
 	_cardplayers.append(_seat(Looks.GRANDPAS[2], Vector3(3.6, 0, -2.7), Vector3(0, 0, 1)))

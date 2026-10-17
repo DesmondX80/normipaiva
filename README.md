@@ -246,6 +246,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     Väsytyksessä E kelaa: pidä siiman kireys vihreällä, koska punaisella siima katkeaa ja löysällä kala karkaa.
     Parvien luona ja kauempana rannasta tulee isompia kaloja (hauki rimpuilee rajuimmin). Humala tärisyttää kättä.
     F soutaa takaisin laiturille. Saalis viedään savustimeen.
+  - **Pajatso ja hedelmäpeli Siitarissa:** mekaaninen pajatso minipelinä: E pohjassa vedetään vipua ja irrotus
+    näppää euron kaarelle, josta se putoaa naulojen läpi kuppeihin tai näkyvään pottiin (POTTI-kuppi tyhjentää sen).
+    Hedelmäpelillä pelaa kaksi seurueen jäsentä; vuoron saa kysymällä. Kolme rullaa, voittotaulukko, lukitus
+    häviön jälkeen (1 2 3) ja tuplaus pieni/suuri (`--scene=siitaripelit`).
   - **Lauantai Siitarissa:** pajatsolla pelaa kaksi Raahen jätkää, jotka eivät anna pelivuoroa ja haastavat riitaa.
     Valikosta pihalle tai antaa olla; pihalla Street Fighter -tappelu hotelli-ravintolan edessä mopojen ja
     katsojien keskellä. Voittajalle baarimikko tarjoaa kaljan ja jätkät häipyvät, häviäjältä ne vievät vitosen

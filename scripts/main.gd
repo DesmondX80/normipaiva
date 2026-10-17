@@ -72,6 +72,8 @@ const RAAHE_QUIZ := [
 ]
 const RAAHE_KARAOKE_PRICE := 2.0
 const KaraokeGame := preload("res://scripts/karaoke_game.gd")
+const PajatsoGame := preload("res://scripts/pajatso_game.gd")
+const HedelmapeliGame := preload("res://scripts/hedelmapeli_game.gd")
 const SIITARI_INT_POS := Vector3(16000, 0, 0)
 const KARAOKE_PRICE := 2.0
 const PAJATSO_PRICE := 1.0
@@ -11139,22 +11141,74 @@ func _on_siitari_acted(kind: String) -> void:
 			if money < PAJATSO_PRICE:
 				_show_message("Pajatso vie euron. Rahat ei riitä.", 2.0)
 				return
-			money -= PAJATSO_PRICE
-			Sfx.play("coin", -4.0)
-			var roll := randf()
-			if roll < 0.08:
-				money += 10.0
-				Sfx.play("win", -4.0)
-				tilat.add("moraali", 0.15)
-				_show_message("PAJATSO! Kolikot kilisee: +10 €!", 3.0)
-			elif roll < 0.3:
-				money += 2.0
-				Sfx.play("win_small", -6.0)
-				_show_message("Pajatso antoi 2 €.", 2.0)
-			else:
-				_show_message("Kuula kolisi ohi. Euro meni.", 2.0)
+			_start_pajatso()
+		"hedelmapeli":
+			if siitari_int.hedelma_busy:
+				siitari_int.hedelma_say("Ai haluut kokeilla? Ota sinä vuoro, me mennään laulamaan!", 0)
+				siitari_int.hedelma_say("Onnea! Se on ollu tänään nuuka.", 1)
+				siitari_int.hedelma_free()
+				_show_message("Seurue antoi vuoron. Hedelmäpeli on vapaa.", 2.5)
+				return
+			if money < PAJATSO_PRICE:
+				_show_message("Hedelmäpeli vie euron. Rahat ei riitä.", 2.0)
+				return
+			_start_hedelmapeli()
 		"tanssi_loppu":
 			_show_message("Tanssi loppui. Sinikka: \"Sää viet hyvin. Toiste uudestaan?\"", 3.0)
+
+
+## Pajatso ja hedelmäpeli Siitarissa (pajatso_game.gd, hedelmapeli_game.gd): rahat päivittyvät pelin lopussa.
+## Pajatson potti (ohi menneet kolikot) säilyy koneessa käynnistä toiseen.
+var _pajatso_pot := 12
+
+
+func _siitari_game(g: CanvasLayer) -> void:
+	siitari_int.busy = true
+	siitari_int.walker.controls_enabled = false
+	_hud.visible = false
+	g.drunk = _hand_shake()
+	g.money = money
+	add_child(g)
+
+
+func _siitari_game_end(what: String, money_after: float) -> void:
+	siitari_int.busy = false
+	siitari_int.walker.controls_enabled = true
+	siitari_int.block_interact()
+	_hud.visible = true
+	var net := money_after - money
+	money = money_after
+	_gamble_result(what, net)
+
+
+func _start_pajatso() -> void:
+	var g := PajatsoGame.new()
+	g.pot = _pajatso_pot
+	tilat.first("pajatso", 0.1)
+	g.finished.connect(func(m: float, pot: int) -> void:
+		_pajatso_pot = pot
+		_siitari_game_end("Pajatso", m))
+	_siitari_game(g)
+
+
+func _start_hedelmapeli() -> void:
+	var g := HedelmapeliGame.new()
+	tilat.first("hedelmapeli", 0.1)
+	g.finished.connect(func(m: float) -> void: _siitari_game_end("Hedelmäpeli", m))
+	_siitari_game(g)
+
+
+func _gamble_result(what: String, net: float) -> void:
+	if net >= 10.0:
+		tilat.add("moraali", 0.15)
+		mielihyva = clampf(mielihyva + 6.0, 0.0, 100.0)
+		_show_message("%s: plussalla %s €! Tänään on onnenpäivä." % [what, _eur(net)], 3.0)
+	elif net > 0.0:
+		_show_message("%s: plussalla %s €." % [what, _eur(net)], 2.5)
+	elif net < 0.0:
+		if net <= -5.0:
+			tilat.add("moraali", -0.05)
+		_show_message("%s vei %s €. Ei se mitään, se oli huvia." % [what, _eur(-net)], 2.5)
 
 
 ## Sinikan kanssa peuhaaminen kantautuu Päiville: puhelu hetken päästä ja aamulla vielä motkotusta.
@@ -15984,6 +16038,105 @@ func _maybe_screenshot() -> void:
 			if scene == "kotain":
 				world.kota.set_fire(true)
 				world.kota.say("raimo", "Tässä kodassa on enemmän kieltokylttejä kuin halkoja.")
+		"siitaripelit":
+			# Pajatso ja hedelmäpeli Siitarissa: _sali (seurue koneella), _vapaa (vuoro saatu), pajatson tilat
+			# (_p_veto, _p_kaari, _p_putoaa, _p_kuppi) ja hedelmäpelin tilat (_h_pyorii, _h_voitto, _h_tupla, _h_lukko).
+			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)
+			clock_min = 20.0 * 60.0
+			_start_mopo()
+			var mp: CharacterBody3D = mopo_trip.mopo
+			mp.position = mopo_trip.vaala.siitari_park + Vector3(0, 0.5, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			mopo_trip.stop()
+			_on_mopo_arrived()
+			money = 30.0
+			var snap := func(name: String, frames := 20) -> void:
+				for i in frames:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			siitari_int.walker.position = siitari_int.spots.hedelmapeli[0] + Vector3(0.8, 0, 1.4)
+			await snap.call("_sali.png", 40)
+			siitari_int.walker.position = siitari_int.spots.hedelmapeli[0]
+			_on_siitari_acted("hedelmapeli")
+			await snap.call("_vapaa.png", 30)
+			# Pajatso.
+			_on_siitari_acted("pajatso")
+			var pg: Node = get_children().filter(func(c): return c is PajatsoGame).front()
+			pg._pulling = true
+			pg.money -= 1.0
+			pg._pull = 0.7
+			await snap.call("_p_veto.png", 5)
+			pg._pulling = false
+			pg._launch(0.62)
+			var tw := Time.get_ticks_msec()
+			while pg._coin_state != "arc" and Time.get_ticks_msec() - tw < 3000:
+				await get_tree().process_frame
+			await snap.call("_p_kaari.png", 4)
+			while pg._coin_state != "free" and Time.get_ticks_msec() - tw < 5000:
+				await get_tree().process_frame
+			await snap.call("_p_putoaa.png", 12)
+			# Tehdään sata laukausta eri voimilla ja tulostetaan, mihin ne päätyvät.
+			var hits := {}
+			for k in 60:
+				pg._launch(k / 59.0)
+				var guard := 0
+				while pg._coin_state != "" and guard < 4000:
+					pg._coin_step(1.0 / 240.0)
+					guard += 1
+				var key := "kuppi%d" % pg._hit_cup if pg._hit_t > 1.19 else "ohi"
+				hits[key] = hits.get(key, 0) + 1
+				pg._hit_t = 0.0
+				pg._hit_cup = -1
+			print("PAJATSO laukaukset: %s, potti %d" % [hits, pg.pot])
+			pg.pot = 14
+			pg._cup(2)
+			await snap.call("_p_kuppi.png", 25)
+			pg._finish()
+			print("PAJATSO rahat %s, potti %d" % [money, _pajatso_pot])
+			await snap.call("_jalkeen.png", 5)
+			# Hedelmäpeli.
+			_on_siitari_acted("hedelmapeli")
+			var hg: Node = get_children().filter(func(c): return c is HedelmapeliGame).front()
+			hg._play()
+			await snap.call("_h_pyorii.png", 30)
+			while hg._phase == "spin":
+				await get_tree().process_frame
+			print("HEDELMÄ: %s %s %s -> %s, vaihe %s" % [hg._sym(0), hg._sym(1), hg._sym(2), hg._win, hg._phase])
+			# Pakotetaan voitto: kolme kelloa.
+			hg._phase = "idle"
+			var bell: int = hg._strip.find("kello")
+			hg._pos = [float(bell), float(bell), float(bell)]
+			hg._resolve()
+			await snap.call("_h_voitto.png", 8)
+			hg._double("suuri")
+			await snap.call("_h_tupla.png", 50)
+			if hg._phase == "win":
+				hg._collect()
+			await snap.call("_h_kolikot.png", 50)
+			hg._phase = "idle"
+			hg._lock_ok = true
+			hg._locked = [true, false, true]
+			hg._msg = "LUKITSE?"
+			await snap.call("_h_lukko.png", 5)
+			# Palautusprosentti: 20 000 kierrosta ilman lukitusta ja tuplausta.
+			var spent := 0.0
+			var won := 0.0
+			for k in 20000:
+				for r in 3:
+					hg._pos[r] = float(randi() % hg._strip.size())
+				hg._locked = [false, false, false]
+				hg._resolve()
+				spent += 1.0
+				won += hg._win
+			hg._win = 0.0
+			print("HEDELMÄ palautus %.1f %%" % (won / spent * 100.0))
+			hg._finish()
+			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			_sf.store_buffer(_save_bak)
+			_sf.close()
+			get_tree().quit()
 		"mokkisiitaritappelu":
 			# Lauantai Siitarissa: Raahen jätkät pajatsolla, riita, Street Fighter -tappelu pihalla ja voittajan kalja.
 			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)
