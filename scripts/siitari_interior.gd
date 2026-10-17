@@ -20,6 +20,13 @@ const STAGE := Rect2(-8.0, 1.2, 3.6, 4.3)  # karaokelava vasemmassa etunurkassa
 const DANCE := Vector3(-2.6, 0, 3.2)       # tanssilattian keskikohta lavan edessä
 ## Toimintopisteet: id -> [paikka, vihje]. Sinikan paikka päivittyy (tanssilattialla eri kohdassa).
 var spot := ""  # lähin toimintopiste (main.gd näyttää puhuttaville puhevihjeen)
+## Lauantaina pajatsolla Raahen jätkät (main.gd asettaa ennen enter-kutsua): pelaavat, kiroilevat ja haastavat
+## riitaa; pajatsolla E avaa riidan (main.gd), tappelu Siitarin pihalla (fight.gd).
+var raahe_on := false
+var _raahe: Array[Node3D] = []
+var _raahe_t := 4.0
+const RAAHE_LINES := ["Perkele, taas meni ohi!", "Tää kone on viritetty, sanon mää!", "Mitä sää siinä tuijotat?",
+	"Ei oo sun vuoro, äijä. Me pelataan tätä koko ilta.", "Raahessa on paremmat pajatsot.", "Anna sitä kolikkoa, Make!"]
 var spots := {
 	"ovi": [Vector3(7.2, 0, 3.4), "[E] Ulos ja mopolla takaisin Paapeliin"],
 	"tiski": [Vector3(-4.2, 0, -3.3), "[E] Tilaa baaritiskiltä"],
@@ -106,12 +113,47 @@ func ensure_built() -> void:
 
 func enter() -> void:
 	ensure_built()
+	_apply_raahe()
 	active = true
 	_enter_frame = Engine.get_process_frames()
 	walker.position = spots.ovi[0] + Vector3(-1.2, 0, 0)
 	walker.rotation.y = B.yaw_to(Vector3(1, 0, 0))
 	walker.activate()
 	say(_bartender, "Iltaa! Tervetuloa Siitariin.")
+
+
+## Raahen jätkät pajatson ääreen tai pois (raahe_on).
+func _apply_raahe() -> void:
+	if raahe_on and _raahe.is_empty():
+		var spots_r := [[Vector3(6.6, 0, -4.05), Vector3(0, 0, -1)], [Vector3(7.6, 0, -3.5), Vector3(-0.8, 0, -0.6)]]
+		for i in 2:
+			var c := Looks.make(self, Looks.RAAHEN_JATKAT[i])
+			c.position = spots_r[i][0]
+			c.rotation.y = B.yaw_to(spots_r[i][1])
+			c.play("Idle" if i == 0 else "Idle_Talking", 0.0)
+			_add_bubble(c)
+			var body := StaticBody3D.new()
+			body.position = spots_r[i][0]
+			body.add_child(B.capsule_shape(0.3, 1.8))
+			c.add_child(body)
+			body.top_level = true
+			_raahe.append(c)
+	elif not raahe_on:
+		for c in _raahe:
+			_bubbles.erase(c)
+			c.queue_free()
+		_raahe.clear()
+
+
+func raahe_say(text: String, who := 0) -> void:
+	if who < _raahe.size():
+		say(_raahe[who], text, 3.5)
+
+
+## Tappelun jälkeen jätkät lähtevät (hävisivät) tai jäävät pelaamaan (voittivat).
+func raahe_leave() -> void:
+	raahe_on = false
+	_apply_raahe()
 
 
 ## Hotellin ulko-ovelta suoraan vastaanottoon.
@@ -215,6 +257,12 @@ func _process(delta: float) -> void:
 				who.play("Sitting_Idle", 0.3)
 			elif not (who == _singer and _singing > 0.0):
 				who.play("Idle", 0.3)
+	# Raahen jätkät kiroilevat pajatsolle ja huutelevat (lauantaisin).
+	if not _raahe.is_empty():
+		_raahe_t -= delta
+		if _raahe_t <= 0.0:
+			_raahe_t = randf_range(6.0, 11.0)
+			raahe_say(RAAHE_LINES.pick_random(), randi() % _raahe.size())
 	# Karaokeruutu ja valot sykkivät, discopallo pyörii.
 	_disco.rotation.y += delta * 0.8
 	for i in _lights.size():
@@ -280,6 +328,8 @@ func _process(delta: float) -> void:
 	if best == "":
 		return
 	hint = spots[best][1]
+	if best == "pajatso" and raahe_on:
+		hint = "[E] Raahen jätkät pajatsolla: \"Ei oo sun vuoro, äijä!\""
 	if best == "baariin" and bar_closed:
 		hint = "Ravintola on kiinni (auki 11–02). Ovi on lukossa."
 		return

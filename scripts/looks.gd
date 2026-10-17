@@ -55,6 +55,14 @@ static func restyle_player(c: Node3D) -> void:
 		add_cap(c)
 
 
+## Lauantain Raahen jätkät Siitarin pajatsolla (siitari_interior.gd, fight.gd "raahelainen"): takatukka ja
+## farkkuliivi, toisella hevirokkipaita ja parta.
+const RAAHEN_JATKAT := [
+	{"shirt": Color(0.36, 0.48, 0.66), "pants": Color(0.08, 0.08, 0.1), "shoes": Color(0.92, 0.92, 0.9), "hair": "Hair_Long",
+		"hair_color": Color(0.62, 0.5, 0.3), "height": 1.83, "belly": 0.5, "bulk": 0.2, "shoulders": 0.2},
+	{"shirt": Color(0.07, 0.07, 0.08), "pants": Color(0.32, 0.44, 0.62), "shoes": Color(0.1, 0.08, 0.06), "hair": "Hair_Buzzed",
+		"hair_color": Color(0.3, 0.22, 0.14), "beard": true, "height": 1.8, "belly": 0.7, "bulk": 0.35},
+]
 const JUNTTI := {
 	"shirt": Color(0.06, 0.06, 0.07), "pants": Color(0.06, 0.06, 0.07), "shoes": Color(0.95, 0.95, 0.95),
 	"hair": "Hair_Long", "hair_color": Color(0.85, 0.72, 0.42), "stripes": true, "shine": 0.35, "height": 1.86, "belly": 1.0, "bulk": 0.35, "shoulders": 0.5, "muscle": -0.35,

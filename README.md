@@ -246,6 +246,10 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
     Väsytyksessä E kelaa: pidä siiman kireys vihreällä, koska punaisella siima katkeaa ja löysällä kala karkaa.
     Parvien luona ja kauempana rannasta tulee isompia kaloja (hauki rimpuilee rajuimmin). Humala tärisyttää kättä.
     F soutaa takaisin laiturille. Saalis viedään savustimeen.
+  - **Lauantai Siitarissa:** pajatsolla pelaa kaksi Raahen jätkää, jotka eivät anna pelivuoroa ja haastavat riitaa.
+    Valikosta pihalle tai antaa olla; pihalla Street Fighter -tappelu hotelli-ravintolan edessä mopojen ja
+    katsojien keskellä. Voittajalle baarimikko tarjoaa kaljan ja jätkät häipyvät, häviäjältä ne vievät vitosen
+    (`--scene=mokkisiitaritappelu`). Rannekellossa näkyy viikonpäivä (MA–SU), perjantaisin juhannuskokon merkki.
   - **Mopolla Vaalaan:** mökin pihan mopolla (huippunopeus 60 km/h) ajetaan Hotelli-Ravintola Siitariin
     (Uutelanperäntien sora Neittäväntielle, Vuolijoentie radan ali, Oulujoen silta, Vaalan keskusta 1:1: kirkko,
     rautatieasema, kaupat ja kunnantalo). Mopo pysyy teillä: metsään, pellolle ja pihoille ei köröttele, vaan tien

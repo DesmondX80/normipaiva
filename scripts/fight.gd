@@ -35,6 +35,12 @@ const FOES := {
 		"win": ["Kaljat takasin hyllyyn!", "Ja ens kerralla maksetaan, hienohelma!"],
 		"wave": "KASSAJONO!", "wave_cry": "SEURAAVA!", "hp": 75.0, "dmg": 1.35, "aggr": 1.2, "throw_only": true,
 	},
+	"raahelainen": {
+		"look": Looks.RAAHEN_JATKAT[0], "name": "RAAHEN JÄTKÄ – Pajatso on meiän!", "short": "RAAHELAINEN", "voice": "juntti",
+		"intro": ["Pajatso on meiän koko illan!", "Ulos siitä, äijä, ni katotaan!", "Raahessa tällaset hoidetaan pihalla!"],
+		"win": ["Pajatso on meiän, sanoin mää!", "Mene Saloisiin pelaamaan!"],
+		"wave": "KOLIKKOSADE!", "wave_cry": "JACKPOT!", "hp": 105.0, "dmg": 1.05, "aggr": 1.05,
+	},
 	"teens": {
 		"look": Looks.TEENS[0], "name": "TEINIJENGIN POMO – Raahe 4ever", "short": "TEINI", "voice": "teini",
 		"intro": ["Mitä sää tuijotat, setä?", "Tää on meiän mesta!", "Ok boomer."],
@@ -90,8 +96,25 @@ var _slowmo_until := 0
 var _stars: Node3D
 
 
+## Lavastukset: K-Marketin edusta (oletus) ja Siitarin piha (lauantain pajatsoriita). set_stage ennen start-kutsua.
+var _stages := {}
+
+
+func set_stage(kind: String) -> void:
+	if not _stages.has(kind):
+		var st := Node3D.new()
+		add_child(st)
+		if kind == "siitari":
+			_build_siitari_stage(st)
+		else:
+			_build_stage(st)
+		_stages[kind] = st
+	for k in _stages:
+		(_stages[k] as Node3D).visible = k == kind
+
+
 func _ready() -> void:
-	_build_stage()
+	set_stage("kmarket")
 	_p = Fighter.new()
 	add_child(_p)
 	_p.setup(Looks.player())
@@ -712,48 +735,114 @@ func _update_camera(delta: float) -> void:
 # --- Areena & HUD ------------------------------------------------------------
 
 ## Pieni katunäyttämö: asfaltti, talorivi taustalla, koivuja, katsojina harmaapäät ja Anna-Liisa.
-func _build_stage() -> void:
+func _build_stage(st: Node3D) -> void:
 	var asphalt := B.shader_mat("res://shaders/ground.gdshader", {
 		"color_a": Color(0.2, 0.2, 0.21), "color_b": Color(0.3, 0.3, 0.31), "scale": 0.05, "fine_scale": 2.5, "bump": 0.3})
 	var grass := B.shader_mat("res://shaders/ground.gdshader", {
 		"color_a": Color(0.3, 0.45, 0.18), "color_b": Color(0.46, 0.58, 0.25)})
-	var street := B.box(self, Vector3(40, 0.2, 8), Vector3(0, -0.1, 0), Color.WHITE, false) as MeshInstance3D
+	var street := B.box(st, Vector3(40, 0.2, 8), Vector3(0, -0.1, 0), Color.WHITE, false) as MeshInstance3D
 	street.material_override = asphalt
-	var lawn := B.box(self, Vector3(200, 0.2, 200), Vector3(0, -0.12, -40), Color.WHITE, false) as MeshInstance3D
+	var lawn := B.box(st, Vector3(200, 0.2, 200), Vector3(0, -0.12, -40), Color.WHITE, false) as MeshInstance3D
 	lawn.material_override = grass
 	for x in range(-18, 19, 4):
-		B.box(self, Vector3(2.2, 0.02, 0.15), Vector3(x, 0.01, 0), Color(0.9, 0.9, 0.85), false)
-	B.box(self, Vector3(40, 0.18, 0.3), Vector3(0, 0.09, -4.1), Color(0.6, 0.6, 0.58), false)
+		B.box(st, Vector3(2.2, 0.02, 0.15), Vector3(x, 0.01, 0), Color(0.9, 0.9, 0.85), false)
+	B.box(st, Vector3(40, 0.18, 0.3), Vector3(0, 0.09, -4.1), Color(0.6, 0.6, 0.58), false)
 	var cols := [Color(0.6, 0.15, 0.11), Color(0.88, 0.78, 0.44), Color(0.92, 0.91, 0.87), Color(0.58, 0.7, 0.78)]
 	for i in 6:
 		var x := -20.0 + i * 8.0
 		var c: Color = cols[i % cols.size()]
-		B.box(self, Vector3(6.5, 3.3, 5), Vector3(x, 1.65, -14), c, false)
+		B.box(st, Vector3(6.5, 3.3, 5), Vector3(x, 1.65, -14), c, false)
 		var roof := PrismMesh.new()
 		roof.size = Vector3(6.0, 2.0, 7.2)
-		B.mesh(self, roof, Vector3(x, 4.3, -14), Color(0.2, 0.2, 0.22), Vector3(0, 90, 0))
+		B.mesh(st, roof, Vector3(x, 4.3, -14), Color(0.2, 0.2, 0.22), Vector3(0, 90, 0))
 		for wx in [-1.6, 1.6]:
-			B.box(self, Vector3(1.3, 1.1, 0.1), Vector3(x + wx, 1.8, -11.45), Color(0.12, 0.17, 0.24), false)
-		B.box(self, Vector3(1.0, 2.1, 0.1), Vector3(x, 1.05, -11.45), Color(0.35, 0.22, 0.14), false)
+			B.box(st, Vector3(1.3, 1.1, 0.1), Vector3(x + wx, 1.8, -11.45), Color(0.12, 0.17, 0.24), false)
+		B.box(st, Vector3(1.0, 2.1, 0.1), Vector3(x, 1.05, -11.45), Color(0.35, 0.22, 0.14), false)
 	# K-Marketin kyltti taustalla.
-	B.box(self, Vector3(9, 4, 4), Vector3(26, 2, -12), Color(0.95, 0.95, 0.93), false)
-	B.box(self, Vector3(9.2, 1.0, 4.2), Vector3(26, 3.6, -12), Color(1.0, 0.42, 0.0), false)
-	B.label(self, "K-Market", Vector3(26, 3.6, -9.85), 110, Color.WHITE)
+	B.box(st, Vector3(9, 4, 4), Vector3(26, 2, -12), Color(0.95, 0.95, 0.93), false)
+	B.box(st, Vector3(9.2, 1.0, 4.2), Vector3(26, 3.6, -12), Color(1.0, 0.42, 0.0), false)
+	B.label(st, "K-Market", Vector3(26, 3.6, -9.85), 110, Color.WHITE)
 	for x in [-14.0, -6.0, 4.0, 12.0, 20.0]:
-		B.mesh(self, B.cyl(0.11, 0.2, 6.0, 7), Vector3(x, 3.0, -9), Color(0.92, 0.92, 0.88))
-		B.mesh(self, B.sphere(1.7, 8), Vector3(x, 6.0, -9), Color(0.36, 0.58, 0.22))
-		B.mesh(self, B.sphere(1.3, 8), Vector3(x + 0.9, 5.2, -8.7), Color(0.4, 0.6, 0.24))
+		B.mesh(st, B.cyl(0.11, 0.2, 6.0, 7), Vector3(x, 3.0, -9), Color(0.92, 0.92, 0.88))
+		B.mesh(st, B.sphere(1.7, 8), Vector3(x, 6.0, -9), Color(0.36, 0.58, 0.22))
+		B.mesh(st, B.sphere(1.3, 8), Vector3(x + 0.9, 5.2, -8.7), Color(0.4, 0.6, 0.24))
 	# Katsojat.
 	var crowd := [[Looks.GRANDPAS[0], -5.0], [Looks.GRANDPAS[1], -3.5], [Looks.ANNA_LIISA, 3.8], [Looks.GRANDPAS[2], 5.2]]
 	for c in crowd:
-		var person := Looks.make(self, c[0])
+		var person := Looks.make(st, c[0])
 		person.position = Vector3(c[1], 0, -5.5)
 		person.rotation.y = PI
 		person.play("Idle_Talking" if c[0] != Looks.ANNA_LIISA else "Idle", 0.0)
 		if c[0] != Looks.ANNA_LIISA:
 			Looks.hunch(person, 0.3)
-	var annaliisa := B.guide(self, "Naapurin Anna-Liisa", Vector3(3.8, 2.1, -5.5), 32, Color(0.8, 1, 0.95), true)
+	var annaliisa := B.guide(st, "Naapurin Anna-Liisa", Vector3(3.8, 2.1, -5.5), 32, Color(0.8, 1, 0.95), true)
 	annaliisa.no_depth_test = false
+
+
+## Siitarin piha illalla: hotelli-ravintolan kaksikerroksinen julkisivu valaistuine ikkunoineen ja kyltteineen,
+## parkkipaikka mopoineen ja autoineen, ja katsojat (baarimikko, Sinikka, korttipelin papat ja toinen Raahen jätkä).
+func _build_siitari_stage(st: Node3D) -> void:
+	var asphalt := B.shader_mat("res://shaders/ground.gdshader", {
+		"color_a": Color(0.19, 0.19, 0.2), "color_b": Color(0.28, 0.28, 0.29), "scale": 0.05, "fine_scale": 2.5, "bump": 0.3})
+	var yard := B.box(st, Vector3(60, 0.2, 40), Vector3(0, -0.1, -8), Color.WHITE, false) as MeshInstance3D
+	yard.material_override = asphalt
+	for x in range(-16, 17, 4):  # parkkiruudut
+		B.box(st, Vector3(0.12, 0.02, 4.5), Vector3(x, 0.01, -6.5), Color(0.9, 0.9, 0.85), false)
+	var grass := B.shader_mat("res://shaders/ground.gdshader", {"color_a": Color(0.28, 0.42, 0.17), "color_b": Color(0.42, 0.55, 0.24)})
+	var lawn := B.box(st, Vector3(200, 0.2, 200), Vector3(0, -0.14, 20), Color.WHITE, false) as MeshInstance3D
+	lawn.material_override = grass
+	# Hotelli-Ravintola Siitari: keltaruskea tiili, valkoiset nauhaikkunat, tasakatto, sisäänkäynti katoksineen.
+	var brick := Color(0.7, 0.52, 0.34)
+	B.box(st, Vector3(34, 7.2, 10), Vector3(0, 3.6, -19), brick, false)
+	B.box(st, Vector3(34.6, 0.5, 10.6), Vector3(0, 7.45, -19), Color(0.25, 0.25, 0.27), false)
+	B.box(st, Vector3(34.2, 0.35, 10.2), Vector3(0, 0.17, -19), Color(0.45, 0.42, 0.38), false)  # sokkeli
+	for row in 2:
+		for i in 9:
+			var x := -14.0 + i * 3.5
+			if row == 0 and absf(x) < 2.5:
+				continue  # ovi
+			var lit := (i + row) % 3 != 0
+			B.box(st, Vector3(2.4, 1.3, 0.1), Vector3(x, 2.0 + row * 3.0, -13.97), Color(0.95, 0.95, 0.92), false)
+			var w := B.box(st, Vector3(2.2, 1.1, 0.12), Vector3(x, 2.0 + row * 3.0, -13.95),
+				Color(1.0, 0.82, 0.5) if lit else Color(0.14, 0.18, 0.24), false) as MeshInstance3D
+			if lit:
+				w.material_override = B.unshaded(Color(1.0, 0.8, 0.48))
+	B.box(st, Vector3(2.2, 2.4, 0.12), Vector3(0, 1.2, -13.93), Color(0.4, 0.26, 0.16), false)  # ovi
+	B.box(st, Vector3(4.0, 0.2, 2.0), Vector3(0, 2.9, -13.0), Color(0.6, 0.08, 0.08), false)  # katos
+	for sx in [-1.8, 1.8]:
+		B.mesh(st, B.cyl(0.06, 0.06, 2.9, 8), Vector3(sx, 1.45, -12.1), Color(0.3, 0.3, 0.32))
+	var sign := B.sign_plate(st, "HOTELLI-RAVINTOLA SIITARI", Color(0.55, 0.06, 0.07), Color(1.0, 0.92, 0.7), 1.0, 64)
+	sign.position = Vector3(0, 5.6, -13.9)
+	var bar := B.sign_plate(st, "BAARI · KARAOKE · PAJATSO", Color(0.1, 0.1, 0.12), Color(1.0, 0.85, 0.35), 0.5, 40)
+	bar.position = Vector3(-9.0, 3.3, -13.9)
+	# Mopot ja autot parkissa.
+	var Mopo := load("res://scripts/mopo.gd")
+	for m in [[Vector3(-12, 0, -8.5), 1.4], [Vector3(-10.4, 0, -8.8), 1.7], [Vector3(10.5, 0, -8.6), -1.5]]:
+		var mp := Node3D.new()
+		st.add_child(mp)
+		Mopo.build_model(mp)
+		mp.position = m[0]
+		mp.rotation.y = m[1]
+	B.box(st, Vector3(1.8, 1.3, 4.3), Vector3(14.5, 0.75, -7.0), Color(0.55, 0.12, 0.1), false)  # Lada
+	B.box(st, Vector3(1.6, 0.6, 2.2), Vector3(14.5, 1.65, -7.2), Color(0.5, 0.11, 0.09), false)
+	# Valaistus: pihavalot ja hehku ikkunoista.
+	for x in [-8.0, 8.0]:
+		B.mesh(st, B.cyl(0.08, 0.1, 5.0, 8), Vector3(x, 2.5, -10.5), Color(0.3, 0.3, 0.32))
+		var lamp := OmniLight3D.new()
+		lamp.position = Vector3(x, 4.8, -10.2)
+		lamp.light_color = Color(1.0, 0.85, 0.6)
+		lamp.light_energy = 2.0
+		lamp.omni_range = 14.0
+		st.add_child(lamp)
+	# Katsojat kehässä: baarimikko, Sinikka, papat ja toinen Raahen jätkä huutelee.
+	var crowd := [[{"shirt": Color(0.95, 0.95, 0.93), "pants": Color(0.08, 0.08, 0.1), "shoes": Color(0.08, 0.08, 0.08),
+		"hair": "Hair_SimpleParted", "hair_color": Color(0.25, 0.18, 0.12), "beard": true, "height": 1.8, "belly": 0.4}, -5.5, "Idle"],
+		[Looks.SINIKKA, -3.8, "Idle"], [Looks.GRANDPAS[0], 3.6, "Idle_Talking"], [Looks.RAAHEN_JATKAT[1], 5.3, "Idle_Talking"]]
+	for c in crowd:
+		var person := Looks.make(st, c[0])
+		person.position = Vector3(c[1], 0, -5.0)
+		person.rotation.y = PI
+		person.play(c[2], 0.0)
 
 
 func _build_hud() -> void:

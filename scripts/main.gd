@@ -11097,6 +11097,8 @@ func _on_mopo_arrived() -> void:
 	_own_drink_warned = false
 	_mopo_label.visible = false
 	_compass.visible = false
+	# Lauantaina Raahen jätkät pelaavat pajatsoa ja haastavat riitaa (kerran päivässä tappelu pihalla).
+	siitari_int.raahe_on = _weekday() == 5 and not ("siitari_tappelu" in _today)
 	siitari_int.enter()
 
 
@@ -11131,6 +11133,9 @@ func _on_siitari_acted(kind: String) -> void:
 		"sinikka":
 			_talk_open("siitari_sinikka", null, SINIKKA_BAR_LINES.pick_random())
 		"pajatso":
+			if siitari_int.raahe_on:
+				_raahe_quarrel()
+				return
 			if money < PAJATSO_PRICE:
 				_show_message("Pajatso vie euron. Rahat ei riitä.", 2.0)
 				return
@@ -13261,7 +13266,80 @@ func _start_fight(foe_key: String, source: String, direction: Vector3) -> void:
 	fight.start(beers, foe_key, hp, dmg)
 
 
+## Lauantain pajatsoriita Siitarissa: Raahen jätkät eivät anna pelivuoroa. Valikosta pihalle tai antaa olla.
+func _raahe_quarrel() -> void:
+	siitari_int.raahe_say("Ei oo sun vuoro, äijä. Painu muualle!", 0)
+	siitari_int.raahe_say("Vai haluutko pihalle?", 1)
+	_interior_busy(true)
+	_active_walker().controls_enabled = false
+	_menu_mode = "raahe"
+	_item_menu.open([["tappele", "\"Pihalle siitä, ni katotaan kenen pajatso on!\""],
+		["anna", "Anna pojille pelivuoro"]], "Raahen jätkät pajatsolla haastaa riitaa")
+
+
+func _on_raahe_choice(id: String) -> void:
+	_menu_mode = "give"
+	if id == "tappele":
+		siitari_int.raahe_say("No nyt! Ulos!", 0)
+		_start_siitari_fight()
+		return
+	_interior_busy(false)
+	_active_walker().controls_enabled = true
+	siitari_int.raahe_say("Niin sitä pitää. Mene istumaan.", 1)
+	_show_message("Annoit jätkien pelata. Pajatso kilkattaa, ja ne nauraa makealla.", 3.0)
+
+
+## Street Fighter -tappelu Siitarin pihalla (fight.gd: lavastus "siitari", vastustaja "raahelainen").
+func _start_siitari_fight() -> void:
+	_today.append("siitari_tappelu")
+	_fight_source = "siitari"
+	var hp := 120.0 if tilat.effect("kipu") > 0 else 100.0
+	var dmg := 1.2 if tilat.effect("humala") > 0 else 1.0
+	tilat.add("stressi", -0.15)
+	tilat.add("kipu", -0.3)
+	tilat.add("stamina", -0.2)
+	tilat.first("tappelu_raahelainen", 0.3)
+	_fight_prev = state
+	state = "fight"
+	siitari_int.busy = true
+	_hud.visible = false
+	fight.set_stage("siitari")
+	fight.start(beers, "raahelainen", hp, dmg)
+
+
+func _siitari_fight_end(won: bool, bags_used: int, thrown: int) -> void:
+	state = _fight_prev
+	_hud.visible = true
+	fight.set_stage("kmarket")
+	beers = maxi(0, beers - bags_used - thrown)
+	siitari_int.busy = false
+	siitari_int._enter_frame = Engine.get_process_frames()
+	siitari_int.walker.activate()
+	if won:
+		siitari_int.raahe_leave()
+		# Voittajalle talo tarjoaa kaljan.
+		tilat.add("humala", 0.08)
+		tilat.add("moraali", 0.15)
+		tilat.add("kokemus", 0.1)
+		mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0)
+		maine = clampf(maine + 3.0, 0.0, 100.0)
+		Sfx.play("pour" if Sfx.FILES.has("pour") else "glass", -6.0)
+		siitari_int.bartender_say("Tuosta hyvästä talo tarjoaa! Kalja voittajalle.")
+		_show_message("K.O.! Raahen jätkät häipyi pihalta. Baarimikko tarjoaa voittajalle kaljan, ja pajatso on vapaa.", 4.0)
+	else:
+		var took := minf(5.0, money)
+		money -= took
+		tilat.add("kipu", -0.2)
+		tilat.add("moraali", -0.1)
+		maine = clampf(maine - 3.0, 0.0, 100.0)
+		siitari_int.raahe_say("Pajatso on meiän, sanoin mää!", 0)
+		_show_message("Hävisit! Raahen jätkät vei %s ja jatkaa pajatsoa." % ("%s €" % _eur(took) if took > 0.0 else "ylpeyden"), 3.5)
+
+
 func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
+	if _fight_source == "siitari":
+		_siitari_fight_end(won, bags_used, thrown)
+		return
 	state = _fight_prev
 	_hud.visible = true
 	player.activate_camera()
@@ -14766,14 +14844,16 @@ func _build_hud() -> void:
 		elif _menu_mode == "asema":
 			_on_asema_give(id)
 		elif _menu_mode == "asu":
-			_on_wardrobe(id))
+			_on_wardrobe(id)
+		elif _menu_mode == "raahe":
+			_on_raahe_choice(id))
 	_item_menu.cancelled.connect(func() -> void:
 		if _menu_mode == "wc":
 			_menu_mode = "give"
 			_wc_release()
 		else:
 			_mopo_menu(false)
-			if _menu_mode in ["eat", "viini", "asema", "asu"]:
+			if _menu_mode in ["eat", "viini", "asema", "asu", "raahe"]:
 				_menu_mode = "give"
 				_interior_busy(false)
 				_active_walker().controls_enabled = true
@@ -15904,6 +15984,48 @@ func _maybe_screenshot() -> void:
 			if scene == "kotain":
 				world.kota.set_fire(true)
 				world.kota.say("raimo", "Tässä kodassa on enemmän kieltokylttejä kuin halkoja.")
+		"mokkisiitaritappelu":
+			# Lauantai Siitarissa: Raahen jätkät pajatsolla, riita, Street Fighter -tappelu pihalla ja voittajan kalja.
+			var _save_bak := FileAccess.get_file_as_bytes(SAVE_PATH)
+			day = 6  # lauantai
+			clock_min = 20.0 * 60.0
+			_start_mopo()
+			var mp: CharacterBody3D = mopo_trip.mopo
+			mp.position = mopo_trip.vaala.siitari_park + Vector3(0, 0.5, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			mopo_trip.stop()
+			_on_mopo_arrived()
+			money = 30.0
+			var snap := func(name: String, frames := 30) -> void:
+				for i in frames:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			print("RAAHE %s: jätkät paikalla %s (%d)" % [WEEKDAYS[_weekday()], siitari_int.raahe_on, siitari_int._raahe.size()])
+			siitari_int.walker.position = siitari_int.spots.pajatso[0] + Vector3(0, 0, 0.6)
+			for i in 5:
+				await get_tree().process_frame
+			print("RAAHE vihje '%s'" % _hint.text)
+			await snap.call("_pajatso.png")
+			_on_siitari_acted("pajatso")
+			print("RAAHE valikko auki %s, %s" % [_item_menu.is_open(), _item_menu._items])
+			await snap.call("_riita.png", 10)
+			_item_menu.visible = false
+			_item_menu.chosen.emit("tappele")
+			print("RAAHE tila %s" % state)
+			await snap.call("_tappelu.png", 90)
+			fight._j.hp = 0.0
+			fight._j.state = "ko"
+			var tw := Time.get_ticks_msec()
+			while state == "fight" and Time.get_ticks_msec() - tw < 20000:
+				await get_tree().process_frame
+			print("RAAHE tappelun jälkeen: tila %s, jätkät %s, viesti '%s'" % [state, siitari_int.raahe_on, _msg.text])
+			await snap.call("_voitto.png")
+			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			_sf.store_buffer(_save_bak)
+			_sf.close()
+			get_tree().quit()
 		"mokkisiitari":
 			# Siitari sisältä: _1 yleiskuva, _2 tanssi Sinikan kanssa, _3 karaoke kesken, _4 Päivin puhelu.
 			_start_mopo()
