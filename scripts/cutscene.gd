@@ -2141,7 +2141,7 @@ func _build_bridge_land(r: Node3D) -> void:
 		var z := randf_range(-250, 200)
 		if z > RIVER.x - 6.0 and z < RIVER.y + 6.0:
 			continue
-		var hgt := randf_range(8, 15)
+		var hgt := snappedf(randf_range(8, 15), 0.5)  # jaetut primitiivit (B._prims): rajallinen määrä kokoja
 		if randf() < 0.5:
 			B.mesh(r, B.cyl(0.0, hgt * 0.22, hgt * 0.8, 7), Vector3(x, hgt * 0.4, z), Color(0.1, 0.24, 0.12))
 		else:
@@ -2220,7 +2220,7 @@ func _build_dining_car(car: Node3D) -> Dictionary:
 		var side := -1.0 if i % 2 == 0 else 1.0
 		var x := side * randf_range(6, 60)
 		var z := randf_range(-240, 120)
-		var hgt := randf_range(6, 14)
+		var hgt := snappedf(randf_range(6, 14), 0.5)  # jaetut primitiivit (B._prims): rajallinen määrä kokoja
 		if randf() < 0.6:
 			B.mesh(scenery, B.cyl(0.0, hgt * 0.22, hgt * 0.8, 7), Vector3(x, hgt * 0.4 - 1.2, z), Color(0.1, 0.24, 0.12))
 		else:
@@ -2282,7 +2282,7 @@ static func _hoops(c: Node3D) -> void:
 		tm.rings = 16
 		tm.ring_segments = 6
 		ring.mesh = tm
-		ring.material_override = B.mat(Color(0.95, 0.75, 0.25))
+		ring.material_override = B.mat(Color(0.95, 0.75, 0.25)).duplicate()
 		(ring.material_override as StandardMaterial3D).metallic = 0.9
 		(ring.material_override as StandardMaterial3D).roughness = 0.25
 		ring.rotation = Vector3(0, 0, PI / 2.0)

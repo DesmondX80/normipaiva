@@ -206,7 +206,7 @@ func _build_bear() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	var fm := func(c: Color) -> StandardMaterial3D:
-		var m := B.mat(c)
+		var m := B.mat(c).duplicate() as StandardMaterial3D
 		m.roughness = 1.0
 		return m
 	var put := func(parent: Node3D, mesh: Mesh, pos: Vector3, c: Color, sc := Vector3.ONE) -> MeshInstance3D:

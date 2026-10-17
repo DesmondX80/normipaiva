@@ -211,7 +211,7 @@ static func add_glam(c: Node3D) -> void:
 		tm.rings = 16
 		tm.ring_segments = 6
 		ring.mesh = tm
-		ring.material_override = B.mat(Color(0.95, 0.75, 0.25))
+		ring.material_override = B.mat(Color(0.95, 0.75, 0.25)).duplicate()
 		(ring.material_override as StandardMaterial3D).metallic = 0.9
 		(ring.material_override as StandardMaterial3D).roughness = 0.25
 		ring.rotation = Vector3(0, 0, PI / 2.0)
@@ -394,7 +394,7 @@ static func hang_bag(c: Node3D, bag: Node3D, delta: float) -> void:
 ## peililasiset pilottilasit tai valkoiset ovaalit lasit, kultaketju ja rasvaletti). Muutama pieni mesh luissa.
 static func _add_player_gear(c: Node3D, look: Dictionary) -> void:
 	c.set_meta("cap", look.get("cap", "karhu"))
-	var gold := B.mat(Color(0.95, 0.76, 0.3))
+	var gold := B.mat(Color(0.95, 0.76, 0.3)).duplicate() as StandardMaterial3D  # jaettu materiaali: kopio ennen muokkausta
 	gold.metallic = 0.95
 	gold.roughness = 0.22
 	# Pukinparta: leukatupsu ja ohuet viikset suupielistä alas.
@@ -436,7 +436,7 @@ static func _add_player_gear(c: Node3D, look: Dictionary) -> void:
 		"valkoiset":
 			# Valkoiset ovaalit lasit (ysärin rantalasit): paksu kiiltävä kehys, tummat linssit.
 			var sh := Node3D.new()
-			var frame := B.mat(Color(0.96, 0.96, 0.94))
+			var frame := B.mat(Color(0.96, 0.96, 0.94)).duplicate() as StandardMaterial3D
 			frame.roughness = 0.2
 			for sx in [-1.0, 1.0]:
 				var f := MeshInstance3D.new()
@@ -447,7 +447,7 @@ static func _add_player_gear(c: Node3D, look: Dictionary) -> void:
 				sh.add_child(f)
 				var l := MeshInstance3D.new()
 				l.mesh = B.sphere(0.5, 14)
-				l.material_override = B.mat(Color(0.05, 0.05, 0.06))
+				l.material_override = B.mat(Color(0.05, 0.05, 0.06)).duplicate()
 				(l.material_override as StandardMaterial3D).roughness = 0.05
 				l.position = Vector3(sx * 0.036, 0, -0.004)
 				l.scale = Vector3(0.042, 0.022, 0.006)
@@ -488,7 +488,7 @@ static func _add_player_gear(c: Node3D, look: Dictionary) -> void:
 	bt.rings = 16
 	bt.ring_segments = 4
 	bracelet.mesh = bt
-	var silver := B.mat(Color(0.82, 0.83, 0.86))
+	var silver := B.mat(Color(0.82, 0.83, 0.86)).duplicate() as StandardMaterial3D
 	silver.metallic = 0.9
 	silver.roughness = 0.25
 	bracelet.material_override = silver

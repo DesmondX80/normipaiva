@@ -43,6 +43,10 @@ func run() -> void:
 	if "--ajo=kuolema" in OS.get_cmdline_user_args():
 		await _death_test()
 		return
+	if "--ajo=muistivuoto" in OS.get_cmdline_user_args():
+		await _leak_test()
+		get_tree().quit()
+		return
 	if "--ajo=vapautus" in OS.get_cmdline_user_args():
 		await _unload_test()
 		return
@@ -910,6 +914,55 @@ func _memory_parts() -> void:
 
 
 ## Kaukaisten paikkojen vapautus (main.gd _unload_far_places): Vaalaan, kuolema ja koti, junalla takaisin, Raaheen.
+## Muistivuodot: mopomatka Vaalaan ja junalla takaisin Saloisiin (Vaala vapautuu) useita kertoja peräkkäin.
+## Joka kierroksen jälkeen muisti, oliot, solmut, resurssit ja orvot solmut: kasvu kierros kierrokselta = vuoto.
+func _leak_test() -> void:
+	var stats := func(label: String) -> void:
+		for i in 60:
+			await get_tree().process_frame
+		print("VUOTO %-22s muisti %4d Mt · olioita %6d · solmuja %6d · resursseja %5d · orpoja %4d · video %4d Mt" % [label,
+			Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576, Performance.get_monitor(Performance.OBJECT_COUNT),
+			Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT),
+			Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT), Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576])
+		var B := preload("res://scripts/build.gd")
+		var Ch := preload("res://scripts/character.gd")
+		var L := preload("res://scripts/looks.gd")
+		var V := preload("res://scripts/vehicles.gd")
+		print("VUOTO   säiliöt: erät disk %d used %d cache %d · prims %d · mats %d · shaders %d · vaatemeshit %d · lippikset %d · ajoneuvot %d/%d" % [
+			B.Batch.disk.size(), B.Batch.used.size(), B.Batch._cache.size(), B._prims.values().filter(func(w): return w.get_ref() != null).size(), B._mats.size(), B._shaders.size(),
+			Ch._meshes.size(), L._cap_cache.size(), V._mats.size(), V._merged.size()])
+	main.mokki.ensure_built()
+	await stats.call("alussa")
+	var rounds := 4
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--kierroksia="):
+			rounds = int(a.substr(13))
+	for k in rounds:
+		main._start_mopo()
+		for i in 30:
+			await get_tree().process_frame
+		await stats.call("kierros %d Vaalassa" % (k + 1))
+		main.money = 100.0
+		main._train_trip("saloinen")
+		var t := 0.0
+		while main.mopo_trip != null and t < 120.0:
+			await get_tree().process_frame
+			t += get_process_delta_time()
+		await stats.call("kierros %d Saloisissa" % (k + 1))
+		var Bp := preload("res://scripts/build.gd")
+		if k == 0:
+			set_meta("prims0", Bp._prims.keys())
+		elif k == 1:
+			var before: Array = get_meta("prims0")
+			var seen := {}
+			for kk in before:
+				seen[kk] = true
+			var fresh := Bp._prims.keys().filter(func(kk): return not seen.has(kk))
+			print("VUOTO   uudet primitiivit kierroksella 2: %d, esim. %s" % [fresh.size(), fresh.slice(0, 12)])
+	if "--orvot" in OS.get_cmdline_user_args():
+		Node.print_orphan_nodes()
+
+
 func _unload_test() -> void:
 	var mem := func() -> String:
 		return "%d Mt, %d oliota" % [Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576, Performance.get_monitor(Performance.OBJECT_COUNT)]

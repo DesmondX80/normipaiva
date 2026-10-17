@@ -263,6 +263,7 @@ func build(step: Callable) -> void:
 	_drape_cache = MeshBundle.load_dict("verhot", _drape_key())
 	B.Batch.disk = MeshBundle.load_dict("erat", _drape_key())
 	B.Batch.disk_new = 0
+	B.Batch.record = true
 	for p in M.WATER:
 		_water.append(_poly(p))
 	for p in M.FORESTS:
@@ -365,6 +366,7 @@ func build(step: Callable) -> void:
 		MeshBundle.save_dict("erat", _drape_key(), B.Batch.used)
 	B.Batch.disk = {}
 	B.Batch.used = {}
+	B.Batch.record = false
 	await step.call("Viimeistellään", 0.96)
 
 

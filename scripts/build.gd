@@ -20,14 +20,27 @@ static var _noise: NoiseTexture2D
 static var _shaders := {}
 
 
+## Värin mukaan jaettu materiaali (ei saa muokata: kopioi ensin). Heikko viittaus kuten primitiiveissä: satunnaiset
+## värit eivät jää muistiin, kun niitä käyttävät solmut vapautuvat.
+static var _color_mats := {}  # väri -> WeakRef(StandardMaterial3D)
+static var _color_added := 0
+
+
 static func mat(color: Color) -> StandardMaterial3D:
 	var key := color.to_html()
-	if not _mats.has(key):
-		var m := StandardMaterial3D.new()
+	var wr: WeakRef = _color_mats.get(key)
+	var m: StandardMaterial3D = wr.get_ref() if wr != null else null
+	if m == null:
+		m = StandardMaterial3D.new()
 		m.albedo_color = color
 		m.roughness = 0.85
-		_mats[key] = m
-	return _mats[key]
+		_color_mats[key] = weakref(m)
+		_color_added += 1
+		if _color_added % 2048 == 0:
+			for k in _color_mats.keys():
+				if (_color_mats[k] as WeakRef).get_ref() == null:
+					_color_mats.erase(k)
+	return m
 
 
 ## Materiaali, joka käyttää verteksiväriä (yhdistetyt meshit, MultiMeshit).
@@ -89,14 +102,23 @@ static func shader_mat(path: String, params := {}) -> ShaderMaterial:
 
 ## Primitiivimeshit jaetaan: samankokoinen laatikko, sylinteri tai pallo on yksi resurssi (ennen jokainen kutsu
 ## teki oman meshinsä: kymmeniätuhansia resursseja ja omat verteksipuskurit). Palautettua meshiä ei saa muokata.
-static var _prims := {}
+## Välimuisti pitää vain heikon viittauksen: mesh jaetaan niin kauan kuin jokin solmu käyttää sitä ja vapautuu
+## sen jälkeen. Ennen satunnaisen kokoiset (junamatkan maisemapuut, lätäköt) jäivät tänne pysyvästi (muistivuoto).
+static var _prims := {}  # avain -> WeakRef(PrimitiveMesh)
+static var _prims_added := 0
 
 
 static func _prim(key: String, make: Callable) -> PrimitiveMesh:
-	var m: PrimitiveMesh = _prims.get(key)
+	var wr: WeakRef = _prims.get(key)
+	var m: PrimitiveMesh = wr.get_ref() if wr != null else null
 	if m == null:
 		m = make.call()
-		_prims[key] = m
+		_prims[key] = weakref(m)
+		_prims_added += 1
+		if _prims_added % 4096 == 0:
+			for k in _prims.keys():
+				if (_prims[k] as WeakRef).get_ref() == null:
+					_prims.erase(k)
 	return m
 
 
@@ -572,6 +594,9 @@ class Batch:
 	static var disk := {}  # lisäysten tiiviste -> ArrayMesh
 	static var disk_new := 0
 	static var used := {}  # tällä käynnistyksellä käytetyt (vain ne tallennetaan: välimuisti ei kasva vanhoista)
+	## true vain kylän rakennuksen ajan (world.gd): muulloin koottuja meshejä ei pidetä tallessa. Ennen Vaalan
+	## jokainen uudelleenrakennus jätti eränsä tänne pysyvästi (muistivuoto).
+	static var record := false
 	const Terrain := preload("res://scripts/terrain.gd")
 
 	var lift := false  # true: jokainen piste nostetaan maaston korkeudelle (maailman rakennukset, aidat)
@@ -612,7 +637,8 @@ class Batch:
 	func commit() -> ArrayMesh:
 		var key := "%d_%d_%s" % [_h, _ops.size(), lift]
 		if disk.has(key):
-			used[key] = disk[key]
+			if record:
+				used[key] = disk[key]
 			return disk[key]
 		for op in _ops:
 			_add_now(op[0], op[1], op[2])
@@ -625,9 +651,10 @@ class Batch:
 		arr[Mesh.ARRAY_INDEX] = idx
 		var am := ArrayMesh.new()
 		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-		disk[key] = am
-		used[key] = am
-		disk_new += 1
+		if record:
+			disk[key] = am
+			used[key] = am
+			disk_new += 1
 		verts = PackedVector3Array()  # koottu: välitiedot pois muistista
 		norms = PackedVector3Array()
 		cols = PackedColorArray()
@@ -638,6 +665,8 @@ class Batch:
 	static func _arrays_for(m: PrimitiveMesh) -> Array:
 		var key := "%s:%s" % [m.get_class(), _mesh_key(m)]
 		if not _cache.has(key):
+			if _cache.size() > 3000:
+				_cache.clear()  # satunnaiset koot eivät kasvata tätä loputtomiin
 			_cache[key] = m.get_mesh_arrays()
 		return _cache[key]
 

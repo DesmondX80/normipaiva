@@ -329,7 +329,7 @@ func _glasses(g: Node3D, k: float) -> void:
 		tm.rings = 16
 		tm.ring_segments = 6
 		ring.mesh = tm
-		ring.material_override = B.mat(gold)
+		ring.material_override = B.mat(gold).duplicate()
 		(ring.material_override as StandardMaterial3D).metallic = 0.8
 		ring.rotation = Vector3(PI / 2.0, 0, 0)
 		ring.position = Vector3(s * 0.034, 0, 0)
@@ -559,7 +559,7 @@ func _on_head_hit(head: Vector3) -> void:
 	for i in 10:
 		var st := MeshInstance3D.new()
 		st.mesh = B.sphere(0.03, 6)
-		st.material_override = B.mat(Color(1.0, 0.9, 0.2))
+		st.material_override = B.mat(Color(1.0, 0.9, 0.2)).duplicate()
 		(st.material_override as StandardMaterial3D).emission_enabled = true
 		(st.material_override as StandardMaterial3D).emission = Color(1.0, 0.8, 0.1)
 		add_child(st)

@@ -356,13 +356,14 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 	var shaped := false
 	for k in shape:
 		shaped = shaped or absf(shape[k]) > 0.001
-	if _meshes.has(key):
-		return _meshes[key]
+	var live: ArrayMesh = (_meshes[key] as WeakRef).get_ref() if _meshes.has(key) else null
+	if live != null:
+		return live
 	var cache := _cache_path(key)
 	if FileAccess.file_exists(cache):
 		var cached := ResourceLoader.load(cache, "ArrayMesh", ResourceLoader.CACHE_MODE_IGNORE) as ArrayMesh
 		if cached != null and cached.get_surface_count() == mesh.get_surface_count():
-			_meshes[key] = cached
+			_meshes[key] = weakref(cached)
 			return cached
 	var out := ArrayMesh.new()
 	for s in mesh.get_surface_count():
@@ -413,7 +414,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 			arr[c] = null  # lisäkanavia ei tarvita
 		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], _source_lods(kind, mesh, s, verts.size()),
 			fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
-	_meshes[key] = out
+	_meshes[key] = weakref(out)  # heikko: Vaalan hahmojen vartalot vapautuvat Vaalan mukana (levyvälimuisti lataa)
 	DirAccess.make_dir_recursive_absolute(MESH_CACHE)
 	ResourceSaver.save(out, cache)
 	return out
