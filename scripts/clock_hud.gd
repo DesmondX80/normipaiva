@@ -1,7 +1,9 @@
 extends Control
 ## Vuorokausikello HUD:n vasemmassa yläkulmassa (Päivin lappu saa mennä päälle): 90-luvun digitaalinen rannekello (musta muovikehys, vihertävä
 ## LCD, 7-segmenttinumerot, sammuneet segmentit haaleina, kaksoispiste vilkkuu sekunnin tahdissa). Vasemmalla
-## päivän numero ja aurinko tai kuu vuorokaudenajan mukaan. main.gd asettaa minutes (0–1439) ja day.
+## viikonpäivä (MA–SU kuten rannekellon LCD:ssä), päivän numero ja aurinko tai kuu vuorokaudenajan mukaan. Juhannusaattona
+## viikonpäivän vieressä palaa kokko (lavalla juhannustanssit ja TV). main.gd asettaa minutes (0–1439), day, weekday
+## (0 = maanantai) ja juhannus.
 
 const SIZE := Vector2(212, 70)
 const CASE := Color(0.1, 0.1, 0.11)
@@ -14,6 +16,9 @@ const DIGITS := ["abcdef", "bc", "abdeg", "abcdg", "bcfg", "acdfg", "acdefg", "a
 
 var minutes := 480.0
 var day := 1
+var weekday := 0
+var juhannus := false
+const WEEKDAY_ABBR := ["MA", "TI", "KE", "TO", "PE", "LA", "SU"]
 
 
 func _ready() -> void:
@@ -41,8 +46,13 @@ func _draw() -> void:
 	# Vasen sarake: päivä ja aurinko/kuu.
 	var h := int(minutes) / 60
 	var m := int(minutes) % 60
-	draw_string(font, lcd.position + Vector2(6, 15), "PV", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
-	draw_string(font, lcd.position + Vector2(6, 35), str(day), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
+	draw_string(font, lcd.position + Vector2(5, 15), WEEKDAY_ABBR[clampi(weekday, 0, 6)], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK)
+	draw_string(font, lcd.position + Vector2(6, 36), "PV" + str(day), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+	if juhannus:
+		# Kokko: pieni liekki viikonpäivän oikealla puolella.
+		var f := lcd.position + Vector2(29, 12)
+		draw_colored_polygon(PackedVector2Array([f + Vector2(-3, 3), f + Vector2(0, -6), f + Vector2(3, 3)]), INK)
+		draw_line(f + Vector2(-4, 4), f + Vector2(4, 4), INK, 1.5)
 	var icon := lcd.position + Vector2(46, 21)
 	if h >= 5 and h < 22:
 		draw_circle(icon, 5.0, INK)

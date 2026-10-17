@@ -14859,6 +14859,8 @@ func _update_hud() -> void:
 	_stats.text = "\n".join(lines)
 	_clock_hud.minutes = clock_min
 	_clock_hud.day = day
+	_clock_hud.weekday = _weekday()
+	_clock_hud.juhannus = _juhannus()
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
 	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "lava", "mopokisa", "cutscene"])
