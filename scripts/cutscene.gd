@@ -1742,8 +1742,8 @@ const TRAIN_POS := Vector3(-12000, 0, -9000)  # oma tasku (ennen sama kuin autot
 const Train := preload("res://scripts/train.gd")
 var train_cast := {}  # ravintolavaunun hahmot (testikuvat)
 ## Käden luun akselit (Quaternius): Y sormia kohti; PALM_AXIS = akseli, joka osoittaa kämmenestä ulos.
-const PALM_AXIS := 2  # 0 = X, 2 = Z
-const PALM_SIGN := 1.0
+const PALM_AXIS := 0  # 0 = X, 2 = Z
+const PALM_SIGN := -1.0
 
 
 ## Käden asento hahmon avaruudessa: sormet suuntaan fingers (vaakataso), kämmen alas.
@@ -1754,6 +1754,59 @@ static func _palm_down(fingers: Vector3) -> Basis:
 	if PALM_AXIS == 2:
 		return Basis(other, y, palm).orthonormalized()
 	return Basis(palm, y, -other).orthonormalized()
+
+
+## Hahmon pinnan pisteet (space-solmun avaruudessa), joiden pääluu on bones-listassa (esim. reisi ja sääri). Verkko
+## paistetaan nykyasentoon, ja housujen pöyhennys (pants_puff, varjostin) lisätään, jotta käsi ja jalat
+## sovitetaan näkyvään pintaan eikä luuhun kiinteällä välillä (tuulipuku on paksumpi kuin farkut).
+static func _limb_points(ch: Node3D, space: Node3D, bones: Array) -> PackedVector3Array:
+	var pp: Variant = ch.body_mat.get_shader_parameter("pants_puff")
+	var puff: float = pp if pp != null else 0.014  # varjostimen oletus
+	var skel: Skeleton3D = ch.skeleton
+	var out := PackedVector3Array()
+	for mi in skel.get_children():
+		if not mi is MeshInstance3D or (mi as MeshInstance3D).skin == null:
+			continue
+		var src: Array = (mi as MeshInstance3D).mesh.surface_get_arrays(0)
+		var arr: Array = (mi as MeshInstance3D).bake_mesh_from_current_skeleton_pose().surface_get_arrays(0)
+		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var ns: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+		var bi: PackedInt32Array = src[Mesh.ARRAY_BONES]
+		var bw: PackedFloat32Array = src[Mesh.ARRAY_WEIGHTS]
+		var cs: PackedColorArray = src[Mesh.ARRAY_COLOR] if src[Mesh.ARRAY_COLOR] != null else PackedColorArray()
+		if vs.is_empty() or bi.size() % vs.size() != 0:
+			continue
+		var per := bi.size() / vs.size()
+		var sk: Skin = (mi as MeshInstance3D).skin
+		var want := {}
+		for bind in sk.get_bind_count():
+			var nm := str(sk.get_bind_name(bind))
+			if nm == "":
+				nm = skel.get_bone_name(sk.get_bind_bone(bind))
+			if nm in bones:
+				want[bind] = true
+		var xf: Transform3D = mi.global_transform
+		for v in vs.size():
+			var best := 0
+			for k in per:
+				if bw[v * per + k] > bw[v * per + best]:
+					best = k
+			if not want.has(bi[v * per + best]):
+				continue
+			var pants := cs.size() == vs.size() and roundi(cs[v].r * 4.0) == 2
+			out.append(space.to_local(xf * (vs[v] + ns[v] * (puff if pants else 0.0))))
+	return out
+
+
+## Pinnan yläreuna (suurin y) kohdan p kohdalla: pisteet vaakasäteellä r. -INF, jos kohdalla ei ole pintaa.
+static func _top_y(pts: PackedVector3Array, p: Vector3, r := 0.03) -> float:
+	var top := -INF
+	for q in pts:
+		if Vector2(q.x - p.x, q.z - p.z).length() < r:
+			top = maxf(top, q.y)
+	return top
+
+
 ## Naismatkustajat iltajunassa juhlatamineissa 90-luvun tapaan: Marjalla musta hihaton satiininen slip-mekko,
 ## Liisalla valkoinen napapaita ja farkkuminihame, Helenalla punainen olkaimeton bodycon-minimekko, korkokengät
 ## ja kultaiset rengaskorvakorut (_hoops).
@@ -1879,14 +1932,32 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			var hl: Node3D = cast.helena
 			var hero: Node3D = cast["minä"]
 			var hdt := get_process_delta_time()
+			if not hand.has("thigh"):
+				# Pelaajan vasen reisi (käden alusta) ja vierekkäiset jalat (Helenan liukuma) mitataan pinnasta kerran.
+				hand.thigh = _limb_points(hero, car, ["thigh_l", "calf_l"])
+				var gap := INF
+				var legs := ["thigh_l", "calf_l", "thigh_r", "calf_r"]
+				var hl_leg := _limb_points(hl, car, legs)
+				var hero_leg := _limb_points(hero, car, legs)
+				if not hl_leg.is_empty() and not hero_leg.is_empty():
+					# Helena istuu -X:n puolella: väli = pelaajan jalan vasen reuna - Helenan jalan oikea reuna.
+					var hero_min := INF
+					var hl_max := -INF
+					for q in hero_leg:
+						hero_min = minf(hero_min, q.x)
+					for q in hl_leg:
+						hl_max = maxf(hl_max, q.x)
+					gap = hero_min - hl_max
+				hand.near = clampf(gap - 0.015, 0.0, 0.3)
 			if net:
-				# Verkkopaidassa Helena painautuu kiinni: liukuu penkillä viereen, kallistuu ja nojaa päänsä olalle.
+				# Verkkopaidassa Helena painautuu kiinni: liukuu penkillä viereen (jalat vierekkäin, ei sisäkkäin),
+				# kallistuu ja nojaa päänsä olalle.
 				if not hand.has("h0"):
 					hand.h0 = hl.position
 				var lean := smoothstep(0.0, 1.0, minf(1.0, hand.w * 0.6 + hand.slide * 0.6))
 				var toward: Vector3 = hero.position - (hand.h0 as Vector3)
 				toward.y = 0.0
-				hl.position = (hand.h0 as Vector3) + toward.normalized() * 0.3 * lean
+				hl.position = (hand.h0 as Vector3) + toward.normalized() * float(hand.near) * lean
 				hl.set_override("spine_02", Vector3(0, 0, 1), -0.22 * lean)
 				hl.set_override("neck_01", Vector3(0, 0, 1), -0.35 * lean)
 			if hand.w == 0.0:
@@ -1911,8 +1982,16 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			# Perillä käsi sivelee reiden päällä hitaasti edestakaisin.
 			var at_t := lerpf(0.96, 0.8, hs) + (0.07 * sin((t - hand.stroke0) * 1.3) if hand.slide >= 1.0 else 0.0)
 			var on_thigh := Vector3.ZERO
+			var fore_g: Vector3 = hl.to_global(hl.bone_position("hand_r")) - elbow
+			var flat_g := Vector3(fore_g.x, 0.0, fore_g.z).normalized()
 			while true:
-				on_thigh = hip.lerp(knee, at_t) + Vector3(0, 0.12 + 0.02 * sin(hs * PI), 0) + side * lerpf(0.05, 0.015, hs)
+				on_thigh = hip.lerp(knee, at_t) + side * lerpf(0.05, 0.015, hs)
+				# Kämmen reiden pinnalle: ranteen ja kämmenen kohdalta korkein pinta + kämmenen paksuus (ranneluu on
+				# käden keskellä), liu'ussa hieman irti.
+				var lc: Vector3 = car.to_local(on_thigh)
+				var top := maxf(_top_y(hand.thigh, lc), _top_y(hand.thigh, lc + car.global_basis.inverse() * flat_g * 0.06))
+				on_thigh.y = (car.to_global(Vector3(lc.x, top, lc.z)).y if top > -INF else on_thigh.y + 0.12) \
+					+ 0.022 + 0.012 * sin(hs * PI)
 				if on_thigh.distance_to(sh) <= reach or at_t <= 0.45:
 					break
 				at_t -= 0.03
