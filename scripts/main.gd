@@ -952,6 +952,7 @@ var smoker_burnt := 0.0  # 1 = karrella
 
 
 func _ready() -> void:
+	_ajastus("moottori ja skriptit")  # yht. = moottorin käynnistys, skriptien käännös ja main.tscn:n lataus
 	randomize()
 	_setup_input()
 	_setup_environment()
@@ -1233,6 +1234,7 @@ func _loading_show() -> void:
 
 ## Rakennusvaihe: teksti ja palkki päivittyvät, ja odotetaan kaksi ruutua, jotta ne ehtivät näkyä.
 var _loading_step := func(text: String, frac: float) -> void:
+	_ajastus("  " + text)  # edellinen vaihe valmis
 	_loading_text.text = text + "..."
 	_loading_bar.value = frac * 100.0
 	await get_tree().process_frame

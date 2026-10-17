@@ -260,7 +260,24 @@ func _drive_ellipse(c: Vector2, rx: float, rz: float) -> void:
 	_drive_poly(pts, 0.0)
 
 
+## Saman istunnon seuraavat mopomatkat: Vaala vapautetaan Saloisissa ja rakennetaan uudelleen, ja rakennus on
+## siemennettyä ja siis joka kerta sama, joten ajoalue (0,23 s) ja makasiinin paikka lasketaan vain kerran.
+static var _memo := {}
+
+
 func _build_drive_mask() -> void:
+	if _memo.has("drive"):
+		var m: Array = _memo.drive
+		_dnx = m[0]
+		_dnz = m[1]
+		_drive = (m[2] as PackedByteArray).duplicate()
+		_surf = (m[3] as PackedByteArray).duplicate()
+		return
+	_build_drive_mask_calc()
+	_memo.drive = [_dnx, _dnz, _drive.duplicate(), _surf.duplicate()]
+
+
+func _build_drive_mask_calc() -> void:
 	var t0 := Time.get_ticks_msec()
 	_dnx = int(_nx * _cell / DRIVE_CELL) + 1
 	_dnz = int(_nz * _cell / DRIVE_CELL) + 1
@@ -2719,7 +2736,10 @@ func _build_makasiini(station: Node3D, station_l: float, c: Vector2) -> void:
 	var fp := Makasiini.FOOTPRINT
 	var best := Transform3D()
 	var best_base := INF
-	for gap in [6.0, 10.0, 15.0, 22.0, 30.0, 40.0]:
+	if _memo.has("makasiini"):
+		best = _memo.makasiini[0]
+		best_base = _memo.makasiini[1]
+	for gap in ([] if best_base != INF else [6.0, 10.0, 15.0, 22.0, 30.0, 40.0]):
 		for side in [-1.0, 1.0]:
 			for dz in [0.0, 3.0, 6.0, -3.0]:
 				var x: float = side * (station_l / 2.0 + gap + Makasiini.L / 2.0 + 1.0)
@@ -2753,6 +2773,7 @@ func _build_makasiini(station: Node3D, station_l: float, c: Vector2) -> void:
 	if best_base == INF:
 		push_warning("Vaalan makasiinille ei löytynyt paikkaa aseman vierestä")
 		return
+	_memo.makasiini = [best, best_base]
 	var root := Node3D.new()
 	root.transform = Transform3D(best.basis, Vector3(best.origin.x, best_base + 0.05, best.origin.z))
 	add_child(root)
