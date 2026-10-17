@@ -10945,7 +10945,8 @@ func _start_mopo() -> void:
 	walker_out.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_ensure_mopo_trip()
-	mokki.mopo_parked.visible = false
+	if mokki.mopo_parked != null:  # mökki rakentuu vasta ensikäynnillä
+		mokki.mopo_parked.visible = false
 	walker_out.visible = false
 	mopo_trip.start("siitari", tilat.value("humala"))
 	_ratsia_roll()
@@ -11509,7 +11510,8 @@ func _on_mopo_crashed(reason: String) -> void:
 
 func _mopo_restore_hud() -> void:
 	_in_vaala = false
-	mokki.mopo_parked.visible = true
+	if mokki.mopo_parked != null:
+		mokki.mopo_parked.visible = true
 	_mopo_label.visible = false
 	_compass.cache_text = ""
 	_compass.has_cache = false
@@ -16107,7 +16109,8 @@ func _maybe_screenshot() -> void:
 			# Pakotetaan voitto: kolme kelloa.
 			hg._phase = "idle"
 			var bell: int = hg._strip.find("kello")
-			hg._pos = [float(bell), float(bell), float(bell)]
+			for r in 3:
+				hg._pos[r] = float(bell)
 			hg._resolve()
 			await snap.call("_h_voitto.png", 8)
 			hg._double("suuri")
@@ -16117,7 +16120,7 @@ func _maybe_screenshot() -> void:
 			await snap.call("_h_kolikot.png", 50)
 			hg._phase = "idle"
 			hg._lock_ok = true
-			hg._locked = [true, false, true]
+			hg._locked.assign([true, false, true])
 			hg._msg = "LUKITSE?"
 			await snap.call("_h_lukko.png", 5)
 			# Palautusprosentti: 20 000 kierrosta ilman lukitusta ja tuplausta.
@@ -16126,7 +16129,7 @@ func _maybe_screenshot() -> void:
 			for k in 20000:
 				for r in 3:
 					hg._pos[r] = float(randi() % hg._strip.size())
-				hg._locked = [false, false, false]
+				hg._locked.fill(false)
 				hg._resolve()
 				spent += 1.0
 				won += hg._win

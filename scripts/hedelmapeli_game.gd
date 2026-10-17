@@ -318,9 +318,13 @@ func _finish() -> void:
 
 # --- Piirto -------------------------------------------------------------------
 
+## Kaappi piirretään 600 x 800 -kehykseen, joka skaalataan ruudun korkeuteen (ylhäällä otsikko, alhaalla vinkki ja napit).
+var _k := 1.0
+
+
 func _cab() -> Rect2:
-	var sz := _root.size
-	return Rect2(Vector2(sz.x / 2.0 - 300, sz.y / 2.0 - 400), Vector2(600, 800))
+	var vs := _root.size / _k
+	return Rect2(Vector2(vs.x / 2.0 - 300, 62.0 / _k), Vector2(600, 800))
 
 
 func _reel_rect(r: int) -> Rect2:
@@ -337,9 +341,10 @@ func _draw_root() -> void:
 	var sz := _root.size
 	var font := ThemeDB.fallback_font
 	_draw_bar_wall(sz)
+	_k = minf(1.0, (sz.y - 170.0) / 800.0)
 	var cab := _cab()
 	var sh := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake * 4.0
-	_root.set_transform(Transform2D(0.0, sh))
+	_root.draw_set_transform_matrix(Transform2D(0.0, Vector2(_k, _k), 0.0, sh))
 	_root.draw_rect(Rect2(cab.position + Vector2(20, cab.size.y - 10), Vector2(cab.size.x - 40, sz.y)), Color(0.04, 0.03, 0.03, 0.7))
 	# Kaappi: musta lakkapinta, kromireunat ja punaiset sivupaneelit.
 	MG.box(_root, cab, Color(0.08, 0.08, 0.1), 22, 16, MG.OUTLINE, 3)
@@ -372,7 +377,7 @@ func _draw_root() -> void:
 	MG.sparks_draw(_root, _sparks)
 	if _phase == "tupla" or (_phase == "win" and _card > 0 and _card_t > 0.0):
 		_draw_card(Vector2(cab.end.x + 30, cab.position.y + 380), font)
-	_root.set_transform(Transform2D.IDENTITY)
+	_root.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
 func _draw_bar_wall(sz: Vector2) -> void:
@@ -434,7 +439,7 @@ func _draw_reel(r: int, _font: Font) -> void:
 	var blur: bool = not _stopped[r] and _spin_t > 0.1 and _spin_t < STOP_AT[r] - 0.25
 	for k in range(-2, 3):
 		var y := rr.get_center().y - (k - frac) * SYM_H
-		if y < rr.position.y - SYM_H * 0.5 or y > rr.end.y + SYM_H * 0.5:
+		if absf(y - rr.get_center().y) > rr.size.y * 0.5 - 20.0:  # ei rullan reunan yli
 			continue
 		var sym: String = _strip[(int(base) + k + n * 8) % n]
 		var squash := 1.0 - absf(y - rr.get_center().y) / (rr.size.y * 0.9)

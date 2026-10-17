@@ -59,6 +59,7 @@ func ensure_built() -> void:
 func start(to: String, drunk := 0.0) -> void:
 	ensure_built()
 	target = to
+	_resume_frame = Engine.get_process_frames()  # Siitarin ovesta ulos tullut E ei saa viedä heti takaisin sisälle
 	if mopo == null:
 		mopo = Mopo.new()
 		mopo.vaala = vaala
