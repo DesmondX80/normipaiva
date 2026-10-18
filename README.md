@@ -508,13 +508,13 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Päiväkirja (O)** ei paljasta mitään etukäteen: luku näkyy, kun siihen päästään, vaihe, kun siitä on kuultu, ja
   sivutehtävä, kun siitä on kerrottu. Uusista vihjeistä tulee ilmoitus "Päiväkirjaan tuli uutta".
 - **Onnelliset loput** (päivä päättyy loppukohtaukseen): juhlat autotallissa, viinibileet, laavulla kaljoilla,
-  legendaarinen normipäivä ja mökkibileet. Ilmoitus "ONNELLINEN LOPPU".
+  legendaarinen normipäivä, mökkibileet ja erämaan laavu (Viitajärven laavu auringonlaskussa). Ilmoitus "ONNELLINEN LOPPU".
 - **Legendaariset hetket** (saavutukset, peli jatkuu): Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit,
-  karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas,
-  erämaan laavu ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
+  karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas
+  ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
   Ukko, Ukko vapaaksi). Ilmoitus "LEGENDAARINEN HETKI".
-- Päiväkirjan Loput-välilehdellä onnelliset loput vasemmalla (X / 5, kerrat yhteensä) ja legendaariset hetket oikealla
-  (X / 16, tähtirivi), löytämättömät ???. Testi `--scene=paivakirja`.
+- Päiväkirjan Loput-välilehdellä onnelliset loput vasemmalla (X / 6, kerrat yhteensä) ja legendaariset hetket oikealla
+  (X / 15, tähtirivi), löytämättömät ???. Testi `--scene=paivakirja`.
 
 ## Jalan vai pyörällä?
 

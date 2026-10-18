@@ -31,7 +31,7 @@ const ENDINGS := [
 
 ## Oikeat onnelliset loput: päivä päättyy loppukohtaukseen (juhlat tallissa, viinibileet, laavu). Muut ovat
 ## legendaarisia hetkiä: saavutuksia, joiden jälkeen peli jatkuu.
-const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet"]
+const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet", "eramaan_laavu"]
 
 var counts := {}  # id -> kerrat
 var first_day := {}  # id -> päivä, jolloin saatu ensimmäisen kerran

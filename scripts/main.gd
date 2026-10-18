@@ -4041,8 +4041,7 @@ func _eramaa_logic() -> void:
 				tilat.add("moraali", 0.2)
 				Sfx.play("glass", -4.0, 0.9)
 				if sausage_done:
-					_ending("eramaan_laavu")
-					_show_message("Nuotio, makkara ja kalja Viitajärven laavulla. Kukaan ei tiedä, missä oot. Tätä se on.", 5.0)
+					_win_eramaa()
 				else:
 					_show_message("Kalja nuotiolla. Makkaraa ois kiva paistaa (K-Market).", 3.0)
 		else:
@@ -12757,6 +12756,27 @@ func _win_laavu() -> void:
 	cutscene.laavu_sunset(M.w(M.LAAVU), world.fire, title, stats, func() -> void: _new_day(_nearest_safe(), false))
 
 
+## Erämaan laavu: nuotio, makkara ja kalja Viitajärven laavulla. Onnellinen loppu: auringonlasku järven yllä
+## (sama loppukohtaus kuin Antinsuon laavulla) ja uusi päivä.
+func _win_eramaa() -> void:
+	state = "cutscene"
+	player.controls_enabled = false
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	if not Sfx.has_music():
+		Sfx.play("win")
+	var drunk := beers + 1
+	_drink(mini(drunk, 6))
+	var stats := "Nuotio ✔  ·  Makkara ✔  ·  Kaljoja juotiin %d  ·  Viitajärvi tyyni, kukaan ei tiedä missä oot  ·  %s" % [drunk,
+		_ending_line("eramaan_laavu")]
+	beers = 0
+	player.set_carrying(false)
+	_save_game()
+	_viita_find_shore()
+	cutscene.laavu_sunset(world.viita_pos, world.viita_fire, "ERÄMAAN LAAVU!", stats, func() -> void: _new_day(_nearest_safe(), false),
+		_viita_dir)
+
+
 # --- Tapahtumat --------------------------------------------------------------
 
 func _enter_shop() -> void:
@@ -20614,8 +20634,16 @@ func _maybe_screenshot() -> void:
 			await frames.call(3)
 			print("ER kalja: '%s'" % _hint.text)
 			await press.call("interact")
-			print("ER loppu %s, loput %d/%d" % [endings.counts.has("eramaan_laavu"), endings.distinct(), Endings.max_count()])
-			await view.call("_laavu.png", vp + Vector3(5, 2.5, -5), vp + Vector3(0, 0.6, 2))
+			print("ER loppu %s (onnellinen %s), loput %d/%d, tila %s" % [endings.counts.has("eramaan_laavu"), Endings.is_loppu("eramaan_laavu"),
+				endings.distinct("loppu"), Endings.max_count("loppu"), state])
+			for i in 240:  # loppukohtaus: kuva auringonlaskusta
+				await get_tree().process_frame
+			await snap.call("_eramaa_loppu.png")
+			for i in 1200:
+				if state != "cutscene":
+					break
+				await get_tree().process_frame
+			print("ER uusi päivä %d, tila %s" % [day, state])
 			_viita_find_shore()
 			print("ER ranta %s, suunta %s" % [_viita_shore, _viita_dir])
 			await at.call(_viita_shore)
