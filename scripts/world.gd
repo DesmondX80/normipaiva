@@ -1741,19 +1741,31 @@ func _build_eramaa() -> void:
 		st.scale = Vector3(1.2, 0.7, 1.0)
 	viita_pos = root.to_global(Vector3(0, 0, -1.0))
 	viita_pos.y = T.h(viita_pos.x, viita_pos.z)
-	viita_fire = Node3D.new()
-	viita_fire.position = Vector3(0, 0, -1.0)
-	root.add_child(viita_fire)
-	for k in 3:
-		var fl := B.mesh(viita_fire, B.cyl(0.0, 0.28 - k * 0.07, 0.7 + k * 0.15, 8), Vector3(0, 0.35 + k * 0.05, 0), [Color(1.0, 0.45, 0.1), Color(1.0, 0.7, 0.2), Color(1.0, 0.9, 0.5)][k])
-		fl.material_override = B.unshaded([Color(1.0, 0.45, 0.1), Color(1.0, 0.7, 0.2), Color(1.0, 0.9, 0.5)][k])
-	var fire_light := OmniLight3D.new()
-	fire_light.position = Vector3(0, 0.8, 0)
-	fire_light.light_color = Color(1.0, 0.6, 0.3)
-	fire_light.light_energy = 1.6
-	fire_light.omni_range = 7.0
-	viita_fire.add_child(fire_light)
+	viita_fire = _campfire(root, Vector3(0, 0, -1.0))
 	viita_fire.visible = false
+	# Istuinpölkky tulen länsipuolelle: laavun loppukohtauksessa (cutscene.laavu_sunset) hahmo istuu tässä.
+	var seat := viita_pos + Vector3(-2.1, 0, 0)
+	var stump := Node3D.new()
+	stump.name = "ViitaStump"
+	root.add_child(stump)  # laavun osat ovat root-solmun lapsia (suoraan maailmaan lisätty jäi näkymättä)
+	var sl := root.to_local(Vector3(seat.x, 0, seat.z))
+	stump.position = Vector3(sl.x, 0, sl.z)  # rootin maataso (root lasketaan maahan vasta rakennuksen jälkeen)
+	B.mesh(stump, B.cyl(0.24, 0.27, 0.42, 14), Vector3(0, 0.21, 0), Color(0.36, 0.26, 0.17))  # kaarna
+	B.mesh(stump, B.cyl(0.215, 0.215, 0.02, 14), Vector3(0, 0.425, 0), Color(0.78, 0.64, 0.42))  # sahattu pinta
+	for r in [0.07, 0.13, 0.18]:  # vuosirenkaat
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = r - 0.006
+		tm.outer_radius = r
+		ring.mesh = tm
+		ring.material_override = B.unshaded(Color(0.6, 0.45, 0.28))
+		ring.position.y = 0.437
+		ring.scale = Vector3(1, 0.1, 1)
+		stump.add_child(ring)
+	for k in 4:  # kaarnan halkeamat
+		var a := k * TAU / 4.0 + 0.4
+		B.mesh(stump, B.boxm(Vector3(0.02, 0.36, 0.03)), Vector3(cos(a) * 0.255, 0.2, sin(a) * 0.255), Color(0.22, 0.16, 0.1),
+			Vector3(0, -rad_to_deg(a), 0))
 	for k in 6:  # halkopino
 		B.mesh(root, B.cyl(0.09, 0.09, 0.6, 8), Vector3(2.6, 0.1 + (k / 3) * 0.17, 1.5 + (k % 3) * 0.18), wood.lightened(0.15), Vector3(90, 0, 0))
 	var sign := B.sign_plate(root, "VIITAJÄRVEN LAAVU", Color(0.36, 0.2, 0.1), Color(0.98, 0.95, 0.86), 0.25, 40, Color(0.98, 0.95, 0.86),
@@ -3929,13 +3941,101 @@ func _build_bales() -> void:
 
 
 func _process_fire() -> void:
-	if fire == null or not fire.visible:
-		return
 	var t := Time.get_ticks_msec() * 0.001
-	for k in 5:
-		var fl: Node3D = fire.get_node("Flame%d" % k)
-		fl.scale = Vector3(1.0, 0.8 + 0.35 * absf(sin(t * (5.0 + k) + k)), 1.0)
-	(fire.get_node("Glow") as OmniLight3D).light_energy = 2.2 + 0.6 * sin(t * 13.0) * sin(t * 7.3)
+	if fire != null and fire.visible:
+		for k in 5:
+			var fl: Node3D = fire.get_node("Flame%d" % k)
+			fl.scale = Vector3(1.0, 0.8 + 0.35 * absf(sin(t * (5.0 + k) + k)), 1.0)
+		(fire.get_node("Glow") as OmniLight3D).light_energy = 2.2 + 0.6 * sin(t * 13.0) * sin(t * 7.3)
+	if viita_fire != null and viita_fire.visible:
+		for c in viita_fire.get_children():
+			if c.name.begins_with("Flame"):
+				var k := int(c.name.trim_prefix("Flame"))
+				c.scale = Vector3(1.0 + 0.08 * sin(t * 9.0 + k), 0.75 + 0.4 * absf(sin(t * (4.5 + k * 0.7) + k * 1.7)), 1.0)
+		(viita_fire.get_node("Glow") as OmniLight3D).light_energy = 2.0 + 0.7 * sin(t * 12.0) * sin(t * 6.1)
+
+
+## Nuotio tulisijaan: ristikkäin palavat halot hiiltyneine päineen (aina näkyvissä) ja palava osa omana solmunaan
+## (palauttaa sen; piilossa kunnes sytytetään): hehkuva hiillos, kerrokselliset liekit (punainen ulkona, keltainen
+## ytimessä, nimet Flame* välkyntää varten), lämmin valo (Glow), kipinät ja savu.
+func _campfire(parent: Node3D, at: Vector3) -> Node3D:
+	var wood := Color(0.48, 0.34, 0.2)
+	var char_c := Color(0.12, 0.1, 0.09)
+	for k in 5:  # halot kekoon: tyvet ulkona, palaneet päät keskellä
+		var a := k * TAU / 5.0 + 0.3
+		var dir := Vector3(cos(a), 0, sin(a))
+		var outer := at + dir * 0.55 + Vector3(0, 0.08, 0)
+		var inner := at + dir * 0.08 + Vector3(0, 0.32, 0)
+		B.tube(parent, outer, outer.lerp(inner, 0.6), 0.055, wood)
+		B.tube(parent, outer.lerp(inner, 0.6), inner, 0.05, char_c)
+		B.mesh(parent, B.cyl(0.055, 0.055, 0.01, 8), outer - dir * 0.0, wood.lightened(0.25), Vector3(0, -rad_to_deg(a), 90))  # sahattu tyvi
+	var f := Node3D.new()
+	f.position = at
+	parent.add_child(f)
+	var ember := B.mesh(f, B.cyl(0.32, 0.36, 0.06, 14), Vector3(0, 0.03, 0), Color(1.0, 0.35, 0.08))
+	ember.material_override = B.unshaded(Color(1.5, 0.4, 0.08))
+	for k in 7:  # hehkuvat hiilet
+		var a := k * 2.3
+		var c := B.mesh(f, B.sphere(0.05 + (k % 3) * 0.015, 6), Vector3(cos(a) * 0.2, 0.07, sin(a) * 0.2), Color(1, 0.5, 0.1))
+		c.material_override = B.unshaded(Color(1.8, 0.5 + (k % 2) * 0.3, 0.1))
+	var layers := [[0.3, 0.95, Color(1.5, 0.28, 0.06)], [0.22, 0.8, Color(1.7, 0.55, 0.1)], [0.13, 0.6, Color(1.9, 0.95, 0.35)]]
+	var n := 0
+	for li in layers.size():
+		var L: Array = layers[li]
+		for k in 3:
+			var a := k * TAU / 3.0 + li * 0.7
+			var fl := MeshInstance3D.new()
+			fl.mesh = B.cyl(0.0, L[0] * (0.7 + 0.15 * k), L[1] * (0.85 + 0.12 * k), 7)
+			var mat := B.unshaded(L[2])
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			mat.albedo_color.a = 0.9 - li * 0.1
+			fl.material_override = mat
+			fl.position = Vector3(cos(a) * 0.08 * (2 - li), 0.06 + L[1] * 0.45, sin(a) * 0.08 * (2 - li))
+			fl.name = "Flame%d" % n
+			n += 1
+			f.add_child(fl)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.55, 0.2)
+	glow.light_energy = 2.2
+	glow.omni_range = 8.0
+	glow.position.y = 0.7
+	glow.name = "Glow"
+	f.add_child(glow)
+	var sparks := CPUParticles3D.new()
+	sparks.amount = 24
+	sparks.lifetime = 1.6
+	sparks.direction = Vector3.UP
+	sparks.spread = 18.0
+	sparks.initial_velocity_min = 1.2
+	sparks.initial_velocity_max = 2.4
+	sparks.gravity = Vector3(0.2, 0.3, 0)
+	sparks.scale_amount_min = 0.5
+	sparks.scale_amount_max = 1.0
+	sparks.position.y = 0.5
+	var spm := SphereMesh.new()
+	spm.radius = 0.018
+	spm.height = 0.036
+	spm.material = B.unshaded(Color(2.0, 0.8, 0.2))
+	sparks.mesh = spm
+	f.add_child(sparks)
+	var smoke := CPUParticles3D.new()
+	smoke.amount = 26
+	smoke.lifetime = 3.2
+	smoke.direction = Vector3.UP
+	smoke.spread = 12.0
+	smoke.initial_velocity_min = 0.5
+	smoke.initial_velocity_max = 1.0
+	smoke.gravity = Vector3(0.3, 0.2, 0)
+	smoke.scale_amount_min = 0.4
+	smoke.scale_amount_max = 1.5
+	smoke.position.y = 1.1
+	var sm := SphereMesh.new()
+	sm.radius = 0.25
+	sm.height = 0.5
+	sm.material = B.unshaded(Color(0.6, 0.6, 0.62, 0.22))
+	smoke.mesh = sm
+	f.add_child(smoke)
+	return f
 
 
 # --- Puut --------------------------------------------------------------------
