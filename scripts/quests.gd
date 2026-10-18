@@ -47,6 +47,8 @@ const CHAPTERS := [
 			"hint": "flag:aarni_heard"},
 		{"id": "kertun", "text": "Kertunkankaan rauta: kodan Raimon mukaan viimeinen seppä kätki kirveensä kankaalle.",
 			"done": "flag:kertun_done", "hint": "flag:kertun_heard"},
+		{"id": "ukko", "text": "Tekojärven Ukko: Taunon mukaan tekojärven pohjalla, vanhan ladon raunioilla, elää valtava hauki.",
+			"done": "flag:ukko_done", "hint": "flag:ukko_heard"},
 	]},
 ]
 const STORY_MORE := "Tarina jatkuu…"

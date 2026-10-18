@@ -735,6 +735,13 @@ func _draw_map() -> void:
 	v.draw_arc(kk, 4.5, 0, TAU, 12, Color(0.4, 0.2, 0.08), 1.5)
 	v.draw_circle(kk, 1.5, Color(0.4, 0.2, 0.08))
 	v.draw_string(font, kk + Vector2(9, 4), "Kertunkankaan kehäröykkiöt", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.35, 0.2, 0.08))
+	if game != null and game.ukko != null and game.ukko.spotted and not game.ukko.caught:  # Ukon varjo iltakuvasta
+		var us: Array = game._kala_spot("tekojarvi")
+		if not us.is_empty():
+			var up := _px(M.to_px(us[0] + (us[1] as Vector3) * 16.0))
+			v.draw_arc(up, 7.0, 0, TAU, 18, Color(0.1, 0.25, 0.45), 1.5)
+			v.draw_arc(up, 3.0, 0, TAU, 12, Color(0.1, 0.25, 0.45), 1.0)
+			v.draw_string(font, up + Vector2(11, 4), "Ukon varjo (ilmakuva)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.08, 0.2, 0.4))
 	if game != null and game.kertun != null and game.kertun.spotted and not game.kertun.found:  # kivirivi ilmakuvasta
 		var ka := _px(game.KertunRauta.RIVI_A)
 		var kb := _px(game.KertunRauta.ISOKIVI)
