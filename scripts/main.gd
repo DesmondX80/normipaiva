@@ -25981,6 +25981,50 @@ func _maybe_screenshot() -> void:
 			print("MDROONI järveen: broken=%s msg=%s" % [drone_broken_day == day, _msg.text])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"laavut":
+			# Kaikki laavut ja nuotiopaikat iltapäivän valossa, nuotiot palamassa: Antinsuonkangas, Viitajärvi,
+			# Kiilinlammen grillikatos, Haapajärven kota, Keskimmäisen laavu (mökki) ja Vaalan laavu. Kuvat _laavu_*.
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.fov = 55.0
+			var shot := func(name: String, pit: Vector3, toward: Vector3) -> void:
+				var t := Vector3(toward.x, 0, toward.z).normalized()
+				for k in 2:
+					var side := t.cross(Vector3.UP) * (1.0 if k == 0 else -1.0)
+					var eye := pit - t * 6.5 + side * 4.0 + Vector3(0, 3.0, 0)
+					cam.global_position = eye
+					cam.look_at(pit + t * 1.0 + Vector3(0, 0.8, 0), Vector3.UP)
+					cam.current = true
+					for i in 12:
+						await get_tree().process_frame
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_laavu_%s_%d.png" % [name, k]))
+			_hud.visible = false
+			clock_min = 17 * 60.0
+			for i in 5:
+				await get_tree().process_frame
+			world.fire.visible = true
+			world.viita_fire.visible = true
+			_viita_fire_day = day  # erämaan logiikka näyttää nuotion vain sytytyspäivänä
+			var ap: Vector3 = M.w(M.LAAVU)
+			await shot.call("antinsuo", ap, Vector3(0, 0, 1))
+			var vt := M.w2(M.VIITAJARVI) - M.w2(M.VIITA_LAAVU)
+			await shot.call("viita", world.viita_pos, Vector3(-vt.x, 0, -vt.y))
+			await shot.call("grillikatos", M.w(M.GRILLIKATOS), Vector3(1, 0, 0))
+			await shot.call("kota", world.kota.global_position if world.kota != null else M.w(M.KOTA), Vector3(0, 0, 1))
+			var mk: Node3D = mokki
+			mk.ensure_built()
+			for i in 10:
+				await get_tree().process_frame
+			var lay: Dictionary = Mokki.keskimmainen_layout()
+			await shot.call("keskimmainen", mk.to_global(mk.laavu_fire), -(mk.global_basis * Vector3(lay.d.x, 0, lay.d.y)))
+			_start_mopo()
+			for i in 60:
+				await get_tree().process_frame
+			var vl: Node3D = mopo_trip.vaala
+			print("LAAVUT vaala %s" % vl.laavu_fire)
+			await shot.call("vaala", vl.to_global(vl.laavu_fire), -(vl.global_basis * Vector3(vl.laavu_lake.x, 0, vl.laavu_lake.y)))
+			cam.queue_free()
 		"kalastus":
 			# Kalastus rannalta ja Tekojärven Ukko: kalapaikat, onki Oravajärvellä (heitto, nykäisy, saalis), virveli
 			# tekojärvellä (Ukko katkaisee siiman), lusikka kirppikseltä, iltahuipennus ja Pirtti. Kuvat _kala_*.

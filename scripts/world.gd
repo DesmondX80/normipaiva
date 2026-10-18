@@ -1721,19 +1721,10 @@ func _build_eramaa() -> void:
 	root.rotation.y = B.yaw_to(Vector3(to_lake.x, 0, to_lake.y))  # paikallinen -Z järvelle
 	add_child(root)
 	var wood := Color(0.5, 0.36, 0.22)
-	# Laavu: kalteva katto, takaseinä ja lattia.
-	var shelter := Node3D.new()
-	shelter.position = Vector3(0, 0, 2.5)
-	root.add_child(shelter)
-	var rf := B.mesh(shelter, B.boxm(Vector3(4.2, 0.12, 3.2)), Vector3(0, 2.0, 0), wood.darkened(0.15))
-	rf.rotation.x = 0.45
-	B.mesh(shelter, B.boxm(Vector3(4.2, 2.6, 0.12)), Vector3(0, 1.2, 1.45), wood)
-	for x in [-2.0, 2.0]:
-		B.mesh(shelter, B.boxm(Vector3(0.12, 2.6, 3.0)), Vector3(x, 1.0, 0.1), wood.darkened(0.05))
-	B.mesh(shelter, B.boxm(Vector3(4.0, 0.15, 2.4)), Vector3(0, 0.35, 0.2), wood.lightened(0.1))
-	var sb := StaticBody3D.new()
-	sb.add_child(B.box_shape(Vector3(4.2, 2.6, 0.2), Vector3(0, 1.3, 1.45)))
-	shelter.add_child(sb)
+	# Laavu samaa mallia kuin Antinsuon Tarpion laavu: avoin puoli nuotiolle ja järvelle (-Z).
+	_laavu_shelter(root, Vector3(0, 0, 2.3), 0.0)
+	var shc := root.to_global(Vector3(0, 0, 2.3))
+	_mask_clear.append([Vector2(shc.x, shc.z), 2.3, 2.3, root.rotation.y])  # ruoho ei puske lattialautojen läpi
 	# Tulisija ja nuotio.
 	for k in 10:
 		var a := k * TAU / 10.0
@@ -1770,11 +1761,13 @@ func _build_eramaa() -> void:
 			Vector3(0, -rad_to_deg(a), 0))
 	for k in 6:  # halkopino
 		B.mesh(root, B.cyl(0.09, 0.09, 0.6, 8), Vector3(2.6, 0.1 + (k / 3) * 0.17, 1.5 + (k % 3) * 0.18), wood.lightened(0.15), Vector3(90, 0, 0))
-	var sign := B.sign_plate(root, "VIITAJÄRVEN LAAVU", Color(0.36, 0.2, 0.1), Color(0.98, 0.95, 0.86), 0.25, 40, Color(0.98, 0.95, 0.86),
-		"Helvetica Neue")
-	sign.position = Vector3(-3.2, 1.7, -0.5)
-	sign.rotation.y = PI / 2.0
-	B.mesh(root, B.boxm(Vector3(0.1, 1.7, 0.1)), Vector3(-3.25, 0.85, -0.5), wood.darkened(0.2))
+	_laavu_sign(root, Vector3(-3.4, 0, -0.2), -PI / 2.0 + 0.35, "VIITAJÄRVEN\nLAAVU", "Tulenteko vain tulisijassa.\nVie roskat mennessäs.")
+	# Penkit nuotion ympärille, paitsi istuinpölkyn puolelle (loppukohtauksen hahmo istuu pölkyllä).
+	var seat_dir: Vector3 = (root.basis.inverse() * Vector3(-1, 0, 0)).normalized()
+	for bd in [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, -1)]:
+		if bd.dot(seat_dir) > 0.5:
+			continue
+		_laavu_bench(root, Vector3(0, 0, -1.0) + bd * 2.3, PI / 2.0 if absf(bd.x) > 0.5 else 0.0)
 	# Kaitasaari: penkki niemen kärjessä järvelle päin ja kyltti.
 	var kp := M.w2(M.KAITASAARI)
 	kaitasaari_pos = Vector3(kp.x, T.h(kp.x, kp.y), kp.y)
@@ -3636,10 +3629,9 @@ func _build_agility() -> void:
 ## Laavu Antinsuonkankaalla suomalaiseen tapaan: hirsiseinät kolmella sivulla, avoin etupuoli nuotiolle,
 ## pulpettikatto (etureuna 2,5 m, takaseinä 1 m, n. 30°) bitumikatteella, koholla oleva lautalattia.
 ## Pihassa kivikehäinen nuotiopaikka ritilöineen, penkit, puuvaja, huussi ja infotaulu.
-func _build_laavu() -> void:
-	var c := M.w2(M.LAAVU)
-	var pit := Vector3(c.x, 0, c.y)
-	_add_house(c)  # puut ja talot pysyvät kaukana
+## Laavukatos (Antinsuon "Tarpion laavu" ja Viitajärvi): vaakahirsiset taka- ja sivuseinät, pulpettikatto kattotuoleineen,
+## laudoitus ja bitumikate, lautalattia koholla ja kynnyshirsi. Paikallinen -Z = avoin etupuoli (nuotiolle päin).
+func _laavu_shelter(parent: Node3D, pos: Vector3, rot_y: float) -> StaticBody3D:
 	var log_col := Color(0.52, 0.36, 0.22)
 	var log_dark := Color(0.44, 0.3, 0.18)
 	var board := Color(0.6, 0.44, 0.28)
@@ -3648,10 +3640,10 @@ func _build_laavu() -> void:
 	var d := 2.7
 	var hf := 2.5
 	var hb := 1.0
-	# Katos nuotion eteläpuolella; paikallinen -Z = avoin etupuoli.
 	var shelter := StaticBody3D.new()
-	shelter.position = pit + Vector3(0, 0, 3.3)
-	add_child(shelter)
+	shelter.position = pos
+	shelter.rotation.y = rot_y
+	parent.add_child(shelter)
 	shelter.add_child(B.box_shape(Vector3(w + 0.3, 2.0, d), Vector3(0, 1.0, 0.25)))
 	var roof_y := func(z: float) -> float: return hf - (z + d / 2.0) / d * (hf - hb)
 	# Takaseinä: vaakahirret.
@@ -3688,6 +3680,57 @@ func _build_laavu() -> void:
 	for i in 10:
 		B.mesh(shelter, B.boxm(Vector3(w - 0.1, 0.04, 0.24)), Vector3(0, 0.42, -1.1 + i * 0.25), board.lightened(0.05 * (i % 2)))
 	B.mesh(shelter, B.cyl(0.14, 0.14, w, 10), Vector3(0, 0.3, -d / 2.0 + 0.05), log_col, Vector3(0, 0, 90))
+	return shelter
+
+
+## Penkki: lankku kahden kannon päällä.
+func _laavu_bench(parent: Node3D, pos: Vector3, rot_y: float) -> StaticBody3D:
+	var bench := StaticBody3D.new()
+	bench.position = pos
+	bench.rotation.y = rot_y
+	parent.add_child(bench)
+	bench.add_child(B.box_shape(Vector3(2.0, 0.45, 0.4), Vector3(0, 0.22, 0)))
+	B.mesh(bench, B.boxm(Vector3(2.0, 0.08, 0.36)), Vector3(0, 0.45, 0), Color(0.6, 0.44, 0.28))
+	for sx in [-0.7, 0.7]:
+		B.mesh(bench, B.cyl(0.16, 0.18, 0.42, 10), Vector3(sx, 0.21, 0), Color(0.52, 0.36, 0.22))
+	return bench
+
+
+## Laavun infotaulu katoksella: otsikko- ja ohjekyltti, tolpat ja katos mitoitetaan tekstin leveyden mukaan, alla laavumerkki.
+func _laavu_sign(parent: Node3D, pos: Vector3, rot_y: float, title: String, note_text: String) -> Node3D:
+	var info := Node3D.new()
+	info.position = pos
+	info.rotation.y = rot_y
+	parent.add_child(info)
+	var brown := Color(0.4, 0.22, 0.1)
+	var cream := Color(0.98, 0.95, 0.88)
+	var ip := B.sign_plate(info, title, brown, cream, 0.22, 40, Color(0.3, 0.17, 0.08), "Helvetica Neue")
+	ip.position.y = 1.75
+	var note := B.sign_plate(info, note_text, brown, Color(0.95, 0.85, 0.5), 0.13, 26, Color(0.3, 0.17, 0.08), "Helvetica Neue")
+	note.position.y = 1.2
+	var bw: float = maxf(ip.get_meta("width"), note.get_meta("width"))
+	for sx in [-bw / 2.0 - 0.06, bw / 2.0 + 0.06]:
+		B.mesh(info, B.boxm(Vector3(0.1, 2.2, 0.1)), Vector3(sx, 1.1, -0.06), Color(0.44, 0.3, 0.18))
+	var iroof := PrismMesh.new()
+	iroof.size = Vector3(bw + 0.6, 0.32, 0.55)
+	B.mesh(info, iroof, Vector3(0, 2.36, 0), Color(0.16, 0.16, 0.17))
+	var icon_board := B.mesh(info, B.boxm(Vector3(0.42, 0.38, 0.03)), Vector3(0, 0.78, 0), brown)
+	icon_board.name = "IconBoard"
+	for z in [0.02, -0.02]:
+		B.laavu_icon(info, Vector3(0, 0.78, z), 0.28, cream)
+	return info
+
+
+func _build_laavu() -> void:
+	var c := M.w2(M.LAAVU)
+	var pit := Vector3(c.x, 0, c.y)
+	_add_house(c)  # puut ja talot pysyvät kaukana
+	var log_col := Color(0.52, 0.36, 0.22)
+	var log_dark := Color(0.44, 0.3, 0.18)
+	var board := Color(0.6, 0.44, 0.28)
+	var felt := Color(0.16, 0.16, 0.17)
+	# Katos nuotion eteläpuolella; paikallinen -Z = avoin etupuoli.
+	_laavu_shelter(self, pit + Vector3(0, 0, 3.3), 0.0)
 
 	# Nuotiopaikka: kivikehä, hiillos, halot ja grilliritilä jaloillaan.
 	for k in 12:
@@ -3705,14 +3748,7 @@ func _build_laavu() -> void:
 		B.mesh(self, B.boxm(Vector3(0.95, 0.015, 0.015)), pit + Vector3(0, 0.5, -0.35 + i * 0.1), Color(0.15, 0.15, 0.15))
 	# Penkit: lankku kahden kannon päällä nuotion ympärillä.
 	for bdef in [[Vector3(-2.3, 0, 0), PI / 2.0], [Vector3(2.3, 0, 0), PI / 2.0], [Vector3(0, 0, -2.3), 0.0]]:
-		var bench := StaticBody3D.new()
-		bench.position = pit + bdef[0]
-		bench.rotation.y = bdef[1]
-		add_child(bench)
-		bench.add_child(B.box_shape(Vector3(2.0, 0.45, 0.4), Vector3(0, 0.22, 0)))
-		B.mesh(bench, B.boxm(Vector3(2.0, 0.08, 0.36)), Vector3(0, 0.45, 0), board)
-		for sx in [-0.7, 0.7]:
-			B.mesh(bench, B.cyl(0.16, 0.18, 0.42, 10), Vector3(sx, 0.21, 0), log_col)
+		_laavu_bench(self, pit + bdef[0], bdef[1])
 	# Puuvaja halkoineen.
 	var shed := StaticBody3D.new()
 	shed.position = pit + Vector3(4.6, 0, 2.8)
@@ -3743,27 +3779,7 @@ func _build_laavu() -> void:
 	heart_tip.size = Vector3(0.2, 0.12, 0.02)
 	B.mesh(outhouse, heart_tip, Vector3(0, 1.5, -0.64), Color(0.05, 0.03, 0.02), Vector3(0, 0, 180))
 	# Infotaulu katoksella: tolpat ja katos mitoitetaan otsikon leveyden mukaan.
-	var info := Node3D.new()
-	info.position = pit + Vector3(3.6, 0, -3.2)
-	info.rotation.y = 0.45
-	add_child(info)
-	var brown := Color(0.4, 0.22, 0.1)
-	var cream := Color(0.98, 0.95, 0.88)
-	var ip := B.sign_plate(info, "TARPION\nLAAVU", brown, cream, 0.22, 40, Color(0.3, 0.17, 0.08), "Helvetica Neue")
-	ip.position.y = 1.75
-	var note := B.sign_plate(info, "Kaikenlaisten roskien tuonti\nkielletty edesvastuun uhalla", brown, Color(0.95, 0.85, 0.5), 0.13, 26,
-		Color(0.3, 0.17, 0.08), "Helvetica Neue")
-	note.position.y = 1.2
-	var bw: float = maxf(ip.get_meta("width"), note.get_meta("width"))
-	for sx in [-bw / 2.0 - 0.06, bw / 2.0 + 0.06]:
-		B.mesh(info, B.boxm(Vector3(0.1, 2.2, 0.1)), Vector3(sx, 1.1, -0.06), log_dark)
-	var iroof := PrismMesh.new()
-	iroof.size = Vector3(bw + 0.6, 0.32, 0.55)
-	B.mesh(info, iroof, Vector3(0, 2.36, 0), felt)
-	var icon_board := B.mesh(info, B.boxm(Vector3(0.42, 0.38, 0.03)), Vector3(0, 0.78, 0), brown)
-	icon_board.name = "IconBoard"
-	for z in [0.02, -0.02]:
-		B.laavu_icon(info, Vector3(0, 0.78, z), 0.28, cream)
+	_laavu_sign(self, pit + Vector3(3.6, 0, -3.2), 0.45, "TARPION\nLAAVU", "Kaikenlaisten roskien tuonti\nkielletty edesvastuun uhalla")
 
 	# Nuotio: liekit, loimu ja savu. Piilossa kunnes sytytetään.
 	fire = Node3D.new()
