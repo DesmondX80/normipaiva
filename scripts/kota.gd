@@ -516,12 +516,14 @@ func _build_tower() -> void:
 	var ramp := CollisionShape3D.new()
 	var rs := BoxShape3D.new()
 	# Alapää upotettu maahan (ei porrasta), -Z-pää alhaalla.
-	var ext := 1.2
+	var ext := 2.2  # alapää syvällä maassa (rinne viettää portaiden suuntaan)
 	var slope := atan2(h, run)
 	rs.size = Vector3(0.95, 0.1, sqrt(run * run + h * h) + ext)
 	ramp.shape = rs
+	# Yläpää tasanteen pinnan tasalle (tasanne h ± 0,06; rampin pinta 0,05 keskilinjan yläpuolella): ennen yläpää jäi
+	# 7 cm tasanteen alle, eikä jalankulkija noussut askelmaa vaan jäi portaiden yläpäähän.
 	ramp.transform = Transform3D(Basis(Vector3.RIGHT, -slope),
-		stair.position + Vector3(0, h / 2.0 - 0.06 - sin(slope) * ext / 2.0, -run / 2.0 - cos(slope) * ext / 2.0))
+		stair.position + Vector3(0, h / 2.0 + 0.02 - sin(slope) * ext / 2.0, -run / 2.0 - cos(slope) * ext / 2.0))
 	t.add_child(ramp)
 	var tag := B.sign_plate(t, "LINTUTORNI", Color(0.36, 0.2, 0.1), Color(0.98, 0.95, 0.86), 0.2, 32, Color(0.3, 0.18, 0.1), "Helvetica Neue")
 	tag.position = Vector3(0, 1.8, -s / 2.0 - 0.12)

@@ -24809,7 +24809,7 @@ func _maybe_screenshot() -> void:
 			print("KOTA story state=", state, " msg=", _msg.text)
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_story.png"))
-			for i in 2400:
+			for i in 9000:  # pisin kodan tarina kestää yli 2400 ruutua
 				await get_tree().process_frame
 				if state != "cutscene":
 					break
@@ -24830,6 +24830,9 @@ func _maybe_screenshot() -> void:
 				if i % 120 == 0 or (i > 500 and _hint.text != "" and i % 30 == 0):
 					print("TOWER t=", i, " spd=", walker_out.speed, " y=%.2f ground=%.2f hint=%s" % [walker_out.global_position.y, Terrain.h(walker_out.global_position.x, walker_out.global_position.z), _hint.text])
 			Input.action_release("forward")
+			var plat_y: float = world.kota.global_position.y + Kota.TOWER_TOP_Y + 0.06
+			print("TOWER tasanteella %s (jalat %.2f, tasanne %.2f, etäisyys keskeltä %.2f)" % [walker_out.global_position.y > plat_y - 0.05,
+				walker_out.global_position.y, plat_y, Vector2(walker_out.global_position.x - base.x, walker_out.global_position.z - base.z).length()])
 		"chocotest":
 			# Suklaa karkkitelineestä, maksu, ulos ja WASTED: lepyttääkö Päivin? Tallennus palautetaan lopuksi.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
