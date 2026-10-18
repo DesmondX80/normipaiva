@@ -679,6 +679,39 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_r(img, 3, 8, 10, 2, Color(0.45, 0.22, 0.12))
 			_r(img, 3, 10, 10, 1, Color(0.95, 0.8, 0.15))
 			_r(img, 3, 11, 10, 2, Color(0.85, 0.55, 0.2))
+		"onki":  # kolmeosainen bambuonki ja punavalkoinen koho
+			for i in 12:
+				_r(img, 2 + i, 13 - i, 1, 1, Color(0.82, 0.72, 0.45) if i % 4 != 3 else Color(0.55, 0.45, 0.25))
+			_r(img, 13, 3, 1, 7, Color(0.9, 0.9, 0.85))
+			_c(img, 13, 11, 1.6, Color(0.9, 0.15, 0.1))
+			_r(img, 12, 9, 2, 1, Color(0.96, 0.96, 0.96))
+		"virveli":  # tumma vapa, korkkikahva ja kela
+			for i in 12:
+				_r(img, 2 + i, 13 - i, 1, 1, Color(0.18, 0.2, 0.24))
+			_r(img, 2, 12, 3, 2, Color(0.45, 0.3, 0.15))
+			_c(img, 6, 11, 2.0, Color(0.75, 0.76, 0.8))
+			_r(img, 13, 2, 1, 1, Color(0.85, 0.86, 0.9))
+		"madot":  # peltipurkki ja punaruskeita matoja
+			_r(img, 4, 6, 8, 8, Color(0.6, 0.62, 0.65))
+			_r(img, 4, 6, 8, 1, Color(0.8, 0.82, 0.85))
+			_r(img, 5, 7, 6, 2, Color(0.3, 0.2, 0.12))
+			_r(img, 6, 4, 1, 3, Color(0.8, 0.4, 0.4))
+			_r(img, 9, 3, 1, 4, Color(0.75, 0.35, 0.38))
+			_r(img, 10, 3, 2, 1, Color(0.75, 0.35, 0.38))
+		"lusikka":  # vanha kuparinen lusikkauistin ja koukku
+			_c(img, 8, 7, 3.5, Color(0.78, 0.45, 0.22))
+			_c(img, 7, 6, 1.4, Color(0.95, 0.7, 0.45))
+			_r(img, 8, 11, 1, 3, Color(0.35, 0.35, 0.38))
+			_r(img, 6, 13, 5, 1, Color(0.35, 0.35, 0.38))
+			_r(img, 8, 2, 1, 2, Color(0.6, 0.6, 0.62))
+		"ukko":  # valtava hauki: vihreä ja täplikäs, leveä pää
+			_r(img, 1, 6, 13, 5, Color(0.35, 0.45, 0.25))
+			_r(img, 1, 9, 13, 2, Color(0.8, 0.78, 0.6))
+			_r(img, 13, 5, 2, 7, Color(0.3, 0.38, 0.2))
+			_c(img, 3, 7, 0.8, Color(0.95, 0.85, 0.2))
+			for k in 4:
+				_r(img, 5 + k * 2, 7, 1, 1, Color(0.75, 0.8, 0.55))
+			_r(img, 0, 8, 2, 1, Color(0.15, 0.1, 0.08))
 		"kuparipannu":  # vihertynyt kuparinen pontikkapannu
 			_c(img, 8, 9, 5.5, Color(0.72, 0.42, 0.2))
 			_c(img, 6.5, 7.5, 2.0, Color(0.85, 0.55, 0.3))

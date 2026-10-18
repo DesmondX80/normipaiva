@@ -258,6 +258,8 @@ const TokolaVarasto := preload("res://scripts/tokola_varasto.gd")
 const SuloPannu := preload("res://scripts/sulo_pannu.gd")
 const KertunRauta := preload("res://scripts/kertun_rauta.gd")
 const Aarnivalkea := preload("res://scripts/aarnivalkea.gd")
+const UkkoLegenda := preload("res://scripts/ukko_legenda.gd")
+const ShoreFishGame := preload("res://scripts/shore_fish_game.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 const Journal := preload("res://scripts/journal.gd")
@@ -342,6 +344,7 @@ var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
 var aarni: RefCounted  # legenda: Lapinraunion aarnivalkea (aarnivalkea.gd, #139)
+var ukko: RefCounted  # legenda: Tekojärven Ukko (ukko_legenda.gd)
 var endings: RefCounted  # onnellisten loppujen kokoelma (endings.gd, #132)
 var quests: RefCounted  # tarinan luvut ja sivutehtävät (quests.gd, #132)
 var _journal: Control  # Normipäiväkirja (O), journal.gd
@@ -529,6 +532,9 @@ var has_matches := false
 ## Suklaalevy taskussa: saattaa lepyttää Päivin (salainen mekaniikka, ei vinkkejä pelissä).
 var has_chocolate := false
 var has_flowers := false  # kukkakimppu Päiville (säästöpiha, #141)
+var has_onki := false  # bambuonki (Sepon varasto tai kirppis): onkiminen rannalta
+var has_virveli := false  # virveli ja lusikkauistin (kirppiksen Tauno)
+var madot := 0  # onkimadot (kauppa-auton matopurkki; ongen mukana puolikas purkki)
 var _choco_mercy := false  # Päivi leppyi WASTED-motkotuksessa: seuraavana aamuna ylimääräistä rahaa
 ## Raahen reissujen mittarit 0–100 (tallentuvat): mielihyvä ja maine kovana jätkänä.
 var mielihyva := 0.0
@@ -1118,6 +1124,7 @@ func _ready() -> void:
 	pannu = SuloPannu.new()
 	kertun = KertunRauta.new()
 	aarni = Aarnivalkea.new()
+	ukko = UkkoLegenda.new()
 	endings = Endings.new()
 	quests = Quests.new()
 	_load_game()
@@ -1611,6 +1618,7 @@ func _outside_logic() -> void:
 	_rauniot_logic()
 	_korjaamo_logic()
 	_aarni_logic()
+	_kalastus_logic()
 	_reippari_logic()
 	_atm_logic()
 	_drone_logic()
@@ -2581,6 +2589,9 @@ const KIRPPIS_STOCK := {
 	"liina": {"seller": "hilkka", "name": "Virkkuuliina", "price": 5.0},
 	"vhs": {"seller": "raili", "name": "VHS: Uuno Turhapuro", "price": 2.0},
 	"koira": {"seller": "raili", "name": "Posliinikoira", "price": 6.0},
+	"virveli": {"seller": "tauno", "name": "Virveli ja lusikkauistin", "price": 15.0},
+	"bambuonki": {"seller": "raili", "name": "Bambuonki", "price": 4.0},
+	"lusikka": {"seller": "tauno", "name": "Isän kuparilusikka", "price": UkkoLegenda.LUSIKKA_HINTA},
 }
 var _kirppis_prev := "to_shop"
 var _kirppis_sold := {}  # tuote -> päivä, jolloin ostettu
@@ -2865,6 +2876,15 @@ func _talk_kirppis(id: String) -> void:
 	if id == "romu":
 		_pannu_scrap()
 		return
+	if id == "ukko":
+		ukko.heard = true
+		tilat.first("ukko_legenda", 0.2)
+		_save_game()
+		_talk_box.reply("Tekojärvessä? No kuule. Mun isä kalasti siinä jo ennen patoa, kun se oli vielä peltoa ja Haapajärven "
+			+ "latoja. Kun vesi nousi, ladon raunioille jäi asumaan hauki. Ukoksi sitä sanottiin. Se vei isältä uistimen joka "
+			+ "kesä, ja kerran se kisko soutuveneen kaislikkoon. Kaikki nauraa. Mutta heitä virvelillä sinne, niin näet.",
+			_talk_options(), "Legenda: Tekojärven Ukko. Haapajärven tekojärvi on kylän eteläpuolella, Kaitasaari keskellä.")
+		return
 	if id == "aarnivalkea":
 		aarni.heard = true
 		tilat.first("aarni_legenda", 0.2)
@@ -2929,9 +2949,33 @@ func _talk_kirppis(id: String) -> void:
 		return
 
 
+## Kalastusvälineet myydään vain kerran (omistettuna pois hyllystä); Taunon isän lusikka vasta, kun Ukon legenda
+## on kuultu ja vihjeitä on tarpeeksi (ukko_legenda.gd clues).
+func _kirppis_hidden(k: String) -> bool:
+	match k:
+		"virveli":
+			return has_virveli
+		"bambuonki":
+			return has_onki
+		"lusikka":
+			return ukko.lusikka or not ukko.heard or not ukko.clues()
+	return false
+
+
 ## Ostettu tavara käyttöön: palauttaa lisätiedon keskusteluikkunaan.
 func _kirppis_give(k: String) -> String:
 	match k:
+		"virveli":
+			has_virveli = true
+			return "Virveli ja kiiltävä lusikkauistin. Rannalta heittämällä haukia ja ahvenia."
+		"bambuonki":
+			has_onki = true
+			madot += 3
+			return "Bambuonki, koho ja muutama mato. Lisää matoja kauppa-autosta."
+		"lusikka":
+			ukko.lusikka = true
+			tilat.first("ukko_lusikka", 0.2)
+			return "Isän kuparilusikka. \"Iltaisin Kaitasaaren kärjestä. Se nousee vain tuolle.\""
 		"ruuvipurkki":
 			ebike.supplies.ruuvit += 3
 			ebike.started = true
@@ -4399,7 +4443,10 @@ func _seppo_choose(id: String) -> void:
 		else:
 			tilat.add("moraali", 0.05)
 			note = {"telkkari": "Telkkari jää Sepon varastoon odottamaan. \"Haet kun haet.\"", "vhs": "VHS reppuun. Ei oo videoita, mutta silti.",
-				"onki": "Bambuonki. Ehkä joskus Oravajärvellä."}.get(k, "")
+				"onki": "Bambuonki ja puolikas purkki matoja. Oravajärvellä tai tekojärvellä rannalta."}.get(k, "")
+			if k == "onki":
+				has_onki = true
+				madot += 5
 		Sfx.play("register", -6.0)
 		_save_game()
 		_talk_box.reply(["Kaupat on kaupat. Ei palautuksia.", "Hyvä valinta. Mulla oli kaks tommosta, nyt yks.",
@@ -4804,6 +4851,198 @@ func _aarni_sell() -> void:
 		"+%s €. Legenda jää todistamatta, ja Hilkka jää naurunalaiseksi. Kylällä alkaa liikkua juttuja..." % _eur(Aarnivalkea.KERAILIJA_HINTA))
 
 
+## --- Kalastus rannalta ja legenda: Tekojärven Ukko (ukko_legenda.gd) ---------------------------------------------
+## Oravajärvellä uimarannan vieressä ja Haapajärven tekojärvellä Kaitasaaren kärjen lähellä voi onkia (bambuonki,
+## madot) ja virvelöidä (virveli). Minipeli: shore_fish_game.gd. Tekojärven Ukko: kirppiksen Tauno kertoo, virveli
+## tekojärvellä ja droonin iltakuva antavat vihjeet, isän kuparilusikalla Ukko nousee iltaisin Kaitasaaren kärjestä.
+const UKKO_DOUBT := {
+	"pekka": ["Taunon isän kalajutut. Se hauki kasvaa kilon joka kerta, kun Tauno kertoo.", "Uistin katkee, koska Tauno ei osaa solmia."],
+	"arto": ["Soutuvene kaislikkoon? Tuuli se oli, ja Taunon isä nukkui.", "Tekojärvessä on särkiä ja pohjamutaa. Ei mitään Ukkoja."],
+	"annaliisa": ["Taunon isä joi enemmän kuin kalasti. Kaikki sen tietää.", "Ainoo ukko siellä on Tauno itse illalla rannalla."],
+}
+const UKKO_PROVEN := {
+	"pekka": ["Kahdeksantoista kiloa, perkele. En enää naura Taunolle. Ainakaan kalasta.", "Mää näin sen Ukon. Siinä oli kolme uistinta kyljessä!"],
+	"arto": ["No ei se tuuli ollukkaan. Anteeks, Tauno.", "Mää heitän sinne huomenna. Jos sillä on poikasia..."],
+	"annaliisa": ["Lehdessä oli kuva. Tauno itki vähän. Kirjoitin ryhmään.", "No en mää sitä ihan valheeksi sanonu…"],
+}
+var _kala_spots := {}  # "orava" / "tekojarvi" -> [seisomapaikka, suunta vedelle]
+var _ukko_day := -1  # päivä, jolloin Ukko saatiin: vapautus samana iltana
+
+
+## Kalapaikka rannalla: lähimmästä vesirajasta metri maalle, suunta vedelle (vettä vähintään 10 m eteenpäin).
+## Oravajärvellä uimarannan sivulla (uimarit rauhaan), tekojärvellä Kaitasaaren kärjen vieressä (kärjen ilta-auringolle tilaa).
+func _kala_spot(id: String) -> Array:
+	if _kala_spots.has(id):
+		return _kala_spots[id]
+	if world == null:
+		return []
+	var from := Vector3.ZERO
+	var avoid := Vector3.INF
+	match id:
+		"orava":
+			if world.uimaranta_pos == Vector3.ZERO:
+				return []
+			var d := Vector3(M.UIMARANTA_DIR.x, 0, M.UIMARANTA_DIR.y).normalized()
+			from = world.uimaranta_pos + d.cross(Vector3.UP) * 9.0
+			avoid = world.uimaranta_pos
+		"tekojarvi":
+			if world.kaitasaari_pos == Vector3.ZERO:
+				return []
+			from = world.kaitasaari_pos
+			avoid = world.kaitasaari_pos
+	var out: Array = []
+	for r in range(1, 110):  # tekojärven OSM-ranta on n. 50 m Kaitasaaren kärjestä
+		for k in 32:
+			var a := k * TAU / 32.0
+			var dv := Vector3(cos(a), 0, sin(a))
+			var wp := from + dv * float(r)
+			if world.surface_at(wp) != "water" or world.surface_at(wp + dv * 10.0) != "water":
+				continue
+			var st := from + dv * (float(r) - 1.0)
+			if world.surface_at(st) == "water" or Vector2(st.x - avoid.x, st.z - avoid.z).length() < 4.0:
+				continue
+			out = [Vector3(st.x, Terrain.h(st.x, st.z), st.z), dv]
+			break
+		if not out.is_empty():
+			break
+	_kala_spots[id] = out
+	return out
+
+
+func _kalastus_logic() -> void:
+	if _hint.text != "" or player != walker_out or player.is_stunned() or _in_vaala or _at_mokki():
+		return
+	for id in ["orava", "tekojarvi"]:
+		var sp: Array = _kala_spot(id)
+		if sp.is_empty() or not _near_xz(sp[0], 2.2):
+			continue
+		var e := Input.is_action_just_pressed("interact")
+		if id == "tekojarvi" and ukko.caught and ukko.choice == "" and _ukko_day == day:
+			_hint.text = "[E] Päästä Tekojärven Ukko takaisin järveen"
+			if e:
+				_ukko_release()
+			return
+		if not has_onki and not has_virveli:
+			_hint.text = "Hyvä kalapaikka. Onki tai virveli puuttuu (Sepon varasto, kirppis)."
+			return
+		if has_virveli and has_onki:
+			_hint.text = "[E] Virvelöimään   [Q] Onkimaan (matoja %d)" % madot
+		elif has_virveli:
+			_hint.text = "[E] Virvelöimään"
+		else:
+			_hint.text = "[E] Onkimaan (matoja %d)" % madot
+		if e:
+			_start_shore_fishing(id, "virveli" if has_virveli else "onki")
+		elif Input.is_action_just_pressed("bell") and has_virveli and has_onki:
+			_start_shore_fishing(id, "onki")
+		return
+
+
+func _start_shore_fishing(id: String, gear: String) -> void:
+	var sp: Array = _kala_spot(id)
+	if sp.is_empty():
+		return
+	_act_begin("minigame")
+	player.visible = false
+	var g := ShoreFishGame.new()
+	g.gear = gear
+	g.place = "Oravajärven" if id == "orava" else "Tekojärven"
+	g.spot = sp[0]
+	g.dir = sp[1]
+	g.water = func(p: Vector3) -> bool: return world.surface_at(p) == "water"
+	g.worms = madot
+	g.drunk = _hand_shake()
+	if gear == "virveli" and id == "tekojarvi" and ukko.heard and not ukko.caught:
+		if ukko.lusikka and _between(clock_min, UkkoLegenda.ILTA):
+			g.lure = "ukko"
+			g.ukko_ready = true
+		elif not ukko.lusikka:
+			g.ukko_snap = true
+	g.finished.connect(func(got: Array) -> void:
+		player.visible = true
+		_act_end()
+		madot = g.worms
+		tilat.first("kalastus_ranta", 0.2)
+		if g.snaps > 0:
+			ukko.siimat += g.snaps
+			tilat.first("ukko_siima", 0.2)
+			_queue_message("Jokin valtava katkaisi siiman tekojärvellä. " + ("Tauno kuulee tästä mielellään." if ukko.clues()
+				else "Tukki ei ui. Taunon isän Ukko? Droonilla iltaisin voisi nähdä pinnan alle."), 5.0)
+		if g.ukko_caught:
+			ukko.caught = true
+			_ukko_day = day
+			tilat.first("ukko_kiinni", 0.8)
+			_kertun_sync()
+			_queue_message("Tekojärven Ukko, 18,4 kg. Saloisten Pirttiin täytettäväksi, Veksille kirppiksen takahuoneeseen, "
+				+ "vai takaisin järveen samasta kohdasta tänä iltana?", 6.5)
+		var rest := got.filter(func(f): return f.nom != "ukko")
+		if not (g.ukko_caught and rest.is_empty()):
+			_after_fishing(rest)
+		_save_game())
+	add_child(g)
+
+
+func _ukko_tasks() -> Array:
+	if not ukko.heard or ukko.choice != "":
+		return []
+	var step := "heitä virvelillä tekojärvellä Kaitasaaren kärjen luona"
+	if ukko.caught:
+		step = "Saloisten Pirttiin, Veksille vai takaisin järveen?"
+	elif ukko.lusikka:
+		step = "illalla (19–23) Kaitasaaren kärjestä isän kuparilusikalla"
+	elif ukko.clues():
+		step = "kerro Taunolle: se myy isänsä vanhan lusikan"
+	elif not has_virveli:
+		step = "hanki virveli (kirppiksen Tauno)"
+	elif ukko.siimat > 0 or ukko.spotted:
+		step = "jokin on siellä: heitä uudestaan, tai droonin iltakuva"
+	return [["Tekojärven Ukko: " + step, false]]
+
+
+func _ukko_museum() -> void:
+	if ukko == null or not ukko.caught or ukko.choice != "" or _hint.text != "":
+		return
+	if not _near_xz(world.museum_door, 3.0):
+		return
+	_hint.text = "[E] Saloisten Pirtti: vie Tekojärven Ukko täytettäväksi"
+	if Input.is_action_just_pressed("interact"):
+		ukko.choice = "museo"
+		_kertun_sync()
+		_ending("tekojarven_ukko")
+		money += UkkoLegenda.MUSEO_PALKKIO
+		maine = clampf(maine + UkkoLegenda.MUSEO_MAINE, 0.0, 100.0)
+		tilat.add("moraali", 0.3)
+		Sfx.play("win_small", -4.0)
+		_save_game()
+		_show_message("Opas mittaa: 132 cm, 18,4 kg, kyljessä kolme vanhaa uistinta. Täytetty Ukko pääsee Pirtin seinälle, "
+			+ "lehteen tulee kuva, ja Taunolle soitetaan. Palkkio %s €, maine +%d." % [_eur(UkkoLegenda.MUSEO_PALKKIO), roundi(UkkoLegenda.MUSEO_MAINE)], 6.5)
+
+
+func _ukko_sell() -> void:
+	ukko.choice = "kerailija"
+	money += UkkoLegenda.KERAILIJA_HINTA
+	maine = clampf(maine - 5.0, 0.0, 100.0)
+	_kertun_sync()
+	Sfx.play("coin", -4.0)
+	_save_game()
+	_talk_box.reply("Veksi kurkistaa kassiin ja viheltää. \"Satakaviskymmentä. Tunnen tyypin Oulussa, joka täyttää ja myy "
+		+ "ravintoloihin. Taunolle et kerro.\"", _talk_options(),
+		"+%s €. Legenda jää todistamatta. Anna-Liisa näki kassin ja kirjoittaa siitä Puskaradioon..." % _eur(UkkoLegenda.KERAILIJA_HINTA))
+
+
+func _ukko_release() -> void:
+	ukko.choice = "vapaa"
+	_kertun_sync()
+	_ending("ukko_vapaa")
+	maine = clampf(maine + 5.0, 0.0, 100.0)
+	tilat.add("moraali", 0.35)
+	tilat.add("stressi", 0.2)
+	Sfx.play("water", -2.0, 0.6)
+	_save_game()
+	_show_message("Lasket Ukon veteen. Se makaa hetken kaislikon reunassa, katsoo, ja liukuu kohti ladon raunioita. "
+		+ "Taunolle kerrot huomenna. Se tarjoaa kahvit, eikä kukaan muu usko kumpaakaan.", 6.5)
+
+
 ## --- Kertunkankaan rauta (#122): kehäröykkiöt, opastaulu ja legenda viimeisen sepän kirveestä ------------------
 ## Opastaulun teksti oikeista tiedoista (Visit Raahe / Outdooractive "Kertunkangas" ja Raahen Seutu "Rauta-aika on hyvinkin
 ## lähellä"). Legenda (kirves, seppä) on keksitty ja pidetään erillään taulusta.
@@ -4853,6 +5092,7 @@ func _kertun_sync() -> void:
 		world.kertun_isokivi.rotation.z = 0.35 if kertun.found else 0.0
 	if kirppis_int != null and "veksi_open" in kirppis_int:
 		kirppis_int.veksi_open = (kertun.found and kertun.choice == "") or (aarni != null and aarni.found and aarni.choice == "") \
+			or (ukko != null and ukko.caught and ukko.choice == "") \
 			or _kekkonen == 1
 
 
@@ -4917,6 +5157,9 @@ func _kertun_logic() -> void:
 	if _hint.text != "":
 		return
 	_aarni_museum()
+	if _hint.text != "":
+		return
+	_ukko_museum()
 	if _hint.text != "":
 		return
 	_kertun_museum()
@@ -5316,6 +5559,10 @@ func quest_flag(name: String) -> bool:
 			return aarni.heard
 		"aarni_done":
 			return aarni.choice != ""
+		"ukko_heard":
+			return ukko.heard
+		"ukko_done":
+			return ukko.choice != ""
 		"kertun_heard":
 			return kertun.heard
 		"kertun_done":
@@ -6475,6 +6722,11 @@ func _drone_pois() -> Array:
 	if aarni.sulo and not aarni.spotted and not aarni.found and _between(clock_min, Aarnivalkea.NIGHT):
 		var aat: Vector3 = M.w(M.AARNI_SPOT)
 		out.append({"id": "aarni_hehku", "name": "Sinertävä hehku sammalten alla Lapinraunion luona!", "pos": func() -> Vector3: return aat + Vector3(0, 0.3, 0)})
+	if ukko.heard and not ukko.spotted and not ukko.caught and _between(clock_min, UkkoLegenda.ILTA):
+		var sp: Array = _kala_spot("tekojarvi")
+		if not sp.is_empty():
+			var uat: Vector3 = sp[0] + (sp[1] as Vector3) * 16.0
+			out.append({"id": "ukko_varjo", "name": "Valtava varjo tekojärven pinnan alla!", "pos": func() -> Vector3: return uat})
 	if kertun.heard and not kertun.spotted:
 		var rat: Vector3 = M.w((KertunRauta.RIVI_A + KertunRauta.RIVI_B) / 2.0)
 		out.append({"id": "kertun_rivi", "name": "Suora kivirivi sammaleen alla Kertunkankaalla!", "pos": func() -> Vector3: return rat + Vector3(0, 0.3, 0)})
@@ -6528,6 +6780,11 @@ func _on_drone_photo(id: String) -> void:
 	if id == "aarni_hehku" and not aarni.spotted:
 		aarni.spotted = true
 		_queue_message("Yökuvassa kivikasan kohdalla hehkuu sinistä, vaikka siellä ei ole ketään. Aarnivalkea? Merkki karttaan (M).", 5.0)
+	if id == "ukko_varjo" and not ukko.spotted:
+		ukko.spotted = true
+		_save_game()
+		_queue_message("Iltakuvassa Kaitasaaren edustalla pinnan alla liikkuu varjo, pitkä kuin soutuvene. Ei se tukki ollu. "
+			+ "Merkki karttaan (M). Tauno haluaa nähdä tämän.", 5.5)
 	if id == "kertun_rivi" and not kertun.spotted:
 		kertun.spotted = true
 		_queue_message("Kankaalla sammaleen alla kulkee suora kivirivi, luonto ei tee noin. Rivi päättyy isoon kiveen. Merkki karttaan (M).", 5.0)
@@ -7726,6 +7983,9 @@ func _kauppa_auto_buy(k: String) -> void:
 			has_sugar = true
 		"turbohiiva":
 			has_turbo = true
+		"madot":
+			madot += 10
+			note += " Matoja %d." % madot
 		"lehti":
 			tilat.add("moraali", -0.03)
 			note = "Iltalehden lööppi: \"%s\"" % KauppaAuto.HEADLINES.pick_random()
@@ -8949,13 +9209,15 @@ func _talk_options(who := "") -> Array:
 			else:
 				if who == "hilkka" and not aarni.heard:
 					o.append(_opt("aarnivalkea", "Onko Lapinrauniosta jotain juttuja?", true, "", "juoru_aarnivalkea" in tilat.firsts))
+				if who == "tauno" and not ukko.heard:
+					o.append(_opt("ukko", "Onko tekojärvessä kalaa?", true, "", has_virveli or has_onki))
 				if who == "tauno" and pannu.found and pannu.choice == "":
 					o.append(_opt("romu", "Myy vanha kuparipannu romuksi (%s €)" % _eur(PANNU_ROMU), true, "", true))
 				if who == "raili" and tokola.markat:
 					o.append(_opt("markat", "Myy vanhat markat keräilijälle (%s €)" % _eur(TOKOLA_MARKAT), true, "", true))
 				for k in KIRPPIS_STOCK:
 					var it: Dictionary = KIRPPIS_STOCK[k]
-					if it.seller != who:
+					if it.seller != who or _kirppis_hidden(k):
 						continue
 					if _kirppis_sold.get(k, -1) == day:
 						o.append(_opt("x_" + k, "%s (myyty)" % it.name, false, "uusia huomenna"))
@@ -9008,6 +9270,8 @@ func _talk_options(who := "") -> Array:
 		"veksi":
 			if _kekkonen == 1:
 				o.append(_opt("kekkonen", "Myy Kekkosen rintamerkki (%s €)" % _eur(KEKKONEN_HINTA), true, "", true))
+			if ukko.caught and ukko.choice == "":
+				o.append(_opt("ukko_myy", "Myy Tekojärven Ukko täytettäväksi (%s €)" % _eur(UkkoLegenda.KERAILIJA_HINTA), true, "", true))
 			if aarni.found and aarni.choice == "":
 				o.append(_opt("hopeat", "Myy Isonvihan hopeat (%s €)" % _eur(Aarnivalkea.KERAILIJA_HINTA), true, "", true))
 		"veksi":
@@ -9223,6 +9487,8 @@ func _talk_choose(id: String) -> void:
 				_kertun_sell()
 			elif id == "hopeat":
 				_aarni_sell()
+			elif id == "ukko_myy":
+				_ukko_sell()
 			elif id == "kekkonen":
 				_kekkonen = 2
 				money += KEKKONEN_HINTA
@@ -9500,6 +9766,8 @@ func _talk_chat_line() -> String:
 		return (TOKOLA_PROVEN[_talk_who] as Array).pick_random()
 	if AARNI_DOUBT.has(_talk_who) and aarni.heard and randf() < 0.45:
 		return ((AARNI_PROVEN if aarni.proven() else AARNI_DOUBT)[_talk_who] as Array).pick_random()
+	if UKKO_DOUBT.has(_talk_who) and ukko.heard and randf() < 0.45:
+		return ((UKKO_PROVEN if ukko.proven() else UKKO_DOUBT)[_talk_who] as Array).pick_random()
 	if KERTUN_DOUBT.has(_talk_who) and kertun.heard and randf() < 0.45:
 		return ((KERTUN_PROVEN if kertun.proven() else KERTUN_DOUBT)[_talk_who] as Array).pick_random()
 	if _talk_who in ["pekka", "arto", "sulo"] and pannu.heard and randf() < 0.5:
@@ -11797,7 +12065,7 @@ func _after_fishing(got: Array) -> void:
 		saalis.append({"type": "kala", "nom": f.nom})
 		names.append("%s %s kg" % [f.nom, ("%.1f" % f.kg).replace(".", ",")])
 	tilat.add("moraali", minf(0.06 * got.size(), 0.25))
-	_show_message("Saalis: %s. Vie kesäkeittiön savustimeen." % ", ".join(names), 3.5)
+	_show_message("Saalis: %s. %s" % [", ".join(names), "Vie kesäkeittiön savustimeen." if _at_mokki() else "Kalat kassissa."], 3.5)
 
 
 ## Mökin pohjoispuoli: Salmisen uimaranta, Ranta-Rosvo, Keskimmäisen laavu, tynnyrisauna ja laituri (mokki.gd).
@@ -13910,6 +14178,9 @@ func _load_game() -> void:
 	clock_min = cfg.get_value("peli", "kello", DAY_START)
 	has_chocolate = cfg.get_value("peli", "suklaa", false)
 	has_flowers = cfg.get_value("peli", "kukat", false)
+	has_onki = cfg.get_value("peli", "onki", false)
+	has_virveli = cfg.get_value("peli", "virveli", false)
+	madot = cfg.get_value("peli", "madot", 0)
 	_valokuva = cfg.get_value("rauniot", "valokuva", 0)
 	_has_kaasu = cfg.get_value("korjaamot", "kaasu", false)
 	_kaasu_given = cfg.get_value("korjaamot", "kaasu_annettu", false)
@@ -13996,6 +14267,7 @@ func _load_game() -> void:
 	kertun.load_from(cfg)
 	_pohjoiset_load(cfg)
 	aarni.load_from(cfg)
+	ukko.load_from(cfg)
 	_hongan_day = cfg.get_value("honganpalo", "keikka_paiva", -1)
 	quests.load_from(cfg)
 	_piirakka_record = cfg.get_value("reippari", "ennatys", 7)
@@ -14022,6 +14294,9 @@ func _save_game() -> void:
 	cfg.set_value("peli", "kello", clock_min)
 	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("peli", "kukat", has_flowers)
+	cfg.set_value("peli", "onki", has_onki)
+	cfg.set_value("peli", "virveli", has_virveli)
+	cfg.set_value("peli", "madot", madot)
 	cfg.set_value("rauniot", "valokuva", _valokuva)
 	cfg.set_value("korjaamot", "kaasu", _has_kaasu)
 	cfg.set_value("korjaamot", "kaasu_annettu", _kaasu_given)
@@ -14112,6 +14387,7 @@ func _save_game() -> void:
 	_pohjoiset_save(cfg)
 	if aarni != null:
 		aarni.save_to(cfg)
+		ukko.save_to(cfg)
 	cfg.set_value("honganpalo", "keikka_paiva", _hongan_day)
 	if endings != null:
 		endings.save_to(cfg)
@@ -15241,6 +15517,16 @@ func inventory_items() -> Array:
 		add.call("hopeat", "Isonvihan hopeat", 1, "Mustuneita hopearahoja ja lusikoita. Saloisten Pirttiin vai kirppiksen takahuoneeseen?")
 	if "sormus" in _orava_finds and not _sormus_given:
 		add.call("sormus", "Kultasormus", 1, "Oravajärven pohjasta. Kenenkähän? Sinikka käy siellä aamuisin uimassa.")
+	if has_onki:
+		add.call("onki", "Bambuonki", 1, "Kolmeen osaan liitetty bambu ja koho. Oravajärvellä ja tekojärvellä rannalta.")
+	if madot > 0:
+		add.call("madot", "Onkimatoja", madot, "Yksi mato per heitto. Lisää kauppa-autosta.")
+	if has_virveli:
+		add.call("virveli", "Virveli", 1, "Lusikkauistin ja kela. Pitkä heitto, kelaa tasaisesti.")
+	if ukko.lusikka and not ukko.caught:
+		add.call("lusikka", "Isän kuparilusikka", 1, "Taunon isän vanha uistin. Iltaisin Kaitasaaren kärjestä (19–23).")
+	if ukko.caught and ukko.choice == "":
+		add.call("ukko", "Tekojärven Ukko", 1, "18,4 kg haukea. Saloisten Pirttiin, Veksille vai takaisin järveen?")
 	if kertun.malmi and not kertun.found:
 		add.call("suomalmi", "Suomalmin pala", 1, "Ruosteinen, raskas möykky Kertunkankaan suolta." + ("" if kertun.malmi_known else " Aaro tietäis?"))
 	if kertun.kuona and not kertun.found:
@@ -15329,7 +15615,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list() + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks()
+	info.tasks = story.list() + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -25659,6 +25945,130 @@ func _maybe_screenshot() -> void:
 				if _drone == null:
 					break
 			print("MDROONI järveen: broken=%s msg=%s" % [drone_broken_day == day, _msg.text])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"kalastus":
+			# Kalastus rannalta ja Tekojärven Ukko: kalapaikat, onki Oravajärvellä (heitto, nykäisy, saalis), virveli
+			# tekojärvellä (Ukko katkaisee siiman), lusikka kirppikseltä, iltahuipennus ja Pirtti. Kuvat _kala_*.
+			# Tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(suffix: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", suffix))
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().process_frame
+			if player == bike:
+				bike.speed = 0.0
+				_toggle_mount()
+			ukko = UkkoLegenda.new()
+			print("KALA paikat: orava %s, tekojärvi %s" % [_kala_spot("orava"), _kala_spot("tekojarvi")])
+			var go := func(id: String) -> void:
+				var sp: Array = _kala_spot(id)
+				walker_out.global_position = sp[0] + Vector3(0, 0.3, 0)
+				walker_out.velocity = Vector3.ZERO
+				for i in 20:
+					await get_tree().physics_frame
+				await get_tree().process_frame
+			# Ei välineitä: vihje.
+			has_onki = false
+			has_virveli = false
+			await go.call("orava")
+			print("KALA ilman: '%s'" % _hint.text)
+			# Onki Sepolta: pysyvä, matoja mukana.
+			_seppo_choose("osta_onki")
+			print("KALA onki %s, madot %d" % [has_onki, madot])
+			await frames.call(3)
+			print("KALA vihje: '%s'" % _hint.text)
+			_start_shore_fishing("orava", "onki")
+			var g: Node = get_children().filter(func(c): return c.get_script() == ShoreFishGame)[0]
+			await frames.call(20)
+			await snap.call("_kala_onki_ranta.png")
+			g._charge = 0.6
+			g._cast()
+			await frames.call(30)
+			await snap.call("_kala_onki_koho.png")
+			g._bite_at = g._t
+			await frames.call(3)
+			g._fish = {"nom": "ahven", "name": "ahvenen", "kg": 0.45, "power": 0.4}
+			g._hook()
+			await frames.call(20)
+			await snap.call("_kala_onki_vasytys.png")
+			g._dist = 0.5
+			await frames.call(12)
+			await snap.call("_kala_onki_saalis.png")
+			print("KALA onki saalis %s, madot %d" % [g.catch, g.worms])
+			Input.action_press("mount")
+			await frames.call(2)
+			Input.action_release("mount")
+			await frames.call(150)
+			print("KALA jälkeen: state %s, madot %d, saalis %s, msg '%s'" % [state, madot, saalis, _msg.text])
+			# Virveli kirppikseltä, legenda kuultu, tekojärvellä Ukko katkaisee siiman.
+			has_virveli = true
+			ukko.heard = true
+			print("KALA lusikka piilossa (ei vihjeitä): %s" % _kirppis_hidden("lusikka"))
+			clock_min = 14 * 60.0
+			await go.call("tekojarvi")
+			print("KALA tekojärvi vihje: '%s'" % _hint.text)
+			_start_shore_fishing("tekojarvi", "virveli")
+			g = get_children().filter(func(c): return c.get_script() == ShoreFishGame)[0]
+			print("KALA snap-tila %s, ready %s" % [g.ukko_snap, g.ukko_ready])
+			await frames.call(10)
+			g._charge = 1.0
+			g._cast()
+			await frames.call(10)
+			await snap.call("_kala_virveli_heitto.png")
+			g._fish = {"nom": "?", "power": 2.0, "snap": true}
+			g._strike()
+			g._snap_at = g._t + 1.0
+			await frames.call(20)
+			await snap.call("_kala_ukko_iskee.png")
+			for i in 400:
+				if g.snaps > 0:
+					break
+				await get_tree().process_frame
+			print("KALA snaps %d, msg '%s'" % [g.snaps, g._msg.text])
+			g._state = "idle"
+			Input.action_press("mount")
+			await frames.call(2)
+			Input.action_release("mount")
+			await frames.call(60)
+			ukko.siimat += 1
+			print("KALA siimat %d, vihjeet %s, lusikka piilossa %s, tehtävät %s" % [ukko.siimat, ukko.clues(), _kirppis_hidden("lusikka"), _ukko_tasks()])
+			ukko.lusikka = true
+			print("KALA tehtävät lusikalla %s" % [_ukko_tasks()])
+			# Huipennus illalla Kaitasaaren kärjestä.
+			clock_min = 20 * 60.0 + 30.0
+			await go.call("tekojarvi")
+			_start_shore_fishing("tekojarvi", "virveli")
+			g = get_children().filter(func(c): return c.get_script() == ShoreFishGame)[0]
+			print("KALA ilta: lure %s, ready %s" % [g.lure, g.ukko_ready])
+			await frames.call(10)
+			g._charge = 1.0
+			g._cast()
+			await frames.call(5)
+			g._fish = g.UKKO.duplicate()
+			g._strike()
+			await frames.call(40)
+			await snap.call("_kala_ukko_vasytys.png")
+			g._dist = 0.5
+			await frames.call(25)
+			await snap.call("_kala_ukko_kiinni.png")
+			for i in 1000:
+				if not is_instance_valid(g):
+					break
+				await get_tree().process_frame
+			await frames.call(5)
+			print("KALA Ukko kiinni %s, päivä %d, tehtävät %s, veksi %s" % [ukko.caught, _ukko_day, _ukko_tasks(),
+				_talk_options("veksi").map(func(o): return o.id) if kirppis_int != null else "?"])
+			await frames.call(5)
+			print("KALA vapautusvihje: '%s'" % _hint.text)
+			_inventory.toggle()
+			await frames.call(5)
+			await snap.call("_kala_reppu.png")
+			_inventory.toggle()
+			_ukko_release()
+			print("KALA valinta %s, loppu %s, todistettu %s" % [ukko.choice, endings.counts.has("ukko_vapaa"), ukko.proven()])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"reppu":

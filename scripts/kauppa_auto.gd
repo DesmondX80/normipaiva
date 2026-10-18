@@ -25,6 +25,7 @@ const MENU := {
 	"sokeri": ["Sokeri 1 kg (kotiviiniin)", 1.90],
 	"turbohiiva": ["Turbohiiva (kotiviiniin)", 5.50],
 	"lehti": ["Iltalehti", 1.50],
+	"madot": ["Matopurkki (onkimadot)", 2.00],
 }
 const LINES := [
 	"Neittävän kauppa lopetti keväällä. Nyt mää kierrän nää kylät kahesti viikossa.",

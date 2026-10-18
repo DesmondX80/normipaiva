@@ -24,6 +24,8 @@ const ENDINGS := [
 	["eramaan_laavu", "Erämaan laavu", "Viitajärven laavulla nuotio, makkara ja kalja. Kukaan ei tiedä, missä oot."],
 	["aarnivalkea", "Isonvihan hopeat", "Lapinraunion aarnivalkea paloi oikean aarteen päällä. Hilkka oli oikeassa."],
 	["kertun_rauta", "Viimeisen sepän kirves", "Kertunkankaan legenda todistettu: Raimo oli oikeassa, ja Veikko tarjosi."],
+	["tekojarven_ukko", "Tekojärven Ukko", "18,4 kilon hauki täytettynä Saloisten Pirtissä. Tauno itki vähän."],
+	["ukko_vapaa", "Ukko vapaaksi", "Tekojärven Ukko ui takaisin ladon raunioille. Tauno tarjosi kahvit."],
 ]
 
 var counts := {}  # id -> kerrat
