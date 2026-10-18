@@ -1744,15 +1744,15 @@ func _build_eramaa() -> void:
 	viita_fire = _campfire(root, Vector3(0, 0, -1.0))
 	viita_fire.visible = false
 	# Istuinpölkky tulen länsipuolelle: laavun loppukohtauksessa (cutscene.laavu_sunset) hahmo istuu tässä.
-	var seat := viita_pos + Vector3(-2.1, 0, 0)
+	var seat := viita_pos + Vector3(-2.38, 0, 0)  # hahmon lantion alle (hahmo -2,1 m tulesta, polvet tulta kohti)
 	var stump := Node3D.new()
 	stump.name = "ViitaStump"
 	root.add_child(stump)  # laavun osat ovat root-solmun lapsia (suoraan maailmaan lisätty jäi näkymättä)
 	var sl := root.to_local(Vector3(seat.x, 0, seat.z))
 	stump.position = Vector3(sl.x, 0, sl.z)  # rootin maataso (root lasketaan maahan vasta rakennuksen jälkeen)
-	B.mesh(stump, B.cyl(0.24, 0.27, 0.42, 14), Vector3(0, 0.21, 0), Color(0.36, 0.26, 0.17))  # kaarna
-	B.mesh(stump, B.cyl(0.215, 0.215, 0.02, 14), Vector3(0, 0.425, 0), Color(0.78, 0.64, 0.42))  # sahattu pinta
-	for r in [0.07, 0.13, 0.18]:  # vuosirenkaat
+	B.mesh(stump, B.cyl(0.19, 0.22, 0.42, 14), Vector3(0, 0.21, 0), Color(0.36, 0.26, 0.17))  # kaarna
+	B.mesh(stump, B.cyl(0.17, 0.17, 0.02, 14), Vector3(0, 0.425, 0), Color(0.78, 0.64, 0.42))  # sahattu pinta
+	for r in [0.06, 0.11, 0.15]:  # vuosirenkaat
 		var ring := MeshInstance3D.new()
 		var tm := TorusMesh.new()
 		tm.inner_radius = r - 0.006
@@ -1764,7 +1764,7 @@ func _build_eramaa() -> void:
 		stump.add_child(ring)
 	for k in 4:  # kaarnan halkeamat
 		var a := k * TAU / 4.0 + 0.4
-		B.mesh(stump, B.boxm(Vector3(0.02, 0.36, 0.03)), Vector3(cos(a) * 0.255, 0.2, sin(a) * 0.255), Color(0.22, 0.16, 0.1),
+		B.mesh(stump, B.boxm(Vector3(0.02, 0.36, 0.03)), Vector3(cos(a) * 0.205, 0.2, sin(a) * 0.205), Color(0.22, 0.16, 0.1),
 			Vector3(0, -rad_to_deg(a), 0))
 	for k in 6:  # halkopino
 		B.mesh(root, B.cyl(0.09, 0.09, 0.6, 8), Vector3(2.6, 0.1 + (k / 3) * 0.17, 1.5 + (k % 3) * 0.18), wood.lightened(0.15), Vector3(90, 0, 0))
