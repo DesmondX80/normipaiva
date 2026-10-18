@@ -24825,8 +24825,21 @@ func _maybe_screenshot() -> void:
 			for i in 20:
 				await get_tree().physics_frame
 			Input.action_press("forward")
+			var rec := "--rec" in OS.get_cmdline_user_args()  # --rec: ruudut videoksi (_torni_NNNN.png)
+			var side_cam: Camera3D = null
+			if "--rec-side" in OS.get_cmdline_user_args():  # sivukamera tornin vierestä (pelin oma kamera näkyy ilman tätä)
+				side_cam = Camera3D.new()
+				add_child(side_cam)
+				side_cam.global_position = base + tb * Vector3(9.0, 3.0, -4.0)
+				side_cam.fov = 60.0
+				side_cam.current = true
 			for i in 900:
 				await get_tree().physics_frame
+				if side_cam != null:
+					side_cam.look_at(walker_out.global_position + Vector3(0, 0.9, 0), Vector3.UP)
+				if rec and i % 2 == 0 and i < 620:
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_torni_%04d.png" % (i / 2)))
 				if i % 120 == 0 or (i > 500 and _hint.text != "" and i % 30 == 0):
 					print("TOWER t=", i, " spd=", walker_out.speed, " y=%.2f ground=%.2f hint=%s" % [walker_out.global_position.y, Terrain.h(walker_out.global_position.x, walker_out.global_position.z), _hint.text])
 			Input.action_release("forward")

@@ -497,6 +497,8 @@ func _build_tower() -> void:
 	var roof := PrismMesh.new()
 	roof.size = Vector3(s + 0.9, 1.0, s + 0.9)
 	B.mesh(t, roof, Vector3(0, h + 2.9, 0), Color(0.22, 0.2, 0.19))
+	# Katon törmäys: pelin kamera (cam_ctl säde) pysyy katon alla eikä nouse sen yläpuolelle (ennen katto peitti kuvan).
+	t.add_child(B.box_shape(Vector3(s + 0.9, 0.1, s + 0.9), Vector3(0, h + 2.4, 0)))
 	# Portaat: -Z-suuntaan, nousu h, kallistus n. 33°.
 	var run := h / tan(deg_to_rad(33.0))
 	var steps := int(h / 0.2)
