@@ -1957,8 +1957,8 @@ func _mokki_wine_party() -> void:
 	mwine_locked = true
 	mokki_int.set_wine("")
 	_save_game()
-	var stats := "Paapelin kotiviiniä %d päivän käymisen jälkeen  ·  Santtu, Sinikka ja Korpi-Kalle  ·  Mökkibileitä: %d" % [
-		used, mwine_endings]
+	var stats := "Paapelin kotiviiniä %d päivän käymisen jälkeen  ·  Santtu, Sinikka ja Korpi-Kalle  ·  %s" % [
+		used, _ending_line("mokkibileet")]
 	var who: String = MWINE_WAKE.keys().pick_random()
 	var santtu: Node3D = mokki.santtu
 	santtu.visible = false
@@ -5460,9 +5460,10 @@ func _start_piirakka() -> void:
 ## Onnellinen loppu: kirjaa kokoelmaan ja ilmoittaa (uusi loppu erikseen).
 func _ending(id: String) -> void:
 	var new: bool = endings.record(id, day)
+	var kind := "loppu" if Endings.is_loppu(id) else "hetki"
 	Sfx.play("win_small", -6.0, 1.1)
-	_queue_message("ONNELLINEN LOPPU: %s%s  ·  yhteensä %d" % [Endings.name_of(id),
-		"  ·  UUSI! %d / %d" % [endings.distinct(), Endings.max_count()] if new else "", endings.total()], 4.5)
+	_queue_message("%s: %s%s  ·  yhteensä %d" % ["ONNELLINEN LOPPU" if kind == "loppu" else "LEGENDAARINEN HETKI", Endings.name_of(id),
+		"  ·  UUSI! %d / %d" % [endings.distinct(kind), Endings.max_count(kind)] if new else "", endings.total(kind)], 4.5)
 	_save_game()
 
 
@@ -5470,7 +5471,7 @@ func _ending(id: String) -> void:
 func _ending_line(id: String) -> String:
 	var new: bool = endings.record(id, day)
 	return "%s%s  ·  Onnellisia loppuja %d (erilaisia %d / %d)" % [Endings.name_of(id), "  UUSI!" if new else "",
-		endings.total(), endings.distinct(), Endings.max_count()]
+		endings.total("loppu"), endings.distinct("loppu"), Endings.max_count("loppu")]
 
 
 ## Tarinan vihje puhujalta (quests.gd): tervehdyksessä aina, kun vihje on uusi; jutellessa uusi tai joskus toistona.
@@ -5607,13 +5608,18 @@ func quest_progress(key: String) -> String:
 ## Päiväkirjan sisältö (journal.gd).
 func journal_data() -> Dictionary:
 	var d: Dictionary = quests.build(tilat.firsts, quest_flag, story.list(), quest_progress, day)
-	var list: Array = []
-	for e in Endings.ENDINGS:
-		if endings.counts.has(e[0]):
-			list.append({"name": e[1], "desc": e[2], "count": endings.counts[e[0]], "day": endings.first_day.get(e[0], 0)})
-		else:
-			list.append(null)
-	d["endings"] = {"distinct": endings.distinct(), "max": Endings.max_count(), "total": endings.total(), "list": list}
+	# Onnelliset loput ja legendaariset hetket omina listoinaan (löytämättömät null = ???).
+	for kind in ["loppu", "hetki"]:
+		var list: Array = []
+		for e in Endings.ENDINGS:
+			if (kind == "loppu") != Endings.is_loppu(e[0]):
+				continue
+			if endings.counts.has(e[0]):
+				list.append({"name": e[1], "desc": e[2], "count": endings.counts[e[0]], "day": endings.first_day.get(e[0], 0)})
+			else:
+				list.append(null)
+		d["loput" if kind == "loppu" else "hetket"] = {"distinct": endings.distinct(kind), "max": Endings.max_count(kind),
+			"total": endings.total(kind), "list": list}
 	d["stashes"] = _stash_journal()
 	for s in d.side:
 		s["spot"] = not s.done and not quest_spots(s.id).is_empty()
@@ -20419,8 +20425,8 @@ func _maybe_screenshot() -> void:
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
 			var summary := func() -> String:
 				var d := journal_data()
-				return "luvut %s, tehtävät %s, loput %d/%d yht %d" % [d.chapters.map(func(c): return "%s(%d rivi%s)" % [c.title.left(2), c.rows.size(), ",valmis" if c.done else ""]),
-					d.side.map(func(q): return q.title), d.endings.distinct, d.endings.max, d.endings.total]
+				return "luvut %s, tehtävät %s, loput %d/%d yht %d, hetket %d/%d" % [d.chapters.map(func(c): return "%s(%d rivi%s)" % [c.title.left(2), c.rows.size(), ",valmis" if c.done else ""]),
+					d.side.map(func(q): return q.title), d.loput.distinct, d.loput.max, d.loput.total, d.hetket.distinct, d.hetket.max]
 			print("PK alku: ", summary.call())
 			story.step = "valmis"
 			_ending("paapeli")
