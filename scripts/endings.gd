@@ -10,6 +10,7 @@ const ENDINGS := [
 	["viinibileet", "Viinibileet", "Kotiviini kypsyi saavissa: Pekka, Arto ja Sinikka autotalliin."],
 	["laavu", "Laavulla kaljoilla", "Laavu vallattu, kalja auki Antinsuonkankaalla."],
 	["legendaarinen", "Legendaarinen normipäivä", "Nuotio, makkara ja kalja laavulla auringonlaskussa."],
+	["mokkibileet", "Mökkibileet", "Paapelin kotiviini, Santtu, Sinikka ja Korpi-Kalle. Herätys jostain krapulassa."],
 	["paapeli", "Paapeliin Pekan kyydillä", "Naapurin hommat tehty, avaimet löytyi, ja Volvo kaahaa mökille."],
 	["savusauna", "Savusaunan löylyt", "Korjattu savusauna, pehmeät löylyt ja järvi perään."],
 	["lavatanssit", "Lavatanssit Oulujärvellä", "Humppaveikot soitti, ja jalka nousi kuin nuorena."],
@@ -27,6 +28,10 @@ const ENDINGS := [
 	["tekojarven_ukko", "Tekojärven Ukko", "18,4 kilon hauki täytettynä Saloisten Pirtissä. Tauno itki vähän."],
 	["ukko_vapaa", "Ukko vapaaksi", "Tekojärven Ukko ui takaisin ladon raunioille. Tauno tarjosi kahvit."],
 ]
+
+## Oikeat onnelliset loput: päivä päättyy loppukohtaukseen (juhlat tallissa, viinibileet, laavu). Muut ovat
+## legendaarisia hetkiä: saavutuksia, joiden jälkeen peli jatkuu.
+const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet", "eramaan_laavu"]
 
 var counts := {}  # id -> kerrat
 var first_day := {}  # id -> päivä, jolloin saatu ensimmäisen kerran
@@ -48,19 +53,29 @@ func record(id: String, day: int) -> bool:
 	return new
 
 
-func distinct() -> int:
-	return counts.size()
+static func is_loppu(id: String) -> bool:
+	return id in LOPUT
 
 
-func total() -> int:
+## kind: "" = kaikki, "loppu" = onnelliset loput, "hetki" = legendaariset hetket.
+static func _kind_ok(id: String, kind: String) -> bool:
+	return kind == "" or (kind == "loppu") == is_loppu(id)
+
+
+func distinct(kind := "") -> int:
+	return counts.keys().filter(func(k): return _kind_ok(k, kind)).size()
+
+
+func total(kind := "") -> int:
 	var n := 0
 	for k in counts:
-		n += int(counts[k])
+		if _kind_ok(k, kind):
+			n += int(counts[k])
 	return n
 
 
-static func max_count() -> int:
-	return ENDINGS.size()
+static func max_count(kind := "") -> int:
+	return ENDINGS.filter(func(e): return _kind_ok(e[0], kind)).size()
 
 
 func save_to(cfg: ConfigFile) -> void:

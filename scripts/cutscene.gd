@@ -80,6 +80,7 @@ func _ready() -> void:
 	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_title = _text(root, 150)
 	_sub = _text(root, 34)
+	_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # pitkä tilastorivi rivittyy eikä leikkaudu reunoista
 	_layer.visible = false
 
 
@@ -119,8 +120,8 @@ func _layout_bars(amount: float) -> void:
 	_band.size = Vector2(sz.x, sz.y * 0.2)
 	_title.position = Vector2(0, sz.y * 0.36)
 	_title.size = Vector2(sz.x, sz.y * 0.2)
-	_sub.position = Vector2(0, sz.y * 0.74)
-	_sub.size = Vector2(sz.x, sz.y * 0.12)
+	_sub.position = Vector2(sz.x * 0.05, sz.y * 0.74)
+	_sub.size = Vector2(sz.x * 0.9, sz.y * 0.12)
 
 
 func _wait(sec: float) -> void:
@@ -420,7 +421,8 @@ func jemma_found(home: Vector3, lost: int, left: int, done: Callable, choco := "
 
 # --- Makkaranpaisto auringonlaskussa ----------------------------------------------
 
-func laavu_sunset(pit: Vector3, fire: Node3D, title: String, stats: String, done: Callable) -> void:
+## view_dir: suunta tulelta järvelle (vaakatasossa); annettuna kamera kiertää maan puolella ja katsoo tulen yli järvelle.
+func laavu_sunset(pit: Vector3, fire: Node3D, title: String, stats: String, done: Callable, view_dir := Vector2.ZERO) -> void:
 	_begin()
 	Sfx.music_play(0.8, Sfx.MUSIC_CHORUS)
 	await _fade_to(1.0, 0.5)
@@ -451,7 +453,11 @@ func laavu_sunset(pit: Vector3, fire: Node3D, title: String, stats: String, done
 	tw.parallel().tween_property(sun, "light_color", Color(1.0, 0.45, 0.2), 7.0)
 	tw.parallel().tween_property(sun, "light_energy", 0.9, 7.0)
 	_fade_to(0.0, 0.8)
-	_orbit(pit + Vector3(-1.0, 0, 0), 5.8, 1.5, PI * 1.22, PI * 1.62, 8.0)
+	if view_dir != Vector2.ZERO:
+		var a0 := atan2(view_dir.y, view_dir.x) + PI * 0.5  # sivulta: tuli ja hahmo edessä, järvi kuvan sivulla
+		_orbit(pit + Vector3(-1.0, 0, 0), 5.5, 2.2, a0 - 0.25, a0 + 0.1, 8.0)
+	else:
+		_orbit(pit + Vector3(-1.0, 0, 0), 5.8, 1.5, PI * 1.22, PI * 1.62, 8.0)
 	await _wait(1.2)
 	_title.text = title
 	_title.add_theme_font_size_override("font_size", 90)

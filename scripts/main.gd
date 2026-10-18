@@ -1957,8 +1957,8 @@ func _mokki_wine_party() -> void:
 	mwine_locked = true
 	mokki_int.set_wine("")
 	_save_game()
-	var stats := "Paapelin kotiviiniä %d päivän käymisen jälkeen  ·  Santtu, Sinikka ja Korpi-Kalle  ·  Mökkibileitä: %d" % [
-		used, mwine_endings]
+	var stats := "Paapelin kotiviiniä %d päivän käymisen jälkeen  ·  Santtu, Sinikka ja Korpi-Kalle  ·  %s" % [
+		used, _ending_line("mokkibileet")]
 	var who: String = MWINE_WAKE.keys().pick_random()
 	var santtu: Node3D = mokki.santtu
 	santtu.visible = false
@@ -4041,8 +4041,7 @@ func _eramaa_logic() -> void:
 				tilat.add("moraali", 0.2)
 				Sfx.play("glass", -4.0, 0.9)
 				if sausage_done:
-					_ending("eramaan_laavu")
-					_show_message("Nuotio, makkara ja kalja Viitajärven laavulla. Kukaan ei tiedä, missä oot. Tätä se on.", 5.0)
+					_win_eramaa()
 				else:
 					_show_message("Kalja nuotiolla. Makkaraa ois kiva paistaa (K-Market).", 3.0)
 		else:
@@ -5460,9 +5459,10 @@ func _start_piirakka() -> void:
 ## Onnellinen loppu: kirjaa kokoelmaan ja ilmoittaa (uusi loppu erikseen).
 func _ending(id: String) -> void:
 	var new: bool = endings.record(id, day)
+	var kind := "loppu" if Endings.is_loppu(id) else "hetki"
 	Sfx.play("win_small", -6.0, 1.1)
-	_queue_message("ONNELLINEN LOPPU: %s%s  ·  yhteensä %d" % [Endings.name_of(id),
-		"  ·  UUSI! %d / %d" % [endings.distinct(), Endings.max_count()] if new else "", endings.total()], 4.5)
+	_queue_message("%s: %s%s  ·  yhteensä %d" % ["ONNELLINEN LOPPU" if kind == "loppu" else "LEGENDAARINEN HETKI", Endings.name_of(id),
+		"  ·  UUSI! %d / %d" % [endings.distinct(kind), Endings.max_count(kind)] if new else "", endings.total(kind)], 4.5)
 	_save_game()
 
 
@@ -5470,7 +5470,7 @@ func _ending(id: String) -> void:
 func _ending_line(id: String) -> String:
 	var new: bool = endings.record(id, day)
 	return "%s%s  ·  Onnellisia loppuja %d (erilaisia %d / %d)" % [Endings.name_of(id), "  UUSI!" if new else "",
-		endings.total(), endings.distinct(), Endings.max_count()]
+		endings.total("loppu"), endings.distinct("loppu"), Endings.max_count("loppu")]
 
 
 ## Tarinan vihje puhujalta (quests.gd): tervehdyksessä aina, kun vihje on uusi; jutellessa uusi tai joskus toistona.
@@ -5607,13 +5607,18 @@ func quest_progress(key: String) -> String:
 ## Päiväkirjan sisältö (journal.gd).
 func journal_data() -> Dictionary:
 	var d: Dictionary = quests.build(tilat.firsts, quest_flag, story.list(), quest_progress, day)
-	var list: Array = []
-	for e in Endings.ENDINGS:
-		if endings.counts.has(e[0]):
-			list.append({"name": e[1], "desc": e[2], "count": endings.counts[e[0]], "day": endings.first_day.get(e[0], 0)})
-		else:
-			list.append(null)
-	d["endings"] = {"distinct": endings.distinct(), "max": Endings.max_count(), "total": endings.total(), "list": list}
+	# Onnelliset loput ja legendaariset hetket omina listoinaan (löytämättömät null = ???).
+	for kind in ["loppu", "hetki"]:
+		var list: Array = []
+		for e in Endings.ENDINGS:
+			if (kind == "loppu") != Endings.is_loppu(e[0]):
+				continue
+			if endings.counts.has(e[0]):
+				list.append({"name": e[1], "desc": e[2], "count": endings.counts[e[0]], "day": endings.first_day.get(e[0], 0)})
+			else:
+				list.append(null)
+		d["loput" if kind == "loppu" else "hetket"] = {"distinct": endings.distinct(kind), "max": Endings.max_count(kind),
+			"total": endings.total(kind), "list": list}
 	d["stashes"] = _stash_journal()
 	for s in d.side:
 		s["spot"] = not s.done and not quest_spots(s.id).is_empty()
@@ -12749,6 +12754,27 @@ func _win_laavu() -> void:
 	player.set_carrying(false)
 	_save_game()
 	cutscene.laavu_sunset(M.w(M.LAAVU), world.fire, title, stats, func() -> void: _new_day(_nearest_safe(), false))
+
+
+## Erämaan laavu: nuotio, makkara ja kalja Viitajärven laavulla. Onnellinen loppu: auringonlasku järven yllä
+## (sama loppukohtaus kuin Antinsuon laavulla) ja uusi päivä.
+func _win_eramaa() -> void:
+	state = "cutscene"
+	player.controls_enabled = false
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	if not Sfx.has_music():
+		Sfx.play("win")
+	var drunk := beers + 1
+	_drink(mini(drunk, 6))
+	var stats := "Nuotio ✔  ·  Makkara ✔  ·  Kaljoja juotiin %d  ·  Viitajärvi tyyni, kukaan ei tiedä missä oot  ·  %s" % [drunk,
+		_ending_line("eramaan_laavu")]
+	beers = 0
+	player.set_carrying(false)
+	_save_game()
+	_viita_find_shore()
+	cutscene.laavu_sunset(world.viita_pos, world.viita_fire, "ERÄMAAN LAAVU!", stats, func() -> void: _new_day(_nearest_safe(), false),
+		_viita_dir)
 
 
 # --- Tapahtumat --------------------------------------------------------------
@@ -20419,8 +20445,8 @@ func _maybe_screenshot() -> void:
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
 			var summary := func() -> String:
 				var d := journal_data()
-				return "luvut %s, tehtävät %s, loput %d/%d yht %d" % [d.chapters.map(func(c): return "%s(%d rivi%s)" % [c.title.left(2), c.rows.size(), ",valmis" if c.done else ""]),
-					d.side.map(func(q): return q.title), d.endings.distinct, d.endings.max, d.endings.total]
+				return "luvut %s, tehtävät %s, loput %d/%d yht %d, hetket %d/%d" % [d.chapters.map(func(c): return "%s(%d rivi%s)" % [c.title.left(2), c.rows.size(), ",valmis" if c.done else ""]),
+					d.side.map(func(q): return q.title), d.loput.distinct, d.loput.max, d.loput.total, d.hetket.distinct, d.hetket.max]
 			print("PK alku: ", summary.call())
 			story.step = "valmis"
 			_ending("paapeli")
@@ -20608,8 +20634,16 @@ func _maybe_screenshot() -> void:
 			await frames.call(3)
 			print("ER kalja: '%s'" % _hint.text)
 			await press.call("interact")
-			print("ER loppu %s, loput %d/%d" % [endings.counts.has("eramaan_laavu"), endings.distinct(), Endings.max_count()])
-			await view.call("_laavu.png", vp + Vector3(5, 2.5, -5), vp + Vector3(0, 0.6, 2))
+			print("ER loppu %s (onnellinen %s), loput %d/%d, tila %s" % [endings.counts.has("eramaan_laavu"), Endings.is_loppu("eramaan_laavu"),
+				endings.distinct("loppu"), Endings.max_count("loppu"), state])
+			for i in 240:  # loppukohtaus: kuva auringonlaskusta
+				await get_tree().process_frame
+			await snap.call("_eramaa_loppu.png")
+			for i in 1200:
+				if state != "cutscene":
+					break
+				await get_tree().process_frame
+			print("ER uusi päivä %d, tila %s" % [day, state])
 			_viita_find_shore()
 			print("ER ranta %s, suunta %s" % [_viita_shore, _viita_dir])
 			await at.call(_viita_shore)

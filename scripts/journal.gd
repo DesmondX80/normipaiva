@@ -2,7 +2,8 @@ extends Control
 ## Normipäiväkirja (#132, näppäin O): nahkakantinen vihko neljällä välilehdellä.
 ## "Tarina": luvut sitä mukaa kuin niihin päästään ja vaiheet sitä mukaa kuin niistä kuullaan (quests.gd).
 ## "Tehtävät": sivutehtävät, kun niistä on kuultu; tehdyt leimataan.
-## "Loput": onnellisten loppujen kokoelma (endings.gd): erilaiset X / Y (löytämättömät ???) ja yhteismäärä.
+## "Loput": onnelliset loput (päivä päättyy) vasemmalla ja legendaariset hetket (saavutukset) oikealla
+## (endings.gd): erilaiset X / Y, löytämättömät ???.
 ## "Jemmat": löydetyt jemmapaikat, kaljat / tila ja riski, kotijemma tavoitteeseen nähden.
 ## Mikään ei paljastu etukäteen. Peli on tauolla auki ollessa. Hiiri: välilehdet ja rulla, näppäimet 1–4, Esc / O sulkee.
 
@@ -259,50 +260,60 @@ func _draw_side() -> void:
 
 
 func _draw_endings() -> void:
-	var e: Dictionary = _data.get("endings", {})
-	var lp := _page(false)
 	var font := ThemeDB.fallback_font
+	var red := Color(0.45, 0.12, 0.08)
+	# Vasen sivu: onnelliset loput (päivä päättyy loppukohtaukseen), isot kortit allekkain.
+	var lo: Dictionary = _data.get("loput", {})
+	var lp := _page(false)
 	var x0 := lp.position.x + 54
-	draw_string(font, Vector2(x0, lp.position.y + 70), "Erilaisia onnellisia loppuja", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.45, 0.12, 0.08))
-	draw_string(font, Vector2(x0, lp.position.y + 130), "%d / %d" % [e.get("distinct", 0), e.get("max", 0)], HORIZONTAL_ALIGNMENT_LEFT, -1, 54,
-		Color(0.85, 0.55, 0.05))
-	# Edistymispalkki tähtinä.
-	var mx: int = max(1, e.get("max", 1))
-	for i in mx:
-		var c := Vector2(x0 + 12 + (i % 7) * 46, lp.position.y + 170 + (i / 7) * 44)
-		var got: bool = i < e.get("distinct", 0)
-		_star(c, 16.0, Color(1.0, 0.8, 0.15) if got else Color(0.8, 0.78, 0.72))
-	draw_string(font, Vector2(x0, lp.position.y + 300), "Onnellisia loppuja yhteensä", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.45, 0.12, 0.08))
-	draw_string(font, Vector2(x0, lp.position.y + 356), str(e.get("total", 0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 54, Color(0.2, 0.45, 0.2))
-	var note := "Jokainen erilainen onnellinen loppu on uusi tähti. Mitä kaikkea normipäivästä voikaan tulla?"
-	var y := lp.position.y + 410
-	for l in _wrap(note, 18, lp.size.x - 90, _hand):
-		draw_string(_hand, Vector2(x0, y), l, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
-		y += 28
-	# Oikea sivu: kortit (löydetyt nimellä, muut ???).
-	var rp := _page(true)
-	var list: Array = e.get("list", [])
-	var cw := (rp.size.x - 80) / 2.0
-	var chh := 78.0
+	draw_string(font, Vector2(x0, lp.position.y + 70), "Onnelliset loput", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, red)
+	draw_string(font, Vector2(x0, lp.position.y + 124), "%d / %d" % [lo.get("distinct", 0), lo.get("max", 0)], HORIZONTAL_ALIGNMENT_LEFT,
+		-1, 48, Color(0.85, 0.55, 0.05))
+	draw_string(_hand, Vector2(x0 + 140, lp.position.y + 118), "kertaa yhteensä %d" % lo.get("total", 0), HORIZONTAL_ALIGNMENT_LEFT,
+		-1, 20, Color(0.2, 0.45, 0.2))
+	var cw := lp.size.x - 100
+	var list: Array = lo.get("list", [])
+	var ch := minf(76.0, (lp.end.y - 16 - (lp.position.y + 142)) / maxf(list.size(), 1) - 8)
 	for i in list.size():
-		var r := Rect2(rp.position + Vector2(52 + (i % 2) * (cw + 10), 30 + (i / 2) * (chh + 8) - _scroll), Vector2(cw, chh))
+		_ending_card(Rect2(Vector2(x0 - 4, lp.position.y + 142 + i * (ch + 8)), Vector2(cw, ch)), list[i])
+	# Oikea sivu: legendaariset hetket (saavutukset, peli jatkuu), tähtirivi ja kortit kahdessa sarakkeessa.
+	var he: Dictionary = _data.get("hetket", {})
+	var rp := _page(true)
+	var rx := rp.position.x + 54
+	draw_string(font, Vector2(rx, rp.position.y + 70 - _scroll), "Legendaariset hetket  %d / %d" % [he.get("distinct", 0), he.get("max", 0)],
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 22, red)
+	var mx: int = he.get("max", 0)
+	for i in mx:
+		var c := Vector2(rx + 10 + (i % 10) * 30, rp.position.y + 92 + (i / 10) * 28 - _scroll)
+		if c.y > rp.position.y + 10:
+			_star(c, 10.0, Color(1.0, 0.8, 0.15) if i < he.get("distinct", 0) else Color(0.8, 0.78, 0.72))
+	var hl: Array = he.get("list", [])
+	var hw := (rp.size.x - 80) / 2.0
+	var top := rp.position.y + 150 - _scroll
+	for i in hl.size():
+		var r := Rect2(Vector2(rp.position.x + 52 + (i % 2) * (hw + 10), top + (i / 2) * 86), Vector2(hw, 78))
 		if r.end.y > rp.end.y - 6 or r.position.y < rp.position.y:
 			continue
-		var it = list[i]
-		if it == null:
-			MG.box(self, r, Color(0.86, 0.84, 0.78), 8, 0, Color(0.7, 0.68, 0.62), 2)
-			draw_string(font, r.position + Vector2(0, 46), "???", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 28, Color(0.6, 0.58, 0.52))
-		else:
-			MG.box(self, r, Color(1.0, 0.95, 0.75), 8, 3, Color(0.85, 0.6, 0.1), 2)
-			_star(r.position + Vector2(18, 20), 10.0, Color(1.0, 0.8, 0.15))
-			var fs := 16
-			while fs > 11 and font.get_string_size(it.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > r.size.x - 40:
-				fs -= 1  # pitkä nimi pienemmällä, ettei katkea
-			draw_string(font, r.position + Vector2(34, 26), it.name, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 40, fs, Color(0.35, 0.15, 0.05))
-			draw_string(_hand, r.position + Vector2(12, 50), "× %d" % it.count, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.2, 0.45, 0.2))
-			draw_string(_hand, r.position + Vector2(70, 50), ("ekan kerran päivänä %d" % it.day) if it.day > 0 else "", HORIZONTAL_ALIGNMENT_LEFT,
-				r.size.x - 76, 14, Color(0.45, 0.4, 0.35))
-			draw_string(_hand, r.position + Vector2(12, 68), it.desc, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 20, 12, INK)
+		_ending_card(r, hl[i])
+
+
+## Loppu- tai hetkikortti: löydetty nimellä, kerroilla, päivällä ja kuvauksella; löytämätön ???.
+func _ending_card(r: Rect2, it) -> void:
+	var font := ThemeDB.fallback_font
+	if it == null:
+		MG.box(self, r, Color(0.86, 0.84, 0.78), 8, 0, Color(0.7, 0.68, 0.62), 2)
+		draw_string(font, r.position + Vector2(0, r.size.y * 0.6), "???", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 28, Color(0.6, 0.58, 0.52))
+		return
+	MG.box(self, r, Color(1.0, 0.95, 0.75), 8, 3, Color(0.85, 0.6, 0.1), 2)
+	_star(r.position + Vector2(18, 20), 10.0, Color(1.0, 0.8, 0.15))
+	var fs := 16
+	while fs > 11 and font.get_string_size(it.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > r.size.x - 40:
+		fs -= 1  # pitkä nimi pienemmällä, ettei katkea
+	draw_string(font, r.position + Vector2(34, 26), it.name, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 40, fs, Color(0.35, 0.15, 0.05))
+	draw_string(_hand, r.position + Vector2(12, 50), "× %d" % it.count, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.2, 0.45, 0.2))
+	draw_string(_hand, r.position + Vector2(70, 50), ("ekan kerran päivänä %d" % it.day) if it.day > 0 else "", HORIZONTAL_ALIGNMENT_LEFT,
+		r.size.x - 76, 14, Color(0.45, 0.4, 0.35))
+	draw_string(_hand, r.position + Vector2(12, 68), it.desc, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 20, 12, INK)
 
 
 ## Jemmat: kotijemma tavoitteeseen nähden, ulkojemmat ja yhteensä vasemmalla, löydetyt jemmapaikat palkkeineen
