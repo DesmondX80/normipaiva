@@ -20483,6 +20483,25 @@ func _maybe_screenshot() -> void:
 				c.position = Vector3(-0.9 + i * 0.9, 0, 0)
 				c.rotation.y = [PI, PI * 0.5, 0.0][i]  # edestä, sivulta, takaa
 				c.play("Idle", 0.0)
+				if i == 0 and "--mittaa" in OS.get_cmdline_user_args():
+					var body: MeshInstance3D = null
+					for mi in c.skeleton.get_children():
+						if mi is MeshInstance3D and (body == null or mi.mesh.surface_get_array_len(0) > body.mesh.surface_get_array_len(0)):
+							body = mi
+					var verts: PackedVector3Array = body.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+					for y in [0.85, 0.9, 0.95, 1.1, 1.3]:
+						var lo := 9.0
+						var hi := -9.0
+						var bz := 9.0
+						var bx := 0.0
+						for v in verts:
+							if absf(v.y - y) < 0.006 and absf(v.x) < 0.25:
+								lo = minf(lo, v.x)
+								hi = maxf(hi, v.x)
+								if v.z < bz and absf(v.x) < 0.05:
+									bz = v.z
+									bx = v.x
+						print("KESKI y %.2f: x %.4f..%.4f keski %.4f, takimmainen piste x %.4f" % [y, lo, hi, (lo + hi) / 2.0, bx])
 			var cam := Camera3D.new()
 			cam.fov = 40.0
 			stage.add_child(cam)
@@ -20495,7 +20514,7 @@ func _maybe_screenshot() -> void:
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_bikini.png"))
 			# Lähikuvat alaosasta: edestä, sivulta ja takaa.
 			for k in [["ala_edesta", Vector3(-0.9, 0.95, 1.1), Vector3(-0.9, 0.92, 0)], ["ala_sivulta", Vector3(0.0, 0.95, 1.1), Vector3(0.0, 0.92, 0)],
-					["ala_takaa", Vector3(0.9, 0.95, 1.1), Vector3(0.9, 0.92, 0)]]:
+					["ala_takaa", Vector3(0.9, 0.95, 1.1), Vector3(0.9, 0.92, 0)], ["vako", Vector3(0.9, 0.9, 0.6), Vector3(0.9, 0.88, 0)]]:
 				cam.fov = 30.0
 				cam.look_at_from_position(stage.global_position + k[1], stage.global_position + k[2])
 				for i in 5:

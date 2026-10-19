@@ -90,7 +90,7 @@ float seg_dist(vec2 p, vec2 a, vec2 b) {
 
 // Lappubikinien kangas lepoasennon koordinaateissa (fr = etupuoli). Yläosa: kaksi kolmiota rintojen päällä, kärjistä
 // nauha niskaan ja rintojen alla kiertävä nauha. Alaosa matalavyötäröinen kuten sivusolmittavissa bikineissä: kapea
-// ja edessä pyöristetty rypytetty kolmio, josta nauhat nousevat loivasti lantiolle, takana kokonaan pakaroiden välisessä vaossa (ohut kaistale ja ylhäällä pieni kolmio), ja
+// ja edessä pyöristetty kolmio, josta nauhat nousevat loivasti lantiolle, takana kokonaan pakaroiden välisessä vaossa (ohut kaistale ja ylhäällä pieni kolmio), ja
 // paneelien yläkulmista nauhat korkealle lantiolle.
 bool bikini_cloth(float c, vec2 r, bool fr, float nx) {
 	vec2 q = vec2(abs(r.x), r.y);
@@ -116,7 +116,7 @@ bool bikini_cloth(float c, vec2 r, bool fr, float nx) {
 	if (c > 1.5 && c < 2.5) {
 		// Etuosan yläreuna matalalla ja hieman kaareva (kulmat ylempänä kuin keskikohta), takana suora.
 		float top = fr ? 0.962 + 0.014 * pow(clamp(q.x / 0.076, 0.0, 1.0), 2.0) : 0.99;
-		float bottom = fr ? 0.845 : 0.83;
+		float bottom = fr ? 0.845 : 0.87;
 		float u = (r.y - bottom) / (top - bottom);  // 0 = haara, 1 = yläreuna
 		if (u <= 0.0 || u >= 1.0) {
 			return false;
@@ -128,6 +128,12 @@ bool bikini_cloth(float c, vec2 r, bool fr, float nx) {
 			return false;  // reiden sisäpinta haaran kohdalla (pinta osoittaa keskelle): ei kangasta
 		}
 		float w = fr ? mix(0.012, 0.076, pow(u, 0.85)) : 0.006 + 0.064 * pow(smoothstep(0.62, 1.0, u), 1.3);
+		if (!fr) {
+			// Idle-asennon painonsiirto vetää pakaroita eri tavoin: näkyvä vako on lepoasennon x ≈ -0,012:ssa (mitattu
+			// värijuovin, testikohtaus bikini). Kaistale siirretään vakoon, kolmion yläreuna pysyy selän keskellä.
+			float dx = -0.012 * (1.0 - smoothstep(0.55, 0.95, u));
+			return abs(r.x - dx) < w;
+		}
 		return q.x < w;
 	}
 	return true;
@@ -216,12 +222,6 @@ void fragment() {
 			float rib = 0.88 + 0.12 * step(0.5, fract(rest.y * 140.0));
 			float edge = 1.0 - step(0.012, min(abs(rest.y - tube_y), abs(rest.y - crop_y)));
 			cloth *= rib * (1.0 - 0.18 * edge);
-		}
-		if (string_bikini && c > 1.5 && c < 2.5 && front > 0.5 && rest.y > 0.845 && rest.y < 0.98 && abs(rest.x) < 0.08) {
-			// Rypytetty etukappale: poimut viuhkaavat alakärjestä ylös, keskellä tiheämmin.
-			float ang = atan(rest.x, rest.y - 0.83);
-			float fold = 0.5 + 0.5 * cos(ang * 46.0);
-			cloth *= 0.8 + 0.22 * fold;
 		}
 		if (denim && c > 1.5 && c < 2.5) {
 			// Farkku: vino toimikudos, kulunut vaalea etureisi, valkoiset hapsut lahkeen suussa ja repeämät.
