@@ -22,6 +22,7 @@ varying vec3 lpos;
 varying vec2 rest;
 varying float front;
 varying float rest_nx;
+varying vec3 rest_zn;  // lepoasennon z sekä normaalin y ja z (CUSTOM0)
 
 uniform float shirt_puff = 0.022;
 uniform float pants_puff = 0.014;
@@ -88,62 +89,74 @@ float seg_dist(vec2 p, vec2 a, vec2 b) {
 	return length(p - (a + ab * t));
 }
 
-// Lappubikinien kangas lepoasennon koordinaateissa (fr = etupuoli). Yläosa: kaksi kolmiota rintojen päällä, kärjistä
-// nauha niskaan ja rintojen alla kiertävä nauha. Alaosa matalavyötäröinen kuten sivusolmittavissa bikineissä: kapea
-// ja edessä pyöristetty kolmio, josta nauhat nousevat loivasti lantiolle, takana kokonaan pakaroiden välisessä vaossa (ohut kaistale ja ylhäällä pieni kolmio), ja
-// paneelien yläkulmista nauhat korkealle lantiolle.
-bool bikini_cloth(float c, vec2 r, bool fr, float nx) {
-	vec2 q = vec2(abs(r.x), r.y);
-	vec2 corner = fr ? vec2(0.076, 0.976) : vec2(0.07, 0.99);
-	if (q.y < 1.1 && seg_dist(q, corner, vec2(0.178, fr ? 1.04 : 1.03)) < 0.005) {
-		return true;  // alaosan sivunauha yläkulmasta korkealle lantiolle (voi nousta paidan luokan puolelle)
-	}
-	if (c > 0.5 && c < 1.5) {
-		if (abs(r.y - 1.245) < 0.007 && abs(r.x) < 0.19) {
-			return true;  // nauha rintojen alla
+// Kolmion etäisyys (negatiivinen sisällä), Inigo Quilezin sdTriangle.
+float sd_tri(vec2 p, vec2 a, vec2 b, vec2 c) {
+	vec2 e0 = b - a, e1 = c - b, e2 = a - c;
+	vec2 v0 = p - a, v1 = p - b, v2 = p - c;
+	vec2 pq0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
+	vec2 pq1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
+	vec2 pq2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
+	float s = sign(e0.x * e2.y - e0.y * e2.x);
+	vec2 d = min(min(vec2(dot(pq0, pq0), s * (v0.x * e0.y - v0.y * e0.x)),
+		vec2(dot(pq1, pq1), s * (v1.x * e1.y - v1.y * e1.x))),
+		vec2(dot(pq2, pq2), s * (v2.x * e2.y - v2.y * e2.x)));
+	return -sqrt(d.x) * sign(d.y);
+}
+
+// Lappubikinit vartalon pinnalla lepoasennon koordinaateissa (p = paikka, n = normaali). Palauttaa etäisyyden
+// kankaan reunaan metreinä (negatiivinen = kangasta). Kappaleet:
+//  - yläosa: kaksi kolmiota rintojen päällä (edestä katsottuna), kärjistä nauhat niskaan, rintojen alla kiertävä nauha
+//  - alaosa edessä: kolmio, jonka kärki on haarassa
+//  - alaosa takana: kolmio vaon yläpäässä ja siitä ohut kaistale vakoa pitkin haaraan
+//  - haarakappale: kapea kaistale haaran alapinnalla (yhdistää etu- ja takakappaleen)
+//  - sivunauhat: kolmioiden yläkulmista vinosti korkealle lantiolle; lasketaan kulmana vartalon ympäri (a = kaari),
+//    jotta nauha kiertää lantion sivun oikein
+float bikini_sd(vec3 p, vec3 n) {
+	float d = 1.0;
+	float ax = abs(p.x);
+	bool fr = p.z > -0.025;  // lantion ja rintakehän keskikohta syvyydessä
+	// Yläosa.
+	if (p.y > 1.2 && p.y < 1.56 && ax < 0.17) {
+		if (p.z > 0.0) {
+			d = min(d, sd_tri(vec2(ax, p.y), vec2(0.028, 1.245), vec2(0.143, 1.245), vec2(0.085, 1.372)));
+			d = min(d, seg_dist(vec2(ax, p.y), vec2(0.085, 1.372), vec2(0.05, 1.5)) - 0.0045);
 		}
-		for (float sx = -1.0; sx < 1.5; sx += 2.0) {
-			float u = (r.y - 1.245) / 0.125;  // 0 = kolmion kanta, 1 = kärki
-			if (fr && u > 0.0 && u < 1.0 && abs(r.x - sx * 0.085) < 0.058 * (1.0 - u)) {
-				return true;
+		d = min(d, abs(p.y - 1.245) - 0.0045);
+	}
+	// Alaosa.
+	if (p.y > 0.83 && p.y < 1.08 && ax < 0.21) {
+		if (fr) {
+			float tri = sd_tri(vec2(p.x, p.y), vec2(-0.078, 0.966), vec2(0.078, 0.966), vec2(0.0, 0.868));
+			// Haaran kohdalla reisien sisäpinnat (pinta osoittaa keskelle) eivät kuulu kolmioon.
+			if (p.y < 0.92 && ax > 0.016 && n.x * sign(p.x) < -0.35) {
+				tri = max(tri, 0.003);
 			}
-			if (fr && seg_dist(r, vec2(sx * 0.085, 1.37), vec2(sx * 0.05, 1.5)) < 0.005) {
-				return true;  // niskanauha
-			}
+			d = min(d, tri);
+		} else {
+			// Idle-asennon painonsiirto vetää pakaroita eri tavoin: näkyvä vako on lepoasennon x = -0,012:ssa
+			// (mitattu värijuovin, testikohtaus bikini). Takakolmion kärki ja kaistale seuraavat vakoa.
+			float dx = -0.012;
+			d = min(d, sd_tri(vec2(p.x, p.y), vec2(-0.075, 0.986), vec2(0.075, 0.986), vec2(dx, 0.928)));
+			d = min(d, seg_dist(vec2(p.x, p.y), vec2(dx, 0.93), vec2(dx, 0.87)) - 0.006);
 		}
-		return false;
+		// Haarakappale: alaspäin osoittava pinta haaran keskellä.
+		if (p.y < 0.89 && n.y < -0.25 && p.z > -0.05) {
+			d = min(d, ax - 0.012);
+		}
+		// Sivunauhat: kaari a = kulma vartalon ympäri * säde (edessä 0, sivulla R*pi/2, takana R*pi).
+		float R = 0.16;
+		float a = abs(atan(p.x, p.z + 0.025)) * R;
+		vec2 q = vec2(a, p.y);
+		vec2 side = vec2(R * 1.5708, 1.03);
+		// Nauhat jatkuvat hieman kolmioiden sisään, jotta ne liittyvät kulmiin (kolmio peittää jatkeen).
+		d = min(d, seg_dist(q, vec2(R * 0.6, 0.957), side) - 0.0045);
+		d = min(d, seg_dist(q, side, vec2(R * 2.9, 0.972)) - 0.0045);
 	}
-	if (c > 1.5 && c < 2.5) {
-		// Etuosan yläreuna matalalla ja hieman kaareva (kulmat ylempänä kuin keskikohta), takana suora.
-		float top = fr ? 0.962 + 0.014 * pow(clamp(q.x / 0.076, 0.0, 1.0), 2.0) : 0.99;
-		float bottom = fr ? 0.845 : 0.87;
-		float u = (r.y - bottom) / (top - bottom);  // 0 = haara, 1 = yläreuna
-		if (u <= 0.0 || u >= 1.0) {
-			return false;
-		}
-		// Edessä pyöristetty kolmio: kyljet kaartuvat ulospäin kapeaa pyöreää kärkeä kohti, yläreuna notkahtaa keskeltä,
-		// ja kulmista nauhat nousevat loivasti lantion sivuille. Takana kokonaan pakaroiden välisessä vaossa: ohut
-		// kaistale haarasta ylös ja vaon yläpäästä pieni kolmio nauhoihin.
-		if (fr && u < 0.6 && nx * sign(r.x) < -0.3) {
-			return false;  // reiden sisäpinta haaran kohdalla (pinta osoittaa keskelle): ei kangasta
-		}
-		float w = fr ? mix(0.012, 0.076, pow(u, 0.85)) : 0.006 + 0.064 * pow(smoothstep(0.62, 1.0, u), 1.3);
-		if (!fr) {
-			// Idle-asennon painonsiirto vetää pakaroita eri tavoin: näkyvä vako on lepoasennon x ≈ -0,012:ssa (mitattu
-			// värijuovin, testikohtaus bikini). Kaistale siirretään vakoon, kolmion yläreuna pysyy selän keskellä.
-			float dx = -0.012 * (1.0 - smoothstep(0.55, 0.95, u));
-			return abs(r.x - dx) < w;
-		}
-		return q.x < w;
-	}
-	return true;
+	return d;
 }
 
 // Paljas iho vaatteen kohdalla? (c = luokka, r = lepoasento, lp = paikka)
 bool bare(float c, vec2 r, vec3 lp, float fr, float nx) {
-	if (string_bikini && c > 0.5 && c < 2.5) {
-		return !bikini_cloth(c, r, fr > 0.5, nx);
-	}
 	if (c > 1.5 && c < 2.5 && shorts_y > 0.0 && r.y < shorts_y + (denim ? fray(lp) : 0.0)) {
 		return true;
 	}
@@ -161,11 +174,12 @@ void vertex() {
 	rest = UV2;
 	front = COLOR.b;
 	rest_nx = COLOR.a * 2.0 - 1.0;
+	rest_zn = CUSTOM0.xyz;
 	// Vaatteet vähän irti ihosta, ettei näytä maalatulta trikoolta.
 	float c = floor(cat + 0.5);
 	float puff = c > 0.5 && c < 1.5 ? shirt_puff : (c > 1.5 && c < 2.5 ? pants_puff : (c > 2.5 ? 0.01 : 0.0));
-	if (bare(c, UV2, VERTEX, COLOR.b, COLOR.a * 2.0 - 1.0)) {
-		puff = 0.0;
+	if (bare(c, UV2, VERTEX, COLOR.b, COLOR.a * 2.0 - 1.0) || string_bikini) {
+		puff = 0.0;  // lappubikinit ovat iholla kiinni (väri lasketaan fragmentissa)
 	}
 	VERTEX += NORMAL * puff;
 }
@@ -177,7 +191,21 @@ void fragment() {
 	vec3 n = texture(normal_tex, UV).rgb;
 	bool net_hole = net_shirt && c > 0.5 && c < 1.5 && net_thread(rest, lpos) < 0.5
 		&& !(suspenders && abs(abs(rest.x) - 0.1) < 0.014 && rest.y > 0.98 && rest.y < 1.52);
-	if (net_hole) {
+	if (string_bikini && c > 0.5 && c < 2.5) {
+		// Lappubikinit: kankaan peitto etäisyysfunktiosta, pehmeä reuna (ruudun kokoinen) ja kanttinauha reunoissa.
+		float d = bikini_sd(vec3(rest, rest_zn.x), vec3(rest_nx, rest_zn.y, rest_zn.z));
+		float aa = clamp(fwidth(d) * 0.75, 0.0002, 0.004);  // raja: laskenta-alueen reunalla d hyppää
+		float cov = 1.0 - smoothstep(-aa, aa, d);
+		vec3 skin = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos);
+		vec3 cloth = rest.y < 1.12 ? pants : shirt;
+		cloth *= 1.0 - 0.2 * (1.0 - smoothstep(0.002, 0.0045, -d));  // kanttinauha
+		cloth *= 0.82 + 0.25 * lum;
+		ALBEDO = mix(skin, cloth, cov);
+		ROUGHNESS = mix(0.55, mix(0.9, 0.45, fabric_shine), cov);
+		SPECULAR = mix(0.5, mix(0.25, 0.5, fabric_shine), cov);
+		SSS_STRENGTH = 0.35 * (1.0 - cov);
+		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	} else if (net_hole) {
 		// Verkon silmukasta näkyy iho (ja tatuointi).
 		ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos);
 		ROUGHNESS = 0.55;

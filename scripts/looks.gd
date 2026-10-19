@@ -149,7 +149,7 @@ const SINIKKA := {
 static func sinikka_bikini() -> Dictionary:
 	var look: Dictionary = SINIKKA.duplicate()
 	look.merge({"shirt": Color(0.9, 0.05, 0.12), "pants": Color(0.9, 0.05, 0.12), "shoes": Color(0.95, 0.75, 0.62), "shine": 0.7,
-		"denim": false, "string_bikini": true, "shirt_puff": 0.003, "pants_puff": 0.003}, true)
+		"denim": false, "string_bikini": true}, true)
 	for k in ["crop_y", "tube_y", "sleeve_x", "shorts_y"]:
 		look.erase(k)
 	return look

@@ -423,12 +423,21 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 		for v in verts.size():
 			rest[v] = Vector2(verts[v].x, verts[v].y)
 		arr[Mesh.ARRAY_TEX_UV2] = rest
+		# CUSTOM0 = lepoasennon syvyys z ja normaalin y ja z (UV2:n ja värin A:n lisäksi): lappubikinit lasketaan
+		# vartalon pinnalla (kulma vartalon ympäri, pinnan suunta), ks. character.gdshader bikini_sd.
+		var rest3 := PackedFloat32Array()
+		rest3.resize(verts.size() * 4)
+		for v in verts.size():
+			rest3[v * 4] = verts[v].z
+			rest3[v * 4 + 1] = norms[v].y
+			rest3[v * 4 + 2] = norms[v].z
 		if shaped:
 			_reshape(arr, shape)
-		for c in [Mesh.ARRAY_CUSTOM0, Mesh.ARRAY_CUSTOM1, Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3]:
-			arr[c] = null  # lisäkanavia ei tarvita
+		for c in [Mesh.ARRAY_CUSTOM1, Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3]:
+			arr[c] = null  # muita lisäkanavia ei tarvita
+		arr[Mesh.ARRAY_CUSTOM0] = rest3
 		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], _source_lods(kind, mesh, s, verts.size()),
-			fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
+			(fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) | (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT))
 	_meshes[key] = weakref(out)  # heikko: Vaalan hahmojen vartalot vapautuvat Vaalan mukana (levyvälimuisti lataa)
 	DirAccess.make_dir_recursive_absolute(MESH_CACHE)
 	ResourceSaver.save(out, cache)
@@ -439,7 +448,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 ## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
 ## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
 const MESH_CACHE := "user://hahmot"
-const CACHE_VERSION := 2
+const CACHE_VERSION := 3
 static var _cache_tag := ""
 
 
