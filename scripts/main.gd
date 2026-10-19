@@ -20413,6 +20413,40 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path)
+		"uutiset_kuva":
+			# Jaettava kuva Kymppiuutisten lopusta: sankari sohvalla, tölkki käsinojalla ja studio telkkarissa.
+			cutscene.news_tape("", func() -> void: pass)
+			while cutscene.news_view == null or cutscene.news_view.seg != "studio":
+				await get_tree().process_frame
+			await get_tree().create_timer(1.2, true, false, true).timeout
+			cutscene._layer.visible = false
+			var shot_cam := Camera3D.new()
+			shot_cam.fov = 42.0
+			cutscene.add_child(shot_cam)
+			var r: Vector3 = cutscene.TV_ROOM
+			shot_cam.fov = 44.0
+			shot_cam.look_at_from_position(r + Vector3(2.3, 1.45, 3.05), r + Vector3(0.15, 0.85, -0.9), Vector3.UP)
+			shot_cam.current = true
+			var news: SubViewport = cutscene.news_view
+			news.seg = "studio"
+			news.headline = "Kaljan hinta nousee taas"
+			news.talk = true
+			# Iltatunnelma: ympäristövalo himmeäksi ilman taivasta, huonetta valaisevat telkkarin hehku ja jalkalamppu.
+			var e: Environment = cutscene.env
+			e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+			e.ambient_light_color = Color(0.35, 0.4, 0.6)
+			e.ambient_light_energy = 0.35
+			e.fog_enabled = false
+			_sun.visible = false
+			_hud.visible = false
+			_note.visible = false
+			_msg.text = ""
+			for i in 20:
+				news.seg = "studio"  # kohtaus etenee taustalla: ruutu pidetään studiossa
+				cutscene._layer.visible = false
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kuva.png"))
 		"uutiset_sohva":
 			# Kymppiuutisten loppukohtaus: sankari sohvalla lähikuvina edestä, sivulta, takaa ja ylhäältä.
 			cutscene.news_tape("testi", func() -> void: pass)
