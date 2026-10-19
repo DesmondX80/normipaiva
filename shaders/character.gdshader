@@ -115,13 +115,16 @@ float bikini_sd(vec3 p, vec3 n) {
 	float d = 1.0;
 	float ax = abs(p.x);
 	bool fr = p.z > -0.025;  // lantion ja rintakehän keskikohta syvyydessä
-	// Yläosa.
-	if (p.y > 1.2 && p.y < 1.56 && ax < 0.17) {
-		if (p.z > 0.0) {
-			d = min(d, sd_tri(vec2(ax, p.y), vec2(0.028, 1.245), vec2(0.143, 1.245), vec2(0.085, 1.372)));
-			d = min(d, seg_dist(vec2(ax, p.y), vec2(0.085, 1.372), vec2(0.05, 1.5)) - 0.0045);
+	// Yläosa. Muotoillun rinnan etupinta on lepoasennossa y ≈ 1,30–1,46 ja x ≈ 0,02–0,14 (mitattu koordinaattiruudukolla,
+	// testikohtaus bikini); ulkosivulla x ≈ 0,13 kohdalla pinta taittuu (x kääntyy takaisin), joten kolmio pysyy sen sisällä. Kolmion kanta on rinnan alareunassa poimun yläpuolella, ja kiertävä nauha kulkee kannan
+	// tasalla, ettei kumpikaan osu poimuun.
+	if (p.y > 1.2 && p.y < 1.6 && ax < 0.2) {
+		if (p.z > -0.02) {
+			d = min(d, sd_tri(vec2(ax, p.y), vec2(0.026, 1.292), vec2(0.124, 1.292), vec2(0.078, 1.456)));
+			// Niskanauha kolmion kärjestä kaulan ympäri.
+			d = min(d, seg_dist(vec2(ax, p.y), vec2(0.078, 1.449), vec2(0.05, 1.56)) - 0.0045);
 		}
-		d = min(d, abs(p.y - 1.245) - 0.0045);
+		d = min(d, abs(p.y - 1.292) - 0.0045);
 	}
 	// Alaosa.
 	if (p.y > 0.83 && p.y < 1.08 && ax < 0.21) {
