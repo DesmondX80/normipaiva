@@ -2813,15 +2813,79 @@ const TV_LINES := ["Mitäs tänään tulee... Kesäillan valssi. Suora lähetys 
 	"Pekan kanssa muka kyyhkyjahdissa. Odota vaan, kun tuut kotiin..."]
 
 
-## Päivi sohvalla katsoo TV:tä: ruudulla TV-kameran kuva pelaajan tanssista (shot), lähetyksen tekstit. Päivi tunnistaa
-## miehensä, nousee ylös ja kiroilee. Lopuksi otsikko kuten muissa välikuvissa.
-func paivi_tv(shot: Texture2D, done: Callable) -> void:
-	_begin()
-	await _fade_to(1.0, 0.5)
-	for n in hide_nodes:
-		if is_instance_valid(n):
-			n.visible = false
-	var o := TV_ROOM
+## Sohvalla istuminen (TV_ROOM:sta): Sitting_Idle-asennon lantio on SIT_PELVIS juuresta (mitattu luista, ks.
+## testikohtaus uutiset_sohva). Pehmeä sohva: lantio SOFA_PELVIS on uponnut istuintyynyn painumaan, ja vartalo
+## nojaa SOFA_LEAN astetta taaksepäin selkätyynyn painumaan; polvet istuimen etureunalla, jalat lattialla.
+## SOFA_SIT = istujan juuren likimääräinen paikka (kuplat ja kamerat).
+const SIT_PELVIS := Vector3(0, 0.54, 0.33)
+const SOFA_PELVIS := Vector3(0.55, 0.515, 1.57)
+const SOFA_LEAN := 7.0
+const SOFA_SIT := Vector3(0.55, 0.02, 1.24)
+const SOFA_DENT := Vector2(0.55, 1.5)  # istuintyynyn painuman keskikohta (x, z)
+## Kaljatölkin keskikohta oikeanpuoleisella käsinojalla (nojan yläpinta 0,65 + puolet tölkistä), istujan
+## oikean käden vieressä.
+const SOFA_CAN := Vector3(1.2, 0.716, 1.38)
+
+
+## Istuja sohvalle: lantio painumaan ja nojaus taaksepäin lantion ympäri (kasvot kohti TV:tä, -Z).
+func _sit_on_sofa(c: Node3D, o: Vector3) -> void:
+	var b := Basis(Vector3.RIGHT, deg_to_rad(SOFA_LEAN))
+	c.global_transform = Transform3D(b, o + SOFA_PELVIS - b * SIT_PELVIS)
+
+
+## Pehmeä tyyny: laatikkorunko ja pullea yläpinta (ruudukko), johon voi painaa painumia. size = (leveys, paksuus,
+## syvyys) paikallisesti, yläpinta +Y. dents: [[keskikohta (x, z paikallisesti), säteet, syvyys], ...]. rot kääntää
+## tyynyn (selkätyyny: yläpinta eteen).
+func _cushion(parent: Node3D, center: Vector3, size: Vector3, col: Color, dents: Array, rot := Vector3.ZERO) -> void:
+	var node := Node3D.new()
+	node.position = center
+	node.rotation_degrees = rot
+	parent.add_child(node)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = col
+	mat.roughness = 0.95
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var body := MeshInstance3D.new()
+	body.mesh = B.boxm(Vector3(size.x, size.y * 0.8, size.z))
+	body.material_override = mat
+	body.position.y = -size.y * 0.1
+	node.add_child(body)
+	var top := size.y * 0.3
+	var puff := size.y * 0.25
+	var hf := func(x: float, z: float) -> float:
+		var ux := 2.0 * x / size.x
+		var uz := 2.0 * z / size.z
+		var h := top + puff * (1.0 - pow(ux, 4.0)) * (1.0 - pow(uz, 4.0))
+		for d in dents:
+			var q := Vector2((x - d[0].x) / d[1].x, (z - d[0].y) / d[1].y)
+			h -= d[2] * exp(-q.length_squared()) * (1.0 - pow(ux, 6.0)) * (1.0 - pow(uz, 6.0))
+		return h
+	var nx := 28
+	var nz := 14
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var e := 0.01
+	for i in nx:
+		for j in nz:
+			var quad := []
+			for c in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]]:
+				var x := (float(c[0]) / nx - 0.5) * size.x
+				var z := (float(c[1]) / nz - 0.5) * size.z
+				var y: float = hf.call(x, z)
+				var n := Vector3(hf.call(x - e, z) - hf.call(x + e, z), 2.0 * e, hf.call(x, z - e) - hf.call(x, z + e)).normalized()
+				quad.append([Vector3(x, y, z), n])
+			for k in [0, 1, 2, 0, 2, 3]:
+				st.set_normal(quad[k][1])
+				st.add_vertex(quad[k][0])
+	var surf := MeshInstance3D.new()
+	surf.mesh = st.commit()
+	surf.material_override = mat
+	node.add_child(surf)
+
+
+## Järvikujan olohuone illalla (TV_ROOM-taskussa): lattia, seinät, matto, sohva, sohvapöytä ja TV-taso, ikkuna,
+## verho ja hääkuva. Palauttaa telkkarin rungon (ruutu sen etupintaan).
+func _tv_room(o: Vector3) -> MeshInstance3D:
 	# Olohuone: lattia, seinät, matto, sohva, sohvapöytä ja TV-taso, lamppu ja verhot.
 	B.mesh(_props, B.boxm(Vector3(8, 0.1, 7)), o + Vector3(0, -0.05, 0), Color(0.55, 0.42, 0.3))
 	B.mesh(_props, B.boxm(Vector3(8, 2.7, 0.1)), o + Vector3(0, 1.35, -3.5), Color(0.85, 0.82, 0.72))
@@ -2833,15 +2897,37 @@ func paivi_tv(shot: Texture2D, done: Callable) -> void:
 	B.mesh(_props, B.boxm(Vector3(0.6, 1.5, 0.05)), o + Vector3(-2.8, 1.5, 3.4), Color(0.7, 0.55, 0.3))  # verho
 	B.mesh(_props, B.boxm(Vector3(0.9, 0.6, 0.05)), o + Vector3(1.6, 1.7, 3.43), Color(0.75, 0.6, 0.35))  # hääkuva seinällä
 	B.mesh(_props, B.boxm(Vector3(3.0, 0.02, 2.2)), o + Vector3(0, 0.01, -0.4), Color(0.6, 0.15, 0.15))
+	# Sohva: runko, kaksi pehmeää istuintyynyä ja paksut selkätyynyt, jotta istumasyvyys (0,5 m) sopii hahmon
+	# reisiin. Oikeanpuoleisessa (istujan) tyynyssä painumat pepun ja selän kohdalla (_sit_on_sofa).
 	var sofa := Color(0.35, 0.4, 0.5)
-	B.mesh(_props, B.boxm(Vector3(2.4, 0.45, 0.9)), o + Vector3(0, 0.23, 1.6), sofa)
-	B.mesh(_props, B.boxm(Vector3(2.4, 0.6, 0.25)), o + Vector3(0, 0.65, 2.0), sofa)
+	B.mesh(_props, B.boxm(Vector3(2.4, 0.3, 0.9)), o + Vector3(0, 0.15, 1.6), sofa.darkened(0.15))
+	B.mesh(_props, B.boxm(Vector3(2.4, 0.95, 0.2)), o + Vector3(0, 0.475, 1.95), sofa.darkened(0.1))
+	for cx in [-0.55, 0.55]:
+		var sat: bool = cx > 0.0
+		var seat_c := Vector3(cx, 0.375, 1.405)
+		_cushion(_props, o + seat_c, Vector3(1.08, 0.15, 0.51), sofa,
+			[[SOFA_DENT - Vector2(cx, seat_c.z), Vector2(0.17, 0.15), 0.09], [Vector2(0, -0.17), Vector2(0.2, 0.1), 0.035]] if sat else [])
+		# Selkätyyny: yläpinta eteen (-Z); paikallinen z = korkeus tyynyn keskeltä.
+		_cushion(_props, o + Vector3(cx, 0.71, 1.755), Vector3(1.08, 0.19, 0.5), sofa.lightened(0.03),
+			[[Vector2(0, 0.06), Vector2(0.2, 0.2), 0.05]] if sat else [], Vector3(-90, 0, 0))
 	for sx in [-1.2, 1.2]:
-		B.mesh(_props, B.boxm(Vector3(0.22, 0.6, 0.9)), o + Vector3(sx, 0.35, 1.6), sofa)
+		B.mesh(_props, B.boxm(Vector3(0.22, 0.65, 0.9)), o + Vector3(sx, 0.325, 1.6), sofa.darkened(0.05))
 	B.mesh(_props, B.boxm(Vector3(1.2, 0.4, 0.6)), o + Vector3(0, 0.2, 0.2), Color(0.45, 0.3, 0.2))
 	B.mesh(_props, B.cyl(0.05, 0.05, 0.12, 10), o + Vector3(0.3, 0.46, 0.2), Color(0.9, 0.9, 0.9))  # kahvikuppi
 	B.mesh(_props, B.boxm(Vector3(1.8, 0.5, 0.5)), o + Vector3(0, 0.25, -3.0), Color(0.3, 0.2, 0.12))  # TV-taso
-	var tv := B.mesh(_props, B.boxm(Vector3(1.3, 0.85, 0.12)), o + Vector3(0, 0.95, -3.0), Color(0.08, 0.08, 0.09))
+	return B.mesh(_props, B.boxm(Vector3(1.3, 0.85, 0.12)), o + Vector3(0, 0.95, -3.0), Color(0.08, 0.08, 0.09))
+
+
+## Päivi sohvalla katsoo TV:tä: ruudulla TV-kameran kuva pelaajan tanssista (shot), lähetyksen tekstit. Päivi tunnistaa
+## miehensä, nousee ylös ja kiroilee. Lopuksi otsikko kuten muissa välikuvissa.
+func paivi_tv(shot: Texture2D, done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.5)
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var o := TV_ROOM
+	var tv := _tv_room(o)
 	var screen := MeshInstance3D.new()
 	var quad := QuadMesh.new()
 	quad.size = Vector2(1.18, 0.74)
@@ -2869,13 +2955,12 @@ func paivi_tv(shot: Texture2D, done: Callable) -> void:
 	lamp.position = o + Vector3(-3.0, 2.0, 1.5)
 	_props.add_child(lamp)
 	var paivi := Looks.make(_props, Looks.PAIVI)
-	paivi.global_position = o + Vector3(0.2, 0.12, 1.55)
-	paivi.rotation.y = 0.0  # kohti TV:tä (-Z)
+	_sit_on_sofa(paivi, o)
 	paivi.play("Sitting_Idle", 0.0)
-	var bubble := B.bubble(_props, o + Vector3(0.2, 1.75, 1.55), Color.WHITE, 1.0, false)
+	var bubble := B.bubble(_props, o + SOFA_SIT + Vector3(0, 1.6, 0), Color.WHITE, 1.0, false)
 	_cam.current = true
 	# 1) Olan yli: telkkari ja lähetys.
-	_cam.global_position = o + Vector3(0.9, 1.35, 2.6)
+	_cam.global_position = o + Vector3(1.5, 1.35, 2.6)
 	_cam.look_at(o + Vector3(0, 0.95, -3.0), Vector3.UP)
 	env.adjustment_saturation = 1.12
 	_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
@@ -2893,6 +2978,7 @@ func paivi_tv(shot: Texture2D, done: Callable) -> void:
 	_cam.global_position = o + Vector3(-0.9, 1.6, -1.4)
 	_cam.look_at(o + Vector3(0.2, 1.55, 1.05), Vector3.UP)
 	paivi.play("Idle_Talking", 0.2)
+	paivi.rotation = Vector3.ZERO
 	paivi.global_position = o + Vector3(0.2, 0, 1.05)
 	Sfx.play("alert", -4.0, 0.8)
 	for line in TV_LINES.slice(2, 5):
@@ -2906,3 +2992,148 @@ func paivi_tv(shot: Texture2D, done: Callable) -> void:
 	bubble.text = "Päivi: " + TV_LINES[5]
 	await _wait(2.8)
 	await _end(done)
+
+
+# --- Kymppiuutiset nauhalta ---------------------------------------------------------------------
+
+const NewsScreen := preload("res://scripts/news_screen.gd")
+var news_hero: Node3D  # testit: sankari sohvalla
+var news_view: SubViewport  # testit: lähetyksen ruutu
+const NEWS_HEADLINES := ["Markka vahvistui kolmatta päivää", "Hirvikolari Valtatiellä 8 – hirvi selvisi",
+	"Raahessa teräs kulkee, palkat ei", "Kesäillan valssi keräsi ennätysyleisön", "Mopopojat ojassa Vaalassa",
+	"Kaljan hinta nousee taas", "Oulujärven hauet ennätyskoossa"]
+
+
+## Pieni videonauhuri TV-tason hyllyllä: runko, kasettiluukku, toistoa näyttävä vihreä näyttö ja napit.
+func _vcr(at: Vector3) -> void:
+	B.mesh(_props, B.boxm(Vector3(0.5, 0.11, 0.06)), at + Vector3(0, 0, -0.03), Color(0.04, 0.04, 0.05))  # hyllyn syvennys
+	B.mesh(_props, B.boxm(Vector3(0.44, 0.08, 0.04)), at + Vector3(0, 0, 0.0), Color(0.16, 0.16, 0.18))
+	B.mesh(_props, B.boxm(Vector3(0.44, 0.01, 0.04)), at + Vector3(0, 0.04, 0.0), Color(0.35, 0.35, 0.38))  # kiiltävä yläreuna
+	B.mesh(_props, B.boxm(Vector3(0.2, 0.025, 0.01)), at + Vector3(-0.09, 0.01, 0.022), Color(0.05, 0.05, 0.05))  # kasettiluukku
+	B.mesh(_props, B.boxm(Vector3(0.09, 0.025, 0.01)), at + Vector3(0.12, 0.015, 0.022), Color(0.02, 0.08, 0.04))  # näyttö
+	var digits := B.label(_props, "▶ 0:12", at + Vector3(0.12, 0.015, 0.03), 18, Color(0.3, 1.0, 0.45))
+	digits.pixel_size = 0.0018
+	for k in 4:
+		B.mesh(_props, B.boxm(Vector3(0.018, 0.012, 0.01)), at + Vector3(0.06 + k * 0.028, -0.02, 0.022), Color(0.55, 0.55, 0.58))
+
+
+## Kalja-tölkki: lieriö, kultainen kylki, vihreä etiketti, alumiininen kansi ja repäisyrengas.
+func _beer_can() -> Node3D:
+	var can := Node3D.new()
+	B.mesh(can, B.cyl(0.033, 0.033, 0.12, 14), Vector3.ZERO, Color(0.85, 0.72, 0.25))
+	B.mesh(can, B.cyl(0.0335, 0.0335, 0.05, 14), Vector3(0, 0.0, 0), Color(0.15, 0.42, 0.2))
+	B.mesh(can, B.cyl(0.028, 0.033, 0.012, 14), Vector3(0, 0.066, 0), Color(0.8, 0.8, 0.82))
+	B.mesh(can, B.boxm(Vector3(0.014, 0.003, 0.02)), Vector3(0.006, 0.073, 0), Color(0.7, 0.7, 0.72))
+	return can
+
+
+## Onnellinen loppu: Päivi nukkuu jo, ja sankari katsoo sohvalla Kymmenen uutiset videonauhalta kalja kädessä.
+## Ruutu on oma 3D-maailma (news_screen.gd): VHS-play, maapallotunnus, uutisstudio ja säästudio TV-grafiikoineen.
+## Lopuksi otsikko ja tilastot.
+func news_tape(stats: String, done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.5)
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var o := TV_ROOM
+	var tv := _tv_room(o)
+	_vcr(o + Vector3(0, 0.25, -2.72))
+	var news: SubViewport = NewsScreen.new()
+	_props.add_child(news)
+	news_view = news
+	var screen := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2(1.18, 0.74)
+	screen.mesh = quad
+	var sm := StandardMaterial3D.new()
+	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sm.albedo_texture = news.get_texture()
+	screen.material_override = sm
+	screen.position = tv.position + Vector3(0, 0, 0.065)
+	_props.add_child(screen)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(0.55, 0.7, 1.0)
+	glow.light_energy = 1.6
+	glow.omni_range = 5.5
+	glow.position = o + Vector3(0, 1.0, -2.3)
+	_props.add_child(glow)
+	var lamp := OmniLight3D.new()  # himmeä jalkalamppu: muuten ilta on pimeä
+	lamp.light_color = Color(1.0, 0.75, 0.45)
+	lamp.light_energy = 0.45
+	lamp.omni_range = 6.0
+	lamp.position = o + Vector3(-3.0, 1.8, 1.5)
+	_props.add_child(lamp)
+	var hero := Looks.make(_props, Looks.player())
+	Looks.add_cap(hero)
+	_sit_on_sofa(hero, o)
+	hero.play("Sitting_Idle", 0.0)
+	# Tölkki käsinojalla korkkilasinalusen päällä: Sitting_Idle-käsi lepää auki polvella, joten käteen
+	# kiinnitetty tölkki upposi reiteen.
+	B.mesh(_props, B.cyl(0.045, 0.045, 0.006, 20), o + SOFA_CAN - Vector3(0, 0.063, 0), Color(0.72, 0.55, 0.35))
+	var can := _beer_can()
+	_props.add_child(can)
+	can.global_position = o + SOFA_CAN
+	news_hero = hero
+	var bubble := B.bubble(_props, o + SOFA_SIT + Vector3(0, 1.4, 0), Color.WHITE, 1.0)  # guard: pysyy kuvassa lähikuvassakin
+	var lines := NEWS_HEADLINES.duplicate()
+	lines.shuffle()
+	var flicker := _tween().set_loops()
+	flicker.tween_property(glow, "light_energy", 1.2, 0.35)
+	flicker.tween_property(glow, "light_energy", 1.7, 0.5)
+	_cam.current = true
+	# 1) Olan yli: videon sininen ruutu ja PLAY.
+	_cam.global_position = o + Vector3(1.5, 1.35, 2.6)
+	_cam.look_at(o + Vector3(0, 0.9, -3.0), Vector3.UP)
+	env.adjustment_saturation = 1.12
+	_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_sub.text = "Kello 22.40. Päivi nukkuu jo. Nauha alkuun, ja play."
+	await _fade_to(0.0, 0.6)
+	Sfx.play("rattle", -10.0, 0.55)  # nauhurin mekaniikka vetää nauhan
+	await _wait(2.2)
+	news.seg = "tunnus"
+	Sfx.play("whoosh", -8.0, 0.6)
+	await _wait(2.0)
+	# 2) Sivulta: tölkki auki, uutistenlukija aloittaa.
+	_cam.global_position = o + Vector3(-1.5, 1.3, 0.2)
+	_cam.look_at(o + SOFA_SIT + Vector3(0, 0.85, 0), Vector3.UP)
+	news.seg = "studio"
+	news.headline = lines[0]
+	news.talk = true
+	Sfx.play("whoosh", -6.0, 1.9)  # pssht
+	bubble.text = "Pssht... Ahh."
+	_sub.text = "Uutistenlukija: \"Hyvää iltaa. %s.\"" % lines[0]
+	await _wait(2.8)
+	# 3) Takaa ruutuun päin: toinen uutinen.
+	bubble.text = ""
+	news.headline = lines[1]
+	_sub.text = "Uutistenlukija: \"%s.\"" % lines[1]
+	_cam.global_position = o + Vector3(1.3, 1.3, 2.4)
+	_cam.look_at(o + Vector3(0, 0.95, -3.0), Vector3.UP)
+	var tw := _tween()
+	tw.tween_property(_cam, "global_position", o + Vector3(0.1, 1.05, -1.4), 2.8).set_trans(Tween.TRANS_SINE)
+	await _wait(2.8)
+	# 4) Sää: Saloisiin sadetta. Sankari on tyytyväinen.
+	news.seg = "saa"
+	_sub.text = "Meteorologi: \"Pohjois-Pohjanmaalle sadetta. Saloisissa huomenna +12.\""
+	await _wait(2.4)
+	_cam.global_position = o + Vector3(-1.5, 1.3, 0.2)
+	_cam.look_at(o + SOFA_SIT + Vector3(0, 0.85, 0), Vector3.UP)
+	_sub.text = ""
+	bubble.text = "Sadetta. Ei tartte leikata nurmikkoa."
+	await _wait(2.6)
+	# 5) Laaja kuva sohvasta ja ruudusta: otsikko.
+	bubble.text = ""
+	news.talk = false
+	_cam.global_position = o + Vector3(2.6, 1.7, 2.6)
+	_cam.look_at(o + Vector3(-0.2, 0.8, -0.6), Vector3.UP)
+	if not Sfx.has_music():
+		Sfx.play("win")
+	_band.visible = true
+	_title.add_theme_font_size_override("font_size", 90)
+	_title.text = "KYMPPIUUTISET NAUHALTA"
+	_sub.text = stats
+	await _wait(4.0)
+	flicker.kill()
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
