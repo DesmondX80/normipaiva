@@ -20561,6 +20561,53 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"bikini_video":
+			# Video Sinikasta lappubikineissä eri animaatioissa (Movie Maker: --write-movie, --fixed-fps 30): kamera
+			# kiertää hahmoa, välillä lähikuva ylävartalosta. Lopuksi peli sulkeutuu.
+			var stage := Node3D.new()
+			add_child(stage)
+			stage.global_position = Vector3(5000, 0, 5000)
+			var lamp := DirectionalLight3D.new()
+			lamp.rotation_degrees = Vector3(-40, 25, 0)
+			lamp.shadow_enabled = true
+			stage.add_child(lamp)
+			var floor_m := B.mesh(stage, B.cyl(2.5, 2.5, 0.04, 48), Vector3(0, -0.02, 0), Color(0.42, 0.36, 0.26))  # hiekka (tumma: valo polttaa)
+			floor_m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var c: Node3D = Looks.make(stage, Looks.sinikka_bikini())
+			var cam := Camera3D.new()
+			cam.fov = 38.0
+			stage.add_child(cam)
+			cam.current = true
+			_hud.visible = false
+			_note.visible = false
+			var caption := Label.new()
+			caption.add_theme_font_size_override("font_size", 30)
+			caption.add_theme_color_override("font_outline_color", Color.BLACK)
+			caption.add_theme_constant_override("outline_size", 8)
+			caption.position = Vector2(40, 30)
+			var layer := CanvasLayer.new()
+			layer.layer = 20
+			add_child(layer)
+			layer.add_child(caption)
+			var shots := [["Idle", "Seisoo", false], ["Walk", "Kävely", false], ["Dance", "Tanssi", false], ["Dance", "Tanssi, lähikuva", true],
+				["Jump", "Hyppy", false], ["Punch_Cross", "Lyönti", false], ["Idle", "Seisoo, lähikuva", true]]
+			var t_all := 0.0
+			for sh in shots:
+				c.play(sh[0], 0.2)
+				caption.text = "Sinikka · " + sh[1]
+				var t := 0.0
+				while t < 4.0:
+					var dt := get_process_delta_time()
+					t += dt
+					t_all += dt
+					var a := t_all * 0.6
+					var close: bool = sh[2]
+					var r := 1.2 if close else 3.4
+					var h := 1.25 if close else 1.1
+					var look_y := 1.15 if close else 0.95
+					cam.look_at_from_position(stage.global_position + Vector3(sin(a) * r, h, cos(a) * r), stage.global_position + Vector3(0, look_y, 0))
+					await get_tree().process_frame
+			get_tree().quit()
 		"uutiset_sohva":
 			# Kymppiuutisten loppukohtaus: sankari sohvalla lähikuvina edestä, sivulta, takaa ja ylhäältä.
 			cutscene.news_tape("testi", func() -> void: pass)
