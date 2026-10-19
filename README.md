@@ -508,7 +508,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Päiväkirja (O)** ei paljasta mitään etukäteen: luku näkyy, kun siihen päästään, vaihe, kun siitä on kuultu, ja
   sivutehtävä, kun siitä on kerrottu. Uusista vihjeistä tulee ilmoitus "Päiväkirjaan tuli uutta".
 - **Onnelliset loput** (päivä päättyy loppukohtaukseen): juhlat autotallissa, viinibileet, laavulla kaljoilla,
-  legendaarinen normipäivä, mökkibileet ja erämaan laavu (Viitajärven laavu auringonlaskussa). Ilmoitus "ONNELLINEN LOPPU".
+  legendaarinen normipäivä, mökkibileet, erämaan laavu (Viitajärven laavu auringonlaskussa) ja Kymppiuutiset nauhalta
+  (video ajastetaan olohuoneessa ennen klo 22, ja klo 22.25 jälkeen sohvalle eteisen kaapin kaljan kanssa). Ilmoitus
+  "ONNELLINEN LOPPU".
 - **Legendaariset hetket** (saavutukset, peli jatkuu): Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit,
   karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas
   ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven

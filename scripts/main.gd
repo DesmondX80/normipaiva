@@ -305,6 +305,11 @@ const WC_ASK := ["No nii. Onko pikkunen vai isompi hätä?", "Mitäs sää, ykk�
 	"Kumpi on, pissa vai kakka? Ei tartte hävetä.", "Pikkunen asia vai iso asia? Kerro nyt."]
 const HOME_INT_POS := Vector3(-9000, 0, 0)  # kodin sisätila, erillinen tasku
 const MOKKI_INT_POS := Vector3(9000, 0, 0)
+## Kymppiuutiset nauhalta (onnellinen loppu): videonauhuri ajastetaan ennen klo 22, uutiset nauhoittuvat
+## NEWS_AT…NEWS_END, ja sen jälkeen sohvalle eteisen kaapin kaljan kanssa.
+const NEWS_AT := 22.0 * 60.0
+const NEWS_END := 22.0 * 60.0 + 25.0
+var _tape_day := -1  # päivä, jona Kymppiuutiset on ajastettu nauhalle
 const TV_SHOWS := ["Salkkarit: Kaikki riitelee taas.", "Kauniit ja rohkeat: Ridge on hämmentynyt.", "Uutiset: sadetta luvassa.",
 	"Hirviketju: kolme hirveä, kaksi ohi.", "Ostoskanava: veitsiä, jotka leikkaa tomaatin ja kengän."]
 var mokki_int: Node3D
@@ -1363,6 +1368,13 @@ func _process(delta: float) -> void:
 		"in_home":
 			home_int.overrides = _put_away_hints()
 			_hint.text = home_int.hint
+			var tape := _tape_state()
+			home_int.set_vcr("" if tape in ["tyhja", "ohi"] else tape)
+			if home_int.spot == "video":
+				_hint.text = _vcr_hint(tape)
+			elif home_int.spot == "sohva" and tape == "valmis" and not home_int.overrides.has("sohva"):
+				_hint.text = "[E] Kymppiuutiset nauhalta ja kalja eteisen kaapista (onnellinen loppu)" if stash.get("koti", 0) > 0 \
+					else "Nauha on valmis, mutta kalja puuttuu: eteisen kaappi on tyhjä."
 			home_int.carrying = beers > 0 or has_kanister
 			if home_int.spot == "kaappi":
 				_stash_ui("koti")
@@ -6084,6 +6096,8 @@ func _on_home_acted(kind: String) -> void:
 				tilat.add("stressi", -0.05)
 				Sfx.play("cloth", -6.0, 0.8)
 				_show_message("Otit Päivin sokeripussin keittiön kaapista. Tästä tulee vielä puhetta...", 3.0)
+		"video":
+			_vcr_act()
 		"tv":
 			if _once_today("tv"):
 				tilat.add("stressi", 0.05)
@@ -6100,6 +6114,12 @@ func _on_home_acted(kind: String) -> void:
 				Settings.action_key("phone"), Settings.action_key("next_song"), Settings.action_key("phone_volume")], 5.0)
 			_save_game()
 		"sohva":
+			if _tape_state() == "valmis":
+				if stash.get("koti", 0) > 0:
+					_win_news()
+				else:
+					_show_message("Kymppiuutiset ilman kaljaa? Ei käy. Eteisen kaappiin ensin jotain.", 3.0)
+				return
 			if _once_today("sohva"):
 				_advance_clock(HOP_NAP)
 				tilat.add("vasymys", 0.2)
@@ -12737,6 +12757,51 @@ func _tell_story(custom: Array = [], done := Callable()) -> void:
 			tarinat_kuultu.size(), Kota.STORIES.size()], 3.0)
 
 
+## Videonauhurin tila: "tyhja" (ajastettavissa ennen klo 22), "ohi" (uutiset alkoivat ajastamatta), "ajastettu"
+## (nauhoittaa tai odottaa klo 22) tai "valmis" (uutiset nauhalla, klo 22.25 jälkeen samana iltana).
+func _tape_state() -> String:
+	var awake := _awake_min()
+	if _tape_day == day:
+		return "valmis" if awake >= NEWS_END - DAY_START else "ajastettu"
+	return "tyhja" if awake < NEWS_AT - DAY_START else "ohi"
+
+
+func _vcr_hint(tape: String) -> String:
+	match tape:
+		"tyhja":
+			return "[E] Ajasta video nauhoittamaan Kymppiuutiset (klo 22.00)"
+		"ajastettu":
+			return "Video on ajastettu: Kymppiuutiset klo 22.00. Punainen valo palaa." if _awake_min() < NEWS_AT - DAY_START \
+				else "Video nauhoittaa Kymppiuutisia. Ei saa koskea!"
+		"valmis":
+			return "Kymppiuutiset on nauhalla. Kalja eteisen kaapista ja sohvalle!"
+	return "Videonauhuri. Kymppiuutiset alkoi jo, eikä ajastusta ollu."
+
+
+func _vcr_act() -> void:
+	match _tape_state():
+		"tyhja":
+			_tape_day = day
+			Sfx.play("rattle", -8.0, 1.6)
+			home_int.set_vcr("ajastettu")
+			_save_game()
+			_show_message("Ohjelmointi, kanava 3, alku 22.00, loppu 22.25, REC. Kello vilkkuu vieläkin 12:00, mutta ajastus on päällä!", 4.5)
+		"ajastettu":
+			_show_message("Älä sorki. Muuten nauhalle tulee Ostoskanava.", 2.5)
+		"valmis":
+			_show_message("Nauha on kelattu alkuun. Kalja eteisen kaapista ja sohvalle.", 2.5)
+		_:
+			_show_message("Ei kerinny. Kymppiuutiset meni jo alkuun, ja nauhalle tulisi pelkkä sää.", 3.0)
+
+
+## Kymppiuutiset nauhalta: kalja eteisen kaapista, sohvalle ja play. Päivä päättyy kuten sänkyyn mentäessä (_win).
+func _win_news() -> void:
+	stash["koti"] = stash.get("koti", 0) - 1
+	home_int.leave()
+	state = _home_prev
+	_win(false, false, true)
+
+
 func _win_laavu() -> void:
 	state = "cutscene"
 	player.controls_enabled = false
@@ -14126,7 +14191,7 @@ const CARRY_BIKE := 6  # pyörän tarakalle mahtuu kuutonen
 ## Kotiinpaluu: saalis jemmaan. Kun kotijemmassa on 24 olutta, tulee onnellinen loppu:
 ## karburaattorin säätöä autotallissa kalja kädessä (kotijemma juodaan tyhjäksi). party = juhlat aloitettiin
 ## kotipiilolta (_stash_logic, kotipiiloissa vähintään JEMMA_GOAL); nukkumaan mentäessä juhlia ei aloiteta itsestään.
-func _win(party := false, wine := false) -> void:
+func _win(party := false, wine := false, news := false) -> void:
 	var shopped := state == "to_home"  # kuutonen haettu tänään
 	state = "cutscene"
 	player.controls_enabled = false
@@ -14173,6 +14238,16 @@ func _win(party := false, wine := false) -> void:
 			tilat.add("stressi", -0.2)
 			clock_min = 11.0 * 60.0  # herätys myöhään
 			_save_game())
+		return
+	if news:
+		_hud.visible = false
+		_drink(1)
+		_tape_day = -1  # nauhalle tulee huomenna uudet
+		tilat.add("stressi", 0.3)
+		var nstats := "Kalja eteisen kaapista  ·  Kymmenen uutiset nauhalta  ·  Päivi nukkui jo  ·  %s" % _ending_line("uutiset")
+		_save_game()
+		cutscene.news_tape(nstats, func() -> void: _new_day(home_zone + Vector3(0, 0, 4), false,
+			"Nukahdit sohvalle kesken säätiedotuksen. Päivi peitteli ja vei tölkin roskiin.\n"))
 		return
 	if party:
 		_hud.visible = false
@@ -14242,6 +14317,7 @@ func _load_game() -> void:
 	wine_start = cfg.get_value("viini", "alku", -1)
 	wine_days = cfg.get_value("viini", "paivat", 0)
 	wine_locked = cfg.get_value("viini", "lukossa", false)
+	_tape_day = cfg.get_value("uutiset", "nauha_paiva", -1)
 	wine_lock_day = cfg.get_value("viini", "lukko_paiva", day if wine_locked else -1)
 	wine_endings = cfg.get_value("viini", "loput", 0)
 	has_yeast = cfg.get_value("viini", "hiiva", false)
@@ -14358,6 +14434,7 @@ func _save_game() -> void:
 	cfg.set_value("viini", "alku", wine_start)
 	cfg.set_value("viini", "paivat", wine_days)
 	cfg.set_value("viini", "lukossa", wine_locked)
+	cfg.set_value("uutiset", "nauha_paiva", _tape_day)
 	cfg.set_value("viini", "lukko_paiva", wine_lock_day)
 	cfg.set_value("viini", "loput", wine_endings)
 	cfg.set_value("viini", "hiiva", has_yeast)
@@ -20238,6 +20315,69 @@ func _maybe_screenshot() -> void:
 				_new_day(home_door, false)
 				print("VIINI päivä %d lupauksesta: lukossa %s" % [day - promised, wine_locked])
 			print("VIINI unohtui: aamuviesti %s" % (str(_msg_queue) + _msg.text).contains("viinilupaus"))
+		"uutiset":
+			# Kymppiuutiset nauhalta: video ajastetaan klo 21, klo 22.40 sohvalle eteisen kaapin kaljan kanssa, loppukohtaus
+			# kuvina vaiheittain ja uusi päivä.
+			if player == bike:
+				_toggle_mount()
+			_tape_day = -1
+			stash["koti"] = 2
+			clock_min = 21.0 * 60.0
+			var press := func(action: String) -> void:
+				await get_tree().process_frame
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+				await get_tree().process_frame
+			var frames := func(n: int) -> void:
+				for i in n:
+					await get_tree().physics_frame
+				for i in 3:
+					await get_tree().process_frame
+			var snap := func(name: String) -> void:
+				await frames.call(10)
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			await frames.call(3)
+			_enter_home("ovi")
+			var wk: CharacterBody3D = home_int.walker
+			wk.position = HomeInterior.SPOTS.video[0]
+			await frames.call(5)
+			print("UUTISET video ennen: '%s'" % _hint.text)
+			await press.call("interact")
+			print("UUTISET ajastus: nauha %d päivä %d viesti '%s'" % [_tape_day, day, _msg.text])
+			await frames.call(3)
+			print("UUTISET video jälkeen: '%s'" % _hint.text)
+			var close := Camera3D.new()
+			add_child(close)
+			var vcr: Vector3 = home_int.to_global(Vector3(0.22, 0.25, -5.45))
+			close.look_at_from_position(vcr + Vector3(0.15, 0.25, 0.7), vcr + Vector3(0, 0.15, 0))
+			close.current = true
+			await snap.call("_video.png")
+			close.queue_free()
+			wk.activate()
+			clock_min = 22.0 * 60.0 + 40.0
+			wk.position = HomeInterior.SPOTS.sohva[0]
+			await frames.call(5)
+			print("UUTISET sohva: '%s'" % _hint.text)
+			await snap.call("_sohva.png")
+			await press.call("interact")
+			print("UUTISET loppu: tila %s jemma %d" % [state, stash.get("koti", 0)])
+			var t0 := Time.get_ticks_msec()
+			for k in [["play", 2.0], ["tunnus", 4.6], ["studio", 7.0], ["zoom", 9.6], ["saa", 12.4], ["kommentti", 15.0], ["otsikko", 18.2]]:
+				while Time.get_ticks_msec() - t0 < k[1] * 1000.0:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+			for i in 40:
+				await get_tree().create_timer(0.5, true, false, true).timeout
+				if not cutscene.busy:
+					break
+			await get_tree().create_timer(1.5, true, false, true).timeout
+			print("UUTISET herätys: tila %s päivä %d nauha %d loppuja %d viesti '%s'" % [state, day, _tape_day,
+				endings.counts.get("uutiset", 0), _msg.text.replace("\n", " | ")])
 		"kieltokyltti":
 			# Kodan polun keltainen kieltokyltti: lähikuva edestä ja polulta tulijan silmin.
 			print("KYLTTI ", world.waste_sign != null, " paikka ", world.waste_sign.global_position if world.waste_sign else Vector3.ZERO,

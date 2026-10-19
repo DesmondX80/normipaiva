@@ -23,6 +23,7 @@ const ENDINGS := [
 	["sulon_pannu", "Vanhan Sulon pannu", "Kuparipannu nousi Pilkkarinnevalta, ja Sulo myönsi."],
 	["piirakkakuningas", "Lihapiirakkakuningas", "Reipparin ennätystauluun uusi nimi. Juntti ei usko."],
 	["eramaan_laavu", "Erämaan laavu", "Viitajärven laavulla nuotio, makkara ja kalja. Kukaan ei tiedä, missä oot."],
+	["uutiset", "Kymppiuutiset nauhalta", "Video ajastettu, kalja eteisen kaapista ja sohvalle. Päivi nukkuu jo."],
 	["aarnivalkea", "Isonvihan hopeat", "Lapinraunion aarnivalkea paloi oikean aarteen päällä. Hilkka oli oikeassa."],
 	["kertun_rauta", "Viimeisen sepän kirves", "Kertunkankaan legenda todistettu: Raimo oli oikeassa, ja Veikko tarjosi."],
 	["tekojarven_ukko", "Tekojärven Ukko", "18,4 kilon hauki täytettynä Saloisten Pirtissä. Tauno itki vähän."],
@@ -31,7 +32,7 @@ const ENDINGS := [
 
 ## Oikeat onnelliset loput: päivä päättyy loppukohtaukseen (juhlat tallissa, viinibileet, laavu). Muut ovat
 ## legendaarisia hetkiä: saavutuksia, joiden jälkeen peli jatkuu.
-const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet", "eramaan_laavu"]
+const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet", "eramaan_laavu", "uutiset"]
 
 var counts := {}  # id -> kerrat
 var first_day := {}  # id -> päivä, jolloin saatu ensimmäisen kerran

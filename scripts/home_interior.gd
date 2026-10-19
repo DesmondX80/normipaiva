@@ -41,6 +41,7 @@ const SPOTS := {
 	"jaakaappi": [Vector3(5.0, 0, -4.4), "[E] Kurkkaa jääkaappiin"],
 	"sokeri": [Vector3(3.5, 0, -4.6), "[E] Ota sokeria keittiön kaapista (Päivi suuttuu!)"],
 	"tv": [Vector3(-0.2, 0, -4.3), "[E] Katso telkkaria"],
+	"video": [Vector3(0.9, 0, -4.4), "[E] Videonauhuri"],  # vihje main.gd:ssä (_vcr_hint)
 	"sohva": [Vector3(1.7, 0, -2.8), "[E] Ota nokoset sohvalla"],
 	"nortti": [Vector3(8.0, 0, -3.6), "[E] Jutskaa nörtin kanssa"],
 	"puhelin": [Vector3(-8.7, 0, -1.4), "[E] Päivin vanha kännykkä yöpöydällä"],
@@ -92,6 +93,9 @@ var _nerd: Node3D
 var _bubble: Label3D
 var _bubble_t := 0.0
 var _tv_screen: MeshInstance3D
+var _vcr_display: Label3D
+var _vcr_rec: MeshInstance3D
+var _vcr_mode := ""
 var _screens: Array[MeshInstance3D] = []
 
 
@@ -150,6 +154,8 @@ func _process(delta: float) -> void:
 		_bubble.text = ""
 		_nerd.play("Sitting_Idle", 0.3)
 	var t := Time.get_ticks_msec() / 1000.0
+	if _vcr_display != null and _vcr_mode == "":
+		_vcr_display.visible = fmod(t, 1.0) < 0.6  # klassinen vilkkuva 12:00
 	if _tv_screen.visible:
 		(_tv_screen.material_override as StandardMaterial3D).albedo_color = Color(0.3, 0.45, 0.8).lightened(0.3 * sin(t * 5.5))
 	for i in _screens.size():
@@ -445,6 +451,35 @@ func _build_kitchen_living() -> void:
 	_tv_screen.position = Vector3(tvx, 1.1, -HALF.y + 0.36)
 	_tv_screen.visible = false
 	add_child(_tv_screen)
+	_build_vcr(Vector3(tvx + 0.42, 0.25, -HALF.y + 0.55))
+
+
+## Videonauhuri TV-tason hyllyllä: musta runko, kasettiluukku, vihreä näyttö (vilkkuva 12:00, ajastettuna 22:00) ja
+## punainen REC-valo, kun Kymppiuutiset on ajastettu tai nauhalla (set_vcr).
+func _build_vcr(at: Vector3) -> void:
+	B.mesh(self, B.boxm(Vector3(0.5, 0.12, 0.04)), at + Vector3(0, 0, -0.03), Color(0.06, 0.05, 0.04))  # hyllyn syvennys
+	B.mesh(self, B.boxm(Vector3(0.44, 0.08, 0.06)), at, Color(0.16, 0.16, 0.18))
+	B.mesh(self, B.boxm(Vector3(0.44, 0.01, 0.06)), at + Vector3(0, 0.04, 0), Color(0.38, 0.38, 0.4))  # kiiltävä yläreuna
+	B.mesh(self, B.boxm(Vector3(0.2, 0.026, 0.01)), at + Vector3(-0.09, 0.012, 0.031), Color(0.04, 0.04, 0.04))  # kasettiluukku
+	B.mesh(self, B.boxm(Vector3(0.1, 0.028, 0.01)), at + Vector3(0.12, 0.014, 0.031), Color(0.02, 0.07, 0.04))  # näyttö
+	for k in 4:
+		B.mesh(self, B.boxm(Vector3(0.02, 0.012, 0.01)), at + Vector3(0.05 + k * 0.03, -0.022, 0.031), Color(0.6, 0.6, 0.62))
+	_vcr_display = B.label(self, "12:00", at + Vector3(0.12, 0.014, 0.038), 20, Color(0.3, 1.0, 0.45))
+	_vcr_display.pixel_size = 0.0016
+	_vcr_rec = MeshInstance3D.new()
+	_vcr_rec.mesh = B.sphere(0.008, 6)
+	_vcr_rec.material_override = B.unshaded(Color(1.0, 0.15, 0.1))
+	_vcr_rec.position = at + Vector3(0.19, -0.022, 0.036)
+	_vcr_rec.visible = false
+	add_child(_vcr_rec)
+
+
+## main.gd: "" = ajastamatta (12:00 vilkkuu), "ajastettu" = 22:00 ja REC, "valmis" = nauha valmiina (▶).
+func set_vcr(mode: String) -> void:
+	_vcr_mode = mode
+	_vcr_rec.visible = mode == "ajastettu"
+	_vcr_display.visible = true
+	_vcr_display.text = {"ajastettu": "22:00", "valmis": "▶ 0:25"}.get(mode, "12:00")
 
 
 func _build_nerd_room() -> void:
