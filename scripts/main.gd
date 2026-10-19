@@ -20427,12 +20427,19 @@ func _maybe_screenshot() -> void:
 			var sk: Skeleton3D = hero.skeleton
 			for bi in sk.get_bone_count():
 				var bn := sk.get_bone_name(bi)
-				if bn in ["pelvis", "spine_03", "thigh_l", "calf_l", "foot_l", "ball_l"]:
+				if bn in ["pelvis", "spine_03", "thigh_l", "calf_l", "foot_l", "ball_l", "thigh_r", "calf_r", "hand_r", "middle_01_r"]:
 					print("SOHVA luu %s %s" % [bn, hero.to_global(hero.bone_position(bn)) - cutscene.TV_ROOM])
-			for k in [["alku", Vector3(0, 0.4, -2.6)], ["edesta", Vector3(0, 0.4, -2.6)], ["sivulta", Vector3(-1.0, 0.1, -0.3)],
+			cutscene._layer.visible = false  # tekstit ja palkit pois lähikuvista
+			for k in [["alku", Vector3(0, 0.4, -2.6)], ["kasi_sivu", Vector3(1.1, 0.05, -0.1)], ["kasi_edesta", Vector3(0.15, 0.3, -1.1)],
+					["kasi_ylhaalta", Vector3(0.1, 1.0, -0.4)], ["edesta", Vector3(0, 0.4, -2.6)], ["sivulta", Vector3(-1.0, 0.1, -0.3)],
 					["vino", Vector3(1.8, 0.6, -1.8)], ["ylhaalta", Vector3(0.01, 2.4, -0.3)], ["tyhja", Vector3(1.2, 0.5, -1.4)]]:
-				hero.visible = k[0] != "tyhja"  # viimeisessä kuvassa sohvan painumat ilman istujaa
+				hero.visible = k[0] != "tyhja"  # tyhjässä kuvassa sohvan painumat ilman istujaa
+				cam.fov = 40.0
 				cam.look_at_from_position(o + k[1], o, Vector3.UP)
+				if k[0].begins_with("kasi"):  # lähikuva oikeasta kädestä ja tölkistä
+					var hp: Vector3 = hero.to_global(hero.bone_position("hand_r"))
+					cam.fov = 25.0
+					cam.look_at_from_position(hp + k[1], hp, Vector3.UP)
 				cam.current = true
 				_note.visible = false
 				_msg.text = ""

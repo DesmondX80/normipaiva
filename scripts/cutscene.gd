@@ -2822,6 +2822,8 @@ const SOFA_PELVIS := Vector3(0.55, 0.515, 1.57)
 const SOFA_LEAN := 7.0
 const SOFA_SIT := Vector3(0.55, 0.02, 1.24)
 const SOFA_DENT := Vector2(0.55, 1.5)  # istuintyynyn painuman keskikohta (x, z)
+## Kaljatölkin keskikohta oikean reiden päällä (reisiluun yläpinta + puolet tölkistä), käden sisäpuolella.
+const SOFA_CAN := Vector3(0.625, 0.69, 1.33)
 
 
 ## Istuja sohvalle: lantio painumaan ja nojaus taaksepäin lantion ympäri (kasvot kohti TV:tä, -Z).
@@ -3065,7 +3067,11 @@ func news_tape(stats: String, done: Callable) -> void:
 	Looks.add_cap(hero)
 	_sit_on_sofa(hero, o)
 	hero.play("Sitting_Idle", 0.0)
-	hero.attach("hand_r", _beer_can(), Vector3(0, -0.02, 0.03))
+	# Tölkki pystyssä oikean reiden päällä käden vieressä: Sitting_Idle-käsi lepää auki polvella, joten käteen
+	# kiinnitetty tölkki upposi reiteen.
+	var can := _beer_can()
+	_props.add_child(can)
+	can.global_position = o + SOFA_CAN
 	news_hero = hero
 	var bubble := B.bubble(_props, o + SOFA_SIT + Vector3(0, 1.4, 0), Color.WHITE, 1.0)  # guard: pysyy kuvassa lähikuvassakin
 	var lines := NEWS_HEADLINES.duplicate()
