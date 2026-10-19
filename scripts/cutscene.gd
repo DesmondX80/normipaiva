@@ -2813,6 +2813,11 @@ const TV_LINES := ["Mitäs tänään tulee... Kesäillan valssi. Suora lähetys 
 	"Pekan kanssa muka kyyhkyjahdissa. Odota vaan, kun tuut kotiin..."]
 
 
+## Sohvalla istujan juuren paikka (TV_ROOM:sta): Sitting_Idle-asennossa lantio selkätyynyä vasten, peppu
+## istuintyynyn päällä ja polvet istuimen etureunalla (mitattu luista, ks. testikohtaus uutiset_sohva).
+const SOFA_SIT := Vector3(0.55, 0.05, 1.21)
+
+
 ## Järvikujan olohuone illalla (TV_ROOM-taskussa): lattia, seinät, matto, sohva, sohvapöytä ja TV-taso, ikkuna,
 ## verho ja hääkuva. Palauttaa telkkarin rungon (ruutu sen etupintaan).
 func _tv_room(o: Vector3) -> MeshInstance3D:
@@ -2827,11 +2832,17 @@ func _tv_room(o: Vector3) -> MeshInstance3D:
 	B.mesh(_props, B.boxm(Vector3(0.6, 1.5, 0.05)), o + Vector3(-2.8, 1.5, 3.4), Color(0.7, 0.55, 0.3))  # verho
 	B.mesh(_props, B.boxm(Vector3(0.9, 0.6, 0.05)), o + Vector3(1.6, 1.7, 3.43), Color(0.75, 0.6, 0.35))  # hääkuva seinällä
 	B.mesh(_props, B.boxm(Vector3(3.0, 0.02, 2.2)), o + Vector3(0, 0.01, -0.4), Color(0.6, 0.15, 0.15))
+	# Sohva: runko, kaksi istuintyynyä ja paksut selkätyynyt, jotta istumasyvyys (0,5 m) sopii hahmon reisiin
+	# (SOFA_SIT): polvet istuimen etureunalla ja sääret sen edessä, selkä tyynyä vasten.
 	var sofa := Color(0.35, 0.4, 0.5)
-	B.mesh(_props, B.boxm(Vector3(2.4, 0.45, 0.9)), o + Vector3(0, 0.23, 1.6), sofa)
-	B.mesh(_props, B.boxm(Vector3(2.4, 0.6, 0.25)), o + Vector3(0, 0.65, 2.0), sofa)
+	B.mesh(_props, B.boxm(Vector3(2.4, 0.3, 0.9)), o + Vector3(0, 0.15, 1.6), sofa.darkened(0.15))
+	B.mesh(_props, B.boxm(Vector3(2.4, 0.95, 0.2)), o + Vector3(0, 0.475, 1.95), sofa.darkened(0.1))
+	for cx in [-0.55, 0.55]:
+		B.mesh(_props, B.boxm(Vector3(1.08, 0.15, 0.51)), o + Vector3(cx, 0.375, 1.405), sofa)  # istuintyyny
+		B.mesh(_props, B.boxm(Vector3(1.04, 0.02, 0.47)), o + Vector3(cx, 0.452, 1.405), sofa.lightened(0.08))  # tyynyn kupu
+		B.mesh(_props, B.boxm(Vector3(1.08, 0.5, 0.19)), o + Vector3(cx, 0.71, 1.755), sofa.lightened(0.03))  # selkätyyny
 	for sx in [-1.2, 1.2]:
-		B.mesh(_props, B.boxm(Vector3(0.22, 0.6, 0.9)), o + Vector3(sx, 0.35, 1.6), sofa)
+		B.mesh(_props, B.boxm(Vector3(0.22, 0.65, 0.9)), o + Vector3(sx, 0.325, 1.6), sofa.darkened(0.05))
 	B.mesh(_props, B.boxm(Vector3(1.2, 0.4, 0.6)), o + Vector3(0, 0.2, 0.2), Color(0.45, 0.3, 0.2))
 	B.mesh(_props, B.cyl(0.05, 0.05, 0.12, 10), o + Vector3(0.3, 0.46, 0.2), Color(0.9, 0.9, 0.9))  # kahvikuppi
 	B.mesh(_props, B.boxm(Vector3(1.8, 0.5, 0.5)), o + Vector3(0, 0.25, -3.0), Color(0.3, 0.2, 0.12))  # TV-taso
@@ -2875,13 +2886,13 @@ func paivi_tv(shot: Texture2D, done: Callable) -> void:
 	lamp.position = o + Vector3(-3.0, 2.0, 1.5)
 	_props.add_child(lamp)
 	var paivi := Looks.make(_props, Looks.PAIVI)
-	paivi.global_position = o + Vector3(0.2, 0.12, 1.55)
+	paivi.global_position = o + SOFA_SIT
 	paivi.rotation.y = 0.0  # kohti TV:tä (-Z)
 	paivi.play("Sitting_Idle", 0.0)
-	var bubble := B.bubble(_props, o + Vector3(0.2, 1.75, 1.55), Color.WHITE, 1.0, false)
+	var bubble := B.bubble(_props, o + SOFA_SIT + Vector3(0, 1.6, 0), Color.WHITE, 1.0, false)
 	_cam.current = true
 	# 1) Olan yli: telkkari ja lähetys.
-	_cam.global_position = o + Vector3(0.9, 1.35, 2.6)
+	_cam.global_position = o + Vector3(1.5, 1.35, 2.6)
 	_cam.look_at(o + Vector3(0, 0.95, -3.0), Vector3.UP)
 	env.adjustment_saturation = 1.12
 	_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
@@ -2917,9 +2928,11 @@ func paivi_tv(shot: Texture2D, done: Callable) -> void:
 # --- Kymppiuutiset nauhalta ---------------------------------------------------------------------
 
 const NewsScreen := preload("res://scripts/news_screen.gd")
-const NEWS_HEADLINES := ["Lama hellittää? Markka vahvistui kolmatta päivää", "Hirvikolari Valtatie 8:lla – hirvi selvisi",
-	"Raahessa teräs kulkee, palkankorotukset ei", "Kesäillan valssi keräsi ennätysyleisön", "Mopopojat ojassa Vaalassa – kaikki kunnossa",
-	"Kaljan hinta nousee taas, kertoo Alko", "Oulujärven hauet ennätyskoossa: kalastajat varoittavat"]
+var news_hero: Node3D  # testit: sankari sohvalla
+var news_view: SubViewport  # testit: lähetyksen ruutu
+const NEWS_HEADLINES := ["Markka vahvistui kolmatta päivää", "Hirvikolari Valtatiellä 8 – hirvi selvisi",
+	"Raahessa teräs kulkee, palkat ei", "Kesäillan valssi keräsi ennätysyleisön", "Mopopojat ojassa Vaalassa",
+	"Kaljan hinta nousee taas", "Oulujärven hauet ennätyskoossa"]
 
 
 ## Pieni videonauhuri TV-tason hyllyllä: runko, kasettiluukku, toistoa näyttävä vihreä näyttö ja napit.
@@ -2946,7 +2959,8 @@ func _beer_can() -> Node3D:
 
 
 ## Onnellinen loppu: Päivi nukkuu jo, ja sankari katsoo sohvalla Kymmenen uutiset videonauhalta kalja kädessä.
-## Ruutu on SubViewport (news_screen.gd): VHS-play, tunnus, studio ja sää. Lopuksi otsikko ja tilastot.
+## Ruutu on oma 3D-maailma (news_screen.gd): VHS-play, maapallotunnus, uutisstudio ja säästudio TV-grafiikoineen.
+## Lopuksi otsikko ja tilastot.
 func news_tape(stats: String, done: Callable) -> void:
 	_begin()
 	await _fade_to(1.0, 0.5)
@@ -2956,19 +2970,16 @@ func news_tape(stats: String, done: Callable) -> void:
 	var o := TV_ROOM
 	var tv := _tv_room(o)
 	_vcr(o + Vector3(0, 0.25, -2.72))
-	var sv := SubViewport.new()
-	sv.size = Vector2i(NewsScreen.SIZE)
-	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	var news: Node2D = NewsScreen.new()
-	sv.add_child(news)
-	_props.add_child(sv)
+	var news: SubViewport = NewsScreen.new()
+	_props.add_child(news)
+	news_view = news
 	var screen := MeshInstance3D.new()
 	var quad := QuadMesh.new()
 	quad.size = Vector2(1.18, 0.74)
 	screen.mesh = quad
 	var sm := StandardMaterial3D.new()
 	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	sm.albedo_texture = sv.get_texture()
+	sm.albedo_texture = news.get_texture()
 	screen.material_override = sm
 	screen.position = tv.position + Vector3(0, 0, 0.065)
 	_props.add_child(screen)
@@ -2986,11 +2997,12 @@ func news_tape(stats: String, done: Callable) -> void:
 	_props.add_child(lamp)
 	var hero := Looks.make(_props, Looks.player())
 	Looks.add_cap(hero)
-	hero.global_position = o + Vector3(0.2, 0.12, 1.55)
+	hero.global_position = o + SOFA_SIT
 	hero.rotation.y = 0.0  # kohti TV:tä (-Z)
 	hero.play("Sitting_Idle", 0.0)
 	hero.attach("hand_r", _beer_can(), Vector3(0, -0.02, 0.03))
-	var bubble := B.bubble(_props, o + Vector3(0.2, 1.45, 1.55), Color.WHITE, 1.0)  # guard: pysyy kuvassa lähikuvassakin
+	news_hero = hero
+	var bubble := B.bubble(_props, o + SOFA_SIT + Vector3(0, 1.4, 0), Color.WHITE, 1.0)  # guard: pysyy kuvassa lähikuvassakin
 	var lines := NEWS_HEADLINES.duplicate()
 	lines.shuffle()
 	var flicker := _tween().set_loops()
@@ -2998,7 +3010,7 @@ func news_tape(stats: String, done: Callable) -> void:
 	flicker.tween_property(glow, "light_energy", 1.7, 0.5)
 	_cam.current = true
 	# 1) Olan yli: videon sininen ruutu ja PLAY.
-	_cam.global_position = o + Vector3(0.9, 1.35, 2.6)
+	_cam.global_position = o + Vector3(1.5, 1.35, 2.6)
 	_cam.look_at(o + Vector3(0, 0.9, -3.0), Vector3.UP)
 	env.adjustment_saturation = 1.12
 	_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
@@ -3011,7 +3023,7 @@ func news_tape(stats: String, done: Callable) -> void:
 	await _wait(2.0)
 	# 2) Sivulta: tölkki auki, uutistenlukija aloittaa.
 	_cam.global_position = o + Vector3(-1.5, 1.3, 0.2)
-	_cam.look_at(o + Vector3(0.2, 1.0, 1.5), Vector3.UP)
+	_cam.look_at(o + SOFA_SIT + Vector3(0, 0.85, 0), Vector3.UP)
 	news.seg = "studio"
 	news.headline = lines[0]
 	news.talk = true
@@ -3023,7 +3035,7 @@ func news_tape(stats: String, done: Callable) -> void:
 	bubble.text = ""
 	news.headline = lines[1]
 	_sub.text = "Uutistenlukija: \"%s.\"" % lines[1]
-	_cam.global_position = o + Vector3(0.6, 1.3, 2.4)
+	_cam.global_position = o + Vector3(1.3, 1.3, 2.4)
 	_cam.look_at(o + Vector3(0, 0.95, -3.0), Vector3.UP)
 	var tw := _tween()
 	tw.tween_property(_cam, "global_position", o + Vector3(0.1, 1.05, -1.4), 2.8).set_trans(Tween.TRANS_SINE)
@@ -3033,7 +3045,7 @@ func news_tape(stats: String, done: Callable) -> void:
 	_sub.text = "Meteorologi: \"Pohjois-Pohjanmaalle sadetta. Saloisissa huomenna +12.\""
 	await _wait(2.4)
 	_cam.global_position = o + Vector3(-1.5, 1.3, 0.2)
-	_cam.look_at(o + Vector3(0.2, 1.0, 1.5), Vector3.UP)
+	_cam.look_at(o + SOFA_SIT + Vector3(0, 0.85, 0), Vector3.UP)
 	_sub.text = ""
 	bubble.text = "Sadetta. Ei tartte leikata nurmikkoa."
 	await _wait(2.6)

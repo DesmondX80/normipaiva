@@ -20371,6 +20371,8 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+				if cutscene.news_view != null:
+					cutscene.news_view.get_texture().get_image().save_png(path.replace(".png", "_ruutu_%s.png" % k[0]))
 			for i in 40:
 				await get_tree().create_timer(0.5, true, false, true).timeout
 				if not cutscene.busy:
@@ -20378,6 +20380,32 @@ func _maybe_screenshot() -> void:
 			await get_tree().create_timer(1.5, true, false, true).timeout
 			print("UUTISET herätys: tila %s päivä %d nauha %d loppuja %d viesti '%s'" % [state, day, _tape_day,
 				endings.counts.get("uutiset", 0), _msg.text.replace("\n", " | ")])
+		"uutiset_sohva":
+			# Kymppiuutisten loppukohtaus: sankari sohvalla lähikuvina edestä, sivulta, takaa ja ylhäältä.
+			cutscene.news_tape("testi", func() -> void: pass)
+			while cutscene.news_hero == null:
+				await get_tree().process_frame
+			await get_tree().create_timer(1.2, true, false, true).timeout
+			var cam := Camera3D.new()
+			cam.fov = 40.0
+			cutscene.add_child(cam)
+			var o: Vector3 = cutscene.TV_ROOM + cutscene.SOFA_SIT + Vector3(0, 0.55, 0)
+			var hero: Node3D = cutscene.news_hero
+			var sk: Skeleton3D = hero.skeleton
+			for bi in sk.get_bone_count():
+				var bn := sk.get_bone_name(bi)
+				if bn in ["pelvis", "spine_03", "thigh_l", "calf_l", "foot_l", "ball_l"]:
+					print("SOHVA luu %s %s" % [bn, hero.to_global(hero.bone_position(bn)) - cutscene.TV_ROOM])
+			for k in [["alku", Vector3(0, 0.4, -2.6)], ["edesta", Vector3(0, 0.4, -2.6)], ["sivulta", Vector3(-1.0, 0.1, -0.3)],
+					["vino", Vector3(1.8, 0.6, -1.8)], ["ylhaalta", Vector3(0.01, 2.4, -0.3)]]:
+				cam.look_at_from_position(o + k[1], o, Vector3.UP)
+				cam.current = true
+				_note.visible = false
+				_msg.text = ""
+				for i in 12:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
 		"kieltokyltti":
 			# Kodan polun keltainen kieltokyltti: lähikuva edestä ja polulta tulijan silmin.
 			print("KYLTTI ", world.waste_sign != null, " paikka ", world.waste_sign.global_position if world.waste_sign else Vector3.ZERO,
