@@ -126,11 +126,9 @@ float bikini_sd(vec3 p, vec3 n) {
 	// Alaosa.
 	if (p.y > 0.83 && p.y < 1.08 && ax < 0.21) {
 		if (fr) {
-			float tri = sd_tri(vec2(p.x, p.y), vec2(-0.078, 0.966), vec2(0.078, 0.966), vec2(0.0, 0.868));
-			// Haaran kohdalla reisien sisäpinnat (pinta osoittaa keskelle) eivät kuulu kolmioon.
-			if (p.y < 0.92 && ax > 0.016 && n.x * sign(p.x) < -0.35) {
-				tri = max(tri, 0.003);
-			}
+			// Idle-asennossa reidet vetävät haaraa sivulle: näkyvä haarakohta on lepoasennon x = +0,016:ssa (mitattu
+			// värijuovin edestä). Kärki on siellä, yläreuna vatsan keskilinjalla.
+			float tri = sd_tri(vec2(p.x, p.y), vec2(-0.078, 0.966), vec2(0.078, 0.966), vec2(0.016, 0.868));
 			d = min(d, tri);
 		} else {
 			// Idle-asennon painonsiirto vetää pakaroita eri tavoin: näkyvä vako on lepoasennon x = -0,012:ssa
@@ -139,9 +137,9 @@ float bikini_sd(vec3 p, vec3 n) {
 			d = min(d, sd_tri(vec2(p.x, p.y), vec2(-0.075, 0.986), vec2(0.075, 0.986), vec2(dx, 0.928)));
 			d = min(d, seg_dist(vec2(p.x, p.y), vec2(dx, 0.93), vec2(dx, 0.87)) - 0.006);
 		}
-		// Haarakappale: alaspäin osoittava pinta haaran keskellä.
+		// Haarakappale: alaspäin osoittava pinta haarassa, etukolmion kärjestä (x +0,016) takakaistaleeseen (x -0,012).
 		if (p.y < 0.89 && n.y < -0.25 && p.z > -0.05) {
-			d = min(d, ax - 0.012);
+			d = min(d, abs(p.x - mix(-0.012, 0.016, smoothstep(-0.05, 0.02, p.z))) - 0.012);
 		}
 		// Sivunauhat: kaari a = kulma vartalon ympäri * säde (edessä 0, sivulla R*pi/2, takana R*pi).
 		float R = 0.16;
