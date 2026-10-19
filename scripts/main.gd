@@ -20483,6 +20483,20 @@ func _maybe_screenshot() -> void:
 				c.position = Vector3(-0.9 + i * 0.9, 0, 0)
 				c.rotation.y = [PI, PI * 0.5, 0.0][i]  # edestä, sivulta, takaa
 				c.play("Idle", 0.0)
+				if i == 0 and "--karki" in OS.get_cmdline_user_args():  # rinnan kärki: muotoillun verkon uloin piste (z)
+					var bm: MeshInstance3D = null
+					for mi in c.skeleton.get_children():
+						if mi is MeshInstance3D and (bm == null or mi.mesh.surface_get_array_len(0) > bm.mesh.surface_get_array_len(0)):
+							bm = mi
+					var arrs: Array = bm.mesh.surface_get_arrays(0)
+					var sv: PackedVector3Array = arrs[Mesh.ARRAY_VERTEX]
+					var ru: PackedVector2Array = arrs[Mesh.ARRAY_TEX_UV2]
+					for side in [-1.0, 1.0]:
+						var best := -1
+						for k in sv.size():
+							if sv[k].x * side > 0.02 and sv[k].y > 1.15 and sv[k].y < 1.5 and (best < 0 or sv[k].z > sv[best].z):
+								best = k
+						print("KARKI puoli %d: muotoiltu %s lepo %s" % [side, sv[best], ru[best]])
 				if i == 0 and "--mittaa" in OS.get_cmdline_user_args():
 					var body: MeshInstance3D = null
 					for mi in c.skeleton.get_children():
