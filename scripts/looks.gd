@@ -209,7 +209,45 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 		add_fringe(c, look.get("hair_color", Color(0.05, 0.04, 0.04)))
 	if look.get("army", false):
 		add_army_uniform(c)
+	if look.get("string_bikini", false):
+		add_bikini_ties(c, look.get("pants", Color(0.9, 0.05, 0.12)))
 	return c
+
+
+## Lappubikinien sivusolmut lantion kummallakin puolella: solmu, kaksi rusetin lenkkiä ja kaksi pitkää alas roikkuvaa
+## nauhanpäätä.
+## Paikka on vartalon pinnalta lantion sivusta (mallin avaruudessa x ≈ 0,2, y 0,99), kiinni lantioluussa.
+static func add_bikini_ties(c: Node3D, col: Color) -> void:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.roughness = 0.45
+	var loop := TorusMesh.new()  # rusetin lenkki: litteä rengas, taso lantion pintaa vasten
+	loop.inner_radius = 0.006
+	loop.outer_radius = 0.011
+	loop.rings = 12
+	loop.ring_segments = 6
+	var to_char: Transform3D = c.model.transform * c.skeleton.transform
+	var pelvis: Vector3 = to_char * c.skeleton.get_bone_global_rest(c.skeleton.find_bone("pelvis")).origin
+	for sx in [-1.0, 1.0]:
+		var at: Vector3 = to_char * Vector3(sx * 0.2, 0.99, 0.0)
+		var out := signf(at.x)
+		var bow := Node3D.new()
+		var parts := [
+			[B.boxm(Vector3(0.012, 0.014, 0.013)), Vector3(out * 0.004, 0, 0), Vector3.ZERO],  # solmu
+			[loop, Vector3(out * 0.005, 0.008, -0.015), Vector3(-30, 0, 90)],  # lenkki eteen
+			[loop, Vector3(out * 0.005, 0.008, 0.015), Vector3(30, 0, 90)],  # lenkki taakse
+			[B.boxm(Vector3(0.004, 0.09, 0.006)), Vector3(out * 0.011, -0.048, -0.005), Vector3(-4, 0, out * 6.0)],  # nauhanpäät
+			[B.boxm(Vector3(0.004, 0.075, 0.006)), Vector3(out * 0.012, -0.04, 0.006), Vector3(6, 0, out * 9.0)],
+		]
+		for pt in parts:
+			var mi := MeshInstance3D.new()
+			mi.mesh = pt[0]
+			mi.material_override = m
+			mi.position = pt[1]
+			mi.rotation_degrees = pt[2]
+			bow.add_child(mi)
+		bow.scale = Vector3.ONE * 1.5
+		c.attach("pelvis", bow, at - pelvis)  # attach: siirtymä luun lepopaikasta
 
 
 ## Glamour-asusteet päähän: leveälierinen olkihattu punaisella nauhalla, isot tummat aurinkolasit ja kultaiset

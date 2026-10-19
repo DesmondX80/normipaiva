@@ -20493,6 +20493,15 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_bikini.png"))
+			# Lähikuvat alaosasta ja sivusolmusta: edestä, sivulta ja takaa.
+			for k in [["ala_edesta", Vector3(-0.9, 0.95, 1.1), Vector3(-0.9, 0.92, 0)], ["ala_sivulta", Vector3(0.0, 0.95, 1.1), Vector3(0.0, 0.92, 0)],
+					["ala_takaa", Vector3(0.9, 0.95, 1.1), Vector3(0.9, 0.92, 0)], ["solmu", Vector3(-0.55, 0.96, 0.5), Vector3(-0.72, 0.94, 0)]]:
+				cam.fov = 30.0
+				cam.look_at_from_position(stage.global_position + k[1], stage.global_position + k[2])
+				for i in 5:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
 		"uutiset_sohva":
 			# Kymppiuutisten loppukohtaus: sankari sohvalla lähikuvina edestä, sivulta, takaa ja ylhäältä.
 			cutscene.news_tape("testi", func() -> void: pass)

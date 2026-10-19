@@ -81,9 +81,17 @@ float net_thread(vec2 r, vec3 lp) {
 	return 1.0 - max(hole, tear);
 }
 
-// Lappubikinien kangas lepoasennon koordinaateissa (fr = etupuoli): yläosassa kaksi kolmiota rintojen päällä
-// (kärjestä nauha niskaan) ja rintojen alla kiertävä nauha; alaosassa pieni kolmio edessä, hieman leveämpi takana
-// ja lantiolla kiertävät sivunauhat.
+// Janan ab etäisyys pisteestä p.
+float seg_dist(vec2 p, vec2 a, vec2 b) {
+	vec2 ab = b - a;
+	float t = clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0);
+	return length(p - (a + ab * t));
+}
+
+// Lappubikinien kangas lepoasennon koordinaateissa (fr = etupuoli). Yläosa: kaksi kolmiota rintojen päällä, kärjistä
+// nauha niskaan ja rintojen alla kiertävä nauha. Alaosa matalavyötäröinen kuten sivusolmittavissa bikineissä: kapea
+// ja korkea V edessä (kulmat ylhäällä lantiolla), takana kapea V (leveä suora yläreuna, kapenee ohueksi kaistaleeksi), ja paneelien
+// yläkulmista nauhat lantion sivulle solmuun (solmut 3D-mallina, looks.gd add_bikini_ties).
 bool bikini_cloth(float c, vec2 r, bool fr) {
 	if (c > 0.5 && c < 1.5) {
 		if (abs(r.y - 1.245) < 0.007 && abs(r.x) < 0.19) {
@@ -94,23 +102,27 @@ bool bikini_cloth(float c, vec2 r, bool fr) {
 			if (fr && u > 0.0 && u < 1.0 && abs(r.x - sx * 0.085) < 0.058 * (1.0 - u)) {
 				return true;
 			}
-			vec2 a = vec2(sx * 0.085, 1.37);
-			vec2 b = vec2(sx * 0.05, 1.5);
-			vec2 ab = b - a;
-			float t = clamp(dot(r - a, ab) / dot(ab, ab), 0.0, 1.0);
-			if (fr && length(r - (a + ab * t)) < 0.005) {
+			if (fr && seg_dist(r, vec2(sx * 0.085, 1.37), vec2(sx * 0.05, 1.5)) < 0.005) {
 				return true;  // niskanauha
 			}
 		}
 		return false;
 	}
 	if (c > 1.5 && c < 2.5) {
-		if (abs(r.y - 0.945) < 0.006 && abs(r.x) < 0.2) {
-			return true;  // sivunauhat
+		vec2 q = vec2(abs(r.x), r.y);
+		vec2 corner = fr ? vec2(0.092, 0.985) : vec2(0.12, 0.962);
+		if (seg_dist(q, corner, vec2(0.175, 0.99)) < 0.0055) {
+			return true;  // sivunauha yläkulmasta lantion sivulle
 		}
-		float u = (r.y - 0.84) / 0.11;  // 0 = haara, 1 = yläreuna
-		float w = fr ? mix(0.022, 0.085, u) : mix(0.03, 0.095, u);
-		return u > 0.0 && u < 1.0 && abs(r.x) < w;
+		float top = fr ? 0.985 : 0.962;
+		float bottom = fr ? 0.84 : 0.83;
+		float u = (r.y - bottom) / (top - bottom);  // 0 = haara, 1 = yläreuna
+		if (u <= 0.0 || u >= 1.0) {
+			return false;
+		}
+		// Takana kapea V: leveä suora yläreuna, joka kapenee nopeasti ohueksi kaistaleeksi pakaroiden väliin.
+		float w = fr ? mix(0.024, 0.092, pow(u, 1.25)) : mix(0.008, 0.12, pow(u, 3.0));
+		return q.x < w;
 	}
 	return true;
 }
