@@ -20387,7 +20387,7 @@ func _maybe_screenshot() -> void:
 			print("UUTISET herätys: tila %s päivä %d nauha %d loppuja %d viesti '%s'" % [state, day, _tape_day,
 				endings.counts.get("uutiset", 0), _msg.text.replace("\n", " | ")])
 		"rintamus":
-			# Meteorologin vartalo sivulta ja edestä: rintamus 0 ja säädetty arvo rinnakkain.
+			# Meteorologin (tai --sinikka: Sinikan) vartalo sivulta: rintamus 0 ja säädetty arvo rinnakkain.
 			var NewsScreen := load("res://scripts/news_screen.gd")
 			var stage := Node3D.new()
 			add_child(stage)
@@ -20395,8 +20395,9 @@ func _maybe_screenshot() -> void:
 			var lamp := DirectionalLight3D.new()
 			lamp.rotation_degrees = Vector3(-35, 30, 0)
 			stage.add_child(lamp)
+			var who := "sinikka" if "--sinikka" in OS.get_cmdline_user_args() else "meteorologi"
 			for i in 2:
-				var look: Dictionary = NewsScreen.METEOROLOGI.duplicate()
+				var look: Dictionary = (Looks.SINIKKA if who == "sinikka" else NewsScreen.METEOROLOGI).duplicate()
 				if i == 0:
 					look["bust"] = 0.0
 				var c: Node3D = Looks.make(stage, look)
