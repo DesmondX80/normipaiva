@@ -46,7 +46,7 @@ func setup(look: Dictionary) -> void:
 	var src: StandardMaterial3D = body.mesh.surface_get_material(0)
 	var shape := {"belly": float(look.get("belly", 0.0)), "bulk": float(look.get("bulk", 0.0)),
 		"shoulders": float(look.get("shoulders", 0.0)), "muscle": float(look.get("muscle", DEFAULT_MUSCLE)),
-		"curves": float(look.get("curves", 0.0))}
+		"curves": float(look.get("curves", 0.0)), "bust": float(look.get("bust", 0.0))}
 	body.mesh = _clothed_mesh(kind, body.mesh, body.skin, skeleton, bool(look.get("stripes", false)), shape)
 	body_mat = ShaderMaterial.new()
 	body_mat.shader = load(SHADER)
@@ -439,7 +439,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 ## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
 ## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
 const MESH_CACHE := "user://hahmot"
-const CACHE_VERSION := 1
+const CACHE_VERSION := 2
 static var _cache_tag := ""
 
 
@@ -593,6 +593,17 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		off.z -= 0.03 * cu * seat
 		var bust := smoothstep(0.0, 0.06, p.z) * exp(-pow((p.y - 1.34) / 0.07, 2.0)) * (1.0 - smoothstep(0.16, 0.22, ax))
 		off.z += 0.025 * cu * bust
+	var bu: float = shape.get("bust", 0.0)
+	if bu > 0.0:
+		# Rintamus (naismalli): kaksi pyöreää kupua rinnan etupuolella. Kupu on paraabeli (pyöreä huippu, pehmeä
+		# reuna, ei kartiota), alaosa leveämpi ja painopiste hieman alhaalla.
+		for sx in [-1.0, 1.0]:
+			var ry := 0.085 if p.y < 1.3 else 0.07
+			var d := Vector2((p.x - sx * 0.08) / (0.085 + 0.01 * bu), (p.y - 1.3) / (ry + 0.01 * bu))
+			var k := clampf(1.0 - d.length_squared(), 0.0, 1.0)
+			var lobe := k * (2.0 - k) * smoothstep(-0.03, 0.04, p.z)
+			off.z += 0.05 * bu * lobe
+			off.y -= 0.012 * bu * lobe
 	var sh: float = shape.get("shoulders", 0.0)
 	if sh != 0.0:
 		var band := exp(-pow((p.y - 1.44) / 0.1, 2.0))

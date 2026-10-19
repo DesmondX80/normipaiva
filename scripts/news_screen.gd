@@ -1,7 +1,8 @@
 extends SubViewport
 ## Kymmenen uutiset videonauhalta (cutscene.gd news_tape): oma 3D-maailma telkkarin ruudulle. Kolme lavastetta:
-## alkutunnuksen maapallo, uutisstudio (uutistenlukija pöydän takana, videoseinä) ja säästudio (meteorologi
-## karttaseinän edessä). Päälle piirretään TV-grafiikat kuten oikeassa lähetyksessä (alakolmannes, kello, logo)
+## alkutunnus (kanava 3:n tapaan sinivihreä tausta, maapallo ja valkoinen ja punainen nauha, joista kiertyy 3),
+## uutisstudio (uutistenlukija pöydän takana, videoseinällä kymmentä näyttävä kello kuten Kymmenen uutisten
+## vanhassa tunnuksessa) ja säästudio (meteorologi karttaseinän edessä). Päälle piirretään TV-grafiikat kuten oikeassa lähetyksessä (alakolmannes, kello, logo)
 ## ja VHS-nauhan jäljet (juovat, aikakoodi, seurantahäiriö). Vaiheet (seg): "play" (videon sininen ruutu), "tunnus",
 ## "studio" ja "saa". Kartta piirretään omaan SubViewportiinsa ja näytetään säästudion videoseinällä.
 
@@ -16,7 +17,7 @@ const ANCHOR := {"shirt": Color(0.1, 0.13, 0.22), "pants": Color(0.1, 0.11, 0.15
 	"hair": "Hair_SimpleParted", "hair_color": Color(0.28, 0.2, 0.13), "height": 1.8, "skin": Color(0.98, 0.84, 0.74)}
 const METEOROLOGI := {"model": "female", "shirt": Color(0.62, 0.1, 0.14), "pants": Color(0.1, 0.1, 0.12),
 	"shoes": Color(0.08, 0.06, 0.05), "hair": "Hair_Long", "hair_color": Color(0.85, 0.68, 0.38), "height": 1.7,
-	"skin": Color(0.98, 0.86, 0.76)}
+	"skin": Color(0.98, 0.86, 0.76), "curves": 0.6, "bust": 1.6}
 ## Suomen ja naapurien rajat pituus- ja leveyspiireinä (karkea, tunnistettava muoto). Lounaisrannikolta
 ## itärajaa pohjoiseen, Lapin käsivarsi ja Tornionjoki alas, sitten Pohjanlahden rannikko etelään.
 const FINLAND := [Vector2(22.95, 59.82), Vector2(24.0, 60.0), Vector2(24.95, 60.15), Vector2(25.7, 60.28), Vector2(26.9, 60.42),
@@ -62,7 +63,7 @@ var _cam: Camera3D
 var _overlay: Node2D
 var _map: Node2D
 var _globe: Node3D
-var _ring: Node3D
+var _ribbons: Node3D
 var _anchor: Node3D
 var _weather: Node3D
 
@@ -107,14 +108,15 @@ func _process(delta: float) -> void:
 	_seg_t = 0.0 if seg != _last_seg else _seg_t + delta
 	_last_seg = seg
 	_globe.rotation.y += delta * 0.35
-	_ring.rotation.z += delta * 0.6
 	match seg:
 		"play", "tunnus":
-			# Alkutunnus: kamera liukuu kohti pyörivää maapalloa.
+			# Alkutunnus: nauhat kiertyvät sivulta paikoilleen 3:ksi, kamera liukuu hitaasti sisään.
 			var u := clampf(_seg_t / 3.0, 0.0, 1.0)
+			var k := clampf(_seg_t / 1.1, 0.0, 1.0) if seg == "tunnus" else 0.0
+			_ribbons.rotation.y = lerpf(PI * 0.55, 0.0, 1.0 - pow(1.0 - k, 3.0))
+			_ribbons.scale = Vector3.ONE * lerpf(0.4, 1.0, k)
 			_cam.fov = 40.0
-			_cam.look_at_from_position(GLOBE_AT + Vector3(lerpf(0.8, 0.0, u), lerpf(0.5, 0.2, u), lerpf(5.2, 3.6, u)),
-				GLOBE_AT + Vector3(0, 0.15, 0))
+			_cam.look_at_from_position(GLOBE_AT + Vector3(0, 0.25, lerpf(4.6, 4.0, u)), GLOBE_AT + Vector3(0, 0.25, 0))
 		"studio":
 			# Uutisstudio: puolilähikuva, hidas ajo sisään.
 			var u := clampf(_seg_t / 8.0, 0.0, 1.0)
@@ -184,6 +186,7 @@ func _build_globe(root: Node3D) -> void:
 	root.add_child(g)
 	_globe = Node3D.new()
 	_globe.rotation_degrees = Vector3(18, 0, 0)
+	_globe.position = Vector3(0.75, 0.2, -0.6)
 	g.add_child(_globe)
 	# Mantereet kohinasta: meri sininen, maa vihreä ja ruskea, napajäätä ei tarvita.
 	var n := FastNoiseLite.new()
@@ -222,25 +225,83 @@ func _build_globe(root: Node3D) -> void:
 	am.albedo_color = Color(0.4, 0.7, 1.0, 0.18)
 	am.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	am.cull_mode = BaseMaterial3D.CULL_FRONT
-	_part(g, air, Vector3.ZERO, am)
-	# Kiertävä valorengas ja takana säteet.
-	_ring = Node3D.new()
-	g.add_child(_ring)
-	var torus := TorusMesh.new()
-	torus.inner_radius = 1.32
-	torus.outer_radius = 1.36
-	_part(_ring, torus, Vector3.ZERO, _glow(Color(0.4, 0.75, 1.0), 2.5), Vector3(78, 0, 0))
-	var torus2 := TorusMesh.new()
-	torus2.inner_radius = 1.5
-	torus2.outer_radius = 1.52
-	_part(_ring, torus2, Vector3.ZERO, _glow(Color(0.95, 0.25, 0.25), 2.0), Vector3(70, 40, 0))
-	for k in 12:
-		var ray := _part(g, B.boxm(Vector3(0.02, 9.0, 0.02)), Vector3(0, 0, -3.0), _glow(Color(0.2, 0.4, 0.9), 0.8), Vector3(0, 0, k * 15.0))
-		ray.transparency = 0.5
+	_part(_globe, air, Vector3.ZERO, am)
+	# Sinivihreä taustaseinä ja hennot säteet.
+	var bg := StandardMaterial3D.new()
+	bg.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bg.albedo_texture = _grad_tex(Color(0.05, 0.55, 0.6), Color(0.0, 0.12, 0.28))
+	_part(g, B.boxm(Vector3(16, 9, 0.1)), Vector3(0, 0, -5.0), bg)
+	for k in 10:
+		var ray := _part(g, B.boxm(Vector3(0.03, 12.0, 0.02)), Vector3(1.0, 0.2, -4.0), _glow(Color(0.4, 0.95, 0.95), 0.5), Vector3(0, 0, k * 18.0))
+		ray.transparency = 0.7
+	# Valkoinen ja punainen nauha, joista muodostuu 3 maapallon eteen.
+	_ribbons = Node3D.new()
+	_ribbons.position = Vector3(-0.55, 0.35, 0.9)
+	g.add_child(_ribbons)
+	_ribbon3(_ribbons, Color(0.97, 0.97, 0.97), Vector2(0.0, 0.0), 0.02)
+	_ribbon3(_ribbons, Color(0.88, 0.1, 0.12), Vector2(-0.07, 0.05), -0.02)
 	var sun := DirectionalLight3D.new()
 	sun.light_energy = 1.2
 	sun.rotation_degrees = Vector3(-20, 40, 0)
 	g.add_child(sun)
+
+
+## Nauha 3:n muotoon (yläkaari ja alakaari myötäpäivään), leveys 0.11, hento aaltoilu syvyyssuunnassa.
+## shift siirtää nauhaa (rinnakkainen toinen nauha), dz syvyyttä.
+func _ribbon3(parent: Node3D, col: Color, shift: Vector2, dz: float) -> void:
+	var pts: Array[Vector2] = []
+	for i in 25:
+		var a := deg_to_rad(lerpf(150.0, -90.0, i / 24.0))
+		pts.append(Vector2(0, 0.4) + Vector2(cos(a), sin(a)) * 0.4)
+	for i in range(1, 27):
+		var a := deg_to_rad(lerpf(90.0, -150.0, i / 26.0))
+		pts.append(Vector2(0, -0.44) + Vector2(cos(a), sin(a)) * 0.44)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	for i in pts.size():
+		var p := pts[i] + shift
+		var t := (pts[mini(i + 1, pts.size() - 1)] - pts[maxi(i - 1, 0)]).normalized()
+		var n := Vector2(-t.y, t.x) * 0.055
+		var z := dz + 0.04 * sin(i * 0.35)
+		st.set_normal(Vector3(0, 0, 1))
+		st.add_vertex(Vector3(p.x + n.x, p.y + n.y, z))
+		st.set_normal(Vector3(0, 0, 1))
+		st.add_vertex(Vector3(p.x - n.x, p.y - n.y, z))
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.roughness = 0.3
+	m.metallic = 0.2
+	m.emission_enabled = true
+	m.emission = col
+	m.emission_energy_multiplier = 0.35
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = m
+	parent.add_child(mi)
+
+
+## Kymmenen uutisten kello: sininen taulu, valkoinen kehä ja tuntimerkit, viisarit kymmenessä (tunti 300°).
+func _clock(parent: Node3D, pos: Vector3, rad: float) -> void:
+	var c := Node3D.new()
+	c.position = pos
+	parent.add_child(c)
+	_part(c, B.cyl(rad, rad, 0.03, 48), Vector3.ZERO, _glow(Color(0.1, 0.3, 0.85), 0.9), Vector3(90, 0, 0))
+	var rim := TorusMesh.new()
+	rim.inner_radius = rad * 0.93
+	rim.outer_radius = rad * 1.02
+	_part(c, rim, Vector3(0, 0, 0.02), _glow(Color(0.95, 0.97, 1.0), 1.6), Vector3(90, 0, 0))
+	for k in 12:
+		var a := TAU * k / 12.0
+		var tick := _part(c, B.boxm(Vector3(rad * (0.05 if k % 3 else 0.08), rad * (0.12 if k % 3 else 0.18), 0.01)),
+			Vector3(sin(a), cos(a), 0) * rad * 0.8 + Vector3(0, 0, 0.025), _glow(Color.WHITE, 1.4))
+		tick.rotation.z = -a
+	for h in [[300.0, 0.5, 0.07], [0.0, 0.75, 0.045]]:
+		var a := deg_to_rad(h[0])
+		var hand := _part(c, B.boxm(Vector3(rad * h[2], rad * h[1], 0.012)), Vector3(sin(a), cos(a), 0) * rad * h[1] * 0.5 + Vector3(0, 0, 0.035),
+			_glow(Color.WHITE, 1.6))
+		hand.rotation.z = -a
+	_part(c, B.cyl(rad * 0.06, rad * 0.06, 0.02, 16), Vector3(0, 0, 0.045), _glow(Color(0.9, 0.1, 0.12), 1.5), Vector3(90, 0, 0))
 
 
 # --- Uutisstudio ---------------------------------------------------------------------
@@ -251,7 +312,7 @@ func _build_studio(root: Node3D) -> void:
 	# Kiiltävä tumma lattia ja kaareva videoseinä taustalla.
 	_part(s, B.boxm(Vector3(14, 0.05, 10)), Vector3(0, -0.025, 0), _gloss(Color(0.06, 0.07, 0.1), 0.15))
 	var wall := StandardMaterial3D.new()
-	wall.albedo_texture = _grad_tex(Color(0.14, 0.3, 0.7), Color(0.02, 0.06, 0.2))
+	wall.albedo_texture = _grad_tex(Color(0.06, 0.38, 0.55), Color(0.01, 0.08, 0.2))
 	wall.emission_enabled = true
 	wall.emission_texture = wall.albedo_texture
 	wall.emission_energy_multiplier = 0.45
@@ -269,6 +330,8 @@ func _build_studio(root: Node3D) -> void:
 			var h := rng.randf_range(0.25, 0.8)
 			_part(panel, B.boxm(Vector3(0.22, h, 0.01)), Vector3(-0.36 + b * 0.24, -1.45 + h / 2.0, 0.025),
 				_glow(Color(0.08, 0.12, 0.3), 0.4))
+	# Videoseinän keskellä Kymmenen uutisten kello uutistenlukijan takana.
+	_clock(s, Vector3(0, 2.25, -3.72), 0.42)
 	# Uutispöytä: kaareva etulevy, kiiltävä kansi ja punainen valojuova.
 	var desk := Node3D.new()
 	desk.position = Vector3(0, 0, -0.1)
@@ -454,6 +517,29 @@ func _text(pos: Vector2, s: String, size_px: int, col: Color, width := -1.0, ali
 	_overlay.draw_string(f, pos, s, align, width, size_px, col)
 
 
+## Kymmenen uutisten kello: sininen taulu, valkoinen kehä, tuntimerkit ja viisarit kymmenessä.
+func _clock_icon(c: Vector2, rad: float, a: float) -> void:
+	var o := _overlay
+	o.draw_circle(c + Vector2(2, 3), rad, Color(0, 0, 0, 0.35 * a))
+	o.draw_circle(c, rad, Color(0.12, 0.35, 0.9, a))
+	o.draw_circle(c - Vector2(rad, rad) * 0.25, rad * 0.55, Color(0.4, 0.6, 1.0, 0.25 * a))  # kiilto
+	o.draw_arc(c, rad, 0, TAU, 40, Color(1, 1, 1, a), maxf(2.0, rad * 0.1), true)
+	for k in 12:
+		var d := Vector2(sin(TAU * k / 12.0), -cos(TAU * k / 12.0))
+		o.draw_line(c + d * rad * 0.72, c + d * rad * (0.86 if k % 3 else 0.9), Color(1, 1, 1, a), maxf(1.0, rad * 0.06))
+	o.draw_line(c, c + Vector2(sin(deg_to_rad(300.0)), -cos(deg_to_rad(300.0))) * rad * 0.5, Color(1, 1, 1, a), maxf(2.0, rad * 0.11))
+	o.draw_line(c, c + Vector2(0, -rad * 0.78), Color(1, 1, 1, a), maxf(1.5, rad * 0.07))
+	o.draw_circle(c, rad * 0.08, Color(0.9, 0.1, 0.12, a))
+
+
+## Kanavan logo kulmassa: valkoinen ja punainen nauha 3:n muotoisina kaarina, hieman läpikuultava.
+func _ribbon_bug(c: Vector2, s: float) -> void:
+	for rib in [[Color(1, 1, 1, 0.85), Vector2.ZERO], [Color(0.92, 0.12, 0.14, 0.85), Vector2(-4, 3)]]:
+		var off: Vector2 = c + rib[1] * s
+		_overlay.draw_arc(off + Vector2(0, -11) * s, 11.0 * s, deg_to_rad(-150), deg_to_rad(90), 20, rib[0], 4.5 * s, true)
+		_overlay.draw_arc(off + Vector2(0, 12) * s, 12.0 * s, deg_to_rad(-90), deg_to_rad(150), 20, rib[0], 4.5 * s, true)
+
+
 func _draw_overlay() -> void:
 	var o := _overlay
 	var w := float(SIZE.x)
@@ -466,30 +552,33 @@ func _draw_overlay() -> void:
 			_text(Vector2(36, h - 36), "SP", 30, Color.WHITE)
 			_text(Vector2(0, h - 36), "0:00:%02d" % int(_seg_t), 30, Color.WHITE, w - 36, HORIZONTAL_ALIGNMENT_RIGHT)
 		"tunnus":
-			var a := clampf((_seg_t - 0.6) / 0.6, 0.0, 1.0)
-			var bar := Rect2(60, h - 120, w - 120, 64)
-			MG.grad_rect(o, bar, Color(0.9, 0.12, 0.14, a), Color(0.55, 0.04, 0.06, a))
-			o.draw_line(bar.position, bar.position + Vector2(bar.size.x, 0), Color(1, 0.7, 0.7, a), 2.0)
-			var sweep := fmod(_seg_t * 0.7, 1.4) * bar.size.x  # valon pyyhkäisy palkin yli
-			if sweep < bar.size.x:
-				o.draw_rect(Rect2(bar.position.x + sweep, bar.position.y, 30, bar.size.y), Color(1, 1, 1, 0.18 * a))
-			_text(Vector2(60, h - 74), "KYMMENEN UUTISET", 40, Color(1, 1, 1, a), w - 120, HORIZONTAL_ALIGNMENT_CENTER, 3)
+			# Kymmenen uutisten tunnus: sininen kello kymmenessä ja sen vieressä KYMMENEN / UUTISET.
+			var a := clampf((_seg_t - 0.9) / 0.5, 0.0, 1.0)
+			var band := Rect2(0, h - 128, w, 92)
+			MG.grad_rect(o, band, Color(0.0, 0.08, 0.2, 0.75 * a), Color(0.0, 0.03, 0.1, 0.85 * a))
+			o.draw_line(band.position, band.position + Vector2(w, 0), Color(0.5, 0.9, 1.0, 0.8 * a), 2.0)
+			var sweep := fmod(_seg_t * 0.8, 1.6) * w  # valon pyyhkäisy
+			if sweep < w:
+				o.draw_rect(Rect2(sweep, band.position.y, 40, band.size.y), Color(1, 1, 1, 0.08 * a))
+			_clock_icon(Vector2(w / 2.0 - 150, h - 82), 36.0, a)
+			_text(Vector2(w / 2.0 - 100, h - 90), "KYMMENEN", 24, Color(0.75, 0.9, 1.0, a), -1, HORIZONTAL_ALIGNMENT_LEFT, 3)
+			_text(Vector2(w / 2.0 - 102, h - 50), "UUTISET", 50, Color(1, 1, 1, a), -1, HORIZONTAL_ALIGNMENT_LEFT, 4)
 			if _seg_t < 1.2:
 				_text(Vector2(36, 60), "PLAY ▶", 32, Color(1, 1, 1, 0.8))
 		"studio":
 			# Logo ja kello yläkulmissa, alakolmannes liukuu sisään.
-			MG.box(o, Rect2(w - 98, 24, 70, 40), Color(0.85, 0.08, 0.1, 0.85), 4)
-			_text(Vector2(w - 98, 54), "10", 28, Color.WHITE, 70, HORIZONTAL_ALIGNMENT_CENTER)
+			_ribbon_bug(Vector2(w - 56, 52), 1.0)
 			_text(Vector2(28, 52), "22.0%d" % mini(9, 1 + int(_seg_t / 6.0)), 24, Color(1, 1, 1, 0.9), -1, HORIZONTAL_ALIGNMENT_LEFT, 3)
 			if headline != "":
 				var a := clampf(_seg_t / 0.4, 0.0, 1.0)
 				var x0 := lerpf(-w, 0.0, a) + 28.0
 				var bar := Rect2(x0 + 120, h - 92, w - 176, 50)
-				MG.grad_rect(o, bar, Color(0.12, 0.2, 0.42, 0.95), Color(0.04, 0.08, 0.2, 0.95))
-				o.draw_line(bar.position, bar.position + Vector2(bar.size.x, 0), Color(0.6, 0.75, 1.0), 2.0)
+				MG.grad_rect(o, bar, Color(0.05, 0.3, 0.42, 0.95), Color(0.01, 0.1, 0.18, 0.95))
+				o.draw_line(bar.position, bar.position + Vector2(bar.size.x, 0), Color(0.5, 0.9, 1.0), 2.0)
 				var tag := Rect2(x0, h - 92, 120, 50)
-				MG.grad_rect(o, tag, Color(0.92, 0.14, 0.16), Color(0.6, 0.05, 0.07))
-				_text(tag.position + Vector2(0, 33), "UUTISET", 22, Color.WHITE, 120, HORIZONTAL_ALIGNMENT_CENTER)
+				MG.grad_rect(o, tag, Color(0.12, 0.38, 0.85), Color(0.04, 0.16, 0.5))
+				_clock_icon(tag.position + Vector2(22, 25), 15.0, 1.0)
+				_text(tag.position + Vector2(40, 33), "UUTISET", 18, Color.WHITE, 78, HORIZONTAL_ALIGNMENT_CENTER)
 				_text(bar.position + Vector2(14, 32), headline, 18, Color.WHITE, bar.size.x - 24)
 		"saa":
 			var bar := Rect2(28, h - 86, 260, 44)

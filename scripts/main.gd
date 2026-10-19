@@ -20366,13 +20366,19 @@ func _maybe_screenshot() -> void:
 			await press.call("interact")
 			print("UUTISET loppu: tila %s jemma %d" % [state, stash.get("koti", 0)])
 			var t0 := Time.get_ticks_msec()
-			for k in [["play", 2.0], ["tunnus", 4.6], ["studio", 7.0], ["zoom", 9.6], ["saa", 12.4], ["kommentti", 15.0], ["otsikko", 18.2]]:
+			for k in [["play", 2.0], ["tunnus", 5.3], ["studio", 7.0], ["zoom", 9.6], ["saa", 12.4], ["kommentti", 15.0], ["otsikko", 18.2]]:
 				while Time.get_ticks_msec() - t0 < k[1] * 1000.0:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
 				if cutscene.news_view != null:
 					cutscene.news_view.get_texture().get_image().save_png(path.replace(".png", "_ruutu_%s.png" % k[0]))
+				if k[0] == "play":  # tunnus täysin näkyvissä: odotetaan vaihetta ja 1,6 s
+					while cutscene.news_view.seg != "tunnus":
+						await get_tree().process_frame
+					await get_tree().create_timer(1.6, true, false, true).timeout
+					await RenderingServer.frame_post_draw
+					cutscene.news_view.get_texture().get_image().save_png(path.replace(".png", "_ruutu_tunnus_valmis.png"))
 			for i in 40:
 				await get_tree().create_timer(0.5, true, false, true).timeout
 				if not cutscene.busy:
@@ -20380,6 +20386,33 @@ func _maybe_screenshot() -> void:
 			await get_tree().create_timer(1.5, true, false, true).timeout
 			print("UUTISET herätys: tila %s päivä %d nauha %d loppuja %d viesti '%s'" % [state, day, _tape_day,
 				endings.counts.get("uutiset", 0), _msg.text.replace("\n", " | ")])
+		"rintamus":
+			# Meteorologin vartalo sivulta ja edestä: rintamus 0 ja säädetty arvo rinnakkain.
+			var NewsScreen := load("res://scripts/news_screen.gd")
+			var stage := Node3D.new()
+			add_child(stage)
+			stage.global_position = Vector3(5000, 0, 5000)
+			var lamp := DirectionalLight3D.new()
+			lamp.rotation_degrees = Vector3(-35, 30, 0)
+			stage.add_child(lamp)
+			for i in 2:
+				var look: Dictionary = NewsScreen.METEOROLOGI.duplicate()
+				if i == 0:
+					look["bust"] = 0.0
+				var c: Node3D = Looks.make(stage, look)
+				c.position = Vector3(-0.6 + i * 1.2, 0, 0)
+				c.rotation.y = PI * 0.5  # sivuttain kameraan
+				c.play("Idle", 0.0)
+			var cam := Camera3D.new()
+			cam.fov = 35.0
+			stage.add_child(cam)
+			cam.look_at_from_position(stage.global_position + Vector3(0, 1.3, 3.2), stage.global_position + Vector3(0, 1.2, 0))
+			cam.current = true
+			_hud.visible = false
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path)
 		"uutiset_sohva":
 			# Kymppiuutisten loppukohtaus: sankari sohvalla lähikuvina edestä, sivulta, takaa ja ylhäältä.
 			cutscene.news_tape("testi", func() -> void: pass)
@@ -20397,7 +20430,8 @@ func _maybe_screenshot() -> void:
 				if bn in ["pelvis", "spine_03", "thigh_l", "calf_l", "foot_l", "ball_l"]:
 					print("SOHVA luu %s %s" % [bn, hero.to_global(hero.bone_position(bn)) - cutscene.TV_ROOM])
 			for k in [["alku", Vector3(0, 0.4, -2.6)], ["edesta", Vector3(0, 0.4, -2.6)], ["sivulta", Vector3(-1.0, 0.1, -0.3)],
-					["vino", Vector3(1.8, 0.6, -1.8)], ["ylhaalta", Vector3(0.01, 2.4, -0.3)]]:
+					["vino", Vector3(1.8, 0.6, -1.8)], ["ylhaalta", Vector3(0.01, 2.4, -0.3)], ["tyhja", Vector3(1.2, 0.5, -1.4)]]:
+				hero.visible = k[0] != "tyhja"  # viimeisessä kuvassa sohvan painumat ilman istujaa
 				cam.look_at_from_position(o + k[1], o, Vector3.UP)
 				cam.current = true
 				_note.visible = false

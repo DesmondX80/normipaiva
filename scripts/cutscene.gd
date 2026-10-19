@@ -2813,9 +2813,71 @@ const TV_LINES := ["Mitäs tänään tulee... Kesäillan valssi. Suora lähetys 
 	"Pekan kanssa muka kyyhkyjahdissa. Odota vaan, kun tuut kotiin..."]
 
 
-## Sohvalla istujan juuren paikka (TV_ROOM:sta): Sitting_Idle-asennossa lantio selkätyynyä vasten, peppu
-## istuintyynyn päällä ja polvet istuimen etureunalla (mitattu luista, ks. testikohtaus uutiset_sohva).
-const SOFA_SIT := Vector3(0.55, 0.05, 1.21)
+## Sohvalla istuminen (TV_ROOM:sta): Sitting_Idle-asennon lantio on SIT_PELVIS juuresta (mitattu luista, ks.
+## testikohtaus uutiset_sohva). Pehmeä sohva: lantio SOFA_PELVIS on uponnut istuintyynyn painumaan, ja vartalo
+## nojaa SOFA_LEAN astetta taaksepäin selkätyynyn painumaan; polvet istuimen etureunalla, jalat lattialla.
+## SOFA_SIT = istujan juuren likimääräinen paikka (kuplat ja kamerat).
+const SIT_PELVIS := Vector3(0, 0.54, 0.33)
+const SOFA_PELVIS := Vector3(0.55, 0.515, 1.57)
+const SOFA_LEAN := 7.0
+const SOFA_SIT := Vector3(0.55, 0.02, 1.24)
+const SOFA_DENT := Vector2(0.55, 1.5)  # istuintyynyn painuman keskikohta (x, z)
+
+
+## Istuja sohvalle: lantio painumaan ja nojaus taaksepäin lantion ympäri (kasvot kohti TV:tä, -Z).
+func _sit_on_sofa(c: Node3D, o: Vector3) -> void:
+	var b := Basis(Vector3.RIGHT, deg_to_rad(SOFA_LEAN))
+	c.global_transform = Transform3D(b, o + SOFA_PELVIS - b * SIT_PELVIS)
+
+
+## Pehmeä tyyny: laatikkorunko ja pullea yläpinta (ruudukko), johon voi painaa painumia. size = (leveys, paksuus,
+## syvyys) paikallisesti, yläpinta +Y. dents: [[keskikohta (x, z paikallisesti), säteet, syvyys], ...]. rot kääntää
+## tyynyn (selkätyyny: yläpinta eteen).
+func _cushion(parent: Node3D, center: Vector3, size: Vector3, col: Color, dents: Array, rot := Vector3.ZERO) -> void:
+	var node := Node3D.new()
+	node.position = center
+	node.rotation_degrees = rot
+	parent.add_child(node)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = col
+	mat.roughness = 0.95
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var body := MeshInstance3D.new()
+	body.mesh = B.boxm(Vector3(size.x, size.y * 0.8, size.z))
+	body.material_override = mat
+	body.position.y = -size.y * 0.1
+	node.add_child(body)
+	var top := size.y * 0.3
+	var puff := size.y * 0.25
+	var hf := func(x: float, z: float) -> float:
+		var ux := 2.0 * x / size.x
+		var uz := 2.0 * z / size.z
+		var h := top + puff * (1.0 - pow(ux, 4.0)) * (1.0 - pow(uz, 4.0))
+		for d in dents:
+			var q := Vector2((x - d[0].x) / d[1].x, (z - d[0].y) / d[1].y)
+			h -= d[2] * exp(-q.length_squared()) * (1.0 - pow(ux, 6.0)) * (1.0 - pow(uz, 6.0))
+		return h
+	var nx := 28
+	var nz := 14
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var e := 0.01
+	for i in nx:
+		for j in nz:
+			var quad := []
+			for c in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]]:
+				var x := (float(c[0]) / nx - 0.5) * size.x
+				var z := (float(c[1]) / nz - 0.5) * size.z
+				var y: float = hf.call(x, z)
+				var n := Vector3(hf.call(x - e, z) - hf.call(x + e, z), 2.0 * e, hf.call(x, z - e) - hf.call(x, z + e)).normalized()
+				quad.append([Vector3(x, y, z), n])
+			for k in [0, 1, 2, 0, 2, 3]:
+				st.set_normal(quad[k][1])
+				st.add_vertex(quad[k][0])
+	var surf := MeshInstance3D.new()
+	surf.mesh = st.commit()
+	surf.material_override = mat
+	node.add_child(surf)
 
 
 ## Järvikujan olohuone illalla (TV_ROOM-taskussa): lattia, seinät, matto, sohva, sohvapöytä ja TV-taso, ikkuna,
@@ -2832,15 +2894,19 @@ func _tv_room(o: Vector3) -> MeshInstance3D:
 	B.mesh(_props, B.boxm(Vector3(0.6, 1.5, 0.05)), o + Vector3(-2.8, 1.5, 3.4), Color(0.7, 0.55, 0.3))  # verho
 	B.mesh(_props, B.boxm(Vector3(0.9, 0.6, 0.05)), o + Vector3(1.6, 1.7, 3.43), Color(0.75, 0.6, 0.35))  # hääkuva seinällä
 	B.mesh(_props, B.boxm(Vector3(3.0, 0.02, 2.2)), o + Vector3(0, 0.01, -0.4), Color(0.6, 0.15, 0.15))
-	# Sohva: runko, kaksi istuintyynyä ja paksut selkätyynyt, jotta istumasyvyys (0,5 m) sopii hahmon reisiin
-	# (SOFA_SIT): polvet istuimen etureunalla ja sääret sen edessä, selkä tyynyä vasten.
+	# Sohva: runko, kaksi pehmeää istuintyynyä ja paksut selkätyynyt, jotta istumasyvyys (0,5 m) sopii hahmon
+	# reisiin. Oikeanpuoleisessa (istujan) tyynyssä painumat pepun ja selän kohdalla (_sit_on_sofa).
 	var sofa := Color(0.35, 0.4, 0.5)
 	B.mesh(_props, B.boxm(Vector3(2.4, 0.3, 0.9)), o + Vector3(0, 0.15, 1.6), sofa.darkened(0.15))
 	B.mesh(_props, B.boxm(Vector3(2.4, 0.95, 0.2)), o + Vector3(0, 0.475, 1.95), sofa.darkened(0.1))
 	for cx in [-0.55, 0.55]:
-		B.mesh(_props, B.boxm(Vector3(1.08, 0.15, 0.51)), o + Vector3(cx, 0.375, 1.405), sofa)  # istuintyyny
-		B.mesh(_props, B.boxm(Vector3(1.04, 0.02, 0.47)), o + Vector3(cx, 0.452, 1.405), sofa.lightened(0.08))  # tyynyn kupu
-		B.mesh(_props, B.boxm(Vector3(1.08, 0.5, 0.19)), o + Vector3(cx, 0.71, 1.755), sofa.lightened(0.03))  # selkätyyny
+		var sat: bool = cx > 0.0
+		var seat_c := Vector3(cx, 0.375, 1.405)
+		_cushion(_props, o + seat_c, Vector3(1.08, 0.15, 0.51), sofa,
+			[[SOFA_DENT - Vector2(cx, seat_c.z), Vector2(0.17, 0.15), 0.09], [Vector2(0, -0.17), Vector2(0.2, 0.1), 0.035]] if sat else [])
+		# Selkätyyny: yläpinta eteen (-Z); paikallinen z = korkeus tyynyn keskeltä.
+		_cushion(_props, o + Vector3(cx, 0.71, 1.755), Vector3(1.08, 0.19, 0.5), sofa.lightened(0.03),
+			[[Vector2(0, 0.06), Vector2(0.2, 0.2), 0.05]] if sat else [], Vector3(-90, 0, 0))
 	for sx in [-1.2, 1.2]:
 		B.mesh(_props, B.boxm(Vector3(0.22, 0.65, 0.9)), o + Vector3(sx, 0.325, 1.6), sofa.darkened(0.05))
 	B.mesh(_props, B.boxm(Vector3(1.2, 0.4, 0.6)), o + Vector3(0, 0.2, 0.2), Color(0.45, 0.3, 0.2))
@@ -2886,8 +2952,7 @@ func paivi_tv(shot: Texture2D, done: Callable) -> void:
 	lamp.position = o + Vector3(-3.0, 2.0, 1.5)
 	_props.add_child(lamp)
 	var paivi := Looks.make(_props, Looks.PAIVI)
-	paivi.global_position = o + SOFA_SIT
-	paivi.rotation.y = 0.0  # kohti TV:tä (-Z)
+	_sit_on_sofa(paivi, o)
 	paivi.play("Sitting_Idle", 0.0)
 	var bubble := B.bubble(_props, o + SOFA_SIT + Vector3(0, 1.6, 0), Color.WHITE, 1.0, false)
 	_cam.current = true
@@ -2910,6 +2975,7 @@ func paivi_tv(shot: Texture2D, done: Callable) -> void:
 	_cam.global_position = o + Vector3(-0.9, 1.6, -1.4)
 	_cam.look_at(o + Vector3(0.2, 1.55, 1.05), Vector3.UP)
 	paivi.play("Idle_Talking", 0.2)
+	paivi.rotation = Vector3.ZERO
 	paivi.global_position = o + Vector3(0.2, 0, 1.05)
 	Sfx.play("alert", -4.0, 0.8)
 	for line in TV_LINES.slice(2, 5):
@@ -2997,8 +3063,7 @@ func news_tape(stats: String, done: Callable) -> void:
 	_props.add_child(lamp)
 	var hero := Looks.make(_props, Looks.player())
 	Looks.add_cap(hero)
-	hero.global_position = o + SOFA_SIT
-	hero.rotation.y = 0.0  # kohti TV:tä (-Z)
+	_sit_on_sofa(hero, o)
 	hero.play("Sitting_Idle", 0.0)
 	hero.attach("hand_r", _beer_can(), Vector3(0, -0.02, 0.03))
 	news_hero = hero
