@@ -145,6 +145,16 @@ const SINIKKA := {
 	"curves": 1.0, "bust": 1.6, "skin": Color(1.0, 0.97, 0.93), "bare_skin": Color(0.8, 0.58, 0.46), "glam": true,
 	"shorts_y": 0.8, "crop_y": 1.23, "tube_y": 1.41, "sleeve_x": 0.2, "denim": true,
 }
+## Sinikka uimarannalla (world.gd): pienet punaiset lappubikinit, paljaat jalat.
+static func sinikka_bikini() -> Dictionary:
+	var look: Dictionary = SINIKKA.duplicate()
+	look.merge({"shirt": Color(0.9, 0.05, 0.12), "pants": Color(0.9, 0.05, 0.12), "shoes": Color(0.95, 0.75, 0.62), "shine": 0.7,
+		"denim": false, "string_bikini": true, "shirt_puff": 0.003, "pants_puff": 0.003}, true)
+	for k in ["crop_y", "tube_y", "sleeve_x", "shorts_y"]:
+		look.erase(k)
+	return look
+
+
 const PEKKA := {
 	"shirt": Color(0.3, 0.36, 0.2), "pants": Color(0.35, 0.33, 0.22), "shoes": Color(0.15, 0.12, 0.1),
 	"hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.28, 0.2), "beard": true, "height": 1.78, "shine": 0.2, "belly": 0.65, "bulk": 0.1,

@@ -3319,7 +3319,7 @@ func _pohjoiset_visuals() -> void:
 		world.rossi_boys.visible = _weekday() >= 5 and _between(clock_min, Vector2(10 * 60, 20 * 60))
 
 
-## Sinikka käy aamuisin (8–10) uimassa Oravajärvellä narubikineissä; pihalla häntä ei silloin näy.
+## Sinikka käy aamuisin (8–10) uimassa Oravajärvellä lappubikineissä; pihalla häntä ei silloin näy.
 const SINIKKA_UINTI := Vector2(8 * 60, 10 * 60)
 var _sinikka_seen_day := -1
 var _sinikka_stare_t := 0.0
@@ -3347,7 +3347,7 @@ func _sinikka_beach(e: bool) -> bool:
 		tilat.add("stressi", 0.15)
 		tilat.first("sinikka_ranta", 0.3)
 		Sfx.play("water", -14.0, 1.2)
-		_show_message("Sinikka nousee vedestä punaisissa narubikineissä ja heilauttaa kättä: \"Huomenta naapuri! Vesi on ihanaa.\" "
+		_show_message("Sinikka nousee vedestä pienissä punaisissa lappubikineissä ja heilauttaa kättä: \"Huomenta naapuri! Vesi on ihanaa.\" "
 			+ "Aamu parani heti.", 4.5)
 	_sinikka_stare_t += get_process_delta_time()
 	if _sinikka_stare_t > 8.0 and _between(clock_min, ORAVA_MUMMOT) and _sinikka_tattle_day != day:
@@ -20470,6 +20470,29 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kuva_teksti.png"))
+		"bikini":
+			# Sinikan lappubikinit edestä, sivulta ja takaa.
+			var stage := Node3D.new()
+			add_child(stage)
+			stage.global_position = Vector3(5000, 0, 5000)
+			var lamp := DirectionalLight3D.new()
+			lamp.rotation_degrees = Vector3(-35, 20, 0)
+			stage.add_child(lamp)
+			for i in 3:
+				var c: Node3D = Looks.make(stage, Looks.sinikka_bikini())
+				c.position = Vector3(-0.9 + i * 0.9, 0, 0)
+				c.rotation.y = [PI, PI * 0.5, 0.0][i]  # edestä, sivulta, takaa
+				c.play("Idle", 0.0)
+			var cam := Camera3D.new()
+			cam.fov = 40.0
+			stage.add_child(cam)
+			cam.look_at_from_position(stage.global_position + Vector3(0, 1.1, 3.6), stage.global_position + Vector3(0, 1.05, 0))
+			cam.current = true
+			_hud.visible = false
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_bikini.png"))
 		"uutiset_sohva":
 			# Kymppiuutisten loppukohtaus: sankari sohvalla lähikuvina edestä, sivulta, takaa ja ylhäältä.
 			cutscene.news_tape("testi", func() -> void: pass)

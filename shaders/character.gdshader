@@ -44,6 +44,7 @@ uniform vec3 strap_col : source_color = vec3(0.55, 0.42, 0.25);
 uniform bool workwear = false;   // työhousut: vahvikkeet polvissa, riipputaskut, heijastinraita säären ympäri
 uniform bool flannel = false;    // flanellipaita: ruudutus
 uniform bool tattoo = false;     // tatuointi vasemmassa olkavarressa (näkyy paljaalta iholta ja verkon läpi)
+uniform bool string_bikini = false;  // pienet lappubikinit: kolmiot rintojen päällä, pieni alaosa, ohuet nauhat
 
 float hash21(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -80,8 +81,45 @@ float net_thread(vec2 r, vec3 lp) {
 	return 1.0 - max(hole, tear);
 }
 
+// Lappubikinien kangas lepoasennon koordinaateissa (fr = etupuoli): yläosassa kaksi kolmiota rintojen päällä
+// (kärjestä nauha niskaan) ja rintojen alla kiertävä nauha; alaosassa pieni kolmio edessä, hieman leveämpi takana
+// ja lantiolla kiertävät sivunauhat.
+bool bikini_cloth(float c, vec2 r, bool fr) {
+	if (c > 0.5 && c < 1.5) {
+		if (abs(r.y - 1.245) < 0.007 && abs(r.x) < 0.19) {
+			return true;  // nauha rintojen alla
+		}
+		for (float sx = -1.0; sx < 1.5; sx += 2.0) {
+			float u = (r.y - 1.245) / 0.125;  // 0 = kolmion kanta, 1 = kärki
+			if (fr && u > 0.0 && u < 1.0 && abs(r.x - sx * 0.085) < 0.058 * (1.0 - u)) {
+				return true;
+			}
+			vec2 a = vec2(sx * 0.085, 1.37);
+			vec2 b = vec2(sx * 0.05, 1.5);
+			vec2 ab = b - a;
+			float t = clamp(dot(r - a, ab) / dot(ab, ab), 0.0, 1.0);
+			if (fr && length(r - (a + ab * t)) < 0.005) {
+				return true;  // niskanauha
+			}
+		}
+		return false;
+	}
+	if (c > 1.5 && c < 2.5) {
+		if (abs(r.y - 0.945) < 0.006 && abs(r.x) < 0.2) {
+			return true;  // sivunauhat
+		}
+		float u = (r.y - 0.84) / 0.11;  // 0 = haara, 1 = yläreuna
+		float w = fr ? mix(0.022, 0.085, u) : mix(0.03, 0.095, u);
+		return u > 0.0 && u < 1.0 && abs(r.x) < w;
+	}
+	return true;
+}
+
 // Paljas iho vaatteen kohdalla? (c = luokka, r = lepoasento, lp = paikka)
-bool bare(float c, vec2 r, vec3 lp) {
+bool bare(float c, vec2 r, vec3 lp, float fr) {
+	if (string_bikini && c > 0.5 && c < 2.5) {
+		return !bikini_cloth(c, r, fr > 0.5);
+	}
 	if (c > 1.5 && c < 2.5 && shorts_y > 0.0 && r.y < shorts_y + (denim ? fray(lp) : 0.0)) {
 		return true;
 	}
@@ -102,7 +140,7 @@ void vertex() {
 	// Vaatteet vähän irti ihosta, ettei näytä maalatulta trikoolta.
 	float c = floor(cat + 0.5);
 	float puff = c > 0.5 && c < 1.5 ? shirt_puff : (c > 1.5 && c < 2.5 ? pants_puff : (c > 2.5 ? 0.01 : 0.0));
-	if (bare(c, UV2, VERTEX)) {
+	if (bare(c, UV2, VERTEX, COLOR.b)) {
 		puff = 0.0;
 	}
 	VERTEX += NORMAL * puff;
@@ -121,7 +159,7 @@ void fragment() {
 		ROUGHNESS = 0.55;
 		SSS_STRENGTH = 0.35;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
-	} else if (c > 0.5 && c < 2.5 && bare(c, rest, lpos)) {
+	} else if (c > 0.5 && c < 2.5 && bare(c, rest, lpos, front)) {
 		// Vaatteen alta paljas iho: tasainen ihonsävy (pohjatekstuurissa näillä kohdin on puku).
 		ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos);
 		ROUGHNESS = 0.55;

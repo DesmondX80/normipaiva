@@ -176,7 +176,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 - **Oravajärven uimaranta:** hiekkaranta, laituri, pukukoppi (uusi kaljajemma penkin alla), rantagrilli, penkki,
   huussi ja rantakyltti. Uinti kuten Salmisessa, ja joka päivä pohjasta voi löytyä jotain (aurinkolasit, vanha
   Nokia, kultasormus Sinikalle 20 €:lla). Aamuisin mummot, iltapäivisin perheet: kalja penkillä perheiden edessä
-  maksaa mainetta. Aamuisin (8–10) Sinikka käy uimassa punaisissa narubikineissä: hänen näkemisensä piristää kerran
+  maksaa mainetta. Aamuisin (8–10) Sinikka käy uimassa pienissä punaisissa lappubikineissä: hänen näkemisensä piristää kerran
   päivässä (moraali, vireys, stressi), rannalla voi jutella ja antaa sormuksen, mutta jos jäät tuijottamaan mummojen
   nähden, Päivi kuulee siitä aamulla. Testi `--scene=sinikkaranta`.
 - **SEO Saloinen ja ravintola A+:** tankkauskatos mittareineen, SEO-pylväs hintoineen ja rekka pihassa. Myymälä
