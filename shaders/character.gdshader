@@ -120,11 +120,11 @@ float bikini_sd(vec3 p, vec3 n) {
 	// Kolmion kulmista nauha kiertää vartalon ympäri ja kärjestä nousee niskanauha.
 	if (p.y > 1.2 && p.y < 1.6 && ax < 0.2) {
 		if (p.z > -0.02) {
-			d = min(d, sd_tri(vec2(ax, p.y), vec2(0.05, 1.296), vec2(0.114, 1.296), vec2(0.082, 1.356)));
+			d = min(d, sd_tri(vec2(ax, p.y), vec2(0.036, 1.288), vec2(0.117, 1.288), vec2(0.078, 1.372)));
 			// Niskanauha kolmion kärjestä kaulan ympäri.
-			d = min(d, seg_dist(vec2(ax, p.y), vec2(0.082, 1.352), vec2(0.05, 1.56)) - 0.004);
+			d = min(d, seg_dist(vec2(ax, p.y), vec2(0.078, 1.368), vec2(0.05, 1.56)) - 0.004);
 		}
-		d = min(d, abs(p.y - 1.296) - 0.004);
+		d = min(d, abs(p.y - 1.288) - 0.004);
 	}
 	// Alaosa.
 	if (p.y > 0.83 && p.y < 1.08 && ax < 0.21) {
