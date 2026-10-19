@@ -20447,6 +20447,28 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kuva.png"))
+			# Sama kuva loppukohtauksen otsikkopalkilla ja onnellisen lopun tekstillä (ilman elokuvapalkkeja).
+			cutscene._layer.visible = true
+			cutscene._layout_bars(0.0)
+			cutscene._fade.color.a = 0.0
+			cutscene._band.visible = true
+			cutscene._title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+			cutscene._title.add_theme_font_size_override("font_size", 64)
+			var vs := get_viewport().get_visible_rect().size  # palkki alakolmannekseen, ettei peitä telkkaria
+			cutscene._band.position = Vector2(0, vs.y * 0.74)
+			cutscene._band.size = Vector2(vs.x, vs.y * 0.2)
+			cutscene._title.position = Vector2(0, vs.y * 0.73)
+			cutscene._title.size = Vector2(vs.x, vs.y * 0.13)
+			cutscene._sub.position = Vector2(vs.x * 0.05, vs.y * 0.84)
+			cutscene._sub.size = Vector2(vs.x * 0.9, vs.y * 0.09)
+			cutscene._title.text = "KYMPPIUUTISET NAUHALTA"
+			for i in 10:
+				news.seg = "studio"
+				cutscene._title.text = "KYMPPIUUTISET NAUHALTA"
+				cutscene._sub.text = "ONNELLINEN LOPPU  ·  Video ajastettu, kalja eteisen kaapista ja sohvalle. Päivi nukkuu jo."
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kuva_teksti.png"))
 		"uutiset_sohva":
 			# Kymppiuutisten loppukohtaus: sankari sohvalla lähikuvina edestä, sivulta, takaa ja ylhäältä.
 			cutscene.news_tape("testi", func() -> void: pass)
