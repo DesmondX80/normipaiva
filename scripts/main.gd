@@ -3319,7 +3319,7 @@ func _pohjoiset_visuals() -> void:
 		world.rossi_boys.visible = _weekday() >= 5 and _between(clock_min, Vector2(10 * 60, 20 * 60))
 
 
-## Sinikka käy aamuisin (8–10) uimassa Oravajärvellä narubikineissä; pihalla häntä ei silloin näy.
+## Sinikka käy aamuisin (8–10) uimassa Oravajärvellä lappubikineissä; pihalla häntä ei silloin näy.
 const SINIKKA_UINTI := Vector2(8 * 60, 10 * 60)
 var _sinikka_seen_day := -1
 var _sinikka_stare_t := 0.0
@@ -3347,7 +3347,7 @@ func _sinikka_beach(e: bool) -> bool:
 		tilat.add("stressi", 0.15)
 		tilat.first("sinikka_ranta", 0.3)
 		Sfx.play("water", -14.0, 1.2)
-		_show_message("Sinikka nousee vedestä punaisissa narubikineissä ja heilauttaa kättä: \"Huomenta naapuri! Vesi on ihanaa.\" "
+		_show_message("Sinikka nousee vedestä pienissä punaisissa lappubikineissä ja heilauttaa kättä: \"Huomenta naapuri! Vesi on ihanaa.\" "
 			+ "Aamu parani heti.", 4.5)
 	_sinikka_stare_t += get_process_delta_time()
 	if _sinikka_stare_t > 8.0 and _between(clock_min, ORAVA_MUMMOT) and _sinikka_tattle_day != day:
@@ -20387,7 +20387,7 @@ func _maybe_screenshot() -> void:
 			print("UUTISET herätys: tila %s päivä %d nauha %d loppuja %d viesti '%s'" % [state, day, _tape_day,
 				endings.counts.get("uutiset", 0), _msg.text.replace("\n", " | ")])
 		"rintamus":
-			# Meteorologin vartalo sivulta ja edestä: rintamus 0 ja säädetty arvo rinnakkain.
+			# Meteorologin (tai --sinikka: Sinikan) vartalo sivulta: rintamus 0 ja säädetty arvo rinnakkain.
 			var NewsScreen := load("res://scripts/news_screen.gd")
 			var stage := Node3D.new()
 			add_child(stage)
@@ -20395,8 +20395,9 @@ func _maybe_screenshot() -> void:
 			var lamp := DirectionalLight3D.new()
 			lamp.rotation_degrees = Vector3(-35, 30, 0)
 			stage.add_child(lamp)
+			var who := "sinikka" if "--sinikka" in OS.get_cmdline_user_args() else "meteorologi"
 			for i in 2:
-				var look: Dictionary = NewsScreen.METEOROLOGI.duplicate()
+				var look: Dictionary = (Looks.SINIKKA if who == "sinikka" else NewsScreen.METEOROLOGI).duplicate()
 				if i == 0:
 					look["bust"] = 0.0
 				var c: Node3D = Looks.make(stage, look)
@@ -20413,6 +20414,19 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path)
+			# Lähikuvat rintojen muodosta (poimut): kumpikin hahmo sivulta ja vinosti edestä alhaalta.
+			var nodes: Array = stage.get_children().filter(func(n): return n.has_method("play"))
+			for i in nodes.size():
+				var c: Node3D = nodes[i]
+				var at: Vector3 = c.global_position + Vector3(0, 1.22, 0)
+				for k in [["sivu", Vector3(0, 0.0, 0.75)], ["ala", Vector3(-0.45, -0.25, 0.4)]]:
+					cam.fov = 30.0
+					c.rotation.y = PI * 0.5 if k[0] == "sivu" else PI
+					cam.look_at_from_position(at + k[1], at, Vector3.UP)
+					for f in 6:
+						await get_tree().process_frame
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%d_%s.png" % [i, k[0]]))
 		"uutiset_kuva":
 			# Jaettava kuva Kymppiuutisten lopusta: sankari sohvalla, tölkki käsinojalla ja studio telkkarissa.
 			cutscene.news_tape("", func() -> void: pass)
@@ -20469,6 +20483,131 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kuva_teksti.png"))
+		"bikini":
+			# Sinikan lappubikinit edestä, sivulta ja takaa.
+			var stage := Node3D.new()
+			add_child(stage)
+			stage.global_position = Vector3(5000, 0, 5000)
+			var lamp := DirectionalLight3D.new()
+			lamp.rotation_degrees = Vector3(-35, 20, 0)
+			stage.add_child(lamp)
+			for i in 3:
+				var blook := Looks.sinikka_bikini()
+				for kv in OS.get_cmdline_user_args():
+					if kv.begins_with("--bust="):
+						blook["bust"] = float(kv.substr(7))
+				var c: Node3D = Looks.make(stage, blook)
+				c.position = Vector3(-0.9 + i * 0.9, 0, 0)
+				c.rotation.y = [PI, PI * 0.5, 0.0][i]  # edestä, sivulta, takaa
+				var anim := "Idle"
+				for kv in OS.get_cmdline_user_args():
+					if kv.begins_with("--anim="):
+						anim = kv.substr(7)
+				if "--lepo" in OS.get_cmdline_user_args():  # lepoasento ilman animaatiota (muotoilu ilman luuston liikettä)
+					c.skeleton.reset_bone_poses()
+				else:
+					c.play(anim, 0.0)
+				if i == 0 and "--karki" in OS.get_cmdline_user_args():  # rinnan kärki: muotoillun verkon uloin piste (z)
+					var bm: MeshInstance3D = null
+					for mi in c.skeleton.get_children():
+						if mi is MeshInstance3D and (bm == null or mi.mesh.surface_get_array_len(0) > bm.mesh.surface_get_array_len(0)):
+							bm = mi
+					var arrs: Array = bm.mesh.surface_get_arrays(0)
+					var sv: PackedVector3Array = arrs[Mesh.ARRAY_VERTEX]
+					var ru: PackedVector2Array = arrs[Mesh.ARRAY_TEX_UV2]
+					for side in [-1.0, 1.0]:
+						var best := -1
+						for k in sv.size():
+							if sv[k].x * side > 0.02 and sv[k].y > 1.15 and sv[k].y < 1.5 and (best < 0 or sv[k].z > sv[best].z):
+								best = k
+						print("KARKI puoli %d: muotoiltu %s lepo %s" % [side, sv[best], ru[best]])
+				if i == 0 and "--mittaa" in OS.get_cmdline_user_args():
+					var body: MeshInstance3D = null
+					for mi in c.skeleton.get_children():
+						if mi is MeshInstance3D and (body == null or mi.mesh.surface_get_array_len(0) > body.mesh.surface_get_array_len(0)):
+							body = mi
+					var verts: PackedVector3Array = body.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+					for y in [0.85, 0.9, 0.95, 1.1, 1.3]:
+						var lo := 9.0
+						var hi := -9.0
+						var bz := 9.0
+						var bx := 0.0
+						for v in verts:
+							if absf(v.y - y) < 0.006 and absf(v.x) < 0.25:
+								lo = minf(lo, v.x)
+								hi = maxf(hi, v.x)
+								if v.z < bz and absf(v.x) < 0.05:
+									bz = v.z
+									bx = v.x
+						print("KESKI y %.2f: x %.4f..%.4f keski %.4f, takimmainen piste x %.4f" % [y, lo, hi, (lo + hi) / 2.0, bx])
+			var cam := Camera3D.new()
+			cam.fov = 40.0
+			stage.add_child(cam)
+			cam.look_at_from_position(stage.global_position + Vector3(0, 1.1, 3.6), stage.global_position + Vector3(0, 1.05, 0))
+			cam.current = true
+			_hud.visible = false
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_bikini.png"))
+			# Lähikuvat alaosasta: edestä, sivulta ja takaa.
+			for k in [["ala_edesta", Vector3(-0.9, 0.95, 1.1), Vector3(-0.9, 0.92, 0)], ["ala_sivulta", Vector3(0.0, 0.95, 1.1), Vector3(0.0, 0.92, 0)],
+					["ala_takaa", Vector3(0.9, 0.95, 1.1), Vector3(0.9, 0.92, 0)], ["vako", Vector3(0.9, 0.9, 0.6), Vector3(0.9, 0.88, 0)],
+					["haara", Vector3(-0.9, 0.93, 0.6), Vector3(-0.9, 0.9, 0)], ["yla_edesta", Vector3(-0.9, 1.2, 0.75), Vector3(-0.9, 1.17, 0)],
+					["yla_vino", Vector3(-0.45, 1.22, 0.6), Vector3(-0.9, 1.17, 0)], ["yla_sivulta", Vector3(-0.35, 1.2, 0.0), Vector3(0.0, 1.17, 0)]]:
+				cam.fov = 30.0
+				cam.look_at_from_position(stage.global_position + k[1], stage.global_position + k[2])
+				for i in 5:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"bikini_video":
+			# Video Sinikasta lappubikineissä eri animaatioissa (Movie Maker: --write-movie, --fixed-fps 30): kamera
+			# kiertää hahmoa, välillä lähikuva ylävartalosta. Lopuksi peli sulkeutuu.
+			var stage := Node3D.new()
+			add_child(stage)
+			stage.global_position = Vector3(5000, 0, 5000)
+			var lamp := DirectionalLight3D.new()
+			lamp.rotation_degrees = Vector3(-40, 25, 0)
+			lamp.shadow_enabled = true
+			stage.add_child(lamp)
+			var floor_m := B.mesh(stage, B.cyl(2.5, 2.5, 0.04, 48), Vector3(0, -0.02, 0), Color(0.42, 0.36, 0.26))  # hiekka (tumma: valo polttaa)
+			floor_m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var c: Node3D = Looks.make(stage, Looks.sinikka_bikini())
+			var cam := Camera3D.new()
+			cam.fov = 38.0
+			stage.add_child(cam)
+			cam.current = true
+			_hud.visible = false
+			_note.visible = false
+			var caption := Label.new()
+			caption.add_theme_font_size_override("font_size", 30)
+			caption.add_theme_color_override("font_outline_color", Color.BLACK)
+			caption.add_theme_constant_override("outline_size", 8)
+			caption.position = Vector2(40, 30)
+			var layer := CanvasLayer.new()
+			layer.layer = 20
+			add_child(layer)
+			layer.add_child(caption)
+			var shots := [["Idle", "Seisoo", false], ["Walk", "Kävely", false], ["Dance", "Tanssi", false], ["Dance", "Tanssi, lähikuva", true],
+				["Jump", "Hyppy", false], ["Punch_Cross", "Lyönti", false], ["Idle", "Seisoo, lähikuva", true]]
+			var t_all := 0.0
+			for sh in shots:
+				c.play(sh[0], 0.2)
+				caption.text = "Sinikka · " + sh[1]
+				var t := 0.0
+				while t < 4.0:
+					var dt := get_process_delta_time()
+					t += dt
+					t_all += dt
+					var a := t_all * 0.6
+					var close: bool = sh[2]
+					var r := 1.2 if close else 3.4
+					var h := 1.25 if close else 1.1
+					var look_y := 1.15 if close else 0.95
+					cam.look_at_from_position(stage.global_position + Vector3(sin(a) * r, h, cos(a) * r), stage.global_position + Vector3(0, look_y, 0))
+					await get_tree().process_frame
+			get_tree().quit()
 		"uutiset_sohva":
 			# Kymppiuutisten loppukohtaus: sankari sohvalla lähikuvina edestä, sivulta, takaa ja ylhäältä.
 			cutscene.news_tape("testi", func() -> void: pass)
