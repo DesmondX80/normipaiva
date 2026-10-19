@@ -92,7 +92,7 @@ float seg_dist(vec2 p, vec2 a, vec2 b) {
 // nauha niskaan ja rintojen alla kiertävä nauha. Alaosa matalavyötäröinen kuten sivusolmittavissa bikineissä: kapea
 // ja edessä pyöristetty rypytetty kolmio, josta nauhat nousevat loivasti lantiolle, takana kokonaan pakaroiden välisessä vaossa (ohut kaistale ja ylhäällä pieni kolmio), ja
 // paneelien yläkulmista nauhat korkealle lantiolle.
-bool bikini_cloth(float c, vec2 r, bool fr) {
+bool bikini_cloth(float c, vec2 r, bool fr, float nx) {
 	vec2 q = vec2(abs(r.x), r.y);
 	vec2 corner = fr ? vec2(0.076, 0.976) : vec2(0.07, 0.99);
 	if (q.y < 1.1 && seg_dist(q, corner, vec2(0.178, fr ? 1.04 : 1.03)) < 0.005) {
@@ -124,6 +124,9 @@ bool bikini_cloth(float c, vec2 r, bool fr) {
 		// Edessä pyöristetty kolmio: kyljet kaartuvat ulospäin kapeaa pyöreää kärkeä kohti, yläreuna notkahtaa keskeltä,
 		// ja kulmista nauhat nousevat loivasti lantion sivuille. Takana kokonaan pakaroiden välisessä vaossa: ohut
 		// kaistale haarasta ylös ja vaon yläpäästä pieni kolmio nauhoihin.
+		if (fr && u < 0.6 && nx * sign(r.x) < -0.3) {
+			return false;  // reiden sisäpinta haaran kohdalla (pinta osoittaa keskelle): ei kangasta
+		}
 		float w = fr ? mix(0.012, 0.076, pow(u, 0.85)) : 0.006 + 0.064 * pow(smoothstep(0.62, 1.0, u), 1.3);
 		return q.x < w;
 	}
@@ -131,9 +134,9 @@ bool bikini_cloth(float c, vec2 r, bool fr) {
 }
 
 // Paljas iho vaatteen kohdalla? (c = luokka, r = lepoasento, lp = paikka)
-bool bare(float c, vec2 r, vec3 lp, float fr) {
+bool bare(float c, vec2 r, vec3 lp, float fr, float nx) {
 	if (string_bikini && c > 0.5 && c < 2.5) {
-		return !bikini_cloth(c, r, fr > 0.5);
+		return !bikini_cloth(c, r, fr > 0.5, nx);
 	}
 	if (c > 1.5 && c < 2.5 && shorts_y > 0.0 && r.y < shorts_y + (denim ? fray(lp) : 0.0)) {
 		return true;
@@ -155,7 +158,7 @@ void vertex() {
 	// Vaatteet vähän irti ihosta, ettei näytä maalatulta trikoolta.
 	float c = floor(cat + 0.5);
 	float puff = c > 0.5 && c < 1.5 ? shirt_puff : (c > 1.5 && c < 2.5 ? pants_puff : (c > 2.5 ? 0.01 : 0.0));
-	if (bare(c, UV2, VERTEX, COLOR.b)) {
+	if (bare(c, UV2, VERTEX, COLOR.b, COLOR.a * 2.0 - 1.0)) {
 		puff = 0.0;
 	}
 	VERTEX += NORMAL * puff;
@@ -174,7 +177,7 @@ void fragment() {
 		ROUGHNESS = 0.55;
 		SSS_STRENGTH = 0.35;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
-	} else if (c > 0.5 && c < 2.5 && bare(c, rest, lpos, front)) {
+	} else if (c > 0.5 && c < 2.5 && bare(c, rest, lpos, front, rest_nx)) {
 		// Vaatteen alta paljas iho: tasainen ihonsävy (pohjatekstuurissa näillä kohdin on puku).
 		ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos);
 		ROUGHNESS = 0.55;
