@@ -274,14 +274,16 @@ const INDOOR_STASHES := ["koti", "autotalli"]
 ## Kotiviini autotallin saavissa: marjat (WINE_BERRIES l ämpäristä), hiiva ja sokeri. Tavallinen hiiva (kodin
 ## jääkaapista) käyttää WINE_DAYS.hiiva päivää, turbohiiva (kaupasta) WINE_DAYS.turbo. Sokeri kaupasta tai kodin
 ## keittiön kaapista (Päivi suuttuu aamulla). Valmis viini = viinibileet (onnellinen loppu) Pekan, Arton ja Sinikan
-## kanssa; herätään jonkun heistä luota krapulassa ja viininteko lukittuu (lupaus: ei enää ikinä).
+## kanssa; herätään jonkun heistä luota krapulassa ja viininteko lukittuu (lupaus: ei enää ikinä). Lupaus unohtuu
+## WINE_LOCK_DAYS päivässä.
 const WINE_BERRIES := 3
+const WINE_LOCK_DAYS := 3
 const WINE_DAYS := {"hiiva": 21, "turbo": 7, "korpi": 5}
 ## Paapelin kotiviini mökin pöntön takana olevassa saavissa: samat ainekset (marjat mökin metsästä, hiiva Santun jääkaapista,
 ## sokeri Santun keittiön kaapista – Santun hermot kiristyvät – tai kaikki Vaalan kaupasta), lisäksi Korpi-Kallen
 ## korpihiiva (5 pv). Kotona annettu lupaus ei estä: Santtu muistuttaa, mutta haluaa itsekin viiniä. Valmis viini =
 ## mökkibileet (onnellinen loppu) Santun, Sinikan ja Korpi-Kallen kanssa, herätys laiturilta, savusaunasta tai
-## metsästyslavalta ja oma lupaus (lukko).
+## metsästyslavalta ja oma lupaus (lukko, unohtuu kuten kotona WINE_LOCK_DAYS päivässä).
 const KORPIHIIVA_PRICE := 3.0
 const SUGAR_HERMO := 6.0
 const MWINE_WAKE := {
@@ -322,6 +324,7 @@ var _sugar_taken := false  # keittiön kaapista: Päivi huomaa aamulla
 var wine_start := -1  # päivä, jona viini laitettiin käymään (-1 = saavi tyhjä)
 var wine_days := 0
 var wine_locked := false  # viinibileiden jälkeen: ei enää ikinä
+var wine_lock_day := -1  # päivä, jona lupaus annettiin
 var wine_endings := 0
 var has_korpihiiva := false
 ## Saaviin jo lisätyt ainekset (koti / paapeli): marjat (l), hiiva ("" / hiiva / turbo / korpi), sokeri. Ainekset
@@ -331,6 +334,7 @@ var _vat_where := ""
 var mwine_start := -1  # Paapelin viinisaavi
 var mwine_days := 0
 var mwine_locked := false
+var mwine_lock_day := -1
 var mwine_endings := 0
 ## Mökin metsän marja- ja sienipaikat (Mokki.forage_positions): kuten world.forage, Santtu merkitsee karttaan.
 var mokki_forage: Array = []
@@ -1955,6 +1959,7 @@ func _mokki_wine_party() -> void:
 	var used := mwine_days
 	mwine_start = -1
 	mwine_locked = true
+	mwine_lock_day = day
 	mokki_int.set_wine("")
 	_save_game()
 	var stats := "Paapelin kotiviiniä %d päivän käymisen jälkeen  ·  Santtu, Sinikka ja Korpi-Kalle  ·  %s" % [
@@ -14152,6 +14157,7 @@ func _win(party := false, wine := false) -> void:
 		var used := wine_days
 		wine_start = -1
 		wine_locked = true  # lupaus: viiniä ei tehdä enää ikinä
+		wine_lock_day = day
 		garage_int.set_wine("")
 		_save_game()
 		var wstats := "Kotiviiniä %d päivän käymisen jälkeen  ·  Pekka, Arto ja Sinikka  ·  %s" % [used, wend]
@@ -14236,6 +14242,7 @@ func _load_game() -> void:
 	wine_start = cfg.get_value("viini", "alku", -1)
 	wine_days = cfg.get_value("viini", "paivat", 0)
 	wine_locked = cfg.get_value("viini", "lukossa", false)
+	wine_lock_day = cfg.get_value("viini", "lukko_paiva", day if wine_locked else -1)
 	wine_endings = cfg.get_value("viini", "loput", 0)
 	has_yeast = cfg.get_value("viini", "hiiva", false)
 	has_turbo = cfg.get_value("viini", "turbo", false)
@@ -14248,6 +14255,7 @@ func _load_game() -> void:
 	mwine_start = cfg.get_value("paapeli", "viini_alku", -1)
 	mwine_days = cfg.get_value("paapeli", "viini_paivat", 0)
 	mwine_locked = cfg.get_value("paapeli", "viini_lukossa", false)
+	mwine_lock_day = cfg.get_value("paapeli", "lukko_paiva", day if mwine_locked else -1)
 	mwine_endings = cfg.get_value("paapeli", "bileet", 0)
 	mokki_forage_revealed = cfg.get_value("paapeli", "marjapaikat", false)
 	world.forage_revealed = cfg.get_value("peli", "marjapaikat", false)  # Arton merkinnät karttaan
@@ -14350,6 +14358,7 @@ func _save_game() -> void:
 	cfg.set_value("viini", "alku", wine_start)
 	cfg.set_value("viini", "paivat", wine_days)
 	cfg.set_value("viini", "lukossa", wine_locked)
+	cfg.set_value("viini", "lukko_paiva", wine_lock_day)
 	cfg.set_value("viini", "loput", wine_endings)
 	cfg.set_value("viini", "hiiva", has_yeast)
 	cfg.set_value("viini", "turbo", has_turbo)
@@ -14360,6 +14369,7 @@ func _save_game() -> void:
 	cfg.set_value("paapeli", "viini_alku", mwine_start)
 	cfg.set_value("paapeli", "viini_paivat", mwine_days)
 	cfg.set_value("paapeli", "viini_lukossa", mwine_locked)
+	cfg.set_value("paapeli", "lukko_paiva", mwine_lock_day)
 	cfg.set_value("paapeli", "bileet", mwine_endings)
 	cfg.set_value("paapeli", "marjapaikat", mokki_forage_revealed)
 	if world != null:
@@ -14605,6 +14615,14 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		bonus += "\nKUKA VEI SOKERIT?! Mää tiedän kyllä, mitä sää siellä autotallissa keität!"
 		tilat.add("stressi", -0.15)
 		tilat.add("moraali", -0.1)
+	if wine_locked and day - wine_lock_day >= WINE_LOCK_DAYS:
+		wine_locked = false
+		wine_lock_day = -1
+		_morning_info.append("Se viinilupaus... mikä lupaus? Autotallin saavi odottaa taas.")
+	if mwine_locked and day - mwine_lock_day >= WINE_LOCK_DAYS:
+		mwine_locked = false
+		mwine_lock_day = -1
+		_morning_info.append("Santtu ja sinä lupasitte jotain Paapelin viinistä... Ei muista kumpikaan. Saavi odottaa.")
 	_beasts_today = 0
 	_beast_forest_t = 0.0
 	_bike_tuned = false
@@ -16877,6 +16895,13 @@ func _maybe_screenshot() -> void:
 			mokki_int.walker.position = mokki_int.SPOTS.sangot[0]
 			await frames.call(5)
 			print("PAAPELI lukossa: hint '%s'" % _hint.text)
+			mokki_int.leave()
+			state = _mokki_prev
+			var promised := mwine_lock_day
+			for i in WINE_LOCK_DAYS:
+				_new_day(mokki.gpos(MWINE_WAKE.laituri[1]), false)
+				print("PAAPELI päivä %d lupauksesta: lukossa %s" % [day - promised, mwine_locked])
+			print("PAAPELI unohtui: aamuviesti %s" % (str(_msg_queue) + _msg.text).contains("Paapelin viinistä"))
 		"saunakorjaus_pelaa":
 			# Savusaunan korjaus oikeasti pelaten: kävely paikoille törmäyksineen, E ja minipelit hiiren klikkauksilla ja
 			# näppäimillä (ei _finish-oikotietä). Kiukaalla otetaan ensin pieni kivi (ennen jumittui) ja vaihdetaan isoon.
@@ -20207,6 +20232,12 @@ func _maybe_screenshot() -> void:
 			garage_int.walker.position = GarageInterior.SPOTS.saavi[0]
 			await frames.call(5)
 			print("VIINI lukossa: hint '%s'" % _hint.text)
+			_on_garage_exited(false)
+			var promised := wine_lock_day
+			for i in WINE_LOCK_DAYS:
+				_new_day(home_door, false)
+				print("VIINI päivä %d lupauksesta: lukossa %s" % [day - promised, wine_locked])
+			print("VIINI unohtui: aamuviesti %s" % (str(_msg_queue) + _msg.text).contains("viinilupaus"))
 		"kieltokyltti":
 			# Kodan polun keltainen kieltokyltti: lähikuva edestä ja polulta tulijan silmin.
 			print("KYLTTI ", world.waste_sign != null, " paikka ", world.waste_sign.global_position if world.waste_sign else Vector3.ZERO,
