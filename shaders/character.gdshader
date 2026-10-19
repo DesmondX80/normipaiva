@@ -90,11 +90,11 @@ float seg_dist(vec2 p, vec2 a, vec2 b) {
 
 // Lappubikinien kangas lepoasennon koordinaateissa (fr = etupuoli). Yläosa: kaksi kolmiota rintojen päällä, kärjistä
 // nauha niskaan ja rintojen alla kiertävä nauha. Alaosa matalavyötäröinen kuten sivusolmittavissa bikineissä: kapea
-// ja korkea V edessä, takana kokonaan pakaroiden välisessä vaossa (ohut kaistale ja ylhäällä pieni kolmio), ja
+// ja edessä pieni matala kolmio, josta nauhat nousevat jyrkästi, takana kokonaan pakaroiden välisessä vaossa (ohut kaistale ja ylhäällä pieni kolmio), ja
 // paneelien yläkulmista nauhat korkealle lantiolle.
 bool bikini_cloth(float c, vec2 r, bool fr) {
 	vec2 q = vec2(abs(r.x), r.y);
-	vec2 corner = fr ? vec2(0.092, 0.985) : vec2(0.07, 0.99);
+	vec2 corner = fr ? vec2(0.076, 0.938) : vec2(0.07, 0.99);
 	if (q.y < 1.1 && seg_dist(q, corner, vec2(0.178, 1.03)) < 0.0055) {
 		return true;  // alaosan sivunauha yläkulmasta korkealle lantiolle (voi nousta paidan luokan puolelle)
 	}
@@ -114,15 +114,16 @@ bool bikini_cloth(float c, vec2 r, bool fr) {
 		return false;
 	}
 	if (c > 1.5 && c < 2.5) {
-		float top = fr ? 0.985 : 0.99;
+		// Etuosan yläreuna matalalla ja hieman kaareva (kulmat ylempänä kuin keskikohta), takana suora.
+		float top = fr ? 0.926 + 0.012 * pow(clamp(q.x / 0.076, 0.0, 1.0), 2.0) : 0.99;
 		float bottom = fr ? 0.84 : 0.83;
 		float u = (r.y - bottom) / (top - bottom);  // 0 = haara, 1 = yläreuna
 		if (u <= 0.0 || u >= 1.0) {
 			return false;
 		}
-		// Edessä korkea V suorin sivuin. Takana kokonaan pakaroiden välisessä vaossa: ohut kaistale haarasta ylös ja
-		// vaon yläpäästä pieni kolmio nauhoihin.
-		float w = fr ? mix(0.024, 0.092, pow(u, 1.25)) : 0.006 + 0.064 * pow(smoothstep(0.62, 1.0, u), 1.3);
+		// Edessä pieni matala kolmio, josta nauhat nousevat jyrkästi korkealle lantiolle (nauhat muodostavat korkean V:n).
+		// Takana kokonaan pakaroiden välisessä vaossa: ohut kaistale haarasta ylös ja vaon yläpäästä pieni kolmio nauhoihin.
+		float w = fr ? mix(0.02, 0.076, pow(u, 1.1)) : 0.006 + 0.064 * pow(smoothstep(0.62, 1.0, u), 1.3);
 		return q.x < w;
 	}
 	return true;
