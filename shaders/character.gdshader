@@ -90,9 +90,14 @@ float seg_dist(vec2 p, vec2 a, vec2 b) {
 
 // Lappubikinien kangas lepoasennon koordinaateissa (fr = etupuoli). Yläosa: kaksi kolmiota rintojen päällä, kärjistä
 // nauha niskaan ja rintojen alla kiertävä nauha. Alaosa matalavyötäröinen kuten sivusolmittavissa bikineissä: kapea
-// ja korkea V edessä (kulmat ylhäällä lantiolla), takana kapea V (leveä suora yläreuna, kapenee ohueksi kaistaleeksi), ja paneelien
-// yläkulmista nauhat lantion sivulle solmuun (solmut 3D-mallina, looks.gd add_bikini_ties).
+// ja korkea V edessä, takana kokonaan pakaroiden välisessä vaossa (ohut kaistale ja ylhäällä pieni kolmio), ja
+// paneelien yläkulmista nauhat korkealle lantiolle.
 bool bikini_cloth(float c, vec2 r, bool fr) {
+	vec2 q = vec2(abs(r.x), r.y);
+	vec2 corner = fr ? vec2(0.092, 0.985) : vec2(0.07, 0.99);
+	if (q.y < 1.1 && seg_dist(q, corner, vec2(0.178, 1.03)) < 0.0055) {
+		return true;  // alaosan sivunauha yläkulmasta korkealle lantiolle (voi nousta paidan luokan puolelle)
+	}
 	if (c > 0.5 && c < 1.5) {
 		if (abs(r.y - 1.245) < 0.007 && abs(r.x) < 0.19) {
 			return true;  // nauha rintojen alla
@@ -109,19 +114,15 @@ bool bikini_cloth(float c, vec2 r, bool fr) {
 		return false;
 	}
 	if (c > 1.5 && c < 2.5) {
-		vec2 q = vec2(abs(r.x), r.y);
-		vec2 corner = fr ? vec2(0.092, 0.985) : vec2(0.12, 0.962);
-		if (seg_dist(q, corner, vec2(0.175, 0.99)) < 0.0055) {
-			return true;  // sivunauha yläkulmasta lantion sivulle
-		}
-		float top = fr ? 0.985 : 0.962;
+		float top = fr ? 0.985 : 0.99;
 		float bottom = fr ? 0.84 : 0.83;
 		float u = (r.y - bottom) / (top - bottom);  // 0 = haara, 1 = yläreuna
 		if (u <= 0.0 || u >= 1.0) {
 			return false;
 		}
-		// Takana kapea V: leveä suora yläreuna, joka kapenee nopeasti ohueksi kaistaleeksi pakaroiden väliin.
-		float w = fr ? mix(0.024, 0.092, pow(u, 1.25)) : mix(0.008, 0.12, pow(u, 3.0));
+		// Edessä korkea V suorin sivuin. Takana kokonaan pakaroiden välisessä vaossa: ohut kaistale haarasta ylös ja
+		// vaon yläpäästä pieni kolmio nauhoihin.
+		float w = fr ? mix(0.024, 0.092, pow(u, 1.25)) : 0.006 + 0.064 * pow(smoothstep(0.62, 1.0, u), 1.3);
 		return q.x < w;
 	}
 	return true;
