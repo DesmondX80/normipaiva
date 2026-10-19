@@ -20499,7 +20499,10 @@ func _maybe_screenshot() -> void:
 				var c: Node3D = Looks.make(stage, blook)
 				c.position = Vector3(-0.9 + i * 0.9, 0, 0)
 				c.rotation.y = [PI, PI * 0.5, 0.0][i]  # edestä, sivulta, takaa
-				c.play("Idle", 0.0)
+				if "--lepo" in OS.get_cmdline_user_args():  # lepoasento ilman animaatiota (muotoilu ilman luuston liikettä)
+					c.skeleton.reset_bone_poses()
+				else:
+					c.play("Idle", 0.0)
 				if i == 0 and "--karki" in OS.get_cmdline_user_args():  # rinnan kärki: muotoillun verkon uloin piste (z)
 					var bm: MeshInstance3D = null
 					for mi in c.skeleton.get_children():

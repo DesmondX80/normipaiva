@@ -115,17 +115,16 @@ float bikini_sd(vec3 p, vec3 n) {
 	float d = 1.0;
 	float ax = abs(p.x);
 	bool fr = p.z > -0.025;  // lantion ja rintakehän keskikohta syvyydessä
-	// Yläosa: pienet kolmiot vain rintojen keskellä. Muotoillun rinnan kumpu on lepoasennossa y ≈ 1,30–1,38 ja
-	// x ≈ 0,0–0,13, näkyvä keskikohta ≈ (0,072, 1,34) (luettu 1 cm koordinaattiruudukosta, testikohtaus bikini;
-	// pystysuunnassa lepoasennon y venyy rinnalla 2–3-kertaisesti). Kolmion kulmista nauha kiertää vartalon ympäri ja
-	// kärjestä nousee niskanauha.
+	// Yläosa: pienet kolmiot vain rintojen keskellä. Täyteläisen rinnan (bust) etupinta kattaa lepoasennossa
+	// y ≈ 1,21–1,40, ja näkyvä keskikohta on ≈ (0,082, 1,32) (luettu 1 cm koordinaattiruudukosta, testikohtaus bikini).
+	// Kolmion kulmista nauha kiertää vartalon ympäri ja kärjestä nousee niskanauha.
 	if (p.y > 1.2 && p.y < 1.6 && ax < 0.2) {
 		if (p.z > -0.02) {
-			d = min(d, sd_tri(vec2(ax, p.y), vec2(0.042, 1.328), vec2(0.104, 1.328), vec2(0.073, 1.385)));
+			d = min(d, sd_tri(vec2(ax, p.y), vec2(0.05, 1.296), vec2(0.114, 1.296), vec2(0.082, 1.356)));
 			// Niskanauha kolmion kärjestä kaulan ympäri.
-			d = min(d, seg_dist(vec2(ax, p.y), vec2(0.073, 1.381), vec2(0.05, 1.56)) - 0.004);
+			d = min(d, seg_dist(vec2(ax, p.y), vec2(0.082, 1.352), vec2(0.05, 1.56)) - 0.004);
 		}
-		d = min(d, abs(p.y - 1.328) - 0.004);
+		d = min(d, abs(p.y - 1.296) - 0.004);
 	}
 	// Alaosa.
 	if (p.y > 0.83 && p.y < 1.08 && ax < 0.21) {

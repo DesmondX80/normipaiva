@@ -490,7 +490,7 @@ static func _chest_weights(arr: Array, skin: Skin, skel: Skeleton3D, per: int) -
 ## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
 ## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
 const MESH_CACHE := "user://hahmot"
-const CACHE_VERSION := 4
+const CACHE_VERSION := 9
 static var _cache_tag := ""
 
 
@@ -552,8 +552,19 @@ static func _reshape(arr: Array, shape: Dictionary) -> void:
 		var m := Basis(Vector3(1, 0, 0) + jx, Vector3(0, 1, 0) + jy, Vector3(0, 0, 1) + jz)
 		verts[v] = p + d
 		if m.determinant() < 0.02:
-			continue  # lähes litistyvä kohta: pidetään alkuperäinen normaali
+			# Lähes litistyvä kohta: alkuperäinen normaali, paitsi rinnan pinnalla ellipsoidin normaali.
+			var bu0: float = shape.get("bust", 0.0)
+			if bu0 > 0.0:
+				var b0 := _bust(p, bu0)
+				if b0.weight > 0.0:
+					norms[v] = norms[v].lerp(b0.normal, b0.weight).normalized()
+			continue
 		norms[v] = (m.inverse().transposed() * norms[v]).normalized()
+		var bu: float = shape.get("bust", 0.0)
+		if bu > 0.0:
+			var b := _bust(p, bu)
+			if b.weight > 0.0:
+				norms[v] = norms[v].lerp(b.normal, b.weight).normalized()
 		if tans.size() >= (v + 1) * 4:
 			var t := (m * Vector3(tans[v * 4], tans[v * 4 + 1], tans[v * 4 + 2])).normalized()
 			tans[v * 4] = t.x
@@ -563,6 +574,48 @@ static func _reshape(arr: Array, shape: Dictionary) -> void:
 	arr[Mesh.ARRAY_NORMAL] = norms
 	if tans.size() > 0:
 		arr[Mesh.ARRAY_TANGENT] = tans
+
+
+## Rintamus (naismalli): pohjamallin pieni rinta ja sen alapuolinen poimu tasoitetaan ensin sileäksi rintakehäksi
+## (muuten poimun ääriviiva näkyy uuden muodon läpi; vain rinnan alaosassa, yläpuolella tasoitus painaisi ryppyyn), ja sen jälkeen kummankin rinnan pinta pullistetaan ellipsoidin
+## pinnalle pehmeällä maksimilla kuten maha: pyöreä ja täyteläinen muoto. Keskilinjalla puolet sulautetaan (paino
+## sivun mukaan), jolloin väliin muodostuu sileä uurre. Rintakehän etupinta mitattu pohjamallista (z ≈ 0,105 rintojen
+## alla, kaartuu taakse ylöspäin ja sivuille). Palauttaa siirtymän sekä ellipsoidin normaalin ja sen painon:
+## tasoitus litistää pinnan, joten Jacobin muunnos ei anna sille käyttökelpoista normaalia (_reshape).
+static func _bust(p: Vector3, bu: float) -> Dictionary:
+	var out := {"offset": Vector3.ZERO, "normal": Vector3.ZERO, "weight": 0.0}
+	var ax := absf(p.x)
+	var flat_w := smoothstep(1.16, 1.22, p.y) * (1.0 - smoothstep(1.33, 1.38, p.y)) * (1.0 - smoothstep(0.14, 0.18, ax)) \
+		* smoothstep(0.0, 0.04, p.z)
+	var chest := 0.108 - 3.5 * pow(maxf(0.0, p.y - 1.3), 2.0) - 12.0 * pow(maxf(0.0, ax - 0.06), 2.0)
+	var pf := p
+	pf.z = lerpf(p.z, minf(p.z, chest), flat_w)
+	for sx in [-1.0, 1.0]:
+		var side := smoothstep(-0.025, 0.025, sx * p.x)
+		if side <= 0.0:
+			continue
+		var c := Vector3(sx * 0.085, 1.295, 0.015)
+		var r := Vector3(0.075 + 0.012 * bu, 0.068 + 0.01 * bu, 0.06 + 0.045 * bu)
+		var q := (pf - c) / r
+		var ln := q.length()
+		if ln > 0.001 and ln < 1.4:
+			var k := 0.14  # pehmeä siirtymä ellipsoidin pinnalta ympäröivään ihoon (terävämpi teki reunaan piikkejä)
+			var target := ln + 0.8 * k * log(1.0 + exp((1.0 - ln) / k))
+			# Etupuoli vaakasuunnassa (ei pystykomponenttia): rinnan yläreunalla q osoittaa ylös, ja pelkkä q.z / ln
+			# puolittaisi pullistuksen ja painaisi yläreunaan rypyn.
+			var face := smoothstep(-0.3, 0.3, q.z / maxf(Vector2(q.x, q.z).length(), 0.001))
+			var ymask := smoothstep(1.16, 1.22, p.y) * (1.0 - smoothstep(1.42, 1.48, p.y))
+			var inflated := c + q * (target / ln) * r
+			out.offset += (inflated - p) * face * ymask * side
+			# Pinnalle päätyvä kohta (ln < 1): normaali ellipsoidin gradientista.
+			var on_surf := face * ymask * side * (1.0 - smoothstep(0.9, 1.3, ln))
+			if on_surf > 0.0:
+				out.normal += (q / r).normalized() * on_surf
+				out.weight += on_surf
+	if out.weight > 0.0:
+		out.normal = (out.normal as Vector3).normalized()
+		out.weight = minf(out.weight, 1.0)
+	return out
 
 
 static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
@@ -646,16 +699,8 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		off.z += 0.025 * cu * bust
 	var bu: float = shape.get("bust", 0.0)
 	if bu > 0.0:
-		# Rintamus (naismalli): kaksi pyöreää kupua rinnan etupuolella. Profiili on reunalta pehmeä (smoothstep, ei
-		# harjannetta eikä poimua siinä, missä muotoilu loppuu), alaosa leveämpi ja täyteläisempi. Alaspäin siirto on
-		# pieni ja hiipuu alareunaa kohti, ettei rinnan alapinta painu alla olevan ihon päälle poimuksi.
-		for sx in [-1.0, 1.0]:
-			var ry := 0.085 + 0.01 * bu if p.y < 1.3 else 0.07 + 0.01 * bu
-			var d := Vector2((p.x - sx * 0.08) / (0.085 + 0.01 * bu), (p.y - 1.3) / ry)
-			var k := clampf(1.0 - d.length_squared(), 0.0, 1.0)
-			var lobe := k * k * (3.0 - 2.0 * k) * smoothstep(-0.03, 0.04, p.z)
-			off.z += 0.05 * bu * lobe
-			off.y -= 0.006 * bu * lobe * smoothstep(1.22, 1.3, p.y)
+		# Rintamus (naismalli): ks. _bust.
+		off += _bust(p, bu).offset
 	var sh: float = shape.get("shoulders", 0.0)
 	if sh != 0.0:
 		var band := exp(-pow((p.y - 1.44) / 0.1, 2.0))
