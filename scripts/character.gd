@@ -423,6 +423,8 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 		for v in verts.size():
 			rest[v] = Vector2(verts[v].x, verts[v].y)
 		arr[Mesh.ARRAY_TEX_UV2] = rest
+		if kind == "female":
+			_chest_weights(arr, skin, skel, per)
 		# CUSTOM0 = lepoasennon syvyys z ja normaalin y ja z (UV2:n ja värin A:n lisäksi): lappubikinit lasketaan
 		# vartalon pinnalla (kulma vartalon ympäri, pinnan suunta), ks. character.gdshader bikini_sd.
 		var rest3 := PackedFloat32Array()
@@ -444,11 +446,51 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 	return out
 
 
+## Naismallin rinnat: alaosa seuraa mallissa nikamaa spine_02 ja yläosa spine_03, ja raja kulkee rintojen poikki, joten
+## asennon selkä puristaa rintoihin poimun. Rintojen alue sidotaan rintakehään (spine_03) niin, että painojen vaihto
+## tapahtuu rinnan alapuolella tasaisella kylkikaarella (y 1,17–1,25).
+static func _chest_weights(arr: Array, skin: Skin, skel: Skeleton3D, per: int) -> void:
+	var chest := -1
+	for b in skin.get_bind_count():
+		var bn := str(skin.get_bind_name(b))
+		if bn == "":
+			bn = skel.get_bone_name(skin.get_bind_bone(b))
+		if bn == "spine_03":
+			chest = b
+	if chest < 0:
+		return
+	var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var bones: PackedInt32Array = arr[Mesh.ARRAY_BONES]
+	var weights: PackedFloat32Array = arr[Mesh.ARRAY_WEIGHTS]
+	for v in verts.size():
+		var p := verts[v]
+		var t := smoothstep(1.17, 1.25, p.y) * (1.0 - smoothstep(1.4, 1.46, p.y)) * smoothstep(-0.02, 0.05, p.z)
+		t *= 1.0 - smoothstep(0.15, 0.2, absf(p.x))
+		if t <= 0.0:
+			continue
+		var acc := {}
+		for k in per:
+			var wk := weights[v * per + k] * (1.0 - t)
+			if wk > 0.0:
+				acc[bones[v * per + k]] = acc.get(bones[v * per + k], 0.0) + wk
+		acc[chest] = acc.get(chest, 0.0) + t
+		var keys: Array = acc.keys()
+		keys.sort_custom(func(x, y): return acc[x] > acc[y])
+		var total := 0.0
+		for k in mini(per, keys.size()):
+			total += acc[keys[k]]
+		for k in per:
+			bones[v * per + k] = keys[k] if k < keys.size() else 0
+			weights[v * per + k] = acc[keys[k]] / total if k < keys.size() else 0.0
+	arr[Mesh.ARRAY_BONES] = bones
+	arr[Mesh.ARRAY_WEIGHTS] = weights
+
+
 ## Vaatemeshien levyvälimuisti: laskenta (vartalon muoto verteksi kerrallaan GDScriptillä) vei käynnistyksestä 2,7 s
 ## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
 ## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
 const MESH_CACHE := "user://hahmot"
-const CACHE_VERSION := 3
+const CACHE_VERSION := 4
 static var _cache_tag := ""
 
 
@@ -604,15 +646,16 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		off.z += 0.025 * cu * bust
 	var bu: float = shape.get("bust", 0.0)
 	if bu > 0.0:
-		# Rintamus (naismalli): kaksi pyöreää kupua rinnan etupuolella. Kupu on paraabeli (pyöreä huippu, pehmeä
-		# reuna, ei kartiota), alaosa leveämpi ja painopiste hieman alhaalla.
+		# Rintamus (naismalli): kaksi pyöreää kupua rinnan etupuolella. Profiili on reunalta pehmeä (smoothstep, ei
+		# harjannetta eikä poimua siinä, missä muotoilu loppuu), alaosa leveämpi ja täyteläisempi. Alaspäin siirto on
+		# pieni ja hiipuu alareunaa kohti, ettei rinnan alapinta painu alla olevan ihon päälle poimuksi.
 		for sx in [-1.0, 1.0]:
-			var ry := 0.085 if p.y < 1.3 else 0.07
-			var d := Vector2((p.x - sx * 0.08) / (0.085 + 0.01 * bu), (p.y - 1.3) / (ry + 0.01 * bu))
+			var ry := 0.085 + 0.01 * bu if p.y < 1.3 else 0.07 + 0.01 * bu
+			var d := Vector2((p.x - sx * 0.08) / (0.085 + 0.01 * bu), (p.y - 1.3) / ry)
 			var k := clampf(1.0 - d.length_squared(), 0.0, 1.0)
-			var lobe := k * (2.0 - k) * smoothstep(-0.03, 0.04, p.z)
+			var lobe := k * k * (3.0 - 2.0 * k) * smoothstep(-0.03, 0.04, p.z)
 			off.z += 0.05 * bu * lobe
-			off.y -= 0.012 * bu * lobe
+			off.y -= 0.006 * bu * lobe * smoothstep(1.22, 1.3, p.y)
 	var sh: float = shape.get("shoulders", 0.0)
 	if sh != 0.0:
 		var band := exp(-pow((p.y - 1.44) / 0.1, 2.0))

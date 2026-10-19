@@ -20414,6 +20414,19 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path)
+			# Lähikuvat rintojen muodosta (poimut): kumpikin hahmo sivulta ja vinosti edestä alhaalta.
+			var nodes: Array = stage.get_children().filter(func(n): return n.has_method("play"))
+			for i in nodes.size():
+				var c: Node3D = nodes[i]
+				var at: Vector3 = c.global_position + Vector3(0, 1.22, 0)
+				for k in [["sivu", Vector3(0, 0.0, 0.75)], ["ala", Vector3(-0.45, -0.25, 0.4)]]:
+					cam.fov = 30.0
+					c.rotation.y = PI * 0.5 if k[0] == "sivu" else PI
+					cam.look_at_from_position(at + k[1], at, Vector3.UP)
+					for f in 6:
+						await get_tree().process_frame
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%d_%s.png" % [i, k[0]]))
 		"uutiset_kuva":
 			# Jaettava kuva Kymppiuutisten lopusta: sankari sohvalla, tölkki käsinojalla ja studio telkkarissa.
 			cutscene.news_tape("", func() -> void: pass)
@@ -20479,7 +20492,11 @@ func _maybe_screenshot() -> void:
 			lamp.rotation_degrees = Vector3(-35, 20, 0)
 			stage.add_child(lamp)
 			for i in 3:
-				var c: Node3D = Looks.make(stage, Looks.sinikka_bikini())
+				var blook := Looks.sinikka_bikini()
+				for kv in OS.get_cmdline_user_args():
+					if kv.begins_with("--bust="):
+						blook["bust"] = float(kv.substr(7))
+				var c: Node3D = Looks.make(stage, blook)
 				c.position = Vector3(-0.9 + i * 0.9, 0, 0)
 				c.rotation.y = [PI, PI * 0.5, 0.0][i]  # edestä, sivulta, takaa
 				c.play("Idle", 0.0)
