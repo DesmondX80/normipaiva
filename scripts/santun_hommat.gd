@@ -224,9 +224,10 @@ func start_day() -> void:
 	if not active:
 		return
 	var ids: Array = TASKS.keys()
-	if sauna_fixed:
-		ids.erase("saunakorjaus")
+	ids.erase("saunakorjaus")
 	ids.shuffle()
+	if not sauna_fixed:
+		ids.push_front("saunakorjaus")  # tarinan luku 2: korjaus on päivän hommissa joka päivä, kunnes sauna on kunnossa
 	tasks = ids.slice(0, HOMMIA_N[mini(nights - 1, HOMMIA_N.size() - 1)])
 
 

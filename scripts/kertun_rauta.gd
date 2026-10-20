@@ -48,6 +48,7 @@ func save_to(cfg: ConfigFile) -> void:
 	cfg.set_value("kertun_rauta", "valinta", choice)
 	cfg.set_value("kertun_rauta", "kiitetty", kiitetty)
 	cfg.set_value("kertun_rauta", "poliisi", poliisi)
+	cfg.set_value("kertun_rauta", "kaivuut", cairn_tries)
 
 
 func load_from(cfg: ConfigFile) -> void:
@@ -61,3 +62,4 @@ func load_from(cfg: ConfigFile) -> void:
 	choice = cfg.get_value("kertun_rauta", "valinta", "")
 	kiitetty = cfg.get_value("kertun_rauta", "kiitetty", false)
 	poliisi = cfg.get_value("kertun_rauta", "poliisi", false)
+	cairn_tries = cfg.get_value("kertun_rauta", "kaivuut", 0)

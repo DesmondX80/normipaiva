@@ -698,7 +698,7 @@ var pontikka := 0  # pulloja repussa
 var _kalle_sold := 0  # tänään myydyt
 var _nimismies: Node3D = null
 var _lava_courage_day := -1  # päivä, jona otettu pontikkahuikka (lavan rohkeus)
-const SULO_LINES := ["Ei kuulu kellekään, mitä täällä tehdään.", "Kakskymppiä kanisteri, ja suu suppuun.",
+const SULO_LINES := ["Ei kuulu kellekään, mitä täällä tehdään.", "Kanisteri kerrallaan, ja suu suppuun.",
 	"Sokeria, hiivaa ja kärsivällisyyttä. Siinä se resepti.", "Ootko sää poliisi? Et näytä poliisilta.",
 	"Tää on vanhan ajan tavaraa, ei mitään Alkon litkua.", "Kuka sulle tästä paikasta kerto? Raimo, vai?"]
 ## Sivutehtävä: Pekan koira Väinö karkaa (dog.gd). Palautus Pekalle: vitonen ja kalja.
@@ -1137,6 +1137,7 @@ func _ready() -> void:
 	endings = Endings.new()
 	quests = Quests.new()
 	_load_game()
+	_story_check_jemma.call_deferred()  # vanha tallennus, jossa kuutonen jo kotijemmoissa
 	_pannu_update()
 	if story.step == "avaimet":
 		_place_keys()
@@ -1176,8 +1177,13 @@ func _ready() -> void:
 	if Settings.renderer_auto_saved:
 		_morning_info.append("Yhteensopiva grafiikka on nyt käytössä myös tavallisella käynnistyksellä (vaihda Asetuksista).")
 	jemma_note = bike_note + jemma_note + _lawn_nag() + _hedge_nag()
-	_roll_list()
-	_day_note(MORNING_HEAD.koti.pick_random(), jemma_note)
+	if not _restore_today():
+		_roll_list()
+	if _resume_mokki and not debug_shot:
+		_list_pending = true  # Päivin lista näytetään, kun palataan kotiin (kuten mökkiaamuna)
+		_show_message("Jatkat Paapelista.", 2.5)
+	else:
+		_day_note(MORNING_HEAD.koti.pick_random(), jemma_note)
 	_flush_morning_info()
 	if loading:
 		_loading_hide()
@@ -3142,9 +3148,10 @@ func _tokola_logic() -> void:
 				tilat.first("tokolan_aarre", 0.6)
 				_save_game()
 				_show_message("Juurakon alta kolahtaa! Ruosteinen rahalipas: nippu vanhoja markkoja ja kultasormus. Tokolan kauppiaan aarre oli totta! Näytä se Aarolle.", 6.0)
-		elif _once_today("heinimaki_nakyma"):
+		elif not "heinimaki_nakyma" in _today:
 			_hint.text = "[E] Katsele Heinimäeltä"
 			if Input.is_action_just_pressed("interact"):
+				_once_today("heinimaki_nakyma")  # kerran päivässä vasta katselun jälkeen, ei jo vihjeen näkyessä
 				tilat.add("stressi", 0.1)
 				tilat.first("heinimaki", 0.2)
 				_show_message("Heinimäeltä näkyy Raahen terästehtaan savut ja meri. Tokolan katot. Latvaton kuusi narisee tuulessa.", 4.5)
@@ -5584,6 +5591,10 @@ func quest_flag(name: String) -> bool:
 	match name:
 		"paapeli":
 			return endings.counts.has("paapeli")
+		"taimet_pyydetty":
+			return sinikka_taimet >= 1  # Sinikka on pyytänyt taimia (40 %:n juttu), ei pelkkä tapaaminen
+		"orava_sormus":
+			return "sormus" in _orava_finds  # sormus löytyy vasta kolmannella löytöpäivällä
 		"sauna_fixed":
 			return mokki != null and mokki.sauna_fixed
 		"tokola_key":
@@ -5617,7 +5628,7 @@ func quest_flag(name: String) -> bool:
 		"ebike_built":
 			return ebike.built()
 		"santtu_5":
-			return hommat != null and 5 in hommat.reviews
+			return hommat != null and hommat.reviews.any(func(r: Dictionary) -> bool: return r.stars == 5)
 		"viina_all":
 			return viina_found.size() >= Mokki.VIINA.size()
 		"asema_all":
@@ -5645,7 +5656,7 @@ func quest_progress(key: String) -> String:
 
 ## Päiväkirjan sisältö (journal.gd).
 func journal_data() -> Dictionary:
-	var d: Dictionary = quests.build(tilat.firsts, quest_flag, story.list(), quest_progress, day)
+	var d: Dictionary = quests.build(tilat.firsts, quest_flag, story.list(quest_flag("paapeli"), jemma), quest_progress, day)
 	# Onnelliset loput ja legendaariset hetket omina listoinaan (löytämättömät null = ???).
 	for kind in ["loppu", "hetki"]:
 		var list: Array = []
@@ -5891,9 +5902,10 @@ func _talk_aaro(id: String) -> void:
 			_talk_box.reply("Se on Tokolan kaupan varasto. Kauppa lopetti kuuskytluvulla, ja avain jäi mulle. "
 				+ "Mitä sinne kuuluu, ei kuulu kenellekään. Paitsi jos joku tois lihapiirakan.", _talk_options())
 		"piirakka":
-			food["piirakka"] -= 1
-			if food["piirakka"] <= 0:
-				food.erase("piirakka")
+			var pk := _aaro_piirakka()
+			food[pk] -= 1
+			if food[pk] <= 0:
+				food.erase(pk)
 			tokola.key = true
 			Sfx.play("pickup", -4.0)
 			_save_game()
@@ -5922,6 +5934,14 @@ func _talk_aaro(id: String) -> void:
 			_talk_box.reply("KYLLÄ MÄÄ SANOIN! Kuuskymmentä vuotta ne on nauranu! Sormus oli kauppiaan vaimon, se jää mulle "
 				+ "muistoks. Markat on sun, keräilijät maksaa niistä. Ja tilikirja menee kotiseutumuseoon.", _talk_options(),
 				"Legenda todistettu! Maine +10. Kyläläiset joutuvat myöntämään.")
+
+
+## Aarolle kelpaa kaupan lihapiirakka tai Reipparin "kaikilla": repun avain tai tyhjä, jos ei kumpaakaan.
+func _aaro_piirakka() -> String:
+	for k in ["piirakka", "piirakka_kaikilla"]:
+		if food.get(k, 0) > 0:
+			return k
+	return ""
 
 
 ## Tilikirja Sululle: Sulon isän nimikirjaimet "sokerin" ostajissa. Sulo maksaa pullolla, legenda jää todistamatta.
@@ -6335,9 +6355,9 @@ func _stash_pos(id: String) -> Vector3:
 
 
 func _stash_add(id: String, n: int) -> void:
-	if n > 0 and STASHES[id].home and story.step == "kaljat":
-		_story_step("pekka_kutsuu")
 	stash[id] = maxi(0, stash.get(id, 0) + n)
+	if n > 0 and STASHES[id].home:
+		_story_check_jemma()
 	if n > 0 and not id in stash_used:
 		stash_used.append(id)
 	jemma_best = maxi(jemma_best, jemma)
@@ -6363,7 +6383,8 @@ func _risky_stashes() -> Array[String]:
 func _stash_warning(id: String) -> String:
 	if STASHES[id].home:
 		if _find_chance(id) > 0.0:
-			return "\nVAROITUS: %s on jo niin täynnä, että Päivi voi löytää sen! Jaa kaljat muihin jemmoihin." % STASHES[id].name
+			return "\nVAROITUS: %s on jo niin täynnä, että Päivi voi löytää sen! Jaa kaljat muihin jemmoihin.%s" % [
+				STASHES[id].name, "\nLaita osa talliin tai kompostin taakse." if story.step == "kaljat" else ""]
 		return ""
 	return "\nMuista: teinit voivat pölliä täältä."
 
@@ -6825,8 +6846,9 @@ func _mokki_drone_pois() -> Array:
 func _on_drone_photo(id: String) -> void:
 	if id in drone_photos:
 		return
-	drone_photos.append(id)
 	var names := _drone_names(id.begins_with("m_"))
+	var before := _drone_photo_count(names)
+	drone_photos.append(id)
 	var n := _drone_photo_count(names)
 	if _drone != null:
 		_drone.photo_count = n
@@ -6849,7 +6871,7 @@ func _on_drone_photo(id: String) -> void:
 	if id == "pontikka" and not pontikka_found:
 		pontikka_found = true
 		_queue_message("Kuusikosta nousee savua... Pannu-Sulon pontikkapannu! Paikka merkittiin karttaan (M).", 4.0)
-	if n == names.size():
+	if n == names.size() and n > before:  # vain kohdelistan viimeinen kuva (legendakuvat eivät toista palkintoa)
 		if id.begins_with("m_"):
 			_queue_message("Kaikki mökin ilmakuvat otettu! Santtu saa uudet kuvat Airbnb-ilmoitukseen.", 4.0)
 			tilat.add("moraali", 0.1)
@@ -8502,6 +8524,8 @@ func _enter_asema(town: String) -> void:
 	state = "in_asema"
 	Sfx.play("door", -3.0)
 	tilat.first("asema", 0.2)
+	if town == "vaala":
+		tilat.first("asema_vaala", 0.0)  # luku 4: Vaalan asema (Saloisten asema ei kuittaa)
 	asema_int.enter("Vaala" if town == "vaala" else "Saloinen")
 	_show_message("%s asema. Lippuluukku on kiinni, mutta penkeillä on väkeä." % ("Vaalan" if town == "vaala" else "Saloisten"), 3.0)
 
@@ -8705,6 +8729,8 @@ func _train_trip(to: String) -> void:
 		mopo_trip.stop()
 		_mopo_restore_hud()
 		state = _vaala_state
+		_hommat_leave_mokki()  # junalla kotiin = mökiltä lähtö: Santun hommat pois, maksettu paluutaksi raukeaa
+		_taxi_mokki_return = false
 	else:
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_train_prev = state
@@ -8713,6 +8739,8 @@ func _train_trip(to: String) -> void:
 	player.speed = 0.0
 	_hud.visible = false
 	tilat.first("juna", 0.3)
+	if to == "saloinen":
+		tilat.first("juna_saloinen", 0.0)  # luku 4: juna Vaalasta kotiin (ei menomatka Vaalaan)
 	# Ravintolavaunu: tuoppi olutta aina (humalaa), paukut naisille jos rahaa jää.
 	var treat := money >= TRAIN_ROUND
 	_train_round_msg = ("Ravintolavaunun tuoppi ja naisten Koskenkorvat %s €. " % _eur(TRAIN_ROUND)) if treat else ""
@@ -8784,6 +8812,8 @@ func _taxi_mokki() -> void:
 	money -= TAXI_MOKKI_FARE
 	_taxi_mokki_return = true
 	tilat.first("mokki", 0.4)
+	if story.step == "valmis":
+		_ending("paapeli")  # tarinan luku 1 päättyy Paapeliin pääsyyn, myös taksilla (esim. Volvo rikki)
 	_hud.visible = false
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
@@ -9137,6 +9167,8 @@ func _talk_open(who: String, node: Node3D, hello := "") -> void:
 	_talk_who = who
 	if who in ["pekka", "arto", "sinikka"]:
 		tilat.first(who, 0.0)  # naapuri tavattu: kartan laskuri ja tehtävien ehdot (first:sinikka)
+	elif who == "santtu":
+		tilat.first("santtu")  # luku 2 alkaa Santun tapaamisesta, valitsipa mitä tahansa
 	_talk_node = node
 	_talk_kind = _talk_state_kind()
 	var w := _active_walker()
@@ -9325,6 +9357,8 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("ukko", "Onko tekojärvessä kalaa?", true, "", has_virveli or has_onki))
 				if who == "tauno" and pannu.found and pannu.choice == "":
 					o.append(_opt("romu", "Myy vanha kuparipannu romuksi (%s €)" % _eur(PANNU_ROMU), true, "", true))
+				if who == "raili":  # kahvio on auki myös kirppispäivinä (Hilkan tervehdys)
+					o.append(_opt("kahvi", "Kahvi ja munkki (%s €)" % _eur(SEURA_KAHVI), money >= SEURA_KAHVI, "rahat ei riitä"))
 				if who == "raili" and tokola.markat:
 					o.append(_opt("markat", "Myy vanhat markat keräilijälle (%s €)" % _eur(TOKOLA_MARKAT), true, "", true))
 				for k in KIRPPIS_STOCK:
@@ -9353,8 +9387,8 @@ func _talk_options(who := "") -> Array:
 			elif _miisu.state == "ilmoitus":
 				o.append(_opt("miisu_missa", "Missä se Miisu yleensä käy?"))
 			if not tokola.key:
-				o.append(_opt("piirakka", "Anna lihapiirakka (varaston avain)", food.get("piirakka", 0) > 0,
-					"ei lihapiirakkaa (K-Marketin leipähylly)", true))
+				o.append(_opt("piirakka", "Anna lihapiirakka (varaston avain)", _aaro_piirakka() != "",
+					"ei lihapiirakkaa (K-Marketin leipähylly tai Reippari)", true))
 				o.append(_opt("varasto", "Mikä se vanha varasto on?"))
 			elif tokola.lipas and tokola.legend == "":
 				o.append(_opt("lipas", "Näytä kauppiaan rahalipas ja tilikirja", true, "", true))
@@ -9386,7 +9420,6 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("ukko_myy", "Myy Tekojärven Ukko täytettäväksi (%s €)" % _eur(UkkoLegenda.KERAILIJA_HINTA), true, "", true))
 			if aarni.found and aarni.choice == "":
 				o.append(_opt("hopeat", "Myy Isonvihan hopeat (%s €)" % _eur(Aarnivalkea.KERAILIJA_HINTA), true, "", true))
-		"veksi":
 			if kertun.found and kertun.choice == "":
 				o.append(_opt("kirves", "Myy rautakautinen kirves (%s €)" % _eur(KertunRauta.KERAILIJA_HINTA), true, "", true))
 		"huutaja":
@@ -9470,8 +9503,9 @@ func _talk_options(who := "") -> Array:
 			var shut := closed_text("raahe", fposmod(clock_min + HOP_RAAHE, 1440.0))
 			o.append(_opt("raahe", "Raahen baariin (%s €, meno-paluu)" % _eur(TAXI_FARE), money >= TAXI_FARE and shut == "",
 				"baari on kiinni perillä, aukeaa klo %d" % int(OPEN_HOURS.raahe.x / 60.0) if shut != "" else "rahat ei riitä"))
-			o.append(_opt("paapeli", "Paapelin mökille (%s €, meno-paluu)" % _eur(TAXI_MOKKI_FARE), money >= TAXI_MOKKI_FARE,
-				"rahat ei riitä"))
+			var banned: bool = hommat.banned_day == day
+			o.append(_opt("paapeli", "Paapelin mökille (%s €, meno-paluu)" % _eur(TAXI_MOKKI_FARE),
+				money >= TAXI_MOKKI_FARE and not banned, "Santtu häätänyt mökiltä tänään" if banned else "rahat ei riitä"))
 		"raahe", "siitari":
 			var menu: Dictionary = RAAHE_MENU if who == "raahe" else SIITARI_MENU
 			for id in menu:
@@ -9578,7 +9612,7 @@ func _talk_choose(id: String) -> void:
 			walker_out.set_kanister(true)
 			state = "to_home"
 			Sfx.play("coin", -4.0)
-			_talk_box.reply("Kakskymppiä ja suu suppuun. Ja kanisteri takasin, kun on tyhjä.", _talk_options(),
+			_talk_box.reply("Tässä. Ja suu suppuun. Ja kanisteri takasin, kun on tyhjä.", _talk_options(),
 				"Pontikkakanisteri mukana, vastaa %d kaljaa! Vie se kotiin jemmaan." % _kanister_beers())
 		"pojat":
 			_talk_pojat(id)
@@ -9930,7 +9964,10 @@ func _talk_chat_line() -> String:
 		"arto":
 			return ARTO_LINES.pick_random()
 		"pekka":
-			return (Story.PEKKA_WAITING if story.step == "tehtavat" else PEKKA_LINES).pick_random()
+			if story.step == "tehtavat":
+				# Sieniin viittaava odotusrepliikki vain, jos sienet on vielä tuomatta.
+				return Story.PEKKA_WAITING.filter(func(l: String) -> bool: return not (story.done.sienet and "sienet" in l)).pick_random()
+			return PEKKA_LINES.pick_random()
 		"sinikka":
 			if sinikka_taimet == 0 and randf() < 0.4:
 				sinikka_taimet = 1
@@ -11806,7 +11843,7 @@ func _gasthaus_morning(intro: String, msg: String) -> void:
 		mopo_trip.stop()
 		_mopo_restore_hud()
 		state = _vaala_state
-	_new_day(mokki.porch_pos(0.9) - Vector3(0, 0.3, 0), false, intro)
+	_new_day(mokki.porch_pos(0.9) - Vector3(0, 0.3, 0), false, intro, "gasthaus")
 	# Aamu Vaalassa: mopo Gasthausin pihassa nokka kadulle, matka Paapeliin alkaa siitä.
 	_start_mopo()
 	mopo_trip.target = "paapeli"
@@ -14127,6 +14164,12 @@ func _kauppias_fight_end(won: bool, note: String) -> void:
 
 # --- Tarina (story.gd) ---------------------------------------------------------------------------------
 
+## Tarinan ensimmäinen vaihe: kotijemmoissa (eteinen, talli, komposti yhteensä) vähintään kuutonen.
+func _story_check_jemma() -> void:
+	if story.step == "kaljat" and jemma >= Story.KUUTONEN:
+		_story_step("pekka_kutsuu")
+
+
 func _story_step(to: String) -> void:
 	story.step = to
 	match to:
@@ -14350,6 +14393,34 @@ func _win(party := false, wine := false, news := false) -> void:
 		"Kotona! Kotijemmat %d/%d – kun niissä on %d, juhlat aloitetaan kotipiilolta.\n" % [jemma, JEMMA_GOAL, JEMMA_GOAL])
 
 
+## Tallennuksesta luettu saman päivän tila (_load_game), palautetaan käynnistyksessä (_restore_today).
+var _saved_today := {}
+
+
+## Kesken päivän tallennettu peli jatkuu samalla kauppalistalla, Päivin kassilla ja kannettavilla.
+## Palauttaa false, jos tallennus oli eri päivältä (tai vanha), jolloin lista arvotaan.
+func _restore_today() -> bool:
+	var t := _saved_today
+	_saved_today = {}
+	var list: Array = t.get("kauppalista", [])
+	if list.is_empty():
+		return false
+	shopping_list = list
+	paivi_bag = t.get("kassi", {})
+	paivi_placed = t.get("paikoillaan", {})
+	_list_done = t.get("lista_valmis", false)
+	beers = t.get("kaljat", 0)
+	food = t.get("ruoka", {})
+	has_kanister = t.get("kanisteri", false)
+	has_sausage = t.get("makkara", false)
+	has_matches = t.get("tikut", false)
+	_sulo_sold = t.get("sulo_myyty", false)
+	player.set_carrying(beers > 0)
+	walker_out.set_carrying(beers > 0)
+	walker_out.set_kanister(has_kanister)
+	return true
+
+
 func _load_game() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) != OK:
@@ -14366,6 +14437,10 @@ func _load_game() -> void:
 	money = cfg.get_value("peli", "rahat", START_MONEY)
 	day = cfg.get_value("peli", "paiva", 1)
 	clock_min = cfg.get_value("peli", "kello", DAY_START)
+	_saved_today = {}
+	if cfg.get_value("tanaan", "paiva", -1) == day:
+		for k in cfg.get_section_keys("tanaan"):
+			_saved_today[k] = cfg.get_value("tanaan", k)
 	has_chocolate = cfg.get_value("peli", "suklaa", false)
 	has_flowers = cfg.get_value("peli", "kukat", false)
 	has_onki = cfg.get_value("peli", "onki", false)
@@ -14449,6 +14524,24 @@ func _load_game() -> void:
 	sinikka_task = cfg.get_value("sinikka", "tehtava", 0)
 	tikka_ennatys = cfg.get_value("mokki", "tikka_ennatys", 0)
 	hommat.reviews = cfg.get_value("mokki", "arvostelut", [])
+	hommat.banned_day = cfg.get_value("mokki", "haatopaiva", -1)
+	_volvo_fixed_day = cfg.get_value("peli", "volvo_korjattu", -1)
+	_has_taimet = cfg.get_value("peli", "taimet", false)
+	_auction_day = cfg.get_value("paivarajat", "huutokauppa", -1)
+	_bingo_day = cfg.get_value("paivarajat", "bingo", -1)
+	_tanssi_paid_day = cfg.get_value("paivarajat", "tanssilippu", -1)
+	_danced = cfg.get_value("paivarajat", "tanssittu", {})
+	_kirppis_sold = cfg.get_value("paivarajat", "kirppis_myyty", {})
+	_kirppis_angry = cfg.get_value("paivarajat", "kirppis_suuttunut", {})
+	_haaste_day = cfg.get_value("paivarajat", "piirakkahaaste", -1)
+	_ukko_day = cfg.get_value("paivarajat", "ukko", -1)
+	_lava_pass = cfg.get_value("paivarajat", "lavaleima", "")
+	_lava_pass_day = cfg.get_value("paivarajat", "lavaleima_paiva", -1)
+	_santtu_lava_day = cfg.get_value("paivarajat", "santtu_lava", -1)
+	_resume_mokki = cfg.get_value("mokki", "jatka_mokilta", false)
+	hommat.nights = cfg.get_value("mokki", "yot", 0)
+	var hm: Dictionary = cfg.get_value("mokki", "hommat", {})
+	_resume_hommat = hm if hm.get("paiva", -1) == day else {}
 	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
 	world.home_hedge.load_state(cfg.get_value("pensasaita", "aita", {}))
 	hedge_nagged = cfg.get_value("pensasaita", "motkotettu", false)
@@ -14457,6 +14550,13 @@ func _load_game() -> void:
 	koris_best = cfg.get_value("koris", "ennatys", 0)
 	tilat.load_from(cfg)
 	story.load_from(cfg)
+	if not cfg.get_value("tarina", "luku4_avaimet", false):
+		# Ennen erillisiä avaimia "asema" ja "juna" kuittasivat kumman tahansa aseman ja suunnan: luku 3:n tehneillä
+		# ne olivat todennäköisesti Vaalan matkalta, joten siirretään kerran uusille avaimille.
+		if "mopokisa_voitto" in tilat.firsts:
+			for k in ["asema", "juna"]:
+				if k in tilat.firsts:
+					tilat.first(k + ("_vaala" if k == "asema" else "_saloinen"), 0.0)
 	ebike.load_from(cfg)
 	oma_mopo.load_from(cfg)
 	tokola.load_from(cfg)
@@ -14466,6 +14566,12 @@ func _load_game() -> void:
 	aarni.load_from(cfg)
 	ukko.load_from(cfg)
 	_hongan_day = cfg.get_value("honganpalo", "keikka_paiva", -1)
+	# Kesken jäänyt keikka jatkuu samana päivänä: keräämättömät roskat takaisin pihalle.
+	_hongan_keikka = _hongan_day == day and cfg.get_value("honganpalo", "keikka", false)
+	var roskat: Array = cfg.get_value("honganpalo", "roskat", [])
+	if _hongan_keikka and world != null:
+		for i in world.hongan_trash.size():
+			world.hongan_trash[i].visible = roskat[i] if i < roskat.size() else true
 	quests.load_from(cfg)
 	_piirakka_record = cfg.get_value("reippari", "ennatys", 7)
 	_piirakka_holder = cfg.get_value("reippari", "ennatyksen_haltija", "Juntti")
@@ -14489,6 +14595,41 @@ func _save_game() -> void:
 	cfg.set_value("peli", "rahat", money)
 	cfg.set_value("peli", "paiva", day)
 	cfg.set_value("peli", "kello", clock_min)
+	# Päivän aikaiset (uusi päivä nollaa): kauppalista, Päivin kassi ja kädessä kannettavat. Palautetaan vain samana päivänä.
+	cfg.set_value("tanaan", "paiva", day)
+	cfg.set_value("tarina", "luku4_avaimet", true)
+	cfg.set_value("tanaan", "kauppalista", shopping_list)
+	cfg.set_value("tanaan", "kassi", paivi_bag)
+	cfg.set_value("tanaan", "paikoillaan", paivi_placed)
+	cfg.set_value("tanaan", "lista_valmis", _list_done)
+	cfg.set_value("tanaan", "kaljat", beers)
+	cfg.set_value("tanaan", "ruoka", food)
+	cfg.set_value("tanaan", "kanisteri", has_kanister)
+	cfg.set_value("tanaan", "makkara", has_sausage)
+	cfg.set_value("tanaan", "tikut", has_matches)
+	cfg.set_value("tanaan", "sulo_myyty", _sulo_sold)
+	cfg.set_value("peli", "taimet", _has_taimet)
+	cfg.set_value("peli", "volvo_korjattu", _volvo_fixed_day)
+	# Kerran päivässä -rajat (päivänumeroita): lataus ei saa avata niitä uudelleen samana päivänä.
+	cfg.set_value("paivarajat", "huutokauppa", _auction_day)
+	cfg.set_value("paivarajat", "bingo", _bingo_day)
+	cfg.set_value("paivarajat", "tanssilippu", _tanssi_paid_day)
+	cfg.set_value("paivarajat", "tanssittu", _danced)
+	cfg.set_value("paivarajat", "kirppis_myyty", _kirppis_sold)
+	cfg.set_value("paivarajat", "kirppis_suuttunut", _kirppis_angry)
+	cfg.set_value("paivarajat", "piirakkahaaste", _haaste_day)
+	cfg.set_value("paivarajat", "ukko", _ukko_day)
+	cfg.set_value("paivarajat", "lavaleima", _lava_pass)
+	cfg.set_value("paivarajat", "lavaleima_paiva", _lava_pass_day)
+	cfg.set_value("paivarajat", "santtu_lava", _santtu_lava_day)
+	# Mökillä tai Vaalassa tallennettu peli jatkuu mökin pihasta (_resume_at_mokki), Santun hommat samana päivänä.
+	cfg.set_value("mokki", "jatka_mokilta", _away_at_mokki())
+	if hommat != null:
+		cfg.set_value("mokki", "yot", hommat.nights)
+		cfg.set_value("mokki", "hommat", {"paiva": day, "active": hommat.active, "tasks": hommat.tasks, "done": hommat.done,
+			"hermo": hommat.hermo, "progress": hommat.progress, "beer_used": hommat.beer_used, "snitched": hommat.snitched,
+			"carry": hommat.carry})
+	cfg.set_value("mokki", "haatopaiva", hommat.banned_day if hommat != null else -1)
 	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("peli", "kukat", has_flowers)
 	cfg.set_value("peli", "onki", has_onki)
@@ -14593,6 +14734,9 @@ func _save_game() -> void:
 		aarni.save_to(cfg)
 		ukko.save_to(cfg)
 	cfg.set_value("honganpalo", "keikka_paiva", _hongan_day)
+	cfg.set_value("honganpalo", "keikka", _hongan_keikka)
+	if world != null:
+		cfg.set_value("honganpalo", "roskat", world.hongan_trash.map(func(t: Node3D) -> bool: return t.visible))
 	if endings != null:
 		endings.save_to(cfg)
 	if quests != null:
@@ -14727,7 +14871,9 @@ func _nearest_safe() -> Vector3:
 
 
 ## Uusi päivä turvapaikasta: vaarat ja kauppa nollautuvat, jemma, rahat ja laavun valtaus säilyvät.
-func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
+## where = "gasthaus": herätys Vaalan Gasthausista. Saloisten asiat odottavat kuten mökillä, mutta Santun hommia
+## ei arvota eikä lappua kirjoita Santtu.
+func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	_thief_stop()  # yöllä teini jättää pyörän siihen, missä se on
 	day += 1
 	var at_m := _at_mokki_pos(spawn)  # mökillä herätessä pääpelin asiat odottavat kotiinpaluuta
@@ -14924,6 +15070,13 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 		# Mökillä vain mökin asiat: Päivin värilista kerrotaan, kun palataan kotiin (ks. _arrive_by_car).
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		_list_pending = true
+		if where == "gasthaus":
+			hommat.stop()  # eilisen hommat pois; mökin yöt (nights) säilyvät
+			_hommat_prepare()
+			# Päivän tilarivit (stats_note) ovat Santun suulla, joten Gasthausin lapussa niitä ei ole.
+			_note.show_note([MORNING_HEAD.gasthaus.pick_random()], "– Gasthaus Vaala", 8.0)  # mopo ja matka: _gasthaus_morning
+			_flush_morning_info(intro)
+			return
 		var rows: Array = _hommat_morning()
 		_note.show_note([MORNING_HEAD.mokki.pick_random()]
 			+ rows + Array(("%s%s" % [stats_note, mokki_note]).strip_edges().split("\n")), "– Santtu",
@@ -14933,12 +15086,12 @@ func _new_day(spawn: Vector3, lost: bool, intro := "") -> void:
 	hommat.stop()
 	hommat.nights = 0
 	_hommat_prepare()
-	var where := "koti"
+	var head := "koti"
 	if spawn.distance_to(mokki.global_position) < 80.0:
-		where = "mokilta"
+		head = "mokilta"
 	elif spawn.distance_to(home_zone) > 50.0:
-		where = "laavulta"
-	_day_note(MORNING_HEAD[where].pick_random(), "%s%s%s" % [bonus, bike_note, jnote])
+		head = "laavulta"
+	_day_note(MORNING_HEAD[head].pick_random(), "%s%s%s" % [bonus, bike_note, jnote])
 	_flush_morning_info(intro)
 
 
@@ -14948,6 +15101,7 @@ const MORNING_HEAD := {
 	"laavulta": ["Missä sää taas yöllä olit?!", "Laavulla nukuit taas, vai?"],
 	"mokilta": ["Tuu jo kotiin sieltä mökiltä!", "Huomenta, mökkiläinen."],
 	"mokki": ["Huomenta! Kahvit on keitetty.", "Huomenta mökille!", "Aamu! Sauna lämpiää illalla."],
+	"gasthaus": ["Hyvää huomenta! Aamukahvi kuuluu hintaan.", "Huomenta Vaalasta! Kiitos yöpymisestä."],
 }
 ## Aamun pelitiedot (jemmat, varoitukset, teinit, pyörän paikka), joita lapun kirjoittaja ei tietäisi tai kirjoittaisi:
 ## näytetään ruudun viesteinä lapun rinnalla (_flush_morning_info).
@@ -14967,6 +15121,43 @@ func _flush_morning_info(intro := "") -> void:
 
 
 ## Tallennettu pyörä paikalleen ja pelaaja jalan kotiin. Palauttaa aamumuistutuksen.
+## Tallennus tehtiin mökillä tai Vaalassa (myös Siitarissa, Tervaportin kaupassa ja Vaalan asemalla).
+func _away_at_mokki() -> bool:
+	if mokki == null or player == null:
+		return false
+	return _at_mokki() or _in_vaala or state == "in_siitari" or (state == "in_shop" and _shop_vaala) \
+		or (state == "in_asema" and _asema_town == "vaala")
+
+
+var _resume_mokki := false
+var _resume_hommat := {}
+
+
+## Peli jatkuu mökin pihasta (pihatien pää, kuten kyydillä tultaessa): mökki rakennetaan, Saloisten vaarat odottavat
+## ja saman päivän Santun hommat palautetaan. Vaalassa tallennettu peli jatkuu myös täältä (mopo on pihassa).
+func _resume_at_mokki() -> void:
+	mokki.ensure_built()
+	_ensure_mopo_trip()
+	_place_on_foot(mokki.gpos(Mokki.RIDE_LOCAL + Vector3(0, 0.3, 2.2)))
+	walker_out.rotation.y = 0.0
+	walker_out.activate_camera()
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	tilat.ensure("humala")
+	var hm := _resume_hommat
+	_resume_hommat = {}
+	hommat.stop()
+	if not hm.is_empty():
+		hommat.active = hm.active
+		hommat.tasks = hm.tasks
+		hommat.done = hm.done
+		hommat.hermo = hm.hermo
+		hommat.progress = hm.progress
+		hommat.beer_used = hm.beer_used
+		hommat.snitched = hm.snitched
+		hommat.carry = hm.carry
+	_hommat_prepare()
+
+
 func _apply_saved_bike() -> String:
 	if _bike_saved != null:
 		bike.global_position = _bike_saved[0]
@@ -14975,6 +15166,14 @@ func _apply_saved_bike() -> String:
 	# Peli jatkuu tallennetusta paikasta (Tallenna peli tai automaattitallennus), paitsi "Aloita päivä alusta".
 	var resume := _resume_saved.size() == 3 and not no_resume
 	no_resume = false
+	if resume and _resume_mokki:
+		_resume_spot = _resume_saved  # Saloisten viimeisin ulkopaikka säilyy seuraaviin tallennuksiin
+		_resume_at_mokki()
+		return ""
+	_resume_mokki = false
+	_resume_hommat = {}
+	if not resume:
+		hommat.nights = 0  # "Aloita päivä alusta" tai ei paikkaa: kotoa, mökin yöputki katkeaa
 	if resume:
 		_resume_spot = _resume_saved
 		if _resume_saved[2] and _bike_saved != null and not _bike_garage_saved:
@@ -15809,7 +16008,7 @@ func inventory_info() -> Dictionary:
 			info.list_title = "Santun hommat"
 			for t in hommat.tasks:
 				info.list.append(Hommat.TASKS[t].nimi + ("  ✔" if t in hommat.done else ""))
-		info.tasks = story.list()
+		info.tasks = story.list(quest_flag("paapeli"), jemma)
 		return info
 	info.lines = ["Päivä %d (%s) · Järvikuja 1, Saloinen" % [day, WEEKDAYS[_weekday()]], "Mielihyvä %d · Maine %d" % [roundi(mielihyva), roundi(maine)],
 		"Kello %s · nukahdat n. klo %s" % [_clock_text(), _pass_out_text()], "Droonin ilmakuvat %d / %d" % [_drone_photo_count(DRONE_POIS), DRONE_POIS.size()]]
@@ -15829,7 +16028,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list() + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks()
+	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -16129,9 +16328,7 @@ func _pass_out() -> void:
 		"in_asema":
 			asema_int.leave()
 			if _asema_town == "vaala":
-				if mopo_trip.active:
-					mopo_trip.stop()
-					_mopo_restore_hud()
+				_mopo_end_quiet()  # matka on jo pysähdyksissä sisällä: Vaala-tila ja Santun kyyti nollattava silti
 				spawn = mokki.porch_pos(0.9) - Vector3(0, 0.3, 0)
 			else:
 				state = _asema_prev
@@ -16139,19 +16336,23 @@ func _pass_out() -> void:
 			intro = "Sammuit aseman penkille. Rane oli peitellyt sut sanomalehdellä ja juonut loput kaljoista.\n"
 		"in_siitari":
 			siitari_int.leave()
-			if mopo_trip.active:
-				mopo_trip.stop()
-				_mopo_restore_hud()
+			_mopo_end_quiet()
 			spawn = mokki.porch_pos(0.9) - Vector3(0, 0.3, 0)
 			intro = "Sammuit Siitarin terassille. Santtu haki sut autolla ja kirosi koko matkan.\n"
 		"in_shop":
 			interior.leave()
-			spawn = shop_door + Vector3(0, 0, 2)
-			intro = "Sammuit K-Marketin penkille. Mummot herättivät kettukarkeilla.\n"
+			if _shop_vaala:
+				interior.vaala = false
+				_shop_vaala = false
+				_mopo_end_quiet()
+				spawn = mokki.porch_pos(0.9) - Vector3(0, 0.3, 0)
+				intro = "Sammuit Tervaportin kassajonoon. Santtu haki sut autolla ja kirosi koko matkan.\n"
+			else:
+				spawn = shop_door + Vector3(0, 0, 2)
+				intro = "Sammuit K-Marketin penkille. Mummot herättivät kettukarkeilla.\n"
 		_:
-			if _in_vaala and mopo_trip.active:
-				mopo_trip.stop()
-				_mopo_restore_hud()
+			if _in_vaala:
+				_mopo_end_quiet()
 				spawn = mokki.porch_pos(0.9) - Vector3(0, 0.3, 0)
 				intro = "Sammuit mopon selkään tien varteen. Santtu haki sut traktorilla Paapeliin.\n"
 			else:

@@ -7,7 +7,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 ## Mitä pelissä voi tehdä
 
 - **Tarina "Paapeliin pääsee, kunhan…":** ohjaa naapurilta toiselle, mutta kaikki muu pysyy vapaana. Ensin
-  kuutonen kotijemmaan, sitten Pekka huikkaa pihalta ja antaa kolme tehtävää vapaassa järjestyksessä: 3 l sieniä
+  kuutonen kotijemmoihin (eteinen, talli ja komposti yhteensä), sitten Pekka huikkaa pihalta ja antaa kolme tehtävää vapaassa järjestyksessä: 3 l sieniä
   Pekalle (Arto tietää paikat), 5 l puolukoita Artolle ja Sinikan takapihan nurmikko niin, ettei Päivi näe
   (jos näkee, Päivi suuttuu ja lähtee jahtiin, mutta leikkuuta voi jatkaa karkuun päästyä). Lopuksi Pekan
   autonavaimet ovat hukassa kodalla: Pekka kävi lintutornilla kaverin kyydillä niin kännissä, että ampui
@@ -229,7 +229,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   Saloisten Pirtin kotiseutumuseoon (maine, lehtijuttu, mutta Sulo nostaa kanisterin hintaa) tai Taunolle romuksi
   (20 €, Sulo ja Aaro suuttuvat). Löydön jälkeen Sulo myöntää: "No... isä keitti. Ja hyvää keitti."
   Testi `--scene=pannu`.
-- **Mökki:** mökille pääsee vain naapurin Pekan kyydillä: Pekka on menossa Neittävälle kyyhkyjahtiin ja ottaa
+- **Mökki:** mökille pääsee naapurin Pekan kyydillä tai kaupan taksilla (60 € meno-paluu): Pekka on menossa Neittävälle kyyhkyjahtiin ja ottaa
   kyytiin kaljalla tai 10 eurolla (jalan E Pekan luona). Pekan auto odottaa mökin pihatien päässä, ja sillä
   pääsee kotipihaan ilmaiseksi (bensat maksettiin menomatkalla). Välikuvassa Pekan vihreä Volvo kaahaa kesäistä maantietä peltojen, säilörehupaalien ja männikön
   halki, Pekka puhuu kyyhkyistä ratissa ja auto töräyttää Neittävän (kotimatkalla Saloisten) kyltin ohi. Mökki on Vaalan Neittävän kylällä,
@@ -503,9 +503,9 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
 
 - **Tarina** etenee luvuittain: 1. Paapeliin pääsee, kunhan… (naapurien hommat ja Pekan kyyti mökille), 2. Paapelin
   isäntä (Santun hommat ja savusaunan korjaus), 3. Mopolla Vaalaan (Siitari, Oulujärven lava, kiihdytys), 4. Junalla
-  kotiin ja 5. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu, Kertunkankaan rauta). Seuraavaan
-  vaiheeseen vihjataan puheissa: Santtu, Siitarin baarimikko, aidan takana porukka, Gasthausin emäntä, Pekka,
-  Tauno ja Aaro kertovat, mitä seuraavaksi.
+  kotiin ja 5. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu, Lapinraunion aarnivalkea, Kertunkankaan rauta, Tekojärven Ukko). Seuraavaan
+  vaiheeseen vihjataan puheissa: Santtu, Siitarin baarimikko, aidan takana porukka, Gasthausin emäntä, Pekka
+  ja Tauno kertovat, mitä seuraavaksi.
 - **Sivutehtävät**: kauppalista, nurmikko, laavu, Väinö, jalkapallopojat, pontikka, ilmakuvat, kotiviini,
   sähköpyörä, huutokauppa, tanssit ja bingo, Teron kädenvääntö, Santun viisi tähteä, viina- ja rahakätköt,
   eräjorma, pihapingis ja pummilla lavalle.
@@ -519,11 +519,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   (video ajastetaan olohuoneessa ennen klo 22, ja klo 22.25 jälkeen sohvalle eteisen kaapin kaljan kanssa). Ilmoitus
   "ONNELLINEN LOPPU".
 - **Legendaariset hetket** (saavutukset, peli jatkuu): Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit,
-  karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas
-  ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
+  karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas,
+  Drakkar Noir ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
   Ukko, Ukko vapaaksi). Ilmoitus "LEGENDAARINEN HETKI".
-- Päiväkirjan Loput-välilehdellä onnelliset loput vasemmalla (X / 6, kerrat yhteensä) ja legendaariset hetket oikealla
-  (X / 15, tähtirivi), löytämättömät ???. Testi `--scene=paivakirja`.
+- Päiväkirjan Loput-välilehdellä onnelliset loput vasemmalla (X / 7, kerrat yhteensä) ja legendaariset hetket oikealla
+  (X / 16, tähtirivi), löytämättömät ???. Testi `--scene=paivakirja`.
 
 ## Jalan vai pyörällä?
 
@@ -801,7 +801,7 @@ Työpöydällä ohjaimia voi kokeilla käynnistämällä pelin `godot --path . -
   osunut jää kiinni ja reunaan osunut lennättää pölkyn pölliltä. Raimo ja Veikko tulevat ulos kommentoimaan.
 - Kartan reunalla hahmo kommentoi, miksi pidemmälle ei kannata lähteä.
 - **Mökki** on mallinnettu oikean Airbnb-vuokramökin ("The warmth of a smoke sauna and cottage life",
-  Neittävä) valokuvien mukaan. Se on erillinen alue, jonne pääsee vain naapurin Pekan kyydillä.
+  Neittävä) valokuvien mukaan. Se on erillinen alue, jonne pääsee naapurin Pekan kyydillä tai kaupan taksilla.
 - Kylän kartta: koko alueen tiet, rakennukset, metsät, pellot, suot ja vedet OpenStreetMapista
   (`scripts/map_osm.gd`, generoitu `tools/kartta/kyla_osm.ps1`:llä); kota, lintutorni, K-Market ja Kiilinlammen
   taukopaikka (grillikatos) OSM:n kohdissa. Käsin vain se, mitä OSM:ssä ei ole (Antinsuonkankaan laavu ja sen
