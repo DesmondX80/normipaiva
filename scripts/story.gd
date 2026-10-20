@@ -1,7 +1,7 @@
 extends RefCounted
 ## Tarina "Paapeliin pääsee, kunhan…" (main.gd _story_*): ohjaa Saloisissa naapurilta toiselle, mutta kaikki muu
 ## pysyy vapaana. Vaiheet (step):
-##   kaljat        – kuutonen kotijemmaan (mikä tahansa kotipiilo)
+##   kaljat        – kuutonen kotijemmoihin (eteinen, talli ja komposti yhteensä vähintään 6)
 ##   pekka_kutsuu  – Pekka huikkaa pihalta; juttelu antaa kolme tehtävää
 ##   tehtavat      – vapaassa järjestyksessä: 3 l sieniä Pekalle, 5 l puolukoita Artolle, Sinikan nurmikko salaa
 ##   pekka_avaimet – kaikki tehty, Pekka huikkaa taas: autonavaimet hukassa
@@ -10,6 +10,7 @@ extends RefCounted
 ##   valmis        – Pekan kyyti Paapeliin auki (välietappi: tarina jatkuu myöhemmin)
 ## Tehtävälista näkyy repussa (I) sitä mukaa kuin tehtäviä löytyy. Tallentuu osioon [tarina].
 
+const KUUTONEN := 6  # kotijemmoissa yhteensä
 const SIENET_L := 3
 const PUOLUKAT_L := 5
 const STEPS := ["kaljat", "pekka_kutsuu", "tehtavat", "pekka_avaimet", "avaimet", "avaimet_mukana", "valmis"]
@@ -51,10 +52,13 @@ func all_tasks_done() -> bool:
 
 
 ## Repun tehtävälista: [teksti, valmis]. Näkyy vain sitä mukaa kuin tehtäviä löytyy.
-## arrived = Paapeliin on päästy (main.gd: loppu "paapeli" kirjattu).
-func list(arrived := false) -> Array:
+## arrived = Paapeliin on päästy (main.gd: loppu "paapeli" kirjattu), home = kotijemmojen kaljat.
+func list(arrived := false, home := 0) -> Array:
 	var out := []
-	out.append(["Kuutonen kotijemmaan", at_least("pekka_kutsuu")])
+	if step == "kaljat":
+		out.append(["Kuutonen kotijemmoihin %d / %d" % [mini(home, KUUTONEN), KUUTONEN], false])
+	else:
+		out.append(["Kuutonen kotijemmoihin", true])
 	if step == "pekka_kutsuu":
 		out.append(["Käy Pekan luona", false])
 	if at_least("tehtavat"):

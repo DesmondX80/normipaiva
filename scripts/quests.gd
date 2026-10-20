@@ -30,9 +30,9 @@ const CHAPTERS := [
 			"hint": "nuoret|Zabukin pihalla mopopojat haastaa kaikki kiihdytykseen. Pakoputki-Pete on nopein."},
 	]},
 	{"id": "luku4", "title": "4. Junalla kotiin", "steps": [
-		{"id": "asema", "text": "Vaalan rautatieasemalle: juna Saloisiin lähtee sieltä.", "done": "first:asema",
+		{"id": "asema", "text": "Vaalan rautatieasemalle: juna Saloisiin lähtee sieltä.", "done": "first:asema_vaala",
 			"hint": "gasthaus|Juna Saloisiin lähtee asemalta. Zabukin ohi liikenneympyrään ja oikealle."},
-		{"id": "juna", "text": "Junalla takaisin Saloisiin, ravintolavaunun kautta.", "done": "first:juna", "hint": "auto"},
+		{"id": "juna", "text": "Junalla takaisin Saloisiin, ravintolavaunun kautta.", "done": "first:juna_saloinen", "hint": "auto"},
 	]},
 	{"id": "luku5", "title": "5. Kylän salaisuudet", "steps": [
 		{"id": "kirppis", "text": "Seuranmäen seuraintalolla on kirppis ja huutokauppa.", "done": "first:kirppis",
