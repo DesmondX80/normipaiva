@@ -570,6 +570,14 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_r(img, 5, 8, 6, 3, Color(0.95, 0.95, 0.9))
 			if id == "turbohiiva":
 				_r(img, 6, 9, 4, 1, Color(0.9, 0.2, 0.15))
+		"drakkar":
+			# Drakkar Noir: musta kulmikas pullo, hopeinen kaula ja suihkupää, hopeinen etiketti.
+			_r(img, 6, 1, 4, 2, Color(0.75, 0.76, 0.8))
+			_r(img, 7, 3, 2, 1, Color(0.55, 0.56, 0.6))
+			_r(img, 4, 4, 8, 11, Color(0.05, 0.05, 0.06))
+			_r(img, 4, 4, 8, 1, Color(0.25, 0.25, 0.28))
+			_r(img, 5, 5, 1, 9, Color(0.18, 0.18, 0.2))
+			_r(img, 5, 8, 6, 2, Color(0.72, 0.73, 0.78))
 		"pontikka":
 			_r(img, 7, 1, 2, 2, Color(0.45, 0.32, 0.2))
 			_r(img, 6, 3, 4, 2, Color(0.8, 0.88, 0.92))
