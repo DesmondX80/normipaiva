@@ -7,7 +7,7 @@ extends Node
 
 const MUSIC_DIR := "res://assets/music/kuulokkeet"
 const FALLBACK := ["res://assets/music/normipaiva.mp3", "res://assets/music/lirkuttelu.wav"]
-## 90-luvun tyyliset CC BY -biisit (README: tekijät ja lisenssit). Tiedostonimi -> näytettävä nimi.
+## 90-luvun tyyliset CC BY -biisit (docs/tekijanoikeudet.md: tekijät ja lisenssit). Tiedostonimi -> näytettävä nimi.
 const TITLES := {
 	"01_Robotertanz": "Robotertanz – Shane Ivers",
 	"02_90s_Racer_Techno": "90s Racer Techno – Bogart VGM",

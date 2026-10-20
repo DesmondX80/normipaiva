@@ -3,7 +3,7 @@ extends RefCounted
 ## vaikuta tähän päivään, paitsi humala: illalla yli HANGOVER_LIMIT tulee krapula-aamu (main.gd _end_day_stats).
 ## Kaikissa tiloissa suurempi on parempi: "negatiiviset" (stressi, nälkä, väsymys, kipu) alkavat -1:stä ja niitä
 ## yritetään nostaa, positiiviset alkavat 0:sta. Humalatila (0..1) säilyy yön yli ja laskee yössä 0,2.
-## Vaikutukset pelin toiminnoista kirjataan main.gd:ssä (ks. README, "Päivittäiset tilat").
+## Vaikutukset pelin toiminnoista kirjataan main.gd:ssä (ks. docs/tilat.md).
 ## Jokaisella tilalla on oma palkinto ja haitta (effect), jotka ovat päällä heti rajan ylittyessä.
 
 const STATS := {

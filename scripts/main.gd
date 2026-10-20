@@ -7525,7 +7525,7 @@ func _stats_tick(delta: float) -> void:
 
 
 ## Päivän kolmen tilan palkinnot ja haitat (day_stats.gd effect): päällä heti, kun palkki ylittää rajan
-## (+0,5 / -0,5; humalatila 0,3–0,6 / yli 0,8). Muut tilat kuin päivän kolme eivät vaikuta. Ks. README.
+## (+0,5 / -0,5; humalatila 0,3–0,6 / yli 0,8). Muut tilat kuin päivän kolme eivät vaikuta. Ks. docs/tilat.md.
 func _stat_effects() -> void:
 	var t := tilat
 	# Stressi: rauhallisena mummot suuttuvat hitaammin, kireänä Päivi ajaa lujempaa.

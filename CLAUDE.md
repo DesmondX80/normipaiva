@@ -1,5 +1,11 @@
 # Normipäivä: ohjeet Claudelle
 
+## Dokumentaatio
+
+README on lyhyt esittely. Pelin sisältö (kaikki paikat, tehtävät ja legendat) on tiedostossa `docs/pelin-sisalto.md`,
+päivän tilat `docs/tilat.md`, ohjaus `docs/ohjaus.md`, kehitys ja testikohtaukset `docs/kehitys.md` ja lisenssit
+`docs/tekijanoikeudet.md`. Uusi ominaisuus kuvataan `docs/`-tiedostoon; README:hen korkeintaan rivi.
+
 ## Skriptien lataus
 
 Ei `class_name`-luokkia: skriptit ladataan `preload`:lla (`const MeshBundle := preload("res://scripts/mesh_bundle.gd")`).
