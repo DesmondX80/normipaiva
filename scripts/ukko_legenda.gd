@@ -25,7 +25,7 @@ var choice := ""  # "" / "museo" / "kerailija" / "vapaa"
 
 ## Vihjeitä tarpeeksi, että Tauno uskoo ja myy lusikan.
 func clues() -> bool:
-	return siimat >= 2 or spotted or (siimat >= 1 and spotted)
+	return siimat >= 2 or spotted  # kaksi katkennutta siimaa tai droonin varjokuva
 
 
 func proven() -> bool:

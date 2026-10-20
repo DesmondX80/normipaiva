@@ -2895,9 +2895,10 @@ func _kirppis_ask(k: String) -> float:
 	return h.ask
 
 
-## Tarjous: noin 60 % pyyntihinnasta puolen euron tarkkuudella.
-func _kirppis_offer(ask: float) -> float:
-	return maxf(0.5, snappedf(ask * 0.6, 0.5))
+## Tarjous: noin 60 % pyyntihinnasta puolen euron tarkkuudella, mutta ei alle 40 %:n tuotteen hinnasta.
+func _kirppis_offer(k: String, ask: float) -> float:
+	var floor_p: float = snappedf(KIRPPIS_STOCK[k].price * 0.4, 0.5)
+	return maxf(floor_p, maxf(0.5, snappedf(ask * 0.6, 0.5)))
 
 
 func _talk_kirppis(id: String) -> void:
@@ -2951,8 +2952,7 @@ func _talk_kirppis(id: String) -> void:
 	if id.begins_with("tingi_"):
 		var k := id.trim_prefix("tingi_")
 		var ask := _kirppis_ask(k)
-		var floor_p: float = snappedf(KIRPPIS_STOCK[k].price * 0.4, 0.5)
-		var offer := maxf(floor_p, _kirppis_offer(ask))
+		var offer := _kirppis_offer(k, ask)
 		var h: Dictionary = _haggle.get(k, {})
 		if h.get("day", -1) != day:
 			h = {"ask": ask, "patience": 2 + int(maine / 40.0), "day": day, "deals": 0}
@@ -3887,6 +3887,8 @@ const SAMMUTIN_HINTA := 15.0
 const HUHTALA_OSA := 5.0
 var _volvo_fixed_day := -1
 var _has_kaasu := false
+var _kanister_paid := 0.0  # kädessä olevan kanisterin hinta (kaasupullosta palautetaan)
+var _sulo_free := false  # Sulon lupaus pannusta: seuraava kanisteri ilmaiseksi
 var _has_sammutin := false
 var _kaasu_given := false
 var _huhtala_day := -1
@@ -3919,10 +3921,20 @@ func _korjaamo_logic() -> void:
 			return
 
 
-## Kaasupullo Pannu-Sululle: ilmainen kanisteri.
+## Kaasupullo Pannu-Sululle: ilmainen kanisteri. Jos ostettu kanisteri on jo kädessä, Sulo palauttaa sen hinnan.
 func _sulo_kaasu() -> void:
 	_has_kaasu = false
 	_kaasu_given = true
+	if has_kanister:
+		var back := _kanister_paid
+		_kanister_paid = 0.0
+		money += back
+		tilat.first("sulo_kaasu", 0.3)
+		Sfx.play("coin", -4.0)
+		_save_game()
+		_talk_box.reply("Kaasupullo! No sitte se kanisteri on ilmanen, tässä rahat takasin. Ja nyt mee.", _talk_options(),
+			"+%s € takaisin. Rahaa %s €." % [_eur(back), _eur(money)])
+		return
 	has_kanister = true
 	walker_out.set_kanister(true)
 	_sulo_sold = true
@@ -4075,7 +4087,10 @@ func _eramaa_logic() -> void:
 			if e:
 				sausage_done = true
 				Sfx.play("whoosh", -6.0, 0.6)
-				_show_message("Makkara tirisee kepin päässä. Erämaan paras tuoksu.", 2.5)
+				if _viita_kalja_day == day:
+					_win_eramaa()  # kalja avattiin jo tänään: loppu kummassa järjestyksessä tahansa
+				else:
+					_show_message("Makkara tirisee kepin päässä. Erämaan paras tuoksu.", 2.5)
 		elif beers > 0 and _viita_kalja_day != day:
 			_hint.text = "[E] Avaa kalja nuotiolla"
 			if e:
@@ -4480,6 +4495,7 @@ func _seppo_choose(id: String) -> void:
 		else:
 			money -= _seppo_price(k)
 		_seppo_day["ostettu_" + k] = day
+		tilat.first("seppo_kauppa", 0.2)  # sivutehtävä "Sepon varastomyynti": ensimmäiset kaupat
 		oma_mopo.trust += 1  # Seppo muistaa asiakkaansa (mopo, #155)
 		var note := ""
 		if it[2] != "":
@@ -4509,6 +4525,7 @@ func _seppo_choose(id: String) -> void:
 				_talk_box.reply("Älä nuoleskele. Hinnat nousi just.", _talk_options(), "Hinnat +10 % tänään.")
 		"laatikko":
 			_seppo_day["laatikko"] = day
+			tilat.first("seppo_kauppa", 0.2)
 			oma_mopo.trust += 1
 			money -= SEPPO_LAATIKKO
 			Sfx.play("rattle", -4.0)
@@ -5191,11 +5208,11 @@ func _kertun_logic() -> void:
 	if aarni.choice == "kerailija" and not aarni.poliisi and state in ["to_shop", "to_home"]:
 		aarni.poliisi = true
 		_save_game()
-		_call_police("kirves")
+		_call_police("veksi")
 	if kertun.choice == "kerailija" and not kertun.poliisi and state in ["to_shop", "to_home"]:
 		kertun.poliisi = true
 		_save_game()
-		_call_police("kirves")
+		_call_police("veksi")
 	if _hint.text != "" or player == bike:
 		return
 	_rauniot_museum()
@@ -5863,9 +5880,21 @@ func _pannu_to_sulo() -> void:
 	Sfx.play("glass", -4.0, 0.8)
 	_save_game()
 	var extra := " Ja sulla oli jo sen kauppiaan kirjakin... Sää oot meikäläisten puolella." if tokola.legend == "sulo" else ""
+	# "Ekat kanisterit": uuden reseptin kanisteri heti ilmaiseksi, tai kanisteri jo kädessä: seuraava ilmaiseksi.
+	var gift := ""
+	if has_kanister:
+		_sulo_free = true
+		gift = " Seuraava kanisteri on ilmainen."
+	else:
+		has_kanister = true
+		_kanister_paid = 0.0
+		_sulo_sold = true
+		walker_out.set_kanister(true)
+		gift = " Ilmainen kanisteri mukana (= %d kaljaa)." % _kanister_beers()
+	_save_game()
 	_talk_box.reply("...Isän pannu. Kuuskymmentä vuotta suossa. No... isä keitti. Ja hyvää keitti. Tästä lähtien keitän hänen "
 		+ "reseptillään, ja sinä saat ekat kanisterit." + extra, _talk_options(),
-		"Sulo keittää isän reseptillä: kanisteri vastaa nyt %d kaljaa." % SuloPannu.RESEPTI_BEERS)
+		"Sulo keittää isän reseptillä: kanisteri vastaa nyt %d kaljaa.%s" % [SuloPannu.RESEPTI_BEERS, gift])
 
 
 func _pannu_scrap() -> void:
@@ -6958,7 +6987,7 @@ func _call_police(reason := "siili") -> void:
 	police.caught.connect(func() -> void:
 		if state in ["to_shop", "to_home"]:
 			_lose("Poliisi pidätti: %s!" % {"varkaus": "myymälävarkaus ja pahoinpitely", "roykkio": "muinaisjäännöksen kaivaminen",
-				"kirves": "muinaisjäännösrike ja pimeät kaupat"}.get(reason, "eläinsuojelurikos"), "police"))
+				"veksi": "muinaisjäännösrike ja pimeät kaupat"}.get(reason, "eläinsuojelurikos"), "police"))
 	police.escaped.connect(func() -> void:
 		tilat.first("poliisipako", 0.5)
 		tilat.add("stressi", 0.2)
@@ -6969,7 +6998,7 @@ func _call_police(reason := "siili") -> void:
 		_show_message("Kauppias soitti poliisit!\nPOLIISI TULEE, KARKUUN!", 4.0)
 	elif reason == "roykkio":
 		_show_message("Anna-Liisa näki sun kaivavan röykkiötä ja soitti poliisit!\nPOLIISI TULEE – KARKUUN!", 4.0)
-	elif reason == "kirves":
+	elif reason == "veksi":  # kirves tai hopeat Veksin takahuoneeseen
 		_show_message("Veksin takahuoneen kaupat kiinnosti poliisia: muinaisjäännösrike!\nPOLIISI TULEE – KARKUUN!", 4.0)
 	else:
 		_show_message("TOINEN SIILI! Anna-Liisa soitti poliisit.\nPOLIISI TULEE – KARKUUN!", 4.0)
@@ -9339,11 +9368,12 @@ func _talk_options(who := "") -> Array:
 					why = "Santtu häätänyt mökiltä tänään"
 				elif _volvo_broken():
 					why = "Volvo ei lähde (Korpelan korjaamo)"
+					tilat.first("volvo_rikki", 0.0)  # sivutehtävä tiedoksi vasta, kun Pekan Volvo oikeasti on rikki
 				elif _volvo_fixed_day == day:
 					why = ""
 				elif beers <= 0 and money < PEKKA_RIDE_PRICE:
 					why = "ei kaljaa eikä %s € bensarahaa" % _eur(PEKKA_RIDE_PRICE)
-				o.append(_opt("kyyti", "Kyyti mökille Vaalaan (%s)" % ("ilmainen, Volvo korjattu" if _volvo_fixed_day == day else ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €")),
+				o.append(_opt("kyyti", "Kyyti mökille Vaalaan (%s)%s" % ["ilmainen, Volvo korjattu" if _volvo_fixed_day == day else ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €"), _late_note(HOP_VAALA)],
 					why == "", why))
 		"annaliisa", "sinikka_seura":
 			_seura_options(who, o)
@@ -9371,7 +9401,7 @@ func _talk_options(who := "") -> Array:
 					var ask := _kirppis_ask(k)
 					o.append(_opt("osta_" + k, "Osta %s (%s €)" % [it.name.to_lower(), _eur(ask)], money >= ask - 0.001, "rahat ei riitä"))
 					if _kirppis_angry.get(who, -1) != day and ask > snappedf(it.price * 0.4, 0.5) + 0.001:
-						o.append(_opt("tingi_" + k, "Tingi: tarjoa %s € (%s)" % [_eur(_kirppis_offer(ask)), it.name.to_lower()]))
+						o.append(_opt("tingi_" + k, "Tingi: tarjoa %s € (%s)" % [_eur(_kirppis_offer(k, ask)), it.name.to_lower()]))
 		"reippari":
 			if not _between(clock_min, REIPPARI_OPEN):
 				chat = false
@@ -9429,7 +9459,8 @@ func _talk_options(who := "") -> Array:
 			elif lot.is_empty():
 				o.append(_opt("x_huuto", "Tämän päivän huutokauppa on pidetty", false, "uusi kohde huomenna"))
 			else:
-				o.append(_opt("huuto", "Huutamaan: %s (lähtö %s €)" % [lot.name, _eur(lot.start)], true, "", true))
+				o.append(_opt("huuto", "Huutamaan: %s (lähtö %s €)" % [lot.name, _eur(lot.start)], money >= lot.start - 0.001,
+					"rahat ei riitä lähtöhintaan (%s €)" % _eur(lot.start), true))
 		"sinikka":
 			var berries: int = bucket.get("mustikka", 0)
 			if sinikka_taimet == 1 and _has_taimet:
@@ -9477,10 +9508,11 @@ func _talk_options(who := "") -> Array:
 			var why := ""
 			if has_kanister or _sulo_sold:
 				why = "tänään ei enää"
-			elif money < _kanister_price():
+			elif not _sulo_free and money < _kanister_price():
 				why = "rahat ei riitä"
-			o.append(_opt("kanisteri", "Osta pontikkakanisteri (%s €, = %d kaljaa)" % [_eur(_kanister_price()), _kanister_beers()],
-				why == "", why))
+			var price := "ilmainen, Sulon lupaus" if _sulo_free else _eur(_kanister_price()) + " €"
+			o.append(_opt("kanisteri", "Osta pontikkakanisteri (%s, = %d kaljaa)" % [price, _kanister_beers()],
+				why == "", why, _sulo_free))
 			if pannu.found and pannu.choice == "":
 				o.append(_opt("pannu", "Tässä on isäsi kuparipannu Pilkkarinnevalta", true, "", true))
 			if _has_kaasu:
@@ -9501,10 +9533,10 @@ func _talk_options(who := "") -> Array:
 		"taksi":
 			chat = false
 			var shut := closed_text("raahe", fposmod(clock_min + HOP_RAAHE, 1440.0))
-			o.append(_opt("raahe", "Raahen baariin (%s €, meno-paluu)" % _eur(TAXI_FARE), money >= TAXI_FARE and shut == "",
+			o.append(_opt("raahe", "Raahen baariin (%s €, meno-paluu)%s" % [_eur(TAXI_FARE), _late_note(HOP_RAAHE)], money >= TAXI_FARE and shut == "",
 				"baari on kiinni perillä, aukeaa klo %d" % int(OPEN_HOURS.raahe.x / 60.0) if shut != "" else "rahat ei riitä"))
 			var banned: bool = hommat.banned_day == day
-			o.append(_opt("paapeli", "Paapelin mökille (%s €, meno-paluu)" % _eur(TAXI_MOKKI_FARE),
+			o.append(_opt("paapeli", "Paapelin mökille (%s €, meno-paluu)%s" % [_eur(TAXI_MOKKI_FARE), _late_note(HOP_VAALA)],
 				money >= TAXI_MOKKI_FARE and not banned, "Santtu häätänyt mökiltä tänään" if banned else "rahat ei riitä"))
 		"raahe", "siitari":
 			var menu: Dictionary = RAAHE_MENU if who == "raahe" else SIITARI_MENU
@@ -9605,7 +9637,9 @@ func _talk_choose(id: String) -> void:
 			if id == "sulo_kaasu":
 				_sulo_kaasu()
 				return
-			money -= _kanister_price()
+			_kanister_paid = 0.0 if _sulo_free else _kanister_price()
+			_sulo_free = false
+			money -= _kanister_paid
 			has_kanister = true
 			tilat.first("pontikka", 0.5)
 			_sulo_sold = true
@@ -10648,7 +10682,7 @@ func _hommat_tick(dt: float) -> void:
 				_santtu_line("Palju tulvii yli! Ei sitä järveä tarvi kokonaan siirtää!", true)
 	if not hommat.active:
 		return
-	if state in ["to_shop", "to_home", "in_mokki"] and not cutscene.busy and not _item_menu.is_open():
+	if state in ["to_shop", "to_home", "in_mokki"] and not cutscene.busy and not _item_menu.is_open() and not _minigame_open():
 		var lv: int = hommat.tick(dt)
 		if lv >= 0:
 			_santtu_line(Hommat.HERMO_LINES[lv].pick_random(), true)
@@ -11356,6 +11390,7 @@ func _ensure_mopo_trip() -> void:
 
 func _start_mopo() -> void:
 	var from_mokki := _at_mokki()
+	_mopo_hop = from_mokki
 	_vaala_state = state
 	_in_vaala = true
 	walker_out.controls_enabled = false
@@ -11505,8 +11540,14 @@ func _mopo_foot_inside() -> void:
 
 
 ## Siitarin ovella: mopo parkkiin ja sisälle baariin (siitari_interior.gd). Ulko-ovelta takaisin mopolle.
+## Mökiltä ajettu matka Siitariin kuluttaa kellosta HOP_MOPO kerran (ei Siitarista ulos ja takaisin, Gasthausilta tai junalta).
+var _mopo_hop := false
+
+
 func _on_mopo_arrived() -> void:
-	_advance_clock(HOP_MOPO)
+	if _mopo_hop:
+		_mopo_hop = false
+		_advance_clock(HOP_MOPO)
 	if mopo_trip.on_foot != null:
 		_mopo_remount()  # mopo parkissa Siitarin pihassa, kotimatka alkaa sen selästä
 	_hint.text = ""
@@ -14415,6 +14456,7 @@ func _restore_today() -> bool:
 	has_sausage = t.get("makkara", false)
 	has_matches = t.get("tikut", false)
 	_sulo_sold = t.get("sulo_myyty", false)
+	_kanister_paid = t.get("kanisteri_hinta", 0.0)
 	player.set_carrying(beers > 0)
 	walker_out.set_carrying(beers > 0)
 	walker_out.set_kanister(has_kanister)
@@ -14527,6 +14569,7 @@ func _load_game() -> void:
 	hommat.banned_day = cfg.get_value("mokki", "haatopaiva", -1)
 	_volvo_fixed_day = cfg.get_value("peli", "volvo_korjattu", -1)
 	_has_taimet = cfg.get_value("peli", "taimet", false)
+	_sulo_free = cfg.get_value("peli", "sulo_ilmainen", false)
 	_auction_day = cfg.get_value("paivarajat", "huutokauppa", -1)
 	_bingo_day = cfg.get_value("paivarajat", "bingo", -1)
 	_tanssi_paid_day = cfg.get_value("paivarajat", "tanssilippu", -1)
@@ -14608,7 +14651,9 @@ func _save_game() -> void:
 	cfg.set_value("tanaan", "makkara", has_sausage)
 	cfg.set_value("tanaan", "tikut", has_matches)
 	cfg.set_value("tanaan", "sulo_myyty", _sulo_sold)
+	cfg.set_value("tanaan", "kanisteri_hinta", _kanister_paid)
 	cfg.set_value("peli", "taimet", _has_taimet)
+	cfg.set_value("peli", "sulo_ilmainen", _sulo_free)
 	cfg.set_value("peli", "volvo_korjattu", _volvo_fixed_day)
 	# Kerran päivässä -rajat (päivänumeroita): lataus ei saa avata niitä uudelleen samana päivänä.
 	cfg.set_value("paivarajat", "huutokauppa", _auction_day)
@@ -16253,6 +16298,16 @@ func _pass_out_limit() -> float:
 	return (PASS_OUT_AT + 1440.0 - DAY_START) + extra
 
 
+## Kyydin valintaan varoitus, jos perillä ollaan lähellä nukahtamisrajaa (hop = matkan kesto minuutteina).
+func _late_note(hop: float) -> String:
+	var at := _awake_min() + hop
+	if at < _pass_out_limit() - 30.0:
+		return ""
+	var arr := fmod(clock_min + hop, 1440.0)
+	return " · perillä klo %d.%02d, %s" % [int(arr) / 60, int(arr) % 60,
+		"nukahdat heti" if at >= _pass_out_limit() else "sammut pian"]
+
+
 func _pass_out_text() -> String:
 	var lim := fmod(_pass_out_limit() + DAY_START, 1440.0)
 	return "%d.%02d" % [int(lim) / 60, int(lim) % 60]
@@ -16283,8 +16338,18 @@ func _night_tick(delta: float) -> void:
 		_queue_message("Silmät painuu kiinni... (nukahdat n. klo %s). Sänkyyn ajoissa, tai kahvia!" % _pass_out_text(), 3.5)
 	if awake >= limit - 30.0:
 		tilat.add("vireys", -0.01 * delta)
-	if awake >= limit:
+	if awake >= limit and not _minigame_open():  # kesken minipelin (pajatso, saunakorjaus...) sammutaan sen jälkeen
 		_pass_out()
+
+
+## Piirretty tai 3D-minipeli (scripts/*_game.gd, finished-signaali) on auki main-solmun alla. Osa minipeleistä
+## (saunakorjaus, Siitarin pelit) ei vaihda tilaa "minigame":ksi, joten tila ei yksin kerro sitä.
+func _minigame_open() -> bool:
+	for c in get_children():
+		var sc: Script = c.get_script()
+		if sc != null and sc.resource_path.ends_with("_game.gd") and c.has_signal("finished"):
+			return true
+	return false
 
 
 ## Yön raja: sammutaan siihen missä ollaan. Kotona ja mökillä sänkyyn kuten nukkumaan mentäessä, muualla herätys
