@@ -2615,7 +2615,17 @@ const KIRPPIS_STOCK := {
 	"virveli": {"seller": "tauno", "name": "Virveli ja lusikkauistin", "price": 15.0},
 	"bambuonki": {"seller": "raili", "name": "Bambuonki", "price": 4.0},
 	"lusikka": {"seller": "tauno", "name": "Isän kuparilusikka", "price": UkkoLegenda.LUSIKKA_HINTA},
+	"drakkar": {"seller": "raili", "name": "Drakkar Noir, puolillaan", "price": 12.0},
 }
+## Drakkar Noir: ysärin legendaarinen tuoksu Railin pöydältä (ensimmäinen löytö legendaarinen hetki; uusi pullo tulee
+## pöydälle, kun edellinen on loppu). Pullossa DRAKKAR_SPRAYS
+## suihkausta, suihkaus T-valikosta. Tuoksu kestää päivän: moraali ja mielihyvä nousevat, Sinikka ja Päivi huomaavat,
+## ja tansseissa (seuraintalo, lava) tulos paranee DRAKKAR_DANCE.
+const DRAKKAR_SPRAYS := 10
+const DRAKKAR_DANCE := 0.15
+var drakkar := 0  # suihkauksia jäljellä
+var drakkar_found := false
+var drakkar_day := -1  # päivä, jona tuoksuu
 var _kirppis_prev := "to_shop"
 var _kirppis_sold := {}  # tuote -> päivä, jolloin ostettu
 var _kirppis_angry := {}  # myyjä -> päivä, jolloin suuttui tinkimisestä
@@ -2685,6 +2695,7 @@ func _enter_kirppis(mode := "kirppis") -> void:
 	Sfx.play("door", -3.0)
 	tilat.first("kirppis", 0.2)
 	kirppis_int.lot_visible = _auction_lot().get("id", "") == "moottori"
+	kirppis_int.drakkar.visible = drakkar <= 0
 	kirppis_int.enter(mode)
 	if mode != "kirppis":
 		tilat.first("seura_" + mode, 0.3)
@@ -2788,6 +2799,7 @@ func _start_tanssi(who: String) -> void:
 
 ## Tanssin tulos: moraali ja maine, Sinikan kanssa Päivi kuulee, Anna-Liisa juoruaa varpaista.
 func _tanssi_done(who: String, score: float) -> void:
+	score = _drakkar_dance(score)
 	kirppis_int.busy = false
 	kirppis_int.walker.controls_enabled = true
 	kirppis_int.walker.activate()
@@ -2982,6 +2994,8 @@ func _kirppis_hidden(k: String) -> bool:
 			return has_onki
 		"lusikka":
 			return ukko.lusikka or not ukko.heard or not ukko.clues()
+		"drakkar":
+			return drakkar > 0  # uusi pullo Railin pöydälle, kun edellinen on loppu
 	return false
 
 
@@ -3021,6 +3035,14 @@ func _kirppis_give(k: String) -> String:
 		"koira":
 			maine = clampf(maine + 3.0, 0.0, 100.0)
 			return "Posliinikoira ikkunalle vahtimaan. Naapurit näkee."
+		"drakkar":
+			var first := not drakkar_found
+			drakkar_found = true
+			drakkar = DRAKKAR_SPRAYS
+			if first:
+				_ending("drakkar")
+				return "Drakkar Noir! Musta pullo, puolillaan. Ysäri tuoksuu taas. Suihkaise T-valikosta."
+			return "Toinen Drakkar Noir! Raili: \"Mistä näitä tulee? Kuolinpesistä, kulta.\""
 	return ""
 
 
@@ -5944,6 +5966,9 @@ func _enter_home(door: String) -> void:
 	home_int.enter(door)
 	home_int.walker.set_carrying(beers > 0 or has_kanister)
 	Sfx.play("door", -3.0)
+	if drakkar_day == day and _once_today("drakkar_paivi"):
+		tilat.add("stressi", -0.1)
+		_queue_message("Päivi: \"Mikä toi haju on?! Drakkar Noir? Kenelle sää oot noin laittautunu?\"", 3.5)
 	if not _list_done and not paivi_bag.is_empty():
 		_show_message("Päivin ostokset paikoilleen: jääkaappiin, keittiön kaappiin, kylpyhuoneeseen ja olohuoneeseen.", 3.5)
 
@@ -7227,6 +7252,8 @@ func _open_eat_menu() -> void:
 		items.append(["viina", "Huikka kätköviinaa (%d pulloa)" % viina_pullot])
 	if pontikka > 0:
 		items.append(["pontikka", "Huikka Korpi-Kallen pontikkaa (%d pulloa)" % pontikka])
+	if drakkar > 0:
+		items.append(["drakkar", "Suihkaise Drakkar Noiria (%d suihkausta)" % drakkar])
 	for k in ["puolukka", "mustikka"]:
 		if bucket.get(k, 0) > 0:
 			items.append([k, "%s – ämpärissä %d l" % [FOODS[k].name, bucket[k]]])
@@ -7243,6 +7270,35 @@ func _open_eat_menu() -> void:
 	_msg_time = 0.0
 	_menu_mode = "eat"
 	_item_menu.open(items, "Mitä syöt tai juot?")
+
+
+## Drakkar Noir: ensimmäinen suihkaus päivässä tuoksuttaa koko päivän (moraali, mielihyvä); lisäsuihkaukset samana
+## päivänä ovat liikaa.
+func _spray_drakkar() -> void:
+	drakkar -= 1
+	Sfx.play("whoosh", -8.0, 2.2)
+	if drakkar_day != day:
+		drakkar_day = day
+		tilat.add("moraali", 0.15)
+		tilat.add("stressi", 0.1)
+		mielihyva = clampf(mielihyva + 3.0, 0.0, 100.0)
+		tilat.first("drakkar", 0.2)
+		_show_message(["Pssst. Drakkar Noiria kaulaan ja ranteisiin. Ysäri palasi.",
+			"Pssst. Musta pullo, tumma tuoksu. Nyt kelpaa lavalle."].pick_random(), 2.5)
+	else:
+		tilat.add("stressi", -0.05)
+		_show_message("Vielä yksi suihkaus... Nyt haisee koko Saloisiin.", 2.5)
+	if drakkar <= 0:
+		_queue_message("Drakkar Noir loppui. Railin pöydältä löytyy ehkä uusi pullo.", 2.5)
+	_save_game()
+
+
+## Tansseissa Drakkar Noir parantaa tulosta (sinä päivänä, kun on suihkaistu).
+func _drakkar_dance(score: float) -> float:
+	if drakkar_day != day or score < 0.0:
+		return score
+	_queue_message("Drakkar Noir teki tehtävänsä: tanssipari painautui lähemmäs.", 2.5)
+	return minf(1.0, score + DRAKKAR_DANCE)
 
 
 ## Omat juomat baarissa: baarimikko huomaa joka toisen kerran (OWN_DRINK_SEEN); ensin varoitus, toisella ulos.
@@ -7304,6 +7360,9 @@ func _on_eat(id: String) -> void:
 				food.erase(id)
 		"suklaa":
 			has_chocolate = false
+		"drakkar":
+			_spray_drakkar()
+			return
 		"kalja":
 			beers -= 1
 			player.set_carrying(beers > 0)
@@ -9148,6 +9207,9 @@ func _talk_hello(who: String) -> String:
 	var sh := _story_hint(who, true)
 	if sh != "":
 		return sh
+	if who.begins_with("sinikka") and drakkar_day == day and _once_today("drakkar_sinikka"):
+		tilat.add("moraali", 0.1)
+		return "Mmm... onks toi Drakkar Noir? Tuu vähän lähemmäs, komistus. Ihan ku ois -94 ja Zabukin tanssit."
 	if who == "santtu" and _santtu_offers_lava():
 		return SANTTU_LAVA_HELLO
 	if who == "pekka" and story.step in ["pekka_kutsuu", "pekka_avaimet"]:
@@ -13524,6 +13586,7 @@ func _lava_bar() -> Array:
 func _on_lava_finished(score: float) -> void:
 	_lava_game.queue_free()
 	_lava_game = null
+	score = _drakkar_dance(score)
 	if score >= 0.0:  # -1 = käytiin lavalla tanssimatta (vain baarissa)
 		tilat.add("moraali", 0.1 + score * 0.25)
 		tilat.add("stressi", 0.1 + score * 0.15)
@@ -14414,6 +14477,9 @@ func _load_game() -> void:
 	wine_days = cfg.get_value("viini", "paivat", 0)
 	wine_locked = cfg.get_value("viini", "lukossa", false)
 	_tape_day = cfg.get_value("uutiset", "nauha_paiva", -1)
+	drakkar = cfg.get_value("drakkar", "suihkaukset", 0)
+	drakkar_found = cfg.get_value("drakkar", "loydetty", false)
+	drakkar_day = cfg.get_value("drakkar", "paiva", -1)
 	wine_lock_day = cfg.get_value("viini", "lukko_paiva", day if wine_locked else -1)
 	wine_endings = cfg.get_value("viini", "loput", 0)
 	has_yeast = cfg.get_value("viini", "hiiva", false)
@@ -14598,6 +14664,9 @@ func _save_game() -> void:
 	cfg.set_value("viini", "paivat", wine_days)
 	cfg.set_value("viini", "lukossa", wine_locked)
 	cfg.set_value("uutiset", "nauha_paiva", _tape_day)
+	cfg.set_value("drakkar", "suihkaukset", drakkar)
+	cfg.set_value("drakkar", "loydetty", drakkar_found)
+	cfg.set_value("drakkar", "paiva", drakkar_day)
 	cfg.set_value("viini", "lukko_paiva", wine_lock_day)
 	cfg.set_value("viini", "loput", wine_endings)
 	cfg.set_value("viini", "hiiva", has_yeast)
@@ -15859,6 +15928,8 @@ func inventory_items() -> Array:
 		add.call("hopeat", "Isonvihan hopeat", 1, "Mustuneita hopearahoja ja lusikoita. Saloisten Pirttiin vai kirppiksen takahuoneeseen?")
 	if "sormus" in _orava_finds and not _sormus_given:
 		add.call("sormus", "Kultasormus", 1, "Oravajärven pohjasta. Kenenkähän? Sinikka käy siellä aamuisin uimassa.")
+	if drakkar > 0:
+		add.call("drakkar", "Drakkar Noir", drakkar, "suihkausta · T-valikosta. Tuoksu kestää päivän: Sinikka huomaa, tansseissa onnistaa.")
 	if has_onki:
 		add.call("onki", "Bambuonki", 1, "Kolmeen osaan liitetty bambu ja koho. Oravajärvellä ja tekojärvellä rannalta.")
 	if madot > 0:
@@ -20783,6 +20854,63 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"drakkar":
+			# Drakkar Noir: pullo Railin pöydällä, osto, legendaarinen hetki, suihkaus, Sinikan ja Päivin reaktiot ja
+			# tanssibonus. Tallennus palautetaan lopuksi.
+			var saved_dk := FileAccess.get_file_as_bytes(SAVE_PATH)
+			drakkar_found = false
+			drakkar = 0
+			drakkar_day = -1
+			endings.counts.erase("drakkar")
+			money = 30.0
+			clock_min = 12.0 * 60.0
+			_enter_kirppis("kirppis")
+			for f in 10:
+				await get_tree().process_frame
+			var tcam := Camera3D.new()
+			tcam.fov = 30.0
+			kirppis_int.add_child(tcam)
+			var bp: Vector3 = kirppis_int.drakkar.global_position
+			tcam.look_at_from_position(bp + Vector3(0.12, 0.22, 0.45), bp + Vector3(0, 0.07, 0))
+			tcam.current = true
+			_hud.visible = false
+			for f in 8:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_poyta.png"))
+			tcam.look_at_from_position(bp + Vector3(1.2, 1.3, 2.0), bp + Vector3(0, 0.2, -0.5))
+			for f in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_poyta_laaja.png"))
+			tcam.queue_free()
+			_hud.visible = true
+			_talk_who = "raili"
+			print("DRAKKAR Railin valinnat: %s" % str(_talk_options()).left(400))
+			_talk_kirppis("osta_drakkar")
+			print("DRAKKAR ostettu: suihkauksia %d, löydetty %s, rahaa %.1f, hetki %s" % [drakkar, drakkar_found, money, endings.counts.has("drakkar")])
+			print("DRAKKAR piilossa nyt: %s" % _kirppis_hidden("drakkar"))
+			_on_eat("drakkar")
+			print("DRAKKAR suihkaus 1: päivä %s, jäljellä %d, viesti '%s'" % [drakkar_day == day, drakkar, _msg.text])
+			_on_eat("drakkar")
+			print("DRAKKAR suihkaus 2: '%s'" % _msg.text)
+			print("DRAKKAR Sinikka: '%s'" % _talk_hello("sinikka"))
+			print("DRAKKAR tanssi 0.6 -> %.2f" % _drakkar_dance(0.6))
+			drakkar = 1
+			_on_eat("drakkar")
+			print("DRAKKAR tyhjä: jäljellä %d, myynnissä taas %s" % [drakkar, not _kirppis_hidden("drakkar")])
+			var cnt: int = endings.counts.get("drakkar", 0)
+			_talk_kirppis("osta_drakkar")
+			print("DRAKKAR uusi pullo: suihkauksia %d, hetkiä %d (ennen %d)" % [drakkar, endings.counts.get("drakkar", 0), cnt])
+			_talk_box.close()
+			_on_kirppis_exited()
+			# Päivi kotona: tuoksu huomataan ovella.
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			for f in 5:
+				await get_tree().physics_frame
+			_enter_home("ovi")
+			print("DRAKKAR Päivi: %s" % str(_msg_queue).contains("Drakkar Noir? Kenelle"))
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_dk)
 		"stetson":
 			# Stetson pelaajan päässä kaikissa asuissa: edestä, sivulta, takaa ja lähikuva.
 			var stage := Node3D.new()

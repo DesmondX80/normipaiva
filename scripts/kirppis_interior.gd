@@ -137,6 +137,7 @@ var _groups := {}  # tila -> Node3D (tilan omat kalusteet ja kyltit)
 var _no_dance: Node3D  # keskipöytä: pois tansseista
 var _lot: Node3D
 var _dancers: Array[Node3D] = []
+var drakkar: Node3D  # Drakkar Noir Railin pöydällä (main.gd piilottaa ostettuna)
 var _chat_t := 4.0
 var _t := 0.0
 
@@ -457,6 +458,40 @@ func _build_tables() -> void:
 	_table(Vector3(0.0, 0, 0.0), Vector2(3.0, 1.0), _no_dance)
 	for i in 5:
 		B.mesh(kg, B.boxm(Vector3(0.2, 0.04 * (i + 2), 0.11)), Vector3(-1.2 + i * 0.25, 0.75 + 0.02 * (i + 2), 0.1), Color(0.08, 0.08, 0.08))
+	# Drakkar Noir: musta kulmikas pullo, hopeinen kaula ja suihkupää, hopeinen etiketti ja hintalappu.
+	drakkar = Node3D.new()
+	drakkar.position = Vector3(0.15, 0.75, 0.25)
+	drakkar.rotation.y = 0.3
+	kg.add_child(drakkar)
+	var glass := StandardMaterial3D.new()
+	glass.albedo_color = Color(0.04, 0.04, 0.05)
+	glass.roughness = 0.08
+	glass.metallic = 0.3
+	var body := MeshInstance3D.new()
+	body.mesh = B.boxm(Vector3(0.085, 0.14, 0.04))
+	body.material_override = glass
+	body.position.y = 0.07
+	drakkar.add_child(body)
+	var silver := StandardMaterial3D.new()
+	silver.albedo_color = Color(0.78, 0.79, 0.83)
+	silver.metallic = 0.9
+	silver.roughness = 0.2
+	for part in [[B.cyl(0.013, 0.015, 0.028, 10), 0.154], [B.cyl(0.01, 0.01, 0.014, 8), 0.175]]:
+		var m := MeshInstance3D.new()
+		m.mesh = part[0]
+		m.material_override = silver
+		m.position.y = part[1]
+		drakkar.add_child(m)
+	var label := MeshInstance3D.new()
+	label.mesh = B.boxm(Vector3(0.06, 0.018, 0.002))
+	label.material_override = silver
+	label.position = Vector3(0, 0.06, 0.021)
+	drakkar.add_child(label)
+	# Pieni hintalappu nojaa pöytään pullon edessä (kyltti pienennetty: sign_plate on tehty seinäkylteiksi).
+	var tag := B.sign_plate(drakkar, "12 €", Color(0.98, 0.96, 0.85), Color(0.6, 0.1, 0.1), 0.05, 22, Color(0.6, 0.1, 0.1))
+	tag.scale = Vector3.ONE * 0.22
+	tag.position = Vector3(0.0, 0.012, 0.07)
+	tag.rotation.x = -1.1
 	for x in [0.6, 1.1]:
 		B.mesh(kg, B.sphere(0.1, 10), Vector3(x, 0.88, 0.0), Color(0.97, 0.97, 0.95))
 		B.mesh(kg, B.sphere(0.06, 8), Vector3(x, 1.0, 0.05), Color(0.97, 0.97, 0.95))
