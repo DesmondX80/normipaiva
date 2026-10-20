@@ -51,7 +51,8 @@ func all_tasks_done() -> bool:
 
 
 ## Repun tehtävälista: [teksti, valmis]. Näkyy vain sitä mukaa kuin tehtäviä löytyy.
-func list() -> Array:
+## arrived = Paapeliin on päästy (main.gd: loppu "paapeli" kirjattu).
+func list(arrived := false) -> Array:
 	var out := []
 	out.append(["Kuutonen kotijemmaan", at_least("pekka_kutsuu")])
 	if step == "pekka_kutsuu":
@@ -66,7 +67,7 @@ func list() -> Array:
 		out.append(["Pekan autonavaimet kodalta", at_least("avaimet_mukana")])
 		out.append(["Avaimet Pekalle", at_least("valmis")])
 	if step == "valmis":
-		out.append(["Pekan kyydillä Paapeliin", false])
+		out.append(["Pekan kyydillä Paapeliin", arrived])
 	return out
 
 

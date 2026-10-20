@@ -43,6 +43,8 @@ const ROAD_GETUP_R := 15.0  # päätie näin lähellä: noustaan päätielle ajo
 var _safe: Array = []
 var _safe_t := 0.0
 var on_foot: CharacterBody3D = null  # jalan (main.gd:n kävelijä), mopo parkissa; null = mopon selässä
+## Mökin pihasta on ajettu pois: pihaan palatessa matka päättyy, vaikka kohteena olisi yhä Siitari.
+var _left_yard := false
 
 
 func _ready() -> void:
@@ -71,6 +73,7 @@ func start(to: String, drunk := 0.0) -> void:
 	mopo.reset_drunk()
 	_down = 0.0
 	_safe.clear()
+	_left_yard = false
 	var at: Vector3
 	var dir: Vector3
 	if to == "siitari":
@@ -310,6 +313,8 @@ func _process(delta: float) -> void:
 		hint = ""
 		return
 	var pos := _actor_pos()
+	if pos.distance_to(vaala.mokki_mopo) > HOME_YARD_R + 8.0:
+		_left_yard = true
 	if vaala.train != null and vaala.train.hits(on_foot.global_position if on_foot != null else mopo.global_position):
 		active = false
 		mopo.controls_enabled = false
@@ -383,7 +388,7 @@ func _process(delta: float) -> void:
 			mopo.speed = 0.0
 			stop()
 			arrived.emit()
-	elif target != "siitari" and on_foot == null and pos.distance_to(vaala.mokki_mopo) < HOME_YARD_R:
+	elif (target != "siitari" or _left_yard) and on_foot == null and pos.distance_to(vaala.mokki_mopo) < HOME_YARD_R:
 		# Mökin pihaan ajettaessa kartta vaihtuu mökille itsestään (mopo parkkiin kuten lähtiessä).
 		stop()
 		finished.emit("home")

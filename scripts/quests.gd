@@ -133,7 +133,7 @@ const SIDE := [
 		"known": "first:saastopiha", "done": "first:kukat_paiville",
 		"idea": "Säästöpihalla kukkia. Päivi ilahtuis kimpusta, ku sen vie kotiin ennen iltaa."},
 	{"id": "taimet", "title": "Sinikan tomaatintaimet", "text": "Sinikka ei ehdi säästöpihaan. Taimet sieltä Sinikalle.",
-		"known": "first:saastopiha&first:sinikka", "done": "first:sinikka_taimet",
+		"known": "first:saastopiha&flag:taimet_pyydetty|first:sinikka_taimet", "done": "first:sinikka_taimet",
 		"idea": "Säästöpihan tomaatintaimet… Sinikka puhu, ettei se ehdi tänne itte."},
 	{"id": "seppo", "title": "Sepon varastomyynti", "text": "K-Marketin vieressä Sepon varasto: tarvikkeita sähköpyörään, yllätyslaatikko ja Sepon päivän hinnat.",
 		"known": "first:seppo", "done": "first:seppo",
@@ -148,7 +148,7 @@ const SIDE := [
 		"known": "first:oravajarvi", "done": "first:uinti_oravajärvi",
 		"idea": "Oravajärven uimaranta. Pulahdus virkistää, ja pohjasta voi löytyä kaikenlaista."},
 	{"id": "sormus", "title": "Sormus järven pohjasta", "text": "Oravajärven pohjasta löytyi kultasormus. Kuka siellä käy aamuisin uimassa?",
-		"known": "first:uinti_oravajärvi", "done": "first:sormus_sinikalle",
+		"known": "flag:orava_sormus|first:sormus_sinikalle", "done": "first:sormus_sinikalle",
 		"idea": "Kultasormus järven pohjasta! Joku aamu-uimari on sen hukannu."},
 	{"id": "huoltis", "title": "SEO Saloinen 24/7", "text": "Huoltis on aina auki. Rekkakuskit ajaa Raaheen, jos kehtaa kysyä kyytiä.",
 		"known": "first:seo", "done": "first:rekkakyyti",
@@ -265,9 +265,11 @@ func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable,
 				if d and not done_day.has(st.id):
 					done_day[st.id] = day
 				var h: String = st.get("hint", "")
-				if open and not d and (h == "auto" or (h.begins_with("flag:") and check(h, firsts, flag))):
+				# Lipulla vihjattu vaihe (luvun 5 legendat) näkyy heti kuultuna, vaikka aiempi vaihe olisi kesken.
+				var by_flag := h.begins_with("flag:")
+				if not d and ((open and h == "auto") or (by_flag and check(h, firsts, flag))):
 					heard[st.id] = true
-				if d or (open and heard.has(st.id)):
+				if d or ((open or by_flag) and heard.has(st.id)):
 					rows.append([st.text, d])
 				if not d:
 					open = false
