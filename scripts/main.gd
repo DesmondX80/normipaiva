@@ -14456,6 +14456,9 @@ func _restore_today() -> bool:
 	has_sausage = t.get("makkara", false)
 	has_matches = t.get("tikut", false)
 	_sulo_sold = t.get("sulo_myyty", false)
+	for id in t.get("kertaalleen", []):
+		if not id in _today:
+			_today.append(id)  # käynnistyksessä jo kirjatut säilyvät
 	_kanister_paid = t.get("kanisteri_hinta", 0.0)
 	player.set_carrying(beers > 0)
 	walker_out.set_carrying(beers > 0)
@@ -14651,6 +14654,7 @@ func _save_game() -> void:
 	cfg.set_value("tanaan", "makkara", has_sausage)
 	cfg.set_value("tanaan", "tikut", has_matches)
 	cfg.set_value("tanaan", "sulo_myyty", _sulo_sold)
+	cfg.set_value("tanaan", "kertaalleen", _today)  # _once_today: tämän päivän kertakommentit ja -bonukset
 	cfg.set_value("tanaan", "kanisteri_hinta", _kanister_paid)
 	cfg.set_value("peli", "taimet", _has_taimet)
 	cfg.set_value("peli", "sulo_ilmainen", _sulo_free)
