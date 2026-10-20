@@ -51,7 +51,6 @@ const CHAPTERS := [
 			"done": "flag:ukko_done", "hint": "flag:ukko_heard"},
 	]},
 ]
-const STORY_MORE := "Tarina jatkuu…"
 
 ## Sivutehtävät: id, otsikko, kuvaus (kun tiedossa), tiedossa-ehto, valmis-ehto ja valinnainen edistymisavain
 ## (main.gd quest_progress). Idea: pelaajan ajatus tai huomio, joka näytetään, kun tehtävä tulee tiedoksi, jotta tehtävä
@@ -112,7 +111,7 @@ const SIDE := [
 		"known": "first:pingis", "done": "first:pingis_voitto",
 		"idea": "Santtu pelaa pingistä ku vanha mestari. Kerran se on voitettava."},
 	{"id": "volvo", "title": "Pekan Volvo ei lähde", "text": "Välillä Pekan Volvo ei käynnisty. Korpelan korjaamo laittaa sen kuntoon, ja kyyti Paapeliin on sinä päivänä ilmainen.",
-		"known": "first:korjaamo", "done": "first:volvo_korjattu",
+		"known": "first:volvo_rikki|first:volvo_korjattu", "done": "first:volvo_korjattu",
 		"idea": "Pekan Volvo ei aina lähe. Korpela sen korjais, ja Pekka heittäis ilmaseks Paapeliin."},
 	{"id": "kaasu", "title": "Kaasua Pannu-Sululle", "text": "Pannu-Sulon kaasupullo on tyhjä. Heiskaselta saa uuden.",
 		"known": "first:korjaamo", "done": "first:sulo_kaasu",
@@ -136,7 +135,7 @@ const SIDE := [
 		"known": "first:saastopiha&flag:taimet_pyydetty|first:sinikka_taimet", "done": "first:sinikka_taimet",
 		"idea": "Säästöpihan tomaatintaimet… Sinikka puhu, ettei se ehdi tänne itte."},
 	{"id": "seppo", "title": "Sepon varastomyynti", "text": "K-Marketin vieressä Sepon varasto: tarvikkeita sähköpyörään, yllätyslaatikko ja Sepon päivän hinnat.",
-		"known": "first:seppo", "done": "first:seppo",
+		"known": "first:seppo", "done": "first:seppo_kauppa",
 		"idea": "Sepon varastossa tarvikkeita ja yllätyslaatikko. Hinnat riippuu Sepon päivästä."},
 	{"id": "honganpalo", "title": "Honganpalon koulu", "text": "Vahtimestari Reijo maksaa, jos kerää iltaporukan roskat pihalta.",
 		"known": "first:honganpalo", "done": "first:vahtimestari_keikka",
