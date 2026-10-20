@@ -1179,7 +1179,11 @@ func _ready() -> void:
 	jemma_note = bike_note + jemma_note + _lawn_nag() + _hedge_nag()
 	if not _restore_today():
 		_roll_list()
-	_day_note(MORNING_HEAD.koti.pick_random(), jemma_note)
+	if _resume_mokki and not debug_shot:
+		_list_pending = true  # Päivin lista näytetään, kun palataan kotiin (kuten mökkiaamuna)
+		_show_message("Jatkat Paapelista.", 2.5)
+	else:
+		_day_note(MORNING_HEAD.koti.pick_random(), jemma_note)
 	_flush_morning_info()
 	if loading:
 		_loading_hide()
@@ -14347,6 +14351,7 @@ func _restore_today() -> bool:
 	has_kanister = t.get("kanisteri", false)
 	has_sausage = t.get("makkara", false)
 	has_matches = t.get("tikut", false)
+	_sulo_sold = t.get("sulo_myyty", false)
 	player.set_carrying(beers > 0)
 	walker_out.set_carrying(beers > 0)
 	walker_out.set_kanister(has_kanister)
@@ -14455,6 +14460,22 @@ func _load_game() -> void:
 	hommat.reviews = cfg.get_value("mokki", "arvostelut", [])
 	hommat.banned_day = cfg.get_value("mokki", "haatopaiva", -1)
 	_volvo_fixed_day = cfg.get_value("peli", "volvo_korjattu", -1)
+	_has_taimet = cfg.get_value("peli", "taimet", false)
+	_auction_day = cfg.get_value("paivarajat", "huutokauppa", -1)
+	_bingo_day = cfg.get_value("paivarajat", "bingo", -1)
+	_tanssi_paid_day = cfg.get_value("paivarajat", "tanssilippu", -1)
+	_danced = cfg.get_value("paivarajat", "tanssittu", {})
+	_kirppis_sold = cfg.get_value("paivarajat", "kirppis_myyty", {})
+	_kirppis_angry = cfg.get_value("paivarajat", "kirppis_suuttunut", {})
+	_haaste_day = cfg.get_value("paivarajat", "piirakkahaaste", -1)
+	_ukko_day = cfg.get_value("paivarajat", "ukko", -1)
+	_lava_pass = cfg.get_value("paivarajat", "lavaleima", "")
+	_lava_pass_day = cfg.get_value("paivarajat", "lavaleima_paiva", -1)
+	_santtu_lava_day = cfg.get_value("paivarajat", "santtu_lava", -1)
+	_resume_mokki = cfg.get_value("mokki", "jatka_mokilta", false)
+	hommat.nights = cfg.get_value("mokki", "yot", 0)
+	var hm: Dictionary = cfg.get_value("mokki", "hommat", {})
+	_resume_hommat = hm if hm.get("paiva", -1) == day else {}
 	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
 	world.home_hedge.load_state(cfg.get_value("pensasaita", "aita", {}))
 	hedge_nagged = cfg.get_value("pensasaita", "motkotettu", false)
@@ -14479,6 +14500,12 @@ func _load_game() -> void:
 	aarni.load_from(cfg)
 	ukko.load_from(cfg)
 	_hongan_day = cfg.get_value("honganpalo", "keikka_paiva", -1)
+	# Kesken jäänyt keikka jatkuu samana päivänä: keräämättömät roskat takaisin pihalle.
+	_hongan_keikka = _hongan_day == day and cfg.get_value("honganpalo", "keikka", false)
+	var roskat: Array = cfg.get_value("honganpalo", "roskat", [])
+	if _hongan_keikka and world != null:
+		for i in world.hongan_trash.size():
+			world.hongan_trash[i].visible = roskat[i] if i < roskat.size() else true
 	quests.load_from(cfg)
 	_piirakka_record = cfg.get_value("reippari", "ennatys", 7)
 	_piirakka_holder = cfg.get_value("reippari", "ennatyksen_haltija", "Juntti")
@@ -14514,7 +14541,28 @@ func _save_game() -> void:
 	cfg.set_value("tanaan", "kanisteri", has_kanister)
 	cfg.set_value("tanaan", "makkara", has_sausage)
 	cfg.set_value("tanaan", "tikut", has_matches)
+	cfg.set_value("tanaan", "sulo_myyty", _sulo_sold)
+	cfg.set_value("peli", "taimet", _has_taimet)
 	cfg.set_value("peli", "volvo_korjattu", _volvo_fixed_day)
+	# Kerran päivässä -rajat (päivänumeroita): lataus ei saa avata niitä uudelleen samana päivänä.
+	cfg.set_value("paivarajat", "huutokauppa", _auction_day)
+	cfg.set_value("paivarajat", "bingo", _bingo_day)
+	cfg.set_value("paivarajat", "tanssilippu", _tanssi_paid_day)
+	cfg.set_value("paivarajat", "tanssittu", _danced)
+	cfg.set_value("paivarajat", "kirppis_myyty", _kirppis_sold)
+	cfg.set_value("paivarajat", "kirppis_suuttunut", _kirppis_angry)
+	cfg.set_value("paivarajat", "piirakkahaaste", _haaste_day)
+	cfg.set_value("paivarajat", "ukko", _ukko_day)
+	cfg.set_value("paivarajat", "lavaleima", _lava_pass)
+	cfg.set_value("paivarajat", "lavaleima_paiva", _lava_pass_day)
+	cfg.set_value("paivarajat", "santtu_lava", _santtu_lava_day)
+	# Mökillä tai Vaalassa tallennettu peli jatkuu mökin pihasta (_resume_at_mokki), Santun hommat samana päivänä.
+	cfg.set_value("mokki", "jatka_mokilta", _away_at_mokki())
+	if hommat != null:
+		cfg.set_value("mokki", "yot", hommat.nights)
+		cfg.set_value("mokki", "hommat", {"paiva": day, "active": hommat.active, "tasks": hommat.tasks, "done": hommat.done,
+			"hermo": hommat.hermo, "progress": hommat.progress, "beer_used": hommat.beer_used, "snitched": hommat.snitched,
+			"carry": hommat.carry})
 	cfg.set_value("mokki", "haatopaiva", hommat.banned_day if hommat != null else -1)
 	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("peli", "kukat", has_flowers)
@@ -14617,6 +14665,9 @@ func _save_game() -> void:
 		aarni.save_to(cfg)
 		ukko.save_to(cfg)
 	cfg.set_value("honganpalo", "keikka_paiva", _hongan_day)
+	cfg.set_value("honganpalo", "keikka", _hongan_keikka)
+	if world != null:
+		cfg.set_value("honganpalo", "roskat", world.hongan_trash.map(func(t: Node3D) -> bool: return t.visible))
 	if endings != null:
 		endings.save_to(cfg)
 	if quests != null:
@@ -15001,6 +15052,43 @@ func _flush_morning_info(intro := "") -> void:
 
 
 ## Tallennettu pyörä paikalleen ja pelaaja jalan kotiin. Palauttaa aamumuistutuksen.
+## Tallennus tehtiin mökillä tai Vaalassa (myös Siitarissa, Tervaportin kaupassa ja Vaalan asemalla).
+func _away_at_mokki() -> bool:
+	if mokki == null or player == null:
+		return false
+	return _at_mokki() or _in_vaala or state == "in_siitari" or (state == "in_shop" and _shop_vaala) \
+		or (state == "in_asema" and _asema_town == "vaala")
+
+
+var _resume_mokki := false
+var _resume_hommat := {}
+
+
+## Peli jatkuu mökin pihasta (pihatien pää, kuten kyydillä tultaessa): mökki rakennetaan, Saloisten vaarat odottavat
+## ja saman päivän Santun hommat palautetaan. Vaalassa tallennettu peli jatkuu myös täältä (mopo on pihassa).
+func _resume_at_mokki() -> void:
+	mokki.ensure_built()
+	_ensure_mopo_trip()
+	_place_on_foot(mokki.gpos(Mokki.RIDE_LOCAL + Vector3(0, 0.3, 2.2)))
+	walker_out.rotation.y = 0.0
+	walker_out.activate_camera()
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	tilat.ensure("humala")
+	var hm := _resume_hommat
+	_resume_hommat = {}
+	hommat.stop()
+	if not hm.is_empty():
+		hommat.active = hm.active
+		hommat.tasks = hm.tasks
+		hommat.done = hm.done
+		hommat.hermo = hm.hermo
+		hommat.progress = hm.progress
+		hommat.beer_used = hm.beer_used
+		hommat.snitched = hm.snitched
+		hommat.carry = hm.carry
+	_hommat_prepare()
+
+
 func _apply_saved_bike() -> String:
 	if _bike_saved != null:
 		bike.global_position = _bike_saved[0]
@@ -15009,6 +15097,14 @@ func _apply_saved_bike() -> String:
 	# Peli jatkuu tallennetusta paikasta (Tallenna peli tai automaattitallennus), paitsi "Aloita päivä alusta".
 	var resume := _resume_saved.size() == 3 and not no_resume
 	no_resume = false
+	if resume and _resume_mokki:
+		_resume_spot = _resume_saved  # Saloisten viimeisin ulkopaikka säilyy seuraaviin tallennuksiin
+		_resume_at_mokki()
+		return ""
+	_resume_mokki = false
+	_resume_hommat = {}
+	if not resume:
+		hommat.nights = 0  # "Aloita päivä alusta" tai ei paikkaa: kotoa, mökin yöputki katkeaa
 	if resume:
 		_resume_spot = _resume_saved
 		if _resume_saved[2] and _bike_saved != null and not _bike_garage_saved:
