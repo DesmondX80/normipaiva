@@ -21,6 +21,8 @@ const OUTFITS := {
 }
 const PLAYER_HAIR := Color(0.82, 0.66, 0.4)
 static var outfit := "tuulipuku"
+## Pelaajan päähine lippiksen tilalle (kodin vaatekaappi): "" = asun oma lippis, "stetson" = cowboyhattu.
+static var hat := ""
 
 
 ## Pelaajan ulkonäkö valitussa asussa (Looks.make lisää asusteet, add_cap lippiksen asun mukaan).
@@ -621,6 +623,9 @@ static var _cap_cache := {}
 static func add_cap(c: Node3D) -> void:
 	var kind: String = c.get_meta("cap", "karhu")
 	c.set_meta("capped", true)
+	if hat == "stetson" and c.has_meta("player_body"):
+		add_stetson(c)
+		return
 	if kind == "":
 		return  # asussa ei lippistä (rasvaletti)
 	var cloth := CAP_NAVY if kind == "karhu" else KARJALA_RED
@@ -659,6 +664,148 @@ static func add_cap(c: Node3D) -> void:
 	var top := _cap_point(data.grid, 0.0, PI * 0.5)
 	B.mesh(cap, B.sphere(0.009, 10), top + Vector3(0, 0.001, 0), cloth).scale = Vector3(1, 0.55, 1)  # nappi
 	c.attach("Head", cap, CAP_OFFSET)
+
+
+## Stetson-cowboyhattu (pelaajan päähine, Looks.hat): ruskea huopa, korkea kupu, jonka päällä keskiura edestä taakse
+## ja edessä puristukset sivuilla; leveä lieri, joka kaartuu sivuilta ylös ja notkahtaa edestä ja takaa alas; kuvun
+## tyvessä tumma nauha ja hopeinen koristelaatta. Aukko sovitetaan hahmon omaan kalloon (_skull_grid kuten lippiksessä),
+## ja tukka painetaan hatun alle (_tuck_hair). Mitat lippiksen avaruudessa (CAP_OFFSET pääluun lepopaikasta, -Z eteen).
+const STETSON_FELT := Color(0.38, 0.25, 0.14)
+const STETSON_BAND := Color(0.16, 0.1, 0.06)
+const STETSON_RING_Y := -0.012  # aukon korkeus lippiksen avaruudessa (vaakasuora, otsan yläpuolella)
+const STETSON_CROWN_H := 0.125
+const STETSON_BRIM := 0.085
+
+
+static func add_stetson(c: Node3D) -> void:
+	var sk: Skeleton3D = c.skeleton
+	var rest := sk.get_bone_global_rest(sk.find_bone("Head"))
+	var mb: Basis = (c.model.transform * sk.transform).basis
+	var body: MeshInstance3D = null
+	for mi in sk.get_children():
+		if mi is MeshInstance3D and (body == null or mi.mesh.surface_get_array_len(0) > body.mesh.surface_get_array_len(0)):
+			body = mi
+	var key := "stetson/" + str(body.mesh.get_rid())
+	if not _cap_cache.has(key):
+		var grid := _skull_grid(body.mesh, rest.origin, mb)
+		_cap_cache[key] = {"grid": grid, "mesh": _stetson_mesh(grid)}
+	var data: Dictionary = _cap_cache[key]
+	_tuck_hair(sk, body, data.grid, rest.origin, mb)
+	var h := MeshInstance3D.new()
+	h.mesh = data.mesh
+	var felt := StandardMaterial3D.new()
+	felt.vertex_color_use_as_albedo = true
+	felt.vertex_color_is_srgb = true
+	felt.roughness = 0.92
+	felt.cull_mode = BaseMaterial3D.CULL_DISABLED
+	h.material_override = felt
+	var hat_node := Node3D.new()
+	hat_node.add_child(h)
+	# Hopeinen koristelaatta nauhassa vasemmalla sivulla.
+	var ring: Array = data.mesh.get_meta("ring")
+	var th := PI * 0.5
+	var r := _stetson_ring_r(ring, th)
+	var concho := MeshInstance3D.new()
+	concho.mesh = B.cyl(0.011, 0.011, 0.004, 16)
+	var silver := StandardMaterial3D.new()
+	silver.albedo_color = Color(0.82, 0.83, 0.86)
+	silver.metallic = 0.95
+	silver.roughness = 0.2
+	concho.material_override = silver
+	concho.position = Vector3(sin(th), 0, -cos(th)) * (r + 0.004) + Vector3(0, STETSON_RING_Y + 0.016, 0)
+	concho.rotation = Vector3(0, 0, PI * 0.5)
+	hat_node.add_child(concho)
+	c.attach("Head", hat_node, CAP_OFFSET)
+
+
+## Aukon säde kiertokulmassa th (rengas: NT säteen lista), lineaarinen interpolointi.
+static func _stetson_ring_r(ring: Array, th: float) -> float:
+	var f := fposmod(th, TAU) / TAU * NT
+	var i0 := int(floorf(f)) % NT
+	return lerpf(ring[i0], ring[(i0 + 1) % NT], f - floorf(f))
+
+
+static func _stetson_mesh(grid: Array) -> ArrayMesh:
+	# Aukon säde kussakin suunnassa: kallon pinta korkeudella STETSON_RING_Y + huopa ja väli.
+	var ring := []
+	for i in NT:
+		var th := TAU * i / NT
+		var ps := 0.0
+		for it in 5:
+			ps = asin(clampf((STETSON_RING_Y - CAP_C.y) / (_skull_r(grid, th, ps) + 0.012), -0.95, 0.95))
+		var p := CAP_C + _dir(th, ps) * (_skull_r(grid, th, ps) + 0.012)
+		ring.append(Vector2(p.x, p.z).length())
+	var y0 := STETSON_RING_Y
+	var felt := STETSON_FELT
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# Nelikulmio a-b-c-d; kiertosuunta valitaan niin, että pinnan normaali osoittaa vihjeen (ulospäin) puolelle
+	# (Godotin etupinta myötäpäivään normaalin puolelta katsottuna; generate_normals laskee normaalit kiertosuunnasta).
+	var quad := func(a: Vector3, b: Vector3, cc: Vector3, d: Vector3, col: Color, hint: Vector3) -> void:
+		var n := (b - a).cross(d - a).normalized()
+		var order := [a, cc, b, a, d, cc]
+		if n.dot(hint) < 0.0:
+			n = -n
+			order = [a, b, cc, a, cc, d]
+		for v in order:
+			st.set_color(col)
+			st.add_vertex(v)
+	# Kupu: seinä aukolta ylös, kapenee hieman; etupuristukset painavat seinää sisään yläosassa edessä sivuilla.
+	var nv := 10
+	var wall := func(th: float, v: float) -> Vector3:
+		var r := _stetson_ring_r(ring, th) * lerpf(1.0, 0.9, v)
+		var front := maxf(0.0, -cos(th))  # 1 edessä
+		var pinch := pow(absf(sin(th)), 1.5) * front * front * smoothstep(0.45, 1.0, v)
+		r *= 1.0 - 0.22 * pinch
+		var y := y0 + STETSON_CROWN_H * v - 0.012 * (1.0 - front) * v  # kupu laskee hieman taakse
+		return Vector3(sin(th) * r, y, -cos(th) * r)
+	for i in NT:
+		var t0 := TAU * i / NT
+		var t1 := TAU * (i + 1) / NT
+		for j in nv:
+			var v0 := float(j) / nv
+			var v1 := float(j + 1) / nv
+			var col := STETSON_BAND if v1 <= 0.2 else felt.lightened(0.04 * v0)
+			quad.call(wall.call(t0, v0), wall.call(t1, v0), wall.call(t1, v1), wall.call(t0, v1), col, Vector3(sin(t0), 0, -cos(t0)))
+	# Katto: seinän yläreunasta keskelle, keskiura edestä taakse (x ≈ 0 painuu alas).
+	var nr := 6
+	var roof := func(th: float, u: float) -> Vector3:
+		var top: Vector3 = wall.call(th, 1.0)
+		var p := Vector3(top.x * (1.0 - u), top.y, top.z * (1.0 - u))
+		var crease := exp(-pow(p.x / 0.028, 2.0)) * smoothstep(0.0, 0.5, u)
+		p.y += 0.012 * sin(u * PI * 0.5) - 0.035 * crease
+		return p
+	for i in NT:
+		var t0 := TAU * i / NT
+		var t1 := TAU * (i + 1) / NT
+		for j in nr:
+			var u0 := float(j) / nr
+			var u1 := float(j + 1) / nr
+			quad.call(roof.call(t0, u0), roof.call(t1, u0), roof.call(t1, u1), roof.call(t0, u1), felt.lightened(0.06), Vector3.UP)
+	# Lieri: aukolta ulos; sivuilla kaartuu ylös, edessä ja takana notkahtaa alas. Reunassa paksumpi kantti.
+	var nb := 8
+	var brim := func(th: float, t: float, lift: float) -> Vector3:
+		var r := _stetson_ring_r(ring, th) + STETSON_BRIM * t
+		var side := sin(th) * sin(th)
+		var y := y0 + 0.042 * side * t * t - 0.012 * (1.0 - side) * t * t + lift
+		return Vector3(sin(th) * r, y, -cos(th) * r)
+	for i in NT:
+		var t0 := TAU * i / NT
+		var t1 := TAU * (i + 1) / NT
+		for j in nb:
+			var a0 := float(j) / nb
+			var a1 := float(j + 1) / nb
+			var col := felt.darkened(0.08) if j == nb - 1 else felt
+			quad.call(brim.call(t0, a0, 0.0), brim.call(t1, a0, 0.0), brim.call(t1, a1, 0.0), brim.call(t0, a1, 0.0), col, Vector3.UP)
+		# Reunan paksuus: kapea pystykaista lierin ulkoreunassa.
+		quad.call(brim.call(t0, 1.0, -0.004), brim.call(t1, 1.0, -0.004), brim.call(t1, 1.0, 0.0), brim.call(t0, 1.0, 0.0),
+			felt.darkened(0.2), Vector3(sin(t0), 0, -cos(t0)))
+	# Pehmeät normaalit: samat kärkipisteet yhdistetään (värin raja, esim. nauha, jää teräväksi).
+	st.index()
+	st.generate_normals()
+	var out := st.commit()
+	out.set_meta("ring", ring)
+	return out
 
 
 ## Kallon säde suunnittain (θ = kiertokulma, 0 = eteen -Z; ψ = korotuskulma) ilman tukkaa.
