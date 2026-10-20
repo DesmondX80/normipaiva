@@ -6104,7 +6104,7 @@ func _on_home_acted(kind: String) -> void:
 				tilat.add("kokemus", -0.02)
 			_show_message("\"%s\"" % TV_SHOWS.pick_random(), 3.0)
 		"vaatekaappi":
-			_open_wardrobe(["tuulipuku", "farkut"], "Kotona vaatekaapilla: mitä tänään päälle?")
+			_open_wardrobe(["tuulipuku", "farkut", "hattu"], "Kotona vaatekaapilla: mitä tänään päälle?")
 		"puhelin":
 			phone.found = true
 			home_int.phone_found = true
@@ -8266,6 +8266,9 @@ func _open_wardrobe(ids: Array, title: String) -> void:
 	_menu_mode = "asu"
 	var items := []
 	for id in ids:
+		if id == "hattu":  # päähine erikseen: Stetson lippiksen tilalle tai takaisin
+			items.append([id, "Lippis takaisin päähän" if Looks.hat == "stetson" else "Stetson päähän"])
+			continue
 		items.append([id, Looks.OUTFITS[id].name + ("  (päällä)" if id == Looks.outfit else "")])
 	_item_menu.open(items, title)
 
@@ -8274,6 +8277,12 @@ func _on_wardrobe(id: String) -> void:
 	_menu_mode = "give"
 	_interior_busy(false)
 	_active_walker().controls_enabled = true
+	if id == "hattu":
+		_set_hat("" if Looks.hat == "stetson" else "stetson")
+		Sfx.play("cloth", -2.0)
+		_show_message("Stetson päähän. Saloisten kovin cowboy." if Looks.hat == "stetson" else "Lippis takaisin päähän.", 3.0)
+		_save_game()
+		return
 	if id == Looks.outfit:
 		return
 	_set_outfit(id)
@@ -8293,6 +8302,17 @@ func _set_outfit(id: String) -> void:
 	Looks.outfit = id
 	var bodies := get_tree().root.find_children("*", "Node3D", true, false).filter(func(n: Node) -> bool:
 		return n.has_meta("player_body"))  # ensin lista: restyle vapauttaa mallien solmuja
+	for n in bodies:
+		Looks.restyle_player(n)
+
+
+## Pelaajan päähine (Looks.hat): kaikki pelaajan mallit päivittyvät paikallaan kuten asun vaihdossa.
+func _set_hat(h: String) -> void:
+	if h == Looks.hat:
+		return
+	Looks.hat = h
+	var bodies := get_tree().root.find_children("*", "Node3D", true, false).filter(func(n: Node) -> bool:
+		return n.has_meta("player_body"))
 	for n in bodies:
 		Looks.restyle_player(n)
 
@@ -14307,6 +14327,7 @@ func _load_game() -> void:
 	headphones.found = cfg.get_value("kuulokkeet", "loydetty", false)
 	phone.found = cfg.get_value("puhelin", "loydetty", false)
 	_set_outfit(cfg.get_value("pelaaja", "asu", "tuulipuku"))
+	_set_hat(cfg.get_value("pelaaja", "hattu", ""))
 	phone.volume = cfg.get_value("puhelin", "voimakkuus", 2)
 	viina_pullot = cfg.get_value("mokki", "viinapullot", 0)
 	atm_day = cfg.get_value("peli", "otto_paiva", 0)
@@ -14426,6 +14447,7 @@ func _save_game() -> void:
 	cfg.set_value("kuulokkeet", "loydetty", headphones.found)
 	cfg.set_value("puhelin", "loydetty", phone.found)
 	cfg.set_value("pelaaja", "asu", Looks.outfit)
+	cfg.set_value("pelaaja", "hattu", Looks.hat)
 	cfg.set_value("puhelin", "voimakkuus", phone.volume)
 	cfg.set_value("mokki", "viinapullot", viina_pullot)
 	cfg.set_value("peli", "otto_paiva", atm_day)
@@ -19221,7 +19243,6 @@ func _maybe_screenshot() -> void:
 			print("KAAPPI valikko auki %s, tila %s, valinnat %s" % [_item_menu.is_open(), _menu_mode, _item_menu._items])
 			await snap.call("_valikko.png")
 			_item_menu.chosen.emit("farkut")
-			_item_menu.close() if _item_menu.has_method("close") else null
 			var bodies := get_tree().root.find_children("*", "Node3D", true, false).filter(func(n): return n.has_meta("player_body"))
 			print("KAAPPI asu %s, pelaajan malleja %d, viesti '%s'" % [Looks.outfit, bodies.size(), _msg.text])
 			await snap.call("_koti.png")
@@ -20558,6 +20579,61 @@ func _maybe_screenshot() -> void:
 				cam.fov = 30.0
 				cam.look_at_from_position(stage.global_position + k[1], stage.global_position + k[2])
 				for i in 5:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"stetson":
+			# Stetson pelaajan päässä kaikissa asuissa: edestä, sivulta, takaa ja lähikuva.
+			var stage := Node3D.new()
+			add_child(stage)
+			stage.global_position = Vector3(5000, 0, 5000)
+			var lamp := DirectionalLight3D.new()
+			lamp.rotation_degrees = Vector3(-40, 25, 0)
+			stage.add_child(lamp)
+			Looks.hat = "stetson"
+			var outs := ["tuulipuku", "farkut", "tyovaatteet"]
+			var heads: Array = []
+			for i in 3:
+				var c: Node3D = Looks.make(stage, Looks.player(outs[i]))
+				Looks.add_cap(c)
+				c.position = Vector3(-0.9 + i * 0.9, 0, 0)
+				c.play("Idle", 0.0)
+				heads.append(c)
+			var cam := Camera3D.new()
+			cam.fov = 40.0
+			stage.add_child(cam)
+			cam.current = true
+			_hud.visible = false
+			# Vaatekaappi pelissä: kodin kaapilla valikko ja Stetson-valinta pelaajan malliin.
+			Looks.hat = ""
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			for f in 5:
+				await get_tree().physics_frame
+			_enter_home("ovi")
+			home_int.walker.position = HomeInterior.SPOTS.vaatekaappi[0]
+			for f in 8:
+				await get_tree().physics_frame
+			_on_home_acted("vaatekaappi")
+			print("STETSON valikko auki %s" % _item_menu.is_open())
+			_on_wardrobe("hattu")
+			var hats := 0
+			for n in get_tree().root.find_children("*", "Node3D", true, false):
+				if n.has_meta("player_body"):
+					hats += 1
+			print("STETSON hattu '%s', pelaajan malleja %d, viesti '%s'" % [Looks.hat, hats, _msg.text])
+			_msg.text = ""
+			for f in 30:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kotona.png"))
+			_on_home_exited()
+			for k in [["koko", 0.0, Vector3(0, 1.1, 3.6), Vector3(0, 1.0, 0)], ["edesta", 0.0, Vector3(0, 1.75, 1.6), Vector3(0, 1.72, 0)],
+					["sivulta", PI * 0.5, Vector3(0, 1.75, 1.6), Vector3(0, 1.72, 0)], ["takaa", PI, Vector3(0, 1.75, 1.6), Vector3(0, 1.72, 0)],
+					["vino", PI * 0.25, Vector3(0, 1.85, 1.2), Vector3(0, 1.72, 0)]]:
+				for c in heads:
+					c.rotation.y = PI + k[1]
+				cam.look_at_from_position(stage.global_position + k[2], stage.global_position + k[3])
+				for f in 8:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
