@@ -519,11 +519,11 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   (video ajastetaan olohuoneessa ennen klo 22, ja klo 22.25 jälkeen sohvalle eteisen kaapin kaljan kanssa). Ilmoitus
   "ONNELLINEN LOPPU".
 - **Legendaariset hetket** (saavutukset, peli jatkuu): Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit,
-  karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas
-  ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
+  karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas,
+  Drakkar Noir ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
   Ukko, Ukko vapaaksi). Ilmoitus "LEGENDAARINEN HETKI".
 - Päiväkirjan Loput-välilehdellä onnelliset loput vasemmalla (X / 7, kerrat yhteensä) ja legendaariset hetket oikealla
-  (X / 15, tähtirivi), löytämättömät ???. Testi `--scene=paivakirja`.
+  (X / 16, tähtirivi), löytämättömät ???. Testi `--scene=paivakirja`.
 
 ## Jalan vai pyörällä?
 
