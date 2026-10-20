@@ -698,7 +698,7 @@ var pontikka := 0  # pulloja repussa
 var _kalle_sold := 0  # tänään myydyt
 var _nimismies: Node3D = null
 var _lava_courage_day := -1  # päivä, jona otettu pontikkahuikka (lavan rohkeus)
-const SULO_LINES := ["Ei kuulu kellekään, mitä täällä tehdään.", "Kakskymppiä kanisteri, ja suu suppuun.",
+const SULO_LINES := ["Ei kuulu kellekään, mitä täällä tehdään.", "Kanisteri kerrallaan, ja suu suppuun.",
 	"Sokeria, hiivaa ja kärsivällisyyttä. Siinä se resepti.", "Ootko sää poliisi? Et näytä poliisilta.",
 	"Tää on vanhan ajan tavaraa, ei mitään Alkon litkua.", "Kuka sulle tästä paikasta kerto? Raimo, vai?"]
 ## Sivutehtävä: Pekan koira Väinö karkaa (dog.gd). Palautus Pekalle: vitonen ja kalja.
@@ -9291,6 +9291,8 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("ukko", "Onko tekojärvessä kalaa?", true, "", has_virveli or has_onki))
 				if who == "tauno" and pannu.found and pannu.choice == "":
 					o.append(_opt("romu", "Myy vanha kuparipannu romuksi (%s €)" % _eur(PANNU_ROMU), true, "", true))
+				if who == "raili":  # kahvio on auki myös kirppispäivinä (Hilkan tervehdys)
+					o.append(_opt("kahvi", "Kahvi ja munkki (%s €)" % _eur(SEURA_KAHVI), money >= SEURA_KAHVI, "rahat ei riitä"))
 				if who == "raili" and tokola.markat:
 					o.append(_opt("markat", "Myy vanhat markat keräilijälle (%s €)" % _eur(TOKOLA_MARKAT), true, "", true))
 				for k in KIRPPIS_STOCK:
@@ -9544,7 +9546,7 @@ func _talk_choose(id: String) -> void:
 			walker_out.set_kanister(true)
 			state = "to_home"
 			Sfx.play("coin", -4.0)
-			_talk_box.reply("Kakskymppiä ja suu suppuun. Ja kanisteri takasin, kun on tyhjä.", _talk_options(),
+			_talk_box.reply("Tässä. Ja suu suppuun. Ja kanisteri takasin, kun on tyhjä.", _talk_options(),
 				"Pontikkakanisteri mukana, vastaa %d kaljaa! Vie se kotiin jemmaan." % _kanister_beers())
 		"pojat":
 			_talk_pojat(id)

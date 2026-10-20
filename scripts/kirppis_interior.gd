@@ -177,7 +177,7 @@ func enter(m := "kirppis") -> void:
 		"bingo":
 			say_id("huutaja", "Bingo alkaa pian! Lappu kaks euroa, tule hakemaan.")
 		_:
-			say_id("hilkka", "Tervetuloa kirppikselle! Kahvi ja pulla euron, liinat halvalla.")
+			say_id("hilkka", "Tervetuloa kirppikselle! Kahvi ja munkki kaks euroa, liinat halvalla.")
 
 
 func leave() -> void:
