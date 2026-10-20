@@ -5538,6 +5538,8 @@ func _ending_line(id: String) -> String:
 
 ## Tarinan vihje puhujalta (quests.gd): tervehdyksessä aina, kun vihje on uusi; jutellessa uusi tai joskus toistona.
 func _story_hint(who: String, hello: bool) -> String:
+	if _santtu_hommat_later(who):
+		return ""  # hommavihje vasta, kun hommat ovat käynnissä (lista lapussa)
 	var before: int = quests.heard.size()
 	var line: String = quests.hint_for(who, tilat.firsts, quest_flag)
 	if line == "":
@@ -8759,6 +8761,7 @@ func _train_trip(to: String) -> void:
 		_mopo_restore_hud()
 		state = _vaala_state
 		_hommat_leave_mokki()  # junalla kotiin = mökiltä lähtö: Santun hommat pois, maksettu paluutaksi raukeaa
+		tilat.first("asema_vaala", 0.0)  # luku 4: laiturilta suoraan junaan ilman odotussalia käy myös
 		_taxi_mokki_return = false
 	else:
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
@@ -9228,6 +9231,17 @@ var _santtu_riding := false
 const SANTTU_LAVA_HELLO := "Hommat on tehty! Lähetäänkö illalla Oulujärven lavalle? Humppaveikot soittaa, ja diskopuolella on nuorisoa. Mää hyppään mopon taakse."
 
 
+## Luku 2: Santun hommat alkavat vasta mökkiyön jälkeen. Siihen asti Santtu kertoo yöpymisestä, ei anna hommavihjettä.
+const SANTTU_FIRST_DAY := "Tervetuloa Paapeliin! Jää yöksi, niin aamulla on pihahommia. Kirjoitan listan lappuun."
+
+
+func _santtu_hommat_later(who: String) -> bool:
+	if who != "santtu" or hommat == null or hommat.active:
+		return false
+	var a: Array = quests.active_step(tilat.firsts, quest_flag)
+	return not a.is_empty() and a[1].id == "hommat"
+
+
 func _santtu_offers_lava() -> bool:
 	return hommat.active and hommat.all_done() and _santtu_lava_day != day and not _santtu_riding
 
@@ -9239,6 +9253,8 @@ func _talk_hello(who: String) -> String:
 	if who.begins_with("sinikka") and drakkar_day == day and _once_today("drakkar_sinikka"):
 		tilat.add("moraali", 0.1)
 		return "Mmm... onks toi Drakkar Noir? Tuu vähän lähemmäs, komistus. Ihan ku ois -94 ja Zabukin tanssit."
+	if _santtu_hommat_later(who):
+		return SANTTU_FIRST_DAY
 	if who == "santtu" and _santtu_offers_lava():
 		return SANTTU_LAVA_HELLO
 	if who == "pekka" and story.step in ["pekka_kutsuu", "pekka_avaimet"]:
@@ -9479,7 +9495,7 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("kahvi", "Anna kahvit", true, "", true))
 			if hommat.active:
 				o.append(_opt("hommat", "Mitä hommia vielä on?"))
-				if not hommat.beer_used and not hommat.all_done():
+				if not hommat.beer_used and not hommat.beer_tasks().is_empty():
 					var drinks := [["kalja", "Tarjoa kalja", beers], ["pontikka", "Tarjoa Korpi-Kallen pontikkaa", pontikka],
 						["viina", "Tarjoa kätköviinaa", viina_pullot]]
 					var any := false
@@ -14456,6 +14472,9 @@ func _restore_today() -> bool:
 	has_sausage = t.get("makkara", false)
 	has_matches = t.get("tikut", false)
 	_sulo_sold = t.get("sulo_myyty", false)
+	for id in t.get("kertaalleen", []):
+		if not id in _today:
+			_today.append(id)  # käynnistyksessä jo kirjatut säilyvät
 	_kanister_paid = t.get("kanisteri_hinta", 0.0)
 	player.set_carrying(beers > 0)
 	walker_out.set_carrying(beers > 0)
@@ -14651,6 +14670,7 @@ func _save_game() -> void:
 	cfg.set_value("tanaan", "makkara", has_sausage)
 	cfg.set_value("tanaan", "tikut", has_matches)
 	cfg.set_value("tanaan", "sulo_myyty", _sulo_sold)
+	cfg.set_value("tanaan", "kertaalleen", _today)  # _once_today: tämän päivän kertakommentit ja -bonukset
 	cfg.set_value("tanaan", "kanisteri_hinta", _kanister_paid)
 	cfg.set_value("peli", "taimet", _has_taimet)
 	cfg.set_value("peli", "sulo_ilmainen", _sulo_free)

@@ -301,11 +301,16 @@ func bar() -> String:
 	return "%d %%" % roundi(hermo)
 
 
-## Kalja Santulle: Santtu tekee helpoimman tekemättömän homman. Palauttaa tehdyn homman id:n tai "".
+## Hommat, jotka Santtu tekee kaljasta: kaikki tekemättömät paitsi savusaunan korjaus (tarinan luku 2 tehdään itse).
+func beer_tasks() -> Array:
+	return undone().filter(func(t: String) -> bool: return t != "saunakorjaus")
+
+
+## Kalja Santulle: Santtu tekee satunnaisen tekemättömän homman (ei saunakorjausta). Palauttaa homman id:n tai "".
 func beer_help() -> String:
 	if beer_used or not active:
 		return ""
-	var left := undone()
+	var left := beer_tasks()
 	if left.is_empty():
 		return ""
 	beer_used = true
