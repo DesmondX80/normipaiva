@@ -4438,7 +4438,10 @@ func _seppo_logic() -> void:
 	var e := Input.is_action_just_pressed("interact")
 	if _near_xz(world.seppo_door, 3.0) or (world.seppo_npc.visible and _near_xz(world.seppo_npc.global_position, 2.2)):
 		tilat.first("seppo", 0.1)
-		if _seppo_open():
+		var at_npc: bool = world.seppo_npc.visible and _near_xz(world.seppo_npc.global_position, 2.2)
+		if _seppo_open() and not at_npc:
+			_hint.text = "Seppo on pihalla romujen keskellä (%s)." % _seppo_mood()[0]  # ovelta ei puhuta: Seppo on kaukana
+		elif _seppo_open():
 			_hint.text = "[E] Sepon varastomyynti (%s)" % _seppo_mood()[0]
 			if e:
 				_talk_open("seppo", world.seppo_npc)
@@ -9445,8 +9448,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("kauppias", "Kerro siitä Tokolan kauppiaasta"))
 			if kertun.malmi and not kertun.malmi_known:
 				o.append(_opt("malmi", "Näytä Kertunkankaan suolta nostettu ruosteinen möykky", true, "", true))
-			if tokola.key and not pannu.heard:
-				o.append(_opt("vanhasulo", "Kuka oli se S. S. kauppiaan kirjoissa?", true, "", tokola.tilikirja))
+			if tokola.tilikirja and not pannu.heard:  # nimikirjaimet S. S. luetaan varaston tilikirjasta
+				o.append(_opt("vanhasulo", "Kuka oli se S. S. kauppiaan kirjoissa?", true, "", true))
 		"seo", "aplus", "katsastaja", "hitsari":
 			_pohjoiset_options(who, o)
 		"seppo", "saasto":
@@ -12758,7 +12761,7 @@ func _kota_logic() -> void:
 		return
 	if player.is_stunned():
 		return
-	var e := Input.is_action_just_pressed("interact")
+	var e := Input.is_action_just_pressed("interact") and Engine.get_process_frames() != _story_end_frame  # tarinan ohitus-E ei aloita uutta
 	var near := func(local: Vector3, r: float) -> bool:
 		var g: Vector3 = k.to_global(local)
 		return Vector2(p.x - g.x, p.z - g.z).length() < r
@@ -12890,6 +12893,9 @@ func _start_kota_game(game: Node3D, local: Vector3, rot_y: float, message: Calla
 
 
 ## Tarinatuokio kodassa: kamera kertojiin, repliikit puhekuplina ja tekstityksenä. E ohittaa repliikin.
+var _story_end_frame := -1  # kodan tarina loppui tässä ruudussa (ohittava E ei aloita heti uutta)
+
+
 func _tell_story(custom: Array = [], done := Callable()) -> void:
 	var k: Node3D = world.kota
 	var unheard := []
@@ -12924,6 +12930,7 @@ func _tell_story(custom: Array = [], done := Callable()) -> void:
 				break
 		(k.raimo if who == "raimo" else k.veikko).play("Sitting_Idle", 0.3)
 	cam.queue_free()
+	_story_end_frame = Engine.get_process_frames()
 	player.visible = true
 	player.activate_camera()
 	player.controls_enabled = true
@@ -15436,7 +15443,7 @@ func _spawn_player() -> void:
 func _set_avatar(a: CharacterBody3D) -> void:
 	player = a
 	world.follow = a
-	for h in [wife, juntti, guard, tractor, arto, pekka, sinikka, sulo, police, vaino, stray, mummot, boys]:
+	for h in [wife, juntti, guard, tractor, arto, pekka, sinikka, sulo, aaro, police, vaino, stray, mummot, boys]:
 		if is_instance_valid(h):
 			h.target = a
 	_minimap.player = a

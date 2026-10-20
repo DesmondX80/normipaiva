@@ -456,7 +456,7 @@ voi käräyttää ja paikallinen juntti (Raahen karateklubin perustaja) haastaa 
   kallistaa kameraa. V vaihtaa FPV- ja seurantakameran. Vasen nappi ottaa ilmakuvan: tunnistettavia kohteita on 14
   (koti, K-Market, laavu, grillikatos, Päivin Hyundai, juntti, jyväjemmari, mummot, Arto, Pekka, Sinikka, Väinö,
   jalkapallopojat ja... Pannu-Sulon pontikkapannu, joka merkitään kuvan jälkeen karttaan). Akku kestää 5 min ja
-  latautuu alustalla, korkeusraja on 120 m ja kantama noin 1,3 km: heikolla akulla tai signaalilla drooni palaa
+  latautuu alustalla, korkeusraja on 120 m ja kantama noin 2,7 km (akku ei riitä aivan kantaman reunalle ja takaisin): heikolla akulla tai signaalilla drooni palaa
   itse kotiin (H palaa, F laskeutuu). Kova törmäys rikkoo droonin päiväksi. Päivin jahti on tauolla lennon ajan.
   Drooni kulkee mukana myös **mökille**: alusta on pysäköintipaikan vieressä mökin takana. Mökillä kuvattavia on
   mökki, savusauna, palju, kesäkeittiö, laituri, metsästyslava, Santtu, Korpi-Kallen pannu ja lähijärvet (Likanen, Tervalampi,
