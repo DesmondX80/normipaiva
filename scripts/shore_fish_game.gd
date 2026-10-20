@@ -426,12 +426,14 @@ func _reel(delta: float) -> void:
 			_shake = 0.8
 	_surge = move_toward(_surge, 0.0, delta * 1.2)
 	var wob := (sin(_t * 17.0) * 0.5 + sin(_t * 7.3)) * 0.04 * drunk
-	_tension += ((0.55 if reeling else -0.7) + _surge * (0.9 if not ukko else 0.7) + wob * 10.0) * delta
+	# Ukko: syöksyt vetävät pitkään mutta eivät pidä kireyttä jatkuvasti punaisella, jotta tarkka pelaaja saa sen
+	# maihin noin minuutissa ja huolimatonkin muutamassa (simuloitu: kireys 0,3, veto 0,45, kelaus 0,7).
+	_tension += ((0.55 if reeling else -0.7) + _surge * (0.9 if not ukko else 0.3) + wob * 10.0) * delta
 	_tension = clampf(_tension, 0.0, 1.05)
 	var green := _tension >= 0.35 and _tension <= 0.8
 	if reeling and green:
-		_dist -= (3.4 - minf(p, 1.15) * 1.3) * delta * (0.55 if ukko else 1.0)
-	_dist += _surge * 0.9 * delta
+		_dist -= (3.4 - minf(p, 1.15) * 1.3) * delta * (0.7 if ukko else 1.0)
+	_dist += _surge * (0.45 if ukko else 0.9) * delta
 	_slack_t = _slack_t + delta if _tension < 0.15 else 0.0
 	var to_me := Vector3(spot.x - _bob.x, 0, spot.z - _bob.z)
 	var cur := to_me.length()

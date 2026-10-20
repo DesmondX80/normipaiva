@@ -275,12 +275,12 @@ func _process(delta: float) -> void:
 				say(_people[i], lines.pick_random())
 	var p := walker.position
 	var best := ""
-	var bd := 1.4
+	var bd := INF  # lähin voittaa; jokaisella oma ulottuvuus (toimintopiste 1,4 m, henkilöt alla)
 	for id in spots:
 		if not (mode in spots[id][2]):
 			continue
 		var d := Vector2(p.x - spots[id][0].x, p.z - spots[id][0].z).length()
-		if d < bd:
+		if d < 1.4 and d < bd:
 			bd = d
 			best = id
 	for i in _people.size():
@@ -289,7 +289,7 @@ func _process(delta: float) -> void:
 		var q: Vector3 = PEOPLE[i].at
 		var d := Vector2(p.x - q.x, p.z - q.z).length()
 		# Myyjien eteen pöydän yli: pöydän leveys lasketaan mukaan.
-		if d < minf(bd, 2.1 if PEOPLE[i].pose == "Sitting_Idle" else 1.7):
+		if d < bd and d < (2.1 if PEOPLE[i].pose == "Sitting_Idle" else 1.7):
 			bd = d
 			best = "hlo%d" % i
 	spot = best
