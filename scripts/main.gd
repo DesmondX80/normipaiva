@@ -1425,7 +1425,8 @@ func _process(delta: float) -> void:
 			_msg.text = ""
 	elif not _msg_queue.is_empty() and _hud.visible:
 		var m: Array = _msg_queue.pop_front()
-		_show_message(m[0], m[1])
+		if m.size() < 4 or m[3] < 0.0 or _awake_min() - float(m[2]) <= m[3]:
+			_show_message(m[0], m[1])
 
 
 ## Lukitsematon pyörä: jos se on pitkään kaukana (ei kotipihassa), teinit vievät sen muualle.
@@ -1590,6 +1591,8 @@ func _mount_logic() -> void:
 
 
 func _outside_logic() -> void:
+	if _list_pending and not cutscene.busy:
+		_show_pending_list()
 	if _item_menu.is_open():
 		return  # esinevalikko ottaa E:n, W/S:n ja Q:n
 	if _talk_box.is_open():
@@ -10215,9 +10218,16 @@ func _arrive_by_car(dest: Vector3) -> void:
 		_hommat_arrive()
 	else:
 		_hazards.process_mode = Node.PROCESS_MODE_INHERIT  # takaisin Saloisissa: vaarat heräävät
-		if _list_pending:
-			_list_pending = false
-			_day_note("Tervetuloa kotiin! Tässä tämän päivän lista.", "")  # mökiltä palatessa: päivän lista värikynillä
+		_show_pending_list()
+
+
+## Mökiltä palatessa Päivin päivän lista värikynillä, mutta vasta kun K-Market on auki (yöllä junalla tultaessa
+## lista odottaa aamua, _outside_logic). Uusi päivä tuo oman listan (_new_day).
+func _show_pending_list() -> void:
+	if not _list_pending or not is_open("kauppa") or _at_mokki() or _in_vaala:
+		return
+	_list_pending = false
+	_day_note("Tervetuloa kotiin! Tässä tämän päivän lista.", "")
 
 
 ## Naapurin Pekka lähtee Neittävälle kyyhkyjahtiin ja ottaa kyytiin mökille bensakaljalla tai kympillä.
@@ -10417,8 +10427,10 @@ func _sauna_logic(e: bool) -> void:
 				else:
 					_show_message("Pesä on vielä täynnä. Anna palaa hetki.", 2.0)
 		else:
-			_hint.text = "Savusauna lämpiää %d %% · tulta %d s%s" % [pct, ceili(mokki.sauna_fuel),
-				" · hae lisää puita halkopinosta!" if mokki.sauna_fuel < 15.0 else ""]
+			# Kiuas jo lämmin: lisäpuut vain viivästyttäisivät löylyjä, joten kehotetaan antamaan palaa loppuun.
+			var tip := " · kiuas on lämmin, anna palaa loppuun" if mokki.sauna_heated else \
+				(" · hae lisää puita halkopinosta!" if mokki.sauna_fuel < 15.0 else "")
+			_hint.text = "Savusauna lämpiää %d %% · tulta %d s%s" % [pct, ceili(mokki.sauna_fuel), tip]
 	elif mokki.sauna_ready():
 		_hint.text = "[E] Käy löylyssä"
 		if e:
@@ -11600,7 +11612,8 @@ func _on_siitari_acted(kind: String) -> void:
 		"vastaanotto", "dingo":
 			_talk_open(kind, null)
 		"tiski":
-			_talk_open("siitari", null, "Mitäs laitetaan?")
+			var sh := _story_hint("siitari", true)  # tarinan uusi vihje (lava) heti tervehdyksessä, kuten muillakin
+			_talk_open("siitari", null, sh if sh != "" else "Mitäs laitetaan?")
 		"karaoke":
 			if money < KARAOKE_PRICE:
 				_show_message("Karaoke maksaa %s €. Rahat ei riitä." % _eur(KARAOKE_PRICE), 2.5)
@@ -13557,9 +13570,13 @@ func _on_race_finished(won: bool, my_time: float, opp_time: float) -> void:
 		maine = clampf(maine + 3.0, 0.0, 100.0)
 		mielihyva = clampf(mielihyva + 4.0, 0.0, 100.0)
 		tilat.add("moraali", 0.15)
-		tilat.first("mopokisa_voitto", 0.3)
+		var first_win: bool = tilat.first("mopokisa_voitto", 0.3)
 		_ending("kiihdytys")
-		_show_message("Voitit kiihdytyksen (%s)! +%s €. Mopopojat katsoo mopoa uusin silmin." % [t, _eur(_race_bet)], 4.0)
+		# Luku 4 alkaa: pojat ohjaavat Gasthausiin, jonka emäntä kertoo junista (quests.gd luku4 vihje).
+		var tip := "\nMopopojat: \"Ja kotiin pääsee junalla. Kysy Gasthausin emännältä, se tietää junat.\"" \
+			if first_win and not "asema_vaala" in tilat.firsts else ""
+		_show_message("Voitit kiihdytyksen (%s)! +%s €. Mopopojat katsoo mopoa uusin silmin.%s" % [t, _eur(_race_bet), tip],
+			5.5 if tip != "" else 4.0)
 	else:
 		money -= _race_bet
 		tilat.add("moraali", -0.05)
@@ -15151,6 +15168,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	hommat.stop()
 	hommat.nights = 0
 	_hommat_prepare()
+	_list_pending = false  # kotiaamu: Päivin lista tulee tämän päivän lapussa
 	var head := "koti"
 	if spawn.distance_to(mokki.global_position) < 80.0:
 		head = "mokilta"
@@ -16126,11 +16144,13 @@ func _centered_label(layer: CanvasLayer, size: int, anchor_y: float, top: float,
 
 
 ## Viesti jonoon: näytetään, kun edellinen on ehtinyt näkyä loppuun.
-func _queue_message(text: String, seconds: float) -> void:
+## max_age = peliminuutit, joiden jälkeen jonossa odottanut viesti on vanha eikä näy (esim. kellonaikaviesti junamatkan
+## yli); -1 = näytetään aina.
+func _queue_message(text: String, seconds: float, max_age := -1.0) -> void:
 	if _msg_time <= 0.0 and _hud.visible:
 		_show_message(text, seconds)
 	else:
-		_msg_queue.append([text, seconds])
+		_msg_queue.append([text, seconds, _awake_min(), max_age])
 
 
 func _show_message(text: String, seconds: float) -> void:
@@ -16351,11 +16371,14 @@ func _night_tick(delta: float) -> void:
 		tilat.add("vasymys", -0.004 * delta)  # ilta painaa
 		if _night_warned < 1:
 			_night_warned = 1
-			_queue_message("Kello on kymmenen illalla. Alkaa olla myöhä – kahdelta silmät painuu kiinni, kahvi ja viina pitää hereillä.", 4.0)
+			# Vain klo 22–23: välikuvan (esim. junamatka) jälkeen myöhemmin ei enää kerrota kymmenestä.
+			if awake < EVENING_AT - DAY_START + 60.0:
+				_queue_message("Kello on kymmenen illalla. Alkaa olla myöhä – kahdelta silmät painuu kiinni, kahvi ja viina pitää hereillä.", 4.0, 45.0)
 	var limit := _pass_out_limit()
 	if awake >= limit - 30.0 and _night_warned < 2:
 		_night_warned = 2
-		_queue_message("Silmät painuu kiinni... (nukahdat n. klo %s). Sänkyyn ajoissa, tai kahvia!" % _pass_out_text(), 3.5)
+		if awake < limit:
+			_queue_message("Silmät painuu kiinni... (nukahdat n. klo %s). Sänkyyn ajoissa, tai kahvia!" % _pass_out_text(), 3.5, 25.0)
 	if awake >= limit - 30.0:
 		tilat.add("vireys", -0.01 * delta)
 	if awake >= limit and not _minigame_open():  # kesken minipelin (pajatso, saunakorjaus...) sammutaan sen jälkeen
