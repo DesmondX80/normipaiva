@@ -2611,7 +2611,8 @@ const KIRPPIS_STOCK := {
 	"lusikka": {"seller": "tauno", "name": "Isän kuparilusikka", "price": UkkoLegenda.LUSIKKA_HINTA},
 	"drakkar": {"seller": "raili", "name": "Drakkar Noir, puolillaan", "price": 12.0},
 }
-## Drakkar Noir: ysärin legendaarinen tuoksu Railin pöydältä (kerran, legendaarinen hetki). Pullossa DRAKKAR_SPRAYS
+## Drakkar Noir: ysärin legendaarinen tuoksu Railin pöydältä (ensimmäinen löytö legendaarinen hetki; uusi pullo tulee
+## pöydälle, kun edellinen on loppu). Pullossa DRAKKAR_SPRAYS
 ## suihkausta, suihkaus T-valikosta. Tuoksu kestää päivän: moraali ja mielihyvä nousevat, Sinikka ja Päivi huomaavat,
 ## ja tansseissa (seuraintalo, lava) tulos paranee DRAKKAR_DANCE.
 const DRAKKAR_SPRAYS := 10
@@ -2688,7 +2689,7 @@ func _enter_kirppis(mode := "kirppis") -> void:
 	Sfx.play("door", -3.0)
 	tilat.first("kirppis", 0.2)
 	kirppis_int.lot_visible = _auction_lot().get("id", "") == "moottori"
-	kirppis_int.drakkar.visible = not drakkar_found
+	kirppis_int.drakkar.visible = drakkar <= 0
 	kirppis_int.enter(mode)
 	if mode != "kirppis":
 		tilat.first("seura_" + mode, 0.3)
@@ -2988,7 +2989,7 @@ func _kirppis_hidden(k: String) -> bool:
 		"lusikka":
 			return ukko.lusikka or not ukko.heard or not ukko.clues()
 		"drakkar":
-			return drakkar_found
+			return drakkar > 0  # uusi pullo Railin pöydälle, kun edellinen on loppu
 	return false
 
 
@@ -3029,10 +3030,13 @@ func _kirppis_give(k: String) -> String:
 			maine = clampf(maine + 3.0, 0.0, 100.0)
 			return "Posliinikoira ikkunalle vahtimaan. Naapurit näkee."
 		"drakkar":
+			var first := not drakkar_found
 			drakkar_found = true
 			drakkar = DRAKKAR_SPRAYS
-			_ending("drakkar")
-			return "Drakkar Noir! Musta pullo, puolillaan. Ysäri tuoksuu taas. Suihkaise T-valikosta."
+			if first:
+				_ending("drakkar")
+				return "Drakkar Noir! Musta pullo, puolillaan. Ysäri tuoksuu taas. Suihkaise T-valikosta."
+			return "Toinen Drakkar Noir! Raili: \"Mistä näitä tulee? Kuolinpesistä, kulta.\""
 	return ""
 
 
@@ -7263,7 +7267,7 @@ func _spray_drakkar() -> void:
 		tilat.add("stressi", -0.05)
 		_show_message("Vielä yksi suihkaus... Nyt haisee koko Saloisiin.", 2.5)
 	if drakkar <= 0:
-		_queue_message("Drakkar Noir loppui. Legenda elää muistoissa.", 2.5)
+		_queue_message("Drakkar Noir loppui. Railin pöydältä löytyy ehkä uusi pullo.", 2.5)
 	_save_game()
 
 
@@ -20691,6 +20695,12 @@ func _maybe_screenshot() -> void:
 			print("DRAKKAR suihkaus 2: '%s'" % _msg.text)
 			print("DRAKKAR Sinikka: '%s'" % _talk_hello("sinikka"))
 			print("DRAKKAR tanssi 0.6 -> %.2f" % _drakkar_dance(0.6))
+			drakkar = 1
+			_on_eat("drakkar")
+			print("DRAKKAR tyhjä: jäljellä %d, myynnissä taas %s" % [drakkar, not _kirppis_hidden("drakkar")])
+			var cnt: int = endings.counts.get("drakkar", 0)
+			_talk_kirppis("osta_drakkar")
+			print("DRAKKAR uusi pullo: suihkauksia %d, hetkiä %d (ennen %d)" % [drakkar, endings.counts.get("drakkar", 0), cnt])
 			_talk_box.close()
 			_on_kirppis_exited()
 			# Päivi kotona: tuoksu huomataan ovella.
