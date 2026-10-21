@@ -3626,6 +3626,8 @@ func _pohjoiset_options(who: String, o: Array) -> void:
 				why = "jo hyväksytty"
 			elif not ebike.built():
 				why = "ei kasattua sähköpyörää"
+			elif oma_mopo.riding:
+				why = "sähköpyörä on tallissa, pihassa on mopo"  # pyöräsolmu on mopon ajon aikana mopo
 			elif not is_instance_valid(bike) or bike.global_position.distance_to(world.katsastus_door) > 18.0:
 				why = "sähköpyörä pitää tuoda pihaan"
 			elif money < KATSASTUS_HINTA:
