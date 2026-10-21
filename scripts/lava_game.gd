@@ -117,7 +117,7 @@ func _ready() -> void:
 
 
 func _intro_text(extra := "") -> void:
-	var head := "Juhannustanssit" if juhannus else "Lauantain tanssit"
+	var head := "Juhannustanssit" if juhannus else "Illan tanssit"
 	_info.text = "%s%s: %s soittaa \"%s\".%s\nVäliseinän takana diskopuoli nuorisolle.\nTanssi: vuorottele %s ja %s tahtimerkin tahdissa.\n\n%s Hae pari tanssipuolelta\n%s Diskopuolelle\n%s Baaritiskiltä tuoppi (6,50 €)\n%s Toivo bändiltä iskelmää\n%s Toivo DJ:ltä diskobiisi\n%s Lavalta ulos" % [
 		extra, head, band.capitalize(), _song, "\nTV kuvaa: Kesäillan valssi! Hyvä tanssi pääsee lähetykseen." if tv else "",
 		Settings.action_key("left"), Settings.action_key("right"), Settings.cap("interact"),

@@ -2709,6 +2709,7 @@ func _enter_kirppis(mode := "kirppis") -> void:
 	Sfx.play("door", -3.0)
 	tilat.first("kirppis", 0.2)
 	kirppis_int.lot_visible = _auction_lot().get("id", "") == "moottori"
+	kirppis_int.auction_done = _auction_day == day
 	kirppis_int.drakkar.visible = drakkar <= 0
 	kirppis_int.enter(mode)
 	if mode != "kirppis":
@@ -3095,6 +3096,7 @@ func _start_auction() -> void:
 	g.interior = kirppis_int  # huutokauppa salin lavan edessä salin Erkin kanssa
 	g.finished.connect(func(won: bool, price: float) -> void:
 		_auction_day = day
+		kirppis_int.auction_done = true
 		kirppis_int.busy = false
 		kirppis_int.walker.controls_enabled = true
 		kirppis_int.walker.activate()
@@ -3285,7 +3287,7 @@ const HITSARI_RUUVIT := 6.0
 const HITSARI_TELINE := 15.0
 const KEIKKA_PALKKA := 30.0
 const KEIKKA_AIKA := Vector2(7 * 60, 15 * 60)
-const ROSSI_RECORD := 42.0  # crossipoikien kierrosennätys pyörällä (s)
+const ROSSI_RECORD := 22.0  # crossipoikien kierrosennätys pyörällä (s); tavallinen kierros n. 24 s
 const POHJOISET_JUTUT := ["Rekkamies: \"Raahessa terästehdas savuaa taas. Kakskytäviis vuotta ajanu sitä väliä.\"",
 	"Rekkamies: \"Kantatiellä oli hirvi taas aamulla. Isompi ku mun auto.\"", "Myyjä: \"Yövuorossa käy kaikenlaista. Viime yönä joku tuli traktorilla ostamaan munkkia.\"",
 	"Vuoromies: \"Ruukilla haetaan keikkamiehiä. Kinnapotissa kans, kysy Ruduksen portilta.\"",
@@ -6916,7 +6918,7 @@ func _drone_pois() -> Array:
 	for id in fixed:
 		var at: Vector3 = M.w(fixed[id])
 		out.append({"id": id, "name": DRONE_POIS[id], "pos": func() -> Vector3: return at + Vector3(0, 1.0, 0)})
-	if aarni.sulo and not aarni.spotted and not aarni.found and _between(clock_min, Aarnivalkea.NIGHT):
+	if aarni.sulo and aarni.poytakirja and not aarni.spotted and not aarni.found and _between(clock_min, Aarnivalkea.NIGHT):  # hehku näkyy vasta pöytäkirjan jälkeen
 		var aat: Vector3 = M.w(M.AARNI_SPOT)
 		out.append({"id": "aarni_hehku", "name": "Sinertävä hehku sammalten alla Lapinraunion luona!", "pos": func() -> Vector3: return aat + Vector3(0, 0.3, 0)})
 	if ukko.heard and not ukko.spotted and not ukko.caught and _between(clock_min, UkkoLegenda.ILTA):
@@ -7421,7 +7423,7 @@ func _spray_drakkar() -> void:
 
 ## Tansseissa Drakkar Noir parantaa tulosta (sinä päivänä, kun on suihkaistu).
 func _drakkar_dance(score: float) -> float:
-	if drakkar_day != day or score < 0.0:
+	if drakkar_day != day or score <= 0.0:  # tanssimatta tai ilman yhtään osumaa tuoksu ei auta
 		return score
 	_queue_message("Drakkar Noir teki tehtävänsä: tanssipari painautui lähemmäs.", 2.5)
 	return minf(1.0, score + DRAKKAR_DANCE)
@@ -9380,7 +9382,7 @@ func _talk_hello(who: String) -> String:
 	if sh != "":
 		return sh
 	if who == "huutaja" and kirppis_int != null and kirppis_int.mode == "bingo":
-		return "Bingo alkaa! Lappu kaks euroa, ja kynä mukaan."
+		return "Illan bingo on pelattu. Ensi tiistaina uudestaan!" if _bingo_day == day else "Bingo alkaa! Lappu kaks euroa, ja kynä mukaan."
 	if who == "huutaja" and _auction_day == day:
 		return "Tämän päivän huutokauppa on pidetty. Huomenna uusi kohde!"
 	if who == "pojat" and _ball_quest == "search" and not has_ball and randf() < 0.4:
@@ -13328,7 +13330,7 @@ func _enter_lava(free := false) -> void:
 	if free or _lava_pass_now() != "":
 		_lava_start()
 		if _lava_pass_now() == "pummi" and _lava_game != null:
-			_lava_game._intro_text("Pummilla sisällä! Farkut märkänä polviin asti, mutta lippu jäi ostamatta.\n")
+			_lava_game._intro_text("Pummilla sisällä! Farkut märkänä vyötäröön asti, mutta lippu jäi ostamatta.\n")
 		return
 	_show_message("Lippu ostetaan aidan portilta (%s €), portsari leimaa käden." % _eur(MopoTrip.LAVA_TICKET), 3.0)
 
@@ -13891,7 +13893,7 @@ func _on_lava_finished(score: float) -> void:
 		if score > 0.6:
 			_ending("lavatanssit")
 	var msg := "Lavatanssit Oulujärven lavalla! %s" % ("Ilta jää mieleen." if score > 0.6 else ("Varpaat muistavat illan." if score >= 0.0 else
-		"Tällä kertaa vain baaritiskillä."))
+		"Tällä kertaa ei tanssittu."))
 	if _tv_pending != null:
 		# Kesäillan valssi: samaan aikaan Järvikujalla Päivi katsoo lähetystä.
 		var tex: Texture2D = _tv_pending
