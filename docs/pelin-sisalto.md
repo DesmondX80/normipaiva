@@ -151,7 +151,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   oikealla keinulla: pelaajan hahmo istuu keinussa kädet ketjuissa, kamera kuvaa sivulta ja penkin äidit katsovat
   taustalla. Vauhtia oikeaan tahtiin (W eteen, S taakse heilahtaessa, jalat pumppaavat; liian kova vauhti löysää
   ketjut), välilyönnillä hyppy hiekalle (onnistunut alastulo tai selälleen), ja pelaaja jää alastulopaikalleen.
-  Hiekassa metrimerkit, ennätyslippu ja oma paras; Honganpalon Jeren 3,40 m ennätyksen rikkominen tuo maineen. Hiekkalaatikosta voi kaivaa kolikoita tai
+  Hiekassa metrimerkit, ennätyslippu ja oma paras; Honganpalon Jeren 3,40 m ennätyksen rikkominen tuo maineen kerran (oman ennätyksen parantaminen ei). Hiekkalaatikosta voi kaivaa kolikoita tai
   leluja kerran päivässä, ja kalja penkillä äitien edessä maksaa mainetta (illalla rauhassa). Testi `--scene=leikki`.
 - **Sepon varastomyyntipiste:** K-Marketin vieressä Sepon ruskea varasto rojuineen (telkkaripino, renkaat,
   sukset, pressun alla vanha mopo, joka "ei oo myytävänä, vielä"). Auki ti–su 10–18, ellei Seppo ole kalassa. Päivän
@@ -160,8 +160,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (5 €): roskaa, tarvikkeita, kakskymppinen tai Kekkosen rintamerkki, jonka Veksi ostaa 30 €:lla. Seppo ostaa marjat
   ja vanhan Nokian.
 - **Saloisten säästöpiha:** punainen puutarhamyymälä, kasvihuone ja taimipöydät (ma–pe 9–18, la 9–15). Kukkakimppu
-  Päiville: kotiin illaksi, niin aamulla kymppi ylimääräistä; joka 14. päivä on Päivin syntymäpäivä (vihje
-  edellisenä aamuna), jolloin kukat tuovat kakskymppiä ja unohdus vie kauppa-rahat. Sinikka pyytää tomaatintaimia
+  Päiville: vie se kotiin sisälle (maljakkoon), niin aamulla kymppi ylimääräistä, ja kotiin viemätön kimppu lakastuu repussa; joka 14. päivä on Päivin syntymäpäivä (vihje
+  edellisenä aamuna), jolloin kukat tuovat kakskymppiä ja unohdus vie seuraavan aamun kauppa-rahat. Sinikka pyytää tomaatintaimia
   (palkkiona pullaa), ja multasäkistä Päivi saa kukkapenkin. Testi `--scene=seppo`.
 - **Honganpalon koulu:** 270 m kodista tiilinen koulu kylttineen, lipputanko, pyörätelineet ja kenttä maaleineen.
   Vahtimestari Reijo (8–16) maksaa 15 €, kun keräät iltaporukan roskat pihalta; ikkunasta näkyy Päivin luokkakuva
@@ -177,7 +177,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   kentällä oikeaa maalia kohti (myös Honganpalon koulun kentällä), viisi laukausta pelaajan takaa (tähtäin heiluu
   maalin suulla, välilyönti lukitsee suunnan ja korkeuden, hahmo potkaisee ja poikien maalivahti heittäytyy; kulmaan
   vaikea torjua, liian laaja menee ohi) ja viisi torjuntaa maalin suulta (potkija juoksee pilkulle ja lantio
-  paljastaa suunnan, A / S / D heittäytyy). Muut pojat katsovat rangaistusalueen reunalla. Juoksulenkki
+  paljastaa suunnan, A / S / D heittäytyy). Muut pojat katsovat rangaistusalueen reunalla. Kummankin kentän pojat pelaavat kerran päivässä, ja kesken luovutettu (F/Esc) ei ole voitto. Juoksulenkki
   kentän kulmasta kulmaan. Testi `--scene=pohjoiset`.
 - **Oravajärven uimaranta:** hiekkaranta, laituri, pukukoppi (uusi kaljajemma penkin alla), rantagrilli, penkki,
   huussi ja rantakyltti. Uinti kuten Salmisessa, ja joka päivä pohjasta voi löytyä jotain (aurinkolasit, vanha
@@ -186,11 +186,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   päivässä (moraali, vireys, stressi), rannalla voi jutella ja antaa sormuksen, mutta jos jäät tuijottamaan mummojen
   nähden, Päivi kuulee siitä aamulla. Testi `--scene=sinikkaranta`.
 - **SEO Saloinen ja ravintola A+:** tankkauskatos mittareineen, SEO-pylväs hintoineen ja rekka pihassa. Myymälä
-  auki 24/7: kahvi (vireys), munkki reppuun ja rekkakuskin ilmainen kyyti Raaheen (6–23). A+: lounas ma–pe
+  auki 24/7: kahvi (vireys), munkki reppuun ja rekkakuskin ilmainen kyyti Raaheen (6–23, kun Kapteenin Kulma on perillä auki). A+: lounas ma–pe
   10.30–14 ja tuoppi illalla 16–22; pöydissä rekkamiesten ja vuoromiesten juttuja.
 - **Kinnapotin teollisuusalue:** Saloisten katsastus, Arttim metal works ja Rudus siiloineen peltihalleina.
   Katsastusmies tutkii sähköpyörän (teippi, rautalanka, irronneet osat, oikosulku ja tyhjä akku hylkäävät;
-  hyväksytty saa leiman ja maineen). Hitsari myy ruuveja ja hitsaa akkutelineen (akku ei enää irtoa). Ruduksen
+  hyväksytty saa leiman ja maineen kerran). Mopon katsastus samoin kerran. Hitsari myy ruuveja ja hitsaa akkutelineen (akku ei enää irtoa). Ruduksen
   portilla keikkatyötä aamuisin: kolme tuntia lapiota, 30 €.
 - **Tokolanperän rossirata:** OSM-uran kierros mutkien rengasmerkkeineen, lähtöportti ajanottokylttineen ja kolme
   hyppyriä, joista pyörä lähtee ilmaan. Kierrosaika pyörällä crossipoikien ennätystä (0:22) vastaan; voitto antaa
@@ -208,14 +208,14 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   `--scene=kertunkangas`.
 - **Seuraintalon tanssit ja bingo:** päivillä on viikonpäivät (päivä 1 = maanantai, näkyy repun tiedoissa).
   Lauantaisin klo 21–01 tanssit (lippu 8 €): lavalla Saloisten Saapasjalat, viirit ja värivalot, lattialla pareja.
-  Tanssiin voi hakea Sinikan (Päivi soittaa perään kuten Siitarissa), Hilkan tai Anna-Liisan: tanssitaan salin
+  Tanssiin voi hakea Sinikan (Päivi soittaa hetken päästä perään, ja aamulla on motkotusta), Hilkan tai Anna-Liisan: tanssitaan salin
   lattialla salin omien ihmisten kanssa muiden parien kiertäessä ympärillä ja kameran kiertäessä paria, A ja D
   vuorotellen tahdissa nuottiradalla (kompastuessa horjahdus ja pari sanoo sanansa), ja hyvä tanssi nostaa moraalia ja mainetta (kömpelö tanssi Anna-Liisan kanssa leviää
   kylälle). Kahviossa Raili myy kahvia ja munkkia, takaovesta pihalle ukkojen luo takakontille (huikka kossua,
   Anna-Liisa voi nähdä). Tiistaisin klo 18–20 bingo: lappu 2 €, pelaaja istuu bingopöydän päässä mummojen rivissä, ja Erkki
   pyörittää lavalla pallokonetta ja huutaa numerot puhekuplassa. Huudetut numerot
   merkitään omaan lappuun, ja täysi rivi BINGO-napilla voittaa (kahvipaketti, virkkuuliina, lahjakortti tai
-  harvoin joulukinkku), jos ehtii ennen mummoja. Väärä bingohuuto nolaa (pöydän väki kääntyy mulkoilemaan) ja vie mainetta. Testi `--scene=seurailta`.
+  harvoin joulukinkku), jos ehtii ennen mummoja (tarkka merkitsijä noin joka neljäs ilta). Kesken lopetettu bingo tai tanssi ei kuittaa seurailtaa. Väärä bingohuuto nolaa (pöydän väki kääntyy mulkoilemaan) ja vie mainetta. Testi `--scene=seurailta`.
 - **Tokola ja kauppiaan aarre:** Tokolantien varressa Tokolan kaupan vanha varasto (kauppa lopetti 1950–60-luvulla;
   varasto on pelin keksintö). Avain on vanhalla Aarolla, joka antaa sen lihapiirakkaa vastaan ja kertoo
   legendan: kauppias ei vienyt rahojaan pankkiin. Varastosta ohjain, rautalankaa ja kauppiaan tilikirja, jonka
@@ -353,7 +353,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     pään ympäri (mopo jää rantaan). Ympäri voi myös kävellä itse: aidan vesipään ympärillä saa kahlata vyötäröä
     myöten (`--scene=mokkikahlaus`). Leimaa ei silloin ole, ja **portsari** kiertää pihaa portilta lavan ovelle
     näkökenttä maassa kuten Saloisten K-Marketin Anna-Liisa: liian pitkä katse ja portsari taluttaa niskasta portista
-    ulos (maine laskee). Lavan pihalla parkkipaikan laidalla **teinit** ryyppäävät mopojensa vieressä (huikat ja
+    ulos (maine laskee). Lavan sisällä portsari ei näe, ja pihalta pois kävellyt pummi voi ostaa lipun tai kahlata uudestaan. Lavan pihalla parkkipaikan laidalla **teinit** ryyppäävät mopojensa vieressä (huikat ja
     jutut kuten aidan takana). **Aidan takana metsässä** porukka ryyppää nuotiolla kuusikossa, mopot puiden välissä ja kasettisoitin soimassa:
     huikka kiertävästä kossu-vissypullosta (kolme päivässä), kalja porukalle (maine nousee ja saa vinkin
     pummireitistä ja portsarin tavoista, jolloin portsari huomaa hitaammin) ja jutut lamasta, EU:sta, Dingosta ja mopojen virityksistä
@@ -461,7 +461,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     kesken kiristää hermoja lisää, mopolla Siitariin lähtö hommat kesken saa Santun soittamaan Päiville (puhelu
     baarissa ja kotona motkotusta). Kalja tai kätköviina Santulle kerran päivässä: Santtu tekee yhden homman
     itse (puolittain). Kaikki hommat tehty: Santtu antaa 10 € palkkioksi, savukalaa ja pullon
-    pontikkaa. Jokainen mökkipäivä päättyy Santun arvosteluun (1, 3 tai 5 tähteä), ja arvostelut näkyvät repussa.
+    pontikkaa. Jokainen mökkipäivä päättyy Santun arvosteluun (1, 3 tai 5 tähteä), myös taksilla tai junalla lähtiessä (junalla tekstiviestinä), ja arvostelut näkyvät repussa.
   - **Santtu puuhastelee:** kannolla kahvikupin kanssa istumisen välillä Santtu kävelee pihan puuhapaikoille:
     halkoo ja sahaa puupaikalla, kantaa sylillisen halkoja saunan seinälle, heittää löylyvettä kiukaalle, koettaa
     paljun vettä, hoitaa savustinta, heittää tikkaa, onkii laiturin päässä (joskus nousee ahven), naputtelee
