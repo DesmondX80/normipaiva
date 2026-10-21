@@ -1138,6 +1138,7 @@ func _ready() -> void:
 	endings = Endings.new()
 	quests = Quests.new()
 	_load_game()
+	_rossi_update_clock()  # rossiradan kellotaulu: ennätys heti, ei vasta kierroksen jälkeen
 	_story_check_jemma.call_deferred()  # vanha tallennus, jossa kuutonen jo kotijemmoissa
 	_pannu_update()
 	if story.step == "avaimet":
@@ -3337,6 +3338,10 @@ func _pohjoiset_logic() -> void:
 	if player == bike:
 		_rossi_gate_logic(e)
 		return
+	if not _rossi.on and _near_xz(world.rossi_gate, 4.5):
+		tilat.first("rossirata", 0.1)
+		_hint.text = "Rossiradan lähtöportti. Kierrosaika ajetaan pyörällä (%s)." % Settings.action_key("mount")
+		return
 	_kentta_logic(e)
 	if _hint.text != "":
 		return
@@ -3785,7 +3790,10 @@ func _rossi_gate_logic(e: bool) -> void:
 		return
 	tilat.first("rossirata", 0.1)
 	var best := " · oma %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""
-	_hint.text = "[E] Kierrosaika! Crossipoikien ennätys %s%s" % [_laptime(ROSSI_RECORD), best]
+	if _rossi_won:
+		_hint.text = "[E] Kierrosaika! Ennätys %s on sinun (crossipojat %s)" % [_laptime(minf(ROSSI_RECORD, _rossi_best)), _laptime(ROSSI_RECORD)]
+	else:
+		_hint.text = "[E] Kierrosaika! Crossipoikien ennätys %s%s" % [_laptime(ROSSI_RECORD), best]
 	if e:
 		_rossi = {"on": true, "t": 0.0, "next": 1}
 		Sfx.play("horn", -6.0, 1.3)
@@ -5615,6 +5623,8 @@ var _idea_t := 0.0
 func _quest_ideas() -> void:
 	quests.update_done(tilat.firsts, quest_flag, day)
 	for q in quests.newly_known(tilat.firsts, quest_flag, day):
+		if quests.check(q.done, tilat.firsts, quest_flag):
+			continue  # tiedoksi ja tehdyksi samalla kertaa (esim. pummilla lavalle ilman vinkkiä): idea olisi myöhässä
 		if q.id == "sahkopyora":
 			ebike.heard["akku"] = true  # idea muistuttaa Pekan porakoneen akuista
 		var idea: String = q.get("idea", q.text)
@@ -13451,6 +13461,9 @@ func _lava_yard_logic() -> void:
 		_portsari.position = vl.portsari_path[0]
 		_portsari.busted.connect(_on_portsari_busted)
 	var pass_now := _lava_pass_now()
+	if pass_now == "pummi" and _lava_game == null and not vl.in_lava_yard(mopo_trip.to_local(player.global_position)):
+		_lava_pass = ""  # pummi käveli pihalta pois: ei leimaa, lipun voi ostaa tai kahlata uudestaan
+		pass_now = ""
 	vl.open_gate(pass_now != "")
 	_portsari.target = player
 	_portsari.tip = _pummi_tip
