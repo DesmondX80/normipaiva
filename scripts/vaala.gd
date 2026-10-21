@@ -3659,7 +3659,6 @@ func _build_siitari(pts: PackedVector2Array, body: StaticBody3D) -> void:
 	var cs := B.box_shape(Vector3(obb.size.x, wall_h + 3.0, obb.size.y), Vector3.ZERO)
 	cs.transform = Transform3D(Basis(Vector3.UP, -obb.angle), Vector3(obb.center.x, base + wall_h / 2.0, obb.center.y))
 	body.add_child(cs)
-	_bld_polys.append(pts)  # pohja ajoalueen ulkopuolelle (_clear_buildings), jottei mopo reititty seinän läpi
 	# Pääty ja pitkä sivu tien puolella: kumpi pitkä sivu on lähempänä Vaalantietä.
 	var ni: Array = nearest(Vector3(obb.center.x, 0, obb.center.y))
 	var rp := road_pos(ni[0])

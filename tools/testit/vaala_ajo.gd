@@ -126,6 +126,16 @@ func run() -> void:
 			if bx != null and absf(bx.size.x - 25.4) < 0.2 and absf(bx.size.z - 20.5) < 0.2:
 				var lp: Vector3 = vl.to_local((cs as CollisionShape3D).global_position)
 				print("HOTELLI laatikko %s paikallinen %s kierto %.1f° omistaja %s" % [bx.size, lp, rad_to_deg((cs as CollisionShape3D).global_rotation.y), cs.get_parent().get_parent().name])
+		var so: Dictionary = vl._siitari_obb()
+		print("HOTELLI ravintola keskipiste %s koko %s kulma %.1f" % [so.center, so.size, rad_to_deg(so.angle)])
+		for i in range(vl.road.size() - 1, vl.road.size() - 12, -1):
+			var rp: Vector3 = vl.road_pos(i) - vl.road_dir(i).cross(Vector3.UP) * 1.6
+			var rq := Vector2(rp.x, rp.z)
+			var dmin := INF
+			for poly in vl._bld_polys:
+				for k in poly.size():
+					dmin = minf(dmin, Geometry2D.get_closest_point_to_segment(rq, poly[k], poly[(k + 1) % poly.size()]).distance_to(rq))
+			print("HOTELLI tie %d (%.1f, %.1f) ajettava %s koodi %d lähin rakennus %.1f m" % [i, rq.x, rq.y, vl.drivable(rq.x, rq.y), vl.drive_code(Vector3(rq.x, 0, rq.y)), dmin])
 		for poly in vl._bld_polys:
 			var c := Vector2.ZERO
 			for q in poly:
@@ -227,6 +237,11 @@ func _targets() -> void:
 		if at == Vector3.ZERO or at == Vector3.INF:
 			continue
 		var walk: bool = g[2]
+		if g[0] == "hotelli":
+			# Hotellin ovelle kuljetaan jalan polkua pitkin ravintolan parkkipaikalta (vaala.gd _hotel_yard). Ajoalueen
+			# reittihaku menisi ravintolan pohjan läpi (OSM-pohja koskettaa tietä, joten pohjaa ei voi poistaa maskista).
+			print("AJO kohde hotelli       jalan: ovelle polku parkkipaikalta (ei mopoajoa)")
+			continue
 		var cell := _nearest_reached(dist, Vector2(at.x, at.z), 16.0 if walk else 7.0)
 		if cell < 0:
 			var far := _nearest_reached(dist, Vector2(at.x, at.z), 80.0)
