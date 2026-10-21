@@ -8802,6 +8802,9 @@ func _train_trip(to: String) -> void:
 		mopo_trip.stop()
 		_mopo_restore_hud()
 		state = _vaala_state
+		var review := _hommat_leave_review(false)
+		if review != "":
+			_queue_message("Santtu tekstasi: " + review.strip_edges().replace("\n", " "), 5.0)
 		_hommat_leave_mokki()  # junalla kotiin = mökiltä lähtö: Santun hommat pois, maksettu paluutaksi raukeaa
 		tilat.first("asema_vaala", 0.0)  # luku 4: laiturilta suoraan junaan ilman odotussalia käy myös
 		_taxi_mokki_return = false
@@ -10220,25 +10223,34 @@ func _mokki_ride_logic() -> void:
 		if not Input.is_action_just_pressed("interact"):
 			return
 		_taxi_mokki_return = false
+		var review := _hommat_leave_review(true)
 		_hommat_leave_mokki()
 		_hud.visible = false
 		walker_out.controls_enabled = false
 		walker_out.speed = 0.0
 		_save_game()
-		cutscene.taxi_ride("SALOISIIN", "Taksi vie takaisin Saloisiin. Paluu oli jo maksettu.", Cutscene.TAXI_HOME_LINES,
+		cutscene.taxi_ride("SALOISIIN", review + "Taksi vie takaisin Saloisiin. Paluu oli jo maksettu.", Cutscene.TAXI_HOME_LINES,
 			_arrive_by_car.bind(home_zone + Vector3(0, 0.3, 4)))
 		return
 	_hint.text = "[E] Pekan kyydillä kotiin Saloisiin (n. %d km, bensat jo maksettu)" % roundi(HOME_MOKKI_KM)
 	if not Input.is_action_just_pressed("interact"):
 		return
-	var sub := "Pekka palasi kyyhkyjahdista. Matkalla kotiin Saloisiin..."
-	if hommat.active:
-		var st: int = hommat.stars_now()
-		var rv: String = hommat.add_review(day, st)
-		sub = "Santun arvostelu: %s\n\"%s\"\nMatkalla kotiin Saloisiin..." % [Hommat.stars(st), rv]
-		mokki.say("Ai lähet jo? Hommat jäi kesken..." if st < 5 else "Kiitos käynnistä! Tervetuloa uudestaan!", 3.0)
+	var review := _hommat_leave_review(true)
+	var sub := ("%sMatkalla kotiin Saloisiin..." % review) if review != "" else "Pekka palasi kyyhkyjahdista. Matkalla kotiin Saloisiin..."
 	_hommat_leave_mokki()
 	_ride_pekka_home(sub, "koti")
+
+
+## Mökiltä lähtiessä (Pekan kyyti, taksi tai juna) Santtu arvostelee päivän hommat, jos ne olivat käynnissä.
+## Palauttaa arvostelun tekstinä välikuvaan ("" = ei hommia). at_mokki: Santtu sanoo sen pihalla ääneen.
+func _hommat_leave_review(at_mokki: bool) -> String:
+	if not hommat.active:
+		return ""
+	var st: int = hommat.stars_now()
+	var rv: String = hommat.add_review(day, st)
+	if at_mokki:
+		mokki.say("Ai lähet jo? Hommat jäi kesken..." if st < 5 else "Kiitos käynnistä! Tervetuloa uudestaan!", 3.0)
+	return "Santun arvostelu: %s\n\"%s\"\n" % [Hommat.stars(st), rv]
 
 
 ## Pekan kyydillä mökiltä kotipihaan (kind "koti" tai "haato", ks. cutscene.pekka_ride).
@@ -10971,7 +10983,7 @@ func _hommat_visual_done(id: String) -> void:
 			mokki.sauna_smoke = 0.0
 
 
-## Kaikki hommat tehty: Santtu maksaa kyytirahat takaisin, antaa savukalaa ja pullon pontikkaa.
+## Kaikki hommat tehty: Santtu antaa kympin palkkioksi, savukalaa ja pullon pontikkaa.
 func _hommat_reward() -> void:
 	money += PEKKA_RIDE_PRICE
 	food["savukala"] = food.get("savukala", 0) + 1
@@ -10981,7 +10993,7 @@ func _hommat_reward() -> void:
 	mielihyva = clampf(mielihyva + 15.0, 0.0, 100.0)
 	Sfx.play("win", -4.0)
 	_santtu_line("Kaikki hommat tehty! Viiden tähden vieras!", false)
-	_queue_message("KAIKKI SANTUN HOMMAT TEHTY!\nSanttu maksoi kyytirahat takaisin (%s €), antoi savukalaa ja pullon pontikkaa." % _eur(PEKKA_RIDE_PRICE), 5.0)
+	_queue_message("KAIKKI SANTUN HOMMAT TEHTY!\nSanttu antoi %s € palkkioksi, savukalaa ja pullon pontikkaa." % _eur(PEKKA_RIDE_PRICE), 5.0)
 
 
 ## Mopolla Siitariin hommat kesken: Santtu huutaa perään ja soittaa Päiville.
