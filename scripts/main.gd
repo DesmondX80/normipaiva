@@ -87,6 +87,10 @@ const PAIVI_SINIKKA_CALLS := [
 	"\"Mitä sää siellä Vaalassa Sinikan kanssa peuhaat?! Koko kylä puhuu jo!\"",
 	"\"Taas se Sinikka! Luuletko, ettei tänne kuulu mitään? Vaalan Facebook-ryhmässä on kuva!\"",
 	"\"Sää tarjoot Sinikalle drinkkejä, ja meillä on nurmikko leikkaamatta!\""]
+const PAIVI_SINIKKA_SEURA_CALLS := [
+	"\"Anna-Liisa soitti just, että sää TANSSIT seuraintalolla Sinikan kanssa! Kotiin, NYT!\"",
+	"\"Mitä sää siellä seuraintalolla Sinikan kanssa pyörit?! Koko kylä puhuu jo!\"",
+	"\"Taas se Sinikka! Mummot näki teidät lattialla. Luuletko, ettei tänne kuulu mitään?\""]
 const PAIVI_MORNING_SINIKKA := ["Siitä Sinikasta puhutaan vielä. Tänään mää pidän sua silmällä.",
 	"Kahvi on pöydällä. Kylmänä. Tiedät kyllä miksi. (Sinikka.)"]
 const DroneGame := preload("res://scripts/drone_game.gd")
@@ -1284,6 +1288,12 @@ func _process(delta: float) -> void:
 	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
 	_night_tick(delta)
 	_train_update()
+	# Päivin puhelu (Sinikka tai Santun kantelu): soi missä tahansa, ei välikuvissa, minipeleissä eikä karaokessa.
+	if _paivi_call_t > 0.0 and _hud.visible and not state in ["cutscene", "minigame", "fight"] \
+			and (_paivi_call_kind != "santtu" or state == "in_siitari"):  # Santun kantelu soi baarissa
+		_paivi_call_t -= delta
+		if _paivi_call_t <= 0.0:
+			_paivi_calls()
 	_unload_far_places(delta)
 	_rhythm_t -= delta
 	if _rhythm_t <= 0.0:
@@ -1339,10 +1349,6 @@ func _process(delta: float) -> void:
 				_bar_prompt(siitari_int, {"tiski": "siitari", "sinikka": "siitari_sinikka", "vastaanotto": "vastaanotto", "dingo": "dingo"})
 			tilat.add("humala", -0.002 * delta)
 			tilat.add("stressi", 0.004 * delta)
-			if _paivi_call_t > 0.0 and _hud.visible:  # karaoken aikana puhelin ei kuulu
-				_paivi_call_t -= delta
-				if _paivi_call_t <= 0.0:
-					_paivi_calls()
 			siitari_int.bar_closed = not is_open("siitari")
 			if not siitari_int.in_hotel() and not siitari_int.busy:  # hotellin vastaanotto on aina auki
 				_closing_logic("siitari", "Baarimikko: \"Valomerkki! Viimeiset tilaukset, ja sitten ulos.\"",
@@ -11836,14 +11842,14 @@ func _sinikka_flirt() -> void:
 	_sinikka_gossip = true
 	if _paivi_call_t <= 0.0:
 		_paivi_call_t = randf_range(7.0, 12.0)
-		_paivi_call_kind = "sinikka"
+		_paivi_call_kind = "sinikka_seura" if state == "in_kirppis" else "sinikka"
 
 
 func _paivi_calls() -> void:
 	Sfx.play("alert", -2.0, 1.3)
 	tilat.add("stressi", -0.2)
 	tilat.add("moraali", -0.15)
-	var lines: Array = Hommat.PAIVI_SANTTU_CALLS if _paivi_call_kind == "santtu" else PAIVI_SINIKKA_CALLS
+	var lines: Array = {"santtu": Hommat.PAIVI_SANTTU_CALLS, "sinikka_seura": PAIVI_SINIKKA_SEURA_CALLS}.get(_paivi_call_kind, PAIVI_SINIKKA_CALLS)
 	_paivi_call_kind = "sinikka"
 	_show_message("📱 Päivi soittaa: " + lines.pick_random(), 5.0)
 
@@ -15347,6 +15353,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	police = null
 	vaino = null  # karkuri palaa yöksi itse kotiin
 	_hongan_keikka = false  # kesken jäänyt roskakeikka raukeaa yöllä
+	_paivi_call_t = -1.0  # soittamatta jäänyt puhelu ei soi enää huomenna (aamun lappu hoitaa juorun)
 	for t in world.hongan_trash:
 		t.visible = false
 	_roll_vaino()
