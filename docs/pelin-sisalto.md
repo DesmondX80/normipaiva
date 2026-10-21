@@ -362,6 +362,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     vihreä, W kaasu (ennen vihreää = vilppilähtö), välilyönti vaihtaa ylös kierrosmittarin vihreällä alueella
     (aikaisin moottori tukehtuu, rajoittimella aika valuu, kännissä vihreä alue heiluu). Voitto tuplaa panoksen
     ja nostaa mainetta (`--scene=mokkikiihdytys`).
+  - **Karaoke, aito versio:** Siitarin ja Kapteenin Kellarin karaokessa kappale valitaan ennen laulua (W/S ja E, tai hiirellä):
+    paikan oma kappale ("Mopolla Vaalaan", "Ruukin valot": pallo pidetään sanapalkin korkeudella, ääni syntetisoidaan) tai
+    **Normipäivä Saloisissa (aito versio)**: tunnari oikealla soittoraidalla (`assets/music/normipaiva_soitto.mp3`, laulu
+    erotettu) ja trailerin karaokeen ajoitetuilla sanoilla (`assets/music/normipaiva_sanat.json`, 35 riviä ja 145 sanaa,
+    sana sanalta). Sanapalkit vierivät yhdellä korkeudella, ja laulat pitämällä välilyöntiä tai hiiren nappia pohjassa
+    sanojen aikana (osuma-aika / sanojen kesto = tulos, kännissä ääni pätkii). Kappale kestää n. 2 min 45 s, ja Esc lopettaa
+    (pisteet laulettuun asti). Testi `--scene=karaokeaito` (kuvat valikosta ja laulusta).
   - **Räkäleima (pummin leima teinin kädestä):** lavan pihalla juovilta teineiltä (E, "Kopioi tuore leima teinin kädestä", kerran
     päivässä) voi kopioida portsarin tuoreen leiman omaan käteensä (`rakaleima_game.gd`, hiirellä). Käsi viedään leiman
     päälle ja vasen nappi painaa: muste kuivuu 16 sekunnissa ja tarttuu sitä paremmin, mitä tuoreempaa se on, ja R kostuttaa

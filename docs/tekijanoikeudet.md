@@ -21,5 +21,7 @@
 - Mökin ympäristö (`assets/mokki/kartta.json`): © OpenStreetMap-tekijät (ODbL) ja korkeudet Maanmittauslaitoksen
   korkeusmalli 2 m (CC BY 4.0, lehti R4333D, 2023; Kapsin peilistä).
   (`assets/music/normipaiva.mp3`; voimakkuus Asetukset → Ääni → Musiikki).
+  Karaokeversion soittoraita (`assets/music/normipaiva_soitto.mp3`, laulu erotettu Demucsilla) ja ajoitetut sanat
+  (`assets/music/normipaiva_sanat.json`, kohdistettu wav2vec2:lla) ovat samasta tunnarista.
 - Hahmot ja animaatiot: [Quaternius](https://quaternius.com) — Universal Base Characters ja
   Universal Animation Library, **CC0** (lisenssit kansiossa `assets/characters/`).

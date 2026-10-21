@@ -9201,6 +9201,7 @@ func _raahe_karaoke() -> void:
 	_hud.visible = false
 	var game := KaraokeGame.new()
 	game.song = KaraokeGame.SONG_RAAHE
+	game.menu_titles = KaraokeGame.menu_for("Ruukin valot")
 	game.drunk = _hand_shake()
 	game.line.connect(raahe_int.set_screen)
 	game.finished.connect(func(score: float) -> void:
@@ -11847,6 +11848,14 @@ func _paivi_calls() -> void:
 	_show_message("📱 Päivi soittaa: " + lines.pick_random(), 5.0)
 
 
+## Käynnissä oleva karaokepeli (testit valitsevat kappaleen sen kautta).
+func _karaoke_game() -> CanvasLayer:
+	for c in get_children():
+		if c.get_script() == KaraokeGame:
+			return c
+	return null
+
+
 ## Karaoke: lavalle, laulu (karaoke_game.gd), yleisön reaktio ja tilavaikutukset.
 func _start_karaoke() -> void:
 	_jukebox_stop()
@@ -11854,6 +11863,7 @@ func _start_karaoke() -> void:
 	_hud.visible = false
 	var game := KaraokeGame.new()
 	game.drunk = _hand_shake()
+	game.menu_titles = KaraokeGame.menu_for("Mopolla Vaalaan")
 	game.line.connect(siitari_int.set_screen)
 	game.finished.connect(func(score: float) -> void:
 		game.queue_free()
@@ -17441,6 +17451,7 @@ func _maybe_screenshot() -> void:
 			print("SIITARI tanssi ohi: ohjaus %s, puhelu %.1f s" % [siitari_int.walker.controls_enabled, _paivi_call_t])
 			siitari_int.walker.position = siitari_int.spots.karaoke[0]
 			_on_siitari_acted("karaoke")
+			_karaoke_game()._choose(0)  # oma kappale
 			Input.action_press("forward")
 			await get_tree().create_timer(4.0).timeout
 			Input.action_release("forward")
@@ -19783,6 +19794,71 @@ func _maybe_screenshot() -> void:
 			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 			f.store_buffer(saved)
 			f.close()
+			get_tree().quit()
+		"karaokeaito":
+			# Karaoke Siitarissa: kappalevalikko, aito versio (oikea soittoraita, ajoitetut sanat) ja oma kappale. Kuvat joka vaiheesta.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(name: String) -> void:
+				for i in 6:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_start_mopo()
+			var mp2: CharacterBody3D = mopo_trip.mopo
+			mp2.position = mopo_trip.vaala.siitari_park + Vector3(0, 0.5, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			mopo_trip.stop()
+			_on_mopo_arrived()
+			_note.visible = false
+			money = 50.0
+			siitari_int.walker.position = siitari_int.spots.karaoke[0]
+			_on_siitari_acted("karaoke")
+			var kg: CanvasLayer = _karaoke_game()
+			print("KARAOKE valikko: %s, rahaa %.2f" % [str(kg.menu_titles.map(func(m): return m[1])), money])
+			await snap.call("_a_valikko.png")
+			kg._menu_i = 1
+			await snap.call("_b_valinta.png")
+			kg._choose(1)
+			print("KARAOKE aito %s, nuotteja %d, sanoja yhteensä %.1f s, raidan alku %.2f s, soi %s" % [kg.real, kg._notes.size(), kg._total_len, kg._base, kg._track != null and kg._track.playing])
+			for i in 70:
+				await get_tree().process_frame
+			await snap.call("_c_alku.png")
+			# Laulu: välilyönti pohjaan, kello kelataan ensimmäiseen sanaan ja sen yli.
+			var key := InputEventKey.new()
+			key.keycode = KEY_SPACE
+			key.physical_keycode = KEY_SPACE
+			key.pressed = true
+			Input.parse_input_event(key)
+			kg._t = 2.5
+			for i in 20:
+				await get_tree().process_frame
+			print("KARAOKE laulu: laulaa %s, osuma %s, rivi %d, ruudun teksti '%s'" % [kg._singing, kg._hit_now, kg._last_line, kg._lyrics.text])
+			await snap.call("_d_laulu.png")
+			kg._t = 40.0  # keskelle kappaletta
+			for i in 20:
+				await get_tree().process_frame
+			await snap.call("_e_keski.png")
+			key.pressed = false
+			Input.parse_input_event(key)
+			print("KARAOKE osuma-aikaa %.2f s / %.1f s" % [kg._hit_time, kg._total_len])
+			kg._t = 1000.0  # loppuun
+			var t0 := Time.get_ticks_msec()
+			while _karaoke_game() != null and Time.get_ticks_msec() - t0 < 5000:
+				await get_tree().process_frame
+			print("KARAOKE tulos: viesti '%s', tila %s" % [_msg.text.replace("\n", " "), state])
+			# Oma kappale valikon kautta.
+			money = 50.0
+			_on_siitari_acted("karaoke")
+			kg = _karaoke_game()
+			kg._choose(0)
+			for i in 30:
+				await get_tree().process_frame
+			print("KARAOKE oma: aito %s, nuotteja %d, rivi '%s'" % [kg.real, kg._notes.size(), kg._lyrics.text])
+			await snap.call("_f_oma.png")
+			var f2 := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f2.store_buffer(saved)
+			f2.close()
 			get_tree().quit()
 		"mokkirakaleima":
 			# Räkäleima (rakaleima_game.gd): teinin leiman kopiointi lavan pihalla. Kuvat joka vaiheesta, kaksi lopputulosta:

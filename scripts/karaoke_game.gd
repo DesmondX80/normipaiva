@@ -4,6 +4,9 @@ extends CanvasLayer
 ## (AudioStreamGenerator): rumpu, basso, hiljainen ohjausmelodia ja pelaajan "ääni", joka laulaa pallon
 ## korkeudella, joten nuotin vierestä laulaminen kuuluu. Humala saa äänen huojumaan ja laahaamaan.
 ## Tulos 0…1 (osuma-aika / nuottien kesto) finished-signaalilla; line-signaali päivittää baarin ruudun.
+## Kappalevalikko (menu_titles): "aito" = tunnari "Normipäivä Saloisissa" oikealla soittoraidalla (laulu erotettu) ja
+## trailerin karaokeen ajoitetuilla sanoilla (normipaiva_sanat.json, sana sanalta). Aidossa versiossa ei ole sävelkorkeutta:
+## laulat pitämällä välilyöntiä (tai hiiren nappia) pohjassa sanojen aikana, ja kännissä ääni pätkii.
 
 signal finished(score: float)
 signal line(text: String)
@@ -18,6 +21,9 @@ const SYL := 0.42        # tavun perusmitta (s)
 const PX_PER_S := 260.0
 const NOW_X := 320.0
 const TOL := 0.9         # osuman toleranssi (puolisävelaskelia)
+const REAL_TRACK := "res://assets/music/normipaiva_soitto.mp3"
+const REAL_LYRICS := "res://assets/music/normipaiva_sanat.json"
+const REAL_PITCH := 6.0  # aidossa versiossa sanapalkit ovat yhdellä korkeudella
 ## Kappale "Mopolla Vaalaan" (oma sävellys): rivit tavuina [tavu, sävel, kesto tavuina]; "-" = sana jatkuu.
 const SONG := [
 	[["Mo-", 4, 1], ["pol-", 4, 1], ["la", 5, 1], ["Vaa-", 7, 2], ["laan,", 7, 2], ["Sii-", 9, 1], ["ta-", 7, 1], ["riin", 5, 3]],
@@ -37,6 +43,8 @@ const SONG_RAAHE := [
 var drunk := 0.0
 var score := 0.0
 var song: Array = SONG  # laulettava kappale (rivit tavuina)
+var menu_titles: Array = []  # [[avain, nimi, kuvaus]]: kappalevalikko ennen laulua; tyhjä = suoraan song-kappaleeseen
+var real := false  # aito versio (oikea soittoraita, ajoitetut sanat)
 
 var _notes: Array = []  # [alku, kesto, sävel, tavu, rivi]
 var _total_len := 0.0
@@ -60,18 +68,26 @@ var _last_line := -1
 var _done := false
 var _hit_now := false
 var _mouse_used := false
+var _title := "Mopolla Vaalaan"
+var _menu := false
+var _menu_i := 0
+var _menu_rects: Array[Rect2] = []
+var _real_lines: Array = []  # aito: rivit sanataulukkoina
+var _base := 0.0  # aito: raidan sekunti, joka vastaa pelikellon nollaa
+var _track: AudioStreamPlayer
+var _crack := 0.0  # aito: kännissä äänen pätkiminen (s jäljellä)
+var _crack_next := 2.0
+var _singing := false
+
+
+## Kappalevalikko: paikan oma kappale ja aito versio.
+static func menu_for(own_title: String) -> Array:
+	return [["oma", own_title, "Oma sävellys: pidä pallo sanapalkin korkeudella (W/S tai hiiri), ääni syntetisoidaan."],
+		["aito", "Normipäivä Saloisissa (aito versio)", "Tunnari oikealla soittoraidalla ja sanoilla, n. 2 min 45 s: pidä välilyöntiä tai hiiren nappia pohjassa sanojen aikana. Esc lopettaa."]]
 
 
 func _ready() -> void:
 	layer = 20
-	var t := LEAD
-	for li in song.size():
-		for syl in song[li]:
-			var d: float = syl[2] * SYL
-			_notes.append([t, d * 0.92, float(syl[1]), syl[0], li])
-			_total_len += d * 0.92
-			t += d
-		t += SYL * 2.0  # hengitystauko rivien välissä
 	var bg := ColorRect.new()
 	bg.color = Color(0.03, 0.03, 0.08, 0.86)
 	bg.position = Vector2(0, 60)
@@ -100,6 +116,39 @@ func _ready() -> void:
 	_keys.compact = true
 	_keys.centered = true
 	add_child(_keys)
+	if menu_titles.is_empty():
+		_begin()
+	else:
+		_menu = true
+		_keys.set_text("%s valitse · E / Enter / klikkaus aloittaa" % Settings.pair("forward", "back"))
+
+
+## Kappale valittu: nuotit (omat tavut tai aidon sanat), säestys ja ohjeteksti.
+func _begin() -> void:
+	_menu = false
+	_notes.clear()
+	_total_len = 0.0
+	if real and not _build_real_notes():
+		real = false  # sanatiedosto puuttuu: oma kappale
+	if not real:
+		var t := LEAD
+		for li in song.size():
+			for syl in song[li]:
+				var d: float = syl[2] * SYL
+				_notes.append([t, d * 0.92, float(syl[1]), syl[0], li, 0])
+				_total_len += d * 0.92
+				t += d
+			t += SYL * 2.0  # hengitystauko rivien välissä
+	_t = -0.5
+	if real:
+		_keys.set_text("Pidä välilyöntiä (tai hiiren nappia) pohjassa sanojen aikana · %s lopeta" % Settings.cap("mount"))
+		_track = AudioStreamPlayer.new()
+		_track.stream = load(REAL_TRACK)
+		_track.volume_db = -4.0
+		_track.bus = "Music" if AudioServer.get_bus_index("Music") >= 0 else "Master"
+		add_child(_track)
+		_track.play(maxf(_base - 0.5, 0.0))
+		return
 	_keys.set_text("%s pidä pallo palkin korkeudella (tai hiiri)" % Settings.pair("forward", "back"))
 	var gen := AudioStreamGenerator.new()
 	gen.mix_rate = RATE
@@ -113,13 +162,68 @@ func _ready() -> void:
 	_pb = _player.get_stream_playback()
 
 
+## Aito versio: sanat ja ajoitukset JSON:ista. Pelikello nolla on ensimmäisen sanan alkua LEAD sekuntia aiemmin.
+func _build_real_notes() -> bool:
+	var f := FileAccess.open(REAL_LYRICS, FileAccess.READ)
+	if f == null or not ResourceLoader.exists(REAL_TRACK):
+		return false
+	var d: Variant = JSON.parse_string(f.get_as_text())
+	if not (d is Dictionary) or not d.has("lines"):
+		return false
+	var lines: Array = d.lines
+	_base = float(lines[0].words[0][1]) - LEAD
+	_real_lines.clear()
+	for li in lines.size():
+		var ws: Array = []
+		for wi in (lines[li].words as Array).size():
+			var w: Array = lines[li].words[wi]
+			var dur := float(w[2]) - float(w[1])
+			_notes.append([float(w[1]) - _base, dur, REAL_PITCH, w[0], li, wi])
+			_total_len += dur
+			ws.append(w[0])
+		_real_lines.append(ws)
+	return true
+
+
+func _choose(i: int) -> void:
+	if not _menu:
+		return
+	var e: Array = menu_titles[i]
+	real = e[0] == "aito"
+	_title = e[1]
+	Sfx.play("pickup", -6.0)
+	_begin()
+
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_mouse_used = true
+	if not _menu:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_W, KEY_UP:
+				_menu_i = (_menu_i + menu_titles.size() - 1) % menu_titles.size()
+			KEY_S, KEY_DOWN:
+				_menu_i = (_menu_i + 1) % menu_titles.size()
+			KEY_ENTER, KEY_KP_ENTER, KEY_E, KEY_SPACE:
+				_choose(_menu_i)
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		for i in _menu_rects.size():
+			if _menu_rects[i].has_point(_draw_node.get_local_mouse_position()):
+				_menu_i = i
+				_choose(i)
 
 
 func _process(delta: float) -> void:
 	if _done:
+		return
+	if _menu:
+		_info.text = "KARAOKE · valitse kappale"
+		_draw_node.queue_redraw()
+		return
+	if real:
+		_process_real(delta)
 		return
 	_t += delta
 	# Oma ääni: W/S liikuttaa, hiiri asettaa suoraan. Humalassa ääni huojuu ja reagoi laahaten.
@@ -149,7 +253,7 @@ func _process(delta: float) -> void:
 		_last_line = li
 		line.emit(_line_text(li, []))
 	_update_lyrics(cur)
-	_info.text = "KARAOKE · Mopolla Vaalaan    %d %%" % roundi(_hit_time / _total_len * 100.0)
+	_info.text = "KARAOKE · %s    %d %%" % [_title, roundi(_hit_time / _total_len * 100.0)]
 	_fill_audio()
 	_draw_node.queue_redraw()
 	var end: float = _notes[-1][0] + _notes[-1][1] + 1.2
@@ -157,6 +261,44 @@ func _process(delta: float) -> void:
 		_done = true
 		score = clampf(_hit_time / _total_len, 0.0, 1.0)
 		_player.stop()
+		finished.emit(score)
+
+
+## Aito versio: kello seuraa raitaa, laulaminen = pidä välilyöntiä tai hiiren nappia sanan aikana.
+func _process_real(delta: float) -> void:
+	_t += delta
+	if _track != null and _track.playing:
+		var tp := _track.get_playback_position() + AudioServer.get_time_since_last_mix() - AudioServer.get_output_latency() - _base
+		if absf(tp - _t) > 0.12:
+			_t = lerpf(_t, tp, 0.25)
+	_singing = Input.is_key_pressed(KEY_SPACE) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	# Kännissä ääni pätkii välillä: hetken ajan laulu ei osu.
+	_crack = maxf(_crack - delta, 0.0)
+	_crack_next -= delta
+	if _crack_next <= 0.0:
+		_crack_next = randf_range(1.0, 2.2)
+		if randf() < drunk * 0.6:
+			_crack = randf_range(0.2, 0.5)
+	var cur: Array = _note_at(_t)
+	_hit_now = not cur.is_empty() and _singing and _crack <= 0.0
+	if _hit_now:
+		_hit_time += delta
+	var li := -1
+	for n in _notes:
+		if _t < n[0] + n[1] + 1.0:
+			li = n[4]
+			break
+	if li != _last_line and li >= 0:
+		_last_line = li
+		line.emit(_line_text(li, []))
+	_update_lyrics(cur)
+	_info.text = "KARAOKE · %s    %d %%" % [_title, roundi(_hit_time / _total_len * 100.0)]
+	_draw_node.queue_redraw()
+	var end: float = _notes[-1][0] + _notes[-1][1] + 1.2
+	if _t > end or Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
+		_done = true
+		score = clampf(_hit_time / _total_len, 0.0, 1.0)
+		_track.stop()
 		finished.emit(score)
 
 
@@ -177,6 +319,14 @@ func _update_lyrics(cur: Array) -> void:
 
 ## Rivin sanat tavuista (laulettava tavu isolla hakasulkeissa).
 func _line_text(li: int, cur: Array) -> String:
+	if real:
+		var parts: Array[String] = []
+		for wi in (_real_lines[li] as Array).size():
+			var w: String = _real_lines[li][wi]
+			if not cur.is_empty() and cur[4] == li and cur[5] == wi:
+				w = "[" + w.to_upper() + "]"
+			parts.append(w)
+		return " ".join(parts)
 	var txt := ""
 	for syl in song[li]:
 		var s: String = syl[0]
@@ -198,6 +348,9 @@ func _y_to_pitch(y: float) -> float:
 
 func _draw_chart() -> void:
 	var c := _draw_node
+	if _menu:
+		_draw_menu()
+		return
 	c.draw_line(Vector2(NOW_X, 80), Vector2(NOW_X, 520), Color(1, 1, 1, 0.5), 2.0)
 	for n in _notes:
 		var x0: float = NOW_X + (n[0] - _t) * PX_PER_S
@@ -211,10 +364,34 @@ func _draw_chart() -> void:
 		c.draw_string(ThemeDB.fallback_font, Vector2(x0 + 4.0, y - 16.0), (n[3] as String).trim_suffix("-"), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, 0.8))
 	var wob := (sin(_wobble_t * 2.3) * 0.7 + sin(_wobble_t * 5.1 + 1.0) * 0.3) * drunk * 2.2
 	var py := _pitch_to_y(_pitch + wob)
+	if real:
+		py = _pitch_to_y(REAL_PITCH)
+		var col := Color(1.0, 0.85, 0.1) if _hit_now else (Color(0.5, 0.5, 0.55) if _crack > 0.0 else (Color(1.0, 0.6, 0.3) if _singing else Color(1.0, 0.35, 0.3)))
+		c.draw_circle(Vector2(NOW_X, py), 15.0, col)
+		c.draw_circle(Vector2(NOW_X, py), 6.0, Color(1, 1, 1))
+		if _t < LEAD:
+			c.draw_string(ThemeDB.fallback_font, Vector2(W / 2.0 - 30.0, 330), str(ceili(LEAD - _t)), HORIZONTAL_ALIGNMENT_LEFT, -1, 90, Color.WHITE)
+		return
 	c.draw_circle(Vector2(NOW_X, py), 15.0, Color(1.0, 0.85, 0.1) if _hit_now else Color(1.0, 0.35, 0.3))
 	c.draw_circle(Vector2(NOW_X, py), 6.0, Color(1, 1, 1))
 	if _t < LEAD:
 		c.draw_string(ThemeDB.fallback_font, Vector2(W / 2.0 - 30.0, 330), str(ceili(LEAD - _t)), HORIZONTAL_ALIGNMENT_LEFT, -1, 90, Color.WHITE)
+
+
+func _draw_menu() -> void:
+	var c := _draw_node
+	var f := ThemeDB.fallback_font
+	c.draw_string(f, Vector2(0, 150), "VALITSE KAPPALE", HORIZONTAL_ALIGNMENT_CENTER, W, 44, Color(1.0, 0.9, 0.5))
+	_menu_rects.clear()
+	for i in menu_titles.size():
+		var r := Rect2(W / 2.0 - 440.0, 190.0 + i * 140.0, 880.0, 124.0)
+		_menu_rects.append(r)
+		var sel := i == _menu_i
+		c.draw_rect(r, Color(0.2, 0.28, 0.5, 0.95) if sel else Color(0.1, 0.12, 0.2, 0.9))
+		c.draw_rect(r, Color(1.0, 0.85, 0.3) if sel else Color(0.4, 0.45, 0.6), false, 3.0)
+		var e: Array = menu_titles[i]
+		c.draw_string(f, r.position + Vector2(24, 44), ("▶ " if sel else "") + str(e[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color.WHITE if sel else Color(0.85, 0.85, 0.95))
+		c.draw_multiline_string(f, r.position + Vector2(24, 76), str(e[2]), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 48.0, 20, 2, Color(0.8, 0.85, 1.0, 0.9))
 
 
 ## Syntetisoitu säestys: rumpu (vaimeneva sini) ja basso tahdissa, ohjausmelodia hiljaa, oma ääni sahalaitana.
