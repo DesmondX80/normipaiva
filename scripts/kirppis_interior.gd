@@ -47,7 +47,7 @@ const PEOPLE := [
 		"face": Vector3(-1, 0, 0.3), "pose": "Sitting_Idle", "look": {"shirt": Color(0.3, 0.32, 0.25), "pants": Color(0.2, 0.22, 0.35),
 			"shoes": Color(0.2, 0.15, 0.1), "hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.7, 0.68), "beard": true, "height": 1.78,
 			"skin": Color(0.95, 0.72, 0.64), "belly": 0.8}},
-	{"id": "huutaja", "name": "Erkki", "role": "huutaja", "modes": ["kirppis", "bingo"], "at": Vector3(0.0, 0.5, -4.7),
+	{"id": "huutaja", "name": "Erkki", "role": "huutaja", "modes": ["kirppis", "bingo"], "at": Vector3(0.0, 0.5, -4.7), "reach": 2.4,
 		"face": Vector3(0, 0, 1), "pose": "Idle", "look": {"shirt": Color(0.85, 0.85, 0.8), "pants": Color(0.15, 0.15, 0.18),
 			"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_SimpleParted", "hair_color": Color(0.35, 0.3, 0.25), "height": 1.82,
 			"skin": Color(0.96, 0.75, 0.66), "belly": 0.6}},
@@ -289,7 +289,8 @@ func _process(delta: float) -> void:
 		var q: Vector3 = PEOPLE[i].at
 		var d := Vector2(p.x - q.x, p.z - q.z).length()
 		# Myyjien eteen pöydän yli: pöydän leveys lasketaan mukaan.
-		if d < bd and d < (2.1 if PEOPLE[i].pose == "Sitting_Idle" else 1.7):
+		# Erkki lavalla: lavan reuna lasketaan mukaan, myös kulmasta vinottain.
+		if d < bd and d < PEOPLE[i].get("reach", 2.1 if PEOPLE[i].pose == "Sitting_Idle" else 1.7):
 			bd = d
 			best = "hlo%d" % i
 	spot = best
