@@ -20045,6 +20045,56 @@ func _maybe_screenshot() -> void:
 			f2.store_buffer(saved)
 			f2.close()
 			get_tree().quit()
+		"karaokesim":
+			# Karaoken vaikeuden kalibrointi: ihmismäinen botti painaa nuotit normaalijakautuneella ajoituksella (sigma s) ja
+			# unohtaa osan (huti-%), pitkät irrotetaan hieman etuajassa. Kaksi kappaletta × kolme taitotasoa, nopeutettuna.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			_start_mopo()
+			var mp3: CharacterBody3D = mopo_trip.mopo
+			mp3.position = mopo_trip.vaala.siitari_park + Vector3(0, 0.5, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			mopo_trip.stop()
+			_on_mopo_arrived()
+			_note.visible = false
+			var rng := RandomNumberGenerator.new()
+			rng.seed = 42
+			var levels := [["hyvä", 0.04, 0.02, 0.1], ["keskiverto", 0.08, 0.06, 0.2], ["rento", 0.14, 0.15, 0.3]]
+			Engine.time_scale = 4.0
+			for song_i in 2:
+				for lv in levels:
+					money = 50.0
+					_on_siitari_acted("karaoke")
+					var kg: CanvasLayer = _karaoke_game()
+					kg._choose(song_i)
+					if kg._track != null:
+						kg._track.stop()  # raita ei seuraa nopeutettua kelloa
+					var plan := []
+					for n in kg._notes:
+						var late: float = rng.randfn(0.0, lv[1])
+						plan.append([n, float(n.t) + late, rng.randf() < lv[2], float(n.dur) * rng.randf_range(0.7, 1.0) if lv[3] > 0.0 else float(n.dur)])
+					var pressed := []
+					var st := {}
+					while is_instance_valid(kg) and not kg._done:
+						await get_tree().physics_frame
+						if not is_instance_valid(kg):
+							break
+						st = {"hit": kg._hit, "n": kg._notes.size(), "miss": kg._miss, "combo": kg._best_combo, "score": kg._current_score()}
+						for pl in plan:
+							if not pl[2] and not pl[0].get("p", false) and kg._t >= pl[1]:
+								pl[0]["p"] = true
+								kg.lane_press(pl[0].lane, pl[1])
+								pressed.append([pl[0].lane, pl[1] + maxf(pl[3], 0.1)])
+						for pr in pressed.duplicate():
+							if kg._t >= pr[1]:
+								kg.lane_release(pr[0])
+								pressed.erase(pr)
+					print("KARAOKESIM %-7s %-11s: pisteet %3d %%, osumia %d / %d, huteja %d, paras putki %d" % ["oma" if song_i == 0 else "aito", lv[0], roundi(st.score * 100.0), st.hit, st.n, st.miss, st.combo])
+					await get_tree().create_timer(0.5).timeout
+			Engine.time_scale = 1.0
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
 		"mokkirakaleima":
 			# Räkäleima (rakaleima_game.gd): teinin leiman kopiointi lavan pihalla. Kuvat joka vaiheesta, kaksi lopputulosta:
 			# kopio käännettynä oikein päin (kelpaa lipusta) ja peilikuva sellaisenaan (portsarin epäily vähenee vain vähän).
