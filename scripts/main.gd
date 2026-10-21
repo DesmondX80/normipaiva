@@ -2845,7 +2845,7 @@ func _start_bingo() -> void:
 	CamCtl.free_mouse = true
 	var g := BingoGame.new()
 	g.drunk = _hand_shake()
-	g.rival_at = randi_range(18, 26)
+	g.rival_at = randi_range(29, 41)  # tarkka merkitsijä ehtii ensin noin joka neljännellä illalla (simuloitu)
 	g.interior = kirppis_int  # bingopöydässä salin mummojen kanssa
 	g.finished.connect(func(won: bool, false_calls: int) -> void:
 		CamCtl.free_mouse = false
@@ -3610,8 +3610,10 @@ func _pohjoiset_options(who: String, o: Array) -> void:
 		"seo":
 			o.append(_opt("kahvi", "Kahvi (%s €)" % _eur(SEO_KAHVI), money >= SEO_KAHVI, "rahat ei riitä"))
 			o.append(_opt("munkki", "Munkki (%s €, reppuun)" % _eur(SEO_MUNKKI), money >= SEO_MUNKKI, "rahat ei riitä"))
-			o.append(_opt("rekka", "Kysy rekkakuskilta kyytiä Raaheen", not _in_vaala and _between(clock_min, Vector2(6 * 60, 23 * 60)),
-				"kuski nukkuu ohjaamossa (6–23)", true))
+			var rekka_shut := closed_text("raahe", fposmod(clock_min + HOP_RAAHE, 1440.0))  # kuten taksi: baari auki perillä
+			o.append(_opt("rekka", "Kysy rekkakuskilta kyytiä Raaheen", not _in_vaala and _between(clock_min, Vector2(6 * 60, 23 * 60))
+				and rekka_shut == "", "baari on kiinni perillä, aukeaa klo %d" % int(OPEN_HOURS.raahe.x / 60.0)
+				if rekka_shut != "" and _between(clock_min, Vector2(6 * 60, 23 * 60)) else "kuski nukkuu ohjaamossa (6–23)", true))
 		"aplus":
 			if _weekday() < 5 and _between(clock_min, APLUS_LOUNAS):
 				o.append(_opt("lounas", "Lounas: lihapullat, muusi ja kotikalja (%s €)" % _eur(APLUS_LOUNAS_HINTA),
