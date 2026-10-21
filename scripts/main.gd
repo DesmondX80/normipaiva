@@ -19822,13 +19822,6 @@ func _maybe_screenshot() -> void:
 					steps += 1
 					if g._move_t >= 0.0 or g._fall_t >= 0.0:
 						continue
-					if steps == 2500:
-						for si in g.state.size():
-							for t in g.state[si]:
-								if t.hp > 0:
-									print("BOTTI ränni jäljellä: osio %d %s hp %d pos %s, etäisyys silmiin %.2f (reach %.2f), silmät %s" % [si, t.kind, t.hp, t.pos, (t.pos as Vector3).distance_to(g.eye), g.REACH, g.eye])
-					if steps % 3000 == 0:
-						print("BOTTI ränni debug: askel %d, t %.1f, sec %d, bal %.2f, bal_v %.2f, siivottu %d, move_t %.2f, fps %d" % [steps, g._t, g._sec, g._bal, g._bal_v, cleaned, g._move_t, Engine.get_frames_per_second()])
 					Input.action_release("left")
 					Input.action_release("right")
 					if g._bal + g._bal_v * 0.4 > 0.05:
@@ -19884,9 +19877,10 @@ func _maybe_screenshot() -> void:
 				if is_instance_valid(g2):
 					print("BOTTI ampiaiset: tulos '%s', pistoja %d, annos %.2f, myrkkyä jäljellä %.1f, askeleita %d" % [g2.result, g2.stings, g2._dose, g2._can, st2])
 					var t3 := Time.get_ticks_msec()
-					while is_instance_valid(g2) and Time.get_ticks_msec() - t3 < 8000:
+					while is_instance_valid(g2) and Time.get_ticks_msec() - t3 < 40000:
 						await get_tree().process_frame
-				print("BOTTI ampiaiset jälkeen: tila %s, viesti '%s'" % [state, _msg.text.replace("\n", " ")])
+				print("BOTTI ampiaiset jälkeen: tila %s, viesti '%s', peli elossa %s%s" % [state, _msg.text.replace("\n", " "), is_instance_valid(g2),
+					(", end_t %.2f, done %s, result %s, can_quit %s" % [g2._end_t, g2._done, g2.result, g2._can_quit()]) if is_instance_valid(g2) else ""])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
@@ -19910,7 +19904,9 @@ func _maybe_screenshot() -> void:
 			var result := [-1, -1]
 			_start_rankku("saloinen")
 			var g: Node3D = _rankku
-			g.finished.connect(func(m: int, t: int) -> void: result = [m, t])
+			g.finished.connect(func(m: int, t: int) -> void:
+				result[0] = m
+				result[1] = t)
 			var steps := 0
 			var shots := 0
 			var saves := 0
