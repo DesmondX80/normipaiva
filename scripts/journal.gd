@@ -214,7 +214,8 @@ func _draw_story() -> void:
 		if not wr.line(ch.title + ("  ✔" if ch.done else ""), 22, Color(0.45, 0.12, 0.08), 0.0, 36.0):
 			return
 		for row in ch.rows:
-			var lines := _wrap(String(row[0]), 19, width - 30, _hand)
+			var day_note := ("  (päivä %d)" % row[2]) if row.size() > 2 and row[2] > 0 else ""
+			var lines := _wrap(String(row[0]) + day_note, 19, width - 30, _hand)
 			for k in lines.size():
 				var mark := ("✔ " if row[1] else "• ") if k == 0 else "   "
 				if not wr.line(mark + lines[k], 19, Color(0.2, 0.45, 0.2) if row[1] else INK, 16.0, 30.0, _hand):
@@ -239,7 +240,7 @@ func _draw_side() -> void:
 	var open := side.filter(func(q): return not q.done)
 	var finished := side.filter(func(q): return q.done)
 	for q in open + finished:
-		var title: String = q.title + ("  ✔ tehty" if q.done else "") + ("  (%s)" % q.progress if q.progress != "" else "")
+		var title: String = q.title + ((("  ✔ tehty päivänä %d" % q.done_day) if q.done_day > 0 else "  ✔ tehty") if q.done else "") + ("  (%s)" % q.progress if q.progress != "" else "")
 		if not wr.line(title, 20, Color(0.2, 0.45, 0.2) if q.done else Color(0.45, 0.12, 0.08), 0.0, 32.0):
 			return
 		for l in _wrap(String(q.text), 17, width - 20, _hand):

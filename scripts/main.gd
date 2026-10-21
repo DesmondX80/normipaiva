@@ -5587,6 +5587,7 @@ var _idea_t := 0.0
 
 
 func _quest_ideas() -> void:
+	quests.update_done(tilat.firsts, quest_flag, day)
 	for q in quests.newly_known(tilat.firsts, quest_flag, day):
 		if q.id == "sahkopyora":
 			ebike.heard["akku"] = true  # idea muistuttaa Pekan porakoneen akuista
@@ -5706,6 +5707,7 @@ func quest_progress(key: String) -> String:
 
 ## Päiväkirjan sisältö (journal.gd).
 func journal_data() -> Dictionary:
+	_quest_ideas()  # juuri tiedoksi tullut tehtävä saa ideaviestinsä ennen kuin build() merkitsee sen tunnetuksi
 	var d: Dictionary = quests.build(tilat.firsts, quest_flag, story.list(quest_flag("paapeli"), jemma), quest_progress, day)
 	# Onnelliset loput ja legendaariset hetket omina listoinaan (löytämättömät null = ???).
 	for kind in ["loppu", "hetki"]:
@@ -8352,7 +8354,10 @@ func _train_update() -> void:
 		if now < due - lead:
 			continue
 		var tr: Array = _station_train(st)
-		if tr[0] != null and now < due - lead + 3.0 and not tr[0].calling() and state != "cutscene":
+		if tr[0] != null and state == "cutscene":
+			_train_due[st] = maxf(due, now + lead + 1.0)  # välikuvan aikana juna odottaa: tulee heti sen jälkeen
+			continue
+		if tr[0] != null and now < due - lead + 3.0 and not tr[0].calling():
 			tr[0].call_station(tr[1])
 		while _train_due[st] - lead <= now:
 			_train_due[st] += randf_range(TRAIN_GAP.x, TRAIN_GAP.y)
@@ -8802,6 +8807,9 @@ func _train_trip(to: String) -> void:
 		mopo_trip.stop()
 		_mopo_restore_hud()
 		state = _vaala_state
+		var review := _hommat_leave_review(false)
+		if review != "":
+			_queue_message("Santtu tekstasi: " + review.strip_edges().replace("\n", " "), 5.0)
 		_hommat_leave_mokki()  # junalla kotiin = mökiltä lähtö: Santun hommat pois, maksettu paluutaksi raukeaa
 		tilat.first("asema_vaala", 0.0)  # luku 4: laiturilta suoraan junaan ilman odotussalia käy myös
 		_taxi_mokki_return = false
@@ -8847,7 +8855,7 @@ func _arrive_vaala_by_train() -> void:
 	state = _train_prev if _train_prev != "cutscene" else "ulkona"
 	mokki.ensure_built()
 	_ensure_mopo_trip()
-	_start_mopo()
+	_start_mopo(false)
 	mopo_trip.target = "paapeli"
 	var vl: Node3D = mopo_trip.vaala
 	var ast: Dictionary = vl.data.keskusta.asema
@@ -9245,6 +9253,7 @@ func _talk_state_kind() -> String:
 ## Avaa keskustelun: ohjattava hahmo pysähtyy, sisätilan toimintopisteet ja hahmon omat repliikit tauolle.
 func _talk_open(who: String, node: Node3D, hello := "") -> void:
 	_talk_who = who
+	_mopo_menu(true)  # Vaalan ovikeskustelu: valinnan E ei saa avata ovea (ja keskustelua) uudelleen
 	if who in ["pekka", "arto", "sinikka"]:
 		tilat.first(who, 0.0)  # naapuri tavattu: kartan laskuri ja tehtävien ehdot (first:sinikka)
 	elif who == "santtu":
@@ -9349,6 +9358,7 @@ func _talk_watch() -> void:
 
 func _talk_end() -> void:
 	_talk_end_frame = Engine.get_process_frames()
+	_mopo_menu(false)
 	CamCtl.free_mouse = false
 	if is_instance_valid(_talk_node) and "quiet" in _talk_node:
 		_talk_node.quiet = false
@@ -10220,25 +10230,34 @@ func _mokki_ride_logic() -> void:
 		if not Input.is_action_just_pressed("interact"):
 			return
 		_taxi_mokki_return = false
+		var review := _hommat_leave_review(true)
 		_hommat_leave_mokki()
 		_hud.visible = false
 		walker_out.controls_enabled = false
 		walker_out.speed = 0.0
 		_save_game()
-		cutscene.taxi_ride("SALOISIIN", "Taksi vie takaisin Saloisiin. Paluu oli jo maksettu.", Cutscene.TAXI_HOME_LINES,
+		cutscene.taxi_ride("SALOISIIN", review + "Taksi vie takaisin Saloisiin. Paluu oli jo maksettu.", Cutscene.TAXI_HOME_LINES,
 			_arrive_by_car.bind(home_zone + Vector3(0, 0.3, 4)))
 		return
 	_hint.text = "[E] Pekan kyydillä kotiin Saloisiin (n. %d km, bensat jo maksettu)" % roundi(HOME_MOKKI_KM)
 	if not Input.is_action_just_pressed("interact"):
 		return
-	var sub := "Pekka palasi kyyhkyjahdista. Matkalla kotiin Saloisiin..."
-	if hommat.active:
-		var st: int = hommat.stars_now()
-		var rv: String = hommat.add_review(day, st)
-		sub = "Santun arvostelu: %s\n\"%s\"\nMatkalla kotiin Saloisiin..." % [Hommat.stars(st), rv]
-		mokki.say("Ai lähet jo? Hommat jäi kesken..." if st < 5 else "Kiitos käynnistä! Tervetuloa uudestaan!", 3.0)
+	var review := _hommat_leave_review(true)
+	var sub := ("%sMatkalla kotiin Saloisiin..." % review) if review != "" else "Pekka palasi kyyhkyjahdista. Matkalla kotiin Saloisiin..."
 	_hommat_leave_mokki()
 	_ride_pekka_home(sub, "koti")
+
+
+## Mökiltä lähtiessä (Pekan kyyti, taksi tai juna) Santtu arvostelee päivän hommat, jos ne olivat käynnissä.
+## Palauttaa arvostelun tekstinä välikuvaan ("" = ei hommia). at_mokki: Santtu sanoo sen pihalla ääneen.
+func _hommat_leave_review(at_mokki: bool) -> String:
+	if not hommat.active:
+		return ""
+	var st: int = hommat.stars_now()
+	var rv: String = hommat.add_review(day, st)
+	if at_mokki:
+		mokki.say("Ai lähet jo? Hommat jäi kesken..." if st < 5 else "Kiitos käynnistä! Tervetuloa uudestaan!", 3.0)
+	return "Santun arvostelu: %s\n\"%s\"\n" % [Hommat.stars(st), rv]
 
 
 ## Pekan kyydillä mökiltä kotipihaan (kind "koti" tai "haato", ks. cutscene.pekka_ride).
@@ -10971,7 +10990,7 @@ func _hommat_visual_done(id: String) -> void:
 			mokki.sauna_smoke = 0.0
 
 
-## Kaikki hommat tehty: Santtu maksaa kyytirahat takaisin, antaa savukalaa ja pullon pontikkaa.
+## Kaikki hommat tehty: Santtu antaa kympin palkkioksi, savukalaa ja pullon pontikkaa.
 func _hommat_reward() -> void:
 	money += PEKKA_RIDE_PRICE
 	food["savukala"] = food.get("savukala", 0) + 1
@@ -10981,7 +11000,7 @@ func _hommat_reward() -> void:
 	mielihyva = clampf(mielihyva + 15.0, 0.0, 100.0)
 	Sfx.play("win", -4.0)
 	_santtu_line("Kaikki hommat tehty! Viiden tähden vieras!", false)
-	_queue_message("KAIKKI SANTUN HOMMAT TEHTY!\nSanttu maksoi kyytirahat takaisin (%s €), antoi savukalaa ja pullon pontikkaa." % _eur(PEKKA_RIDE_PRICE), 5.0)
+	_queue_message("KAIKKI SANTUN HOMMAT TEHTY!\nSanttu antoi %s € palkkioksi, savukalaa ja pullon pontikkaa." % _eur(PEKKA_RIDE_PRICE), 5.0)
 
 
 ## Mopolla Siitariin hommat kesken: Santtu huutaa perään ja soittaa Päiville.
@@ -11463,7 +11482,8 @@ func _ensure_mopo_trip() -> void:
 	mopo_trip.ensure_built()
 
 
-func _start_mopo() -> void:
+## guide: reittiohje Paapelista Vaalaan (ei junalla tai Gasthausista lähdettäessä: matka alkaa Vaalasta).
+func _start_mopo(guide := true) -> void:
 	var from_mokki := _at_mokki()
 	_mopo_hop = from_mokki
 	_vaala_state = state
@@ -11489,7 +11509,7 @@ func _start_mopo() -> void:
 	if _santtu_riding:
 		_show_message("Santtu hyppäsi mopon taakse: \"Lavalle! Oulujärven lava on Vuolijoentien varressa ennen Vaalaa, Pahalahdentietä niemen kärkeen.\"", 5.0)
 		return
-	if _once_today("mopo_ohje"):
+	if guide and _once_today("mopo_ohje"):
 		_show_message("Uutelanperäntie, Neittäväntie ja Vuolijoentie Vaalaan. Siitari on Vaalantiellä joen takana."
 			+ (" Kännissä tanko vaeltaa: pidä mopo tiellä!" if tilat.value("humala") > 0.1 else ""), 3.5)
 
@@ -11962,7 +11982,7 @@ func _gasthaus_morning(intro: String, msg: String) -> void:
 		state = _vaala_state
 	_new_day(mokki.porch_pos(0.9) - Vector3(0, 0.3, 0), false, intro, "gasthaus")
 	# Aamu Vaalassa: mopo Gasthausin pihassa nokka kadulle, matka Paapeliin alkaa siitä.
-	_start_mopo()
+	_start_mopo(false)
 	mopo_trip.target = "paapeli"
 	var vl: Node3D = mopo_trip.vaala
 	var at: Vector3 = vl.door_pos("gasthaus")

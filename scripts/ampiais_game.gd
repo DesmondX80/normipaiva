@@ -50,6 +50,7 @@ var _end_t := -1.0
 var _flash: ColorRect
 var _idle_t := 0.0
 var _nest_vis: Node3D
+var _armed := false  # E päästetty kerran pelin alettua: aloittava E ei suihkuta
 
 
 func _init() -> void:
@@ -118,7 +119,9 @@ func _start() -> void:
 
 
 func _spraying() -> bool:
-	return (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_action_pressed("interact")) and _can > 0.0 \
+	if not Input.is_action_pressed("interact"):
+		_armed = true  # aloittava E pitää päästää ennen kuin E suihkuttaa
+	return (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (_armed and Input.is_action_pressed("interact"))) and _can > 0.0 \
 		and _end_t < 0.0 and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 
 

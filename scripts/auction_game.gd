@@ -45,6 +45,7 @@ var _t := 0.0
 var _price := 0.0
 var _leader := -1  # -1 = kukaan ei ole huutanut
 var _gaze := 0
+var _start_frame := -1  # aloitusruudun E (keskustelun "Huutamaan") ei ole huuto
 var _gaze_t := 1.0
 var _call := -1  # -1 = ei laskentaa, 0..2 kerrat
 var _call_t := 0.0
@@ -64,6 +65,7 @@ var _cam: Camera3D
 
 
 func _ready() -> void:
+	_start_frame = Engine.get_process_frames()
 	_build()
 	_cam = Camera3D.new()
 	_cam.fov = 50.0
@@ -224,7 +226,7 @@ func _process(delta: float) -> void:
 			if _next_price() <= r[1]:
 				_bid(_gaze)
 				_tip.text = "%s nostaa lappunsa. Erkki: \"%s euroa! Kuulinko %s?\"" % [r[0], _eur(_price), _eur(_price + step)]
-	if Input.is_action_just_pressed("interact"):
+	if Input.is_action_just_pressed("interact") and Engine.get_process_frames() != _start_frame:  # "Huutamaan"-E ei ole huuto
 		_player_bid()
 	# Kerrat: viimeisimmän huudon jälkeen huutaja laskee kolmeen.
 	if _call >= 0:

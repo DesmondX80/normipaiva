@@ -271,7 +271,7 @@ func _process(delta: float) -> void:
 		"row":
 			_hint.set_text("%s soutu   %s käännös   %s heitä virveli (pidä pohjassa)   %s takaisin laiturille" % [
 				Settings.pair("forward", "back"), Settings.pair("left", "right"), Settings.cap("interact"), Settings.cap("mount")])
-			if Input.is_action_pressed("interact") and absf(_speed) < 0.6:
+			if Input.is_action_just_pressed("interact") and absf(_speed) < 0.6:  # aloittava E (pohjassa) ei heitä heti
 				_state = "charge"
 				_charge = 0.0
 				_rod.visible = true

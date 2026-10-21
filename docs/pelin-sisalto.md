@@ -439,7 +439,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     soittaa Pekan hakemaan, antaa yhden tähden arvostelun, eikä mökille pääse ennen huomista. Nukkumaan meno hommat
     kesken kiristää hermoja lisää, mopolla Siitariin lähtö hommat kesken saa Santun soittamaan Päiville (puhelu
     baarissa ja kotona motkotusta). Kalja tai kätköviina Santulle kerran päivässä: Santtu tekee yhden homman
-    itse (puolittain). Kaikki hommat tehty: Santtu maksaa kyytirahat takaisin (10 €), antaa savukalaa ja pullon
+    itse (puolittain). Kaikki hommat tehty: Santtu antaa 10 € palkkioksi, savukalaa ja pullon
     pontikkaa. Jokainen mökkipäivä päättyy Santun arvosteluun (1, 3 tai 5 tähteä), ja arvostelut näkyvät repussa.
   - **Santtu puuhastelee:** kannolla kahvikupin kanssa istumisen välillä Santtu kävelee pihan puuhapaikoille:
     halkoo ja sahaa puupaikalla, kantaa sylillisen halkoja saunan seinälle, heittää löylyvettä kiukaalle, koettaa

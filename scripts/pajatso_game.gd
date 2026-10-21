@@ -174,7 +174,7 @@ func _lever(delta: float) -> void:
 		_pull = maxf(0.0, _pull - delta * 6.0)
 		return
 	var held := Input.is_action_pressed("interact")
-	if held and not _pulling:
+	if Input.is_action_just_pressed("interact") and not _pulling:  # aloittava E (pohjassa) ei laukaise heti
 		if money < PRICE:
 			if Input.is_action_just_pressed("interact"):
 				comment.emit("Rahat loppu. Pajatso ei anna velaksi.")
