@@ -59,7 +59,7 @@ const RAAHE_MENU := {
 const RAAHE_LINES := ["Ruukin porukka nostaa lasit: \"Skooli!\"", "Kapteeni nyökkää ikkunapöydästä.",
 	"Baarimikko: \"Ko lasi on tyhjä, tiiät mistä saa lisää.\"", "Kävelykadulla kulkee iltaväkeä kohti Pekkatoria.",
 	"Joku räknää tiskillä kolikoita tuopin hintaan.", "Kellarista kuuluu karaokea portaita ylös."]
-## Tiistain pubivisa: kysymys, oikea vastaus ensin, sitten väärät (järjestys sekoitetaan).
+## Illan pubivisa: kysymys, oikea vastaus ensin, sitten väärät (järjestys sekoitetaan).
 const RAAHE_QUIZ := [
 	["Kuka perusti Raahen vuonna 1649?", ["Pietari Brahe", "Kustaa Vaasa", "J. L. Runeberg"]],
 	["Mikä on Raahen vanhan torin nimi?", ["Pekkatori", "Kauppatori", "Rantatori"]],
@@ -3665,6 +3665,7 @@ func _pohjoiset_choose(id: String) -> void:
 
 func _rekka_trip() -> void:
 	tilat.first("rekkakyyti", 0.3)
+	_raahe_fare = -1.0
 	state = "cutscene"
 	player.controls_enabled = false
 	player.speed = 0.0
@@ -8940,13 +8941,18 @@ func _cheat_vaala() -> void:
 		"VAALA! Huomenta Gasthausista, mopo odottaa pihassa. Paapeliin on n. 11 km.")
 
 
+var _raahe_fare := 0.0  # Raahen reissun taksimaksu (meno-paluu); -1 = rekkakyyti
+
+
 func _taxi_trip(escape := false) -> void:
 	state = "cutscene"
 	player.controls_enabled = false
 	player.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_hud.visible = false
+	var before := money
 	money = maxf(0.0, money - TAXI_FARE) if escape else money - TAXI_FARE  # paossa kuski ottaa mitä on
+	_raahe_fare = before - money
 	Sfx.play("door_close", -3.0)
 	cutscene.taxi_to_raahe(_enter_raahe)
 
@@ -8963,7 +8969,7 @@ func _enter_raahe() -> void:
 	_own_drink_warned = false
 	_ensure_raahe()
 	raahe_int.enter()
-	_show_message("Kapteenin Kulma, Kirkkokatu 32, Raahe. Kellarissa karaoke, tiistaisin visa ja Tero odottaa kädenvääntöä.", 4.0)
+	_show_message("Kapteenin Kulma, Kirkkokatu 32, Raahe. Kellarissa karaoke, iltaisin visa ja Tero odottaa kädenvääntöä.", 4.0)
 
 
 func _on_raahe_exited() -> void:
@@ -8993,7 +8999,8 @@ func _on_raahe_exited() -> void:
 		parts.append("Päivi tuli etsimään, mutta livahdit taksiin.")
 	if parts.is_empty():
 		parts.append("Ilta Kapteenin Kulmassa.")
-	var stats := "%s Taksi %s €.\nMielihyvä %d · Maine %d" % [" ".join(parts), _eur(TAXI_FARE), roundi(mielihyva), roundi(maine)]
+	var fare := "Rekkakyyti ilmaiseksi." if _raahe_fare < 0.0 else "Taksi %s €." % _eur(_raahe_fare)
+	var stats := "%s %s\nMielihyvä %d · Maine %d" % [" ".join(parts), fare, roundi(mielihyva), roundi(maine)]
 	_day_end = "raahe"
 	cutscene.taxi_home(home_zone, stats, func() -> void:
 		_new_day(home_zone + Vector3(0, 0, 4), false, "Pää on kipeä Raahen reissusta.\n"))
@@ -9022,7 +9029,7 @@ func _on_raahe_acted(kind: String) -> void:
 		"visa":
 			if _raahe.quiz >= 0:
 				_quiz.clear()
-				_talk_open("visa", null, "Tämän illan visa on jo räknätty. Tuu ensi tiistaina uudestaan!")
+				_talk_open("visa", null, "Tämän illan visa on jo räknätty. Tuu huomenna uudestaan!")
 				return
 			_quiz.clear()
 			var pool := RAAHE_QUIZ.duplicate()
@@ -9033,7 +9040,7 @@ func _on_raahe_acted(kind: String) -> void:
 				_quiz.append([q[0], opts, q[1][0]])
 			_quiz_i = 0
 			_quiz_right = 0
-			_talk_open("visa", null, "Tiistain visa! Kolme kysymystä Raahesta. Kaikki oikein, niin visajuoma on talon.\n\n"
+			_talk_open("visa", null, "Illan visa! Kolme kysymystä Raahesta. Kaikki oikein, niin visajuoma on talon.\n\n"
 				+ _quiz_question())
 		"karaoke":
 			if money < RAAHE_KARAOKE_PRICE:
@@ -9109,7 +9116,7 @@ func _quiz_answer(k: int) -> void:
 		_talk_box.reply(res + " Kaikki oikein! Visajuoma talon piikkiin.", _talk_options(),
 			"Visa 3/3! Ruukin porukka: \"Saloisista ja tietää Raahen!\"")
 	else:
-		_talk_box.reply(res + " Ensi tiistaina uudestaan!", _talk_options(), "Visa %d/3." % _quiz_right)
+		_talk_box.reply(res + " Huomenna uudestaan!", _talk_options(), "Visa %d/3." % _quiz_right)
 
 
 ## Karaoke Kapteenin Kellarissa: "Ruukin valot".
@@ -9205,7 +9212,7 @@ func _bar_prompt(bar: Node, talkers: Dictionary) -> void:
 	if bar.busy or _talk_box.is_open() or not talkers.has(bar.spot):
 		return
 	var who: String = talkers[bar.spot]
-	var sub: String = {"raahe": "Juomat ja kahvit", "siitari": "Juomat ja kahvit", "visa": "Tiistain pubivisa",
+	var sub: String = {"raahe": "Juomat ja kahvit", "siitari": "Juomat ja kahvit", "visa": "Illan pubivisa",
 		"vastaanotto": "Huoneet · Meteli", "dingo": "Nimmari · Huikka · Telkkari"}.get(who, "Tanssi · Tarjoa lonkero")
 	_hint.text = " "
 	_talk_prompt.show_for(null, Settings.action_key("interact"), "Puhu", TALKERS[who][0], TALKERS[who][1], sub)

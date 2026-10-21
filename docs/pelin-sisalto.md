@@ -66,7 +66,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (ruori, pelastusrengas, laivataulu Raahen purjelaivojen ajoilta, kuva Pekkatorin Brahen patsaasta) ja
   kesäterassi kävelykadulla: tiskiltä tuoppi, kossu tai kaffet, ikkunapöydässä vanha kapteeni muistelee
   retarien aikoja, ja terästehtaan porukka yövuoron jälkeen: Tero haastaa kädenvääntöön (häviäjä tarjoaa
-  kierroksen). Tiistain pubivisassa kolme kysymystä Raahesta (kaikki oikein: visajuoma talon piikkiin).
+  kierroksen). Illan pubivisassa kolme kysymystä Raahesta (kaikki oikein: visajuoma talon piikkiin).
   Portaat alas Kellariin (ent. Kajuutta): karaoke "Ruukin valot". Puhe on raahelaista (räknätä, skooli, kööki,
   retari, seeli). Ulko-ovelta taksi kotiin: Päivi odottaa, eikä seuraavana aamuna tule rahaa kauppaan.
   Pyörä jää kaupan pihaan.

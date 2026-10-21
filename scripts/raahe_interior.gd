@@ -2,7 +2,7 @@ extends Node3D
 ## Raahen baari: Kapteenin Kulma ja Kellari (Kirkkokatu 32, Kirkkokadun ja kävelykadun kulma, Raahe).
 ## Erillinen tasku kuten Siitari: ylhäällä Kulma (isot ikkunat kävelykadulle ja Kirkkokadulle, kesäterassi,
 ## baaritiski merihenkisine koristeineen: ruori, pelastusrengas, laivataulu Raahen purjelaivojen ajoilta ja kuva
-## Pekkatorin Brahen patsaasta), tiistain pubivisa, ikkunapöydässä vanha kapteeni ja terästehtaan porukka
+## Pekkatorin Brahen patsaasta), illan pubivisa, ikkunapöydässä vanha kapteeni ja terästehtaan porukka
 ## yövuoron jälkeen (Tero haastaa kädenvääntöön). Portaat alas Kapteenin Kellariin (ent. Kajuutta): karaoke,
 ## pyöreät "kajuutan" ikkunat, köydet ja ankkuri. Puhe on raahelaista: ruotsalaisperäiset murresanat (räknätä,
 ## skooli, kööki, talriikki, retari, seeli) ja ruukin vuorotyö.
@@ -27,7 +27,7 @@ var spots := {
 	"tero": [Vector3(4.2, 0, 1.6), "[E] Haasta Tero kädenvääntöön (häviäjä tarjoaa)"],
 	"ruukki": [Vector3(6.4, 0, 0.0), "[E] Juttele ruukin porukan kanssa"],
 	"kapteeni": [Vector3(-6.0, 0, 1.4), "[E] Juttele kapteenin kanssa"],
-	"visa": [Vector3(-1.6, 0, 2.6), "[E] Osallistu tiistain pubivisaan"],
+	"visa": [Vector3(-1.6, 0, 2.6), "[E] Osallistu illan pubivisaan"],
 	"alas": [Vector3(7.8, 0, 4.0), "[E] Portaat alas Kapteenin Kellariin (karaoke)"],
 	"ylos": [CELLAR + Vector3(6.0, 0, 3.4), "[E] Portaat ylös Kulmaan"],
 	"karaoke": [CELLAR + Vector3(-2.9, 0, 2.2), "[E] Laula karaokea (2 €)"],
@@ -35,7 +35,7 @@ var spots := {
 	"kellari_porukka": [CELLAR + Vector3(2.4, 0, 1.0), "[E] Juttele karaokeporukan kanssa"],
 }
 const BARTENDER_LINES := ["Mitäs laitetaan? Hanasta tullee kaikki mitä tarviit.",
-	"Tiistaina on visa. Tuu räknäämään pisteitä!", "Kapteeni istuu tuossa ikkunan vieressä joka päivä, se on sen paikka.",
+	"Illalla on visa. Tuu räknäämään pisteitä!", "Kapteeni istuu tuossa ikkunan vieressä joka päivä, se on sen paikka.",
 	"Kellarissa lauletaan, täällä ylhäällä vaan puhutaan. Ja juuaan.", "Kesällä terassi on täynnä, koko kävelykatu kattoo.",
 	"Ruukin porukka tullee aina vuoronvaihdon jälkeen.", "Skooli vaan, mutta lasit takasin tiskille, ei talriikeille."]
 const RUUKKI_LINES := ["Yövuoro takana, nyt mennää!", "Masuunilla oli taas kuuma. Ei siellä tarvii saunaa.",
@@ -579,7 +579,7 @@ func _build_kulma() -> void:
 	B.mesh(self, B.boxm(Vector3(0.7, 0.9, 0.04)), Vector3(3.6, 2.1, -HALF.y + 0.12), Color(0.15, 0.12, 0.1))
 	B.label(self, "PEKKA\nPekkatori 1888", Vector3(3.6, 2.1, -HALF.y + 0.16), 18, Color(0.95, 0.9, 0.75))
 	B.mesh(self, B.boxm(Vector3(1.2, 1.4, 0.05)), Vector3(HALF.x - 0.12, 1.6, -2.0), Color(0.08, 0.1, 0.08), Vector3(0, 90, 0))
-	var chalk := B.label(self, "TIISTAINA\nPUBIVISA!\nEdullista\nvisajuomaa\n& hyviä\npalkintoja", Vector3(HALF.x - 0.18, 1.6, -2.0), 20, Color(0.95, 0.95, 0.9))
+	var chalk := B.label(self, "JOKA ILTA\nPUBIVISA!\nEdullista\nvisajuomaa\n& hyviä\npalkintoja", Vector3(HALF.x - 0.18, 1.6, -2.0), 20, Color(0.95, 0.95, 0.9))
 	chalk.rotation.y = -PI / 2.0
 	var sign := B.sign_plate(self, "KAPTEENIN KULMA", navy, Color(0.98, 0.9, 0.6), 0.55, 80, Color(0.02, 0.05, 0.15), "Helvetica Neue")
 	sign.position = Vector3(0.2, 2.55, -HALF.y + 0.12)
