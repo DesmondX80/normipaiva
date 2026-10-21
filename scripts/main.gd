@@ -8853,7 +8853,7 @@ func _arrive_vaala_by_train() -> void:
 	state = _train_prev if _train_prev != "cutscene" else "ulkona"
 	mokki.ensure_built()
 	_ensure_mopo_trip()
-	_start_mopo()
+	_start_mopo(false)
 	mopo_trip.target = "paapeli"
 	var vl: Node3D = mopo_trip.vaala
 	var ast: Dictionary = vl.data.keskusta.asema
@@ -11478,7 +11478,8 @@ func _ensure_mopo_trip() -> void:
 	mopo_trip.ensure_built()
 
 
-func _start_mopo() -> void:
+## guide: reittiohje Paapelista Vaalaan (ei junalla tai Gasthausista lähdettäessä: matka alkaa Vaalasta).
+func _start_mopo(guide := true) -> void:
 	var from_mokki := _at_mokki()
 	_mopo_hop = from_mokki
 	_vaala_state = state
@@ -11504,7 +11505,7 @@ func _start_mopo() -> void:
 	if _santtu_riding:
 		_show_message("Santtu hyppäsi mopon taakse: \"Lavalle! Oulujärven lava on Vuolijoentien varressa ennen Vaalaa, Pahalahdentietä niemen kärkeen.\"", 5.0)
 		return
-	if _once_today("mopo_ohje"):
+	if guide and _once_today("mopo_ohje"):
 		_show_message("Uutelanperäntie, Neittäväntie ja Vuolijoentie Vaalaan. Siitari on Vaalantiellä joen takana."
 			+ (" Kännissä tanko vaeltaa: pidä mopo tiellä!" if tilat.value("humala") > 0.1 else ""), 3.5)
 
@@ -11977,7 +11978,7 @@ func _gasthaus_morning(intro: String, msg: String) -> void:
 		state = _vaala_state
 	_new_day(mokki.porch_pos(0.9) - Vector3(0, 0.3, 0), false, intro, "gasthaus")
 	# Aamu Vaalassa: mopo Gasthausin pihassa nokka kadulle, matka Paapeliin alkaa siitä.
-	_start_mopo()
+	_start_mopo(false)
 	mopo_trip.target = "paapeli"
 	var vl: Node3D = mopo_trip.vaala
 	var at: Vector3 = vl.door_pos("gasthaus")
