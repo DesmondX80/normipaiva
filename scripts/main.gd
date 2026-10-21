@@ -2796,18 +2796,21 @@ func _start_tanssi(who: String) -> void:
 	g.partner = who
 	g.drunk = _hand_shake()
 	g.interior = kirppis_int  # tanssitaan salin lattialla salin omien ihmisten kanssa
-	g.finished.connect(func(score: float) -> void: _tanssi_done(who, score))
+	g.finished.connect(func(score: float) -> void: _tanssi_done(who, score, g.quit))
 	kirppis_int.add_child(g)
 
 
 ## Tanssin tulos: moraali ja maine, Sinikan kanssa Päivi kuulee, Anna-Liisa juoruaa varpaista.
-func _tanssi_done(who: String, score: float) -> void:
-	score = _drakkar_dance(score)
+func _tanssi_done(who: String, score: float, quit := false) -> void:
 	kirppis_int.busy = false
 	kirppis_int.walker.controls_enabled = true
 	kirppis_int.walker.activate()
 	kirppis_int.block_interact()
 	_hud.visible = true
+	if quit:
+		_show_message("Lopetit tanssin kesken. Pari jäi seisomaan lattialle.", 3.0)
+		return
+	score = _drakkar_dance(score)
 	var good := score >= 0.65
 	tilat.first("tanssit", 0.3)
 	if good:
@@ -2851,6 +2854,9 @@ func _start_bingo() -> void:
 		kirppis_int.block_interact()
 		_hud.visible = true
 		maine = clampf(maine - 2.0 * false_calls, 0.0, 100.0)
+		if g.quit:
+			_show_message("Lähdit kesken bingon.%s" % (" Väärät huudot nolottaa silti." if false_calls > 0 else ""), 3.0)
+			return
 		tilat.first("bingo", 0.3)
 		if not won:
 			_show_message("Mummo Elvi vei bingon.%s Ensi tiistaina uudestaan." % (" Ja väärät huudot nolottaa." if false_calls > 0 else ""), 3.5)
