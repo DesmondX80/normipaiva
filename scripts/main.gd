@@ -3709,9 +3709,8 @@ func _rekka_trip() -> void:
 	player.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_hud.visible = false
-	_queue_message("Rekkakuski puhui koko matkan: terästehtaasta, ex-vaimosta ja siitä hirvestä. Ilmainen kyyti Raaheen.", 5.0)
 	Sfx.play("horn", -4.0, 0.8)
-	cutscene.taxi_to_raahe(_enter_raahe)
+	cutscene.rekka_to_raahe(_enter_raahe)
 
 
 ## Sähköpyörän katsastus: katsastusmies käy liitokset läpi. Teippi, rautalanka, irronneet osat, oikosulku ja tyhjä
