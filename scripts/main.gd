@@ -5587,6 +5587,7 @@ var _idea_t := 0.0
 
 
 func _quest_ideas() -> void:
+	quests.update_done(tilat.firsts, quest_flag, day)
 	for q in quests.newly_known(tilat.firsts, quest_flag, day):
 		if q.id == "sahkopyora":
 			ebike.heard["akku"] = true  # idea muistuttaa Pekan porakoneen akuista

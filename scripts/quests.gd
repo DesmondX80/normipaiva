@@ -243,6 +243,17 @@ func newly_known(firsts: Array, flag: Callable, day: int) -> Array:
 	return out
 
 
+## Valmistumispäivät kirjataan heti (main.gd _quest_ideas puolen sekunnin välein), ei vasta päiväkirjaa avattaessa.
+func update_done(firsts: Array, flag: Callable, day: int) -> void:
+	for ch in CHAPTERS:
+		for st in ch.get("steps", []):
+			if not done_day.has(st.id) and check(st.done, firsts, flag):
+				done_day[st.id] = day
+	for q in SIDE:
+		if not done_day.has(q.id) and known.has(q.id) and check(q.done, firsts, flag):
+			done_day[q.id] = day
+
+
 ## Päiväkirjan sisältö. story_rows = story.list() (luku 1), progress = Callable(avain) -> String, day = nykyinen päivä.
 func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable, day: int) -> Dictionary:
 	var chapters: Array = []
@@ -269,7 +280,7 @@ func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable,
 				if not d and ((open and h == "auto") or (by_flag and check(h, firsts, flag))):
 					heard[st.id] = true
 				if d or ((open or by_flag) and heard.has(st.id)):
-					rows.append([st.text, d])
+					rows.append([st.text, d, done_day.get(st.id, 0) if d else 0])
 				if not d:
 					open = false
 		chapters.append({"title": ch.title, "rows": rows, "done": ch_done})
@@ -285,7 +296,8 @@ func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable,
 		if d and not done_day.has(q.id):
 			done_day[q.id] = day
 		var p: String = progress.call(q.progress) if q.has("progress") else ""
-		side.append({"id": q.id, "title": q.title, "text": q.text, "done": d, "progress": p, "day": known[q.id]})
+		side.append({"id": q.id, "title": q.title, "text": q.text, "done": d, "progress": p, "day": known[q.id],
+			"done_day": done_day.get(q.id, 0) if d else 0})
 	return {"chapters": chapters, "more": more, "side": side}
 
 
