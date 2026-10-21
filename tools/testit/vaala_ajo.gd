@@ -157,7 +157,6 @@ func _roads() -> void:
 	for i in range(vl.road.size() - 1, 5, -1):
 		var p: Vector3 = vl.road_pos(i) - vl.road_dir(i).cross(Vector3.UP) * 1.6
 		back.append(Vector2(p.x, p.z))
-	lines.append(["reitti mökille", back])
 	for b in vl.data.branches:
 		var bp := PackedVector2Array()
 		for k in b.pts.size() - 3:  # umpitien puomi lopussa
@@ -177,6 +176,8 @@ func _roads() -> void:
 		lines.append(["lavan tie", lp])
 	for r in vl.north_roads:
 		lines.append(["järviseutu " + str(r.name), r.pts])
+	# Mökille paluu viimeisenä: pihaan saapuessa matka päättyy (mopo_trip.stop poistaa mopon käytöstä).
+	lines.append(["reitti mökille", back])
 	var total := 0.0
 	# --kohdat=x,z;x,z: vain viivat, jotka kulkevat 25 m:n sisällä jostain kohdasta (korjausten tarkistus).
 	var spots: Array[Vector2] = []
@@ -396,6 +397,8 @@ func _place(p: Vector2, dir: Vector2) -> void:
 
 ## Ajaa viivan päästä päähän. Palauttaa {len, top, t, issues}.
 func _drive(pts: PackedVector2Array, name: String, to_end := false) -> Dictionary:
+	if mp.process_mode == Node.PROCESS_MODE_DISABLED:
+		trip.resume()  # edellinen ajo päättyi mökin pihaan (stop)
 	var cum := PackedFloat32Array([0.0])
 	for k in range(1, pts.size()):
 		cum.append(cum[k - 1] + pts[k].distance_to(pts[k - 1]))
