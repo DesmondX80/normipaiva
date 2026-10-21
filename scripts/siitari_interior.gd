@@ -407,11 +407,13 @@ func to_stage() -> void:
 		_singing = 0.01
 
 
-func from_stage(cheer: bool) -> void:
+func from_stage(cheer: bool, quiet := false) -> void:
 	busy = false
 	walker.position = spots.karaoke[0]
 	walker.controls_enabled = active
 	_screen.text = "KARAOKE\nValitse biisi"
+	if quiet:  # ei laulettu (valikosta pois)
+		return
 	if cheer:
 		for s in _seurue:
 			s.play("Sitting_Talking", 0.2)

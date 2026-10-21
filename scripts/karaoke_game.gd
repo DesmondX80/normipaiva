@@ -53,6 +53,7 @@ const SONG_RAAHE := [
 
 var drunk := 0.0
 var score := 0.0
+var cancelled := false  # valikosta pois ennen kappaletta (F/Esc): ei esitystä, maksu palautetaan
 var song: Array = SONG  # laulettava kappale (rivit tavuina)
 var menu_titles: Array = []  # [[avain, nimi, kuvaus]]: kappalevalikko ennen laulua; tyhjä = suoraan song-kappaleeseen
 var real := false  # aito (lyhennetty) versio: oikea soittoraita, ajoitetut sanat
@@ -98,6 +99,7 @@ var _bar := 0.0  # tahdin pituus (s), kaistan tahtiviivoille
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	layer = 20
 	var bg := ColorRect.new()
 	bg.color = Color(0.03, 0.03, 0.08, 0.86)
@@ -131,7 +133,7 @@ func _ready() -> void:
 		_begin()
 	else:
 		_menu = true
-		_keys.set_text("%s valitse · E / Enter / klikkaus aloittaa" % Settings.pair("forward", "back"))
+		_keys.set_text("%s valitse · E / Enter / klikkaus aloittaa · %s / Esc takaisin" % [Settings.pair("forward", "back"), Settings.cap("mount")])
 
 
 ## Kappalevalikko: paikan oma kappale ja aito versio.
@@ -329,6 +331,10 @@ func _process(delta: float) -> void:
 	if _menu:
 		_info.text = "KARAOKE · valitse kappale"
 		_draw_node.queue_redraw()
+		if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
+			cancelled = true
+			_done = true
+			finished.emit(0.0)
 		return
 	_t += delta
 	if real and _track != null and _track.playing:

@@ -5567,12 +5567,17 @@ func _start_piirakka() -> void:
 	walker_out.speed = 0.0
 	walker_out.visible = false
 	_hud.visible = false
+	_minigame_prev = state
+	state = "minigame"  # Juntti, Päivi ja muut vaarat odottavat syömisen ajan
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	var g := PiirakkaGame.new()
 	g.record = _piirakka_record
 	g.record_holder = _piirakka_holder
 	g.drunk = _hand_shake()
 	g.raija = world.reippari_raija
 	g.finished.connect(func(pies: int) -> void:
+		state = _minigame_prev
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 		walker_out.visible = true
 		walker_out.controls_enabled = true
 		walker_out.activate_camera()
@@ -9225,6 +9230,11 @@ func _raahe_karaoke() -> void:
 	game.finished.connect(func(score: float) -> void:
 		game.queue_free()
 		_hud.visible = true
+		if game.cancelled:
+			raahe_int.from_stage(false, true)
+			money += RAAHE_KARAOKE_PRICE
+			_show_message("Et valinnutkaan kappaletta. Rahat takaisin.", 2.5)
+			return
 		raahe_int.from_stage(score >= 0.5)
 		_raahe.karaoke = maxf(_raahe.karaoke, score)
 		tilat.first("karaoke_raahe", 0.3)
@@ -11893,6 +11903,11 @@ func _start_karaoke() -> void:
 	game.finished.connect(func(score: float) -> void:
 		game.queue_free()
 		_hud.visible = true
+		if game.cancelled:
+			siitari_int.from_stage(false, true)
+			money += KARAOKE_PRICE
+			_show_message("Et valinnutkaan kappaletta. Rahat takaisin.", 2.5)
+			return
 		siitari_int.from_stage(score >= 0.5)
 		tilat.first("karaoke", 0.3)
 		var pct := roundi(score * 100.0)
@@ -14864,6 +14879,8 @@ func _load_game() -> void:
 	_ukko_day = cfg.get_value("paivarajat", "ukko", -1)
 	_lava_pass = cfg.get_value("paivarajat", "lavaleima", "")
 	_lava_pass_day = cfg.get_value("paivarajat", "lavaleima_paiva", -1)
+	_leima_day = cfg.get_value("paivarajat", "rakaleima", -1)
+	_lava_copy = cfg.get_value("paivarajat", "rakaleima_kopio", {})
 	_santtu_lava_day = cfg.get_value("paivarajat", "santtu_lava", -1)
 	_seppo_day = cfg.get_value("paivarajat", "seppo", {})
 	_kuutonen_day = cfg.get_value("paivarajat", "kuutonen", -1)
@@ -14964,6 +14981,8 @@ func _save_game() -> void:
 	cfg.set_value("paivarajat", "ukko", _ukko_day)
 	cfg.set_value("paivarajat", "lavaleima", _lava_pass)
 	cfg.set_value("paivarajat", "lavaleima_paiva", _lava_pass_day)
+	cfg.set_value("paivarajat", "rakaleima", _leima_day)
+	cfg.set_value("paivarajat", "rakaleima_kopio", _lava_copy)
 	cfg.set_value("paivarajat", "santtu_lava", _santtu_lava_day)
 	cfg.set_value("paivarajat", "seppo", _seppo_day)
 	cfg.set_value("paivarajat", "kuutonen", _kuutonen_day)
