@@ -8352,7 +8352,10 @@ func _train_update() -> void:
 		if now < due - lead:
 			continue
 		var tr: Array = _station_train(st)
-		if tr[0] != null and now < due - lead + 3.0 and not tr[0].calling() and state != "cutscene":
+		if tr[0] != null and state == "cutscene":
+			_train_due[st] = maxf(due, now + lead + 1.0)  # välikuvan aikana juna odottaa: tulee heti sen jälkeen
+			continue
+		if tr[0] != null and now < due - lead + 3.0 and not tr[0].calling():
 			tr[0].call_station(tr[1])
 		while _train_due[st] - lead <= now:
 			_train_due[st] += randf_range(TRAIN_GAP.x, TRAIN_GAP.y)
