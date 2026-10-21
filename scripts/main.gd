@@ -3086,6 +3086,7 @@ func _start_auction() -> void:
 		if not won:
 			kirppis_int.say_id("huutaja", "Myyty muualle! Huomenna uusi kohde, tervetuloa.")
 			_show_message("Huutokauppa hävitty. Huomenna uusi yritys.", 3.0)
+			_save_game()
 			return
 		money -= price
 		tilat.first("huutokauppa", 0.4)
@@ -8049,8 +8050,8 @@ func _vaino_logic() -> void:
 			_show_message("Sait Väinön kiinni!%s Vie se Pekalle." % (" Se söi makkaran." if ate else ""), 3.0)
 
 
-## Väinö pääsee karkuun Pekan pihalta. Huuto kuuluu Pattijoelle asti.
-func _vaino_escape() -> void:
+## Väinö pääsee karkuun Pekan pihalta. Huuto kuuluu Pattijoelle asti. quiet: palautus tallennuksesta.
+func _vaino_escape(quiet := false) -> void:
 	vaino = Dog.new()
 	var start: Vector3 = world.neighbor_yards["pekka"][0]  # Pekan ulko-ovelta
 	vaino.position = start
@@ -8060,6 +8061,8 @@ func _vaino_escape() -> void:
 	_hazards.add_child(vaino)
 	var a := randf() * TAU
 	vaino.bolt(Vector3(cos(a), 0, sin(a)), randf_range(15.0, 25.0))
+	if quiet:
+		return
 	pekka.say("VÄINÖ PERKELE!")
 	tilat.first("vaino_karkasi", 0.0)
 	Sfx.play("dog", 0.0, 0.95)
@@ -14505,6 +14508,14 @@ func _restore_today() -> bool:
 		if not id in _today:
 			_today.append(id)  # käynnistyksessä jo kirjatut säilyvät
 	_kanister_paid = t.get("kanisteri_hinta", 0.0)
+	_vaino_at = t.get("vaino_karkaa", _vaino_at)
+	match t.get("vaino", ""):
+		"karussa":
+			_vaino_escape(true)
+		"kiinni":
+			_vaino_escape(true)
+			vaino.position = walker_out.global_position + Vector3(1.0, 0, 0)
+			vaino.catch()
 	player.set_carrying(beers > 0)
 	walker_out.set_carrying(beers > 0)
 	walker_out.set_kanister(has_kanister)
@@ -14629,6 +14640,11 @@ func _load_game() -> void:
 	_lava_pass = cfg.get_value("paivarajat", "lavaleima", "")
 	_lava_pass_day = cfg.get_value("paivarajat", "lavaleima_paiva", -1)
 	_santtu_lava_day = cfg.get_value("paivarajat", "santtu_lava", -1)
+	_seppo_day = cfg.get_value("paivarajat", "seppo", {})
+	_orava_find_day = cfg.get_value("paivarajat", "orava_loyto", -1)
+	_viita_fire_day = cfg.get_value("paivarajat", "viita_nuotio", -1)
+	_viita_kalja_day = cfg.get_value("paivarajat", "viita_kalja", -1)
+	_kaljarauha = cfg.get_value("peli", "kaljarauha", false)
 	_resume_mokki = cfg.get_value("mokki", "jatka_mokilta", false)
 	hommat.nights = cfg.get_value("mokki", "yot", 0)
 	var hm: Dictionary = cfg.get_value("mokki", "hommat", {})
@@ -14716,6 +14732,16 @@ func _save_game() -> void:
 	cfg.set_value("paivarajat", "lavaleima", _lava_pass)
 	cfg.set_value("paivarajat", "lavaleima_paiva", _lava_pass_day)
 	cfg.set_value("paivarajat", "santtu_lava", _santtu_lava_day)
+	cfg.set_value("paivarajat", "seppo", _seppo_day)
+	cfg.set_value("paivarajat", "orava_loyto", _orava_find_day)
+	cfg.set_value("paivarajat", "viita_nuotio", _viita_fire_day)
+	cfg.set_value("paivarajat", "viita_kalja", _viita_kalja_day)
+	var vaino_tila := ""
+	if is_instance_valid(vaino):
+		vaino_tila = "kiinni" if vaino.mode == "follow" else "karussa"
+	cfg.set_value("tanaan", "vaino", vaino_tila)
+	cfg.set_value("tanaan", "vaino_karkaa", _vaino_at)
+	cfg.set_value("peli", "kaljarauha", _kaljarauha)  # koskee seuraavaa aamua
 	# Mökillä tai Vaalassa tallennettu peli jatkuu mökin pihasta (_resume_at_mokki), Santun hommat samana päivänä.
 	cfg.set_value("mokki", "jatka_mokilta", _away_at_mokki())
 	if hommat != null:
@@ -15116,6 +15142,9 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	_wife_bust = []
 	police = null
 	vaino = null  # karkuri palaa yöksi itse kotiin
+	_hongan_keikka = false  # kesken jäänyt roskakeikka raukeaa yöllä
+	for t in world.hongan_trash:
+		t.visible = false
 	_roll_vaino()
 	for c in _hazards.get_children():
 		c.queue_free()
