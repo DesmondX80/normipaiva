@@ -494,6 +494,8 @@ func _drive(pts: PackedVector2Array, name: String, to_end := false) -> Dictionar
 			issues.append("JUMI (%.1f, %.1f) %.0f/%.0f m, edessä ajettava %s, koodi %d, kaltevuus %.2f" % [p.x, p.y, s, total,
 				vl.drivable(ahead.x, ahead.y), vl.drive_code(Vector3(ahead.x, 0, ahead.y)),
 				(vl.h(ahead.x, ahead.y) - vl.h(p.x, p.y)) / 2.0])
+			issues[issues.size() - 1] += " [kaatunut %s, ohjaus %s, käytössä %s, matka aktiivinen %s, vauhti %.1f, autopilotti %s]" % [
+				mp.fallen, mp.controls_enabled, mp.process_mode != Node.PROCESS_MODE_DISABLED, trip.active, mp.speed, mp.autopilot]
 			# Jatketaan 12 m edempää.
 			var nk := idx
 			while nk < pts.size() - 2 and cum[nk] - s < 12.0:
