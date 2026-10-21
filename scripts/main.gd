@@ -13332,6 +13332,8 @@ func _lava_start() -> void:
 	_compass.visible = false
 	_hint.text = ""
 	tilat.first("lava", 0.3)
+	if _portsari != null and is_instance_valid(_portsari):
+		_portsari.watch = false  # lavan sisällä portsari ei näe (valvonta jatkuu pihalla, _lava_yard_logic)
 	_lava_game = LavaGame.new()
 	_lava_game.courage = 1.0 if _lava_courage_day == day else 0.0
 	_lava_game.door_side = float(mopo_trip.vaala.data.lava.get("door_side", 1.0))
