@@ -5636,7 +5636,7 @@ var _idea_t := 0.0
 
 
 func _quest_ideas() -> void:
-	quests.update_done(tilat.firsts, quest_flag, day)
+	quests.update_done(tilat.firsts, quest_flag, day, story.list(quest_flag("paapeli"), jemma))
 	for q in quests.newly_known(tilat.firsts, quest_flag, day):
 		if quests.check(q.done, tilat.firsts, quest_flag):
 			continue  # tiedoksi ja tehdyksi samalla kertaa (esim. pummilla lavalle ilman vinkkiä): idea olisi myöhässä
@@ -10450,6 +10450,11 @@ func _mokki_logic() -> void:
 		if e:
 			_start_pingis()
 		return
+	# Santulla on kertomaton tarinavihje (esim. Siitari löylyjen jälkeen): puhe ennen saunan omia toimintoja.
+	if mokki.santtu != null and mokki.santtu.visible and near.call(mokki.santtu.position, 2.0) \
+			and not _santtu_hommat_later("santtu") and quests.has_unheard_hint("santtu", tilat.firsts, quest_flag):
+		_talk_hint("santtu", mokki.santtu)
+		return
 	if hommat.pending("saunakorjaus") and _saunakorjaus_logic(near, e):
 		return
 	if near.call(Mokki.SAUNA_LOCAL, 2.4):  # kiuas oven vieressä: oviaukolta tai sisältä
@@ -10961,6 +10966,8 @@ func _hommat_logic(e: bool, near: Callable) -> bool:
 		return true
 	if hommat.pending("ampiaiset") and near.call(Mokki.WASP_STAND_LOCAL, 1.4):
 		_hint.text = "[E] Hävitä ampiaispesä (myrkkypurkki saunan penkiltä)"
+		if hommat.pending("saunakorjaus") and not hommat.progress.get("korjaus", {}).has("luukku"):
+			_hint.text = "[E] Hävitä ampiaispesä ensin (savuluukku pesän alla)"
 		if e:
 			_start_ampiaiset()
 		return true
