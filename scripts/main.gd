@@ -4350,7 +4350,11 @@ func _start_keinu(pg: Dictionary) -> void:
 			tilat.add("stressi", -0.05)
 		elif dist > 0.0:
 			_keinu_best = maxf(_keinu_best, dist)
-			if dist > _keinu_record:
+			if dist > _keinu_record and _keinu_holder == "Järvikuja 1":
+				_keinu_record = dist  # oma ennätys parani: Jere on jo voitettu
+				tilat.add("moraali", 0.1)
+				_show_message("Oma keinuhyppyennätys parani: %s m!" % KeinuGame._m(dist), 3.5)
+			elif dist > _keinu_record:
 				_keinu_record = dist
 				_keinu_holder = "Järvikuja 1"
 				maine = clampf(maine + 3.0, 0.0, 100.0)
