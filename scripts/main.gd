@@ -9692,6 +9692,9 @@ func _talk_options(who := "") -> Array:
 			_nuoret_new_day()
 			o.append(_opt("huikka", "Ota huikka kossu-vissystä", _nuoret_huikat < NUORET_HUIKAT, "pullo on tyhjä"))
 			o.append(_opt("tarjoa", "Tarjoa kalja porukalle", beers > 0, "ei kaljaa mukana"))
+			if _nuoret_yard:
+				var why := "sulla on jo leima kädessä" if _lava_pass_now() == "lippu" else ("teini ei anna enää" if _leima_day == day else "")
+				o.append(_opt("leima", "Kopioi tuore leima teinin kädestä", why == "", why, true))
 		"kauppa_auto":
 			for k in KauppaAuto.MENU:
 				var m: Array = KauppaAuto.MENU[k]
@@ -9845,6 +9848,10 @@ func _talk_choose(id: String) -> void:
 			_talk_box.close()
 			_start_race(RACE_BET_BIG if id == "kisa_iso" else RACE_BET, id == "kisa_iso")
 		"nuoret":
+			if id == "leima":
+				_talk_box.close()
+				_start_rakaleima()
+				return
 			var r := _on_nuoret(id)
 			_talk_box.reply(r[0], _talk_options(), r[1])
 		"kauppa_auto":
@@ -13199,6 +13206,7 @@ func _on_vaala_door(id: String) -> void:
 		"kokko":
 			_kokko_visit()
 		"bileet", "pihanuoret":
+			_nuoret_yard = id == "pihanuoret"
 			_talk_open("nuoret", null)
 		"portti":
 			_lava_gate()
@@ -13470,10 +13478,13 @@ func _lava_yard_logic() -> void:
 	var pass_now := _lava_pass_now()
 	if pass_now == "pummi" and _lava_game == null and not vl.in_lava_yard(mopo_trip.to_local(player.global_position)):
 		_lava_pass = ""  # pummi käveli pihalta pois: ei leimaa, lipun voi ostaa tai kahlata uudestaan
+		_lava_copy = {}
 		pass_now = ""
 	vl.open_gate(pass_now != "")
 	_portsari.target = player
 	_portsari.tip = _pummi_tip
+	_portsari.cover = 0.0 if _lava_copy.is_empty() else (0.2 if _lava_copy.mirrored else 0.6) * float(_lava_copy.q)
+	_portsari.mirrored = not _lava_copy.is_empty() and _lava_copy.mirrored
 	_portsari.watch = pass_now == "pummi" and _lava_game == null and vl.in_lava_yard(mopo_trip.to_local(player.global_position))
 	mopo_trip.lava_hint = ("[E] Oulujärven lava: lavatanssit (leima kädessä)" if pass_now == "lippu" else
 		("[E] Oulujärven lava: livahda sisään (pummilla, varo portsaria)" if pass_now == "pummi" else ""))
@@ -13483,6 +13494,7 @@ func _lava_yard_logic() -> void:
 func _on_portsari_busted() -> void:
 	var vl: Node3D = mopo_trip.vaala
 	_lava_pass = ""
+	_lava_copy = {}
 	maine = clampf(maine - 3.0, 0.0, 100.0)
 	tilat.add("moraali", -0.1)
 	tilat.add("stressi", -0.1)
@@ -13708,6 +13720,69 @@ func _on_race_finished(won: bool, my_time: float, opp_time: float) -> void:
 		money -= _race_bet
 		tilat.add("moraali", -0.05)
 		_show_message("Hävisit kiihdytyksen (%s). Panos %s € meni. \"Hanki parempi mopo, ukko.\"" % [t, _eur(_race_bet)], 4.0)
+
+
+## Räkäleima (rakaleima_game.gd): pummilla lavan pihalle päässyt kopioi tuoreen leiman pihalla juovan teinin kädestä.
+## Kopio tulee peilikuvana: sellaisenaan se herättää portsarin epäilyn, käden painaminen toiseen käteen kääntää kuvan
+## oikein päin (haalistuu). Hyvä oikein päin oleva kopio kelpaa lipusta (portti aukeaa), huono vain hidastaa epäilyä.
+const RakaleimaGame := preload("res://scripts/rakaleima_game.gd")
+var _rakaleima: CanvasLayer
+var _nuoret_yard := false
+var _leima_day := -1
+var _lava_copy := {}  # {q, mirrored}: kopioitu leima kädessä (tyhjä = ei kopiota)
+
+
+func _start_rakaleima() -> void:
+	if _rakaleima != null or mopo_trip == null:
+		return
+	mopo_trip.stop()
+	_mopo_foot_inside()
+	state = "rakaleima"
+	_hud.visible = false
+	_mopo_label.visible = false
+	_compass.visible = false
+	tilat.first("rakaleima", 0.3)
+	_leima_day = day
+	_rakaleima = RakaleimaGame.new()
+	_rakaleima.drunk = tilat.value("humala")
+	_rakaleima.day_stamp = "%d.6." % (20 + (day % 3))
+	_rakaleima.finished.connect(_on_rakaleima_finished)
+	add_child(_rakaleima)
+
+
+func _on_rakaleima_finished(res: Dictionary) -> void:
+	_rakaleima = null
+	state = _vaala_state
+	_hud.visible = true
+	_mopo_label.visible = true
+	_compass.visible = true
+	_mopo_resume()
+	mopo_trip._resume_frame = Engine.get_process_frames()
+	if res.get("aborted", false):
+		_leima_day = -1  # keskeytys ei kuluta yritystä
+		_show_message("Jätit leiman kopioimatta.", 2.0)
+	elif res.get("caught", false):
+		maine = clampf(maine - 1.0, 0.0, 100.0)
+		tilat.add("stressi", -0.1)
+		tilat.add("moraali", -0.05)
+		_show_message("Teini: \"Älä näpelöi mun leimaa, se menee epäselväksi!\" Kopio jäi saamatta, eikä hän anna toista tänään.", 4.0)
+	elif res.get("dry", false):
+		_show_message("Leima ehti kuivua ennen kuin ehdit painaa. Teini ei anna enää tänään.", 3.5)
+	elif res.get("ok", false):
+		var q: float = res.q
+		var mirrored: bool = res.mirrored
+		tilat.add("stressi", -0.05)  # jännittävää hommaa
+		tilat.first("rakaleima_kopio", 0.2)
+		if not mirrored and q >= 0.55:
+			_lava_copy = {}
+			_lava_pass = "lippu"  # oikein päin oleva, tarpeeksi tumma kopio kelpaa aidosta
+			_lava_pass_day = day
+			Sfx.play("win_small", -6.0)
+			_show_message("Leima näyttää aidolta! Portsari ei erota sitä oikeasta. Portti aukeaa: lavan ovelle.", 4.5)
+		else:
+			_lava_copy = {"q": q, "mirrored": mirrored}
+			var how := "peilikuvana" if mirrored else "haaleana"
+			_show_message("Kädessä on leima %s. Portsari ei välttämättä huomaa, jos pysyt poissa näkyvistä." % how, 4.0)
 
 
 ## Porukka aidan takana metsässä: huikat kiertävästä pullosta (kolme päivässä), kalja porukalle ja jutut.
@@ -16056,7 +16131,7 @@ func _update_hud() -> void:
 	_clock_hud.juhannus = _juhannus()
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "lava", "mopokisa", "cutscene"])
+	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "lava", "mopokisa", "rakaleima", "cutscene"])
 	_minimap.vaala_on = _in_vaala and mopo_trip != null
 	if _minimap.vaala_on:
 		_minimap.vaala = mopo_trip.vaala
@@ -19708,6 +19783,101 @@ func _maybe_screenshot() -> void:
 			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 			f.store_buffer(saved)
 			f.close()
+			get_tree().quit()
+		"mokkirakaleima":
+			# Räkäleima (rakaleima_game.gd): teinin leiman kopiointi lavan pihalla. Kuvat joka vaiheesta, kaksi lopputulosta:
+			# kopio käännettynä oikein päin (kelpaa lipusta) ja peilikuva sellaisenaan (portsarin epäily vähenee vain vähän).
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(name: String) -> void:
+				for i in 6:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_note.visible = false
+			_mopo_dismount()
+			var yard_door: Dictionary = vl.doors.filter(func(d): return d.id == "pihanuoret")[0]
+			walker_out.global_position = mopo_trip.to_global(yard_door.pos + yard_door.out * 2.0 + Vector3(0, 0.5, 0))
+			_lava_pass = "pummi"
+			_lava_pass_day = day
+			for i in 10:
+				await get_tree().process_frame
+			for round_i in 2:
+				_leima_day = -1
+				_lava_pass = "pummi"
+				_lava_pass_day = day
+				_lava_copy = {}
+				_on_vaala_door("pihanuoret")
+				print("RAKALEIMA %d valikko: %s" % [round_i, str(_talk_options().map(func(o): return o.text + (" [ei: %s]" % o.reason if not o.enabled else "")))])
+				_talk_choose("leima")
+				for i in 5:
+					await get_tree().process_frame
+				var g: CanvasLayer = _rakaleima
+				print("RAKALEIMA %d peli käynnissä %s, tila %s" % [round_i, g != null, state])
+				g._gaze = "away"
+				g._gaze_t = 100.0
+				if round_i == 0:
+					await snap.call("_a_alku.png")
+				g._raw = g._stamp_c() + Vector2(30, 14)
+				g.kostuta()
+				g._lmb = true
+				for i in 40:
+					await get_tree().process_frame
+					g._gaze_t = 100.0
+					g._t = 2.0  # muste ei ehdi kuivua hitaassa ohjelmistorenderöinnissä
+				await snap.call("_b_paino_%d.png" % round_i)
+				g._lmb = false
+				g._release()
+				print("RAKALEIMA %d kopio q=%.2f vaihe %s peilikuva %s epäily %.2f" % [round_i, g._q, g._phase, g._mirror, g._susp])
+				await snap.call("_c_peili_%d.png" % round_i)
+				if round_i == 0:
+					g._flip_marker = 0.5
+					g.flip()
+					await snap.call("_d_oikein.png")
+				else:
+					g.accept()
+				print("RAKALEIMA %d lopetus: end_t %.2f valmis %s" % [round_i, g._end_t, g._done])
+				var t0 := Time.get_ticks_msec()
+				while _rakaleima != null and Time.get_ticks_msec() - t0 < 6000:
+					await get_tree().process_frame
+				print("RAKALEIMA %d tulos: tila %s, lippu '%s', kopio %s, viesti '%s'" % [round_i, state, _lava_pass_now(), str(_lava_copy), _msg.text.replace("\n", " ")])
+				_lava_yard_logic()
+				print("RAKALEIMA %d portsari: cover %.2f peilikuva %s" % [round_i, _portsari.cover if _portsari != null else -1.0, _portsari.mirrored if _portsari != null else false])
+			# Jäi kiinni: painaminen teinin katsoessa.
+			_leima_day = -1
+			_lava_copy = {}
+			_lava_pass = "pummi"
+			_lava_pass_day = day
+			_on_vaala_door("pihanuoret")
+			_talk_choose("leima")
+			for i in 5:
+				await get_tree().process_frame
+			var gc: CanvasLayer = _rakaleima
+			gc._raw = gc._stamp_c()
+			gc._lmb = true
+			gc._gaze = "look"
+			for i in 120:
+				await get_tree().process_frame
+				if not is_instance_valid(gc):
+					break
+				gc._gaze = "look"
+				gc._gaze_t = 100.0
+				gc._t = 2.0
+				if gc._end_t >= 0.0 and gc._end_t < 1.6:
+					await snap.call("_e_kiinni.png")
+					break
+			var t1 := Time.get_ticks_msec()
+			while _rakaleima != null and Time.get_ticks_msec() - t1 < 6000:
+				await get_tree().process_frame
+			print("RAKALEIMA kiinni: tila %s, maine %.0f, viesti '%s', uusi yritys: %s" % [state, maine, _msg.text.replace("\n", " "),
+				str(_talk_options().map(func(o): return o.text + (" [ei: %s]" % o.reason if not o.enabled else "")))])
+			var f2 := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f2.store_buffer(saved)
+			f2.close()
 			get_tree().quit()
 		"kuulokkeet":
 			# Valcon kuulokkeet: autotallin laatikosta, H päähän (väylien suotimet päälle, biisi soi), N seuraava, H pois.

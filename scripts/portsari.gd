@@ -26,6 +26,8 @@ var pauses := {}
 var ground := Callable()
 var watch := false  # pummilla pihalla: epäily kertyy näköyhteydestä
 var tip := false  # porukka kertoi portsarin tavat: epäily kertyy hitaammin
+var cover := 0.0  # kädessä kopioitu leima (rakaleima_game.gd): vähentää epäilyn kertymistä 0–1
+var mirrored := false  # kopio on peilikuva: portsari huomaa sen ja sanoo niin
 var suspicion := 0.0
 var sees_player := false
 
@@ -106,9 +108,9 @@ func _look(delta: float) -> void:
 			sees_player = B.line_of_sight(self, global_position + Vector3.UP * 1.6,
 				target.global_position + Vector3.UP * 1.2, [get_rid(), (target as CollisionObject3D).get_rid()])
 		if sees_player and not saw_before and _bubble_t <= 0.0:
-			say("Hetkinen... näytäpä kättä?")
+			say("Hetkinen... tuo leima on väärinpäin?!" if mirrored else "Hetkinen... näytäpä kättä?")
 		if sees_player:
-			suspicion += SUSPICION_RATE * (0.6 if tip else 1.0) * (1.3 - d / VIEW_RANGE) * delta
+			suspicion += SUSPICION_RATE * (0.6 if tip else 1.0) * (1.0 - cover) * (1.3 - d / VIEW_RANGE) * delta
 		else:
 			suspicion = maxf(0.0, suspicion - SUSPICION_DECAY * delta)
 		if suspicion >= 100.0:

@@ -75,6 +75,7 @@ Toimintojen vaikutukset tiloihin:
 | Mökki: savustus valmis | stressi + |
 | Mökki: pihapingis | stamina −, nälkä −; kerran päivässä voitto: moraali +, keskittyminen +, stressi + / häviö: stressi +, moraali − |
 | Mökin piha (paikallaan) | kuten nuotio: stressi ++, vireys + |
+| Lava: leiman kopiointi teinin kädestä (räkäleima): onnistuu / teini huomaa | stressi − / stressi −, moraali −, maine −1 |
 | Mökki: kiukaan tai paljun kamiinan sytytys (kerran päivässä kumpikin) | stressi + |
 | Mökki: Santun homma tehty / kaikki hommat tehty | moraali +, stressi + / moraali ++, stressi + |
 | Mökki: peukaloon vasaralla / ampiaisen pisto / tikkailta putoaminen | kipu − / kipu − / kipu −−, stressi − |

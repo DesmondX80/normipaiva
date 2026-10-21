@@ -362,6 +362,16 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     vihreä, W kaasu (ennen vihreää = vilppilähtö), välilyönti vaihtaa ylös kierrosmittarin vihreällä alueella
     (aikaisin moottori tukehtuu, rajoittimella aika valuu, kännissä vihreä alue heiluu). Voitto tuplaa panoksen
     ja nostaa mainetta (`--scene=mokkikiihdytys`).
+  - **Räkäleima (pummin leima teinin kädestä):** lavan pihalla juovilta teineiltä (E, "Kopioi tuore leima teinin kädestä", kerran
+    päivässä) voi kopioida portsarin tuoreen leiman omaan käteensä (`rakaleima_game.gd`, hiirellä). Käsi viedään leiman
+    päälle ja vasen nappi painaa: muste kuivuu 16 sekunnissa ja tarttuu sitä paremmin, mitä tuoreempaa se on, ja R kostuttaa
+    kämmenen ("räkä"), jolloin muste irtoaa paremmin. Teini vilkaisee välillä (kysymysmerkki varoittaa ennen vilkaisua):
+    painaminen hänen katsoessaan nostaa epäilyä, ja täyteen mittariin yltänyt jää kiinni (maine −1, ei toista yritystä
+    päivässä). **Kopio tulee peilikuvana**, koska kasvot vastakkain painettu kuva kääntyy: tulosruudussa alkuperäinen ja
+    kopio rinnakkain. Välilyönti painaa käden toiseen käteen kun ajoitusmerkki on vihreällä: kuva kääntyy oikein päin mutta
+    haalistuu. Oikein päin oleva tarpeeksi tumma kopio kelpaa aidosta leimasta (portti aukeaa kuin lipulla). Muuten kädessä
+    on peilikuva- tai haaleakopio, joka vähentää portsarin epäilyn kertymistä vain vähän (portsari sanoo huomanneensa
+    väärinpäin olevan leiman). Testi `--scene=mokkirakaleima` (kuvat joka vaiheesta, ei kuvia `--headless`-ajossa).
   - **Poliisin moporatsia:** mopomatkalla poliisi pitää välillä ratsiaa tien varressa (iltaisin useammin):
     vilkkuva poliisiauto, viittova Ratsupoliisi Roivainen ja toinen konstaapeli tarkastamassa mopopojan porattua
     Tunturia ("Omalla kylällä saa ajaa kännissä, mutta varo Ratsupoliisi Roivaista"). Pelaajakin viitotaan sivuun: pysähdy auton eteen, niin edessä on puhalluskoe ja mopon tarkastus. Alle 0,5 ‰ = matka
