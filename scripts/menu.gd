@@ -61,7 +61,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				open_pause()
 			get_viewport().set_input_as_handled()
 		elif game != null and game.state in ["ulkona", "in_shop", "in_mokki", "in_home", "in_garage", "minigame"] and not game._paper.visible \
-				and not game._inventory.visible and not game._journal.visible:
+				and not game._inventory.visible and not game._journal.visible \
+				and get_tree().get_nodes_in_group("esc_lopettaa").is_empty():  # minipelin Esc lopettaa pelin
 			open_pause()
 			get_viewport().set_input_as_handled()
 

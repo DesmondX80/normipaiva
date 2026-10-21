@@ -7175,7 +7175,7 @@ func _start_basket() -> void:
 		_hud.visible = true
 		tilat.add("vasymys", -0.03)
 		if result != "voitto":
-			_show_message("Pisin putki %d. Pojat nauraa vielä huomennakin." % g.best if g.best > 0 else "Ei yhtään koria. Pojat nauraa.", 2.5)
+			_show_message("Pisin putki %d. Pojat nauraa vielä huomennakin." % g.run_best if g.run_best > 0 else "Ei yhtään koria. Pojat nauraa.", 2.5)
 			_save_game()
 			return
 		tilat.first("koris16", 0.5)

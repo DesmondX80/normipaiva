@@ -65,6 +65,7 @@ var _cam: Camera3D
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	_start_frame = Engine.get_process_frames()
 	_build()
 	_cam = Camera3D.new()

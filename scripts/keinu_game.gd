@@ -58,6 +58,7 @@ var _dist_sign: Node3D
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	_hidden = get_parent().get_node_or_null("Keinu1")
 	if _hidden != null:
 		_hidden.visible = false

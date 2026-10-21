@@ -59,6 +59,7 @@ var _btn_flash := ""
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	layer = 6
 	_root = Control.new()
 	_root.anchor_right = 1.0

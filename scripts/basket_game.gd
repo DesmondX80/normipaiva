@@ -38,6 +38,7 @@ const LINES := {
 var drunk := 0.0
 var best := 0
 var streak := 0
+var run_best := 0  # pisin putki tällä kertaa (best = kaikkien aikojen)
 
 var _cam: Camera3D
 var _prev_cam: Camera3D
@@ -171,6 +172,7 @@ static func make_ball(parent: Node3D) -> Node3D:
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	process_priority = 10  # oman hahmon animaation ja IK:n jälkeen (sormet pallon ympärille)
 	_rng.randomize()
 	_net = get_parent().get_node_or_null("Net")
@@ -441,6 +443,7 @@ func _resolve() -> void:
 	if _scored:
 		streak += 1
 		best = maxi(best, streak)
+		run_best = maxi(run_best, streak)
 		if streak >= NEED:
 			_phase = "voitto"
 			Sfx.play("win")

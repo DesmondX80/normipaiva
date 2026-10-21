@@ -95,6 +95,7 @@ var _bubbles := {}  # avain -> [Label3D, aika]
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	_build_scene()
 	_cam = Camera3D.new()
 	_cam.fov = 70.0
