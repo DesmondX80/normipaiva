@@ -2345,7 +2345,7 @@ func _build_buildings() -> void:
 			var hout := (hd - (obb.center as Vector2)).normalized()
 			hotel_door = Vector3(hd.x, h(hd.x, hd.y), hd.y) + Vector3(hout.x, 0, hout.y) * 2.5
 			_hotel_signs(obb, base, top, hd, hout)
-			doors.append({"id": "hotelli", "pos": hotel_door, "out": Vector3(hout.x, 0, hout.y), "r": 4.0,
+			doors.append({"id": "hotelli", "pos": hotel_door, "out": Vector3(hout.x, 0, hout.y), "r": 4.0, "walk": true,
 				"hint": "Hotelli Siitarin vastaanottoon"})
 		if id == TYOKKARI_ID:
 			name = "TYÖVOIMATOIMISTO"
