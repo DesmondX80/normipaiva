@@ -14,7 +14,7 @@ const CHAPTERS := [
 	{"id": "luku1", "title": "1. Paapeliin pääsee, kunhan…", "story": true, "done": "flag:paapeli"},
 	{"id": "luku2", "title": "2. Paapelin isäntä", "steps": [
 		{"id": "santtu", "text": "Mökin isäntä Santtu kahvikuppeineen pihalla.", "done": "first:santtu", "hint": "auto"},
-		{"id": "hommat", "text": "Santtu antaa pihahommia: tee päivän hommat.", "done": "firstp:homma_",
+		{"id": "hommat", "text": "Santtu antaa pihahommia: tee Santun hommia.", "done": "firstp:homma_",
 			"hint": "santtu|Pihalla ois hommia, jos kiinnostaa. Kato lista, mitä tänään pitäis tehdä."},
 		{"id": "sauna", "text": "Savusauna on retuperällä: korjaa se Santun neuvoilla.", "done": "flag:sauna_fixed",
 			"hint": "santtu|Se savusauna on ihan retuperällä. Kiuas, lauteet, terva ja luukku pitäs laittaa kuntoon."},

@@ -1,6 +1,6 @@
 extends Node3D
 ## Normipäivä Saloisissa: rakentaa maailman, pyörittää pelin tilaa ja HUDin.
-## Tilat: to_shop -> in_shop -> to_home -> won, tai lost missä vaiheessa tahansa.
+## Tilat: ulkona (kylässä, mökillä ja Vaalassa) tai sisätila (in_shop, in_home, …), cutscene, fight ja minigame.
 
 const B := preload("res://scripts/build.gd")
 const PlayerBike := preload("res://scripts/player_bike.gd")
@@ -314,9 +314,9 @@ const TV_SHOWS := ["Salkkarit: Kaikki riitelee taas.", "Kauniit ja rohkeat: Ridg
 	"Hirviketju: kolme hirveä, kaksi ohi.", "Ostoskanava: veitsiä, jotka leikkaa tomaatin ja kengän."]
 var mokki_int: Node3D
 var home_int: Node3D
-var _home_prev := "to_shop"  # ulkotila ennen kotiin menoa (to_home = kuutonen haettu tänään)
+var _home_prev := "ulkona"  # tila ennen kotiin menoa
 var garage_int: Node3D
-var _garage_prev := "to_shop"
+var _garage_prev := "ulkona"
 var _garage_exit_frame := -1
 var bike_in_garage := false  # pyörä tallissa: piilossa ja turvassa varkailta
 var _bike_garage_saved := false
@@ -368,7 +368,7 @@ var _sinikka_gossip := false  # aamulla vielä motkotusta ja Päivi nopeampi
 var _paivi_mad := false
 var _paivi_call_kind := "sinikka"  # Päivin puhelu Siitariin: "sinikka" tai "santtu" (Santtu kantelee hommista)
 var _santtu_gossip := false  # Santtu soitti Päiville: kotona aamulla motkotusta ja Päivi nopeampi
-var _mokki_prev := "to_shop"
+var _mokki_prev := "ulkona"
 var _slept_mokki := false
 const ZONE_RADIUS := 6.0
 var shop_door := Vector3.ZERO  # Saloisten K-Marketin oven edusta
@@ -376,7 +376,7 @@ var home_door := Vector3.ZERO  # kodin etuoven portaiden edusta (kotiin meno, et
 var home_back_door := Vector3.ZERO  # takaovi takapihalle (etuovea vastapäätä)
 const HOME_DOOR_ZONE := 3.0  # Päivin ostosten luovutus ja haavan hoito ovella
 var _shop_exit_frame := -1  # ulos tullessa painettu E ei vie heti takaisin sisään
-var _shop_prev := "to_shop"  # ulkotila ennen kauppaan menoa (to_home = kuutonen jo ostettu tänään)
+var _shop_prev := "ulkona"  # tila ennen kauppaan menoa
 const DOOR_RADIUS := 1.8  # kotiovi: tyhjin käsin tästä sisään (eteisen jemma on ovesta 4,8 m, ei päällekkäin)
 const SHOP_DOOR_R := 2.4  # Saloisten K-Marketin ovi: tästä sisään (E)
 ## Päivin motkotus rahasta (lama): aamun lapussa rahan kanssa joskus.
@@ -418,7 +418,8 @@ var player: CharacterBody3D
 var wife: CharacterBody3D
 var juntti: CharacterBody3D
 var interior: Node3D
-var state := "to_shop"
+var state := "ulkona"
+var _kuutonen_day := -1  # päivä, jona kuutonen ostettiin (kotiinpaluu kuutosen kanssa = päivän onnistuminen)
 var money := START_MONEY
 var beers := 0
 ## Vuorokausikello (#84): pelin kellonaika minuutteina vuorokauden alusta. Vuorokausi kestää tunnin oikeaa aikaa
@@ -520,10 +521,10 @@ var viina_pullot := 0
 const VIINA_OPEN_R := 2.0
 var _drone: Node3D
 var mopo_trip: Node3D
-## Vaalassa (mopomatka, Siitari, Tervaportti, lava): sama pelitila kuin kylässä ja mökillä (to_shop/to_home),
+## Vaalassa (mopomatka, Siitari, Tervaportti, lava): sama pelitila kuin kylässä ja mökillä (ulkona),
 ## pelaajana mopo tai sen vierestä kävelevä. Kylän omat asiat odottavat Saloisissa kuten mökillä.
 var _in_vaala := false
-var _vaala_state := "to_shop"  # tila, johon Vaalan sisätiloista palataan
+var _vaala_state := "ulkona"  # tila, johon Vaalan sisätiloista palataan
 ## Pankkiautomaatti: 20 € kerran päivässä (Saloisissa K-Marketin takana, Vaalassa K-Market Tervaportin seinällä Siitarin vieressä).
 var atm_day := 0
 var _atm_node: Node3D
@@ -1114,7 +1115,7 @@ func _ready() -> void:
 	DroneGame.make_model(_drone_parked)
 	var amb := Ambience.new()
 	amb.world = world
-	amb.player_ref = func() -> Node3D: return player if state in ["to_shop", "to_home"] and not _in_vaala else null  # Vaalalla omat äänet
+	amb.player_ref = func() -> Node3D: return player if state == "ulkona" and not _in_vaala else null  # Vaalalla omat äänet
 	add_child(amb)
 	paper.bike = bike
 	_build_hud()
@@ -1303,7 +1304,7 @@ func _process(delta: float) -> void:
 	_headphones_keys()
 	_phone_keys()
 	match state:
-		"to_shop", "to_home":
+		"ulkona":
 			_outside_logic()
 			if not away and player.is_on_floor():
 				_resume_spot = [player.global_position, player.rotation.y, player == bike]
@@ -1563,7 +1564,7 @@ func _mount_logic() -> void:
 	var e: bool = Input.is_action_just_pressed("mount") and not player.is_stunned()
 	# Mökillä mopo parkissa: selkään kuten pyörän, matka alkaa heti (Vaalan maailma on jo rakennettu).
 	if e and player == walker_out and mokki != null and mokki.built and mokki.mopo_parked.visible \
-			and walker_out.global_position.distance_to(mokki.to_global(Mokki.MOPO_LOCAL)) < 2.2 and state in ["to_shop", "to_home"]:
+			and walker_out.global_position.distance_to(mokki.to_global(Mokki.MOPO_LOCAL)) < 2.2 and state == "ulkona":
 		_mount_mopo()
 		return
 	if bike_in_garage:
@@ -2629,7 +2630,7 @@ const DRAKKAR_DANCE := 0.15
 var drakkar := 0  # suihkauksia jäljellä
 var drakkar_found := false
 var drakkar_day := -1  # päivä, jona tuoksuu
-var _kirppis_prev := "to_shop"
+var _kirppis_prev := "ulkona"
 var _kirppis_sold := {}  # tuote -> päivä, jolloin ostettu
 var _kirppis_angry := {}  # myyjä -> päivä, jolloin suuttui tinkimisestä
 var _haggle := {}  # tuote -> {"ask", "patience", "day"}
@@ -3128,7 +3129,7 @@ const TOKOLA_PROVEN := {
 	"arto": ["Joka poika koluaa sitä varastoa, sanoin. Väärin sanoin.", "Lähekkö puolukkaan? Tai aarteenetsintään, sullahan on onnea."],
 }
 const TOKOLA_MARKAT := 15.0
-var _varasto_prev := "to_shop"
+var _varasto_prev := "ulkona"
 
 
 func _tokola_logic() -> void:
@@ -3858,7 +3859,7 @@ var _juntti_hop_t := 0.0
 func _juntti_roam() -> void:
 	if juntti == null or not is_instance_valid(juntti) or not (juntti.mode in ["idle", "return"]):
 		return
-	if not state in ["to_shop", "to_home"] or _in_vaala or _at_mokki():
+	if state != "ulkona" or _in_vaala or _at_mokki():
 		return
 	_juntti_hop_t -= get_process_delta_time()
 	if _juntti_hop_t > 0.0:
@@ -5235,11 +5236,11 @@ func _kertun_near(px: Vector2, r: float) -> bool:
 func _kertun_logic() -> void:
 	if kertun == null or world == null:
 		return
-	if aarni.choice == "kerailija" and not aarni.poliisi and state in ["to_shop", "to_home"]:
+	if aarni.choice == "kerailija" and not aarni.poliisi and state == "ulkona":
 		aarni.poliisi = true
 		_save_game()
 		_call_police("veksi")
-	if kertun.choice == "kerailija" and not kertun.poliisi and state in ["to_shop", "to_home"]:
+	if kertun.choice == "kerailija" and not kertun.poliisi and state == "ulkona":
 		kertun.poliisi = true
 		_save_game()
 		_call_police("veksi")
@@ -5597,7 +5598,7 @@ func _quest_ideas() -> void:
 
 ## Kova nälkä Saloisissa: kerran päivässä ajatus, mistä saisi syötävää.
 func _hunger_thought(away: bool) -> void:
-	if away or not state in ["to_shop", "to_home"] or not "nalka" in tilat.chosen or tilat.value("nalka") >= -0.5:
+	if away or state != "ulkona" or not "nalka" in tilat.chosen or tilat.value("nalka") >= -0.5:
 		return
 	if _msg_time > 0.0 or not _once_today("nalka_ajatus"):
 		return
@@ -7026,7 +7027,7 @@ func _call_police(reason := "siili") -> void:
 	police.setup(world.graph_nodes, world.graph_adj, start, player)
 	police.world = world
 	police.caught.connect(func() -> void:
-		if state in ["to_shop", "to_home"]:
+		if state == "ulkona":
 			_lose("Poliisi pidätti: %s!" % {"varkaus": "myymälävarkaus ja pahoinpitely", "roykkio": "muinaisjäännöksen kaivaminen",
 				"veksi": "muinaisjäännösrike ja pimeät kaupat"}.get(reason, "eläinsuojelurikos"), "police"))
 	police.escaped.connect(func() -> void:
@@ -7185,7 +7186,7 @@ func _spawn_boys() -> bool:
 		boys.position = Vector3(p.x, Terrain.h(p.x, p.z), p.z)
 		boys.target = player
 		boys.hit.connect(func(dir: Vector3) -> void:
-			if state in ["to_shop", "to_home"] and not player.is_stunned():
+			if state == "ulkona" and not player.is_stunned():
 				player.stagger(dir)
 				tilat.add("kipu", -0.05)
 				_show_message("Kivi osui! Pojilla on hyvä käsi.", 2.0))
@@ -7888,7 +7889,7 @@ func _check_list(spoiled: Array = [], spoil_word := "pilalla") -> Array[String]:
 
 ## Vieras koira puri: kaatuu, ja jalka ontuu, kunnes haava hoidetaan.
 func _on_bitten(direction: Vector3) -> void:
-	if not (state in ["to_shop", "to_home"]):
+	if state != "ulkona":
 		return
 	_stop_picking()
 	_stop_mowing()
@@ -7966,7 +7967,7 @@ func _spawn_beast(kind: String) -> bool:
 			Sfx.play("alert", -6.0, 0.7)
 			tilat.add("stressi", -0.1))
 		b.gave_up.connect(func(scared: bool) -> void:
-			if not state in ["to_shop", "to_home"]:
+			if state != "ulkona":
 				return
 			if kind == "karhu":
 				_show_message("Karhu tuhahti ja lönkytteli metsään. Huh, sydän hakkaa.", 3.0)
@@ -7987,7 +7988,7 @@ func _spawn_beast(kind: String) -> bool:
 
 ## Pedon hyökkäys: kaatuminen, haava (karhulla isompi) ja eväät: karhu vie kaiken syötävän, susi lihat.
 func _on_beast_attack(kind: String, dir: Vector3) -> void:
-	if not state in ["to_shop", "to_home"] or player != walker_out:
+	if state != "ulkona" or player != walker_out:
 		return
 	_stop_picking()
 	_stop_mowing()
@@ -8025,7 +8026,7 @@ func _on_beast_attack(kind: String, dir: Vector3) -> void:
 ## Haavan hoito kotona: Päivi puhdistaa ja laittaa laastarin, mutta motkottaa (kotiovella, kun ei olla tulossa
 ## kaupasta; kotiinpaluu kuutosen kanssa aloittaa uuden päivän, joka hoitaa haavan joka tapauksessa).
 func _wound_logic() -> void:
-	if not bitten or _hint.text != "" or state != "to_shop" or player != walker_out or player.is_stunned():
+	if not bitten or _hint.text != "" or state != "ulkona" or _kuutonen_day == day or player != walker_out or player.is_stunned():
 		return
 	var p := player.global_position
 	if Vector2(p.x - home_door.x, p.z - home_door.z).length() > HOME_DOOR_ZONE:
@@ -8577,7 +8578,7 @@ const CACHE_R := 2.0
 ## Kätköjen tila asemittain: 0 = ei kuultu, 1 = paikka kerrottu (merkki kartalla), 2 = tyhjennetty. Säilyy.
 var asema_katkot := {}
 var _asema_town := "saloinen"
-var _asema_prev := "to_shop"
+var _asema_prev := "ulkona"
 var _asema_npc := 0
 
 
@@ -8825,12 +8826,12 @@ func _train_trip(to: String) -> void:
 	cutscene.train_ride(to == "vaala", _arrive_vaala_by_train if to == "vaala" else _arrive_saloinen_by_train, treat)
 
 
-var _train_prev := "to_shop"
+var _train_prev := "ulkona"
 var _train_round_msg := ""
 
 
 func _arrive_saloinen_by_train() -> void:
-	state = _train_prev if _train_prev != "cutscene" else "to_shop"
+	state = _train_prev if _train_prev != "cutscene" else "ulkona"
 	walker_out.visible = true
 	_set_avatar(walker_out)
 	var a: Vector3 = world.station_arrive
@@ -8843,7 +8844,7 @@ func _arrive_saloinen_by_train() -> void:
 
 func _arrive_vaala_by_train() -> void:
 	_advance_clock(HOP_VAALA)
-	state = _train_prev if _train_prev != "cutscene" else "to_shop"
+	state = _train_prev if _train_prev != "cutscene" else "ulkona"
 	mokki.ensure_built()
 	_ensure_mopo_trip()
 	_start_mopo()
@@ -8936,7 +8937,7 @@ func _cheat_mokki() -> void:
 	await get_tree().process_frame
 	if _inventory.visible:
 		_inventory.toggle()  # koodin I avasi repun
-	if state not in ["to_shop", "to_home"] or _in_vaala or cutscene.busy or _talk_box.is_open() or _at_mokki():
+	if state != "ulkona" or _in_vaala or cutscene.busy or _talk_box.is_open() or _at_mokki():
 		return
 	if player == bike:
 		_place_on_foot(bike.global_position + bike.global_transform.basis.x * 1.1)  # pyörä jää Saloisiin
@@ -8952,7 +8953,7 @@ func _cheat_vaala() -> void:
 		_inventory.toggle()
 	if cutscene.busy or _talk_box.is_open():
 		return
-	if state not in ["to_shop", "to_home"]:
+	if state != "ulkona":
 		return  # sisätiloissa (myös Vaalan Siitari, kaupat ja lava)
 	if not _in_vaala and player == bike:
 		_place_on_foot(bike.global_position + bike.global_transform.basis.x * 1.1)  # pyörä jää Saloisiin
@@ -9238,7 +9239,7 @@ func _bar_prompt(bar: Node, talkers: Dictionary) -> void:
 
 
 func _talk_state_kind() -> String:
-	return "ulko" if state in ["to_shop", "to_home"] else state
+	return "ulko" if state == "ulkona" else state
 
 
 ## Avaa keskustelun: ohjattava hahmo pysähtyy, sisätilan toimintopisteet ja hahmon omat repliikit tauolle.
@@ -9709,7 +9710,6 @@ func _talk_choose(id: String) -> void:
 			tilat.first("pontikka", 0.5)
 			_sulo_sold = true
 			walker_out.set_kanister(true)
-			state = "to_home"
 			Sfx.play("coin", -4.0)
 			_talk_box.reply("Tässä. Ja suu suppuun. Ja kanisteri takasin, kun on tyhjä.", _talk_options(),
 				"Pontikkakanisteri mukana, vastaa %d kaljaa! Vie se kotiin jemmaan." % _kanister_beers())
@@ -10736,7 +10736,7 @@ func _set_carry(kind: String) -> void:
 
 ## Hommien kello: kannettavan läikkyminen, paljun tyhjennys ja tulva, Santun hermot ja häätö.
 func _hommat_tick(dt: float) -> void:
-	if _carry in ["sanko", "kahvi"] and state in ["to_shop", "to_home"]:
+	if _carry in ["sanko", "kahvi"] and state == "ulkona":
 		var running: bool = walker_out.speed > 3.2
 		_carry_slosh = clampf(_carry_slosh + (0.9 if running else -0.35) * dt + tilat.value("humala") * 0.4 * dt * randf(), 0.0, 1.0)
 		if walker_out.is_stunned():
@@ -10757,7 +10757,7 @@ func _hommat_tick(dt: float) -> void:
 				_santtu_line("Palju tulvii yli! Ei sitä järveä tarvi kokonaan siirtää!", true)
 	if not hommat.active:
 		return
-	if state in ["to_shop", "to_home", "in_mokki"] and not cutscene.busy and not _item_menu.is_open() and not _minigame_open():
+	if state in ["ulkona", "in_mokki"] and not cutscene.busy and not _item_menu.is_open() and not _minigame_open():
 		var lv: int = hommat.tick(dt)
 		if lv >= 0:
 			_santtu_line(Hommat.HERMO_LINES[lv].pick_random(), true)
@@ -11008,7 +11008,7 @@ func _hommat_evict() -> void:
 		walker_out.global_position = mokki.porch_pos(0.9)
 		walker_out.activate_camera()
 	if state == "in_mokki" or state == "cutscene":
-		state = "to_shop"
+		state = "ulkona"
 	_hommat_leave_mokki()
 	tilat.add("moraali", -0.3)
 	tilat.add("stressi", -0.25)
@@ -11091,7 +11091,7 @@ func _watch_context() -> Array:
 ## Pelaajan paikka kertoo, mistä Santtu väistää, ja tänään annettuja hommia Santtu ei tee itse.
 func _puuhat_tick(at_mokki: bool) -> void:
 	var pu: Node = mokki.puuhat
-	pu.enabled = at_mokki and state in ["to_shop", "to_home", "in_mokki"] and _watch_task == "" and not cutscene.busy \
+	pu.enabled = at_mokki and state in ["ulkona", "in_mokki"] and _watch_task == "" and not cutscene.busy \
 		and not _talk_box.is_open()  # keskustelun ajaksi Santtu pysähtyy
 	pu.player_local = mokki.to_local(player.global_position) if state != "in_mokki" else Vector3.INF
 	pu.pending = hommat.undone() if hommat.active else []
@@ -11100,7 +11100,7 @@ func _puuhat_tick(at_mokki: bool) -> void:
 ## Santtu nousee kannolta ja kävelee katsomaan käynnissä olevaa hommaa, tulee perille, kommentoi ja palaa
 ## kannolle, kun hommaa ei hetkeen tehdä.
 func _santtu_watch(dt: float) -> void:
-	if not hommat.active or state not in ["to_shop", "to_home"] or _talk_box.is_open():
+	if not hommat.active or state != "ulkona" or _talk_box.is_open():
 		return
 	var ctx := _watch_context()
 	if ctx.is_empty():
@@ -11418,7 +11418,7 @@ func _ensure_raahe() -> void:
 ## Vaalassa tai mökillä (taksi Raaheen lähtee Saloisista).
 const UNLOAD_AFTER := 10.0  # s Saloisissa ennen Vaalan vapautusta (ei heti junalta tai kuolemasta)
 var _vaala_away_t := 0.0
-const SALOINEN_STATES := ["to_shop", "to_home", "in_home", "in_shop", "in_garage", "in_kirppis", "in_varasto", "in_raahe"]
+const SALOINEN_STATES := ["ulkona", "in_home", "in_shop", "in_garage", "in_kirppis", "in_varasto", "in_raahe"]
 
 
 func _unload_far_places(delta: float) -> void:
@@ -12339,7 +12339,7 @@ const ROSVO_TEXT := "RANTA-ROSVO. Kerrotaan, että Salmisten rannoilla liikkui a
 
 
 func _north_logic(p: Vector3) -> void:
-	if not mokki.built or _hint.text != "" or player == bike or player.is_stunned() or state not in ["to_shop", "to_home"]:
+	if not mokki.built or _hint.text != "" or player == bike or player.is_stunned() or state != "ulkona":
 		return
 	var e := Input.is_action_just_pressed("interact")
 	var f := Input.is_action_just_pressed("mount")
@@ -13804,7 +13804,8 @@ func _on_shop_exited(bought: bool) -> void:
 			_start_shop_chase(shop_door, true)
 		return
 	beers += 6
-	state = "to_home"  # = kuutonen ostettu tänään (ei tehtävä: kotiin tai kauppaan voi mennä milloin vain)
+	state = "ulkona"
+	_kuutonen_day = day  # ei tehtävä: kotiin tai kauppaan voi mennä milloin vain
 	player.set_carrying(true)
 	if interior.stolen and not wife_alerted:
 		_show_message("JUOKSUKALJAT! Kauppias juoksee perään – se on nopeampi kuin pyörä!\nTaksiin, tai heitä kaljoja päin!", 4.0)
@@ -13853,18 +13854,18 @@ func _wife_bust_arrive() -> void:
 
 
 func _on_wife_spotted() -> void:
-	if state in ["to_shop", "to_home"] and mowing and _mow_lawn == sinikka_lawn and _once_today("sinikka_nurmi_nahty"):
+	if state == "ulkona" and mowing and _mow_lawn == sinikka_lawn and _once_today("sinikka_nurmi_nahty"):
 		# Tarina: Päivi näki leikkaamassa Sinikan nurmikkoa. Suuttuu ja lähtee jahtiin; leikkuuta voi jatkaa karkuun päästyä.
 		tilat.add("moraali", -0.1)
 		tilat.add("stressi", -0.1)
 		_show_message("PÄIVI NÄKI SINUT! \"SINIKAN nurmikkoa sää leikkaat?!\"\nPakoon, ja jatka kun pääset karkuun!", 3.5)
 		return
-	if state in ["to_shop", "to_home"] and not wife.alerted:
+	if state == "ulkona" and not wife.alerted:
 		_show_message("PÄIVI NÄKI SINUT!\nPakoon!", 2.0)
 
 
 func _on_wife_caught() -> void:
-	if not state in ["to_shop", "to_home"]:
+	if state != "ulkona":
 		return
 	if not paivi_credit.is_empty():
 		# Kotihommista hyvitys: Päivi päästää tämän kerran (vanhin hyvitys ensin).
@@ -13910,7 +13911,7 @@ func _on_laavu_challenge(kind: String, direction: Vector3) -> void:
 
 
 func _start_fight(foe_key: String, source: String, direction: Vector3) -> void:
-	if not (state in ["to_shop", "to_home"]) or trailer_safe:
+	if state != "ulkona" or trailer_safe:
 		return
 	_fight_source = source
 	_grill_t = -1.0
@@ -14202,7 +14203,7 @@ func _start_shop_chase(door: Vector3, taxi: bool) -> void:
 	else:
 		c.delay = 2.0
 	c.caught.connect(func(dir: Vector3) -> void:
-		if state in ["to_shop", "to_home"]:
+		if state == "ulkona":
 			_start_fight("kauppias", "kauppias", dir))
 	_shop_chaser = c
 
@@ -14258,7 +14259,7 @@ func _kauppias_fight_end(won: bool, note: String) -> void:
 		_chase_loot = {}
 		# Kauppias soittaa poliisit: Saloisissa poliisiauto, Vaalassa nimismies jalan.
 		get_tree().create_timer(3.0).timeout.connect(func() -> void:
-			if not state in ["to_shop", "to_home"]:
+			if state != "ulkona":
 				return
 			if _in_vaala or _at_mokki():
 				_nimismies_shop_raid()
@@ -14276,7 +14277,7 @@ func _kauppias_fight_end(won: bool, note: String) -> void:
 		var back := _reclaim_loot()
 		Sfx.play("glass", -6.0, 0.8)
 		if not _in_vaala:
-			state = "to_shop"  # kuutonen palautui hyllyyn: ei haettu tänään
+			_kuutonen_day = -1  # kuutonen palautui hyllyyn: ei haettu tänään
 		var what := PackedStringArray()
 		if took > 0:
 			what.append("%d kaljaa" % took)
@@ -14418,7 +14419,7 @@ const HALOT_PER_POLKKY := 4
 const FIRE_HALOT := 4
 var kota_polkyt := 0
 var kota_halot := 0
-var _minigame_prev := "to_shop"
+var _minigame_prev := "ulkona"
 var tarinat_kuultu: Array = []  # kuultujen tarinoiden indeksit (tallentuu)
 var _kota_chat_t := 6.0
 var _story_skip := false
@@ -14444,7 +14445,7 @@ const CARRY_BIKE := 6  # pyörän tarakalle mahtuu kuutonen
 ## karburaattorin säätöä autotallissa kalja kädessä (kotijemma juodaan tyhjäksi). party = juhlat aloitettiin
 ## kotipiilolta (_stash_logic, kotipiiloissa vähintään JEMMA_GOAL); nukkumaan mentäessä juhlia ei aloiteta itsestään.
 func _win(party := false, wine := false, news := false) -> void:
-	var shopped := state == "to_home"  # kuutonen haettu tänään
+	var shopped := _kuutonen_day == day
 	state = "cutscene"
 	player.controls_enabled = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
@@ -14678,6 +14679,7 @@ func _load_game() -> void:
 	_lava_pass_day = cfg.get_value("paivarajat", "lavaleima_paiva", -1)
 	_santtu_lava_day = cfg.get_value("paivarajat", "santtu_lava", -1)
 	_seppo_day = cfg.get_value("paivarajat", "seppo", {})
+	_kuutonen_day = cfg.get_value("paivarajat", "kuutonen", -1)
 	_orava_find_day = cfg.get_value("paivarajat", "orava_loyto", -1)
 	_viita_fire_day = cfg.get_value("paivarajat", "viita_nuotio", -1)
 	_viita_kalja_day = cfg.get_value("paivarajat", "viita_kalja", -1)
@@ -14770,6 +14772,7 @@ func _save_game() -> void:
 	cfg.set_value("paivarajat", "lavaleima_paiva", _lava_pass_day)
 	cfg.set_value("paivarajat", "santtu_lava", _santtu_lava_day)
 	cfg.set_value("paivarajat", "seppo", _seppo_day)
+	cfg.set_value("paivarajat", "kuutonen", _kuutonen_day)
 	cfg.set_value("paivarajat", "orava_loyto", _orava_find_day)
 	cfg.set_value("paivarajat", "viita_nuotio", _viita_fire_day)
 	cfg.set_value("paivarajat", "viita_kalja", _viita_kalja_day)
@@ -15199,7 +15202,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	# Viiveellä: kotiinpaluu pysäyttää vaarat set_deferredillä samalla ruudulla, ja suora asetus
 	# jäisi sen alle (vaarat jäätyisivät koko päiväksi). Viivästetyt kutsut suoritetaan järjestyksessä.
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
-	state = "to_shop"
+	state = "ulkona"
 	clock_min = DAY_START
 	_night_coffee = 0
 	_humala_peak = 0.0
@@ -15221,7 +15224,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 		var lost_n := _jemma_found
 		var msg := "%s%s%s" % [bonus, bike_note, jnote]
 		cutscene.jemma_found(home_zone, lost_n, jemma, func() -> void:
-			state = "to_shop"
+			state = "ulkona"
 			_hud.visible = true
 			player.controls_enabled = true
 			player.activate_camera()
@@ -15404,13 +15407,13 @@ var _hint_shown := ""
 ## Näppäinohjerivin teksti: syö, reppu ja kartta; ulkona jalan juoksu, pyörällä spurtti, jarru ja kello.
 ## Näppäimet asetuksista.
 func _help_text() -> String:
-	if cutscene.busy or not state in ["to_shop", "to_home", "in_shop", "in_home", "in_garage", "in_mokki", "in_raahe",
+	if cutscene.busy or not state in ["ulkona", "in_shop", "in_home", "in_garage", "in_mokki", "in_raahe",
 			"in_siitari", "in_asema", "in_kirppis", "in_varasto"]:
 		return ""  # minipeleillä ja välianimaatioilla omat ohjeensa
 	var k := func(action: String, what: String) -> String:
 		return "[%s] %s" % [Settings.action_key(action), what]
 	var parts: Array[String] = []
-	var outside: bool = state in ["to_shop", "to_home"]
+	var outside: bool = state == "ulkona"
 	if player == bike and outside:
 		if not oma_mopo.riding:  # mopolla ei spurtata (kaasukahva), ja kellon tilalla piippari
 			parts.append(k.call("sprint", "spurtti"))
@@ -15628,7 +15631,7 @@ func _spawn_threats() -> void:
 		car.cruise = randf_range(12.5, 16.0) * (0.9 if car.van else 1.0)
 		car.target_fn = func() -> Node3D: return player
 		car.hit.connect(func() -> void:
-			if state in ["to_shop", "to_home"] and not _at_mokki():
+			if state == "ulkona" and not _at_mokki():
 				Sfx.play("punch_heavy", 2.0)
 				_lose("Jäit auton alle.", "car"))
 		_hazards.add_child(car)
@@ -15670,7 +15673,7 @@ func _spawn_threats() -> void:
 	mummot.position = M.w(M.SHOP_BUILDING) + Vector3(-6.0, 0, 10.2)
 	mummot.target = player
 	mummot.hit.connect(func(dir: Vector3) -> void:
-		if state in ["to_shop", "to_home"] and not player.is_stunned():
+		if state == "ulkona" and not player.is_stunned():
 			player.stagger(dir)
 			tilat.add("kipu", -0.05)
 			_show_message("Kettukarkki osui! Mummoilla on hyvä käsi.", 2.0))
@@ -15680,7 +15683,7 @@ func _spawn_threats() -> void:
 		_show_message("Kettukarkki maasta. Kunto +15", 1.5))
 	mummot.angered.connect(func() -> void: tilat.add("moraali", -0.1))
 	mummot.killed.connect(func() -> void:
-		if state in ["to_shop", "to_home"]:
+		if state == "ulkona":
 			_lose("Rollaattorimummo huitaisi kepillä päähän.", "mummo"))
 	_hazards.add_child(mummot)
 
@@ -15690,7 +15693,7 @@ func _spawn_threats() -> void:
 	stray.target = player
 	stray.world = world
 	stray.growled.connect(func() -> void:
-		if state in ["to_shop", "to_home"] and not bitten:
+		if state == "ulkona" and not bitten:
 			_show_message("Vieras koira murisee. Tuohon ei kannata mennä rapsuttelemaan.", 2.5))
 	stray.bit.connect(_on_bitten)
 	_hazards.add_child(stray)
@@ -15944,7 +15947,7 @@ func _update_hud() -> void:
 		var deg := Compass.bearing_deg(pp, _compass.cache)
 		lines.append("Viinakätkö %d / %d: %d m  %s %d°" % [viina_found.size() + 1, Mokki.VIINA.size(),
 			roundi(pp.distance_to(_compass.cache)), Compass.dir_name(deg), roundi(deg)])
-	if at_mokki and hommat.active and state in ["to_shop", "to_home", "in_mokki"]:
+	if at_mokki and hommat.active and state in ["ulkona", "in_mokki"]:
 		lines.append("Santun hommat %d / %d · hermot %s" % [hommat.done.size(), hommat.tasks.size(), hommat.bar()])
 		if _carry != "":
 			lines.append("Kädessä: %s%s" % [{"sanko": "huussin sanko", "halot": "syli halkoja", "kahvi": "Santun kahvit"}[_carry],
@@ -15952,7 +15955,7 @@ func _update_hud() -> void:
 	var away := at_mokki or _in_vaala
 	if not away and not _risky_stashes().is_empty():
 		lines.append("⚠ Kotijemma vaarassa (I)")
-	_stamina_box.visible = state in ["to_shop", "to_home"]  # juoksu ja pyörän spurtti kuluttavat samaa kuntoa
+	_stamina_box.visible = state == "ulkona"  # juoksu ja pyörän spurtti kuluttavat samaa kuntoa
 	if _stamina_box.visible:
 		var akku: bool = ebike.built() or oma_mopo.riding
 		_akku_label.visible = akku
@@ -15984,13 +15987,13 @@ func _update_hud() -> void:
 		_minimap.vaala = mopo_trip.vaala
 		_minimap.vaala_mopo = mopo_trip.mopo
 	_minimap.mokki_forage = mokki_forage if mokki_forage_revealed else []
-	_minimap.target = shop_zone if state == "to_shop" else home_zone
+	_minimap.target = home_zone if _kuutonen_day == day else shop_zone
 	_minimap.show_target = false  # ei tehtäväkohdetta: kauppa ja koti näkyvät kartalla merkkeinä
-	_compass.visible = state in ["to_shop", "to_home"]
+	_compass.visible = state == "ulkona"
 	_compass.show_target = not away
 
 	var status: Array[String] = []
-	if state in ["to_shop", "to_home"] and not away:
+	if state == "ulkona" and not away:
 		if wife.is_target_safe():
 			status.append("TURVASSA – KIILINLAMMEN GRILLIKATOS")
 		elif wife.alerted:
@@ -16017,7 +16020,7 @@ func _update_hud() -> void:
 
 	var nb: CharacterBody3D = interior.neighbor
 	_sus_box.visible = state == "in_shop" and nb != null
-	_stat_bars.visible = state in ["to_shop", "to_home", "in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto"]
+	_stat_bars.visible = state in ["ulkona", "in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto"]
 	_stat_bars.offset_top = 90 if _sus_box.visible else 36
 	if _sus_box.visible:
 		_sus_bar.value = nb.suspicion
@@ -16404,7 +16407,7 @@ func _wife_rhythm(t: float) -> void:
 				wife.reset_to(wife.farthest_node_from(player.global_position))
 			wife.visible = true
 			wife.process_mode = Node.PROCESS_MODE_INHERIT
-			if prev == "koti" and state in ["to_shop", "to_home"] and not _at_mokki():
+			if prev == "koti" and state == "ulkona" and not _at_mokki():
 				_queue_message("Päivi lähti liikkeelle. Punainen Hyundai on teillä!", 3.0)
 
 
@@ -16440,7 +16443,7 @@ func _coffee() -> void:
 	_night_coffee += 1
 
 
-const NIGHT_STATES := ["to_shop", "to_home", "in_shop", "in_home", "in_garage", "in_mokki", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto"]
+const NIGHT_STATES := ["ulkona", "in_shop", "in_home", "in_garage", "in_mokki", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto"]
 
 
 func _night_tick(delta: float) -> void:
@@ -18958,7 +18961,7 @@ func _maybe_screenshot() -> void:
 			print("HYVITYS ansaittu %s" % [paivi_credit])
 			if player != walker_out:
 				_toggle_mount()
-			state = "to_shop"
+			state = "ulkona"
 			wife.global_position = walker_out.global_position + Vector3(2.0, 0, 0)
 			wife.mode = "chase"
 			wife.alerted = true
@@ -22878,7 +22881,8 @@ func _maybe_screenshot() -> void:
 			_talk_choose("kirves")
 			_talk_box.close()
 			print("KE veksi: %s, todistettu %s" % [kertun.choice, kertun.proven()])
-			state = "to_home"
+			state = "ulkona"
+			_kuutonen_day = day
 			_kertun_logic()
 			print("KE poliisi: %s, '%s'" % [police != null and is_instance_valid(police), _msg.text.left(60)])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
@@ -23621,7 +23625,7 @@ func _maybe_screenshot() -> void:
 						blocked.append("%s (%.2f m)" % [id, Vector2(w.position.x - at.x, w.position.z - at.z).length()])
 				print("SISARAJAT %s: toimintopisteitä %d, rajaus estää: %s" % [c[0], pts.size(), blocked if not blocked.is_empty() else "ei mitään"])
 				w.position = start
-				state = "to_shop"
+				state = "ulkona"
 		"ohjerivi":
 			# Näppäinohjerivi seuraa asetuksia: syö T -> R ja takaisin.
 			var erow := -1
@@ -23691,7 +23695,8 @@ func _maybe_screenshot() -> void:
 			_stash_add("koti", 6)
 			print("LAPPU2 jemman jälkeen: vaihe %s" % story.step)
 			for case in ["kotiin kuutosen kanssa", "nukkumaan", "sammui ulos"]:
-				state = "to_home" if case == "kotiin kuutosen kanssa" else "to_shop"
+				state = "ulkona"
+				_kuutonen_day = day if case == "kotiin kuutosen kanssa" else -1
 				if case == "sammui ulos":
 					_day_end = "ulko"
 					_new_day(home_zone + Vector3(0, 0, 4), false)
@@ -23753,7 +23758,7 @@ func _maybe_screenshot() -> void:
 			_kalle_sold = 0
 			walker_out.global_position = kalle.to_global(Vector3(0.6, 0.5, -2.2))
 			walker_out.look_at(kalle.global_position + Vector3(0, 0.5, 0), Vector3.UP)
-			state = "to_shop"
+			state = "ulkona"
 			interior.leave()
 			for i in 20:
 				await get_tree().physics_frame
@@ -26092,7 +26097,8 @@ func _maybe_screenshot() -> void:
 			Input.action_release("forward")
 		"tractortest":
 			# Onnistunut kotiinpaluu ja sen jälkeen pellolle: jemmarin pitää hyökätä.
-			state = "to_home"
+			state = "ulkona"
+			_kuutonen_day = day
 			beers = 0
 			jemma = 6
 			_win()
@@ -26367,7 +26373,7 @@ func _maybe_screenshot() -> void:
 		"kotivessa":
 			# Kodin WC: sisään etuovesta, kävely tupakeittiöstä WC:hen pöntön eteen, E -> valikko -> ykkönen -> minipeli.
 			_toggle_mount()
-			state = "to_shop"
+			state = "ulkona"
 			_enter_home("ovi")
 			for i in 5:
 				await get_tree().process_frame
@@ -27591,7 +27597,7 @@ func _maybe_screenshot() -> void:
 			# Hermot: täysi mittari = häätö ja yhden tähden arvostelu.
 			hommat.done = hommat.done.slice(0, 2)
 			hommat.hermo = 99.9
-			state = "to_shop"
+			state = "ulkona"
 			print("HAATO ennen: busy=%s menu=%s (%s) note=%s" % [cutscene.busy, _item_menu.is_open(), _item_menu._title.text, _note.visible])
 			_item_menu.visible = false
 			player.controls_enabled = true
@@ -28366,8 +28372,9 @@ func _maybe_screenshot() -> void:
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"tappioko":
 			# Tappelun häviö ilman kaljoja ja rahaa: päivä ei pääty, tyrmäys vie tunnin, rahaa ei mene miinukselle.
-			for case in [["to_shop", 0, 3.0], ["to_home", 2, 20.0]]:
-				state = case[0]
+			for case in [[-1, 0, 3.0], [day, 2, 20.0]]:
+				state = "ulkona"
+				_kuutonen_day = case[0]
 				beers = case[1]
 				money = case[2]
 				var d0 := day
@@ -28391,7 +28398,8 @@ func _maybe_screenshot() -> void:
 		"heitto":
 			# Tappelussa kolme kaljanheittoa (eteen + L), sitten K.O. ja kaljamäärän tarkistus.
 			beers = 6
-			state = "to_home"
+			state = "ulkona"
+			_kuutonen_day = day
 			_start_fight("juntti", "juntti", Vector3.RIGHT)
 			for i in 150:
 				await get_tree().process_frame
@@ -28754,7 +28762,8 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			if player == bike:
 				_toggle_mount()
-			state = "to_home"
+			state = "ulkona"
+			_kuutonen_day = day
 			jemma = 0
 			beers = 3
 			walker_out.global_position = home_zone + Vector3(0, 0.5, 0)
@@ -29250,7 +29259,7 @@ func _maybe_screenshot() -> void:
 					if i % 120 == 0 and is_instance_valid(police):
 						print("  police t=%d d=%.1f mode=%s alerted=%s" % [i / 60, police.global_position.distance_to(player.global_position),
 							police.mode, police.alerted])
-					if state != "to_shop":
+					if state != "ulkona":
 						break
 				print("POLICE d=%.1f status=%s state=%s" % [police.global_position.distance_to(player.global_position) if is_instance_valid(police) else -1.0,
 					_status.text, state])
