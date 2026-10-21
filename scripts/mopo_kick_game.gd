@@ -274,7 +274,7 @@ func _process(delta: float) -> void:
 		_word = "RIKASTIN %s" % ("PÄÄLLE" if _choke else "POIS")
 		_word_t = 0.9
 	# Potkun lataus: mittari heiluu ylös-alas (humalassa epätasaisesti), irti päästäessä potkaistaan.
-	var hold := Input.is_action_pressed("interact")
+	var hold := Input.is_action_pressed("interact") and (_holding or Input.is_action_just_pressed("interact"))  # aloittava E ei potkaise
 	if hold:
 		_holding = true
 		var sp := 1.15 + drunk * (0.9 + sin(_t * 5.3) * 0.8)

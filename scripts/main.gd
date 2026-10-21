@@ -9253,6 +9253,7 @@ func _talk_state_kind() -> String:
 ## Avaa keskustelun: ohjattava hahmo pysähtyy, sisätilan toimintopisteet ja hahmon omat repliikit tauolle.
 func _talk_open(who: String, node: Node3D, hello := "") -> void:
 	_talk_who = who
+	_mopo_menu(true)  # Vaalan ovikeskustelu: valinnan E ei saa avata ovea (ja keskustelua) uudelleen
 	if who in ["pekka", "arto", "sinikka"]:
 		tilat.first(who, 0.0)  # naapuri tavattu: kartan laskuri ja tehtävien ehdot (first:sinikka)
 	elif who == "santtu":
@@ -9357,6 +9358,7 @@ func _talk_watch() -> void:
 
 func _talk_end() -> void:
 	_talk_end_frame = Engine.get_process_frames()
+	_mopo_menu(false)
 	CamCtl.free_mouse = false
 	if is_instance_valid(_talk_node) and "quiet" in _talk_node:
 		_talk_node.quiet = false

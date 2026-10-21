@@ -221,7 +221,7 @@ func _process(delta: float) -> void:
 			var bait := gear != "onki" or worms > 0
 			_hint.set_text("%s heitä (pidä pohjassa)   %s lopeta" % [Settings.cap("interact"), Settings.cap("mount")] if bait
 				else "Madot loppu.   %s lopeta" % Settings.cap("mount"))
-			if Input.is_action_pressed("interact") and bait:
+			if Input.is_action_just_pressed("interact") and bait:  # aloittava E (pohjassa) ei heitä heti
 				_state = "charge"
 				_charge = 0.0
 			elif Input.is_action_just_pressed("interact") and not bait:
