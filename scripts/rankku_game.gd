@@ -22,6 +22,7 @@ const TAUNTS := ["\"Ei se ees osaa potkasta!\"", "\"Mun mummo potkas kovempaa!\"
 	"\"Viimenen mahollisuus, setä!\""]
 
 var drunk := 0.0
+var quit := false  # luovutettu kesken (ei voittoa, vaikka olisi johdossa)
 var size := Vector3(5.0, 2.0, 7.0)  # maalin leveys, korkeus ja pilkun etäisyys
 
 var _hud: CanvasLayer
@@ -64,6 +65,7 @@ var _cam_from := Transform3D()
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	_build()
 	_cam = Camera3D.new()
 	_cam.fov = 42.0
@@ -200,6 +202,7 @@ func _process(delta: float) -> void:
 	_ui.queue_redraw()
 	if _phase != "done":
 		if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
+			quit = true
 			_finish("Luovutit. Pojat: \"Setä lähti itkemään!\"")
 		else:
 			_tick(delta)

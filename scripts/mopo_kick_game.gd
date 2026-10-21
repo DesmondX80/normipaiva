@@ -78,6 +78,7 @@ var _cam: Camera3D
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	if walker != null:
 		walker.visible = false
 	_mopo_pos = mopo.position

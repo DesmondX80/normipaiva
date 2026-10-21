@@ -58,6 +58,7 @@ var _dist_sign: Node3D
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	_hidden = get_parent().get_node_or_null("Keinu1")
 	if _hidden != null:
 		_hidden.visible = false
@@ -69,7 +70,8 @@ func _ready() -> void:
 	_cam.current = true
 	_place_camera(1.0, true)
 	_build_hud()
-	_tip.text = "Keinuhyppy! Ennätys %s %s m. Vauhtia oikeaan tahtiin." % [record_holder, _m(record)]
+	_tip.text = ("Keinuhyppy! Oma ennätys %s m. Vauhtia oikeaan tahtiin." % _m(record)) if _own_record() else \
+		"Keinuhyppy! Ennätys %s %s m. Vauhtia oikeaan tahtiin." % [record_holder, _m(record)]
 
 
 static func _m(v: float) -> String:
@@ -125,9 +127,15 @@ func _build_marks() -> void:
 			var s := B.sign_plate(self, "%d m" % m, Color(0.95, 0.93, 0.85), Color(0.2, 0.15, 0.1), 0.12, 32, Color(0.5, 0.35, 0.2))
 			s.position = Vector3(SEAT_X + 0.5, 0.45, m)
 			s.rotation.y = -PI / 2.0
-	_flag(record, Color(0.9, 0.15, 0.15), "%s %s" % [record_holder.get_slice(" ", record_holder.get_slice_count(" ") - 1).to_upper(), _m(record)], -0.45)
+	if not _own_record():  # oma ennätys: OMA-lippu riittää
+		_flag(record, Color(0.9, 0.15, 0.15), "%s %s" % [record_holder.get_slice(" ", record_holder.get_slice_count(" ") - 1).to_upper(), _m(record)], -0.45)
 	if best > 0.0:
 		_flag(best, Color(0.2, 0.5, 0.9), "OMA %s" % _m(best), -0.75)
+
+
+## Ennätys on pelaajan oma (main.gd asettaa haltijaksi "Järvikuja 1").
+func _own_record() -> bool:
+	return record_holder == "Järvikuja 1"
 
 
 func _flag(at: float, col: Color, text: String, dx: float) -> void:
@@ -200,13 +208,17 @@ func _process(delta: float) -> void:
 						var txt := ""
 						if _crash:
 							txt = "Selälleen hiekkaan! %s m. Äidit pudistelee päätään." % _m(_dist)
+						elif _dist > record and _own_record():
+							txt = "%s METRIÄ! Oma ennätys parani." % _m(_dist)
 						elif _dist > record:
 							txt = "%s METRIÄ! UUSI ENNÄTYS! %s jää historiaan." % [_m(_dist), record_holder]
 						else:
-							txt = "%s metriä. Ennätys %s %s m pitää." % [_m(_dist), record_holder, _m(record)]
+							txt = ("%s metriä. Oma ennätys %s m pitää." % [_m(_dist), _m(record)]) if _own_record() else \
+								"%s metriä. Ennätys %s %s m pitää." % [_m(_dist), record_holder, _m(record)]
 						_finish(txt)
 	_pose(delta)
-	_info.text = "Keinuhyppy · ennätys %s %s m%s" % [record_holder, _m(record), (" · oma %s m" % _m(best)) if best > 0.0 else ""]
+	_info.text = ("Keinuhyppy · ennätys %s m (sinun)" % _m(record)) if _own_record() else \
+		"Keinuhyppy · ennätys %s %s m%s" % [record_holder, _m(record), (" · oma %s m" % _m(best)) if best > 0.0 else ""]
 	if _phase in ["landed", "done"] and _dist > 0.0:
 		_info.text = "%s m" % _m(_dist) + ("  ·  UUSI ENNÄTYS!" if _dist > record and not _crash else "")
 	_keys.set_text("%s eteen heilahtaessa · %s taakse heilahtaessa · %s hyppää · %s luovuta" % [Settings.cap("right"),

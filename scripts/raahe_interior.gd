@@ -579,7 +579,7 @@ func _build_kulma() -> void:
 	B.mesh(self, B.boxm(Vector3(0.7, 0.9, 0.04)), Vector3(3.6, 2.1, -HALF.y + 0.12), Color(0.15, 0.12, 0.1))
 	B.label(self, "PEKKA\nPekkatori 1888", Vector3(3.6, 2.1, -HALF.y + 0.16), 18, Color(0.95, 0.9, 0.75))
 	B.mesh(self, B.boxm(Vector3(1.2, 1.4, 0.05)), Vector3(HALF.x - 0.12, 1.6, -2.0), Color(0.08, 0.1, 0.08), Vector3(0, 90, 0))
-	var chalk := B.label(self, "JOKA ILTA\nPUBIVISA!\nEdullista\nvisajuomaa\n& hyviä\npalkintoja", Vector3(HALF.x - 0.18, 1.6, -2.0), 20, Color(0.95, 0.95, 0.9))
+	var chalk := B.label(self, "JOKA ILTA\nPUBIVISA!\nVisajuoma\n& palkintoja", Vector3(HALF.x - 0.18, 1.6, -2.0), 20, Color(0.95, 0.95, 0.9))
 	chalk.rotation.y = -PI / 2.0
 	var sign := B.sign_plate(self, "KAPTEENIN KULMA", navy, Color(0.98, 0.9, 0.6), 0.55, 80, Color(0.02, 0.05, 0.15), "Helvetica Neue")
 	sign.position = Vector3(0.2, 2.55, -HALF.y + 0.12)

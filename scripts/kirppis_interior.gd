@@ -271,6 +271,8 @@ func _process(delta: float) -> void:
 			var i: int = talkers.pick_random()
 			var pool: Dictionary = AMBIENT_MODE.get(mode, {})
 			var lines: Array = pool.get(PEOPLE[i].id, AMBIENT.get(PEOPLE[i].id, []))
+			if not lot_visible:  # napamoottori myyty: Erkki ei enää mainosta sähköistä kohdetta
+				lines = lines.filter(func(l): return not "sähköinen" in l)
 			if not lines.is_empty():
 				say(_people[i], lines.pick_random())
 	var p := walker.position

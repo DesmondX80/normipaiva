@@ -51,6 +51,7 @@ var _elvi: Node3D
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	_build()
 	_cam = Camera3D.new()
 	_cam.fov = 52.0

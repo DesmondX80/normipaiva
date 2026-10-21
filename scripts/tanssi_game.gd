@@ -53,6 +53,7 @@ var _center := Vector3(0, 0, 0.6)
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	var look: Dictionary = {"model": "female"}
 	if interior != null:
 		_center = interior.DANCE_C

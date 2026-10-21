@@ -270,6 +270,67 @@ static func taxi(parent: Node3D, plate := "") -> Array[Node3D]:
 	return wheels
 
 
+## Rekka -Z-suuntaan: eurooppalainen nokaton veturi ja umpikoripuoliperävaunu (n. 2,55 × 4,0 × 16 m),
+## kyljissä RAAHEN KULJETUS -kyltti. Palauttaa pyörät kuten car().
+static func truck(parent: Node3D, color: Color, text := "RAAHEN KULJETUS") -> Array[Node3D]:
+	var first := parent.get_child_count()
+	var cab := paint(color)
+	var white := paint(Color(0.93, 0.93, 0.91))
+	var dark := plastic()
+	# Alusta ja runko.
+	part(parent, B.boxm(Vector3(1.0, 0.3, 15.6)), Vector3(0, 0.75, 0.2), dark)
+	# Ohjaamo: kori, tuulilasi, katon spoileri, aurinkolippa ja sivuikkunat.
+	part(parent, B.boxm(Vector3(2.5, 2.3, 2.3)), Vector3(0, 2.15, -6.75), cab)
+	part(parent, B.boxm(Vector3(2.44, 0.5, 2.0)), Vector3(0, 3.55, -6.6), cab)  # makuuhytin korotus
+	slab(parent, Vector3(0, 3.8, -6.2), Vector3(0, 3.95, -5.6), 2.4, 0.06, cab)  # spoileri
+	part(parent, B.boxm(Vector3(2.2, 1.0, 0.04)), Vector3(0, 2.75, -7.91), glass())  # tuulilasi
+	part(parent, B.boxm(Vector3(2.42, 0.16, 0.28)), Vector3(0, 3.33, -7.98), cab)  # aurinkolippa
+	part(parent, B.boxm(Vector3(2.52, 0.08, 0.06)), Vector3(0, 2.22, -7.92), chrome())  # tuulilasin alalista
+	# Keula: säleikkö kromisäleillä, ajovalot, puskuri ja kilpi.
+	part(parent, B.boxm(Vector3(1.6, 0.8, 0.05)), Vector3(0, 1.6, -7.92), dark)
+	for k in 5:
+		part(parent, B.boxm(Vector3(1.56, 0.05, 0.06)), Vector3(0, 1.3 + k * 0.15, -7.94), chrome())
+	for sx in [-1.0, 1.0]:
+		part(parent, B.boxm(Vector3(0.42, 0.2, 0.06)), Vector3(sx * 0.98, 1.2, -7.93), lamp(Color(1.0, 0.98, 0.9)))
+		part(parent, B.boxm(Vector3(0.14, 0.12, 0.06)), Vector3(sx * 1.2, 1.42, -7.93), lamp(Color(1.0, 0.5, 0.1)))
+		# Sivuikkuna, peilit varsineen, astinlauta ja ovisauma.
+		part(parent, B.boxm(Vector3(0.03, 0.8, 1.2)), Vector3(sx * 1.25, 2.7, -7.1), glass())
+		part(parent, B.boxm(Vector3(0.08, 0.06, 0.5)), Vector3(sx * 1.4, 2.95, -7.75), dark, Vector3(0, sx * 0.5, 0))
+		part(parent, B.boxm(Vector3(0.12, 0.55, 0.22)), Vector3(sx * 1.62, 2.7, -7.6), dark)
+		part(parent, B.boxm(Vector3(0.02, 0.45, 0.16)), Vector3(sx * 1.685, 2.7, -7.6), glass())
+		part(parent, B.boxm(Vector3(0.3, 0.06, 0.6)), Vector3(sx * 1.22, 0.75, -6.9), chrome())
+		part(parent, B.boxm(Vector3(0.012, 1.7, 0.012)), Vector3(sx * 1.256, 2.1, -6.0), dark)
+		part(parent, B.cyl(0.3, 0.3, 1.1, 14), Vector3(sx * 0.85, 0.95, -4.6), chrome(), Vector3(PI / 2.0, 0, 0))  # polttoainetankki
+		# Lokasuojat ja roiskeläpät.
+		for wz in [-6.55, -4.05, 4.6, 5.9]:
+			part(parent, B.boxm(Vector3(0.62, 0.06, 1.3)), Vector3(sx * 0.98, 1.22, wz), dark)
+		part(parent, B.boxm(Vector3(0.5, 0.55, 0.03)), Vector3(sx * 0.98, 0.65, 6.65), dark)
+	part(parent, B.boxm(Vector3(2.56, 0.4, 0.2)), Vector3(0, 0.82, -7.95), dark)  # puskuri
+	_plate(parent, Vector3(0, 0.9, -8.07), false, "RAH-1870")
+	# Pakoputki ohjaamon takana.
+	part(parent, B.cyl(0.07, 0.07, 1.4, 8), Vector3(1.05, 3.4, -5.5), chrome())
+	# Perävaunu: valkoinen kori, alareunan lista, takaovien saumat ja valot.
+	part(parent, B.boxm(Vector3(2.55, 2.9, 12.4)), Vector3(0, 2.6, 0.55), white)
+	part(parent, B.boxm(Vector3(2.57, 0.18, 12.42)), Vector3(0, 1.18, 0.55), cab)
+	part(parent, B.boxm(Vector3(2.57, 0.08, 12.42)), Vector3(0, 4.02, 0.55), dark)
+	part(parent, B.boxm(Vector3(0.012, 2.7, 0.02)), Vector3(0, 2.6, 6.76), dark)
+	for sx in [-1.0, 1.0]:
+		part(parent, B.boxm(Vector3(0.012, 2.7, 0.02)), Vector3(sx * 1.2, 2.6, 6.76), chrome())
+		part(parent, B.boxm(Vector3(0.3, 0.14, 0.05)), Vector3(sx * 1.05, 1.05, 6.77), lamp(Color(0.8, 0.04, 0.03)))
+	_plate(parent, Vector3(0, 1.05, 6.8), true, "RAH-1870")
+	_merge_parts(parent, first, "truck/" + color.to_html())
+	# Kylkien kyltit (eivät yhdisty: tekstit).
+	for sx in [-1.0, 1.0]:
+		var sp := B.sign_plate(parent, text, color, Color.WHITE, 1.3, 120, Color.WHITE, "Helvetica Neue")
+		sp.position = Vector3(sx * 1.29, 2.7, 0.55)
+		sp.rotation.y = PI / 2.0 if sx > 0.0 else -PI / 2.0
+	var wheels: Array[Node3D] = []
+	for sx in [-0.98, 0.98]:
+		for wz in [-6.55, -4.05, 4.6, 5.9]:
+			wheels.append(wheel(parent, Vector3(sx, 0.52, wz), 0.52, 0.34, 0, chrome(), 0.55))
+	return wheels
+
+
 ## Traktori -Z-suuntaan. style "modern" (Valtra-tyylinen lasiohjaamo) tai "old" (pieni vanha, ei ohjaamoa).
 ## Palauttaa {"rear": [pyörät], "front": [pyörät]}.
 static func tractor(parent: Node3D, color: Color, style := "modern") -> Dictionary:

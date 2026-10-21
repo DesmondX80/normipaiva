@@ -134,6 +134,7 @@ class Motor extends AudioStreamPlayer:
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	_holes0 = hedge.hole_count()
 	process_priority = 10  # oman hahmon animaation ja IK:n jälkeen: sormet taivutetaan kahvan ympäri (_grip)
 	_rng.randomize()

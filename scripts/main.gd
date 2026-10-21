@@ -1138,6 +1138,7 @@ func _ready() -> void:
 	endings = Endings.new()
 	quests = Quests.new()
 	_load_game()
+	_rossi_update_clock()  # rossiradan kellotaulu: ennätys heti, ei vasta kierroksen jälkeen
 	_story_check_jemma.call_deferred()  # vanha tallennus, jossa kuutonen jo kotijemmoissa
 	_pannu_update()
 	if story.step == "avaimet":
@@ -2845,7 +2846,7 @@ func _start_bingo() -> void:
 	CamCtl.free_mouse = true
 	var g := BingoGame.new()
 	g.drunk = _hand_shake()
-	g.rival_at = randi_range(18, 26)
+	g.rival_at = randi_range(29, 41)  # tarkka merkitsijä ehtii ensin noin joka neljännellä illalla (simuloitu)
 	g.interior = kirppis_int  # bingopöydässä salin mummojen kanssa
 	g.finished.connect(func(won: bool, false_calls: int) -> void:
 		CamCtl.free_mouse = false
@@ -3281,6 +3282,7 @@ const POHJOISET_JUTUT := ["Rekkamies: \"Raahessa terästehdas savuaa taas. Kaksk
 	"Vuoromies: \"Ruukilla haetaan keikkamiehiä. Kinnapotissa kans, kysy Ruduksen portilta.\"",
 	"Rekkamies: \"Pekan Volvon tunnen. Se tankkaa täällä aina viidellä eurolla.\""]
 var _rankku_day := -1
+var _rankku_fields: Array = []  # kentät, joilla _rankku_day pelattiin (tyhjä = vanha tallennus: molemmat)
 var _rankku: Node3D  # rankkarit käynnissä (rankku_game.gd)
 var _boys_field := ""  # "saloinen" / "honganpalo": jalkapallopojat tänään tällä kentällä
 var _lenkki := {"on": false, "next": 0, "laps": 0}
@@ -3298,6 +3300,7 @@ var _rossi_air := 0.0
 
 func _pohjoiset_save(cfg: ConfigFile) -> void:
 	cfg.set_value("pohjoiset", "rankkari_paiva", _rankku_day)
+	cfg.set_value("pohjoiset", "rankkari_kentat", _rankku_fields)
 	cfg.set_value("pohjoiset", "orava_loydot", _orava_finds)
 	cfg.set_value("pohjoiset", "sormus_annettu", _sormus_given)
 	cfg.set_value("pohjoiset", "katsastus", katsastus)
@@ -3308,6 +3311,7 @@ func _pohjoiset_save(cfg: ConfigFile) -> void:
 
 func _pohjoiset_load(cfg: ConfigFile) -> void:
 	_rankku_day = cfg.get_value("pohjoiset", "rankkari_paiva", -1)
+	_rankku_fields = cfg.get_value("pohjoiset", "rankkari_kentat", [])
 	_orava_finds = cfg.get_value("pohjoiset", "orava_loydot", [])
 	_sormus_given = cfg.get_value("pohjoiset", "sormus_annettu", false)
 	katsastus = cfg.get_value("pohjoiset", "katsastus", "")
@@ -3333,6 +3337,10 @@ func _pohjoiset_logic() -> void:
 	var e := Input.is_action_just_pressed("interact")
 	if player == bike:
 		_rossi_gate_logic(e)
+		return
+	if not _rossi.on and _near_xz(world.rossi_gate, 4.5):
+		tilat.first("rossirata", 0.1)
+		_hint.text = "Rossiradan lähtöportti. Kierrosaika ajetaan pyörällä (%s)." % Settings.action_key("mount")
 		return
 	_kentta_logic(e)
 	if _hint.text != "":
@@ -3430,7 +3438,7 @@ func _kentta_logic(e: bool) -> void:
 	if _near_xz(world.kentta_spot, 3.0):
 		if not _between(clock_min, RANKKU_OPEN):
 			_hint.text = "Rankkaripiste. Pojat pelaa täällä päivisin (10–20)."
-		elif _rankku_day == day:
+		elif _rankku_played("saloinen"):
 			_hint.text = "Pojat: \"Huomenna uusiks, setä!\""
 		else:
 			_hint.text = "[E] Rankkarit poikien kanssa (viisi kumpikin)"
@@ -3444,15 +3452,26 @@ func _kentta_logic(e: bool) -> void:
 			_show_message("Lenkille! Kentän kulmat vastapäivään. Kunto kiittää.", 2.5)
 
 
+## Kummankin kentän pojat pelaavat kerran päivässä.
+func _rankku_played(field: String) -> bool:
+	return _rankku_day == day and (_rankku_fields.is_empty() or field in _rankku_fields)
+
+
 ## Rankkarit oikealla kentällä (rankku_game.gd maalin kehyksessä): "saloinen" tai "honganpalo".
 func _start_rankku(field: String) -> void:
 	if _rankku != null:
 		return
+	if _rankku_day != day:
+		_rankku_fields = []
 	_rankku_day = day
+	_rankku_fields.append(field)
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
 	walker_out.visible = false
 	_hud.visible = false
+	_minigame_prev = state
+	state = "minigame"  # vaarat odottavat, eikä F nosta pyörän selkään pelin aikana
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	if is_instance_valid(boys):  # samat pojat pelaavat rankkareita: kivenheittäjät pois pelin ajaksi
 		boys.visible = false
 		boys.process_mode = Node.PROCESS_MODE_DISABLED
@@ -3463,6 +3482,8 @@ func _start_rankku(field: String) -> void:
 	var back: Vector3 = walker_out.global_position
 	g.finished.connect(func(mine: int, theirs: int) -> void:
 		_rankku = null
+		state = _minigame_prev
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 		if is_instance_valid(boys):
 			boys.visible = true
 			boys.process_mode = Node.PROCESS_MODE_INHERIT
@@ -3474,11 +3495,17 @@ func _start_rankku(field: String) -> void:
 		_hud.visible = true
 		tilat.first("rankkarit", 0.2)
 		tilat.add("stamina", -0.05)
-		if mine > theirs:
+		if g.quit:
+			tilat.add("stressi", -0.05)
+			_show_message("Luovutit rankkarit kesken. Pojat nauraa vielä huomennakin.", 3.0)
+		elif mine > theirs:
 			tilat.first("rankkarit_voitto", 0.4)
 			maine = clampf(maine + 3.0, 0.0, 100.0)
 			tilat.add("moraali", 0.15)
-			_show_message("Voitit pojat rankkareissa %d–%d! Maine +3. Pojat lupaa olla heittelemättä kiviä... tänään." % [mine, theirs], 4.0)
+			_show_message("Voitit pojat rankkareissa %d–%d! Maine +3.%s" % [mine, theirs,
+				" Pojat lupaa olla heittelemättä kiviä... tänään." if field == "saloinen" else ""], 4.0)
+		elif mine == theirs:
+			_show_message("Tasapeli %d–%d. Pojat haluaa ratkaista huomenna." % [mine, theirs], 3.5)
 		else:
 			tilat.add("stressi", -0.05)
 			_show_message("Rankkarit %d–%d. Pojat nauraa, mutta kutsuu huomenna uudestaan." % [mine, theirs], 3.5)
@@ -3588,8 +3615,10 @@ func _pohjoiset_options(who: String, o: Array) -> void:
 		"seo":
 			o.append(_opt("kahvi", "Kahvi (%s €)" % _eur(SEO_KAHVI), money >= SEO_KAHVI, "rahat ei riitä"))
 			o.append(_opt("munkki", "Munkki (%s €, reppuun)" % _eur(SEO_MUNKKI), money >= SEO_MUNKKI, "rahat ei riitä"))
-			o.append(_opt("rekka", "Kysy rekkakuskilta kyytiä Raaheen", not _in_vaala and _between(clock_min, Vector2(6 * 60, 23 * 60)),
-				"kuski nukkuu ohjaamossa (6–23)", true))
+			var rekka_shut := closed_text("raahe", fposmod(clock_min + HOP_RAAHE, 1440.0))  # kuten taksi: baari auki perillä
+			o.append(_opt("rekka", "Kysy rekkakuskilta kyytiä Raaheen", not _in_vaala and _between(clock_min, Vector2(6 * 60, 23 * 60))
+				and rekka_shut == "", "baari on kiinni perillä, aukeaa klo %d" % int(OPEN_HOURS.raahe.x / 60.0)
+				if rekka_shut != "" and _between(clock_min, Vector2(6 * 60, 23 * 60)) else "kuski nukkuu ohjaamossa (6–23)", true))
 		"aplus":
 			if _weekday() < 5 and _between(clock_min, APLUS_LOUNAS):
 				o.append(_opt("lounas", "Lounas: lihapullat, muusi ja kotikalja (%s €)" % _eur(APLUS_LOUNAS_HINTA),
@@ -3602,6 +3631,8 @@ func _pohjoiset_options(who: String, o: Array) -> void:
 				why = "jo hyväksytty"
 			elif not ebike.built():
 				why = "ei kasattua sähköpyörää"
+			elif oma_mopo.riding:
+				why = "sähköpyörä on tallissa, pihassa on mopo"  # pyöräsolmu on mopon ajon aikana mopo
 			elif not is_instance_valid(bike) or bike.global_position.distance_to(world.katsastus_door) > 18.0:
 				why = "sähköpyörä pitää tuoda pihaan"
 			elif money < KATSASTUS_HINTA:
@@ -3678,9 +3709,8 @@ func _rekka_trip() -> void:
 	player.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_hud.visible = false
-	_queue_message("Rekkakuski puhui koko matkan: terästehtaasta, ex-vaimosta ja siitä hirvestä. Ilmainen kyyti Raaheen.", 5.0)
 	Sfx.play("horn", -4.0, 0.8)
-	cutscene.taxi_to_raahe(_enter_raahe)
+	cutscene.rekka_to_raahe(_enter_raahe)
 
 
 ## Sähköpyörän katsastus: katsastusmies käy liitokset läpi. Teippi, rautalanka, irronneet osat, oikosulku ja tyhjä
@@ -3759,7 +3789,10 @@ func _rossi_gate_logic(e: bool) -> void:
 		return
 	tilat.first("rossirata", 0.1)
 	var best := " · oma %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""
-	_hint.text = "[E] Kierrosaika! Crossipoikien ennätys %s%s" % [_laptime(ROSSI_RECORD), best]
+	if _rossi_won:
+		_hint.text = "[E] Kierrosaika! Ennätys %s on sinun (crossipojat %s)" % [_laptime(minf(ROSSI_RECORD, _rossi_best)), _laptime(ROSSI_RECORD)]
+	else:
+		_hint.text = "[E] Kierrosaika! Crossipoikien ennätys %s%s" % [_laptime(ROSSI_RECORD), best]
 	if e:
 		_rossi = {"on": true, "t": 0.0, "next": 1}
 		Sfx.play("horn", -6.0, 1.3)
@@ -3946,8 +3979,12 @@ func _sulo_kaasu() -> void:
 		tilat.first("sulo_kaasu", 0.3)
 		Sfx.play("coin", -4.0)
 		_save_game()
-		_talk_box.reply("Kaasupullo! No sitte se kanisteri on ilmanen, tässä rahat takasin. Ja nyt mee.", _talk_options(),
-			"+%s € takaisin. Rahaa %s €." % [_eur(back), _eur(money)])
+		if back > 0.0:
+			_talk_box.reply("Kaasupullo! No sitte se kanisteri on ilmanen, tässä rahat takasin. Ja nyt mee.", _talk_options(),
+				"+%s € takaisin. Rahaa %s €." % [_eur(back), _eur(money)])
+		else:
+			_talk_box.reply("Kaasupullo! No niin, nyt ollaan sujut. Kanisteri oli ilmanen ja ilmasena pysyy. Ja nyt mee.",
+				_talk_options(), "Kanisteri on sinun.")
 		return
 	has_kanister = true
 	walker_out.set_kanister(true)
@@ -4260,7 +4297,7 @@ func _leikki_logic() -> void:
 			continue
 		tilat.first("leikkipuisto", 0.1)
 		if _near_xz(pg.swing, 1.8):
-			_hint.text = "[E] Keinuhyppy (ennätys %s %s m)" % [_keinu_holder, KeinuGame._m(_keinu_record)]
+			_hint.text = "[E] Keinuhyppy (ennätys %s %s m)" % ["sinun" if _keinu_holder == "Järvikuja 1" else _keinu_holder, KeinuGame._m(_keinu_record)]
 			if e:
 				_start_keinu(pg)
 			return
@@ -4529,7 +4566,7 @@ func _seppo_choose(id: String) -> void:
 			tilat.add("moraali", 0.05)
 			if k == "telkkari":
 				tilat.first("seppo_telkkari", 0.0)
-			note = {"telkkari": "Seppo: \"Haet kun haet. Sillä välin mää kahtelen siitä Tuttua juttua.\" Telkkari jää Sepon varastoon.", "vhs": "VHS reppuun. Ei oo videoita, mutta silti.",
+			note = {"telkkari": "Seppo: \"Haet kun haet. Sillä välin mää kahtelen siitä Tuttua juttua.\" Telkkari jää Sepon varastoon.", "vhs": "Pekka ja Pätkä kainaloon. Videoita ei oo, mutta hyllyyn se pääsee.",
 				"onki": "Bambuonki ja puolikas purkki matoja. Oravajärvellä tai tekojärvellä rannalta."}.get(k, "")
 			if k == "onki":
 				has_onki = true
@@ -4753,7 +4790,7 @@ func _hongan_logic() -> void:
 	if _near_xz(world.hongan_spot, 3.0):
 		if not _between(clock_min, RANKKU_OPEN):
 			_hint.text = "Koulun kenttä. Pojat pelaa täällä päivisin."
-		elif _rankku_day == day:
+		elif _rankku_played("honganpalo"):
 			_hint.text = "Pojat: \"Huomenna uusiks, setä!\""
 		else:
 			_hint.text = "[E] Rankkarit Honganpalon poikien kanssa"
@@ -5589,6 +5626,8 @@ var _idea_t := 0.0
 func _quest_ideas() -> void:
 	quests.update_done(tilat.firsts, quest_flag, day)
 	for q in quests.newly_known(tilat.firsts, quest_flag, day):
+		if quests.check(q.done, tilat.firsts, quest_flag):
+			continue  # tiedoksi ja tehdyksi samalla kertaa (esim. pummilla lavalle ilman vinkkiä): idea olisi myöhässä
 		if q.id == "sahkopyora":
 			ebike.heard["akku"] = true  # idea muistuttaa Pekan porakoneen akuista
 		var idea: String = q.get("idea", q.text)
@@ -6981,7 +7020,7 @@ func _on_drone_finished(result: String) -> void:
 		_show_message("Drooni hajosi. Romut kerätty, uudet potkurit huomenna.", 3.5)
 	else:
 		var names := _drone_names(_at_mokki())
-		_show_message("Drooni laskeutui. Ilmakuvia %d/%d." % [_drone_photo_count(names), names.size()], 3.0)
+		_queue_message("Drooni laskeutui. Ilmakuvia %d/%d." % [_drone_photo_count(names), names.size()], 3.0)  # ei peitä viimeisen kuvan viestiä
 
 
 ## Terä osui siiliin tai kiveen. Toinen siili tuo poliisin, toinen kivi rikkoo leikkurin.
@@ -7133,12 +7172,17 @@ func _start_basket() -> void:
 	if is_instance_valid(boys):
 		boys.visible = false
 	_hud.visible = false
+	_minigame_prev = state
+	state = "minigame"  # Päivi, poliisi ja muut vaarat odottavat pelin ajan (kuten kalastuksessa)
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	var g := BasketGame.new()
 	g.drunk = _hand_shake()
 	g.best = koris_best
 	_basket_game = g
 	g.finished.connect(func(result: String) -> void:
 		_basket_game = null
+		state = _minigame_prev
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 		koris_best = maxi(koris_best, g.best)
 		walker_out.global_position = hoop.to_global(g._spot) + Vector3(0, 0.3, 0)
 		walker_out.controls_enabled = true
@@ -7148,7 +7192,7 @@ func _start_basket() -> void:
 		_hud.visible = true
 		tilat.add("vasymys", -0.03)
 		if result != "voitto":
-			_show_message("Pisin putki %d. Pojat nauraa vielä huomennakin." % g.best if g.best > 0 else "Ei yhtään koria. Pojat nauraa.", 2.5)
+			_show_message("Pisin putki %d. Pojat nauraa vielä huomennakin." % g.run_best if g.run_best > 0 else "Ei yhtään koria. Pojat nauraa.", 2.5)
 			_save_game()
 			return
 		tilat.first("koris16", 0.5)
@@ -8808,8 +8852,8 @@ func _train_trip(to: String) -> void:
 		_mopo_restore_hud()
 		state = _vaala_state
 		var review := _hommat_leave_review(false)
-		if review != "":
-			_queue_message("Santtu tekstasi: " + review.strip_edges().replace("\n", " "), 5.0)
+		if review != "":  # tekstiviesti näytetään perillä Saloisten asemalla (junamatkalla HUD on piilossa)
+			_train_review_msg = "Santtu tekstasi: " + review.trim_prefix("Santun arvostelu: ").strip_edges().replace("\n", " ")
 		_hommat_leave_mokki()  # junalla kotiin = mökiltä lähtö: Santun hommat pois, maksettu paluutaksi raukeaa
 		tilat.first("asema_vaala", 0.0)  # luku 4: laiturilta suoraan junaan ilman odotussalia käy myös
 		_taxi_mokki_return = false
@@ -8836,6 +8880,7 @@ func _train_trip(to: String) -> void:
 
 var _train_prev := "ulkona"
 var _train_round_msg := ""
+var _train_review_msg := ""  # Santun arvostelu tekstiviestinä junalla kotiin tultaessa
 
 
 func _arrive_saloinen_by_train() -> void:
@@ -8848,6 +8893,9 @@ func _arrive_saloinen_by_train() -> void:
 	if world.train != null:
 		world.train.arrive_stopped(world.station_t)  # juna, jolla tultiin, lähtee laiturilta
 	_show_message(_train_round_msg + "Saloisten asema. Odotussalin läpi kadulle, K-Market on aseman toisella puolella.", 3.5)
+	if _train_review_msg != "":
+		_queue_message(_train_review_msg, 5.0)
+		_train_review_msg = ""
 
 
 func _arrive_vaala_by_train() -> void:
@@ -9321,6 +9369,10 @@ func _talk_hello(who: String) -> String:
 	sh = _ebike_tip(who)
 	if sh != "":
 		return sh
+	if who == "huutaja" and kirppis_int != null and kirppis_int.mode == "bingo":
+		return "Bingo alkaa! Lappu kaks euroa, ja kynä mukaan."
+	if who == "huutaja" and _auction_day == day:
+		return "Tämän päivän huutokauppa on pidetty. Huomenna uusi kohde!"
 	if who == "pojat" and _ball_quest == "search" and not has_ball and randf() < 0.4:
 		return "Setä, ootko nähny meiän palloa?"
 	return TALK_HELLO[who].pick_random() if TALK_HELLO.has(who) else ""
@@ -13416,6 +13468,9 @@ func _lava_yard_logic() -> void:
 		_portsari.position = vl.portsari_path[0]
 		_portsari.busted.connect(_on_portsari_busted)
 	var pass_now := _lava_pass_now()
+	if pass_now == "pummi" and _lava_game == null and not vl.in_lava_yard(mopo_trip.to_local(player.global_position)):
+		_lava_pass = ""  # pummi käveli pihalta pois: ei leimaa, lipun voi ostaa tai kahlata uudestaan
+		pass_now = ""
 	vl.open_gate(pass_now != "")
 	_portsari.target = player
 	_portsari.tip = _pummi_tip

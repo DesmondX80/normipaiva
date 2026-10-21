@@ -33,6 +33,7 @@ var _tip_t := 0.0
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	layer = 6
 	_mix_ok = randf_range(-0.55, 0.55)
 	_idle_ok = randf_range(-0.5, 0.5)

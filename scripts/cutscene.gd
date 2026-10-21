@@ -1414,6 +1414,8 @@ const TAXI_OUT_LINES := ["Raaheen vai? No mennään.", "Kuutonen jää kotiin, b
 	"Siellä on terästehtaan porukka taas liikkeellä..."]
 const TAXI_MOKKI_LINES := ["Paapeliin? Vaalaan asti? No, mittari on päällä.", "Kuuskymppiä, mutta tuon takasinki.",
 	"Mökille vai? Kantarellejako poimimaan?"]
+const REKKA_LINES := ["Raaheen? Hyppää kyytiin, ohjaamossa on tilaa.", "Terästehtaalle vien. Kolkyt vuotta samaa tietä.",
+	"Ex-vaimo vei kaiken muun, mutta rekan mää pidin.", "Tossa mutkassa hirvi melkein vei peilin. Totta se on."]
 const TAXI_HOME_LINES := ["No, oliko reissu rahan arvoinen?", "Kotipihaan asti. Onnea vaan.", "Päivi taitaa olla hereillä..."]
 
 
@@ -1422,15 +1424,26 @@ func taxi_to_raahe(done: Callable) -> void:
 	taxi_ride("RAAHEEN", "Taksi kaahaa kohti Raahen valoja.", TAXI_OUT_LINES, done)
 
 
+## SEOn rekkakuski vie ilmaiseksi Raaheen (main.gd _rekka_trip).
+func rekka_to_raahe(done: Callable) -> void:
+	taxi_ride("RAAHEEN", "Rekka jyrisee kohti Raahea. Kyyti ilmaiseksi.", REKKA_LINES, done, true)
+
+
 ## Taksimatka (title ja sub ruudulla, kuskin repliikit lines): Raaheen, Paapeliin tai Paapelista kotiin.
-func taxi_ride(title: String, sub: String, lines: Array, done: Callable) -> void:
+func taxi_ride(title: String, sub: String, lines: Array, done: Callable, truck := false) -> void:
 	_begin()
 	Sfx.music_play(0.8)
 	await _fade_to(1.0, 0.4)
 	var road := _build_taxi_road()
 	var taxi := Node3D.new()
 	road.add_child(taxi)
-	Vehicles.taxi(taxi)
+	if truck:
+		Vehicles.truck(taxi, Color(0.15, 0.3, 0.65))
+		var driver := Looks.make(taxi, Looks.TAXI_DRIVER)
+		driver.position = Vector3(-0.55, 1.55, -7.0)
+		driver.play("Driving", 0.0)
+	else:
+		Vehicles.taxi(taxi)
 	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
 	_cam.current = true
 	_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
@@ -1441,9 +1454,14 @@ func taxi_ride(title: String, sub: String, lines: Array, done: Callable) -> void
 		var t := (_now_ms() - t0) / 1000.0
 		taxi.position.z = -t * 16.0
 		var tp := taxi.global_position
-		_cam.global_position = tp + Vector3(lerpf(4.0, 2.2, t / 8.0), 1.7, 6.5)
-		_cam.look_at(tp + Vector3(0, 0.8, -3.0), Vector3.UP)
-		bubble.global_position = tp + Vector3(-0.4, 2.3, 0)
+		if truck:  # iso rekka: kauempaa ja korkeammalta, kupla ohjaamon päällä
+			_cam.global_position = tp + Vector3(lerpf(8.0, 6.0, t / 8.0), 2.6, -17.0)  # edestä viistosti: ohjaamo ja kylki
+			_cam.look_at(tp + Vector3(0, 2.4, -3.0), Vector3.UP)
+			bubble.global_position = tp + Vector3(-0.4, 4.6, -7.0)
+		else:
+			_cam.global_position = tp + Vector3(lerpf(4.0, 2.2, t / 8.0), 1.7, 6.5)
+			_cam.look_at(tp + Vector3(0, 0.8, -3.0), Vector3.UP)
+			bubble.global_position = tp + Vector3(-0.4, 2.3, 0)
 		bubble.text = lines[mini(int(t / 2.6), lines.size() - 1)]
 		if not faded:
 			faded = true
