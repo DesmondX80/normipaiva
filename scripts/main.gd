@@ -3453,6 +3453,9 @@ func _start_rankku(field: String) -> void:
 	walker_out.speed = 0.0
 	walker_out.visible = false
 	_hud.visible = false
+	_minigame_prev = state
+	state = "minigame"  # vaarat odottavat, eikä F nosta pyörän selkään pelin aikana
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	if is_instance_valid(boys):  # samat pojat pelaavat rankkareita: kivenheittäjät pois pelin ajaksi
 		boys.visible = false
 		boys.process_mode = Node.PROCESS_MODE_DISABLED
@@ -3463,6 +3466,8 @@ func _start_rankku(field: String) -> void:
 	var back: Vector3 = walker_out.global_position
 	g.finished.connect(func(mine: int, theirs: int) -> void:
 		_rankku = null
+		state = _minigame_prev
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 		if is_instance_valid(boys):
 			boys.visible = true
 			boys.process_mode = Node.PROCESS_MODE_INHERIT
@@ -7133,12 +7138,17 @@ func _start_basket() -> void:
 	if is_instance_valid(boys):
 		boys.visible = false
 	_hud.visible = false
+	_minigame_prev = state
+	state = "minigame"  # Päivi, poliisi ja muut vaarat odottavat pelin ajan (kuten kalastuksessa)
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	var g := BasketGame.new()
 	g.drunk = _hand_shake()
 	g.best = koris_best
 	_basket_game = g
 	g.finished.connect(func(result: String) -> void:
 		_basket_game = null
+		state = _minigame_prev
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 		koris_best = maxi(koris_best, g.best)
 		walker_out.global_position = hoop.to_global(g._spot) + Vector3(0, 0.3, 0)
 		walker_out.controls_enabled = true
