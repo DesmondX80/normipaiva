@@ -19918,7 +19918,7 @@ func _maybe_screenshot() -> void:
 					g.accept()
 				print("RAKALEIMA %d lopetus: end_t %.2f valmis %s" % [round_i, g._end_t, g._done])
 				var t0 := Time.get_ticks_msec()
-				while _rakaleima != null and Time.get_ticks_msec() - t0 < 6000:
+				while _rakaleima != null and Time.get_ticks_msec() - t0 < 40000:
 					await get_tree().process_frame
 				print("RAKALEIMA %d tulos: tila %s, lippu '%s', kopio %s, viesti '%s'" % [round_i, state, _lava_pass_now(), str(_lava_copy), _msg.text.replace("\n", " ")])
 				_lava_yard_logic()
@@ -19947,7 +19947,7 @@ func _maybe_screenshot() -> void:
 					await snap.call("_e_kiinni.png")
 					break
 			var t1 := Time.get_ticks_msec()
-			while _rakaleima != null and Time.get_ticks_msec() - t1 < 6000:
+			while _rakaleima != null and Time.get_ticks_msec() - t1 < 40000:
 				await get_tree().process_frame
 			print("RAKALEIMA kiinni: tila %s, maine %.0f, viesti '%s', uusi yritys: %s" % [state, maine, _msg.text.replace("\n", " "),
 				str(_talk_options().map(func(o): return o.text + (" [ei: %s]" % o.reason if not o.enabled else "")))])
