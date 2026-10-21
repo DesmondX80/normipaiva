@@ -159,6 +159,8 @@ func vanish() -> void:
 
 ## Pelaaja voitti tappelun: valtaajat lähtevät.
 func defeat() -> void:
+	if mode == "gone":
+		return  # poistunutta (vanish) kappaletta ei herätetä fysiikkaan
 	mode = "leave"
 	_leave_t = 7.0
 	_bubble.text = _speaker() + ("Äitiii!" if kind == "akka" else "Juostaan!")
@@ -168,6 +170,8 @@ func defeat() -> void:
 
 ## Valtaajat voittivat: hetken tauko ennen uutta vahtimista.
 func gloat() -> void:
+	if mode == "gone":
+		return
 	mode = "cooldown"
 	_cool = 4.0
 	_bubble.text = _speaker() + ("Ja pysy poissa!" if kind == "akka" else "Hähää, boomer!")
