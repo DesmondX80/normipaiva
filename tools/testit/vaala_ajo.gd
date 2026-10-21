@@ -117,6 +117,22 @@ func run() -> void:
 			get_viewport().get_texture().get_image().save_png(out.replace(".png", "_%d.png" % n))
 			n += 1
 		return
+	if only == "hotelli":
+		var jp := Vector2(765.1, -833.9)
+		print("HOTELLI ovi %s, pohja %s" % [vl.hotel_door, vl._hotel_pts()])
+		print("HOTELLI jumipiste: ajettava %s, koodi %d, rakennuksessa %s" % [vl.drivable(jp.x, jp.y), vl.drive_code(Vector3(jp.x, 0, jp.y)), vl._in_building(jp, 0.0)])
+		for cs in vl.find_children("*", "CollisionShape3D", true, false):
+			var bx := (cs as CollisionShape3D).shape as BoxShape3D
+			if bx != null and absf(bx.size.x - 25.4) < 0.2 and absf(bx.size.z - 20.5) < 0.2:
+				var lp: Vector3 = vl.to_local((cs as CollisionShape3D).global_position)
+				print("HOTELLI laatikko %s paikallinen %s kierto %.1f° omistaja %s" % [bx.size, lp, rad_to_deg((cs as CollisionShape3D).global_rotation.y), cs.get_parent().get_parent().name])
+		for poly in vl._bld_polys:
+			var c := Vector2.ZERO
+			for q in poly:
+				c += q / poly.size()
+			if c.distance_to(jp) < 40.0:
+				print("HOTELLI rakennus keskipiste %s pisteet %s" % [c, poly])
+		return
 	if only.begins_with("lava"):
 		await _lava_shots(only)
 		return
