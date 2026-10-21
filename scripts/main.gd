@@ -3591,7 +3591,9 @@ func _pohjoiset_options(who: String, o: Array) -> void:
 				o.append(_opt("tuoppi", "Tuoppi tiskiltä (%s €)" % _eur(APLUS_KALJA), money >= APLUS_KALJA, "rahat ei riitä"))
 		"katsastaja":
 			var why := ""
-			if not ebike.built():
+			if katsastus == "hyvaksytty":
+				why = "jo hyväksytty"
+			elif not ebike.built():
 				why = "ei kasattua sähköpyörää"
 			elif not is_instance_valid(bike) or bike.global_position.distance_to(world.katsastus_door) > 18.0:
 				why = "sähköpyörä pitää tuoda pihaan"
@@ -4396,7 +4398,7 @@ var _nokia_sold := false
 var _seppo_day := {}  # "laatikko", "kehu", "ostettu_<id>" -> päivä
 var _seppo_kehu := 1.0
 var _has_taimet := false
-var _flowers_day := -1
+var _flowers_day := -1  # päivä, jona kukkakimppu vietiin kotiin
 var _multa_day := -1
 var sinikka_taimet := 0  # 0 = ei pyydetty, 1 = Sinikka odottaa taimia, 2 = viety
 
@@ -4577,7 +4579,7 @@ func _seppo_choose(id: String) -> void:
 			Sfx.play("register", -6.0)
 			_save_game()
 			_talk_box.reply("Ruusuja ja neilikoita. Päivi tykkää, uskokaa pois. Muista viedä ne kotiin ennen ku Päivi tulee riitelemään.",
-				_talk_options(), "Kukkakimppu mukana. Vie se kotiin illaksi.")
+				_talk_options(), "Kukkakimppu mukana. Vie se kotiin sisälle illaksi.")
 		"taimet":
 			money -= TAIMET_HINTA
 			_has_taimet = true
@@ -4597,8 +4599,8 @@ func _paivi_bday(d: int) -> bool:
 
 
 ## Eilen oli Päivin syntymäpäivä, eikä kukkia tuotu (aamu kotona).
-func _bday_forgotten(lost: bool, at_m: bool) -> bool:
-	return not at_m and not (has_flowers and not lost) and _paivi_bday(day - 1) and _flowers_day != day - 1
+func _bday_forgotten(at_m: bool) -> bool:
+	return not at_m and _paivi_bday(day - 1) and _flowers_day != day - 1
 
 
 func _paivi_bday_near() -> bool:
@@ -4606,14 +4608,15 @@ func _paivi_bday_near() -> bool:
 
 
 ## Aamun kukkaviestit: kimppu kotiin illaksi, syntymäpäivä muistettu tai unohdettu, multasäkki.
-func _flowers_morning(lost: bool, at_m: bool) -> String:
+func _flowers_morning(at_m: bool) -> String:
 	if at_m:
 		return ""
 	var prev := day - 1
 	var out := ""
-	if has_flowers and not lost:
-		has_flowers = false
-		_flowers_day = prev
+	if has_flowers:
+		has_flowers = false  # kotiin viemätön kimppu lakastui repussa
+		_morning_info.append("Kukkakimppu lakastui repussa. Se piti viedä kotiin.")
+	if _flowers_day == prev:
 		tilat.first("kukat_paiville", 0.3)
 		_paivi_credit_add("kukat")
 		if _paivi_bday(prev):
@@ -4625,7 +4628,7 @@ func _flowers_morning(lost: bool, at_m: bool) -> String:
 			money += 10.0
 			tilat.add("stressi", 0.2)
 			out += "\nKukkia? Mitä sää oot tehny?! ...No kiitos. Tässä kymppi ylimääräistä."
-	elif _bday_forgotten(lost, at_m):
+	elif _bday_forgotten(at_m):
 		tilat.add("stressi", -0.3)
 		tilat.add("moraali", -0.2)
 		out += "\nEilen oli mun syntymäpäivä. EIKÄ SULTA TULLU EES KUKKAA. Kauppa-rahoja ei tänään tule."
@@ -6008,6 +6011,11 @@ func _enter_home(door: String) -> void:
 	home_int.enter(door)
 	home_int.walker.set_carrying(beers > 0 or has_kanister)
 	Sfx.play("door", -3.0)
+	if has_flowers:
+		has_flowers = false
+		_flowers_day = day
+		_save_game()
+		_queue_message("Kukat maljakkoon keittiön pöydälle. Päivi näkee ne illalla.", 3.0)
 	if drakkar_day == day and _once_today("drakkar_paivi"):
 		tilat.add("stressi", -0.1)
 		_queue_message("Päivi: \"Mikä toi haju on?! Drakkar Noir? Kenelle sää oot noin laittautunu?\"", 3.5)
@@ -15031,7 +15039,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	if _no_allowance:
 		_no_allowance = false
 		bonus = "\nRaahen reissun jälkeen et saa multa rahaa kauppaan."
-	elif _bday_forgotten(lost, at_m):
+	elif _bday_forgotten(at_m):
 		pass  # _flowers_morning kertoo, miksi kauppa-rahoja ei tule
 	elif money < START_MONEY:
 		if lost:
@@ -15063,7 +15071,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	_beast_forest_t = 0.0
 	_bike_tuned = false
 	bike.tune = 1.0
-	bonus += _flowers_morning(lost, at_m)
+	bonus += _flowers_morning(at_m)
 	if _reippari_onion and not at_m:
 		_reippari_onion = false
 		bonus += "\nKuka on syöny Reipparissa sipulia ja lihapiirakoita?! Koko makuuhuone haisee!"
@@ -16045,7 +16053,7 @@ func inventory_items() -> Array:
 	if _valokuva == 1:
 		add.call("valokuva", "Vanha valokuva", 1, "Raunioiden uunista. Talo, perhe portailla ja koira. Saloisten Pirtti haluaisi nähdä.")
 	if has_flowers:
-		add.call("kukat", "Kukkakimppu Päiville", 1, "Vie kotiin illaksi. Lytistyy, jos jäät kiinni.")
+		add.call("kukat", "Kukkakimppu Päiville", 1, "Vie kotiin sisälle illaksi. Lytistyy, jos jäät kiinni.")
 	if _has_taimet:
 		add.call("taimet", "Tomaatintaimet", 1, "Sinikalle.")
 	if _kekkonen == 1:
@@ -21737,7 +21745,7 @@ func _maybe_screenshot() -> void:
 			_sormus_given = false
 			print("SR valinnat rannalla: %s" % [_talk_options("sinikka").map(func(o): return o.id)])
 			day += 1
-			print("SR aamu: '%s'" % _flowers_morning(false, false).strip_edges().left(70))
+			print("SR aamu: '%s'" % _flowers_morning(false).strip_edges().left(70))
 			clock_min = 11 * 60
 			await get_tree().create_timer(1.5).timeout
 			print("SR klo 11: pihan Sinikka %s, rannan %s" % [sinikka.visible, world.uimaranta_sinikka.visible])
@@ -22101,7 +22109,7 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 			print("KO kanisteri %s, kaasu annettu %s, rahaa %s" % [has_kanister, _kaasu_given, _eur(money)])
 			day = 11
-			print("KO aamu: '%s'" % _flowers_morning(false, false).strip_edges().left(60))
+			print("KO aamu: '%s'" % _flowers_morning(false).strip_edges().left(60))
 			await frames.call(20)
 			var hd: Vector3 = world.huhtala_door
 			var hc := M.w(M.HUHTALA)
@@ -22346,16 +22354,18 @@ func _maybe_screenshot() -> void:
 			_talk_choose("taimet")
 			_talk_box.close()
 			print("SE taimet viety %d, pullat %d" % [sinikka_taimet, food.get("pulla", 0)])
+			has_flowers = false  # viety kotiin
+			_flowers_day = 2
 			day = 3
 			var mm := money
-			print("SE aamu (kukat, multa): '%s' rahaa +%s" % [_flowers_morning(false, false).strip_edges().replace("\n", " | "), _eur(money - mm)])
-			has_flowers = true
+			print("SE aamu (kukat, multa): '%s' rahaa +%s" % [_flowers_morning(false).strip_edges().replace("\n", " | "), _eur(money - mm)])
+			_flowers_day = 7
 			day = 8
 			mm = money
-			print("SE aamu (syntymäpäivä muistettu): '%s' +%s" % [_flowers_morning(false, false).strip_edges().left(60), _eur(money - mm)])
+			print("SE aamu (syntymäpäivä muistettu): '%s' +%s" % [_flowers_morning(false).strip_edges().left(60), _eur(money - mm)])
 			day = 22
 			_flowers_day = -1
-			print("SE aamu (syntymäpäivä unohdettu): '%s', ei kauppa-rahaa %s" % [_flowers_morning(false, false).strip_edges().left(60), _bday_forgotten(false, false)])
+			print("SE aamu (syntymäpäivä unohdettu): '%s', ei kauppa-rahaa %s" % [_flowers_morning(false).strip_edges().left(60), _bday_forgotten(false)])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"honganpalo":
