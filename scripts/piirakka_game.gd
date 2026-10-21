@@ -344,7 +344,7 @@ static func _bun_piece_mat() -> StandardMaterial3D:
 		_piece_m.vertex_color_use_as_albedo = true
 		_piece_m.vertex_color_is_srgb = true  # värit annettu tavallisina (sRGB) väreinä
 		_piece_m.roughness = 0.35
-		_piece_m.specular = 0.6
+		_piece_m.metallic_specular = 0.6
 		_piece_m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return _piece_m
 
@@ -359,7 +359,7 @@ static func _gloss(col: Color, rough: float) -> StandardMaterial3D:
 		var m := StandardMaterial3D.new()
 		m.albedo_color = col
 		m.roughness = rough
-		m.specular = 0.7
+		m.metallic_specular = 0.7
 		_gloss_m[key] = m
 	return _gloss_m[key]
 
