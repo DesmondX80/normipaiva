@@ -3980,8 +3980,12 @@ func _sulo_kaasu() -> void:
 		tilat.first("sulo_kaasu", 0.3)
 		Sfx.play("coin", -4.0)
 		_save_game()
-		_talk_box.reply("Kaasupullo! No sitte se kanisteri on ilmanen, tässä rahat takasin. Ja nyt mee.", _talk_options(),
-			"+%s € takaisin. Rahaa %s €." % [_eur(back), _eur(money)])
+		if back > 0.0:
+			_talk_box.reply("Kaasupullo! No sitte se kanisteri on ilmanen, tässä rahat takasin. Ja nyt mee.", _talk_options(),
+				"+%s € takaisin. Rahaa %s €." % [_eur(back), _eur(money)])
+		else:
+			_talk_box.reply("Kaasupullo! No niin, nyt ollaan sujut. Kanisteri oli ilmanen ja ilmasena pysyy. Ja nyt mee.",
+				_talk_options(), "Kanisteri on sinun.")
 		return
 	has_kanister = true
 	walker_out.set_kanister(true)
@@ -4294,7 +4298,7 @@ func _leikki_logic() -> void:
 			continue
 		tilat.first("leikkipuisto", 0.1)
 		if _near_xz(pg.swing, 1.8):
-			_hint.text = "[E] Keinuhyppy (ennätys %s %s m)" % [_keinu_holder, KeinuGame._m(_keinu_record)]
+			_hint.text = "[E] Keinuhyppy (ennätys %s %s m)" % ["sinun" if _keinu_holder == "Järvikuja 1" else _keinu_holder, KeinuGame._m(_keinu_record)]
 			if e:
 				_start_keinu(pg)
 			return
@@ -4563,7 +4567,7 @@ func _seppo_choose(id: String) -> void:
 			tilat.add("moraali", 0.05)
 			if k == "telkkari":
 				tilat.first("seppo_telkkari", 0.0)
-			note = {"telkkari": "Seppo: \"Haet kun haet. Sillä välin mää kahtelen siitä Tuttua juttua.\" Telkkari jää Sepon varastoon.", "vhs": "VHS reppuun. Ei oo videoita, mutta silti.",
+			note = {"telkkari": "Seppo: \"Haet kun haet. Sillä välin mää kahtelen siitä Tuttua juttua.\" Telkkari jää Sepon varastoon.", "vhs": "Pekka ja Pätkä kainaloon. Videoita ei oo, mutta hyllyyn se pääsee.",
 				"onki": "Bambuonki ja puolikas purkki matoja. Oravajärvellä tai tekojärvellä rannalta."}.get(k, "")
 			if k == "onki":
 				has_onki = true
@@ -7017,7 +7021,7 @@ func _on_drone_finished(result: String) -> void:
 		_show_message("Drooni hajosi. Romut kerätty, uudet potkurit huomenna.", 3.5)
 	else:
 		var names := _drone_names(_at_mokki())
-		_show_message("Drooni laskeutui. Ilmakuvia %d/%d." % [_drone_photo_count(names), names.size()], 3.0)
+		_queue_message("Drooni laskeutui. Ilmakuvia %d/%d." % [_drone_photo_count(names), names.size()], 3.0)  # ei peitä viimeisen kuvan viestiä
 
 
 ## Terä osui siiliin tai kiveen. Toinen siili tuo poliisin, toinen kivi rikkoo leikkurin.
@@ -9366,6 +9370,10 @@ func _talk_hello(who: String) -> String:
 	sh = _ebike_tip(who)
 	if sh != "":
 		return sh
+	if who == "huutaja" and kirppis_int != null and kirppis_int.mode == "bingo":
+		return "Bingo alkaa! Lappu kaks euroa, ja kynä mukaan."
+	if who == "huutaja" and _auction_day == day:
+		return "Tämän päivän huutokauppa on pidetty. Huomenna uusi kohde!"
 	if who == "pojat" and _ball_quest == "search" and not has_ball and randf() < 0.4:
 		return "Setä, ootko nähny meiän palloa?"
 	return TALK_HELLO[who].pick_random() if TALK_HELLO.has(who) else ""
