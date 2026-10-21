@@ -19,6 +19,7 @@ const DRUM := Vector3(-1.5, 1.75, -4.4)  # salin pallokone lavalla
 const BALL_COLS := [Color(0.2, 0.4, 0.85), Color(0.85, 0.2, 0.2), Color(0.95, 0.95, 0.95), Color(0.2, 0.65, 0.3), Color(0.95, 0.65, 0.1)]
 
 var drunk := 0.0
+var quit := false  # lopetettiin kesken (ei kuittaa bingoa)
 var rival_at := 22  # monennellako huudolla mummo huutaa bingon (main.gd arpoo)
 var interior  # kirppis_interior.gd: Erkki, pöydän mummot ja puhekuplat
 
@@ -168,6 +169,7 @@ func _process(delta: float) -> void:
 	_mouse = _root.get_local_mouse_position() + Vector2(sin(_t * 5.0), cos(_t * 4.3)) * drunk * 14.0
 	_root.queue_redraw()
 	if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
+		quit = true
 		_end(false)
 		return
 	_call_t -= delta

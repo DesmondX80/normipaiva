@@ -25,6 +25,7 @@ const PARTNER := {
 
 var partner := "hilkka"
 var drunk := 0.0
+var quit := false  # lopetettiin kesken (ei kuittaa tansseja)
 var interior  # kirppis_interior.gd: salin pari piiloon tanssin ajaksi ja sen ulkonäkö
 
 var _hud: CanvasLayer
@@ -124,6 +125,7 @@ func _process(delta: float) -> void:
 	MG.sparks_step(_sparks, delta)
 	_ui.queue_redraw()
 	if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
+		quit = not _done
 		_finish()
 		return
 	if _t >= 0.0 and _me.current() != "Dance":

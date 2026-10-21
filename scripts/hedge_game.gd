@@ -84,6 +84,7 @@ var _prev_range := Vector2.INF  # edellisen ruudun terän x-väli (pyyhkäisy t�
 var _say_t := 0.0
 var _nag_t := 9.0
 var _hole_t := -10.0
+var _holes0 := 0  # aidan kolot ennen leikkuuta (eivät ole tämän kerran koloja)
 var _snap_t := 0.0
 var _tape := 0.0
 var _end_t := 0.0
@@ -133,6 +134,7 @@ class Motor extends AudioStreamPlayer:
 
 
 func _ready() -> void:
+	_holes0 = hedge.hole_count()
 	process_priority = 10  # oman hahmon animaation ja IK:n jälkeen: sormet taivutetaan kahvan ympäri (_grip)
 	_rng.randomize()
 	_x = start_x
@@ -537,12 +539,14 @@ func _trim_tick(delta: float) -> void:
 		if not at.is_empty() and _snap_t <= 0.0 and res.removed > 0.02:
 			_snap_t = 0.15
 			Sfx.play("rattle", -22.0, 2.2 + _rng.randf() * 0.4)
-		if res.holes > 0 and _t - _hole_t > 1.5:  # yksi kolo per vetäisy, ei per ruutu
+		# Kolot luetaan aidasta: vierekkäiset kolot yhdistyvät yhdeksi, ja ennen leikkuuta olleet eivät ole tämän kerran.
+		var now_holes := maxi(0, hedge.hole_count() - _holes0)
+		if res.holes > 0 and now_holes > holes and _t - _hole_t > 1.5:  # palaute kerran per vetäisy, ei per ruutu
 			_hole_t = _t
-			holes += 1
 			_shake = 1.0
 			Sfx.play("rattle_hard", -10.0, 0.9)
 			_say(LINES.hole.pick_random(), 3.0, true)
+		holes = now_holes
 	else:
 		_prev_range = Vector2.INF
 	for sh in side_hits:
