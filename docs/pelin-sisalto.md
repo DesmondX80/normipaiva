@@ -362,13 +362,17 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     vihreä, W kaasu (ennen vihreää = vilppilähtö), välilyönti vaihtaa ylös kierrosmittarin vihreällä alueella
     (aikaisin moottori tukehtuu, rajoittimella aika valuu, kännissä vihreä alue heiluu). Voitto tuplaa panoksen
     ja nostaa mainetta (`--scene=mokkikiihdytys`).
-  - **Karaoke, aito versio:** Siitarin ja Kapteenin Kellarin karaokessa kappale valitaan ennen laulua (W/S ja E, tai hiirellä):
-    paikan oma kappale ("Mopolla Vaalaan", "Ruukin valot": pallo pidetään sanapalkin korkeudella, ääni syntetisoidaan) tai
-    **Normipäivä Saloisissa (aito versio)**: tunnari oikealla soittoraidalla (`assets/music/normipaiva_soitto.mp3`, laulu
-    erotettu) ja trailerin karaokeen ajoitetuilla sanoilla (`assets/music/normipaiva_sanat.json`, 35 riviä ja 145 sanaa,
-    sana sanalta). Sanapalkit vierivät yhdellä korkeudella, ja laulat pitämällä välilyöntiä tai hiiren nappia pohjassa
-    sanojen aikana (osuma-aika / sanojen kesto = tulos, kännissä ääni pätkii). Kappale kestää n. 2 min 45 s, ja Esc lopettaa
-    (pisteet laulettuun asti). Testi `--scene=karaokeaito` (kuvat valikosta ja laulusta).
+  - **Karaoke (Frets on Fire -näppäily):** Siitarin ja Kapteenin Kellarin karaokessa kappale valitaan ennen laulua (W/S ja E,
+    tai hiirellä). Pelitapa on kuin Frets on Firessa: neljä nuottiraitaa (A S K L tai nuolinäppäimet) laskeutuvat perspektiivikaistaa
+    osumalinjalle, ja nuotti painetaan tahtiin (täydellinen ±0,08 s, hyvä ±0,15 s, ok ±0,25 s). Pitkät nuotit pidetään pohjassa
+    loppuun asti (bonus). Putki kasvattaa kerrointa (×1–×4), huti, väärä näppäys tai liian aikainen irrotus katkaisee sen, ja
+    vasemmalla näkyy yleisömittari. Sanat ovat alhaalla, laulettava sana tai tavu hakasulkeissa. Kännissä nuotit nykivät ja
+    painallukset viivästyvät. Tulos = osumien laatu ja pitojen bonus / täydet pisteet. Kappaleet: paikan oma ("Mopolla Vaalaan",
+    "Ruukin valot": sävelkorkeus määrää raidan, melodia syntetisoidaan ja osuma laulaa nuotin) tai **Normipäivä Saloisissa
+    (lyhennetty aito versio)**: tunnari oikealla soittoraidalla (`assets/music/normipaiva_lyhyt.mp3`, laulu erotettu, n. 56 s:
+    ensimmäinen verso ja kertosäe sekä loppukertosäe, ristiinhäivytetty) ja trailerin karaokeen ajoitetuilla sanoilla
+    (`assets/music/normipaiva_sanat_lyhyt.json`, 58 sanaa; raita arvotaan sanasta). Esc lopettaa. Testi `--scene=karaokeaito`
+    (botti pelaa molemmat kappaleet, kuvat; ei `--headless`).
   - **Räkäleima (pummin leima teinin kädestä):** lavan pihalla juovilta teineiltä (E, "Kopioi tuore leima teinin kädestä", kerran
     päivässä) voi kopioida portsarin tuoreen leiman omaan käteensä (`rakaleima_game.gd`, hiirellä). Käsi viedään leiman
     päälle ja vasen nappi painaa: muste kuivuu 16 sekunnissa ja tarttuu sitä paremmin, mitä tuoreempaa se on, ja R kostuttaa
@@ -397,13 +401,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     aukeaa, ja taksi Raaheen ei lähde, jos baari on perillä kiinni. Sulkemisaikaan sisällä tulee valomerkki: kaupassa
     kauppias hoputtaa, ja baareista ja lavalta ohjataan ulos vartin päästä (`--scene=mokkiaukiolot`).
   - **Hotelli Siitari:** oma kolmikerroksinen rakennus ravintolan takana (HOTELLI SIITARI -valomainos harjalla,
-    polku parkkipaikalta ovelle, `--scene=siitarihotelli`). Ovesta pääsee vastaanottoon, jossa
+    polku parkkipaikalta ovelle, `--scene=siitarihotelli`; ravintola ja hotelli on siirretty 6 m pois tiestä, jotta terassi ja seinä eivät ole tiellä). Ovesta pääsee vastaanottoon, jossa
     Marjatta kertoo, että huoneet ovat täynnä. Käytävän perällä huoneessa 12 riehuu Dingo kiertueellaan: sänky on nurin,
     patja seinää vasten, ikkuna rikki, tuoli lentää seinään ja joku hyppii. Bändiltä voi pyytää nimmarin, ottaa huikan
     Koskenkorvasta tai auttaa heittämään telkkarin ikkunasta (moraali ja maine nousevat, mutta jos Marjatta näkee,
     vahingot maksetaan, 40 €) (`--scene=mokkihotelli`).
-    Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen; mopo jää parkkiin tyhjänä) ja kävellä; ovet ja automaatti toimivat jalankin,
-    ja F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
+    Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen; mopo jää parkkiin tyhjänä) ja kävellä; **ovet, pankkiautomaatti, lava ja Siitari toimivat vain jalan**: mopon selässä
+    vihje kehottaa nousemaan mopolta (F). F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
     Paperikartta (M) on mökillä ja Vaalan matkalla yksi iso Neittävä–Vaala-kartta: mökin piha, mopotie ja Vaalan
     keskusta (Siitari, K-Market Tervaportti, pankkiautomaatti, Oulujärven lava, kirkko, rautatieasema ja muut
     nimetyt talot), maankäyttö rinnevarjostuksineen. Mökin pohjoiset järvet (Salmiset, Pyöriäinen ja Keskimmäinen)
@@ -411,7 +415,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Salmisen uimaranta, Ranta-Rosvo, Keskimmäisen laavu ja tynnyrisauna niiden rannoilla; mökillä jalan kulkiessa
     "Olet tässä" näkyy samassa kartassa. Rulla tai Q/E zoomaa ja WASD tai vetäminen siirtää.
     Kännissä tanko vaeltaa, kuva huojuu ja ojaan on lyhyt matka. Siitarin baarissa on tiski, karaoke
-    (W/S tai hiiri pitää äänen sävelpalkilla), tanssilattia, pajatso, pöytäseurue ja naapurin Sinikka. Jos Sinikan
+    (näppäily, ks. Karaoke), tanssilattia, pajatso, pöytäseurue ja naapurin Sinikka. Jos Sinikan
     kanssa tanssii tai tarjoaa hänelle drinkin, Päivi kuulee siitä pian puhelimessa ja on seuraavana päivänä
     vauhdissa.
   - **Kauppa-auto:** Neittävän kyläkauppa lopetti laman alla, joten kerran päivässä noin minuutti mökille tulon

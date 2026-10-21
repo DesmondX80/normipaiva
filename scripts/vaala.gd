@@ -108,9 +108,26 @@ func _init() -> void:
 	_move_hotel()
 
 
+## OSM:n ravintolan pohja koskettaa tietä (seinä 0–0,3 m kaistasta ja terassi tiellä): rakennus siirretään SIITARI_SHIFT metriä
+## tiestä poispäin (tien vastakkaiselle sivulle ei). Hotelli johdetaan ravintolan pohjasta, joten se seuraa mukana.
+const SIITARI_SHIFT := 6.0
+
+
+func _move_siitari_back() -> void:
+	var so := _siitari_obb()
+	if so.is_empty():
+		return
+	var off: Vector2 = -(so.front as Vector2) * SIITARI_SHIFT
+	for bd in data.buildings:
+		if bd.id == SIITARI_ID:
+			bd.pts = Array(bd.pts).map(func(q: Array) -> Array: return [q[0] + off.x, q[1] + off.y])
+	_siitari_obb_cache = {}
+
+
 ## Hotelli Siitari omaksi rakennuksekseen ravintolan taakse (_hotel_pts) jo aineistossa, jotta kartat (minimap.gd,
 ## paper_map.gd) näyttävät sen samassa paikassa. Uuden pohjan alle jäävät OSM-talot pois.
 func _move_hotel() -> void:
+	_move_siitari_back()
 	var hp := _hotel_pts()
 	if hp.is_empty():
 		return
@@ -3659,6 +3676,7 @@ func _build_siitari(pts: PackedVector2Array, body: StaticBody3D) -> void:
 	var cs := B.box_shape(Vector3(obb.size.x, wall_h + 3.0, obb.size.y), Vector3.ZERO)
 	cs.transform = Transform3D(Basis(Vector3.UP, -obb.angle), Vector3(obb.center.x, base + wall_h / 2.0, obb.center.y))
 	body.add_child(cs)
+	_bld_polys.append(pts)  # pohja ajoalueen ulkopuolelle (_clear_buildings)
 	# Pääty ja pitkä sivu tien puolella: kumpi pitkä sivu on lähempänä Vaalantietä.
 	var ni: Array = nearest(Vector3(obb.center.x, 0, obb.center.y))
 	var rp := road_pos(ni[0])

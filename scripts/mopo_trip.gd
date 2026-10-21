@@ -226,6 +226,11 @@ func park_safe() -> void:
 	mopo.speed = 0.0
 
 
+## Kaikkialle (ovet, automaatti, lava, Siitari) mennään jalan: mopolta noustaan aina ensin.
+func _dismount_hint(what: String) -> String:
+	return "[%s] Nouse mopolta ja mene jalan %s" % [Settings.cap("mount"), what]
+
+
 func stop() -> void:
 	active = false
 	if mopo != null:
@@ -353,12 +358,18 @@ func _process(delta: float) -> void:
 			near_door = d
 	var d_atm: float = pos.distance_to(vaala.atm_pos)
 	if d_atm < 4.5 and d_atm <= d_shop and _actor_still():
+		if on_foot == null:
+			hint = _dismount_hint("pankkiautomaatille")
+			return
 		hint = "[E] Nosta rahaa pankkiautomaatista (20 € kerran päivässä)"
 		if _interact():
 			atm.emit()
 		return
 	if vaala.lava_door != Vector3.ZERO and pos.distance_to(vaala.lava_door) < 6.0 and _actor_still() and closed.call("lava") != "":
 		hint = closed.call("lava")
+		return
+	if vaala.lava_door != Vector3.ZERO and pos.distance_to(vaala.lava_door) < 6.0 and _actor_still() and on_foot == null:
+		hint = _dismount_hint("lavalle")
 		return
 	if vaala.lava_door != Vector3.ZERO and pos.distance_to(vaala.lava_door) < 6.0 and _actor_still():
 		hint = lava_hint if lava_hint != "" else "[E] Oulujärven lava: lavatanssit (lippu %s €)" % ("%.2f" % LAVA_TICKET).replace(".", ",")
@@ -369,9 +380,11 @@ func _process(delta: float) -> void:
 	if d_shop < 5.0 and _actor_still() and closed.call(near_door.id) != "":
 		hint = closed.call(near_door.id)
 		return
+	if d_shop < 5.0 and _actor_still() and on_foot == null:
+		hint = _dismount_hint(near_door.hint)
+		return
 	if d_shop < 5.0 and _actor_still():
-		hint = "[E] %s" % (near_door.text if near_door.has("text") else
-			("Mene " if on_foot != null else "Parkkeeraa mopo ja mene ") + near_door.hint)
+		hint = "[E] %s" % (near_door.text if near_door.has("text") else "Mene " + near_door.hint)
 		if _interact():
 			mopo.speed = 0.0
 			door.emit(near_door.id)
@@ -381,8 +394,10 @@ func _process(delta: float) -> void:
 			Vector2(pos.x - vaala.siitari_door.x, pos.z - vaala.siitari_door.z).length() < ARRIVE_R
 	if at_siitari and closed.call("siitari") != "":
 		hint = closed.call("siitari")
+	elif at_siitari and on_foot == null:
+		hint = _dismount_hint("Siitariin")
 	elif at_siitari:
-		hint = "[E] %s Siitariin" % ("Mene" if on_foot != null else "Parkkeeraa mopo ja mene")
+		hint = "[E] Mene Siitariin"
 		if _interact():
 			mopo.position = vaala.siitari_park + Vector3(0, 0.3, 0)
 			mopo.speed = 0.0
