@@ -369,7 +369,8 @@ var _quiz_i := 0
 var _quiz_right := 0
 var _paivi_call_t := -1.0  # Päivin motkotuspuhelu tulossa (s), kun Sinikan kanssa on peuhattu
 var _sinikka_gossip := false  # aamulla vielä motkotusta ja Päivi nopeampi
-var _paivi_mad := false
+var _paivi_mad := false  # juoru: Päivi on huomenna vauhdissa
+var _paivi_mad_day := -1  # päivä, jona Päivi on vauhdissa (tallennetaan)
 var _paivi_call_kind := "sinikka"  # Päivin puhelu Siitariin: "sinikka" tai "santtu" (Santtu kantelee hommista)
 var _santtu_gossip := false  # Santtu soitti Päiville: kotona aamulla motkotusta ja Päivi nopeampi
 var _mokki_prev := "ulkona"
@@ -1148,7 +1149,7 @@ func _ready() -> void:
 	if story.step == "avaimet":
 		_place_keys()
 	_stat_bars.stats = tilat
-	_apply_day_base()
+	_apply_day_base(false)  # lataus: huomisen juoru odottaa aamua
 	_spawn_boys()
 	lawn.spawn_objects()
 	_roll_vaino()
@@ -3800,7 +3801,7 @@ func _rossi_gate_logic(e: bool) -> void:
 		return
 	tilat.first("rossirata", 0.1)
 	var best := " · oma %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""
-	if _rossi_won:
+	if _rossi_won and _rossi_best <= ROSSI_RECORD:  # vanha tallennus: voitto 0:42-ennätyksellä ei ole 0:22:n alitus
 		_hint.text = "[E] Kierrosaika! Ennätys %s on sinun (crossipojat %s)" % [_laptime(minf(ROSSI_RECORD, _rossi_best)), _laptime(ROSSI_RECORD)]
 	else:
 		_hint.text = "[E] Kierrosaika! Crossipoikien ennätys %s%s" % [_laptime(ROSSI_RECORD), best]
@@ -3888,7 +3889,7 @@ func _rossi_update_clock() -> void:
 		return
 	for l in world.find_children("Kello", "Node3D", true, false):
 		for lab in l.find_children("*", "Label3D", true, false):
-			(lab as Label3D).text = "ENNÄTYS %s%s" % [_laptime(minf(ROSSI_RECORD, _rossi_best) if _rossi_won else ROSSI_RECORD),
+			(lab as Label3D).text = "ENNÄTYS %s%s" % [_laptime(_rossi_best) if _rossi_won and _rossi_best <= ROSSI_RECORD else _laptime(ROSSI_RECORD),
 				"\nOMA %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""]
 
 
@@ -4971,7 +4972,7 @@ func _aarni_museum() -> void:
 			_save_game()
 			_show_message("Opas vertaa rahoja käräjäpöytäkirjaan: \"Juuri nämä!\" Raahen museo vahvistaa 1700-luvun alun hopeat. Löytöpalkkio "
 				+ "%s €, lehtijuttu kuvan kera ja maine +%d. Hilkka saa kuulla tästä." % [_eur(Aarnivalkea.MUSEO_PALKKIO), roundi(Aarnivalkea.MUSEO_MAINE)], 6.5)
-	elif not aarni.poytakirja:
+	elif not aarni.poytakirja and aarni.sulo:  # ensin Pannu-Sulo yöllä raunioilla (tehtävän järjestys)
 		_hint.text = "[E] Saloisten Pirtti: kysy vanhoja käräjäpöytäkirjoja"
 		if Input.is_action_just_pressed("interact"):
 			aarni.poytakirja = true
@@ -5635,7 +5636,7 @@ var _idea_t := 0.0
 
 
 func _quest_ideas() -> void:
-	quests.update_done(tilat.firsts, quest_flag, day)
+	quests.update_done(tilat.firsts, quest_flag, day, story.list(quest_flag("paapeli"), jemma))
 	for q in quests.newly_known(tilat.firsts, quest_flag, day):
 		if quests.check(q.done, tilat.firsts, quest_flag):
 			continue  # tiedoksi ja tehdyksi samalla kertaa (esim. pummilla lavalle ilman vinkkiä): idea olisi myöhässä
@@ -7711,11 +7712,15 @@ func _task_failed() -> void:
 
 ## Päivän perusarvot vaaroille (tilojen vaikutukset lisätään näihin, _stat_effects). Edellinen päivä ei vaikuta,
 ## paitsi Sinikan juorut (Päivi vauhdissa) ja krapula (_end_day_stats).
-func _apply_day_base() -> void:
+## consume: aamu (uusi päivä) ottaa käyttöön illan juorun (_paivi_mad = huomiseksi). Pelin latauksessa (_ready) ei
+## kuluteta: vauhti tulee tämän päivän kirjauksesta (_paivi_mad_day), ja huomisen juoru odottaa aamua.
+func _apply_day_base(consume := true) -> void:
 	wife.speed_mult = 1.0
-	if _paivi_mad:
+	if _paivi_mad and consume:
 		_paivi_mad = false
-		wife.speed_mult += 0.1  # Sinikka-juorut: Päivi on tänään vauhdissa
+		_paivi_mad_day = day
+	if _paivi_mad_day == day:
+		wife.speed_mult += 0.1  # Sinikka-, Santtu- tai TV-juorut: Päivi on tänään vauhdissa
 	_wife_speed_base = wife.speed_mult
 	_anger_base = 5.0
 	mummot.anger_speed = _anger_base
@@ -8111,8 +8116,10 @@ func _roll_vaino() -> void:
 ## Väinö karkuteillä: Pekan huuto, kiinniotto jalan (nuuhkiessa tai makkaralla houkuteltuna) ja palautus.
 func _vaino_logic() -> void:
 	if _vaino_at >= 0.0 and clock_min >= _vaino_at:
+		var late := clock_min > _vaino_at + 60.0  # karkuaika meni ohi poissa (mökki, Vaala): Väinö pysyi kotona
 		_vaino_at = -1.0
-		_vaino_escape()
+		if not late:
+			_vaino_escape()
 	if not is_instance_valid(vaino):
 		return
 	vaino.lure = has_sausage and player == walker_out
@@ -8153,7 +8160,7 @@ func _vaino_escape(quiet := false) -> void:
 	tilat.first("vaino_karkasi", 0.0)
 	Sfx.play("dog", 0.0, 0.95)
 	Sfx.play("alert", -6.0, 0.6)
-	_show_message("Pekka: \"VÄINÖ PERKELE!\" (Kuului Pattijoelle asti.)\nPekan koira Väinö karkasi! Ota se kiinni jalan.", 4.5)
+	_queue_message("Pekka: \"VÄINÖ PERKELE!\" (Kuului Pattijoelle asti.)\nPekan koira Väinö karkasi! Ota se kiinni jalan.", 4.5)
 
 
 ## Korpi-Kalle mökin metsässä: pullo pontikkaa PONTIKKA_PRICE eurolla, PONTIKKA_DAY päivässä. Oston jälkeen
@@ -10443,6 +10450,11 @@ func _mokki_logic() -> void:
 		if e:
 			_start_pingis()
 		return
+	# Santulla on kertomaton tarinavihje (esim. Siitari löylyjen jälkeen): puhe ennen saunan omia toimintoja.
+	if mokki.santtu != null and mokki.santtu.visible and near.call(mokki.santtu.position, 2.0) \
+			and not _santtu_hommat_later("santtu") and quests.has_unheard_hint("santtu", tilat.firsts, quest_flag):
+		_talk_hint("santtu", mokki.santtu)
+		return
 	if hommat.pending("saunakorjaus") and _saunakorjaus_logic(near, e):
 		return
 	if near.call(Mokki.SAUNA_LOCAL, 2.4):  # kiuas oven vieressä: oviaukolta tai sisältä
@@ -10954,6 +10966,8 @@ func _hommat_logic(e: bool, near: Callable) -> bool:
 		return true
 	if hommat.pending("ampiaiset") and near.call(Mokki.WASP_STAND_LOCAL, 1.4):
 		_hint.text = "[E] Hävitä ampiaispesä (myrkkypurkki saunan penkiltä)"
+		if hommat.pending("saunakorjaus") and not hommat.progress.get("korjaus", {}).has("luukku"):
+			_hint.text = "[E] Hävitä ampiaispesä ensin (savuluukku pesän alla)"
 		if e:
 			_start_ampiaiset()
 		return true
@@ -13812,7 +13826,7 @@ func _on_rakaleima_finished(res: Dictionary) -> void:
 const NUORET_HUIKAT := 3
 const NUORET_LINES := [
 	"Sisällä soittaa joku humppabändi. Me mennään diskopuolelle vasta, ku on tarpeeks rohkeutta.",
-	"Lippu maksaa ihan liikaa. Ens kerralla kahlataan taas aidan päästä, vesi on vaan polviin.",
+	"Lippu maksaa ihan liikaa. Ens kerralla kahlataan taas aidan päästä, vesi on vaan vyötäröön.",
 	"Mun Tunturi kulkee kuuttakymppiä alamäkeen. Kaveri poras sylinterin, ei kerrota kenellekään.",
 	"Iskä on ollu työttömänä koko laman. Lavalla siitä ei ainakaan puhuta.",
 	"Mummo sano, että Kesäillan valssi kuvataan täällä. Mä meen eturiviin ja vilkutan.",
@@ -14859,6 +14873,7 @@ func _load_game() -> void:
 	_santtu_gossip = cfg.get_value("peli", "juoru_santtu", false)
 	_tv_gossip = cfg.get_value("peli", "juoru_tv", false)
 	_paivi_mad = cfg.get_value("peli", "paivi_vihainen", false)
+	_paivi_mad_day = cfg.get_value("paivarajat", "paivi_vauhdissa", -1)
 	_orava_find_day = cfg.get_value("paivarajat", "orava_loyto", -1)
 	_viita_fire_day = cfg.get_value("paivarajat", "viita_nuotio", -1)
 	_viita_kalja_day = cfg.get_value("paivarajat", "viita_kalja", -1)
@@ -14959,6 +14974,7 @@ func _save_game() -> void:
 	cfg.set_value("peli", "juoru_santtu", _santtu_gossip)
 	cfg.set_value("peli", "juoru_tv", _tv_gossip)
 	cfg.set_value("peli", "paivi_vihainen", _paivi_mad)
+	cfg.set_value("paivarajat", "paivi_vauhdissa", _paivi_mad_day)
 	cfg.set_value("paivarajat", "orava_loyto", _orava_find_day)
 	cfg.set_value("paivarajat", "viita_nuotio", _viita_fire_day)
 	cfg.set_value("paivarajat", "viita_kalja", _viita_kalja_day)

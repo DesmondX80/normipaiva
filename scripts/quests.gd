@@ -229,6 +229,15 @@ func hint_for(who: String, firsts: Array, flag: Callable) -> String:
 	return h.get_slice("|", 1)
 
 
+## Onko puhujalla kertomaton tarinavihje (hint_for ilman kuulluksi merkitsemistä).
+func has_unheard_hint(who: String, firsts: Array, flag: Callable) -> bool:
+	var a := active_step(firsts, flag)
+	if a.is_empty():
+		return false
+	var h: String = a[1].get("hint", "")
+	return "|" in h and h.get_slice("|", 0) == who and not heard.has(a[1].id)
+
+
 ## Uudet tiedoksi tulleet sivutehtävät (niiden idea näytetään). Ensimmäinen kutsu uuden pelin tai latauksen jälkeen
 ## kirjaa jo täyttyneet hiljaa.
 func newly_known(firsts: Array, flag: Callable, day: int) -> Array:
@@ -244,7 +253,10 @@ func newly_known(firsts: Array, flag: Callable, day: int) -> Array:
 
 
 ## Valmistumispäivät kirjataan heti (main.gd _quest_ideas puolen sekunnin välein), ei vasta päiväkirjaa avattaessa.
-func update_done(firsts: Array, flag: Callable, day: int) -> void:
+func update_done(firsts: Array, flag: Callable, day: int, story_rows: Array = []) -> void:
+	for r in story_rows:
+		if r[1] and not done_day.has(story_key(r[0])):
+			done_day[story_key(r[0])] = day
 	for ch in CHAPTERS:
 		for st in ch.get("steps", []):
 			if not done_day.has(st.id) and check(st.done, firsts, flag):
@@ -252,6 +264,15 @@ func update_done(firsts: Array, flag: Callable, day: int) -> void:
 	for q in SIDE:
 		if not done_day.has(q.id) and known.has(q.id) and check(q.done, firsts, flag):
 			done_day[q.id] = day
+
+
+## Luvun 1 rivien avain valmistumispäivälle: teksti ilman lukuja (edistymisluvut vaihtuvat).
+static func story_key(text: String) -> String:
+	var out := ""
+	for c in text:
+		if not c.is_valid_int():
+			out += c
+	return "luku1:" + out.strip_edges()
 
 
 ## Päiväkirjan sisältö. story_rows = story.list() (luku 1), progress = Callable(avain) -> String, day = nykyinen päivä.
@@ -264,7 +285,10 @@ func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable,
 		var rows: Array = []
 		var ch_done := false
 		if ch.get("story", false):
-			rows = story_rows
+			for r in story_rows:
+				if r[1] and not done_day.has(story_key(r[0])):
+					done_day[story_key(r[0])] = day
+				rows.append([r[0], r[1], done_day.get(story_key(r[0]), 0) if r[1] else 0])
 			ch_done = check(ch.done, firsts, flag)
 		else:
 			ch_done = true

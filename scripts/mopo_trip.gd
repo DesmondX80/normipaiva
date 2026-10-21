@@ -228,7 +228,7 @@ func park_safe() -> void:
 
 ## Kaikkialle (ovet, automaatti, lava, Siitari) mennään jalan: mopolta noustaan aina ensin.
 func _dismount_hint(what: String) -> String:
-	return "[%s] Nouse mopolta ja mene jalan %s" % [Settings.cap("mount"), what]
+	return "%s Nouse mopolta ja mene jalan %s" % [Settings.cap("mount"), what]  # cap() antaa jo hakasulkeet
 
 
 func stop() -> void:

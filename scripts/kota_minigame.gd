@@ -57,6 +57,7 @@ var _last_line := ""
 
 
 func _ready() -> void:
+	add_to_group("esc_lopettaa")  # Esc lopettaa pelin kuten F: taukovalikko ei aukea (menu.gd)
 	_cam = Camera3D.new()
 	_cam.fov = 68.0
 	_cam.near = 0.05
@@ -137,9 +138,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				_alt_action()
 
 
+var _esc_held := false
+
+
 func _process(delta: float) -> void:
 	_t += delta
-	if Input.is_action_just_pressed("mount") and _can_quit():
+	var esc := Input.is_key_pressed(KEY_ESCAPE) and not _esc_held
+	_esc_held = Input.is_key_pressed(KEY_ESCAPE)
+	if (Input.is_action_just_pressed("mount") or esc) and _can_quit():
 		_quit()
 		return
 	if Input.is_action_just_pressed("interact"):
