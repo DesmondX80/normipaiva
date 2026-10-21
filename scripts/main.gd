@@ -1435,6 +1435,7 @@ func _process(delta: float) -> void:
 		var m: Array = _msg_queue.pop_front()
 		if m.size() < 4 or m[3] < 0.0 or _awake_min() - float(m[2]) <= m[3]:
 			_show_message(m[0], m[1])
+			_queued_shown_frame = Engine.get_process_frames()
 
 
 ## Lukitsematon pyörä: jos se on pitkään kaukana (ei kotipihassa), teinit vievät sen muualle.
@@ -2343,7 +2344,9 @@ func _mopo_options(who: String, o: Array) -> void:
 		"katsastaja":
 			if m.running:
 				var why := ""
-				if not m.riding or not is_instance_valid(bike) or bike.global_position.distance_to(world.katsastus_door) > 18.0:
+				if m.katsastettu:
+					why = "jo hyväksytty"  # maine +5 vain kerran, kuten sähköpyörällä
+				elif not m.riding or not is_instance_valid(bike) or bike.global_position.distance_to(world.katsastus_door) > 18.0:
 					why = "mopo pitää tuoda pihaan"
 				elif money < KATSASTUS_HINTA:
 					why = "rahat ei riitä"
@@ -14848,6 +14851,12 @@ func _load_game() -> void:
 	_santtu_lava_day = cfg.get_value("paivarajat", "santtu_lava", -1)
 	_seppo_day = cfg.get_value("paivarajat", "seppo", {})
 	_kuutonen_day = cfg.get_value("paivarajat", "kuutonen", -1)
+	_tv_day = cfg.get_value("paivarajat", "tv_lahetys", -1)
+	_kokko_day = cfg.get_value("paivarajat", "kokko", -1)
+	_sinikka_gossip = cfg.get_value("peli", "juoru_sinikka", false)
+	_santtu_gossip = cfg.get_value("peli", "juoru_santtu", false)
+	_tv_gossip = cfg.get_value("peli", "juoru_tv", false)
+	_paivi_mad = cfg.get_value("peli", "paivi_vihainen", false)
 	_orava_find_day = cfg.get_value("paivarajat", "orava_loyto", -1)
 	_viita_fire_day = cfg.get_value("paivarajat", "viita_nuotio", -1)
 	_viita_kalja_day = cfg.get_value("paivarajat", "viita_kalja", -1)
@@ -14941,6 +14950,13 @@ func _save_game() -> void:
 	cfg.set_value("paivarajat", "santtu_lava", _santtu_lava_day)
 	cfg.set_value("paivarajat", "seppo", _seppo_day)
 	cfg.set_value("paivarajat", "kuutonen", _kuutonen_day)
+	cfg.set_value("paivarajat", "tv_lahetys", _tv_day)
+	cfg.set_value("paivarajat", "kokko", _kokko_day)
+	# Seuraavan aamun juorut ja Päivin vauhti: eivät saa kadota tallennuksen yli.
+	cfg.set_value("peli", "juoru_sinikka", _sinikka_gossip)
+	cfg.set_value("peli", "juoru_santtu", _santtu_gossip)
+	cfg.set_value("peli", "juoru_tv", _tv_gossip)
+	cfg.set_value("peli", "paivi_vihainen", _paivi_mad)
 	cfg.set_value("paivarajat", "orava_loyto", _orava_find_day)
 	cfg.set_value("paivarajat", "viita_nuotio", _viita_fire_day)
 	cfg.set_value("paivarajat", "viita_kalja", _viita_kalja_day)
@@ -15304,7 +15320,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 		bonus += "\nEilen ei tullu kaupasta mitään, vaikka oli lista!"
 	_day_end = ""
 	bonus += stats_note
-	if _sinikka_gossip:
+	if _sinikka_gossip and not at_m:  # mökkiaamuna juoru odottaa kotiaamua (lapun kirjoittaa Santtu)
 		_sinikka_gossip = false
 		_paivi_mad = true
 		tilat.add("stressi", -0.1)
@@ -16403,11 +16419,20 @@ func _centered_label(layer: CanvasLayer, size: int, anchor_y: float, top: float,
 func _queue_message(text: String, seconds: float, max_age := -1.0) -> void:
 	if _msg_time <= 0.0 and _hud.visible:
 		_show_message(text, seconds)
+		_queued_shown_frame = Engine.get_process_frames()
 	else:
 		_msg_queue.append([text, seconds, _awake_min(), max_age])
 
 
+## Jonosta juuri (samassa ruudussa) näytetty viesti ei katoa saman ruudun suoralla viestillä: se palaa jonon kärkeen
+## (esim. "UUSI!"-saavutus ja heti perään tulosviesti).
+var _queued_shown_frame := -1
+
+
 func _show_message(text: String, seconds: float) -> void:
+	if Engine.get_process_frames() == _queued_shown_frame and _msg_time > 0.0 and _msg.text != text and _msg.text != "":
+		_msg_queue.push_front([_msg.text, _msg_time])
+		_queued_shown_frame = -1
 	_msg.text = text
 	_msg_time = seconds
 
