@@ -8835,8 +8835,8 @@ func _train_trip(to: String) -> void:
 		_mopo_restore_hud()
 		state = _vaala_state
 		var review := _hommat_leave_review(false)
-		if review != "":
-			_queue_message("Santtu tekstasi: " + review.strip_edges().replace("\n", " "), 5.0)
+		if review != "":  # tekstiviesti näytetään perillä Saloisten asemalla (junamatkalla HUD on piilossa)
+			_train_review_msg = "Santtu tekstasi: " + review.trim_prefix("Santun arvostelu: ").strip_edges().replace("\n", " ")
 		_hommat_leave_mokki()  # junalla kotiin = mökiltä lähtö: Santun hommat pois, maksettu paluutaksi raukeaa
 		tilat.first("asema_vaala", 0.0)  # luku 4: laiturilta suoraan junaan ilman odotussalia käy myös
 		_taxi_mokki_return = false
@@ -8863,6 +8863,7 @@ func _train_trip(to: String) -> void:
 
 var _train_prev := "ulkona"
 var _train_round_msg := ""
+var _train_review_msg := ""  # Santun arvostelu tekstiviestinä junalla kotiin tultaessa
 
 
 func _arrive_saloinen_by_train() -> void:
@@ -8875,6 +8876,9 @@ func _arrive_saloinen_by_train() -> void:
 	if world.train != null:
 		world.train.arrive_stopped(world.station_t)  # juna, jolla tultiin, lähtee laiturilta
 	_show_message(_train_round_msg + "Saloisten asema. Odotussalin läpi kadulle, K-Market on aseman toisella puolella.", 3.5)
+	if _train_review_msg != "":
+		_queue_message(_train_review_msg, 5.0)
+		_train_review_msg = ""
 
 
 func _arrive_vaala_by_train() -> void:
