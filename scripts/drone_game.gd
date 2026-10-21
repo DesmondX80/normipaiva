@@ -186,7 +186,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _mode == "fly" and not _landed:
 				_start_rth("Paluu kotiin.")
 		elif event.is_action("mount"):
-			if _home_dist() < 6.0 and _mode == "fly":
+			if _landed and _home_dist() < 6.0 and _mode == "fly":
+				_finish("landed")  # vielä alustalla (ei noustu): lento päättyy heti, ei jäädä laskeutumaan maassa
+			elif _home_dist() < 6.0 and _mode == "fly":
 				_mode = "landing"
 				_say("Laskeudutaan alustalle.", 2.0)
 			elif _mode == "fly":

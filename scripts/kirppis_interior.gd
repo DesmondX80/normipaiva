@@ -125,6 +125,7 @@ var walker: CharacterBody3D
 var hint := ""
 var mode := "kirppis"
 var veksi_open := false  # Veksi ottaa vastaan takahuoneessa (Kertunkankaan kirves mukana, main.gd)
+var auction_done := false  # tämän päivän huutokauppa pidetty (main.gd): Erkki ei enää huuda kauppaa
 var lot_visible := true:  # huutokaupan napamoottori lavan pöydällä (main.gd piilottaa myynnin jälkeen)
 	set(v):
 		lot_visible = v
@@ -273,6 +274,8 @@ func _process(delta: float) -> void:
 			var lines: Array = pool.get(PEOPLE[i].id, AMBIENT.get(PEOPLE[i].id, []))
 			if not lot_visible:  # napamoottori myyty: Erkki ei enää mainosta sähköistä kohdetta
 				lines = lines.filter(func(l): return not "sähköinen" in l)
+			if auction_done and PEOPLE[i].id == "huutaja":
+				lines = lines.filter(func(l): return not "Huutokauppa" in l and not "kohde" in l)
 			if not lines.is_empty():
 				say(_people[i], lines.pick_random())
 	var p := walker.position

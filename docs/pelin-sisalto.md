@@ -193,7 +193,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   hyväksytty saa leiman ja maineen). Hitsari myy ruuveja ja hitsaa akkutelineen (akku ei enää irtoa). Ruduksen
   portilla keikkatyötä aamuisin: kolme tuntia lapiota, 30 €.
 - **Tokolanperän rossirata:** OSM-uran kierros mutkien rengasmerkkeineen, lähtöportti ajanottokylttineen ja kolme
-  hyppyriä, joista pyörä lähtee ilmaan. Kierrosaika pyörällä crossipoikien ennätystä (0:42) vastaan; voitto antaa
+  hyppyriä, joista pyörä lähtee ilmaan. Kierrosaika pyörällä crossipoikien ennätystä (0:22) vastaan; voitto antaa
   nippusiteitä, ruuveja ja mainetta. Crossipojat paikalla viikonloppuisin.
 - **Kertunkankaan kehäröykkiöt:** Palonkyläntien pohjoispuolella metsässä Muinaispolun päässä oikea muinaisjäännös:
   kolme keskuskuopallista kehäröykkiötä, röykkiö, kivikkoon kaivetut kuopat, 140 metrin kivivalli ja opastaulu
