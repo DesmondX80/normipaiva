@@ -19943,10 +19943,11 @@ func _maybe_screenshot() -> void:
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"karaokeaito":
-			# Karaoke Siitarissa: kappalevalikko, aito versio (oikea soittoraita, ajoitetut sanat) ja oma kappale. Kuvat joka vaiheesta.
+			# Karaoke (Frets on Fire -näppäily) Siitarissa: valikko, lyhennetty aito versio ja oma kappale. Botti näppäilee nuotit:
+			# täydellisenä, ja huonona pelaajana (joka toinen ohi, myöhässä). Kuvat joka vaiheesta (ei --headless).
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
 			var snap := func(name: String) -> void:
-				for i in 6:
+				for i in 4:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
@@ -19958,51 +19959,52 @@ func _maybe_screenshot() -> void:
 			mopo_trip.stop()
 			_on_mopo_arrived()
 			_note.visible = false
-			money = 50.0
 			siitari_int.walker.position = siitari_int.spots.karaoke[0]
+			var bot := func(kg: CanvasLayer, skill: float, label: String) -> void:
+				# Painaa jokaisen nuotin ajallaan (skill 1 = täydellinen; pienempi = osa ohi ja painallukset myöhässä), pitää pitkät.
+				var releases := {}
+				var shot_done := false
+				var n_i := 0
+				var st := {}
+				while is_instance_valid(kg) and not kg._done:
+					await get_tree().process_frame
+					if not is_instance_valid(kg):
+						break
+					st = {"hit": kg._hit, "n": kg._notes.size(), "miss": kg._miss, "combo": kg._best_combo, "score": kg._current_score()}
+					for n in kg._notes:
+						if n.state == "odottaa" and kg._t >= float(n.t) and not n.get("bot", false):
+							n["bot"] = true
+							n_i += 1
+							if skill >= 1.0 or (n_i % 2 == 0 and randf() < skill + 0.3):
+								kg.lane_press(n.lane, float(n.t) + (0.0 if skill >= 1.0 else 0.2))
+								releases[n.lane] = float(n.t) + maxf(float(n.dur), 0.12)
+					for lane in releases.keys():
+						if kg._t >= releases[lane]:
+							kg.lane_release(lane)
+							releases.erase(lane)
+					if not shot_done and kg._combo >= 6:
+						shot_done = true
+						await snap.call("_%s.png" % label)
+				print("KARAOKE bot %s: osumia %d / %d, huteja %d, paras putki %d, tulos %.2f" % [label, st.hit, st.n, st.miss, st.combo, st.score])
+			money = 50.0
 			_on_siitari_acted("karaoke")
 			var kg: CanvasLayer = _karaoke_game()
 			print("KARAOKE valikko: %s, rahaa %.2f" % [str(kg.menu_titles.map(func(m): return m[1])), money])
 			await snap.call("_a_valikko.png")
 			kg._menu_i = 1
-			await snap.call("_b_valinta.png")
 			kg._choose(1)
-			print("KARAOKE aito %s, nuotteja %d, sanoja yhteensä %.1f s, raidan alku %.2f s, soi %s" % [kg.real, kg._notes.size(), kg._total_len, kg._base, kg._track != null and kg._track.playing])
-			for i in 70:
-				await get_tree().process_frame
-			await snap.call("_c_alku.png")
-			# Laulu: välilyönti pohjaan, kello kelataan ensimmäiseen sanaan ja sen yli.
-			var key := InputEventKey.new()
-			key.keycode = KEY_SPACE
-			key.physical_keycode = KEY_SPACE
-			key.pressed = true
-			Input.parse_input_event(key)
-			kg._t = 2.5
-			for i in 20:
-				await get_tree().process_frame
-			print("KARAOKE laulu: laulaa %s, osuma %s, rivi %d, ruudun teksti '%s'" % [kg._singing, kg._hit_now, kg._last_line, kg._lyrics.text])
-			await snap.call("_d_laulu.png")
-			kg._t = 40.0  # keskelle kappaletta
-			for i in 20:
-				await get_tree().process_frame
-			await snap.call("_e_keski.png")
-			key.pressed = false
-			Input.parse_input_event(key)
-			print("KARAOKE osuma-aikaa %.2f s / %.1f s" % [kg._hit_time, kg._total_len])
-			kg._t = 1000.0  # loppuun
-			var t0 := Time.get_ticks_msec()
-			while _karaoke_game() != null and Time.get_ticks_msec() - t0 < 5000:
-				await get_tree().process_frame
-			print("KARAOKE tulos: viesti '%s', tila %s" % [_msg.text.replace("\n", " "), state])
-			# Oma kappale valikon kautta.
+			print("KARAOKE aito %s, nuotteja %d, pituus %.1f s, soi %s" % [kg.real, kg._notes.size(), kg._end, kg._track != null and kg._track.playing])
+			await bot.call(kg, 1.0, "b_aito_taydellinen")
+			await get_tree().create_timer(1.0).timeout
+			print("KARAOKE aito täydellinen: viesti '%s', tila %s" % [_msg.text.replace("\n", " "), state])
 			money = 50.0
 			_on_siitari_acted("karaoke")
 			kg = _karaoke_game()
 			kg._choose(0)
-			for i in 30:
-				await get_tree().process_frame
-			print("KARAOKE oma: aito %s, nuotteja %d, rivi '%s'" % [kg.real, kg._notes.size(), kg._lyrics.text])
-			await snap.call("_f_oma.png")
+			print("KARAOKE oma: aito %s, nuotteja %d" % [kg.real, kg._notes.size()])
+			await bot.call(kg, 0.4, "c_oma_huono")
+			await get_tree().create_timer(1.0).timeout
+			print("KARAOKE oma huono: viesti '%s', tila %s" % [_msg.text.replace("\n", " "), state])
 			var f2 := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 			f2.store_buffer(saved)
 			f2.close()
