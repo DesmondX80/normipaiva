@@ -193,7 +193,7 @@ static func _cap(t: String) -> String:
 func _where(kind: String) -> String:
 	match kind:
 		"ruuvi":
-			return "Ruuveja kirppiksen ruuvipurkista tai työkalutaululta."
+			return "Ruuveja kirppiksen ruuvipurkista, työkalutaululta, Sepolta, Kinnapotin hitsarilta tai rossiradalta."
 		"teippi":
 			return "Jeesusteippiä K-Marketin rautahyllystä."
 		"nippu", "sahkoteippi":

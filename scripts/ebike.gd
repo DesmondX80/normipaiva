@@ -182,7 +182,9 @@ func tasks() -> Array:
 			probs.append("oikosulku")
 		if probs.is_empty():
 			return [["Sähköpyörä valmis (akku %d %%)" % roundi(battery * 100.0), true]]
-		return [["Sähköpyörä: %s (teippaa tai korjaa tallissa)" % ", ".join(probs), false]]
+		var fix := "korjaa tallissa tai Autosähkö-Simolla" if loose.is_empty() else ("teippaa tai korjaa tallissa" if not shorted
+			else "teippaa irtonaiset; oikosulku talliin tai Simolle")
+		return [["Sähköpyörä: %s (%s)" % [", ".join(probs), fix], false]]
 	var out: Array = [["Sähköpyörä: osat kasaan ja kasaus autotallin työpöydällä", false]]
 	for k in PARTS:
 		out.append(["  %s (%s)" % [PARTS[k].name, PARTS[k].where if heard.has(k) or parts.has(k) else "kysele kylältä"],

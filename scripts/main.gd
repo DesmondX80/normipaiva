@@ -814,7 +814,7 @@ const TALK_HELLO := {
 	"santtu": ["No terve, mitäs?", "Jaa, sinä. Mitä nyt?", "Noh? Kahvit on keittiössä."],
 	"kalle": ["Kuka sut tänne lähetti?", "Hiljaa ja nopeesti. Mitä?", "Ei tänne kukaan eksy vahingossa."],
 	"sulo": ["Mitä sää täällä kuusikossa?", "Ei kuulu kellekään, mitä täällä tehdään.", "No?"],
-	"pojat": ["Moi setä!", "Mitä setä?", "Setä, ootko nähny meiän palloa?"],
+	"pojat": ["Moi setä!", "Mitä setä?"],  # pallokysymys _talk_hello():ssa, kun pallo on hukassa
 	"taksi": ["No mihinkäs lähetään?", "Kyytiä vailla?"],
 	"kauppias": ["Päivää! Löytykö kaikki?", "Seuraava, olkaa hyvä."],
 	"kauppa_auto": KauppaAuto.HELLO,
@@ -2587,7 +2587,7 @@ func _ebike_logic() -> void:
 	if Vector2(p.x - bp.x, p.z - bp.z).length() > 2.2:
 		return
 	if ebike.loose.is_empty():
-		_hint.text = "Johdoissa oikosulku. Sähköteippiä ja korjaus autotallin työpöydällä."
+		_hint.text = "Johdoissa oikosulku. Sähköteippiä ja korjaus autotallin työpöydällä, tai Autosähkö-Simolle."
 		return
 	var j: String = ebike.loose.keys()[0]
 	if ebike.supplies.teippi <= 0:
@@ -4487,9 +4487,9 @@ func _seppo_options(who: String, o: Array) -> void:
 				if _seppo_day.get("ostettu_" + k, -1) == day:
 					o.append(_opt("x_" + k, "%s (myyty)" % it[0], false, "Seppo kaivaa huomenna lisää"))
 					continue
-				o.append(_opt("osta_" + k, "Osta %s (%s €)" % [it[0].to_lower(), _eur(price)], money >= price - 0.001, "rahat ei riitä"))
+				o.append(_opt("osta_" + k, "Osta: %s (%s €)" % [it[0], _eur(price)], money >= price - 0.001, "rahat ei riitä"))
 				if beers > 0 and price <= 5.0:
-					o.append(_opt("vaihda_" + k, "Vaihtokauppa: kalja %s vastaan" % it[0].to_lower()))
+					o.append(_opt("vaihda_" + k, "Vaihtokauppa: %s yhtä kaljaa vastaan" % it[0]))
 			if _seppo_day.get("kehu", -1) != day:
 				o.append(_opt("kehu", "Kehu Sepon varastoa (hinnat?)"))
 			o.append(_opt("laatikko", "Yllätyslaatikko (%s €)" % _eur(SEPPO_LAATIKKO), money >= SEPPO_LAATIKKO and _seppo_day.get("laatikko", -1) != day,
@@ -5449,8 +5449,8 @@ func _reippari_board_read() -> void:
 			miisu = "KADONNUT: harmaa kissa Miisu, Tokola. Löytäjälle palkkio! T. Aaro"
 		_:
 			miisu = "LÖYTYI! Miisu on kotona. Kiitos löytäjälle! T. Aaro"
-	_show_message("Ilmoitustaulu: %s  ·  Myydään vanhan sähkömopon osia, kysy Tokolan varastosta.  ·  Kirppis joka päivä 10–18, bingo ti, tanssit la."
-		% miisu, 7.0)
+	var osat := "" if ebike.parts.has("ohjain") or ebike.built() else "  ·  Myydään vanhan sähkömopon osia, kysy Tokolan varastosta."
+	_show_message("Ilmoitustaulu: %s%s  ·  Kirppis joka päivä 10–18, bingo ti, tanssit la." % [miisu, osat], 7.0)
 
 
 ## Ennätystaulun teksti ja Miisu piilopaikassaan.
@@ -9307,6 +9307,8 @@ func _talk_hello(who: String) -> String:
 	sh = _ebike_tip(who)
 	if sh != "":
 		return sh
+	if who == "pojat" and _ball_quest == "search" and not has_ball and randf() < 0.4:
+		return "Setä, ootko nähny meiän palloa?"
 	return TALK_HELLO[who].pick_random() if TALK_HELLO.has(who) else ""
 
 
