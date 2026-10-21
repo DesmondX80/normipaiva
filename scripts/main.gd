@@ -4595,6 +4595,11 @@ func _paivi_bday(d: int) -> bool:
 	return d % 14 == 7
 
 
+## Eilen oli Päivin syntymäpäivä, eikä kukkia tuotu (aamu kotona).
+func _bday_forgotten(lost: bool, at_m: bool) -> bool:
+	return not at_m and not (has_flowers and not lost) and _paivi_bday(day - 1) and _flowers_day != day - 1
+
+
 func _paivi_bday_near() -> bool:
 	return _paivi_bday(day) or _paivi_bday(day + 1)
 
@@ -4619,10 +4624,9 @@ func _flowers_morning(lost: bool, at_m: bool) -> String:
 			money += 10.0
 			tilat.add("stressi", 0.2)
 			out += "\nKukkia? Mitä sää oot tehny?! ...No kiitos. Tässä kymppi ylimääräistä."
-	elif _paivi_bday(prev) and _flowers_day != prev:
+	elif _bday_forgotten(lost, at_m):
 		tilat.add("stressi", -0.3)
 		tilat.add("moraali", -0.2)
-		_no_allowance = true
 		out += "\nEilen oli mun syntymäpäivä. EIKÄ SULTA TULLU EES KUKKAA. Kauppa-rahoja ei tänään tule."
 	if _sinikka_tattle_day == prev:
 		tilat.add("stressi", -0.15)
@@ -12684,6 +12688,7 @@ func _smoker_logic(e: bool) -> void:
 				if hommat.pending("savustus"):
 					_santtu_line("Hiiltä! Tuota ei syö koirakaan. Uusiks.", true)
 			else:
+				tilat.first("savustus_onnistui", 0.0)  # Eräjorma
 				_hommat_complete("savustus")
 			Sfx.play("win_small", -6.0)
 			_show_message("Karrelle meni, mutta syötävää se on. T syö." if smoker_burnt >= 1.0 else
@@ -13032,7 +13037,7 @@ func _win_eramaa() -> void:
 	if not Sfx.has_music():
 		Sfx.play("win")
 	var drunk := beers + 1
-	_drink(mini(drunk, 6))
+	_drink(mini(drunk, 6) - 1)  # nuotiolla avattu kalja juotiin jo
 	var stats := "Nuotio ✔  ·  Makkara ✔  ·  Kaljoja juotiin %d  ·  Viitajärvi tyyni, kukaan ei tiedä missä oot  ·  %s" % [drunk,
 		_ending_line("eramaan_laavu")]
 	beers = 0
@@ -15000,6 +15005,8 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	if _no_allowance:
 		_no_allowance = false
 		bonus = "\nRaahen reissun jälkeen et saa multa rahaa kauppaan."
+	elif _bday_forgotten(lost, at_m):
+		pass  # _flowers_morning kertoo, miksi kauppa-rahoja ei tule
 	elif money < START_MONEY:
 		if lost:
 			_morning_info.append("Takin taskusta löytyi vähän rahaa.")
@@ -22319,8 +22326,7 @@ func _maybe_screenshot() -> void:
 			print("SE aamu (syntymäpäivä muistettu): '%s' +%s" % [_flowers_morning(false, false).strip_edges().left(60), _eur(money - mm)])
 			day = 22
 			_flowers_day = -1
-			print("SE aamu (syntymäpäivä unohdettu): '%s', ei kauppa-rahaa %s" % [_flowers_morning(false, false).strip_edges().left(60), _no_allowance])
-			_no_allowance = false
+			print("SE aamu (syntymäpäivä unohdettu): '%s', ei kauppa-rahaa %s" % [_flowers_morning(false, false).strip_edges().left(60), _bday_forgotten(false, false)])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"honganpalo":
