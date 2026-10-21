@@ -5706,6 +5706,7 @@ func quest_progress(key: String) -> String:
 
 ## Päiväkirjan sisältö (journal.gd).
 func journal_data() -> Dictionary:
+	_quest_ideas()  # juuri tiedoksi tullut tehtävä saa ideaviestinsä ennen kuin build() merkitsee sen tunnetuksi
 	var d: Dictionary = quests.build(tilat.firsts, quest_flag, story.list(quest_flag("paapeli"), jemma), quest_progress, day)
 	# Onnelliset loput ja legendaariset hetket omina listoinaan (löytämättömät null = ???).
 	for kind in ["loppu", "hetki"]:
