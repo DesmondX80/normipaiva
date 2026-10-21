@@ -381,7 +381,7 @@ func _process(delta: float) -> void:
 		hint = closed.call(near_door.id)
 		return
 	if d_shop < 5.0 and _actor_still() and on_foot == null:
-		hint = _dismount_hint(near_door.hint)
+		hint = _dismount_hint(near_door.get("hint", "perille"))
 		return
 	if d_shop < 5.0 and _actor_still():
 		hint = "[E] %s" % (near_door.text if near_door.has("text") else "Mene " + near_door.hint)
