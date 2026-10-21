@@ -984,7 +984,7 @@ func _unload_test() -> void:
 		await get_tree().process_frame
 	print("VAPAUTUS Raaheen: tila %s, Raahe %s, vihje '%s'" % [main.state, main.raahe_int != null, main._hint.text])
 	main.raahe_int.leave()
-	main.state = "to_shop"
+	main.state = "ulkona"
 	main._arrive_vaala_by_train()
 	for i in 60:
 		await get_tree().process_frame
