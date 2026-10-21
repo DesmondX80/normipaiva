@@ -2701,19 +2701,28 @@ func _build_rossi() -> void:
 		add_child(ramp)
 		var len := 3.2
 		var hgt := 0.8
-		var ang := atan2(hgt, len)
+		var h0: float = T.h(mid.x, mid.y)  # _lift_node nostaa rampin keskikohdan maahan
 		for e in [-1.0, 1.0]:  # nousu ja lasku: kaksi kallistettua laattaa
-			var slab := Vector3(3.0, 0.3, sqrt(len * len + hgt * hgt))
-			var pos := Vector3(0, hgt / 2.0 - 0.1, e * len / 2.0)
+			# Laatan pää sovitetaan rinteeseen laskemalla (pää hieman maan alle), ettei siihen jää kynnystä.
+			var endw: Vector2 = mid - jd * e * len  # paikallinen +z = -jd (yaw_to)
+			var p_end := Vector3(0, T.h(endw.x, endw.y) - h0 - 0.06, e * len)
+			var p_top := Vector3(0, hgt, 0)
+			var z := (p_top - p_end).normalized()
+			var y := z.cross(Vector3.RIGHT)
+			if y.y < 0.0:
+				z = -z
+				y = -y
+			var basis := Basis(Vector3.RIGHT, y, z)
+			var slab := Vector3(3.0, 0.3, p_end.distance_to(p_top) + 0.2)
+			var pos := (p_end + p_top) / 2.0 - y * 0.15  # yläpinta kulkee pisteiden kautta
 			var col := CollisionShape3D.new()
 			var bs := BoxShape3D.new()
 			bs.size = slab
 			col.shape = bs
-			col.position = pos
-			col.rotation.x = e * ang
+			col.transform = Transform3D(basis, pos)
 			ramp.add_child(col)
 			var m := B.mesh(ramp, B.boxm(slab), pos, Color(0.5, 0.36, 0.22))
-			m.rotation.x = e * ang
+			m.basis = basis
 		rossi_jumps.append([Vector3(mid.x, 0, mid.y), jd])
 	# Crossipojat ja crossipyörät.
 	rossi_boys = Node3D.new()

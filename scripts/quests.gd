@@ -79,7 +79,7 @@ const SIDE := [
 		"idea": "Kuusikosta tuoksahti tuttu haju. Joku keittää siellä! Ilmasta näkis savun."},
 	{"id": "drooni", "title": "Saloinen ilmasta", "text": "Kuvauskopterilla ilmakuvat kylän kohteista.",
 		"known": "first:drooni", "done": "flag:drone_all", "progress": "drooni",
-		"idea": "Kopteri lentää! Tällä sais koko Saloisten ilmasta. Kuvat talteen."},
+		"idea": "Kopteri lentää! Tällä sais koko kylän ilmasta. Kuvat talteen."},
 	{"id": "kotiviini", "title": "Kotiviini", "text": "Marjat, sokeri ja hiiva autotallin saaviin. Kypsä viini, ja juhlat.",
 		"known": "first:kotiviini", "done": "flag:ending_viinibileet",
 		"idea": "Viini käy. Ku se on kypsää, pidetään kunnon juhlat."},

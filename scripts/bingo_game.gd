@@ -187,7 +187,7 @@ func _process(delta: float) -> void:
 			_erkki.restart("Interact", 0.1)
 		(_pop.material_override as StandardMaterial3D).albedo_color = BALL_COLS[int((n - 1) / 15.0)]
 		if _called.size() >= rival_at:
-			_tip.text = "Mummo Elvi: \"BIIINGO!\" Erkki tarkistaa... oikein. Kinkku meni."
+			_tip.text = "Mummo Elvi: \"BIIINGO!\" Erkki tarkistaa... oikein. Illan palkinto meni."
 			if _elvi != null and interior != null:
 				interior.say(_elvi, "BIIINGO!", 2.5)
 			Sfx.play("lose", -6.0)

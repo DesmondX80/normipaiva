@@ -87,6 +87,10 @@ const PAIVI_SINIKKA_CALLS := [
 	"\"Mitä sää siellä Vaalassa Sinikan kanssa peuhaat?! Koko kylä puhuu jo!\"",
 	"\"Taas se Sinikka! Luuletko, ettei tänne kuulu mitään? Vaalan Facebook-ryhmässä on kuva!\"",
 	"\"Sää tarjoot Sinikalle drinkkejä, ja meillä on nurmikko leikkaamatta!\""]
+const PAIVI_SINIKKA_SEURA_CALLS := [
+	"\"Anna-Liisa soitti just, että sää TANSSIT seuraintalolla Sinikan kanssa! Kotiin, NYT!\"",
+	"\"Mitä sää siellä seuraintalolla Sinikan kanssa pyörit?! Koko kylä puhuu jo!\"",
+	"\"Taas se Sinikka! Mummot näki teidät lattialla. Luuletko, ettei tänne kuulu mitään?\""]
 const PAIVI_MORNING_SINIKKA := ["Siitä Sinikasta puhutaan vielä. Tänään mää pidän sua silmällä.",
 	"Kahvi on pöydällä. Kylmänä. Tiedät kyllä miksi. (Sinikka.)"]
 const DroneGame := preload("res://scripts/drone_game.gd")
@@ -1284,6 +1288,12 @@ func _process(delta: float) -> void:
 	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
 	_night_tick(delta)
 	_train_update()
+	# Päivin puhelu (Sinikka tai Santun kantelu): soi missä tahansa, ei välikuvissa, minipeleissä eikä karaokessa.
+	if _paivi_call_t > 0.0 and _hud.visible and not state in ["cutscene", "minigame", "fight"] \
+			and (_paivi_call_kind != "santtu" or state == "in_siitari"):  # Santun kantelu soi baarissa
+		_paivi_call_t -= delta
+		if _paivi_call_t <= 0.0:
+			_paivi_calls()
 	_unload_far_places(delta)
 	_rhythm_t -= delta
 	if _rhythm_t <= 0.0:
@@ -1339,10 +1349,6 @@ func _process(delta: float) -> void:
 				_bar_prompt(siitari_int, {"tiski": "siitari", "sinikka": "siitari_sinikka", "vastaanotto": "vastaanotto", "dingo": "dingo"})
 			tilat.add("humala", -0.002 * delta)
 			tilat.add("stressi", 0.004 * delta)
-			if _paivi_call_t > 0.0 and _hud.visible:  # karaoken aikana puhelin ei kuulu
-				_paivi_call_t -= delta
-				if _paivi_call_t <= 0.0:
-					_paivi_calls()
 			siitari_int.bar_closed = not is_open("siitari")
 			if not siitari_int.in_hotel() and not siitari_int.busy:  # hotellin vastaanotto on aina auki
 				_closing_logic("siitari", "Baarimikko: \"Valomerkki! Viimeiset tilaukset, ja sitten ulos.\"",
@@ -1429,6 +1435,7 @@ func _process(delta: float) -> void:
 		var m: Array = _msg_queue.pop_front()
 		if m.size() < 4 or m[3] < 0.0 or _awake_min() - float(m[2]) <= m[3]:
 			_show_message(m[0], m[1])
+			_queued_shown_frame = Engine.get_process_frames()
 
 
 ## Lukitsematon pyörä: jos se on pitkään kaukana (ei kotipihassa), teinit vievät sen muualle.
@@ -2337,7 +2344,9 @@ func _mopo_options(who: String, o: Array) -> void:
 		"katsastaja":
 			if m.running:
 				var why := ""
-				if not m.riding or not is_instance_valid(bike) or bike.global_position.distance_to(world.katsastus_door) > 18.0:
+				if m.katsastettu:
+					why = "jo hyväksytty"  # maine +5 vain kerran, kuten sähköpyörällä
+				elif not m.riding or not is_instance_valid(bike) or bike.global_position.distance_to(world.katsastus_door) > 18.0:
 					why = "mopo pitää tuoda pihaan"
 				elif money < KATSASTUS_HINTA:
 					why = "rahat ei riitä"
@@ -2700,6 +2709,7 @@ func _enter_kirppis(mode := "kirppis") -> void:
 	Sfx.play("door", -3.0)
 	tilat.first("kirppis", 0.2)
 	kirppis_int.lot_visible = _auction_lot().get("id", "") == "moottori"
+	kirppis_int.auction_done = _auction_day == day
 	kirppis_int.drakkar.visible = drakkar <= 0
 	kirppis_int.enter(mode)
 	if mode != "kirppis":
@@ -3086,6 +3096,7 @@ func _start_auction() -> void:
 	g.interior = kirppis_int  # huutokauppa salin lavan edessä salin Erkin kanssa
 	g.finished.connect(func(won: bool, price: float) -> void:
 		_auction_day = day
+		kirppis_int.auction_done = true
 		kirppis_int.busy = false
 		kirppis_int.walker.controls_enabled = true
 		kirppis_int.walker.activate()
@@ -3276,7 +3287,7 @@ const HITSARI_RUUVIT := 6.0
 const HITSARI_TELINE := 15.0
 const KEIKKA_PALKKA := 30.0
 const KEIKKA_AIKA := Vector2(7 * 60, 15 * 60)
-const ROSSI_RECORD := 42.0  # crossipoikien kierrosennätys pyörällä (s)
+const ROSSI_RECORD := 22.0  # crossipoikien kierrosennätys pyörällä (s); tavallinen kierros n. 24 s
 const POHJOISET_JUTUT := ["Rekkamies: \"Raahessa terästehdas savuaa taas. Kakskytäviis vuotta ajanu sitä väliä.\"",
 	"Rekkamies: \"Kantatiellä oli hirvi taas aamulla. Isompi ku mun auto.\"", "Myyjä: \"Yövuorossa käy kaikenlaista. Viime yönä joku tuli traktorilla ostamaan munkkia.\"",
 	"Vuoromies: \"Ruukilla haetaan keikkamiehiä. Kinnapotissa kans, kysy Ruduksen portilta.\"",
@@ -6907,7 +6918,7 @@ func _drone_pois() -> Array:
 	for id in fixed:
 		var at: Vector3 = M.w(fixed[id])
 		out.append({"id": id, "name": DRONE_POIS[id], "pos": func() -> Vector3: return at + Vector3(0, 1.0, 0)})
-	if aarni.sulo and not aarni.spotted and not aarni.found and _between(clock_min, Aarnivalkea.NIGHT):
+	if aarni.sulo and aarni.poytakirja and not aarni.spotted and not aarni.found and _between(clock_min, Aarnivalkea.NIGHT):  # hehku näkyy vasta pöytäkirjan jälkeen
 		var aat: Vector3 = M.w(M.AARNI_SPOT)
 		out.append({"id": "aarni_hehku", "name": "Sinertävä hehku sammalten alla Lapinraunion luona!", "pos": func() -> Vector3: return aat + Vector3(0, 0.3, 0)})
 	if ukko.heard and not ukko.spotted and not ukko.caught and _between(clock_min, UkkoLegenda.ILTA):
@@ -7412,7 +7423,7 @@ func _spray_drakkar() -> void:
 
 ## Tansseissa Drakkar Noir parantaa tulosta (sinä päivänä, kun on suihkaistu).
 func _drakkar_dance(score: float) -> float:
-	if drakkar_day != day or score < 0.0:
+	if drakkar_day != day or score <= 0.0:  # tanssimatta tai ilman yhtään osumaa tuoksu ei auta
 		return score
 	_queue_message("Drakkar Noir teki tehtävänsä: tanssipari painautui lähemmäs.", 2.5)
 	return minf(1.0, score + DRAKKAR_DANCE)
@@ -9371,7 +9382,7 @@ func _talk_hello(who: String) -> String:
 	if sh != "":
 		return sh
 	if who == "huutaja" and kirppis_int != null and kirppis_int.mode == "bingo":
-		return "Bingo alkaa! Lappu kaks euroa, ja kynä mukaan."
+		return "Illan bingo on pelattu. Ensi tiistaina uudestaan!" if _bingo_day == day else "Bingo alkaa! Lappu kaks euroa, ja kynä mukaan."
 	if who == "huutaja" and _auction_day == day:
 		return "Tämän päivän huutokauppa on pidetty. Huomenna uusi kohde!"
 	if who == "pojat" and _ball_quest == "search" and not has_ball and randf() < 0.4:
@@ -11836,14 +11847,14 @@ func _sinikka_flirt() -> void:
 	_sinikka_gossip = true
 	if _paivi_call_t <= 0.0:
 		_paivi_call_t = randf_range(7.0, 12.0)
-		_paivi_call_kind = "sinikka"
+		_paivi_call_kind = "sinikka_seura" if state == "in_kirppis" else "sinikka"
 
 
 func _paivi_calls() -> void:
 	Sfx.play("alert", -2.0, 1.3)
 	tilat.add("stressi", -0.2)
 	tilat.add("moraali", -0.15)
-	var lines: Array = Hommat.PAIVI_SANTTU_CALLS if _paivi_call_kind == "santtu" else PAIVI_SINIKKA_CALLS
+	var lines: Array = {"santtu": Hommat.PAIVI_SANTTU_CALLS, "sinikka_seura": PAIVI_SINIKKA_SEURA_CALLS}.get(_paivi_call_kind, PAIVI_SINIKKA_CALLS)
 	_paivi_call_kind = "sinikka"
 	_show_message("📱 Päivi soittaa: " + lines.pick_random(), 5.0)
 
@@ -13319,7 +13330,7 @@ func _enter_lava(free := false) -> void:
 	if free or _lava_pass_now() != "":
 		_lava_start()
 		if _lava_pass_now() == "pummi" and _lava_game != null:
-			_lava_game._intro_text("Pummilla sisällä! Farkut märkänä polviin asti, mutta lippu jäi ostamatta.\n")
+			_lava_game._intro_text("Pummilla sisällä! Farkut märkänä vyötäröön asti, mutta lippu jäi ostamatta.\n")
 		return
 	_show_message("Lippu ostetaan aidan portilta (%s €), portsari leimaa käden." % _eur(MopoTrip.LAVA_TICKET), 3.0)
 
@@ -13332,6 +13343,8 @@ func _lava_start() -> void:
 	_compass.visible = false
 	_hint.text = ""
 	tilat.first("lava", 0.3)
+	if _portsari != null and is_instance_valid(_portsari):
+		_portsari.watch = false  # lavan sisällä portsari ei näe (valvonta jatkuu pihalla, _lava_yard_logic)
 	_lava_game = LavaGame.new()
 	_lava_game.courage = 1.0 if _lava_courage_day == day else 0.0
 	_lava_game.door_side = float(mopo_trip.vaala.data.lava.get("door_side", 1.0))
@@ -13880,7 +13893,7 @@ func _on_lava_finished(score: float) -> void:
 		if score > 0.6:
 			_ending("lavatanssit")
 	var msg := "Lavatanssit Oulujärven lavalla! %s" % ("Ilta jää mieleen." if score > 0.6 else ("Varpaat muistavat illan." if score >= 0.0 else
-		"Tällä kertaa vain baaritiskillä."))
+		"Tällä kertaa ei tanssittu."))
 	if _tv_pending != null:
 		# Kesäillan valssi: samaan aikaan Järvikujalla Päivi katsoo lähetystä.
 		var tex: Texture2D = _tv_pending
@@ -14840,6 +14853,12 @@ func _load_game() -> void:
 	_santtu_lava_day = cfg.get_value("paivarajat", "santtu_lava", -1)
 	_seppo_day = cfg.get_value("paivarajat", "seppo", {})
 	_kuutonen_day = cfg.get_value("paivarajat", "kuutonen", -1)
+	_tv_day = cfg.get_value("paivarajat", "tv_lahetys", -1)
+	_kokko_day = cfg.get_value("paivarajat", "kokko", -1)
+	_sinikka_gossip = cfg.get_value("peli", "juoru_sinikka", false)
+	_santtu_gossip = cfg.get_value("peli", "juoru_santtu", false)
+	_tv_gossip = cfg.get_value("peli", "juoru_tv", false)
+	_paivi_mad = cfg.get_value("peli", "paivi_vihainen", false)
 	_orava_find_day = cfg.get_value("paivarajat", "orava_loyto", -1)
 	_viita_fire_day = cfg.get_value("paivarajat", "viita_nuotio", -1)
 	_viita_kalja_day = cfg.get_value("paivarajat", "viita_kalja", -1)
@@ -14933,6 +14952,13 @@ func _save_game() -> void:
 	cfg.set_value("paivarajat", "santtu_lava", _santtu_lava_day)
 	cfg.set_value("paivarajat", "seppo", _seppo_day)
 	cfg.set_value("paivarajat", "kuutonen", _kuutonen_day)
+	cfg.set_value("paivarajat", "tv_lahetys", _tv_day)
+	cfg.set_value("paivarajat", "kokko", _kokko_day)
+	# Seuraavan aamun juorut ja Päivin vauhti: eivät saa kadota tallennuksen yli.
+	cfg.set_value("peli", "juoru_sinikka", _sinikka_gossip)
+	cfg.set_value("peli", "juoru_santtu", _santtu_gossip)
+	cfg.set_value("peli", "juoru_tv", _tv_gossip)
+	cfg.set_value("peli", "paivi_vihainen", _paivi_mad)
 	cfg.set_value("paivarajat", "orava_loyto", _orava_find_day)
 	cfg.set_value("paivarajat", "viita_nuotio", _viita_fire_day)
 	cfg.set_value("paivarajat", "viita_kalja", _viita_kalja_day)
@@ -15296,7 +15322,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 		bonus += "\nEilen ei tullu kaupasta mitään, vaikka oli lista!"
 	_day_end = ""
 	bonus += stats_note
-	if _sinikka_gossip:
+	if _sinikka_gossip and not at_m:  # mökkiaamuna juoru odottaa kotiaamua (lapun kirjoittaa Santtu)
 		_sinikka_gossip = false
 		_paivi_mad = true
 		tilat.add("stressi", -0.1)
@@ -15345,6 +15371,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	police = null
 	vaino = null  # karkuri palaa yöksi itse kotiin
 	_hongan_keikka = false  # kesken jäänyt roskakeikka raukeaa yöllä
+	_paivi_call_t = -1.0  # soittamatta jäänyt puhelu ei soi enää huomenna (aamun lappu hoitaa juorun)
 	for t in world.hongan_trash:
 		t.visible = false
 	_roll_vaino()
@@ -16394,11 +16421,20 @@ func _centered_label(layer: CanvasLayer, size: int, anchor_y: float, top: float,
 func _queue_message(text: String, seconds: float, max_age := -1.0) -> void:
 	if _msg_time <= 0.0 and _hud.visible:
 		_show_message(text, seconds)
+		_queued_shown_frame = Engine.get_process_frames()
 	else:
 		_msg_queue.append([text, seconds, _awake_min(), max_age])
 
 
+## Jonosta juuri (samassa ruudussa) näytetty viesti ei katoa saman ruudun suoralla viestillä: se palaa jonon kärkeen
+## (esim. "UUSI!"-saavutus ja heti perään tulosviesti).
+var _queued_shown_frame := -1
+
+
 func _show_message(text: String, seconds: float) -> void:
+	if Engine.get_process_frames() == _queued_shown_frame and _msg_time > 0.0 and _msg.text != text and _msg.text != "":
+		_msg_queue.push_front([_msg.text, _msg_time])
+		_queued_shown_frame = -1
 	_msg.text = text
 	_msg_time = seconds
 
