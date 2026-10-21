@@ -3281,6 +3281,7 @@ const POHJOISET_JUTUT := ["Rekkamies: \"Raahessa terästehdas savuaa taas. Kaksk
 	"Vuoromies: \"Ruukilla haetaan keikkamiehiä. Kinnapotissa kans, kysy Ruduksen portilta.\"",
 	"Rekkamies: \"Pekan Volvon tunnen. Se tankkaa täällä aina viidellä eurolla.\""]
 var _rankku_day := -1
+var _rankku_fields: Array = []  # kentät, joilla _rankku_day pelattiin (tyhjä = vanha tallennus: molemmat)
 var _rankku: Node3D  # rankkarit käynnissä (rankku_game.gd)
 var _boys_field := ""  # "saloinen" / "honganpalo": jalkapallopojat tänään tällä kentällä
 var _lenkki := {"on": false, "next": 0, "laps": 0}
@@ -3298,6 +3299,7 @@ var _rossi_air := 0.0
 
 func _pohjoiset_save(cfg: ConfigFile) -> void:
 	cfg.set_value("pohjoiset", "rankkari_paiva", _rankku_day)
+	cfg.set_value("pohjoiset", "rankkari_kentat", _rankku_fields)
 	cfg.set_value("pohjoiset", "orava_loydot", _orava_finds)
 	cfg.set_value("pohjoiset", "sormus_annettu", _sormus_given)
 	cfg.set_value("pohjoiset", "katsastus", katsastus)
@@ -3308,6 +3310,7 @@ func _pohjoiset_save(cfg: ConfigFile) -> void:
 
 func _pohjoiset_load(cfg: ConfigFile) -> void:
 	_rankku_day = cfg.get_value("pohjoiset", "rankkari_paiva", -1)
+	_rankku_fields = cfg.get_value("pohjoiset", "rankkari_kentat", [])
 	_orava_finds = cfg.get_value("pohjoiset", "orava_loydot", [])
 	_sormus_given = cfg.get_value("pohjoiset", "sormus_annettu", false)
 	katsastus = cfg.get_value("pohjoiset", "katsastus", "")
@@ -3430,7 +3433,7 @@ func _kentta_logic(e: bool) -> void:
 	if _near_xz(world.kentta_spot, 3.0):
 		if not _between(clock_min, RANKKU_OPEN):
 			_hint.text = "Rankkaripiste. Pojat pelaa täällä päivisin (10–20)."
-		elif _rankku_day == day:
+		elif _rankku_played("saloinen"):
 			_hint.text = "Pojat: \"Huomenna uusiks, setä!\""
 		else:
 			_hint.text = "[E] Rankkarit poikien kanssa (viisi kumpikin)"
@@ -3444,11 +3447,19 @@ func _kentta_logic(e: bool) -> void:
 			_show_message("Lenkille! Kentän kulmat vastapäivään. Kunto kiittää.", 2.5)
 
 
+## Kummankin kentän pojat pelaavat kerran päivässä.
+func _rankku_played(field: String) -> bool:
+	return _rankku_day == day and (_rankku_fields.is_empty() or field in _rankku_fields)
+
+
 ## Rankkarit oikealla kentällä (rankku_game.gd maalin kehyksessä): "saloinen" tai "honganpalo".
 func _start_rankku(field: String) -> void:
 	if _rankku != null:
 		return
+	if _rankku_day != day:
+		_rankku_fields = []
 	_rankku_day = day
+	_rankku_fields.append(field)
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
 	walker_out.visible = false
@@ -3479,11 +3490,17 @@ func _start_rankku(field: String) -> void:
 		_hud.visible = true
 		tilat.first("rankkarit", 0.2)
 		tilat.add("stamina", -0.05)
-		if mine > theirs:
+		if g.quit:
+			tilat.add("stressi", -0.05)
+			_show_message("Luovutit rankkarit kesken. Pojat nauraa vielä huomennakin.", 3.0)
+		elif mine > theirs:
 			tilat.first("rankkarit_voitto", 0.4)
 			maine = clampf(maine + 3.0, 0.0, 100.0)
 			tilat.add("moraali", 0.15)
-			_show_message("Voitit pojat rankkareissa %d–%d! Maine +3. Pojat lupaa olla heittelemättä kiviä... tänään." % [mine, theirs], 4.0)
+			_show_message("Voitit pojat rankkareissa %d–%d! Maine +3.%s" % [mine, theirs,
+				" Pojat lupaa olla heittelemättä kiviä... tänään." if field == "saloinen" else ""], 4.0)
+		elif mine == theirs:
+			_show_message("Tasapeli %d–%d. Pojat haluaa ratkaista huomenna." % [mine, theirs], 3.5)
 		else:
 			tilat.add("stressi", -0.05)
 			_show_message("Rankkarit %d–%d. Pojat nauraa, mutta kutsuu huomenna uudestaan." % [mine, theirs], 3.5)
@@ -4758,7 +4775,7 @@ func _hongan_logic() -> void:
 	if _near_xz(world.hongan_spot, 3.0):
 		if not _between(clock_min, RANKKU_OPEN):
 			_hint.text = "Koulun kenttä. Pojat pelaa täällä päivisin."
-		elif _rankku_day == day:
+		elif _rankku_played("honganpalo"):
 			_hint.text = "Pojat: \"Huomenna uusiks, setä!\""
 		else:
 			_hint.text = "[E] Rankkarit Honganpalon poikien kanssa"
