@@ -19795,6 +19795,157 @@ func _maybe_screenshot() -> void:
 			f.store_buffer(saved)
 			f.close()
 			get_tree().quit()
+		"mokkibotti":
+			# Botti pelaa mökin minipelit (ränni, ampiaiset) loppuun: --peli=ranni|ampiais (oletus molemmat). Tulokset tulostetaan,
+			# tallennus palautetaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var which := "kaikki"
+			for a2 in OS.get_cmdline_user_args():
+				if a2.begins_with("--peli="):
+					which = a2.substr(7)
+			var fr := func(n: int) -> void:
+				for i in n:
+					await get_tree().process_frame
+			_toggle_mount()
+			walker_out.global_position = mokki.porch_pos(0.9)
+			await fr.call(20)
+			if which in ["ranni", "kaikki"]:
+				_start_ranni()
+				await fr.call(10)
+				var g: Node3D = mokki.get_children().filter(func(c): return c.get_script() != null and c.get_script().resource_path.ends_with("ranni_game.gd"))[0]
+				var steps := 0
+				var falls := 0
+				var cleaned := 0
+				var last_click := -10.0
+				while is_instance_valid(g) and not g.all_done and not g.fell_off and steps < 400000:
+					await get_tree().process_frame
+					steps += 1
+					if g._move_t >= 0.0 or g._fall_t >= 0.0:
+						continue
+					if steps == 2500:
+						for si in g.state.size():
+							for t in g.state[si]:
+								if t.hp > 0:
+									print("BOTTI ränni jäljellä: osio %d %s hp %d pos %s, etäisyys silmiin %.2f (reach %.2f), silmät %s" % [si, t.kind, t.hp, t.pos, (t.pos as Vector3).distance_to(g.eye), g.REACH, g.eye])
+					if steps % 3000 == 0:
+						print("BOTTI ränni debug: askel %d, t %.1f, sec %d, bal %.2f, bal_v %.2f, siivottu %d, move_t %.2f, fps %d" % [steps, g._t, g._sec, g._bal, g._bal_v, cleaned, g._move_t, Engine.get_frames_per_second()])
+					Input.action_release("left")
+					Input.action_release("right")
+					if g._bal + g._bal_v * 0.4 > 0.05:
+						Input.action_press("left")
+					elif g._bal + g._bal_v * 0.4 < -0.05:
+						Input.action_press("right")
+					var tgt: Variant = null
+					for t in g.state[g._sec]:
+						if t.hp > 0:
+							tgt = t
+							break
+					if tgt == null:
+						g._alt_action()
+						continue
+					var aim: Vector2 = g._aim_to(tgt.pos)
+					g._yaw = aim.x
+					g._pitch = aim.y
+					await get_tree().process_frame
+					# Kuin ihminen: klikataan vasta, kun tikkaat ovat vakaat ja edellisestä on kulunut aikaa (peliaika g._t).
+					if g._t - last_click < 0.7 or absf(g._bal) > 0.3 or absf(g._bal_v) > 0.5:
+						continue
+					if not g._pick().is_empty():
+						last_click = g._t
+						var before: int = tgt.hp
+						g._action()
+						cleaned += before - tgt.hp
+				Input.action_release("left")
+				Input.action_release("right")
+				print("BOTTI ränni: valmis %s, kaatui %s, askeleita %d, siivottu %d, tila %s" % [g.all_done if is_instance_valid(g) else "?", g.fell_off if is_instance_valid(g) else "?", steps, cleaned, state])
+				if is_instance_valid(g):
+					await fr.call(5)
+					g._quit()
+				await fr.call(10)
+				print("BOTTI ränni jälkeen: tila %s, viesti '%s'" % [state, _msg.text.replace("\n", " ")])
+			if which in ["ampiais", "kaikki"]:
+				_start_ampiaiset()
+				await fr.call(20)
+				var g2: Node3D = mokki.get_children().filter(func(c): return c.get_script() != null and c.get_script().resource_path.ends_with("ampiais_game.gd"))[0]
+				print("BOTTI ampiaiset: hiiri lukittu %s" % [Input.mouse_mode == Input.MOUSE_MODE_CAPTURED])
+				var ev := InputEventMouseButton.new()
+				ev.button_index = MOUSE_BUTTON_LEFT
+				ev.pressed = true
+				Input.parse_input_event(ev)
+				var st2 := 0
+				while is_instance_valid(g2) and g2.result == "" and st2 < 3000:
+					await get_tree().process_frame
+					st2 += 1
+					var am: Vector2 = g2._aim_to(g2.nest_local + Vector3(0, -0.27, 0))
+					g2._yaw = am.x
+					g2._pitch = am.y
+				ev.pressed = false
+				Input.parse_input_event(ev)
+				if is_instance_valid(g2):
+					print("BOTTI ampiaiset: tulos '%s', pistoja %d, annos %.2f, myrkkyä jäljellä %.1f, askeleita %d" % [g2.result, g2.stings, g2._dose, g2._can, st2])
+					var t3 := Time.get_ticks_msec()
+					while is_instance_valid(g2) and Time.get_ticks_msec() - t3 < 8000:
+						await get_tree().process_frame
+				print("BOTTI ampiaiset jälkeen: tila %s, viesti '%s'" % [state, _msg.text.replace("\n", " ")])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"rankkubotti":
+			# Botti pelaa rankkarit (5 laukausta ja 5 torjuntaa) loppuun: lukitsee tähtäimen keskelle ja voiman kohtuulliseksi,
+			# torjunnassa heittäytyy potkun suuntaan.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var fr := func(n: int) -> void:
+				for i in n:
+					await get_tree().process_frame
+			var press := func(action: String) -> void:
+				Input.action_press(action)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release(action)
+			if player != walker_out:
+				_toggle_mount()
+			walker_out.global_position = world.kentta_spot + Vector3(0, 0.5, 0)
+			await fr.call(30)
+			_boys_field = "saloinen"
+			var result := [-1, -1]
+			_start_rankku("saloinen")
+			var g: Node3D = _rankku
+			g.finished.connect(func(m: int, t: int) -> void: result = [m, t])
+			var steps := 0
+			var shots := 0
+			var saves := 0
+			var last_phase := ""
+			while is_instance_valid(g) and g._phase != "done" and steps < 20000:
+				await get_tree().process_frame
+				steps += 1
+				if not is_instance_valid(g):
+					break
+				match g._phase:
+					"aim_x":
+						if absf(g._aim.x) < 0.22:
+							await press.call("jump")
+					"aim_y":
+						if g._aim.y > 0.45 and g._aim.y < 0.62:
+							await press.call("jump")
+					"power":
+						if g._power > 0.5 and g._power < 0.64:
+							shots += 1
+							await press.call("jump")
+					"dive":
+						if g._keeper_dive == 2:
+							saves += 1
+							var key: String = {-1: "left", 0: "back", 1: "right"}[g._kick_dir]
+							if g._kick_dir != 0 and g._kick_high:
+								Input.action_press("forward")
+							await press.call(key)
+							Input.action_release("forward")
+				last_phase = g._phase
+			print("BOTTI rankkarit: laukauksia %d, torjuntayrityksiä %d, askeleita %d, loppuvaihe %s, tulos %s" % [shots, saves, steps, last_phase, str(result)])
+			await get_tree().create_timer(3.0).timeout
+			print("BOTTI rankkarit jälkeen: tulos %s, tila %s, viesti '%s'" % [str(result), state, _msg.text.replace("\n", " ")])
+			if not saved.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
 		"karaokeaito":
 			# Karaoke Siitarissa: kappalevalikko, aito versio (oikea soittoraita, ajoitetut sanat) ja oma kappale. Kuvat joka vaiheesta.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)

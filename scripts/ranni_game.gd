@@ -78,8 +78,15 @@ static func new_state(base_off: float, gutter_up: float) -> Array:
 		for dx in [-0.85, 0.05, 0.9]:
 			sec.append({"kind": "lehti", "pos": Vector3(sx + dx + randf_range(-0.12, 0.12), gy + 0.03, GUTTER_Z), "hp": 1})
 		for dx in [-0.5, 0.55]:
-			var dz := randf_range(0.3, 0.75)
-			sec.append({"kind": "sammal", "pos": Vector3(sx + dx, gy + 0.08 + dz * ROOF_RISE, ROOF_Z + dz), "hp": 2})
+			# Sammal arvotaan kurotusmatkan sisään tikkaiden silmiltä (muuten tehtävä ei valmistu koskaan).
+			var eye := Vector3(sx, gy + 0.22, 0.22)
+			var pos := Vector3.ZERO
+			for tries in 20:
+				var dz := randf_range(0.3, 0.75)
+				pos = Vector3(sx + dx, gy + 0.08 + dz * ROOF_RISE, ROOF_Z + dz)
+				if pos.distance_to(eye) <= REACH - 0.1:
+					break
+			sec.append({"kind": "sammal", "pos": pos, "hp": 2})
 		out.append(sec)
 	return out
 
