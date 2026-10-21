@@ -108,7 +108,7 @@ const SIDE := [
 		"known": "first:kalastus|first:metsastys", "done": "first:savustus_onnistui",
 		"idea": "Saalis! Mökin savustimessa kalasta ja riistasta tulis herkkua."},
 	{"id": "pingis", "title": "Pihapingismestari", "text": "Santtu on pihapingismestari. Voita hänet.",
-		"known": "first:pingis", "done": "first:pingis_voitto",
+		"known": "first:pingis_poyta|first:pingis", "done": "first:pingis_voitto",
 		"idea": "Santtu pelaa pingistä ku vanha mestari. Kerran se on voitettava."},
 	{"id": "volvo", "title": "Pekan Volvo ei lähde", "text": "Välillä Pekan Volvo ei käynnisty. Korpelan korjaamo laittaa sen kuntoon, ja kyyti Paapeliin on sinä päivänä ilmainen.",
 		"known": "first:volvo_rikki|first:volvo_korjattu", "done": "first:volvo_korjattu",

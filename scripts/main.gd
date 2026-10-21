@@ -6673,6 +6673,8 @@ func _start_mowing(which: Node3D) -> void:
 	walker_out.velocity = Vector3.ZERO
 	which.set_running(true)
 	Sfx.play("pedal_creak", -4.0, 0.6)
+	if which == lawn and is_instance_valid(wife):
+		wife.safe_zones = _wife_safe_zones()  # Päivin oma toive: kotinurmikolla leikatessa ei jahtia
 	if which == mokki_lawn:
 		_show_message("Santun vanha leikkuri yskähti käyntiin! Varo kiviä.", 3.0)
 	else:
@@ -6686,6 +6688,8 @@ func _stop_mowing() -> void:
 	mowing = false
 	walker_out.no_run = false
 	_mow_lawn.set_running(false)
+	if is_instance_valid(wife):
+		wife.safe_zones = _wife_safe_zones()
 
 
 func _mow() -> void:
@@ -10345,6 +10349,7 @@ func _mokki_logic() -> void:
 		return
 	if near.call(Mokki.PINGIS_LOCAL, 1.8):
 		_hint.text = "[E] Haasta Santtu pihapingikseen"
+		tilat.first("pingis_poyta", 0.0)  # sivutehtävä tiedoksi pöydältä, ennen ensimmäistä peliä
 		if e:
 			_start_pingis()
 		return
@@ -15004,6 +15009,8 @@ func _wife_safe_zones() -> Array:
 		out.append([world.viita_pos, 10.0])
 	if world.rauniot_youth_pos != Vector3.ZERO:
 		out.append([world.rauniot_youth_pos, 12.0])
+	if mowing and _mow_lawn == lawn:
+		out.append([walker_out.global_position, 40.0])  # kotipiha leikkurin ympärillä
 	return out
 
 
