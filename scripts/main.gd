@@ -4477,6 +4477,9 @@ func _seppo_options(who: String, o: Array) -> void:
 			for k in _seppo_today():
 				var it: Array = SEPPO_STOCK[k]
 				var price := _seppo_price(k)
+				if k == "telkkari" and "seppo_telkkari" in tilat.firsts:
+					o.append(_opt("x_" + k, "%s  ✔ sinun (Sepon varastossa)" % it[0], false, "Seppo katsoo sillä Tuttua juttua"))
+					continue
 				if _seppo_day.get("ostettu_" + k, -1) == day:
 					o.append(_opt("x_" + k, "%s (myyty)" % it[0], false, "Seppo kaivaa huomenna lisää"))
 					continue
@@ -4519,7 +4522,9 @@ func _seppo_choose(id: String) -> void:
 			note = "%s: %d." % [EBike.SUPPLIES[it[2]], ebike.supplies[it[2]]]
 		else:
 			tilat.add("moraali", 0.05)
-			note = {"telkkari": "Telkkari jää Sepon varastoon odottamaan. \"Haet kun haet.\"", "vhs": "VHS reppuun. Ei oo videoita, mutta silti.",
+			if k == "telkkari":
+				tilat.first("seppo_telkkari", 0.0)
+			note = {"telkkari": "Seppo: \"Haet kun haet. Sillä välin mää kahtelen siitä Tuttua juttua.\" Telkkari jää Sepon varastoon.", "vhs": "VHS reppuun. Ei oo videoita, mutta silti.",
 				"onki": "Bambuonki ja puolikas purkki matoja. Oravajärvellä tai tekojärvellä rannalta."}.get(k, "")
 			if k == "onki":
 				has_onki = true
