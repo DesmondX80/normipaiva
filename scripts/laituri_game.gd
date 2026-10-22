@@ -5,6 +5,8 @@ extends "res://scripts/kota_minigame.gd"
 ## osuu helposti peukaloon, joka pitelee naulaa. Santtu katsoo vieressä ja kommentoi.
 ## mokki.gd:n laiturin (dock_body) lapsi: origo = paikkalautojen alku kannen pinnalla, +Z järvelle päin.
 
+const Mokki := preload("res://scripts/mokki.gd")
+
 signal fixed_plank
 signal thumb
 
@@ -18,9 +20,10 @@ const THUMB_R := 0.065
 const PRY_CLICKS := 3
 const EYE := Vector3(0.0, 1.0, -0.9)
 
-const LAHO := Color(0.3, 0.3, 0.24)
-const FRESH := Color(0.86, 0.72, 0.5)
+const LAHO := Color(0.42, 0.41, 0.36)  # harmaantunut, laho
+const FRESH := Color(0.78, 0.74, 0.5)  # painekyllästetty, vihertävä
 const NAIL := Color(0.62, 0.62, 0.64)
+const STEEL := Color(0.3, 0.31, 0.34)
 
 const LINES := {
 	"start": [["santtu", "Lahot pois, uudet tilalle. Naulat on purkissa."], ["santtu", "Polvillaan ollaan, ei kumarrella. Selkä kiittää."],
@@ -53,6 +56,7 @@ var all_done := false
 var thumbs := 0
 
 var _hammer: Node3D
+var _bar: Node3D  # sorkkarauta: kädessä, kun tähtäin on lahossa laudassa
 var _swing_t := -1.0
 var _idle_t := 0.0
 var _flash: ColorRect
@@ -83,29 +87,42 @@ static func is_done(st: Array) -> bool:
 	return not st.is_empty() and st.all(func(sl): return sl.s == "valmis")
 
 
-## Paikkalaudat (lahot, tyhjät kohdat ja uudet naulattuine lautoineen) laiturin kehykseen kohtaan z0.
+## Paikkalaudat (lahot, tyhjät kohdat ja uudet naulattuine lautoineen) laiturin kehykseen kohtaan z0. Tyhjä tila
+## (ei laiturihommaa) = tavalliset laiturin lankut, sillä mokki.gd jättää korjauskohdan lankut tämän piirrettäviksi.
+## Paikkalauta on paksumpi (5 cm), joten se nousee palkeista hieman muiden yläpuolelle.
 static func build_patch(parent: Node3D, st: Array, z0: float) -> void:
 	for c in parent.get_children():
 		c.free()
+	if st.is_empty():
+		for i in SLOTS:
+			var k := roundi(z0 / PITCH) + i
+			Mokki.deck_plank(parent, Vector3(0, 0.26, z0 + i * PITCH), Mokki.DOCK_WOOD.lightened(0.06 * ((k * 7) % 3) - 0.03), k)
+		return
+	var size := Vector3(1.48, 0.05, 0.44)
 	for i in st.size():
 		var sl: Dictionary = st[i]
 		var z := z0 + i * PITCH
 		match sl.s:
 			"laho":
-				var p := Node3D.new()
-				p.position = Vector3(0, DECK_Y + 0.016, z)
+				var p := Mokki.deck_plank(parent, Vector3(0, DECK_Y + 0.006, z), LAHO, 100 + i, size)
 				p.rotation.x = -0.06 * sl.pry
 				p.position.y += 0.025 * sl.pry
-				parent.add_child(p)
-				B.mesh(p, B.boxm(Vector3(1.48, 0.03, 0.44)), Vector3.ZERO, LAHO)
-				B.mesh(p, B.boxm(Vector3(0.9, 0.005, 0.015)), Vector3(0.1, 0.017, 0.05), Color(0.12, 0.12, 0.1))  # halkeama
-				for k in 4:
-					var m := B.mesh(p, B.sphere(0.05, 6), Vector3(-0.6 + k * 0.37, 0.012, -0.12 + (k % 2) * 0.22), Color(0.22, 0.3, 0.12))
-					m.scale = Vector3(1.4, 0.25, 1.0)
+				B.mesh(p, B.boxm(Vector3(0.9, 0.004, 0.012)), Vector3(0.1, 0.025, 0.05), Color(0.12, 0.12, 0.1))  # halkeama
+				B.mesh(p, B.boxm(Vector3(0.35, 0.004, 0.01)), Vector3(-0.45, 0.025, -0.08), Color(0.12, 0.12, 0.1))
+				for k in 5:  # tummat lahokohdat
+					var lp := B.mesh(p, B.cyl(0.07, 0.07, 0.002, 10), Vector3(-0.6 + k * 0.3, 0.026, -0.1 + (k % 3) * 0.1), LAHO.darkened(0.3))
+					lp.scale = Vector3(1.4, 1.0, 0.6)
+				for k in 4:  # sammalmättäät: epäsäännöllisiä kumpareita kahdessa vihreässä
+					var mc := Vector3(-0.6 + k * 0.37, 0.026, -0.15 + (k % 2) * 0.28)
+					for b in 6:
+						var a := b * 1.7 + k
+						var bm := B.mesh(p, B.sphere(0.022 + (b % 3) * 0.008, 6), mc + Vector3(cos(a) * 0.035 * (b % 3), 0.0, sin(a) * 0.03 * ((b + 1) % 3)),
+							Color(0.26, 0.38, 0.14) if b % 2 == 0 else Color(0.36, 0.48, 0.18))
+						bm.scale = Vector3(1.2, 0.45, 1.0)
 			"tyhja":
-				B.mesh(parent, B.boxm(Vector3(1.48, 0.01, 0.44)), Vector3(0, DECK_Y - 0.12, z), Color(0.05, 0.08, 0.09))
+				pass  # aukko: palkit ja järvi näkyvät
 			_:
-				B.mesh(parent, B.boxm(Vector3(1.48, 0.03, 0.44)), Vector3(0, DECK_Y + 0.016, z), FRESH)
+				Mokki.deck_plank(parent, Vector3(0, DECK_Y + 0.006, z), FRESH, 200 + i, size)
 				for k in 2:
 					var nail := Node3D.new()
 					nail.position = Vector3((-1 if k == 0 else 1) * NAIL_X, DECK_Y + 0.031, z)
@@ -131,21 +148,88 @@ func _start() -> void:
 
 
 func _build_hammer() -> void:
+	# Kynsivasara (kuten kuvassa): kromattu teräsvarsi, musta kumikahva levennetyllä päällä, pää kauloineen ja
+	# pyöreine lyöntipintoineen sekä alas kaartuva, halki menevä naulanvetokynsi. Varsi = +Y, lyöntipinta = +X.
 	_hammer = Node3D.new()
 	_cam.add_child(_hammer)
-	B.mesh(_hammer, B.cyl(0.014, 0.017, 0.32, 8), Vector3(0, 0.16, 0), Color(0.72, 0.55, 0.32))
-	B.mesh(_hammer, B.boxm(Vector3(0.11, 0.035, 0.035)), Vector3(0.0, 0.33, 0), Color(0.25, 0.25, 0.27))
-	B.mesh(_hammer, B.boxm(Vector3(0.04, 0.03, 0.03)), Vector3(-0.06, 0.34, 0), Color(0.2, 0.2, 0.22))
+	var chrome := StandardMaterial3D.new()
+	chrome.albedo_color = Color(0.82, 0.83, 0.85)
+	chrome.metallic = 0.55  # tasaiset pinnat heijastaisivat muuten pelkkää sinistä taivasta
+	chrome.roughness = 0.32
+	var rubber := Color(0.09, 0.09, 0.1)
+	var parts: Array = [B.mesh(_hammer, B.cyl(0.0105, 0.0105, 0.17, 12), Vector3(0, 0.245, 0), Color.WHITE)]  # varsi
+	B.mesh(_hammer, B.cyl(0.0145, 0.0185, 0.17, 12), Vector3(0, 0.085, 0), rubber)  # kumikahva levenee alas
+	B.mesh(_hammer, B.cyl(0.0205, 0.019, 0.016, 12), Vector3(0, 0.0, 0), rubber)  # levennetty pää
+	B.mesh(_hammer, B.cyl(0.0175, 0.0175, 0.006, 12), Vector3(0, 0.168, 0), rubber.lightened(0.1))  # kahvan yläreuna
+	for k in 6:  # kahvan pistekuvio
+		for side in [-1.0, 1.0]:
+			B.mesh(_hammer, B.sphere(0.0035, 6), Vector3(side * 0.012, 0.03 + k * 0.022, 0.013), Color(0.03, 0.03, 0.03))
+	parts.append(B.mesh(_hammer, B.cyl(0.013, 0.013, 0.008, 12), Vector3(0, 0.322, 0), Color.WHITE))  # kaulus
+	parts.append(B.mesh(_hammer, B.boxm(Vector3(0.036, 0.036, 0.028)), Vector3(0.0, 0.343, 0), Color.WHITE))  # pään runko
+	parts.append(B.mesh(_hammer, B.cyl(0.013, 0.016, 0.032, 14), Vector3(0.032, 0.343, 0), Color.WHITE, Vector3(0, 0, 90)))  # kaula
+	parts.append(B.mesh(_hammer, B.cyl(0.0185, 0.0185, 0.012, 16), Vector3(0.052, 0.343, 0), Color.WHITE, Vector3(0, 0, 90)))  # lyöntipinta
+	parts.append(B.mesh(_hammer, B.cyl(0.0155, 0.0155, 0.006, 16), Vector3(0.06, 0.343, 0), Color.WHITE, Vector3(0, 0, 90)))  # viiste
+	# Kynsi: tiheä kaari taaksepäin ja alas (palat limittäin), ohenee; loppupää halkeaa V:ksi kahdeksi piikiksi.
+	var n := 14
+	for k in n:
+		var t := (k + 0.5) / n
+		var x := -0.018 - 0.078 * t
+		var y := 0.354 - 0.03 * t * t
+		var slope := rad_to_deg(atan2(-0.06 * t, -0.078))  # käyrän suunta
+		var h := 0.026 * (1.0 - 0.6 * t)
+		var seg := Vector3(0.011, h, 0.026)
+		if t < 0.4:
+			parts.append(B.mesh(_hammer, B.boxm(seg), Vector3(x, y, 0), Color.WHITE, Vector3(0, 0, slope + 180.0)))
+		else:
+			var gap := 0.002 + 0.012 * (t - 0.4)
+			for side in [-1.0, 1.0]:
+				parts.append(B.mesh(_hammer, B.boxm(Vector3(seg.x, h, 0.013 - gap)), Vector3(x, y, side * (0.0065 + gap / 2.0)), Color.WHITE,
+					Vector3(0, 0, slope + 180.0)))
+	for m in parts:
+		(m as MeshInstance3D).material_override = chrome
+	# Sorkkarauta: punainen kuusikulmainen varsi, kaareva kynsipää ja taltta.
+	_bar = Node3D.new()
+	_cam.add_child(_bar)
+	B.mesh(_bar, B.cyl(0.012, 0.012, 0.5, 6), Vector3(0, 0.22, 0), Color(0.75, 0.12, 0.1))
+	B.mesh(_bar, B.cyl(0.011, 0.008, 0.07, 6), Vector3(0.0, 0.49, 0.02), STEEL, Vector3(35, 0, 0))
+	B.mesh(_bar, B.cyl(0.010, 0.006, 0.06, 6), Vector3(0.0, 0.52, 0.06), STEEL, Vector3(80, 0, 0))
+	for side in [-1.0, 1.0]:
+		B.mesh(_bar, B.boxm(Vector3(0.007, 0.004, 0.03)), Vector3(side * 0.005, 0.522, 0.092), STEEL.lightened(0.3))
+	B.mesh(_bar, B.boxm(Vector3(0.022, 0.03, 0.006)), Vector3(0, -0.04, 0), STEEL.lightened(0.2))  # taltta
+	_bar.visible = false
 	_pose_hammer(0.0)
 
 
-## s = 0 lepo (kohollaan), 1 = isku alhaalla.
+## s = 0 lepo (kohollaan), 1 = isku alhaalla. Sorkkarauta: s vääntää vartta taaksepäin (vipu).
 func _pose_hammer(s: float) -> void:
-	_hammer.position = Vector3(0.24, -0.22 - 0.08 * s, -0.42)
-	_hammer.rotation = Vector3(-0.3 - 1.3 * s, 0.25, 0.1)
+	# Vasara: varsi (+Y) nojaa eteen kulmassa a, lyöntipinta (+X) osoittaa liikkeen suuntaan eli lautaa kohti ja kynsi
+	# (-X) pelaajaan päin. Levossa koholla, isku kaataa varren eteen ja alas.
+	var a := lerpf(0.2, 1.05, s)
+	var up := Vector3(-0.18, cos(a), -sin(a)).normalized()
+	var face := Vector3(0, -sin(a), -cos(a))
+	face = (face - up * face.dot(up)).normalized()
+	_hammer.transform = Transform3D(Basis(face, up, face.cross(up)), Vector3(0.2, -0.33 + 0.02 * s, -0.42 - 0.08 * s))
+	_bar.position = Vector3(0.2, -0.26 + 0.03 * s, -0.46)
+	_bar.rotation = Vector3(-0.9 + 0.5 * s, 0.2, 0.15)
+
+
+## Puunlastuja ja pölyä iskukohdasta (pelin kehyksessä).
+func _chips(at: Vector3, col: Color, n: int) -> void:
+	for k in n:
+		var m := B.mesh(self, B.boxm(Vector3(randf_range(0.01, 0.03), 0.004, randf_range(0.006, 0.012))), at + Vector3(0, 0.02, 0),
+			col.darkened(randf_range(0.0, 0.25)))
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_add_debris(m, 0.9)
+		var dir := Vector3(randf_range(-1, 1), 0, randf_range(-1, 0.4)).normalized()
+		var peak := at + dir * randf_range(0.06, 0.18) + Vector3(0, randf_range(0.08, 0.2), 0)
+		var tw := create_tween().set_parallel()
+		tw.tween_property(m, "position", peak, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(m, "rotation", Vector3(randf() * 6, randf() * 6, randf() * 6), 0.6)
+		tw.chain().tween_property(m, "position", peak + dir * 0.08 - Vector3(0, peak.y - at.y - 0.01, 0), 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 
 func _tick(delta: float) -> void:
+	_update_tools()
 	if drunk > 0.0:
 		_yaw += sin(_t * 1.3) * drunk * 0.003
 		_pitch += sin(_t * 0.9 + 1.0) * drunk * 0.002
@@ -161,6 +245,16 @@ func _tick(delta: float) -> void:
 	if _idle_t > 14.0 and not all_done:
 		_idle_t = 0.0
 		_say_kind("idle")
+
+
+## Sorkkarauta lahon laudan kohdalla, muuten vasara.
+func _update_tools() -> void:
+	var a := _aim()
+	var i: int = a[1]
+	var on_laho: bool = i >= 0 and state[i].s == "laho"
+	if _swing_t < 0.0:
+		_bar.visible = on_laho
+		_hammer.visible = not on_laho
 
 
 func _gust_comment_ok() -> bool:
@@ -196,6 +290,8 @@ func _action() -> void:
 		"laho":
 			sl.pry += 1
 			_shake = 0.35
+			_swing()
+			_chips(p, LAHO, 6)
 			Sfx.play("rattle_hard", -4.0, 0.8 + 0.1 * sl.pry)
 			if sl.pry >= PRY_CLICKS:
 				sl.s = "tyhja"
@@ -237,6 +333,7 @@ func _hammer_hit(i: int, p: Vector3) -> void:
 		sl.nails[k] = minf(1.0, sl.nails[k] + 0.34)
 		Sfx.play("punch_heavy", -6.0, 1.6)
 		_shake = 0.15
+		_chips(np, FRESH, 3)
 		if sl.nails[k] >= 1.0:
 			if sl.nails[1 - k] >= 1.0:
 				sl.s = "valmis"
@@ -276,6 +373,7 @@ func _hammer_hit(i: int, p: Vector3) -> void:
 				_say_kind("thumb"))
 	else:
 		Sfx.play("step_wood", -4.0, 1.5)
+		_chips(p, FRESH, 4)  # vasara jättää jäljen ja lastuja
 		if randf() < 0.4:
 			_say_kind("miss")
 
@@ -301,7 +399,7 @@ func _alt_action() -> void:
 
 ## Lahon laudan kappale lentää sivuun.
 func _fly_plank(i: int) -> void:
-	var m := B.mesh(self, B.boxm(Vector3(1.48, 0.03, 0.44)), Vector3(0, 0.05, i * PITCH), LAHO)
+	var m := Mokki.deck_plank(self, Vector3(0, 0.05, i * PITCH), LAHO, 100 + i, Vector3(1.48, 0.05, 0.44))
 	_add_debris(m, 1.4)
 	var tw := create_tween().set_parallel()
 	tw.tween_property(m, "position", Vector3(1.6, 0.9, i * PITCH + 0.3), 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
