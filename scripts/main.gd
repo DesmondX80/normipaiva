@@ -269,6 +269,7 @@ const KertunRauta := preload("res://scripts/kertun_rauta.gd")
 const Aarnivalkea := preload("res://scripts/aarnivalkea.gd")
 const UkkoLegenda := preload("res://scripts/ukko_legenda.gd")
 const PyhimysLegenda := preload("res://scripts/pyhimys_legenda.gd")
+const OlaviLegenda := preload("res://scripts/olavi_legenda.gd")
 const ShoreFishGame := preload("res://scripts/shore_fish_game.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
@@ -362,6 +363,8 @@ var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.g
 var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
+var olavi: RefCounted  # legenda: Olavinmarkkinoiden hopea (olavi_legenda.gd, #124)
+var olavi_pappa: CharacterBody3D
 var pyhimys: RefCounted  # legenda: Palon yön pyhimys (pyhimys_legenda.gd, #125)
 var hoitaja: CharacterBody3D
 var suntio: CharacterBody3D
@@ -806,6 +809,7 @@ const TALKERS := {
 	"huutaja": ["Huutaja Erkki", Color(1.0, 0.85, 0.3)],
 	"annaliisa": ["Anna-Liisa", Color(0.95, 0.7, 0.75)],
 	"aaro": ["Tokolan Aaro", Color(0.8, 0.75, 0.65)],
+	"olavi_pappa": ["Olavi-pappa", Color(0.85, 0.8, 0.6)],
 	"hoitaja": ["Hautausmaan hoitaja", Color(0.7, 0.8, 0.65)],
 	"suntio": ["Suntio", Color(0.85, 0.85, 0.95)],
 	"kynttilanainen": ["Iäkäs nainen", Color(0.95, 0.85, 0.7)],
@@ -864,6 +868,7 @@ const TALK_HELLO := {
 	"katsastaja": ["Saloisten katsastus. Mitäs tuotiin?", "Päivää. Rekisteriote mukana? No ei se mitään."],
 	"hitsari": ["Arttim metal works. Hitsataan mitä vaan, paitsi sydäntä.", "Terve. Arto on tauolla, mää oon hitsari."],
 	"veksi": ["Takahuone. Ei asiakkaille. ...Ai, sulla on jotain? Laita ovi kiinni.", "Kuka sut päästi tänne? No, näytä mitä sulla on."],
+	"olavi_pappa": ["Joka markkinapäivä mää tulen tänne. Joka ainoa.", "Kauppias Skyttä oli sukua. Kauan sitten.", "Markkinat palaa vielä, kyllä palaa."],
 	"hoitaja": ["Hautakivet on mun lapsia. Joka ainoa on käsin pesty.", "Hiljaista täällä. Niin kuin pitääkin.", "Kynttilöitä palaa, ei ne ketään haittaa."],
 	"suntio": ["Kirkko on auki. Jalat pyyhitään.", "Päivää. Kaikki esineet on luetteloitu, ei puutu mitään.", "Hiljaa tässä talossa."],
 	"kynttilanainen": ["...", "Anna minun olla hetki."],
@@ -1156,6 +1161,7 @@ func _ready() -> void:
 	kertun = KertunRauta.new()
 	aarni = Aarnivalkea.new()
 	pyhimys = PyhimysLegenda.new()
+	olavi = OlaviLegenda.new()
 	ukko = UkkoLegenda.new()
 	endings = Endings.new()
 	quests = Quests.new()
@@ -1422,6 +1428,8 @@ func _process(delta: float) -> void:
 				_hint.text = _mopo_garage_hint(garage_int.spot)
 			elif garage_int.spot == "saavi":
 				_hint.text = _wine_hint()
+			elif garage_int.spot == "lapio":
+				_hint.text = "[E] Ota lapio seinältä" if olavi.lupa and not olavi.lapio else ""
 			if garage_int.radio_on:
 				tilat.add("stressi", 0.006 * delta)  # iskelmä rauhoittaa
 				tilat.add("moraali", 0.002 * delta)
@@ -1671,6 +1679,7 @@ func _outside_logic() -> void:
 	_korjaamo_logic()
 	_aarni_logic()
 	_pyhimys_logic()
+	_olavi_logic()
 	_kalastus_logic()
 	_reippari_logic()
 	_atm_logic()
@@ -1832,6 +1841,7 @@ func _enter_garage() -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	tilat.first("autotalli_sisalla", 0.1)
 	garage_int.headphones_found = headphones.found
+	garage_int.lapio_taken = olavi.lapio
 	garage_int.enter(bike_in_garage)
 	garage_int.set_bike(bike_in_garage or oma_mopo.riding)  # mopolla ajettaessa pyörä odottaa tallissa
 	garage_int.set_mopo(oma_mopo.owned and not oma_mopo.riding, oma_mopo.running)
@@ -1910,6 +1920,13 @@ func _on_garage_acted(kind: String) -> void:
 				_on_garage_exited(true)
 		"saavi":
 			_wine_act()
+		"lapio":
+			if olavi.lupa and not olavi.lapio:
+				olavi.lapio = true
+				garage_int.lapio_taken = true
+				Sfx.play("pickup", -4.0)
+				_save_game()
+				_show_message("Lapio mukaan. Nyt Kirkkoluodontien varteen, sammaloituneen kiven viereen.", 4.0)
 		"laatikko":
 			headphones.found = true
 			garage_int.headphones_found = true
@@ -2649,6 +2666,9 @@ const KIRPPIS_STOCK := {
 	"bambuonki": {"seller": "raili", "name": "Bambuonki", "price": 4.0},
 	"lusikka": {"seller": "tauno", "name": "Isän kuparilusikka", "price": UkkoLegenda.LUSIKKA_HINTA},
 	"drakkar": {"seller": "raili", "name": "Drakkar Noir, puolillaan", "price": 12.0},
+	"terva": {"seller": "tauno", "name": "Tervatuoppi (Olavinmarkkinat)", "price": 4.0},
+	"voi": {"seller": "hilkka", "name": "Talonpojan voita (Olavinmarkkinat)", "price": 3.0},
+	"makkara": {"seller": "raili", "name": "Markkinamakkara (Olavinmarkkinat)", "price": 3.5},
 }
 ## Drakkar Noir: ysärin legendaarinen tuoksu Railin pöydältä (ensimmäinen löytö legendaarinen hetki; uusi pullo tulee
 ## pöydälle, kun edellinen on loppu). Pullossa DRAKKAR_SPRAYS
@@ -2729,6 +2749,8 @@ func _enter_kirppis(mode := "kirppis") -> void:
 	state = "in_kirppis"
 	Sfx.play("door", -3.0)
 	tilat.first("kirppis", 0.2)
+	if _markkinat_paiva() and mode == "kirppis" and _once_today("markkinat_avaus"):
+		_show_message("OLAVINMARKKINAT! Olavi-pappa avaa markkinat: kojuilla tervaa, voita ja makkaraa, huutokauppa lavalla.", 5.0)
 	kirppis_int.lot_visible = _auction_lot().get("id", "") == "moottori"
 	kirppis_int.auction_done = _auction_day == day
 	kirppis_int.drakkar.visible = drakkar <= 0
@@ -2975,6 +2997,16 @@ func _talk_kirppis(id: String) -> void:
 			+ "kesä, ja kerran se kisko soutuveneen kaislikkoon. Kaikki nauraa. Mutta heitä virvelillä sinne, niin näet.",
 			_talk_options(), "Legenda: Tekojärven Ukko. Haapajärven tekojärvi on kylän eteläpuolella, Kaitasaari keskellä.")
 		return
+	if id == "olavi_legenda":
+		olavi.heard = true
+		tilat.first("olavi_legenda", 0.2)
+		_save_game()
+		_talk_box.reply("Markkinat? No kuule. Saloinen sai vuonna 1616 vapaat markkinat Olavinpäivästä kahdeksi viikoksi. Kauppiaita tuli "
+			+ "joka kaupungista, talonpojat myi tervaa ja voita. Kun Raahe perustettiin, markkinat vietiin sinne. Yksi saloislainen "
+			+ "kauppias ei suostunut: kätki markkinarahansa ja vannoi, että markkinat palaa, kun hopea löytyy. Olavinpäivän yönä "
+			+ "Kirkkoluodontiellä kulkee lyhty. Käy Pirtissä kyselemässä kirjeitä.", _talk_options(),
+			"Legenda: Olavinmarkkinoiden hopea. Kysy kauppiaan kirjettä Saloisten Pirtistä.")
+		return
 	if id == "aarnivalkea":
 		aarni.heard = true
 		tilat.first("aarni_legenda", 0.2)
@@ -3050,6 +3082,8 @@ func _kirppis_hidden(k: String) -> bool:
 			return ukko.lusikka or not ukko.heard or not ukko.clues()
 		"drakkar":
 			return drakkar > 0  # uusi pullo Railin pöydälle, kun edellinen on loppu
+		"terva", "voi", "makkara":
+			return not (_markkinat_paiva() and _between(clock_min, MARKKINA_OPEN))
 	return false
 
 
@@ -3079,6 +3113,15 @@ func _kirppis_give(k: String) -> String:
 			ebike.supplies.teippi += 1
 			ebike.started = true
 			return "Jeesusteippiä yhteen liitokseen."
+		"terva":
+			tilat.add("moraali", 0.1)
+			return "Tervatuoppi: tuoksuu 1600-luvulta. Moraali nousee."
+		"voi":
+			_eat(0.2)
+			return "Talonpojan voita leivän päälle. Nälkä helpottaa."
+		"makkara":
+			_eat(0.3)
+			return "Markkinamakkara paistettuna tuoreeltaan. Maistuu."
 		"liina":
 			tilat.add("moraali", 0.15)
 			tilat.add("stressi", 0.1)
@@ -4987,6 +5030,19 @@ const AARNI_PROVEN := {
 	"annaliisa": ["Lehdessä se oli, kuvan kanssa. Isonvihan hopeat Saloisista!", "No en mää sitä ihan valheeksi sanonu…"],
 	"pekka": ["Perkele, kasakoiden aikaiset hopeat! Mää tarjoan kierroksen.", "Kaljapuhetta, sanoin. Taas väärin, saatana."],
 }
+const OLAVI_DOUBT := {
+	"pekka": ["Joka kesä joku kaivaa sitä hopeaa. Aina löytyy vain kaljatölkkejä, perkele.", "Markkinat? Hopeaa? Kaljaa tänne, saatana."],
+	"arto": ["Raahelaiset sen keksi, ettei saloislaiset sure markkinoita.", "Lyhty Kirkkoluodontiellä on Sulon kanisterikuski."],
+	"annaliisa": ["Lyhty? Se on se Olavi-pappa, kun on taas ottanu.", "Hopeaa muka. Mää tiän, mihin ne rahat meni: kaljaan."],
+}
+const OLAVI_PROVEN := {
+	"pekka": ["No mitä mää aina sanoin… melkein. Markkinat takaisin, saatana!", "Taalereita! Perkele, mää ostan terva-tuopin."],
+	"arto": ["Olavi-pappa oli oikeessa. Anteeks vaan, pappa.", "Markkinoilla on voita. Mää ostan, ensimmäistä kertaa elämässä."],
+	"annaliisa": ["Mää menin pyytämään Olavi-papalta anteeksi. Sain kahvit.", "No en mää sitä ihan valheeksi sanonu…"],
+}
+const MARKKINA_OPEN := Vector2(10 * 60, 18 * 60)
+var _olavi_flame: Node3D
+var _sulo_flame: Node3D
 const PYHIMYS_DOUBT := {
 	"suntio": ["Kaikki pelastetut on luettelossa. Ei puutu mitään.", "Palon yön pyhimys? Satua. Luettelo on selvä."],
 	"pekka": ["Kynttilä? Hautausmaalla palaa kynttilöitä joka ilta, perkele.", "Pyhimys, saatana. Kyllä ne kaikki kannettiin ulos."],
@@ -5083,6 +5139,190 @@ const SUNTIO_LOOK := {"shirt": Color(0.1, 0.1, 0.14), "pants": Color(0.12, 0.12,
 	"hair_color": Color(0.5, 0.5, 0.5), "height": 1.78, "skin": Color(0.95, 0.76, 0.68)}
 const NAINEN_LOOK := {"model": "female", "shirt": Color(0.35, 0.3, 0.4), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.15, 0.12, 0.1), "hair": "Hair_Buns",
 	"hair_color": Color(0.85, 0.85, 0.85), "height": 1.6, "skin": Color(0.95, 0.8, 0.74), "belly": 0.3}
+
+
+## Olavinmarkkinoiden hopea (#124): Olavi-pappa päivisin kauppiaan haudalla, Olavinpäivän yönä lyhdyn kanssa kätköllä,
+## muina öinä lyhty on Pannu-Sulon toimitusreitillä; kirje Pirtissä, kivi, lapio, kaivu, museo tai keräilijä ja markkinat.
+func _olavi_nodes() -> void:
+	if olavi_pappa != null or world == null or world.kauppias_pos == Vector3.ZERO:
+		return
+	olavi_pappa = _villager("Olavi-pappa", OLAVI_LOOK, ["Markkinat palaa vielä."], "mummo", M.to_px(world.kauppias_pos))
+	olavi_pappa.visible = false
+	for k in 2:
+		var fl := Node3D.new()
+		add_child(fl)
+		B.mesh(fl, B.cyl(0.0, 0.08, 0.26, 8), Vector3.ZERO, Color(1.0, 0.82, 0.4))
+		B.mesh(fl, B.boxm(Vector3(0.14, 0.2, 0.14)), Vector3(0, -0.2, 0), Color(0.25, 0.22, 0.2))
+		var light := OmniLight3D.new()
+		light.light_color = Color(1.0, 0.75, 0.4)
+		light.omni_range = 6.0
+		light.light_energy = 1.4
+		fl.add_child(light)
+		fl.visible = false
+		if k == 0:
+			_olavi_flame = fl
+		else:
+			_sulo_flame = fl
+
+
+const OLAVI_LOOK := {"shirt": Color(0.45, 0.42, 0.35), "pants": Color(0.25, 0.25, 0.22), "shoes": Color(0.2, 0.15, 0.1), "hair": "Hair_Buzzed",
+	"hair_color": Color(0.88, 0.88, 0.86), "beard": true, "height": 1.7, "skin": Color(0.93, 0.74, 0.66), "belly": 0.5}
+
+
+func _markkinat_paiva() -> bool:
+	return olavi != null and olavi.proven() and olavi.olavinpaiva(day)
+
+
+func _olavi_tasks() -> Array:
+	if not olavi.heard or olavi.choice != "":
+		return []
+	var step := "vie kauppiaan lipas museolle (Pirtti) tai Veksille"
+	if not olavi.kirje:
+		step = "kysy Saloisten Pirtistä kauppiaan kirjettä"
+	elif not olavi.kivi:
+		step = "etsi kirjeen sukunimi hautausmaan vanhasta kivestä"
+	elif not olavi.pappa:
+		step = "kysy hautausmaalla (päivisin) kukkien tuojalta"
+	elif not olavi.lupa:
+		step = "tee Olavi-papalle palvelus (kalja)"
+	elif not olavi.lapio:
+		step = "hae lapio autotallin vasemmalta seinältä"
+	elif not olavi.found:
+		step = "kaiva Kirkkoluodontien varrelta sammaloituneen kiven vierestä"
+	return [["Olavinmarkkinoiden hopea: " + step, false]]
+
+
+func _olavi_logic() -> void:
+	if olavi == null or world == null or world.kauppias_pos == Vector3.ZERO:
+		return
+	_olavi_nodes()
+	if world.markkina_banner != null:
+		world.markkina_banner.visible = _markkinat_paiva() and _between(clock_min, MARKKINA_OPEN)
+	var night := _between(clock_min, OlaviLegenda.NIGHT)
+	var olavinyo: bool = olavi.olavinpaiva(day) and night
+	var day_t := _between(clock_min, Vector2(9 * 60, 18 * 60))
+	var on_site: bool = olavinyo and olavi.heard and not olavi.found
+	olavi_pappa.visible = olavi.heard and (day_t or on_site)
+	olavi_pappa.process_mode = Node.PROCESS_MODE_INHERIT if olavi_pappa.visible else Node.PROCESS_MODE_DISABLED
+	if on_site:
+		olavi_pappa.global_position = world.olavi_katko_pos + Vector3(1.6, 0.0, 0.8)
+	elif olavi_pappa.visible:
+		olavi_pappa.global_position = world.kauppias_pos + Vector3(2.4, 0.0, 1.4)
+	_olavi_flame.visible = on_site
+	if on_site:
+		_olavi_flame.global_position = world.olavi_katko_pos + Vector3(1.0, 1.1, 0.8)
+		if not olavi.lyhty and player.global_position.distance_to(world.olavi_katko_pos) < 40.0:
+			olavi.lyhty = true
+			tilat.first("olavi_lyhty", 0.2)
+			_show_message("Lyhty Kirkkoluodontien varrella Olavinpäivän yönä! Joku seisoo sammaloituneen kiven vieressä.", 4.0)
+	var decoy: bool = olavi.heard and night and not olavinyo and not olavi.sulo
+	_sulo_flame.visible = decoy
+	if decoy:
+		_sulo_flame.global_position = world.olavi_sulo_pos + Vector3(0.0, 1.0, 0.0)
+		if player.global_position.distance_to(world.olavi_sulo_pos) < 3.5 and player != bike:
+			olavi.sulo = true
+			pontikka += 1
+			tilat.first("olavi_sulo", 0.2)
+			Sfx.play("pickup", -4.0)
+			_save_game()
+			_show_message("Lyhty ei ollutkaan kummitus: Pannu-Sulo kanisterit selässä. \"Pidät suus kiinni, kuule. Tässä pullo vaitiolosta.\" Pontikkaa +1.", 6.0)
+	if _hint.text != "" or player == bike:
+		return
+	var p := player.global_position
+	var at_stone: bool = olavi.heard and Vector2(p.x - world.kauppias_pos.x, p.z - world.kauppias_pos.z).length() < 2.8
+	var at_dig: bool = olavi.heard and Vector2(p.x - world.olavi_katko_pos.x, p.z - world.olavi_katko_pos.z).length() < 2.8
+	var task_here: bool = (at_stone and olavi.kirje and not olavi.kivi) or (at_dig and olavi.lupa and olavi.lapio and not olavi.found)
+	if olavi_pappa.visible and olavi_pappa.distance_to_player() < 3.4 and not task_here:
+		_talk_hint("olavi_pappa", olavi_pappa)
+		return
+	if at_stone:
+		if olavi.kirje and not olavi.kivi:
+			_hint.text = "[E] Lue vanha hautakivi"
+			if Input.is_action_just_pressed("interact"):
+				olavi.kivi = true
+				tilat.first("olavi_kivi", 0.2)
+				_save_game()
+				_show_message("\"Olof %s, kauppias, 1588–1651.\" Sama nimi kuin Pirtin kirjeessä! Kiven edessä tuoreita kukkia. Joku käy täällä usein." % OlaviLegenda.SUKUNIMI, 6.0)
+		else:
+			_hint.text = "Kauppiaan vanha kivi. Edessä on tuoreita kukkia."
+		return
+	if at_dig:
+		if olavi.lupa and olavi.lapio and not olavi.found:
+			_hint.text = "[E] Kaiva sammaloituneen kiven vierestä"
+			if Input.is_action_just_pressed("interact"):
+				olavi.found = true
+				tilat.first("olavi_lipas", 0.5)
+				Sfx.play("rattle_hard", -4.0, 0.7)
+				_kertun_sync()
+				_save_game()
+				_show_message("Lapio kolahtaa kuparilippaaseen! Sisällä hopeataalereita vuodelta 1616. Vie ne Saloisten Pirttiin tai kirppiksen takahuoneeseen.", 6.5)
+		elif olavi.lupa and not olavi.found:
+			_hint.text = "Tähän pitäisi kaivaa. Lapio löytyy autotallin vasemmalta seinältä."
+		elif not olavi.found:
+			_hint.text = "Sammaloitunut kivi Kirkkoluodontien varrella. Kirkon rannan luoto?"
+
+
+func _olavi_museum() -> void:
+	if olavi == null or not olavi.heard or olavi.choice != "" or _hint.text != "":
+		return
+	var md: Vector3 = world.museum_door
+	if not _near_xz(md, 3.0):
+		return
+	if olavi.found:
+		_hint.text = "[E] Saloisten Pirtti: vie hopeataalerit kotiseutumuseolle"
+		if Input.is_action_just_pressed("interact"):
+			olavi.choice = "museo"
+			_kertun_sync()
+			_ending("olavinmarkkinat")
+			tilat.first("olavinmarkkinat_palasivat", 0.5)
+			money += OlaviLegenda.MUSEO_PALKKIO
+			maine = clampf(maine + OlaviLegenda.MUSEO_MAINE, 0.0, 100.0)
+			tilat.add("moraali", 0.3)
+			Sfx.play("win", -4.0)
+			_save_game()
+			_show_message("Raahen museo vahvistaa taalerit aidoiksi: vuosi 1616. Löytöpalkkio jaetaan Olavi-papan kanssa, sinun osuutesi %s €. Lehtijuttu kuvan "
+				+ "kera, maine +%d. Olavi-pappa antaa osuutensa markkinoille: Olavinmarkkinat järjestetään joka Olavinpäivä (joka 7. päivä)." % [_eur(OlaviLegenda.MUSEO_PALKKIO), roundi(OlaviLegenda.MUSEO_MAINE)], 8.0)
+	elif not olavi.kirje:
+		_hint.text = "[E] Saloisten Pirtti: kysy vanhoja markkinakirjeitä"
+		if Input.is_action_just_pressed("interact"):
+			olavi.kirje = true
+			tilat.first("olavi_kirje", 0.2)
+			_save_game()
+			_show_message("Pirtin opas kaivaa esiin kauppias %s:n kirjeen: \"Markkinarahat on kätketty kirkon rannan luodolle. Kun hopea löytyy, markkinat palaavat.\" "
+				% OlaviLegenda.SUKUNIMI + "Sukunimi on tuttu hautausmaan vanhasta kivestä. Kirkkoluodontie on lähellä.", 7.0)
+
+
+func _olavi_sell() -> void:
+	olavi.choice = "kerailija"
+	money += OlaviLegenda.KERAILIJA_HINTA
+	maine = clampf(maine - OlaviLegenda.KERAILIJA_MAINE, 0.0, 100.0)
+	_kertun_sync()
+	Sfx.play("coin", -4.0)
+	_save_game()
+	_talk_box.reply("Veksi punnitsee taalerit. \"Kaksisataaneljäkymmentä, eikä kysymyksiä. Älä kerro Olavi-papalle.\"", _talk_options(),
+		"+%s €. Markkinat eivät palaa, ja Anna-Liisa taisi nähdä kaupan..." % _eur(OlaviLegenda.KERAILIJA_HINTA))
+
+
+func _talk_olavi(id: String) -> void:
+	match id:
+		"olavi_kukat":
+			olavi.pappa = true
+			_save_game()
+			_talk_box.reply("Mää tuon ne. Olof Skyttä oli esi-isäni. Joka Olavinpäivän yönä mää kävelen lyhdyn kanssa kätköpaikalle, "
+				+ "perinne. En kaiva: suvun lupaus on, että markkinat palaa, eikä niitä rahoja käytetä. Mutta ukko janoaa. Toisitko kaljan?",
+				_talk_options(), "Olavi-pappa janoaa kaljaa. Tuo yksi.")
+		"olavi_kalja":
+			beers -= 1
+			olavi.lupa = true
+			Sfx.play("glass", -6.0)
+			_save_game()
+			_talk_box.reply("Ahh. Kirkon rannan luoto on Kirkkoluodontien varrella, sammaloitunut kivi tien länsipuolella. Kaiva, jos rahat menee "
+				+ "markkinoiden hyväksi. Lapio on varmaan autotallissasi.", _talk_options(),
+				"Lupa kaivaa! Lapio löytyy autotallin vasemmalta seinältä. Kätkö: Kirkkoluodontien länsipuoli.")
+		"olavi_missa":
+			_talk_box.reply("Kirkkoluodontien länsipuolella, sammaloituneen kiven vieressä. Lapio, kaiva ja rahat markkinoille.", _talk_options())
+		"olavi_kiitos":
+			_talk_box.reply("Markkinat palasi. Joka Olavinpäivä, kun aurinko nousee. Kiitos, poika.", _talk_options())
 
 
 func _pyhimys_tasks() -> Array:
@@ -5521,7 +5761,7 @@ func _kertun_sync() -> void:
 	if world.kertun_isokivi != null:
 		world.kertun_isokivi.rotation.z = 0.35 if kertun.found else 0.0
 	if kirppis_int != null and "veksi_open" in kirppis_int:
-		kirppis_int.veksi_open = (kertun.found and kertun.choice == "") or (aarni != null and aarni.found and aarni.choice == "") \
+		kirppis_int.veksi_open = (kertun.found and kertun.choice == "") or (aarni != null and aarni.found and aarni.choice == "") or (olavi != null and olavi.found and olavi.choice == "") \
 			or (ukko != null and ukko.caught and ukko.choice == "") \
 			or _kekkonen == 1
 
@@ -5577,6 +5817,10 @@ func _kertun_logic() -> void:
 		aarni.poliisi = true
 		_save_game()
 		_call_police("veksi")
+	if olavi.choice == "kerailija" and not olavi.poliisi and state == "ulkona":
+		olavi.poliisi = true
+		_save_game()
+		_call_police("veksi")
 	if kertun.choice == "kerailija" and not kertun.poliisi and state == "ulkona":
 		kertun.poliisi = true
 		_save_game()
@@ -5587,6 +5831,9 @@ func _kertun_logic() -> void:
 	if _hint.text != "":
 		return
 	_aarni_museum()
+	if _hint.text != "":
+		return
+	_olavi_museum()
 	if _hint.text != "":
 		return
 	_ukko_museum()
@@ -9830,6 +10077,8 @@ func _talk_options(who := "") -> Array:
 			else:
 				if who == "hilkka":
 					_myynti_options(o)
+				if who == "hilkka" and not olavi.heard:
+					o.append(_opt("olavi_legenda", "Onko vanhoista Saloisten markkinoista jotain juttuja?", true, "", true))
 				if who == "hilkka" and not aarni.heard:
 					o.append(_opt("aarnivalkea", "Onko Lapinrauniosta jotain juttuja?", true, "", "juoru_aarnivalkea" in tilat.firsts))
 				if who == "tauno" and not ukko.heard:
@@ -9860,6 +10109,15 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("grilli_" + k, "%s (%s €)" % [it[0], _eur(it[1])], money >= it[1], "rahat ei riitä"))
 				o.append(_opt("haaste", "Lihapiirakkahaaste! (%s €, ennätys %s %d)" % [_eur(REIPPARI_HAASTE), _piirakka_holder, _piirakka_record],
 					money >= REIPPARI_HAASTE and _haaste_day != day, "yksi haaste päivässä" if _haaste_day == day else "rahat ei riitä", true))
+		"olavi_pappa":
+			if olavi.choice == "museo":
+				o.append(_opt("olavi_kiitos", "Markkinat palasivat"))
+			elif not olavi.pappa:
+				o.append(_opt("olavi_kukat", "Kuka tuo tuoreet kukat kauppiaan haudalle?", olavi.kivi, "kivi on vielä lukematta", true))
+			elif not olavi.lupa:
+				o.append(_opt("olavi_kalja", "Tuo pappa tarvitsee kaljan (anna kalja)", beers > 0, "ei kaljaa", true))
+			elif not olavi.found:
+				o.append(_opt("olavi_missa", "Missä kätkö oli?"))
 		"hoitaja":
 			if not pyhimys.heard:
 				o.append(_opt("pyhimys_kerro", "Onko hautausmaalla ihmeellisiä juttuja?", true, "", true))
@@ -9918,6 +10176,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("kekkonen", "Myy Kekkosen rintamerkki (%s €)" % _eur(KEKKONEN_HINTA), true, "", true))
 			if ukko.caught and ukko.choice == "":
 				o.append(_opt("ukko_myy", "Myy Tekojärven Ukko täytettäväksi (%s €)" % _eur(UkkoLegenda.KERAILIJA_HINTA), true, "", true))
+			if olavi.found and olavi.choice == "":
+				o.append(_opt("olavi_myy", "Myy kauppiaan hopeataalerit (%s €)" % _eur(OlaviLegenda.KERAILIJA_HINTA), true, "", true))
 			if aarni.found and aarni.choice == "":
 				o.append(_opt("hopeat", "Myy Isonvihan hopeat (%s €)" % _eur(Aarnivalkea.KERAILIJA_HINTA), true, "", true))
 			if kertun.found and kertun.choice == "":
@@ -10134,13 +10394,17 @@ func _talk_choose(id: String) -> void:
 			_talk_kirppis(id)
 		"hoitaja", "suntio", "kynttilanainen":
 			_talk_pyhimys(id)
+		"olavi_pappa":
+			_talk_olavi(id)
 		"aaro":
 			if id == "pyhimys_aitta":
 				_talk_pyhimys(id)
 			else:
 				_talk_aaro(id)
 		"veksi":
-			if id == "kirves":
+			if id == "olavi_myy":
+				_olavi_sell()
+			elif id == "kirves":
 				_kertun_sell()
 			elif id == "hopeat":
 				_aarni_sell()
@@ -10425,6 +10689,8 @@ func _talk_chat_line() -> String:
 		return sh
 	if _talk_who in ["pekka", "arto"] and tokola.proven() and randf() < 0.4:
 		return (TOKOLA_PROVEN[_talk_who] as Array).pick_random()
+	if OLAVI_DOUBT.has(_talk_who) and olavi.heard and randf() < 0.45:
+		return ((OLAVI_PROVEN if olavi.proven() else OLAVI_DOUBT)[_talk_who] as Array).pick_random()
 	if PYHIMYS_DOUBT.has(_talk_who) and pyhimys.heard and randf() < 0.45:
 		return ((PYHIMYS_PROVEN if pyhimys.proven() else PYHIMYS_DOUBT)[_talk_who] as Array).pick_random()
 	if AARNI_DOUBT.has(_talk_who) and aarni.heard and randf() < 0.45:
@@ -15244,6 +15510,7 @@ func _load_game() -> void:
 	_pohjoiset_load(cfg)
 	aarni.load_from(cfg)
 	pyhimys.load_from(cfg)
+	olavi.load_from(cfg)
 	ukko.load_from(cfg)
 	_hongan_day = cfg.get_value("honganpalo", "keikka_paiva", -1)
 	# Kesken jäänyt keikka jatkuu samana päivänä: keräämättömät roskat takaisin pihalle.
@@ -15439,6 +15706,7 @@ func _save_game() -> void:
 	if aarni != null:
 		aarni.save_to(cfg)
 		pyhimys.save_to(cfg)
+		olavi.save_to(cfg)
 		ukko.save_to(cfg)
 	cfg.set_value("honganpalo", "keikka_paiva", _hongan_day)
 	cfg.set_value("honganpalo", "keikka", _hongan_keikka)
@@ -16744,7 +17012,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks()
+	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -21964,6 +22232,104 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"olavinmarkkinat":
+			# Olavinmarkkinoiden hopea (#124): koko ketju (Hilkka, Pirtin kirje, kivi, Olavi-pappa, kalja, lapio, kaivu), lyhdyt
+			# yöllä, museo- ja keräilijähaara sekä markkinapäivä. Tallennus palautetaan.
+			var saved_ol := FileAccess.get_file_as_bytes(SAVE_PATH)
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press_ol := func() -> void:
+				await get_tree().process_frame
+				Input.action_press("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+			var goto_ol := func(at: Vector3) -> void:
+				walker_out.global_position = at + Vector3(0, 0.3, 0)
+				for i in 4:
+					await get_tree().physics_frame
+			_olavi_nodes()
+			print("OL paikat: hauta %s, kätkö %s (vedessä %s, px %s), Sulon lyhty %s (vedessä %s)" % [world.kauppias_pos, world.olavi_katko_pos,
+				world._in_any(Vector2(world.olavi_katko_pos.x, world.olavi_katko_pos.z), world._water), M.to_px(world.olavi_katko_pos),
+				world.olavi_sulo_pos, world._in_any(Vector2(world.olavi_sulo_pos.x, world.olavi_sulo_pos.z), world._water)])
+			print("OL Hilkka: %s" % [_talk_options("hilkka").map(func(o): return o.id).has("olavi_legenda")])
+			kirppis_int.mode = "kirppis"
+			_talk_who = "hilkka"
+			_talk_kirppis("olavi_legenda")
+			print("OL kuultu %s, tehtävät %s" % [olavi.heard, _olavi_tasks()])
+			day = 3
+			clock_min = 12 * 60
+			await goto_ol.call(world.museum_door)
+			print("OL Pirtti: vihje '%s'" % _hint.text)
+			await press_ol.call()
+			print("OL kirje %s, tehtävät %s" % [olavi.kirje, _olavi_tasks()])
+			await goto_ol.call(world.kauppias_pos + Vector3(0, 0, 1.0))
+			print("OL kiven vihje: '%s'" % _hint.text)
+			await press_ol.call()
+			print("OL kivi %s, Olavi-pappa näkyy %s, tehtävät %s" % [olavi.kivi, olavi_pappa.visible, _olavi_tasks()])
+			print("OL pappa: %s" % [_talk_options("olavi_pappa").map(func(o): return o.id)])
+			_talk_olavi("olavi_kukat")
+			beers = 2
+			_talk_olavi("olavi_kalja")
+			print("OL lupa %s, kaljoja %d, tehtävät %s" % [olavi.lupa, beers, _olavi_tasks()])
+			_on_garage_acted("lapio")
+			print("OL lapio %s, tehtävät %s" % [olavi.lapio, _olavi_tasks()])
+			day = 5
+			clock_min = 23 * 60
+			await goto_ol.call(world.olavi_katko_pos + Vector3(0, 0, 30.0))
+			print("OL päivä 5 yöllä (Sulon reitti): Sulon lyhty %s, Olavin lyhty %s" % [_sulo_flame.visible, _olavi_flame.visible])
+			var p0 := pontikka
+			await goto_ol.call(world.olavi_sulo_pos)
+			print("OL Sulon vaitiolo: pontikka %d -> %d, sulo %s" % [p0, pontikka, olavi.sulo])
+			day = 7
+			clock_min = 23 * 60
+			await goto_ol.call(world.olavi_katko_pos + Vector3(4.0, 0, 0))
+			print("OL Olavinpäivän yö: Olavin lyhty %s, pappa %s kätkön luona %s, lyhty nähty %s" % [_olavi_flame.visible, olavi_pappa.visible,
+				olavi_pappa.global_position.distance_to(world.olavi_katko_pos) < 4.0, olavi.lyhty])
+			await goto_ol.call(world.olavi_katko_pos + Vector3(0, 0, 1.2))
+			print("OL kaivu: vihje '%s'" % _hint.text)
+			await press_ol.call()
+			print("OL lipas %s, veksi auki %s, tehtävät %s" % [olavi.found, _talk_options("veksi").map(func(o): return o.id).has("olavi_myy"), _olavi_tasks()])
+			# Museohaara
+			day = 8
+			clock_min = 12 * 60
+			var m0 := maine
+			var money0 := money
+			await goto_ol.call(world.museum_door)
+			print("OL museo-vihje: '%s'" % _hint.text)
+			await press_ol.call()
+			print("OL museo: valinta '%s', maine %.0f -> %.0f, rahaa %s -> %s, loppu %s" % [olavi.choice, m0, maine, _eur(money0), _eur(money), endings.counts.has("olavinmarkkinat")])
+			day = 14
+			clock_min = 12 * 60
+			await get_tree().physics_frame
+			await get_tree().physics_frame
+			print("OL päivä 14 (Olavinpäivä): markkinat %s, banderolli %s, terva piilossa %s, voi %s, makkara %s" % [_markkinat_paiva(), world.markkina_banner.visible,
+				_kirppis_hidden("terva"), _kirppis_hidden("voi"), _kirppis_hidden("makkara")])
+			day = 13
+			await get_tree().physics_frame
+			await get_tree().physics_frame
+			print("OL päivä 13: markkinat %s, banderolli %s, terva piilossa %s" % [_markkinat_paiva(), world.markkina_banner.visible, _kirppis_hidden("terva")])
+			_talk_who = "pekka"
+			var seen := false
+			for i in 60:
+				if (OLAVI_PROVEN.pekka as Array).has(_talk_chat_line()):
+					seen = true
+					break
+			print("OL Pekan todistettu repliikki: %s" % seen)
+			# Keräilijähaara (uusi tila)
+			olavi.choice = ""
+			olavi.found = true
+			money0 = money
+			_talk_who = "veksi"
+			_olavi_sell()
+			print("OL keräilijä: valinta '%s', rahaa %s -> %s, maine %.0f" % [olavi.choice, _eur(money0), _eur(money), maine])
+			await get_tree().physics_frame
+			await get_tree().physics_frame
+			print("OL poliisi-lippu: %s" % olavi.poliisi)
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_ol)
+			get_tree().quit()
 		"palonpyhimys":
 			# Palon yön pyhimys (#125): koko ketju logiikkana (hoitaja, luettelo, vuosipäivän kynttilä ja nainen, lupaus, Aaro,
 			# Tokolan orsi, palautus suntiolle) sekä epäilijöiden repliikit. Tallennus palautetaan.

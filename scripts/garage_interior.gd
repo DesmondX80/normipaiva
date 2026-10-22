@@ -27,6 +27,7 @@ const SPOTS := {
 	"laatikko": [Vector3(3.2, 0, 0.55), "[E] Pölyinen pahvilaatikko työkalukaapin päällä"],  # Valcon kuulokkeet
 	"mopo": [Vector3(0.45, 0, 1.2), ""],  # oma mopo (#155): vihje main.gd:stä
 	"rajoitin": [Vector3(1.35, 0, -0.75), ""],
+	"lapio": [Vector3(-3.3, 0, -0.6), ""],  # lapio vasemmalla seinällä (#124): vihje main.gd:stä
 }
 
 signal exited
@@ -46,6 +47,12 @@ var headphones_found := false:  # main.gd: kuulokkeet otettu, laatikko tyhjä ja
 		headphones_found = v
 		if _box != null:
 			_box.visible = not v
+var lapio_taken := false:  # main.gd: lapio otettu mukaan (#124)
+	set(v):
+		lapio_taken = v
+		if _lapio != null:
+			_lapio.visible = not v
+var _lapio: Node3D
 var _box: Node3D
 var _enter_frame := -1
 var _bike: Node3D
@@ -298,6 +305,15 @@ func _build_cabinet_and_freezer() -> void:
 	B.mesh(_box, B.cyl(0.07, 0.07, 0.02, 12), Vector3(-0.1, 0.3, 0.05), Color(0.1, 0.1, 0.12), Vector3(90, 0, 0))
 	B.tube(_box, Vector3(-0.17, 0.3, 0.05), Vector3(-0.03, 0.3, 0.05), 0.012, Color(0.1, 0.1, 0.12))
 	_box.visible = not headphones_found
+	# Lapio nojaa vasempaan seinään: puuvarsi ja metallinen terä.
+	_lapio = Node3D.new()
+	_lapio.position = Vector3(-3.95, 0, -0.6)
+	_lapio.rotation.z = -0.12
+	add_child(_lapio)
+	B.mesh(_lapio, B.cyl(0.025, 0.025, 1.3, 8), Vector3(0, 0.95, 0), Color(0.6, 0.45, 0.28))
+	B.mesh(_lapio, B.boxm(Vector3(0.22, 0.3, 0.025)), Vector3(0, 0.22, 0), Color(0.55, 0.57, 0.6))
+	B.mesh(_lapio, B.boxm(Vector3(0.2, 0.04, 0.04)), Vector3(0, 1.58, 0), Color(0.6, 0.45, 0.28))
+	_lapio.visible = not lapio_taken
 	B.box(self, Vector3(1.3, 0.85, 0.7), Vector3(-3.3, 0.425, -4.4), Color(0.95, 0.95, 0.94))  # pakastearkku
 	B.mesh(self, B.boxm(Vector3(1.32, 0.05, 0.72)), Vector3(-3.3, 0.87, -4.4), Color(0.88, 0.88, 0.9))
 	B.mesh(self, B.boxm(Vector3(0.3, 0.04, 0.04)), Vector3(-3.3, 0.8, -4.04), Color(0.6, 0.6, 0.62))

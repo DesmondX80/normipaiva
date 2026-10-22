@@ -1283,6 +1283,11 @@ func _build_seuraintalo() -> void:
 	var ad := B.sign_plate(stand, "KIRPPIS +\nHUUTOKAUPPA\nklo 10–18", Color(1.0, 0.85, 0.15), Color(0.55, 0.08, 0.05), 0.2, 40,
 		Color(0.55, 0.08, 0.05), "Helvetica Neue")
 	ad.position = Vector3(0, 1.0, 0)
+	# Olavinmarkkinoiden banderolli kuistin yllä (näkyy vain markkinapäivinä, main.gd).
+	markkina_banner = B.sign_plate(root, "OLAVINMARKKINAT\nkojuja, tervaa, voita ja huutokauppa", Color(0.85, 0.15, 0.1), Color(1.0, 0.92, 0.5), 0.5, 52,
+		Color(1.0, 0.92, 0.5), "Helvetica Neue")
+	markkina_banner.position = Vector3(0, 4.55, -0.1)
+	markkina_banner.visible = false
 
 
 ## Saloisten kirkko, kellotapuli ja hautausmaa kartan länsilaidalla (#123). Kirkko: valkoinen puukirkko jyrkkine tummine
@@ -1295,6 +1300,10 @@ const KIRKKO_COPPER := Color(0.33, 0.56, 0.5)
 const TAPULI_RED := Color(0.52, 0.14, 0.09)
 var kirkko_pos := Vector3.ZERO  # kirkon pääovi (tornin edusta)
 var tapuli_pos := Vector3.ZERO
+var kauppias_pos := Vector3.ZERO  # kauppiaan hauta
+var olavi_katko_pos := Vector3.ZERO
+var olavi_sulo_pos := Vector3.ZERO
+var markkina_banner: Node3D
 var kynttila_pos := Vector3.ZERO  # talollisen hauta (kynttilän paikka)
 var hoitaja_pos := Vector3.ZERO
 var hautausmaa_graves := 0  # hautakivien määrä (testinäkymä)
@@ -1369,6 +1378,7 @@ func _build_kirkko() -> void:
 	_build_tapuli()
 	_build_hautausmaa(f.c)
 	_build_kynttilahauta()
+	_build_olavi()
 
 
 ## Kellotapuli (1786): punainen lautaverhoiltu tapuli, avoin kellokerros, kello ja jyrkkä huopakatto risteineen.
@@ -1453,7 +1463,7 @@ func _build_hautausmaa(church: Vector2) -> void:
 				continue
 			if _edge_dist(poly, p) < 2.5 or _near_way(p, 2.2):
 				continue
-			if p.distance_to(M.w2(M.KYNTTILA_HAUTA)) < 4.5:
+			if p.distance_to(M.w2(M.KYNTTILA_HAUTA)) < 4.5 or p.distance_to(M.w2(M.KAUPPIAAN_HAUTA)) < 4.5:
 				continue
 			var yaw := PI / 2.0 + rng.randf_range(-0.08, 0.08)  # kasvot itään
 			var col := Color(0.52, 0.52, 0.5).lightened(rng.randf_range(-0.12, 0.18))
@@ -1490,6 +1500,40 @@ func _build_kynttilahauta() -> void:
 	kynttila_pos = Vector3(g.x, T.h(g.x, g.y), g.y)
 	var h := M.w2(M.HOITAJA)
 	hoitaja_pos = Vector3(h.x, T.h(h.x, h.y), h.y)
+
+
+## Olavinmarkkinoiden hopea (#124): kauppiaan vanha hautakivi (sammaloitunut, tuoreet kukat edessä) ja kätköpaikka
+## Kirkkoluodontien varressa (sammaloitunut kivi, jonka vierestä ei näy mitään ennen kuin lapio on kädessä).
+func _build_olavi() -> void:
+	var g := M.w2(M.KAUPPIAAN_HAUTA)
+	var root := Node3D.new()
+	root.position = Vector3(g.x, 0, g.y)
+	root.rotation.y = PI / 2.0
+	add_child(root)
+	B.mesh(root, B.boxm(Vector3(1.1, 0.14, 2.2)), Vector3(0, 0.07, 0.4), Color(0.4, 0.4, 0.38))
+	B.mesh(root, B.boxm(Vector3(1.0, 1.7, 0.28)), Vector3(0, 0.85, -0.8), Color(0.42, 0.45, 0.4))  # sammaloitunut kivi
+	B.mesh(root, B.boxm(Vector3(0.7, 0.9, 0.3)), Vector3(0.1, 1.9, -0.8), Color(0.3, 0.42, 0.28))
+	var stone := B.sign_plate(root, "OLOF SKYTTÄ\nkauppias\n1588–1651", Color(0.35, 0.36, 0.34), Color(0.88, 0.88, 0.8), 0.28, 34, Color(0.25, 0.26, 0.24))
+	stone.position = Vector3(0, 1.0, -0.64)
+	stone.rotation.y = PI
+	for k in 5:  # tuoreet kukat
+		B.mesh(root, B.sphere(0.09, 8), Vector3(-0.3 + k * 0.15, 0.22, 0.0 + (k % 2) * 0.1), [Color(0.95, 0.9, 0.3), Color(0.9, 0.3, 0.4), Color(0.95, 0.95, 0.95)][k % 3])
+	var body := StaticBody3D.new()
+	body.add_child(B.box_shape(Vector3(1.0, 1.8, 0.4), Vector3(0, 0.9, -0.8)))
+	root.add_child(body)
+	kauppias_pos = Vector3(g.x, T.h(g.x, g.y), g.y)
+	var k := M.w2(M.OLAVI_KATKO)
+	olavi_katko_pos = Vector3(k.x, T.h(k.x, k.y), k.y)
+	var kr := Node3D.new()
+	kr.position = Vector3(k.x, 0, k.y)
+	add_child(kr)
+	B.mesh(kr, B.sphere(0.7, 8), Vector3(0, 0.3, 0), Color(0.42, 0.44, 0.4)).scale = Vector3(1.4, 0.8, 1.0)
+	B.mesh(kr, B.sphere(0.5, 8), Vector3(0.1, 0.55, 0.0), Color(0.3, 0.42, 0.28)).scale = Vector3(1.3, 0.5, 1.0)
+	var sb := StaticBody3D.new()
+	sb.add_child(B.box_shape(Vector3(1.6, 0.8, 1.2), Vector3(0, 0.4, 0)))
+	kr.add_child(sb)
+	var so := M.w2(M.OLAVI_SULO)
+	olavi_sulo_pos = Vector3(so.x, T.h(so.x, so.y), so.y)
 
 
 ## Onko lähellä (r m) mitä tahansa tietä tai polkua (myös polut, joita _nearest_road ei huomioi).
