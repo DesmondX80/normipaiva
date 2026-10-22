@@ -83,6 +83,7 @@ const GUTTER_UP := 2.78                           # rännin korkeus mökin latti
 const WASP_STAND_LOCAL := Vector3(5.2, 0, 21.35)  # ampiaispesän edessä saunan terassilla
 const WASP_NEST_LOCAL := Vector3(4.6, 1.95, 22.75)  # pesä terassin katon alla järvenpuoleisessa kulmassa
 const DOCK_FIX_LOCAL := Vector3(8.9, 0, 49.0)    # laiturin lahot laudat
+const DOCK_WOOD := Color(0.5, 0.38, 0.24)  # laiturin lankut
 ## Savusaunan korjaus (Santun homma): rannan kivikasa, sisällä kiuas ja lauteet, takaseinä tervaukseen, terassilla
 ## savuluukku ja ovi. Korjaamaton sauna lämpiää hitaasti ja savuttaa pitkään (sauna_fixed).
 const KIVI_LOCAL := Vector3(5.0, 0, 42.0)
@@ -1392,15 +1393,20 @@ func _build_lake_and_dock() -> void:
 	dock.add_child(dock_patch)
 	var wi := water_at(DOCK_LOCAL.x, DOCK_LOCAL.z)
 	var bed := (water_level(wi) if wi >= 0 else water_y()) - 1.0 - h(DOCK_LOCAL.x, start_z)  # pohja laiturin kehyksessä
-	var wood := Color(0.5, 0.38, 0.24)
+	var wood := DOCK_WOOD
 	var post_len := 0.22 - bed + 0.1
 	for i in int(dl / 1.05) + 1:
 		var z := i * 1.05
 		for sx in [-0.65, 0.65]:
 			B.mesh(dock, B.cyl(0.05, 0.06, post_len, 8), Vector3(sx, 0.22 - post_len / 2.0, z), Color(0.35, 0.26, 0.16))
-	B.mesh(dock, B.boxm(Vector3(1.5, 0.06, dl + 1.2)), Vector3(0, 0.22, (dl + 0.4) / 2.0), wood)
+	# Kolme kantavaa palkkia ja niiden päällä lankut raoin: raoista ja korjauskohdan aukosta näkyy järvi.
+	for jx in [-0.6, 0.0, 0.6]:
+		B.mesh(dock, B.boxm(Vector3(0.12, 0.08, dl + 1.2)), Vector3(jx, 0.21, (dl + 0.4) / 2.0), wood.darkened(0.35))
+	var fix_i := roundi((DOCK_FIX_LOCAL.z - start_z) / 0.55)  # korjauskohdan laudat (laituri_game.gd) piirtää dock_patch
 	for i in int((dl + 0.8) / 0.55) + 1:
-		B.mesh(dock, B.boxm(Vector3(1.46, 0.02, 0.42)), Vector3(0, 0.26, i * 0.55), wood.lightened(0.05 * (i % 2)))
+		if i >= fix_i and i < fix_i + 3:
+			continue
+		deck_plank(dock, Vector3(0, 0.26, i * 0.55), wood.lightened(0.06 * ((i * 7) % 3) - 0.03), i)
 	dock.add_child(B.box_shape(Vector3(1.5, 0.3, dl + 1.4), Vector3(0, 0.2, (dl + 0.4) / 2.0)))
 	# Portaat rantapäähän: kansi on hieman maanpintaa korkeammalla, joten muutama askelma vie kannelta
 	# rantaan (muuten CharacterBody ei nouse edes pienestä pystyreunasta).
@@ -2756,3 +2762,30 @@ func watcher_bubble(_who: String) -> Label3D:
 func watcher_say(_who: String, text: String, seconds: float) -> void:
 	_bubble.text = "Santtu: " + text if text != "" else ""
 	_bubble_t = seconds
+
+
+## Laiturin lankku: viistetyt reunat, puun syyt ja oksankohta (seed pitää kuvion samana). Ohuet laudat eivät heitä
+## varjoa: varjokartta piirtäisi niiden reunoihin sahalaidan.
+static func deck_plank(parent: Node3D, pos: Vector3, col: Color, seed_i: int, size := Vector3(1.46, 0.02, 0.42)) -> Node3D:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_i * 7919 + 13
+	var p := Node3D.new()
+	p.position = pos
+	parent.add_child(p)
+	var meshes: Array = [B.mesh(p, B.boxm(size), Vector3.ZERO, col)]
+	for side in [-1.0, 1.0]:  # viisteet pitkillä reunoilla
+		meshes.append(B.mesh(p, B.boxm(Vector3(size.x, size.y * 0.7, 0.018)), Vector3(0, 0.002, side * (size.z / 2.0 - 0.006)), col.darkened(0.18)))
+	for k in 4:  # syyt
+		var ln := size.x * rng.randf_range(0.35, 0.85)
+		var gx := rng.randf_range(-(size.x - ln) / 2.0, (size.x - ln) / 2.0)
+		var gz := rng.randf_range(-size.z / 2.0 + 0.04, size.z / 2.0 - 0.04)
+		meshes.append(B.mesh(p, B.boxm(Vector3(ln, 0.001, rng.randf_range(0.004, 0.008))), Vector3(gx, size.y / 2.0 + 0.0005, gz),
+			col.darkened(rng.randf_range(0.12, 0.22))))
+	if rng.randf() < 0.6:  # oksankohta
+		var kn := B.mesh(p, B.cyl(0.018, 0.018, 0.002, 10), Vector3(rng.randf_range(-0.6, 0.6), size.y / 2.0 + 0.001, rng.randf_range(-0.12, 0.12)),
+			col.darkened(0.35))
+		kn.scale = Vector3(1.0, 1.0, 0.7)
+		meshes.append(kn)
+	for m in meshes:
+		(m as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return p
