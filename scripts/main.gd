@@ -26717,7 +26717,9 @@ func _maybe_screenshot() -> void:
 					print("VESSA minipeli ei auennut")
 					return
 				if g.mode == "ykkonen":
-					while is_instance_valid(g):
+					var guard := 0
+					while is_instance_valid(g) and guard < 3000:
+						guard += 1
 						var aim: Vector2 = g._aim
 						Input.action_release("left")
 						Input.action_release("right")
@@ -26735,7 +26737,9 @@ func _maybe_screenshot() -> void:
 					for a2 in ["left", "right", "forward", "back"]:
 						Input.action_release(a2)
 				else:
-					while is_instance_valid(g) and g._phase == "push":
+					var guard := 0  # yläraja: hitaalla koneella neula voi hypätä vihreän alueen yli joka kerta
+					while is_instance_valid(g) and g._phase == "push" and guard < 3000:
+						guard += 1
 						await get_tree().process_frame
 						if g._needle >= WcGame.GREEN.x + 0.04 and g._needle <= WcGame.GREEN.y - 0.04:
 							await press.call("interact")
