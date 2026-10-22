@@ -15013,7 +15013,7 @@ func _start_rakaleima() -> void:
 	CamCtl.free_mouse = true  # muuten kameraohjain lukitsee hiiren takaisin (mouse_look/steer) eikä käsi seuraa kursoria
 	_rakaleima = RakaleimaGame.new()
 	_rakaleima.drunk = tilat.value("humala")
-	_rakaleima.day_stamp = "%d.6." % (20 + (day % 3))
+	_rakaleima.day_stamp = "%04d" % ((day * 7919 + 1307) % 9000 + 1000)  # päivän nelinumeroinen koodi
 	_rakaleima.finished.connect(_on_rakaleima_finished)
 	add_child(_rakaleima)
 
@@ -18533,6 +18533,23 @@ func _maybe_screenshot() -> void:
 			if scene == "kotain":
 				world.kota.set_fire(true)
 				world.kota.say("raimo", "Tässä kodassa on enemmän kieltokylttejä kuin halkoja.")
+		"pajatsokuva":
+			# Pajatson asettelu (vihjepalkki ei saa peittää tarjotinta): kuva alkutilasta ja kolikon ollessa matkalla.
+			_note.visible = false
+			var pg2 := PajatsoGame.new()
+			pg2.money = 20.0
+			add_child(pg2)
+			await get_tree().create_timer(1.0).timeout
+			if DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_a_alku.png"))
+			pg2._tray = 7
+			pg2._launch(0.6)
+			await get_tree().create_timer(0.5).timeout
+			if DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_b_kolikko.png"))
+			get_tree().quit()
 		"siitaripelit":
 			# Pajatso ja hedelmäpeli Siitarissa: _sali (seurue koneella), _vapaa (vuoro saatu), pajatson tilat
 			# (_p_veto, _p_kaari, _p_putoaa, _p_kuppi) ja hedelmäpelin tilat (_h_pyorii, _h_voitto, _h_tupla, _h_lukko).
