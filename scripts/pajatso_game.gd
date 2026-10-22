@@ -86,7 +86,7 @@ func _ready() -> void:
 	_info = _label(24, 30.0, false)
 	_keys = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
 	_keys.compact = true
-	_keys.centered = true
+	_keys.centered = false  # vasempaan alakulmaan: keskellä alhaalla se peitti potti-ikkunan ja voittotarjottimen
 	add_child(_keys)
 	_tip = _label(22, -90.0, true)
 	_tip.add_theme_color_override("font_color", Color(1.0, 0.9, 0.55))

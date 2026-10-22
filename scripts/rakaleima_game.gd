@@ -24,7 +24,7 @@ const LINES := {
 }
 
 var drunk := 0.0
-var day_stamp := "20.6."  # päivän leimassa näkyvä päivämäärä
+var day_stamp := "4172"  # päivän leimassa näkyvä nelinumeroinen koodi (peilikuvassa kopio on takaperin)
 
 var _root: Control
 var _info: Label
@@ -447,7 +447,8 @@ func _hand(c: Vector2, s: float, skin: Color, shade: Color, rot: float) -> void:
 	_root.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
-## Leima: rengas (aukko oikeassa yläkulmassa), LAVA, päivämäärä ja nuoli oikealle. Peilikuvassa kaikki kääntyy.
+## Leima: rengas (aukko oikeassa yläkulmassa), LAVA, päivän nelinumeroinen koodi ja nuoli oikealle. Käsi kopioituu aina
+## peilikuvana, joten koodi on kopiossa takaperin, kunnes kopio käännetään oikein päin.
 func _stamp(c: Vector2, s: float, mirror: bool, col: Color, alpha: float, wet_k: float) -> void:
 	var f := ThemeDB.fallback_font
 	_root.draw_set_transform_matrix(Transform2D(Vector2(-s if mirror else s, 0), Vector2(0, s), c))
@@ -456,10 +457,10 @@ func _stamp(c: Vector2, s: float, mirror: bool, col: Color, alpha: float, wet_k:
 	_root.draw_arc(Vector2.ZERO, 40.0, 0.35, TAU - 0.05, 40, halo, 12.0, true)
 	_root.draw_arc(Vector2.ZERO, 38.0, 0.45, TAU - 0.1, 40, ink, 4.5, true)
 	_root.draw_arc(Vector2.ZERO, 31.0, 0.45, TAU - 0.1, 40, ink, 1.8, true)
-	var tw := f.get_string_size("LAVA", HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
-	_root.draw_string(f, Vector2(-tw / 2.0 - 4.0, 2.0), "LAVA", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, ink)
-	var dw := f.get_string_size(day_stamp, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-	_root.draw_string(f, Vector2(-dw / 2.0 - 4.0, 20.0), day_stamp, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, ink)
+	var tw := f.get_string_size("LAVA", HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+	_root.draw_string(f, Vector2(-tw / 2.0 - 4.0, -4.0), "LAVA", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, ink)
+	var dw := f.get_string_size(day_stamp, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
+	_root.draw_string(f, Vector2(-dw / 2.0 - 4.0, 22.0), day_stamp, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, ink)
 	_root.draw_colored_polygon(PackedVector2Array([Vector2(8, -26), Vector2(28, -26), Vector2(28, -31), Vector2(38, -23), Vector2(28, -15), Vector2(28, -20), Vector2(8, -20)]), ink)
 	_root.draw_circle(Vector2(-24, -24), 3.5, ink)
 	if wet_k > 0.25:
