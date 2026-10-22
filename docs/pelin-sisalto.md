@@ -517,7 +517,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     135 °C käristää saaliin karrelle. Valmiit savukalat ja savuriista otetaan eväiksi ja syödään nälkään T:llä.
     Makkaran voi yhä paistaa savustimessa kerralla.
   - **Santun PA-laitteet:** tuvassa on vanhat keikkakamat (kaiuttimet jalustoilla, mikseri pöydän päässä ja pääte
-    lattialla). E avaa kytkennän, jossa johdot vedetään hiirellä liittimestä toiseen: puhelin mikserin linjakanavaan,
+    lattialla). E avaa kytkennän, jossa johdot vedetään hiirellä liittimestä toiseen: Santun kännykkään Bluetoothilla yhdistetty mokkula mikserin linjakanavaan,
     MAIN L/R päätteen tuloihin ja Speakonit kaiuttimiin, virrat jatkojohdosta. Virrat päälle oikeassa
     järjestyksessä (mikseri ensin, pääte viimeisenä, muuten kaiuttimet paukahtavat), mikin kanava kiinni (kierto
     kiljuu) ja CH2 ja MASTER niin, että taso pysyy vihreällä. Kolme mokaa ja Santtu pakkaa kamat. Onnistuneen
