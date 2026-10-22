@@ -1,6 +1,7 @@
 extends CanvasLayer
 ## PA-laitteiden kytkentä Santun mökin tuvassa: laitteiden takapaneelit ruudulla, johdot kytketään hiirellä
-## (klikkaa liitintä ja sitten toista, tai vedä). Signaalitie: Santun puhelin -> mikserin CH2 (linja),
+## (klikkaa liitintä ja sitten toista, tai vedä). Signaalitie: Santun kännykkä Bluetoothilla mokkulaan ->
+## mokkulan LINE OUT mikserin CH2:een (linja),
 ## MAIN L/R -> päätevahvistimen tulot A/B -> Speakon-lähdöt kaiuttimiin, ja virrat jatkojohdosta.
 ## Virrat päälle oikeassa järjestyksessä: mikseri ensin, pääte viimeisenä (muuten kaiuttimet paukahtavat).
 ## Lopuksi CH2 ja MASTER nostetaan niin, että taso pysyy vihreällä. Mikrofonin kanava auki = kierto (kiljunta).
@@ -25,7 +26,7 @@ const CABLE_COLS := {"xlr": Color(0.25, 0.35, 0.55), "jakki": Color(0.8, 0.2, 0.
 
 ## Laitteet: id -> [otsikko, suorakaide, väri].
 const DEVICES := {
-	"puh": ["Santun puhelin", Rect2(60, 90, 170, 150), Color(0.16, 0.17, 0.2)],
+	"puh": ["BT-mokkula", Rect2(60, 90, 170, 150), Color(0.16, 0.17, 0.2)],
 	"mic": ["Mikrofoni", Rect2(60, 300, 170, 150), Color(0.2, 0.2, 0.22)],
 	"mix": ["Mikseri", Rect2(330, 60, 560, 330), Color(0.28, 0.3, 0.33)],
 	"amp": ["Päätevahvistin", Rect2(330, 450, 560, 150), Color(0.13, 0.13, 0.15)],
@@ -451,7 +452,7 @@ func _process(delta: float) -> void:
 func _task_text(live: bool, music: float) -> String:
 	var need := []
 	if conns.get("mix_ch2", "") != "puh_out":
-		need.append("puhelin mikserin linjakanavaan")
+		need.append("BT-mokkula mikserin linjakanavaan")
 	if not path_ok():
 		need.append("MAIN L/R päätteen kautta kaiuttimiin")
 	if not (_powered("mix_pow") and _powered("amp_pow")):
@@ -559,19 +560,49 @@ func _tape_label(font: Font, r: Rect2, text: String) -> void:
 	_board.draw_string(font, tr.position + Vector2(8, 17), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.15, 0.12, 0.1))
 
 
-## Älypuhelin kyljellään pöydällä: kuori, näytössä soitin (kansikuva, toistonappi, edistymispalkki), jakki alareunassa.
+## Bluetooth-mokkula: pieni musta laatikko, BT-valo (vilkkuu etsiessä, palaa sinisenä soittaessa), virtavalo, napit
+## ja LINE OUT -jakki alla. Santun kännykkä on pöydällä vieressä ja soittaa mokkulaan langattomasti.
 func _draw_phone(r: Rect2) -> void:
-	var body := Rect2(Vector2(102, 72), Vector2(86, 112))  # jakki (LINE OUT) alareunan alla
-	MG.box(_board, body, Color(0.12, 0.12, 0.14), 12, 6, MG.OUTLINE, 2)
-	var scr := body.grow(-6)
+	var font := ThemeDB.fallback_font
 	var playing := out_level > 0.0
-	MG.grad_rect(_board, scr, Color(0.18, 0.3, 0.55) if playing else Color(0.08, 0.1, 0.14), Color(0.35, 0.15, 0.45) if playing else Color(0.05, 0.06, 0.08))
-	MG.box(_board, Rect2(scr.position + Vector2(10, 10), Vector2(48, 44)), Color(0.95, 0.75, 0.2) if playing else Color(0.3, 0.3, 0.3), 4)  # kansikuva
-	_board.draw_string(ThemeDB.fallback_font, scr.position + Vector2(18, 44), "♪", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(0.4, 0.15, 0.1))
-	_board.draw_colored_polygon(PackedVector2Array([scr.position + Vector2(30, 68), scr.position + Vector2(30, 84), scr.position + Vector2(44, 76)]), Color.WHITE)
-	_board.draw_line(scr.position + Vector2(8, 92), scr.position + Vector2(60, 92), Color(1, 1, 1, 0.3), 3.0)
-	_board.draw_line(scr.position + Vector2(8, 92), scr.position + Vector2(8 + 52 * fposmod(_t * 0.05, 1.0), 92), Color.WHITE, 3.0)
-	_board.draw_line(body.position + Vector2(10, 4), body.position + Vector2(70, 4), Color(1, 1, 1, 0.25), 2.0)
+	var powered := _mix_live  # mokkula saa virtansa mikserin USB:stä
+	# Kännykkä pöydällä vasemmalla, näytöllä soitin ja BT-merkki.
+	var ph := Rect2(Vector2(14, 104), Vector2(44, 80))
+	MG.box(_board, ph, Color(0.1, 0.1, 0.12), 8, 4, MG.OUTLINE, 2)
+	var scr := ph.grow(-4)
+	MG.grad_rect(_board, scr, Color(0.2, 0.3, 0.55) if playing else Color(0.1, 0.12, 0.18), Color(0.35, 0.18, 0.45) if playing else Color(0.06, 0.07, 0.1))
+	MG.box(_board, Rect2(scr.position + Vector2(6, 8), Vector2(24, 22)), Color(0.95, 0.75, 0.2) if playing else Color(0.3, 0.3, 0.3), 3)
+	_board.draw_string(font, scr.position + Vector2(10, 26), "♪", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.4, 0.15, 0.1))
+	_bt_rune(scr.position + Vector2(18, 52), 7.0, Color(0.5, 0.75, 1.0))
+	# Langaton yhteys: kaaret kännykästä mokkulaan.
+	if playing or fposmod(_t, 1.0) < 0.5:
+		for k in 3:
+			_board.draw_arc(Vector2(64, 140), 8.0 + k * 7.0, -0.7, 0.7, 8, Color(0.4, 0.7, 1.0, 0.8 - k * 0.2), 2.5)
+	# Mokkula.
+	var box := Rect2(Vector2(98, 110), Vector2(96, 112))  # LINE OUT -jakki etupaneelin alaosassa
+	MG.box(_board, box, Color(0.09, 0.09, 0.1), 12, 6, MG.OUTLINE, 2)
+	MG.box(_board, Rect2(box.position + Vector2(5, 4), Vector2(box.size.x - 10, 16)), Color(0.18, 0.18, 0.2), 8)
+	_bt_rune(box.position + Vector2(20, 40), 8.0, Color(0.55, 0.6, 0.7))
+	var bt_on := powered and (playing or fposmod(_t, 0.8) < 0.4)
+	var bt_led := box.position + Vector2(42, 30)
+	if bt_on:
+		MG.glow(_board, bt_led, 14.0, Color(0.3, 0.55, 1.0, 0.6))
+	_board.draw_circle(bt_led, 4.5, Color(0.3, 0.55, 1.0) if bt_on else Color(0.1, 0.13, 0.25))
+	var pw_led := box.position + Vector2(56, 30)
+	if powered:
+		MG.glow(_board, pw_led, 12.0, Color(0.3, 1.0, 0.4, 0.5))
+	_board.draw_circle(pw_led, 4.5, Color(0.3, 1.0, 0.4) if powered else Color(0.1, 0.22, 0.12))
+	for k in 2:  # pariliitos- ja voimakkuusnapit
+		MG.ball(_board, box.position + Vector2(48 + k * 20, 48), 6.0, Color(0.25, 0.25, 0.27), 0.3)
+	_board.draw_string(font, box.position + Vector2(66, 34), "BT", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.6, 0.62, 0.68))
+	_board.draw_line(box.position + Vector2(10, 64), box.position + Vector2(box.size.x - 10, 64), Color(0.2, 0.2, 0.22), 2.0)  # paneelin sauma
+
+
+## Bluetooth-merkki (riimut Hagall ja Bjarkan päällekkäin).
+func _bt_rune(c: Vector2, s: float, col: Color) -> void:
+	var pts := PackedVector2Array([c + Vector2(-0.6, -0.5) * s, c + Vector2(0.6, 0.5) * s, c + Vector2(0, 1.1) * s, c + Vector2(0, -1.1) * s,
+		c + Vector2(0.6, -0.5) * s, c + Vector2(-0.6, 0.5) * s])
+	_board.draw_polyline(pts, col, 2.0, true)
 
 
 ## Dynaaminen laulumikrofoni pöytätelineessä: ritiläpää verkkokuvioin, kartiomainen runko, XLR alapäässä.
