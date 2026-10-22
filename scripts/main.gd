@@ -30,7 +30,6 @@ const LaituriGame := preload("res://scripts/laituri_game.gd")
 const RanniGame := preload("res://scripts/ranni_game.gd")
 const AmpiaisGame := preload("res://scripts/ampiais_game.gd")
 const TiskiGame := preload("res://scripts/tiski_game.gd")
-const Tiski3DGame := preload("res://scripts/tiski3d_game.gd")  # kokeilu: tiskaus minäkuvana
 ## Rasvanappi aseman takana makasiinissa Saloisissa ja Vaalassa (vain aikuisille): salasana luukulle ja peli pimeässä.
 const RasvanappiGame := preload("res://scripts/rasvanappi_game.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
@@ -12440,7 +12439,7 @@ func _start_tiskit() -> void:
 	mokki_int.busy = true
 	mokki_int.walker.controls_enabled = false
 	_hud.visible = false
-	var g := Tiski3DGame.new()
+	var g := TiskiGame.new()
 	g.dishes_left = mokki_int.dishes
 	g.drunk = _hand_shake()
 	g.comment.connect(func(t: String) -> void: mokki_int.say(t))
@@ -28602,22 +28601,24 @@ func _maybe_screenshot() -> void:
 				g._done = true
 				g.queue_free()
 			var tg := TiskiGame.new()
+			tg.dishes_left = 1  # mummon kukkalautanen esille
 			add_child(tg)
+			tg.washed = 3
+			tg._rack_list = TiskiGame.DISHES.slice(0, 3)
+			tg._rebuild_rack()
 			for i in 10:
 				await get_tree().process_frame
-			tg.washed = 2
-			tg.dishes_left = TiskiGame.DISHES.size() - 5  # mummon kukkalautanen esille
 			tg._dirt = 0.45
 			tg._wobble = 0.6
 			tg._last_dir = 1
 			for i in 5:
 				await get_tree().process_frame
 			await shot.call("tiski")
-			tg.dishes_left = TiskiGame.DISHES.size() - 1  # muki
-			tg._dirt = 0.8
+			tg._look_up = 1.0  # kuivauskaappi
 			for i in 5:
 				await get_tree().process_frame
-			await shot.call("tiski_muki")
+			await shot.call("tiski_kaappi")
+			tg._finish()
 		"pitkalappu":
 			# Pitkä lappu: kaikki päivän muistutukset kerralla; lapun pitää mahtua kokonaan ruudulle.
 			var many := ["Laitoin 12,00 € kauppaa varten.", "Eilen ei tullu kaupasta mitään, vaikka oli lista!",
@@ -29735,7 +29736,7 @@ func _maybe_screenshot() -> void:
 			_start_tiskit()
 			await wait.call(20)
 			await snap.call("tiskit")
-			var tg: Node = mokki_int.get_children().filter(func(c): return c is Tiski3DGame)[0]
+			var tg: Node = mokki_int.get_children().filter(func(c): return c is TiskiGame)[0]
 			for k in 3000:
 				if not is_instance_valid(tg) or tg._done:
 					break

@@ -1,13 +1,16 @@
-extends CanvasLayer
-## Tiskaus (Santun homma) mökin keittiössä: astia kerrallaan tiskialtaassa. Hankaa A/D vuorotellen (tai hiirtä
-## edestakaisin), kunnes astia on puhdas, ja nosta se kuivauskaappiin (välilyönti tai E). Humalassa märkä astia
-## lipsahtaa helposti lattialle. Santtu kommentoi vieressä (mokki_interior.gd say). F / Esc lopettaa kesken.
-
-const MG := preload("res://scripts/mg_draw.gd")
+extends Node3D
+## Tiskaus (Santun homma) minäkuvana mökin tiskialtaan ääreltä. Astia kerrallaan altaassa:
+## hankaa A/D vuorotellen (tai hiirtä edestakaisin), kunnes astia on puhdas, ja nosta se altaan yläpuolella olevaan
+## astiankuivauskaappiin (välilyönti tai E): pohjaton seinäkaappi, alaritilällä lautaset pystyssä, yläritilällä kupit
+## ja lasit alassuin, vesi valuu ritilöiden läpi altaaseen. Humalassa märkä astia lipsahtaa ja särkyy altaan reunaan. F / Esc lopettaa kesken.
+## Pelillä on oma pieni näkymä (tiskipöytä, allas, hana, välitila ja teline) omalla näkyvyyskerroksellaan, joten mökin
+## karkea keittiö ei näy kameralle. Origo = altaan keskikohta työtason pinnan korkeudella, pelaaja +Z:ssa katse -Z:aan.
+## Rajapinta: dishes_left, drunk, washed, broken, signaalit finished(washed, broken) ja comment (Santun repliikki).
 
 signal finished(washed: int, broken: int)
 signal comment(text: String)
 
+const B := preload("res://scripts/build.gd")
 const DISHES := [["lautanen", Color(0.95, 0.95, 0.92)], ["muki", Color(0.85, 0.3, 0.2)], ["lautanen", Color(0.95, 0.95, 0.92)],
 	["kattila", Color(0.6, 0.62, 0.65)], ["lasi", Color(0.75, 0.88, 0.95)], ["mummon kukkalautanen", Color(0.92, 0.88, 0.95)]]
 const SCRUB := 0.09  # yksi veto puhdistaa
@@ -18,68 +21,472 @@ const LINES := {
 	"lazy": ["Tuohon jäi vielä kahvinporoja.", "Pohjat kanssa!"],
 	"done": ["Tiskit tehty! Kuivauskaappi täynnä."],
 }
+const LAYER := 1 << 19  # oma näkyvyyskerros (20)
+
+const BASIN := Vector3(0.5, 0.18, 0.38)  # altaan sisämitat
+const WATER_Y := -0.075
+const DISH_AT := Vector3(0.0, -0.035, 0.02)  # pestävän astian paikka
+const STEEL := Color(0.72, 0.74, 0.77)
+const CABINET := Vector3(0.8, 0.62, 0.3)  # kuivauskaapin leveys, korkeus, syvyys
+const CABINET_AT := Vector3(0.0, 0.5, -0.215)  # kaapin alareunan keskikohta (pohjaton) altaan yläpuolella
+const UPPER_Y := 0.33  # yläritilän korkeus kaapissa
+const COUNTER := Color(0.66, 0.48, 0.3)
+const TILE := Color(0.94, 0.93, 0.88)
 
 var dishes_left := DISHES.size()
 var drunk := 0.0
 var washed := 0
 var broken := 0
 
-var _root: Control
+var _cam: Camera3D
+var _prev_cam: Camera3D
+var _dish: Node3D
+var _spots: Array[StandardMaterial3D] = []
+var _brush: Node3D
+var _rack: Node3D
+var _rack_items: Array = []
+var _rack_list: Array = []  # kaappiin nostetut astiat (DISHES-rivit)
+var _pile: Node3D  # likaiset astiat pinossa työtasolla
+var _look_up := 0.0  # 0 = katse altaaseen, 1 = kuivauskaappiin
 var _dirt := 1.0
 var _last_dir := 0
 var _wobble := 0.0
-var _drop_t := -1.0
+var _shake := 0.0
+var _busy_t := -1.0  # nosto tai särkyminen käynnissä
+var _t := 0.0
+var _done := false
+var _layer: CanvasLayer
 var _info: Label
 var _keys: Control
-var _done := false
-var _spots: Array = []
-var _splash: Array = []  # vesiroiskeet hangatessa (MG.sparks_*)
-var _foam: Array = []  # vaahtokuplat astialla: [paikka suhteessa astiaan, säde, ikä]
-var _shake := 0.0
-var _rack: Array = []  # kuivauskaappiin nostetut astiat (DISHES-rivit)
-var _t := 0.0
-
-const WATER := Color(0.55, 0.75, 0.88)
-const STEEL := Color(0.74, 0.76, 0.8)
-const CHROME := Color(0.86, 0.88, 0.92)
+var _sub: Label
+var _sub_t := 0.0
+var _bar_fill: ColorRect
+var _bar_label: Label
+var _krash: Label
 
 
 func _ready() -> void:
 	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
-	layer = 6
-	_root = Control.new()
-	_root.anchor_right = 1.0
-	_root.anchor_bottom = 1.0
-	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.draw.connect(_draw_root)
-	add_child(_root)
-	_info = Label.new()
-	_info.add_theme_font_size_override("font_size", 24)
-	_info.add_theme_color_override("font_outline_color", Color.BLACK)
-	_info.add_theme_constant_override("outline_size", 8)
-	_info.anchor_right = 1.0
-	_info.offset_top = 40
-	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	add_child(_info)
-	_keys = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
-	_keys.compact = true
-	_keys.centered = true
-	add_child(_keys)
+	_prev_cam = get_viewport().get_camera_3d()
+	_build_scene()
+	_cam = Camera3D.new()
+	_cam.cull_mask = LAYER
+	_cam.fov = 62.0
+	_cam.near = 0.03
+	# Oma ympäristö: lämmin tasainen ympäristövalo ilman taivasta (mökin ympäristö värjäisi kaiken siniseksi).
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.2, 0.18, 0.16)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(1.0, 0.95, 0.88)
+	env.ambient_light_energy = 0.55
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	_cam.environment = env
+	add_child(_cam)
+	_cam.current = true
+	_build_hud()
 	_new_dish()
-	comment.emit(LINES.start.pick_random())
+	_rebuild_rack()
+	_say(LINES.start.pick_random())
 
 
+# --- Näkymä ---------------------------------------------------------------------------------------------------------
+
+func _mesh(parent: Node3D, m: Mesh, pos: Vector3, col: Color, rot := Vector3.ZERO) -> MeshInstance3D:
+	var mi := B.mesh(parent, m, pos, col, rot)
+	mi.layers = LAYER
+	return mi
+
+
+func _chrome() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.85, 0.86, 0.88)
+	m.metallic = 0.6
+	m.roughness = 0.25
+	return m
+
+
+## Tiskipöytä: laatoitettu välitila, puinen työtaso altaan aukolla, teräsallas vesineen ja vaahtoineen, hana,
+## tiskiainepullo, sieni, likaisten astioiden pino ja astiankuivauskaappi altaan yläpuolella. Oma valo, ettei mökin valaistus pimennä lähikuvaa.
+func _build_scene() -> void:
+	var hx := BASIN.x / 2.0 + 0.03
+	var hz := BASIN.z / 2.0 + 0.03
+	# Työtaso altaan ympärillä neljänä palana (aukko altaalle).
+	var top_t := 0.04
+	_mesh(self, B.boxm(Vector3(1.0 - hx, top_t, 0.75)), Vector3(-(1.0 + hx) / 2.0, -top_t / 2.0, 0.0), COUNTER)
+	_mesh(self, B.boxm(Vector3(1.1 - hx, top_t, 0.75)), Vector3((1.1 + hx) / 2.0, -top_t / 2.0, 0.0), COUNTER)
+	_mesh(self, B.boxm(Vector3(hx * 2.0, top_t, 0.375 - hz)), Vector3(0, -top_t / 2.0, -(0.375 + hz) / 2.0), COUNTER)
+	_mesh(self, B.boxm(Vector3(hx * 2.0, top_t, 0.375 - hz)), Vector3(0, -top_t / 2.0, (0.375 + hz) / 2.0), COUNTER)
+	for k in 9:  # puun syyt työtasossa (ei altaan aukon kohdalla)
+		var gz := -0.33 + k * 0.08
+		var gc := COUNTER.darkened(0.14 + 0.04 * (k % 3))
+		if absf(gz) < hz:
+			_mesh(self, B.boxm(Vector3(1.0 - hx, 0.001, 0.004)), Vector3(-(1.0 + hx) / 2.0, 0.0006, gz), gc)
+			_mesh(self, B.boxm(Vector3(1.1 - hx, 0.001, 0.004)), Vector3((1.1 + hx) / 2.0, 0.0006, gz), gc)
+		else:
+			_mesh(self, B.boxm(Vector3(2.1, 0.001, 0.004)), Vector3(0.05, 0.0006, gz), gc)
+	_mesh(self, B.boxm(Vector3(2.1, 0.05, 0.03)), Vector3(0.05, -0.03, 0.385), COUNTER.darkened(0.25))  # etureuna
+	_mesh(self, B.boxm(Vector3(2.1, 0.6, 0.6)), Vector3(0.05, -0.52, 0.06), Color(0.93, 0.92, 0.88))  # kaapisto altaan alla
+	# Välitila: saumat ja laatat.
+	_mesh(self, B.boxm(Vector3(2.1, 0.75, 0.02)), Vector3(0.05, 0.37, -0.385), Color(0.62, 0.6, 0.56))
+	for ix in 21:
+		for iy in 7:
+			var tile := _mesh(self, B.boxm(Vector3(0.094, 0.094, 0.012)), Vector3(-0.95 + ix * 0.1, 0.05 + iy * 0.1, -0.372), TILE)
+			if (ix * 3 + iy * 5) % 17 == 4:  # kuviolaatta
+				_mesh(self, B.cyl(0.014, 0.014, 0.002, 12), Vector3(-0.95 + ix * 0.1, 0.05 + iy * 0.1, -0.365), Color(0.35, 0.55, 0.72),
+					Vector3(90, 0, 0))
+			elif iy == 6:
+				tile.material_override = B.mat(TILE.darkened(0.04))
+	# Allas: reunalaippa, seinät, pohja ja pohjaventtiili.
+	var steel_dark := STEEL.darkened(0.5)
+	_mesh(self, B.boxm(Vector3(BASIN.x + 0.08, 0.008, 0.04)), Vector3(0, 0.004, -hz + 0.01), STEEL)
+	_mesh(self, B.boxm(Vector3(BASIN.x + 0.08, 0.008, 0.04)), Vector3(0, 0.004, hz - 0.01), STEEL)
+	_mesh(self, B.boxm(Vector3(0.04, 0.008, BASIN.z + 0.08)), Vector3(-hx + 0.01, 0.004, 0), STEEL)
+	_mesh(self, B.boxm(Vector3(0.04, 0.008, BASIN.z + 0.08)), Vector3(hx - 0.01, 0.004, 0), STEEL)
+	_mesh(self, B.boxm(Vector3(BASIN.x, 0.01, BASIN.z)), Vector3(0, -BASIN.y, 0), steel_dark)
+	for side in [-1.0, 1.0]:
+		_mesh(self, B.boxm(Vector3(BASIN.x, BASIN.y, 0.01)), Vector3(0, -BASIN.y / 2.0, side * BASIN.z / 2.0), STEEL.darkened(0.3 if side < 0 else 0.5))
+		_mesh(self, B.boxm(Vector3(0.01, BASIN.y, BASIN.z)), Vector3(side * BASIN.x / 2.0, -BASIN.y / 2.0, 0), STEEL.darkened(0.4))
+	_mesh(self, B.cyl(0.035, 0.035, 0.004, 16), Vector3(0.15, -BASIN.y + 0.006, -0.1), Color(0.3, 0.3, 0.32))
+	# Vesi: läpikuultava pinta ja vaahtokasoja reunoilla.
+	var water := _mesh(self, B.boxm(Vector3(BASIN.x - 0.004, 0.004, BASIN.z - 0.004)), Vector3(0, WATER_Y, 0), Color.WHITE)
+	var wm := StandardMaterial3D.new()
+	wm.albedo_color = Color(0.3, 0.47, 0.58, 0.65)
+	wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	wm.roughness = 0.05
+	wm.metallic_specular = 0.9
+	water.material_override = wm
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	var foam := StandardMaterial3D.new()
+	foam.albedo_color = Color(1, 1, 1, 0.8)
+	foam.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for c in 9:  # vaahtokasat: pieniä kuplia ryppäinä reunoilla
+		var a := c * TAU / 9.0 + rng.randf_range(-0.2, 0.2)
+		var cp := Vector3(cos(a) * 0.19, WATER_Y + 0.004, sin(a) * 0.14)
+		for k in 9:
+			var p := cp + Vector3(rng.randf_range(-0.035, 0.035), rng.randf_range(0.0, 0.008), rng.randf_range(-0.025, 0.025))
+			var b := _mesh(self, B.sphere(rng.randf_range(0.006, 0.014), 12), p, Color.WHITE)
+			b.material_override = foam
+			b.scale = Vector3(1, 0.7, 1)
+	# Hana: jalka, pystyputki, nokka altaan päälle ja vipukahva.
+	var ch := _chrome()
+	var parts: Array = []
+	parts.append(_mesh(self, B.cyl(0.03, 0.034, 0.03, 16), Vector3(0, 0.015, -hz - 0.03), Color.WHITE))
+	parts.append(_mesh(self, B.cyl(0.014, 0.014, 0.2, 12), Vector3(0, 0.13, -hz - 0.03), Color.WHITE))
+	parts.append(_mesh(self, B.cyl(0.012, 0.012, 0.17, 12), Vector3(0, 0.23, -hz + 0.05), Color.WHITE, Vector3(90, 0, 0)))
+	parts.append(_mesh(self, B.cyl(0.013, 0.011, 0.03, 12), Vector3(0, 0.21, -hz + 0.13), Color.WHITE))
+	parts.append(_mesh(self, B.boxm(Vector3(0.012, 0.012, 0.09)), Vector3(0, 0.255, -hz - 0.06), Color.WHITE, Vector3(-25, 0, 0)))
+	for m in parts:
+		(m as MeshInstance3D).material_override = ch
+	# Tiskiainepullo ja sieni vasemmalla.
+	_mesh(self, B.cyl(0.03, 0.032, 0.17, 14), Vector3(-0.42, 0.085, -0.22), Color(0.15, 0.6, 0.3))
+	_mesh(self, B.cyl(0.012, 0.016, 0.03, 10), Vector3(-0.42, 0.185, -0.22), Color(0.95, 0.95, 0.95))
+	_mesh(self, B.boxm(Vector3(0.05, 0.06, 0.002)), Vector3(-0.42, 0.08, -0.189), Color(0.98, 0.96, 0.88))  # etiketti
+	_mesh(self, B.cyl(0.012, 0.012, 0.002, 10), Vector3(-0.42, 0.09, -0.187), Color(0.95, 0.75, 0.1), Vector3(90, 0, 0))
+	_mesh(self, B.boxm(Vector3(0.1, 0.03, 0.065)), Vector3(-0.42, 0.015, 0.0), Color(0.98, 0.85, 0.25))  # sieni
+	_mesh(self, B.boxm(Vector3(0.1, 0.012, 0.065)), Vector3(-0.42, 0.036, 0.0), Color(0.2, 0.55, 0.3))
+	# Astiankuivauskaappi altaan yläpuolella: valkoiset sivut, katto ja takaseinä, ei pohjaa; alaritilä lautasille
+	# (langat edestä taakse, lautaset pystyyn lankojen väliin), yläritilä kupeille; ovet auki.
+	_rack = Node3D.new()
+	_rack.position = CABINET_AT
+	add_child(_rack)
+	var white := Color(0.95, 0.94, 0.91)
+	var cw := CABINET.x
+	var chh := CABINET.y
+	var cd := CABINET.z
+	for side in [-1.0, 1.0]:
+		_mesh(_rack, B.boxm(Vector3(0.018, chh, cd)), Vector3(side * (cw / 2.0 - 0.009), chh / 2.0, 0), white)
+		_mesh(_rack, B.boxm(Vector3(0.018, 0.02, cd)), Vector3(side * (cw / 2.0 - 0.009), 0.01, 0), white.darkened(0.08))  # alareuna
+	_mesh(_rack, B.boxm(Vector3(cw, 0.018, cd)), Vector3(0, chh - 0.009, 0), white)
+	_mesh(_rack, B.boxm(Vector3(cw - 0.036, chh, 0.01)), Vector3(0, chh / 2.0, -cd / 2.0 + 0.005), Color(0.72, 0.7, 0.66))  # sisus varjossa
+	for side in [-1.0, 1.0]:  # sivuseinien sisäpinnat tummemmat
+		_mesh(_rack, B.boxm(Vector3(0.002, chh - 0.02, cd - 0.012)), Vector3(side * (cw / 2.0 - 0.019), chh / 2.0, -0.006), Color(0.8, 0.78, 0.74))
+	_mesh(_rack, B.boxm(Vector3(cw - 0.036, 0.002, cd - 0.012)), Vector3(0, chh - 0.019, -0.006), Color(0.68, 0.66, 0.62))
+	var wire := Color(0.62, 0.64, 0.68)  # muovitettu teräslanka
+	for k in 21:  # alaritilä: langat edestä taakse kahdessa kerroksessa
+		var x := -cw / 2.0 + 0.04 + k * (cw - 0.08) / 20.0
+		_mesh(_rack, B.cyl(0.0025, 0.0025, cd - 0.02, 6), Vector3(x, 0.03, 0), wire, Vector3(90, 0, 0))
+		_mesh(_rack, B.cyl(0.0025, 0.0025, cd - 0.08, 6), Vector3(x, 0.1, -0.02), wire, Vector3(90, 0, 0))
+	for z in [-cd / 2.0 + 0.02, cd / 2.0 - 0.02]:
+		_mesh(_rack, B.cyl(0.003, 0.003, cw - 0.04, 6), Vector3(0, 0.03, z), wire, Vector3(0, 0, 90))
+	for z in [-cd / 2.0 + 0.05, cd / 2.0 - 0.06]:
+		_mesh(_rack, B.cyl(0.003, 0.003, cw - 0.04, 6), Vector3(0, 0.1, z), wire, Vector3(0, 0, 90))
+	for k in 12:  # yläritilä: tiheä ristikko kupeille
+		_mesh(_rack, B.cyl(0.0025, 0.0025, cd - 0.02, 6), Vector3(-cw / 2.0 + 0.04 + k * (cw - 0.08) / 11.0, UPPER_Y, 0), wire, Vector3(90, 0, 0))
+	for k in 6:
+		_mesh(_rack, B.cyl(0.0025, 0.0025, cw - 0.04, 6), Vector3(0, UPPER_Y + 0.003, -cd / 2.0 + 0.03 + k * (cd - 0.06) / 5.0), wire, Vector3(0, 0, 90))
+	for side in [-1.0, 1.0]:  # ovet auki saranoistaan
+		var hinge := Node3D.new()
+		hinge.position = Vector3(side * cw / 2.0, 0, cd / 2.0)
+		hinge.rotation.y = side * deg_to_rad(105.0)
+		_rack.add_child(hinge)
+		_mesh(hinge, B.boxm(Vector3(cw / 2.0, chh, 0.018)), Vector3(-side * cw / 4.0, chh / 2.0, 0.009), white)
+		_mesh(hinge, B.boxm(Vector3(cw / 2.0 - 0.06, chh - 0.06, 0.004)), Vector3(-side * cw / 4.0, chh / 2.0, 0.02), white.darkened(0.05))
+		_mesh(hinge, B.cyl(0.008, 0.008, 0.02, 10), Vector3(-side * (cw / 2.0 - 0.04), 0.05, 0.03), Color(0.75, 0.75, 0.78), Vector3(90, 0, 0))
+	# Likaiset astiat pinossa altaan oikealla puolella.
+	_pile = Node3D.new()
+	_pile.position = Vector3(0.48, 0.0, 0.02)
+	add_child(_pile)
+	# Valo ylhäältä (vain tämän kerroksen kappaleille).
+	var lamp := OmniLight3D.new()
+	lamp.position = Vector3(0.1, 0.9, 0.4)
+	lamp.omni_range = 3.0
+	lamp.light_energy = 1.2
+	lamp.light_color = Color(1.0, 0.95, 0.85)
+	lamp.light_cull_mask = LAYER
+	lamp.shadow_enabled = true
+	add_child(lamp)
+
+
+## Pestävä astia altaassa: muodot astiatyypin mukaan, likaläiskät omilla materiaaleillaan (haalistuvat hangatessa).
 func _new_dish() -> void:
 	_dirt = 1.0
+	if _dish != null:
+		_dish.queue_free()
+	_dish = _make_dish(_cur()[0], _cur()[1])
+	_dish.position = DISH_AT
+	_dish.rotation.x = 0.35  # kallistettu pelaajaa kohti
+	add_child(_dish)
 	_spots.clear()
-	_foam.clear()
+	var r: float = _dish.get_meta("r")
+	var top: float = _dish.get_meta("top")
 	for k in 9:
-		_spots.append([Vector2(randf_range(-0.6, 0.6), randf_range(-0.6, 0.6)), randf_range(0.12, 0.26)])
+		var a := randf() * TAU
+		var d := sqrt(randf()) * r * 0.65
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(0.36, 0.24, 0.1).lerp(Color(0.55, 0.38, 0.15), randf())
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		var s := _mesh(_dish, B.sphere(randf_range(0.016, 0.032), 8), Vector3(cos(a) * d, top + 0.002, sin(a) * d), Color.WHITE)
+		s.scale = Vector3(1.0, 0.15, randf_range(0.6, 1.0))
+		s.material_override = m
+		_spots.append(m)
+	if _brush == null:
+		_build_brush()
 
 
-func _dish() -> Array:
+func _cur() -> Array:
 	return DISHES[DISHES.size() - dishes_left]
 
+
+## Astia umpinaisista paloista (lautanen: jalka, kartio ja pohja; muki: runko, sisäpohja ja korva). Meta r ja top =
+## säde ja yläpinta likaa varten.
+func _make_dish(kind: String, col: Color) -> Node3D:
+	var d := Node3D.new()
+	match kind:
+		"muki":
+			_mesh(d, B.cyl(0.045, 0.042, 0.09, 20), Vector3(0, 0.045, 0), col)
+			_mesh(d, B.cyl(0.039, 0.039, 0.002, 20), Vector3(0, 0.091, 0), col.darkened(0.35))  # sisäpinta suusta
+			_mesh(d, B.cyl(0.03, 0.03, 0.002, 16), Vector3(0, 0.0925, 0), Color(0.3, 0.18, 0.08))  # kahvinpohja
+			var handle := _mesh(d, TorusMesh.new(), Vector3(0.055, 0.048, 0), col.darkened(0.08), Vector3(90, 0, 0))
+			(handle.mesh as TorusMesh).inner_radius = 0.018
+			(handle.mesh as TorusMesh).outer_radius = 0.028
+			d.set_meta("r", 0.036)
+			d.set_meta("top", 0.092)
+		"lasi":
+			var g := _mesh(d, B.cyl(0.038, 0.032, 0.11, 20), Vector3(0, 0.055, 0), Color.WHITE)
+			var gm := StandardMaterial3D.new()
+			gm.albedo_color = Color(col, 0.45)
+			gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			gm.roughness = 0.05
+			gm.metallic_specular = 1.0
+			g.material_override = gm
+			_mesh(d, B.cyl(0.033, 0.033, 0.006, 20), Vector3(0, 0.003, 0), col.darkened(0.1))
+			d.set_meta("r", 0.03)
+			d.set_meta("top", 0.006)
+		"kattila":
+			_mesh(d, B.cyl(0.11, 0.105, 0.1, 28), Vector3(0, 0.05, 0), col)
+			_mesh(d, B.cyl(0.1, 0.1, 0.002, 28), Vector3(0, 0.101, 0), col.darkened(0.3))  # sisus
+			_mesh(d, B.cyl(0.098, 0.098, 0.002, 28), Vector3(0, 0.03, 0), col.darkened(0.15))
+			_mesh(d, B.boxm(Vector3(0.16, 0.014, 0.03)), Vector3(0.18, 0.09, 0), Color(0.12, 0.12, 0.13))  # kahva
+			var lip := _mesh(d, TorusMesh.new(), Vector3(0, 0.1, 0), col.lightened(0.2))  # pyöristetty reuna
+			(lip.mesh as TorusMesh).inner_radius = 0.104
+			(lip.mesh as TorusMesh).outer_radius = 0.114
+			d.set_meta("r", 0.09)
+			d.set_meta("top", 0.03)
+		_:
+			_mesh(d, B.cyl(0.05, 0.045, 0.008, 24), Vector3(0, 0.004, 0), col.darkened(0.08))  # jalka
+			_mesh(d, B.cyl(0.125, 0.08, 0.016, 32), Vector3(0, 0.016, 0), col)  # reunan kartio
+			# Kartion umpinainen yläpinta on lautasen pinta: pohja ja reunat piirretään sen päälle.
+			_mesh(d, B.cyl(0.08, 0.08, 0.001, 32), Vector3(0, 0.0245, 0), col.darkened(0.05))  # pohja
+			var rim := _mesh(d, TorusMesh.new(), Vector3(0, 0.0245, 0), col.darkened(0.12))  # pyöristetty reuna
+			(rim.mesh as TorusMesh).inner_radius = 0.119
+			(rim.mesh as TorusMesh).outer_radius = 0.127
+			var well := _mesh(d, TorusMesh.new(), Vector3(0, 0.0245, 0), col.darkened(0.2))  # pohjan ja reunan raja
+			(well.mesh as TorusMesh).inner_radius = 0.079
+			(well.mesh as TorusMesh).outer_radius = 0.083
+			if kind.begins_with("mummon"):
+				for k in 10:
+					var a := k * TAU / 10.0
+					var fp := Vector3(cos(a) * 0.104, 0.025, sin(a) * 0.104)
+					for pk in 5:
+						var pa := pk * TAU / 5.0
+						var pet := _mesh(d, B.sphere(0.006, 6), fp + Vector3(cos(pa), 0, sin(pa)) * 0.006, Color(0.6, 0.35, 0.75))
+						pet.scale = Vector3(1, 0.3, 1)
+					_mesh(d, B.sphere(0.003, 6), fp + Vector3(0, 0.001, 0), Color(0.95, 0.8, 0.3))
+				var gold := _mesh(d, TorusMesh.new(), Vector3(0, 0.0255, 0), Color(0.85, 0.7, 0.3))
+				(gold.mesh as TorusMesh).inner_radius = 0.121
+				(gold.mesh as TorusMesh).outer_radius = 0.126
+			d.set_meta("r", 0.08)
+			d.set_meta("top", 0.025)
+	return d
+
+
+## Tiskiharja (kuten kuvassa, punaisena): litteä pitkänomainen harjaspää pyöristetyllä kärjellä, valkoiset harjakset
+## pään alla viuhkana ulos ja eteen, kapea kevyesti kaartuva kahva, joka levenee päätä kohti, ja ripustuskoukku.
+## Rungon kehyksessä harjan pituusakseli = +X (kärki -X), harjakset alas.
+func _build_brush() -> void:
+	_brush = Node3D.new()
+	add_child(_brush)
+	var body := Node3D.new()
+	body.rotation = Vector3(0, 0.55, 0)  # kahva oikealle ja taakse (ei peitä astiaa kameralta)
+	_brush.add_child(body)
+	var red := Color(0.82, 0.16, 0.14)
+	# Harjaspää: lättä ja pyöreä kärki, yläpinnassa matala ura.
+	_mesh(body, B.boxm(Vector3(0.075, 0.009, 0.03)), Vector3(0.0, 0.012, 0), red)
+	var tip := _mesh(body, B.cyl(0.015, 0.015, 0.009, 16), Vector3(-0.0375, 0.012, 0), red)
+	tip.scale = Vector3(1.0, 1.0, 1.0)
+	_mesh(body, B.boxm(Vector3(0.06, 0.002, 0.016)), Vector3(0.0, 0.0165, 0), red.darkened(0.2))
+	# Harjakset: kolme riviä, reunarivit kallistuvat ulos, kärjen harjakset eteen.
+	var white := Color(0.96, 0.96, 0.94)
+	for row in 3:
+		var z := (row - 1) * 0.01
+		for k in 8:
+			var x := -0.038 + k * 0.011
+			var tilt_x := -float(row - 1) * 18.0  # ulospäin sivuille
+			var tilt_z := 22.0 if k == 0 else (10.0 if k == 1 else 0.0)  # kärjessä eteen
+			_mesh(body, B.cyl(0.0022, 0.0016, 0.024, 5), Vector3(x, -0.003, z * 1.2), white, Vector3(tilt_x, 0, tilt_z))
+	for k in 5:  # kärjen kaari
+		var a := PI / 2.0 + (k - 2) * 0.45
+		_mesh(body, B.cyl(0.0022, 0.0016, 0.024, 5), Vector3(-0.042 - cos(a - PI / 2.0) * 0.004, -0.002, sin(a - PI / 2.0) * 0.011), white,
+			Vector3(-sin(a - PI / 2.0) * 25.0, 0, 26.0))
+	# Kahva: kaula kapenee pään takaa, varsi nousee kevyesti kaarelle ja levenee taas päätä kohti.
+	var pts := [Vector3(0.04, 0.013, 0), Vector3(0.07, 0.022, 0), Vector3(0.11, 0.036, 0), Vector3(0.15, 0.05, 0),
+		Vector3(0.19, 0.062, 0), Vector3(0.225, 0.068, 0)]
+	var widths := [0.026, 0.014, 0.012, 0.015, 0.018, 0.016]
+	for k in pts.size() - 1:
+		var a: Vector3 = pts[k]
+		var b: Vector3 = pts[k + 1]
+		var seg := _mesh(body, B.boxm(Vector3(a.distance_to(b) + 0.006, 0.008, (widths[k] + widths[k + 1]) / 2.0)), (a + b) / 2.0, red)
+		seg.rotation.z = atan2(b.y - a.y, b.x - a.x)
+	var hook := _mesh(body, TorusMesh.new(), Vector3(0.232, 0.062, 0), red.darkened(0.05), Vector3(90, 0, 0))
+	(hook.mesh as TorusMesh).inner_radius = 0.004
+	(hook.mesh as TorusMesh).outer_radius = 0.009
+
+
+## Kuivauskaappi: pestyt astiat paikoilleen (lautaset pystyyn alaritilälle vierekkäin, kattila alaritilän päähän
+## alassuin, kupit ja lasit yläritilälle alassuin). Palauttaa viimeisen astian solmun (nostoanimaation kohde).
+## Likaisten pino työtasolla päivittyy samalla.
+func _rebuild_rack() -> Node3D:
+	for n in _rack_items:
+		(n as Node3D).queue_free()
+	_rack_items.clear()
+	var plate_x := -0.33
+	var cup_x := -0.3
+	var last: Node3D = null
+	for d: Array in _rack_list:
+		var kind: String = d[0]
+		var n := _make_dish(kind, d[1])
+		_rack.add_child(n)
+		_rack_items.append(n)
+		last = n
+		if kind == "lautanen" or kind.begins_with("mummon"):
+			n.position = Vector3(plate_x, 0.03 + 0.127, 0.0)
+			n.rotation = Vector3(0, 0, PI / 2.0)  # pystyyn, pinta sivulle
+			plate_x += 0.038
+		elif kind == "kattila":
+			n.position = Vector3(0.24, 0.03 + 0.1, 0.0)
+			n.rotation = Vector3(PI, 0, 0)
+		else:
+			n.position = Vector3(cup_x, UPPER_Y + (0.092 if kind == "muki" else 0.11) + 0.004, -0.04)
+			n.rotation = Vector3(PI, 0, 0)  # alassuin valumaan
+			cup_x += 0.11
+	for n in _rack_items:
+		for c in (n as Node3D).find_children("*", "VisualInstance3D", true, false):
+			(c as VisualInstance3D).layers = LAYER
+	# Pino: jäljellä olevat likaiset (pestävää lukuun ottamatta) päällekkäin.
+	if _pile != null:
+		for c in _pile.get_children():
+			c.queue_free()
+		# Lautaset pinoon, muut vierekkäin pinon taakse.
+		var start := DISHES.size() - dishes_left + 1
+		var y := 0.0
+		var bx := 0.0
+		for k in range(start, DISHES.size()):
+			var dd: Array = DISHES[k]
+			var n := _make_dish(dd[0], dd[1])
+			_pile.add_child(n)
+			if dd[0] in ["muki", "lasi", "kattila"]:
+				var w := 0.24 if dd[0] == "kattila" else 0.1
+				n.position = Vector3(0.1 + bx + w / 2.0, 0.0, -0.17)
+				bx += w
+			else:
+				n.position = Vector3(randf_range(-0.006, 0.006), y, randf_range(-0.006, 0.006))
+				y += 0.026
+	return last
+
+
+# --- HUD ------------------------------------------------------------------------------------------------------------
+
+func _build_hud() -> void:
+	_layer = CanvasLayer.new()
+	_layer.layer = 6
+	add_child(_layer)
+	_info = _label(24, 40.0)
+	_sub = _label(22, -130.0)
+	_sub.add_theme_color_override("font_color", Color(1.0, 0.9, 0.55))
+	_krash = _label(72, 0.0)
+	_krash.anchor_top = 0.42
+	_krash.offset_top = 0.0
+	_krash.text = "KRÄSH!"
+	_krash.add_theme_color_override("font_color", Color(1, 0.3, 0.2))
+	_krash.visible = false
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.05, 0.06, 0.85)
+	bg.anchor_left = 0.5
+	bg.anchor_right = 0.5
+	bg.anchor_top = 1.0
+	bg.anchor_bottom = 1.0
+	bg.offset_left = -164
+	bg.offset_right = 164
+	bg.offset_top = -86
+	bg.offset_bottom = -62
+	_layer.add_child(bg)
+	_bar_fill = ColorRect.new()
+	_bar_fill.color = Color(0.35, 0.82, 0.5)
+	_bar_fill.position = Vector2(4, 4)
+	_bar_fill.size = Vector2(0, 16)
+	bg.add_child(_bar_fill)
+	_bar_label = _label(18, -112.0)
+	_keys = preload("res://scripts/hint_bar.gd").new()
+	_keys.compact = true
+	_keys.centered = true
+	_layer.add_child(_keys)
+
+
+func _label(size: int, y: float) -> Label:
+	var l := Label.new()
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 8)
+	l.anchor_right = 1.0
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if y < 0.0:
+		l.anchor_top = 1.0
+		l.anchor_bottom = 1.0
+	l.offset_top = y
+	_layer.add_child(l)
+	return l
+
+
+func _say(t: String) -> void:
+	comment.emit(t)
+	_sub.text = "Santtu: " + t
+	_sub_t = 3.5
+
+
+# --- Peli -----------------------------------------------------------------------------------------------------------
 
 func _input(event: InputEvent) -> void:
 	if _done:
@@ -91,18 +498,22 @@ func _input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	if _done:
 		return
-	_root.queue_redraw()
 	_t += delta
 	_wobble = maxf(0.0, _wobble - delta * 2.0)
 	_shake = maxf(0.0, _shake - delta * 3.0)
-	MG.sparks_step(_splash, delta)
-	for f in _foam:
-		f[2] += delta
-	_foam = _foam.filter(func(f): return f[2] < 2.5)
-	if _drop_t >= 0.0:
-		_drop_t += delta
-		if _drop_t > 0.7:
-			_drop_t = -1.0
+	_sub_t -= delta
+	if _sub_t <= 0.0:
+		_sub.text = ""
+	_update_camera()
+	_update_brush()
+	for i in _spots.size():
+		_spots[i].albedo_color.a = _dirt * 0.95
+	_bar_fill.size.x = 320.0 * (1.0 - _dirt)
+	_bar_label.text = "Puhtaus %d %%" % roundi((1.0 - _dirt) * 100.0)
+	if _busy_t >= 0.0:
+		_busy_t -= delta
+		if _busy_t < 0.0:
+			_krash.visible = false
 			_next()
 		return
 	if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
@@ -114,50 +525,115 @@ func _process(delta: float) -> void:
 		_scrub(1)
 	if Input.is_action_just_pressed("jump") or Input.is_action_just_pressed("interact"):
 		_lift()
-	_info.text = "%s · jäljellä %d" % [_dish()[0].capitalize(), dishes_left]
+	_info.text = "%s · jäljellä %d · kuivauskaapissa %d" % [_cur()[0].capitalize(), dishes_left, washed]
 	_keys.set_text("%s hankaa (tai hiiri)   [%s / %s] kuivauskaappiin   %s lopeta" % [Settings.pair("left", "right"),
 		Settings.action_key("jump"), Settings.action_key("interact"), Settings.cap("mount")])
 
 
+func _update_camera() -> void:
+	var sh := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * 0.008 * _shake
+	var sway := Vector3(sin(_t * 0.9) * 0.004 + sin(_t * 1.7) * drunk * 0.02, sin(_t * 1.3) * 0.003, 0)
+	var eye := Vector3(0.06, 0.42 + 0.04 * _look_up, 0.36 + 0.5 * _look_up) + sh + sway  # kaappiin katsoessa taaempaa
+	var at := Vector3(0.07, -0.05, -0.05).lerp(CABINET_AT + Vector3(0, 0.28, 0.0), _look_up)  # allas / kuivauskaappi
+	_cam.look_at_from_position(to_global(eye), to_global(at + sway * 0.5), Vector3.UP)  # maailman koordinaatit
+
+
+## Harja hankaa viimeisimmän vedon suuntaan ja pomppii; nousee pois, kun astia nostetaan.
+func _update_brush() -> void:
+	if _brush == null:
+		return
+	var top: float = _dish.get_meta("top") if _dish != null else 0.0
+	var lift := 0.12 if _busy_t >= 0.0 else 0.0
+	_brush.position = DISH_AT + Vector3(_last_dir * 0.05 * _wobble + 0.02, top + 0.018 + lift + absf(sin(_t * 3.0)) * 0.005, 0.0)
+	_brush.rotation = Vector3(0.35, 0.0, -_last_dir * 0.25 * _wobble)
+
+
 func _scrub(dir: int) -> void:
-	if dir == _last_dir or _drop_t >= 0.0:
+	if dir == _last_dir or _busy_t >= 0.0:
 		return
 	_last_dir = dir
 	_dirt = maxf(0.0, _dirt - SCRUB * randf_range(0.7, 1.2))
 	_wobble = 1.0
-	# Vaahtoa harjan kohdalle ja roiskeita altaaseen.
-	for k in 3:
-		_foam.append([Vector2(dir * randf_range(0.0, 0.35), randf_range(-0.15, 0.3)), randf_range(8.0, 18.0), 0.0])
-	MG.sparks_burst(_splash, _center() + Vector2(dir * 60.0, 20.0), Color(0.8, 0.92, 1.0), 6)
 	Sfx.play("water", -14.0, randf_range(1.3, 1.7))
+	_splash(DISH_AT + Vector3(dir * 0.06, 0.03, 0.0), 4)
 	if _dirt <= 0.0 and randf() < 0.5:
-		comment.emit(LINES.clean.pick_random())
+		_say(LINES.clean.pick_random())
+
+
+## Vaahtoa ja vesipisaroita lentää harjan kohdalta.
+func _splash(at: Vector3, n: int) -> void:
+	for k in n:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(1, 1, 1, 0.85) if k % 2 == 0 else Color(0.75, 0.88, 0.98, 0.8)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		var b := _mesh(self, B.sphere(randf_range(0.004, 0.009), 6), at, Color.WHITE)
+		b.material_override = m
+		var peak := at + Vector3(randf_range(-0.08, 0.08), randf_range(0.04, 0.1), randf_range(-0.05, 0.05))
+		var tw := create_tween()
+		tw.tween_property(b, "position", peak, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tw.tween_property(b, "position", Vector3(peak.x * 1.2, WATER_Y, peak.z), 0.25).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+		tw.tween_callback(b.queue_free)
 
 
 func _lift() -> void:
 	if _dirt > 0.15:
-		comment.emit(LINES.lazy.pick_random())
+		_say(LINES.lazy.pick_random())
 		Sfx.play("alert", -12.0, 1.6)
 		return
-	# Märkä astia lipsahtaa humalassa (ja mummon kukkalautanen aina vähän helpommin).
-	var slip := drunk * 0.45 + (0.08 if _dish()[0].begins_with("mummon") else 0.02)
+	# Märkä astia lipsahtaa humalassa (ja mummon kukkalautanen aina vähän helpommin): särkyy altaan reunaan.
+	var slip := drunk * 0.45 + (0.08 if _cur()[0].begins_with("mummon") else 0.02)
 	if randf() < slip:
 		broken += 1
-		_drop_t = 0.0
+		_busy_t = 0.9
 		_shake = 1.0
+		_krash.visible = true
 		Sfx.play("glass", 0.0, 0.7)
-		comment.emit(LINES["break"].pick_random())
+		_say(LINES["break"].pick_random())
+		_shatter()
 		return
+	# Kamera kääntyy kaappiin, astia nousee paikalleen ritilälle ja katse palaa altaaseen.
 	washed += 1
-	_rack.append(_dish())
 	Sfx.play("pickup", -8.0, 1.2)
-	_next()
+	_busy_t = 1.4
+	_rack_list.append(_cur())
+	var slot := _rebuild_rack()
+	slot.visible = false
+	var tw := create_tween()
+	tw.tween_property(self, "_look_up", 1.0, 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.parallel().tween_property(_dish, "position", CABINET_AT + slot.position + Vector3(0, 0.04, 0.12), 0.35)
+	tw.parallel().tween_property(_dish, "rotation", slot.rotation, 0.35)
+	tw.tween_property(_dish, "position", CABINET_AT + slot.position, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func() -> void:
+		slot.visible = true
+		_dish.visible = false
+		Sfx.play("glass", -14.0, 1.6))
+	tw.tween_interval(0.3)
+	tw.tween_property(self, "_look_up", 0.0, 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+## Astia särkyy: kappale katoaa ja tilalle lentää umpinaisia sirpaleita (kolmiosärmiöt), jotka putoavat veteen.
+func _shatter() -> void:
+	var col: Color = _cur()[1]
+	var at := _dish.position + Vector3(0, 0.03, 0)
+	_dish.visible = false
+	for k in 12:
+		var pm := PrismMesh.new()
+		pm.size = Vector3(randf_range(0.02, 0.05), randf_range(0.02, 0.04), 0.006)
+		var s := _mesh(self, pm, at, col.darkened(randf_range(0.0, 0.2)))
+		var a := k * TAU / 12.0
+		var peak := at + Vector3(cos(a) * randf_range(0.08, 0.18), randf_range(0.05, 0.14), sin(a) * randf_range(0.05, 0.12))
+		var tw := create_tween().set_parallel()
+		tw.tween_property(s, "position", peak, 0.22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tw.tween_property(s, "rotation", Vector3(randf() * 8, randf() * 8, randf() * 8), 0.7)
+		tw.chain().tween_property(s, "position", Vector3(peak.x, WATER_Y - 0.02, peak.z), 0.35).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+		tw.chain().tween_callback(s.queue_free)
 
 
 func _next() -> void:
 	dishes_left -= 1
+	_rebuild_rack()
 	if dishes_left <= 0:
-		comment.emit(LINES.done[0])
+		_say(LINES.done[0])
 		_finish()
 		return
 	_new_dish()
@@ -167,301 +643,7 @@ func _finish() -> void:
 	if _done:
 		return
 	_done = true
+	if is_instance_valid(_prev_cam):
+		_prev_cam.current = true
 	finished.emit(washed, broken)
 	queue_free()
-
-
-## Astian keskipiste altaassa.
-func _center() -> Vector2:
-	return _root.size / 2.0 + Vector2(-60, 40)
-
-
-func _draw_root() -> void:
-	var sz := _root.size
-	var c := _center()
-	_root.draw_rect(Rect2(Vector2.ZERO, sz), Color(0, 0, 0, 0.55))
-	_root.draw_set_transform(Vector2(randf_range(-1, 1), randf_range(-1, 1)) * 10.0 * _shake)
-	_draw_kitchen(c)
-	_draw_sink(c)
-	_draw_rack(c)
-	if _drop_t >= 0.0:
-		_draw_shards(c)
-	else:
-		var off := Vector2(sin(_t * 25.0) * 10.0 * _wobble, 0)
-		_draw_dish(c + off)
-		_draw_brush(c + off)
-	MG.sparks_draw(_root, _splash)
-	_draw_meter(c)
-	_root.draw_set_transform(Vector2.ZERO)
-
-
-## Keittiö: laatoitettu välitila, ikkuna ja puinen työtaso laminaattireunalla.
-func _draw_kitchen(c: Vector2) -> void:
-	var area := Rect2(c - Vector2(410, 280), Vector2(960, 560))
-	MG.box(_root, area.grow(8), Color(0.1, 0.07, 0.05), 12, 14)
-	var wall := Rect2(area.position, Vector2(area.size.x, 120))
-	_root.draw_rect(wall, Color(0.93, 0.92, 0.86))
-	for x in range(0, int(wall.size.x), 40):  # laatat ja saumat
-		for y in range(0, int(wall.size.y), 40):
-			var tr := Rect2(wall.position + Vector2(x + 2, y + 2), Vector2(36, 36))
-			MG.grad_rect(_root, tr, Color(0.96, 0.95, 0.9), Color(0.86, 0.85, 0.8))
-			if (x / 40 + y / 40) % 7 == 3:  # kuviolaatta
-				_root.draw_circle(tr.get_center(), 9.0, Color(0.35, 0.55, 0.7, 0.6))
-	var win := Rect2(area.position + Vector2(60, 10), Vector2(170, 100))  # ikkuna järvelle
-	MG.box(_root, win.grow(6), Color(0.95, 0.95, 0.95), 4, 4, MG.OUTLINE, 2)
-	MG.grad_rect(_root, win, Color(0.55, 0.78, 0.95), Color(0.75, 0.88, 0.95))
-	_root.draw_rect(Rect2(win.position + Vector2(0, 62), Vector2(win.size.x, 38)), Color(0.25, 0.45, 0.6))
-	for k in 6:  # rannan kuuset
-		var tp := win.position + Vector2(10 + k * 30, 62)
-		_root.draw_colored_polygon(PackedVector2Array([tp + Vector2(-12, 4), tp + Vector2(12, 4), tp + Vector2(0, -30 - (k % 3) * 8)]), Color(0.15, 0.35, 0.2))
-	_root.draw_line(win.position + Vector2(win.size.x / 2.0, 0), win.position + Vector2(win.size.x / 2.0, win.size.y), Color(0.95, 0.95, 0.95), 5.0)
-	MG.wood(_root, Rect2(area.position + Vector2(0, 120), Vector2(area.size.x, area.size.y - 120)), Color(0.66, 0.5, 0.32), 64.0, 5)
-	_root.draw_rect(Rect2(area.position + Vector2(0, 116), Vector2(area.size.x, 8)), Color(0.4, 0.28, 0.16))
-
-
-## Teräsallas: harjattu sisäpinta, pohjaventtiili, kromihana ja vesi vaahtoineen; tiskiainepullo ja sieni.
-func _draw_sink(c: Vector2) -> void:
-	var rim := Rect2(c - Vector2(330, 220), Vector2(660, 440))
-	MG.box(_root, rim, STEEL.darkened(0.1), 26, 10, MG.OUTLINE, 2)
-	MG.box(_root, Rect2(rim.position + Vector2(6, 4), Vector2(rim.size.x - 12, 18)), STEEL.lightened(0.25), 14)
-	var basin := rim.grow(-26.0)
-	MG.box(_root, basin, STEEL.darkened(0.42), 22, 0, MG.OUTLINE, 2)
-	MG.box(_root, basin.grow(-6.0), STEEL.darkened(0.28), 18)
-	for k in 30:
-		var y := basin.position.y + 8 + k * 13
-		_root.draw_line(Vector2(basin.position.x + 16, y), Vector2(basin.end.x - 16, y), Color(1, 1, 1, 0.05), 1.0)
-	_root.draw_circle(c + Vector2(220, 130), 20.0, STEEL.darkened(0.5))  # pohjaventtiili
-	_root.draw_circle(c + Vector2(220, 130), 14.0, STEEL)
-	for k in 4:
-		_root.draw_line(c + Vector2(220, 130) + Vector2(-9, 0).rotated(k * PI / 4.0), c + Vector2(220, 130) + Vector2(9, 0).rotated(k * PI / 4.0), STEEL.darkened(0.5), 2.0)
-	# Vesi: läpikuultava pinta, aallot ja vaahtokuplat.
-	MG.box(_root, basin.grow(-10.0), Color(WATER, 0.55), 18)
-	for k in 5:
-		var y := basin.position.y + 50 + k * 70 + sin(_t + k) * 4.0
-		_root.draw_arc(Vector2(basin.position.x + 120 + (k % 2) * 200, y), 60.0, PI * 1.15, PI * 1.85, 12, Color(1, 1, 1, 0.18), 3.0)
-	for k in 30:
-		var a := k * 2.4 + _t * 0.15
-		var p := c + Vector2(cos(a) * (120 + (k % 7) * 28), sin(a * 1.3) * (95 + (k % 5) * 22))
-		var r := 10.0 + (k % 4) * 6.0
-		if basin.grow(-r - 6).has_point(p):
-			_bubble(p, r)
-	# Hana takareunassa ylhäältä: jalka, nokka altaan päälle, suutin ja kahvat; tippa putoaa välillä.
-	var tap := c + Vector2(0, -236)
-	MG.box(_root, Rect2(tap + Vector2(-30, -16), Vector2(60, 30)), CHROME.darkened(0.15), 12, 4, MG.OUTLINE, 2)
-	_root.draw_line(tap, tap + Vector2(0, 62), MG.OUTLINE, 20.0)
-	_root.draw_line(tap, tap + Vector2(0, 62), CHROME.darkened(0.08), 16.0)
-	_root.draw_line(tap + Vector2(-4, 0), tap + Vector2(-4, 60), Color(1, 1, 1, 0.8), 3.0)
-	MG.ball(_root, tap + Vector2(0, 66), 11.0, CHROME, 0.5)
-	_root.draw_circle(tap + Vector2(0, 68), 5.0, Color(0.25, 0.27, 0.3))
-	var drip := fposmod(_t, 2.2) / 2.2
-	if drip > 0.6:
-		var dp := tap + Vector2(0, 74 + (drip - 0.6) * 220.0)
-		_root.draw_circle(dp, 4.0, Color(WATER.lightened(0.3), 0.9))
-	for side in [-1.0, 1.0]:
-		var h := tap + Vector2(side * 52, -2)
-		MG.ball(_root, h, 13.0, CHROME, 0.6)
-		_root.draw_circle(h, 5.0, Color(0.85, 0.15, 0.15) if side > 0 else Color(0.2, 0.4, 0.9))
-	# Tiskiainepullo etiketteineen ja sieni reunalla.
-	var bottle := c + Vector2(290, -196)
-	MG.box(_root, Rect2(bottle + Vector2(-22, -44), Vector2(44, 88)), Color(0.15, 0.62, 0.3), 14, 5, MG.OUTLINE, 2)
-	_root.draw_rect(Rect2(bottle + Vector2(-14, -38), Vector2(6, 74)), Color(1, 1, 1, 0.35))
-	MG.box(_root, Rect2(bottle + Vector2(-8, -62), Vector2(16, 20)), Color(0.95, 0.95, 0.95), 4, 0, MG.OUTLINE, 2)
-	MG.box(_root, Rect2(bottle + Vector2(-18, -10), Vector2(36, 32)), Color(0.98, 0.97, 0.9), 4)
-	_root.draw_circle(bottle + Vector2(0, 0), 7.0, Color(0.95, 0.75, 0.1))
-	_root.draw_string(ThemeDB.fallback_font, bottle + Vector2(-18, 18), "ASTIA", HORIZONTAL_ALIGNMENT_CENTER, 36, 10, Color(0.1, 0.35, 0.15))
-	var sp := Rect2(c + Vector2(-318, -214), Vector2(64, 34))
-	MG.box(_root, sp, Color(0.98, 0.85, 0.25), 6, 3, MG.OUTLINE, 2)
-	MG.box(_root, Rect2(sp.position, Vector2(sp.size.x, 12)), Color(0.2, 0.55, 0.3), 4)
-	for k in 6:
-		_root.draw_circle(sp.position + Vector2(8 + k * 10, 24 + (k % 2) * 3), 2.0, Color(0.85, 0.7, 0.15))
-
-
-func _bubble(p: Vector2, r: float, alpha := 1.0) -> void:
-	_root.draw_circle(p, r, Color(1, 1, 1, 0.3 * alpha))
-	_root.draw_arc(p, r, 0, TAU, 16, Color(1, 1, 1, 0.55 * alpha), 1.5)
-	_root.draw_circle(p + Vector2(-r * 0.35, -r * 0.35), r * 0.28, Color(1, 1, 1, 0.75 * alpha))
-
-
-## Astiankuivauskaappi oikealla: puukehys, avoin ovi, ritilät; tiskatut astiat pystyssä oikean muotoisina.
-func _draw_rack(c: Vector2) -> void:
-	var rack := Rect2(c + Vector2(350, -230), Vector2(170, 420))
-	MG.box(_root, rack.grow(8), Color(0.88, 0.85, 0.78), 6, 10, MG.OUTLINE, 2)
-	MG.box(_root, rack, Color(0.72, 0.7, 0.66), 4)
-	var lower := rack.position.y + rack.size.y * 0.55
-	for y in [rack.position.y + rack.size.y * 0.5, rack.end.y - 14]:  # ritilät
-		_root.draw_line(Vector2(rack.position.x + 6, y), Vector2(rack.end.x - 6, y), STEEL.darkened(0.2), 4.0)
-		_root.draw_line(Vector2(rack.position.x + 6, y - 2), Vector2(rack.end.x - 6, y - 2), STEEL.lightened(0.3), 1.5)
-	for k in 9:
-		var x := rack.position.x + 12 + k * 18.0
-		_root.draw_line(Vector2(x, rack.position.y + 20), Vector2(x, rack.position.y + rack.size.y * 0.5), STEEL.darkened(0.1), 2.0)
-	# Pesty: lautaset pystyyn yläritilään, muut alas.
-	var top_i := 0
-	var low_x := rack.position.x + 18
-	for d: Array in _rack:
-		var col: Color = d[1]
-		match d[0]:
-			"lautanen", "mummon kukkalautanen":
-				var px := rack.position.x + 34 + top_i * 26
-				top_i += 1
-				var pr := Rect2(Vector2(px - 7, rack.position.y + 34), Vector2(14, rack.size.y * 0.5 - 38))
-				MG.box(_root, pr, col.darkened(0.1), 7, 2, MG.OUTLINE, 2)
-				_root.draw_line(pr.position + Vector2(4, 8), pr.position + Vector2(4, pr.size.y - 8), col.lightened(0.5), 2.0)
-				if d[0].begins_with("mummon"):
-					_root.draw_line(pr.position + Vector2(10, 8), pr.position + Vector2(10, pr.size.y - 8), Color(0.85, 0.7, 0.3), 2.0)
-			"muki":
-				var mp := Vector2(low_x + 16, lower + 40)
-				MG.box(_root, Rect2(mp - Vector2(16, 20), Vector2(32, 40)), col, 6, 2, MG.OUTLINE, 2)
-				_root.draw_arc(mp + Vector2(16, 0), 9.0, -PI / 2.0, PI / 2.0, 10, MG.OUTLINE, 6.0)
-				_root.draw_arc(mp + Vector2(16, 0), 9.0, -PI / 2.0, PI / 2.0, 10, col, 3.5)
-				low_x += 46
-			"lasi":
-				var gp := Vector2(low_x + 14, lower + 40)
-				_root.draw_colored_polygon(PackedVector2Array([gp + Vector2(-14, 22), gp + Vector2(14, 22), gp + Vector2(10, -22), gp + Vector2(-10, -22)]),
-					Color(col, 0.55))
-				_root.draw_polyline(PackedVector2Array([gp + Vector2(-14, 22), gp + Vector2(14, 22), gp + Vector2(10, -22), gp + Vector2(-10, -22), gp + Vector2(-14, 22)]),
-					MG.OUTLINE, 2.0)
-				_root.draw_line(gp + Vector2(-6, -16), gp + Vector2(-8, 14), Color(1, 1, 1, 0.7), 2.0)
-				low_x += 38
-			"kattila":
-				var kp := Vector2(low_x + 34, lower + 112)
-				MG.box(_root, Rect2(kp - Vector2(34, 26), Vector2(68, 52)), col, 8, 3, MG.OUTLINE, 2)
-				MG.box(_root, Rect2(kp - Vector2(34, 26), Vector2(68, 12)), col.lightened(0.25), 6)
-				_root.draw_line(kp + Vector2(34, -16), kp + Vector2(58, -20), Color(0.14, 0.14, 0.15), 7.0)
-	var title := "Kuivauskaappi %d" % washed
-	_root.draw_string(ThemeDB.fallback_font, rack.position + Vector2(1, -16), title, HORIZONTAL_ALIGNMENT_CENTER, rack.size.x, 18, Color(0, 0, 0, 0.75))
-	_root.draw_string(ThemeDB.fallback_font, rack.position + Vector2(0, -17), title, HORIZONTAL_ALIGNMENT_CENTER, rack.size.x, 18, Color(0.2, 0.15, 0.1))
-
-
-## Astia altaassa: sävytys, ääriviiva, kiilto, lika ja vaahto.
-func _draw_dish(dc: Vector2) -> void:
-	var d: Array = _dish()
-	var col: Color = d[1]
-	var kind: String = d[0]
-	var r := 150.0
-	match kind:
-		"muki":
-			r = 95.0
-			_root.draw_circle(dc + Vector2(8, 10), r + 4, Color(0, 0, 0, 0.25))
-			MG.box(_root, Rect2(dc + Vector2(r - 14, -26), Vector2(74, 52)), col.darkened(0.15), 24, 0, MG.OUTLINE, 2)
-			MG.box(_root, Rect2(dc + Vector2(r + 8, -11), Vector2(34, 22)), Color(WATER, 0.9), 10)
-			_root.draw_circle(dc, r, col.darkened(0.2))
-			_root.draw_circle(dc - Vector2(4, 4), r - 4, col)
-			_root.draw_arc(dc, r, 0, TAU, 48, MG.OUTLINE, 2.5, true)
-			_root.draw_circle(dc, r * 0.82, col.darkened(0.3))
-			_root.draw_circle(dc, r * 0.7, Color(0.35, 0.22, 0.12).lerp(col.darkened(0.35), 1.0 - _dirt))  # kahvinpohja
-			_ring(dc, Vector2(r, r) * 0.93, -2.6, -1.2, Color(1, 1, 1, 0.6), 4.0)
-		"lasi":
-			r = 90.0
-			_root.draw_circle(dc + Vector2(8, 10), r + 4, Color(0, 0, 0, 0.15))
-			_root.draw_circle(dc, r, Color(col, 0.55))
-			_root.draw_circle(dc, r * 0.85, Color(col.lightened(0.2), 0.35))
-			_root.draw_arc(dc, r, 0, TAU, 48, Color(0.3, 0.45, 0.55, 0.9), 2.5, true)
-			_root.draw_arc(dc, r * 0.85, 0, TAU, 48, Color(1, 1, 1, 0.5), 1.5, true)
-			_ring(dc, Vector2(r, r) * 0.95, -2.4, -1.2, Color(1, 1, 1, 0.85), 4.0)
-			_ring(dc, Vector2(r, r) * 0.6, 0.6, 1.2, Color(1, 1, 1, 0.5), 3.0)
-		"kattila":
-			r = 140.0
-			_root.draw_circle(dc + Vector2(10, 12), r + 6, Color(0, 0, 0, 0.25))
-			MG.box(_root, Rect2(dc + Vector2(r - 8, -16), Vector2(150, 32)), Color(0.14, 0.14, 0.15), 14, 0, MG.OUTLINE, 2)
-			_root.draw_circle(dc + Vector2(r + 124, 0), 7.0, Color(0.3, 0.3, 0.3))  # ripustusreikä
-			_root.draw_circle(dc, r, col.lightened(0.15))
-			_root.draw_arc(dc, r, 0, TAU, 64, MG.OUTLINE, 2.5, true)
-			_root.draw_circle(dc, r * 0.9, col)
-			_root.draw_circle(dc, r * 0.82, col.darkened(0.12))
-			for k in 6:  # pohjan sorvausrenkaat
-				_root.draw_arc(dc, r * (0.15 + k * 0.11), 0, TAU, 40, col.darkened(0.18), 1.0, true)
-			_ring(dc, Vector2(r, r) * 0.86, -2.6, -1.0, Color(1, 1, 1, 0.55), 5.0)
-		_:
-			_root.draw_circle(dc + Vector2(8, 12), r + 4, Color(0, 0, 0, 0.25))
-			_root.draw_circle(dc, r, col.darkened(0.12))
-			_root.draw_circle(dc - Vector2(3, 3), r - 4, col)
-			_root.draw_arc(dc, r, 0, TAU, 64, MG.OUTLINE, 2.5, true)
-			_root.draw_circle(dc, r * 0.66, col.darkened(0.06))
-			_ring(dc, Vector2(r, r) * 0.66, 0.0, TAU, col.darkened(0.16), 3.0)
-			if kind == "mummon kukkalautanen":
-				for k in 10:
-					var a := k * TAU / 10.0
-					var fp := dc + Vector2(cos(a), sin(a)) * r * 0.83
-					_root.draw_line(fp, fp + Vector2(cos(a + 1.2), sin(a + 1.2)) * 14.0, Color(0.3, 0.55, 0.3), 2.5)  # lehti
-					for pk in 5:
-						var pa := pk * TAU / 5.0 + a
-						_root.draw_circle(fp + Vector2(cos(pa), sin(pa)) * 7.0, 6.0, Color(0.6, 0.35, 0.75))
-					_root.draw_circle(fp, 4.0, Color(0.95, 0.8, 0.3))
-				_ring(dc, Vector2(r, r) * 0.97, 0.0, TAU, Color(0.85, 0.7, 0.3), 3.0)  # kultareuna
-			_ring(dc, Vector2(r, r) * 0.9, -2.5, -1.1, Color(1, 1, 1, 0.7), 4.0)
-	# Lika: epäsäännölliset läikät ja ruoantähteet, haalistuvat hangatessa.
-	for s in _spots:
-		var sp: Vector2 = dc + s[0] * r * 0.8
-		var sr: float = s[1] * r * 0.6
-		var a: float = _dirt * 0.85
-		_root.draw_circle(sp, sr, Color(0.42, 0.3, 0.15, a))
-		_root.draw_circle(sp + Vector2(sr * 0.5, -sr * 0.3), sr * 0.6, Color(0.36, 0.25, 0.12, a))
-		_root.draw_circle(sp + Vector2(-sr * 0.4, sr * 0.45), sr * 0.45, Color(0.5, 0.38, 0.2, a * 0.8))
-		_root.draw_circle(sp + Vector2(sr * 0.2, sr * 0.1), sr * 0.18, Color(0.75, 0.55, 0.2, a))  # puuron jämä
-	for f in _foam:
-		var fa: float = 1.0 - f[2] / 2.5
-		_bubble(dc + (f[0] as Vector2) * r, f[1] * (0.8 + f[2] * 0.15), fa)
-	if _dirt <= 0.0:  # puhdas: kiilto välkkyy
-		var gp := dc + Vector2(-r * 0.4, -r * 0.45)
-		var gs := 10.0 + sin(_t * 6.0) * 4.0
-		_root.draw_line(gp - Vector2(gs, 0), gp + Vector2(gs, 0), Color.WHITE, 3.0)
-		_root.draw_line(gp - Vector2(0, gs), gp + Vector2(0, gs), Color.WHITE, 3.0)
-
-
-## Tiskiharja: kahva ripustusreikineen ja harjaspää harjaksineen.
-func _draw_brush(dc: Vector2) -> void:
-	var bx := dc + Vector2(_last_dir * 40.0 * _wobble, 20 + sin(_t * 3.0) * 6.0)
-	var tilt := -0.35 + _last_dir * 0.15 * _wobble
-	var dir := Vector2(sin(-tilt), -cos(-tilt))  # kahvan suunta harjaspäästä ylös
-	var top := bx + dir * 170.0
-	# Harjaspää ja harjakset.
-	var head := Rect2(bx + Vector2(-30, -42), Vector2(60, 46))
-	for k in 9:
-		var bxk := bx + Vector2(-26 + k * 6.5, 2)
-		_root.draw_line(bxk, bxk + Vector2(_last_dir * 3.0 * _wobble, 14), Color(0.9, 0.78, 0.25), 3.0)
-	MG.box(_root, head, Color(0.95, 0.85, 0.3), 12, 4, MG.OUTLINE, 2)
-	MG.box(_root, Rect2(head.position + Vector2(5, 4), Vector2(50, 12)), Color(1.0, 0.95, 0.6), 8)
-	# Kahva.
-	_root.draw_line(bx + dir * 30.0, top, MG.OUTLINE, 24.0)
-	_root.draw_line(bx + dir * 30.0, top, Color(0.85, 0.2, 0.2), 20.0)
-	_root.draw_line(bx + dir * 30.0 + Vector2(-5, 0), top + Vector2(-5, 0), Color(1.0, 0.5, 0.45), 4.0)
-	_root.draw_circle(top - dir * 14.0, 5.0, Color(0.3, 0.06, 0.06))  # ripustusreikä
-
-
-## Pudonnut astia: sirpaleet lentävät ja KRÄSH.
-func _draw_shards(c: Vector2) -> void:
-	var ft := _drop_t / 0.7
-	var d0: Array = _dish()
-	for k in 11:
-		var a := k * TAU / 11.0 + 0.4
-		var p := c + Vector2(cos(a), sin(a)) * (30.0 + 230.0 * ft) + Vector2(0, 170.0 * ft * ft)
-		var sz := 1.0 + (k % 3) * 0.5
-		var sh := PackedVector2Array([p, p + Vector2(30, 8).rotated(a + ft * 6) * sz, p + Vector2(10, 32).rotated(a - ft * 4) * sz])
-		_root.draw_colored_polygon(sh, Color(d0[1], 1.0 - ft * 0.6))
-		_root.draw_polyline(sh + PackedVector2Array([sh[0]]), Color(MG.OUTLINE, 1.0 - ft * 0.6), 2.0)
-	var font := ThemeDB.fallback_font
-	_root.draw_string(font, c + Vector2(-106, -16 + ft * 40), "KRÄSH!", HORIZONTAL_ALIGNMENT_LEFT, -1, 64, Color(0, 0, 0, 0.6 * (1.0 - ft)))
-	_root.draw_string(font, c + Vector2(-110, -20 + ft * 40), "KRÄSH!", HORIZONTAL_ALIGNMENT_LEFT, -1, 64, Color(1, 0.3, 0.2, 1.0 - ft))
-
-
-## Puhtausmittari altaan alla.
-func _draw_meter(c: Vector2) -> void:
-	var bar := Rect2(c + Vector2(-160, 214), Vector2(320, 20))
-	MG.box(_root, bar.grow(4.0), Color(0.08, 0.08, 0.09, 0.92), 10, 3)
-	if _dirt < 0.99:
-		MG.box(_root, Rect2(bar.position, Vector2(bar.size.x * (1.0 - _dirt), bar.size.y)), Color(0.35, 0.82, 0.5), 8)
-	_root.draw_string(ThemeDB.fallback_font, bar.position + Vector2(1, -7), "Puhtaus %d %%" % roundi((1.0 - _dirt) * 100.0),
-		HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 18, Color(0, 0, 0, 0.7))
-	_root.draw_string(ThemeDB.fallback_font, bar.position + Vector2(0, -8), "Puhtaus %d %%" % roundi((1.0 - _dirt) * 100.0),
-		HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 18, Color.WHITE)
-
-
-## Ellipsin kaari (a0..a1 radiaaneina) viivana.
-func _ring(c: Vector2, r: Vector2, a0: float, a1: float, col: Color, w: float) -> void:
-	var pts := PackedVector2Array()
-	for i in 33:
-		var a := lerpf(a0, a1, i / 32.0)
-		pts.append(c + Vector2(cos(a) * r.x, sin(a) * r.y))
-	_root.draw_polyline(pts, col, w, true)
-
-

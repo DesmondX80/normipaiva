@@ -517,8 +517,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     (kolme sankoa takaluukusta kompostiin ja komposti talikolla ympäri), laiturin korjaus (lahot laudat irti
     sorkkaraudalla, uudet laudat ja naulat vasaralla, ohi lyönti osuu peukaloon), rännien ja katon putsaus tikkailta
     (tasapaino A/D:llä, liikaa kallellaan ja tikkaat kaatuvat), ampiaispesän hävitys saunan terassilta
-    (suihkuta suuaukkoon, kolmas pisto ja juoksu järveen), kahvit Santulle pihalle ja tiskit tuvassa (märkä
-    astia lipsahtaa humalassa), paljun tyhjennys, pesu ja täyttö bensapumpulla rannasta (muista sammuttaa
+    (suihkuta suuaukkoon, kolmas pisto ja juoksu järveen), kahvit Santulle pihalle ja tiskit tuvassa (minäkuvana
+    altaan ääreltä, puhdas astia nostetaan altaan yläpuolella olevaan kuivauskaappiin, märkä astia lipsahtaa humalassa), paljun tyhjennys, pesu ja täyttö bensapumpulla rannasta (muista sammuttaa
     ajoissa), savustus, metsästys (ei hirveä!) ja PA:n johtojen korjaus. Sangon ja kahvikupin kanssa ei
     juosta: kova vauhti läikyttää. Santtu tulee paikalle katsomaan ja kommentoimaan jokaista hommaa
     ("Ei sitä noin hakata!") ja huutelee kuistilta, kun hommat odottavat.
