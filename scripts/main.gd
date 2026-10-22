@@ -1440,6 +1440,8 @@ func _process(delta: float) -> void:
 				_hint.text = _mopo_garage_hint(garage_int.spot)
 			elif garage_int.spot == "saavi":
 				_hint.text = _wine_hint()
+			elif garage_int.spot == "viritys":
+				_hint.text = _mopo_virit_hint()
 			elif garage_int.spot == "lapio":
 				_hint.text = "[E] Ota lapio seinältä" if olavi.lupa and not olavi.lapio else ""
 			if garage_int.radio_on:
@@ -1936,6 +1938,8 @@ func _on_garage_acted(kind: String) -> void:
 				_on_garage_exited(true)
 		"saavi":
 			_wine_act()
+		"viritys":
+			_mopo_virit_menu()
 		"lapio":
 			if olavi.lupa and not olavi.lapio:
 				olavi.lapio = true
@@ -2253,6 +2257,58 @@ func _mopo_garage_hint(spot: String) -> String:
 	if not oma_mopo.running:
 		return "[E] Potkaise mopo käyntiin"
 	return "[E] Ota mopo ja aja ulos (bensaa %d %%)" % roundi(oma_mopo.fuel * 100.0)
+
+
+## Mopon viritys (#183): sylinteri, pakoputki ja rattaat autotallin virittämöstä. Jokainen nostaa huippunopeutta; ajossa mitataan
+## huippunopeuden ennätys.
+func _mopo_virit_hint() -> String:
+	if not oma_mopo.running:
+		return "Virittämö. Mopon pitää olla ensin ajokunnossa."
+	var n: int = oma_mopo.virit.size()
+	if n >= OmaMopo.VIRIT.size():
+		return "Virittämö: mopo on viritetty täysin (huippu %.1f m/s, ennätys %.1f m/s)" % [oma_mopo.max_speed(), oma_mopo.top_best]
+	return "[E] Virittämö: osia mopoon (%d/%d, ennätys %.1f m/s)" % [n, OmaMopo.VIRIT.size(), oma_mopo.top_best]
+
+
+func _mopo_virit_menu() -> void:
+	if not oma_mopo.running:
+		_show_message("Mopo ei ole vielä ajokunnossa: virittäminen vasta kun se käy.", 3.0)
+		return
+	var items: Array = []
+	for k in OmaMopo.VIRIT:
+		var v: Dictionary = OmaMopo.VIRIT[k]
+		if oma_mopo.virit.has(k):
+			continue
+		items.append([k, "%s (+%.1f m/s) – %s €%s" % [v.name, v.bonus, _eur(v.price), "" if money >= v.price else " (rahat ei riitä)"]])
+	if items.is_empty():
+		_show_message("Mopo on viritetty täysin. Huippu %.1f m/s, ennätys %.1f m/s. Katsastus ei tykkää." % [oma_mopo.max_speed(), oma_mopo.top_best], 4.0)
+		return
+	items.append(["takaisin", "Takaisin"])
+	var w := _active_walker()
+	w.controls_enabled = false
+	_interior_busy(true)
+	_menu_mode = "virit"
+	_item_menu.open(items, "Mopon viritys")
+
+
+func _on_virit_menu(id: String) -> void:
+	_interior_busy(false)
+	_active_walker().controls_enabled = true
+	_menu_mode = "give"
+	if id == "takaisin" or not OmaMopo.VIRIT.has(id):
+		return
+	var v: Dictionary = OmaMopo.VIRIT[id]
+	if money < v.price:
+		_show_message("Osa maksaa %s €, rahat ei riitä." % _eur(v.price), 3.0)
+		return
+	money -= v.price
+	oma_mopo.virit[id] = true
+	_advance_clock(30.0)
+	tilat.first("mopo_viritys", 0.3)
+	tilat.add("moraali", 0.05)
+	Sfx.play("rattle_hard", -4.0, 1.1)
+	_save_game()
+	_show_message("%s Huippunopeus nyt %.1f m/s." % [v.msg, oma_mopo.max_speed()], 5.0)
 
 
 func _mopo_garage() -> void:
@@ -10809,6 +10865,8 @@ func _talk_options(who := "") -> Array:
 			_nuoret_new_day()
 			o.append(_opt("huikka", "Ota huikka kossu-vissystä", _nuoret_huikat < NUORET_HUIKAT, "pullo on tyhjä"))
 			o.append(_opt("tarjoa", "Tarjoa kalja porukalle", beers > 0, "ei kaljaa mukana"))
+			if _nuoret_yard and _between(clock_min, Vector2(6 * 60, 11 * 60)):
+				o.append(_opt("pullot", "Kerää tyhjät pullot ja tölkit aidan takaa (pantti)", _pullot_day != day, "keräsit jo tänään", true))
 			if _nuoret_yard:
 				var why := "sulla on jo leima kädessä" if _lava_pass_now() == "lippu" else ("teini ei anna enää" if _leima_day == day else "")
 				o.append(_opt("leima", "Kopioi tuore leima teinin kädestä", why == "", why, true))
@@ -10831,6 +10889,9 @@ func _talk_options(who := "") -> Array:
 			for id in ZABUKI_MENU:
 				var m: Array = ZABUKI_MENU[id]
 				o.append(_opt("osta_" + id, "%s (%s €)" % [m[0], _eur(m[1])], money >= m[1], "rahat ei riitä"))
+			var open_eve := _between(clock_min, Vector2(18 * 60, 23 * 60))
+			o.append(_opt("hengaile", "Hengaile kioskin edessä (tunti, vain illalla)", open_eve and _hengailu_day != day,
+				"kioskilla hengaillaan vasta illalla 18–23" if not open_eve else "hengailit jo tänään"))
 		"gasthaus":
 			o.append(_opt("yo", "Huone yöksi (%s €, päivä päättyy)" % _eur(GASTHAUS_PRICE), money >= GASTHAUS_PRICE,
 				"rahat ei riitä", true))
@@ -10987,6 +11048,9 @@ func _talk_choose(id: String) -> void:
 				_talk_box.close()
 				_start_rakaleima()
 				return
+			if id == "pullot":
+				_pullonkeraus()
+				return
 			var r := _on_nuoret(id)
 			_talk_box.reply(r[0], _talk_options(), r[1])
 		"kauppa_auto":
@@ -10996,6 +11060,9 @@ func _talk_choose(id: String) -> void:
 		"vastaanotto", "dingo":
 			_talk_hotel(id)
 		"zabuki":
+			if id == "hengaile":
+				_hengaile_kioskilla()
+				return
 			var r := _on_zabuki(id.trim_prefix("osta_"))
 			_talk_box.reply(r[0], _talk_options(), r[1] + "   Rahaa %s €." % _eur(money))
 		"gasthaus":
@@ -13098,6 +13165,37 @@ func _on_siitari(id: String) -> Array:
 
 
 ## Zabukin tiski: juoma tai hampurilainen (syödään saman tien).
+## Pullonkeräys lavan pihalta aamulla (#183): tyhjät pullot ja tölkit pantiksi.
+func _pullonkeraus() -> void:
+	_pullot_day = day
+	var n := randi_range(9, 16)
+	var pantti := snappedf(n * 0.15, 0.05)
+	money += pantti
+	_advance_clock(40.0)
+	tilat.first("pullonkeraus", 0.2)
+	tilat.add("stressi", 0.05)
+	tilat.add("nalka", -0.05)
+	Sfx.play("rattle", -4.0, 1.1)
+	_save_game()
+	_talk_box.reply(["Hei, se kerää meidän pullot! Kiitti, setä.", "Aamulla on aina enemmän pulloja ku väkeä. Ota vaan.", "Pantti jaetaan puoliksi. Ei, vitsi, ota kaikki."].pick_random(),
+		_talk_options(), "%d pulloa ja tölkkiä aidan takaa, pantti +%s €. 40 minuuttia kului." % [n, _eur(pantti)])
+
+
+## Kioskilla hengailu illalla (#183): nuoret parit, kyydinodotus ja pussauspaikka sillalla.
+func _hengaile_kioskilla() -> void:
+	_hengailu_day = day
+	_advance_clock(60.0)
+	tilat.first("kioski_hengailu", 0.2)
+	tilat.add("moraali", 0.15)
+	tilat.add("stressi", 0.1)
+	mielihyva = clampf(mielihyva + 6.0, 0.0, 100.0)
+	Sfx.play("pickup", -8.0, 0.7)
+	_save_game()
+	_talk_box.reply(["Sillalla pussaa kaksi nuorta eikä huomaa kenenkään olevan kioskilla. Joku ruuvaa mopon pakoputkea valon alla.",
+		"Kioskin edessä seistään ja odotetaan kyytiä, joka ei tule. Hyvä ilta silti.", "Joku kysyy, saako setä tulla mukaan sillalle. Ei kiitos."].pick_random(),
+		_talk_options(), "Tunti kului kioskilla. Moraali ja mielihyvä nousevat.")
+
+
 func _on_zabuki(id: String) -> Array:
 	var m: Array = ZABUKI_MENU[id]
 	if money < m[1]:
@@ -14895,6 +14993,8 @@ func _on_race_finished(won: bool, my_time: float, opp_time: float) -> void:
 const RakaleimaGame := preload("res://scripts/rakaleima_game.gd")
 var _rakaleima: CanvasLayer
 var _nuoret_yard := false
+var _pullot_day := -1  # päivä, jona pullot kerätty lavan pihalta (#183)
+var _hengailu_day := -1  # päivä, jona hengailtu kioskilla (#183)
 var _leima_day := -1
 var _lava_copy := {}  # {q, mirrored}: kopioitu leima kädessä (tyhjä = ei kopiota)
 
@@ -15992,6 +16092,8 @@ func _load_game() -> void:
 	_danced = cfg.get_value("paivarajat", "tanssittu", {})
 	_kirppis_sold = cfg.get_value("paivarajat", "kirppis_myyty", {})
 	_kirppis_angry = cfg.get_value("paivarajat", "kirppis_suuttunut", {})
+	_pullot_day = cfg.get_value("paivarajat", "pullot", -1)
+	_hengailu_day = cfg.get_value("paivarajat", "hengailu", -1)
 	_pingis_nuoret_day = cfg.get_value("paivarajat", "pingis_nuoret", -1)
 	_pingis_nuoret_voitot = cfg.get_value("peli", "pingis_nuoret_voitot", 0)
 	_myynti_day = cfg.get_value("paivarajat", "kirppis_poyta", -1)
@@ -16103,6 +16205,8 @@ func _save_game() -> void:
 	cfg.set_value("paivarajat", "tanssittu", _danced)
 	cfg.set_value("paivarajat", "kirppis_myyty", _kirppis_sold)
 	cfg.set_value("paivarajat", "kirppis_suuttunut", _kirppis_angry)
+	cfg.set_value("paivarajat", "pullot", _pullot_day)
+	cfg.set_value("paivarajat", "hengailu", _hengailu_day)
 	cfg.set_value("paivarajat", "pingis_nuoret", _pingis_nuoret_day)
 	cfg.set_value("peli", "pingis_nuoret_voitot", _pingis_nuoret_voitot)
 	cfg.set_value("paivarajat", "kirppis_poyta", _myynti_day)
@@ -17234,6 +17338,8 @@ func _build_hud() -> void:
 			_start_wc(id)
 		elif _menu_mode == "viini":
 			_on_vat_menu(id)
+		elif _menu_mode == "virit":
+			_on_virit_menu(id)
 		elif _menu_mode == "asema":
 			_on_asema_give(id)
 		elif _menu_mode == "asu":
@@ -22774,6 +22880,43 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"hupihommat":
+			# Vaalan nuorison hupihommat (#183): mopon viritys autotallissa, pullonkeräys lavan pihalta ja kioskilla hengailu.
+			# Aja eristetyllä HOME:lla (tallennus).
+			money = 100.0
+			oma_mopo.owned = true
+			oma_mopo.running = false
+			print("HU viritysvihje ei käynnissä: '%s'" % _mopo_virit_hint())
+			oma_mopo.running = true
+			oma_mopo.rajoitin = false
+			var b0: float = oma_mopo.max_speed()
+			print("HU huippu ilman viritystä: %.1f, vihje '%s'" % [b0, _mopo_virit_hint()])
+			for id in ["sylinteri", "pakoputki", "rattaat"]:
+				_on_virit_menu(id)
+				print("HU %s: rahaa %s, huippu %.1f, osia %d" % [id, _eur(money), oma_mopo.max_speed(), oma_mopo.virit.size()])
+			print("HU viritetty täysin, vihje '%s'" % _mopo_virit_hint())
+			print("HU rajoittimella huippu: %.1f" % [OmaMopo.MAX_LIMITED + oma_mopo.virit_bonus()])
+			# Pullonkeräys
+			day = 3
+			clock_min = 8 * 60
+			_nuoret_yard = true
+			var m1 := money
+			print("HU nuoret aamulla: %s" % [_talk_options("nuoret").map(func(o): return "%s:%s" % [o.id, o.enabled])])
+			_talk_who = "nuoret"
+			_pullonkeraus()
+			print("HU pullot: rahaa %s -> %s, kello %d, uudestaan mahdollinen %s" % [_eur(m1), _eur(money), int(clock_min), _talk_options("nuoret").filter(func(o): return o.id == "pullot").map(func(o): return o.enabled)])
+			clock_min = 15 * 60
+			print("HU nuoret iltapäivällä: pullot-valinta %s" % [_talk_options("nuoret").any(func(o): return o.id == "pullot")])
+			# Kioskilla hengailu
+			clock_min = 13 * 60
+			print("HU zabuki päivällä: %s" % [_talk_options("zabuki").filter(func(o): return o.id == "hengaile").map(func(o): return "%s (%s)" % [o.enabled, o.reason])])
+			clock_min = 20 * 60
+			var mo0: float = mielihyva
+			print("HU zabuki illalla: %s" % [_talk_options("zabuki").filter(func(o): return o.id == "hengaile").map(func(o): return o.enabled)])
+			_talk_who = "zabuki"
+			_hengaile_kioskilla()
+			print("HU hengailu: mielihyvä %.0f -> %.0f, kello %d, toistamiseen mahdollinen %s" % [mo0, mielihyva, int(clock_min), _talk_options("zabuki").filter(func(o): return o.id == "hengaile").map(func(o): return o.enabled)])
+			get_tree().quit()
 		"lemmikkienkelit":
 			# Lemmikki Enkelit (#148): rakennus, lehto, penkki, Pekan hetki, poikien hamsteritehtävä ja muistokyltin minipeli sekä
 			# pysyvä rauha poikien kanssa. Aja eristetyllä HOME:lla (tallennus). Kuvat vain ikkunallisena.

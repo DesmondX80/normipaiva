@@ -172,6 +172,14 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Valinta: Pirtin oppaalle (70 €, maine +12, loppu "Kuninkaan tapuli", Arton ja Pekan repliikit vaihtuvat) tai takaisin
   koloon suntion luona (maine +4, avain pysyvästi): tapuli on silloin jemma (24 kaljaa) ja kello varoittaa, kun poliisi
   on liikkeellä. Teinien bileiden jatkuminen tai loppuminen ei ole mukana. Testi `--scene=kuninkaantapuli` (headless).
+- **Vaalan nuorison hupihommat (#183, osa ideoista):** (1) *Mopon viritys*: Saloisen autotallin virittämöstä (työkalulaatikko
+  mopon vieressä, E) ajokuntoiseen mopoon isompi sylinteri (14 €, +1,4 m/s), urheilupakoputki (9 €, +1,0) ja pienemmät rattaat
+  (7 €, +0,8); kukin vie 30 min ja nostaa huippunopeutta (rajoittimella 15 → 18,2 m/s, ilman 21 → 24,2 m/s), ja ajossa mitataan
+  huippunopeuden ennätys. (2) *Pullonkeräys lavan jälkeen*: Vaalan lavan pihan teinien luona aamulla 6–11 valinta kerätä tyhjät
+  pullot ja tölkit aidan takaa (9–16 kpl, pantti 0,15 €/kpl, 40 min, kerran päivässä). (3) *Kioskilla hengailu*: Zabukin luona
+  illalla 18–23 tunti nuorten parien ja mopojen seurassa (moraali, stressi ja mielihyvä nousevat, kerran päivässä). Muut ideat
+  (ponkkari ja uimakisa, portaiden purukumit, järkkärit, mopoletka, kasetin äänitys, kesäduuni) ovat edelleen tekemättä.
+  Testi `--scene=hupihommat`.
 - **Pieneläintuhkaamo Lemmikki Enkelit (#148):** kylän länsiosassa (OSM office=company) lämminhenkinen, rauhallinen paikka
   (pastellikyltti enkelinsiipineen, piippu, valkoinen aita). Rakennuksen edessä muistolehto: sorapolku, penkki, kynttilälyhdyt
   ja lemmikkien nimikyltit (Misu, Rekku, Nalle). Penkillä E: stressi laskee kerran päivässä (20 min), kaljaa ei avata. Iltaisin
