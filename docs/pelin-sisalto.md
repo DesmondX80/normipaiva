@@ -466,7 +466,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     päälle ja vasen nappi painaa: muste kuivuu 16 sekunnissa ja tarttuu sitä paremmin, mitä tuoreempaa se on, ja R kostuttaa
     kämmenen ("räkä"), jolloin muste irtoaa paremmin. Teini vilkaisee välillä (kysymysmerkki varoittaa ennen vilkaisua):
     painaminen hänen katsoessaan nostaa epäilyä, ja täyteen mittariin yltänyt jää kiinni (maine −1, ei toista yritystä
-    päivässä). Leimassa on teksti LAVA ja päivän nelinumeroinen koodi (esim. 1226), joka muuttuu päivittäin. **Kopio tulee peilikuvana**, koska kasvot vastakkain painettu kuva kääntyy: tulosruudussa alkuperäinen ja
+    päivässä). Leimassa on vain päivän nelinumeroinen koodi (esim. 1226), joka muuttuu päivittäin: ei kehystä eikä muuta tekstiä. **Kopio tulee peilikuvana**, koska kasvot vastakkain painettu kuva kääntyy: tulosruudussa alkuperäinen ja
     kopio rinnakkain. Välilyönti painaa käden toiseen käteen kun ajoitusmerkki on vihreällä: kuva kääntyy oikein päin mutta
     haalistuu. Oikein päin oleva tarpeeksi tumma kopio kelpaa aidosta leimasta (portti aukeaa kuin lipulla). Muuten kädessä
     on peilikuva- tai haaleakopio, joka vähentää portsarin epäilyn kertymistä vain vähän (portsari sanoo huomanneensa
