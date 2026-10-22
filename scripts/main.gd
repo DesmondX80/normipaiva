@@ -30,6 +30,7 @@ const LaituriGame := preload("res://scripts/laituri_game.gd")
 const RanniGame := preload("res://scripts/ranni_game.gd")
 const AmpiaisGame := preload("res://scripts/ampiais_game.gd")
 const TiskiGame := preload("res://scripts/tiski_game.gd")
+const Tiski3DGame := preload("res://scripts/tiski3d_game.gd")  # kokeilu: tiskaus minäkuvana
 ## Rasvanappi aseman takana makasiinissa Saloisissa ja Vaalassa (vain aikuisille): salasana luukulle ja peli pimeässä.
 const RasvanappiGame := preload("res://scripts/rasvanappi_game.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
@@ -12439,7 +12440,7 @@ func _start_tiskit() -> void:
 	mokki_int.busy = true
 	mokki_int.walker.controls_enabled = false
 	_hud.visible = false
-	var g := TiskiGame.new()
+	var g := Tiski3DGame.new()
 	g.dishes_left = mokki_int.dishes
 	g.drunk = _hand_shake()
 	g.comment.connect(func(t: String) -> void: mokki_int.say(t))
@@ -12460,7 +12461,8 @@ func _start_tiskit() -> void:
 			else:
 				_show_message("Tiskit tehty%s! Santtu odottaa vielä kahveja pihalla." % (
 					" (%d meni rikki)" % broken if broken > 0 else ""), 3.0))
-	add_child(g)
+	g.position = Vector3(MokkiInterior.SPOTS.tiskit[0].x, 0.95, MokkiInterior.KITCHEN.position.y + 0.45)
+	mokki_int.add_child(g)
 
 
 # --- Pankkiautomaatti ------------------------------------------------------------------------------------------
@@ -29733,14 +29735,15 @@ func _maybe_screenshot() -> void:
 			_start_tiskit()
 			await wait.call(20)
 			await snap.call("tiskit")
-			var tg: Node = get_children().filter(func(c): return c is TiskiGame)[0]
-			for k in 400:
-				tg._scrub(1 if k % 2 == 0 else -1)
-				if tg._dirt <= 0.0:
-					tg.drunk = 0.0
-					tg._lift()
+			var tg: Node = mokki_int.get_children().filter(func(c): return c is Tiski3DGame)[0]
+			for k in 3000:
 				if not is_instance_valid(tg) or tg._done:
 					break
+				tg._scrub(1 if k % 2 == 0 else -1)
+				if tg._dirt <= 0.0 and tg._busy_t < 0.0:
+					tg.drunk = 0.0
+					tg._lift()
+				await get_tree().process_frame
 			await wait.call(5)
 			print("TISKIT dishes=%d" % mokki_int.dishes)
 			_on_mokki_exited()
