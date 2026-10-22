@@ -69,6 +69,12 @@ const KIRKKO := Vector2(-132.1, 482.1)
 const KELLOTAPULI := Vector2(-144.4, 515.8)
 const HAUTAUSMAA := [Vector2(-224.8, 517.6), Vector2(-232.8, 397.6), Vector2(-224.2, 393.3), Vector2(-110.6, 457.6),
 	Vector2(-116.3, 474.5), Vector2(-136.9, 541.5), Vector2(-145.1, 567.6)]
+## Saloisten koulukeskus, päiväkoti, jalkapallokentät ja ulkopingispöytä (#143, OSM). Koulukeskuksen rakennus on
+## koulukeskuksen ja koulun yhteinen (OSM t=school), päiväkodin toinen paikka (585, 12) osuu leikkipaikkaan eikä omaan rakennukseen.
+const KOULUKESKUS := Vector2(555.9, 7.6)
+const PAIVAKOTI := Vector2(725.0, 123.2)
+const KENTAT := [Vector2(610, 32), Vector2(620, 122)]
+const ULKOPINGIS := Vector2(550, 79)
 ## Saloisten Kanttorila (OSM-rakennus, kanttorin vanha talo) kylän länsiosassa (#144).
 const KANTTORILA := Vector2(116.9, 355.3)
 ## Olavinmarkkinoiden hopea (#124): kauppiaan hauta hautausmaalla, kätköpaikka Kirkkoluodontien varressa ("kirkon rannan
@@ -164,7 +170,11 @@ const ROADS := Osm.ROADS + ROADS_SOUTH
 const FORESTS := Osm.FORESTS
 
 ## Aukeat metsän keskellä (ei puita). OSM:n mukaan Antinsuonkankaan kautta ei kulje voimalinjaa, joten tyhjä.
-const CLEARINGS := []
+## Koulukeskuksen pingispöytä ja jalkapallokentät (#143) pidetään vapaana puista.
+const CLEARINGS := [
+	[Vector2(541, 70), Vector2(559, 70), Vector2(559, 88), Vector2(541, 88)],
+	[Vector2(586, 16), Vector2(634, 16), Vector2(634, 48), Vector2(586, 48)],
+	[Vector2(596, 106), Vector2(644, 106), Vector2(644, 138), Vector2(596, 138)]]
 
 ## Hakkuuaukeat (ilmakuvasta Järvikujan kaakkoispuolelta): kantoja, hakkuutähteitä ja muutama siemenpuu.
 const CLEARCUTS := [

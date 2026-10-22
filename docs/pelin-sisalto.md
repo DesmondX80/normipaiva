@@ -180,7 +180,15 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   palkeesta nuottiarkin ensimmäinen puolikas -> Pirtin arkistosta toinen puolikas -> Sinikalle (kuoro laulaa virren,
   maine +12, loppu "Kanttorin virsi", yösävel vaikenee) tai Veksille (150 €, maine −5, yösävel jatkuu). Epäilijät (Pekka,
   Arto, Anna-Liisa) vaihtavat repliikkinsä. Testi `--scene=kanttorinyosavel` (headless).
-- **Saloisten Reippari:** grillikioski seuraintalon vieressä (auki 11–23). Luukulta Raijalta makkaraperunat,
+- **Saloisten koulukeskus, päiväkoti, kentät ja ulkopingis (#143):** keskustan koulukeskus ja päiväkoti (OSM-rakennukset)
+  nimikylttineen, kaksi jalkapallokenttää rajaviivoineen ja maaleineen sekä koulun pihan ulkopingispöytä ("PIHAPINGIS").
+  Pöydällä iltapäivisin ja iltaisin (14–21) E: haaste kylän nuorille samalla pingis_game.gd-minipelillä kuin Santun kanssa
+  mökillä, mutta koulun pihalla ja heikommalla vastustajalla (taito 0,72 ja +0,06 jokaisesta voitosta, enintään 0,96).
+  Voitto: nuoret tarjoavat limut, kerran päivässä maine +3, moraali ja stressi paranevat ("Setä on ihan ok"). Tappio: tarjoat
+  limut (3 €), jos rahaa ei ole, maine −2 kerran päivässä. Päiväkodin toinen paikka px (585, 12) osuu leikkipaikkaan eikä
+  omaan rakennukseen, joten kyltti on vain päiväkodilla px (725, 123). Ei vielä: koulun disko, Päivin työpaikka päiväkodissa
+  eikä juniorien treenit. Testi `--scene=koulukeskus` (logiikka headlessinä, kuvat ikkunallisena).
+ grillikioski seuraintalon vieressä (auki 11–23). Luukulta Raijalta makkaraperunat,
   lihapiirakka kaikilla, hampurilainen ja kahvi (ruoat reppuun, T syö). Illalla 18–23 kioskin edessä notkuu porukka
   mopoineen, ja juoruista kuulee mm. Pannu-Sulon kuusikosta ja Tokolan varastosta. Ilmoitustaululta alkaa
   sivutehtävä "Kadonnut Miisu": Tokolan Aaron kissa löytyy Aaron vihjeellä ja viedään takaisin (10 €).

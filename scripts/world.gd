@@ -295,6 +295,7 @@ func build(step: Callable) -> void:
 	_build_seuraintalo()
 	_build_kirkko()
 	_build_kanttorila()
+	_build_koulukeskus()
 	_build_tokola()
 	_build_pirtti()
 	_build_reippari()
@@ -1301,6 +1302,7 @@ const KIRKKO_COPPER := Color(0.33, 0.56, 0.5)
 const TAPULI_RED := Color(0.52, 0.14, 0.09)
 var kirkko_pos := Vector3.ZERO  # kirkon pääovi (tornin edusta)
 var tapuli_pos := Vector3.ZERO
+var pingis_ulko_pos := Vector3.ZERO  # ulkopingispöytä (#143)
 var kanttorila_pos := Vector3.ZERO  # Kanttorilan pihan etuosa (yösävel)
 var kauppias_pos := Vector3.ZERO  # kauppiaan hauta
 var olavi_katko_pos := Vector3.ZERO
@@ -1554,6 +1556,61 @@ static func _edge_dist(poly: PackedVector2Array, p: Vector2) -> float:
 		var c := Geometry2D.get_closest_point_to_segment(p, poly[i], poly[(i + 1) % poly.size()])
 		best = minf(best, p.distance_to(c))
 	return best
+
+
+## Saloisten koulukeskus ja päiväkoti kyltteineen, kaksi jalkapallokenttää maaleineen ja ulkopingispöytä (#143).
+func _build_koulukeskus() -> void:
+	for spec in [[M.KOULUKESKUS, "SALOISTEN KOULUKESKUS", Color(0.12, 0.2, 0.42), Color(1.0, 0.97, 0.88), 3.6, 1.1, 90],
+			[M.PAIVAKOTI, "SALOISTEN PÄIVÄKOTI", Color(1.0, 0.85, 0.2), Color(0.1, 0.25, 0.5), 2.7, 0.4, 44]]:
+		var f := _osm_fit_at(spec[0])
+		if f.is_empty():
+			continue
+		var nrm: Vector2 = f.nrm
+		var front: Vector2 = f.c + nrm * (f.d / 2.0)
+		var root := Node3D.new()
+		root.position = Vector3(front.x, 0, front.y)
+		root.rotation.y = f.yaw
+		add_child(root)
+		var plate := B.sign_plate(root, spec[1], spec[2], spec[3], spec[5], spec[6], spec[3], "Helvetica Neue")
+		plate.position = Vector3(0, spec[4], -0.06)
+	for c in M.KENTAT:
+		_build_pitch(M.w2(c), 34.0, 20.0)
+	var at := M.w2(M.ULKOPINGIS)
+	pingis_ulko_pos = Vector3(at.x, T.h(at.x, at.y), at.y)
+	var root := Node3D.new()
+	root.position = Vector3(at.x, 0, at.y)
+	add_child(root)
+	var conc := Color(0.55, 0.57, 0.58)
+	B.box(root, Vector3(2.74, 0.08, 1.52), Vector3(0, 0.76, 0), conc)
+	for sx in [-1.1, 1.1]:
+		B.box(root, Vector3(0.12, 0.76, 1.3), Vector3(sx, 0.38, 0), conc.darkened(0.15))
+	B.mesh(root, B.boxm(Vector3(0.03, 0.02, 1.52)), Vector3(0, 0.81, 0), Color.WHITE)  # keskiviiva
+	B.mesh(root, B.boxm(Vector3(2.7, 0.01, 0.03)), Vector3(0, 0.805, 0), Color.WHITE)
+	B.mesh(root, B.boxm(Vector3(0.03, 0.16, 1.7)), Vector3(0, 0.9, 0), Color(0.1, 0.1, 0.12))  # verkko
+	var pole := Node3D.new()
+	pole.position = Vector3(0, 0, 1.4)
+	root.add_child(pole)
+	for x in [-0.7, 0.7]:
+		B.mesh(pole, B.boxm(Vector3(0.06, 1.5, 0.06)), Vector3(x, 0.75, 0), Color(0.3, 0.3, 0.32))
+	var ps := B.sign_plate(pole, "PIHAPINGIS", Color(0.2, 0.5, 0.35), Color.WHITE, 0.26, 40, Color.WHITE, "Helvetica Neue")
+	ps.position = Vector3(0, 1.15, 0.0)
+
+
+## Jalkapallokenttä: valkoiset rajaviivat ja kaksi maalia (koriste, ei törmäystä).
+func _build_pitch(c: Vector2, w: float, d: float) -> void:
+	var batch := _batch_at(c)
+	var white := Color(0.95, 0.95, 0.92)
+	var tf := func(x: float, z: float) -> Transform3D: return Transform3D(Basis.IDENTITY, Vector3(c.x + x, 0.03, c.y + z))
+	for z in [-d / 2.0, d / 2.0]:
+		batch.add(B.boxm(Vector3(w, 0.04, 0.22)), tf.call(0.0, z), white)
+	for x in [-w / 2.0, w / 2.0, 0.0]:
+		batch.add(B.boxm(Vector3(0.22, 0.04, d)), tf.call(x, 0.0), white)
+	for sgn in [-1.0, 1.0]:
+		var gx: float = sgn * w / 2.0
+		for z in [-1.8, 1.8]:
+			batch.add(B.boxm(Vector3(0.12, 2.0, 0.12)), Transform3D(Basis.IDENTITY, Vector3(c.x + gx, 1.0, c.y + z)), white)
+		batch.add(B.boxm(Vector3(0.12, 0.12, 3.8)), Transform3D(Basis.IDENTITY, Vector3(c.x + gx, 2.0, c.y)), white)
+		batch.add(B.boxm(Vector3(1.4, 2.0, 0.03)), Transform3D(Basis.IDENTITY, Vector3(c.x + gx + sgn * 0.7, 1.0, c.y)), Color(0.85, 0.85, 0.85, 0.5))
 
 
 ## Saloisten Kanttorila (#144): OSM-talo tulee yleisestä rakennuslistasta, tähän vain nimikyltti seinään ja pihan etuosan paikka.

@@ -34,6 +34,13 @@ const SANTTU_ROUND_LOSE := ["Perkele!", "Tuuripallo.", "No huh.", "Aurinko paist
 const SANTTU_WIN := ["Pihapingismestari Neittävältä!", "Tuu uuestaan, harjottelet vähän."]
 const SANTTU_LOSE := ["Hyvä peli. Sää saat kahvit.", "Ensi kerralla mää voitan, oikeesti."]
 
+## Vastustaja ja paikka (oletuksena Santtu mökin pihalla; #143: kylän nuoret koulun pihalla).
+var opp_name := "SANTTU"
+var opp_title := "pihapingismestari"
+var opp_look := {}  # tyhjä = Mokki.SANTTU_LOOK
+var opp_skill := 1.0  # 1 = Santtu; pienempi = hitaampi ja virheherkempi
+var opp_lines := {}  # intro / round_win / round_lose / win / lose -> repliikkilista (tyhjä = Santun omat)
+var venue := "mokki"  # "mokki" | "koulu"
 var _phase := "intro"  # intro | serve | rally | point | over | done
 var _t := 0.0
 var _rounds := [0, 0]  # erävoitot [pelaaja, Santtu]
@@ -72,7 +79,7 @@ func _ready() -> void:
 	Touch.set_extra([[KEY_J, "Lyönti"], [KEY_K, "Smash"]])
 	_build_stage()
 	_pl.append(_make_player(Looks.player(), -2.6, 1.0, true))
-	_pl.append(_make_player(Mokki.SANTTU_LOOK, 2.6, -1.0, false))
+	_pl.append(_make_player(Mokki.SANTTU_LOOK if opp_look.is_empty() else opp_look, 2.6, -1.0, false))
 	_ball_node = MeshInstance3D.new()
 	_ball_node.mesh = B.sphere(R, 12)
 	_ball_node.material_override = B.unshaded(Color(1.6, 1.25, 0.7))
@@ -97,7 +104,7 @@ func _ready() -> void:
 	_cam.current = true
 	_build_hud()
 	_start_round_intro()
-	_say(1, SANTTU_INTRO.pick_random())
+	_say(1, _line("intro", SANTTU_INTRO))
 
 
 func _make_player(look: Dictionary, x: float, facing: float, cap: bool) -> Dictionary:
@@ -191,12 +198,17 @@ func _help_text() -> String:
 		Settings.cap("punch"), Settings.cap("kick"), Settings.cap("forward")]
 
 
+func _line(key: String, fallback: Array) -> String:
+	var pool: Array = opp_lines.get(key, fallback)
+	return pool.pick_random()
+
+
 func _end_game() -> void:
 	_phase = "over"
 	_t = 0.0
 	var won: bool = _rounds[0] > _rounds[1]
-	_announce.text = "SÄÄ VOITTI!" if won else "SANTTU VOITTI!"
-	_say(1, (SANTTU_LOSE if won else SANTTU_WIN).pick_random())
+	_announce.text = "SÄÄ VOITTI!" if won else "%s VOITTI!" % opp_name
+	_say(1, _line("lose" if won else "win", SANTTU_LOSE if won else SANTTU_WIN))
 	(_pl[0 if won else 1].body as Node3D).play("Dance", 0.3)
 	(_pl[1 if won else 0].body as Node3D).play("Idle_Talking", 0.3)
 	Sfx.play("win" if won else "lose", -4.0)
@@ -242,7 +254,7 @@ func _control_santtu(delta: float) -> void:
 	elif _last == 1 or _phase != "rally":
 		_ai_target = lerpf(_ai_target, 2.6, delta)
 	var dx: float = _ai_target - s.x
-	var speed := WALK * 0.92
+	var speed := WALK * 0.92 * opp_skill
 	s.x = clampf(s.x + clampf(dx, -speed * delta, speed * delta), X_MIN, X_MAX)
 	s.moving = absf(dx) > 0.05
 	if _phase == "rally" and _last == 0 and s.swing_t < 0.0:
@@ -311,7 +323,7 @@ func _launch(i: int, dist: float, flight: float, err: float) -> void:
 	# Santtu päättää heti, huitaiseeko ohi: pitkä ralli, smash ja pitkät juoksut lisäävät virheitä.
 	if i == 0:
 		var run := absf(target_x + 0.45 - _pl[1].x)
-		_ai_miss = randf() < 0.05 + _rally * 0.012 + (0.25 if flight < 0.8 else 0.0) + maxf(0.0, run - 2.0) * 0.08
+		_ai_miss = randf() < 0.05 + _rally * 0.012 + (0.25 if flight < 0.8 else 0.0) + maxf(0.0, run - 2.0) * 0.08 + (1.0 - opp_skill) * 0.6
 	_rally_label.text = "RALLI %d" % _rally if _rally >= 2 else ""
 	Sfx.play("step_hard", -2.0, 2.0)
 
@@ -403,12 +415,12 @@ func _round_over(winner: int, why: String) -> void:
 	_server = 1 - winner
 	_stars[winner].text = "★".repeat(_rounds[winner])
 	_effect(why, Vector3(_ball.x, 1.2, 0.3), Color(1.0, 0.5, 0.45), 1.2)
-	_announce.text = "%s\n%s VOITTAA ERÄN" % [why, "SÄÄ" if winner == 0 else "SANTTU"]
+	_announce.text = "%s\n%s VOITTAA ERÄN" % [why, "SÄÄ" if winner == 0 else opp_name]
 	Sfx.play("punch_heavy", -4.0, 0.8)
 	Sfx.play("win_small" if winner == 0 else "lose", -8.0)
 	(_pl[winner].body as Node3D).play("Dance", 0.3)
 	(_pl[1 - winner].body as Node3D).play("Idle_Talking", 0.3)
-	_say(1, (SANTTU_ROUND_LOSE if winner == 0 else SANTTU_ROUND_WIN).pick_random())
+	_say(1, _line("round_lose" if winner == 0 else "round_win", SANTTU_ROUND_LOSE if winner == 0 else SANTTU_ROUND_WIN))
 	if _rally >= 8:
 		_effect("%d LYÖNNIN RALLI!" % _rally, Vector3(0, 2.6, 0.3), Color(1.0, 0.8, 0.2), 1.2)
 
@@ -479,6 +491,9 @@ func _build_stage() -> void:
 	B.box(self, Vector3(0.04, 0.02, 3.0), Vector3(0, 0.01, 0), Color(0.95, 0.95, 0.9), false)
 	for sx in [-X_MAX - 0.6, X_MAX + 0.6]:
 		B.mesh(self, B.cyl(0.03, 0.03, 0.35, 6), Vector3(sx, 0.17, -0.8), Color(0.9, 0.5, 0.1))
+	if venue == "koulu":
+		_build_school_backdrop()
+		return
 	# Mökki taustalla: tumma pystylauta, peltikatto ja ikkunat.
 	var wall := Color(0.24, 0.15, 0.09)
 	B.box(self, Vector3(9.4, 2.6, 5.0), Vector3(-3.0, 1.3, -12.0), wall, false)
@@ -504,6 +519,28 @@ func _build_stage() -> void:
 			B.mesh(self, B.cyl(0.03, 1.4 - k * 0.3, 2.0, 8), Vector3(tp.x, 5.2 + k * 1.2, tp.y), Color(0.15, 0.27, 0.14))
 
 
+## Koulun piha (#143): tiilinen koulurakennus taustalla, verkkoaita ja jalkapallomaali, ei järveä.
+func _build_school_backdrop() -> void:
+	var brick := Color(0.62, 0.3, 0.2)
+	B.box(self, Vector3(22.0, 4.6, 5.0), Vector3(-2.0, 2.3, -13.0), brick, false)
+	for i in 28:
+		B.box(self, Vector3(0.03, 4.6, 0.02), Vector3(-12.5 + i * 0.8, 2.3, -10.49), brick.darkened(0.12), false)
+	B.box(self, Vector3(22.4, 0.3, 5.4), Vector3(-2.0, 4.75, -13.0), Color(0.2, 0.2, 0.22), false)
+	for wx in range(-11, 8, 3):
+		B.box(self, Vector3(1.6, 1.5, 0.05), Vector3(float(wx), 2.6, -10.47), Color(0.94, 0.94, 0.9), false)
+		B.box(self, Vector3(1.4, 1.3, 0.06), Vector3(float(wx), 2.6, -10.48), Color(0.4, 0.55, 0.65), false)
+	B.box(self, Vector3(2.4, 2.4, 0.08), Vector3(5.5, 1.3, -10.46), Color(0.3, 0.2, 0.12), false)  # ovi
+	var sign := B.sign_plate(self, "SALOISTEN KOULUKESKUS", Color(0.96, 0.94, 0.88), Color(0.15, 0.2, 0.4), 0.4, 48, Color(0.15, 0.2, 0.4))
+	sign.position = Vector3(-2.0, 3.9, -10.44)
+	# Verkkoaita tuolla puolen pihaa ja jalkapallomaali.
+	for i in 20:
+		B.mesh(self, B.cyl(0.03, 0.03, 1.8, 6), Vector3(-14.0 + i * 1.5, 0.9, -7.5), Color(0.45, 0.47, 0.5))
+	B.box(self, Vector3(30.0, 1.6, 0.02), Vector3(0.0, 0.9, -7.5), Color(0.6, 0.62, 0.65, 0.35), false)
+	for gx in [-9.0, -5.0]:
+		B.mesh(self, B.cyl(0.06, 0.06, 2.0, 8), Vector3(gx, 1.0, -6.0), Color.WHITE)
+	B.box(self, Vector3(4.0, 0.08, 0.08), Vector3(-7.0, 2.0, -6.0), Color.WHITE, false)
+
+
 func _build_hud() -> void:
 	_layer = CanvasLayer.new()
 	_layer.layer = 5
@@ -514,7 +551,7 @@ func _build_hud() -> void:
 	_layer.add_child(root)
 	for left in [true, false]:
 		var l := _big_label(root, 30)
-		l.text = "SÄÄ" if left else "SANTTU – pihapingismestari"
+		l.text = "SÄÄ" if left else ("%s – %s" % [opp_name, opp_title] if opp_title != "" else opp_name)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT
 		l.anchor_left = 0.0 if left else 0.5
 		l.anchor_right = 0.5 if left else 1.0

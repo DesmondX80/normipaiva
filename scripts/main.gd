@@ -1690,6 +1690,7 @@ func _outside_logic() -> void:
 	_olavi_logic()
 	_kuningas_logic()
 	_kanttori_logic()
+	_koulu_logic()
 	_kalastus_logic()
 	_reippari_logic()
 	_atm_logic()
@@ -5227,6 +5228,86 @@ var _kt_player: AudioStreamPlayer3D
 var _kt_choir: AudioStreamPlayer
 var _kt_phase := 0  # 0 ei soi, 1 teinien kaiutin, 2 urut
 var _kt_t := 0.0
+
+
+## Koulukeskuksen ulkopingis (#143): kylän nuoria vastaan iltapäivisin ja iltaisin samalla minipelillä kuin Santun kanssa (pingis_game.gd).
+## Voittaja saa mainetta, häviäjä tarjoaa limut (3 €).
+const NUORET_AIKA := Vector2(14 * 60, 21 * 60)
+const LIMU_HINTA := 3.0
+const NUORET_LOOK := {"shirt": Color(0.2, 0.55, 0.35), "pants": Color(0.2, 0.22, 0.4), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_SimpleParted",
+	"hair_color": Color(0.45, 0.3, 0.15), "height": 1.62, "skin": Color(0.96, 0.78, 0.7)}
+const PINGIS_NUORET_LINES := {
+	"intro": ["Setä pelaa pingistä? No tule!", "Ei oo voitettu meitä vielä koulun pihalla.", "Häviäjä tarjoaa limut!"],
+	"round_win": ["Jee, piste meille!", "Setä on ruosteessa.", "Meillä on ollu harjoitukset."],
+	"round_lose": ["No voi! Tuuripallo.", "Eihän se mennyt sisään!", "Okei, okei, hyvä lyönti."],
+	"win": ["Limut tänne, setä!", "Meistä tulee vielä mestareita."],
+	"lose": ["Setä on ihan ok. Mä hakee limut.", "Mikä lyönti! Pitää treenata lisää."],
+}
+var _pingis_nuoret_voitot := 0
+var _pingis_nuoret_day := -1
+
+
+func _koulu_logic() -> void:
+	if _hint.text != "" or world == null or world.pingis_ulko_pos == Vector3.ZERO or player != walker_out or player.is_stunned():
+		return
+	var p := player.global_position
+	if Vector2(p.x - world.pingis_ulko_pos.x, p.z - world.pingis_ulko_pos.z).length() > 2.6:
+		return
+	tilat.first("pingis_ulkopoyta", 0.0)
+	if not _between(clock_min, NUORET_AIKA):
+		_hint.text = "Ulkopingispöytä koulun pihalla. Nuoret tulevat iltapäivällä (14–21)."
+		return
+	_hint.text = "[E] Haasta kylän nuoret pihapingikseen (häviäjä tarjoaa limut, %s €)" % _eur(LIMU_HINTA)
+	if Input.is_action_just_pressed("interact"):
+		_start_pingis_nuoret()
+
+
+func _start_pingis_nuoret() -> void:
+	_mokki_prev = state
+	state = "cutscene"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	Sfx.play("pickup", -6.0, 1.3)
+	var game := PingisGame.new()
+	game.position = PINGIS_POS
+	game.venue = "koulu"
+	game.opp_name = "KYLÄN NUORET"
+	game.opp_title = ""
+	game.opp_look = NUORET_LOOK
+	game.opp_skill = minf(0.72 + 0.06 * _pingis_nuoret_voitot, 0.96)
+	game.opp_lines = PINGIS_NUORET_LINES
+	game.finished.connect(func(won: bool, me: int, him: int) -> void:
+		game.queue_free()
+		state = _mokki_prev
+		player.activate_camera()
+		player.controls_enabled = true
+		_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+		_hud.visible = true
+		tilat.first("pingis", 0.3)
+		tilat.add("stamina", -0.1)
+		tilat.add("nalka", -0.05)
+		var first_today := _pingis_nuoret_day != day
+		_pingis_nuoret_day = day
+		if won:
+			_pingis_nuoret_voitot += 1
+			tilat.first("pingis_nuoret_voitto", 0.3)
+			if first_today:
+				maine = clampf(maine + 3.0, 0.0, 100.0)
+				tilat.add("moraali", 0.15)
+				tilat.add("stressi", 0.1)
+			_show_message("Voitit nuoret %d–%d! Nuoret tarjoavat limut. Maine nousee: \"Setä on ihan ok.\"" % [me, him], 4.0)
+		else:
+			var paid := money >= LIMU_HINTA
+			if paid:
+				money -= LIMU_HINTA
+			elif first_today:
+				maine = clampf(maine - 2.0, 0.0, 100.0)
+			tilat.add("stressi", 0.05)
+			_show_message("Hävisit nuorille %d–%d. %s" % [me, him, "Tarjoat limut (%s €)." % _eur(LIMU_HINTA) if paid else "Rahat ei riitä limuihin, nuoret naureskelevat."], 4.0)
+		_save_game())
+	add_child(game)
 
 
 func _kanttori_tasks() -> Array:
@@ -15803,6 +15884,8 @@ func _load_game() -> void:
 	_danced = cfg.get_value("paivarajat", "tanssittu", {})
 	_kirppis_sold = cfg.get_value("paivarajat", "kirppis_myyty", {})
 	_kirppis_angry = cfg.get_value("paivarajat", "kirppis_suuttunut", {})
+	_pingis_nuoret_day = cfg.get_value("paivarajat", "pingis_nuoret", -1)
+	_pingis_nuoret_voitot = cfg.get_value("peli", "pingis_nuoret_voitot", 0)
 	_myynti_day = cfg.get_value("paivarajat", "kirppis_poyta", -1)
 	_myynti_ban = cfg.get_value("paivarajat", "kirppis_myyntikielto", -1)
 	_haaste_day = cfg.get_value("paivarajat", "piirakkahaaste", -1)
@@ -15911,6 +15994,8 @@ func _save_game() -> void:
 	cfg.set_value("paivarajat", "tanssittu", _danced)
 	cfg.set_value("paivarajat", "kirppis_myyty", _kirppis_sold)
 	cfg.set_value("paivarajat", "kirppis_suuttunut", _kirppis_angry)
+	cfg.set_value("paivarajat", "pingis_nuoret", _pingis_nuoret_day)
+	cfg.set_value("peli", "pingis_nuoret_voitot", _pingis_nuoret_voitot)
 	cfg.set_value("paivarajat", "kirppis_poyta", _myynti_day)
 	cfg.set_value("paivarajat", "kirppis_myyntikielto", _myynti_ban)
 	cfg.set_value("paivarajat", "piirakkahaaste", _haaste_day)
@@ -22578,6 +22663,76 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"koulukeskus":
+			# Koulukeskus, päiväkoti, kentät ja ulkopingis (#143): paikat, vihjeet kellonajan mukaan ja pingis nuoria vastaan
+			# (voitto ja tappio). Aja eristetyllä HOME:lla (tallennus). Kuvat vain ikkunallisena.
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var headless := DisplayServer.get_name() == "headless"
+			var snap_k := func(name: String) -> void:
+				if headless:
+					return
+				for i in 8:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var goto_k := func(at: Vector3) -> void:
+				walker_out.global_position = at + Vector3(0, 0.3, 0)
+				for i in 4:
+					await get_tree().physics_frame
+			var pt: Vector3 = world.pingis_ulko_pos
+			print("KO pöytä %s (px %s), koulu %s, päiväkoti %s" % [pt, M.to_px(pt), M.w(M.KOULUKESKUS), M.w(M.PAIVAKOTI)])
+			var cam_k := Camera3D.new()
+			cam_k.far = 1500.0
+			add_child(cam_k)
+			cam_k.current = true
+			var views := []
+			for spec in [["a_koulu", M.KOULUKESKUS, 3.4, 30.0], ["b_paivakoti", M.PAIVAKOTI, 2.7, 16.0]]:
+				var f: Dictionary = world._osm_fit_at(spec[1])
+				if f.is_empty():
+					continue
+				var nrm: Vector2 = f.nrm
+				var base: Vector2 = f.c + nrm * (f.d / 2.0 + spec[3])
+				var tgt: Vector2 = f.c + nrm * (f.d / 2.0)
+				views.append([spec[0], Vector3(base.x, Terrain.h(base.x, base.y) + 5.0, base.y), Vector3(tgt.x, Terrain.h(tgt.x, tgt.y) + spec[2], tgt.y), 55.0])
+			views.append(["c_kentta", M.w(M.KENTAT[0]) + Vector3(-5, 18, 28), M.w(M.KENTAT[0]), 55.0])
+			views.append(["d_pingis", pt + Vector3(0.0, 2.0, 5.5), pt + Vector3(0, 1.0, 0), 55.0])
+			for v in views:
+				cam_k.fov = v[3]
+				cam_k.look_at_from_position(v[1], v[2])
+				await snap_k.call("_%s.png" % v[0])
+			cam_k.current = false
+			player.activate_camera()
+			day = 3
+			clock_min = 10 * 60
+			await goto_k.call(pt + Vector3(0, 0, 1.2))
+			print("KO aamulla: '%s'" % _hint.text)
+			clock_min = 16 * 60
+			await goto_k.call(pt + Vector3(0, 0, 1.3))
+			print("KO iltapäivällä: '%s'" % _hint.text)
+			# Pingis: voitto (heti kokonaan) ja tappio
+			money = 10.0
+			maine = 20.0
+			_start_pingis_nuoret()
+			var g: Node3D = get_children().filter(func(c): return c is PingisGame)[0]
+			print("KO peli: paikka %s, vastustaja %s, taito %.2f" % [g.venue, g.opp_name, g.opp_skill])
+			await get_tree().create_timer(1.0).timeout
+			await snap_k.call("_e_peli.png")
+			g._rounds = [2, 0]
+			g._end_game()
+			await get_tree().create_timer(5.0).timeout
+			print("KO voitto: maine 20 -> %.0f, rahaa %s, voittoja %d, tila %s, viesti '%s'" % [maine, _eur(money), _pingis_nuoret_voitot, state, _msg.text.replace("\n", " ")])
+			day = 4
+			clock_min = 17 * 60
+			_start_pingis_nuoret()
+			g = get_children().filter(func(c): return c is PingisGame)[0]
+			print("KO toinen peli: taito %.2f" % g.opp_skill)
+			g._rounds = [0, 2]
+			g._end_game()
+			await get_tree().create_timer(5.0).timeout
+			print("KO tappio: rahaa 10 -> %s, tila %s, viesti '%s'" % [_eur(money), state, _msg.text.replace("\n", " ")])
+			get_tree().quit()
 		"kanttorinyosavel":
 			# Kanttorilan yösävel (#144): Hilkka kertoo, teinien kaiutin ja yösävel yöllä, harmooni huutokaupassa, Pirtin arkisto,
 			# kuoro- ja Veksi-haara sekä epäilijät. Aja eristetyllä HOME:lla (tallennus).
