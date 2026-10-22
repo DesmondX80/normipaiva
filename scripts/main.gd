@@ -14805,6 +14805,7 @@ func _start_rakaleima() -> void:
 	_compass.visible = false
 	tilat.first("rakaleima", 0.3)
 	_leima_day = day
+	CamCtl.free_mouse = true  # muuten kameraohjain lukitsee hiiren takaisin (mouse_look/steer) eikä käsi seuraa kursoria
 	_rakaleima = RakaleimaGame.new()
 	_rakaleima.drunk = tilat.value("humala")
 	_rakaleima.day_stamp = "%d.6." % (20 + (day % 3))
@@ -14814,6 +14815,7 @@ func _start_rakaleima() -> void:
 
 func _on_rakaleima_finished(res: Dictionary) -> void:
 	_rakaleima = null
+	CamCtl.free_mouse = false
 	state = _vaala_state
 	_hud.visible = true
 	_mopo_label.visible = true
@@ -21189,7 +21191,7 @@ func _maybe_screenshot() -> void:
 				for i in 5:
 					await get_tree().process_frame
 				var g: CanvasLayer = _rakaleima
-				print("RAKALEIMA %d peli käynnissä %s, tila %s" % [round_i, g != null, state])
+				print("RAKALEIMA %d peli käynnissä %s, tila %s, hiiri vapaana %s" % [round_i, g != null, state, CamCtl.free_mouse])
 				g._gaze = "away"
 				g._gaze_t = 100.0
 				if round_i == 0:
@@ -21216,6 +21218,7 @@ func _maybe_screenshot() -> void:
 				var t0 := Time.get_ticks_msec()
 				while _rakaleima != null and Time.get_ticks_msec() - t0 < 40000:
 					await get_tree().process_frame
+				print("RAKALEIMA %d hiiri vapautettu pelin jälkeen: %s" % [round_i, not CamCtl.free_mouse])
 				print("RAKALEIMA %d tulos: tila %s, lippu '%s', kopio %s, viesti '%s'" % [round_i, state, _lava_pass_now(), str(_lava_copy), _msg.text.replace("\n", " ")])
 				_lava_yard_logic()
 				print("RAKALEIMA %d portsari: cover %.2f peilikuva %s" % [round_i, _portsari.cover if _portsari != null else -1.0, _portsari.mirrored if _portsari != null else false])
