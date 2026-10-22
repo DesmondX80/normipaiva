@@ -118,6 +118,10 @@ func _gui(ev: InputEvent) -> void:
 		_lmb = ev.pressed
 		if not ev.pressed:
 			_release()
+
+
+# Näppäimet luetaan _inputissa: _root ei saa näppäimistön kohdistusta, joten gui_input ei näe niitä.
+func _input(ev: InputEvent) -> void:
 	if ev is InputEventKey and ev.pressed and not ev.echo and not _done:
 		match ev.keycode:
 			KEY_R:
