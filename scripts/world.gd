@@ -293,6 +293,7 @@ func build(step: Callable) -> void:
 	await step.call("Avataan K-Market", 0.5)
 	_build_shop()
 	_build_seuraintalo()
+	_build_kirkko()
 	_build_tokola()
 	_build_pirtti()
 	_build_reippari()
@@ -1282,6 +1283,206 @@ func _build_seuraintalo() -> void:
 	var ad := B.sign_plate(stand, "KIRPPIS +\nHUUTOKAUPPA\nklo 10–18", Color(1.0, 0.85, 0.15), Color(0.55, 0.08, 0.05), 0.2, 40,
 		Color(0.55, 0.08, 0.05), "Helvetica Neue")
 	ad.position = Vector3(0, 1.0, 0)
+
+
+## Saloisten kirkko, kellotapuli ja hautausmaa kartan länsilaidalla (#123). Kirkko: valkoinen puukirkko jyrkkine tummine
+## kattoineen, kuparinvihreä huippu risteineen ja tornin pääovi. Kellotapuli: punainen puutapuli, jonka avoimessa
+## kellokerroksessa riippuu kello. Hautausmaa: matala aita (tien ja polun kohdalta auki) ja hautakivirivit.
+## Tulevat legendat (palon yön pyhimys, Olavinmarkkinat, kellotapuli) tarvitsevat nämä.
+const KIRKKO_WALL := Color(0.94, 0.93, 0.88)
+const KIRKKO_ROOF := Color(0.2, 0.21, 0.24)
+const KIRKKO_COPPER := Color(0.33, 0.56, 0.5)
+const TAPULI_RED := Color(0.52, 0.14, 0.09)
+var kirkko_pos := Vector3.ZERO  # kirkon pääovi (tornin edusta)
+var tapuli_pos := Vector3.ZERO
+var hautausmaa_graves := 0  # hautakivien määrä (testinäkymä)
+
+
+func _build_kirkko() -> void:
+	var f := _osm_fit_at(M.KIRKKO)
+	if f.is_empty():
+		return
+	var l: float = f.l
+	var d: float = f.d
+	var h := 6.4
+	var root := Node3D.new()
+	root.position = Vector3(f.c.x, 0, f.c.y)  # _lift_node nostaa maastoon
+	root.rotation.y = f.yaw
+	add_child(root)
+	var body := StaticBody3D.new()
+	root.add_child(body)
+	B.mesh(root, B.boxm(Vector3(l + 0.4, 0.7, d + 0.4)), Vector3(0, 0.35, 0), Color(0.5, 0.5, 0.5))
+	B.mesh(root, B.boxm(Vector3(l, h - 0.7, d)), Vector3(0, 0.7 + (h - 0.7) / 2.0, 0), KIRKKO_WALL)
+	var prism := PrismMesh.new()
+	prism.size = Vector3(d + 1.8, 5.4, l + 1.8)
+	B.mesh(root, prism, Vector3(0, h + 2.7, 0), KIRKKO_ROOF, Vector3(0, 90, 0))
+	B.mesh(root, B.boxm(Vector3(l + 1.8, 0.2, d + 1.8)), Vector3(0, h + 0.05, 0), KIRKKO_WALL.darkened(0.25))
+	body.add_child(B.box_shape(Vector3(l, h, d), Vector3(0, h / 2.0, 0)))
+	# Korkeat ikkunat pitkillä sivuilla ja itäpäädyssä.
+	var glass := Color(0.14, 0.2, 0.3)
+	var n := maxi(3, int(l / 3.8))
+	for i in n:
+		var x := -l / 2.0 + 4.5 + (l - 7.0) * i / maxf(n - 1.0, 1.0)
+		for sgn in [-1.0, 1.0]:
+			B.mesh(root, B.boxm(Vector3(1.6, 3.8, 0.1)), Vector3(x, 3.7, sgn * (d / 2.0 + 0.03)), Color.WHITE)
+			B.mesh(root, B.boxm(Vector3(1.25, 3.4, 0.12)), Vector3(x, 3.7, sgn * (d / 2.0 + 0.05)), glass)
+			B.mesh(root, PrismMesh.new(), Vector3(x, 5.7, sgn * (d / 2.0 + 0.04)), glass, Vector3(0, 0, 0)).scale = Vector3(1.25, 0.6, 0.1)
+			B.mesh(root, B.boxm(Vector3(0.07, 3.4, 0.14)), Vector3(x, 3.7, sgn * (d / 2.0 + 0.06)), Color.WHITE)
+	B.mesh(root, B.boxm(Vector3(0.1, 3.0, 1.4)), Vector3(l / 2.0 + 0.03, 3.6, 0), glass)
+	# Länsitorni: valkoinen runko, äänirei'illä varustettu yläosa, kuparinvihreä huippu ja kulta-risti.
+	var tx := -l / 2.0 - 2.0
+	var th := 11.5
+	B.mesh(root, B.boxm(Vector3(5.2, th, 5.6)), Vector3(tx, th / 2.0, 0), KIRKKO_WALL)
+	body.add_child(B.box_shape(Vector3(5.2, th, 5.6), Vector3(tx, th / 2.0, 0)))
+	B.mesh(root, B.boxm(Vector3(5.5, 0.35, 5.9)), Vector3(tx, th, 0), KIRKKO_WALL.darkened(0.25))
+	for sgn in [-1.0, 1.0]:
+		B.mesh(root, B.boxm(Vector3(1.0, 2.6, 0.1)), Vector3(tx, th - 2.0, sgn * 2.85), glass)
+	B.mesh(root, B.boxm(Vector3(0.1, 2.6, 1.0)), Vector3(tx - 2.65, th - 2.0, 0), glass)
+	var spire := B.mesh(root, B.cyl(0.0, 3.9, 9.5, 4), Vector3(tx, th + 4.75, 0), KIRKKO_COPPER, Vector3(0, 45, 0))
+	spire.scale = Vector3(1.0, 1.0, 1.0)
+	B.mesh(root, B.sphere(0.35, 8), Vector3(tx, th + 9.6, 0), Color(0.85, 0.7, 0.25))
+	B.mesh(root, B.boxm(Vector3(0.14, 1.8, 0.14)), Vector3(tx, th + 10.6, 0), Color(0.85, 0.7, 0.25))
+	B.mesh(root, B.boxm(Vector3(0.9, 0.14, 0.14)), Vector3(tx, th + 10.9, 0), Color(0.85, 0.7, 0.25))
+	B.mesh(root, B.boxm(Vector3(0.14, 1.4, 0.14)), Vector3(l / 2.0 + 0.2, h + 5.6, 0), Color(0.85, 0.7, 0.25))  # itäpään risti
+	B.mesh(root, B.boxm(Vector3(0.8, 0.14, 0.14)), Vector3(l / 2.0 + 0.2, h + 5.9, 0), Color(0.85, 0.7, 0.25))
+	# Pääovi tornin länsipäädyssä: kaksipuolinen ruskea ovi, valkoiset karmit ja portaat.
+	var dx := tx - 2.6
+	B.mesh(root, B.boxm(Vector3(0.14, 3.5, 2.8)), Vector3(dx, 1.95, 0), Color.WHITE)
+	B.mesh(root, B.boxm(Vector3(0.16, 3.2, 1.2)), Vector3(dx - 0.02, 1.8, -0.62), Color(0.4, 0.22, 0.1))
+	B.mesh(root, B.boxm(Vector3(0.16, 3.2, 1.2)), Vector3(dx - 0.02, 1.8, 0.62), Color(0.4, 0.22, 0.1))
+	B.mesh(root, B.boxm(Vector3(1.4, 0.3, 3.4)), Vector3(dx - 0.7, 0.15, 0), Color(0.55, 0.55, 0.55))
+	var door_w := root.to_global(Vector3(dx - 2.4, 0, 0))
+	kirkko_pos = Vector3(door_w.x, T.h(door_w.x, door_w.z), door_w.z)
+	# Nimikyltti tien puolella: taustalevy ja reunus tolpassa.
+	var stand := Node3D.new()
+	stand.position = Vector3(-l / 2.0 + 1.5, 0, -d / 2.0 - 3.0)
+	root.add_child(stand)
+	for x in [-0.7, 0.7]:
+		B.mesh(stand, B.boxm(Vector3(0.08, 1.5, 0.08)), Vector3(x, 0.75, 0), Color(0.3, 0.3, 0.32))
+	var name_sign := B.sign_plate(stand, "SALOISTEN KIRKKO\nPyhän Olavin kirkko 1932", Color(0.96, 0.94, 0.88), Color(0.2, 0.15, 0.1), 0.3, 40,
+		Color(0.2, 0.15, 0.1), "Helvetica Neue")
+	name_sign.position = Vector3(0, 1.25, 0)
+	blockers.append([f.c, Vector2(l / 2.0, d / 2.0), f.yaw])
+	_add_house(f.c)
+	_build_tapuli()
+	_build_hautausmaa(f.c)
+
+
+## Kellotapuli (1786): punainen lautaverhoiltu tapuli, avoin kellokerros, kello ja jyrkkä huopakatto risteineen.
+func _build_tapuli() -> void:
+	var f := _osm_fit_at(M.KELLOTAPULI)
+	if f.is_empty():
+		return
+	var root := Node3D.new()
+	root.position = Vector3(f.c.x, 0, f.c.y)
+	root.rotation.y = f.yaw
+	add_child(root)
+	var body := StaticBody3D.new()
+	root.add_child(body)
+	var s := 5.2
+	B.mesh(root, B.boxm(Vector3(s + 0.3, 0.5, s + 0.3)), Vector3(0, 0.25, 0), Color(0.45, 0.45, 0.45))
+	B.mesh(root, B.boxm(Vector3(s, 3.4, s)), Vector3(0, 0.5 + 1.7, 0), TAPULI_RED)
+	body.add_child(B.box_shape(Vector3(s, 3.9, s), Vector3(0, 1.95, 0)))
+	for k in 6:  # pystylaudoitus
+		var o := -s / 2.0 + (k + 0.5) * s / 6.0
+		B.mesh(root, B.boxm(Vector3(0.05, 3.4, 0.05)), Vector3(o, 2.2, -s / 2.0 - 0.03), TAPULI_RED.darkened(0.25))
+	B.mesh(root, B.boxm(Vector3(1.1, 2.1, 0.1)), Vector3(0, 1.6, -s / 2.0 - 0.04), Color(0.2, 0.12, 0.08))  # ovi
+	B.mesh(root, B.boxm(Vector3(s + 0.5, 0.3, s + 0.5)), Vector3(0, 3.95, 0), TAPULI_RED.darkened(0.3))
+	# Avoin kellokerros: neljä pylvästä, kello ja poikkipalkki.
+	for px in [-1.0, 1.0]:
+		for pz in [-1.0, 1.0]:
+			B.mesh(root, B.boxm(Vector3(0.38, 3.0, 0.38)), Vector3(px * (s / 2.0 - 0.3), 5.6, pz * (s / 2.0 - 0.3)), TAPULI_RED)
+	B.mesh(root, B.boxm(Vector3(s - 0.4, 0.3, 0.3)), Vector3(0, 6.9, 0), TAPULI_RED.darkened(0.3))
+	B.mesh(root, B.cyl(0.2, 0.75, 1.0, 14), Vector3(0, 6.2, 0), Color(0.62, 0.45, 0.2))
+	B.mesh(root, B.sphere(0.12, 8), Vector3(0, 5.6, 0), Color(0.3, 0.25, 0.2))
+	B.mesh(root, B.cyl(0.0, s * 0.78, 3.6, 4), Vector3(0, 7.1 + 1.8, 0), Color(0.18, 0.15, 0.14), Vector3(0, 45, 0))
+	B.mesh(root, B.boxm(Vector3(0.1, 1.2, 0.1)), Vector3(0, 11.3, 0), Color(0.15, 0.12, 0.1))
+	B.mesh(root, B.boxm(Vector3(0.6, 0.1, 0.1)), Vector3(0, 11.55, 0), Color(0.15, 0.12, 0.1))
+	var door_w := root.to_global(Vector3(0, 0, -s / 2.0 - 1.5))
+	tapuli_pos = Vector3(door_w.x, T.h(door_w.x, door_w.z), door_w.z)
+	blockers.append([f.c, Vector2(s / 2.0, s / 2.0), f.yaw])
+	_add_house(f.c)
+
+
+## Hautausmaa (OSM-rajaus): matala puuaita, joka jää auki tien ja polun kohdalta, sekä hautakivet riveissä (osassa risti).
+func _build_hautausmaa(church: Vector2) -> void:
+	var poly := PackedVector2Array()
+	for q in M.HAUTAUSMAA:
+		poly.append(M.w2(q))
+	var white := Color(0.9, 0.88, 0.82)
+	var batch_for := func(p: Vector2) -> B.Batch:
+		return _batch_at(p)
+	for i in poly.size():
+		var a := poly[i]
+		var b := poly[(i + 1) % poly.size()]
+		var len := a.distance_to(b)
+		var dir := (b - a) / maxf(len, 0.01)
+		var yaw := -atan2(dir.y, dir.x)
+		var k := 0.0
+		while k < len:
+			var p := a + dir * k
+			var step := minf(2.0, len - k)
+			var mid := p + dir * step / 2.0
+			var rd := _nearest_road(mid)
+			var open: bool = not rd.is_empty() and mid.distance_to(rd[0]) < rd[1] + 1.5
+			if not open and not _near_way(mid, 1.5):
+				var batch: B.Batch = batch_for.call(mid)
+				batch.add(B.boxm(Vector3(0.1, 1.0, 0.1)), Transform3D(Basis(Vector3.UP, yaw), Vector3(p.x, 0.5, p.y)), white)
+				for y in [0.4, 0.85]:
+					batch.add(B.boxm(Vector3(step, 0.07, 0.05)), Transform3D(Basis(Vector3.UP, yaw), Vector3(mid.x, y, mid.y)), white)
+			k += 2.0
+	var stones := StaticBody3D.new()
+	add_child(stones)
+	var tower := M.w2(M.KELLOTAPULI)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1786
+	var bb := Rect2(poly[0], Vector2.ZERO)
+	for q in poly:
+		bb = bb.expand(q)
+	var row := 0
+	var z := bb.position.y + 3.0
+	while z < bb.end.y - 2.0:
+		var x := bb.position.x + 3.0 + (3.0 if row % 2 == 1 else 0.0)
+		while x < bb.end.x - 2.0:
+			var p := Vector2(x + rng.randf_range(-0.7, 0.7), z + rng.randf_range(-0.6, 0.6))
+			x += 5.5
+			if not Geometry2D.is_point_in_polygon(p, poly) or p.distance_to(church) < 17.0 or p.distance_to(tower) < 8.0:
+				continue
+			if _edge_dist(poly, p) < 2.5 or _near_way(p, 2.2):
+				continue
+			var yaw := PI / 2.0 + rng.randf_range(-0.08, 0.08)  # kasvot itään
+			var col := Color(0.52, 0.52, 0.5).lightened(rng.randf_range(-0.12, 0.18))
+			var batch: B.Batch = batch_for.call(p)
+			var tf := Transform3D(Basis(Vector3.UP, yaw), Vector3(p.x, 0.48, p.y))
+			if rng.randf() < 0.3:  # puuristi
+				var wood := Color(0.88, 0.85, 0.78)
+				batch.add(B.boxm(Vector3(0.1, 1.2, 0.1)), Transform3D(Basis(Vector3.UP, yaw), Vector3(p.x, 0.6, p.y)), wood)
+				batch.add(B.boxm(Vector3(0.1, 0.1, 0.7)), Transform3D(Basis(Vector3.UP, yaw), Vector3(p.x, 0.95, p.y)), wood)
+			else:
+				batch.add(B.boxm(Vector3(0.14, 0.95, 0.55)), tf, col)
+				batch.add(B.boxm(Vector3(0.9, 0.06, 1.8)), Transform3D(Basis(Vector3.UP, yaw), Vector3(p.x + 0.7, 0.03, p.y)), Color(0.3, 0.38, 0.25))  # hauta-alue
+			stones.add_child(B.box_shape(Vector3(0.5, 1.0, 0.5), Vector3(p.x, 0.5, p.y)))
+			hautausmaa_graves += 1
+		z += 5.0
+		row += 1
+
+
+## Onko lähellä (r m) mitä tahansa tietä tai polkua (myös polut, joita _nearest_road ei huomioi).
+func _near_way(p: Vector2, r: float) -> bool:
+	var key := Vector2i(floori(p.x / CELL), floori(p.y / CELL))
+	for s in _seg_grid.get(key, []):
+		var c := Geometry2D.get_closest_point_to_segment(p, s[0], s[1])
+		if p.distance_to(c) - s[2] < r:
+			return true
+	return false
+
+
+static func _edge_dist(poly: PackedVector2Array, p: Vector2) -> float:
+	var best := INF
+	for i in poly.size():
+		var c := Geometry2D.get_closest_point_to_segment(p, poly[i], poly[(i + 1) % poly.size()])
+		best = minf(best, p.distance_to(c))
+	return best
 
 
 ## Tokola (#120): kauppiaan vanha varasto (harmaantunut lautarakennus, ruosteinen peltikatto ja ovi, haalistunut

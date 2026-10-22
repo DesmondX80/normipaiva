@@ -10286,7 +10286,7 @@ func _edge_logic() -> void:
 	_edge_cd = 25.0
 	var px := M.to_px(p)
 	var side := "any"
-	if px.x < 25.0:
+	if px.x < M.MAP_MIN.x + 25.0:
 		side = "west"
 	elif px.y < M.MAP_MIN.y + 25.0:
 		side = "north"
@@ -21636,6 +21636,45 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"kirkko":
+			# Saloisten kirkko, kellotapuli ja hautausmaa kartan länsilaidalla (#123): kuvat eri suunnista (vain ikkunallisena,
+			# headlessinä ohitetaan), hautakivien määrä, kartan länsireuna ja vanhan alueen rajan (x = 0) yli kulkevat tiet.
+			_note.visible = false
+			_hud.visible = false
+			var headless := DisplayServer.get_name() == "headless"
+			var snap_kk := func(name: String) -> void:
+				if headless:
+					return
+				for i in 8:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var cam_kk := Camera3D.new()
+			cam_kk.far = 1500.0
+			add_child(cam_kk)
+			cam_kk.current = true
+			var kk := M.w(M.KIRKKO)
+			var tp := M.w(M.KELLOTAPULI)
+			print("KIRKKO kirkko %s (px %s), tapuli %s, hautakiviä %d, pääovi %s, tapulin ovi %s" % [kk, M.to_px(kk), tp, world.hautausmaa_graves, world.kirkko_pos, world.tapuli_pos])
+			print("KIRKKO pelialue: %s, länsireuna px x %.0f" % [M.PLAY_AREA, M.MAP_MIN.x])
+			for v in [["a_etelasta", kk + Vector3(-30, 14, 38), kk + Vector3(0, 5, 0), 55.0], ["b_torni", kk + Vector3(-34, 5.5, 6), kk + Vector3(-16, 7, 0), 45.0],
+					["c_tapuli", tp + Vector3(-9, 4.5, -10), tp + Vector3(0, 5, 0), 50.0], ["d_hautausmaa", M.w(Vector2(-175, 470)) + Vector3(0, 95, 55),
+					M.w(Vector2(-175, 475)), 55.0], ["e_lansireuna", M.w(Vector2(-195, 470)) + Vector3(6, 3, 0), M.w(Vector2(-260, 470)) + Vector3(0, 4, 0), 70.0],
+					["f_maasta", M.w(Vector2(-160, 505)) + Vector3(0, 1.7, 0), M.w(Vector2(-135, 483)) + Vector3(0, 4, 0), 70.0]]:
+				cam_kk.fov = v[3]
+				cam_kk.look_at_from_position(v[1], v[2])
+				await snap_kk.call("_%s.png" % v[0])
+			var w_roads := 0
+			for r in M.Osm.ROADS:
+				var west := false
+				var east := false
+				for q in r.pts:
+					west = west or q.x < -10.0
+					east = east or q.x > 10.0
+				if west and east:
+					w_roads += 1
+			print("KIRKKO rajan yli kulkevia teitä: %d" % w_roads)
+			get_tree().quit()
 		"drakkar":
 			# Drakkar Noir: pullo Railin pöydällä, osto, legendaarinen hetki, suihkaus, Sinikan ja Päivin reaktiot ja
 			# tanssibonus. Tallennus palautetaan lopuksi.

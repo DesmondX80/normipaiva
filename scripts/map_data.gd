@@ -21,9 +21,9 @@ const Osm := preload("res://scripts/map_osm.gd")
 const SCALE := 1.0
 const ORIGIN := Vector2(450, 800)
 ## Kartan kulmat: MAP_MIN (luoteiskulma) ja SIZE (kaakkoiskulma). Kartta jatkuu pohjoiseen negatiivisiin
-## y-pikseleihin (Seuranmäki, Saloisten Reippari, Tokola ja Tokolanperän rossirata), jotta vanhat paikat pysyvät
-## ennallaan.
-const MAP_MIN := Vector2(0, -900)
+## y-pikseleihin (Seuranmäki, Saloisten Reippari, Tokola ja Tokolanperän rossirata) ja länteen negatiivisiin
+## x-pikseleihin (Saloisten kirkko, kellotapuli ja hautausmaa), jotta vanhat paikat pysyvät ennallaan.
+const MAP_MIN := Vector2(-250, -900)
 const SIZE := Vector2(1620, 3960)
 ## Pelialue: koko kartta suorakaiteena (0..1620 × -900..3960): Seuranmäki ja Tokola pohjoisessa, kylä,
 ## Antinsuonkangas, koillisen asuinalue ja etelän Haapajärven tekojärven ranta kodalle. Reunoilla näkymätön seinä.
@@ -62,6 +62,13 @@ const LAWN_AXIS := HOME_YAW_DIR
 const MOWER_PARK := Vector2(798.4, 1192.1)  # ruohonleikkurin paikka nurmikon eteläreunalla
 ## Saloisten seuraintalo Seuranmäellä (OSM-rakennus): kirpputori ja huutokauppa sisällä (kirppis_interior.gd).
 const SEURAINTALO := Vector2(394.3, -272.8)
+## Saloisten kirkko (OSM, nykyinen kirkko valmistui 1932), kellotapuli (OSM, 1786) ja hautausmaa (OSM landuse=cemetery)
+## kartan länsilaidalla (#123). Kirkko ja kellotapuli ovat oma malli (world.gd _build_kirkko), hautausmaan rajaus
+## on OSM-monikulmio.
+const KIRKKO := Vector2(-132.1, 482.1)
+const KELLOTAPULI := Vector2(-144.4, 515.8)
+const HAUTAUSMAA := [Vector2(-224.8, 517.6), Vector2(-232.8, 397.6), Vector2(-224.2, 393.3), Vector2(-110.6, 457.6),
+	Vector2(-116.3, 474.5), Vector2(-136.9, 541.5), Vector2(-145.1, 567.6)]
 ## Saloisten Reippari, grillikioski seuraintalon vieressä (OSM retail-rakennus, amenity=fast_food) (#115).
 const REIPPARI := Vector2(432.8, -282.4)
 ## Aaron kissan Miisun mahdolliset piilopaikat Tokolan ympäristössä (ilmoitustaulun sivutehtävä).
@@ -131,7 +138,7 @@ const NEIGHBOR_SINIKKA := Vector2(855.5, 1204.2)
 const MAILBOX := Vector2(814, 1169)
 ## OSM-rakennukset, joiden tilalle tehdään oma malli (koti, autotalli, naapurit, kauppa).
 const OWN_BUILDINGS := [Vector2(812.4, 1177.9), GARAGE, NEIGHBOR_ARTO, NEIGHBOR_PEKKA, NEIGHBOR_SINIKKA,
-	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO, REIPPARI, PUKUKOPPI, SEO_KATOS, SEO, KATSASTUS, ARTTIM, RUDUS, HONGAN_KOULU, SEPPO, SAASTOPIHA, KORPELA, HEISKANEN, HUHTALA]
+	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO, REIPPARI, KIRKKO, KELLOTAPULI, PUKUKOPPI, SEO_KATOS, SEO, KATSASTUS, ARTTIM, RUDUS, HONGAN_KOULU, SEPPO, SAASTOPIHA, KORPELA, HEISKANEN, HUHTALA]
 
 ## type: highway | road | street | path. h = katuvalot/kylämäisyys tien varrella (0..1).
 ## Tiet ja polut: Osm.ROADS (OpenStreetMap). Tässä vain käsin tehdyt laavupolut (laavu ei ole OSM:ssä).

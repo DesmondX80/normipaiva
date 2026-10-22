@@ -4,6 +4,8 @@ Hae ote ensin (ks. LUEMINUT.md), esim.
   https://api.openstreetmap.org/api/0.6/map?bbox=24.43,64.595,24.53,64.672  ->  map.osm
 Ajo:  python tools/kartta/kyla_osm.py --osm C:/polku/map.osm
       python tools/kartta/kyla_osm.py --osm C:/polku/map.osm --pohjoinen
+--lansi vie vastaavasti läntisen laajennuksen (px x -260..-60, kirkko, tapuli ja hautausmaa; ote bbox
+24.447,64.610,24.457,64.667 kolmena leveyspiirikaistana).
 --pohjoinen vie vain pohjoisen laajennuksen (px y -960..-60) ja liittää sen olemassa olevan map_osm.gd:n osioiden
 loppuun, jolloin vanhan alueen kohteet pysyvät täsmälleen ennallaan (tuore ote ketjuttaa ja pyöristää muutaman
 vanhan kohteen hieman eri tavalla). Saumassa y = -60 kohteet leikataan samasta raakageometriasta kuin vanhassa.
@@ -25,12 +27,18 @@ def main():
     ap.add_argument("--osm", required=True)
     ap.add_argument("--out", default=os.path.join(ROOT, "scripts", "map_osm.gd"))
     ap.add_argument("--pohjoinen", action="store_true")
+    ap.add_argument("--lansi", action="store_true")
     a = ap.parse_args()
     o = Osm(a.osm)
     print(o.summary())
     if a.pohjoinen:
         tmp = os.path.join(tempfile.mkdtemp(), "pohjoinen.gd")
         print(o.export_gd(tmp, -60, -960, 1700, -60))
+        _append_sections(a.out, tmp)
+        return
+    if a.lansi:
+        tmp = os.path.join(tempfile.mkdtemp(), "lansi.gd")
+        print(o.export_gd(tmp, -260, -960, -60, 4100))
         _append_sections(a.out, tmp)
         return
     # Koko kartan alue: tiet, metsät, pellot, suot, vedet, purot ja rakennukset. Käsin tehdyt ovat vain laavu,
