@@ -19,6 +19,7 @@ var spots := {
 	"kelat": [Vector3(2.9, 0, -1.6), "[E] Ruosteiset rautalankakelat"],
 	"hylly": [Vector3(0.6, 0, -2.3), "[E] Kauppiaan hylly: vanhoja kirjoja ja kuitteja"],
 	"lankku": [Vector3(-0.9, 0, 0.4), ""],  # vihje main.gd:stä (tilikirjan piirros)
+	"orsi": [Vector3(-3.2, 0, 1.0), ""],  # Palon yön pyhimys (#125): kääre orrella, vihje main.gd:stä
 }
 
 signal exited
@@ -34,6 +35,7 @@ var _box: Node3D
 var _coils: Node3D
 var _book: Node3D
 var _plank: MeshInstance3D
+var _saint: Node3D
 
 
 func _ready() -> void:
@@ -63,7 +65,8 @@ func block_interact() -> void:
 
 
 ## Löydöt pois näkyvistä (main.gd tilan mukaan).
-func set_taken(box: bool, coils: bool, book: bool, plank_open: bool) -> void:
+func set_taken(box: bool, coils: bool, book: bool, plank_open: bool, saint_shown := false) -> void:
+	_saint.visible = saint_shown
 	_box.visible = not box
 	_coils.visible = not coils
 	_book.visible = not book
@@ -153,6 +156,14 @@ func _build() -> void:
 	add_child(_book)
 	B.mesh(_book, B.boxm(Vector3(0.32, 0.06, 0.24)), Vector3.ZERO, Color(0.35, 0.12, 0.1))
 	B.mesh(_book, B.boxm(Vector3(0.3, 0.05, 0.22)), Vector3(0.01, 0.0, 0.0), Color(0.9, 0.85, 0.7))
+	# Aitan orsi länsiseinällä ja siinä nahkaan kiedottu kääre (pieni pyhimys, vasta kun Aaro on muistanut aitan).
+	B.mesh(self, B.boxm(Vector3(0.22, 0.22, 3.4)), Vector3(-HALF.x + 0.4, 2.35, 0.6), Color(0.3, 0.22, 0.15))
+	_saint = Node3D.new()
+	_saint.position = Vector3(-HALF.x + 0.4, 2.46, 1.0)
+	add_child(_saint)
+	B.mesh(_saint, B.cyl(0.07, 0.07, 0.42, 10), Vector3(0, 0.12, 0), Color(0.5, 0.38, 0.25), Vector3(90, 0, 0))
+	B.mesh(_saint, B.cyl(0.075, 0.075, 0.05, 10), Vector3(0, 0.12, 0.1), Color(0.35, 0.25, 0.15), Vector3(90, 0, 0))
+	_saint.visible = false
 	# Vanha tiski ja vaaka oven vieressä.
 	_solid(Vector3(1.6, 0.9, 0.5), Vector3(2.4, 0.45, 1.6), BOARD.lightened(0.1))
 	B.mesh(self, B.cyl(0.18, 0.2, 0.25, 12), Vector3(2.3, 1.05, 1.6), Color(0.6, 0.55, 0.45))

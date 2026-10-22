@@ -28,6 +28,7 @@ const ENDINGS := [
 	["kertun_rauta", "Viimeisen sepän kirves", "Kertunkankaan legenda todistettu: Raimo oli oikeassa, ja Veikko tarjosi."],
 	["tekojarven_ukko", "Tekojärven Ukko", "18,4 kilon hauki täytettynä Saloisten Pirtissä. Tauno itki vähän."],
 	["drakkar", "Drakkar Noir", "Ysärin legendaarinen tuoksu Railin kirppispöydältä. Puolikas pullo, ja koko Saloinen haistaa."],
+	["palon_pyhimys", "Palon yön pyhimys", "Pieni puinen pyhimys palasi kirkkoon 1930-luvun palon jälkeen. Suvun nimi pysyi salassa, ja kynttilä sammui."],
 	["ukko_vapaa", "Ukko vapaaksi", "Tekojärven Ukko ui takaisin ladon raunioille. Tauno tarjosi kahvit."],
 ]
 
