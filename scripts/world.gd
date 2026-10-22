@@ -296,6 +296,7 @@ func build(step: Callable) -> void:
 	_build_kirkko()
 	_build_kanttorila()
 	_build_koulukeskus()
+	_build_lemmikki()
 	_build_tokola()
 	_build_pirtti()
 	_build_reippari()
@@ -1302,6 +1303,10 @@ const KIRKKO_COPPER := Color(0.33, 0.56, 0.5)
 const TAPULI_RED := Color(0.52, 0.14, 0.09)
 var kirkko_pos := Vector3.ZERO  # kirkon pääovi (tornin edusta)
 var tapuli_pos := Vector3.ZERO
+var lehto_pos := Vector3.ZERO  # Lemmikki Enkelien muistolehto: muistokyltin paikka (#148)
+var lehto_penkki_pos := Vector3.ZERO
+var lehto_portti_pos := Vector3.ZERO
+var lehto_plate: Node3D  # Pörrön muistokyltti (näkyy tehtävän jälkeen)
 var pingis_ulko_pos := Vector3.ZERO  # ulkopingispöytä (#143)
 var kanttorila_pos := Vector3.ZERO  # Kanttorilan pihan etuosa (yösävel)
 var kauppias_pos := Vector3.ZERO  # kauppiaan hauta
@@ -1611,6 +1616,76 @@ func _build_pitch(c: Vector2, w: float, d: float) -> void:
 			batch.add(B.boxm(Vector3(0.12, 2.0, 0.12)), Transform3D(Basis.IDENTITY, Vector3(c.x + gx, 1.0, c.y + z)), white)
 		batch.add(B.boxm(Vector3(0.12, 0.12, 3.8)), Transform3D(Basis.IDENTITY, Vector3(c.x + gx, 2.0, c.y)), white)
 		batch.add(B.boxm(Vector3(1.4, 2.0, 0.03)), Transform3D(Basis.IDENTITY, Vector3(c.x + gx + sgn * 0.7, 1.0, c.y)), Color(0.85, 0.85, 0.85, 0.5))
+
+
+## Pieneläintuhkaamo Lemmikki Enkelit (#148): nimikyltti, pastellisävyinen pihapiiri ja muistolehto (matala valkoinen aita, penkki,
+## kynttilälyhdyt ja lemmikkien nimikyltit). Sävy lämmin ja rauhallinen.
+func _build_lemmikki() -> void:
+	var f := _osm_fit_at(M.LEMMIKKI)
+	if f.is_empty():
+		return
+	var nrm: Vector2 = f.nrm
+	var front: Vector2 = f.c + nrm * (f.d / 2.0)
+	var root := Node3D.new()
+	root.position = Vector3(front.x, 0, front.y)
+	root.rotation.y = f.yaw
+	add_child(root)
+	var plate := B.sign_plate(root, "LEMMIKKI ENKELIT\nPieneläintuhkaamo", Color(0.5, 0.3, 0.42), Color(1.0, 0.95, 0.92), 0.8, 64, Color(0.96, 0.88, 0.88), "Helvetica Neue")
+	plate.position = Vector3(0, 2.7, -0.06)
+	for sx in [-1.0, 1.0]:  # enkelinsiivet kyltin sivuilla
+		var w := B.mesh(root, B.boxm(Vector3(0.9, 0.12, 0.05)), Vector3(sx * 1.9, 2.95, -0.07), Color(0.98, 0.97, 0.95))
+		w.rotation_degrees.z = sx * -18.0
+		var w2 := B.mesh(root, B.boxm(Vector3(0.7, 0.1, 0.05)), Vector3(sx * 1.85, 2.72, -0.07), Color(0.95, 0.94, 0.92))
+		w2.rotation_degrees.z = sx * -8.0
+	B.mesh(root, B.boxm(Vector3(0.55, 3.6, 0.55)), Vector3(f.l / 2.0 - 1.4, 5.0, f.d * 0.0 + (f.d / 2.0) * 0.4), Color(0.9, 0.88, 0.84))  # piippu
+	# Muistolehto rakennuksen edessä: paikallinen -Z = poispäin rakennuksesta.
+	var g := Node3D.new()
+	g.position = Vector3(0, 0, -7.5)
+	root.add_child(g)
+	B.mesh(g, B.boxm(Vector3(2.0, 0.04, 9.0)), Vector3(0, 0.03, 3.5), Color(0.72, 0.66, 0.58))  # sorapolku
+	var white := Color(0.96, 0.95, 0.92)
+	var hw := 5.5
+	var hd := 4.4
+	for sx in [-hw, hw]:  # aita sivuilla ja takana, edessä portti
+		B.mesh(g, B.boxm(Vector3(0.06, 0.45, hd * 2.0)), Vector3(sx, 0.4, 0), white)
+		B.mesh(g, B.boxm(Vector3(0.06, 0.2, hd * 2.0)), Vector3(sx, 0.75, 0), white)
+	B.mesh(g, B.boxm(Vector3(hw * 2.0, 0.45, 0.06)), Vector3(0, 0.4, -hd), white)
+	B.mesh(g, B.boxm(Vector3(hw * 2.0, 0.2, 0.06)), Vector3(0, 0.75, -hd), white)
+	for kx in range(-5, 6):  # aitatolpat
+		B.mesh(g, B.boxm(Vector3(0.1, 0.95, 0.1)), Vector3(float(kx), 0.48, -hd), white)
+	# Penkki taustalla, katse rakennukseen.
+	var wood := Color(0.55, 0.38, 0.22)
+	B.box(g, Vector3(1.8, 0.08, 0.5), Vector3(0, 0.5, -3.2), wood)
+	B.box(g, Vector3(1.8, 0.5, 0.06), Vector3(0, 0.78, -3.45), wood)
+	for lx in [-0.8, 0.8]:
+		B.mesh(g, B.boxm(Vector3(0.08, 0.5, 0.45)), Vector3(lx, 0.25, -3.2), wood.darkened(0.2))
+	var bp := g.to_global(Vector3(0, 0, -2.0))
+	lehto_penkki_pos = Vector3(bp.x, T.h(bp.x, bp.z), bp.z)
+	var cp := g.to_global(Vector3(0, 0, 0.5))
+	lehto_pos = Vector3(cp.x, T.h(cp.x, cp.z), cp.z)
+	var gp := g.to_global(Vector3(0, 0, 4.2))
+	lehto_portti_pos = Vector3(gp.x, T.h(gp.x, gp.z), gp.z)
+	# Kynttilälyhdyt ja nimikyltit tolpissa: Misu, Rekku, Nalle ja (tehtävän jälkeen) Pörrö.
+	for k in 4:
+		var x := -3.6 + k * 2.4
+		var post := Node3D.new()
+		post.position = Vector3(x, 0, -0.6)
+		g.add_child(post)
+		B.mesh(post, B.boxm(Vector3(0.07, 0.8, 0.07)), Vector3(0, 0.4, 0), wood)
+		var nm := B.sign_plate(post, ["Misu", "Rekku", "Nalle", "Pörrö"][k], Color(0.96, 0.92, 0.86), Color(0.35, 0.18, 0.28), 0.22, 36, Color(0.5, 0.35, 0.3), "Helvetica Neue")
+		nm.position = Vector3(0, 0.92, 0.0)
+		nm.rotation.y = PI
+		var lan := B.mesh(post, B.cyl(0.07, 0.07, 0.14, 8), Vector3(0.28, 0.07, 0.1), Color(0.8, 0.2, 0.15))
+		lan.material_override = B.unshaded(Color(1.0, 0.8, 0.4))
+		if k == 3:
+			lehto_plate = post
+			post.visible = false
+	var lantern_l := OmniLight3D.new()
+	lantern_l.light_color = Color(1.0, 0.8, 0.5)
+	lantern_l.omni_range = 5.0
+	lantern_l.light_energy = 0.7
+	lantern_l.position = Vector3(0, 0.6, -0.5)
+	g.add_child(lantern_l)
 
 
 ## Saloisten Kanttorila (#144): OSM-talo tulee yleisestä rakennuslistasta, tähän vain nimikyltti seinään ja pihan etuosan paikka.
