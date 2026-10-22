@@ -3887,10 +3887,8 @@ func _rossi_finish() -> void:
 func _rossi_update_clock() -> void:
 	if world == null:
 		return
-	for l in world.find_children("Kello", "Node3D", true, false):
-		for lab in l.find_children("*", "Label3D", true, false):
-			(lab as Label3D).text = "ENNÄTYS %s%s" % [_laptime(_rossi_best) if _rossi_won and _rossi_best <= ROSSI_RECORD else _laptime(ROSSI_RECORD),
-				"\nOMA %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""]
+	world.set_rossi_clock("ENNÄTYS %s%s" % [_laptime(_rossi_best) if _rossi_won and _rossi_best <= ROSSI_RECORD else _laptime(ROSSI_RECORD),
+		"\nOMA %s" % _laptime(_rossi_best) if _rossi_best > 0.0 else ""])
 
 
 ## --- Juntti kiertää paikkojaan: kun pelaaja lähestyy jotakin Juntin paikkaa (JUNTTI_SPOTS) ja Juntti on kaukana
