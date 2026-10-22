@@ -408,7 +408,7 @@ func _draw_dish(dc: Vector2) -> void:
 		_root.draw_line(gp - Vector2(0, gs), gp + Vector2(0, gs), Color.WHITE, 3.0)
 
 
-## Tiskiharja keltaisessa kumihanskassa: kahva reikineen, harjaspää, hanska ranteesta ruudun reunaan.
+## Tiskiharja: kahva ripustusreikineen ja harjaspää harjaksineen.
 func _draw_brush(dc: Vector2) -> void:
 	var bx := dc + Vector2(_last_dir * 40.0 * _wobble, 20 + sin(_t * 3.0) * 6.0)
 	var tilt := -0.35 + _last_dir * 0.15 * _wobble
@@ -426,29 +426,6 @@ func _draw_brush(dc: Vector2) -> void:
 	_root.draw_line(bx + dir * 30.0, top, Color(0.85, 0.2, 0.2), 20.0)
 	_root.draw_line(bx + dir * 30.0 + Vector2(-5, 0), top + Vector2(-5, 0), Color(1.0, 0.5, 0.45), 4.0)
 	_root.draw_circle(top - dir * 14.0, 5.0, Color(0.3, 0.06, 0.06))  # ripustusreikä
-	# Kumihanskainen käsi tarttuu kahvaan; kyynärvarsi ja tuulipuvun hiha jatkuvat ruudun oikeaan alakulmaan.
-	var grip := bx + dir * 112.0
-	var glove := Color(0.98, 0.82, 0.15)
-	var wrist := grip + Vector2(70, 95)
-	var elbow := grip + Vector2(420, 560)  # ruudun ulkopuolella
-	var fw := (elbow - wrist).normalized()
-	var side := Vector2(-fw.y, fw.x)
-	var sleeve := PackedVector2Array([wrist + fw * 40.0 + side * 44.0, elbow + side * 60.0, elbow - side * 60.0, wrist + fw * 40.0 - side * 44.0])
-	_root.draw_colored_polygon(sleeve, Color(0.05, 0.6, 0.6))
-	_root.draw_polyline(sleeve, MG.OUTLINE, 2.5)
-	_root.draw_line(wrist + fw * 70.0 + side * 20.0, elbow + side * 26.0, Color(0.45, 0.2, 0.55), 12.0)  # tuulipuvun raita
-	var arm := PackedVector2Array([grip + side * 22.0, wrist + side * 30.0, wrist + fw * 44.0 + side * 40.0,
-		wrist + fw * 44.0 - side * 40.0, wrist - side * 30.0, grip - side * 22.0])
-	_root.draw_colored_polygon(arm, glove.darkened(0.06))
-	_root.draw_polyline(arm, MG.OUTLINE, 2.5)
-	_root.draw_line(grip + side * 12.0, wrist + side * 18.0, glove.lightened(0.35), 6.0)
-	_root.draw_line(wrist + fw * 36.0 + side * 38.0, wrist + fw * 36.0 - side * 38.0, glove.darkened(0.25), 3.0)  # hanskan suu
-	MG.box(_root, Rect2(grip + Vector2(-30, -30), Vector2(64, 60)), glove, 26, 4, MG.OUTLINE, 2)
-	for k in 3:  # sormet kahvan ympärillä
-		MG.box(_root, Rect2(grip + Vector2(-38, -22 + k * 16), Vector2(28, 15)), glove.darkened(0.04), 7, 0, MG.OUTLINE, 2)
-	MG.box(_root, Rect2(grip + Vector2(-2, -42), Vector2(20, 30)), glove.darkened(0.06), 10, 0, MG.OUTLINE, 2)  # peukalo
-	for k in 3:  # pitopinnan kuvio
-		_root.draw_line(grip + Vector2(8 + k * 8, 2), grip + Vector2(12 + k * 8, 20), glove.darkened(0.2), 2.0)
 
 
 ## Pudonnut astia: sirpaleet lentävät ja KRÄSH.

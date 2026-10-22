@@ -23,8 +23,6 @@ const EYE := Vector3(0.0, 1.0, -0.9)
 const LAHO := Color(0.42, 0.41, 0.36)  # harmaantunut, laho
 const FRESH := Color(0.78, 0.74, 0.5)  # painekyllästetty, vihertävä
 const NAIL := Color(0.62, 0.62, 0.64)
-const SKIN := Color(0.93, 0.74, 0.6)
-const SLEEVE := Color(0.05, 0.55, 0.58)  # tuulipuku
 const STEEL := Color(0.3, 0.31, 0.34)
 
 const LINES := {
@@ -59,8 +57,6 @@ var thumbs := 0
 
 var _hammer: Node3D
 var _bar: Node3D  # sorkkarauta: kädessä, kun tähtäin on lahossa laudassa
-var _nail_hand: Node3D  # vasen käsi pitelee naulaa (siinä on se peukalo)
-var _nail_arm: Node3D  # vasemman käden kyynärvarsi ja hiha olkapäähän (-Z kohti olkapäätä, scale.z = pituus)
 var _swing_t := -1.0
 var _idle_t := 0.0
 var _flash: ColorRect
@@ -152,17 +148,45 @@ func _start() -> void:
 
 
 func _build_hammer() -> void:
-	# Kirvesmiehen vasara: puuvarsi kumikahvalla, teräspää lyöntipintoineen ja naulanvetokynsi.
+	# Kynsivasara (kuten kuvassa): kromattu teräsvarsi, musta kumikahva levennetyllä päällä, pää kauloineen ja
+	# pyöreine lyöntipintoineen sekä alas kaartuva, halki menevä naulanvetokynsi. Varsi = +Y, lyöntipinta = +X.
 	_hammer = Node3D.new()
 	_cam.add_child(_hammer)
-	B.mesh(_hammer, B.cyl(0.013, 0.017, 0.32, 10), Vector3(0, 0.16, 0), Color(0.78, 0.6, 0.36))
-	B.mesh(_hammer, B.cyl(0.019, 0.019, 0.11, 10), Vector3(0, 0.07, 0), Color(0.12, 0.12, 0.13))  # kahva
-	B.mesh(_hammer, B.boxm(Vector3(0.07, 0.032, 0.03)), Vector3(0.0, 0.33, 0), STEEL)
-	B.mesh(_hammer, B.cyl(0.018, 0.018, 0.03, 12), Vector3(0.045, 0.33, 0), STEEL.lightened(0.35), Vector3(0, 0, 90))  # lyöntipinta
-	for side in [-1.0, 1.0]:  # kynnen piikit taipuvat alas
-		B.mesh(_hammer, B.boxm(Vector3(0.06, 0.012, 0.009)), Vector3(-0.055, 0.322, side * 0.008), STEEL.darkened(0.2), Vector3(0, 0, -25))
-	B.mesh(_hammer, B.boxm(Vector3(0.05, 0.004, 0.031)), Vector3(0.0, 0.347, 0), STEEL.lightened(0.5))  # kiilto
-	_fist(_hammer, Vector3(0, 0.07, 0))
+	var chrome := StandardMaterial3D.new()
+	chrome.albedo_color = Color(0.82, 0.83, 0.85)
+	chrome.metallic = 0.55  # tasaiset pinnat heijastaisivat muuten pelkkää sinistä taivasta
+	chrome.roughness = 0.32
+	var rubber := Color(0.09, 0.09, 0.1)
+	var parts: Array = [B.mesh(_hammer, B.cyl(0.0105, 0.0105, 0.17, 12), Vector3(0, 0.245, 0), Color.WHITE)]  # varsi
+	B.mesh(_hammer, B.cyl(0.0145, 0.0185, 0.17, 12), Vector3(0, 0.085, 0), rubber)  # kumikahva levenee alas
+	B.mesh(_hammer, B.cyl(0.0205, 0.019, 0.016, 12), Vector3(0, 0.0, 0), rubber)  # levennetty pää
+	B.mesh(_hammer, B.cyl(0.0175, 0.0175, 0.006, 12), Vector3(0, 0.168, 0), rubber.lightened(0.1))  # kahvan yläreuna
+	for k in 6:  # kahvan pistekuvio
+		for side in [-1.0, 1.0]:
+			B.mesh(_hammer, B.sphere(0.0035, 6), Vector3(side * 0.012, 0.03 + k * 0.022, 0.013), Color(0.03, 0.03, 0.03))
+	parts.append(B.mesh(_hammer, B.cyl(0.013, 0.013, 0.008, 12), Vector3(0, 0.322, 0), Color.WHITE))  # kaulus
+	parts.append(B.mesh(_hammer, B.boxm(Vector3(0.036, 0.036, 0.028)), Vector3(0.0, 0.343, 0), Color.WHITE))  # pään runko
+	parts.append(B.mesh(_hammer, B.cyl(0.013, 0.016, 0.032, 14), Vector3(0.032, 0.343, 0), Color.WHITE, Vector3(0, 0, 90)))  # kaula
+	parts.append(B.mesh(_hammer, B.cyl(0.0185, 0.0185, 0.012, 16), Vector3(0.052, 0.343, 0), Color.WHITE, Vector3(0, 0, 90)))  # lyöntipinta
+	parts.append(B.mesh(_hammer, B.cyl(0.0155, 0.0155, 0.006, 16), Vector3(0.06, 0.343, 0), Color.WHITE, Vector3(0, 0, 90)))  # viiste
+	# Kynsi: tiheä kaari taaksepäin ja alas (palat limittäin), ohenee; loppupää halkeaa V:ksi kahdeksi piikiksi.
+	var n := 14
+	for k in n:
+		var t := (k + 0.5) / n
+		var x := -0.018 - 0.078 * t
+		var y := 0.354 - 0.03 * t * t
+		var slope := rad_to_deg(atan2(-0.06 * t, -0.078))  # käyrän suunta
+		var h := 0.026 * (1.0 - 0.6 * t)
+		var seg := Vector3(0.011, h, 0.026)
+		if t < 0.4:
+			parts.append(B.mesh(_hammer, B.boxm(seg), Vector3(x, y, 0), Color.WHITE, Vector3(0, 0, slope + 180.0)))
+		else:
+			var gap := 0.002 + 0.012 * (t - 0.4)
+			for side in [-1.0, 1.0]:
+				parts.append(B.mesh(_hammer, B.boxm(Vector3(seg.x, h, 0.013 - gap)), Vector3(x, y, side * (0.0065 + gap / 2.0)), Color.WHITE,
+					Vector3(0, 0, slope + 180.0)))
+	for m in parts:
+		(m as MeshInstance3D).material_override = chrome
 	# Sorkkarauta: punainen kuusikulmainen varsi, kaareva kynsipää ja taltta.
 	_bar = Node3D.new()
 	_cam.add_child(_bar)
@@ -172,35 +196,8 @@ func _build_hammer() -> void:
 	for side in [-1.0, 1.0]:
 		B.mesh(_bar, B.boxm(Vector3(0.007, 0.004, 0.03)), Vector3(side * 0.005, 0.522, 0.092), STEEL.lightened(0.3))
 	B.mesh(_bar, B.boxm(Vector3(0.022, 0.03, 0.006)), Vector3(0, -0.04, 0), STEEL.lightened(0.2))  # taltta
-	_fist(_bar, Vector3(0, 0.04, 0))
 	_bar.visible = false
-	# Vasen käsi naulan vieressä: kämmen kannella, peukalo ja etusormi pitelevät naulaa.
-	_nail_hand = Node3D.new()
-	add_child(_nail_hand)
-	var palm := B.mesh(_nail_hand, B.boxm(Vector3(0.085, 0.028, 0.09)), Vector3(0.0, 0.018, -0.05), SKIN)
-	palm.rotation.y = 0.3
-	B.mesh(_nail_hand, B.cyl(0.011, 0.011, 0.06, 8), Vector3(-0.005, 0.02, -0.005), SKIN.darkened(0.05), Vector3(90, 0, 15))  # peukalo
-	B.mesh(_nail_hand, B.cyl(0.0105, 0.0105, 0.075, 8), Vector3(0.04, 0.022, 0.03), SKIN.darkened(0.05), Vector3(90, 0, -20))  # etusormi
-	for k in 3:  # muut sormet koukussa
-		B.mesh(_nail_hand, B.sphere(0.014, 8), Vector3(0.05 + k * 0.012, 0.02, -0.01 - k * 0.018), SKIN.darkened(0.08))
-	_nail_hand.visible = false
-	_nail_arm = Node3D.new()
-	add_child(_nail_arm)
-	B.mesh(_nail_arm, B.cyl(0.028, 0.034, 0.22, 10), Vector3(0, 0, -0.11), SKIN, Vector3(90, 0, 0))  # ranne ja kyynärvarsi
-	B.mesh(_nail_arm, B.cyl(0.045, 0.052, 0.8, 10), Vector3(0, 0, -0.6), SLEEVE, Vector3(90, 0, 0))
-	B.mesh(_nail_arm, B.cyl(0.047, 0.047, 0.04, 10), Vector3(0, 0, -0.21), SLEEVE.darkened(0.25), Vector3(90, 0, 0))  # resori
-	_nail_arm.visible = false
 	_pose_hammer(0.0)
-
-
-## Nyrkki työkalun varren ympärillä ja tuulipuvun hiha kohti ruudun alareunaa (työkalun kehyksessä, varsi = +Y).
-func _fist(tool: Node3D, at: Vector3) -> void:
-	B.mesh(tool, B.boxm(Vector3(0.05, 0.075, 0.06)), at + Vector3(0.012, 0, 0.0), SKIN)
-	for k in 4:  # rystyset
-		B.mesh(tool, B.sphere(0.012, 6), at + Vector3(-0.012, 0.028 - k * 0.019, 0.026), SKIN.darkened(0.08))
-	B.mesh(tool, B.cyl(0.011, 0.011, 0.045, 8), at + Vector3(-0.01, 0.03, -0.028), SKIN.darkened(0.04), Vector3(0, 0, 70))  # peukalo
-	B.mesh(tool, B.cyl(0.045, 0.055, 0.4, 10), at + Vector3(0.06, -0.21, 0.0), SLEEVE, Vector3(0, 0, 18))
-	B.mesh(tool, B.cyl(0.047, 0.047, 0.03, 10), at + Vector3(0.02, -0.05, 0.0), SLEEVE.darkened(0.25), Vector3(0, 0, 18))  # resori
 
 
 ## s = 0 lepo (kohollaan), 1 = isku alhaalla. Sorkkarauta: s vääntää vartta taaksepäin (vipu).
@@ -245,7 +242,7 @@ func _tick(delta: float) -> void:
 		_say_kind("idle")
 
 
-## Sorkkarauta lahon laudan kohdalla, muuten vasara. Vasen käsi pitelee naulaa, kunnes se pysyy itse.
+## Sorkkarauta lahon laudan kohdalla, muuten vasara.
 func _update_tools() -> void:
 	var a := _aim()
 	var i: int = a[1]
@@ -253,23 +250,6 @@ func _update_tools() -> void:
 	if _swing_t < 0.0:
 		_bar.visible = on_laho
 		_hammer.visible = not on_laho
-	_nail_hand.visible = false
-	_nail_arm.visible = false
-	if i >= 0 and state[i].s == "uusi":
-		var p: Vector3 = a[0]
-		var k := 0 if p.distance_to(_nail_pos(i, 0)) < p.distance_to(_nail_pos(i, 1)) else 1
-		if state[i].nails[k] >= 1.0:
-			k = 1 - k
-		if state[i].nails[k] < 0.5 and not state[i].bent[k]:
-			_nail_hand.visible = true
-			_nail_hand.position = _nail_pos(i, k) + Vector3(0, 0.0, -0.07)
-			# Kyynärvarsi ranteesta kohti pelaajan vasenta olkapäätä (silmän alla ja vasemmalla).
-			var wrist := _nail_hand.position + Vector3(0.0, 0.02, -0.09)
-			var shoulder := eye + Vector3(-0.22, -0.5, 0.15)
-			_nail_arm.visible = true
-			_nail_arm.position = wrist
-			_nail_arm.look_at(to_global(shoulder), Vector3.UP)
-			_nail_arm.scale = Vector3(1, 1, minf(1.0, wrist.distance_to(shoulder) / 0.8))
 
 
 func _gust_comment_ok() -> bool:
