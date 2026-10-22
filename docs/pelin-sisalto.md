@@ -138,7 +138,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     lavalla tulos paranee. Toinen suihkaus samana päivänä on jo liikaa. Testi `--scene=drakkar`.
 - **Saloisten kirkko, kellotapuli ja hautausmaa (#123):** kartan länsilaidalla (kartta ulottuu nyt px x −250:een).
   Valkoinen puukirkko jyrkkine kattoineen ja kuparinvihreine tornin huippuineen (nimikyltti tien puolella, nykyinen
-  kirkko 1932), punainen puinen kellotapuli (1786) kelloineen ja OSM:n rajaama hautausmaa matalan aidan sekä
+  kirkko 1932), punainen puinen kellotapuli (1783) kelloineen ja OSM:n rajaama hautausmaa matalan aidan sekä
   hautakivirivien kera (osassa puuristi). Paikat ovat vielä koristeita: tulevat legendat (#125 Palon yön pyhimys,
   Olavinmarkkinat, kellotapuli) rakentuvat niiden varaan. Testi `--scene=kirkko` (headlessinä vain luvut, kuvat vaativat
   ikkunan).
@@ -163,6 +163,15 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   palasivat") tai Veksi (240 €, maine −8, poliisi hakee kylällä). Museovalinnan jälkeen joka Olavinpäivä 10–18
   seuraintalolla on Olavinmarkkinat: banderolli, ja kirppiksellä tervatuoppi, voita ja markkinamakkaraa. Epäilijät
   (Pekka, Arto, Anna-Liisa) vaihtavat repliikkinsä. Testi `--scene=olavinmarkkinat` (toimii headlessinä).
+- **Legenda: Kuninkaan tapuli (#126):** oikea tausta (Visit Raahe): kellotapuli on vuodelta 1783 ja "sanotaan" Kustaa III:n
+  suunnittelemaksi (varmistamaton; OSM antaa 1786). Legenda keksitty ja pelissä totta: kuninkaan sinetöity piirustus
+  muurattiin rakenteisiin, minkä vuoksi tapuli säästyi kirkon palossa. Kello kumahtaa yöllä, koska kylän teinit pitävät
+  tapulissa bileitä. Ketju: suntio kertoo -> yöllä kello kumahtaa (22–4, ei ennen kuin legenda on kuultu) -> tapulin juurella
+  teinit pakenevat ja pudottavat avaimen kopion (tai suntio antaa avaimen, kun kirkon palon legenda #125 on selvitetty) ->
+  Pirtin rakennusasiakirja "G. R." tai droonin ilmakuva räystään kruunusta -> lyijykotelo ylimmän palkin kolosta.
+  Valinta: Pirtin oppaalle (70 €, maine +12, loppu "Kuninkaan tapuli", Arton ja Pekan repliikit vaihtuvat) tai takaisin
+  koloon suntion luona (maine +4, avain pysyvästi): tapuli on silloin jemma (24 kaljaa) ja kello varoittaa, kun poliisi
+  on liikkeellä. Teinien bileiden jatkuminen tai loppuminen ei ole mukana. Testi `--scene=kuninkaantapuli` (headless).
 - **Saloisten Reippari:** grillikioski seuraintalon vieressä (auki 11–23). Luukulta Raijalta makkaraperunat,
   lihapiirakka kaikilla, hampurilainen ja kahvi (ruoat reppuun, T syö). Illalla 18–23 kioskin edessä notkuu porukka
   mopoineen, ja juoruista kuulee mm. Pannu-Sulon kuusikosta ja Tokolan varastosta. Ilmoitustaululta alkaa

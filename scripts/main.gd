@@ -270,6 +270,7 @@ const Aarnivalkea := preload("res://scripts/aarnivalkea.gd")
 const UkkoLegenda := preload("res://scripts/ukko_legenda.gd")
 const PyhimysLegenda := preload("res://scripts/pyhimys_legenda.gd")
 const OlaviLegenda := preload("res://scripts/olavi_legenda.gd")
+const KuningasLegenda := preload("res://scripts/kuningas_legenda.gd")
 const ShoreFishGame := preload("res://scripts/shore_fish_game.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
@@ -363,6 +364,7 @@ var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.g
 var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
+var kuningas: RefCounted  # legenda: Kuninkaan tapuli (kuningas_legenda.gd, #126)
 var olavi: RefCounted  # legenda: Olavinmarkkinoiden hopea (olavi_legenda.gd, #124)
 var olavi_pappa: CharacterBody3D
 var pyhimys: RefCounted  # legenda: Palon yön pyhimys (pyhimys_legenda.gd, #125)
@@ -618,6 +620,8 @@ const STASHES := {
 		"from": "pukukopin penkin alta", "home": false, "cap": 12, "steal": 0.25},
 	"huhtala": {"name": "Huhtalan romuauton takakontti", "short": "romuauto", "into": "romuauton takakonttiin",
 		"from": "romuauton takakontista", "home": false, "cap": 20, "steal": 0.15},
+	"tapuli": {"name": "kellotapulin ylin palkki", "short": "tapuli", "into": "tapulin ylimpään palkkiin", "from": "tapulin ylimmästä palkista",
+		"home": false, "cap": 24, "steal": 0.05},
 	"rauniot": {"name": "raunioiden kivijalan kolo", "short": "rauniot", "into": "kivijalan koloon", "from": "kivijalan kolosta",
 		"home": false, "cap": 18, "steal": 0.3},
 }
@@ -1162,6 +1166,7 @@ func _ready() -> void:
 	aarni = Aarnivalkea.new()
 	pyhimys = PyhimysLegenda.new()
 	olavi = OlaviLegenda.new()
+	kuningas = KuningasLegenda.new()
 	ukko = UkkoLegenda.new()
 	endings = Endings.new()
 	quests = Quests.new()
@@ -1680,6 +1685,7 @@ func _outside_logic() -> void:
 	_aarni_logic()
 	_pyhimys_logic()
 	_olavi_logic()
+	_kuningas_logic()
 	_kalastus_logic()
 	_reippari_logic()
 	_atm_logic()
@@ -5043,6 +5049,16 @@ const OLAVI_PROVEN := {
 const MARKKINA_OPEN := Vector2(10 * 60, 18 * 60)
 var _olavi_flame: Node3D
 var _sulo_flame: Node3D
+const KUNINGAS_DOUBT := {
+	"arto": ["Kuningas ei ole ikinä kuullukaan Saloisista. Joku rakennusmestari sen piirsi.", "Kello kumahtaa, koska tuuli. Tai teinit."],
+	"pekka": ["Tapuli säästy, kun tuuli kävi toiseen suuntaan. Siinä kaikki.", "Kustaa III? Mää tunnen vaan Kustaa-nimisen kalakukon."],
+	"suntio": ["Kuninkaan piirustus? Kellotapuli on rakennusmestarin työ, ja sillä selvä.", "Kello ei kumahda itsestään. Se on teinien juttu."],
+}
+const KUNINGAS_PROVEN := {
+	"arto": ["Kuninkaan piirustus, perkele. Mää olin väärässä. Taas.", "Sinetti ja kruunu. No jopas."],
+	"pekka": ["Kustaa III piirsi tapulin! Mää tarjoan kierroksen Gustavukselle, saatana.", "Tuuli kävi toiseen suuntaan. Kuninkaan tuuli."],
+	"suntio": ["Raahen museo vahvisti sinetin. Tapuli on kuninkaan työ. Kiitos.", "Olin väärässä, ja siitä tulee kerrottua pitkään."],
+}
 const PYHIMYS_DOUBT := {
 	"suntio": ["Kaikki pelastetut on luettelossa. Ei puutu mitään.", "Palon yön pyhimys? Satua. Luettelo on selvä."],
 	"pekka": ["Kynttilä? Hautausmaalla palaa kynttilöitä joka ilta, perkele.", "Pyhimys, saatana. Kyllä ne kaikki kannettiin ulos."],
@@ -5171,6 +5187,131 @@ const OLAVI_LOOK := {"shirt": Color(0.45, 0.42, 0.35), "pants": Color(0.25, 0.25
 
 func _markkinat_paiva() -> bool:
 	return olavi != null and olavi.proven() and olavi.olavinpaiva(day)
+
+
+## Kuninkaan tapuli (#126): yökello, teinit ja avain, Pirtin G. R. -asiakirja, droonin ilmakuva, lyijykotelo, museo tai kolo.
+var _bell_t := 30.0
+var _bell_police_seen := false
+
+
+func _kuningas_tasks() -> Array:
+	if not kuningas.heard or kuningas.choice != "":
+		return []
+	var step := "vie piirustus Pirtin oppaalle (museo) tai pane takaisin koloon suntion luona"
+	if not kuningas.avain:
+		step = "hanki avain tapuliin: yöllä teinien pudottama kopio tai suntion avain"
+	elif not kuningas.clue():
+		step = "selvitä piirustuksen paikka: Pirtin rakennusasiakirja tai droonin ilmakuva tapulin katosta"
+	elif not kuningas.found:
+		step = "kiipeä tapuliin ja etsi ylimmän palkin kolo"
+	return [["Kuninkaan tapuli: " + step, false]]
+
+
+func _kuningas_logic() -> void:
+	if kuningas == null or world == null or world.tapuli_pos == Vector3.ZERO:
+		return
+	var p := player.global_position
+	var tp: Vector3 = world.tapuli_pos
+	var dist := Vector2(p.x - tp.x, p.z - tp.z).length()
+	var night := _between(clock_min, KuningasLegenda.NIGHT)
+	# Kello kumahtaa yöllä, kun legenda on kuultu (teinien merkki) ja aina kun poliisiauto on liikkeellä (jos kolo valittu).
+	if kuningas.heard and night and not kuningas.teinit and dist < 220.0 and state == "ulkona":
+		_bell_t -= get_process_delta_time()
+		if _bell_t <= 0.0:
+			_bell_t = randf_range(40.0, 70.0)
+			Sfx.play("bell", -2.0, 0.35)
+			if not kuningas.yokello:
+				kuningas.yokello = true
+				_save_game()
+				_show_message("Tapulin kello kumahtaa keskellä yötä, vaikka kukaan ei soita. Kuninkaan kello? Hiivi tapulin juurelle.", 5.0)
+	var pol: bool = police != null and is_instance_valid(police)
+	if pol and not _bell_police_seen and kuningas.choice == "kolo":
+		Sfx.play("bell", 0.0, 0.35)
+		_show_message("Tapulin kello kumahtaa: poliisi liikkeellä! Teinit ehtivät varoittaa.", 4.0)
+	_bell_police_seen = pol
+	if kuningas.heard and not kuningas.teinit and not kuningas.avain and night and dist < 12.0 and kuningas.yokello:
+		kuningas.teinit = true
+		tilat.first("kuningas_teinit", 0.2)
+		Sfx.play("rattle", -4.0, 1.3)
+		_save_game()
+		_show_message("Ylhäältä kuuluu tölkkien kilinää... Teinit livahtavat takaovesta ja yksi pudottaa avaimen! Poimi se tapulin juurelta.", 6.0)
+	if _hint.text != "" or player == bike or dist > 3.2:
+		return
+	if kuningas.teinit and not kuningas.avain:
+		_hint.text = "[E] Poimi teinien pudottama avain"
+		if Input.is_action_just_pressed("interact"):
+			kuningas.avain = true
+			Sfx.play("pickup", -4.0)
+			_save_game()
+			_show_message("Kopioitu avain tapulin oveen. Nyt pääset sisään, mutta mistä etsiä?", 4.5)
+	elif kuningas.heard and not kuningas.avain:
+		_hint.text = "Tapulin ovi on lukossa. Avain on suntiolla, tai teinit tuntuvat pääsevän sisään yöllä."
+	elif kuningas.heard and kuningas.avain and not kuningas.found:
+		if kuningas.clue():
+			_hint.text = "[E] Kiipeä tapuliin: ylimmän palkin kolo"
+			if Input.is_action_just_pressed("interact"):
+				kuningas.found = true
+				tilat.first("kuningas_kotelo", 0.5)
+				Sfx.play("pickup", -4.0, 0.7)
+				_save_game()
+				_show_message("Ylimmän palkin kolosta lyijykotelo, sisällä sinetillä suljettu piirustus: kruunu ja \"G. R.\" Kustaa III:n oma! Vie se Pirtin oppaalle tai pane takaisin.", 7.0)
+		else:
+			_hint.text = "Tapuli aukeaa, mutta mistä etsiä? Pirtin rakennusasiakirja tai droonin ilmakuva katosta voi paljastaa."
+
+
+## Pirtti: rakennusasiakirja (G. R.) ja museovalinta.
+func _kuningas_pirtti() -> void:
+	if kuningas == null or not kuningas.heard or _hint.text != "":
+		return
+	if not _near_xz(world.museum_door, 3.0):
+		return
+	if kuningas.found and kuningas.choice == "":
+		_hint.text = "[E] Saloisten Pirtti: näytä Kustaa III:n piirustus oppaalle"
+		if Input.is_action_just_pressed("interact"):
+			kuningas.choice = "museo"
+			_ending("kuninkaan_tapuli")
+			tilat.first("kuningas_museo", 0.5)
+			money += KuningasLegenda.MUSEO_PALKKIO
+			maine = clampf(maine + KuningasLegenda.MUSEO_MAINE, 0.0, 100.0)
+			tilat.add("moraali", 0.3)
+			Sfx.play("win", -4.0)
+			_save_game()
+			_show_message("Raahen museo vahvistaa sinetin: Kustaa III:n oma piirustus! Löytöpalkkio %s €, juttu paikallislehdessä ja maine +%d. Arto joutuu myöntämään."
+				% [_eur(KuningasLegenda.MUSEO_PALKKIO), roundi(KuningasLegenda.MUSEO_MAINE)], 7.0)
+	elif not kuningas.asiakirja:
+		_hint.text = "[E] Saloisten Pirtti: kysy tapulin rakennusasiakirjaa"
+		if Input.is_action_just_pressed("interact"):
+			kuningas.asiakirja = true
+			tilat.first("kuningas_asiakirja", 0.2)
+			_save_game()
+			_show_message("Opas kaivaa esiin jäljennöksen tapulin rakennusasiakirjasta: marginaalissa kruunu ja \"G. R.\" (Gustavus Rex). \"Myöhempi lisäys\", opas sanoo. "
+				+ "Mutta piirustus on sanottu muuratun ylimpään palkkiin.", 7.5)
+
+
+func _talk_kuningas(id: String) -> void:
+	match id:
+		"kuningas_kerro":
+			kuningas.heard = true
+			tilat.first("kuningas_legenda", 0.2)
+			_save_game()
+			_talk_box.reply("Kellotapuli on vuodelta 1783, ja sen sanotaan olevan itse Kustaa III:n piirtämä. Tarina kertoo, että kuningas lähetti "
+				+ "piirustuksen sinetöitynä, ja rakentajat muurasivat sen rakenteisiin. Siksi tapuli säästyi, vaikka kirkko paloi vierestä. Ja kello "
+				+ "kumahtaa yöllä itsestään, kun vaara on tulossa. Satua, tietysti. Kello on teinien kiusa.", _talk_options(),
+				"Legenda: Kuninkaan tapuli. Käy yöllä tapulin luona, ja kysy Pirtistä rakennusasiakirjaa.")
+		"kuningas_avain":
+			kuningas.avain = true
+			tilat.first("kuningas_avain", 0.2)
+			_save_game()
+			_talk_box.reply("Pyhimyksen jälkeen minä luotan sinuun. Tässä tapulin avain. Älä kiipeä kännissä.", _talk_options(), "Avain tapuliin saatu.")
+		"kuningas_kolo":
+			kuningas.choice = "kolo"
+			maine = clampf(maine + KuningasLegenda.KOLO_MAINE, 0.0, 100.0)
+			tilat.first("kuningas_kolo", 0.4)
+			tilat.add("moraali", 0.2)
+			Sfx.play("win_small", -4.0)
+			_save_game()
+			_talk_box.reply("Onni säilyy, kun piirustus pysyy muurissa. Pidä avain, poika. Tapulista näkee koko raitin.", _talk_options(),
+				"Tapuli on nyt jemma ja turvapaikka (kello varoittaa poliisista). Maine +%d." % int(KuningasLegenda.KOLO_MAINE))
 
 
 func _olavi_tasks() -> Array:
@@ -5834,6 +5975,9 @@ func _kertun_logic() -> void:
 	if _hint.text != "":
 		return
 	_olavi_museum()
+	if _hint.text != "":
+		return
+	_kuningas_pirtti()
 	if _hint.text != "":
 		return
 	_ukko_museum()
@@ -6874,6 +7018,8 @@ func _stash_logic() -> void:
 			continue
 		if id == "laavu" and not laavu_conquered:
 			return
+		if id == "tapuli" and kuningas.choice != "kolo":
+			continue
 		_stash_ui(id)
 		return
 
@@ -7011,6 +7157,8 @@ func _stash_pos(id: String) -> Vector3:
 			return world.pukukoppi_pos if world.pukukoppi_pos != Vector3.ZERO else M.w(M.PUKUKOPPI)
 		"rauniot":
 			return world.rauniot_stash if world.rauniot_stash != Vector3.ZERO else M.w(M.RAUNIOT[1])
+		"tapuli":
+			return world.tapuli_pos
 		"huhtala":
 			return world.huhtala_trunk if world.huhtala_trunk != Vector3.ZERO else M.w(M.HUHTALA)
 	return Vector3.ZERO
@@ -7469,6 +7617,9 @@ func _drone_pois() -> Array:
 		if not sp.is_empty():
 			var uat: Vector3 = sp[0] + (sp[1] as Vector3) * 16.0
 			out.append({"id": "ukko_varjo", "name": "Valtava varjo tekojärven pinnan alla!", "pos": func() -> Vector3: return uat})
+	if kuningas.heard and not kuningas.drooni:
+		var kat: Vector3 = M.w(M.KELLOTAPULI) + Vector3(0, 10.0, 0)
+		out.append({"id": "kuninkaan_katto", "name": "Kruunukuvio kellotapulin räystäslaudoissa!", "pos": func() -> Vector3: return kat})
 	if kertun.heard and not kertun.spotted:
 		var rat: Vector3 = M.w((KertunRauta.RIVI_A + KertunRauta.RIVI_B) / 2.0)
 		out.append({"id": "kertun_rivi", "name": "Suora kivirivi sammaleen alla Kertunkankaalla!", "pos": func() -> Vector3: return rat + Vector3(0, 0.3, 0)})
@@ -7528,6 +7679,10 @@ func _on_drone_photo(id: String) -> void:
 		_save_game()
 		_queue_message("Iltakuvassa Kaitasaaren edustalla pinnan alla liikkuu varjo, pitkä kuin soutuvene. Ei se tukki ollu. "
 			+ "Merkki karttaan (M). Tauno haluaa nähdä tämän.", 5.5)
+	if id == "kuninkaan_katto" and not kuningas.drooni:
+		kuningas.drooni = true
+		_save_game()
+		_queue_message("Ilmakuvassa tapulin räystäslaudoissa on kruunukuvio, jota maasta ei näe. Sama kuin Pirtin asiakirjassa? Merkki karttaan (M).", 5.0)
 	if id == "kertun_rivi" and not kertun.spotted:
 		kertun.spotted = true
 		_queue_message("Kankaalla sammaleen alla kulkee suora kivirivi, luonto ei tee noin. Rivi päättyy isoon kiveen. Merkki karttaan (M).", 5.0)
@@ -10126,6 +10281,12 @@ func _talk_options(who := "") -> Array:
 			else:
 				o.append(_opt("pyhimys_kerro", "Kerro vielä se palon yön pyhimys"))
 		"suntio":
+			if not kuningas.heard:
+				o.append(_opt("kuningas_kerro", "Kerro kellotapulista", true, "", true))
+			elif kuningas.found and kuningas.choice == "":
+				o.append(_opt("kuningas_kolo", "Pane piirustus takaisin tapulin koloon (onni säilyy)", true, "", true))
+			elif not kuningas.avain:
+				o.append(_opt("kuningas_avain", "Pyydä tapulin avainta", pyhimys.returned, "suntio auttaa, kun kirkon pyhimysasia on selvä", true))
 			if pyhimys.found and not pyhimys.returned:
 				o.append(_opt("pyhimys_anna", "Anna löytämäsi pieni puinen pyhimys", true, "", true))
 			elif pyhimys.heard and not pyhimys.luettelo:
@@ -10393,7 +10554,10 @@ func _talk_choose(id: String) -> void:
 		"hilkka", "raili", "tauno", "huutaja", "annaliisa", "sinikka_seura":
 			_talk_kirppis(id)
 		"hoitaja", "suntio", "kynttilanainen":
-			_talk_pyhimys(id)
+			if id.begins_with("kuningas_"):
+				_talk_kuningas(id)
+			else:
+				_talk_pyhimys(id)
 		"olavi_pappa":
 			_talk_olavi(id)
 		"aaro":
@@ -10689,6 +10853,8 @@ func _talk_chat_line() -> String:
 		return sh
 	if _talk_who in ["pekka", "arto"] and tokola.proven() and randf() < 0.4:
 		return (TOKOLA_PROVEN[_talk_who] as Array).pick_random()
+	if KUNINGAS_DOUBT.has(_talk_who) and kuningas.heard and randf() < 0.45:
+		return ((KUNINGAS_PROVEN if kuningas.proven() else KUNINGAS_DOUBT)[_talk_who] as Array).pick_random()
 	if OLAVI_DOUBT.has(_talk_who) and olavi.heard and randf() < 0.45:
 		return ((OLAVI_PROVEN if olavi.proven() else OLAVI_DOUBT)[_talk_who] as Array).pick_random()
 	if PYHIMYS_DOUBT.has(_talk_who) and pyhimys.heard and randf() < 0.45:
@@ -15511,6 +15677,7 @@ func _load_game() -> void:
 	aarni.load_from(cfg)
 	pyhimys.load_from(cfg)
 	olavi.load_from(cfg)
+	kuningas.load_from(cfg)
 	ukko.load_from(cfg)
 	_hongan_day = cfg.get_value("honganpalo", "keikka_paiva", -1)
 	# Kesken jäänyt keikka jatkuu samana päivänä: keräämättömät roskat takaisin pihalle.
@@ -15707,6 +15874,7 @@ func _save_game() -> void:
 		aarni.save_to(cfg)
 		pyhimys.save_to(cfg)
 		olavi.save_to(cfg)
+		kuningas.save_to(cfg)
 		ukko.save_to(cfg)
 	cfg.set_value("honganpalo", "keikka_paiva", _hongan_day)
 	cfg.set_value("honganpalo", "keikka", _hongan_keikka)
@@ -17012,7 +17180,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks()
+	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -22232,6 +22400,88 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"kuninkaantapuli":
+			# Kuninkaan tapuli (#126): suntio kertoo, yökello, teinit ja avain, Pirtin G. R., droonikohde, lyijykotelo, museo ja
+			# kolo (jemma, poliisin kellovaroitus) sekä epäilijät. Aja eristetyllä HOME:lla (tallennus).
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press_k := func() -> void:
+				await get_tree().process_frame
+				Input.action_press("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+			var goto_k := func(at: Vector3) -> void:
+				walker_out.global_position = at + Vector3(0, 0.3, 0)
+				for i in 4:
+					await get_tree().physics_frame
+			_pyhimys_nodes()
+			var tp: Vector3 = world.tapuli_pos
+			print("KU tapuli %s, jemman paikka %s" % [tp, _stash_pos("tapuli")])
+			print("KU suntio: %s" % [_talk_options("suntio").map(func(o): return o.id)])
+			_talk_who = "suntio"
+			_talk_kuningas("kuningas_kerro")
+			print("KU kuultu %s, tehtävät %s" % [kuningas.heard, _kuningas_tasks()])
+			print("KU avain-valinta ilman pyhimystä: %s" % [_talk_options("suntio").filter(func(o): return o.id == "kuningas_avain").map(func(o): return o.enabled)])
+			day = 2
+			clock_min = 23 * 60
+			await goto_k.call(tp + Vector3(0, 0, 60.0))
+			_bell_t = 0.01
+			for i in 3:
+				await get_tree().physics_frame
+			print("KU yökello kuultu %s" % kuningas.yokello)
+			await goto_k.call(tp + Vector3(0, 0, 6.0))
+			print("KU teinit pakenivat %s" % kuningas.teinit)
+			await goto_k.call(tp + Vector3(0, 0, 1.0))
+			print("KU avain-vihje '%s'" % _hint.text)
+			await press_k.call()
+			print("KU avain %s, tehtävät %s" % [kuningas.avain, _kuningas_tasks()])
+			print("KU ennen vihjettä: '%s'" % _hint.text)
+			await goto_k.call(world.museum_door)
+			clock_min = 12 * 60
+			await press_k.call()
+			print("KU Pirtti: asiakirja %s" % kuningas.asiakirja)
+			print("KU droonikohde: %s" % [_drone_pois().any(func(d): return d.id == "kuninkaan_katto")])
+			_on_drone_photo("kuninkaan_katto")
+			print("KU drooni %s, tehtävät %s" % [kuningas.drooni, _kuningas_tasks()])
+			await goto_k.call(tp + Vector3(0, 0, 1.0))
+			print("KU tapulin vihje: '%s'" % _hint.text)
+			await press_k.call()
+			print("KU kotelo %s, tehtävät %s" % [kuningas.found, _kuningas_tasks()])
+			# Museohaara
+			var m0 := maine
+			var money0 := money
+			await goto_k.call(world.museum_door)
+			print("KU museo-vihje: '%s'" % _hint.text)
+			await press_k.call()
+			print("KU museo: valinta '%s', maine %.0f -> %.0f, rahaa %s -> %s, loppu %s" % [kuningas.choice, m0, maine, _eur(money0), _eur(money), endings.counts.has("kuninkaan_tapuli")])
+			_talk_who = "arto"
+			var seen := false
+			for i in 60:
+				if (KUNINGAS_PROVEN.arto as Array).has(_talk_chat_line()):
+					seen = true
+					break
+			print("KU Arton todistettu repliikki: %s" % seen)
+			# Kolohaara (uusi tila): suntion avain pyhimyksen jälkeen, koloon, jemma ja poliisin kellovaroitus
+			kuningas.choice = ""
+			kuningas.found = true
+			kuningas.avain = false
+			pyhimys.returned = true
+			print("KU suntio (pyhimys palautettu): %s" % [_talk_options("suntio").map(func(o): return "%s:%s" % [o.id, o.enabled])])
+			_talk_kuningas("kuningas_avain")
+			print("KU suntion avain %s" % kuningas.avain)
+			print("KU suntio nyt: %s" % [_talk_options("suntio").map(func(o): return o.id)])
+			_talk_kuningas("kuningas_kolo")
+			print("KU kolo: valinta '%s', maine %.0f" % [kuningas.choice, maine])
+			await goto_k.call(tp + Vector3(0, 0, 1.0))
+			print("KU jemma: vihje '%s'" % _hint.text)
+			_call_police("siili")
+			for i in 3:
+				await get_tree().physics_frame
+			print("KU poliisin kellovaroitus: '%s'" % _msg.text)
+			get_tree().quit()
 		"olavinmarkkinat":
 			# Olavinmarkkinoiden hopea (#124): koko ketju (Hilkka, Pirtin kirje, kivi, Olavi-pappa, kalja, lapio, kaivu), lyhdyt
 			# yöllä, museo- ja keräilijähaara sekä markkinapäivä. Tallennus palautetaan.

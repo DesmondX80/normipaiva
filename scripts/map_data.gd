@@ -62,7 +62,7 @@ const LAWN_AXIS := HOME_YAW_DIR
 const MOWER_PARK := Vector2(798.4, 1192.1)  # ruohonleikkurin paikka nurmikon eteläreunalla
 ## Saloisten seuraintalo Seuranmäellä (OSM-rakennus): kirpputori ja huutokauppa sisällä (kirppis_interior.gd).
 const SEURAINTALO := Vector2(394.3, -272.8)
-## Saloisten kirkko (OSM, nykyinen kirkko valmistui 1932), kellotapuli (OSM, 1786) ja hautausmaa (OSM landuse=cemetery)
+## Saloisten kirkko (OSM, nykyinen kirkko valmistui 1932), kellotapuli (OSM; Visit Raahen mukaan 1783) ja hautausmaa (OSM landuse=cemetery)
 ## kartan länsilaidalla (#123). Kirkko ja kellotapuli ovat oma malli (world.gd _build_kirkko), hautausmaan rajaus
 ## on OSM-monikulmio.
 const KIRKKO := Vector2(-132.1, 482.1)
