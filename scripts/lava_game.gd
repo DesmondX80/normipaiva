@@ -19,6 +19,7 @@ const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
 const Headphones := preload("res://scripts/headphones.gd")
 const Band := preload("res://scripts/humppa_band.gd")
+const MG := preload("res://scripts/mg_draw.gd")
 
 const BPM := 104.0
 const DISCO_BPM := 126.0
@@ -72,7 +73,15 @@ var _dancers: Array[Node3D] = []
 var _layer: CanvasLayer
 var _title: Label
 var _info: Label
-var _pulse: Panel
+var _pulse: Control  # tahtimerkki: kehä, johon lähestyvä rengas osuu iskulla, ja vuoronäppäimet
+var _pops: Array = []  # palautetekstit: [teksti, väri, ikä]
+var _hearts: Array = []  # sydän- ja kipinäpurskeet (MG.sparks_*)
+var _flash := 0.0  # 1 = juuri osui, -1 = juuri huti (merkin väri)
+var _shake := 0.0  # kameran tärähdys hutista
+var _floor_tiles: Array[MeshInstance3D] = []  # diskon valolattia
+var _floor_mats: Array[StandardMaterial3D] = []
+var _floor_beat := -1
+var _spots: Array[MeshInstance3D] = []  # pyörivät valotäplät diskon lattialla
 var _score_bar: ProgressBar
 var _bubble: Label3D
 var _youth: Array[Node3D] = []
@@ -174,7 +183,10 @@ func _build_props() -> void:
 		B.mesh(self, B.cyl(0.3, 0.3, 0.04, 16), dj + Vector3(x, 1.13, 0), Color(0.05, 0.05, 0.05))
 	for x in [-2.6, 2.6]:
 		B.mesh(self, B.boxm(Vector3(1.0, 1.8, 0.8)), dj + Vector3(x, 0.9, 0.1), Color(0.08, 0.08, 0.09))
-	B.label(self, "DJ", dj + Vector3(0, 0.6, -0.62), 64, Color(0.3, 1.0, 1.0)).rotation.y = PI
+	var dj_sign := B.sign_plate(self, "DJ", Color(0.04, 0.06, 0.1), Color(0.3, 1.0, 1.0), 0.75, 140, Color(0.2, 0.9, 1.0))
+	dj_sign.position = dj + Vector3(0, 0.58, -0.61)
+	dj_sign.rotation.y = PI  # luetaan tanssilattialta
+	_build_disco_floor()
 	# Peilipallo ja pyörivät värivalot.
 	_ball = Node3D.new()
 	_ball.position = Vector3(0, 3.4, (DISCO_Z + L / 2.0) / 2.0)
@@ -195,6 +207,54 @@ func _build_props() -> void:
 		li.position = Vector3(-9.0 + k * 6.0, 3.0, (DISCO_Z + L / 2.0) / 2.0)
 		add_child(li)
 		_lights.append(li)
+
+
+## Diskon valolattia: ruudut vaihtavat väriä tahtiin, ja pyörivät värivalot heittävät täpliä lattiaan.
+func _build_disco_floor() -> void:
+	var palette := [Color(1.0, 0.15, 0.6), Color(0.2, 0.45, 1.0), Color(0.15, 1.0, 0.5), Color(1.0, 0.8, 0.15), Color(0.1, 0.09, 0.14)]
+	for c in palette:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = c.darkened(0.55) if c.v > 0.3 else c
+		m.emission_enabled = c.v > 0.3
+		m.emission = c
+		m.emission_energy_multiplier = 0.6
+		_floor_mats.append(m)
+	var z0 := DISCO_Z + 0.4
+	var depth := L / 2.0 - DISCO_Z - 0.8
+	var tile := 1.2
+	var nx := int((W - 1.0) / tile)
+	var nz := int(depth / tile)
+	for ix in nx:
+		for iz in nz:
+			var t := B.mesh(self, B.boxm(Vector3(tile - 0.06, 0.02, tile - 0.06)), Vector3(-nx * tile / 2.0 + (ix + 0.5) * tile, 0.09,
+				z0 + (iz + 0.5) * tile), Color.BLACK)
+			t.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			t.material_override = _floor_mats[4]
+			_floor_tiles.append(t)
+	for k in 6:  # valotäplät
+		var sm := StandardMaterial3D.new()
+		sm.albedo_color = Color(palette[k % 4], 0.45)
+		sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		sm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		var sp := B.mesh(self, B.cyl(0.9, 0.9, 0.01, 20), Vector3(0, 0.11, (DISCO_Z + L / 2.0) / 2.0), Color.WHITE)
+		sp.material_override = sm
+		sp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_spots.append(sp)
+
+
+## Valolattia vaihtaa kuviota joka iskulla (diskobiisin tahti), täplät kiertävät peilipallon alla.
+func _update_disco_floor() -> void:
+	var beat := int(_t / (60.0 / DISCO_BPM))
+	if beat != _floor_beat:
+		_floor_beat = beat
+		for i in _floor_tiles.size():
+			var lit := (i * 7 + beat * 3) % 5 < 2
+			_floor_tiles[i].material_override = _floor_mats[(i + beat) % 4] if lit else _floor_mats[4]
+	var mid := Vector3(0, 0.11, (DISCO_Z + L / 2.0) / 2.0)
+	for k in _spots.size():
+		var a := _t * (0.5 + k * 0.08) + k * TAU / _spots.size()
+		_spots[k].position = mid + Vector3(cos(a) * (5.0 + k * 1.3), 0, sin(a * 1.3) * 3.2)
 
 
 ## TV-ryhmä tanssilattian laidalla: kamera jalustalla, kuvaaja, äänimies puomimikin kanssa, valo ja kyltti.
@@ -336,7 +396,17 @@ func _process(delta: float) -> void:
 	# Kamera pysyy salin sisällä (diskopuolella kierros kävi päätyseinän takana).
 	cp.x = clampf(cp.x, -W / 2.0 + 1.0, W / 2.0 - 1.0)
 	cp.z = clampf(cp.z, -L / 2.0 + 1.0, L / 2.0 - 1.0)
-	_cam.look_at_from_position(to_global(cp), to_global(focus))
+	_shake = maxf(0.0, _shake - delta * 3.0)
+	var sh := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * 0.12 * _shake
+	_cam.look_at_from_position(to_global(cp + sh), to_global(focus))
+	_update_disco_floor()
+	_flash = move_toward(_flash, 0.0, delta * 1.6)
+	MG.sparks_step(_hearts, delta)
+	for p in _pops:
+		p[2] += delta
+	_pops = _pops.filter(func(p): return p[2] < 1.2)
+	_pulse.visible = _phase == "dance"
+	_pulse.queue_redraw()
 	# Disko: peilipallo pyörii, värivalot sykkivät ja kiertävät.
 	_ball.rotation.y += delta * 1.2
 	for k in _lights.size():
@@ -538,8 +608,6 @@ func _order() -> void:
 func _dance(_delta: float) -> void:
 	var phase := fmod(_t, _beat) / _beat
 	var near := minf(phase, 1.0 - phase) * _beat  # etäisyys lähimpään iskuun (s)
-	_pulse.modulate.a = clampf(1.0 - phase * 2.5, 0.15, 1.0)
-	_pulse.scale = Vector2.ONE * (1.0 + (1.0 - phase) * 0.35)
 	var left := Input.is_action_just_pressed("left")
 	var right := Input.is_action_just_pressed("right")
 	if left or right:
@@ -550,10 +618,22 @@ func _dance(_delta: float) -> void:
 		if ok and near < WINDOW + 0.06 * courage and not hasty and not stumble:
 			_hits += 1
 			_next = "right" if _next == "left" else "left"
+			_flash = 1.0
+			Sfx.play("step_wood", -6.0, 1.3 if _next == "left" else 1.1)  # askel lattiaan
+			if _hits % 4 == 0:
+				Sfx.play("pickup", -14.0, 1.4)
+			var good := near < WINDOW * 0.45
+			_pops.append(["TAHTIIN!" if good else "HYVÄ", Color(0.4, 1.0, 0.5) if good else Color(1.0, 0.9, 0.4), 0.0])
+			MG.sparks_burst(_hearts, Vector2(_pulse.size.x / 2.0, 62.0), Color(1.0, 0.35, 0.6) if _mode == "humppa" else Color(0.3, 1.0, 1.0), 10)
 			if _hits % 12 == 0:
 				_say((DISCO_LINES if _mode == "disco" else PARTNER_LINES).pick_random())
 		else:
 			_misses += 1
+			_flash = -1.0
+			_shake = 1.0 if stumble else 0.6
+			Sfx.play("step_hard", -4.0, 0.7)  # kompastus
+			_pops.append(["HUPS!" if stumble else ("VÄÄRÄ JALKA" if not ok else ("LIIAN AIKAISIN" if hasty else "OHI TAHDIN")),
+				Color(1.0, 0.35, 0.3), 0.0])
 			_me.rotation.y += randf_range(-0.3, 0.3) * (2.0 if stumble else 1.0)
 			if stumble:
 				_say("Hups! Pontikka vie jalat.")
@@ -616,21 +696,18 @@ func _build_hud() -> void:
 	_info.add_theme_constant_override("outline_size", 7)
 	_info.position = Vector2(40, 95)
 	_layer.add_child(_info)
-	_pulse = Panel.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(1.0, 0.8, 0.2)
-	sb.set_corner_radius_all(40)
-	_pulse.add_theme_stylebox_override("panel", sb)
-	_pulse.size = Vector2(80, 80)
-	_pulse.pivot_offset = Vector2(40, 40)
+	_pulse = Control.new()
+	_pulse.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pulse.anchor_left = 0.5
 	_pulse.anchor_right = 0.5
 	_pulse.anchor_top = 1.0
 	_pulse.anchor_bottom = 1.0
-	_pulse.offset_left = -40
-	_pulse.offset_right = 40
-	_pulse.offset_top = -170
-	_pulse.offset_bottom = -90
+	_pulse.offset_left = -220
+	_pulse.offset_right = 220
+	_pulse.offset_top = -240
+	_pulse.offset_bottom = -76
+	_pulse.draw.connect(_draw_pulse)
+	_pulse.visible = false
 	_layer.add_child(_pulse)
 	_score_bar = ProgressBar.new()
 	_score_bar.show_percentage = false
@@ -642,4 +719,68 @@ func _build_hud() -> void:
 	_score_bar.offset_right = 160
 	_score_bar.offset_top = -70
 	_score_bar.offset_bottom = -54
+	_score_bar.visible = false  # tanssin onnistuminen piirretään tahtimerkin alle (_draw_pulse)
 	_layer.add_child(_score_bar)
+
+
+
+## Tahtimerkki: keskellä sydän kehässä, johon pienenevä rengas osuu iskulla; vasemmalla ja oikealla vuoronäppäimet
+## (seuraava hehkuu). Osuma välähtää vihreänä ja sydämet lentävät, huti punaisena. Alla tanssin onnistuminen.
+func _draw_pulse() -> void:
+	var c := Vector2(_pulse.size.x / 2.0, 62)
+	var phase := fmod(_t, _beat) / _beat
+	var hot := Color(1.0, 0.35, 0.6) if _mode == "humppa" else Color(0.3, 1.0, 1.0)
+	var tint := Color(0.25, 0.6, 0.3) if _flash > 0.0 else Color(0.7, 0.12, 0.1)
+	MG.box(_pulse, Rect2(Vector2(40, 0), Vector2(_pulse.size.x - 80, 128)), Color(0.05, 0.04, 0.08, 0.72).lerp(Color(tint, 0.85), absf(_flash) * 0.6), 22, 6)
+	# Lähestyvä rengas: iso tahdin alussa, osuu kehään iskun kohdalla (phase 0/1).
+	var r := lerpf(96.0, 40.0, phase)
+	_pulse.draw_arc(c, r, 0, TAU, 48, Color(hot, 0.35 + 0.65 * phase), 4.0, true)
+	# Kehä ja sydän; iskulla sydän sykähtää.
+	var beat_k := clampf(1.0 - phase * 4.0, 0.0, 1.0)
+	var ring_col := Color(0.4, 1.0, 0.5) if _flash > 0.0 else (Color(1.0, 0.3, 0.25) if _flash < 0.0 else Color(1, 1, 1))
+	_pulse.draw_arc(c, 40.0, 0, TAU, 48, MG.OUTLINE, 9.0, true)
+	_pulse.draw_arc(c, 40.0, 0, TAU, 48, ring_col.lerp(Color(1, 1, 1), 1.0 - absf(_flash)), 5.0, true)
+	_heart(c + Vector2(0, 2), 22.0 * (1.0 + 0.25 * beat_k), hot)
+	# Vuoronäppäimet.
+	for side in [-1.0, 1.0]:
+		var key: String = Settings.action_key("left" if side < 0.0 else "right")
+		var is_next: bool = (_next == "left") == (side < 0.0)
+		var kr := Rect2(c + Vector2(side * 118.0 - 30.0, -28.0), Vector2(60, 56))
+		if is_next:
+			MG.glow(_pulse, kr.get_center(), 46.0, Color(hot, 0.6 + 0.4 * beat_k))
+		MG.box(_pulse, kr, Color(0.96, 0.93, 0.85) if is_next else Color(0.45, 0.43, 0.4), 10, 4, MG.OUTLINE, 2)
+		MG.box(_pulse, Rect2(kr.position + Vector2(4, 4), Vector2(kr.size.x - 8, 14)), Color(1, 1, 1, 0.35), 6)
+		_pulse.draw_string(ThemeDB.fallback_font, kr.position + Vector2(0, 38), key, HORIZONTAL_ALIGNMENT_CENTER, kr.size.x, 28,
+			Color(0.12, 0.1, 0.08) if is_next else Color(0.2, 0.2, 0.2))
+		_foot(kr.get_center() + Vector2(side * 58.0, 0), side, Color(1, 1, 1, 0.85 if is_next else 0.3))
+	MG.sparks_draw(_pulse, _hearts)
+	# Palautetekstit nousevat ja haalistuvat.
+	for p in _pops:
+		var a: float = clampf(1.0 - (p[2] - 0.6) / 0.6, 0.0, 1.0)  # pysyy kirkkaana 0,6 s
+		var pos := c + Vector2(-140, -74 - p[2] * 30.0)
+		MG.box(_pulse, Rect2(pos + Vector2(20, -30), Vector2(240, 40)), Color(0.05, 0.04, 0.06, 0.75 * a), 12)
+		_pulse.draw_string(ThemeDB.fallback_font, pos + Vector2(2, 2), p[0], HORIZONTAL_ALIGNMENT_CENTER, 280, 30, Color(0, 0, 0, a * 0.8))
+		_pulse.draw_string(ThemeDB.fallback_font, pos, p[0], HORIZONTAL_ALIGNMENT_CENTER, 280, 30, Color(p[1], a))
+	# Tanssin onnistuminen.
+	var bar := Rect2(Vector2(_pulse.size.x / 2.0 - 140, 136), Vector2(280, 16))
+	MG.box(_pulse, bar.grow(3.0), Color(0.05, 0.05, 0.06, 0.9), 8, 3)
+	MG.box(_pulse, Rect2(bar.position, Vector2(bar.size.x * _score(), bar.size.y)), Color(0.3, 0.8, 0.45).lerp(Color(1.0, 0.85, 0.3), _score()), 6)
+
+
+## Sydän (kaksi ympyrää ja kärki) ääriviivoineen.
+func _heart(c: Vector2, s: float, col: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in 41:
+		var t := i / 40.0 * TAU
+		pts.append(c + Vector2(16.0 * pow(sin(t), 3), -(13.0 * cos(t) - 5.0 * cos(2 * t) - 2.0 * cos(3 * t) - cos(4 * t))) * s / 17.0)
+	_pulse.draw_colored_polygon(pts, col)
+	_pulse.draw_polyline(pts, MG.OUTLINE, 2.5, true)
+	_pulse.draw_circle(c + Vector2(-s * 0.35, -s * 0.35), s * 0.18, Color(1, 1, 1, 0.6))
+
+
+## Kengänpohja vuoronäppäimen vieressä (vasen tai oikea jalka).
+func _foot(c: Vector2, side: float, col: Color) -> void:
+	_pulse.draw_set_transform(c, side * 0.25, Vector2(side, 1.0))
+	_pulse.draw_circle(Vector2(0, -10), 12.0, col)  # päkiä
+	_pulse.draw_circle(Vector2(1, 13), 8.5, col)  # kanta
+	_pulse.draw_set_transform(Vector2.ZERO)
