@@ -14583,8 +14583,7 @@ func _lava_start() -> void:
 	state = "lava"
 	_mopo_label.visible = false
 	_compass.visible = false
-	_hud.visible = false  # tilapalkit ja Päivin lappu eivät mene lavan valikon päälle
-	_note.visible = false
+	_hud.visible = false  # kello ja tilapalkit eivät mene lavan otsikon ja valikon päälle
 	_hint.text = ""
 	tilat.first("lava", 0.3)
 	if _portsari != null and is_instance_valid(_portsari):
