@@ -75,6 +75,10 @@ const KaraokeGame := preload("res://scripts/karaoke_game.gd")
 const PajatsoGame := preload("res://scripts/pajatso_game.gd")
 const HedelmapeliGame := preload("res://scripts/hedelmapeli_game.gd")
 const SIITARI_INT_POS := Vector3(16000, 0, 0)
+## Karaoken rajat (simulaatio --scene=karaokesim: hyvä 92–96 %, keskiverto 79–85 %, rento 60–77 %): "raikuu" vaatii
+## keskiverron pelaajan hyvän suorituksen, "kelpo" erottaa rennon pelaajan mokaajasta.
+const KARAOKE_RAIKUU := 0.85
+const KARAOKE_KELPO := 0.55
 const KARAOKE_PRICE := 2.0
 const PAJATSO_PRICE := 1.0
 ## Sinikka Siitarissa (flirttailevaa kuten kotikadulla) ja Päivin puhelu, kun joku on nähnyt.
@@ -9237,13 +9241,13 @@ func _raahe_karaoke() -> void:
 		_raahe.karaoke = maxf(_raahe.karaoke, score)
 		tilat.first("karaoke_raahe", 0.3)
 		var pct := roundi(score * 100.0)
-		if score >= 0.7:
+		if score >= KARAOKE_RAIKUU:
 			_ending("karaoke")
 			Sfx.play("win", -4.0)
 			tilat.add("moraali", 0.25)
 			mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0)
 			_show_message("Karaoke %d %%: Kellari raikuu! \"Skooli laulajalle!\"" % pct, 3.5)
-		elif score >= 0.4:
+		elif score >= KARAOKE_KELPO:
 			Sfx.play("win_small", -6.0)
 			tilat.add("moraali", 0.1)
 			_show_message("Karaoke %d %%: kelpo veto. Joku ruukkilainen taputti." % pct, 3.0)
@@ -11909,14 +11913,14 @@ func _start_karaoke() -> void:
 		siitari_int.from_stage(score >= 0.5)
 		tilat.first("karaoke", 0.3)
 		var pct := roundi(score * 100.0)
-		if score >= 0.7:
+		if score >= KARAOKE_RAIKUU:
 			_ending("karaoke")
 			Sfx.play("win", -4.0)
 			tilat.add("moraali", 0.25)
 			tilat.add("stressi", 0.15)
 			mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0)
 			_show_message("Karaoke %d %%: Siitari raikuu! Seurue taputtaa ja Sinikka huokaa." % pct, 3.5)
-		elif score >= 0.4:
+		elif score >= KARAOKE_KELPO:
 			Sfx.play("win_small", -6.0)
 			tilat.add("moraali", 0.1)
 			_show_message("Karaoke %d %%: ihan kelpo veto. Joku taputti." % pct, 3.0)
