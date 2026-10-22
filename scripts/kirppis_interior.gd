@@ -445,7 +445,7 @@ func _build_room() -> void:
 		add_child(light)
 
 
-## Paneelikatto ja kattopalkit. Pinnat katsovat alas: salin sisältä (huutokaupan ja bingon kamera) näkyy katto
+## Paneelikatto ja kattopalkkien alapinnat. Pinnat katsovat alas: salin sisältä (huutokaupan ja bingon kamera) näkyy katto
 ## eikä taivas, mutta ylhäältä kuvaava kävelykamera näkee katon läpi. Katto ei heitä varjoa, joten valaistus pysyy.
 func _build_ceiling() -> void:
 	var down := func(size: Vector2, pos: Vector3, col: Color) -> void:
@@ -455,16 +455,8 @@ func _build_ceiling() -> void:
 		var mi := B.mesh(self, pm, pos, col)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	down.call(Vector2(HALF.x * 2.0, HALF.y * 2.0), Vector3(0, WALL_H, 0), PANEL.lightened(0.15))
-	for i in 7:  # palkit poikittain: alapinta ja kaksi kylkeä (alas katsovina tasoina)
-		var z := -HALF.y + 1.5 + i * 1.5
-		down.call(Vector2(HALF.x * 2.0, 0.16), Vector3(0, WALL_H - 0.14, z), TRIM)
-		for side in [-1.0, 1.0]:
-			var pm := PlaneMesh.new()
-			pm.size = Vector2(HALF.x * 2.0, 0.14)
-			pm.orientation = PlaneMesh.FACE_Z
-			pm.flip_faces = side < 0.0
-			var mi := B.mesh(self, pm, Vector3(0, WALL_H - 0.07, z + side * 0.08), TRIM.darkened(0.25))
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for i in 7:  # kattopalkkien alapinnat poikittain (kyljet näkyisivät ylhäältä viivoina salin yli)
+		down.call(Vector2(HALF.x * 2.0, 0.16), Vector3(0, WALL_H - 0.01, -HALF.y + 1.5 + i * 1.5), TRIM)
 
 
 func _table(at: Vector3, size: Vector2, parent: Node3D = null) -> void:
