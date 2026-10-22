@@ -289,21 +289,46 @@ func _make_dish(kind: String, col: Color) -> Node3D:
 	return d
 
 
-## Tiskiharja: punainen kahva ripustusreikineen, keltainen harjaspää ja harjakset.
+## Tiskiharja (kuten kuvassa, punaisena): litteä pitkänomainen harjaspää pyöristetyllä kärjellä, valkoiset harjakset
+## pään alla viuhkana ulos ja eteen, kapea kevyesti kaartuva kahva, joka levenee päätä kohti, ja ripustuskoukku.
+## Rungon kehyksessä harjan pituusakseli = +X (kärki -X), harjakset alas.
 func _build_brush() -> void:
 	_brush = Node3D.new()
 	add_child(_brush)
-	_mesh(_brush, B.boxm(Vector3(0.05, 0.022, 0.04)), Vector3(0, 0.02, 0), Color(0.95, 0.82, 0.25))
-	for ix in 5:
-		for iz in 4:
-			_mesh(_brush, B.cyl(0.003, 0.003, 0.016, 5), Vector3(-0.02 + ix * 0.01, 0.002, -0.015 + iz * 0.01), Color(0.9, 0.78, 0.3))
-	# Varsi nousee oikealle ja taakse (ei peitä astiaa kameralta).
-	var handle := Node3D.new()
-	handle.position = Vector3(0.02, 0.03, 0)
-	handle.rotation = Vector3(-0.35, 0, -0.95)
-	_brush.add_child(handle)
-	_mesh(handle, B.cyl(0.009, 0.011, 0.2, 10), Vector3(0, 0.1, 0), Color(0.85, 0.18, 0.15))
-	_mesh(handle, B.cyl(0.0045, 0.0045, 0.024, 8), Vector3(0, 0.18, 0), Color(0.3, 0.05, 0.05), Vector3(90, 0, 0))
+	var body := Node3D.new()
+	body.rotation = Vector3(0, 0.55, 0)  # kahva oikealle ja taakse (ei peitä astiaa kameralta)
+	_brush.add_child(body)
+	var red := Color(0.82, 0.16, 0.14)
+	# Harjaspää: lättä ja pyöreä kärki, yläpinnassa matala ura.
+	_mesh(body, B.boxm(Vector3(0.075, 0.009, 0.03)), Vector3(0.0, 0.012, 0), red)
+	var tip := _mesh(body, B.cyl(0.015, 0.015, 0.009, 16), Vector3(-0.0375, 0.012, 0), red)
+	tip.scale = Vector3(1.0, 1.0, 1.0)
+	_mesh(body, B.boxm(Vector3(0.06, 0.002, 0.016)), Vector3(0.0, 0.0165, 0), red.darkened(0.2))
+	# Harjakset: kolme riviä, reunarivit kallistuvat ulos, kärjen harjakset eteen.
+	var white := Color(0.96, 0.96, 0.94)
+	for row in 3:
+		var z := (row - 1) * 0.01
+		for k in 8:
+			var x := -0.038 + k * 0.011
+			var tilt_x := -float(row - 1) * 18.0  # ulospäin sivuille
+			var tilt_z := 22.0 if k == 0 else (10.0 if k == 1 else 0.0)  # kärjessä eteen
+			_mesh(body, B.cyl(0.0022, 0.0016, 0.024, 5), Vector3(x, -0.003, z * 1.2), white, Vector3(tilt_x, 0, tilt_z))
+	for k in 5:  # kärjen kaari
+		var a := PI / 2.0 + (k - 2) * 0.45
+		_mesh(body, B.cyl(0.0022, 0.0016, 0.024, 5), Vector3(-0.042 - cos(a - PI / 2.0) * 0.004, -0.002, sin(a - PI / 2.0) * 0.011), white,
+			Vector3(-sin(a - PI / 2.0) * 25.0, 0, 26.0))
+	# Kahva: kaula kapenee pään takaa, varsi nousee kevyesti kaarelle ja levenee taas päätä kohti.
+	var pts := [Vector3(0.04, 0.013, 0), Vector3(0.07, 0.022, 0), Vector3(0.11, 0.036, 0), Vector3(0.15, 0.05, 0),
+		Vector3(0.19, 0.062, 0), Vector3(0.225, 0.068, 0)]
+	var widths := [0.026, 0.014, 0.012, 0.015, 0.018, 0.016]
+	for k in pts.size() - 1:
+		var a: Vector3 = pts[k]
+		var b: Vector3 = pts[k + 1]
+		var seg := _mesh(body, B.boxm(Vector3(a.distance_to(b) + 0.006, 0.008, (widths[k] + widths[k + 1]) / 2.0)), (a + b) / 2.0, red)
+		seg.rotation.z = atan2(b.y - a.y, b.x - a.x)
+	var hook := _mesh(body, TorusMesh.new(), Vector3(0.232, 0.062, 0), red.darkened(0.05), Vector3(90, 0, 0))
+	(hook.mesh as TorusMesh).inner_radius = 0.004
+	(hook.mesh as TorusMesh).outer_radius = 0.009
 
 
 ## Kuivausteline: pestyt astiat paikoilleen (lautaset pystyyn piikkien väliin, muut alassuin pohjalle).
@@ -448,7 +473,7 @@ func _update_brush() -> void:
 		return
 	var top: float = _dish.get_meta("top") if _dish != null else 0.0
 	var lift := 0.12 if _busy_t >= 0.0 else 0.0
-	_brush.position = DISH_AT + Vector3(_last_dir * 0.05 * _wobble + 0.02, top + 0.03 + lift + absf(sin(_t * 3.0)) * 0.005, 0.0)
+	_brush.position = DISH_AT + Vector3(_last_dir * 0.05 * _wobble + 0.02, top + 0.018 + lift + absf(sin(_t * 3.0)) * 0.005, 0.0)
 	_brush.rotation = Vector3(0.35, 0.0, -_last_dir * 0.25 * _wobble)
 
 
