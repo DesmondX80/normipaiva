@@ -19,6 +19,12 @@ const DRAIN_S := 540.0  # täysi tankki: 9 minuuttia kaasu pohjassa
 const MAX_FREE := 21.0  # ilman rajoitinta (m/s)
 const MAX_LIMITED := 15.0  # rajoittimella: juuri ja juuri pyörää lujempaa
 const PUSH_SPEED := 2.2  # tyhjä tankki: mopoa taluttaa
+## Viritys (#183): osat autotallin virittämöstä. Kukin nostaa huippunopeutta (m/s) ja maksaa; yhdessä n. +3,2 m/s.
+const VIRIT := {
+	"sylinteri": {"name": "Isompi sylinteri (70 cc)", "price": 14.0, "bonus": 1.4, "msg": "Sylinteri porattu isommaksi. Ääni muuttui sirkkelistä moottorisahaksi."},
+	"pakoputki": {"name": "Urheilupakoputki", "price": 9.0, "bonus": 1.0, "msg": "Pakoputki vaihdettu: nyt kuuluu pari kylää kauemmas."},
+	"rattaat": {"name": "Pienemmät ketjurattaat", "price": 7.0, "bonus": 0.8, "msg": "Pienemmät rattaat: kiihtyy kuin vuohi, kunnes loppuu tie."},
+}
 
 const PARTS := {
 	"ketju": {"name": "Mopon ketju ja ratas", "low": "ketju ja ratas", "where": "Huhtalan romuista"},
@@ -43,6 +49,8 @@ var kanisteri := false  # bensakanisteri tallissa (SEO)
 var fuel := 0.0  # 0..1
 var riding := false  # pelaaja liikkuu mopolla (pyörä jää talliin)
 var rossi_best := 0.0
+var virit := {}  # osa -> true (asennettu)
+var top_best := 0.0  # ajossa mitattu huippunopeus (m/s)
 var seppo_kekkonen := false  # Kekkosen rintamerkki palautettu Sepolle
 var _dry_said := false
 
@@ -51,8 +59,15 @@ func missing_run() -> Array:
 	return RUN_PARTS.filter(func(k): return not parts.has(k))
 
 
+func virit_bonus() -> float:
+	var b := 0.0
+	for k in virit:
+		b += float(VIRIT[k].bonus)
+	return b
+
+
 func max_speed() -> float:
-	return MAX_LIMITED if rajoitin else MAX_FREE
+	return (MAX_LIMITED if rajoitin else MAX_FREE) + virit_bonus()
 
 
 func price(mood_mult: float) -> float:
@@ -75,6 +90,8 @@ func faults() -> Array:
 ## Palauttaa viestin, jos jotain sattui ("" = ei mitään).
 func ride_tick(bike: Node3D, delta: float) -> String:
 	bike.mopo_max = max_speed()
+	if absf(bike.speed) > top_best:
+		top_best = absf(bike.speed)
 	var throttle: bool = bike.controls_enabled and Input.is_action_pressed("forward")
 	if throttle and fuel > 0.0:
 		var k := clampf(absf(bike.speed) / max_speed(), 0.2, 1.0)
@@ -109,11 +126,11 @@ func tasks() -> Array:
 
 func save_to(cfg: ConfigFile) -> void:
 	for k in ["trust", "owned", "parts", "assembled", "valo_on", "carb_ok", "running", "rajoitin_have", "rajoitin", "katsastettu",
-			"kanisteri", "fuel", "riding", "rossi_best", "seppo_kekkonen"]:
+			"kanisteri", "fuel", "riding", "rossi_best", "seppo_kekkonen", "virit", "top_best"]:
 		cfg.set_value("oma_mopo", k, get(k))
 
 
 func load_from(cfg: ConfigFile) -> void:
 	for k in ["trust", "owned", "parts", "assembled", "valo_on", "carb_ok", "running", "rajoitin_have", "rajoitin", "katsastettu",
-			"kanisteri", "fuel", "riding", "rossi_best", "seppo_kekkonen"]:
+			"kanisteri", "fuel", "riding", "rossi_best", "seppo_kekkonen", "virit", "top_best"]:
 		set(k, cfg.get_value("oma_mopo", k, get(k)))

@@ -27,6 +27,7 @@ const SPOTS := {
 	"laatikko": [Vector3(3.2, 0, 0.55), "[E] Pölyinen pahvilaatikko työkalukaapin päällä"],  # Valcon kuulokkeet
 	"mopo": [Vector3(0.45, 0, 1.2), ""],  # oma mopo (#155): vihje main.gd:stä
 	"rajoitin": [Vector3(1.35, 0, -0.75), ""],
+	"viritys": [Vector3(-0.6, 0, -2.0), ""],  # mopon viritys (#183): vihje main.gd:stä
 	"lapio": [Vector3(-3.3, 0, -0.6), ""],  # lapio vasemmalla seinällä (#124): vihje main.gd:stä
 }
 
@@ -305,6 +306,10 @@ func _build_cabinet_and_freezer() -> void:
 	B.mesh(_box, B.cyl(0.07, 0.07, 0.02, 12), Vector3(-0.1, 0.3, 0.05), Color(0.1, 0.1, 0.12), Vector3(90, 0, 0))
 	B.tube(_box, Vector3(-0.17, 0.3, 0.05), Vector3(-0.03, 0.3, 0.05), 0.012, Color(0.1, 0.1, 0.12))
 	_box.visible = not headphones_found
+	# Virittämö: punainen työkalulaatikko ja pakoputken pätkä lattialla (mopon viritys).
+	B.box(self, Vector3(0.7, 0.35, 0.3), Vector3(-0.6, 0.18, -2.5), Color(0.75, 0.15, 0.1))
+	B.mesh(self, B.boxm(Vector3(0.5, 0.03, 0.2)), Vector3(-0.6, 0.37, -2.5), Color(0.3, 0.3, 0.32))
+	B.mesh(self, B.cyl(0.05, 0.07, 0.7, 10), Vector3(-0.1, 0.1, -2.35), Color(0.62, 0.62, 0.66), Vector3(0, 0, 90))
 	# Lapio nojaa vasempaan seinään: puuvarsi ja metallinen terä.
 	_lapio = Node3D.new()
 	_lapio.position = Vector3(-3.95, 0, -0.6)
