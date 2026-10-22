@@ -25,6 +25,7 @@ const LANE_COLS := [Color(0.25, 0.85, 0.3), Color(0.95, 0.25, 0.25), Color(1.0, 
 const WIN_PERFECT := 0.08  # osumaikkunat (s)
 const WIN_GOOD := 0.15
 const WIN_OK := 0.25
+const LINE_AHEAD := 0.8  # seuraava sanarivi näkyviin näin paljon ennen sen ensimmäistä sanaa (s)
 const SPEED := 1.9  # nuotin näkymisaika kaistan yläreunasta osumalinjalle (s)
 const HOLD_MIN := 0.55  # tätä pidempi nuotti pidetään pohjassa
 const REAL_TRACK := "res://assets/music/normipaiva_lyhyt.mp3"
@@ -133,13 +134,13 @@ func _ready() -> void:
 		_begin()
 	else:
 		_menu = true
-		_keys.set_text("%s valitse · E / Enter / klikkaus aloittaa · %s / Esc takaisin" % [Settings.pair("forward", "back"), Settings.cap("mount")])
+		_keys.set_text("%s valitse · %s / Enter / klikkaus aloittaa · %s takaisin" % [Settings.pair("forward", "back"), Settings.cap("interact"), Settings.cap("mount", "Esc")])
 
 
 ## Kappalevalikko: paikan oma kappale ja aito versio.
 static func menu_for(own_title: String) -> Array:
 	return [["oma", own_title, "Oma sävellys: näppäile nuotit tahtiin (A S K L tai nuolet), melodia syntetisoidaan."],
-		["aito", "Normipäivä Saloisissa (lyhennetty aito versio)", "Tunnari oikealla soittoraidalla, noin minuutti: näppäile sanat tahtiin (A S K L tai nuolet), pitkät sanat pidetään pohjassa. Esc lopettaa."]]
+		["aito", "Normipäivä Saloisissa (lyhennetty aito versio)", "Tunnari oikealla soittoraidalla, noin minuutti: näppäile sanat tahtiin (A S K L tai nuolet), pitkät sanat pidetään pohjassa."]]
 
 
 # --- Kappaleen rakennus --------------------------------------------------------------------------------------------
@@ -149,11 +150,14 @@ func _begin() -> void:
 	_notes.clear()
 	if real and not _build_real_notes():
 		real = false  # sanatiedosto tai raita puuttuu: oma kappale
+		for e in menu_titles:
+			if e[0] == "oma":
+				_title = e[1]
 	if not real:
 		_build_own_notes()
-	_total_w = 0.0  # täydet pisteet: kaikki täydellisiä ja pitkät pidetty loppuun
-	for n in _notes:
-		_total_w += 1.5 if float(n.dur) > 0.0 else 1.0
+	_total_w = 0.0  # täydet pisteet: kaikki täydellisiä, pitkät pidetty loppuun ja putki katkeamatta
+	for i in _notes.size():
+		_total_w += (1.5 if float(_notes[i].dur) > 0.0 else 1.0) * _mult_for(i + 1)
 	var last: Dictionary = _notes[_notes.size() - 1]
 	_end = float(last.t) + float(last.dur) + 1.4
 	if real:
@@ -178,7 +182,7 @@ func _begin() -> void:
 		add_child(_player)
 		_player.play()
 		_pb = _player.get_stream_playback()
-	_keys.set_text("%s näppäile nuotit tahtiin · pitkät pohjassa · %s lopeta" % ["A S K L / ←↓↑→", Settings.cap("mount")])
+	_keys.set_text("%s näppäile nuotit tahtiin · pitkät pohjassa · %s lopeta" % ["A S K L / ←↓↑→", Settings.cap("mount", "Esc")])
 
 
 func _build_own_notes() -> void:
@@ -194,7 +198,7 @@ func _build_own_notes() -> void:
 
 func _note(t: float, dur: float, lane: int, pitch: float, text: String, li: int, wi: int) -> Dictionary:
 	return {"t": t, "dur": dur if dur >= HOLD_MIN else 0.0, "lane": lane, "pitch": pitch, "text": text, "line": li, "wi": wi,
-		"state": "odottaa", "q": 0.0, "held": 0.0, "hold": false, "len": dur}
+		"state": "odottaa", "q": 0.0, "held": 0.0, "hold": false, "len": dur, "mult": 1.0}
 
 
 ## Aito: sanat ja ajoitukset JSON:ista (peliaika = raidan aika). Kaista arvotaan sanasta, ei kolmea samaa peräkkäin.
@@ -248,13 +252,12 @@ func _input(event: InputEvent) -> void:
 		return
 	if _menu:
 		if event is InputEventKey and event.pressed and not event.echo:
-			match event.keycode:
-				KEY_W, KEY_UP:
-					_menu_i = (_menu_i + menu_titles.size() - 1) % menu_titles.size()
-				KEY_S, KEY_DOWN:
-					_menu_i = (_menu_i + 1) % menu_titles.size()
-				KEY_ENTER, KEY_KP_ENTER, KEY_E, KEY_SPACE:
-					_choose(_menu_i)
+			if event.is_action("forward") or event.keycode == KEY_UP:
+				_menu_i = (_menu_i + menu_titles.size() - 1) % menu_titles.size()
+			elif event.is_action("back") or event.keycode == KEY_DOWN:
+				_menu_i = (_menu_i + 1) % menu_titles.size()
+			elif event.is_action("interact") or event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+				_choose(_menu_i)
 		elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 			for i in _menu_rects.size():
 				if _menu_rects[i].has_point(_draw_node.get_local_mouse_position()):
@@ -276,7 +279,7 @@ func lane_press(lane: int, at := -1.0) -> void:
 		return
 	_down[lane] = true
 	_flash[lane] = 1.0
-	var t := (at if at >= 0.0 else _t) - _lag  # humalan painallusviive
+	var t := (at if at >= 0.0 else _t) + _lag + drunk * randf_range(-0.12, 0.12)  # humala: viive ja heitto, yht. enintään 0,19 s
 	var best: Dictionary = {}
 	var bd := WIN_OK + 0.0001
 	for n in _notes:
@@ -297,7 +300,8 @@ func lane_press(lane: int, at := -1.0) -> void:
 	_combo += 1
 	_best_combo = maxi(_best_combo, _combo)
 	_meter = minf(1.0, _meter + 0.04)
-	_sum += float(best.q)
+	best.mult = _multiplier()  # pitkän nuotin pitobonus saa saman kertoimen
+	_sum += float(best.q) * float(best.mult)
 	_judge = "TÄYDELLINEN!" if best.q >= 1.0 else ("HYVÄ" if best.q >= 0.75 else "OK")
 	_judge_t = 0.6
 	_burst.append([lane, 0.0, best.q])
@@ -319,8 +323,17 @@ func _break_combo(text: String) -> void:
 	_judge_t = 0.5
 
 
-func _multiplier() -> int:
-	return clampi(1 + _combo / 8, 1, 4)
+## Putken kerroin pisteisiin: ×1,0 → ×1,6 neljän osuman välein. Sokea hakkaaminen katkaisee putken ("Ohi!").
+func _multiplier() -> float:
+	return _mult_for(_combo)
+
+
+static func _mult_for(combo: int) -> float:
+	return 1.0 + 0.2 * clampi(combo / 4, 0, 3)
+
+
+func _mult_text() -> String:
+	return ("×%.1f" % _multiplier()).replace(".", ",")
 
 
 # --- Peli -------------------------------------------------------------------------------------------------------
@@ -361,27 +374,39 @@ func _process(delta: float) -> void:
 					# Pitkä nuotti: pidä kaistan näppäintä pohjassa loppuun asti.
 					if _t >= float(n.t) + float(n.dur):
 						n.hold = false
-						_sum += 0.5 * clampf(float(n.held) / float(n.dur), 0.0, 1.0)
+						_sum += 0.5 * clampf(float(n.held) / float(n.dur), 0.0, 1.0) * float(n.mult)
 						_meter = minf(1.0, _meter + 0.02)
 					elif _down[n.lane]:
 						n.held += delta
 					else:
 						n.hold = false  # päästetty irti kesken
-						_sum += 0.5 * clampf(float(n.held) / float(n.dur), 0.0, 1.0)
-						_break_combo("Irti!")
+						_sum += 0.5 * clampf(float(n.held) / float(n.dur), 0.0, 1.0) * float(n.mult)
+						if float(n.held) < float(n.dur) * 0.6:  # selvästi kesken: putki katkeaa; vähän etuajassa vie vain pitobonusta
+							_break_combo("Irti!")
 		if _t >= float(n.t) - 0.05 and _t < float(n.t) + maxf(float(n.dur), float(n.len)) + 0.5:
 			cur_text = n
 	var li := -1
-	for n in _notes:
+	for i in _notes.size():
+		var n: Dictionary = _notes[i]
 		if _t < float(n.t) + float(n.len) + SYL * 2.0:
 			li = int(n.line)
+			# Seuraava rivi esiin hyvissä ajoin ennen sen ensimmäistä sanaa, kun nykyisen rivin viimeinen sana on näkynyt
+			# korostettuna hetken (enintään puolet sanojen välistä).
+			for j in range(i, _notes.size()):
+				var nx: Dictionary = _notes[j]
+				if int(nx.line) != li:
+					var last: Dictionary = _notes[j - 1]
+					var seen := minf(minf(float(last.len), 0.3), (float(nx.t) - float(last.t)) * 0.5)
+					if float(nx.t) - _t < LINE_AHEAD and _t >= float(last.t) + seen:
+						li = int(nx.line)
+					break
 			break
 	if li != _last_line and li >= 0:
 		_last_line = li
 		line.emit(_line_text(li, {}))
 	_update_lyrics(cur_text)
 	var pct := roundi(_current_score() * 100.0)
-	_info.text = "KARAOKE · %s    %d %%    Putki %d  ×%d" % [_title, pct, _combo, _multiplier()]
+	_info.text = "KARAOKE · %s    %d %%    Putki %d  %s" % [_title, pct, _combo, _mult_text()]
 	if not real:
 		_fill_audio()
 	_draw_node.queue_redraw()
@@ -542,7 +567,7 @@ func _draw_chart() -> void:
 	c.draw_string(f, Vector2(mx - 20, 108), "YLEISÖ", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 1, 1, 0.8))
 	# Kerroin ja pisteet (oikealla).
 	var rx := W - 220.0
-	c.draw_string(f, Vector2(rx, 150), "× %d" % _multiplier(), HORIZONTAL_ALIGNMENT_LEFT, -1, 64, Color(1.0, 0.85, 0.3))
+	c.draw_string(f, Vector2(rx, 150), _mult_text(), HORIZONTAL_ALIGNMENT_LEFT, -1, 64, Color(1.0, 0.85, 0.3))
 	c.draw_string(f, Vector2(rx, 200), "Putki %d" % _combo, HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color.WHITE)
 	c.draw_string(f, Vector2(rx, 236), "Paras %d" % _best_combo, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, 0.7))
 	c.draw_string(f, Vector2(rx, 272), "Osumia %d / %d" % [_hit, _notes.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, 0.7))
