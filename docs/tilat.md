@@ -33,6 +33,8 @@ Toimintojen vaikutukset tiloihin:
 | Sprintti (juoksu, pyörän spurtti) | väsymys −, stamina − |
 | Tauko (paikallaan yli 3 s) | väsymys +, stamina + |
 | Paikallaan yli 10 s | kokemus − |
+| Oma kirppispöytä: kauppoja tehty | moraali + (vähän) |
+| Oma kirppispöytä: kaljakauppa tiskin alta jäi kiinni | stressi −−, moraali − |
 | Nuotio laavulla, tuli kodassa, grillikatos (paikallaan) | stressi ++, vireys + |
 | Luonnossa paikallaan (metsä, niitty, räme) | vireys + |
 | Selvin päin / humala yli 0,5 | vireys + / vireys − |
