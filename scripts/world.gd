@@ -153,6 +153,8 @@ var katsastus_door: Vector3  # katsastusaseman halliovi (#119)
 var arttim_door: Vector3  # metallipajan ovi
 var rudus_gate: Vector3  # Ruduksen portti (keikkatyö)
 var rossi_gate: Vector3  # rossiradan lähtöportti (#121)
+var _rossi_gate_node: Node3D
+var _rossi_clock: Node3D  # kellotaulu ja sen tolppa: rakennetaan tekstin mukaan uudestaan
 var rossi_boys: Node3D  # crossipojat lähtöportilla
 var rossi_jumps: Array = []  # hyppyrien harjat [paikka Vector3, suunta Vector2]
 var kertun_taulu_pos: Vector3  # Kertunkankaan opastaulun lukupaikka (#122)
@@ -2679,10 +2681,8 @@ func _build_rossi() -> void:
 	banner.position = Vector3(0, 3.4, 0)
 	for k in 14:  # ruutulippuraita maassa
 		B.mesh(gate, B.boxm(Vector3(0.5, 0.02, 0.5)), Vector3(-3.25 + k * 0.5, 0.04, 0), Color.BLACK if k % 2 == 0 else Color.WHITE)
-	var clock := B.sign_plate(gate, "ENNÄTYS", Color(0.05, 0.05, 0.05), Color(1.0, 0.4, 0.1), 0.3, 40, Color(0.4, 0.4, 0.4), "Helvetica Neue")
-	clock.position = Vector3(-4.6, 2.2, 0)
-	clock.name = "Kello"
-	B.mesh(gate, B.boxm(Vector3(0.12, 2.2, 0.12)), Vector3(-4.6, 1.1, 0.1), Color(0.3, 0.3, 0.3))
+	_rossi_gate_node = gate
+	set_rossi_clock("ENNÄTYS")
 	_tree_free.append([M.w2(Vector2(98, -812)), 38.0])
 	# Kierroksen viitat (rengasreunat mutkissa) ja hyppyrit.
 	for i in pts.size():
@@ -4884,3 +4884,20 @@ func _kota_path() -> PackedVector2Array:
 				best.reverse()
 	return best if bd < 200.0 else PackedVector2Array()
 
+
+## Rossiradan kellotaulu lähtöportin vieressä: levy mitoitetaan tekstin mukaan (B.sign_plate), joten se rakennetaan
+## uudestaan, kun ennätys tai oma aika muuttuu. Tolppa kantaa levyä alareunasta, ei peitä tekstiä kummaltakaan puolelta.
+func set_rossi_clock(text: String) -> void:
+	if _rossi_gate_node == null:
+		return
+	if _rossi_clock != null:
+		_rossi_gate_node.remove_child(_rossi_clock)  # nimi "Kello" vapautuu heti uudelle
+		_rossi_clock.queue_free()
+	_rossi_clock = Node3D.new()
+	_rossi_clock.name = "Kello"
+	_rossi_clock.position = Vector3(-4.6, 0, 0)
+	_rossi_gate_node.add_child(_rossi_clock)
+	var plate := B.sign_plate(_rossi_clock, text, Color(0.05, 0.05, 0.05), Color(1.0, 0.4, 0.1), 0.3, 40, Color(0.4, 0.4, 0.4), "Helvetica Neue")
+	var bottom := 2.0
+	plate.position.y = bottom + float(plate.get_meta("height")) / 2.0
+	B.mesh(_rossi_clock, B.boxm(Vector3(0.12, bottom + 0.05, 0.12)), Vector3(0, (bottom + 0.05) / 2.0, 0), Color(0.3, 0.3, 0.3))
