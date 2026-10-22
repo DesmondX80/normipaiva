@@ -69,6 +69,11 @@ const KIRKKO := Vector2(-132.1, 482.1)
 const KELLOTAPULI := Vector2(-144.4, 515.8)
 const HAUTAUSMAA := [Vector2(-224.8, 517.6), Vector2(-232.8, 397.6), Vector2(-224.2, 393.3), Vector2(-110.6, 457.6),
 	Vector2(-116.3, 474.5), Vector2(-136.9, 541.5), Vector2(-145.1, 567.6)]
+## Olavinmarkkinoiden hopea (#124): kauppiaan hauta hautausmaalla, kätköpaikka Kirkkoluodontien varressa ("kirkon rannan
+## luoto", pelin tulkinta) ja Pannu-Sulon toimitusreitin lyhty.
+const KAUPPIAAN_HAUTA := Vector2(-190.0, 500.0)
+const OLAVI_KATKO := Vector2(14.0, 1100.0)
+const OLAVI_SULO := Vector2(36.0, 1240.0)
 ## Palon yön pyhimys (#125): talollisen hauta, jolla palon vuosipäivänä palaa kynttilä, ja hautausmaan hoitajan paikka.
 const KYNTTILA_HAUTA := Vector2(-176.0, 492.0)
 const HOITAJA := Vector2(-160.0, 462.0)

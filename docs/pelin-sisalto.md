@@ -151,6 +151,18 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   pitää nimen salassa -> Aaro muistaa mummon aitan pyhän nuken -> pyhimys Tokolan vanhan varaston orsilta -> suntiolle
   kirkkoon. Palautus: loppu "Palon yön pyhimys", maine +10, kynttilä sammuu, nainen käy vuosipäivinä kirkon edessä, ja
   suntion, Pekan ja Sinikan epäilyt vaihtuvat. Testi `--scene=palonpyhimys` (toimii headlessinä).
+- **Legenda: Olavinmarkkinoiden hopea (#124):** oikea tausta (Visit Raahe): Saloinen sai 1616 vapaat markkinat
+  Olavinpäivästä kahdeksi viikoksi, kauppiaita tuli monesta kaupungista ja talonpojat myivät mm. tervaa ja voita; Raahen
+  perustamisen jälkeen markkinat siirtyivät Rantatorille. Legenda on keksitty ja pelissä totta: kauppias Olof Skyttä
+  (hautakiven nimi ja vuodet keksittyjä) kätki markkinarahansa. Ketju: kirppiksen Hilkka kertoo -> Saloisten Pirtti antaa
+  kauppiaan kirjeen ("kirkon rannan luoto", pelin tulkinta Kirkkoluodontiestä) -> hautausmaan sammaloitunut kivi ja tuoreet
+  kukat -> Olavi-pappa (päivisin hautausmaalla) kertoo ja pyytää kaljaa -> lupa kaivaa -> lapio autotallin vasemmalta
+  seinältä -> lipas Kirkkoluodontien länsipuolelta sammaloituneen kiven vierestä. Olavinpäivä on pelissä joka 7. päivä:
+  sen yönä (22–4) Olavi-pappa seisoo lyhdyn kanssa kätköllä; muina öinä lyhty on Pannu-Sulon toimitusreitillä (Sulo antaa
+  pullon pontikkaa vaitiolosta). Valinta: Pirtti/museo (palkkio 60 €, maine +12, lehtijuttu, loppu "Olavinmarkkinat
+  palasivat") tai Veksi (240 €, maine −8, poliisi hakee kylällä). Museovalinnan jälkeen joka Olavinpäivä 10–18
+  seuraintalolla on Olavinmarkkinat: banderolli, ja kirppiksellä tervatuoppi, voita ja markkinamakkaraa. Epäilijät
+  (Pekka, Arto, Anna-Liisa) vaihtavat repliikkinsä. Testi `--scene=olavinmarkkinat` (toimii headlessinä).
 - **Saloisten Reippari:** grillikioski seuraintalon vieressä (auki 11–23). Luukulta Raijalta makkaraperunat,
   lihapiirakka kaikilla, hampurilainen ja kahvi (ruoat reppuun, T syö). Illalla 18–23 kioskin edessä notkuu porukka
   mopoineen, ja juoruista kuulee mm. Pannu-Sulon kuusikosta ja Tokolan varastosta. Ilmoitustaululta alkaa
