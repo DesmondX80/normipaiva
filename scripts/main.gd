@@ -8579,6 +8579,8 @@ func _on_eat(id: String) -> void:
 	_mopo_menu(false)
 	match id:
 		"pulla", "piirakka", "savukala", "savuriista", "karrella", "mustikkapiirakka", "makkaraperunat", "piirakka_kaikilla", "hampurilainen":
+			if food.get(id, 0) <= 0:
+				return  # valikossa vain omat eväät; varmistus, ettei tyhjää syödä
 			food[id] -= 1
 			if food[id] <= 0:
 				food.erase(id)
@@ -14619,8 +14621,11 @@ var _pummi_tip := false  # porukka aidan takana kertoi reitin ja järkkärin tav
 func _pummi_lava() -> void:
 	if _lava_game != null:
 		return
-	if _lava_pass_now() != "":
+	if _lava_pass_now() == "lippu":
 		_show_message("Leima on jo kädessä, ei tarvi kahlata. Portti on auki.", 2.5)
+		return
+	if _lava_pass_now() == "pummi":
+		_show_message("Oot jo kahlannu pihalle. Housut on vieläkin märät.", 2.5)
 		return
 	if mopo_trip.on_foot == null:
 		_mopo_dismount()  # mopolla ei kahlata: mopo jää rantaan aidan ulkopuolelle
@@ -18144,6 +18149,7 @@ func _maybe_screenshot() -> void:
 			if player != walker_out:
 				_toggle_mount()
 			money = 30.0
+			clock_min = 17 * 60  # baari auki 14–02: aamulla taksi ei vie suljettuun baariin
 			walker_out.global_position = world.taxi_pos + Vector3(2.2, 0.5, 1.0)
 			walker_out.rotation.y = -PI * 0.5
 			for i in 30:
@@ -18217,7 +18223,11 @@ func _maybe_screenshot() -> void:
 			for w in 2:
 				await get_tree().process_frame
 			Input.action_release("interact")
-			await get_tree().create_timer(3.3, true, false, true).timeout
+			# Laskenta ennen vääntöä: odotetaan vaihetta eikä kiinteää aikaa (hitaalla koneella 3,3 s ei riitä).
+			for w in 3000:
+				if bar._phase not in ["", "intro", "count"]:
+					break
+				await get_tree().process_frame
 			var key := "left"
 			var n := 0
 			var pace := 0.07  # s painallusten välissä (lisäksi 3 ruutua); --pace=0.3 kokeilee hidasta tahtia
@@ -21053,7 +21063,7 @@ func _maybe_screenshot() -> void:
 			print("KISA lähtö: %s" % rc._note)
 			var shot := 0
 			var t0 := Time.get_ticks_msec()
-			while is_instance_valid(rc) and rc._phase == "race" and Time.get_ticks_msec() - t0 < 30000:
+			while is_instance_valid(rc) and rc._phase == "race" and Time.get_ticks_msec() - t0 < 300000:  # yläraja: hitaalla (ohjelmisto)renderöinnillä kisa kestää minuutteja
 				var r: float = rc._rpm(rc._me)
 				if r > 0.86 and rc._me.gear < 3 and rc._me.shift <= 0.0:
 					Input.action_press("jump")
@@ -21068,7 +21078,7 @@ func _maybe_screenshot() -> void:
 			await snap.call("_maali.png")
 			print("KISA tulos: oma %.2f, vastustaja %.2f, '%s'" % [rc._me.time, rc._opp.time, rc._big.text])
 			t0 = Time.get_ticks_msec()
-			while state == "mopokisa" and Time.get_ticks_msec() - t0 < 8000:
+			while state == "mopokisa" and Time.get_ticks_msec() - t0 < 60000:
 				await get_tree().process_frame
 			print("KISA jälkeen: tila %s, rahaa %.2f, viesti '%s', voitot %d" % [state, money, _msg.text, _race_wins])
 			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -21115,11 +21125,12 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("NUORET rannassa vihje '%s', kuiva %s" % [mopo_trip.hint, not vl.wet(po.x, po.z)])
 			await snap.call("_ranta.png")
-			var tries := 0
-			while _lava_game == null and tries < 12:
-				tries += 1
-				_pummi_lava()
-				print("NUORET pummiyritys %d: lavalla %s, viesti '%s'" % [tries, _lava_game != null, _msg.text])
+			# Pummi vie lavan pihalle ilman leimaa (portsari vahtii); tansseihin mennään pihalta lavan ovesta.
+			_pummi_lava()
+			print("NUORET pummilla: leima '%s', pihalla %s, viesti '%s'" % [_lava_pass_now(),
+				vl.in_lava_yard(mopo_trip.to_local(walker_out.global_position)), _msg.text])
+			_pummi_lava()
+			print("NUORET pummi uudestaan: viesti '%s'" % _msg.text)
 			await snap.call("_lava.png")
 			print("NUORET lavalla rahat %.2f, tila %s" % [money, state])
 			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -22003,13 +22014,13 @@ func _maybe_screenshot() -> void:
 					var vt: Node3D = mopo_trip.vaala.train
 					print("JUNA Vaalassa juna laiturilla heti %s (seisoo, %s), laituri %.0f m radalla" % [vt.at_station(), vt.calling(), mopo_trip.vaala.station_t])
 					var t1 := Time.get_ticks_msec()
-					while vt.calling() and Time.get_ticks_msec() - t1 < 30000:
+					while vt.calling() and Time.get_ticks_msec() - t1 < 300000:
 						await get_tree().process_frame
 					_on_vaala_door("laituri")
 					print("JUNA odotus: '%s'" % _msg.text)
 					Engine.time_scale = 4.0
 					t1 = Time.get_ticks_msec()
-					while not vt.at_station() and Time.get_ticks_msec() - t1 < 60000:
+					while not vt.at_station() and Time.get_ticks_msec() - t1 < 600000:  # yläraja: hitaalla koneella juna saapuu vasta minuuttien päästä
 						await get_tree().process_frame
 					Engine.time_scale = 1.0
 					var vsp: Vector3 = mopo_trip.to_global(mopo_trip.vaala.station_plat)
@@ -24351,16 +24362,18 @@ func _maybe_screenshot() -> void:
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
 			if player == bike:
 				_toggle_mount()
+			# _juntti_roam ajetaan _processissa: odotetaan prosessiruutuja (hitaalla koneella yhteen prosessiruutuun
+			# mahtuu monta fysiikkaruutua).
 			var frames := func(n: int) -> void:
 				for i in n:
-					await get_tree().physics_frame
+					await get_tree().process_frame
 			for k in [5, 6, 0, 2]:
 				var at := M.w(M.JUNTTI_SPOTS[k])
 				walker_out.global_position = at + Vector3(60, 0.3, 0)
 				var cam := get_viewport().get_camera_3d()
 				cam.look_at_from_position(walker_out.global_position + Vector3(-3, 2, 0), walker_out.global_position + Vector3(10, 1, 0))
 				_juntti_hop_t = 0.0
-				await frames.call(5)
+				await frames.call(10)
 				var seen := cam.is_position_in_frustum(at + Vector3(0, 1, 0))
 				var jd := Vector2(juntti.global_position.x - at.x, juntti.global_position.z - at.z).length()
 				print("JU paikka %d %s: Juntti %.1f m paikasta (paikka kamerassa %s), tila %s" % [k, M.JUNTTI_SPOTS[k], jd, seen, juntti.mode])
@@ -24370,7 +24383,7 @@ func _maybe_screenshot() -> void:
 			var cam2 := get_viewport().get_camera_3d()
 			cam2.look_at_from_position(walker_out.global_position + Vector3(3, 2, 0), at2 + Vector3(0, 1, 0))
 			_juntti_hop_t = 0.0
-			await frames.call(5)
+			await frames.call(10)
 			print("JU katse paikkaan 4: kamerassa %s, Juntti %.1f m paikasta" % [cam2.is_position_in_frustum(at2 + Vector3(0, 1, 0)),
 				Vector2(juntti.global_position.x - at2.x, juntti.global_position.z - at2.z).length()])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
@@ -25749,8 +25762,14 @@ func _maybe_screenshot() -> void:
 			bike.activate_camera()
 			# Ajo suoralla asfaltilla: avustuksella ja ilman.
 			var road := M.w(Vector2(829, 1240))
+			# Mittauksen ajaksi ruuvikiinnitykset: teipattu akku voi irrota jo parin sekunnin ajossa, jolloin
+			# "avustettu" mittaus mittaisikin raskasta pyörää. Oikeat kiinnitykset palautetaan mittauksen jälkeen.
+			var joints0: Dictionary = ebike.joints.duplicate()
+			for j in ebike.joints:
+				ebike.joints[j] = "ruuvi"
 			var top := func(battery: float) -> float:
 				ebike.battery = battery
+				ebike.loose.clear()
 				bike.global_position = road + Vector3(0, 0.4, 0)
 				bike.rotation.y = B.yaw_to(M.w(Vector2(844, 1300)) - road)
 				bike.speed = 0.0
@@ -25764,6 +25783,8 @@ func _maybe_screenshot() -> void:
 			var akku_after: float = ebike.battery
 			var v_off: float = await top.call(0.0)
 			print("SP huippu: avustus %.1f km/h (akku %.3f), tyhjä akku %.1f km/h, raskas %s" % [v_on * 3.6, akku_after, v_off * 3.6, bike.heavy])
+			ebike.joints = joints0
+			ebike.loose.clear()
 			ebike.battery = 1.0
 			# Juurakot irrottavat teipatun akun.
 			bike.speed = 8.0
@@ -26692,6 +26713,9 @@ func _maybe_screenshot() -> void:
 					await press.call("back")
 				await press.call("interact")
 				var g: CanvasLayer = _wc_game
+				if g == null:
+					print("VESSA minipeli ei auennut")
+					return
 				if g.mode == "ykkonen":
 					while is_instance_valid(g):
 						var aim: Vector2 = g._aim
@@ -26726,8 +26750,8 @@ func _maybe_screenshot() -> void:
 				await get_tree().physics_frame
 			_enter_mokki()
 			mokki_int.walker.position = mokki_int.SPOTS.wc[0]
-			for i in 5:
-				await get_tree().physics_frame
+			for i in 10:  # vihje päivittyy _processissa: prosessiruutuja, ei fysiikkaruutuja
+				await get_tree().process_frame
 			print("VESSA mökki: '%s'" % mokki_int.hint)
 			await press.call("interact")
 			await play.call(2, 12)
@@ -28043,7 +28067,7 @@ func _maybe_screenshot() -> void:
 			print("SAVU loaded=", smoker_load, " msg=", _msg.text)
 			for k in 3:
 				await press3.call()
-			var t_end := Time.get_ticks_msec() + 120000
+			var t_end := Time.get_ticks_msec() + 900000  # yläraja: hitaalla koneella savustus kestää pitkään
 			var n := 0
 			while Time.get_ticks_msec() < t_end:
 				n += 1
@@ -28762,6 +28786,9 @@ func _maybe_screenshot() -> void:
 				Input.action_release("interact")
 				for i in 5:
 					await get_tree().process_frame
+			clock_min = 12 * 60  # aamulla (8–10) Sinikka on uimassa Oravajärvellä, ei pihalla
+			for i in 5:
+				await get_tree().process_frame
 			sinikka.set_physics_process(false)
 			var sp2: Vector3 = sinikka.yard[0]
 			sinikka.global_position = sp2
@@ -30495,6 +30522,7 @@ func _maybe_screenshot() -> void:
 			if player != walker_out:
 				_toggle_mount()
 			money = 30.0
+			story.step = "valmis"  # Pekan kyyti aukeaa vasta tarinan luvun 1 lopussa
 			pekka.process_mode = Node.PROCESS_MODE_DISABLED  # ei karkaa puuhiinsa testin aikana
 			_note.visible = false
 			walker_out.global_position = pekka.global_position + Vector3(1.5, 0.5, 0)
@@ -30506,12 +30534,15 @@ func _maybe_screenshot() -> void:
 			for w in 2:
 				await get_tree().process_frame
 			Input.action_release("interact")
+			await get_tree().process_frame
+			print("PEKKA ikkuna: %s" % str(_talk_box._options.map(func(o): return o.id)))
+			_test_talk(["kyyti"])  # E avaa keskustelun; kyyti valitaan siitä
 			print("PEKKA busy=%s rahat=%s" % [cutscene.busy, _eur(money)])
 			for sec in [2.5, 4.0, 3.5]:
 				await get_tree().create_timer(sec, true, false, true).timeout
 				await shot.call(str(sec))
 			var t0 := Time.get_ticks_msec()
-			while (cutscene.busy or not mokki.built) and Time.get_ticks_msec() - t0 < 20000:
+			while (cutscene.busy or not mokki.built) and Time.get_ticks_msec() - t0 < 300000:  # yläraja: hitaalla koneella välikuva ja mökin rakennus kestävät minuutteja
 				await get_tree().process_frame
 			for i in 60:
 				await get_tree().physics_frame
@@ -30528,7 +30559,7 @@ func _maybe_screenshot() -> void:
 			await get_tree().create_timer(10.5, true, false, true).timeout
 			await shot.call("koti_tie")
 			t0 = Time.get_ticks_msec()
-			while cutscene.busy and Time.get_ticks_msec() - t0 < 20000:
+			while cutscene.busy and Time.get_ticks_msec() - t0 < 300000:
 				await get_tree().process_frame
 			for i in 60:
 				await get_tree().physics_frame
@@ -30834,7 +30865,7 @@ func _maybe_screenshot() -> void:
 					await RenderingServer.frame_post_draw
 					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_menu.png"))
 					await get_tree().process_frame
-				_test_talk([_talk_box._options[0].id])
+				_test_talk(["anna_" + round])  # ensimmäinen valinta voi olla Pörrö-tehtävä (lemmikki_kysy)
 				for i in 30:
 					await get_tree().process_frame
 				print("POJAT gave -> mode=%s money %s -> %s moraali %+.2f kokemus %+.2f beers=%d msg=%s" % [
@@ -30946,9 +30977,18 @@ func _maybe_screenshot() -> void:
 			state = "ulkona"
 			_kuutonen_day = day
 			_start_fight("juntti", "juntti", Vector3.RIGHT)
-			for i in 150:
+			# Ottelun alkuun asti (ei kiinteää ruutumäärää: hitaalla koneella Juntti ehti tyrmätä ennen heittoja), ja
+			# pelaajalle reilusti energiaa, ettei Juntin isku katkaise heittosarjaa.
+			for i in 600:
 				await get_tree().process_frame
+				if fight._phase == "fight":
+					break
+			fight._p.hp = 1000.0
 			for k in 3:
+				for w in 300:  # edellinen heitto tai Juntin isku kesken: heitto onnistuu vain vapaasta asennosta
+					if fight._p.state in ["idle", "walk", "block"] and fight._p.on_ground():
+						break
+					await get_tree().process_frame
 				var hp0: float = fight._j.hp
 				Input.action_press("right")
 				await get_tree().process_frame
@@ -31014,19 +31054,24 @@ func _maybe_screenshot() -> void:
 					cc.fov = 38.0
 					add_child(cc)
 					for view in [["e", Vector3(0.12, 0.12, -0.55)], ["s", Vector3(-0.55, 0.25, -0.15)], ["v", Vector3(-0.35, 0.5, -0.35)]]:
+						if not is_instance_valid(hero):
+							break  # välianimaatio loppui kesken kuvien (hidas kone): hahmot on jo vapautettu
 						cc.look_at_from_position(th + hero.global_basis * view[1], th, Vector3.UP)
 						cc.current = true
 						await RenderingServer.frame_post_draw
 						get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kasi%02d%s.png" % [close_n, view[0]]))
 					# Ylävartalo edestä ja ylhäältä takaa (verkkopaidassa vasen käsi Helenan ympärillä).
-					var chest: Vector3 = hero.to_global(hero.bone_position("Head")) + Vector3(0, -0.3, 0)
+					var chest: Vector3 = hero.to_global(hero.bone_position("Head")) + Vector3(0, -0.3, 0) if is_instance_valid(hero) else Vector3.ZERO
 					for view in [["f", Vector3(-0.35, 0.15, -1.3)], ["t", Vector3(-0.2, 0.9, 0.6)]]:
+						if not is_instance_valid(hero):
+							break
 						cc.look_at_from_position(chest + hero.global_basis * view[1], chest, Vector3.UP)
 						cc.current = true
 						await RenderingServer.frame_post_draw
 						get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kasi%02d%s.png" % [close_n, view[0]]))
 					cc.queue_free()
-					cutscene._cam.current = true
+					if is_instance_valid(cutscene._cam):
+						cutscene._cam.current = true
 					close_n += 1
 				if due > 0 and Time.get_ticks_msec() >= due:
 					due = -1
@@ -31695,8 +31740,10 @@ func _maybe_screenshot() -> void:
 			await hframes.call(3)
 			g._lmb = false
 			await hframes.call(20)
-			print("PENSAS vaihe %s, kyljet %d, latva ok %s, tasalla %.2f, koloja %d, Päivi '%s'" % [g._phase, hh.sides_left(),
-				hh.shoots_ok(), hh.level_share(), g.holes, g._bubble.text])
+			# Valmis aita voi lopettaa minipelin jo ennen tätä (hitaalla koneella ruudut ovat pitkiä): peli on silloin vapautettu.
+			print("PENSAS vaihe %s, kyljet %d, latva ok %s, tasalla %.2f, koloja %s, Päivi '%s'" % [g._phase if is_instance_valid(g) else "ohi",
+				hh.sides_left(), hh.shoots_ok(), hh.level_share(), str(g.holes) if is_instance_valid(g) else "-",
+				g._bubble.text if is_instance_valid(g) else ""])
 			await hshot.call("valmis")
 			await get_tree().create_timer(3.6).timeout
 			print("PENSAS loppu: peli %s, rehotus %.2f, kehu %s, viesti '%s'" % [_hedge_game, hh.overgrowth(), _hedge_praise, _msg.text.replace("\n", " | ")])
@@ -31723,6 +31770,8 @@ func _maybe_screenshot() -> void:
 			Input.action_press("interact")
 			await get_tree().process_frame
 			Input.action_release("interact")
+			await get_tree().process_frame
+			_test_talk(["varaosa"])  # Arto avaa keskustelun; varaosa ostetaan valinnalla
 			print("ARTO part=%s money=%s" % [has_mower_part, _eur(money)])
 			beers = 1
 			walker_out.global_position = lawn.mower.global_position + Vector3(1.0, 0.3, 0)

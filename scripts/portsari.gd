@@ -81,6 +81,7 @@ func _walk(delta: float) -> void:
 		# Pysähdyksissä portsari vilkuilee ympärilleen.
 		rotation.y += sin(Time.get_ticks_msec() / 900.0) * delta * 0.5
 		return
+	_wp %= waypoints.size()  # reitti voi vaihtua lyhyemmäksi kesken kierroksen
 	var goal := waypoints[_wp]
 	var to_g := goal - position
 	to_g.y = 0.0

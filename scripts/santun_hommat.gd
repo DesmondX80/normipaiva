@@ -172,6 +172,9 @@ const HERMO_LINES := [
 const REVIEWS := {
 	1: ["Vieras ei tehnyt mitään. Makoili ja söi jääkaapin tyhjäksi. Ei suositella.",
 		"Laiskin vieras viiteen vuoteen. Pekka tuli hakemaan.", "Hommat jäi tekemättä. Superhost suosittelee kotiin jäämistä."],
+	# Yksi tähti, vaikka jotain tehtiin (alle puolet tai hermot meni kesken): ei "ei tehnyt mitään".
+	-1: ["Teki pari hommaa ja jätti loput. Hermot meni. Ei suositella.",
+		"Aloitti hyvin, mutta loppu jäi kesken. Pekka tuli hakemaan.", "Vähän tehtiin, paljon makoiltiin. Superhost on pettynyt."],
 	3: ["Teki osan hommista, loput jäi. Ihan kelpo vieras.", "Hommat puolittain tehty. Kahvit juotiin."],
 	5: ["Paras vieras ikinä! Teki kaikki hommat ja vielä pyytämättä kehui savustinta.",
 		"Viisi tähteä! Huussi tyhjä, palju puhdas ja laituri kantaa.", "Tervetuloa uudestaan! Mökki on paremmassa kunnossa ku ennen."],
@@ -321,7 +324,7 @@ func beer_help() -> String:
 
 
 func add_review(day: int, stars: int) -> String:
-	var text: String = REVIEWS[stars].pick_random()
+	var text: String = REVIEWS[-1 if stars == 1 and not done.is_empty() else stars].pick_random()
 	reviews.append({"day": day, "stars": stars, "text": text})
 	return text
 

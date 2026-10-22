@@ -1870,7 +1870,7 @@ const TRAIN_TALK_VAALA := [
 const TRAIN_TALK_SALOINEN := [
 	["helena", "Hei! Saanko istua? Tässä on niin kiva valo."], ["minä", "Tottahan toki. Mulla on tuoppi, otatteko jotain?"],
 	["tarjoilija", "Olutta vai jotain vahvempaa?"], ["minä", "Kolme Koskenkorvaa naisille, minä tarjoan!", "treat"],
-	["marja", "Kippis! Menetkö kotiin Saloisiin?"], ["helena", "Älä vielä mene. Matkaa on jäljellä.", "hand"], ["minä", "Kotiin. Kuusi kaljaa ja nurmikko odottaa."],
+	["marja", "Kippis! Menetkö kotiin Saloisiin?"], ["minä", "Kotiin. Kuusi kaljaa ja nurmikko odottaa."], ["helena", "Älä vielä mene. Matkaa on jäljellä.", "hand"],
 	["liisa", "Sinulla on hauska tapa kertoa asioista."], ["minä", "Ja teidän kanssanne matka meni hetkessä."],
 	["helena", "Hyvää kotimatkaa! Oli ilo jutella."],
 ]
