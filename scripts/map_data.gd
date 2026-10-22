@@ -69,6 +69,8 @@ const KIRKKO := Vector2(-132.1, 482.1)
 const KELLOTAPULI := Vector2(-144.4, 515.8)
 const HAUTAUSMAA := [Vector2(-224.8, 517.6), Vector2(-232.8, 397.6), Vector2(-224.2, 393.3), Vector2(-110.6, 457.6),
 	Vector2(-116.3, 474.5), Vector2(-136.9, 541.5), Vector2(-145.1, 567.6)]
+## Saloisten Kanttorila (OSM-rakennus, kanttorin vanha talo) kylän länsiosassa (#144).
+const KANTTORILA := Vector2(116.9, 355.3)
 ## Olavinmarkkinoiden hopea (#124): kauppiaan hauta hautausmaalla, kätköpaikka Kirkkoluodontien varressa ("kirkon rannan
 ## luoto", pelin tulkinta) ja Pannu-Sulon toimitusreitin lyhty.
 const KAUPPIAAN_HAUTA := Vector2(-190.0, 500.0)

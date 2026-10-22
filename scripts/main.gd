@@ -271,6 +271,7 @@ const UkkoLegenda := preload("res://scripts/ukko_legenda.gd")
 const PyhimysLegenda := preload("res://scripts/pyhimys_legenda.gd")
 const OlaviLegenda := preload("res://scripts/olavi_legenda.gd")
 const KuningasLegenda := preload("res://scripts/kuningas_legenda.gd")
+const KanttoriLegenda := preload("res://scripts/kanttori_legenda.gd")
 const ShoreFishGame := preload("res://scripts/shore_fish_game.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
@@ -364,6 +365,7 @@ var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.g
 var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
+var kanttori: RefCounted  # legenda: Kanttorilan yösävel (kanttori_legenda.gd, #144)
 var kuningas: RefCounted  # legenda: Kuninkaan tapuli (kuningas_legenda.gd, #126)
 var olavi: RefCounted  # legenda: Olavinmarkkinoiden hopea (olavi_legenda.gd, #124)
 var olavi_pappa: CharacterBody3D
@@ -1167,6 +1169,7 @@ func _ready() -> void:
 	pyhimys = PyhimysLegenda.new()
 	olavi = OlaviLegenda.new()
 	kuningas = KuningasLegenda.new()
+	kanttori = KanttoriLegenda.new()
 	ukko = UkkoLegenda.new()
 	endings = Endings.new()
 	quests = Quests.new()
@@ -1686,6 +1689,7 @@ func _outside_logic() -> void:
 	_pyhimys_logic()
 	_olavi_logic()
 	_kuningas_logic()
+	_kanttori_logic()
 	_kalastus_logic()
 	_reippari_logic()
 	_atm_logic()
@@ -3003,6 +3007,9 @@ func _talk_kirppis(id: String) -> void:
 			+ "kesä, ja kerran se kisko soutuveneen kaislikkoon. Kaikki nauraa. Mutta heitä virvelillä sinne, niin näet.",
 			_talk_options(), "Legenda: Tekojärven Ukko. Haapajärven tekojärvi on kylän eteläpuolella, Kaitasaari keskellä.")
 		return
+	if id == "kanttori_legenda":
+		_talk_kanttori(id)
+		return
 	if id == "olavi_legenda":
 		olavi.heard = true
 		tilat.first("olavi_legenda", 0.2)
@@ -3153,6 +3160,9 @@ func _kirppis_give(k: String) -> String:
 func _auction_lot() -> Dictionary:
 	if _auction_day == day:
 		return {}
+	if kanttori.heard and not kanttori.harmooni and (day % 2 == 0 or ebike.parts.has("moottori") or ebike.built()):
+		return {"id": "harmooni", "name": "Vanha harmooni, palje reikäinen", "start": 6.0,
+			"rivals": [["Mummo Elvi", randf_range(10.0, 16.0)], ["Ukko Veikkonen", randf_range(8.0, 13.0)]]}
 	if not ebike.parts.has("moottori") and not ebike.built():
 		return {"id": "moottori", "name": "Napamoottori, vähän käytetty", "start": 5.0,
 			"rivals": [["Mummo Elvi", randf_range(9.0, 14.0)], ["Ukko Veikkonen", randf_range(12.0, 19.0)]]}
@@ -3316,6 +3326,12 @@ func _start_auction() -> void:
 				ebike.started = true
 				kirppis_int.lot_visible = false
 				_show_message("Napamoottori %s eurolla! Mummo Elvi mulkoilee. Sähköpyörän osa.%s" % [_eur(price), _ebike_parts_note()], 5.0)
+			"harmooni":
+				kanttori.harmooni = true
+				_kertun_sync()
+				tilat.first("kanttori_harmooni", 0.2)
+				_show_message("Harmooni %s eurolla! Palkeen välistä tipahtaa repaleinen nuottiarkki: toinen puolikas puuttuu. Pirtin arkisto?%s" % [_eur(price),
+					" Nuotit koossa: vie ne Sinikalle." if kanttori.nuotit() else ""], 6.0)
 			"vhs":
 				mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0)
 				_show_message("Laatikollinen VHS-kasetteja %s eurolla. Uunot, Rambot ja yks hääjuhla vuodelta -87." % _eur(price), 4.0)
@@ -5049,6 +5065,16 @@ const OLAVI_PROVEN := {
 const MARKKINA_OPEN := Vector2(10 * 60, 18 * 60)
 var _olavi_flame: Node3D
 var _sulo_flame: Node3D
+const KANTTORI_DOUBT := {
+	"pekka": ["Se on Kanttorilan nykyisen asukkaan kännykkä, perkele.", "Urkuja, saatana. Siellä ei oo edes pianoa."],
+	"arto": ["Tuuli soi räystäskourussa.", "Kanttorila on vanha talo. Vanhat talot narisee."],
+	"annaliisa": ["Mää oon asunu täällä koko ikäni, enkä oo kuullu mitään.", "Sinikka ja Hilkka keksii noita. Kuorossa on aikaa."],
+}
+const KANTTORI_PROVEN := {
+	"pekka": ["No jopas. Virsi, jonka kanttori sävelsi. Mää itken vähän.", "Kännykkä, sanoin. Perkele."],
+	"arto": ["Ei se räystäskouru ollukkaan. Anteeksi vaan.", "Mää kävin kuuntelemassa seuraintalolla. Hieno virsi."],
+	"annaliisa": ["Mää kuulin virren seuraintalolla. Siinä oli oikeasti jotain.", "No en mää sitä ihan valheeksi sanonu…"],
+}
 const KUNINGAS_DOUBT := {
 	"arto": ["Kuningas ei ole ikinä kuullukaan Saloisista. Joku rakennusmestari sen piirsi.", "Kello kumahtaa, koska tuuli. Tai teinit."],
 	"pekka": ["Tapuli säästy, kun tuuli kävi toiseen suuntaan. Siinä kaikki.", "Kustaa III? Mää tunnen vaan Kustaa-nimisen kalakukon."],
@@ -5192,6 +5218,140 @@ func _markkinat_paiva() -> bool:
 ## Kuninkaan tapuli (#126): yökello, teinit ja avain, Pirtin G. R. -asiakirja, droonin ilmakuva, lyijykotelo, museo tai kolo.
 var _bell_t := 30.0
 var _bell_police_seen := false
+
+
+## Kanttorilan yösävel (#144): yöllä Kanttorilan pihalla ensin teinien kaiutin, sitten oikea urkusävel; harmooni huutokaupasta,
+## Pirtin arkisto, kuoro tai Veksi.
+var _kt_wav := {}
+var _kt_player: AudioStreamPlayer3D
+var _kt_choir: AudioStreamPlayer
+var _kt_phase := 0  # 0 ei soi, 1 teinien kaiutin, 2 urut
+var _kt_t := 0.0
+
+
+func _kanttori_tasks() -> Array:
+	if not kanttori.heard or kanttori.choice != "":
+		return []
+	var step := "vie nuotit Sinikan kuorolle tai Veksille"
+	if not kanttori.savel:
+		step = "käy yöllä (22–4) Kanttorilan pihalla kuuntelemassa"
+	elif not kanttori.harmooni:
+		step = "voita harmooni seuraintalon huutokaupassa (nuottiarkki palkeessa)"
+	elif not kanttori.arkisto:
+		step = "kysy toista nuottipuolikasta Saloisten Pirtistä"
+	return [["Kanttorilan yösävel: " + step, false]]
+
+
+func _kt_stream(kind: String) -> AudioStreamWAV:
+	if not _kt_wav.has(kind):
+		_kt_wav[kind] = KanttoriLegenda.tune(kind)
+	return _kt_wav[kind]
+
+
+func _kt_stop() -> void:
+	if _kt_player != null and _kt_player.playing:
+		_kt_player.stop()
+	_kt_phase = 0
+
+
+func _kanttori_logic() -> void:
+	if kanttori == null or world == null or world.kanttorila_pos == Vector3.ZERO:
+		return
+	if _kt_player == null:
+		_kt_player = AudioStreamPlayer3D.new()
+		_kt_player.unit_size = 8.0
+		_kt_player.max_distance = 70.0
+		_kt_player.volume_db = -4.0
+		add_child(_kt_player)
+		_kt_player.global_position = world.kanttorila_pos + Vector3(0, 2.0, 2.0)
+		_kt_choir = AudioStreamPlayer.new()
+		add_child(_kt_choir)
+	var p := player.global_position
+	var kp: Vector3 = world.kanttorila_pos
+	var dist := Vector2(p.x - kp.x, p.z - kp.z).length()
+	var night := _between(clock_min, KanttoriLegenda.NIGHT)
+	var active: bool = kanttori.heard and night and not kanttori.silent() and state == "ulkona" and dist < 60.0
+	if not active:
+		if _kt_phase != 0:
+			_kt_stop()
+		return
+	_kt_t += get_process_delta_time()
+	if _kt_phase == 0:
+		_kt_t = 0.0
+		if not kanttori.teinit:
+			_kt_phase = 1
+			_kt_player.stream = _kt_stream("kaiutin")
+			_kt_player.play()
+		else:
+			_kt_phase = 2
+			_kt_player.stream = _kt_stream("urut")
+			_kt_player.play()
+	elif _kt_phase == 1 and not _kt_player.playing:
+		kanttori.teinit = true
+		tilat.first("kanttori_teinit", 0.2)
+		_save_game()
+		_show_message("Kanttorilan ikkunan alla teinien kaiutin... Teinit kyllästyvät ja lähtevät. Mutta sävel jatkuu: urkuja, vaikka talossa ei ole urkuja.", 6.0)
+		_kt_phase = 2
+		_kt_player.stream = _kt_stream("urut")
+		_kt_player.play()
+	elif _kt_phase == 2:
+		if not _kt_player.playing:
+			_kt_player.play()
+		if not kanttori.savel and dist < 25.0 and _kt_t > 3.0:
+			kanttori.savel = true
+			tilat.first("kanttori_savel", 0.3)
+			_save_game()
+			_show_message("Oikea yösävel: hitaat urut Kanttorilan seinien sisältä. Kanttorin kadonnut virsi? Nuotit pitää löytää: huutokaupan harmooni ja Pirtin arkisto.", 7.0)
+	if _hint.text == "" and dist < 6.0 and kanttori.savel:
+		_hint.text = "Urut soivat talon sisällä. Ei ketään ikkunassa."
+
+
+func _kanttori_pirtti() -> void:
+	if kanttori == null or not kanttori.heard or kanttori.arkisto or _hint.text != "":
+		return
+	if not _near_xz(world.museum_door, 3.0):
+		return
+	_hint.text = "[E] Saloisten Pirtti: kysy kanttorin nuottiarkistoa"
+	if Input.is_action_just_pressed("interact"):
+		kanttori.arkisto = true
+		_kertun_sync()
+		tilat.first("kanttori_arkisto", 0.2)
+		_save_game()
+		_show_message("Pirtin arkistosta löytyy kanttorin nuottiarkin toinen puolikas, kellastunut ja ruskeapilkkuinen: virren loppu. %s" % (
+			"Nuotit ovat nyt koossa: vie ne Sinikan kuorolle." if kanttori.nuotit() else "Ensimmäinen puolikas on vielä harmoonissa seuranmäen huutokaupassa."), 7.0)
+
+
+func _talk_kanttori(id: String) -> void:
+	match id:
+		"kanttori_legenda":
+			kanttori.heard = true
+			tilat.first("kanttori_legenda", 0.2)
+			_save_game()
+			_talk_box.reply("Kanttorilasta? No kuule. Vanha kanttori sävelsi Saloisille oman virren, mutta nuotit katosi, kun hän kuoli. "
+				+ "Siitä asti talosta kuuluu öisin urkujen säveliä, vaikka siellä ei ole urkuja. Kaikki nauraa. Mene yöllä kuuntelemaan.",
+				_talk_options(), "Legenda: Kanttorilan yösävel. Kanttorila on kylän länsiosassa, käy yöllä (22–4).")
+		"kanttori_kuoro":
+			kanttori.choice = "kuoro"
+			maine = clampf(maine + KanttoriLegenda.KUORO_MAINE, 0.0, 100.0)
+			tilat.first("kanttori_kuoro", 0.5)
+			tilat.add("moraali", 0.3)
+			tilat.add("stressi", 0.2)
+			_ending("kanttorin_virsi")
+			_kt_stop()
+			_kt_choir.stream = _kt_stream("kuoro")
+			_kt_choir.volume_db = -6.0
+			_kt_choir.play()
+			_save_game()
+			_talk_box.reply("Voi että! Kuoro harjoittelee viikon, ja sitten seuraintalolla kanttorin virsi saa vihdoin soida.", _talk_options(),
+				"Sinikan kuoro laulaa virren seuraintalolla, lehtijuttu ja maine +%d. Kanttorilan yösävel vaikenee." % int(KanttoriLegenda.KUORO_MAINE))
+		"kanttori_myy":
+			kanttori.choice = "kerailija"
+			money += KanttoriLegenda.KERAILIJA_HINTA
+			maine = clampf(maine - KanttoriLegenda.KERAILIJA_MAINE, 0.0, 100.0)
+			Sfx.play("coin", -4.0)
+			_save_game()
+			_talk_box.reply("Veksi silmäilee nuotit. \"Satakaksikymmentä... no, satakaksikymmentäviisikymmentä. Hyvä keräilykohde.\"", _talk_options(),
+				"+%s €. Yösävel jatkuu ikuisesti, eikä Sinikka anna anteeksi." % _eur(KanttoriLegenda.KERAILIJA_HINTA))
 
 
 func _kuningas_tasks() -> Array:
@@ -5902,7 +6062,7 @@ func _kertun_sync() -> void:
 	if world.kertun_isokivi != null:
 		world.kertun_isokivi.rotation.z = 0.35 if kertun.found else 0.0
 	if kirppis_int != null and "veksi_open" in kirppis_int:
-		kirppis_int.veksi_open = (kertun.found and kertun.choice == "") or (aarni != null and aarni.found and aarni.choice == "") or (olavi != null and olavi.found and olavi.choice == "") \
+		kirppis_int.veksi_open = (kertun.found and kertun.choice == "") or (aarni != null and aarni.found and aarni.choice == "") or (olavi != null and olavi.found and olavi.choice == "") or (kanttori != null and kanttori.nuotit() and kanttori.choice == "") \
 			or (ukko != null and ukko.caught and ukko.choice == "") \
 			or _kekkonen == 1
 
@@ -5978,6 +6138,9 @@ func _kertun_logic() -> void:
 	if _hint.text != "":
 		return
 	_kuningas_pirtti()
+	if _hint.text != "":
+		return
+	_kanttori_pirtti()
 	if _hint.text != "":
 		return
 	_ukko_museum()
@@ -10232,6 +10395,8 @@ func _talk_options(who := "") -> Array:
 			else:
 				if who == "hilkka":
 					_myynti_options(o)
+				if who == "hilkka" and not kanttori.heard:
+					o.append(_opt("kanttori_legenda", "Kuuluuko Kanttorilasta öisin jotain?", true, "", true))
 				if who == "hilkka" and not olavi.heard:
 					o.append(_opt("olavi_legenda", "Onko vanhoista Saloisten markkinoista jotain juttuja?", true, "", true))
 				if who == "hilkka" and not aarni.heard:
@@ -10337,6 +10502,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("kekkonen", "Myy Kekkosen rintamerkki (%s €)" % _eur(KEKKONEN_HINTA), true, "", true))
 			if ukko.caught and ukko.choice == "":
 				o.append(_opt("ukko_myy", "Myy Tekojärven Ukko täytettäväksi (%s €)" % _eur(UkkoLegenda.KERAILIJA_HINTA), true, "", true))
+			if kanttori.nuotit() and kanttori.choice == "":
+				o.append(_opt("kanttori_myy", "Myy kanttorin vanhat nuotit (%s €)" % _eur(KanttoriLegenda.KERAILIJA_HINTA), true, "", true))
 			if olavi.found and olavi.choice == "":
 				o.append(_opt("olavi_myy", "Myy kauppiaan hopeataalerit (%s €)" % _eur(OlaviLegenda.KERAILIJA_HINTA), true, "", true))
 			if aarni.found and aarni.choice == "":
@@ -10353,6 +10520,10 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("huuto", "Huutamaan: %s (lähtö %s €)" % [lot.name, _eur(lot.start)], money >= lot.start - 0.001,
 					"rahat ei riitä lähtöhintaan (%s €)" % _eur(lot.start), true))
 		"sinikka":
+			if not kanttori.heard:
+				o.append(_opt("kanttori_legenda", "Kuuluuko Kanttorilasta öisin jotain?", true, "", true))
+			elif kanttori.nuotit() and kanttori.choice == "":
+				o.append(_opt("kanttori_kuoro", "Anna nuotit kuorolle: kanttorin virsi", true, "", true))
 			var berries: int = bucket.get("mustikka", 0)
 			if sinikka_taimet == 1 and _has_taimet:
 				o.append(_opt("taimet", "Toin tomaatintaimet säästöpihasta", true, "", true))
@@ -10507,6 +10678,9 @@ func _talk_choose(id: String) -> void:
 		return
 	if id.begins_with("mopo_"):
 		_mopo_choose(id)
+		return
+	if id.begins_with("kanttori_"):
+		_talk_kanttori(id)
 		return
 	if id == "juttu":
 		var line := _talk_chat_line()
@@ -10853,6 +11027,8 @@ func _talk_chat_line() -> String:
 		return sh
 	if _talk_who in ["pekka", "arto"] and tokola.proven() and randf() < 0.4:
 		return (TOKOLA_PROVEN[_talk_who] as Array).pick_random()
+	if KANTTORI_DOUBT.has(_talk_who) and kanttori.heard and randf() < 0.45:
+		return ((KANTTORI_PROVEN if kanttori.proven() else KANTTORI_DOUBT)[_talk_who] as Array).pick_random()
 	if KUNINGAS_DOUBT.has(_talk_who) and kuningas.heard and randf() < 0.45:
 		return ((KUNINGAS_PROVEN if kuningas.proven() else KUNINGAS_DOUBT)[_talk_who] as Array).pick_random()
 	if OLAVI_DOUBT.has(_talk_who) and olavi.heard and randf() < 0.45:
@@ -15678,6 +15854,7 @@ func _load_game() -> void:
 	pyhimys.load_from(cfg)
 	olavi.load_from(cfg)
 	kuningas.load_from(cfg)
+	kanttori.load_from(cfg)
 	ukko.load_from(cfg)
 	_hongan_day = cfg.get_value("honganpalo", "keikka_paiva", -1)
 	# Kesken jäänyt keikka jatkuu samana päivänä: keräämättömät roskat takaisin pihalle.
@@ -15875,6 +16052,7 @@ func _save_game() -> void:
 		pyhimys.save_to(cfg)
 		olavi.save_to(cfg)
 		kuningas.save_to(cfg)
+		kanttori.save_to(cfg)
 		ukko.save_to(cfg)
 	cfg.set_value("honganpalo", "keikka_paiva", _hongan_day)
 	cfg.set_value("honganpalo", "keikka", _hongan_keikka)
@@ -17180,7 +17358,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks()
+	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _kanttori_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -22400,6 +22578,92 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"kanttorinyosavel":
+			# Kanttorilan yösävel (#144): Hilkka kertoo, teinien kaiutin ja yösävel yöllä, harmooni huutokaupassa, Pirtin arkisto,
+			# kuoro- ja Veksi-haara sekä epäilijät. Aja eristetyllä HOME:lla (tallennus).
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var press_t := func() -> void:
+				await get_tree().process_frame
+				Input.action_press("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+			var goto_t := func(at: Vector3) -> void:
+				walker_out.global_position = at + Vector3(0, 0.3, 0)
+				for i in 4:
+					await get_tree().physics_frame
+			var kp: Vector3 = world.kanttorila_pos
+			print("KT Kanttorila: pihan paikka %s (px %s)" % [kp, M.to_px(kp)])
+			var wav := KanttoriLegenda.tune("urut")
+			print("KT urkuääni: %.1f s, %d tavua; kaiutin %.1f s; kuoro %.1f s" % [wav.data.size() / 2.0 / KanttoriLegenda.RATE, wav.data.size(),
+				KanttoriLegenda.tune("kaiutin").data.size() / 2.0 / KanttoriLegenda.RATE, KanttoriLegenda.tune("kuoro").data.size() / 2.0 / KanttoriLegenda.RATE])
+			print("KT Hilkka/Sinikka: %s / %s" % [_talk_options("hilkka").map(func(o): return o.id).has("kanttori_legenda"), _talk_options("sinikka").map(func(o): return o.id).has("kanttori_legenda")])
+			kirppis_int.mode = "kirppis"
+			_talk_who = "hilkka"
+			_talk_kirppis("kanttori_legenda")
+			print("KT kuultu %s, tehtävät %s" % [kanttori.heard, _kanttori_tasks()])
+			day = 2
+			clock_min = 12 * 60
+			await goto_t.call(kp)
+			for i in 4:
+				await get_tree().physics_frame
+			print("KT päivällä: soi %s, vaihe %d" % [_kt_player != null and _kt_player.playing, _kt_phase])
+			clock_min = 23 * 60
+			await goto_t.call(kp)
+			for i in 6:
+				await get_tree().physics_frame
+			print("KT yöllä: teinien kaiutin soi %s (vaihe %d)" % [_kt_player.playing, _kt_phase])
+			_kt_player.stop()
+			for i in 6:
+				await get_tree().physics_frame
+			print("KT kaiutin loppui: teinit %s, vaihe %d, urut soi %s" % [kanttori.teinit, _kt_phase, _kt_player.playing])
+			_kt_t = 5.0
+			for i in 4:
+				await get_tree().physics_frame
+			print("KT yösävel kuultu %s, tehtävät %s" % [kanttori.savel, _kanttori_tasks()])
+			# Huutokauppa: harmooni
+			clock_min = 12 * 60
+			day = 4
+			_auction_day = -1
+			print("KT huutokauppakohde päivänä 4: %s" % _auction_lot().get("id", ""))
+			kanttori.harmooni = true
+			print("KT harmooni voitettu, tehtävät %s" % [_kanttori_tasks()])
+			await goto_t.call(world.museum_door)
+			await press_t.call()
+			print("KT Pirtti: arkisto %s, nuotit koossa %s, tehtävät %s" % [kanttori.arkisto, kanttori.nuotit(), _kanttori_tasks()])
+			print("KT Sinikka: %s, Veksi: %s, veksi auki %s" % [_talk_options("sinikka").map(func(o): return o.id).has("kanttori_kuoro"), _talk_options("veksi").map(func(o): return o.id).has("kanttori_myy"), kirppis_int.veksi_open])
+			# Kuoro
+			var m0 := maine
+			_talk_who = "sinikka"
+			_talk_kanttori("kanttori_kuoro")
+			print("KT kuoro: valinta '%s', maine %.0f -> %.0f, kuoro soi %s, loppu %s" % [kanttori.choice, m0, maine, _kt_choir.playing, endings.counts.has("kanttorin_virsi")])
+			clock_min = 23 * 60
+			await goto_t.call(kp)
+			for i in 6:
+				await get_tree().physics_frame
+			print("KT kuoron jälkeen yöllä: soiko %s (vaihe %d)" % [_kt_player.playing, _kt_phase])
+			_talk_who = "pekka"
+			var seen := false
+			for i in 60:
+				if (KANTTORI_PROVEN.pekka as Array).has(_talk_chat_line()):
+					seen = true
+					break
+			print("KT Pekan todistettu repliikki: %s" % seen)
+			# Veksi-haara (uusi tila)
+			kanttori.choice = ""
+			money = 10.0
+			_talk_who = "veksi"
+			_talk_kanttori("kanttori_myy")
+			print("KT veksi: valinta '%s', rahaa 10 -> %s" % [kanttori.choice, _eur(money)])
+			clock_min = 23 * 60
+			await goto_t.call(kp)
+			for i in 6:
+				await get_tree().physics_frame
+			print("KT Veksin jälkeen yöllä: soi %s (yösävel jatkuu)" % _kt_player.playing)
+			get_tree().quit()
 		"kuninkaantapuli":
 			# Kuninkaan tapuli (#126): suntio kertoo, yökello, teinit ja avain, Pirtin G. R., droonikohde, lyijykotelo, museo ja
 			# kolo (jemma, poliisin kellovaroitus) sekä epäilijät. Aja eristetyllä HOME:lla (tallennus).

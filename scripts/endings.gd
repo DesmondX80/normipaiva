@@ -31,6 +31,7 @@ const ENDINGS := [
 	["palon_pyhimys", "Palon yön pyhimys", "Pieni puinen pyhimys palasi kirkkoon 1930-luvun palon jälkeen. Suvun nimi pysyi salassa, ja kynttilä sammui."],
 	["olavinmarkkinat", "Olavinmarkkinat palasivat", "Kauppias Skytän hopea löytyi 1616 vuoden taalereina. Olavi-pappa avasi markkinat, ja Pekka osti tervatuopin."],
 	["kuninkaan_tapuli", "Kuninkaan tapuli", "Kustaa III:n sinetöity piirustus löytyi tapulin palkista. Raahen museo vahvisti, ja Pekka tarjosi kierroksen."],
+	["kanttorin_virsi", "Kanttorin virsi", "Kanttorilan yösävel löysi nuottinsa: Sinikan kuoro lauloi virren seuraintalolla, ja urut vaikenivat."],
 	["ukko_vapaa", "Ukko vapaaksi", "Tekojärven Ukko ui takaisin ladon raunioille. Tauno tarjosi kahvit."],
 ]
 

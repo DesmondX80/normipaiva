@@ -294,6 +294,7 @@ func build(step: Callable) -> void:
 	_build_shop()
 	_build_seuraintalo()
 	_build_kirkko()
+	_build_kanttorila()
 	_build_tokola()
 	_build_pirtti()
 	_build_reippari()
@@ -1300,6 +1301,7 @@ const KIRKKO_COPPER := Color(0.33, 0.56, 0.5)
 const TAPULI_RED := Color(0.52, 0.14, 0.09)
 var kirkko_pos := Vector3.ZERO  # kirkon pääovi (tornin edusta)
 var tapuli_pos := Vector3.ZERO
+var kanttorila_pos := Vector3.ZERO  # Kanttorilan pihan etuosa (yösävel)
 var kauppias_pos := Vector3.ZERO  # kauppiaan hauta
 var olavi_katko_pos := Vector3.ZERO
 var olavi_sulo_pos := Vector3.ZERO
@@ -1552,6 +1554,23 @@ static func _edge_dist(poly: PackedVector2Array, p: Vector2) -> float:
 		var c := Geometry2D.get_closest_point_to_segment(p, poly[i], poly[(i + 1) % poly.size()])
 		best = minf(best, p.distance_to(c))
 	return best
+
+
+## Saloisten Kanttorila (#144): OSM-talo tulee yleisestä rakennuslistasta, tähän vain nimikyltti seinään ja pihan etuosan paikka.
+func _build_kanttorila() -> void:
+	var f := _osm_fit_at(M.KANTTORILA)
+	if f.is_empty():
+		return
+	var nrm: Vector2 = f.nrm
+	var front: Vector2 = f.c + nrm * (f.d / 2.0)
+	var root := Node3D.new()
+	root.position = Vector3(front.x, 0, front.y)
+	root.rotation.y = f.yaw
+	add_child(root)
+	var plate := B.sign_plate(root, "KANTTORILA", Color(0.96, 0.94, 0.88), Color(0.25, 0.15, 0.1), 0.22, 36, Color(0.25, 0.15, 0.1), "Helvetica Neue")
+	plate.position = Vector3(0, 2.5, -0.06)
+	var dp: Vector2 = front + nrm * 3.0
+	kanttorila_pos = Vector3(dp.x, T.h(dp.x, dp.y), dp.y)
 
 
 ## Tokola (#120): kauppiaan vanha varasto (harmaantunut lautarakennus, ruosteinen peltikatto ja ovi, haalistunut
