@@ -432,15 +432,31 @@ func _build_room() -> void:
 		np.position = n[2]
 		np.rotation.z = randf_range(-0.08, 0.08)
 		B.mesh(np, B.sphere(0.02, 6), Vector3(0, np.get_meta("height") / 2.0 - 0.03, 0.03), Color(0.85, 0.1, 0.1))
+	_build_ceiling()
 	for i in 4:  # lamput
 		var lx := -6.0 + i * 4.0
 		B.mesh(self, B.cyl(0.25, 0.4, 0.25, 12), Vector3(lx, WALL_H - 0.3, 0), Color(0.95, 0.9, 0.7))
+		B.mesh(self, B.cyl(0.012, 0.012, 0.2, 6), Vector3(lx, WALL_H - 0.08, 0), Color(0.15, 0.15, 0.15))  # johto kattoon
 		var light := OmniLight3D.new()
 		light.position = Vector3(lx, WALL_H - 0.6, 0.5)
 		light.omni_range = 7.0
 		light.light_energy = 0.6
 		light.light_color = Color(1.0, 0.92, 0.78)
 		add_child(light)
+
+
+## Paneelikatto ja kattopalkkien alapinnat. Pinnat katsovat alas: salin sisältä (huutokaupan ja bingon kamera) näkyy katto
+## eikä taivas, mutta ylhäältä kuvaava kävelykamera näkee katon läpi. Katto ei heitä varjoa, joten valaistus pysyy.
+func _build_ceiling() -> void:
+	var down := func(size: Vector2, pos: Vector3, col: Color) -> void:
+		var pm := PlaneMesh.new()
+		pm.size = size
+		pm.flip_faces = true  # normaali alas: näkyy vain alapuolelta
+		var mi := B.mesh(self, pm, pos, col)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	down.call(Vector2(HALF.x * 2.0, HALF.y * 2.0), Vector3(0, WALL_H, 0), PANEL.lightened(0.15))
+	for i in 7:  # kattopalkkien alapinnat poikittain (kyljet näkyisivät ylhäältä viivoina salin yli)
+		down.call(Vector2(HALF.x * 2.0, 0.16), Vector3(0, WALL_H - 0.01, -HALF.y + 1.5 + i * 1.5), TRIM)
 
 
 func _table(at: Vector3, size: Vector2, parent: Node3D = null) -> void:
