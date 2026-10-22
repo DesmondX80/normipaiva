@@ -29,6 +29,7 @@ var spots := {
 	"ovi": [Vector3(0.0, 0, 5.2), "[E] Ulos Seurantielle", MODES],
 	"takahuone": [Vector3(-8.0, 0, -4.4), "[E] Takahuoneen ovi (YKSITYINEN)", ["kirppis"]],
 	"takaovi": [Vector3(8.0, 0, -3.2), "[E] Takaovesta pihalle (ukot takakontilla)", ["tanssit"]],
+	"poyta": [Vector3(-3.4, 0, 2.7), "[E] Oma kirppispöytä (paikka 2 €/päivä, Hilkka)", ["kirppis"]],
 }
 const MUMMO := {"model": "female", "shirt": Color(0.45, 0.4, 0.6), "pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2),
 	"hair": "Hair_Buns", "hair_color": Color(0.9, 0.9, 0.9), "height": 1.56, "skin": Color(0.95, 0.8, 0.74), "belly": 0.5}
@@ -460,6 +461,14 @@ func _build_tables() -> void:
 		B.mesh(kg, B.cyl(0.12, 0.12, 0.06, 12), Vector3(5.2, 0.78, z), Color(0.55, 0.55, 0.58))
 	for z in [-0.6, -0.4]:
 		B.mesh(kg, B.boxm(Vector3(0.08, 0.02, 0.3)), Vector3(5.2, 0.77, z), Color(0.65, 0.65, 0.7))
+	# Oma pöytäpaikka (#128): vuokrattava pöytä, johon pelaaja asettuu myymään omia tavaroitaan.
+	_table(Vector3(-3.4, 0, 2.2), Vector2(1.8, 0.8), kg)
+	var cloth := B.mesh(kg, B.boxm(Vector3(1.84, 0.02, 0.84)), Vector3(-3.4, 0.76, 2.2), Color(0.85, 0.2, 0.2))
+	cloth.rotation.y = 0.0
+	for k in 3:
+		B.mesh(kg, B.boxm(Vector3(0.5, 0.025, 0.84)), Vector3(-4.0 + k * 0.6, 0.77, 2.2), Color(0.97, 0.95, 0.9))
+	var own := B.sign_plate(kg, "OMA PÖYTÄ\nvuokra 2 € / päivä", Color(0.15, 0.4, 0.3), Color(1, 0.97, 0.85), 0.2, 34, Color.WHITE)
+	own.position = Vector3(-3.4, 0.9, 2.55)
 	# Keskipöytä: kirppiksellä Railin rihkama, bingossa laput; tansseissa pois tanssilattian tieltä.
 	_table(Vector3(0.0, 0, 0.0), Vector2(3.0, 1.0), _no_dance)
 	for i in 5:

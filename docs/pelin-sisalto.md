@@ -117,6 +117,20 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   vilkuilemaan yleisöä ja valokeila osoittaa katsottavaa, ja huuto menee läpi vain, kun hän katsoo sinua (käsi ja
   numerolappu ylös); "ensimmäisen, toisen… kolmannen kerran!" Erkin puhekuplassa ja nuija kopahtaa.
   Testi `--scene=kirppis`.
+  - **Oma kirppispöytä (#128):** salin etuosassa vuokrattava pöytä ("OMA PÖYTÄ"): Hilkalta paikka 2 €/päivä (puheesta
+    tai pöydän luota E), jonka jälkeen pöydän taakse pääsee koko päiväksi. Pöydälle viedään repusta kaikki myytävä:
+    marjat ja sienet (litroittain ämpäristä), savukala ja savuriista sekä tiskin alta kalja ja pontikka. Ostajat
+    (mummo, mökkiläinen, Anna-Liisa, nuori mies) tulevat pöydän ääreen yksi kerrallaan ja tekevät tarjouksen; pelaaja
+    hyväksyy (H), tekee vastatarjouksen (W/S hinta, väli) tai heittää ostajan pois (X). Ostajalla on piilotettu
+    enimmäishinta: mummo ja Anna-Liisa tinkivät, mökkiläinen maksaa enemmän, mutta yli 20 % enimmäishinnan ylittävä
+    vastatarjous ajaa ostajan pois ("Pihi kuin Pekka") ja liian moni epäonnistunut yritys (sydämet) tyhjentää
+    kärsivällisyyden. Liian halpa myynti jättää rahat saamatta. Kalja ja pontikka myydään vain nuorelle ostajalle, ja
+    kauppa onnistuu vain, kun Anna-Liisa katsoo muualle (silmämerkki vihreä, varoitus ennen kuin hän kääntyy takaisin):
+    kiinni jäädessä peli päättyy, maine −4, Päivi kuulee, ja Hilkka antaa 55 %:n todennäköisyydellä myyntikiellon
+    huomiseen. Pöytäkerran jälkeen maine: reiluja kauppoja ("Rehellinen kauppamies" +3 tai "Reilu myyjä" +1) tai
+    liikaa tyly tinkiminen ("Pihi kuin Pekka" −3). Reilu hinta: puolukka 6 €/l, mustikka 7, kantarelli 14, herkkutatti
+    11, savukala 7, savuriista 9, kalja 15, pontikka 20. Pelin aikaa kuluu tunti per neljä asiakasta. Pekan vanhoja
+    tavaroita ei vielä myydä. Testi `--scene=kirppismyynti`.
   - **Drakkar Noir (legendaarinen hetki):** Railin pöydällä puolillaan oleva musta pullo (12 €). Kun pullo loppuu,
     Railin pöydälle tulee uusi (legendaarinen hetki vain ensimmäisestä).
     Pullossa 10 suihkausta, suihkaus T-valikosta. Tuoksu kestää päivän: moraali ja mielihyvä nousevat, Sinikka
