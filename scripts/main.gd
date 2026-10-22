@@ -272,6 +272,8 @@ const PyhimysLegenda := preload("res://scripts/pyhimys_legenda.gd")
 const OlaviLegenda := preload("res://scripts/olavi_legenda.gd")
 const KuningasLegenda := preload("res://scripts/kuningas_legenda.gd")
 const KanttoriLegenda := preload("res://scripts/kanttori_legenda.gd")
+const LemmikkiEnkelit := preload("res://scripts/lemmikki_enkelit.gd")
+const MuistokylttiGame := preload("res://scripts/muistokyltti_game.gd")
 const ShoreFishGame := preload("res://scripts/shore_fish_game.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
@@ -365,6 +367,7 @@ var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.g
 var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
+var lemmikki: RefCounted  # Lemmikki Enkelit ja Pörrön muistokyltti (lemmikki_enkelit.gd, #148)
 var kanttori: RefCounted  # legenda: Kanttorilan yösävel (kanttori_legenda.gd, #144)
 var kuningas: RefCounted  # legenda: Kuninkaan tapuli (kuningas_legenda.gd, #126)
 var olavi: RefCounted  # legenda: Olavinmarkkinoiden hopea (olavi_legenda.gd, #124)
@@ -1170,6 +1173,7 @@ func _ready() -> void:
 	olavi = OlaviLegenda.new()
 	kuningas = KuningasLegenda.new()
 	kanttori = KanttoriLegenda.new()
+	lemmikki = LemmikkiEnkelit.new()
 	ukko = UkkoLegenda.new()
 	endings = Endings.new()
 	quests = Quests.new()
@@ -1691,6 +1695,7 @@ func _outside_logic() -> void:
 	_kuningas_logic()
 	_kanttori_logic()
 	_koulu_logic()
+	_lemmikki_logic()
 	_kalastus_logic()
 	_reippari_logic()
 	_atm_logic()
@@ -5310,6 +5315,96 @@ func _start_pingis_nuoret() -> void:
 	add_child(game)
 
 
+## Pieneläintuhkaamo Lemmikki Enkelit (#148): muistolehto (penkki, lyhdyt, nimikyltit), Pörrön muistokyltti pojille ja Pekan
+## hetki portilla. Lämmin ja kunnioittava sävy.
+func _lemmikki_tasks() -> Array:
+	if lemmikki.stage != "kerrottu":
+		return []
+	return [["Pörrön muistokyltti: maalaa kyltti Lemmikki Enkelien muistolehtoon (kylän länsiosa)", false]]
+
+
+func _lemmikki_logic() -> void:
+	if lemmikki == null or world == null or world.lehto_pos == Vector3.ZERO:
+		return
+	if is_instance_valid(boys):
+		boys.calm = lemmikki.valmis()
+	if world.lehto_plate != null:
+		world.lehto_plate.visible = lemmikki.valmis()
+	if _hint.text != "" or player != walker_out or player.is_stunned():
+		return
+	var p := player.global_position
+	var near := func(at: Vector3, r: float) -> bool: return Vector2(p.x - at.x, p.z - at.z).length() < r
+	# Pekka käy illalla portilla vaan katsomassa (kerran).
+	if not lemmikki.pekka and near.call(world.lehto_portti_pos, 5.0) and _between(clock_min, LemmikkiEnkelit.PEKKA_AIKA):
+		lemmikki.pekka = true
+		tilat.first("lemmikki_pekka", 0.3)
+		tilat.add("moraali", 0.1)
+		_save_game()
+		_queue_message("Pekka seisoo portilla. \"Onko tuolla yleinen sauna? Piippu savuaa. ...Aha. Ei ole. Anteeks, perkele, anteeksi.\"", 5.5)
+		_queue_message("Pekka: \"Mää tulin vaan katsomaan. Väinö on jo vanha, ja mää pelkään, että se karkaa taas. Tai että... no. Täällä on rauhallista.\"", 6.0)
+		_queue_message("Pekka: \"Mutta se on kotona. Se on kunnossa. Se on vaan vanha koira. Mene sää vaan, mää istun hetken.\"", 5.5)
+	if near.call(world.lehto_penkki_pos, 2.0):
+		tilat.first("lemmikki_enkelit", 0.2)
+		_hint.text = "[E] Istu penkille hetkeksi%s" % ("  (kalja jää laukkuun, täällä ei avata)" if beers > 0 else "")
+		if Input.is_action_just_pressed("interact"):
+			if lemmikki.penkki_day != day:
+				lemmikki.penkki_day = day
+				tilat.add("stressi", 0.25)
+				tilat.add("moraali", 0.05)
+				_advance_clock(20.0)
+				_show_message("Penkillä on hiljaista. Kynttilät lepattavat, nimikylteissä lemmikkien nimiä. Ei täällä. Stressi hellittää.", 4.5)
+			else:
+				_show_message("Istut hetken hiljaa. Tänään on jo riittänyt.", 2.5)
+			_save_game()
+		return
+	if near.call(world.lehto_pos, 2.8):
+		if lemmikki.stage == "kerrottu":
+			_hint.text = "[E] Maalaa muistokyltti Pörrölle (pojat odottavat)"
+			if Input.is_action_just_pressed("interact"):
+				_start_muistokyltti()
+		else:
+			_hint.text = "Muistolehto: kynttilälyhtyjä ja nimikylttejä (Misu, Rekku, Nalle%s)." % (", Pörrö" if lemmikki.valmis() else "")
+
+
+func _start_muistokyltti() -> void:
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hud.visible = false
+	CamCtl.free_mouse = true
+	var g := MuistokylttiGame.new()
+	g.finished.connect(func(done: bool) -> void:
+		CamCtl.free_mouse = false
+		player.controls_enabled = true
+		player.activate_camera()
+		_hud.visible = true
+		if not done:
+			_show_message("Lauta jäi kesken. Pojat odottavat vielä.", 3.0)
+			return
+		lemmikki.stage = "valmis"
+		maine = clampf(maine + 5.0, 0.0, 100.0)
+		tilat.first("lemmikki_kyltti", 0.5)
+		tilat.add("moraali", 0.3)
+		tilat.add("stressi", 0.2)
+		_ending("porron_kyltti")
+		Sfx.play("win", -4.0)
+		_save_game()
+		_show_message("Pörrön muistokyltti seisoo lehdossa. Pojat lupaavat, etteivät heitä enää koskaan kiviä: \"Setä on ihan ok.\" Maine +5.", 6.0))
+	add_child(g)
+
+
+func _talk_lemmikki(id: String) -> void:
+	match id:
+		"lemmikki_kysy":
+			lemmikki.stage = "kerrottu"
+			tilat.first("lemmikki_pojat", 0.2)
+			_save_game()
+			_talk_box.reply("Pikkuveljen hamsteri Pörrö kuoli viime viikolla. Veli itkee, ja me ollaan oltu ihan kovaäänisiä, ettei kukaan huomaa. "
+				+ "Lemmikki Enkelit hoiti sen. Ne antoi meille luvan tehdä muistokyltin lehtoon, mutta me ei osata maalata nimeä.", _talk_options(),
+				"Pörrön muistokyltti: maalaa se Lemmikki Enkelien muistolehtoon (kylän länsiosassa, Pirtin lähellä).")
+		"lemmikki_muistuta":
+			_talk_box.reply("Lemmikki Enkelien pihalla, lehdossa. Siellä on jo Misun ja Rekun kyltit. Tarvitaan vaan nimi: Pörrö.", _talk_options())
+
+
 func _kanttori_tasks() -> Array:
 	if not kanttori.heard or kanttori.choice != "":
 		return []
@@ -6731,6 +6826,8 @@ func quest_spots(id: String) -> Array:
 			return [M.w2(M.SEURAINTALO)]
 		"palon_pyhimys":
 			return [M.w2(M.KIRKKO)]
+		"porron_kyltti":
+			return [M.w2(M.LEMMIKKI)]
 		"raahe":
 			return [v3.call(world.taxi_pos)] if world.taxi_pos != Vector3.ZERO else []
 		"asemakatkot":
@@ -8212,9 +8309,10 @@ func _boys_logic() -> void:
 			Sfx.play("pickup", -2.0, 1.1)
 			_show_message("Jalkapallo löytyi! Vie se pojille.", 2.5)
 		return
-	if _hint.text != "" or boys.mode != "idle" or boys.distance_to_target() > 4.0 or player.is_stunned():
+	var hamster_open: bool = lemmikki.stage != "valmis" and _ball_quest == "done" and boys.mode == "play"
+	if _hint.text != "" or (boys.mode != "idle" and not hamster_open) or boys.distance_to_target() > 4.0 or player.is_stunned():
 		return
-	if _ball_quest == "done":
+	if _ball_quest == "done" and not hamster_open:
 		_hint.text = "Pojat pelaa palloa."
 		return
 	_talk_hint("pojat", boys, player != bike)
@@ -10663,6 +10761,10 @@ func _talk_options(who := "") -> Array:
 			if tokola.tilikirja and tokola.lipas and tokola.legend == "":
 				o.append(_opt("tilikirja", "Tokolan kauppiaan tilikirja... siinä on sun isän nimikirjaimet", true, "", true))
 		"pojat":
+			if lemmikki.stage == "":
+				o.append(_opt("lemmikki_kysy", "Pojat, miksi te olette ihan hiljaa?", true, "", _ball_quest != "search"))
+			elif lemmikki.stage == "kerrottu":
+				o.append(_opt("lemmikki_muistuta", "Missä se Pörrön muistokyltti pitikään tehdä?"))
 			if _ball_quest != "search":
 				o.append(_opt("kori", "Lyödäänkö vetoa koriksesta? Kuustoista putkeen.", true, "", true))
 			if _ball_quest == "":
@@ -10762,6 +10864,9 @@ func _talk_choose(id: String) -> void:
 		return
 	if id.begins_with("kanttori_"):
 		_talk_kanttori(id)
+		return
+	if id.begins_with("lemmikki_"):
+		_talk_lemmikki(id)
 		return
 	if id == "juttu":
 		var line := _talk_chat_line()
@@ -15941,6 +16046,7 @@ func _load_game() -> void:
 	olavi.load_from(cfg)
 	kuningas.load_from(cfg)
 	kanttori.load_from(cfg)
+	lemmikki.load_from(cfg)
 	ukko.load_from(cfg)
 	_hongan_day = cfg.get_value("honganpalo", "keikka_paiva", -1)
 	# Kesken jäänyt keikka jatkuu samana päivänä: keräämättömät roskat takaisin pihalle.
@@ -16141,6 +16247,7 @@ func _save_game() -> void:
 		olavi.save_to(cfg)
 		kuningas.save_to(cfg)
 		kanttori.save_to(cfg)
+		lemmikki.save_to(cfg)
 		ukko.save_to(cfg)
 	cfg.set_value("honganpalo", "keikka_paiva", _hongan_day)
 	cfg.set_value("honganpalo", "keikka", _hongan_keikka)
@@ -17446,7 +17553,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _kanttori_tasks()
+	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _kanttori_tasks() + _lemmikki_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -22667,6 +22774,115 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"lemmikkienkelit":
+			# Lemmikki Enkelit (#148): rakennus, lehto, penkki, Pekan hetki, poikien hamsteritehtävä ja muistokyltin minipeli sekä
+			# pysyvä rauha poikien kanssa. Aja eristetyllä HOME:lla (tallennus). Kuvat vain ikkunallisena.
+			if player == bike:
+				_toggle_mount()
+			_note.visible = false
+			var headless := DisplayServer.get_name() == "headless"
+			var snap_l := func(name: String) -> void:
+				if headless:
+					return
+				for i in 8:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var goto_l := func(at: Vector3) -> void:
+				walker_out.global_position = at + Vector3(0, 0.3, 0)
+				for i in 4:
+					await get_tree().physics_frame
+			var press_l := func() -> void:
+				await get_tree().process_frame
+				Input.action_press("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+			print("LE lehto %s, penkki %s, portti %s (px %s), rakennus %s" % [world.lehto_pos, world.lehto_penkki_pos, world.lehto_portti_pos, M.to_px(world.lehto_pos), M.w(M.LEMMIKKI)])
+			var cam_l := Camera3D.new()
+			cam_l.far = 1500.0
+			add_child(cam_l)
+			cam_l.current = true
+			var f: Dictionary = world._osm_fit_at(M.LEMMIKKI)
+			var nrm: Vector2 = f.nrm
+			var front: Vector2 = f.c + nrm * (f.d / 2.0)
+			var views := []
+			var sp: Vector2 = front + nrm * 14.0
+			views.append(["a_julkisivu", Vector3(sp.x, Terrain.h(sp.x, sp.y) + 3.0, sp.y), Vector3(front.x, Terrain.h(front.x, front.y) + 3.0, front.y), 60.0])
+			var up: Vector2 = front + nrm * 20.0
+			views.append(["b_lehto", Vector3(up.x, Terrain.h(up.x, up.y) + 9.0, up.y), world.lehto_pos + Vector3(0, 0.5, 0), 55.0])
+			views.append(["c_penkki", world.lehto_pos + Vector3(2.6, 1.6, 4.4), world.lehto_penkki_pos + Vector3(0, 0.6, 0), 55.0])
+			for v in views:
+				cam_l.fov = v[3]
+				cam_l.look_at_from_position(v[1], v[2])
+				await snap_l.call("_%s.png" % v[0])
+			cam_l.current = false
+			player.activate_camera()
+			day = 3
+			clock_min = 12 * 60
+			await goto_l.call(world.lehto_penkki_pos + Vector3(0, 0, -0.3))
+			print("LE penkin vihje: '%s'" % _hint.text)
+			beers = 2
+			await get_tree().physics_frame
+			print("LE penkin vihje kaljalla: '%s'" % _hint.text)
+			var st0: float = tilat.value("stressi")
+			await press_l.call()
+			print("LE penkki: stressi %.2f -> %.2f, viesti '%s'" % [st0, tilat.value("stressi"), _msg.text.replace("\n", " ")])
+			print("LE lehdon vihje (ei tehtävää): '%s'" % _hint.text)
+			await goto_l.call(world.lehto_pos)
+			print("LE lehdon vihje: '%s'" % _hint.text)
+			# Pekan hetki
+			clock_min = 17 * 60
+			await goto_l.call(world.lehto_portti_pos)
+			for i in 6:
+				await get_tree().physics_frame
+			print("LE Pekan hetki: nähty %s" % lemmikki.pekka)
+			# Poikien tehtävä
+			day = 4
+			_spawn_boys()
+			_ball_quest = "done"
+			boys.play_ball()
+			print("LE pojat: %s" % [_talk_options("pojat").map(func(o): return o.id)])
+			_talk_who = "pojat"
+			_talk_lemmikki("lemmikki_kysy")
+			print("LE kerrottu: %s, tehtävät %s" % [lemmikki.stage, _lemmikki_tasks()])
+			await goto_l.call(world.lehto_pos)
+			print("LE lehdon vihje: '%s'" % _hint.text)
+			await press_l.call()
+			var mg: Node = get_children().filter(func(c): return c is MuistokylttiGame).front()
+			print("LE minipeli auki: %s" % [mg != null])
+			for ch in "PÖRRÖ":
+				var before: int = mg._typed
+				mg._press(ch)
+				var waited := 0.0
+				while mg._typed == before and waited < 6.0:
+					await get_tree().create_timer(0.1).timeout
+					waited += 0.1
+				print("LE kirjain %s: maalattu %d, vaihe %s" % [ch, mg._typed, mg._stage])
+				if not headless and ch == "R":
+					await snap_l.call("_d_maalaus.png")
+			print("LE kirjaimet maalattu: %d, vaihe %s" % [mg._typed, mg._stage])
+			var waited2 := 0.0
+			while mg._stage != "nail" and waited2 < 8.0:
+				await get_tree().create_timer(0.1).timeout
+				waited2 += 0.1
+			print("LE sydän ja käpälä valmis, vaihe %s" % mg._stage)
+			await snap_l.call("_e_naulaus.png")
+			for i in 4:
+				mg._hammer()
+			await get_tree().process_frame
+			await snap_l.call("_f_valmis.png")
+			print("LE vaihe %s" % mg._stage)
+			var m0 := maine
+			mg._end(true)
+			await get_tree().create_timer(0.5).timeout
+			print("LE valmis: stage %s, maine %.0f -> %.0f, loppu %s, Pörrön kyltti näkyy %s, pojat rauhallisia %s, viesti '%s'" % [lemmikki.stage, m0, maine,
+				endings.counts.has("porron_kyltti"), world.lehto_plate.visible, boys.calm, _msg.text.replace("\n", " ")])
+			boys.mode = "idle"
+			boys.stone()
+			print("LE kivenheitto estetty: tila %s" % boys.mode)
+			get_tree().quit()
 		"koulukeskus":
 			# Koulukeskus, päiväkoti, kentät ja ulkopingis (#143): paikat, vihjeet kellonajan mukaan ja pingis nuoria vastaan
 			# (voitto ja tappio). Aja eristetyllä HOME:lla (tallennus). Kuvat vain ikkunallisena.

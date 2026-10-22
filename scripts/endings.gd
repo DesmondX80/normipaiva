@@ -32,6 +32,7 @@ const ENDINGS := [
 	["olavinmarkkinat", "Olavinmarkkinat palasivat", "Kauppias Skytän hopea löytyi 1616 vuoden taalereina. Olavi-pappa avasi markkinat, ja Pekka osti tervatuopin."],
 	["kuninkaan_tapuli", "Kuninkaan tapuli", "Kustaa III:n sinetöity piirustus löytyi tapulin palkista. Raahen museo vahvisti, ja Pekka tarjosi kierroksen."],
 	["kanttorin_virsi", "Kanttorin virsi", "Kanttorilan yösävel löysi nuottinsa: Sinikan kuoro lauloi virren seuraintalolla, ja urut vaikenivat."],
+	["porron_kyltti", "Pörrön muistokyltti", "Pojat saivat hamsterilleen muistokyltin Lemmikki Enkelien lehtoon, eivätkä heitä enää kiviä. Setä on ihan ok."],
 	["ukko_vapaa", "Ukko vapaaksi", "Tekojärven Ukko ui takaisin ladon raunioille. Tauno tarjosi kahvit."],
 ]
 

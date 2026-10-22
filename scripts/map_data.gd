@@ -75,6 +75,8 @@ const KOULUKESKUS := Vector2(555.9, 7.6)
 const PAIVAKOTI := Vector2(725.0, 123.2)
 const KENTAT := [Vector2(610, 32), Vector2(620, 122)]
 const ULKOPINGIS := Vector2(550, 79)
+## Pieneläintuhkaamo Lemmikki Enkelit (OSM office=company, #148): rakennus px (226, 320) ja sen edessä muistolehto.
+const LEMMIKKI := Vector2(226.0, 320.1)
 ## Saloisten Kanttorila (OSM-rakennus, kanttorin vanha talo) kylän länsiosassa (#144).
 const KANTTORILA := Vector2(116.9, 355.3)
 ## Olavinmarkkinoiden hopea (#124): kauppiaan hauta hautausmaalla, kätköpaikka Kirkkoluodontien varressa ("kirkon rannan
@@ -174,7 +176,8 @@ const FORESTS := Osm.FORESTS
 const CLEARINGS := [
 	[Vector2(541, 70), Vector2(559, 70), Vector2(559, 88), Vector2(541, 88)],
 	[Vector2(586, 16), Vector2(634, 16), Vector2(634, 48), Vector2(586, 48)],
-	[Vector2(596, 106), Vector2(644, 106), Vector2(644, 138), Vector2(596, 138)]]
+	[Vector2(596, 106), Vector2(644, 106), Vector2(644, 138), Vector2(596, 138)],
+	[Vector2(208, 302), Vector2(246, 302), Vector2(246, 340), Vector2(208, 340)]]
 
 ## Hakkuuaukeat (ilmakuvasta Järvikujan kaakkoispuolelta): kantoja, hakkuutähteitä ja muutama siemenpuu.
 const CLEARCUTS := [

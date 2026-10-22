@@ -16,6 +16,7 @@ signal hit(direction: Vector3)
 
 var target: Node3D
 var mode := "idle"
+var calm := false  # lopettaneet kivien heittelyn pysyvästi (main.gd: lemmikki.valmis())
 
 var _kids: Array[Node3D] = []
 var _bubbles: Array[Label3D] = []
@@ -78,6 +79,9 @@ func flee() -> void:
 
 ## Väärä esine: heittävät sen takaisin ja alkavat heitellä kiviä hetken ajan.
 func stone() -> void:
+	if calm:  # Pörrön muistokyltin jälkeen (#148) pojat eivät heitä kiviä enää koskaan
+		say("Hei, ei se mitään. Setä on ihan ok.", 0, 3.0)
+		return
 	mode = "angry"
 	_t = THROW_TIME
 	for i in 3:

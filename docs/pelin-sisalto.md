@@ -172,6 +172,15 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Valinta: Pirtin oppaalle (70 €, maine +12, loppu "Kuninkaan tapuli", Arton ja Pekan repliikit vaihtuvat) tai takaisin
   koloon suntion luona (maine +4, avain pysyvästi): tapuli on silloin jemma (24 kaljaa) ja kello varoittaa, kun poliisi
   on liikkeellä. Teinien bileiden jatkuminen tai loppuminen ei ole mukana. Testi `--scene=kuninkaantapuli` (headless).
+- **Pieneläintuhkaamo Lemmikki Enkelit (#148):** kylän länsiosassa (OSM office=company) lämminhenkinen, rauhallinen paikka
+  (pastellikyltti enkelinsiipineen, piippu, valkoinen aita). Rakennuksen edessä muistolehto: sorapolku, penkki, kynttilälyhdyt
+  ja lemmikkien nimikyltit (Misu, Rekku, Nalle). Penkillä E: stressi laskee kerran päivässä (20 min), kaljaa ei avata. Iltaisin
+  (16–19) portilla käy Pekka "vaan katsomassa": ensin kömpelö vitsi piipusta (luuli yleiseksi saunaksi), sitten lämmin hetki
+  vanhan Väinön pelosta. Sivutehtävä (jalkapallopojat, vain jos pojat ovat kentällä): pojat kertovat pikkuveljen hamsteri Pörrön
+  kuolleen, ja pelaaja maalaa lehtoon muistokyltin pienellä minipelillä (muistokyltti_game.gd: kirjaimet P, Ö, R, R, Ö
+  näppäimillä, sydän, käpälä ja lauta tolppaan; ei aikapainetta). Valmistuttua Pörrön kyltti näkyy lehdossa, pojat eivät heitä
+  enää koskaan kiviä ("Setä on ihan ok") ja maine +5. Sävy on kunnioittava: ei vitsejä kuolleista lemmikeistä. Testi
+  `--scene=lemmikkienkelit`.
 - **Legenda: Kanttorilan yösävel (#144):** Kanttorila on OSM-talo kylän länsiosassa (nimikyltti seinässä). Sen historiaa ei
   löytynyt (Saloisten seurakunta perustettiin 1912, nykyinen kirkko valmistui 1932), joten kaikki talosta kerrottu on
   keksittyä ja Pirtiltä tai museolta tarkistamatta. Legenda (pelissä totta): kanttorin virren nuotit katosivat, ja talosta

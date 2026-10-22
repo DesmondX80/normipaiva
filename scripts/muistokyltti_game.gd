@@ -153,7 +153,7 @@ func _input(ev: InputEvent) -> void:
 			match ev.keycode:
 				KEY_P: ch = "P"
 				KEY_R: ch = "R"
-				KEY_ODIAERESIS, KEY_SEMICOLON, KEY_O: ch = "Ö"
+				KEY_SEMICOLON, KEY_O, 0x00D6: ch = "Ö"
 				_: ch = "?"
 			_press(ch)
 		elif _stage == "nail" and (ev.keycode == KEY_SPACE or ev.keycode == KEY_ENTER or ev.keycode == KEY_E):
@@ -245,7 +245,7 @@ static func _len(line: PackedVector2Array) -> float:
 
 static func _along(line: PackedVector2Array, d: float) -> Vector2:
 	for i in line.size() - 1:
-		var seg := line[i].distance_to(line[i + 1])
+		var seg: float = line[i].distance_to(line[i + 1])
 		if d <= seg:
 			return line[i].lerp(line[i + 1], d / maxf(seg, 0.001))
 		d -= seg
@@ -328,8 +328,8 @@ func _draw_post_and_plank(ci: CanvasItem) -> void:
 	ci.draw_rect(Rect2(pl.position + Vector2(14, 14), pl.size - Vector2(28, 28)), Color(0.92, 0.85, 0.74, 0.55))
 	if _stage == "nail" or _stage == "done":
 		for k in range(_nail):
-			var nx := pl.position.x + 24 + (0 if k % 2 == 0 else pl.size.x - 48)
-			var ny := pl.position.y + 24 + (0 if k < 2 else pl.size.y - 48)
+			var nx: float = pl.position.x + 24 + (0.0 if k % 2 == 0 else pl.size.x - 48)
+			var ny: float = pl.position.y + 24 + (0.0 if k < 2 else pl.size.y - 48)
 			ci.draw_circle(Vector2(nx, ny), 7.0, Color(0.55, 0.55, 0.58))
 			ci.draw_arc(Vector2(nx, ny), 7.0, 0, TAU, 10, MG.OUTLINE, 1.5)
 	# Ohjaussiluetti: seuraavan kirjaimen haamu.
@@ -357,7 +357,7 @@ func _draw_post_and_plank(ci: CanvasItem) -> void:
 			var part := PackedVector2Array([line[0]])
 			var acc := 0.0
 			for i in line.size() - 1:
-				var seg := line[i].distance_to(line[i + 1])
+				var seg: float = line[i].distance_to(line[i + 1])
 				if d - acc >= seg:
 					part.append(line[i + 1])
 					acc += seg
