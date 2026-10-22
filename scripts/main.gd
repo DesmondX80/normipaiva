@@ -75,6 +75,10 @@ const KaraokeGame := preload("res://scripts/karaoke_game.gd")
 const PajatsoGame := preload("res://scripts/pajatso_game.gd")
 const HedelmapeliGame := preload("res://scripts/hedelmapeli_game.gd")
 const SIITARI_INT_POS := Vector3(16000, 0, 0)
+## Karaoken rajat (simulaatio --scene=karaokesim: hyvä 92–96 %, keskiverto 79–85 %, rento 60–77 %): "raikuu" vaatii
+## keskiverron pelaajan hyvän suorituksen, "kelpo" erottaa rennon pelaajan mokaajasta.
+const KARAOKE_RAIKUU := 0.85
+const KARAOKE_KELPO := 0.55
 const KARAOKE_PRICE := 2.0
 const PAJATSO_PRICE := 1.0
 ## Sinikka Siitarissa (flirttailevaa kuten kotikadulla) ja Päivin puhelu, kun joku on nähnyt.
@@ -257,6 +261,7 @@ const HedgeGame := preload("res://scripts/hedge_game.gd")
 const BasketGame := preload("res://scripts/basket_game.gd")
 const TanssiGame := preload("res://scripts/tanssi_game.gd")
 const BingoGame := preload("res://scripts/bingo_game.gd")
+const KirppisMyynti := preload("res://scripts/kirppis_myynti_game.gd")
 const Tokola := preload("res://scripts/tokola.gd")
 const TokolaVarasto := preload("res://scripts/tokola_varasto.gd")
 const SuloPannu := preload("res://scripts/sulo_pannu.gd")
@@ -2646,6 +2651,8 @@ var _kirppis_sold := {}  # tuote -> päivä, jolloin ostettu
 var _kirppis_angry := {}  # myyjä -> päivä, jolloin suuttui tinkimisestä
 var _haggle := {}  # tuote -> {"ask", "patience", "day"}
 var _auction_day := -1
+var _myynti_day := -1  # päivä, jona oma pöytäpaikka on vuokrattu (#128)
+var _myynti_ban := -1  # Hilkan myyntikielto: pöytäpaikkaa ei vuokrata ennen tätä päivää
 
 
 func _kirppis_logic() -> void:
@@ -2745,6 +2752,10 @@ func _on_kirppis_acted(kind: String) -> void:
 		return
 	if kind == "takaovi":
 		_seura_ukot()
+		kirppis_int.block_interact()
+		return
+	if kind == "poyta":
+		_oma_poyta()
 		kirppis_int.block_interact()
 		return
 	if not kind.begins_with("hlo"):
@@ -2929,6 +2940,14 @@ func _talk_kirppis(id: String) -> void:
 		_talk_box.close()
 		_start_auction()
 		return
+	if id == "poyta_vuokraa" or id == "poyta_mene":
+		if id == "poyta_vuokraa":
+			money -= MYYNTI_PAIKKA
+			_myynti_day = day
+			Sfx.play("coin", -4.0)
+		_talk_box.close()
+		_start_myynti()
+		return
 	if _seura_act(id):
 		return
 	if id == "romu":
@@ -3079,6 +3098,123 @@ func _auction_lot() -> Dictionary:
 		{"id": "vhs", "name": "Laatikollinen VHS-kasetteja", "start": 2.0, "rivals": [["Mummo Elvi", 5.0], ["Ukko Veikkonen", randf_range(4.0, 9.0)]]},
 		{"id": "kahvinkeitin", "name": "Moccamaster, toimii", "start": 4.0, "rivals": [["Mummo Elvi", randf_range(8.0, 14.0)], ["Ukko Veikkonen", 6.0]]},
 	][day % 2]
+
+
+## --- Oma kirppispöytä (#128) ------------------------------------------------------------------------------------
+## Hilkalta pöytäpaikka 2 €/päivä. Pöydälle viedään repusta marjat, sienet, savukala ja -riista sekä tiskin alta kalja ja
+## pontikka; ostajat tinkivät (kirppis_myynti_game.gd). Kiinni jäänyt kaljankauppias saa motkotusta ja joskus Hilkan
+## myyntikiellon. Hyvät kaupat nostavat mainetta, tyly tinkiminen laskee ("Pihi kuin Pekka").
+const MYYNTI_PAIKKA := 2.0
+const MYYNTI_TIKKU := 60.0  # min / pöytäkerta
+const MYYNTI_GOODS := ["puolukka", "mustikka", "kantarelli", "herkkutatti"]
+const MYYNTI_FOODS := ["savukala", "savuriista"]
+
+
+## Pöydälle kelpaava tavara repusta: {tuote: määrä}.
+func _myynti_stock() -> Dictionary:
+	var st := {}
+	for k in MYYNTI_GOODS:
+		if int(bucket.get(k, 0)) > 0:
+			st[k] = int(bucket[k])
+	for k in MYYNTI_FOODS:
+		if int(food.get(k, 0)) > 0:
+			st[k] = int(food[k])
+	if beers > 0:
+		st["kalja"] = beers
+	if pontikka > 0:
+		st["pontikka"] = pontikka
+	return st
+
+
+func _myynti_options(o: Array) -> void:
+	if _myynti_ban >= day:
+		o.append(_opt("poyta_x", "Pöytäpaikka (myyntikielto huomiseen)", false, "Hilkka: \"Ei kaljakauppiaille.\""))
+	elif _myynti_day == day:
+		o.append(_opt("poyta_mene", "Mene oman pöydän taakse (paikka maksettu)", not _myynti_stock().is_empty(),
+			"repussa ei ole myytävää", true))
+	else:
+		var why := "rahat ei riitä" if money < MYYNTI_PAIKKA else "repussa ei ole myytävää"
+		o.append(_opt("poyta_vuokraa", "Vuokraa pöytäpaikka (%s €) ja myy omia" % _eur(MYYNTI_PAIKKA),
+			money >= MYYNTI_PAIKKA and not _myynti_stock().is_empty(), why, true))
+
+
+## Oma pöytä salissa: vuokra Hilkalle ensimmäisellä kerralla päivässä, sitten suoraan pöydän taakse.
+func _oma_poyta() -> void:
+	if _myynti_ban >= day:
+		_show_message("Hilkka: \"Ei kaljakauppiaille. Tule huomenna uudestaan.\"", 3.5)
+		return
+	if _myynti_stock().is_empty():
+		_show_message("Repussa ei ole mitään myytävää: marjoja, sieniä, savukalaa tai riistaa.", 3.5)
+		return
+	if _myynti_day != day:
+		if money < MYYNTI_PAIKKA:
+			_show_message("Pöytäpaikka maksaa %s € (Hilkka). Rahat ei riitä." % _eur(MYYNTI_PAIKKA), 3.0)
+			return
+		money -= MYYNTI_PAIKKA
+		_myynti_day = day
+		Sfx.play("coin", -4.0)
+		kirppis_int.say_id("hilkka", "Kaks euroa, kiitos. Pöytä on sun koko päivän.", 3.0)
+	_start_myynti()
+
+
+func _start_myynti() -> void:
+	kirppis_int.busy = true
+	kirppis_int.walker.controls_enabled = false
+	_hud.visible = false
+	CamCtl.free_mouse = true
+	var g := KirppisMyynti.new()
+	g.stock = _myynti_stock()
+	g.maine = maine
+	g.finished.connect(_myynti_done)
+	kirppis_int.add_child(g)
+
+
+func _myynti_done(r: Dictionary) -> void:
+	CamCtl.free_mouse = false
+	kirppis_int.busy = false
+	kirppis_int.walker.controls_enabled = true
+	kirppis_int.walker.activate()
+	kirppis_int.block_interact()
+	_hud.visible = true
+	for k in r.sold:
+		var n: int = r.sold[k]
+		if k in MYYNTI_GOODS:
+			bucket[k] = maxi(0, int(bucket.get(k, 0)) - n)
+			if bucket[k] <= 0:
+				bucket.erase(k)
+		elif k in MYYNTI_FOODS:
+			food[k] = maxi(0, int(food.get(k, 0)) - n)
+			if food[k] <= 0:
+				food.erase(k)
+		elif k == "kalja":
+			beers = maxi(0, beers - n)
+		elif k == "pontikka":
+			pontikka = maxi(0, pontikka - n)
+	money += r.income
+	_advance_clock(MYYNTI_TIKKU * maxf(1.0, ceilf(r.buyers / 4.0)))
+	if r.income > 0.0 or r.caught:
+		tilat.first("oma_kirppispoyta", 0.3)
+	maine = clampf(maine + r.rep, 0.0, 100.0)
+	if r.caught:
+		var ban := randf() < 0.55
+		if ban:
+			_myynti_ban = day + 1
+		tilat.add("stressi", -0.2)
+		tilat.add("moraali", -0.1)
+		kirppis_int.say_id("annaliisa", "Kyllä mää kerron Päiville. Kaljaa, nuorisoseuran talolla!", 4.0)
+		_show_message("Anna-Liisa näki kaljakaupan! %s Maine −4 ja Päivi kuulee varmasti.%s" % [
+			"Hilkka antoi myyntikiellon huomiseen." if ban else "Hilkka motkottaa kassin takia.",
+			"   Tuloja %s €." % _eur(r.income) if r.income > 0.0 else ""], 5.5)
+	elif r.quit and r.buyers <= 1 and r.income <= 0.0:
+		_show_message("Pakkasit pöydän ennen kuin kukaan ehti ostaa. Paikka on maksettu.", 3.5)
+	else:
+		tilat.add("moraali", 0.05 if r.income > 0.0 else 0.0)
+		kirppis_int.say_id("hilkka", "Hyvin meni. Pöytä saa jäädä vielä, jos tavaraa riittää.", 3.5)
+		_show_message("Pöytäkauppa: %s €. \"%s\"%s" % [_eur(r.income), r.title,
+			"   Maine %+d." % int(r.rep) if r.rep != 0 else ""], 4.5)
+	if r.income > 0.0:
+		Sfx.play("win_small", -4.0)
+	_save_game()
 
 
 func _start_auction() -> void:
@@ -5802,7 +5938,7 @@ func quest_spots(id: String) -> Array:
 			return [M.w2(M.LAAVU)]
 		"pontikka":
 			return [M.w2(M.PONTIKKA)] if pontikka_found else []
-		"huutokauppa", "seurailta":
+		"huutokauppa", "seurailta", "oma_poyta":
 			return [M.w2(M.SEURAINTALO)]
 		"raahe":
 			return [v3.call(world.taxi_pos)] if world.taxi_pos != Vector3.ZERO else []
@@ -9237,13 +9373,13 @@ func _raahe_karaoke() -> void:
 		_raahe.karaoke = maxf(_raahe.karaoke, score)
 		tilat.first("karaoke_raahe", 0.3)
 		var pct := roundi(score * 100.0)
-		if score >= 0.7:
+		if score >= KARAOKE_RAIKUU:
 			_ending("karaoke")
 			Sfx.play("win", -4.0)
 			tilat.add("moraali", 0.25)
 			mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0)
 			_show_message("Karaoke %d %%: Kellari raikuu! \"Skooli laulajalle!\"" % pct, 3.5)
-		elif score >= 0.4:
+		elif score >= KARAOKE_KELPO:
 			Sfx.play("win_small", -6.0)
 			tilat.add("moraali", 0.1)
 			_show_message("Karaoke %d %%: kelpo veto. Joku ruukkilainen taputti." % pct, 3.0)
@@ -9536,6 +9672,8 @@ func _talk_options(who := "") -> Array:
 			if kirppis_int.mode != "kirppis":
 				_seura_options(who, o)
 			else:
+				if who == "hilkka":
+					_myynti_options(o)
 				if who == "hilkka" and not aarni.heard:
 					o.append(_opt("aarnivalkea", "Onko Lapinrauniosta jotain juttuja?", true, "", "juoru_aarnivalkea" in tilat.firsts))
 				if who == "tauno" and not ukko.heard:
@@ -11909,14 +12047,14 @@ func _start_karaoke() -> void:
 		siitari_int.from_stage(score >= 0.5)
 		tilat.first("karaoke", 0.3)
 		var pct := roundi(score * 100.0)
-		if score >= 0.7:
+		if score >= KARAOKE_RAIKUU:
 			_ending("karaoke")
 			Sfx.play("win", -4.0)
 			tilat.add("moraali", 0.25)
 			tilat.add("stressi", 0.15)
 			mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0)
 			_show_message("Karaoke %d %%: Siitari raikuu! Seurue taputtaa ja Sinikka huokaa." % pct, 3.5)
-		elif score >= 0.4:
+		elif score >= KARAOKE_KELPO:
 			Sfx.play("win_small", -6.0)
 			tilat.add("moraali", 0.1)
 			_show_message("Karaoke %d %%: ihan kelpo veto. Joku taputti." % pct, 3.0)
@@ -14873,6 +15011,8 @@ func _load_game() -> void:
 	_danced = cfg.get_value("paivarajat", "tanssittu", {})
 	_kirppis_sold = cfg.get_value("paivarajat", "kirppis_myyty", {})
 	_kirppis_angry = cfg.get_value("paivarajat", "kirppis_suuttunut", {})
+	_myynti_day = cfg.get_value("paivarajat", "kirppis_poyta", -1)
+	_myynti_ban = cfg.get_value("paivarajat", "kirppis_myyntikielto", -1)
 	_haaste_day = cfg.get_value("paivarajat", "piirakkahaaste", -1)
 	_ukko_day = cfg.get_value("paivarajat", "ukko", -1)
 	_lava_pass = cfg.get_value("paivarajat", "lavaleima", "")
@@ -14975,6 +15115,8 @@ func _save_game() -> void:
 	cfg.set_value("paivarajat", "tanssittu", _danced)
 	cfg.set_value("paivarajat", "kirppis_myyty", _kirppis_sold)
 	cfg.set_value("paivarajat", "kirppis_suuttunut", _kirppis_angry)
+	cfg.set_value("paivarajat", "kirppis_poyta", _myynti_day)
+	cfg.set_value("paivarajat", "kirppis_myyntikielto", _myynti_ban)
 	cfg.set_value("paivarajat", "piirakkahaaste", _haaste_day)
 	cfg.set_value("paivarajat", "ukko", _ukko_day)
 	cfg.set_value("paivarajat", "lavaleima", _lava_pass)
@@ -21675,6 +21817,121 @@ func _maybe_screenshot() -> void:
 					w_roads += 1
 			print("KIRKKO rajan yli kulkevia teitä: %d" % w_roads)
 			get_tree().quit()
+		"kirppismyynti":
+			# Oma kirppispöytä (#128): pöytäpaikan vuokraus Hilkalta, tinkiminen (hyväksy, vastatarjous, liian kova hinta),
+			# kaljakauppa tiskin alta (Anna-Liisa vahtii ja jää kiinni), yhteenveto ja tulosten käyttö. Tallennus palautetaan.
+			var saved_my := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap_my := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var wait := func(sec: float) -> void:
+				await get_tree().create_timer(sec).timeout
+			_note.visible = false
+			money = 20.0
+			maine = 40.0
+			day = 3
+			clock_min = 12 * 60
+			_myynti_day = -1
+			_myynti_ban = -1
+			bucket = {}
+			food = {}
+			beers = 0
+			pontikka = 0
+			_enter_kirppis("kirppis")
+			await wait.call(0.5)
+			kirppis_int.walker.position = Vector3(-3.4, 0, 3.4)
+			await wait.call(0.6)
+			print("MY salin pöytä, vihje: '%s'" % kirppis_int.hint)
+			await snap_my.call("_myynti_sali.png")
+			print("MY hilkka ilman tavaraa: %s" % [_talk_options("hilkka").filter(func(o): return o.id.begins_with("poyta")).map(func(o): return "%s:%s" % [o.id, o.enabled])])
+			bucket = {"puolukka": 5, "mustikka": 3, "kantarelli": 2, "herkkutatti": 2}
+			food = {"savukala": 3, "savuriista": 2}
+			beers = 4
+			pontikka = 1
+			print("MY hilkka tavaralla: %s" % [_talk_options("hilkka").filter(func(o): return o.id.begins_with("poyta")).map(func(o): return "%s:%s" % [o.id, o.enabled])])
+			print("MY pöytään kelpaa: %s" % [_myynti_stock()])
+			_talk_open("hilkka", null)
+			_talk_box._pages.clear()
+			_talk_choose("poyta_vuokraa")
+			var mg: Node = kirppis_int.get_children().filter(func(c): return c is KirppisMyynti).front()
+			print("MY peli auki: %s, rahaa %s (paikka maksettu %s)" % [mg != null, _eur(money), _myynti_day == day])
+			await wait.call(1.6)
+			var force := func(type: String, item: String, qty: int, fair: float, limit: float, offer: float) -> void:
+				mg._b = {"type": type, "item": item, "qty": qty, "fair": fair, "limit": limit, "offer": offer,
+					"patience": 3, "under": type == "nuori", "side": 1.0}
+				mg._counter = maxf(offer + 0.5, snappedf(fair * 1.15, 0.5))
+				mg._phase = "talk"
+				mg._bx = 640.0
+				mg._mood = 0
+				mg._open_line()
+			# 1. Mummo: liian kova vastatarjous ajaa ostajan pois.
+			force.call("mummo", "puolukka", 2, 12.0, 12.0, 6.0)
+			await wait.call(0.3)
+			await snap_my.call("_myynti_ostaja.png")
+			mg._counter = 20.0
+			mg._counter_offer()
+			await wait.call(0.3)
+			await snap_my.call("_myynti_pihi.png")
+			print("MY liian kova: pihi %d, vaihe %s, rivi '%s'" % [mg._greedy, mg._phase, mg._line])
+			# 2. Mökkiläinen: hyväksytään tarjous.
+			force.call("mokki", "savukala", 1, 7.0, 9.0, 5.0)
+			var inc0: float = mg._income
+			mg._accept(5.0)
+			await wait.call(0.3)
+			await snap_my.call("_myynti_kauppa.png")
+			print("MY hyväksytty tarjous: tulot %s -> %s, savukalaa jäljellä %d" % [_eur(inc0), _eur(mg._income), mg._left["savukala"]])
+			# 3. Mummo: vastatarjous hieman yli enimmäishinnan, ostaja korottaa tarjousta, toinen vastatarjous käy.
+			force.call("mummo", "mustikka", 1, 7.0, 7.5, 3.5)
+			mg._counter = 8.5
+			mg._counter_offer()
+			print("MY vastatarjous 8,5 (raja 7,5): vaihe %s, uusi tarjous %s, kärsivällisyys %d, rivi '%s'" % [mg._phase, _eur(mg._b.offer), mg._b.patience, mg._line])
+			mg._counter = 7.5
+			mg._counter_offer()
+			print("MY vastatarjous 7,5: vaihe %s, tulot %s" % [mg._phase, _eur(mg._income)])
+			# 4. Tiskin alta: Anna-Liisa katsoo, sitten kääntyy pois.
+			force.call("nuori", "kalja", 1, 15.0, 18.0, 12.0)
+			mg._watch_t = 1.0
+			await wait.call(0.3)
+			await snap_my.call("_myynti_tiskin_alta_vahti.png")
+			print("MY vahti katsoo: %s" % mg._watching())
+			mg._watch_t = 6.0
+			await wait.call(0.3)
+			await snap_my.call("_myynti_tiskin_alta_turvassa.png")
+			print("MY vahti muualla: %s" % mg._watching())
+			mg._accept(12.0)
+			print("MY kaljakauppa turvassa: vaihe %s, kaljaa jäljellä %d, kiinni %s" % [mg._phase, mg._left["kalja"], mg._caught])
+			# 5. Toinen kaljakauppa Anna-Liisan katsoessa: kiinni.
+			force.call("nuori", "kalja", 1, 15.0, 18.0, 12.0)
+			mg._watch_t = 1.0
+			mg._accept(12.0)
+			await wait.call(0.5)
+			await snap_my.call("_myynti_kiinni.png")
+			print("MY kiinni jäi: %s, vaihe %s, kaljaa jäljellä %d" % [mg._caught, mg._phase, mg._left["kalja"]])
+			var m0 := maine
+			await wait.call(3.6)
+			print("MY kiinni jäämisen jälkeen: maine %.0f -> %.0f, kielto huomiseen %s, viesti '%s'" % [m0, maine, _myynti_ban >= day, _msg.text])
+			print("MY reppu: puolukka %s mustikka %s kantarelli %s kala %s kalja %d pontikka %d, rahaa %s" % [bucket.get("puolukka", 0), bucket.get("mustikka", 0),
+				bucket.get("kantarelli", 0), food.get("savukala", 0), beers, pontikka, _eur(money)])
+			# Yhteenvetokuva uudella pelillä.
+			_myynti_ban = -1
+			_myynti_day = -1
+			money = 10.0
+			_oma_poyta()
+			print("MY oma pöytä salista: vuokra maksettu %s, rahaa %s" % [_myynti_day == day, _eur(money)])
+			mg = kirppis_int.get_children().filter(func(c): return c is KirppisMyynti).front()
+			await wait.call(0.3)
+			mg._sold = {"puolukka": 3, "savukala": 2, "kantarelli": 1}
+			mg._income = 41.5
+			mg._served = 6
+			mg._good = 4
+			mg._summary()
+			await wait.call(0.3)
+			await snap_my.call("_myynti_yhteenveto.png")
+			print("MY yhteenveto: '%s' maine %+d" % [mg._title, mg._rep])
+			mg._end()
+			await wait.call(0.5)
+			print("MY ulos pelistä: pelin lapsia %d, kävelijä aktiivinen %s" % [kirppis_int.get_children().filter(func(c): return c is KirppisMyynti).size(), kirppis_int.walker.controls_enabled])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_my)
 		"drakkar":
 			# Drakkar Noir: pullo Railin pöydällä, osto, legendaarinen hetki, suihkaus, Sinikan ja Päivin reaktiot ja
 			# tanssibonus. Tallennus palautetaan lopuksi.

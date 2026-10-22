@@ -290,6 +290,7 @@ static func make_board(parent: Node3D) -> Node3D:
 	mi.mesh = st.commit()
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
+	mat.vertex_color_is_srgb = true  # pistevärit ovat sRGB-värejä (muuten kerma harmaantuu ja punainen tummuu)
 	mat.roughness = 0.85
 	mi.material_override = mat
 	board.add_child(mi)
