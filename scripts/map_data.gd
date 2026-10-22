@@ -69,6 +69,9 @@ const KIRKKO := Vector2(-132.1, 482.1)
 const KELLOTAPULI := Vector2(-144.4, 515.8)
 const HAUTAUSMAA := [Vector2(-224.8, 517.6), Vector2(-232.8, 397.6), Vector2(-224.2, 393.3), Vector2(-110.6, 457.6),
 	Vector2(-116.3, 474.5), Vector2(-136.9, 541.5), Vector2(-145.1, 567.6)]
+## Palon yön pyhimys (#125): talollisen hauta, jolla palon vuosipäivänä palaa kynttilä, ja hautausmaan hoitajan paikka.
+const KYNTTILA_HAUTA := Vector2(-176.0, 492.0)
+const HOITAJA := Vector2(-160.0, 462.0)
 ## Saloisten Reippari, grillikioski seuraintalon vieressä (OSM retail-rakennus, amenity=fast_food) (#115).
 const REIPPARI := Vector2(432.8, -282.4)
 ## Aaron kissan Miisun mahdolliset piilopaikat Tokolan ympäristössä (ilmoitustaulun sivutehtävä).

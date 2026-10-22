@@ -142,6 +142,15 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   hautakivirivien kera (osassa puuristi). Paikat ovat vielä koristeita: tulevat legendat (#125 Palon yön pyhimys,
   Olavinmarkkinat, kellotapuli) rakentuvat niiden varaan. Testi `--scene=kirkko` (headlessinä vain luvut, kuvat vaativat
   ikkunan).
+- **Legenda: Palon yön pyhimys (#125):** oikea tausta Wikipedian mukaan: Saloisten vanha puukirkko paloi loppiaisaamun
+  jumalanpalveluksen aikana 1930 (issuen "1908" ei löydy lähteestä), nykyinen kirkko valmistui 1932, ja palosta pelastettiin
+  mm. Pyhän Olavin ja Neitsyt Marian veistokset ja alttarikaapit. Legenda on keksitty ja pelissä totta: yksi pieni puinen
+  pyhimys katosi palon yönä, kun talollinen vei sen kotiinsa eikä uskaltanut palauttaa. Ketju: hautausmaan hoitaja kertoo ->
+  suntio näyttää luettelon yliviivatun rivin ("pieni pyhimyskuva, puuta") -> palon vuosipäivän iltana (pelissä joka 6. päivä,
+  klo 18–23) talollisen haudalla palaa kynttilä ja siellä on iäkäs nainen, joka kertoo suvun asuneen Tokolassa, kun lupaat
+  pitää nimen salassa -> Aaro muistaa mummon aitan pyhän nuken -> pyhimys Tokolan vanhan varaston orsilta -> suntiolle
+  kirkkoon. Palautus: loppu "Palon yön pyhimys", maine +10, kynttilä sammuu, nainen käy vuosipäivinä kirkon edessä, ja
+  suntion, Pekan ja Sinikan epäilyt vaihtuvat. Testi `--scene=palonpyhimys` (toimii headlessinä).
 - **Saloisten Reippari:** grillikioski seuraintalon vieressä (auki 11–23). Luukulta Raijalta makkaraperunat,
   lihapiirakka kaikilla, hampurilainen ja kahvi (ruoat reppuun, T syö). Illalla 18–23 kioskin edessä notkuu porukka
   mopoineen, ja juoruista kuulee mm. Pannu-Sulon kuusikosta ja Tokolan varastosta. Ilmoitustaululta alkaa

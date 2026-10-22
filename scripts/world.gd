@@ -1295,6 +1295,8 @@ const KIRKKO_COPPER := Color(0.33, 0.56, 0.5)
 const TAPULI_RED := Color(0.52, 0.14, 0.09)
 var kirkko_pos := Vector3.ZERO  # kirkon pääovi (tornin edusta)
 var tapuli_pos := Vector3.ZERO
+var kynttila_pos := Vector3.ZERO  # talollisen hauta (kynttilän paikka)
+var hoitaja_pos := Vector3.ZERO
 var hautausmaa_graves := 0  # hautakivien määrä (testinäkymä)
 
 
@@ -1366,6 +1368,7 @@ func _build_kirkko() -> void:
 	_add_house(f.c)
 	_build_tapuli()
 	_build_hautausmaa(f.c)
+	_build_kynttilahauta()
 
 
 ## Kellotapuli (1786): punainen lautaverhoiltu tapuli, avoin kellokerros, kello ja jyrkkä huopakatto risteineen.
@@ -1450,6 +1453,8 @@ func _build_hautausmaa(church: Vector2) -> void:
 				continue
 			if _edge_dist(poly, p) < 2.5 or _near_way(p, 2.2):
 				continue
+			if p.distance_to(M.w2(M.KYNTTILA_HAUTA)) < 4.5:
+				continue
 			var yaw := PI / 2.0 + rng.randf_range(-0.08, 0.08)  # kasvot itään
 			var col := Color(0.52, 0.52, 0.5).lightened(rng.randf_range(-0.12, 0.18))
 			var batch: B.Batch = batch_for.call(p)
@@ -1465,6 +1470,26 @@ func _build_hautausmaa(church: Vector2) -> void:
 			hautausmaa_graves += 1
 		z += 5.0
 		row += 1
+
+
+## Talollisen hauta: korkeampi kivi ja risti, edessä kynttilän paikka (main.gd sytyttää kynttilän vuosipäivän iltana).
+func _build_kynttilahauta() -> void:
+	var g := M.w2(M.KYNTTILA_HAUTA)
+	var root := Node3D.new()
+	root.position = Vector3(g.x, 0, g.y)
+	root.rotation.y = PI / 2.0
+	add_child(root)
+	B.mesh(root, B.boxm(Vector3(0.7, 0.12, 2.0)), Vector3(0, 0.06, 0.3), Color(0.3, 0.38, 0.25))
+	B.mesh(root, B.boxm(Vector3(0.9, 1.35, 0.2)), Vector3(0, 0.68, -0.8), Color(0.48, 0.48, 0.47))
+	B.mesh(root, B.boxm(Vector3(0.1, 0.3, 0.1)), Vector3(0, 1.5, -0.8), Color(0.48, 0.48, 0.47))
+	B.mesh(root, B.boxm(Vector3(0.3, 0.1, 0.1)), Vector3(0, 1.55, -0.8), Color(0.48, 0.48, 0.47))
+	B.mesh(root, B.cyl(0.07, 0.07, 0.16, 10), Vector3(0, 0.2, -0.45), Color(0.65, 0.12, 0.1))  # kynttilälyhty
+	var body := StaticBody3D.new()
+	body.add_child(B.box_shape(Vector3(0.9, 1.4, 0.3), Vector3(0, 0.7, -0.8)))
+	root.add_child(body)
+	kynttila_pos = Vector3(g.x, T.h(g.x, g.y), g.y)
+	var h := M.w2(M.HOITAJA)
+	hoitaja_pos = Vector3(h.x, T.h(h.x, h.y), h.y)
 
 
 ## Onko lähellä (r m) mitä tahansa tietä tai polkua (myös polut, joita _nearest_road ei huomioi).

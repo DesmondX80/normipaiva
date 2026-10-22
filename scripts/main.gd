@@ -268,6 +268,7 @@ const SuloPannu := preload("res://scripts/sulo_pannu.gd")
 const KertunRauta := preload("res://scripts/kertun_rauta.gd")
 const Aarnivalkea := preload("res://scripts/aarnivalkea.gd")
 const UkkoLegenda := preload("res://scripts/ukko_legenda.gd")
+const PyhimysLegenda := preload("res://scripts/pyhimys_legenda.gd")
 const ShoreFishGame := preload("res://scripts/shore_fish_game.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
@@ -361,6 +362,10 @@ var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.g
 var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
+var pyhimys: RefCounted  # legenda: Palon yön pyhimys (pyhimys_legenda.gd, #125)
+var hoitaja: CharacterBody3D
+var suntio: CharacterBody3D
+var kynttilanainen: CharacterBody3D
 var aarni: RefCounted  # legenda: Lapinraunion aarnivalkea (aarnivalkea.gd, #139)
 var ukko: RefCounted  # legenda: Tekojärven Ukko (ukko_legenda.gd)
 var endings: RefCounted  # onnellisten loppujen kokoelma (endings.gd, #132)
@@ -801,6 +806,9 @@ const TALKERS := {
 	"huutaja": ["Huutaja Erkki", Color(1.0, 0.85, 0.3)],
 	"annaliisa": ["Anna-Liisa", Color(0.95, 0.7, 0.75)],
 	"aaro": ["Tokolan Aaro", Color(0.8, 0.75, 0.65)],
+	"hoitaja": ["Hautausmaan hoitaja", Color(0.7, 0.8, 0.65)],
+	"suntio": ["Suntio", Color(0.85, 0.85, 0.95)],
+	"kynttilanainen": ["Iäkäs nainen", Color(0.95, 0.85, 0.7)],
 	"sinikka_seura": ["Sinikka", Color(1.0, 0.55, 0.75)],
 	"reippari": ["Reipparin Raija", Color(1.0, 0.6, 0.25)],
 	"reippari_nuoret": ["Kioskin porukka", Color(0.6, 0.9, 1.0)],
@@ -856,6 +864,9 @@ const TALK_HELLO := {
 	"katsastaja": ["Saloisten katsastus. Mitäs tuotiin?", "Päivää. Rekisteriote mukana? No ei se mitään."],
 	"hitsari": ["Arttim metal works. Hitsataan mitä vaan, paitsi sydäntä.", "Terve. Arto on tauolla, mää oon hitsari."],
 	"veksi": ["Takahuone. Ei asiakkaille. ...Ai, sulla on jotain? Laita ovi kiinni.", "Kuka sut päästi tänne? No, näytä mitä sulla on."],
+	"hoitaja": ["Hautakivet on mun lapsia. Joka ainoa on käsin pesty.", "Hiljaista täällä. Niin kuin pitääkin.", "Kynttilöitä palaa, ei ne ketään haittaa."],
+	"suntio": ["Kirkko on auki. Jalat pyyhitään.", "Päivää. Kaikki esineet on luetteloitu, ei puutu mitään.", "Hiljaa tässä talossa."],
+	"kynttilanainen": ["...", "Anna minun olla hetki."],
 	"aaro": ["Jaa, nuori mies. Tokolassa ei paljon vieraita käy.", "Päivää päivää. Istu vaikka tuohon kivelle.",
 		"Kas. Sinä oot se Järvikujan poika."],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
@@ -1144,6 +1155,7 @@ func _ready() -> void:
 	pannu = SuloPannu.new()
 	kertun = KertunRauta.new()
 	aarni = Aarnivalkea.new()
+	pyhimys = PyhimysLegenda.new()
 	ukko = UkkoLegenda.new()
 	endings = Endings.new()
 	quests = Quests.new()
@@ -1658,6 +1670,7 @@ func _outside_logic() -> void:
 	_rauniot_logic()
 	_korjaamo_logic()
 	_aarni_logic()
+	_pyhimys_logic()
 	_kalastus_logic()
 	_reippari_logic()
 	_atm_logic()
@@ -3327,7 +3340,7 @@ func _enter_varasto() -> void:
 	state = "in_varasto"
 	Sfx.play("door", -3.0, 0.7)
 	tilat.first("tokolan_varasto", 0.3)
-	varasto_int.set_taken(ebike.parts.has("ohjain") or ebike.built(), tokola.rautalanka, tokola.tilikirja, tokola.lankku)
+	varasto_int.set_taken(ebike.parts.has("ohjain") or ebike.built(), tokola.rautalanka, tokola.tilikirja, tokola.lankku, pyhimys.aitta and not pyhimys.found)
 	varasto_int.enter()
 	_show_message("Pölyä ja hiirenpapanoita. Hyllyillä Tokolan kaupan tavaraa kuuskytluvulta.", 3.0)
 
@@ -3351,6 +3364,7 @@ func _varasto_hints() -> void:
 		"kelat": "" if tokola.rautalanka else "[E] Ruosteiset rautalankakelat",
 		"hylly": "" if tokola.tilikirja else "[E] Kauppiaan hylly: vanhoja kirjoja ja kuitteja",
 		"lankku": "[E] Nariseva lankku (tilikirjan piirros): väännä irti" if tokola.tilikirja and not tokola.lankku else "",
+		"orsi": "[E] Orsi: kääre, jossa pieni pyhimys" if pyhimys.aitta and not pyhimys.found else "",
 	}
 
 
@@ -3371,11 +3385,16 @@ func _on_varasto_acted(kind: String) -> void:
 			Sfx.play("pickup", -6.0, 0.8)
 			_show_message("Kauppiaan tilikirja! \"Sokeria\" kymmenille ostajille nimikirjaimin, joukossa S. S. (Sulon isä?). "
 				+ "Viimeisellä sivulla piirros varaston lattiasta ja rasti yhden lankun kohdalla.", 7.0)
+		"orsi":
+			pyhimys.found = true
+			tilat.first("pyhimys_loydetty", 0.4)
+			Sfx.play("pickup", -4.0, 0.8)
+			_show_message("Orrella nahkaan kiedottu kääre. Sisällä pieni puinen pyhimys, kaiverrettu naisen kasvot ja palon noki pohjassa. Vie se kirkon suntiolle.", 6.0)
 		"lankku":
 			tokola.lankku = true
 			Sfx.play("rattle_hard", -6.0, 1.3)
 			_show_message("Lankku narahtaa irti. Alla peltirasia... tyhjä! Paitsi kellastunut lappu: \"Heinimäen kuusen juurella.\"", 6.0)
-	varasto_int.set_taken(ebike.parts.has("ohjain") or ebike.built(), tokola.rautalanka, tokola.tilikirja, tokola.lankku)
+	varasto_int.set_taken(ebike.parts.has("ohjain") or ebike.built(), tokola.rautalanka, tokola.tilikirja, tokola.lankku, pyhimys.aitta and not pyhimys.found)
 	varasto_int.block_interact()
 	_save_game()
 
@@ -4968,6 +4987,17 @@ const AARNI_PROVEN := {
 	"annaliisa": ["Lehdessä se oli, kuvan kanssa. Isonvihan hopeat Saloisista!", "No en mää sitä ihan valheeksi sanonu…"],
 	"pekka": ["Perkele, kasakoiden aikaiset hopeat! Mää tarjoan kierroksen.", "Kaljapuhetta, sanoin. Taas väärin, saatana."],
 }
+const PYHIMYS_DOUBT := {
+	"suntio": ["Kaikki pelastetut on luettelossa. Ei puutu mitään.", "Palon yön pyhimys? Satua. Luettelo on selvä."],
+	"pekka": ["Kynttilä? Hautausmaalla palaa kynttilöitä joka ilta, perkele.", "Pyhimys, saatana. Kyllä ne kaikki kannettiin ulos."],
+	"sinikka": ["Mummoni sanoi, että se oli satua.", "Kauniita juttuja, mutta ne on vain juttuja."],
+}
+const PYHIMYS_PROVEN := {
+	"suntio": ["Se oli luettelossa yliviivattuna. Olin väärässä.", "Museokin vahvisti iän. Kiitos, että toit sen."],
+	"pekka": ["Perkele, pyhimys oli ihan oikeesti! Mää tarjoan kahvit.", "Satua, sanoin. Taas väärin, saatana."],
+	"sinikka": ["Mummo oli oikeassa kuitenkin. Voi miten kaunis juttu.", "Kynttilä ei ole enää yksin siellä."],
+}
+var _kynttila_flame: Node3D
 var _aarni_flame: Node3D
 var _aarni_sulo: Node3D
 
@@ -5023,6 +5053,130 @@ func _aarni_tasks() -> Array:
 	elif not (aarni.liekki or aarni.spotted):
 		step = "katso yöllä uudestaan, tai droonin yökuva"
 	return [["Lapinraunion aarnivalkea: " + step, false]]
+
+
+## Palon yön pyhimys (#125): hoitaja ja suntio paikoillaan, vuosipäivän illalla kynttilä talollisen haudalla ja
+## siellä iäkäs nainen (palautuksen jälkeen hän käy päivisin kirkon edessä), tehtävälista ja orren löytö.
+func _pyhimys_nodes() -> void:
+	if hoitaja != null or world == null or world.hoitaja_pos == Vector3.ZERO:
+		return
+	var px := func(v: Vector3) -> Vector2: return M.to_px(v)
+	hoitaja = _villager("Hautausmaan hoitaja", HOITAJA_LOOK, ["Hautakivet on mun lapsia."], "arto", px.call(world.hoitaja_pos))
+	suntio = _villager("Suntio", SUNTIO_LOOK, ["Kirkko on auki. Jalat pyyhitään."], "arto", px.call(world.kirkko_pos + Vector3(-2.0, 0, 3.0)))
+	kynttilanainen = _villager("Iäkäs nainen", NAINEN_LOOK, [], "mummo", px.call(world.kynttila_pos))
+	kynttilanainen.visible = false
+	_kynttila_flame = Node3D.new()
+	add_child(_kynttila_flame)
+	B.mesh(_kynttila_flame, B.cyl(0.0, 0.07, 0.22, 8), Vector3(0, 0.0, 0), Color(1.0, 0.8, 0.35))
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.7, 0.35)
+	light.omni_range = 5.0
+	light.light_energy = 1.2
+	_kynttila_flame.add_child(light)
+	_kynttila_flame.visible = false
+	_kynttila_flame.global_position = world.kynttila_pos + Vector3(0.0, 0.3, 0.45)
+
+
+const HOITAJA_LOOK := {"shirt": Color(0.3, 0.4, 0.3), "pants": Color(0.25, 0.25, 0.2), "shoes": Color(0.2, 0.15, 0.1), "hair": "Hair_Buzzed",
+	"hair_color": Color(0.75, 0.75, 0.72), "beard": true, "height": 1.72, "skin": Color(0.93, 0.74, 0.66)}
+const SUNTIO_LOOK := {"shirt": Color(0.1, 0.1, 0.14), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.08, 0.08, 0.08), "hair": "Hair_SimpleParted",
+	"hair_color": Color(0.5, 0.5, 0.5), "height": 1.78, "skin": Color(0.95, 0.76, 0.68)}
+const NAINEN_LOOK := {"model": "female", "shirt": Color(0.35, 0.3, 0.4), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.15, 0.12, 0.1), "hair": "Hair_Buns",
+	"hair_color": Color(0.85, 0.85, 0.85), "height": 1.6, "skin": Color(0.95, 0.8, 0.74), "belly": 0.3}
+
+
+func _pyhimys_tasks() -> Array:
+	if not pyhimys.heard or pyhimys.returned:
+		return []
+	var step := "vie pyhimys suntiolle Saloisten kirkkoon"
+	if not pyhimys.luettelo:
+		step = "kysy suntiolta seurakunnan vanhaa esineluetteloa"
+	elif not pyhimys.kynttila:
+		step = "käy palon vuosipäivän (joka 6. päivä) iltana 18–23 hautausmaalla"
+	elif not pyhimys.lupaus:
+		step = "lupaa iäkkäälle naiselle, ettei suvun nimeä paljasteta"
+	elif not pyhimys.aitta:
+		step = "kysy Tokolan Aarolta mummon aitan pyhästä nukesta"
+	elif not pyhimys.found:
+		step = "etsi pyhimys Tokolan vanhan varaston orsilta"
+	return [["Palon yön pyhimys: " + step, false]]
+
+
+func _pyhimys_logic() -> void:
+	if pyhimys == null or world == null or world.hoitaja_pos == Vector3.ZERO:
+		return
+	_pyhimys_nodes()
+	var evening := _between(clock_min, PyhimysLegenda.KYNTTILA)
+	var anniv: bool = pyhimys.vuosipaiva(day)
+	var candle: bool = pyhimys.heard and anniv and evening and not pyhimys.returned
+	var woman_church: bool = pyhimys.returned and anniv and _between(clock_min, Vector2(10 * 60, 16 * 60))
+	_kynttila_flame.visible = candle
+	if _kynttila_flame.visible:
+		_kynttila_flame.scale = Vector3.ONE * (0.9 + sin(Time.get_ticks_msec() * 0.015) * 0.12)
+	kynttilanainen.visible = (candle and pyhimys.luettelo) or woman_church
+	kynttilanainen.process_mode = Node.PROCESS_MODE_INHERIT if kynttilanainen.visible else Node.PROCESS_MODE_DISABLED
+	if woman_church:
+		kynttilanainen.global_position = world.kirkko_pos + Vector3(-1.6, 0.0, -2.2)
+	elif candle:
+		kynttilanainen.global_position = world.kynttila_pos + Vector3(0.0, 0.0, 1.3)
+	if _hint.text != "" or player == bike:
+		return
+	for pair in [[hoitaja, "hoitaja"], [suntio, "suntio"], [kynttilanainen, "kynttilanainen"]]:
+		var n: CharacterBody3D = pair[0]
+		if is_instance_valid(n) and n.visible and n.distance_to_player() < 3.4:
+			_talk_hint(pair[1], n)
+			return
+
+
+func _talk_pyhimys(id: String) -> void:
+	match id:
+		"pyhimys_kerro":
+			pyhimys.heard = true
+			tilat.first("pyhimys_legenda", 0.2)
+			_save_game()
+			_talk_box.reply("Palon yön pyhimys? No kuule. Kun vanha kirkko paloi loppiaisaamuna 1930, kyläläiset kantoi pyhimyskuvat "
+				+ "ulos. Yksi pieni puinen pyhimys katosi. Kerrotaan, että talollinen vei sen kotiinsa turvaan eikä uskaltanut "
+				+ "palauttaa, kun pelkäsi varkaudesta syytettävän. Joka palon vuosipäivän iltana tuolla haudalla palaa kynttilä, "
+				+ "kun pyhimys etsii kotiaan. Suntio sanoo, että satua. Kysy häneltä luetteloa.", _talk_options(),
+				"Legenda: Palon yön pyhimys. Kirkko on kartan länsilaidalla, vuosipäivä on joka kuudes päivä.")
+		"pyhimys_kiitos":
+			_talk_box.reply("Hyvä, että se pääsi kotiin. Kynttilä ei ole palanut enää kertaakaan.", _talk_options())
+		"pyhimys_luettelo":
+			pyhimys.luettelo = true
+			tilat.first("pyhimys_luettelo", 0.2)
+			_save_game()
+			_talk_box.reply("Luettelo? Kyllä. ...Tässä. Kaikki pelastetut on merkitty, Olavi, Maria, Pietari, Paavali. Tämä yliviivattu rivi, "
+				+ "\"pieni pyhimyskuva, puuta\", on kirjoitusvirhe. Nuori mies, se on kirjoitusvirhe.", _talk_options(),
+				"Yliviivattu rivi luettelossa! Käy palon vuosipäivän illalla (joka 6. päivä, klo 18–23) hautausmaalla.")
+		"pyhimys_vaita":
+			_talk_box.reply("Kirjoitusvirhe. Sanoin jo.", _talk_options())
+		"pyhimys_lupaa":
+			pyhimys.kynttila = true
+			pyhimys.lupaus = true
+			tilat.first("pyhimys_nainen", 0.3)
+			_save_game()
+			_talk_box.reply("Mummoni vannotti: muista sen asian joka vuosi, mutta älä kerro kenellekään. Suku asui Tokolassa, ja pyhimys "
+				+ "oli mummon aitassa. Mää en uskaltanut koskaan katsoa. Jos nimeä ei vedetä lokaan... kysy Tokolan vanhalta, "
+				+ "hän muistaa sen aitan.", _talk_options(), "Suvun nimi pysyy salassa. Kysy Tokolan Aarolta mummon aitasta.")
+		"pyhimys_muistuta":
+			_talk_box.reply("Tokolassa. Ne vanhat ihmiset muistaa. Varasto on nykyään se, mikä aitan paikalla oli.", _talk_options())
+		"pyhimys_aitta":
+			pyhimys.aitta = true
+			_save_game()
+			_talk_box.reply("Mummon aitta? Siellä oli joku pyhä nukke, jota ei saanut koskea. Aitta purettiin, ja varasto rakennettiin "
+				+ "samoista hirsistä. Katso orsille, jos haluat.", _talk_options(), "Katso Tokolan vanhan varaston orsille.")
+		"pyhimys_anna":
+			pyhimys.returned = true
+			maine = clampf(maine + PyhimysLegenda.MAINE, 0.0, 100.0)
+			tilat.first("pyhimys_palautettu", 0.5)
+			tilat.add("moraali", 0.3)
+			tilat.add("stressi", 0.2)
+			_ending("palon_pyhimys")
+			Sfx.play("win", -4.0)
+			_save_game()
+			_talk_box.reply("Hetkinen. Luettelo... \"pieni pyhimyskuva, puuta\". Kaiverrettu naisen kasvot, palon noki vielä pohjassa. No. Olin väärässä. "
+				+ "Raahen museo vahvistaa iän, mutta kyllä minä sen tunnen. Kiitos. Suvun nimeä ei mainita.", _talk_options(),
+				"Pyhimys palasi kirkkoon. Maine +%d. Iäkäs nainen tulee jatkossa kirkkoon." % int(PyhimysLegenda.MAINE))
 
 
 func _aarni_logic() -> void:
@@ -5940,6 +6094,8 @@ func quest_spots(id: String) -> Array:
 			return [M.w2(M.PONTIKKA)] if pontikka_found else []
 		"huutokauppa", "seurailta", "oma_poyta":
 			return [M.w2(M.SEURAINTALO)]
+		"palon_pyhimys":
+			return [M.w2(M.KIRKKO)]
 		"raahe":
 			return [v3.call(world.taxi_pos)] if world.taxi_pos != Vector3.ZERO else []
 		"asemakatkot":
@@ -9704,7 +9860,28 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("grilli_" + k, "%s (%s €)" % [it[0], _eur(it[1])], money >= it[1], "rahat ei riitä"))
 				o.append(_opt("haaste", "Lihapiirakkahaaste! (%s €, ennätys %s %d)" % [_eur(REIPPARI_HAASTE), _piirakka_holder, _piirakka_record],
 					money >= REIPPARI_HAASTE and _haaste_day != day, "yksi haaste päivässä" if _haaste_day == day else "rahat ei riitä", true))
+		"hoitaja":
+			if not pyhimys.heard:
+				o.append(_opt("pyhimys_kerro", "Onko hautausmaalla ihmeellisiä juttuja?", true, "", true))
+			elif pyhimys.returned:
+				o.append(_opt("pyhimys_kiitos", "Pyhimys on palannut kirkkoon"))
+			else:
+				o.append(_opt("pyhimys_kerro", "Kerro vielä se palon yön pyhimys"))
+		"suntio":
+			if pyhimys.found and not pyhimys.returned:
+				o.append(_opt("pyhimys_anna", "Anna löytämäsi pieni puinen pyhimys", true, "", true))
+			elif pyhimys.heard and not pyhimys.luettelo:
+				o.append(_opt("pyhimys_luettelo", "Saisinko nähdä seurakunnan vanhan esineluettelon?", true, "", true))
+			elif pyhimys.luettelo and not pyhimys.returned:
+				o.append(_opt("pyhimys_vaita", "Luettelossa on yliviivattu rivi"))
+		"kynttilanainen":
+			if not pyhimys.lupaus:
+				o.append(_opt("pyhimys_lupaa", "Lupaan, ettei suvun nimeä vedetä lokaan", true, "", true))
+			elif not pyhimys.returned:
+				o.append(_opt("pyhimys_muistuta", "Missä pyhimys on?"))
 		"aaro":
+			if pyhimys.lupaus and not pyhimys.aitta:
+				o.append(_opt("pyhimys_aitta", "Muistatko Tokolan mummon aitan pyhän nuken?", true, "", true))
 			if _miisu.state == "sylissa":
 				o.append(_opt("miisu", "Tässä on Miisu!", true, "", true))
 			elif _miisu.state == "ilmoitus":
@@ -9955,8 +10132,13 @@ func _talk_choose(id: String) -> void:
 			_quiz_answer(int(id.trim_prefix("visa_")))
 		"hilkka", "raili", "tauno", "huutaja", "annaliisa", "sinikka_seura":
 			_talk_kirppis(id)
+		"hoitaja", "suntio", "kynttilanainen":
+			_talk_pyhimys(id)
 		"aaro":
-			_talk_aaro(id)
+			if id == "pyhimys_aitta":
+				_talk_pyhimys(id)
+			else:
+				_talk_aaro(id)
 		"veksi":
 			if id == "kirves":
 				_kertun_sell()
@@ -10243,6 +10425,8 @@ func _talk_chat_line() -> String:
 		return sh
 	if _talk_who in ["pekka", "arto"] and tokola.proven() and randf() < 0.4:
 		return (TOKOLA_PROVEN[_talk_who] as Array).pick_random()
+	if PYHIMYS_DOUBT.has(_talk_who) and pyhimys.heard and randf() < 0.45:
+		return ((PYHIMYS_PROVEN if pyhimys.proven() else PYHIMYS_DOUBT)[_talk_who] as Array).pick_random()
 	if AARNI_DOUBT.has(_talk_who) and aarni.heard and randf() < 0.45:
 		return ((AARNI_PROVEN if aarni.proven() else AARNI_DOUBT)[_talk_who] as Array).pick_random()
 	if UKKO_DOUBT.has(_talk_who) and ukko.heard and randf() < 0.45:
@@ -15059,6 +15243,7 @@ func _load_game() -> void:
 	kertun.load_from(cfg)
 	_pohjoiset_load(cfg)
 	aarni.load_from(cfg)
+	pyhimys.load_from(cfg)
 	ukko.load_from(cfg)
 	_hongan_day = cfg.get_value("honganpalo", "keikka_paiva", -1)
 	# Kesken jäänyt keikka jatkuu samana päivänä: keräämättömät roskat takaisin pihalle.
@@ -15253,6 +15438,7 @@ func _save_game() -> void:
 	_pohjoiset_save(cfg)
 	if aarni != null:
 		aarni.save_to(cfg)
+		pyhimys.save_to(cfg)
 		ukko.save_to(cfg)
 	cfg.set_value("honganpalo", "keikka_paiva", _hongan_day)
 	cfg.set_value("honganpalo", "keikka", _hongan_keikka)
@@ -16558,7 +16744,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks()
+	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -21778,6 +21964,60 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"palonpyhimys":
+			# Palon yön pyhimys (#125): koko ketju logiikkana (hoitaja, luettelo, vuosipäivän kynttilä ja nainen, lupaus, Aaro,
+			# Tokolan orsi, palautus suntiolle) sekä epäilijöiden repliikit. Tallennus palautetaan.
+			var saved_py := FileAccess.get_file_as_bytes(SAVE_PATH)
+			_note.visible = false
+			tokola.key = true
+			_pyhimys_nodes()
+			day = 5
+			clock_min = 20 * 60
+			print("PY vuosipäivä päivä 5: %s, päivä 6: %s" % [pyhimys.vuosipaiva(5), pyhimys.vuosipaiva(6)])
+			print("PY hoitaja: %s" % [_talk_options("hoitaja").map(func(o): return o.id)])
+			_talk_who = "hoitaja"
+			_talk_pyhimys("pyhimys_kerro")
+			print("PY kuultu %s, tehtävät %s" % [pyhimys.heard, _pyhimys_tasks()])
+			print("PY suntio: %s" % [_talk_options("suntio").map(func(o): return o.id)])
+			_talk_pyhimys("pyhimys_luettelo")
+			print("PY luettelo %s, tehtävät %s" % [pyhimys.luettelo, _pyhimys_tasks()])
+			_pyhimys_logic()
+			print("PY päivä 5 illalla: kynttilä %s, nainen %s" % [_kynttila_flame.visible, kynttilanainen.visible])
+			day = 6
+			clock_min = 12 * 60
+			_pyhimys_logic()
+			print("PY päivä 6 päivällä: kynttilä %s, nainen %s" % [_kynttila_flame.visible, kynttilanainen.visible])
+			clock_min = 20 * 60
+			_pyhimys_logic()
+			print("PY päivä 6 illalla: kynttilä %s, nainen %s, naisen paikka %s, haudalla %s" % [_kynttila_flame.visible, kynttilanainen.visible, kynttilanainen.global_position, world.kynttila_pos])
+			print("PY nainen: %s" % [_talk_options("kynttilanainen").map(func(o): return o.id)])
+			print("PY Aaro ennen lupausta: %s" % [_talk_options("aaro").map(func(o): return o.id).has("pyhimys_aitta")])
+			_talk_pyhimys("pyhimys_lupaa")
+			print("PY lupaus %s, Aaro nyt: %s, tehtävät %s" % [pyhimys.lupaus, _talk_options("aaro").map(func(o): return o.id).has("pyhimys_aitta"), _pyhimys_tasks()])
+			_talk_pyhimys("pyhimys_aitta")
+			_varasto_hints()
+			print("PY varaston orsi: vihje '%s', tehtävät %s" % [varasto_int.hints.orsi, _pyhimys_tasks()])
+			_on_varasto_acted("orsi")
+			print("PY löydetty %s, suntio: %s" % [pyhimys.found, _talk_options("suntio").map(func(o): return o.id)])
+			var m0 := maine
+			_talk_pyhimys("pyhimys_anna")
+			print("PY palautettu %s, maine %.0f -> %.0f, loppu %s, tehtävät %s" % [pyhimys.returned, m0, maine, endings.counts.has("palon_pyhimys"), _pyhimys_tasks()])
+			clock_min = 12 * 60
+			_pyhimys_logic()
+			print("PY palautuksen jälkeen päivällä: kynttilä %s, nainen kirkolla %s (%s)" % [_kynttila_flame.visible, kynttilanainen.visible, kynttilanainen.global_position.distance_to(world.kirkko_pos) < 4.0])
+			clock_min = 20 * 60
+			_pyhimys_logic()
+			print("PY palautuksen jälkeen illalla: kynttilä %s, nainen %s" % [_kynttila_flame.visible, kynttilanainen.visible])
+			for who in ["suntio", "pekka", "sinikka"]:
+				_talk_who = who
+				var seen := false
+				for i in 40:
+					if (PYHIMYS_PROVEN[who] as Array).has(_talk_chat_line()):
+						seen = true
+						break
+				print("PY %s todistettu repliikki: %s" % [who, seen])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_py)
+			get_tree().quit()
 		"kirkko":
 			# Saloisten kirkko, kellotapuli ja hautausmaa kartan länsilaidalla (#123): kuvat eri suunnista (vain ikkunallisena,
 			# headlessinä ohitetaan), hautakivien määrä, kartan länsireuna ja vanhan alueen rajan (x = 0) yli kulkevat tiet.
