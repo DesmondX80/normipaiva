@@ -202,8 +202,13 @@ func _build_hammer() -> void:
 
 ## s = 0 lepo (kohollaan), 1 = isku alhaalla. Sorkkarauta: s vääntää vartta taaksepäin (vipu).
 func _pose_hammer(s: float) -> void:
-	_hammer.position = Vector3(0.24, -0.22 - 0.08 * s, -0.42)
-	_hammer.rotation = Vector3(-0.3 - 1.3 * s, 0.25, 0.1)
+	# Vasara: varsi (+Y) nojaa eteen kulmassa a, lyöntipinta (+X) osoittaa liikkeen suuntaan eli lautaa kohti ja kynsi
+	# (-X) pelaajaan päin. Levossa koholla, isku kaataa varren eteen ja alas.
+	var a := lerpf(0.2, 1.05, s)
+	var up := Vector3(-0.18, cos(a), -sin(a)).normalized()
+	var face := Vector3(0, -sin(a), -cos(a))
+	face = (face - up * face.dot(up)).normalized()
+	_hammer.transform = Transform3D(Basis(face, up, face.cross(up)), Vector3(0.2, -0.33 + 0.02 * s, -0.42 - 0.08 * s))
 	_bar.position = Vector3(0.2, -0.26 + 0.03 * s, -0.46)
 	_bar.rotation = Vector3(-0.9 + 0.5 * s, 0.2, 0.15)
 
