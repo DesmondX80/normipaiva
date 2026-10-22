@@ -3228,7 +3228,7 @@ func _varasto_hints() -> void:
 		"kelat": "" if tokola.rautalanka else "[E] Ruosteiset rautalankakelat",
 		"hylly": "" if tokola.tilikirja else "[E] Kauppiaan hylly: vanhoja kirjoja ja kuitteja",
 		"lankku": "[E] Nariseva lankku (tilikirjan piirros): väännä irti" if tokola.tilikirja and not tokola.lankku else "",
-		"orsi": "[E] Orsi: kääree, jossa pieni pyhimys" if pyhimys.aitta and not pyhimys.found else "",
+		"orsi": "[E] Orsi: kääre, jossa pieni pyhimys" if pyhimys.aitta and not pyhimys.found else "",
 	}
 
 
