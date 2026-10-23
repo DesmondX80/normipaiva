@@ -874,8 +874,7 @@ func _draw_glass(o: Vector2) -> void:
 
 ## Lyöntikoneisto kehyksen oikeassa reunassa lyöntipidikkeen kohdalla: kromattu ohjainlevy, jonka urassa prikka
 ## (litteä metallirengas) liukuu. Jännittävä sormi vetää prikkaa ulospäin, ja napautus iskee sen urassa vasemmalle
-## (prikkajonon ja heittoliuskan kautta kolikkoon). Peukalotuessa peukalo nojaa kehyksen reunaan prikan alla.
-## Yläkehyksessä TILT-valo.
+## (prikkajonon ja heittoliuskan kautta kolikkoon). Yläkehyksessä TILT-valo.
 func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
 	var y := o.y + LAUNCH.y
 	var plate := Rect2(Vector2(o.x + BW - 6, y - 20), Vector2(FRAME + 16, 40))
@@ -891,7 +890,8 @@ func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
 		pull = _power
 	var snap := clampf(_ring_t / 0.3, 0.0, 1.0)
 	var px := slot.position.x + 12.0 + pull * (slot.size.x - 24.0) - sin(snap * PI) * 6.0
-	var washer := Vector2(px, y)
+	var tremble := sin(_t * 13.0) * 1.5 if _coin_state == "ready" and _drawing and not _thumb and _tension < 1.0 else 0.0
+	var washer := Vector2(px, y + tremble)  # jännitetty prikka värisee sormen mukana ilman peukalotukea
 	_root.draw_circle(washer + Vector2(1.5, 2.5), 11.0, Color(0, 0, 0, 0.35))
 	_root.draw_circle(washer, 11.0, Color(0.72, 0.73, 0.77))
 	_root.draw_arc(washer, 11.0, 0.0, TAU, 24, MG.OUTLINE, 1.5, true)
@@ -903,10 +903,6 @@ func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
 			var a := -0.5 + k * 0.5
 			_root.draw_line(washer + Vector2(cos(a), sin(a)) * 16.0, washer + Vector2(cos(a), sin(a)) * (16.0 + 12.0 * snap),
 				Color(1, 1, 0.8, snap), 2.0)
-	# Käsi prikan oikealla puolella: etusormi painaa prikkaa (tärisee ilman peukalotukea), peukalo kehyksen reunassa.
-	if _coin_state == "ready":
-		var tremble := 0.0 if _thumb or not _drawing else sin(_t * 13.0) * 2.0
-		_draw_hand(washer + Vector2(13, tremble), _thumb, Vector2(o.x + BW + FRAME - 2, y + 30))
 	# TILT-valo yläkehyksessä.
 	var lamp := Vector2(o.x + BW - 150, cab.position.y + 46)
 	var lit := _tilt_t > 0.0 and int(_tilt_t * 6.0) % 2 == 0
@@ -971,55 +967,6 @@ func _draw_changer(o: Vector2, font: Font) -> void:
 		_coin_flat(cup.position + Vector2(14 + (k % 3) * 12, cup.size.y - 7 - (k / 3) * 4))
 	MG.box(_root, Rect2(cup.position + Vector2(-4, cup.size.y - 8), Vector2(cup.size.x + 8, 12)), Color(0.82, 0.83, 0.87), 3, 0,
 		MG.OUTLINE, 1)
-
-
-## Oikea käsi: nyrkkiin puristettu kämmen, josta etusormi ojentuu prikkaan (tip = sormenpää). Peukalotuessa peukalo
-## ojentuu alas kehyksen reunaan (rest), muuten se lepää nyrkin päällä. Sävytys: vaalea yläreuna, tumma alapuoli,
-## ääriviivat, rystyset ja kynsi.
-func _draw_hand(tip: Vector2, thumb_on: bool, rest: Vector2) -> void:
-	var skin := Color(0.96, 0.77, 0.63)
-	var shade := skin.darkened(0.18)
-	var palm := tip + Vector2(92, 6)
-	# Hiha ja ranne oikealla.
-	MG.box(_root, Rect2(palm + Vector2(36, -30), Vector2(70, 64)), Color(0.42, 0.18, 0.58), 14, 0, MG.OUTLINE, 2)
-	MG.box(_root, Rect2(palm + Vector2(30, -26), Vector2(14, 56)), Color(0.08, 0.66, 0.64), 4)  # tuulipuvun resori
-	# Kämmen ja koukistetut sormet (rystysrivi).
-	var fist := PackedVector2Array([palm + Vector2(-34, -24), palm + Vector2(24, -28), palm + Vector2(40, -8),
-		palm + Vector2(38, 22), palm + Vector2(-10, 30), palm + Vector2(-36, 16)])
-	_root.draw_colored_polygon(fist, skin)
-	_root.draw_colored_polygon(PackedVector2Array([palm + Vector2(-36, 6), palm + Vector2(38, 10), palm + Vector2(38, 22),
-		palm + Vector2(-10, 30), palm + Vector2(-36, 16)]), shade)
-	for k in 3:  # koukistetut sormet nyrkin alla
-		var c := palm + Vector2(-26 + k * 16, 22)
-		_root.draw_circle(c, 9.0, shade)
-		_root.draw_arc(c, 9.0, 0.2, PI - 0.2, 10, MG.OUTLINE, 1.5, true)
-	fist.append(fist[0])
-	_root.draw_polyline(fist, MG.OUTLINE, 2.0, true)
-	for k in 3:  # rystyset
-		_root.draw_arc(palm + Vector2(-20 + k * 16, -16), 5.0, PI * 1.1, PI * 1.9, 6, skin.darkened(0.3), 1.5, true)
-	# Etusormi: kaksi niveltä prikkaan, kynsi kärjessä.
-	var j1 := palm + Vector2(-34, -12)
-	var j2 := tip + Vector2(30, -4)
-	for seg in [[j1, j2, 17.0], [j2, tip, 15.0]]:
-		_root.draw_line(seg[0], seg[1], MG.OUTLINE, seg[2] + 3.0)
-		_root.draw_line(seg[0], seg[1], skin, seg[2])
-		_root.draw_line(seg[0] + Vector2(0, -seg[2] * 0.3), seg[1] + Vector2(0, -seg[2] * 0.3), skin.lightened(0.15), 2.0)
-	_root.draw_circle(tip, 8.0, MG.OUTLINE)
-	_root.draw_circle(tip, 7.0, skin)
-	_root.draw_circle(j2, 8.0, skin)
-	_root.draw_arc(j2 + Vector2(0, -2), 4.0, PI * 1.2, PI * 1.8, 6, skin.darkened(0.3), 1.2, true)
-	_root.draw_colored_polygon(PackedVector2Array([tip + Vector2(-2, -6), tip + Vector2(8, -5), tip + Vector2(9, -1),
-		tip + Vector2(-1, -1)]), Color(1.0, 0.9, 0.86))  # kynsi
-	# Peukalo: tuessa alas kehyksen reunaan, muuten nyrkin päällä.
-	var base := palm + (Vector2(-20, 10) if thumb_on else Vector2(14, -22))
-	var th_tip := rest if thumb_on else palm + Vector2(-26, -26)
-	var th_mid := base.lerp(th_tip, 0.55) + (Vector2(10, 4) if thumb_on else Vector2(0, -3))
-	for seg in [[base, th_mid, 17.0], [th_mid, th_tip, 15.0]]:
-		_root.draw_line(seg[0], seg[1], MG.OUTLINE, seg[2] + 3.0)
-		_root.draw_line(seg[0], seg[1], skin.darkened(0.05), seg[2])
-	_root.draw_circle(th_tip, 8.0, MG.OUTLINE)
-	_root.draw_circle(th_tip, 7.0, skin.darkened(0.05))
-	_root.draw_circle(th_tip + Vector2(-2, -2), 3.5, Color(1.0, 0.9, 0.86))
 
 
 ## Voittokouru kehyksen alareunassa: kromikahva edessä ja kolikot kourussa.
