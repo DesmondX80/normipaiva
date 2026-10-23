@@ -955,7 +955,7 @@ func _draw_glass(o: Vector2) -> void:
 
 ## Laukaisin koneen kyljessä (kuten oikeassa koneessa) ja yläkehyksen TILT-valo.
 func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
-	# Laukaisin koneen kyljessä lyöntipaikan kohdalla: pyöreä kromikiekko, josta puolet työntyy kyljen raosta ulos;
+	# Laukaisin koneen kyljessä lyöntipaikan kohdalla: pyöreä reiällinen kromikiekko, josta puolet työntyy kyljen raosta ulos;
 	# sormi napauttaa sen sisään kohti konetta.
 	var y := o.y + LAUNCH.y
 	var x := cab.end.x
@@ -988,6 +988,22 @@ func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
 		var d := Vector2(cos(a), sin(a))
 		if dc.x + d.x * R > x + 1.0:
 			_root.draw_line(dc + d * (R - 3.0), dc + d * R, Color(0.42, 0.43, 0.47), 1.2)
+	# Reikä kiekossa: tumma aukko, alareunassa kiekon paksuus; painuu iskussa kiinnityslevyn taakse.
+	var hc := dc + Vector2(R * 0.5, 0)
+	var hole := PackedVector2Array()
+	var lip := PackedVector2Array()
+	for k in 24:
+		var a := TAU * k / 24.0
+		hole.append(Vector2(maxf(x, hc.x + cos(a) * 5.5), hc.y + sin(a) * 5.5))
+		lip.append(Vector2(maxf(x, hc.x + cos(a) * 5.5), hc.y + 1.5 + sin(a) * 4.0))
+	if hc.x + 5.5 > x + 1.0:
+		_root.draw_colored_polygon(hole, Color(0.12, 0.08, 0.06))
+		_root.draw_colored_polygon(lip, Color(0.3, 0.2, 0.13))  # seinä näkyy reiän läpi
+		if hc.x - 5.5 > x:
+			_root.draw_arc(hc, 5.5, PI * 1.05, PI * 1.95, 10, Color(0.35, 0.36, 0.4), 1.5, true)  # reunan paksuus ylhäällä
+		var ring := hole.duplicate()
+		ring.append(hole[0])
+		_root.draw_polyline(ring, MG.OUTLINE, 1.0, true)
 	var rim: PackedVector2Array = half.call(dc, R)
 	_root.draw_polyline(rim, MG.OUTLINE, 1.5, true)
 	if snap > 0.0:
