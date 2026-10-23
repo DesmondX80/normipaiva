@@ -2738,6 +2738,7 @@ const KIRPPIS_STOCK := {
 	"bambuonki": {"seller": "raili", "name": "Bambuonki", "price": 4.0},
 	"lusikka": {"seller": "tauno", "name": "Isän kuparilusikka", "price": UkkoLegenda.LUSIKKA_HINTA},
 	"drakkar": {"seller": "raili", "name": "Drakkar Noir, puolillaan", "price": 12.0},
+	"haalari": {"seller": "raili", "name": "Neonpinkki hiihtohaalari", "price": 6.0},
 	"terva": {"seller": "tauno", "name": "Tervatuoppi (Olavinmarkkinat)", "price": 4.0},
 	"voi": {"seller": "hilkka", "name": "Talonpojan voita (Olavinmarkkinat)", "price": 3.0},
 	"makkara": {"seller": "raili", "name": "Markkinamakkara (Olavinmarkkinat)", "price": 3.5},
@@ -2750,6 +2751,7 @@ const DRAKKAR_SPRAYS := 10
 const DRAKKAR_DANCE := 0.15
 var drakkar := 0  # suihkauksia jäljellä
 var drakkar_found := false
+var has_haalari := false  # kirppikseltä ostettu hiihtohaalari kodin vaatekaapissa (Looks.OUTFITS "hiihtohaalari")
 var drakkar_day := -1  # päivä, jona tuoksuu
 var _kirppis_prev := "ulkona"
 var _kirppis_sold := {}  # tuote -> päivä, jolloin ostettu
@@ -2826,7 +2828,11 @@ func _enter_kirppis(mode := "kirppis") -> void:
 	kirppis_int.lot_visible = _auction_lot().get("id", "") == "moottori"
 	kirppis_int.auction_done = _auction_day == day
 	kirppis_int.drakkar.visible = drakkar <= 0
+	kirppis_int.haalari.visible = not has_haalari
 	kirppis_int.enter(mode)
+	if Looks.outfit == "hiihtohaalari" and mode != "bingo" and _once_today("haalari_seura"):
+		kirppis_int.say_id("annaliisa", ["Voi taivas, onko se hiihtokeli sisällä? Hahhah!",
+			"Pinkki haalari keskellä kesää! Nyt mää kerron kaikille.", "Hahhah! Lähdeksää Leville vai seuraintaloon?"].pick_random(), 4.5)
 	if mode != "kirppis":
 		tilat.first("seura_" + mode, 0.3)
 
@@ -3157,6 +3163,8 @@ func _kirppis_hidden(k: String) -> bool:
 			return ukko.lusikka or not ukko.heard or not ukko.clues()
 		"drakkar":
 			return drakkar > 0  # uusi pullo Railin pöydälle, kun edellinen on loppu
+		"haalari":
+			return has_haalari
 		"terva", "voi", "makkara":
 			return not (_markkinat_paiva() and _between(clock_min, MARKKINA_OPEN))
 	return false
@@ -3215,6 +3223,12 @@ func _kirppis_give(k: String) -> String:
 				_ending("drakkar")
 				return "Drakkar Noir! Musta pullo, puolillaan. Ysäri tuoksuu taas. Suihkaise T-valikosta."
 			return "Toinen Drakkar Noir! Raili: \"Mistä näitä tulee? Kuolinpesistä, kulta.\""
+		"haalari":
+			has_haalari = true
+			kirppis_int.haalari.visible = false
+			tilat.add("moraali", 0.1)
+			kirppis_int.say_id("annaliisa", "Hahhah! Pinkki haalari! Päivi saa kuulla tästä.")
+			return "Neonpinkki hiihtohaalari ja otsapanta, Levin rinteiltä vuodelta -87. Kotona vaatekaapissa."
 	return ""
 
 
@@ -7169,6 +7183,8 @@ func _enter_home(door: String) -> void:
 		_flowers_day = day
 		_save_game()
 		_queue_message("Kukat maljakkoon keittiön pöydälle. Päivi näkee ne illalla.", 3.0)
+	if Looks.outfit == "hiihtohaalari" and _once_today("haalari_paivi"):
+		_queue_message("Päivi: \"Mikä pinkki karkki sää oot? Riisu toi, ennen kuin naapurit näkee!\"", 3.5)
 	if drakkar_day == day and _once_today("drakkar_paivi"):
 		tilat.add("stressi", -0.1)
 		_queue_message("Päivi: \"Mikä toi haju on?! Drakkar Noir? Kenelle sää oot noin laittautunu?\"", 3.5)
@@ -7352,7 +7368,8 @@ func _on_home_acted(kind: String) -> void:
 				tilat.add("kokemus", -0.02)
 			_show_message("\"%s\"" % TV_SHOWS.pick_random(), 3.0)
 		"vaatekaappi":
-			_open_wardrobe(["tuulipuku", "farkut", "hattu"], "Kotona vaatekaapilla: mitä tänään päälle?")
+			_open_wardrobe(["tuulipuku", "farkut"] + (["hiihtohaalari"] if has_haalari else []) + ["hattu"],
+				"Kotona vaatekaapilla: mitä tänään päälle?")
 		"puhelin":
 			phone.found = true
 			home_int.phone_found = true
@@ -9607,7 +9624,8 @@ func _on_wardrobe(id: String) -> void:
 	Sfx.play("cloth", -2.0)
 	_show_message({"tuulipuku": "Tuulipuku päälle ja Karhu-lippis päähän. Normipäivän univormu.",
 		"farkut": "Farkut, verkkopaita ja henkselit. Tukka rasvalla taakse ja valkoiset lasit nenälle.",
-		"tyovaatteet": "Työhousut, flanelli ja Karjala-lippis. Nyt kelpaa tehdä Paapelin hommia."}[id], 3.5)
+		"tyovaatteet": "Työhousut, flanelli ja Karjala-lippis. Nyt kelpaa tehdä Paapelin hommia.",
+		"hiihtohaalari": "Neonpinkki hiihtohaalari, kuukengät ja otsapanta. Kasari palasi, ja koko kylä näkee sen."}[id], 3.5)
 	_save_game()
 
 
@@ -16261,6 +16279,7 @@ func _load_game() -> void:
 	_tape_day = cfg.get_value("uutiset", "nauha_paiva", -1)
 	drakkar = cfg.get_value("drakkar", "suihkaukset", 0)
 	drakkar_found = cfg.get_value("drakkar", "loydetty", false)
+	has_haalari = cfg.get_value("pelaaja", "haalari", false)
 	drakkar_day = cfg.get_value("drakkar", "paiva", -1)
 	wine_lock_day = cfg.get_value("viini", "lukko_paiva", day if wine_locked else -1)
 	wine_endings = cfg.get_value("viini", "loput", 0)
@@ -16521,6 +16540,7 @@ func _save_game() -> void:
 	cfg.set_value("uutiset", "nauha_paiva", _tape_day)
 	cfg.set_value("drakkar", "suihkaukset", drakkar)
 	cfg.set_value("drakkar", "loydetty", drakkar_found)
+	cfg.set_value("pelaaja", "haalari", has_haalari)
 	cfg.set_value("drakkar", "paiva", drakkar_day)
 	cfg.set_value("viini", "lukko_paiva", wine_lock_day)
 	cfg.set_value("viini", "loput", wine_endings)
@@ -21846,11 +21866,11 @@ func _maybe_screenshot() -> void:
 			base.y = Terrain.h(base.x, base.z)
 			stage.position = base
 			var cs: Array = []
-			var ids := ["tuulipuku", "farkut", "tyovaatteet"]
+			var ids := ["tuulipuku", "farkut", "tyovaatteet", "hiihtohaalari"]
 			for k in ids.size():
 				var ch: Node3D = Looks.make(stage, Looks.player(ids[k]))
 				Looks.add_cap(ch)
-				ch.position = Vector3((k - 1) * 1.1, 0, 0)
+				ch.position = Vector3((k - 1.5) * 1.1, 0, 0)
 				ch.play("Idle", 0.0)
 				cs.append(ch)
 			var cam := Camera3D.new()
@@ -21864,16 +21884,16 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
-			await shoot.call("_etu.png", Vector3(0, 1.2, -4.2), Vector3(0, 1.0, 0), 45.0)
-			await shoot.call("_taka.png", Vector3(0, 1.3, 4.2), Vector3(0, 1.0, 0), 45.0)
-			for k in 3:
-				var hx := (k - 1) * 1.1
+			await shoot.call("_etu.png", Vector3(0, 1.2, -5.0), Vector3(0, 1.0, 0), 45.0)
+			await shoot.call("_taka.png", Vector3(0, 1.3, 5.0), Vector3(0, 1.0, 0), 45.0)
+			for k in ids.size():
+				var hx := (k - 1.5) * 1.1
 				await shoot.call("_paa%d.png" % k, Vector3(hx + 0.25, 1.72, -0.75), Vector3(hx, 1.62, 0), 30.0)
 				await shoot.call("_paataka%d.png" % k, Vector3(hx - 0.35, 1.75, 0.8), Vector3(hx, 1.55, 0), 30.0)
 			# Asun vaihto paikallaan: tuulipukuhahmo farkkuihin.
 			Looks.outfit = "farkut"
 			Looks.restyle_player(cs[0])
-			await shoot.call("_vaihto.png", Vector3(-1.1, 1.2, -2.6), Vector3(-1.1, 1.0, 0), 45.0)
+			await shoot.call("_vaihto.png", Vector3(-1.65, 1.2, -2.6), Vector3(-1.65, 1.0, 0), 45.0)
 			Looks.outfit = "tuulipuku"
 			get_tree().quit()
 		"puhelin":
@@ -24057,6 +24077,104 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"haalari":
+			# Hiihtohaalari: Railin vaatetanko kirppiksellä, osto, Anna-Liisan reaktio, kodin vaatekaappi, Päivin reaktio ja
+			# pelaajan malli haalarissa (edestä, takaa, sivulta, pää ja panta lähikuvina, juoksu). Tallennus palautetaan.
+			var saved_h := FileAccess.get_file_as_bytes(SAVE_PATH)
+			has_haalari = false
+			Looks.outfit = "tuulipuku"
+			Looks.hat = ""
+			money = 30.0
+			clock_min = 12.0 * 60.0
+			var snap := func(name: String) -> void:
+				for f in 8:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			_enter_kirppis("kirppis")
+			for f in 10:
+				await get_tree().process_frame
+			await snap.call("_sali.png")
+			var tcam := Camera3D.new()
+			tcam.fov = 40.0
+			kirppis_int.add_child(tcam)
+			var rp: Vector3 = kirppis_int.haalari.global_position
+			tcam.look_at_from_position(rp + Vector3(0.3, -0.6, 2.2), rp + Vector3(0, -0.75, 0))
+			tcam.current = true
+			_hud.visible = false
+			await snap.call("_tanko.png")
+			tcam.look_at_from_position(rp + Vector3(0.05, -0.3, 0.75), rp + Vector3(0, -0.35, 0))
+			await snap.call("_tanko_lahi.png")
+			tcam.queue_free()
+			_hud.visible = true
+			_talk_who = "raili"
+			print("HAALARI Railin valinnat: %s" % [_talk_options().map(func(o): return o.id)])
+			_talk_kirppis("osta_haalari")
+			print("HAALARI ostettu: %s, rahaa %.1f, piilossa %s, tangossa näkyy %s" % [has_haalari, money,
+				_kirppis_hidden("haalari"), kirppis_int.haalari.visible])
+			_talk_box.close()
+			for f in 4:
+				await get_tree().process_frame
+			await snap.call("_ostettu.png")
+			_on_kirppis_exited()
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			for f in 5:
+				await get_tree().physics_frame
+			_enter_home("ovi")
+			home_int.walker.position = HomeInterior.SPOTS.vaatekaappi[0]
+			for f in 8:
+				await get_tree().physics_frame
+			_on_home_acted("vaatekaappi")
+			print("HAALARI kaappi: %s" % [_item_menu._items])
+			_item_menu.visible = false
+			_on_wardrobe("hiihtohaalari")
+			print("HAALARI päällä: %s, viesti '%s'" % [Looks.outfit, _msg.text])
+			_msg.text = ""
+			await snap.call("_kotona.png")
+			_on_home_exited()
+			_today.erase("haalari_paivi")
+			_enter_home("ovi")
+			print("HAALARI Päivi: %s" % str(_msg_queue).contains("pinkki karkki"))
+			_on_home_exited()
+			_today.erase("haalari_seura")
+			_enter_kirppis("kirppis")
+			for f in 3:
+				await get_tree().process_frame
+			print("HAALARI Anna-Liisa: '%s'" % kirppis_int._bubbles[kirppis_int._people[kirppis_int.person_index("annaliisa")]].text)
+			await snap.call("_kirppis_paalla.png")
+			_on_kirppis_exited()
+			# Malli lavalla: kokonaan joka suunnasta ja pää lähikuvina.
+			var stage := Node3D.new()
+			add_child(stage)
+			stage.global_position = Vector3(5000, 0, 5000)
+			var lamp := DirectionalLight3D.new()
+			lamp.rotation_degrees = Vector3(-40, 25, 0)
+			stage.add_child(lamp)
+			var c: Node3D = Looks.make(stage, Looks.player("hiihtohaalari"))
+			Looks.add_cap(c)
+			c.play("Idle", 0.0)
+			var cam := Camera3D.new()
+			cam.fov = 40.0
+			stage.add_child(cam)
+			cam.current = true
+			_hud.visible = false
+			for k in [["koko", 0.0, Vector3(0, 1.0, 3.4), Vector3(0, 0.9, 0)], ["takaa", PI, Vector3(0, 1.0, 3.4), Vector3(0, 0.9, 0)],
+					["sivu", PI * 0.5, Vector3(0, 1.0, 3.4), Vector3(0, 0.9, 0)], ["rinta", 0.0, Vector3(0, 1.3, 1.5), Vector3(0, 1.25, 0)],
+					["jalat", 0.25, Vector3(0, 0.4, 1.6), Vector3(0, 0.35, 0)], ["paa", 0.3, Vector3(0, 1.75, 0.9), Vector3(0, 1.68, 0)],
+					["paa_taka", PI - 0.4, Vector3(0, 1.8, 0.9), Vector3(0, 1.68, 0)], ["paa_sivu", PI * 0.5, Vector3(0, 1.72, 0.9), Vector3(0, 1.68, 0)]]:
+				c.rotation.y = PI + k[1]
+				cam.look_at_from_position(stage.global_position + k[2], stage.global_position + k[3])
+				await snap.call("_%s.png" % k[0])
+			c.play("Jog_Fwd", 0.0)
+			c.rotation.y = PI + 0.6
+			cam.look_at_from_position(stage.global_position + Vector3(0, 1.0, 3.4), stage.global_position + Vector3(0, 0.9, 0))
+			for f in 20:
+				c.anim.advance(0.03)
+				await get_tree().process_frame
+			await snap.call("_juoksu.png")
+			Looks.outfit = "tuulipuku"
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_h)
+			get_tree().quit()
 		"bikini_video":
 			# Video Sinikasta lappubikineissä eri animaatioissa (Movie Maker: --write-movie, --fixed-fps 30): kamera
 			# kiertää hahmoa, välillä lähikuva ylävartalosta. Lopuksi peli sulkeutuu.
