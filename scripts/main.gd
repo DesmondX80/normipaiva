@@ -23779,6 +23779,9 @@ func _maybe_screenshot() -> void:
 			for k in [["alku", Vector3(0, 0.4, -2.6)], ["kasi_sivu", Vector3(1.4, 0.15, -0.1)], ["kasi_edesta", Vector3(0.15, 0.35, -1.5)],
 					["kasi_ylhaalta", Vector3(0.1, 1.4, -0.5)], ["edesta", Vector3(0, 0.4, -2.6)], ["sivulta", Vector3(-1.0, 0.1, -0.3)],
 					["vino", Vector3(1.8, 0.6, -1.8)], ["ylhaalta", Vector3(0.01, 2.4, -0.3)], ["tyhja", Vector3(1.2, 0.5, -1.4)]]:
+				if not is_instance_valid(hero) or not is_instance_valid(cam):
+					print("SOHVA välikuva loppui ennen kuvaa %s (hidas kone)" % k[0])
+					break
 				hero.visible = k[0] != "tyhja"  # tyhjässä kuvassa sohvan painumat ilman istujaa
 				cam.fov = 40.0
 				cam.look_at_from_position(o + k[1], o, Vector3.UP)
@@ -26656,7 +26659,9 @@ func _maybe_screenshot() -> void:
 				await press.call("interact")
 				var g: CanvasLayer = _wc_game
 				if g.mode == "ykkonen":
-					while is_instance_valid(g):
+					var guard := 0
+					while is_instance_valid(g) and guard < 3000:
+						guard += 1
 						var aim: Vector2 = g._aim
 						Input.action_release("left")
 						Input.action_release("right")
@@ -26674,7 +26679,9 @@ func _maybe_screenshot() -> void:
 					for a2 in ["left", "right", "forward", "back"]:
 						Input.action_release(a2)
 				else:
-					while is_instance_valid(g) and g._phase == "push":
+					var guard := 0  # yläraja: hitaalla koneella neula voi hypätä vihreän alueen yli joka kerta
+					while is_instance_valid(g) and g._phase == "push" and guard < 3000:
+						guard += 1
 						await get_tree().process_frame
 						if g._needle >= WcGame.GREEN.x + 0.04 and g._needle <= WcGame.GREEN.y - 0.04:
 							await press.call("interact")
