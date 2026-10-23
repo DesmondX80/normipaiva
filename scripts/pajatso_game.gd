@@ -3,7 +3,7 @@ extends CanvasLayer
 ## lasin takana tummanpunainen lauta. Pelataan euron kolikoilla: taskussa on yleensä yksi, oikean kehyksen
 ## vaihtokone (D) vaihtaa kahden euron kolikon kahdeksi euroksi kahvaa vääntämällä, ja voittokourun kolikot käyvät
 ## suoraan peliin. Euro syötetään (E) yläkehyksen kiinnikkeen rakoon, josta se putoaa oikean reunan kanavaa alas
-## lyöntipaikalle rakonauhan tasolle. Kolikkoa lyödään koneen kyljen laukaisimesta (rengaslenkki, prikkajono ja
+## lyöntipaikalle rakonauhan tasolle. Kolikkoa lyödään koneen kyljen laukaisimesta (puoliksi esiin työntyvä kiekko, prikkajono ja
 ## heittoliuska): lyönnin voima on ainoa, mitä pelaaja hallitsee, ja kolikko lähtee aina vasemmalle ja hieman ylös.
 ## Se lentää rakojen yli (laskettu lentorata, kimpoaa vasemmasta seinästä ja katosta) ja putoaa harmaalle nauhalle,
 ## jossa on yhdeksän rakoa: R (panos takaisin), 2, 3, 3, 14, 3, 3, 2, R euroa (oikean koneen 1:00, 1:50 ja 7:00
@@ -305,7 +305,7 @@ func _striker(delta: float) -> void:
 	_insert()
 
 
-## Napautus: sormi painaa kyljen lenkin sisään kohti konetta, ja iskuri lyö kolikkoa.
+## Napautus: sormi painaa kyljen kiekon sisään kohti konetta, ja iskuri lyö kolikkoa.
 func _flick() -> void:
 	_ring_t = 0.3
 	_drawing = false
@@ -315,7 +315,7 @@ func _flick() -> void:
 	elif _thumb:
 		_tech("peukalo", "Peukalo kehyksen reunaan: käsi ei tärise, lyönti toistuu samanlaisena.")
 	elif _snaifs > 0:
-		_tech("snaiffi", "Snaiffaus: sormenpää saattoi lenkkiä ja jarrutti iskua.")
+		_tech("snaiffi", "Snaiffaus: sormenpää saattoi kiekkoa ja jarrutti iskua.")
 	elif _tension < 0.4:
 		_tech("pinta", "Pintalyönti: herkkä neppaus, kolikko lähti kevyesti.")
 	_last_power = _power
@@ -955,25 +955,64 @@ func _draw_glass(o: Vector2) -> void:
 
 ## Laukaisin koneen kyljessä (kuten oikeassa koneessa) ja yläkehyksen TILT-valo.
 func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
-	# Laukaisin koneen kyljessä lyöntipaikan kohdalla: edestä näkyy vain kyljen yli työntyvä kiinnike ja syrjästä
-	# rengaslenkki (liipaisin), jota sormi napsauttaa sisään.
+	# Laukaisin koneen kyljessä lyöntipaikan kohdalla: pyöreä reiällinen kromikiekko, josta puolet työntyy kyljen raosta ulos;
+	# sormi napauttaa sen sisään kohti konetta.
 	var y := o.y + LAUNCH.y
 	var x := cab.end.x
-	# Ei viritystä: liipaisin on ulkoasennossa, isku painaa sen sisään (sitä syvemmälle, mitä kovempi), jousi palauttaa.
+	# Ei viritystä: kiekko on ulkoasennossa, isku painaa sen sisään (sitä syvemmälle, mitä kovempi), jousi palauttaa.
 	var snap := clampf(_ring_t / 0.3, 0.0, 1.0)
-	var off := -sin(snap * PI) * (3.0 + _last_power * 11.0)
-	MG.box(_root, Rect2(Vector2(x - 2, y - 20), Vector2(8, 40)), Color(0.8, 0.81, 0.85), 2, 1, MG.OUTLINE, 1)  # lista
-	var block := Rect2(Vector2(x + 5 + off, y - 9), Vector2(14, 18))
-	MG.box(_root, block, Color(0.84, 0.85, 0.89), 3, 0, MG.OUTLINE, 1)
-	# Lenkki syrjästä: pyöreäpäinen kromitanko.
-	var rc := Vector2(block.end.x + 13, y)
-	MG.box(_root, Rect2(Vector2(block.end.x - 2, y - 4), Vector2(29, 8)), Color(0.86, 0.87, 0.91), 4, 0, MG.OUTLINE, 1)
-	_root.draw_line(Vector2(block.end.x, y - 2), Vector2(rc.x + 10, y - 2), Color(1, 1, 1, 0.8), 1.5)
+	var off := -sin(snap * PI) * (4.0 + _last_power * 14.0)
+	const R := 22.0  # kiekon säde
+	var dc := Vector2(x + 10.0 + off, y)  # kiekon keskipiste hieman kyljen ulkopuolella
+	var half := func(c: Vector2, r: float) -> PackedVector2Array:  # kyljen ulkopuolelle jäävä osa
+		var pts := PackedVector2Array()
+		var t := acos(clampf((x - c.x) / r, -1.0, 1.0))  # kaari, joka jää kyljen ulkopuolelle
+		for k in 33:
+			var a := -t + 2.0 * t * k / 32.0
+			pts.append(Vector2(maxf(x, c.x + cos(a) * r), c.y + sin(a) * r))
+		return pts
+	# Kiinnityslevy kyljessä kuten oikeassa koneessa: kromilevy kahdella ruuvilla ja kapea viilto, josta kiekko tulee.
+	var plate := Rect2(Vector2(x - 4, y - R - 12), Vector2(8, R * 2.0 + 24))
+	MG.grad_rect(_root, plate, Color(0.92, 0.92, 0.95), Color(0.62, 0.63, 0.67))
+	_root.draw_line(plate.position + Vector2(2, 2), Vector2(plate.position.x + 2, plate.end.y - 2), Color(1, 1, 1, 0.7), 1.5)
+	_root.draw_rect(plate, MG.OUTLINE, false, 1.0)
+	for sy in [-R - 6.0, R + 6.0]:
+		_root.draw_circle(Vector2(x, y + sy), 2.0, Color(0.45, 0.46, 0.5))
+		_root.draw_line(Vector2(x - 1.5, y + sy - 1.0), Vector2(x + 1.5, y + sy + 1.0), Color(0.2, 0.2, 0.22), 1.0)
+	_root.draw_rect(Rect2(Vector2(x - 1.5, y - R - 1), Vector2(3, R * 2.0 + 2)), Color(0.05, 0.05, 0.06))
+	_root.draw_colored_polygon(half.call(dc + Vector2(3, 4), R), Color(0, 0, 0, 0.35))  # varjo seinällä
+	_root.draw_colored_polygon(half.call(dc, R), Color(0.62, 0.63, 0.67))
+	_root.draw_colored_polygon(half.call(dc + Vector2(-1.5, -1.5), R - 4.0), Color(0.86, 0.87, 0.9))  # kasvo
+	_root.draw_colored_polygon(half.call(dc + Vector2(-3, -5), R - 12.0), Color(0.98, 0.98, 1.0, 0.8))  # kiilto
+	for k in 26:  # pykälöity reuna
+		var a := TAU * (k + 0.5) / 26.0
+		var d := Vector2(cos(a), sin(a))
+		if dc.x + d.x * R > x + 1.0:
+			_root.draw_line(dc + d * (R - 3.0), dc + d * R, Color(0.42, 0.43, 0.47), 1.2)
+	# Reikä kiekon keskellä kuin prikassa: tumma aukko, alareunassa kiekon paksuus; painuu iskussa kiinnityslevyn taakse.
+	const HR := 9.0  # reiän säde
+	var hc := dc  # keskellä kuin prikassa
+	var hole := PackedVector2Array()
+	var lip := PackedVector2Array()
+	for k in 24:
+		var a := TAU * k / 24.0
+		hole.append(Vector2(maxf(x, hc.x + cos(a) * HR), hc.y + sin(a) * HR))
+		lip.append(Vector2(maxf(x, hc.x + cos(a) * HR), hc.y + 2.0 + sin(a) * (HR - 2.0)))
+	if hc.x + HR > x + 1.0:
+		_root.draw_colored_polygon(hole, Color(0.12, 0.08, 0.06))
+		_root.draw_colored_polygon(lip, Color(0.3, 0.2, 0.13))  # seinä näkyy reiän läpi
+		if hc.x - HR > x:
+			_root.draw_arc(hc, HR, PI * 1.05, PI * 1.95, 10, Color(0.35, 0.36, 0.4), 1.5, true)  # reunan paksuus ylhäällä
+		var ring := hole.duplicate()
+		ring.append(hole[0])
+		_root.draw_polyline(ring, MG.OUTLINE, 1.0, true)
+	var rim: PackedVector2Array = half.call(dc, R)
+	_root.draw_polyline(rim, MG.OUTLINE, 1.5, true)
 	if snap > 0.0:
-		for k in 3:  # napautuksen viivat
-			var a := -0.5 + k * 0.5
-			_root.draw_line(rc + Vector2(cos(a), sin(a)) * 18.0, rc + Vector2(cos(a), sin(a)) * (18.0 + 12.0 * snap),
-				Color(1, 1, 0.8, snap), 2.0)
+		for k in 3:  # napautuksen viivat kiekon takana
+			var a := -0.6 + k * 0.6
+			var d := Vector2(cos(a), sin(a))
+			_root.draw_line(dc + d * (R + 4.0), dc + d * (R + 4.0 + 12.0 * snap), Color(1, 1, 0.8, snap), 2.0)
 	# TILT-valo yläkehyksessä.
 	var lamp := Vector2(o.x + BW - 150, cab.position.y + 46)
 	var lit := _tilt_t > 0.0 and int(_tilt_t * 6.0) % 2 == 0
