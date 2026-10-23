@@ -27,11 +27,17 @@ const PIN_R := 3.0
 const LAUNCH := Vector2(574, 64)  # lyöntipidike oikeassa yläkulmassa
 const LAUNCH_ANG := 0.21   # lähtökulma vaakatasosta ylöspäin (rad)
 const V_MIN := 20.0        # lyönnin nopeus voimalla 0 %..100 %
-const V_MAX := 860.0
-const METER_W := 2.4       # voimamittarin heilahdus (rad/s)
+const V_MAX := 615.0
+const TENSION_RATE := 0.55  # sormen jännitys (lyönnin voima) nousee E pohjassa, /s
+const TENSION_THUMB := 0.32 # peukalotuella hitaammin
+const TREMOR := 0.035      # jännittävän sormen tärinä (voimana)
+const TREMOR_THUMB := 0.005
+const FINGER := 0.04       # sormen lyönnin vaihtelu (nopeus ±), pohjaanvedossa 1 %
+const SNAIF_STEP := 0.03   # snaiffaus: saatto jarruttaa lyöntiä
+const TILT_CHANCE := 0.35  # tönäisy laukaisee tilt-hälyttimen
 const BAND_Y := 250.0      # rakonauhan yläreuna
 const GATE := 4.0          # kolikon keskikohdan suurin poikkeama raon keskeltä, jotta se menee tappien välistä
-const GATE_SEVEN := 2.5    # seiskan portti on ahtaampi
+const GATE_SEVEN := 1.5    # seiskan portti on ahtaampi
 const PIN_DX := 14.0       # tappiparin puoliväli
 const SLOTS := [40.0, 105.0, 170.0, 235.0, 300.0, 365.0, 430.0, 495.0, 560.0]
 ## Raon voitto euroina: 0 = R (panos takaisin).
@@ -71,8 +77,17 @@ var _virt := Vector2.ZERO  # ruudun koko virtuaalipikseleinä
 var _t := 0.0
 var _done := false
 var _end_t := -1.0         # kiinni jääneen pelin loppu (s)
-var _power := 0.0          # lyönnin voima 0..1 (heiluva mittari)
-var _meter_t := 0.0
+var _power := 0.0          # lyönnin voima 0..1 (jännitys ja sormen tärinä)
+var _tension := 0.0        # sormen jännitys prikkaa vasten
+var _drawing := false
+var _armed := false        # syöttävä E on päästetty
+var _thumb := false        # peukalotuki
+var _snaifs := 0
+var _techs: Array = []     # tekniikat, joista on jo kerrottu
+var _nudge_t := 0.0        # tönäisy vaimentaa portin jousta (s)
+var _tilt_t := 0.0         # TILT-valo (s)
+var _tilts := 0
+var caught_reason := ""    # "siima" tai "tilt" (main.gd)
 var _ring_t := 0.0         # lyöntirenkaan heilahdus (s jäljellä)
 var _ready_frame := -1
 ## Kolikon tila: "" (ei kolikkoa), "ready" (pidikkeessä), "free" (lentää), "yank" (siimassa ylös raosta).
@@ -177,7 +192,10 @@ func _process(delta: float) -> void:
 	elif _coin_state == "":
 		_keys.set_text("%s syötä kolikko (1 €)%s   %s lopeta" % [e, tie, Settings.cap("mount")])
 	elif _coin_state == "ready":
-		_keys.set_text("%s LYÖ renkaasta (voima mittarissa)%s   %s lopeta" % [e, tie, Settings.cap("mount")])
+		_keys.set_text("%s pidä = jännitä sormea, päästä = napauta prikkaa   %s peukalotuki   %s saatto%s   %s lopeta" % [e,
+			Settings.cap("jump"), Settings.cap("back"), tie, Settings.cap("mount")])
+	elif _coin_state == "free":
+		_keys.set_text("Kolikko lentää...   %s tönäise konetta (TILT!)   %s lopeta" % [Settings.cap("kick"), Settings.cap("mount")])
 	else:
 		_keys.set_text("Kolikko matkalla...   %s lopeta" % Settings.cap("mount"))
 
@@ -186,21 +204,36 @@ func _eur(v: float) -> String:
 	return ("%.2f" % v).replace(".", ",").trim_suffix(",00")
 
 
-## Lyönti: ensimmäinen E syöttää kolikon pidikkeeseen, ja voimamittari alkaa heilua (humalassa epätasaisesti);
-## toinen E lyö renkaasta mittarin voimalla. Q solmii siiman tai nykäisee siimakolikon.
+## Lyönti prikasta: ensimmäinen E syöttää kolikon pidikkeeseen. Sitten E pohjassa jännittää sormea prikkaa vasten
+## (vetää prikkaa ulospäin; mitä pidempään, sitä kovempi lyönti) ja irrotus napauttaa. Jännittävä sormi tärisee
+## (humalassa enemmän); peukalotuki (välilyönti pohjassa: peukalo kehyksen reunaan) poistaa tärinän, mutta jännitys
+## nousee hitaammin. Täysi jännitys lukittuu ääriasentoon (pohjaanveto: aina yhtä kova). S jännittäessä on snaiffaus:
+## sormenpää saattaa prikkaa ja jarruttaa lyöntiä vähän kerrallaan. Kolikon lennon aikana K tönäisee konetta: tärähdys
+## vaimentaa portin jousta hetkeksi, mutta tilt-hälytin voi laueta. Q solmii siiman tai nykäisee siimakolikon.
 func _striker(delta: float) -> void:
 	_ring_t = maxf(0.0, _ring_t - delta)
+	_nudge_t = maxf(0.0, _nudge_t - delta)
+	_tilt_t = maxf(0.0, _tilt_t - delta)
 	if Input.is_action_just_pressed("bell"):
 		_siima_key()
+	if _coin_state == "free" and Input.is_action_just_pressed("kick"):
+		_nudge()
 	if _coin_state == "ready":
-		_meter_t += delta * (1.0 + drunk * 0.5)
-		_power = 1.0 - absf(fposmod(_meter_t * METER_W / PI, 2.0) - 1.0)  # tasainen edestakainen liike
-		if drunk > 0.0:
-			_power = clampf(_power + sin(_t * 9.0) * drunk * 0.1, 0.0, 1.0)
-		if Input.is_action_just_pressed("interact") and Engine.get_process_frames() != _ready_frame:
-			_ring_t = 0.3
-			Sfx.play("glass", -8.0, 2.2)
-			_launch(_power)
+		_thumb = Input.is_action_pressed("jump")
+		var held := Input.is_action_pressed("interact")
+		if not held:
+			_armed = true  # syöttävä E päästetty: seuraava painallus jännittää
+		if held and _armed:
+			_drawing = true
+			_tension = minf(1.0, _tension + delta * (TENSION_THUMB if _thumb else TENSION_RATE) * (1.0 + drunk * 0.3))
+			if Input.is_action_just_pressed("back"):
+				_tension = maxf(0.0, _tension - SNAIF_STEP)
+				_snaifs += 1
+				Sfx.play("cloth", -18.0, 2.4)
+		var amp := 0.0 if _tension >= 1.0 else (TREMOR_THUMB + drunk * 0.03 if _thumb else TREMOR + drunk * 0.1)
+		_power = clampf(_tension + (sin(_t * 13.0) + 0.6 * sin(_t * 7.1 + 1.3)) * amp / 1.6, 0.0, 1.0) if _drawing else 0.0
+		if _drawing and not held:
+			_flick()
 		return
 	if _coin_state != "" or not Input.is_action_just_pressed("interact"):
 		return
@@ -210,24 +243,76 @@ func _striker(delta: float) -> void:
 	_insert()
 
 
+## Napautus: prikka iskee prikkajonon läpi heittoliuskaan ja liuska kolikkoon. Pohjaanveto on aina yhtä kova.
+func _flick() -> void:
+	var full := _tension >= 1.0
+	_ring_t = 0.3
+	_drawing = false
+	Sfx.play("glass", -8.0, 2.2)
+	if full:
+		_tech("pohja", "Pohjaanveto! Prikka ääriasentoon ja irti: täysi voima, aina sama lento.")
+	elif _thumb:
+		_tech("peukalo", "Peukalo kehyksen reunaan: käsi ei tärise, lyönti toistuu samanlaisena.")
+	elif _snaifs > 0:
+		_tech("snaiffi", "Snaiffaus: sormenpää saattoi prikkaa ja jarrutti lyöntiä.")
+	elif _tension < 0.4:
+		_tech("pinta", "Pintalyönti: herkkä neppaus, kolikko lähti kevyesti.")
+	_launch(_power, 0.01 if full else FINGER)
+
+
+func _tech(id: String, text: String) -> void:
+	if not id in _techs:
+		_techs.append(id)
+		comment.emit(text)
+
+
+## Tönäisy kylkeen kolikon lennon aikana: portin jousi vaimenee hetkeksi (osumaikkuna levenee), mutta tilt-hälytin
+## laukeaa helposti; tiltissä kolikko menee, ja kolmannesta tiltistä isäntä heittää ulos.
+func _nudge() -> void:
+	_shake = 0.7
+	Sfx.play("punch", -10.0, 1.3)
+	if randf() < TILT_CHANCE + 0.1 * _tilts:
+		_tilts += 1
+		_tilt_t = 2.0
+		_coin_state = ""
+		_tied = false
+		pot = mini(pot + 1, POT_MAX)
+		Sfx.play("alert", -6.0)
+		_pop = "TILT"
+		_pop_t = 1.6
+		if _tilts >= 3:
+			caught = true
+			caught_reason = "tilt"
+			_end_t = 2.2
+			comment.emit("Isäntä: \"Kolmas tilt! Ei potkita pajatsoa. Ulos!\"")
+		else:
+			comment.emit("TILT! Tärinähälytin laukesi, kolikko meni. Isäntä katsoo pahasti tiskin takaa.")
+		return
+	_nudge_t = 0.4
+	comment.emit("Tönäisy kylkeen: portin jousi vaimeni hetkeksi.")
+
+
 func _insert() -> void:
 	money -= PRICE
 	_shots += 1
 	_yank_cup = -1  # edellinen siimakolikko jää koneeseen
 	_coin_state = "ready"
 	_ready_frame = Engine.get_process_frames()
-	_meter_t = 0.0
+	_tension = 0.0
 	_power = 0.0
+	_drawing = false
+	_armed = false
+	_snaifs = 0
 	_coin_t = 0.0
 	_cp = LAUNCH
 	Sfx.play("coin", -10.0, 1.4)
 
 
 ## Lyönti voimalla p (0..1): kolikko lähtee vasemmalle ja hieman ylös. Sormi ei lyö koskaan täsmälleen samoin.
-func _launch(p: float) -> void:
+func _launch(p: float, spread := FINGER) -> void:
 	_coin_state = "free"
 	_cp = LAUNCH
-	var v := lerpf(V_MIN, V_MAX, p) * randf_range(0.96, 1.04) * (1.0 + randf_range(-0.04, 0.04) * drunk)
+	var v := lerpf(V_MIN, V_MAX, p) * randf_range(1.0 - spread, 1.0 + spread) * (1.0 + randf_range(-0.04, 0.04) * drunk)
 	var ang := LAUNCH_ANG + randf_range(-0.03, 0.03)
 	_cv = Vector2(-cos(ang), -sin(ang)) * v
 	_coin_t = 0.0
@@ -259,6 +344,7 @@ func _yank() -> void:
 	var r := randf()
 	if r < seen:
 		caught = true
+		caught_reason = "siima"
 		_tied = false
 		_yank_cup = -1
 		_shake = 0.8
@@ -324,7 +410,9 @@ func _coin_step(dt: float) -> void:
 				var vn := _cv.dot(nrm)
 				if vn < 0.0:
 					var sweet := 110.0 + 220.0 * k  # jousen "oikea" osumanopeus
-					var win := 64.0 * pow(1.0 - k, 1.5) + 2.0  # sallittu poikkeama: jäykkä jousi on armoton
+					var win := 64.0 * pow(1.0 - k, 1.5) + 2.0
+					if _nudge_t > 0.0:
+						win = win * 2.2 + 6.0  # tönäisy vaimensi jousen värähtelyn  # sallittu poikkeama: jäykkä jousi on armoton
 					if absf(absf(vn) - sweet) < win:
 						_cv = (_cv - nrm * vn) * 0.15 - nrm * vn * 0.05  # kuoleentuu: jousi söi vauhdin
 					else:
@@ -705,27 +793,98 @@ func _draw_glass(o: Vector2) -> void:
 	_root.draw_rect(Rect2(o, Vector2(BW, BH)), Color(0.15, 0.15, 0.17), false, 3.0)
 
 
-## Lyöntikoneisto kehyksen oikeassa yläkulmassa: kromattu kiinnike ja rengas, joka heilahtaa lyödessä kohti kolikkoa.
+## Lyöntikoneisto kehyksen oikeassa reunassa lyöntipidikkeen kohdalla: kromattu ohjainlevy, jonka urassa prikka
+## (litteä metallirengas) liukuu. Jännittävä sormi vetää prikkaa ulospäin, ja napautus iskee sen urassa vasemmalle
+## (prikkajonon ja heittoliuskan kautta kolikkoon). Peukalotuessa peukalo nojaa kehyksen reunaan prikan alla.
+## Yläkehyksessä TILT-valo.
 func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
-	var base := Vector2(o.x + LAUNCH.x + 10, cab.position.y + 22)
-	MG.box(_root, Rect2(base - Vector2(22, 0), Vector2(44, 76)), Color(0.78, 0.79, 0.83), 4, 2, MG.OUTLINE, 2)
-	for y in [10.0, 64.0]:
-		_root.draw_circle(base + Vector2(-14, y), 3.0, Color(0.4, 0.4, 0.42))
-		_root.draw_circle(base + Vector2(14, y), 3.0, Color(0.4, 0.4, 0.42))
-	var hinge := base + Vector2(0, 30)
-	var swing := sin(clampf(_ring_t / 0.3, 0.0, 1.0) * PI)
-	var rest := hinge + Vector2(22, 54)
-	var hit := hinge + Vector2(4, 66)
-	var ring := rest.lerp(hit, swing)
-	_root.draw_line(hinge, ring, MG.OUTLINE, 7.0)
-	_root.draw_line(hinge, ring, Color(0.82, 0.84, 0.88), 4.0)
-	MG.ball(_root, hinge, 7.0, Color(0.6, 0.6, 0.64), 0.5)
-	_root.draw_arc(ring, 10.0, 0.0, TAU, 24, MG.OUTLINE, 6.0, true)
-	_root.draw_arc(ring, 10.0, 0.0, TAU, 24, Color(0.86, 0.88, 0.92), 3.5, true)
-	_root.draw_arc(ring, 10.0, PI * 1.1, PI * 1.6, 8, Color(1, 1, 1, 0.9), 1.5, true)
+	var y := o.y + LAUNCH.y
+	var plate := Rect2(Vector2(o.x + BW - 6, y - 20), Vector2(FRAME + 16, 40))
+	MG.box(_root, plate, Color(0.78, 0.79, 0.83), 4, 2, MG.OUTLINE, 2)
+	for k in 2:
+		_root.draw_circle(plate.position + Vector2(8 + k * (plate.size.x - 16), 8), 2.5, Color(0.4, 0.4, 0.42))
+		_root.draw_circle(plate.position + Vector2(8 + k * (plate.size.x - 16), plate.size.y - 8), 2.5, Color(0.4, 0.4, 0.42))
+	var slot := Rect2(Vector2(plate.position.x + 10, y - 4), Vector2(plate.size.x - 16, 8))
+	_root.draw_rect(slot, Color(0.08, 0.08, 0.09))
+	# Prikan paikka: lepo urassa vasemmalla, jännitys vetää ulos; napautus iskee takaisin.
+	var pull := 0.0
+	if _coin_state == "ready" and _drawing:
+		pull = _power
+	var snap := clampf(_ring_t / 0.3, 0.0, 1.0)
+	var px := slot.position.x + 12.0 + pull * (slot.size.x - 24.0) - sin(snap * PI) * 6.0
+	var washer := Vector2(px, y)
+	_root.draw_circle(washer + Vector2(1.5, 2.5), 11.0, Color(0, 0, 0, 0.35))
+	_root.draw_circle(washer, 11.0, Color(0.72, 0.73, 0.77))
+	_root.draw_arc(washer, 11.0, 0.0, TAU, 24, MG.OUTLINE, 1.5, true)
+	_root.draw_arc(washer, 7.5, PI * 1.05, PI * 1.7, 8, Color(1, 1, 1, 0.9), 2.0, true)
+	_root.draw_circle(washer, 4.0, Color(0.1, 0.1, 0.11))  # reikä
+	_root.draw_arc(washer, 4.0, 0.0, TAU, 12, Color(0.45, 0.45, 0.48), 1.0, true)
+	if snap > 0.0:
+		for k in 3:  # napautuksen viivat
+			var a := -0.5 + k * 0.5
+			_root.draw_line(washer + Vector2(cos(a), sin(a)) * 16.0, washer + Vector2(cos(a), sin(a)) * (16.0 + 12.0 * snap),
+				Color(1, 1, 0.8, snap), 2.0)
+	# Käsi prikan oikealla puolella: etusormi painaa prikkaa (tärisee ilman peukalotukea), peukalo kehyksen reunassa.
 	if _coin_state == "ready":
-		_root.draw_string(font, ring + Vector2(-80, 6), "LYÖ!", HORIZONTAL_ALIGNMENT_CENTER, 60, 20,
-			Color(1.0, 0.9, 0.4, 0.6 + 0.4 * sin(_t * 8.0)))
+		var tremble := 0.0 if _thumb or not _drawing else sin(_t * 13.0) * 2.0
+		_draw_hand(washer + Vector2(13, tremble), _thumb, Vector2(o.x + BW + FRAME - 2, y + 30))
+	# TILT-valo yläkehyksessä.
+	var lamp := Vector2(cab.end.x - 130, cab.position.y + 46)
+	var lit := _tilt_t > 0.0 and int(_tilt_t * 6.0) % 2 == 0
+	MG.box(_root, Rect2(lamp - Vector2(30, 14), Vector2(60, 28)), Color(0.06, 0.06, 0.07), 3, 0, Color(0.6, 0.6, 0.62), 1)
+	_root.draw_string(font, lamp + Vector2(-30, 7), "TILT", HORIZONTAL_ALIGNMENT_CENTER, 60, 18,
+		Color(1.0, 0.25, 0.2) if lit else Color(0.35, 0.1, 0.1))
+	if lit:
+		MG.glow(_root, lamp, 40.0, Color(1.0, 0.2, 0.15, 0.7))
+
+
+## Oikea käsi: nyrkkiin puristettu kämmen, josta etusormi ojentuu prikkaan (tip = sormenpää). Peukalotuessa peukalo
+## ojentuu alas kehyksen reunaan (rest), muuten se lepää nyrkin päällä. Sävytys: vaalea yläreuna, tumma alapuoli,
+## ääriviivat, rystyset ja kynsi.
+func _draw_hand(tip: Vector2, thumb_on: bool, rest: Vector2) -> void:
+	var skin := Color(0.96, 0.77, 0.63)
+	var shade := skin.darkened(0.18)
+	var palm := tip + Vector2(92, 6)
+	# Hiha ja ranne oikealla.
+	MG.box(_root, Rect2(palm + Vector2(36, -30), Vector2(70, 64)), Color(0.42, 0.18, 0.58), 14, 0, MG.OUTLINE, 2)
+	MG.box(_root, Rect2(palm + Vector2(30, -26), Vector2(14, 56)), Color(0.08, 0.66, 0.64), 4)  # tuulipuvun resori
+	# Kämmen ja koukistetut sormet (rystysrivi).
+	var fist := PackedVector2Array([palm + Vector2(-34, -24), palm + Vector2(24, -28), palm + Vector2(40, -8),
+		palm + Vector2(38, 22), palm + Vector2(-10, 30), palm + Vector2(-36, 16)])
+	_root.draw_colored_polygon(fist, skin)
+	_root.draw_colored_polygon(PackedVector2Array([palm + Vector2(-36, 6), palm + Vector2(38, 10), palm + Vector2(38, 22),
+		palm + Vector2(-10, 30), palm + Vector2(-36, 16)]), shade)
+	for k in 3:  # koukistetut sormet nyrkin alla
+		var c := palm + Vector2(-26 + k * 16, 22)
+		_root.draw_circle(c, 9.0, shade)
+		_root.draw_arc(c, 9.0, 0.2, PI - 0.2, 10, MG.OUTLINE, 1.5, true)
+	fist.append(fist[0])
+	_root.draw_polyline(fist, MG.OUTLINE, 2.0, true)
+	for k in 3:  # rystyset
+		_root.draw_arc(palm + Vector2(-20 + k * 16, -16), 5.0, PI * 1.1, PI * 1.9, 6, skin.darkened(0.3), 1.5, true)
+	# Etusormi: kaksi niveltä prikkaan, kynsi kärjessä.
+	var j1 := palm + Vector2(-34, -12)
+	var j2 := tip + Vector2(30, -4)
+	for seg in [[j1, j2, 17.0], [j2, tip, 15.0]]:
+		_root.draw_line(seg[0], seg[1], MG.OUTLINE, seg[2] + 3.0)
+		_root.draw_line(seg[0], seg[1], skin, seg[2])
+		_root.draw_line(seg[0] + Vector2(0, -seg[2] * 0.3), seg[1] + Vector2(0, -seg[2] * 0.3), skin.lightened(0.15), 2.0)
+	_root.draw_circle(tip, 8.0, MG.OUTLINE)
+	_root.draw_circle(tip, 7.0, skin)
+	_root.draw_circle(j2, 8.0, skin)
+	_root.draw_arc(j2 + Vector2(0, -2), 4.0, PI * 1.2, PI * 1.8, 6, skin.darkened(0.3), 1.2, true)
+	_root.draw_colored_polygon(PackedVector2Array([tip + Vector2(-2, -6), tip + Vector2(8, -5), tip + Vector2(9, -1),
+		tip + Vector2(-1, -1)]), Color(1.0, 0.9, 0.86))  # kynsi
+	# Peukalo: tuessa alas kehyksen reunaan, muuten nyrkin päällä.
+	var base := palm + (Vector2(-20, 10) if thumb_on else Vector2(14, -22))
+	var th_tip := rest if thumb_on else palm + Vector2(-26, -26)
+	var th_mid := base.lerp(th_tip, 0.55) + (Vector2(10, 4) if thumb_on else Vector2(0, -3))
+	for seg in [[base, th_mid, 17.0], [th_mid, th_tip, 15.0]]:
+		_root.draw_line(seg[0], seg[1], MG.OUTLINE, seg[2] + 3.0)
+		_root.draw_line(seg[0], seg[1], skin.darkened(0.05), seg[2])
+	_root.draw_circle(th_tip, 8.0, MG.OUTLINE)
+	_root.draw_circle(th_tip, 7.0, skin.darkened(0.05))
+	_root.draw_circle(th_tip + Vector2(-2, -2), 3.5, Color(1.0, 0.9, 0.86))
 
 
 ## Voittokouru kehyksen alareunassa: kromikahva edessä ja kolikot kourussa.
@@ -744,17 +903,23 @@ func _draw_tray(o: Vector2, font: Font) -> void:
 			Color(1, 0.92, 0.6))
 
 
-## Lyönnin voimamittari kaapin oikealla puolella.
+## Sormen jännitys (lyönnin voima) kaapin oikealla puolella: tärinä näkyy viivan heilumisena, pohjassa lukittu.
 func _draw_meter(cab: Rect2, o: Vector2, font: Font) -> void:
-	var bar := Rect2(Vector2(cab.end.x + 60, o.y + 60), Vector2(22, 220))
+	var bar := Rect2(Vector2(cab.end.x + 60, o.y + 250), Vector2(22, 220))
 	MG.box(_root, bar.grow(4), Color(0.05, 0.05, 0.05, 0.8), 6)
 	var p := _power if _coin_state == "ready" else 0.0
 	var h := bar.size.y * p
 	MG.grad_rect(_root, Rect2(Vector2(bar.position.x, bar.end.y - h), Vector2(bar.size.x, h)), Color(1.0, 0.3, 0.2), Color(0.3, 0.8, 0.3))
 	for k in 5:
-		var y := bar.end.y - bar.size.y * k / 4.0
-		_root.draw_line(Vector2(bar.position.x - 6, y), Vector2(bar.position.x, y), Color(1, 1, 1, 0.6), 2.0)
-	_root.draw_string(font, bar.position + Vector2(-30, -12), "VOIMA", HORIZONTAL_ALIGNMENT_CENTER, 82, 18, Color.WHITE)
+		var yy := bar.end.y - bar.size.y * k / 4.0
+		_root.draw_line(Vector2(bar.position.x - 6, yy), Vector2(bar.position.x, yy), Color(1, 1, 1, 0.6), 2.0)
+	_root.draw_string(font, bar.position + Vector2(-40, -12), "VOIMA", HORIZONTAL_ALIGNMENT_CENTER, 102, 18, Color.WHITE)
+	if _coin_state == "ready" and _tension >= 1.0:
+		_root.draw_string(font, bar.position + Vector2(-40, bar.size.y + 26), "POHJASSA", HORIZONTAL_ALIGNMENT_CENTER, 102, 16,
+			Color(1.0, 0.85, 0.3))
+	elif _coin_state == "ready" and _thumb:
+		_root.draw_string(font, bar.position + Vector2(-40, bar.size.y + 26), "PEUKALO", HORIZONTAL_ALIGNMENT_CENTER, 102, 16,
+			Color(0.7, 0.95, 0.7))
 
 
 ## Kolikko edestä: messinkinen reuna, kohokuvio ja kiilto (pyörivä, kun kolikko lentää).
