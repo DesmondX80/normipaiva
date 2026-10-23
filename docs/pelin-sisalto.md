@@ -346,8 +346,17 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Väsytyksessä E kelaa: pidä siiman kireys vihreällä, koska punaisella siima katkeaa ja löysällä kala karkaa.
     Parvien luona ja kauempana rannasta tulee isompia kaloja (hauki rimpuilee rajuimmin). Humala tärisyttää kättä.
     F soutaa takaisin laiturille. Saalis viedään savustimeen.
-  - **Pajatso ja hedelmäpeli Siitarissa:** mekaaninen pajatso minipelinä: E pohjassa vedetään vipua ja irrotus
-    näppää euron kaarelle, josta se putoaa naulojen läpi kuppeihin tai näkyvään pottiin (POTTI-kuppi tyhjentää sen).
+  - **Pajatso ja hedelmäpeli Siitarissa:** pajatso RAY:n 50 pennin pajatson (1966) mukaan: tiikkikehyksinen kaappi,
+    RAY:n apilakyltti, lasin takana tummanpunainen lauta, harmaa rakonauha, suppilo ja näkyvä kolikkovaranto
+    pystykouruissa, tähtipyörät ja voittokouru kahvoineen. Euro syötetään (E) lyöntipidikkeeseen oikeaan yläkulmaan, ja
+    sitä lyödään renkaasta (E) heiluvan voimamittarin voimalla; kolikko lähtee aina vasemmalle ja hieman ylös ja lentää
+    tyhjän laudan poikki yhdeksälle raolle: R (panos takaisin), 2, 3, 3, 14, 3, 3, 2, R euroa (oikean koneen 1:00, 1:50
+    ja 7:00). Raon portissa on kaksi jousitappia, joiden jäykkyys vaihtelee (seiskassa jäykin): oikealla osumanopeudella
+    kolikko kuoleentuu ja putoaa rakoon, muuten se kimpoaa; kiinteät ohjaustapit estävät suorat reitit keskelle. Ohi
+    mennyt kolikko valuu suppiloa pitkin varantoon, ja voitot maksetaan varannosta (tyhjästä ei tule mitään, täysi valuu
+    kassaan). Siimahuijaus (Q) kerran päivässä, jos repussa on virveli tai onki: rakoon mennyt siimakolikko nykäistään
+    uudestaan läpi, kunnes siimaleikkuri katkaisee siiman tai isäntä näkee ja heittää ulos (maine −6). Kone skaalautuu
+    pienempään ikkunaan. Satunnainen lyöjä saa takaisin noin 2/3, tarkka tähtääjä voi voittaa (`--scene=pajatso`).
     Hedelmäpelillä pelaa kaksi seurueen jäsentä; vuoron saa kysymällä. Kolme rullaa, voittotaulukko, lukitus
     häviön jälkeen (1 2 3) ja tuplaus pieni/suuri (`--scene=siitaripelit`).
   - **Lauantai Siitarissa:** pajatsolla pelaa kaksi Raahen jätkää, jotka eivät anna pelivuoroa ja haastavat riitaa.

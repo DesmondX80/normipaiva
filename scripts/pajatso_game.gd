@@ -1,12 +1,17 @@
 extends CanvasLayer
-## Siitarin mekaaninen pajatso (siitari_interior.gd "pajatso"): lasin takana pystysuora naulalauta. Euro pudotetaan
-## oikeasta reunasta laukaisukouruun, ja vipua vedetään (pidä E pohjassa, jousi kiristyy) ja päästetään: kolikko
-## nousee kourua ylös ja kiertää lasin yläreunan metallikaarta, kunnes vauhti ei enää riitä painamaan sitä kaarta
-## vasten. Siitä se putoaa naulojen läpi (laskettu fysiikka: painovoima, kimpoilu nauloista ja reunoista).
-## Messinkikuppeihin osunut kolikko voittaa kupin luvun verran kolikoita, keskimmäinen POTTI-kuppi tyhjentää koko
-## potin. Ohi menneet kolikot kertyvät näkyviin pottiin lasin alaosaan, ja voitot maksetaan potista: kun potti on
-## tyhjä, kuppikaan ei anna mitään. Liian heikko näppäys valuu takaisin kouruun. Humala tärisyttää vipukättä.
-## F / Esc lopettaa. finished(money, pot): rahat ja potti pelin jälkeen (main.gd pitää potin tallessa).
+## Siitarin pajatso RAY:n 50 pennin pajatson (1966) mukaan (siitari_interior.gd "pajatso"): tiikkikehyksinen kaappi,
+## lasin takana tummanpunainen lauta. Euro syötetään (E) lyöntipidikkeeseen oikeaan yläkulmaan, ja kolikkoa lyödään
+## sormella renkaasta (E): lyönnin voima on ainoa, mitä pelaaja hallitsee (heiluva voimamittari), ja kolikko lähtee aina
+## vasemmalle ja hieman ylös. Se lentää tyhjän laudan poikki (laskettu lentorata, kimpoaa vasemmasta seinästä ja
+## katosta) harmaalle metallinauhalle, jossa on yhdeksän rakoa: R (panos takaisin), 2, 3, 3, 14, 3, 3, 2, R euroa
+## (oikean koneen 1:00, 1:50 ja 7:00 viidenkymmenen pennin panoksella). Jokaisen raon yllä on tappipari (ressu), josta
+## kolikko kimpoaa, ja rakoon menee vain tappien välistä. Ohi mennyt kolikko valuu nauhan alla olevaa suppiloa pitkin
+## näkyvään kolikkovarantoon (pot), ja voitot maksetaan varannosta voittokouruun: tyhjästä varannosta ei tule mitään.
+## Täysi varanto valuu kassaan (POT_MAX). Humala heiluttaa mittaria ja sormea.
+## Siimahuijaus (Q, kerran päivässä, jos repussa on virveli tai onki): siima solmitaan kolikkoon, ja rakoon mennyt
+## kolikko nykäistään (Q) takaisin ylös ja uudestaan raon läpi, kunnes siimaleikkuri katkaisee siiman tai isäntä näkee
+## (caught: main.gd heittää ulos). Ohi mennyt siimakolikko vedetään takaisin käteen.
+## Kone skaalautuu matalampaan ikkunaan. F / Esc lopettaa. finished(money, pot): rahat ja varanto pelin jälkeen.
 
 signal finished(money: float, pot: int)
 signal comment(text: String)
@@ -15,63 +20,85 @@ const MG := preload("res://scripts/mg_draw.gd")
 
 const PRICE := 1.0
 const G := 900.0           # painovoima, px/s²
-const BW := 560.0          # naulalaudan koko
-const BH := 600.0
-const ARC_C := Vector2(280, 290)  # yläkaaren keskipiste
-const ARC_R := 255.0
+const BW := 600.0          # lasin takainen lauta
+const BH := 640.0
 const COIN_R := 10.0
-const NAIL_R := 4.0
-const CHAN_X := 535.0      # laukaisukouru oikeassa reunassa
-const CHAN_BOTTOM := 560.0
-const WALL_X := 515.0      # kourun ja kentän välinen seinä
-const FIELD_L := 25.0
-const LOST_Y := 588.0
-const V_MIN := 600.0       # vivun laukaisunopeus 0 %..100 % vedolla
-const V_MAX := 1160.0
-## Kupit: [keskikohta x, suun yläreuna y, suun leveys, voitto (-1 = koko potti)].
-const CUPS := [
-	[280.0, 300.0, 30.0, -1], [110.0, 410.0, 32.0, 2], [205.0, 400.0, 32.0, 4], [355.0, 400.0, 32.0, 4],
-	[450.0, 410.0, 32.0, 2], [160.0, 500.0, 34.0, 3], [400.0, 500.0, 34.0, 3], [280.0, 470.0, 32.0, 6],
-]
-const LINES := ["Kolikko kouruun, vipu alas ja hellästi. Pajatso ei tykkää raakuudesta.",
-	"Vanha kunnon pajatso. Naulat on taivutettu niin, ettei potti tyhjene ikinä.",
-	"Kuulemma Raahessa joku tyhjensi potin kolme kertaa samana iltana."]
+const PIN_R := 3.0
+const LAUNCH := Vector2(574, 64)  # lyöntipidike oikeassa yläkulmassa
+const LAUNCH_ANG := 0.21   # lähtökulma vaakatasosta ylöspäin (rad)
+const V_MIN := 20.0        # lyönnin nopeus voimalla 0 %..100 %
+const V_MAX := 860.0
+const METER_W := 2.4       # voimamittarin heilahdus (rad/s)
+const BAND_Y := 250.0      # rakonauhan yläreuna
+const GATE := 4.0          # kolikon keskikohdan suurin poikkeama raon keskeltä, jotta se menee tappien välistä
+const GATE_SEVEN := 2.5    # seiskan portti on ahtaampi
+const PIN_DX := 14.0       # tappiparin puoliväli
+const SLOTS := [40.0, 105.0, 170.0, 235.0, 300.0, 365.0, 430.0, 495.0, 560.0]
+## Raon voitto euroina: 0 = R (panos takaisin).
+const PRIZES := [0, 2, 3, 3, 14, 3, 3, 2, 0]
+## Porttien jousien jäykkyys 0..1 (RAY säätää): seiskassa jäykin, R-raoissa löysin.
+const STIFF := [0.25, 0.45, 0.6, 0.6, 0.95, 0.6, 0.6, 0.45, 0.25]
+## Kiinteät ohjaustapit nauhan yllä keskiraon molemmin puolin.
+const GUIDES := [Vector2(202, 196), Vector2(398, 196), Vector2(137, 214), Vector2(463, 214)]
+const POT_MAX := 200       # näkyvän varannon koko: ylimenevä valuu kassaan
+const FRAME := 50.0        # kehyksen leveys sivuilla
+const FRAME_TOP := 110.0
+const FRAME_BOTTOM := 120.0
+const CONTENT_H := BH + FRAME_TOP + FRAME_BOTTOM + 30.0
+const MARGIN_TOP := 60.0   # ruudun pikseleinä: yläteksti
+const MARGIN_BOTTOM := 100.0  # ja vihjeteksti ja näppäinrivi
+const SIIMA_CUT := 0.3     # siimaleikkuri katkaisee siiman nykäisyssä
+const SIIMA_SEEN := 0.15   # isäntä huomaa nykäisyn (kasvaa joka nykäisyllä ja humalassa)
+const LINES := ["Kolikko pidikkeeseen ja sormella renkaasta. Pajatso ei tykkää raakuudesta.",
+	"Seiskan rako keskellä. Tapit on taivutettu niin, ettei sinne kukaan osu.",
+	"Kuulemma Raahessa joku osui seiskaan kolme kertaa samana iltana."]
 
 var money := 10.0
-var pot := 12
+var pot := 80
 var drunk := 0.0
+## Siimahuijaus: main.gd antaa siima = true, jos repussa on virveli tai onki eikä siimaa ole tänään käytetty.
+var siima := false
+var siima_used := false    # siima solmittiin (main.gd: kerran päivässä)
+var caught := false        # isäntä näki siiman: main.gd heittää ulos
 
 var _root: Control
 var _info: Label
 var _keys: Control
 var _tip: Label
-var _board := Rect2()      # naulalaudan paikka ruudulla
-var _nails: Array[Vector2] = []
+var _board := Rect2()      # lauta virtuaalipikseleinä
+var _scale := 1.0          # koneen skaalaus ruudulle
+var _virt := Vector2.ZERO  # ruudun koko virtuaalipikseleinä
 var _t := 0.0
 var _done := false
-var _pull := 0.0           # vivun veto 0..1
-var _pulling := false
-## Kolikon tila: "" (ei kolikkoa), "chan" (nousee kourua), "arc" (kaarella), "free" (putoaa).
+var _end_t := -1.0         # kiinni jääneen pelin loppu (s)
+var _power := 0.0          # lyönnin voima 0..1 (heiluva mittari)
+var _meter_t := 0.0
+var _ring_t := 0.0         # lyöntirenkaan heilahdus (s jäljellä)
+var _ready_frame := -1
+## Kolikon tila: "" (ei kolikkoa), "ready" (pidikkeessä), "free" (lentää), "yank" (siimassa ylös raosta).
 var _coin_state := ""
 var _cp := Vector2.ZERO
 var _cv := Vector2.ZERO
-var _v_arc := 0.0          # kaaren alun nopeus (energia)
-var _phi := 0.0
-var _chan_v := 0.0
 var _coin_t := 0.0
 var _spin := 0.0
 var _hit_cup := -1
 var _hit_t := 0.0
 var _shake := 0.0
 var _sparks: Array = []
-var _payout: Array = []    # maksettavat kolikot tarjottimelle: [paikka, nopeus, ikä]
-var _tray := 0             # tarjottimen kolikot (näkyvä kasa)
-var _pot_drop: Array = []  # pottiin putoavat kolikot [y, x]
-var _pop := ""             # iso teksti hetkeksi (POTTI!, +4)
+var _payout: Array = []    # voittokouruun putoavat kolikot: [paikka, nopeus, viive]
+var _tray := 0             # voittokourun kolikot (näkyvä kasa)
+var _drops: Array = []     # suppiloa pitkin varantoon valuvat kolikot: [ikä, x]
+var _star := 0.0           # tähtipyörien kierto (maksu)
+var _pop := ""
 var _pop_t := 0.0
 var _won := 0
 var _shots := 0
 var _clink_t := 0.0
+var _tied := false         # pelissä oleva kolikko on siimassa
+var _yanks := 0
+var _yank_cup := -1        # siimakolikko raossa: Q nykäisee sen takaisin ylös
+var _yank_t := 0.0
+var _pin_hit := {}         # jousitapin joustoanimaatio: tappi -> [jäljellä s, siirtymä]
 
 
 func _ready() -> void:
@@ -86,12 +113,11 @@ func _ready() -> void:
 	_info = _label(24, 30.0, false)
 	_keys = preload("res://scripts/hint_bar.gd").new()  # näppäinohjeet hattuina, näppäimet asetuksista
 	_keys.compact = true
-	_keys.centered = false  # vasempaan alakulmaan: keskellä alhaalla se peitti potti-ikkunan ja voittotarjottimen
+	_keys.centered = false
 	add_child(_keys)
 	_tip = _label(22, -90.0, true)
 	_tip.add_theme_color_override("font_color", Color(1.0, 0.9, 0.55))
 	comment.connect(func(t: String) -> void: _tip.text = t)
-	_build_nails()
 	comment.emit(LINES.pick_random())
 
 
@@ -111,56 +137,47 @@ func _label(size: int, y: float, bottom: bool) -> Label:
 	return l
 
 
-## Naulat lomittaisina riveinä kaaren sisällä; kuppien suiden ja kylkien kohdalta jätetään väli.
-func _build_nails() -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 1987
-	var row := 0
-	var y := 175.0
-	while y < 572.0:
-		var x := FIELD_L + 22.0 + (20.0 if row % 2 == 1 else 0.0)
-		while x < WALL_X - 14.0:
-			var p := Vector2(x + rng.randf_range(-2.0, 2.0), y)
-			var ok := p.distance_to(ARC_C) < ARC_R - 34.0 or p.y > ARC_C.y + 10.0
-			for c in CUPS:
-				var cx: float = c[0]
-				var top: float = c[1]
-				var hw: float = c[2] / 2.0
-				if absf(p.x - cx) < hw + 20.0 and p.y > top - 34.0 and p.y < top + 40.0:
-					ok = false
-			if ok:
-				_nails.append(p)
-			x += 40.0
-		y += 31.0
-		row += 1
-	# Kuppien reunatapit: kaksi naulaa suun kulmissa ohjaavat kolikkoa sisään tai ohi.
-	for c in CUPS:
-		_nails.append(Vector2(c[0] - c[2] / 2.0 - NAIL_R, c[1]))
-		_nails.append(Vector2(c[0] + c[2] / 2.0 + NAIL_R, c[1]))
-
-
 func _process(delta: float) -> void:
 	if _done:
 		return
 	_t += delta
 	var sz := _root.size
-	_board = Rect2(Vector2(sz.x / 2.0 - BW / 2.0 - 40.0, sz.y / 2.0 - BH / 2.0 - 10.0), Vector2(BW, BH))
+	_scale = minf(1.0, (sz.y - MARGIN_TOP - MARGIN_BOTTOM) / CONTENT_H)
+	_virt = sz / _scale
+	var spare := (sz.y - MARGIN_TOP - MARGIN_BOTTOM) / _scale - CONTENT_H
+	_board = Rect2(Vector2(_virt.x / 2.0 - BW / 2.0 - 30.0, MARGIN_TOP / _scale + spare / 2.0 + FRAME_TOP), Vector2(BW, BH))
 	_root.queue_redraw()
-	if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
-		_finish()
-		return
 	_shake = maxf(0.0, _shake - delta * 3.0)
 	_hit_t = maxf(0.0, _hit_t - delta)
 	_pop_t = maxf(0.0, _pop_t - delta)
 	_clink_t -= delta
 	MG.sparks_step(_sparks, delta)
-	_lever(delta)
+	_payout_step(delta)
+	for k in _pin_hit.keys():
+		_pin_hit[k][0] -= delta
+		if _pin_hit[k][0] <= 0.0:
+			_pin_hit.erase(k)
+	if _end_t >= 0.0:
+		_end_t -= delta
+		if _end_t < 0.0:
+			_finish()
+		return
+	if Input.is_action_just_pressed("mount") or Input.is_key_pressed(KEY_ESCAPE):
+		_finish()
+		return
+	_striker(delta)
 	for i in 4:
 		_coin_step(delta / 4.0)
-	_payout_step(delta)
-	_info.text = "PAJATSO · Rahaa %s € · Potissa %d kolikkoa" % [_eur(money), pot]
-	if _coin_state == "":
-		_keys.set_text("%s pidä pohjassa = vedä vipua, päästä = näppää (1 €)   %s lopeta" % [Settings.cap("interact"), Settings.cap("mount")])
+	_info.text = "PAJATSO · Rahaa %s € · Varannossa %d kolikkoa" % [_eur(money), pot]
+	var q := Settings.cap("bell")
+	var e := Settings.cap("interact")
+	var tie := ("   %s siima kolikkoon" % q) if siima and not siima_used and not _tied else ""
+	if _coin_state == "" and _yank_cup >= 0:
+		_keys.set_text("%s nykäise siimasta   %s uusi kolikko (1 €)   %s lopeta" % [q, e, Settings.cap("mount")])
+	elif _coin_state == "":
+		_keys.set_text("%s syötä kolikko (1 €)%s   %s lopeta" % [e, tie, Settings.cap("mount")])
+	elif _coin_state == "ready":
+		_keys.set_text("%s LYÖ renkaasta (voima mittarissa)%s   %s lopeta" % [e, tie, Settings.cap("mount")])
 	else:
 		_keys.set_text("Kolikko matkalla...   %s lopeta" % Settings.cap("mount"))
 
@@ -169,163 +186,240 @@ func _eur(v: float) -> String:
 	return ("%.2f" % v).replace(".", ",").trim_suffix(",00")
 
 
-## Vipu: E pohjassa kiristää jousta (humalassa käsi tärisee), irrotus laukaisee kolikon kouruun.
-func _lever(delta: float) -> void:
-	if _coin_state != "":
-		_pull = maxf(0.0, _pull - delta * 6.0)
-		return
-	var held := Input.is_action_pressed("interact")
-	if Input.is_action_just_pressed("interact") and not _pulling:  # aloittava E (pohjassa) ei laukaise heti
-		if money < PRICE:
-			if Input.is_action_just_pressed("interact"):
-				comment.emit("Rahat loppu. Pajatso ei anna velaksi.")
-			return
-		_pulling = true
-		money -= PRICE
-		_shots += 1
-		Sfx.play("coin", -10.0, 1.4)
-	if _pulling and held:
-		_pull = minf(1.0, _pull + delta * 0.75)
+## Lyönti: ensimmäinen E syöttää kolikon pidikkeeseen, ja voimamittari alkaa heilua (humalassa epätasaisesti);
+## toinen E lyö renkaasta mittarin voimalla. Q solmii siiman tai nykäisee siimakolikon.
+func _striker(delta: float) -> void:
+	_ring_t = maxf(0.0, _ring_t - delta)
+	if Input.is_action_just_pressed("bell"):
+		_siima_key()
+	if _coin_state == "ready":
+		_meter_t += delta * (1.0 + drunk * 0.5)
+		_power = 1.0 - absf(fposmod(_meter_t * METER_W / PI, 2.0) - 1.0)  # tasainen edestakainen liike
 		if drunk > 0.0:
-			_pull = clampf(_pull + sin(_t * 11.0) * drunk * delta * 1.6, 0.0, 1.0)
-	elif _pulling:
-		_pulling = false
-		_launch(_pull)
+			_power = clampf(_power + sin(_t * 9.0) * drunk * 0.1, 0.0, 1.0)
+		if Input.is_action_just_pressed("interact") and Engine.get_process_frames() != _ready_frame:
+			_ring_t = 0.3
+			Sfx.play("glass", -8.0, 2.2)
+			_launch(_power)
+		return
+	if _coin_state != "" or not Input.is_action_just_pressed("interact"):
+		return
+	if money < PRICE:
+		comment.emit("Rahat loppu. Pajatso ei anna velaksi.")
+		return
+	_insert()
 
 
+func _insert() -> void:
+	money -= PRICE
+	_shots += 1
+	_yank_cup = -1  # edellinen siimakolikko jää koneeseen
+	_coin_state = "ready"
+	_ready_frame = Engine.get_process_frames()
+	_meter_t = 0.0
+	_power = 0.0
+	_coin_t = 0.0
+	_cp = LAUNCH
+	Sfx.play("coin", -10.0, 1.4)
+
+
+## Lyönti voimalla p (0..1): kolikko lähtee vasemmalle ja hieman ylös. Sormi ei lyö koskaan täsmälleen samoin.
 func _launch(p: float) -> void:
-	_coin_state = "chan"
-	_cp = Vector2(CHAN_X, CHAN_BOTTOM)
-	_chan_v = lerpf(V_MIN, V_MAX, p) * randf_range(0.985, 1.015)
+	_coin_state = "free"
+	_cp = LAUNCH
+	var v := lerpf(V_MIN, V_MAX, p) * randf_range(0.96, 1.04) * (1.0 + randf_range(-0.04, 0.04) * drunk)
+	var ang := LAUNCH_ANG + randf_range(-0.03, 0.03)
+	_cv = Vector2(-cos(ang), -sin(ang)) * v
 	_coin_t = 0.0
 	Sfx.play("whoosh", -12.0, 1.6)
 	_shake = 0.25
 
 
+## Q: siima kolikkoon (kerran päivässä) tai siimakolikon nykäisy raosta.
+func _siima_key() -> void:
+	if _yank_cup >= 0 and _coin_state == "":
+		_yank()
+		return
+	if not (_coin_state in ["", "ready"]) or _tied:
+		return
+	if not siima or siima_used:
+		comment.emit("Siimaa ei ole mukana. Virvelistä tai ongesta sen saisi." if not siima else "Siima on jo käytetty tänään.")
+		return
+	_tied = true
+	siima_used = true
+	Sfx.play("cloth", -8.0, 1.6)
+	comment.emit("Siima solmittu kolikkoon. Kun se menee rakoon, nykäise se ylös ja uudestaan läpi. Isäntä katsoo tiskiltä...")
+
+
+## Siimakolikko raon läpi uudestaan: isäntä voi nähdä (riski kasvaa), siimaleikkuri voi katkaista siiman, muuten
+## kolikko nousee raosta ja putoaa samaan rakoon uudelleen (uusi voitto varannosta).
+func _yank() -> void:
+	_yanks += 1
+	var seen := SIIMA_SEEN + 0.08 * (_yanks - 1) + drunk * 0.15
+	var r := randf()
+	if r < seen:
+		caught = true
+		_tied = false
+		_yank_cup = -1
+		_shake = 0.8
+		_pop = "KIINNI!"
+		_pop_t = 2.0
+		_end_t = 2.2
+		Sfx.play("lose", -4.0)
+		comment.emit("Isäntä: \"Siima pajatsossa?! Ulos, ja heti!\"")
+		return
+	if r < seen + SIIMA_CUT:
+		_tied = false
+		_yank_cup = -1
+		_shake = 0.3
+		Sfx.play("rattle", -8.0, 2.6)
+		comment.emit("Naps! Siimaleikkuri katkaisi siiman. Kolikko jäi koneeseen. Tämä temppu tunnetaan.")
+		return
+	pot -= 1  # kolikko nousee raosta takaisin ylös
+	_cp = Vector2(SLOTS[_yank_cup], BAND_Y + 14.0)
+	_coin_state = "yank"
+	_yank_t = 0.0
+	_yank_cup = -1
+	Sfx.play("whoosh", -14.0, 2.2)
+
+
 func _coin_step(dt: float) -> void:
-	if _coin_state == "":
+	if _coin_state == "" or _coin_state == "ready":
 		return
 	_coin_t += dt
-	_spin += dt * (_cv.length() + absf(_chan_v)) * 0.05
-	match _coin_state:
-		"chan":
-			# Kourussa ylös: hidastuu painovoimasta. Jos vauhti loppuu ennen kaarta, kolikko valuu takaisin.
-			_chan_v -= G * dt
-			_cp.y -= _chan_v * dt
-			if _cp.y <= ARC_C.y:
-				_coin_state = "arc"
-				_phi = 0.0
-				_v_arc = _chan_v
-			elif _chan_v < 0.0 and _cp.y >= CHAN_BOTTOM:
-				_coin_state = ""
-				_pull = 0.0
-				money += PRICE
-				_shots -= 1
-				Sfx.play("coin", -12.0, 0.8)
-				comment.emit("Liian heikko näppäys: kolikko valui takaisin kouruun. Vedä vipua pidempään.")
-		"arc":
-			# Kaarta vasten: v² = v0² - 2gh. Irtoaa, kun keskihakuvoima ei enää riitä (v² < g R sin φ).
-			var rr := ARC_R - COIN_R
-			var h := rr * sin(_phi)
-			var v2 := _v_arc * _v_arc - 2.0 * G * h
-			if v2 < G * rr * sin(_phi) or _phi >= PI:
-				var v := sqrt(maxf(v2, 0.0))
-				_cv = Vector2(-sin(_phi), -cos(_phi)) * v
-				_coin_state = "free"
-				Sfx.play("rattle", -20.0, 1.8)
-				return
-			_phi = minf(PI, _phi + sqrt(v2) / rr * dt)
-			_cp = ARC_C + Vector2(cos(_phi), -sin(_phi)) * rr
-		"free":
-			_cv.y += G * dt
-			_cp += _cv * dt
-			_collide()
-			if _coin_state != "free":
-				return
-			if _cp.y > LOST_Y or _coin_t > 12.0:
-				_lost()
-
-
-func _collide() -> void:
-	for n in _nails:
-		var d := _cp - n
+	_spin += dt * _cv.length() * 0.05
+	if _coin_state == "yank":
+		# Siimassa ylös raosta ja takaisin alas tappien väliin.
+		_yank_t += dt
+		_cp.y -= 220.0 * dt
+		if _yank_t >= 0.25:
+			_coin_state = "free"
+			_cv = Vector2(0, 30)
+		return
+	_cv.y += G * dt
+	_cp += _cv * dt
+	# Katto ja vasen seinä (lasin reunat); oikealla on lyöntipidikkeen seinä.
+	if _cp.y < COIN_R:
+		_cp.y = COIN_R
+		_cv.y = absf(_cv.y) * 0.4
+	if _cp.x < COIN_R:
+		_cp.x = COIN_R
+		_cv.x = absf(_cv.x) * 0.45
+		_clink(absf(_cv.x) + 100.0)
+	if _cp.x > BW - COIN_R:
+		_cp.x = BW - COIN_R
+		_cv.x = -absf(_cv.x) * 0.45
+	# Porttien jousitapit: jousi ottaa osuman vastaan. Oikealla osumanopeudella kolikko kuoleentuu ja putoaa tapin
+	# viereen; liian kova tai liian hiljainen osuma kimpoaa, ja jäykkä jousi ponnauttaa kovemmin (seiskassa jäykin).
+	for i in SLOTS.size():
+		var k: float = STIFF[i]
+		for s in [-1.0, 1.0]:
+			var pin := Vector2(SLOTS[i] + s * PIN_DX, BAND_Y - 12.0)
+			var d := _cp - pin
+			var dist := d.length()
+			var md := COIN_R + PIN_R
+			if dist < md and dist > 0.001:
+				var nrm := d / dist
+				_cp = pin + nrm * md
+				var vn := _cv.dot(nrm)
+				if vn < 0.0:
+					var sweet := 110.0 + 220.0 * k  # jousen "oikea" osumanopeus
+					var win := 64.0 * pow(1.0 - k, 1.5) + 2.0  # sallittu poikkeama: jäykkä jousi on armoton
+					if absf(absf(vn) - sweet) < win:
+						_cv = (_cv - nrm * vn) * 0.15 - nrm * vn * 0.05  # kuoleentuu: jousi söi vauhdin
+					else:
+						_cv = (_cv - nrm * vn) * 0.9 - nrm * vn * (0.55 + 0.4 * k)
+					_pin_hit[i * 2 + (0 if s < 0.0 else 1)] = [0.25, -nrm * minf(absf(vn) / 120.0, 3.0)]
+					_clink(absf(vn))
+	# Kiinteät ohjaustapit: estävät suorat reitit reunoilta keskelle.
+	for g in GUIDES:
+		var d: Vector2 = _cp - g
 		var dist := d.length()
-		var md := COIN_R + NAIL_R
+		var md := COIN_R + PIN_R + 1.0
 		if dist < md and dist > 0.001:
 			var nrm := d / dist
-			_cp = n + nrm * md
+			_cp = g + nrm * md
 			var vn := _cv.dot(nrm)
 			if vn < 0.0:
-				var vt := _cv - nrm * vn
-				_cv = vt * 0.92 - nrm * vn * 0.42
-				_cv += Vector2(randf_range(-14.0, 14.0), 0.0)  # naulat ovat vähän vinossa
-				if absf(vn) > 90.0 and _clink_t <= 0.0:
-					_clink_t = 0.05
-					Sfx.play("glass", -26.0 + minf(absf(vn) / 60.0, 8.0), randf_range(2.6, 3.2))
-	# Yläkaari ja sivuseinät.
-	if _cp.y < ARC_C.y:
-		var d := _cp - ARC_C
-		if d.length() > ARC_R - COIN_R:
-			var nrm := d.normalized()
-			_cp = ARC_C + nrm * (ARC_R - COIN_R)
-			var vn := _cv.dot(nrm)
-			if vn > 0.0:
-				_cv -= nrm * vn * 1.4
-	if _cp.x < FIELD_L + COIN_R:
-		_cp.x = FIELD_L + COIN_R
-		_cv.x = absf(_cv.x) * 0.45
-	if _cp.x > WALL_X - COIN_R and _cp.y > ARC_C.y - 4.0:
-		_cp.x = WALL_X - COIN_R
-		_cv.x = -absf(_cv.x) * 0.45
-	# Kuppiin: keskikohta suun sisällä ja liike alaspäin.
-	for i in CUPS.size():
-		var c: Array = CUPS[i]
-		if absf(_cp.x - c[0]) < c[2] / 2.0 - 3.0 and _cp.y > c[1] - 2.0 and _cp.y < c[1] + 16.0 and _cv.y > 0.0:
-			_cup(i)
-			return
+				_cv = (_cv - nrm * vn) * 0.9 - nrm * vn * 0.5
+				_clink(absf(vn))
+	# Rakonauha: tappien välistä rakoon, muuten nauhaan ja suppiloa pitkin varantoon.
+	if _cp.y >= BAND_Y:
+		for i in SLOTS.size():
+			if absf(_cp.x - SLOTS[i]) < (GATE_SEVEN if PRIZES[i] >= 14 else GATE):
+				_cup(i)
+				return
+		_lost()
+	elif _coin_t > 8.0:
+		_lost()
 
 
+func _clink(speed: float) -> void:
+	if speed > 60.0 and _clink_t <= 0.0:
+		_clink_t = 0.05
+		Sfx.play("glass", -26.0 + minf(speed / 60.0, 8.0), randf_range(2.6, 3.2))
+
+
+## Kolikko rakoon: voitto varannosta (R palauttaa panoksen). Sisään mennyt kolikko jää koneeseen (varantoon).
 func _cup(i: int) -> void:
 	_coin_state = ""
-	_pull = 0.0
 	_hit_cup = i
 	_hit_t = 1.2
 	_shake = 0.6
-	var c: Array = CUPS[i]
-	var at := _board.position + Vector2(c[0], c[1] + 8.0)
-	pot += 1  # näpätty kolikko jää koneeseen
-	var n: int = pot if c[3] < 0 else mini(c[3], pot)
+	var at := _board.position + Vector2(SLOTS[i], BAND_Y + 20.0)
+	pot += 1
+	var prize: int = maxi(PRIZES[i], 1)
+	var n := mini(prize, pot)
 	pot -= n
 	_won += n
-	for k in n:
-		_payout.append([Vector2(_board.position.x + BW * 0.5 + randf_range(-30, 30), _board.end.y + 70.0),
-			Vector2(randf_range(-80, 80), randf_range(-260, -120)), -k * 0.06])
-	if c[3] < 0:
-		MG.sparks_burst(_sparks, at, Color(1.0, 0.85, 0.2), 50)
-		_pop = "POTTI! +%d" % n
+	_pay(n)
+	MG.sparks_burst(_sparks, at, Color(1.0, 0.8, 0.3), 40 if PRIZES[i] >= 14 else 20)
+	if PRIZES[i] == 0:
+		_pop = "R"
+		Sfx.play("coin", -6.0, 1.1)
+		comment.emit("R-rako: panos takaisin. Uusi yritys.")
+	elif PRIZES[i] >= 14:
+		_pop = "+%d €" % n
 		Sfx.play("win", -4.0)
-		comment.emit("POTTI! Koko kasa ryöppyää tarjottimelle. Koko baari kääntyy katsomaan.")
+		comment.emit("SEISKA! Neljätoista kolikkoa kilisee kouruun. Koko baari kääntyy katsomaan.")
 	else:
-		MG.sparks_burst(_sparks, at, Color(1.0, 0.8, 0.3), 24)
-		_pop = "+%d" % n if n > 0 else "Potti tyhjä!"
+		_pop = "+%d €" % n if n > 0 else "Varanto tyhjä!"
 		Sfx.play("win_small", -6.0)
-		if n == 0:
-			comment.emit("Kuppiin meni, mutta potti on tyhjä. Ei sieltä mitään tule.")
+	if n < prize:
+		comment.emit("Varanto loppui kesken: kone maksoi vain %d." % n)
 	_pop_t = 1.6
+	if _tied:
+		_yank_cup = i
+		comment.emit("Siima kolikossa! Nykäise se ylös ja uudestaan läpi, jos uskallat. Isäntä vilkuilee.")
 
 
+## Voittokolikot varannon pohjalta tähtipyörän kautta voittokouruun.
+func _pay(n: int) -> void:
+	for k in n:
+		var from := _board.position + Vector2(BW * 0.5 + randf_range(-160, 160), BH - 70.0)
+		_payout.append([from, Vector2(randf_range(-40, 40), randf_range(40, 120)), -k * 0.07])
+
+
+## Ohi: nauhaan ja suppiloa pitkin varantoon (täysi varanto valuu kassaan). Siimakolikko vedetään takaisin käteen.
 func _lost() -> void:
 	_coin_state = ""
-	_pull = 0.0
-	pot += 1
-	_pot_drop.append([0.0, _cp.x])
-	Sfx.play("coin", -16.0, 0.7)
+	if _tied:
+		money += PRICE
+		_shots -= 1
+		Sfx.play("cloth", -10.0, 1.8)
+		comment.emit("Ohi, mutta siimalla kolikko nousi takaisin käteen.")
+		return
+	pot = mini(pot + 1, POT_MAX)
+	_drops.append([0.0, clampf(_cp.x, 20.0, BW - 20.0)])
+	Sfx.play("rattle", -16.0, 1.6)
 	if randi() % 3 == 0:
-		comment.emit(["Ohi. Potti kasvaa, ja se kasvaa sulle.", "Kolikko kilahti naulasta naulaan ja pottiin.",
-			"Melkein! Kupin reuna käänsi sen pois."].pick_random())
+		comment.emit(["Ohi. Varanto kasvaa, ja se kasvaa sulle.", "Tappi käänsi sen pois. Kolikko valui suppiloon.",
+			"Melkein! Raon reuna kilautti sen nauhaan."].pick_random())
 
 
 func _payout_step(delta: float) -> void:
+	_star += delta * (8.0 if not _payout.is_empty() else 0.0)
+	var tray_y := _board.end.y + FRAME_BOTTOM - 40.0
 	for p in _payout:
 		p[2] += delta
 		if p[2] < 0.0:
@@ -334,22 +428,24 @@ func _payout_step(delta: float) -> void:
 		p[0] += p[1] * delta
 	for i in range(_payout.size() - 1, -1, -1):
 		var p: Array = _payout[i]
-		if p[2] > 0.0 and p[0].y > _board.end.y + 92.0:
+		if p[2] > 0.0 and p[0].y > tray_y:
 			_payout.remove_at(i)
 			_tray += 1
 			money += 1.0
 			Sfx.play("coin", -10.0, randf_range(0.9, 1.3))
-	for d in _pot_drop:
+	for d in _drops:
 		d[0] += delta
-	_pot_drop = _pot_drop.filter(func(d): return d[0] < 0.5)
+	_drops = _drops.filter(func(d): return d[0] < 0.7)
 
 
 func _finish() -> void:
 	if not _payout.is_empty():
-		money += _payout.size()  # tarjottimelle matkalla olevat kolikot taskuun
+		money += _payout.size()  # kouruun matkalla olevat kolikot taskuun
 		_payout.clear()
-	if _coin_state != "":
-		pot += 1
+	if _coin_state == "ready":
+		money += PRICE  # lyömätön kolikko takaisin
+	elif _coin_state != "":
+		pot = mini(pot + 1, POT_MAX)
 	_done = true
 	finished.emit(money, pot)
 	queue_free()
@@ -358,64 +454,57 @@ func _finish() -> void:
 # --- Piirto -------------------------------------------------------------------
 
 func _draw_root() -> void:
-	var sz := _root.size
 	var font := ThemeDB.fallback_font
-	var shake := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake * 6.0
-	_draw_bar_wall(sz)
+	_draw_bar_wall(_root.size)
+	_root.draw_set_transform(Vector2.ZERO, 0.0, Vector2(_scale, _scale))  # kone virtuaalipikseleinä
+	var shake := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake * 5.0
 	var o := _board.position + shake
-	var cab := Rect2(o - Vector2(60, 200), Vector2(BW + 120, BH + 330))
-	# Kaappi: tumma vaneri, kromilistat ja jalusta.
-	_root.draw_rect(Rect2(cab.position + Vector2(18, cab.size.y), Vector2(cab.size.x - 36, sz.y)), Color(0.05, 0.04, 0.04, 0.6))
-	MG.box(_root, cab, Color(0.4, 0.1, 0.08), 18, 14, MG.OUTLINE, 3)
-	MG.wood(_root, cab.grow(-10), Color(0.5, 0.16, 0.1), 60.0, 7, false)
-	_root.draw_rect(cab.grow(-10), Color(0.25, 0.05, 0.03, 0.35))
-	_draw_header(Rect2(cab.position + Vector2(24, 18), Vector2(cab.size.x - 48, 150)), font)
-	# Naulalauta: kermanvalkoinen maalattu levy painokuvioin.
-	var field := Rect2(o, Vector2(BW, BH))
-	MG.box(_root, field.grow(10), Color(0.75, 0.72, 0.68), 10, 0, MG.OUTLINE, 3)
-	MG.grad_rect(_root, field, Color(0.98, 0.94, 0.82), Color(0.9, 0.82, 0.66))
-	for k in 9:  # painetut tähdet ja ympyrät
-		var p := o + Vector2(50 + (k * 137) % 460, 190 + (k * 89) % 360)
-		_star(p, 14.0 + (k % 3) * 5.0, [Color(0.95, 0.4, 0.3, 0.35), Color(0.3, 0.55, 0.9, 0.3), Color(0.95, 0.75, 0.2, 0.4)][k % 3])
-	# Kaaren ulkopuoli (ylänurkat) ja vasen reunalista kaapin punaisella.
-	_fill_corners(o)
-	# Metallikaari ja kourun seinä.
-	_root.draw_arc(o + ARC_C, ARC_R + 3.0, PI, TAU, 64, Color(0.35, 0.36, 0.38), 9.0, true)
-	_root.draw_arc(o + ARC_C, ARC_R + 1.0, PI, TAU, 64, Color(0.85, 0.86, 0.9), 3.0, true)
-	_root.draw_line(o + Vector2(WALL_X + 3, ARC_C.y), o + Vector2(WALL_X + 3, BH), Color(0.35, 0.36, 0.38), 6.0)
-	_root.draw_line(o + Vector2(WALL_X + 2, ARC_C.y), o + Vector2(WALL_X + 2, BH), Color(0.85, 0.86, 0.9), 2.0)
-	_root.draw_line(o + Vector2(BW - 2, ARC_C.y), o + Vector2(BW - 2, BH), Color(0.35, 0.36, 0.38), 5.0)
-	# Kupit (messinkiä) ja voittoluvut.
-	for i in CUPS.size():
-		_draw_cup(o, i, font)
-	# Naulat: pieni varjo, kirkas kanta.
-	for n in _nails:
-		_root.draw_circle(o + n + Vector2(1.5, 2.5), NAIL_R, Color(0, 0, 0, 0.28))
-		_root.draw_circle(o + n, NAIL_R, Color(0.45, 0.45, 0.48))
-		_root.draw_circle(o + n - Vector2(1, 1), NAIL_R * 0.55, Color(0.95, 0.95, 0.98))
-	# Potti: lasi-ikkuna alhaalla, kolikkopino.
-	_draw_pot(o, font)
-	# Kolikko.
+	var cab := Rect2(o - Vector2(FRAME, FRAME_TOP), Vector2(BW + FRAME * 2.0, BH + FRAME_TOP + FRAME_BOTTOM))
+	_draw_cabinet(cab, o, font)
+	_draw_board(o, font)
+	_draw_reserve(o)
+	_draw_band(o, font)
+	_draw_guides(o)
+	# Siima kolikosta kolikkoaukolle.
+	if _tied and (_coin_state != "" or _yank_cup >= 0):
+		var end: Vector2 = o + _cp
+		if _coin_state == "" and _yank_cup >= 0:
+			end = o + Vector2(SLOTS[_yank_cup], BAND_Y + 14.0)
+		var line := PackedVector2Array()
+		var a := o + LAUNCH + Vector2(8, -14)
+		for k in 13:
+			var t := k / 12.0
+			line.append(a.lerp(end, t) + Vector2(0, sin(t * PI) * 22.0))
+		_root.draw_polyline(line, Color(0.9, 0.95, 1.0, 0.75), 1.5, true)
 	if _coin_state != "":
-		_draw_coin(o + _cp)
-	# Lasi: heijastusviirut.
-	for k in 3:
-		var x := 60.0 + k * 170.0
-		_root.draw_colored_polygon(PackedVector2Array([o + Vector2(x, 0), o + Vector2(x + 40 + k * 10, 0),
-			o + Vector2(x - 120 + k * 10, BH), o + Vector2(x - 160, BH)]), Color(1, 1, 1, 0.06))
-	_root.draw_rect(field, MG.OUTLINE, false, 3.0)
-	_draw_launcher(o, cab, font)
+		_draw_coin(o + _cp, COIN_R)
+	for d in _drops:
+		_draw_coin(o + _drop_pos(d), COIN_R * 0.9)
+	_draw_glass(o)
+	_draw_striker(o, cab, font)
 	_draw_tray(o, font)
 	for p in _payout:
 		if p[2] >= 0.0:
-			_draw_coin(p[0])
+			_draw_coin(p[0], COIN_R)
 	MG.sparks_draw(_root, _sparks)
+	_draw_meter(cab, o, font)
 	if _pop_t > 0.0:
-		var s := 56 if _pop.begins_with("POTTI") else 44
-		var a := clampf(_pop_t / 0.4, 0.0, 1.0)
-		var py := o.y + 250.0 - (1.6 - _pop_t) * 40.0
-		_root.draw_string_outline(font, Vector2(o.x, py), _pop, HORIZONTAL_ALIGNMENT_CENTER, BW, s, 10, Color(0.15, 0.05, 0.0, a))
-		_root.draw_string(font, Vector2(o.x, py), _pop, HORIZONTAL_ALIGNMENT_CENTER, BW, s, Color(1.0, 0.85, 0.2, a))
+		var s := 64 if _pop.begins_with("+14") or _pop == "KIINNI!" else 48
+		var al := clampf(_pop_t / 0.4, 0.0, 1.0)
+		var py := o.y + 180.0 - (1.6 - _pop_t) * 40.0
+		_root.draw_string_outline(font, Vector2(o.x, py), _pop, HORIZONTAL_ALIGNMENT_CENTER, BW, s, 10, Color(0.15, 0.05, 0.0, al))
+		_root.draw_string(font, Vector2(o.x, py), _pop, HORIZONTAL_ALIGNMENT_CENTER, BW, s, Color(1.0, 0.85, 0.2, al))
+
+
+## Ohi menneen kolikon reitti: nauhan alle, suppilon reunaa keskelle ja alas varannon päälle.
+func _drop_pos(d: Array) -> Vector2:
+	var t: float = d[0] / 0.7
+	var x0: float = d[1]
+	var f := clampf(t * 1.6, 0.0, 1.0)
+	var funnel := Vector2(lerpf(x0, BW / 2.0, f), BAND_Y + 76.0 + 60.0 * f)
+	if t < 0.6:
+		return funnel
+	return Vector2(BW / 2.0, funnel.y + (t - 0.6) * 260.0)
 
 
 ## Siitarin seinä pajatson takana: tumma puupaneeli, jukeboksin violetti hehku ja kattolampun valokeila.
@@ -425,7 +514,6 @@ func _draw_bar_wall(sz: Vector2) -> void:
 	_root.draw_line(Vector2(0, sz.y * 0.82), Vector2(sz.x, sz.y * 0.82), Color(0.1, 0.06, 0.03), 4.0)
 	MG.glow(_root, Vector2(sz.x * 0.08, sz.y * 0.5), 260.0, Color(0.7, 0.3, 0.9, 0.7))
 	MG.glow(_root, Vector2(sz.x * 0.5, -40), 520.0, Color(1.0, 0.85, 0.55, 0.5))
-	# Jukeboksin reuna näkyy vasemmalla.
 	var jb := Rect2(Vector2(sz.x * 0.02, sz.y * 0.3), Vector2(sz.x * 0.11, sz.y * 0.55))
 	MG.box(_root, jb, Color(0.3, 0.12, 0.35), 40, 8, MG.OUTLINE, 3)
 	MG.box(_root, jb.grow(-14), Color(0.75, 0.45, 0.85), 30)
@@ -434,150 +522,255 @@ func _draw_bar_wall(sz: Vector2) -> void:
 	_root.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.0, 0.0, 0.05, 0.25))
 
 
-## Yläpaneeli: maalattu klovni (Bajazzo, pajatson kaima) ja PAJATSO-teksti, reunassa lamppurivi.
-func _draw_header(r: Rect2, font: Font) -> void:
-	MG.box(_root, r, Color(0.12, 0.1, 0.25), 12, 0, Color(0.95, 0.8, 0.3), 4)
-	MG.grad_rect(_root, r.grow(-6), Color(0.2, 0.25, 0.6), Color(0.08, 0.08, 0.25))
-	for k in 18:
-		var x := r.position.x + 16.0 + k * (r.size.x - 32.0) / 17.0
-		var on := int(_t * 4.0 + k) % 3 == 0
-		_root.draw_circle(Vector2(x, r.position.y + 10), 5.0, Color(1.0, 0.9, 0.4) if on else Color(0.5, 0.35, 0.15))
-		_root.draw_circle(Vector2(x, r.end.y - 10), 5.0, Color(1.0, 0.9, 0.4) if not on else Color(0.5, 0.35, 0.15))
-	# Klovni vasemmalla.
-	var c := Vector2(r.position.x + 90, r.position.y + r.size.y / 2.0 + 6)
-	_root.draw_colored_polygon(PackedVector2Array([c + Vector2(-34, -30), c + Vector2(34, -30), c + Vector2(0, -92)]), Color(0.9, 0.15, 0.2))
-	_root.draw_circle(c + Vector2(0, -92), 7.0, Color(1.0, 0.95, 0.4))
-	for s in [-1.0, 1.0]:
-		_root.draw_circle(c + Vector2(s * 36, -2), 16.0, Color(0.95, 0.45, 0.1))  # hiustupsut
-	_root.draw_circle(c, 36.0, Color(0.98, 0.95, 0.92))
-	_root.draw_arc(c, 36.0, 0, TAU, 32, MG.OUTLINE, 2.5, true)
-	for s in [-1.0, 1.0]:
-		_root.draw_line(c + Vector2(s * 13, -18), c + Vector2(s * 13, -2), Color(0.15, 0.2, 0.6), 3.0)
-		_root.draw_circle(c + Vector2(s * 13, -8), 4.0, Color(0.08, 0.06, 0.05))
-	MG.ball(_root, c + Vector2(0, 4), 9.0, Color(0.95, 0.12, 0.12), 0.6)
-	_root.draw_arc(c + Vector2(0, 10), 18.0, 0.3, PI - 0.3, 16, Color(0.85, 0.1, 0.15), 5.0, true)
-	_root.draw_colored_polygon(PackedVector2Array([c + Vector2(-26, 34), c + Vector2(26, 34), c + Vector2(14, 46), c + Vector2(-14, 46)]),
-		Color(1.0, 0.85, 0.2))
-	# Teksti.
-	var tp := Vector2(r.position.x + 170, r.position.y + 96)
-	_root.draw_string_outline(font, tp, "PAJATSO", HORIZONTAL_ALIGNMENT_LEFT, -1, 74, 14, Color(0.4, 0.05, 0.02))
-	_root.draw_string(font, tp, "PAJATSO", HORIZONTAL_ALIGNMENT_LEFT, -1, 74, Color(1.0, 0.82, 0.15))
-	_root.draw_string(font, tp + Vector2(4, 36), "1 €   ·   POTTI KESKELLÄ", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.95, 0.92, 0.85))
-
-
-## Kaaren ulkopuoliset ylänurkat täytetään kaapin punaisella, jotta lauta näyttää holvikaarelta.
-func _fill_corners(o: Vector2) -> void:
-	var red := Color(0.42, 0.1, 0.07)
-	var lp := PackedVector2Array([o, o + Vector2(0, ARC_C.y)])
-	var rp := PackedVector2Array()
-	for k in 17:
-		lp.append(o + ARC_C + Vector2(cos(PI - PI / 2.0 * k / 16.0), -sin(PI - PI / 2.0 * k / 16.0)) * ARC_R)
-		rp.append(o + ARC_C + Vector2(cos(PI / 2.0 * k / 16.0), -sin(PI / 2.0 * k / 16.0)) * ARC_R)
-	lp.append(o + Vector2(ARC_C.x, 0))
-	rp.append_array([o + Vector2(ARC_C.x, 0), o + Vector2(BW, 0), o + Vector2(BW, ARC_C.y)])
-	_root.draw_colored_polygon(lp, red)
-	_root.draw_colored_polygon(rp, red)
-	_root.draw_rect(Rect2(o + Vector2(0, ARC_C.y), Vector2(FIELD_L, BH - ARC_C.y)), red)
-
-
-func _draw_cup(o: Vector2, i: int, font: Font) -> void:
-	var c: Array = CUPS[i]
-	var hw: float = c[2] / 2.0 + 2.0
-	var top := o + Vector2(c[0], c[1])
-	var lit := i == _hit_cup and _hit_t > 0.0 and int(_hit_t * 10.0) % 2 == 0
-	var brass := Color(1.0, 0.9, 0.4) if lit else Color(0.82, 0.62, 0.22)
-	var pts := PackedVector2Array()
-	pts.append(top + Vector2(-hw, 0))
+## Kaappi: tiikkijäljitelmäkehys (hieno syykuvio), harmaa metallikylki oikealla, RAY:n apilakyltti vasemmalla ylhäällä,
+## ikärajakyltti ja kolikkoaukko oikeassa kehyksessä.
+func _draw_cabinet(cab: Rect2, o: Vector2, font: Font) -> void:
+	_root.draw_rect(Rect2(cab.position + Vector2(14, 16), cab.size), Color(0, 0, 0, 0.45))  # varjo seinällä
+	var side := Rect2(Vector2(cab.end.x, cab.position.y + 8), Vector2(26, cab.size.y - 16))  # metallikylki
+	MG.grad_rect(_root, side, Color(0.32, 0.34, 0.38), Color(0.2, 0.21, 0.24))
+	_root.draw_rect(side, MG.OUTLINE, false, 2.0)
+	for k in 3:  # saranat ja lukko
+		var hr := Rect2(side.position + Vector2(4, 60 + k * (side.size.y - 160) / 2.0), Vector2(18, 70))
+		MG.box(_root, hr, Color(0.78, 0.79, 0.82), 3, 0, MG.OUTLINE, 1)
+	MG.ball(_root, side.position + Vector2(13, side.size.y - 110), 9.0, Color(0.15, 0.15, 0.16), 0.4)  # kahva
+	var teak := Color(0.62, 0.38, 0.2)
+	_root.draw_rect(cab, teak)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 66
+	for k in 120:  # tiikin syyt: pitkät aaltoilevat viivat pystyyn sivuilla ja vaakaan ylhäällä ja alhaalla
+		var vertical := k < 60
+		var col := teak.darkened(rng.randf_range(0.05, 0.3))
+		var pts := PackedVector2Array()
+		if vertical:
+			var x := cab.position.x + rng.randf_range(0, FRAME - 2) + (0.0 if k % 2 == 0 else cab.size.x - FRAME)
+			for s in 12:
+				pts.append(Vector2(x + sin(s * 0.7 + k) * 2.5, cab.position.y + cab.size.y * s / 11.0))
+		else:
+			var top := k % 2 == 0
+			var y := (cab.position.y + rng.randf_range(0, FRAME_TOP - 2)) if top else (o.y + BH + rng.randf_range(0, FRAME_BOTTOM - 2))
+			for s in 12:
+				pts.append(Vector2(cab.position.x + cab.size.x * s / 11.0, y + sin(s * 0.6 + k) * 2.0))
+		_root.draw_polyline(pts, col, rng.randf_range(1.0, 2.5))
+	_root.draw_rect(cab, MG.OUTLINE, false, 3.0)
+	# Lasin upotus: tumma rako.
+	_root.draw_rect(Rect2(o - Vector2(6, 6), Vector2(BW + 12, BH + 12)), Color(0.08, 0.06, 0.05))
+	# RAY:n kyltti: musta laatta, valkoinen apila ja teksti.
+	var plate := Rect2(cab.position + Vector2(60, 24), Vector2(214, 46))
+	MG.box(_root, plate, Color(0.06, 0.06, 0.07), 3, 0, Color(0.7, 0.7, 0.72), 2)
+	var cl := plate.position + Vector2(24, 23)
+	for a in [-PI / 2.0, PI / 6.0, PI * 5.0 / 6.0]:
+		_root.draw_circle(cl + Vector2(cos(a), sin(a)) * 7.0, 6.5, Color(0.95, 0.95, 0.95))
+	_root.draw_line(cl, cl + Vector2(3, 14), Color(0.95, 0.95, 0.95), 2.5)
+	_root.draw_string(font, plate.position + Vector2(46, 20), "RAHA-AUTOMAATTIYHDISTYS", HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
+		Color(0.92, 0.92, 0.92))
+	_root.draw_string(font, plate.position + Vector2(46, 36), "PENNINGAUTOMATFÖRENINGEN", HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
+		Color(0.92, 0.92, 0.92))
+	# Ikärajakyltti ja kolikkoaukko oikeassa kehyksessä.
+	var info := Rect2(Vector2(cab.end.x - FRAME + 5, o.y + 250), Vector2(FRAME - 10, 300))
+	MG.box(_root, info, Color(0.06, 0.06, 0.07), 2, 0, Color(0.6, 0.6, 0.62), 1)
 	for k in 9:
-		var a := PI * k / 8.0
-		pts.append(top + Vector2(-cos(a) * hw, 6.0 + sin(a) * 18.0))
-	pts.append(top + Vector2(hw, 0))
-	_root.draw_colored_polygon(pts, brass.darkened(0.25))
-	_root.draw_colored_polygon(PackedVector2Array([top + Vector2(-hw + 3, 2), top + Vector2(hw - 3, 2), top + Vector2(hw - 6, 8),
-		top + Vector2(-hw + 6, 8)]), Color(0.15, 0.1, 0.05))  # suu
-	_root.draw_line(top + Vector2(-hw + 5, 12), top + Vector2(-hw + 9, 20), brass.lightened(0.5), 2.5)
-	pts.append(pts[0])
-	_root.draw_polyline(pts, MG.OUTLINE, 2.0, true)
-	var label := "POTTI" if c[3] < 0 else str(c[3])
-	var lr := Rect2(top + Vector2(-26 if c[3] < 0 else -14, 28), Vector2(52 if c[3] < 0 else 28, 20))
-	MG.box(_root, lr, Color(0.75, 0.1, 0.1) if c[3] < 0 else Color(0.15, 0.3, 0.65), 5, 0, MG.OUTLINE, 1)
-	_root.draw_string(font, lr.position + Vector2(0, 16), label, HORIZONTAL_ALIGNMENT_CENTER, lr.size.x, 15, Color(1, 0.95, 0.8))
-	if lit:
-		MG.glow(_root, top + Vector2(0, 10), 50.0, Color(1.0, 0.9, 0.3, 0.8))
+		_root.draw_line(info.position + Vector2(6, 16 + k * 9), info.position + Vector2(info.size.x - 6 - (k % 3) * 4, 16 + k * 9),
+			Color(0.85, 0.85, 0.85, 0.8), 1.5)
+	var slot := info.position + Vector2(info.size.x / 2.0, 130)
+	MG.box(_root, Rect2(slot - Vector2(14, 22), Vector2(28, 44)), Color(0.8, 0.81, 0.85), 3, 0, MG.OUTLINE, 1)
+	_root.draw_rect(Rect2(slot - Vector2(2, 15), Vector2(4, 24)), Color(0.04, 0.04, 0.04))
+	MG.ball(_root, slot + Vector2(0, 34), 7.0, Color(0.82, 0.83, 0.86), 0.6)
+	_root.draw_string(font, info.position + Vector2(0, 200), "1 €", HORIZONTAL_ALIGNMENT_CENTER, info.size.x, 20, Color.WHITE)
+	_root.draw_line(info.position + Vector2(8, 176), info.position + Vector2(info.size.x / 2.0, 168), Color.WHITE, 2.0)
+	_root.draw_line(info.position + Vector2(info.size.x - 8, 176), info.position + Vector2(info.size.x / 2.0, 168), Color.WHITE, 2.0)
 
 
-func _draw_pot(o: Vector2, font: Font) -> void:
-	var r := Rect2(o + Vector2(BW / 2.0 - 70, BH + 16), Vector2(140, 74))
-	MG.box(_root, r.grow(6), Color(0.3, 0.3, 0.32), 8, 0, MG.OUTLINE, 2)
-	MG.grad_rect(_root, r, Color(0.12, 0.12, 0.16), Color(0.05, 0.05, 0.07))
-	# Kolikkopino: kasa limittäisiä kolikoita, korkeus potin mukaan.
-	var n := mini(pot, 60)
-	for k in n:
-		var col := k % 6
-		var row := k / 6
-		var p := r.position + Vector2(18 + col * 21 + (row % 2) * 9, r.size.y - 10 - row * 5)
-		_coin_flat(p)
-	for d in _pot_drop:
-		_draw_coin(r.position + Vector2(clampf(d[1] - BW / 2.0 + 70.0, 10.0, 130.0), -10.0 + d[0] * 120.0))
-	_root.draw_rect(r, Color(1, 1, 1, 0.07))
-	_root.draw_line(r.position + Vector2(10, 6), r.position + Vector2(40, 6), Color(1, 1, 1, 0.3), 2.0)
-	MG.sign(_root, Rect2(r.position + Vector2(-110, 20), Vector2(90, 34)), "POTTI %d" % pot, Color(0.75, 0.1, 0.1), Color(1, 0.95, 0.8), 16,
-		Color(0.95, 0.8, 0.3))
+## Lauta: tummanpunainen yläosa (kolikon lentoalue), pieni ohjelaatta oikealla ylhäällä, nauhan alla harmaa suppilo,
+## mustat ohjauslistat ja T-tangot, sivuilla tähtipyörät.
+func _draw_board(o: Vector2, font: Font) -> void:
+	var red := Color(0.5, 0.09, 0.07)
+	MG.grad_rect(_root, Rect2(o, Vector2(BW, BH)), red.lightened(0.05), red.darkened(0.15))
+	_root.draw_colored_polygon(PackedVector2Array([o, o + Vector2(BW * 0.55, 0), o + Vector2(BW * 0.4, 14), o + Vector2(0, 14)]),
+		Color(0.2, 0.03, 0.02, 0.6))  # yläreunan varjo
+	var plate := Rect2(o + Vector2(BW - 150, 10), Vector2(110, 60))  # ohjelaatta
+	_root.draw_rect(plate, Color(0.05, 0.05, 0.06))
+	for k in 7:
+		_root.draw_line(plate.position + Vector2(6, 9 + k * 7), plate.position + Vector2(plate.size.x - 6 - (k % 2) * 20, 9 + k * 7),
+			Color(0.85, 0.85, 0.85, 0.7), 1.0)
+	# Lyöntipidike: kolikon hylly oikeassa yläkulmassa.
+	var lp := o + LAUNCH
+	_root.draw_rect(Rect2(lp + Vector2(-14, COIN_R + 1), Vector2(30, 5)), Color(0.75, 0.76, 0.8))
+	_root.draw_rect(Rect2(lp + Vector2(12, -18), Vector2(5, 34)), Color(0.75, 0.76, 0.8))
+	# Suppilo nauhan alla: harmaa V keskelle, mustat ohjauslistat, T-tangot.
+	var gray := Color(0.66, 0.67, 0.7)
+	_root.draw_colored_polygon(PackedVector2Array([o + Vector2(60, BAND_Y + 70), o + Vector2(BW - 60, BAND_Y + 70),
+		o + Vector2(BW / 2.0 + 14, BAND_Y + 140), o + Vector2(BW / 2.0 - 14, BAND_Y + 140)]), gray)
+	_root.draw_line(o + Vector2(60, BAND_Y + 70), o + Vector2(BW / 2.0 - 14, BAND_Y + 140), Color(0.4, 0.4, 0.42), 2.0)
+	_root.draw_line(o + Vector2(BW - 60, BAND_Y + 70), o + Vector2(BW / 2.0 + 14, BAND_Y + 140), Color(0.4, 0.4, 0.42), 2.0)
+	_root.draw_line(o + Vector2(BW / 2.0, BAND_Y + 140), o + Vector2(BW / 2.0, BAND_Y + 160), Color(0.08, 0.08, 0.08), 3.0)  # jakotappi
+	for s in [-1.0, 1.0]:
+		var c := o.x + BW / 2.0
+		_root.draw_line(Vector2(c + s * 70, o.y + BAND_Y + 120), Vector2(c + s * 200, o.y + BAND_Y + 96), Color(0.06, 0.06, 0.06), 6.0)
+		_root.draw_line(Vector2(c + s * 222, o.y + BAND_Y + 118), Vector2(c + s * 296, o.y + BAND_Y + 104), Color(0.06, 0.06, 0.06), 5.0)
+		_root.draw_line(Vector2(c + s * 262, o.y + BAND_Y + 112), Vector2(c + s * 262, o.y + BAND_Y + 200), Color(0.06, 0.06, 0.06), 3.0)
+		# Tähtipyörä ja vipu (maksukoneisto): pyörii maksaessa.
+		var sc := Vector2(c + s * 262, o.y + BAND_Y + 222)
+		var star := PackedVector2Array()
+		for k in 10:
+			var a: float = _star * s + TAU * k / 10.0
+			star.append(sc + Vector2(cos(a), sin(a)) * (16.0 if k % 2 == 0 else 7.0))
+		_root.draw_colored_polygon(star, Color(0.06, 0.06, 0.07))
+		MG.ball(_root, sc + Vector2(s * -6, -22), 7.0, Color(0.75, 0.76, 0.8), 0.6)
+		_root.draw_rect(Rect2(Vector2(sc.x - 16, sc.y + 40), Vector2(32, 40)), Color(0.05, 0.05, 0.06))
+	# Alaosa: tummat pohjalevyt ja punaiset kulmalevyt.
+	_root.draw_rect(Rect2(o + Vector2(0, BH - 60), Vector2(BW, 60)), Color(0.06, 0.05, 0.05))
+	for s in [0.0, 1.0]:
+		var dir: float = 1.0 - 2.0 * s
+		_root.draw_colored_polygon(PackedVector2Array([o + Vector2(s * BW, BH - 46), o + Vector2(s * BW + dir * 230, BH - 30),
+			o + Vector2(s * BW + dir * 230, BH), o + Vector2(s * BW, BH)]), red.darkened(0.1))
+	for x in [70.0, 160.0, BW - 160.0, BW - 70.0]:
+		_root.draw_circle(o + Vector2(x, BH - 18), 3.0, Color(0.85, 0.85, 0.88))
 
 
-## Laukaisukouru oikealla: kolikkoaukko, jousivipu kromikuulalla (painuu alas vedettäessä) ja vedon voimamittari.
-func _draw_launcher(o: Vector2, cab: Rect2, font: Font) -> void:
-	var slot := o + Vector2(BW + 30, -60)
-	MG.box(_root, Rect2(slot - Vector2(18, 40), Vector2(36, 80)), Color(0.75, 0.76, 0.8), 6, 3, MG.OUTLINE, 2)
-	_root.draw_rect(Rect2(slot - Vector2(3, 26), Vector2(6, 40)), Color(0.05, 0.05, 0.05))
-	_root.draw_string(font, slot + Vector2(-30, 58), "1 €", HORIZONTAL_ALIGNMENT_CENTER, 60, 18, Color(1, 0.95, 0.8))
-	# Kolikko odottaa kourun pohjalla.
-	if _coin_state == "" and (_pulling or money >= PRICE):
-		_draw_coin(o + Vector2(CHAN_X, CHAN_BOTTOM - _pull * 22.0))
-	# Vipu kaapin oikeassa kyljessä.
-	var piv := Vector2(cab.end.x - 6, o.y + BH - 60)
-	var a := -0.35 + _pull * 0.9
-	var tip := piv + Vector2(cos(a), sin(a)) * 110.0
-	_root.draw_circle(piv, 16.0, Color(0.4, 0.4, 0.44))
-	_root.draw_line(piv, tip, MG.OUTLINE, 14.0)
-	_root.draw_line(piv, tip, Color(0.82, 0.84, 0.88), 9.0)
-	_root.draw_line(piv + Vector2(0, -3), tip + Vector2(0, -3), Color(1, 1, 1, 0.7), 2.5)
-	MG.ball(_root, tip, 18.0, Color(0.85, 0.12, 0.1), 0.6)
-	MG.ball(_root, piv, 10.0, Color(0.75, 0.76, 0.8), 0.6)
-	# Jousen veto.
-	var bar := Rect2(Vector2(cab.end.x + 40, o.y + BH - 260), Vector2(22, 220))
-	MG.box(_root, bar.grow(4), Color(0.05, 0.05, 0.05, 0.8), 6)
-	var h := bar.size.y * _pull
-	MG.grad_rect(_root, Rect2(Vector2(bar.position.x, bar.end.y - h), Vector2(bar.size.x, h)), Color(1.0, 0.3, 0.2), Color(0.3, 0.8, 0.3))
-	_root.draw_string(font, bar.position + Vector2(-30, -12), "VETO", HORIZONTAL_ALIGNMENT_CENTER, 82, 18, Color.WHITE)
+## Kolikkovaranto: kolikot pystykouruissa (alumiiniset aaltolevyt) kasvot eteenpäin, keskellä korkeimmat pinot.
+func _draw_reserve(o: Vector2) -> void:
+	var cols := 16
+	var x0 := BW / 2.0 - (cols - 1) * 14.0
+	var top := BAND_Y + 160.0
+	var bottom := BH - 50.0
+	for i in cols:  # aaltolevyt
+		var x := o.x + x0 + i * 28.0
+		MG.grad_rect(_root, Rect2(Vector2(x - 13, o.y + top), Vector2(26, bottom - top)), Color(0.72, 0.74, 0.78), Color(0.55, 0.57, 0.6))
+		_root.draw_line(Vector2(x - 13, o.y + top), Vector2(x - 13, o.y + bottom), Color(0.4, 0.42, 0.45), 2.0)
+	# Pinokorkeudet: keskellä korkeimmat (katon muoto), varanto täyttää kaikki pinot suhteessa.
+	var frac := float(mini(pot, POT_MAX)) / float(POT_MAX)
+	for i in cols:
+		var cap := 13.0 - absf(i - (cols - 1) / 2.0) * 0.9
+		var n := int(round(cap * frac))
+		var x := o.x + x0 + i * 28.0
+		var yb := o.y + bottom - 8.0 - float((i * 37) % 5) * 6.0  # alapäät porrastettu kuten kourujen pohjat
+		for k in n:
+			_draw_coin(Vector2(x, yb - k * 15.0), 12.0, false)
 
 
-## Voittotarjotin kaapin alla: kromikouru ja kasa kolikoita.
+## Rakonauha: harmaa metallinauha, yhdeksän mustaa rakoa voittokilpineen ja niiden yllä tappiparit (ressut).
+func _draw_band(o: Vector2, font: Font) -> void:
+	var gray := Color(0.7, 0.71, 0.74)
+	var band := Rect2(o + Vector2(0, BAND_Y), Vector2(BW, 70))
+	MG.grad_rect(_root, band, gray.lightened(0.1), gray.darkened(0.08))
+	_root.draw_line(band.position, band.position + Vector2(BW, 0), Color(0.95, 0.95, 0.97), 2.0)
+	_root.draw_line(band.position + Vector2(0, 70), band.position + Vector2(BW, 70), Color(0.35, 0.36, 0.38), 2.0)
+	for i in SLOTS.size():
+		var sx: float = o.x + SLOTS[i]
+		var lit := i == _hit_cup and _hit_t > 0.0 and int(_hit_t * 10.0) % 2 == 0
+		var hole := Rect2(Vector2(sx - 16, o.y + BAND_Y + 6), Vector2(32, 26))  # rako
+		_root.draw_rect(hole, Color(0.03, 0.03, 0.03))
+		_root.draw_rect(Rect2(hole.position, Vector2(hole.size.x, 4)), Color(0.18, 0.18, 0.2))
+		# Voittokilpi: musta, valkoiset numerot; seiska punaisella.
+		var label := "R" if PRIZES[i] == 0 else "%d,00" % PRIZES[i]
+		var lr := Rect2(Vector2(sx - 22, o.y + BAND_Y + 38), Vector2(44, 22))
+		var bg := Color(0.75, 0.08, 0.08) if PRIZES[i] >= 14 else Color(0.05, 0.05, 0.06)
+		_root.draw_rect(lr, bg.lightened(0.4) if lit else bg)
+		_root.draw_rect(lr, Color(0.25, 0.25, 0.27), false, 1.5)
+		_root.draw_string(font, lr.position + Vector2(0, 17), label, HORIZONTAL_ALIGNMENT_CENTER, lr.size.x, 15, Color(1, 1, 1))
+		if lit:
+			MG.glow(_root, Vector2(sx, o.y + BAND_Y + 20), 46.0, Color(1.0, 0.9, 0.4, 0.8))
+		# Portin jousitapit: tapin takana kierrejousi ja säätöruuvi, tappi joustaa osumasta.
+		for s in [-1.0, 1.0]:
+			var base := o + Vector2(SLOTS[i] + s * PIN_DX, BAND_Y - 12.0)
+			var hit: Array = _pin_hit.get(i * 2 + (0 if s < 0.0 else 1), [])
+			var pin := base
+			if not hit.is_empty():
+				pin += hit[1] * sin(hit[0] / 0.25 * PI * 3.0) * (hit[0] / 0.25)
+			var coil := PackedVector2Array()
+			for k in 9:  # jousi tapista ylös säätöruuviin
+				coil.append(base.lerp(pin, 1.0 - k / 8.0) + Vector2(2.0 if k % 2 == 0 else -2.0, -4.0 - k * 2.2))
+			_root.draw_polyline(coil, Color(0.25, 0.25, 0.27), 1.2)
+			_root.draw_circle(base + Vector2(0, -24), 2.4, Color(0.55, 0.56, 0.6))  # säätöruuvi
+			_root.draw_line(base + Vector2(-1.5, -24), base + Vector2(1.5, -24), Color(0.2, 0.2, 0.22), 1.0)
+			_root.draw_circle(pin + Vector2(1, 2), PIN_R, Color(0, 0, 0, 0.35))
+			_root.draw_circle(pin, PIN_R, Color(0.72, 0.73, 0.76))
+			_root.draw_circle(pin - Vector2(0.8, 0.8), PIN_R * 0.5, Color(1, 1, 1))
+
+
+## Kiinteät ohjaustapit: mustat tapit pienellä messinkikannalla.
+func _draw_guides(o: Vector2) -> void:
+	for g in GUIDES:
+		_root.draw_circle(o + g + Vector2(1, 2), PIN_R + 1.0, Color(0, 0, 0, 0.35))
+		_root.draw_circle(o + g, PIN_R + 1.0, Color(0.08, 0.08, 0.09))
+		_root.draw_circle(o + g - Vector2(0.8, 0.8), 1.4, Color(0.8, 0.65, 0.3))
+
+
+## Lasi: hienot heijastusviirut ja kehyksen reuna.
+func _draw_glass(o: Vector2) -> void:
+	for k in 3:
+		var x := 80.0 + k * 190.0
+		_root.draw_colored_polygon(PackedVector2Array([o + Vector2(x, 0), o + Vector2(x + 36 + k * 10, 0),
+			o + Vector2(x - 130 + k * 10, BH), o + Vector2(x - 170, BH)]), Color(1, 1, 1, 0.05))
+	_root.draw_rect(Rect2(o, Vector2(BW, BH)), Color(0.15, 0.15, 0.17), false, 3.0)
+
+
+## Lyöntikoneisto kehyksen oikeassa yläkulmassa: kromattu kiinnike ja rengas, joka heilahtaa lyödessä kohti kolikkoa.
+func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
+	var base := Vector2(o.x + LAUNCH.x + 10, cab.position.y + 22)
+	MG.box(_root, Rect2(base - Vector2(22, 0), Vector2(44, 76)), Color(0.78, 0.79, 0.83), 4, 2, MG.OUTLINE, 2)
+	for y in [10.0, 64.0]:
+		_root.draw_circle(base + Vector2(-14, y), 3.0, Color(0.4, 0.4, 0.42))
+		_root.draw_circle(base + Vector2(14, y), 3.0, Color(0.4, 0.4, 0.42))
+	var hinge := base + Vector2(0, 30)
+	var swing := sin(clampf(_ring_t / 0.3, 0.0, 1.0) * PI)
+	var rest := hinge + Vector2(22, 54)
+	var hit := hinge + Vector2(4, 66)
+	var ring := rest.lerp(hit, swing)
+	_root.draw_line(hinge, ring, MG.OUTLINE, 7.0)
+	_root.draw_line(hinge, ring, Color(0.82, 0.84, 0.88), 4.0)
+	MG.ball(_root, hinge, 7.0, Color(0.6, 0.6, 0.64), 0.5)
+	_root.draw_arc(ring, 10.0, 0.0, TAU, 24, MG.OUTLINE, 6.0, true)
+	_root.draw_arc(ring, 10.0, 0.0, TAU, 24, Color(0.86, 0.88, 0.92), 3.5, true)
+	_root.draw_arc(ring, 10.0, PI * 1.1, PI * 1.6, 8, Color(1, 1, 1, 0.9), 1.5, true)
+	if _coin_state == "ready":
+		_root.draw_string(font, ring + Vector2(-80, 6), "LYÖ!", HORIZONTAL_ALIGNMENT_CENTER, 60, 20,
+			Color(1.0, 0.9, 0.4, 0.6 + 0.4 * sin(_t * 8.0)))
+
+
+## Voittokouru kehyksen alareunassa: kromikahva edessä ja kolikot kourussa.
 func _draw_tray(o: Vector2, font: Font) -> void:
-	var r := Rect2(Vector2(o.x + 60, o.y + BH + 100), Vector2(BW - 120, 46))
-	MG.box(_root, r.grow(5), Color(0.25, 0.25, 0.28), 10, 6, MG.OUTLINE, 2)
-	MG.grad_rect(_root, r, Color(0.7, 0.72, 0.76), Color(0.4, 0.42, 0.46))
+	var r := Rect2(Vector2(o.x + BW / 2.0 - 120, o.y + BH + FRAME_BOTTOM - 54), Vector2(240, 34))
+	MG.grad_rect(_root, r, Color(0.12, 0.12, 0.13), Color(0.04, 0.04, 0.05))
 	for k in mini(_tray, 40):
-		_coin_flat(r.position + Vector2(r.size.x / 2.0 + ((k * 37) % 120 - 60) * 1.4, r.size.y - 8 - (k / 8) * 4))
+		_coin_flat(r.position + Vector2(r.size.x / 2.0 + ((k * 37) % 150 - 75) * 1.2, r.size.y - 8 - (k / 10) * 4))
+	var handle := Rect2(r.position + Vector2(-10, r.size.y - 6), Vector2(r.size.x + 20, 18))
+	MG.box(_root, handle, Color(0.82, 0.83, 0.87), 4, 3, MG.OUTLINE, 2)
+	_root.draw_line(handle.position + Vector2(8, 5), handle.position + Vector2(handle.size.x - 8, 5), Color(1, 1, 1, 0.8), 2.0)
+	for s in [0.0, 1.0]:
+		_root.draw_rect(Rect2(handle.position + Vector2(s * (handle.size.x - 16), -10), Vector2(16, 28)), Color(0.08, 0.08, 0.09))
 	if _tray > 0:
-		_root.draw_string(font, r.position + Vector2(0, -8), "Voitot tarjottimella: %d €" % _tray, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 18,
+		_root.draw_string(font, r.position + Vector2(0, -8), "Voitot kourussa: %d €" % _tray, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 18,
 			Color(1, 0.92, 0.6))
 
 
-## Euron kolikko edestä: kultainen reuna, hopeinen keskus, kohokuvio ja pyörivä kiilto.
-func _draw_coin(p: Vector2) -> void:
-	_root.draw_circle(p + Vector2(2, 3), COIN_R, Color(0, 0, 0, 0.35))
-	_root.draw_circle(p, COIN_R, Color(0.72, 0.58, 0.22))
-	_root.draw_circle(p, COIN_R - 1.5, Color(0.92, 0.78, 0.35))
-	_root.draw_circle(p, COIN_R * 0.62, Color(0.78, 0.8, 0.84))
-	_root.draw_circle(p, COIN_R * 0.62, Color(0.5, 0.5, 0.55), false, 1.0)
-	_root.draw_string(ThemeDB.fallback_font, p + Vector2(-4, 4), "1", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.35, 0.35, 0.4))
-	var a := _spin
-	_root.draw_line(p + Vector2(cos(a), sin(a)) * 3.0, p + Vector2(cos(a), sin(a)) * 8.0, Color(1, 1, 1, 0.8), 2.0)
-	_root.draw_arc(p, COIN_R, 0, TAU, 20, MG.OUTLINE, 1.5, true)
+## Lyönnin voimamittari kaapin oikealla puolella.
+func _draw_meter(cab: Rect2, o: Vector2, font: Font) -> void:
+	var bar := Rect2(Vector2(cab.end.x + 60, o.y + 60), Vector2(22, 220))
+	MG.box(_root, bar.grow(4), Color(0.05, 0.05, 0.05, 0.8), 6)
+	var p := _power if _coin_state == "ready" else 0.0
+	var h := bar.size.y * p
+	MG.grad_rect(_root, Rect2(Vector2(bar.position.x, bar.end.y - h), Vector2(bar.size.x, h)), Color(1.0, 0.3, 0.2), Color(0.3, 0.8, 0.3))
+	for k in 5:
+		var y := bar.end.y - bar.size.y * k / 4.0
+		_root.draw_line(Vector2(bar.position.x - 6, y), Vector2(bar.position.x, y), Color(1, 1, 1, 0.6), 2.0)
+	_root.draw_string(font, bar.position + Vector2(-30, -12), "VOIMA", HORIZONTAL_ALIGNMENT_CENTER, 82, 18, Color.WHITE)
 
 
-## Kolikko kyljellään pinossa: litteä ellipsi.
+## Kolikko edestä: messinkinen reuna, kohokuvio ja kiilto (pyörivä, kun kolikko lentää).
+func _draw_coin(p: Vector2, r: float, spin := true) -> void:
+	_root.draw_circle(p + Vector2(1.5, 2.5), r, Color(0, 0, 0, 0.35))
+	_root.draw_circle(p, r, Color(0.66, 0.54, 0.22))
+	_root.draw_circle(p, r - 1.5, Color(0.86, 0.74, 0.38))
+	_root.draw_arc(p, r * 0.7, 0, TAU, 16, Color(0.66, 0.54, 0.22), 1.0)
+	_root.draw_string(ThemeDB.fallback_font, p + Vector2(-r * 0.45, r * 0.4), "1", HORIZONTAL_ALIGNMENT_LEFT, -1, int(r * 1.1),
+		Color(0.55, 0.44, 0.16))
+	var a := _spin if spin else 0.8
+	_root.draw_line(p + Vector2(cos(a), sin(a)) * r * 0.3, p + Vector2(cos(a), sin(a)) * r * 0.8, Color(1, 1, 0.9, 0.7), 1.5)
+	_root.draw_arc(p, r, 0, TAU, 20, MG.OUTLINE, 1.2, true)
+
+
+## Kolikko kyljellään kourussa: litteä ellipsi.
 func _coin_flat(p: Vector2) -> void:
 	var pts := PackedVector2Array()
 	for k in 14:
@@ -587,11 +780,3 @@ func _coin_flat(p: Vector2) -> void:
 	pts.append(pts[0])
 	_root.draw_polyline(pts, Color(0.45, 0.35, 0.1), 1.0)
 	_root.draw_line(p + Vector2(-6, -1), p + Vector2(2, -2), Color(1, 0.95, 0.7), 1.5)
-
-
-func _star(c: Vector2, r: float, col: Color) -> void:
-	var pts := PackedVector2Array()
-	for k in 10:
-		var a := -PI / 2.0 + TAU * k / 10.0
-		pts.append(c + Vector2(cos(a), sin(a)) * (r if k % 2 == 0 else r * 0.45))
-	_root.draw_colored_polygon(pts, col)
