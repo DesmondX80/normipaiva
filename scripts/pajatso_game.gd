@@ -52,7 +52,6 @@ const GUIDES := [Vector2(202, 196), Vector2(398, 196), Vector2(137, 214), Vector
 const POT_MAX := 200       # näkyvän varannon koko: ylimenevä valuu kassaan
 const FRAME := 50.0        # kehyksen leveys vasemmalla
 const FRAME_RIGHT := 84.0  # oikealla leveämpi: ikärajakyltti ja vaihtokone
-const SIDE_W := 40.0       # metallikylki oikealla (lukko, laukaisin, kahva)
 const SLOT_IN := Vector2(589, -62)  # kolikkoaukko yläkehyksen kiinnikkeessä (laudan koordinaateissa), kanava suoraan alas
 const INSERT_T := 0.4      # syötetty kolikko putoaa aukosta pidikkeeseen (s)
 const CHANGER := Vector2(BW + FRAME_RIGHT / 2.0, 470)  # vaihtokoneen kahva oikeassa kehyksessä
@@ -702,22 +701,10 @@ func _draw_bar_wall(sz: Vector2) -> void:
 ## ikärajakyltti ja kolikkoaukko oikeassa kehyksessä.
 func _draw_cabinet(cab: Rect2, o: Vector2, font: Font) -> void:
 	_root.draw_rect(Rect2(cab.position + Vector2(14, 16), cab.size), Color(0, 0, 0, 0.45))  # varjo seinällä
-	var side := Rect2(Vector2(cab.end.x, cab.position.y + 8), Vector2(SIDE_W, cab.size.y - 16))  # metallikylki
-	MG.grad_rect(_root, side, Color(0.32, 0.34, 0.38), Color(0.2, 0.21, 0.24))
-	_root.draw_rect(side, MG.OUTLINE, false, 2.0)
-	# Kyljen helat kuten oikeassa koneessa: ylhäällä lukkolevy avaimenreikineen (laukaisin keskellä, _draw_striker),
-	# alempana kromattu kahva, jossa aukko.
-	var lock := Rect2(Vector2(side.position.x + 6, o.y - 60), Vector2(26, 90))
-	MG.box(_root, lock, Color(0.8, 0.81, 0.85), 2, 1, MG.OUTLINE, 1)
-	for c in [Vector2(7, 8), Vector2(19, 8), Vector2(7, 82), Vector2(19, 82)]:
-		_root.draw_circle(lock.position + c, 1.8, Color(0.45, 0.45, 0.48))
-	_root.draw_circle(lock.position + Vector2(13, 45), 7.5, Color(0.66, 0.67, 0.7))
-	_root.draw_circle(lock.position + Vector2(13, 45), 3.0, Color(0.12, 0.12, 0.13))
-	_root.draw_line(lock.position + Vector2(13, 45), lock.position + Vector2(13, 51), Color(0.12, 0.12, 0.13), 2.0)
+	# Suoraan edestä kylki ei näy: kyljen kahva työntyy kaapin oikean reunan yli (laukaisin, _draw_striker).
 	var hy := o.y + 505.0
-	MG.box(_root, Rect2(Vector2(side.position.x + 6, hy - 24), Vector2(28, 48)), Color(0.82, 0.83, 0.87), 5, 1, MG.OUTLINE, 1)
-	_root.draw_rect(Rect2(Vector2(side.position.x + 13, hy - 7), Vector2(13, 12)), Color(0.1, 0.1, 0.11))
-	MG.box(_root, Rect2(Vector2(side.end.x - 8, hy + 2), Vector2(30, 14)), Color(0.85, 0.86, 0.9), 6, 1, MG.OUTLINE, 1)
+	MG.box(_root, Rect2(Vector2(cab.end.x - 4, hy - 7), Vector2(30, 14)), Color(0.85, 0.86, 0.9), 6, 1, MG.OUTLINE, 1)
+	_root.draw_line(Vector2(cab.end.x, hy - 3), Vector2(cab.end.x + 22, hy - 3), Color(1, 1, 1, 0.7), 1.5)
 	var teak := Color(0.62, 0.38, 0.2)
 	_root.draw_rect(cab, teak)
 	var rng := RandomNumberGenerator.new()
@@ -892,31 +879,21 @@ func _draw_glass(o: Vector2) -> void:
 
 ## Laukaisin koneen kyljessä (kuten oikeassa koneessa) ja yläkehyksen TILT-valo.
 func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
-	# Laukaisin koneen kyljessä lyöntipaikan kohdalla: pitkä kromilista kahdella ruuvilla, siinä kiinnike ja ulos työntyvä
-	# rengaslenkki. Jännittäessä lenkki vedetään ulospäin, napautus iskee sen takaisin kylkeen.
+	# Laukaisin koneen kyljessä lyöntipaikan kohdalla: edestä näkyy vain kyljen yli työntyvä kiinnike ja syrjästä
+	# rengaslenkki. Jännittäessä lenkki vedetään ulospäin, napautus iskee sen takaisin.
 	var y := o.y + LAUNCH.y
-	var x := cab.end.x + 8.0
-	var strip := Rect2(Vector2(x, y - 78), Vector2(16, 156))
-	MG.box(_root, strip, Color(0.8, 0.81, 0.85), 3, 2, MG.OUTLINE, 1)
-	for yy in [-64.0, 64.0]:
-		_root.draw_circle(Vector2(x + 8, y + yy), 3.5, Color(0.42, 0.42, 0.45))
-		_root.draw_line(Vector2(x + 5.5, y + yy), Vector2(x + 10.5, y + yy), Color(0.25, 0.25, 0.27), 1.2)
+	var x := cab.end.x
 	var pull := _power if _coin_state == "ready" and _drawing else 0.0
 	var snap := clampf(_ring_t / 0.3, 0.0, 1.0)
 	var tremble := sin(_t * 13.0) * 1.2 if _coin_state == "ready" and _drawing and not _thumb and _tension < 1.0 else 0.0
 	var off := pull * 16.0 - sin(snap * PI) * 4.0 + tremble
-	var block := Rect2(Vector2(x - 2 + off, y - 19), Vector2(24, 38))
-	MG.box(_root, block, Color(0.84, 0.85, 0.89), 4, 0, MG.OUTLINE, 1)
-	_root.draw_line(block.position + Vector2(3, 4), block.position + Vector2(3, block.size.y - 4), Color(1, 1, 1, 0.7), 1.5)
-	_root.draw_circle(block.position + Vector2(9, 9), 2.0, Color(0.45, 0.45, 0.48))
-	_root.draw_circle(block.position + Vector2(9, 29), 2.0, Color(0.45, 0.45, 0.48))
-	# Lenkki: paksu kromattu puolirengas.
-	var rc := Vector2(block.end.x + 1, y)
-	_root.draw_arc(rc, 15.0, -PI * 0.5, PI * 0.5, 18, MG.OUTLINE, 10.0, true)
-	_root.draw_arc(rc, 15.0, -PI * 0.5, PI * 0.5, 18, Color(0.86, 0.87, 0.91), 7.0, true)
-	_root.draw_arc(rc, 15.0, -PI * 0.35, PI * 0.05, 8, Color(1, 1, 1, 0.9), 2.0, true)
-	if pull > 0.0:  # jännitetty: rako kylkeen
-		_root.draw_line(Vector2(x - 2, y - 12), Vector2(x - 2, y + 12), Color(0.1, 0.1, 0.11), 2.0)
+	MG.box(_root, Rect2(Vector2(x - 2, y - 20), Vector2(8, 40)), Color(0.8, 0.81, 0.85), 2, 1, MG.OUTLINE, 1)  # lista
+	var block := Rect2(Vector2(x + 5 + off, y - 9), Vector2(14, 18))
+	MG.box(_root, block, Color(0.84, 0.85, 0.89), 3, 0, MG.OUTLINE, 1)
+	# Lenkki syrjästä: pyöreäpäinen kromitanko.
+	var rc := Vector2(block.end.x + 13, y)
+	MG.box(_root, Rect2(Vector2(block.end.x - 2, y - 4), Vector2(29, 8)), Color(0.86, 0.87, 0.91), 4, 0, MG.OUTLINE, 1)
+	_root.draw_line(Vector2(block.end.x, y - 2), Vector2(rc.x + 10, y - 2), Color(1, 1, 1, 0.8), 1.5)
 	if snap > 0.0:
 		for k in 3:  # napautuksen viivat
 			var a := -0.5 + k * 0.5

@@ -348,7 +348,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     F soutaa takaisin laiturille. Saalis viedään savustimeen.
   - **Pajatso ja hedelmäpeli Siitarissa:** pajatso RAY:n 50 pennin pajatson (1966) mukaan: tiikkikehyksinen kaappi,
     RAY:n apilakyltti, lasin takana tummanpunainen lauta, harmaa rakonauha, suppilo ja näkyvä kolikkovaranto
-    pystykouruissa, tähtipyörät, voittokouru kahvoineen ja TILT-valo; kyljessä lukkolevy, laukaisin ja kahva.
+    pystykouruissa, tähtipyörät, voittokouru kahvoineen ja TILT-valo; kyljen laukaisin ja kahva työntyvät reunan yli.
     Pelataan euron kolikoilla: taskussa on yleensä yksi, oikean kehyksen vaihtokone (D) vaihtaa kahden euron kolikon
     kahdeksi euroksi kahvaa vääntämällä (kolikot kuppiin), ja voittokourun kolikot käyvät suoraan peliin. Euro syötetään
     (E) yläkehyksen kiinnikkeen rakoon, josta se putoaa oikean reunan kanavaa alas lyöntipaikalle rakonauhan tasolle.
