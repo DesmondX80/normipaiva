@@ -18198,7 +18198,7 @@ func _wife_rhythm(t: float) -> void:
 				wife.reset_to(wife.farthest_node_from(player.global_position))
 			wife.visible = true
 			wife.process_mode = Node.PROCESS_MODE_INHERIT
-			if prev == "koti" and state == "ulkona" and not _at_mokki():
+			if prev == "koti" and state == "ulkona" and not _at_mokki() and not _in_vaala:  # Vaalaan Päivi ei tule
 				_queue_message("Päivi lähti liikkeelle. Punainen Hyundai on teillä!", 3.0)
 
 
