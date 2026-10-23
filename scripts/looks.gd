@@ -170,7 +170,7 @@ static func sinikka_bikini() -> Dictionary:
 const MIRKKU := {
 	"model": "female", "shirt": Color(0.95, 0.93, 0.88), "pants": Color(0.32, 0.42, 0.6), "shoes": Color(0.55, 0.42, 0.3),
 	"hair": "Hair_Long", "hair_color": Color(0.78, 0.5, 0.28), "height": 1.68, "skin": Color(1.0, 0.95, 0.9),
-	"denim": true, "braid": true,
+	"denim": true, "braid": true, "bust": 1.4, "curves": 0.4,
 }
 
 const PEKKA := {
@@ -272,8 +272,8 @@ static func add_braid(c: Node3D, col: Color) -> void:
 	var to_char: Transform3D = c.model.transform * sk.transform
 	var head: Vector3 = to_char * sk.get_bone_global_rest(sk.find_bone("Head")).origin
 	var chest: Vector3 = to_char * sk.get_bone_global_rest(sk.find_bone("spine_03")).origin
-	var path := PackedVector3Array([Vector3(0.06, -0.02, 0.05), Vector3(0.09, -0.11, 0.02), Vector3(0.115, -0.2, -0.06),
-		Vector3(0.115, -0.29, -0.15), Vector3(0.11, -0.42, -0.185), Vector3(0.1, -0.56, -0.18)])
+	var path := PackedVector3Array([Vector3(0.06, -0.02, 0.05), Vector3(0.09, -0.11, 0.02), Vector3(0.115, -0.2, -0.07),
+		Vector3(0.12, -0.29, -0.19), Vector3(0.115, -0.41, -0.25), Vector3(0.1, -0.55, -0.21)])
 	var curve := Curve3D.new()
 	for k in path.size():
 		var t := Vector3.ZERO
