@@ -353,10 +353,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     kahdeksi euroksi kahvaa vääntämällä (kolikot kuppiin), ja voittokourun kolikot käyvät suoraan peliin. Euro syötetään
     (E) yläkehyksen kiinnikkeen rakoon, josta se putoaa oikean reunan kanavaa alas laukaisupesään pystyyn rakonauhan
     tasolle. Laukaisin ei ole jousiase: sitä ei viritetä, vaan sormi napsauttaa liipaisimen suoraan sisään ja jousi vain
-    palauttaa sen. E pohjassa kerää sormeen voimaa (mitä pidempään, sitä kovempi isku), irrotus napsauttaa.
+    palauttaa sen. Liipaisin on kyljen lenkki, jota painetaan sisään kohti konetta. E pohjassa kerää sormeen voimaa (mitä pidempään, sitä kovempi isku), irrotus napsauttaa.
     Lyöntitekniikat: pintalyönti (kevyt neppaus; liian heikko putoaa viereiseen R-rakoon ja antaa uusinnan),
-    peukalotuki (välilyönti: peukalo kehyksen reunaan, ei tärinää, voima kertyy hitaammin), pohjaanlyönti (täysi voima,
-    liipaisin pohjaan: aina sama lento vasemman laidan porttiin) ja snaiffaus (S: saatto jarruttaa iskua). Lennon aikana
+    peukalotuki (välilyönti: peukalo kehyksen reunaan, ei tärinää, voima kertyy hitaammin), voimalyönti (kova isku
+    laidan portteihin) ja snaiffaus (S: saatto jarruttaa iskua). Lennon aikana
     K tönäisee konetta: jousi vaimenee hetkeksi, mutta tilt vie kolikon, ja kolmannesta tiltistä isäntä heittää ulos.
     Kolikko lähtee aina vasemmalle ja hieman ylös ja putoaa rakojen yli yhdeksälle raolle: R (panos takaisin), 2, 3, 3,
     14, 3, 3, 2, R euroa (oikean koneen 1:00, 1:50 ja 7:00). Raon portissa on kaksi jousitappia, joiden säädettävä
@@ -368,7 +368,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     kerran päivässä, jos repussa on virveli tai onki: rakoon mennyt siimakolikko nykäistään uudestaan läpi, kunnes
     siimaleikkuri katkaisee siiman tai isäntä näkee ja heittää ulos (maine −6). Kone skaalautuu pienempään ikkunaan.
     Palautus (simuloitu): satunnainen lyönti noin 60 %, tähtäys ilman tukea noin 80–90 %, peukalotuella noin 95 %,
-    pohjaanlyönti noin 85 % (`--scene=pajatso`).
+    voimalyönti vähemmän (`--scene=pajatso`).
     Hedelmäpelillä pelaa kaksi seurueen jäsentä; vuoron saa kysymällä. Kolme rullaa, voittotaulukko, lukitus
     häviön jälkeen (1 2 3) ja tuplaus pieni/suuri (`--scene=siitaripelit`).
   - **Lauantai Siitarissa:** pajatsolla pelaa kaksi Raahen jätkää, jotka eivät anna pelivuoroa ja haastavat riitaa.

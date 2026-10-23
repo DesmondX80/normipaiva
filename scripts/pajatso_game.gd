@@ -33,12 +33,12 @@ const PIN_R := 3.0
 const LAUNCH := Vector2(589, 224)  # lyöntipaikka oikeassa reunassa rakonauhan tasolla, syöttökanavan pohjalla
 const LAUNCH_ANG := 0.4    # lähtökulma vaakatasosta ylöspäin (rad)
 const V_MIN := 60.0        # lyönnin nopeus voimalla 0 %..100 %
-const V_MAX := 780.0       # täysi voima (pohjaanveto) lennättää vasemman laidan 2,00-porttiin
+const V_MAX := 780.0       # kovin isku (voimalyönti) lennättää vasemman laidan 2,00-porttiin
 const TENSION_RATE := 0.55  # sormen jännitys (lyönnin voima) nousee E pohjassa, /s
 const TENSION_THUMB := 0.32 # peukalotuella hitaammin
 const TREMOR := 0.035      # jännittävän sormen tärinä (voimana)
 const TREMOR_THUMB := 0.005
-const FINGER := 0.04       # sormen lyönnin vaihtelu (nopeus ±), pohjaanvedossa 1 %
+const FINGER := 0.04       # sormen iskun vaihtelu (nopeus ±)
 const SNAIF_STEP := 0.03   # snaiffaus: saatto jarruttaa lyöntiä
 const TILT_CHANCE := 0.35  # tönäisy laukaisee tilt-hälyttimen
 const BAND_Y := 250.0      # rakonauhan yläreuna
@@ -249,8 +249,7 @@ func _eur(v: float) -> String:
 ## Lyönti kyljen laukaisimesta: ensimmäinen E syöttää kolikon kanavaan laukaisupesään (pystyssä). Laukaisinta ei
 ## viritetä: E pohjassa kerää sormeen voimaa (mitä pidempään, sitä kovempi isku) ja irrotus napsauttaa liipaisimen
 ## sisään; sen jousi vain palauttaa liipaisimen. Sormi tärisee (humalassa enemmän); peukalotuki (välilyönti pohjassa:
-## peukalo kehyksen reunaan) poistaa tärinän, mutta voima kertyy hitaammin. Täysi voima lukittuu (pohjaanlyönti:
-## liipaisin pohjaan, aina yhtä kova). S on snaiffaus: sormenpää saattaa liipaisinta ja jarruttaa iskua. Kolikon lennon
+## peukalo kehyksen reunaan) poistaa tärinän, mutta voima kertyy hitaammin. S on snaiffaus: sormenpää saattaa liipaisinta ja jarruttaa iskua. Kolikon lennon
 ## aikana K tönäisee konetta: tärähdys vaimentaa portin jousta hetkeksi, mutta tilt-hälytin voi laueta. Q solmii
 ## siiman tai nykäisee siimakolikon. D vääntää vaihtokoneen kahvaa, W vetää maksuvipua.
 func _striker(delta: float) -> void:
@@ -288,7 +287,7 @@ func _striker(delta: float) -> void:
 				_tension = maxf(0.0, _tension - SNAIF_STEP)
 				_snaifs += 1
 				Sfx.play("cloth", -18.0, 2.4)
-		var amp := 0.0 if _tension >= 1.0 else (TREMOR_THUMB + drunk * 0.03 if _thumb else TREMOR + drunk * 0.1)
+		var amp := TREMOR_THUMB + drunk * 0.03 if _thumb else TREMOR + drunk * 0.1
 		_power = clampf(_tension + (sin(_t * 13.0) + 0.6 * sin(_t * 7.1 + 1.3)) * amp / 1.6, 0.0, 1.0) if _drawing else 0.0
 		if _drawing and not held:
 			_flick()
@@ -306,22 +305,21 @@ func _striker(delta: float) -> void:
 	_insert()
 
 
-## Napautus: kyljen rengas iskee prikkajonon läpi heittoliuskaan ja liuska kolikkoon. Pohjaanveto on aina yhtä kova.
+## Napautus: sormi painaa kyljen lenkin sisään kohti konetta, ja iskuri lyö kolikkoa.
 func _flick() -> void:
-	var full := _tension >= 1.0
 	_ring_t = 0.3
 	_drawing = false
 	Sfx.play("glass", -8.0, 2.2)
-	if full:
-		_tech("pohja", "Pohjaanlyönti! Laukaisin pohjaan asti: täysi voima, aina sama lento laitaporttiin.")
+	if _tension > 0.9:
+		_tech("voima", "Voimalyönti: kova isku vie kolikon laidan portteihin.")
 	elif _thumb:
 		_tech("peukalo", "Peukalo kehyksen reunaan: käsi ei tärise, lyönti toistuu samanlaisena.")
 	elif _snaifs > 0:
-		_tech("snaiffi", "Snaiffaus: sormenpää saattoi rengasta ja jarrutti lyöntiä.")
+		_tech("snaiffi", "Snaiffaus: sormenpää saattoi lenkkiä ja jarrutti iskua.")
 	elif _tension < 0.4:
 		_tech("pinta", "Pintalyönti: herkkä neppaus, kolikko lähti kevyesti.")
 	_last_power = _power
-	_launch(_power, 0.01 if full else FINGER)
+	_launch(_power)
 
 
 func _tech(id: String, text: String) -> void:
@@ -1058,7 +1056,7 @@ func _draw_tray(o: Vector2, font: Font) -> void:
 			Color(1, 0.92, 0.6))
 
 
-## Sormen jännitys (lyönnin voima) kaapin oikealla puolella: tärinä näkyy viivan heilumisena, pohjassa lukittu.
+## Sormeen kerätty voima kaapin oikealla puolella: tärinä näkyy viivan heilumisena.
 func _draw_meter(cab: Rect2, o: Vector2, font: Font) -> void:
 	var bar := Rect2(Vector2(cab.end.x + 100, o.y + 320), Vector2(22, 220))
 	MG.box(_root, bar.grow(4), Color(0.05, 0.05, 0.05, 0.8), 6)
@@ -1069,10 +1067,7 @@ func _draw_meter(cab: Rect2, o: Vector2, font: Font) -> void:
 		var yy := bar.end.y - bar.size.y * k / 4.0
 		_root.draw_line(Vector2(bar.position.x - 6, yy), Vector2(bar.position.x, yy), Color(1, 1, 1, 0.6), 2.0)
 	_root.draw_string(font, bar.position + Vector2(-40, -12), "VOIMA", HORIZONTAL_ALIGNMENT_CENTER, 102, 18, Color.WHITE)
-	if _coin_state == "ready" and _tension >= 1.0:
-		_root.draw_string(font, bar.position + Vector2(-40, bar.size.y + 26), "POHJASSA", HORIZONTAL_ALIGNMENT_CENTER, 102, 16,
-			Color(1.0, 0.85, 0.3))
-	elif _coin_state == "ready" and _thumb:
+	if _coin_state == "ready" and _thumb:
 		_root.draw_string(font, bar.position + Vector2(-40, bar.size.y + 26), "PEUKALO", HORIZONTAL_ALIGNMENT_CENTER, 102, 16,
 			Color(0.7, 0.95, 0.7))
 

@@ -18914,7 +18914,7 @@ func _maybe_screenshot() -> void:
 			while pg._coin_state == "insert" and Time.get_ticks_msec() - tc < 3000:
 				await get_tree().process_frame
 			print("PJ syöttö: tila %s, kolikoita %d, kupissa %d, rahaa %.0f" % [pg._coin_state, pg.coins, pg._cup_coins, pg.money])
-			# Lyönti prikasta: E pohjassa jännittää sormea, välilyönti peukalotueksi, irrotus napauttaa.
+			# Lyönti kyljen lenkistä: E pohjassa kerää sormeen voimaa, välilyönti peukalotueksi, irrotus napauttaa.
 			# (Xvfb-ajossa näppäinsimulaatio ei mene peliin: jännitystila asetetaan suoraan ja kuvataan pysäytettynä.)
 			pg._insert()
 			await get_tree().process_frame
