@@ -29825,6 +29825,7 @@ func _maybe_screenshot() -> void:
 			_inventory.toggle()
 			await get_tree().process_frame
 			_toggle_mount()
+			mokki.ensure_built()  # pelissä mökki rakentuu kyydin aikana; testi menee sinne suoraan
 			walker_out.global_position = mokki.porch_pos(3.0)
 			for i in 10:
 				await get_tree().physics_frame
