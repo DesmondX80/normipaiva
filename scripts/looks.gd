@@ -165,6 +165,13 @@ static func sinikka_bikini() -> Dictionary:
 		look.erase(k)
 	return look
 
+## Mirkku Saloisten luontopolulla (laavupolku, main.gd): punertavan vaaleat hiukset kammattu sivulle paksuksi
+## palmikoksi oikean olan yli rinnalle (add_braid), pisamainen vaalea iho, valkoinen väljä paita ja farkut.
+const MIRKKU := {
+	"model": "female", "shirt": Color(0.95, 0.93, 0.88), "pants": Color(0.32, 0.42, 0.6), "shoes": Color(0.55, 0.42, 0.3),
+	"hair": "Hair_Long", "hair_color": Color(0.78, 0.5, 0.28), "height": 1.68, "skin": Color(1.0, 0.95, 0.9),
+	"denim": true, "braid": true,
+}
 
 const PEKKA := {
 	"shirt": Color(0.3, 0.36, 0.2), "pants": Color(0.35, 0.33, 0.22), "shoes": Color(0.15, 0.12, 0.1),
@@ -220,6 +227,8 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 		add_fringe(c, look.get("hair_color", Color(0.05, 0.04, 0.04)))
 	if look.get("army", false):
 		add_army_uniform(c)
+	if look.get("braid", false):
+		add_braid(c, look.get("hair_color", Color(0.78, 0.5, 0.28)))
 	return c
 
 
@@ -253,6 +262,46 @@ static func add_glam(c: Node3D) -> void:
 		(ring.material_override as StandardMaterial3D).roughness = 0.25
 		ring.rotation = Vector3(0, 0, PI / 2.0)
 		c.attach("Head", ring, Vector3(s * 0.072, 0.015, 0.005))
+
+
+## Sivupalmikko: korvan takaa kaulan sivua olan yli ja rintaa alas; kolmen säikeen lomittuvat lenkit vuorotellen
+## vinossa, kapenee loppua kohti, tumma hiuslenkki ja tupsu. Kiinni rintakehän luussa (spine_03), jotta palmikko
+## pysyy olan päällä; mitat hahmon avaruudessa pääluun lepopaikasta (kasvot −Z, oikea puoli +X).
+static func add_braid(c: Node3D, col: Color) -> void:
+	var sk: Skeleton3D = c.skeleton
+	var to_char: Transform3D = c.model.transform * sk.transform
+	var head: Vector3 = to_char * sk.get_bone_global_rest(sk.find_bone("Head")).origin
+	var chest: Vector3 = to_char * sk.get_bone_global_rest(sk.find_bone("spine_03")).origin
+	var path := PackedVector3Array([Vector3(0.06, -0.02, 0.05), Vector3(0.09, -0.11, 0.02), Vector3(0.115, -0.2, -0.06),
+		Vector3(0.115, -0.29, -0.15), Vector3(0.11, -0.42, -0.185), Vector3(0.1, -0.56, -0.18)])
+	var curve := Curve3D.new()
+	for k in path.size():
+		var t := Vector3.ZERO
+		if k > 0 and k < path.size() - 1:
+			t = (path[k + 1] - path[k - 1]) * 0.25
+		curve.add_point(path[k], -t, t)
+	var braid := Node3D.new()
+	var length := curve.get_baked_length()
+	var n := 16
+	var tie_at := 0.86
+	for i in n:
+		var f := (i + 0.5) / n * tie_at
+		var p := curve.sample_baked(f * length)
+		var down := (curve.sample_baked(minf(f * length + 0.01, length)) - p).normalized()
+		var side := down.cross(Vector3(0, 0, 1)).normalized()
+		var flip := 1.0 if i % 2 == 0 else -1.0
+		var w := lerpf(0.05, 0.034, f)  # kapenee loppua kohti
+		var lobe := B.mesh(braid, B.sphere(0.5, 10), p + side * flip * w * 0.22, col.darkened(0.06 * (i % 3)))
+		var bas := Basis(side, down, side.cross(down)).orthonormalized()
+		lobe.basis = bas.rotated(down, flip * 0.5) * Basis.from_scale(Vector3(w, length / n * 1.9, w * 0.8))
+	var tp := curve.sample_baked(tie_at * length)
+	var tie := B.mesh(braid, B.cyl(0.019, 0.019, 0.014, 12), tp, Color(0.25, 0.17, 0.1))
+	tie.basis = Basis(Vector3.UP, 0.0)
+	for k in 3:  # tupsu lenkin alla
+		var a := (k - 1) * 0.35
+		var tuft := B.mesh(braid, B.sphere(0.5, 8), tp + Vector3(sin(a) * 0.008, -0.03, cos(a) * 0.004), col.lightened(0.05))
+		tuft.scale = Vector3(0.024, 0.06, 0.018)
+	c.attach("spine_03", braid, head - chest)
 
 
 ## Charlie Chaplinin hammasharjaviikset nenän alle: pieni musta, hieman pyöristetty töyhtö (mitat kuten glam-asusteissa

@@ -365,6 +365,7 @@ var kirppis_int: Node3D
 var varasto_int: Node3D
 var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.gd, #120)
 var aaro: CharacterBody3D  # vanha tokolalainen Aaro
+var mirkku: CharacterBody3D  # Mirkku laavupolulla (Looks.MIRKKU)
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
 var lemmikki: RefCounted  # Lemmikki Enkelit ja Pörrön muistokyltti (lemmikki_enkelit.gd, #148)
@@ -818,6 +819,7 @@ const TALKERS := {
 	"huutaja": ["Huutaja Erkki", Color(1.0, 0.85, 0.3)],
 	"annaliisa": ["Anna-Liisa", Color(0.95, 0.7, 0.75)],
 	"aaro": ["Tokolan Aaro", Color(0.8, 0.75, 0.65)],
+	"mirkku": ["Mirkku", Color(0.98, 0.66, 0.42)],
 	"olavi_pappa": ["Olavi-pappa", Color(0.85, 0.8, 0.6)],
 	"hoitaja": ["Hautausmaan hoitaja", Color(0.7, 0.8, 0.65)],
 	"suntio": ["Suntio", Color(0.85, 0.85, 0.95)],
@@ -883,6 +885,7 @@ const TALK_HELLO := {
 	"kynttilanainen": ["...", "Anna minun olla hetki."],
 	"aaro": ["Jaa, nuori mies. Tokolassa ei paljon vieraita käy.", "Päivää päivää. Istu vaikka tuohon kivelle.",
 		"Kas. Sinä oot se Järvikujan poika."],
+	"mirkku": ["Moikka! Ihana päivä, eiks?", "No hei! Tuu kattoon, täällä kukkii ihan kaikki.", "Kas, sää! Lähetkö laavulle?"],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
 	"gasthaus": ["Iltaa. Huonetta vailla?", "Tervetuloa Gasthausiin. Yö maksaa kympin."],
 	"poliisi": ["Iltaa. Roivainen, Vaalan poliisi. Rutiinitarkastus. Puhaltakaa tähän, olkaa hyvä.",
@@ -1715,6 +1718,7 @@ func _outside_logic() -> void:
 	_neighbor_logic()
 	_story_logic()
 	_pontikka_logic()
+	_mirkku_logic()
 	_taxi_logic()
 	_makasiini_logic()
 	_station_logic()
@@ -3423,6 +3427,13 @@ func _start_auction() -> void:
 const AARO_LOOK := {"shirt": Color(0.4, 0.38, 0.3), "pants": Color(0.25, 0.22, 0.2), "shoes": Color(0.2, 0.15, 0.1),
 	"hair": "Hair_Buzzed", "hair_color": Color(0.9, 0.9, 0.88), "beard": true, "height": 1.7, "skin": Color(0.92, 0.72, 0.64),
 	"belly": 0.3}
+## Mirkku kävelee kesäpäivisin Saloisten luontopolkua (laavupolku Järvikujan päästä etelään) ja poimii kukkia.
+const MIRKKU_LINES := ["Kato miten kaunis niitty! Päivänkakkaraa, maitohorsmaa ja keltasauniota.",
+	"Mää kävelen tän polun joka kesä laavulle asti. Tuutko mukaan?", "Otetaanko selfie? Valo on just nyt paras.",
+	"Viime kesänä me käveltiin tää polku ja juteltiin koko ilta.", "Älä tallo kukkia! Tää on luontopolku, ei mopokisarata.",
+	"Laavulla oli kuulemma taas joku pitäny bileitä. Mää vaan keräilen kukkia."]
+## Mirkun kävelypisteet laavupolulla (karttapikseleinä polun viivalla) ja kukkamättäät polun varressa.
+const MIRKKU_PATH := [Vector2(848, 1320), Vector2(853, 1365), Vector2(858, 1405), Vector2(856, 1450)]
 const AARO_LINES := ["Tokolan kauppa oli auki kuuskytluvulle. Siellä sai kaikkea, sokeriakin. Varsinkin sokeria.",
 	"Nuorena mää kävin kaupassa hakemassa isälle tupakat. Kauppias anto aina karamellin.",
 	"Heinimäeltä näkee terästehtaan savut. Ennen siellä näki vaan metsää.",
@@ -9462,6 +9473,34 @@ func _pontikka_logic() -> void:
 	_talk_hint("sulo", sulo, player != bike)
 
 
+## Mirkku laavupolulla: puhevihje lähellä (jalan E, pyörällä kehotus nousta pois).
+func _mirkku_logic() -> void:
+	if _hint.text != "" or not is_instance_valid(mirkku) or mirkku.distance_to_player() > 4.2:
+		return
+	_talk_hint("mirkku", mirkku, player != bike)
+
+
+## Kukkamättäät laavupolun varressa Mirkun kävelypisteiden kohdalla: päivänkakkaraa, keltasauniota ja maitohorsmaa.
+func _mirkku_flowers() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1606
+	var stem := Color(0.28, 0.5, 0.2)
+	var heads := [Color(0.97, 0.96, 0.9), Color(0.98, 0.78, 0.15), Color(0.78, 0.45, 0.78)]
+	for px in MIRKKU_PATH:
+		for side in [-1.0, 1.0]:
+			var c := M.w(px + Vector2(side * rng.randf_range(1.6, 2.6), rng.randf_range(-2.0, 2.0)))
+			for k in 21:
+				var q := c + Vector3(rng.randf_range(-1.2, 1.2), 0, rng.randf_range(-1.2, 1.2))
+				q.y = Terrain.h(q.x, q.z)
+				var h := rng.randf_range(0.3, 0.6)
+				B.mesh(self, B.cyl(0.008, 0.01, h, 4), q + Vector3(0, h / 2.0, 0), stem)
+				var col: Color = heads[k % 3]
+				var head := B.mesh(self, B.sphere(0.5, 8), q + Vector3(0, h, 0), col)
+				head.scale = Vector3(0.1, 0.035, 0.1) if k % 3 != 2 else Vector3(0.05, 0.16, 0.05)  # horsma: tähkä
+				if k % 3 == 0:
+					B.mesh(self, B.sphere(0.5, 6), q + Vector3(0, h + 0.012, 0), Color(0.95, 0.75, 0.1)).scale = Vector3(0.035, 0.018, 0.035)
+
+
 ## K-Marketin taksitolpan taksi: jalan E vie Raahen baariin, jos rahaa on taksiin.
 func _taxi_logic() -> void:
 	if _hint.text != "":
@@ -11413,6 +11452,8 @@ func _talk_chat_line() -> String:
 				"Hitsaus on kuin runoutta. Paitsi että kuumempaa."].pick_random()
 		"aaro":
 			return AARO_LINES.pick_random()
+		"mirkku":
+			return MIRKKU_LINES.pick_random()
 		"reippari":
 			return REIPPARI_LINES.pick_random()
 		"reippari_nuoret":
@@ -17359,6 +17400,11 @@ func _spawn_hazards() -> void:
 	sinikka.chores.assign(["Fixing_Kneeling", "Crouch_Idle", "PickUp_Table", "Fixing_Kneeling"])  # kitkee, kastelee, istuttaa
 	sulo = _villager("Pannu-Sulo", Looks.SULO, SULO_LINES, "sulo", M.PONTIKKA + Vector2(-2.2, -1.2))
 	aaro = _villager("Tokolan Aaro", AARO_LOOK, AARO_LINES, "arto", M.to_px(world.aaro_pos))
+	mirkku = _villager("Mirkku", Looks.MIRKKU, MIRKKU_LINES, "sinikka", MIRKKU_PATH[0])
+	for px in MIRKKU_PATH:
+		mirkku.yard.append(M.w(px))
+	mirkku.chores.assign(["Crouch_Idle", "PickUp_Table", "Idle", "Crouch_Idle"])  # poimii kukkia polun varresta
+	_mirkku_flowers()
 	_pannu_update()
 	_kertun_sync()
 	_reippari_update()
@@ -30361,6 +30407,41 @@ func _maybe_screenshot() -> void:
 			print("MDROONI järveen: broken=%s msg=%s" % [drone_broken_day == day, _msg.text])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"mirkku":
+			# Mirkku laavupolulla päivällä: yleiskuva polulta, lähikuva kukkamättäiden vierestä ja pelaaja vieressä
+			# (puhevihje ja keskustelun vaihtoehdot). Kuvat _mirkku_*.
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.fov = 45.0
+			clock_min = 13 * 60.0
+			var mk: Node3D = mirkku
+			var snap := func(name: String, eye: Vector3, at: Vector3, hud := false) -> void:
+				_hud.visible = hud
+				cam.global_position = eye
+				cam.look_at(at, Vector3.UP)
+				cam.current = true
+				for i in 12:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mirkku_%s.png" % name))
+			player.global_position = M.w(Vector2(870, 1200))  # kauempana: Mirkku puuhailee polulla
+			for i in 400:
+				await get_tree().physics_frame
+			var mp: Vector3 = mk.global_position
+			var fw: Vector3 = mk.global_basis.z  # kasvot −Z: kamera eteen
+			await snap.call("polku", mp - fw * 7.0 + Vector3(2.0, 2.2, 0), mp + Vector3(0, 0.9, 0))
+			await snap.call("lahi", mp - fw * 2.4 + Vector3(0.5, 1.4, 0), mp + Vector3(0, 1.1, 0))
+			player.global_position = mp + Vector3(0, 0.3, 3.0)
+			for i in 90:
+				await get_tree().physics_frame
+			mp = mk.global_position
+			await snap.call("vieressa", player.global_position + Vector3(2.5, 2.0, 2.5), (mp + player.global_position) / 2.0 + Vector3(0, 1.0, 0), true)
+			print("MIRKKU paikka %s, etäisyys %.1f, vaihtoehdot %s" % [M.to_px(mp), mk.distance_to_player(),
+				_talk_options("mirkku").map(func(o): return o.id)])
+			_talk_open("mirkku", mk)
+			print("MIRKKU juttu: ", _talk_chat_line() if _talk_who == "mirkku" else "(ei auennut: %s)" % _talk_who)
+			await snap.call("puhe", player.global_position + Vector3(2.5, 2.0, 2.5), (mp + player.global_position) / 2.0 + Vector3(0, 1.0, 0), true)
+			_talk_box.close()
 		"laavut":
 			# Kaikki laavut ja nuotiopaikat iltapäivän valossa, nuotiot palamassa: Antinsuonkangas, Viitajärvi,
 			# Kiilinlammen grillikatos, Haapajärven kota, Keskimmäisen laavu (mökki) ja Vaalan laavu. Kuvat _laavu_*.
