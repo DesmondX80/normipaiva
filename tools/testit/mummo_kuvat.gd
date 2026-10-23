@@ -79,7 +79,11 @@ func _run() -> void:
 	var shots := 0
 	var marks := [0.15, 0.35, 0.55, 0.62, 0.68, 0.73, 0.78, 0.84, 0.95, 1.2, 1.5]
 	var placed := false
-	for f in 600:
+	# Peliaika hitaammin: isku kestää 0,22 s, ja hitaalla (ohjelmisto)renderöinnillä yksi ruutu voisi hypätä sen yli.
+	Engine.time_scale = 0.25
+	for f in 2400:
+		if killed[0] > 0 and shots >= marks.size():
+			break
 		dummy.position = dummy.position.move_toward(sp + Vector3(0.1, 0, 1.25), 0.03)
 		if m._swing_t > 0.0 and not placed:
 			placed = true  # kamera sivulle mummon ja tulijan välisestä linjasta
@@ -93,6 +97,7 @@ func _run() -> void:
 			get_viewport().get_texture().get_image().save_png(out.path_join("huitaisu_%d.png" % shots))
 			shots += 1
 	print("HUITAISU jää paikalleen: kuoli=%d kylkeen=%d kuvia=%d" % [killed[0], hits[0], shots])
+	Engine.time_scale = 1.0
 	# Toinen kerta: pelaaja perääntyy heti, kun keppi nousee: pitää mennä ohi.
 	killed[0] = 0
 	hits[0] = 0
