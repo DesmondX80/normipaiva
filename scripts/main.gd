@@ -10867,6 +10867,23 @@ func _talk_options(who := "") -> Array:
 			_nuoret_new_day()
 			o.append(_opt("huikka", "Ota huikka kossu-vissystä", _nuoret_huikat < NUORET_HUIKAT, "pullo on tyhjä"))
 			o.append(_opt("tarjoa", "Tarjoa kalja porukalle", beers > 0, "ei kaljaa mukana"))
+			if _nuoret_yard:
+				var uinti_aika := _between(clock_min, Vector2(12 * 60, 18 * 60))
+				o.append(_opt("uinti", "Haasta nuoret uimakilpailuun Oulujoelle (ponkkarilta, päivällä, kerran päivässä)", uinti_aika and _uinti_day != day,
+					"uimakisat pidetään iltapäivällä 12–18" if not uinti_aika else "uit jo tänään", true))
+				var tappelu_ok: bool = _between(clock_min, Vector2(20 * 60, 24 * 60)) and _lava_tappelu_day != day and tilat.value("humala") >= 0.0
+				o.append(_opt("jarkkari", "Haasta lavan järkkäri tappelemaan pihalle (kerran päivässä, illalla)", tappelu_ok,
+					"järkkäri on töissä vasta illalla 20–24" if not _between(clock_min, Vector2(20 * 60, 24 * 60)) else "tapeltu jo tänään"))
+				if _between(clock_min, Vector2(18 * 60, 23 * 60)):
+					o.append(_opt("purkka", "Osta portailla istuville lapsille uutta purukumia (%s €)" % _eur(1.5), money >= 1.5 and _purkka_day != day,
+						"lapset on jo ostettu onnellisiksi tänään" if _purkka_day == day else "rahat ei riitä"))
+				if not _kasetti:
+					o.append(_opt("kasetti_aanita", "Äänitä oma kasetti radiosta (tyhjä kasetti 1 €, 20 min)", money >= 1.0, "rahat ei riitä"))
+				else:
+					o.append(_opt("kasetti_soita", "Laita oma kasetti soimaan teinien soittimeen", _kasetti_day != day, "kasetti on jo soinut tänään", true))
+				var letka_ok: bool = _between(clock_min, Vector2(23 * 60, 3 * 60)) and oma_mopo.running and oma_mopo.fuel >= 0.15 and _letka_day != day
+				o.append(_opt("letka", "Lähde mopoletkaan Siitarin pihaan ja keskustaan (yöllä)", letka_ok,
+					"letka kokoontuu vasta yöllä 23–03" if not _between(clock_min, Vector2(23 * 60, 3 * 60)) else ("tarvitset toimivan mopon ja bensaa" if not (oma_mopo.running and oma_mopo.fuel >= 0.15) else "ajoit jo tänään")))
 			if _nuoret_yard and _between(clock_min, Vector2(6 * 60, 11 * 60)):
 				o.append(_opt("pullot", "Kerää tyhjät pullot ja tölkit aidan takaa (pantti)", _pullot_day != day, "keräsit jo tänään", true))
 			if _nuoret_yard:
@@ -10887,6 +10904,9 @@ func _talk_options(who := "") -> Array:
 			o.append(_opt("telkkari", "Auta heittämään telkkari ikkunasta", _dingo_tv_day != day, "telkkari on jo pihalla"))
 		"tyokkari":
 			o.append(_opt("jonota", "Jonota virkailijalle (puoli tuntia)", _tyokkari_day != day, "kävit jo tänään", true))
+			var duuni_aika := _between(clock_min, Vector2(8 * 60, 12 * 60))
+			o.append(_opt("kesaduuni", "Kesäduuni voimayhtiöllä: rantojen siivous (4 h, 28 €)", duuni_aika and _kesaduuni_day != day,
+				"hommia jaetaan aamulla 8–12" if not duuni_aika else "teit jo päivän työn", true))
 		"zabuki":
 			for id in ZABUKI_MENU:
 				var m: Array = ZABUKI_MENU[id]
@@ -11053,12 +11073,26 @@ func _talk_choose(id: String) -> void:
 			if id == "pullot":
 				_pullonkeraus()
 				return
+			if id in ["purkka", "kasetti_aanita", "kasetti_soita", "letka"]:
+				_nuoret_hupi(id)
+				return
+			if id == "jarkkari":
+				_talk_box.close()
+				_start_lava_tappelu()
+				return
+			if id == "uinti":
+				_talk_box.close()
+				_start_uinti()
+				return
 			var r := _on_nuoret(id)
 			_talk_box.reply(r[0], _talk_options(), r[1])
 		"kauppa_auto":
 			_kauppa_auto_buy(id.trim_prefix("auto_"))
 		"tyokkari":
-			_tyokkari_jonota()
+			if id == "kesaduuni":
+				_kesaduuni()
+			else:
+				_tyokkari_jonota()
 		"vastaanotto", "dingo":
 			_talk_hotel(id)
 		"zabuki":
@@ -13167,6 +13201,75 @@ func _on_siitari(id: String) -> Array:
 
 
 ## Zabukin tiski: juoma tai hampurilainen (syödään saman tien).
+## Nuorten hupihommat lavan pihalla (#183): purukumit portailla, oma kasetti ja mopoletka.
+func _nuoret_hupi(id: String) -> void:
+	match id:
+		"purkka":
+			_purkka_day = day
+			money -= 1.5
+			maine = clampf(maine + 1.0, 0.0, 100.0)
+			tilat.first("purukumit", 0.2)
+			tilat.add("moraali", 0.1)
+			Sfx.play("coin", -6.0)
+			_save_game()
+			_talk_box.reply("Lapset ovat liian nuoria tansseihin ja istuvat portailla. Ennen ne keräsi pureskellut purkat portaiden alta, pesi joessa ja käytti uudestaan. "
+				+ "Uusi paketti: \"Setä on paras! Ei tarvii enää pestä!\"", _talk_options(), "Purukumia −1,50 €, maine +1.")
+		"kasetti_aanita":
+			money -= 1.0
+			_kasetti = true
+			_advance_clock(20.0)
+			tilat.first("kasetti", 0.2)
+			Sfx.play("pickup", -6.0, 0.9)
+			_save_game()
+			_talk_box.reply("Painat REC ja PLAY yhtä aikaa ja odotat, että radiosta tulee jotain kelvollista. Juontaja puhuu biisin päälle, mutta se kuuluu asiaan.",
+				_talk_options(), "Oma kasetti äänitetty (20 min).")
+		"kasetti_soita":
+			_kasetti_day = day
+			var good := randf() < 0.65
+			Sfx.play("pickup", -6.0, 0.7)
+			if good:
+				maine = clampf(maine + 2.0, 0.0, 100.0)
+				tilat.add("moraali", 0.1)
+				mielihyva = clampf(mielihyva + 5.0, 0.0, 100.0)
+				_save_game()
+				_talk_box.reply("Kasetti naksahtaa soimaan. Eka biisi on ysärihitti, ja joku alkaa tanssia pakoputken vieressä.", _talk_options(), "Maine +2, mielihyvä nousee.")
+			else:
+				maine = clampf(maine - 1.0, 0.0, 100.0)
+				_save_game()
+				_talk_box.reply("\"Mitä helvetin humppaa tää on?\" Joku lataa kaiuttimeen oman listansa. Kasetti pysyy taskussa, ensi kerralla paremmin.", _talk_options(), "Maine −1.")
+		"letka":
+			_letka_day = day
+			oma_mopo.fuel = maxf(0.0, oma_mopo.fuel - 0.12)
+			_advance_clock(30.0)
+			tilat.first("mopoletka", 0.3)
+			tilat.add("moraali", 0.15)
+			mielihyva = clampf(mielihyva + 8.0, 0.0, 100.0)
+			Sfx.play("whoosh", -4.0, 0.7)
+			var raid := randf() < 0.18
+			_save_game()
+			_talk_box.reply("Letka lähtee: ensin Siitarin pihaan, sitten keskustan läpi kolme kierrosta ja takaisin. Pakoputket paukkuu, ja yöllä kaikki on kuulijoita." +
+				(" Kolmannella kierroksella näkyy sinistä valoa: poliisi!" if raid else ""), _talk_options(), "Mopoletka: bensaa −12 %, moraali ja mielihyvä nousee.")
+			if raid:
+				_talk_box.close()
+				_call_police("siili")
+
+
+## Kesäduuni voimayhtiöllä (#183): rantojen siivous neljä tuntia, 28 €.
+func _kesaduuni() -> void:
+	_kesaduuni_day = day
+	money += 28.0
+	_advance_clock(240.0)
+	tilat.first("kesaduuni", 0.3)
+	tilat.add("stamina", -0.2)
+	tilat.add("nalka", -0.1)
+	tilat.add("kokemus", 0.1)
+	tilat.add("moraali", 0.05)
+	Sfx.play("coin", -4.0)
+	_save_game()
+	_talk_box.reply("Voimayhtiön ranta-aluevastaava antaa kahdet hanskat ja jätesäkin. Neljässä tunnissa kertyy kymmenen säkkiä oksia, tölkkejä ja yksi kenkä.",
+		_talk_options(), "Kesäduuni +28 €. Voimat kuluivat.")
+
+
 ## Pullonkeräys lavan pihalta aamulla (#183): tyhjät pullot ja tölkit pantiksi.
 func _pullonkeraus() -> void:
 	_pullot_day = day
@@ -14997,10 +15100,20 @@ func _on_race_finished(won: bool, my_time: float, opp_time: float) -> void:
 ## Kopio tulee peilikuvana: sellaisenaan se herättää portsarin epäilyn, käden painaminen toiseen käteen kääntää kuvan
 ## oikein päin (haalistuu). Hyvä oikein päin oleva kopio kelpaa lipusta (portti aukeaa), huono vain hidastaa epäilyä.
 const RakaleimaGame := preload("res://scripts/rakaleima_game.gd")
+const UintiGame := preload("res://scripts/uinti_game.gd")
 var _rakaleima: CanvasLayer
 var _nuoret_yard := false
 var _pullot_day := -1  # päivä, jona pullot kerätty lavan pihalta (#183)
 var _hengailu_day := -1  # päivä, jona hengailtu kioskilla (#183)
+var _purkka_day := -1  # päivä, jona lapsille ostettu purkkaa lavan portailla (#183)
+var _kesaduuni_day := -1  # päivä, jona tehty kesäduuni voimayhtiöllä (#183)
+var _kasetti := false  # radiosta äänitetty oma kasetti (#183)
+var _kasetti_day := -1  # päivä, jona oma kasetti on soitettu teineille
+var _letka_day := -1  # päivä, jona ajettu mopoletka lavan jälkeen
+var _lava_tappelu_day := -1  # päivä, jona tapeltu lavan järkkärin kanssa
+var _uinti_day := -1  # päivä, jona uitu uintikilpailu Oulujoessa
+var _uinti_best := 0.0  # paras voittoaika (s)
+var _uinti_game: Node
 var _leima_day := -1
 var _lava_copy := {}  # {q, mirrored}: kopioitu leima kädessä (tyhjä = ei kopiota)
 
@@ -15515,6 +15628,107 @@ func _start_siitari_fight(foe := "raahelainen") -> void:
 	fight.start(beers, foe, hp, dmg)
 
 
+## Oulujoen uintikilpailu ponkkarilta (#183, uinti_game.gd): hyppy, vuorotellen A ja D, kaksi nuorta vastaan.
+func _start_uinti() -> void:
+	if mopo_trip == null or _uinti_game != null:
+		return
+	_uinti_day = day
+	mopo_trip.stop()
+	_mopo_foot_inside()
+	state = "uinti"
+	_hud.visible = false
+	_mopo_label.visible = false
+	_compass.visible = false
+	CamCtl.free_mouse = true
+	tilat.first("uintikilpailu", 0.3)
+	var g := UintiGame.new()
+	g.drunk = tilat.value("humala")
+	g.finished.connect(_on_uinti_finished)
+	_uinti_game = g
+	add_child(g)
+
+
+func _on_uinti_finished(place: int, time: float) -> void:
+	_uinti_game = null
+	CamCtl.free_mouse = false
+	state = _vaala_state
+	_hud.visible = true
+	_mopo_label.visible = true
+	_compass.visible = true
+	_mopo_resume()
+	if mopo_trip != null:
+		mopo_trip._resume_frame = Engine.get_process_frames()
+	if place == 0:
+		_uinti_day = -1  # keskeytys ei kuluta yritystä
+		_show_message("Jätit kisan kesken. Nuoret nauraa rannalla.", 2.5)
+		return
+	_advance_clock(30.0)
+	tilat.add("stamina", -0.2)
+	tilat.add("nalka", -0.05)
+	if place == 1:
+		maine = clampf(maine + 4.0, 0.0, 100.0)
+		tilat.add("moraali", 0.2)
+		tilat.first("uinti_voitto", 0.4)
+		if _uinti_best <= 0.0 or time < _uinti_best:
+			_uinti_best = time
+		_show_message("Voitit Oulujoen uintikilpailun ajalla %.1f s (ennätys %.1f s)! Nuoret hurraa: \"Setä on joen kuningas!\" Maine +4." % [time, _uinti_best], 5.0)
+	elif place == 2:
+		maine = clampf(maine + 1.0, 0.0, 100.0)
+		_show_message("Toinen sija (%.1f s). Maine +1. Ponkkarilta hyppäämistä kannattaa harjoitella." % time, 4.0)
+	else:
+		_show_message("Kolmas sija (%.1f s). Nuoret tarjoaa limut: \"Ensi kerralla paremmin, setä.\"" % time, 4.0)
+	_save_game()
+
+
+## Järkkärit ja lavatappelu (#183): Street Fighter -tappelu Oulujärven lavan pihalla (fight.gd: vastustaja "jarkkari", lavasteena Siitarin piha).
+func _start_lava_tappelu() -> void:
+	if mopo_trip == null or state == "fight":
+		return
+	_lava_tappelu_day = day
+	mopo_trip.stop()
+	_mopo_foot_inside()
+	_fight_source = "lava"
+	var hp := 120.0 if tilat.effect("kipu") > 0 else 100.0
+	var dmg := 1.2 if tilat.effect("humala") > 0 else 1.0
+	tilat.add("stressi", -0.15)
+	tilat.add("kipu", -0.3)
+	tilat.add("stamina", -0.2)
+	tilat.first("tappelu_jarkkari", 0.3)
+	_fight_prev = _vaala_state
+	state = "fight"
+	_hud.visible = false
+	_mopo_label.visible = false
+	_compass.visible = false
+	fight.set_stage("siitari")
+	fight.start(beers, "jarkkari", hp, dmg)
+
+
+func _lava_tappelu_end(won: bool, bags_used: int, thrown: int) -> void:
+	state = _fight_prev
+	_hud.visible = true
+	_mopo_label.visible = true
+	_compass.visible = true
+	fight.set_stage("kmarket")
+	beers = maxi(0, beers - bags_used - thrown)
+	_mopo_resume()
+	if mopo_trip != null:
+		mopo_trip._resume_frame = Engine.get_process_frames()
+	if won:
+		tilat.add("moraali", 0.2)
+		tilat.add("kokemus", 0.1)
+		mielihyva = clampf(mielihyva + 8.0, 0.0, 100.0)
+		maine = clampf(maine + 3.0, 0.0, 100.0)
+		Sfx.play("win_small", -4.0)
+		_show_message("K.O.! Järkkäri istahti portaille pidelemään leukaansa. Pihan nuoret hurraa: \"Setä on legenda!\" Maine +3.", 4.5)
+	else:
+		var took := minf(5.0, money)
+		money -= took
+		tilat.add("kipu", -0.2)
+		tilat.add("moraali", -0.1)
+		maine = clampf(maine - 3.0, 0.0, 100.0)
+		_show_message("Hävisit! Järkkäri vei %s ja käski lähteä ennen leimatarkastusta. Maine −3." % ("%s €" % _eur(took) if took > 0.0 else "ylpeyden"), 4.0)
+
+
 func _siitari_fight_end(won: bool, bags_used: int, thrown: int) -> void:
 	state = _fight_prev
 	_hud.visible = true
@@ -15555,6 +15769,9 @@ func _siitari_fight_end(won: bool, bags_used: int, thrown: int) -> void:
 
 
 func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
+	if _fight_source == "lava":
+		_lava_tappelu_end(won, bags_used, thrown)
+		return
 	if _fight_source == "siitari":
 		_siitari_fight_end(won, bags_used, thrown)
 		return
@@ -16100,6 +16317,14 @@ func _load_game() -> void:
 	_kirppis_sold = cfg.get_value("paivarajat", "kirppis_myyty", {})
 	_kirppis_angry = cfg.get_value("paivarajat", "kirppis_suuttunut", {})
 	_pullot_day = cfg.get_value("paivarajat", "pullot", -1)
+	_purkka_day = cfg.get_value("paivarajat", "purkka", -1)
+	_kesaduuni_day = cfg.get_value("paivarajat", "kesaduuni", -1)
+	_kasetti_day = cfg.get_value("paivarajat", "kasetti_soitettu", -1)
+	_letka_day = cfg.get_value("paivarajat", "letka", -1)
+	_lava_tappelu_day = cfg.get_value("paivarajat", "lava_tappelu", -1)
+	_uinti_day = cfg.get_value("paivarajat", "uinti", -1)
+	_uinti_best = cfg.get_value("peli", "uinti_paras", 0.0)
+	_kasetti = cfg.get_value("peli", "oma_kasetti", false)
 	_hengailu_day = cfg.get_value("paivarajat", "hengailu", -1)
 	_pingis_nuoret_day = cfg.get_value("paivarajat", "pingis_nuoret", -1)
 	_pingis_nuoret_voitot = cfg.get_value("peli", "pingis_nuoret_voitot", 0)
@@ -16213,6 +16438,14 @@ func _save_game() -> void:
 	cfg.set_value("paivarajat", "kirppis_myyty", _kirppis_sold)
 	cfg.set_value("paivarajat", "kirppis_suuttunut", _kirppis_angry)
 	cfg.set_value("paivarajat", "pullot", _pullot_day)
+	cfg.set_value("paivarajat", "purkka", _purkka_day)
+	cfg.set_value("paivarajat", "kesaduuni", _kesaduuni_day)
+	cfg.set_value("paivarajat", "kasetti_soitettu", _kasetti_day)
+	cfg.set_value("paivarajat", "letka", _letka_day)
+	cfg.set_value("paivarajat", "lava_tappelu", _lava_tappelu_day)
+	cfg.set_value("paivarajat", "uinti", _uinti_day)
+	cfg.set_value("peli", "uinti_paras", _uinti_best)
+	cfg.set_value("peli", "oma_kasetti", _kasetti)
 	cfg.set_value("paivarajat", "hengailu", _hengailu_day)
 	cfg.set_value("paivarajat", "pingis_nuoret", _pingis_nuoret_day)
 	cfg.set_value("peli", "pingis_nuoret_voitot", _pingis_nuoret_voitot)
@@ -22910,6 +23143,91 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+		"uintikisa":
+			# Oulujoen uintikilpailu (#183): kuva ponkkarilta ja kisan aikana (vain ikkunallisena), voitto ja tappio sekä tilan palautuminen.
+			_start_mopo()
+			var vl2: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_note.visible = false
+			_mopo_dismount()
+			var yd: Dictionary = vl2.doors.filter(func(d): return d.id == "pihanuoret")[0]
+			walker_out.global_position = mopo_trip.to_global(yd.pos + yd.out * 2.0 + Vector3(0, 0.5, 0))
+			for i in 10:
+				await get_tree().process_frame
+			var headless := DisplayServer.get_name() == "headless"
+			var snap_u := func(name: String) -> void:
+				if headless:
+					return
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			day = 3
+			clock_min = 14 * 60
+			_nuoret_yard = true
+			_talk_who = "nuoret"
+			print("UI valinta: %s" % [_talk_options("nuoret").filter(func(o): return o.id == "uinti").map(func(o): return o.enabled)])
+			_talk_choose("uinti")
+			await get_tree().create_timer(0.6).timeout
+			var ug: Node = _uinti_game
+			print("UI peli auki %s, tila %s" % [ug != null, state])
+			await snap_u.call("_a_ponkkari.png")
+			ug._meter = 0.62
+			ug._jump()
+			await get_tree().create_timer(1.3).timeout
+			await snap_u.call("_b_uinti.png")
+			print("UI hypyn laatu %.2f, vaihe %s" % [ug._jump_q, ug._phase])
+			var side := "L"
+			var guard_t := 0.0
+			while ug._phase == "swim" and guard_t < 60.0:
+				ug._pull(side)
+				side = "R" if side == "L" else "L"
+				await get_tree().create_timer(0.17).timeout
+				guard_t += 0.17
+			await snap_u.call("_c_maali.png")
+			print("UI tulos: sija %d, aika %.1f, vaihe %s" % [ug._place, ug._time, ug._phase])
+			var m0 := maine
+			ug._end(ug._place)
+			await get_tree().create_timer(0.5).timeout
+			print("UI jälkeen: tila %s, maine %.0f -> %.0f, uudestaan mahdollinen %s, viesti '%s'" % [state, m0, maine,
+				_talk_options("nuoret").filter(func(o): return o.id == "uinti").map(func(o): return o.enabled), _msg.text.replace("\n", " ")])
+			get_tree().quit()
+		"lavatappelu":
+			# Lavan järkkäri (#183): tappelu Vaalan lavan pihalla, voitto ja tappio, tilan palautuminen. Eristetyllä HOME:lla.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_note.visible = false
+			_mopo_dismount()
+			var yard_door: Dictionary = vl.doors.filter(func(d): return d.id == "pihanuoret")[0]
+			walker_out.global_position = mopo_trip.to_global(yard_door.pos + yard_door.out * 2.0 + Vector3(0, 0.5, 0))
+			for i in 10:
+				await get_tree().process_frame
+			for round_i in 2:
+				day = 3 + round_i
+				clock_min = 21 * 60
+				money = 20.0
+				maine = 20.0
+				_nuoret_yard = true
+				_talk_who = "nuoret"
+				var opt: Dictionary = _talk_options("nuoret").filter(func(o): return o.id == "jarkkari")[0]
+				print("LT %d valinta: %s (%s)" % [round_i, opt.enabled, opt.reason])
+				var st0 := state
+				_talk_choose("jarkkari")
+				for i in 5:
+					await get_tree().process_frame
+				print("LT %d tila %s -> %s, tappelu käynnissä %s, lähde %s" % [round_i, st0, state, fight != null, _fight_source])
+				if round_i == 0:
+					_on_fight_finished(true, 0, 0)
+				else:
+					_on_fight_finished(false, 0, 0)
+				for i in 5:
+					await get_tree().process_frame
+				print("LT %d tulos: tila %s, maine 20 -> %.0f, rahaa 20 -> %s, hud %s, uudestaan mahdollinen %s" % [round_i, state, maine, _eur(money), _hud.visible,
+					_talk_options("nuoret").filter(func(o): return o.id == "jarkkari").map(func(o): return o.enabled)])
+			get_tree().quit()
 		"hupihommat":
 			# Vaalan nuorison hupihommat (#183): mopon viritys autotallissa, pullonkeräys lavan pihalta ja kioskilla hengailu.
 			# Aja eristetyllä HOME:lla (tallennus).
@@ -22946,6 +23264,33 @@ func _maybe_screenshot() -> void:
 			_talk_who = "zabuki"
 			_hengaile_kioskilla()
 			print("HU hengailu: mielihyvä %.0f -> %.0f, kello %d, toistamiseen mahdollinen %s" % [mo0, mielihyva, int(clock_min), _talk_options("zabuki").filter(func(o): return o.id == "hengaile").map(func(o): return o.enabled)])
+			# Purukumit, kasetti, mopoletka ja kesäduuni
+			_talk_who = "nuoret"
+			day = 5
+			clock_min = 19 * 60
+			money = 50.0
+			print("HU nuoret illalla: %s" % [_talk_options("nuoret").map(func(o): return "%s:%s" % [o.id, o.enabled])])
+			var pm: float = maine
+			_nuoret_hupi("purkka")
+			print("HU purkka: rahaa 50 -> %s, maine %.0f -> %.0f, uudestaan %s" % [_eur(money), pm, maine, _talk_options("nuoret").filter(func(o): return o.id == "purkka").map(func(o): return o.enabled)])
+			_nuoret_hupi("kasetti_aanita")
+			print("HU kasetti äänitetty %s, rahaa %s, soita-valinta %s" % [_kasetti, _eur(money), _talk_options("nuoret").any(func(o): return o.id == "kasetti_soita")])
+			_nuoret_hupi("kasetti_soita")
+			print("HU kasetti soitettu päivä %d, toistamiseen mahdollinen %s" % [_kasetti_day, _talk_options("nuoret").filter(func(o): return o.id == "kasetti_soita").map(func(o): return o.enabled)])
+			clock_min = 23 * 60 + 30
+			oma_mopo.running = true
+			oma_mopo.fuel = 0.8
+			print("HU letka-valinta yöllä: %s" % [_talk_options("nuoret").filter(func(o): return o.id == "letka").map(func(o): return o.enabled)])
+			var f0: float = oma_mopo.fuel
+			_nuoret_hupi("letka")
+			print("HU letka: bensa %.2f -> %.2f, päivä %d" % [f0, oma_mopo.fuel, _letka_day])
+			day = 6
+			clock_min = 9 * 60
+			_talk_who = "tyokkari"
+			money = 10.0
+			print("HU tyokkari: %s" % [_talk_options("tyokkari").filter(func(o): return o.id == "kesaduuni").map(func(o): return o.enabled)])
+			_kesaduuni()
+			print("HU kesäduuni: rahaa 10 -> %s, kello %d, uudestaan %s" % [_eur(money), int(clock_min), _talk_options("tyokkari").filter(func(o): return o.id == "kesaduuni").map(func(o): return o.enabled)])
 			get_tree().quit()
 		"lemmikkienkelit":
 			# Lemmikki Enkelit (#148): rakennus, lehto, penkki, Pekan hetki, poikien hamsteritehtävä ja muistokyltin minipeli sekä
