@@ -15,6 +15,7 @@ const Compass := preload("res://scripts/compass.gd")
 const M := preload("res://scripts/map_data.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Kota := preload("res://scripts/kota.gd")
+const Teltta := preload("res://scripts/teltta.gd")
 const Mokki := preload("res://scripts/mokki.gd")
 const Fight := preload("res://scripts/fight.gd")
 const ChopGame := preload("res://scripts/chop_game.gd")
@@ -366,6 +367,7 @@ var varasto_int: Node3D
 var tokola: RefCounted  # Tokolan varasto ja kauppiaan aarteen legenda (tokola.gd, #120)
 var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var mirkku: CharacterBody3D  # Mirkku laavupolulla (Looks.MIRKKU)
+var mirkku_tent: Node3D  # Mirkun teltta Tarpion laavun vieressä (teltta.gd)
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
 var lemmikki: RefCounted  # Lemmikki Enkelit ja Pörrön muistokyltti (lemmikki_enkelit.gd, #148)
@@ -3431,7 +3433,12 @@ const AARO_LOOK := {"shirt": Color(0.4, 0.38, 0.3), "pants": Color(0.25, 0.22, 0
 const MIRKKU_LINES := ["Kato miten kaunis niitty! Päivänkakkaraa, maitohorsmaa ja keltasauniota.",
 	"Mää kävelen tän polun joka kesä laavulle asti. Tuutko mukaan?", "Otetaanko selfie? Valo on just nyt paras.",
 	"Viime kesänä me käveltiin tää polku ja juteltiin koko ilta.", "Älä tallo kukkia! Tää on luontopolku, ei mopokisarata.",
-	"Laavulla oli kuulemma taas joku pitäny bileitä. Mää vaan keräilen kukkia."]
+	"Laavulla oli kuulemma taas joku pitäny bileitä. Mää vaan keräilen kukkia.",
+	"Mulla on teltta pystyssä Tarpion laavun vieressä. Kesäyöt mää nukun siellä.",
+	"Kukaan ei oo tuonu mulle kukkia sitten ysärin. Ihan oikeesti."]
+## Kukkakimppu Mirkulle illalla (säästöpihan kimppu, joka oli tarkoitus viedä Päiville): Mirkku pyytää teltalleen
+## laavulle, ja ilta päättyy onnelliseen loppuun "Mirkun teltassa" (_win_mirkku).
+const MIRKKU_EVENING := Vector2(17 * 60, 23 * 60)
 ## Mirkun kävelypisteet laavupolulla (karttapikseleinä polun viivalla) ja kukkamättäät polun varressa.
 const MIRKKU_PATH := [Vector2(848, 1320), Vector2(853, 1365), Vector2(858, 1405), Vector2(856, 1450)]
 const AARO_LINES := ["Tokolan kauppa oli auki kuuskytluvulle. Siellä sai kaikkea, sokeriakin. Varsinkin sokeria.",
@@ -11014,6 +11021,9 @@ func _talk_options(who := "") -> Array:
 				if not interior.can_pay() and interior.own_items():
 					o.append(_opt("jata", "Jätä omat ostokset tiskille"))
 			o.append(_opt("neuvo", "Mistä löytyy mitäkin?"))
+	if who == "mirkku" and has_flowers:
+		var ilta := _between(clock_min, MIRKKU_EVENING)
+		o.append(_opt("kukat_mirkulle", "Anna kukkakimppu Mirkulle", ilta, "vasta illalla (17–23), Päivi odottaa kimppua", true))
 	_mopo_options(who, o)  # oma mopo (#155): Seppo, Huhtala, Simo, Aaro, SEO ja katsastus
 	if chat:
 		o.append(_opt("juttu", "Mitä kuuluu?"))
@@ -11048,6 +11058,12 @@ func _talk_choose(id: String) -> void:
 			_talk_box.reply(r[0], _talk_options(), r[1])
 		"kalle":
 			_talk_kalle(id)
+		"mirkku":
+			if id == "kukat_mirkulle":
+				has_flowers = false
+				_talk_box.close()
+				_show_message("Mirkku: \"Mulleko? Voi että... Mulla on teltta pystyssä laavulla. Tuu, sytytetään nuotio.\"", 3.5)
+				_win_mirkku()
 		"sulo":
 			if id == "tilikirja":
 				_tokola_sulo_deal()
@@ -14646,6 +14662,26 @@ func _win_eramaa() -> void:
 		_viita_dir)
 
 
+
+## Mirkun teltassa: kukkakimppu Mirkulle illalla. Nuotio laavulla auringonlaskussa, sitten teltan ovi kiinni ja lyhty
+## palaa. Onnellinen loppu ja uusi päivä; aamulla Päivi kysyy, missä olit yön.
+func _win_mirkku() -> void:
+	state = "cutscene"
+	player.controls_enabled = false
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	if not Sfx.has_music():
+		Sfx.play("win")
+	tilat.first("mirkku", 0.5)
+	var stats := "Kukat Mirkulle ✔  ·  Nuotio Tarpion laavulla ✔  ·  Yö teltassa  ·  %s" % _ending_line("mirkku")
+	_save_game()
+	var hide := [_hazards, mirkku]  # laavun valtaajat ja polun Mirkku (puhekuplineen) pois kohtauksesta
+	cutscene.hide_nodes.append_array(hide)
+	cutscene.mirkku_teltta(M.w(M.LAAVU), world.fire, mirkku_tent, "MIRKUN TELTASSA", stats, func() -> void:
+		for n in hide:
+			cutscene.hide_nodes.erase(n)
+		_new_day(_nearest_safe(), false, "Aamulla teltasta kotiin. Päivi kysyy, missä olit koko yön. \"Kalassa.\""))
+
 # --- Tapahtumat --------------------------------------------------------------
 
 func _enter_shop() -> void:
@@ -17405,6 +17441,12 @@ func _spawn_hazards() -> void:
 		mirkku.yard.append(M.w(px))
 	mirkku.chores.assign(["Crouch_Idle", "PickUp_Table", "Idle", "Crouch_Idle"])  # poimii kukkia polun varresta
 	_mirkku_flowers()
+	mirkku_tent = Teltta.new()
+	var pit := M.w(M.LAAVU)
+	var tp := M.w(M.LAAVU + Vector2(-5.6, -2.4))
+	mirkku_tent.position = tp
+	mirkku_tent.rotation.y = B.yaw_to(Vector3(pit.x - tp.x, 0, pit.z - tp.z))  # ovi nuotiolle päin
+	add_child(mirkku_tent)
 	_pannu_update()
 	_kertun_sync()
 	_reippari_update()
@@ -30407,6 +30449,59 @@ func _maybe_screenshot() -> void:
 			print("MDROONI järveen: broken=%s msg=%s" % [drone_broken_day == day, _msg.text])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"mirkku_loppu":
+			# Mirkun teltassa: teltta päivällä laavun vieressä, kukkakimppu Mirkulle illalla (vaihtoehto harmaana
+			# päivällä) ja loppukohtaus: nuotio, sitten teltan ovi kiinni ja lyhty (hero shot). Kuvat _mloppu_*.
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.fov = 50.0
+			var grab := func(name: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mloppu_%s.png" % name))
+			var pit := M.w(M.LAAVU)
+			var tc: Vector3 = mirkku_tent.global_position
+			_hud.visible = false
+			clock_min = 13 * 60.0
+			player.global_position = pit + Vector3(0, 0.3, -12)
+			for i in 30:
+				await get_tree().process_frame
+			cam.global_position = tc + Vector3(3.5, 1.6, -3.2)
+			cam.look_at(tc + Vector3(0, 0.6, 0), Vector3.UP)
+			cam.current = true
+			for i in 12:
+				await get_tree().process_frame
+			await grab.call("teltta")
+			cam.global_position = tc + (pit - tc).normalized() * 3.0 + Vector3(0, 1.0, 0)
+			cam.look_at(tc + Vector3(0, 0.5, 0), Vector3.UP)
+			for i in 6:
+				await get_tree().process_frame
+			await grab.call("ovi")
+			cam.current = false
+			_hud.visible = true
+			has_flowers = true
+			var mk: Node3D = mirkku
+			player.global_position = mk.global_position + Vector3(0, 0.3, 3.0)
+			for i in 60:
+				await get_tree().physics_frame
+			print("MLOPPU päivällä: %s" % [_talk_options("mirkku").filter(func(o): return o.id == "kukat_mirkulle")
+				.map(func(o): return [o.enabled, o.get("why", "")])])
+			clock_min = 19 * 60.0
+			player.global_position = mk.global_position + Vector3(0, 0.3, 3.0)
+			for i in 10:
+				await get_tree().physics_frame
+			_talk_open("mirkku", mk)
+			print("MLOPPU illalla: %s" % [_talk_options("mirkku").filter(func(o): return o.id == "kukat_mirkulle")
+				.map(func(o): return o.enabled)])
+			var loppuja: int = endings.total("loppu")
+			_talk_choose("kukat_mirkulle")
+			var t0 := Time.get_ticks_msec()
+			for mark in [["nuotio", 3500], ["teltta_kiinni", 7600], ["hero", 11500]]:
+				while Time.get_ticks_msec() - t0 < mark[1]:
+					await get_tree().process_frame
+				await grab.call(mark[0])
+			while cutscene.busy and Time.get_ticks_msec() - t0 < 30000:
+				await get_tree().process_frame
+			print("MLOPPU loppu kirjattu: %s, kimppu %s, tila %s, päivä %d" % [endings.total("loppu") > loppuja, has_flowers, state, day])
 		"mirkku":
 			# Mirkku laavupolulla päivällä: yleiskuva polulta, lähikuva kukkamättäiden vierestä ja pelaaja vieressä
 			# (puhevihje ja keskustelun vaihtoehdot). Kuvat _mirkku_*.
