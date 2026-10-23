@@ -470,6 +470,72 @@ func laavu_sunset(pit: Vector3, fire: Node3D, title: String, stats: String, done
 	_title.add_theme_font_size_override("font_size", 150)
 
 
+
+## Mirkun teltassa (main.gd _win_mirkku): auringonlasku laavulla, pelaaja ja Mirkku istuvat nuotion ääressä samalla
+## penkillä; sitten penkki on tyhjä, teltan ovi vedetään kiinni ja lyhty syttyy, kangas hehkuu hämärässä.
+## tent = teltta.gd (set_glow, set_closed).
+func mirkku_teltta(pit: Vector3, fire: Node3D, tent: Node3D, title: String, stats: String, done: Callable) -> void:
+	_begin()
+	Sfx.music_play(0.8, Sfx.MUSIC_CHORUS)
+	await _fade_to(1.0, 0.5)
+	_cam.current = true
+	fire.visible = true
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var old_rot := sun.rotation_degrees
+	var old_col := sun.light_color
+	var old_en := sun.light_energy
+	var hero := Looks.make(_props, Looks.player())
+	Looks.add_cap(hero)
+	hero.global_position = pit + Vector3(-2.1, 0.12, 0.38)
+	hero.rotation.y = -PI * 0.5
+	hero.play("Sitting_Idle", 0.0)
+	var mk := Looks.make(_props, Looks.MIRKKU)
+	mk.global_position = pit + Vector3(-2.1, 0.12, -0.4)
+	mk.rotation.y = -PI * 0.5
+	mk.play("Sitting_Idle", 0.0)
+	_title.add_theme_color_override("font_color", Color(1.0, 0.62, 0.45))
+	var tw := _tween()
+	tw.tween_property(sun, "rotation_degrees", Vector3(-3, 255, 0), 10.0)
+	tw.parallel().tween_property(sun, "light_color", Color(1.0, 0.42, 0.22), 10.0)
+	tw.parallel().tween_property(sun, "light_energy", 0.55, 10.0)
+	_fade_to(0.0, 0.8)
+	await _orbit(pit + Vector3(-1.2, 0, 0), 4.6, 1.3, -0.3, 0.12, 5.0)  # edestä: kasvot tuleen päin
+	# Penkki tyhjenee: teltan ovi kiinni, lyhty syttyy.
+	await _fade_to(1.0, 0.4)
+	hero.visible = false
+	mk.visible = false
+	tent.set_closed(true)
+	var glow := _tween()
+	glow.tween_method(tent.set_glow, 0.0, 1.0, 2.5)
+	_fade_to(0.0, 0.6)
+	_title.text = title
+	_title.add_theme_font_size_override("font_size", 90)
+	_sub.text = stats
+	var dusk := _tween()
+	dusk.tween_property(sun, "light_energy", 0.25, 3.0)
+	# Hero shot teltan koordinaateissa (-Z = ovi nuotiolle päin): kamera matalalla nuotion takana kapealla linssillä,
+	# liekit etualalla kuvan alareunassa ja hehkuva teltta oikeassa kolmanneksessa otsikon alla.
+	var old_fov := _cam.fov
+	_cam.fov = 35.0
+	var t0 := _now_ms()
+	while true:
+		var u := clampf((_now_ms() - t0) / 7000.0, 0.0, 1.0)
+		_cam.global_position = tent.to_global(Vector3(0.4, 1.0, -7.8 + u * 0.4))
+		_cam.look_at(tent.to_global(Vector3(1.3, 1.2, 0.0)), Vector3.UP)
+		if u >= 1.0:
+			break
+		await get_tree().process_frame
+	_cam.fov = old_fov
+	await _end(done)
+	tent.set_glow(0.0)
+	tent.set_closed(false)
+	sun.rotation_degrees = old_rot
+	sun.light_color = old_col
+	sun.light_energy = old_en
+	_title.add_theme_font_size_override("font_size", 150)
+
 # --- Makkaranpaisto laavulla --------------------------------------------------------
 
 const MAKKARA_LINES := ["Makkara tirisee ja pullistuu. Ei liian lähelle liekkiä.", "Kuori ruskistuu, rasva sihahtaa hiillokselle.",

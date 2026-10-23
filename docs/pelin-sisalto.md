@@ -57,7 +57,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   valtaajien (vittumainen akka tai teinijengi) ohi. Tästä tulee "LEGENDAARINEN NORMIPÄIVÄ".
 - **Mirkku luontopolulla:** laavupolulla Järvikujan päästä etelään kävelee kesäpäivisin Mirkku (punertavan vaalea
   palmikko oikean olan yli, valkoinen paita) ja poimii päivänkakkaraa, keltasauniota ja maitohorsmaa polun varresta.
-  Jalan E juttelemaan. Testit `--scene=mirkku` ja `tools/testit/mirkku_kuvat.tscn`.
+  Jalan E juttelemaan. Mirkun teltta on pystyssä Tarpion laavun vieressä. Onnellinen loppu **Mirkun teltassa**:
+  vie illalla (17–23) säästöpihan kukkakimppu (se, joka piti viedä Päiville) Mirkulle -> nuotio laavulla
+  auringonlaskussa, teltan ovi kiinni ja lyhty palaa; aamulla Päivi kysyy, missä olit yön. Testit `--scene=mirkku`,
+  `--scene=mirkku_loppu` ja `tools/testit/mirkku_kuvat.tscn`.
 - **Metsän antimet:** poimi puolukoita, mustikoita, kantarelleja ja herkkutatteja. Naapurin Arto
   (lähekkö puolukkaan?) merkitsee paikat karttaan ja ostaa marjat, ja Pekka (14 kyyhkyä!) ostaa sienet.
   Marjoja poimitaan kyykkyyn (A) ja ylös (D) vuorotellen tasaiseen tahtiin: räpellys ja väärä nappi pudottavat
