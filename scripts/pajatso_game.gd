@@ -9,8 +9,11 @@ extends CanvasLayer
 ## jossa on yhdeksän rakoa: R (panos takaisin), 2, 3, 3, 14, 3, 3, 2, R euroa (oikean koneen 1:00, 1:50 ja 7:00
 ## viidenkymmenen pennin panoksella). Jokaisen raon portissa on kaksi jousitappia: hiljainen ja vino osuma kuoleutuu
 ## jouseen ja kolikko putoaa porttiin, kova osuma kimpoaa (seiskan jousi on jäykin). Ohi mennyt kolikko valuu
-## suppiloa pitkin näkyvään varantoon (pot), ja voitot maksetaan varannosta voittokouruun: tyhjästä varannosta ei
-## tule mitään. Täysi varanto valuu kassaan (POT_MAX). Humala tärisyttää sormea.
+## suppiloa pitkin porttien kolikkoputkiin (näkyvä varanto, pot = putkien summa). Rakoon mennyt kolikko pinoutuu
+## oman porttinsa putkeen ja vapauttaa sen lukituksen; maksuvipu (W) siirtää luistilevyä, joka pyyhkäisee voiton juuri
+## siitä putkesta voittokouruun: tyhjästä putkesta kone maksaa tyhjää. Täysi putki valuu kassaan (TUBE_MAX).
+## Laukaisin ei ole jousiase: sormi napsauttaa liipaisimen suoraan sisään, ja jousi vain palauttaa sen. Humala
+## tärisyttää sormea.
 ## Siimahuijaus (Q, kerran päivässä, jos repussa on virveli tai onki): siima solmitaan kolikkoon, ja rakoon mennyt
 ## kolikko nykäistään (Q) takaisin ylös ja uudestaan raon läpi, kunnes siimaleikkuri katkaisee siiman tai isäntä
 ## näkee (caught: main.gd heittää ulos). Ohi mennyt siimakolikko vedetään takaisin käteen.
@@ -49,7 +52,8 @@ const PRIZES := [0, 2, 3, 3, 14, 3, 3, 2, 0]
 const STIFF := [0.25, 0.25, 0.72, 0.7, 0.95, 0.75, 0.8, 0.8, 0.25]
 ## Kiinteät ohjaustapit nauhan yllä keskiraon molemmin puolin.
 const GUIDES := [Vector2(202, 196), Vector2(398, 196), Vector2(137, 214), Vector2(463, 214)]
-const POT_MAX := 200       # näkyvän varannon koko: ylimenevä valuu kassaan
+const TUBE_MAX := 22       # porttikohtaisen kolikkoputken koko: ylimenevä valuu kassaan
+const TUBE_X := [96.0, 147.0, 198.0, 249.0, 300.0, 351.0, 402.0, 453.0, 504.0]  # putket portin järjestyksessä
 const FRAME := 50.0        # kehyksen leveys vasemmalla
 const FRAME_RIGHT := 84.0  # oikealla leveämpi: ikärajakyltti ja vaihtokone
 const SLOT_IN := Vector2(589, -62)  # kolikkoaukko yläkehyksen kiinnikkeessä (laudan koordinaateissa), kanava suoraan alas
@@ -66,13 +70,24 @@ const DIE_SOFT := 330.0    # jousi kuoleuttaa osuman, jonka normaalinopeus on al
 const DIE_MIN := 80.0
 const SIIMA_CUT := 0.3     # siimaleikkuri katkaisee siiman nykäisyssä
 const SIIMA_SEEN := 0.15   # isäntä huomaa nykäisyn (kasvaa joka nykäisyllä ja humalassa)
-const LINES := ["Kolikko pidikkeeseen ja sormella renkaasta. Pajatso ei tykkää raakuudesta.",
+const LINES := ["Kolikko pesään ja sormella liipaisimesta. Pajatso ei tykkää raakuudesta.",
 	"Seiskan rako keskellä. Tapit on taivutettu niin, ettei sinne kukaan osu.",
 	"Kuulemma Raahessa joku osui seiskaan kolme kertaa samana iltana."]
 
 var money := 10.0
 var coins := -1            # euron kolikot (tasku, voittokouru ja vaihtokoneen kuppi; osa rahoista); -1 = alussa rahoista
-var pot := 80
+## Varanto porttien kolikkoputkissa; pot on niiden summa (main.gd antaa ja saa takaisin luvun, joka jaetaan tasan).
+var tubes: Array[int] = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+var pot: int:
+	get:
+		var n := 0
+		for t in tubes:
+			n += t
+		return n
+	set(v):
+		v = clampi(v, 0, TUBE_MAX * tubes.size())
+		for i in tubes.size():
+			tubes[i] = v / tubes.size() + (1 if i < v % tubes.size() else 0)
 var drunk := 0.0
 ## Siimahuijaus: main.gd antaa siima = true, jos repussa on virveli tai onki eikä siimaa ole tänään käytetty.
 var siima := false
@@ -90,7 +105,7 @@ var _t := 0.0
 var _done := false
 var _end_t := -1.0         # kiinni jääneen pelin loppu (s)
 var _power := 0.0          # lyönnin voima 0..1 (jännitys ja sormen tärinä)
-var _tension := 0.0        # sormen jännitys laukaisinrengasta vasten
+var _tension := 0.0        # sormeen kerätty iskun voima
 var _drawing := false
 var _armed := false        # syöttävä E on päästetty
 var _thumb := false        # peukalotuki
@@ -118,7 +133,10 @@ var _cup_coins := 0        # vaihtokoneen kupin kolikot
 var _change_t := -1.0      # kahvan vääntö käynnissä (s), -1 = ei
 var _change_paid := false
 var _insert_t := 0.0
-var _drops: Array = []     # suppiloa pitkin varantoon valuvat kolikot: [ikä, x]
+var _drops: Array = []     # suppiloa pitkin putkiin valuvat kolikot: [ikä, x, putki]
+var _pending: Array[int] = [0, 0, 0, 0, 0, 0, 0, 0, 0]  # porttien vapautetut voitot, maksetaan maksuvivulla
+var _lever_t := 0.0        # maksuvivun ja luistilevyn liike (s)
+var _last_power := 0.0
 var _star := 0.0           # tähtipyörien kierto (maksu)
 var _pop := ""
 var _pop_t := 0.0
@@ -130,6 +148,10 @@ var _yanks := 0
 var _yank_cup := -1        # siimakolikko raossa: Q nykäisee sen takaisin ylös
 var _yank_t := 0.0
 var _pin_hit := {}         # jousitapin joustoanimaatio: tappi -> [jäljellä s, siirtymä]
+
+
+func _init() -> void:
+	pot = 80
 
 
 func _ready() -> void:
@@ -208,10 +230,11 @@ func _process(delta: float) -> void:
 	if _coin_state == "" and _yank_cup >= 0:
 		_keys.set_text("%s nykäise siimasta   %s uusi kolikko (1 €)   %s lopeta" % [q, e, Settings.cap("mount")])
 	elif _coin_state == "":
-		_keys.set_text("%s syötä kolikko (1 €)   %s vaihtokone 2 € → 2 × 1 €%s   %s lopeta" % [e, Settings.cap("right"), tie,
+		var pay := ("%s MAKSUVIPU (%d)   " % [Settings.cap("forward"), _pending_total()]) if _pending_total() > 0 else ""
+		_keys.set_text("%s%s syötä kolikko (1 €)   %s vaihtokone%s   %s lopeta" % [pay, e, Settings.cap("right"), tie,
 			Settings.cap("mount")])
 	elif _coin_state == "ready":
-		_keys.set_text("%s pidä = jännitä sormea, päästä = napauta laukaisinta   %s peukalotuki   %s saatto%s   %s lopeta" % [e,
+		_keys.set_text("%s pidä = kerää sormeen voimaa, päästä = napsauta laukaisinta   %s peukalotuki   %s saatto%s   %s lopeta" % [e,
 			Settings.cap("jump"), Settings.cap("back"), tie, Settings.cap("mount")])
 	elif _coin_state == "free":
 		_keys.set_text("Kolikko lentää...   %s tönäise konetta (TILT!)   %s lopeta" % [Settings.cap("kick"), Settings.cap("mount")])
@@ -223,13 +246,13 @@ func _eur(v: float) -> String:
 	return ("%.2f" % v).replace(".", ",").trim_suffix(",00")
 
 
-## Lyönti kyljen laukaisimesta: ensimmäinen E syöttää kolikon kanavaan lyöntipaikalle. Sitten E pohjassa jännittää
-## sormea (vetää laukaisinrengasta ulospäin; mitä pidempään, sitä kovempi lyönti) ja irrotus napauttaa. Jännittävä
-## sormi tärisee (humalassa enemmän); peukalotuki (välilyönti pohjassa: peukalo kehyksen reunaan) poistaa tärinän,
-## mutta jännitys nousee hitaammin. Täysi jännitys lukittuu ääriasentoon (pohjaanveto: aina yhtä kova). S jännittäessä
-## on snaiffaus: sormenpää saattaa rengasta ja jarruttaa lyöntiä vähän kerrallaan. Kolikon lennon aikana K tönäisee
-## konetta: tärähdys vaimentaa portin jousta hetkeksi, mutta tilt-hälytin voi laueta. Q solmii siiman tai nykäisee
-## siimakolikon. D vääntää vaihtokoneen kahvaa.
+## Lyönti kyljen laukaisimesta: ensimmäinen E syöttää kolikon kanavaan laukaisupesään (pystyssä). Laukaisinta ei
+## viritetä: E pohjassa kerää sormeen voimaa (mitä pidempään, sitä kovempi isku) ja irrotus napsauttaa liipaisimen
+## sisään; sen jousi vain palauttaa liipaisimen. Sormi tärisee (humalassa enemmän); peukalotuki (välilyönti pohjassa:
+## peukalo kehyksen reunaan) poistaa tärinän, mutta voima kertyy hitaammin. Täysi voima lukittuu (pohjaanlyönti:
+## liipaisin pohjaan, aina yhtä kova). S on snaiffaus: sormenpää saattaa liipaisinta ja jarruttaa iskua. Kolikon lennon
+## aikana K tönäisee konetta: tärähdys vaimentaa portin jousta hetkeksi, mutta tilt-hälytin voi laueta. Q solmii
+## siiman tai nykäisee siimakolikon. D vääntää vaihtokoneen kahvaa, W vetää maksuvipua.
 func _striker(delta: float) -> void:
 	_ring_t = maxf(0.0, _ring_t - delta)
 	_nudge_t = maxf(0.0, _nudge_t - delta)
@@ -238,6 +261,9 @@ func _striker(delta: float) -> void:
 		_siima_key()
 	if Input.is_action_just_pressed("right"):
 		_change()
+	if Input.is_action_just_pressed("forward"):
+		_collect()
+	_lever_t = maxf(0.0, _lever_t - delta)
 	_change_step(delta)
 	if _coin_state == "free" and Input.is_action_just_pressed("kick"):
 		_nudge()
@@ -287,13 +313,14 @@ func _flick() -> void:
 	_drawing = false
 	Sfx.play("glass", -8.0, 2.2)
 	if full:
-		_tech("pohja", "Pohjaanveto! Rengas ääriasentoon ja irti: täysi voima, aina sama lento.")
+		_tech("pohja", "Pohjaanlyönti! Laukaisin pohjaan asti: täysi voima, aina sama lento laitaporttiin.")
 	elif _thumb:
 		_tech("peukalo", "Peukalo kehyksen reunaan: käsi ei tärise, lyönti toistuu samanlaisena.")
 	elif _snaifs > 0:
 		_tech("snaiffi", "Snaiffaus: sormenpää saattoi rengasta ja jarrutti lyöntiä.")
 	elif _tension < 0.4:
 		_tech("pinta", "Pintalyönti: herkkä neppaus, kolikko lähti kevyesti.")
+	_last_power = _power
 	_launch(_power, 0.01 if full else FINGER)
 
 
@@ -341,7 +368,7 @@ func _nudge() -> void:
 		_tilt_t = 2.0
 		_coin_state = ""
 		_tied = false
-		pot = mini(pot + 1, POT_MAX)
+		_to_tube(_cp.x)
 		Sfx.play("alert", -6.0)
 		_pop = "TILT"
 		_pop_t = 1.6
@@ -434,7 +461,7 @@ func _yank() -> void:
 		Sfx.play("rattle", -8.0, 2.6)
 		comment.emit("Naps! Siimaleikkuri katkaisi siiman. Kolikko jäi koneeseen. Tämä temppu tunnetaan.")
 		return
-	pot -= 1  # kolikko nousee raosta takaisin ylös
+	tubes[_yank_cup] = maxi(0, tubes[_yank_cup] - 1)  # kolikko nousee raosta takaisin ylös
 	_cp = Vector2(SLOTS[_yank_cup], BAND_Y + 14.0)
 	_coin_state = "yank"
 	_yank_t = 0.0
@@ -521,44 +548,82 @@ func _clink(speed: float) -> void:
 		Sfx.play("glass", -26.0 + minf(speed / 60.0, 8.0), randf_range(2.6, 3.2))
 
 
-## Kolikko rakoon: voitto varannosta (R palauttaa panoksen). Sisään mennyt kolikko jää koneeseen (varantoon).
+## Kolikko rakoon: se pinoutuu portin omaan kolikkoputkeen ja vapauttaa putken lukituksen; voitto (R = panos takaisin)
+## maksetaan maksuvivulla (_collect).
 func _cup(i: int) -> void:
 	_coin_state = ""
 	_hit_cup = i
 	_hit_t = 1.2
 	_shake = 0.6
 	var at := _board.position + Vector2(SLOTS[i], BAND_Y + 20.0)
-	pot += 1
-	var prize: int = maxi(PRIZES[i], 1)
-	var n := mini(prize, pot)
-	pot -= n
-	_won += n
-	_pay(n)
+	tubes[i] = mini(tubes[i] + 1, TUBE_MAX)
+	_pending[i] += maxi(PRIZES[i], 1)
 	MG.sparks_burst(_sparks, at, Color(1.0, 0.8, 0.3), 40 if PRIZES[i] >= 14 else 20)
-	if PRIZES[i] == 0:
-		_pop = "R"
-		Sfx.play("coin", -6.0, 1.1)
-		comment.emit("R-rako: panos takaisin. Uusi yritys.")
-	elif PRIZES[i] >= 14:
-		_pop = "+%d €" % n
-		Sfx.play("win", -4.0)
-		comment.emit("SEISKA! Neljätoista kolikkoa kilisee kouruun. Koko baari kääntyy katsomaan.")
-	else:
-		_pop = "+%d €" % n if n > 0 else "Varanto tyhjä!"
-		Sfx.play("win_small", -6.0)
-	if n < prize:
-		comment.emit("Varanto loppui kesken: kone maksoi vain %d." % n)
+	_pop = "R" if PRIZES[i] == 0 else "%d,00" % PRIZES[i]
 	_pop_t = 1.6
+	if PRIZES[i] == 0:
+		Sfx.play("coin", -6.0, 1.1)
+		comment.emit("R-portti aukesi: maksuvivusta (%s) panos takaisin." % Settings.cap("forward"))
+	elif PRIZES[i] >= 14:
+		Sfx.play("win", -4.0)
+		comment.emit("SEISKA! Pääportti aukesi. Maksuvipua (%s), niin putki tyhjenee kouruun. Koko baari katsoo." %
+			Settings.cap("forward"))
+	else:
+		Sfx.play("win_small", -6.0)
+		comment.emit("Portti aukesi: maksuvipua (%s), niin luisti pyyhkäisee voiton kouruun." % Settings.cap("forward"))
 	if _tied:
 		_yank_cup = i
 		comment.emit("Siima kolikossa! Nykäise se ylös ja uudestaan läpi, jos uskallat. Isäntä vilkuilee.")
 
 
-## Voittokolikot varannon pohjalta tähtipyörän kautta voittokouruun.
-func _pay(n: int) -> void:
-	for k in n:
-		var from := _board.position + Vector2(BW * 0.5 + randf_range(-160, 160), BH - 70.0)
-		_payout.append([from, Vector2(randf_range(-40, 40), randf_range(40, 120)), -k * 0.07, "win"])
+func _pending_total() -> int:
+	var n := 0
+	for v in _pending:
+		n += v
+	return n
+
+
+## Maksuvipu: luistilevy pyyhkäisee jokaisen vapautetun portin putken alapäästä voiton verran kolikoita kouruun.
+## Tyhjästä putkesta tulee vähemmän tai ei mitään.
+func _collect() -> void:
+	if _pending_total() == 0:
+		return
+	_lever_t = 0.5
+	Sfx.play("rattle", -8.0, 0.8)
+	var paid := 0
+	var short := false
+	var k := 0
+	for i in tubes.size():
+		if _pending[i] == 0:
+			continue
+		var n := mini(_pending[i], tubes[i])
+		short = short or n < _pending[i]
+		tubes[i] -= n
+		for j in n:
+			var from := _board.position + Vector2(TUBE_X[i] + randf_range(-4, 4), BH - 56.0)
+			_payout.append([from, Vector2(randf_range(-60, 60), randf_range(40, 120)), 0.12 - k * 0.07, "win"])
+			k += 1
+		paid += n
+		_pending[i] = 0
+	_won += paid
+	_star = 0.0
+	_pop = "+%d €" % paid if paid > 0 else "TYHJÄÄ!"
+	_pop_t = 1.6
+	if paid == 0:
+		comment.emit("Putki oli tyhjä: kone maksoi tyhjää.")
+	elif short:
+		comment.emit("Putki loppui kesken: kone maksoi vain %d." % paid)
+
+
+## Ohi mennyt kolikko suppilon jakotapin kautta vajaimpaan putkeen (täysi valuu kassaan).
+func _to_tube(x: float) -> void:
+	var best := 0
+	for i in tubes.size():
+		if tubes[i] < tubes[best]:
+			best = i
+	if tubes[best] < TUBE_MAX:
+		tubes[best] += 1
+	_drops.append([0.0, clampf(x, 20.0, BW - 20.0), best])
 
 
 ## Ohi: nauhaan ja suppiloa pitkin varantoon (täysi varanto valuu kassaan). Siimakolikko vedetään takaisin käteen.
@@ -571,8 +636,7 @@ func _lost() -> void:
 		Sfx.play("cloth", -10.0, 1.8)
 		comment.emit("Ohi, mutta siimalla kolikko nousi takaisin käteen.")
 		return
-	pot = mini(pot + 1, POT_MAX)
-	_drops.append([0.0, clampf(_cp.x, 20.0, BW - 20.0)])
+	_to_tube(_cp.x)
 	Sfx.play("rattle", -16.0, 1.6)
 	if randi() % 3 == 0:
 		comment.emit(["Ohi. Varanto kasvaa, ja se kasvaa sulle.", "Tappi käänsi sen pois. Kolikko valui suppiloon.",
@@ -580,7 +644,7 @@ func _lost() -> void:
 
 
 func _payout_step(delta: float) -> void:
-	_star += delta * (8.0 if not _payout.is_empty() else 0.0)
+	_star += delta * (8.0 if _lever_t > 0.0 else 0.0)
 	var tray_y := _board.end.y + FRAME_BOTTOM - 40.0
 	for p in _payout:
 		p[2] += delta
@@ -614,10 +678,15 @@ func _finish() -> void:
 		if p[3] == "win":
 			money += 1.0  # kouruun matkalla olevat voitot taskuun
 	_payout.clear()
+	for i in tubes.size():  # maksamatta jääneet portit: pelaaja muistaa vetää vipua lähtiessään
+		var n := mini(_pending[i], tubes[i])
+		tubes[i] -= n
+		money += n
+		_pending[i] = 0
 	if _coin_state == "ready" or _coin_state == "insert":
 		money += PRICE  # lyömätön kolikko takaisin
 	elif _coin_state != "":
-		pot = mini(pot + 1, POT_MAX)
+		_to_tube(_cp.x)
 	_done = true
 	finished.emit(money, pot)
 	queue_free()
@@ -634,7 +703,7 @@ func _draw_root() -> void:
 	var cab := Rect2(o - Vector2(FRAME, FRAME_TOP), Vector2(BW + FRAME + FRAME_RIGHT, BH + FRAME_TOP + FRAME_BOTTOM))
 	_draw_cabinet(cab, o, font)
 	_draw_board(o, font)
-	_draw_reserve(o)
+	_draw_reserve(o, font)
 	_draw_band(o, font)
 	_draw_guides(o)
 	# Siima kolikosta kolikkoaukolle.
@@ -671,7 +740,7 @@ func _draw_root() -> void:
 		_root.draw_string(font, Vector2(o.x, py), _pop, HORIZONTAL_ALIGNMENT_CENTER, BW, s, Color(1.0, 0.85, 0.2, al))
 
 
-## Ohi menneen kolikon reitti: nauhan alle, suppilon reunaa keskelle ja alas varannon päälle.
+## Ohi menneen kolikon reitti: nauhan alle, suppilon reunaa keskelle jakotapille ja siitä valitun putken päälle.
 func _drop_pos(d: Array) -> Vector2:
 	var t: float = d[0] / 0.7
 	var x0: float = d[1]
@@ -679,7 +748,8 @@ func _drop_pos(d: Array) -> Vector2:
 	var funnel := Vector2(lerpf(x0, BW / 2.0, f), BAND_Y + 76.0 + 60.0 * f)
 	if t < 0.6:
 		return funnel
-	return Vector2(BW / 2.0, funnel.y + (t - 0.6) * 260.0)
+	var g := (t - 0.6) / 0.4
+	return Vector2(lerpf(BW / 2.0, TUBE_X[d[2]], g), funnel.y + g * 30.0)
 
 
 ## Siitarin seinä pajatson takana: tumma puupaneeli, jukeboksin violetti hehku ja kattolampun valokeila.
@@ -702,9 +772,13 @@ func _draw_bar_wall(sz: Vector2) -> void:
 func _draw_cabinet(cab: Rect2, o: Vector2, font: Font) -> void:
 	_root.draw_rect(Rect2(cab.position + Vector2(14, 16), cab.size), Color(0, 0, 0, 0.45))  # varjo seinällä
 	# Suoraan edestä kylki ei näy: kyljen kahva työntyy kaapin oikean reunan yli (laukaisin, _draw_striker).
-	var hy := o.y + 505.0
+	# Maksuvipu (kyljen kahva) painuu alas, kun voitto maksetaan.
+	var hy := o.y + 505.0 + sin(clampf(_lever_t / 0.5, 0.0, 1.0) * PI) * 12.0
 	MG.box(_root, Rect2(Vector2(cab.end.x - 4, hy - 7), Vector2(30, 14)), Color(0.85, 0.86, 0.9), 6, 1, MG.OUTLINE, 1)
 	_root.draw_line(Vector2(cab.end.x, hy - 3), Vector2(cab.end.x + 22, hy - 3), Color(1, 1, 1, 0.7), 1.5)
+	if _pending_total() > 0 and int(_t * 3.0) % 2 == 0:
+		_root.draw_string(font, Vector2(cab.end.x + 30, hy + 5), "◀ %s" % Settings.cap("forward"), HORIZONTAL_ALIGNMENT_LEFT, -1, 16,
+			Color(1.0, 0.85, 0.3))
 	var teak := Color(0.62, 0.38, 0.2)
 	_root.draw_rect(cab, teak)
 	var rng := RandomNumberGenerator.new()
@@ -760,8 +834,8 @@ func _draw_board(o: Vector2, font: Font) -> void:
 	for k in 7:
 		_root.draw_line(plate.position + Vector2(6, 9 + k * 7), plate.position + Vector2(plate.size.x - 6 - (k % 2) * 20, 9 + k * 7),
 			Color(0.85, 0.85, 0.85, 0.7), 1.0)
-	# Syöttökanava oikeassa reunassa: kiinnikkeestä suoraan alas lyöntipaikalle (kromikiskot), pohjalla hylly, jolla
-	# kolikko odottaa lyöntiä; kyljen laukaisimen heittoliuska iskee sen vasemmalle kiskon alapään alta.
+	# Syöttökanava oikeassa reunassa: kiinnikkeestä suoraan alas laukaisupesään (kromikiskot), jossa kolikko odottaa
+	# pystyssä; kyljen laukaisimen iskuri lyö sen vasemmalle kiskon alapään alta.
 	var lp := o + LAUNCH
 	var chrome := Color(0.75, 0.76, 0.8)
 	_root.draw_rect(Rect2(Vector2(lp.x - COIN_R - 4, o.y), Vector2(3, LAUNCH.y - 26)), chrome)
@@ -799,25 +873,29 @@ func _draw_board(o: Vector2, font: Font) -> void:
 		_root.draw_circle(o + Vector2(x, BH - 18), 3.0, Color(0.85, 0.85, 0.88))
 
 
-## Kolikkovaranto: kolikot pystykouruissa (alumiiniset aaltolevyt) kasvot eteenpäin, keskellä korkeimmat pinot.
-func _draw_reserve(o: Vector2) -> void:
-	var cols := 16
-	var x0 := BW / 2.0 - (cols - 1) * 14.0
+## Kolikkovaranto: jokaisella portilla oma pystysuora kolikkoputki (alumiininen aaltokouru), kolikot kasvot eteenpäin,
+## putken alla portin voittokilpi; pohjalla luistilevy, joka liikkuu maksuvivusta. Auki oleva portti vilkkuu.
+func _draw_reserve(o: Vector2, font: Font) -> void:
 	var top := BAND_Y + 160.0
-	var bottom := BH - 50.0
-	for i in cols:  # aaltolevyt
-		var x := o.x + x0 + i * 28.0
-		MG.grad_rect(_root, Rect2(Vector2(x - 13, o.y + top), Vector2(26, bottom - top)), Color(0.72, 0.74, 0.78), Color(0.55, 0.57, 0.6))
-		_root.draw_line(Vector2(x - 13, o.y + top), Vector2(x - 13, o.y + bottom), Color(0.4, 0.42, 0.45), 2.0)
-	# Pinokorkeudet: keskellä korkeimmat (katon muoto), varanto täyttää kaikki pinot suhteessa.
-	var frac := float(mini(pot, POT_MAX)) / float(POT_MAX)
-	for i in cols:
-		var cap := 13.0 - absf(i - (cols - 1) / 2.0) * 0.9
-		var n := int(round(cap * frac))
-		var x := o.x + x0 + i * 28.0
-		var yb := o.y + bottom - 8.0 - float((i * 37) % 5) * 6.0  # alapäät porrastettu kuten kourujen pohjat
+	var bottom := BH - 64.0
+	for i in tubes.size():
+		var x: float = o.x + TUBE_X[i]
+		MG.grad_rect(_root, Rect2(Vector2(x - 16, o.y + top), Vector2(32, bottom - top)), Color(0.74, 0.76, 0.8), Color(0.55, 0.57, 0.6))
+		for g in 3:  # aallot
+			_root.draw_line(Vector2(x - 10 + g * 10, o.y + top), Vector2(x - 10 + g * 10, o.y + bottom), Color(0.62, 0.64, 0.68), 1.5)
+		_root.draw_line(Vector2(x - 16, o.y + top), Vector2(x - 16, o.y + bottom), Color(0.4, 0.42, 0.45), 2.0)
+		var n := mini(tubes[i], int((bottom - top - 10.0) / 15.0))
 		for k in n:
-			_draw_coin(Vector2(x, yb - k * 15.0), 12.0, false)
+			_draw_coin(Vector2(x, o.y + bottom - 12.0 - k * 15.0), 12.0, false)
+		var open := _pending[i] > 0 and int(_t * 4.0) % 2 == 0
+		var lr := Rect2(Vector2(x - 17, o.y + bottom + 4), Vector2(34, 14))
+		_root.draw_rect(lr, Color(1.0, 0.85, 0.3) if open else Color(0.05, 0.05, 0.06))
+		_root.draw_string(font, lr.position + Vector2(0, 11), "R" if PRIZES[i] == 0 else str(PRIZES[i]),
+			HORIZONTAL_ALIGNMENT_CENTER, lr.size.x, 11, Color(0.1, 0.05, 0.0) if open else Color(0.9, 0.9, 0.9))
+	# Luistilevy putkien alla: liukuu vivusta.
+	var slide := sin(clampf(_lever_t / 0.5, 0.0, 1.0) * PI) * 26.0
+	MG.box(_root, Rect2(Vector2(o.x + TUBE_X[0] - 24 + slide, o.y + bottom), Vector2(TUBE_X[8] - TUBE_X[0] + 48, 4)),
+		Color(0.6, 0.61, 0.64), 1, 0, MG.OUTLINE, 1)
 
 
 ## Rakonauha: harmaa metallinauha, yhdeksän mustaa rakoa voittokilpineen ja niiden yllä tappiparit (ressut).
@@ -880,13 +958,12 @@ func _draw_glass(o: Vector2) -> void:
 ## Laukaisin koneen kyljessä (kuten oikeassa koneessa) ja yläkehyksen TILT-valo.
 func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
 	# Laukaisin koneen kyljessä lyöntipaikan kohdalla: edestä näkyy vain kyljen yli työntyvä kiinnike ja syrjästä
-	# rengaslenkki. Jännittäessä lenkki vedetään ulospäin, napautus iskee sen takaisin.
+	# rengaslenkki (liipaisin), jota sormi napsauttaa sisään.
 	var y := o.y + LAUNCH.y
 	var x := cab.end.x
-	var pull := _power if _coin_state == "ready" and _drawing else 0.0
+	# Ei viritystä: liipaisin on ulkoasennossa, isku painaa sen sisään (sitä syvemmälle, mitä kovempi), jousi palauttaa.
 	var snap := clampf(_ring_t / 0.3, 0.0, 1.0)
-	var tremble := sin(_t * 13.0) * 1.2 if _coin_state == "ready" and _drawing and not _thumb and _tension < 1.0 else 0.0
-	var off := pull * 16.0 - sin(snap * PI) * 4.0 + tremble
+	var off := -sin(snap * PI) * (3.0 + _last_power * 11.0)
 	MG.box(_root, Rect2(Vector2(x - 2, y - 20), Vector2(8, 40)), Color(0.8, 0.81, 0.85), 2, 1, MG.OUTLINE, 1)  # lista
 	var block := Rect2(Vector2(x + 5 + off, y - 9), Vector2(14, 18))
 	MG.box(_root, block, Color(0.84, 0.85, 0.89), 3, 0, MG.OUTLINE, 1)

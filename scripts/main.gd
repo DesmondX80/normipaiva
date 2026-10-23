@@ -18953,8 +18953,17 @@ func _maybe_screenshot() -> void:
 			pg._tray = 0
 			# Seiska ja varanto.
 			pg.pot = 80
+			pg._pending.fill(0)  # jakaumasimulaation avaamat portit pois
 			pg._cup(4)
-			print("PJ seiska: varanto %d, matkalla %d" % [pg.pot, pg._payout.size()])
+			print("PJ seiska: portti auki %d, putki %d" % [pg._pending[4], pg.tubes[4]])
+			await snap.call("_seiska_auki.png", 6)
+			pg._collect()
+			print("PJ maksuvipu: varanto %d, matkalla %d, putki %d" % [pg.pot, pg._payout.size(), pg.tubes[4]])
+			pg.tubes[2] = 0
+			pg._cup(1)
+			pg.tubes[1] = 0
+			pg._collect()
+			print("PJ tyhjä putki: matkalla %d, '%s'" % [pg._payout.size(), pg._tip.text])
 			await snap.call("_seiska.png", 12)
 			await snap.call("_seiska_kouru.png", 60)
 			# Tönäisy lennon aikana: jousi vaimenee tai tilt (kolmas heittäisi ulos; tässä kaksi).
@@ -19058,6 +19067,7 @@ func _maybe_screenshot() -> void:
 			print("PAJATSO laukaukset: %s, potti %d" % [hits, pg.pot])
 			pg.pot = 14
 			pg._cup(2)
+			pg._collect()
 			await snap.call("_p_kuppi.png", 25)
 			pg._finish()
 			print("PAJATSO rahat %s, potti %d" % [money, _pajatso_pot])
