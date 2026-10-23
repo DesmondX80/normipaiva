@@ -131,6 +131,12 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     liikaa tyly tinkiminen ("Pihi kuin Pekka" −3). Reilu hinta: puolukka 6 €/l, mustikka 7, kantarelli 14, herkkutatti
     11, savukala 7, savuriista 9, kalja 15, pontikka 20. Pelin aikaa kuluu tunti per neljä asiakasta. Pekan vanhoja
     tavaroita ei vielä myydä. Testi `--scene=kirppismyynti`.
+  - **Hiihtohaalari:** Railin vaatetangossa keskipöydän vieressä (vakosamettitakin ja flanellipaidan välissä)
+    roikkuu neonpinkki kasarin toppahaalari, 6 € (tinkiä voi). Valkoinen olkakaarroke sahalaitaisin vuorenhuipuin,
+    keltainen ja turkoosi raita, tikkauskanavat, vetoketju, mustat resorit, kuukengät ja raidallinen frotee-otsapanta
+    (mitoitetaan pään ja tukan mukaan). Ostettuna moraali nousee hieman, Anna-Liisa nauraa, ja haalari tulee kodin
+    vaatekaappiin. Haalarissa Anna-Liisa nauraa seuraintalolla ja Päivi motkottaa kotiovella kerran päivässä.
+    Testi `--scene=haalari`.
   - **Drakkar Noir (legendaarinen hetki):** Railin pöydällä puolillaan oleva musta pullo (12 €). Kun pullo loppuu,
     Railin pöydälle tulee uusi (legendaarinen hetki vain ensimmäisestä).
     Pullossa 10 suihkausta, suihkaus T-valikosta. Tuoksu kestää päivän: moraali ja mielihyvä nousevat, Sinikka
@@ -591,10 +597,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   vaatekaapista vaihdetaan farkkuihin, verkkopaitaan ja henkseleihin (vyö, kultaketju, valkoiset ovaalit lasit ja
   taakse kammattu rasvaletti), Paapelin makuuhuoneen kaapista työhousuihin, flanelliin ja Karjala-lippikseen. Kodin
   kaapista saa myös Stetson-cowboyhatun lippiksen tilalle (ruskea huopa, keskiura, kaareva lieri, nauha ja hopeinen
-  koristelaatta); se pysyy päässä asusta riippumatta, kunnes lippis vaihdetaan takaisin. Asu ja hattu vaihtuvat
+  koristelaatta); se pysyy päässä asusta riippumatta, kunnes lippis vaihdetaan takaisin. Kirppikseltä ostettu
+  hiihtohaalari tulee kodin kaappiin neljänneksi asuksi. Asu ja hattu vaihtuvat
   kaikkiin pelaajan malleihin paikallaan (pyörä, kävely, mopo, sisätilat) ja säilyvät tallennuksessa. Vaatteet
   piirretään varjostimessa pikseleinä (`shaders/character.gdshader`), asusteet ovat muutama pieni mesh luissa
-  (`looks.gd`, testit `--scene=asut`, `--scene=vaatekaappi` ja `--scene=stetson`).
+  (`looks.gd`, testit `--scene=asut`, `--scene=vaatekaappi`, `--scene=stetson` ja `--scene=haalari`).
 - **Päivin vanha kännykkä (P soimaan / taskuun, N seuraava, U voimakkuus):** kodin makuuhuoneen yöpöydällä
   parisängyn vieressä. Soittaa vanhoja iskelmiä 78 kierroksen levyiltä (`assets/music/iskelma/`, sama lista kuin
   lavabändillä) pienestä kaiuttimesta: oma ääniväylä kaistanpäästöllä ja säröllä, joten ääni on ohut kuin taskusta.

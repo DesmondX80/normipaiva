@@ -46,6 +46,13 @@ uniform bool workwear = false;   // työhousut: vahvikkeet polvissa, riipputasku
 uniform bool flannel = false;    // flanellipaita: ruudutus
 uniform bool tattoo = false;     // tatuointi vasemmassa olkavarressa (näkyy paljaalta iholta ja verkon läpi)
 uniform bool string_bikini = false;  // pienet lappubikinit: kolmiot rintojen päällä, pieni alaosa, ohuet nauhat
+// Kasarin hiihtohaalari (paita ja housut samaa kangasta, pohjaväri shirt): valkoinen olkakaarroke, jonka alareuna on
+// vuoristosahalaita, sen alla keltainen ja turkoosi raita, tikkauskanavat, vetoketju, vyötärökuminauha, ribbiresorit
+// ja kuukengät.
+uniform bool ski_suit = false;
+uniform vec3 ski_yoke : source_color = vec3(0.95, 0.95, 0.97);
+uniform vec3 ski_line1 : source_color = vec3(1.0, 0.9, 0.05);
+uniform vec3 ski_line2 : source_color = vec3(0.0, 0.78, 0.82);
 
 float hash21(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -166,6 +173,66 @@ bool bare(float c, vec2 r, vec3 lp, float fr, float nx) {
 		return true;
 	}
 	return false;
+}
+
+// Hiihtohaalarin vetoketju: edessä keskellä haarasta kaulukseen (1 = hammas tai vetimen läppä).
+float ski_zip(float c, vec2 r, vec3 lp) {
+	if (c < 0.5 || c > 1.5 || abs(r.x) > 0.03 || lp.z < 0.0 || r.y < 1.03 || r.y > 1.52) {
+		return 0.0;
+	}
+	float teeth = (1.0 - step(0.005, abs(r.x))) * step(0.5, fract(r.y * 260.0));
+	float tab = step(abs(r.x - 0.01), 0.008) * step(abs(r.y - 1.44), 0.022);
+	return max(teeth, tab);
+}
+
+// Hiihtohaalarin kangas (c = luokka, cloth = pohjaväri): kuviot lepoasennon koordinaateista.
+vec3 ski_cloth(float c, vec3 cloth, vec2 r, vec3 lp, float nx) {
+	float ax = abs(r.x);
+	bool torso = ax < 0.26;
+	if (c > 2.5) {
+		// Kuukengät: paksut vaakatikkaukset, tumma kumipohja.
+		float rib = 0.82 + 0.18 * smoothstep(0.0, 0.35, abs(fract(r.y * 45.0) - 0.5));
+		return mix(cloth * rib, vec3(0.08, 0.08, 0.09), step(r.y, 0.022));
+	}
+	if (c > 0.5 && c < 1.5) {
+		if (torso) {
+			// Olkakaarroke: sahalaitainen alareuna kuin vuorenhuiput, raidat sen alla.
+			float zig = 1.24 + 0.09 * abs(fract(r.x * 8.0 + 0.5) - 0.5) * 2.0;
+			float d = r.y - zig;
+			cloth = d > 0.0 ? ski_yoke : cloth;
+			cloth = mix(cloth, ski_line1, step(-0.032, d) * step(d, 0.0));
+			cloth = mix(cloth, ski_line2, step(-0.054, d) * step(d, -0.032));
+			// Pystykaulus mustaa ribbiä, turkoosi reunus.
+			float col = step(1.475 + 0.5 * max(ax - 0.07, 0.0), r.y) * step(ax, 0.11);
+			cloth = mix(cloth, vec3(0.05, 0.05, 0.06) * (0.85 + 0.15 * step(0.5, fract(r.x * 160.0))), col);
+			cloth = mix(cloth, ski_line2, step(abs(r.y - 1.475 - 0.5 * max(ax - 0.07, 0.0)), 0.004) * step(ax, 0.11));
+		} else {
+			// Hihat: valkoinen olkavarsi, raidat, pinkki kyynärvarsi ja musta ranneresori.
+			cloth = ax < 0.4 ? ski_yoke : cloth;
+			cloth = mix(cloth, ski_line1, step(0.4, ax) * step(ax, 0.428));
+			cloth = mix(cloth, ski_line2, step(0.428, ax) * step(ax, 0.446));
+			cloth = mix(cloth, vec3(0.05, 0.05, 0.06) * (0.85 + 0.15 * step(0.5, fract(r.y * 160.0))), step(0.645, ax));
+		}
+	} else {
+		// Lahkeet: keltainen ja turkoosi sivuraita, vyötärön kuminauha ja nilkkaresori.
+		float side = step(0.0, nx * r.x) * step(r.y, 0.97) * step(0.1, r.y);
+		cloth = mix(cloth, ski_line2, side * step(0.86, abs(nx)) * step(abs(nx), 0.93));
+		cloth = mix(cloth, ski_line1, side * step(0.93, abs(nx)));
+		float waist = step(abs(r.y - 1.0), 0.02);
+		cloth = mix(cloth, cloth * (0.72 + 0.2 * step(0.5, fract(r.x * 110.0))), waist);
+		cloth = mix(cloth, vec3(0.05, 0.05, 0.06) * (0.85 + 0.15 * step(0.5, fract(r.x * 160.0))), step(r.y, 0.1));
+	}
+	// Tikkauskanavat: pullea toppaus ja tumma tikkisauma (hihoissa poikittain kädenvarteen).
+	float u = (c > 0.5 && c < 1.5 && !torso) ? ax * 16.0 : r.y * 14.0;
+	float puffq = 0.86 + 0.14 * sin(fract(u) * 3.14159);
+	bool cuff = (c > 0.5 && c < 1.5 && ((r.y > 1.475 && ax < 0.11) || ax > 0.645)) || (c > 1.5 && r.y < 0.1);
+	cloth *= cuff ? 1.0 : puffq;
+	// Vetoketju: musta nauha, hopeiset hampaat ja vetimen läppä.
+	if (c > 0.5 && c < 1.5 && torso && lp.z > 0.0 && r.y > 1.03 && r.y < 1.52) {
+		cloth = mix(cloth, vec3(0.04), 1.0 - step(0.011, ax));
+		cloth = mix(cloth, vec3(0.8, 0.81, 0.85), ski_zip(c, r, lp));
+	}
+	return cloth;
 }
 
 void vertex() {
@@ -300,6 +367,9 @@ void fragment() {
 				cloth = strap_col * (0.85 + 0.15 * step(0.5, fract(rest.y * 90.0)));
 			}
 		}
+		if (ski_suit) {
+			cloth = ski_cloth(c, cloth, rest, lpos, rest_nx);
+		}
 		if (belt_y > 0.0 && c > 1.5 && c < 2.5 && rest.y > belt_y - 0.04 && rest.y < belt_y) {
 			// Vyö: musta nahka, ommel reunoissa, hopeinen solki edessä.
 			cloth = belt_col * (1.0 - 0.4 * step(abs(rest.y - (belt_y - 0.02)), 0.017) * 0.0);
@@ -323,6 +393,10 @@ void fragment() {
 			SPECULAR = 0.9;
 		}
 		SPECULAR = mix(0.25, 0.45, fabric_shine);
+		if (ski_suit && ski_zip(c, rest, lpos) > 0.5) {
+			ROUGHNESS = 0.25;
+			METALLIC = 0.8;
+		}
 		NORMAL_MAP = mix(vec3(0.5, 0.5, 1.0), n, 0.18 * muscle_def);
 	}
 }

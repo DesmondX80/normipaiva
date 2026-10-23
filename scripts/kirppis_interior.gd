@@ -140,6 +140,7 @@ var _no_dance: Node3D  # keskipöytä: pois tansseista
 var _lot: Node3D
 var _dancers: Array[Node3D] = []
 var drakkar: Node3D  # Drakkar Noir Railin pöydällä (main.gd piilottaa ostettuna)
+var haalari: Node3D  # neonpinkki hiihtohaalari Railin vaatetangossa (main.gd piilottaa ostettuna)
 var _chat_t := 4.0
 var _t := 0.0
 
@@ -523,6 +524,7 @@ func _build_tables() -> void:
 	tag.scale = Vector3.ONE * 0.22
 	tag.position = Vector3(0.0, 0.012, 0.07)
 	tag.rotation.x = -1.1
+	_build_rack(kg)
 	for x in [0.6, 1.1]:
 		B.mesh(kg, B.sphere(0.1, 10), Vector3(x, 0.88, 0.0), Color(0.97, 0.97, 0.95))
 		B.mesh(kg, B.sphere(0.06, 8), Vector3(x, 1.0, 0.05), Color(0.97, 0.97, 0.95))
@@ -539,6 +541,190 @@ func _build_tables() -> void:
 		Color(0.45, 0.12, 0.06))
 	tent.position = Vector3(-5.2, 0.9, 4.15)
 	tent.rotation.x = -0.25
+
+
+## Railin vaatetanko keskipöydän vasemmalla puolella: kromattu teline, vakosamettitakki, flanellipaita ja
+## neonpinkki hiihtohaalari (tikkauskanavat, valkoinen sahalaitainen kaarroke, raidat, vetoketju, resorit).
+const RACK_AT := Vector3(-2.35, 0, -0.45)
+const RACK_TOP := 1.78
+
+
+func _build_rack(kg: Node3D) -> void:
+	var rack := Node3D.new()
+	rack.position = RACK_AT
+	kg.add_child(rack)
+	var chrome := StandardMaterial3D.new()
+	chrome.albedo_color = Color(0.78, 0.79, 0.82)
+	chrome.metallic = 0.9
+	chrome.roughness = 0.18
+	var tube := func(m: Mesh, pos: Vector3, rot := Vector3.ZERO) -> void:
+		var mi := MeshInstance3D.new()
+		mi.mesh = m
+		mi.material_override = chrome
+		mi.position = pos
+		mi.rotation_degrees = rot
+		rack.add_child(mi)
+	for x in [-0.72, 0.72]:
+		tube.call(B.cyl(0.014, 0.014, RACK_TOP, 10), Vector3(x, RACK_TOP / 2.0, 0))
+		tube.call(B.cyl(0.012, 0.012, 0.5, 8), Vector3(x, 0.03, 0), Vector3(90, 0, 0))  # jalka
+		for z in [-0.24, 0.24]:  # pyörät
+			B.mesh(rack, B.cyl(0.025, 0.025, 0.02, 10), Vector3(x, 0.025, z), Color(0.08, 0.08, 0.09), Vector3(0, 0, 90))
+	tube.call(B.cyl(0.013, 0.013, 1.46, 10), Vector3(0, RACK_TOP, 0), Vector3(0, 0, 90))
+	var body := StaticBody3D.new()
+	body.position = Vector3(0, 0.9, 0)
+	body.add_child(B.box_shape(Vector3(1.5, 1.8, 0.5)))
+	rack.add_child(body)
+	_garment_coat(rack, -0.5)
+	_garment_flannel(rack, 0.5)
+	haalari = Node3D.new()
+	haalari.position = Vector3(0, RACK_TOP, 0.03)
+	rack.add_child(haalari)
+	_garment_haalari(haalari)
+
+
+## Henkari tangolle: koukku ja puinen olkapuu (h = vaatteen juurisolmu, origo tangon kohdalla).
+func _hanger(h: Node3D) -> void:
+	var wire := Color(0.7, 0.71, 0.74)
+	B.mesh(h, B.cyl(0.004, 0.004, 0.06, 6), Vector3(0, -0.03, 0), wire)
+	B.mesh(h, B.cyl(0.004, 0.004, 0.03, 6), Vector3(0, 0.012, -0.01), wire, Vector3(60, 0, 0))
+	B.mesh(h, B.boxm(Vector3(0.42, 0.025, 0.03)), Vector3(0, -0.07, 0), Color(0.55, 0.36, 0.2))
+
+
+func _garment_coat(rack: Node3D, x: float) -> void:
+	var h := Node3D.new()
+	h.position = Vector3(x, RACK_TOP, -0.03)
+	rack.add_child(h)
+	_hanger(h)
+	var brown := Color(0.45, 0.3, 0.16)
+	B.mesh(h, B.boxm(Vector3(0.44, 0.86, 0.1)), Vector3(0, -0.52, 0), brown)
+	for k in 14:  # vakosametin urat
+		B.mesh(h, B.boxm(Vector3(0.006, 0.84, 0.102)), Vector3(-0.2 + k * 0.03, -0.53, 0), brown.darkened(0.2))
+	for s in [-1.0, 1.0]:
+		B.mesh(h, B.boxm(Vector3(0.1, 0.72, 0.09)), Vector3(s * 0.26, -0.46, 0), brown.darkened(0.08), Vector3(0, 0, s * 6))
+		B.mesh(h, B.boxm(Vector3(0.09, 0.22, 0.012)), Vector3(s * 0.07, -0.2, 0.052), brown.darkened(0.3), Vector3(0, 0, -s * 18))  # kaulus
+	for k in 4:
+		B.mesh(h, B.cyl(0.012, 0.012, 0.01, 10), Vector3(0.02, -0.36 - k * 0.15, 0.054), Color(0.2, 0.12, 0.06), Vector3(90, 0, 0))
+
+
+func _garment_flannel(rack: Node3D, x: float) -> void:
+	var h := Node3D.new()
+	h.position = Vector3(x, RACK_TOP, -0.03)
+	rack.add_child(h)
+	_hanger(h)
+	var red := Color(0.7, 0.1, 0.08)
+	var dark := Color(0.25, 0.05, 0.05)
+	B.mesh(h, B.boxm(Vector3(0.42, 0.66, 0.06)), Vector3(0, -0.41, 0), red)
+	for s in [-1.0, 1.0]:
+		B.mesh(h, B.boxm(Vector3(0.09, 0.56, 0.05)), Vector3(s * 0.25, -0.36, 0), red.darkened(0.1), Vector3(0, 0, s * 6))
+	for k in 10:  # ruudutus: tummat raidat pysty- ja vaakasuoraan, ohut keltainen viiva harvakseltaan
+		B.mesh(h, B.boxm(Vector3(0.016, 0.66, 0.062)), Vector3(-0.19 + k * 0.042, -0.41, 0), dark)
+	for k in 15:
+		B.mesh(h, B.boxm(Vector3(0.42, 0.016, 0.062)), Vector3(0, -0.1 - k * 0.042, 0), dark)
+	for k in 5:
+		B.mesh(h, B.boxm(Vector3(0.003, 0.66, 0.063)), Vector3(-0.17 + k * 0.084, -0.41, 0), Color(0.85, 0.7, 0.25))
+	for k in 6:  # napit ja kaulus
+		B.mesh(h, B.cyl(0.008, 0.008, 0.008, 8), Vector3(0, -0.14 - k * 0.1, 0.033), Color(0.92, 0.9, 0.85), Vector3(90, 0, 0))
+	for s in [-1.0, 1.0]:
+		B.mesh(h, B.boxm(Vector3(0.08, 0.1, 0.01)), Vector3(s * 0.05, -0.12, 0.034), red.darkened(0.15), Vector3(0, 0, -s * 25))
+
+
+## Hiihtohaalari henkarissa: vartalo, roikkuvat hihat ja lahkeet. Etupaneelin kuvio (kaarroke, raidat, vetoketju,
+## tikkaukset) on piirretty kuvaksi samoilla mitoilla kuin pelaajan varjostimessa (character.gdshader ski_cloth).
+func _garment_haalari(h: Node3D) -> void:
+	_hanger(h)
+	var pink := Looks.HAALARI_PINK
+	var seam := pink.darkened(0.18)
+	var white := Color(0.95, 0.95, 0.97)
+	var yellow := Color(1.0, 0.9, 0.05)
+	var turq := Color(0.0, 0.78, 0.82)
+	var black := Color(0.06, 0.06, 0.07)
+	var torso_h := 0.62
+	var ty := -0.07 - torso_h / 2.0
+	B.mesh(h, B.boxm(Vector3(0.44, torso_h - 0.04, 0.12)), Vector3(0, ty - 0.02, 0), pink)
+	for s in [-1.0, 1.0]:  # pyöreät toppaolkapäät
+		B.mesh(h, B.sphere(0.5, 14), Vector3(s * 0.2, -0.1, 0), white).scale = Vector3(0.13, 0.09, 0.12)
+	B.mesh(h, B.cyl(0.07, 0.075, 0.06, 16), Vector3(0, -0.07, 0), black).scale = Vector3(1, 1, 0.6)  # pystykaulus
+	var front := MeshInstance3D.new()  # kuvioitu etupaneeli
+	var q := QuadMesh.new()
+	q.size = Vector2(0.44, torso_h - 0.04)
+	front.mesh = q
+	var fm := StandardMaterial3D.new()
+	fm.albedo_texture = _haalari_front(pink, white, yellow, turq)
+	fm.roughness = 0.5
+	front.material_override = fm
+	front.position = Vector3(0, ty - 0.02, 0.0605)
+	h.add_child(front)
+	# Raaja: soikea lieriö (pituus l, säteet ylhäällä ja alhaalla), osat lueteltuna [alku, loppu, väri] ylhäältä alas.
+	var limb := func(parent: Node3D, r0: float, r1: float, l: float, parts: Array, depth: float) -> void:
+		for part in parts:
+			var y0: float = part[0]
+			var y1: float = part[1]
+			var ra := lerpf(r0, r1, y0 / l) + 0.002 * float(part.size() > 3)
+			var rb := lerpf(r0, r1, y1 / l) + 0.002 * float(part.size() > 3)
+			var m := B.mesh(parent, B.cyl(ra, rb, y1 - y0, 16), Vector3(0, -(y0 + y1) / 2.0, 0), part[2])
+			m.scale = Vector3(1, 1, depth)
+	for s in [-1.0, 1.0]:
+		# Hiha roikkuu olkapäästä hieman ulospäin: valkoinen olkavarsi, raidat, tikattu pinkki kyynärvarsi, resori.
+		var arm := Node3D.new()
+		arm.position = Vector3(s * 0.24, -0.11, 0)
+		arm.rotation.z = s * 0.1
+		h.add_child(arm)
+		var ap := [[0.0, 0.22, white], [0.22, 0.25, yellow], [0.25, 0.27, turq], [0.27, 0.52, pink], [0.52, 0.58, black]]
+		for k in 3:
+			ap.append([0.33 + k * 0.07, 0.336 + k * 0.07, seam, true])
+		limb.call(arm, 0.065, 0.052, 0.58, ap, 0.85)
+		# Lahje: tikattu pinkki, keltainen ja turkoosi sivuraita ulkosivulla, musta nilkkaresori.
+		var leg := Node3D.new()
+		leg.position = Vector3(s * 0.11, -0.07 - torso_h + 0.03, 0)
+		h.add_child(leg)
+		var lh := 0.7
+		var lp := [[0.0, lh - 0.06, pink], [lh - 0.06, lh, black]]
+		for k in 9:
+			lp.append([0.06 + k * 0.07, 0.066 + k * 0.07, seam, true])
+		limb.call(leg, 0.11, 0.09, lh, lp, 0.55)
+		for k in 2:  # sivuraidat: ohuet levyt lahkeen ulkosivulla
+			var st := B.mesh(leg, B.boxm(Vector3(0.004, lh - 0.1, [0.03, 0.016][k])), Vector3(s * (0.1 + 0.002 * k), -lh / 2.0 + 0.02,
+				[0.0, 0.025][k]), [yellow, turq][k])
+			st.rotation.z = s * 0.028
+	# Vyötärön kuminauha ja hintalappu hihassa.
+	B.mesh(h, B.boxm(Vector3(0.45, 0.035, 0.125)), Vector3(0, -0.07 - torso_h + 0.04, 0), pink.darkened(0.25))
+	var tag := B.sign_plate(h, "6 €", Color(0.98, 0.96, 0.85), Color(0.6, 0.1, 0.1), 0.05, 22, Color(0.6, 0.1, 0.1))
+	tag.scale = Vector3.ONE * 0.3
+	tag.position = Vector3(0.33, -0.66, 0.07)
+
+
+## Etupaneelin kuva (0,5 cm / pikseli): kaarroke ja raidat kuten varjostimessa, kaulus, vetoketju ja tikkaukset.
+static func _haalari_front(pink: Color, white: Color, yellow: Color, turq: Color) -> ImageTexture:
+	var w := 92
+	var hgt := 124
+	var img := Image.create(w, hgt, false, Image.FORMAT_RGB8)
+	for py in hgt:
+		for px in w:
+			var x := (px + 0.5) / w * 0.46 - 0.23
+			var y := -(py + 0.5) / hgt * 0.62  # 0 = olkapäät, alas negatiivinen
+			var zig := -0.2 - 0.09 * absf(fposmod(x * 8.0 + 0.5, 1.0) - 0.5) * 2.0
+			var d := y - zig
+			var col := pink
+			if d > 0.0:
+				col = white
+			elif d > -0.032:
+				col = yellow
+			elif d > -0.054:
+				col = turq
+			if y > -0.035:
+				col = Color(0.06, 0.06, 0.07)  # kaulus
+			var puff := 0.86 + 0.14 * sin(fposmod(y * 14.0, 1.0) * PI)
+			col = col * puff if y < -0.035 else col
+			if absf(x) < 0.011 and y < -0.02:
+				col = Color(0.05, 0.05, 0.05)
+				if absf(x) < 0.005 and fposmod(y * 260.0, 1.0) < 0.5:
+					col = Color(0.82, 0.83, 0.86)
+			if absf(x - 0.012) < 0.008 and absf(y + 0.08) < 0.02:
+				col = Color(0.82, 0.83, 0.86)  # vetimen läppä
+			col.a = 1.0
+			img.set_pixel(px, py, col)
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 
 func _build_people() -> void:

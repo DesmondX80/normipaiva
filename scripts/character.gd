@@ -62,7 +62,7 @@ func setup(look: Dictionary) -> void:
 	var mus := float(look.get("muscle", DEFAULT_MUSCLE))
 	body_mat.set_shader_parameter("muscle_def", (1.0 - 0.8 * clampf(float(look.get("belly", 0.0)), 0.0, 1.0)) * (1.0 + 0.6 * mus))
 	for k in ["shorts_y", "crop_y", "sleeve_x", "tube_y", "denim", "bare_skin", "jeans", "belt_y", "belt_col", "net_shirt",
-			"suspenders", "strap_col", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff", "string_bikini"]:
+			"suspenders", "strap_col", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff", "string_bikini", "ski_suit"]:
 		if look.has(k):
 			body_mat.set_shader_parameter(k, look[k])
 	if look.has("stripe_color"):

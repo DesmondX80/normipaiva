@@ -13,13 +13,15 @@ const PLAYER := {
 	"belly": 0.75, "bulk": 0.1, "shoulders": -0.55,
 }
 ## Pelaajan asut (vaatekaappi kotona ja Paapelin makuuhuoneessa, main.gd tallentaa valinnan): tuulipuku ja
-## Karhu-lippis on oletus. Kaikissa vaaleat hiukset, pukinparta, kello, rannekoru ja tatuointi vasemmassa olkavarressa.
+## Karhu-lippis on oletus. Hiihtohaalari ostetaan kirppikseltä Railin vaatetangosta (main.gd has_haalari). Kaikissa vaaleat hiukset, pukinparta, kello, rannekoru ja tatuointi vasemmassa olkavarressa.
 const OUTFITS := {
 	"tuulipuku": {"name": "Tuulipuku ja Karhu-lippis"},
 	"farkut": {"name": "Farkut, verkkopaita ja rasvaletti"},
 	"tyovaatteet": {"name": "Työvaatteet ja Karjala-lippis"},
+	"hiihtohaalari": {"name": "Hiihtohaalari ja otsapanta"},
 }
 const PLAYER_HAIR := Color(0.82, 0.66, 0.4)
+const HAALARI_PINK := Color(0.95, 0.1, 0.5)
 static var outfit := "tuulipuku"
 ## Pelaajan päähine lippiksen tilalle (kodin vaatekaappi): "" = asun oma lippis, "stetson" = cowboyhattu.
 static var hat := ""
@@ -44,6 +46,12 @@ static func player(which := "") -> Dictionary:
 				look.erase(k)
 			look.merge({"shirt": Color(0.62, 0.1, 0.08), "flannel": true, "pants": Color(0.24, 0.25, 0.27), "workwear": true,
 				"shoes": Color(0.1, 0.09, 0.08), "stripes": false, "shine": 0.0, "cap": "karjala", "shades": ""}, true)
+		"hiihtohaalari":
+			# Kasarin neonpinkki toppahaalari (kuviot varjostimessa, ski_suit), kuukengät ja frotee-otsapanta.
+			for k in ["tracksuit", "stripe_color"]:
+				look.erase(k)
+			look.merge({"shirt": HAALARI_PINK, "pants": HAALARI_PINK, "ski_suit": true, "shirt_puff": 0.04,
+				"pants_puff": 0.046, "shoes": Color(0.9, 0.9, 0.93), "stripes": false, "shine": 0.55, "cap": "panta"}, true)
 	return look
 
 
@@ -628,6 +636,9 @@ static func add_cap(c: Node3D) -> void:
 		return
 	if kind == "":
 		return  # asussa ei lippistä (rasvaletti)
+	if kind == "panta":
+		add_headband(c)
+		return
 	var cloth := CAP_NAVY if kind == "karhu" else KARJALA_RED
 	var sk: Skeleton3D = c.skeleton
 	var rest := sk.get_bone_global_rest(sk.find_bone("Head"))
@@ -664,6 +675,127 @@ static func add_cap(c: Node3D) -> void:
 	var top := _cap_point(data.grid, 0.0, PI * 0.5)
 	B.mesh(cap, B.sphere(0.009, 10), top + Vector3(0, 0.001, 0), cloth).scale = Vector3(1, 0.55, 1)  # nappi
 	c.attach("Head", cap, CAP_OFFSET)
+
+
+## Hiihtohaalarin frotee-otsapanta: neonkeltainen pullea nauha otsalla ja tukan päällä, keskellä pinkki ja turkoosi
+## raita. Säde mitataan kulmittain hahmon omasta päästä ja tukasta nauhan korkeudelta (ei tukan painamista kuten
+## lippiksessä), joten panta istuu tukan päällä. Mitat lippiksen avaruudessa (CAP_OFFSET, -Z eteen).
+const PANTA_FRONT_Y := 0.0  # nauhan keskikorkeus otsalla
+const PANTA_BACK_Y := -0.035  # ja takaraivolla (panta laskee hieman taakse)
+const PANTA_H := 0.036
+const PANTA_THICK := 0.009
+const PANTA_YELLOW := Color(1.0, 0.92, 0.1)
+
+
+static func add_headband(c: Node3D) -> void:
+	var sk: Skeleton3D = c.skeleton
+	var rest := sk.get_bone_global_rest(sk.find_bone("Head"))
+	var mb: Basis = (c.model.transform * sk.transform).basis
+	var meshes: Array = []
+	for mi in sk.get_children():
+		if mi is MeshInstance3D and not (mi.name in ["Eyes", "Eyebrows"]):
+			meshes.append(mi.mesh)
+	var key := "panta"
+	for m in meshes:
+		key += "/" + str(m.get_rid())
+	if not _cap_cache.has(key):
+		_cap_cache[key] = _headband_mesh(_headband_ring(meshes, rest.origin, mb))
+	var mi := MeshInstance3D.new()
+	mi.mesh = _cap_cache[key]
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.vertex_color_is_srgb = true
+	mat.roughness = 0.95
+	mi.material_override = mat
+	c.attach("Head", mi, CAP_OFFSET)
+
+
+static func _panta_y(th: float) -> float:
+	return lerpf(PANTA_FRONT_Y, PANTA_BACK_Y, (1.0 - cos(th)) * 0.5)
+
+
+## Pään ja tukan vaakasäde nauhan korkeudella NT kulmassa (pystyakseli kallon keskipisteen kautta).
+static func _headband_ring(meshes: Array, origin: Vector3, mb: Basis) -> Array:
+	var ring := []
+	ring.resize(NT)
+	ring.fill(0.0)
+	for m in meshes:
+		for si in (m as Mesh).get_surface_count():
+			var verts: PackedVector3Array = m.surface_get_arrays(si)[Mesh.ARRAY_VERTEX]
+			for p in verts:
+				var q: Vector3 = mb * (p - origin) - CAP_OFFSET
+				var d := Vector2(q.x - CAP_C.x, q.z - CAP_C.z)
+				var r := d.length()
+				if r < 0.03 or r > 0.16:
+					continue
+				var th := atan2(d.x, -d.y)
+				if absf(q.y - _panta_y(th)) > PANTA_H * 0.5 + 0.004:
+					continue
+				var i := _t_index(th)
+				ring[i] = maxf(ring[i], r)
+	for it in 6:  # aukot naapureista
+		for i in NT:
+			if ring[i] == 0.0:
+				ring[i] = maxf(ring[(i + 1) % NT], ring[(i + NT - 1) % NT])
+	var out := []
+	for i in NT:  # laajennus ja pehmennys: ei yksittäisiä hiussuortuvien piikkejä
+		out.append(maxf(maxf(ring[(i + 1) % NT], ring[(i + NT - 1) % NT]), ring[i]))
+	var smooth := []
+	for i in NT:
+		smooth.append((out[(i + 1) % NT] + out[i] * 2.0 + out[(i + NT - 1) % NT]) / 4.0 + 0.003)
+	return smooth
+
+
+## Pullea nauha: poikkileikkaus kaartuu ulospäin (frotee), sisäpinta pään myötäisesti. Värit verteksiväreinä.
+static func _headband_mesh(ring: Array) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rows := 8
+	var pt := func(i: int, j: int) -> Vector3:
+		var th := TAU * i / NT
+		var t := float(j) / rows  # 0 = alareuna ulkona, 1 = yläreuna, rows..2*rows = sisäpinta takaisin alas
+		var r: float = ring[i % NT]
+		var y := _panta_y(th)
+		var dir := Vector3(sin(th), 0, -cos(th))
+		var p: Vector3
+		if t <= 1.0:
+			var a := lerpf(-PI * 0.5, PI * 0.5, t)
+			p = dir * (r + PANTA_THICK * cos(a)) + Vector3(0, y + sin(a) * PANTA_H * 0.5, 0)
+		else:
+			p = dir * (r - 0.001) + Vector3(0, y + lerpf(PANTA_H * 0.5, -PANTA_H * 0.5, t - 1.0), 0)
+		return p + Vector3(CAP_C.x, 0, CAP_C.z)
+	var col := func(j: int) -> Color:
+		var t := float(j) / rows
+		if t > 1.0:
+			return PANTA_YELLOW.darkened(0.3)
+		var mid := absf(t - 0.5)
+		if mid < 0.07:
+			return HAALARI_PINK
+		if mid < 0.15:
+			return Color(0.0, 0.78, 0.82)
+		return PANTA_YELLOW
+	for i in NT:
+		for j in rows * 2:
+			for tri in [[[i, j], [i + 1, j], [i + 1, j + 1]], [[i, j], [i + 1, j + 1], [i, j + 1]]]:
+				var ps: Array = tri.map(func(q: Array) -> Vector3: return pt.call(q[0], q[1]))
+				var mid: Vector3 = (ps[0] + ps[1] + ps[2]) / 3.0
+				var outward := Vector3(mid.x - CAP_C.x, 0, mid.z - CAP_C.z).normalized()
+				if j >= rows:
+					outward = -outward  # sisäpinta pään puolelle
+				# Godotissa etupinta kiertää myötäpäivään: ristitulo osoittaa poispäin katsojasta.
+				if (ps[1] - ps[0]).cross(ps[2] - ps[0]).dot(outward) > 0.0:
+					tri = [tri[0], tri[2], tri[1]]
+				for q in tri:
+					var p: Vector3 = pt.call(q[0], q[1])
+					var du: Vector3 = pt.call(q[0] + 1, q[1]) - pt.call(q[0] - 1, q[1])
+					var dv: Vector3 = pt.call(q[0], mini(q[1] + 1, rows * 2)) - pt.call(q[0], maxi(q[1] - 1, 0))
+					var n := du.cross(dv).normalized()
+					if n.dot(outward) < 0.0:
+						n = -n
+					st.set_color(col.call(mini(q[1], rows * 2 - 1) if q[1] > rows else q[1]))
+					st.set_normal(n)
+					st.add_vertex(p)
+	return st.commit()
 
 
 ## Stetson-cowboyhattu (pelaajan päähine, Looks.hat): ruskea huopa, korkea kupu, jonka päällä keskiura edestä taakse
