@@ -990,18 +990,19 @@ func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
 		if dc.x + d.x * R > x + 1.0:
 			_root.draw_line(dc + d * (R - 3.0), dc + d * R, Color(0.42, 0.43, 0.47), 1.2)
 	# Reikä kiekon keskellä kuin prikassa: tumma aukko, alareunassa kiekon paksuus; painuu iskussa kiinnityslevyn taakse.
+	const HR := 9.0  # reiän säde
 	var hc := dc  # keskellä kuin prikassa
 	var hole := PackedVector2Array()
 	var lip := PackedVector2Array()
 	for k in 24:
 		var a := TAU * k / 24.0
-		hole.append(Vector2(maxf(x, hc.x + cos(a) * 5.5), hc.y + sin(a) * 5.5))
-		lip.append(Vector2(maxf(x, hc.x + cos(a) * 5.5), hc.y + 1.5 + sin(a) * 4.0))
-	if hc.x + 5.5 > x + 1.0:
+		hole.append(Vector2(maxf(x, hc.x + cos(a) * HR), hc.y + sin(a) * HR))
+		lip.append(Vector2(maxf(x, hc.x + cos(a) * HR), hc.y + 2.0 + sin(a) * (HR - 2.0)))
+	if hc.x + HR > x + 1.0:
 		_root.draw_colored_polygon(hole, Color(0.12, 0.08, 0.06))
 		_root.draw_colored_polygon(lip, Color(0.3, 0.2, 0.13))  # seinä näkyy reiän läpi
-		if hc.x - 5.5 > x:
-			_root.draw_arc(hc, 5.5, PI * 1.05, PI * 1.95, 10, Color(0.35, 0.36, 0.4), 1.5, true)  # reunan paksuus ylhäällä
+		if hc.x - HR > x:
+			_root.draw_arc(hc, HR, PI * 1.05, PI * 1.95, 10, Color(0.35, 0.36, 0.4), 1.5, true)  # reunan paksuus ylhäällä
 		var ring := hole.duplicate()
 		ring.append(hole[0])
 		_root.draw_polyline(ring, MG.OUTLINE, 1.0, true)
