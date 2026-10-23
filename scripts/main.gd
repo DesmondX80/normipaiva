@@ -26135,17 +26135,18 @@ func _maybe_screenshot() -> void:
 			if player == bike:
 				_toggle_mount()
 			mokki.ensure_built()
-			var cases := [["koti", home_int, func() -> void: _enter_home("ovi")],
-				["mökki", mokki_int, func() -> void: _enter_mokki("ovi")],
-				["talli", garage_int, func() -> void: _enter_garage()],
-				["kauppa", interior, func() -> void: _enter_shop()],
-				["raahe", raahe_int, func() -> void: _enter_raahe()],
-				["siitari", siitari_int, func() -> void:
+			# Sisätila haetaan vasta sisään mentäessä: Raahen baari rakennetaan joka käynnillä uudestaan.
+			var cases := [["koti", func() -> Node3D: return home_int, func() -> void: _enter_home("ovi")],
+				["mökki", func() -> Node3D: return mokki_int, func() -> void: _enter_mokki("ovi")],
+				["talli", func() -> Node3D: return garage_int, func() -> void: _enter_garage()],
+				["kauppa", func() -> Node3D: return interior, func() -> void: _enter_shop()],
+				["raahe", func() -> Node3D: return raahe_int, func() -> void: _enter_raahe()],
+				["siitari", func() -> Node3D: return siitari_int, func() -> void:
 					state = "in_siitari"
 					siitari_int.enter()]]
 			for c in cases:
-				var it: Node3D = c[1]
 				c[2].call()
+				var it: Node3D = c[1].call()
 				for i in 5:
 					await get_tree().physics_frame
 				var w: CharacterBody3D = it.walker
