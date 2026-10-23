@@ -23,8 +23,7 @@ const OUTFITS := {
 const PLAYER_HAIR := Color(0.82, 0.66, 0.4)
 const HAALARI_PINK := Color(0.95, 0.1, 0.5)
 static var outfit := "tuulipuku"
-## Pelaajan päähine lippiksen tilalle (kodin vaatekaappi): "" = asun oma lippis, "stetson" = cowboyhattu,
-## "koppa" = Karhu-kutosen pahvikoppa (ensimmäisestä kaupasta ostetusta kutosesta).
+## Pelaajan päähine lippiksen tilalle (kodin vaatekaappi): "" = asun oma lippis, "stetson" = cowboyhattu.
 static var hat := ""
 
 
@@ -635,9 +634,6 @@ static func add_cap(c: Node3D) -> void:
 	if hat == "stetson" and c.has_meta("player_body"):
 		add_stetson(c)
 		return
-	if hat == "koppa" and c.has_meta("player_body"):
-		add_koppa(c)
-		return
 	if kind == "":
 		return  # asussa ei lippistä (rasvaletti)
 	if kind == "panta":
@@ -718,11 +714,8 @@ static func _panta_y(th: float) -> float:
 	return lerpf(PANTA_FRONT_Y, PANTA_BACK_Y, (1.0 - cos(th)) * 0.5)
 
 
-## Pään ja tukan vaakasäde nauhan korkeudella NT kulmassa (pystyakseli kallon keskipisteen kautta). y_at(θ) = nauhan
-## keskikorkeus (oletus otsapannan), half = puolikorkeus.
-static func _headband_ring(meshes: Array, origin: Vector3, mb: Basis, y_at := Callable(), half := PANTA_H * 0.5 + 0.004) -> Array:
-	if not y_at.is_valid():
-		y_at = _panta_y
+## Pään ja tukan vaakasäde nauhan korkeudella NT kulmassa (pystyakseli kallon keskipisteen kautta).
+static func _headband_ring(meshes: Array, origin: Vector3, mb: Basis) -> Array:
 	var ring := []
 	ring.resize(NT)
 	ring.fill(0.0)
@@ -736,7 +729,7 @@ static func _headband_ring(meshes: Array, origin: Vector3, mb: Basis, y_at := Ca
 				if r < 0.03 or r > 0.16:
 					continue
 				var th := atan2(d.x, -d.y)
-				if absf(q.y - float(y_at.call(th))) > half:
+				if absf(q.y - _panta_y(th)) > PANTA_H * 0.5 + 0.004:
 					continue
 				var i := _t_index(th)
 				ring[i] = maxf(ring[i], r)
@@ -801,154 +794,6 @@ static func _headband_mesh(ring: Array) -> ArrayMesh:
 						n = -n
 					st.set_color(col.call(mini(q[1], rows * 2 - 1) if q[1] > rows else q[1]))
 					st.set_normal(n)
-					st.add_vertex(p)
-	return st.commit()
-
-
-## Karhu-kutosen pahvikoppa päässä: päistään avoin kartonkiputki (pullojen kääre), johon pää on pujotettu sivun
-## aukosta, joten putki seisoo pystyssä. Yläpää on kääreen suorakaide (235 x 135 mm: pullon pituus x kahden pullon
-## syvyys), alareuna on venynyt soikeaksi pään ympärille (sama piiri, 740 mm) ja istuu otsalla. Painatus kiertää
-## kaistaleena (assets/karhu_koppa.png, tools/karhu_koppa.gd): edessä ja takana karhunpää kyljellään, vasemmalla
-## kyljellä kansi pullonkaulojen rei'illä, oikealla pohja. Mitat lippiksen avaruudessa (CAP_OFFSET, -Z eteen).
-const KOPPA_W := 0.235  # leveys sivulta sivulle (pullon pituus)
-const KOPPA_D := 0.135  # syvyys edestä taakse (kaksi pulloa)
-const KOPPA_H := 0.2  # korkeus (kolmen pullon rivi)
-const KOPPA_RIM_Y := -0.005  # alareunan korkeus otsalla
-const KOPPA_SEG := [36, 20, 36, 20]  # pisteet paneeleittain: etu, kansi (-X), taka, pohja (+X)
-
-
-static func add_koppa(c: Node3D) -> void:
-	var sk: Skeleton3D = c.skeleton
-	var rest := sk.get_bone_global_rest(sk.find_bone("Head"))
-	var mb: Basis = (c.model.transform * sk.transform).basis
-	var meshes: Array = []
-	for mi in sk.get_children():
-		if mi is MeshInstance3D and not (mi.name in ["Eyes", "Eyebrows"]):
-			meshes.append(mi.mesh)
-	var key := "koppa"
-	for m in meshes:
-		key += "/" + str(m.get_rid())
-	if not _cap_cache.has(key):
-		var ring := _headband_ring(meshes, rest.origin, mb, func(_th: float) -> float: return KOPPA_RIM_Y + 0.01, 0.02)
-		_cap_cache[key] = _koppa_mesh(_koppa_rim(ring))
-	var mi := MeshInstance3D.new()
-	mi.mesh = _cap_cache[key]
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://shaders/koppa.gdshader")
-	if not _cap_cache.has("koppa_art"):  # mipmapit ajossa (.import-asetukset eivät ole gitissä): kaukaa ei välky
-		var img: Image = (load("res://assets/karhu_koppa.png") as Texture2D).get_image()
-		img.generate_mipmaps()
-		_cap_cache["koppa_art"] = ImageTexture.create_from_image(img)
-	mat.set_shader_parameter("art", _cap_cache["koppa_art"])
-	mi.material_override = mat
-	var n := Node3D.new()
-	n.add_child(mi)
-	n.rotation.x = deg_to_rad(4.0)  # hieman takakenoon
-	c.attach("Head", n, CAP_OFFSET)
-
-
-## Suorakaiteen piste kehän matkalla s (alkaa etupaneelin oikeasta kulmasta x = +W/2 ja kiertää -X:n kautta).
-static func _koppa_rect(s: float) -> Vector2:
-	var hw := KOPPA_W * 0.5
-	var hd := KOPPA_D * 0.5
-	if s < KOPPA_W:
-		return Vector2(hw - s, -hd)
-	s -= KOPPA_W
-	if s < KOPPA_D:
-		return Vector2(-hw, -hd + s)
-	s -= KOPPA_D
-	if s < KOPPA_W:
-		return Vector2(-hw + s, hd)
-	s -= KOPPA_W
-	return Vector2(hw, hd - s)
-
-
-## Alareunan muoto: pää ja tukka reunan korkeudella (säde kulmassa θ, 0 = eteen) ja väli, ja koska kartongin piiri on
-## pidempi kuin pään, ylimäärä pullistuu sivuille (korvien yläpuolelle): r(θ) = pää + väli + k·sin²θ, k haetaan niin,
-## että piiri on suorakaiteen piiri. Palauttaa pisteet etukeskeltä -X:n suuntaan (kuten suorakaiteen kehä).
-static func _koppa_rim(ring: Array) -> Array:
-	var per := 2.0 * (KOPPA_W + KOPPA_D)
-	var steps := 192
-	var shape := func(k: float) -> Array:
-		var pts := []
-		for i in steps:
-			var th := -TAU * i / steps
-			var f := fposmod(th, TAU) / TAU * NT
-			var i0 := int(floorf(f)) % NT
-			var r: float = lerpf(ring[i0], ring[(i0 + 1) % NT], f - floorf(f)) + 0.006 + k * pow(sin(th), 2.0)
-			pts.append(Vector2(sin(th), -cos(th)) * r)
-		return pts
-	var lo := 0.0
-	var hi := 0.2
-	for it in 30:  # puolitushaku: piiri = kartongin piiri
-		var mid := (lo + hi) * 0.5
-		var pts: Array = shape.call(mid)
-		var p_len := 0.0
-		for i in steps:
-			p_len += (pts[i] as Vector2).distance_to(pts[(i + 1) % steps])
-		if p_len < per:
-			lo = mid
-		else:
-			hi = mid
-	return shape.call((lo + hi) * 0.5)
-
-
-static func _koppa_mesh(rim: Array) -> ArrayMesh:
-	var per := 2.0 * (KOPPA_W + KOPPA_D)
-	# Alareunan kaarenpituustaulukko etukeskeltä -X:n suuntaan.
-	var steps := rim.size()
-	var arc := [0.0]
-	for k in range(1, steps + 1):
-		arc.append(arc[k - 1] + (rim[k % steps] as Vector2).distance_to(rim[k - 1]))
-	var rim_len: float = arc[steps]
-	var rim_at := func(f: float) -> Vector2:
-		var target := fposmod(f, 1.0) * rim_len
-		var k := clampi(arc.bsearch(target), 1, steps)
-		var t: float = (target - arc[k - 1]) / maxf(arc[k] - arc[k - 1], 1e-6)
-		return (rim[k - 1] as Vector2).lerp(rim[k % steps], t)
-	# Kehän näytteet: paneelien kulmat tarkasti.
-	var ss: Array = []
-	var lens := [KOPPA_W, KOPPA_D, KOPPA_W, KOPPA_D]
-	var acc := 0.0
-	for pi_ in 4:
-		for k in KOPPA_SEG[pi_]:
-			ss.append(acc + lens[pi_] * k / KOPPA_SEG[pi_])
-		acc += lens[pi_]
-	ss.append(per)
-	var rows := 12
-	var pt := func(i: int, j: int) -> Vector3:
-		var s: float = ss[clampi(i, 0, ss.size() - 1)]
-		var h := KOPPA_H * j / rows
-		var t := pow(1.0 - float(j) / rows, 1.6)  # alhaalla soikio, ylhäällä suorakaide
-		var r := _koppa_rect(fposmod(s, per))
-		var e: Vector2 = rim_at.call((s - KOPPA_W * 0.5) / per)
-		var q := r.lerp(e, t)
-		return Vector3(CAP_C.x + q.x, KOPPA_RIM_Y + h, CAP_C.z + q.y)
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var n_s := ss.size() - 1
-	var center := Vector3(CAP_C.x, 0, CAP_C.z)
-	for i in n_s:
-		for j in rows:
-			for tri in [[[i, j], [i + 1, j], [i + 1, j + 1]], [[i, j], [i + 1, j + 1], [i, j + 1]]]:
-				var ps: Array = tri.map(func(q: Array) -> Vector3: return pt.call(q[0], q[1]))
-				var mid: Vector3 = (ps[0] + ps[1] + ps[2]) / 3.0
-				var outward := Vector3(mid.x, 0, mid.z) - center
-				# Godotissa etupinta kiertää myötäpäivään: ristitulo osoittaa poispäin katsojasta.
-				if (ps[1] - ps[0]).cross(ps[2] - ps[0]).dot(outward) > 0.0:
-					tri = [tri[0], tri[2], tri[1]]
-				for q in tri:
-					var a: int = q[0]
-					var b: int = q[1]
-					var p: Vector3 = pt.call(a, b)
-					# Normaali: kehän suunnassa ruudun oma (paneelien taitteet pysyvät terävinä), pystysuunnassa naapureista.
-					var du: Vector3 = pt.call(i + 1, b) - pt.call(i, b)
-					var dv: Vector3 = pt.call(a, mini(b + 1, rows)) - pt.call(a, maxi(b - 1, 0))
-					var nrm := du.cross(dv).normalized()
-					if nrm.dot(outward) < 0.0:
-						nrm = -nrm
-					st.set_normal(nrm)
-					st.set_uv(Vector2(float(ss[a]) / per, 1.0 - float(b) / rows))
 					st.add_vertex(p)
 	return st.commit()
 
