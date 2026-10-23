@@ -600,8 +600,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   koristelaatta); se pysyy päässä asusta riippumatta, kunnes lippis vaihdetaan takaisin. Kirppikseltä ostettu
   hiihtohaalari tulee kodin kaappiin neljänneksi asuksi. Ensimmäisestä kaupasta ostetusta kutosesta (K-Market,
   Vaalan K-Market tai kauppa-auto, ei juoksukaljoista) jää Karhu-kutosen pahvikoppa, ja pää pujotetaan heti sen sivun
-  aukosta: koppa seisoo pystyssä päässä, edessä ja takana tuima karhu kyljellään, toisella kyljellä pullonkaulojen
-  reiät. Alareuna sovitetaan pään muotoon (otsalla ja takaraivolla tiukka, sivuilla pullistuu). Painatus on oma
+  aukosta: koppa seisoo pystyssä päässä, edessä kansi pullonkaulojen rei'illä, sivuilla tuima karhu kyljellään
+  päälaki eteenpäin ja takana pohja. Alareuna sovitetaan pään muotoon (ylimäärä pullistuu eteen ja taakse). Painatus on oma
   piirros (`tools/karhu_koppa.gd` -> `assets/karhu_koppa.png`). Koppa vaihdetaan kodin kaapilla, ja Päivi
   ihmettelee sitä kotiovella. Asu ja hattu vaihtuvat
   kaikkiin pelaajan malleihin paikallaan (pyörä, kävely, mopo, sisätilat) ja säilyvät tallennuksessa. Vaatteet

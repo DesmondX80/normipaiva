@@ -1,12 +1,12 @@
 extends Node
 ## Piirtää Karhu-kutosen pahvikopan painatuksen tekstuuriksi assets/karhu_koppa.png (Looks.add_koppa): koppa
 ## pujotetaan päähän sivun aukosta, joten kuva on yksi kaistale kopan ympäri (2 px/mm, vasemmalta oikealle ulkoa
-## katsottuna): etupaneeli 235 mm, kansi pullonkaulojen rei'illä 135 mm, takapaneeli 235 mm ja pohja 135 mm; korkeus
-## 200 mm on kolmen pullon rivi. Etu- ja takapaneelissa tuima kaiverrustyylinen karhunpää kyljellään, karhun
-## päälaki kohti kantta. Oma tyylitelty kuva, ei kopio oikeasta pakkauksesta. Ajo: godot --path . tools/karhu_koppa.tscn
+## katsottuna): kansi pullonkaulojen rei'illä 135 mm (edessä), vasen karhupaneeli 235 mm, pohja 135 mm (takana) ja
+## oikea karhupaneeli 235 mm; korkeus 200 mm on kolmen pullon rivi. Karhupaneeleissa tuima kaiverrustyylinen
+## karhunpää kyljellään, karhun päälaki kohti kantta (eteenpäin). Oma tyylitelty kuva, ei kopio oikeasta pakkauksesta. Ajo: godot --path . tools/karhu_koppa.tscn
 
 const SIZE := Vector2i(1480, 400)
-const SEG := [0, 470, 740, 1210, 1480]  # paneelien rajat: etu, kansi, taka, pohja
+const SEG := [0, 270, 740, 1010, 1480]  # paneelien rajat: kansi, vasen karhu, pohja, oikea karhu
 const AW := 400.0  # karhupaneeli omassa asennossaan: leveys (kopan korkeus)
 const AH := 470.0  # ja korkeus (pullon pituus)
 const HOLES_V := [66.7, 200.0, 333.3]  # pullonkaulojen reiät kannessa
@@ -29,11 +29,11 @@ class Art extends Control:
 		# Tausta: tumma, hieman lämpimämpi keskeltä.
 		draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(SIZE.x, 0), Vector2(SIZE.x, SIZE.y), Vector2(0, SIZE.y)]),
 			PackedColorArray([BG, BG, BG, BG]))
-		_bear_panel(Transform2D(Vector2(0, 1), Vector2(-1, 0), Vector2(SEG[0] + AH, 0)))  # karhun päälaki oikealle
-		_bear_panel(Transform2D(Vector2(0, -1), Vector2(1, 0), Vector2(SEG[2], AW)))  # takana päälaki vasemmalle
+		_bear_panel(Transform2D(Vector2(0, -1), Vector2(1, 0), Vector2(SEG[1], AW)))  # vasen: päälaki vasemmalle (kanteen)
+		_bear_panel(Transform2D(Vector2(0, 1), Vector2(-1, 0), Vector2(SEG[3] + AH, 0)))  # oikea: päälaki oikealle
 		draw_set_transform_matrix(Transform2D())
-		_lid(SEG[1])
-		_bottom(SEG[3])
+		_lid(SEG[0])
+		_bottom(SEG[2])
 		for x in SEG:  # taitokset
 			draw_line(Vector2(x, 0), Vector2(x, SIZE.y), Color(0.04, 0.03, 0.02), 4.0)
 
@@ -152,7 +152,7 @@ class Art extends Control:
 
 	## Kansi: kultainen kehys ja painettu rengas jokaisen pullonkaulan reiän ympärillä (reiät tehdään läpinäkyviksi).
 	func _lid(x0: float) -> void:
-		var w: float = SEG[2] - SEG[1]
+		var w: float = SEG[1] - SEG[0]
 		draw_rect(Rect2(x0 + 10, 10, w - 20, SIZE.y - 20), GOLD_DARK, false, 3.0)
 		for v in HOLES_V:
 			for u in HOLES_U:
@@ -162,7 +162,7 @@ class Art extends Control:
 
 	## Pohja: lukitusläpät ja pieni teksti.
 	func _bottom(x0: float) -> void:
-		var w: float = SEG[4] - SEG[3]
+		var w: float = SEG[3] - SEG[2]
 		for v in [100.0, 300.0]:
 			draw_rect(Rect2(x0 + w / 2.0 - 40, v - 12, 80, 24), Color(0.04, 0.03, 0.02))
 			draw_rect(Rect2(x0 + w / 2.0 - 40, v - 12, 80, 24), BG_LIGHT, false, 2.0)
@@ -190,7 +190,7 @@ func _process(_d: float) -> void:
 	img.convert(Image.FORMAT_RGBA8)
 	for v in HOLES_V:  # pullonkaulojen reiät läpi
 		for u in HOLES_U:
-			var c := Vector2(SEG[1] + u, v)
+			var c := Vector2(SEG[0] + u, v)
 			for y in range(int(v - HOLE_R) - 1, int(v + HOLE_R) + 2):
 				for x in range(int(c.x - HOLE_R) - 1, int(c.x + HOLE_R) + 2):
 					if Vector2(x + 0.5, y + 0.5).distance_to(c) < HOLE_R:

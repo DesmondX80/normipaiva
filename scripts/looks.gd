@@ -806,15 +806,15 @@ static func _headband_mesh(ring: Array) -> ArrayMesh:
 
 
 ## Karhu-kutosen pahvikoppa päässä: päistään avoin kartonkiputki (pullojen kääre), johon pää on pujotettu sivun
-## aukosta, joten putki seisoo pystyssä. Yläpää on kääreen suorakaide (235 x 135 mm: pullon pituus x kahden pullon
-## syvyys), alareuna on venynyt soikeaksi pään ympärille (sama piiri, 740 mm) ja istuu otsalla. Painatus kiertää
-## kaistaleena (assets/karhu_koppa.png, tools/karhu_koppa.gd): edessä ja takana karhunpää kyljellään, vasemmalla
-## kyljellä kansi pullonkaulojen rei'illä, oikealla pohja. Mitat lippiksen avaruudessa (CAP_OFFSET, -Z eteen).
-const KOPPA_W := 0.235  # leveys sivulta sivulle (pullon pituus)
-const KOPPA_D := 0.135  # syvyys edestä taakse (kaksi pulloa)
+## aukosta, joten putki seisoo pystyssä. Yläpää on kääreen suorakaide (135 mm leveä, 235 mm edestä taakse), alareuna
+## on venynyt pään ympärille (sama piiri, 740 mm) ja istuu otsalla. Painatus kiertää kaistaleena
+## (assets/karhu_koppa.png, tools/karhu_koppa.gd): edessä kansi pullonkaulojen rei'illä, sivuilla karhunpää kyljellään
+## päälaki eteenpäin, takana pohja. Mitat lippiksen avaruudessa (CAP_OFFSET, -Z eteen).
+const KOPPA_W := 0.135  # leveys sivulta sivulle: kansi edessä ja pohja takana (kaksi pulloa)
+const KOPPA_D := 0.235  # syvyys edestä taakse: karhupaneelit sivuilla (pullon pituus)
 const KOPPA_H := 0.2  # korkeus (kolmen pullon rivi)
 const KOPPA_RIM_Y := -0.005  # alareunan korkeus otsalla
-const KOPPA_SEG := [36, 20, 36, 20]  # pisteet paneeleittain: etu, kansi (-X), taka, pohja (+X)
+const KOPPA_SEG := [20, 36, 20, 36]  # pisteet paneeleittain: kansi (edessä), karhu (-X), pohja (takana), karhu (+X)
 
 
 static func add_koppa(c: Node3D) -> void:
@@ -864,7 +864,7 @@ static func _koppa_rect(s: float) -> Vector2:
 
 
 ## Alareunan muoto: pää ja tukka reunan korkeudella (säde kulmassa θ, 0 = eteen) ja väli, ja koska kartongin piiri on
-## pidempi kuin pään, ylimäärä pullistuu sivuille (korvien yläpuolelle): r(θ) = pää + väli + k·sin²θ, k haetaan niin,
+## pidempi kuin pään, ylimäärä pullistuu eteen ja taakse (kuten pitkät karhupaneelit): r(θ) = pää + väli + k·cos²θ, k niin,
 ## että piiri on suorakaiteen piiri. Palauttaa pisteet etukeskeltä -X:n suuntaan (kuten suorakaiteen kehä).
 static func _koppa_rim(ring: Array) -> Array:
 	var per := 2.0 * (KOPPA_W + KOPPA_D)
@@ -875,7 +875,7 @@ static func _koppa_rim(ring: Array) -> Array:
 			var th := -TAU * i / steps
 			var f := fposmod(th, TAU) / TAU * NT
 			var i0 := int(floorf(f)) % NT
-			var r: float = lerpf(ring[i0], ring[(i0 + 1) % NT], f - floorf(f)) + 0.006 + k * pow(sin(th), 2.0)
+			var r: float = lerpf(ring[i0], ring[(i0 + 1) % NT], f - floorf(f)) + 0.006 + k * pow(cos(th), 2.0)
 			pts.append(Vector2(sin(th), -cos(th)) * r)
 		return pts
 	var lo := 0.0
