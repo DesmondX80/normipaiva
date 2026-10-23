@@ -598,10 +598,15 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   taakse kammattu rasvaletti), Paapelin makuuhuoneen kaapista työhousuihin, flanelliin ja Karjala-lippikseen. Kodin
   kaapista saa myös Stetson-cowboyhatun lippiksen tilalle (ruskea huopa, keskiura, kaareva lieri, nauha ja hopeinen
   koristelaatta); se pysyy päässä asusta riippumatta, kunnes lippis vaihdetaan takaisin. Kirppikseltä ostettu
-  hiihtohaalari tulee kodin kaappiin neljänneksi asuksi. Asu ja hattu vaihtuvat
+  hiihtohaalari tulee kodin kaappiin neljänneksi asuksi. Ensimmäisestä kaupasta ostetusta kutosesta (K-Market,
+  Vaalan K-Market tai kauppa-auto, ei juoksukaljoista) jää Karhu-kutosen pahvikoppa, ja pää pujotetaan heti sen sivun
+  aukosta: koppa seisoo pystyssä päässä, edessä kansi pullonkaulojen rei'illä, sivuilla tuima karhu kyljellään
+  päälaki eteenpäin ja takana pohja. Alareuna sovitetaan pään muotoon (ylimäärä pullistuu eteen ja taakse). Painatus on oma
+  piirros (`tools/karhu_koppa.gd` -> `assets/karhu_koppa.png`). Koppa vaihdetaan kodin kaapilla, ja Päivi
+  ihmettelee sitä kotiovella. Asu ja hattu vaihtuvat
   kaikkiin pelaajan malleihin paikallaan (pyörä, kävely, mopo, sisätilat) ja säilyvät tallennuksessa. Vaatteet
   piirretään varjostimessa pikseleinä (`shaders/character.gdshader`), asusteet ovat muutama pieni mesh luissa
-  (`looks.gd`, testit `--scene=asut`, `--scene=vaatekaappi`, `--scene=stetson` ja `--scene=haalari`).
+  (`looks.gd`, testit `--scene=asut`, `--scene=vaatekaappi`, `--scene=stetson`, `--scene=haalari` ja `--scene=koppa`).
 - **Päivin vanha kännykkä (P soimaan / taskuun, N seuraava, U voimakkuus):** kodin makuuhuoneen yöpöydällä
   parisängyn vieressä. Soittaa vanhoja iskelmiä 78 kierroksen levyiltä (`assets/music/iskelma/`, sama lista kuin
   lavabändillä) pienestä kaiuttimesta: oma ääniväylä kaistanpäästöllä ja säröllä, joten ääni on ohut kuin taskusta.

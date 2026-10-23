@@ -2752,6 +2752,7 @@ const DRAKKAR_DANCE := 0.15
 var drakkar := 0  # suihkauksia jäljellä
 var drakkar_found := false
 var has_haalari := false  # kirppikseltä ostettu hiihtohaalari kodin vaatekaapissa (Looks.OUTFITS "hiihtohaalari")
+var has_koppa := false  # Karhu-kutosen pahvikoppa hattuna (Looks.hat "koppa"), ensimmäisestä kaupasta ostetusta kutosesta
 var drakkar_day := -1  # päivä, jona tuoksuu
 var _kirppis_prev := "ulkona"
 var _kirppis_sold := {}  # tuote -> päivä, jolloin ostettu
@@ -7183,6 +7184,8 @@ func _enter_home(door: String) -> void:
 		_flowers_day = day
 		_save_game()
 		_queue_message("Kukat maljakkoon keittiön pöydälle. Päivi näkee ne illalla.", 3.0)
+	if Looks.hat == "koppa" and _once_today("koppa_paivi"):
+		_queue_message("Päivi: \"Ootko sää ihan tosissas? Kaljakoppa päässä keskellä päivää!\"", 3.5)
 	if Looks.outfit == "hiihtohaalari" and _once_today("haalari_paivi"):
 		_queue_message("Päivi: \"Mikä pinkki karkki sää oot? Riisu toi, ennen kuin naapurit näkee!\"", 3.5)
 	if drakkar_day == day and _once_today("drakkar_paivi"):
@@ -7368,7 +7371,8 @@ func _on_home_acted(kind: String) -> void:
 				tilat.add("kokemus", -0.02)
 			_show_message("\"%s\"" % TV_SHOWS.pick_random(), 3.0)
 		"vaatekaappi":
-			_open_wardrobe(["tuulipuku", "farkut"] + (["hiihtohaalari"] if has_haalari else []) + ["hattu"],
+			_open_wardrobe(["tuulipuku", "farkut"] + (["hiihtohaalari"] if has_haalari else []) + ["hattu"]
+				+ (["koppa"] if has_koppa else []),
 				"Kotona vaatekaapilla: mitä tänään päälle?")
 		"puhelin":
 			phone.found = true
@@ -9334,6 +9338,7 @@ func _kauppa_auto_buy(k: String) -> void:
 			beers += 6
 			player.set_carrying(true)
 			note += " Kaljoja mukana %d." % beers
+			_koppa_first()
 		"makkara":
 			has_sausage = true
 		"tikut":
@@ -9604,6 +9609,9 @@ func _open_wardrobe(ids: Array, title: String) -> void:
 		if id == "hattu":  # päähine erikseen: Stetson lippiksen tilalle tai takaisin
 			items.append([id, "Lippis takaisin päähän" if Looks.hat == "stetson" else "Stetson päähän"])
 			continue
+		if id == "koppa":
+			items.append([id, "Lippis takaisin päähän" if Looks.hat == "koppa" else "Karhu-koppa päähän"])
+			continue
 		items.append([id, Looks.OUTFITS[id].name + ("  (päällä)" if id == Looks.outfit else "")])
 	_item_menu.open(items, title)
 
@@ -9616,6 +9624,12 @@ func _on_wardrobe(id: String) -> void:
 		_set_hat("" if Looks.hat == "stetson" else "stetson")
 		Sfx.play("cloth", -2.0)
 		_show_message("Stetson päähän. Saloisten kovin cowboy." if Looks.hat == "stetson" else "Lippis takaisin päähän.", 3.0)
+		_save_game()
+		return
+	if id == "koppa":
+		_set_hat("" if Looks.hat == "koppa" else "koppa")
+		Sfx.play("cloth", -2.0)
+		_show_message("Karhu-koppa päähän. Täyttä olutta, tosi vahva." if Looks.hat == "koppa" else "Lippis takaisin päähän.", 3.0)
 		_save_game()
 		return
 	if id == Looks.outfit:
@@ -9640,6 +9654,19 @@ func _set_outfit(id: String) -> void:
 		return n.has_meta("player_body"))  # ensin lista: restyle vapauttaa mallien solmuja
 	for n in bodies:
 		Looks.restyle_player(n)
+
+
+## Ensimmäinen kaupasta ostettu kutonen: tyhjästä Karhu-kopasta tulee hattu, ja se pujotetaan heti päähän. Sen jälkeen
+## koppa on kodin vaatekaapin päähineissä.
+func _koppa_first() -> void:
+	if has_koppa:
+		return
+	has_koppa = true
+	_set_hat("koppa")
+	Sfx.play("cloth", -2.0)
+	tilat.first("karhu_koppa", 0.2)
+	_queue_message("Kutosen pahvikoppa jäi käteen. Pää sivun aukosta sisään: Karhu-koppa päässä! (Kotona vaatekaapilla voi vaihtaa.)", 4.0)
+	_save_game()
 
 
 ## Pelaajan päähine (Looks.hat): kaikki pelaajan mallit päivittyvät paikallaan kuten asun vaihdossa.
@@ -14666,6 +14693,8 @@ func _on_vaala_shop_exited(bought: bool) -> void:
 	if bought:
 		beers += 6
 		got.push_front("kuutonen")
+		if not interior.stolen:
+			_koppa_first.call_deferred()
 	var ran: bool = interior.stolen
 	if ran:
 		_chase_loot = {"kalja": bought, "cart": interior.cart.keys(), "bag": interior.bag.duplicate()}
@@ -15370,6 +15399,7 @@ func _on_shop_exited(bought: bool) -> void:
 		_start_shop_chase(shop_door, true)
 	else:
 		_show_message("Kuutonen kassissa!", 2.5)
+		_koppa_first()
 
 
 func _on_paid(total: float) -> void:
@@ -16280,6 +16310,7 @@ func _load_game() -> void:
 	drakkar = cfg.get_value("drakkar", "suihkaukset", 0)
 	drakkar_found = cfg.get_value("drakkar", "loydetty", false)
 	has_haalari = cfg.get_value("pelaaja", "haalari", false)
+	has_koppa = cfg.get_value("pelaaja", "koppa", false)
 	drakkar_day = cfg.get_value("drakkar", "paiva", -1)
 	wine_lock_day = cfg.get_value("viini", "lukko_paiva", day if wine_locked else -1)
 	wine_endings = cfg.get_value("viini", "loput", 0)
@@ -16541,6 +16572,7 @@ func _save_game() -> void:
 	cfg.set_value("drakkar", "suihkaukset", drakkar)
 	cfg.set_value("drakkar", "loydetty", drakkar_found)
 	cfg.set_value("pelaaja", "haalari", has_haalari)
+	cfg.set_value("pelaaja", "koppa", has_koppa)
 	cfg.set_value("drakkar", "paiva", drakkar_day)
 	cfg.set_value("viini", "lukko_paiva", wine_lock_day)
 	cfg.set_value("viini", "loput", wine_endings)
@@ -24174,6 +24206,88 @@ func _maybe_screenshot() -> void:
 			await snap.call("_juoksu.png")
 			Looks.outfit = "tuulipuku"
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_h)
+			get_tree().quit()
+		"koppa":
+			# Karhu-koppa: ensimmäinen kaupasta ostettu kutonen antaa hatun päähän, toinen ei uutta; Päivin reaktio, kodin
+			# vaatekaappi (pois ja takaisin) ja koppa joka asussa (edestä, sivulta, takaa, ylhäältä, pää lähikuvina).
+			var saved_k := FileAccess.get_file_as_bytes(SAVE_PATH)
+			has_koppa = false
+			Looks.hat = ""
+			Looks.outfit = "tuulipuku"
+			money = 40.0
+			clock_min = 12.0 * 60.0
+			var snap := func(name: String) -> void:
+				for f in 8:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			if player == bike:
+				_toggle_mount()
+			for n in 2:
+				_enter_shop()
+				interior.has_beer = true
+				interior.has_paid = true
+				interior.exited.emit(true)
+				await get_tree().process_frame
+				print("KOPPA kutonen %d: koppa %s, hattu '%s', jono %s" % [n + 1, has_koppa, Looks.hat,
+					str(_msg_queue).contains("Karhu-koppa päässä")])
+				_msg_queue.clear()
+			await snap.call("_pihalla.png")
+			walker_out.global_position = home_door + Vector3(0, 0.3, 0)
+			for f in 5:
+				await get_tree().physics_frame
+			_enter_home("ovi")
+			print("KOPPA Päivi: %s" % str(_msg_queue).contains("Kaljakoppa"))
+			home_int.walker.position = HomeInterior.SPOTS.vaatekaappi[0]
+			for f in 8:
+				await get_tree().physics_frame
+			_on_home_acted("vaatekaappi")
+			print("KOPPA kaappi: %s" % [_item_menu._items])
+			_item_menu.visible = false
+			_on_wardrobe("koppa")
+			print("KOPPA pois: hattu '%s', viesti '%s'" % [Looks.hat, _msg.text])
+			_on_wardrobe("koppa")
+			print("KOPPA takaisin: hattu '%s', viesti '%s'" % [Looks.hat, _msg.text])
+			_msg.text = ""
+			await snap.call("_kotona.png")
+			_on_home_exited()
+			var stage := Node3D.new()
+			add_child(stage)
+			stage.global_position = Vector3(5000, 0, 5000)
+			var lamp := DirectionalLight3D.new()
+			lamp.rotation_degrees = Vector3(-40, 25, 0)
+			stage.add_child(lamp)
+			var outs := ["tuulipuku", "farkut", "tyovaatteet", "hiihtohaalari"]
+			var cs: Array = []
+			for i in outs.size():
+				var c: Node3D = Looks.make(stage, Looks.player(outs[i]))
+				Looks.add_cap(c)
+				c.position = Vector3(-1.35 + i * 0.9, 0, 0)
+				c.play("Idle", 0.0)
+				cs.append(c)
+			var cam := Camera3D.new()
+			cam.fov = 40.0
+			stage.add_child(cam)
+			cam.current = true
+			_hud.visible = false
+			for k in [["koko", 0.0, Vector3(0, 1.3, 4.6), Vector3(0, 1.1, 0)], ["edesta", 0.0, Vector3(0, 1.8, 1.4), Vector3(0, 1.75, 0)],
+					["sivulta", PI * 0.5, Vector3(0, 1.8, 1.4), Vector3(0, 1.75, 0)], ["takaa", PI, Vector3(0, 1.8, 1.4), Vector3(0, 1.75, 0)],
+					["vino", PI * 0.25, Vector3(0, 1.95, 1.2), Vector3(0, 1.75, 0)], ["ylhaalta", 0.3, Vector3(0, 3.2, 0.5), Vector3(0, 1.7, 0)]]:
+				for c in cs:
+					c.rotation.y = PI + k[1]
+				cam.look_at_from_position(stage.global_position + k[2], stage.global_position + k[3])
+				await snap.call("_%s.png" % k[0])
+			# Lähikuvat yhdestä hahmosta: tuulipuku edestä, sivulta, takaa ja ylhäältä aukkoon.
+			for k in [["lahi_etu", 0.0, Vector3(0, 1.82, 0.75)], ["lahi_sivu", PI * 0.5, Vector3(0, 1.82, 0.75)],
+					["lahi_taka", PI, Vector3(0, 1.85, 0.75)], ["lahi_vino", PI * 0.75, Vector3(0, 1.95, 0.65)],
+					["lahi_ylha", 0.2, Vector3(0, 2.45, 0.35)]]:
+				cs[0].rotation.y = PI + k[1]
+				var hp: Vector3 = cs[0].global_position + Vector3(0, 1.75, 0)
+				cam.look_at_from_position(hp + k[2] - Vector3(0, 1.75, 0), hp)
+				await snap.call("_%s.png" % k[0])
+			Looks.hat = ""
+			Looks.outfit = "tuulipuku"
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_k)
 			get_tree().quit()
 		"bikini_video":
 			# Video Sinikasta lappubikineissä eri animaatioissa (Movie Maker: --write-movie, --fixed-fps 30): kamera
