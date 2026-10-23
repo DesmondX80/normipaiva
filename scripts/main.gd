@@ -18898,13 +18898,29 @@ func _maybe_screenshot() -> void:
 			siitari_int.walker.position = siitari_int.spots.pajatso[0]
 			_on_siitari_acted("pajatso")
 			var pg: Node = get_children().filter(func(c): return c is PajatsoGame).front()
-			print("PJ ikkuna %s, skaala %.2f, siima %s" % [get_viewport().get_visible_rect().size, pg._scale, pg.siima])
+			print("PJ ikkuna %s, skaala %.2f, siima %s, kolikoita %d" % [get_viewport().get_visible_rect().size, pg._scale, pg.siima,
+				pg.coins])
 			await snap.call("_alku.png")
+			# Vaihtokone: 2 € -> kaksi euron kolikkoa kuppiin; syöttö kiinnikkeen raosta pidikkeeseen.
+			pg._change()
+			await snap.call("_vaihto.png", 8)
+			var tc := Time.get_ticks_msec()
+			while pg._cup_coins < 2 and Time.get_ticks_msec() - tc < 4000:
+				await get_tree().process_frame
+			print("PJ vaihto: kolikoita %d, kupissa %d, rahaa %.0f" % [pg.coins, pg._cup_coins, pg.money])
+			pg._insert()
+			await snap.call("_syotto.png", 3)
+			tc = Time.get_ticks_msec()
+			while pg._coin_state == "insert" and Time.get_ticks_msec() - tc < 3000:
+				await get_tree().process_frame
+			print("PJ syöttö: tila %s, kolikoita %d, kupissa %d, rahaa %.0f" % [pg._coin_state, pg.coins, pg._cup_coins, pg.money])
 			# Lyönti prikasta: E pohjassa jännittää sormea, välilyönti peukalotueksi, irrotus napauttaa.
 			# (Xvfb-ajossa näppäinsimulaatio ei mene peliin: jännitystila asetetaan suoraan ja kuvataan pysäytettynä.)
 			pg._insert()
 			await get_tree().process_frame
 			pg.set_process(false)
+			pg._coin_state = "ready"
+			pg._cp = pg.LAUNCH
 			pg._armed = true
 			pg._drawing = true
 			pg._thumb = true
