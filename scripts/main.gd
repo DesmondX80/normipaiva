@@ -13073,8 +13073,10 @@ func _on_siitari_acted(kind: String) -> void:
 
 
 ## Pajatso ja hedelmäpeli Siitarissa (pajatso_game.gd, hedelmapeli_game.gd): rahat päivittyvät pelin lopussa.
-## Pajatson potti (ohi menneet kolikot) säilyy koneessa käynnistä toiseen.
-var _pajatso_pot := 12
+## Pajatson varanto (ohi menneet kolikot) säilyy koneessa käynnistä toiseen. Siimahuijaus kerran päivässä, jos repussa
+## on virveli tai onki; kiinni jäänyt heitetään Siitarista ulos.
+var _pajatso_pot := 80
+var _siima_day := -1
 
 
 func _siitari_game(g: CanvasLayer) -> void:
@@ -13099,11 +13101,34 @@ func _siitari_game_end(what: String, money_after: float) -> void:
 func _start_pajatso() -> void:
 	var g := PajatsoGame.new()
 	g.pot = _pajatso_pot
+	g.siima = (has_virveli or has_onki) and _siima_day != day
 	tilat.first("pajatso", 0.1)
 	g.finished.connect(func(m: float, pot: int) -> void:
 		_pajatso_pot = pot
-		_siitari_game_end("Pajatso", m))
+		if g.siima_used:
+			_siima_day = day
+			tilat.first("pajatso_siima", 0.2)
+		_siitari_game_end("Pajatso", m)
+		if g.caught:
+			_pajatso_caught(g.caught_reason))
 	_siitari_game(g)
+
+
+## Siimasta kiinni tai kolmas tilt: isäntä heittää ulos (kuten omista juomista), maine laskee.
+func _pajatso_caught(reason := "siima") -> void:
+	var tilt := reason == "tilt"
+	siitari_int.bartender_say("Ei potkita pajatsoa! Ulos!" if tilt else "Siima pajatsossa! Ulos, ja heti!")
+	siitari_int.walker.controls_enabled = false
+	maine = clampf(maine - 6.0, 0.0, 100.0)
+	tilat.add("moraali", -0.1)
+	tilat.first("baarista_ulos", 0.3)
+	_show_message("Kolmas tilt: isäntä heittää sinut ulos!" if tilt else "Isäntä näki siiman pajatsossa ja heittää sinut ulos!", 3.0)
+	get_tree().create_timer(2.5).timeout.connect(func() -> void:
+		if state != "in_siitari":
+			return
+		_on_siitari("lahde")
+		_show_message("Siitarista heitettiin ulos %s takia. Mopo odottaa pihassa." % ("pajatson potkimisen" if tilt else "siimahuijauksen"),
+			3.5))
 
 
 func _start_hedelmapeli() -> void:
@@ -16380,6 +16405,7 @@ func _load_game() -> void:
 	_pingis_nuoret_voitot = cfg.get_value("peli", "pingis_nuoret_voitot", 0)
 	_myynti_day = cfg.get_value("paivarajat", "kirppis_poyta", -1)
 	_myynti_ban = cfg.get_value("paivarajat", "kirppis_myyntikielto", -1)
+	_siima_day = cfg.get_value("paivarajat", "pajatso_siima", -1)
 	_haaste_day = cfg.get_value("paivarajat", "piirakkahaaste", -1)
 	_ukko_day = cfg.get_value("paivarajat", "ukko", -1)
 	_lava_pass = cfg.get_value("paivarajat", "lavaleima", "")
@@ -16501,6 +16527,7 @@ func _save_game() -> void:
 	cfg.set_value("peli", "pingis_nuoret_voitot", _pingis_nuoret_voitot)
 	cfg.set_value("paivarajat", "kirppis_poyta", _myynti_day)
 	cfg.set_value("paivarajat", "kirppis_myyntikielto", _myynti_ban)
+	cfg.set_value("paivarajat", "pajatso_siima", _siima_day)
 	cfg.set_value("paivarajat", "piirakkahaaste", _haaste_day)
 	cfg.set_value("paivarajat", "ukko", _ukko_day)
 	cfg.set_value("paivarajat", "lavaleima", _lava_pass)
@@ -18847,6 +18874,154 @@ func _maybe_screenshot() -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_b_kolikko.png"))
 			get_tree().quit()
+		"pajatso":
+			# Pajatso RAY:n 50 pennin pajatson tapaan: Siitarissa kone 1280x720-ikkunassa, kolikko pidikkeessä ja
+			# voimamittari, renkaan lyönti ja lento; voimien jakauma raoille (simuloitu); seiska ja varanto;
+			# siimahuijaus (solmu, nykäisyt, leikkuri tai kiinni) ja ulosheitto. Tallennus palautetaan.
+			var saved_p := FileAccess.get_file_as_bytes(SAVE_PATH)
+			clock_min = 20.0 * 60.0
+			_start_mopo()
+			var mp2: CharacterBody3D = mopo_trip.mopo
+			mp2.position = mopo_trip.vaala.siitari_park + Vector3(0, 0.5, 0)
+			for i in 10:
+				await get_tree().physics_frame
+			mopo_trip.stop()
+			_on_mopo_arrived()
+			money = 30.0
+			has_virveli = true
+			_siima_day = -1
+			var snap := func(name: String, frames := 6) -> void:
+				for i in frames:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			siitari_int.walker.position = siitari_int.spots.pajatso[0]
+			_on_siitari_acted("pajatso")
+			var pg: Node = get_children().filter(func(c): return c is PajatsoGame).front()
+			print("PJ ikkuna %s, skaala %.2f, siima %s, kolikoita %d" % [get_viewport().get_visible_rect().size, pg._scale, pg.siima,
+				pg.coins])
+			await snap.call("_alku.png")
+			# Vaihtokone: 2 € -> kaksi euron kolikkoa kuppiin; syöttö kiinnikkeen raosta pidikkeeseen.
+			pg._change()
+			await snap.call("_vaihto.png", 8)
+			var tc := Time.get_ticks_msec()
+			while pg._cup_coins < 2 and Time.get_ticks_msec() - tc < 4000:
+				await get_tree().process_frame
+			print("PJ vaihto: kolikoita %d, kupissa %d, rahaa %.0f" % [pg.coins, pg._cup_coins, pg.money])
+			pg._insert()
+			await snap.call("_syotto.png", 3)
+			tc = Time.get_ticks_msec()
+			while pg._coin_state == "insert" and Time.get_ticks_msec() - tc < 3000:
+				await get_tree().process_frame
+			print("PJ syöttö: tila %s, kolikoita %d, kupissa %d, rahaa %.0f" % [pg._coin_state, pg.coins, pg._cup_coins, pg.money])
+			# Lyönti kyljen lenkistä: E pohjassa kerää sormeen voimaa, välilyönti peukalotueksi, irrotus napauttaa.
+			# (Xvfb-ajossa näppäinsimulaatio ei mene peliin: jännitystila asetetaan suoraan ja kuvataan pysäytettynä.)
+			pg._insert()
+			await get_tree().process_frame
+			pg.set_process(false)
+			pg._coin_state = "ready"
+			pg._cp = pg.LAUNCH
+			pg._armed = true
+			pg._drawing = true
+			pg._thumb = true
+			pg._tension = 0.55
+			pg._power = 0.55
+			pg._root.queue_redraw()
+			await snap.call("_valmis.png", 4)
+			pg.set_process(true)
+			pg._flick()
+			print("PJ napautus: tila %s, tekniikat %s" % [pg._coin_state, pg._techs])
+			await snap.call("_lyonti.png", 2)
+			await snap.call("_lentaa.png", 14)
+			# Voimien jakauma: 25 lyöntiä kullakin voimalla 0..1 (fysiikka askelittain, ei piirtoa).
+			var rows := []
+			for pi_ in 11:
+				var hits := {}
+				for k in 25:
+					pg._launch(pi_ / 10.0)
+					var guard := 0
+					while pg._coin_state != "" and guard < 4000:
+						pg._coin_step(1.0 / 240.0)
+						guard += 1
+					var key: String = ("r%s" % pg.PRIZES[pg._hit_cup]) if pg._hit_t > 1.19 else "ohi"
+					hits[key] = hits.get(key, 0) + 1
+					pg._hit_t = 0.0
+					pg._hit_cup = -1
+				rows.append("%.1f: %s" % [pi_ / 10.0, hits])
+			print("PJ jakauma\n  " + "\n  ".join(rows))
+			pg._payout.clear()
+			pg._tray = 0
+			# Seiska ja varanto.
+			pg.pot = 80
+			pg._pending.fill(0)  # jakaumasimulaation avaamat portit pois
+			pg._cup(4)
+			print("PJ seiska: portti auki %d, putki %d" % [pg._pending[4], pg.tubes[4]])
+			await snap.call("_seiska_auki.png", 6)
+			pg._collect()
+			print("PJ maksuvipu: varanto %d, matkalla %d, putki %d" % [pg.pot, pg._payout.size(), pg.tubes[4]])
+			pg.tubes[2] = 0
+			pg._cup(1)
+			pg.tubes[1] = 0
+			pg._collect()
+			print("PJ tyhjä putki: matkalla %d, '%s'" % [pg._payout.size(), pg._tip.text])
+			await snap.call("_seiska.png", 12)
+			await snap.call("_seiska_kouru.png", 60)
+			# Tönäisy lennon aikana: jousi vaimenee tai tilt (kolmas heittäisi ulos; tässä kaksi).
+			seed(7)
+			var tl := []
+			for k in 6:
+				if pg._tilts >= 2:
+					break
+				pg._launch(0.6)
+				pg._nudge()
+				tl.append("tönäisy %d: tilt %d, vaimennus %.2f, tila '%s'" % [k + 1, pg._tilts, pg._nudge_t, pg._coin_state])
+				var guard := 0
+				while pg._coin_state != "" and guard < 2000:
+					pg._coin_step(1.0 / 240.0)
+					guard += 1
+			print("PJ " + "\n   ".join(tl))
+			await snap.call("_tilt.png", 4)
+			# Siimahuijaus: solmu, siimakolikko rakoon, nykäisyt kunnes leikkuri tai kiinni.
+			pg._hit_t = 0.0
+			pg._siima_key()
+			print("PJ siima: solmittu %s, käytetty %s" % [pg._tied, pg.siima_used])
+			pg._insert()
+			await snap.call("_siima.png", 2)
+			pg._coin_state = ""
+			pg.pot = 25
+			pg._cup(2)
+			print("PJ siimakolikko raossa %d, potti %d" % [pg._yank_cup, pg.pot])
+			await snap.call("_siima_raossa.png", 20)
+			seed(4)
+			var log := []
+			for k in 8:
+				if pg._yank_cup < 0 or pg.caught:
+					break
+				var before: int = pg.pot
+				pg._yank()
+				var guard := 0
+				while pg._coin_state != "" and guard < 2000:
+					pg._coin_step(1.0 / 240.0)
+					guard += 1
+				log.append("nykäisy %d: raossa %d, solmu %s, kiinni %s, potti %d -> %d" % [k + 1, pg._yank_cup, pg._tied, pg.caught, before, pg.pot])
+			print("PJ " + "\n   ".join(log))
+			# Kiinni jääminen: pakotetaan ja katsotaan ulosheitto.
+			pg._tied = true
+			pg._yank_cup = 2
+			pg._yanks = 50
+			pg._yank()
+			await snap.call("_kiinni.png", 10)
+			var tk := Time.get_ticks_msec()
+			while is_instance_valid(pg) and Time.get_ticks_msec() - tk < 4000:
+				await get_tree().process_frame
+			print("PJ kiinni: peli loppu %s, siimapäivä %s, maine %.0f, tila %s" % [not is_instance_valid(pg), _siima_day == day, maine, state])
+			for i in 200:
+				await get_tree().process_frame
+				if state != "in_siitari":
+					break
+			print("PJ ulos: tila %s, viesti '%s'" % [state, _msg.text])
+			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_p)
+			get_tree().quit()
 		"siitaripelit":
 			# Pajatso ja hedelmäpeli Siitarissa: _sali (seurue koneella), _vapaa (vuoro saatu), pajatson tilat
 			# (_p_veto, _p_kaari, _p_putoaa, _p_kuppi) ja hedelmäpelin tilat (_h_pyorii, _h_voitto, _h_tupla, _h_lukko).
@@ -18873,19 +19048,10 @@ func _maybe_screenshot() -> void:
 			# Pajatso.
 			_on_siitari_acted("pajatso")
 			var pg: Node = get_children().filter(func(c): return c is PajatsoGame).front()
-			pg._pulling = true
-			pg.money -= 1.0
-			pg._pull = 0.7
-			await snap.call("_p_veto.png", 5)
-			pg._pulling = false
-			pg._launch(0.62)
-			var tw := Time.get_ticks_msec()
-			while pg._coin_state != "arc" and Time.get_ticks_msec() - tw < 3000:
-				await get_tree().process_frame
-			await snap.call("_p_kaari.png", 4)
-			while pg._coin_state != "free" and Time.get_ticks_msec() - tw < 5000:
-				await get_tree().process_frame
-			await snap.call("_p_putoaa.png", 12)
+			pg._insert()
+			await snap.call("_p_veto.png", 3)
+			pg._launch(0.45)
+			await snap.call("_p_lentaa.png", 10)
 			# Tehdään sata laukausta eri voimilla ja tulostetaan, mihin ne päätyvät.
 			var hits := {}
 			for k in 60:
@@ -18901,6 +19067,7 @@ func _maybe_screenshot() -> void:
 			print("PAJATSO laukaukset: %s, potti %d" % [hits, pg.pot])
 			pg.pot = 14
 			pg._cup(2)
+			pg._collect()
 			await snap.call("_p_kuppi.png", 25)
 			pg._finish()
 			print("PAJATSO rahat %s, potti %d" % [money, _pajatso_pot])

@@ -346,8 +346,29 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Väsytyksessä E kelaa: pidä siiman kireys vihreällä, koska punaisella siima katkeaa ja löysällä kala karkaa.
     Parvien luona ja kauempana rannasta tulee isompia kaloja (hauki rimpuilee rajuimmin). Humala tärisyttää kättä.
     F soutaa takaisin laiturille. Saalis viedään savustimeen.
-  - **Pajatso ja hedelmäpeli Siitarissa:** mekaaninen pajatso minipelinä: E pohjassa vedetään vipua ja irrotus
-    näppää euron kaarelle, josta se putoaa naulojen läpi kuppeihin tai näkyvään pottiin (POTTI-kuppi tyhjentää sen).
+  - **Pajatso ja hedelmäpeli Siitarissa:** pajatso RAY:n 50 pennin pajatson (1966) mukaan: tiikkikehyksinen kaappi,
+    RAY:n apilakyltti, lasin takana tummanpunainen lauta, harmaa rakonauha, suppilo, porttien kolikkoputket (näkyvä
+    varanto), tähtipyörät, voittokouru kahvoineen ja TILT-valo; kyljen laukaisin ja maksuvipu työntyvät reunan yli.
+    Pelataan euron kolikoilla: taskussa on yleensä yksi, oikean kehyksen vaihtokone (D) vaihtaa kahden euron kolikon
+    kahdeksi euroksi kahvaa vääntämällä (kolikot kuppiin), ja voittokourun kolikot käyvät suoraan peliin. Euro syötetään
+    (E) yläkehyksen kiinnikkeen rakoon, josta se putoaa oikean reunan kanavaa alas laukaisupesään pystyyn rakonauhan
+    tasolle. Laukaisin ei ole jousiase: sitä ei viritetä, vaan sormi napsauttaa liipaisimen suoraan sisään ja jousi vain
+    palauttaa sen. Liipaisin on kyljen lenkki, jota painetaan sisään kohti konetta. E pohjassa kerää sormeen voimaa (mitä pidempään, sitä kovempi isku), irrotus napsauttaa.
+    Lyöntitekniikat: pintalyönti (kevyt neppaus; liian heikko putoaa viereiseen R-rakoon ja antaa uusinnan),
+    peukalotuki (välilyönti: peukalo kehyksen reunaan, ei tärinää, voima kertyy hitaammin), voimalyönti (kova isku
+    laidan portteihin) ja snaiffaus (S: saatto jarruttaa iskua). Lennon aikana
+    K tönäisee konetta: jousi vaimenee hetkeksi, mutta tilt vie kolikon, ja kolmannesta tiltistä isäntä heittää ulos.
+    Kolikko lähtee aina vasemmalle ja hieman ylös ja putoaa rakojen yli yhdeksälle raolle: R (panos takaisin), 2, 3, 3,
+    14, 3, 3, 2, R euroa (oikean koneen 1:00, 1:50 ja 7:00). Raon portissa on kaksi jousitappia, joiden säädettävä
+    jäykkyys vaihtelee portittain (seiskassa jäykin, vasemmassa laidassa löysät): hiljainen ja vino osuma kuoleutuu
+    jouseen ja kolikko putoaa porttiin, kova kimpoaa; kiinteät ohjaustapit estävät suorat reitit keskelle. Jokaisella
+    portilla on oma kolikkoputki: rakoon mennyt kolikko pinoutuu siihen ja vapauttaa putken lukituksen, ja maksuvipu
+    (W) liikuttaa luistilevyä, joka pyyhkäisee voiton juuri siitä putkesta kouruun; tyhjästä putkesta kone maksaa
+    tyhjää. Ohi mennyt kolikko valuu suppilon jakotapilta vajaimpaan putkeen (täysi valuu kassaan). Siimahuijaus (Q)
+    kerran päivässä, jos repussa on virveli tai onki: rakoon mennyt siimakolikko nykäistään uudestaan läpi, kunnes
+    siimaleikkuri katkaisee siiman tai isäntä näkee ja heittää ulos (maine −6). Kone skaalautuu pienempään ikkunaan.
+    Palautus (simuloitu): satunnainen lyönti noin 60 %, tähtäys ilman tukea noin 80–90 %, peukalotuella noin 95 %,
+    voimalyönti vähemmän (`--scene=pajatso`).
     Hedelmäpelillä pelaa kaksi seurueen jäsentä; vuoron saa kysymällä. Kolme rullaa, voittotaulukko, lukitus
     häviön jälkeen (1 2 3) ja tuplaus pieni/suuri (`--scene=siitaripelit`).
   - **Lauantai Siitarissa:** pajatsolla pelaa kaksi Raahen jätkää, jotka eivät anna pelivuoroa ja haastavat riitaa.
