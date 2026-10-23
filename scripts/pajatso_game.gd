@@ -963,11 +963,12 @@ func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
 	var snap := clampf(_ring_t / 0.3, 0.0, 1.0)
 	var off := -sin(snap * PI) * (4.0 + _last_power * 14.0)
 	const R := 22.0  # kiekon säde
-	var dc := Vector2(x + 8.0 + off, y)  # kiekon keskipiste hieman kyljen ulkopuolella
+	var dc := Vector2(x + 10.0 + off, y)  # kiekon keskipiste hieman kyljen ulkopuolella
 	var half := func(c: Vector2, r: float) -> PackedVector2Array:  # kyljen ulkopuolelle jäävä osa
 		var pts := PackedVector2Array()
-		for k in 25:
-			var a := -PI / 2.0 + PI * k / 24.0
+		var t := acos(clampf((x - c.x) / r, -1.0, 1.0))  # kaari, joka jää kyljen ulkopuolelle
+		for k in 33:
+			var a := -t + 2.0 * t * k / 32.0
 			pts.append(Vector2(maxf(x, c.x + cos(a) * r), c.y + sin(a) * r))
 		return pts
 	# Kiinnityslevy kyljessä kuten oikeassa koneessa: kromilevy kahdella ruuvilla ja kapea viilto, josta kiekko tulee.
@@ -983,13 +984,13 @@ func _draw_striker(o: Vector2, cab: Rect2, font: Font) -> void:
 	_root.draw_colored_polygon(half.call(dc, R), Color(0.62, 0.63, 0.67))
 	_root.draw_colored_polygon(half.call(dc + Vector2(-1.5, -1.5), R - 4.0), Color(0.86, 0.87, 0.9))  # kasvo
 	_root.draw_colored_polygon(half.call(dc + Vector2(-3, -5), R - 12.0), Color(0.98, 0.98, 1.0, 0.8))  # kiilto
-	for k in 13:  # pykälöity reuna
-		var a := -PI / 2.0 + PI * (k + 0.5) / 13.0
+	for k in 26:  # pykälöity reuna
+		var a := TAU * (k + 0.5) / 26.0
 		var d := Vector2(cos(a), sin(a))
 		if dc.x + d.x * R > x + 1.0:
 			_root.draw_line(dc + d * (R - 3.0), dc + d * R, Color(0.42, 0.43, 0.47), 1.2)
-	# Reikä kiekossa: tumma aukko, alareunassa kiekon paksuus; painuu iskussa kiinnityslevyn taakse.
-	var hc := dc + Vector2(R * 0.5, 0)
+	# Reikä kiekon keskellä kuin prikassa: tumma aukko, alareunassa kiekon paksuus; painuu iskussa kiinnityslevyn taakse.
+	var hc := dc  # keskellä kuin prikassa
 	var hole := PackedVector2Array()
 	var lip := PackedVector2Array()
 	for k in 24:
