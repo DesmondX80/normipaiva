@@ -2937,10 +2937,12 @@ func _build_makasiini(station: Node3D, station_l: float, c: Vector2) -> void:
 
 ## Vaalan poliisiasema Oulujoen sillan keskustan puoleisessa päässä, Vaalasta lähtiessä tien oikealla puolella:
 ## 70-luvun yksikerroksinen tiilitalo tasakatolla, nauhaikkunat, lasiovi katoksineen ja sininen POLIISI-kyltti,
-## nimikyltti, lipputanko ja poliisiauto pihassa. Kohta haetaan sillan päästä keskustaan päin ensimmäisestä
-## vapaasta paikasta (ei OSM-taloa, sivutietä, rataa eikä vettä). Vastapäätä penkillä nukkuu Janttu (janttu.gd).
+## nimikyltti, lipputanko ja poliisiauto pihassa. Kohta haetaan vähintään POLIISI_FROM_BRIDGE metrin päästä sillan
+## päästä keskustaan päin (heti sillan päässä oikealla lähtee tie narkkitaloille) ensimmäisestä vapaasta paikasta
+## (ei OSM-taloa, sivutietä, rataa eikä vettä). Vastapäätä penkillä nukkuu Janttu (janttu.gd).
 const POLIISI_SIZE := Vector2(16.0, 9.0)  # pituus tien suuntaan, syvyys
 const POLIISI_YARD := 7.0  # piha tien reunasta julkisivuun
+const POLIISI_FROM_BRIDGE := 100.0  # vähintään näin pitkä matka (m) sillan päästä tietä pitkin
 var poliisi_front := Vector3.INF  # pääoven edusta
 ## Roivaisen paikat (main.gd _poliisi_*): pihalla auton vieressä ja tutkan kanssa tien reunassa; out = kohti tietä.
 var poliisi_yard := Vector3.INF
@@ -2955,7 +2957,13 @@ func _build_poliisi() -> void:
 	var i_end := int(data.bridges[1][1])
 	var hl := POLIISI_SIZE.x / 2.0
 	var hd := POLIISI_SIZE.y / 2.0
-	for i in range(i_end + 3, mini(i_end + 120, road.size() - 2)):
+	var along := 0.0
+	for i in range(i_end + 1, road.size() - 2):
+		along += Vector2(road[i][0] - road[i - 1][0], road[i][2] - road[i - 1][2]).length()
+		if along < POLIISI_FROM_BRIDGE:
+			continue
+		if along > POLIISI_FROM_BRIDGE + 250.0:
+			break
 		var p := road_pos(i)
 		var n := road_dir(i).cross(Vector3.UP)
 		var side := Vector2(-n.x, -n.z)  # Vaalasta pois ajettaessa (näytteet laskevat) oikea puoli
@@ -2976,7 +2984,7 @@ func _build_poliisi() -> void:
 		janttu.position = Vector3(jp.x, h(jp.x, jp.y), jp.y)
 		janttu.rotation.y = B.yaw_to(Vector3(side.x, 0, side.y))  # penkki poliisiasemaa kohti
 		add_child(janttu)
-		print("VAALA poliisiasema näytteen %d kohdalla (%.0f m sillalta)" % [i, (real_s(i) - real_s(i_end)) / k])
+		print("VAALA poliisiasema näytteen %d kohdalla (%.0f m sillalta)" % [i, along])
 		return
 	push_warning("Vaalan poliisiasemalle ei löytynyt paikkaa sillan päästä")
 
