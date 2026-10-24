@@ -2939,7 +2939,7 @@ func _build_makasiini(station: Node3D, station_l: float, c: Vector2) -> void:
 ## 70-luvun yksikerroksinen tiilitalo tasakatolla, nauhaikkunat, lasiovi katoksineen ja sininen POLIISI-kyltti,
 ## nimikyltti, lipputanko ja poliisiauto pihassa. Kohta haetaan vähintään POLIISI_FROM_BRIDGE metrin päästä sillan
 ## päästä keskustaan päin (heti sillan päässä oikealla lähtee tie narkkitaloille) ensimmäisestä vapaasta paikasta
-## (ei OSM-taloa, sivutietä, rataa eikä vettä). Vastapäätä penkillä nukkuu Janttu (janttu.gd).
+## (ei OSM-taloa, sivutietä, rataa eikä vettä). Vastapäätä asfaltilla makaa Janttu (janttu.gd).
 const POLIISI_SIZE := Vector2(16.0, 9.0)  # pituus tien suuntaan, syvyys
 const POLIISI_YARD := 7.0  # piha tien reunasta julkisivuun
 const POLIISI_FROM_BRIDGE := 100.0  # vähintään näin pitkä matka (m) sillan päästä tietä pitkin
@@ -2976,17 +2976,37 @@ func _build_poliisi() -> void:
 				var q: Vector2 = c + ax * u + side * v
 				if _in_building(q, 1.5) or _near_side_road(q, 4.0) or _near_rail(q, 6.0) or wet(q.x, q.y):
 					ok = false
-		var jp := Vector2(p.x, p.z) - side * (hw + 3.2)
-		if not ok or _in_building(jp, 1.5) or _near_side_road(jp, 2.5) or wet(jp.x, jp.y):
+		if not ok:
 			continue
+		var jp := _janttu_spot(Vector2(p.x, p.z), -side, ax, hw)
 		_poliisi_building(c, -side, ax)
 		janttu = Janttu.new()
 		janttu.position = Vector3(jp.x, h(jp.x, jp.y), jp.y)
-		janttu.rotation.y = B.yaw_to(Vector3(side.x, 0, side.y))  # penkki poliisiasemaa kohti
+		janttu.rotation.y = atan2(ax.x, ax.y)  # makaa tien suuntaisesti
 		add_child(janttu)
 		print("VAALA poliisiasema näytteen %d kohdalla (%.0f m sillalta)" % [i, along])
 		return
 	push_warning("Vaalan poliisiasemalle ei löytynyt paikkaa sillan päästä")
+
+
+## Jantun makuupaikka tien toisella puolella: asfaltoitu parkkipaikka aseman kohdalla, muuten tien asfalttireuna.
+func _janttu_spot(r: Vector2, out: Vector2, ax: Vector2, hw: float) -> Vector2:
+	for dv in range(2, 16):
+		for du in [0.0, 3.0, -3.0, 6.0, -6.0, 9.0, -9.0]:
+			var q: Vector2 = r + out * (hw + dv) + ax * du
+			if _on_parking(q) and not _in_building(q, 1.5) and not _near_side_road(q, 2.0):
+				return q
+	return r + out * (hw - 0.4)
+
+
+func _on_parking(p: Vector2) -> bool:
+	for poly in data.parkings:
+		var pts := PackedVector2Array()
+		for q in poly:
+			pts.append(Vector2(q[0], q[1]))
+		if Geometry2D.is_point_in_polygon(p, pts):
+			return true
+	return false
 
 
 ## Rakennus: c = pohjan keskipiste, f = julkisivun suunta (tielle), ax = pituussuunta.

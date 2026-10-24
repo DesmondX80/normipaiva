@@ -515,8 +515,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     puolella, on 70-luvun tiilinen poliisiasema (POLIISI-kyltti katoksessa, nimikyltti, lipputanko ja poliisiauto
     pihassa). Konstaapeli Roivainen on asemalla aina, kun ei ole ratsiassa. 20 % matkoista hänellä on tutka tien
     reunassa: yli 47 km/h (40 + toleranssi) pysäyttää, ja sakoista jutellaan (rikesakko 50 €, yli 20 km/h ylinopeudesta
-    100 €; selittely joskus varoitus, muuten +20 €; ohi ajaminen 120 € postissa). Vastapäätä penkillä nukkuu
-    kilipäissään Janttu (pipo, kossupullo ja tölkit jaloissa, Zzz). Jalan voi tarjota kaljaa, pontikkaa tai
+    100 €; selittely joskus varoitus, muuten +20 €; ohi ajaminen 120 € postissa). Vastapäätä asfaltilla makaa
+    kilipäissään Janttu (pipo, Alkon kassi tyynynä, kossupullo ja tölkit ympärillä, Zzz). Jalan voi tarjota kaljaa, pontikkaa tai
     Koskenkorvaa: Janttu herää ja kertoo, missä Roivainen ratsaa tänään tai mittaako hän tutkalla. Testi `--scene=poliisi`.
   - **Lama Vaalassa:** Siitarin lounaispuolella on työvoimatoimisto, jonka ovella jonottaa kuusi ihmistä ("Sahalta
     lähti viiskymmentä miestä kerralla") ja ilmoitustaululla lukee "AVOIMET TYÖPAIKAT –". Jonoon pääsee kerran
