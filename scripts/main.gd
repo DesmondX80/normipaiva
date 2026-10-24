@@ -810,6 +810,8 @@ const TALKERS := {
 	"nuoret": ["Porukka aidan takana", Color(0.6, 0.9, 1.0)],
 	"mopopojat": ["Mopopojat", Color(1.0, 0.85, 0.3)],
 	"poliisi": ["Ratsupoliisi Roivainen", Color(0.55, 0.7, 1.0)],
+	"roivainen": ["Konstaapeli Roivainen", Color(0.55, 0.7, 1.0)],
+	"janttu": ["Janttu", Color(0.85, 0.75, 0.5)],
 	"kauppias": ["Kauppias", Color(0.6, 0.82, 1.0)],
 	"kauppa_auto": ["Kauppa-auton Eila", Color(0.55, 0.75, 1.0)],
 	"vastaanotto": ["Vastaanoton Marjatta", Color(0.85, 0.75, 0.95)],
@@ -890,6 +892,9 @@ const TALK_HELLO := {
 	"mirkku": ["Moikka! Ihana päivä, eiks?", "No hei! Tuu kattoon, täällä kukkii ihan kaikki.", "Kas, sää! Lähetkö laavulle?"],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
 	"gasthaus": ["Iltaa. Huonetta vailla?", "Tervetuloa Gasthausiin. Yö maksaa kympin."],
+	"roivainen": ["Päivää. Roivainen. Asema on auki ma–pe yheksästä kolmeen.", "No, mopomies. Jalan tänään?",
+		"Kas. Ei ainakaan ylinopeutta jalan."],
+	"janttu": ["Zzz... hä? Mitä? Kuka siellä?", "...mmh. Onks sulla mitään?", "Zzz... Roivainen, mää en oo tehny mitään..."],
 	"poliisi": ["Iltaa. Roivainen, Vaalan poliisi. Rutiinitarkastus. Puhaltakaa tähän, olkaa hyvä.",
 		"Kas, mopomies. Roivainen tässä. Sammuttakaa moottori ja puhaltakaa."],
 	"mopopojat": ["No, ukko mopolla. Uskallatko kiihdytykseen?", "Meiän Tunturit vetää. Mitä sun romu tekee?",
@@ -10943,6 +10948,19 @@ func _talk_options(who := "") -> Array:
 				var q: Array = _quiz[_quiz_i]
 				for k in (q[1] as Array).size():
 					o.append(_opt("visa_%d" % k, q[1][k]))
+		"roivainen":
+			if _tutka_stage == "pysaytys":
+				chat = false
+				var fine := _tutka_fine()
+				o.append(_opt("sakko_maksa", "Maksa sakko (%s €)" % _eur(fine), true, "", true))
+				o.append(_opt("sakko_selitys", "Mää vaan testasin, kulkeeko tää", true, "", true))
+			elif _tutka_stage == "tulos":
+				chat = false
+				o.append(_opt("jatka", "Jatka matkaa", true, "", true))
+		"janttu":
+			o.append(_opt("janttu_kalja", "Tarjoa kalja", beers > 0, "ei kaljaa mukana"))
+			o.append(_opt("janttu_pontikka", "Tarjoa pontikkaa", pontikka > 0, "ei pontikkaa"))
+			o.append(_opt("janttu_viina", "Tarjoa Koskenkorvaa", viina_pullot > 0, "ei viinaa"))
 		"poliisi":
 			chat = false
 			if _ratsia_stage == "puhallus":
@@ -11027,7 +11045,7 @@ func _talk_options(who := "") -> Array:
 	_mopo_options(who, o)  # oma mopo (#155): Seppo, Huhtala, Simo, Aaro, SEO ja katsastus
 	if chat:
 		o.append(_opt("juttu", "Mitä kuuluu?"))
-	if who != "poliisi":  # ratsiasta ei kävellä pois kesken
+	if who != "poliisi" and not (who == "roivainen" and _tutka_stage in ["pysaytys", "tulos"]):  # ratsiasta ja tutkasta ei kävellä pois kesken
 		o.append(_opt("lopeta", "Lopeta"))
 	return o
 
@@ -11156,6 +11174,16 @@ func _talk_choose(id: String) -> void:
 				_talk_box.reply(r[0], _talk_options(), r[1])
 		"kauppias":
 			_talk_kauppias(id)
+		"roivainen":
+			if id == "jatka":
+				_tutka_stage = "done"
+				_talk_box.close()
+			else:
+				var r := _tutka_result(id == "sakko_selitys")
+				_talk_box.reply(r[0], _talk_options(), r[1])
+		"janttu":
+			var r := _talk_janttu(id)
+			_talk_box.reply(r[0], _talk_options(), r[1])
 		"poliisi":
 			if id == "jatka":
 				_talk_box.close()  # _talk_end päästää matkaan (_ratsia_release)
@@ -11470,6 +11498,10 @@ func _talk_chat_line() -> String:
 			return AARO_LINES.pick_random()
 		"mirkku":
 			return MIRKKU_LINES.pick_random()
+		"roivainen":
+			return ROIVAINEN_LINES.pick_random()
+		"janttu":
+			return JANTTU_LINES.pick_random()
 		"reippari":
 			return REIPPARI_LINES.pick_random()
 		"reippari_nuoret":
@@ -12870,6 +12902,7 @@ func _unload_far_places(delta: float) -> void:
 	# Vaalan lapsina olevat apuoliot lähtevät mukana: viittaukset pois.
 	_portsari = null
 	_ratsia = null
+	_roivainen = null
 	_race = null
 	_paper.mopo_trip = null
 	mopo_trip.queue_free()
@@ -12912,6 +12945,7 @@ func _start_mopo(guide := true) -> void:
 	walker_out.visible = false
 	mopo_trip.start("siitari", tilat.value("humala"))
 	_ratsia_roll()
+	_tutka_roll()
 	_set_avatar(mopo_trip.mopo)
 	_mopo_label.visible = true
 	tilat.first("mopo", 0.3)
@@ -12959,6 +12993,7 @@ func _vaala_logic() -> void:
 		("%.1f" % (left / 1000.0)).replace(".", ",")])
 	_mopo_mount_logic()
 	_ratsia_logic()
+	_poliisi_logic()
 	_lava_yard_logic()
 
 
@@ -13309,6 +13344,7 @@ func _on_siitari(id: String) -> Array:
 			_show_message("Takaisin Paapeliin: Vaalantie, Vuolijoentie ja Neittäväntie.", 3.0)
 		mopo_trip.start("paapeli", drunk)
 		_ratsia_roll()
+		_tutka_roll()
 		return ["", ""]
 	var m: Array = SIITARI_MENU[id]
 	if money < m[1]:
@@ -15080,6 +15116,150 @@ func _ratsia_roll() -> void:
 		vl.add_child(_ratsia)
 		_ratsia.setup(at, dir, side, float(r[4]), vl.h)
 		return
+
+
+## Vaalan poliisiasema (vaala.gd _build_poliisi): konstaapeli Roivainen on asemalla, kun ei ole ratsiassa. 20 %
+## matkoista hänellä on tutka tien reunassa aseman kohdalla: ylinopeus (yli 40 km/h + 7 km/h:n toleranssi) pysäyttää,
+## ja sakoista jutellaan. Ohi ajava saa isomman sakon postissa. Vastapäätä asfaltilla makaa kilipäissään Janttu, jolle
+## voi tarjota kaljaa, pontikkaa tai Koskenkorvaa: herättyään hän tietää, missä Roivainen tänään ratsaa.
+const TUTKA_CHANCE := 0.2
+const TUTKA_LIMIT := 40.0
+const TUTKA_TOL := 7.0
+const TUTKA_R := 30.0  # mittausmatka tutkasta
+const TUTKA_FINE := 50.0
+const TUTKA_FINE_BIG := 100.0  # yli 20 km/h ylinopeus
+const TUTKA_FINE_FLEE := 120.0
+const ROIVAINEN_LINES := ["Janttu on nukkunu tossa penkillä kakskymmentä vuotta. Vaalan vanhin vartija.",
+	"Mopopojat luulee, että tutka on vaan kesäisin. Ei oo.", "Neljäkymppiä taajamassa. Ei se oo vaikeeta.",
+	"Siitarin pihasta haetaan joka lauantai joku. Yleensä sama.", "Kahvit on asemalla aina kuumana. Ei kuulu sulle."]
+const JANTTU_LINES := ["...mmh. Vaala oli ennen iso paikka. Sitte tuli lama.", "Mää olin uittamassa -71. Oulujoki oli täynnä tukkia.",
+	"Roivainen on hyvä poika. Kantaa mut joskus sisälle, ku sataa.", "Zzz... hä? Onks jo aamu?"]
+var _roivainen: Node3D
+var _tutka := false
+var _tutka_stage := ""  # "" valvoo, "pysaytys" (mitattu, odottaa pysähtymistä tai puhuu), "tulos", "done"
+var _tutka_kmh := 0.0
+var _tutka_wait := 0.0
+var tutka_force := false  # testit: tutka aina
+
+
+## Matkan alussa: Roivainen asemalle (pihalle tai tutkan kanssa tien reunaan, TUTKA_CHANCE).
+func _tutka_roll() -> void:
+	var vl: Node3D = mopo_trip.vaala
+	_tutka_stage = ""
+	_tutka = tutka_force or randf() < TUTKA_CHANCE
+	if vl.poliisi_yard == Vector3.INF:
+		return
+	if _roivainen == null or not is_instance_valid(_roivainen):
+		_roivainen = Looks.make(vl, Ratsia.COP)
+		var gun := Node3D.new()  # tutkapistooli: tumma runko, linssi ja kahva
+		B.mesh(gun, B.boxm(Vector3(0.07, 0.09, 0.2)), Vector3(0, 0.04, -0.05), Color(0.15, 0.15, 0.17))
+		B.mesh(gun, B.cyl(0.035, 0.035, 0.03, 12), Vector3(0, 0.05, -0.16), Color(0.5, 0.1, 0.1), Vector3(90, 0, 0))
+		B.mesh(gun, B.boxm(Vector3(0.04, 0.1, 0.05)), Vector3(0, -0.04, 0.0), Color(0.1, 0.1, 0.1))
+		_roivainen.attach("hand_r", gun, Vector3.ZERO)
+		gun.name = "tutka"
+	var at: Vector3 = vl.poliisi_roadside if _tutka else vl.poliisi_yard
+	_roivainen.position = at
+	_roivainen.rotation.y = B.yaw_to(vl.poliisi_out)
+	_roivainen.play("Idle", 0.0)
+	var g := _roivainen.find_child("tutka", true, false)
+	if g != null:
+		g.visible = _tutka
+
+
+func _tutka_fine() -> float:
+	return TUTKA_FINE_BIG if _tutka_kmh - TUTKA_LIMIT > 20.0 else TUTKA_FINE
+
+
+func _poliisi_logic() -> void:
+	var vl: Node3D = mopo_trip.vaala
+	var ratsia := _ratsia != null and is_instance_valid(_ratsia)
+	if _roivainen != null and is_instance_valid(_roivainen):
+		_roivainen.visible = not ratsia  # ratsiapäivinä Roivainen on tien päällä
+	if _talk_box.is_open():
+		return
+	if mopo_trip.on_foot != null:
+		var wp: Vector3 = walker_out.global_position
+		if is_instance_valid(vl.janttu) and wp.distance_to(vl.janttu.global_position) < 2.8:
+			_talk_hint("janttu", vl.janttu)
+		elif _roivainen != null and _roivainen.visible and wp.distance_to(_roivainen.global_position) < 3.2:
+			_talk_hint("roivainen", _roivainen)
+		return
+	if not _tutka or ratsia or _roivainen == null or _tutka_stage in ["tulos", "done"]:
+		return
+	var mp: CharacterBody3D = mopo_trip.mopo
+	var d := Vector2(mp.position.x - _roivainen.position.x, mp.position.z - _roivainen.position.z).length()
+	var kmh := absf(mp.speed) * 3.6
+	if _tutka_stage == "" and d < TUTKA_R and kmh > TUTKA_LIMIT + TUTKA_TOL:
+		_tutka_stage = "pysaytys"
+		_tutka_kmh = kmh
+		_tutka_wait = 0.0
+		_roivainen.play("Idle_Talking", 0.2)
+		Sfx.play("alert", -6.0, 1.4)
+		tilat.first("tutka", 0.3)
+		_show_message("TUTKA! Roivainen mittasi %d km/h, rajoitus %d. Hän viittoo sivuun: pysähdy." % [int(kmh), int(TUTKA_LIMIT)], 3.5)
+	if _tutka_stage != "pysaytys":
+		return
+	if d < 25.0:
+		if _hint.text == "":
+			_hint.text = "Pysähdy Roivaisen kohdalle (jarruta)"
+		if absf(mp.speed) < 2.0:
+			mp.speed = 0.0
+			mp.velocity = Vector3.ZERO
+			_talk_open("roivainen", null, "Noniin. %d kilometriä tunnissa neljänkympin alueella. Jutellaanpa vähän." % int(_tutka_kmh))
+	elif d > 70.0:
+		_tutka_stage = "done"
+		var fine := minf(TUTKA_FINE_FLEE, money)
+		money -= fine
+		maine = clampf(maine - 5.0, 0.0, 100.0)
+		Sfx.play("lose", -4.0)
+		_show_message("Ajoit tutkan ohi pysähtymättä! Roivainen kirjasi kilven: sakko %s € postissa." % _eur(fine), 4.5)
+
+
+## Sakko tai selittely: palauttaa [Roivaisen repliikki, inforivi].
+func _tutka_result(excuse: bool) -> Array:
+	_tutka_stage = "tulos"
+	var fine := _tutka_fine()
+	if excuse:
+		if randf() < 0.3:
+			return ["Testasit. No, nyt tiedät, että kulkee. Varoitus tällä kertaa. Neljäkymppiä, ymmärretty?",
+				"Selitys meni läpi: pelkkä varoitus."]
+		fine += 20.0
+		money -= minf(fine, money)
+		return ["Testaa jarruja seuraavaks. Rikesakko %s euroa, ja selittely maksaa vähän päälle." % _eur(fine),
+			"Sakko %s € (selittely +20 €)." % _eur(fine)]
+	money -= minf(fine, money)
+	maine = clampf(maine + 1.0, 0.0, 100.0)
+	return ["Kiitos. Rikesakko %s euroa. Ja hiljempaa sillalle, siellä on lapsia kalassa." % _eur(fine),
+		"Sakko %s € maksettu. Roivainen arvostaa, maine Vaalassa +1." % _eur(fine)]
+
+
+## Jantulle tarjotaan: hän herää hetkeksi ja kertoo, missä Roivainen ratsaa tänään (tai ettei ratsiaa ole).
+func _talk_janttu(id: String) -> Array:
+	var vl: Node3D = mopo_trip.vaala
+	var what := ""
+	match id:
+		"janttu_kalja":
+			beers -= 1
+			player.set_carrying(beers > 0)
+			what = "Kaljaa! Sää oot hyvä ihminen."
+		"janttu_pontikka":
+			pontikka -= 1
+			what = "Pontikkaa... Korpi-Kallen tavaraa, tunnen maun. Voi pojat."
+		"janttu_viina":
+			viina_pullot -= 1
+			what = "Kossua! Ihan ku -78 juhannuksena."
+	Sfx.play("glass", -6.0, 0.9)
+	tilat.first("janttu", 0.2)
+	var tip := "Roivainen istuu tänään asemalla kahvilla. Ei ratsiaa, usko pois."
+	if _ratsia != null and is_instance_valid(_ratsia):
+		var near: Array = vl.nearest(_ratsia.stop_pos)
+		var km: float = (vl.real_total - vl.real_s(int(near[0]))) / 1000.0
+		tip = "Roivainen seisoo tänään Vaalantiellä, %s kilsaa Siitarilta Paapeliin päin. Puhalluttaa." % ("%.1f" % km).replace(".", ",")
+	elif _tutka:
+		tip = "Roivainen mittaa tänään tutkalla tossa aseman edessä. Neljäkymppiä, muuten lähtee rahat."
+	if is_instance_valid(vl.janttu):
+		vl.janttu.wake(what, 6.0)
+	return [what + " " + tip, "Janttu nukahtaa taas. Vihje: " + tip]
 
 
 func _ratsia_logic() -> void:
@@ -30449,6 +30629,80 @@ func _maybe_screenshot() -> void:
 			print("MDROONI järveen: broken=%s msg=%s" % [drone_broken_day == day, _msg.text])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"poliisi":
+			# Vaalan poliisiasema sillan keskustan päässä: asema tieltä Vaalasta pois ajettaessa (oikealla), Janttu
+			# asfaltilla vastapäätä, Roivainen tutkan kanssa; ylinopeus -> pysäytys ja sakko; kalja Jantulle -> vihje.
+			# Kuvat _poliisi_*.
+			money = 60.0
+			beers = 2
+			tutka_force = true
+			clock_min = 14 * 60.0
+			_start_mopo()
+			for i in 60:
+				await get_tree().physics_frame
+			var vl: Node3D = mopo_trip.vaala
+			if _ratsia != null:
+				_ratsia.queue_free()  # ratsiapäivänä Roivainen ei ole asemalla
+				_ratsia = null
+			_tutka_roll()
+			print("POLIISI etu %s, piha %s, tie %s, janttu %s, roivainen %s, tutka %s" % [vl.poliisi_front, vl.poliisi_yard,
+				vl.poliisi_roadside, vl.janttu.position if vl.janttu != null else null, _roivainen != null, _tutka])
+			var cam := Camera3D.new()
+			vl.add_child(cam)
+			cam.fov = 50.0
+			var snap := func(name: String, eye: Vector3, at: Vector3, hud := false) -> void:
+				_hud.visible = hud
+				cam.position = eye
+				cam.look_at(vl.to_global(at), Vector3.UP)
+				cam.current = true
+				for i in 12:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_poliisi_%s.png" % name))
+			var mp: CharacterBody3D = mopo_trip.mopo
+			var near: Array = vl.nearest(vl.poliisi_front)
+			var ri: int = near[0]
+			var leave: Vector3 = -vl.road_dir(ri)  # Vaalasta pois
+			var rp: Vector3 = vl.road_pos(ri)
+			mp.position = rp - leave * 40.0 + Vector3(0, 0.3, 0)
+			mp.rotation.y = atan2(-leave.x, -leave.z)
+			for i in 10:
+				await get_tree().physics_frame
+			await snap.call("tieltä", rp - leave * 30.0 + Vector3(0, 2.2, 0), rp + leave * 5.0 + Vector3(0, 1.5, 0))
+			await snap.call("asema", vl.poliisi_front + vl.poliisi_out * 16.0 + leave * 6.0 + Vector3(0, 3.0, 0), vl.poliisi_front + Vector3(0, 2.0, 0))
+			var jp: Vector3 = vl.janttu.position
+			var jf: Vector3 = vl.janttu.global_basis.x
+			await snap.call("janttu", jp + jf * 2.4 + Vector3(0.3, 1.6, 0), jp + Vector3(0, 0.2, 0))
+			var rv: Vector3 = _roivainen.position
+			await snap.call("roivainen", rv + vl.poliisi_out * 3.0 + leave * 1.5 + Vector3(0, 1.5, 0), rv + Vector3(0, 1.2, 0))
+			# Ylinopeus aseman kohdalla: mittaus, pysähtyminen ja sakko.
+			mp.position = rv + leave * 12.0 - vl.poliisi_out * 4.0 + Vector3(0, 0.3, 0)
+			for i in 4:
+				mp.speed = 15.0
+				await get_tree().process_frame
+			print("POLIISI mitattu: vaihe %s, %.0f km/h (mopo %.1f m/s, ohjaus %s, ratsia %s, matka %s)" % [_tutka_stage, _tutka_kmh,
+				mp.speed, mp.controls_enabled, _ratsia != null, mopo_trip.active])
+			mp.position = rv + leave * 8.0 - vl.poliisi_out * 3.0 + Vector3(0, 0.3, 0)
+			mp.speed = 0.0
+			for i in 3:
+				await get_tree().process_frame
+			print("POLIISI puhe auki: %s (%s), vaihtoehdot %s" % [_talk_box.is_open(), _talk_who, _talk_options().map(func(o): return o.id)])
+			await snap.call("sakko", rv + vl.poliisi_out * 4.0 + leave * 4.0 + Vector3(0, 2.0, 0), rv + leave * 4.0 + Vector3(0, 1.0, 0), true)
+			var m0 := money
+			_talk_choose("sakko_maksa")
+			print("POLIISI sakko %.0f €, vaihe %s, vaihtoehdot %s" % [m0 - money, _tutka_stage, _talk_options().map(func(o): return o.id)])
+			_talk_choose("jatka")
+			# Jalan Jantun luo ja kalja.
+			_mopo_dismount()
+			walker_out.global_position = vl.to_global(jp + jf * 1.8 + Vector3(0, 0.3, 0))
+			for i in 20:
+				await get_tree().physics_frame
+			_talk_open("janttu", vl.janttu)
+			print("POLIISI janttu vaihtoehdot %s" % [_talk_options().map(func(o): return [o.id, o.enabled])])
+			_talk_choose("janttu_kalja")
+			print("POLIISI janttu kaljat %d, herännyt %s" % [beers, vl.janttu.awake_t > 0.0])
+			_talk_box.close()
+			await snap.call("janttu_hereilla", jp + jf * 2.4 + Vector3(0.3, 1.6, 0), jp + Vector3(0, 0.3, 0))
 		"mirkku_loppu":
 			# Mirkun teltassa: teltta päivällä laavun vieressä, kukkakimppu Mirkulle illalla (vaihtoehto harmaana
 			# päivällä) ja loppukohtaus: nuotio, sitten teltan ovi kiinni ja lyhty (hero shot). Kuvat _mloppu_*.

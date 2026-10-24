@@ -511,6 +511,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     yli 1,2 ‰ = törkeä rattijuopumus (sakko 250 €). Ratsian
     ohittaminen pysähtymättä = sakko postissa ja maine laskee (`--scene=mokkiratsia`). Taustat: Oulujärven lava (Yle, Kaleva, Wikipedia) ja Oulujoen
     voimalaitoskylien muistelmat (ponkkarit, kioskit, tanssipaikkojen portailla odottelevat nuoret).
+  - **Vaalan poliisiasema ja Janttu:** Oulujoen sillan Vaalan puoleisessa päässä, Vaalasta lähtiessä tien oikealla
+    puolella, on 70-luvun tiilinen poliisiasema (POLIISI-kyltti katoksessa, nimikyltti, lipputanko ja poliisiauto
+    pihassa). Konstaapeli Roivainen on asemalla aina, kun ei ole ratsiassa. 20 % matkoista hänellä on tutka tien
+    reunassa: yli 47 km/h (40 + toleranssi) pysäyttää, ja sakoista jutellaan (rikesakko 50 €, yli 20 km/h ylinopeudesta
+    100 €; selittely joskus varoitus, muuten +20 €; ohi ajaminen 120 € postissa). Vastapäätä asfaltilla makaa
+    kilipäissään Janttu (pipo, Alkon kassi tyynynä, kossupullo ja tölkit ympärillä, Zzz). Jalan voi tarjota kaljaa, pontikkaa tai
+    Koskenkorvaa: Janttu herää ja kertoo, missä Roivainen ratsaa tänään tai mittaako hän tutkalla. Testi `--scene=poliisi`.
   - **Lama Vaalassa:** Siitarin lounaispuolella on työvoimatoimisto, jonka ovella jonottaa kuusi ihmistä ("Sahalta
     lähti viiskymmentä miestä kerralla") ja ilmoitustaululla lukee "AVOIMET TYÖPAIKAT –". Jonoon pääsee kerran
     päivässä (puoli tuntia), ja virkailija antaa lomakkeen tai kurssiesitteen. Muiden liiketilojen ikkunoissa on lappuja
