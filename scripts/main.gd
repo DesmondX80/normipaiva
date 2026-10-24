@@ -15120,7 +15120,7 @@ func _ratsia_roll() -> void:
 
 ## Vaalan poliisiasema (vaala.gd _build_poliisi): konstaapeli Roivainen on asemalla, kun ei ole ratsiassa. 20 %
 ## matkoista hänellä on tutka tien reunassa aseman kohdalla: ylinopeus (yli 40 km/h + 7 km/h:n toleranssi) pysäyttää,
-## ja sakoista jutellaan. Ohi ajava saa isomman sakon postissa. Vastapäätä asfaltilla makaa kilipäissään Janttu, jolle
+## ja sakoista jutellaan. Ohi ajava saa isomman sakon postissa. Vastapäätä penkillä makaa kilipäissään Janttu, jolle
 ## voi tarjota kaljaa, pontikkaa tai Koskenkorvaa: herättyään hän tietää, missä Roivainen tänään ratsaa.
 const TUTKA_CHANCE := 0.2
 const TUTKA_LIMIT := 40.0
@@ -30631,7 +30631,7 @@ func _maybe_screenshot() -> void:
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 		"poliisi":
 			# Vaalan poliisiasema sillan keskustan päässä: asema tieltä Vaalasta pois ajettaessa (oikealla), Janttu
-			# asfaltilla vastapäätä, Roivainen tutkan kanssa; ylinopeus -> pysäytys ja sakko; kalja Jantulle -> vihje.
+			# penkillä vastapäätä, Roivainen tutkan kanssa; ylinopeus -> pysäytys ja sakko; kalja Jantulle -> vihje.
 			# Kuvat _poliisi_*.
 			money = 60.0
 			beers = 2
@@ -30671,8 +30671,8 @@ func _maybe_screenshot() -> void:
 			await snap.call("tieltä", rp - leave * 30.0 + Vector3(0, 2.2, 0), rp + leave * 5.0 + Vector3(0, 1.5, 0))
 			await snap.call("asema", vl.poliisi_front + vl.poliisi_out * 16.0 + leave * 6.0 + Vector3(0, 3.0, 0), vl.poliisi_front + Vector3(0, 2.0, 0))
 			var jp: Vector3 = vl.janttu.position
-			var jf: Vector3 = vl.janttu.global_basis.x
-			await snap.call("janttu", jp + jf * 2.4 + Vector3(0.3, 1.6, 0), jp + Vector3(0, 0.2, 0))
+			var jf: Vector3 = -vl.janttu.global_basis.z  # penkin etupuoli
+			await snap.call("janttu", jp + jf * 2.4 + Vector3(0.3, 1.4, 0), jp + Vector3(0, 0.6, 0))
 			var rv: Vector3 = _roivainen.position
 			await snap.call("roivainen", rv + vl.poliisi_out * 3.0 + leave * 1.5 + Vector3(0, 1.5, 0), rv + Vector3(0, 1.2, 0))
 			# Ylinopeus aseman kohdalla: mittaus, pysähtyminen ja sakko.
@@ -30702,7 +30702,7 @@ func _maybe_screenshot() -> void:
 			_talk_choose("janttu_kalja")
 			print("POLIISI janttu kaljat %d, herännyt %s" % [beers, vl.janttu.awake_t > 0.0])
 			_talk_box.close()
-			await snap.call("janttu_hereilla", jp + jf * 2.4 + Vector3(0.3, 1.6, 0), jp + Vector3(0, 0.3, 0))
+			await snap.call("janttu_hereilla", jp + jf * 2.4 + Vector3(0.3, 1.4, 0), jp + Vector3(0, 0.7, 0))
 		"mirkku_loppu":
 			# Mirkun teltassa: teltta päivällä laavun vieressä, kukkakimppu Mirkulle illalla (vaihtoehto harmaana
 			# päivällä) ja loppukohtaus: nuotio, sitten teltan ovi kiinni ja lyhty (hero shot). Kuvat _mloppu_*.
