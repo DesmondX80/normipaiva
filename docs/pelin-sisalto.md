@@ -54,7 +54,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Kotona Päivi tarkistaa ostokset: kaikki oikein = kaljarauha (Päivi ei etsi jemmoja seuraavana aamuna), muuten
   motkotus jokaisesta virheestä.
 - **Laavu Antinsuonkankaalla:** sytytä nuotio, paista makkara ja avaa kalja, jos pääset laavun
-  valtaajien (vittumainen akka tai teinijengi) ohi. Tästä tulee "LEGENDAARINEN NORMIPÄIVÄ".
+  valtaajien (vittumainen akka tai teinijengi) ohi. Tästä tulee "LEGENDAARINEN NORMIPÄIVÄ". Laavu oikean
+  Tarpion laavun valokuvien mukaan: haalistuneet hirret nurkkasalvoksineen, "TARPION LAAVU" -kyltti etupalkissa,
+  teräksinen tulirengas ja kääntyvä grilliritilä, halkopenkit sivuilla ja lautapenkki edessä, pölkyt ja hirsinen
+  puuvaja lankkuovineen. Testi `--scene=tarpio`.
 - **Mirkku luontopolulla:** laavupolulla Järvikujan päästä etelään kävelee kesäpäivisin Mirkku (punertavan vaalea
   palmikko oikean olan yli, valkoinen paita) ja poimii päivänkakkaraa, keltasauniota ja maitohorsmaa polun varresta.
   Jalan E juttelemaan. Mirkun teltta on pystyssä Tarpion laavun vieressä. Onnellinen loppu **Mirkun teltassa**:
