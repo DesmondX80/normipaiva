@@ -4058,9 +4058,12 @@ func _build_agility() -> void:
 ## Pihassa kivikehäinen nuotiopaikka ritilöineen, penkit, puuvaja, huussi ja infotaulu.
 ## Laavukatos (Antinsuon "Tarpion laavu" ja Viitajärvi): vaakahirsiset taka- ja sivuseinät, pulpettikatto kattotuoleineen,
 ## laudoitus ja bitumikate, lautalattia koholla ja kynnyshirsi. Paikallinen -Z = avoin etupuoli (nuotiolle päin).
-func _laavu_shelter(parent: Node3D, pos: Vector3, rot_y: float) -> StaticBody3D:
-	var log_col := Color(0.52, 0.36, 0.22)
-	var log_dark := Color(0.44, 0.3, 0.18)
+## Laavu oikean Tarpion laavun mukaan: harmaanruskeiksi haalistuneet hirret, etunurkissa pieliseinät, joista hirsien
+## päät näkyvät nurkkasalvoksina, etupalkki (nimikyltti name, jos annettu) ja pulpettikatto mustalla bitumikatteella.
+func _laavu_shelter(parent: Node3D, pos: Vector3, rot_y: float, name := "") -> StaticBody3D:
+	var log_col := Color(0.4, 0.34, 0.28)
+	var log_dark := Color(0.31, 0.26, 0.21)
+	var log_end := Color(0.5, 0.45, 0.38)
 	var board := Color(0.6, 0.44, 0.28)
 	var felt := Color(0.16, 0.16, 0.17)
 	var w := 3.4
@@ -4088,7 +4091,24 @@ func _laavu_shelter(parent: Node3D, pos: Vector3, rot_y: float) -> StaticBody3D:
 			if l > 0.25:
 				B.mesh(shelter, B.cyl(r, r, l, 10), Vector3(sx, y, -d / 2.0 + l / 2.0), log_col if int(y * 10) % 2 else log_dark, Vector3(90, 0, 0))
 			y += 2.0 * r * 0.95
-		B.mesh(shelter, B.cyl(0.13, 0.13, hf, 10), Vector3(sx, hf / 2.0, -d / 2.0), log_dark)
+	# Pieliseinät etunurkissa: vaakahirret 0,6 m sisäänpäin etupalkkiin asti, nurkissa hirsien päät salvoksina.
+	var wing := 0.6
+	for sx in [-1.0, 1.0]:
+		y = r
+		while y < hf - 0.3:
+			var cx: float = sx * (w / 2.0 - wing / 2.0 + 0.1)
+			B.mesh(shelter, B.cyl(r, r, wing + 0.2, 10), Vector3(cx, y + r * 0.5, -d / 2.0), log_col if int(y * 10) % 2 else log_dark,
+				Vector3(0, 0, 90))
+			# Sivuseinän hirren pää työntyy nurkasta eteen.
+			B.mesh(shelter, B.cyl(r * 0.98, r * 0.98, 0.04, 12), Vector3(sx * w / 2.0, y, -d / 2.0 - 0.14), log_end, Vector3(90, 0, 0))
+			y += 2.0 * r * 0.95
+	# Etupalkki pieliseinien yllä ja nimikyltti siinä.
+	B.mesh(shelter, B.cyl(0.13, 0.13, w + 0.3, 10), Vector3(0, hf - 0.2, -d / 2.0), log_dark, Vector3(0, 0, 90))
+	if name != "":
+		var plate := B.sign_plate(shelter, name, Color(0.9, 0.88, 0.82), Color(0.1, 0.1, 0.1), 0.16, 30, Color(0.25, 0.22, 0.2),
+			"Helvetica Neue")
+		plate.position = Vector3(-0.35, hf - 0.2, -d / 2.0 - 0.15)
+		plate.rotation.y = PI  # teksti eteen (-Z)
 	# Pulpettikatto: kattotuolit, laudoitus ja bitumikate räystäineen.
 	var ang := atan((hf - hb) / d)
 	var slope := d / cos(ang) + 0.8
@@ -4110,16 +4130,25 @@ func _laavu_shelter(parent: Node3D, pos: Vector3, rot_y: float) -> StaticBody3D:
 	return shelter
 
 
-## Penkki: lankku kahden kannon päällä.
-func _laavu_bench(parent: Node3D, pos: Vector3, rot_y: float) -> StaticBody3D:
+## Penkki: halkaistu paksu hirsi kahden pölkyn päällä (log) tai kaksi leveää lankkua kahden pölkynpätkän päällä.
+func _laavu_bench(parent: Node3D, pos: Vector3, rot_y: float, log := false) -> StaticBody3D:
 	var bench := StaticBody3D.new()
 	bench.position = pos
 	bench.rotation.y = rot_y
 	parent.add_child(bench)
 	bench.add_child(B.box_shape(Vector3(2.0, 0.45, 0.4), Vector3(0, 0.22, 0)))
-	B.mesh(bench, B.boxm(Vector3(2.0, 0.08, 0.36)), Vector3(0, 0.45, 0), Color(0.6, 0.44, 0.28))
-	for sx in [-0.7, 0.7]:
-		B.mesh(bench, B.cyl(0.16, 0.18, 0.42, 10), Vector3(sx, 0.21, 0), Color(0.52, 0.36, 0.22))
+	var stump := Color(0.42, 0.36, 0.3)
+	if log:
+		var half := B.mesh(bench, B.cyl(0.2, 0.2, 2.0, 12), Vector3(0, 0.36, 0), Color(0.3, 0.25, 0.21), Vector3(0, 0, 90))
+		half.scale = Vector3(1.0, 1.0, 0.55)  # halkaistu: litteämpi
+		B.mesh(bench, B.boxm(Vector3(2.0, 0.02, 0.3)), Vector3(0, 0.47, 0), Color(0.36, 0.3, 0.25))  # kulunut istuinpinta
+		for sx in [-0.75, 0.75]:
+			B.mesh(bench, B.cyl(0.17, 0.19, 0.3, 10), Vector3(sx, 0.15, 0), stump)
+	else:
+		for k in [-0.1, 0.1]:
+			B.mesh(bench, B.boxm(Vector3(2.2, 0.06, 0.19)), Vector3(0, 0.45, k), Color(0.62, 0.48, 0.32).darkened(absf(k)))
+		for sx in [-0.8, 0.8]:
+			B.mesh(bench, B.boxm(Vector3(0.3, 0.42, 0.34)), Vector3(sx, 0.21, 0), Color(0.6, 0.52, 0.4))
 	return bench
 
 
@@ -4157,39 +4186,73 @@ func _build_laavu() -> void:
 	var board := Color(0.6, 0.44, 0.28)
 	var felt := Color(0.16, 0.16, 0.17)
 	# Katos nuotion eteläpuolella; paikallinen -Z = avoin etupuoli.
-	_laavu_shelter(self, pit + Vector3(0, 0, 3.3), 0.0)
+	_laavu_shelter(self, pit + Vector3(0, 0, 3.3), 0.0, "TARPION LAAVU")
 
-	# Nuotiopaikka: kivikehä, hiillos, halot ja grilliritilä jaloillaan.
-	for k in 12:
-		var a := TAU * k / 12.0
-		var stone := B.mesh(self, B.sphere(0.17, 8), pit + Vector3(cos(a) * 0.8, 0.09, sin(a) * 0.8), Color(0.45, 0.45, 0.44).darkened(randf() * 0.15))
-		stone.scale = Vector3(1.0, 0.7, 1.0)
-	B.mesh(self, B.cyl(0.66, 0.66, 0.04, 16), pit + Vector3(0, 0.03, 0), Color(0.08, 0.07, 0.07))
+	# Nuotiopaikka: nokinen sora-alue, teräksinen tulirengas (vanteen näköinen, ruosteinen) hiilloksineen ja
+	# kääntyvä grilliritilä mustassa tolpassa.
+	var gravel := B.mesh(self, B.cyl(2.0, 2.0, 0.03, 20), pit + Vector3(0, 0.015, 0.6), Color(0.34, 0.32, 0.3))
+	gravel.scale = Vector3(1.0, 1.0, 1.25)
+	var rust := Color(0.24, 0.17, 0.13)
+	B.mesh(self, B.cyl(0.62, 0.6, 0.38, 20), pit + Vector3(0, 0.19, 0), rust)
+	B.mesh(self, B.cyl(0.64, 0.64, 0.04, 20), pit + Vector3(0, 0.38, 0), rust.darkened(0.2))  # yläreunan laippa
+	B.mesh(self, B.cyl(0.57, 0.57, 0.01, 20), pit + Vector3(0, 0.385, 0), Color(0.06, 0.05, 0.05))  # sisus
 	for k in 3:
-		var fl := B.mesh(self, B.cyl(0.07, 0.07, 0.9, 6), pit + Vector3(0, 0.15, 0), log_dark)
-		fl.rotation = Vector3(PI / 2.0, TAU * k / 3.0, 0.35)
-	for x in [-0.45, 0.45]:
-		for z in [-0.35, 0.35]:
-			B.mesh(self, B.boxm(Vector3(0.03, 0.5, 0.03)), pit + Vector3(x, 0.25, z), Color(0.12, 0.12, 0.12))
-	for i in 8:
-		B.mesh(self, B.boxm(Vector3(0.95, 0.015, 0.015)), pit + Vector3(0, 0.5, -0.35 + i * 0.1), Color(0.15, 0.15, 0.15))
-	# Penkit: lankku kahden kannon päällä nuotion ympärillä.
-	for bdef in [[Vector3(-2.3, 0, 0), PI / 2.0], [Vector3(2.3, 0, 0), PI / 2.0], [Vector3(0, 0, -2.3), 0.0]]:
-		_laavu_bench(self, pit + bdef[0], bdef[1])
-	# Puuvaja halkoineen.
+		var fl := B.mesh(self, B.cyl(0.06, 0.06, 0.7, 6), pit + Vector3(0, 0.36, 0), log_dark)
+		fl.rotation = Vector3(PI / 2.0, TAU * k / 3.0, 0.25)
+	var iron := Color(0.08, 0.08, 0.09)
+	var post := pit + Vector3(-0.5, 0, 0.75)
+	B.mesh(self, B.cyl(0.035, 0.035, 1.6, 8), post + Vector3(0, 0.8, 0), iron)
+	B.mesh(self, B.cyl(0.04, 0.04, 0.03, 8), post + Vector3(0, 1.6, 0), iron)
+	B.tube(self, post + Vector3(0, 0.62, 0), post + Vector3(0.45, 0.62, -0.55), 0.015, iron)  # kääntövarsi
+	var grate := Node3D.new()
+	add_child(grate)
+	grate.position = post + Vector3(0.5, 0.6, -0.65)
+	grate.rotation.y = -0.7
+	B.mesh(grate, B.boxm(Vector3(0.8, 0.03, 0.5)), Vector3.ZERO, iron).scale = Vector3(1, 1, 1)
+	for i in 9:
+		B.mesh(grate, B.boxm(Vector3(0.012, 0.02, 0.5)), Vector3(-0.36 + i * 0.09, 0.02, 0), Color(0.14, 0.14, 0.15))
+	# Penkit: sivuilla halkaistut hirret pölkkyjen päällä, edessä lautapenkki; laavun edessä kaksi pölkkyä.
+	_laavu_bench(self, pit + Vector3(-2.3, 0, 0.2), PI / 2.0 + 0.15, true)
+	_laavu_bench(self, pit + Vector3(2.3, 0, 0.2), PI / 2.0 - 0.15, true)
+	_laavu_bench(self, pit + Vector3(0, 0, -2.4), 0.0)
+	var stump := Color(0.62, 0.52, 0.38)
+	B.mesh(self, B.cyl(0.2, 0.22, 0.7, 12), pit + Vector3(-1.4, 0.35, 1.5), stump)
+	B.mesh(self, B.cyl(0.24, 0.25, 0.42, 12), pit + Vector3(0.3, 0.21, 1.55), stump)
+	for sp in [Vector3(-1.4, 0.705, 1.5), Vector3(0.3, 0.425, 1.55)]:
+		B.mesh(self, B.cyl(0.2, 0.2, 0.01, 12), pit + sp, stump.lightened(0.25))  # sahattu pinta
+	# Puuvaja oikean mukaan: harmaantuneista hirsistä salvottu kota, pulpettikatto, lankkuovi edessä (punainen tarra)
+	# ja seinässä punainen laatikko; alla kivijalkahirret.
 	var shed := StaticBody3D.new()
-	shed.position = pit + Vector3(4.6, 0, 2.8)
-	shed.rotation.y = -0.4
+	shed.position = pit + Vector3(4.6, 0, 2.8)  # laavun jemma (main.gd) vajalla
+	shed.rotation.y = -0.15
 	add_child(shed)
-	shed.add_child(B.box_shape(Vector3(1.8, 1.9, 1.3), Vector3(0, 0.95, 0)))
-	for side in [-0.9, 0.9]:
-		B.mesh(shed, B.boxm(Vector3(0.05, 1.8, 1.3)), Vector3(side, 0.9, 0), board.darkened(0.1))
-	B.mesh(shed, B.boxm(Vector3(1.8, 1.5, 0.05)), Vector3(0, 0.75, 0.62), board.darkened(0.1))
-	var sroof := B.mesh(shed, B.boxm(Vector3(2.1, 0.05, 1.7)), Vector3(0, 1.85, 0), felt)
-	sroof.rotation.x = 0.25
-	for i in 30:
-		B.mesh(shed, B.cyl(0.07, 0.07, 0.4, 6), Vector3(-0.75 + (i % 10) * 0.16, 0.12 + floorf(i / 10.0) * 0.15, 0.2),
-			Color(0.62, 0.46, 0.3).darkened(randf() * 0.2), Vector3(90, 0, 0))
+	shed.add_child(B.box_shape(Vector3(2.4, 2.0, 1.9), Vector3(0, 1.0, 0)))
+	var sl := Color(0.42, 0.38, 0.34)
+	var sr := 0.085
+	var sy := 0.2
+	var row := 0
+	while sy < 1.9:
+		var c2: Color = sl.darkened(0.08 * (row % 3))
+		for sz in [-0.95, 0.95]:  # etu- ja takaseinä
+			B.mesh(shed, B.cyl(sr, sr, 2.6, 8), Vector3(0, sy, sz), c2, Vector3(0, 0, 90))
+		for sx in [-1.2, 1.2]:  # sivuseinät
+			B.mesh(shed, B.cyl(sr, sr, 2.1, 8), Vector3(sx, sy + sr, 0), c2, Vector3(90, 0, 0))
+		sy += 2.0 * sr * 0.95
+		row += 1
+	for sx in [-0.9, 0.9]:
+		B.mesh(shed, B.boxm(Vector3(0.2, 0.2, 2.2)), Vector3(sx, 0.1, 0), sl.darkened(0.3))  # alushirret
+	# Lankkuovi: pystylankut, vinotuki, saranat ja punainen tarra.
+	for i in 4:
+		B.mesh(shed, B.boxm(Vector3(0.2, 1.5, 0.04)), Vector3(0.05 + i * 0.21, 0.95, -1.06), Color(0.5, 0.47, 0.42).darkened(0.05 * (i % 2)))
+	var brace := B.mesh(shed, B.boxm(Vector3(0.9, 0.08, 0.03)), Vector3(0.36, 0.95, -1.09), Color(0.45, 0.42, 0.38))
+	brace.rotation.z = 0.9
+	for hy in [0.5, 1.4]:
+		B.mesh(shed, B.boxm(Vector3(0.3, 0.04, 0.02)), Vector3(-0.15, hy, -1.09), Color(0.25, 0.4, 0.35))
+	B.mesh(shed, B.cyl(0.04, 0.04, 0.01, 12), Vector3(0.45, 1.5, -1.09), Color(0.85, 0.1, 0.1), Vector3(90, 0, 0))
+	B.mesh(shed, B.boxm(Vector3(0.2, 0.42, 0.12)), Vector3(0.88, 1.1, -1.08), Color(0.75, 0.1, 0.1))  # punainen laatikko
+	B.mesh(shed, B.boxm(Vector3(0.12, 0.28, 0.02)), Vector3(0.88, 1.1, -1.15), Color(0.1, 0.1, 0.1))
+	var sroof := B.mesh(shed, B.boxm(Vector3(2.9, 0.1, 2.5)), Vector3(0, 1.97, 0), felt)
+	sroof.rotation.x = -0.1  # pulpetti, korkea reuna edessä, lepää ylimpien hirsien päällä
 	# Huussi, oven ikkunassa sydän.
 	var outhouse := StaticBody3D.new()
 	outhouse.position = pit + Vector3(-8.0, 0, 6.0)
@@ -4210,7 +4273,7 @@ func _build_laavu() -> void:
 
 	# Nuotio: liekit, loimu ja savu. Piilossa kunnes sytytetään.
 	fire = Node3D.new()
-	fire.position = pit
+	fire.position = pit + Vector3(0, 0.3, 0)  # tulirenkaan hiilloksen tasolle
 	fire.visible = false
 	add_child(fire)
 	for k in 5:
