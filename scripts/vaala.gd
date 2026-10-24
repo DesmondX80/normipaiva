@@ -21,6 +21,7 @@ const StationBuild := preload("res://scripts/station_build.gd")
 const Makasiini := preload("res://scripts/makasiini.gd")
 const Looks := preload("res://scripts/looks.gd")
 const HumppaBand := preload("res://scripts/humppa_band.gd")
+const Janttu := preload("res://scripts/janttu.gd")
 ## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
 ## mökin omilla rakennusfunktioilla (mokki.gd ladataan ajonaikaisesti: mokki.gd -> mopo.gd -> vaala.gd).
 const MOKKI_PATH := "res://scripts/mokki.gd"
@@ -605,7 +606,7 @@ func ensure_built() -> void:
 	var t0 := Time.get_ticks_msec()
 	var times: Array[String] = []
 	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
-			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_station, _build_signs,
+			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_station, _build_poliisi, _build_signs,
 			_build_trees, _build_lamps, _build_atm, _build_lava, _build_mokki_yard, _build_north, _build_drive_mask,
 			_build_lava_grounds, _merge_static_meshes]:
 		var ts := Time.get_ticks_msec()
@@ -2933,6 +2934,172 @@ func _build_makasiini(station: Node3D, station_l: float, c: Vector2) -> void:
 		_tree_clear = _drive
 		_drive = keep
 
+
+## Vaalan poliisiasema Oulujoen sillan keskustan puoleisessa päässä, Vaalasta lähtiessä tien oikealla puolella:
+## 70-luvun yksikerroksinen tiilitalo tasakatolla, nauhaikkunat, lasiovi katoksineen ja sininen POLIISI-kyltti,
+## nimikyltti, lipputanko ja poliisiauto pihassa. Kohta haetaan sillan päästä keskustaan päin ensimmäisestä
+## vapaasta paikasta (ei OSM-taloa, sivutietä, rataa eikä vettä). Vastapäätä penkillä nukkuu Janttu (janttu.gd).
+const POLIISI_SIZE := Vector2(16.0, 9.0)  # pituus tien suuntaan, syvyys
+const POLIISI_YARD := 7.0  # piha tien reunasta julkisivuun
+var poliisi_front := Vector3.INF  # pääoven edusta
+## Roivaisen paikat (main.gd _poliisi_*): pihalla auton vieressä ja tutkan kanssa tien reunassa; out = kohti tietä.
+var poliisi_yard := Vector3.INF
+var poliisi_roadside := Vector3.INF
+var poliisi_out := Vector3.ZERO
+var janttu: Node3D
+
+
+func _build_poliisi() -> void:
+	if data.bridges.size() < 2:
+		return
+	var i_end := int(data.bridges[1][1])
+	var hl := POLIISI_SIZE.x / 2.0
+	var hd := POLIISI_SIZE.y / 2.0
+	for i in range(i_end + 3, mini(i_end + 120, road.size() - 2)):
+		var p := road_pos(i)
+		var n := road_dir(i).cross(Vector3.UP)
+		var side := Vector2(-n.x, -n.z)  # Vaalasta pois ajettaessa (näytteet laskevat) oikea puoli
+		var ax := Vector2(road_dir(i).x, road_dir(i).z)
+		var hw: float = road[i][4]
+		var c := Vector2(p.x, p.z) + side * (hw + POLIISI_YARD + hd)
+		var ok := true
+		for u in [-hl - 1.0, 0.0, hl + 1.0]:
+			for v in [-hd - POLIISI_YARD + 1.5, 0.0, hd + 1.0]:
+				var q: Vector2 = c + ax * u + side * v
+				if _in_building(q, 1.5) or _near_side_road(q, 4.0) or _near_rail(q, 6.0) or wet(q.x, q.y):
+					ok = false
+		var jp := Vector2(p.x, p.z) - side * (hw + 3.2)
+		if not ok or _in_building(jp, 1.5) or _near_side_road(jp, 2.5) or wet(jp.x, jp.y):
+			continue
+		_poliisi_building(c, -side, ax)
+		janttu = Janttu.new()
+		janttu.position = Vector3(jp.x, h(jp.x, jp.y), jp.y)
+		janttu.rotation.y = B.yaw_to(Vector3(side.x, 0, side.y))  # penkki poliisiasemaa kohti
+		add_child(janttu)
+		print("VAALA poliisiasema näytteen %d kohdalla (%.0f m sillalta)" % [i, (real_s(i) - real_s(i_end)) / k])
+		return
+	push_warning("Vaalan poliisiasemalle ei löytynyt paikkaa sillan päästä")
+
+
+## Rakennus: c = pohjan keskipiste, f = julkisivun suunta (tielle), ax = pituussuunta.
+func _poliisi_building(c: Vector2, f: Vector2, ax: Vector2) -> void:
+	var hl := POLIISI_SIZE.x / 2.0
+	var hd := POLIISI_SIZE.y / 2.0
+	# Lattia julkisivun maanpinnan tasolle (tien puoli); rinteen alapuolelle sokkeli jatkuu syvälle.
+	var base := INF
+	for u in [-hl, 0.0, hl]:
+		var q: Vector2 = c + ax * u + f * (hd + 1.0)
+		base = minf(base, h(q.x, q.y))
+	base -= 0.15
+	var yaw := atan2(f.x, f.y)
+	var deg := rad_to_deg(yaw)
+	ax = Vector2(-f.y, f.x)  # sama kätisyys kuin laatikoiden yaw-kierrossa
+	var at := func(u: float, v: float, y: float) -> Vector3:
+		var q := c + ax * u + f * v
+		return Vector3(q.x, base + y, q.y)
+	var box := func(size: Vector3, u: float, v: float, y: float, col: Color) -> MeshInstance3D:
+		return B.mesh(self, B.boxm(size), at.call(u, v, y), col, Vector3(0, deg, 0))
+	var brick := Color(0.6, 0.3, 0.22)
+	var white := Color(0.92, 0.92, 0.89)
+	var glass := Color(0.12, 0.16, 0.22)
+	var blue := Color(0.05, 0.2, 0.58)
+	var conc := Color(0.6, 0.6, 0.58)
+	# Sokkeli, tiiliseinät, valkoinen räystäsnauha ja tumma katon reuna.
+	box.call(Vector3(POLIISI_SIZE.x + 0.2, 4.8, POLIISI_SIZE.y + 0.2), 0.0, 0.0, -1.6, conc)
+	box.call(Vector3(POLIISI_SIZE.x, 3.3, POLIISI_SIZE.y), 0.0, 0.0, 0.8 + 1.65, brick)
+	for k2 in 10:  # tiilisaumat vaakaan julkisivussa
+		box.call(Vector3(POLIISI_SIZE.x + 0.01, 0.02, 0.01), 0.0, hd + 0.005, 0.95 + k2 * 0.32, brick.lightened(0.18))
+	box.call(Vector3(POLIISI_SIZE.x + 0.3, 0.6, POLIISI_SIZE.y + 0.3), 0.0, 0.0, 4.35, white)
+	box.call(Vector3(POLIISI_SIZE.x + 0.4, 0.12, POLIISI_SIZE.y + 0.4), 0.0, 0.0, 4.7, Color(0.15, 0.15, 0.16))
+	# Nauhaikkunat oven molemmin puolin: tumma lasi, valkoiset karmit ja välipuitteet, ikkunapellit.
+	for su in [-1.0, 1.0]:
+		var wu: float = su * 4.9
+		box.call(Vector3(5.6, 1.15, 0.06), wu, hd + 0.03, 2.2, glass)
+		box.call(Vector3(5.8, 0.08, 0.1), wu, hd + 0.05, 2.8, white)
+		box.call(Vector3(5.8, 0.1, 0.22), wu, hd + 0.1, 1.6, white)
+		for m in 5:
+			box.call(Vector3(0.07, 1.15, 0.08), wu - 2.8 + m * 1.4, hd + 0.05, 2.2, white)
+		for m in 4:  # sälekaihtimet puoliksi alhaalla
+			box.call(Vector3(5.5, 0.03, 0.02), wu, hd + 0.065, 2.7 - m * 0.09, Color(0.85, 0.85, 0.82))
+	# Sivuseinien ikkunat.
+	for sv in [-1.0, 1.0]:
+		for wv in [-2.0, 2.0]:
+			var side_win: MeshInstance3D = box.call(Vector3(0.06, 1.15, 2.4), sv * (hl + 0.03), wv, 2.2, glass)
+			side_win.position += Vector3.ZERO
+	# Sisäänkäynti: lasiovi karmeineen, betoniporras ja katos kahdella tolpalla.
+	box.call(Vector3(2.0, 2.4, 0.06), 0.0, hd + 0.03, 0.8 + 1.2, glass.lightened(0.15))
+	box.call(Vector3(2.2, 0.1, 0.1), 0.0, hd + 0.06, 3.25, white)
+	for du in [-1.05, 0.0, 1.05]:
+		box.call(Vector3(0.08, 2.4, 0.1), du, hd + 0.06, 2.0, white)
+	box.call(Vector3(0.04, 0.4, 0.06), 0.35, hd + 0.12, 2.0, Color(0.75, 0.76, 0.8))  # vetokahva
+	box.call(Vector3(3.2, 0.3, 1.4), 0.0, hd + 0.7, 0.65, conc)
+	box.call(Vector3(4.2, 0.28, 2.6), 0.0, hd + 1.3, 3.45, white)
+	box.call(Vector3(4.25, 0.06, 2.65), 0.0, hd + 1.3, 3.62, Color(0.15, 0.15, 0.16))
+	for pu in [-1.9, 1.9]:
+		box.call(Vector3(0.14, 3.3, 0.14), pu, hd + 2.45, 1.95, Color(0.3, 0.3, 0.32))
+	# Kyltit: POLIISI katoksen otsassa, nimikyltti ikkunanauhan yllä, aukioloajat oven vieressä.
+	var pol := B.sign_plate(self, "POLIISI", blue, Color.WHITE, 0.3, 70, Color.WHITE, "Helvetica Neue")
+	pol.position = at.call(0.0, hd + 2.64, 3.45)
+	pol.rotation.y = yaw
+	var nimi := B.sign_plate(self, "VAALAN POLIISIASEMA", white, blue, 0.32, 52, blue, "Helvetica Neue")
+	nimi.position = at.call(-4.9, hd + 0.05, 3.45)
+	nimi.rotation.y = yaw
+	var auki := B.sign_plate(self, "Lupapalvelut\nma–pe 9–15", white, Color(0.1, 0.1, 0.12), 0.14, 22, blue)
+	auki.position = at.call(1.75, hd + 0.05, 2.3)
+	auki.rotation.y = yaw
+	# Lipputanko ja Suomen lippu (valkoinen kangas, sininen risti).
+	var fp: Vector3 = at.call(hl - 1.0, hd + POLIISI_YARD - 1.5, 0.0)
+	fp.y = h(fp.x, fp.z)
+	B.mesh(self, B.cyl(0.05, 0.07, 9.0, 8), fp + Vector3(0, 4.5, 0), white)
+	B.mesh(self, B.sphere(0.1, 8), fp + Vector3(0, 9.05, 0), Color(0.85, 0.7, 0.3))
+	var flag := Node3D.new()
+	add_child(flag)
+	flag.position = fp + Vector3(0, 8.3, 0)
+	flag.rotation.y = yaw + PI / 2.0
+	B.mesh(flag, B.boxm(Vector3(0.02, 1.1, 1.8)), Vector3(0, 0, -0.95), Color(0.97, 0.97, 0.97))
+	B.mesh(flag, B.boxm(Vector3(0.03, 0.3, 1.8)), Vector3(0, 0, -0.95), Color(0.0, 0.21, 0.5))
+	B.mesh(flag, B.boxm(Vector3(0.03, 1.1, 0.3)), Vector3(0, 0, -0.65), Color(0.0, 0.21, 0.5))
+	# Poliisiauto pihassa nokka asemalle: valkoinen, sininen kylkiraita, POLIISI-teksti ja sininen valopaneeli.
+	var car := Node3D.new()
+	add_child(car)
+	var cp: Vector3 = at.call(-5.5, hd + 4.2, 0.0)
+	cp.y = h(cp.x, cp.z)
+	car.position = cp
+	car.rotation.y = yaw
+	Vehicles.car(car, Color(0.95, 0.95, 0.95), "PSS-112")
+	for sx in [-0.915, 0.915]:
+		Vehicles.part(car, B.boxm(Vector3(0.02, 0.14, 4.2)), Vector3(sx, 0.62, 0), Vehicles.paint(blue))
+		var l := Label3D.new()
+		l.text = "POLIISI"
+		l.font_size = 40
+		l.pixel_size = 0.005
+		l.modulate = blue
+		l.outline_size = 0
+		l.double_sided = false
+		l.position = Vector3(sx * 1.01, 0.8, 0.2)
+		l.rotation.y = PI / 2.0 if sx > 0.0 else -PI / 2.0
+		car.add_child(l)
+	Vehicles.part(car, B.boxm(Vector3(1.1, 0.12, 0.3)), Vector3(0, 1.55, 0.1), Vehicles.lamp(Color(0.2, 0.4, 1.0)))
+	# Törmäys ja pohja ajoalueesta pois.
+	var body := StaticBody3D.new()
+	add_child(body)
+	var cs := B.box_shape(Vector3(POLIISI_SIZE.x, 5.0, POLIISI_SIZE.y), Vector3.ZERO)
+	cs.transform = Transform3D(Basis(Vector3.UP, yaw), at.call(0.0, 0.0, 2.5))
+	body.add_child(cs)
+	var ccs := B.box_shape(Vector3(1.9, 1.5, 4.4), Vector3.ZERO)
+	ccs.transform = Transform3D(Basis(Vector3.UP, yaw), cp + Vector3(0, 0.75, 0))
+	body.add_child(ccs)
+	var poly := PackedVector2Array()
+	for cu in [[-hl, -hd], [hl, -hd], [hl, hd], [-hl, hd]]:
+		poly.append(c + ax * cu[0] + f * cu[1])
+	_bld_polys.append(poly)
+	poliisi_front = at.call(0.0, hd + 2.0, 0.0)
+	poliisi_front.y = h(poliisi_front.x, poliisi_front.z)
+	poliisi_yard = at.call(-3.4, hd + 4.6, 0.0)
+	poliisi_yard.y = h(poliisi_yard.x, poliisi_yard.z)
+	poliisi_roadside = at.call(2.5, hd + POLIISI_YARD - 1.2, 0.0)
+	poliisi_roadside.y = h(poliisi_roadside.x, poliisi_roadside.z)
+	poliisi_out = Vector3(f.x, 0, f.y)
 
 func _in_building(p: Vector2, margin: float) -> bool:
 	for poly in _bld_polys:
