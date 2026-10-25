@@ -2939,7 +2939,7 @@ func _build_makasiini(station: Node3D, station_l: float, c: Vector2) -> void:
 ## 70-luvun yksikerroksinen tiilitalo tasakatolla, nauhaikkunat, lasiovi katoksineen ja sininen POLIISI-kyltti,
 ## nimikyltti, lipputanko ja poliisiauto pihassa. Kohta haetaan vähintään POLIISI_FROM_BRIDGE metrin päästä sillan
 ## päästä keskustaan päin (heti sillan päässä oikealla lähtee tie narkkitaloille) ensimmäisestä vapaasta paikasta
-## (ei OSM-taloa, sivutietä, rataa eikä vettä). Vastapäätä asfaltilla makaa Janttu (janttu.gd).
+## (ei OSM-taloa, sivutietä, rataa eikä vettä). Vastapäätä penkillä makaa Janttu (janttu.gd).
 const POLIISI_SIZE := Vector2(16.0, 9.0)  # pituus tien suuntaan, syvyys
 const POLIISI_YARD := 7.0  # piha tien reunasta julkisivuun
 const POLIISI_FROM_BRIDGE := 100.0  # vähintään näin pitkä matka (m) sillan päästä tietä pitkin
@@ -2982,21 +2982,21 @@ func _build_poliisi() -> void:
 		_poliisi_building(c, -side, ax)
 		janttu = Janttu.new()
 		janttu.position = Vector3(jp.x, h(jp.x, jp.y), jp.y)
-		janttu.rotation.y = atan2(ax.x, ax.y)  # makaa tien suuntaisesti
+		janttu.rotation.y = B.yaw_to(Vector3(side.x, 0, side.y))  # penkin etupuoli tielle ja asemalle päin
 		add_child(janttu)
 		print("VAALA poliisiasema näytteen %d kohdalla (%.0f m sillalta)" % [i, along])
 		return
 	push_warning("Vaalan poliisiasemalle ei löytynyt paikkaa sillan päästä")
 
 
-## Jantun makuupaikka tien toisella puolella: asfaltoitu parkkipaikka aseman kohdalla, muuten tien asfalttireuna.
+## Jantun penkki tien toisella puolella nurmella tien vieressä aseman kohdalla (ei talon, sivutien eikä parkkipaikan päällä).
 func _janttu_spot(r: Vector2, out: Vector2, ax: Vector2, hw: float) -> Vector2:
-	for dv in range(2, 16):
-		for du in [0.0, 3.0, -3.0, 6.0, -6.0, 9.0, -9.0]:
+	for du in [0.0, 3.0, -3.0, 6.0, -6.0, 9.0, -9.0, 12.0, -12.0]:
+		for dv in [3.2, 4.5, 6.0]:
 			var q: Vector2 = r + out * (hw + dv) + ax * du
-			if _on_parking(q) and not _in_building(q, 1.5) and not _near_side_road(q, 2.0):
+			if not _on_parking(q) and not _in_building(q, 1.5) and not _near_side_road(q, 2.5) and not wet(q.x, q.y):
 				return q
-	return r + out * (hw - 0.4)
+	return r + out * (hw + 3.2)
 
 
 func _on_parking(p: Vector2) -> bool:
