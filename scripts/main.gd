@@ -30629,6 +30629,32 @@ func _maybe_screenshot() -> void:
 			print("MDROONI järveen: broken=%s msg=%s" % [drone_broken_day == day, _msg.text])
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"tarpio":
+			# Tarpion laavu valokuvan suunnasta (edestä vasemmalta penkin takaa), laavusta ulos ja nuotio palamassa.
+			# Kuvat _tarpio_*.
+			var cam := Camera3D.new()
+			add_child(cam)
+			cam.fov = 60.0
+			var pit := M.w(M.LAAVU)
+			var snap := func(name: String, eye: Vector3, at: Vector3) -> void:
+				cam.global_position = pit + eye
+				cam.look_at(pit + at, Vector3.UP)
+				cam.current = true
+				for i in 14:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_tarpio_%s.png" % name))
+			_hud.visible = false
+			clock_min = 12 * 60.0
+			player.global_position = pit + Vector3(0, 0.3, -30)
+			for i in 20:
+				await get_tree().process_frame
+			await snap.call("edesta", Vector3(-0.6, 1.7, -6.4), Vector3(0.9, 1.0, 2.2))
+			await snap.call("ulos", Vector3(0.4, 1.4, 2.6), Vector3(0.0, 0.8, -6.0))
+			await snap.call("vaja", Vector3(2.5, 1.6, -2.5), Vector3(4.6, 1.0, 2.8))
+			world.fire.visible = true
+			clock_min = 21 * 60.0
+			await snap.call("nuotio", Vector3(-1.5, 1.5, -3.8), Vector3(0.0, 0.5, 0.5))
 		"poliisi":
 			# Vaalan poliisiasema sillan keskustan päässä: asema tieltä Vaalasta pois ajettaessa (oikealla), Janttu
 			# penkillä vastapäätä, Roivainen tutkan kanssa; ylinopeus -> pysäytys ja sakko; kalja Jantulle -> vihje.
