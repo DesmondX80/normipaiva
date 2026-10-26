@@ -19,6 +19,8 @@ const RetkiVanhaherra := preload("res://scripts/retki_vanhaherra.gd")
 const RetkiKuhmo := preload("res://scripts/retki_kuhmo.gd")
 const RetkiHiidenportti := preload("res://scripts/retki_hiidenportti.gd")
 const RetkiPyhakoski := preload("res://scripts/retki_pyhakoski.gd")
+const RetkiKajaani := preload("res://scripts/retki_kajaani.gd")
+const RetkiKalajoki := preload("res://scripts/retki_kalajoki.gd")
 
 const LISTA := {
 	"lampi": {
@@ -117,6 +119,22 @@ const LISTA := {
 			"perilla": "Pyhäkosken kylä. Voimalaitos jyrisee joen rannalla, kioski on tien varressa.",
 			"hop_min": 45.0, "hinta": 24.0, "tasku": RetkiPyhakoski, "sammuit": "tanssipaikan portaille voimalaitoksen jylinään",
 		},
+	"kajaani": {
+		"nimi": "Kajaanin linnan raunioille", "lahto": "taksi", "otsikko": "KAJAANIIN",
+		"sub": "Taksi ajaa Kajaaniin. Joen kohina kuuluu jo, ja saaren rauniot erottuvat puiden takaa.",
+		"lines": ["Linnalle vai? Siitä on jäljellä vain rauniot, sanotaan.", "Siellä oli vankina se Messenius. Kirjoitti kuulemma vankilassa vaikka mitä.",
+			"Joella kulki ennen tervaveneitä. Nyt on hiljaista."],
+		"perilla": "Kajaanin linnan rauniot. Joki kohisee, tervavene odottaa laiturissa.",
+		"hop_min": 60.0, "hinta": 30.0, "tasku": RetkiKajaani, "sammuit": "linnan raunioiden kivelle joen rannalle",
+	},
+	"kalajoki": {
+		"nimi": "Kalajoen Hiekkasärkille (rantajalkapallo)", "lahto": "taksi", "otsikko": "KALAJOELLE",
+		"sub": "Taksi ajaa pitkän matkan rannikolle. Dyynit nousevat tien viereen ja meri välkkyy.",
+		"lines": ["Hiekkasärkille vai? Kalajoella, matkaa on kai sata kilometriä, sanotaan.", "Juhannuksena siellä pelataan rantajalkapalloa. Kuulemma tuhansia katsojia.",
+			"Hiekassa juokseminen on kamalaa. Hyvä että sinä juokset, en minä."],
+		"perilla": "Kalajoen Hiekkasärkät. Meri lyö rantaa, kentällä pallo odottaa.",
+		"hop_min": 80.0, "hinta": 42.0, "tasku": RetkiKalajoki, "sammuit": "rantahiekalle sateenvarjon varjoon",
+	},
 }
 
 

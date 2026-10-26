@@ -300,6 +300,9 @@ const KarhuGame := preload("res://scripts/karhu_game.gd")
 const VaalaEsitys := preload("res://scripts/vaala_esitys.gd")
 const HiidenporttiLegenda := preload("res://scripts/hiidenportti_legenda.gd")
 const PyhakoskiLegenda := preload("res://scripts/pyhakoski_legenda.gd")
+const MesseniusLegenda := preload("res://scripts/messenius_legenda.gd")
+const KalajokiLegenda := preload("res://scripts/kalajoki_legenda.gd")
+const RantapalloGame := preload("res://scripts/rantapallo_game.gd")
 const RotkoGame := preload("res://scripts/rotko_game.gd")
 const KanttoriLegenda := preload("res://scripts/kanttori_legenda.gd")
 const LemmikkiEnkelit := preload("res://scripts/lemmikki_enkelit.gd")
@@ -409,6 +412,8 @@ var tietokonemuseo: RefCounted  # Saloisten tietokonemuseo ja Pong (tietokonemus
 var karhut: RefCounted  # Kuhmon karhukätkö (karhut_legenda.gd, #250 P12)
 var hiidenportti: RefCounted  # Hiidenportin rotko (hiidenportti_legenda.gd, #250 P13)
 var pyhakoski: RefCounted  # Pyhäkosken kylä (pyhakoski_legenda.gd, #250 P16)
+var messenius: RefCounted  # Kajaanin linna ja Messenius (messenius_legenda.gd, #250 P17-P18)
+var kalajoki: RefCounted  # Kalajoen Hiekkasärkät, rantajalkapallo (kalajoki_legenda.gd, #250 P19)
 var vanhaherra: RefCounted  # Raahen satama: Vanha herra ja sukellus (vanhaherra_legenda.gd, #250 P11)
 var wanharaahe: RefCounted  # Wanha Raahe -kävelykierros ja ovikuva (wanharaahe_legenda.gd, #250 P8)
 var manamansalo: RefCounted  # legenda: Manamansalon muistokirkko (manamansalo_legenda.gd, #250 P7)
@@ -1238,6 +1243,8 @@ func _ready() -> void:
 	karhut = KarhutLegenda.new()
 	hiidenportti = HiidenporttiLegenda.new()
 	pyhakoski = PyhakoskiLegenda.new()
+	messenius = MesseniusLegenda.new()
+	kalajoki = KalajokiLegenda.new()
 	kanttori = KanttoriLegenda.new()
 	lemmikki = LemmikkiEnkelit.new()
 	ukko = UkkoLegenda.new()
@@ -6233,6 +6240,111 @@ func _pyhakoski_acted(kind: String) -> void:
 	_save_game()
 
 
+## Kalajoen Hiekkasärkät (kalajoki_legenda.gd, rantapallo_game.gd): järjestäjä kertoo turnauksesta, kentällä pelataan rantajalkapalloa.
+## Juhannuksena (_juhannus) voitto on turnausvoitto ja antaa palkkion kerran; muulloin harjoituspeli ilman palkkiota. Tiedot "sanotaan"-muodossa.
+func _kalajoki_tasks() -> Array:
+	var h: RefCounted = kalajoki
+	if h.jarjestaja and not h.valmis:
+		return [["Kalajoen Hiekkasärkät (taksi): voita rantajalkapallon juhannusturnaus (juhannusaattona, perjantaina)", false]]
+	return []
+
+
+func _kalajoki_acted(kind: String) -> void:
+	var h: RefCounted = kalajoki
+	match kind:
+		"kyltti":
+			_show_message("Hiekkasärkät, Kalajoki. Sanotaan, että dyynit ja kilometrien hiekkaranta ovat Pohjois-Pohjanmaan suosituimpia kesäpaikkoja. Juhannuksena rannalla pelataan.", 5.5)
+			if not h.sarkat:
+				h.sarkat = true
+				tilat.first("kalajoki_sarkat", 0.2)
+		"jarjestaja":
+			if not h.jarjestaja:
+				h.jarjestaja = true
+				tilat.first("kalajoki_jarjestaja", 0.2)
+			if _juhannus():
+				retki_int.say("Turnaus on tänään! Kolmeen maaliin, hiekassa. Sanotaan, että tämä on isoimpia rantapallotapahtumia maassa.", 6.0)
+			else:
+				retki_int.say("Turnaus on juhannuksena, perjantaina. Tänään saa harjoitella, ei palkintoa. Sanotaan, että katsojia tulee tuhansia.", 6.0)
+		"kentta":
+			_start_rantapallo()
+	_save_game()
+
+
+func _start_rantapallo() -> void:
+	var rt := retki_int
+	rt.busy = true
+	rt.walker.controls_enabled = false
+	state = "minigame"
+	_hud.visible = false
+	_hint.text = ""
+	var turnaus := _juhannus()
+	var g := RantapalloGame.new()
+	g.juhannus = turnaus
+	g.finished.connect(func(won: bool, mine: int, ai: int) -> void:
+		if state == "minigame" and retki_int == rt:
+			state = "in_retki"
+			_hud.visible = true
+			rt.walker.activate()
+			rt.busy = false
+			rt.block_interact()
+		var msg := ""
+		if won and turnaus:
+			kalajoki.voitot += 1
+			if not kalajoki.valmis:
+				kalajoki.valmis = true
+				mielihyva = clampf(mielihyva + KalajokiLegenda.MIELIHYVA, 0.0, 100.0)
+				maine = clampf(maine + KalajokiLegenda.MAINE, 0.0, 100.0)
+				tilat.first("kalajoki_valmis", 0.3)
+				msg = "Voitit juhannusturnauksen %d-%d! Hiekka vielä kengissä. Mielihyvä +%d, maine +%d." % [mine, ai, int(KalajokiLegenda.MIELIHYVA), int(KalajokiLegenda.MAINE)]
+			else:
+				msg = "Voitit turnauspelin %d-%d. Voittoja yhteensä %d." % [mine, ai, kalajoki.voitot]
+		elif won:
+			kalajoki.harjoitus += 1
+			msg = "Voitit harjoituspelin %d-%d. Oikea turnaus on juhannuksena." % [mine, ai]
+		elif mine + ai > 0 and ai >= RantapalloGame.WIN_AT:
+			msg = "Kone voitti %d-%d. Uusi yritys käy aina." % [ai, mine]
+		_save_game()
+		if msg != "":
+			_show_message(msg, 5.0))
+	add_child(g)
+
+
+## Kajaanin linna ja Messenius (messenius_legenda.gd): rauniot, tervavene (kohtaus) ja Messeniuksen vankeus; kaikki "sanotaan"-muodossa.
+func _messenius_tasks() -> Array:
+	var h: RefCounted = messenius
+	if h.kuultu() > 0 and not h.valmis:
+		return [["Kajaanin linna (taksi): tutustu raunioihin, tervaveneeseen ja Messeniukseen (%d/3)" % h.kuultu(), false]]
+	return []
+
+
+func _messenius_acted(kind: String) -> void:
+	var h: RefCounted = messenius
+	match kind:
+		"rauniot":
+			_show_message("Kajaanin linna. Sanotaan, että 1600-luvun linnasta on jäljellä vain muurin pätkiä saaren kivissä. Joki kulkee ohi samaan tahtiin kuin silloin.", 5.5)
+			if not h.rauniot:
+				h.rauniot = true
+				tilat.first("messenius_rauniot", 0.2)
+		"tervavene":
+			retki_int.launch_boat()
+			retki_int.say("Terva lähtee jokea alas Ouluun. Ennen vanhaan koko kaupunki eli siitä, sanotaan. Antaa veneen mennä.", 6.0)
+			if not h.tervavene:
+				h.tervavene = true
+				tilat.first("messenius_tervavene", 0.2)
+		"messenius":
+			_show_message("Messenius oli vankina Kajaanin linnassa 1616 alkaen ja kuoli siellä 1636, sanotaan. Vankeudessa hän kirjoitti historiaa. Muistotaulu kertoo sen hiljaa.", 6.0)
+			if not h.messenius:
+				h.messenius = true
+				tilat.first("messenius_tarina", 0.2)
+	if h.kuultu() >= 3 and not h.valmis:
+		h.valmis = true
+		mielihyva = clampf(mielihyva + MesseniusLegenda.MIELIHYVA, 0.0, 100.0)
+		maine = clampf(maine + MesseniusLegenda.MAINE, 0.0, 100.0)
+		tilat.first("messenius_valmis", 0.3)
+		_show_message("Kajaanin linna ei ole enää linna, mutta se muistetaan. Mielihyvä +%d, maine +%d." % [int(MesseniusLegenda.MIELIHYVA), int(MesseniusLegenda.MAINE)], 6.0)
+	_save_game()
+
+
 ## Hiidenportin rotko (hiidenportti_legenda.gd, rotko_game.gd): kyltti kertoo, seinää kiivetään lavalta lavalle; humala lisää lipsumista.
 func _hiidenportti_tasks() -> Array:
 	var h: RefCounted = hiidenportti
@@ -11122,7 +11234,9 @@ func _enter_retki(id: String) -> void:
 	retki_int.acted.connect(_on_retki_acted)
 	tilat.first("retki_" + id, 0.4)
 	if "legenda" in retki_int:
-		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko, "tietokonemuseo": tietokonemuseo, "vanhaherra": vanhaherra, "kuhmo": karhut, "hiidenportti": hiidenportti, "pyhakoski": pyhakoski}.get(id, pakkahuone)
+		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko, "tietokonemuseo": tietokonemuseo, "vanhaherra": vanhaherra, "kuhmo": karhut, "hiidenportti": hiidenportti, "pyhakoski": pyhakoski, "kajaani": messenius, "kalajoki": kalajoki}.get(id, pakkahuone)
+	if id == "kalajoki":
+		retki_int.set_juhannus(_juhannus())
 	retki_int.enter()
 	_show_message(r.perilla, 3.5)
 
@@ -11177,6 +11291,14 @@ func _on_retki_acted(kind: String) -> void:
 		return
 	if _retki_id == "kuhmo":
 		_karhut_acted(kind)
+		retki_int.block_interact()
+		return
+	if _retki_id == "kalajoki":
+		_kalajoki_acted(kind)
+		retki_int.block_interact()
+		return
+	if _retki_id == "kajaani":
+		_messenius_acted(kind)
 		retki_int.block_interact()
 		return
 	if _retki_id == "pyhakoski":
@@ -17887,6 +18009,8 @@ func _load_game() -> void:
 	karhut.load_from(cfg)
 	hiidenportti.load_from(cfg)
 	pyhakoski.load_from(cfg)
+	messenius.load_from(cfg)
+	kalajoki.load_from(cfg)
 	kanttori.load_from(cfg)
 	lemmikki.load_from(cfg)
 	ukko.load_from(cfg)
@@ -18115,6 +18239,8 @@ func _save_game() -> void:
 		karhut.save_to(cfg)
 		hiidenportti.save_to(cfg)
 		pyhakoski.save_to(cfg)
+		messenius.save_to(cfg)
+		kalajoki.save_to(cfg)
 		kanttori.save_to(cfg)
 		lemmikki.save_to(cfg)
 		ukko.save_to(cfg)
@@ -19439,7 +19565,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _tietokonemuseo_tasks() + _vanhaherra_tasks() + _karhut_tasks() + _hiidenportti_tasks() + _pyhakoski_tasks() + _kanttori_tasks() + _lemmikki_tasks()
+	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _tietokonemuseo_tasks() + _vanhaherra_tasks() + _karhut_tasks() + _hiidenportti_tasks() + _pyhakoski_tasks() + _messenius_tasks() + _kalajoki_tasks() + _kanttori_tasks() + _lemmikki_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -26033,6 +26159,75 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_alue.png"))
+			get_tree().quit()
+		"kajaani":
+			# Kajaanin linna ja Messenius (#250 P17-P18): taksivalinta, rauniot, tervavene, Messenius, palkinto kerran; kuva.
+			_note.visible = false
+			if player == bike:
+				bike.speed = 0.0
+				_toggle_mount()
+			money = 80.0
+			clock_min = 12 * 60.0
+			messenius = MesseniusLegenda.new()
+			print("KA taksivalinta: %s" % [_talk_options("taksi").filter(func(o): return o.id == "retki_kajaani").map(func(o): return [o.id, o.enabled, o.text])])
+			_retki_from = player.global_position
+			_enter_retki("kajaani")
+			print("KA perillä: state %s, tehtävät %s" % [state, _messenius_tasks()])
+			var ka_m0 := mielihyva
+			_messenius_acted("rauniot")
+			_messenius_acted("tervavene")
+			print("KA 2/3: tehtävät %s, kupla '%s'" % [_messenius_tasks(), retki_int._bubble.text])
+			for i in 90:
+				await get_tree().process_frame
+			_messenius_acted("messenius")
+			_messenius_acted("messenius")
+			print("KA valmis: %s, mielihyvä %.1f -> %.1f, tehtävät %s" % [messenius.valmis, ka_m0, mielihyva, _messenius_tasks()])
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_alue.png"))
+			get_tree().quit()
+		"kalajoki":
+			# Kalajoki (#250 P19): taksivalinta, järjestäjä, kyltti, rantapallo (juhannus perjantaina), palkinto kerran; kuvat.
+			_note.visible = false
+			if player == bike:
+				bike.speed = 0.0
+				_toggle_mount()
+			money = 80.0
+			day = 5  # perjantai = juhannusaatto
+			clock_min = 12 * 60.0
+			kalajoki = KalajokiLegenda.new()
+			print("KJ taksivalinta: %s, juhannus %s" % [_talk_options("taksi").filter(func(o): return o.id == "retki_kalajoki").map(func(o): return [o.id, o.enabled, o.text]), _juhannus()])
+			_retki_from = player.global_position
+			_enter_retki("kalajoki")
+			print("KJ perillä: state %s, tehtävät %s" % [state, _kalajoki_tasks()])
+			_kalajoki_acted("kyltti")
+			_kalajoki_acted("jarjestaja")
+			print("KJ järjestäjä: tehtävät %s, kupla '%s'" % [_kalajoki_tasks(), retki_int._bubble.text])
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_alue.png"))
+			var kj_m0 := mielihyva
+			_kalajoki_acted("kentta")
+			var kj_g: Node = get_children().filter(func(c: Node) -> bool: return c.get_script() == RantapalloGame)[0]
+			print("KJ peli auki: state %s" % state)
+			for i in 100:
+				await get_tree().process_frame
+			for i in 140:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_peli.png"))
+			print("KJ pelitila: %s, pallo %s, tulos %s" % [kj_g._phase, kj_g._ball, kj_g._score])
+			kj_g._score = [3, 1]
+			kj_g._phase = "over"
+			kj_g._t = 1.0
+			await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_loppu.png"))
+			kj_g._end(true)
+			await get_tree().process_frame
+			print("KJ valmis: %s, voitot %d, mielihyvä %.1f -> %.1f, state %s, tehtävät %s" % [kalajoki.valmis, kalajoki.voitot, kj_m0, mielihyva, state, _kalajoki_tasks()])
 			get_tree().quit()
 		"hiidenportti":
 			# Hiidenportti (#250 P13): taksivalinta, retkeilijä, kyltti, kiipeily (otteet, putoaminen, ylälava), tallennus; kuvat.
