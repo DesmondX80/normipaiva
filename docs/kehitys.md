@@ -60,4 +60,7 @@ Kun peliin tulee uusi toiminto, sen vaikutukset tiloihin kirjataan taulukkoon ti
 **Teemu** (orkestraattori) → **seksaaja** (suunnitelma ja hyväksymiskriteerit) → **arkkitehti** (rakenne, Opus)
 → **puristelija** (toteutus) → **sekstaaja** (testaus, PASS/FAIL). Roolit välittävät tuotokset tiedostoina
 kansiossa `.claude/tyo/<slug>/` (gitignoressa), joten kunkin konteksti pysyy pienenä ja orkestraattori näkee
-vain lyhyet palautukset. Korjauskierroksia on enintään kaksi samalle viralle; kolmannella palataan arkkitehdille.
+vain lyhyet palautukset. Työn voi antaa tekstinä, issuena (`/teemu #123`) tai jättää tyhjäksi: silloin Teemu
+hakee `gh`:lla vanhimman avoimen issuen, jolla ei ole vastuuhenkilöä, ja alkaa työstää sitä. Käyttäjä saa mikromanageroida: `/teemu <rooli>: <ohje>` ajaa vain yhden roolin, kesken ajon annettu ohje kirjataan
+`00-ohjeet.md`:hen ja kaikki roolit tottelevat sitä, ja `--tarkasti` pysäyttää jokaisen vaiheen jälkeen. Käyttäjä on kaikkivaltias, Teemu
+vain työnjohtaja, joka tottelee ja raportoi rehellisesti. Korjauskierroksia on enintään kaksi samalle viralle; kolmannella palataan arkkitehdille.
