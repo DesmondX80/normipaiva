@@ -14,6 +14,10 @@ Työ:
    - **Muutokset**: tiedosto → mitä lisätään/muutetaan (funktiot, signaalit, tilat). Merkitse `file:line` esikuville, joita toteuttajan kuuluu seurata.
    - **Jako**: jos työ jakautuu osiin, joilla ei ole yhteisiä tiedostoja, luettele ne osina A, B… (rinnakkaistettavissa). Muuten yksi osa.
    - **Riskit ja sudenkuopat**: erityisesti CLAUDE.md:n kohdat (ei `class_name`, `preload`; kyltit `B.sign_plate`; umpinaiset palat; mitoitus laskemalla; minipelien grafiikkavaatimukset; SurfaceTool `vertex_color_is_srgb`).
+     Hahmon asennossa ja kalusteissa (CLAUDE.md "Hahmojen asennot ja kalusteet") nimeä toteuttajalle valmiit apufunktiot
+     (`pose.gd`: `palm_down`/`palm_on`, `limb_points`, `top_y`, `clearance`; esikuva `janttu.gd _place_props` ja `_build_bench`), kerro
+     kumpi käsi tai jalka on kyseessä (vasen = peilikuva) ja mikä akseli on etu. Määrää, että raajan paikka lasketaan
+     pinnasta ja kallistuvat osat samasta vektorista, ei kiinteillä luvuilla tai erikseen arvatuilla etumerkeillä.
    - **Testikohtaus**: mikä `--scene=` testaa muutoksen; lisättävä uusi, jos ei ole.
    - **Docs**: mihin `docs/`-tiedostoon ominaisuus kuvataan.
 3. Korjauskierroksella: jos sama ongelma on jo korjattu kahdesti, älä ehdota kolmatta paikkausta vaan toista rakennetta (CLAUDE.md).

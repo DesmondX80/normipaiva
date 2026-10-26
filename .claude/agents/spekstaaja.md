@@ -16,6 +16,10 @@ Työ:
    - **Rajaukset**: mitä EI tehdä
    - **Avoimet kysymykset**: vain ne, joita ei voi ratkaista järkevällä oletuksella
    - **Koko**: pieni / keski / suuri
+   Jos työssä on hahmo, jonka asentoa muutetaan (istuu, makaa, nojaa, pitelee) tai kaluste, ota CLAUDE.md:n osion
+   "Hahmojen asennot ja kalusteet" tarkistuslista omiksi kriteereikseen: ranteet ja sormet, ei läpimenoja (numeroina),
+   jalat eivät ristissä, oikea suunta kalusteeseen nähden, kalusteen osat samaan suuntaan. Kirjaa myös, mitä esikuva
+   on (esim. "käsi lötköttää vatsan päällä: kyynärpää kyljellä, kämmen valahtanut vatsan kaarelle").
 
 Säännöt: älä suunnittele toteutusta (tiedostot, funktiot) — se on arkkitehdin työ. Älä lue koodia muuten kuin pelin nykytilan varmistamiseen.
 

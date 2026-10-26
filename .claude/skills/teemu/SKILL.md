@@ -39,7 +39,7 @@ korjaa kaksi vikaa, sen jälkeen sekstaaja testaa uudelleen." Älä ilmoita usea
 - **`#<numero>`**: hae issue `gh issue view <numero> --json number,title,body,comments` ja käytä sitä pyyntönä.
 - **Tyhjä**: hae vanhin avoin issue, jota kukaan ei ole ottanut: `gh issue list --state open --search "no:assignee" --json number,title,body --limit 20`
   ja valitse pienin numero. Ei avoimia issueita: kerro se ja lopeta. Kerro käyttäjälle valittu issue yhdellä rivillä ja jatka heti.
-- Käytä `gh`:ta aina tilillä `santtu-seppanen` (`gh auth status`; jos aktiivinen tili on muu, älä jatka).
+- Käytä `gh`:ta käyttäjän omalla tilillä (se, joka on aktiivinen `gh auth status`:ssa). Ohjeita ei sidota tiettyyn tiliin.
 - Issueta ei suljeta eikä kommentoida ilman käyttäjän pyyntöä; mainitse numero raportissa.
 
 ## Periaatteet (token-säästö)
@@ -67,6 +67,28 @@ korjaa kaksi vikaa, sen jälkeen sekstaaja testaa uudelleen." Älä ilmoita usea
 
 ## Lopuksi
 
-- Raportti käyttäjälle (enintään ~10 riviä): mitä tehtiin, muutetut tiedostot, tuomio, mitä jäi huonoksi tai testaamatta. Rehellisesti: ei "toimii" ilman sekstaajan PASS:ia.
-- Älä committaa, älä avaa PR:ää eikä pushaa, ellei käyttäjä pyydä. Jos pyytää: GitHub-tili on aina `santtu-seppanen`.
+- **Visuaalisessa työssä katso itse** sekstaajan lopullinen koottu kuva (yksi Read) ennen raporttia, äläkä luota pelkkään PASS:iin. Jos näet silmällä vian (väännetty ranne, raaja läpi, väärä suunta, kalusteen osat miten sattuu), tuomio on FAIL ja tehdään korjauskierros.
+- Raportti käyttäjälle (enintään ~10 riviä): mitä tehtiin, muutetut tiedostot, tuomio, mitä jäi huonoksi tai testaamatta. Rehellisesti: ei "toimii" ilman sekstaajan PASS:ia ja omaa katsomista.
+- Älä committaa, älä avaa PR:ää eikä pushaa, ellei käyttäjä pyydä. Jos pyytää: käyttäjän oma GitHub-tili.
 - `.claude/tyo/` on gitignoressa; jätä se paikalleen (voi jatkaa myöhemmin), älä liitä committiin.
+- Viimeiseksi aina **kehityskeskustelut** (alla), myös FAILin, keskeytyksen tai yhden roolin ajon jälkeen.
+
+## Kehityskeskustelut
+
+Jokaisen `/teemu`-ajon viimeinen asia. Sano erikseen: "Pidetään kehityskeskustelut." Käy läpi, mikä meni perseelleen,
+ja paranna seuraavaa kertaa varten. Teemu pitää keskustelut itse työkansion tiedostojen pohjalta (ei uusia
+aliagentteja): `04-testi.md`:n FAILit, korjauskierrokset, `00-ohjeet.md`:n käyttäjän väliintulot ja käyttäjän
+huomautukset keskustelussa. Ne ovat tärkein lähde: jokainen kohta, josta käyttäjän piti huomauttaa, on jonkun virhe.
+
+1. Jokainen ajossa mukana ollut rooli (spekstaaja, arkkitehti, puristelija, sekstaaja) ja Teemu itse puhuu
+   minämuodossa, enintään 3 riviä:
+   - mitä teki väärin, konkreettisesti ("Annoin PASS:in kuvasta, jossa ranne oli väännetty."),
+   - pyytää anteeksi ("Anteeksi."),
+   - sanoo, miten tekee jatkossa toisin ("Jatkossa väännetty ranne on aina FAIL, vaikka muut kriteerit menisivät läpi.").
+   Rooli, jolla ei mennyt mitään vikaan, sanoo sen yhdellä rivillä. Älä keksi virheitä äläkä vähättele niitä.
+2. Parannusehdotukset: jokaisesta virheestä konkreettinen muutos ohjeeseen: tiedosto (`.claude/agents/<rooli>.md`,
+   tämä skill tai `CLAUDE.md`) ja lisättävä tai muutettava sääntö. Mieti koko ketju: missä vaiheessa vika syntyi ja
+   missä se olisi pitänyt huomata. Korjaa kaikki ne kohdat, ei vain sitä, josta vika löytyi.
+3. Kirjaa keskustelut ja ehdotukset `.claude/tyo/<slug>/05-kehityskeskustelut.md`:hen ja näytä ne käyttäjälle.
+   Kysy, mitkä ehdotukset otetaan käyttöön (AskUserQuestion, monivalinta), ja tee hyväksytyt muutokset ohjeisiin.
+   Älä muuta ohjeita ilman käyttäjän hyväksyntää.
