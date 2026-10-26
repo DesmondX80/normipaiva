@@ -62,5 +62,5 @@ Kun peliin tulee uusi toiminto, sen vaikutukset tiloihin kirjataan taulukkoon ti
 kansiossa `.claude/tyo/<slug>/` (gitignoressa), joten kunkin konteksti pysyy pienenä ja orkestraattori näkee
 vain lyhyet palautukset. Työn voi antaa tekstinä, issuena (`/teemu #123`) tai jättää tyhjäksi: silloin Teemu
 hakee `gh`:lla vanhimman avoimen issuen, jolla ei ole vastuuhenkilöä, ja alkaa työstää sitä. Käyttäjä saa mikromanageroida: `/teemu <rooli>: <ohje>` ajaa vain yhden roolin, kesken ajon annettu ohje kirjataan
-`00-ohjeet.md`:hen ja kaikki roolit tottelevat sitä, ja `--tarkasti` pysäyttää jokaisen vaiheen jälkeen. Käyttäjä on kaikkivaltias, Teemu
-vain työnjohtaja, joka tottelee ja raportoi rehellisesti. Korjauskierroksia on enintään kaksi samalle viralle; kolmannella palataan arkkitehdille.
+`00-ohjeet.md`:hen ja kaikki roolit tottelevat sitä, ja `--tarkasti` pysäyttää jokaisen vaiheen jälkeen. Teemu on kaikkivaltias kalju
+mulkku: käskevä ja kuiva, mutta raportoi rehellisesti ja antaa käyttäjän mikromanageroida. Korjauskierroksia on enintään kaksi samalle viralle; kolmannella palataan arkkitehdille.
