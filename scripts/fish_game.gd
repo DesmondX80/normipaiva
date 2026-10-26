@@ -13,6 +13,7 @@ signal finished(catch: Array)
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Mokki := preload("res://scripts/mokki.gd")
+const Pose := preload("res://scripts/pose.gd")
 
 const MAX_SPEED := 2.4
 const ROW_ACCEL := 1.8
@@ -88,14 +89,15 @@ func _ready() -> void:
 	_rower = Looks.make(_boat, Looks.player())
 	Looks.add_cap(_rower)
 	_rower.play("Sitting_Idle", 0.0)
-	_rower.position = Vector3(0, 0.05, 0.25)
+	Pose.seat(_rower, Vector3(0, 0, -1), Vector3(0, 0.165, 0.25))  # soutajan tuhdolla (y 0.14 + 0.025), kasvot keulaan
+	Pose.feet_to_floor(_rower, -0.06, Vector3(0, 0, -1))  # veneen pohjarimat
 	_rower.rotation.y = 0.0  # kasvot keulaan päin, jotta pelaaja näkee soutajan selän ja menosuunnan
 	_rod = Node3D.new()
 	_boat.add_child(_rod)
 	B.mesh(_rod, B.cyl(0.012, 0.025, 2.6, 6), Vector3(0, 1.3, 0), Color(0.12, 0.12, 0.14))
 	B.mesh(_rod, B.cyl(0.05, 0.05, 0.08, 10), Vector3(0.05, 0.35, 0), Color(0.7, 0.7, 0.72), Vector3(0, 0, 90))
-	_rod.position = Vector3(0.5, 0.75, 0.6)
-	_rod.rotation = Vector3(-0.9, 0, -0.5)  # kärki keulaan (-Z), heiton suuntaan
+	_rod.position = Vector3(0.08, 0.45, -0.1)  # kahva soutajan edessä, kädet pitävät siitä
+	_rod.rotation = Vector3(-0.9, 0, -0.25)  # kärki keulaan (-Z), heiton suuntaan
 	_rod.visible = false
 	_bobber = Node3D.new()
 	add_child(_bobber)
@@ -135,7 +137,7 @@ static func build_boat(parent: Node3D, folded := false) -> Array[Node3D]:
 	B.mesh(parent, B.boxm(Vector3(0.12, 0.5, 0.12)), Vector3(0, 0.12, -2.2), wood)  # keulapuu
 	B.mesh(parent, B.boxm(Vector3(1.12, 0.42, 0.06)), Vector3(0, 0.1, 1.55), hull)  # peräpeili
 	B.mesh(parent, B.boxm(Vector3(0.7, 0.06, 1.2)), Vector3(0, -0.07, -1.5), hull)
-	for z in [-0.3, 0.9, -1.3]:
+	for z in [0.25, 0.9, -1.3]:  # soutajan tuhto 0.25
 		B.mesh(parent, B.boxm(Vector3(1.1, 0.05, 0.3)), Vector3(0, 0.14, z), wood)  # tuhdot
 	for i in 5:
 		B.mesh(parent, B.boxm(Vector3(0.9, 0.02, 0.12)), Vector3(0, -0.07, -0.9 + i * 0.5), dark)  # pohjarimat
@@ -364,7 +366,7 @@ func _row(delta: float) -> void:
 		var pv: Node3D = _oars[side[2]]
 		var grip := pv.position + Vector3(-side[1] * 0.5, -0.1, 0).rotated(Vector3.UP, pv.rotation.y)
 		if _state in ["charge", "wait", "bite", "reel"]:
-			grip = Vector3(0.35 * side[1], 0.75, 0.6)
+			grip = _rod.position + _rod.basis * Vector3(0, 0.12 if side[0] == "_r" else 0.5, 0.0)  # oikea kahvassa, vasen vavan edessä
 		_rower.set_ik("arm" + side[0], "upperarm" + side[0], "lowerarm" + side[0], "hand" + side[0],
 			inv * grip, inv * Vector3(0.6 * side[1], 0.6, 0.2))
 	var back := -fwd

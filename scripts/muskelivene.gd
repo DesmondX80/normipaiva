@@ -9,6 +9,7 @@ signal finished(pos: Vector3)
 
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
+const Pose := preload("res://scripts/pose.gd")
 
 const L := 7.0              # rungon pituus
 const W := 2.4              # leveys
@@ -204,7 +205,7 @@ static func build(parent: Node3D, with_driver := false) -> Dictionary:
 	B.mesh(parent, B.boxm(Vector3(1.95, 0.05, 0.05)), Vector3(0, 1.67, cz - 0.28), grey, Vector3(-22, 0, 0))
 	# Ratti (kiertyy ohjauksen mukana) konsolin takasivulla.
 	var wheel_pivot := Node3D.new()
-	wheel_pivot.position = Vector3(0.0, 1.12, cz + 0.4)
+	wheel_pivot.position = Vector3(0.45, 1.12, cz + 0.4)  # kuskin penkin (x 0.45) edessä
 	wheel_pivot.rotation_degrees = Vector3(-55, 0, 0)
 	parent.add_child(wheel_pivot)
 	var wheel := Node3D.new()
@@ -291,14 +292,17 @@ static func build(parent: Node3D, with_driver := false) -> Dictionary:
 		parent.add_child(p)
 		sp.append(p)
 	var out := {"prop": prop, "motor": motor, "spray_l": sp[0], "spray_r": sp[1], "wake": wake,
-		"driver": null, "wheel": wheel, "grips": [Vector3(-0.2, 1.1, cz + 0.4), Vector3(0.2, 1.1, cz + 0.4)]}
+		"driver": null, "wheel": wheel, "grips": [Vector3(0.26, 1.12, cz + 0.4), Vector3(0.64, 1.12, cz + 0.4)]}
 	if with_driver:
 		var d := Looks.make(parent, Looks.player())
 		Looks.add_cap(d)
 		d.play("Sitting_Idle", 0.0)
-		d.position = Vector3(0.45, SEAT_TOP - 0.1, SEAT_Z)
-		d.rotation.y = 0.0  # kasvot keulaan päin (kuten fish_game.gd:n soutaja)
+		Pose.seat(d, Vector3(0, 0, -1), Vector3(0.45, SEAT_TOP, SEAT_Z - 0.05))  # pakara penkin pinnalla, kasvot keulaan
+		Pose.feet_to_floor(d, 0.185, Vector3(0, 0, -1))  # ohjaamon lattia
 		out["driver"] = d
+		var inv := d.transform.affine_inverse()  # kädet rattiin heti (ajossa päivitetään joka ruutu)
+		d.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", inv * out["grips"][0], inv * Vector3(0.0, 0.9, 0.3))
+		d.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * out["grips"][1], inv * Vector3(0.9, 0.9, 0.3))
 	return out
 
 
@@ -497,8 +501,8 @@ func _apply_pose(delta: float) -> void:
 		var g: Array = _parts["grips"]
 		var gl: Vector3 = g[0] + Vector3(0, 0.0, 0)
 		var gr: Vector3 = g[1]
-		d.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", inv * gl, inv * Vector3(-0.6, 0.9, 0.3))
-		d.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * gr, inv * Vector3(0.6, 0.9, 0.3))
+		d.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", inv * gl, inv * Vector3(0.0, 0.9, 0.3))
+		d.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * gr, inv * Vector3(0.9, 0.9, 0.3))
 	# Kamera veneen takaa, kauempana vauhdissa; tärähdys törmäyksestä.
 	var want := _cam_target()
 	_cam.position = _cam.position.lerp(want, 1.0 - exp(-4.0 * maxf(delta, 0.001))) if _t > 0.1 else want

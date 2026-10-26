@@ -18721,6 +18721,21 @@ func _maybe_screenshot() -> void:
 		mokki.ensure_built()  # testikohtaukset menevät mökille ilman taksia
 		print("MOKKI rakennettu %d ms" % (Time.get_ticks_msec() - tb))
 	match scene:
+		"asennot":
+			# Asentojen ja kalusteiden tarkistus: --asento=<osa> ajaa tools/testit/asennot_<osa>.gd:n run():n.
+			var osa := "0"
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--asento="):
+					osa = arg.substr(9)
+			var saved_as := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			var as_node: Node = load("res://tools/testit/asennot_%s.gd" % osa).new()
+			as_node.main = self
+			add_child(as_node)
+			await as_node.run()
+			if not saved_as.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_as)
+			get_tree().quit()
+			return
 		"vaala_ajo":
 			# Vaalan tiet, kohteet ja juna mopolla autopilotilla (tools/testit/vaala_ajo.gd).
 			var saved_ajo := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta

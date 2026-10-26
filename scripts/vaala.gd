@@ -22,6 +22,7 @@ const Makasiini := preload("res://scripts/makasiini.gd")
 const Looks := preload("res://scripts/looks.gd")
 const HumppaBand := preload("res://scripts/humppa_band.gd")
 const Janttu := preload("res://scripts/janttu.gd")
+const Pose := preload("res://scripts/pose.gd")
 const Muskelivene := preload("res://scripts/muskelivene.gd")
 ## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
 ## mökin omilla rakennusfunktioilla (mokki.gd ladataan ajonaikaisesti: mokki.gd -> mopo.gd -> vaala.gd).
@@ -1363,9 +1364,11 @@ func _build_lava_crowd(root: Node3D, w: float, l: float, side: float) -> void:
 				B.mesh(_lava_crowd, B.boxm(Vector3(0.4, 0.42, 0.06)), Vector3(bx, 0.21, z + lz), Color(0.4, 0.26, 0.14))
 			for p in 2:
 				var c := Looks.make(_lava_crowd, person.call(rng.randf() < 0.5))
-				c.position = Vector3(bx - sx * 0.08, 0.08, z - 0.7 + p * 1.3)
+				c.position = Vector3(bx - sx * 0.08, 0.06, z - 0.7 + p * 1.3)
 				c.rotation.y = sx * PI / 2.0  # kasvot salin keskelle
 				c.play("Sitting_Talking" if p == 0 else "Sitting_Idle", 0.0)
+				Pose.seat(c, Vector3(-sx, 0, 0), Vector3(bx, 0.48, c.position.z))  # lantio penkin päälle, salin keskelle päin
+				Pose.feet_to_floor(c, 0.07, Vector3(-sx, 0, 0))  # lavan lattian yläpinta paikallisesti 0,06 (+ listat 0,07)
 
 
 func _build_lava() -> void:
@@ -1633,6 +1636,10 @@ func _build_party(c: Vector2, away: Vector2) -> void:
 		ch.position = seats[i][0] + (Vector3(0, 0.02, 0) if seats[i][1].begins_with("Sitting") else Vector3.ZERO)
 		ch.rotation.y = B.yaw_to(-seats[i][0])
 		ch.play(seats[i][1], 0.0)
+		if seats[i][1].begins_with("Sitting"):  # tukin päälle (pinta 0,42), jalat maahan tukin etupuolelle
+			var sp: Vector3 = seats[i][0]
+			Pose.seat(ch, -sp, Vector3(sp.x, 0.42, sp.z))
+			Pose.feet_to_floor(ch, 0.0, -sp)
 		party_people.append(ch)
 		if i == 2:
 			Looks.add_cap(ch)
@@ -3786,7 +3793,7 @@ func _build_yard_teens(c: Vector2, face: Vector2) -> void:
 			for n in mp.find_children("*", "MeshInstance3D", true, false):
 				if (n as MeshInstance3D).material_override == B.mat(Color(0.72, 0.08, 0.06)):
 					(n as MeshInstance3D).material_override = B.mat(Color(0.15, 0.3, 0.75))
-	B.mesh(root, B.sphere(0.45, 8), Vector3(0.4, 0.2, 0.6), Color(0.5, 0.5, 0.48))  # istumakivi
+	B.mesh(root, B.sphere(0.45, 8), Vector3(0.4, -0.03, 0.6), Color(0.5, 0.5, 0.48))  # istumakivi (pinta 0,42)
 	var looks := [
 		{"shirt": Color(0.75, 0.75, 0.78), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buzzed",
 			"hair_color": Color(0.85, 0.75, 0.5), "height": 1.74, "bulk": -0.6, "tracksuit": {"a": Color(0.1, 0.5, 0.3), "b": Color(0.85, 0.85, 0.85)}},
@@ -3802,6 +3809,10 @@ func _build_yard_teens(c: Vector2, face: Vector2) -> void:
 		ch.position = spots[i][0]
 		ch.rotation.y = B.yaw_to(spots[i][2])
 		ch.play(spots[i][1], 0.0)
+		if spots[i][1].begins_with("Sitting"):  # istumakivelle (pinta 0,42), jalat maahan
+			var sq: Vector3 = spots[i][0]
+			Pose.seat(ch, spots[i][2], Vector3(sq.x, 0.42, sq.z))
+			Pose.feet_to_floor(ch, 0.0, spots[i][2])
 		if i == 2:
 			Looks.add_cap(ch)
 		party_people.append(ch)
@@ -3820,7 +3831,7 @@ func _build_yard_teens(c: Vector2, face: Vector2) -> void:
 		bb.add_child(mus)
 	var body := StaticBody3D.new()
 	root.add_child(body)
-	body.add_child(B.box_shape(Vector3(1.0, 0.5, 1.0), Vector3(0.4, 0.25, 0.6)))
+	body.add_child(B.box_shape(Vector3(1.0, 0.42, 1.0), Vector3(0.4, 0.21, 0.6)))
 
 
 ## Mopopojat Zabukin pihassa (kiihdytyskisan haastajat, mopo_race.gd): kaksi mopoa ja kaksi poikaa nojailemassa.

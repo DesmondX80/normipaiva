@@ -9,6 +9,7 @@ const T := preload("res://scripts/terrain.gd")
 const MeshBundle := preload("res://scripts/mesh_bundle.gd")
 const Kota := preload("res://scripts/kota.gd")
 const Looks := preload("res://scripts/looks.gd")
+const Pose := preload("res://scripts/pose.gd")
 const StationBuild := preload("res://scripts/station_build.gd")
 const Makasiini := preload("res://scripts/makasiini.gd")
 const DroneGame := preload("res://scripts/drone_game.gd")
@@ -2646,6 +2647,10 @@ func _build_honganpalo() -> void:
 		var t := Looks.make(hongan_youth, lk)
 		t.position = Vector3(i * 1.0 - 1.0, 0.3 if i == 1 else 0.0, 0.3 * (i % 2))
 		t.play("Sitting_Idle" if i == 1 else "Idle", 0.0)
+		if i == 1:
+			# Istuu portaan ylimmällä askelmalla (pinta y 0,445, 0,2 reunasta), jalkaterät keskimmäisen askelman päällä (0,295), etu ulospäin (+Z).
+			Pose.seat(t, Vector3(0, 0, 1), Vector3(0, 0.445, -1.0))
+			Pose.feet_to_floor(t, 0.295, Vector3(0, 0, 1))
 	var moped := Node3D.new()
 	moped.position = Vector3(2.4, 0, 0.6)
 	moped.rotation.y = 0.6
@@ -2879,15 +2884,37 @@ func _build_uimaranta() -> void:
 		towel.name = "Towel"
 		var person := Looks.make(holder, looks[i])
 		person.play("Sitting_Idle" if i != 2 else "Idle", 0.0)
-		person.position.y = 0.05
+		var front := Vector3(0, 0, -1)  # rantatuolin etu (-Z, kohti vettä), selkänoja +Z:ssa
 		if i != 2:  # rantatuoli
 			var cc: Color = [Color(0.95, 0.85, 0.2), Color(0.2, 0.5, 0.9), Color(0.9, 0.3, 0.3), Color(0.3, 0.7, 0.4)][i]
 			B.mesh(holder, B.boxm(Vector3(0.5, 0.04, 0.45)), Vector3(0, 0.42, -0.05), cc)
-			var back := B.mesh(holder, B.boxm(Vector3(0.5, 0.6, 0.04)), Vector3(0, 0.72, -0.32), cc)
-			back.rotation.x = 0.35
+			var tilt := 0.5  # rento rantatuoli: selkänoja ~29° taakse (+Z): X-kierto +tilt kallistaa yläpään +Z:aan
+			var lean := Vector3(0, cos(tilt), sin(tilt))
+			var pivot := Vector3(0, 0.42, 0.2)  # selkänojan alapää istuimen takareunassa
+			B.mesh(holder, B.boxm(Vector3(0.5, 0.7, 0.04)), pivot + lean * 0.35, cc).rotation.x = tilt
 			for lx in [-0.23, 0.23]:
 				for lz in [-0.25, 0.15]:
 					B.mesh(holder, B.cyl(0.015, 0.015, 0.44, 5), Vector3(lx, 0.21, lz), Color(0.7, 0.7, 0.72))
+			# Istuja nojaa selkänojaa vasten: selkäranka taakse samasta kulmasta, lantio hieman eteen, jalat suorina eteen
+			# nilkat ristissä, kädet sylissä.
+			Pose.seat(person, front, Vector3(0, 0.44, -0.04))
+			person.set_override("spine_01", Vector3.RIGHT, tilt * 0.45)
+			person.set_override("spine_03", Vector3.RIGHT, tilt * 0.45)
+			var pinv := person.transform.affine_inverse()
+			for lr: String in ["_l", "_r"]:
+				var hipw: Vector3 = person.transform * person.bone_position("thigh" + lr)
+				var sgn := -1.0 if lr == "_l" else 1.0
+				var fx := -sgn * 0.04  # nilkat ristissä: vasen jalka oikean päällä
+				var fy := 0.27 if lr == "_l" else 0.16  # nilkka = pyyhkeen pinta (0,08) + 0,08; vasen oikean päällä
+				var reach := minf(sqrt(maxf(0.72 - pow(hipw.y - fy, 2.0), 0.04)), 0.8)
+				var tgt := Vector3(fx, fy, hipw.z - reach)
+				person.set_ik("leg" + lr, "thigh" + lr, "calf" + lr, "foot" + lr, pinv * tgt,
+					pinv * (Vector3((hipw.x + tgt.x) / 2.0 + sgn * 0.12, (hipw.y + tgt.y) / 2.0 + 0.25, (hipw.z + tgt.z) / 2.0)))
+				var hand := Vector3(sgn * 0.06, hipw.y + 0.17, hipw.z - 0.2)  # sylissä vatsan edessä
+				person.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, pinv * hand,
+					pinv * (hand + Vector3(sgn * 0.35, -0.1, 0.3)))
+		else:
+			person.position.y = 0.05
 		holder.set_meta("mummo", i == 3)
 		uimaranta_people.append(holder)
 	# Sinikka aamu-uinnilla: pienet punaiset lappubikinit (kolmiot ja nauhat), pyyhe vesirajassa.
@@ -4021,8 +4048,10 @@ func _build_taxi(pos: Vector3) -> void:
 	body.add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.8, 0)))
 	load("res://scripts/vehicles.gd").taxi(body, "TXI-808")
 	var driver := Looks.make(body, Looks.TAXI_DRIVER)
-	driver.position = Vector3(-0.4, 0.05, 0.1)
 	driver.play("Driving", 0.0)
+	# Auton etu on -Z. Lantio pysyy paikallaan (x -0,4, y 0,58, z 0,4), jalat auton lattialle (y 0,4) eivätkä pohjan alle.
+	Pose.seat(driver, Vector3(0, 0, -1), Vector3(-0.4, 0.477, 0.4))
+	Pose.feet_to_floor(driver, 0.4, Vector3(0, 0, -1))
 	taxi_pos = pos
 	for f in Sfx.MUSIC_FILES:
 		if ResourceLoader.exists(f):

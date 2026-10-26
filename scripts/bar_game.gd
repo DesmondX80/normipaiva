@@ -8,20 +8,27 @@ signal finished(won: bool)
 
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
+const Pose := preload("res://scripts/pose.gd")
 
 const TIME := 20.0  # s
 const PUSH := 0.07  # oikea painallus oikeaan tahtiin
 const SLIP := 0.03  # väärä nappi
 const TOO_FAST := 0.09  # s: nopeampi näpyttely on räpellystä
 const TERO_FORCE := 0.2  # Teron perusvääntö (/s), kasvaa loppua kohti
-const TABLE_Y := 0.86  # korkea vääntöpöytä: olkapäät ylettyvät kyynärpäihin pöydällä
-const SEAT_Z := 0.55  # lantion etäisyys pöydän keskeltä (polvet pöydän alla)
-const UPPERARM := 0.245  # olkavarsi (hahmon luut)
-const ELBOW_Z := 0.12  # kyynärpää pöydällä keskeltä omalle puolelle
-const FOREARM_UP := 0.218  # ranteen korkeus kyynärpäästä (kyynärvarsi 0.24, kallellaan keskelle)
-const FOREARM_IN := 0.07  # ranne kyynärpäätä lähempänä keskeä: kämmenet kohtaavat keskellä
-const SIDE := 0.15  # hahmo oman kätensä vasemmalla puolella: olkapää kyynärpään linjassa, päät ohi toistensa
-const LEAN := 0.2  # kumarrus pöydän yli (rad, jaetaan kahdelle selkänikamalle)
+const TABLE_Y := 0.68  # vääntöpöytä (keskipiste): pinta 0.71, esikuvan kokoinen
+const SEAT_Z := 0.55  # lantion alkuarvaus pöydän keskeltä; _fit sovittaa hahmon pöytään
+const TABLE_D := 0.66  # pöydän syvyys (z)
+const EDGE := TABLE_D / 2.0  # pöydän reuna keskiviivasta
+const ELBOW_R := 0.04  # kyynärnivelen säde: nivel on tämän verran pöydän pinnan yläpuolella
+const GRIP_Z := 0.05  # ranne keskiviivalta omalle puolelle
+const FOREARM_TILT := 0.6  # kyynärvarren kallistus pystystä keskeä kohti (35°)
+const BELLY_GAP := 0.01  # vatsan etupinnan ja pöydän reunan väli
+const SHOULDER_BACK := 0.04  # olkapää vatsan etupintaa tämän verran takana
+const LEAN0 := 0.30  # kumarruksen alkuarvaus (rad), _fit säätää
+const LEAN_MIN := 0.15
+const LEAN_MAX := 0.45
+const FIT_LAST := 8  # ruutu, jolla sovitus päättyy (λ säädetään ruuduilla 2, 4 ja 6)
+const SIDE := 0.15  # hahmo oman kätensä vasemmalla puolella: päät ohi toistensa
 const CURL := 1.4  # sormien taivutus nivelessä (rad)
 const CURL_JOINT := [1.0, 0.9, 0.45]  # tyvi-, keski- ja kärkinivelen osuus taivutuksesta
 const HAND_TILT := 0.87  # kämmenen kallistus vastustajaa kohti (50°)
@@ -34,6 +41,7 @@ var _angle := 0.0  # -1 Tero voittaa ... +1 pelaaja voittaa
 var _next := "left"
 var _idle := 1.0
 var _talk_t := 2.0
+var _frame := 0
 
 var _cam: Camera3D
 var _prev_cam: Camera3D
@@ -136,30 +144,82 @@ func _finish() -> void:
 	_tero.play("Sitting_Talking", 0.2)
 
 
-## Kädet: kyynärpäät pöydällä omalla puolellaan, kyynärvarret pystyssä otteeseen; kulma kaataa otetta
+## Kädet: kyynärpäät pöydällä omalla puolellaan, kyynärvarret kallellaan keskeä kohti otteeseen; kulma kaataa otetta
 ## kyynärpäiden kautta kulkevan akselin ympäri voittajan vasemmalle.
 func _update_arms() -> void:
+	_frame += 1
+	if _frame >= 2 and _frame <= FIT_LAST:
+		_fit(_tero, -1.0, _frame)
+		_fit(_me, 1.0, _frame)
 	var a := _angle * 1.2
-	_reach(_tero, -1.0, a, LEAN + maxf(0.0, -_angle) * 0.15)
-	_reach(_me, 1.0, a, LEAN + maxf(0.0, _angle) * 0.15)
+	_reach(_tero, -1.0, a)
+	_reach(_me, 1.0, a)
 
 
-## Oikea käsi otteeseen (s = 1 pelaaja +z, -1 Tero): kyynärpää pöydällä ELBOW_Z:n kohdalla, ranne kyynärvarren
-## mitan päässä sen yläpuolella (kämmenet vastakkain kuin kättelyssä). Hahmo liukuu jakkarallaan niin, että
-## olkapää on olkavarren mitan päässä kyynärpäästä: muuten käsi ei ylety tai kyynärpää nousee ilmaan.
-func _reach(ch: Node3D, s: float, a: float, lean: float) -> void:
-	var elbow := Vector3(0.025 * s, TABLE_Y + 0.07, ELBOW_Z * s)
-	var wrist := Vector3(0, elbow.y, 0) + Basis(Vector3.BACK, a) * Vector3(0.022 * s, FOREARM_UP, 0) \
-		+ Vector3(0, 0, (ELBOW_Z - FOREARM_IN) * s)
-	var shoulder := to_local(ch.to_global(ch.bone_position("upperarm_r")))
-	var dy := shoulder.y - elbow.y
-	var reach := sqrt(maxf(UPPERARM * UPPERARM - dy * dy, 0.0)) * 0.95
-	var h := Vector2(shoulder.x - elbow.x, shoulder.z - elbow.z).length()
-	ch.position.z = clampf(ch.position.z - s * (h - reach) * 0.3, ch.get_meta("seat_z") - 0.2, ch.get_meta("seat_z") + 0.1)
+## Kyynärpään kohde E (s = 1 pelaaja +z, -1 Tero): pöydän pinnalla, otteesta kyynärvarren kallistuksen verran omalle puolelle.
+func _elbow(ch: Node3D, s: float) -> Vector3:
+	var l2: float = ch.get_meta("l2")
+	return Vector3(0.025 * s, TABLE_Y + 0.03 + ELBOW_R, s * (GRIP_Z + l2 * sin(FOREARM_TILT)))
+
+
+## Oikea käsi otteeseen: kyynärpää E, ranne kyynärvarren mitan päässä siitä keskeä kohti ja ylös (kämmenet vastakkain
+## kuin kättelyssä). Napa vie kyynärpään taakse-alas omalle puolelle. Kumarrus λ jaetaan selkänikamille ja päälle.
+func _reach(ch: Node3D, s: float, a: float) -> void:
+	var l2: float = ch.get_meta("l2")
+	var elbow := _elbow(ch, s)
+	var hz := -s * l2 * sin(FOREARM_TILT)
+	var rise := sqrt(maxf(l2 * l2 - hz * hz - 0.022 * 0.022, 0.0))
+	var wrist := Vector3(0, elbow.y, elbow.z) + Basis(Vector3.BACK, a) * Vector3(0.022 * s, rise, 0) + Vector3(0, 0, hz)
+	var shoulder: Vector3 = ch.transform * ch.bone_position("upperarm_r")
+	var pole := elbow + (elbow - (shoulder + wrist) * 0.5).normalized() * 0.3
 	var inv := ch.transform.affine_inverse()
-	ch.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * wrist, inv * (elbow + Vector3(0, -0.3, 0.05 * s)))
-	ch.set_override("spine_01", Vector3.RIGHT, -lean * 0.5)  # negatiivinen = eteen
-	ch.set_override("spine_03", Vector3.RIGHT, -lean * 0.5)
+	ch.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * wrist, inv * pole)
+	var lam: float = ch.get_meta("lam")
+	ch.set_override("spine_01", Vector3.RIGHT, -lam * 0.6)  # negatiivinen = eteen
+	ch.set_override("spine_02", Vector3.RIGHT, -lam * 0.25)
+	ch.set_override("spine_03", Vector3.RIGHT, -lam * 0.15)
+	ch.set_override("neck_01", Vector3.RIGHT, lam * 0.35)  # pää vastaan: katse vastustajassa
+	ch.set_override("Head", Vector3.RIGHT, lam * 0.25)
+
+
+## Sovittaa hahmon pöytään vatsan etupinnasta (paistettu verkko, ruudut 2..FIT_LAST): λ säädetään ruuduilla 2, 4 ja 6
+## (kumarrus vie olkaa enemmän kuin vatsaa), joka ruutu z viedään niin, että vatsa on reunan takana BELLY_GAP,
+## ja y niin, että olkapää on olkavarren mitan päässä kyynärpäästä E. Viimeisellä ruudulla jakkara lantion alle.
+func _fit(ch: Node3D, s: float, f: int) -> void:
+	var top := TABLE_Y + 0.03
+	var torso := Pose.limb_points(ch, self, ["pelvis", "spine_01", "spine_02", "spine_03"])
+	var belly := INF
+	for q in torso:
+		if q.y > top - 0.07 and q.y < top + 0.01 and absf(q.x) < 0.5:
+			belly = minf(belly, q.z * s)
+	if belly == INF:  # headless: ei verkkoa, varalla selkäranka
+		belly = (ch.transform * ch.bone_position("spine_02")).z * s - 0.14
+	var sh: Vector3 = ch.transform * ch.bone_position("upperarm_r")
+	if f % 2 == 0 and f < FIT_LAST:
+		var lam: float = ch.get_meta("lam")
+		var k := sh.z * s - belly
+		lam += (k - BELLY_GAP - SHOULDER_BACK) / maxf(sh.y - top, 0.05)
+		ch.set_meta("lam", clampf(lam, LEAN_MIN, LEAN_MAX))
+	var dz := (EDGE + BELLY_GAP - belly) * s
+	ch.position.z += dz
+	sh.z += dz
+	var l1: float = ch.get_meta("l1")
+	var e := _elbow(ch, s)
+	var dx := sh.x - e.x
+	var h := absf(sh.z - e.z)
+	var rad := l1 * l1 - dx * dx - h * h
+	if rad < 0.36 * l1 * l1:
+		push_warning("baari: olkavarsi ei yllä (%s)" % ch.name)
+		rad = 0.36 * l1 * l1
+	ch.position.y += e.y + sqrt(rad) - sh.y
+	if f == FIT_LAST:
+		Pose.feet_to_floor(ch, 0.0, Vector3(-0.35 * s, 0, -s))  # polvet hahmon vasemmalle
+		var pv: Vector3 = ch.transform * ch.bone_position("pelvis")
+		var seat_top := pv.y - Pose.HIP_OVER_SEAT
+		B.box(self, Vector3(0.45, seat_top, 0.4), Vector3(pv.x, seat_top / 2.0, pv.z + 0.04 * s), Color(0.35, 0.22, 0.12), false)
+		if ch == _tero:
+			_bubble.position = ch.transform * ch.bone_position("Head") + Vector3(0, 0.35, 0)
+		print("baari_fit ", "pelaaja" if s > 0.0 else "tero", " lam ", snappedf(ch.get_meta("lam"), 0.001), " jakkara ", snappedf(seat_top, 0.001))
 
 
 ## Sormet nyrkkiin toisen kouran ympäri: jokainen nivel lepoasennosta (suorat sormet) taivutetaan kämmenen
@@ -216,16 +276,14 @@ func _build_room() -> void:
 		B.mesh(self, B.cyl(0.04, 0.04, 0.3, 8), Vector3(-2.6 + i * 0.28, 1.75, -3.3), c)
 	B.box(self, Vector3(4.2, 0.04, 0.25), Vector3(-0.8, 1.58, -3.3), wood, false)
 	# Pöytä, jonka ääressä väännetään, ja tuopit sivussa.
-	B.box(self, Vector3(1.0, 0.06, 0.7), Vector3(0, TABLE_Y, 0), wood, false)
+	B.box(self, Vector3(1.0, 0.06, TABLE_D), Vector3(0, TABLE_Y, 0), wood, false)
 	B.box(self, Vector3(0.12, TABLE_Y, 0.12), Vector3(0, TABLE_Y / 2.0, 0), Color(0.15, 0.15, 0.15), false)
 	for z in [-0.2, 0.2]:  # tuopit pöydän päässä, ei kameran ja otteen välissä
 		B.mesh(self, B.cyl(0.045, 0.04, 0.15, 10), Vector3(-0.4, TABLE_Y + 0.1, z), Color(0.9, 0.7, 0.2))
 	# Tero ja pelaaja jakkaroillaan vastakkain; istuma-animaatio vie lantion origon taakse, joten hahmo
 	# asetetaan lantion mukaan (kuten bingossa).
-	B.box(self, Vector3(0.45, 0.45, 0.4), Vector3(0, 0.22, -SEAT_Z - 0.05), wood, false)
-	B.box(self, Vector3(0.45, 0.45, 0.4), Vector3(0, 0.22, SEAT_Z + 0.05), wood, false)
 	_tero = _seat(Looks.TERO, -1.0)
-	_bubble = B.bubble(self, Vector3(0.35, 1.72, -SEAT_Z), Color.WHITE)
+	_bubble = B.bubble(self, Vector3(0.35, 1.5, -SEAT_Z), Color.WHITE)
 	_me = _seat(Looks.player(), 1.0)
 	Looks.add_cap(_me)
 	for p in [Vector3(-1.5, 2.6, -1.5), Vector3(1.2, 2.6, 0.8)]:
@@ -237,15 +295,19 @@ func _build_room() -> void:
 		add_child(l)
 
 
-## Hahmo istumaan pöydän puolelle s (1 = +z, kasvot pöytään päin).
+## Hahmo istumaan pöydän puolelle s (1 = +z, kasvot pöytään päin). Vain istuttaa: paikan (z, y), kumarruksen ja
+## jakkaran laskee _fit ruuduilla, kun hahmon paistettu pinta on käytettävissä.
 func _seat(look: Dictionary, s: float) -> Node3D:
 	var c := Looks.make(self, look)
 	c.rotation.y = 0.0 if s > 0.0 else PI
 	c.play("Sitting_Idle", 0.0)
 	c.anim.advance(0.01)
 	var pel: Vector3 = c.basis * c.bone_position("pelvis")
-	c.position = Vector3(-pel.x - SIDE * s, 0.0, SEAT_Z * s - pel.z)
-	c.set_meta("seat_z", c.position.z)  # _reach liu'uttaa tästä
+	c.position = Vector3(-pel.x - SIDE * s, 0.40 - pel.y, SEAT_Z * s - pel.z)
+	c.set_meta("l1", c.bone_position("upperarm_r").distance_to(c.bone_position("lowerarm_r")))
+	c.set_meta("l2", c.bone_position("lowerarm_r").distance_to(c.bone_position("hand_r")))
+	c.set_meta("lam", LEAN0)
+	Pose.feet_to_floor(c, 0.0, Vector3(-0.35 * s, 0, -s))  # polvet hahmon vasemmalle
 	return c
 
 
