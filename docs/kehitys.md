@@ -53,3 +53,11 @@ Pelisisällön kuvauksissa ([pelin-sisalto.md](pelin-sisalto.md)) kerrotaan kunk
 ## Päivittäiset tilat
 
 Kun peliin tulee uusi toiminto, sen vaikutukset tiloihin kirjataan taulukkoon tiedostossa [tilat.md](tilat.md).
+
+## Aliagenttiputki (`/teemu`)
+
+`/teemu <työ>` ajaa työn viiden roolin putkella (`.claude/skills/teemu/`, `.claude/agents/`):
+**Teemu** (orkestraattori) → **seksaaja** (suunnitelma ja hyväksymiskriteerit) → **arkkitehti** (rakenne, Opus)
+→ **puristelija** (toteutus) → **sekstaaja** (testaus, PASS/FAIL). Roolit välittävät tuotokset tiedostoina
+kansiossa `.claude/tyo/<slug>/` (gitignoressa), joten kunkin konteksti pysyy pienenä ja orkestraattori näkee
+vain lyhyet palautukset. Korjauskierroksia on enintään kaksi samalle viralle; kolmannella palataan arkkitehdille.
