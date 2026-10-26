@@ -14,7 +14,6 @@ signal finished(pies: int)
 const MG := preload("res://scripts/mg_draw.gd")
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
-const Pose := preload("res://scripts/pose.gd")
 const TIME := 40.0
 const BITES := 5  # haukkua piirakkaa kohti
 const CHEWS := 2  # pureskeluja haukun jälkeen (A/D vuorotellen)
@@ -134,12 +133,6 @@ func _build_scene() -> void:
 	_person("raija", RAIJA, Vector3(5.05, 0, -4.8))
 	_person("reiska", REISKA, Vector3(5.75, 0, -4.85))
 	_person("juntti", Looks.JUNTTI, Vector3(6.75, 0, -4.75))  # pöydän päässä
-	# Pelissä pihapöydän penkki on world.gd:ssä (sama kehys, pinta y 0,48); oma penkki vain jos pöytää ei ole (testikohtaus).
-	var w := get_parent()
-	if w == null or w.get("reippari_root") == null:
-		B.mesh(self, B.boxm(Vector3(1.6, 0.06, 0.3)), Vector3(4.8, 0.45, -4.4), Color(0.55, 0.38, 0.2))
-		for lx in [-0.65, 0.65]:
-			B.mesh(self, B.boxm(Vector3(0.08, 0.42, 0.26)), Vector3(4.8 + lx, 0.21, -4.4), Color(0.45, 0.31, 0.16))
 	_person("rekka", REKKAMIES, Vector3(4.3, 0.0, -4.45), true)  # vastapäisellä penkillä
 	_person("mummo", MUMMO, Vector3(3.9, 0, -4.75))
 	# Reiskan esiliina ja mummon kahvikuppi.
@@ -164,8 +157,9 @@ func _person(key: String, look: Dictionary, at: Vector3, sitting := false) -> vo
 	c.rotation.y = atan2(-to.x, -to.z)
 	if sitting:
 		c.play("Sitting_Idle", 0.0)
-		Pose.seat(c, Vector3(to.x, 0, to.z), Vector3(at.x, 0.48, at.z))  # lantio penkin pinnalle (y 0,48), kasvot pöytään
-		Pose.feet_to_floor(c, 0.0, Vector3(to.x, 0, to.z))
+		c.anim.advance(0.01)
+		var pelvis: Vector3 = c.basis * c.bone_position("pelvis")
+		c.position = at + Vector3(-pelvis.x, 0.02, -pelvis.z)
 	else:
 		c.position = at
 		c.play("Idle", 0.0)

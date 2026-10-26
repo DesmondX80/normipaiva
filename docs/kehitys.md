@@ -90,3 +90,14 @@ soutaja istuu tuhdolla ja vapaa pidetään käsissä (`fish_game.gd`); mopojen t
 tangolle myös mopokisassa; muskeliveneen ratti kuskin eteen; Santtu istuu laiturin päähän jalat reunan yli
 (`Pose.legs_hang`); Vaalan nuotion tukit, penkit ja istumakivi, traktorin kuski penkille, uimarannan tuolit rennoiksi
 (selkänoja ~29° taakse, nilkat ristissä, kädet sylissä) ja Hongan portaiden istujan jalat keskimmäiselle askelmalle.
+
+### Istumapaikat ja kontaktit
+
+Kaluste kuvaa istumapaikan datana (`scripts/seat.gd`): `Seat.spot(node, {seat, front, back, solids, ground, hands})`, kentät
+kalusteen paikallisessa avaruudessa; `Seat.collect(node)` kerää B.mesh/B.box-muodot (aja ennen `B.merge_static`). `Pose.sit(hahmo,
+kaluste, tyyli, opts)` istuttaa: tyylit `JAYKKA` (mummot), `SUORA` (jakkara, portaat), `RENTO` (selkä selkänojaan, jalat ojossa,
+`opts.ristissa`); `opts.hands` = kalusteen käsikohde, muuten kädet reisillä. `scripts/contact.gd` korjaa tunkeumat kapselimallilla:
+vartalo pois pöydästä, selkä 0-1 cm selkänojasta, jalkapohja tukipinnalle (korkein tuki kantapään ja päkiän alla), käsivarret pois
+jaloista. Tulosteet `KONTAKTI JÄÄ ...` kertovat yli 1 cm tunkeumasta. Kapselimalli mitataan paistetusta verkosta vasta 3 ruutua
+hahmon luonnin jälkeen; sitä ennen (ja headlessissa) käytetään vakiotaulukkoa. Kokeilu: `tools/testit/kontakti_a.tscn`
+(mittaa jalkapohjan rakoa tukeen). Ei vielä: sääri/reisi kiinteän kappaleen sisällä (askelman reuna) ja toiset hahmot.
