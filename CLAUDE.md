@@ -49,3 +49,21 @@ puhekupliin, nimiin ja pelin ohjeteksteihin (esim. "ULOS"-merkki lattiassa).
 - **Älä sano "toimii", ennen kuin olet katsonut suurennettua kuvaa.** Kerro rehellisesti, mikä on vielä huonosti.
 - Tekniset sudenkuopat: SurfaceTool-pistevärit tarvitsevat `vertex_color_is_srgb = true`, ja peilatussa
   geometriassa kolmioiden kiertosuunta kääntyy (valitse se normaalin mukaan).
+
+## Hahmojen asennot ja kalusteet
+
+Toistuvia virheitä: jalat solmussa, sormet ja ranteet väännetty, raajat kulkevat kappaleiden läpi, hahmo istuu 180°
+väärään suuntaan ja kalusteen osat (penkin tolpat ja rimat) osoittavat eri suuntiin.
+
+- **Vasen ja oikea ovat peilikuvia.** Kämmenen tai jalkaterän asento lasketaan yhteisellä apufunktiolla
+  (`pose.gd palm_down`/`palm_on`, parametri `left`: vasen kierretään sormiakselin ympäri 180°), ei omalla kannalla.
+  Sormet osoittavat kyynärvarren jatkeena, eivät kyynärpäätä kohti.
+- **Raaja, joka nojaa johonkin (vatsa, reisi, penkki), sovitetaan pintaan laskemalla** paistetusta verkosta
+  (`pose.gd limb_points`, `top_y`): nivelet olkavarren ja kyynärvarren mitan päähän ja hihan paksuuden verran
+  pinnan yläpuolelle (esim. `janttu.gd _place_props`). IK:n pole on vain vihje, ei takuu siitä, ettei raaja mene läpi.
+  Tarkista rako numeroina pitkin raajaa (luun korkeus vs. pinta), ennen kuin otat kuvia.
+- **Kallistukset ja suunnat johdetaan yhdestä vektorista.** Kalusteen kaikki kallistuvat osat lasketaan samasta
+  kallistuksesta (`janttu.gd _build_bench`: tolpat ja rimat), ei erikseen arvatuilla etumerkeillä. Hahmon suunta
+  otetaan istuimen tai sängyn etusuunnasta; kirjaa koodiin, mikä akseli on etu (esim. "-Z = penkin etupuoli").
+- **Asetelmasta kuvat edestä, päädystä ja ylhäältä.** Päätykuva paljastaa kallistusten etumerkit ja ylhäältä näkyvät
+  jalkojen risteys ja istumissuunta. Läpimeno, väännetty ranne tai väärä suunta on aina FAIL.

@@ -1831,70 +1831,7 @@ func _build_ride_road(guide: String, village: String) -> Node3D:
 const TRAIN_POS := Vector3(-12000, 0, -9000)  # oma tasku (ennen sama kuin autotallin sisätila: talli näkyi kuvissa)
 const Train := preload("res://scripts/train.gd")
 var train_cast := {}  # ravintolavaunun hahmot (testikuvat)
-## Käden luun akselit (Quaternius): Y sormia kohti; PALM_AXIS = akseli, joka osoittaa kämmenestä ulos.
-const PALM_AXIS := 0  # 0 = X, 2 = Z
-const PALM_SIGN := -1.0
-
-
-## Käden asento hahmon avaruudessa: sormet suuntaan fingers (vaakataso), kämmen alas.
-static func _palm_down(fingers: Vector3) -> Basis:
-	var y := fingers.normalized()
-	var palm := Vector3.DOWN * PALM_SIGN
-	var other := y.cross(palm).normalized()
-	if PALM_AXIS == 2:
-		return Basis(other, y, palm).orthonormalized()
-	return Basis(palm, y, -other).orthonormalized()
-
-
-## Hahmon pinnan pisteet (space-solmun avaruudessa), joiden pääluu on bones-listassa (esim. reisi ja sääri). Verkko
-## paistetaan nykyasentoon, ja housujen pöyhennys (pants_puff, varjostin) lisätään, jotta käsi ja jalat
-## sovitetaan näkyvään pintaan eikä luuhun kiinteällä välillä (tuulipuku on paksumpi kuin farkut).
-static func _limb_points(ch: Node3D, space: Node3D, bones: Array) -> PackedVector3Array:
-	var pp: Variant = ch.body_mat.get_shader_parameter("pants_puff")
-	var puff: float = pp if pp != null else 0.014  # varjostimen oletus
-	var skel: Skeleton3D = ch.skeleton
-	var out := PackedVector3Array()
-	for mi in skel.get_children():
-		if not mi is MeshInstance3D or (mi as MeshInstance3D).skin == null:
-			continue
-		var src: Array = (mi as MeshInstance3D).mesh.surface_get_arrays(0)
-		var arr: Array = (mi as MeshInstance3D).bake_mesh_from_current_skeleton_pose().surface_get_arrays(0)
-		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
-		var ns: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
-		var bi: PackedInt32Array = src[Mesh.ARRAY_BONES]
-		var bw: PackedFloat32Array = src[Mesh.ARRAY_WEIGHTS]
-		var cs: PackedColorArray = src[Mesh.ARRAY_COLOR] if src[Mesh.ARRAY_COLOR] != null else PackedColorArray()
-		if vs.is_empty() or bi.size() % vs.size() != 0:
-			continue
-		var per := bi.size() / vs.size()
-		var sk: Skin = (mi as MeshInstance3D).skin
-		var want := {}
-		for bind in sk.get_bind_count():
-			var nm := str(sk.get_bind_name(bind))
-			if nm == "":
-				nm = skel.get_bone_name(sk.get_bind_bone(bind))
-			if nm in bones:
-				want[bind] = true
-		var xf: Transform3D = mi.global_transform
-		for v in vs.size():
-			var best := 0
-			for k in per:
-				if bw[v * per + k] > bw[v * per + best]:
-					best = k
-			if not want.has(bi[v * per + best]):
-				continue
-			var pants := cs.size() == vs.size() and roundi(cs[v].r * 4.0) == 2
-			out.append(space.to_local(xf * (vs[v] + ns[v] * (puff if pants else 0.0))))
-	return out
-
-
-## Pinnan yläreuna (suurin y) kohdan p kohdalla: pisteet vaakasäteellä r. -INF, jos kohdalla ei ole pintaa.
-static func _top_y(pts: PackedVector3Array, p: Vector3, r := 0.03) -> float:
-	var top := -INF
-	for q in pts:
-		if Vector2(q.x - p.x, q.z - p.z).length() < r:
-			top = maxf(top, q.y)
-	return top
+const Pose := preload("res://scripts/pose.gd")  # kämmenen asento ja raajan sovitus pintaan
 
 
 ## Naismatkustajat iltajunassa juhlatamineissa 90-luvun tapaan: Marjalla musta hihaton satiininen slip-mekko,
@@ -2041,11 +1978,11 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			var hdt := get_process_delta_time()
 			if not hand.has("thigh"):
 				# Pelaajan vasen reisi (käden alusta) ja vierekkäiset jalat (Helenan liukuma) mitataan pinnasta kerran.
-				hand.thigh = _limb_points(hero, car, ["thigh_l", "calf_l"])
+				hand.thigh = Pose.limb_points(hero, car, ["thigh_l", "calf_l"])
 				var gap := INF
 				var legs := ["thigh_l", "calf_l", "thigh_r", "calf_r"]
-				var hl_leg := _limb_points(hl, car, legs)
-				var hero_leg := _limb_points(hero, car, legs)
+				var hl_leg := Pose.limb_points(hl, car, legs)
+				var hero_leg := Pose.limb_points(hero, car, legs)
 				if not hl_leg.is_empty() and not hero_leg.is_empty():
 					# Helena istuu -X:n puolella: väli = pelaajan jalan vasen reuna - Helenan jalan oikea reuna.
 					var hero_min := INF
@@ -2097,7 +2034,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 				# Kämmen reiden pinnalle: ranteen ja kämmenen kohdalta korkein pinta + kämmenen paksuus (ranneluu on
 				# käden keskellä), liu'ussa hieman irti.
 				var lc: Vector3 = car.to_local(on_thigh)
-				var top := maxf(_top_y(hand.thigh, lc), _top_y(hand.thigh, lc + car.global_basis.inverse() * flat_g * 0.06))
+				var top := maxf(Pose.top_y(hand.thigh, lc), Pose.top_y(hand.thigh, lc + car.global_basis.inverse() * flat_g * 0.06))
 				on_thigh.y = (car.to_global(Vector3(lc.x, top, lc.z)).y if top > -INF else on_thigh.y + 0.12) \
 					+ 0.022 + 0.012 * sin(hs * PI)
 				if on_thigh.distance_to(sh) <= reach or at_t <= 0.45:
@@ -2112,7 +2049,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 				Basis())
 			# Kämmen alas reittä vasten ja kämmenselkä ylös: käden asento suoraan (sormet kyynärvarren jatkeena vaakatasossa).
 			var flat := Vector3(fore.x, 0.0, fore.z).normalized()
-			hl.set_ik_orient("arm_r", _palm_down(flat), smoothstep(0.0, 1.0, hand.w))
+			hl.set_ik_orient("arm_r", Pose.palm_down(flat, false), smoothstep(0.0, 1.0, hand.w))
 			if net:
 				# Verkkopaidassa pelaaja ei hermoile: kun Helena painautuu kiinni, vasen käsi nousee hänen ympärilleen
 				# kaulan takaa toiselle olalle (kämmen olan päällä, kyynärpää selän takana ylhäällä).
@@ -2125,7 +2062,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 				hero.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", (hand.own0 as Vector3).lerp(hug, hw),
 					hsh + Vector3(-0.15, 0.5, 0.05))
 				# Vasen käsi on peilikuva: kämmenakseli vastakkainen, joten käännetään sormien ympäri puoli kierrosta.
-				hero.set_ik_orient("arm_l", _palm_down(Vector3(-0.3, -0.4, -1.0)) * Basis(Vector3.UP, PI), hw)
+				hero.set_ik_orient("arm_l", Pose.palm_down(Vector3(-0.3, -0.4, -1.0), true), hw)
 		if k >= hand_from and not net:
 			# Pelaaja nostaa oman kätensä reideltä ja tarttuu hermostuneena tuoppiinsa.
 			var hero: Node3D = cast["minä"]

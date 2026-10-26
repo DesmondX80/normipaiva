@@ -5,11 +5,11 @@
 # headlessina muutaman sekunnin. --shot-kohtaukset eivät sovi: headlessissa ei renderöidä, joten kuvakaappaus
 # kaatuu tai jää odottamaan.
 #
-# Käyttö: tools/testit/kaantyyko.sh [godot-komento]   (oletus: godot; AIKARAJA=sekunnit, oletus 180)
+# Käyttö: tools/testit/kaantyyko.sh [godot-komento]   (oletus: tools/testit/godot.sh; AIKARAJA=sekunnit, oletus 180)
 # Paikallisesti ajettuna poistaa myös oman luokkalistasi; editori rakentaa sen uudelleen avattaessa.
 set -euo pipefail
 
-godot=${1:-godot}
+godot=${1:-$("$(dirname "$0")/godot.sh")}
 aikaraja=${AIKARAJA:-180}
 cd "$(dirname "$0")/../.."
 log=$(mktemp)

@@ -528,8 +528,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     pihassa). Konstaapeli Roivainen on asemalla aina, kun ei ole ratsiassa. 20 % matkoista hänellä on tutka tien
     reunassa: yli 47 km/h (40 + toleranssi) pysäyttää, ja sakoista jutellaan (rikesakko 50 €, yli 20 km/h ylinopeudesta
     100 €; selittely joskus varoitus, muuten +20 €; ohi ajaminen 120 € postissa). Vastapäätä puistonpenkin päällä
-    makaa kilipäissään Janttu (pipo, Alkon kassi tyynynä, kossupullo ja tölkit penkin alla, Zzz). Jalan voi tarjota kaljaa, pontikkaa tai
-    Koskenkorvaa: Janttu herää ja kertoo, missä Roivainen ratsaa tänään tai mittaako hän tutkalla. Testi `--scene=poliisi`.
+    makaa kilipäissään Janttu (pipo, Alkon kassi tyynynä, kossupullo ja tölkit penkin alla, Zzz). Vain jalan (ei ajaessa) voi tarjota kaljaa, pontikkaa tai
+    Koskenkorvaa (hereillä ollessaan hän ei ota uutta): Janttu herää ja kertoo, missä Roivainen ratsaa tänään tai mittaako hän tutkalla. Testi `--scene=poliisi`.
   - **Lama Vaalassa:** Siitarin lounaispuolella on työvoimatoimisto, jonka ovella jonottaa kuusi ihmistä ("Sahalta
     lähti viiskymmentä miestä kerralla") ja ilmoitustaululla lukee "AVOIMET TYÖPAIKAT –". Jonoon pääsee kerran
     päivässä (puoli tuntia), ja virkailija antaa lomakkeen tai kurssiesitteen. Muiden liiketilojen ikkunoissa on lappuja
