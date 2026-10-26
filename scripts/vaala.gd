@@ -3897,7 +3897,6 @@ func race_track(length := 170.0) -> Array[Vector3]:
 func _gasthaus_front(obb: Dictionary, base: float, top: float) -> void:
 	var c: Vector2 = obb.center
 	var side := _gasthaus_side(obb)
-	var ax: Vector2 = obb.ax
 	var hy: float = (obb.size as Vector2).y / 2.0
 	var dq := c + side * (hy + 0.05)
 	var yaw := atan2(side.x, side.y)
@@ -3912,13 +3911,17 @@ func _gasthaus_front(obb: Dictionary, base: float, top: float) -> void:
 	plate.rotation.y = yaw
 	var price := B.sign_plate(self, "HUONEET 10 €", Color(0.95, 0.93, 0.86), Color(0.16, 0.24, 0.16), 0.24, 36,
 		Color(0.16, 0.24, 0.16), "Georgia")
-	var pq := dq + ax * 1.0 + side * 0.08
+	# Kyltit oven pieleen: ovilehden kehys on 1,2 m leveä (_door_mesh), joten levyn sisäreuna 0,12 m kehyksen ulkopuolelle.
+	# dx = oven paikallinen +X (Basis(UP, yaw).x); levyn keskipiste = 0,6 + 0,12 + leveys / 2.
+	var dx := Vector2(cos(yaw), -sin(yaw))
+	var pq := dq + dx * (0.72 + float(price.get_meta("width")) / 2.0) + side * 0.08
 	price.position = Vector3(pq.x, y + 1.6, pq.y)
 	price.rotation.y = yaw
 	# Ruokalista HUONEET-kyltin alla (teksti main.gd GASTHAUS_MENU:stä, hinnat samat)
 	var menu := B.sign_plate(self, "RUOKALISTA\nKalakeitto 9,50\nKukkoleipä 7,00\nTalkkuna 4,00\nRieska 3,50",
 		Color(0.95, 0.93, 0.86), Color(0.16, 0.24, 0.16), 0.2, 30, Color(0.16, 0.24, 0.16), "Georgia")
-	menu.position = Vector3(pq.x, y + 0.75, pq.y)
+	var mq := dq + dx * (0.72 + float(menu.get_meta("width")) / 2.0) + side * 0.08
+	menu.position = Vector3(mq.x, y + 0.75, mq.y)
 	menu.rotation.y = yaw
 	var out := Vector3(side.x, 0, side.y)
 	var front := Vector3(dq.x, h(dq.x, dq.y), dq.y) + out * 2.2
