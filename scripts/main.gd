@@ -10958,9 +10958,10 @@ func _talk_options(who := "") -> Array:
 				chat = false
 				o.append(_opt("jatka", "Jatka matkaa", true, "", true))
 		"janttu":
-			o.append(_opt("janttu_kalja", "Tarjoa kalja", beers > 0, "ei kaljaa mukana"))
-			o.append(_opt("janttu_pontikka", "Tarjoa pontikkaa", pontikka > 0, "ei pontikkaa"))
-			o.append(_opt("janttu_viina", "Tarjoa Koskenkorvaa", viina_pullot > 0, "ei viinaa"))
+			var jalan := mopo_trip.on_foot != null  # ajaessa ei tarjota
+			o.append(_opt("janttu_kalja", "Tarjoa kalja", jalan and beers > 0, "ei kaljaa mukana" if jalan else "ei ajaessa"))
+			o.append(_opt("janttu_pontikka", "Tarjoa pontikkaa", jalan and pontikka > 0, "ei pontikkaa" if jalan else "ei ajaessa"))
+			o.append(_opt("janttu_viina", "Tarjoa Koskenkorvaa", jalan and viina_pullot > 0, "ei viinaa" if jalan else "ei ajaessa"))
 		"poliisi":
 			chat = false
 			if _ratsia_stage == "puhallus":
@@ -15236,6 +15237,8 @@ func _tutka_result(excuse: bool) -> Array:
 ## Jantulle tarjotaan: hän herää hetkeksi ja kertoo, missä Roivainen ratsaa tänään (tai ettei ratsiaa ole).
 func _talk_janttu(id: String) -> Array:
 	var vl: Node3D = mopo_trip.vaala
+	if is_instance_valid(vl.janttu) and vl.janttu.awake_t > 0.0:
+		return ["Janttu availee silmiään ja mumisee. Anna hänen hetki levätä.", "Janttu on vielä hereillä, mitään ei kulunut."]
 	var what := ""
 	match id:
 		"janttu_kalja":
@@ -30728,7 +30731,18 @@ func _maybe_screenshot() -> void:
 			_talk_choose("janttu_kalja")
 			print("POLIISI janttu kaljat %d, herännyt %s" % [beers, vl.janttu.awake_t > 0.0])
 			_talk_box.close()
+			print("POLIISI janttu kupla: %s" % vl.janttu._bubble.text)
+			print("POLIISI janttu hereillä-tarjous: %s" % _talk_janttu("janttu_kalja")[0])
+			vl.janttu.awake_t = 0.0
+			beers += 1
+			print("POLIISI janttu vihje: %s" % _talk_janttu("janttu_kalja")[0])
 			await snap.call("janttu_hereilla", jp + jf * 2.4 + Vector3(0.3, 1.4, 0), jp + Vector3(0, 0.7, 0))
+			vl.janttu.awake_t = 0.3  # kupla haihtuu ja uni palaa
+			vl.janttu._bubble_t = 0.3
+			for i in 60:
+				await get_tree().process_frame
+			print("POLIISI janttu uni: kupla '%s', Zzz %s" % [vl.janttu._bubble.text, vl.janttu._zzz.visible])
+			await snap.call("janttu_uni", jp + jf * 2.4 + Vector3(0.3, 1.4, 0), jp + Vector3(0, 0.7, 0))
 		"mirkku_loppu":
 			# Mirkun teltassa: teltta päivällä laavun vieressä, kukkakimppu Mirkulle illalla (vaihtoehto harmaana
 			# päivällä) ja loppukohtaus: nuotio, sitten teltan ovi kiinni ja lyhty (hero shot). Kuvat _mloppu_*.
