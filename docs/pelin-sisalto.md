@@ -465,7 +465,16 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     90-luvun biiseistä: se alkaa heti, ja diskopuolelta haetaan pari (testi `--scene=lavatoiveet`). Tanssien
     aikaan humppa kuuluu pihalle, salissa tanssitaan ja seinien penkeillä istutaan, ja pihalla on grillikioski
     jonoineen ja tupakkapaikka. Lavan ympärillä kasvaa koivikkoa ja katajaa paljaan niityn sijaan. Pelissä lava on
-    todellista (1 500 m²) vähän pienempi. Oulujärvi jatkuu niemeltä kaakkoon kartan reunaan asti.
+    todellista (1 500 m²) vähän pienempi. Oulujärvi jatkuu niemeltä kaakkoon kartan reunaan asti. Oulujoen suun itärannalla on Vaalan satama (todellinen Venesatama, Sahanranta): pitkä pääsiltalaituri T-päällä ja sormilaituri,
+    rantakivetys, sorapihan parkki (Sahanrannantie-sorapätkä) ja kyltti "VAALAN SATAMA". Laiturilla on punavalkoinen muskelivene ja
+    kaksi soutuvenettä. Pelin ranta poikkeaa todellisesta, joten satama on haettu pelin rantaviivasta lähimpään sopivaan
+    kohtaan (n. 140 m todellisesta): asemalta se on pelissä etelässä n. 600 m, oikeasti etelässä n. 700 m
+    (`tools/vaala_satama.py`, asemaa ei siirretty). Satama näkyy paperikartalla ankkurina ja minikartalla V-merkkinä.
+    **Muskelivene:** E laiturin juuressa ("Muskeliveneellä Oulujärvelle") ajaa veneen vesille: W/S kaasu (huippu n. 60 km/h,
+    selvästi soutuvenettä nopeampi), A/D ohjaus, moottoriääni, keulan nousu, vanavesi, roiskeet ja kallistus käännöksessä.
+    Vene pysyy vedessä (ei läpi rannasta, laitureista tai lavan aidasta) ja pysähtyy kartan reunalle kaakossa. Mopo jää
+    parkkiin, tilat ja kello kulkevat kuten muuten, humala heiluttaa ohjausta. E laiturin vieressä hiljaa palaa laiturin
+    kärkeen (ensimmäisellä kerralla kokemus, kerran päivässä stressi -0,1). Testi `--scene=satama`.
   - **Juhannus ja Kesäillan valssi:** juhannusaattona (perjantai) lavan niemen rannassa aidan ulkopuolella palaa
     juhannuskokko klo 21–03 juhlaväen keskellä (E: moraali ja mielihyvä). Lavalla soittaa isompi Vaalan Tähtiorkesteri
     (valkoiset takit, trumpetti ja taustalaulajat), koivunoksat koristavat lavaa, ja tanssilattia on tupaten täynnä.

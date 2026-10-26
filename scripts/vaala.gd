@@ -22,6 +22,7 @@ const Makasiini := preload("res://scripts/makasiini.gd")
 const Looks := preload("res://scripts/looks.gd")
 const HumppaBand := preload("res://scripts/humppa_band.gd")
 const Janttu := preload("res://scripts/janttu.gd")
+const Muskelivene := preload("res://scripts/muskelivene.gd")
 ## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
 ## mökin omilla rakennusfunktioilla (mokki.gd ladataan ajonaikaisesti: mokki.gd -> mopo.gd -> vaala.gd).
 const MOKKI_PATH := "res://scripts/mokki.gd"
@@ -385,6 +386,19 @@ func _build_drive_mask_calc() -> void:
 		for k in lr.size() - 1:
 			_drive_seg(Vector2(lr[k][0], lr[k][1]), Vector2(lr[k + 1][0], lr[k + 1][1]), 3.5)
 		_drive_ellipse(Vector2(lava_door.x, lava_door.z), 9.0, 9.0)
+	if data.has("satama"):
+		# Sataman parkki ja laiturin juuri (ovi "satama"): suorakaide parkin takaosasta laiturin juureen, sora.
+		var sd: Dictionary = data.satama
+		var sdir := Vector2(sd.dir[0], sd.dir[1])
+		var ss := Vector2(sdir.y, -sdir.x)
+		var sc := Vector2(sd.park[0], sd.park[1])
+		var s0 := sc - sdir * float(sd.park_r[1])
+		var s1 := Vector2(sd.x, sd.z) + sdir * 1.0
+		var sw := float(sd.park_r[0]) * 0.8
+		_surf_val = 1
+		_drive_poly(PackedVector2Array([s0 - ss * sw, s0 + ss * sw, s1 + ss * 1.6, s1 - ss * 1.6]), 0.0)
+		_drive_ellipse(sc, float(sd.park_r[0]), float(sd.park_r[1]))
+		_surf_val = 0
 	# Järviseudun tiet: Nuojuankoskentie Ranta-Rosvolle ja Salmiselle, soratie laavun ja tynnyrisaunan pihaan.
 	var nbox := Rect2()
 	for r in north_roads:
@@ -607,7 +621,7 @@ func ensure_built() -> void:
 	var times: Array[String] = []
 	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
 			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_station, _build_poliisi, _build_signs,
-			_build_trees, _build_lamps, _build_atm, _build_lava, _build_mokki_yard, _build_north, _build_drive_mask,
+			_build_trees, _build_lamps, _build_atm, _build_lava, _build_satama, _build_mokki_yard, _build_north, _build_drive_mask,
 			_build_lava_grounds, _merge_static_meshes]:
 		var ts := Time.get_ticks_msec()
 		step.call()
@@ -1761,6 +1775,315 @@ func _fence_run(st: SurfaceTool, body: StaticBody3D, a: Vector2, b: Vector2, pos
 func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
 	for v in [a, b, c, a, c, d]:
 		st.add_vertex(v)
+
+
+# --- Vaalan satama (Venesatama, tools/vaala_satama.py) -----------------------------------------------------------
+
+const SATAMA_DECK := 0.7     # laiturin kansi vedenpinnan yläpuolella
+const SATAMA_PIER_W := 2.2
+const SATAMA_HEAD := Vector2(7.0, 2.4)  # T-pään leveys ja syvyys
+const SATAMA_FINGER := Vector2(5.0, 1.4)  # sormilaituri: pituus sivuun, leveys
+const SATAMA_BOAT_X := 2.6   # muskelivene laiturin kyljessä (laiturin keskiviivalta)
+var satama_door := Vector3.ZERO  # laiturin juuri kannella (ovi "satama")
+var satama_dock := Vector3.ZERO  # laiturin kärki kannen tasolla
+var satama_dir := Vector2.ZERO   # laiturilta järvelle
+var satama_park := Vector3.ZERO  # parkkipaikan keskus
+var satama_boat: Node3D          # parkissa oleva muskelivene (main.gd piilottaa ajon ajaksi)
+var satama_boat_tf := Transform3D.IDENTITY  # veneen paikka parkissa (Vaalan kehyksessä)
+var _sat_xf := Transform3D.IDENTITY  # laiturin kehys: origo juurella kannen korkeudella, +Z järvelle, +X sivulle
+
+
+## Vedenpinnan korkeus kohdassa: lähimmän vesiruudun pohja + 1,2 (kuten _build_water), muuten järven taso.
+func water_y(x: float, z: float) -> float:
+	var i0 := int(roundf((x - _x0) / _cell))
+	var j0 := int(roundf((z - _z0) / _cell))
+	for r in 6:
+		for dj in range(-r, r + 1):
+			for di in range(-r, r + 1):
+				if maxi(absi(di), absi(dj)) != r:
+					continue
+				var i := i0 + di
+				var j := j0 + dj
+				if i >= 0 and j >= 0 and i < _nx and j < _nz and _codes[j * _nx + i] == WATER:
+					return _h[j * _nx + i] + 1.2
+	return water_level
+
+
+## Sataman laiturien ja moottoriveneen (T-pää, sormilaituri) suorakaiteet laiturin kehyksessä [x0, z0, x1, z1].
+func _sat_rects() -> Array:
+	var sd: Dictionary = data.satama
+	var dl: float = sd.dock_len
+	return [Rect2(-SATAMA_PIER_W / 2.0, -0.5, SATAMA_PIER_W, dl + 0.5),
+		Rect2(-SATAMA_HEAD.x / 2.0, dl - SATAMA_HEAD.y / 2.0, SATAMA_HEAD.x, SATAMA_HEAD.y),
+		Rect2(SATAMA_PIER_W / 2.0, dl - 10.1, SATAMA_FINGER.x, SATAMA_FINGER.y)]
+
+
+## Voiko vene olla kohdassa (x, z): vedessä, avovedessä (ei rannan vieressä), ei laiturien, lavan aidan eikä sillan
+## kohdalla, ja yhteydessä satamaan (maski lasketaan kerran, _boat_mask). Tarkan ruudukon ulkopuoli on aina false.
+func boat_free(x: float, z: float) -> bool:
+	if not data.has("satama"):
+		return false
+	var m: PackedByteArray = _boat_mask()
+	var i := int(roundf((x - _x0) / _cell))
+	var j := int(roundf((z - _z0) / _cell))
+	if i < 0 or j < 0 or i >= _nx or j >= _nz or m[j * _nx + i] == 0:
+		return false
+	var sd: Dictionary = data.satama
+	var d := Vector2(sd.dir[0], sd.dir[1])
+	var rel := Vector2(x - sd.x, z - sd.z)
+	var lp := Vector2(rel.dot(Vector2(d.y, -d.x)), rel.dot(d))  # laiturin kehys: x sivulle, y järvelle
+	for r: Rect2 in _sat_rects():
+		if r.grow(0.2).has_point(lp):
+			return false
+	return true
+
+
+## Veneen alue: vesiruudut, joihin pääsee laiturilta 4-naapuruudun täytöllä, kun rannan ja kaikkien ei-vesiruutujen
+## viereiset ruudut, lavan aidan (3 m) ja Oulujoen sillan (20 m) ympäristö on jätetty pois.
+func _boat_mask() -> PackedByteArray:
+	if _memo.has("boat"):
+		return _memo.boat
+	var sd: Dictionary = data.satama
+	var near := PackedByteArray()
+	near.resize(_nx * _nz)
+	var blocked := PackedByteArray()
+	blocked.resize(_nx * _nz)
+	var fence: Array = data.get("lava", {}).get("fence", [])
+	for k in fence.size() - 1:
+		var a := Vector2(fence[k][0], fence[k][1])
+		var b := Vector2(fence[k + 1][0], fence[k + 1][1])
+		var steps := ceili(a.distance_to(b) / 2.0)
+		for s in steps + 1:
+			_sat_block(blocked, a.lerp(b, float(s) / steps), 3.0 + _cell * 0.5)
+	for br in data.bridges:
+		for q in range(int(br[0]), int(br[1]) + 1):
+			_sat_block(blocked, Vector2(road[q][0], road[q][2]), 20.0)
+	var mask := PackedByteArray()
+	mask.resize(_nx * _nz)
+	var d := Vector2(sd.dir[0], sd.dir[1])
+	var tip := Vector2(sd.x, sd.z) + d * (float(sd.dock_len) + 3.0)
+	var start := Vector2i(int(roundf((tip.x - _x0) / _cell)), int(roundf((tip.y - _z0) / _cell)))
+	var stack: Array[Vector2i] = [start]
+	var ok := func(i: int, j: int) -> bool:
+		if i < 1 or j < 1 or i >= _nx - 1 or j >= _nz - 1:
+			return false
+		for dj in [-1, 0, 1]:
+			for di in [-1, 0, 1]:
+				if _codes[(j + dj) * _nx + i + di] != WATER:
+					return false
+		return blocked[j * _nx + i] == 0
+	var count := 0
+	var edge := false
+	while not stack.is_empty():
+		var c: Vector2i = stack.pop_back()
+		var q := c.y * _nx + c.x
+		if mask[q] != 0 or not ok.call(c.x, c.y):
+			continue
+		mask[q] = 1
+		count += 1
+		if c.x >= _nx - 3 or c.y >= _nz - 3:
+			edge = true
+		stack.append_array([Vector2i(c.x + 1, c.y), Vector2i(c.x - 1, c.y), Vector2i(c.x, c.y + 1), Vector2i(c.x, c.y - 1)])
+	print("VAALA venemaski %d ruutua, saavuttaa tarkan alueen kaakkoisreunan: %s" % [count, edge])
+	_memo.boat = mask
+	return mask
+
+
+func _sat_block(blocked: PackedByteArray, p: Vector2, r: float) -> void:
+	var rc := ceili(r / _cell)
+	var i0 := int(roundf((p.x - _x0) / _cell))
+	var j0 := int(roundf((p.y - _z0) / _cell))
+	for j in range(maxi(j0 - rc, 0), mini(j0 + rc, _nz - 1) + 1):
+		for i in range(maxi(i0 - rc, 0), mini(i0 + rc, _nx - 1) + 1):
+			if Vector2(_x0 + i * _cell, _z0 + j * _cell).distance_to(p) <= r:
+				blocked[j * _nx + i] = 1
+
+
+## Satama: pääsiltalaituri T-päällä ja sormilaituri (pukit pohjaan, kansi vedenpinnan yläpuolella), rantakivetys,
+## pollarit, kaksi soutuvenettä, muskelivene laiturin kyljessä, sorapihan parkki, auto ja kyltti. Ovi "satama"
+## laiturin juuressa: E käynnistää ajon (main.gd).
+func _build_satama() -> void:
+	if not data.has("satama"):
+		return
+	var sd: Dictionary = data.satama
+	var d := Vector2(sd.dir[0], sd.dir[1])
+	var side := Vector2(d.y, -d.x)  # laiturin +X
+	var dl: float = sd.dock_len
+	var root := Vector2(sd.x, sd.z)
+	var wy := water_y(root.x + d.x * dl, root.y + d.y * dl)
+	var dy := wy + SATAMA_DECK
+	var yaw := atan2(d.x, d.y)
+	_sat_xf = Transform3D(Basis(Vector3.UP, yaw), Vector3(root.x, dy, root.y))
+	satama_dir = d
+	satama_door = _sat_xf * Vector3(0, 0, 2.0)
+	satama_dock = _sat_xf * Vector3(0, 0, dl)
+	var wood := Color(0.6, 0.45, 0.3)
+	var dark := Color(0.33, 0.24, 0.16)
+	var pile_c := Color(0.27, 0.2, 0.14)
+	var dock := StaticBody3D.new()
+	dock.set_meta("ground", true)
+	dock.transform = _sat_xf
+	add_child(dock)
+	var pw := SATAMA_PIER_W
+	# Pääsilta: kansilaudat poikittain (saumat), reunapalkit ja alapalkit.
+	B.mesh(dock, B.boxm(Vector3(pw, 0.1, dl)), Vector3(0, -0.05, dl / 2.0), wood)
+	var hd := SATAMA_HEAD
+	B.mesh(dock, B.boxm(Vector3(hd.x, 0.1, hd.y)), Vector3(0, -0.05, dl), wood)
+	var fg := SATAMA_FINGER
+	var fz := dl - 9.4
+	B.mesh(dock, B.boxm(Vector3(fg.x, 0.1, fg.y)), Vector3(pw / 2.0 + fg.x / 2.0, -0.05, fz), wood.darkened(0.06))
+	for k in int(dl / 0.8):
+		B.mesh(dock, B.boxm(Vector3(pw, 0.012, 0.025)), Vector3(0, 0.002, 0.4 + k * 0.8), dark)
+	for k in int(hd.y / 0.8):
+		B.mesh(dock, B.boxm(Vector3(hd.x, 0.012, 0.025)), Vector3(0, 0.002, dl - hd.y / 2.0 + 0.4 + k * 0.8), dark)
+	for k in int(fg.x / 0.8):
+		B.mesh(dock, B.boxm(Vector3(0.025, 0.012, fg.y)), Vector3(pw / 2.0 + 0.4 + k * 0.8, 0.002, fz), dark)
+	for sx in [-1.0, 1.0]:
+		B.mesh(dock, B.boxm(Vector3(0.14, 0.2, dl)), Vector3(sx * (pw / 2.0 - 0.07), -0.2, dl / 2.0), dark)
+	B.mesh(dock, B.boxm(Vector3(hd.x, 0.2, 0.14)), Vector3(0, -0.2, dl + hd.y / 2.0 - 0.07), dark)
+	B.mesh(dock, B.boxm(Vector3(0.14, 0.2, fg.x)), Vector3(pw / 2.0 + fg.x / 2.0, -0.2, fz + fg.y / 2.0 - 0.07), dark).rotation.y = PI / 2.0
+	# Törmäys kansille.
+	dock.add_child(B.box_shape(Vector3(pw, 0.3, dl), Vector3(0, -0.15, dl / 2.0)))
+	dock.add_child(B.box_shape(Vector3(hd.x, 0.3, hd.y), Vector3(0, -0.15, dl)))
+	dock.add_child(B.box_shape(Vector3(fg.x, 0.3, fg.y), Vector3(pw / 2.0 + fg.x / 2.0, -0.15, fz)))
+	# Luiska rannasta kannelle (maa on kantta korkeammalla).
+	var rise := maxf(h(root.x, root.y) - dy, 0.0) + 0.06
+	var run := maxf(1.4, rise * 2.2)
+	var ramp := B.box_shape(Vector3(pw, 0.1, Vector2(run, rise).length()), Vector3.ZERO)
+	ramp.transform = Transform3D(Basis(Vector3.RIGHT, atan2(rise, run)), Vector3(0, -0.05 + rise / 2.0, -run / 2.0))
+	dock.add_child(ramp)
+	B.mesh(dock, B.boxm(Vector3(pw, 0.08, Vector2(run, rise).length())), Vector3(0, -0.05 + rise / 2.0 - 0.03, -run / 2.0), wood.darkened(0.1)).rotation.x = atan2(rise, run)
+	# Pukit pohjaan (pohjan korkeus h() kunkin pukin kohdalla); rannalla maan sisään jäävät jätetään pois.
+	var piles: Array[Vector3] = []
+	for k in int(dl / 2.4) + 1:
+		for sx in [-1.0, 1.0]:
+			piles.append(Vector3(sx * (pw / 2.0 - 0.1), 0, minf(1.6 + k * 2.4, dl)))
+	for sx in [-1.0, 1.0]:
+		piles.append(Vector3(sx * (hd.x / 2.0 - 0.15), 0, dl + hd.y / 2.0 - 0.15))
+		piles.append(Vector3(sx * (hd.x / 2.0 - 0.15), 0, dl - hd.y / 2.0 + 0.15))
+	for k in 3:
+		piles.append(Vector3(pw / 2.0 + 1.2 + k * 2.0, 0, fz + fg.y / 2.0 - 0.1))
+		piles.append(Vector3(pw / 2.0 + 1.2 + k * 2.0, 0, fz - fg.y / 2.0 + 0.1))
+	for pl in piles:
+		var gp := _sat_xf * pl
+		var bottom := h(gp.x, gp.z)
+		if bottom > dy - 0.4:
+			continue
+		var top := 0.3 if int(pl.z * 10.0) % 3 == 0 else -0.02
+		var ph := top - (bottom - dy) + 0.1
+		B.mesh(dock, B.cyl(0.1, 0.1, ph, 8), Vector3(pl.x, top - ph / 2.0, pl.z), pile_c)
+	# Pollarit pääsillan reunoilla ja T-pään kulmissa.
+	var bollards: Array[Vector3] = []
+	for k in 4:
+		for sx in [-1.0, 1.0]:
+			bollards.append(Vector3(sx * (pw / 2.0 - 0.18), 0.0, 3.0 + k * 3.2))
+	for sx in [-1.0, 1.0]:
+		bollards.append(Vector3(sx * (hd.x / 2.0 - 0.3), 0.0, dl + hd.y / 2.0 - 0.25))
+	for bp in bollards:
+		B.mesh(dock, B.cyl(0.09, 0.11, 0.34, 10), bp + Vector3(0, 0.17, 0), Color(0.12, 0.2, 0.16))
+		B.mesh(dock, B.cyl(0.13, 0.13, 0.06, 10), bp + Vector3(0, 0.36, 0), Color(0.16, 0.26, 0.2))
+	# Lyhty T-päässä.
+	B.mesh(dock, B.cyl(0.05, 0.06, 2.6, 8), Vector3(hd.x / 2.0 - 0.4, 1.3, dl + 0.2), Color(0.18, 0.18, 0.2))
+	B.mesh(dock, B.boxm(Vector3(0.26, 0.3, 0.26)), Vector3(hd.x / 2.0 - 0.4, 2.7, dl + 0.2), Color(1.0, 0.92, 0.6))
+	B.mesh(dock, B.boxm(Vector3(0.36, 0.06, 0.36)), Vector3(hd.x / 2.0 - 0.4, 2.89, dl + 0.2), Color(0.18, 0.18, 0.2))
+	# Soutuveneet pääsillan toisella kyljellä köysissä pollareihin.
+	var fish: Script = load("res://scripts/fish_game.gd")
+	for k in 2:
+		var bz := dl - 4.5 - k * 4.2
+		var rb := Node3D.new()
+		rb.transform = _sat_xf * Transform3D(Basis(Vector3.UP, PI + (0.06 if k == 0 else -0.05)), Vector3(-2.0, wy - dy, bz))
+		add_child(rb)
+		fish.build_boat(rb, true)
+		B.tube(dock, Vector3(-pw / 2.0 + 0.18, 0.3, 3.0 + 3.2 * (2 - k) - 0.1), Vector3(-1.45, wy - dy + 0.35, bz + 0.6), 0.02, Color(0.75, 0.68, 0.5))
+	# Muskelivene pääsillan kyljessä (peräpää sormilaituria vasten); main.gd käyttää satama_boat_tf:ää ajon alkuun ja loppuun.
+	satama_boat_tf = _sat_xf * Transform3D(Basis(Vector3.UP, PI), Vector3(SATAMA_BOAT_X, wy - dy, dl - 4.9))
+	satama_boat = Node3D.new()
+	add_child(satama_boat)
+	satama_boat.transform = satama_boat_tf
+	Muskelivene.build(satama_boat)
+	for bz in [dl - 7.0, dl - 3.5]:
+		B.tube(dock, Vector3(pw / 2.0 - 0.18, 0.3, 3.0 + 3.2 * floorf((bz - 3.0) / 3.2)), Vector3(1.45, wy - dy + 0.9, bz), 0.02, Color(0.9, 0.9, 0.85))
+	_sat_shore(d, root, wy)
+	_sat_park(sd, d, side, yaw)
+	# Kyltti kahdella tolpalla pihan ja laiturin rajalla.
+	var sp := root - d * 4.0 + side * 5.6
+	var sy := h(sp.x, sp.y)
+	var plate := B.sign_plate(self, "VAALAN SATAMA\nSahanranta · Vierasvenepaikat", Color(0.1, 0.3, 0.5), Color(0.97, 0.97, 0.92), 0.34, 52, Color(0.95, 0.95, 0.9))
+	var pwid: float = plate.get_meta("width")
+	plate.position = Vector3(sp.x, sy + 2.3, sp.y)
+	plate.rotation.y = yaw
+	for sx in [-1.0, 1.0]:
+		var pp: Vector2 = sp + side * sx * (pwid / 2.0 + 0.06)
+		B.mesh(self, B.cyl(0.05, 0.06, 2.7, 8), Vector3(pp.x, h(pp.x, pp.y) + 1.35, pp.y), Color(0.3, 0.22, 0.15))
+	doors.append({"id": "satama", "pos": satama_door, "out": Vector3(-d.x, 0, -d.y), "r": dl * 0.8, "walk": true,
+		"text": "Muskeliveneellä Oulujärvelle"})
+
+
+## Rantakivetys: kiviä vesirajan kuivilla reunaruuduilla laiturin molemmin puolin (ei laiturin kohdalle).
+func _sat_shore(d: Vector2, root: Vector2, wy: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7117
+	var grey: Array[Transform3D] = []
+	var warm: Array[Transform3D] = []
+	var ci := int(roundf((root.x - _x0) / _cell))
+	var cj := int(roundf((root.y - _z0) / _cell))
+	var span := 14
+	for j in range(cj - span, cj + span + 1):
+		for i in range(ci - span, ci + span + 1):
+			if i < 1 or j < 1 or i >= _nx - 1 or j >= _nz - 1 or _codes[j * _nx + i] == WATER:
+				continue
+			var toward := Vector2.ZERO
+			for dj in [-1, 0, 1]:
+				for di in [-1, 0, 1]:
+					if _codes[(j + dj) * _nx + i + di] == WATER:
+						toward += Vector2(di, dj)
+			if toward == Vector2.ZERO:
+				continue
+			toward = toward.normalized()
+			var c := Vector2(_x0 + i * _cell, _z0 + j * _cell)
+			for n in 3:
+				var p := c + toward * (_cell * 0.5 + rng.randf_range(-0.4, 1.2)) + Vector2(rng.randf_range(-1.8, 1.8), rng.randf_range(-1.8, 1.8))
+				var rel := p - root
+				if absf(rel.dot(Vector2(d.y, -d.x))) < 2.6 and rel.dot(d) > -2.0 and rel.dot(d) < 20.0:
+					continue
+				var sc := rng.randf_range(0.35, 0.8)
+				var y := maxf(h(p.x, p.y), wy) + 0.02
+				var bs := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(sc * rng.randf_range(1.0, 1.5), sc * 0.55, sc * rng.randf_range(0.9, 1.3)))
+				(grey if rng.randf() < 0.6 else warm).append(Transform3D(bs, Vector3(p.x, y, p.y)))
+	_multimesh(B.sphere(1.0, 8), grey, Color(0.5, 0.5, 0.5))
+	_multimesh(B.sphere(1.0, 8), warm, Color(0.43, 0.38, 0.33))
+
+
+## Sorapihan parkki (tasainen, tools/vaala_satama.py tasoittaa), auto ja pihan reunakivet.
+func _sat_park(sd: Dictionary, d: Vector2, side: Vector2, yaw: float) -> void:
+	var pc := Vector2(sd.park[0], sd.park[1])
+	var pr := Vector2(sd.park_r[0], sd.park_r[1])
+	var py := h(pc.x, pc.y)
+	satama_park = Vector3(pc.x, py, pc.y)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	var n := 24
+	for k in n:
+		var a0 := TAU * k / n
+		var a1 := TAU * (k + 1) / n
+		var p0 := pc + side * cos(a0) * pr.x * 0.97 + d * sin(a0) * pr.y * 0.97
+		var p1 := pc + side * cos(a1) * pr.x * 0.97 + d * sin(a1) * pr.y * 0.97
+		for p in [pc, p0, p1]:
+			st.add_vertex(Vector3(p.x, py + 0.035, p.y))
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = B.mat(Color(0.62, 0.58, 0.5))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	var car_p := pc + side * (pr.x * 0.62) - d * 1.0
+	B.parked_car(self, Vector3(car_p.x, py, car_p.y), rad_to_deg(yaw) + 90.0, Color(0.22, 0.36, 0.5))
+	# Pyöreitä reunakiviä parkin rannan puolella.
+	for k in 7:
+		var q := pc + side * (-pr.x * 0.9 + k * pr.x * 0.3) + d * pr.y * 1.02
+		if wet(q.x, q.y, 0.3):
+			continue
+		B.mesh(self, B.sphere(0.28, 8), Vector3(q.x, h(q.x, q.y) + 0.05, q.y), Color(0.5, 0.5, 0.52)).scale = Vector3(1.2, 0.8, 1.0)
 
 
 ## Oulujoen silta: betonikansi, reunapalkit, kaiteet ja pilarit veteen; törmäys kannelle ja kaiteille.

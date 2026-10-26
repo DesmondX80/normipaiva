@@ -541,7 +541,8 @@ func _legend_vaala(p: Vector2) -> float:
 		["zabuki", "Zabuki (olut, burgerit)"], ["gasthaus", "Gasthaus (yö 10 €)"],
 		["atm", "Pankkiautomaatti"], ["lava", "Oulujärven lava"], ["church", "Kirkko"], ["station", "Rautatieasema"],
 		["beach", "Salmisen uimaranta"], ["statue", "Ranta-Rosvo"], ["laavu", "Keskimmäisen laavu"],
-		["barrel", "Tynnyrisauna"], ["dock", "Laituri ja soutuvene"], ["you", "Olet tässä"],
+		["barrel", "Tynnyrisauna"], ["dock", "Laituri ja soutuvene"], ["harbor", "Vaalan satama (muskelivene)"],
+		["you", "Olet tässä"],
 		["road", "Maantie"], ["gravel", "Soratie"], ["rail", "Rautatie"], ["field", "Pelto"], ["bog", "Suo"],
 		["water", "Vesi"], ["building", "Rakennus"],
 	]
@@ -936,6 +937,8 @@ func _vaala_load() -> void:
 		["Siitari", Vector2(_vd.siitari[0], _vd.siitari[1]), "siitari", true]]
 	if _vd.has("lava"):
 		_vpois.append(["Oulujärven lava", Vector2(_vd.lava.x, _vd.lava.z), "lava", true])
+	if _vd.has("satama"):
+		_vpois.append(["Satama", Vector2(_vd.satama.x, _vd.satama.z), "harbor", true])
 	for bd in _vd.buildings:
 		var nm: String = bd.name
 		if nm == "" and bd.type != "train_station" and int(bd.id) != GASTHAUS_ID:
@@ -1034,6 +1037,14 @@ func _draw_vaala_map() -> void:
 		for q in br.pts:
 			pts.append(_vpx(Vector2(q[0], q[2])))
 		v.draw_polyline(pts, Color(0.62, 0.52, 0.36) if br.gravel else INK.lightened(0.15), wz.call(br.hw, 1.6, 6.0))
+	if _vd.has("satama"):
+		# Sataman laiturit viivoina: pääsilta ja T-pää.
+		var sdr := Vector2(_vd.satama.dir[0], _vd.satama.dir[1])
+		var s0 := Vector2(_vd.satama.x, _vd.satama.z)
+		var s1 := s0 + sdr * float(_vd.satama.dock_len)
+		v.draw_line(_vpx(s0), _vpx(s1), Color(0.5, 0.38, 0.24), wz.call(2.2, 1.6, 6.0))
+		var sside := Vector2(sdr.y, -sdr.x) * 3.5
+		v.draw_line(_vpx(s1 - sside), _vpx(s1 + sside), Color(0.5, 0.38, 0.24), wz.call(2.2, 1.6, 6.0))
 	if _vd.has("lava") and _vd.lava.road.size() >= 2:
 		# Asfaltoitu ajotie Pahalahdentieltä ja aita joelta Pahalahteen (portti tiellä).
 		var lp := PackedVector2Array()
@@ -1342,6 +1353,12 @@ func _poi_icon_on(ci: CanvasItem, p: Vector2, kind: String) -> void:
 			ci.draw_line(p + Vector2(-8, -2), p + Vector2(4, -2), Color(0.5, 0.38, 0.24), 4.0)
 			# Soutuvene laiturin kyljessä.
 			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-6, 3), p + Vector2(6, 3), p + Vector2(4, 7), p + Vector2(-4, 7)]), Color(0.75, 0.2, 0.12))
+		"harbor":
+			# Ankkuri: varsi, poikkipuu, renkaat ja kaareva pohja.
+			ci.draw_line(p + Vector2(0, -7), p + Vector2(0, 6), INK, 2.0)
+			ci.draw_line(p + Vector2(-4, -3), p + Vector2(4, -3), INK, 2.0)
+			ci.draw_arc(p + Vector2(0, 0), 7.0, deg_to_rad(20), deg_to_rad(160), 12, INK, 2.0)
+			ci.draw_arc(p + Vector2(0, -8), 2.0, 0.0, TAU, 10, INK, 1.5)
 		"barrel":
 			# Tynnyrisauna kyljellään vaunun päällä, piippu.
 			ci.draw_rect(Rect2(p + Vector2(-9, -5), Vector2(18, 10)), Color(0.55, 0.36, 0.2))

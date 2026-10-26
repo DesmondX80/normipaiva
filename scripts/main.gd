@@ -155,6 +155,7 @@ const SIITARI_LINES := ["Baarimikko: \"Mopolla Paapelista? Sieltä se Santtukin 
 const HuntGame := preload("res://scripts/hunt_game.gd")
 const DartsGame := preload("res://scripts/darts_game.gd")
 const FishGame := preload("res://scripts/fish_game.gd")
+const Muskelivene := preload("res://scripts/muskelivene.gd")
 const LaavuGuard := preload("res://scripts/laavu_guard.gd")
 const PaperMap := preload("res://scripts/paper_map.gd")
 const Villager := preload("res://scripts/villager.gd")
@@ -14151,6 +14152,33 @@ func _start_fishing_vaala() -> void:
 	fr.add_child(game)
 
 
+## Sataman muskelivene (muskelivene.gd): ajelu Oulujärvellä. Mopo jää parkkiin, HUD (tilat) pysyy näkyvissä ja
+## kävelijä palaa laiturin kärkeen. Paikkaa ei tallenneta veneestä (tallennus pitää Saloisten paikan).
+func _start_boat_vaala() -> void:
+	var vl: Node3D = mopo_trip.vaala
+	_act_begin("minigame")
+	_hud.visible = true
+	var parked: Node3D = vl.satama_boat
+	parked.visible = false
+	var game := Muskelivene.new()
+	game.vaala = vl
+	game.drunk = _hand_shake()
+	game.start = vl.satama_boat_tf
+	game.finished.connect(func(_pos: Vector3) -> void:
+		parked.visible = true
+		walker_out.global_position = vl.to_global(vl.satama_dock + Vector3(0, 0.6, 0))
+		walker_out.velocity = Vector3.ZERO
+		game.queue_free()
+		_act_end()
+		tilat.first("muskelivene", 0.3)
+		if _once_today("muskelivene"):
+			tilat.add("stressi", -0.1))
+	vl.add_child(game)
+	_minimap.player = game.get_child(0)
+	_paper.player = game.get_child(0)
+	_compass.player = game.get_child(0)
+
+
 ## Viinakätkön avaus (Mokki.VIINA[i]): pullo reppuun ja nimi lokikirjaan.
 func _open_viina(i: int) -> void:
 	var c: Dictionary = Mokki.VIINA[i]
@@ -14773,6 +14801,8 @@ func _on_vaala_door(id: String) -> void:
 			_laavu_rest()
 		"kalastus":
 			_start_fishing_vaala()
+		"satama":
+			_start_boat_vaala()
 		"salminen":
 			_swim("Salminen", Vector3.ZERO)
 		"viski":
@@ -22967,6 +22997,185 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "%s.png" % v[0]))
+			get_tree().quit()
+		"satama":
+			# Mopolla satamaan, E laiturilla, autopilotti ajaa veneen kaakkoon kartan reunaan ja takaisin laiturille.
+			# Lokiin törmäykset, huippunopeus, humala ja kello; kuvat _satama, _laituri, _kyltti, _vene_*, _ajo, _kaanne, _reuna, _kartta.
+			var saved_sat := FileAccess.get_file_as_bytes(SAVE_PATH)
+			tilat.add("humala", -1.0)
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var sdoor := Vector3.INF
+			for d in vl.doors:
+				if d.id == "satama":
+					sdoor = d.pos
+			if sdoor == Vector3.INF:
+				print("SATAMA: ei ovea")
+				get_tree().quit()
+				return
+			var shot := func(tag: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % tag))
+			var look := func(from: Vector3, to: Vector3, tag: String) -> void:
+				var rc := Camera3D.new()
+				add_child(rc)
+				rc.current = true
+				rc.look_at_from_position(vl.to_global(from), vl.to_global(to), Vector3.UP)
+				for i in 8:
+					await get_tree().process_frame
+				await shot.call(tag)
+				rc.queue_free()
+			var tf: Transform3D = vl.satama_boat_tf
+			var bp: Vector3 = tf.origin
+			var up := Vector3(0, 1, 0)
+			await look.call(vl.satama_park + Vector3(0, 40, 0) + vl.satama_dir.x * Vector3(1, 0, 0) * -30.0, bp, "satama")
+			await look.call(vl.satama_door + Vector3(vl.satama_dir.x, 0, vl.satama_dir.y) * -6.0 + Vector3(0, 3.5, 0), vl.satama_dock, "laituri")
+			await look.call(vl.satama_park + up * 2.0 + Vector3(vl.satama_dir.x, 0, vl.satama_dir.y) * -8.0, vl.satama_park + up * 2.4, "kyltti")
+			for v in [["sivu", Vector3(5.5, 1.8, 0)], ["pera", Vector3(0, 2.2, 6.5)], ["keula", Vector3(0, 2.0, -7.0)], ["yla", Vector3(0.1, 8.0, 0.1)]]:
+				await look.call(bp + tf.basis * (v[1] as Vector3), bp + up * 0.8, "vene_" + v[0])
+			var hum0: float = tilat.value("humala")
+			# Mopo laiturin juureen ja E.
+			if mopo_trip.on_foot != null:
+				walker_out.global_position = mopo_trip.to_global(sdoor + Vector3(1.5, 0.6, 0))
+			else:
+				mopo_trip.mopo.position = sdoor + Vector3(1.5, 0.8, 0)
+			if mopo_trip.on_foot == null:
+				_mopo_dismount()
+			for i in 20:
+				await get_tree().process_frame
+			print("SATAMA vihje '%s'" % mopo_trip.hint)
+			Input.action_press("interact")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			Input.action_release("interact")
+			await get_tree().create_timer(0.8).timeout
+			var game: Node = null
+			for c in vl.get_children():
+				if c is Muskelivene:
+					game = c
+			if game == null:
+				print("SATAMA: ajoa ei käynnistynyt, tila %s" % state)
+				get_tree().quit()
+				return
+			print("SATAMA ajossa: tila %s, hud %s, mopo parkissa" % [state, _hud.visible])
+			# Kohde: kaakkoon kauimpana oleva ruutu, jonne näkölinja on vapaa; valitaan uudelleen joka sekunti.
+			var best_far := 0.0
+			var bumps := 0
+			var peak := 0.0
+			var edge_hit := false
+			var stuck := 0.0
+			var last_p: Vector3 = game._pos
+			var phase := "ulos"
+			var trail: Array[Vector2] = []  # menoreitti: takaisin ajetaan samaa reittiä (ranta voi olla suoran välissä)
+			var t_all := 0.0
+			var back_until := 0.0
+			var shots_done := {}
+			while t_all < 240.0:
+				var gp: Vector3 = game._pos
+				var los := func(a: Vector2, b: Vector2) -> bool:
+					var n := int(a.distance_to(b) / 8.0) + 1
+					for i in range(1, n + 1):
+						var q := a.lerp(b, float(i) / n)
+						if not vl.boat_free(q.x, q.y):
+							return false
+					return true
+				var goal := Vector2.ZERO
+				if phase == "ulos" and t_all > 90.0:  # testin aikaraja: käännytään takaisin, jotta paluu ehtii
+					phase = "takaisin"
+				if phase == "ulos":
+					var sc := -INF
+					for a in 48:
+						var ang := TAU * a / 48.0
+						for dist in [60.0, 150.0, 300.0, 600.0, 1200.0]:
+							var q: Vector2 = Vector2(gp.x, gp.z) + Vector2(cos(ang), sin(ang)) * dist
+							if los.call(Vector2(gp.x, gp.z), q):
+								var s: float = (q - Vector2(bp.x, bp.z)).dot(Vector2(1, 1).normalized())
+								if s > sc:
+									sc = s
+									goal = q
+					best_far = maxf(best_far, Vector2(gp.x - bp.x, gp.z - bp.z).length())
+					if trail.is_empty() or Vector2(gp.x, gp.z).distance_to(trail[-1]) > 30.0:
+						trail.append(Vector2(gp.x, gp.z))
+					if goal == Vector2.ZERO or (goal - Vector2(gp.x, gp.z)).length() < 40.0:
+						edge_hit = true
+						await shot.call("reuna")
+						phase = "takaisin"
+				if phase == "takaisin":
+					while not trail.is_empty() and Vector2(gp.x, gp.z).distance_to(trail[-1]) < 25.0:
+						trail.pop_back()
+					goal = trail[-1] if not trail.is_empty() else Vector2(game.start.origin.x, game.start.origin.z)
+					if trail.is_empty() and Vector2(gp.x, gp.z).distance_to(Vector2(game.start.origin.x, game.start.origin.z)) < 4.5 and absf(game._speed) < 1.5:
+						Input.action_release("forward")
+						Input.action_release("left")
+						Input.action_release("right")
+						print("DBGS ennen E: tila %s speed %.2f near %s t %.1f" % [game._state, game._speed, game._near_dock(), game._t])
+						Input.action_press("interact")
+						await get_tree().create_timer(0.2).timeout  # kestää yli fysiikkatikin (is_just_pressed)
+						Input.action_release("interact")
+						break
+				var to := goal - Vector2(gp.x, gp.z)
+				var want := atan2(-to.x, -to.y)
+				var err := wrapf(want - game._yaw, -PI, PI)
+				Input.action_release("left")
+				Input.action_release("right")
+				if err > 0.08:
+					Input.action_press("left")
+				elif err < -0.08:
+					Input.action_press("right")
+				var dist_goal := to.length()
+				if t_all < back_until:  # reunasta peruutetaan ensin irti
+					Input.action_release("forward")
+					Input.action_press("back")
+					Input.action_press("left")
+					await get_tree().create_timer(0.25).timeout
+					t_all += 0.25
+					continue
+				if phase == "takaisin" and trail.is_empty() and dist_goal < 40.0 and absf(game._speed) > 3.0:
+					Input.action_release("forward")
+					Input.action_press("back")
+				elif absf(err) < 1.2 or absf(game._speed) < 3.0:  # paikallaan ei käännytä: kaasu ensin
+					Input.action_release("back")
+					Input.action_press("forward")
+				else:
+					Input.action_release("forward")
+				peak = maxf(peak, absf(game._speed))
+				if game._bump_cd > 0.55:
+					bumps += 1
+				stuck = stuck + 0.25 if (gp - last_p).length() < 0.3 else 0.0
+				last_p = gp
+				if stuck > 8.0 and phase == "ulos" and best_far > 300.0:
+					edge_hit = true  # kartan reuna: vene ei pääse pidemmälle, käännytään takaisin
+					await shot.call("reuna")
+					phase = "takaisin"
+					stuck = 0.0
+					back_until = t_all + 4.0
+				if stuck > 8.0:
+					print("SATAMA: jumissa kohdassa %s" % gp)
+					break
+				if peak > 12.0 and not shots_done.has("ajo") and absf(game._speed) > 12.0:
+					shots_done["ajo"] = true
+					await shot.call("ajo")
+				if absf(game._roll) > 0.12 and not shots_done.has("kaanne"):
+					shots_done["kaanne"] = true
+					await shot.call("kaanne")
+				if phase == "ulos" and not shots_done.has("kartta") and t_all > 6.0:
+					shots_done["kartta"] = true
+					await shot.call("minikartta")
+				await get_tree().create_timer(0.25).timeout
+				t_all += 0.25
+			for a in ["forward", "back", "left", "right"]:
+				Input.action_release(a)
+			await get_tree().create_timer(6.0 if phase == "takaisin" else 1.5).timeout  # laituriin liukuminen kestää
+			print("SATAMA ajo: %.0f s, huippu %.0f km/h, törmäyksiä %d, kauimmas %.0f m, reunakosketus %s, vaihe %s" % [t_all, peak * 3.6, bumps, best_far, edge_hit, phase])
+			print("SATAMA lopussa: tila %s, ajo vielä %s, humala %.2f -> %.2f, mopo %s, jalan %s" % [state, is_instance_valid(game) and game.is_inside_tree(), hum0, tilat.value("humala"), mopo_trip.mopo.position, mopo_trip.on_foot != null])
+			_save_game()
+			print("SATAMA tallennus ok, tila %s" % state)
+			await shot.call("loppu")
+			if not saved_sat.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_sat)
 			get_tree().quit()
 		"mokkijarvi_e":
 			# Mopomatkalla järviseudun E-kohteet: viskikätkö, tynnyrisauna, makkaranpaisto, uinti ja kalastus.

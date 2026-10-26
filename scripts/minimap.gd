@@ -218,6 +218,8 @@ func _draw_vaala() -> void:
 		marks.append([Vector2(vaala.station_door.x, vaala.station_door.z), Color(0.2, 0.4, 0.8), "J"])
 	if vaala.lava_door != Vector3.ZERO:
 		marks.append([Vector2(vaala.lava_door.x, vaala.lava_door.z), Color(0.6, 0.15, 0.1), "L"])
+	if vaala.satama_door != Vector3.ZERO:
+		marks.append([Vector2(vaala.satama_door.x, vaala.satama_door.z), Color(0.15, 0.35, 0.7), "V"])
 	if vaala._zabuki != Vector3.INF:
 		marks.append([Vector2(vaala._zabuki.x, vaala._zabuki.z), Color(0.95, 0.7, 0.15), "Z"])
 	marks.append([Vector2(vaala.mokki_mopo.x, vaala.mokki_mopo.z), Color(0.8, 0.15, 0.1), "P"])

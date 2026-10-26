@@ -38,6 +38,7 @@ import puut_teilta as PT  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import vaala_lava as VL  # noqa: E402
 import vaala_keskusta as VK  # noqa: E402
+import vaala_satama as VSA  # noqa: E402
 import vaala_silta_jarvi as VS  # noqa: E402
 import vaala_warp as VW  # noqa: E402
 from scipy import ndimage  # noqa: E402
@@ -1411,6 +1412,8 @@ def main():
     VS.apply()
     # K-Market Siitarin viereen, puut pois rakennuksista, parkeista ja teiltä.
     VK.apply()
+    # Vaalan satama (Venesatama) Oulujoen suun itärantaan: laituri, parkki ja sorapätkä.
+    VSA.apply()
     # Puut pois sivuteiltä, kaduilta, poluilta, radoilta ja parkkipaikoilta (tie.json on nyt valmis).
     PT.filter_vaala()
 

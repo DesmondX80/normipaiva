@@ -16,6 +16,12 @@
 | Hiiri | kamera (Esc vapauttaa hiiren valikkoon) |
 | Esc | valikko (myös päivän aloitus alusta); minipelissä Esc lopettaa pelin kuten F |
 
+| Muskeliveneessä (Vaalan satama) | |
+|---|---|
+| W / S | kaasu / peruutus (huippu n. 60 km/h) |
+| A / D | ohjaa |
+| E | nouse laiturille (aja ensin laiturin viereen ja hidasta) |
+
 | Sahauksessa | |
 |---|---|
 | Hiiri / E | merkkaa katkaisukohta ja aloita |
