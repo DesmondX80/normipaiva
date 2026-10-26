@@ -3035,6 +3035,8 @@ var station_t := 0.0  # laiturin kohta junan reitillä (train.nearest_t)
 var station_back := Vector3.ZERO  # odotussalin laiturin puoleisen oven edusta
 var station_board := Vector3.ZERO  # laiturilla junaan nousun kohta
 var cache_pos := Vector3.INF  # narkkarin rahakätkö radan varressa (odotussalin juopot kertovat paikan)
+var veturitalli_banner: Node3D = null
+var veturitalli_door := Vector3.ZERO
 var station_id: int = -1  # keskusta.asema.id: tämän rakennuksen paikalle asema (yleinen piirto ohittaa)
 
 
@@ -3115,6 +3117,7 @@ func _build_station() -> void:
 	var dout := Vector3(st.out[0], 0, st.out[1])
 	station_door = Vector3(dp.x, h(dp.x, dp.y), dp.y) + dout * 2.2
 	doors.append({"id": "asema", "pos": station_door, "out": dout, "hint": "asemalle (odotussali)"})
+	_build_veturitalli(c, along, -back, L, D)
 	station_back = root.transform * (sdoors.plat_door as Vector3)
 	# Laituri: betonilaatta reunaviivoineen, penkit ja valaisimet.
 	var ppts := PackedVector2Array()
@@ -3741,6 +3744,12 @@ func _build_kokko(c: Vector2, face: Vector2) -> void:
 
 
 ## Kokko näkyviin juhannuksena (pile) ja tuleen (lit).
+## Veturitallin elokuvapäivien banderolli näkyviin, kun Valentin Vaala -päivät ovat (main.gd _vvaala_paiva).
+func set_festari(on: bool) -> void:
+	if veturitalli_banner != null:
+		veturitalli_banner.visible = on
+
+
 func set_kokko(pile: bool, lit: bool) -> void:
 	if _kokko == null:
 		return
@@ -4883,3 +4892,50 @@ func _build_mokki_yard() -> void:
 	mokki_mopo = to_vaala.call(MokkiScript.MOPO_LOCAL)
 	mokki_mopo_yaw = PI * 0.9 + rot
 
+
+
+## Vaalan Veturitalli (#250 P14): punatiilinen vaja aseman päädyssä tien puolella. Paikallinen +Z = vajan etupuoli (tielle),
+## ovi etuseinässä. Harjakaton molemmat lappeet lasketaan samasta kaltevuudesta. Valentin Vaala -päivinä ovella banderolli.
+func _build_veturitalli(station_c: Vector2, along: Vector2, out2: Vector2, L: float, D: float) -> void:
+	var q := station_c + along.normalized() * (L / 2.0 + 11.0) + out2 * (D / 2.0 + 2.0)
+	var yaw := atan2(out2.x, out2.y)
+	var root := Node3D.new()
+	root.position = Vector3(q.x, h(q.x, q.y), q.y)
+	root.rotation.y = yaw
+	add_child(root)
+	var W := 12.0
+	var Dp := 8.0
+	var wall := 4.2
+	var brick := Color(0.55, 0.22, 0.16)
+	var body := B.box(root, Vector3(W, wall, Dp), Vector3(0, wall / 2.0, 0), brick)
+	body.name = "Veturitalli"
+	# Katto: kaltevuus a, lappeen pituus hw / cos(a); +Z-lappeen ja -Z-lappeen kallistus samasta a:sta.
+	var a := deg_to_rad(24.0)
+	var hw := Dp / 2.0 + 0.6
+	var slope := hw / cos(a)
+	for s in [1.0, -1.0]:
+		var r := B.mesh(root, B.boxm(Vector3(W + 1.0, 0.18, slope)), Vector3(0, wall + hw * tan(a) / 2.0 + 0.05, s * hw / 2.0),
+			Color(0.2, 0.2, 0.22))
+		r.rotation.x = a * s
+	# Suuri vetoovi etuseinässä (kaksi lehteä) ja ovi-ikkunat.
+	var front := Dp / 2.0 + 0.04
+	B.mesh(root, B.boxm(Vector3(3.6, 3.2, 0.08)), Vector3(0, 1.6, front), Color(0.28, 0.2, 0.14))
+	B.mesh(root, B.boxm(Vector3(0.1, 3.2, 0.1)), Vector3(0, 1.6, front + 0.05), Color(0.12, 0.1, 0.08))
+	for sx in [-4.2, 4.2]:
+		B.mesh(root, B.boxm(Vector3(1.5, 1.1, 0.08)), Vector3(sx, 2.2, front), Color(0.85, 0.8, 0.55))
+	var plate := B.sign_plate(root, "VAALAN VETURITALLI", Color(0.16, 0.12, 0.1), Color(0.97, 0.9, 0.7), 0.7, 72,
+		Color(0.8, 0.65, 0.3), "Georgia")
+	plate.position = Vector3(0, wall - 0.45, front + 0.1)
+	var banner := B.sign_plate(root, "VALENTIN VAALA -ELOKUVAPÄIVÄT\nEsityksiä klo 13-17", Color(0.95, 0.93, 0.86), Color(0.5, 0.1, 0.1), 0.5, 60,
+		Color(0.5, 0.1, 0.1), "Georgia")
+	# Banderolli seisoo kahden tolpan välissä vajan vieressä, jottei ovi peity.
+	var bw: float = banner.get_meta("width")
+	banner.position = Vector3(W / 2.0 + 1.0 + bw / 2.0, 2.4, front + 1.5)
+	for sx in [-1.0, 1.0]:
+		B.mesh(banner, B.boxm(Vector3(0.12, 2.4, 0.12)), Vector3(sx * (bw / 2.0 - 0.1), -1.2, 0), Color(0.3, 0.22, 0.14))
+	banner.visible = false
+	veturitalli_banner = banner
+	var out := Vector3(out2.x, 0, out2.y)
+	var dq := q + out2 * (Dp / 2.0 + 2.2)
+	veturitalli_door = Vector3(dq.x, h(dq.x, dq.y), dq.y)
+	doors.append({"id": "veturitalli", "pos": veturitalli_door, "out": out, "hint": "Veturitalliin", "text": "Veturitalli: elokuvaesitys"})

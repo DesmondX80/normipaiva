@@ -17,6 +17,7 @@ const RetkiPaltaniemi := preload("res://scripts/retki_paltaniemi.gd")
 const RetkiTietokonemuseo := preload("res://scripts/retki_tietokonemuseo.gd")
 const RetkiVanhaherra := preload("res://scripts/retki_vanhaherra.gd")
 const RetkiKuhmo := preload("res://scripts/retki_kuhmo.gd")
+const RetkiHiidenportti := preload("res://scripts/retki_hiidenportti.gd")
 
 const LISTA := {
 	"lampi": {
@@ -98,6 +99,14 @@ const LISTA := {
 			"Älä ota evästä mukaan, karhu haistaa. Tai en tiedä."],
 		"perilla": "Kuhmon karhukätkö. Niitty on hiljainen, opas odottaa kätkön vieressä.",
 		"hop_min": 90.0, "hinta": 45.0, "tasku": RetkiKuhmo, "sammuit": "karhukätkön penkille niityn ääreen",
+	},
+	"hiidenportti": {
+		"nimi": "Sotkamon Hiidenporttiin (rotkolaakso)", "lahto": "taksi", "otsikko": "HIIDENPORTILLE",
+		"sub": "Taksi ajaa Sotkamon suuntaan. Metsä tiivistyy ja kalliot nousevat tien reunaan.",
+		"lines": ["Hiidenportille vai? Se on se rotko Sotkamossa, sanotaan, ja kyllä se on jyrkkä.", "Matkaa on sata kilometriä, kai. Otan sen hinnalla.",
+			"Kenkien kanssa kannattaa olla tarkkana. Itse en kiipeä, jalka ei kestä."],
+		"perilla": "Hiidenportin rotko. Kalliot kohoavat, retkeilijä seisoo polun alussa.",
+		"hop_min": 70.0, "hinta": 38.0, "tasku": RetkiHiidenportti, "sammuit": "rotkon lepolavalle kallioseinän juurelle",
 	},
 }
 

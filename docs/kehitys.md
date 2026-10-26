@@ -50,6 +50,8 @@ Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi 
 `--scene=tietokonemuseo`: Saloisten tietokonemuseo (taksivalinta, intendentti, D22 ja mikrot, Pong: pelaaja jäljittää palloa ja voittaa, palkinto vain kerran, tappio ja Esc, tallennus, paluu ja yöllä nukahtaminen museossa; kuvat `_alue`, `_peli_*`, `_d22*`, `_mikrot*`, `_pong_*`, `_intendentti_*`, `_ylhaalta`, `_yo_*`; `--shot=`).
 `--scene=vanhaherra`: Raahen satama (taksivalinta, vitriini, pumppaaja, sukellus A/D-pumppauksella, Esc, kuvat `_alue`, `_sukellus`, `_sukellus2`; `--shot=`).
 `--scene=karhut`: Kuhmon karhukätkö (taksivalinta, opas, karhukuvaus: pystyssä keskellä oleva karhu antaa hyvän kuvan, palkinto kerran, tallennus; kuvat `_alue`, `_peli`; `--shot=`).
+`--scene=hiidenportti`: Sotkamon Hiidenportti (taksivalinta, retkeilijä, kyltti, kiipeily: otteet, putoaminen lavalle, ylälava, palkinto kerran; kuvat `_alue`, `_peli`; `--shot=`).
+`--scene=valentinvaala`: Vaalan Veturitalli (ovi, päiväehto joka 28. päivän 26.-28. päivä klo 13-17, banderolli, esitys, kello +40 min; kuvat `_talli`, `_esitys`; `--shot=`).
 `--scene=satama`: mopolla Vaalan satamaan, E laiturilla, autopilotti ajaa muskeliveneen kaakkoon kartan reunaan ja
 takaisin laiturille (loki: törmäykset, huippunopeus, humala, tallennus) ja ottaa kuvat `_satama`, `_laituri`, `_kyltti`,
 `_vene_*`, `_ajo`, `_kaanne`, `_reuna`. Sataman paikka leivotaan työkalulla `tools/vaala_satama.py` (ajo `vaala_bake.py`:stä).

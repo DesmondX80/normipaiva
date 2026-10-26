@@ -277,6 +277,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (paikka ja aikataulut "sanotaan"). Ikkunasta alkaa minipeli `karhu_game.gd`: hämärä niitty, odotus, karhu kävelee tai nousee pystyyn; etsin hiirellä, kuva klikkauksella/Välilyönnillä,
   kuusi ruutua. Karhu keskellä, iso ja pystyssä = paras kuva. Humala (`tilat` humala) heiluttaa etsintä. Hyvä kuva (60+/100): mielihyvä +6 ja maine +1 kerran (`karhut_legenda.gd`),
   paras tulos tallentuu. Näkyy päiväkirjassa oppaan puheen jälkeen. Testi `--scene=karhut`.
+- **Retki: Sotkamon Hiidenportti (#250 P13, tarkistettava):** taksilla Sotkamoon (valinta "Sotkamon Hiidenporttiin", 38 €, 70 min, `retki_hiidenportti.gd`). Kalliorotko, lepolavat, infokyltti ja
+  retkeilijä puhekuplineen (tiedot "sanotaan"). Seinältä alkaa minipeli `rotko_game.gd`: klikkaa ote käden ulottuvilta, ote ja roikkuminen kuluttavat voimia, lepolavalla ne palautuvat;
+  punertava ote murtuu, humala lisää lipsumista. Putoaminen palauttaa viimeiselle lavalle. Ylälavalle päästyä mielihyvä +6 ja maine +1 kerran (`hiidenportti_legenda.gd`).
+  Näkyy päiväkirjassa kyltin lukemisen jälkeen. Testi `--scene=hiidenportti`.
+- **Valentin Vaala -elokuvapäivät (#250 P14, ohjelma ja päivät tarkistettava):** Vaalan Veturitalli (punatiilinen vaja aseman päädyssä, kyltti "VAALAN VETURITALLI") on auki esityksiin kolmena viimeisenä päivänä 28 päivän jaksossa (päivät 26-28) klo 13-17; muulloin ovella kerrotaan syy. Ovella banderolli. E ovella: mykkäelokuvan tyylinen sepiaesitys (ohjelma yleinen, ei väitettyjä elokuvanimiä) ja 78-levyn iskelmä (`iskelmat.gd`); kello +40 min, stressi -0,1, mielihyvä +4. Esc poistuu kesken. Tiedostot `vaala.gd _build_veturitalli`, `vaala_esitys.gd`. Testi `--scene=valentinvaala`.
 - **Saloisten koulukeskus, päiväkoti, kentät ja ulkopingis (#143):** keskustan koulukeskus ja päiväkoti (OSM-rakennukset)
   nimikylttineen, kaksi jalkapallokenttää rajaviivoineen ja maaleineen sekä koulun pihan ulkopingispöytä ("PIHAPINGIS").
   Pöydällä iltapäivisin ja iltaisin (14–21) E: haaste kylän nuorille samalla pingis_game.gd-minipelillä kuin Santun kanssa

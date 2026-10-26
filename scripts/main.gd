@@ -297,6 +297,9 @@ const VanhaherraLegenda := preload("res://scripts/vanhaherra_legenda.gd")
 const SukellusGame := preload("res://scripts/sukellus_game.gd")
 const KarhutLegenda := preload("res://scripts/karhut_legenda.gd")
 const KarhuGame := preload("res://scripts/karhu_game.gd")
+const VaalaEsitys := preload("res://scripts/vaala_esitys.gd")
+const HiidenporttiLegenda := preload("res://scripts/hiidenportti_legenda.gd")
+const RotkoGame := preload("res://scripts/rotko_game.gd")
 const KanttoriLegenda := preload("res://scripts/kanttori_legenda.gd")
 const LemmikkiEnkelit := preload("res://scripts/lemmikki_enkelit.gd")
 const MuistokylttiGame := preload("res://scripts/muistokyltti_game.gd")
@@ -403,6 +406,7 @@ var peruskivi: RefCounted  # legenda: Rautaruukin peruskivi (peruskivi_legenda.g
 var kuvakirkko: RefCounted  # Paltaniemen kuvakirkon piilokuvat (kuvakirkko_legenda.gd, #250 P9)
 var tietokonemuseo: RefCounted  # Saloisten tietokonemuseo ja Pong (tietokonemuseo_legenda.gd, #250 P10)
 var karhut: RefCounted  # Kuhmon karhukätkö (karhut_legenda.gd, #250 P12)
+var hiidenportti: RefCounted  # Hiidenportin rotko (hiidenportti_legenda.gd, #250 P13)
 var vanhaherra: RefCounted  # Raahen satama: Vanha herra ja sukellus (vanhaherra_legenda.gd, #250 P11)
 var wanharaahe: RefCounted  # Wanha Raahe -kävelykierros ja ovikuva (wanharaahe_legenda.gd, #250 P8)
 var manamansalo: RefCounted  # legenda: Manamansalon muistokirkko (manamansalo_legenda.gd, #250 P7)
@@ -1230,6 +1234,7 @@ func _ready() -> void:
 	tietokonemuseo = TietokonemuseoLegenda.new()
 	vanhaherra = VanhaherraLegenda.new()
 	karhut = KarhutLegenda.new()
+	hiidenportti = HiidenporttiLegenda.new()
 	kanttori = KanttoriLegenda.new()
 	lemmikki = LemmikkiEnkelit.new()
 	ukko = UkkoLegenda.new()
@@ -6190,6 +6195,100 @@ func _start_karhut() -> void:
 	add_child(g)
 
 
+## Hiidenportin rotko (hiidenportti_legenda.gd, rotko_game.gd): kyltti kertoo, seinää kiivetään lavalta lavalle; humala lisää lipsumista.
+func _hiidenportti_tasks() -> Array:
+	var h: RefCounted = hiidenportti
+	if h.kyltti and not h.ylhaalla:
+		return [["Sotkamon Hiidenportti (taksi): kiipeä rotkon seinää ylimmälle lavalle (putoamisia %d)" % h.putoamisia, false]]
+	return []
+
+
+func _hiidenportti_acted(kind: String) -> void:
+	match kind:
+		"opas":
+			retki_int.say(retki_int.next_line(), 5.0)
+		"kyltti":
+			if not hiidenportti.kyltti:
+				hiidenportti.kyltti = true
+				tilat.first("hiidenportti_kyltti", 0.2)
+				_save_game()
+			_show_message("Hiidenportti, Sotkamo. Rotkolaakson seinät ovat jyrkät, sanotaan (tarkistettava). Kiipeä lavalta lavalle ja lepää lavoilla.", 5.0)
+		"kiipea":
+			_start_hiidenportti()
+
+
+func _start_hiidenportti() -> void:
+	var rt := retki_int
+	rt.busy = true
+	rt.walker.controls_enabled = false
+	state = "minigame"
+	_hud.visible = false
+	_hint.text = ""
+	var g := RotkoGame.new()
+	g.drunk = _hand_shake()
+	g.finished.connect(func(top: bool, falls: int) -> void:
+		if state == "minigame" and retki_int == rt:
+			state = "in_retki"
+			_hud.visible = true
+			rt.walker.activate()
+			rt.busy = false
+			rt.block_interact()
+		hiidenportti.nousuja += 1
+		hiidenportti.putoamisia += falls
+		var msg := "Kiipeily jäi kesken. Uusi yritys käy aina."
+		if top:
+			msg = "Ylhäällä! Putoamisia %d. Rotko jää alle, ja maisema aukeaa." % falls
+			if not hiidenportti.ylhaalla:
+				hiidenportti.ylhaalla = true
+				mielihyva = clampf(mielihyva + HiidenporttiLegenda.MIELIHYVA, 0.0, 100.0)
+				maine = clampf(maine + HiidenporttiLegenda.MAINE, 0.0, 100.0)
+				tilat.first("hiidenportti_ylos", 0.3)
+		_save_game()
+		_show_message(msg, 4.5))
+	add_child(g)
+
+
+## Valentin Vaala -elokuvapäivät (#250 P14): Vaalan Veturitallilla kolmena viimeisenä päivänä 28 päivän jaksossa
+## ("kesäkuun loppu"), esitykset klo 13-17. Ohjelma on yleinen (festivaalin päivät ja ohjelma: tarkistettava).
+const VVAALA_ESITYS := Vector2(13 * 60, 17 * 60)
+
+
+func _vvaala_paiva() -> bool:
+	return (day - 1) % 28 >= 25
+
+
+func _vvaala_auki() -> bool:
+	return _vvaala_paiva() and _between(clock_min, VVAALA_ESITYS)
+
+
+func _vvaala_kiinni_teksti() -> String:
+	if _vvaala_paiva():
+		return "Veturitalli: esitykset klo 13-17. Tule silloin."
+	return "Veturitalli on kiinni. Valentin Vaala -elokuvapäivät ovat kunnan kesäkuun lopussa (joka 28. päivän lopussa)."
+
+
+## Esitys: mykkäelokuva ja 78-levy; katsoja saa mielihyvää ja rauhoittuu. Kello kuluu 40 min.
+func _start_vvaala() -> void:
+	_act_begin("minigame")
+	CamCtl.free_mouse = true
+	var songs := Iskelmat.available()
+	var g := VaalaEsitys.new()
+	if not songs.is_empty():
+		g.music_path = songs[day % songs.size()].path
+	g.finished.connect(func(watched: bool) -> void:
+		CamCtl.free_mouse = false
+		_act_end()
+		if not watched:
+			_show_message("Poistuit kesken esityksen. Uusi esitys alkaa aina.", 3.0)
+			return
+		clock_min = fmod(clock_min + 40.0, 1440.0)
+		tilat.add("stressi", -0.1)
+		mielihyva = clampf(mielihyva + 4.0, 0.0, 100.0)
+		tilat.first("valentin_vaala", 0.3)
+		_show_message("Valentin Vaalan elokuvapäivät: vanha arkistoelokuva ja levymusiikkia. Kunnan 17 kelaa riittää koko viikonlopuksi.", 5.0))
+	add_child(g)
+
+
 func _manamansalo_tasks() -> Array:
 	if not manamansalo.heard or manamansalo.found:
 		return []
@@ -10928,7 +11027,7 @@ func _enter_retki(id: String) -> void:
 	retki_int.acted.connect(_on_retki_acted)
 	tilat.first("retki_" + id, 0.4)
 	if "legenda" in retki_int:
-		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko, "tietokonemuseo": tietokonemuseo, "vanhaherra": vanhaherra, "kuhmo": karhut}.get(id, pakkahuone)
+		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko, "tietokonemuseo": tietokonemuseo, "vanhaherra": vanhaherra, "kuhmo": karhut, "hiidenportti": hiidenportti}.get(id, pakkahuone)
 	retki_int.enter()
 	_show_message(r.perilla, 3.5)
 
@@ -10973,6 +11072,10 @@ func _on_retki_acted(kind: String) -> void:
 		return
 	if _retki_id == "kuhmo":
 		_karhut_acted(kind)
+		retki_int.block_interact()
+		return
+	if _retki_id == "hiidenportti":
+		_hiidenportti_acted(kind)
 		retki_int.block_interact()
 		return
 	if _retki_id == "vanhaherra":
@@ -13832,6 +13935,8 @@ func _ensure_mopo_trip() -> void:
 		mopo_trip.lava.connect(_enter_lava)
 		mopo_trip.crashed.connect(_on_mopo_crashed)
 		mopo_trip.closed = func(id: String) -> String:
+			if id == "veturitalli":
+				return "" if _vvaala_auki() else _vvaala_kiinni_teksti()
 			return closed_text({"kmarket": "kauppa", "siitari": "siitari", "lava": "lava"}[id]) if id in ["kmarket", "siitari", "lava"] else ""
 		mopo_trip.door_hidden = func(id: String) -> bool: return (id == "kokko" and not _juhannus()) or (id == "viski" and "viski" in viina_found) or \
 			(id == "katko" and asema_katkot.get("vaala", 0) != 1) or (id == "portti" and _lava_pass_now() != "")
@@ -13891,6 +13996,7 @@ func _vaala_logic() -> void:
 		return
 	_hint.text = mopo_trip.hint
 	mopo_trip.vaala.set_kokko(_juhannus(), _kokko_lit())
+	mopo_trip.vaala.set_festari(_vvaala_paiva())
 	mopo_trip.vaala.set_lava_live(is_open("lava"))
 	_pontikka_sell_logic()
 	_mopo_label.text = mopo_trip.status
@@ -15694,6 +15800,8 @@ func _on_vaala_door(id: String) -> void:
 			_enter_hotel()
 		"kokko":
 			_kokko_visit()
+		"veturitalli":
+			_start_vvaala()
 		"bileet", "pihanuoret":
 			_nuoret_yard = id == "pihanuoret"
 			_talk_open("nuoret", null)
@@ -17666,6 +17774,7 @@ func _load_game() -> void:
 	tietokonemuseo.load_from(cfg)
 	vanhaherra.load_from(cfg)
 	karhut.load_from(cfg)
+	hiidenportti.load_from(cfg)
 	kanttori.load_from(cfg)
 	lemmikki.load_from(cfg)
 	ukko.load_from(cfg)
@@ -17892,6 +18001,7 @@ func _save_game() -> void:
 		tietokonemuseo.save_to(cfg)
 		vanhaherra.save_to(cfg)
 		karhut.save_to(cfg)
+		hiidenportti.save_to(cfg)
 		kanttori.save_to(cfg)
 		lemmikki.save_to(cfg)
 		ukko.save_to(cfg)
@@ -19216,7 +19326,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _tietokonemuseo_tasks() + _vanhaherra_tasks() + _karhut_tasks() + _kanttori_tasks() + _lemmikki_tasks()
+	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _tietokonemuseo_tasks() + _vanhaherra_tasks() + _karhut_tasks() + _hiidenportti_tasks() +_kanttori_tasks() + _lemmikki_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -25739,6 +25849,95 @@ func _maybe_screenshot() -> void:
 			kh_g._end()
 			await get_tree().process_frame
 			print("KH valmis: state %s, hyvä %s, paras %d, tehtävät %s, minipeli auki %s" % [state, karhut.hyva, karhut.paras, _karhut_tasks(), _minigame_open()])
+			get_tree().quit()
+		"valentinvaala":
+			# Valentin Vaala (#250 P14): Veturitalli Vaalassa, päiväehto, banderolli ja esitys; kuvat _talli, _esitys (--shot=).
+			var vv_save := FileAccess.get_file_as_bytes(SAVE_PATH)
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var vd: Vector3 = vl.veturitalli_door
+			print("VV ovi %s, banderolli %s" % [vd, vl.veturitalli_banner != null])
+			day = 1
+			clock_min = 14 * 60.0
+			print("VV päivä 1: festari %s, auki %s, teksti '%s'" % [_vvaala_paiva(), _vvaala_auki(), _vvaala_kiinni_teksti()])
+			day = 27
+			print("VV päivä 27 klo 14: festari %s, auki %s" % [_vvaala_paiva(), _vvaala_auki()])
+			clock_min = 10 * 60.0
+			print("VV päivä 27 klo 10: auki %s, teksti '%s'" % [_vvaala_auki(), _vvaala_kiinni_teksti()])
+			clock_min = 14 * 60.0
+			vl.set_festari(true)
+			var vrc := Camera3D.new()
+			add_child(vrc)
+			vrc.current = true
+			var vout: Vector3 = Vector3.ZERO
+			for d in vl.doors:
+				if d.id == "veturitalli":
+					vout = d.out
+			vrc.look_at_from_position(vl.to_global(vd + vout * 14.0 + vout.cross(Vector3.UP) * 6.0 + Vector3(0, 4, 0)), vl.to_global(vd + vout * 4.0 + Vector3(0, 2.5, 0)), Vector3.UP)
+			for i in 15:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_talli.png"))
+			_on_vaala_door("veturitalli")
+			var vg: Node = get_children().filter(func(c: Node) -> bool: return c.get_script() == VaalaEsitys)[0]
+			print("VV esitys auki, tila %s, musiikki '%s'" % [state, vg.music_path])
+			vg._t = 9.0
+			await get_tree().create_timer(0.3).timeout
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_esitys.png"))
+			var c0 := clock_min
+			vg._t = VaalaEsitys.LENGTH
+			await get_tree().create_timer(0.3).timeout
+			print("VV valmis: tila %s, kello %.0f -> %.0f, esitys auki %s" % [state, c0, clock_min, is_instance_valid(vg) and not vg.is_queued_for_deletion()])
+			if not vv_save.is_empty():
+				var vf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+				vf.store_buffer(vv_save)
+			get_tree().quit()
+		"hiidenportti":
+			# Hiidenportti (#250 P13): taksivalinta, retkeilijä, kyltti, kiipeily (otteet, putoaminen, ylälava), tallennus; kuvat.
+			_note.visible = false
+			var hp_shot := func(name: String) -> void:
+				for i in 4:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+			if player == bike:
+				bike.speed = 0.0
+				_toggle_mount()
+			money = 80.0
+			clock_min = 12 * 60.0
+			hiidenportti = HiidenporttiLegenda.new()
+			print("HP taksivalinta: %s" % [_talk_options("taksi").filter(func(o): return o.id == "retki_hiidenportti").map(func(o): return [o.id, o.enabled, o.text])])
+			_retki_from = player.global_position
+			_enter_retki("hiidenportti")
+			print("HP perillä: state %s, tehtävät %s" % [state, _hiidenportti_tasks()])
+			await hp_shot.call("alue")
+			_hiidenportti_acted("kyltti")
+			_hiidenportti_acted("opas")
+			print("HP kyltti: luettu %s, kupla '%s', tehtävät %s" % [hiidenportti.kyltti, retki_int._bubble.text, _hiidenportti_tasks()])
+			_start_hiidenportti()
+			var hp_g: Node = get_children().filter(func(c: Node) -> bool: return c.get_script() == RotkoGame)[0]
+			print("HP minipeli auki %s, state %s" % [_minigame_open(), state])
+			hp_g._grab(hp_g._screen(hp_g._holds[1].p))
+			hp_g._grab(hp_g._screen(hp_g._holds[2].p))
+			await get_tree().create_timer(0.6).timeout
+			await hp_shot.call("peli")
+			hp_g._fall("Testi.")
+			print("HP putosi: ote %d (lava), putoamisia %d" % [hp_g._cur, hp_g._falls])
+			for i in range(1, hp_g._holds.size()):
+				hp_g._cur = i - 1
+				hp_g._grab(hp_g._screen(hp_g._holds[i].p))
+				if hp_g._fall_t > 0.0:
+					hp_g._fall_t = 0.0
+					hp_g._cur = i - 1
+					hp_g._grab(hp_g._screen(hp_g._holds[i].p))
+			print("HP ylhäällä %s" % hp_g._top)
+			hp_g._end()
+			await get_tree().process_frame
+			print("HP valmis: state %s, ylhäällä %s, nousuja %d, putoamisia %d, tehtävät %s, minipeli auki %s" % [state, hiidenportti.ylhaalla, hiidenportti.nousuja, hiidenportti.putoamisia, _hiidenportti_tasks(), _minigame_open()])
 			get_tree().quit()
 		"vanhaherra":
 			# Vanha herra (#250 P11): taksivalinta, vitriini, pumppaaja, sukellus (A/D-pumppaus, kaivaus), tallennus; kuvat.
