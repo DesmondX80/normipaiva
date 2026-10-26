@@ -146,6 +146,13 @@ const ZABUKI_LINES := ["Grilli sihisee. Tiskin takaa huudetaan: \"Tupla valmis!\
 	"Joku huutaa radiosta Vaalan pesäpallotulokset.", "\"Mopolla Paapelista? Burgeri päälle ni jaksaa ajaa takasin.\""]
 ## Gasthaus torin laidalla: huone yöksi, aamu alkaa Vaalasta.
 const GASTHAUS_PRICE := 10.0
+## Gasthausin ruokalista (Kainuun ruokia). id -> [nimi, hinta, stressi, moraali]. Annos nollaa nälän (_eat(1 - nälkä)).
+const GASTHAUS_MENU := {
+	"kalakeitto": ["Kalakeitto", 9.5, 0.1, 0.1],
+	"kukkoleipa": ["Kukkoleipä (kalakukko)", 7.0, 0.08, 0.1],
+	"talkkuna": ["Talkkuna maidolla", 4.0, 0.05, 0.03],
+	"rieska": ["Rieska ja voita", 3.5, 0.04, 0.03],
+}
 const GASTHAUS_LINES := ["Emäntä: \"Aamukahvi kuuluu hintaan. Pullaa saa, jos ehtii ennen Pertti-setää.\"",
 	"Emäntä: \"Hiljaisuus kymmenestä. Ja mopot pihaan, ei rappuun.\"",
 	"Emäntä: \"Meillä on yöpyny rekkakuskeja, uittomiehiä ja yks kerran kansanedustaja.\""]
@@ -11026,6 +11033,9 @@ func _talk_options(who := "") -> Array:
 			o.append(_opt("hengaile", "Hengaile kioskin edessä (tunti, vain illalla)", open_eve and _hengailu_day != day,
 				"kioskilla hengaillaan vasta illalla 18–23" if not open_eve else "hengailit jo tänään"))
 		"gasthaus":
+			for id in GASTHAUS_MENU:
+				var gm: Array = GASTHAUS_MENU[id]
+				o.append(_opt("ruoka_" + id, "%s (%s €)" % [gm[0], _eur(gm[1])], money >= gm[1], "rahat ei riitä"))
 			o.append(_opt("yo", "Huone yöksi (%s €, päivä päättyy)" % _eur(GASTHAUS_PRICE), money >= GASTHAUS_PRICE,
 				"rahat ei riitä", true))
 		"siitari_sinikka":
@@ -11232,6 +11242,19 @@ func _talk_choose(id: String) -> void:
 			var r := _on_zabuki(id.trim_prefix("osta_"))
 			_talk_box.reply(r[0], _talk_options(), r[1] + "   Rahaa %s €." % _eur(money))
 		"gasthaus":
+			if id.begins_with("ruoka_"):
+				var gm: Array = GASTHAUS_MENU[id.trim_prefix("ruoka_")]
+				if money < gm[1]:
+					_talk_box.reply("Ei riitä, kulta.", _talk_options(), "Rahaa %s €." % _eur(money))
+					return
+				money -= gm[1]
+				_eat(1.0 - tilat.value("nalka"))
+				tilat.add("stressi", gm[2])
+				tilat.add("moraali", gm[3])
+				Sfx.play("pickup", -6.0, 0.6)
+				_talk_box.reply("Emäntä: \"Hyvää ruokahalua.\"", _talk_options(),
+					"%s, −%s €. Nälkä lähti. Rahaa %s €." % [gm[0], _eur(gm[1]), _eur(money)])
+				return
 			_talk_box.close()
 			_gasthaus_sleep()
 
@@ -24255,6 +24278,23 @@ func _maybe_screenshot() -> void:
 			for i in 6:
 				await get_tree().physics_frame
 			print("KT Veksin jälkeen yöllä: soi %s (yösävel jatkuu)" % _kt_player.playing)
+			get_tree().quit()
+		"kainuulista":
+			# Gasthausin ruokalista (#16): valinnat, nälän nollaus, hinta ja ruokalistakyltti (kuva _lista).
+			var ks := _talk_options("gasthaus")
+			print("KL valinnat: %s" % [ks.map(func(o): return o.id)])
+			var k0: float = tilat.value("nalka")
+			tilat.add("nalka", -0.7)
+			money = 50.0
+			_talk_who = "gasthaus"
+			for kid in GASTHAUS_MENU:
+				tilat.add("nalka", -0.5)
+				var kn0: float = tilat.value("nalka")
+				_talk_choose("ruoka_" + kid)
+				print("KL %s: nälkä %.2f -> %.2f, rahaa %s" % [kid, kn0, tilat.value("nalka"), _eur(money)])
+			money = 1.0
+			print("KL köyhänä: %s" % [_talk_options("gasthaus").filter(func(o): return o.id.begins_with("ruoka_")).map(func(o): return o.enabled)])
+			print("KL alkunälkä %.2f" % k0)
 			get_tree().quit()
 		"kuninkaantapuli":
 			# Kuninkaan tapuli (#126): suntio kertoo, yökello, teinit ja avain, Pirtin G. R., droonikohde, lyijykotelo, museo ja

@@ -450,7 +450,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Pelissä kauppa on Siitarin vieressä Vaalantien varressa (todellisuudessa n. 400 m kauempana), ja
     pankkiautomaatti on kaupan seinällä. Jos rahat eivät riitä, kaljat ja Alkon pullot voi viedä ovesta
     juoksukaljoina maksamatta (kylän K-Marketissa samoin). Mopotie päättyy torille Siitarin viereen: torin päädyssä
-    on Zabuki (olut ja hampurilaiset) ja Siitaria vastapäätä Gasthaus. Zabukin jälkeen Vaalantiellä on liikenneympyrä. `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
+    on Zabuki (olut ja hampurilaiset) ja Siitaria vastapäätä Gasthaus. Gasthausin emännältä saa myös Kainuun ruokaa (kalakeitto 9,50 €, kukkoleipä 7 €, talkkuna 4 €, rieska 3,50 €; ruokalistakyltti HUONEET-kyltin alla), ja annos nollaa nälän. Zabukin jälkeen Vaalantiellä on liikenneympyrä. `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
     laserpuut rakennusten, parkkien ja teiden päältä (latvusmallissa katotkin näkyivät puina). Niemellä, jossa Oulujoki alkaa Oulujärvestä (Vuolijoentieltä oikealle
     asfaltoitua Pahalahdentietä juuri ennen radan alikulkua; `tools/vaala_lava.py` tekee niemen, leveän joen ja
     järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (punamullatut seinät, luukut auki, bändi

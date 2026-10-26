@@ -3915,6 +3915,11 @@ func _gasthaus_front(obb: Dictionary, base: float, top: float) -> void:
 	var pq := dq + ax * 1.0 + side * 0.08
 	price.position = Vector3(pq.x, y + 1.6, pq.y)
 	price.rotation.y = yaw
+	# Ruokalista HUONEET-kyltin alla (teksti main.gd GASTHAUS_MENU:stä, hinnat samat)
+	var menu := B.sign_plate(self, "RUOKALISTA\nKalakeitto 9,50\nKukkoleipä 7,00\nTalkkuna 4,00\nRieska 3,50",
+		Color(0.95, 0.93, 0.86), Color(0.16, 0.24, 0.16), 0.2, 30, Color(0.16, 0.24, 0.16), "Georgia")
+	menu.position = Vector3(pq.x, y + 0.75, pq.y)
+	menu.rotation.y = yaw
 	var out := Vector3(side.x, 0, side.y)
 	var front := Vector3(dq.x, h(dq.x, dq.y), dq.y) + out * 2.2
 	doors.append({"id": "gasthaus", "pos": front, "out": out, "hint": "Gasthausiin (huone yöksi 10 €)"})
