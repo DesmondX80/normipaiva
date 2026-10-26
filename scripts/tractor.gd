@@ -5,7 +5,6 @@ extends CharacterBody3D
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Looks := preload("res://scripts/looks.gd")
-const Pose := preload("res://scripts/pose.gd")
 
 const SPEED := 8.5
 const TURN_RATE := 1.8
@@ -56,15 +55,11 @@ func _build() -> void:
 		_front.append(n)
 	_farmer = Looks.make(self, Looks.JEMMARI)
 	_farmer.play("Driving", 0.0)
-	# Kuski istuu ohjaamon penkillä (pinta y 1,51), jalat ohjaamon lattialle (1,16), kädet rattiin (ratti vehicles.gd:ssa y 1,85, z 0,35).
-	Pose.seat(_farmer, Vector3(0, 0, -1), Vector3(0, 1.51, 0.85))
-	Pose.feet_to_floor(_farmer, 1.16, Vector3(0, 0, -1))
-	_farmer.set_override("spine_01", Vector3.RIGHT, -0.1)
-	var inv := _farmer.transform.affine_inverse()
-	for side in [["_l", -1.0], ["_r", 1.0]]:
-		var s: float = side[1]
-		_farmer.set_ik("arm" + side[0], "upperarm" + side[0], "lowerarm" + side[0], "hand" + side[0],
-			inv * Vector3(0.2 * s, 1.84, 0.36), inv * Vector3(0.6 * s, 1.8, 0.8))
+	_farmer.position = Vector3(0, 0.72, 0.82)
+	# Istuma-asento: reidet eteen, sääret alas.
+	for side in ["_l", "_r"]:
+		_farmer.set_override("thigh" + side, Vector3.RIGHT, 1.45)
+		_farmer.set_override("calf" + side, Vector3.RIGHT, -1.35)
 
 
 func _physics_process(delta: float) -> void:

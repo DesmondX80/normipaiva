@@ -53,7 +53,7 @@ var _thief: Node3D  # varkaan hahmo satulassa (pelaajan kuski piilossa)
 const MOPO_ACCEL := 5.0
 const MOPO_DRAG := 0.9
 const PUSH_SPEED := 2.2  # tyhjä tankki: mopoa taluttaa
-const MOPO_SEAT := Vector3(0, 0.82, 0.1)
+const MOPO_SEAT := Vector3(0, 0.82, 0.25)
 const BIKE_SEAT := Vector3(0, 0.9, 0.28)
 var mopo := false
 var mopo_max := 21.0
@@ -170,7 +170,7 @@ func set_mopo(on: bool) -> void:
 
 func _seat_rider(who: Node3D) -> void:
 	who.position = (MOPO_SEAT + Vector3(0, 0.1, 0) if mopo else BIKE_SEAT + Vector3(0, 0.12, 0.02)) - who.bone_position("pelvis")
-	who.set_override("spine_01", Vector3.RIGHT, -0.3 if mopo else -0.4)
+	who.set_override("spine_01", Vector3.RIGHT, -0.15 if mopo else -0.4)
 
 
 func set_carrying(carrying: bool) -> void:
@@ -673,6 +673,6 @@ func _pose_mopo_rider(who: Node3D) -> void:
 	for side in [["_l", -1.0], ["_r", 1.0]]:
 		var s: float = side[1]
 		who.set_ik("arm" + side[0], "upperarm" + side[0], "lowerarm" + side[0], "hand" + side[0],
-			inv * Vector3(0.3 * s, 1.12, -0.32), inv * Vector3(0.55 * s, 1.2, 0.0))
+			inv * Vector3(0.3 * s, 1.1, -0.44), inv * Vector3(0.55 * s, 1.2, 0.0))
 		who.set_ik("leg" + side[0], "thigh" + side[0], "calf" + side[0], "foot" + side[0],
 			inv * Vector3(0.2 * s, 0.35, -0.05), inv * Vector3(0.2 * s, 0.9, -0.6))

@@ -2381,7 +2381,6 @@ const SANTTU_WALK := 1.6
 func santtu_visit(spot: Vector3, look := Vector3.INF) -> void:
 	if not built:
 		return
-	santtu.clear_ik()  # istuma-asennon jalat (laituri)
 	var from := Vector2(santtu.position.x, santtu.position.z)
 	var to2 := Vector2(spot.x, spot.z)
 	var d := to2 - from
@@ -2397,7 +2396,6 @@ func santtu_visit(spot: Vector3, look := Vector3.INF) -> void:
 func santtu_teleport(spot: Vector3, look: Vector3) -> void:
 	if not built:
 		return
-	santtu.clear_ik()  # istuma-asennon jalat (laituri)
 	santtu.position = Vector3(spot.x, h(spot.x, spot.z), spot.z)
 	santtu.rotation.y = B.yaw_to(look - spot)
 	santtu.play("Idle", 0.2)
@@ -2419,7 +2417,6 @@ func santtu_seat() -> Vector3:
 func santtu_go_home(via: Array = []) -> void:
 	if not built or not _santtu_away:
 		return
-	santtu.clear_ik()  # istuma-asennon jalat (laituri)
 	_santtu_away = false
 	_santtu_look = Vector3.INF
 	santtu.visible = true
@@ -2433,7 +2430,6 @@ func santtu_go_home(via: Array = []) -> void:
 func santtu_walk(points: Array, look: Vector3) -> void:
 	if not built or points.is_empty():
 		return
-	santtu.clear_ik()  # istuma-asennon jalat (laituri)
 	_santtu_look = look
 	_santtu_path = _route_via(points)
 	_santtu_away = true
@@ -2462,12 +2458,6 @@ func santtu_prop(kind: String) -> void:
 		santtu.add_child(_prop)
 	elif kind != "":
 		_prop = santtu.attach("hand_r", SanttuPuuhat.prop_model(kind), Vector3(0, -0.02, 0.03))
-
-
-## Laiturin viimeisen lankun ulkoreuna (mökin kehyksen z): laudat 0,55 m välein rannasta, leveys 0,42 m.
-func dock_edge_z() -> float:
-	var dl := DOCK_LOCAL.z - dock_body.position.z
-	return dock_body.position.z + int((dl + 0.8) / 0.55) * 0.55 + 0.21
 
 
 ## Kävelykorkeus: laiturilla kansi, vedessä pinta (ei pohja), muuten maa.

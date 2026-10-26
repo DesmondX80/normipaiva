@@ -4048,10 +4048,8 @@ func _build_taxi(pos: Vector3) -> void:
 	body.add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.8, 0)))
 	load("res://scripts/vehicles.gd").taxi(body, "TXI-808")
 	var driver := Looks.make(body, Looks.TAXI_DRIVER)
+	driver.position = Vector3(-0.4, 0.05, 0.1)
 	driver.play("Driving", 0.0)
-	# Auton etu on -Z. Lantio pysyy paikallaan (x -0,4, y 0,58, z 0,4), jalat auton lattialle (y 0,4) eivätkä pohjan alle.
-	Pose.seat(driver, Vector3(0, 0, -1), Vector3(-0.4, 0.477, 0.4))
-	Pose.feet_to_floor(driver, 0.4, Vector3(0, 0, -1))
 	taxi_pos = pos
 	for f in Sfx.MUSIC_FILES:
 		if ResourceLoader.exists(f):

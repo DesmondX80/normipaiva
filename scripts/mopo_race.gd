@@ -111,15 +111,8 @@ func _make_mopo(look: Dictionary, col: Color, me: bool) -> Node3D:
 		Looks.add_cap(r)
 	r.play("Driving", 0.0)
 	r.anim.advance(0.01)
-	r.position = Vector3(0, 0.92, 0.1) - r.bone_position("pelvis")
+	r.position = Vector3(0, 0.92, 0.25) - r.bone_position("pelvis")
 	r.set_override("spine_01", Vector3.RIGHT, -0.35)  # kumarassa tankin päällä
-	var inv := r.transform.affine_inverse()  # kädet tangolle ja jalat tapeille (kuten mopo.gd)
-	for side in [["_l", -1.0], ["_r", 1.0]]:
-		var s: float = side[1]
-		r.set_ik("arm" + side[0], "upperarm" + side[0], "lowerarm" + side[0], "hand" + side[0],
-			inv * Vector3(0.3 * s, 1.12, -0.32), inv * Vector3(0.55 * s, 1.2, 0.0))
-		r.set_ik("leg" + side[0], "thigh" + side[0], "calf" + side[0], "foot" + side[0],
-			inv * Vector3(0.2 * s, 0.35, -0.05), inv * Vector3(0.2 * s, 0.9, -0.6))
 	return root
 
 

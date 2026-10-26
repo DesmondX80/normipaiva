@@ -62,9 +62,9 @@ func _ready() -> void:
 	CamCtl.mark_own_body(_rider)
 	_rider.play("Driving", 0.0)
 	_rider.anim.advance(0.01)
-	var seat := Vector3(0, 0.82, 0.1)  # satulan etuosa: kädet yltävät tangolle
+	var seat := Vector3(0, 0.82, 0.25)
 	_rider.position = seat + Vector3(0, 0.1, 0.0) - _rider.bone_position("pelvis")
-	_rider.set_override("spine_01", Vector3.RIGHT, -0.3)
+	_rider.set_override("spine_01", Vector3.RIGHT, -0.15)
 	_cam = Camera3D.new()
 	_cam.fov = 72.0
 	_cam.far = 1600.0
@@ -162,11 +162,11 @@ static func build_model(parent: Node3D) -> Array[Node3D]:
 	B.mesh(parent, B.boxm(Vector3(0.3, 0.03, 0.34)), Vector3(0, 0.82, 0.62), chrome)  # tavarateline
 	B.mesh(parent, B.boxm(Vector3(0.26, 0.24, 0.1)), Vector3(0, 0.72, 0.52), red)
 	# Ohjaustanko, peilit ja ajovalo.
-	B.tube(parent, Vector3(-0.32, 1.12, -0.32), Vector3(0.32, 1.12, -0.32), 0.018, chrome)
+	B.tube(parent, Vector3(-0.32, 1.08, -0.46), Vector3(0.32, 1.08, -0.46), 0.018, chrome)
 	for gx in [-0.3, 0.3]:
-		B.tube(parent, Vector3(gx - 0.05, 1.12, -0.32), Vector3(gx + 0.05, 1.12, -0.32), 0.028, black)
-		B.tube(parent, Vector3(gx * 0.8, 1.12, -0.32), Vector3(gx * 0.9, 1.34, -0.36), 0.01, chrome)
-		B.mesh(parent, B.cyl(0.05, 0.05, 0.02, 10), Vector3(gx * 0.9, 1.36, -0.36), chrome, Vector3(90, 0, 0))
+		B.tube(parent, Vector3(gx - 0.05, 1.08, -0.46), Vector3(gx + 0.05, 1.08, -0.46), 0.028, black)
+		B.tube(parent, Vector3(gx * 0.8, 1.08, -0.46), Vector3(gx * 0.9, 1.3, -0.5), 0.01, chrome)
+		B.mesh(parent, B.cyl(0.05, 0.05, 0.02, 10), Vector3(gx * 0.9, 1.32, -0.5), chrome, Vector3(90, 0, 0))
 	B.mesh(parent, B.cyl(0.09, 0.1, 0.12, 14), Vector3(0, 0.95, -0.6), chrome, Vector3(90, 0, 0))
 	B.mesh(parent, B.cyl(0.075, 0.075, 0.02, 14), Vector3(0, 0.95, -0.665), Color(1.0, 0.95, 0.75), Vector3(90, 0, 0))
 	B.mesh(parent, B.boxm(Vector3(0.08, 0.05, 0.02)), Vector3(0, 0.72, 0.8), Color(0.8, 0.05, 0.05))  # takavalo
@@ -356,6 +356,6 @@ func _pose_rider() -> void:
 	for side in [["_l", -1.0], ["_r", 1.0]]:
 		var s: float = side[1]
 		_rider.set_ik("arm" + side[0], "upperarm" + side[0], "lowerarm" + side[0], "hand" + side[0],
-			inv * Vector3(0.3 * s, 1.12, -0.32), inv * Vector3(0.55 * s, 1.2, 0.0))
+			inv * Vector3(0.3 * s, 1.1, -0.44), inv * Vector3(0.55 * s, 1.2, 0.0))
 		_rider.set_ik("leg" + side[0], "thigh" + side[0], "calf" + side[0], "foot" + side[0],
 			inv * Vector3(0.2 * s, 0.35, -0.05), inv * Vector3(0.2 * s, 0.9, -0.6))

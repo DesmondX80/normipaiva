@@ -6,7 +6,6 @@ extends Node
 ## mokki.gd:n lapsi; paikat mökin kehyksessä.
 
 const B := preload("res://scripts/build.gd")
-const Pose := preload("res://scripts/pose.gd")
 ## Esineet hahmon kehyksessä (eivät käden luussa): onki osoittaa järvelle istuessa.
 const BODY_PROPS := ["onki"]
 
@@ -297,11 +296,8 @@ func _begin_step() -> void:
 	var s: Node3D = mokki.santtu
 	s.rotation.y = B.yaw_to(st.look - s.position)
 	s.play(st.anim, 0.3)
-	if st.get("sit_deck", false):  # istuu laiturin päähän: pakarat viimeisellä lankulla, sääret roikkuu reunan yli
-		var front: Vector3 = Vector3(st.look.x - st.at.x, 0, st.look.z - st.at.z).normalized()
-		var deck: float = mokki.walk_y(st.at.x, st.at.z)
-		Pose.seat(s, front, Vector3(st.at.x, deck, mokki.dock_edge_z() - 0.3))
-		Pose.legs_hang(s, front)
+	if st.get("sit_deck", false):
+		s.position.y = mokki.walk_y(s.position.x, s.position.z) - 0.22  # laiturin reunalla, jalat roikkuu
 	if st.has("prop"):
 		mokki.santtu_prop(st.prop)
 	if st.has("once"):
