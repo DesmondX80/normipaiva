@@ -14,6 +14,8 @@ const RetkiRojuniemi := preload("res://scripts/retki_rojuniemi.gd")
 const RetkiManamansalo := preload("res://scripts/retki_manamansalo.gd")
 const RetkiWanharaahe := preload("res://scripts/retki_wanharaahe.gd")
 const RetkiPaltaniemi := preload("res://scripts/retki_paltaniemi.gd")
+const RetkiTietokonemuseo := preload("res://scripts/retki_tietokonemuseo.gd")
+const RetkiVanhaherra := preload("res://scripts/retki_vanhaherra.gd")
 
 const LISTA := {
 	"lampi": {
@@ -71,6 +73,22 @@ const LISTA := {
 			"Siellä on suntio. Se osaa kertoa, jos jaksaa kuunnella."],
 		"perilla": "Paltaniemen kuvakirkko. Seinät ovat maalauksia täynnä, suntio on alttarin luona.",
 		"hop_min": 55.0, "hinta": 28.0, "tasku": RetkiPaltaniemi, "sammuit": "Paltaniemen kirkon penkille maalausten alle",
+	},
+	"vanhaherra": {
+		"nimi": "Raahen satamaan (Vanha herra, sukellus)", "lahto": "taksi", "otsikko": "RAAHEN SATAMAAN",
+		"sub": "Taksi ajaa Raahen satamaan. Kruununmakasiini kohoaa laiturin takana ja vesi välkkyy.",
+		"lines": ["Satamaan vai? Kruununmakasiinissa on se vanha sukelluspuku, sanotaan maailman vanhin.", "Laiturilla pumpataan joskus ilmaa sukeltajalle. Hirveä homma.",
+			"Kapteeni kuulemma pudotti sinne kellonsa. Pohjassa on kaikenlaista."],
+		"perilla": "Raahen satama. Kruununmakasiini, vitriini ja laiturin ilmapumppu.",
+		"hop_min": 20.0, "hinta": 12.0, "tasku": RetkiVanhaherra, "sammuit": "Raahen laiturin pollarille pumpun viereen",
+	},
+	"tietokonemuseo": {
+		"nimi": "Saloisten tietokonemuseoon", "lahto": "taksi", "otsikko": "SALOISTEN MUSEOLLE",
+		"sub": "Taksi ajaa lyhyen matkan Saloisissa. Museon kyltti vilahtaa tien varressa.",
+		"lines": ["Tietokonemuseoon vai? Siellä on se iso Datasaab, sanotaan vuodelta 1971.", "Mun poika pelasi siellä Pongia. Ei se voittanut.",
+			"Heinäkuussa se on kuulemma auki, sanotaan. Kokeile onneasi."],
+		"perilla": "Saloisten tietokonemuseo. Datasaabin kaapit seisovat rivissä, Pong-kone odottaa nurkassa.",
+		"hop_min": 12.0, "hinta": 6.0, "tasku": RetkiTietokonemuseo, "sammuit": "museon konsolipöydän ääreen Datasaabin humistessa",
 	},
 }
 

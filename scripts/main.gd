@@ -291,6 +291,10 @@ const ManamansaloLegenda := preload("res://scripts/manamansalo_legenda.gd")
 const WanharaaheLegenda := preload("res://scripts/wanharaahe_legenda.gd")
 const KuvakirkkoLegenda := preload("res://scripts/kuvakirkko_legenda.gd")
 const KuvakirkkoGame := preload("res://scripts/kuvakirkko_game.gd")
+const TietokonemuseoLegenda := preload("res://scripts/tietokonemuseo_legenda.gd")
+const PongGame := preload("res://scripts/pong_game.gd")
+const VanhaherraLegenda := preload("res://scripts/vanhaherra_legenda.gd")
+const SukellusGame := preload("res://scripts/sukellus_game.gd")
 const KanttoriLegenda := preload("res://scripts/kanttori_legenda.gd")
 const LemmikkiEnkelit := preload("res://scripts/lemmikki_enkelit.gd")
 const MuistokylttiGame := preload("res://scripts/muistokyltti_game.gd")
@@ -395,6 +399,8 @@ var kuningas: RefCounted  # legenda: Kuninkaan tapuli (kuningas_legenda.gd, #126
 var pakkahuone: RefCounted  # legenda: Pakkahuoneen veistos (pakkahuone_legenda.gd, #250 P5)
 var peruskivi: RefCounted  # legenda: Rautaruukin peruskivi (peruskivi_legenda.gd, #250 P6)
 var kuvakirkko: RefCounted  # Paltaniemen kuvakirkon piilokuvat (kuvakirkko_legenda.gd, #250 P9)
+var tietokonemuseo: RefCounted  # Saloisten tietokonemuseo ja Pong (tietokonemuseo_legenda.gd, #250 P10)
+var vanhaherra: RefCounted  # Raahen satama: Vanha herra ja sukellus (vanhaherra_legenda.gd, #250 P11)
 var wanharaahe: RefCounted  # Wanha Raahe -kävelykierros ja ovikuva (wanharaahe_legenda.gd, #250 P8)
 var manamansalo: RefCounted  # legenda: Manamansalon muistokirkko (manamansalo_legenda.gd, #250 P7)
 var hanhikivi: RefCounted  # legenda: Hanhikiven rajakivi (hanhikivi_legenda.gd, #250 P4)
@@ -1218,6 +1224,8 @@ func _ready() -> void:
 	manamansalo = ManamansaloLegenda.new()
 	wanharaahe = WanharaaheLegenda.new()
 	kuvakirkko = KuvakirkkoLegenda.new()
+	tietokonemuseo = TietokonemuseoLegenda.new()
+	vanhaherra = VanhaherraLegenda.new()
 	kanttori = KanttoriLegenda.new()
 	lemmikki = LemmikkiEnkelit.new()
 	ukko = UkkoLegenda.new()
@@ -6000,6 +6008,126 @@ func _start_kuvakirkko() -> void:
 	add_child(g)
 
 
+## Saloisten tietokonemuseo (tietokonemuseo_legenda.gd, pong_game.gd): intendentti, D22 ja mikrot kertovat, Pong-kone on pelattavissa.
+func _tietokonemuseo_tasks() -> Array:
+	var t: RefCounted = tietokonemuseo
+	if t.intendentti and t.voitot == 0:
+		return [["Tietokonemuseo (taksi, Saloinen): voita Pong-kone (viiteen pisteeseen)", false]]
+	return []
+
+
+func _tietokonemuseo_acted(kind: String) -> void:
+	match kind:
+		"intendentti":
+			if not tietokonemuseo.intendentti:
+				tietokonemuseo.intendentti = true
+				tilat.first("tietokonemuseo_intendentti", 0.2)
+				_save_game()
+			retki_int.say(retki_int.next_line(), 5.0)
+		"d22":
+			_show_message("Datasaab D22, sanotaan vuodelta 1971: nauha-asemat, ohjauspaneeli ja korttilukija. Kone täyttää kokonaisen salin.", 5.0)
+		"mikrot":
+			_show_message("Mikrotietokonehuone: kolme 1980-luvun konetta, ruudulla vilkkuu kursori. Kukaan ei ole koskenut näppäimiin vuosiin.", 5.0)
+		"pong":
+			_start_pong()
+
+
+func _start_pong() -> void:
+	var rt := retki_int
+	rt.busy = true
+	rt.walker.controls_enabled = false
+	state = "minigame"
+	_hud.visible = false
+	_hint.text = ""
+	var g := PongGame.new()
+	g.finished.connect(func(won: bool, mine: int, ai: int) -> void:
+		if state == "minigame" and retki_int == rt:
+			state = "in_retki"
+			_hud.visible = true
+			rt.walker.activate()
+			rt.busy = false
+			rt.block_interact()
+		var msg := ""
+		if won:
+			tietokonemuseo.voitot += 1
+			tietokonemuseo.parhaat = maxi(tietokonemuseo.parhaat, mine)
+			if tietokonemuseo.voitot == 1:
+				mielihyva = clampf(mielihyva + TietokonemuseoLegenda.MIELIHYVA, 0.0, 100.0)
+				tilat.first("tietokonemuseo_pong", 0.3)
+				msg = "Voitit Pongin %d-%d! Kone ei antanut periksi, mutta sinä annoit enemmän." % [mine, ai]
+			else:
+				msg = "Voitit Pongin %d-%d. Voittoja yhteensä %d." % [mine, ai, tietokonemuseo.voitot]
+		elif mine + ai > 0 and (mine >= PongGame.WIN_AT or ai >= PongGame.WIN_AT):
+			msg = "Kone voitti Pongin %d-%d. Uusi yritys käy aina." % [ai, mine]
+		_save_game()
+		if msg != "":
+			_show_message(msg, 4.0))
+	add_child(g)
+
+
+## Raahen satama, Vanha herra (vanhaherra_legenda.gd, sukellus_game.gd): vitriini, pumppaaja ja sukeltaja kertovat; pumpulla pumpataan ilmaa ja etsitään kapteenin taskukello.
+func _vanhaherra_tasks() -> Array:
+	var v: RefCounted = vanhaherra
+	if v.puhuttu and not v.loytyi:
+		return [["Raahen satama (taksi): pumppaa sukeltajalle ilmaa ja etsi kapteenin taskukello pohjasta", false]]
+	return []
+
+
+func _vanhaherra_acted(kind: String) -> void:
+	match kind:
+		"vitriini":
+			vanhaherra.nahty = true
+			_show_message("Vanha herra: kuparikypärä, kangaspuku ja lyijykengät. Sanotaan maailman vanhimmaksi säilyneeksi sukelluspuvuksi (tarkistettava).", 5.0)
+		"pumppaaja":
+			if not vanhaherra.puhuttu:
+				vanhaherra.puhuttu = true
+				tilat.first("vanhaherra_puhuttu", 0.2)
+				_save_game()
+			retki_int.say(retki_int.next_line("p"), "p", 5.0)
+		"sukeltaja":
+			retki_int.say(retki_int.next_line("d"), "d", 5.0)
+		"pumppu":
+			_start_sukellus()
+
+
+func _start_sukellus() -> void:
+	var rt := retki_int
+	rt.busy = true
+	rt.walker.controls_enabled = false
+	state = "minigame"
+	_hud.visible = false
+	_hint.text = ""
+	var g := SukellusGame.new()
+	g.finished.connect(func(found: bool, junk: int, pumps: int) -> void:
+		if state == "minigame" and retki_int == rt:
+			state = "in_retki"
+			_hud.visible = true
+			rt.walker.activate()
+			rt.busy = false
+			rt.block_interact()
+		var msg := ""
+		if pumps > 0:
+			vanhaherra.sukelluksia += 1
+			vanhaherra.paras_roina = maxi(vanhaherra.paras_roina, junk)
+		if found:
+			if not vanhaherra.loytyi:
+				vanhaherra.loytyi = true
+				mielihyva = clampf(mielihyva + VanhaherraLegenda.MIELIHYVA, 0.0, 100.0)
+				maine = clampf(maine + VanhaherraLegenda.MAINE, 0.0, 100.0)
+				tilat.first("vanhaherra_kello", 0.3)
+				msg = "Kapteenin taskukello löytyi! Pumppaaja huutaa laiturilta: \"Tästä tulee kapteenille juhla.\""
+			else:
+				msg = "Taskukello löytyi taas pohjasta. Se on nyt vitriinin hyllyllä."
+			if retki_int == rt:
+				rt.refresh()
+		elif pumps > 0:
+			msg = "Sukellus keskeytyi. Roinaa löytyi %d kpl. Uusi yritys käy aina." % junk
+		_save_game()
+		if msg != "":
+			_show_message(msg, 4.5))
+	add_child(g)
+
+
 func _manamansalo_tasks() -> Array:
 	if not manamansalo.heard or manamansalo.found:
 		return []
@@ -10738,7 +10866,7 @@ func _enter_retki(id: String) -> void:
 	retki_int.acted.connect(_on_retki_acted)
 	tilat.first("retki_" + id, 0.4)
 	if "legenda" in retki_int:
-		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko}.get(id, pakkahuone)
+		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko, "tietokonemuseo": tietokonemuseo, "vanhaherra": vanhaherra}.get(id, pakkahuone)
 	retki_int.enter()
 	_show_message(r.perilla, 3.5)
 
@@ -10779,6 +10907,14 @@ func _retki_return() -> void:
 func _on_retki_acted(kind: String) -> void:
 	if _retki_id == "paltaniemi":
 		_kuvakirkko_acted(kind)
+		retki_int.block_interact()
+		return
+	if _retki_id == "vanhaherra":
+		_vanhaherra_acted(kind)
+		retki_int.block_interact()
+		return
+	if _retki_id == "tietokonemuseo":
+		_tietokonemuseo_acted(kind)
 		retki_int.block_interact()
 		return
 	if _retki_id == "wanharaahe":
@@ -17461,6 +17597,8 @@ func _load_game() -> void:
 	manamansalo.load_from(cfg)
 	wanharaahe.load_from(cfg)
 	kuvakirkko.load_from(cfg)
+	tietokonemuseo.load_from(cfg)
+	vanhaherra.load_from(cfg)
 	kanttori.load_from(cfg)
 	lemmikki.load_from(cfg)
 	ukko.load_from(cfg)
@@ -17684,6 +17822,8 @@ func _save_game() -> void:
 		manamansalo.save_to(cfg)
 		wanharaahe.save_to(cfg)
 		kuvakirkko.save_to(cfg)
+		tietokonemuseo.save_to(cfg)
+		vanhaherra.save_to(cfg)
 		kanttori.save_to(cfg)
 		lemmikki.save_to(cfg)
 		ukko.save_to(cfg)
@@ -19008,7 +19148,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _kanttori_tasks() + _lemmikki_tasks()
+	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _tietokonemuseo_tasks() + _vanhaherra_tasks() + _kanttori_tasks() + _lemmikki_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -25340,6 +25480,159 @@ func _maybe_screenshot() -> void:
 			_on_retki_exited()
 			await get_tree().create_timer(14.0).timeout
 			print("KK takaisin: state %s, etäisyys lähtöpaikasta %.2f m, kello +%.0f min" % [state, player.global_position.distance_to(_retki_from), fposmod(clock_min - kk_t0, 1440.0)])
+			get_tree().quit()
+		"tietokonemuseo":
+			# Saloisten tietokonemuseo (#250 P10): intendentti, D22 ja mikrot, Pong (voitto, tappio, palkinto kerran); tallennus; paluu; yöllä nukahtaminen museossa; kuvat.
+			_note.visible = false
+			var tm_shot := func(name: String) -> void:
+				for i in 4:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+			if player == bike:
+				bike.speed = 0.0
+				_toggle_mount()
+			money = 80.0
+			clock_min = 12 * 60.0
+			tietokonemuseo = TietokonemuseoLegenda.new()
+			mielihyva = 50.0
+			print("TM taksivalinta: %s" % [_talk_options("taksi").filter(func(o): return o.id == "retki_tietokonemuseo").map(func(o): return [o.id, o.enabled, o.text])])
+			var tm_t0 := clock_min
+			_retki_from = player.global_position
+			_enter_retki("tietokonemuseo")
+			print("TM perillä: state %s, kello +%.0f min, tehtävät %s" % [state, clock_min - tm_t0, _tietokonemuseo_tasks()])
+			await tm_shot.call("alue")
+			var tm_cam := get_viewport().get_camera_3d()
+			var tm_close := func(name: String, from: Vector3, to: Vector3, fov := 45.0) -> void:
+				var c := Camera3D.new()
+				c.fov = fov
+				retki_int.add_child(c)
+				c.look_at_from_position(retki_int.global_position + from, retki_int.global_position + to)
+				c.current = true
+				_hud.visible = false
+				await tm_shot.call(name)
+				_hud.visible = true
+				tm_cam.make_current()
+				c.queue_free()
+			retki_int.walker.position = retki_int.spots.intendentti[0]
+			for i in 3:
+				await get_tree().process_frame
+			print("TM intendentin luona: spot '%s', vihje '%s'" % [retki_int.spot, _hint.text])
+			_tietokonemuseo_acted("intendentti")
+			print("TM intendentti: puhuttu %s, kupla '%s', tehtävät %s" % [tietokonemuseo.intendentti, retki_int._bubble.text, _tietokonemuseo_tasks()])
+			await tm_shot.call("peli_intendentti")
+			retki_int.walker.position = retki_int.spots.d22[0]
+			for i in 3:
+				await get_tree().process_frame
+			print("TM d22: spot '%s', vihje '%s'" % [retki_int.spot, _hint.text])
+			_tietokonemuseo_acted("d22")
+			await tm_shot.call("peli_d22")
+			retki_int.walker.position = retki_int.spots.mikrot[0]
+			for i in 3:
+				await get_tree().process_frame
+			print("TM mikrot: spot '%s', vihje '%s'" % [retki_int.spot, _hint.text])
+			retki_int.walker.position = Vector3(4.6, 0, 2.6)
+			await get_tree().create_timer(5.5).timeout
+			await tm_shot.call("peli_kyltti")
+			retki_int.walker.position = retki_int.spots.pong[0]
+			for i in 3:
+				await get_tree().process_frame
+			print("TM pongilla: spot '%s', vihje '%s'" % [retki_int.spot, _hint.text])
+			await tm_shot.call("peli_pong")
+			retki_int.walker.position = Vector3(1.0, 0, 3.5)  # pois kuvakulmista
+			await get_tree().process_frame
+			await tm_close.call("d22", Vector3(-4.6, 2.2, 1.0), Vector3(-4.6, 1.2, -5.2), 55.0)
+			await tm_close.call("d22_nauha", Vector3(-6.5, 1.6, -2.6), Vector3(-6.5, 1.3, -5.2), 40.0)
+			await tm_close.call("d22_paneeli", Vector3(-5.3, 1.7, -2.6), Vector3(-5.3, 1.5, -5.2), 40.0)
+			await tm_close.call("d22_kortti", Vector3(-4.1, 1.5, -2.6), Vector3(-4.1, 1.2, -5.2), 40.0)
+			await tm_close.call("d22_sivu", Vector3(-1.2, 1.8, -1.5), Vector3(-5.0, 1.0, -5.0), 55.0)
+			await tm_close.call("mikrot", Vector3(4.0, 2.2, -1.0), Vector3(4.0, 0.9, -4.8), 55.0)
+			await tm_close.call("mikrot_c64", Vector3(2.4, 1.6, -3.4), Vector3(2.4, 0.95, -4.8), 40.0)
+			await tm_close.call("mikrot_zx", Vector3(4.0, 1.6, -3.4), Vector3(4.0, 0.95, -4.8), 40.0)
+			await tm_close.call("mikrot_pc", Vector3(5.6, 1.6, -3.4), Vector3(5.6, 0.95, -4.8), 40.0)
+			await tm_close.call("pong_edesta", Vector3(5.4, 1.7, 2.6), Vector3(5.4, 1.2, -0.2), 45.0)
+			await tm_close.call("pong_paadysta", Vector3(8.0, 1.4, -0.2), Vector3(5.4, 1.2, -0.2), 45.0)
+			await tm_close.call("pong_ylhaalta", Vector3(5.4, 6.0, 0.6), Vector3(5.4, 0.8, -0.2), 40.0)
+			await tm_close.call("intendentti_edesta", Vector3(-0.4, 1.6, -1.6), Vector3(-0.4, 1.1, -4.0))
+			await tm_close.call("intendentti_paadysta", Vector3(2.0, 1.4, -4.0), Vector3(-0.4, 1.1, -4.0))
+			await tm_close.call("intendentti_ylhaalta", Vector3(-0.4, 5.0, -3.6), Vector3(-0.4, 0.5, -4.0))
+			await tm_close.call("ylhaalta", Vector3(0.0, 40.0, 1.0), Vector3(0.0, 0.0, 0.0), 40.0)
+			# Pong: peli auki, pelaaja jäljittää palloa (voitto), palkinto kerran.
+			retki_int.walker.position = retki_int.spots.pong[0]
+			for i in 3:
+				await get_tree().process_frame
+			_tietokonemuseo_acted("pong")
+			var tm_g: Node = get_children().filter(func(c: Node) -> bool: return c.get_script() == PongGame)[0]
+			print("TM pong auki: state %s, minipeli auki %s, voitot %d" % [state, _minigame_open(), tietokonemuseo.voitot])
+			await tm_shot.call("pong_alku")
+			var tm_w := 0.0
+			while tm_g._phase != "play" and tm_w < 5.0:
+				await get_tree().process_frame
+				tm_w += get_process_delta_time()
+			await get_tree().create_timer(0.7).timeout
+			tm_g._py = tm_g._ball.y
+			await tm_shot.call("pong_peli")
+			var tm_p := 0.0
+			var tm_shots := 0
+			while tm_g._phase != "over" and tm_p < 120.0:
+				await get_tree().process_frame
+				tm_p += get_process_delta_time()
+				tm_g._py = tm_g._ball.y if tm_g._phase == "play" else tm_g._py
+				if tm_g._phase == "point" and tm_shots == 0:
+					tm_shots = 1
+					await tm_shot.call("pong_piste")
+			print("TM pong: vaihe %s, tulos %s, kesti %.1f s" % [tm_g._phase, tm_g._score, tm_p])
+			await tm_shot.call("pong_loppu")
+			tm_g._end(tm_g._score[0] > tm_g._score[1])
+			await get_tree().process_frame
+			print("TM pong valmis: state %s, voitot %d, parhaat %d, mielihyvä %.1f, tehtävät %s, minipeli auki %s" % [state, tietokonemuseo.voitot, tietokonemuseo.parhaat, mielihyva, _tietokonemuseo_tasks(), _minigame_open()])
+			# Toinen voitto ei anna palkintoa uudelleen; tappio ei lisää voittoja; Esc kesken ei muuta.
+			retki_int.block_interact()
+			_tietokonemuseo_acted("pong")
+			tm_g = get_children().filter(func(c: Node) -> bool: return c.get_script() == PongGame)[0]
+			var tm_m := mielihyva
+			tm_g._score = [5, 3]
+			tm_g._end(true)
+			await get_tree().process_frame
+			print("TM toinen voitto: voitot %d, mielihyvä %.1f -> %.1f (ei muutosta)" % [tietokonemuseo.voitot, tm_m, mielihyva])
+			retki_int.block_interact()
+			_tietokonemuseo_acted("pong")
+			tm_g = get_children().filter(func(c: Node) -> bool: return c.get_script() == PongGame)[0]
+			tm_g._score = [2, 5]
+			tm_g._phase = "over"
+			tm_g._t = 1.0
+			await tm_shot.call("pong_tappio")
+			tm_g._end(false)
+			await get_tree().process_frame
+			print("TM tappio: voitot %d, state %s" % [tietokonemuseo.voitot, state])
+			retki_int.block_interact()
+			_tietokonemuseo_acted("pong")
+			tm_g = get_children().filter(func(c: Node) -> bool: return c.get_script() == PongGame)[0]
+			tm_g._end(false)
+			await get_tree().process_frame
+			print("TM Esc: state %s, voitot %d, minipeli auki %s" % [state, tietokonemuseo.voitot, _minigame_open()])
+			var tm_cfg := ConfigFile.new()
+			tietokonemuseo.save_to(tm_cfg)
+			var tm_l: RefCounted = TietokonemuseoLegenda.new()
+			tm_l.load_from(tm_cfg)
+			print("TM tallennus: intendentti %s voitot %d parhaat %d" % [tm_l.intendentti, tm_l.voitot, tm_l.parhaat])
+			_on_retki_exited()
+			await get_tree().create_timer(14.0).timeout
+			print("TM takaisin: state %s, etäisyys lähtöpaikasta %.2f m, kello +%.0f min" % [state, player.global_position.distance_to(_retki_from), fposmod(clock_min - tm_t0, 1440.0)])
+			# Yö: nukahtaminen museossa vie kotiin ja herätysteksti kertoo paikan.
+			_retki_from = player.global_position
+			state = "cutscene"
+			_enter_retki("tietokonemuseo")
+			await get_tree().create_timer(4.0).timeout  # saapumisviesti ehtii pois
+			_note.visible = true
+			print("TM yö ennen: state %s, retki_int %s, retki_id '%s'" % [state, retki_int != null, _retki_id])
+			_pass_out()
+			print("TM yö: state %s, retki_int %s, hahmo %s, intro '%s'" % [state, retki_int != null, player.global_position.distance_to(home_zone + Vector3(0, 0, 4)) < 12.0, "Sammuit " + str(Retket.LISTA[_retki_id].sammuit)])
+			await get_tree().create_timer(1.0).timeout
+			await tm_shot.call("yo_herays")
+			await get_tree().create_timer(3.0).timeout
+			await tm_shot.call("yo_aamu")
+			print("TM yö jälkeen: state %s, päivä %d, hazards %s, retki_int %s" % [state, day, _hazards.process_mode, retki_int != null])
 			get_tree().quit()
 		"wanharaahe":
 			# Wanha Raahe (#250 P8): viisi pysähdystä järjestyksessä, kuvan tarkistus katseen mukaan, ovikuva Päiville (kerran); tallennus; kuvat.

@@ -261,6 +261,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Maalauksille E avaa minipelin `kuvakirkko_game.gd`: taivas ja maa, arkki ja puutarha -maalauksissa on kuusi piilokuvaa (tähti, kala, kissa, lintu, avain, etana). Hiirellä
   (suurennuslasi) klikataan löydetty, alareunan lokerikko ja laskuri n/6 näyttävät tilan, huti värähdyttää ja 20 s ilman löytöä kimaltaa lähin. Löydöt säilyvät käyntien välillä
   (Esc kesken); kaikki kuusi: maine +2 (kerran). Näkyy päiväkirjassa. Kirkon 3D-seinämaalaukset piirretään samalla koodilla kuin minipeli (SubViewport-tekstuuri, `painting_viewport`); suntion kupla on maailmassa vasemmalla (ei maalauksen päällä). Maalaukset ovat tyyliteltyjä, eivät kopioita kirkon maalauksista. Tila `kuvakirkko_legenda.gd`. Testi `--scene=kuvakirkko`.
+- **Retki: Saloisten tietokonemuseo ja Pong (#250 P10, tarkistettava):** taksilla Saloisten tietokonemuseoon (valinta "Saloisten tietokonemuseoon", 6 €, 12 min,
+  `retki_tietokonemuseo.gd`). Sisällä on Datasaab D22 -koneen neljä kaappia (pyörivät nauharullat, vilkkuva merkkivalopaneeli, korttilukija) konsolipöytineen, mikrotietokonehuone
+  (kolme tyyliteltyä 1980-luvun konetta) ja Pong-pelikone; intendentti kertoo kokoelmasta (puhekupla maailmassa). Faktat "sanotaan"-muodossa ja tarkistettavia: D22 vuodelta 1971 ja
+  heinäkuun aukioloaika (pelissä museo on aina auki). E D22:lla ja mikroilla näyttää tietoviestin. E Pong-koneella avaa minipelin `pong_game.gd`:
+  beige CRT-televisio museon pöydällä, pelaaja vasemmalla (W/S, nuolet tai hiiri), kone oikealla, ensin viiteen pisteeseen; pallo kiihtyy jokaisesta mailaosumasta ja kimpoaa osumakohdan
+  mukaan, hehku, pyyhkäisyviivat, kipinät, tärähdys ja äänet. Ensimmäinen voitto: mielihyvä +6 (kerran); voitot ja paras tulos tallentuvat (`tietokonemuseo_legenda.gd`). Näkyy päiväkirjassa
+  intendentin puheen jälkeen, kunnes Pong on voitettu. Yöllä museoon nukahtaa (herätysteksti retket.gd:n kentästä "sammuit"). Testi `--scene=tietokonemuseo`.
 - **Saloisten koulukeskus, päiväkoti, kentät ja ulkopingis (#143):** keskustan koulukeskus ja päiväkoti (OSM-rakennukset)
   nimikylttineen, kaksi jalkapallokenttää rajaviivoineen ja maaleineen sekä koulun pihan ulkopingispöytä ("PIHAPINGIS").
   Pöydällä iltapäivisin ja iltaisin (14–21) E: haaste kylän nuorille samalla pingis_game.gd-minipelillä kuin Santun kanssa
