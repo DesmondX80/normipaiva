@@ -21,6 +21,7 @@ const RetkiHiidenportti := preload("res://scripts/retki_hiidenportti.gd")
 const RetkiPyhakoski := preload("res://scripts/retki_pyhakoski.gd")
 const RetkiKajaani := preload("res://scripts/retki_kajaani.gd")
 const RetkiKalajoki := preload("res://scripts/retki_kalajoki.gd")
+const RetkiRaate := preload("res://scripts/retki_raate.gd")
 
 const LISTA := {
 	"lampi": {
@@ -134,6 +135,14 @@ const LISTA := {
 			"Hiekassa juokseminen on kamalaa. Hyvä että sinä juokset, en minä."],
 		"perilla": "Kalajoen Hiekkasärkät. Meri lyö rantaa, kentällä pallo odottaa.",
 		"hop_min": 80.0, "hinta": 42.0, "tasku": RetkiKalajoki, "sammuit": "rantahiekalle sateenvarjon varjoon",
+	},
+	"raate": {
+		"nimi": "Raatteen Portille (Suomussalmi)", "lahto": "taksi", "otsikko": "RAATTEENTIELLE",
+		"sub": "Taksi ajaa itään, kauas. Metsä on tiheää ja tie hiljenee.",
+		"lines": ["Raatteen Portille vai? Suomussalmella, sanotaan.", "Talvisodan paikka. Siellä ei puhuta paljon.",
+			"Odotan täällä."],
+		"perilla": "Raatteen Portti. Tie jatkuu metsään, vanha vierailija seisoo hiljaa.",
+		"hop_min": 100.0, "hinta": 30.0, "tasku": RetkiRaate, "sammuit": "portin kivipilarin juurelle",
 	},
 }
 

@@ -302,6 +302,7 @@ const HiidenporttiLegenda := preload("res://scripts/hiidenportti_legenda.gd")
 const PyhakoskiLegenda := preload("res://scripts/pyhakoski_legenda.gd")
 const MesseniusLegenda := preload("res://scripts/messenius_legenda.gd")
 const KalajokiLegenda := preload("res://scripts/kalajoki_legenda.gd")
+const RaateLegenda := preload("res://scripts/raate_legenda.gd")
 const RantapalloGame := preload("res://scripts/rantapallo_game.gd")
 const RotkoGame := preload("res://scripts/rotko_game.gd")
 const KanttoriLegenda := preload("res://scripts/kanttori_legenda.gd")
@@ -414,6 +415,7 @@ var hiidenportti: RefCounted  # Hiidenportin rotko (hiidenportti_legenda.gd, #25
 var pyhakoski: RefCounted  # Pyhäkosken kylä (pyhakoski_legenda.gd, #250 P16)
 var messenius: RefCounted  # Kajaanin linna ja Messenius (messenius_legenda.gd, #250 P17-P18)
 var kalajoki: RefCounted  # Kalajoen Hiekkasärkät, rantajalkapallo (kalajoki_legenda.gd, #250 P19)
+var raate: RefCounted  # Raatteen Portti, talvisodan muistopaikka (raate_legenda.gd, #250 P20)
 var vanhaherra: RefCounted  # Raahen satama: Vanha herra ja sukellus (vanhaherra_legenda.gd, #250 P11)
 var wanharaahe: RefCounted  # Wanha Raahe -kävelykierros ja ovikuva (wanharaahe_legenda.gd, #250 P8)
 var manamansalo: RefCounted  # legenda: Manamansalon muistokirkko (manamansalo_legenda.gd, #250 P7)
@@ -1245,6 +1247,7 @@ func _ready() -> void:
 	pyhakoski = PyhakoskiLegenda.new()
 	messenius = MesseniusLegenda.new()
 	kalajoki = KalajokiLegenda.new()
+	raate = RaateLegenda.new()
 	kanttori = KanttoriLegenda.new()
 	lemmikki = LemmikkiEnkelit.new()
 	ukko = UkkoLegenda.new()
@@ -6237,6 +6240,42 @@ func _pyhakoski_acted(kind: String) -> void:
 		maine = clampf(maine + PyhakoskiLegenda.MAINE, 0.0, 100.0)
 		tilat.first("pyhakoski_valmis", 0.3)
 		_show_message("Kuulit Pyhäkosken kolme tarinaa. Kylä on hiljainen, mutta muistaa. Mielihyvä +%d, maine +%d." % [int(PyhakoskiLegenda.MIELIHYVA), int(PyhakoskiLegenda.MAINE)], 6.0)
+	_save_game()
+
+
+## Raatteen Portti (raate_legenda.gd): portti, tienvarsi ja muistokivi; hiljainen, kunnioittava sävy, ei vitsejä. Kaikki "sanotaan"-muodossa, tarkistettava.
+func _raate_tasks() -> Array:
+	var h: RefCounted = raate
+	if h.kuultu() > 0 and not h.valmis:
+		return [["Raatteen Portti (taksi): käy läpi muistopaikan kolme kohtaa (%d/3)" % h.kuultu(), false]]
+	return []
+
+
+func _raate_acted(kind: String) -> void:
+	var h: RefCounted = raate
+	match kind:
+		"vierailija":
+			retki_int.say("Isäni puhui tästä vähän. Sanotaan, että tie oli talvella kova paikka. Tänne tullaan olemaan hiljaa.", 6.0)
+		"portti":
+			_show_message("Raatteen Portti. Sanotaan, että portti muistuttaa talvisodan taisteluista Raatteentiellä Suomussalmella joulukuussa 1939.", 6.0)
+			if not h.portti:
+				h.portti = true
+				tilat.first("raate_portti", 0.2)
+		"kivi":
+			_show_message("Muistokivi. Sanotaan, että tässä muistetaan molemmin puolin kaikkia, jotka eivät palanneet kotiin. Hetki hiljaisuutta.", 6.0)
+			if not h.kivi:
+				h.kivi = true
+				tilat.first("raate_kivi", 0.2)
+	if kind == "vierailija":
+		if not h.tie:
+			h.tie = true
+			tilat.first("raate_tie", 0.2)
+	if h.kuultu() >= 3 and not h.valmis:
+		h.valmis = true
+		mielihyva = clampf(mielihyva + RaateLegenda.MIELIHYVA, 0.0, 100.0)
+		maine = clampf(maine + RaateLegenda.MAINE, 0.0, 100.0)
+		tilat.first("raate_valmis", 0.3)
+		_show_message("Kävit Raatteen Portilla. Metsä on hiljaa, ja se riittää. Mielihyvä +%d, maine +%d." % [int(RaateLegenda.MIELIHYVA), int(RaateLegenda.MAINE)], 6.0)
 	_save_game()
 
 
@@ -11234,7 +11273,7 @@ func _enter_retki(id: String) -> void:
 	retki_int.acted.connect(_on_retki_acted)
 	tilat.first("retki_" + id, 0.4)
 	if "legenda" in retki_int:
-		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko, "tietokonemuseo": tietokonemuseo, "vanhaherra": vanhaherra, "kuhmo": karhut, "hiidenportti": hiidenportti, "pyhakoski": pyhakoski, "kajaani": messenius, "kalajoki": kalajoki}.get(id, pakkahuone)
+		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko, "tietokonemuseo": tietokonemuseo, "vanhaherra": vanhaherra, "kuhmo": karhut, "hiidenportti": hiidenportti, "pyhakoski": pyhakoski, "kajaani": messenius, "kalajoki": kalajoki, "raate": raate}.get(id, pakkahuone)
 	if id == "kalajoki":
 		retki_int.set_juhannus(_juhannus())
 	retki_int.enter()
@@ -11291,6 +11330,10 @@ func _on_retki_acted(kind: String) -> void:
 		return
 	if _retki_id == "kuhmo":
 		_karhut_acted(kind)
+		retki_int.block_interact()
+		return
+	if _retki_id == "raate":
+		_raate_acted(kind)
 		retki_int.block_interact()
 		return
 	if _retki_id == "kalajoki":
@@ -18011,6 +18054,7 @@ func _load_game() -> void:
 	pyhakoski.load_from(cfg)
 	messenius.load_from(cfg)
 	kalajoki.load_from(cfg)
+	raate.load_from(cfg)
 	kanttori.load_from(cfg)
 	lemmikki.load_from(cfg)
 	ukko.load_from(cfg)
@@ -18241,6 +18285,7 @@ func _save_game() -> void:
 		pyhakoski.save_to(cfg)
 		messenius.save_to(cfg)
 		kalajoki.save_to(cfg)
+		raate.save_to(cfg)
 		kanttori.save_to(cfg)
 		lemmikki.save_to(cfg)
 		ukko.save_to(cfg)
@@ -19565,7 +19610,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _tietokonemuseo_tasks() + _vanhaherra_tasks() + _karhut_tasks() + _hiidenportti_tasks() + _pyhakoski_tasks() + _messenius_tasks() + _kalajoki_tasks() + _kanttori_tasks() + _lemmikki_tasks()
+	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _tietokonemuseo_tasks() + _vanhaherra_tasks() + _karhut_tasks() + _hiidenportti_tasks() + _pyhakoski_tasks() + _messenius_tasks() + _kalajoki_tasks() + _raate_tasks() + _kanttori_tasks() + _lemmikki_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -26134,6 +26179,31 @@ func _maybe_screenshot() -> void:
 			if not vv_save.is_empty():
 				var vf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 				vf.store_buffer(vv_save)
+			get_tree().quit()
+		"raate":
+			# Raatteen Portti (#250 P20): taksivalinta, kolme kohtaa, palkinto kerran; kuva.
+			_note.visible = false
+			if player == bike:
+				bike.speed = 0.0
+				_toggle_mount()
+			money = 80.0
+			clock_min = 12 * 60.0
+			raate = RaateLegenda.new()
+			print("RA taksivalinta: %s" % [_talk_options("taksi").filter(func(o): return o.id == "retki_raate").map(func(o): return [o.id, o.enabled, o.text])])
+			_retki_from = player.global_position
+			_enter_retki("raate")
+			print("RA perillä: state %s, tehtävät %s" % [state, _raate_tasks()])
+			var ra_m0 := mielihyva
+			_raate_acted("vierailija")
+			_raate_acted("portti")
+			print("RA 2/3: tehtävät %s, kupla '%s'" % [_raate_tasks(), retki_int._bubble.text])
+			_raate_acted("kivi")
+			_raate_acted("kivi")
+			print("RA valmis: %s, mielihyvä %.1f -> %.1f, tehtävät %s" % [raate.valmis, ra_m0, mielihyva, _raate_tasks()])
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_alue.png"))
 			get_tree().quit()
 		"pyhakoski":
 			# Pyhäkoski (#250 P16): taksivalinta, kolme tarinaa, palkinto kerran; kuva.
