@@ -17,7 +17,8 @@ Säännöt:
   kuvat edestä, päädystä ja ylhäältä scratchpadiin. Katso ne: jos näet väännetyn ranteen, läpimenon tai väärän
   suunnan, korjaa ennen palautusta äläkä jätä sitä testaajalle. Kolmas korjaus samaan vikaan: kirjaa se ja palauta
   (arkkitehti vaihtaa lähestymistapaa).
-- Kun valmis: aja `tools/testit/kaantyyko.sh` (isolaatio: `HOME=<scratchpad>/home`) ja korjaa käännösvirheet. Godot-komento omiin ajoihin: `"$(tools/testit/godot.sh)"`.
+- Kun valmis: aja `tools/testit/kaantyyko.sh` (isolaatio: `HOME=<scratchpad>/home`) ja korjaa käännösvirheet. Omat Godot-ajot aina jonossa: `HOME=<scratchpad>/home tools/testit/godot_jono.sh --path . -- ...` (yksi ajo kerrallaan; älä luovuta odottaessa).
+- Kirjoita jokaisen korjatun kohdan jälkeen `03-toteutus-<osa>.md`:hen rivi: kohde, mitä muutit, mittausluvut ja jälkeen-kuvan polku. Teemu lukee välitilanteen sieltä (sinulla ei ole viestityökalua).
 - Kuvaa ominaisuus `docs/`-tiedostoon arkkitehdin osoittamaan paikkaan (README:hen korkeintaan rivi).
 - Älä committaa, älä pushaa, älä pkill-tapa Godotia.
 - Jos suunnitelma osoittautuu mahdottomaksi, älä improvisoi isoa poikkeamaa: kirjaa syy ja palauta.

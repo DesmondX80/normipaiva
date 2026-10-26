@@ -393,9 +393,6 @@ func _build_room() -> void:
 	nb.position = Vector3(3.0, 2.0, -HALF.y + 0.33)
 	# Tanssit: rumpusetti, valosarja ja viirit.
 	var tg: Node3D = _groups.tanssit
-	B.mesh(tg, B.cyl(0.32, 0.32, 0.4, 14), Vector3(1.9, 0.75, -HALF.y + 0.55), Color(0.85, 0.85, 0.9), Vector3(90, 0, 0))
-	for x in [1.4, 2.4]:
-		B.mesh(tg, B.cyl(0.18, 0.18, 0.12, 12), Vector3(x, 1.2, -HALF.y + 1.0), Color(0.75, 0.65, 0.2))
 	for k in 18:  # viirinauha salin yli
 		var x := -8.0 + k * 0.95
 		var flag := B.mesh(tg, PrismMesh.new(), Vector3(x, 3.2 - absf(sin(k * 0.35)) * 0.3, 1.0), [Color.RED, Color.YELLOW, Color(0.2, 0.5, 1.0), Color.WHITE][k % 4])
@@ -754,6 +751,8 @@ func _build_people() -> void:
 				g.rotation_degrees.z = 35.0
 				var neck := B.mesh(holder, B.boxm(Vector3(0.06, 0.55, 0.04)), pd.at + Vector3(-0.22, 1.35, 0.28), Color(0.3, 0.18, 0.08))
 				neck.rotation_degrees.z = 35.0
+			"rummut":
+				_build_drumkit(holder, c, pd.at, pd.face)
 		var body := StaticBody3D.new()
 		body.position = pd.at
 		body.add_child(B.capsule_shape(0.3, 1.4))
@@ -761,6 +760,47 @@ func _build_people() -> void:
 		_bubbles[c] = B.bubble(c, Vector3(0, 1.85, 0), Color.WHITE, 0.7)
 		_people.append(c)
 		_holders.append(holder)
+
+
+## Rumpusetti rumpalin eteen (rumpali istuu jakkaralla, kasvot suuntaan face): bassorumpu, virveli, tomit, hi-hat ja
+## symbaalit käsien ulottuvilla, kädet kapuloilla virvelillä ja hi-hatilla. Kalusteen kehys: -Z = rumpalin etu.
+func _build_drumkit(holder: Node3D, ch: Node3D, at: Vector3, face: Vector3) -> void:
+	var kit := Node3D.new()
+	kit.position = at + Vector3(face.x, 0, face.z).normalized() * 0.12
+	kit.rotation.y = B.yaw_to(face)
+	holder.add_child(kit)
+	var brass := Color(0.85, 0.65, 0.25)
+	var metal := Color(0.2, 0.2, 0.22)
+	var wrap := Color(0.7, 0.08, 0.1)
+	B.mesh(kit, B.cyl(0.28, 0.28, 0.4, 20), Vector3(0, 0.3, -0.62), Color(0.85, 0.85, 0.9), Vector3(90, 0, 0))
+	B.mesh(kit, B.cyl(0.27, 0.27, 0.41, 20), Vector3(0, 0.3, -0.62), Color(0.95, 0.94, 0.9), Vector3(90, 0, 0))
+	var snare := Vector3(-0.27, 0.62, -0.28)
+	var hh := Vector3(-0.55, 0.9, -0.22)
+	for d in [[snare, 0.18, 0.14, Color(0.9, 0.9, 0.92)], [Vector3(0.14, 0.78, -0.55), 0.13, 0.16, wrap], [Vector3(0.46, 0.5, -0.12), 0.2, 0.32, wrap]]:
+		B.mesh(kit, B.cyl(d[1], d[1], d[2], 18), d[0], d[3])
+		B.mesh(kit, B.cyl(d[1] - 0.005, d[1] - 0.005, d[2] + 0.006, 18), d[0], Color(0.95, 0.94, 0.9))
+	B.tube(kit, Vector3(hh.x, 0, hh.z), hh, 0.012, metal)
+	for dy in [0.0, 0.025]:
+		B.mesh(kit, B.cyl(0.18, 0.02, 0.012, 18), hh + Vector3(0, dy, 0), brass)
+	for cy in [[Vector3(0.62, 1.08, -0.48), 0.25], [Vector3(-0.42, 1.28, -0.66), 0.21]]:
+		var cp: Vector3 = cy[0]
+		B.tube(kit, Vector3(cp.x, 0, cp.z), cp, 0.012, metal)
+		B.mesh(kit, B.cyl(cy[1], 0.025, 0.014, 20), cp, brass)
+	# Kädet kapuloille; kohteet kit-kehyksestä hahmon omaan avaruuteen
+	var to_ch := func(p: Vector3) -> Vector3:
+		return ch.transform.affine_inverse() * (kit.transform * p)
+	var rt: Vector3 = hh + Vector3(0.1, 0.1, 0.24)
+	var lt: Vector3 = snare + Vector3(0.0, 0.1, 0.26)
+	ch.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", to_ch.call(rt), to_ch.call(rt + Vector3(0.45, -0.3, 0.3)))
+	ch.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", to_ch.call(lt), to_ch.call(lt + Vector3(-0.45, -0.3, 0.25)))
+	for k in 2:
+		var hand: Vector3 = rt if k == 0 else lt
+		var tip: Vector3 = (hh if k == 0 else snare) + Vector3(0, 0.02, 0)
+		var st := Node3D.new()
+		kit.add_child(st)
+		st.position = hand
+		st.basis = Basis.looking_at((tip - hand).normalized(), Vector3.UP)
+		B.mesh(st, B.cyl(0.008, 0.006, 0.4, 6), Vector3(0, 0, -0.2), Color(0.85, 0.72, 0.5), Vector3(90, 0, 0))
 
 
 ## Tanssivat parit (pelkkä tausta): kaksi hahmoa vastakkain, kiertävät tanssilattiaa _processissa.

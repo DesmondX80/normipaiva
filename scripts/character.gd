@@ -21,6 +21,8 @@ var skeleton: Skeleton3D
 var anim: AnimationPlayer
 var model: Node3D
 var body_mat: ShaderMaterial
+var born_frame := 0  # setup-kutsun ruutu: paistaminen onnistuu vasta myöhemmin (Contact.profile)
+var profile_key := ""  # kontaktimallin välimuistiavain (malli, pituus, vartalo), Contact.profile
 
 var _overrides := {}  # luu -> [akseli hahmon avaruudessa, kulma]
 var _ik := {}  # nimi -> [luu a, luu b, luu c, kohde, polvi/kyynärpää-suunta, loppuluun lisäkierto] (hahmon avaruudessa)
@@ -33,6 +35,9 @@ var _current := ""
 ## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE).
 func setup(look: Dictionary) -> void:
 	var kind: String = look.get("model", "male")
+	born_frame = Engine.get_process_frames()
+	profile_key = "%s_%.3f_%.2f_%.2f_%.2f" % [kind, float(look.get("height", REST_HEIGHT)), float(look.get("belly", 0.0)),
+		float(look.get("bulk", 0.0)), float(look.get("muscle", DEFAULT_MUSCLE))]
 	model = load(MODELS[kind][0]).instantiate()
 	add_child(model)
 	model.rotation.y = PI
@@ -236,6 +241,17 @@ func _process(delta: float) -> void:
 			return
 	delta = _pending
 	_pending = 0.0
+	_update_pose(delta)
+
+
+## Laskee asennon heti (lepo, animaatio, ohitukset ja IK), jotta paistettu verkko ja luiden paikat ovat ajan tasalla
+## ilman ruudun odotusta (Contact.resolve, Pose.sit).
+func refresh_pose() -> void:
+	if anim != null:
+		_update_pose(0.0)
+
+
+func _update_pose(delta: float) -> void:
 	# Luut, joilla ei ole animaatioraitaa, eivät nollaudu itsestään: palautetaan lepoon ennen animaatiota.
 	for bone in _overrides:
 		var bi := skeleton.find_bone(bone)
