@@ -295,6 +295,8 @@ const TietokonemuseoLegenda := preload("res://scripts/tietokonemuseo_legenda.gd"
 const PongGame := preload("res://scripts/pong_game.gd")
 const VanhaherraLegenda := preload("res://scripts/vanhaherra_legenda.gd")
 const SukellusGame := preload("res://scripts/sukellus_game.gd")
+const KarhutLegenda := preload("res://scripts/karhut_legenda.gd")
+const KarhuGame := preload("res://scripts/karhu_game.gd")
 const KanttoriLegenda := preload("res://scripts/kanttori_legenda.gd")
 const LemmikkiEnkelit := preload("res://scripts/lemmikki_enkelit.gd")
 const MuistokylttiGame := preload("res://scripts/muistokyltti_game.gd")
@@ -400,6 +402,7 @@ var pakkahuone: RefCounted  # legenda: Pakkahuoneen veistos (pakkahuone_legenda.
 var peruskivi: RefCounted  # legenda: Rautaruukin peruskivi (peruskivi_legenda.gd, #250 P6)
 var kuvakirkko: RefCounted  # Paltaniemen kuvakirkon piilokuvat (kuvakirkko_legenda.gd, #250 P9)
 var tietokonemuseo: RefCounted  # Saloisten tietokonemuseo ja Pong (tietokonemuseo_legenda.gd, #250 P10)
+var karhut: RefCounted  # Kuhmon karhukätkö (karhut_legenda.gd, #250 P12)
 var vanhaherra: RefCounted  # Raahen satama: Vanha herra ja sukellus (vanhaherra_legenda.gd, #250 P11)
 var wanharaahe: RefCounted  # Wanha Raahe -kävelykierros ja ovikuva (wanharaahe_legenda.gd, #250 P8)
 var manamansalo: RefCounted  # legenda: Manamansalon muistokirkko (manamansalo_legenda.gd, #250 P7)
@@ -1226,6 +1229,7 @@ func _ready() -> void:
 	kuvakirkko = KuvakirkkoLegenda.new()
 	tietokonemuseo = TietokonemuseoLegenda.new()
 	vanhaherra = VanhaherraLegenda.new()
+	karhut = KarhutLegenda.new()
 	kanttori = KanttoriLegenda.new()
 	lemmikki = LemmikkiEnkelit.new()
 	ukko = UkkoLegenda.new()
@@ -6128,6 +6132,64 @@ func _start_sukellus() -> void:
 	add_child(g)
 
 
+## Kuhmon karhukätkö (karhut_legenda.gd, karhu_game.gd): opas kertoo, ikkunasta kuvataan karhuja; humala heiluttaa kameraa.
+func _karhut_tasks() -> Array:
+	var k: RefCounted = karhut
+	if k.opas and not k.hyva:
+		return [["Kuhmon karhukätkö (taksi): ota karhusta hyvä kuva (vähintään %d / 100, paras nyt %d)" % [KarhutLegenda.GOOD, k.paras], false]]
+	return []
+
+
+func _karhut_acted(kind: String) -> void:
+	match kind:
+		"opas":
+			if not karhut.opas:
+				karhut.opas = true
+				tilat.first("karhut_opas", 0.2)
+				_save_game()
+			retki_int.say(retki_int.next_line(), 5.0)
+		"kyltti":
+			_show_message("Karhukätkö, Kuhmo. Karhut tulevat niitylle hämärässä, sanotaan (tarkistettava). Pysy hiljaa ja pidä kamera vakaana.", 5.0)
+		"ikkuna":
+			_start_karhut()
+
+
+func _start_karhut() -> void:
+	var rt := retki_int
+	rt.busy = true
+	rt.walker.controls_enabled = false
+	state = "minigame"
+	_hud.visible = false
+	_hint.text = ""
+	var g := KarhuGame.new()
+	g.drunk = _hand_shake()
+	g.finished.connect(func(best: int, shots: int) -> void:
+		if state == "minigame" and retki_int == rt:
+			state = "in_retki"
+			_hud.visible = true
+			rt.walker.activate()
+			rt.busy = false
+			rt.block_interact()
+		var msg := ""
+		if shots > 0:
+			karhut.yrityksia += 1
+			karhut.paras = maxi(karhut.paras, best)
+			if best >= KarhutLegenda.GOOD and not karhut.hyva:
+				karhut.hyva = true
+				mielihyva = clampf(mielihyva + KarhutLegenda.MIELIHYVA, 0.0, 100.0)
+				maine = clampf(maine + KarhutLegenda.MAINE, 0.0, 100.0)
+				tilat.first("karhut_kuva", 0.3)
+				msg = "Kuva karhusta onnistui (%d / 100)! Opas nyökkää hiljaa: \"Tuo kelpaa seinälle.\"" % best
+			elif best > 0:
+				msg = "Paras kuva %d / 100. Uusi yritys käy aina." % best
+			else:
+				msg = "Karhua ei tullut kuvaan. Uusi yritys käy aina."
+		_save_game()
+		if msg != "":
+			_show_message(msg, 4.5))
+	add_child(g)
+
+
 func _manamansalo_tasks() -> Array:
 	if not manamansalo.heard or manamansalo.found:
 		return []
@@ -10866,7 +10928,7 @@ func _enter_retki(id: String) -> void:
 	retki_int.acted.connect(_on_retki_acted)
 	tilat.first("retki_" + id, 0.4)
 	if "legenda" in retki_int:
-		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko, "tietokonemuseo": tietokonemuseo, "vanhaherra": vanhaherra}.get(id, pakkahuone)
+		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko, "tietokonemuseo": tietokonemuseo, "vanhaherra": vanhaherra, "kuhmo": karhut}.get(id, pakkahuone)
 	retki_int.enter()
 	_show_message(r.perilla, 3.5)
 
@@ -10907,6 +10969,10 @@ func _retki_return() -> void:
 func _on_retki_acted(kind: String) -> void:
 	if _retki_id == "paltaniemi":
 		_kuvakirkko_acted(kind)
+		retki_int.block_interact()
+		return
+	if _retki_id == "kuhmo":
+		_karhut_acted(kind)
 		retki_int.block_interact()
 		return
 	if _retki_id == "vanhaherra":
@@ -17599,6 +17665,7 @@ func _load_game() -> void:
 	kuvakirkko.load_from(cfg)
 	tietokonemuseo.load_from(cfg)
 	vanhaherra.load_from(cfg)
+	karhut.load_from(cfg)
 	kanttori.load_from(cfg)
 	lemmikki.load_from(cfg)
 	ukko.load_from(cfg)
@@ -17824,6 +17891,7 @@ func _save_game() -> void:
 		kuvakirkko.save_to(cfg)
 		tietokonemuseo.save_to(cfg)
 		vanhaherra.save_to(cfg)
+		karhut.save_to(cfg)
 		kanttori.save_to(cfg)
 		lemmikki.save_to(cfg)
 		ukko.save_to(cfg)
@@ -19148,7 +19216,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _tietokonemuseo_tasks() + _vanhaherra_tasks() + _kanttori_tasks() + _lemmikki_tasks()
+	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _tietokonemuseo_tasks() + _vanhaherra_tasks() + _karhut_tasks() + _kanttori_tasks() + _lemmikki_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -25633,6 +25701,81 @@ func _maybe_screenshot() -> void:
 			await get_tree().create_timer(3.0).timeout
 			await tm_shot.call("yo_aamu")
 			print("TM yö jälkeen: state %s, päivä %d, hazards %s, retki_int %s" % [state, day, _hazards.process_mode, retki_int != null])
+			get_tree().quit()
+		"karhut":
+			# Kuhmon karhut (#250 P12): taksivalinta, opas, kuvaus (karhu keskellä pystyssä), tallennus; kuvat.
+			_note.visible = false
+			var kh_shot := func(name: String) -> void:
+				for i in 4:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+			if player == bike:
+				bike.speed = 0.0
+				_toggle_mount()
+			money = 80.0
+			clock_min = 12 * 60.0
+			karhut = KarhutLegenda.new()
+			print("KH taksivalinta: %s" % [_talk_options("taksi").filter(func(o): return o.id == "retki_kuhmo").map(func(o): return [o.id, o.enabled, o.text])])
+			_retki_from = player.global_position
+			_enter_retki("kuhmo")
+			print("KH perillä: state %s, tehtävät %s" % [state, _karhut_tasks()])
+			await kh_shot.call("alue")
+			_karhut_acted("opas")
+			print("KH opas: puhuttu %s, kupla '%s', tehtävät %s" % [karhut.opas, retki_int._bubble.text, _karhut_tasks()])
+			_start_karhut()
+			var kh_g: Node = get_children().filter(func(c: Node) -> bool: return c.get_script() == KarhuGame)[0]
+			print("KH minipeli auki %s, state %s" % [_minigame_open(), state])
+			kh_g._spawn()
+			kh_g._bears[0].x = 640.0
+			kh_g._bears[0].vx = 0.0
+			kh_g._bears[0].stand = 30.0
+			kh_g._bears[0].size = 0.9
+			kh_g._mouse = Vector2(640, 330)
+			await get_tree().create_timer(1.0).timeout
+			await kh_shot.call("peli")
+			kh_g._shoot()
+			print("KH kuva: paras %d" % kh_g._best)
+			kh_g._end()
+			await get_tree().process_frame
+			print("KH valmis: state %s, hyvä %s, paras %d, tehtävät %s, minipeli auki %s" % [state, karhut.hyva, karhut.paras, _karhut_tasks(), _minigame_open()])
+			get_tree().quit()
+		"vanhaherra":
+			# Vanha herra (#250 P11): taksivalinta, vitriini, pumppaaja, sukellus (A/D-pumppaus, kaivaus), tallennus; kuvat.
+			_note.visible = false
+			var vh_shot := func(name: String) -> void:
+				for i in 4:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+			if player == bike:
+				bike.speed = 0.0
+				_toggle_mount()
+			money = 80.0
+			clock_min = 12 * 60.0
+			vanhaherra = VanhaherraLegenda.new()
+			mielihyva = 50.0
+			print("VH taksivalinta: %s" % [_talk_options("taksi").filter(func(o): return o.id == "retki_vanhaherra").map(func(o): return [o.id, o.enabled, o.text])])
+			_retki_from = player.global_position
+			_enter_retki("vanhaherra")
+			print("VH perillä: state %s, tehtävät %s" % [state, _vanhaherra_tasks()])
+			await vh_shot.call("alue")
+			_vanhaherra_acted("vitriini")
+			_vanhaherra_acted("pumppaaja")
+			print("VH puhuttu %s, tehtävät %s" % [vanhaherra.puhuttu, _vanhaherra_tasks()])
+			_start_sukellus()
+			var vh_g: Node = get_children().filter(func(c: Node) -> bool: return c.get_script() == SukellusGame)[0]
+			print("VH minipeli auki %s, state %s" % [_minigame_open(), state])
+			var vh_keys := ["a", "d"]
+			for i in 40:
+				vh_g._pump(vh_keys[i % 2])
+				await get_tree().create_timer(0.4).timeout
+				if i == 12:
+					await vh_shot.call("sukellus")
+			await vh_shot.call("sukellus2")
+			vh_g._end(false)
+			await get_tree().process_frame
+			print("VH Esc: state %s, sukelluksia %d, minipeli auki %s" % [state, vanhaherra.sukelluksia, _minigame_open()])
 			get_tree().quit()
 		"wanharaahe":
 			# Wanha Raahe (#250 P8): viisi pysähdystä järjestyksessä, kuvan tarkistus katseen mukaan, ovikuva Päiville (kerran); tallennus; kuvat.

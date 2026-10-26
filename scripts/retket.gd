@@ -16,6 +16,7 @@ const RetkiWanharaahe := preload("res://scripts/retki_wanharaahe.gd")
 const RetkiPaltaniemi := preload("res://scripts/retki_paltaniemi.gd")
 const RetkiTietokonemuseo := preload("res://scripts/retki_tietokonemuseo.gd")
 const RetkiVanhaherra := preload("res://scripts/retki_vanhaherra.gd")
+const RetkiKuhmo := preload("res://scripts/retki_kuhmo.gd")
 
 const LISTA := {
 	"lampi": {
@@ -89,6 +90,14 @@ const LISTA := {
 			"Heinäkuussa se on kuulemma auki, sanotaan. Kokeile onneasi."],
 		"perilla": "Saloisten tietokonemuseo. Datasaabin kaapit seisovat rivissä, Pong-kone odottaa nurkassa.",
 		"hop_min": 12.0, "hinta": 6.0, "tasku": RetkiTietokonemuseo, "sammuit": "museon konsolipöydän ääreen Datasaabin humistessa",
+	},
+	"kuhmo": {
+		"nimi": "Kuhmon karhukätköön", "lahto": "taksi", "otsikko": "KUHMOON",
+		"sub": "Taksi ajaa itään, Kuhmon korpeen. Mänty seisoo tien molemmin puolin.",
+		"lines": ["Karhukätköön vai? Kuhmossa niitä on, sanotaan, ja kyllä ne tulevat illalla.", "Pitkä matka, sataviisikymmentä kilometriä. Otan sen hinnalla.",
+			"Älä ota evästä mukaan, karhu haistaa. Tai en tiedä."],
+		"perilla": "Kuhmon karhukätkö. Niitty on hiljainen, opas odottaa kätkön vieressä.",
+		"hop_min": 90.0, "hinta": 45.0, "tasku": RetkiKuhmo, "sammuit": "karhukätkön penkille niityn ääreen",
 	},
 }
 

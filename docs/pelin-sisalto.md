@@ -268,6 +268,15 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   beige CRT-televisio museon pöydällä, pelaaja vasemmalla (W/S, nuolet tai hiiri), kone oikealla, ensin viiteen pisteeseen; pallo kiihtyy jokaisesta mailaosumasta ja kimpoaa osumakohdan
   mukaan, hehku, pyyhkäisyviivat, kipinät, tärähdys ja äänet. Ensimmäinen voitto: mielihyvä +6 (kerran); voitot ja paras tulos tallentuvat (`tietokonemuseo_legenda.gd`). Näkyy päiväkirjassa
   intendentin puheen jälkeen, kunnes Pong on voitettu. Yöllä museoon nukahtaa (herätysteksti retket.gd:n kentästä "sammuit"). Testi `--scene=tietokonemuseo`.
+- **Retki: Raahen satama, Vanha herra ja sukellus (#250 P11, tarkistettava):** taksilla Raahen satamaan (valinta "Raahen satamaan", 12 €, 20 min, `retki_vanhaherra.gd`).
+  Kruununmakasiinin vitriinissä on "Vanha herra" (kuparikypärä, kangaspuku, lyijykengät; sanotaan maailman vanhimmaksi säilyneeksi sukelluspuvuksi, tarkistettava museon kuvasta).
+  Laiturilla pumppaaja (kädet pumpun vivussa) ja sukeltaja kuparikypärässä puhekuplineen. Pumpusta alkaa minipeli `sukellus_game.gd`: A ja D vuorotellen pumppaavat ilmaa
+  (tahdissa bonus, sama näppäin kahdesti ei anna), ilmamittari tyhjenee pohjalla; E/Väli kaivaa. Pohjalla on saapas, ämpäri, pullo ja ankkuri, ja kapteenin taskukello puuarkun alla.
+  Löytyessä mielihyvä +6 ja maine +1 (kerran, `vanhaherra_legenda.gd`); Esc keskeyttää, uusi yritys käy aina. Näkyy päiväkirjassa pumppaajan kanssa puhumisen jälkeen. Testi `--scene=vanhaherra`.
+- **Retki: Kuhmon karhukätkö (#250 P12, tarkistettava):** taksilla Kuhmoon (valinta "Kuhmon karhukätköön", 45 €, 90 min, `retki_kuhmo.gd`). Puinen kätkö, penkki, infokyltti ja opas puhekuplineen
+  (paikka ja aikataulut "sanotaan"). Ikkunasta alkaa minipeli `karhu_game.gd`: hämärä niitty, odotus, karhu kävelee tai nousee pystyyn; etsin hiirellä, kuva klikkauksella/Välilyönnillä,
+  kuusi ruutua. Karhu keskellä, iso ja pystyssä = paras kuva. Humala (`tilat` humala) heiluttaa etsintä. Hyvä kuva (60+/100): mielihyvä +6 ja maine +1 kerran (`karhut_legenda.gd`),
+  paras tulos tallentuu. Näkyy päiväkirjassa oppaan puheen jälkeen. Testi `--scene=karhut`.
 - **Saloisten koulukeskus, päiväkoti, kentät ja ulkopingis (#143):** keskustan koulukeskus ja päiväkoti (OSM-rakennukset)
   nimikylttineen, kaksi jalkapallokenttää rajaviivoineen ja maaleineen sekä koulun pihan ulkopingispöytä ("PIHAPINGIS").
   Pöydällä iltapäivisin ja iltaisin (14–21) E: haaste kylän nuorille samalla pingis_game.gd-minipelillä kuin Santun kanssa
