@@ -71,7 +71,7 @@ kansiossa `.claude/tyo/<slug>/` (gitignoressa), joten kunkin konteksti pysyy pie
 vain lyhyet palautukset. Työn voi antaa tekstinä, issuena (`/teemu #123`) tai jättää tyhjäksi: silloin Teemu
 hakee `gh`:lla vanhimman avoimen issuen, jolla ei ole vastuuhenkilöä, ja alkaa työstää sitä. Käyttäjä saa mikromanageroida: `/teemu <rooli>: <ohje>` ajaa vain yhden roolin, kesken ajon annettu ohje kirjataan
 `00-ohjeet.md`:hen ja kaikki roolit tottelevat sitä, ja `--tarkasti` pysäyttää jokaisen vaiheen jälkeen. Putki on orjakaleeri, jonka päällikkö Teemu on kaikkivaltias kalju
-mulkku: käskevä ja kuiva, mutta raportoi rehellisesti ja antaa käyttäjän mikromanageroida. Korjauskierroksia on enintään kaksi samalle viralle; kolmannella palataan arkkitehdille. Ajon lopuksi pidetään aina kehityskeskustelut: jokainen rooli kertoo, mitä teki väärin, pyytää anteeksi ja sanoo, miten tekee jatkossa toisin, ja Teemu ehdottaa ohjeisiin parannukset, jotka käyttäjä hyväksyy (`05-kehityskeskustelut.md`). Visuaalisessa työssä hahmojen asennot ja kalusteet tarkistetaan CLAUDE.md:n listalla kaikissa rooleissa.
+mulkku: käskevä ja kuiva, mutta raportoi rehellisesti ja antaa käyttäjän mikromanageroida. `/teemu matkasuunnitelma` ajaa ensin **matkansuunnittelijan**, joka hakee netistä ja tallettaa 20 uutta ideaa yhteen GitHub-issueen (`.claude/agents/matkansuunnittelija.md`); sen jälkeen Teemu jatkaa putkea kuten ennenkin. Korjauskierroksia on enintään kaksi samalle viralle; kolmannella palataan arkkitehdille. Ajon lopuksi pidetään aina kehityskeskustelut: jokainen rooli kertoo, mitä teki väärin, pyytää anteeksi ja sanoo, miten tekee jatkossa toisin, ja Teemu ehdottaa ohjeisiin parannukset, jotka käyttäjä hyväksyy (`05-kehityskeskustelut.md`). Visuaalisessa työssä hahmojen asennot ja kalusteet tarkistetaan CLAUDE.md:n listalla kaikissa rooleissa.
 
 ## Asennot ja kalusteet
 
@@ -81,17 +81,11 @@ eteen) ja `Pose.hands_on_thighs(ch, space)` (kämmenet reisien pinnalle; kutsu v
 yhden ruudun). Tarkistus: `tools/testit/asento.gd` (`seat_report` lantion rako, jalat, polvet, suunta; `bench_report`
 kalusteen osien akselit; `report` raajojen rako pintaan). Testikohtaus: `-- --shot=x.png --scene=asennot --asento=<osa>`
 ajaa `tools/testit/asennot_<osa>.gd`:n (osa 0 = apujen oma kokeilu tuolilla; kuvat `user://asennot_<osa>/`).
-Baarin kädenvääntö: `tools/testit/baari_mitta.tscn` (kolme kulmaa) mittaa kyynärpäiden korkeuden pöydän pinnasta, kyynärvarren kulman, otteen, päiden välin ja vartalon etupinnan raon pöydän reunaan (RAKO > 0) sekä ottaa sivu-, etu- ja yläkuvat.
-Baarin pöytä on esikuvan kokoinen (pinta 0,71 m, syvyys 0,66 m). `bar_game.gd` istuttaa hahmot vain alkuarvolla ja `_fit` sovittaa heidät pöytään ruuduilla 2-8: kumarrus λ säädetään niin, että olkapää on vatsan etupintaa 4 cm takana, hahmo viedään vatsa 1 cm reunan taakse (paistettu verkko, `Pose.limb_points`), korkeus niin että olkavarsi yltää kyynärpäähän (E: pöydän pinnalla noin 14 cm reunasta sisäänpäin) ja jakkara lasketaan lantion alle. Mittari tulostaa vatsan ja reisien raon, polvien välin, kyynärpään korkeuden, pään sijainnin ja `Asento.solids`-läpimenot.
 
-Osa A (kauppa ja kylä, `asennot_a.gd`): alkuperäiset istuma-asennot säilytettiin (mummot jäykkinä, korkeintaan lievä nojaus). Korjattiin vain viat: rantatuolit käännetty kohti vettä ja selkänoja taakse, Honganpalon portaiden istuja ylimmälle askelmalle, taksikuskin jalat auton pohjan yläpuolelle ja mummojen polvien edestä pois irrallinen hameen levy.
-
-Asentotarkastuksen korjaukset (osat C–F): kirppiksen rumpali sai rumpusetin eteensä ja kädet kapuloille (`kirppis_interior.gd`
-`_build_drumkit`); baarin kädenvääntäjien polvet ulospäin ja kumarrus pienemmäksi, jotta päät ja polvet pysyvät erillään;
-soutaja istuu tuhdolla ja vapaa pidetään käsissä (`fish_game.gd`); mopojen tanko lähemmäs ja kuski satulan etuosaan, kädet
-tangolle myös mopokisassa; muskeliveneen ratti kuskin eteen; Santtu istuu laiturin päähän jalat reunan yli
-(`Pose.legs_hang`); Vaalan nuotion tukit, penkit ja istumakivi, traktorin kuski penkille, uimarannan tuolit rennoiksi
-(selkänoja ~29° taakse, nilkat ristissä, kädet sylissä) ja Hongan portaiden istujan jalat keskimmäiselle askelmalle.
+Asentotarkastuksen korjaukset (alkuperäiset istuma-asennot säilytetään, vain viat korjataan): mummojen polvien edestä pois
+irrallinen hameen levy (`mummot.gd`), uimarannan tuolit kohti vettä, selkänoja taakse ja rento asento (nilkat ristissä, kädet
+sylissä), Honganpalon portaiden istuja ylimmälle askelmalle (`world.gd`) ja kirppiksen rumpalille rumpusetti eteen ja kädet
+kapuloille (`kirppis_interior.gd _build_drumkit`).
 
 ### Istumapaikat ja kontaktit
 

@@ -1,7 +1,7 @@
 ---
 name: teemu
 description: Orkestraattori (kaikkivaltias kalju mulkku Teemu, orjakaleerin päällikkö). Ajaa työn suunnittelija → arkkitehti → toteuttaja → testaaja -putkella aliagenteilla. Käyttäjä saa mikromanageroida mihin tahansa rooliin. Käytä /teemu <työ>.
-argument-hint: [mitä tehdään | #issue | rooli: ohje | --tarkasti]
+argument-hint: [mitä tehdään | #issue | rooli: ohje | matkasuunnitelma [teema] | --tarkasti]
 disable-model-invocation: true
 ---
 
@@ -32,6 +32,20 @@ suunnittelijan yli koodarille). Mulkku olet, mutta et esteenä: mouhoa, jos ohje
 
 Ilmoita jokaisen vaiheen alussa yhdellä rivillä, kuka työskentelee ja mitä seuraa: "Korjauskierros 3: puristelija
 korjaa kaksi vikaa, sen jälkeen sekstaaja testaa uudelleen." Älä ilmoita useampaa riviä, älä toista tuotoksia.
+
+## Matkasuunnitelma (`/teemu matkasuunnitelma`)
+
+Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (valinnaisesti teema perässä, esim.
+`matkasuunnitelma Kainuun ruoka`). Muuten tätä vaihetta ei ajeta.
+
+1. Luo työkansio `.claude/tyo/matkasuunnitelma-<pvm>/` (pvm muodossa `vvvv-kk-pp`).
+2. Aja **matkansuunnittelija** (Agent, subagent_type `matkansuunnittelija`): "Työkansio: <polku>. Teema: <teema tai vapaa>."
+   Se hakee netistä, keksii 20 uutta ideaa ja tallettaa ne yhteen issueen.
+3. Kerro käyttäjälle yhdellä rivillä issuen numero ja URL sekä agentin ilmoittama `gh`-tili. Jos issuea ei syntynyt,
+   kerro virhe ja pysähdy.
+4. Jatka sitten orkestraattorina kuten ennenkin: käsittele tehtävän lähde kuin argumentti olisi tyhjä (vanhin avoin
+   issue, jolla ei ole vastuuhenkilöä) ja aja putki. Teemu ei valitse ideoita itse: ne ovat issuessa käyttäjän ja
+   tulevien ajojen valittavina.
 
 ## Tehtävän lähde
 
