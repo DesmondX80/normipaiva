@@ -18,6 +18,7 @@ const RetkiTietokonemuseo := preload("res://scripts/retki_tietokonemuseo.gd")
 const RetkiVanhaherra := preload("res://scripts/retki_vanhaherra.gd")
 const RetkiKuhmo := preload("res://scripts/retki_kuhmo.gd")
 const RetkiHiidenportti := preload("res://scripts/retki_hiidenportti.gd")
+const RetkiPyhakoski := preload("res://scripts/retki_pyhakoski.gd")
 
 const LISTA := {
 	"lampi": {
@@ -108,6 +109,14 @@ const LISTA := {
 		"perilla": "Hiidenportin rotko. Kalliot kohoavat, retkeilijä seisoo polun alussa.",
 		"hop_min": 70.0, "hinta": 38.0, "tasku": RetkiHiidenportti, "sammuit": "rotkon lepolavalle kallioseinän juurelle",
 	},
+		"pyhakoski": {
+			"nimi": "Pyhäkosken voimalaitoskylään", "lahto": "taksi", "otsikko": "PYHÄKOSKELLE",
+			"sub": "Taksi ajaa Oulujoen vartta. Voimalaitoksen harmaa pato ilmestyy puiden taakse.",
+			"lines": ["Pyhäkoskelle vai? Se on se voimalaitoskylä Oulujoella, sanotaan.", "Siellä oli ennen kioski ja tanssit. Nyt on hiljaisempaa.",
+				"Vahtimestari tietää kylästä kaiken. Jos jaksaa kuunnella."],
+			"perilla": "Pyhäkosken kylä. Voimalaitos jyrisee joen rannalla, kioski on tien varressa.",
+			"hop_min": 45.0, "hinta": 24.0, "tasku": RetkiPyhakoski, "sammuit": "tanssipaikan portaille voimalaitoksen jylinään",
+		},
 }
 
 

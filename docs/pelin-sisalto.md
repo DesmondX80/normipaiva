@@ -250,7 +250,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Kainuun ensimmäisen kirkon sanotaan rakennetun sinne 1559. Nimen "kuolemansaari" tulkinta on epävarma, ja peli esittää sen vain taksikuskin ja oppaan
   tulkintana. Ketju: taksikuski kertoo (valinta "Mikä se Manamansalon kuolemansaari oikein on?") -> vihje 1: opas kirkon edessä (retki taksilla 30 €, 60 min,
   `retki_manamansalo.gd`: muistokirkko, hautausmaa, laituri) -> vihje 2: hautausmaan infotaulu -> kirkon kivijalka mäellä: legendan loppu, kynttilä
-  syttyy, maine +3 (ei rahaa). Laituri on varattu lossille (P15): kyltti "Lossivuorot: ei vielä". Näkyy päiväkirjassa. Tila `manamansalo_legenda.gd`. Testi `--scene=manamansalo`.
+  syttyy, maine +3 (ei rahaa). Alassalmen lossi (P15): laiturilla lossimies myy lipun (3 €, yksi matka), lossi lähtee 30 min välein (odotus kuluttaa pelikelloa), lautta ajaa salmeen ja takaisin (+10 min, stressi pienenee; toista rantaa ei vielä ole). Lähtö myös Vaalasta mopolla: lossipysäkin kyltti aseman länsipäässä (bensat 4 €, +30 min, paluu mopon luo). Näkyy päiväkirjassa. Tila `manamansalo_legenda.gd`. Testi `--scene=manamansalo`.
 - **Retki: Wanha Raahe, kävelykierros (#250 P8, tarkistettava):** taksilla Raahen vanhaan puutalokaupunkiin (valinta "Raahen Wanhaan kaupunkiin", 12 €, 20 min,
   `retki_wanharaahe.gd`). Viisi pysähdystä järjestyksessä: Brahen patsas Pekkatorilla (sanotaan 1888, Raahen perustaja 1649), vanhat ovet, kauppiaan kaksikerroksinen talo,
   rantakuja ja katulyhty sekä punamullattu makasiini. Pysähdyspaikalla E ottaa valokuvan, jos hahmo katsoo kohdetta kohti (sama kulma- ja etäisyystarkistus kuin
@@ -281,6 +281,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   retkeilijä puhekuplineen (tiedot "sanotaan"). Seinältä alkaa minipeli `rotko_game.gd`: klikkaa ote käden ulottuvilta, ote ja roikkuminen kuluttavat voimia, lepolavalla ne palautuvat;
   punertava ote murtuu, humala lisää lipsumista. Putoaminen palauttaa viimeiselle lavalle. Ylälavalle päästyä mielihyvä +6 ja maine +1 kerran (`hiidenportti_legenda.gd`).
   Näkyy päiväkirjassa kyltin lukemisen jälkeen. Testi `--scene=hiidenportti`.
+- **Retki: Pyhäkosken voimalaitoskylä (#250 P16, tarkistettava):** taksilla Oulujoen varteen (valinta "Pyhäkosken voimalaitoskylään", 24 €, 45 min, `retki_pyhakoski.gd`). Voimalaitos,
+  punainen kioski, tanssipaikan portaat, rivitalot ja vahtimestari puhekuplineen (kyltit fontti 60-72). Kolme tarinaa: vahtimestari (voimalaitos), kioski ja portaat; kaikki "sanotaan"-muodossa,
+  hiljainen sävy, ei minipeliä. Kun kaikki kolme on kuultu: mielihyvä +4 ja maine +1 kerran (`pyhakoski_legenda.gd`). Näkyy päiväkirjassa ensimmäisen tarinan jälkeen. Testi `--scene=pyhakoski`.
 - **Valentin Vaala -elokuvapäivät (#250 P14, ohjelma ja päivät tarkistettava):** Vaalan Veturitalli (punatiilinen vaja aseman päädyssä, kyltti "VAALAN VETURITALLI") on auki esityksiin kolmena viimeisenä päivänä 28 päivän jaksossa (päivät 26-28) klo 13-17; muulloin ovella kerrotaan syy. Ovella banderolli. E ovella: mykkäelokuvan tyylinen sepiaesitys (ohjelma yleinen, ei väitettyjä elokuvanimiä) ja 78-levyn iskelmä (`iskelmat.gd`); kello +40 min, stressi -0,1, mielihyvä +4. Esc poistuu kesken. Tiedostot `vaala.gd _build_veturitalli`, `vaala_esitys.gd`. Testi `--scene=valentinvaala`.
 - **Saloisten koulukeskus, päiväkoti, kentät ja ulkopingis (#143):** keskustan koulukeskus ja päiväkoti (OSM-rakennukset)
   nimikylttineen, kaksi jalkapallokenttää rajaviivoineen ja maaleineen sekä koulun pihan ulkopingispöytä ("PIHAPINGIS").

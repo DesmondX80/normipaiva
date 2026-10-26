@@ -3118,6 +3118,7 @@ func _build_station() -> void:
 	station_door = Vector3(dp.x, h(dp.x, dp.y), dp.y) + dout * 2.2
 	doors.append({"id": "asema", "pos": station_door, "out": dout, "hint": "asemalle (odotussali)"})
 	_build_veturitalli(c, along, -back, L, D)
+	_build_lossipysakki(c, along, -back, L, D)
 	station_back = root.transform * (sdoors.plat_door as Vector3)
 	# Laituri: betonilaatta reunaviivoineen, penkit ja valaisimet.
 	var ppts := PackedVector2Array()
@@ -4896,6 +4897,23 @@ func _build_mokki_yard() -> void:
 
 ## Vaalan Veturitalli (#250 P14): punatiilinen vaja aseman päädyssä tien puolella. Paikallinen +Z = vajan etupuoli (tielle),
 ## ovi etuseinässä. Harjakaton molemmat lappeet lasketaan samasta kaltevuudesta. Valentin Vaala -päivinä ovella banderolli.
+## Manamansalon lossin mopopysäkki aseman toisessa päässä (P15): tolppa, iso kyltti ja ovi "lossi". Kyltti katsoo ulos (out2).
+func _build_lossipysakki(station_c: Vector2, along: Vector2, out2: Vector2, L: float, D: float) -> void:
+	var q := station_c - along.normalized() * (L / 2.0 + 9.0) + out2 * (D / 2.0 + 3.0)
+	var root := Node3D.new()
+	root.position = Vector3(q.x, h(q.x, q.y), q.y)
+	root.rotation.y = atan2(out2.x, out2.y)  # +Z = ulos (kyltin etupuoli)
+	add_child(root)
+	for sx in [-1.0, 1.0]:
+		B.mesh(root, B.boxm(Vector3(0.14, 2.6, 0.14)), Vector3(sx * 1.3, 1.3, 0), Color(0.3, 0.22, 0.14))
+	var plate := B.sign_plate(root, "MANAMANSALON LOSSI\nMopolla Alassalmelle\nVuoro 30 min välein", Color(0.15, 0.25, 0.45), Color(0.97, 0.95, 0.85), 0.5, 60,
+		Color(0.85, 0.85, 0.9))
+	plate.position = Vector3(0, 2.0, 0.12)
+	var dq := q + out2 * 2.4
+	doors.append({"id": "lossi", "pos": Vector3(dq.x, h(dq.x, dq.y), dq.y), "out": Vector3(out2.x, 0, out2.y), "hint": "Alassalmen lossille mopolla (4 €)",
+		"text": "Manamansalon lossi"})
+
+
 func _build_veturitalli(station_c: Vector2, along: Vector2, out2: Vector2, L: float, D: float) -> void:
 	var q := station_c + along.normalized() * (L / 2.0 + 11.0) + out2 * (D / 2.0 + 2.0)
 	var yaw := atan2(out2.x, out2.y)
