@@ -346,22 +346,9 @@ func _glasses(g: Node3D, k: float) -> void:
 	g.attach("Head", gl, Vector3(0, 0.074, -0.112) * k)  # kiinnityksessä kasvot -Z:aan (kuten kiharoiden aukko)
 
 
-## Istuvan mummon hame: reisillä on hameen kangas (pants-väri, shorts_y polvessa), ja polvien edestä laskeutuu
-## ohut helma, jonka paikka lasketaan istuma-asennon polvista.
-func _lap_skirt(g: Node3D) -> void:
-	var look: Dictionary = Looks.MUMMOT[_grans.find(g)]
-	if not look.has("lap_skirt"):
-		return
-	var kl: Vector3 = g.bone_position("calf_l")
-	var kr: Vector3 = g.bone_position("calf_r")
-	var knee := (kl + kr) / 2.0
-	var hip: Vector3 = (g.bone_position("thigh_l") + g.bone_position("thigh_r")) / 2.0
-	var fwd := Vector3(knee.x - hip.x, 0, knee.z - hip.z).normalized()
-	var w := kl.distance_to(kr) + 0.13
-	var drape := B.mesh(g, B.boxm(Vector3(w, 0.13, 0.012)), knee + fwd * 0.065 + Vector3(0, -0.045, 0), look.pants)
-	drape.basis = Basis.looking_at(fwd).rotated(Basis.looking_at(fwd).x, 0.15)
-	B.mesh(g, B.boxm(Vector3(w, 0.012, 0.02)), knee + fwd * 0.067 + Vector3(0, -0.11, -0.0), look.pants.darkened(0.25)).basis = \
-		Basis.looking_at(fwd)
+## Hameen helmaa ei lisätä polvien eteen: levy näytti irralliselta tummalta laudalta (säärien väri tulee hahmon mallista).
+func _lap_skirt(_g: Node3D) -> void:
+	return
 
 
 # --- Käytös --------------------------------------------------------------------

@@ -25,7 +25,8 @@ Säännöt:
   piirretään samalla koodilla kuin minipelissä (esim. SubViewport), ei värilaattoina. Kolmas korjaus samaan: vaihda rakenne.
 - **Ota uusi kuva aina viimeisen muutoksen jälkeen** ennen kuin sanot valmis; älä raportoi kuvasta, joka on otettu ennen
   viimeistä säätöä. Jos jokin jäi katsomatta tai ajamatta, sano se palautuksessa.
-- Kun valmis: aja `tools/testit/kaantyyko.sh` (isolaatio: `HOME=<scratchpad>/home`) ja korjaa käännösvirheet. Godot-komento omiin ajoihin: `"$(tools/testit/godot.sh)"`.
+- Kun valmis: aja `tools/testit/kaantyyko.sh` (isolaatio: `HOME=<scratchpad>/home`) ja korjaa käännösvirheet. Omat Godot-ajot aina jonossa: `HOME=<scratchpad>/home tools/testit/godot_jono.sh --path . -- ...` (yksi ajo kerrallaan; älä luovuta odottaessa).
+- Kirjoita jokaisen korjatun kohdan jälkeen `03-toteutus-<osa>.md`:hen rivi: kohde, mitä muutit, mittausluvut ja jälkeen-kuvan polku. Teemu lukee välitilanteen sieltä (sinulla ei ole viestityökalua).
 - Kuvaa ominaisuus `docs/`-tiedostoon arkkitehdin osoittamaan paikkaan (README:hen korkeintaan rivi).
 - Älä committaa, älä pushaa. Älä `pkill -f` -tapa Godotia nimellä (se osuu muiden ajoihin ja omaan komentoon). Käynnistä oma
   ajo taustalle, tallenna sen PID (`$!`), käytä omaa xvfb-näyttönumeroa ja tapa vain se PID, jos ajo jää jumiin.

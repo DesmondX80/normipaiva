@@ -67,3 +67,10 @@ väärään suuntaan ja kalusteen osat (penkin tolpat ja rimat) osoittavat eri s
   otetaan istuimen tai sängyn etusuunnasta; kirjaa koodiin, mikä akseli on etu (esim. "-Z = penkin etupuoli").
 - **Asetelmasta kuvat edestä, päädystä ja ylhäältä.** Päätykuva paljastaa kallistusten etumerkit ja ylhäältä näkyvät
   jalkojen risteys ja istumissuunta. Läpimeno, väännetty ranne tai väärä suunta on aina FAIL.
+- **Kiinteät esineet eivät mene toistensa sisään**: vartalo ei pöytään, jalkaterä ei portaaseen, lattiaan tai maahan,
+  sääri ei tukkiin, käsi ei vartaloon eikä hahmo toiseen hahmoon. Ennen kuin asetelma on valmis, aja automaattinen
+  läpimenotarkistus (`tools/testit/asento.gd Asento.solids`, osana `--scene=asennot`); yksikin läpimeno on vika.
+  Poikkeus: tarkoituksellinen sisäkkäisyys on sallittu (pää painuu pehmeään kassiin tai tyynyyn): merkitse pehmeä osa
+  `set_meta("pehmea", true)` ja kirjaa koodiin, miksi.
+- **Mittaa pinnasta, ei luista.** Jalkapohjan, käden ja vartalon etäisyys pintaan mitataan paistetun verkon pisteistä
+  (`pose.gd limb_points`): nilkkaluu voi olla pinnan yllä, vaikka jalkaterän etuosa on pinnan sisällä.
