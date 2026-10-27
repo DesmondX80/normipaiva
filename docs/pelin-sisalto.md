@@ -250,7 +250,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Kainuun ensimmäisen kirkon sanotaan rakennetun sinne 1559. Nimen "kuolemansaari" tulkinta on epävarma, ja peli esittää sen vain taksikuskin ja oppaan
   tulkintana. Ketju: taksikuski kertoo (valinta "Mikä se Manamansalon kuolemansaari oikein on?") -> vihje 1: opas kirkon edessä (retki taksilla 30 €, 60 min,
   `retki_manamansalo.gd`: muistokirkko, hautausmaa, laituri) -> vihje 2: hautausmaan infotaulu -> kirkon kivijalka mäellä: legendan loppu, kynttilä
-  syttyy, maine +3 (ei rahaa). Alassalmen lossi (P15): laiturilla lossimies myy lipun (3 €, yksi matka), lossi lähtee 30 min välein (odotus kuluttaa pelikelloa), lautta ajaa salmeen ja takaisin (+10 min, stressi pienenee; toista rantaa ei vielä ole). Lähtö myös Vaalasta mopolla: lossipysäkin kyltti aseman länsipäässä (bensat 4 €, +30 min, paluu mopon luo). Näkyy päiväkirjassa. Tila `manamansalo_legenda.gd`. Testi `--scene=manamansalo`.
+  syttyy, maine +3 (ei rahaa). Näkyy päiväkirjassa. Tila `manamansalo_legenda.gd`. Testi `--scene=manamansalo`.
 - **Retki: Wanha Raahe, kävelykierros (#250 P8, tarkistettava):** taksilla Raahen vanhaan puutalokaupunkiin (valinta "Raahen Wanhaan kaupunkiin", 12 €, 20 min,
   `retki_wanharaahe.gd`). Viisi pysähdystä järjestyksessä: Brahen patsas Pekkatorilla (sanotaan 1888, Raahen perustaja 1649), vanhat ovet, kauppiaan kaksikerroksinen talo,
   rantakuja ja katulyhty sekä punamullattu makasiini. Pysähdyspaikalla E ottaa valokuvan, jos hahmo katsoo kohdetta kohti (sama kulma- ja etäisyystarkistus kuin
@@ -545,12 +545,12 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     rantakivetys, sorapihan parkki (Sahanrannantie-sorapätkä) ja kyltti "VAALAN SATAMA". Laiturilla on punavalkoinen muskelivene ja
     kaksi soutuvenettä. Pelin ranta poikkeaa todellisesta, joten satama on haettu pelin rantaviivasta lähimpään sopivaan
     kohtaan (n. 140 m todellisesta): asemalta se on pelissä etelässä n. 600 m, oikeasti etelässä n. 700 m
-    (`tools/vaala_satama.py`, asemaa ei siirretty). Satama näkyy paperikartalla ankkurina ja minikartalla V-merkkinä.
+    (`tools/vaala_satama.py`, asemaa ei siirretty). Satama näkyy paperikartalla ankkurina ja minikartalla V-merkkinä. Sataman tie (Sahanrannantie) ja kaikki muutkin tiet liittyvät päätieverkkoon: irralliset OSM-tiet (Lautatarhantie, Takatie, Telitie, metsätiet) on yhdistetty soratielinkeillä (`tools/vaala_linkit.py`), joten jokainen Vaalan tie on ajettavissa mopolla mökiltä asti (testi `--scene=vaala_ajo --ajo=yhteys`).
     **Muskelivene:** E laiturin juuressa ("Muskeliveneellä Oulujärvelle") ajaa veneen vesille: W/S kaasu (huippu n. 60 km/h,
     selvästi soutuvenettä nopeampi), A/D ohjaus, moottoriääni, keulan nousu, vanavesi, roiskeet ja kallistus käännöksessä.
     Vene pysyy vedessä (ei läpi rannasta, laitureista tai lavan aidasta) ja pysähtyy kartan reunalle kaakossa. Mopo jää
     parkkiin, tilat ja kello kulkevat kuten muuten, humala heiluttaa ohjausta. E laiturin vieressä hiljaa palaa laiturin
-    kärkeen (ensimmäisellä kerralla kokemus, kerran päivässä stressi -0,1). Testi `--scene=satama`.
+    kärkeen (ensimmäisellä kerralla kokemus, kerran päivässä stressi -0,1). Testi `--scene=satama`. **Lavalle veneellä:** myös Oulujärven lavan pihan järvenpuoleisella rannalla on laituri ja muskelivene (ovi "lavalaituri", E). Ajon voi päättää kumpaan tahansa laituriin (E laiturin vieressä); lavan laituriin noustaessa ei ole leimaa, joten tulija on pummilla ja portsari vahtii (`--scene=vaala_ajo --ajo=venelava` tarkistaa veneen reitin).
   - **Juhannus ja Kesäillan valssi:** juhannusaattona (perjantai) lavan niemen rannassa aidan ulkopuolella palaa
     juhannuskokko klo 21–03 juhlaväen keskellä (E: moraali ja mielihyvä). Lavalla soittaa isompi Vaalan Tähtiorkesteri
     (valkoiset takit, trumpetti ja taustalaulajat), koivunoksat koristavat lavaa, ja tanssilattia on tupaten täynnä.

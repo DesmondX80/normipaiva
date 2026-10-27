@@ -621,7 +621,7 @@ func ensure_built() -> void:
 	var times: Array[String] = []
 	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
 			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_station, _build_poliisi, _build_signs,
-			_build_trees, _build_lamps, _build_atm, _build_lava, _build_satama, _build_mokki_yard, _build_north, _build_drive_mask,
+			_build_trees, _build_lamps, _build_atm, _build_lava, _build_satama, _build_lava_pier, _build_mokki_yard, _build_north, _build_drive_mask,
 			_build_lava_grounds, _merge_static_meshes]:
 		var ts := Time.get_ticks_msec()
 		step.call()
@@ -1835,6 +1835,12 @@ func boat_free(x: float, z: float) -> bool:
 	for r: Rect2 in _sat_rects():
 		if r.grow(0.2).has_point(lp):
 			return false
+	if _lp_dir != Vector2.ZERO:
+		var lrel := Vector2(x, z) - _lp_root
+		var llp := Vector2(lrel.dot(Vector2(_lp_dir.y, -_lp_dir.x)), lrel.dot(_lp_dir))
+		for r: Rect2 in _lp_rects():
+			if r.grow(0.2).has_point(llp):
+				return false
 	return true
 
 
@@ -2017,6 +2023,131 @@ func _build_satama() -> void:
 		B.mesh(self, B.cyl(0.05, 0.06, 2.7, 8), Vector3(pp.x, h(pp.x, pp.y) + 1.35, pp.y), Color(0.3, 0.22, 0.15))
 	doors.append({"id": "satama", "pos": satama_door, "out": Vector3(-d.x, 0, -d.y), "r": dl * 0.8, "walk": true,
 		"text": "Muskeliveneellä Oulujärvelle"})
+
+
+# --- Lavan venelaituri (muskeliveneellä lavalle) --------------------------------------------------------------------
+
+const LPIER_LEN := 16.0
+var lava_boat: Node3D                  # lavan laiturissa odottava muskelivene (main.gd piilottaa ajon ajaksi)
+var lava_boat_tf := Transform3D.IDENTITY
+var lava_dock := Vector3.ZERO          # laiturin kärki kannen tasolla (kävelijän paikka veneestä noustessa)
+var _lp_root := Vector2.ZERO           # laiturin juuri rannalla
+var _lp_dir := Vector2.ZERO            # rannalta järvelle
+
+
+## Laituri lavan pihan järvenpuoleiselle rannalle: lavan keskeltä lähin avovesi, jonne aidan linja ei kulje.
+## Ovi "lavalaituri": E käynnistää veneajelun siitä (main.gd _start_boat_vaala).
+func _build_lava_pier() -> void:
+	var lv: Dictionary = data.get("lava", {})
+	if lv.is_empty() or not data.has("satama"):
+		return
+	var c := Vector2(lv.x, lv.z)
+	var fence: Array = lv.get("fence", [])
+	var best := INF
+	var bd := Vector2.ZERO
+	var bs := Vector2.ZERO
+	for k in 32:
+		var d := Vector2.from_angle(TAU * k / 32)
+		var shore := Vector2.INF
+		var crosses := false
+		for t in range(8, 90):
+			var q := c + d * t
+			for m in fence.size() - 1:
+				if Geometry2D.segment_intersects_segment(c + d * (t - 1), q, Vector2(fence[m][0], fence[m][1]), Vector2(fence[m + 1][0], fence[m + 1][1])) != null:
+					crosses = true
+			if crosses:
+				break
+			if code_at(q.x, q.y) == WATER:
+				shore = q - d * 1.5
+				break
+		if crosses or shore == Vector2.INF:
+			continue
+		var open := true
+		for t in range(3, int(LPIER_LEN) + 8, 2):
+			var q := shore + d * t
+			if code_at(q.x, q.y) != WATER:
+				open = false
+		if open and shore.distance_to(c) < best:
+			best = shore.distance_to(c)
+			bd = d
+			bs = shore
+	if bd == Vector2.ZERO:
+		return
+	_lp_root = bs
+	_lp_dir = bd
+	var side := Vector2(bd.y, -bd.x)
+	var dl := LPIER_LEN
+	var wy := water_y(bs.x + bd.x * dl, bs.y + bd.y * dl)
+	var dy := wy + SATAMA_DECK
+	var yaw := atan2(bd.x, bd.y)
+	var xf := Transform3D(Basis(Vector3.UP, yaw), Vector3(bs.x, dy, bs.y))
+	lava_dock = xf * Vector3(0, 0, dl)
+	var door_pos: Vector3 = xf * Vector3(0, 0, 2.0)
+	var wood := Color(0.6, 0.45, 0.3)
+	var dark := Color(0.33, 0.24, 0.16)
+	var dock := StaticBody3D.new()
+	dock.set_meta("ground", true)
+	dock.transform = xf
+	add_child(dock)
+	var pw := SATAMA_PIER_W
+	var hd := SATAMA_HEAD
+	B.mesh(dock, B.boxm(Vector3(pw, 0.1, dl)), Vector3(0, -0.05, dl / 2.0), wood)
+	B.mesh(dock, B.boxm(Vector3(hd.x, 0.1, hd.y)), Vector3(0, -0.05, dl), wood)
+	for k in int(dl / 0.8):
+		B.mesh(dock, B.boxm(Vector3(pw, 0.012, 0.025)), Vector3(0, 0.002, 0.4 + k * 0.8), dark)
+	for sx in [-1.0, 1.0]:
+		B.mesh(dock, B.boxm(Vector3(0.14, 0.2, dl)), Vector3(sx * (pw / 2.0 - 0.07), -0.2, dl / 2.0), dark)
+	B.mesh(dock, B.boxm(Vector3(hd.x, 0.2, 0.14)), Vector3(0, -0.2, dl + hd.y / 2.0 - 0.07), dark)
+	dock.add_child(B.box_shape(Vector3(pw, 0.3, dl), Vector3(0, -0.15, dl / 2.0)))
+	dock.add_child(B.box_shape(Vector3(hd.x, 0.3, hd.y), Vector3(0, -0.15, dl)))
+	var rise := maxf(h(bs.x, bs.y) - dy, 0.0) + 0.06
+	var run := maxf(1.4, rise * 2.2)
+	var ramp := B.box_shape(Vector3(pw, 0.1, Vector2(run, rise).length()), Vector3.ZERO)
+	ramp.transform = Transform3D(Basis(Vector3.RIGHT, atan2(rise, run)), Vector3(0, -0.05 + rise / 2.0, -run / 2.0))
+	dock.add_child(ramp)
+	B.mesh(dock, B.boxm(Vector3(pw, 0.08, Vector2(run, rise).length())), Vector3(0, -0.05 + rise / 2.0 - 0.03, -run / 2.0), wood.darkened(0.1)).rotation.x = atan2(rise, run)
+	var piles: Array[Vector3] = []
+	for k in int(dl / 2.4) + 1:
+		for sx in [-1.0, 1.0]:
+			piles.append(Vector3(sx * (pw / 2.0 - 0.1), 0, minf(1.6 + k * 2.4, dl)))
+	for sx in [-1.0, 1.0]:
+		piles.append(Vector3(sx * (hd.x / 2.0 - 0.15), 0, dl + hd.y / 2.0 - 0.15))
+	for pl in piles:
+		var gp := xf * pl
+		var bottom := h(gp.x, gp.z)
+		if bottom > dy - 0.4:
+			continue
+		var top := 0.3 if int(pl.z * 10.0) % 3 == 0 else -0.02
+		var ph := top - (bottom - dy) + 0.1
+		B.mesh(dock, B.cyl(0.1, 0.1, ph, 8), Vector3(pl.x, top - ph / 2.0, pl.z), Color(0.27, 0.2, 0.14))
+	for k in 4:
+		for sx in [-1.0, 1.0]:
+			var bp := Vector3(sx * (pw / 2.0 - 0.18), 0.0, 3.0 + k * 3.2)
+			B.mesh(dock, B.cyl(0.09, 0.11, 0.34, 10), bp + Vector3(0, 0.17, 0), Color(0.12, 0.2, 0.16))
+			B.mesh(dock, B.cyl(0.13, 0.13, 0.06, 10), bp + Vector3(0, 0.36, 0), Color(0.16, 0.26, 0.2))
+	B.mesh(dock, B.cyl(0.05, 0.06, 2.6, 8), Vector3(hd.x / 2.0 - 0.4, 1.3, dl + 0.2), Color(0.18, 0.18, 0.2))
+	B.mesh(dock, B.boxm(Vector3(0.26, 0.3, 0.26)), Vector3(hd.x / 2.0 - 0.4, 2.7, dl + 0.2), Color(1.0, 0.92, 0.6))
+	lava_boat_tf = xf * Transform3D(Basis(Vector3.UP, PI), Vector3(SATAMA_BOAT_X, wy - dy, dl - 4.9))
+	lava_boat = Node3D.new()
+	add_child(lava_boat)
+	lava_boat.transform = lava_boat_tf
+	Muskelivene.build(lava_boat)
+	var sp := bs - bd * 4.0 + side * 3.6
+	var plate := B.sign_plate(self, "OULUJÄRVEN LAVA\nVenelaituri", Color(0.1, 0.3, 0.5), Color(0.97, 0.97, 0.92), 0.34, 52, Color(0.95, 0.95, 0.9))
+	var pwid: float = plate.get_meta("width")
+	plate.position = Vector3(sp.x, h(sp.x, sp.y) + 2.3, sp.y)
+	plate.rotation.y = yaw
+	for sx in [-1.0, 1.0]:
+		var pp: Vector2 = sp + side * sx * (pwid / 2.0 + 0.06)
+		B.mesh(self, B.cyl(0.05, 0.06, 2.7, 8), Vector3(pp.x, h(pp.x, pp.y) + 1.35, pp.y), Color(0.3, 0.22, 0.15))
+	doors.append({"id": "lavalaituri", "pos": door_pos, "out": Vector3(-bd.x, 0, -bd.y), "r": dl * 0.8, "walk": true,
+		"text": "Muskeliveneellä Oulujärvelle"})
+
+
+## Lavan laiturin suorakaiteet laiturin kehyksessä (x sivulle, y järvelle), veneen törmäyksiin.
+func _lp_rects() -> Array:
+	return [Rect2(-SATAMA_PIER_W / 2.0, -0.5, SATAMA_PIER_W, LPIER_LEN + 0.5),
+		Rect2(-SATAMA_HEAD.x / 2.0, LPIER_LEN - SATAMA_HEAD.y / 2.0, SATAMA_HEAD.x, SATAMA_HEAD.y)]
 
 
 ## Rantakivetys: kiviä vesirajan kuivilla reunaruuduilla laiturin molemmin puolin (ei laiturin kohdalle).
@@ -3118,7 +3249,6 @@ func _build_station() -> void:
 	station_door = Vector3(dp.x, h(dp.x, dp.y), dp.y) + dout * 2.2
 	doors.append({"id": "asema", "pos": station_door, "out": dout, "hint": "asemalle (odotussali)"})
 	_build_veturitalli(c, along, -back, L, D)
-	_build_lossipysakki(c, along, -back, L, D)
 	station_back = root.transform * (sdoors.plat_door as Vector3)
 	# Laituri: betonilaatta reunaviivoineen, penkit ja valaisimet.
 	var ppts := PackedVector2Array()
@@ -4897,23 +5027,6 @@ func _build_mokki_yard() -> void:
 
 ## Vaalan Veturitalli (#250 P14): punatiilinen vaja aseman päädyssä tien puolella. Paikallinen +Z = vajan etupuoli (tielle),
 ## ovi etuseinässä. Harjakaton molemmat lappeet lasketaan samasta kaltevuudesta. Valentin Vaala -päivinä ovella banderolli.
-## Manamansalon lossin mopopysäkki aseman toisessa päässä (P15): tolppa, iso kyltti ja ovi "lossi". Kyltti katsoo ulos (out2).
-func _build_lossipysakki(station_c: Vector2, along: Vector2, out2: Vector2, L: float, D: float) -> void:
-	var q := station_c - along.normalized() * (L / 2.0 + 9.0) + out2 * (D / 2.0 + 3.0)
-	var root := Node3D.new()
-	root.position = Vector3(q.x, h(q.x, q.y), q.y)
-	root.rotation.y = atan2(out2.x, out2.y)  # +Z = ulos (kyltin etupuoli)
-	add_child(root)
-	for sx in [-1.0, 1.0]:
-		B.mesh(root, B.boxm(Vector3(0.14, 2.6, 0.14)), Vector3(sx * 1.3, 1.3, 0), Color(0.3, 0.22, 0.14))
-	var plate := B.sign_plate(root, "MANAMANSALON LOSSI\nMopolla Alassalmelle\nVuoro 30 min välein", Color(0.15, 0.25, 0.45), Color(0.97, 0.95, 0.85), 0.5, 60,
-		Color(0.85, 0.85, 0.9))
-	plate.position = Vector3(0, 2.0, 0.12)
-	var dq := q + out2 * 2.4
-	doors.append({"id": "lossi", "pos": Vector3(dq.x, h(dq.x, dq.y), dq.y), "out": Vector3(out2.x, 0, out2.y), "hint": "Alassalmen lossille mopolla (4 €)",
-		"text": "Manamansalon lossi"})
-
-
 func _build_veturitalli(station_c: Vector2, along: Vector2, out2: Vector2, L: float, D: float) -> void:
 	# Ulos asti 6 m lisää: viereisen rakennuksen (n. 7 m syvä, tiedossa -3,3 m asti vajan keskeltä) ja räystään taakse jää tilaa.
 	var q := station_c + along.normalized() * (L / 2.0 + 11.0) + out2 * (D / 2.0 + 8.0)

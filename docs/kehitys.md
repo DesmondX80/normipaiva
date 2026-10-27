@@ -46,7 +46,7 @@ Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi 
 `--scene=hanhikivi`: Hanhikiven rajakivi (taksikuski, kapteeni ja kyltti vihjeinä, loppu kivellä, tallennus, paluu; kuvat `_alue`, `_kivi`, `_kyltti`, `_onkija`; `--shot=`).
 `--scene=pakkahuone`: Pakkahuoneen veistos (taksikuski, veistos katoaa, kuraattori ja vierailijakirja vihjeinä, luukulla löytyy, tallennus, paluu; kuvat `_sali_ennen`, `_sali_poissa`, `_kuraattori`, `_luukku_auki`, `_sali_loppu`; `--shot=`).
 `--scene=peruskivi`: Rautaruukin peruskivi (taksikuski, vartija ja kyltti vihjeinä, laatta avaa kätkön vain kerran, tallennus, paluu; kuvat `_alue`, `_laatta_kiinni`, `_vartija`, `_kyltti`, `_laatta_auki`; `--shot=`).
-`--scene=manamansalo`: Manamansalon muistokirkko (taksikuski, opas ja infotaulu vihjeinä, kivijalka avaa legendan lopun kerran, laituri ja lossi (`--scene=lossi`), tallennus, paluu; kuvat `_alue`, `_opas`, `_infotaulu`, `_kirkko_edesta`, `_kirkko_sivusta`, `_kivijalka_ennen`, `_kivijalka_jalkeen`, `_laituri`, `_ylhaalta`; `--shot=`).
+`--scene=manamansalo`: Manamansalon muistokirkko (taksikuski, opas ja infotaulu vihjeinä, kivijalka avaa legendan lopun kerran, tallennus, paluu; kuvat `_alue`, `_opas`, `_infotaulu`, `_kirkko_edesta`, `_kirkko_sivusta`, `_kivijalka_ennen`, `_kivijalka_jalkeen`, `_ylhaalta`; `--shot=`).
 `--scene=wanharaahe`: Wanha Raahe -kävelykierros (väärä järjestys ja katse eivät ota kuvaa, viisi pysähdystä, ovikuva Päiville kerran, tallennus, paluu; kuvat `_alue`, `_peli_<pysähdys>`, `_patsas_edesta/_sivusta/_ylhaalta`, `_ovet`, `_ovet_vino`, `_talorivi`, `_kauppiaantalo`, `_kuja_makasiini`, `_makasiini`, `_ylhaalta`; `--shot=`).
 `--scene=kuvakirkko`: Paltaniemen kuvakirkko (taksivalinta, suntio, piilokuvapeli: huti, kolme löytöä, Esc kesken ja jatko, kaikki kuusi ja palkinto vain kerran, tallennus, paluu; kuvat `_alue`, `_alue_tyhja`, `_peli_kyltti`, `_peli_maalaukset`, `_suntio_edesta/_paadysta/_ylhaalta`, `_penkki_paadysta/_ylhaalta/_vino`, `_maalaukset`, `_ylhaalta`, `_peli_tyhja/_huti/_kolme/_valmis`; `--shot=`).
 `--scene=tietokonemuseo`: Saloisten tietokonemuseo (taksivalinta, intendentti, D22 ja mikrot, Pong: pelaaja jäljittää palloa ja voittaa, palkinto vain kerran, tappio ja Esc, tallennus, paluu ja yöllä nukahtaminen museossa; kuvat `_alue`, `_peli_*`, `_d22*`, `_mikrot*`, `_pong_*`, `_intendentti_*`, `_ylhaalta`, `_yo_*`; `--shot=`).
@@ -58,10 +58,10 @@ Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi 
 `--scene=raate`: Raatteen Portti (taksivalinta, vierailija, portti, muistokivi, kolmen kohdan palkinto kerran; kuva `_alue`; `--shot=`).
 `--scene=kajaani`: Kajaanin linna ja Messenius (taksivalinta, rauniot, tervavene-kohtaus, Messenius, kolmen palkinto kerran; kuva `_alue`; `--shot=`).
 `--scene=valentinvaala`: Vaalan Veturitalli (ovi, päiväehto joka 28. päivän 26.-28. päivä klo 13-17, banderolli, esitys, kello +40 min; kuvat `_talli`, `_esitys`; `--shot=`).
-`--scene=lossi`: Alassalmen lossi (lippu, vuoron odotus, lauttamatka, kello, Vaalan lossipysäkin ovi ja mopomatka paluineen; kuvat `_1_laituri`, `_2_matkalla`, `_3_takaisin`; `--shot=`).
 `--scene=satama`: mopolla Vaalan satamaan, E laiturilla, autopilotti ajaa muskeliveneen kaakkoon kartan reunaan ja
 takaisin laiturille (loki: törmäykset, huippunopeus, humala, tallennus) ja ottaa kuvat `_satama`, `_laituri`, `_kyltti`,
 `_vene_*`, `_ajo`, `_kaanne`, `_reuna`. Sataman paikka leivotaan työkalulla `tools/vaala_satama.py` (ajo `vaala_bake.py`:stä).
+`--scene=vaala_ajo --ajo=yhteys`: kaikki Vaalan tiet tavoitettavissa mökiltä (ajoalueen tulvatäyttö; irralliset saarekkeet listataan). `--ajo=venelava`: veneen reitti lavan laituriin. Saarekkeet yhdistää `python3 tools/vaala_linkit.py` (toistettava).
 Pelisisällön kuvauksissa ([pelin-sisalto.md](pelin-sisalto.md)) kerrotaan kunkin ominaisuuden testi
 (`Testi --scene=...`). Lisäksi `tools/testit/` sisältää kuvatestikohtaukset (esim. `mummo_kuvat.tscn`).
 

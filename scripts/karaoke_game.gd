@@ -134,7 +134,7 @@ func _ready() -> void:
 		_begin()
 	else:
 		_menu = true
-		_keys.set_text("%s valitse · %s / Enter / klikkaus aloittaa · %s takaisin" % [Settings.pair("forward", "back"), Settings.cap("interact"), Settings.cap("mount", "Esc")])
+		_keys.set_text("1-%d valitse · %s selaa · %s / Enter / klikkaus aloittaa · %s takaisin" % [menu_titles.size(), Settings.pair("forward", "back"), Settings.cap("interact"), Settings.cap("mount", "Esc")])
 
 
 ## Kappalevalikko: paikan oma kappale ja aito versio.
@@ -252,7 +252,11 @@ func _input(event: InputEvent) -> void:
 		return
 	if _menu:
 		if event is InputEventKey and event.pressed and not event.echo:
-			if event.is_action("forward") or event.keycode == KEY_UP:
+			var n: int = event.physical_keycode - KEY_1
+			if n >= 0 and n < menu_titles.size():
+				_menu_i = n
+				_choose(n)
+			elif event.is_action("forward") or event.keycode == KEY_UP:
 				_menu_i = (_menu_i + menu_titles.size() - 1) % menu_titles.size()
 			elif event.is_action("back") or event.keycode == KEY_DOWN:
 				_menu_i = (_menu_i + 1) % menu_titles.size()
@@ -587,7 +591,7 @@ func _draw_menu() -> void:
 		c.draw_rect(r, Color(0.2, 0.28, 0.5, 0.95) if sel else Color(0.1, 0.12, 0.2, 0.9))
 		c.draw_rect(r, Color(1.0, 0.85, 0.3) if sel else Color(0.4, 0.45, 0.6), false, 3.0)
 		var e: Array = menu_titles[i]
-		c.draw_string(f, r.position + Vector2(24, 44), ("▶ " if sel else "") + str(e[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color.WHITE if sel else Color(0.85, 0.85, 0.95))
+		c.draw_string(f, r.position + Vector2(24, 44), ("▶ " if sel else "") + "%d. %s" % [i + 1, e[1]], HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color.WHITE if sel else Color(0.85, 0.85, 0.95))
 		c.draw_multiline_string(f, r.position + Vector2(24, 76), str(e[2]), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 48.0, 20, 2, Color(0.8, 0.85, 1.0, 0.9))
 
 

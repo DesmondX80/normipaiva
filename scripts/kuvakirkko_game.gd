@@ -63,6 +63,7 @@ func _ready() -> void:
 		set_process_input(false)
 		return
 	add_to_group("esc_lopettaa")
+	CamCtl.free_mouse = true  # muuten kameraohjain lukitsee hiiren takaisin eikä linssi seuraa kursoria
 	layer = 6
 	_root = Control.new()
 	_root.anchor_right = 1.0
@@ -142,6 +143,11 @@ func click(p: Vector2) -> void:
 	_misses.append([p, 0.0])
 	_wobble = 0.3
 	Sfx.play("rattle_hard", -14.0, 0.7)
+
+
+func _exit_tree() -> void:
+	if not texture_only:
+		CamCtl.free_mouse = false
 
 
 func _end(done: bool) -> void:

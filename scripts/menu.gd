@@ -16,6 +16,7 @@ var _cam_t := 0.0
 var _capture := {}  # näppäinasetus odottaa painallusta: {row, slot}
 var _key_buttons := []  # [row, slot, Button]
 var _key_note: Label
+var _num_cbs: Array[Callable] = []  # numeroidut painikkeet järjestyksessä: numeronäppäin 1-9 painaa vastaavaa
 
 
 func _ready() -> void:
@@ -51,6 +52,13 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if visible and _capture.is_empty() and event is InputEventKey and event.pressed and not event.echo:
+		var k: int = event.physical_keycode
+		var n := k - KEY_1 if k >= KEY_1 and k <= KEY_9 else (k - KEY_KP_1 if k >= KEY_KP_1 and k <= KEY_KP_9 else -1)
+		if n >= 0 and n < _num_cbs.size():
+			get_viewport().set_input_as_handled()
+			_num_cbs[n].call()
+			return
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_ESCAPE:
 		if visible:
 			if _mode == "pause":
@@ -311,6 +319,7 @@ func _show() -> void:
 
 func _clear() -> void:
 	_capture = {}
+	_num_cbs.clear()
 	for ch in _root.get_children():
 		ch.queue_free()
 	var dim := ColorRect.new()
@@ -363,6 +372,9 @@ func _label(text: String, size: int, col: Color) -> Label:
 
 func _button(text: String, cb: Callable) -> void:
 	var b := Button.new()
+	if _num_cbs.size() < 9:
+		_num_cbs.append(cb)
+		text = "%d. %s" % [_num_cbs.size(), text]
 	b.text = text
 	b.custom_minimum_size = Vector2(320, 46)
 	b.add_theme_font_size_override("font_size", 22)

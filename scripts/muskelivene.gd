@@ -29,6 +29,8 @@ static var _hull_mat: StandardMaterial3D
 var vaala: Object
 var drunk := 0.0
 var start := Transform3D.IDENTITY
+var berths: Array[Transform3D] = []  # kaikki laiturit (myös lähtölaituri): E-laituroituminen mihin tahansa; tyhjä = vain start
+var docked := -1                     # finished-hetkellä laiturin indeksi berths-listassa
 
 var _parts := {}
 var _boat: Node3D
@@ -460,7 +462,20 @@ func _drive(delta: float) -> void:
 
 
 func _near_dock() -> bool:
-	return Vector2(_pos.x - start.origin.x, _pos.z - start.origin.z).length() < 6.0
+	return _nearest_berth() >= 0
+
+
+## Lähin laituri (alle 6 m paikasta) tai -1.
+func _nearest_berth() -> int:
+	var list: Array[Transform3D] = berths if not berths.is_empty() else [start]
+	var best := -1
+	var bd := 6.0
+	for i in list.size():
+		var d := Vector2(_pos.x - list[i].origin.x, _pos.z - list[i].origin.z).length()
+		if d < bd:
+			bd = d
+			best = i
+	return best
 
 
 ## Vene liukuu parkkiin ja ajo päättyy.
@@ -470,8 +485,11 @@ func _dock_out() -> void:
 	_turn_v = 0.0
 	var from_pos := _pos
 	var from_yaw := _yaw
-	var to_yaw := start.basis.get_euler().y
-	var to_pos := start.origin
+	var list: Array[Transform3D] = berths if not berths.is_empty() else [start]
+	docked = maxi(_nearest_berth(), 0)
+	var berth: Transform3D = list[docked]
+	var to_yaw := berth.basis.get_euler().y
+	var to_pos := berth.origin
 	to_pos.y = _wy(to_pos.x, to_pos.z)
 	var tw := create_tween()
 	tw.tween_method(func(k: float) -> void:
@@ -479,7 +497,7 @@ func _dock_out() -> void:
 		_yaw = lerp_angle(from_yaw, to_yaw, k), 0.0, 1.0, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await tw.finished
 	_engine.stop()
-	finished.emit(start.origin)
+	finished.emit(berth.origin)
 
 
 func _apply_pose(delta: float) -> void:

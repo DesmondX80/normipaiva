@@ -1,5 +1,5 @@
 extends PanelContainer
-## Esinevalikko (#29): lista pelaajan mukana olevista tavaroista. W/S valitsee, E antaa, Q peruuttaa.
+## Esinevalikko (#29): numeroitu lista (rivit 1-9, kymmenes 0). Numeronäppäin valitsee suoraan, W/S selaa, E antaa, Q peruuttaa.
 ## open(items, title): items = [[id, nimi], ...]; lopuksi chosen(id) tai cancelled.
 
 signal chosen(id: String)
@@ -37,7 +37,7 @@ func _ready() -> void:
 	_list = VBoxContainer.new()
 	box.add_child(_list)
 	var help := Label.new()
-	help.text = "W/S tai rulla valitse · E tai vasen nappi anna · Q peruuta"
+	help.text = "1-9 valitse suoraan · W/S tai rulla selaa · E tai vasen nappi anna · Q peruuta"
 	help.add_theme_font_size_override("font_size", 14)
 	help.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
 	box.add_child(help)
@@ -61,7 +61,7 @@ func _refresh() -> void:
 		c.queue_free()
 	for i in _items.size():
 		var l := Label.new()
-		l.text = ("▶ " if i == _sel else "   ") + _items[i][1]
+		l.text = ("▶ " if i == _sel else "   ") + ("%d. " % ((i + 1) % 10) if i < 10 else "    ") + _items[i][1]
 		l.add_theme_font_size_override("font_size", 20)
 		l.add_theme_color_override("font_color", Color.WHITE if i == _sel else Color(0.75, 0.75, 0.75))
 		_list.add_child(l)
@@ -69,6 +69,15 @@ func _refresh() -> void:
 
 ## Hiiren rulla selaa valikkoa (ei toimintona, ettei rulla liikuta hahmoa).
 func _input(event: InputEvent) -> void:
+	if visible and event is InputEventKey and event.pressed and not event.echo and not _items.is_empty() \
+			and Engine.get_process_frames() != _open_frame:
+		var i := _digit_index(event.physical_keycode)
+		if i >= 0:
+			get_viewport().set_input_as_handled()
+			if i < _items.size():
+				visible = false
+				chosen.emit(_items[i][0])
+			return
 	if not visible or not (event is InputEventMouseButton) or not event.pressed or _items.is_empty():
 		return
 	if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -94,3 +103,14 @@ func _process(_delta: float) -> void:
 	elif Input.is_action_just_pressed("bell"):
 		visible = false
 		cancelled.emit()
+
+
+## Numeronäppäin riviksi: 1-9 = rivit 0-8, 0 = kymmenes rivi; muu = -1. Myös numeronäppäimistö.
+func _digit_index(k: int) -> int:
+	if k >= KEY_1 and k <= KEY_9:
+		return k - KEY_1
+	if k >= KEY_KP_1 and k <= KEY_KP_9:
+		return k - KEY_KP_1
+	if k == KEY_0 or k == KEY_KP_0:
+		return 9
+	return -1

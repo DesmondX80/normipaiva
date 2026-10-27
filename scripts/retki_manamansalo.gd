@@ -2,8 +2,7 @@ extends Node3D
 ## Manamansalon muistokirkko ja hautausmaasaari (retket.gd "manamansalo"): taskukohtaus kuten retki_rojuniemi.gd. Kävely player_walker.gd:llä.
 ## Legenda (manamansalo_legenda.gd, main.gd): `legenda` asetetaan ennen enter()iä, ja kivijalan kynttilä seuraa sen tilaa.
 ## Faktat (hautausmaasaari, Kainuun ensimmäinen kirkko 1559, nimen "kuolemansaari" tulkinta) "sanotaan"-muodossa, tarkistettava.
-## Paikallinen -Z = Oulujärvi (takaseinä), +Z = tie ja parkki (kamera). Kirkko on x -3, hautausmaa x 3..13, laituri x -10.
-## Alassalmen lossi (P15): lossimies myy lipun, lautta ajaa salmeen ja takaisin (`ride()`, signaali `ride_done`). Vuorot ja lippu hoitaa main.gd.
+## Paikallinen -Z = Oulujärvi (takaseinä), +Z = tie ja parkki (kamera). Kirkko on x -3, hautausmaa x 3..13.
 
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -16,7 +15,6 @@ const SHORE_Z := -6.4  # rantaviiva: kävelyraja
 
 signal exited
 signal acted(kind: String)
-signal ride_done
 
 var active := false
 var busy := false
@@ -29,7 +27,6 @@ var spots := {
 	"opas": [Vector3(-3.0, 0, 2.1), "[E] Juttele oppaan kanssa"],
 	"infotaulu": [Vector3(3.4, 0, 2.3), "[E] Lue hautausmaan infotaulu"],
 	"jaanteet": [Vector3(9.0, 0, 0.6), "[E] Tutki kirkon kivijalkaa"],
-	"laituri": [Vector3(-10.0, 0, -5.0), "[E] Lossille (juttele lossimiehen kanssa)"],
 }
 var _enter_frame := -1
 var _guide: Node3D
@@ -38,14 +35,6 @@ var _bubble_t := 0.0
 const BUBBLE_AT := Vector3(-6.4, 0.4, 2.6)  # kuplan alareuna: oppaan (x -3) vasemmalla puolella, nurmen yllä (HUD-viestit ovat ruudun oikealla)
 const BUBBLE_FAR := 4.5  # kupla sulkeutuu, kun pelaaja kävelee tätä kauemmas oppaasta
 var _candle: Node3D
-var _lautta: Node3D
-var _lossimies: Node3D
-var _bubble2: Label3D  # lossimiehen kupla
-var _bubble2_t := 0.0
-const BUBBLE2_AT := Vector3(-7.6, 0.4, -3.6)
-const LAUTTA_HOME := Vector3(-10.0, 0.0, -15.0)  # lautan keskipiste laiturin päässä (laiturin kansi päättyy z -12.5)
-const LAUTTA_OUT := 11.0  # matka salmeen (-Z)
-const DECK_TOP := 0.41  # laiturin ja lautan kannen yläpinta
 var _t := 0.0
 
 
@@ -81,67 +70,9 @@ func say(text: String, t := 3.6) -> void:
 	_guide.play("Idle_Talking", 0.2)
 
 
-## Lossimiehen puhekupla (maailmassa, laiturin vieressä).
-func say_lossi(text: String, t := 3.6) -> void:
-	_bubble2.text = text
-	_bubble2_t = t
-	_lossimies.play("Idle_Talking", 0.2)
-
-
-## Lossimatka: hahmo kävelee lautalle, lautta ajaa salmeen ja takaisin, hahmo palaa laiturille. Fysiikka pois ajaksi (kansi on laituria korkeammalla).
-func ride() -> void:
-	busy = true
-	hint = ""
-	walker.controls_enabled = false
-	walker.set_physics_process(false)
-	var bounds_saved: Array = walker.bounds
-	walker.bounds = []
-	var seat := Vector3(0, DECK_TOP + 0.04, 0.9)  # paikka lautalla lautan keskipisteestä
-	walker.rotation.y = B.yaw_to(Vector3(0, 0, -1))
-	await _walk_to(LAUTTA_HOME + seat, 2.2)
-	var t0 := Time.get_ticks_msec()
-	var total := 9.0
-	while true:
-		var t := (Time.get_ticks_msec() - t0) / 1000.0
-		if t >= total:
-			break
-		var k := 0.5 * (1.0 - cos(TAU * t / total))  # 0 -> 1 -> 0
-		_lautta.position = LAUTTA_HOME + Vector3(0, sin(t * 2.0) * 0.015, -LAUTTA_OUT * k)
-		_lautta.rotation.z = sin(t * 1.3) * 0.01
-		walker.position = _lautta.position + seat
-		walker._update_camera()
-		await get_tree().process_frame
-	_lautta.position = LAUTTA_HOME
-	_lautta.rotation.z = 0.0
-	walker.rotation.y = B.yaw_to(Vector3(0, 0, 1))
-	await _walk_to(Vector3(spots.laituri[0].x, 0.0, spots.laituri[0].z), 2.2)
-	walker.bounds = bounds_saved
-	walker.set_physics_process(true)
-	walker.controls_enabled = true
-	busy = false
-	ride_done.emit()
-
-
-## Hahmo liukuu paikkaan (fysiikka pois: kamera päivitetään itse).
-func _walk_to(to: Vector3, secs: float) -> void:
-	var from := walker.position
-	var t0 := Time.get_ticks_msec()
-	while true:
-		var k := minf((Time.get_ticks_msec() - t0) / 1000.0 / secs, 1.0)
-		walker.position = from.lerp(to, k)
-		walker._update_camera()
-		if k >= 1.0:
-			break
-		await get_tree().process_frame
-
-
 func _process(delta: float) -> void:
 	_t += delta
 	_bubble_t -= delta
-	_bubble2_t -= delta
-	if _bubble2.text != "" and _bubble2_t <= 0.0:
-		_bubble2.text = ""
-		_lossimies.play("Idle", 0.3)
 	if _bubble.text != "" and (_bubble_t <= 0.0 or (active and walker.position.distance_to(_guide.position) > BUBBLE_FAR)):
 		_bubble.text = ""
 		_guide.play("Idle", 0.3)
@@ -327,39 +258,6 @@ func _build() -> void:
 	var info := B.sign_plate(self, "MANAMANSALO\nSanotaan: metsästäjien\nhautausmaa, kirkko 1559.\nNimen tulkinta epävarma.",
 		Color(0.95, 0.93, 0.82), Color(0.1, 0.2, 0.3), 0.34, 64, Color(0.15, 0.25, 0.45))
 	_post_sign(info, Vector3(3.4, 0, 1.0), 2.2)
-	# Laituri (varattu lossille, P15): lankkukansi paalujen päällä, kyltti ja kaide.
-	var dock_c := Color(0.5, 0.38, 0.25)
-	B.mesh(self, B.boxm(Vector3(2.0, 0.12, 7.0)), Vector3(-10.0, 0.35, SHORE_Z - 2.6), dock_c)
-	for i in 14:
-		B.mesh(self, B.boxm(Vector3(2.02, 0.01, 0.03)), Vector3(-10.0, 0.415, SHORE_Z + 0.8 - i * 0.5), dock_c.darkened(0.3))
-	for pz in [1.0, -2.0, -5.0]:
-		for sx in [-0.9, 0.9]:
-			B.mesh(self, B.cyl(0.08, 0.08, 1.0, 8), Vector3(-10.0 + sx, 0.0, SHORE_Z + pz - 0.6), dock_c.darkened(0.25))
-	B.mesh(self, B.boxm(Vector3(2.0, 0.06, 0.8)), Vector3(-10.0, 0.18, SHORE_Z + 1.3), dock_c)
-	var dock_sign := B.sign_plate(self, "ALASSALMEN LOSSI\nVuoro 30 min välein\nLippu 3 €", Color(0.15, 0.25, 0.45), Color(0.95, 0.95, 0.95), 0.34, 64, Color(0.85, 0.85, 0.9))
-	# Laiturin vasemmalla puolella (pelaajan rinnalla): [E]-vihje ruudun alareunassa ja lossimiehen kupla eivät peitä kylttiä.
-	_post_sign(dock_sign, Vector3(-12.9, 0, -3.4), 1.8)
-	# Lossi: keltainen lautta laiturin päässä (kansi, kaiteet, ohjaamo, ajoramppi), kaikki lautan lapsina.
-	_lautta = Node3D.new()
-	_lautta.position = LAUTTA_HOME
-	add_child(_lautta)
-	var yellow := Color(0.9, 0.72, 0.15)
-	B.mesh(_lautta, B.boxm(Vector3(3.2, 0.34, 5.0)), Vector3(0, DECK_TOP - 0.17, 0), yellow.darkened(0.15))
-	B.mesh(_lautta, B.boxm(Vector3(3.3, 0.06, 5.1)), Vector3(0, DECK_TOP - 0.03, 0), Color(0.35, 0.36, 0.38))
-	for sx in [-1.55, 1.55]:
-		B.mesh(_lautta, B.boxm(Vector3(0.08, 0.08, 4.4)), Vector3(sx, DECK_TOP + 0.95, 0), Color(0.95, 0.95, 0.95))
-		for pz in [-2.2, -0.7, 0.7, 2.2]:
-			B.mesh(_lautta, B.boxm(Vector3(0.08, 0.95, 0.08)), Vector3(sx, DECK_TOP + 0.47, pz), Color(0.95, 0.95, 0.95))
-	B.mesh(_lautta, B.boxm(Vector3(1.0, 1.9, 1.3)), Vector3(1.0, DECK_TOP + 0.95, -1.7), Color(0.95, 0.95, 0.92))
-	B.mesh(_lautta, B.boxm(Vector3(1.04, 0.5, 1.34)), Vector3(1.0, DECK_TOP + 1.2, -1.7), Color(0.55, 0.72, 0.85)).scale = Vector3(1.0, 1.0, 0.9)
-	B.mesh(_lautta, B.boxm(Vector3(1.2, 0.1, 1.5)), Vector3(1.0, DECK_TOP + 1.95, -1.7), Color(0.2, 0.2, 0.22))
-	B.mesh(_lautta, B.boxm(Vector3(2.9, 0.05, 0.12)), Vector3(0, DECK_TOP + 0.03, 2.3), Color(0.95, 0.95, 0.95))
-	_lossimies = Looks.make(self, {"shirt": Color(0.15, 0.25, 0.45), "pants": Color(0.2, 0.2, 0.24),
-		"shoes": Color(0.12, 0.1, 0.08), "hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.3, 0.25), "height": 1.75})
-	_lossimies.position = Vector3(-8.7, 0, -4.9)  # laiturin kyljessä, katsoo laiturin paikkaa (-X)
-	_lossimies.rotation.y = B.yaw_to(Vector3(-1, 0, 0))
-	_lossimies.play("Idle", 0.0)
-	_bubble2 = B.bubble(self, BUBBLE2_AT, Color.WHITE, 0.8)
 	# Tie, taksi, puita.
 	B.mesh(self, B.boxm(Vector3(30.0, 0.02, 3.0)), Vector3(0, 0.003, 8.8), Color(0.3, 0.3, 0.32))
 	B.mesh(self, B.boxm(Vector3(30.0, 0.025, 0.12)), Vector3(0, 0.01, 8.8), Color(0.9, 0.8, 0.3))

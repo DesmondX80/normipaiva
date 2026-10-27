@@ -149,6 +149,20 @@ func run() -> void:
 	if only == "juna":
 		await _train_test()
 		return
+	if only == "venelava":
+		var bt: Transform3D = vl.lava_boat_tf
+		var fwd := bt.basis * Vector3(0, 0, 1)  # keula osoittaa -Z, perä +Z: laiturilta järvelle on keulan suunta
+		print("VENELAVA laituri %s kärki %s vene %s" % [vl._lp_root, vl.lava_dock, bt.origin])
+		for t in [0.0, 4.0, 8.0, 12.0, 20.0, 40.0, 80.0]:
+			var p: Vector3 = bt.origin - fwd * t
+			print("VENELAVA %4.0f m berthistä: vapaa %s" % [t, vl.boat_free(p.x, p.z)])
+		var sp: Vector3 = vl.satama_boat_tf.origin
+		print("VENELAVA satamaveneen paikka vapaa %s" % vl.boat_free(sp.x, sp.z))
+		get_tree().quit()
+		return
+	if only == "yhteys":
+		_connectivity()
+		return
 	main._lava_pass = "lippu"  # lippu ostettu: lavan portti on auki (ilman lippua portsari ja kiinni oleva portti)
 	main._lava_pass_day = main.day
 	if vl.train != null:
@@ -167,6 +181,61 @@ func run() -> void:
 	print("AJO yhteenveto: %d ongelmaa" % problems.size())
 	for p in problems:
 		print("AJO  ✗ ", p)
+
+
+# --- Yhteys ------------------------------------------------------------------------------------------------------
+
+## Jokainen tie on tavoitettavissa mökiltä: ajoalueen tulvatäyttö reitin keskeltä, ja jokaisen tien (OSM-viivat,
+## järviseutu, lavan tie, satama) pisteistä kirjataan, kuinka moni ei ole tavoitettavissa tai ajettavaa.
+func _connectivity() -> void:
+	var mid: Array = vl.road[vl.road.size() / 2]
+	var reach: PackedByteArray = vl._drive_flood(Vector2(mid[0], mid[2]))
+	var lines: Array = []
+	for r in vl.data.side_roads:
+		if r.kind == "rail" or r.hw == "steps" or r.pts.size() < 2:
+			continue
+		var sp := PackedVector2Array()
+		for q in r.pts:
+			sp.append(Vector2(q[0], q[1]))
+		lines.append(["%s (%s)" % [r.name if r.name != "" else "nimetön", r.hw], sp])
+	for b in vl.data.branches:
+		var bp := PackedVector2Array()
+		for q in b.pts:
+			bp.append(Vector2(q[0], q[2]))
+		lines.append(["haara " + b.name, bp])
+	if vl.data.has("lava"):
+		var lp := PackedVector2Array()
+		for q in vl.data.lava.road:
+			lp.append(Vector2(q[0], q[1]))
+		lines.append(["lavan tie", lp])
+	if vl.data.has("satama"):
+		var sp2 := PackedVector2Array()
+		for q in vl.data.satama.road:
+			sp2.append(Vector2(q[0], q[1]))
+		lines.append(["sataman tie", sp2])
+	for r in vl.north_roads:
+		lines.append(["järviseutu " + str(r.name), r.pts])
+	var bad := 0
+	for ln in lines:
+		var pts: PackedVector2Array = _resample(ln[1], 2.0)
+		var off := 0
+		var island := 0
+		var first := Vector2.ZERO
+		var off_at: Array = []
+		for p in pts:
+			var c: int = vl._dcell(p)
+			if c < 0 or vl._drive[c] == 0:
+				off += 1
+				off_at.append(p.round())
+			elif reach[c] == 0:
+				island += 1
+				if first == Vector2.ZERO:
+					first = p
+		if off > 0 or island > 0:
+			bad += 1
+			print("YHTEYS ✗ %-44s %4d pistettä: ei ajettava %d %s, irrallinen %d, ensimmäinen irrallinen %s" % [ln[0], pts.size(), off, str(off_at.slice(0, 4)), island, first.round()])
+	print("YHTEYS %d tietä, joista ongelmia %d" % [lines.size(), bad])
+	get_tree().quit()
 
 
 # --- Tiet --------------------------------------------------------------------------------------------------------

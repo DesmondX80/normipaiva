@@ -90,6 +90,7 @@ var _ball: Node3D
 var _bartender: Node3D
 var _band: Node3D  # vaala.gd:n lavabändi (humppa_band.gd); null testeissä ilman Vaalaa
 var _menu := -1  # toivelistan valinta (-1 = lista kiinni)
+var _digit_prev := -1  # toivelistan numeronäppäin edellisellä ruudulla (vain painallus laukaisee)
 var _menu_kind := "band"  # band = bändin iskelmät, dj = DJ:n diskobiisit
 var _menu_items: Array = []  # bändi: kappaleet (repertoire), DJ: tiedostopolut
 var _wish := ""  # pelaajan toivoma kappale (soi seuraavaksi)
@@ -534,14 +535,27 @@ func _show_menu() -> void:
 		var it = _menu_items[i]
 		var name: String = Headphones.song_title(it) if _menu_kind == "dj" else (
 			"%s – %s (%d)" % [it.title, it.artist, it.year] if it.has("artist") else it.title)
-		lines.append(("▶ " if i == _menu else "   ") + name)
+		lines.append(("▶ " if i == _menu else "   ") + ("%d. " % ((i + 1) % 10) if i < 10 else "") + name)
 	var head := "Laulaja kumartuu lavan reunalle: \"No, mitäs soitetaan?\"" if _menu_kind == "band" else \
 		"DJ nostaa kuulokkeen korvalta: \"Mikä biisi? Huuda kovempaa!\""
-	_info.text = "%s\n\n%s\n\n%s valitse · %s toivo · %s peruuta" % [
+	_info.text = "%s\n\n%s\n\nnumero tai %s valitse · %s toivo · %s peruuta" % [
 		head, "\n".join(lines), Settings.pair("forward", "back"), Settings.cap("interact"), Settings.cap("bell")]
 
 
 func _menu_input() -> void:
+	var digit := -1
+	for d in mini(_menu_items.size(), 10):
+		if Input.is_physical_key_pressed(KEY_1 + d if d < 9 else KEY_0):
+			digit = d
+	if digit >= 0 and digit != _digit_prev:
+		_digit_prev = digit
+		_menu = digit
+		if _menu_kind == "dj":
+			request_disco(digit)
+		else:
+			request_song(digit)
+		return
+	_digit_prev = digit
 	if Input.is_action_just_pressed("forward"):
 		_menu = posmod(_menu - 1, _menu_items.size())
 		_show_menu()

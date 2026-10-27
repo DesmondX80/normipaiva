@@ -86,3 +86,5 @@ Napit syöttävät samat näppäinpainallukset kuin näppäimistö, joten kaikki
 | Valikot, kartta, sahaus ym. | napautus toimii hiiren klikkauksena |
 
 Työpöydällä ohjaimia voi kokeilla käynnistämällä pelin `godot --path . -- --touch`.
+
+**Valikot:** kaikissa valikoissa (esinevalikko, keskusteluvalinnat, päävalikko ja taukovalikko, kappale- ja toivelistat) rivit on numeroitu, ja numeronäppäin 1-9 (esinevalikossa ja toivelistoissa 0 = kymmenes) valitsee rivin suoraan. W/S ja rulla selaavat, E valitsee.

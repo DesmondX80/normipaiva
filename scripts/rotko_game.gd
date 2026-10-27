@@ -38,6 +38,7 @@ var _keys: Control
 
 func _ready() -> void:
 	add_to_group("esc_lopettaa")
+	CamCtl.free_mouse = true  # muuten kameraohjain lukitsee hiiren takaisin eikä etsin/ote seuraa kursoria
 	layer = 6
 	_build_holds()
 	_cam = _holds[0].p.y
@@ -81,6 +82,10 @@ func _input(ev: InputEvent) -> void:
 			_end()
 		else:
 			_grab(_mouse)
+
+
+func _exit_tree() -> void:
+	CamCtl.free_mouse = false
 
 
 func _end() -> void:

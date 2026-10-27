@@ -6506,68 +6506,8 @@ func _talk_manamansalo(id: String) -> void:
 		"Legenda: Manamansalon muistokirkko. Taksilla Manamansaloon: opas, infotaulu ja kirkon kivijalka.")
 
 
-## Alassalmen lossi (P15): vuoro 30 min välein (`_train_clock`-laskuri), lippu 3 € (yksi matka), lautta ajaa salmeen ja takaisin.
-const LOSSI_GAP := 30.0
-const LOSSI_FARE := 3.0
-const LOSSI_VAALA_FARE := 4.0  # mopon bensat Vaalasta Alassalmelle
-const LOSSI_MOPO_LINES := ["Brrrm brrrm. Mopolla Alassalmelle, tuuli korvissa.", "Kypärä päässä, tie 8823 vilisee.", "Lossi lähtee puolen tunnin välein. Jos ehdit."]
-var _lossilippu := false
-var _retki_vaala := false  # retki alkoi Vaalasta mopolla: palataan mopon luo (_act_end), ei taksilla
-
-
-## Minuutit seuraavaan lossivuoroon (0 = lossi on laiturissa nyt).
-func _lossi_wait() -> float:
-	var w := fposmod(-_train_clock(), LOSSI_GAP)
-	return 0.0 if w < 2.0 or w > LOSSI_GAP - 0.01 else w
-
-
-func _lossi_use() -> void:
-	if not _lossilippu:
-		if money < LOSSI_FARE:
-			retki_int.say_lossi("Lippu maksaa %s €. Ei sulla ole." % _eur(LOSSI_FARE), 4.0)
-			return
-		money -= LOSSI_FARE
-		_lossilippu = true
-		Sfx.play("coin", -6.0)
-		retki_int.say_lossi("Kolme euroa. Lossi kulkee puolen tunnin välein. Tule takaisin, kun olet valmis.", 5.0)
-		return
-	var w := _lossi_wait()
-	if w > 0.0:
-		_advance_clock(w)
-		retki_int.say_lossi("Odotit lossia %d min." % int(ceil(w)), 3.0)
-	_lossilippu = false
-	retki_int.say_lossi("Hyppää kyytiin!", 2.5)
-	Sfx.play("door_close", -4.0)
-	retki_int.ride_done.connect(_on_lossi_done, CONNECT_ONE_SHOT)
-	retki_int.ride()
-
-
-func _on_lossi_done() -> void:
-	_advance_clock(10.0)
-	tilat.first("lossi", 0.3)
-	tilat.add("stressi", -0.05)
-	_save_game()
-	retki_int.say_lossi("Salmen yli ja takaisin. Toisella rannalla ei vielä ole mitään kartalla.", 5.0)
-
-
-## Vaalan lossipysäkki: mopolla Alassalmelle (maksu bensoista), paluu samaan kohtaan Vaalassa.
-func _lossi_from_vaala() -> void:
-	if money < LOSSI_VAALA_FARE:
-		_show_message("Bensat Alassalmelle maksaa %s €. Ei ole." % _eur(LOSSI_VAALA_FARE), 3.0)
-		return
-	money -= LOSSI_VAALA_FARE
-	_act_begin("cutscene")
-	_retki_vaala = true
-	_retki_id = "manamansalo"
-	_retki_fare = LOSSI_VAALA_FARE
-	cutscene.taxi_ride("MOPOLLA ALASSALMELLE", "Vaalasta Manamansalon lossille. Mopo mylvii.", LOSSI_MOPO_LINES, _enter_retki.bind("manamansalo"))
-
-
 func _manamansalo_acted(kind: String) -> void:
 	match kind:
-		"laituri":
-			_lossi_use()
-			return
 		"opas":
 			if not manamansalo.heard:
 				retki_int.say("Tämä on muistokirkko. Saarella on vanha hautausmaa, kuulemma.", 4.0)
@@ -11265,7 +11205,7 @@ func _taxi_retki(id: String) -> void:
 func _enter_retki(id: String) -> void:
 	var r: Dictionary = Retket.LISTA[id]
 	_retki_id = id
-	_advance_clock(30.0 if _retki_vaala else r.hop_min)
+	_advance_clock(r.hop_min)
 	state = "in_retki"
 	_hud.visible = true
 	_retki_close()
@@ -11296,26 +11236,16 @@ func _on_retki_exited() -> void:
 	if state != "in_retki":
 		return
 	_retki_close()
-	_lossilippu = false
 	Sfx.play("door_close", -3.0)
 	state = "cutscene"
 	_hud.visible = false
-	if _retki_vaala:
-		cutscene.taxi_ride("TAKAISIN VAALAAN", "Mopo kaartaa takaisin Vaalaan.", LOSSI_MOPO_LINES, _retki_return)
-		return
 	cutscene.taxi_ride("TAKAISIN", "Taksi vie takaisin lähtöpaikkaan. Paluu oli jo maksettu.", Cutscene.TAXI_HOME_LINES, _retki_return)
 
 
 ## Paluu lähtöpaikkaan (ruutu vielä pimeänä): kello siirtyy takaisintulon verran, ohjaus takaisin.
 func _retki_return() -> void:
 	var r: Dictionary = Retket.LISTA[_retki_id]
-	_advance_clock(30.0 if _retki_vaala else r.hop_min)
-	if _retki_vaala:  # Vaalan mopomatka: takaisin mopon luo
-		_retki_vaala = false
-		_retki_id = ""
-		_act_end()
-		_save_game()
-		return
+	_advance_clock(r.hop_min)
 	state = "ulkona"
 	player.global_position = _retki_from
 	player.activate_camera()
@@ -11382,7 +11312,7 @@ func _on_retki_acted(kind: String) -> void:
 		"vartija", "laatta":
 			_peruskivi_acted(kind)
 			retki_int.block_interact()
-		"opas", "infotaulu", "jaanteet", "laituri":
+		"opas", "infotaulu", "jaanteet":
 			_manamansalo_acted(kind)
 			retki_int.block_interact()
 		"tiski":
@@ -15445,27 +15375,45 @@ func _start_fishing_vaala() -> void:
 	fr.add_child(game)
 
 
-## Sataman muskelivene (muskelivene.gd): ajelu Oulujärvellä. Mopo jää parkkiin, HUD (tilat) pysyy näkyvissä ja
-## kävelijä palaa laiturin kärkeen. Paikkaa ei tallenneta veneestä (tallennus pitää Saloisten paikan).
-func _start_boat_vaala() -> void:
+## Muskelivene (muskelivene.gd): ajelu Oulujärvellä sataman tai lavan laiturista (`from` = "satama" | "lava"); molemmilla
+## laitureilla odottaa vene, ja ajon voi päättää kumpaan tahansa laituriin. Mopo jää satamaan, HUD (tilat) pysyy näkyvissä ja
+## kävelijä nousee sen laiturin kärkeen, johon ajo päättyi. Lavan laiturista noustaan lavan pihalle ilman leimaa (pummi).
+## Paikkaa ei tallenneta veneestä (tallennus pitää Saloisten paikan).
+func _start_boat_vaala(from := "satama") -> void:
 	var vl: Node3D = mopo_trip.vaala
 	_act_begin("minigame")
 	_hud.visible = true
-	var parked: Node3D = vl.satama_boat
-	parked.visible = false
+	var boats: Array[Node3D] = [vl.satama_boat, vl.lava_boat]
+	var tfs: Array[Transform3D] = [vl.satama_boat_tf, vl.lava_boat_tf]
+	var docks: Array[Vector3] = [vl.satama_dock, vl.lava_dock]
+	var i0 := 1 if from == "lava" and vl.lava_boat != null else 0
+	if vl.lava_boat == null:
+		boats.resize(1)
+		tfs.resize(1)
+		docks.resize(1)
+	boats[i0].visible = false
 	var game := Muskelivene.new()
 	game.vaala = vl
 	game.drunk = _hand_shake()
-	game.start = vl.satama_boat_tf
+	game.start = tfs[i0]
+	game.berths = tfs
 	game.finished.connect(func(_pos: Vector3) -> void:
-		parked.visible = true
-		walker_out.global_position = vl.to_global(vl.satama_dock + Vector3(0, 0.6, 0))
+		for b in boats:
+			b.visible = true
+		var di: int = clampi(game.docked, 0, docks.size() - 1)
+		walker_out.global_position = vl.to_global(docks[di] + Vector3(0, 0.6, 0))
 		walker_out.velocity = Vector3.ZERO
+		_mopo_dry = walker_out.global_position
 		game.queue_free()
 		_act_end()
 		tilat.first("muskelivene", 0.3)
 		if _once_today("muskelivene"):
-			tilat.add("stressi", -0.1))
+			tilat.add("stressi", -0.1)
+		if di == 1 and _lava_pass_now() == "":
+			tilat.first("pummi_lava", 0.3)
+			_lava_pass = "pummi"
+			_lava_pass_day = day
+			_show_message("Rantauduit lavan laituriin ilman lippua! Leimaa ei ole: varo portsaria ja sen katsetta.", 4.5))
 	vl.add_child(game)
 	_minimap.player = game.get_child(0)
 	_paper.player = game.get_child(0)
@@ -16079,8 +16027,6 @@ func _on_vaala_door(id: String) -> void:
 			_kokko_visit()
 		"veturitalli":
 			_start_vvaala()
-		"lossi":
-			_lossi_from_vaala()
 		"bileet", "pihanuoret":
 			_nuoret_yard = id == "pihanuoret"
 			_talk_open("nuoret", null)
@@ -16099,7 +16045,9 @@ func _on_vaala_door(id: String) -> void:
 		"kalastus":
 			_start_fishing_vaala()
 		"satama":
-			_start_boat_vaala()
+			_start_boat_vaala("satama")
+		"lavalaituri":
+			_start_boat_vaala("lava")
 		"salminen":
 			_swim("Salminen", Vector3.ZERO)
 		"viski":
@@ -19946,9 +19894,6 @@ func _pass_out() -> void:
 			intro = "Sammuit Kapteenin Kulman nurkkapöytään. Baarimikko soitti taksin, ja Päivi maksoi sen.\n"
 		"in_retki":
 			_retki_close()
-			if _retki_vaala:  # lossiretki Vaalasta mopolla: Vaala-tila ja retken paluu mopon luo nollataan
-				_mopo_end_quiet()
-				_retki_vaala = false
 			spawn = home_zone + Vector3(0, 0, 4)
 			var sam: String = str(Retket.LISTA.get(_retki_id, {}).get("sammuit", "retkipaikan penkille"))
 			intro = (sam.trim_prefix("!") if sam.begins_with("!") else "Sammuit " + sam) + ". Taksikuski kuljetti sut kotiin eikä sanonut mitään.\n"
@@ -26572,53 +26517,6 @@ func _maybe_screenshot() -> void:
 			_on_retki_exited()
 			await get_tree().create_timer(14.0).timeout
 			print("MM takaisin: state %s, etäisyys lähtöpaikasta %.2f m, kello +%.0f min" % [state, player.global_position.distance_to(_retki_from), fposmod(clock_min - mm_t0, 1440.0)])
-			get_tree().quit()
-		"lossi":
-			# Alassalmen lossi (#250 P15): lippu, vuoro, lauttamatka ja kello; Vaalan pysäkin ovi. Kuvat _lossi_*.
-			_note.visible = false
-			var ls_shot := func(name: String) -> void:
-				for i in 3:
-					await get_tree().process_frame
-				await RenderingServer.frame_post_draw
-				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
-			if player == bike:
-				bike.speed = 0.0
-				_toggle_mount()
-			money = 40.0
-			clock_min = 12 * 60.0
-			_retki_from = player.global_position
-			_enter_retki("manamansalo")
-			var ls_c0 := clock_min
-			retki_int.walker.position = retki_int.spots.laituri[0]
-			for i in 4:
-				await get_tree().process_frame
-			print("LS laiturilla: spot '%s'" % retki_int.spot)
-			_on_retki_acted("laituri")
-			print("LS lippu: %s, raha %s (37 €)" % [_lossilippu, _eur(money)])
-			await ls_shot.call("1_laituri")
-			var ls_w := _lossi_wait()
-			print("LS odotus ennen vuoroa: %.0f min (0..30)" % ls_w)
-			_on_retki_acted("laituri")
-			await get_tree().create_timer(5.0).timeout
-			await ls_shot.call("2_matkalla")
-			await get_tree().create_timer(9.0).timeout
-			print("LS matka valmis: busy %s, lippu %s, kello +%.0f min (odotus %.0f + 10)" % [retki_int.busy, _lossilippu, fposmod(clock_min - ls_c0, 1440.0), ls_w])
-			await ls_shot.call("3_takaisin")
-			_on_retki_exited()
-			await get_tree().create_timer(14.0).timeout
-			print("LS takaisin taksilla: state %s" % state)
-			# Vaalan pysäkki: ovi löytyy ja mopomatka toimii (paluu mopon luo).
-			_start_mopo(false)
-			await get_tree().create_timer(2.0).timeout
-			var ls_d: Array = mopo_trip.vaala.doors.filter(func(d): return d.id == "lossi")
-			print("LS Vaalan ovi: %s" % [ls_d.map(func(d): return d.pos)])
-			money = 40.0
-			_lossi_from_vaala()
-			await get_tree().create_timer(12.0).timeout
-			print("LS Vaalasta: state %s, retki %s, raha %s (36 €)" % [state, retki_int != null, _eur(money)])
-			_on_retki_exited()
-			await get_tree().create_timer(14.0).timeout
-			print("LS paluu Vaalaan: state %s, retki_vaala %s" % [state, _retki_vaala])
 			get_tree().quit()
 		"kalalampi":
 			# Retkirunko ja Teeriniemen kalalampi (#3): taksivalikko, matka, lupa tiskiltä, onkiminen (kirjolohi, taimen),
