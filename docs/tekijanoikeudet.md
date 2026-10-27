@@ -19,7 +19,7 @@
   1928), Tanssit Tarvaisen torpassa (Kuuno Sevander 1929), Pääskysvalssi (Viola Turpeinen ja John Rosendahl 1928) ja
   Muistoja Karpaateilta (Willy Larsen trio 1930).
 - Seuraintalon tanssibiisit (`assets/music/tanssit/`): "Pihalla tavataan" ja "Rasvanappi", sanat tehty tätä peliä
-  varten, musiikki tehty pelin tekijän Suno-tunnuksilla. Uudelleenkoodattu (mono, MP3 64 kbps 22 kHz); iskut mitattu
+  varten, musiikki tehty pelin tekijän Suno-tunnuksilla. Sunon alkuperäinen MP3 (stereo, 48 kHz) ilman uudelleenkoodausta, vain kansikuva ja tiedot poistettu; iskut mitattu
   `tools/tanssibiisi.py`:llä.
 - Mökin ympäristö (`assets/mokki/kartta.json`): © OpenStreetMap-tekijät (ODbL) ja korkeudet Maanmittauslaitoksen
   korkeusmalli 2 m (CC BY 4.0, lehti R4333D, 2023; Kapsin peilistä).
