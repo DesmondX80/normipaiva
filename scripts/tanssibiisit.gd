@@ -1,5 +1,5 @@
 extends RefCounted
-## Seuraintalon tanssien biisit (tanssi_game.gd): Saloisten Saapasjalkojen äänitteet ja niistä tehdyt
+## Seuraintalon tanssien biisit (tanssi_game.gd): Saloisten Saapasjalkojen äänitteet ja pelin tunnari ja niistä tehdyt
 ## nuottiradat; tanssiin arvotaan yksi.
 ## Iskut on mitattu äänitteestä (tools/tanssibiisi.py), koska Sunon biisin tempo heittelee hieman: nuotti osuu aina
 ## oikeaan iskuun. Osat (alkusoitto, säkeistö, kertosäe) on tunnistettu äänitteen stereokuvasta (säkeistössä laulaja
@@ -48,6 +48,30 @@ const SONGS := [
 			29.68, 30.14, 30.60, 31.05, 31.51, 31.97, 32.44, 32.88, 33.34, 33.81, 34.27, 34.71, 35.18, 35.64, 36.11, 36.57,
 			37.04, 37.48, 37.94, 38.41, 38.87, 39.33, 39.80, 40.24, 40.70, 41.17, 41.61, 42.07, 42.54, 43.00, 43.47, 43.93,
 			44.40, 44.84, 45.30, 45.77,
+		],
+	},
+	{
+		"title": "Normipäivä",
+		"file": "res://assets/music/normipaiva.mp3",  # pelin tunnari
+		"bpm": 152.0,
+		"end": 50.5,  # ensimmäinen kertosäe loppuu 48 s ("kaljajemma kasvaa, ei Päivi sitä löydä")
+		"fade": 2.5,
+		# Sanojen ajat karaokeversiosta (normipaiva_sanat_lyhyt.json) + 11,3 s (lyhyestä versiosta on leikattu alkusoitto): säkeistö
+		# alkaa 13,7 s ja kertosäe 35,3 s. Nopea tempo: säkeistössä askel joka toisella iskulla.
+		"osat": [[0, "Alkusoitto", 0], [4, "Alkusoitto", 4], [8, "Säkeistö", 2], [22, "Kertosäe!", 1], [30, "Loppusoitto", 0]],
+		"tuplat": [],
+		"hei": [87, 103],  # kertosäkeen "Normipäivä Saloisissa" (35,3 ja 41,7 s)
+		"huuto": "NORMIPÄIVÄ!",
+		"beats": [
+			0.37, 0.74, 1.11, 1.53, 1.93, 2.32, 2.74, 3.13, 3.53, 3.92, 4.32, 4.71, 5.13, 5.53, 5.92, 6.32,
+			6.71, 7.11, 7.52, 7.92, 8.31, 8.71, 9.10, 9.52, 9.94, 10.33, 10.73, 11.12, 11.52, 11.91, 12.33, 12.72,
+			13.10, 13.49, 13.89, 14.30, 14.72, 15.12, 15.51, 15.91, 16.30, 16.70, 17.11, 17.51, 17.90, 18.32, 18.72, 19.11,
+			19.53, 19.92, 20.32, 20.71, 21.13, 21.52, 21.92, 22.34, 22.73, 23.13, 23.52, 23.94, 24.33, 24.75, 25.15, 25.54,
+			25.96, 26.35, 26.73, 27.14, 27.56, 27.96, 28.37, 28.77, 29.16, 29.56, 29.95, 30.37, 30.77, 31.16, 31.58, 31.97,
+			32.37, 32.79, 33.20, 33.60, 33.99, 34.39, 34.78, 35.18, 35.57, 35.97, 36.36, 36.78, 37.18, 37.57, 37.99, 38.38,
+			38.78, 39.17, 39.59, 39.98, 40.36, 40.77, 41.17, 41.56, 41.96, 42.35, 42.77, 43.17, 43.56, 43.98, 44.37, 44.77,
+			45.16, 45.58, 45.98, 46.37, 46.79, 47.18, 47.58, 47.97, 48.37, 48.79, 49.18, 49.57, 49.99, 50.39, 50.78, 51.18,
+			51.59, 51.99, 52.38, 52.78, 53.20, 53.59, 53.99,
 		],
 	},
 ]

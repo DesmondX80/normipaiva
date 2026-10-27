@@ -1,10 +1,10 @@
 extends Node3D
 ## Tanssit Saloisten seuraintalolla (#129), pelataan salin tanssilattialla: pelaaja ja tanssipari (salin oma Sinikka,
 ## Hilkka tai Anna-Liisa) tanssivat lattian keskellä, muut parit kiertävät ympärillä ja Saloisten Saapasjalat soittaa
-## lavalla oikeaa biisiä (tanssibiisit.gd: "Pihalla tavataan" tai "Rasvanappi"). Kamera kiertää paria hitaasti. Askeleet A ja D
+## lavalla oikeaa biisiä (tanssibiisit.gd: "Pihalla tavataan", "Rasvanappi" tai "Normipäivä"). Kamera kiertää paria hitaasti. Askeleet A ja D
 ## vuorotellen biisin iskuilla: nuotit liukuvat ruudun alareunassa kohti osumarengasta, ja painallus osuman hetkellä vie
 ## paria eteenpäin. Alkusoitossa askel joka toisella iskulla, säkeistössä joka iskulla, kertosäkeessä tuplasteppejä,
-## ja kertosäkeen lopun HEI!- tai HEP!-huutoon painetaan hyppyä (välilyönti): kipinät, tärähdys ja pari huutaa mukana. Tahti
+## ja kertosäkeen huutoon (HEI!, HEP! tai NORMIPÄIVÄ!) painetaan hyppyä (välilyönti): kipinät, tärähdys ja pari huutaa mukana. Tahti
 ## otetaan soivasta musiikista (Sfx.music_pos), joten nuotit pysyvät biisissä; ilman ääntä (headless) aika kulkee
 ## kehyksillä. Väärä näppäin tai ohi tahdin: kompastus (horjahdus ja "Auts, varpaat!" puhekuplassa). Humala levittää
 ## ikkunaa mutta heiluttaa nuotteja. Tanssi loppuu biisin "end"-kohdassa (musiikki häipyy). F / Esc lopettaa kesken
@@ -356,9 +356,11 @@ func _draw_hei(b: Array, dt: float, hp: Vector2, sz: Vector2, font: Font) -> voi
 		col = Color(0.4, 1.0, 0.5, 0.6)
 	elif b[2] == 2:
 		col = Color(1.0, 0.25, 0.2, 0.5)
-	var r := 34.0 + (6.0 * sin(_t * 18.0) if b[2] == 0 else 0.0)
+	var long := (_song.huuto as String).length() > 5  # pitkä huuto (NORMIPÄIVÄ!): isompi pallo, pienempi teksti
+	var r := (56.0 if long else 34.0) + (6.0 * sin(_t * 18.0) if b[2] == 0 else 0.0)
 	MG.ball(_ui, p, r, col, 0.5)
-	_ui.draw_string_outline(font, Vector2(p.x - 60, p.y + 10), _song.huuto, HORIZONTAL_ALIGNMENT_CENTER, 120, 30, 6, Color(0.25, 0.1, 0.0))
-	_ui.draw_string(font, Vector2(p.x - 60, p.y + 10), _song.huuto, HORIZONTAL_ALIGNMENT_CENTER, 120, 30, Color(1.0, 0.98, 0.9))
+	var fs := 20 if long else 30
+	_ui.draw_string_outline(font, Vector2(p.x - 120, p.y + fs * 0.33), _song.huuto, HORIZONTAL_ALIGNMENT_CENTER, 240, fs, 6, Color(0.25, 0.1, 0.0))
+	_ui.draw_string(font, Vector2(p.x - 120, p.y + fs * 0.33), _song.huuto, HORIZONTAL_ALIGNMENT_CENTER, 240, fs, Color(1.0, 0.98, 0.9))
 	_ui.draw_string_outline(font, Vector2(p.x - 80, p.y + r + 24), Settings.cap("jump"), HORIZONTAL_ALIGNMENT_CENTER, 160, 20, 6, Color.BLACK)
 	_ui.draw_string(font, Vector2(p.x - 80, p.y + r + 24), Settings.cap("jump"), HORIZONTAL_ALIGNMENT_CENTER, 160, 20, Color(1.0, 0.9, 0.5))
