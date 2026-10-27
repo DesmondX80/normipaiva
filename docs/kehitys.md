@@ -119,7 +119,7 @@ kaluste, tyyli, opts)` istuttaa: tyylit `JAYKKA` (mummot), `SUORA` (jakkara, por
 vartalo pois pöydästä, selkä 0-1 cm selkänojasta, jalkapohja tukipinnalle (korkein tuki kantapään ja päkiän alla), käsivarret pois
 jaloista. Tulosteet `KONTAKTI JÄÄ ...` kertovat yli 1 cm tunkeumasta. Kapselimalli mitataan paistetusta verkosta vasta 3 ruutua
 hahmon luonnin jälkeen; sitä ennen (ja headlessissa) käytetään vakiotaulukkoa. Kokeilu: `tools/testit/kontakti_a.tscn`
-(mittaa jalkapohjan rakoa tukeen). Ei vielä: sääri/reisi kiinteän kappaleen sisällä (askelman reuna) ja toiset hahmot.
+(mittaa jalkapohjan rakoa tukeen). Ei vielä: sääri/reisi kiinteän kappaleen sisällä (askelman reuna); toiset hahmot: "Hahmo hahmoa vastaan" alla.
 
 **Elastisuus** (`scripts/elastic.gd`): `Elastic.PARTS` on ruumiinosien painumarajat (m): luinen 0 (kallo, sääri, polvi, kyynärpää,
 ranne, kämmen, jalkaterä), pehmeä pakara/reisi 15 mm, vatsa 6-16 mm (`belly`), rinta 12-20 mm (`bust`, Sinikka 20), selkä/kylki 4 mm;
@@ -149,6 +149,22 @@ painuman jäännöksen (`KONTAKTI JÄÄ`, raja 1 mm yli painumarajan) ja kuvaa i
 Polvitaipeen pehmeä raja koskee vain etupintaa. `Contact.ground_y` (fysiikkasäde, `Terrain.COLLISION_LAYER`) on jalkojen tuki kalusteen
 kappaleiden rinnalla; `Asento.solids` ohittaa `draped`-maaston laatat ja tarkistaa maan säteellä (`LÄPI ... -> maa (jalkaterä|muu)`).
 Läpimenotestin jäännös lasketaan ilman `deep_fade`a (`_raw_pen`), ja `Asento.views(..., check := false)` ohittaa toistotarkistuksen.
+
+**Hahmo hahmoa vastaan:** toinen hahmo on este samoilla luukapseleilla kuin kalusteet (`scripts/contact.gd`, kapselit myös kämmenelle
+ja päälle). Kutsuja ajaa joka ruutu `Contact.pair_fit(a, pa, b, pb, move_b)` (vartalot erilleen siirtämällä b:tä vaakasuunnassa, IK-ketjujen
+loppupää liukuu pinnalle ja alkupää kiertää polea) -> `pair_contacts` (painumalaatikot kosketuskohtiin, enintään 6) -> `set_contacts`;
+`overlap_pairs` mittaa kapseliparien päällekkäisyyden ja `surface_point` antaa IK-kohteen kapselin pinnalta. Mittari:
+`tools/testit/aja.sh tscn tools/testit/hahmot_kontakti.tscn` (halaus Sinikan kanssa, iskut Juntin vatsaan, painiote) tulostaa vaiheen pahimman
+kapseliparin (`PARI <vaihe> <a>:<kapseli> <b>:<kapseli> <mm> (t)`, kuusi syvintä `PARIT`), kohteen raon pintaan (`KOHDE`: kämmenkapseli
+`Contact._pt_depth`illa ja kuvahetkellä kämmenen verkko toisen verkkoon, joka ratkaisee, koska hartialla kapseli on 2-6 cm verkon alla), ranteen kulman
+(`RANNE`, raja 70 astetta), jalkojen ja rinnan suunnan (`SUUNTA`), painuman luuttain ilman leviämistä (`PAINUMA`, luiset 0, muut enintään
+5 cm) sekä kapselimallin ja verkon eron hartioilla ja vatsassa (`MALLI`, tiedoksi). Raja 1 cm: yli -> `TESTI VIKA`. Vaihe `vanha` (halaus
+kiinteillä kohteilla) ajetaan aina ja todistaa mittarin (`MITTARI`; ellei se ylitä rajaa, `TESTI VIKA mittari ei havaitse`); argumentti
+`vanha` ajaa halauksen vanhalla tavalla mittarin alla, jolloin VIKA-rivi on odotettu. Yksinäinen hahmo (toinen 30 m päässä) ei saa muuttua
+(`YKSIN`, raja 0,1 mm). Kuvat `<vaihe>_<hetki>_koottu.png` (iskut: ennen, osuma, palautuu). Halauksessa kädet ovat eri korkeuksilla,
+ettei käsivarsia tarvitse ristiin: Sinikan kädet päähahmon vyötärölle, päähahmon kädet Sinikan hartioiden yli (kyynärpäät ylhäällä). Painiote
+(Juntti leveäharteinen, joten hartiaote ei mahdu): päähahmon kämmenet Juntin kyljille (`spine_01`), Juntti tarttuu päältä päähahmon
+kyynärvarsista kyynärpään läheltä. Argumentti `paini` ajaa vain painivaiheen (nopea kokeilu).
 
 **Hiukset ja pää (elastiset):** hiukset ovat skinnattuja verkkoja oma varjostin `shaders/hair.gdshader` (painumasilmukka jaettu
 `shaders/press.gdshaderinc`-tiedostossa vartalon kanssa); painumaraja on 0,9 x etäisyys kallon pintaan (`CUSTOM0.w`), leviäminen suuntautuu

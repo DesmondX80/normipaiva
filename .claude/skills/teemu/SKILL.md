@@ -73,8 +73,11 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
 2. **Älä lue työtiedostoja itse**, ellei päätös sitä vaadi. Aliagentin lyhyt palautus riittää. Tuomio ratkeaa `TUOMIO:`-rivistä.
 3. **Jokaisella oma konteksti.** Joka vaihe on uusi aliagentti (ei fork). Korjauskierroksella uusi toteuttaja lukee vain `04-testi.md`:n, ei koko historiaa.
 4. **Mallit portaittain:** arkkitehti ja puristelija Opus (päätökset ja visuaalinen toteutus), muut Sonnet. Älä ylikirjoita malleja.
-5. **Rinnakkaisuus vain, kun tiedostot eivät mene päällekkäin** (arkkitehdin "Jako"). Muuten peräkkäin.
+5. **Rinnakkaisuus vain, kun tiedostot eivät mene päällekkäin** (arkkitehdin "Jako"). Muuten peräkkäin. Osa, joka
+   ajaa toisen osan koodia, ajetaan vasta, kun se osa on valmis, vaikka tiedostot eivät mene päällekkäin.
 6. **Älä toista.** Raportoi käyttäjälle tiivis tulos, ei aliagenttien tuotoksia.
+7. **Kirjaa, mitä arvioidaan.** Pyyntöön kirjataan, arvioidaanko järjestelmää vai lopputuloksen ulkonäköä. Käyttäjän
+   sivukommentti ei ole tavoite, eikä sitä liitetä pyyntöön tavoitteena.
 
 ## Putki
 
