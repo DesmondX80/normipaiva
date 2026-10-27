@@ -28,8 +28,7 @@ Säännöt:
 - Kun valmis: aja `tools/testit/kaantyyko.sh` (isolaatio: `HOME=<scratchpad>/home`) ja korjaa käännösvirheet. Omat Godot-ajot aina jonossa: `HOME=<scratchpad>/home tools/testit/godot_jono.sh --path . -- ...` (yksi ajo kerrallaan; älä luovuta odottaessa).
 - Kirjoita jokaisen korjatun kohdan jälkeen `03-toteutus-<osa>.md`:hen rivi: kohde, mitä muutit, mittausluvut ja jälkeen-kuvan polku. Teemu lukee välitilanteen sieltä (sinulla ei ole viestityökalua).
 - Kuvaa ominaisuus `docs/`-tiedostoon arkkitehdin osoittamaan paikkaan (README:hen korkeintaan rivi).
-- Älä committaa, älä pushaa. Älä `pkill -f` -tapa Godotia nimellä (se osuu muiden ajoihin ja omaan komentoon). Käynnistä oma
-  ajo taustalle, tallenna sen PID (`$!`), käytä omaa xvfb-näyttönumeroa ja tapa vain se PID, jos ajo jää jumiin.
+- Älä committaa, älä pushaa. Älä koskaan `pkill`/`kill` Godotia: anna ajon päättyä itse (`--quit-after` tai kohtauksen oma `quit()`).
 - Jos suunnitelma osoittautuu mahdottomaksi, älä improvisoi isoa poikkeamaa: kirjaa syy ja palauta.
 
 Kirjoita `03-toteutus-<osa>.md` (enintään 25 riviä): muutetut tiedostot (+ yksi rivi per tiedosto), poikkeamat suunnitelmasta, tiedossa olevat puutteet, kääntyykö.
