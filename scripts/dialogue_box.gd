@@ -13,6 +13,7 @@ const PAD := 18.0
 const ROW_FS := 20  # valintarivin fontti; pienenee, jos kaikki rivit eivät muuten mahdu ruutuun
 
 var speaker := ""
+var _spoken := ""
 var _color := Color.WHITE
 var _line := ""
 var _info := ""
@@ -149,6 +150,8 @@ func close() -> void:
 	if not visible:
 		return
 	visible = false
+	_spoken = ""
+	Sfx.stop_speech()
 	closed.emit()
 
 
@@ -160,6 +163,9 @@ func _first_enabled() -> int:
 
 
 func _refresh() -> void:
+	if _line != "" and (_line != _spoken or not visible):
+		_spoken = _line
+		Sfx.speak("paivi" if speaker == "Päivi" else "muu", _line)
 	_name.text = speaker.to_upper()
 	_name.add_theme_color_override("font_color", _color)
 	_text.text = "“%s”" % _line if _line != "" else ""

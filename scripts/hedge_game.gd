@@ -236,6 +236,7 @@ func _build_paivi() -> void:
 	_paivi.position = Vector3(PAIVI_POS.x, 0, hedge.zc + PAIVI_POS.y)
 	_paivi.play("Idle", 0.0)
 	_bubble = B.bubble(_paivi, Vector3(0, 2.05, 0))
+	_bubble.set("voice", "paivi")  # bubble.gd: Päivin ääni
 	_bubble.text = ""
 
 

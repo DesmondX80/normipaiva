@@ -66,9 +66,21 @@ Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi 
 `--scene=satama`: mopolla Vaalan satamaan, E laiturilla, autopilotti ajaa muskeliveneen kaakkoon kartan reunaan ja
 takaisin laiturille (loki: törmäykset, huippunopeus, humala, tallennus) ja ottaa kuvat `_satama`, `_laituri`, `_kyltti`,
 `_vene_*`, `_ajo`, `_kaanne`, `_reuna`. Sataman paikka leivotaan työkalulla `tools/vaala_satama.py` (ajo `vaala_bake.py`:stä).
-`--scene=vaala_ajo --ajo=yhteys`: kaikki Vaalan tiet tavoitettavissa mökiltä (ajoalueen tulvatäyttö; irralliset saarekkeet listataan). `--ajo=venelava`: veneen reitti lavan laituriin. Saarekkeet yhdistää `python3 tools/vaala_linkit.py` (toistettava).
+`--scene=vaala_ajo --ajo=yhteys`: kaikki Vaalan tiet tavoitettavissa mökiltä (ajoalueen tulvatäyttö; irralliset saarekkeet listataan). `--ajo=venelava`: veneen reitti lavan laituriin. Tieverkon siistii ja suoristaa `python3 tools/vaala_suorat.py` (bake-ketjun viimeinen vaihe, ajetaan kerran; sivutiet, jalkakäytävät ja umpikujahaarat pois, jäljelle suorat tiet kohteisiin).
 Pelisisällön kuvauksissa ([pelin-sisalto.md](pelin-sisalto.md)) kerrotaan kunkin ominaisuuden testi
 (`Testi --scene=...`). Lisäksi `tools/testit/` sisältää kuvatestikohtaukset (esim. `mummo_kuvat.tscn`).
+
+## Puheäänet
+
+Päivin repliikit puhuu Satu (nalkutus: nopea tahti, korotettu sävelkorko) ja kaikki muut hahmot Eddy (rauhallinen
+tenori). Äänet ovat valmiita mp3-tiedostoja `assets/aanet/<paivi|muu>/<tiiviste>.mp3`, joissa tiiviste on repliikin
+tekstin SHA-1:n 12 ensimmäistä merkkiä (`Sfx.voice_key`); `assets/aanet/hakemisto.json` kertoo, mikä tiiviste on mikä
+repliikki. Soitto: `Sfx.speak(ryhmä, teksti)` (`audio.gd`); puhekuplat (`bubble.gd`, `voice`-ominaisuus tai
+"Päivi: "-etuliite) ja dialogiruutu (`dialogue_box.gd`, puhujan nimi) kutsuvat sitä itse, joten uusi repliikki saa äänen
+ilman koodimuutosta. Puuttuva ääni on hiljaisuutta. Äänten teko (vain macOS): aja testikohtaus lipulla
+`--aanisynteesi` (esim. `tools/testit/aja.sh --headless scene asema --aanisynteesi`), jolloin jokainen vastaan tuleva
+repliikki syntetisoidaan (`tools/aanet/syntetisoi.sh`), ja sen jälkeen `godot --headless --import`. Uusi tai muuttunut
+repliikki tarvitsee oman ajonsa: vanha tiedosto jää käyttämättömäksi.
 
 ## Karttadata ja maasto
 

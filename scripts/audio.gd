@@ -262,10 +262,77 @@ func loop_on(node: Node3D, sound: String, volume_db := 0.0) -> AudioStreamPlayer
 	return p
 
 
-## Puhekupla-höpötys, pituus tekstin mukaan. Uusi repliikki katkaisee edellisen.
-## Puhekuplat ovat äänettömiä (ei CC0-puheäänitteitä); kutsut säilyvät yhteensopivuuden vuoksi.
-func babble(_node: Node3D, _voice: String, _text: String) -> void:
-	pass
+## Puhekupla-höpötys: kutsujat antavat puhujan äänen nimen (voice) ja repliikin; ääni on syntetisoitu puhe (speak).
+func babble(_node: Node3D, voice: String, text: String) -> void:
+	speak("paivi" if voice == "paivi" else "muu", text)
+
+
+## Puheäänet: assets/aanet/<ryhmä>/<repliikin tiiviste>.mp3, ryhmä "paivi" (Satu, nalkutus) tai "muu" (Eddy, rauhallinen
+## tenori). Tiedosto haetaan repliikin tekstin SHA-1:stä; puuttuva repliikki on hiljainen. Uusi repliikki katkaisee
+## edellisen. Äänet tehdään `--aanisynteesi`-lipulla ajettaessa (tools/aanet/syntetisoi.sh, vain macOS): ajo
+## syntetisoi jokaisen vastaan tulevan repliikin ja kirjaa sen assets/aanet/hakemisto.json:iin; `godot --import` tuo uudet.
+const VOICE_DIR := "res://assets/aanet/"
+var _voice_player: AudioStreamPlayer
+var _voice_index := {}
+var _last_spoken := ""
+var _last_spoken_ms := 0
+
+
+static func voice_key(text: String) -> String:
+	return text.strip_edges().sha1_text().substr(0, 12)
+
+
+func speak(group: String, text: String) -> void:
+	text = text.strip_edges()
+	# "Nimi: repliikki" -> pelkkä repliikki; Päivin nimi valitsee Päivin äänen (kupla ja babble antavat saman tekstin).
+	var colon := text.find(": ")
+	if colon > 0 and colon <= 24 and text.unicode_at(0) != 0x2A and not text.substr(0, colon).contains(" 0"):
+		if text.substr(0, colon) == "Päivi":
+			group = "paivi"
+		text = text.substr(colon + 2).strip_edges()
+	if text.length() < 3 or text.begins_with("*") or text.contains("♪"):
+		return  # äänitehosteet ("*pirr pirr*") ja laulun sanat (♪) eivät ole puhetta
+	var now := Time.get_ticks_msec()
+	if text == _last_spoken and now - _last_spoken_ms < 800:
+		return  # sama repliikki kuplasta ja babblesta yhtä aikaa
+	_last_spoken = text
+	_last_spoken_ms = now
+	var path := "%s%s/%s.mp3" % [VOICE_DIR, group, voice_key(text)]
+	if ResourceLoader.exists(path):
+		if _voice_player == null:
+			_voice_player = AudioStreamPlayer.new()
+			_voice_player.bus = "SFX"
+			_voice_player.volume_db = 2.0
+			add_child(_voice_player)
+		_voice_player.stream = load(path)
+		_voice_player.play()
+	elif OS.get_cmdline_user_args().has("--aanisynteesi"):
+		_synthesize(group, text, path)
+
+
+func stop_speech() -> void:
+	if _voice_player != null:
+		_voice_player.stop()
+
+
+func _synthesize(group: String, text: String, path: String) -> void:
+	var out := ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(out) or _voice_index.has(path):
+		return
+	var tool := ProjectSettings.globalize_path("res://tools/aanet/syntetisoi.sh")
+	var rc := OS.execute(tool, [group, text, out])
+	if rc != 0:
+		push_warning("puhesynteesi epäonnistui (%d): %s" % [rc, text])
+		return
+	_voice_index[path] = true
+	var idx_path := ProjectSettings.globalize_path(VOICE_DIR + "hakemisto.json")
+	var all: Dictionary = {}
+	if FileAccess.file_exists(idx_path):
+		all = JSON.parse_string(FileAccess.get_file_as_string(idx_path))
+	all["%s/%s" % [group, voice_key(text)]] = text
+	var f := FileAccess.open(idx_path, FileAccess.WRITE)
+	f.store_string(JSON.stringify(all, "\t", true))
+	f.close()
 
 
 func _player3d(s: AudioStream, volume_db: float, pitch: float) -> AudioStreamPlayer3D:

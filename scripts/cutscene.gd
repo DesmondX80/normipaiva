@@ -239,6 +239,7 @@ func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Cal
 	paivi.rotation.y = -PI * 0.5
 	paivi.play("Idle_Talking", 0.0)
 	var bubble := B.bubble(_props, paivi.global_position + Vector3(0.3, 2.05, 0), Color.WHITE, 1.0, false)
+	bubble.set("voice", "paivi")  # bubble.gd: Päivin ääni
 	bubble.no_depth_test = true
 	_cam.global_position = home + Vector3(-0.7, 1.7, 4.6)
 	_cam.look_at(home + Vector3(-0.7, 1.35, 1.0), Vector3.UP)
@@ -332,6 +333,7 @@ func wasted_phone(at: Vector3, reason: String, cause: String, wake: Vector3, fac
 	hero_bubble.no_depth_test = true
 	for i in lines.size():
 		_sub.text = "Päivi puhelimessa: \"%s\"" % lines[i]
+		Sfx.speak("paivi", lines[i])
 		hero_bubble.text = ""
 		await _wait(2.2)
 		hero_bubble.text = PHONE_REPLIES[mini(i, PHONE_REPLIES.size() - 1)]
@@ -383,6 +385,7 @@ func jemma_found(home: Vector3, lost: int, left: int, done: Callable, choco := "
 		c.rotation.y = randf() * TAU
 	B.box(_props, Vector3(0.7, 0.3, 0.45), home + Vector3(-1.9, 0.15, 1.6), Color(0.3, 0.2, 0.1), false)  # kaljakori
 	var bubble := B.bubble(_props, paivi.global_position + Vector3(0, 2.05, 0), Color.WHITE, 1.0, false)
+	bubble.set("voice", "paivi")  # bubble.gd: Päivin ääni
 	_cam.global_position = home + Vector3(0.1, 1.55, 4.3)
 	_cam.look_at(home + Vector3(0.0, 1.15, 1.3), Vector3.UP)
 	env.adjustment_saturation = 1.12
@@ -1594,6 +1597,7 @@ func taxi_home(home: Vector3, stats: String, done: Callable) -> void:
 	cab.rotation.y = -PI * 0.5  # keula +X: ajaa pois kuvan oikealle
 	Vehicles.taxi(cab)
 	var bubble := B.bubble(_props, paivi.global_position + Vector3(0.3, 2.05, 0), Color.WHITE, 1.0, false)
+	bubble.set("voice", "paivi")  # bubble.gd: Päivin ääni
 	bubble.no_depth_test = true
 	_cam.global_position = home + Vector3(-0.7, 1.7, 4.6)
 	_cam.look_at(home + Vector3(-0.7, 1.35, 1.0), Vector3.UP)

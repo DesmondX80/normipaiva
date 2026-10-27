@@ -284,7 +284,17 @@ func _bake_vaala() -> void:
 			elif r.hw in ["footway", "cycleway", "path", "pedestrian", "track"]:
 				c.draw_polyline(rp, Color(0.8, 0.7, 0.55), 1.2 * wscale)
 			else:
-				c.draw_polyline(rp, Color(0.88, 0.88, 0.85), 2.5 * wscale)
+				# Suorat tiet kohteisiin: reunus ja täyttö (asfaltti vaalea, sora ruskea).
+				var wd := 3.2 if r.hw == "secondary" else 2.6
+				var gravel: bool = r.surface in ["unpaved", "dirt", "compacted"]
+				c.draw_polyline(rp, Color(0.3, 0.26, 0.22), (wd + 1.4) * wscale)
+				c.draw_polyline(rp, Color(0.78, 0.64, 0.42) if gravel else Color(0.95, 0.94, 0.88), wd * wscale)
+		for br in data.branches:
+			var bp := PackedVector2Array()
+			for q in br.pts:
+				bp.append(tp.call(Vector2(q[0], q[2])))
+			c.draw_polyline(bp, Color(0.3, 0.26, 0.22), 4.4 * wscale)
+			c.draw_polyline(bp, Color(0.78, 0.64, 0.42) if br.gravel else Color(0.95, 0.94, 0.88), 3.0 * wscale)
 		var line := PackedVector2Array()
 		for q in data.road:
 			line.append(tp.call(Vector2(q[0], q[2])))
