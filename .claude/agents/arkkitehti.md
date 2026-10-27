@@ -26,7 +26,9 @@ Työ:
      pinnasta ja kallistuvat osat samasta vektorista, ei kiinteillä luvuilla tai erikseen arvatuilla etumerkeillä.
    - **Testikohtaus**: `tools/testit/aja.sh`-komento, joka testaa muutoksen, ja mitä mitataan; lisättävä uusi kohtaus, jos ei ole.
    - **Docs**: mihin `docs/`-tiedostoon ominaisuus kuvataan.
-3. Korjauskierroksella: jos sama ongelma on jo korjattu kahdesti, älä ehdota kolmatta paikkausta vaan toista rakennetta (CLAUDE.md).
+3. Ennen kuin ehdotat raajan kohdetta tai otetta, laske ulottuma (olka–kohde vs. raajan pituus) ja kapselien ero
+   verkkoon kohteen kohdalla, ja kirjaa luvut.
+4. Korjauskierroksella: jos sama ongelma on jo korjattu kahdesti, älä ehdota kolmatta paikkausta vaan toista rakennetta (CLAUDE.md).
    Lue lokit ja luvut (`ajot.md`, aja.sh-lokit) ja kerro, mikä havainto todistaa juurisyyn. Jos sitä ei voi todistaa,
    kirjaa, mitä pitää mitata.
 

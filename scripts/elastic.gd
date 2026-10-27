@@ -137,8 +137,11 @@ static func press(p: Vector3, nrm: Vector3, lim: float, boxes: Array, spread := 
 	var out := p
 	if lim <= 0.0:
 		return out
+	var used := 0.0  # laatikoiden yhteinen painuma: raja on kaikille yhteinen (päällekkäiset laatikot eivät summaudu yli rajan)
 	for b in boxes:
-		out += displace(b[0], b[1], out, lim, nrm, spread, halo, radial, origin)  # laatikko kerrallaan (kuten varjostin)
+		var d := box_d((b[0] as Transform3D) * out, b[1], lim, used)
+		out += displace(b[0], b[1], out, lim, nrm, spread, halo, radial, origin, used)  # laatikko kerrallaan (kuten varjostin)
+		used += d
 	return out
 
 
@@ -146,12 +149,11 @@ static func press(p: Vector3, nrm: Vector3, lim: float, boxes: Array, spread := 
 ## pois pisteestä origin (verkon avaruus, pään keskus), 0 (vartalo): laatikon x-akselin suuntaan. nrm (verteksin normaali) on varattu, ei käytössä:
 ## hiuskortit ovat kaksipuolisia, joten normaalin etumerkistä leviäminen repeäisi.
 static func displace(xf: Transform3D, h: Vector3, p: Vector3, lim: float, _nrm := Vector3.ZERO, spread := SPREAD, halo := HALO,
-		radial := 0.0, origin := Vector3.ZERO) -> Vector3:
+		radial := 0.0, origin := Vector3.ZERO, used := 0.0) -> Vector3:
 	var q := xf * p
 	var pen := h.y - q.y
-	var w := (1.0 - smoothstep(h.x, h.x + 0.02, absf(q.x))) * (1.0 - smoothstep(h.z, h.z + 0.02, absf(q.z))) \
-		* (1.0 if q.y >= -h.y else 0.0) * deep_fade(pen, lim)
-	var d := clampf(pen, 0.0, lim) * w
+	var w := _box_w(q, h, lim)
+	var d := clampf(pen, 0.0, maxf(lim - used, 0.0)) * w  # used = aiempien laatikoiden painuma (press)
 	var t := Vector3(q.x, 0.0, q.z)
 	var tl := t.length()
 	var sdir := Vector3(signf(q.x), 0.0, 0.0)
@@ -165,6 +167,17 @@ static func displace(xf: Transform3D, h: Vector3, p: Vector3, lim: float, _nrm :
 		sfac = lerpf(sfac, smoothstep(0.0, 0.02, dl), radial)
 	var sp := sdir * sfac * (spread * d + halo * lim * w * (1.0 - smoothstep(0.0, HALO_H, maxf(-pen, 0.0)))) if tl > 0.0 or radial > 0.0 else Vector3.ZERO
 	return xf.basis.transposed() * (Vector3(0.0, d, 0.0) + sp)
+
+
+## Laatikon paino verteksille q (laatikon avaruus): reunat häipyvät 2 cm:n matkalla, liian syvä ei paina (deep_fade).
+static func _box_w(q: Vector3, h: Vector3, lim: float) -> float:
+	return (1.0 - smoothstep(h.x, h.x + 0.02, absf(q.x))) * (1.0 - smoothstep(h.z, h.z + 0.02, absf(q.z))) \
+		* (1.0 if q.y >= -h.y else 0.0) * deep_fade(h.y - q.y, lim)
+
+
+## Laatikon painuma (normaalin suuntaan) verteksille q (laatikon avaruus), kun aiemmat laatikot ovat käyttäneet rajasta used.
+static func box_d(q: Vector3, h: Vector3, lim: float, used: float) -> float:
+	return clampf(h.y - q.y, 0.0, maxf(lim - used, 0.0)) * _box_w(q, h, lim)
 
 
 ## Painuman syvyys (pinnan normaalia pitkin) verteksille p kaikista laatikoista: suurin d, testeille (K10, K13).

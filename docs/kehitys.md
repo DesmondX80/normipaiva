@@ -167,6 +167,17 @@ ettei käsivarsia tarvitse ristiin: Sinikan kädet päähahmon vyötärölle, p�
 (Juntti leveäharteinen, joten hartiaote ei mahdu): päähahmon kämmenet Juntin kyljille (`spine_01`), Juntti tarttuu päältä päähahmon
 kyynärvarsista kyynärpään läheltä. Argumentti `paini` ajaa vain painivaiheen (nopea kokeilu).
 
+**Tanssin suljettu ote:** `scripts/pari_ote.gd` (`PariOte.valssi`) asettaa tanssin `_hold`issa viejän selkäkäden (lyhyellä parilla
+vyötärölle), seuraajan olkakäden ja vapaat kädet kämmen kämmentä vasten; kämmenkohde on pinta + `PariOte.palm_r` (kämmenpuolen säde
+muototaulusta). Raajojen ja kämmenen kapseleilla on muototaulu (`Contact._bin_table`: säde suunnan mukaan luun kehyksessä), joten
+kapselimalli seuraa ohutta kyynärvartta ja litteää kämmentä. Painumalla on yhteinen raja (`Elastic.press` ja `press.gdshaderinc`
+pitävät käytetyn painuman summaa, enintään `Elastic.MAX_LIMIT` 5 cm), joten päällekkäiset laatikot eivät painu yli rajan. Mittari:
+`tools/testit/aja.sh tscn tools/testit/tanssi_kontakti.tscn [sinikka_seura|hilkka|annaliisa] [pois]` ajaa kolme paria vaiheissa alku,
+rata, horja (kompastus) ja loppu (kaikki tahdit osutuiksi) ja tulostaa `PARI`, `KOHDE` (selkä- ja olkakäsi, verkko ±1 cm), `KÄSI KÄDESSÄ`
+(kapselirako ja verkko ≤ 1 cm, kämmenet vastakkain ≤ −0,7), `RANNE` (≤ 70°), `SUUNTA` (jalat, rinnat vastakkain hartialinjoista),
+`PAINUMA` (≤ 5 cm), `RUUTU` (ka < 16,7 ms) ja `JÄÄNTEET` (0 lopetuksen jälkeen). Kuvat `<pari>_<vaihe>_koottu.png`, `_jalat`, `_kadet`
+(vapaat kädet suurennettuna) ja Sinikalla `_rinta`. `pois` ajaa ilman kontakteja (vertailu).
+
 **Hiukset ja pää (elastiset):** hiukset ovat skinnattuja verkkoja oma varjostin `shaders/hair.gdshader` (painumasilmukka jaettu
 `shaders/press.gdshaderinc`-tiedostossa vartalon kanssa); painumaraja on 0,9 x etäisyys kallon pintaan (`CUSTOM0.w`), leviäminen suuntautuu
 pois pään keskuksesta (`press_origin`), ja latvat heilahtavat jousella (`hair_sway`, `CUSTOM0.x` paino). `Pose.limb_points(..., meshes)`:

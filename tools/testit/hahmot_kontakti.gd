@@ -530,7 +530,7 @@ func _painuma(nm: String, c: Node3D) -> void:
 	if bony > 0.0005:
 		_vika("%s %s luinen kohta painuu %.1f mm" % [nm, _who(c), bony * 1000])
 	for k: String in keys:
-		if by[k] > 0.05:
+		if by[k] > Elastic.MAX_LIMIT + 0.0001:  # raja 5 cm saa täyttyä (MAX_LIMIT), pyöristysvara 0,1 mm
 			_vika("%s %s painuma %s %.1f mm yli 5 cm" % [nm, _who(c), k, by[k] * 1000])
 
 

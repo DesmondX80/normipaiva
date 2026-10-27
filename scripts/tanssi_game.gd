@@ -11,6 +11,9 @@ signal finished(score: float)
 
 const MG := preload("res://scripts/mg_draw.gd")
 const Looks := preload("res://scripts/looks.gd")
+const Contact := preload("res://scripts/contact.gd")
+const Pose := preload("res://scripts/pose.gd")
+const PariOte := preload("res://scripts/pari_ote.gd")
 const BPM := 112.0
 const SONG := 24.0
 const WINDOW := 0.15
@@ -22,11 +25,17 @@ const PARTNER := {
 	"annaliisa": {"name": "Anna-Liisa", "hit": ["Päivi ei kyllä tanssi näin hyvin.", "No kappas."],
 		"miss": ["Tästä mää kerron Päiville!", "Auts! Kömpelö."]},
 }
+# Tanssiote (Contact.pair_fit, PariOte.valssi): suljettu ote, pelaajan käsi parin lapaluulla, parin käsi pelaajan olkavarrella, vapaat kädet yhdessä.
+const HOLD_LAHI := 0.25  # rintakehien spine_03-luiden väli ennen pair_fitiä (m): pienempi kuin kosketus, pair_fit erottaa
 
 var partner := "hilkka"
 var drunk := 0.0
 var quit := false  # lopetettiin kesken (ei kuittaa tansseja)
 var interior  # kirppis_interior.gd: salin pari piiloon tanssin ajaksi ja sen ulkonäkö
+var contacts := true  # tanssiote kontaktilla (false: vanha, kädet animaation mukaan; kehysaikavertailu)
+var look_override := {}  # parin ulkonäkö ilman salia (testi)
+var perf := {}  # _holdin vaiheiden ajat: nimi -> [summa us, max us, kerrat] (kehysajan mittaus, tanssi_kontakti)
+var prof := {}  # hahmo -> Contact.profile (paistetaan, kun luusto on valmis; headless: ei kontaktia)
 
 var _hud: CanvasLayer
 var _ui: Control
@@ -54,13 +63,16 @@ var _center := Vector3(0, 0, 0.6)
 
 func _ready() -> void:
 	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
+	process_priority = 1  # hahmojen animaation jälkeen: ote lasketaan ruudun lopulliseen asentoon
 	var look: Dictionary = {"model": "female"}
+	if interior == null and not look_override.is_empty():
+		look = look_override
 	if interior != null:
 		_center = interior.DANCE_C
 		var i: int = interior.person_index(partner)
 		if i >= 0:
 			var p: Dictionary = interior.PEOPLE[i]
-			look = p.look if p.has("look") else (Looks.SINIKKA if p.look_ref == "SINIKKA" else Looks.player())  # kuten salissa
+			look = p.look if p.has("look") else (Looks.sinikka_seura() if p.look_ref == "SINIKKA" else Looks.player())  # kuten salissa
 			_hidden = interior._holders[i]
 			_hidden.visible = false
 		if interior.walker != null:
@@ -142,6 +154,12 @@ func _process(delta: float) -> void:
 			_miss()
 	if _t > 0.0:
 		_turn += delta * (0.7 if _stumble <= 0.0 else -0.4)
+	if contacts and prof.is_empty() and DisplayServer.get_name() != "headless" \
+			and Engine.get_process_frames() >= int(_her.born_frame) + 3:
+		var pm := Contact.profile(_me, Pose.limb_points)
+		var ph := Contact.profile(_her, Pose.limb_points)
+		if pm.measured and ph.measured:
+			prof = {_me: pm, _her: ph}
 	_place(delta)
 	if _t > SONG + 1.5:
 		_finish()
@@ -157,14 +175,51 @@ func _place(_delta: float) -> void:
 	var mid := _center + Vector3(sway, 0, 0)
 	_me.position = mid - ax * 0.27 + jolt
 	_her.position = mid + ax * 0.27 - jolt * 0.5
-	# Kasvokkain: hahmo katsoo -Z:aan, joten käännös kohti toista.
-	_me.rotation = Vector3(0, atan2(-ax.x, -ax.z) + PI, (_stumble / 0.4) * 0.25)
-	_her.rotation = Vector3(0, atan2(-ax.x, -ax.z), 0)
+	# Kasvokkain: hahmo katsoo -Z:aan, joten pelaajan -Z = ax (kohti paria) ja parin -Z = -ax.
+	_me.rotation = Vector3(0, atan2(-ax.x, -ax.z), (_stumble / 0.4) * 0.25)
+	_her.rotation = Vector3(0, atan2(-ax.x, -ax.z) + PI, 0)
+	if contacts and not prof.is_empty():
+		_hold(smoothstep(-1.2, 0.0, _t))
 	_bubble.position = _her.position + Vector3(0, 2.05, 0)
 	var a := _t * 0.18 + 0.4
 	var focus := mid + Vector3(0, 1.15, 0)
 	# Kiertorata taustaparien radan ulkopuolella ja korkealla: muut parit kulkevat katseen alta.
 	_cam.look_at_from_position(to_global(focus + Vector3(sin(a) * 5.0, 1.65, cos(a) * 3.8)), to_global(focus))
+
+
+## Tanssiote painolla w (suljettu ote): jalat IK:lla animaatiosta (PariOte.legs_from_anim, väistävät itse), rintakehät
+## lähelle ja pair_fit erottaa vartalot kosketukseen (pehmeät kohdat painuvat toisiaan vasten), sitten suljettu valssiote
+## (PariOte.valssi: pelaajan käsi parin lapaluulla, parin käsi pelaajan olkavarrella, vapaat kädet yhdessä) ja pair_fit käsille.
+func _hold(w: float) -> void:
+	var pm: Dictionary = prof[_me]
+	var ph: Dictionary = prof[_her]
+	var t0 := Time.get_ticks_usec()
+	PariOte.legs_from_anim(_me)
+	PariOte.legs_from_anim(_her)
+	t0 = _perf("legs", t0)
+	# Pari lähelle ja puoli lantion leveyttä pelaajan oikealle (suljettu ote: kummankin oikea jalka toisen jalkojen välissä).
+	var rm := PariOte.right(_me)
+	var mfront := -PariOte.back(_me)
+	var hip := _me.to_global(_me.bone_position("thigh_r")).distance_to(_me.to_global(_me.bone_position("thigh_l")))
+	var ab := _her.to_global(_her.bone_position("spine_03")) - _me.to_global(_me.bone_position("spine_03"))
+	_her.global_position += (mfront * (HOLD_LAHI - ab.dot(mfront)) + rm * (hip * 0.5 - ab.dot(rm))) * w
+	var left := Contact.pair_fit(_me, pm, _her, ph, true, ["leg_l", "leg_r"], 4, false)
+	t0 = _perf("fit_body", t0)
+	if left > 0.006:
+		Contact.pair_fit(_me, pm, _her, ph, true, ["leg_l", "leg_r"], 4, false)  # jäännös: vielä yksi kierrosjakso jaloille
+		t0 = _perf("fit_legs2", t0)
+	PariOte.valssi(_me, pm, _her, ph, self, w)
+	t0 = _perf("valssi", t0)
+	PariOte.fit(_me, pm, _her, ph, false, ["arm_l", "arm_r"], 8)
+	_perf("fit_arms", t0)  # sisältää pair_contactsin (noin 0,6 ms)
+
+
+## Kehysajan mittaus: vaiheen nm aika t0:sta perf-sanakirjaan; palauttaa nykyhetken (seuraavan vaiheen alku).
+func _perf(nm: String, t0: int) -> int:
+	var t := Time.get_ticks_usec()
+	var e: Array = perf.get(nm, [0, 0, 0])
+	perf[nm] = [e[0] + t - t0, maxi(e[1], t - t0), e[2] + 1]
+	return t
 
 
 func _say(text: String, t := 2.0) -> void:
@@ -206,6 +261,9 @@ func _finish() -> void:
 	if _done:
 		return
 	_done = true
+	for c in [_me, _her]:
+		c.clear_ik()
+	PariOte.clear_cache()
 	if _hidden != null:
 		_hidden.visible = true
 	if interior != null and interior.walker != null:
