@@ -29197,6 +29197,35 @@ func _maybe_screenshot() -> void:
 			print("SE tanssi auki salissa: %s, salin Sinikka piilossa %s, kävelijä piilossa %s" % [tg != null, not kirppis_int._holders[kirppis_int.person_index("sinikka_seura")].visible, not kirppis_int.walker.visible])
 			await get_tree().create_timer(5.5).timeout
 			await snap.call("_tanssi.png")
+			print("SE tanssibiisi '%s': musiikki soi %s, kohta %.2f s, musiikin kohta %.2f s, kompastukset %d" % [tg._song.title, Sfx.music_pos() >= 0.0, tg._t, Sfx.music_pos(), tg._misses])
+			# Biisien nuottiradat (tanssibiisit.gd): askeleet vuorotellen, aikajärjestyksessä, huuto kertosäkeen lopussa
+			# ja äänite olemassa.
+			for sg: Dictionary in TanssiGame.Biisit.SONGS:
+				var ch: Array = TanssiGame.Biisit.chart(sg)
+				var kinds := {}
+				var order_ok := true
+				for i in ch.size():
+					kinds[ch[i][1]] = kinds.get(ch[i][1], 0) + 1
+					if i > 0 and ch[i][0] <= ch[i - 1][0]:
+						order_ok = false
+				print("SE nuottirata '%s': %s, järjestys %s, viimeinen %.1f s / loppu %.1f s" % [sg.title, kinds, order_ok, ch[-1][0], sg.end])
+				if not order_ok or kinds.get("HEI", 0) < 1 or absi(int(kinds.get("A", 0)) - int(kinds.get("D", 0))) > 1 \
+						or not ResourceLoader.exists(sg.file) or float(sg.beats[-1]) < float(sg.end):
+					print("TESTI VIKA tanssin nuottirata '%s': %s" % [sg.title, kinds])
+			var hei: Array = tg._beats.filter(func(b: Array) -> bool: return b[1] == "HEI").front()
+			tg.seek(tg._song.beats[36])  # tahti 9: säkeistö
+			await frames.call(4)
+			await snap.call("_tanssi_sakeisto.png")
+			tg.seek(hei[0] - 1.0)
+			await frames.call(4)
+			await snap.call("_tanssi_hei_tulossa.png")
+			tg.seek(hei[0])
+			tg._press("HEI", tg.WINDOW)
+			print("SE HEI! osui %s, kompastukset %d" % [hei[2] == 1, tg._misses])
+			if hei[2] != 1:
+				print("TESTI VIKA HEI! ei osunut")
+			await frames.call(6)
+			await snap.call("_tanssi_hei.png")
 			tg._miss()
 			tg._say("Auts, varpaat!", 2.0)
 			await get_tree().create_timer(0.15).timeout

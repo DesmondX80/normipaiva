@@ -1,10 +1,14 @@
 extends Node3D
 ## Tanssit Saloisten seuraintalolla (#129), pelataan salin tanssilattialla: pelaaja ja tanssipari (salin oma Sinikka,
 ## Hilkka tai Anna-Liisa) tanssivat lattian keskellä, muut parit kiertävät ympärillä ja Saloisten Saapasjalat soittaa
-## lavalla. Kamera kiertää paria hitaasti. Askeleet A ja D vuorotellen tahdissa: nuotit liukuvat ruudun alareunassa
-## kohti osumarengasta, ja painallus osuman hetkellä vie paria eteenpäin. Väärä näppäin tai ohi tahdin: kompastus
-## (horjahdus ja "Auts, varpaat!" puhekuplassa). Humala levittää ikkunaa mutta heiluttaa nuotteja. Kappale kestää SONG
-## sekuntia. F / Esc lopettaa kesken (tulos tähän asti). Solmu lisätään salin (kirppis_interior.gd) lapseksi.
+## lavalla oikeaa biisiä (tanssibiisit.gd: "Pihalla tavataan", "Rasvanappi" tai "Normipäivä"). Kamera kiertää paria hitaasti. Askeleet A ja D
+## vuorotellen biisin iskuilla: nuotit liukuvat ruudun alareunassa kohti osumarengasta, ja painallus osuman hetkellä vie
+## paria eteenpäin. Alkusoitossa askel joka toisella iskulla, säkeistössä joka iskulla, kertosäkeessä tuplasteppejä,
+## ja kertosäkeen huutoon (HEI!, HEP! tai NORMIPÄIVÄ!) painetaan hyppyä (välilyönti): kipinät, tärähdys ja pari huutaa mukana. Tahti
+## otetaan soivasta musiikista (Sfx.music_pos), joten nuotit pysyvät biisissä; ilman ääntä (headless) aika kulkee
+## kehyksillä. Väärä näppäin tai ohi tahdin: kompastus (horjahdus ja "Auts, varpaat!" puhekuplassa). Humala levittää
+## ikkunaa mutta heiluttaa nuotteja. Tanssi loppuu biisin "end"-kohdassa (musiikki häipyy). F / Esc lopettaa kesken
+## (tulos tähän asti). Solmu lisätään salin (kirppis_interior.gd) lapseksi.
 ## finished(score 0..1).
 
 signal finished(score: float)
@@ -14,11 +18,10 @@ const Looks := preload("res://scripts/looks.gd")
 const Contact := preload("res://scripts/contact.gd")
 const Pose := preload("res://scripts/pose.gd")
 const PariOte := preload("res://scripts/pari_ote.gd")
-const BPM := 112.0
-const SONG := 24.0
+const Biisit := preload("res://scripts/tanssibiisit.gd")
 const WINDOW := 0.15
+const HEI_WINDOW := 0.3  # huudon ikkuna on väljempi: huuto ei osu iskuun yhtä tarkasti kuin askel
 const LEAD := 1.6  # sekuntia, jonka nuotti näkyy ennen osumaa
-const SONGS := ["Saapasjalkavalssi", "Seuraintalon humppa", "Tokolan tango", "Saloisten letkajenkka"]
 const PARTNER := {
 	"sinikka_seura": {"name": "Sinikka", "hit": ["Hyvin viet!", "Ooh, sää osaat!", "Lähemmäs vaan..."], "miss": ["Auts, varpaat!", "Hups!"]},
 	"hilkka": {"name": "Hilkka", "hit": ["Niin sitä ennen tanssittiin!", "Kevyt jalka!"], "miss": ["Varovasti, nuori mies!", "Lonkka, lonkka!"]},
@@ -42,13 +45,15 @@ var _ui: Control
 var _info: Label
 var _keys: Control
 var _done := false
-var _t := -1.5  # alkulaskenta
-var _beat := 60.0 / BPM
-var _beats: Array = []  # [aika, "A"/"D", tila: 0 tulossa, 1 osui, 2 ohi]
+var _t := 0.0  # biisin kohta (s)
+var _bpm := 112.0
+var _beats: Array = []  # [aika, "A"/"D"/"HEI", tila: 0 tulossa, 1 osui, 2 ohi]
 var _hits := 0
 var _misses := 0
 var _stumble := 0.0
-var _song := ""
+var _song: Dictionary = {}
+var _fading := false
+var _shake := 0.0  # HEI!-tärähdys (s)
 var _sparks: Array = []
 var _turn := 0.0
 
@@ -95,10 +100,11 @@ func _ready() -> void:
 	add_child(_cam)
 	_cam.current = true
 	_build_hud()
-	_song = SONGS.pick_random()
-	var n := int(SONG / _beat)
-	for i in n:
-		_beats.append([1.0 + i * _beat, "A" if i % 2 == 0 else "D", 0])
+	_song = Biisit.SONGS.pick_random()
+	_bpm = float(_song.bpm)
+	_beats = Biisit.chart(_song)
+	Sfx.music_play(0.3, 0.0, _song.file)
+	seek(0.0)  # sama biisi voi vielä häipyä edellisestä tanssista: alusta
 	_say(["Tanssitaanko?", "No niin, viepä sitten."].pick_random(), 2.5)
 	_place(0.0)
 
@@ -130,7 +136,10 @@ func _build_hud() -> void:
 func _process(delta: float) -> void:
 	if _done:
 		return
-	_t += delta
+	var pos := Sfx.music_pos()
+	# Headless (äänilaite ei soita) ja pysäytetty aika (time_scale 0, testien kuvat): aika kehyksistä.
+	_t = pos if pos > 0.0 and Engine.time_scale > 0.0 else _t + delta
+	_shake = maxf(0.0, _shake - delta)
 	_stumble = maxf(0.0, _stumble - delta)
 	_bubble_t -= delta
 	if _bubble_t <= 0.0:
@@ -141,15 +150,15 @@ func _process(delta: float) -> void:
 		quit = not _done
 		_finish()
 		return
-	if _t >= 0.0 and _me.current() != "Dance":
-		_me.play("Dance", 0.3, BPM / 104.0)
-		_her.play("Dance", 0.3, BPM / 104.0)
+	if _me.current() != "Dance":
+		_me.play("Dance", 0.3, _bpm / 104.0)
+		_her.play("Dance", 0.3, _bpm / 104.0)
 	var win := WINDOW * (1.0 + drunk * 0.5)
-	for key in [["left", "A"], ["right", "D"]]:
+	for key in [["left", "A"], ["right", "D"], ["jump", "HEI"]]:
 		if Input.is_action_just_pressed(key[0]):
 			_press(key[1], win)
 	for b in _beats:  # ohi menneet
-		if b[2] == 0 and _t - b[0] > win:
+		if b[2] == 0 and _t - b[0] > _win(b, win):
 			b[2] = 2
 			_miss()
 	if _t > 0.0:
@@ -161,10 +170,13 @@ func _process(delta: float) -> void:
 		if pm.measured and ph.measured:
 			prof = {_me: pm, _her: ph}
 	_place(delta)
-	if _t > SONG + 1.5:
+	if not _fading and _t > float(_song.end) - float(_song.fade):
+		_fading = true
+		Sfx.music_stop(float(_song.fade))
+	if _t > float(_song.end):
 		_finish()
-	_info.text = "%s · %s · osumat %d, kompastukset %d" % [PARTNER[partner].name, _song, _hits, _misses]
-	_keys.set_text("%s / %s askel tahdissa   %s lopeta" % [Settings.cap("left"), Settings.cap("right"), Settings.cap("mount")])
+	_info.text = "%s · %s · %s · osumat %d, kompastukset %d" % [PARTNER[partner].name, _song.title, Biisit.osa(_song, _t), _hits, _misses]
+	_keys.set_text("%s / %s askel tahdissa   %s %s   %s lopeta" % [Settings.cap("left"), Settings.cap("right"), Settings.cap("jump"), _song.huuto, Settings.cap("mount")])
 
 
 ## Pari pyörii lattian keskellä kasvokkain; kompastuessa pelaaja horjahtaa. Kamera kiertää hitaasti.
@@ -179,10 +191,10 @@ func _place(_delta: float) -> void:
 	_me.rotation = Vector3(0, atan2(-ax.x, -ax.z), (_stumble / 0.4) * 0.25)
 	_her.rotation = Vector3(0, atan2(-ax.x, -ax.z) + PI, 0)
 	if contacts and not prof.is_empty():
-		_hold(smoothstep(-1.2, 0.0, _t))
+		_hold(smoothstep(0.0, 1.2, _t))
 	_bubble.position = _her.position + Vector3(0, 2.05, 0)
 	var a := _t * 0.18 + 0.4
-	var focus := mid + Vector3(0, 1.15, 0)
+	var focus := mid + Vector3(0, 1.15, 0) + Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * 0.08 * (_shake / 0.5)
 	# Kiertorata taustaparien radan ulkopuolella ja korkealla: muut parit kulkevat katseen alta.
 	_cam.look_at_from_position(to_global(focus + Vector3(sin(a) * 5.0, 1.65, cos(a) * 3.8)), to_global(focus))
 
@@ -227,6 +239,21 @@ func _say(text: String, t := 2.0) -> void:
 	_bubble_t = t
 
 
+## Siirtää tanssin ja musiikin kohtaan t (s biisin alusta; testit). Ohitetut nuotit merkitään osutuiksi.
+func seek(t: float) -> void:
+	for b in _beats:
+		if b[2] == 0 and b[0] < t - 0.2:
+			b[2] = 1
+	_t = t
+	if Sfx.music_pos() >= 0.0:
+		Sfx._music.seek(maxf(0.0, t))
+
+
+## Nuotin osumaikkuna: HEI! on väljempi.
+func _win(b: Array, win: float) -> float:
+	return win * HEI_WINDOW / WINDOW if b[1] == "HEI" else win
+
+
 func _press(key: String, win: float) -> void:
 	var best: Array = []
 	var bd := 1e9
@@ -234,12 +261,15 @@ func _press(key: String, win: float) -> void:
 		if b[2] == 0 and absf(b[0] - _t) < bd:
 			bd = absf(b[0] - _t)
 			best = b
-	if best.is_empty() or bd > win * 2.0:
+	if best.is_empty() or bd > _win(best, win) * 2.0:
 		_miss()
 		return
-	if bd <= win and best[1] == key:
+	if bd <= _win(best, win) and best[1] == key:
 		best[2] = 1
 		_hits += 1
+		if key == "HEI":
+			_hei()
+			return
 		MG.sparks_burst(_sparks, _hit_pos(), Color(1.0, 0.85, 0.3), 10)
 		Sfx.play("pickup", -14.0, 1.6 if key == "A" else 1.8)
 		if randf() < 0.18:
@@ -247,6 +277,15 @@ func _press(key: String, win: float) -> void:
 	else:
 		best[2] = 2
 		_miss()
+
+
+## HEI! osui: kipinäsade kolmella värillä, tärähdys ja pari huutaa mukana.
+func _hei() -> void:
+	for c in [Color(1.0, 0.85, 0.3), Color(1.0, 0.45, 0.3), Color(0.5, 0.9, 1.0)]:
+		MG.sparks_burst(_sparks, _hit_pos(), c, 18)
+	_shake = 0.5
+	Sfx.play("win_small", -8.0)
+	_say(_song.huuto, 1.5)
 
 
 func _miss() -> void:
@@ -261,6 +300,7 @@ func _finish() -> void:
 	if _done:
 		return
 	_done = true
+	Sfx.music_stop(1.0)
 	for c in [_me, _her]:
 		c.clear_ik()
 	PariOte.clear_cache()
@@ -289,6 +329,9 @@ func _draw_ui() -> void:
 		var dt: float = b[0] - _t
 		if dt < -0.3 or dt > LEAD:
 			continue
+		if b[1] == "HEI":
+			_draw_hei(b, dt, hp, sz, font)
+			continue
 		var x := hp.x + dt / LEAD * sz.x * 0.38 * (-1.0 if b[1] == "A" else 1.0)
 		var y := hp.y + sin(_t * 5.0 + b[0]) * drunk * 14.0
 		var col := Color(0.35, 0.85, 1.0) if b[1] == "A" else Color(1.0, 0.6, 0.3)
@@ -298,7 +341,26 @@ func _draw_ui() -> void:
 			col = Color(1.0, 0.25, 0.2, 0.5)
 		MG.ball(_ui, Vector2(x, y), 22.0, col, 0.5)
 		_ui.draw_string(font, Vector2(x - 12, y + 9), b[1], HORIZONTAL_ALIGNMENT_CENTER, 24, 24, Color(0.1, 0.1, 0.1))
-	if _t < 0.0:
-		_ui.draw_string_outline(font, Vector2(0, sz.y * 0.45), str(ceili(-_t)), HORIZONTAL_ALIGNMENT_CENTER, sz.x, 80, 10, Color.BLACK)
-		_ui.draw_string(font, Vector2(0, sz.y * 0.45), str(ceili(-_t)), HORIZONTAL_ALIGNMENT_CENTER, sz.x, 80, Color(1.0, 0.9, 0.3))
+	var wait: float = (_beats[0][0] - _t) if not _beats.is_empty() else 0.0  # alkusoitto: laskenta ensimmäiseen askeleeseen
+	if wait > 0.0 and wait < 3.0:
+		_ui.draw_string_outline(font, Vector2(0, sz.y * 0.45), str(ceili(wait)), HORIZONTAL_ALIGNMENT_CENTER, sz.x, 80, 10, Color.BLACK)
+		_ui.draw_string(font, Vector2(0, sz.y * 0.45), str(ceili(wait)), HORIZONTAL_ALIGNMENT_CENTER, sz.x, 80, Color(1.0, 0.9, 0.3))
 	MG.sparks_draw(_ui, _sparks)
+
+
+## HEI!-nuotti putoaa ylhäältä renkaaseen: iso kultainen pallo, jossa huuto ja hyppynäppäin.
+func _draw_hei(b: Array, dt: float, hp: Vector2, sz: Vector2, font: Font) -> void:
+	var p := Vector2(hp.x, hp.y - dt / LEAD * sz.y * 0.42)
+	var col := Color(1.0, 0.78, 0.2)
+	if b[2] == 1:
+		col = Color(0.4, 1.0, 0.5, 0.6)
+	elif b[2] == 2:
+		col = Color(1.0, 0.25, 0.2, 0.5)
+	var long := (_song.huuto as String).length() > 5  # pitkä huuto (NORMIPÄIVÄ!): isompi pallo, pienempi teksti
+	var r := (56.0 if long else 34.0) + (6.0 * sin(_t * 18.0) if b[2] == 0 else 0.0)
+	MG.ball(_ui, p, r, col, 0.5)
+	var fs := 20 if long else 30
+	_ui.draw_string_outline(font, Vector2(p.x - 120, p.y + fs * 0.33), _song.huuto, HORIZONTAL_ALIGNMENT_CENTER, 240, fs, 6, Color(0.25, 0.1, 0.0))
+	_ui.draw_string(font, Vector2(p.x - 120, p.y + fs * 0.33), _song.huuto, HORIZONTAL_ALIGNMENT_CENTER, 240, fs, Color(1.0, 0.98, 0.9))
+	_ui.draw_string_outline(font, Vector2(p.x - 80, p.y + r + 24), Settings.cap("jump"), HORIZONTAL_ALIGNMENT_CENTER, 160, 20, 6, Color.BLACK)
+	_ui.draw_string(font, Vector2(p.x - 80, p.y + r + 24), Settings.cap("jump"), HORIZONTAL_ALIGNMENT_CENTER, 160, 20, Color(1.0, 0.9, 0.5))

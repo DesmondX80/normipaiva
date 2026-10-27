@@ -68,12 +68,12 @@ func _go() -> void:
 			prof = g.prof
 		for b in g._beats:  # kaikki tahdit osutuiksi: kappale ei katkea eikä horjahda kesken
 			b[2] = 1
-		await _vaihe(id + "_alku", -0.3, 20, false)
+		await _vaihe(id + "_alku", 0.9, 20, false)
 		await _vaihe(id + "_rata", 6.0, 30, false)
 		if not pois:
 			await _ruutu(id)
 		await _vaihe(id + "_horja", -1.0, 5, true)
-		await _vaihe(id + "_loppu", g.SONG + 0.5, 15, false)
+		await _vaihe(id + "_loppu", float(g._song.end) - 2.0, 15, false)
 		g._finish()
 		var left := 0
 		for c in [me, her]:
@@ -89,7 +89,7 @@ func _go() -> void:
 ## Vaihe: t (s kappaleen alusta; -1 = jatka), frames ruutua mittausta, miss = horjahdus. Lopuksi kuvat ja mittarit.
 func _vaihe(nm: String, t: float, frames: int, miss: bool) -> void:
 	if t > -0.9:
-		g._t = t
+		g.seek(t)
 	worst[nm] = ["-", "-", 0.0, 0.0]
 	pairs[nm] = {}
 	kohde[nm] = {}
