@@ -22,11 +22,13 @@ void vertex() {
 		vec3 pn;
 		float pd;
 		vec3 pv = VERTEX;
+		float used = 0.0;  // raja on kaikille laatikoille yhteinen
 		for (int i = 0; i < 6; i++) {
 			if (i >= press_n) {
 				break;
 			}
-			pv += press_disp(press_xf(i), press_half(i), pv, CUSTOM0.w, NORMAL, pn, pd);
+			pv += press_disp(press_xf(i), press_half(i), pv, CUSTOM0.w, used, NORMAL, pn, pd);
+			used += pd * CUSTOM0.w;
 		}
 		VERTEX = pv;
 	}
