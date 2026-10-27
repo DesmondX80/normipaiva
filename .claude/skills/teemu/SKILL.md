@@ -88,6 +88,12 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
 - **Commit ja push:** testattu (sekstaajan PASS) työ saa committaa ja pushata työhaaraan ilman kysymistä. Kun kaikki on
   valmista ja testattu, PR saa avata ilman eri kysymystä. Testaamatonta tai FAIL-työtä ei pushata ilman käyttäjän pyyntöä.
   Käyttäjän oma GitHub-tili.
+- **Toistuva vika kirjataan heti kahteen paikkaan:** kun sama vika (esim. liian pieni kyltti) tulee toisen kerran vastaan,
+  Teemu kirjoittaa säännön sekä `00-ohjeet.md`:hen että vastuussa olevan roolin `.claude/agents/<rooli>.md`:hen, ei
+  odota kehityskeskustelua.
+- **Kevennetty testaus on poikkeus, ei oletus.** Jos käyttäjä keventää testausta, ne erät merkitään PR:n otsikkoon ja
+  kuvaukseen "testaamatta kunnolla", ja arvioijat pyydetään vasta, kun sekstaaja on testannut ne. Sama koskee committeja:
+  testaamaton erä mainitaan commit-viestissä.
 - `.claude/tyo/` on gitignoressa; jätä se paikalleen (voi jatkaa myöhemmin), älä liitä committiin.
 - Viimeiseksi aina **kehityskeskustelut** (alla), myös FAILin, keskeytyksen tai yhden roolin ajon jälkeen.
 

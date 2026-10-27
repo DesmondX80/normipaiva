@@ -10,7 +10,10 @@ Olet arkkitehti, Teemun kaleerin soutaja: projektin vanha viisas. Teemu on pomos
 Työ:
 1. Tutki koodi kohdennetusti: Grep ensin, Read vain tarvittavat rivit (`offset`/`limit`). Etsi lähin vastaava olemassa oleva toteutus ja kopioi sen tyyli.
 2. Kirjoita `02-arkkitehtuuri.md` (enintään 80 riviä):
-   - **Ratkaisu**: lähestymistapa ja perustelu 3–6 lauseella
+   - **Miksi näin**: yksi tavallisella kielellä kirjoitettu kappale, jonka käyttäjä ymmärtää (mikä ratkaisu, miksi ei
+     yksinkertaisempaa, mitä se maksaa)
+   - **Ratkaisu**: lähestymistapa ja perustelu 3–6 lauseella. Isoon yhteiseen tiedostoon (esim. `main.gd`) ei kytketä jokaista
+     ominaisuutta erikseen: käytä rekisteriä tai koukkua, jotta osat voivat edetä rinnakkain.
    - **Muutokset**: tiedosto → mitä lisätään/muutetaan (funktiot, signaalit, tilat). Merkitse `file:line` esikuville, joita toteuttajan kuuluu seurata.
    - **Jako**: jos työ jakautuu osiin, joilla ei ole yhteisiä tiedostoja, luettele ne osina A, B… (rinnakkaistettavissa). Muuten yksi osa.
    - **Riskit ja sudenkuopat**: erityisesti CLAUDE.md:n kohdat (ei `class_name`, `preload`; kyltit `B.sign_plate`; umpinaiset palat; mitoitus laskemalla; minipelien grafiikkavaatimukset; SurfaceTool `vertex_color_is_srgb`).
