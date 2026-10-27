@@ -10,6 +10,7 @@ signal closed
 
 const W := 760.0
 const PAD := 18.0
+const ROW_FS := 20  # valintarivin fontti; pienenee, jos kaikki rivit eivät muuten mahdu ruutuun
 
 var speaker := ""
 var _color := Color.WHITE
@@ -82,9 +83,25 @@ func _mk_label(size: int, col: Color) -> Label:
 	return l
 
 
+## Paneeli kasvaa ylöspäin sisällön mukaan. Jos valintoja on niin paljon, ettei ikkuna mahdu ruutuun (taksin retkilista),
+## ikkuna lasketaan ruudun alareunaan ja valintarivien fonttia pienennetään, kunnes kaikki rivit näkyvät.
 func _fit() -> void:
 	var box := _panel.get_child(0) as Control
-	_panel.offset_top = _panel.offset_bottom - box.size.y - PAD * 2.0 + 6.0
+	var h := box.get_combined_minimum_size().y
+	var avail := _root.size.y - 16.0 - 16.0 - PAD * 2.0 + 6.0  # 16 px marginaali ylä- ja alareunaan
+	_panel.offset_bottom = -64.0 if h <= avail - 48.0 else -16.0
+	var rows := _list.get_children()
+	if h > avail and not rows.is_empty():
+		var font: Font = (rows[0] as Control).get_theme_font("font")
+		var per := (avail - (h - _list.get_combined_minimum_size().y)) / rows.size() - 2.0  # 2 = rivien väli
+		var fs := ROW_FS
+		while fs > 12 and font.get_height(fs) > per:
+			fs -= 1
+		for r in rows:
+			(r as Control).add_theme_font_size_override("font_size", fs)
+		h = box.get_combined_minimum_size().y
+	box.size = Vector2(W - PAD * 2.0, h)
+	_panel.offset_top = _panel.offset_bottom - h - PAD * 2.0 + 6.0
 
 
 func is_open() -> bool:
@@ -149,6 +166,7 @@ func _refresh() -> void:
 	_info_label.text = _info
 	_info_label.visible = _info != ""
 	for c in _list.get_children():
+		_list.remove_child(c)  # heti pois, ettei _fit mittaa vanhoja rivejä
 		c.queue_free()
 	var paging := not _pages.is_empty()
 	if paging:
@@ -161,7 +179,7 @@ func _refresh() -> void:
 			var key := str(i + 1) if i < 9 else " "
 			var txt: String = o.text + ("  (%s)" % o.reason if not en and o.get("reason", "") != "" else "")
 			row.text = ("▶ " if i == _sel else "   ") + key + "  " + txt
-			row.add_theme_font_size_override("font_size", 20)
+			row.add_theme_font_size_override("font_size", ROW_FS)
 			var col := Color(1.0, 0.85, 0.2) if i == _sel else Color.WHITE
 			row.add_theme_color_override("font_color", col if en else Color(0.5, 0.5, 0.52))
 			row.mouse_filter = Control.MOUSE_FILTER_STOP

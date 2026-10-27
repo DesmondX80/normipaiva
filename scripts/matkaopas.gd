@@ -255,7 +255,10 @@ func _title_page(pg: Rect2) -> void:
 	var tw := pg.size.x - 68
 	_compass(Vector2(pg.end.x - 70, pg.position.y + 70), 36.0)
 	draw_string(font, Vector2(x0, pg.position.y + 62), "Retkiä Saloisista", HORIZONTAL_ALIGNMENT_LEFT, tw - 80, 28, RED)
-	draw_string(_hand, Vector2(x0, pg.position.y + 92), "Taksikuskin oma kappale. Hinnat meno-paluu.", HORIZONTAL_ALIGNMENT_LEFT, tw - 80, 16,
+	# kaksi riviä: yhdelle riville kompassin vasemmalle puolelle ei mahdu
+	draw_string(_hand, Vector2(x0, pg.position.y + 90), "Taksikuskin oma kappale.", HORIZONTAL_ALIGNMENT_LEFT, tw - 80, 16,
+		Color(0.4, 0.35, 0.3))
+	draw_string(_hand, Vector2(x0, pg.position.y + 110), "Hinnat meno-paluu.", HORIZONTAL_ALIGNMENT_LEFT, tw - 80, 16,
 		Color(0.4, 0.35, 0.3))
 	var seen := _pages.filter(func(p): return p.kayty).size()
 	draw_string(font, Vector2(x0, pg.position.y + 134), "Sisällys", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
