@@ -105,12 +105,17 @@ puuttuu_kuvat=0
 [[ $kuvat == 1 && $kuvia -eq 0 ]] && puuttuu_kuvat=1
 
 yht="rc=$rc skriptivirheitä=$virheet aikaraja=$aikaraja testin_löydöt=$loydot ei_tarkistettu=$varoitukset kuvia=$kuvia"
+# Kirjaus työkansioon (TYO_KANSIO tai uusin .claude/tyo/<slug>/), jotta tilanne näkyy aina ilman raporttia.
+tyo="${TYO_KANSIO:-$(ls -td .claude/tyo/*/ 2>/dev/null | head -1)}"
+kirjaa() { [[ -n "$tyo" && -d "$tyo" ]] && echo "- $(date "+%Y-%m-%d %H:%M") $1 $laji ${nimi:-${polku:-}} $yht kuvat $ulos" >> "$tyo/ajot.md"; return 0; }
 if [[ $rc -ne 0 || $virheet -gt 0 || $aikaraja -gt 0 || $loydot -gt 0 || $puuttuu_kuvat == 1 || $puuttuu_video == 1 ]]; then
+	kirjaa VIKA
 	echo "aja: VIKA $yht kuvat $ulos (loki $loki)"
 	grep -E "SCRIPT ERROR|Failed to load script|Parse Error" -A1 "$loki" | head -6
 	grep -E "$LOYDOT" "$loki" | head -10
 	exit 1
 fi
+kirjaa OK
 echo "aja: OK $yht kuvat $ulos (loki $loki)"
 [[ $varoitukset -gt 0 ]] && grep "ei tarkistettu" "$loki" | head -5
 exit 0

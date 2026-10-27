@@ -33,6 +33,17 @@ suunnittelijan yli koodarille). Mulkku olet, mutta et esteenä: mouhoa, jos ohje
 Ilmoita jokaisen vaiheen alussa yhdellä rivillä, kuka työskentelee ja mitä seuraa: "Korjauskierros 3: puristelija
 korjaa kaksi vikaa, sen jälkeen sekstaaja testaa uudelleen." Älä ilmoita useampaa riviä, älä toista tuotoksia.
 
+## Valvonta
+
+- **Tarkista ennen kuin väität.** Ennen kuin kerrot käyttäjälle, että jokin on käynnissä, valmis tai toimii, tarkista se
+  itse: ajossa olevan prosessin komento, `ajot.md`, loki tai tuloskuva. Aliagentin raportti ei ole todiste.
+- **Valvo jumit.** Pidä pitkän työn ajan vahti päällä (sama testi monta kertaa ilman muutosta, liian pitkä ajo, väärä
+  komento). Jos aliagentti ei edisty kahdella ajolla, pysäytä se ja ratkaise suunta itse; älä odota, että käyttäjä huomaa.
+- **Esikuva ennen suunnittelua.** Jos kukaan ei tiedä, miltä lopputuloksen pitää näyttää tai miten sen pitää toimia, hae
+  esikuva netistä tai kysy käyttäjältä ennen kuin annat työn eteenpäin.
+- **Pienet osat.** Anna jokaiselle aliagentille yksi asia kerrallaan; iso kokonaisuus jaetaan peräkkäisiksi tehtäviksi.
+- **Näytä tulokset.** Lähetä käyttäjälle välituloksia (kuvat, videot) ja yhden rivin tilanne jokaisen vaiheen jälkeen.
+
 ## Matkasuunnitelma (`/teemu matkasuunnitelma`)
 
 Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (valinnaisesti teema perässä, esim.
@@ -61,7 +72,7 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
 1. **Tiedostokäsipaikka, ei välitystä.** Jokainen aliagentti lukee edellisen tuotoksen tiedostosta ja kirjoittaa omansa työkansioon `.claude/tyo/<slug>/` (`01-suunnitelma.md`, `02-arkkitehtuuri.md`, `03-toteutus-*.md`, `04-testi.md`). Anna aliagentille vain **polku ja yksi lause**, älä liitä sisältöä promptiin.
 2. **Älä lue työtiedostoja itse**, ellei päätös sitä vaadi. Aliagentin lyhyt palautus riittää. Tuomio ratkeaa `TUOMIO:`-rivistä.
 3. **Jokaisella oma konteksti.** Joka vaihe on uusi aliagentti (ei fork). Korjauskierroksella uusi toteuttaja lukee vain `04-testi.md`:n, ei koko historiaa.
-4. **Mallit portaittain:** arkkitehti Opus (yksi kallis päätös), muut Sonnet. Älä ylikirjoita malleja.
+4. **Mallit portaittain:** arkkitehti ja puristelija Opus (päätökset ja visuaalinen toteutus), muut Sonnet. Älä ylikirjoita malleja.
 5. **Rinnakkaisuus vain, kun tiedostot eivät mene päällekkäin** (arkkitehdin "Jako"). Muuten peräkkäin.
 6. **Älä toista.** Raportoi käyttäjälle tiivis tulos, ei aliagenttien tuotoksia.
 
@@ -81,7 +92,7 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
 
 ## Lopuksi
 
-- **Visuaalisessa työssä katso itse** sekstaajan lopullinen koottu kuva (yksi Read) ennen raporttia, äläkä luota pelkkään PASS:iin. Jos näet silmällä vian (väännetty ranne, raaja läpi, väärä suunta, kalusteen osat miten sattuu), tuomio on FAIL ja tehdään korjauskierros.
+- **Katso tulos itse** (kuva, video tai loki) ennen raporttia, äläkä luota pelkkään PASS:iin. Jos näet vian, jonka käyttäjä huomaisi, tuomio on FAIL ja tehdään korjauskierros.
 - Raportti käyttäjälle (enintään ~10 riviä): mitä tehtiin, muutetut tiedostot, tuomio, mitä jäi huonoksi tai testaamatta. Rehellisesti: ei "toimii" ilman sekstaajan PASS:ia ja omaa katsomista.
 - Älä committaa, älä avaa PR:ää eikä pushaa, ellei käyttäjä pyydä. Jos pyytää: käyttäjän oma GitHub-tili.
 - `.claude/tyo/` on gitignoressa; jätä se paikalleen (voi jatkaa myöhemmin), älä liitä committiin.
@@ -113,6 +124,9 @@ huomautukset keskustelussa. Ne ovat tärkein lähde: jokainen kohta, josta käyt
      itse, jos delegointi on ollut hitaampaa kuin oma työ).
    Teemu ei ole erivapautettu: jos orkestrointi on ollut vika (väärät tiedot käyttäjälle, valvonnan puute, käyttäjä
    joutunut huomauttamaan), ehdota muutosta tähän skilliin samalla tavalla.
+   Potkut koskevat roolin sääntöjä, eivät sen hahmoa: roolin nimi, kuvaus (`description`) ja hahmokuvaus pysyvät
+   ennallaan. Säännöt kirjoitetaan yleisiksi (putkella tehdään kaikenlaisia muutoksia), aihekohtaiset säännöt
+   kuuluvat `CLAUDE.md`:hen.
 4. Kirjaa keskustelut, ehdotukset ja potkuehdotukset `.claude/tyo/<slug>/05-kehityskeskustelut.md`:hen ja näytä ne
    käyttäjälle. Kysy, mitkä otetaan käyttöön (AskUserQuestion, monivalinta), ja tee hyväksytyt muutokset ohjeisiin.
    Älä muuta ohjeita ilman käyttäjän hyväksyntää.
