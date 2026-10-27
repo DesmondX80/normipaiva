@@ -6,6 +6,8 @@ extends RefCounted
 ## Kenttä: nimi (kohde), lahto ("taksi" = K-Marketin taksitolppa Saloisissa | "vaala_asema" = Vaalan asema),
 ## otsikko, sub ja lines (matkakohtaus: tekstit ja kuskin repliikit), perilla (viesti saapuessa), hop_min (matkan kesto, kello siirtyy sen verran sekä menossa että tullessa),
 ## hinta (meno-paluu, maksetaan lähtiessä), tasku (kohtauksen skripti).
+## Matkaopas (matkaopas.gd, valinnaiset): opas (kohdesivun kuvaus, puuttuessa sub) ja kuultu (quests.gd-ehto, jolla kuvaus
+## näkyy jo ennen käyntiä, esim. taksikuskin legenda; puuttuessa vain käynti). Kuvaus ei paljasta ratkaisuja.
 
 const RetkiLampi := preload("res://scripts/retki_lampi.gd")
 const RetkiHanhikivi := preload("res://scripts/retki_hanhikivi.gd")
@@ -31,6 +33,7 @@ const LISTA := {
 			"Mulla on veli, joka sai siellä viisikiloisen. Tai niin se kertoo."],
 		"perilla": "Teeriniemen leirintäalue. Kalalampi, lupa tiskiltä.",
 		"hop_min": 25.0, "hinta": 16.0, "tasku": RetkiLampi, "sammuit": "leirintäalueen nuotiopaikan penkille",
+		"opas": "Teeriniemen leirintäalueella on istutettu kalalampi. Lupa ostetaan tukkimökin tiskiltä, ja vuokraonki kuuluu hintaan, sanotaan. Saaliista kerrotaan isompia juttuja kuin niistä on.",
 	},
 	"hanhikivi": {
 		"nimi": "Pyhäjoen Koskipuistoon (Hanhikivi)", "lahto": "taksi", "otsikko": "PYHÄJOELLE",
@@ -39,6 +42,7 @@ const LISTA := {
 			"Siitä kivestä on monta juttua. Kukaan ei oikein tiedä."],
 		"perilla": "Pyhäjoen Koskipuisto. Hourunkoski kohisee, kivi on rannalla.",
 		"hop_min": 35.0, "hinta": 20.0, "tasku": RetkiHanhikivi, "sammuit": "Koskipuiston rantapenkille Hourunkosken kohinaan",
+		"opas": "Pyhäjoen Koskipuistossa kohisee Hourunkoski, ja rannalla on Hanhikivi. Kivestä kerrotaan monta juttua, sanotaan, eikä kukaan tiedä, mikä niistä on totta. Puistossa on hyvä kävellä.", "kuultu": "first:hanhikivi_legenda",
 	},
 	"pakkahuone": {
 		"nimi": "Raahen Pakkahuoneen museoon", "lahto": "taksi", "otsikko": "RAAHEEN",
@@ -47,6 +51,7 @@ const LISTA := {
 			"Kuulemma sieltä on yksi ihan kadonnut. Tai en tiedä."],
 		"perilla": "Raahen Pakkahuone. Museo on auki, kuraattori on pöytänsä takana.",
 		"hop_min": 20.0, "hinta": 12.0, "tasku": RetkiPakkahuone, "sammuit": "Pakkahuoneen museon penkille veistosten keskelle",
+		"opas": "Punainen Pakkahuone Raahen rannassa on museo, sanotaan Suomen vanhimpia paikallismuseoita. Kokoelmassa on 1600-luvun veistoksia, ja kuraattori kertoo niistä mielellään.", "kuultu": "first:pakkahuone_legenda",
 	},
 	"rojuniemi": {
 		"nimi": "Rautaruukin Rojuniemeen (peruskivi)", "lahto": "taksi", "otsikko": "ROJUNIEMEEN",
@@ -55,6 +60,7 @@ const LISTA := {
 			"Vartija tietää kivestä enemmän. Se tietää kaikesta."],
 		"perilla": "Rautaruukin Rojuniemi. Peruskivi on aidan vieressä, vartija kopissaan.",
 		"hop_min": 20.0, "hinta": 14.0, "tasku": RetkiRojuniemi, "sammuit": "Rojuniemen rantakivelle",
+		"opas": "Rautaruukin Raahen terästehtaan peruskiven sanotaan paljastetun 1962. Kivi seisoo aidan vieressä, ja portin vartija tuntee paikan historian.", "kuultu": "first:peruskivi_legenda",
 	},
 	"manamansalo": {
 		"nimi": "Manamansalon muistokirkolle", "lahto": "taksi", "otsikko": "MANAMANSALOON",
@@ -63,6 +69,7 @@ const LISTA := {
 			"En tiedä miksi. Opas tietää enemmän, tai sanoo tietävänsä."],
 		"perilla": "Manamansalo. Muistokirkko, hautausmaa ja laituri järven rannalla.",
 		"hop_min": 60.0, "hinta": 30.0, "tasku": RetkiManamansalo, "sammuit": "Manamansalon muistokirkon portaille",
+		"opas": "Oulujärven suurin saari. Kainuun ensimmäisen kirkon sanotaan rakennetun sinne 1559, ja saarta kutsutaan kuolemansaareksi. Muistokirkolla on opas, ja laiturilta kulkee lossi.", "kuultu": "first:manamansalo_legenda",
 	},
 	"wanharaahe": {
 		"nimi": "Raahen Wanhaan kaupunkiin (kävelykierros)", "lahto": "taksi", "otsikko": "WANHAAN RAAHEEN",
@@ -71,6 +78,7 @@ const LISTA := {
 			"Kävele rauhassa, ei siellä ole kiire. Tori on kivetty."],
 		"perilla": "Wanha Raahe. Brahen patsas Pekkatorilla ja puutalot rivissä.",
 		"hop_min": 20.0, "hinta": 12.0, "tasku": RetkiWanharaahe, "sammuit": "Pekkatorin penkille Brahen patsaan juurelle",
+		"opas": "Raahen vanha puutalokaupunki Pekkatorin ympärillä: Brahen patsas, vanhat ovet ja kapeat kujat. Kameralle riittää kuvattavaa, sanotaan.",
 	},
 	"paltaniemi": {
 		"nimi": "Paltaniemen kuvakirkkoon (Kajaani)", "lahto": "taksi", "otsikko": "PALTANIEMEEN",
@@ -79,6 +87,7 @@ const LISTA := {
 			"Siellä on suntio. Se osaa kertoa, jos jaksaa kuunnella."],
 		"perilla": "Paltaniemen kuvakirkko. Seinät ovat maalauksia täynnä, suntio on alttarin luona.",
 		"hop_min": 55.0, "hinta": 28.0, "tasku": RetkiPaltaniemi, "sammuit": "Paltaniemen kirkon penkille maalausten alle",
+		"opas": "Oulujärven rannan puukirkko, jonka seinät sanotaan maalatun täyteen 1700-luvulla. Maalauksissa riittää katsottavaa, ja suntio kertoo kirkosta.",
 	},
 	"vanhaherra": {
 		"nimi": "Raahen satamaan (Vanha herra, sukellus)", "lahto": "taksi", "otsikko": "RAAHEN SATAMAAN",
@@ -87,6 +96,7 @@ const LISTA := {
 			"Kapteeni kuulemma pudotti sinne kellonsa. Pohjassa on kaikenlaista."],
 		"perilla": "Raahen satama. Kruununmakasiini, vitriini ja laiturin ilmapumppu.",
 		"hop_min": 20.0, "hinta": 12.0, "tasku": RetkiVanhaherra, "sammuit": "Raahen laiturin pollarille pumpun viereen",
+		"opas": "Kruununmakasiinin vitriinissä on Vanha herra, sanotaan maailman vanhin säilynyt sukelluspuku. Laiturilla pumpataan joskus ilmaa sukeltajalle.",
 	},
 	"tietokonemuseo": {
 		"nimi": "Saloisten tietokonemuseoon", "lahto": "taksi", "otsikko": "SALOISTEN MUSEOLLE",
@@ -95,6 +105,7 @@ const LISTA := {
 			"Heinäkuussa se on kuulemma auki, sanotaan. Kokeile onneasi."],
 		"perilla": "Saloisten tietokonemuseo. Datasaabin kaapit seisovat rivissä, Pong-kone odottaa nurkassa.",
 		"hop_min": 12.0, "hinta": 6.0, "tasku": RetkiTietokonemuseo, "sammuit": "museon konsolipöydän ääreen Datasaabin humistessa",
+		"opas": "Pieni museo Saloisissa: Datasaab D22, sanotaan vuodelta 1971, ja huoneellinen vanhoja mikroja. Nurkan pelikoneella saa haastaa koneen.",
 	},
 	"kuhmo": {
 		"nimi": "Kuhmon karhukätköön", "lahto": "taksi", "otsikko": "KUHMOON",
@@ -103,6 +114,7 @@ const LISTA := {
 			"Älä ota evästä mukaan, karhu haistaa. Tai en tiedä."],
 		"perilla": "Kuhmon karhukätkö. Niitty on hiljainen, opas odottaa kätkön vieressä.",
 		"hop_min": 90.0, "hinta": 45.0, "tasku": RetkiKuhmo, "sammuit": "karhukätkön penkille niityn ääreen",
+		"opas": "Puinen karhukätkö Kuhmon korvessa niityn laidalla. Karhujen sanotaan tulevan illalla, kun on hiljaista. Kamera mukaan, eväät kotiin.",
 	},
 	"hiidenportti": {
 		"nimi": "Sotkamon Hiidenporttiin (rotkolaakso)", "lahto": "taksi", "otsikko": "HIIDENPORTILLE",
@@ -111,6 +123,7 @@ const LISTA := {
 			"Kenkien kanssa kannattaa olla tarkkana. Itse en kiipeä, jalka ei kestä."],
 		"perilla": "Hiidenportin rotko. Kalliot kohoavat, retkeilijä seisoo polun alussa.",
 		"hop_min": 70.0, "hinta": 38.0, "tasku": RetkiHiidenportti, "sammuit": "rotkon lepolavalle kallioseinän juurelle",
+		"opas": "Sotkamon Hiidenportti on jyrkkäseinäinen kalliorotko, jonka pohjalla virtaa puro, sanotaan. Polun alussa on infokyltti. Hyvät kengät jalkaan.",
 	},
 		"pyhakoski": {
 			"nimi": "Pyhäkosken voimalaitoskylään", "lahto": "taksi", "otsikko": "PYHÄKOSKELLE",
@@ -119,6 +132,7 @@ const LISTA := {
 				"Vahtimestari tietää kylästä kaiken. Jos jaksaa kuunnella."],
 			"perilla": "Pyhäkosken kylä. Voimalaitos jyrisee joen rannalla, kioski on tien varressa.",
 			"hop_min": 45.0, "hinta": 24.0, "tasku": RetkiPyhakoski, "sammuit": "tanssipaikan portaille voimalaitoksen jylinään",
+			"opas": "Oulujoen voimalaitoskylä: harmaa pato, punainen kioski ja vanha tanssipaikka. Kylästä kerrotaan tarinoita, sanotaan, ja vahtimestari tietää ne.",
 		},
 	"kajaani": {
 		"nimi": "Kajaanin linnan raunioille", "lahto": "taksi", "otsikko": "KAJAANIIN",
@@ -127,6 +141,7 @@ const LISTA := {
 			"Joella kulki ennen tervaveneitä. Nyt on hiljaista."],
 		"perilla": "Kajaanin linnan rauniot. Joki kohisee, tervavene odottaa laiturissa.",
 		"hop_min": 60.0, "hinta": 30.0, "tasku": RetkiKajaani, "sammuit": "linnan raunioiden kivelle joen rannalle",
+		"opas": "Kajaanin linnasta on jäljellä rauniot joen saarella. Linnassa sanotaan istuneen vankina historioitsija Messeniuksen. Joella kulkee yhä tervavene.",
 	},
 	"kalajoki": {
 		"nimi": "Kalajoen Hiekkasärkille (rantajalkapallo)", "lahto": "taksi", "otsikko": "KALAJOELLE",
@@ -135,6 +150,7 @@ const LISTA := {
 			"Hiekassa juokseminen on kamalaa. Hyvä että sinä juokset, en minä."],
 		"perilla": "Kalajoen Hiekkasärkät. Meri lyö rantaa, kentällä pallo odottaa.",
 		"hop_min": 80.0, "hinta": 42.0, "tasku": RetkiKalajoki, "sammuit": "rantahiekalle sateenvarjon varjoon",
+		"opas": "Kalajoen Hiekkasärkät: dyynit, meri ja hiekkakenttä maaleineen. Juhannuksena pelataan rantajalkapallon turnaus, sanotaan. Muulloin saa harjoitella.",
 	},
 	"raate": {
 		"nimi": "Raatteen Portille (Suomussalmi)", "lahto": "taksi", "otsikko": "RAATTEENTIELLE",
@@ -143,6 +159,7 @@ const LISTA := {
 			"Odotan täällä."],
 		"perilla": "Raatteen Portti. Tie jatkuu metsään, vanha vierailija seisoo hiljaa.",
 		"hop_min": 100.0, "hinta": 30.0, "tasku": RetkiRaate, "sammuit": "!Väsymys vei voiton Raatteentien varrella, ja lepäsit hetken ennen kotimatkaa",
+		"opas": "Talvisodan muistopaikka Suomussalmella. Raatteentien portilla ja muistokivellä kuljetaan hiljaa, sanotaan.",
 	},
 }
 

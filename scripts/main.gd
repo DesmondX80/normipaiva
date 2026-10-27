@@ -312,6 +312,7 @@ const ShoreFishGame := preload("res://scripts/shore_fish_game.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 const Journal := preload("res://scripts/journal.gd")
+const Matkaopas := preload("res://scripts/matkaopas.gd")
 const PiirakkaGame := preload("res://scripts/piirakka_game.gd")
 const RankkuGame := preload("res://scripts/rankku_game.gd")
 const KeinuGame := preload("res://scripts/keinu_game.gd")
@@ -431,6 +432,7 @@ var ukko: RefCounted  # legenda: Tekojärven Ukko (ukko_legenda.gd)
 var endings: RefCounted  # onnellisten loppujen kokoelma (endings.gd, #132)
 var quests: RefCounted  # tarinan luvut ja sivutehtävät (quests.gd, #132)
 var _journal: Control  # Normipäiväkirja (O), journal.gd
+var _matkaopas: Control  # Matkaopas (B), matkaopas.gd; saadaan taksikuskilta
 var _pannu_node: Node3D  # kuparin läikkä Pilkkarinnevalla (näkyy kun legenda on kuultu)
 var raahe_int: Node3D
 var retki_int: Node3D  # käynnissä olevan retken kohtaus (retket.gd), muuten null
@@ -1206,6 +1208,9 @@ func _ready() -> void:
 	_journal = Journal.new()
 	_journal.game = self
 	map_layer.add_child(_journal)
+	_matkaopas = Matkaopas.new()
+	_matkaopas.game = self
+	map_layer.add_child(_matkaopas)
 	_drone_parked = Node3D.new()
 	add_child(_drone_parked)
 	_drone_parked.position = _drone_pad(false) + Vector3(0, 0.16, 0)
@@ -5721,6 +5726,14 @@ func _talk_hanhikivi(id: String) -> void:
 				"Legenda: Hanhikiven rajakivi. Vihjeitä: Kapteenin Kulman kapteeni (Raahe) ja Koskipuiston kyltti (taksi Pyhäjoelle).")
 
 
+## Matkaopas (matkaopas.gd): taksikuski antaa oman kappaleensa kerran; tallentuu ensikertana "matkaopas".
+func _talk_matkaopas() -> void:
+	tilat.first("matkaopas", 0.1)
+	_save_game()
+	_talk_box.reply("Esitettä? No tässä, ota mun vanha opas. Hinnat on meno-paluu, ja kun käyt paikan päällä, saat leiman. "
+		+ "Siinä on kaikki, minne mä ajan.", _talk_options("taksi"), "Matkaopas taskussa (%s avaa)." % Settings.cap("guide"))
+
+
 func _hanhikivi_kapteeni() -> void:
 	hanhikivi.kapteeni = true
 	raahe_int.kapteeni_vihje = false
@@ -7978,6 +7991,17 @@ func show_quest_on_map(id: String) -> void:
 	if _journal.visible:
 		_journal.toggle()
 	_show_message("Kompassi näyttää suunnan. Kartalla (%s) paikka on ympyröity lyijykynällä." % Settings.action_key("map"), 3.5)
+
+
+## Matkaoppaan "taksitolppa kartalle": kompassi osoittaa retken lähtöpaikkaan, opas sulkeutuu. Vain taksilähtö.
+func show_retki_on_map(id: String) -> void:
+	if not Retket.LISTA.has(id) or Retket.LISTA[id].lahto != "taksi":
+		return
+	_paper.target = Vector2(world.taxi_pos.x, world.taxi_pos.z)
+	_paper.has_target = true
+	if _matkaopas.visible:
+		_matkaopas.toggle()
+	_show_message("Kompassi näyttää taksitolpalle (K-Market). Kartalla (%s) näkyy suunta." % Settings.action_key("map"), 3.5)
 
 
 ## --- Legenda: Sulon isän kadonnut pannu (#130) -----------------------------------------------------------------
@@ -12148,6 +12172,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("manamansalo_kerro", "Mikä se Manamansalon kuolemansaari oikein on?", true, "", true))
 			if not hanhikivi.heard:
 				o.append(_opt("hanhikivi_kerro", "Mikä se Hanhikivi oikein on?", true, "", true))
+			if not "matkaopas" in tilat.firsts:
+				o.append(_opt("matkaopas", "Onko sulla mitään esitettä näistä retkipaikoista?", true, "", true))
 			var banned: bool = hommat.banned_day == day
 			o.append(_opt("paapeli", "Paapelin mökille (%s €, meno-paluu)%s" % [_eur(TAXI_MOKKI_FARE), _late_note(HOP_VAALA)],
 				money >= TAXI_MOKKI_FARE and not banned, "Santtu häätänyt mökiltä tänään" if banned else "rahat ei riitä"))
@@ -12339,6 +12365,9 @@ func _talk_choose(id: String) -> void:
 				return
 			if id == "manamansalo_kerro":
 				_talk_manamansalo(id)
+				return
+			if id == "matkaopas":
+				_talk_matkaopas()
 				return
 			_talk_box.close()
 			_on_taxi_choice(id)
@@ -19452,6 +19481,8 @@ func inventory_items() -> Array:
 		{"use": "kalja", "use_label": "juo yksi"})
 	if has_kanister:
 		add.call("kanisteri", "Pontikkakanisteri", 1, "Vastaa kotijemmassa %d kaljaa." % _kanister_beers())
+	if "matkaopas" in tilat.firsts:
+		add.call("matkaopas", "Matkaopas", 1, "Retkikohteet, hinnat ja kestot. %s avaa." % Settings.action_key("guide"))
 	if headphones.found:
 		add.call("kuulokkeet", "Valcon kuulokkeet", 1, "%s päähän ja pois, %s seuraava biisi. Kaikki hiljenee, Päivikin." % [
 			Settings.action_key("headphones"), Settings.action_key("next_song")])
@@ -20076,6 +20107,17 @@ func _maybe_screenshot() -> void:
 			await as_node.run()
 			if not saved_as.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_as)
+			get_tree().quit()
+			return
+		"matkaopas":
+			# Matkaopas (B): ei opasta, saaminen taksikuskilta, tyhjä, osa kuultu, kaikki käyty (tools/testit/matkaopas.gd).
+			var saved_mo := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			var mo: Node = load("res://tools/testit/matkaopas.gd").new()
+			mo.main = self
+			add_child(mo)
+			await mo.run()
+			if not saved_mo.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_mo)
 			get_tree().quit()
 			return
 		"vaala_ajo":

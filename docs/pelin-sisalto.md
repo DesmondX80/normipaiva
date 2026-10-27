@@ -85,6 +85,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   paluumatka on jo maksettu ja kello siirtyy matkan keston verran sekä menossa että tullessa. Yöllä sammutaan kuten muuallakin
   (herätys kotona). Uusi kohde = yksi rivi rekisteriin ja yksi tiedosto; Vaalan aseman matkavalikko (`lahto: "vaala_asema"`)
   generoidaan samasta rekisteristä, kun ensimmäinen Vaalan kohde tulee.
+- **Matkaopas (B):** taksikuskilta saa kerran pehmeäkantisen taskuoppaan (taksivalikon valinta "Onko sulla mitään esitettä näistä
+  retkipaikoista?"; tallentuu ensikertana `matkaopas`, näkyy repussa). Opas on aukeama (`scripts/matkaopas.gd`): kansilehti ja
+  sisällys (käydyt rastitettu, klikkaus vie sivulle), sitten sivu jokaisesta rekisterin kohteesta. Nimi, lähtöpaikka, kesto ja
+  meno-paluuhinta näkyvät heti, samat luvut kuin taksivalikossa. Kuvaus (rekisterin `opas`, puuttuessa `sub`) näkyy vasta, kun
+  kohteessa on käyty (`retki_<id>`) tai siitä on kuultu (rekisterin `kuultu`-ehto: taksikuskin legendat Hanhikivi, Pakkahuone,
+  peruskivi ja Manamansalo); muuten "???". Käydyllä sivulla on KÄYTY-kumileima. Kuvaukset eivät paljasta legendojen ratkaisuja.
+  "→ taksitolppa kartalle" asettaa kompassin taksitolpalle. Selaus A/D, nuolet, rulla ja sivunkulmat; peli on tauolla, Esc tai B sulkee.
 - **Teeriniemen kalalampi (retki):** taksilla 16 € (meno-paluu, 25 min suuntaansa) Teeriniemen leirintäalueelle: tukkimökin tiskiltä
   ostetaan kalalupa (8 €, kerran, tallentuu; hintaan kuuluu vuokraonki ja 8 matoa, jotka eivät kuluta omia matoja). Ilman lupaa lammella
   ei onkea. Istutetussa lammessa (kalat kiertävät näkyvissä) onkiminen on pelin onkimekaniikka (`shore_fish_game.gd`, tila `stocked`):

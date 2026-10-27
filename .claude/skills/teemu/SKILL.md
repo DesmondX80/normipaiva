@@ -79,6 +79,8 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
 ## Putki
 
 0. Valitse `<slug>` (kebab-case, ≤4 sanaa), luo `.claude/tyo/<slug>/`.
+   Aja heti `tools/testit/godot.sh`. Jos Godotia ei löydy, kerro se käyttäjälle ennen spekstaajaa ja kysy: asennetaanko,
+   vai toteutetaanko testaamatta (merkitään commitiin ja PR:ään "testaamatta kunnolla").
 1. **spekstaaja** (Agent, subagent_type `spekstaaja`): "Työkansio: <polku>. Pyyntö: <pyyntö>". Jos palautuksessa on avoimia kysymyksiä, jotka eivät ratkea järkevällä oletuksella, kysy ne käyttäjältä (AskUserQuestion), kirjaa vastaukset `01-suunnitelma.md`:hen Editillä.
 2. Koon mukaan:
    - **pieni** (yksi tiedosto, selvä muutos): ohita arkkitehti; puristelija lukee suunnitelman ja toteuttaa.

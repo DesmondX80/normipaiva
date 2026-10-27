@@ -515,6 +515,17 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			for ky in [9, 11, 13]:
 				for kx in [5, 7, 9]:
 					_r(img, kx, ky, 1, 1, Color(0.85, 0.87, 0.82))
+		"matkaopas":  # taskuopas: punainen kangaskansi, valkoinen sivureuna ja kultainen kompassiruusu
+			_r(img, 3, 1, 10, 14, Color(0.98, 0.95, 0.86))
+			_r(img, 2, 1, 10, 14, Color(0.72, 0.17, 0.14))
+			_r(img, 2, 1, 10, 1, Color(0.88, 0.35, 0.3))
+			_r(img, 2, 1, 1, 14, Color(0.5, 0.1, 0.08))
+			_r(img, 7, 4, 1, 7, Color(0.95, 0.78, 0.25))
+			_r(img, 4, 7, 7, 1, Color(0.95, 0.78, 0.25))
+			_r(img, 6, 6, 3, 3, Color(0.95, 0.78, 0.25))
+			_r(img, 7, 4, 1, 1, Color(1.0, 0.95, 0.7))
+			_r(img, 7, 7, 1, 1, Color(0.5, 0.1, 0.08))
+			_r(img, 4, 12, 6, 1, Color(0.95, 0.78, 0.25))
 		"kalja":
 			_r(img, 7, 1, 2, 1, Color(0.9, 0.75, 0.2))
 			_r(img, 7, 2, 2, 3, Color(0.42, 0.22, 0.06))
