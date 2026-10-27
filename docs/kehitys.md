@@ -151,3 +151,9 @@ syöttää siirrot uniformeina `jiggle_rinta/vatsa/pakara` (pehmeä raja tanh). 
 curves); verteksipainot `CUSTOM1` (`Elastic.jiggle_weights`, vain paikasta). Siirto lisätään ennen painumaa, joten kontaktilaatikko pitää
 pinnan ulkona. `jiggle_debug = true` värittää painot (magenta rinta, syaani vatsa, vihreä pakara). Kokeilu: `aja.sh --video tscn
 tools/testit/sinikka_video.tscn` (HYLLYNTA-rivit lokissa, `_lahi.png`-vertailut samasta asennosta ilman hyllyntää, Juntti vatsana).
+
+**Rintamus (`bust`, naismalli):** `Character._bust` pullistaa rinnat ellipsoideiksi; arvo 1,4 asti (Mirkku) koko kasvaa
+tasaisesti, sen yli (Sinikka 2.7, DD hoikalla) kasvaa vain ulkonema eteen, ei leveys kylkien yli. Yli 1,4:llä
+`_subdivide_bust` tihentää pohjaverkon rinnan alueella kahdesti ennen muotoilua (muuten iso muoto on särmikäs ja
+lappubikinien reuna porrastuu). Mittaus: `aja.sh tscn tools/testit/sinikka_mitat.tscn [--bust=2.4,3.0]` (rinnan- ja
+alaympärys, ulkonema rintakehästä cm, MITAT-rivit lokissa; kuvat edestä, sivulta ja lähikuvat).
