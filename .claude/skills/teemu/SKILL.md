@@ -103,6 +103,16 @@ huomautukset keskustelussa. Ne ovat tärkein lähde: jokainen kohta, josta käyt
 2. Parannusehdotukset: jokaisesta virheestä konkreettinen muutos ohjeeseen: tiedosto (`.claude/agents/<rooli>.md`,
    tämä skill tai `CLAUDE.md`) ja lisättävä tai muutettava sääntö. Mieti koko ketju: missä vaiheessa vika syntyi ja
    missä se olisi pitänyt huomata. Korjaa kaikki ne kohdat, ei vain sitä, josta vika löytyi.
-3. Kirjaa keskustelut ja ehdotukset `.claude/tyo/<slug>/05-kehityskeskustelut.md`:hen ja näytä ne käyttäjälle.
-   Kysy, mitkä ehdotukset otetaan käyttöön (AskUserQuestion, monivalinta), ja tee hyväksytyt muutokset ohjeisiin.
+3. **Potkut.** Arvioi jokainen rooli ja Teemu itse: jos rooli on toistanut saman virhetyypin (esim. raportoinut
+   valmiiksi katsomatta kuvaa, ajanut samaa testiä ilman edistystä, rikkonut ohjetta) tai sen työ on jouduttu
+   tekemään uudelleen, ehdota sille potkuja. Potkut tarkoittavat jotain näistä, ja käyttäjä päättää:
+   - **Uusi tekijä:** roolin ohje (`.claude/agents/<rooli>.md`) kirjoitetaan alusta uudelleen lyhyemmäksi ja
+     tiukemmaksi; vanhat paikkaussäännöt pois, vain se mikä on toiminut.
+   - **Parempi tekijä:** roolin malli vaihdetaan (esim. Sonnet -> Opus) tai työ annetaan toiselle roolille.
+   - **Roolin lakkautus:** rooli poistetaan putkesta ja sen työ yhdistetään toiseen (esim. Teemu tekee pienet korjaukset
+     itse, jos delegointi on ollut hitaampaa kuin oma työ).
+   Teemu ei ole erivapautettu: jos orkestrointi on ollut vika (väärät tiedot käyttäjälle, valvonnan puute, käyttäjä
+   joutunut huomauttamaan), ehdota muutosta tähän skilliin samalla tavalla.
+4. Kirjaa keskustelut, ehdotukset ja potkuehdotukset `.claude/tyo/<slug>/05-kehityskeskustelut.md`:hen ja näytä ne
+   käyttäjälle. Kysy, mitkä otetaan käyttöön (AskUserQuestion, monivalinta), ja tee hyväksytyt muutokset ohjeisiin.
    Älä muuta ohjeita ilman käyttäjän hyväksyntää.

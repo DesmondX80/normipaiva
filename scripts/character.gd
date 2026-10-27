@@ -11,6 +11,7 @@ const MODELS := {
 const ANIM_FILE := "res://assets/characters/UAL1_Standard.glb"
 const HAIR_DIR := "res://assets/characters/hair/"
 const SHADER := "res://shaders/character.gdshader"
+const HAIR_SHADER := "res://shaders/hair.gdshader"
 const REST_HEIGHT := 1.8
 const DEFAULT_MUSCLE := -0.85  # pohjamalli on superhero: tavallisilla ihmisillä lihakset pienemmiksi
 const Elastic := preload("res://scripts/elastic.gd")
@@ -28,10 +29,20 @@ var profile_key := ""  # kontaktimallin välimuistiavain (malli, pituus, vartalo
 var body_mi: MeshInstance3D  # vartalon verkko (kontaktien painuma)
 var body_shape := {}  # belly, bulk, bust (Elastic.sink)
 var press_boxes: Array = []  # [[Transform3D verkko -> laatikko, puolikoko], ...] verkon avaruudessa (Elastic.press)
+var hair_mats: Array = []  # hiusten ShaderMaterialit (hair.gdshader): samat painumalaatikot kuin vartalolla
+var hair_mis: Array = []  # hiusverkot (meta "hair_press"; Pose.limb_points)
 
 var _overrides := {}  # luu -> [akseli hahmon avaruudessa, kulma]
 var _ik := {}  # nimi -> [luu a, luu b, luu c, kohde, polvi/kyynärpää-suunta, loppuluun lisäkierto] (hahmon avaruudessa)
 var _current := ""
+var _sway_x := Vector3.ZERO  # hiusten heilahdus (maailma, m), jousi Elastic.spring_step
+var _sway_v := Vector3.ZERO
+var _sway_p := Vector3.ZERO  # hiusmassan keskipiste maailmassa edellisellä ruudulla
+var _sway_pv := Vector3.ZERO
+var _sway_valid := false
+var _sway_zero := true  # hair_sway-uniformi on jo nolla
+var _sway_local := Vector3.ZERO  # hiusmassan keskipiste Head-luun avaruudessa
+var _head_bone := -1
 
 
 ## look: model, shirt, pants, shoes, skin, hair (tiedoston nimi ilman päätettä tai ""), hair_color,
@@ -54,6 +65,7 @@ func setup(look: Dictionary) -> void:
 		if mi is MeshInstance3D and (body == null or mi.mesh.surface_get_array_len(0) > body.mesh.surface_get_array_len(0)):
 			body = mi
 	var src: StandardMaterial3D = body.mesh.surface_get_material(0)
+	var body_src: Mesh = body.mesh  # vaatettamaton lähdeverkko (hiusten etäisyys kalloon)
 	var shape := {"belly": float(look.get("belly", 0.0)), "bulk": float(look.get("bulk", 0.0)),
 		"shoulders": float(look.get("shoulders", 0.0)), "muscle": float(look.get("muscle", DEFAULT_MUSCLE)),
 		"curves": float(look.get("curves", 0.0)), "bust": float(look.get("bust", 0.0))}
@@ -96,9 +108,9 @@ func setup(look: Dictionary) -> void:
 			_tint(mi, hair_color)
 	var hair: String = look.get("hair", "Hair_SimpleParted")
 	if hair != "":
-		_attach_hair(HAIR_DIR + hair + ".gltf", hair_color)
+		_attach_hair(HAIR_DIR + hair + ".gltf", hair_color, kind, body_src)
 	if look.get("beard", false):
-		_attach_hair(HAIR_DIR + "Hair_Beard.gltf", hair_color)
+		_attach_hair(HAIR_DIR + "Hair_Beard.gltf", hair_color, kind, body_src)
 
 	# Matalilla laatutasoilla kaukaiset hahmot jäävät piirtämättä (kylässä 130–190 hahmoa, jokaisella oma luusto).
 	var q: int = Settings.get_v("quality")
@@ -189,6 +201,7 @@ func set_ik_orient(chain: String, orient: Basis, w: float) -> void:
 
 func clear_ik() -> void:
 	_ik.clear()
+	_reset_sway()
 	clear_contacts()
 
 
@@ -219,10 +232,27 @@ func clear_contacts() -> void:
 
 
 func _upload_contacts() -> void:
-	body_mat.set_shader_parameter("press_n", press_boxes.size())
+	_upload_press(body_mat)
+	var org := _head_center()
+	for m in hair_mats:
+		_upload_press(m)
+		m.set_shader_parameter("press_origin", org)
+
+
+## Pään keskus (kallon keskipiste) verkon avaruudessa nykyisessä asennossa: hiusten leviämisen keskus.
+func _head_center() -> Vector3:
+	var hi := skeleton.find_bone("Head")
+	if hi < 0:
+		return Vector3.ZERO
+	var rest := skeleton.get_bone_global_rest(hi)
+	return skeleton.get_bone_global_pose(hi) * (rest.affine_inverse() * (rest.origin + Vector3(0.0, 0.09, 0.0)))
+
+
+func _upload_press(mat: ShaderMaterial) -> void:
+	mat.set_shader_parameter("press_n", press_boxes.size())
 	for i in press_boxes.size():
-		body_mat.set_shader_parameter("press_xf%d" % i, Projection(press_boxes[i][0]))
-		body_mat.set_shader_parameter("press_h%d" % i, press_boxes[i][1])
+		mat.set_shader_parameter("press_xf%d" % i, Projection(press_boxes[i][0]))
+		mat.set_shader_parameter("press_h%d" % i, press_boxes[i][1])
 
 
 ## Luun paikka tämän solmun avaruudessa.
@@ -317,6 +347,7 @@ func _update_pose(delta: float) -> void:
 		var q := Quaternion(axis, o[1])
 		skeleton.set_bone_pose_rotation(i, parent_rot.inverse() * q * parent_rot * skeleton.get_bone_pose_rotation(i))
 	_apply_ik()
+	_update_hair_sway(delta)
 
 
 func _apply_ik() -> void:
@@ -382,15 +413,172 @@ static func _arc(from: Vector3, to: Vector3) -> Quaternion:
 
 # --- Lataus ------------------------------------------------------------------
 
-func _attach_hair(path: String, color: Color) -> void:
+func _attach_hair(path: String, color: Color, kind: String, body_src: Mesh) -> void:
 	var scene: Node = load(path).instantiate()
+	var head := skeleton.find_bone("Head")
+	var y_ref := skeleton.get_bone_global_rest(head).origin.y + 0.08
 	for mi in scene.find_children("*", "MeshInstance3D"):
 		mi.owner = null
 		mi.get_parent().remove_child(mi)
 		skeleton.add_child(mi)
 		mi.skeleton = NodePath("..")
-		_tint(mi, color)
+		var m: Material = mi.mesh.surface_get_material(0)
+		if m is StandardMaterial3D and body_src != null:
+			# Oma varjostin: hiukset painuvat ja heiluvat (hair.gdshader), ulkonäkö kuin gltf:n materiaalissa.
+			var hm := _hair_mesh(path.get_file() + "/" + str(mi.name), kind, mi.mesh, body_src, y_ref)
+			var sm := ShaderMaterial.new()
+			sm.shader = load(HAIR_SHADER)
+			sm.set_shader_parameter("albedo_tex", (m as StandardMaterial3D).albedo_texture)
+			sm.set_shader_parameter("normal_tex", (m as StandardMaterial3D).normal_texture)
+			sm.set_shader_parameter("hair_col", color * 1.6)
+			sm.set_shader_parameter("hair_rough", (m as StandardMaterial3D).roughness)
+			sm.set_shader_parameter("press_radial", 1.0)
+			mi.mesh = hm
+			mi.material_override = sm
+			mi.set_meta("hair_press", true)
+			mi.set_meta("hair_center", hm.get_meta("hair_center"))
+			mi.set_meta("hair_cw", hm.get_meta("hair_cw"))
+			hair_mats.append(sm)
+			hair_mis.append(mi)
+		else:
+			_tint(mi, color)
 	scene.free()
+
+
+## Hiusverkko, jossa CUSTOM0.w = painumaraja ja CUSTOM0.x = heilahduspaino. Raja = 0,9 x etäisyys lähimpään vartaloverkon
+## pisteeseen (kallon pinta; max 6 cm), joten hiukset litistyvät lähes paksuutensa verran ja kallo pysyy jäykkänä.
+## Heilahduspaino: pitkät latvat (alle pään) heiluvat, päälaki ja siilitukka eivät. Verteksien järjestys säilyy (looks.gd
+## _tuck_hair). meta "hair_center"/"hair_cw": heilahduspainolla painotettu keskipiste ja painojen summa (verkon avaruus).
+static func _hair_mesh(hname: String, kind: String, src: Mesh, body_src: Mesh, y_ref: float) -> ArrayMesh:
+	var key := "hair/%s/%s" % [hname, kind]
+	var live: ArrayMesh = (_meshes[key] as WeakRef).get_ref() if _meshes.has(key) else null
+	if live != null:
+		return live
+	var cell := 0.02
+	var ymin := INF
+	for s in src.get_surface_count():
+		for v in (src.surface_get_arrays(s)[Mesh.ARRAY_VERTEX] as PackedVector3Array):
+			ymin = minf(ymin, v.y)
+	var grid := {}  # ruutu -> pisteet
+	for s in body_src.get_surface_count():
+		for v in (body_src.surface_get_arrays(s)[Mesh.ARRAY_VERTEX] as PackedVector3Array):
+			if v.y < ymin - 0.1:
+				continue
+			var c := Vector3i((v / cell).floor())
+			if not grid.has(c):
+				grid[c] = PackedVector3Array()
+			(grid[c] as PackedVector3Array).append(v)
+	var out := ArrayMesh.new()
+	var csum := Vector3.ZERO
+	var wsum := 0.0
+	for s in src.get_surface_count():
+		var arr := src.surface_get_arrays(s)
+		var fmt: int = (src as ArrayMesh).surface_get_format(s)
+		var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var c0 := PackedFloat32Array()
+		c0.resize(verts.size() * 4)
+		for i in verts.size():
+			var p := verts[i]
+			var d := _grid_dist(grid, cell, p)
+			var wl := minf(0.9 * maxf(d - 0.002, 0.0), 0.06)
+			var sw := smoothstep(0.0, 0.3, y_ref - p.y) * smoothstep(0.005, 0.03, d)
+			c0[i * 4] = sw
+			c0[i * 4 + 3] = wl
+			csum += p * sw
+			wsum += sw
+		arr[Mesh.ARRAY_CUSTOM0] = c0
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {},
+			(fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) | (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT))
+		out.surface_set_material(s, src.surface_get_material(s))
+	out.set_meta("hair_center", csum / wsum if wsum > 0.0 else Vector3.ZERO)
+	out.set_meta("hair_cw", wsum)
+	_meshes[key] = weakref(out)
+	return out
+
+
+## Etäisyys lähimpään ruutuhajautetun pistejoukon pisteeseen (kuorihaku; 4 ruudun yli palauttaa 0,08).
+static func _grid_dist(grid: Dictionary, cell: float, p: Vector3) -> float:
+	var c := Vector3i((p / cell).floor())
+	var best := INF
+	for r in 5:
+		for dx in range(-r, r + 1):
+			for dy in range(-r, r + 1):
+				for dz in range(-r, r + 1):
+					if maxi(maxi(absi(dx), absi(dy)), absi(dz)) != r:
+						continue
+					var pts = grid.get(c + Vector3i(dx, dy, dz))
+					if pts == null:
+						continue
+					for q in (pts as PackedVector3Array):
+						best = minf(best, p.distance_squared_to(q))
+		if best <= (r * cell) * (r * cell):
+			break
+	return sqrt(best) if best < INF else cell * 4.0
+
+
+## Hiusten heilahdus: jousi (Elastic.spring_step) hiusmassan keskipisteen kiihtyvyydestä, uniformina hair_sway. Vain
+## lähellä (LOD-väli 1); kauempana nollataan. Painuma tehdään heilahduksen jälkeen, joten noja pitää hiukset pois sisältä.
+const SWAY_K := 101.0  # (2 pi x 1,6 Hz)^2
+const SWAY_C := 4.0  # vaimennussuhde 0,2: 2 x 0,2 x sqrt(k)
+const SWAY_MAX := 0.05
+const SWAY_STEP := 1.0 / 120.0
+
+
+func _update_hair_sway(delta: float) -> void:
+	if hair_mis.is_empty() or delta <= 0.0:
+		return
+	if _lod_interval() > 1:
+		_reset_sway()
+		return
+	if _head_bone < 0:
+		_head_bone = skeleton.find_bone("Head")
+		var csum := Vector3.ZERO
+		var wsum := 0.0
+		for mi in hair_mis:
+			var w: float = mi.get_meta("hair_cw")
+			csum += (mi.get_meta("hair_center") as Vector3) * w
+			wsum += w
+		_sway_local = skeleton.get_bone_global_rest(_head_bone).affine_inverse() * (csum / wsum if wsum > 0.0 else Vector3.ZERO)
+	var p := skeleton.global_transform * (skeleton.get_bone_global_pose(_head_bone) * _sway_local)
+	if not _sway_valid or p.distance_to(_sway_p) > 1.0:
+		_sway_p = p
+		_sway_pv = Vector3.ZERO
+		_sway_valid = true
+		_sway_x = Vector3.ZERO
+		_sway_v = Vector3.ZERO
+		return
+	var vel := (p - _sway_p) / delta
+	var acc := ((vel - _sway_pv) / delta).limit_length(80.0)
+	_sway_p = p
+	_sway_pv = vel
+	var steps := clampi(ceili(delta / SWAY_STEP), 1, 8)
+	for i in steps:
+		var r := Elastic.spring_step(_sway_x, _sway_v, acc, SWAY_K, SWAY_C, delta / steps)
+		_sway_x = r[0]
+		_sway_v = r[1]
+		if _sway_x.length() > SWAY_MAX:
+			_sway_x = _sway_x.limit_length(SWAY_MAX)
+			_sway_v = Vector3.ZERO
+	if _sway_x.length() < 1e-4 and _sway_v.length() < 1e-3:
+		_sway_x = Vector3.ZERO
+		_sway_v = Vector3.ZERO
+	if _sway_x == Vector3.ZERO and _sway_zero:
+		return
+	_sway_zero = _sway_x == Vector3.ZERO
+	var local := body_mi.global_basis.inverse() * _sway_x
+	for m in hair_mats:
+		m.set_shader_parameter("hair_sway", local)
+
+
+func _reset_sway() -> void:
+	_sway_x = Vector3.ZERO
+	_sway_v = Vector3.ZERO
+	_sway_valid = false
+	if _sway_zero:
+		return
+	_sway_zero = true
+	for m in hair_mats:
+		m.set_shader_parameter("hair_sway", Vector3.ZERO)
 
 
 func _tint(mi: MeshInstance3D, color: Color) -> void:
@@ -560,7 +748,7 @@ static func _chest_weights(arr: Array, skin: Skin, skel: Skeleton3D, per: int) -
 ## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
 ## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
 const MESH_CACHE := "user://hahmot"
-const CACHE_VERSION := 11
+const CACHE_VERSION := 12
 static var _cache_tag := ""
 
 

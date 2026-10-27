@@ -64,11 +64,11 @@ static func limit(bone: String, p: Vector3, n: Vector3, shape: Dictionary, joint
 			lim = lerpf(lim, part_limit("rinta", shape), clampf(bust_w, 0.0, 1.0))
 	elif stem == "thigh":
 		lim = part_limit("reisi_etu", shape) if front else part_limit("reisi", shape)
-		if joints.has("calf" + sfx):  # polvi
+		if not back and joints.has("calf" + sfx):  # polvi (takapinta pitää reiden rajan)
 			lim = _near(lim, p, joints["calf" + sfx], KNEE_R, part_limit("polvi", shape))
 	elif stem == "calf":
 		lim = part_limit("saari", shape) if front else part_limit("pohje", shape)
-		if joints.has("calf" + sfx):
+		if not back and joints.has("calf" + sfx):  # polvi (takapinta pitää pohkeen rajan)
 			lim = _near(lim, p, joints["calf" + sfx], KNEE_R, part_limit("polvi", shape))
 	elif stem == "upperarm":
 		lim = part_limit("olkavarsi", shape)
@@ -97,24 +97,37 @@ static func _near(lim: float, p: Vector3, j: Vector3, r: float, v: float) -> flo
 
 ## Painuma kontaktilaatikoilla boxes ([[Transform3D verkko -> laatikko, puolikoko Vector3], ...], aktiivinen pinta
 ## laatikon +Y). Palauttaa verteksin p uuden paikan verkon avaruudessa. Peilaa varjostimen vertex()-silmukan.
-static func press(p: Vector3, _nrm: Vector3, lim: float, boxes: Array) -> Vector3:
+static func press(p: Vector3, nrm: Vector3, lim: float, boxes: Array, spread := SPREAD, halo := HALO, radial := 0.0, origin := Vector3.ZERO) -> Vector3:
 	var out := p
 	if lim <= 0.0:
 		return out
 	for b in boxes:
-		out += displace(b[0], b[1], out, lim)  # laatikko kerrallaan (kuten varjostin)
+		out += displace(b[0], b[1], out, lim, nrm, spread, halo, radial, origin)  # laatikko kerrallaan (kuten varjostin)
 	return out
 
 
-## Yhden laatikon siirtymä (verkon avaruudessa); sama kuin press_disp varjostimessa.
-static func displace(xf: Transform3D, h: Vector3, p: Vector3, lim: float) -> Vector3:
+## Yhden laatikon siirtymä (verkon avaruudessa); sama kuin press_disp varjostimessa. radial 1 (hiukset): leviäminen pinnan suuntaisesti
+## pois pisteestä origin (verkon avaruus, pään keskus), 0 (vartalo): laatikon x-akselin suuntaan. nrm (verteksin normaali) on varattu, ei käytössä:
+## hiuskortit ovat kaksipuolisia, joten normaalin etumerkistä leviäminen repeäisi.
+static func displace(xf: Transform3D, h: Vector3, p: Vector3, lim: float, _nrm := Vector3.ZERO, spread := SPREAD, halo := HALO,
+		radial := 0.0, origin := Vector3.ZERO) -> Vector3:
 	var q := xf * p
 	var pen := h.y - q.y
 	var w := (1.0 - smoothstep(h.x, h.x + 0.02, absf(q.x))) * (1.0 - smoothstep(h.z, h.z + 0.02, absf(q.z))) \
 		* (1.0 if q.y >= -h.y else 0.0) * deep_fade(pen, lim)
 	var d := clampf(pen, 0.0, lim) * w
 	var t := Vector3(q.x, 0.0, q.z)
-	var sp := Vector3(signf(q.x), 0.0, 0.0) * smoothstep(0.0, 0.02, absf(q.x)) * (SPREAD * d + HALO * lim * w * (1.0 - smoothstep(0.0, HALO_H, maxf(-pen, 0.0)))) if t.length() > 0.0 else Vector3.ZERO
+	var tl := t.length()
+	var sdir := Vector3(signf(q.x), 0.0, 0.0)
+	var sfac := smoothstep(0.0, 0.02, absf(q.x))
+	if radial > 0.0:
+		var qo := xf * origin
+		var dr := Vector3(q.x - qo.x, 0.0, q.z - qo.z)
+		var dl := dr.length()
+		dr = dr / dl if dl > 0.00001 else Vector3.ZERO
+		sdir = sdir.lerp(dr, radial)
+		sfac = lerpf(sfac, smoothstep(0.0, 0.02, dl), radial)
+	var sp := sdir * sfac * (spread * d + halo * lim * w * (1.0 - smoothstep(0.0, HALO_H, maxf(-pen, 0.0)))) if tl > 0.0 or radial > 0.0 else Vector3.ZERO
 	return xf.basis.transposed() * (Vector3(0.0, d, 0.0) + sp)
 
 
@@ -133,3 +146,10 @@ static func depth(p: Vector3, lim: float, boxes: Array) -> float:
 ## sivu istuimen reunalla): painuma häipyy 1 cm:n matkalla, ettei reunaa vasten ole portaita. Peilaa varjostimen press_disp.
 static func deep_fade(pen: float, lim: float) -> float:
 	return 1.0 - smoothstep(lim * 1.5 + 0.01, lim * 1.5 + 0.02, pen)
+
+
+## Jousen askel (semi-implisiittinen Euler): x'' = -k x - c x' - a. Palauttaa [x, v]. Heilahdus (hiukset, hyllyntä).
+static func spring_step(x: Vector3, v: Vector3, a: Vector3, k: float, c: float, dt: float) -> Array:
+	v += (-k * x - c * v - a) * dt
+	x += v * dt
+	return [x, v]

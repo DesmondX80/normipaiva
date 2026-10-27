@@ -28,6 +28,10 @@ luokkalistaa ei ole. Tarkistus: `tools/testit/kaantyyko.sh [godot-komento]` (sam
 
 Jos `godot` ei ole PATHissa, `tools/testit/godot.sh` etsii sen (`$GODOT`, PATH, tavalliset asennuspaikat
 Windowsilla, Macilla ja Linuxilla) ja tulostaa polun: `"$(tools/testit/godot.sh)" --path . -- --scene=<nimi>`.
+Testiajot ajetaan `tools/testit/aja.sh`:lla (`kaantyy`, `scene <nimi> [lisäargumentit]`, `tscn <polku>`, valinnat `--headless`,
+`--ei-kuvia` ja `--video` (vain tscn: Movie Maker, 30 fps, .avi ajokansioon; esim. `aja.sh --video tscn tools/testit/sinikka_video.tscn`, 27 s Sinikka kävelee, juoksee, hyppää ja istuu rantatuoliin)): se hoitaa eristetyn tallennuksen, jonon, aikarajan, `--shot`:n ja lokin ja tulostaa OK vain, jos ajo päättyi
+itse, skriptivirheitä ei ole, testi ei löytänyt vikoja ja kuvia syntyi. Uusi testi tulostaa vikansa riville `TESTI VIKA <selitys>`
+(aja.sh tunnistaa myös vanhat merkinnät LÄPI ... ->, RAKO LÄPI, KONTAKTI JÄÄ ja VIRHE). Pelkkä jono:
 Useampi samanaikainen ajo (esim. aliagentit) jonotetaan `tools/testit/godot_jono.sh <godot-argumentit>`:llä: ajot
 jakavat pelaajan tallennuksen ja user://-kansion, joten vain yksi saa olla käynnissä kerrallaan.
 
@@ -120,3 +124,22 @@ painuman jäännöksen (`KONTAKTI JÄÄ`, raja 1 mm yli painumarajan) ja kuvaa i
 (`Contact.head_extras`), portaiden jalat ojompana (`opts.jalat_ulos`, `Contact.place_foot` liu'uttaa jalan yhdelle askelmalle,
 `Contact.clear_legs`), pöydän reunan etupinta on painumakontakti (vatsa/rinta) ja litistyvä kohta pullistuu sivulle
 (`Elastic.SPREAD`, `HALO`; varjostin peilaa).
+
+**Kontaktit, pohje ja maa:** `Contact.clear_seat_edge` siirtää rento-istujan eteen, kun pohje on istuinlaatikon jalanjäljessä yli
+`Elastic.sink("pohje")` pinnan alla (liuku `slide` annetaan `fit_back`ille, joten selkä kallistuu lisää eikä lantio vedy nojaan takaisin).
+Polvitaipeen pehmeä raja koskee vain etupintaa. `Contact.ground_y` (fysiikkasäde, `Terrain.COLLISION_LAYER`) on jalkojen tuki kalusteen
+kappaleiden rinnalla; `Asento.solids` ohittaa `draped`-maaston laatat ja tarkistaa maan säteellä (`LÄPI ... -> maa (jalkaterä|muu)`).
+Läpimenotestin jäännös lasketaan ilman `deep_fade`a (`_raw_pen`), ja `Asento.views(..., check := false)` ohittaa toistotarkistuksen.
+
+**Hiukset ja pää (elastiset):** hiukset ovat skinnattuja verkkoja oma varjostin `shaders/hair.gdshader` (painumasilmukka jaettu
+`shaders/press.gdshaderinc`-tiedostossa vartalon kanssa); painumaraja on 0,9 x etäisyys kallon pintaan (`CUSTOM0.w`), leviäminen suuntautuu
+pois pään keskuksesta (`press_origin`), ja latvat heilahtavat jousella (`hair_sway`, `CUSTOM0.x` paino). `Pose.limb_points(..., meshes)`:
+0 = vartalo ja hiukset, 1 = vain vartalo, 2 = vain hiukset (painuneina). `Contact.fit_back` mittaa selkänojalaatikon jalanjäljen kohdalta
+erikseen kallon (`Head`), niskan juuren (`neck_01`, raja 0), painumattomat hiukset ja hatun (`head_extras`): tavoite on litistynyt tukka
+(10 % paksuudesta + 1 mm) juuri nojassa. Hattu kallistuu ensin (`_tilt_hat`, enintään 0,5 rad etureunan ympäri), sitten kaula; nojan
+ylä- tai sivureunan yli menevä pää ei taivu nojan äärettömään tasoon (sen takia mitataan vain jalanjäljeltä). Janttu: kassin yläpinta
+lasketaan pään alimmasta jäykästä pisteestä ja kassi on painumakontakti (`janttu.gd _add_bag`). Pimeässä `crawler3d.disguise` värittää hiukset
+`hair_col`-uniformilla. Kokeilu: `tools/testit/hiukset.tscn` (Sinikka rantatuolilla pää nojassa: kallo, hiusten jäännös ja rako, hattu;
+`TESTI VIKA` -rivit). `Pose.sit`: korkea polvi (> 10 cm lonkan yläpuolella) yritetään saada alas siirtämällä jalkaterää (`_knees_down`);
+jos jalka menisi kappaleeseen (matala askelma), asento jää, ja kädet menevät polvien päälle (`hands_on_thighs`: kohde reidellä tai polvella
+niin, että olkapää yltää, sormet vaakaan).

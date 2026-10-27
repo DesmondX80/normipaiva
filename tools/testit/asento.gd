@@ -6,6 +6,7 @@
 ##   Asento.report(hahmo, self, [["upperarm_l", "lowerarm_l", "hand_l"]], ["pelvis", "spine_01", "spine_02", "spine_03"])
 
 const Pose := preload("res://scripts/pose.gd")
+const Terrain := preload("res://scripts/terrain.gd")
 
 const RAJA := 0.035  # luun keskilinjan pienin sallittu rako pintaan (raajan puolipaksuus hihan kanssa)
 
@@ -13,9 +14,10 @@ const RAJA := 0.035  # luun keskilinjan pienin sallittu rako pintaan (raajan puo
 ## Ottaa kuvat edestä, päädyistä, ylhäältä ja takaa ja kokoaa ne 3x2-ruudukoksi <out>/<prefix>_koottu.png
 ## (yksi kuva katsottavaksi). center = asetelman keskipiste, size = sen pituus metreinä, front = etusuunta
 ## (vaakataso, esim. Vector3(0, 0, -1) kun -Z on penkin etupuoli).
-static func views(cam: Camera3D, out: String, prefix: String, center: Vector3, size: float, front: Vector3) -> void:
+static func views(cam: Camera3D, out: String, prefix: String, center: Vector3, size: float, front: Vector3, check := true) -> void:
 	front = Vector3(front.x, 0, front.z).normalized()
-	solids_near(cam, center, size)
+	if check:
+		solids_near(cam, center, size)
 	var side := front.cross(Vector3.UP).normalized()
 	var d := size * 1.6
 	var kulmat := [
@@ -197,7 +199,25 @@ static func solids(ch: Node3D, space: Node3D, radius := 2.0) -> int:
 	var bones := []
 	for i in skel.get_bone_count():
 		bones.append(skel.get_bone_name(i))
-	var pts := Pose.limb_points(ch, space, bones)
+	var grp_bones := {"kädet": [], "jalat": [], "pää": [], "vartalo": []}
+	for bn: String in bones:
+		var gn := "vartalo"
+		if bn.contains("arm") or bn.contains("hand") or bn.contains("shoulder") or bn.contains("clavicle") or bn.contains("thumb") or bn.contains("index") or bn.contains("middle") or bn.contains("ring") or bn.contains("pinky"):
+			gn = "kädet"
+		elif bn.contains("thigh") or bn.contains("calf") or bn.contains("foot") or bn.contains("ball") or bn.contains("toe"):
+			gn = "jalat"
+		elif bn.contains("head") or bn.contains("neck"):
+			gn = "pää"
+		(grp_bones[gn] as Array).append(bn)
+	var pts := PackedVector3Array()
+	var grp_of := PackedStringArray()
+	for gn: String in grp_bones:
+		if (grp_bones[gn] as Array).is_empty():
+			continue
+		var gpts := Pose.limb_points(ch, space, grp_bones[gn])
+		pts.append_array(gpts)
+		for _i in gpts.size():
+			grp_of.append(gn)
 	if pts.is_empty():
 		print("LÄPI ", ch.name, ": ei pintaa (headless?), ei tarkistettu")
 		return 0
@@ -216,8 +236,8 @@ static func solids(ch: Node3D, space: Node3D, radius := 2.0) -> int:
 	var found := 0
 	var tested := 0
 	for mi: MeshInstance3D in all:
-		if ch.is_ancestor_of(mi) or mi.has_meta("pehmea"):
-			continue  # oma kiinnitys (pipo, kassi), oma iho ja pehmeät kappaleet (meta "pehmea": tyyny, kassi)
+		if ch.is_ancestor_of(mi) or mi.has_meta("pehmea") or mi.has_meta("draped"):
+			continue  # oma kiinnitys (pipo, kassi), oma iho, pehmeät kappaleet (meta "pehmea") ja maaston laatat ("draped": maa tarkistetaan säteellä)
 		var m: Mesh = mi.mesh
 		var xf: Transform3D = mi.global_transform
 		var tri: TriangleMesh = null
@@ -240,7 +260,11 @@ static func solids(ch: Node3D, space: Node3D, radius := 2.0) -> int:
 		var upl := (inv.basis * Vector3.UP).normalized()
 		var n := 0
 		var deepest := 0.0
-		for g in gp:
+		var gcount := {}
+		var vlo := Vector3(INF, INF, INF)
+		var vhi := -vlo
+		for gi in gp.size():
+			var g := gp[gi]
 			if not lbox.has_point(g):
 				continue
 			var lp := inv * g
@@ -267,10 +291,14 @@ static func solids(ch: Node3D, space: Node3D, radius := 2.0) -> int:
 					dep = first - (SOLID_TOP if first_up else 0.0)
 			if dep > SOLID_DEPTH:
 				n += 1
+				gcount[grp_of[gi]] = int(gcount.get(grp_of[gi], 0)) + 1
+				vlo = vlo.min(g)
+				vhi = vhi.max(g)
 				deepest = maxf(deepest, dep + (SOLID_TOP if prim and _depth_local(m, lp, upl, 0.0) * k > dep + 0.001 else 0.0))
 		if n >= SOLID_MIN_PTS:
 			found += 1
-			print("LÄPI %s %s -> %s [%s %s] pisteitä %d syvin %.3f m" % [ch.name, ch.global_position.snapped(Vector3.ONE * 0.01), str(root.get_path_to(mi)), m.get_class(), lbox, n, deepest])
+			print("LÄPI %s %s -> %s [%s %s] pisteitä %d syvin %.3f m, ryhmät %s, pisteiden alue %s .. %s" % [ch.name, ch.global_position.snapped(Vector3.ONE * 0.01), str(root.get_path_to(mi)), m.get_class(), lbox, n, deepest, str(gcount), vlo.snapped(Vector3.ONE * 0.01), vhi.snapped(Vector3.ONE * 0.01)])
+	found += _ground(ch, space, bones)
 	found += _chars_touch(ch, space, gp, bones, root)
 	print("LÄPI %s: %d kappaletta tarkistettu, %d läpimenoa" % [ch.name, tested, found])
 	return found
@@ -326,4 +354,35 @@ static func _chars_touch(ch: Node3D, space: Node3D, gp: PackedVector3Array, bone
 		if n >= SOLID_MIN_PTS:
 			found += 1
 			print("LÄPI %s -> %s (hahmo) pisteitä %d lähin %.3f m" % [ch.name, o.name, n, near])
+	return found
+
+
+## Maa: fysiikkasäde alas jokaisesta pisteestä (maski Terrain.COLLISION_LAYER); piste on maan sisällä, kun maa on sen
+## yläpuolella yli SOLID_DEPTH + SOLID_TOP. Jalkaterät (foot, ball, toe) ja muu keho raportoidaan erikseen.
+## Palauttaa kappaleiden (0-2) määrän.
+static func _ground(ch: Node3D, space: Node3D, bones: Array) -> int:
+	var feet := []
+	var rest := []
+	for b: String in bones:
+		(feet if b.begins_with("foot") or b.begins_with("ball") or b.begins_with("toe") else rest).append(b)
+	var ss := ch.get_world_3d().direct_space_state
+	var found := 0
+	for grp in [["jalkaterä", feet], ["muu", rest]]:
+		var n := 0
+		var deepest := 0.0
+		var gy := 0.0
+		for q in Pose.limb_points(ch, space, grp[1] as Array):
+			var g := space.to_global(q)
+			var hit := ss.intersect_ray(PhysicsRayQueryParameters3D.create(g + Vector3(0, 1, 0), g - Vector3(0, 2, 0), Terrain.COLLISION_LAYER))
+			if hit.is_empty():
+				continue
+			var dep: float = (hit["position"] as Vector3).y - g.y - SOLID_TOP
+			if dep > SOLID_DEPTH:
+				n += 1
+				if dep > deepest:
+					deepest = dep
+					gy = (hit["position"] as Vector3).y
+		if n >= SOLID_MIN_PTS:
+			found += 1
+			print("LÄPI %s -> maa (%s) pisteitä %d syvin %.3f m, maa y %.3f" % [ch.name, grp[0], n, deepest, gy])
 	return found

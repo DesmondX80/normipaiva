@@ -60,6 +60,7 @@ func _check(node: Node3D, ch: Node3D, tag: String) -> int:
 		for q in Pose.limb_points(ch, main.world, ["foot" + lr, "ball" + lr]):
 			var g: Vector3 = main.world.to_global(q)
 			var sup := Contact.support_y(solids, g.x, g.z, g.y + 0.3)
+			sup = maxf(sup, Contact.ground_y(node, g.x, g.z, g.y + 0.3))
 			if sup > -INF:
 				low = minf(low, g.y - sup)
 		if low < SOLE_MIN:
@@ -84,7 +85,7 @@ func _residual(ch: Node3D) -> float:
 	var wv := -1
 	var worst := 0.0
 	for v in vs.size():
-		var ov := Elastic.depth(vs[v], c0[v * 4 + 3], ch.press_boxes) - c0[v * 4 + 3]
+		var ov := _raw_pen(vs[v], ch.press_boxes) - c0[v * 4 + 3]
 		if ov > worst:
 			worst = ov
 			wv = v
@@ -98,26 +99,39 @@ func _residual(ch: Node3D) -> float:
 		for k in st:
 			info += "%s=%.2f " % [mi.skin.get_bind_name(bi[wv * st + k]), bw[wv * st + k]]
 		print("JAANNOS painot ", info, " lepo ", (arr0[Mesh.ARRAY_VERTEX] as PackedVector3Array)[wv], " normaali ", (arr0[Mesh.ARRAY_NORMAL] as PackedVector3Array)[wv])
+		var pl: Vector3 = ch.to_local(mi.to_global(vs[wv]))  # hahmon avaruus (verkon avaruus on käännetty)
 		for nm in ["thigh_r", "calf_r", "thigh_l", "calf_l", "pelvis"]:
 			var dmin := INF
 			for q in Pose.limb_points(ch, ch, [nm]):
-				dmin = minf(dmin, q.distance_to(vs[wv]))
+				dmin = minf(dmin, q.distance_to(pl))
 			print("JAANNOS luu ", nm, " ", ch.bone_position(nm), " etaisyys vertekseen ", dmin)
 		var wp: Vector3 = mi.to_global(vs[wv])
 		print("JAANNOS vertex maailma ", wp, " tuki ", Contact.support_y(Contact.world_solids(node_dbg), wp.x, wp.z, wp.y + 0.1))
 		for b in ch.press_boxes:
-			print("JAANNOS laatikko q ", (b[0] as Transform3D) * vs[wv], " h ", b[1], " keskus mesh ", (b[0] as Transform3D).affine_inverse().origin, " akselit ", (b[0] as Transform3D).affine_inverse().basis)
+			var bq: Vector3 = (b[0] as Transform3D) * vs[wv]
+			print("JAANNOS laatikko q ", bq, " h ", b[1], " etaisyys reunaan x %.3f z %.3f" % [(b[1] as Vector3).x - absf(bq.x), (b[1] as Vector3).z - absf(bq.z)])
 	return worst
 
 
 func _compare(cam: Camera3D, out: String, tag: String, node: Node3D, ch: Node3D, seat_w: Vector3, front: Vector3) -> void:
 	var c := seat_w + Vector3(0, 0.45, 0)
-	await Asento.views(cam, out, tag + "_jalkeen", c, 1.9, front)
-	await Asento.views(cam, out, tag + "_lahi", ch.to_global(ch.bone_position("calf_r")) + front * 0.1, 0.8, front)
+	await Asento.views(cam, out, tag + "_jalkeen", c, 1.9, front, false)
+	await Asento.views(cam, out, tag + "_lahi", ch.to_global(ch.bone_position("calf_r")) + front * 0.1, 0.8, front, false)
 	var saved: Array = ch.press_boxes.duplicate(true)
 	ch.clear_contacts()
 	for i in 3:
 		await main.get_tree().process_frame
-	await Asento.views(cam, out, tag + "_ennen", c, 1.9, front)
+	await Asento.views(cam, out, tag + "_ennen", c, 1.9, front, false)
 	ch.press_boxes = saved
 	ch._upload_contacts()
+
+
+## Syvin tunkeuma laatikoiden jalanjäljessä ilman deep_fadea (rehellinen mittari: reunaa vasten oleva syvä verteksi ei häviä).
+func _raw_pen(p: Vector3, boxes: Array) -> float:
+	var best := 0.0
+	for b in boxes:
+		var q: Vector3 = (b[0] as Transform3D) * p
+		var h: Vector3 = b[1]
+		if absf(q.x) < h.x and absf(q.z) < h.z and q.y >= -h.y:
+			best = maxf(best, h.y - q.y)
+	return best

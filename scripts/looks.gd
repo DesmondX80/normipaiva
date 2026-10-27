@@ -241,6 +241,7 @@ static func add_glam(c: Node3D) -> void:
 	B.mesh(hat, B.cyl(0.1, 0.115, 0.11, 24), Vector3(0, 0.055, 0), straw)
 	B.mesh(hat, B.cyl(0.117, 0.117, 0.035, 24), Vector3(0, 0.02, 0), Color(0.8, 0.03, 0.1))
 	hat.rotation.x = deg_to_rad(-8)  # lieri hieman kallellaan taaksepäin
+	hat.set_meta("hattu", true)  # leveä lierihattu: Contact.fit_back saa kallistaa sitä nojaa vasten (lasit ja korut eivät)
 	c.attach("Head", hat, Vector3(0, 0.15, -0.01))
 	var shades := Node3D.new()
 	var dark := Color(0.04, 0.03, 0.03)
@@ -1361,8 +1362,11 @@ static func _tuck_hair(sk: Skeleton3D, body: MeshInstance3D, grid: Array, origin
 		for si in src.get_surface_count():
 			var arr := src.surface_get_arrays(si)
 			var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var c0 := PackedFloat32Array()  # CUSTOM0 (hair.gdshader): x = heilahduspaino, w = painumaraja
+			if arr[Mesh.ARRAY_CUSTOM0] != null:
+				c0 = arr[Mesh.ARRAY_CUSTOM0]
 			for v in verts.size():
-				var q: Vector3 = mb * (verts[v] - origin) - CAP_OFFSET
+				var q: Vector3 = mb *(verts[v] - origin) - CAP_OFFSET
 				var d := q - CAP_C
 				var r := d.length()
 				if r < 0.001:
@@ -1375,9 +1379,15 @@ static func _tuck_hair(sk: Skeleton3D, body: MeshInstance3D, grid: Array, origin
 				if r > lim:
 					q = CAP_C + d / r * lim
 					verts[v] = origin + inv * (q + CAP_OFFSET)
+					if c0.size() == verts.size() * 4:
+						c0[v * 4] = 0.0  # lippiksen alla tukka on jäykkä (ei painu, ei heilu)
+						c0[v * 4 + 3] = 0.0
 			arr[Mesh.ARRAY_VERTEX] = verts
+			if c0.size() > 0:
+				arr[Mesh.ARRAY_CUSTOM0] = c0
 			var fmt: int = (src as ArrayMesh).surface_get_format(si)
-			out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
+			var keep := Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS | (Mesh.ARRAY_FORMAT_CUSTOM_MASK << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+			out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, fmt & keep)  # CUSTOM0 säilyy
 			out.surface_set_material(si, src.surface_get_material(si))
 		mi.mesh = out
 

@@ -104,6 +104,9 @@ func _run() -> void:
 		var d := Seat.of(root)
 		var c: Vector3 = root.to_global(d.seat) + Vector3(0, 0.45, 0)
 		await Asento.views(cam, out, root.name + str(sets.find(s)), c, 1.9, root.global_transform.basis * d.front)
+	var s0: Array = sets[0]
+	var d0 := Seat.of(s0[0])
+	await Asento.views(cam, out, "portaat_lahi", (s0[0] as Node3D).to_global(d0.seat) + Vector3(0, 0.45, 0.1), 0.7, (s0[0] as Node3D).global_transform.basis * d0.front, false)
 	await _vertailu()
 	print("KONTAKTI_A valmis ", ProjectSettings.globalize_path(out))
 	get_tree().quit()
@@ -205,6 +208,9 @@ func _painumat(nm: String, root: Node3D, ch: Node3D) -> Dictionary:
 	var per := bi.size() / vs.size()
 	var sk: Skin = mi.skin
 	var over := 0.0
+	var worst_v := -1
+	var limb_over := 0.0
+	var worst_key := ""
 	for v in vs.size():
 		var best := 0
 		for k in per:
@@ -214,11 +220,31 @@ func _painumat(nm: String, root: Node3D, ch: Node3D) -> Dictionary:
 		var lim := c0[v * 4 + 3]
 		var disp := Elastic.press(vs[v], ns[v], lim, ch.press_boxes).distance_to(vs[v])
 		out_d[key] = maxf(out_d.get(key, 0.0), disp)
-		over = maxf(over, Elastic.depth(vs[v], lim, ch.press_boxes) - lim)
+		var rp := _raw_pen(vs[v], ch.press_boxes) - lim if lim > 0.0005 else 0.0  # raja 0 = ei painu (sormet, jalkaterä): LÄPI-testi mittaa
+		if not (key.begins_with("spine_") or key.begins_with("pelvis")):
+			# Kädet ja jalat lepäävät pinnalla suunnitellusti (esim. kyynärvarsi pöydän päällä on laatikon sisällä pinnan tasolla): LÄPI-testi mittaa
+			limb_over = maxf(limb_over, rp)
+		elif rp > over:
+			over = rp
+			worst_v = v
+			worst_key = key
 	for key: String in ["spine_01 etu", "spine_02 etu", "spine_03 etu"]:
 		print("PAINUMA %s %s painuma max %.1f mm" % [nm, key, out_d.get(key, 0.0) * 1000])
+	if limb_over > 0.001:
+		print("PAINUMA %s raajat: raakasyvyys laatikossa %.1f mm (tiedoksi, ei vika)" % [nm, limb_over * 1000])
 	if over > 0.001:
 		print("KONTAKTI JÄÄ ", nm, " tunkeuma yli painumarajan ", snappedf(over * 1000, 0.1), " mm")
+		# Diagnostiikka: pahin verteksi, sen laatikko (0 = istuin/noja/pöytä järjestyksessä contacts()-listalta) ja reunaetäisyys
+		var wp: Vector3 = vs[worst_v]
+		var bi_i := 0
+		for b in ch.press_boxes:
+			var bq: Vector3 = (b[0] as Transform3D) * wp
+			var bh: Vector3 = b[1]
+			if absf(bq.x) < bh.x and absf(bq.z) < bh.z and bq.y >= -bh.y:
+				print("  JAANNOS %s luu %s laatikko %d (yläpinnan normaali y %.2f, h %s) syvyys %.1f mm, reunaan x %.1f z %.1f mm, raja %.1f mm" % [
+					nm, worst_key, bi_i, (b[0] as Transform3D).basis.y.y, bh, (bh.y - bq.y) * 1000, (bh.x - absf(bq.x)) * 1000,
+					(bh.z - absf(bq.z)) * 1000, c0[worst_v * 4 + 3] * 1000])
+			bi_i += 1
 	# K15: etuin vartalon piste pöydän reunaan (0,17 solmun etusuunnassa)
 	var front: Vector3 = root.global_transform.basis * (Seat.of(root).front as Vector3)
 	for b: String in ["spine_01", "spine_03"]:
@@ -227,3 +253,14 @@ func _painumat(nm: String, root: Node3D, ch: Node3D) -> Dictionary:
 			tb = maxf(tb, (q - root.global_position).dot(front))
 		print("POYTA %s %s etuin piste %.3f, rako reunaan %.1f mm" % [nm, b, tb, (0.17 - tb) * 1000])
 	return out_d
+
+
+## Syvin tunkeuma laatikoiden jalanjäljessä ilman deep_fadea (rehellinen mittari: reunaa vasten oleva syvä verteksi ei häviä).
+func _raw_pen(p: Vector3, boxes: Array) -> float:
+	var best := 0.0
+	for b in boxes:
+		var q: Vector3 = (b[0] as Transform3D) * p
+		var h: Vector3 = b[1]
+		if absf(q.x) < h.x and absf(q.z) < h.z and q.y >= -h.y:
+			best = maxf(best, h.y - q.y)
+	return best
