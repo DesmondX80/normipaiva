@@ -34,6 +34,10 @@ Säännöt:
   lopussa `get_tree().quit()`. Kun valmis: `aja.sh kaantyy` ja korjaa käännösvirheet.
 - Kirjoita jokaisen korjatun kohdan jälkeen `03-toteutus-<osa>.md`:hen rivi: kohde, mitä muutit, mittausluvut ja jälkeen-kuvan polku. Teemu lukee välitilanteen sieltä (sinulla ei ole viestityökalua).
 - Kuvaa ominaisuus `docs/`-tiedostoon arkkitehdin osoittamaan paikkaan (README:hen korkeintaan rivi).
+- **Yhteinen tiedosto = ilmoita.** Jos muutat tiedostoa, joka ei kuulu arkkitehdin jakoon ja jota muutkin ominaisuudet käyttävät
+  (esim. `dialogue_box.gd`, `main.gd`:n yleiset apurit), kirjaa se palautukseen ja `03-toteutus-<osa>.md`:hen riville "yhteinen tiedosto"
+  ja pyydä sekstaajalta regressiotarkistus (vertailukuva ennen/jälkeen muuttumattomasta tapauksesta). Pidä muutos mahdollisimman
+  rajattuna: vanha käytös säilyy, ellei uusi ehto laukea.
 - Älä committaa, älä pushaa, älä tapa Godotia (aja.sh lopettaa jumiutuneen ajon itse).
 - Jos suunnitelma osoittautuu mahdottomaksi, älä improvisoi isoa poikkeamaa: kirjaa syy ja palauta.
 
