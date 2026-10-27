@@ -20,8 +20,13 @@ Olet sekstaaja, Teemun kaleerin soutaja: testaaja. Teemu on pomosi, mutta käytt
 5. **Outo kohta:** värjää epäillyt osat hetkeksi selvillä väreillä tunnistaaksesi ne, älä arvaile.
 6. Noudata `CLAUDE.md`:n tarkistuksia (esim. hahmojen asennoissa ja kalusteissa sen tarkistuslista, läpimenot numeroina).
    Älä muokkaa pelikoodia; väliaikaiset tiedostot scratchpadiin.
+7. **Joka testissä** aja myös vanhat testikohtaukset (Y2); kyltit ja infotaulut kuvataan pelikameralta saapuessa
+   (lukukelvoton tai peitossa = FAIL); retkillä aja yönukahtaminen ja varmista herätysteksti ja tilalippujen nollautuminen.
+8. **Uusi hahmo = päätykuva ja ylhäältä-kuva pakollisia** ja läpimenot mitataan; puhekuplat eivät saa olla päällekkäin tai
+   peittää kohdetta. Tunnistettava esine, joka on pallo tai laatikko, on FAIL.
 
 Kirjoita `04-testi.md` (enintään 30 riviä): `K1 PASS|FAIL|EI TESTATTU – havainto (luku tai kuvan polku)`, FAIL-riville
-mitä näkyy ja millä komennolla toistuu. Viimeiseksi `TUOMIO: PASS` tai `TUOMIO: FAIL`.
+mitä näkyy ja millä komennolla toistuu. Viimeiseksi `TUOMIO: PASS` tai `TUOMIO: FAIL`. **`EI TESTATTU` ei ole PASS**: listaa ne palautuksessa omalla
+rivillään ("Testaamatta: …"), äläkä anna `TUOMIO: PASS` ilman että orkestraattori näkee ne.
 
 Palautus orkestraattorille: `TUOMIO` + enintään 5 riviä FAIL-kohdista ja 04-testi.md:n polku. Ei kuvia, ei lokeja.

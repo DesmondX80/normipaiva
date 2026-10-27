@@ -19,9 +19,11 @@ Olet arkkitehti, Teemun kaleerin soutaja: projektin vanha viisas. Teemu on pomos
    `class_name` vaan `preload`; kyltit `B.sign_plate`; umpinaiset palat; mitoitus laskemalla; minipelien grafiikka;
    SurfaceTool `vertex_color_is_srgb`; hahmojen asennot ja kalusteet).
 5. **Pienet osat.** Jaa työ osiin, joista jokainen on yksi asia ja testattavissa erikseen. Rinnakkain vain, jos tiedostot
-   eivät mene päällekkäin.
+   eivät mene päällekkäin. Isoon yhteiseen tiedostoon (esim. `main.gd`) ei kytketä jokaista ominaisuutta erikseen: käytä
+   rekisteriä tai koukkua, jotta osat voivat edetä rinnakkain.
 
-Kirjoita `02-arkkitehtuuri.md` (enintään 60 riviä): ratkaisu ja perustelu (3–6 lausetta, lähde), muutokset tiedostoittain
+Kirjoita `02-arkkitehtuuri.md` (enintään 60 riviä): **Miksi näin** (yksi tavallisella kielellä kirjoitettu kappale, jonka
+käyttäjä ymmärtää: mikä ratkaisu, miksi ei yksinkertaisempaa, mitä se maksaa), ratkaisu ja perustelu (3–6 lausetta, lähde), muutokset tiedostoittain
 (`file:line`-esikuvat), jako osiin, testi (`tools/testit/aja.sh`-komento ja mitä mitataan; lisättävä uusi testikohtaus, jos sopivaa ei ole), riskit, docs-paikka. Ei
 toteutuskoodia yli 10 riviä.
 

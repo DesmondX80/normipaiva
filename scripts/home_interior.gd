@@ -93,6 +93,7 @@ var _nerd: Node3D
 var _bubble: Label3D
 var _bubble_t := 0.0
 var _tv_screen: MeshInstance3D
+var _kahvi_set: Node3D  # kahvipöytä (set_kahvipoyta)
 var _vcr_display: Label3D
 var _vcr_rec: MeshInstance3D
 var _vcr_mode := ""
@@ -452,6 +453,47 @@ func _build_kitchen_living() -> void:
 	_tv_screen.visible = false
 	add_child(_tv_screen)
 	_build_vcr(Vector3(tvx + 0.42, 0.25, -HALF.y + 0.55))
+
+
+## Kahvipöytä ruokapöydällä (Päivi sai rönttöset): liina, kahvipannu, kupit ja lautasellinen rönttösiä. Näkyy vain sinä päivänä.
+func set_kahvipoyta(on: bool) -> void:
+	if _kahvi_set == null:
+		_kahvi_set = Node3D.new()
+		_kahvi_set.position = Vector3(3.6, 0.75, -0.8)  # ruokapöydän pinta (_build_kitchen_living)
+		add_child(_kahvi_set)
+		_build_kahvipoyta(_kahvi_set)
+	_kahvi_set.visible = on
+
+
+## Pöydän pinta on y = 0 (solmun paikallinen). Jokainen osa on umpinainen pala.
+func _build_kahvipoyta(root: Node3D) -> void:
+	B.mesh(root, B.boxm(Vector3(1.5, 0.01, 0.7)), Vector3(0, 0.005, 0), Color(0.92, 0.9, 0.82))  # liina
+	B.mesh(root, B.boxm(Vector3(1.5, 0.012, 0.08)), Vector3(0, 0.011, 0), Color(0.75, 0.2, 0.2))  # punainen raita
+	B.mesh(root, B.cyl(0.2, 0.18, 0.02, 20), Vector3(0, 0.02, 0), Color(0.95, 0.94, 0.9))  # lautanen
+	for i in 3:
+		_ronttonen_3d(root, Vector3((i - 1) * 0.2, 0.03, 0.0 if i != 1 else 0.02))
+	for cx in [-0.55, 0.55]:  # kupit alustoineen
+		B.mesh(root, B.cyl(0.08, 0.07, 0.01, 14), Vector3(cx, 0.017, 0.22), Color(0.95, 0.94, 0.9))
+		B.mesh(root, B.cyl(0.05, 0.04, 0.07, 14), Vector3(cx, 0.062, 0.22), Color(0.92, 0.92, 0.95))
+		B.mesh(root, B.cyl(0.043, 0.043, 0.005, 14), Vector3(cx, 0.097, 0.22), Color(0.2, 0.1, 0.05))  # kahvi
+	B.mesh(root, B.cyl(0.07, 0.08, 0.2, 14), Vector3(0.0, 0.11, -0.25), Color(0.7, 0.72, 0.78))  # kahvipannu
+	B.mesh(root, B.cyl(0.05, 0.07, 0.03, 14), Vector3(0.0, 0.225, -0.25), Color(0.6, 0.62, 0.68))  # kansi
+	B.mesh(root, B.sphere(0.018, 8), Vector3(0.0, 0.25, -0.25), Color(0.1, 0.1, 0.12))
+	B.mesh(root, B.boxm(Vector3(0.02, 0.14, 0.05)), Vector3(0.1, 0.12, -0.25), Color(0.1, 0.1, 0.12))  # kahva
+
+
+## Rönttönen: ruskea soikea alusta, poimuinen reuna (pallorengas), vaalea muusi ja puolukkapisteet. Esikuva: avoin soikea.
+func _ronttonen_3d(parent: Node3D, at: Vector3) -> void:
+	var dough := Color(0.72, 0.5, 0.26)
+	var base := B.mesh(parent, B.cyl(0.075, 0.08, 0.025, 20), at + Vector3(0, 0.0125, 0), dough.darkened(0.1))
+	base.scale = Vector3(1.4, 1.0, 0.9)
+	for k in 12:
+		var a := TAU * k / 12.0
+		B.mesh(parent, B.sphere(0.018, 8), at + Vector3(cos(a) * 0.1, 0.027, sin(a) * 0.063), dough)
+	var fill := B.mesh(parent, B.cyl(0.05, 0.05, 0.02, 16), at + Vector3(0, 0.03, 0), Color(0.95, 0.88, 0.6))
+	fill.scale = Vector3(1.5, 1.0, 0.85)
+	for k in 4:
+		B.mesh(parent, B.sphere(0.011, 6), at + Vector3(-0.045 + k * 0.03, 0.043, (k % 2) * 0.016 - 0.008), Color(0.75, 0.08, 0.15))
 
 
 ## Videonauhuri TV-tason hyllyllä: musta runko, kasettiluukku, vihreä näyttö (vilkkuva 12:00, ajastettuna 22:00) ja

@@ -78,6 +78,7 @@ signal paivi_caught
 
 var active := false
 var busy := false
+var kapteeni_vihje := false  # main.gd asettaa: kapteenilla on Hanhikivi-vihje (acted "kapteeni")
 var walker: CharacterBody3D
 var hint := ""
 var _enter_frame := -1
@@ -298,6 +299,10 @@ func in_cellar() -> bool:
 	return walker.position.x > CELLAR.x - CELLAR_HALF.x - 1.0
 
 
+func say_kapteeni(text: String, t := 4.5) -> void:
+	say(_kapteeni, text, t)
+
+
 func say(who: Node3D, text: String, t := 3.4) -> void:
 	var b: Label3D = _bubbles[who]
 	b.text = text
@@ -396,7 +401,10 @@ func _process(delta: float) -> void:
 		"ruukki":
 			say(_ruukki.pick_random(), RUUKKI_LINES.pick_random())
 		"kapteeni":
-			say(_kapteeni, KAPTEENI_LINES.pick_random(), 4.5)
+			if kapteeni_vihje:
+				acted.emit("kapteeni")
+			else:
+				say(_kapteeni, KAPTEENI_LINES.pick_random(), 4.5)
 		"kellari_porukka":
 			say(_kellari.pick_random(), KELLARI_LINES.pick_random())
 		"alas":

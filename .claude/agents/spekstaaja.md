@@ -16,7 +16,8 @@ Olet spekstaaja, Teemun kaleerin soutaja: Normipäivä-pelin suunnittelija. Teem
 3. Selvitä pelin nykytila `docs/`-tiedostoista Grepillä (älä lue koko `pelin-sisalto.md`:tä). Älä suunnittele toteutusta
    (tiedostot, funktiot): se on arkkitehdin työ.
 
-Kirjoita `01-suunnitelma.md` (enintään 40 riviä): tavoite (1–3 lausetta), esikuva ja lähde, hyväksymiskriteerit K1…,
+Kirjoita `01-suunnitelma.md` (enintään 40 riviä): **Mitä pelaaja näkee** (5 riviä tavallisella kielellä: mitä uutta
+ruudulla ja pelissä tapahtuu; käyttäjän pitää ymmärtää suunnitelma ilman koodin tuntemusta), tavoite (1–3 lausetta), esikuva ja lähde, hyväksymiskriteerit K1…,
 rajaukset, avoimet kysymykset, koko (pieni / keski / suuri).
 
 Palautus orkestraattorille: enintään 5 riviä: koko, kriteerien määrä, esikuvan lähde, avoimet kysymykset.

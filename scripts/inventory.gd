@@ -736,6 +736,23 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_r(img, 5, 6, 4, 4, Color(0.25, 0.25, 0.25))
 			_r(img, 6, 5, 2, 1, Color(0.3, 0.3, 0.3))
 			_r(img, 9, 8, 2, 2, Color(0.7, 0.7, 0.7))
+		"ovikuva":  # valokuva vanhasta ovesta: valkoinen reuna, vihreä ovi ja valoikkuna
+			_r(img, 2, 2, 12, 12, Color(0.95, 0.93, 0.88))
+			_r(img, 3, 3, 10, 10, Color(0.88, 0.72, 0.36))
+			_r(img, 5, 5, 6, 8, Color(0.95, 0.94, 0.9))
+			_r(img, 6, 7, 4, 6, Color(0.12, 0.3, 0.22))
+			_r(img, 6, 5, 4, 1, Color(0.4, 0.55, 0.65))
+			_r(img, 9, 10, 1, 1, Color(0.85, 0.65, 0.2))
+		"ronttonen":  # avoin soikea, ruistaikinan reuna poimulla, täytteenä muusi ja puolukkaa
+			_c(img, 8, 9, 6.5, Color(0.45, 0.3, 0.15))
+			_r(img, 1, 7, 14, 5, Color(0.45, 0.3, 0.15))
+			_r(img, 2, 7, 12, 4, Color(0.72, 0.52, 0.3))
+			_r(img, 4, 8, 8, 2, Color(0.95, 0.88, 0.6))
+			_r(img, 5, 8, 1, 1, Color(0.75, 0.1, 0.15))
+			_r(img, 8, 8, 1, 1, Color(0.75, 0.1, 0.15))
+			_r(img, 10, 9, 1, 1, Color(0.75, 0.1, 0.15))
+			for k in 4:
+				_r(img, 2 + k * 3, 6, 2, 1, Color(0.6, 0.42, 0.22))
 		"kukat":  # ruusukimppu paperissa
 			_r(img, 7, 7, 2, 8, Color(0.2, 0.55, 0.2))
 			_c(img, 5, 5, 2.2, Color(0.9, 0.15, 0.25))
