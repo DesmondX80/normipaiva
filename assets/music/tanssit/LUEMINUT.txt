@@ -1,0 +1,8 @@
+Seuraintalon tanssien biisit (scripts/tanssibiisit.gd, scripts/tanssi_game.gd): Saloisten Saapasjalat soittaa.
+
+pihalla_tavataan.mp3 ja rasvanappi.mp3: sanat tehty tätä peliä varten, musiikki Sunolla. Uudelleenkoodattu: mono,
+MP3 64 kbps 22 kHz, kansikuva ja tiedot pois.
+
+Uusi biisi: lisää tiedosto tänne ja kappale tanssibiisit.gd:n SONGS-listaan. Iskut mitataan komennolla
+  venv/bin/python tools/tanssibiisi.py assets/music/tanssit/<biisi>.mp3 <loppu_s> <bpm>
+ja osat (alkusoitto, säkeistö, kertosäe) sekä huudon isku merkitään tahteina käsin.

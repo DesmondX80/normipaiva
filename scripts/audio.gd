@@ -198,6 +198,13 @@ func music_play(fade := 1.5, from := 0.0, file := "", stream: AudioStream = null
 		print("MUSIC play ", _music.stream.resource_path)
 
 
+## Soivan musiikin kohta sekunteina (äänilaitteen viive huomioituna, rytmipelien tahti) tai -1, jos ei soi.
+func music_pos() -> float:
+	if _music == null or not _music.playing:
+		return -1.0
+	return _music.get_playback_position() + AudioServer.get_time_since_last_mix() - AudioServer.get_output_latency()
+
+
 ## Häivyttää musiikin pois ja pysäyttää sen.
 func music_stop(fade := 1.5) -> void:
 	if _music == null or not _music.playing:
