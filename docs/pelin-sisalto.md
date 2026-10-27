@@ -389,7 +389,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Lauantaisin klo 21–01 tanssit (lippu 8 €): lavalla Saloisten Saapasjalat, viirit ja värivalot, lattialla pareja.
   Tanssiin voi hakea Sinikan (Päivi soittaa hetken päästä perään, ja aamulla on motkotusta), Hilkan tai Anna-Liisan: tanssitaan salin
   lattialla salin omien ihmisten kanssa muiden parien kiertäessä ympärillä ja kameran kiertäessä paria, A ja D
-  vuorotellen tahdissa nuottiradalla (kompastuessa horjahdus ja pari sanoo sanansa), ja hyvä tanssi nostaa moraalia ja mainetta (kömpelö tanssi Anna-Liisan kanssa leviää
+  vuorotellen tahdissa nuottiradalla (kompastuessa horjahdus ja pari sanoo sanansa); pari tanssii suljetussa otteessa (viejän käsi parin selällä, parin käsi viejän olalla, vapaat kädet kämmen kämmentä vasten, vartalot saavat painautua toisiaan vasten), ja hyvä tanssi nostaa moraalia ja mainetta (kömpelö tanssi Anna-Liisan kanssa leviää
   kylälle). Kahviossa Raili myy kahvia ja munkkia, takaovesta pihalle ukkojen luo takakontille (huikka kossua,
   Anna-Liisa voi nähdä). Tiistaisin klo 18–20 bingo: lappu 2 €, pelaaja istuu bingopöydän päässä mummojen rivissä, ja Erkki
   pyörittää lavalla pallokonetta ja huutaa numerot puhekuplassa. Huudetut numerot

@@ -731,7 +731,7 @@ func _build_people() -> void:
 		add_child(holder)
 		var look: Dictionary = pd.get("look", {})
 		if pd.has("look_ref"):
-			look = Looks.SINIKKA if pd.look_ref == "SINIKKA" else Looks.player()
+			look = Looks.sinikka_seura() if pd.look_ref == "SINIKKA" else Looks.player()
 		var c := Looks.make(holder, look)
 		var lift := 0.02 if pd.pose == "Sitting_Idle" else 0.0
 		c.position = pd.at + Vector3(0, lift, 0)

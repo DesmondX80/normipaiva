@@ -22,13 +22,14 @@ uniform float press_halo = 0.9;  // = Elastic.HALO
 uniform float press_radial = 0.0;
 uniform vec3 press_origin = vec3(0.0);  // verkon avaruus: hiusten leviämisen keskus (pää)
 
+// used = aiempien laatikoiden painuma: raja on kaikille laatikoille yhteinen (kutsuja lisää used += depth_out * lim).
 // Palauttaa siirtymän verkon avaruudessa; nrm = verteksin normaali verkon avaruudessa (vain press_radial > 0),
 // n_out = laatikon +Y verkon avaruudessa ja depth_out = painuman osuus rajasta.
-vec3 press_disp(mat4 xf, vec3 h, vec3 v, float lim, vec3 nrm, out vec3 n_out, out float depth_out) {
+vec3 press_disp(mat4 xf, vec3 h, vec3 v, float lim, float used, vec3 nrm, out vec3 n_out, out float depth_out) {
 	vec3 q = (xf * vec4(v, 1.0)).xyz;
 	float pen = h.y - q.y;
 	float w = (1.0 - smoothstep(h.x, h.x + 0.02, abs(q.x))) * (1.0 - smoothstep(h.z, h.z + 0.02, abs(q.z))) * step(-h.y, q.y) * (1.0 - smoothstep(lim * 1.5 + 0.01, lim * 1.5 + 0.02, pen));  // = Elastic.deep_fade
-	float d = clamp(pen, 0.0, lim) * w;
+	float d = clamp(pen, 0.0, max(lim - used, 0.0)) * w;
 	vec3 t = vec3(q.x, 0.0, q.z);
 	float tl = length(t);
 	mat3 m = mat3(xf);

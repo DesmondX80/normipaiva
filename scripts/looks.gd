@@ -156,6 +156,12 @@ const SINIKKA := {
 	"curves": 1.0, "bust": 2.7, "skin": Color(1.0, 0.97, 0.93), "bare_skin": Color(0.8, 0.58, 0.46), "glam": true,
 	"shorts_y": 0.8, "crop_y": 1.23, "tube_y": 1.41, "sleeve_x": 0.2, "denim": true,
 }
+## Sinikka seuraintalolla (kirppis_interior.gd sinikka_seura, tanssi_game.gd): ilman olkihattua.
+static func sinikka_seura() -> Dictionary:
+	var look: Dictionary = SINIKKA.duplicate()
+	look["glam_hat"] = false
+	return look
+
 ## Sinikka uimarannalla (world.gd): pienet punaiset lappubikinit, paljaat jalat.
 static func sinikka_bikini() -> Dictionary:
 	var look: Dictionary = SINIKKA.duplicate()
@@ -220,7 +226,7 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 		c.set_meta("player_body", true)
 		_add_player_gear(c, look)
 	if look.get("glam", false):
-		add_glam(c)
+		add_glam(c, look.get("glam_hat", true))
 	if look.get("chaplin", false):
 		add_chaplin(c)
 	if look.get("fringe", false):
@@ -233,16 +239,17 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 
 
 ## Glamour-asusteet päähän: leveälierinen olkihattu punaisella nauhalla, isot tummat aurinkolasit ja kultaiset
-## rengaskorvakorut. Mitat hahmon avaruudessa pääluun lepopaikasta (kuten lippis, CAP_OFFSET).
-static func add_glam(c: Node3D) -> void:
+## rengaskorvakorut. Mitat hahmon avaruudessa pääluun lepopaikasta (kuten lippis, CAP_OFFSET). with_hat = false: ilman hattua.
+static func add_glam(c: Node3D, with_hat := true) -> void:
 	var straw := Color(0.93, 0.85, 0.62)
-	var hat := Node3D.new()
-	B.mesh(hat, B.cyl(0.3, 0.3, 0.012, 32), Vector3(0, 0, 0), straw)
-	B.mesh(hat, B.cyl(0.1, 0.115, 0.11, 24), Vector3(0, 0.055, 0), straw)
-	B.mesh(hat, B.cyl(0.117, 0.117, 0.035, 24), Vector3(0, 0.02, 0), Color(0.8, 0.03, 0.1))
-	hat.rotation.x = deg_to_rad(-8)  # lieri hieman kallellaan taaksepäin
-	hat.set_meta("hattu", true)  # leveä lierihattu: Contact.fit_back saa kallistaa sitä nojaa vasten (lasit ja korut eivät)
-	c.attach("Head", hat, Vector3(0, 0.15, -0.01))
+	if with_hat:
+		var hat := Node3D.new()
+		B.mesh(hat, B.cyl(0.3, 0.3, 0.012, 32), Vector3(0, 0, 0), straw)
+		B.mesh(hat, B.cyl(0.1, 0.115, 0.11, 24), Vector3(0, 0.055, 0), straw)
+		B.mesh(hat, B.cyl(0.117, 0.117, 0.035, 24), Vector3(0, 0.02, 0), Color(0.8, 0.03, 0.1))
+		hat.rotation.x = deg_to_rad(-8)  # lieri hieman kallellaan taaksepäin
+		hat.set_meta("hattu", true)  # leveä lierihattu: Contact.fit_back saa kallistaa sitä nojaa vasten (lasit ja korut eivät)
+		c.attach("Head", hat, Vector3(0, 0.15, -0.01))
 	var shades := Node3D.new()
 	var dark := Color(0.04, 0.03, 0.03)
 	for s in [-1.0, 1.0]:
