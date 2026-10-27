@@ -43,6 +43,9 @@ var _sway_valid := false
 var _sway_zero := true  # hair_sway-uniformi on jo nolla
 var _sway_local := Vector3.ZERO  # hiusmassan keskipiste Head-luun avaruudessa
 var _head_bone := -1
+var _jig := []  # hyllyntä (Elastic.JIGGLE): [osa, luu, piste luun avaruudessa, voimakkuus, x, v, edell. paikka, edell. nopeus]
+var _jig_valid := false
+var _jig_zero := true  # jiggle_*-uniformit ovat jo nolla
 
 
 ## look: model, shirt, pants, shoes, skin, hair (tiedoston nimi ilman päätettä tai ""), hair_color,
@@ -202,6 +205,7 @@ func set_ik_orient(chain: String, orient: Basis, w: float) -> void:
 func clear_ik() -> void:
 	_ik.clear()
 	_reset_sway()
+	_reset_jiggle()
 	clear_contacts()
 
 
@@ -304,6 +308,7 @@ func _process(delta: float) -> void:
 	_pending += delta
 	if not is_visible_in_tree():
 		_pending = minf(_pending, 2.0)  # piilossa ei päivitetä; näkyviin tullessa animaatio jatkuu luontevasti
+		_reset_jiggle()
 		return
 	var every := _lod_interval()
 	if every > 1:
@@ -348,6 +353,7 @@ func _update_pose(delta: float) -> void:
 		skeleton.set_bone_pose_rotation(i, parent_rot.inverse() * q * parent_rot * skeleton.get_bone_pose_rotation(i))
 	_apply_ik()
 	_update_hair_sway(delta)
+	_update_jiggle(delta)
 
 
 func _apply_ik() -> void:
@@ -581,6 +587,86 @@ func _reset_sway() -> void:
 		m.set_shader_parameter("hair_sway", Vector3.ZERO)
 
 
+## Rintojen, vatsan ja pakaroiden hyllyntä: jokaisella osalla oma jousi (Elastic.JIGGLE: taajuus, vaimennus, suunta,
+## suurin siirto), jota ajaa osan luun pisteen kiihtyvyys; voimakkuus vartalosta (Elastic.jiggle_gain). Siirto pehmeästi
+## rajattu (tanh) ja uniformeina jiggle_*, paino verkon CUSTOM1:ssä. Vain lähellä (LOD-väli 1); kauempana nollataan.
+const JIGGLE_STEP := 1.0 / 240.0
+
+
+func _update_jiggle(delta: float) -> void:
+	if body_mat == null or delta <= 0.0:
+		return
+	if _lod_interval() > 1:
+		_reset_jiggle()
+		return
+	if _jig.is_empty():
+		for part in Elastic.JIGGLE:
+			var g := Elastic.jiggle_gain(part, body_shape)
+			var bi := skeleton.find_bone(Elastic.JIGGLE[part].bone)
+			if g > 0.0 and bi >= 0:
+				var local: Vector3 = skeleton.get_bone_global_rest(bi).affine_inverse() * (Elastic.JIGGLE[part].center as Vector3)
+				_jig.append([part, bi, local, g, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO])
+	var pts := []
+	var jump := not _jig_valid
+	for j in _jig:
+		var p: Vector3 = skeleton.global_transform * (skeleton.get_bone_global_pose(j[1]) * (j[2] as Vector3))
+		pts.append(p)
+		jump = jump or p.distance_to(j[6]) > 1.0
+	if jump:  # ensimmäinen ruutu tai teleportti: jousi lepoon
+		for i in _jig.size():
+			_jig[i][4] = Vector3.ZERO
+			_jig[i][5] = Vector3.ZERO
+			_jig[i][6] = pts[i]
+			_jig[i][7] = Vector3.ZERO
+		_jig_valid = true
+		return
+	var to_mesh := body_mi.global_basis.inverse()
+	var any := false
+	var steps := clampi(ceili(delta / JIGGLE_STEP), 1, 16)
+	for i in _jig.size():
+		var j: Array = _jig[i]
+		var prm: Dictionary = Elastic.JIGGLE[j[0]]
+		var vel: Vector3 = (pts[i] - j[6]) / delta
+		var acc: Vector3 = ((vel - j[7]) / delta).limit_length(150.0)
+		j[6] = pts[i]
+		j[7] = vel
+		var side: float = prm.side
+		acc = Vector3(acc.x * side, acc.y, acc.z * side)  # pääosin pystysuunta
+		var k := pow(TAU * float(prm.hz), 2.0)
+		var c := 2.0 * float(prm.zeta) * sqrt(k)
+		var m: float = float(prm.max) * float(j[3])
+		var x: Vector3 = j[4]
+		var v: Vector3 = j[5]
+		for s in steps:
+			var r := Elastic.spring_step(x, v, acc, k, c, delta / steps)
+			x = r[0]
+			v = r[1]
+		if x.length() > 3.0 * m:
+			x = x.limit_length(3.0 * m)
+			v = Vector3.ZERO
+		if x.length() < 1e-4 and v.length() < 1e-3:
+			x = Vector3.ZERO
+			v = Vector3.ZERO
+		j[4] = x
+		j[5] = v
+		any = any or x != Vector3.ZERO
+		var xl := x.length()
+		var shown := x * (m * tanh(xl / m) / xl) if xl > 0.0 else Vector3.ZERO  # pehmeä raja: suurin siirto m
+		if x != Vector3.ZERO or not _jig_zero:
+			body_mat.set_shader_parameter("jiggle_" + j[0], to_mesh * shown)
+	_jig_zero = not any
+
+
+## Hyllyntä lepoon (LOD, teleportti, asennon vaihto): uniformit nollaan ja jousi alkaa alusta.
+func _reset_jiggle() -> void:
+	_jig_valid = false
+	if _jig_zero:
+		return
+	_jig_zero = true
+	for part in Elastic.JIGGLE:
+		body_mat.set_shader_parameter("jiggle_" + part, Vector3.ZERO)
+
+
 func _tint(mi: MeshInstance3D, color: Color) -> void:
 	var m := mi.mesh.surface_get_material(0)
 	if m is StandardMaterial3D:
@@ -684,20 +770,29 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 			joints[jn] = skin.get_bind_pose(i).affine_inverse().origin
 		var rest3 := PackedFloat32Array()
 		rest3.resize(verts.size() * 4)
+		# CUSTOM1 = hyllyntäpainot (Elastic.jiggle_weights): r rinta, g vatsa, b pakara ja reiden yläosa.
+		var jig := PackedByteArray()
+		jig.resize(verts.size() * 4)
 		for v in verts.size():
 			rest3[v * 4] = verts[v].z
 			rest3[v * 4 + 1] = norms[v].y
 			rest3[v * 4 + 2] = norms[v].z
+			var bw: float = _bust(verts[v], shape.get("bust", 0.0)).weight if kind == "female" else 0.0
 			# w = painumaraja (Elastic): pehmeä osa painuu kontaktissa korkeintaan tämän verran, luinen ei lainkaan.
-			rest3[v * 4 + 3] = Elastic.limit(vbone[v], verts[v], norms[v], shape, joints,
-				_bust(verts[v], shape.get("bust", 0.0)).weight if kind == "female" else 0.0)
+			rest3[v * 4 + 3] = Elastic.limit(vbone[v], verts[v], norms[v], shape, joints, bw)
+			var jw := Elastic.jiggle_weights(verts[v], bw)
+			jig[v * 4] = roundi(jw.x * 255.0)
+			jig[v * 4 + 1] = roundi(jw.y * 255.0)
+			jig[v * 4 + 2] = roundi(jw.z * 255.0)
 		if shaped:
 			_reshape(arr, shape)
-		for c in [Mesh.ARRAY_CUSTOM1, Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3]:
+		for c in [Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3]:
 			arr[c] = null  # muita lisäkanavia ei tarvita
 		arr[Mesh.ARRAY_CUSTOM0] = rest3
+		arr[Mesh.ARRAY_CUSTOM1] = jig
 		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], _source_lods(kind, mesh, s, verts.size()),
-			(fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) | (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT))
+			(fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) | (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+			| (Mesh.ARRAY_CUSTOM_RGBA8_UNORM << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT))
 	_meshes[key] = weakref(out)  # heikko: Vaalan hahmojen vartalot vapautuvat Vaalan mukana (levyvälimuisti lataa)
 	DirAccess.make_dir_recursive_absolute(MESH_CACHE)
 	ResourceSaver.save(out, cache)
@@ -748,7 +843,7 @@ static func _chest_weights(arr: Array, skin: Skin, skel: Skeleton3D, per: int) -
 ## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
 ## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
 const MESH_CACHE := "user://hahmot"
-const CACHE_VERSION := 12
+const CACHE_VERSION := 13
 static var _cache_tag := ""
 
 

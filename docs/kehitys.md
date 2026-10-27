@@ -143,3 +143,11 @@ lasketaan pään alimmasta jäykästä pisteestä ja kassi on painumakontakti (`
 `TESTI VIKA` -rivit). `Pose.sit`: korkea polvi (> 10 cm lonkan yläpuolella) yritetään saada alas siirtämällä jalkaterää (`_knees_down`);
 jos jalka menisi kappaleeseen (matala askelma), asento jää, ja kädet menevät polvien päälle (`hands_on_thighs`: kohde reidellä tai polvella
 niin, että olkapää yltää, sormet vaakaan).
+
+**Hyllyntä liikkeessä (rinnat, vatsa, pakarat):** jokaisella osalla on oma vaimennettu jousi (`Elastic.JIGGLE`: luu, piste, taajuus,
+vaimennus, vaakakiihtyvyyden osuus, suurin siirto): rinnat 3,5 Hz / ζ 0,12 (spine_03), vatsa 5 Hz / ζ 0,2 (spine_01), pakarat ja reiden yläosa
+12 Hz / ζ 0,25 (pelvis). `Character._update_jiggle` ajaa jouset luun pisteen kiihtyvyydestä vain lähellä (LOD-väli 1, piilossa nollaan) ja
+syöttää siirrot uniformeina `jiggle_rinta/vatsa/pakara` (pehmeä raja tanh). Voimakkuus vartalosta (`Elastic.jiggle_gain`: bust, belly, bulk,
+curves); verteksipainot `CUSTOM1` (`Elastic.jiggle_weights`, vain paikasta). Siirto lisätään ennen painumaa, joten kontaktilaatikko pitää
+pinnan ulkona. `jiggle_debug = true` värittää painot (magenta rinta, syaani vatsa, vihreä pakara). Kokeilu: `aja.sh --video tscn
+tools/testit/sinikka_video.tscn` (HYLLYNTA-rivit lokissa, `_lahi.png`-vertailut samasta asennosta ilman hyllyntää, Juntti vatsana).

@@ -25,12 +25,13 @@ const T_EXIT := 25.2
 var out := "user://sinikka_video"
 var cam: Camera3D
 var ch: Node3D
+var juntti: Node3D  # kaljamaha (belly 1) juoksee Sinikan perässä: vatsan hyllyntä
 var chair: Node3D
 var t := 0.0
 var phase := ""
 var seat_pos := Vector3.ZERO
 var enter_len := 1.5
-var stills := {3.0: "1_kavely_edesta", 7.0: "2_kavely_sivulta", 10.6: "3_juoksu", 12.6: "4_hyppy", 21.4: "5_istuutuu", 24.0: "6_nojaa_lahikuva"}
+var stills := {1.0: "0_hyllyntapainot", 13.4: "4b_laskeutuminen", 10.75: "3b_juoksu", 11.2: "3c_juntti_juoksu", 11.3: "3d_juntti_juoksu", 14.0: "4c_pysahdys", 3.0: "1_kavely_edesta", 7.0: "2_kavely_sivulta", 10.6: "3_juoksu", 12.6: "4_hyppy", 21.4: "5_istuutuu", 24.0: "6_nojaa_lahikuva"}
 var done_stills := {}
 var cam_pos := Vector3.ZERO
 var cam_look := Vector3.ZERO
@@ -76,6 +77,11 @@ func _ready() -> void:
 	cam.current = true
 	cam.fov = 38.0
 	ch = Looks.make(self, Looks.sinikka_bikini())
+	var jl: Dictionary = Looks.JUNTTI.duplicate()
+	jl.shirt = Color(0.85, 0.35, 0.2)  # vaalea paita: musta ei näytä vatsan muotoa
+	juntti = Looks.make(self, jl)
+	juntti.position = Vector3(20, 0, 20)
+	juntti.visible = false
 	ch.position = Vector3(0, 0, 6)
 	_face(Vector3(0, 0, -1))
 	ch.play("Walk", 0.0)
@@ -113,6 +119,8 @@ func _process(delta: float) -> void:
 		return
 	t += delta
 	var c := ch.position + Vector3(0, 1.0, 0)
+	if t >= T_JUMP and juntti.visible:
+		juntti.visible = false
 	if t < T_SIDE:
 		# kävely kameraa kohti (hahmo kävelee -Z, kamera edessä)
 		ch.position.z = lerpf(6.0, -1.0, t / T_SIDE)
@@ -128,6 +136,10 @@ func _process(delta: float) -> void:
 		ch.position.x -= 3.2 * delta
 		_anim("Jog_Fwd" if ch.anim.has_animation("Jog_Fwd") else "Sprint", 0.2, 1.0)
 		_cam_to(ch.position + Vector3(-1.5, 1.2, -5.0), c, delta, 4.0)
+		juntti.visible = true
+		juntti.position = ch.position + Vector3(1.7, 0, 0.4)
+		juntti.rotation.y = ch.rotation.y
+		juntti.play(ch.current(), 0.2, 1.0)
 	elif t < T_LAND:
 		var u := (t - T_JUMP) / (T_LAND - T_JUMP)
 		ch.position.x -= 2.2 * delta
@@ -181,6 +193,7 @@ func _process(delta: float) -> void:
 			_anim("Idle", 0.3, 1.0)
 		_cam_to(CHAIR + Vector3(3.0, 1.1, -1.6), CHAIR + Vector3(0, 0.9, -0.2), delta, 3.0)
 	_stills.call_deferred()
+	_log_jiggle()
 	if t >= T_END:
 		set_process(false)
 		print("SINIKKA_VIDEO valmis ", ProjectSettings.globalize_path(out))
@@ -215,7 +228,71 @@ func _stills() -> void:
 	for k: float in stills:
 		if t >= k and not done_stills.has(k):
 			done_stills[k] = true
+			var name: String = stills[k]
+			var dbg: bool = k == 1.0  # hyllyntäpainot väreinä (magenta rinta, syaani vatsa, vihreä pakara)
+			if dbg:
+				ch.body_mat.set_shader_parameter("jiggle_debug", true)
 			await RenderingServer.frame_post_draw
-			var f: String = out.path_join("kuva_%s.png" % stills[k])
-			cam.get_viewport().get_texture().get_image().save_png(f)
+			var f: String = out.path_join("kuva_%s.png" % name)
+			var img := cam.get_viewport().get_texture().get_image()
+			img.save_png(f)
+			var who: Node3D = juntti if name.contains("juntti") else ch
+			var lahi := _crop(img, who)
+			if dbg:
+				ch.body_mat.set_shader_parameter("jiggle_debug", false)
+			if lahi != null and (name.contains("juoksu") or name.contains("laskeutuminen") or name.contains("pysahdys")):
+				# Vertailu samasta asennosta ilman hyllyntää: aika pysäytetään (delta 0 ei päivitä jousta), siirrot nollaan.
+				Engine.time_scale = 0.0
+				var keep := {}
+				for part in ["rinta", "vatsa", "pakara"]:
+					keep[part] = who.body_mat.get_shader_parameter("jiggle_" + part)
+					who.body_mat.set_shader_parameter("jiggle_" + part, Vector3.ZERO)
+				await RenderingServer.frame_post_draw
+				await RenderingServer.frame_post_draw
+				var ilman := _crop(cam.get_viewport().get_texture().get_image(), who)
+				for part in keep:
+					who.body_mat.set_shader_parameter("jiggle_" + part, keep[part])
+				Engine.time_scale = 1.0
+				var both := Image.create(lahi.get_width() * 2 + 8, lahi.get_height(), false, lahi.get_format())
+				both.fill(Color.WHITE)
+				both.blit_rect(lahi, Rect2i(Vector2i.ZERO, lahi.get_size()), Vector2i.ZERO)
+				both.blit_rect(ilman, Rect2i(Vector2i.ZERO, ilman.get_size()), Vector2i(lahi.get_width() + 8, 0))
+				lahi = both
+			if lahi != null:
+				lahi.save_png(f.trim_suffix(".png") + "_lahi.png")
 			print("kuva ", f)
+
+
+## Lähikuva vartalosta (rinnat, vatsa, pakarat) spine_02:n ympäriltä, 600 px korkea: hyllyntä ei näy kokonaisesta ruudusta.
+func _crop(img: Image, who: Node3D) -> Image:
+	var k_px := float(img.get_width()) / cam.get_viewport().get_visible_rect().size.x  # kuva voi olla eri kokoa kuin näkymä
+	var p: Vector3 = who.to_global(who.bone_position("spine_02"))
+	var sc := cam.unproject_position(p) * k_px
+	var half := int(k_px * clampf(380.0 / cam.global_position.distance_to(p), 60.0, 400.0))
+	var r := Rect2i(Vector2i(sc) - Vector2i(half, half), Vector2i(half * 2, half * 2)).intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+	if r.size.x <= 8 or r.size.y <= 8:
+		return null
+	var crop := img.get_region(r)
+	crop.resize(r.size.x * 600 / maxi(r.size.y, 1), 600, Image.INTERPOLATE_CUBIC)
+	return crop
+
+
+## Hyllynnän siirrot (mm, verkon avaruus) neljännessekunnin välein: suurin arvo jaksolta.
+var _jig_max := {}
+var _jig_t := 0.0
+
+
+func _log_jiggle() -> void:
+	for part in ["rinta", "vatsa", "pakara"]:
+		var pv: Variant = ch.body_mat.get_shader_parameter("jiggle_" + part)
+		var v: Vector3 = pv if pv != null else Vector3.ZERO
+		_jig_max[part] = maxf(_jig_max.get(part, 0.0), v.length() * 1000.0)
+		if part == "rinta":  # pystysiirto (verkon y) etumerkillä: jousi heiluu nollan molemmin puolin
+			_jig_max["ry0"] = minf(_jig_max.get("ry0", 0.0), v.y * 1000.0)
+			_jig_max["ry1"] = maxf(_jig_max.get("ry1", 0.0), v.y * 1000.0)
+	var jv: Variant = juntti.body_mat.get_shader_parameter("jiggle_vatsa")
+	_jig_max["juntti"] = maxf(_jig_max.get("juntti", 0.0), (jv as Vector3).length() * 1000.0 if jv != null else 0.0)
+	if t - _jig_t >= 0.25:
+		_jig_t = t
+		print("HYLLYNTA t=%.2f rinta %.1f (y %.1f..%.1f) vatsa %.1f pakara %.1f mm, Juntin vatsa %.1f mm" % [t, _jig_max.rinta, _jig_max.ry0, _jig_max.ry1, _jig_max.vatsa, _jig_max.pakara, _jig_max.juntti])
+		_jig_max.clear()

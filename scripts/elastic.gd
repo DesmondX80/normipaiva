@@ -12,6 +12,15 @@ const PARTS := {
 	"selka": 0.012, "kylki": 0.01, "olkavarsi": 0.01, "kyynarvarsi": 0.008, "pohje": 0.012, "reisi_etu": 0.01,
 	"reisi": 0.025, "pakara": 0.03, "vatsa": 0.035, "rinta": 0.025,
 }
+## Hyllyntä liikkeessä: oma vaimennettu jousi jokaiselle osalle (Character._update_jiggle), ei hiusten jousta. Jousta ajaa
+## luun pisteen (center lepoasennossa, verkon avaruus) kiihtyvyys; side = vaakakiihtyvyyden osuus (pääosin pystysuunta),
+## max = suurin siirto (m) kertoimella 1 (jiggle_gain). Esikuva: rinnat 3–4 Hz, pieni vaimennus, viive (juoksussa ~50 mm
+## isoilla); vatsa 4–6 Hz; pakarat ja reidet jäykkä pehmytkudos 10–15 Hz, lyhyt tärähdys askeleen iskusta.
+const JIGGLE := {
+	"rinta": {"bone": "spine_03", "center": Vector3(0.0, 1.29, 0.1), "hz": 3.5, "zeta": 0.12, "side": 0.35, "max": 0.03},
+	"vatsa": {"bone": "spine_01", "center": Vector3(0.0, 1.1, 0.08), "hz": 5.0, "zeta": 0.2, "side": 0.5, "max": 0.025},
+	"pakara": {"bone": "pelvis", "center": Vector3(0.0, 0.9, -0.08), "hz": 12.0, "zeta": 0.25, "side": 0.15, "max": 0.02},
+}
 const MAX_LIMIT := 0.05  # kovin raja kaikille osille (rinta Sinikalla)
 const SPREAD := 1.0  # painuman leviäminen sivuille (osuus painumasta): pullistuma, tilavuus säilyy suunnilleen
 ## Pullistuma: litistyvän kohdan lähellä (pinnan yläpuolella HALO_H asti) liha työntyy sivulle HALO x raja.
@@ -34,6 +43,33 @@ static func part_limit(part: String, shape: Dictionary) -> float:
 		"reisi", "pakara", "reisi_etu":
 			return base * (1.0 + 0.2 * bulk)
 	return base
+
+
+## Hyllynnän voimakkuus (0..1,25) vartalosta: rinta bust, vatsa belly (ja tukeva bulk), pakara curves, bulk ja belly.
+static func jiggle_gain(part: String, shape: Dictionary) -> float:
+	var bulk := maxf(float(shape.get("bulk", 0.0)), 0.0)
+	match part:
+		"rinta":
+			return clampf(0.25 + 0.5 * float(shape.get("bust", 0.0)), 0.0, 1.25)
+		"vatsa":
+			return clampf(float(shape.get("belly", 0.0)) + 0.4 * bulk, 0.0, 1.2)
+		"pakara":
+			return clampf(0.4 + 0.3 * float(shape.get("curves", 0.0)) + 0.3 * bulk + 0.3 * float(shape.get("belly", 0.0)), 0.0, 1.2)
+	return 0.0
+
+
+## Verteksin hyllyntäpainot lepoasennossa (kasvot +Z): x = rinta, y = vatsa, z = pakara ja reiden yläosa (0..1). Vain
+## paikasta (ei normaalista), jotta saumojen kaksoisverteksit saavat saman painon eikä pinta repeä. bust_w kuten limit.
+static func jiggle_weights(p: Vector3, bust_w: float) -> Vector3:
+	var ax := absf(p.x)
+	var wr := clampf(bust_w, 0.0, 1.0) * lerpf(1.0, 0.5, smoothstep(1.28, 1.4, p.y))  # yläreuna kiinni rintakehässä
+	var c := Vector3(0.0, 1.16, -0.02)  # vatsa: sama ellipsoidi kuin limit
+	var q := (p - c) / Vector3(0.16, 0.2, 0.13)
+	var wv := (1.0 - smoothstep(0.9, 1.3, q.length())) * smoothstep(-0.7, 0.1, q.z / maxf(q.length(), 0.001)) \
+		* (1.0 - smoothstep(0.24, 0.32, ax)) * (1.0 - wr)
+	var glute := (1.0 - smoothstep(-0.1, -0.03, p.z)) * exp(-pow((p.y - 0.88) / 0.11, 2.0)) * (1.0 - smoothstep(0.2, 0.26, ax))
+	var thigh := smoothstep(0.5, 0.62, p.y) * (1.0 - smoothstep(0.8, 0.9, p.y)) * smoothstep(0.02, 0.06, ax)
+	return Vector3(wr, wv, maxf(glute, 0.5 * thigh))
 
 
 ## Ratkaisijan suunniteltu upotus osalle: 0,8 x raja. Syvin kohta upotetaan lähes rajaansa, jolloin litistyvä alue (kaikki pisteet upotuksen sisällä) on laaja ja painuma näkyy; jää kuitenkin rajan sisään.
