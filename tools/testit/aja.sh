@@ -53,7 +53,7 @@ case "$laji" in
 		shift
 		ulos="$juuri/${nimi}_$leima"
 		mkdir -p "$ulos"
-		args=("${alku[@]}" --path . --resolution 1280x720 -- "--shot=$ulos/kuva.png" "--scene=$nimi" --nohud "$@")
+		args=(${alku[@]+"${alku[@]}"} --path . --resolution 1280x720 -- "--shot=$ulos/kuva.png" "--scene=$nimi" --nohud "$@")
 		;;
 	tscn)
 		polku="${1:?tscn vaatii polun}"
@@ -64,9 +64,9 @@ case "$laji" in
 			# Movie Maker: kiinteä 30 ruudun aika, .avi ajokansioon (kohtauksen tulee päättyä itse quit():iin)
 			avi="$ulos/$(basename "$polku" .tscn).avi"
 			export GODOT_AIKARAJA="${GODOT_AIKARAJA:-900}"
-			args=("${alku[@]}" --path . --resolution 1280x720 --fixed-fps 30 --write-movie "$avi" "$polku" -- "$ulos" "$@")
+			args=(${alku[@]+"${alku[@]}"} --path . --resolution 1280x720 --fixed-fps 30 --write-movie "$avi" "$polku" -- "$ulos" "$@")
 		else
-			args=("${alku[@]}" --path . --resolution 1280x720 "$polku" -- "$ulos" "$@")
+			args=(${alku[@]+"${alku[@]}"} --path . --resolution 1280x720 "$polku" -- "$ulos" "$@")
 		fi
 		;;
 	*)
@@ -81,7 +81,7 @@ bash "$dir/godot_jono.sh" "${args[@]}" > "$loki" 2>&1
 rc=$?
 
 virheet=$(grep -cE "SCRIPT ERROR|Failed to load script|Parse Error" "$loki" || true)
-aikaraja=$(grep -c "AIKARAJA" "$loki" || true)
+aikaraja=$(grep -c "^godot_jono: AIKARAJA" "$loki" || true)
 loydot=$(grep -cE "$LOYDOT" "$loki" || true)
 varoitukset=$(grep -c "ei tarkistettu" "$loki" || true)
 # Kuvat: --shot-kansio tai tscn-tulostekansio, muuten lokin "kuvat: <kansio>"-rivi (user://-kansio).
@@ -97,7 +97,7 @@ fi
 puuttuu_video=0
 if [[ $video == 1 ]]; then
 	# .avi on syntynyt ja järkevän kokoinen (yli 1 Mt)
-	koko=$(stat -c %s "$avi" 2>/dev/null || echo 0)
+	koko=$(wc -c < "$avi" 2>/dev/null || echo 0)
 	echo "aja: video $avi $((koko / 1024)) kt"
 	[[ $koko -lt 1048576 ]] && puuttuu_video=1
 fi
