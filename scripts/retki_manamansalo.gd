@@ -337,7 +337,8 @@ func _build() -> void:
 			B.mesh(self, B.cyl(0.08, 0.08, 1.0, 8), Vector3(-10.0 + sx, 0.0, SHORE_Z + pz - 0.6), dock_c.darkened(0.25))
 	B.mesh(self, B.boxm(Vector3(2.0, 0.06, 0.8)), Vector3(-10.0, 0.18, SHORE_Z + 1.3), dock_c)
 	var dock_sign := B.sign_plate(self, "ALASSALMEN LOSSI\nVuoro 30 min välein\nLippu 3 €", Color(0.15, 0.25, 0.45), Color(0.95, 0.95, 0.95), 0.34, 64, Color(0.85, 0.85, 0.9))
-	_post_sign(dock_sign, Vector3(-7.4, 0, -1.4), 1.8)
+	# Laiturin vasemmalla puolella (pelaajan rinnalla): [E]-vihje ruudun alareunassa ja lossimiehen kupla eivät peitä kylttiä.
+	_post_sign(dock_sign, Vector3(-12.9, 0, -3.4), 1.8)
 	# Lossi: keltainen lautta laiturin päässä (kansi, kaiteet, ohjaamo, ajoramppi), kaikki lautan lapsina.
 	_lautta = Node3D.new()
 	_lautta.position = LAUTTA_HOME
@@ -367,7 +368,7 @@ func _build() -> void:
 	taxi.rotation.y = PI / 2.0
 	add_child(taxi)
 	Vehicles.taxi(taxi)
-	for p in [Vector3(-14.0, 0, -2.0), Vector3(-7.5, 0, -4.5), Vector3(0.5, 0, -5.0), Vector3(14.0, 0, -4.8), Vector3(14.0, 0, 4.5)]:
+	for p in [Vector3(-14.0, 0, -2.0), Vector3(-3.6, 0, -4.8), Vector3(0.5, 0, -5.0), Vector3(14.0, 0, -4.8), Vector3(14.0, 0, 4.5)]:
 		_spruce(p, 1.0 + fposmod(p.x, 0.4))
 	for p in [Vector3(-14.0, 0, 3.5), Vector3(-0.8, 0, 5.8), Vector3(10.5, 0, 5.4), Vector3(-6.0, 0, 5.0)]:
 		_birch(p, 0.9 + fposmod(p.x, 0.3))

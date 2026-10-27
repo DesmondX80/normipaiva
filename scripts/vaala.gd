@@ -4915,7 +4915,8 @@ func _build_lossipysakki(station_c: Vector2, along: Vector2, out2: Vector2, L: f
 
 
 func _build_veturitalli(station_c: Vector2, along: Vector2, out2: Vector2, L: float, D: float) -> void:
-	var q := station_c + along.normalized() * (L / 2.0 + 11.0) + out2 * (D / 2.0 + 2.0)
+	# Ulos asti 6 m lisää: viereisen rakennuksen (n. 7 m syvä, tiedossa -3,3 m asti vajan keskeltä) ja räystään taakse jää tilaa.
+	var q := station_c + along.normalized() * (L / 2.0 + 11.0) + out2 * (D / 2.0 + 8.0)
 	var yaw := atan2(out2.x, out2.y)
 	var root := Node3D.new()
 	root.position = Vector3(q.x, h(q.x, q.y), q.y)
@@ -4923,7 +4924,7 @@ func _build_veturitalli(station_c: Vector2, along: Vector2, out2: Vector2, L: fl
 	add_child(root)
 	var W := 12.0
 	var Dp := 8.0
-	var wall := 4.2
+	var wall := 4.8
 	var brick := Color(0.55, 0.22, 0.16)
 	var body := B.box(root, Vector3(W, wall, Dp), Vector3(0, wall / 2.0, 0), brick)
 	body.name = "Veturitalli"
@@ -4941,9 +4942,10 @@ func _build_veturitalli(station_c: Vector2, along: Vector2, out2: Vector2, L: fl
 	B.mesh(root, B.boxm(Vector3(0.1, 3.2, 0.1)), Vector3(0, 1.6, front + 0.05), Color(0.12, 0.1, 0.08))
 	for sx in [-4.2, 4.2]:
 		B.mesh(root, B.boxm(Vector3(1.5, 1.1, 0.08)), Vector3(sx, 2.2, front), Color(0.85, 0.8, 0.55))
-	var plate := B.sign_plate(root, "VAALAN VETURITALLI", Color(0.16, 0.12, 0.1), Color(0.97, 0.9, 0.7), 0.7, 72,
+	var plate := B.sign_plate(root, "VAALAN VETURITALLI", Color(0.16, 0.12, 0.1), Color(0.97, 0.9, 0.7), 1.1, 150,
 		Color(0.8, 0.65, 0.3), "Georgia")
-	plate.position = Vector3(0, wall - 0.45, front + 0.1)
+	plate.position = Vector3(0, wall - 0.65, front + 0.1)
+	plate.rotation.x = deg_to_rad(-12.0)  # kallistus kameraan (pelikamera katsoo ylhäältä)
 	var banner := B.sign_plate(root, "VALENTIN VAALA -ELOKUVAPÄIVÄT\nEsityksiä klo 13-17", Color(0.95, 0.93, 0.86), Color(0.5, 0.1, 0.1), 0.5, 60,
 		Color(0.5, 0.1, 0.1), "Georgia")
 	# Banderolli seisoo kahden tolpan välissä vajan vieressä, jottei ovi peity.
@@ -4953,6 +4955,17 @@ func _build_veturitalli(station_c: Vector2, along: Vector2, out2: Vector2, L: fl
 		B.mesh(banner, B.boxm(Vector3(0.12, 2.4, 0.12)), Vector3(sx * (bw / 2.0 - 0.1), -1.2, 0), Color(0.3, 0.22, 0.14))
 	banner.visible = false
 	veturitalli_banner = banner
+	# Puut pois vajan edestä (kyltti ja ovi näkyvät pelikameralle 14 m päästä): piha vajasta 16 m ulospäin.
+	if not _tree_clear.is_empty():
+		var yard := PackedVector2Array()
+		for k in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+			var yq := root.transform * Vector3(k.x * (W / 2.0 + 3.0), 0, -Dp / 2.0 if k.y < 0 else Dp / 2.0 + 16.0)
+			yard.append(Vector2(yq.x, yq.z))
+		var keep := _drive
+		_drive = _tree_clear  # piirtoapurit kirjoittavat _driveen
+		_drive_poly(yard, 2.0)
+		_tree_clear = _drive
+		_drive = keep
 	var out := Vector3(out2.x, 0, out2.y)
 	var dq := q + out2 * (Dp / 2.0 + 2.2)
 	veturitalli_door = Vector3(dq.x, h(dq.x, dq.y), dq.y)

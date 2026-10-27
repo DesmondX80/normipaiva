@@ -142,7 +142,7 @@ const LISTA := {
 		"lines": ["Raatteen Portille vai? Suomussalmella, sanotaan.", "Talvisodan paikka. Siellä ei puhuta paljon.",
 			"Odotan täällä."],
 		"perilla": "Raatteen Portti. Tie jatkuu metsään, vanha vierailija seisoo hiljaa.",
-		"hop_min": 100.0, "hinta": 30.0, "tasku": RetkiRaate, "sammuit": "portin kivipilarin juurelle",
+		"hop_min": 100.0, "hinta": 30.0, "tasku": RetkiRaate, "sammuit": "!Väsymys vei voiton Raatteentien varrella, ja lepäsit hetken ennen kotimatkaa",
 	},
 }
 

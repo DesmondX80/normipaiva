@@ -158,17 +158,36 @@ func _draw_bear(b: Dictionary) -> void:
 	var dir := signf(b.vx)
 	var fur := Color(0.27, 0.2, 0.15)
 	var dark := Color(0.16, 0.12, 0.09)
-	_root.draw_circle(c + Vector2(0, 4) * s, 62.0 * s, Color(0, 0, 0, 0.22))  # varjo
-	if b.stand > 0.0:  # pystyssä: pitkä vartalo ja pää edessä
+	# Pehmeä varjo: matala ellipsi maassa (ei pallolevyä).
+	var sw := 40.0 if b.stand > 0.0 else 66.0
+	for k in 4:
+		var f := 1.0 - k * 0.2
+		var pts := PackedVector2Array()
+		for i in 20:
+			var a := TAU * i / 20.0
+			pts.append(c + Vector2(cos(a) * sw * f * s, 4 * s + sin(a) * 9.0 * f * s))
+		_root.draw_colored_polygon(pts, Color(0, 0, 0, 0.1))
+	if b.stand > 0.0:  # pystyssä: pitkä vartalo, pää, korvat, kädet ja takatassut
+		var belly := Color(0.36, 0.27, 0.19)
+		for sx in [-1.0, 1.0]:  # takajalat ja tassut
+			_root.draw_line(c + Vector2(sx * 16, -30) * s, c + Vector2(sx * 18, -6) * s, dark, 22.0 * s)
+			_root.draw_circle(c + Vector2(sx * 20, -3) * s, 12.0 * s, dark)
 		_root.draw_circle(c + Vector2(0, -48) * s, 40.0 * s, fur)
-		_root.draw_circle(c + Vector2(0, -100) * s, 24.0 * s, fur.lightened(0.05))
+		_root.draw_circle(c + Vector2(0, -42) * s, 26.0 * s, belly)  # vatsa
+		for sx in [-1.0, 1.0]:  # etutassut ja kynnet
+			_root.draw_line(c + Vector2(sx * 34, -72) * s, c + Vector2(sx * 44, -38) * s, fur, 15.0 * s)
+			_root.draw_circle(c + Vector2(sx * 45, -34) * s, 9.0 * s, dark)
+			for k in 3:
+				_root.draw_line(c + Vector2(sx * (41 + k * 4), -28) * s, c + Vector2(sx * (42 + k * 4), -21) * s, Color(0.9, 0.85, 0.7), 2.0 * s)
+			_root.draw_circle(c + Vector2(sx * 17, -118) * s, 9.0 * s, dark)  # korva
+			_root.draw_circle(c + Vector2(sx * 17, -118) * s, 4.5 * s, Color(0.5, 0.35, 0.27))
+		_root.draw_circle(c + Vector2(0, -100) * s, 25.0 * s, fur.lightened(0.05))  # pää
 		for sx in [-1.0, 1.0]:
-			_root.draw_circle(c + Vector2(sx * 17, -118) * s, 8.0 * s, dark)
-			_root.draw_line(c + Vector2(sx * 34, -66) * s, c + Vector2(sx * 40, -22) * s, fur, 14.0 * s)
-			_root.draw_circle(c + Vector2(sx * 9, -104) * s, 2.8 * s, Color.WHITE)
-			_root.draw_circle(c + Vector2(sx * 9, -104) * s, 1.4 * s, INK)
-		_root.draw_circle(c + Vector2(0, -92) * s, 8.0 * s, Color(0.55, 0.42, 0.32))
-		_root.draw_circle(c + Vector2(0, -95) * s, 3.2 * s, INK)
+			_root.draw_circle(c + Vector2(sx * 10, -106) * s, 4.0 * s, Color.WHITE)
+			_root.draw_circle(c + Vector2(sx * 10, -106) * s, 2.2 * s, INK)
+		_root.draw_circle(c + Vector2(0, -91) * s, 11.0 * s, Color(0.6, 0.46, 0.35))  # kuono
+		_root.draw_circle(c + Vector2(0, -95) * s, 4.0 * s, INK)
+		_root.draw_arc(c + Vector2(0, -88) * s, 6.0 * s, 0.3, PI - 0.3, 8, INK, 1.5 * s)
 	else:
 		_root.draw_circle(c + Vector2(-8 * dir, -34) * s, 40.0 * s, fur)  # ruumis
 		_root.draw_circle(c + Vector2(-22 * dir, -50) * s, 30.0 * s, fur.lightened(0.04))  # lapa

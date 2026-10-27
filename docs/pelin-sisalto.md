@@ -277,7 +277,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (paikka ja aikataulut "sanotaan"). Ikkunasta alkaa minipeli `karhu_game.gd`: hämärä niitty, odotus, karhu kävelee tai nousee pystyyn; etsin hiirellä, kuva klikkauksella/Välilyönnillä,
   kuusi ruutua. Karhu keskellä, iso ja pystyssä = paras kuva. Humala (`tilat` humala) heiluttaa etsintä. Hyvä kuva (60+/100): mielihyvä +6 ja maine +1 kerran (`karhut_legenda.gd`),
   paras tulos tallentuu. Näkyy päiväkirjassa oppaan puheen jälkeen. Testi `--scene=karhut`.
-- **Retki: Sotkamon Hiidenportti (#250 P13, tarkistettava):** taksilla Sotkamoon (valinta "Sotkamon Hiidenporttiin", 38 €, 70 min, `retki_hiidenportti.gd`). Kalliorotko, lepolavat, infokyltti ja
+- **Retki: Sotkamon Hiidenportti (#250 P13, tarkistettava):** taksilla Sotkamoon (valinta "Sotkamon Hiidenporttiin", 38 €, 70 min, `retki_hiidenportti.gd`). Kalliorotko (kerroksittain porrastetut, vaaleahuuliset kalliot halkeamineen ja sammalineen, puro pohjalla, havupuita reunalla; esikuva Porttijoen rotko), lepolavat, infokyltti ja
   retkeilijä puhekuplineen (tiedot "sanotaan"). Seinältä alkaa minipeli `rotko_game.gd`: klikkaa ote käden ulottuvilta, ote ja roikkuminen kuluttavat voimia, lepolavalla ne palautuvat;
   punertava ote murtuu, humala lisää lipsumista. Putoaminen palauttaa viimeiselle lavalle. Ylälavalle päästyä mielihyvä +6 ja maine +1 kerran (`hiidenportti_legenda.gd`).
   Näkyy päiväkirjassa kyltin lukemisen jälkeen. Testi `--scene=hiidenportti`.

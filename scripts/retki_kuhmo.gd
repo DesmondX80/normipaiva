@@ -140,6 +140,29 @@ func _bench(c: Vector3, w: float) -> void:
 			B.mesh(self, B.boxm(Vector3(0.06, 0.45, 0.06)), c + Vector3(sx * (w / 2.0 - 0.08), 0.225, sz * 0.16), wood.darkened(0.25))
 
 
+## Karhu (+X = nokka): runko, kyttyrä, pää kuonolla ja korvilla, neljä tassua.
+func _bear_parts(bear: Node3D) -> void:
+	var fur := Color(0.34, 0.23, 0.15)
+	var dark := Color(0.2, 0.13, 0.09)
+	var body := B.mesh(bear, B.sphere(0.5, 14), Vector3(0, 0.78, 0), fur)
+	body.scale = Vector3(1.35, 0.9, 0.85)
+	var hump := B.mesh(bear, B.sphere(0.4, 12), Vector3(0.35, 1.08, 0), fur.lightened(0.05))
+	hump.scale = Vector3(1.0, 0.85, 0.95)
+	B.mesh(bear, B.sphere(0.32, 12), Vector3(1.0, 0.92, 0), fur.lightened(0.08))  # pää
+	var snout := B.mesh(bear, B.sphere(0.14, 10), Vector3(1.26, 0.84, 0), Color(0.6, 0.45, 0.33))
+	snout.scale = Vector3(1.3, 0.9, 0.95)
+	B.mesh(bear, B.sphere(0.05, 8), Vector3(1.42, 0.87, 0), Color(0.05, 0.04, 0.04))  # nenä
+	for sz in [-1.0, 1.0]:
+		B.mesh(bear, B.sphere(0.1, 8), Vector3(0.92, 1.2, sz * 0.2), dark)  # korva
+		B.mesh(bear, B.sphere(0.04, 6), Vector3(1.2, 1.02, sz * 0.14), Color(0.05, 0.04, 0.04))  # silmä
+		for sx in [-0.5, 0.65]:
+			B.mesh(bear, B.cyl(0.2, 0.16, 0.55, 8), Vector3(sx, 0.3, sz * 0.3), dark)  # jalka
+			var paw := B.mesh(bear, B.sphere(0.17, 8), Vector3(sx + 0.06, 0.06, sz * 0.3), dark)  # tassu
+			paw.scale = Vector3(1.4, 0.6, 1.0)
+	B.mesh(bear, B.sphere(0.09, 8), Vector3(-0.68, 0.85, 0), dark)  # häntä
+	bear.scale = Vector3.ONE * 1.5
+
+
 func _build() -> void:
 	var grass := Color(0.3, 0.42, 0.22)
 	var logc := Color(0.45, 0.3, 0.18)
@@ -159,8 +182,7 @@ func _build() -> void:
 	var bear := Node3D.new()
 	bear.position = Vector3(-3, 0, -9.0)
 	add_child(bear)
-	B.mesh(bear, B.sphere(0.5, 12), Vector3(0, 0.5, 0), Color(0.25, 0.18, 0.13))
-	B.mesh(bear, B.sphere(0.28, 10), Vector3(0.5, 0.55, 0), Color(0.27, 0.2, 0.15))
+	_bear_parts(bear)
 	_bears.append(bear)
 	for i in 9:
 		_pine(Vector3(-12.0 + i * 3.2, 0, -14.0 + (i % 3)), 5.0 + (i % 4) * 0.6)

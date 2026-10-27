@@ -6292,6 +6292,7 @@ func _kalajoki_acted(kind: String) -> void:
 	var h: RefCounted = kalajoki
 	match kind:
 		"kyltti":
+			retki_int.hush()
 			_show_message("Hiekkasärkät, Kalajoki. Sanotaan, että dyynit ja kilometrien hiekkaranta ovat Pohjois-Pohjanmaan suosituimpia kesäpaikkoja. Juhannuksena rannalla pelataan.", 5.5)
 			if not h.sarkat:
 				h.sarkat = true
@@ -6300,6 +6301,8 @@ func _kalajoki_acted(kind: String) -> void:
 			if not h.jarjestaja:
 				h.jarjestaja = true
 				tilat.first("kalajoki_jarjestaja", 0.2)
+			_msg.text = ""  # ruutuviesti pois, kupla ei jää sen päälle
+			_msg_time = 0.0
 			if _juhannus():
 				retki_int.say("Turnaus on tänään! Kolmeen maaliin, hiekassa. Sanotaan, että tämä on isoimpia rantapallotapahtumia maassa.", 6.0)
 			else:
@@ -19943,8 +19946,12 @@ func _pass_out() -> void:
 			intro = "Sammuit Kapteenin Kulman nurkkapöytään. Baarimikko soitti taksin, ja Päivi maksoi sen.\n"
 		"in_retki":
 			_retki_close()
+			if _retki_vaala:  # lossiretki Vaalasta mopolla: Vaala-tila ja retken paluu mopon luo nollataan
+				_mopo_end_quiet()
+				_retki_vaala = false
 			spawn = home_zone + Vector3(0, 0, 4)
-			intro = "Sammuit " + str(Retket.LISTA.get(_retki_id, {}).get("sammuit", "retkipaikan penkille")) + ". Taksikuski kuljetti sut kotiin eikä sanonut mitään.\n"
+			var sam: String = str(Retket.LISTA.get(_retki_id, {}).get("sammuit", "retkipaikan penkille"))
+			intro = (sam.trim_prefix("!") if sam.begins_with("!") else "Sammuit " + sam) + ". Taksikuski kuljetti sut kotiin eikä sanonut mitään.\n"
 		"in_asema":
 			asema_int.leave()
 			if _asema_town == "vaala":

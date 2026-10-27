@@ -749,7 +749,19 @@ func _draw_hud(c: CanvasItem) -> void:
 		var k := (0.5 + 0.5 * sin(_t * 8.0)) * 0.22
 		c.draw_rect(Rect2(0, 0, W, H), Color(0.6, 0.05, 0.05, k))
 	if _msg_t > 0.0 and _phase != "over":
-		MG.sign(c, Rect2(260, 20, 760, 56), _msg, Color(0.97, 0.93, 0.8), INK, 28, Color(0.78, 0.6, 0.2))
+		# Rivitys mitatulla leveydellä (laatikko 760, marginaali 40), korkeus rivien mukaan.
+		var font := ThemeDB.fallback_font
+		var lines: Array[String] = []
+		var cur := ""
+		for word in _msg.split(" "):
+			var trial := word if cur == "" else cur + " " + word
+			if cur != "" and font.get_string_size(trial, HORIZONTAL_ALIGNMENT_LEFT, -1, 28).x > 700.0:
+				lines.append(cur)
+				cur = word
+			else:
+				cur = trial
+		lines.append(cur)
+		MG.sign(c, Rect2(260, 20, 760, 28 + 34 * lines.size()), "\n".join(lines), Color(0.97, 0.93, 0.8), INK, 28, Color(0.78, 0.6, 0.2))
 	if _phase == "over":
 		var al := minf(_t / 0.5, 1.0)
 		c.draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, 0.5 * al))

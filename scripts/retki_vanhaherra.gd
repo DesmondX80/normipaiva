@@ -229,24 +229,28 @@ func _alpha(mi: MeshInstance3D, col: Color) -> void:
 func _diving_suit(parent: Node3D, base: Vector3) -> void:
 	var s := Node3D.new()
 	s.position = base
+	s.scale = Vector3.ONE * 1.15  # täyttää vitriinin
 	parent.add_child(s)
 	var cloth := Color(0.5, 0.4, 0.24)
 	var copper := Color(0.78, 0.46, 0.24)
 	var lead := Color(0.32, 0.33, 0.36)
 	B.mesh(s, B.cyl(0.32, 0.36, 0.05, 20), Vector3(0, 0.025, 0), Color(0.25, 0.17, 0.1))  # jalusta
 	B.mesh(s, B.cyl(0.02, 0.02, 1.1, 8), Vector3(0, 0.6, -0.12), Color(0.3, 0.3, 0.32))  # tuki selän takana
-	for sx in [-0.1, 0.1]:  # lyijykengät ja lahkeet
-		B.mesh(s, B.boxm(Vector3(0.14, 0.1, 0.3)), Vector3(sx, 0.1, -0.03), lead)
-		B.mesh(s, B.boxm(Vector3(0.15, 0.03, 0.31)), Vector3(sx, 0.045, -0.03), lead.darkened(0.3))
-		B.mesh(s, B.cyl(0.075, 0.09, 0.5, 12), Vector3(sx, 0.45, 0), cloth)
-		B.mesh(s, B.sphere(0.075, 10), Vector3(sx, 0.2, 0.0), cloth.darkened(0.15))
-	B.mesh(s, B.cyl(0.2, 0.17, 0.5, 16), Vector3(0, 0.95, 0), cloth)  # vartalo
-	B.mesh(s, B.cyl(0.205, 0.205, 0.04, 16), Vector3(0, 0.76, 0), Color(0.3, 0.2, 0.12))  # vyö
-	for sx in [-0.26, 0.26]:  # kädet: hihat ja kumikintaat
-		B.mesh(s, B.cyl(0.055, 0.065, 0.46, 10), Vector3(sx, 0.92, 0), cloth.darkened(0.1), Vector3(0, 0, -sx * 18.0))
-		B.mesh(s, B.sphere(0.07, 10), Vector3(sx * 1.2, 0.68, 0), Color(0.18, 0.15, 0.12))
-	B.mesh(s, B.boxm(Vector3(0.1, 0.1, 0.05)), Vector3(-0.1, 0.9, 0.2), lead)  # rintapainot
-	B.mesh(s, B.boxm(Vector3(0.1, 0.1, 0.05)), Vector3(0.1, 0.9, 0.2), lead)
+	for sx in [-0.11, 0.11]:  # lyijykengät ja lahkeet (jalat erillään)
+		B.mesh(s, B.boxm(Vector3(0.15, 0.12, 0.34)), Vector3(sx, 0.11, 0.03), lead)
+		B.mesh(s, B.boxm(Vector3(0.16, 0.03, 0.35)), Vector3(sx, 0.045, 0.03), lead.darkened(0.3))
+		B.mesh(s, B.cyl(0.08, 0.085, 0.52, 12), Vector3(sx, 0.44, 0), cloth)
+		B.mesh(s, B.sphere(0.085, 10), Vector3(sx, 0.2, 0.0), cloth.darkened(0.15))  # nilkka
+	B.mesh(s, B.cyl(0.23, 0.2, 0.5, 16), Vector3(0, 0.95, 0), cloth)  # vartalo
+	B.mesh(s, B.cyl(0.235, 0.235, 0.04, 16), Vector3(0, 0.76, 0), Color(0.3, 0.2, 0.12))  # vyö
+	for sx in [-1.0, 1.0]:  # kädet: hihat olkapäästä ulos ja alas, kumikintaat hihan päässä
+		var sh := Vector3(sx * 0.27, 1.12, 0.0)
+		var ar := Vector3(sx * 0.1, -0.45, 0.0)  # hihan suunta ja pituus (yksi vektori: hihan kallistus ja kintaan paikka)
+		B.mesh(s, B.sphere(0.075, 10), sh, cloth.darkened(0.1))
+		B.tube(s, sh, sh + ar, 0.06, cloth.darkened(0.1))
+		B.mesh(s, B.sphere(0.075, 10), sh + ar + Vector3(sx * 0.01, -0.05, 0), Color(0.18, 0.15, 0.12))
+	B.mesh(s, B.boxm(Vector3(0.1, 0.1, 0.05)), Vector3(-0.1, 0.9, 0.23), lead)  # rintapainot
+	B.mesh(s, B.boxm(Vector3(0.1, 0.1, 0.05)), Vector3(0.1, 0.9, 0.23), lead)
 	B.mesh(s, B.cyl(0.24, 0.2, 0.08, 18), Vector3(0, 1.2, 0), copper.darkened(0.15))  # rintalevy
 	for k in 8:
 		var a := TAU * k / 8.0
@@ -298,10 +302,10 @@ func _vitrine(c: Vector3) -> void:
 	for sx in [-0.93, 0.93]:
 		var gs := B.mesh(self, B.boxm(Vector3(0.02, 1.95, 1.0)), c + Vector3(sx, 1.18, 0), Color.WHITE)
 		_alpha(gs, Color(0.8, 0.9, 0.95, 0.14))
-	var pl := B.sign_plate(self, "VANHA HERRA\nsukelluspuku, sanotaan\nmaailman vanhin säilynyt", Color(0.14, 0.17, 0.22), Color(0.95, 0.95, 0.85), 0.3, 60, Color(0.78, 0.6, 0.2))
-	pl.position = c + Vector3(0, 0.75, 1.3)
-	pl.rotation_degrees.x = -45.0
-	B.sign_pole(self, c + Vector3(-1.4, 0, 1.4), 0.2)
+	var pl := B.sign_plate(self, "VANHA HERRA\nsukelluspuku, sanotaan", Color(0.14, 0.17, 0.22), Color(0.95, 0.95, 0.85), 0.3, 60, Color(0.78, 0.6, 0.2))
+	pl.position = c + Vector3(2.4, 1.0, 1.0)  # vitriinin sivulla pylvään päällä, ei puvun edessä
+	pl.rotation_degrees.x = -40.0
+	B.sign_pole(self, c + Vector3(2.4, 0, 1.0), 0.7)
 
 
 func _pump_unit() -> void:

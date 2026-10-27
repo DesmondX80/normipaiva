@@ -139,8 +139,11 @@ func _build() -> void:
 	var fg := Color(0.98, 0.92, 0.75)
 	var edge := Color(0.7, 0.55, 0.35)
 	var t1 := B.sign_plate(self, "PYHÄKOSKI", bg, fg, 0.34, 72, edge)
-	t1.position = Vector3(-1.0, 4.4, -3.8)
-	t1.rotation_degrees.x = TILT
+	# Pääkyltti kylätien etureunalla kahdella tolpalla (tulopaikan edessä, pelikameralle), ei voimalaitoksen takana.
+	t1.position = Vector3(3.0, 1.9, 5.0)
+	t1.rotation_degrees.x = -35.0
+	for px in [-1.2, 1.2]:
+		_solid(Vector3(0.12, 1.9, 0.12), Vector3(3.0 + px, 0.95, 5.0), Color(0.3, 0.2, 0.12))
 	var t2 := B.sign_plate(self, "KIOSKI", Color(0.95, 0.9, 0.8), Color(0.55, 0.15, 0.12), 0.34, 64, Color(0.72, 0.25, 0.2))
 	t2.position = Vector3(4.6, 2.7, 1.3)
 	t2.rotation_degrees.x = TILT
