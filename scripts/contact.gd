@@ -10,9 +10,13 @@ const Terrain := preload("res://scripts/terrain.gd")
 ## Kapselit: [luu a, luu b, avain]; kapseli kulkee luun a paikasta luun b paikkaan, säde luetaan verkosta.
 const TORSO := [["pelvis", "spine_01"], ["spine_01", "spine_02"], ["spine_02", "spine_03"], ["spine_03", "neck_01"]]
 const LIMBS := [["thigh", "calf"], ["calf", "foot"], ["upperarm", "lowerarm"], ["lowerarm", "hand"]]
+## Lisäkapselit hahmo hahmoa vastaan: kämmen (ranteesta sormiin, "hand_l"/"hand_r") ja pää (pallo kallon keskellä).
+## Tallennetaan muodossa [luu, "", säde, pituus, akseli/piste luun avaruudessa]; _caps_world ei osaa niitä, käytä caps_all.
+const EXTRA := ["hand", "Head"]
 ## Varataulukko, kun verkkoa ei saada (headless): säteet 1,8 m hahmolle, mitattu profile-kutsulla (tulostus PROFIILI).
 const FALLBACK_R := {"pelvis": 0.16, "spine_01": 0.15, "spine_02": 0.15, "spine_03": 0.17, "thigh": 0.12, "calf": 0.082,
-	"upperarm": 0.045, "lowerarm": 0.04}
+	"upperarm": 0.045, "lowerarm": 0.04, "hand": 0.045, "Head": 0.11}
+const FALLBACK_HAND_LEN := 0.1  # ranteesta kämmenkapselin päähän (säde jatkaa sormenpäihin)
 const FALLBACK_FOOT := {"heel": 0.044, "toe": 0.21, "sole": 0.094}
 static var _cache := {}
 
@@ -49,10 +53,191 @@ static func profile(ch: Node3D, limb_points: Callable) -> Dictionary:
 				r = clampf(ds[int(ds.size() * 0.9)], r * 0.6, r * 1.6)  # rajaa poikkeamat (kesken päivittyvä asento)
 			caps[s[0]] = [s[0], s[1], r]
 		foot[lr] = _foot_box(ch, lr, limb_points, can_bake)
+		caps["hand" + lr] = _hand_cap(ch, lr, limb_points, can_bake)
+	_shape_tables(ch, caps, limb_points, can_bake)
+	if ch.skeleton.find_bone("Head") >= 0:
+		caps["Head"] = _head_cap(ch, limb_points, can_bake)
+		_neck_caps(ch, caps, limb_points, can_bake)
 	var prof := {"caps": caps, "foot": foot, "measured": measured}
 	if measured:
 		_cache[key] = prof
 	return prof
+
+
+## Kämmenen kapseli: ranteesta sormien suuntaan (middle_01-luuhun tai pisteiden keskelle), akseli luun omassa avaruudessa.
+## Pisteissä sormet mukana; mitataan kerran (profiilin asennossa, sormet Idle-animaation koukussa).
+static func _hand_cap(ch: Node3D, lr: String, limb_points: Callable, can_bake: bool) -> Array:
+	var sc: float = ch.model.scale.x
+	var hand := "hand" + lr
+	var sk: Skeleton3D = ch.skeleton
+	var hi := sk.find_bone(hand)
+	var xf := _bone_xf(ch, hand)
+	var a := xf.origin
+	var bones := [hand]
+	for i in sk.get_bone_count():  # sormet: ranteen jälkeläiset
+		var pa := sk.get_bone_parent(i)
+		while pa >= 0 and pa != hi:
+			pa = sk.get_bone_parent(pa)
+		if pa == hi:
+			bones.append(sk.get_bone_name(i))
+	var pts: PackedVector3Array = limb_points.call(ch, ch, bones) if can_bake else PackedVector3Array()
+	var ax := Vector3.ZERO
+	if sk.find_bone("middle_01" + lr) >= 0:
+		ax = ch.bone_position("middle_01" + lr) - a
+	elif not pts.is_empty():
+		var cen := Vector3.ZERO
+		for q in pts:
+			cen += q
+		ax = cen / pts.size() - a
+	if ax.length() < 0.001:
+		ax = a - ch.bone_position("lowerarm" + lr)
+	ax = ax.normalized()
+	var r: float = FALLBACK_R["hand"] * sc
+	var ln := FALLBACK_HAND_LEN * sc
+	if not pts.is_empty():
+		# Kämmen on litteä: säde = mediaani etäisyydestä akseliin (90. persentiili olisi kämmenen leveys ja nostaisi kämmenen
+		# 3 cm irti pinnasta); pituus niin, että kapselin pää (pituus + säde) on sormenpäissä (98. persentiili projektiosta).
+		var pr := []
+		var ds := []
+		for q in pts:
+			var t := (q - a).dot(ax)
+			pr.append(t)
+			ds.append((q - a - ax * t).length())
+		pr.sort()
+		ds.sort()
+		r = clampf(ds[int(ds.size() * 0.5)], r * 0.6, r * 1.6)
+		ln = clampf(float(pr[int(pr.size() * 0.98)]) - r, ln * 0.3, ln * 1.6)
+	return [hand, "", r, ln, (xf.basis.inverse() * ax).normalized()]
+
+
+## Pään pallo: keskus Head-luun lepopaikasta 0,09 ylös (kuten Character._head_center), säde = 90. persentiili kallon
+## (verkko ilman hiuksia) pisteiden etäisyydestä keskukseen.
+static func _head_cap(ch: Node3D, limb_points: Callable, can_bake: bool) -> Array:
+	var sk: Skeleton3D = ch.skeleton
+	var rest := sk.get_bone_global_rest(sk.find_bone("Head"))
+	var lp: Vector3 = rest.affine_inverse() * (rest.origin + Vector3(0.0, 0.09, 0.0))
+	var r: float = FALLBACK_R["Head"] * ch.model.scale.x
+	var pts: PackedVector3Array = limb_points.call(ch, ch, ["Head"], 1) if can_bake else PackedVector3Array()
+	if not pts.is_empty():
+		var c: Vector3 = _bone_xf(ch, "Head") * lp
+		var ds := []
+		for q in pts:
+			ds.append(q.distance_to(c))
+		ds.sort()
+		r = clampf(ds[int(ds.size() * 0.9)], r * 0.6, r * 1.6)
+	return ["Head", "", r, 0.0, lp]
+
+
+## Hahmo hahmoa vastaan: rintakehän ylin kapseli (spine_03 -> neck_01) ulottuu täydellä säteellä 13-20 cm olkapäiden yli,
+## jolloin hartioilla lepäävä käsi olisi aina "sisällä". caps.spine_03[3] = katkaisu (m): kapselin pää vedetään niskasta
+## alas niin, että sen huippu on verkon ylimmän pisteen (spine_03 ja solisluut) kohdalla. Lisäksi kaula (neck_01 -> Head).
+## Kalusteita vastaan (fit_body) spine_03 käytetään ennallaan (vain alkiot 0-2).
+static func _neck_caps(ch: Node3D, caps: Dictionary, limb_points: Callable, can_bake: bool) -> void:
+	var sc: float = ch.model.scale.x
+	var c3: Array = caps["spine_03"]
+	var a: Vector3 = ch.bone_position("spine_03")
+	var b: Vector3 = ch.bone_position("neck_01")
+	var ax := (b - a).normalized()
+	var cut: float = float(c3[2]) * 0.85
+	var rn := 0.055 * sc
+	if can_bake:
+		var pr := []
+		for q in limb_points.call(ch, ch, ["spine_03", "clavicle_l", "clavicle_r"]) as PackedVector3Array:
+			pr.append((q - b).dot(ax))
+		if not pr.is_empty():
+			pr.sort()
+			cut = clampf(float(c3[2]) - float(pr[int(pr.size() * 0.98)]), 0.0, float(c3[2]))
+		var ds := []
+		var hb: Vector3 = ch.bone_position("Head")
+		for q in limb_points.call(ch, ch, ["neck_01"]) as PackedVector3Array:
+			ds.append(_seg_dist(q, b, hb))
+		if not ds.is_empty():
+			ds.sort()
+			rn = clampf(ds[int(ds.size() * 0.9)], rn * 0.6, rn * 1.6)
+	if c3.size() < 4:
+		c3.resize(4)
+	c3[3] = cut
+	caps["neck_01"] = ["neck_01", "Head", rn]
+
+
+## Vartalon kapselien muototaulut hahmo hahmoa vastaan: pyöreä kapseli on 90. persentiilin säde kaikkiin suuntiin, jolloin
+## selän puolella se on 5-14 cm ihon ulkopuolella (vatsa määrää säteen) ja selkään laitettu käsi jäisi ilmaan. Pisteet ovat
+## koko vartalo (lantio, selkäranka, solisluut; vatsan etuosa on usein lantion tai spine_02:n painoilla), ja kukin piste
+## kuuluu lähimmälle vartalokapselille. Taulu = 3 asemaa luuta pitkin x 4 neljännestä (luun paikallinen +x, -x, +z, -z),
+## kukin 95. persentiili etäisyydestä akseliin siihen suuntaan; tallennetaan caps[luu][4] ([3] = katkaisu, _neck_caps).
+static func _shape_tables(ch: Node3D, caps: Dictionary, limb_points: Callable, can_bake: bool) -> void:
+	var pts: PackedVector3Array = limb_points.call(ch, ch, ["pelvis", "spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r"]) if can_bake else PackedVector3Array()
+	if pts.is_empty():
+		return
+	var segs := []
+	for s in TORSO:
+		segs.append([ch.bone_position(s[0]), ch.bone_position(s[1]), _bone_xf(ch, s[0]).basis.orthonormalized().inverse(), []])
+		for k in 12:
+			(segs[-1][3] as Array).append([])
+	for q in pts:
+		var bi := 0
+		var bd := INF
+		for i in segs.size():
+			var d := _seg_dist(q, segs[i][0], segs[i][1])
+			if d < bd:
+				bd = d
+				bi = i
+		var sg: Array = segs[bi]
+		var t := minf(_t_on(q, sg[0], sg[1]), 0.999)
+		var o: Vector3 = (sg[2] as Basis) * (q - (sg[0] as Vector3).lerp(sg[1], t))
+		var bins: Array = sg[3]
+		var st := int(t * 3.0)
+		bins[st * 4 + (0 if o.x > 0.0 else 1)].append(absf(o.x))
+		bins[st * 4 + (2 if o.z > 0.0 else 3)].append(absf(o.z))
+	for i in TORSO.size():
+		var c: Array = caps[TORSO[i][0]]
+		var r: float = c[2]
+		var tb := []
+		for k in 12:
+			var l: Array = segs[i][3][k]
+			l.sort()
+			tb.append(clampf(l[int(l.size() * 0.95)], r * 0.3, r * 1.5) if l.size() >= 5 else r)
+		c.resize(5)
+		c[3] = 0.0
+		c[4] = tb
+
+
+## Kapselin säde suuntaan dir (maailmassa, akselista ulos) kohdassa t (0 = a, 1 = b); cap = caps_all-alkio. Ilman
+## muototaulua (raajat, kämmen, pää) pyöreä säde.
+static func _rad(cap: Array, t: float, dir: Vector3) -> float:
+	if cap.size() < 5 or cap[4] == null:
+		return cap[3]
+	var sh: Array = cap[4]
+	var tb: Array = sh[1]
+	var l: Vector3 = (sh[0] as Basis) * dir
+	var st := clampf(t * 3.0 - 0.5, 0.0, 2.0)
+	var i0 := int(st)
+	var i1 := mini(i0 + 1, 2)
+	var f := st - i0
+	var rr := []
+	for q in 4:
+		rr.append(lerpf(tb[i0 * 4 + q], tb[i1 * 4 + q], f))
+	var lat := Vector2(l.x, l.z)
+	var ll := lat.length()
+	var mean: float = (rr[0] + rr[1] + rr[2] + rr[3]) * 0.25
+	if ll < 0.0001:
+		return mean  # suoraan akselin suuntaan (kapselin pää)
+	lat /= ll
+	var rx: float = rr[0] if lat.x > 0.0 else rr[1]
+	var rz: float = rr[2] if lat.y > 0.0 else rr[3]
+	var re := 1.0 / sqrt((lat.x * lat.x) / (rx * rx) + (lat.y * lat.y) / (rz * rz))
+	var w := ll * ll / maxf(l.length_squared(), 0.000001)  # sivusuunnan osuus
+	return lerpf(mean, re, w)
+
+
+## Pisteen p parametri janalla a-b (0...1).
+static func _t_on(p: Vector3, a: Vector3, b: Vector3) -> float:
+	return clampf((p - a).dot(b - a) / maxf((b - a).length_squared(), 0.000001), 0.0, 1.0)
+
+
+## Luun kehys hahmon avaruudessa nykyasennossa (sama avaruus kuin bone_position).
+static func _bone_xf(ch: Node3D, bone: String) -> Transform3D:
+	return ch.model.transform * ch.skeleton.transform * ch.skeleton.get_bone_global_pose(ch.skeleton.find_bone(bone))
 
 
 static func _foot_box(ch: Node3D, lr: String, limb_points: Callable, can_bake: bool) -> Dictionary:
@@ -821,3 +1006,344 @@ static func reset_hats(ch: Node3D) -> void:
 					(c as Node3D).transform = c.get_meta("hattu_lepo")
 				else:
 					c.set_meta("hattu_lepo", (c as Node3D).transform)
+
+
+# --- Hahmo hahmoa vastaan -------------------------------------------------------------------------------------------
+# Toinen hahmo kuvataan samoilla kapseleilla (profile) kuin kalusteita vastaan: kahden kapselin päällekkäisyys on yksi
+# janasta janaan -etäisyys. Kutsuja ajaa joka ruutu pair_fit -> pair_contacts -> Character.set_contacts.
+
+## Vartalon kapselit, joiden päällekkäisyys siirtää liikkuvaa hahmoa (raajojen IK-ketjut korjataan erikseen).
+const PAIR_BODY := ["pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "Head", "thigh_l", "calf_l", "thigh_r", "calf_r"]
+const PAIR_ROUNDS := 16
+
+
+## Kapselin päät maailmassa: [a, b] (pään pallolla a = b).
+static func _cap_ends(ch: Node3D, c: Array) -> Array:
+	if c[1] != "":
+		var a: Vector3 = ch.bone_position(c[0])
+		var b: Vector3 = ch.bone_position(c[1])
+		if c.size() > 3:  # katkaistu (spine_03, _neck_caps)
+			b -= (b - a).normalized() * minf(float(c[3]), a.distance_to(b))
+		return [ch.to_global(a), ch.to_global(b)]
+	var xf := _bone_xf(ch, c[0])
+	if c[0] == "Head":
+		var p := ch.to_global(xf * (c[4] as Vector3))
+		return [p, p]
+	return [ch.to_global(xf.origin), ch.to_global(xf.origin + (xf.basis * (c[4] as Vector3)).normalized() * float(c[3]))]
+
+
+## Kaikki kapselit (vartalo, raajat, kämmenet, pää) maailmassa: [[nimi, a, b, säde, muoto, keskus, rajasäde], ...].
+## Säde on pyöreä säde; muoto = null tai [maailma -> luu -kanta, muototaulu] (vartalo), josta _rad antaa säteen suuntaan.
+static func caps_all(ch: Node3D, prof: Dictionary) -> Array:
+	var out := []
+	for n: String in prof.caps:
+		out.append(_cap_world(ch, prof.caps[n], n))
+	return out
+
+
+static func _cap_world(ch: Node3D, c: Array, n: String) -> Array:
+	var e := _cap_ends(ch, c)
+	var shape: Variant = null
+	if c.size() > 4 and c[1] != "":
+		shape = [(ch.global_transform.basis * _bone_xf(ch, c[0]).basis).orthonormalized().transposed(), c[4]]  # maailma -> luu
+	var bound: float = (e[0] as Vector3).distance_to(e[1]) * 0.5 + float(c[2]) * 1.5  # rajapallo: muototaulu <= 1,5 r
+	return [n, e[0], e[1], float(c[2]), shape, ((e[0] as Vector3) + e[1]) * 0.5, bound]
+
+
+## Kahden kapselin (caps_all-alkiot) päällekkäisyys: [syvyys m (> 0 päällekkäin), normaali x:stä y:hyn, lähin x:llä,
+## lähin y:llä, säde x, säde y]; säteet suuntaan (muototaulu).
+static func _pair_depth(x: Array, y: Array) -> Array:
+	var cl := _seg_seg_closest(x[1], x[2], y[1], y[2])
+	var c0: Vector3 = cl[0]
+	var c1: Vector3 = cl[1]
+	var d := c0.distance_to(c1)
+	var n := (c1 - c0) / d if d > 0.0001 else Vector3.ZERO
+	var ra: float = _rad(x, _t_on(c0, x[1], x[2]), n) if d > 0.0001 else float(x[3])
+	var rb: float = _rad(y, _t_on(c1, y[1], y[2]), -n) if d > 0.0001 else float(y[3])
+	return [ra + rb - d, n, c0, c1, ra, rb]
+
+
+## Pisteen p (pallo, säde rp) syvyys kapselissa c: [syvyys, normaali ulos kapselista, d].
+static func _pt_depth(p: Vector3, rp: float, c: Array) -> Array:
+	var q := _seg_closest(p, c[1], c[2])
+	var d := p.distance_to(q)
+	if d < 0.0001:
+		return [rp + float(c[3]), Vector3.ZERO, d]
+	var n := (p - q) / d
+	return [rp + _rad(c, _t_on(q, c[1], c[2]), n) - d, n, d]
+
+
+## Janojen p1-q1 ja p2-q2 lähimmät pisteet [c1, c2] (Ericson, Real-Time Collision Detection 5.1.9).
+static func _seg_seg_closest(p1: Vector3, q1: Vector3, p2: Vector3, q2: Vector3) -> Array:
+	var d1 := q1 - p1
+	var d2 := q2 - p2
+	var r := p1 - p2
+	var a := d1.dot(d1)
+	var e := d2.dot(d2)
+	var f := d2.dot(r)
+	var s := 0.0
+	var t := 0.0
+	if a <= 0.000001 and e <= 0.000001:
+		return [p1, p2]
+	if a <= 0.000001:
+		t = clampf(f / e, 0.0, 1.0)
+	else:
+		var c := d1.dot(r)
+		if e <= 0.000001:
+			s = clampf(-c / a, 0.0, 1.0)
+		else:
+			var b := d1.dot(d2)
+			var den := a * e - b * b
+			s = clampf((b * f - c * e) / den, 0.0, 1.0) if den > 0.000001 else 0.0
+			t = (b * s + f) / e
+			if t < 0.0:
+				t = 0.0
+				s = clampf(-c / a, 0.0, 1.0)
+			elif t > 1.0:
+				t = 1.0
+				s = clampf((b - c) / a, 0.0, 1.0)
+	return [p1 + d1 * s, p2 + d2 * t]
+
+
+## Hahmojen a ja b päällekkäiset kapseliparit: [[nimi a, nimi b, syvyys m], ...] syvin ensin; syvyys = säteiden summa -
+## janojen lyhin etäisyys. Mukana parit, joiden syvyys > min_d.
+static func overlap_pairs(a: Node3D, pa: Dictionary, b: Node3D, pb: Dictionary, min_d := 0.0) -> Array:
+	var out := []
+	var cb := caps_all(b, pb)
+	for x in caps_all(a, pa):
+		for y in cb:
+			if (x[5] as Vector3).distance_to(y[5]) > float(x[6]) + float(y[6]) - min_d:
+				continue
+			var dd: float = _pair_depth(x, y)[0]
+			if dd > min_d:
+				out.append([x[0], y[0], dd])
+	out.sort_custom(func(p: Array, q: Array) -> bool: return float(p[2]) > float(q[2]))
+	return out
+
+
+## Pisteen (pallo, säde r) rako kapseleihin caps (caps_all-muoto): [rako m (< 0 sisällä), normaali ulos lähimmästä].
+static func _clearance(p: Vector3, caps: Array, r: float) -> Array:
+	var best := INF
+	var n := Vector3.ZERO
+	for c in caps:
+		var pd := _pt_depth(p, r, c)
+		if -float(pd[0]) < best:
+			best = -float(pd[0])
+			n = pd[1]
+	return [best, n]
+
+
+## Kahden hahmon kapselit erilleen enintään PAIR_ROUNDS kierroksella: (1) vartalot (torso, kaula, pää ja jalat): b siirtyy vaakasuunnassa irti a:sta
+## (vain move_b); (2) kummankin IK-ketjut (arm_*, leg_*): ketjun syvin piste toisen kapseleista ulos. Ketjun loppupää
+## (s >= 0,75 olasta kämmenen päähän) siirtää kohdetta: kämmen suoraan ulos, kyynärvarsi liu'uttaa kohdetta pinnan
+## tangenttia pitkin samalla raolla (käsi pysyy pinnalla); alkupää siirtää polea (kyynärpää/polvi kiertää ohi), paitsi
+## suoralla kädellä (kohde ulottumattomissa), jolloin pole ei auta ja kohde liukuu kuten kyynärvarrella.
+## Muokkaa _ik-kohteita: kutsuja asettaa ne joka ruutu uudelleen. Palauttaa jäljelle jääneen syvimmän päällekkäisyyden (m).
+static func pair_fit(a: Node3D, pa: Dictionary, b: Node3D, pb: Dictionary, move_b := true) -> float:
+	for rd in PAIR_ROUNDS:
+		a.refresh_pose()
+		b.refresh_pose()
+		var moved := false
+		if move_b:
+			var pen := 0.0
+			var n := Vector3.ZERO
+			var cb := []
+			for nm in PAIR_BODY:
+				if pb.caps.has(nm):
+					cb.append(_cap_world(b, pb.caps[nm], nm))
+			for nm in PAIR_BODY:
+				if not pa.caps.has(nm):
+					continue
+				var x := _cap_world(a, pa.caps[nm], nm)
+				for y in cb:
+					if (x[5] as Vector3).distance_to(y[5]) > float(x[6]) + float(y[6]):
+						continue
+					var pd := _pair_depth(x, y)
+					if float(pd[0]) > pen and pd[1] != Vector3.ZERO:
+						pen = pd[0]
+						n = pd[1]
+			var nh := Vector3(n.x, 0, n.z)
+			if pen > 0.003 and nh.length() > 0.2:
+				_shift(b, nh.normalized() * minf((pen + 0.003) / nh.length(), 0.2))
+				b.refresh_pose()
+				moved = true
+		if _fit_chains(a, pa, b, pb):
+			moved = true
+		if _fit_chains(b, pb, a, pa):
+			moved = true
+		if not moved:
+			break
+	a.refresh_pose()
+	b.refresh_pose()
+	var left := overlap_pairs(a, pa, b, pb)
+	return float(left[0][2]) if not left.is_empty() else 0.0
+
+
+## Hahmon ch IK-ketjut ulos toisen hahmon kapseleista (pair_fit, kierros 2). Palauttaa, siirtyikö jokin kohde tai pole.
+static func _fit_chains(ch: Node3D, prof: Dictionary, other: Node3D, oprof: Dictionary) -> bool:
+	var oc := caps_all(other, oprof)
+	var inv := ch.global_transform.affine_inverse()
+	var any := false
+	for chain: String in ["arm_l", "arm_r", "leg_l", "leg_r"]:
+		if not ch._ik.has(chain):
+			continue
+		var lr := chain.right(2)
+		var arm := chain.begins_with("arm")
+		var names := ["upperarm" + lr, "lowerarm" + lr, "hand" + lr] if arm else ["thigh" + lr, "calf" + lr]
+		var parts := []
+		var total := 0.0
+		for nm in names:
+			var ce := _cap_ends(ch, prof.caps[nm])
+			parts.append([ce[0], ce[1], float((prof.caps[nm] as Array)[2])])
+			total += (ce[0] as Vector3).distance_to(ce[1])
+		var wrist_s: float = 1.0
+		if arm:
+			wrist_s = ((parts[0][0] as Vector3).distance_to(parts[0][1]) + (parts[1][0] as Vector3).distance_to(parts[1][1])) / maxf(total, 0.001)
+		# Syvin kohta jokaista toisen kapselia vasten: [syvyys, normaali ulos, s]
+		var per := {}
+		var acc := 0.0
+		for pt in parts:
+			var ln: float = (pt[0] as Vector3).distance_to(pt[1])
+			for k in 6:
+				var p: Vector3 = (pt[0] as Vector3).lerp(pt[1], k / 5.0)
+				for c in oc:
+					if p.distance_to(c[5]) > float(c[6]) + float(pt[2]):
+						continue
+					var pd := _pt_depth(p, pt[2], c)
+					var pen: float = pd[0]
+					if pen > 0.003 and pd[1] != Vector3.ZERO and pen > float((per.get(c[0], [0.0]) as Array)[0]):
+						per[c[0]] = [pen, pd[1], (acc + ln * k / 5.0) / maxf(total, 0.001)]
+			acc += ln
+		if per.is_empty():
+			continue
+		var e: Array = ch._ik[chain]
+		# Siirto lasketaan ranteen (nilkan) todellisesta paikasta: jos kohde on ulottumattomissa, käsi on suorana kohti sitä,
+		# eikä kohteen siirto kohti olkaa tai pole liikuttaisi kättä lainkaan.
+		var tw: Vector3 = ch.to_global(ch.bone_position(("hand" if arm else "foot") + lr))
+		var stretched := tw.distance_to(ch.global_transform * (e[3] as Vector3)) > 0.005
+		var items: Array = per.values()
+		items.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) > float(y[0]))
+		var t_push := Vector3.ZERO
+		var p_push := Vector3.ZERO
+		var t_s := 0.0  # syvimmän kohdetta siirtävän kohdan s
+		# Nivelen taivutussuunta (kohtisuoraan olka-kohde-akselia): jos työntö on jo sen suuntainen, pole ei voi viedä
+		# niveltä kauemmas, ja työntö siirtää kohdetta.
+		var sh0: Vector3 = ch.to_global(ch.bone_position(names[0]))
+		var ax0 := (tw - sh0).normalized()
+		var j0: Vector3 = ch.to_global(ch.bone_position(names[1])) - sh0
+		var bend := (j0 - ax0 * j0.dot(ax0)).normalized()
+		for it in items:
+			var push: Vector3 = (it[1] as Vector3) * (float(it[0]) + 0.003)
+			for nm: String in per:
+				if per[nm] == it and _ik_cap(other, nm):
+					push *= 0.5  # toinenkin raaja väistää
+			if float(it[2]) < 0.75 and not stretched and bend.dot(it[1]) < 0.8:
+				p_push = _merge_push(p_push, push)
+			else:
+				if t_push == Vector3.ZERO:
+					t_s = it[2]
+				t_push = _merge_push(t_push, push)
+		if p_push != Vector3.ZERO:
+			# Kyynärpää tai polvi kiertää ohi. Pole on kauempana ketjun akselista kuin nivel, joten sitä siirretään
+			# suhteessa enemmän, jotta nivel liikkuu noin push * 2.
+			var sh: Vector3 = ch.to_global(ch.bone_position(names[0]))
+			var ax := (ch.global_transform * (e[3] as Vector3) - sh).normalized()
+			var pw: Vector3 = ch.global_transform * (e[4] as Vector3)
+			var jw: Vector3 = ch.to_global(ch.bone_position(names[1]))
+			var h_p := ((pw - sh) - ax * (pw - sh).dot(ax)).length()
+			var h_j := ((jw - sh) - ax * (jw - sh).dot(ax)).length()
+			e[4] = (e[4] as Vector3) + inv.basis * p_push * 2.0 * clampf(h_p / maxf(h_j, 0.05), 1.0, 10.0)
+		if t_push == Vector3.ZERO:
+			pass
+		elif not arm:
+			e[3] = inv * (tw + Vector3(t_push.x, 0, t_push.z))  # jalkaterä vaakasuunnassa (maa pysyy alla)
+		else:
+			var hr: float = (prof.caps["hand" + lr] as Array)[2]
+			var g0 := _clearance(tw, oc, hr)
+			var nt: Vector3 = g0[1]
+			var slide := t_push - nt * t_push.dot(nt)
+			var nw := tw + t_push
+			if (t_s <= wrist_s or stretched) and float(g0[0]) < 0.05 and slide.length() > t_push.length() * 0.3:
+				# Kyynärvarsi kyljessä: kohde liukuu pinnan suuntaisesti ja pysyy samalla raolla (ei hylkää pintaa).
+				nw = tw + slide
+				var g1 := _clearance(nw, oc, hr)
+				nw += (g1[1] as Vector3) * (maxf(float(g0[0]), 0.003) - float(g1[0]))
+			e[3] = inv * nw
+		any = true
+	return any
+
+
+## Työnnöt yhteen ilman tuplalaskentaa: uudesta työnnöstä lisätään vain osa, jota nykyinen ei jo kata sen suunnassa.
+## Vastakkainen (raaja puristuksissa kahden kapselin välissä) ohitetaan: syvempi (ensin tullut) voittaa.
+static func _merge_push(total: Vector3, push: Vector3) -> Vector3:
+	var l := push.length()
+	if l < 0.000001 or total.dot(push) < 0.0:
+		return total
+	var u := push / l
+	return total + u * maxf(l - total.dot(u), 0.0)
+
+
+## Onko kapseli nm hahmon IK-ketjussa (raaja, joka voi itse väistää)?
+static func _ik_cap(ch: Node3D, nm: String) -> bool:
+	for pre in ["upperarm", "lowerarm", "hand"]:
+		if nm.begins_with(pre):
+			return ch._ik.has("arm" + nm.right(2))
+	for pre in ["thigh", "calf"]:
+		if nm.begins_with(pre):
+			return ch._ik.has("leg" + nm.right(2))
+	return false
+
+
+## Painuman laatikot hahmopariin: jokaisesta kapseliparista, jonka rako < gap, yhteinen taso kapselipintojen puolivälissä;
+## kummallekin laatikko toisen puolelle tasoa, +Y omaa hahmoa kohti, puolikoko toisen kapselin säteestä. Syvin ensin,
+## enintään Character.PRESS_MAX (6) per hahmo. Palauttaa [laatikot a, laatikot b] (Character.set_contacts-muoto).
+static func pair_contacts(a: Node3D, pa: Dictionary, b: Node3D, pb: Dictionary, gap := 0.01) -> Array:
+	var found := []
+	var cb := caps_all(b, pb)
+	var ab: Vector3 = b.global_position - a.global_position
+	for x in caps_all(a, pa):
+		for y in cb:
+			if (x[5] as Vector3).distance_to(y[5]) > float(x[6]) + float(y[6]) + gap:
+				continue
+			var pd := _pair_depth(x, y)
+			if -float(pd[0]) >= gap:
+				continue
+			var n: Vector3 = pd[1] if pd[1] != Vector3.ZERO else Vector3(ab.x, 0, ab.z).normalized()
+			var ra: float = pd[4]
+			var rb: float = pd[5]
+			var mid: Vector3 = ((pd[2] as Vector3) + n * ra + (pd[3] as Vector3) - n * rb) * 0.5
+			found.append([pd[0], n, mid, ra, rb])
+	found.sort_custom(func(p: Array, q: Array) -> bool: return float(p[0]) > float(q[0]))
+	var out_a := []
+	var out_b := []
+	for f in found:
+		var n: Vector3 = f[1]
+		if out_a.size() < 6:
+			out_a.append([_plane_xf(-n, f[2] + n * float(f[4])), Vector3.ONE * float(f[4])])
+		if out_b.size() < 6:
+			out_b.append([_plane_xf(n, f[2] - n * float(f[3])), Vector3.ONE * float(f[3])])
+	return [out_a, out_b]
+
+
+## Laatikon kehys, jonka +Y = y ja keskus = c (x vaakaan, jos mahdollista).
+static func _plane_xf(y: Vector3, c: Vector3) -> Transform3D:
+	var x := Vector3.UP.cross(y)
+	if x.length() < 0.1:
+		x = Vector3.RIGHT.cross(y)
+	x = x.normalized()
+	return Transform3D(Basis(x, y, x.cross(y)), c)
+
+
+## Kohta kapselin cap pinnalla suuntaan dir (akselia vastaan kohtisuora osa) parametrilla along (0 = a, 1 = b); pään
+## pallolla suoraan dir-suuntaan. IK-kohteiden laskuun (lisää kämmenen säde, niin kämmen on pinnalla).
+static func surface_point(ch: Node3D, prof: Dictionary, cap: String, dir: Vector3, along := 0.5) -> Vector3:
+	var cw := _cap_world(ch, prof.caps[cap], cap)
+	var p: Vector3 = (cw[1] as Vector3).lerp(cw[2], along)
+	var ax: Vector3 = (cw[2] as Vector3) - cw[1]
+	var d := dir
+	if ax.length() > 0.0001:
+		d = dir - ax.normalized() * dir.dot(ax.normalized())
+	if d.length() < 0.0001:
+		d = dir
+	d = d.normalized()
+	return p + d * _rad(cw, along, d)
