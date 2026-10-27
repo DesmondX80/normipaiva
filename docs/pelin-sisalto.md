@@ -79,6 +79,18 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Portaat alas Kellariin (ent. Kajuutta): karaoke "Ruukin valot". Puhe on raahelaista (räknätä, skooli, kööki,
   retari, seeli). Ulko-ovelta taksi kotiin: Päivi odottaa, eikä seuraavana aamuna tule rahaa kauppaan.
   Pyörä jää kaupan pihaan.
+- **Retket (retkirunko):** taksikuski vie Raahen lisäksi muihinkin kohteisiin (taksivalikko generoidaan rekisteristä
+  `scripts/retket.gd`: nimi, lähtöpaikka, matkan kesto, meno-paluu-hinta ja kohtaus). Kohde on oma taskukohtaus (`retki_*.gd`), jossa
+  kävellään kuten Raahen baarissa. Ovelta (taksille) E vie takaisin **lähtöpaikkaan** samaan paikkaan, josta lähdettiin: päivä ei vaihdu,
+  paluumatka on jo maksettu ja kello siirtyy matkan keston verran sekä menossa että tullessa. Yöllä sammutaan kuten muuallakin
+  (herätys kotona). Uusi kohde = yksi rivi rekisteriin ja yksi tiedosto; Vaalan aseman matkavalikko (`lahto: "vaala_asema"`)
+  generoidaan samasta rekisteristä, kun ensimmäinen Vaalan kohde tulee.
+- **Teeriniemen kalalampi (retki):** taksilla 16 € (meno-paluu, 25 min suuntaansa) Teeriniemen leirintäalueelle: tukkimökin tiskiltä
+  ostetaan kalalupa (8 €, kerran, tallentuu; hintaan kuuluu vuokraonki ja 8 matoa, jotka eivät kuluta omia matoja). Ilman lupaa lammella
+  ei onkea. Istutetussa lammessa (kalat kiertävät näkyvissä) onkiminen on pelin onkimekaniikka (`shore_fish_game.gd`, tila `stocked`):
+  istutettu kala syö nopeasti (tärppi 1-3 s), ei roskaa eikä parvirenkaita (toisin kuin soutuveneessä). Saalis on kirjolohi
+  (vaaleanharmaa, punertava kylkiraita, mustat pilkut) tai harvinaisempi ja väkevämpi taimen (ruskea, punaiset pilkut vaaleissa
+  renkaissa), ja se menee reppuun kuten muukin saalis. Testi `--scene=kalalampi`.
 - **Nurmikon leikkuu:** takapihan nurmikko kasvaa joka päivä. Leikkurin luona E käynnistää (ja sammuttaa), ja
   leikkuria työnnetään kuten kävellessä (ei juosta). Pitkässä ruohossa piilee siilejä ja kiviä: toinen siili leikkurin
   alle tuo poliisin (pakene näkyvistä, kiinni jääminen = WASTED), ja toinen kivi rikkoo leikkurin (varaosa Artolta
@@ -217,6 +229,70 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   palkeesta nuottiarkin ensimmäinen puolikas -> Pirtin arkistosta toinen puolikas -> Sinikalle (kuoro laulaa virren,
   maine +12, loppu "Kanttorin virsi", yösävel vaikenee) tai Veksille (150 €, maine −5, yösävel jatkuu). Epäilijät (Pekka,
   Arto, Anna-Liisa) vaihtavat repliikkinsä. Testi `--scene=kanttorinyosavel` (headless).
+- **Legenda: Hanhikiven rajakivi (#250 P4, tarkistettava):** Pyhäjoen Hanhikivi, Koskipuisto ja Hourunkosken kosket ovat
+  oikeita paikkoja; rajakiviteoria ("kivi oli ennen rajamerkki ja joku siirsi sen") on epävarma ja esitetään vain huhuna
+  ("sanotaan", "kuulemma"), kukaan ei tiedä kuka. Ketju: taksikuski kertoo (valinta "Mikä se Hanhikivi oikein on?") ->
+  vihje 1: Kapteenin Kulman kapteeni Raahessa -> vihje 2: Koskipuiston opaskyltti Pyhäjoella (retki taksilla 20 €, 35 min,
+  `retki_hanhikivi.gd`: puisto, kosket, kivi ja laatta, kalastaja, penkki) -> kiveä tutkimalla, kun molemmat vihjeet on kuultu,
+  loppu "Hanhikiven rajakivi" (maine +3, ei rahaa, kerran). Näkyy päiväkirjassa. Tila `hanhikivi_legenda.gd`. Testi `--scene=hanhikivi`.
+- **Legenda: Pakkahuoneen veistos (#250 P5, tarkistettava):** Raahen Pakkahuone on museona, sanotaan Suomen vanhin paikallismuseo,
+  ja siellä on 1600-luvun uskonnollisia veistoksia (esitetään "sanotaan"-muodossa). Kadonnut veistos on keksitty. Ketju: taksikuski kertoo
+  (valinta "Mikä se Pakkahuone oikein on?") -> veistos katoaa jalustaltaan museossa (retki taksilla 12 €, 20 min, `retki_pakkahuone.gd`) ->
+  kuraattori ja vierailijakirja vihjeinä -> kellarin luukku, kun molemmat on kuultu: veistos löytyy ja palaa jalustalle, loppu
+  "Pakkahuoneen veistos" (maine +3, ei rahaa, kerran). Näkyy päiväkirjassa. Tila `pakkahuone_legenda.gd`. Testi `--scene=pakkahuone`.
+- **Legenda: Rautaruukin peruskivi (#250 P6, tarkistettava):** Rautaruukin Raahen terästehtaan Rojuniemen peruskiveä sanotaan paljastetun
+  25.8.1962 (Kekkonen) ja ensimmäinen lähetys sanotaan 5.9.1964 (päivämäärät tarkistettava, esitetään "sanotaan"-muodossa). Kätkö (kuparikapseli
+  laatan alla) on keksitty, kuten Tokolan aarre. Ketju: taksikuski kertoo (valinta "Mikä se Rautaruukin peruskivi oikein on?") -> vihje 1: vartija
+  Rojuniemessä (retki taksilla 14 €, 20 min, `retki_rojuniemi.gd`: tehdas, aita, vartijakoppi, peruskivi, laatta) -> vihje 2: opaskyltti ->
+  laatta kiven edessä, kun molemmat on kuultu: kätkö aukeaa, löytäjäispalkkio 30 € ja maine +3, loppu "Peruskiven kapseli". Palkkio vain kerran
+  (`found`-lippu). Näkyy päiväkirjassa. Tila `peruskivi_legenda.gd`. Testi `--scene=peruskivi`.
+- **Legenda: Manamansalon muistokirkko (#250 P7, tarkistettava):** Oulujärven suurin saari Vaalassa; sen sanotaan olleen metsästäjien hautausmaasaari ja
+  Kainuun ensimmäisen kirkon sanotaan rakennetun sinne 1559. Nimen "kuolemansaari" tulkinta on epävarma, ja peli esittää sen vain taksikuskin ja oppaan
+  tulkintana. Ketju: taksikuski kertoo (valinta "Mikä se Manamansalon kuolemansaari oikein on?") -> vihje 1: opas kirkon edessä (retki taksilla 30 €, 60 min,
+  `retki_manamansalo.gd`: muistokirkko, hautausmaa, laituri) -> vihje 2: hautausmaan infotaulu -> kirkon kivijalka mäellä: legendan loppu, kynttilä
+  syttyy, maine +3 (ei rahaa). Alassalmen lossi (P15): laiturilla lossimies myy lipun (3 €, yksi matka), lossi lähtee 30 min välein (odotus kuluttaa pelikelloa), lautta ajaa salmeen ja takaisin (+10 min, stressi pienenee; toista rantaa ei vielä ole). Lähtö myös Vaalasta mopolla: lossipysäkin kyltti aseman länsipäässä (bensat 4 €, +30 min, paluu mopon luo). Näkyy päiväkirjassa. Tila `manamansalo_legenda.gd`. Testi `--scene=manamansalo`.
+- **Retki: Wanha Raahe, kävelykierros (#250 P8, tarkistettava):** taksilla Raahen vanhaan puutalokaupunkiin (valinta "Raahen Wanhaan kaupunkiin", 12 €, 20 min,
+  `retki_wanharaahe.gd`). Viisi pysähdystä järjestyksessä: Brahen patsas Pekkatorilla (sanotaan 1888, Raahen perustaja 1649), vanhat ovet, kauppiaan kaksikerroksinen talo,
+  rantakuja ja katulyhty sekä punamullattu makasiini. Pysähdyspaikalla E ottaa valokuvan, jos hahmo katsoo kohdetta kohti (sama kulma- ja etäisyystarkistus kuin
+  dronen kuvissa, `PHOTO_RANGE`/`PHOTO_CONE`); väärä järjestys tai suunta ei ota kuvaa. Ovien kuva tulee reppuun ja viedään kotiin Päiville (kerran, mielihyvä +8);
+  kaikki viisi kuvaa: maine +2. Näkyy päiväkirjassa. Patsas ja talot ovat tyylitelty, ei tarkka kopio esikuvasta. Tila `wanharaahe_legenda.gd`. Testi `--scene=wanharaahe`.
+- **Retki: Paltaniemen kuvakirkko, piilokuvaetsintä (#250 P9, tarkistettava):** taksilla Kajaanin Paltaniemen kuvakirkkoon (valinta "Paltaniemen kuvakirkkoon", 28 €, 55 min,
+  `retki_paltaniemi.gd`). Kirkon sisällä on penkkirivit, alttari, saarnastuoli ja takaseinällä kolme maalausta; suntio kertoo kirkosta (sanotaan: seinät maalattu 1700-luvulla).
+  Maalauksille E avaa minipelin `kuvakirkko_game.gd`: taivas ja maa, arkki ja puutarha -maalauksissa on kuusi piilokuvaa (tähti, kala, kissa, lintu, avain, etana). Hiirellä
+  (suurennuslasi) klikataan löydetty, alareunan lokerikko ja laskuri n/6 näyttävät tilan, huti värähdyttää ja 20 s ilman löytöä kimaltaa lähin. Löydöt säilyvät käyntien välillä
+  (Esc kesken); kaikki kuusi: maine +2 (kerran). Näkyy päiväkirjassa. Kirkon 3D-seinämaalaukset piirretään samalla koodilla kuin minipeli (SubViewport-tekstuuri, `painting_viewport`); suntion kupla on maailmassa vasemmalla (ei maalauksen päällä). Maalaukset ovat tyyliteltyjä, eivät kopioita kirkon maalauksista. Tila `kuvakirkko_legenda.gd`. Testi `--scene=kuvakirkko`.
+- **Retki: Saloisten tietokonemuseo ja Pong (#250 P10, tarkistettava):** taksilla Saloisten tietokonemuseoon (valinta "Saloisten tietokonemuseoon", 6 €, 12 min,
+  `retki_tietokonemuseo.gd`). Sisällä on Datasaab D22 -koneen neljä kaappia (pyörivät nauharullat, vilkkuva merkkivalopaneeli, korttilukija) konsolipöytineen, mikrotietokonehuone
+  (kolme tyyliteltyä 1980-luvun konetta) ja Pong-pelikone; intendentti kertoo kokoelmasta (puhekupla maailmassa). Faktat "sanotaan"-muodossa ja tarkistettavia: D22 vuodelta 1971 ja
+  heinäkuun aukioloaika (pelissä museo on aina auki). E D22:lla ja mikroilla näyttää tietoviestin. E Pong-koneella avaa minipelin `pong_game.gd`:
+  beige CRT-televisio museon pöydällä, pelaaja vasemmalla (W/S, nuolet tai hiiri), kone oikealla, ensin viiteen pisteeseen; pallo kiihtyy jokaisesta mailaosumasta ja kimpoaa osumakohdan
+  mukaan, hehku, pyyhkäisyviivat, kipinät, tärähdys ja äänet. Ensimmäinen voitto: mielihyvä +6 (kerran); voitot ja paras tulos tallentuvat (`tietokonemuseo_legenda.gd`). Näkyy päiväkirjassa
+  intendentin puheen jälkeen, kunnes Pong on voitettu. Yöllä museoon nukahtaa (herätysteksti retket.gd:n kentästä "sammuit"). Testi `--scene=tietokonemuseo`.
+- **Retki: Raahen satama, Vanha herra ja sukellus (#250 P11, tarkistettava):** taksilla Raahen satamaan (valinta "Raahen satamaan", 12 €, 20 min, `retki_vanhaherra.gd`).
+  Kruununmakasiinin vitriinissä on "Vanha herra" (kuparikypärä, kangaspuku, lyijykengät; sanotaan maailman vanhimmaksi säilyneeksi sukelluspuvuksi, tarkistettava museon kuvasta).
+  Laiturilla pumppaaja (kädet pumpun vivussa) ja sukeltaja kuparikypärässä puhekuplineen. Pumpusta alkaa minipeli `sukellus_game.gd`: A ja D vuorotellen pumppaavat ilmaa
+  (tahdissa bonus, sama näppäin kahdesti ei anna), ilmamittari tyhjenee pohjalla; E/Väli kaivaa. Pohjalla on saapas, ämpäri, pullo ja ankkuri, ja kapteenin taskukello puuarkun alla.
+  Löytyessä mielihyvä +6 ja maine +1 (kerran, `vanhaherra_legenda.gd`); Esc keskeyttää, uusi yritys käy aina. Näkyy päiväkirjassa pumppaajan kanssa puhumisen jälkeen. Testi `--scene=vanhaherra`.
+- **Retki: Kuhmon karhukätkö (#250 P12, tarkistettava):** taksilla Kuhmoon (valinta "Kuhmon karhukätköön", 45 €, 90 min, `retki_kuhmo.gd`). Puinen kätkö, penkki, infokyltti ja opas puhekuplineen
+  (paikka ja aikataulut "sanotaan"). Ikkunasta alkaa minipeli `karhu_game.gd`: hämärä niitty, odotus, karhu kävelee tai nousee pystyyn; etsin hiirellä, kuva klikkauksella/Välilyönnillä,
+  kuusi ruutua. Karhu keskellä, iso ja pystyssä = paras kuva. Humala (`tilat` humala) heiluttaa etsintä. Hyvä kuva (60+/100): mielihyvä +6 ja maine +1 kerran (`karhut_legenda.gd`),
+  paras tulos tallentuu. Näkyy päiväkirjassa oppaan puheen jälkeen. Testi `--scene=karhut`.
+- **Retki: Sotkamon Hiidenportti (#250 P13, tarkistettava):** taksilla Sotkamoon (valinta "Sotkamon Hiidenporttiin", 38 €, 70 min, `retki_hiidenportti.gd`). Kalliorotko (kerroksittain porrastetut, vaaleahuuliset kalliot halkeamineen ja sammalineen, puro pohjalla, havupuita reunalla; esikuva Porttijoen rotko), lepolavat, infokyltti ja
+  retkeilijä puhekuplineen (tiedot "sanotaan"). Seinältä alkaa minipeli `rotko_game.gd`: klikkaa ote käden ulottuvilta, ote ja roikkuminen kuluttavat voimia, lepolavalla ne palautuvat;
+  punertava ote murtuu, humala lisää lipsumista. Putoaminen palauttaa viimeiselle lavalle. Ylälavalle päästyä mielihyvä +6 ja maine +1 kerran (`hiidenportti_legenda.gd`).
+  Näkyy päiväkirjassa kyltin lukemisen jälkeen. Testi `--scene=hiidenportti`.
+- **Retki: Pyhäkosken voimalaitoskylä (#250 P16, tarkistettava):** taksilla Oulujoen varteen (valinta "Pyhäkosken voimalaitoskylään", 24 €, 45 min, `retki_pyhakoski.gd`). Voimalaitos,
+  punainen kioski, tanssipaikan portaat, rivitalot ja vahtimestari puhekuplineen (kyltit fontti 60-72). Kolme tarinaa: vahtimestari (voimalaitos), kioski ja portaat; kaikki "sanotaan"-muodossa,
+  hiljainen sävy, ei minipeliä. Kun kaikki kolme on kuultu: mielihyvä +4 ja maine +1 kerran (`pyhakoski_legenda.gd`). Näkyy päiväkirjassa ensimmäisen tarinan jälkeen. Testi `--scene=pyhakoski`.
+- **Retki: Kajaanin linna ja Messenius (#250 P17-P18, tarkistettava):** taksilla Kajaaniin (valinta "Kajaanin linnan raunioille", 30 €, 60 min, `retki_kajaani.gd`). Joen saaren harmaakiviset rauniot, tervavene laiturissa ja Messeniuksen muistotaulu
+  (kyltit fontti 60-72), tervamies puhekuplineen. Kolme asiaa: rauniot, tervavene (kohtaus: vene lipuu joen poikki ja tervamies kertoo) ja Messeniuksen vankeus (1616-1636, sanotaan); kaikki "sanotaan"-muodossa, ei minipeliä.
+  Kun kaikki kolme on koettu: mielihyvä +5 ja maine +1 kerran (`messenius_legenda.gd`). Näkyy päiväkirjassa ensimmäisen jälkeen. Testi `--scene=kajaani`.
+- **Retki: Kalajoen Hiekkasärkät, rantajalkapallo (#250 P19, tarkistettava):** taksilla Kalajoelle (valinta "Kalajoen Hiekkasärkille", 42 €, 80 min, `retki_kalajoki.gd`). Ranta, meri, dyynit, kenttä maaleineen, Hiekkasärkät-kyltti ja turnauksen järjestäjä puhekuplineen (kyltit fontti 60-72).
+  Kentällä E käynnistää minipelin `rantapallo_game.gd`: sivukuvan rantajalkapallo (A/D liike, W hyppy, Väli potku), kone vastustajana, ensin kolmeen maaliin; pallo pomppii hiekasta ja rimasta, maalit verkolla.
+  Juhannusaattona (perjantai, `_juhannus()`) voitto on turnausvoitto: mielihyvä +6 ja maine +1 kerran (`kalajoki_legenda.gd`), ja kentälle ilmestyvät koivut ja siimalippu. Muina päivinä saa harjoitella ilman palkkiota. Turnauksen koko ja tiedot "sanotaan"-muodossa, tarkistettava. Testi `--scene=kalajoki`.
+- **Retki: Raatteen Portti, Suomussalmi (#250 P20, tarkistettava):** taksilla itään (valinta "Raatteen Portille", 30 €, 100 min, `retki_raate.gd`). Kunnioittava tarinaetappi talvisodan muistopaikalle: ei minipeliä eikä vitsejä. Kivipylväsportti Raatteentien päällä, muistokivi soihtuineen ja vanha vierailija puhekuplineen (kyltit fontti 60-72).
+  Kolme kohtaa (vierailija/tie, portti, muistokivi), kaikki "sanotaan"-muodossa; aukioloa tai museota ei esitetä varmana. Kun kaikki on käyty: mielihyvä +3 ja maine +1 kerran (`raate_legenda.gd`). Näkyy päiväkirjassa ensimmäisen kohdan jälkeen. Testi `--scene=raate`.
+- **Valentin Vaala -elokuvapäivät (#250 P14, ohjelma ja päivät tarkistettava):** Vaalan Veturitalli (punatiilinen vaja aseman päädyssä, kyltti "VAALAN VETURITALLI") on auki esityksiin kolmena viimeisenä päivänä 28 päivän jaksossa (päivät 26-28) klo 13-17; muulloin ovella kerrotaan syy. Ovella banderolli. E ovella: mykkäelokuvan tyylinen sepiaesitys (ohjelma yleinen, ei väitettyjä elokuvanimiä) ja 78-levyn iskelmä (`iskelmat.gd`); kello +40 min, stressi -0,1, mielihyvä +4. Esc poistuu kesken. Tiedostot `vaala.gd _build_veturitalli`, `vaala_esitys.gd`. Testi `--scene=valentinvaala`.
 - **Saloisten koulukeskus, päiväkoti, kentät ja ulkopingis (#143):** keskustan koulukeskus ja päiväkoti (OSM-rakennukset)
   nimikylttineen, kaksi jalkapallokenttää rajaviivoineen ja maaleineen sekä koulun pihan ulkopingispöytä ("PIHAPINGIS").
   Pöydällä iltapäivisin ja iltaisin (14–21) E: haaste kylän nuorille samalla pingis_game.gd-minipelillä kuin Santun kanssa
@@ -450,7 +526,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Pelissä kauppa on Siitarin vieressä Vaalantien varressa (todellisuudessa n. 400 m kauempana), ja
     pankkiautomaatti on kaupan seinällä. Jos rahat eivät riitä, kaljat ja Alkon pullot voi viedä ovesta
     juoksukaljoina maksamatta (kylän K-Marketissa samoin). Mopotie päättyy torille Siitarin viereen: torin päädyssä
-    on Zabuki (olut ja hampurilaiset) ja Siitaria vastapäätä Gasthaus. Zabukin jälkeen Vaalantiellä on liikenneympyrä. `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
+    on Zabuki (olut ja hampurilaiset) ja Siitaria vastapäätä Gasthaus. Gasthausin emännältä saa myös Kainuun ruokaa (kalakeitto 9,50 €, kukkoleipä 7 €, talkkuna 4 €, rieska 3,50 €; ruokalistakyltti HUONEET-kyltin alla), ja annos nollaa nälän. Zabukin jälkeen Vaalantiellä on liikenneympyrä. `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
     laserpuut rakennusten, parkkien ja teiden päältä (latvusmallissa katotkin näkyivät puina). Niemellä, jossa Oulujoki alkaa Oulujärvestä (Vuolijoentieltä oikealle
     asfaltoitua Pahalahdentietä juuri ennen radan alikulkua; `tools/vaala_lava.py` tekee niemen, leveän joen ja
     järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (punamullatut seinät, luukut auki, bändi
@@ -602,6 +678,12 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     baarissa ja kotona motkotusta). Kalja tai kätköviina Santulle kerran päivässä: Santtu tekee yhden homman
     itse (puolittain). Kaikki hommat tehty: Santtu antaa 10 € palkkioksi, savukalaa ja pullon
     pontikkaa. Jokainen mökkipäivä päättyy Santun arvosteluun (1, 3 tai 5 tähteä), myös taksilla tai junalla lähtiessä (junalla tekstiviestinä), ja arvostelut näkyvät repussa.
+  - **Rönttönen (Kainuun rönttönen, `ronttonen_game.gd`):** mökin keittiössä piste "Leivo rönttösiä" (E). Kolme vaihetta hiirellä:
+    kaulinta (vedä kaulinta hiiri pohjassa pystyyn ja vaakaan, taikinasoikio kasvaa), täyte (4 keko perunamuusia, sitten 3 lusikallista
+    puolukkaa; muusi ensin) ja reunan nyppiminen (18 poimua klikkaamalla). Valmis rönttönen on avoin soikea: täyte näkyy ja reuna on
+    poimuinen. Erä on 3 rönttöstä (reppuun enintään 6). Kun ne viedään kotiin, Päivi kattaa kahvipöydän (3D: liina, kahvipannu, kupit ja
+    rönttöset lautasella) sille päivälle: mielihyvä +10 ja stressi alas (palkkio kerran päivässä, loput rönttöset säilyvät).
+    Humalassa kursori huojuu. Testi `--scene=ronttonen`.
   - **Santtu puuhastelee:** kannolla kahvikupin kanssa istumisen välillä Santtu kävelee pihan puuhapaikoille:
     halkoo ja sahaa puupaikalla, kantaa sylillisen halkoja saunan seinälle, heittää löylyvettä kiukaalle, koettaa
     paljun vettä, hoitaa savustinta, heittää tikkaa, onkii laiturin päässä (joskus nousee ahven), naputtelee

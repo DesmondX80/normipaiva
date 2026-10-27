@@ -11,6 +11,8 @@ Työ:
 1. Selvitä, mitä pyydetään. Hae pelin nykytila `docs/`-tiedostoista Grepillä (`docs/pelin-sisalto.md` on 700+ riviä: lue vain osuvat kohdat, älä koko tiedostoa).
 2. Jos pyyntö on visuaalinen, kirjaa esikuva: mitä esine/paikka oikeasti on. Jos et tiedä varmasti, kirjaa se avoimeksi kysymykseksi (CLAUDE.md: hae esikuva ennen mallinnusta).
 3. Kirjoita `01-suunnitelma.md` (enintään 60 riviä):
+   - **Mitä pelaaja näkee** (5 riviä tavallisella kielellä: mitä uutta ruudulla ja pelissä tapahtuu; käyttäjän pitää
+     ymmärtää suunnitelma ilman koodin tuntemusta)
    - **Tavoite** (1–3 lausetta)
    - **Hyväksymiskriteerit**: numeroitu lista, jokainen yksi tarkistettava väite (esim. "K3: kolmas haukku näyttää umpinaisen leikkauspinnan"). Sekstaaja testaa täsmälleen nämä.
    - **Rajaukset**: mitä EI tehdä

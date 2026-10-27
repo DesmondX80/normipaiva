@@ -49,6 +49,7 @@ Toimintojen vaikutukset tiloihin:
 | Syöminen T:llä: korvapuusti / lihapiirakka | nälkä +0,25 ja stressi + / nälkä +0,4 (ja stamina puolet nälän muutoksesta) |
 | Syöminen T:llä: suklaa / marjat (1 l) | nälkä +0,2, stressi +, moraali + / nälkä +0,15, vireys + |
 | Syöminen T:llä: savukala / savuriista / karrella | nälkä +0,5, stressi +, moraali + / nälkä +0,6, stressi +, moraali + / nälkä +0,25 |
+| Syöminen Gasthausissa (kalakeitto / kukkoleipä / talkkuna / rieska) | nälkä täyteen, stamina puolet nälän muutoksesta, stressi + ja moraali + (kevyempi talkkunalla ja rieskalla) |
 | Tappelu | stressi −, kipu −−, stamina −, moraali −, nälkä − |
 | Koiran purema / kettukarkin osuma | kipu −− / kipu − |
 | Haavan hoito (Pekka, Päivi) | kipu ++ |

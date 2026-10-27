@@ -34,6 +34,8 @@ var ukko_ready := false
 var catch: Array = []
 var snaps := 0            # Ukon katkaisemat siimat tällä kertaa
 var ukko_caught := false
+var stocked := false      # istutettu lampi (retki_lampi.gd): taimen ja kirjolohi, kala syö nopeasti, ei roskaa
+var surface_y := NAN      # veden pinta, jos vesi ei ole maastossa (taskukohtaus); NAN = maaston korkeus
 
 var _state := "idle"      # idle | charge | wait | retrieve | bite | reel | end
 var _t := 0.0
@@ -98,6 +100,8 @@ func _ready() -> void:
 	_build_ui()
 	if gear == "onki":
 		_say("%s rannalla, onki kädessä. Matoja %d. Pidä %s: heiton pituus, päästä: heitto." % [place, worms, Settings.action_key("interact")], 4.0)
+	elif stocked:
+		_say("%s rannalla, onki kädessä. Istutettu kala syö vikkelästi. Matoja %d. Pidä %s: heiton pituus, päästä: heitto." % [place, worms, Settings.action_key("interact")], 4.5)
 	elif lure == "ukko":
 		_say("Ukon kuparilusikka siiman päässä. Ilta-aurinko, Kaitasaaren kärki. Nyt tai ei koskaan.", 4.5)
 	else:
@@ -204,6 +208,8 @@ func _say(text: String, t := 2.5) -> void:
 
 
 func _surface(p: Vector3) -> float:
+	if not is_nan(surface_y):
+		return surface_y + 0.01
 	return T.h(p.x, p.z) + 0.01
 
 
@@ -300,7 +306,7 @@ func _cast() -> void:
 	Sfx.play("water", -8.0, 1.8)
 	if gear == "onki":
 		_state = "wait"
-		_bite_at = _t + randf_range(2.5, 9.0)
+		_bite_at = _t + (randf_range(0.8, 3.0) if stocked else randf_range(2.5, 9.0))
 		_fish = _pick_fish()
 	else:
 		_state = "retrieve"
@@ -357,6 +363,8 @@ func _bite() -> void:
 
 
 func _pick_fish() -> Dictionary:
+	if stocked:
+		return _pick_stocked()
 	if randf() < JUNK_CHANCE:
 		return {"junk": true, "power": 0.2}
 	var shore := Vector2(_bob.x - spot.x, _bob.z - spot.z).length()
@@ -378,6 +386,15 @@ func _pick_fish() -> Dictionary:
 			var kg: float = f.kg * randf_range(0.5, 1.4) * (0.8 if gear == "onki" else 1.1)
 			return {"nom": nom, "name": f.name, "kg": kg, "power": minf(POWER[nom] * clampf(kg / f.kg, 0.7, 1.3), 1.15)}
 	return {"junk": true, "power": 0.2}
+
+
+## Istutettu lampi: kirjolohi (tavallinen) tai taimen (harvinaisempi, väkevämpi).
+func _pick_stocked() -> Dictionary:
+	if randf() < 0.65:
+		var kg := 1.2 * randf_range(0.6, 1.4)
+		return {"nom": "kirjolohi", "name": "kirjolohen", "kg": kg, "power": 0.5}
+	var tkg := 1.8 * randf_range(0.6, 1.5)
+	return {"nom": "taimen", "name": "taimenen", "kg": tkg, "power": 0.75}
 
 
 func _hook() -> void:
@@ -617,7 +634,15 @@ func _show_fish(nom: String, kg: float) -> void:
 			back = Color(0.35, 0.3, 0.2)
 			belly = Color(0.7, 0.65, 0.5)
 			fin = Color(0.3, 0.25, 0.18)
-	var slim := 0.55 if nom in ["hauki", "ukko", "made"] else (1.0 if nom == "lahna" else 0.75)
+		"kirjolohi":  # harmaanvihreä selkä, hopeinen vatsa, punertava raita kyljessä ja mustat pilkut
+			back = Color(0.42, 0.5, 0.45)
+			belly = Color(0.92, 0.92, 0.9)
+			fin = Color(0.55, 0.55, 0.5)
+		"taimen":  # ruskea selkä, kellertävä vatsa, punaiset pilkut vaaleissa renkaissa
+			back = Color(0.4, 0.3, 0.16)
+			belly = Color(0.9, 0.8, 0.5)
+			fin = Color(0.55, 0.4, 0.2)
+	var slim := 0.55 if nom in ["hauki", "ukko", "made"] else (1.0 if nom == "lahna" else (0.65 if nom in ["kirjolohi", "taimen"] else 0.75))
 	# Pää alaspäin roikkuva kala: pituus pystyakselilla. Selkä ja vatsa kahtena puolipallona, pyrstö ja evät.
 	var body := B.mesh(_shown, B.sphere(0.5, 14), Vector3(0, -len * 0.5, 0), back)
 	body.scale = Vector3(0.22 * slim, 1.0, 0.36 * slim) * len
@@ -639,6 +664,26 @@ func _show_fish(nom: String, kg: float) -> void:
 			var a := k * 2.39
 			B.mesh(_shown, B.sphere(0.018 * len + 0.004, 6), Vector3(cos(a) * 0.105 * slim * len, -len * (0.2 + (k % 7) * 0.09),
 				-absf(sin(a)) * 0.17 * slim * len), Color(0.82, 0.8, 0.55))
+	if nom == "kirjolohi" or nom == "taimen":
+		# Kyljen kuviot ruumiin pintaan: sivu +X, korkeus pystyakselilla (ruumis on ellipsoidi pituus len).
+		var spots_n := 12 if nom == "kirjolohi" else 9
+		for k in spots_n:
+			var d := (float(k % 6) / 5.0 - 0.5) * 0.7  # paikka ruumiin pituudella (-0.35..0.35)
+			var f := sqrt(1.0 - 4.0 * d * d)
+			var a2 := 0.5 + (k / 6) * 0.5 + (k % 3) * 0.25  # kulma kyljen ja selän välillä
+			var sx := cos(a2) * 0.11 * slim * len * f
+			var sz := -sin(a2) * 0.18 * slim * len * f
+			var sp := Vector3(sx, -len * (0.5 + d), sz)
+			if nom == "kirjolohi":
+				B.mesh(_shown, B.sphere(0.012 * len + 0.003, 5), sp * 1.02, Color(0.1, 0.1, 0.12))
+			else:
+				B.mesh(_shown, B.sphere(0.014 * len + 0.004, 6), sp * 1.0, Color(0.95, 0.92, 0.7))
+				B.mesh(_shown, B.sphere(0.009 * len + 0.003, 6), sp * 1.06, Color(0.85, 0.12, 0.1))
+	if nom == "kirjolohi":  # punertava raita kyljessä: palasia ruumiin pintaa pitkin
+		for k in 7:
+			var d2 := (k / 6.0 - 0.5) * 0.6
+			var f2 := sqrt(1.0 - 4.0 * d2 * d2)
+			B.mesh(_shown, B.boxm(Vector3(0.012, 0.1, 0.06) * len), Vector3(0.11 * slim * len * f2 * 0.995, -len * (0.5 + d2), 0.0), Color(1.0, 0.5, 0.62))
 	if nom == "ukko":  # kyljessä vanhoja uistimia kuin mitaleita
 		for k in 3:
 			var u := B.mesh(_shown, B.sphere(0.03, 8), Vector3(0.1 * len * slim, -len * (0.4 + k * 0.12), -0.02), [Color(0.85, 0.86, 0.9), Color(0.9, 0.7, 0.2), Color(0.85, 0.48, 0.25)][k])

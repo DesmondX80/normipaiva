@@ -3035,6 +3035,8 @@ var station_t := 0.0  # laiturin kohta junan reitillä (train.nearest_t)
 var station_back := Vector3.ZERO  # odotussalin laiturin puoleisen oven edusta
 var station_board := Vector3.ZERO  # laiturilla junaan nousun kohta
 var cache_pos := Vector3.INF  # narkkarin rahakätkö radan varressa (odotussalin juopot kertovat paikan)
+var veturitalli_banner: Node3D = null
+var veturitalli_door := Vector3.ZERO
 var station_id: int = -1  # keskusta.asema.id: tämän rakennuksen paikalle asema (yleinen piirto ohittaa)
 
 
@@ -3115,6 +3117,8 @@ func _build_station() -> void:
 	var dout := Vector3(st.out[0], 0, st.out[1])
 	station_door = Vector3(dp.x, h(dp.x, dp.y), dp.y) + dout * 2.2
 	doors.append({"id": "asema", "pos": station_door, "out": dout, "hint": "asemalle (odotussali)"})
+	_build_veturitalli(c, along, -back, L, D)
+	_build_lossipysakki(c, along, -back, L, D)
 	station_back = root.transform * (sdoors.plat_door as Vector3)
 	# Laituri: betonilaatta reunaviivoineen, penkit ja valaisimet.
 	var ppts := PackedVector2Array()
@@ -3741,6 +3745,12 @@ func _build_kokko(c: Vector2, face: Vector2) -> void:
 
 
 ## Kokko näkyviin juhannuksena (pile) ja tuleen (lit).
+## Veturitallin elokuvapäivien banderolli näkyviin, kun Valentin Vaala -päivät ovat (main.gd _vvaala_paiva).
+func set_festari(on: bool) -> void:
+	if veturitalli_banner != null:
+		veturitalli_banner.visible = on
+
+
 func set_kokko(pile: bool, lit: bool) -> void:
 	if _kokko == null:
 		return
@@ -3897,7 +3907,6 @@ func race_track(length := 170.0) -> Array[Vector3]:
 func _gasthaus_front(obb: Dictionary, base: float, top: float) -> void:
 	var c: Vector2 = obb.center
 	var side := _gasthaus_side(obb)
-	var ax: Vector2 = obb.ax
 	var hy: float = (obb.size as Vector2).y / 2.0
 	var dq := c + side * (hy + 0.05)
 	var yaw := atan2(side.x, side.y)
@@ -3912,9 +3921,18 @@ func _gasthaus_front(obb: Dictionary, base: float, top: float) -> void:
 	plate.rotation.y = yaw
 	var price := B.sign_plate(self, "HUONEET 10 €", Color(0.95, 0.93, 0.86), Color(0.16, 0.24, 0.16), 0.24, 36,
 		Color(0.16, 0.24, 0.16), "Georgia")
-	var pq := dq + ax * 1.0 + side * 0.08
+	# Kyltit oven pieleen: ovilehden kehys on 1,2 m leveä (_door_mesh), joten levyn sisäreuna 0,12 m kehyksen ulkopuolelle.
+	# dx = oven paikallinen +X (Basis(UP, yaw).x); levyn keskipiste = 0,6 + 0,12 + leveys / 2.
+	var dx := Vector2(cos(yaw), -sin(yaw))
+	var pq := dq + dx * (0.72 + float(price.get_meta("width")) / 2.0) + side * 0.08
 	price.position = Vector3(pq.x, y + 1.6, pq.y)
 	price.rotation.y = yaw
+	# Ruokalista HUONEET-kyltin alla (teksti main.gd GASTHAUS_MENU:stä, hinnat samat)
+	var menu := B.sign_plate(self, "RUOKALISTA\nKalakeitto 9,50\nKukkoleipä 7,00\nTalkkuna 4,00\nRieska 3,50",
+		Color(0.95, 0.93, 0.86), Color(0.16, 0.24, 0.16), 0.2, 30, Color(0.16, 0.24, 0.16), "Georgia")
+	var mq := dq + dx * (0.72 + float(menu.get_meta("width")) / 2.0) + side * 0.08
+	menu.position = Vector3(mq.x, y + 0.75, mq.y)
+	menu.rotation.y = yaw
 	var out := Vector3(side.x, 0, side.y)
 	var front := Vector3(dq.x, h(dq.x, dq.y), dq.y) + out * 2.2
 	doors.append({"id": "gasthaus", "pos": front, "out": out, "hint": "Gasthausiin (huone yöksi 10 €)"})
@@ -4875,3 +4893,80 @@ func _build_mokki_yard() -> void:
 	mokki_mopo = to_vaala.call(MokkiScript.MOPO_LOCAL)
 	mokki_mopo_yaw = PI * 0.9 + rot
 
+
+
+## Vaalan Veturitalli (#250 P14): punatiilinen vaja aseman päädyssä tien puolella. Paikallinen +Z = vajan etupuoli (tielle),
+## ovi etuseinässä. Harjakaton molemmat lappeet lasketaan samasta kaltevuudesta. Valentin Vaala -päivinä ovella banderolli.
+## Manamansalon lossin mopopysäkki aseman toisessa päässä (P15): tolppa, iso kyltti ja ovi "lossi". Kyltti katsoo ulos (out2).
+func _build_lossipysakki(station_c: Vector2, along: Vector2, out2: Vector2, L: float, D: float) -> void:
+	var q := station_c - along.normalized() * (L / 2.0 + 9.0) + out2 * (D / 2.0 + 3.0)
+	var root := Node3D.new()
+	root.position = Vector3(q.x, h(q.x, q.y), q.y)
+	root.rotation.y = atan2(out2.x, out2.y)  # +Z = ulos (kyltin etupuoli)
+	add_child(root)
+	for sx in [-1.0, 1.0]:
+		B.mesh(root, B.boxm(Vector3(0.14, 2.6, 0.14)), Vector3(sx * 1.3, 1.3, 0), Color(0.3, 0.22, 0.14))
+	var plate := B.sign_plate(root, "MANAMANSALON LOSSI\nMopolla Alassalmelle\nVuoro 30 min välein", Color(0.15, 0.25, 0.45), Color(0.97, 0.95, 0.85), 0.5, 60,
+		Color(0.85, 0.85, 0.9))
+	plate.position = Vector3(0, 2.0, 0.12)
+	var dq := q + out2 * 2.4
+	doors.append({"id": "lossi", "pos": Vector3(dq.x, h(dq.x, dq.y), dq.y), "out": Vector3(out2.x, 0, out2.y), "hint": "Alassalmen lossille mopolla (4 €)",
+		"text": "Manamansalon lossi"})
+
+
+func _build_veturitalli(station_c: Vector2, along: Vector2, out2: Vector2, L: float, D: float) -> void:
+	# Ulos asti 6 m lisää: viereisen rakennuksen (n. 7 m syvä, tiedossa -3,3 m asti vajan keskeltä) ja räystään taakse jää tilaa.
+	var q := station_c + along.normalized() * (L / 2.0 + 11.0) + out2 * (D / 2.0 + 8.0)
+	var yaw := atan2(out2.x, out2.y)
+	var root := Node3D.new()
+	root.position = Vector3(q.x, h(q.x, q.y), q.y)
+	root.rotation.y = yaw
+	add_child(root)
+	var W := 12.0
+	var Dp := 8.0
+	var wall := 4.8
+	var brick := Color(0.55, 0.22, 0.16)
+	var body := B.box(root, Vector3(W, wall, Dp), Vector3(0, wall / 2.0, 0), brick)
+	body.name = "Veturitalli"
+	# Katto: kaltevuus a, lappeen pituus hw / cos(a); +Z-lappeen ja -Z-lappeen kallistus samasta a:sta.
+	var a := deg_to_rad(24.0)
+	var hw := Dp / 2.0 + 0.6
+	var slope := hw / cos(a)
+	for s in [1.0, -1.0]:
+		var r := B.mesh(root, B.boxm(Vector3(W + 1.0, 0.18, slope)), Vector3(0, wall + hw * tan(a) / 2.0 + 0.05, s * hw / 2.0),
+			Color(0.2, 0.2, 0.22))
+		r.rotation.x = a * s
+	# Suuri vetoovi etuseinässä (kaksi lehteä) ja ovi-ikkunat.
+	var front := Dp / 2.0 + 0.04
+	B.mesh(root, B.boxm(Vector3(3.6, 3.2, 0.08)), Vector3(0, 1.6, front), Color(0.28, 0.2, 0.14))
+	B.mesh(root, B.boxm(Vector3(0.1, 3.2, 0.1)), Vector3(0, 1.6, front + 0.05), Color(0.12, 0.1, 0.08))
+	for sx in [-4.2, 4.2]:
+		B.mesh(root, B.boxm(Vector3(1.5, 1.1, 0.08)), Vector3(sx, 2.2, front), Color(0.85, 0.8, 0.55))
+	var plate := B.sign_plate(root, "VAALAN VETURITALLI", Color(0.16, 0.12, 0.1), Color(0.97, 0.9, 0.7), 1.1, 150,
+		Color(0.8, 0.65, 0.3), "Georgia")
+	plate.position = Vector3(0, wall - 0.65, front + 0.1)
+	plate.rotation.x = deg_to_rad(-12.0)  # kallistus kameraan (pelikamera katsoo ylhäältä)
+	var banner := B.sign_plate(root, "VALENTIN VAALA -ELOKUVAPÄIVÄT\nEsityksiä klo 13-17", Color(0.95, 0.93, 0.86), Color(0.5, 0.1, 0.1), 0.5, 60,
+		Color(0.5, 0.1, 0.1), "Georgia")
+	# Banderolli seisoo kahden tolpan välissä vajan vieressä, jottei ovi peity.
+	var bw: float = banner.get_meta("width")
+	banner.position = Vector3(W / 2.0 + 1.0 + bw / 2.0, 2.4, front + 1.5)
+	for sx in [-1.0, 1.0]:
+		B.mesh(banner, B.boxm(Vector3(0.12, 2.4, 0.12)), Vector3(sx * (bw / 2.0 - 0.1), -1.2, 0), Color(0.3, 0.22, 0.14))
+	banner.visible = false
+	veturitalli_banner = banner
+	# Puut pois vajan edestä (kyltti ja ovi näkyvät pelikameralle 14 m päästä): piha vajasta 16 m ulospäin.
+	if not _tree_clear.is_empty():
+		var yard := PackedVector2Array()
+		for k in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+			var yq := root.transform * Vector3(k.x * (W / 2.0 + 3.0), 0, -Dp / 2.0 if k.y < 0 else Dp / 2.0 + 16.0)
+			yard.append(Vector2(yq.x, yq.z))
+		var keep := _drive
+		_drive = _tree_clear  # piirtoapurit kirjoittavat _driveen
+		_drive_poly(yard, 2.0)
+		_tree_clear = _drive
+		_drive = keep
+	var out := Vector3(out2.x, 0, out2.y)
+	var dq := q + out2 * (Dp / 2.0 + 2.2)
+	veturitalli_door = Vector3(dq.x, h(dq.x, dq.y), dq.y)
+	doors.append({"id": "veturitalli", "pos": veturitalli_door, "out": out, "hint": "Veturitalliin", "text": "Veturitalli: elokuvaesitys"})
