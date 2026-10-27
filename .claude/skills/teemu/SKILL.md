@@ -124,10 +124,12 @@ huomautukset keskustelussa. Ne ovat tärkein lähde: jokainen kohta, josta käyt
 2. Parannusehdotukset: jokaisesta virheestä konkreettinen muutos ohjeeseen: tiedosto (`.claude/agents/<rooli>.md`,
    tämä skill tai `CLAUDE.md`) ja lisättävä tai muutettava sääntö. Mieti koko ketju: missä vaiheessa vika syntyi ja
    missä se olisi pitänyt huomata. Korjaa kaikki ne kohdat, ei vain sitä, josta vika löytyi.
-3. **Potkut** (lisäys kohtiin 1–2, ei niiden korvaaja: keskustelut ja parannusehdotukset tehdään aina). Arvioi
-   lisäksi jokainen rooli ja Teemu itse: jos rooli on toistanut saman virhetyypin (esim. raportoinut valmiiksi
-   katsomatta kuvaa, ajanut samaa testiä ilman edistystä, rikkonut ohjetta) tai sen työ on jouduttu tekemään uudelleen,
-   ehdota sille parannusehdotusten lisäksi potkuja. Potkut tarkoittavat jotain näistä, ja käyttäjä päättää:
+3. Kirjaa keskustelut ja ehdotukset `.claude/tyo/<slug>/05-kehityskeskustelut.md`:hen ja näytä ne käyttäjälle.
+   Kysy, mitkä ehdotukset otetaan käyttöön (AskUserQuestion, monivalinta), ja tee hyväksytyt muutokset ohjeisiin.
+   Älä muuta ohjeita ilman käyttäjän hyväksyntää.
+4. **Potkut** (lisäys kohtiin 1–3, ei minkään korvaaja). Arvioi lisäksi jokainen rooli ja Teemu itse: jos rooli on
+   toistanut saman virhetyypin (esim. raportoinut valmiiksi katsomatta kuvaa, ajanut samaa testiä ilman edistystä,
+   rikkonut ohjetta) tai sen työ on jouduttu tekemään uudelleen, ehdota sille parannusehdotusten lisäksi potkuja. Potkut tarkoittavat jotain näistä, ja käyttäjä päättää:
    - **Uusi tekijä:** roolin ohje (`.claude/agents/<rooli>.md`) käydään läpi ja sitä tiukennetaan; olemassa olevat
      säännöt pysyvät, ellei käyttäjä erikseen hyväksy jonkin poistamista.
    - **Parempi tekijä:** roolin malli vaihdetaan (esim. Sonnet -> Opus) tai työ annetaan toiselle roolille.
@@ -137,6 +139,5 @@ huomautukset keskustelussa. Ne ovat tärkein lähde: jokainen kohta, josta käyt
    joutunut huomauttamaan), ehdota muutosta tähän skilliin samalla tavalla.
    Potkut koskevat roolin sääntöjä, eivät sen hahmoa: roolin nimi, kuvaus (`description`) ja hahmokuvaus pysyvät
    ennallaan.
-4. Kirjaa keskustelut, ehdotukset ja potkuehdotukset `.claude/tyo/<slug>/05-kehityskeskustelut.md`:hen ja näytä ne
-   käyttäjälle. Kysy, mitkä otetaan käyttöön (AskUserQuestion, monivalinta), ja tee hyväksytyt muutokset ohjeisiin.
-   Älä muuta ohjeita ilman käyttäjän hyväksyntää.
+   Kirjaa potkuehdotukset samaan `05-kehityskeskustelut.md`:hen ja kysy ne samassa kysymyksessä kuin kohdan 3
+   ehdotukset. Mitään ei toteuteta ilman käyttäjän hyväksyntää.
