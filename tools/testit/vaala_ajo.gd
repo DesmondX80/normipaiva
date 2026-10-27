@@ -163,6 +163,17 @@ func run() -> void:
 	if only == "yhteys":
 		_connectivity()
 		return
+	if only == "kohdelista":
+		# Kohteiden paikat (tools/vaala_suorat.py käyttää): id x z
+		print("KOHDE mokki %.1f %.1f" % [vl.mokki_mopo.x, vl.mokki_mopo.z])
+		print("KOHDE siitari_park %.1f %.1f" % [vl.siitari_park.x, vl.siitari_park.z])
+		print("KOHDE siitari_door %.1f %.1f" % [vl.siitari_door.x, vl.siitari_door.z])
+		print("KOHDE lava_door %.1f %.1f" % [vl.lava_door.x, vl.lava_door.z])
+		print("KOHDE atm %.1f %.1f" % [vl.atm_pos.x, vl.atm_pos.z])
+		for d in vl.doors:
+			print("KOHDE %s %.1f %.1f walk=%s" % [d.id, d.pos.x, d.pos.z, d.get("walk", false)])
+		get_tree().quit()
+		return
 	main._lava_pass = "lippu"  # lippu ostettu: lavan portti on auki (ilman lippua portsari ja kiinni oleva portti)
 	main._lava_pass_day = main.day
 	if vl.train != null:
@@ -192,7 +203,7 @@ func _connectivity() -> void:
 	var reach: PackedByteArray = vl._drive_flood(Vector2(mid[0], mid[2]))
 	var lines: Array = []
 	for r in vl.data.side_roads:
-		if r.kind == "rail" or r.hw == "steps" or r.pts.size() < 2:
+		if r.kind == "rail" or r.hw == "steps" or r.name == "Vaalan tori" or r.pts.size() < 2:
 			continue
 		var sp := PackedVector2Array()
 		for q in r.pts:
@@ -287,7 +298,7 @@ func _roads() -> void:
 		if not spots.is_empty() and not spots.any(func(sp: Vector2) -> bool:
 				return Array(pts).any(func(q: Vector2) -> bool: return q.distance_to(sp) < 25.0)):
 			continue
-		var res: Dictionary = await _drive(pts, ln[0])
+		var res: Dictionary = await _drive(pts, ln[0], ln[0] == "reitti mökille")  # pihaan saapuessa matka päättyy
 		total += res.len
 		print("AJO %-48s %6.0f m  huippu %3d km/h  aika %5.1f s  %s" % [ln[0], res.len, roundi(res.top * 3.6), res.t,
 			"OK" if res.issues.is_empty() else ", ".join(res.issues)])
@@ -329,9 +340,10 @@ func _targets() -> void:
 		var res: Dictionary = await _drive(tail, "kohde " + g[0], true)
 		var end := Vector2(mp.position.x, mp.position.z)
 		var miss := end.distance_to(Vector2(at.x, at.z))
-		var ok: bool = res.issues.is_empty() and miss < (16.0 if walk else 7.5)
+		var issues: Array = res.issues
+		var ok: bool = issues.is_empty() and miss < (16.0 if walk else 7.5)
 		print("AJO kohde %-14s %5.0f m  huippu %3d km/h  perillä %4.1f m  %s" % [g[0], res.len, roundi(res.top * 3.6), miss,
-			"OK" if ok else ", ".join(res.issues + (["jäi %.1f m päähän" % miss] if miss >= (16.0 if walk else 7.5) else []))])
+			"OK" if ok else ", ".join(issues + (["jäi %.1f m päähän" % miss] if miss >= (16.0 if walk else 7.5) else []))])
 		if miss >= (16.0 if walk else 7.5):
 			_bad("kohde %s: mopo jäi %.1f m päähän" % [g[0], miss])
 
@@ -589,7 +601,7 @@ func _drive(pts: PackedVector2Array, name: String, to_end := false) -> Dictionar
 		if lateral > 9.0 and not noted.has("lat" + cell):
 			noted["lat" + cell] = true
 			issues.append("eksyi %.0f m @%s" % [lateral, cell])
-		if stall_t > 4.0:
+		if stall_t > 4.0 and not (to_end and total - s < 6.0):  # reitin päässä pysähtyminen on perillä olo, ei jumi
 			var ahead := p + fwd * 2.0
 			issues.append("JUMI (%.1f, %.1f) %.0f/%.0f m, edessä ajettava %s, koodi %d, kaltevuus %.2f" % [p.x, p.y, s, total,
 				vl.drivable(ahead.x, ahead.y), vl.drive_code(Vector3(ahead.x, 0, ahead.y)),

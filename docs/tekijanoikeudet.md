@@ -27,5 +27,8 @@
   Karaokeversion soittoraita (`assets/music/normipaiva_lyhyt.mp3`: lyhennetty ja ristiinhäivytetty
   `normipaiva_soitto.mp3`, laulu erotettu Demucsilla) ja ajoitetut sanat (`assets/music/normipaiva_sanat_lyhyt.json`,
   kohdistettu wav2vec2:lla) ovat samasta tunnarista.
+- Puheäänet (`assets/aanet/`): syntetisoitu Macin `say`-äänillä (Satu = Päivi, Eddy = kaikki muut hahmot) ja
+  jälkikäsitelty `ffmpeg`:llä (`tools/aanet/syntetisoi.sh`). **Tarkistettava ennen julkaisua:** Applen lisenssi ei
+  välttämättä salli äänten jakelua pelin mukana; tarvittaessa äänet tehdään uudelleen vapaalla puhesyntetisaattorilla.
 - Hahmot ja animaatiot: [Quaternius](https://quaternius.com) — Universal Base Characters ja
   Universal Animation Library, **CC0** (lisenssit kansiossa `assets/characters/`).

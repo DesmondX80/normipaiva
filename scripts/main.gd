@@ -19373,6 +19373,7 @@ func _update_hud() -> void:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
 	_minimap.visible = not (state in ["in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki", "lava", "mopokisa", "rakaleima", "cutscene"])
 	_minimap.vaala_on = _in_vaala and mopo_trip != null
+	preload("res://scripts/bubble.gd").far_limit = 30.0 if _minimap.vaala_on else 0.0
 	if _minimap.vaala_on:
 		_minimap.vaala = mopo_trip.vaala
 		_minimap.vaala_mopo = mopo_trip.mopo
@@ -22369,7 +22370,7 @@ func _maybe_screenshot() -> void:
 			mp.position = vl.road_pos(si) + Vector3(0, 0.6, 0) + d.cross(Vector3.UP) * 1.6
 			mp.rotation.y = atan2(-d.x, -d.z)
 			mp.activate_camera()
-			# Reitti: ympyrän länsilaita, Ratatie ympyrästä eteenpäin pätkä pätkältä ja aseman ajotie ovelle.
+			# Reitti: ympyrän länsilaita ja aseman ajotie (Aseman piha) ympyrästä ovelle.
 			var goals: Array = [rc + (vl.road_pos(si) - rc).normalized() * 9.0]
 			var chain: Array = []
 			var at2 := Vector2(rc.x, rc.z)
@@ -22405,7 +22406,7 @@ func _maybe_screenshot() -> void:
 					for k in chain.size():
 						if Vector2(chain[k][0], chain[k][1]).distance_to(acc_start) < Vector2(chain[kmin][0], chain[kmin][1]).distance_to(acc_start):
 							kmin = k
-					for k in range(0, kmin + 1, 2):
+					for k in range(0, kmin + 1, 2) if not chain.is_empty() else []:  # Ratatie poistui suorien teiden myötä
 						goals.append(Vector3(chain[k][0], 0, chain[k][1]))
 					for q in r.pts:
 						goals.append(Vector3(q[0], 0, q[1]))

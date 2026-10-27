@@ -1028,10 +1028,12 @@ func _draw_vaala_map() -> void:
 				for i in pts.size() - 1:
 					v.draw_dashed_line(pts[i], pts[i + 1], INK.lightened(0.2), 1.2, 4.0)
 		elif r.hw in ["secondary", "tertiary", "residential"] or r.surface in ["asphalt", "paved"]:
-			v.draw_polyline(pts, INK.lightened(0.15), wz.call(3.0, 1.6, 7.0))
-			v.draw_polyline(pts, Color(0.97, 0.95, 0.88), wz.call(3.0, 1.6, 7.0) - 1.4)
+			# Suorat tiet kohteisiin: selvä reunus ja täyttö jo kaukozoomissa (ohut viiva näytti katkoviivalta).
+			v.draw_polyline(pts, INK.lightened(0.15), wz.call(3.0, 4.0, 8.0))
+			v.draw_polyline(pts, Color(0.97, 0.95, 0.88), wz.call(3.0, 4.0, 8.0) - 1.8)
 		else:
-			v.draw_polyline(pts, Color(0.62, 0.52, 0.36), wz.call(2.2, 1.4, 5.0))
+			v.draw_polyline(pts, INK.lightened(0.15), wz.call(2.2, 3.6, 7.0))
+			v.draw_polyline(pts, Color(0.78, 0.64, 0.42), wz.call(2.2, 3.6, 7.0) - 1.6)
 	for br in _vd.branches:
 		var pts := PackedVector2Array()
 		for q in br.pts:
@@ -1091,7 +1093,7 @@ func _draw_vaala_map() -> void:
 		var i: int = clampi(sg.i + 8, 1, road.size() - 2)
 		_road_label(v, line[i - 1], line[i + 1], sg.text, Color(0.35, 0.18, 0.08), 12, -8.0 - w / 2.0)
 	for r in _vd.side_roads:
-		if r.name == "" or r.pts.size() < 3 or (_vzoom < 0.9 and r.name != "Pahalahdentie"):
+		if r.name == "" or r.pts.size() < 2 or (_vzoom < 0.9 and not r.name in ["Pahalahdentie", "Satamantie", "Sahanrannantie"]):
 			continue
 		var k: int = r.pts.size() / 2
 		_road_label(v, _vpx(Vector2(r.pts[k - 1][0], r.pts[k - 1][1])), _vpx(Vector2(r.pts[k][0], r.pts[k][1])), r.name,

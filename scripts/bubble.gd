@@ -7,12 +7,27 @@ extends Label3D
 const LINE_PX := 46.0  # yhden rivin korkeus ruudulla (BUBBLE_FONT * BUBBLE_PIXEL * ruudun skaala)
 const MARGIN := 10.0
 
+## Kuplan näkyvyysraja kamerasta (m); 0 = ei rajaa. main.gd asettaa Vaalan matkan ajaksi: kaukaiset kuplat (kiinteä koko,
+## ei syvyystestiä) eivät saa leijua tyhjän maiseman päällä.
+static var far_limit := 0.0
+
 var rest := Vector3.ZERO  # kuplan paikka hahmon kehyksessä ilman siirtoa
 var guard := true
+var voice := ""  # puhujan ääni ("paivi"); tyhjä = tekstin "Nimi: " -etuliite tai muu ääni
+var _culled := false
+var _spoken := ""
 var _wrap_chars := 17.0  # merkkiä riville (leveys 520 px, fontti 40)
 
 
 func _process(_delta: float) -> void:
+	if text != _spoken:
+		_spoken = text
+		if text != "":
+			Sfx.speak(voice if voice != "" else "muu", text)
+	if far_limit > 0.0 or _culled:
+		var vc := get_viewport().get_camera_3d()
+		_culled = far_limit > 0.0 and vc != null and vc.global_position.distance_to(global_position) > far_limit
+		visible = not _culled
 	if not guard or text == "":
 		return
 	position = rest
