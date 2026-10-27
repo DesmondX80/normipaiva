@@ -13,6 +13,8 @@ const HAIR_DIR := "res://assets/characters/hair/"
 const SHADER := "res://shaders/character.gdshader"
 const REST_HEIGHT := 1.8
 const DEFAULT_MUSCLE := -0.85  # pohjamalli on superhero: tavallisilla ihmisillä lihakset pienemmiksi
+const Elastic := preload("res://scripts/elastic.gd")
+const PRESS_MAX := 6  # kontaktilaatikoita enintään (varjostimen press_xf0..5)
 
 static var _lib: AnimationLibrary
 static var _meshes := {}
@@ -23,6 +25,9 @@ var model: Node3D
 var body_mat: ShaderMaterial
 var born_frame := 0  # setup-kutsun ruutu: paistaminen onnistuu vasta myöhemmin (Contact.profile)
 var profile_key := ""  # kontaktimallin välimuistiavain (malli, pituus, vartalo), Contact.profile
+var body_mi: MeshInstance3D  # vartalon verkko (kontaktien painuma)
+var body_shape := {}  # belly, bulk, bust (Elastic.sink)
+var press_boxes: Array = []  # [[Transform3D verkko -> laatikko, puolikoko], ...] verkon avaruudessa (Elastic.press)
 
 var _overrides := {}  # luu -> [akseli hahmon avaruudessa, kulma]
 var _ik := {}  # nimi -> [luu a, luu b, luu c, kohde, polvi/kyynärpää-suunta, loppuluun lisäkierto] (hahmon avaruudessa)
@@ -52,6 +57,7 @@ func setup(look: Dictionary) -> void:
 	var shape := {"belly": float(look.get("belly", 0.0)), "bulk": float(look.get("bulk", 0.0)),
 		"shoulders": float(look.get("shoulders", 0.0)), "muscle": float(look.get("muscle", DEFAULT_MUSCLE)),
 		"curves": float(look.get("curves", 0.0)), "bust": float(look.get("bust", 0.0))}
+	body_shape = shape
 	body.mesh = _clothed_mesh(kind, body.mesh, body.skin, skeleton, bool(look.get("stripes", false)), shape)
 	body_mat = ShaderMaterial.new()
 	body_mat.shader = load(SHADER)
@@ -81,6 +87,8 @@ func setup(look: Dictionary) -> void:
 		body_mat.set_shader_parameter("shirt_puff", 0.034)
 		body_mat.set_shader_parameter("pants_puff", 0.038)
 	body.material_override = body_mat
+	body_mi = body
+	press_boxes.clear()
 
 	var hair_color: Color = look.get("hair_color", Color(0.25, 0.18, 0.12))
 	for mi in skeleton.get_children():
@@ -181,6 +189,40 @@ func set_ik_orient(chain: String, orient: Basis, w: float) -> void:
 
 func clear_ik() -> void:
 	_ik.clear()
+	clear_contacts()
+
+
+## Kontaktilaatikot painumaa varten: [[Transform3D maailmassa, puolikoko Vector3], ...] (enintään PRESS_MAX), laatikon
+## paikallinen +Y on aktiivinen pinta, jota vasten pehmeät osat painuvat (Elastic, varjostin vertex()). Muunnetaan
+## vartalon verkon avaruuteen kerran; ei ruutukohtaista työtä. Kutsu asennon valmistuttua (Pose.sit viimeisenä).
+func set_contacts(world_boxes: Array) -> void:
+	press_boxes.clear()
+	if body_mi == null:
+		return
+	var inv := body_mi.global_transform.affine_inverse()
+	for wb in world_boxes:
+		if press_boxes.size() >= PRESS_MAX:
+			break
+		var xf: Transform3D = inv * (wb[0] as Transform3D)
+		var sc := xf.basis.x.length()
+		var local := Transform3D(xf.basis.orthonormalized(), xf.origin)
+		press_boxes.append([local.affine_inverse(), (wb[1] as Vector3) * sc])
+	_upload_contacts()
+
+
+## Poistaa painumat (hahmo nousee tai vaihtaa asentoa): lepoverkko takaisin.
+func clear_contacts() -> void:
+	if press_boxes.is_empty():
+		return
+	press_boxes.clear()
+	_upload_contacts()
+
+
+func _upload_contacts() -> void:
+	body_mat.set_shader_parameter("press_n", press_boxes.size())
+	for i in press_boxes.size():
+		body_mat.set_shader_parameter("press_xf%d" % i, Projection(press_boxes[i][0]))
+		body_mat.set_shader_parameter("press_h%d" % i, press_boxes[i][1])
 
 
 ## Luun paikka tämän solmun avaruudessa.
@@ -407,6 +449,8 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 		var per := bones.size() / verts.size()
 		var cols := PackedColorArray()
 		cols.resize(verts.size())
+		var vbone := PackedStringArray()
+		vbone.resize(verts.size())
 		for v in verts.size():
 			var best := 0
 			for k in per:
@@ -416,6 +460,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 			var bone := str(skin.get_bind_name(bind))
 			if bone == "":
 				bone = skel.get_bone_name(skin.get_bind_bone(bind))
+			vbone[v] = bone
 			var cat := _category(bone)
 			if cat == 2 and shape.get("belly", 0.0) > 0.0 and verts[v].y > 0.88:
 				# Maha roikkuu vyön yli: pullistuva osa on paitaa, ei housuja.
@@ -443,12 +488,21 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 			_chest_weights(arr, skin, skel, per)
 		# CUSTOM0 = lepoasennon syvyys z ja normaalin y ja z (UV2:n ja värin A:n lisäksi): lappubikinit lasketaan
 		# vartalon pinnalla (kulma vartalon ympäri, pinnan suunta), ks. character.gdshader bikini_sd.
+		var joints := {}
+		for i in skin.get_bind_count():
+			var jn := str(skin.get_bind_name(i))
+			if jn == "":
+				jn = skel.get_bone_name(skin.get_bind_bone(i))
+			joints[jn] = skin.get_bind_pose(i).affine_inverse().origin
 		var rest3 := PackedFloat32Array()
 		rest3.resize(verts.size() * 4)
 		for v in verts.size():
 			rest3[v * 4] = verts[v].z
 			rest3[v * 4 + 1] = norms[v].y
 			rest3[v * 4 + 2] = norms[v].z
+			# w = painumaraja (Elastic): pehmeä osa painuu kontaktissa korkeintaan tämän verran, luinen ei lainkaan.
+			rest3[v * 4 + 3] = Elastic.limit(vbone[v], verts[v], norms[v], shape, joints,
+				_bust(verts[v], shape.get("bust", 0.0)).weight if kind == "female" else 0.0)
 		if shaped:
 			_reshape(arr, shape)
 		for c in [Mesh.ARRAY_CUSTOM1, Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3]:
@@ -506,13 +560,14 @@ static func _chest_weights(arr: Array, skin: Skin, skel: Skeleton3D, per: int) -
 ## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
 ## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
 const MESH_CACHE := "user://hahmot"
-const CACHE_VERSION := 9
+const CACHE_VERSION := 11
 static var _cache_tag := ""
 
 
 static func _cache_path(key: String) -> String:
 	if _cache_tag == "":
 		var src := FileAccess.get_file_as_string("res://scripts/character.gd")
+		src += FileAccess.get_file_as_string("res://scripts/elastic.gd")  # rajat tulevat sieltä
 		_cache_tag = "v%d_%x" % [CACHE_VERSION, src.hash() & 0xffffffff]
 		# Vanhan version tiedostot pois.
 		if DirAccess.dir_exists_absolute(MESH_CACHE):

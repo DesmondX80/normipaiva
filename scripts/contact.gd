@@ -4,6 +4,7 @@
 ## Kaikki laskenta on maailman avaruudessa. Ei lataa pose.gd:tä (silmukka): limb_points annetaan profile-kutsulle.
 
 const Seat := preload("res://scripts/seat.gd")
+const Elastic := preload("res://scripts/elastic.gd")
 
 ## Kapselit: [luu a, luu b, avain]; kapseli kulkee luun a paikasta luun b paikkaan, säde luetaan verkosta.
 const TORSO := [["pelvis", "spine_01"], ["spine_01", "spine_02"], ["spine_02", "spine_03"], ["spine_03", "neck_01"]]
@@ -262,6 +263,20 @@ static func place_foot(ch: Node3D, node: Node3D, prof: Dictionary, lr: String, x
 	var solids := world_solids(node)
 	var heel: Vector3 = xz - front * float(ft.heel)
 	var toe: Vector3 = xz + front * float(ft.toe)
+	if lift == 0.0 and _span(solids, heel, toe, ref_y) > 0.01:
+		# Liu'utus: jalkaterä on askelman reunan yli -> siirretään lähimpään kohtaan, jossa koko pohja on samalla tasolla
+		var done := false
+		for k in range(1, 9):
+			for sg in [-1.0, 1.0]:
+				var sh: Vector3 = front * (0.02 * k * sg)
+				if _span(solids, heel + sh, toe + sh, ref_y) <= 0.005:
+					xz += sh
+					heel += sh
+					toe += sh
+					done = true
+					break
+			if done:
+				break
 	var sup := -INF
 	for p in [heel, xz, toe]:
 		sup = maxf(sup, support_y(solids, p.x, p.z, ref_y))
@@ -281,6 +296,82 @@ static func place_foot(ch: Node3D, node: Node3D, prof: Dictionary, lr: String, x
 	var rc: Basis = gb.inverse() * want
 	ch.set_ik_orient("leg" + lr, rc * foot_basis(ch, lr, true), 1.0)
 	return sup
+
+
+## Tuen korkeuden vaihtelu kantapään ja kärjen välillä (m); kohdat ilman tukea ohitetaan.
+static func _span(solids: Array, a: Vector3, b: Vector3, ref_y: float) -> float:
+	var lo := INF
+	var hi := -INF
+	for k in 5:
+		var p := a.lerp(b, k / 4.0)
+		var y := support_y(solids, p.x, p.z, ref_y)
+		if y != -INF:
+			lo = minf(lo, y)
+			hi = maxf(hi, y)
+	return hi - lo if hi > -INF else 0.0
+
+
+## Jalat pois kalusteen sisältä (pöytä): reiden ja säären kapselin pisteet istuinta ylemmäs nousevien kappaleiden
+## sisältä. Työntää jalkojen kohteita kappaleen pinnan normaalia pitkin vaakasuunnassa. Palauttaa suurimman
+## tunkeuman ennen korjausta (m).
+static func clear_legs(ch: Node3D, node: Node3D, prof: Dictionary, seat_y: float) -> float:
+	var solids := world_solids(node)
+	var worst := 0.0
+	var inv := ch.global_transform.affine_inverse()
+	for lr: String in ["_l", "_r"]:
+		if not ch._ik.has("leg" + lr):
+			continue
+		var push := Vector3.ZERO
+		var pen_max := 0.0
+		for c in _caps_world(ch, prof, ["thigh" + lr, "calf" + lr]):
+			for k in 6:
+				var p: Vector3 = (c[0] as Vector3).lerp(c[1], k / 5.0)
+				if p.y < seat_y + 0.03:
+					continue
+				for s in solids:
+					if _top_y(s) < seat_y + 0.03:
+						continue
+					var dp := depth(s, p)
+					var dd := dp + (c[2] as float)
+					if dp > 0.0 and dd > pen_max:
+						pen_max = dd
+						var q: Vector3 = (s[0] as Transform3D).affine_inverse() * p
+						var h: Vector3 = (s[2] as Vector3) * 0.5
+						var ax := 0
+						var bst := INF
+						for a in 3:
+							var m: float = h[a] - absf(q[a])
+							if m < bst:
+								bst = m
+								ax = a
+						var nl := Vector3.ZERO
+						nl[ax] = signf(q[ax])
+						var nw: Vector3 = ((s[0] as Transform3D).basis * nl).normalized()
+						push = Vector3(nw.x, 0, nw.z)
+		worst = maxf(worst, pen_max)
+		if pen_max > 0.003 and push.length() > 0.1:
+			var e: Array = ch._ik["leg" + lr]
+			e[3] = (e[3] as Vector3) + inv.basis * (push.normalized() * (pen_max + 0.003))
+	ch.refresh_pose()
+	return worst
+
+
+## Päähän kiinnitettyjen esineiden (hattu, lasit) verkon pisteet maailman avaruudessa.
+static func head_extras(ch: Node3D) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	for ba in ch.skeleton.get_children():
+		if not ba is BoneAttachment3D or (ba as BoneAttachment3D).bone_name != "Head":
+			continue
+		for mi in ba.find_children("*", "MeshInstance3D", true, false):
+			var m := (mi as MeshInstance3D).mesh
+			if m == null:
+				continue
+			var xf := (mi as MeshInstance3D).global_transform
+			var arr := m.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array
+			var step := maxi(1, arr.size() / 80)
+			for i in range(0, arr.size(), step):
+				out.append(xf * arr[i])
+	return out
 
 
 ## Käsivarret pois jalkojen kapseleista: kyynärvarren ja käden pisteet työnnetään reiden ja sääriluun kapselin
@@ -314,3 +405,214 @@ static func clear_arms(ch: Node3D, prof: Dictionary) -> float:
 			e[3] = (e[3] as Vector3) + inv.basis * (push + push.normalized() * 0.003)
 	ch.refresh_pose()
 	return worst
+
+
+# --- Mitattu sovitus (paistettu verkko, ei headlessissa) ----------------------------------------------------------
+
+## Hahmon pisteet luiden bones maailman avaruudessa (limb_points = Pose.limb_points). Tyhjä headlessissa.
+static func world_points(ch: Node3D, limb_points: Callable, bones: Array) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	for q in limb_points.call(ch, ch, bones) as PackedVector3Array:
+		out.append(ch.to_global(q))
+	return out
+
+
+## Lantio istuimelle: lantion ja reisien pisteistä, jotka ovat istuimen kohdalla, syvin tunkeuma = Elastic.sink("pakara"),
+## eli pakara painuu istuinta vasten sallitun painuman verran eikä ole ilmassa. Siirtää hahmoa pystysuunnassa; palauttaa
+## siirron (m, + ylös), 0 jos mitattavaa ei ole (headless) tai istuinta ei löydy pisteiden alta.
+static func settle_seat(ch: Node3D, node: Node3D, seat_y: float, limb_points: Callable) -> float:
+	var pts := world_points(ch, limb_points, ["pelvis", "thigh_l", "thigh_r"])
+	var solids := world_solids(node)
+	var worst := -INF
+	for p in pts:
+		var sy := support_y(solids, p.x, p.z, p.y + 0.06)
+		if sy == -INF or absf(sy - seat_y) > 0.03:
+			continue  # selkänoja, pyyhe ja ilma eivät ole istuin
+		worst = maxf(worst, sy - p.y)
+	if worst == -INF:
+		return 0.0
+	var dy := worst - Elastic.sink("pakara", ch.body_shape)
+	_shift(ch, Vector3(0, dy, 0))
+	ch.refresh_pose()
+	return dy
+
+
+## Selkä selkänojaan mitatusta verkosta: (1) lantion ja alaselän (pelvis, spine_01) takimmainen piste selkänojan pinnalle
+## sisään Elastic.sink("pakara"), (2) yläselän (spine_02, spine_03) rako selkänojaan 0...sink("selka") kallistamalla
+## selkärankaa lisää (tai vähemmän) samasta akselista, jolla Pose.sit kallisti sen. Kierros kerrallaan, koska
+## kallistus siirtää yläselkää ja siirto lantiota. Palauttaa [kallistuksen lisäys (rad), yläselän rako (m), lantion rako (m)].
+static func fit_back(ch: Node3D, node: Node3D, limb_points: Callable, tilt: float) -> Array:
+	var d := Seat.of(node)
+	var bp: Vector3 = node.to_global(d.back.p)
+	var bn: Vector3 = (node.global_transform.basis * (d.back.n as Vector3)).normalized()
+	var nh := Vector3(bn.x, 0, bn.z)
+	var lo_t: float = -Elastic.sink("pakara", ch.body_shape)
+	var up_t: float = -Elastic.sink("selka", ch.body_shape)
+	var gl := 0.0
+	var gu := 0.0
+	var lean := tilt
+	var moved := false
+	var neck_x: float = (ch._overrides["neck_01"][1] + tilt * 0.85) if ch._overrides.has("neck_01") else 0.0
+	for rd in 8:
+		ch.refresh_pose()
+		gl = INF
+		gu = INF
+		for p in world_points(ch, limb_points, ["pelvis", "spine_01"]):
+			gl = minf(gl, (p - bp).dot(bn))
+		for p in world_points(ch, limb_points, ["spine_02", "spine_03"]):
+			gu = minf(gu, (p - bp).dot(bn))
+		if gl == INF or gu == INF:
+			return [0.0, 0.0, 0.0, false]
+		var done := true
+		if absf(gl - lo_t) > 0.003 and nh.length() > 0.2:
+			_shift(ch, -nh * (gl - lo_t) / nh.length_squared())
+			done = false
+			moved = true
+		if absf(gu - gl - (up_t - lo_t)) > 0.004:
+			# Yläselän rako lantioon verrattuna: kallista (rako kasvaa -> lisää taakse), kiertokeskiö lantiolla ~0,4 m alempana
+			lean += atan2(gu - gl - (up_t - lo_t), 0.4)
+			lean = clampf(lean, tilt - 0.6, tilt + 1.0)
+			lean_spine(ch, lean)
+			ch.set_override("neck_01", Vector3.RIGHT, -lean * 0.85 + neck_x)
+			done = false
+			moved = true
+		# Pää: kaula kääntää päätä eteen, kunnes pää ja hiukset eivät mene selkänojan sisään (selkänojan yli ei ylitetä)
+		var gh := INF
+		for p in world_points(ch, limb_points, ["Head", "neck_01"]):
+			gh = minf(gh, (p - bp).dot(bn))
+		for p in head_extras(ch):  # hattu ja muut päähän kiinnitetyt esineet
+			gh = minf(gh, (p - bp).dot(bn))
+		if gh < INF and gh < -0.002 and neck_x > -0.8:
+			neck_x -= minf(-gh / 0.25, 0.3)
+			ch.set_override("neck_01", Vector3.RIGHT, -lean * 0.85 + neck_x)
+			done = false
+			moved = true
+		if done:
+			break
+	ch.refresh_pose()
+	return [lean - tilt, gu, gl, moved]
+
+
+# --- Painuman kontaktilaatikot ------------------------------------------------------------------------------------
+
+## Laatikkokappaleen kehys, jonka +Y on pinta suuntaan dir (kappaleen akseli, joka on lähinnä dir:iä): [Transform3D, puolikoko].
+static func face_box(s: Array, dir: Vector3) -> Array:
+	var xf: Transform3D = s[0]
+	var sz: Vector3 = s[2]
+	var ya := 0
+	var bd := 0.0
+	for ax in 3:
+		var dd: float = xf.basis[ax].normalized().dot(dir)
+		if absf(dd) > absf(bd):
+			ya = ax
+			bd = dd
+	var xa := (ya + 1) % 3
+	var za := (ya + 2) % 3
+	var x: Vector3 = xf.basis[xa].normalized()
+	var y: Vector3 = xf.basis[ya].normalized() * signf(bd)
+	var half := Vector3(sz[xa] * xf.basis[xa].length(), sz[ya] * xf.basis[ya].length(), sz[za] * xf.basis[za].length()) * 0.5
+	return [Transform3D(Basis(x, y, x.cross(y)), xf.origin), Vector3(half.x, half.y, half.z)]
+
+
+## Painuvat kontaktipinnat istujalle (Character.set_contacts): istuin (laatikko, jonka yläpinta on seat_y istuinpisteen
+## kohdalla) ja selkänoja (laatikko, jonka etupinnalla back.p on). Maailman avaruudessa: [[Transform3D, puolikoko], ...].
+static func contacts(node: Node3D, seat_y: float) -> Array:
+	var d := Seat.of(node)
+	var out := []
+	var up: Vector3 = (node.global_transform.basis * (d.n as Vector3)).normalized()
+	var sp: Vector3 = node.to_global(d.seat)
+	var best := INF
+	var seat_box := []
+	for s in world_solids(node):
+		if s[1] != "box":
+			continue
+		var fb := face_box(s, up)
+		var q: Vector3 = (fb[0] as Transform3D).affine_inverse() * sp
+		var h: Vector3 = fb[1]
+		var dy := absf(q.y - h.y)
+		if (fb[0] as Transform3D).basis.y.dot(up) > 0.7 and dy < 0.03 and absf(q.x) <= h.x and absf(q.z) <= h.z and dy < best:
+			best = dy
+			seat_box = fb
+	if not seat_box.is_empty():
+		out.append(seat_box)
+	out.append_array(table_boxes(node, seat_y))  # pöydän reuna: vatsa ja rinta painuvat sitä vasten
+	if d.has("back"):
+		var bp: Vector3 = node.to_global(d.back.p)
+		var bn: Vector3 = (node.global_transform.basis * (d.back.n as Vector3)).normalized()
+		best = INF
+		var back_box := []
+		for s in world_solids(node):
+			if s[1] != "box":
+				continue
+			var fb := face_box(s, bn)
+			var q: Vector3 = (fb[0] as Transform3D).affine_inverse() * bp
+			var h: Vector3 = fb[1]
+			var dy := absf(q.y - h.y)
+			if (fb[0] as Transform3D).basis.y.dot(bn) > 0.9 and dy < 0.03 and absf(q.x) <= h.x + 0.05 and absf(q.z) <= h.z + 0.05 and dy < best:
+				best = dy
+				back_box = fb
+		if not back_box.is_empty():
+			out.append(back_box)
+	return out
+
+
+## Selkäranka ja lantio kallistettuna taakse kulman a verran samasta akselista (hahmon x), jaettuna lantiolle ja kolmelle
+## nikamalle; pää kääntyy takaisin vaakaan puoliksi (kaula ja pää seuraavat selkää, ei tuijoteta kattoon).
+static func lean_spine(ch: Node3D, a: float) -> void:
+	ch.set_override("pelvis", Vector3.RIGHT, a * 0.2)
+	ch.set_override("spine_01", Vector3.RIGHT, a * 0.25)
+	ch.set_override("spine_02", Vector3.RIGHT, a * 0.3)
+	ch.set_override("spine_03", Vector3.RIGHT, a * 0.25)
+	ch.set_override("neck_01", Vector3.RIGHT, -a * 0.85)
+
+
+## Pöydän reunan istujaa kohti oleva pinta (face_box, +Y istujaa kohti), jota vasten vatsa ja rinta painuvat.
+static func table_boxes(node: Node3D, seat_y: float) -> Array:
+	var d := Seat.of(node)
+	var sp: Vector3 = node.to_global(d.seat)
+	var fr: Vector3 = node.global_transform.basis * (d.front as Vector3)
+	fr = Vector3(fr.x, 0, fr.z).normalized()
+	var out := []
+	for s in world_solids(node):
+		if s[1] != "box" or _top_y(s) < seat_y + 0.2:
+			continue
+		var tb := face_box(s, -fr)
+		var fxf: Transform3D = tb[0]
+		if fxf.basis.y.dot(-fr) < 0.9:
+			continue
+		var q: Vector3 = fxf.affine_inverse() * sp
+		if q.y > (tb[1] as Vector3).y and q.y - (tb[1] as Vector3).y < 0.6 and absf(q.x) < (tb[1] as Vector3).x + 0.3:
+			out.append(tb)
+	return out
+
+
+## Vartalo pöydän reunaa vasten mitatusta verkosta: vatsan ja rinnan (spine_01...03, painumaton pinta) syvin piste pöydän
+## etupinnan sisällä asetetaan pienimpään suunniteltuun upotukseen (vatsa tai rinta), jolloin painuma näkyy ja vartalo
+## on kiinni pöydässä eikä sen edessä ilmassa. Siirtää hahmoa vaakasuunnassa front-suuntaan; palauttaa siirron (m, + pöytää kohti),
+## 0 jos mitattavaa ei ole (headless, ei pöytää tai vartalo ei ylety pöydän kohdalle).
+static func settle_table(ch: Node3D, node: Node3D, seat_y: float, limb_points: Callable) -> float:
+	var boxes := table_boxes(node, seat_y)
+	if boxes.is_empty():
+		return 0.0
+	var d := Seat.of(node)
+	var front: Vector3 = node.global_transform.basis * (d.front as Vector3)
+	front = Vector3(front.x, 0, front.z).normalized()
+	var want := minf(Elastic.sink("vatsa", ch.body_shape), Elastic.sink("rinta", ch.body_shape))
+	var total := 0.0
+	for rd in 2:
+		var worst := 0.0
+		for p in world_points(ch, limb_points, ["spine_01", "spine_02", "spine_03"]):
+			for tb in boxes:
+				var q: Vector3 = (tb[0] as Transform3D).affine_inverse() * p
+				var h: Vector3 = tb[1]
+				if absf(q.x) < h.x and absf(q.z) < h.z and q.y < h.y:
+					worst = maxf(worst, h.y - q.y)
+		if worst <= 0.0:
+			break
+		var delta := clampf(want - worst, -0.1, 0.05)
+		if absf(delta) < 0.002:
+			break
+		_shift(ch, front * delta)
+		ch.refresh_pose()
+		total += delta
+	return total

@@ -24,6 +24,46 @@ varying float front;
 varying float rest_nx;
 varying vec3 rest_zn;  // lepoasennon z sekä normaalin y ja z (CUSTOM0)
 
+// Kontaktipainuma (Elastic.displace on tämän peili GDScriptinä: pidä samoina). press_xf = verkko -> laatikko,
+// press_h = laatikon puolikoko; laatikon +Y on aktiivinen pinta. Pehmeä verteksi (CUSTOM0.w = raja) painetaan pinnalle
+// korkeintaan rajan verran ja levitetään sivulle; luinen (w = 0) ei liiku.
+uniform int press_n = 0;
+uniform mat4 press_xf0;
+uniform mat4 press_xf1;
+uniform mat4 press_xf2;
+uniform mat4 press_xf3;
+uniform mat4 press_xf4;
+uniform mat4 press_xf5;
+uniform vec3 press_h0;
+uniform vec3 press_h1;
+uniform vec3 press_h2;
+uniform vec3 press_h3;
+uniform vec3 press_h4;
+uniform vec3 press_h5;
+
+// Palauttaa siirtymän verkon avaruudessa; n_out = laatikon +Y verkon avaruudessa ja depth_out = painuman osuus rajasta.
+vec3 press_disp(mat4 xf, vec3 h, vec3 v, float lim, out vec3 n_out, out float depth_out) {
+	vec3 q = (xf * vec4(v, 1.0)).xyz;
+	float pen = h.y - q.y;
+	float w = (1.0 - smoothstep(h.x, h.x + 0.02, abs(q.x))) * (1.0 - smoothstep(h.z, h.z + 0.02, abs(q.z))) * step(-h.y, q.y) * (1.0 - smoothstep(lim * 1.5 + 0.01, lim * 1.5 + 0.02, pen));  // = Elastic.deep_fade
+	float d = clamp(pen, 0.0, lim) * w;
+	vec3 t = vec3(q.x, 0.0, q.z);
+	float tl = length(t);
+	vec3 sp = tl > 0.0 ? vec3(sign(q.x), 0.0, 0.0) * smoothstep(0.0, 0.02, abs(q.x)) * (1.0 * d + 0.9 * lim * w * (1.0 - smoothstep(0.0, 0.08, max(-pen, 0.0)))) : vec3(0.0);  // = Elastic.SPREAD, HALO, HALO_H
+	mat3 m = mat3(xf);
+	n_out = vec3(m[0][1], m[1][1], m[2][1]);
+	depth_out = lim > 0.0 ? d / lim : 0.0;
+	return transpose(m) * (vec3(0.0, d, 0.0) + sp);
+}
+
+mat4 press_xf(int i) {
+	return i == 0 ? press_xf0 : (i == 1 ? press_xf1 : (i == 2 ? press_xf2 : (i == 3 ? press_xf3 : (i == 4 ? press_xf4 : press_xf5))));
+}
+
+vec3 press_half(int i) {
+	return i == 0 ? press_h0 : (i == 1 ? press_h1 : (i == 2 ? press_h2 : (i == 3 ? press_h3 : (i == 4 ? press_h4 : press_h5))));
+}
+
 uniform float shirt_puff = 0.022;
 uniform float pants_puff = 0.014;
 // Paljastavammat vaatteet (lepoasennon korkeus/leveys, metrit; < 0 = pois käytöstä):
@@ -250,6 +290,19 @@ void vertex() {
 		puff = 0.0;  // lappubikinit ovat iholla kiinni (väri lasketaan fragmentissa)
 	}
 	VERTEX += NORMAL * puff;
+	if (press_n > 0 && CUSTOM0.w > 0.0) {
+		// Kontaktipainuma laatikko kerrallaan (Elastic.press): pehmeä verteksi painuu pinnalle ja levenee sivulle.
+		vec3 pn;
+		float pd;
+		vec3 pv = VERTEX;
+		for (int i = 0; i < 6; i++) {
+			if (i >= press_n) {
+				break;
+			}
+			pv += press_disp(press_xf(i), press_half(i), pv, CUSTOM0.w + puff, pn, pd);  // vaate painuu mukana: raja + pöyhennys
+		}
+		VERTEX = pv;
+	}
 }
 
 void fragment() {
