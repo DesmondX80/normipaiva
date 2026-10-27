@@ -14,7 +14,7 @@ Työ:
    - **Mitä pelaaja näkee** (5 riviä tavallisella kielellä: mitä uutta ruudulla ja pelissä tapahtuu; käyttäjän pitää
      ymmärtää suunnitelma ilman koodin tuntemusta)
    - **Tavoite** (1–3 lausetta)
-   - **Hyväksymiskriteerit**: numeroitu lista, jokainen yksi tarkistettava väite (esim. "K3: kolmas haukku näyttää umpinaisen leikkauspinnan"). Sekstaaja testaa täsmälleen nämä.
+   - **Hyväksymiskriteerit**: numeroitu lista, jokainen yksi tarkistettava väite (esim. "K3: kolmas haukku näyttää umpinaisen leikkauspinnan"). Sekstaaja testaa täsmälleen nämä. Testitapausten asennot ja otteet eivät ole kriteerejä, ellei käyttäjä niitä pyydä.
    - **Rajaukset**: mitä EI tehdä
    - **Avoimet kysymykset**: vain ne, joita ei voi ratkaista järkevällä oletuksella
    - **Koko**: pieni / keski / suuri

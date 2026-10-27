@@ -28,7 +28,8 @@ Säännöt:
   viimeistä säätöä. Jos jokin jäi katsomatta tai ajamatta, sano se palautuksessa. Jos näet kuvassa vian, työ ei ole valmis:
   älä kuittaa näkyvää vikaa mittausvirheeksi tai vanhaksi.
 - **Lopeta, jos et edisty.** Jos kaksi ajoa peräkkäin ei muuta tulosta, lopeta ja kirjaa juurisyyarvio; arkkitehti tai
-  Teemu päättää seuraavan askeleen. Jos et tiedä, miltä tai miten jonkin pitää olla, kirjaa se avoimeksi kysymykseksi.
+  Teemu päättää seuraavan askeleen. Eri asettelut samaan vikaan lasketaan yrityksiksi: kahden kaatuneen jälkeen
+  yksinkertaista tai palauta. Jos et tiedä, miltä tai miten jonkin pitää olla, kirjaa se avoimeksi kysymykseksi.
 - **Testit vain `tools/testit/aja.sh`:lla** (`kaantyy`, `scene <nimi> [lisä]`, `tscn <polku>`, `--video tscn <polku>`); se hoitaa
   eristyksen, jonon ja aikarajan. Älä rakenna Godot-komentoa käsin ja luota vain sen OK/VIKA-riviin. Oma kokeilukohtaus:
   lopussa `get_tree().quit()`. Kun valmis: `aja.sh kaantyy` ja korjaa käännösvirheet.
