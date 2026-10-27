@@ -23,6 +23,15 @@ varying vec2 rest;
 varying float front;
 varying float rest_nx;
 varying vec3 rest_zn;  // lepoasennon z sekä normaalin y ja z (CUSTOM0)
+// Hyllyntä (Character._update_jiggle): osakohtaisen jousen siirto verkon avaruudessa, paino CUSTOM1 (r rinta, g vatsa,
+// b pakara ja reiden yläosa). Lisätään ennen painumaa, joten kontaktilaatikko pitää hyllyvän pinnan ulkona.
+uniform vec3 jiggle_rinta = vec3(0.0);
+uniform vec3 jiggle_vatsa = vec3(0.0);
+uniform vec3 jiggle_pakara = vec3(0.0);
+uniform bool jiggle_debug = false;  // painot väreinä: magenta rinta, syaani vatsa, vihreä pakara
+varying vec3 jig_w;
+
+#include "res://shaders/press.gdshaderinc"
 
 uniform float shirt_puff = 0.022;
 uniform float pants_puff = 0.014;
@@ -243,6 +252,8 @@ void vertex() {
 	front = COLOR.b;
 	rest_nx = COLOR.a * 2.0 - 1.0;
 	rest_zn = CUSTOM0.xyz;
+	jig_w = CUSTOM1.rgb;
+	VERTEX += jiggle_rinta * CUSTOM1.r + jiggle_vatsa * CUSTOM1.g + jiggle_pakara * CUSTOM1.b;
 	// Vaatteet vähän irti ihosta, ettei näytä maalatulta trikoolta.
 	float c = floor(cat + 0.5);
 	float puff = c > 0.5 && c < 1.5 ? shirt_puff : (c > 1.5 && c < 2.5 ? pants_puff : (c > 2.5 ? 0.01 : 0.0));
@@ -250,6 +261,19 @@ void vertex() {
 		puff = 0.0;  // lappubikinit ovat iholla kiinni (väri lasketaan fragmentissa)
 	}
 	VERTEX += NORMAL * puff;
+	if (press_n > 0 && CUSTOM0.w > 0.0) {
+		// Kontaktipainuma laatikko kerrallaan (Elastic.press): pehmeä verteksi painuu pinnalle ja levenee sivulle.
+		vec3 pn;
+		float pd;
+		vec3 pv = VERTEX;
+		for (int i = 0; i < 6; i++) {
+			if (i >= press_n) {
+				break;
+			}
+			pv += press_disp(press_xf(i), press_half(i), pv, CUSTOM0.w + puff, NORMAL, pn, pd);  // vaate painuu mukana: raja + pöyhennys
+		}
+		VERTEX = pv;
+	}
 }
 
 void fragment() {
@@ -398,5 +422,9 @@ void fragment() {
 			METALLIC = 0.8;
 		}
 		NORMAL_MAP = mix(vec3(0.5, 0.5, 1.0), n, 0.18 * muscle_def);
+	}
+	if (jiggle_debug) {
+		ALBEDO = mix(vec3(0.5), vec3(1.0, 0.0, 1.0), jig_w.r) * (1.0 - jig_w.g) + vec3(0.0, 1.0, 1.0) * jig_w.g;
+		ALBEDO = mix(ALBEDO, vec3(0.0, 1.0, 0.0), jig_w.b);
 	}
 }

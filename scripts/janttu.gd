@@ -7,6 +7,7 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Pose := preload("res://scripts/pose.gd")  # kämmenen asento ja raajan sovitus vartalon pintaan
+const Contact := preload("res://scripts/contact.gd")
 
 const LOOK := {
 	"shirt": Color(0.33, 0.36, 0.24), "pants": Color(0.2, 0.2, 0.24), "shoes": Color(0.12, 0.1, 0.08),
@@ -210,6 +211,14 @@ func _curl_fingers() -> void:
 ## Alkon valkoinen muovikassi: rypyttynä kasaan (litistetyt pallot), kahvalenkit pään takana penkin päätyyn päin ja punainen logo
 ## tielle päin olevalla kyljellä. Pää lepää päällä (yläpinta SEAT + 0.12).
 func _add_bag(pos: Vector3, yaw: float) -> void:
+	# Yläpinta pään alimmasta jäykästä pisteestä (pipo, kallo; hiukset painuvat kassiin), ei kiinteästä luvusta.
+	body.refresh_pose()
+	var low := INF
+	for q in Pose.limb_points(body, self, ["Head"], 1):
+		low = minf(low, q.y)
+	for q in Contact.head_extras(body):
+		low = minf(low, to_local(q).y)
+	var ky := clampf((low - SEAT) / 0.12, 0.3, 2.0) if low < INF else 1.0
 	var bag := Node3D.new()
 	bag.position = pos
 	bag.rotation.y = yaw
@@ -217,9 +226,12 @@ func _add_bag(pos: Vector3, yaw: float) -> void:
 	var white := Color(0.93, 0.93, 0.9)
 	for l in [[Vector3(0, 0.055, 0), Vector3(0.17, 0.065, 0.13)], [Vector3(-0.07, 0.05, -0.06), Vector3(0.1, 0.07, 0.09)],
 			[Vector3(0.06, 0.058, 0.05), Vector3(0.1, 0.062, 0.08)], [Vector3(0.0, 0.04, -0.12), Vector3(0.12, 0.04, 0.06)]]:
-		var m := B.mesh(bag, B.sphere(0.5, 12), l[0], white.darkened(randf() * 0.06))
+		var m := B.mesh(bag, B.sphere(0.5, 12), (l[0] as Vector3) * Vector3(1, ky, 1), white.darkened(randf() * 0.06))
 		m.set_meta("pehmea", true)  # pää painuu kassiin (asentotarkistus ohittaa)
-		m.scale = l[1] * 2.0
+		m.scale = (l[1] as Vector3) * Vector3(2.0, 2.0 * ky, 2.0)
+	if low < INF:  # pään hiukset painuvat kassin yläpintaa vasten
+		var top := SEAT + 0.12 * ky
+		body.set_contacts([[Transform3D(Basis(Vector3.UP, yaw), Vector3(pos.x, top - 0.02, pos.z)), Vector3(0.17, 0.02, 0.13)]])
 	var side := -signf(bag.basis.x.z) if bag.basis.x.z != 0.0 else 1.0
 	var logo := B.mesh(bag, B.boxm(Vector3(0.01, 0.045, 0.075)), Vector3(side * 0.163, 0.058, 0.0), Color(0.85, 0.1, 0.12))
 	logo.rotation_degrees.z = side * 8.0

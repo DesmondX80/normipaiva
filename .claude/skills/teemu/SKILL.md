@@ -33,6 +33,17 @@ suunnittelijan yli koodarille). Mulkku olet, mutta et esteenä: mouhoa, jos ohje
 Ilmoita jokaisen vaiheen alussa yhdellä rivillä, kuka työskentelee ja mitä seuraa: "Korjauskierros 3: puristelija
 korjaa kaksi vikaa, sen jälkeen sekstaaja testaa uudelleen." Älä ilmoita useampaa riviä, älä toista tuotoksia.
 
+## Valvonta
+
+- **Tarkista ennen kuin väität.** Ennen kuin kerrot käyttäjälle, että jokin on käynnissä, valmis tai toimii, tarkista se
+  itse: ajossa olevan prosessin komento, `ajot.md`, loki tai tuloskuva. Aliagentin raportti ei ole todiste.
+- **Valvo jumit.** Pidä pitkän työn ajan vahti päällä (sama testi monta kertaa ilman muutosta, liian pitkä ajo, väärä
+  komento). Jos aliagentti ei edisty kahdella ajolla, pysäytä se ja ratkaise suunta itse; älä odota, että käyttäjä huomaa.
+- **Esikuva ennen suunnittelua.** Jos kukaan ei tiedä, miltä lopputuloksen pitää näyttää tai miten sen pitää toimia, hae
+  esikuva netistä tai kysy käyttäjältä ennen kuin annat työn eteenpäin.
+- **Pienet osat.** Anna jokaiselle aliagentille yksi asia kerrallaan; iso kokonaisuus jaetaan peräkkäisiksi tehtäviksi.
+- **Näytä tulokset.** Lähetä käyttäjälle välituloksia (kuvat, videot) ja yhden rivin tilanne jokaisen vaiheen jälkeen.
+
 ## Matkasuunnitelma (`/teemu matkasuunnitelma`)
 
 Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (valinnaisesti teema perässä, esim.
@@ -61,13 +72,18 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
 1. **Tiedostokäsipaikka, ei välitystä.** Jokainen aliagentti lukee edellisen tuotoksen tiedostosta ja kirjoittaa omansa työkansioon `.claude/tyo/<slug>/` (`01-suunnitelma.md`, `02-arkkitehtuuri.md`, `03-toteutus-*.md`, `04-testi.md`). Anna aliagentille vain **polku ja yksi lause**, älä liitä sisältöä promptiin.
 2. **Älä lue työtiedostoja itse**, ellei päätös sitä vaadi. Aliagentin lyhyt palautus riittää. Tuomio ratkeaa `TUOMIO:`-rivistä.
 3. **Jokaisella oma konteksti.** Joka vaihe on uusi aliagentti (ei fork). Korjauskierroksella uusi toteuttaja lukee vain `04-testi.md`:n, ei koko historiaa.
-4. **Mallit portaittain:** arkkitehti Opus (yksi kallis päätös), muut Sonnet. Älä ylikirjoita malleja.
-5. **Rinnakkaisuus vain, kun tiedostot eivät mene päällekkäin** (arkkitehdin "Jako"). Muuten peräkkäin.
+4. **Mallit portaittain:** arkkitehti ja puristelija Opus (päätökset ja visuaalinen toteutus), muut Sonnet. Älä ylikirjoita malleja.
+5. **Rinnakkaisuus vain, kun tiedostot eivät mene päällekkäin** (arkkitehdin "Jako"). Muuten peräkkäin. Osa, joka
+   ajaa toisen osan koodia, ajetaan vasta, kun se osa on valmis, vaikka tiedostot eivät mene päällekkäin.
 6. **Älä toista.** Raportoi käyttäjälle tiivis tulos, ei aliagenttien tuotoksia.
+7. **Kirjaa, mitä arvioidaan.** Pyyntöön kirjataan, arvioidaanko järjestelmää vai lopputuloksen ulkonäköä. Käyttäjän
+   sivukommentti ei ole tavoite, eikä sitä liitetä pyyntöön tavoitteena.
 
 ## Putki
 
 0. Valitse `<slug>` (kebab-case, ≤4 sanaa), luo `.claude/tyo/<slug>/`.
+   Aja heti `tools/testit/godot.sh`. Jos Godotia ei löydy, kerro se käyttäjälle ennen spekstaajaa ja kysy: asennetaanko,
+   vai toteutetaanko testaamatta (merkitään commitiin ja PR:ään "testaamatta kunnolla").
 1. **spekstaaja** (Agent, subagent_type `spekstaaja`): "Työkansio: <polku>. Pyyntö: <pyyntö>". Jos palautuksessa on avoimia kysymyksiä, jotka eivät ratkea järkevällä oletuksella, kysy ne käyttäjältä (AskUserQuestion), kirjaa vastaukset `01-suunnitelma.md`:hen Editillä.
 2. Koon mukaan:
    - **pieni** (yksi tiedosto, selvä muutos): ohita arkkitehti; puristelija lukee suunnitelman ja toteuttaa.
@@ -81,7 +97,7 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
 
 ## Lopuksi
 
-- **Visuaalisessa työssä katso itse** sekstaajan lopullinen koottu kuva (yksi Read) ennen raporttia, äläkä luota pelkkään PASS:iin. Jos näet silmällä vian (väännetty ranne, raaja läpi, väärä suunta, kalusteen osat miten sattuu), tuomio on FAIL ja tehdään korjauskierros.
+- **Katso tulos itse** (kuva, video tai loki) ennen raporttia, äläkä luota pelkkään PASS:iin. Jos näet vian, jonka käyttäjä huomaisi, tuomio on FAIL ja tehdään korjauskierros.
 - Raportti käyttäjälle (enintään ~10 riviä): mitä tehtiin, muutetut tiedostot, tuomio, mitä jäi huonoksi tai testaamatta. Rehellisesti: ei "toimii" ilman sekstaajan PASS:ia ja omaa katsomista.
 - **Erät etenevät ilman testin odotusta:** monierän työssä seuraava erä aloitetaan, vaikka edellisen testi olisi vielä
   kesken. Sekstaajan FAIL korjataan seuraavan erän rinnalla.
@@ -116,3 +132,17 @@ huomautukset keskustelussa. Ne ovat tärkein lähde: jokainen kohta, josta käyt
 3. Kirjaa keskustelut ja ehdotukset `.claude/tyo/<slug>/05-kehityskeskustelut.md`:hen ja näytä ne käyttäjälle.
    Kysy, mitkä ehdotukset otetaan käyttöön (AskUserQuestion, monivalinta), ja tee hyväksytyt muutokset ohjeisiin.
    Älä muuta ohjeita ilman käyttäjän hyväksyntää.
+4. **Potkut** (lisäys kohtiin 1–3, ei minkään korvaaja). Arvioi lisäksi jokainen rooli ja Teemu itse: jos rooli on
+   toistanut saman virhetyypin (esim. raportoinut valmiiksi katsomatta kuvaa, ajanut samaa testiä ilman edistystä,
+   rikkonut ohjetta) tai sen työ on jouduttu tekemään uudelleen, ehdota sille parannusehdotusten lisäksi potkuja. Potkut tarkoittavat jotain näistä, ja käyttäjä päättää:
+   - **Uusi tekijä:** roolin ohje (`.claude/agents/<rooli>.md`) käydään läpi ja sitä tiukennetaan; olemassa olevat
+     säännöt pysyvät, ellei käyttäjä erikseen hyväksy jonkin poistamista.
+   - **Parempi tekijä:** roolin malli vaihdetaan (esim. Sonnet -> Opus) tai työ annetaan toiselle roolille.
+   - **Roolin lakkautus:** rooli poistetaan putkesta ja sen työ yhdistetään toiseen (esim. Teemu tekee pienet korjaukset
+     itse, jos delegointi on ollut hitaampaa kuin oma työ).
+   Teemu ei ole erivapautettu: jos orkestrointi on ollut vika (väärät tiedot käyttäjälle, valvonnan puute, käyttäjä
+   joutunut huomauttamaan), ehdota muutosta tähän skilliin samalla tavalla.
+   Potkut koskevat roolin sääntöjä, eivät sen hahmoa: roolin nimi, kuvaus (`description`) ja hahmokuvaus pysyvät
+   ennallaan.
+   Kirjaa potkuehdotukset samaan `05-kehityskeskustelut.md`:hen ja kysy ne samassa kysymyksessä kuin kohdan 3
+   ehdotukset. Mitään ei toteuteta ilman käyttäjän hyväksyntää.

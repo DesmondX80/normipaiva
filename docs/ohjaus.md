@@ -12,6 +12,7 @@
 | T | syö ja juo: valikko mukana olevista eväistä (korvapuusti, lihapiirakka, suklaa, marjat ämpäristä) ja kaljoista |
 | Shift | juokse (jalan) / spurtti (pyörällä) |
 | M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen; mökillä ja Vaalan matkalla Neittävä–Vaala-kartta: rulla tai Q/E zoomaa, WASD tai vetäminen siirtää) |
+| B | matkaopas (kun sen on saanut taksikuskilta): retkikohteet, hinnat, kestot ja leimat; A/D tai nuolet selaavat, Esc / B sulkee |
 | V | FPS-näkymä / kolmas persoona |
 | Hiiri | kamera (Esc vapauttaa hiiren valikkoon) |
 | Esc | valikko (myös päivän aloitus alusta); minipelissä Esc lopettaa pelin kuten F |
