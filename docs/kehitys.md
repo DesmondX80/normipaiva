@@ -28,6 +28,10 @@ luokkalistaa ei ole. Tarkistus: `tools/testit/kaantyyko.sh [godot-komento]` (sam
 
 Jos `godot` ei ole PATHissa, `tools/testit/godot.sh` etsii sen (`$GODOT`, PATH, tavalliset asennuspaikat
 Windowsilla, Macilla ja Linuxilla) ja tulostaa polun: `"$(tools/testit/godot.sh)" --path . -- --scene=<nimi>`.
+Testiajot ajetaan `tools/testit/aja.sh`:lla (`kaantyy`, `scene <nimi> [lisäargumentit]`, `tscn <polku>`, valinnat `--headless`,
+`--ei-kuvia` ja `--video` (vain tscn: Movie Maker, 30 fps, .avi ajokansioon; esim. `aja.sh --video tscn tools/testit/sinikka_video.tscn`, 27 s Sinikka kävelee, juoksee, hyppää ja istuu rantatuoliin)): se hoitaa eristetyn tallennuksen, jonon, aikarajan, `--shot`:n ja lokin ja tulostaa OK vain, jos ajo päättyi
+itse, skriptivirheitä ei ole, testi ei löytänyt vikoja ja kuvia syntyi. Uusi testi tulostaa vikansa riville `TESTI VIKA <selitys>`
+(aja.sh tunnistaa myös vanhat merkinnät LÄPI ... ->, RAKO LÄPI, KONTAKTI JÄÄ ja VIRHE). Pelkkä jono:
 Useampi samanaikainen ajo (esim. aliagentit) jonotetaan `tools/testit/godot_jono.sh <godot-argumentit>`:llä: ajot
 jakavat pelaajan tallennuksen ja user://-kansion, joten vain yksi saa olla käynnissä kerrallaan.
 
@@ -116,3 +120,59 @@ vartalo pois pöydästä, selkä 0-1 cm selkänojasta, jalkapohja tukipinnalle (
 jaloista. Tulosteet `KONTAKTI JÄÄ ...` kertovat yli 1 cm tunkeumasta. Kapselimalli mitataan paistetusta verkosta vasta 3 ruutua
 hahmon luonnin jälkeen; sitä ennen (ja headlessissa) käytetään vakiotaulukkoa. Kokeilu: `tools/testit/kontakti_a.tscn`
 (mittaa jalkapohjan rakoa tukeen). Ei vielä: sääri/reisi kiinteän kappaleen sisällä (askelman reuna) ja toiset hahmot.
+
+**Elastisuus** (`scripts/elastic.gd`): `Elastic.PARTS` on ruumiinosien painumarajat (m): luinen 0 (kallo, sääri, polvi, kyynärpää,
+ranne, kämmen, jalkaterä), pehmeä pakara/reisi 15 mm, vatsa 6-16 mm (`belly`), rinta 12-20 mm (`bust`, Sinikka 20), selkä/kylki 4 mm;
+`part_limit(osa, shape)` skaalaa ne vartalolla (`belly`, `bulk`, `bust`) ja `sink(osa, shape)` = puolet rajasta (ratkaisijan
+suunniteltu upotus). `Character._clothed_mesh` laskee jokaiselle verteksille rajan kerran (`CUSTOM0.w`, levyvälimuistissa).
+`ch.set_contacts([[Transform3D, puolikoko], ...])` (laatikon +Y = pinta, enintään 6) siirtää laatikot verkon avaruuteen ja asettaa
+uniformit; `character.gdshader` vertex() painaa pehmeät verteksit pinnalle (`min(tunkeuma, raja)` pintaa pitkin, leviäminen sivulle
+0,35 x painuma, normaali kohti pintaa); `clear_ik()` / `clear_contacts()` palauttaa lepoverkon. `Elastic.press/displace/depth` ovat
+varjostimen peili GDScriptinä (testit, `Pose.limb_points`): pidä kaavat samoina. Ei ruutukohtaista työtä. Kokeilu:
+`tools/testit/elastic_a.tscn` (Sinikka rantatuolilla ja pystylevy rinnan edessä, painumat ruumiinosittain).
+
+**Testit (kontaktit ja elastisuus):** `tools/testit/kontakti_a.tscn -- <kansio>` mittaa jalkapohjan rakoa, käsivarren rakoa reiteen ja
+vartalon rakoa pöydän reunaan, ja vertaa lopuksi Sinikkaa (`Looks.sinikka_bikini()`), hoikkaa ja kaljamahaa saman pöydän ääressä
+(`PAINUMA`, `POYTA`, `K12`, `K14` -rivit: rinta vs vatsa mm, vatsa hoikka vs kaljamaha, painuma nousun jälkeen 0). Läpimenotesti:
+`godot_jono.sh --path . -- --shot=x.png --nohud --scene=asennot --asento=lapimenot` (`tools/testit/asennot_lapimenot.gd`) käy läpi
+`Seat.registry`-paikat, ajaa jokaiselle istujalle `Asento.solids`, tarkistaa jalkapohjan (alin piste >= -0,005 m) ja pehmeän
+painuman jäännöksen (`KONTAKTI JÄÄ`, raja 1 mm yli painumarajan) ja kuvaa istujan ennen (painumat pois) ja jälkeen
+(`<tag>_ennen_koottu.png`, `<tag>_jalkeen_koottu.png`). Tulee 0 istujaa = testi ei tarkistanut mitään.
+
+**Kontaktit, jatko:** rento istuja pitää kädet sylissä (`Pose.hands_on_thighs(..., lap)`), hattu ja hiukset otetaan selkänojan mittaukseen
+(`Contact.head_extras`), portaiden jalat ojompana (`opts.jalat_ulos`, `Contact.place_foot` liu'uttaa jalan yhdelle askelmalle,
+`Contact.clear_legs`), pöydän reunan etupinta on painumakontakti (vatsa/rinta) ja litistyvä kohta pullistuu sivulle
+(`Elastic.SPREAD`, `HALO`; varjostin peilaa).
+
+**Kontaktit, pohje ja maa:** `Contact.clear_seat_edge` siirtää rento-istujan eteen, kun pohje on istuinlaatikon jalanjäljessä yli
+`Elastic.sink("pohje")` pinnan alla (liuku `slide` annetaan `fit_back`ille, joten selkä kallistuu lisää eikä lantio vedy nojaan takaisin).
+Polvitaipeen pehmeä raja koskee vain etupintaa. `Contact.ground_y` (fysiikkasäde, `Terrain.COLLISION_LAYER`) on jalkojen tuki kalusteen
+kappaleiden rinnalla; `Asento.solids` ohittaa `draped`-maaston laatat ja tarkistaa maan säteellä (`LÄPI ... -> maa (jalkaterä|muu)`).
+Läpimenotestin jäännös lasketaan ilman `deep_fade`a (`_raw_pen`), ja `Asento.views(..., check := false)` ohittaa toistotarkistuksen.
+
+**Hiukset ja pää (elastiset):** hiukset ovat skinnattuja verkkoja oma varjostin `shaders/hair.gdshader` (painumasilmukka jaettu
+`shaders/press.gdshaderinc`-tiedostossa vartalon kanssa); painumaraja on 0,9 x etäisyys kallon pintaan (`CUSTOM0.w`), leviäminen suuntautuu
+pois pään keskuksesta (`press_origin`), ja latvat heilahtavat jousella (`hair_sway`, `CUSTOM0.x` paino). `Pose.limb_points(..., meshes)`:
+0 = vartalo ja hiukset, 1 = vain vartalo, 2 = vain hiukset (painuneina). `Contact.fit_back` mittaa selkänojalaatikon jalanjäljen kohdalta
+erikseen kallon (`Head`), niskan juuren (`neck_01`, raja 0), painumattomat hiukset ja hatun (`head_extras`): tavoite on litistynyt tukka
+(10 % paksuudesta + 1 mm) juuri nojassa. Hattu kallistuu ensin (`_tilt_hat`, enintään 0,5 rad etureunan ympäri), sitten kaula; nojan
+ylä- tai sivureunan yli menevä pää ei taivu nojan äärettömään tasoon (sen takia mitataan vain jalanjäljeltä). Janttu: kassin yläpinta
+lasketaan pään alimmasta jäykästä pisteestä ja kassi on painumakontakti (`janttu.gd _add_bag`). Pimeässä `crawler3d.disguise` värittää hiukset
+`hair_col`-uniformilla. Kokeilu: `tools/testit/hiukset.tscn` (Sinikka rantatuolilla pää nojassa: kallo, hiusten jäännös ja rako, hattu;
+`TESTI VIKA` -rivit). `Pose.sit`: korkea polvi (> 10 cm lonkan yläpuolella) yritetään saada alas siirtämällä jalkaterää (`_knees_down`);
+jos jalka menisi kappaleeseen (matala askelma), asento jää, ja kädet menevät polvien päälle (`hands_on_thighs`: kohde reidellä tai polvella
+niin, että olkapää yltää, sormet vaakaan).
+
+**Hyllyntä liikkeessä (rinnat, vatsa, pakarat):** jokaisella osalla on oma vaimennettu jousi (`Elastic.JIGGLE`: luu, piste, taajuus,
+vaimennus, vaakakiihtyvyyden osuus, suurin siirto): rinnat 3,5 Hz / ζ 0,12 (spine_03), vatsa 5 Hz / ζ 0,2 (spine_01), pakarat ja reiden yläosa
+12 Hz / ζ 0,25 (pelvis). `Character._update_jiggle` ajaa jouset luun pisteen kiihtyvyydestä vain lähellä (LOD-väli 1, piilossa nollaan) ja
+syöttää siirrot uniformeina `jiggle_rinta/vatsa/pakara` (pehmeä raja tanh). Voimakkuus vartalosta (`Elastic.jiggle_gain`: bust, belly, bulk,
+curves); verteksipainot `CUSTOM1` (`Elastic.jiggle_weights`, vain paikasta). Siirto lisätään ennen painumaa, joten kontaktilaatikko pitää
+pinnan ulkona. `jiggle_debug = true` värittää painot (magenta rinta, syaani vatsa, vihreä pakara). Kokeilu: `aja.sh --video tscn
+tools/testit/sinikka_video.tscn` (HYLLYNTA-rivit lokissa, `_lahi.png`-vertailut samasta asennosta ilman hyllyntää, Juntti vatsana).
+
+**Rintamus (`bust`, naismalli):** `Character._bust` pullistaa rinnat ellipsoideiksi; arvo 1,4 asti (Mirkku) koko kasvaa
+tasaisesti, sen yli (Sinikka 2.7, DD hoikalla) kasvaa vain ulkonema eteen, ei leveys kylkien yli. Yli 1,4:llä
+`_subdivide_bust` tihentää pohjaverkon rinnan alueella kahdesti ennen muotoilua (muuten iso muoto on särmikäs ja
+lappubikinien reuna porrastuu). Mittaus: `aja.sh tscn tools/testit/sinikka_mitat.tscn [--bust=2.4,3.0]` (rinnan- ja
+alaympärys, ulkonema rintakehästä cm, MITAT-rivit lokissa; kuvat edestä, sivulta ja lähikuvat).

@@ -10,6 +10,7 @@ const MeshBundle := preload("res://scripts/mesh_bundle.gd")
 const Kota := preload("res://scripts/kota.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Pose := preload("res://scripts/pose.gd")
+const Seat := preload("res://scripts/seat.gd")
 const StationBuild := preload("res://scripts/station_build.gd")
 const Makasiini := preload("res://scripts/makasiini.gd")
 const DroneGame := preload("res://scripts/drone_game.gd")
@@ -143,6 +144,7 @@ var kentta_laps: Array = []  # juoksulenkin kulmat kentän ympäri
 var uimaranta_pos: Vector3  # uimaan lähtö rannalla (#117)
 var uimaranta_bench: Vector3
 var uimaranta_people: Array = []  # rannan perheet ja mummot (näkyvyys main.gd)
+var seat_queue: Array = []  # [hahmo, kaluste, Pose-tyyli, opts]: Pose.sit ajetaan, kun hahmon luusto on valmis
 var uimaranta_sinikka: Node3D  # Sinikka aamu-uinnilla lappubikineissä (näkyvyys main.gd)
 var uimaranta_sinikka_pos: Vector3
 var pukukoppi_pos: Vector3  # pukukopin edusta (jemma)
@@ -397,6 +399,7 @@ func _process(_delta: float) -> void:
 	if follow != null and _grass_mat != null:
 		_grass_mat.set_shader_parameter("center", follow.global_position)
 	_process_fire()
+	_process_seat_queue()
 	_update_trunks()
 
 
@@ -2610,8 +2613,12 @@ func _build_honganpalo() -> void:
 	B.mesh(root, B.boxm(Vector3(5.0, 0.2, 2.6)), Vector3(0, 3.0, fz - 1.3), Color(0.3, 0.3, 0.32))  # katos
 	for x in [-2.3, 2.3]:
 		B.mesh(root, B.cyl(0.08, 0.08, 3.0, 8), Vector3(x, 1.5, fz - 2.4), Color(0.6, 0.6, 0.62))
+	var hongan_stairs := Node3D.new()  # portaat omassa solmussaan: Seat.spot kerää askelmat istumapaikan tukipinnoiksi
+	hongan_stairs.name = "Portaat"
+	root.add_child(hongan_stairs)
 	for k in 3:  # portaat
-		B.box(root, Vector3(4.0, 0.15, 0.4), Vector3(0, 0.07 + k * 0.15, fz - 1.4 + k * 0.4), Color(0.6, 0.6, 0.58))
+		B.box(hongan_stairs, Vector3(4.0, 0.15, 0.4), Vector3(0, 0.07 + k * 0.15, fz - 1.4 + k * 0.4), Color(0.6, 0.6, 0.58))
+	Seat.spot(hongan_stairs, {"seat": Vector3(1.0, 0.445, fz - 0.62), "front": Vector3(0, 0, -1)})
 	var sign := B.sign_plate(root, "HONGANPALON KOULU", Color(0.12, 0.25, 0.5), Color.WHITE, 0.4, 60, Color.WHITE, "Helvetica Neue")
 	sign.position = Vector3(0, 3.35, fz - 2.62)
 	var dp: Vector3 = root.to_global(Vector3(0, 0, fz - 3.2))
@@ -2648,9 +2655,8 @@ func _build_honganpalo() -> void:
 		t.position = Vector3(i * 1.0 - 1.0, 0.3 if i == 1 else 0.0, 0.3 * (i % 2))
 		t.play("Sitting_Idle" if i == 1 else "Idle", 0.0)
 		if i == 1:
-			# Istuu portaan ylimmällä askelmalla (pinta y 0,445, 0,2 reunasta), jalkaterät keskimmäisen askelman päällä (0,295), etu ulospäin (+Z).
-			Pose.seat(t, Vector3(0, 0, 1), Vector3(0, 0.445, -1.0))
-			Pose.feet_to_floor(t, 0.295, Vector3(0, 0, 1))
+			# Istuu portaan ylimmällä askelmalla, jalkaterät alemmilla askelmilla (Pose.sit SUORA, Seat.spot portaille).
+			seat_queue.append([t, hongan_stairs, Pose.SUORA, {"jalat_ulos": 1.8}])
 	var moped := Node3D.new()
 	moped.position = Vector3(2.4, 0, 0.6)
 	moped.rotation.y = 0.6
@@ -2895,24 +2901,12 @@ func _build_uimaranta() -> void:
 			for lx in [-0.23, 0.23]:
 				for lz in [-0.25, 0.15]:
 					B.mesh(holder, B.cyl(0.015, 0.015, 0.44, 5), Vector3(lx, 0.21, lz), Color(0.7, 0.7, 0.72))
-			# Istuja nojaa selkänojaa vasten: selkäranka taakse samasta kulmasta, lantio hieman eteen, jalat suorina eteen
-			# nilkat ristissä, kädet sylissä.
-			Pose.seat(person, front, Vector3(0, 0.44, -0.04))
-			person.set_override("spine_01", Vector3.RIGHT, tilt * 0.45)
-			person.set_override("spine_03", Vector3.RIGHT, tilt * 0.45)
-			var pinv := person.transform.affine_inverse()
-			for lr: String in ["_l", "_r"]:
-				var hipw: Vector3 = person.transform * person.bone_position("thigh" + lr)
-				var sgn := -1.0 if lr == "_l" else 1.0
-				var fx := -sgn * 0.04  # nilkat ristissä: vasen jalka oikean päällä
-				var fy := 0.27 if lr == "_l" else 0.16  # nilkka = pyyhkeen pinta (0,08) + 0,08; vasen oikean päällä
-				var reach := minf(sqrt(maxf(0.72 - pow(hipw.y - fy, 2.0), 0.04)), 0.8)
-				var tgt := Vector3(fx, fy, hipw.z - reach)
-				person.set_ik("leg" + lr, "thigh" + lr, "calf" + lr, "foot" + lr, pinv * tgt,
-					pinv * (Vector3((hipw.x + tgt.x) / 2.0 + sgn * 0.12, (hipw.y + tgt.y) / 2.0 + 0.25, (hipw.z + tgt.z) / 2.0)))
-				var hand := Vector3(sgn * 0.06, hipw.y + 0.17, hipw.z - 0.2)  # sylissä vatsan edessä
-				person.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, pinv * hand,
-					pinv * (hand + Vector3(sgn * 0.35, -0.1, 0.3)))
+			# Istuja: Pose.sit RENTO (selkä selkänojaan, jalat ojossa nilkat ristissä, kädet sylissä, pakara painuu); ajetaan, kun
+			# hahmon luusto on valmis (seat_queue, _process_seat_queue). Kallistus ja nojan normaali samasta tilt-arvosta.
+			var nn := Vector3(0, sin(tilt), -cos(tilt))
+			Seat.spot(holder, {"seat": Vector3(0, 0.44, -0.04), "front": front,
+				"back": {"p": pivot + lean * 0.35 + nn * 0.02, "n": nn}})
+			seat_queue.append([person, holder, Pose.RENTO, {"ristissa": true}])
 		else:
 			person.position.y = 0.05
 		holder.set_meta("mummo", i == 3)
@@ -5412,3 +5406,20 @@ func set_rossi_clock(text: String) -> void:
 	var bottom := 2.0
 	plate.position.y = bottom + float(plate.get_meta("height")) / 2.0
 	B.mesh(_rossi_clock, B.boxm(Vector3(0.12, bottom + 0.05, 0.12)), Vector3(0, (bottom + 0.05) / 2.0, 0), Color(0.3, 0.3, 0.3))
+
+
+## Istutus: Pose.sit tarvitsee valmiin luuston (paistettu pinta), joten rakennusvaiheessa jonoon pantu hahmo istutetaan,
+## kun sen luonnista on kulunut muutama ruutu. Kerran per hahmo, ei ruutukohtaista työtä.
+func _process_seat_queue() -> void:
+	if seat_queue.is_empty():
+		return
+	var rest := []
+	for q in seat_queue:
+		var ch: Node3D = q[0]
+		if not is_instance_valid(ch):
+			continue
+		if not ch.is_inside_tree() or not (q[1] as Node3D).is_inside_tree() or Engine.get_process_frames() < int(ch.born_frame) + 4:
+			rest.append(q)
+			continue
+		Pose.sit(ch, q[1], q[2], q[3])
+	seat_queue = rest

@@ -192,6 +192,8 @@ func disguise(on: bool, skin := Color(0.82, 0.68, 0.6), towel := Color(0.35, 0.3
 		for mi in ch.skeleton.get_children():
 			if mi is MeshInstance3D and mi.material_override is StandardMaterial3D:
 				_orig[mi] = (mi.material_override as StandardMaterial3D).albedo_color
+			elif mi is MeshInstance3D and mi.has_meta("hair_press") and mi.material_override is ShaderMaterial:
+				_orig[mi] = (mi.material_override as ShaderMaterial).get_shader_parameter("hair_col")  # hiukset: hair.gdshader
 		for m in _towel_mats:
 			_orig[m] = m.albedo_color
 	for k in _orig:
@@ -199,5 +201,7 @@ func disguise(on: bool, skin := Color(0.82, 0.68, 0.6), towel := Color(0.35, 0.3
 			bm.set_shader_parameter(k, _orig[k] if not on else (Color.WHITE if k == "skin_tint" else skin))
 		elif k is StandardMaterial3D:
 			(k as StandardMaterial3D).albedo_color = _orig[k] if not on else towel
+		elif is_instance_valid(k) and k.material_override is ShaderMaterial:
+			(k.material_override as ShaderMaterial).set_shader_parameter("hair_col", _orig[k] if not on else hair * 1.6)
 		elif is_instance_valid(k):
 			(k.material_override as StandardMaterial3D).albedo_color = _orig[k] if not on else hair * 1.6
