@@ -289,14 +289,29 @@ static func voice_key(text: String) -> String:
 	return text.strip_edges().sha1_text().substr(0, 12)
 
 
-func speak(group: String, text: String) -> void:
+## Repliikin ryhmä ja puhdas teksti: "Nimi: repliikki" -> pelkkä repliikki; Päivin nimi valitsee Päivin äänen
+## (kupla ja babble antavat saman tekstin).
+func _voice_target(group: String, text: String) -> Array:
 	text = text.strip_edges()
-	# "Nimi: repliikki" -> pelkkä repliikki; Päivin nimi valitsee Päivin äänen (kupla ja babble antavat saman tekstin).
 	var colon := text.find(": ")
 	if colon > 0 and colon <= 24 and text.unicode_at(0) != 0x2A and not text.substr(0, colon).contains(" 0"):
 		if text.substr(0, colon) == "Päivi":
 			group = "paivi"
 		text = text.substr(colon + 2).strip_edges()
+	return [group, text]
+
+
+## Repliikin äänitiedoston kesto sekunteina (0, jos ääntä ei ole): välianimaatiot pitävät repliikin kohdan sitä pitempänä.
+func voice_length(group: String, text: String) -> float:
+	var t := _voice_target(group, text)
+	var path := "%s%s/%s.mp3" % [VOICE_DIR, t[0], voice_key(t[1])]
+	return (load(path) as AudioStream).get_length() if ResourceLoader.exists(path) else 0.0
+
+
+func speak(group: String, text: String) -> void:
+	var tgt := _voice_target(group, text)
+	group = tgt[0]
+	text = tgt[1]
 	if text.length() < 3 or text.begins_with("*") or text.contains("♪"):
 		return  # äänitehosteet ("*pirr pirr*") ja laulun sanat (♪) eivät ole puhetta
 	var now := Time.get_ticks_msec()

@@ -32242,6 +32242,44 @@ func _maybe_screenshot() -> void:
 			print("CHOCO after state=", state, " money=", money, " msg=", _msg.text.replace("\n", " | "))
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"valiajat":
+			# Välianimaatioiden repliikkikohdat: kunkin kesto tulostetaan (VALIAJAT <nimi> <s>), ja repliikkien äänien
+			# pituus + 0,6 s on mahduttava siihen (cutscene.gd _say_wait). Vain Päivin repliikkejä sisältävät välianimaatiot.
+			var cs_flag := [false]
+			var done_cb := func() -> void: cs_flag[0] = true
+			var runs := {
+				"telkkari": func() -> void: cutscene.paivi_tv(ImageTexture.create_from_image(Image.create(64, 64, false, Image.FORMAT_RGB8)), done_cb),
+			}
+			for nm: String in runs:
+				cs_flag[0] = false
+				var tv0 := Time.get_ticks_msec()
+				runs[nm].call()
+				while not cs_flag[0] and Time.get_ticks_msec() - tv0 < 120000:
+					await get_tree().process_frame
+				print("VALIAJAT %s %.1f s" % [nm, (Time.get_ticks_msec() - tv0) / 1000.0])
+		"paivin_puhelu":
+			# Päivi soittaa aamulla Vaalaan (cutscene.wasted_phone): käden ja puhelimen asento edestä, oikealta ja ylhäältä
+			# kesken puhelun; kuvat _edesta, _oikealta, _ylhaalta ja _lahikuva.
+			var saved_pu := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			var wake_pu := player.global_position
+			var face_pu := Vector3(0, 0, -1)
+			cutscene.wasted_phone(wake_pu, "Testi", "train", wake_pu, face_pu, "Gasthaus", func() -> void: pass)
+			var pu_t0 := Time.get_ticks_msec()
+			while not cutscene._sub.text.begins_with("Päivi puhelimessa") and Time.get_ticks_msec() - pu_t0 < 40000:
+				await get_tree().process_frame
+			await get_tree().create_timer(0.8, true, false, true).timeout
+			var hh := wake_pu + Vector3(0, 1.55, 0)
+			var views_pu := [["_edesta", hh + Vector3(0, 0, -1.5), hh], ["_oikealta", hh + Vector3(1.5, 0, 0), hh],
+				["_ylhaalta", hh + Vector3(0.0, 1.5, -0.05), hh], ["_lahikuva", hh + Vector3(0.9, 0.1, -0.7), hh + Vector3(0.1, -0.05, 0)]]
+			for vw in views_pu:
+				cutscene._cam.global_position = vw[1]
+				cutscene._cam.look_at(vw[2], Vector3.UP if vw[0] != "_ylhaalta" else Vector3(0, 0, -1))
+				for i in 3:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0] + ".png"))
+			if not saved_pu.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_pu)
 		"junan_alle":
 			# Häviö junan alle Saloisten radalla: pelaaja seisoo kiskoilla, juna ajaa päälle (oikea hits-osuma),
 			# sitten WASTED ja Päivin motkotus. Kuvat _0..._N 0,4 s välein ajosta osumaan asti, _wasted ja _paivi.

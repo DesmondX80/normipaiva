@@ -265,6 +265,13 @@ func bone_position(bone: String) -> Vector3:
 	return (model.transform * skeleton.transform * p)
 
 
+## Luun nykyinen kierto lepoasennosta hahmon avaruudessa (esim. päänkallistus: kierrä sillä lepoasennon siirtymä).
+func bone_delta(bone: String) -> Basis:
+	var i := skeleton.find_bone(bone)
+	var m := (model.transform * skeleton.transform).basis
+	return m * (skeleton.get_bone_global_pose(i).basis * skeleton.get_bone_global_rest(i).basis.inverse()) * m.inverse()
+
+
 ## Kiinnittää solmun luuhun; offset hahmon avaruudessa lepoasennosta, pysyy pystyssä lepoasennossa.
 func attach(bone: String, node: Node3D, offset: Vector3) -> BoneAttachment3D:
 	var ba := BoneAttachment3D.new()
