@@ -216,6 +216,8 @@ func key_name(code: int) -> String:
 		return MOUSE_NAMES.get(code - MOUSE_BASE, "Hiiri %d" % (code - MOUSE_BASE))
 	if KEY_NAMES.has(code):
 		return KEY_NAMES[code]
+	if DisplayServer.get_name() == "headless":  # ei näppäimistöä: kutsu antaisi virheen joka ruudulla
+		return OS.get_keycode_string(code)
 	return OS.get_keycode_string(DisplayServer.keyboard_get_keycode_from_physical(code))
 
 

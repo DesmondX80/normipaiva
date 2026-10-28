@@ -24441,6 +24441,12 @@ func _maybe_screenshot() -> void:
 			await look.call(sd + Vector3(-30, 25, -45), sd + Vector3(0, 0, 0), "asema")
 			await look.call(sd + Vector3(-95, 70, -40), sd + Vector3(-75, 0, 10), "risteys")
 			await look.call(sd + Vector3(-60, 120, 20), sd + Vector3(-60, 0, 40), "risteys_ylhaalta")
+			var sp: Vector3 = vl.siitari_park
+			await look.call(sp + Vector3(-25, 40, -25), sp, "siitari_ylha")
+			await look.call(sp + Vector3(-18, 5, 18), sp + Vector3(-8, 1, 0), "siitari_eteen")
+			var rcn: Dictionary = vl.data.keskusta.asema.roundabout
+			var rcp := Vector3(rcn.c[0], vl.h(rcn.c[0], rcn.c[1]), rcn.c[1])
+			await look.call(rcp + Vector3(0, 40, 22), rcp, "risteys_zabuki")
 			var ud: Vector3 = doors.uittosauna.pos
 			var dd := Vector3(vl.uitto_dir.x, 0, vl.uitto_dir.y)
 			var sdv := dd.cross(Vector3.UP)

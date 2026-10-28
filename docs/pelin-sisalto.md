@@ -561,6 +561,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Kätkötie ja narkkarin kätkö (`asema.katko`) siirtyivät mukana, ja aseman lähitalot lähimpään vapaaseen paikkaan.
     **Sahanrannan täyte:** Satamantien, Sahanrannantien ja Uitontien varrella on pientaloja, aittoja ja rantamökkejä oikean Sahanrannan
     mitoin sekä puita ja lehtoja pihoilla ja rannoilla (`tools/vaala_sahanranta.py`, ajetaan kerran `vaala_suorat.py`:n jälkeen).
+    Zabukin takainen liikenneympyrä on tavallinen risteys (`tools/vaala_risteys.py`, `roundabout.r = 0`). Siitarin eteen, terassin ja Vaalantien väliin,
+    on tehty parkkipaikka ruutuviivoin, P-kyltein ja asiakkaiden autoin (`vaala.gd _siitari_lot`).
     **Uiton sauna (Sahanranta, Uitontie):** Satamantien varrella haarautuu Uitontie rantaan, jossa on Oulujoen uiton jäljiltä hirsisauna
     (lämpimänä, savu piipusta), makasiini (nykyään kanoottitalli, kajakkeja telineessä), tukkipino, nuotiopaikka ja laituri
     uimatikkaineen, pelastusrenkaineen ja soutuveneineen (`vaala.gd _build_uitto`). E saunan ovella: löylyt välianimaationa, ja Santtu tulee

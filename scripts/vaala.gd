@@ -375,7 +375,7 @@ func _build_drive_mask_calc() -> void:
 			pts.append(Vector2(q[0], q[1]))
 		_drive_poly(pts, 1.0)
 	var ast = data.get("keskusta", {}).get("asema")
-	if ast != null:
+	if ast != null and float(ast.roundabout.r) > 0.0:
 		var rcen := Vector2(ast.roundabout.c[0], ast.roundabout.c[1])
 		for k in 24:
 			_drive_seg(rcen + Vector2.from_angle(TAU * k / 24) * (float(ast.roundabout.r) - 3.2),
@@ -3479,12 +3479,7 @@ var veturitalli_door := Vector3.ZERO
 var station_id: int = -1  # keskusta.asema.id: tämän rakennuksen paikalle asema (yleinen piirto ohittaa)
 
 
-func _build_station() -> void:
-	var st = data.get("keskusta", {}).get("asema")
-	if st == null:
-		return
-	# Liikenneympyrä.
-	var rb: Dictionary = st.roundabout
+func _build_roundabout(rb: Dictionary) -> void:
 	var rc := Vector2(rb.c[0], rb.c[1])
 	var rr: float = rb.r
 	var ring := SurfaceTool.new()
@@ -3525,6 +3520,16 @@ func _build_station() -> void:
 	var rsign := B.sign_pole(self, Vector3(rc.x, h(rc.x, rc.y) + 0.2, rc.y), 2.0)
 	var rplate := B.sign_plate(rsign, "↻", Color(0.1, 0.3, 0.65), Color.WHITE, 0.6, 80, Color.WHITE, "Helvetica Neue")
 	rplate.position.y = 1.8
+
+
+func _build_station() -> void:
+	var st = data.get("keskusta", {}).get("asema")
+	if st == null:
+		return
+	# Liikenneympyrä (r = 0: tavallinen risteys, ei piirrettävää).
+	var rb: Dictionary = st.roundabout
+	if float(rb.r) > 0.0:
+		_build_roundabout(rb)
 	# Asemarakennus.
 	var pts := PackedVector2Array()
 	for q in st.pts:
@@ -4739,6 +4744,79 @@ func _build_siitari(pts: PackedVector2Array, body: StaticBody3D) -> void:
 	# Mopon paikka oven edessä pysäköintipaikan reunassa.
 	var pq := c + ax * (hx + 5.0) + front * (hy - 1.0)
 	siitari_park = Vector3(pq.x, h(pq.x, pq.y), pq.y)
+	_siitari_lot(c, ax, front, hx, hy)
+
+
+## Parkkipaikka Siitarin eteen, terassin ja Vaalantien väliin: autopaikkarivi (nokka rakennukseen päin) ja ajokaista,
+## valkoiset ruutuviivat, P-kyltti ja muutaman asiakkaan auto. Syvyys sovitetaan terassin ja tien väliin (nearest).
+## Polygoni lisätään data.parkings-listaan, jotta ajoalue (mopo) kattaa sen; mopon paikka (siitari_park) on päädyssä.
+const LOT_BAY_W := 2.6
+const LOT_BAY_D := 5.0
+
+
+func _siitari_lot(c: Vector2, ax: Vector2, front: Vector2, hx: float, hy: float) -> void:
+	var v0 := hy + 5.6  # terassin kaiteen takaa
+	var fw := c + front * (hy + 8.0)
+	var ni: Array = nearest(Vector3(fw.x, 0, fw.y))
+	var road_hw: float = road[ni[0]][4]
+	var avail: float = (ni[1] as float) - (hy + 8.0 - v0) - road_hw - 1.2 - v0 + (hy + 8.0) - (hy + 8.0) + 0.0
+	# ni[1] = etäisyys tien keskiviivaan pisteestä hy + 8; tilaa v0:sta tien reunaan:
+	avail = (ni[1] as float) - road_hw - 1.2 + (hy + 8.0 - v0)
+	var aisle := clampf(avail - LOT_BAY_D, 0.0, 6.0)
+	var ua := -hx - 1.0
+	var nb := int((hx * 2.0 + 5.0) / LOT_BAY_W)
+	var ub := ua + nb * LOT_BAY_W
+	var v1 := v0 + LOT_BAY_D + aisle
+	var q := func(u: float, v: float) -> Vector2: return c + ax * u + front * v
+	var poly := PackedVector2Array([q.call(ua, v0), q.call(ub, v0), q.call(ub, v1), q.call(ua, v1)])
+	var arr: Array = []
+	for pt in poly:
+		arr.append([pt.x, pt.y])
+	data.parkings.append(arr)
+	var asph := SurfaceTool.new()
+	asph.begin(Mesh.PRIMITIVE_TRIANGLES)
+	asph.set_normal(Vector3.UP)
+	_drape(asph, poly[0], poly[1], poly[2])
+	_drape(asph, poly[0], poly[2], poly[3])
+	var mi := MeshInstance3D.new()
+	mi.mesh = asph.commit()
+	var am := B.mat(Color(0.29, 0.29, 0.3)).duplicate() as StandardMaterial3D
+	am.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = am
+	mi.position.y = 0.04
+	add_child(mi)
+	var lines := SurfaceTool.new()
+	lines.begin(Mesh.PRIMITIVE_TRIANGLES)
+	lines.set_normal(Vector3.UP)
+	var seg := func(a: Vector2, b: Vector2) -> void:
+		var sd := (b - a).orthogonal().normalized() * 0.06
+		_drape(lines, a - sd, a + sd, b + sd)
+		_drape(lines, a - sd, b + sd, b - sd)
+	for k in nb + 1:
+		seg.call(q.call(ua + k * LOT_BAY_W, v0), q.call(ua + k * LOT_BAY_W, v0 + LOT_BAY_D))
+	seg.call(q.call(ua, v0 + LOT_BAY_D), q.call(ub, v0 + LOT_BAY_D))
+	var lm := MeshInstance3D.new()
+	lm.mesh = lines.commit()
+	var lmat := B.unshaded(Color(0.92, 0.92, 0.88))
+	lmat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	lm.material_override = lmat
+	lm.position.y = 0.07
+	add_child(lm)
+	var cols := [Color(0.5, 0.12, 0.1), Color(0.2, 0.3, 0.45), Color(0.75, 0.75, 0.72), Color(0.18, 0.2, 0.2), Color(0.55, 0.5, 0.3)]
+	var yaw := rad_to_deg(atan2(front.x, front.y))
+	var n := 0
+	for k in nb:
+		if (k * 7 + 3) % 5 < 2:
+			continue  # jokin paikka vapaa
+		var cp: Vector2 = q.call(ua + (k + 0.5) * LOT_BAY_W, v0 + LOT_BAY_D / 2.0)
+		B.parked_car(self, Vector3(cp.x, h(cp.x, cp.y) + 0.1, cp.y), yaw + 180.0 + (3.0 if k % 2 == 0 else -2.0), cols[n % cols.size()])
+		n += 1
+	var pp: Vector2 = q.call(ua - 0.8, v0 + 0.5)
+	var pole := B.sign_pole(self, Vector3(pp.x, h(pp.x, pp.y), pp.y), 2.3)
+	var plate := B.sign_plate(pole, "P", Color(0.0, 0.3, 0.6), Color.WHITE, 0.5, 70, Color(0.95, 0.95, 0.95), "Helvetica Neue")
+	plate.position.y = 2.0
+	plate.rotation.y = atan2(front.x, front.y)
+	print("VAALA Siitarin parkki: %d paikkaa, %d autoa, kaista %.1f m" % [nb, n, aisle])
 
 
 func _build_parkings() -> void:
