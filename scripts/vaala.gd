@@ -340,18 +340,10 @@ func _build_drive_mask_calc() -> void:
 	for r in data.side_roads:
 		if r.kind == "rail" or r.pts.size() < 2:
 			continue
-		var hw: String = r.hw
-		var half := 2.2
-		if hw in ["footway", "cycleway", "path", "pedestrian", "steps"]:
-			half = 1.3
-		elif hw in ["secondary", "tertiary"]:
-			half = 3.2
-		elif hw in ["residential", "unclassified"] or r.surface in ["asphalt", "paved"]:
-			half = 2.6
-		elif hw == "service":
-			half = 1.8
+		var style := _side_style(r)
+		var half: float = style[1]
 		# Pinta kuten piirrossa (_build_side_roads): asfaltti täyttä vauhtia, sora ja polut pientareen vauhtia.
-		var paved: bool = hw in ["secondary", "tertiary", "residential"] or r.surface in ["asphalt", "paved"]
+		var paved: bool = style[0] == "asphalt"
 		_surf_val = 2 if paved else 1
 		if r.name == "Vaalan tori":
 			var tp := PackedVector2Array()
@@ -386,7 +378,6 @@ func _build_drive_mask_calc() -> void:
 		var lr: Array = data.lava.road
 		for k in lr.size() - 1:
 			_drive_seg(Vector2(lr[k][0], lr[k][1]), Vector2(lr[k + 1][0], lr[k + 1][1]), 3.5)
-		_drive_ellipse(Vector2(lava_door.x, lava_door.z), 9.0, 9.0)
 	if data.has("satama"):
 		# Sataman parkki ja laiturin juuri (ovi "satama"): suorakaide parkin takaosasta laiturin juureen, sora.
 		var sd: Dictionary = data.satama
@@ -442,9 +433,9 @@ func _build_drive_mask_calc() -> void:
 	_drive_seg(mm, Vector2(road[0][0], road[0][2]), 2.5)
 	_clear_buildings()
 	# Ovien ja pysäköintipaikkojen edustat: ovelle ja sieltä lähimmälle tielle.
-	var stops: Array[Vector3] = [siitari_park, siitari_door, kmarket_door, atm_pos, lava_door]
+	var stops: Array[Vector3] = [siitari_park, siitari_door, kmarket_door, atm_pos, lava_park]
 	for d in doors:
-		if not d.get("walk", false):  # rannoilla ja laiturilla ei ajeta veteen
+		if not d.get("walk", false) and not in_lava_yard(d.pos):  # rannoilla ja laiturilla ei ajeta veteen, lavan piha on kävelyaluetta
 			stops.append(d.pos)
 	for sp in stops:
 		if sp == Vector3.ZERO:
@@ -462,7 +453,22 @@ func _build_drive_mask_calc() -> void:
 	_carve_obstacles()
 	_connect_stops(stops)
 	_clear_buildings()  # ovien edustat eivät ulotu seinien sisään
+	_clear_lava_yard()
 	print("VAALA ajoalue %d ms, %.0f %% ruuduista" % [Time.get_ticks_msec() - t0, 100.0 * _drive.count(1) / _drive.size()])
+
+
+## Lavan aidan sisäpuoli on kävelyaluetta: autoja ja mopoja ei päästetä portista (parkki on aidan ulkopuolella, lava_park).
+## in_lava_yard on aidan kahden viivan kulma, joten rajataan lavan niemelle (aidan kaakkoispuoli, x < 760).
+func _clear_lava_yard() -> void:
+	if _yard_lines.is_empty():
+		return
+	for j in range(maxi(int((_yard_lines[0][0].y - _z0) / DRIVE_CELL), 0), _dnz):
+		for i in range(0, mini(int((760.0 - _x0) / DRIVE_CELL), _dnx)):
+			# Myös aidan päälle jäävät ruudut pois (jokin kulma pihalla): mopo pysähtyy aidan ulkopuolelle, ei portin suuhun.
+			for o in [Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0), Vector2(1.0, 1.0)]:
+				if in_lava_yard(Vector3(_x0 + (i + o.x) * DRIVE_CELL, 0, _z0 + (j + o.y) * DRIVE_CELL)):
+					_drive[j * _dnx + i] = 0
+					break
 
 
 ## Rakennusten sisään ei ajeta: pohja pois ajoalueesta, ettei mopo juutu seinään (reunaa vasten se liukuu).
@@ -622,7 +628,7 @@ func ensure_built() -> void:
 	var times: Array[String] = []
 	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
 			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_station, _build_poliisi, _build_signs,
-			_build_trees, _build_lamps, _build_atm, _build_kmarket_yard, _build_lava, _build_satama, _build_uitto, _build_lava_pier, _build_mokki_yard, _build_north, _build_drive_mask,
+			_build_trees, _build_lamps, _build_atm, _build_kmarket_yard, _build_lava, _build_satama, _build_uitto, _build_lava_pier, _build_mokki_yard, _build_north, _build_salminen_trees, _build_drive_mask,
 			_build_lava_grounds, _merge_static_meshes]:
 		var ts := Time.get_ticks_msec()
 		step.call()
@@ -922,87 +928,98 @@ func _build_road() -> void:
 	var pts: Array[Vector3] = []
 	var hws: Array[float] = []
 	var grav: Array[bool] = []
+	var bridge: Array[bool] = []
 	for i in road.size():
 		pts.append(road_pos(i))
 		hws.append(road[i][4])
 		grav.append(road[i][5] == 1)
-	_road_strip(pts, hws, grav)
+		bridge.append(road[i][6] == 1)
+	_road_strip(pts, hws, grav, bridge)
 	for br in data.branches:
 		var bp: Array[Vector3] = []
 		var bh: Array[float] = []
 		var bg: Array[bool] = []
+		var bb: Array[bool] = []
 		for q in br.pts:
 			bp.append(Vector3(q[0], h(q[0], q[2]), q[2]))
 			bh.append(br.hw)
 			bg.append(br.gravel == 1)
+			bb.append(false)
 		# Risteyksen pää tien reunaan asti: haara alkaa reitin keskeltä, joten ensimmäiset metrit jätetään pois.
 		var skip := 0
 		while skip < bp.size() - 2 and Vector2(bp[skip].x - bp[0].x, bp[skip].z - bp[0].z).length() < 3.0:
 			skip += 1
-		_road_strip(bp.slice(skip), bh.slice(skip), bg.slice(skip))
+		_road_strip(bp.slice(skip), bh.slice(skip), bg.slice(skip), bb.slice(skip))
 		if br.name == "Neittäväntie" and not north_roads.is_empty():
 			continue  # haara jatkuu Nuojuankoskentienä Ranta-Rosvolle ja Salmiselle (_plan_north): ei puomia
 		_dead_end(bp[-1], (bp[-1] - bp[-2]).normalized(), br.hw)
 	for key in _strips:
 		var st: SurfaceTool = _strips[key]
+		if _st_empty(st):
+			continue
 		st.generate_normals()
 		var mi := MeshInstance3D.new()
 		mi.mesh = st.commit()
-		mi.material_override = _rmats[key]
+		mi.material_override = _surf_mat(key)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
 
 
 var _strips := {}
-var _rmats := {}
 
 
 func _road_mats() -> void:
-	_rmats = {
-		"asphalt": _ground_mat(Color(0.2, 0.2, 0.21), Color(0.26, 0.26, 0.27), 0.12, 1.6, 0.22, 0.85),
-		"gravel": _ground_mat(Color(0.5, 0.45, 0.36), Color(0.68, 0.62, 0.5), 0.25, 3.5),
-		"rut": _ground_mat(Color(0.4, 0.35, 0.28), Color(0.5, 0.45, 0.36), 0.3, 3.0),
-		"white": B.mat(Color(0.92, 0.92, 0.9)),
-		"yellow": B.mat(Color(0.95, 0.75, 0.1)),
-	}
-	for k2 in _rmats:
+	for k2 in ["asphalt", "shoulder", "dash", "gravel"]:
 		_strips[k2] = SurfaceTool.new()
 		_strips[k2].begin(Mesh.PRIMITIVE_TRIANGLES)
 
 
-func _road_strip(pts: Array, hws: Array, grav: Array) -> void:
-	var dirs: Array[Vector3] = []
-	for i in pts.size():
-		var a: Vector3 = pts[maxi(i - 1, 0)]
-		var b: Vector3 = pts[mini(i + 1, pts.size() - 1)]
-		dirs.append(Vector3(b.x - a.x, 0, b.z - a.z).normalized())
-	var dash := 0.0
-	for i in pts.size() - 1:
-		var a: Vector3 = pts[i]
-		var b: Vector3 = pts[i + 1]
-		var na := dirs[i].cross(Vector3.UP)
-		var nb := dirs[i + 1].cross(Vector3.UP)
-		var wa: float = hws[i]
-		var wb: float = hws[i + 1]
-		var lift := Vector3(0, 0.04, 0)
-		if grav[i]:
-			_quad(_strips.gravel, a - na * wa + lift, b - nb * wb + lift, b + nb * wb + lift, a + na * wa + lift)
-			var up := Vector3(0, 0.05, 0)
-			for s: float in [-0.95, 0.95]:
-				_quad(_strips.rut, a + na * (s - 0.25) + up, b + nb * (s - 0.25) + up, b + nb * (s + 0.25) + up, a + na * (s + 0.25) + up)
+## Tien jaksot pintalajeittain: sora, asfaltti ja silta (kansi leivotulla korkeudella). Sora ja asfaltti piirretään
+## maastoon sovitettuna kuten kaikki muutkin tiet (_ribbon): asfaltti piennarineen ja katkoviivoineen kuten Saloisissa.
+func _road_strip(pts: Array, hws: Array, grav: Array, bridge: Array) -> void:
+	var kind := func(k: int) -> String:
+		if bridge[k] and bridge[k + 1]:
+			return "bridge"
+		return "gravel" if grav[k] else "asphalt"
+	var i := 0
+	while i < pts.size() - 1:
+		var kd: String = kind.call(i)
+		var j := i
+		while j < pts.size() - 1 and kind.call(j) == kd:
+			j += 1
+		var run: Array = pts.slice(i, j + 1)
+		var half: float = hws[i]
+		if kd == "bridge":
+			_bridge_surface(run, half)
 		else:
-			_quad(_strips.asphalt, a - na * wa + lift, b - nb * wb + lift, b + nb * wb + lift, a + na * wa + lift)
-			var up := Vector3(0, 0.055, 0)
-			for s: float in [-1.0, 1.0]:
-				# Reunaviivat: sisäreunasta ulkoreunaan samassa kiertosuunnassa kummallakin puolella (materiaali
-				# karsii takapinnat, ennen oikea reunaviiva jäi näkymättömäksi).
-				var ia := na * minf(s * (wa - 0.3), s * (wa - 0.42))
-				var oa := na * maxf(s * (wa - 0.3), s * (wa - 0.42))
-				var ib := nb * minf(s * (wb - 0.3), s * (wb - 0.42))
-				var ob := nb * maxf(s * (wb - 0.3), s * (wb - 0.42))
-				_quad(_strips.white, a + ia + up, b + ib + up, b + ob + up, a + oa + up)
-			dash += a.distance_to(b)
-			if fmod(dash, 12.0) < 4.0:  # katkoviiva 4 m + 8 m väli
-				_quad(_strips.yellow, a - na * 0.07 + up, b - nb * 0.07 + up, b + nb * 0.07 + up, a + na * 0.07 + up)
+			var line := PackedVector2Array()
+			for q: Vector3 in run:
+				line.append(Vector2(q.x, q.z))
+			if kd == "gravel":
+				_ribbon(_strips.gravel, line, GRAVEL_HALF, LIFT_GRAVEL)
+			else:
+				_ribbon(_strips.shoulder, line, half + ROAD_SHOULDER, LIFT_SHOULDER)
+				_ribbon(_strips.asphalt, line, half, LIFT_ASPHALT)
+				_dashes(_strips.dash, line, LIFT_DASH, 0.0)
+		i = j
+
+
+## Sillan kansi: asfaltti ja keskiviiva kannen korkeudella (ei maastoa sen alla).
+func _bridge_surface(run: Array, half: float) -> void:
+	var dist := 0.0
+	for i in run.size() - 1:
+		var a: Vector3 = run[i]
+		var b: Vector3 = run[i + 1]
+		var a0 := run[maxi(i - 1, 0)] as Vector3
+		var b1 := run[mini(i + 2, run.size() - 1)] as Vector3
+		var na := Vector3(b.x - a0.x, 0, b.z - a0.z).normalized().cross(Vector3.UP)
+		var nb := Vector3(b1.x - a.x, 0, b1.z - a.z).normalized().cross(Vector3.UP)
+		var lift := Vector3(0, LIFT_ASPHALT, 0)
+		_quad(_strips.asphalt, a - na * half + lift, b - nb * half + lift, b + nb * half + lift, a + na * half + lift)
+		if fmod(dist, 9.0) < 3.0:
+			var up := Vector3(0, LIFT_DASH, 0)
+			_quad(_strips.dash, a - na * 0.12 + up, b - nb * 0.12 + up, b + nb * 0.12 + up, a + na * 0.12 + up)
+		dist += a.distance_to(b)
 
 
 ## Umpitie: puna-valkoinen puomi tolppineen ja liikennemerkki "Umpitie"; puomille törmäys.
@@ -1483,34 +1500,33 @@ func _build_lava() -> void:
 	for k in steps:
 		B.mesh(root, B.boxm(Vector3(0.45, 0.25, 4.6)), Vector3(side * (w / 2.0 + 0.25 + k * 0.45), -0.12 - k * 0.25, 0),
 			Color(0.55, 0.55, 0.53))
-	# Ajotie kadulta ja parkkipaikka 90-luvun autoineen.
-	var road_pts: Array = lv.get("road", [])
-	for ri in road_pts.size() - 1:
-		var a := Vector2(road_pts[ri][0], road_pts[ri][1])
-		var b := Vector2(road_pts[ri + 1][0], road_pts[ri + 1][1])
-		var segs := maxi(1, int(a.distance_to(b) / 2.0))
-		for k in segs:
-			var p0 := a.lerp(b, float(k) / segs)
-			var p1 := a.lerp(b, float(k + 1) / segs)
-			var m2 := (p0 + p1) / 2.0
-			var seg := B.mesh(self, B.boxm(Vector3(4.4, 0.1, p0.distance_to(p1) + 0.2)), Vector3(m2.x, h(m2.x, m2.y) + 0.03, m2.y),
-				Color(0.24, 0.24, 0.25))
-			seg.rotation.y = atan2(p1.x - p0.x, p1.y - p0.y)
-	var park := Vector2(lava_door.x, lava_door.z) + Vector2(side * 4.0, 0)
-	var cols := [Color(0.6, 0.1, 0.1), Color(0.8, 0.8, 0.82), Color(0.15, 0.25, 0.45), Color(0.3, 0.35, 0.3)]
-	for k in 4:
-		var pz := park + Vector2(side * 3.0, -14.0 - k * 3.0)
-		if absf(pz.y - c.y) > l / 2.0 + 8.0:
-			continue
-		var car := Node3D.new()
-		car.position = Vector3(pz.x, h(pz.x, pz.y), pz.y)
-		_lava_cars.append(pz)
-		car.rotation.y = PI / 2.0
-		add_child(car)
-		Vehicles.car(car, cols[k])
+	_build_lava_lot(lv)
 	_build_lava_fence(lv)
 	_build_lava_youth(lv)
 	_build_lava_gate(lv, side)
+
+
+## Lavan parkkipaikka aidan ulkopuolella portin edessä: Pahalahdentie (sora) päättyy tähän, ja autot jäävät tänne. Aidan
+## sisäpuoli (piha, lavan ovi) on kävelyaluetta: mopon ajoalue ei ulotu portin läpi (_build_drive_mask_calc). Parkin paikka
+## ja mitat ovat tie.json:n kohdassa lava.lot (tools/vaala_asematie.py); mopo jää portin viereiseen ruutuun (lava_park).
+var lava_park := Vector3.ZERO  # mopon paikka parkissa portin vieressä
+func _build_lava_lot(lv: Dictionary) -> void:
+	var lot: Dictionary = lv.get("lot", {})
+	if lot.is_empty():
+		return
+	var c := Vector2(lot.c[0], lot.c[1])
+	var ax := Vector2(lot.ax[0], lot.ax[1])
+	var front := Vector2(lot.front[0], lot.front[1])
+	var ua: float = lot.ua
+	var nb: int = lot.nb
+	var v0: float = lot.v0
+	var g := Vector2(lv.gate[0], lv.gate[1])
+	var bay := clampi(int(floorf((((g - c).dot(ax)) - ua) / LOT_BAY_W)), 0, nb - 1)
+	var pp := c + ax * (ua + (bay + 0.5) * LOT_BAY_W) + front * (v0 + LOT_BAY_D / 2.0)
+	lava_park = Vector3(pp.x, h(pp.x, pp.y), pp.y)
+	_lava_cars.clear()
+	for cp: Vector2 in _lot_build(c, ax, front, ua, nb, v0, float(lot.aisle), [pp], true):
+		_lava_cars.append(cp)
 
 
 ## 90-luvun nuorison lavahommat: aidan järvenpuoleisen pään ympäri kahlataan pummilla sisään (pummi_out maalla aidan
@@ -1776,6 +1792,120 @@ func _fence_run(st: SurfaceTool, body: StaticBody3D, a: Vector2, b: Vector2, pos
 func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
 	for v in [a, b, c, a, c, d]:
 		st.add_vertex(v)
+
+
+## Tienpinta maastoon sovitettuna kuten Saloisissa (world.gd _strip + _conform): nauha murtoviivaa pitkin, nivelet
+## täytetään kiekoilla (ei kiiloja mutkiin), ja kolmiot leikataan maastoruudukon viivoilla, jolloin jokainen pala on
+## täsmälleen yhden maastokolmion tasossa eikä maa pistä läpi eikä pinta roiku ilmassa. lift = korkeus maanpinnasta.
+## Päät ovat suorat (risteyksessä toisen tien päälle ei jää pyöristystä); round_ends pyöristää ne.
+func _ribbon(st: SurfaceTool, pts: PackedVector2Array, half: float, lift: float, round_ends := false) -> void:
+	var tris := PackedVector3Array()
+	for i in pts.size() - 1:
+		var a := pts[i]
+		var b := pts[i + 1]
+		if a.distance_to(b) < 0.01:
+			continue
+		var n := (b - a).normalized().orthogonal() * half
+		for v in [a + n, b + n, b - n, a + n, b - n, a - n]:
+			tris.append(Vector3(v.x, 0.0, v.y))
+	for i in pts.size():
+		var is_end := i == 0 or i == pts.size() - 1
+		if is_end and not round_ends:
+			continue
+		if not is_end:
+			# Suorilla pätkillä (tiheä näytteistys) kiekkoa ei tarvita, vain mutkissa.
+			var d0 := pts[i] - pts[i - 1]
+			var d1 := pts[i + 1] - pts[i]
+			if d0.length() < 0.01 or d1.length() < 0.01 or absf(d0.angle_to(d1)) < 0.03:
+				continue
+		var p := pts[i]
+		for k in 12:
+			var a0 := TAU * k / 12.0
+			var a1 := TAU * (k + 1) / 12.0
+			tris.append(Vector3(p.x, 0.0, p.y))
+			tris.append(Vector3(p.x + cos(a0) * half, 0.0, p.y + sin(a0) * half))
+			tris.append(Vector3(p.x + cos(a1) * half, 0.0, p.y + sin(a1) * half))
+	var out := PackedVector3Array()
+	for t in range(0, tris.size() - 2, 3):
+		_conform(tris[t], tris[t + 1], tris[t + 2], out)
+	st.set_normal(Vector3.UP)
+	for v in out:
+		st.add_vertex(Vector3(v.x, h(v.x, v.z) + lift, v.z))
+
+
+## Leikkaa kolmion maastoruudukon viivoilla (x, z ja lävistäjä x + z kuten h():n kolmioinnissa).
+func _conform(a: Vector3, b: Vector3, c: Vector3, out: PackedVector3Array) -> void:
+	var polys: Array[PackedVector3Array] = [PackedVector3Array([a, b, c])]
+	for fam in 3:
+		var nxt: Array[PackedVector3Array] = []
+		for poly in polys:
+			_split_family(poly, fam, nxt)
+		polys = nxt
+	for poly in polys:
+		for i in range(1, poly.size() - 1):
+			out.append(poly[0])
+			out.append(poly[i])
+			out.append(poly[i + 1])
+
+
+func _grid_f(p: Vector3, fam: int) -> float:
+	var fx := (p.x - _x0) / _cell
+	var fz := (p.z - _z0) / _cell
+	return fx if fam == 0 else (fz if fam == 1 else fx + fz)
+
+
+func _split_family(poly: PackedVector3Array, fam: int, out: Array[PackedVector3Array]) -> void:
+	var lo := INF
+	var hi := -INF
+	for p in poly:
+		var f := _grid_f(p, fam)
+		lo = minf(lo, f)
+		hi = maxf(hi, f)
+	var rest := poly
+	for k in range(floori(lo) + 1, ceili(hi)):
+		var below := PackedVector3Array()
+		var above := PackedVector3Array()
+		for i in rest.size():
+			var p := rest[i]
+			var q := rest[(i + 1) % rest.size()]
+			var fp := _grid_f(p, fam) - k
+			var fq := _grid_f(q, fam) - k
+			if fp <= 0.0:
+				below.append(p)
+			if fp >= 0.0:
+				above.append(p)
+			if (fp < 0.0 and fq > 0.0) or (fp > 0.0 and fq < 0.0):
+				var x := p.lerp(q, fp / (fp - fq))
+				below.append(x)
+				above.append(x)
+		if below.size() >= 3:
+			out.append(below)
+		rest = above
+		if rest.size() < 3:
+			return
+	out.append(rest)
+
+
+## Keskiviivan katkoviiva (Saloisten tapaan 3 m viiva / 6 m väli, leveys 0,24 m) tien päälle, päistä marginaali
+## (risteyksessä ei viivaa toisen tien päällä).
+func _dashes(st: SurfaceTool, pts: PackedVector2Array, lift: float, margin := 6.0) -> void:
+	var total := 0.0
+	for i in pts.size() - 1:
+		total += pts[i].distance_to(pts[i + 1])
+	var at := 0.0
+	var t := margin
+	for i in pts.size() - 1:
+		var a := pts[i]
+		var b := pts[i + 1]
+		var seg := a.distance_to(b)
+		if seg < 0.01:
+			continue
+		var d := (b - a) / seg
+		while t < at + seg and t + 3.0 < total - margin:
+			var t1 := minf(t + 3.0, at + seg)
+			_ribbon(st, PackedVector2Array([a + d * (t - at), a + d * (t1 - at)]), 0.12, lift)
+			t += 9.0
+		at += seg
 
 
 # --- Vaalan satama (Venesatama, tools/vaala_satama.py) -----------------------------------------------------------
@@ -2603,52 +2733,97 @@ func _bridge_deck(body: StaticBody3D, i0: int, i1: int) -> void:
 
 
 ## Sivutiet, pihatiet, kevyen liikenteen väylät ja rautatie (OSM, tien mukana siirrettyinä).
+## Sivutien pinta ja puolileveys: [kind, half]. Piirto (_build_side_roads) ja ajoalue (_build_drive_mask_calc) käyttävät
+## samaa, jotta mopo ajaa täsmälleen tien pinnalla. Asfaltti kuten Saloisten kaksikaistainen maantie (world.gd STYLES.road,
+## leveys 8 m); sora kuten Keskimmäisentie ja Paapelin soratiet: 2,6 m (service 1,8 m).
+func _side_style(r: Dictionary) -> Array:
+	var hw: String = r.hw
+	if r.kind == "rail":
+		return ["rail", 1.6]
+	if hw in ["footway", "cycleway", "path", "pedestrian", "steps"]:
+		return ["path" if r.surface != "asphalt" else "asphalt", 1.3]
+	if hw in ["secondary", "tertiary", "residential"] or r.surface in ["asphalt", "paved"]:
+		return ["asphalt", ROAD_HALF]
+	return ["gravel", 1.8 if hw == "service" else GRAVEL_HALF]
+
+
+var _surf_mats := {}
+
+
+func _st_empty(st: SurfaceTool) -> bool:
+	var va = st.commit_to_arrays()[Mesh.ARRAY_VERTEX]  # tyhjällä SurfaceToolilla null
+	return va == null or (va as PackedVector3Array).is_empty()
+
+
+## Tienpintojen materiaalit kuten Saloisten SURFACES (world.gd); sora kuten Paapelin soratiet (mokki.gd).
+func _surf_mat(kind: String) -> Material:
+	if not _surf_mats.has(kind):
+		_surf_mats[kind] = {
+			"asphalt": func() -> Material: return _ground_mat(Color(0.17, 0.17, 0.18), Color(0.27, 0.27, 0.28), 0.05, 2.5, 0.25, 0.8),
+			"shoulder": func() -> Material: return _ground_mat(Color(0.47, 0.46, 0.42), Color(0.56, 0.55, 0.5), 0.08, 1.1, 0.6, 1.0),
+			"gravel": func() -> Material: return _ground_mat(Color(0.53, 0.47, 0.37), Color(0.64, 0.57, 0.45), 0.08, 1.1),
+			"path": func() -> Material: return _ground_mat(Color(0.5, 0.45, 0.36), Color(0.6, 0.55, 0.45), 0.08, 1.1),
+			"dash": func() -> Material: return B.mat(Color(0.9, 0.9, 0.84)),
+			"rail": func() -> Material: return B.mat(Color(0.38, 0.35, 0.32)),
+		}[kind].call()
+	return _surf_mats[kind]
+
+
+## Monikulmio (esim. parkki) maastoon sovitettuna pintana: kolmioitu ja leikattu maastoruudukolla kuten _ribbon.
+func _poly_surface(st: SurfaceTool, poly: PackedVector2Array, lift: float) -> void:
+	var idx := Geometry2D.triangulate_polygon(poly)
+	var out := PackedVector3Array()
+	for t in range(0, idx.size() - 2, 3):
+		_conform(Vector3(poly[idx[t]].x, 0, poly[idx[t]].y), Vector3(poly[idx[t + 1]].x, 0, poly[idx[t + 1]].y),
+			Vector3(poly[idx[t + 2]].x, 0, poly[idx[t + 2]].y), out)
+	st.set_normal(Vector3.UP)
+	for v in out:
+		st.add_vertex(Vector3(v.x, h(v.x, v.z) + lift, v.z))
+
+
+const ROAD_HALF := 4.0  # asfaltin puolileveys (Saloisten road, 8 m)
+const GRAVEL_HALF := 2.6  # soratien puolileveys (Paapelin ja Keskimmäisentien sora)
+const ROAD_SHOULDER := 1.2  # asfaltin piennar (Saloisten "shoulder") molemmin puolin
+const LIFT_SHOULDER := 0.03
+const LIFT_ASPHALT := 0.045
+const LIFT_DASH := 0.06
+const LIFT_GRAVEL := 0.04
+
+
 func _build_side_roads() -> void:
 	var sts := {}
-	for kind in ["asphalt", "gravel", "path", "rail"]:
+	for kind in ["asphalt", "shoulder", "dash", "gravel", "path", "rail"]:
 		sts[kind] = SurfaceTool.new()
 		sts[kind].begin(Mesh.PRIMITIVE_TRIANGLES)
 	var sleepers: Array[Transform3D] = []
 	var rail_bridge: Array = []  # [a, b] kiskojen tasossa joen yli
 	for r in data.side_roads:
 		var pts: Array = r.pts
-		var hw: String = r.hw
-		var kind := "gravel"
-		var half := 2.2
-		if r.kind == "rail":
-			kind = "rail"
-			half = 1.6
-		elif hw in ["footway", "cycleway", "path", "pedestrian"]:
-			kind = "path" if r.surface != "asphalt" else "asphalt"
-			half = 1.3
-		elif hw in ["secondary", "tertiary", "residential"] or r.surface in ["asphalt", "paved"]:
-			kind = "asphalt"
-			half = 3.2 if hw in ["secondary", "tertiary"] else 2.6
-		elif hw == "service":
-			half = 1.8
+		if r.name == "Vaalan tori":
+			continue  # kävelyalue, piirretään kivetyksenä (_build_tori)
+		var style := _side_style(r)
+		var kind: String = style[0]
+		var half: float = style[1]
+		if kind != "rail":
+			var line := PackedVector2Array()
+			for q in pts:
+				line.append(Vector2(q[0], q[1]))
+			match kind:
+				"asphalt":
+					_ribbon(sts.shoulder, line, half + ROAD_SHOULDER, LIFT_SHOULDER)
+					_ribbon(sts.asphalt, line, half, LIFT_ASPHALT)
+					_dashes(sts.dash, line, LIFT_DASH)
+				"gravel":
+					_ribbon(sts.gravel, line, half, LIFT_GRAVEL)
+				_:
+					_ribbon(sts.path, line, half, LIFT_GRAVEL)
+			continue
 		var st: SurfaceTool = sts[kind]
 		for j in pts.size() - 1:
 			var a := Vector2(pts[j][0], pts[j][1])
 			var b := Vector2(pts[j + 1][0], pts[j + 1][1])
-			if kind != "rail":
-				# Tienpinta enintään 2 m paloina maaston mukaan (pitkällä välillä maasto puskisi läpi), ja pätkät
-				# limittyvät mutkissa (muuten ulkokaarteeseen jää kiila nurmea).
-				var sd := (b - a).normalized()
-				var a2 := a - (sd * half * 0.6 if j > 0 else Vector2.ZERO)
-				var b2 := b + (sd * half * 0.6 if j < pts.size() - 2 else Vector2.ZERO)
-				var sn := sd.orthogonal() * half
-				var pieces := maxi(1, ceili(a2.distance_to(b2) / 2.0))
-				for k in pieces:
-					var p0 := a2.lerp(b2, float(k) / pieces)
-					var p1 := a2.lerp(b2, float(k + 1) / pieces)
-					var lift := 0.05 if kind == "asphalt" else 0.04
-					_quad(st, Vector3(p0.x + sn.x, h(p0.x + sn.x, p0.y + sn.y) + lift, p0.y + sn.y),
-						Vector3(p1.x + sn.x, h(p1.x + sn.x, p1.y + sn.y) + lift, p1.y + sn.y),
-						Vector3(p1.x - sn.x, h(p1.x - sn.x, p1.y - sn.y) + lift, p1.y - sn.y),
-						Vector3(p0.x - sn.x, h(p0.x - sn.x, p0.y - sn.y) + lift, p0.y - sn.y))
-				continue
 			var n := (b - a).normalized().orthogonal() * half
-			var lift := 0.03 if kind != "rail" else 0.05
+			var lift := 0.05
 			# Rata: leivottu korkeus (penger ja alikulun ratasilta), Oulujoen ratasillalla kiskot vähintään 3 m
 			# vedenpinnan yläpuolella.
 			var ya := h(a.x, a.y)
@@ -2657,40 +2832,40 @@ func _build_side_roads() -> void:
 				ya = maxf(maxf(ya, pts[j][2] if pts[j].size() > 2 else ya), water_level + 3.0)
 				yb = maxf(maxf(yb, pts[j + 1][2] if pts[j + 1].size() > 2 else yb), water_level + 3.0)
 			var gy := func(p: Vector2) -> float:
-				if kind != "rail":
-					return h(p.x, p.y)
 				return lerpf(ya, yb, clampf((p - a).dot(b - a) / maxf((b - a).length_squared(), 0.01), 0.0, 1.0))
 			var v := func(p: Vector2) -> Vector3: return Vector3(p.x, gy.call(p) + lift, p.y)
 			_quad(st, v.call(a + n), v.call(b + n), v.call(b - n), v.call(a - n))
-			if kind == "rail":
-				# Sepeliluiskat sivuille (ei rakoa maastoon).
-				var skirt := Vector3(0, -0.7, 0)
-				for sn: float in [-1.0, 1.0]:
-					var e := n * sn
-					var e2 := n * sn * 1.6
-					_quad(st, v.call(a + e), v.call(b + e), v.call(b + e2) + skirt, v.call(a + e2) + skirt)
-				var dir := (b - a).normalized()
-				var steps := int(a.distance_to(b) / 0.8)
-				for s in steps:
-					var p := a.lerp(b, float(s) / steps)
-					sleepers.append(Transform3D(Basis(Vector3.UP, atan2(-dir.x, -dir.y)), Vector3(p.x, gy.call(p) + 0.1, p.y)))
-				for off in [-0.72, 0.72]:
-					var o: Vector2 = dir.orthogonal() * off
-					B.tube(self, Vector3(a.x + o.x, ya + 0.22, a.y + o.y), Vector3(b.x + o.x, yb + 0.22, b.y + o.y),
-						0.04, Color(0.5, 0.45, 0.4))
-				var up = data.get("underpass")
-				var at_under: bool = up != null and a.distance_to(Vector2(up.at[0], up.at[1])) < 60.0
-				# Joen yli (kiskot reilusti maan yläpuolella): teräsristikkosilta (_build_truss) koko jaksolle.
-				if not at_under and minf(ya, yb) - maxf(h(a.x, a.y), h(b.x, b.y)) > 2.0:
-					rail_bridge.append([Vector3(a.x, ya, a.y), Vector3(b.x, yb, b.y)])
-	var cols := {"asphalt": Color(0.24, 0.24, 0.25), "gravel": Color(0.56, 0.5, 0.42), "path": Color(0.5, 0.45, 0.36),
-		"rail": Color(0.38, 0.35, 0.32)}
+			# Sepeliluiskat sivuille (ei rakoa maastoon).
+			var skirt := Vector3(0, -0.7, 0)
+			for sn: float in [-1.0, 1.0]:
+				var e := n * sn
+				var e2 := n * sn * 1.6
+				_quad(st, v.call(a + e), v.call(b + e), v.call(b + e2) + skirt, v.call(a + e2) + skirt)
+			var dir := (b - a).normalized()
+			var steps := int(a.distance_to(b) / 0.8)
+			for s in steps:
+				var p := a.lerp(b, float(s) / steps)
+				sleepers.append(Transform3D(Basis(Vector3.UP, atan2(-dir.x, -dir.y)), Vector3(p.x, gy.call(p) + 0.1, p.y)))
+			for off in [-0.72, 0.72]:
+				var o: Vector2 = dir.orthogonal() * off
+				B.tube(self, Vector3(a.x + o.x, ya + 0.22, a.y + o.y), Vector3(b.x + o.x, yb + 0.22, b.y + o.y),
+					0.04, Color(0.5, 0.45, 0.4))
+			var up = data.get("underpass")
+			var at_under: bool = up != null and a.distance_to(Vector2(up.at[0], up.at[1])) < 60.0
+			# Joen yli (kiskot reilusti maan yläpuolella): teräsristikkosilta (_build_truss) koko jaksolle.
+			if not at_under and minf(ya, yb) - maxf(h(a.x, a.y), h(b.x, b.y)) > 2.0:
+				rail_bridge.append([Vector3(a.x, ya, a.y), Vector3(b.x, yb, b.y)])
 	for kind in sts:
 		var st: SurfaceTool = sts[kind]
-		st.generate_normals()
+		if _st_empty(st):
+			continue
+		if kind == "rail":
+			st.generate_normals()
 		var mi := MeshInstance3D.new()
 		mi.mesh = st.commit()
-		mi.material_override = B.mat(cols[kind])
+		mi.material_override = _surf_mat(kind)
+		if kind != "rail":
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
 	if not sleepers.is_empty():
 		_multimesh(B.boxm(Vector3(2.4, 0.16, 0.24)), sleepers, Color(0.4, 0.38, 0.35))
@@ -3060,7 +3235,7 @@ func _build_buildings() -> void:
 		if id == HOTEL_ID:
 			col = Color(0.78, 0.62, 0.46)
 			mat = BRICK
-			wall_h = 9.0  # kolme kerrosta: kyltti näkyy tielle ravintolan katon yli
+			wall_h = 6.2  # kaksi kerrosta (3,1 m kukin)
 			flat = false
 		elif id == GASTHAUS_ID:
 			col = Color(0.93, 0.84, 0.6)  # keltainen rappaus, valkoiset nurkat kuin vanhassa majatalossa
@@ -3097,7 +3272,7 @@ func _build_buildings() -> void:
 			var shop := type in ["retail", "commercial"] or name.contains("market") or name.contains("Market")
 			var door := _hotel_door_q(obb, base + 0.3) if id == HOTEL_ID else (_door(obb, base + 0.3) if id != GASTHAUS_ID else \
 				(obb.center as Vector2) + _gasthaus_side(obb) * ((obb.size as Vector2).y / 2.0 + 0.05))
-			_windows(pts, base + 0.3, maxi(levels, 1) if id != HOTEL_ID else 3, wall_h, shop, door,
+			_windows(pts, base + 0.3, maxi(levels, 1) if id != HOTEL_ID else 2, wall_h, shop, door,
 				Vector2(1.25, 1.2) if not flat else Vector2(1.5, 1.3))
 			if type == "apartments":
 				_balcony_rows(pts, base + 0.3, levels, obb)
@@ -3335,7 +3510,7 @@ var hotel_door := Vector3.ZERO  # Hotelli Siitarin oven edusta
 
 
 ## Hotelli Siitari omana rakennuksenaan suoraan ravintolan takana (OSM:n hotellisiipi on kauempana): sama suunta
-## kuin ravintolalla, 5 m väli takaseinään, pituus 0,85 ravintolan pituudesta ja syvyys 12 m. grow kasvattaa
+## kuin ravintolalla, 5 m väli takaseinään, pituus 0,75 ravintolan pituudesta ja syvyys 10,5 m. grow kasvattaa
 ## pohjaa (hotellin alle jäävät OSM-talot jätetään pois).
 func _hotel_pts(grow := 0.0) -> PackedVector2Array:
 	var so := _siitari_obb()
@@ -3343,9 +3518,9 @@ func _hotel_pts(grow := 0.0) -> PackedVector2Array:
 		return PackedVector2Array()
 	var front: Vector2 = so.front
 	var ax: Vector2 = so.ax
-	var depth := 12.0
+	var depth := 10.5
 	var c: Vector2 = (so.center as Vector2) - front * ((so.size as Vector2).y / 2.0 + 5.0 + depth / 2.0)
-	var hx: float = (so.size as Vector2).x * 0.85 / 2.0 + grow
+	var hx: float = (so.size as Vector2).x * 0.75 / 2.0 + grow
 	var hy := depth / 2.0 + grow
 	return PackedVector2Array([c - ax * hx - front * hy, c + ax * hx - front * hy, c + ax * hx + front * hy, c - ax * hx + front * hy])
 
@@ -3504,7 +3679,7 @@ func _build_roundabout(rb: Dictionary) -> void:
 	ring.generate_normals()
 	var rm := MeshInstance3D.new()
 	rm.mesh = ring.commit()
-	rm.material_override = _rmats.get("asphalt", B.mat(Color(0.24, 0.24, 0.25)))
+	rm.material_override = _surf_mat("asphalt")
 	add_child(rm)
 	kerb.generate_normals()
 	var km := MeshInstance3D.new()
@@ -3942,16 +4117,16 @@ func _build_tori() -> void:
 		return
 	# Kiveys: harmaa noppakivi kävelyalueen muodossa.
 	var tris := Geometry2D.triangulate_polygon(_tori)
-	if not tris.is_empty():
+	if tris.is_empty():
+		push_warning("Vaalan torin monikulmio ei kolmioidu")
+	else:
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		st.set_normal(Vector3.UP)
-		for t in range(0, tris.size(), 3):
-			_drape(st, _tori[tris[t]], _tori[tris[t + 1]], _tori[tris[t + 2]])
+		_poly_surface(st, _tori, LIFT_ASPHALT + 0.015)  # parkkien ja tien yläpuolelle
 		var mi := MeshInstance3D.new()
 		mi.mesh = st.commit()
 		mi.material_override = _ground_mat(Color(0.56, 0.55, 0.52), Color(0.46, 0.45, 0.43), 0.9, 2.5)
-		mi.position.y = 0.02  # parkkien yläpuolelle
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
 	_build_stalls()
 	_build_zabuki()
@@ -3981,6 +4156,8 @@ func _build_stalls() -> void:
 				clear = clear and (absf((c - o).dot(ax)) >= 4.0 or absf((c - o).dot(ay)) >= 5.0)
 			for q in [ax * 2.0, -ax * 2.0, ay * 1.5, -ay * 1.5]:
 				clear = clear and Geometry2D.is_point_in_polygon(c + q, _tori)
+			for k in _tori.size():  # kojut irti torin reunasta (reunan ajoalue ei saa katketa kojuun)
+				clear = clear and Geometry2D.get_closest_point_to_segment(c, _tori[k], _tori[(k + 1) % _tori.size()]).distance_to(c) > 4.5
 			if clear:
 				spots.append(c)
 			off += 0.5
@@ -4753,6 +4930,7 @@ func _build_siitari(pts: PackedVector2Array, body: StaticBody3D) -> void:
 ## Polygoni lisätään data.parkings-listaan, jotta ajoalue (mopo) kattaa sen; mopon paikka (siitari_park) on päädyssä.
 const LOT_BAY_W := 2.6
 const LOT_BAY_D := 5.0
+const LOT_MAX_CARS := 3  # Siitarin ja K-Marketin pihoilla vain muutama auto
 
 
 func _siitari_lot(c: Vector2, ax: Vector2, front: Vector2, hx: float, hy: float) -> void:
@@ -4770,7 +4948,8 @@ func _siitari_lot(c: Vector2, ax: Vector2, front: Vector2, hx: float, hy: float)
 
 ## Merkitty parkkipaikka: asfaltti, ruutuviivat, autot (ohita = paikat, jotka jätetään tyhjiksi, [Vector2]) ja P-kyltti.
 ## Paikallinen kehys: u = ax-suunta, v = front-suunta (rakennuksesta pois); rivi alkaa v0:sta ja ajokaista on rivin takana.
-func _lot_build(c: Vector2, ax: Vector2, front: Vector2, ua: float, nb: int, v0: float, aisle: float, skip: Array) -> void:
+func _lot_build(c: Vector2, ax: Vector2, front: Vector2, ua: float, nb: int, v0: float, aisle: float, skip: Array,
+		gravel := false) -> Array[Vector2]:
 	var ub := ua + nb * LOT_BAY_W
 	var v1 := v0 + LOT_BAY_D + aisle
 	var q := func(u: float, v: float) -> Vector2: return c + ax * u + front * v
@@ -4781,50 +4960,46 @@ func _lot_build(c: Vector2, ax: Vector2, front: Vector2, ua: float, nb: int, v0:
 	data.parkings.append(arr)
 	var asph := SurfaceTool.new()
 	asph.begin(Mesh.PRIMITIVE_TRIANGLES)
-	asph.set_normal(Vector3.UP)
-	_drape(asph, poly[0], poly[1], poly[2])
-	_drape(asph, poly[0], poly[2], poly[3])
+	_poly_surface(asph, poly, LIFT_ASPHALT)
 	var mi := MeshInstance3D.new()
 	mi.mesh = asph.commit()
-	var am := B.mat(Color(0.29, 0.29, 0.3)).duplicate() as StandardMaterial3D
-	am.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mi.material_override = am
-	mi.position.y = 0.04
+	mi.material_override = _surf_mat("gravel" if gravel else "asphalt")
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 	var lines := SurfaceTool.new()
 	lines.begin(Mesh.PRIMITIVE_TRIANGLES)
-	lines.set_normal(Vector3.UP)
-	var seg := func(a: Vector2, b: Vector2) -> void:
-		var sd := (b - a).orthogonal().normalized() * 0.06
-		_drape(lines, a - sd, a + sd, b + sd)
-		_drape(lines, a - sd, b + sd, b - sd)
+	var seg := func(a: Vector2, b: Vector2) -> void: _ribbon(lines, PackedVector2Array([a, b]), 0.06, LIFT_DASH)
 	for k in nb + 1:
 		seg.call(q.call(ua + k * LOT_BAY_W, v0), q.call(ua + k * LOT_BAY_W, v0 + LOT_BAY_D))
 	seg.call(q.call(ua, v0 + LOT_BAY_D), q.call(ub, v0 + LOT_BAY_D))
-	var lm := MeshInstance3D.new()
-	lm.mesh = lines.commit()
-	var lmat := B.unshaded(Color(0.92, 0.92, 0.88))
-	lmat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	lm.material_override = lmat
-	lm.position.y = 0.07
-	add_child(lm)
+	if not gravel:  # soralla ei ruutuviivoja
+		var lm := MeshInstance3D.new()
+		lm.mesh = lines.commit()
+		lm.material_override = _surf_mat("dash")
+		lm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(lm)
 	var cols := [Color(0.5, 0.12, 0.1), Color(0.2, 0.3, 0.45), Color(0.75, 0.75, 0.72), Color(0.18, 0.2, 0.2), Color(0.55, 0.5, 0.3)]
 	var yaw := rad_to_deg(atan2(front.x, front.y))
 	var n := 0
+	var placed: Array[Vector2] = []
 	for k in nb:
+		if n >= LOT_MAX_CARS:
+			break
 		if (k * 7 + 3) % 5 < 2:
 			continue  # jokin paikka vapaa
 		var cp: Vector2 = q.call(ua + (k + 0.5) * LOT_BAY_W, v0 + LOT_BAY_D / 2.0)
 		if skip.any(func(sp: Vector2) -> bool: return sp.distance_to(cp) < 2.0):
 			continue
 		B.parked_car(self, Vector3(cp.x, h(cp.x, cp.y) + 0.1, cp.y), yaw + 180.0 + (3.0 if k % 2 == 0 else -2.0), cols[n % cols.size()])
+		placed.append(cp)
 		n += 1
 	var pp: Vector2 = q.call(ua - 0.8, v0 + 0.5)
 	var pole := B.sign_pole(self, Vector3(pp.x, h(pp.x, pp.y), pp.y), 2.3)
 	var plate := B.sign_plate(pole, "P", Color(0.0, 0.3, 0.6), Color.WHITE, 0.5, 70, Color(0.95, 0.95, 0.95), "Helvetica Neue")
 	plate.position.y = 2.0
 	plate.rotation.y = atan2(front.x, front.y)
-	print("VAALA Siitarin parkki: %d paikkaa, %d autoa, kaista %.1f m" % [nb, n, aisle])
+	print("VAALA parkki: %d paikkaa, %d autoa, kaista %.1f m" % [nb, n, aisle])
+	return placed
 
 
 ## K-Marketin piha (kuten Saloisissa): merkitty parkkipaikka kadun puolella, penkin mummot ja rollaattorimummo oven vieressä
@@ -4905,45 +5080,14 @@ func _build_parkings() -> void:
 		var pts := PackedVector2Array()
 		for q in poly:
 			pts.append(Vector2(q[0], q[1]))
-		var tris := Geometry2D.triangulate_polygon(pts)
-		if tris.is_empty():
-			continue
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		st.set_normal(Vector3.UP)
-		for t in range(0, tris.size(), 3):
-			_drape(st, pts[tris[t]], pts[tris[t + 1]], pts[tris[t + 2]])
+		_poly_surface(st, pts, LIFT_ASPHALT)
 		var mi := MeshInstance3D.new()
 		mi.mesh = st.commit()
-		var m := B.mat(Color(0.26, 0.26, 0.27)).duplicate() as StandardMaterial3D
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-		mi.material_override = m
+		mi.material_override = _surf_mat("asphalt")
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
-
-
-## Kolmio maan pintaan: jaetaan alle 2 m:n paloiksi, jotta asfaltti myötäilee maastoa (maa ei pistä läpi).
-func _drape(st: SurfaceTool, a: Vector2, b: Vector2, c: Vector2) -> void:
-	var ab := a.distance_to(b)
-	var bc := b.distance_to(c)
-	var ca := c.distance_to(a)
-	var m := maxf(ab, maxf(bc, ca))
-	if m > 2.0:
-		# Pisin sivu kahtia.
-		if m == ab:
-			var d := (a + b) / 2.0
-			_drape(st, a, d, c)
-			_drape(st, d, b, c)
-		elif m == bc:
-			var d := (b + c) / 2.0
-			_drape(st, a, b, d)
-			_drape(st, a, d, c)
-		else:
-			var d := (c + a) / 2.0
-			_drape(st, a, b, d)
-			_drape(st, d, b, c)
-		return
-	for p in [a, b, c]:
-		st.add_vertex(Vector3(p.x, h(p.x, p.y) + 0.08, p.y))
 
 
 ## Kyltit: tienviitat risteyksiin, kilometritaulut Vaalaan ja joen nimi sillalle.
@@ -5030,10 +5174,14 @@ func _build_lamps() -> void:
 const NUOJUA_Z := Vector2(-1560.0, -430.0)  # Nuojuankoskentie todellisessa kehyksessä tällä z-välillä (8794)
 ## Soratien kulku risteyksestä laavulle (pelin kehys): Etu-Salmisen itäpuolelta ja suon (Keskimmäisen etelärannan
 ## räme) itäpuolelta kaartaen laavun taakse. Päätepiste lasketaan laavun asettelusta (mokki.gd keskimmainen_layout).
+## Salmisentie: laavun ja tynnyrisaunan pihasta Taka-Salmisen pohjoisrantaa (tasaista metsää, 11-14 m järven pohjoispuolella)
+## Nuojuankoskentien päähän uimarannan kohdalle: yhdessä Keskimmäisentien kanssa kierros Salmisen ympäri. Suora ja tasainen,
+## ja soraa kuten Keskimmäisentie (testi `--scene=vaala_ajo --ajo=tiet --kohdat=-250,-445`).
+const SALMINEN_ROAD := [Vector2(-135, -446), Vector2(-200, -448), Vector2(-270, -445), Vector2(-320, -443), Vector2(-345, -439)]
 const LAAVU_ROAD := [Vector2(-22, -280), Vector2(-40, -320), Vector2(-62, -360), Vector2(-82, -395), Vector2(-95, -425)]
-const NORTH_ASPHALT_HALF := 3.0
-const NORTH_GRAVEL_HALF := 2.2
-const NORTH_SPUR_HALF := 1.8
+const NORTH_ASPHALT_HALF := 4.0
+const NORTH_GRAVEL_HALF := 2.6
+const NORTH_SPUR_HALF := 2.6
 var north_roads: Array = []  # {pts: PackedVector2Array (n. 4 m välein), half, asphalt: bool, name}
 var north_areas: Array = []  # ajettavat ja raivatut pihat: PackedVector2Array-monikulmiot
 var rosvo_pos := Vector3.ZERO
@@ -5179,6 +5327,11 @@ func _plan_north() -> void:
 		g.append_array(LAAVU_ROAD)
 		g.append(end)
 		north_roads.append({"pts": _smooth_line(g), "half": NORTH_GRAVEL_HALF, "asphalt": false, "name": "Keskimmäisentie"})
+		# Salmisentie: pihan takaa länteen ja Nuojuankoskentien päähän (asfaltin viimeinen piste).
+		var sg: Array = [end]
+		sg.append_array(SALMINEN_ROAD)
+		sg.append(asphalt[-1])
+		north_roads.append({"pts": _smooth_line(sg), "half": NORTH_GRAVEL_HALF, "asphalt": false, "name": "Salmisentie"})
 		# Piha laavun takaa saunan ovelle ja rantaan: laavun ja saunan ympäri.
 		var yard := PackedVector2Array()
 		for c in [Vector2(-4.5, -7.0), Vector2(9.5, -7.0), Vector2(9.5, 11.0), Vector2(-4.5, 11.0)]:
@@ -5275,38 +5428,110 @@ func _north_ground() -> void:
 	_drive = keep
 
 
+## Lisää puita Salmisten (Etu- ja Taka-Salminen sekä niiden lähin lampi) ympärille: rantaviivan jokaisesta ruudusta kasvaa
+## ulospäin (poispäin järvestä) koivuja, mäntyjä, kuusia ja pensaita; rannassa matalampaa (pajua, koivua), kauempana
+## havupuita. Teiden, raivattujen pihojen (_tree_clear) ja veden päälle ei istuteta. Siemen kiinteä: sama metsä joka kerta.
+const SALMINEN_LAKES := ["Etu-Salminen", "Taka-Salminen", "Pyöriäinen"]
+const SALMINEN_PER_SHORE := 9
+const SALMINEN_REACH := Vector2(3.0, 48.0)  # etäisyys rannasta (m)
+
+
+func _build_salminen_trees() -> void:
+	var centres: Array = []
+	for nl in data.get("north_lakes", []):
+		if nl.name in SALMINEN_LAKES:
+			centres.append(Vector2(nl.c[0], nl.c[1]))
+	if centres.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5171
+	var trees: Array = []
+	for c: Vector2 in centres:
+		# Rantaruudut: vesiruutu, jonka vieressä on maata, järven keskipisteen ympäriltä (kolme tiheää jaksoa).
+		var shore: Array[Vector2] = []
+		var r := 110.0
+		for j in range(maxi(int((c.y - r - _z0) / _cell), 0), mini(int((c.y + r - _z0) / _cell), _nz - 1) + 1):
+			for i in range(maxi(int((c.x - r - _x0) / _cell), 0), mini(int((c.x + r - _x0) / _cell), _nx - 1) + 1):
+				var q := j * _nx + i
+				if _codes[q] != WATER:
+					continue
+				var edge := false
+				for o in [-1, 1]:
+					if _codes[q + o] != WATER or _codes[q + o * _nx] != WATER:
+						edge = true
+				if edge:
+					shore.append(Vector2(_x0 + i * _cell, _z0 + j * _cell))
+		for sp: Vector2 in shore:
+			var out := (sp - c).normalized()
+			for k in SALMINEN_PER_SHORE:
+				var d := out.rotated(rng.randf_range(-1.1, 1.1)) * rng.randf_range(SALMINEN_REACH.x, SALMINEN_REACH.y)
+				var p := sp + d
+				if code_at(p.x, p.y) in [WATER, ROAD, SHOULDER, RAIL, OUTSIDE] or wet(p.x, p.y, 0.15):
+					continue
+				var ci := _dcell(p)
+				if ci >= 0 and not _tree_clear.is_empty() and _tree_clear[ci] == 1:
+					continue
+				var near_road := false
+				for rd in north_roads:
+					var pts: PackedVector2Array = rd.pts
+					for m in range(0, pts.size() - 1):
+						if Geometry2D.get_closest_point_to_segment(p, pts[m], pts[m + 1]).distance_to(p) < float(rd.half) + 4.0:
+							near_road = true
+							break
+					if near_road:
+						break
+				if near_road:
+					continue
+				var shore_d := d.length()
+				var roll := rng.randf()
+				var kind: int
+				if shore_d < 9.0:
+					kind = Forest.BUSH if roll < 0.45 else Forest.BIRCH
+				else:
+					kind = Forest.BIRCH if roll < 0.3 else (Forest.PINE if roll < 0.65 else (Forest.SPRUCE if roll < 0.9 else Forest.BUSH))
+				var hh := rng.randf_range(1.2, 2.6) if kind == Forest.BUSH else rng.randf_range(8.0, 15.0) * (0.75 if shore_d < 9.0 else 1.0)
+				trees.append({"pos": Vector3(p.x, h(p.x, p.y), p.y), "h": hh, "sp": kind})
+	if trees.is_empty():
+		return
+	var f := Forest.new()
+	f.name = "SalmisenPuut"
+	add_child(f)
+	f.load_list(trees, 91)
+	print("VAALA Salmisen puut: %d" % trees.size())
+
+
 ## Tienpinnat, opaste ja kohteet (mökin rakennusfunktioilla, ankkuroituna T:n kuvaamaan pisteeseen).
 func _build_north() -> void:
 	if north_roads.is_empty():
 		return
 	var M: GDScript = load(MOKKI_PATH)
-	var asph := SurfaceTool.new()
-	asph.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var grav := SurfaceTool.new()
-	grav.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var sts := {}
+	for kind in ["asphalt", "shoulder", "dash", "gravel"]:
+		sts[kind] = SurfaceTool.new()
+		sts[kind].begin(Mesh.PRIMITIVE_TRIANGLES)
 	for r in north_roads:
 		var pts: PackedVector2Array = r.pts
-		var st: SurfaceTool = asph if r.asphalt else grav
 		var half: float = r.half
-		var edge := []
-		for i in pts.size():
-			var dir := (pts[mini(i + 1, pts.size() - 1)] - pts[maxi(i - 1, 0)]).normalized()
-			var n := dir.orthogonal() * half
-			edge.append([pts[i] + n, pts[i] - n])
-		var v := func(p: Vector2) -> Vector3: return Vector3(p.x, h(p.x, p.y) + (0.05 if r.asphalt else 0.04), p.y)
-		for i in pts.size() - 1:
-			_quad(st, v.call(edge[i][0]), v.call(edge[i + 1][0]), v.call(edge[i + 1][1]), v.call(edge[i][1]))
-	for pair in [[asph, Color(0.25, 0.25, 0.26)], [grav, Color(0.55, 0.49, 0.4)]]:
-		var st: SurfaceTool = pair[0]
-		st.generate_normals()
+		if r.asphalt:
+			_ribbon(sts.shoulder, pts, half + ROAD_SHOULDER, LIFT_SHOULDER)
+			_ribbon(sts.asphalt, pts, half, LIFT_ASPHALT)
+			_dashes(sts.dash, pts, LIFT_DASH)
+		else:
+			_ribbon(sts.gravel, pts, half, LIFT_GRAVEL)
+	for kind in sts:
+		var st: SurfaceTool = sts[kind]
+		if _st_empty(st):
+			continue
 		var mi := MeshInstance3D.new()
 		mi.name = "JarviseudunTiet"
 		mi.mesh = st.commit()
-		mi.material_override = B.mat(pair[1])
+		mi.material_override = _surf_mat(kind)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
 	# Opaste soratien alkuun: laavu.
-	var gr: Dictionary = north_roads[-1]
-	if not gr.asphalt and gr.pts.size() > 6:
+	var grs := north_roads.filter(func(r: Dictionary) -> bool: return r.name == "Keskimmäisentie")
+	if not grs.is_empty() and grs[0].pts.size() > 6:
+		var gr: Dictionary = grs[0]
 		var p0: Vector2 = gr.pts[3]
 		var dir: Vector2 = (gr.pts[6] - gr.pts[3]).normalized()
 		var at: Vector2 = p0 + dir.orthogonal() * (NORTH_GRAVEL_HALF + 1.0)

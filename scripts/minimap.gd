@@ -295,10 +295,12 @@ func _bake_vaala() -> void:
 				bp.append(tp.call(Vector2(q[0], q[2])))
 			c.draw_polyline(bp, Color(0.3, 0.26, 0.22), 4.4 * wscale)
 			c.draw_polyline(bp, Color(0.78, 0.64, 0.42) if br.gravel else Color(0.95, 0.94, 0.88), 3.0 * wscale)
+		# Pääreitti piirretään kuten muutkin tiet (asfaltti vaalea, sora ruskea), ei keltaisena ohjeena Siitariin.
 		var line := PackedVector2Array()
 		for q in data.road:
 			line.append(tp.call(Vector2(q[0], q[2])))
-		c.draw_polyline(line, Color(0.95, 0.8, 0.2), 4.0 * wscale)
+		c.draw_polyline(line, Color(0.3, 0.26, 0.22), 4.4 * wscale)
+		c.draw_polyline(line, Color(0.95, 0.94, 0.88), 3.0 * wscale)
 	_vaala_tex = await _render(tex_size, paint)
 
 

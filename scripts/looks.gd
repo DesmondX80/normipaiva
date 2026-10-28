@@ -16,7 +16,7 @@ const PLAYER := {
 ## Karhu-lippis on oletus. Hiihtohaalari ostetaan kirppikseltä Railin vaatetangosta (main.gd has_haalari). Kaikissa vaaleat hiukset, pukinparta, kello, rannekoru ja tatuointi vasemmassa olkavarressa.
 const OUTFITS := {
 	"tuulipuku": {"name": "Tuulipuku ja Karhu-lippis"},
-	"farkut": {"name": "Farkut, verkkopaita ja rasvaletti"},
+	"farkut": {"name": "Verkkopaita, henkselit ja työhousut"},
 	"tyovaatteet": {"name": "Työvaatteet ja Karjala-lippis"},
 	"hiihtohaalari": {"name": "Hiihtohaalari ja otsapanta"},
 }
@@ -38,10 +38,13 @@ static func player(which := "") -> Dictionary:
 		"farkut":
 			for k in ["tracksuit", "stripe_color"]:
 				look.erase(k)
-			look.merge({"shirt": Color(0.78, 0.68, 0.5), "net_shirt": true, "shirt_puff": 0.006, "suspenders": true,
-				"pants": Color(0.46, 0.6, 0.78), "jeans": true, "belt_y": 0.99, "pants_puff": 0.01,
-				"shoes": Color(0.33, 0.22, 0.13), "stripes": false, "shine": 0.0, "hair": "", "letti": true,
-				"shades": "valkoiset", "chain": true, "cap": ""}, true)
+			# Rähjäinen maamies kuten Uuno kyntämässä (viitekuva): rispaantunut valkoinen verkkopaita isoine repeämineen,
+			# ruskeat henkselit, tummat kuluneet työhousut, tuprukka vaalea tukka, nokinen iho, ei laseja eikä ketjua.
+			look.merge({"shirt": Color(0.88, 0.86, 0.8), "net_shirt": true, "shirt_puff": 0.006, "suspenders": true,
+				"strap_col": Color(0.26, 0.19, 0.13), "grime": 0.8,
+				"pants": Color(0.2, 0.21, 0.25), "jeans": true, "belt_y": 0.99, "pants_puff": 0.016,
+				"shoes": Color(0.3, 0.2, 0.12), "stripes": false, "shine": 0.0, "hair": "Hair_SimpleParted",
+				"shades": "", "cap": ""}, true)
 		"tyovaatteet":
 			for k in ["tracksuit", "stripe_color"]:
 				look.erase(k)

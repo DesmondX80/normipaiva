@@ -50,6 +50,7 @@ uniform float belt_y = -1.0;     // vyön yläreuna (lepoasennon korkeus); < 0 =
 uniform vec3 belt_col : source_color = vec3(0.05, 0.045, 0.04);
 uniform bool net_shirt = false;  // verkkopaita: reikäinen neulos, iho näkyy silmukoista, isoja repeämiä
 uniform bool suspenders = false; // henkselit verkkopaidan päällä
+uniform float grime = 0.0;       // rähjäisyys: noki- ja multatahroja iholla (kasvot, kädet, rinta), 0..1
 uniform vec3 strap_col : source_color = vec3(0.55, 0.42, 0.25);
 uniform bool workwear = false;   // työhousut: vahvikkeet polvissa, riipputaskut, heijastinraita säären ympäri
 uniform bool flannel = false;    // flanellipaita: ruudutus
@@ -85,8 +86,23 @@ float tattoo_ink(vec2 r, vec3 lp) {
 	return max(ring, spike) * step(length(q), 1.0);
 }
 
+// Arvokohina (pehmeä): tahrojen muoto.
+float vnoise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash21(i), hash21(i + vec2(1, 0)), f.x), mix(hash21(i + vec2(0, 1)), hash21(i + vec2(1, 1)), f.x), f.y);
+}
+
 vec3 skin_with_ink(vec3 skin, vec2 r, vec3 lp) {
-	return mix(skin, vec3(0.08, 0.16, 0.14), 0.85 * tattoo_ink(r, lp));
+	vec3 col = mix(skin, vec3(0.08, 0.16, 0.14), 0.85 * tattoo_ink(r, lp));
+	if (grime > 0.0) {
+		// Nokisia ja mullanruskeita tahroja: isoja läikkiä ja pieniä roiskeita, hieman enemmän alhaalla (kädet, vyötärö).
+		float blot = smoothstep(0.55, 0.8, vnoise(r * 38.0 + vec2(lp.z * 9.0, 3.0)));
+		float fleck = smoothstep(0.72, 0.9, vnoise(r * 150.0));
+		col = mix(col, vec3(0.2, 0.14, 0.1), grime * clamp(0.85 * blot + 0.6 * fleck, 0.0, 1.0));
+	}
+	return col;
 }
 
 // Verkkopaidan silmukka: 1 = lanka, 0 = reikä (iho näkyy). Isot repeämät satunnaisissa ruuduissa.
@@ -94,8 +110,17 @@ float net_thread(vec2 r, vec3 lp) {
 	vec2 g = vec2(r.x * 42.0 + (lp.z > 0.0 ? 0.0 : 0.5), r.y * 42.0);
 	vec2 f = abs(fract(g) - 0.5);
 	float hole = step(max(f.x, f.y), 0.34);
-	float tear = step(0.965, hash21(floor(vec2(r.x * 22.0 + (lp.z > 0.0 ? 0.0 : 3.0), r.y * 16.0))));
-	return 1.0 - max(hole, tear);
+	float tear = step(0.94, hash21(floor(vec2(r.x * 22.0 + (lp.z > 0.0 ? 0.0 : 3.0), r.y * 16.0))));
+	// Isot repeämät edessä (rinta, vatsa, olkapää): epäsäännölliset soikiot, joiden reunat ovat rispaantuneet.
+	float rip = 0.0;
+	if (lp.z > 0.0) {
+		vec2 ra = (r - vec2(-0.075, 1.34)) / vec2(0.05, 0.065);
+		vec2 rb = (r - vec2(0.04, 1.14)) / vec2(0.075, 0.055);
+		vec2 rc = (r - vec2(0.175, 1.47)) / vec2(0.04, 0.05);
+		float wob = (hash21(floor(r * 120.0)) - 0.5) * 0.35;
+		rip = max(step(length(ra) + wob, 1.0), max(step(length(rb) + wob, 1.0), step(length(rc) + wob, 1.0)));
+	}
+	return 1.0 - max(max(hole, tear), rip);
 }
 
 // Janan ab etäisyys pisteestä p.

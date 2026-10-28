@@ -741,9 +741,7 @@ func _build_hotel() -> void:
 	var rs := B.sign_plate(self, "HOTELLI SIITARI · VASTAANOTTO", Color(0.12, 0.1, 0.08), Color(0.98, 0.95, 0.85), 0.18, 34,
 		Color(0.95, 0.8, 0.3))
 	rs.position = HOTEL + Vector3(-5.6, 2.65, -hz + 0.1)
-	_hmesh(Vector3(0.08, 2.3, 1.6), Vector3(-hx + 0.02, 1.15, 0.6), Color(0.85, 0.85, 0.82))  # ulko-ovi
-	_hmesh(Vector3(0.1, 2.1, 1.4), Vector3(-hx + 0.03, 1.1, 0.6), Color(0.3, 0.42, 0.45))
-	B.label(self, "ULOS", HOTEL + Vector3(-hx + 0.1, 2.5, 0.6), 40, Color(0.3, 1.0, 0.4)).rotation.y = PI / 2.0
+	_hotel_exit_door(hx, 0.6)
 	for cx in [-7.8, -3.4]:  # nojatuolit
 		_hmesh(Vector3(0.8, 0.45, 0.8), Vector3(cx, 0.22, 2.4), Color(0.25, 0.4, 0.3))
 		_hmesh(Vector3(0.8, 0.5, 0.15), Vector3(cx, 0.65, 2.75), Color(0.25, 0.4, 0.3))
@@ -761,6 +759,26 @@ func _build_hotel() -> void:
 	_receptionist.play("Idle", 0.0)
 	_add_bubble(_receptionist)
 	_build_room_12()
+
+
+## Hotellin ulko-ovi vastaanoton päätyseinässä (x = -hx, kohdassa z), piirretty sisältä katsottuna seinän sisäpinnalle (seinä on 0,2 m
+## paksu, joten ovi on sen pinnan edessä eikä piiloudu seinään): valkoiset karmit, tumma ovilehti jossa lasi-ikkuna ja paneelit,
+## vetokahva, kynnys ja vihreä ULOS-kyltti oven päällä. Pelaajan paikka "hotelli_ovi" on oven edessä sisäpuolella.
+func _hotel_exit_door(hx: float, z: float) -> void:
+	var x := -hx + 0.1  # seinän sisäpinta
+	var frame := Color(0.92, 0.9, 0.84)
+	_hmesh(Vector3(0.06, 2.3, 0.12), Vector3(x + 0.03, 1.15, z - 0.86), frame)  # karmit
+	_hmesh(Vector3(0.06, 2.3, 0.12), Vector3(x + 0.03, 1.15, z + 0.86), frame)
+	_hmesh(Vector3(0.06, 0.12, 1.84), Vector3(x + 0.03, 2.3, z), frame)
+	_hmesh(Vector3(0.1, 0.04, 1.6), Vector3(x + 0.05, 0.02, z), Color(0.45, 0.4, 0.35))  # kynnys
+	_hmesh(Vector3(0.04, 2.2, 1.6), Vector3(x + 0.03, 1.1, z), Color(0.34, 0.2, 0.12))  # ovilehti (tumma puu)
+	_hmesh(Vector3(0.05, 0.9, 1.0), Vector3(x + 0.05, 1.55, z), Color(0.5, 0.7, 0.78))  # lasi-ikkuna
+	for pz in [-0.35, 0.35]:  # alapaneelit
+		_hmesh(Vector3(0.05, 0.7, 0.5), Vector3(x + 0.05, 0.5, z + pz), Color(0.28, 0.16, 0.1))
+	_hmesh(Vector3(0.1, 0.05, 0.22), Vector3(x + 0.1, 1.05, z + 0.62), Color(0.8, 0.75, 0.4))  # kahva
+	var exit_sign := B.sign_plate(self, "ULOS", Color(0.05, 0.4, 0.15), Color.WHITE, 0.3, 40, Color(0.9, 0.9, 0.9))
+	exit_sign.position = HOTEL + Vector3(x + 0.08, 2.65, z)
+	exit_sign.rotation.y = PI / 2.0  # lukusuunta huoneeseen päin (+X)
 
 
 ## Huone 12 sekaisin: sänky nurin, patja seinää vasten, telkkari lattialla, ikkuna rikki, pullot, kitarat ja vahvistin,

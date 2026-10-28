@@ -41,7 +41,11 @@ var target := Vector2.ZERO
 const SNAP_PX := 14.0
 var _vaala := false  # avattaessa: mökki tai Vaalan matka -> Neittävä–Vaala-kartta kyläkartan sijaan
 var _vd := {}  # tie.json
-var _vtex: ImageTexture  # tarkan maaston maankäyttö ja rinnevarjostus
+var _vtex: ImageTexture  # tarkan maaston maankäyttökoodit (R8), piirretään vaala_kartta.gdshaderilla (_vland)
+var _vland: Control  # maanpeite kartan alla (show_behind_parent), oma materiaali
+var _vgrid := {}  # maastoruudukon nx, nz, x0, z0, cell
+var _vcodes := PackedByteArray()
+var _vtree_pts := PackedVector2Array()  # puumerkit metsään (Saloisten tapaan)
 var _vaala_rect := Rect2()  # Neittävä–Vaala-kartan alue
 ## Näkymä (molemmat kartat): _vrect = kartan alue (kyläkartalla maailman x/z, Vaalassa kehyksen x/z), _vcenter
 ## keskipiste samassa kehyksessä, _vzoom pikseliä metrille.
@@ -66,6 +70,12 @@ func _ready() -> void:
 	_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_view)
 	_view.draw.connect(_draw_map)
+	_vland = Control.new()
+	_vland.show_behind_parent = true
+	_vland.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vland.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_view.add_child(_vland)
+	_vland.draw.connect(_draw_vaala_land)
 	resized.connect(_layout)
 	_layout.call_deferred()
 
@@ -147,6 +157,8 @@ func _center_on_me() -> void:
 
 
 func _process(delta: float) -> void:
+	if visible and _vaala and _vland != null:
+		_vland.queue_redraw()  # maanpeite samassa ruudussa kuin muu kartta (ei yhden ruudun viivettä)
 	if Input.is_action_just_pressed("map") or (visible and Input.is_key_pressed(KEY_ESCAPE)):
 		if visible or not get_tree().paused:  # ei repun tai valikon päälle
 			toggle()
@@ -543,7 +555,7 @@ func _legend_vaala(p: Vector2) -> float:
 		["beach", "Salmisen uimaranta"], ["statue", "Ranta-Rosvo"], ["laavu", "Keskimmäisen laavu"],
 		["barrel", "Tynnyrisauna"], ["dock", "Laituri ja soutuvene"], ["harbor", "Vaalan satama (muskelivene)"],
 		["you", "Olet tässä"],
-		["road", "Maantie"], ["gravel", "Soratie"], ["rail", "Rautatie"], ["field", "Pelto"], ["bog", "Suo"],
+		["road", "Maantie"], ["gravel", "Soratie"], ["rail", "Rautatie"], ["forest", "Metsä"], ["field", "Pelto"], ["bog", "Suo"],
 		["water", "Vesi"], ["building", "Rakennus"],
 	]
 	# Kohteet allekkain, viivat ja alueet kahteen palstaan.
@@ -560,7 +572,10 @@ func _legend_vaala(p: Vector2) -> float:
 				draw_line(sym - Vector2(12, 0), sym + Vector2(12, 0), Color(0.45, 0.25, 0.1), 6.0)
 				draw_line(sym - Vector2(12, 0), sym + Vector2(12, 0), Color(0.98, 0.86, 0.4), 3.0)
 			"gravel":
-				draw_line(sym - Vector2(12, 0), sym + Vector2(12, 0), Color(0.62, 0.52, 0.36), 3.0)
+				draw_line(sym - Vector2(12, 0), sym + Vector2(12, 0), INK.lightened(0.15), 2.0)
+			"forest":
+				draw_rect(Rect2(sym - Vector2(12, 6), Vector2(24, 12)), Color(0.66, 0.76, 0.52))
+				draw_circle(sym, 2.0, Color(0.3, 0.45, 0.25))
 			"rail":
 				_rail_on(self, PackedVector2Array([sym - Vector2(12, 0), sym + Vector2(12, 0)]), 3.0)
 			"field":
@@ -571,7 +586,7 @@ func _legend_vaala(p: Vector2) -> float:
 			"water":
 				draw_rect(Rect2(sym - Vector2(12, 6), Vector2(24, 12)), Color(0.55, 0.72, 0.86))
 			"building":
-				draw_rect(Rect2(sym - Vector2(6, 5), Vector2(12, 10)), Color(0.42, 0.38, 0.34))
+				draw_rect(Rect2(sym - Vector2(6, 5), Vector2(12, 10)), INK)
 			"you":
 				_you_icon(sym, 0.0)
 			_:
@@ -882,29 +897,29 @@ func _vaala_load() -> void:
 	var x0 := f.get_float()
 	var z0 := f.get_float()
 	var cell := f.get_float()
-	var hts := f.get_buffer(nx * nz * 4).to_float32_array()
+	f.get_buffer(nx * nz * 4)  # korkeudet (kartta on litteä, ei rinnevarjostusta)
 	var codes := f.get_buffer(nx * nz)
 	_vaala_rect = Rect2(x0 - cell / 2.0, z0 - cell / 2.0, nx * cell, nz * cell)
-	# Koodit kuten vaala.gd: metsä, pelto, suo, vesi, piha, piennar, tie, rata. Tiivistys on leivottu saumattomaksi
-	# (tools/kartta/vaala_warp.py), joten kartta piirretään sellaisenaan ilman merkintöjä.
-	var pal := [Color(0.66, 0.76, 0.52), Color(0.93, 0.82, 0.5), Color(0.78, 0.84, 0.82), Color(0.55, 0.72, 0.86),
-		Color(0.86, 0.85, 0.7), Color(0.84, 0.8, 0.68), Color(0.84, 0.8, 0.68), Color(0.7, 0.66, 0.6)]
-	var px := PackedByteArray()
-	px.resize(nx * nz * 3)
-	for j in nz:
-		for i in nx:
-			var q := j * nx + i
-			var c: int = codes[q]
-			var col: Color = pal[c] if c < pal.size() else pal[0]
-			if c != 3:
-				# Rinnevarjostus luoteesta: kaakkoon nouseva rinne vaalea, luoteeseen nouseva tumma.
-				var dx := hts[mini(q + 1, j * nx + nx - 1)] - hts[maxi(q - 1, j * nx)]
-				var dz := hts[mini(q + nx, nx * nz - 1)] - hts[maxi(q - nx, 0)]
-				col = col * clampf(1.0 + (dx + dz) * 0.07, 0.72, 1.18)
-			px[q * 3] = clampi(int(col.r * 255.0), 0, 255)
-			px[q * 3 + 1] = clampi(int(col.g * 255.0), 0, 255)
-			px[q * 3 + 2] = clampi(int(col.b * 255.0), 0, 255)
-	_vtex = ImageTexture.create_from_image(Image.create_from_data(nx, nz, false, Image.FORMAT_RGB8, px))
+	_vgrid = {"nx": nx, "nz": nz, "x0": x0, "z0": z0, "cell": cell}
+	_vcodes = codes
+	# Koodit kuten vaala.gd: metsä, pelto, suo, vesi, piha, piennar, tie, rata. Väri ja reunaviivat piirretään shaderilla
+	# (shaders/vaala_kartta.gdshader) Saloisten kartan tyyliin; tekstuurina ovat vain koodit.
+	_vtex = ImageTexture.create_from_image(Image.create_from_data(nx, nz, false, Image.FORMAT_R8, codes))
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/vaala_kartta.gdshader")
+	mat.set_shader_parameter("grid_size", Vector2(nx, nz))
+	_vland.material = mat
+	_vland.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# Puumerkit metsiin: harva satunnaisesti hajotettu ruudukko (36 m), vain metsäruuduille.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4711
+	for j in range(0, nz, 9):
+		for i in range(0, nx, 9):
+			var p := Vector2(x0 + (i + rng.randf() * 9.0) * cell, z0 + (j + rng.randf() * 9.0) * cell)
+			var ci := clampi(int(roundf((p.x - x0) / cell)), 0, nx - 1)
+			var cj := clampi(int(roundf((p.y - z0) / cell)), 0, nz - 1)
+			if codes[cj * nx + ci] == 0 and rng.randf() < 0.7:
+				_vtree_pts.append(p)
 	# Rakennukset: kolmiot kerralla, nimetyt julkiset ja kaupat tummemman punaisina.
 	for bd in _vd.buildings:
 		var pts := PackedVector2Array()
@@ -915,7 +930,7 @@ func _vaala_load() -> void:
 		var tris := Geometry2D.triangulate_polygon(pts)
 		if tris.is_empty():
 			continue
-		var col := Color(0.42, 0.38, 0.34)
+		var col := INK  # tavalliset talot mustina kuten Saloisten kartalla
 		if bd.name != "" or bd.type in ["church", "train_station", "civic", "school", "library", "hotel", "retail", "commercial"]:
 			col = Color(0.55, 0.22, 0.16)
 		var base := _vbld_pts.size()
@@ -1005,78 +1020,99 @@ func _vaala_tori() -> Array:
 	return [c, at if at != Vector2.INF else c + Vector2(0, -12.0)]
 
 
+## Vaalan maanpeite (kartan alla): ruutukoodit shaderilla Saloisten kartan väreihin ja reunaviivoihin.
+func _draw_vaala_land() -> void:
+	if _vtex == null or not _vaala or _vland.material == null:
+		return
+	(_vland.material as ShaderMaterial).set_shader_parameter("px_per_cell", float(_vgrid.cell) * _vzoom)
+	_vland.draw_texture_rect(_vtex, Rect2(_vpx(_vrect.position), _vrect.size * _vzoom), false)
+
+
 func _draw_vaala_map() -> void:
 	var v := _view
 	var font := ThemeDB.fallback_font
-	var forest := Color(0.66, 0.76, 0.52)
-	v.draw_rect(Rect2(Vector2.ZERO, v.size), forest.darkened(0.04))
+	v.draw_rect(Rect2(Vector2.ZERO, v.size), Color(0.95, 0.92, 0.82, 0.55))  # paperi, kuten Saloisten kartalla
 	if _vtex == null:
 		return
-	v.draw_texture_rect(_vtex, Rect2(_vpx(_vrect.position), _vrect.size * _vzoom), false)
+	# Maanpeite piirretään _vland-lapsella (show_behind_parent, shaders/vaala_kartta.gdshader) tämän alle.
+	var view_r := Rect2(Vector2(-5, -5), v.size + Vector2(10, 10))
+	if _vzoom >= 0.25:
+		var rad := clampf(1.3 * _vzoom / 0.4, 1.3, 2.6)
+		for t in _vtree_pts:
+			var tp := _vpx(t)
+			if view_r.has_point(tp):
+				v.draw_circle(tp, rad, Color(0.35, 0.5, 0.28, 0.7))
 	_draw_mokki_overlay(v)
-	var wz := func(half: float, lo: float, hi: float) -> float: return clampf(half * 2.0 * _vzoom, lo, hi)
 
-	# Sivutiet ja rata.
+	# Tiet kuten Saloisten kartalla: ensin ääriviivat, sitten täyttö (maantie keltainen ruskealla reunuksella, sora ohut
+	# musta viiva, polku katkoviiva); leveys kasvaa zoomatessa.
+	var rw := clampf(_vzoom / 0.4, 1.0, 3.0)
+	var road_line := func(pts: PackedVector2Array, asphalt: bool) -> void:
+		if asphalt:
+			v.draw_polyline(pts, Color(0.45, 0.25, 0.1), 6.0 * rw)
+			v.draw_polyline(pts, Color(0.98, 0.86, 0.4), 3.5 * rw)
+		else:
+			v.draw_polyline(pts, INK.lightened(0.15), 2.0 * rw)
 	for r in _vd.side_roads:
 		var pts := PackedVector2Array()
 		for q in r.pts:
 			pts.append(_vpx(Vector2(q[0], q[1])))
 		if r.kind == "rail":
-			_rail_on(v, pts, wz.call(1.6, 2.5, 5.0))
+			_rail_on(v, pts, clampf(3.0 * rw, 2.5, 6.0))
 		elif r.hw in ["footway", "cycleway", "path", "pedestrian", "track"]:
 			if _vzoom > 0.6:
 				for i in pts.size() - 1:
-					v.draw_dashed_line(pts[i], pts[i + 1], INK.lightened(0.2), 1.2, 4.0)
-		elif r.hw in ["secondary", "tertiary", "residential"] or r.surface in ["asphalt", "paved"]:
-			# Suorat tiet kohteisiin: selvä reunus ja täyttö jo kaukozoomissa (ohut viiva näytti katkoviivalta).
-			v.draw_polyline(pts, INK.lightened(0.15), wz.call(3.0, 4.0, 8.0))
-			v.draw_polyline(pts, Color(0.97, 0.95, 0.88), wz.call(3.0, 4.0, 8.0) - 1.8)
+					v.draw_dashed_line(pts[i], pts[i + 1], INK, 1.5, 5.0)
 		else:
-			v.draw_polyline(pts, INK.lightened(0.15), wz.call(2.2, 3.6, 7.0))
-			v.draw_polyline(pts, Color(0.78, 0.64, 0.42), wz.call(2.2, 3.6, 7.0) - 1.6)
+			road_line.call(pts, r.hw in ["secondary", "tertiary", "residential"] or r.surface in ["asphalt", "paved"])
 	for br in _vd.branches:
 		var pts := PackedVector2Array()
 		for q in br.pts:
 			pts.append(_vpx(Vector2(q[0], q[2])))
-		v.draw_polyline(pts, Color(0.62, 0.52, 0.36) if br.gravel else INK.lightened(0.15), wz.call(br.hw, 1.6, 6.0))
+		road_line.call(pts, br.gravel != 1)
 	if _vd.has("satama"):
 		# Sataman laiturit viivoina: pääsilta ja T-pää.
 		var sdr := Vector2(_vd.satama.dir[0], _vd.satama.dir[1])
 		var s0 := Vector2(_vd.satama.x, _vd.satama.z)
 		var s1 := s0 + sdr * float(_vd.satama.dock_len)
-		v.draw_line(_vpx(s0), _vpx(s1), Color(0.5, 0.38, 0.24), wz.call(2.2, 1.6, 6.0))
+		v.draw_line(_vpx(s0), _vpx(s1), Color(0.5, 0.38, 0.24), clampf(4.4 * _vzoom, 1.6, 6.0))
 		var sside := Vector2(sdr.y, -sdr.x) * 3.5
-		v.draw_line(_vpx(s1 - sside), _vpx(s1 + sside), Color(0.5, 0.38, 0.24), wz.call(2.2, 1.6, 6.0))
-	if _vd.has("lava") and _vd.lava.road.size() >= 2:
-		# Asfaltoitu ajotie Pahalahdentieltä ja aita joelta Pahalahteen (portti tiellä).
-		var lp := PackedVector2Array()
-		for q in _vd.lava.road:
-			lp.append(_vpx(Vector2(q[0], q[1])))
-		v.draw_polyline(lp, INK.lightened(0.15), wz.call(2.2, 1.6, 6.0))
-		v.draw_polyline(lp, Color(0.97, 0.95, 0.88), wz.call(2.2, 1.6, 6.0) - 1.4)
+		v.draw_line(_vpx(s1 - sside), _vpx(s1 + sside), Color(0.5, 0.38, 0.24), clampf(4.4 * _vzoom, 1.6, 6.0))
+	if _vd.has("lava"):
+		# Lavan parkki ja aita joelta Pahalahteen (portti tiellä).
+		if _vd.lava.has("lot"):
+			var lt: Dictionary = _vd.lava.lot
+			var lc := Vector2(lt.c[0], lt.c[1])
+			var lax := Vector2(lt.ax[0], lt.ax[1])
+			var lfr := Vector2(lt.front[0], lt.front[1])
+			var u0: float = lt.ua
+			var u1: float = u0 + float(lt.nb) * 2.6
+			var v1: float = float(lt.v0) + 5.0 + float(lt.aisle)
+			var lp4 := PackedVector2Array([_vpx(lc + lax * u0 + lfr * float(lt.v0)), _vpx(lc + lax * u1 + lfr * float(lt.v0)),
+				_vpx(lc + lax * u1 + lfr * v1), _vpx(lc + lax * u0 + lfr * v1)])
+			v.draw_colored_polygon(lp4, Color(0.9, 0.88, 0.74))
+			v.draw_polyline(lp4 + PackedVector2Array([lp4[0]]), INK.lightened(0.15), 1.0)
 		if _vd.lava.has("fence") and _vzoom > 0.6:
 			var fp := PackedVector2Array()
 			for q in _vd.lava.fence:
 				fp.append(_vpx(Vector2(q[0], q[1])))
 			v.draw_polyline(fp, Color(0.6, 0.08, 0.05), 1.5)
 
-	# Mopotie: sora (Uutelanperäntie) ruskeana, asfaltti maantien värein, sillat tummalla reunalla.
+	# Päätie: asfaltti keltaisena, sora ohuena mustana viivana, sillat tummalla reunalla.
 	var road: Array = _vd.road
 	var line := PackedVector2Array()
 	for q in road:
 		line.append(_vpx(Vector2(q[0], q[2])))
-	var w: float = wz.call(3.6, 4.0, 11.0)
-	v.draw_polyline(line, Color(0.45, 0.2, 0.08), w + 2.5)
+	var w: float = 6.0 * rw
 	var run_start := 0
 	for i in range(1, road.size() + 1):
 		if i == road.size() or road[i][5] != road[run_start][5]:
-			var seg := line.slice(run_start, mini(i + 1, road.size()))
-			v.draw_polyline(seg, Color(0.84, 0.72, 0.5) if road[run_start][5] == 1 else Color(0.98, 0.86, 0.4), w)
+			road_line.call(line.slice(run_start, mini(i + 1, road.size())), road[run_start][5] != 1)
 			run_start = i
 	for br in _vd.bridges:
 		var seg := line.slice(br[0], br[1] + 1)
-		v.draw_polyline(seg, INK, w + 5.0)
-		v.draw_polyline(seg, Color(0.98, 0.86, 0.4), w)
+		v.draw_polyline(seg, INK, w + 3.0)
+		v.draw_polyline(seg, Color(0.98, 0.86, 0.4), 3.5 * rw)
 
 	# Rakennukset kerralla.
 	if not _vbld_idx.is_empty():

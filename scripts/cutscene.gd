@@ -1908,7 +1908,7 @@ const TRAIN_NET_LINES := {
 ## Verkkopaidassa lisärepliikit kosketusta seuraavan repliikin jälkeen: Helena ihailee asua, rohkeampi pelaaja
 ## vihjailee ("flirt" = lähikuva: pää Helenaan, kulmakarvat nousevat kahdesti ja suukko ohimolle) ja tarjoutuu oppaaksi määränpäähän (%s = Vaalassa tai Saloisissa).
 const TRAIN_NET_EXTRA := [
-	["helena", "Ja nuo henkselit ja rasvaletti... Ihan kuin Miami Vicestä."],
+	["helena", "Ja nuo henkselit ja repeytynyt paita... Ihan kuin suoraan pellolta."],
 	["minä", "Mmm...", "flirt"],
 	["minä", "Mä voin olla sun opas %s. Tiedän kaikki parhaat maisemat."],
 	["helena", "Oma opas! Sopii, komistus."],

@@ -149,6 +149,9 @@ func run() -> void:
 	if only == "juna":
 		await _train_test()
 		return
+	if only == "portti":
+		await _gate_test()
+		return
 	if only == "venelava":
 		var bt: Transform3D = vl.lava_boat_tf
 		var fwd := bt.basis * Vector3(0, 0, 1)  # keula osoittaa -Z, perä +Z: laiturilta järvelle on keulan suunta
@@ -308,9 +311,9 @@ func _roads() -> void:
 # --- Kohteet -----------------------------------------------------------------------------------------------------
 
 func _targets() -> void:
-	var goals: Array = [["siitari", vl.siitari_park, false], ["lava", vl.lava_door, false], ["atm", vl.atm_pos, false]]
+	var goals: Array = [["siitari", vl.siitari_park, false], ["lava", vl.lava_park, false], ["atm", vl.atm_pos, false]]
 	for d in vl.doors:
-		goals.append([d.id, d.pos, d.get("walk", false)])
+		goals.append([d.id, d.pos, d.get("walk", false) or vl.in_lava_yard(d.pos)])  # lavan piha on kävelyaluetta
 	var dist := _dijkstra(Vector2(vl.mokki_mopo.x, vl.mokki_mopo.z))
 	for g in goals:
 		var at: Vector3 = g[1]
@@ -328,6 +331,9 @@ func _targets() -> void:
 			var fd := _cell_pos(far).distance_to(Vector2(at.x, at.z)) if far >= 0 else INF
 			if walk and fd < 80.0:
 				print("AJO kohde %-14s jalan: mopo pääsee %.0f m päähän (kävelykohde)" % [g[0], fd])
+				continue
+			if walk and fd == INF:
+				print("AJO kohde %-14s jalan: lavan pihan takana, ei mopolla (kävelykohde parkista)" % g[0])
 				continue
 			_bad("kohde %s (%.0f, %.0f): ajoalueelta ei pääse %s m päähän (lähin %.0f m, kohde ajettava %s)" % [g[0], at.x, at.z,
 				"16" if walk else "7", fd, vl.drivable(at.x, at.z)])
@@ -634,6 +640,34 @@ func _bad(s: String) -> void:
 # --- Juna --------------------------------------------------------------------------------------------------------
 
 ## Mopo radalle, juna ajaa päälle: pitää kuolla (mopo_trip killed). Lisäksi seisovan junan läpi ei aja.
+## Lavan aidan sisäpuoli on kävelyaluetta: mopo ei pääse portista (eikä aidan läpi) edes täysillä ja portin ollessa auki
+## (leima). Ajetaan parkista kohti porttia, sen vierestä aitaa kohti ja viistoon; mopon pitää jäädä aidan ulkopuolelle.
+func _gate_test() -> void:
+	vl.open_gate(true)
+	var g := Vector2(vl.data.lava.gate[0], vl.data.lava.gate[1])
+	print("PORTTI parkki %s ajettava %s, portti %s ajettava %s" % [vl.lava_park, vl.drivable(vl.lava_park.x, vl.lava_park.z), g, vl.drivable(g.x, g.y)])
+	if not vl.drivable(vl.lava_park.x, vl.lava_park.z):
+		problems.append("lavan parkki ei ole ajettava")
+	for run in [["portille", Vector2(0, -9), Vector2(0, 1)], ["aidalle", Vector2(-9, -9), Vector2(0, 1)],
+			["viistoon", Vector2(-6, -9), Vector2(0.4, 1).normalized()]]:
+		var from: Vector2 = g + run[1]
+		_place(from, run[2])
+		mp.speed = 8.0
+		mp.autopilot = Vector2(1.0, 0.0)
+		for i in 60 * 6:
+			await get_tree().physics_frame
+		mp.autopilot = Vector2.ZERO
+		var inside: bool = vl.in_lava_yard(mp.position)
+		print("PORTTI %-9s mopo (%.1f, %.1f) pihalla %s, vauhti %.1f km/h" % [run[0], mp.position.x, mp.position.z, inside, mp.speed * 3.6])
+		if inside:
+			problems.append("mopo pääsi lavan pihalle (%s)" % run[0])
+	Engine.time_scale = 1.0
+	print("AJO yhteenveto: %d ongelmaa" % problems.size())
+	for p in problems:
+		print("AJO  ✗ ", p)
+	get_tree().quit()
+
+
 func _train_test() -> void:
 	var tr: Node3D = vl.train
 	if tr == null:

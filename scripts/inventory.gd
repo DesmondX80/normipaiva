@@ -1,23 +1,23 @@
 extends Control
-## Reppu (I tai Tab): pelaajan tuulipuvun värinen reppu (violetti, turkoosi ja musta raita, hihnat, kantolenkki ja
-## soljet), jonka etutaskussa on yksi rivi taskuja: reppuun mahtuu SLOTS tavaraa, eväät mukaan lukien (T syö).
-## Ylimenevät näkyvät viimeisessä taskussa "+N" (tavarat pursuavat reppua). Esineet 16 x 16 pikselikuvakkeina
-## lukumäärineen; hiiren alla olevasta taskusta nimi ja kuvaus vihjerivin tummassa pillerissä. Repun päällä
-## polaroid pelaajan 3D-hahmosta (kääntyy katsomaan hiirtä) ja heippalaput kuten Päivin lappu: rahat ja
-## tilanne, kauppalista ja jemmat, tarinan tehtävät. Peli pysähtyy, kun reppu on auki.
+## Reppu (I tai Tab): sama nahkakantinen vihko kuin Normipäiväkirja (O), samat sivut, viivat, kierrerenkaat ja käsiala.
+## Vasemmalla sivulla polaroid pelaajan 3D-hahmosta (kääntyy katsomaan hiirtä) ja käsin kirjoitetut tiedot: rahat ja
+## tilanne, kauppalista, jemmat ja tarinan tehtävät. Oikealla sivulla SLOTS tavaran taskut 3 x 3 -ruudukossa (eväät mukaan
+## lukien, T syö; ylimenevät näkyvät viimeisessä taskussa "+N"), esineet 16 x 16 pikselikuvakkeina lukumäärineen. Hiiren alla
+## olevan tavaran nimi ja kuvaus kirjoitetaan ruudukon alle. Peli pysähtyy, kun reppu on auki.
 ## Sisältö kysytään pelistä: game.inventory_items() -> [{icon, name, count, desc, tint?, food?, use?}] ja
 ## game.inventory_info() -> {money, lines: [], list: [], stashes: [], tasks?: []}.
 
+const MG := preload("res://scripts/mg_draw.gd")
 const SLOTS := 9
-const SLOT := 70.0
-const VIOLET := Color(0.42, 0.18, 0.58)
-const TURQ := Color(0.08, 0.66, 0.64)
-const BLACK := Color(0.07, 0.07, 0.09)
-const POCKET := Color(0.34, 0.13, 0.48)
-const STITCH := Color(0.85, 0.8, 0.95, 0.55)
-const PAPER := Color(1.0, 0.95, 0.55)  # note.gd: Päivin heippalappu
-const PAPER_W := Color(0.97, 0.95, 0.88)
-const INK := Color(0.16, 0.18, 0.42)
+const COLS := 3
+const SLOT := 92.0
+const GAP := 10.0
+const INK := MG.NOTE_INK
+const RED := Color(0.45, 0.12, 0.08)  # otsikot kuten päiväkirjan luvut
+const GREEN := Color(0.2, 0.45, 0.2)
+const SLOT_PAPER := Color(0.93, 0.89, 0.78)
+const PAPER_W := Color(0.99, 0.98, 0.94)  # polaroidin kehys
+const TAB_COL := Color(0.5, 0.3, 0.7)
 const PORTRAIT := Vector2(150, 190)
 const Looks := preload("res://scripts/looks.gd")
 
@@ -25,15 +25,15 @@ var game: Node
 
 var _items: Array = []  # tavarat ja eväät yhdessä rivissä
 var _info := {}
-var _panel := Rect2()  # koko näkymä
-var _bag := Rect2()  # repun runko
+var _book := Rect2()  # koko vihko
 var _slots: Array[Rect2] = []
 var _hover := -1
 var _icons := {}
 var _pv: SubViewport  # hahmon muotokuva, rakennetaan ensimmäisellä avauksella
 var _pchar: Node3D
 var _ptex: TextureRect  # muotokuva omana lapsenaan: lineaarinen suodatus (muu reppu on pikseligrafiikkaa)
-var _hand: SystemFont  # lappujen käsiala (sama kuin note.gd)
+var _hand: SystemFont  # käsiala (sama kuin päiväkirjassa)
+var _keys: Control  # näppäinohjeet hattuina alareunassa (hint_bar.gd)
 
 
 func _ready() -> void:
@@ -45,6 +45,10 @@ func _ready() -> void:
 	_hand = SystemFont.new()
 	_hand.font_names = PackedStringArray(["Bradley Hand", "Segoe Print", "Comic Sans MS", "Chalkboard SE", "Marker Felt",
 		"Noteworthy", "sans-serif"])
+	_keys = preload("res://scripts/hint_bar.gd").new()
+	_keys.compact = true
+	_keys.centered = true
+	add_child(_keys)
 
 
 ## Klikkaus käytettävään tarvikkeeseen (it.use): syö tai juo (main.gd use_item).
@@ -72,6 +76,7 @@ func toggle() -> void:
 		_ensure_portrait()
 		_refresh()
 		Sfx.play("cloth", -8.0, 1.2)
+	_keys.set_text("[Klikkaus] syö tai juo evästä (T)   %s sulje" % Settings.cap("inventory", "Esc") if visible else "")
 	queue_redraw()
 
 
@@ -93,18 +98,16 @@ func _process(_delta: float) -> void:
 
 func _refresh() -> void:
 	var all: Array = game.inventory_items() if game != null else []
-	# Tavarat ensin, eväät perään: sama yksi rivi.
+	# Tavarat ensin, eväät perään: sama yksi ruudukko.
 	_items = all.filter(func(it): return not it.get("food", false)) + all.filter(func(it): return it.get("food", false))
 	_info = game.inventory_info() if game != null else {}
-	var w := minf(1000.0, size.x - 40.0)
-	var h := 640.0
-	_panel = Rect2((size - Vector2(w, h)) / 2.0, Vector2(w, h))
-	var bw := SLOTS * SLOT + 120.0
-	_bag = Rect2(Vector2(_panel.get_center().x - bw / 2.0, _panel.end.y - 300.0), Vector2(bw, 290.0))
+	_book = MG.notebook_rect(size)
+	var pg := MG.notebook_page(_book, true)
+	var gw := COLS * SLOT + (COLS - 1) * GAP
+	var gx := pg.position.x + 54.0 + (pg.size.x - 70.0 - gw) / 2.0
 	_slots.clear()
-	var row := Vector2(_bag.get_center().x - SLOTS * SLOT / 2.0, _bag.position.y + 160.0)
 	for c in SLOTS:
-		_slots.append(Rect2(row + Vector2(c * SLOT, 0), Vector2(SLOT, SLOT)))
+		_slots.append(Rect2(Vector2(gx + (c % COLS) * (SLOT + GAP), pg.position.y + 96.0 + (c / COLS) * (SLOT + GAP)), Vector2(SLOT, SLOT)))
 
 
 # --- Piirto -------------------------------------------------------------------------
@@ -129,142 +132,115 @@ func _wrap(text: String, w: float, fs: int) -> Array:
 func _draw() -> void:
 	if not visible:
 		return
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.7))
-	_draw_bag()
-	var p := _panel.position
-	# Polaroid pelaajasta vasemmassa yläkulmassa, teippi päällä.
+	_refresh()
+	MG.notebook(self, _book)
+	MG.notebook_tab(self, MG.notebook_tab_rect(_book, 0), TAB_COL, "Reppu", true, false)
+	MG.sign(self, MG.notebook_title_rect(_book, 240.0), "REPPU", MG.TITLE_BG, MG.TITLE_FG, 22, MG.TITLE_BORDER)
+	_draw_left()
+	_draw_right()
+
+
+## Vasen sivu: polaroid ja käsin kirjoitetut tiedot (rahat, kauppalista, jemmat, tehtävät) viivojen päälle.
+func _draw_left() -> void:
 	var port := _portrait_rect()
-	draw_rect(Rect2(port.position + Vector2(-4, -2), port.size + Vector2(20, 54)), Color(0, 0, 0, 0.35))
+	draw_rect(Rect2(port.position + Vector2(-4, -2), port.size + Vector2(20, 54)), Color(0, 0, 0, 0.3))
 	draw_rect(Rect2(port.position - Vector2(10, 10), port.size + Vector2(20, 54)), PAPER_W)
 	draw_rect(port, Color(0.1, 0.11, 0.14))
 	_draw_portrait(port)
 	draw_string(_hand, Vector2(port.position.x + 4, port.end.y + 32), "Minä", HORIZONTAL_ALIGNMENT_LEFT, port.size.x, 20, INK)
 	_tape(Vector2(port.get_center().x, port.position.y - 10), -4.0)
-	# Heippalaput: tilanne, kauppalista ja jemmat, tehtävät.
-	var lines: Array = ["Rahaa %s €" % _info.get("money", "0,00")]
-	lines.append_array(_info.get("lines", []))
-	var x := _note(Vector2(port.end.x + 32.0, p.y + 8.0), "", lines, 1.5) + 20.0
-	var col: Array = []
+	var entries: Array = [["Rahaa %s €" % _info.get("money", "0,00"), 22, RED]]
+	for l in _info.get("lines", []):
+		entries.append([str(l), 19, INK])
 	var list: Array = _info.get("list", [])
 	if not list.is_empty():
-		col.append(_info.get("list_title", "Kauppalista") + ":")
-		col.append_array(list)
+		entries.append(["", 19, INK])
+		entries.append([str(_info.get("list_title", "Kauppalista")) + ":", 20, RED])
+		for l in list:
+			entries.append([str(l), 19, INK])
 	var stashes: Array = _info.get("stashes", [])
 	if not stashes.is_empty():
-		if not col.is_empty():
-			col.append("")
-		col.append("Jemmat:")
-		col.append_array(stashes)
-	if not col.is_empty():
-		x = _note(Vector2(x, p.y + 20.0), "", col, -2.0) + 20.0
+		entries.append(["", 19, INK])
+		entries.append(["Jemmat:", 20, RED])
+		for l in stashes:
+			entries.append([str(l), 19, INK])
 	var tasks: Array = _info.get("tasks", [])
 	if not tasks.is_empty():
-		var tl: Array = []
+		entries.append(["", 19, INK])
+		entries.append(["Tehtävät", 20, RED])
 		for t in tasks:
-			tl.append(("✔ " if t[1] else "• ") + t[0])
-		_note(Vector2(x, p.y + 4.0), "Tehtävät", tl, 1.0, PAPER_W)
-	# Taskut.
+			entries.append([("✔ " if t[1] else "• ") + t[0], 19, GREEN if t[1] else INK])
+	var pg := MG.notebook_page(_book, false)
+	var max_rows := int((pg.size.y - 60.0) / 30.0)
+	var row := 0
+	for e in entries:
+		var y0 := pg.position.y + 52.0 + row * 30.0
+		var x := pg.position.x + 54.0
+		if y0 < port.end.y + 52.0:
+			x = port.end.x + 40.0  # polaroidin vieressä kapeampi
+		var lines := _wrap(e[0], pg.end.x - 16.0 - x, e[1]) if e[0] != "" else [""]
+		for l in lines:
+			if row >= max_rows:
+				return
+			y0 = pg.position.y + 52.0 + row * 30.0
+			draw_string(_hand, Vector2(x if y0 >= port.end.y + 52.0 else maxf(x, port.end.x + 40.0), y0 + 21.0), l,
+				HORIZONTAL_ALIGNMENT_LEFT, pg.end.x - 16.0 - x, e[1], e[2])
+			row += 1
+
+
+## Oikea sivu: taskut ruudukossa ja hiiren alla olevan tavaran selitys käsialalla ruudukon alla.
+func _draw_right() -> void:
+	var pg := MG.notebook_page(_book, true)
 	var n := _items.size()
+	var x := pg.position.x + 54.0
+	draw_string(_hand, Vector2(x, pg.position.y + 73.0), "Reppu %d / %d" % [mini(n, SLOTS), SLOTS], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, RED)
+	if n > SLOTS:
+		draw_string(_hand, Vector2(x + 190.0, pg.position.y + 73.0), "pullottaa, kaikki ei mahdu!", HORIZONTAL_ALIGNMENT_LEFT,
+			pg.size.x - 250.0, 18, Color(0.7, 0.25, 0.1))
 	for i in _slots.size():
 		_draw_slot(_slots[i], _slot_item(i), i == _hover)
 	if n > SLOTS:
-		var r := _slots[SLOTS - 1]
-		draw_rect(r.grow(-6.0), Color(0, 0, 0, 0.5))
-		_outlined(r.position + Vector2(16, 44), "+%d" % (n - SLOTS + 1), 24, Color.WHITE)
-	var pk := _pocket_rect()
-	_outlined(Vector2(pk.position.x + 24.0, pk.position.y + 60.0), "Reppu %d / %d" % [mini(n, SLOTS), SLOTS], 17, Color.WHITE)
-	if n > SLOTS:
-		_outlined(Vector2(pk.end.x - 300.0, pk.position.y + 60.0), "Reppu pullottaa, kaikki ei mahdu!", 15, Color(1.0, 0.85, 0.4))
-	_outlined(Vector2(pk.position.x + 24.0, pk.end.y - 12.0), "Klikkaa evästä (T): syö tai juo   ·   I / Tab / Esc sulkee", 14, Color(0.85, 0.85, 0.85))
-	if _hover >= 0 and _slot_item(_hover) != null:
-		_tooltip(get_local_mouse_position() + Vector2(18, -10), _slot_item(_hover))
-
-
-func _pocket_rect() -> Rect2:
-	return Rect2(_bag.position + Vector2(36, 104), Vector2(_bag.size.x - 72, _bag.size.y - 118))
-
-
-## Reppu: kantolenkki, olkahihnat, pyöristetty runko tuulipuvun raidoin, läppä soljin ja vetoketjullinen etutasku.
-func _draw_bag() -> void:
-	var b := _bag
-	draw_arc(Vector2(b.get_center().x, b.position.y - 4.0), 36.0, PI, TAU, 24, BLACK, 11.0)
-	for sx: float in [-1.0, 1.0]:
-		var hx := b.get_center().x + sx * b.size.x * 0.3
-		draw_colored_polygon(PackedVector2Array([Vector2(hx - 18, b.position.y - 34), Vector2(hx + 18, b.position.y - 34),
-			Vector2(hx + 22, b.position.y + 20), Vector2(hx - 22, b.position.y + 20)]), BLACK)
-	var body := _round_poly(b, 48.0)
-	draw_colored_polygon(_offset(body, Vector2(8, 10)), Color(0, 0, 0, 0.4))
-	draw_colored_polygon(body, VIOLET)
-	# Tuulipuvun vinoraidat (turkoosi ja musta) leikattuna rungon muotoon.
-	for band in [[0.12, 0.3, TURQ], [0.3, 0.38, BLACK], [0.76, 0.86, TURQ]]:
-		var x0: float = b.position.x + b.size.x * band[0]
-		var x1: float = b.position.x + b.size.x * band[1]
-		var stripe := PackedVector2Array([Vector2(x0, b.end.y + 10), Vector2(x1, b.end.y + 10),
-			Vector2(x1 + 170, b.position.y - 10), Vector2(x0 + 170, b.position.y - 10)])
-		for poly in Geometry2D.intersect_polygons(stripe, body):
-			draw_colored_polygon(poly, band[2])
-	var closed := body.duplicate()
-	closed.append(body[0])
-	draw_polyline(closed, Color(0, 0, 0, 0.6), 3.0)
-	# Läppä yläosassa, NORMI-merkki ja kaksi solkea.
-	var flap := Rect2(b.position + Vector2(30, 0), Vector2(b.size.x - 60, 88))
-	var fp := _round_poly(flap, 30.0)
-	draw_colored_polygon(fp, VIOLET.darkened(0.2))
-	_dashed(fp, STITCH)
-	draw_string(_hand, flap.position + Vector2(flap.size.x / 2.0 - 52, 50), "NORMI", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, TURQ.lightened(0.35))
-	for sx: float in [0.22, 0.78]:
-		var bx := flap.position.x + flap.size.x * sx
-		draw_rect(Rect2(bx - 10, flap.end.y - 30, 20, 50), BLACK)
-		draw_rect(Rect2(bx - 15, flap.end.y - 4, 30, 22), Color(0.18, 0.18, 0.2))
-		draw_rect(Rect2(bx - 9, flap.end.y + 1, 18, 12), Color(0.4, 0.4, 0.44))
-	# Etutasku vetoketjuineen: taskut tämän sisällä.
-	var pk := _pocket_rect()
-	var pp := _round_poly(pk, 26.0)
-	draw_colored_polygon(pp, POCKET)
-	_dashed(pp, STITCH)
-	var zy := pk.position.y + 26.0
-	draw_line(Vector2(pk.position.x + 22, zy), Vector2(pk.end.x - 22, zy), Color(0.1, 0.1, 0.1), 5.0)
-	for k in int((pk.size.x - 44) / 8.0):
-		var zx := pk.position.x + 24 + k * 8.0
-		draw_line(Vector2(zx, zy - 4), Vector2(zx, zy + 4), Color(0.75, 0.75, 0.78), 2.0)
-	draw_rect(Rect2(pk.end.x - 70, zy - 8, 16, 24), Color(0.8, 0.8, 0.82))
-	draw_rect(Rect2(pk.end.x - 67, zy + 14, 10, 18), BLACK)
-
-
-## Heippalappu tekstiriveineen (vinossa, teippi yläreunassa); palauttaa lapun oikean reunan x:n.
-func _note(at: Vector2, title: String, lines: Array, tilt_deg: float, paper := PAPER) -> float:
-	var fs := 17
-	var w := 0.0
-	for l in lines:
-		w = maxf(w, _hand.get_string_size(str(l), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
-	if title != "":
-		w = maxf(w, _hand.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x)
-	# Lappu mahtuu ruudulle: leveys enintään jäljellä oleva tila oikeaan reunaan, pitkät rivit rivitetään.
-	var room := size.x - 16.0 - at.x
-	w = clampf(w + 34.0, minf(150.0, room), minf(320.0, room))
-	var rowsl: Array = []
-	for l in lines:
-		rowsl.append_array(_wrap(str(l), w - 24.0, fs))
-	var rows := rowsl.size() + (1 if title != "" else 0)
-	var h := minf(26.0 + rows * 23.0, _bag.position.y - _panel.position.y - 70.0)
-	var r := Rect2(at, Vector2(w, h))
-	draw_set_transform(r.get_center(), deg_to_rad(tilt_deg), Vector2.ONE)
-	var lr := Rect2(-r.size / 2.0, r.size)
-	draw_rect(Rect2(lr.position + Vector2(5, 7), lr.size), Color(0, 0, 0, 0.35))
-	draw_rect(lr, paper)
-	var y := lr.position.y + 28.0
-	if title != "":
-		draw_string(_hand, Vector2(lr.position.x + 16, y), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
-		y += 25.0
-	for l in rowsl:
-		if y > lr.end.y - 6.0:
+		var chip := Rect2(_slots[SLOTS - 1].end - Vector2(52, SLOT - 6.0), Vector2(46, 26))
+		draw_rect(chip, Color(MG.PAPER, 0.95))
+		draw_rect(chip, Color(RED, 0.7), false, 1.5)
+		draw_string(_hand, chip.position + Vector2(0, 20), "+%d" % (n - SLOTS + 1), HORIZONTAL_ALIGNMENT_CENTER, chip.size.x, 20, RED)
+	var y := _slots[SLOTS - 1].end.y + 40.0
+	var it = _slot_item(_hover) if _hover >= 0 else null
+	if it == null:
+		draw_string(_hand, Vector2(x, y), "Vie hiiri tavaran päälle.", HORIZONTAL_ALIGNMENT_LEFT, pg.size.x - 70.0, 19, INK.lightened(0.5))
+		return
+	draw_string(_hand, Vector2(x, y), str(it.name), HORIZONTAL_ALIGNMENT_LEFT, pg.size.x - 70.0, 22, RED)
+	y += 30.0
+	var rows: Array = []
+	if it.get("desc", "") != "":
+		for d in str(it.desc).split("\n"):
+			rows.append_array(_wrap(d, pg.size.x - 80.0, 19))
+	for l in rows:
+		if y > pg.end.y - 14.0:
 			break
-		draw_string(_hand, Vector2(lr.position.x + 16, y), str(l), HORIZONTAL_ALIGNMENT_LEFT, lr.size.x - 24.0, fs,
-			INK.lightened(0.45) if str(l).begins_with("✔") else INK)
-		y += 23.0
-	draw_rect(Rect2(Vector2(-40, lr.position.y - 12), Vector2(80, 22)), Color(0.95, 0.95, 0.9, 0.7))  # teippi
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	return r.end.x
+		draw_string(_hand, Vector2(x, y), l, HORIZONTAL_ALIGNMENT_LEFT, pg.size.x - 70.0, 19, INK)
+		y += 26.0
+	if it.get("use", "") != "" and y <= pg.end.y - 14.0:
+		draw_string(_hand, Vector2(x, y), "Klikkaa: %s" % it.get("use_label", "käytä"), HORIZONTAL_ALIGNMENT_LEFT, -1, 19, GREEN)
+
+
+## Tasku: vihkoon piirretty ruutu (ääriviiva, paperin sävy); esine pikselikuvakkeena, määrä käsialalla oikeassa alakulmassa.
+func _draw_slot(r: Rect2, it: Variant, hover: bool) -> void:
+	var pp := _round_poly(r, 10.0)
+	draw_colored_polygon(pp, Color(1.0, 0.92, 0.45, 0.75) if hover else SLOT_PAPER)
+	var closed := pp.duplicate()
+	closed.append(pp[0])
+	draw_polyline(closed, Color(INK, 0.75 if it != null else 0.35), 2.0, true)
+	if it == null:
+		return
+	draw_texture_rect(_icon(it.icon, it.get("tint", Color.WHITE)), r.grow(-14.0), false)
+	var n: int = it.get("count", 1)
+	if n > 1:
+		var s := "×%d" % n
+		var tw := _hand.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+		draw_string(_hand, r.end - Vector2(tw + 8.0, 8.0), s, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, INK)
+	if it.get("food", false):
+		draw_string(_hand, r.position + Vector2(8, 22), "T", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, GREEN)
 
 
 func _tape(c: Vector2, tilt_deg: float) -> void:
@@ -287,51 +263,6 @@ func _slot_item(i: int) -> Variant:
 	return _items[i] if i < _items.size() else null
 
 
-## Tasku: tumma kangastasku tikkauksineen; esine pikselikuvakkeena, määrä oikeassa alakulmassa, eväillä pieni T.
-func _draw_slot(r: Rect2, it: Variant, hover: bool) -> void:
-	var inner := r.grow(-5.0)
-	var pp := _round_poly(inner, 10.0)
-	draw_colored_polygon(pp, Color(0.3, 0.16, 0.42) if hover else Color(0.16, 0.06, 0.24))
-	_dashed(pp, Color(1.0, 0.85, 0.4) if hover else STITCH)
-	if it == null:
-		return
-	draw_texture_rect(_icon(it.icon, it.get("tint", Color.WHITE)), inner.grow(-9.0), false)
-	var n: int = it.get("count", 1)
-	if n > 1:
-		var s := str(n)
-		var tw := ThemeDB.fallback_font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-		_outlined(inner.end - Vector2(tw + 5.0, 5.0), s, 18, Color.WHITE)
-	if it.get("food", false):
-		_outlined(inner.position + Vector2(6, 18), "T", 13, TURQ.lightened(0.4))
-
-
-## Vihjerivin tyylinen tumma pilleri: nimi valkoisella, kuvaus ja käyttö harmaalla.
-func _tooltip(at: Vector2, it: Dictionary) -> void:
-	var font := ThemeDB.fallback_font
-	var lines := [it.name]
-	if it.get("desc", "") != "":
-		lines.append_array(it.desc.split("\n"))
-	if it.get("use", "") != "":
-		lines.append("Klikkaa: %s" % it.get("use_label", "käytä"))
-	var w := 0.0
-	for l in lines:
-		w = maxf(w, font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x)
-	var r := Rect2(at, Vector2(w + 28.0, 14.0 + lines.size() * 23.0))
-	if r.end.x > size.x:
-		r.position.x = at.x - r.size.x - 36.0
-	if r.end.y > size.y:
-		r.position.y = size.y - r.size.y - 8.0
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.07, 0.07, 0.09, 0.92)
-	sb.set_corner_radius_all(12)
-	sb.border_color = Color(1, 1, 1, 0.18)
-	sb.set_border_width_all(1)
-	draw_style_box(sb, r)
-	for i in lines.size():
-		draw_string(font, r.position + Vector2(14, 26 + i * 23), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 17,
-			Color.WHITE if i == 0 else Color(0.72, 0.72, 0.72))
-
-
 ## Pyöristetty suorakulmio monikulmiona (piirto ja raitojen leikkaus).
 func _round_poly(r: Rect2, rad: float) -> PackedVector2Array:
 	var out := PackedVector2Array()
@@ -344,33 +275,8 @@ func _round_poly(r: Rect2, rad: float) -> PackedVector2Array:
 	return out
 
 
-func _offset(poly: PackedVector2Array, d: Vector2) -> PackedVector2Array:
-	var out := PackedVector2Array()
-	for q in poly:
-		out.append(q + d)
-	return out
-
-
-## Tikkaus: katkoviiva monikulmion reunan sisäpuolella.
-func _dashed(poly: PackedVector2Array, col: Color) -> void:
-	var c := Vector2.ZERO
-	for q in poly:
-		c += q
-	c /= poly.size()
-	var inner := PackedVector2Array()
-	for q in poly:
-		inner.append(q + (c - q).normalized() * 6.0)
-	for i in inner.size():
-		draw_dashed_line(inner[i], inner[(i + 1) % inner.size()], col, 1.5, 6.0)
-
-
-func _outlined(at: Vector2, s: String, fs: int, col: Color) -> void:
-	draw_string_outline(ThemeDB.fallback_font, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 5, Color.BLACK)
-	draw_string(ThemeDB.fallback_font, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
-
-
 func _portrait_rect() -> Rect2:
-	return Rect2(Vector2(28, _panel.position.y + 24), PORTRAIT)  # ruudun vasempaan reunaan: lapuille enemmän tilaa
+	return Rect2(MG.notebook_page(_book, false).position + Vector2(72, 44), PORTRAIT)  # vasemman sivun vasen yläkulma
 
 
 ## Pelaajan hahmo samasta mallista kuin pelissä: oma 3D-maailma, kamera, valot ja lepoanimaatio.
@@ -440,10 +346,6 @@ func _draw_portrait(r: Rect2) -> void:
 	if _ptex != null:
 		_ptex.position = r.position
 		_ptex.size = r.size
-
-
-func _text(at: Vector2, s: String, fs: int, col: Color) -> void:
-	draw_string(ThemeDB.fallback_font, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 
 
 # --- Pikselikuvakkeet (16 x 16) ------------------------------------------------------

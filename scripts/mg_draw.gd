@@ -202,3 +202,105 @@ static func person(ci: CanvasItem, c: Vector2, s: float, look: Dictionary, eye_d
 		ci.draw_circle(c + Vector2(0, 15) * s, 6.0 * s, Color(0.35, 0.08, 0.08))
 	else:
 		ci.draw_line(c + Vector2(-7, 15) * s, c + Vector2(7, 15) * s, Color(0.4, 0.15, 0.12), 2.5 * s)
+
+# --- Vihko (päiväkirja ja reppu) ---------------------------------------------------------------------------------
+## Nahkakantinen kierrevihko: kansi, kaksi viivapaperista sivua punaisine marginaaleineen, kierrerenkaat ja tahrat.
+## Sama kirja piirretään päiväkirjassa (journal.gd) ja repussa (inventory.gd), jotta ne näyttävät samalta.
+const PAPER := Color(0.97, 0.94, 0.85)
+const LINE := Color(0.62, 0.72, 0.85, 0.55)
+const MARGIN := Color(0.85, 0.35, 0.35, 0.6)
+const NOTE_INK := Color(0.14, 0.17, 0.4)
+const LEATHER := Color(0.36, 0.2, 0.12)
+
+
+static func notebook_rect(size: Vector2) -> Rect2:
+	var w := minf(1080.0, size.x - 80.0)
+	var h := minf(660.0, size.y - 120.0)
+	return Rect2((size - Vector2(w, h)) / 2.0, Vector2(w, h))
+
+
+static func notebook_page(book: Rect2, right: bool) -> Rect2:
+	var half := (book.size.x - 40) / 2.0
+	return Rect2(book.position + Vector2(20 + (half if right else 0.0), 18), Vector2(half, book.size.y - 36))
+
+
+static func notebook(ci: CanvasItem, book: Rect2) -> void:
+	ci.draw_rect(Rect2(Vector2.ZERO, ci.get_viewport_rect().size), Color(0, 0, 0, 0.72))
+	box(ci, book.grow(14), LEATHER, 18, 16)
+	box(ci, book.grow(6), LEATHER.darkened(0.25), 14)
+	ci.draw_arc(book.position + Vector2(book.size.x - 60, book.size.y - 4), 30.0, PI * 1.1, PI * 1.9, 24, Color(0.15, 0.08, 0.04, 0.5), 3.0)
+	for side in [false, true]:
+		var pg := notebook_page(book, side)
+		box(ci, pg, PAPER, 6)
+		for y in range(int(pg.position.y) + 70, int(pg.end.y) - 10, 30):
+			ci.draw_line(Vector2(pg.position.x + 10, y), Vector2(pg.end.x - 10, y), LINE, 1.0)
+		ci.draw_line(Vector2(pg.position.x + 46, pg.position.y + 6), Vector2(pg.position.x + 46, pg.end.y - 6), MARGIN, 1.5)
+		page_stains(ci, pg, 7 if side else 3)
+	var mid := book.position.x + book.size.x / 2.0
+	for y in range(int(book.position.y) + 30, int(book.end.y) - 20, 34):
+		ball(ci, Vector2(mid, y), 8.0, Color(0.7, 0.7, 0.74), 0.6)
+
+
+## Välilehti kirjan oikeassa reunassa (teksti pystyyn).
+static func notebook_tab(ci: CanvasItem, r: Rect2, col: Color, text: String, on: bool, hover: bool) -> void:
+	box(ci, r.grow(2.0 if on or hover else 0.0), col if on else col.darkened(0.25), 8, 4)
+	ci.draw_set_transform(r.get_center(), PI / 2.0)
+	ci.draw_string(ThemeDB.fallback_font, Vector2(-40, 6), text.left(9), HORIZONTAL_ALIGNMENT_CENTER, 80, 15, Color.WHITE)
+	ci.draw_set_transform(Vector2.ZERO)
+
+
+static func notebook_tab_rect(book: Rect2, i: int) -> Rect2:
+	return Rect2(Vector2(book.end.x - 6, book.position.y + 40 + i * 92), Vector2(54, 84))
+
+
+## Otsikkokyltin sijainti kannessa (MG.sign(ci, notebook_title_rect(...), teksti, TITLE_BG, TITLE_FG, 22, TITLE_BORDER)).
+const TITLE_BG := Color(0.92, 0.85, 0.65)
+const TITLE_FG := Color(0.35, 0.18, 0.08)
+const TITLE_BORDER := Color(0.55, 0.4, 0.2)
+
+
+static func notebook_title_rect(book: Rect2, width := 340.0) -> Rect2:
+	return Rect2(Vector2(book.get_center().x - width / 2.0, book.position.y - 34), Vector2(width, 40))
+
+
+static func page_stains(ci: CanvasItem, pg: Rect2, seed_i: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_i
+	var at := func(fx: float, fy: float) -> Vector2:
+		return pg.position + Vector2(pg.size.x * fx, pg.size.y * fy)
+	# Kahvikupin rengas: epätasainen ruskea kehä, sisältä vaaleampi, yksi valuma.
+	for k in 2 if seed_i == 3 else 1:
+		var c: Vector2 = at.call(rng.randf_range(0.55, 0.85), rng.randf_range(0.15, 0.75))
+		var r := rng.randf_range(38.0, 50.0)
+		ci.draw_circle(c, r, Color(0.55, 0.35, 0.15, 0.06))
+		for ring in 3:
+			var a0 := rng.randf() * TAU
+			ci.draw_arc(c, r - ring * 1.8, a0, a0 + TAU * rng.randf_range(0.7, 1.0), 48,
+				Color(0.45, 0.27, 0.1, 0.28 - ring * 0.07), 3.0 - ring * 0.6, true)
+		var drip := c + Vector2(cos(1.1), sin(1.1)) * r
+		ci.draw_line(drip, drip + Vector2(rng.randf_range(-4, 4), rng.randf_range(10, 22)), Color(0.45, 0.27, 0.1, 0.22), 3.0)
+	# Oluttahra: kellertävä läikkä tummemmin reunoin ja pieniä roiskeita.
+	var bc: Vector2 = at.call(rng.randf_range(0.2, 0.5), rng.randf_range(0.55, 0.85))
+	var blob := PackedVector2Array()
+	var radii: Array = []
+	for k in 18:
+		radii.append(rng.randf_range(26.0, 44.0))
+	for k in 18:
+		var a := k * TAU / 18.0
+		blob.append(bc + Vector2(cos(a), sin(a) * 0.75) * radii[k])
+	ci.draw_colored_polygon(blob, Color(0.85, 0.62, 0.15, 0.13))
+	blob.append(blob[0])
+	ci.draw_polyline(blob, Color(0.7, 0.45, 0.1, 0.25), 2.0, true)
+	for k in 7:
+		var a := rng.randf() * TAU
+		ci.draw_circle(bc + Vector2(cos(a), sin(a)) * rng.randf_range(50.0, 85.0), rng.randf_range(2.0, 5.0), Color(0.8, 0.55, 0.12, 0.2))
+	# Makkaran rasvatäplä: läpikuultava tumma täplä paperissa.
+	if seed_i == 7:
+		var gc: Vector2 = at.call(0.3, 0.2)
+		ci.draw_circle(gc, 18.0, Color(0.6, 0.5, 0.3, 0.12))
+		ci.draw_circle(gc + Vector2(6, 4), 10.0, Color(0.55, 0.45, 0.25, 0.1))
+	# Sinappiroiske sivun kulmassa.
+	if seed_i == 3:
+		var mc: Vector2 = at.call(0.88, 0.9)
+		ci.draw_circle(mc, 7.0, Color(0.85, 0.7, 0.1, 0.35))
+		ci.draw_line(mc, mc + Vector2(-18, -6), Color(0.85, 0.7, 0.1, 0.3), 3.0)

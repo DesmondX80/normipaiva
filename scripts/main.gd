@@ -10636,7 +10636,7 @@ func _on_wardrobe(id: String) -> void:
 	_set_outfit(id)
 	Sfx.play("cloth", -2.0)
 	_show_message({"tuulipuku": "Tuulipuku päälle ja Karhu-lippis päähän. Normipäivän univormu.",
-		"farkut": "Farkut, verkkopaita ja henkselit. Tukka rasvalla taakse ja valkoiset lasit nenälle.",
+		"farkut": "Repaleinen verkkopaita, henkselit ja työhousut. Tukka pystyssä, naama noessa. Kyntömiehen asu.",
 		"tyovaatteet": "Työhousut, flanelli ja Karjala-lippis. Nyt kelpaa tehdä Paapelin hommia.",
 		"hiihtohaalari": "Neonpinkki hiihtohaalari, kuukengät ja otsapanta. Kasari palasi, ja koko kylä näkee sen."}[id], 3.5)
 	_save_game()

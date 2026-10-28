@@ -88,7 +88,7 @@ func setup(look: Dictionary) -> void:
 	var mus := float(look.get("muscle", DEFAULT_MUSCLE))
 	body_mat.set_shader_parameter("muscle_def", (1.0 - 0.8 * clampf(float(look.get("belly", 0.0)), 0.0, 1.0)) * (1.0 + 0.6 * mus))
 	for k in ["shorts_y", "crop_y", "sleeve_x", "tube_y", "denim", "bare_skin", "jeans", "belt_y", "belt_col", "net_shirt",
-			"suspenders", "strap_col", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff", "string_bikini", "ski_suit"]:
+			"suspenders", "strap_col", "grime", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff", "string_bikini", "ski_suit"]:
 		if look.has(k):
 			body_mat.set_shader_parameter(k, look[k])
 	if look.has("stripe_color"):
@@ -104,6 +104,16 @@ func setup(look: Dictionary) -> void:
 	body.material_override = body_mat
 	body_mi = body
 	press_boxes.clear()
+	# Uusi ulkonäkö (restyle) vapautti vanhan mallin: hiusverkot ja materiaalit, heilahdus ja hyllyntä rakennetaan alusta
+	# (muuten _update_hair_sway kävi läpi vapautettuja hiusverkkoja ja haki niiltä "hair_cw"-metaa).
+	hair_mats.clear()
+	hair_mis.clear()
+	_head_bone = -1
+	_reset_sway()
+	_sway_zero = true
+	_jig.clear()
+	_jig_valid = false
+	_jig_zero = true
 
 	var hair_color: Color = look.get("hair_color", Color(0.25, 0.18, 0.12))
 	for mi in skeleton.get_children():

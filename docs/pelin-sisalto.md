@@ -478,7 +478,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   - **Mopolla Vaalaan:** mökin pihan mopolla (huippunopeus 60 km/h) ajetaan Hotelli-Ravintola Siitariin
     (Uutelanperäntien sora Neittäväntielle, Vuolijoentie radan ali, Oulujoen silta, Vaalan keskusta 1:1: kirkko,
     rautatieasema, kaupat ja kunnantalo). Mopo pysyy teillä: metsään, pellolle ja pihoille ei köröttele, vaan tien
-    reunassa mopo liukuu kuin reunakiveä vasten (sivutiet, parkit, tori, lavan piha ja ovien edustat ovat ajettavia).
+    reunassa mopo liukuu kuin reunakiveä vasten (sivutiet, parkit, tori ja ovien edustat ovat ajettavia; lavan aidan sisäpuoli on kävelyaluetta).
     Radan alikulku on ohikulkuvideon mukainen betonisilta pilaripareineen, ja penger laskee luiskana sillan alle.
     Rata ylittää Oulujoen tiesillan tasossa teräksisellä ristikkosillalla, ja radalla kulkee silloin tällöin juna
     (punavalkoinen Sr1-veturi ja neljä sinistä VR:n vaunua, yksi niistä ravintolavaunu), joka vihellyttää ohittaessaan.
@@ -489,8 +489,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     pihalla (`--scene=vaala_ajo --ajo=kuolema --kohta=gasthaus|mokki` ja `--ajo=kuolema_saloinen`).
     Testi `--scene=vaala_ajo` (ilman ikkunaa `--headless`): autopilotti ajaa mopolla 60 km/h jokaisen Vaalan tien
     (n. 190 tietä, 21 km) ja jokaiseen kohteeseen ja kirjaa jumit ja törmäykset (`--ajo=tiet|kohteet|juna|lava`).
-  - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa torilta asfalttia Zabukin ohi
-    liikenneympyrään ja siitä oikealle Ratatietä ja aseman ajotietä rautatieasemalle (pelissä tuotu radan varteen
+  - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa Vaalantien päästä torin kulmasta
+    suoraa asfalttia (Aseman piha) Siitarin ja Zabukin pohjoispuolelta rautatieasemalle (pelissä tuotu radan varteen
     noin 100 m Siitarista, laituri radan vieressä; todellisuudessa n. 300 m kauempana; junat eivät aja Oulujoen
     ratasillalle, vaan Vaalan pään reitti alkaa sillan itäpuolelta); Saloisissa
     asema on K-Marketin takana, ja rata jatkuu asemalta länteen Valtatien yli ja idässä kaartaa heti pohjoiseen
@@ -537,7 +537,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Pelissä kauppa on Siitarin vieressä Vaalantien varressa (todellisuudessa n. 400 m kauempana), ja
     pankkiautomaatti on kaupan seinällä. Jos rahat eivät riitä, kaljat ja Alkon pullot voi viedä ovesta
     juoksukaljoina maksamatta (kylän K-Marketissa samoin). Mopotie päättyy torille Siitarin viereen: torin päädyssä
-    on Zabuki (olut ja hampurilaiset) ja Siitaria vastapäätä Gasthaus. Gasthausin emännältä saa myös Kainuun ruokaa (kalakeitto 9,50 €, kukkoleipä 7 €, talkkuna 4 €, rieska 3,50 €; ruokalistakyltti HUONEET-kyltin alla), ja annos nollaa nälän. Zabukin jälkeen Vaalantiellä on liikenneympyrä. `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
+    on Zabuki (olut ja hampurilaiset) ja Siitaria vastapäätä Gasthaus. Gasthausin emännältä saa myös Kainuun ruokaa (kalakeitto 9,50 €, kukkoleipä 7 €, talkkuna 4 €, rieska 3,50 €; ruokalistakyltti HUONEET-kyltin alla), ja annos nollaa nälän. Zabukin pohjoispuolelta Vaalantie kääntyy asemalle. `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
     laserpuut rakennusten, parkkien ja teiden päältä (latvusmallissa katotkin näkyivät puina). Niemellä, jossa Oulujoki alkaa Oulujärvestä (Vuolijoentieltä oikealle
     asfaltoitua Pahalahdentietä juuri ennen radan alikulkua; `tools/vaala_lava.py` tekee niemen, leveän joen ja
     järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (punamullatut seinät, luukut auki, bändi
@@ -571,8 +571,23 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     (kaikki retket, taksikuskin legendat, matkaopas; ei Raahen baaria eikä kyytiä Saloisiin, ja Saloisten tolpalta ei kyytiä Paapeliin), mutta **hinta ja kesto lähtöpaikan mukaan**: Vaalasta Raahen seudulle
     150 min ja 60 € (kuten kotimatka Saloisiin), Manamansaloon 10 €, Pyhäkoskelle 18 €, Kajaaniin 32 €, Kalajoelle 88 € (matka km Vaalasta
     x 1,05 min ja 0,40 €/min; `retket.gd tarjous`). Retkeltä palataan samaan tolpalle jalan. Testi `--scene=kmarket_vaala`.
-    Zabukin takainen liikenneympyrä on tavallinen risteys (`tools/vaala_risteys.py`, `roundabout.r = 0`). Siitarin eteen, terassin ja Vaalantien väliin,
+    Vaalantie kääntyy siistillä ympyränkaarella (säde 18 m) Siitarin ja Zabukin pohjoispuolelta suoraan asemalle (Aseman piha); reitin U-mutka
+    Zabukin pihan läpi ja liittymä torille on poistettu (`tools/vaala_asematie.py`, ajetaan kerran `vaala_risteys.py`:n jälkeen). Tori on
+    laajennettu Aseman pihan pohjoispuolelle Zabukin eteen (kojut vähintään 4,5 m reunasta, tori 9 m tien keskiviivasta). Siitarin eteen, terassin ja Vaalantien väliin,
     on tehty parkkipaikka ruutuviivoin, P-kyltein ja asiakkaiden autoin (`vaala.gd _siitari_lot`).
+    **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
+    (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
+    katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin
+    soratien mallia (2,6 m, hiekan värit): Satamantie, Sahanrannantie, Pahalahdentie (lavan tie), Salmisentie, mökin päätie ja järviseudun tiet.
+    Parkit samoin. Sivutiet, järviseudun tiet ja parkit käyttävät samaa (`_side_style`, `_surf_mat`); mopon ajoalue lasketaan samasta tyylistä. Siitarin ja K-Marketin pihoilla on vain muutama auto (`LOT_MAX_CARS`). Salmisten (Etu- ja Taka-Salminen, Pyöriäinen) rannoille
+    kasvaa lisää koivuja, mäntyjä, kuusia ja pensaita teiden ulkopuolelle (`vaala.gd _build_salminen_trees`).
+    **Salmisentie:** laavun ja tynnyrisaunan pihan takaa Taka-Salmisen pohjoisrantaa (11-14 m rannasta, tasaista metsää) Nuojuankoskentien
+    päähän uimarannan kohdalle, yhdessä Keskimmäisentien kanssa kierros Salmisen ympäri. Soratie kuten Keskimmäisentie (soralla mopo ajaa
+    pelin säännöin 85 %:n huippuvauhtia); testi `--scene=vaala_ajo --ajo=tiet --kohdat=-250,-445` (245 m, ei törmäyksiä).
+    **Lavan parkki:** Pahalahdentie (sora) päättyy soralle parkkipaikalle lavan aidan ulkopuolella portin edessä (muutama auto, P-kyltti;
+    `vaala.gd _build_lava_lot`, data `lava.lot`). Autoja ja mopoja ei päästetä portista: aidan sisäpuoli (piha ja lavan ovi) on
+    kävelyaluetta eikä kuulu mopon ajoalueeseen; mopo jää parkkiin (`lava_park`) ja pelaaja kävelee portille lippua ostamaan. Testi
+    `--scene=vaala_ajo --ajo=portti` ajaa mopolla täysillä porttia, aitaa ja viistoon kohti: mopon pitää pysähtyä aidan ulkopuolelle.
     **Uiton sauna (Sahanranta, Uitontie):** Satamantien varrella haarautuu Uitontie rantaan, jossa on Oulujoen uiton jäljiltä hirsisauna
     (lämpimänä, savu piipusta), makasiini (nykyään kanoottitalli, kajakkeja telineessä), tukkipino, nuotiopaikka ja laituri
     uimatikkaineen, pelastusrenkaineen ja soutuveneineen (`vaala.gd _build_uitto`). E saunan ovella: löylyt välianimaationa, ja Santtu tulee
@@ -580,7 +595,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Salmisen uintianimaatiolla (kahlaus, uinti, sukellus; saunan jälkeen vilvoittelu antaa lisää). Todellinen paikka: Oulujärven
     Melontakeskus Sahanrannassa Uitontien päässä (1930-luvun uiton maja, sauna ja makasiinit, entisestä uiton venevajasta tehty kanoottitalli;
     tarkemmat rakennuskuvat puuttuvat, joten mallit ovat tulkintoja). Testi `--scene=sahanranta`.
-    Satama näkyy paperikartalla ankkurina ja minikartalla V-merkkinä. Satamaan vie Satamantie (Aseman pihalta tasoristeyksellä radan yli) ja Sahanrannantie (sora). Vaalan tiet ovat suoria ja vievät kohteisiin: pääreitti, Neittäväntie (järviseudulle), Vaalantie ja Aseman piha, Veturitallintie, Satamantie, Sahanrannantie ja Pahalahdentie (lavalle). Muut OSM-tiet, jalkakäytävät, pyörätiet ja umpikujat on poistettu (`tools/vaala_suorat.py`; testi `--scene=vaala_ajo --ajo=yhteys` tarkistaa, että kaikki tiet ovat ajettavissa mökiltä).
+    Satama näkyy paperikartalla ankkurina ja minikartalla V-merkkinä. Satamaan vie Satamantie (soratie kuten Paapelin soratiet, haarautuu Aseman pihasta 840, -818 ja menee tasoristeyksellä radan yli) ja Sahanrannantie (sora). Vaalan tiet ovat suoria ja vievät kohteisiin: pääreitti, Neittäväntie (järviseudulle), Vaalantie ja Aseman piha, Veturitallintie, Satamantie, Sahanrannantie ja Pahalahdentie (lavalle). Muut OSM-tiet, jalkakäytävät, pyörätiet ja umpikujat on poistettu (`tools/vaala_suorat.py`; testi `--scene=vaala_ajo --ajo=yhteys` tarkistaa, että kaikki tiet ovat ajettavissa mökiltä).
     **Muskelivene:** E laiturin juuressa ("Muskeliveneellä Oulujärvelle") ajaa veneen vesille: W/S kaasu (huippu n. 60 km/h,
     selvästi soutuvenettä nopeampi), A/D ohjaus, moottoriääni, keulan nousu, vanavesi, roiskeet ja kallistus käännöksessä.
     Vene pysyy vedessä (ei läpi rannasta, laitureista tai lavan aidasta) ja pysähtyy kartan reunalle kaakossa. Mopo jää
@@ -651,7 +666,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Kapteenin Kulma 14–02 ja lavatanssit 20–01, pankkiautomaatti aina. Suljetulla ovella kerrotaan, milloin paikka
     aukeaa, ja taksi Raaheen ei lähde, jos baari on perillä kiinni. Sulkemisaikaan sisällä tulee valomerkki: kaupassa
     kauppias hoputtaa, ja baareista ja lavalta ohjataan ulos vartin päästä (`--scene=mokkiaukiolot`).
-  - **Hotelli Siitari:** oma kolmikerroksinen rakennus ravintolan takana (HOTELLI SIITARI -valomainos harjalla,
+  - **Hotelli Siitari:** oma kaksikerroksinen rakennus (0,75 ravintolan pituudesta, 10,5 m syvä) ravintolan takana (HOTELLI SIITARI -valomainos harjalla,
     polku parkkipaikalta ovelle, `--scene=siitarihotelli`; ravintola ja hotelli on siirretty 6 m pois tiestä, jotta terassi ja seinä eivät ole tiellä). Ovesta pääsee vastaanottoon, jossa
     Marjatta kertoo, että huoneet ovat täynnä. Käytävän perällä huoneessa 12 riehuu Dingo kiertueellaan: sänky on nurin,
     patja seinää vasten, ikkuna rikki, tuoli lentää seinään ja joku hyppii. Bändiltä voi pyytää nimmarin, ottaa huikan
@@ -661,7 +676,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     vihje kehottaa nousemaan mopolta (F). F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
     Paperikartta (M) on mökillä ja Vaalan matkalla yksi iso Neittävä–Vaala-kartta: mökin piha, mopotie ja Vaalan
     keskusta (Siitari, K-Market Tervaportti, pankkiautomaatti, Oulujärven lava, kirkko, rautatieasema ja muut
-    nimetyt talot), maankäyttö rinnevarjostuksineen. Mökin pohjoiset järvet (Salmiset, Pyöriäinen ja Keskimmäinen)
+    nimetyt talot). Kartta on piirretty samaan tyyliin kuin Saloisten kartta (`shaders/vaala_kartta.gdshader`): litteät värit ja
+    pehmeät rajat, pellolla ruskea ja vedellä sininen ääriviiva, suolla vinoviivat, metsässä puumerkit, maantiet keltaisina ruskealla
+    reunuksella, sorateet ohuina mustina viivoina ja talot mustina. Siitariin ei ole keltaista ohjeviivaa, kompassi riittää. Mökin pohjoiset järvet (Salmiset, Pyöriäinen ja Keskimmäinen)
     ovat kartalla ja mopomatkan maisemassa Neittävällä Neittäväntien luoteispuolella loivasti tiivistettyinä, ja
     Salmisen uimaranta, Ranta-Rosvo, Keskimmäisen laavu ja tynnyrisauna niiden rannoilla; mökillä jalan kulkiessa
     "Olet tässä" näkyy samassa kartassa. Rulla tai Q/E zoomaa ja WASD tai vetäminen siirtää.
@@ -741,12 +758,12 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   mökki, savusauna, palju, kesäkeittiö, laituri, metsästyslava, Santtu, Korpi-Kallen pannu ja lähijärvet (Likanen, Tervalampi,
   Kiiskeroinen); lentoalue ulottuu noin 600 m:n päähän, ja järveen tipahtanut drooni on mennyttä. Moottoreista
   kuuluu vain pieni surina.
-- **Reppu (I tai Tab):** pelaajan tuulipuvun värinen reppu (violetti, turkoosi ja musta raita, hihnat, soljet ja
-  NORMI-läppä). Etutaskuun mahtuu **yksi rivi** (9 taskua): tavarat, kaljat, ostokset, sienet, kalat, saaliit ja
-  eväät (T, klikkaus syö tai juo) pikselikuvakkeina ja pinoina. Täyden repun viimeisessä taskussa näkyy "+N", ja
-  sen vihje kertoo, mitä repun pohjalla on. Rahat, päivän tilanne, kauppalista, jemmat ja tehtävät ovat
-  keltaisilla heippalapuilla kuten Päivin lappu, ja polaroidissa on pelaajan oma 3D-hahmo lippiksineen, joka
-  kääntyy katsomaan hiirtä. Päänäkymän HUD:ssa näkyvät enää aika ja alusta (sekä varoitus, jos kotijemma on
+- **Reppu (I tai Tab):** sama nahkakantinen kierrevihko kuin Normipäiväkirja (`mg_draw.gd notebook`: kansi, viivapaperi,
+  marginaali, kierrerenkaat, tahrat, otsikkokyltti, välilehti ja käsiala). Oikealla sivulla on **9 taskua** 3 x 3 -ruudukossa:
+  tavarat, kaljat, ostokset, sienet, kalat, saaliit ja eväät (T, klikkaus syö tai juo) pikselikuvakkeina ja pinoina. Täyden repun
+  viimeisessä taskussa näkyy "+N"-lappu, ja sen selitys kertoo, mitä repun pohjalla on; hiiren alla olevan tavaran nimi ja kuvaus
+  kirjoitetaan ruudukon alle. Vasemmalla sivulla ovat rahat, päivän tilanne, kauppalista, jemmat ja tehtävät käsin kirjoitettuina
+  sekä polaroid pelaajan omasta 3D-hahmosta, joka kääntyy katsomaan hiirtä. Päänäkymän HUD:ssa näkyvät enää aika ja alusta (sekä varoitus, jos kotijemma on
   vaarassa).
 - **Valcon kuulokkeet (H päähän / pois, N seuraava biisi):** pölyisessä pahvilaatikossa autotallin työkalukaapin
   päällä. Päässä ollessaan linnut, varikset ja muu ympäristö vaimenevat selvästi, mutta myös Päivin auto, poliisi
@@ -757,8 +774,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Löytö säilyy (testi `--scene=kuulokkeet`).
 - **Vaatekaapit ja asut:** pelaaja on vaaleahiuksinen ja pukinpartainen, ja hänellä on kello, rannekoru ja tatuointi
   vasemmassa olkavarressa. Oletuksena tuulipuku, Karhu-lippis ja peililasiset pilottilasit. Kodin makuuhuoneen
-  vaatekaapista vaihdetaan farkkuihin, verkkopaitaan ja henkseleihin (vyö, kultaketju, valkoiset ovaalit lasit ja
-  taakse kammattu rasvaletti), Paapelin makuuhuoneen kaapista työhousuihin, flanelliin ja Karjala-lippikseen. Kodin
+  vaatekaapista vaihdetaan repaleiseen verkkopaitaan, ruskeisiin henkseleihin ja tummiin työhousuihin (rispaantuneet
+  repeämät, vyö, nokiset tahrat iholla ja tuprukka vaalea tukka, viitteenä Uuno kyntämässä; `character.gdshader` net_shirt, grime), Paapelin makuuhuoneen kaapista työhousuihin, flanelliin ja Karjala-lippikseen. Kodin
   kaapista saa myös Stetson-cowboyhatun lippiksen tilalle (ruskea huopa, keskiura, kaareva lieri, nauha ja hopeinen
   koristelaatta); se pysyy päässä asusta riippumatta, kunnes lippis vaihdetaan takaisin. Kirppikseltä ostettu
   hiihtohaalari tulee kodin kaappiin neljänneksi asuksi. Ensimmäisestä kaupasta ostetusta kutosesta (K-Market,
