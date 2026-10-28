@@ -49,12 +49,16 @@ def smooth(a, b, x):
     return t * t * (3.0 - 2.0 * t)
 
 
-def apply():
+def apply(target=None, key="satama", name=ROAD_NAME, tag="_satama", search_r=SEARCH_R, dock_len=DOCK_LEN,
+          park_back=PARK_BACK, park_r=PARK_R, hw="unclassified", avoid=(), avoid_d=60.0, max_bank=None):
+    """Rantapaikka, sorapätkä sinne ja parkki. target = hakukeskus pelin koordinaateissa (oletus: todellinen Venesatama);
+    key = tie.json-avain (satama tai uitto); tag = sorapätkän merkintä (aiempi samanniminen ajo poistetaan);
+    avoid = pisteet, joista paikan pitää olla vähintään avoid_d m päässä."""
     tie = json.load(open(TIE))
     off = tie["town_off"]
     wl = tie["water_level"]
     real = VL.to_xz(*SATAMA)
-    real_game = (real[0] + off[0], real[1] + off[1])
+    real_game = target if target is not None else (real[0] + off[0], real[1] + off[1])
     raw = open(MAASTO, "rb").read()
     nx, nz, x0, z0, cell = struct.unpack_from("<iifff", raw, 0)
     o = 20
@@ -83,7 +87,7 @@ def apply():
             + (heights[q + 1] - heights[q + nx + 1]) * (1.0 - v)
 
     # Edellinen ajo pois: satama-sorapätkä.
-    tie["side_roads"] = [r for r in tie["side_roads"] if not r.get("_satama")]
+    tie["side_roads"] = [r for r in tie["side_roads"] if not r.get(tag)]
 
     # Iso vesialue (järvi): 4-naapurin täyttö joen/lahden ulkopuolelle, jotta lampi ei kelpaa satamaksi.
     big = bytearray(nx * nz)
@@ -133,7 +137,7 @@ def apply():
         return any(abs(p[0] - q[0]) < d and abs(p[1] - q[1]) < d and math.dist(p, q) < d for q in pts)
 
     wet_cells = [(x0 + i * cell, z0 + j * cell) for j in range(nz) for i in range(nx) if big[j * nx + i]
-                 and abs(x0 + i * cell - real_game[0]) < SEARCH_R + 60 and abs(z0 + j * cell - real_game[1]) < SEARCH_R + 60]
+                 and abs(x0 + i * cell - real_game[0]) < search_r + 60 and abs(z0 + j * cell - real_game[1]) < search_r + 60]
     buckets = {}
     for q in wet_cells:
         buckets.setdefault((int(q[0] // 24), int(q[1] // 24)), []).append(q)
@@ -150,8 +154,8 @@ def apply():
         return out
 
     best = None
-    for dz in range(-int(SEARCH_R), int(SEARCH_R) + 1, 4):
-        for dx in range(-int(SEARCH_R), int(SEARCH_R) + 1, 4):
+    for dz in range(-int(search_r), int(search_r) + 1, 4):
+        for dx in range(-int(search_r), int(search_r) + 1, 4):
             p = (round((real_game[0] + dx) / cell) * cell, round((real_game[1] + dz) / cell) * cell)
             score = math.hypot(dx, dz)
             if best is not None and score >= best[0]:
@@ -183,20 +187,23 @@ def apply():
                 continue
             if near_any(p, fence_pts, FENCE_FAR) or near_any(p, bridge_pts, 40.0) or near_any(p, bld_pts, BUILD_FAR):
                 continue
-            if near_any(p, road_pts, 14.0):
+            if near_any(p, road_pts, 14.0) or near_any(p, avoid, avoid_d):
                 continue
+            if max_bank is not None and (ground(*p) - wl > max_bank
+                                         or ground(p[0] - d[0] * park_back, p[1] - d[1] * park_back) - wl > max_bank + 1.2):
+                continue  # jyrkkä törmä: laituri ja uimaranta tarvitsevat loivan rannan
             # Parkki sisämaahan: kuiva, ei vettä ellipsin alla.
-            pk = (p[0] - d[0] * PARK_BACK, p[1] - d[1] * PARK_BACK)
+            pk = (p[0] - d[0] * park_back, p[1] - d[1] * park_back)
             if code(pk) in (WATER, ROAD, RAIL, 255) or water_near(pk, 8.0) or near_any(pk, bld_pts, BUILD_FAR):
                 continue
             best = (score, p, d, gap, t_wet)
     if best is None:
-        sys.exit("satamalle ei löytynyt rantapaikkaa %d m säteellä todellisesta paikasta" % SEARCH_R)
+        sys.exit("%s: ei löytynyt rantapaikkaa %d m säteellä" % (key, search_r))
     moved, p, d, gap, t_wet = best
     # Laiturin juuri vesirajaan; kansi alkaa maalta.
     root = (p[0] + d[0] * (t_wet - 3.0), p[1] + d[1] * (t_wet - 3.0))
-    park = (root[0] - d[0] * PARK_BACK, root[1] - d[1] * PARK_BACK)
-    print("satama rannassa: %.1f m vedestä, %.0f m todellisesta paikasta (pelin kehyksessä)" % (gap, moved))
+    park = (root[0] - d[0] * park_back, root[1] - d[1] * park_back)
+    print("%s rannassa: %.1f m vedestä, %.0f m hakukeskuksesta (pelin kehyksessä)" % (key, gap, moved))
 
     # --- Soratie lähimmältä tieltä parkille (Dijkstra 4 m ruudukossa kuivan maan yli). ---------------------------
     targets = []
@@ -254,9 +261,9 @@ def apply():
     thin = lane[::2]
     if thin[-1] != lane[-1]:
         thin.append(lane[-1])
-    print("sorapätkä %s %.0f m" % (ROAD_NAME, sum(math.dist(a, b) for a, b in zip(lane, lane[1:]))))
-    tie["side_roads"].append({"kind": "road", "hw": "unclassified", "name": ROAD_NAME, "surface": "unpaved",
-                              "_satama": 1, "pts": [[round(x, 2), round(z, 2)] for x, z in thin]})
+    print("sorapätkä %s %.0f m" % (name, sum(math.dist(a, b) for a, b in zip(lane, lane[1:]))))
+    tie["side_roads"].append({"kind": "road", "hw": hw, "name": name, "surface": "unpaved",
+                              tag: 1, "pts": [[round(x, 2), round(z, 2)] for x, z in thin]})
 
     # --- Maasto: parkki ja sorapätkä nurmeksi, parkin ja tien alle tasainen pohja. ------------------------------
     def lane_d(q):
@@ -269,6 +276,11 @@ def apply():
     lane_raw = [ground(*q) for q in lane]
     lane_h = [max(sum(lane_raw[max(0, k - 4):k + 5]) / len(lane_raw[max(0, k - 4):k + 5]), wl + 0.45)
               for k in range(len(lane_raw))]
+    if max_bank is not None:
+        # Loiva ranta: piha parkin kohdan omalle korkeudelle, tie laskee sinne viimeisen 36 m:n aikana (ei tien yläpään korkeudelle).
+        ph = max(ground(*park), wl + 0.45)
+        n = len(lane_h)
+        lane_h = [lerp(ph, lane_h[k], smooth(0.0, 36.0, (n - 1 - k) * 3.0)) for k in range(n)]
     park_h = lane_h[-1]
     changed = set()
     ax, az = -d[1], d[0]
@@ -278,8 +290,8 @@ def apply():
             q = (x0 + i * cell, z0 + j * cell)
             if codes[k] in (WATER, RAIL, ROAD, SHOULDER):
                 continue
-            u = ((q[0] - park[0]) * ax + (q[1] - park[1]) * az) / PARK_R[0]
-            w = ((q[0] - park[0]) * d[0] + (q[1] - park[1]) * d[1]) / PARK_R[1]
+            u = ((q[0] - park[0]) * ax + (q[1] - park[1]) * az) / park_r[0]
+            w = ((q[0] - park[0]) * d[0] + (q[1] - park[1]) * d[1]) / park_r[1]
             pe = math.hypot(u, w)  # 1 = parkin reuna
             hh, code_k = heights[k], codes[k]
             if pe < 1.0:
@@ -311,11 +323,11 @@ def apply():
                 heights[k] = round(hh, 3)
                 changed.add((i, j))
 
-    tie["satama"] = {"x": round(root[0], 2), "z": round(root[1], 2), "dir": [round(d[0], 4), round(d[1], 4)],
-                     "dock_len": DOCK_LEN, "park": [round(park[0], 2), round(park[1], 2)], "park_r": list(PARK_R),
+    tie[key] = {"x": round(root[0], 2), "z": round(root[1], 2), "dir": [round(d[0], 4), round(d[1], 4)],
+                     "dock_len": dock_len, "park": [round(park[0], 2), round(park[1], 2)], "park_r": list(park_r),
                      "road": [[round(x, 2), round(z, 2)] for x, z in lane[::3]] + [[round(lane[-1][0], 2), round(lane[-1][1], 2)]],
                      "lat": SATAMA[0], "lon": SATAMA[1], "real_game": [round(real_game[0], 1), round(real_game[1], 1)],
-                     "moved": round(moved), "name": ROAD_NAME}
+                     "moved": round(moved), "name": name}
     with open(TIE, "w") as f:
         json.dump(tie, f, ensure_ascii=False, separators=(",", ":"))
     with open(MAASTO, "wb") as f:
@@ -336,9 +348,9 @@ def apply():
         x, y, z, hgt = struct.unpack_from("<ffff", buf, q)
         if hgt <= 0.0 or not VL.in_box((x, z), box):
             continue
-        u = ((x - park[0]) * ax + (z - park[1]) * az) / PARK_R[0]
-        w = ((x - park[0]) * d[0] + (z - park[1]) * d[1]) / PARK_R[1]
-        dr = VL.line_dist((x, z), [root, (root[0] + d[0] * DOCK_LEN, root[1] + d[1] * DOCK_LEN)])
+        u = ((x - park[0]) * ax + (z - park[1]) * az) / park_r[0]
+        w = ((x - park[0]) * d[0] + (z - park[1]) * d[1]) / park_r[1]
+        dr = VL.line_dist((x, z), [root, (root[0] + d[0] * dock_len, root[1] + d[1] * dock_len)])
         if lane_d((x, z)) < 5.0 or math.hypot(u, w) < 1.6 or dr < 4.5 or code((x, z)) == WATER:
             struct.pack_into("<f", buf, q + 12, 0.0)
             removed += 1

@@ -621,7 +621,7 @@ func ensure_built() -> void:
 	var times: Array[String] = []
 	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
 			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_station, _build_poliisi, _build_signs,
-			_build_trees, _build_lamps, _build_atm, _build_lava, _build_satama, _build_lava_pier, _build_mokki_yard, _build_north, _build_drive_mask,
+			_build_trees, _build_lamps, _build_atm, _build_lava, _build_satama, _build_uitto, _build_lava_pier, _build_mokki_yard, _build_north, _build_drive_mask,
 			_build_lava_grounds, _merge_static_meshes]:
 		var ts := Time.get_ticks_msec()
 		step.call()
@@ -2025,6 +2025,312 @@ func _build_satama() -> void:
 		"text": "Muskeliveneellä Oulujärvelle"})
 
 
+# --- Uiton sauna (Sahanranta, tools/vaala_sahanranta.py "uitto") ---------------------------------------------------
+## Oulujoen uiton jäljiltä rannassa on hirsisauna, makasiini (nykyään kanoottitalli), laituri ja nuotiopaikka (Vaalan
+## Sahanranta, Uitontie). Sauna on mitoiltaan savusaunan kaltainen (cutscene.gd SAUNA_SAVU: sisätila samoissa
+## koordinaateissa), joten Cutscene.sauna_relax toimii sen rungon kehyksessä. Laiturin tikkailta uidaan Oulujärveen
+## (Cutscene.swim_dive saunan viereiseltä rannalta). Ovet "uittosauna" ja "uittouinti" (main.gd _on_vaala_door).
+const UITTO_W := 3.4          # sauna: leveys x syvyys (samat kuin mokki.gd SAUNA_SIZE)
+const UITTO_D := 2.9
+const UITTO_TER := 2.4        # terassi järven puolella
+const UITTO_DOOR_X := -0.8
+const UITTO_PIER_W := 1.7
+var uitto_door := Vector3.ZERO       # saunan oven edusta terassilla
+var uitto_pier_door := Vector3.ZERO  # laiturin päässä, tikkaiden luona
+var uitto_dir := Vector2.ZERO        # rannalta järvelle
+var uitto_wl := 0.0                  # vedenpinta laiturin kohdalla
+var uitto_beach_tf := Transform3D()  # uimaranta saunan vieressä (vesiraja, +Z järvelle), Vaalan kehyksessä
+var _uitto_body: StaticBody3D
+
+
+func uitto_sauna_frame() -> Transform3D:
+	return _uitto_body.global_transform
+
+
+func uitto_beach_frame() -> Transform3D:
+	return global_transform * uitto_beach_tf
+
+
+func _build_uitto() -> void:
+	if not data.has("uitto"):
+		return
+	var ud: Dictionary = data.uitto
+	var d := Vector2(ud.dir[0], ud.dir[1])
+	var side := Vector2(d.y, -d.x)
+	var root := Vector2(ud.x, ud.z)
+	var dl: float = ud.dock_len
+	var yaw := atan2(d.x, d.y)
+	var at := func(u: float, v: float) -> Vector2: return root + side * u + d * v  # rannan kehys: u sivulle, v järvelle
+	var pc := Vector2(ud.park[0], ud.park[1])
+	var gy := h(pc.x, pc.y)  # piha on tasoitettu
+	uitto_dir = d
+	uitto_wl = water_y(root.x + d.x * dl, root.y + d.y * dl)
+	var wy := uitto_wl
+	var dy := wy + 0.5
+	var log_col := Color(0.4, 0.29, 0.18)
+	var board := Color(0.5, 0.4, 0.28)
+	var roof_col := Color(0.2, 0.19, 0.18)
+	# --- Laituri: lankkukansi, reunapalkit, pukit, luiska, tikkaat, pelastusrengas ja penkki päässä. ---
+	var pier_xf := Transform3D(Basis(Vector3.UP, yaw), Vector3(root.x, dy, root.y))
+	var dock := StaticBody3D.new()
+	dock.set_meta("ground", true)
+	dock.transform = pier_xf
+	add_child(dock)
+	var pw := UITTO_PIER_W
+	var wood := Color(0.6, 0.45, 0.3)
+	var dark := Color(0.33, 0.24, 0.16)
+	B.mesh(dock, B.boxm(Vector3(pw, 0.1, dl)), Vector3(0, -0.05, dl / 2.0), wood)
+	for k in int(dl / 0.5):
+		B.mesh(dock, B.boxm(Vector3(pw, 0.012, 0.025)), Vector3(0, 0.002, 0.3 + k * 0.5), dark)
+	for sx in [-1.0, 1.0]:
+		B.mesh(dock, B.boxm(Vector3(0.12, 0.2, dl)), Vector3(sx * (pw / 2.0 - 0.06), -0.2, dl / 2.0), dark)
+	dock.add_child(B.box_shape(Vector3(pw, 0.3, dl), Vector3(0, -0.15, dl / 2.0)))
+	var prise := maxf(h(root.x, root.y) - dy, 0.0) + 0.06
+	var prun := maxf(1.4, prise * 2.2)
+	var pramp := B.box_shape(Vector3(pw, 0.1, Vector2(prun, prise).length()), Vector3.ZERO)
+	pramp.transform = Transform3D(Basis(Vector3.RIGHT, atan2(prise, prun)), Vector3(0, -0.05 + prise / 2.0, -prun / 2.0))
+	dock.add_child(pramp)
+	B.mesh(dock, B.boxm(Vector3(pw, 0.08, Vector2(prun, prise).length())), Vector3(0, -0.05 + prise / 2.0 - 0.03, -prun / 2.0), wood.darkened(0.1)).rotation.x = atan2(prise, prun)
+	for k in int(dl / 2.4) + 1:
+		for sx in [-1.0, 1.0]:
+			var pz := minf(1.4 + k * 2.4, dl - 0.1)
+			var gp := pier_xf * Vector3(sx * (pw / 2.0 - 0.1), 0, pz)
+			var bottom := h(gp.x, gp.z)
+			if bottom > dy - 0.4:
+				continue
+			var ph := 0.12 - (bottom - dy) + 0.1
+			B.mesh(dock, B.cyl(0.1, 0.1, ph, 8), Vector3(sx * (pw / 2.0 - 0.1), 0.12 - ph / 2.0, pz), Color(0.27, 0.2, 0.14))
+	# Penkki laiturin päässä, pollarit ja pelastusrengas pylvään päällä.
+	B.mesh(dock, B.boxm(Vector3(1.3, 0.06, 0.38)), Vector3(-0.1, 0.46, dl - 0.5), board)
+	for bx in [-0.6, 0.4]:
+		B.mesh(dock, B.boxm(Vector3(0.06, 0.4, 0.34)), Vector3(bx, 0.23, dl - 0.5), board.darkened(0.25))
+	for bz in [2.0, dl - 1.3]:
+		for sx in [-1.0, 1.0]:
+			B.mesh(dock, B.cyl(0.08, 0.1, 0.3, 8), Vector3(sx * (pw / 2.0 - 0.14), 0.15, bz), Color(0.15, 0.2, 0.17))
+	B.mesh(dock, B.cyl(0.04, 0.05, 1.5, 8), Vector3(-pw / 2.0 + 0.12, 0.75, dl - 2.4), Color(0.3, 0.22, 0.15))
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.17
+	ring.outer_radius = 0.3
+	B.mesh(dock, ring, Vector3(-pw / 2.0 + 0.2, 1.3, dl - 2.4), Color(0.85, 0.15, 0.12), Vector3(90, 0, 0))
+	# Uimatikkaat laiturin päässä (ruostumaton teräs): kaksi pystyputkea ja askelmat veden alle, kaari kannen yli.
+	var lx := pw / 2.0 + 0.05
+	var steel := Color(0.78, 0.8, 0.82)
+	for sz in [-0.24, 0.24]:
+		B.tube(dock, Vector3(lx - 0.28, 0.75, dl - 0.7 + sz), Vector3(lx, 0.9, dl - 0.7 + sz), 0.022, steel)
+		B.tube(dock, Vector3(lx, 0.9, dl - 0.7 + sz), Vector3(lx, -0.95, dl - 0.7 + sz), 0.022, steel)
+	for k in 5:
+		B.tube(dock, Vector3(lx, 0.4 - k * 0.3, dl - 0.94), Vector3(lx, 0.4 - k * 0.3, dl - 0.46), 0.017, steel)
+	# Soutuvene köydellä pollareihin laiturin toisella kyljellä.
+	var fish: Script = load("res://scripts/fish_game.gd")
+	var rb := Node3D.new()
+	rb.transform = pier_xf * Transform3D(Basis(Vector3.UP, PI + 0.05), Vector3(-1.9, wy - dy, dl - 3.5))
+	add_child(rb)
+	fish.build_boat(rb, true)
+	B.tube(dock, Vector3(-pw / 2.0 + 0.14, 0.3, 2.0), Vector3(-1.35, wy - dy + 0.35, dl - 2.9), 0.02, Color(0.75, 0.68, 0.5))
+	var keep_park := satama_park
+	_sat_park(ud, d, side, yaw)
+	satama_park = keep_park
+	uitto_pier_door = pier_xf * Vector3(0, 0, dl - 2.2)
+	doors.append({"id": "uittouinti", "pos": uitto_pier_door, "out": Vector3(-d.x, 0, -d.y), "r": 6.0, "walk": true,
+		"text": "Uimaan Oulujärveen Uiton laiturilta"})
+	# Uimaranta laiturin vieressä: vesirajan kohta u = -5 (alkaa maalta, kahlaus, sukellus).
+	var bq: Vector2 = at.call(-5.0, 0.0)
+	for t in range(0, 24):
+		var q: Vector2 = bq + d * float(t)
+		if wet(q.x, q.y, 0.0):
+			bq = q
+			break
+	uitto_beach_tf = Transform3D(Basis(Vector3.UP, yaw), Vector3(bq.x, h(bq.x, bq.y), bq.y))
+	_sat_shore(d, root, wy, [[bq - d * 3.0, 11.0]])  # rantakivet pois uimarannan edestä
+	# --- Hirsisauna (mitat ja sisätila kuten mokki.gd _build_savusauna, jotta sauna_relax sopii) ---
+	var w := UITTO_W
+	var dd := UITTO_D
+	var fz := dd / 2.0
+	var ter := UITTO_TER
+	var wall_h := 2.0
+	var rise := 1.0
+	var sc: Vector2 = at.call(7.0, -6.2)
+	var sbody := StaticBody3D.new()
+	sbody.position = Vector3(sc.x, gy + 0.2, sc.y)
+	sbody.rotation.y = yaw
+	add_child(sbody)
+	_uitto_body = sbody
+	var dxs := UITTO_DOOR_X
+	var dw := 0.8
+	var door_top := 1.7
+	var y := 0.14
+	while y < wall_h:
+		var col := log_col if int(y * 10) % 2 else log_col.darkened(0.12)
+		B.mesh(sbody, B.cyl(0.09, 0.09, w + 0.18, 8), Vector3(0, y, -fz), col, Vector3(0, 0, 90))
+		for sx in [-1.0, 1.0]:
+			B.mesh(sbody, B.cyl(0.09, 0.09, dd + 0.18, 8), Vector3(sx * w / 2.0, y, 0), col, Vector3(90, 0, 0))
+		if y < door_top:
+			for seg in [[-w / 2.0 - 0.09, dxs - dw / 2.0], [dxs + dw / 2.0, w / 2.0 + 0.09]]:
+				B.mesh(sbody, B.cyl(0.09, 0.09, seg[1] - seg[0], 8), Vector3((seg[0] + seg[1]) / 2.0, y, fz), col, Vector3(0, 0, 90))
+		else:
+			B.mesh(sbody, B.cyl(0.09, 0.09, w + 0.18, 8), Vector3(0, y, fz), col, Vector3(0, 0, 90))
+		y += 0.17
+	sbody.add_child(B.box_shape(Vector3(w + 0.2, wall_h, 0.2), Vector3(0, wall_h / 2.0, -fz)))
+	for sx in [-1.0, 1.0]:
+		sbody.add_child(B.box_shape(Vector3(0.2, wall_h, dd + 0.2), Vector3(sx * w / 2.0, wall_h / 2.0, 0)))
+	var lw := dxs - dw / 2.0 + w / 2.0
+	sbody.add_child(B.box_shape(Vector3(lw, wall_h, 0.2), Vector3(-w / 2.0 + lw / 2.0, wall_h / 2.0, fz)))
+	var rw := w / 2.0 - dxs - dw / 2.0
+	sbody.add_child(B.box_shape(Vector3(rw, wall_h, 0.2), Vector3(w / 2.0 - rw / 2.0, wall_h / 2.0, fz)))
+	var roof := PrismMesh.new()
+	roof.size = Vector3(w + 1.0, rise, dd + ter + 0.7)
+	B.mesh(sbody, roof, Vector3(0, wall_h + rise / 2.0, ter / 2.0), roof_col)
+	var gable := PrismMesh.new()
+	gable.size = Vector3(w + 0.18, rise - 0.05, 0.14)
+	B.mesh(sbody, gable, Vector3(0, wall_h + (rise - 0.05) / 2.0, fz), log_col.darkened(0.2))
+	var gable2 := PrismMesh.new()
+	gable2.size = Vector3(w + 0.3, rise - 0.05, 0.08)
+	B.mesh(sbody, gable2, Vector3(0, wall_h + (rise - 0.05) / 2.0, fz + ter + 0.1), Color(0.3, 0.22, 0.14))
+	B.mesh(sbody, B.boxm(Vector3(w + 0.4, 0.16, 0.16)), Vector3(0, wall_h - 0.06, fz + ter + 0.1), log_col.darkened(0.15))
+	for sx in [-1.0, 1.0]:
+		B.mesh(sbody, B.boxm(Vector3(0.14, 0.14, ter + 0.2)), Vector3(sx * w / 2.0, wall_h - 0.06, fz + ter / 2.0), log_col.darkened(0.15))
+		B.mesh(sbody, B.cyl(0.08, 0.08, wall_h, 8), Vector3(sx * w / 2.0, wall_h / 2.0, fz + ter), log_col)
+		sbody.add_child(B.box_shape(Vector3(0.18, wall_h, 0.18), Vector3(sx * w / 2.0, wall_h / 2.0, fz + ter)))
+	# Ovi, ikkuna sivuseinässä ja nurkkahirsien päät.
+	B.mesh(sbody, B.boxm(Vector3(dw - 0.06, door_top - 0.1, 0.06)), Vector3(dxs, 0.08 + (door_top - 0.1) / 2.0, fz + 0.04), Color(0.35, 0.24, 0.14))
+	B.mesh(sbody, B.boxm(Vector3(0.04, 0.04, 0.08)), Vector3(dxs + 0.28, 1.0, fz + 0.09), Color(0.2, 0.2, 0.2))
+	B.mesh(sbody, B.boxm(Vector3(0.04, 0.52, 0.62)), Vector3(-w / 2.0 - 0.1, 1.25, -0.3), Color(0.3, 0.22, 0.14))
+	B.mesh(sbody, B.boxm(Vector3(0.03, 0.4, 0.5)), Vector3(-w / 2.0 - 0.12, 1.25, -0.3), Color(0.62, 0.7, 0.74))
+	# Kivijalka, lattia, terassin kansi ja portaat; luiska portaille (CharacterBody ei nouse askelmia).
+	var low := -0.55
+	B.mesh(sbody, B.boxm(Vector3(w + 0.1, -low, dd + 0.1)), Vector3(0, low / 2.0, 0), Color(0.36, 0.35, 0.33))
+	B.mesh(sbody, B.boxm(Vector3(w - 0.1, 0.06, dd - 0.1)), Vector3(0, 0.06, 0), Color(0.3, 0.24, 0.17))
+	sbody.add_child(B.box_shape(Vector3(w, 0.4 - low, dd), Vector3(0, (low + 0.09) / 2.0 - 0.15, 0)))
+	for k in int(ter / 0.15):
+		B.mesh(sbody, B.boxm(Vector3(w + 0.3, 0.05, 0.13)), Vector3(0, 0.13, fz + 0.12 + k * 0.15), board.darkened(0.06 * (k % 3)))
+	sbody.add_child(B.box_shape(Vector3(w + 0.3, 0.15 - low, ter + 0.1), Vector3(0, (0.15 + low) / 2.0, fz + ter / 2.0 + 0.05)))
+	B.mesh(sbody, B.boxm(Vector3(w + 0.3, 0.1 - low, 0.04)), Vector3(0, (0.1 + low) / 2.0, fz + ter + 0.08), board.darkened(0.4))
+	var steps := 2
+	for i in steps:
+		B.mesh(sbody, B.boxm(Vector3(1.4, 0.2, 0.3)), Vector3(0.4, 0.05 - i * 0.2, fz + ter + 0.28 + i * 0.3), board.darkened(0.08 * (i % 2)))
+	var rr := B.box_shape(Vector3(1.4, 0.1, 1.1), Vector3.ZERO)
+	rr.transform = Transform3D(Basis(Vector3.RIGHT, -0.32), Vector3(0.4, -0.12, fz + ter + 0.4))
+	sbody.add_child(rr)
+	# Terassin penkki, kiulu ja vihtapata sekä pyyhe kaiteella.
+	B.mesh(sbody, B.boxm(Vector3(1.3, 0.06, 0.4)), Vector3(0.85, 0.55, fz + 0.35), board)
+	for bx in [0.35, 1.35]:
+		B.mesh(sbody, B.boxm(Vector3(0.06, 0.42, 0.34)), Vector3(bx, 0.36, fz + 0.35), board.darkened(0.2))
+	B.mesh(sbody, B.cyl(0.28, 0.3, 0.4, 16), Vector3(-1.1, 0.35, fz + ter - 0.5), Color(0.34, 0.24, 0.15))
+	# Sisätila (cutscene.gd SAUNA_SAVU): lauteet takaseinällä, kivikiuas oven vieressä, kiulu.
+	var lt := Color(0.5, 0.38, 0.24)
+	B.mesh(sbody, B.boxm(Vector3(w - 0.25, 0.07, 0.95)), Vector3(0, 1.0, -fz + 0.6), lt)
+	B.mesh(sbody, B.boxm(Vector3(w - 0.25, 0.06, 0.4)), Vector3(0, 0.5, -fz + 1.3), lt.darkened(0.08))
+	for bx in [-1.2, 0.0, 1.2]:
+		B.mesh(sbody, B.boxm(Vector3(0.08, 1.0, 0.08)), Vector3(bx, 0.5, -fz + 1.03), lt.darkened(0.3))
+		B.mesh(sbody, B.boxm(Vector3(0.08, 0.5, 0.08)), Vector3(bx, 0.25, -fz + 1.45), lt.darkened(0.3))
+	var kl := Vector3(0.9, 0.0, 0.5)
+	var stone := Color(0.3, 0.29, 0.28)
+	B.mesh(sbody, B.boxm(Vector3(0.95, 0.6, 0.18)), Vector3(kl.x, 0.3, kl.z - 0.36), stone)
+	B.mesh(sbody, B.boxm(Vector3(0.95, 0.6, 0.18)), Vector3(kl.x, 0.3, kl.z + 0.36), stone)
+	B.mesh(sbody, B.boxm(Vector3(0.18, 0.6, 0.9)), Vector3(kl.x + 0.38, 0.3, kl.z), stone)
+	B.mesh(sbody, B.boxm(Vector3(0.95, 0.12, 0.9)), Vector3(kl.x, 0.66, kl.z), stone.darkened(0.2))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2811
+	for k in 22:
+		var r := rng.randf_range(0.09, 0.15)
+		B.mesh(sbody, B.sphere(r, 8), Vector3(kl.x + rng.randf_range(-0.38, 0.38), 0.74 + r * 0.6 + (k / 9) * 0.07, kl.z + rng.randf_range(-0.36, 0.36)),
+			Color(0.24, 0.23, 0.22).lerp(Color(0.42, 0.4, 0.38), rng.randf())).scale = Vector3(1.0, 0.75, 1.0)
+	B.mesh(sbody, B.cyl(0.13, 0.1, 0.24, 10), Vector3(1.15, 0.65, -0.15), Color(0.55, 0.4, 0.25))
+	B.mesh(sbody, B.boxm(Vector3(w - 0.1, 0.03, dd - 0.1)), Vector3(0, wall_h - 0.02, 0), Color(0.09, 0.08, 0.07))
+	# Piippu katolla ja savu.
+	B.mesh(sbody, B.cyl(0.17, 0.2, 1.4, 8), Vector3(0.9, wall_h + 0.75, -0.2), Color(0.3, 0.28, 0.27))
+	var smoke := CPUParticles3D.new()
+	smoke.position = sbody.position + Basis(Vector3.UP, yaw) * Vector3(0.9, wall_h + 1.5, -0.2)
+	smoke.amount = 14
+	smoke.lifetime = 3.2
+	smoke.direction = Vector3.UP
+	smoke.spread = 12.0
+	smoke.initial_velocity_min = 0.5
+	smoke.initial_velocity_max = 0.9
+	smoke.gravity = Vector3(0.25, 0.1, 0.0)
+	smoke.scale_amount_min = 0.7
+	smoke.scale_amount_max = 1.3
+	var sm := SphereMesh.new()
+	sm.radius = 0.2
+	sm.height = 0.4
+	sm.material = B.unshaded(Color(0.82, 0.82, 0.84, 0.5))
+	smoke.mesh = sm
+	add_child(smoke)
+	# Kyltti saunan terassin päädyssä.
+	var plate := B.sign_plate(sbody, "UITON SAUNA\nHirsisauna · uinti Oulujärveen", Color(0.2, 0.14, 0.09), Color(0.97, 0.9, 0.7), 0.3, 40, Color(0.8, 0.65, 0.3), "Georgia")
+	plate.position = Vector3(0, wall_h + 0.42, fz + ter + 0.2)
+	plate.rotation.x = deg_to_rad(-10.0)
+	uitto_door = sbody.position + Basis(Vector3.UP, yaw) * Vector3(UITTO_DOOR_X + 0.4, 0, fz + ter + 1.3)
+	uitto_door.y = h(uitto_door.x, uitto_door.z)
+	doors.append({"id": "uittosauna", "pos": uitto_door, "out": Vector3(-d.x, 0, -d.y), "r": 6.0, "walk": true,
+		"text": "Uiton saunan löylyt ja pulahdus Oulujärveen"})
+	# --- Makasiini (entinen uiton venevaja, nykyään kanoottitalli) ja kanoottiteline ---
+	var mc: Vector2 = at.call(-8.0, -9.0)
+	var mk := Node3D.new()
+	mk.position = Vector3(mc.x, gy, mc.y)
+	mk.rotation.y = yaw
+	add_child(mk)
+	var mw := 8.0
+	var md := 5.0
+	var mh := 3.0
+	var ochre := Color(0.52, 0.15, 0.1)
+	B.box(mk, Vector3(mw, mh, md), Vector3(0, mh / 2.0, 0), ochre)
+	for k in int(mw / 0.4):
+		B.mesh(mk, B.boxm(Vector3(0.03, mh, 0.03)), Vector3(-mw / 2.0 + 0.2 + k * 0.4, mh / 2.0, md / 2.0 + 0.02), ochre.darkened(0.15))
+	for sx in [-1.0, 1.0]:
+		B.mesh(mk, B.boxm(Vector3(0.18, mh + 0.05, 0.18)), Vector3(sx * (mw / 2.0), mh / 2.0, md / 2.0), Color(0.92, 0.9, 0.84))
+	var mroof := PrismMesh.new()
+	mroof.size = Vector3(md + 0.8, 1.7, mw + 0.8)  # harja leveyssuunnassa (päätykolmio ei tielle), prisman harja on Z-akselilla
+	B.mesh(mk, mroof, Vector3(0, mh + 0.85, 0), Color(0.22, 0.2, 0.19)).rotation.y = PI / 2.0
+	B.mesh(mk, B.boxm(Vector3(3.0, 2.3, 0.08)), Vector3(0, 1.15, md / 2.0 + 0.05), Color(0.3, 0.2, 0.12))
+	B.mesh(mk, B.boxm(Vector3(0.08, 2.3, 0.1)), Vector3(0, 1.15, md / 2.0 + 0.1), Color(0.14, 0.1, 0.07))
+	B.mesh(mk, B.boxm(Vector3(3.2, 0.1, 0.12)), Vector3(0, 2.35, md / 2.0 + 0.1), Color(0.92, 0.9, 0.84))
+	for sx in [-3.0, 3.0]:
+		B.mesh(mk, B.boxm(Vector3(0.9, 0.7, 0.06)), Vector3(sx, 1.9, md / 2.0 + 0.04), Color(0.7, 0.78, 0.8))
+	# Kanoottiteline makasiinin vieressä: kolme kajakkia telineellä.
+	var rack := Node3D.new()
+	var rc: Vector2 = at.call(-1.5, -9.0)
+	rack.position = Vector3(rc.x, gy, rc.y)
+	rack.rotation.y = yaw
+	add_child(rack)
+	for sx in [-1.8, 1.8]:
+		B.mesh(rack, B.boxm(Vector3(0.1, 1.5, 0.1)), Vector3(sx, 0.75, 0), Color(0.4, 0.3, 0.2))
+		B.mesh(rack, B.boxm(Vector3(0.1, 0.1, 1.6)), Vector3(sx, 0.8, 0), Color(0.4, 0.3, 0.2))
+		B.mesh(rack, B.boxm(Vector3(0.1, 0.1, 1.6)), Vector3(sx, 1.4, 0), Color(0.4, 0.3, 0.2))
+	var kcols := [Color(0.85, 0.2, 0.12), Color(0.95, 0.78, 0.15), Color(0.15, 0.45, 0.75)]
+	for k in 3:
+		var kz := -0.5 + k * 0.5
+		var ky := 0.95 if k < 2 else 1.55
+		var kx := -0.4 if k < 2 else 0.0
+		var kc := B.mesh(rack, B.capsule(0.19, 3.8), Vector3(0, ky, kz if k < 2 else 0.0), kcols[k], Vector3(0, 0, 90))
+		kc.scale = Vector3(1.0, 1.0, 0.8)
+	# Tukkipino (uiton muisto) ja nuotiopaikka kivirenkaineen ja kantopenkkeineen.
+	var lc: Vector2 = at.call(4.0, -13.5)
+	var pile := Node3D.new()
+	pile.position = Vector3(lc.x, gy, lc.y)
+	pile.rotation.y = yaw
+	add_child(pile)
+	for row in 4:
+		for k in 5 - row:
+			B.mesh(pile, B.cyl(0.17, 0.17, 3.2, 8), Vector3((k - (4 - row) / 2.0) * 0.34, 0.17 + row * 0.3, 0), Color(0.55, 0.42, 0.28).darkened(0.06 * ((k + row) % 3)), Vector3(90, 0, 0))
+	pile.add_child(B.box_shape(Vector3(1.9, 1.3, 3.2), Vector3(0, 0.65, 0)))
+	var fc: Vector2 = at.call(-1.5, -13.5)
+	var fire := Node3D.new()
+	fire.position = Vector3(fc.x, gy, fc.y)
+	fire.rotation.y = yaw
+	add_child(fire)
+	for k in 10:
+		var a := TAU * k / 10.0
+		B.mesh(fire, B.sphere(0.17, 8), Vector3(cos(a) * 0.62, 0.1, sin(a) * 0.62), Color(0.42, 0.4, 0.38).lerp(Color(0.3, 0.29, 0.28), (k % 3) / 3.0)).scale = Vector3(1.0, 0.7, 1.0)
+	B.mesh(fire, B.cyl(0.55, 0.6, 0.04, 12), Vector3(0, 0.03, 0), Color(0.12, 0.1, 0.09))
+	B.mesh(fire, B.cyl(0.07, 0.07, 0.8, 6), Vector3(0, 0.2, 0), Color(0.2, 0.13, 0.08), Vector3(0, 0, 70))
+	B.mesh(fire, B.cyl(0.07, 0.07, 0.8, 6), Vector3(0, 0.2, 0), Color(0.2, 0.13, 0.08), Vector3(0, 90, 70))
+	B.mesh(fire, B.sphere(0.26, 8), Vector3(0, 0.45, 0), Color(1.0, 0.55, 0.12)).scale = Vector3(0.8, 1.5, 0.8)
+	for bx in [-1.7, 1.7]:
+		B.mesh(fire, B.cyl(0.17, 0.17, 1.5, 8), Vector3(bx, 0.2, 0), Color(0.5, 0.38, 0.26), Vector3(90, 0, 0))
+	print("VAALA uiton sauna ", sbody.global_position, " laituri ", uitto_pier_door)
+
+
 # --- Lavan venelaituri (muskeliveneellä lavalle) --------------------------------------------------------------------
 
 const LPIER_LEN := 16.0
@@ -2151,7 +2457,7 @@ func _lp_rects() -> Array:
 
 
 ## Rantakivetys: kiviä vesirajan kuivilla reunaruuduilla laiturin molemmin puolin (ei laiturin kohdalle).
-func _sat_shore(d: Vector2, root: Vector2, wy: float) -> void:
+func _sat_shore(d: Vector2, root: Vector2, wy: float, skip := []) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7117
 	var grey: Array[Transform3D] = []
@@ -2175,6 +2481,8 @@ func _sat_shore(d: Vector2, root: Vector2, wy: float) -> void:
 			for n in 3:
 				var p := c + toward * (_cell * 0.5 + rng.randf_range(-0.4, 1.2)) + Vector2(rng.randf_range(-1.8, 1.8), rng.randf_range(-1.8, 1.8))
 				var rel := p - root
+				if skip.any(func(sk: Array) -> bool: return p.distance_to(sk[0]) < sk[1]):
+					continue
 				if absf(rel.dot(Vector2(d.y, -d.x))) < 2.6 and rel.dot(d) > -2.0 and rel.dot(d) < 20.0:
 					continue
 				var sc := rng.randf_range(0.35, 0.8)
@@ -3277,6 +3585,8 @@ func _build_station() -> void:
 		cache_pos = StationBuild.pick_cache(train, station_t, func(q: Vector3) -> bool:
 			return not wet(q.x, q.z, 1.5) and h(q.x, q.z) > water_level + 1.0 and Vector2(q.x - c.x, q.z - c.y).length() > 25.0 \
 				and not _near_rail(Vector2(q.x, q.z), 4.0))
+		if st.has("katko"):  # kätkö on tie.json:ssa (Kätkötie vie sinne; vaala_sahanranta.py)
+			cache_pos = Vector3(st.katko[0], 0.0, st.katko[1])
 		if cache_pos != Vector3.INF:
 			cache_pos.y = h(cache_pos.x, cache_pos.z)
 			var cd: Vector3 = train.dir_t(train.nearest_t(cache_pos))

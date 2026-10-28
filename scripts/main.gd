@@ -15350,6 +15350,54 @@ func _barrel_sauna() -> void:
 		Cutscene.SAUNA_TYNNYRI, true, [] if _in_vaala else mokki.santtu_nodes())
 
 
+var _uitto_sauna_t := -1.0
+
+
+## Uiton sauna (Vaalan Sahanranta, vaala.gd _build_uitto): hirsisaunan löylyt välianimaationa, sitten vilvoittelu laiturilta.
+func _uitto_sauna() -> void:
+	_act_begin()
+	var vl: Node3D = mopo_trip.vaala
+	cutscene.sauna_relax(vl.uitto_sauna_frame(), false, func() -> void:
+		walker_out.stamina = 100.0
+		walker_out.exhausted = false
+		_uitto_sauna_t = Time.get_ticks_msec() / 1000.0
+		if _once_today("uittosauna"):
+			tilat.add("stressi", 0.3)
+			tilat.add("vasymys", 0.3)
+			tilat.add("kipu", 0.2)
+		tilat.first("uittosauna", 0.3)
+		tilat.add("moraali", 0.1)  # Santun kylmä kalja löylyn päälle
+		_act_end()
+		_show_message("Uiton saunan löylyt ja Santun kylmät kaljat! Laiturilta pääsee vilvoittelemaan Oulujärveen.", 4.0),
+		{"title": "UITON SAUNA", "intro": "Vanha hirsisauna Oulujärven rannalla. Kiuas hehkuu ja piipusta nousee savu."}, true)
+
+
+## Uinti Oulujärveen Uiton laiturin vieressä: kahlaus, uintia ja sukellus; saunan jälkeen vilvoittelu tuntuu parhaalta.
+func _uitto_swim() -> void:
+	var after_sauna := _uitto_sauna_t > 0.0 and Time.get_ticks_msec() / 1000.0 - _uitto_sauna_t < 180.0
+	_act_begin()
+	var vl: Node3D = mopo_trip.vaala
+	var wl: float = vl.to_global(Vector3(0, vl.uitto_wl, 0)).y
+	var ground := func(g: Vector3) -> float:
+		var l: Vector3 = vl.to_local(g)
+		return vl.to_global(Vector3(l.x, vl.h(l.x, l.z), l.z)).y
+	cutscene.swim_dive(vl.uitto_beach_frame(), wl, ground, func() -> void:
+		walker_out.stamina = 100.0
+		walker_out.exhausted = false
+		if _once_today("uinti_uitto"):
+			tilat.add("stressi", 0.2)
+			tilat.add("vireys", 0.25)
+			tilat.add("moraali", 0.1)
+		tilat.first("uinti_oulujarvi", 0.3)
+		_act_end()
+		if after_sauna:
+			_show_message("Löylyistä suoraan Oulujärveen! Vesi puraisee, ja maailma on taas kohdallaan.", 4.0)
+			tilat.add("stressi", 0.1)
+		else:
+			_show_message("Pulahdit Oulujärveen Uiton laiturin vierestä. Raikasta! Kunto palautui.", 3.5),
+		"OULUJÄRVI", "Uiton rannassa. Vesi on kirkasta ja viileää.", "Uiton laituri ja sauna jäivät rantaan.")
+
+
 ## Laavun nuotio: makkara mukana -> makkaranpaisto välianimaationa, muuten istahdus lepuuttaa.
 func _laavu_rest() -> void:
 	walker_out.stamina = 100.0
@@ -16069,6 +16117,10 @@ func _on_vaala_door(id: String) -> void:
 			_talk_open("gasthaus", null)
 		"tynnyrisauna":
 			_barrel_sauna()
+		"uittosauna":
+			_uitto_sauna()
+		"uittouinti":
+			_uitto_swim()
 		"laavu":
 			_laavu_rest()
 		"kalastus":
@@ -24358,6 +24410,90 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "%s.png" % v[0]))
+			get_tree().quit()
+		"sahanranta":
+			# Siirretty asema ja risteys, uusi satama ja Uiton sauna (vaala.gd _build_uitto): kuvat _asema, _risteys, _satama,
+			# _uitto_*; E saunan ovella ja laiturilla (välianimaatiot, kuvat _sauna_*, _uinti_*). Lokiin ovet ja vihjeet.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var shot := func(tag: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % tag))
+			var look := func(from: Vector3, to: Vector3, tag: String) -> void:
+				var rc := Camera3D.new()
+				add_child(rc)
+				rc.current = true
+				rc.look_at_from_position(vl.to_global(from), vl.to_global(to), Vector3.UP)
+				for i in 8:
+					await get_tree().process_frame
+				await shot.call(tag)
+				rc.queue_free()
+			var doors: Dictionary = {}
+			for d in vl.doors:
+				doors[d.id] = d
+			print("SAHANRANTA ovet: asema %s, uittosauna %s, uittouinti %s, satama %s, katko %s" % [
+				doors.get("asema", {}).get("pos"), doors.get("uittosauna", {}).get("pos"), doors.get("uittouinti", {}).get("pos"),
+				doors.get("satama", {}).get("pos"), vl.cache_pos])
+			var sd: Vector3 = doors.asema.pos
+			await look.call(sd + Vector3(-30, 25, -45), sd + Vector3(0, 0, 0), "asema")
+			await look.call(sd + Vector3(-95, 70, -40), sd + Vector3(-75, 0, 10), "risteys")
+			await look.call(sd + Vector3(-60, 120, 20), sd + Vector3(-60, 0, 40), "risteys_ylhaalta")
+			var ud: Vector3 = doors.uittosauna.pos
+			var dd := Vector3(vl.uitto_dir.x, 0, vl.uitto_dir.y)
+			var sdv := dd.cross(Vector3.UP)
+			await look.call(ud + Vector3(0, 60, 0) - dd * 20.0, ud, "uitto_yla")
+			await look.call(ud + dd * 9.0 + sdv * 6.0 + Vector3(0, 2.5, 0), ud - dd * 5.0 + Vector3(0, 1.4, 0), "uitto_sauna")
+			await look.call(ud + dd * 14.0 - sdv * 12.0 + Vector3(0, 3.5, 0), ud - dd * 4.0 - sdv * 9.0 + Vector3(0, 1.2, 0), "uitto_makasiini")
+			var pd: Vector3 = doors.uittouinti.pos
+			await look.call(pd + dd * 9.0 + sdv * 5.0 + Vector3(0, 2.5, 0), pd - dd * 1.0 + Vector3(0, 0.5, 0), "uitto_laituri")
+			await look.call(pd + dd * 3.5 + sdv * 3.0 + Vector3(0, 1.8, 0), pd + Vector3(0, 0.4, 0), "uitto_tikkaat")
+			await look.call(doors.satama.pos + Vector3(0, 45, 0) - Vector3(vl.satama_dir.x, 0, vl.satama_dir.y) * 30.0, doors.satama.pos, "satama")
+			# E saunan ovella.
+			if mopo_trip.on_foot == null:
+				_mopo_dismount()
+			walker_out.global_position = vl.to_global(ud + Vector3(0, 0.6, 0))
+			for i in 20:
+				await get_tree().process_frame
+			print("SAHANRANTA sauna vihje '%s'" % mopo_trip.hint)
+			Input.action_press("interact")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			Input.action_release("interact")
+			var k := 0
+			while not (cutscene.busy or state == "cutscene") and k < 30:
+				await get_tree().create_timer(0.2).timeout
+				k += 1
+			for t in 4:
+				await get_tree().create_timer(3.0).timeout
+				await shot.call("sauna_%d" % t)
+			k = 0
+			while (cutscene.busy or state == "cutscene") and k < 90:
+				await get_tree().create_timer(1.0).timeout
+				k += 1
+			print("SAHANRANTA sauna valmis (%d s), tila %s, stressi %.2f" % [k, state, tilat.value("stressi")])
+			walker_out.global_position = vl.to_global(pd + Vector3(0, 0.6, 0))
+			for i in 20:
+				await get_tree().process_frame
+			print("SAHANRANTA uinti vihje '%s'" % mopo_trip.hint)
+			Input.action_press("interact")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			Input.action_release("interact")
+			k = 0
+			while not (cutscene.busy or state == "cutscene") and k < 30:
+				await get_tree().create_timer(0.2).timeout
+				k += 1
+			for t in 5:
+				await get_tree().create_timer(3.0).timeout
+				await shot.call("uinti_%d" % t)
+			k = 0
+			while (cutscene.busy or state == "cutscene") and k < 90:
+				await get_tree().create_timer(1.0).timeout
+				k += 1
+			print("SAHANRANTA uinti valmis (%d s), tila %s" % [k, state])
 			get_tree().quit()
 		"satama":
 			# Mopolla satamaan, E laiturilla, autopilotti ajaa veneen kaakkoon kartan reunaan ja takaisin laiturille.
