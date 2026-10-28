@@ -419,7 +419,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Saloisten Pirtin kotiseutumuseoon (maine, lehtijuttu, mutta Sulo nostaa kanisterin hintaa) tai Taunolle romuksi
   (20 €, Sulo ja Aaro suuttuvat). Löydön jälkeen Sulo myöntää: "No... isä keitti. Ja hyvää keitti."
   Testi `--scene=pannu`.
-- **Mökki:** mökille pääsee naapurin Pekan kyydillä tai kaupan taksilla (60 € meno-paluu): Pekka on menossa Neittävälle kyyhkyjahtiin ja ottaa
+- **Mökki:** mökille pääsee naapurin Pekan kyydillä (taksia ei ole: se oli aiemmin oikotie, ja nyt Volvo pitää tarvittaessa korjauttaa Korpelalla): Pekka on menossa Neittävälle kyyhkyjahtiin ja ottaa
   kyytiin kaljalla tai 10 eurolla (jalan E Pekan luona). Pekan auto odottaa mökin pihatien päässä, ja sillä
   pääsee kotipihaan ilmaiseksi (bensat maksettiin menomatkalla). Välikuvassa Pekan vihreä Volvo kaahaa kesäistä maantietä peltojen, säilörehupaalien ja männikön
   halki, Pekka puhuu kyyhkyistä ratissa ja auto töräyttää Neittävän (kotimatkalla Saloisten) kyltin ohi. Mökki on Vaalan Neittävän kylällä,
