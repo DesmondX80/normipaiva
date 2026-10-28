@@ -20,6 +20,7 @@ const Train := preload("res://scripts/train.gd")
 const StationBuild := preload("res://scripts/station_build.gd")
 const Makasiini := preload("res://scripts/makasiini.gd")
 const Looks := preload("res://scripts/looks.gd")
+const Mummot := preload("res://scripts/mummot.gd")
 const HumppaBand := preload("res://scripts/humppa_band.gd")
 const Janttu := preload("res://scripts/janttu.gd")
 const Muskelivene := preload("res://scripts/muskelivene.gd")
@@ -621,7 +622,7 @@ func ensure_built() -> void:
 	var times: Array[String] = []
 	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
 			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_station, _build_poliisi, _build_signs,
-			_build_trees, _build_lamps, _build_atm, _build_lava, _build_satama, _build_uitto, _build_lava_pier, _build_mokki_yard, _build_north, _build_drive_mask,
+			_build_trees, _build_lamps, _build_atm, _build_kmarket_yard, _build_lava, _build_satama, _build_uitto, _build_lava_pier, _build_mokki_yard, _build_north, _build_drive_mask,
 			_build_lava_grounds, _merge_static_meshes]:
 		var ts := Time.get_ticks_msec()
 		step.call()
@@ -4759,12 +4760,17 @@ func _siitari_lot(c: Vector2, ax: Vector2, front: Vector2, hx: float, hy: float)
 	var fw := c + front * (hy + 8.0)
 	var ni: Array = nearest(Vector3(fw.x, 0, fw.y))
 	var road_hw: float = road[ni[0]][4]
-	var avail: float = (ni[1] as float) - (hy + 8.0 - v0) - road_hw - 1.2 - v0 + (hy + 8.0) - (hy + 8.0) + 0.0
 	# ni[1] = etäisyys tien keskiviivaan pisteestä hy + 8; tilaa v0:sta tien reunaan:
-	avail = (ni[1] as float) - road_hw - 1.2 + (hy + 8.0 - v0)
+	var avail: float = (ni[1] as float) - road_hw - 1.2 + (hy + 8.0 - v0)
 	var aisle := clampf(avail - LOT_BAY_D, 0.0, 6.0)
 	var ua := -hx - 1.0
 	var nb := int((hx * 2.0 + 5.0) / LOT_BAY_W)
+	_lot_build(c, ax, front, ua, nb, v0, aisle, [])
+
+
+## Merkitty parkkipaikka: asfaltti, ruutuviivat, autot (ohita = paikat, jotka jätetään tyhjiksi, [Vector2]) ja P-kyltti.
+## Paikallinen kehys: u = ax-suunta, v = front-suunta (rakennuksesta pois); rivi alkaa v0:sta ja ajokaista on rivin takana.
+func _lot_build(c: Vector2, ax: Vector2, front: Vector2, ua: float, nb: int, v0: float, aisle: float, skip: Array) -> void:
 	var ub := ua + nb * LOT_BAY_W
 	var v1 := v0 + LOT_BAY_D + aisle
 	var q := func(u: float, v: float) -> Vector2: return c + ax * u + front * v
@@ -4809,6 +4815,8 @@ func _siitari_lot(c: Vector2, ax: Vector2, front: Vector2, hx: float, hy: float)
 		if (k * 7 + 3) % 5 < 2:
 			continue  # jokin paikka vapaa
 		var cp: Vector2 = q.call(ua + (k + 0.5) * LOT_BAY_W, v0 + LOT_BAY_D / 2.0)
+		if skip.any(func(sp: Vector2) -> bool: return sp.distance_to(cp) < 2.0):
+			continue
 		B.parked_car(self, Vector3(cp.x, h(cp.x, cp.y) + 0.1, cp.y), yaw + 180.0 + (3.0 if k % 2 == 0 else -2.0), cols[n % cols.size()])
 		n += 1
 	var pp: Vector2 = q.call(ua - 0.8, v0 + 0.5)
@@ -4817,6 +4825,79 @@ func _siitari_lot(c: Vector2, ax: Vector2, front: Vector2, hx: float, hy: float)
 	plate.position.y = 2.0
 	plate.rotation.y = atan2(front.x, front.y)
 	print("VAALA Siitarin parkki: %d paikkaa, %d autoa, kaista %.1f m" % [nb, n, aisle])
+
+
+## K-Marketin piha (kuten Saloisissa): merkitty parkkipaikka kadun puolella, penkin mummot ja rollaattorimummo oven vieressä
+## sekä taksitolppa parkin Siitarista kauimmaisessa päässä (kuski ratissa, radio). Ovi "vtaksi": taksivalikko (main.gd).
+var vtaxi_pos := Vector3.ZERO
+var mummot: Node3D
+
+
+func _build_kmarket_yard() -> void:
+	if kmarket_door == Vector3.ZERO:
+		return
+	var c := Vector2(kmarket_center.x, kmarket_center.z)
+	var ax := Vector2(kmarket_along.x, kmarket_along.z)
+	var front := Vector2(kmarket_face.x, kmarket_face.z)
+	var hx := kmarket_half.x
+	var hy := kmarket_half.y
+	var to_siitari := siitari - c
+	var side := 1.0 if ax.dot(to_siitari) >= 0.0 else -1.0  # Siitarin puoli (pankkiautomaatti)
+	var v0 := hy + 2.4
+	var probe := c + front * (hy + 8.0)
+	var ni: Array = nearest(Vector3(probe.x, 0, probe.y))
+	var avail: float = (ni[1] as float) - float(road[ni[0]][4]) - 1.2 + (hy + 8.0 - v0)
+	var aisle := clampf(avail - LOT_BAY_D, 0.0, 6.0)
+	var ua := -hx - 1.0
+	var nb := int((hx * 2.0 + 2.0) / LOT_BAY_W)
+	# Taksin paikka: rivin Siitarista kauimmainen pää.
+	var tk: int = 0 if side > 0.0 else nb - 1
+	var tu := ua + (tk + 0.5) * LOT_BAY_W
+	var tp := c + ax * tu + front * (v0 + LOT_BAY_D / 2.0)
+	_lot_build(c, ax, front, ua, nb, v0, aisle, [tp])
+	var yaw := atan2(front.x, front.y)
+	# Taksi paikallaan, tolppa ja TAKSI-kyltti (kuten world.gd _build_taxi).
+	var tpos := Vector3(tp.x, h(tp.x, tp.y) + 0.1, tp.y)
+	var pole := B.sign_pole(self, tpos + Vector3(ax.x, 0, ax.y) * (-side * 1.9) , 2.9)
+	var plate := B.sign_plate(pole, "TAKSI", Color(1.0, 0.8, 0.1), Color(0.05, 0.05, 0.05), 0.34, 64, Color(0.05, 0.05, 0.05), "Helvetica Neue")
+	plate.position = Vector3(plate.get_meta("width") / 2.0 + 0.04, 2.55, 0)
+	plate.rotation.y = yaw
+	var body := StaticBody3D.new()
+	body.position = tpos
+	body.rotation.y = yaw + PI
+	add_child(body)
+	body.add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.8, 0)))
+	load("res://scripts/vehicles.gd").taxi(body, "TXI-808")
+	var driver := Looks.make(body, Looks.TAXI_DRIVER)
+	driver.position = Vector3(-0.4, 0.05, 0.1)
+	driver.play("Driving", 0.0)
+	for f in Sfx.MUSIC_FILES:
+		if ResourceLoader.exists(f):
+			var st: AudioStream = load(f).duplicate()
+			Sfx._set_loop(st)
+			var radio := AudioStreamPlayer3D.new()
+			radio.stream = st
+			radio.bus = "Music"
+			radio.volume_db = -14.0
+			radio.unit_size = 2.5
+			radio.max_distance = 16.0
+			radio.position = Vector3(0, 1.0, 0)
+			radio.autoplay = true
+			body.add_child(radio)
+			break
+	# Ovi taksin viereen (kuljettajan puolelle, parkin ajokaistalle päin).
+	var dp := tp + front * (LOT_BAY_D / 2.0 + 1.2)
+	vtaxi_pos = Vector3(dp.x, h(dp.x, dp.y), dp.y)
+	doors.append({"id": "vtaksi", "pos": vtaxi_pos, "out": Vector3(-front.x, 0, -front.y), "r": 6.0, "walk": true,
+		"text": "Taksille: Raahe, retket ja koti"})
+	# Mummot penkillä ja rollaattorin kanssa seinustalla, oven toisella puolella kuin taksi.
+	var door_u := (Vector2(kmarket_door.x, kmarket_door.z) - c).dot(ax)
+	var mu := clampf(door_u + (-7.0 if door_u > 0.0 else 7.0), -hx + 4.0, hx - 4.0)
+	var mq := c + ax * mu + front * (hy + 0.7)
+	mummot = Mummot.new()
+	mummot.position = Vector3(mq.x, h(mq.x, mq.y), mq.y)
+	mummot.rotation.y = yaw
+	add_child(mummot)
 
 
 func _build_parkings() -> void:

@@ -63,6 +63,7 @@ Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi 
 `--scene=raate`: Raatteen Portti (taksivalinta, vierailija, portti, muistokivi, kolmen kohdan palkinto kerran; kuva `_alue`; `--shot=`).
 `--scene=kajaani`: Kajaanin linna ja Messenius (taksivalinta, rauniot, tervavene-kohtaus, Messenius, kolmen palkinto kerran; kuva `_alue`; `--shot=`).
 `--scene=valentinvaala`: Vaalan Veturitalli (ovi, päiväehto joka 28. päivän 26.-28. päivä klo 13-17, banderolli, esitys, kello +40 min; kuvat `_talli`, `_esitys`; `--shot=`).
+`--scene=kmarket_vaala`: Vaalan K-Marketin parkki, mummot ja taksitolppa; taksivalikon hinnat Vaalasta ja Saloisista, retki Manamansaloon ja paluu tolpalle, mummojen suuttuminen mopon ohituksesta (kuvat `_mummot`, `_taksi`, `_retki`, `_karkit`).
 `--scene=sahanranta`: siirretty asema ja Satamantien risteys, uusi satama ja Uiton sauna; E saunan ovella ja laiturilla (välianimaatiot), kuvat `_asema`, `_risteys`, `_risteys_ylhaalta`, `_uitto_*`, `_satama`, `_sauna_0..3`, `_uinti_0..4`. Tie- ja maastodata: `venv/bin/python tools/vaala_sahanranta.py` (kerran, `vaala_suorat.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`); `--scene=vaala_ajo --ajo=yhteys` tarkistaa tiet.
 `--scene=satama`: mopolla Vaalan satamaan, E laiturilla, autopilotti ajaa muskeliveneen kaakkoon kartan reunaan ja
 takaisin laiturille (loki: törmäykset, huippunopeus, humala, tallennus) ja ottaa kuvat `_satama`, `_laituri`, `_kyltti`,

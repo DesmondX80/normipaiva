@@ -165,6 +165,24 @@ const LISTA := {
 
 
 ## Kohteiden id:t annetusta lähtöpaikasta rekisterin järjestyksessä.
+## Hinta ja kesto lähtöpaikan mukaan. Saloisten taksitolpalta rekisterin luvut; Vaalan K-Marketin tolpalta lasketaan tieosuudesta
+## (km Vaalasta): kesto n. 1,05 min/km (sama kuin Saloisten ja Vaalan väli 150 min / 60 €) ja hinta 0,40 €/min. Lähellä (Manamansalo,
+## Pyhäkoski) halpaa, Raahen seudulle samat 150 min ja 60 € kuin Saloisiin kotiin.
+const VAALASTA_KM := {"lampi": 145, "hanhikivi": 170, "pakkahuone": 140, "rojuniemi": 142, "manamansalo": 25, "wanharaahe": 140,
+	"paltaniemi": 65, "vanhaherra": 140, "tietokonemuseo": 145, "kuhmo": 150, "hiidenportti": 110, "pyhakoski": 45, "kajaani": 75,
+	"kalajoki": 210, "raate": 130}
+const MIN_PER_KM := 1.05
+const EUR_PER_MIN := 0.4
+
+
+static func tarjous(id: String, vaalasta := false) -> Dictionary:
+	var r: Dictionary = LISTA[id]
+	if not vaalasta or not VAALASTA_KM.has(id):
+		return {"hop_min": r.hop_min, "hinta": r.hinta}
+	var hop := maxf(10.0, roundf(float(VAALASTA_KM[id]) * MIN_PER_KM / 5.0) * 5.0)
+	return {"hop_min": hop, "hinta": roundf(hop * EUR_PER_MIN)}
+
+
 static func lahdosta(lahto: String) -> Array:
 	var out: Array = []
 	for id in LISTA:

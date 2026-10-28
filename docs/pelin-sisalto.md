@@ -561,6 +561,14 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Kätkötie ja narkkarin kätkö (`asema.katko`) siirtyivät mukana, ja aseman lähitalot lähimpään vapaaseen paikkaan.
     **Sahanrannan täyte:** Satamantien, Sahanrannantien ja Uitontien varrella on pientaloja, aittoja ja rantamökkejä oikean Sahanrannan
     mitoin sekä puita ja lehtoja pihoilla ja rannoilla (`tools/vaala_sahanranta.py`, ajetaan kerran `vaala_suorat.py`:n jälkeen).
+    **Vaalan K-Markettiin** (`vaala.gd _build_kmarket_yard`) on tehty merkitty parkkipaikka autoineen, kaupan penkin mummot ja rollaattorimummo
+    kuten Saloisissa (suuttuvat mopon ohituksesta yli 5 m/s, kettukarkit horjauttavat mopoa, jalan karkit voi poimia, keppi päähän on kuolema;
+    kuolinviesti "Rollaattorimummo huitaisi kepillä päähän Vaalan K-Marketin pihalla") sekä taksitolppa (E): samat valinnat kuin Saloisissa
+    (Raahen baari, kaikki retket, taksikuskin legendat, matkaopas), mutta **hinta ja kesto lähtöpaikan mukaan**: Vaalasta Raahen seudulle
+    150 min ja 60 € (kuten kotimatka Saloisiin), Manamansaloon 10 €, Pyhäkoskelle 18 €, Kajaaniin 32 €, Kalajoelle 88 € (matka km Vaalasta
+    x 1,05 min ja 0,40 €/min; `retket.gd tarjous`). Retkeltä palataan samaan tolpalle jalan, ja valikossa on "Kotiin Saloisiin" (60 €, perillä
+    Saloisten taksitolppa; Paapelin mökkimatkaa ei Vaalasta tarjota). Raahen baarista Vaalasta lähdettäessä päivä päättyy kotiin kuten
+    Saloisista. Testi `--scene=kmarket_vaala`.
     Zabukin takainen liikenneympyrä on tavallinen risteys (`tools/vaala_risteys.py`, `roundabout.r = 0`). Siitarin eteen, terassin ja Vaalantien väliin,
     on tehty parkkipaikka ruutuviivoin, P-kyltein ja asiakkaiden autoin (`vaala.gd _siitari_lot`).
     **Uiton sauna (Sahanranta, Uitontie):** Satamantien varrella haarautuu Uitontie rantaan, jossa on Oulujoen uiton jäljiltä hirsisauna

@@ -10494,6 +10494,8 @@ func _on_taxi_choice(id: String) -> void:
 		_taxi_mokki()
 	elif id == "raahe":
 		_taxi_trip()
+	elif id == "koti":
+		_taxi_koti_vaalasta()
 	elif id.begins_with("retki_"):
 		_taxi_retki(id.trim_prefix("retki_"))
 
@@ -11102,6 +11104,54 @@ func _arrive_vaala_by_train() -> void:
 	_show_message(_train_round_msg + "Vaalan asema. Mopo odottaa aseman edessä: odotussalin läpi tai aseman ympäri. Siitari ja tori ovat liikenneympyrän takana.", 4.0)
 
 
+## Lähtö Vaalan taksilta Saloisiin (kotiin tai Raahen baariin): mopomatka päättyy kuten junalla kotiin (mopo jää Vaalaan).
+## Palauttaa Santun arvostelun, jos sellainen on.
+func _vaala_taxi_away() -> String:
+	_santtu_home()
+	if mopo_trip.on_foot != null:
+		walker_out.controls_enabled = false
+		mopo_trip.on_foot = null
+	mopo_trip.stop()
+	_mopo_restore_hud()
+	state = _vaala_state
+	var review := _hommat_leave_review(false)
+	_hommat_leave_mokki()
+	_taxi_mokki_return = false
+	return review
+
+
+## Taksilla kotiin Saloisiin Vaalan K-Marketin tolpalta: perillä K-Marketin taksitolpalla.
+func _taxi_koti_vaalasta() -> void:
+	if money < TAXI_MOKKI_FARE:
+		_show_message("Kuski: \"%s € tai ei mitään.\"" % _eur(TAXI_MOKKI_FARE), 3.0)
+		return
+	money -= TAXI_MOKKI_FARE
+	var review := _vaala_taxi_away()
+	_train_prev = state
+	state = "cutscene"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hud.visible = false
+	_save_game()
+	Sfx.play("door_close", -3.0)
+	var msg := "Taksi vie takaisin Saloisiin. Mittari raksuttaa."
+	if review != "":
+		_train_review_msg = "Santtu tekstasi: " + review.trim_prefix("Santun arvostelu: ").strip_edges().replace("\n", " ")
+	cutscene.taxi_ride("SALOISIIN", msg, Cutscene.TAXI_HOME_LINES, _arrive_saloinen_by_taxi)
+
+
+func _arrive_saloinen_by_taxi() -> void:
+	state = _train_prev if _train_prev != "cutscene" else "ulkona"
+	walker_out.visible = true
+	_set_avatar(walker_out)
+	var a: Vector3 = world.taxi_pos + Vector3(2.4, 0, 1.0)
+	_arrive_by_car(Vector3(a.x, Terrain.h(a.x, a.z) + 0.3, a.z))
+	_show_message("Saloinen, K-Marketin taksitolppa. Kuski: \"Kiitos kyydistä.\"", 3.5)
+	if _train_review_msg != "":
+		_queue_message(_train_review_msg, 5.0)
+		_train_review_msg = ""
+
+
 ## Kaupan taksilla Paapelin mökille (meno-paluu): paluu tilataan mökin pihatien päästä.
 func _taxi_mokki() -> void:
 	money -= TAXI_MOKKI_FARE
@@ -11185,14 +11235,21 @@ func _cheat_vaala() -> void:
 var _raahe_fare := 0.0  # Raahen reissun taksimaksu (meno-paluu); -1 = rekkakyyti
 
 
+var _raahe_hop := HOP_RAAHE
+
+
 func _taxi_trip(escape := false) -> void:
+	var fare := TAXI_MOKKI_FARE if _in_vaala else TAXI_FARE
+	_raahe_hop = HOP_VAALA if _in_vaala else HOP_RAAHE
+	if _in_vaala:
+		_vaala_taxi_away()  # mopomatka päättyy: Vaalan taksilta Raaheen ja sieltä kotiin
 	state = "cutscene"
 	player.controls_enabled = false
 	player.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_hud.visible = false
 	var before := money
-	money = maxf(0.0, money - TAXI_FARE) if escape else money - TAXI_FARE  # paossa kuski ottaa mitä on
+	money = maxf(0.0, money - fare) if escape else money - fare  # paossa kuski ottaa mitä on
 	_raahe_fare = before - money
 	Sfx.play("door_close", -3.0)
 	cutscene.taxi_to_raahe(_enter_raahe)
@@ -11206,22 +11263,31 @@ var kalalupa := false  # Teeriniemen leirintäalueen kalalupa ostettu (tallentuu
 var _retki_id := ""
 var _retki_from := Vector3.ZERO  # lähtöpaikka (maailmankoordinaatit), jonne palataan
 var _retki_fare := 0.0
+var _retki_hop := 0.0   # matkan kesto lähtöpaikasta (suuntaansa)
+var _retki_vaala := false  # lähtö Vaalan taksitolpalta (mopomatkan maailma): paluu samaan paikkaan jalan
 
 
 func _taxi_retki(id: String) -> void:
 	var r: Dictionary = Retket.LISTA[id]
-	if money < r.hinta:
-		_show_message("Kuski: \"%s € tai ei mitään.\"" % _eur(r.hinta), 3.0)
+	var offer := Retket.tarjous(id, _in_vaala)
+	if money < offer.hinta:
+		_show_message("Kuski: \"%s € tai ei mitään.\"" % _eur(offer.hinta), 3.0)
 		return
-	money -= r.hinta
+	money -= offer.hinta
 	_retki_id = id
-	_retki_fare = r.hinta
-	_retki_from = player.global_position
-	state = "cutscene"
-	player.controls_enabled = false
-	player.speed = 0.0
-	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
-	_hud.visible = false
+	_retki_fare = offer.hinta
+	_retki_hop = offer.hop_min
+	_retki_vaala = _in_vaala
+	if _in_vaala:
+		_act_begin("cutscene")  # mopo parkkiin, jalan; paluu samaan paikkaan (_retki_return)
+		_retki_from = walker_out.global_position
+	else:
+		_retki_from = player.global_position
+		state = "cutscene"
+		player.controls_enabled = false
+		player.speed = 0.0
+		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+		_hud.visible = false
 	Sfx.play("door_close", -3.0)
 	cutscene.taxi_ride(r.otsikko, r.sub, r.lines, _enter_retki.bind(id))
 
@@ -11229,7 +11295,9 @@ func _taxi_retki(id: String) -> void:
 func _enter_retki(id: String) -> void:
 	var r: Dictionary = Retket.LISTA[id]
 	_retki_id = id
-	_advance_clock(r.hop_min)
+	if _retki_hop <= 0.0:
+		_retki_hop = r.hop_min
+	_advance_clock(_retki_hop)
 	state = "in_retki"
 	_hud.visible = true
 	_retki_close()
@@ -11268,8 +11336,16 @@ func _on_retki_exited() -> void:
 
 ## Paluu lähtöpaikkaan (ruutu vielä pimeänä): kello siirtyy takaisintulon verran, ohjaus takaisin.
 func _retki_return() -> void:
-	var r: Dictionary = Retket.LISTA[_retki_id]
-	_advance_clock(r.hop_min)
+	_advance_clock(_retki_hop)
+	_retki_hop = 0.0
+	if _retki_vaala:
+		_retki_vaala = false
+		walker_out.global_position = _retki_from
+		walker_out.velocity = Vector3.ZERO
+		_act_end()  # takaisin Vaalan tolpalle jalan (mopo parkissa)
+		_retki_id = ""
+		_save_game()
+		return
 	state = "ulkona"
 	player.global_position = _retki_from
 	player.activate_camera()
@@ -11398,7 +11474,8 @@ func _start_lampi_fishing() -> void:
 
 ## Raahessa: Kapteenin Kulma ja Kellari (raahe_interior.gd). Ulko-ovelta taksi kotiin ja uusi päivä.
 func _enter_raahe() -> void:
-	_advance_clock(HOP_RAAHE)
+	_advance_clock(_raahe_hop)
+	_raahe_hop = HOP_RAAHE
 	state = "in_raahe"
 	_hud.visible = true
 	# Päivi tulee etsimään joka toinen kerta, kun pelaaja on viihtynyt hetken (aika s, < 0 = ei tule).
@@ -12088,12 +12165,16 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("anna_", "Anna jotain", false, "ei mitään annettavaa, pallo pitää ensin löytää"))
 		"taksi":
 			chat = false
-			var shut := closed_text("raahe", fposmod(clock_min + HOP_RAAHE, 1440.0))
-			o.append(_opt("raahe", "Raahen baariin (%s €, meno-paluu)%s" % [_eur(TAXI_FARE), _late_note(HOP_RAAHE)], money >= TAXI_FARE and shut == "",
+			# Hinta ja kesto lähtöpaikan mukaan: Vaalan tolpalta kaikki Raahen seudun kohteet ovat pitkän matkan päässä.
+			var raahe_hop := HOP_VAALA if _in_vaala else HOP_RAAHE
+			var raahe_fare := TAXI_MOKKI_FARE if _in_vaala else TAXI_FARE
+			var shut := closed_text("raahe", fposmod(clock_min + raahe_hop, 1440.0))
+			o.append(_opt("raahe", "Raahen baariin (%s €, meno-paluu)%s" % [_eur(raahe_fare), _late_note(raahe_hop)], money >= raahe_fare and shut == "",
 				"baari on kiinni perillä, aukeaa klo %d" % int(OPEN_HOURS.raahe.x / 60.0) if shut != "" else "rahat ei riitä"))
 			for rid in Retket.lahdosta("taksi"):
 				var r: Dictionary = Retket.LISTA[rid]
-				o.append(_opt("retki_" + rid, "%s (%s €, meno-paluu)%s" % [r.nimi, _eur(r.hinta), _late_note(r.hop_min)], money >= r.hinta, "rahat ei riitä"))
+				var offer := Retket.tarjous(rid, _in_vaala)
+				o.append(_opt("retki_" + rid, "%s (%s €, meno-paluu)%s" % [r.nimi, _eur(offer.hinta), _late_note(offer.hop_min)], money >= offer.hinta, "rahat ei riitä"))
 			if not pakkahuone.heard:
 				o.append(_opt("pakkahuone_kerro", "Mikä se Pakkahuone oikein on?", true, "", true))
 			if not peruskivi.heard:
@@ -12105,8 +12186,11 @@ func _talk_options(who := "") -> Array:
 			if not "matkaopas" in tilat.firsts:
 				o.append(_opt("matkaopas", "Onko sulla mitään esitettä näistä retkipaikoista?", true, "", true))
 			var banned: bool = hommat.banned_day == day
-			o.append(_opt("paapeli", "Paapelin mökille (%s €, meno-paluu)%s" % [_eur(TAXI_MOKKI_FARE), _late_note(HOP_VAALA)],
-				money >= TAXI_MOKKI_FARE and not banned, "Santtu häätänyt mökiltä tänään" if banned else "rahat ei riitä"))
+			if _in_vaala:
+				o.append(_opt("koti", "Kotiin Saloisiin (%s €)%s" % [_eur(TAXI_MOKKI_FARE), _late_note(HOP_VAALA)], money >= TAXI_MOKKI_FARE, "rahat ei riitä"))
+			else:
+				o.append(_opt("paapeli", "Paapelin mökille (%s €, meno-paluu)%s" % [_eur(TAXI_MOKKI_FARE), _late_note(HOP_VAALA)],
+					money >= TAXI_MOKKI_FARE and not banned, "Santtu häätänyt mökiltä tänään" if banned else "rahat ei riitä"))
 		"leirintaalue":
 			chat = false
 			o.append(_opt("lupa", "Osta kalalupa (%s €): vuokraonki ja 8 matoa mukana" % _eur(KALALUPA_PRICE), money >= KALALUPA_PRICE and not kalalupa,
@@ -14157,6 +14241,36 @@ func _unload_far_places(delta: float) -> void:
 	mopo_trip = null
 
 
+## Vaalan K-Marketin mummot (vaala.gd _build_kmarket_yard) kuten Saloisissa: kettukarkit, keppi ja karkkien poiminta jalan.
+## Kohde on aina nykyinen hahmo (mopo tai jalan). Ensimmäisellä ruudulla, kun maailma on rakennettu (_vaala_logic).
+var _mummot_hooked: Node3D
+
+
+func _connect_vaala_mummot() -> void:
+	var vl: Node3D = mopo_trip.vaala
+	if vl == null or vl.mummot == null or vl.mummot == _mummot_hooked:
+		return
+	_mummot_hooked = vl.mummot
+	var m: Node3D = vl.mummot
+	m.hit.connect(func(dir: Vector3) -> void:
+		if not _in_vaala or state != "ulkona":
+			return
+		if player == mopo_trip.mopo:
+			mopo_trip.mopo.speed *= 0.35  # karkki horjauttaa mopoa
+		elif player.has_method("stagger") and not player.is_stunned():
+			player.stagger(dir)
+		tilat.add("kipu", -0.05)
+		_show_message("Kettukarkki osui! Mummoilla on hyvä käsi.", 2.0))
+	m.candy_picked.connect(func() -> void:
+		walker_out.stamina = minf(100.0, walker_out.stamina + 15.0)
+		_eat(0.1)
+		_show_message("Kettukarkki maasta. Kunto +15", 1.5))
+	m.angered.connect(func() -> void: tilat.add("moraali", -0.1))
+	m.killed.connect(func() -> void:
+		if _in_vaala and state == "ulkona":
+			_on_mopo_killed("mummo"))
+
+
 func _ensure_mopo_trip() -> void:
 	if mopo_trip == null:
 		mopo_trip = MopoTrip.new()
@@ -14168,6 +14282,7 @@ func _ensure_mopo_trip() -> void:
 		mopo_trip.train_hit.connect(_on_mopo_killed.bind("train"))
 		mopo_trip.atm.connect(_atm_use)
 		mopo_trip.door.connect(_on_vaala_door)
+		_connect_vaala_mummot()
 		mopo_trip.lava.connect(_enter_lava)
 		mopo_trip.crashed.connect(_on_mopo_crashed)
 		mopo_trip.closed = func(id: String) -> String:
@@ -14230,6 +14345,10 @@ func _santtu_home() -> void:
 func _vaala_logic() -> void:
 	if not mopo_trip.active:
 		return
+	_connect_vaala_mummot()
+	if mopo_trip.vaala.mummot != null:
+		mopo_trip.vaala.mummot.target = player  # nykyinen hahmo: mopo (vauhti suututtaa) tai jalan (karkit poimittavissa)
+		mopo_trip.vaala.mummot.anger_speed = _anger_base
 	_hint.text = mopo_trip.hint
 	mopo_trip.vaala.set_kokko(_juhannus(), _kokko_lit())
 	mopo_trip.vaala.set_festari(_vvaala_paiva())
@@ -14854,6 +14973,8 @@ func _on_mopo_killed(cause := "car") -> void:
 		walker_out.controls_enabled = false
 		mopo_trip.on_foot = null
 	var reason := "Jäit %s alle %s (%s)." % ["junan" if cause == "train" else "auton", "jalan" if walking else "mopolla", road_name]
+	if cause == "mummo":
+		reason = "Rollaattorimummo huitaisi kepillä päähän Vaalan K-Marketin pihalla."
 	if state == "cutscene" or trailer_safe:
 		return
 	# Herätys lähemmästä paikasta: Gasthaus Vaalan keskustassa tai Paapeli (mökki). Päivi soittaa aamulla.
@@ -16117,6 +16238,8 @@ func _on_vaala_door(id: String) -> void:
 			_talk_open("gasthaus", null)
 		"tynnyrisauna":
 			_barrel_sauna()
+		"vtaksi":
+			_talk_open("taksi", null, "Kyytiä?")
 		"uittosauna":
 			_uitto_sauna()
 		"uittouinti":
@@ -24410,6 +24533,67 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "%s.png" % v[0]))
+			get_tree().quit()
+		"kmarket_vaala":
+			# Vaalan K-Market: parkkipaikka, taksitolppa ja mummot; taksivalikon hinnat, retki Manamansaloon ja paluu tolpalle.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var shot := func(tag: String) -> void:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % tag))
+			var look := func(from: Vector3, to: Vector3, tag: String) -> void:
+				var rc := Camera3D.new()
+				add_child(rc)
+				rc.current = true
+				rc.look_at_from_position(vl.to_global(from), vl.to_global(to), Vector3.UP)
+				for i in 8:
+					await get_tree().process_frame
+				await shot.call(tag)
+				rc.queue_free()
+			var tp: Vector3 = vl.vtaxi_pos
+			var mp3: Vector3 = vl.mummot.position
+			var kc: Vector3 = vl.kmarket_center
+			await look.call(kc + vl.kmarket_face * 22.0 + Vector3(0, 30, 0), kc + vl.kmarket_face * 8.0, "ylha")
+			await look.call(mp3 + vl.kmarket_face * 6.0 + Vector3(2, 2.2, 0), mp3 + Vector3(0, 0.9, 0), "mummot")
+			await look.call(tp + vl.kmarket_face * 7.0 + Vector3(0, 3.0, 0), tp - vl.kmarket_face * 2.0 + Vector3(0, 0.8, 0), "taksi")
+			if mopo_trip.on_foot == null:
+				_mopo_dismount()
+			walker_out.global_position = vl.to_global(tp + Vector3(0, 0.6, 0))
+			for i in 20:
+				await get_tree().process_frame
+			print("KMV vihje '%s'" % mopo_trip.hint)
+			for o in _talk_options("taksi"):
+				print("KMV valinta %s | %s | käytössä %s" % [o.id, o.text, o.enabled])
+			money = 500.0
+			for rid in ["manamansalo", "pyhakoski", "kajaani", "kalajoki", "hanhikivi"]:
+				print("KMV hinta Vaalasta %s: %s, Saloisista %s" % [rid, Retket.tarjous(rid, true), Retket.tarjous(rid, false)])
+			var t0 := clock_min
+			var from := walker_out.global_position
+			_taxi_retki("manamansalo")
+			var k := 0
+			while state != "in_retki" and k < 60:
+				await get_tree().create_timer(1.0).timeout
+				k += 1
+			print("KMV retkellä: tila %s, rahat %.0f, kello +%.0f min" % [state, money, clock_min - t0])
+			await shot.call("retki")
+			retki_int.exited.emit()
+			k = 0
+			while state != "ulkona" and k < 60:
+				await get_tree().create_timer(1.0).timeout
+				k += 1
+			print("KMV paluu: tila %s, etäisyys lähtöpaikasta %.1f m, kello +%.0f min, mopo parkissa %s, HUD %s" % [state, walker_out.global_position.distance_to(from), clock_min - t0, mopo_trip.on_foot != null, _hud.visible])
+			# Mummot suuttuvat mopon ohituksesta.
+			_mopo_remount()
+			mopo_trip.mopo.global_position = vl.to_global(mp3 + vl.kmarket_face * 3.0 + Vector3(0, 0.5, 0))
+			mopo_trip.mopo.speed = 9.0
+			for i in 12:
+				await get_tree().physics_frame
+			print("KMV mummot suuttuneet: %s" % vl.mummot.is_angry())
+			await get_tree().create_timer(3.0).timeout
+			await shot.call("karkit")
 			get_tree().quit()
 		"sahanranta":
 			# Siirretty asema ja risteys, uusi satama ja Uiton sauna (vaala.gd _build_uitto): kuvat _asema, _risteys, _satama,
