@@ -555,8 +555,20 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     todellista (1 500 m²) vähän pienempi. Oulujärvi jatkuu niemeltä kaakkoon kartan reunaan asti. Oulujoen suun itärannalla on Vaalan satama (todellinen Venesatama, Sahanranta): pitkä pääsiltalaituri T-päällä ja sormilaituri,
     rantakivetys, sorapihan parkki (Sahanrannantie-sorapätkä) ja kyltti "VAALAN SATAMA". Laiturilla on punavalkoinen muskelivene ja
     kaksi soutuvenettä. Pelin ranta poikkeaa todellisesta, joten satama on haettu pelin rantaviivasta lähimpään sopivaan
-    kohtaan (n. 140 m todellisesta): asemalta se on pelissä etelässä n. 600 m, oikeasti etelässä n. 700 m
-    (`tools/vaala_satama.py`, asemaa ei siirretty). Satama näkyy paperikartalla ankkurina ja minikartalla V-merkkinä. Satamaan vie Satamantie (Aseman pihalta tasoristeyksellä radan yli) ja Sahanrannantie (sora). Vaalan tiet ovat suoria ja vievät kohteisiin: pääreitti, Neittäväntie (järviseudulle), Vaalantie ja Aseman piha, Veturitallintie, Satamantie, Sahanrannantie ja Pahalahdentie (lavalle). Muut OSM-tiet, jalkakäytävät, pyörätiet ja umpikujat on poistettu (`tools/vaala_suorat.py`; testi `--scene=vaala_ajo --ajo=yhteys` tarkistaa, että kaikki tiet ovat ajettavissa mökiltä).
+    kohtaan lähemmäs asemaa: asemalta se on pelissä etelässä n. 470 m (oikeasti n. 700 m; `tools/vaala_satama.py`,
+    hakukeskus `vaala_sahanranta.py`:ssä). Asema on siirretty 80 m radan suuntaan itään (todellisuudessa se on lännempänä), jotta Satamantie
+    lähtee Aseman pihan taitteesta suoraan etelään tasoristeyksen yli aseman editse eikä kierrä aseman takaa; Veturitalli, Veturitallintie,
+    Kätkötie ja narkkarin kätkö (`asema.katko`) siirtyivät mukana, ja aseman lähitalot lähimpään vapaaseen paikkaan.
+    **Sahanrannan täyte:** Satamantien, Sahanrannantien ja Uitontien varrella on pientaloja, aittoja ja rantamökkejä oikean Sahanrannan
+    mitoin sekä puita ja lehtoja pihoilla ja rannoilla (`tools/vaala_sahanranta.py`, ajetaan kerran `vaala_suorat.py`:n jälkeen).
+    **Uiton sauna (Sahanranta, Uitontie):** Satamantien varrella haarautuu Uitontie rantaan, jossa on Oulujoen uiton jäljiltä hirsisauna
+    (lämpimänä, savu piipusta), makasiini (nykyään kanoottitalli, kajakkeja telineessä), tukkipino, nuotiopaikka ja laituri
+    uimatikkaineen, pelastusrenkaineen ja soutuveneineen (`vaala.gd _build_uitto`). E saunan ovella: löylyt välianimaationa, ja Santtu tulee
+    kylmien kaljojen kanssa kuten savusaunassa (stressi, väsymys ja kipu kerran päivässä, moraali). E laiturilla: uinti Oulujärveen
+    Salmisen uintianimaatiolla (kahlaus, uinti, sukellus; saunan jälkeen vilvoittelu antaa lisää). Todellinen paikka: Oulujärven
+    Melontakeskus Sahanrannassa Uitontien päässä (1930-luvun uiton maja, sauna ja makasiinit, entisestä uiton venevajasta tehty kanoottitalli;
+    tarkemmat rakennuskuvat puuttuvat, joten mallit ovat tulkintoja). Testi `--scene=sahanranta`.
+    Satama näkyy paperikartalla ankkurina ja minikartalla V-merkkinä. Satamaan vie Satamantie (Aseman pihalta tasoristeyksellä radan yli) ja Sahanrannantie (sora). Vaalan tiet ovat suoria ja vievät kohteisiin: pääreitti, Neittäväntie (järviseudulle), Vaalantie ja Aseman piha, Veturitallintie, Satamantie, Sahanrannantie ja Pahalahdentie (lavalle). Muut OSM-tiet, jalkakäytävät, pyörätiet ja umpikujat on poistettu (`tools/vaala_suorat.py`; testi `--scene=vaala_ajo --ajo=yhteys` tarkistaa, että kaikki tiet ovat ajettavissa mökiltä).
     **Muskelivene:** E laiturin juuressa ("Muskeliveneellä Oulujärvelle") ajaa veneen vesille: W/S kaasu (huippu n. 60 km/h,
     selvästi soutuvenettä nopeampi), A/D ohjaus, moottoriääni, keulan nousu, vanavesi, roiskeet ja kallistus käännöksessä.
     Vene pysyy vedessä (ei läpi rannasta, laitureista tai lavan aidasta) ja pysähtyy kartan reunalle kaakossa. Mopo jää

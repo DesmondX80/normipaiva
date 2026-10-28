@@ -128,6 +128,14 @@ func _wait(sec: float) -> void:
 	await get_tree().create_timer(sec, true, false, true).timeout
 
 
+## Repliikin kohta: vähintään min_sec, mutta aina äänen kesto + VOICE_TAIL, ettei seuraava repliikki katkaise edellistä.
+const VOICE_TAIL := 0.6
+
+
+func _say_wait(text: String, min_sec: float, group := "paivi") -> void:
+	await _wait(maxf(min_sec, Sfx.voice_length(group, text) + VOICE_TAIL))
+
+
 func _tween() -> Tween:
 	return create_tween().set_ignore_time_scale(true)
 
@@ -254,7 +262,7 @@ func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Cal
 		lines = [CHOCO_FAIL_LINE] + lines
 	for line in lines:
 		bubble.text = "Päivi: " + line
-		await _wait(1.7)
+		await _say_wait(line, 1.7)
 	await _end(done)
 
 
@@ -299,7 +307,7 @@ func wasted_phone(at: Vector3, reason: String, cause: String, wake: Vector3, fac
 	hero.play("Idle", 0.0)
 	var phone := _phone()
 	hero.add_child(phone)
-	var ear: Vector3 = hero.bone_position("Head") + Vector3(0.1, 0.07, -0.01)  # oikean korvan kohta (hahmon +X = oikea)
+	const EAR := Vector3(0.09, 0.09, -0.01)  # oikean korvan kohta pään luusta lepoasennossa (hahmon +X = oikea, -Z = etu)
 	var pocket := Vector3(0.22, 0.95, 0.02)
 	phone.position = pocket
 	var fwd := Vector3(face.x, 0, face.z).normalized()
@@ -320,13 +328,18 @@ func wasted_phone(at: Vector3, reason: String, cause: String, wake: Vector3, fac
 		await _wait(0.35)
 	Looks.hunch(hero, 0.5)  # pelokas: hartiat kumarassa ja pää painuksissa
 	hero.set_override("neck_01", Vector3.RIGHT, 0.4)
-	# Puhelin korvalle (oikea käsi IK:lla), pientä vapinaa.
+	# Puhelin korvalle (oikea käsi IK:lla): korva seuraa pään kallistusta, kämmen on puhelimen ulkopinnalla (palm_on:
+	# sormet ylös ja hieman eteen, kämmen päätä kohti = -X), ranne puhelimen alapuolella, kyynärpää alhaalla ja taakse.
+	var fingers := Vector3(0.0, 1.0, -0.35).normalized()
 	var shake := create_tween().set_loops()
 	shake.tween_method(func(v: float) -> void:
-		phone.position = ear + Vector3(0, sin(v * 40.0) * 0.004, 0)
-		phone.rotation = Vector3(0.2, -0.3, 0.1 + sin(v * 30.0) * 0.03)
-		hero.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", ear + Vector3(0.02, -0.07, 0.0),
-			ear + Vector3(0.12, -0.9, 0.15)), 0.0, 1.0, 1.0)
+		var ear: Vector3 = hero.bone_position("Head") + hero.bone_delta("Head") * EAR
+		var hold := ear + Vector3(0.04, sin(v * 40.0) * 0.003, 0)
+		phone.position = hold
+		phone.basis = Basis(Vector3.RIGHT, -0.25) * Basis(Vector3.UP, -PI / 2.0) * Basis(Vector3.FORWARD, sin(v * 30.0) * 0.03)  # ruutu päätä kohti, yläpää eteen
+		var wrist := hold + Vector3(0.035, 0.0, 0.0) - fingers * 0.07
+		hero.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", wrist, wrist + Vector3(0.15, -0.6, 0.25))
+		hero.set_ik_orient("arm_r", Pose.palm_on(fingers, Vector3.LEFT, false), 1.0), 0.0, 1.0, 1.0)
 	var lines: Array = PHONE_LINES.get(cause, PHONE_LINES.default)
 	# Päivin ääni puhelimesta tekstityksenä alhaalla, Santun vastaus kuplana pään vieressä.
 	var hero_bubble := B.bubble(_props, wake + Vector3(0, 1.95, 0) - side * 0.45, Color.WHITE, 1.0, false)
@@ -335,9 +348,9 @@ func wasted_phone(at: Vector3, reason: String, cause: String, wake: Vector3, fac
 		_sub.text = "Päivi puhelimessa: \"%s\"" % lines[i]
 		Sfx.speak("paivi", lines[i])
 		hero_bubble.text = ""
-		await _wait(2.2)
+		await _say_wait(lines[i], 2.2)
 		hero_bubble.text = PHONE_REPLIES[mini(i, PHONE_REPLIES.size() - 1)]
-		await _wait(1.4)
+		await _say_wait(hero_bubble.text, 1.4, "muu")
 	hero_bubble.text = ""
 	shake.kill()
 	_sub.text = "Päivi ei ollut tyytyväinen."
@@ -394,13 +407,13 @@ func jemma_found(home: Vector3, lost: int, left: int, done: Callable, choco := "
 		_give_chocolate(hero)
 	for line in FOUND_LINES.slice(0, 2):
 		bubble.text = "Päivi: " + line
-		await _wait(1.6)
+		await _say_wait(line, 1.6)
 	if choco == "ok":
 		bubble.text = "Päivi: ...No. Kaadan vaan osan."
-		await _wait(1.6)
+		await _say_wait("...No. Kaadan vaan osan.", 1.6)
 	elif choco == "fail":
 		bubble.text = "Päivi: " + CHOCO_FAIL_LINE
-		await _wait(1.6)
+		await _say_wait(CHOCO_FAIL_LINE, 1.6)
 	# WASTED-tyyli: harmaaksi ja iso punainen teksti.
 	Sfx.play("glass", 0.0)
 	Sfx.play("lose", -2.0)
@@ -415,9 +428,9 @@ func jemma_found(home: Vector3, lost: int, left: int, done: Callable, choco := "
 	_tween().tween_property(_title, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK)
 	_sub.text = "Päivi kaatoi %d kaljaa viemäriin. Jemmaan jäi %d." % [lost, left]
 	bubble.text = "Päivi: " + FOUND_LINES[2]
-	await _wait(2.2)
+	await _say_wait(FOUND_LINES[2], 2.2)
 	bubble.text = "Päivi: " + FOUND_LINES[3]
-	await _wait(1.8)
+	await _say_wait(FOUND_LINES[3], 1.8)
 	_title.add_theme_font_size_override("font_size", 150)
 	await _end(done)
 
@@ -1609,7 +1622,7 @@ func taxi_home(home: Vector3, stats: String, done: Callable) -> void:
 	ct.tween_property(cab, "global_position", cab.global_position + Vector3(40, 0, 0), 5.0).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	for line in PAIVI_LINES.raahe:
 		bubble.text = line
-		await _wait(1.8)
+		await _say_wait(line, 1.8)
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)
 
@@ -2992,13 +3005,13 @@ func paivi_tv(shot: Texture2D, done: Callable) -> void:
 	_sub.text = "Samaan aikaan Järvikujalla..."
 	await _fade_to(0.0, 0.6)
 	bubble.text = "Päivi: " + TV_LINES[0]
-	await _wait(2.4)
+	await _say_wait(TV_LINES[0], 2.4)
 	# Zoom ruutuun: kuva lavalta.
 	var tw := _tween()
 	tw.tween_property(_cam, "global_position", o + Vector3(0.0, 1.0, -1.7), 2.2).set_trans(Tween.TRANS_SINE)
 	_sub.text = ""
 	bubble.text = "Päivi: " + TV_LINES[1]
-	await _wait(2.6)
+	await _say_wait(TV_LINES[1], 2.6)
 	# 2) Päivin kasvot: nousee sohvalta.
 	_cam.global_position = o + Vector3(-0.9, 1.6, -1.4)
 	_cam.look_at(o + Vector3(0.2, 1.55, 1.05), Vector3.UP)
@@ -3009,13 +3022,13 @@ func paivi_tv(shot: Texture2D, done: Callable) -> void:
 	for line in TV_LINES.slice(2, 5):
 		bubble.position = paivi.global_position + Vector3(0, 1.9, 0)
 		bubble.text = "Päivi: " + line
-		await _wait(2.3)
+		await _say_wait(line, 2.3)
 	_band.visible = true
 	_title.add_theme_color_override("font_color", Color(0.95, 0.3, 0.3))
 	_title.text = "KESÄILLAN VALSSI"
 	_sub.text = "Koko Suomi näki tanssisi. Päivikin."
 	bubble.text = "Päivi: " + TV_LINES[5]
-	await _wait(2.8)
+	await _say_wait(TV_LINES[5], 2.8)
 	await _end(done)
 
 

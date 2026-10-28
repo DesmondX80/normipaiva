@@ -13,7 +13,7 @@
 #   tools/testit/aja.sh [valinnat] scene <nimi> [lisä...]        # main.gd:n testikohtaus, esim. scene asennot --asento=a
 #   tools/testit/aja.sh [valinnat] tscn <polku.tscn> [lisä...]   # erillinen kohtaus; saa tulostekansion 1. argumenttina
 # Valinnat: --headless (ei ikkunaa, ei kuvia), --ei-kuvia (logiikkatesti ikkunalla),
-#   --video (vain tscn: ajaa Movie Maker -tilassa, 30 fps, <nimi>.avi ajokansioon ja tarkistaa sen; aikaraja oletus 900 s)
+#   --video (scene ja tscn: ajaa Movie Maker -tilassa, 30 fps, <nimi>.avi ajokansioon ja tarkistaa sen; aikaraja oletus 900 s)
 # Ympäristö: AJO_KANSIO (oletus ${TMPDIR:-/tmp}/normipaiva_ajot), GODOT_AIKARAJA (oletus 600 s).
 set -uo pipefail
 
@@ -53,7 +53,13 @@ case "$laji" in
 		shift
 		ulos="$juuri/${nimi}_$leima"
 		mkdir -p "$ulos"
-		args=(${alku[@]+"${alku[@]}"} --path . --resolution 1280x720 -- "--shot=$ulos/kuva.png" "--scene=$nimi" --nohud "$@")
+		if [[ $video == 1 ]]; then
+			avi="$ulos/$nimi.avi"
+			export GODOT_AIKARAJA="${GODOT_AIKARAJA:-900}"
+			args=(${alku[@]+"${alku[@]}"} --path . --resolution 1280x720 --fixed-fps 30 --write-movie "$avi" -- "--shot=$ulos/kuva.png" "--scene=$nimi" --nohud "$@")
+		else
+			args=(${alku[@]+"${alku[@]}"} --path . --resolution 1280x720 -- "--shot=$ulos/kuva.png" "--scene=$nimi" --nohud "$@")
+		fi
 		;;
 	tscn)
 		polku="${1:?tscn vaatii polun}"
