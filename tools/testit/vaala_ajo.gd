@@ -616,7 +616,7 @@ func _drive(pts: PackedVector2Array, name: String, to_end := false) -> Dictionar
 			idx = nk
 			best_s = cum[nk]
 			stall_t = 0.0
-	if t >= limit:
+	if t >= limit and not (to_end and total - best_s < 6.0):  # reitin päässä pysähtyminen on perillä olo
 		issues.append("aika loppui %.0f/%.0f m" % [best_s, total])
 	mp.autopilot = Vector2(-1, 0)
 	for i in 30:
