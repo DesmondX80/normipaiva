@@ -3544,10 +3544,11 @@ func _siitari_obb() -> Dictionary:
 	return _siitari_obb_cache
 
 
-## Hotellin ovi pysäköinnin puoleiseen päätyyn kuten ravintolalla (sen ovi on pohjan +ax-päädyssä).
+## Hotellin ovi ravintolan vastakkaiseen (-ax) päätyyn: sisällä (siitari_interior.gd) vastaanotto ja ulko-ovi ovat
+## vasemmassa päädyssä, ja ulkoa tiehen päin katsoen -ax on vasen (ravintolan ovi on +ax-päädyssä, oikealla).
 func _hotel_door_q(obb: Dictionary, y0: float, mesh := true) -> Vector2:
 	var ax: Vector2 = obb.ax
-	var side := ax if ax.dot(_siitari_obb().ax) > 0.0 else -ax
+	var side := -ax if ax.dot(_siitari_obb().ax) > 0.0 else ax
 	var q: Vector2 = (obb.center as Vector2) + side * ((obb.size as Vector2).x / 2.0 + 0.05)
 	if mesh:
 		var y := h(q.x, q.y) + 0.1
@@ -5522,6 +5523,7 @@ func _build_north() -> void:
 		var st: SurfaceTool = sts[kind]
 		if _st_empty(st):
 			continue
+		st.generate_normals()
 		var mi := MeshInstance3D.new()
 		mi.name = "JarviseudunTiet"
 		mi.mesh = st.commit()

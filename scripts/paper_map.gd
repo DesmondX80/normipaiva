@@ -1070,6 +1070,13 @@ func _draw_vaala_map() -> void:
 		for q in br.pts:
 			pts.append(_vpx(Vector2(q[0], q[2])))
 		road_line.call(pts, br.gravel != 1)
+	# Järviseudun tiet (vaala.gd _plan_north): Nuojuankoskentie, Keskimmäisentie ja Salmisentie eivät ole datassa.
+	if mopo_trip != null:
+		for r in mopo_trip.vaala.north_roads:
+			var npts := PackedVector2Array()
+			for q: Vector2 in r.pts:
+				npts.append(_vpx(q))
+			road_line.call(npts, r.asphalt)
 	if _vd.has("satama"):
 		# Sataman laiturit viivoina: pääsilta ja T-pää.
 		var sdr := Vector2(_vd.satama.dir[0], _vd.satama.dir[1])
