@@ -16,8 +16,7 @@ var _cam_t := 0.0
 var _capture := {}  # näppäinasetus odottaa painallusta: {row, slot}
 var _key_buttons := []  # [row, slot, Button]
 var _key_note: Label
-var _numbered := true  # päävalikossa numeronäppäimet toimivat, mutta numeroita ei näytetä
-var _num_cbs: Array[Callable] = []  # numeroidut painikkeet järjestyksessä: numeronäppäin 1-9 painaa vastaavaa
+var _num_cbs: Array[Callable] = []  # painikkeet järjestyksessä: numeronäppäin 1-9 painaa vastaavaa (numeroita ei näytetä)
 
 
 func _ready() -> void:
@@ -99,7 +98,6 @@ func open_main() -> void:
 	game._hud.visible = false
 	Sfx.music_play()
 	var has_save := FileAccess.file_exists(SAVE_PATH)
-	_numbered = false
 	_title("NORMIPÄIVÄ", "S A L O I S I S S A")
 	_button("Jatka peliä" if has_save else "Aloita peli", close)
 	if has_save:
@@ -322,7 +320,6 @@ func _show() -> void:
 func _clear() -> void:
 	_capture = {}
 	_num_cbs.clear()
-	_numbered = true
 	for ch in _root.get_children():
 		ch.queue_free()
 	var dim := ColorRect.new()
@@ -377,8 +374,6 @@ func _button(text: String, cb: Callable) -> void:
 	var b := Button.new()
 	if _num_cbs.size() < 9:
 		_num_cbs.append(cb)
-		if _numbered and _mode != "sub_main":  # päävalikon alivalikoissa numeroita ei näytetä
-			text = "%d. %s" % [_num_cbs.size(), text]
 	b.text = text
 	b.custom_minimum_size = Vector2(320, 46)
 	b.add_theme_font_size_override("font_size", 22)

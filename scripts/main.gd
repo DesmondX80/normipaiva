@@ -32242,6 +32242,42 @@ func _maybe_screenshot() -> void:
 			print("CHOCO after state=", state, " money=", money, " msg=", _msg.text.replace("\n", " | "))
 			if not saved.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"junan_alle":
+			# Häviö junan alle Saloisten radalla: pelaaja seisoo kiskoilla, juna ajaa päälle (oikea hits-osuma),
+			# sitten WASTED ja Päivin motkotus. Kuvat _0..._N 0,4 s välein ajosta osumaan asti, _wasted ja _paivi.
+			var saved_ja := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			if player != walker_out:
+				_toggle_mount()
+			_note.visible = false
+			var tr_ja: Node3D = world.train
+			tr_ja.spawn_now(false, 1)
+			var t_ja: float = world.station_t - 130.0  # kiskoilla ennen laituria, jossa maa on olemassa (radan alkupää on kartan ulkopuolella)
+			tr_ja._s = t_ja - 140.0  # veturin keula 140 m hahmon takana
+			var spot: Vector3 = tr_ja.to_global(tr_ja.point_t(t_ja))  # point_t/dir_t ovat junan paikallisia
+			var rd: Vector3 = tr_ja.global_transform.basis * tr_ja.dir_t(t_ja)
+			walker_out.global_position = spot + Vector3(0, 0.6, 0)
+			walker_out.rotation.y = atan2(rd.x, rd.z)  # -Z = etu: katse junaa (tulee radan alkupäästä) kohti
+			for i in 20:
+				await get_tree().physics_frame
+			var n_ja := 0
+			while state != "cutscene" and n_ja < 40:
+				await get_tree().create_timer(0.4, true, false, true).timeout
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%d.png" % n_ja))
+				n_ja += 1
+			print("JUNAN_ALLE osuma state=", state, " kuvia ", n_ja)
+			await get_tree().create_timer(2.5, true, false, true).timeout
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_wasted.png"))
+			await get_tree().create_timer(4.5, true, false, true).timeout
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_paivi.png"))
+			for i in 60:
+				await get_tree().create_timer(0.5, true, false, true).timeout
+				if state != "cutscene":
+					break
+			if not saved_ja.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_ja)
 		"kosketus":
 			# Kosketusohjaimet (--touch): tatti eteen ajaa pyörällä, Pyörä-nappi nousee selästä, veto kääntää kameraa.
 			var touch := func(i: int, p: Vector2, down: bool) -> void:
