@@ -52,8 +52,9 @@ const PEOPLE := [
 		"face": Vector3(0, 0, 1), "pose": "Idle", "look": {"shirt": Color(0.85, 0.85, 0.8), "pants": Color(0.15, 0.15, 0.18),
 			"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_SimpleParted", "hair_color": Color(0.35, 0.3, 0.25), "height": 1.82,
 			"skin": Color(0.96, 0.75, 0.66), "belly": 0.6}},
+	# Tansseissa Anna-Liisa seisoo lattian reunalla: kirppispaikka (1,8; 1,4) on taustaparien kiertoradalla (#257).
 	{"id": "annaliisa", "name": "Anna-Liisa", "role": "naapuri", "modes": ["kirppis", "tanssit"], "at": Vector3(1.8, 0, 1.4),
-		"face": Vector3(-0.6, 0, -1), "pose": "Idle", "look": {"model": "female", "shirt": Color(0.75, 0.55, 0.6),
+		"face": Vector3(-0.6, 0, -1), "paikat": {"tanssit": [Vector3(3.4, 0, 3.6), Vector3(-0.75, 0, -0.66)]}, "pose": "Idle", "look": {"model": "female", "shirt": Color(0.75, 0.55, 0.6),
 			"pants": Color(0.3, 0.3, 0.35), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buns", "hair_color": Color(0.55, 0.45, 0.35),
 			"height": 1.62, "skin": Color(0.95, 0.8, 0.74)}},
 	# Tanssit: tanssiin haettavat, kahvio ja bändi.
@@ -222,12 +223,26 @@ func block_interact() -> void:
 	_enter_frame = Engine.get_process_frames()
 
 
+## Henkilön paikka nykyisessä tilassa (PEOPLE "paikat" tilan mukaan, muuten "at").
+func person_at(i: int) -> Vector3:
+	return PEOPLE[i].get("paikat", {}).get(mode, [PEOPLE[i].at])[0]
+
+
+## Taustaparin k keskipiste ja kierto hetkellä t: parit kiertävät tanssilattiaa ellipsillä.
+static func dancer_pose(k: int, n: int, t: float) -> Array:
+	var a := t * 0.35 + k * TAU / n
+	return [DANCE_C + Vector3(cos(a) * 2.4, 0, sin(a) * 1.5), -a + t * 1.8]
+
+
 ## Näkyvyys ja törmäykset tilan mukaan.
 func _apply_mode() -> void:
 	if _holders.is_empty():
 		return
 	for i in _holders.size():
 		_set_on(_holders[i], _shown(i))
+		var pk: Array = PEOPLE[i].get("paikat", {}).get(mode, [PEOPLE[i].at, PEOPLE[i].face])
+		_holders[i].position = pk[0] - PEOPLE[i].at  # hahmo ja törmäys siirtyvät pidikkeen mukana
+		_people[i].rotation.y = B.yaw_to(pk[1])
 	for m in _groups:
 		_set_on(_groups[m], m == mode)
 	_set_on(_no_dance, mode != "tanssit")
@@ -256,10 +271,9 @@ func _process(delta: float) -> void:
 			who.play(who.get_meta("pose"), 0.3)
 	if mode == "tanssit":  # parit kiertävät tanssilattiaa
 		for k in _dancers.size():
-			var a := _t * 0.35 + k * TAU / _dancers.size()
-			var d := _dancers[k]
-			d.position = DANCE_C + Vector3(cos(a) * 2.4, 0, sin(a) * 1.5)
-			d.rotation.y = -a + _t * 1.8
+			var dp := dancer_pose(k, _dancers.size(), _t)
+			_dancers[k].position = dp[0]
+			_dancers[k].rotation.y = dp[1]
 	if not active or busy or not walker.controls_enabled:
 		hint = ""
 		return
@@ -293,7 +307,7 @@ func _process(delta: float) -> void:
 	for i in _people.size():
 		if not _shown(i) or PEOPLE[i].id == "":
 			continue
-		var q: Vector3 = PEOPLE[i].at
+		var q := person_at(i)
 		var d := Vector2(p.x - q.x, p.z - q.z).length()
 		# Myyjien eteen pöydän yli: pöydän leveys lasketaan mukaan.
 		# Erkki lavalla: lavan reuna lasketaan mukaan, myös kulmasta vinottain.
@@ -818,7 +832,9 @@ func _build_dancers() -> void:
 		add_child(root)
 		for k in 2:
 			var c := Looks.make(root, pair[k])
+			# Kasvokkain: hahmo katsoo -Z:aan, joten -Z:n puolella oleva kääntyy PI:n (katse +Z:aan, kohti paria) ja
+			# +Z:n puolella oleva katsoo -Z:aan.
 			c.position = Vector3(0, 0, -0.3 if k == 0 else 0.3)
-			c.rotation.y = 0.0 if k == 0 else PI
+			c.rotation.y = PI if k == 0 else 0.0
 			c.play("Dance", 0.0)
 		_dancers.append(root)
