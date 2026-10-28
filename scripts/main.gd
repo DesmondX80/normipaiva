@@ -17159,8 +17159,8 @@ func _on_raahe_choice(id: String) -> void:
 	_show_message("Jukeboksi hiljeni. Rauha palasi Siitariin, ja 50 senttiä meni hukkaan.", 3.0)
 
 
-## Jukeboksi (siitari_interior.gd "jukeboksi"): iskelmät (iskelmat.gd) ja ysärit (kuulokkeiden soittolista,
-## headphones.gd). Lauantaina iskelmä suututtaa Raahen jätkät, ja ysäri suututtaa aina hedelmäpelin miehen:
+## Jukeboksi (siitari_interior.gd "jukeboksi"): iskelmät (iskelmat.gd), Saloisten Saapasjalat (tanssibiisit.gd) ja
+## ysärit (kuulokkeiden soittolista, headphones.gd). Lauantaina iskelmä suututtaa Raahen jätkät, ja ysäri suututtaa aina hedelmäpelin miehen:
 ## riita ratkaistaan Street Fighter -tappelulla pihalla (kerran päivässä). Häviäjä maksaa vitosen, voittaja saa kaljan.
 const JUKEBOX_PRICE := 0.5
 var _jukebox_songs := {}  # valikon id -> [polku, nimi, laji]
@@ -17171,6 +17171,8 @@ func _jukebox_list() -> Dictionary:
 	var out := {}
 	for sg in Iskelmat.available():
 		out["isk_%s" % sg.file] = [sg.path, "%s – %s" % [sg.title, sg.artist], "iskelma"]
+	for sg in Iskelmat.saapasjalat():
+		out["saa_%s" % sg.file] = [sg.path, sg.title, "saapasjalat"]
 	for f in Headphones.TITLES:
 		for ext in ["mp3", "ogg"]:
 			var p: String = Headphones.MUSIC_DIR.path_join("%s.%s" % [f, ext])
@@ -17191,7 +17193,7 @@ func _jukebox_menu() -> void:
 	var items := []
 	for id in _jukebox_songs:
 		var sg: Array = _jukebox_songs[id]
-		items.append([id, ("Iskelmä: " if sg[2] == "iskelma" else "Ysäri: ") + sg[1]])
+		items.append([id, {"iskelma": "Iskelmä: ", "saapasjalat": "Saapasjalat: "}.get(sg[2], "Ysäri: ") + sg[1]])
 	if _jukebox_on:
 		items.append(["hiljaa", "Hiljaa (pysäytä biisi)"])
 	_interior_busy(true)
@@ -20827,6 +20829,10 @@ func _maybe_screenshot() -> void:
 			print("JUKE vihje '%s'" % _hint.text)
 			_on_siitari_acted("jukeboksi")
 			print("JUKE valikko %s: %s" % [_item_menu.is_open(), _item_menu._items])
+			var saa: Array = _jukebox_songs.keys().filter(func(k: String) -> bool: return k.begins_with("saa_"))
+			print("JUKE Saapasjalat %s" % [saa])
+			if saa.size() != TanssiGame.Biisit.SONGS.size():
+				print("TESTI VIKA jukeboksista puuttuu Saapasjalkojen biisejä: %s" % [saa])
 			await snap.call("_valikko.png", 10)
 			for round in [["isk_01_Sakkijarven_polkka", "_r", false], ["ysa_02_90s_Racer_Techno", "_h", true]]:
 				_today.erase("siitari_tappelu")
@@ -23780,6 +23786,10 @@ func _maybe_screenshot() -> void:
 			for i in 5:
 				await get_tree().process_frame
 			print("PUHELIN lista %d biisiä: %s" % [Iskelmat.playlist().size(), Iskelmat.playlist().slice(0, 3)])
+			for sg: Dictionary in TanssiGame.Biisit.SONGS:
+				print("PUHELIN %s: '%s'" % [sg.file in Iskelmat.playlist(), Iskelmat.title(sg.file)])
+				if not sg.file in Iskelmat.playlist():
+					print("TESTI VIKA puhelimesta puuttuu %s" % sg.title)
 			await press.call("phone")
 			for i in 30:
 				await get_tree().process_frame
@@ -23842,6 +23852,9 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().process_frame
 			print("TOIVEET ohjelmisto %d: %s" % [HumppaBand.repertoire().size(), HumppaBand.repertoire().map(func(sg): return sg.title)])
+			for t in ["Pihalla tavataan", "Rasvanappi"]:
+				if not HumppaBand.repertoire().any(func(sg: Dictionary) -> bool: return sg.title == t):
+					print("TESTI VIKA lavan toivelistalta puuttuu %s" % t)
 			print("TOIVEET bändi soittaa '%s' (%s), bpm %.0f, musiikki '%s'" % [band.current_song.get("title", ""),
 				band.current_song.get("path", "synth"), band.bpm, Sfx._music_file])
 			await press.call("forward")
