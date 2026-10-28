@@ -377,7 +377,7 @@ func _button(text: String, cb: Callable) -> void:
 	var b := Button.new()
 	if _num_cbs.size() < 9:
 		_num_cbs.append(cb)
-		if _numbered:
+		if _numbered and _mode != "sub_main":  # päävalikon alivalikoissa numeroita ei näytetä
 			text = "%d. %s" % [_num_cbs.size(), text]
 	b.text = text
 	b.custom_minimum_size = Vector2(320, 46)
