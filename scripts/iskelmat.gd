@@ -6,7 +6,9 @@ extends RefCounted
 ## valsseista ja jenkoista se on puolet iskuista, jotta tahtiin ehtii askeltaa.
 ## Kansioon voi pudottaa lisää biisejä (esim. Eräät Jormat Suno-soittolistalta): ne soivat puhelimessa.
 
+const Tanssibiisit := preload("res://scripts/tanssibiisit.gd")
 const DIR := "res://assets/music/iskelma"
+const SAAPASJALAT := "Saloisten Saapasjalat"
 const SONGS := [
 	{"file": "01_Sakkijarven_polkka", "title": "Säkkijärven polkka", "artist": "Willy Larsen", "year": 1928, "bpm": 128.0, "doria": 66409},
 	{"file": "02_Orpopojan_valssi", "title": "Orpopojan valssi", "artist": "J. Alfred Tanner", "year": 1926, "bpm": 104.0, "doria": 66566},
@@ -41,6 +43,18 @@ static func available() -> Array:
 	return out
 
 
+## Saloisten Saapasjalkojen biisit (tanssibiisit.gd: seuraintalon tanssit) kuten SONGS-rivit ja "path"; lava = vain
+## lavabändin toivelistalle merkityt. Jukeboksi, Päivin kännykkä ja lavabändi; ei mykkäelokuvan 78-levyksi.
+static func saapasjalat(lava := false) -> Array:
+	var out := []
+	for sg: Dictionary in Tanssibiisit.SONGS:
+		if (lava and not sg.get("lava", false)) or not ResourceLoader.exists(sg.file):
+			continue
+		out.append({"file": (sg.file as String).get_file().get_basename(), "title": sg.title, "artist": SAAPASJALAT,
+			"year": 2026, "bpm": sg.bpm, "path": sg.file})
+	return out
+
+
 ## Äänite kertasoittona (ei silmukkaa): bändi ja puhelin vaihtavat biisiä sen loputtua.
 static func stream(p: String) -> AudioStream:
 	var st: AudioStream = load(p).duplicate()
@@ -54,7 +68,7 @@ static func stream(p: String) -> AudioStream:
 ## Puhelimen soittolista: iskelmät ja kansioon lisätyt biisit (vientipaketissa .import/.remap-päätteisinä).
 static func playlist() -> Array[String]:
 	var out: Array[String] = []
-	for sg in available():
+	for sg in available() + saapasjalat():
 		out.append(sg.path)
 	var d := DirAccess.open(DIR)
 	if d != null:
@@ -72,4 +86,7 @@ static func title(p: String) -> String:
 	for sg in SONGS:
 		if sg.file == base:
 			return "%s – %s (%d)" % [sg.title, sg.artist, sg.year]
+	for sg in saapasjalat():
+		if sg.path == p:
+			return "%s – %s" % [sg.title, sg.artist]
 	return RegEx.create_from_string(r"^\d+\s*[-.]?\s*").sub(base.replace("_", " ").strip_edges(), "")

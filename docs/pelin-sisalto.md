@@ -470,7 +470,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Valikosta pihalle tai antaa olla; pihalla Street Fighter -tappelu hotelli-ravintolan edessä mopojen ja
     katsojien keskellä. Voittajalle baarimikko tarjoaa kaljan ja jätkät häipyvät, häviäjältä ne vievät vitosen
     (`--scene=mokkisiitaritappelu`). Rannekellossa näkyy viikonpäivä (MA–SU), perjantaisin juhannuskokon merkki.
-  - **Jukeboksi Siitarissa:** biisi 50 senttiä: iskelmät (vanhat 78-levyt) ja ysärit (kuulokkeiden soittolista).
+  - **Jukeboksi Siitarissa:** biisi 50 senttiä: iskelmät (vanhat 78-levyt), Saloisten Saapasjalat (Pihalla tavataan,
+    Rasvanappi ja Normipäivä) ja ysärit (kuulokkeiden soittolista).
     Lauantaina iskelmä suututtaa Raahen jätkät, ja ysäri suututtaa aina hedelmäpelin miehen: riita pihalle Street
     Fighter -tappeluna (kerran päivässä) tai biisi pois. Häviäjä maksaa vitosen, voittajalle talo tarjoaa kaljan
     (`--scene=siitarijukeboksi`).
@@ -545,7 +546,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     voi tanssia uudestaan, mennä diskopuolelle tai baaritiskille tuopille, ja Q vie lavalta ulos. Lavalla soittaa
     Humppaveikot (`humppa_band.gd`): laulaja, harmonikka palkeineen, kitara, basso ja rummut, kädet soittimilla
     tahdin mukaan. Bändi soittaa vanhoja iskelmiä ja lavamusiikkia 78 kierroksen levyiltä (`iskelmat.gd`, sama
-    lista kuin Päivin kännykässä), ja W:llä bändiltä voi toivoa kappaleen ("Säkkijärven polkka", "Orpopojan
+    lista kuin Päivin kännykässä) sekä Saloisten Saapasjalkojen "Pihalla tavataan" ja "Rasvanappi", ja W:llä bändiltä voi toivoa kappaleen ("Säkkijärven polkka", "Orpopojan
     valssi"...). Tanssin tahti seuraa kappaleen tempoa, ja kappaleen loputtua bändi soittaa seuraavan. Jos
     äänitteitä ei ole, kappaleet syntetisoidaan (`humppa_synth.gd`). S:llä DJ:ltä voi toivoa diskobiisin pelin
     90-luvun biiseistä: se alkaa heti, ja diskopuolelta haetaan pari (testi `--scene=lavatoiveet`). Tanssien
@@ -749,7 +750,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   parisängyn vieressä. Soittaa vanhoja iskelmiä 78 kierroksen levyiltä (`assets/music/iskelma/`, sama lista kuin
   lavabändillä) pienestä kaiuttimesta: oma ääniväylä kaistanpäästöllä ja säröllä, joten ääni on ohut kuin taskusta.
   Soidessa puhelin näkyy minikartan vieressä: näytöllä juokseva biisin nimi, esittäjä, aika, taajuuspalkit ja
-  voimakkuus, ja kaiuttimesta nousee nuotteja. Kuulokkeet ja pelin oma musiikki tauottavat puhelimen. Kansioon
+  voimakkuus, ja kaiuttimesta nousee nuotteja. Soittolistalla ovat myös Saloisten Saapasjalkojen biisit (Pihalla
+  tavataan, Rasvanappi ja Normipäivä). Kuulokkeet ja pelin oma musiikki tauottavat puhelimen. Kansioon
   lisätyt biisit (esim. Eräät Jormat Suno-soittolistalta, ks. LUEMINUT.txt) soivat myös. Löytö ja voimakkuus
   säilyvät (testi `--scene=puhelin`).
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.

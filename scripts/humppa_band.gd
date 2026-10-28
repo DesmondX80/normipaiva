@@ -36,9 +36,10 @@ var _pending := {}
 var _song_left := -1.0  # äänitteen jäljellä oleva aika (s); -1 = syntetisoitu silmukka
 
 
-## Bändin ohjelmisto (toivelista): iskelmäaänitteet, tai syntetisoitu humppa, jos tiedostoja ei ole.
+## Bändin ohjelmisto (toivelista): iskelmäaänitteet ja Saapasjalkojen lavabiisit, tai syntetisoitu humppa, jos
+## tiedostoja ei ole.
 static func repertoire() -> Array:
-	var songs := Iskelmat.available()
+	var songs := Iskelmat.available() + Iskelmat.saapasjalat(true)
 	return songs if not songs.is_empty() else Synth.SONGS
 
 

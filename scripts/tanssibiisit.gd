@@ -4,12 +4,14 @@ extends RefCounted
 ## Iskut on mitattu äänitteestä (tools/tanssibiisi.py), koska Sunon biisin tempo heittelee hieman: nuotti osuu aina
 ## oikeaan iskuun. Osat (alkusoitto, säkeistö, kertosäe) on tunnistettu äänitteen stereokuvasta (säkeistössä laulaja
 ## yksin keskellä, kertosäkeessä koko bändi ja kuoro leveänä) ja sointujen toistosta; HEI!-huudon iskun voi siirtää.
+## Biisit soivat myös Siitarin jukeboksissa ja Päivin kännykässä, lava-merkityt myös Oulujärven lavalla (iskelmat.gd).
 ## Tahti = 4 iskua; osien ja tuplien numerot ovat tahteja (0 = ensimmäinen isku), hei on iskun numero ja huuto sen teksti.
 
 const SONGS := [
 	{
 		"title": "Pihalla tavataan",
 		"file": "res://assets/music/tanssit/pihalla_tavataan.mp3",
+		"lava": true,  # myös Oulujärven lavabändin toivelistalla (iskelmat.gd saapasjalat)
 		"bpm": 112.0,
 		"end": 56.0,  # tanssi loppuu (s): ensimmäisen kertosäkeen HEI! ja kaksi tahtia perään
 		"fade": 2.5,  # musiikki häipyy ennen loppua (s)
@@ -31,6 +33,7 @@ const SONGS := [
 	{
 		"title": "Rasvanappi",
 		"file": "res://assets/music/tanssit/rasvanappi.mp3",
+		"lava": true,
 		"bpm": 129.0,  # letkajenkka
 		"end": 44.3,  # ensimmäisen kertosäkeen HEP! ja kaksi tahtia perään
 		"fade": 2.5,
