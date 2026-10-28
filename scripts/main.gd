@@ -29201,6 +29201,56 @@ func _maybe_screenshot() -> void:
 			print("SE tansseihin: tila %s, tila sisällä %s, rahaa %s" % [state, kirppis_int.mode, _eur(money)])
 			await frames.call(30)
 			await snap.call("_tanssit_sali.png")
+			# Taustaparit (kirppis_interior.gd _build_dancers) kasvokkain: kummankin katse (-Z) kohti paria ja rintakehien
+			# väli. Lähikuvat yhdestä parista sivulta ja ylhäältä.
+			for d: Node3D in kirppis_int._dancers:
+				var cs := d.get_children()
+				for k in 2:
+					var me3: Node3D = cs[k]
+					var other: Node3D = cs[1 - k]
+					var to := other.global_position - me3.global_position
+					to.y = 0.0
+					var face := -me3.global_basis.z
+					var dot := face.normalized().dot(to.normalized())
+					var chest := me3.to_global(me3.bone_position("spine_03")).distance_to(other.to_global(other.bone_position("spine_03")))
+					print("SE taustapari %s/%d: katse kohti paria %.2f, rintakehien väli %.2f m" % [d.name, k, dot, chest])
+					if dot < 0.7:
+						print("TESTI VIKA taustapari %s/%d ei ole kasvokkain (%.2f)" % [d.name, k, dot])
+			# Läpimenot koko kierrokselta: taustaparin kumpikin tanssija (keskipiste ± 0,3 m kierron mukaan) vähintään 0,6 m
+			# (kaksi kapselia) salin näkyvistä ihmisistä (bändi lavalla, muut lattialla).
+			var lap := TAU / 0.35
+			var near := [9.0, ""]
+			for step in 400:
+				var tt := lap * step / 400.0
+				for k in kirppis_int._dancers.size():
+					var dp: Array = kirppis_int.dancer_pose(k, kirppis_int._dancers.size(), tt)
+					var off := Vector3(sin(dp[1]), 0, cos(dp[1])) * 0.3
+					for i in kirppis_int.PEOPLE.size():
+						if not kirppis_int._shown(i) or kirppis_int.PEOPLE[i].has("instrument"):
+							continue
+						var q: Vector3 = kirppis_int.person_at(i)
+						for dpos: Vector3 in [dp[0] - off, dp[0] + off]:
+							var dd := Vector2(dpos.x - q.x, dpos.z - q.z).length()
+							if dd < near[0]:
+								near = [dd, kirppis_int.PEOPLE[i].name]
+			print("SE taustaparit lähimmillään %.2f m (%s)" % near)
+			if near[0] < 0.6:
+				print("TESTI VIKA taustapari menee läpi: %.2f m %s" % near)
+			var pc := Camera3D.new()
+			kirppis_int.add_child(pc)
+			var pd: Node3D = kirppis_int._dancers[0]
+			var mid3: Vector3 = (pd.get_child(0).global_position + pd.get_child(1).global_position) * 0.5 + Vector3(0, 1.0, 0)
+			var side: Vector3 = pd.global_basis.x.normalized()
+			var cur := get_viewport().get_camera_3d()
+			var al: Vector3 = kirppis_int.to_global(kirppis_int.person_at(kirppis_int.person_index("annaliisa")) + Vector3(0, 1.0, 0))
+			for v in [["_taustapari_sivu.png", mid3 + side * 2.4 + Vector3(0, 0.2, 0), mid3], ["_taustapari_ylha.png", mid3 + Vector3(0.01, 2.6, 0), mid3],
+					["_annaliisa_tanssit.png", al + Vector3(-2.5, 1.2, -3.0), al]]:
+				pc.look_at_from_position(v[1], v[2])
+				pc.current = true
+				await snap.call(v[0])
+			pc.queue_free()
+			if cur != null:
+				cur.current = true
 			print("SE sinikka: %s" % [_talk_options("sinikka_seura").map(func(o): return o.id)])
 			print("SE raili: %s" % [_talk_options("raili").map(func(o): return o.id)])
 			_talk_open("sinikka_seura", null)
