@@ -317,6 +317,9 @@ func _dest_page(pg: Rect2, p: Dictionary, n: int) -> void:
 	y += 16
 	var facts := [["taksi", LAHTO.get(p.lahto, String(p.lahto))], ["kello", "%d min suuntaansa" % int(p.hop_min)],
 		["kolikko", "%s € meno-paluu" % _eur(p.hinta)]]
+	if Retket.LISTA.has(String(p.id)):
+		var vo: Dictionary = Retket.tarjous(String(p.id), true)
+		facts.append(["taksi", "Vaalasta: %d min, %s € meno-paluu" % [int(vo.hop_min), _eur(vo.hinta)]])
 	for f in facts:
 		_icon(f[0], Vector2(x0 + 11, y + 10))
 		draw_string(font, Vector2(x0 + 30, y + 16), f[1], HORIZONTAL_ALIGNMENT_LEFT, tw - 30, 17, INK)

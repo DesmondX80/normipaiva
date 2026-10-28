@@ -349,7 +349,6 @@ const WINE_WAKE := {
 const WcGame := preload("res://scripts/wc_game.gd")
 const ShopChaser := preload("res://scripts/shop_chaser.gd")
 const Story := preload("res://scripts/story.gd")
-const TAXI_MOKKI_FARE := 60.0  # kaupan taksilla Paapeliin, meno-paluu
 ## Pöntöllä kysytään Saloisten tapaan: ykkönen vai kakkonen.
 const WC_ASK := ["No nii. Onko pikkunen vai isompi hätä?", "Mitäs sää, ykköstä vai kakkosta?",
 	"Kumpi on, pissa vai kakka? Ei tartte hävetä.", "Pikkunen asia vai iso asia? Kerro nyt."]
@@ -478,7 +477,7 @@ const SHOP_NO_BEER := [
 ]
 const START_MONEY := 20.0
 ## Taksi K-Marketin taksitolpalta Raahen baariin ja takaisin.
-const TAXI_FARE := 14.0  # meno-paluu
+const TAXI_FARE := 4.0  # meno-paluu Saloisista Raaheen (retket.gd raahe_tarjous: 8 km)
 const BAR_ROUND := 6.0  # kädenväännön häviäjä tarjoaa kierroksen
 const TAXI_RADIUS := 3.5
 const BAR_POS := Vector3(0, 0, -4200)  # baarin minipeli kaukana kartan ulkopuolella
@@ -507,7 +506,7 @@ var beers := 0
 const ClockHud := preload("res://scripts/clock_hud.gd")
 const CLOCK_RATE := 1440.0 / 3600.0
 const DAY_START := 8.0 * 60.0
-const HOP_RAAHE := 20.0  # taksi Saloisista Raaheen
+const HOP_RAAHE := 10.0  # taksi Saloisista Raaheen (8 km)
 const HOP_VAALA := 150.0  # auto- tai taksimatka Saloisten ja Vaalan välillä
 const HOP_MOPO := 20.0  # mopomatka Neittävältä Vaalaan tai takaisin
 const HOP_NAP := 60.0  # nokoset sohvalla
@@ -10487,15 +10486,8 @@ func _taxi_logic() -> void:
 ## Taksireissu: menomatka, kädenvääntö Raahen baarissa, paluu kotipihaan Päivin eteen ja uusi päivä kotoa.
 ## Pyörä jää kaupan pihaan.
 func _on_taxi_choice(id: String) -> void:
-	if id == "paapeli":
-		if money < TAXI_MOKKI_FARE:
-			_show_message("Kuski: \"Paapeliin on pitkä matka. %s € tai ei mitään.\"" % _eur(TAXI_MOKKI_FARE), 3.0)
-			return
-		_taxi_mokki()
-	elif id == "raahe":
+	if id == "raahe":
 		_taxi_trip()
-	elif id == "koti":
-		_taxi_koti_vaalasta()
 	elif id.begins_with("retki_"):
 		_taxi_retki(id.trim_prefix("retki_"))
 
@@ -11104,70 +11096,6 @@ func _arrive_vaala_by_train() -> void:
 	_show_message(_train_round_msg + "Vaalan asema. Mopo odottaa aseman edessä: odotussalin läpi tai aseman ympäri. Siitari ja tori ovat liikenneympyrän takana.", 4.0)
 
 
-## Lähtö Vaalan taksilta Saloisiin (kotiin tai Raahen baariin): mopomatka päättyy kuten junalla kotiin (mopo jää Vaalaan).
-## Palauttaa Santun arvostelun, jos sellainen on.
-func _vaala_taxi_away() -> String:
-	_santtu_home()
-	if mopo_trip.on_foot != null:
-		walker_out.controls_enabled = false
-		mopo_trip.on_foot = null
-	mopo_trip.stop()
-	_mopo_restore_hud()
-	state = _vaala_state
-	var review := _hommat_leave_review(false)
-	_hommat_leave_mokki()
-	_taxi_mokki_return = false
-	return review
-
-
-## Taksilla kotiin Saloisiin Vaalan K-Marketin tolpalta: perillä K-Marketin taksitolpalla.
-func _taxi_koti_vaalasta() -> void:
-	if money < TAXI_MOKKI_FARE:
-		_show_message("Kuski: \"%s € tai ei mitään.\"" % _eur(TAXI_MOKKI_FARE), 3.0)
-		return
-	money -= TAXI_MOKKI_FARE
-	var review := _vaala_taxi_away()
-	_train_prev = state
-	state = "cutscene"
-	player.controls_enabled = false
-	player.speed = 0.0
-	_hud.visible = false
-	_save_game()
-	Sfx.play("door_close", -3.0)
-	var msg := "Taksi vie takaisin Saloisiin. Mittari raksuttaa."
-	if review != "":
-		_train_review_msg = "Santtu tekstasi: " + review.trim_prefix("Santun arvostelu: ").strip_edges().replace("\n", " ")
-	cutscene.taxi_ride("SALOISIIN", msg, Cutscene.TAXI_HOME_LINES, _arrive_saloinen_by_taxi)
-
-
-func _arrive_saloinen_by_taxi() -> void:
-	state = _train_prev if _train_prev != "cutscene" else "ulkona"
-	walker_out.visible = true
-	_set_avatar(walker_out)
-	var a: Vector3 = world.taxi_pos + Vector3(2.4, 0, 1.0)
-	_arrive_by_car(Vector3(a.x, Terrain.h(a.x, a.z) + 0.3, a.z))
-	_show_message("Saloinen, K-Marketin taksitolppa. Kuski: \"Kiitos kyydistä.\"", 3.5)
-	if _train_review_msg != "":
-		_queue_message(_train_review_msg, 5.0)
-		_train_review_msg = ""
-
-
-## Kaupan taksilla Paapelin mökille (meno-paluu): paluu tilataan mökin pihatien päästä.
-func _taxi_mokki() -> void:
-	money -= TAXI_MOKKI_FARE
-	_taxi_mokki_return = true
-	tilat.first("mokki", 0.4)
-	if story.step == "valmis":
-		_ending("paapeli")  # tarinan luku 1 päättyy Paapeliin pääsyyn, myös taksilla (esim. Volvo rikki)
-	_hud.visible = false
-	walker_out.controls_enabled = false
-	walker_out.speed = 0.0
-	Sfx.play("door_close", -3.0)
-	_save_game()
-	cutscene.taxi_ride("PAAPELIIN", "Taksi kaahaa Vaalaan Kaisuantielle. Mittari raksuttaa.", Cutscene.TAXI_MOKKI_LINES,
-		_arrive_by_car.bind(mokki.gpos(Mokki.RIDE_LOCAL + Vector3(0, 0.3, 2.2))))
-
-
 ## Huijauskoodi: kirjoita "paapeli" ulkona, niin hahmo siirtyy suoraan mökin pihatien päähän ilman
 ## kyytiä ja maksua. Paluu Pekan kyydillä pihatien päästä kuten aina.
 const CHEAT_MOKKI := "paapeli"
@@ -11239,10 +11167,9 @@ var _raahe_hop := HOP_RAAHE
 
 
 func _taxi_trip(escape := false) -> void:
-	var fare := TAXI_MOKKI_FARE if _in_vaala else TAXI_FARE
-	_raahe_hop = HOP_VAALA if _in_vaala else HOP_RAAHE
-	if _in_vaala:
-		_vaala_taxi_away()  # mopomatka päättyy: Vaalan taksilta Raaheen ja sieltä kotiin
+	var offer := Retket.raahe_tarjous(false)
+	var fare: float = offer.hinta
+	_raahe_hop = offer.hop_min
 	state = "cutscene"
 	player.controls_enabled = false
 	player.speed = 0.0
@@ -12166,11 +12093,13 @@ func _talk_options(who := "") -> Array:
 		"taksi":
 			chat = false
 			# Hinta ja kesto lähtöpaikan mukaan: Vaalan tolpalta kaikki Raahen seudun kohteet ovat pitkän matkan päässä.
-			var raahe_hop := HOP_VAALA if _in_vaala else HOP_RAAHE
-			var raahe_fare := TAXI_MOKKI_FARE if _in_vaala else TAXI_FARE
-			var shut := closed_text("raahe", fposmod(clock_min + raahe_hop, 1440.0))
-			o.append(_opt("raahe", "Raahen baariin (%s €, meno-paluu)%s" % [_eur(raahe_fare), _late_note(raahe_hop)], money >= raahe_fare and shut == "",
-				"baari on kiinni perillä, aukeaa klo %d" % int(OPEN_HOURS.raahe.x / 60.0) if shut != "" else "rahat ei riitä"))
+			if not _in_vaala:  # Vaalan tolpalta vain retket
+				var raahe_offer := Retket.raahe_tarjous(false)
+				var raahe_hop: float = raahe_offer.hop_min
+				var raahe_fare: float = raahe_offer.hinta
+				var shut := closed_text("raahe", fposmod(clock_min + raahe_hop, 1440.0))
+				o.append(_opt("raahe", "Raahen baariin (%s €, meno-paluu)%s" % [_eur(raahe_fare), _late_note(raahe_hop)], money >= raahe_fare and shut == "",
+					"baari on kiinni perillä, aukeaa klo %d" % int(OPEN_HOURS.raahe.x / 60.0) if shut != "" else "rahat ei riitä"))
 			for rid in Retket.lahdosta("taksi"):
 				var r: Dictionary = Retket.LISTA[rid]
 				var offer := Retket.tarjous(rid, _in_vaala)
@@ -12185,12 +12114,6 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("hanhikivi_kerro", "Mikä se Hanhikivi oikein on?", true, "", true))
 			if not "matkaopas" in tilat.firsts:
 				o.append(_opt("matkaopas", "Onko sulla mitään esitettä näistä retkipaikoista?", true, "", true))
-			var banned: bool = hommat.banned_day == day
-			if _in_vaala:
-				o.append(_opt("koti", "Kotiin Saloisiin (%s €)%s" % [_eur(TAXI_MOKKI_FARE), _late_note(HOP_VAALA)], money >= TAXI_MOKKI_FARE, "rahat ei riitä"))
-			else:
-				o.append(_opt("paapeli", "Paapelin mökille (%s €, meno-paluu)%s" % [_eur(TAXI_MOKKI_FARE), _late_note(HOP_VAALA)],
-					money >= TAXI_MOKKI_FARE and not banned, "Santtu häätänyt mökiltä tänään" if banned else "rahat ei riitä"))
 		"leirintaalue":
 			chat = false
 			o.append(_opt("lupa", "Osta kalalupa (%s €): vuokraonki ja 8 matoa mukana" % _eur(KALALUPA_PRICE), money >= KALALUPA_PRICE and not kalalupa,
@@ -31424,49 +31347,6 @@ func _maybe_screenshot() -> void:
 				mopo_trip.mopo.position.y - vl.h(mopo_trip.mopo.position.x, mopo_trip.mopo.position.z) if vl != null else -99.0, _msg.text])
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path)
-		"taksipaapeli":
-			# Kaupan taksilla Paapeliin (60 €, meno-paluu) ja mökiltä taksilla takaisin; Pekan kyyti lukossa.
-			story = Story.new()
-			_toggle_mount()
-			var press := func(action: String) -> void:
-				await get_tree().process_frame
-				Input.action_press(action)
-				await get_tree().process_frame
-				await get_tree().process_frame
-				Input.action_release(action)
-				await get_tree().process_frame
-			money = 100.0
-			walker_out.global_position = world.taxi_pos + Vector3(2.0, 0.4, 0)
-			for i in 10:
-				await get_tree().physics_frame
-			print("TAKSI hint: '%s'" % _hint.text)
-			await press.call("interact")
-			print("TAKSI ikkuna: %s %s" % [_talk_box.is_open(), str(_talk_box._options.map(func(o): return o.text))])
-			_test_talk(["paapeli"])
-			while not cutscene.busy:
-				await get_tree().process_frame
-			while cutscene.busy:
-				await get_tree().process_frame
-			for i in 20:
-				await get_tree().physics_frame
-			print("TAKSI mökillä: %s, rahaa %.2f, paluu maksettu %s" % [_at_mokki(), money, _taxi_mokki_return])
-			walker_out.global_position = mokki.to_global(Mokki.RIDE_LOCAL) + Vector3(0, 0.4, 0)
-			for i in 10:
-				await get_tree().physics_frame
-			print("TAKSI paluu: '%s'" % _hint.text)
-			await press.call("interact")
-			while not cutscene.busy:
-				await get_tree().process_frame
-			while cutscene.busy:
-				await get_tree().process_frame
-			for i in 20:
-				await get_tree().physics_frame
-			print("TAKSI kotona: mökillä %s, rahaa %.2f, paluu %s, tila %s" % [_at_mokki(), money, _taxi_mokki_return, state])
-			walker_out.global_position = pekka.global_position + Vector3(1.5, 0.4, 0)
-			bucket = {}
-			for i in 10:
-				await get_tree().physics_frame
-			print("TAKSI Pekka (lukossa): '%s'" % _hint.text)
 		"karttaveto":
 			# Paperikartta kosketuksella: veto vierittää (ei aseta kohdetta), napautus asettaa kohteen;
 			# mökillä kahden sormen nipistys zoomaa.

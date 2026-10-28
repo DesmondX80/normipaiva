@@ -32,7 +32,7 @@ const LISTA := {
 		"lines": ["Kalalammelle vai? Istutettua kalaa, ei siinä paljon taitoa tarvita.", "Lupa pitää ostaa tiskiltä. Kyllä ne valvoo.",
 			"Mulla on veli, joka sai siellä viisikiloisen. Tai niin se kertoo."],
 		"perilla": "Teeriniemen leirintäalue. Kalalampi, lupa tiskiltä.",
-		"hop_min": 25.0, "hinta": 16.0, "tasku": RetkiLampi, "sammuit": "leirintäalueen nuotiopaikan penkille",
+		"hop_min": 15.0, "hinta": 6.0, "tasku": RetkiLampi, "sammuit": "leirintäalueen nuotiopaikan penkille",
 		"opas": "Teeriniemen leirintäalueella on istutettu kalalampi. Lupa ostetaan tukkimökin tiskiltä, ja vuokraonki kuuluu hintaan, sanotaan. Saaliista kerrotaan isompia juttuja kuin niistä on.",
 	},
 	"hanhikivi": {
@@ -41,7 +41,7 @@ const LISTA := {
 		"lines": ["Koskipuistoon vai? Hanhikivi on siellä, sanotaan.", "Hourunkoski vetää. Siellä on hyvä kävellä, ei tarvii kiirehtiä.",
 			"Siitä kivestä on monta juttua. Kukaan ei oikein tiedä."],
 		"perilla": "Pyhäjoen Koskipuisto. Hourunkoski kohisee, kivi on rannalla.",
-		"hop_min": 35.0, "hinta": 20.0, "tasku": RetkiHanhikivi, "sammuit": "Koskipuiston rantapenkille Hourunkosken kohinaan",
+		"hop_min": 35.0, "hinta": 14.0, "tasku": RetkiHanhikivi, "sammuit": "Koskipuiston rantapenkille Hourunkosken kohinaan",
 		"opas": "Pyhäjoen Koskipuistossa kohisee Hourunkoski, ja rannalla on Hanhikivi. Kivestä kerrotaan monta juttua, sanotaan, eikä kukaan tiedä, mikä niistä on totta. Puistossa on hyvä kävellä.", "kuultu": "first:hanhikivi_legenda",
 	},
 	"pakkahuone": {
@@ -50,7 +50,7 @@ const LISTA := {
 		"lines": ["Museoon vai? Pakkahuone on Raahen vanhimpia taloja, sanotaan.", "Siellä on veistoksia 1600-luvulta. En oo koskaan käynyt.",
 			"Kuulemma sieltä on yksi ihan kadonnut. Tai en tiedä."],
 		"perilla": "Raahen Pakkahuone. Museo on auki, kuraattori on pöytänsä takana.",
-		"hop_min": 20.0, "hinta": 12.0, "tasku": RetkiPakkahuone, "sammuit": "Pakkahuoneen museon penkille veistosten keskelle",
+		"hop_min": 10.0, "hinta": 4.0, "tasku": RetkiPakkahuone, "sammuit": "Pakkahuoneen museon penkille veistosten keskelle",
 		"opas": "Punainen Pakkahuone Raahen rannassa on museo, sanotaan Suomen vanhimpia paikallismuseoita. Kokoelmassa on 1600-luvun veistoksia, ja kuraattori kertoo niistä mielellään.", "kuultu": "first:pakkahuone_legenda",
 	},
 	"rojuniemi": {
@@ -59,7 +59,7 @@ const LISTA := {
 		"lines": ["Ruukille vai? Peruskivi on portin vieressä, sanotaan.", "Kekkonen sen paljasti, kuulemma. Mä en ollut vielä syntynyt.",
 			"Vartija tietää kivestä enemmän. Se tietää kaikesta."],
 		"perilla": "Rautaruukin Rojuniemi. Peruskivi on aidan vieressä, vartija kopissaan.",
-		"hop_min": 20.0, "hinta": 14.0, "tasku": RetkiRojuniemi, "sammuit": "Rojuniemen rantakivelle",
+		"hop_min": 10.0, "hinta": 4.0, "tasku": RetkiRojuniemi, "sammuit": "Rojuniemen rantakivelle",
 		"opas": "Rautaruukin Raahen terästehtaan peruskiven sanotaan paljastetun 1962. Kivi seisoo aidan vieressä, ja portin vartija tuntee paikan historian.", "kuultu": "first:peruskivi_legenda",
 	},
 	"manamansalo": {
@@ -68,7 +68,7 @@ const LISTA := {
 		"lines": ["Manamansaloon vai? Pitkä keikka, noin viisikymmentä kilometriä, sanotaan.", "Siellä on se vanha kirkko ja hautausmaa. Saarta sanotaan kuolemansaareksi.",
 			"En tiedä miksi. Opas tietää enemmän, tai sanoo tietävänsä."],
 		"perilla": "Manamansalo. Muistokirkko, hautausmaa ja laituri järven rannalla.",
-		"hop_min": 60.0, "hinta": 30.0, "tasku": RetkiManamansalo, "sammuit": "Manamansalon muistokirkon portaille",
+		"hop_min": 160.0, "hinta": 64.0, "tasku": RetkiManamansalo, "sammuit": "Manamansalon muistokirkon portaille",
 		"opas": "Oulujärven suurin saari. Kainuun ensimmäisen kirkon sanotaan rakennetun sinne 1559, ja saarta kutsutaan kuolemansaareksi. Muistokirkolla on opas, ja laiturilta kulkee lossi.", "kuultu": "first:manamansalo_legenda",
 	},
 	"wanharaahe": {
@@ -77,7 +77,7 @@ const LISTA := {
 		"lines": ["Wanhaan Raaheen vai? Pekkatorilla on se Brahen patsas, sanotaan.", "Ota kamera mukaan. Ne vanhat ovet on kuulemma kuvauksen arvoisia.",
 			"Kävele rauhassa, ei siellä ole kiire. Tori on kivetty."],
 		"perilla": "Wanha Raahe. Brahen patsas Pekkatorilla ja puutalot rivissä.",
-		"hop_min": 20.0, "hinta": 12.0, "tasku": RetkiWanharaahe, "sammuit": "Pekkatorin penkille Brahen patsaan juurelle",
+		"hop_min": 10.0, "hinta": 4.0, "tasku": RetkiWanharaahe, "sammuit": "Pekkatorin penkille Brahen patsaan juurelle",
 		"opas": "Raahen vanha puutalokaupunki Pekkatorin ympärillä: Brahen patsas, vanhat ovet ja kapeat kujat. Kameralle riittää kuvattavaa, sanotaan.",
 	},
 	"paltaniemi": {
@@ -86,7 +86,7 @@ const LISTA := {
 		"lines": ["Kuvakirkkoon vai? Se on Paltaniemessä, matkaa on kai viisikymmentä kilometriä, sanotaan.", "Seinät on maalattu täyteen. Kuulemma 1700-luvulla.",
 			"Siellä on suntio. Se osaa kertoa, jos jaksaa kuunnella."],
 		"perilla": "Paltaniemen kuvakirkko. Seinät ovat maalauksia täynnä, suntio on alttarin luona.",
-		"hop_min": 55.0, "hinta": 28.0, "tasku": RetkiPaltaniemi, "sammuit": "Paltaniemen kirkon penkille maalausten alle",
+		"hop_min": 200.0, "hinta": 80.0, "tasku": RetkiPaltaniemi, "sammuit": "Paltaniemen kirkon penkille maalausten alle",
 		"opas": "Oulujärven rannan puukirkko, jonka seinät sanotaan maalatun täyteen 1700-luvulla. Maalauksissa riittää katsottavaa, ja suntio kertoo kirkosta.",
 	},
 	"vanhaherra": {
@@ -95,7 +95,7 @@ const LISTA := {
 		"lines": ["Satamaan vai? Kruununmakasiinissa on se vanha sukelluspuku, sanotaan maailman vanhin.", "Laiturilla pumpataan joskus ilmaa sukeltajalle. Hirveä homma.",
 			"Kapteeni kuulemma pudotti sinne kellonsa. Pohjassa on kaikenlaista."],
 		"perilla": "Raahen satama. Kruununmakasiini, vitriini ja laiturin ilmapumppu.",
-		"hop_min": 20.0, "hinta": 12.0, "tasku": RetkiVanhaherra, "sammuit": "Raahen laiturin pollarille pumpun viereen",
+		"hop_min": 10.0, "hinta": 4.0, "tasku": RetkiVanhaherra, "sammuit": "Raahen laiturin pollarille pumpun viereen",
 		"opas": "Kruununmakasiinin vitriinissä on Vanha herra, sanotaan maailman vanhin säilynyt sukelluspuku. Laiturilla pumpataan joskus ilmaa sukeltajalle.",
 	},
 	"tietokonemuseo": {
@@ -104,7 +104,7 @@ const LISTA := {
 		"lines": ["Tietokonemuseoon vai? Siellä on se iso Datasaab, sanotaan vuodelta 1971.", "Mun poika pelasi siellä Pongia. Ei se voittanut.",
 			"Heinäkuussa se on kuulemma auki, sanotaan. Kokeile onneasi."],
 		"perilla": "Saloisten tietokonemuseo. Datasaabin kaapit seisovat rivissä, Pong-kone odottaa nurkassa.",
-		"hop_min": 12.0, "hinta": 6.0, "tasku": RetkiTietokonemuseo, "sammuit": "museon konsolipöydän ääreen Datasaabin humistessa",
+		"hop_min": 10.0, "hinta": 4.0, "tasku": RetkiTietokonemuseo, "sammuit": "museon konsolipöydän ääreen Datasaabin humistessa",
 		"opas": "Pieni museo Saloisissa: Datasaab D22, sanotaan vuodelta 1971, ja huoneellinen vanhoja mikroja. Nurkan pelikoneella saa haastaa koneen.",
 	},
 	"kuhmo": {
@@ -113,7 +113,7 @@ const LISTA := {
 		"lines": ["Karhukätköön vai? Kuhmossa niitä on, sanotaan, ja kyllä ne tulevat illalla.", "Pitkä matka, sataviisikymmentä kilometriä. Otan sen hinnalla.",
 			"Älä ota evästä mukaan, karhu haistaa. Tai en tiedä."],
 		"perilla": "Kuhmon karhukätkö. Niitty on hiljainen, opas odottaa kätkön vieressä.",
-		"hop_min": 90.0, "hinta": 45.0, "tasku": RetkiKuhmo, "sammuit": "karhukätkön penkille niityn ääreen",
+		"hop_min": 295.0, "hinta": 118.0, "tasku": RetkiKuhmo, "sammuit": "karhukätkön penkille niityn ääreen",
 		"opas": "Puinen karhukätkö Kuhmon korvessa niityn laidalla. Karhujen sanotaan tulevan illalla, kun on hiljaista. Kamera mukaan, eväät kotiin.",
 	},
 	"hiidenportti": {
@@ -122,7 +122,7 @@ const LISTA := {
 		"lines": ["Hiidenportille vai? Se on se rotko Sotkamossa, sanotaan, ja kyllä se on jyrkkä.", "Matkaa on sata kilometriä, kai. Otan sen hinnalla.",
 			"Kenkien kanssa kannattaa olla tarkkana. Itse en kiipeä, jalka ei kestä."],
 		"perilla": "Hiidenportin rotko. Kalliot kohoavat, retkeilijä seisoo polun alussa.",
-		"hop_min": 70.0, "hinta": 38.0, "tasku": RetkiHiidenportti, "sammuit": "rotkon lepolavalle kallioseinän juurelle",
+		"hop_min": 255.0, "hinta": 102.0, "tasku": RetkiHiidenportti, "sammuit": "rotkon lepolavalle kallioseinän juurelle",
 		"opas": "Sotkamon Hiidenportti on jyrkkäseinäinen kalliorotko, jonka pohjalla virtaa puro, sanotaan. Polun alussa on infokyltti. Hyvät kengät jalkaan.",
 	},
 		"pyhakoski": {
@@ -131,7 +131,7 @@ const LISTA := {
 			"lines": ["Pyhäkoskelle vai? Se on se voimalaitoskylä Oulujoella, sanotaan.", "Siellä oli ennen kioski ja tanssit. Nyt on hiljaisempaa.",
 				"Vahtimestari tietää kylästä kaiken. Jos jaksaa kuunnella."],
 			"perilla": "Pyhäkosken kylä. Voimalaitos jyrisee joen rannalla, kioski on tien varressa.",
-			"hop_min": 45.0, "hinta": 24.0, "tasku": RetkiPyhakoski, "sammuit": "tanssipaikan portaille voimalaitoksen jylinään",
+			"hop_min": 105.0, "hinta": 42.0, "tasku": RetkiPyhakoski, "sammuit": "tanssipaikan portaille voimalaitoksen jylinään",
 			"opas": "Oulujoen voimalaitoskylä: harmaa pato, punainen kioski ja vanha tanssipaikka. Kylästä kerrotaan tarinoita, sanotaan, ja vahtimestari tietää ne.",
 		},
 	"kajaani": {
@@ -140,7 +140,7 @@ const LISTA := {
 		"lines": ["Linnalle vai? Siitä on jäljellä vain rauniot, sanotaan.", "Siellä oli vankina se Messenius. Kirjoitti kuulemma vankilassa vaikka mitä.",
 			"Joella kulki ennen tervaveneitä. Nyt on hiljaista."],
 		"perilla": "Kajaanin linnan rauniot. Joki kohisee, tervavene odottaa laiturissa.",
-		"hop_min": 60.0, "hinta": 30.0, "tasku": RetkiKajaani, "sammuit": "linnan raunioiden kivelle joen rannalle",
+		"hop_min": 210.0, "hinta": 84.0, "tasku": RetkiKajaani, "sammuit": "linnan raunioiden kivelle joen rannalle",
 		"opas": "Kajaanin linnasta on jäljellä rauniot joen saarella. Linnassa sanotaan istuneen vankina historioitsija Messeniuksen. Joella kulkee yhä tervavene.",
 	},
 	"kalajoki": {
@@ -149,7 +149,7 @@ const LISTA := {
 		"lines": ["Hiekkasärkille vai? Kalajoella, matkaa on kai sata kilometriä, sanotaan.", "Juhannuksena siellä pelataan rantajalkapalloa. Kuulemma tuhansia katsojia.",
 			"Hiekassa juokseminen on kamalaa. Hyvä että sinä juokset, en minä."],
 		"perilla": "Kalajoen Hiekkasärkät. Meri lyö rantaa, kentällä pallo odottaa.",
-		"hop_min": 80.0, "hinta": 42.0, "tasku": RetkiKalajoki, "sammuit": "rantahiekalle sateenvarjon varjoon",
+		"hop_min": 70.0, "hinta": 28.0, "tasku": RetkiKalajoki, "sammuit": "rantahiekalle sateenvarjon varjoon",
 		"opas": "Kalajoen Hiekkasärkät: dyynit, meri ja hiekkakenttä maaleineen. Juhannuksena pelataan rantajalkapallon turnaus, sanotaan. Muulloin saa harjoitella.",
 	},
 	"raate": {
@@ -158,29 +158,42 @@ const LISTA := {
 		"lines": ["Raatteen Portille vai? Suomussalmella, sanotaan.", "Talvisodan paikka. Siellä ei puhuta paljon.",
 			"Odotan täällä."],
 		"perilla": "Raatteen Portti. Tie jatkuu metsään, vanha vierailija seisoo hiljaa.",
-		"hop_min": 100.0, "hinta": 30.0, "tasku": RetkiRaate, "sammuit": "!Väsymys vei voiton Raatteentien varrella, ja lepäsit hetken ennen kotimatkaa",
+		"hop_min": 315.0, "hinta": 126.0, "tasku": RetkiRaate, "sammuit": "!Väsymys vei voiton Raatteentien varrella, ja lepäsit hetken ennen kotimatkaa",
 		"opas": "Talvisodan muistopaikka Suomussalmella. Raatteentien portilla ja muistokivellä kuljetaan hiljaa, sanotaan.",
 	},
 }
 
 
 ## Kohteiden id:t annetusta lähtöpaikasta rekisterin järjestyksessä.
-## Hinta ja kesto lähtöpaikan mukaan. Saloisten taksitolpalta rekisterin luvut; Vaalan K-Marketin tolpalta lasketaan tieosuudesta
-## (km Vaalasta): kesto n. 1,05 min/km (sama kuin Saloisten ja Vaalan väli 150 min / 60 €) ja hinta 0,40 €/min. Lähellä (Manamansalo,
-## Pyhäkoski) halpaa, Raahen seudulle samat 150 min ja 60 € kuin Saloisiin kotiin.
+## Hinta ja kesto lähtöpaikan mukaan, sama laskutapa molemmista: matka km x 1,05 min (pyöristys 5 min, vähintään 10 min) ja 0,40 €/min,
+## meno-paluu. Saloisten ja Vaalan väli 150 min / 60 € on mittapuu. LISTA:n hop_min ja hinta ovat Saloisten tolpan luvut (tämän laskun
+## tulos); Vaalasta lasketaan VAALASTA_KM:stä. Raahen baari: RAAHE_KM.
+const SALOISISTA_KM := {"lampi": 15, "hanhikivi": 35, "pakkahuone": 8, "rojuniemi": 10, "manamansalo": 150, "wanharaahe": 8,
+	"paltaniemi": 190, "vanhaherra": 8, "tietokonemuseo": 2, "kuhmo": 280, "hiidenportti": 245, "pyhakoski": 100, "kajaani": 200,
+	"kalajoki": 65, "raate": 300}
 const VAALASTA_KM := {"lampi": 145, "hanhikivi": 170, "pakkahuone": 140, "rojuniemi": 142, "manamansalo": 25, "wanharaahe": 140,
 	"paltaniemi": 65, "vanhaherra": 140, "tietokonemuseo": 145, "kuhmo": 150, "hiidenportti": 110, "pyhakoski": 45, "kajaani": 75,
 	"kalajoki": 210, "raate": 130}
+const RAAHE_KM := {"saloinen": 8, "vaala": 143}
 const MIN_PER_KM := 1.05
 const EUR_PER_MIN := 0.4
 
 
-static func tarjous(id: String, vaalasta := false) -> Dictionary:
-	var r: Dictionary = LISTA[id]
-	if not vaalasta or not VAALASTA_KM.has(id):
-		return {"hop_min": r.hop_min, "hinta": r.hinta}
-	var hop := maxf(10.0, roundf(float(VAALASTA_KM[id]) * MIN_PER_KM / 5.0) * 5.0)
+static func _laske(km: float) -> Dictionary:
+	var hop := maxf(10.0, roundf(km * MIN_PER_KM / 5.0) * 5.0)
 	return {"hop_min": hop, "hinta": roundf(hop * EUR_PER_MIN)}
+
+
+static func tarjous(id: String, vaalasta := false) -> Dictionary:
+	var km: Dictionary = VAALASTA_KM if vaalasta else SALOISISTA_KM
+	if not km.has(id):
+		return {"hop_min": LISTA[id].hop_min, "hinta": LISTA[id].hinta}
+	return _laske(float(km[id]))
+
+
+## Raahen baarin taksi (Kapteenin Kulma): lähtöpaikasta Saloinen tai Vaala.
+static func raahe_tarjous(vaalasta := false) -> Dictionary:
+	return _laske(float(RAAHE_KM["vaala" if vaalasta else "saloinen"]))
 
 
 static func lahdosta(lahto: String) -> Array:

@@ -13,8 +13,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (jos näkee, Päivi suuttuu ja lähtee jahtiin, mutta leikkuuta voi jatkaa karkuun päästyä). Lopuksi Pekan
   autonavaimet ovat hukassa kodalla: Pekka kävi lintutornilla kaverin kyydillä niin kännissä, että ampui
   luvallisia ja luvattomia lintuja osumatta yhteenkään. Avaimet Pekalle, niin Pekan kyyti Paapeliin aukeaa.
-  Tehtävät näkyvät repussa (I) sitä mukaa kuin niitä löytyy. Tarinan ajan Paapeliin pääsee kaupan taksilla
-  (60 €, meno-paluu: paluutaksi mökin pihatien päästä). Paapeli on välietappi: tarina jatkuu myöhemmin.
+  Tehtävät näkyvät repussa (I) sitä mukaa kuin niitä löytyy. Paapeliin ei pääse taksilla (taksi ajaa vain retkille ja
+  Raahen baariin). Paapeli on välietappi: tarina jatkuu myöhemmin.
 
 - **Kauppareissu:** kuutonen, grillimakkara ja tulitikut K-Marketista. Kassalla harmaapäät laskevat kolikoita.
   Kauppa on homma muiden joukossa: ei valosädettä eikä pakollista reittiä. Kauppaan mennään oven edestä (E)
@@ -70,7 +70,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   marjoja, ja pitkä kyykkiminen käy selkään (kunto): ähinä tihenee, ja lopulta pitää pitää tauko. W/S lopettaa poiminnan.
 - **Kaljajemma:** kotiinpaluun saalis piilotetaan itse jemmaan (jalan E), joka säilyy pelikerrasta toiseen.
   Kotiovi ei aukea kaljat tai kanisteri kädessä. Jos jemma kasvaa isoksi, Päivi saattaa löytää sen...
-- **Taksi Raahen baariin:** K-Marketin taksitolpalla odottaa taksi (14 € meno-paluu, jalan E) Kapteenin Kulmaan
+- **Taksi Raahen baariin:** K-Marketin taksitolpalla odottaa taksi (4 € meno-paluu, 10 min suuntaansa, jalan E) Kapteenin Kulmaan
   ja Kellariin (Kirkkokatu 32, Kirkkokadun ja kävelykadun kulma). Ylhäällä Kulmassa merihenkinen pubi
   (ruori, pelastusrengas, laivataulu Raahen purjelaivojen ajoilta, kuva Pekkatorin Brahen patsaasta) ja
   kesäterassi kävelykadulla: tiskiltä tuoppi, kossu tai kaffet, ikkunapöydässä vanha kapteeni muistelee
@@ -250,7 +250,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Legenda: Rautaruukin peruskivi (#250 P6, tarkistettava):** Rautaruukin Raahen terästehtaan Rojuniemen peruskiveä sanotaan paljastetun
   25.8.1962 (Kekkonen) ja ensimmäinen lähetys sanotaan 5.9.1964 (päivämäärät tarkistettava, esitetään "sanotaan"-muodossa). Kätkö (kuparikapseli
   laatan alla) on keksitty, kuten Tokolan aarre. Ketju: taksikuski kertoo (valinta "Mikä se Rautaruukin peruskivi oikein on?") -> vihje 1: vartija
-  Rojuniemessä (retki taksilla 14 €, 20 min, `retki_rojuniemi.gd`: tehdas, aita, vartijakoppi, peruskivi, laatta) -> vihje 2: opaskyltti ->
+  Rojuniemessä (retki taksilla 4 €, 10 min, `retki_rojuniemi.gd`: tehdas, aita, vartijakoppi, peruskivi, laatta) -> vihje 2: opaskyltti ->
   laatta kiven edessä, kun molemmat on kuultu: kätkö aukeaa, löytäjäispalkkio 30 € ja maine +3, loppu "Peruskiven kapseli". Palkkio vain kerran
   (`found`-lippu). Näkyy päiväkirjassa. Tila `peruskivi_legenda.gd`. Testi `--scene=peruskivi`.
 - **Legenda: Manamansalon muistokirkko (#250 P7, tarkistettava):** Oulujärven suurin saari Vaalassa; sen sanotaan olleen metsästäjien hautausmaasaari ja
@@ -561,14 +561,16 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Kätkötie ja narkkarin kätkö (`asema.katko`) siirtyivät mukana, ja aseman lähitalot lähimpään vapaaseen paikkaan.
     **Sahanrannan täyte:** Satamantien, Sahanrannantien ja Uitontien varrella on pientaloja, aittoja ja rantamökkejä oikean Sahanrannan
     mitoin sekä puita ja lehtoja pihoilla ja rannoilla (`tools/vaala_sahanranta.py`, ajetaan kerran `vaala_suorat.py`:n jälkeen).
+    **Taksihinnat (kaikki retket ja Raahen baari):** meno-paluun hinta ja kesto lasketaan lähtöpaikasta kaikkialla samalla tavalla: matka km x 1,05 min
+    (pyöristys 5 min, vähintään 10 min) ja 0,40 €/min (`retket.gd tarjous`, `raahe_tarjous`; Saloisten ja Vaalan väli 150 min / 60 € on mittapuu).
+    Saloisten tolpalta esim. Raahen kohteet 4 € / 10 min, Teeriniemi 6 €, Hanhikivi 14 €, Kalajoki 28 €, Pyhäkoski 42 €, Kajaani 84 €, Hiidenportti
+    102 €, Kuhmo 118 €, Raate 126 € (295-315 min suuntaansa, yöllä sammuu perillä); Vaalasta ks. alla. Matkaopas näyttää molemmat lähtöpaikat.
     **Vaalan K-Markettiin** (`vaala.gd _build_kmarket_yard`) on tehty merkitty parkkipaikka autoineen, kaupan penkin mummot ja rollaattorimummo
     kuten Saloisissa (suuttuvat mopon ohituksesta yli 5 m/s, kettukarkit horjauttavat mopoa, jalan karkit voi poimia, keppi päähän on kuolema;
     kuolinviesti "Rollaattorimummo huitaisi kepillä päähän Vaalan K-Marketin pihalla") sekä taksitolppa (E): samat valinnat kuin Saloisissa
-    (Raahen baari, kaikki retket, taksikuskin legendat, matkaopas), mutta **hinta ja kesto lähtöpaikan mukaan**: Vaalasta Raahen seudulle
+    (kaikki retket, taksikuskin legendat, matkaopas; ei Raahen baaria eikä kyytiä Saloisiin, ja Saloisten tolpalta ei kyytiä Paapeliin), mutta **hinta ja kesto lähtöpaikan mukaan**: Vaalasta Raahen seudulle
     150 min ja 60 € (kuten kotimatka Saloisiin), Manamansaloon 10 €, Pyhäkoskelle 18 €, Kajaaniin 32 €, Kalajoelle 88 € (matka km Vaalasta
-    x 1,05 min ja 0,40 €/min; `retket.gd tarjous`). Retkeltä palataan samaan tolpalle jalan, ja valikossa on "Kotiin Saloisiin" (60 €, perillä
-    Saloisten taksitolppa; Paapelin mökkimatkaa ei Vaalasta tarjota). Raahen baarista Vaalasta lähdettäessä päivä päättyy kotiin kuten
-    Saloisista. Testi `--scene=kmarket_vaala`.
+    x 1,05 min ja 0,40 €/min; `retket.gd tarjous`). Retkeltä palataan samaan tolpalle jalan. Testi `--scene=kmarket_vaala`.
     Zabukin takainen liikenneympyrä on tavallinen risteys (`tools/vaala_risteys.py`, `roundabout.r = 0`). Siitarin eteen, terassin ja Vaalantien väliin,
     on tehty parkkipaikka ruutuviivoin, P-kyltein ja asiakkaiden autoin (`vaala.gd _siitari_lot`).
     **Uiton sauna (Sahanranta, Uitontie):** Satamantien varrella haarautuu Uitontie rantaan, jossa on Oulujoen uiton jäljiltä hirsisauna
