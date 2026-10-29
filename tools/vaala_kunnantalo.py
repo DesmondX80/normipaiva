@@ -4,8 +4,8 @@
 Ajo kerran: venv/bin/python tools/vaala_kunnantalo.py   (viimeinen vaihe vaala_torisiirto.py:n jälkeen)
 tie.json:iin merkitään "kunnantalo": true, ja uusi ajo kieltäytyy. Uusi lähtötilanne: git checkout assets/vaala.
 
-- Rakennus (46 x 10 m, malli vaala.gd _build_kunnantalo) seisoo Siitarin puolella tietä (Aseman pihan eteläpuolella) julkisivu tielle päin, 22 m
-  tiestä (edessä nurmikko, suihkulähde ja kävelyreitti). OSM:n yleispiirteinen Kunnanvirasto (225699563) korvataan tällä.
+- Rakennus (46 x 10 m, malli vaala.gd _build_kunnantalo) seisoo Vaalantien jatkeen oikealla puolella Siitarin vieressä,
+  samansuuntaisesti tien kanssa, julkisivu tielle päin (edessä nurmikko, suihkulähde ja kävelyreitti).
 - Tontti tasoitetaan, rakennuksen ja reitin kohdalta puut pois (nurmikon männyt jäävät).
 """
 import math
@@ -18,9 +18,9 @@ import vaala_lava as VL  # noqa: E402
 import vaala_sahanranta as VS  # noqa: E402
 
 LEN, DEPTH = 46.0, 10.0
-SETBACK = 27.0          # tien keskiviivasta rakennuksen keskelle
-FOOT_X = 865.0          # Aseman pihan suoran piste, jonka kohdalle rakennuksen keskikohta tulee
-REPLACED = (225699563,)
+SETBACK = 24.0          # Vaalantien keskiviivasta rakennuksen keskelle
+ALONG = 34.0            # matka tien päästä (Siitarin kohdalta) tietä pitkin
+REPLACED = (225699563,)  # (jo poistettu vaala_torisiirto.py:ssä)
 
 
 def unit(v):
@@ -40,18 +40,13 @@ def main():
     if not tie.get("torisiirto"):
         sys.exit("aja ensin vaala_torisiirto.py")
     terr, trees = VS.Terrain(), VS.Trees()
-    piha = next(r for r in tie["side_roads"] if r.get("name") == "Aseman piha")
-    k0 = next(i for i, q in enumerate(piha["pts"]) if math.dist(q, piha["pts"][i + 1]) > 50.0)
-    p0, p1 = piha["pts"][k0], piha["pts"][k0 + 1]
-    pd = unit((p1[0] - p0[0], p1[1] - p0[1]))
-    t = (FOOT_X - p0[0]) / pd[0]
-    foot = (p0[0] + pd[0] * t, p0[1] + pd[1] * t)
-    # Rakennus Siitarin puolella tietä (Aseman pihan eteläpuolella), julkisivu tielle päin: f osoittaa pois Siitarin puolelta.
-    f = (-pd[1], pd[0])
-    sx, sz = tie["siitari"]
-    if (sx - foot[0]) * f[0] + (sz - foot[1]) * f[1] > 0.0:
-        f = (-f[0], -f[1])
-    c = (foot[0] - f[0] * SETBACK, foot[1] - f[1] * SETBACK)
+    # Siitarin viereen Vaalantien jatkeen oikealle puolelle (samansuuntaisesti tien ja Siitarin kanssa), julkisivu tielle päin.
+    road = tie["road"]
+    e = (road[-1][0], road[-1][2])
+    td = unit((e[0] - road[-8][0], e[1] - road[-8][2]))
+    right = (-td[1], td[0])
+    f = (-right[0], -right[1])
+    c = (e[0] + td[0] * ALONG + right[0] * SETBACK, e[1] + td[1] * ALONG + right[1] * SETBACK)
     left = (-f[1], f[0])
     print("kunnantalo", [round(v, 1) for v in c], "julkisivu", [round(v, 3) for v in f])
 

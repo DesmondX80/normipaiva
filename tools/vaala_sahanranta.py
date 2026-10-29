@@ -175,7 +175,34 @@ class Terrain:
             hh = VL.lerp(lh[m] - 0.05, max(self.h[k], wl + 0.1), VL.smooth(3.5, 9.0, ld)) if ld >= 3.5 else lh[m] - 0.05
             self.set(i, j, code, hh)
 
+    def _sync_far(self):
+        """Kaukomaasto tarkan alueen alla on tarkan maaston korkeus - 1,5 m (vaala_bake.py): muuttuneet ruudut päivitetään,
+        muuten esim. alikulun leikkauksen päälle jää kaukomaaston "katto"."""
+        if not self.changed:
+            return
+        fnx, fnz, fx0, fz0, fcell = struct.unpack_from("<iifff", self.far, 0)
+        arr = list(struct.unpack_from("<%df" % (fnx * fnz), self.far, 20))
+        ci0 = min(i for i, j in self.changed)
+        ci1 = max(i for i, j in self.changed)
+        cj0 = min(j for i, j in self.changed)
+        cj1 = max(j for i, j in self.changed)
+        fi0 = max(int((self.x0 + (ci0 - 1) * self.cell - fx0) / fcell), 0)
+        fi1 = min(int((self.x0 + (ci1 + 2) * self.cell - fx0) / fcell) + 1, fnx - 1)
+        fj0 = max(int((self.z0 + (cj0 - 1) * self.cell - fz0) / fcell), 0)
+        fj1 = min(int((self.z0 + (cj1 + 2) * self.cell - fz0) / fcell) + 1, fnz - 1)
+        n = 0
+        for fj in range(fj0, fj1 + 1):
+            for fi in range(fi0, fi1 + 1):
+                ci = int((fx0 + fi * fcell - self.x0) / self.cell)
+                cj = int((fz0 + fj * fcell - self.z0) / self.cell)
+                if (ci, cj) in self.changed and 0 <= ci < self.nx and 0 <= cj < self.nz:
+                    arr[fj * fnx + fi] = round(self.h[cj * self.nx + ci] - 1.5, 2)
+                    n += 1
+        self.far = struct.pack("<iifff", fnx, fnz, fx0, fz0, fcell) + struct.pack("<%df" % (fnx * fnz), *arr)
+        print("kaukomaasto päivitetty: %d ruutua" % n)
+
     def save(self):
+        self._sync_far()
         with open(MAASTO, "wb") as f:
             f.write(struct.pack("<iifff", self.nx, self.nz, self.x0, self.z0, self.cell))
             f.write(struct.pack("<%df" % (self.nx * self.nz), *self.h))

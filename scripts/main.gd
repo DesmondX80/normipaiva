@@ -35,6 +35,7 @@ const TiskiGame := preload("res://scripts/tiski_game.gd")
 const RasvanappiGame := preload("res://scripts/rasvanappi_game.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
 const SiitariInterior := preload("res://scripts/siitari_interior.gd")
+const ApteekkiInterior := preload("res://scripts/apteekki_interior.gd")
 ## Rautatieasemien odotussali (station_interior.gd): juopot ja narkkarit, rahakätkö viinahörpystä.
 const StationInterior := preload("res://scripts/station_interior.gd")
 const ASEMA_INT_POS := Vector3(0, 0, -16000)
@@ -79,6 +80,7 @@ const KaraokeGame := preload("res://scripts/karaoke_game.gd")
 const PajatsoGame := preload("res://scripts/pajatso_game.gd")
 const HedelmapeliGame := preload("res://scripts/hedelmapeli_game.gd")
 const SIITARI_INT_POS := Vector3(16000, 0, 0)
+const APTEEKKI_INT_POS := Vector3(18000, 0, 0)
 ## Karaoken rajat (simulaatio --scene=karaokesim: hyvä 92–96 %, keskiverto 79–85 %, rento 60–77 %): "raikuu" vaatii
 ## keskiverron pelaajan hyvän suorituksen, "kelpo" erottaa rennon pelaajan mokaajasta.
 const KARAOKE_RAIKUU := 0.85
@@ -144,6 +146,15 @@ const ZABUKI_MENU := {
 	"tupla": ["Tuplajuustoburgeri", 11.5, 0.0, 0.08, 0.08, 0.7],
 	"kana": ["Kanaburgeri ja ranskalaiset", 10.9, 0.0, 0.05, 0.05, 0.6],
 }
+## Vaalan apteekki (apteekki_interior.gd): [nimi, hinta, vaatii reseptin, kipu, humala, moraali]. Kolmiolääkkeet (▲) vain reseptillä;
+## reseptin saa aarrekätköstä (juopolle viinaa, _take_cache).
+const APTEEKKI_MENU := {
+	"panadol": ["Panadol 500 mg", 4.9, false, -0.3, 0.0, 0.0],
+	"burana": ["Burana 400 mg", 5.5, false, -0.4, 0.0, 0.0],
+	"panacod": ["Panacod ▲ kolmiolääke", 9.8, true, -0.75, 0.1, 0.05],
+	"tramal": ["Tramal ▲ kolmiolääke", 12.4, true, -1.0, 0.2, 0.08],
+}
+var reseptit := 0  # kipulääkereseptit (kätköstä)
 const ZABUKI_LINES := ["Grilli sihisee. Tiskin takaa huudetaan: \"Tupla valmis!\"",
 	"Torilla istuu porukkaa jakkaroilla tuoppi kourassa.", "\"Kastiketta lisää? Talon kastike, ei kysytä mitä siinä on.\"",
 	"Joku huutaa radiosta Vaalan pesäpallotulokset.", "\"Mopolla Paapelista? Burgeri päälle ni jaksaa ajaa takasin.\""]
@@ -394,6 +405,7 @@ var mwine_endings := 0
 var mokki_forage: Array = []
 var mokki_forage_revealed := false
 var siitari_int: Node3D
+var apteekki_int: Node3D
 var asema_int: Node3D
 var kirppis_int: Node3D
 var varasto_int: Node3D
@@ -523,8 +535,9 @@ const OPEN_HOURS := {
 	"siitari": Vector2(11 * 60, 2 * 60),  # Hotelli-Ravintola Siitarin baari
 	"raahe": Vector2(14 * 60, 2 * 60),    # Kapteenin Kulma ja Kellari
 	"lava": Vector2(20 * 60, 1 * 60),     # Oulujärven lavan tanssit
+	"apteekki": Vector2(9 * 60, 17 * 60), # Vaalan apteekki
 }
-const OPEN_NAMES := {"kauppa": "K-Market", "alko": "Alko", "siitari": "Siitari", "raahe": "Kapteenin Kulma", "lava": "Lavatanssit"}
+const OPEN_NAMES := {"kauppa": "K-Market", "alko": "Alko", "siitari": "Siitari", "raahe": "Kapteenin Kulma", "lava": "Lavatanssit", "apteekki": "Apteekki"}
 const CLOSE_GRACE := 15.0
 var _closing_at := -1.0  # sulkemisvaroituksen kellonaika (sisällä), -1 = ei varoitettu
 var _closing_nag := 0.0
@@ -859,6 +872,7 @@ const TALKERS := {
 	"siitari": ["Baarimikko", Color(0.95, 0.72, 0.5)],
 	"siitari_sinikka": ["Sinikka", Color(1.0, 0.55, 0.75)],
 	"zabuki": ["Zabuki", Color(1.0, 0.78, 0.1)],
+	"apteekki": ["Farmaseutti", Color(0.2, 0.7, 0.45)],
 	"gasthaus": ["Gasthausin emäntä", Color(0.75, 0.9, 0.6)],
 	"nuoret": ["Porukka aidan takana", Color(0.6, 0.9, 1.0)],
 	"mopopojat": ["Mopopojat", Color(1.0, 0.85, 0.3)],
@@ -944,6 +958,7 @@ const TALK_HELLO := {
 		"Kas. Sinä oot se Järvikujan poika."],
 	"mirkku": ["Moikka! Ihana päivä, eiks?", "No hei! Tuu kattoon, täällä kukkii ihan kaikki.", "Kas, sää! Lähetkö laavulle?"],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
+	"apteekki": ["Hyvää päivää. Resepti vai käsikauppaa?", "Mitäs saisi olla?", "Seuraava, olkaa hyvä."],
 	"gasthaus": ["Iltaa. Huonetta vailla?", "Tervetuloa Gasthausiin. Yö maksaa kympin."],
 	"roivainen": ["Päivää. Roivainen. Asema on auki ma–pe yheksästä kolmeen.", "No, mopomies. Jalan tänään?",
 		"Kas. Ei ainakaan ylinopeutta jalan."],
@@ -1165,6 +1180,11 @@ func _ready() -> void:
 	add_child(siitari_int)
 	siitari_int.exited.connect(_on_siitari_exited)
 	siitari_int.acted.connect(_on_siitari_acted)
+	apteekki_int = ApteekkiInterior.new()
+	apteekki_int.position = APTEEKKI_INT_POS
+	add_child(apteekki_int)
+	apteekki_int.exited.connect(_on_apteekki_exited)
+	apteekki_int.acted.connect(_on_apteekki_acted)
 	headphones = Headphones.new()
 	add_child(headphones)
 	phone = Phone.new()
@@ -1398,7 +1418,7 @@ func _loading_hide() -> void:
 
 
 func _process(delta: float) -> void:
-	CamCtl.indoors = state in ["in_shop", "in_home", "in_mokki", "in_garage", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki"]
+	CamCtl.indoors = state in ["in_shop", "in_home", "in_mokki", "in_garage", "in_siitari", "in_apteekki", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki"]
 	var at_mokki := _at_mokki()
 	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
 	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
@@ -1477,6 +1497,10 @@ func _process(delta: float) -> void:
 					func() -> void:
 						_show_message("Baarimikko saattoi ulos ja lukitsi Siitarin oven.", 3.0)
 						_on_siitari("lahde"))
+		"in_apteekki":
+			if not _item_menu.is_open():
+				_hint.text = apteekki_int.hint
+				_bar_prompt(apteekki_int, {"tiski": "apteekki"})
 		"in_raahe":
 			if not _item_menu.is_open():
 				_hint.text = raahe_int.hint
@@ -9430,6 +9454,8 @@ func _active_walker() -> CharacterBody3D:
 			return interior.walker
 		"in_siitari":
 			return siitari_int.walker
+		"in_apteekki":
+			return apteekki_int.walker
 		"in_asema":
 			return asema_int.walker
 		"in_kirppis":
@@ -9451,7 +9477,7 @@ func _active_walker() -> CharacterBody3D:
 
 ## T sisätiloissa: sama syö/juo-valikko kuin ulkona, kun hahmo on vapaana (ei minipeliä, keskustelua tai valikkoa).
 func _indoor_eat() -> void:
-	if not state in ["in_shop", "in_siitari", "in_raahe", "in_home", "in_mokki", "in_garage", "in_asema", "in_kirppis", "in_varasto", "in_retki"] or _item_menu.is_open() \
+	if not state in ["in_shop", "in_siitari", "in_apteekki", "in_raahe", "in_home", "in_mokki", "in_garage", "in_asema", "in_kirppis", "in_varasto", "in_retki"] or _item_menu.is_open() \
 			or _talk_box.is_open():
 		return
 	if Input.is_action_just_pressed("eat") and _active_walker().controls_enabled:
@@ -9560,7 +9586,7 @@ func _own_drink_in_bar() -> void:
 ## toimia hyllyllä. Suljettaessa vielä saman ruudun yli (_enter_frame).
 func _interior_busy(on: bool) -> void:
 	var it: Node = {"in_home": home_int, "in_garage": garage_int, "in_mokki": mokki_int, "in_shop": interior,
-		"in_raahe": raahe_int, "in_retki": retki_int, "in_siitari": siitari_int, "in_asema": asema_int, "in_kirppis": kirppis_int, "in_varasto": varasto_int}.get(state)
+		"in_raahe": raahe_int, "in_retki": retki_int, "in_siitari": siitari_int, "in_apteekki": apteekki_int, "in_asema": asema_int, "in_kirppis": kirppis_int, "in_varasto": varasto_int}.get(state)
 	if it == null:
 		return
 	it.busy = on
@@ -10978,10 +11004,11 @@ func _take_cache(town: String) -> void:
 		return
 	asema_katkot[town] = 2
 	money += CACHE_MONEY
+	reseptit += 1
 	Sfx.play("win", -4.0)
 	tilat.add("moraali", 0.2)
 	tilat.first("asema_katko", 0.3)
-	_show_message("Muovikassissa rypistynyt satanen! +%s €. Juoppo puhui totta." % _eur(CACHE_MONEY), 4.0)
+	_show_message("Muovikassissa rypistynyt satanen! +%s €. Juoppo puhui totta.\nSatasen välissä on lääkärin resepti: kipulääkkeitä apteekista!" % _eur(CACHE_MONEY), 5.0)
 	_save_game()
 
 
@@ -11665,7 +11692,7 @@ func _bar_prompt(bar: Node, talkers: Dictionary) -> void:
 		return
 	var who: String = talkers[bar.spot]
 	var sub: String = {"raahe": "Juomat ja kahvit", "siitari": "Juomat ja kahvit", "visa": "Illan pubivisa",
-		"vastaanotto": "Huoneet · Meteli", "dingo": "Nimmari · Huikka · Telkkari"}.get(who, "Tanssi · Tarjoa lonkero")
+		"vastaanotto": "Huoneet · Meteli", "dingo": "Nimmari · Huikka · Telkkari", "apteekki": "Käsikauppa · Reseptit"}.get(who, "Tanssi · Tarjoa lonkero")
 	_hint.text = " "
 	_talk_prompt.show_for(null, Settings.action_key("interact"), "Puhu", TALKERS[who][0], TALKERS[who][1], sub)
 
@@ -11761,6 +11788,8 @@ func _talk_open_info(who: String) -> String:
 				return "Santun hermot: %s %s" % [hommat.bar(), hommat.mood()]
 		"kauppias":
 			return interior.price_note()
+		"apteekki":
+			return "Rahaa %s €. Reseptejä %d." % [_eur(money), reseptit]
 		"raahe", "siitari", "zabuki", "gasthaus", "kauppa_auto", "leirintaalue":
 			return "Rahaa %s €." % _eur(money)
 		"mopopojat":
@@ -11798,6 +11827,8 @@ func _talk_end() -> void:
 			raahe_int.block_interact()
 		elif state == "in_siitari":
 			siitari_int.block_interact()
+		elif state == "in_apteekki":
+			apteekki_int.block_interact()
 		elif state == "in_kirppis":
 			kirppis_int.block_interact()
 		elif state == "in_varasto":
@@ -12199,6 +12230,11 @@ func _talk_options(who := "") -> Array:
 			var duuni_aika := _between(clock_min, Vector2(8 * 60, 12 * 60))
 			o.append(_opt("kesaduuni", "Kesäduuni voimayhtiöllä: rantojen siivous (4 h, 28 €)", duuni_aika and _kesaduuni_day != day,
 				"hommia jaetaan aamulla 8–12" if not duuni_aika else "teit jo päivän työn", true))
+		"apteekki":
+			for id in APTEEKKI_MENU:
+				var am: Array = APTEEKKI_MENU[id]
+				var no_rx: bool = am[2] and reseptit <= 0
+				o.append(_opt("osta_" + id, "%s (%s €)" % [am[0], _eur(am[1])], money >= am[1] and not no_rx, "ei reseptiä" if no_rx else "rahat ei riitä"))
 		"zabuki":
 			for id in ZABUKI_MENU:
 				var m: Array = ZABUKI_MENU[id]
@@ -12426,6 +12462,9 @@ func _talk_choose(id: String) -> void:
 				_tyokkari_jonota()
 		"vastaanotto", "dingo":
 			_talk_hotel(id)
+		"apteekki":
+			var ar := _on_apteekki(id.trim_prefix("osta_"))
+			_talk_box.reply(ar[0], _talk_options(), ar[1] + "   Rahaa %s €." % _eur(money))
 		"zabuki":
 			if id == "hengaile":
 				_hengaile_kioskilla()
@@ -12754,6 +12793,8 @@ func _talk_chat_line() -> String:
 			return SINIKKA_BAR_LINES.pick_random()
 		"zabuki":
 			return ZABUKI_LINES.pick_random()
+		"apteekki":
+			return ApteekkiInterior.LINES.pick_random()
 		"kauppa_auto":
 			return KauppaAuto.LINES.pick_random()
 		"tyokkari":
@@ -14211,7 +14252,7 @@ func _ensure_mopo_trip() -> void:
 		mopo_trip.closed = func(id: String) -> String:
 			if id == "veturitalli":
 				return "" if _vvaala_auki() else _vvaala_kiinni_teksti()
-			return closed_text({"kmarket": "kauppa", "siitari": "siitari", "lava": "lava"}[id]) if id in ["kmarket", "siitari", "lava"] else ""
+			return closed_text({"kmarket": "kauppa", "siitari": "siitari", "lava": "lava", "apteekki": "apteekki"}[id]) if id in ["kmarket", "siitari", "lava", "apteekki"] else ""
 		mopo_trip.door_hidden = func(id: String) -> bool: return (id == "kokko" and not _juhannus()) or (id == "viski" and "viski" in viina_found) or \
 			(id == "katko" and asema_katkot.get("vaala", 0) != 1) or (id == "portti" and _lava_pass_now() != "")
 		_paper.mopo_trip = mopo_trip
@@ -16130,6 +16171,8 @@ func _on_vaala_door(id: String) -> void:
 	match id:
 		"kmarket":
 			_enter_vaala_shop(id)
+		"apteekki":
+			_enter_apteekki()
 		"asema":
 			_enter_asema("vaala")
 		"laituri":
@@ -16251,6 +16294,55 @@ func _on_vaala_shop_exited(bought: bool) -> void:
 		_show_message(("Kassissa %s." % " ja ".join(got)) if not got.is_empty() else "Takaisin ulos.", 3.0)
 	else:
 		_show_message(("Kassissa %s. Mopon kyytiin!" % " ja ".join(got)) if not got.is_empty() else "Takaisin mopon kyytiin.", 3.0)
+
+
+## Vaalan apteekki: sisälle jalan (mopo jää oven eteen), tiskiltä käsikauppaa ja reseptillä kolmiolääkkeitä.
+func _enter_apteekki() -> void:
+	mopo_trip.stop()
+	_mopo_foot_inside()
+	state = "in_apteekki"
+	_mopo_label.visible = false
+	_compass.visible = false
+	apteekki_int.enter()
+	Sfx.play("door", -3.0)
+	_show_message("Vaalan apteekki. Käsikauppaa saa ilman reseptiä, kolmiolääkkeet vain reseptillä. Reseptejä: %d." % reseptit, 3.5)
+
+
+func _on_apteekki_exited() -> void:
+	apteekki_int.leave()
+	Sfx.play("door_close", -3.0)
+	state = _vaala_state
+	_mopo_label.visible = true
+	_compass.visible = true
+	_mopo_resume()
+	_show_message("Takaisin ulos.", 2.0)
+
+
+func _on_apteekki_acted(kind: String) -> void:
+	if kind == "tiski":
+		_talk_open("apteekki", null, "Mitäs saisi olla?")
+
+
+## Apteekin osto: lääke otetaan heti (kipu laskee; kolmiolääke myös humaltuttaa ja kuluttaa reseptin).
+func _on_apteekki(id: String) -> Array:
+	var m: Array = APTEEKKI_MENU[id]
+	if m[2] and reseptit <= 0:
+		return ["Kolmiolääkkeisiin tarvitaan resepti. Ilman sitä en voi myydä.", "Reseptejä 0."]
+	if money < m[1]:
+		return ["Ei riitä, valitettavasti.", "Rahaa %s €." % _eur(money)]
+	money -= m[1]
+	if m[2]:
+		reseptit -= 1
+	tilat.add("kipu", m[3])
+	if m[4] > 0.0:
+		tilat.add("humala", m[4])
+	if m[5] > 0.0:
+		tilat.add("moraali", m[5])
+	Sfx.play("pickup", -6.0, 0.8)
+	var note := "%s, −%s €. Kipu helpottaa." % [m[0], _eur(m[1])]
+	if m[2]:
+		note += " Kolmiolääke: ei ajeta mopolla! Reseptejä jäljellä %d." % reseptit
+	return [["Ottakaa vesilasillinen mukaan. Seuraava!", "Kiitos, ja pikaista paranemista.", "Annostus pakkauksessa. Lukekaa se."].pick_random(), note]
 
 
 ## Oulujärven lava: lavatanssit (lava_game.gd) lavan lattialla. Lippu maksetaan ovella; hyvä tanssi nostaa
@@ -17983,6 +18075,7 @@ func _load_game() -> void:
 	pontikka_found = cfg.get_value("drooni", "pontikka", false)
 	viina_found = cfg.get_value("mokki", "viinakatkot", [])
 	asema_katkot = cfg.get_value("asema", "katkot", {})
+	reseptit = int(cfg.get_value("asema", "reseptit", 0))
 	headphones.found = cfg.get_value("kuulokkeet", "loydetty", false)
 	phone.found = cfg.get_value("puhelin", "loydetty", false)
 	_set_outfit(cfg.get_value("pelaaja", "asu", "tuulipuku"))
@@ -18266,6 +18359,7 @@ func _save_game() -> void:
 	cfg.set_value("drooni", "pontikka", pontikka_found)
 	cfg.set_value("mokki", "viinakatkot", viina_found)
 	cfg.set_value("asema", "katkot", asema_katkot)
+	cfg.set_value("asema", "reseptit", reseptit)
 	cfg.set_value("kuulokkeet", "loydetty", headphones.found)
 	cfg.set_value("puhelin", "loydetty", phone.found)
 	cfg.set_value("pelaaja", "asu", Looks.outfit)
@@ -21931,7 +22025,7 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().process_frame
 			_paper.toggle()
-			for vw in [["_kartta.png", Vector2(820, -860), 1.6], ["_kartta_lahella.png", Vector2(795, -905), 3.0]]:
+			for vw in [["_kartta.png", Vector2(820, -880), 1.6], ["_kartta_lahella.png", Vector2(815, -900), 3.0]]:
 				_paper._vcenter = vw[1]
 				_paper._vzoom = vw[2]
 				_paper._view.queue_redraw()
@@ -21946,21 +22040,73 @@ func _maybe_screenshot() -> void:
 			add_child(vcam)
 			var vh := func(x: float, z: float, up: float) -> Vector3:
 				return mopo_trip.vaala.to_global(Vector3(x, mopo_trip.vaala.h(x, z) + up, z))
-			for vw in [["_ylhaalta", vh.call(800.0, -895.0, 100.0), vh.call(800.0, -897.0, 0.0)],
-					["_ymparyra", vh.call(740.0, -840.0, 12.0), vh.call(771.0, -860.0, 1.0)],
-					["_tori", vh.call(765.0, -880.0, 9.0), vh.call(805.0, -910.0, 1.0)],
-					["_matkakeskus", vh.call(790.0, -890.0, 2.5), vh.call(808.0, -918.0, 2.5)],
-					["_zabuki", vh.call(778.0, -903.0, 2.2), vh.call(791.0, -920.0, 1.8)],
-					["_asemalle", vh.call(790.0, -840.0, 6.0), vh.call(850.0, -805.0, 1.0)],
-					["_kunnantalo", vh.call(872.0, -814.0, 2.2), vh.call(851.0, -782.0, 3.0)],
-					["_kunnantalo_vino", vh.call(890.0, -822.0, 14.0), vh.call(850.0, -782.0, 2.0)],
-					["_kunnantalo_ylos", vh.call(851.0, -785.0, 60.0), vh.call(851.0, -787.0, 0.0)]]:
+			for vw in [["_ylhaalta", vh.call(815.0, -900.0, 130.0), vh.call(815.0, -902.0, 0.0)],
+					["_ymparyra", vh.call(752.0, -846.0, 5.0), vh.call(826.0, -900.0, 1.0)],
+					["_tori", vh.call(850.0, -880.0, 9.0), vh.call(805.0, -945.0, 1.0)],
+					["_matkakeskus", vh.call(813.0, -928.0, 2.5), vh.call(800.0, -956.0, 2.5)],
+					["_zabuki", vh.call(812.0, -928.0, 2.2), vh.call(788.0, -943.0, 1.8)],
+					["_asemalle", vh.call(840.0, -885.0, 6.0), vh.call(880.0, -830.0, 1.0)],
+					["_kunnantalo", vh.call(785.0, -878.0, 2.5), vh.call(802.0, -854.0, 3.0)],
+					["_kunnantalo_vino", vh.call(765.0, -880.0, 14.0), vh.call(803.0, -854.0, 2.0)],
+					["_kunnantalo_ylos", vh.call(800.0, -860.0, 70.0), vh.call(800.0, -862.0, 0.0)],
+					["_alikulku", vh.call(722.0, -730.0, 2.5), vh.call(752.0, -695.0, 3.0)],
+					["_alikulku_sivu", vh.call(790.0, -740.0, 18.0), vh.call(750.0, -698.0, 0.0)],
+					["_alikulku_alla", vh.call(748.0, -700.0, 1.8), vh.call(778.0, -664.0, 2.0)],
+					["_apteekki", vh.call(833.0, -624.0, 2.2), vh.call(811.0, -603.0, 2.0)],
+					["_apteekki_ylos", vh.call(811.0, -610.0, 50.0), vh.call(811.0, -612.0, 0.0)]]:
 				vcam.look_at_from_position(vw[1], vw[2], Vector3.UP if vw[0] != "_ylhaalta" else Vector3(0, 0, -1))
 				vcam.current = true
 				for i in 20:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0] + ".png"))
+			get_tree().quit()
+		"apteekki":
+			# Vaalan apteekki: ulkokuva, sisälle, tiski ja valikko; ostot ilman reseptiä ja reseptillä.
+			_start_mopo()
+			var ak: Node3D = mopo_trip.vaala
+			mopo_trip.mopo.position = ak.door_pos("apteekki") + Vector3(0, 0.6, 0)
+			mopo_trip.mopo.speed = 0.0
+			for i in 30:
+				await get_tree().process_frame
+			print("APTEEKKI ovi ", ak.door_pos("apteekki"), " vihje: ", mopo_trip.hint)
+			var aocc := Camera3D.new()
+			add_child(aocc)
+			aocc.look_at_from_position(mopo_trip.to_global(ak.door_pos("apteekki") + Vector3(6, 3.0, 14)), mopo_trip.to_global(ak.door_pos("apteekki") + Vector3(0, 1.5, 0)))
+			aocc.current = true
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ulko.png"))
+			reseptit = 0
+			money = 100.0
+			clock_min = 10.0 * 60.0
+			_enter_apteekki()
+			for i in 40:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_sisalla.png"))
+			apteekki_int.walker.position = apteekki_int.spots.tiski[0]
+			for i in 20:
+				await get_tree().process_frame
+			print("APTEEKKI tila ", state, " paikka ", apteekki_int.spot, " vihje ", apteekki_int.hint)
+			_talk_open("apteekki", null, "Mitäs saisi olla?")
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_valikko.png"))
+			print("APTEEKKI valinnat ", _talk_box._options.map(func(o): return "%s [%s]" % [o.text, o.enabled]))
+			var ak1 := _on_apteekki("tramal")
+			print("APTEEKKI tramal ilman reseptiä: ", ak1[0], " | ", ak1[1], " | rahaa ", money)
+			var kipu0: float = tilat.value("kipu")
+			var ak2 := _on_apteekki("panadol")
+			print("APTEEKKI panadol: ", ak2[1], " | kipu %.2f -> %.2f, rahaa %.2f" % [kipu0, tilat.value("kipu"), money])
+			reseptit = 1
+			var ak3 := _on_apteekki("tramal")
+			print("APTEEKKI tramal reseptillä: ", ak3[1], " | reseptit ", reseptit, ", rahaa %.2f, humala %.2f" % [money, tilat.value("humala")])
+			asema_katkot["vaala"] = 1
+			_take_cache("vaala")
+			print("APTEEKKI kätkön jälkeen reseptit ", reseptit, ", viesti: ", _msg.text)
 			get_tree().quit()
 		"mokkikauppa":
 			# K-Market Tervaportti Vaalassa: mopo oven eteen (vihje), kauppaan, Alkon hylly, ulos ja takaisin mopolle.

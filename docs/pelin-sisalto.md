@@ -578,9 +578,20 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Zabukin pihan läpi ja liittymä torille on poistettu (`tools/vaala_asematie.py`, ajetaan kerran `vaala_risteys.py`:n jälkeen). Tori on
     laajennettu Aseman pihan pohjoispuolelle Zabukin eteen (kojut vähintään 4,5 m reunasta, tori 9 m tien keskiviivasta). Siitarin eteen, terassin ja Vaalantien väliin,
     on tehty parkkipaikka ruutuviivoin, P-kyltein ja asiakkaiden autoin (`vaala.gd _siitari_lot`).
-    **Liikenneympyrä ja tori:** Vaalantien kauimmaisessa risteyksessä (Siitarista n. 40 m) on liikenneympyrä (r 12 m, nurmisaareke). Tulosuunnasta oikealle lähtee
-    Aseman piha asemalle ja vasemmalle Torintie torille: tori ja Zabuki ovat tien vasemmalla puolella n. 87 m Siitarista (ennen 52 m). Tori on asfalttikenttä (46 x 22 m), jonka takana on Vaalan matkakeskus (pitkä matala rakennus: tiilisokkeli, vaalea yläosa, sinitolppainen katos, "VAALA"-torni; `vaala.gd _build_matkakeskus`, korvaa OSM:n nimettömän rakennuksen) ja sen vasemmassa päässä Zabuki. **Kunnantalo** on Siitarin puolella tietä Aseman pihan eteläpuolella aseman lähellä (46 x 10 m: vasemmalla vaalea kaksikerroksinen siipi vaakunoineen ja puuovineen, oikealla keltainen siipi lasiosineen ja päätyovi, takana torni; edessä nurmikko, suihkulähde, valaisimet ja penkit; `vaala.gd _build_kunnantalo`, `tools/vaala_kunnantalo.py` korvaa OSM:n Kunnanviraston). Ratatien kierros
-    torin ja entisen Kunnanviraston ympäri on poistettu (`tools/vaala_torisiirto.py`, ajetaan kerran `vaala_satamatie.py`:n jälkeen).
+    **Liikenneympyrä ja tori:** Vaalantie jatkuu Siitarin ohi 80 m ja sen päässä on liikenneympyrä (r 12 m, nurmisaareke). Tulosuunnasta oikealle lähtee
+    Aseman piha asemalle ja vasemmalle Torintie torille: tori ja Zabuki ovat tien vasemmalla puolella yli 120 m Siitarista. Tori on asfalttikenttä
+    (46 x 22 m), jonka takana on Vaalan matkakeskus (pitkä matala rakennus: tiilisokkeli, vaalea yläosa, sinitolppainen katos, "VAALA"-torni;
+    `vaala.gd _build_matkakeskus`) ja sen vasemmassa päässä Zabuki. Ratatien kierros on poistettu (`tools/vaala_torisiirto.py`).
+    **Kunnantalo** on Vaalantien jatkeen oikealla puolella Siitarin vieressä samansuuntaisesti tien kanssa (46 x 10 m: vasemmalla vaalea kaksikerroksinen
+    siipi vaakunoineen ja puuovineen, oikealla keltainen siipi lasiosineen ja päätyovi, takana torni; edessä nurmikko, suihkulähde, valaisimet ja penkit;
+    `vaala.gd _build_kunnantalo`, `tools/vaala_kunnantalo.py`; OSM:n Kunnanvirasto korvautuu). Rakennuksessa ei ole sisätilaa.
+    **Satamantien alikulku:** Satamantie ei ylitä rataa tasoristeyksellä vaan painuu leikkaukseen ja kulkee betonikannen alta (kiskot pysyvät maan tasolla;
+    kuten Vaalaan tultaessa, kilpi "4,6 m"; `tools/vaala_alikulku.py`, `vaala.gd _under_structure`).
+    **Apteekki** on Satamantien varressa radan jälkeen oikealla (`tools/vaala_apteekki.py`, `vaala.gd _build_apteekki`): vaalea liiketila, vihreä APTEEKKI-kyltti,
+    edessä asfalttiparkki. Sisälle pääsee (auki ma–su 9–17, `apteekki_interior.gd`): tiskillä farmaseutti. Ilman reseptiä saa vain Panadolia (4,90 €) ja Buranaa
+    (5,50 €); kolmiolääkkeet (▲ Panacod 9,80 €, Tramal 12,40 €) vaativat reseptin, jonka kuluttaa yksi ostos (`main.gd APTEEKKI_MENU`, `reseptit`). Reseptin
+    saa aarrekätköstä: asemalla juopolle viinaa, joka kertoo kätkön, ja kätkössä on satasen lisäksi resepti (`_take_cache`). Lääke otetaan heti: kipu laskee,
+    kolmiolääke humaltuttaa ja nostaa moraalia (ei ajeta mopolla).
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
     katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin

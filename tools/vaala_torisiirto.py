@@ -5,10 +5,10 @@
 Ajo kerran: venv/bin/python tools/vaala_torisiirto.py   (viimeinen vaihe vaala_satamatie.py:n jälkeen)
 tie.json:iin merkitään "torisiirto": true, ja uusi ajo kieltäytyy. Uusi lähtötilanne: git checkout assets/vaala.
 
-- Vaalantien pää ja Aseman pihan suora (asemalle) kohtaavat vanhassa risteyksessä: siihen liikenneympyrä (r 12).
+- Vaalantie jatkuu RB_S m ja sen päähän tulee liikenneympyrä (r 12); kunnantalo mahtuu näin tien oikealle puolelle Siitarin viereen.
   Tulosuunnasta katsoen oikealle ympyrästä lähtee Aseman piha asemalle ja vasemmalle uusi Torintie torille.
 - Tori (46 x 22 m, asfalttikenttä) ja Zabuki siirtyvät vasemmalle puolelle tietä ympyrästä
-  koilliseen, n. 85 m Siitarista (ennen 52 m). Ratatie (kierros torin ja Kunnanviraston ympäri) poistuu.
+  pohjoiseen, yli 120 m Siitarista (ennen 52 m). Ratatie (kierros torin ja Kunnanviraston ympäri) poistuu.
 - Vanha torin alue jää tasoitetuksi pihaksi. Tori- ja tietontilta puut pois, maasto tasoitetaan.
 """
 import json
@@ -21,12 +21,13 @@ import vaala_keskusta as K  # noqa: E402
 import vaala_lava as VL  # noqa: E402
 import vaala_sahanranta as VS  # noqa: E402
 
-TORI_C = (800.0, -905.0)   # torin keskipiste
+RB_S = 80.0                # ympyrän keskipiste näin kaukana Vaalantien päästä (kunnantalo mahtuu Siitarin viereen)
+TORI_DIST, TORI_DEG = 45.0, -115.0   # torin keskipiste ympyrästä (suunta asteina, -90 = pohjoinen)
 TORI_L, TORI_W = 46.0, 22.0
 MK_L, MK_D = 46.0, 11.0     # Vaalan matkakeskus torin takana (pitkä sivu torille päin)
-REPLACED = (225699564,)     # OSM:n nimetön iso rakennus matkakeskuksen paikalla: korvataan omalla mallilla
+REPLACED = (225699564, 534430533, 225699563)  # matkakeskuksen ja torin tieltä: nimettömät isot rakennukset sekä Kunnanvirasto (korvaa vaala_kunnantalo.py)
 RB_R = 12.0
-KEEP = (225699578, K.KMARKET_ID, K.GASTHAUS_ID, 178199720, 225699563)  # Siitari, kauppa, Gasthaus, asema, Kunnanvirasto
+KEEP = (225699578, K.KMARKET_ID, K.GASTHAUS_ID, 178199720)  # Siitari, kauppa, Gasthaus, asema
 
 
 def unit(v):
@@ -62,19 +63,18 @@ def main():
     wl = tie["water_level"]
     roads = tie["side_roads"]
     piha = next(r for r in roads if r.get("name") == "Aseman piha")
+    roads_old_pts = [q[:2] for q in piha["pts"][: next(i for i, q in enumerate(piha["pts"]) if math.dist(q, piha["pts"][i + 1]) > 50.0) + 2]]
 
-    # Risteys: Vaalantien pään suora ja Aseman pihan pitkä suora (alun mutka pois) leikkaavat.
+    # Ympyrä Vaalantien jatkeelle RB_S m päähän tien päästä; oikealle Aseman pihan pitkä suora asemalle.
     road = tie["road"]
     e = (road[-1][0], road[-1][2])
     td = unit((e[0] - road[-8][0], e[1] - road[-8][2]))
+    c = (e[0] + td[0] * RB_S, e[1] + td[1] * RB_S)
     k0 = next(i for i, q in enumerate(piha["pts"]) if math.dist(q, piha["pts"][i + 1]) > 50.0)
     p0, p1 = piha["pts"][k0], piha["pts"][k0 + 1]
-    pd = unit((p1[0] - p0[0], p1[1] - p0[1]))
-    # e + s * td = p0 + t * pd
-    det = td[0] * (-pd[1]) - td[1] * (-pd[0])
-    s = ((p0[0] - e[0]) * (-pd[1]) - (p0[1] - e[1]) * (-pd[0])) / det
-    c = (e[0] + td[0] * s, e[1] + td[1] * s)
-    print("ympyrä", [round(v, 1) for v in c], "tien päästä %.1f m" % s)
+    pd = unit((p1[0] - c[0], p1[1] - c[1]))
+    print("ympyrä", [round(v, 1) for v in c], "tien päästä %.0f m" % RB_S)
+    TORI_C = (c[0] + math.cos(math.radians(TORI_DEG)) * TORI_DIST, c[1] + math.sin(math.radians(TORI_DEG)) * TORI_DIST)
 
     # Vasen haara: ympyrästä torin eteläreunan keskelle; tori kohtisuoraan tietä vasten.
     ang = unit((TORI_C[0] - c[0], TORI_C[1] - c[1]))
@@ -92,11 +92,12 @@ def main():
     z_lot = rect(zc, left, K.ZB_SIZE[0] / 2.0 + 1.5, K.ZB_SIZE[1] / 2.0 + 1.5)
     print("tori", [round(v, 1) for v in TORI_C], "Siitarista %.0f m" % math.dist(TORI_C, tie["siitari"]), "| Zabuki", [round(v, 1) for v in zc])
 
-    # Tiet: Ratatie pois, Aseman pihan alku pois (alkaa ympyrän reunasta), Vaalantien linkki ja Torintie uusia.
     exit_r = (c[0] + pd[0] * (RB_R - 0.5), c[1] + pd[1] * (RB_R - 0.5))
+    link_end = (c[0] - td[0] * (RB_R - 0.5), c[1] - td[1] * (RB_R - 0.5))
+    new_piha = [exit_r, tuple(p1)]
+    # Tiet: Ratatie pois, Aseman pihan alku pois (alkaa ympyrän reunasta), Vaalantien linkki ja Torintie uusia.
     piha["pts"] = [[round(exit_r[0], 2), round(exit_r[1], 2)]] + piha["pts"][k0 + 1:]
     tie["side_roads"] = [r for r in roads if r.get("name") != "Ratatie"]
-    link_end = (c[0] - td[0] * (RB_R - 0.5), c[1] - td[1] * (RB_R - 0.5))
     tie["side_roads"].append({"kind": "road", "hw": "secondary", "name": "Vaalantie", "surface": "paved", "_torisiirto": 1,
                               "pts": [[round(e[0], 2), round(e[1], 2)], [round(link_end[0], 2), round(link_end[1], 2)]]})
     arm = [[round(arm0[0], 2), round(arm0[1], 2)], [round(arm1[0], 2), round(arm1[1], 2)]]
@@ -106,7 +107,7 @@ def main():
             r["pts"] = [[round(q[0], 2), round(q[1], 2)] for q in tori + [tori[0]]]
 
     # Rakennukset torin, Zabukin ja Torintien tieltä; suojatut eivät saa osua.
-    lane = VL.resample([arm0, arm1], 2.0)
+    lane = VL.resample([arm0, arm1], 2.0) + VL.resample([e, link_end], 2.0) + VL.resample(new_piha, 2.0)
     lots = [tori, z_lot, mk]
     ring_sq = rect(c, (1.0, 0.0), RB_R + 1.0, RB_R + 1.0)
     kept, removed = [], []
@@ -134,7 +135,31 @@ def main():
     # Maasto: ympyrän ja torin tasoitus sekä Torintien pohja; puut pois.
     terr.flatten([ring_sq], 6.0)
     terr.flatten(lots, 8.0)
+    # Vanha Aseman pihan alkupätkä (Vaalantien päästä suoraan asemalle) takaisin ympäröivään maahan.
+    old = VL.resample([tuple(q) for q in roads_old_pts], 2.0)
+    keep_lines = [VL.resample([tuple(q[:2]) for q in r["pts"]], 3.0) for r in tie["side_roads"] if r["kind"] == "road" and r.get("name") not in ("Aseman piha",)]
+    keep_pts = [q for ln in keep_lines for q in ln] + VL.resample([arm0, arm1], 2.0) + VL.resample([e, link_end], 2.0) + VL.resample(new_piha, 2.0)
+    rev = 0
+    xs, zs = [q[0] for q in old], [q[1] for q in old]
+    for i, j, q in terr.cells((min(xs) - 6, min(zs) - 6, max(xs) + 6, max(zs) + 6)):
+        k = j * terr.nx + i
+        if terr.codes[k] != VS.YARD or VL.line_dist(q, old) > 4.6:
+            continue
+        if any(math.dist(q, p) < 9.0 for p in keep_pts) or any(VS.poly_dist(q, b["pts"]) < 6.0 for b in tie["buildings"]):
+            continue
+        neigh = []
+        for a_ in range(16):
+            for rad in (7.0, 10.0):
+                cc = terr.code((q[0] + math.cos(a_ * math.tau / 16) * rad, q[1] + math.sin(a_ * math.tau / 16) * rad))
+                if cc in (VS.FOREST, VS.FIELD, VS.BOG):
+                    neigh.append(cc)
+        terr.codes[k] = max(set(neigh), key=neigh.count) if neigh else VS.FOREST
+        terr.changed.add((i, j))
+        rev += 1
+    print("vanhaa pihan alkua takaisin maaksi: %d ruutua" % rev)
     terr.lane([arm0, arm1], wl)
+    terr.lane([e, link_end], wl)
+    terr.lane(new_piha, wl)
     pts = []
     for p in lots + [ring_sq]:
         xs, zs = [q[0] for q in p], [q[1] for q in p]

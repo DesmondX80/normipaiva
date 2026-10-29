@@ -628,7 +628,7 @@ func ensure_built() -> void:
 	var t0 := Time.get_ticks_msec()
 	var times: Array[String] = []
 	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
-			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_kunnantalo, _build_station, _build_poliisi, _build_signs,
+			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_kunnantalo, _build_apteekki, _build_station, _build_poliisi, _build_signs,
 			_build_trees, _build_lamps, _build_atm, _build_kmarket_yard, _build_lava, _build_satama, _build_uitto, _build_lava_pier, _build_mokki_yard, _build_north, _build_salminen_trees, _build_drive_mask,
 			_build_lava_grounds, _merge_static_meshes]:
 		var ts := Time.get_ticks_msec()
@@ -2857,7 +2857,9 @@ func _build_side_roads() -> void:
 				B.tube(self, Vector3(a.x + o.x, ya + 0.22, a.y + o.y), Vector3(b.x + o.x, yb + 0.22, b.y + o.y),
 					0.04, Color(0.5, 0.45, 0.4))
 			var up = data.get("underpass")
-			var at_under: bool = up != null and a.distance_to(Vector2(up.at[0], up.at[1])) < 60.0
+			var up2 = data.get("underpass2")
+			var at_under: bool = (up != null and a.distance_to(Vector2(up.at[0], up.at[1])) < 60.0) \
+				or (up2 != null and a.distance_to(Vector2(up2.at[0], up2.at[1])) < 60.0)
 			# Joen yli (kiskot reilusti maan yläpuolella): teräsristikkosilta (_build_truss) koko jaksolle.
 			if not at_under and minf(ya, yb) - maxf(h(a.x, a.y), h(b.x, b.y)) > 2.0:
 				rail_bridge.append([Vector3(a.x, ya, a.y), Vector3(b.x, yb, b.y)])
@@ -2996,14 +2998,43 @@ const PIER_R := 0.42     # pyöreä pilari
 
 func _build_underpass() -> void:
 	var u = data.get("underpass")
-	if u == null:
-		return
-	var i: int = u.i
-	underpass_i = i
-	var at := road_pos(i)
-	at.y = float(u.road_y)
+	if u != null:
+		var i: int = u.i
+		underpass_i = i
+		var at := road_pos(i)
+		at.y = float(u.road_y)
+		var road_dist := func(q: Vector3) -> float:
+			var best := INF
+			for k in range(maxi(i - 40, 0), mini(i + 40, road.size() - 1)):
+				var pa := road_pos(k)
+				var pb := road_pos(k + 1)
+				var c := Geometry2D.get_closest_point_to_segment(Vector2(q.x, q.z), Vector2(pa.x, pa.z), Vector2(pb.x, pb.z))
+				best = minf(best, c.distance_to(Vector2(q.x, q.z)))
+			return best
+		_under_structure(u, at, road_dir(i), road_dist, DECK_W)
+	# Satamantien alikulku (tools/vaala_alikulku.py): tie kulkee leikkauksessa asemaradan alla, kiskot kannen päällä.
+	var u2 = data.get("underpass2")
+	if u2 != null:
+		var line := PackedVector2Array()
+		for r in data.side_roads:
+			if r.name == u2.road:
+				for q in r.pts:
+					line.append(Vector2(q[0], q[1]))
+		var at2 := Vector3(u2.at[0], float(u2.road_y), u2.at[1])
+		var fd2 := Vector3(u2.road_dir[0], 0, u2.road_dir[1]).normalized()
+		var road_dist2 := func(q: Vector3) -> float:
+			var best := INF
+			for k in line.size() - 1:
+				var c := Geometry2D.get_closest_point_to_segment(Vector2(q.x, q.z), line[k], line[k + 1])
+				best = minf(best, c.distance_to(Vector2(q.x, q.z)))
+			return best
+		_under_structure(u2, at2, fd2, road_dist2, float(u2.deck_w))
+
+
+## Alikulun rakenne: kansi radan suuntaan, reunapalkit ja kaiteet, pilaririvit tien molemmin puolin, maatuet ja kilvet.
+## at = tien keskilinjan piste alikulun kohdalla (y = tien pinta), fd = tien suunta, deck_w = kannen leveys radan poikki.
+func _under_structure(u: Dictionary, at: Vector3, fd: Vector3, road_dist: Callable, deck_w: float) -> void:
 	var rd := Vector3(u.dir[0], 0, u.dir[1]).normalized()
-	var fd := road_dir(i)
 	var sin_a := maxf(absf(rd.cross(fd).y), 0.35)
 	var hw: float = u.hw
 	var deck: float = u.deck
@@ -3016,14 +3047,14 @@ func _build_underpass() -> void:
 	var dl := reach / sin_a * 2.0
 	var basis := Basis(Vector3.UP, atan2(rd.x, rd.z))
 	var deck_c := Vector3(at.x, deck - 0.45, at.z)
-	var slab := B.mesh(self, B.boxm(Vector3(DECK_W - 0.6, 0.7, dl)), deck_c, under)
+	var slab := B.mesh(self, B.boxm(Vector3(deck_w - 0.6, 0.7, dl)), deck_c, under)
 	slab.basis = basis
 	# Reunapalkit: vaalea betoni kannen pinnan yläpuolelle, alareuna laatan alle.
 	for e: float in [-1.0, 1.0]:
-		var em := B.mesh(self, B.boxm(Vector3(0.36, 1.25, dl)), deck_c + basis.x * e * (DECK_W / 2.0 - 0.18) + Vector3(0, 0.12, 0), conc)
+		var em := B.mesh(self, B.boxm(Vector3(0.36, 1.25, dl)), deck_c + basis.x * e * (deck_w / 2.0 - 0.18) + Vector3(0, 0.12, 0), conc)
 		em.basis = basis
 		# Kaide: tolpat 1,6 m välein, käsijohde ja välijohde.
-		var gp := deck_c + basis.x * e * (DECK_W / 2.0 - 0.18) + Vector3(0, 0.75, 0)
+		var gp := deck_c + basis.x * e * (deck_w / 2.0 - 0.18) + Vector3(0, 0.75, 0)
 		for k2 in int(dl / 1.6) + 1:
 			var pp: Vector3 = gp - basis.z * dl / 2.0 + basis.z * k2 * 1.6 + Vector3(0, 0.55, 0)
 			B.mesh(self, B.boxm(Vector3(0.07, 1.1, 0.07)), pp, steel)
@@ -3035,15 +3066,9 @@ func _build_underpass() -> void:
 	# kaistalle eikä pientareelle.
 	var pier_body := StaticBody3D.new()
 	add_child(pier_body)
-	var road_dist := func(q: Vector3) -> float:
-		var best := INF
-		for k in range(maxi(i - 40, 0), mini(i + 40, road.size() - 1)):
-			var pa := road_pos(k)
-			var pb := road_pos(k + 1)
-			var c := Geometry2D.get_closest_point_to_segment(Vector2(q.x, q.z), Vector2(pa.x, pa.z), Vector2(pb.x, pb.z))
-			best = minf(best, c.distance_to(Vector2(q.x, q.z)))
-		return best
-	var cols_x: Array[float] = [-(DECK_W / 2.0 - 1.0), DECK_W / 2.0 - 1.0]
+	var cols_x: Array[float] = [-(deck_w / 2.0 - 1.0), deck_w / 2.0 - 1.0]
+	if deck_w > 9.0:
+		cols_x = [-(deck_w / 2.0 - 1.0), 0.0, deck_w / 2.0 - 1.0]
 	for s: float in [-1.0, 1.0]:
 		var along := 0.0
 		while along < 40.0:
@@ -3068,17 +3093,17 @@ func _build_underpass() -> void:
 			pcs.shape = cyl
 			pcs.position = Vector3(pp.x, gy + ph / 2.0, pp.z)
 			pier_body.add_child(pcs)
-		var bm := B.mesh(self, B.boxm(Vector3(DECK_W - 0.4, 0.6, 1.1)), Vector3(row.x, deck - 1.15, row.z), conc)
+		var bm := B.mesh(self, B.boxm(Vector3(deck_w - 0.4, 0.6, 1.1)), Vector3(row.x, deck - 1.15, row.z), conc)
 		bm.basis = basis
 	# Maatuet kannen päissä luiskan päällä (osin maan sisällä).
 	for s: float in [-1.0, 1.0]:
 		var ab := Vector3(at.x, deck - 1.5, at.z) + basis.z * s * (dl / 2.0 - 0.7)
-		var am := B.mesh(self, B.boxm(Vector3(DECK_W + 0.6, 2.2, 1.4)), ab, conc.darkened(0.08))
+		var am := B.mesh(self, B.boxm(Vector3(deck_w + 0.6, 2.2, 1.4)), ab, conc.darkened(0.08))
 		am.basis = basis
 	# Alikulkukorkeus kannen reunaan molempiin ajosuuntiin.
 	for s: float in [-1.0, 1.0]:
 		var plate := B.sign_plate(self, "4,6 m", Color(0.98, 0.98, 0.95), Color(0.05, 0.05, 0.05), 0.4, 60, Color(0.85, 0.1, 0.08), "Helvetica Neue")
-		plate.position = at - fd * s * (DECK_W / 2.0 / sin_a + 0.1) + Vector3(0, H - 1.05, 0)
+		plate.position = at - fd * s * (deck_w / 2.0 / sin_a + 0.1) + Vector3(0, H - 1.05, 0)
 		plate.rotation.y = atan2(-fd.x * s, -fd.z * s)
 
 
@@ -4381,6 +4406,93 @@ func _build_kunnantalo() -> void:
 			B.mesh(self, B.boxm(Vector3(0.06, 0.5, 0.4)), bp + Vector3(ax.x * lx, 0.25, ax.y * lx), Color(0.3, 0.3, 0.3), rot)
 	var fp: Vector3 = ground.call(24.5, front + 1.5, 0.0)
 	B.mesh(self, B.cyl(0.07, 0.1, 9.0, 8), fp + Vector3(0, 4.5, 0), Color(0.85, 0.85, 0.85))
+
+
+## Apteekki Satamantien varressa radan alikulun jälkeen oikealla (tie.json keskusta.apteekki; tools/vaala_apteekki.py):
+## matala vaalea liikerakennus, jonka julkisivu on lasia ja ovi katoksen alla. Vihreä APTEEKKI-kyltti ja vihreä risti,
+## edessä asfalttiparkki (data.parkings) ruutuviivoin, P-kyltti ja autoja. Paikallinen kehys: +u = katsojasta vasemmalle,
+## +v = tielle päin (julkisivu). Rakennuksessa ei ole sisätilaa.
+func _build_apteekki() -> void:
+	var ap = data.get("keskusta", {}).get("apteekki")
+	if ap == null:
+		return
+	var f := Vector2(ap.face[0], ap.face[1]).normalized()
+	var ax := Vector2(-f.y, f.x)
+	var c := Vector2(ap.c[0], ap.c[1])
+	var bl: float = ap.len
+	var bd: float = ap.depth
+	var pd: float = ap.park_depth
+	var base := INF
+	for u in [-bl / 2.0, bl / 2.0]:
+		for v in [-bd / 2.0, bd / 2.0]:
+			var q: Vector2 = c + ax * u + f * v
+			base = minf(base, h(q.x, q.y))
+	base -= 0.1
+	var yaw := atan2(f.x, f.y)
+	var deg := rad_to_deg(yaw)
+	var rot := Vector3(0, deg, 0)
+	var at := func(u: float, v: float, y: float) -> Vector3:
+		var q := c + ax * u + f * v
+		return Vector3(q.x, base + y, q.y)
+	var ground := func(u: float, v: float, up: float) -> Vector3:
+		var q := c + ax * u + f * v
+		return Vector3(q.x, h(q.x, q.y) + up, q.y)
+	var wall := Color(0.93, 0.93, 0.89)
+	var green := Color(0.05, 0.5, 0.28)
+	var frame := Color(0.3, 0.33, 0.34)
+	var glass := Color(0.55, 0.72, 0.78)
+	var front := bd / 2.0
+	# Runko: vaalea seinä, tumma sokkeli, tasakatto ja kattoreunus.
+	B.mesh(self, B.boxm(Vector3(bl, 4.2, bd)), at.call(0, 0, 2.1), wall, rot)
+	B.mesh(self, B.boxm(Vector3(bl + 0.1, 0.5, bd + 0.1)), at.call(0, 0, 0.25), Color(0.35, 0.35, 0.37), rot)
+	B.mesh(self, B.boxm(Vector3(bl + 0.5, 0.35, bd + 0.5)), at.call(0, 0, 4.35), Color(0.36, 0.37, 0.4), rot)
+	B.mesh(self, B.boxm(Vector3(2.0, 0.9, 1.4)), at.call(-5.0, -2.5, 5.0), Color(0.62, 0.64, 0.66), rot)
+	# Lasijulkisivu: kaksi näyteikkunaa ja lasiovi keskellä, tummat karmit.
+	for wu in [-5.4, 5.4]:
+		B.mesh(self, B.boxm(Vector3(6.2, 2.7, 0.08)), at.call(wu, front + 0.03, 1.8), frame, rot)
+		B.mesh(self, B.boxm(Vector3(5.9, 2.4, 0.09)), at.call(wu, front + 0.04, 1.8), glass, rot)
+		for k in 3:
+			B.mesh(self, B.boxm(Vector3(0.07, 2.4, 0.1)), at.call(wu - 2.0 + k * 2.0, front + 0.06, 1.8), frame, rot)
+	B.mesh(self, B.boxm(Vector3(2.4, 2.5, 0.09)), at.call(0, front + 0.04, 1.35), frame, rot)
+	B.mesh(self, B.boxm(Vector3(2.1, 2.3, 0.1)), at.call(0, front + 0.05, 1.3), glass, rot)
+	B.mesh(self, B.boxm(Vector3(0.06, 2.3, 0.11)), at.call(0, front + 0.06, 1.3), frame, rot)
+	# Sisäänkäynnin katos ja kynnys.
+	B.mesh(self, B.boxm(Vector3(5.0, 0.16, 1.8)), at.call(0, front + 0.9, 3.05), green, rot)
+	B.mesh(self, B.boxm(Vector3(3.0, 0.12, 1.2)), at.call(0, front + 0.6, 0.06), Color(0.6, 0.6, 0.6), rot)
+	# Kyltit: APTEEKKI kattoreunuksen yläpuolella ja vihreä risti seinässä.
+	var sign_p := B.sign_plate(self, "APTEEKKI", green, Color.WHITE, 0.8, 100, Color(0.9, 0.95, 0.9), "Helvetica Neue")
+	sign_p.position = at.call(0, front + 0.06, 3.72)
+	sign_p.rotation.y = yaw
+	for arm in [Vector3(0.95, 0.3, 0.1), Vector3(0.3, 0.95, 0.1)]:
+		B.mesh(self, B.boxm(arm), at.call(-8.0, front + 0.08, 3.2), green, rot).material_override = B.unshaded(Color(0.1, 0.8, 0.4))
+	var hours := B.sign_plate(self, "AVOINNA\nma-pe 9-18", Color(0.97, 0.97, 0.95), Color(0.1, 0.1, 0.1), 0.18, 28, Color(0.5, 0.5, 0.5), "Helvetica Neue")
+	hours.position = at.call(2.0, front + 0.06, 1.35)
+	hours.rotation.y = yaw
+	var body := StaticBody3D.new()
+	add_child(body)
+	var cs := B.box_shape(Vector3(bl, 4.4, bd), Vector3.ZERO)
+	cs.transform = Transform3D(Basis(Vector3.UP, yaw), at.call(0, 0, 2.2))
+	body.add_child(cs)
+	# Parkki: ruutuviivat (6 ruutua), P-kyltti ja kaksi autoa; asfaltti piirtyy data.parkings-listasta.
+	var pv := front + pd / 2.0 + 0.2
+	for k in 7:
+		var ln := B.mesh(self, B.boxm(Vector3(0.12, 0.012, pd - 1.0)), ground.call(-bl / 2.0 - 1.0 + k * 3.0, pv, 0.07), Color(0.95, 0.95, 0.95), rot)
+		ln.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for pu in [-7.5, -1.5]:
+		B.parked_car(self, ground.call(pu, pv, 0.0), deg, [Color(0.2, 0.32, 0.6), Color(0.78, 0.78, 0.8)][int(absf(pu)) % 2])
+	var pp: Vector3 = ground.call(bl / 2.0 + 1.5, front + 1.0, 0.0)
+	B.mesh(self, B.cyl(0.04, 0.04, 2.2, 8), pp + Vector3(0, 1.1, 0), Color(0.5, 0.5, 0.52))
+	var pplate := B.sign_plate(self, "P", Color(0.1, 0.3, 0.7), Color.WHITE, 0.45, 70, Color.WHITE, "Helvetica Neue")
+	pplate.position = pp + Vector3(0, 2.3, 0)
+	pplate.rotation.y = yaw
+	# Pensaita ja kukkaruukut seinän vierellä.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4421
+	var door_at: Vector3 = ground.call(0.0, front + 2.2, 0.0)
+	doors.append({"id": "apteekki", "pos": door_at, "out": Vector3(f.x, 0, f.y), "hint": "Apteekkiin (käsikauppa ja reseptilääkkeet)"})
+	for k in 6:
+		var bp: Vector3 = ground.call(bl / 2.0 - 1.0 - k * 0.9, front + 0.5, 0.0)
+		B.mesh(self, B.sphere(0.4, 8), bp + Vector3(0, 0.3, 0), Color(0.2 + rng.randf() * 0.08, 0.42, 0.18)).scale = Vector3(1.2, 0.8, 1.0)
 
 
 ## Torikojut torin keskelle riviin: pöytä, neljä tolppaa ja raidallinen katos, kojuittain eri värit.
