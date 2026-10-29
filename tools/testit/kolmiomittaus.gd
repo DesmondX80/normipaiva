@@ -111,6 +111,19 @@ func _model_shots(node: Node3D, nimi: String, focus_y := 1.5, dist := 1.6) -> vo
 		cam.queue_free()
 
 
+## Sytkäri kiinni E:llä: odota, että sen voi sulkea (match 2,8 s, matka 0,8 s pelin ajassa), ja paina, kunnes se sulkeutuu.
+func _close_phone() -> void:
+	for i in 600:
+		var ui = main._kolmio_ui
+		if ui == null:
+			return
+		if "_t" in ui and ui._t > (3.0 if ui.mode == "match" else 1.0):
+			await _press()
+		else:
+			await get_tree().process_frame
+	_vika("Sytkäri ei sulkeutunut E:llä")
+
+
 func _wait_ui(max_frames := 120) -> void:
 	for i in max_frames:
 		if main._kolmio_ui == null:
@@ -123,6 +136,8 @@ func _advance_ui(shot_at := -1, suffix := "") -> void:
 	for i in 14:
 		if main._kolmio_ui == null:
 			return
+		if "_line" in main._kolmio_ui:
+			print("KOLMIO kohtaus %s rivi %d/%d, tila %s" % [main._kolmio_ui.mode, main._kolmio_ui._line, main._kolmio_ui.lines.size(), main.state])
 		await _frames(30)
 		if i == shot_at:
 			await _snap(suffix)
@@ -165,7 +180,8 @@ func _run_saloinen() -> void:
 	# Mätsi Jonilta ja Esalta: puhelin, ensimmäinen ympyrä ja Esan etämittaus.
 	w.global_position = joni.global_position + joni.global_transform.basis.z * -1.5 + Vector3(0, 0.3, 0)
 	await _frames(10)
-	print("KOLMIO kaverien vihje '%s'" % main._hint.text)
+	print("KOLMIO kaverien vihje '%s', tila %s, puhe %s, valikko %s, Jonille %.1f m" % [main._hint.text, main.state,
+		main._talk_box.is_open(), main._item_menu.is_open(), joni.distance_to_player()])
 	main._talk_open("kolmio_saloinen", joni)
 	await _frames(5)
 	main._talk_choose("kolmio_aloita")
@@ -173,10 +189,13 @@ func _run_saloinen() -> void:
 	await _snap("_sytkari_matsi")
 	if main.kolmio.stage("saloinen") != "mittaus":
 		_vika("mittaus ei alkanut")
-	await _press()
-	await _wait_ui()
+	await _close_phone()
+	print("KOLMIO mätsin jälkeen: tila %s, ui %s, vaihe %s, remote_t %.2f, Esa näkyy %s" % [main.state, main._kolmio_ui,
+		main.kolmio.stage("saloinen"), main.kolmio.st("saloinen").remote_t, main._kolmio_esa.visible])
 	main.kolmio.st("saloinen").remote_t = 0.05
 	await _frames(20)
+	print("KOLMIO 20 ruudun jälkeen: tila %s, remote_t %.2f, Esa näkyy %s, kuva %d" % [main.state, main.kolmio.st("saloinen").remote_t,
+		main._kolmio_esa.visible, Engine.get_process_frames()])
 	var rings: Array = main.kolmio.st("saloinen").rings
 	print("KOLMIO ympyrät Esan jälkeen %d: %s" % [rings.size(), rings])
 	if rings.size() != 2:
@@ -189,8 +208,7 @@ func _run_saloinen() -> void:
 	main._kolmio_measure("saloinen", me)
 	await _frames(70)
 	await _snap("_sytkari_matka")
-	await _press()
-	await _wait_ui()
+	await _close_phone()
 	if not main.kolmio.inside("saloinen", t):
 		_vika("Mintun ovi ei ole leikkauksessa")
 	var wrong_in := 0
@@ -358,16 +376,14 @@ func _run_vaala() -> void:
 	main._talk_choose("kolmio_aloita")
 	await _frames(150)
 	await _snap("_sytkari_matsi")
-	await _press()
-	await _wait_ui()
+	await _close_phone()
 	main.kolmio.st("vaala").remote_t = 0.05
 	await _frames(20)
 	var me := t + Vector2(-150, 90)
 	main._kolmio_measure("vaala", me)
 	await _frames(70)
 	await _snap("_sytkari_matka")
-	await _press()
-	await _wait_ui()
+	await _close_phone()
 	print("KOLMIO Vaalan ympyrät %s" % [main.kolmio.st("vaala").rings])
 	if not main.kolmio.inside("vaala", t):
 		_vika("Katjan ovi ei ole leikkauksessa")

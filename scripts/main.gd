@@ -19609,7 +19609,8 @@ func _spawn_player() -> void:
 func _set_avatar(a: CharacterBody3D) -> void:
 	player = a
 	world.follow = a
-	for h in [wife, juntti, guard, tractor, arto, pekka, sinikka, sulo, aaro, police, vaino, stray, mummot, boys]:
+	for h in [wife, juntti, guard, tractor, arto, pekka, sinikka, sulo, aaro, mirkku, police, vaino, stray, mummot, boys,
+			_kolmio_joni, _kolmio_esa]:
 		if is_instance_valid(h):
 			h.target = a
 	_minimap.player = a
