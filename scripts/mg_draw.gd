@@ -304,3 +304,4 @@ static func page_stains(ci: CanvasItem, pg: Rect2, seed_i: int) -> void:
 		var mc: Vector2 = at.call(0.88, 0.9)
 		ci.draw_circle(mc, 7.0, Color(0.85, 0.7, 0.1, 0.35))
 		ci.draw_line(mc, mc + Vector2(-18, -6), Color(0.85, 0.7, 0.1, 0.3), 3.0)
+

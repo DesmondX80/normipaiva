@@ -1057,6 +1057,8 @@ var kmarket_face := Vector3.ZERO  # julkisivun normaali kadulle (kmarket_out on 
 ## Keskustan ovet, joista mennään sisään E:llä (mopo_trip.gd door-signaali): {id, pos = oven edusta, out = ulospäin,
 ## hint}. K-Market Tervaportti, torin Zabuki ja Gasthaus.
 var doors: Array = []
+## Asuinrakennusten ovet (kolmiomittaus #255: Katjan rivitalo ja väärät ovet): {pos, out (Vector3), type, len, id}.
+var house_doors: Array = []
 
 
 func door_pos(id: String) -> Vector3:
@@ -3255,6 +3257,12 @@ func _build_buildings() -> void:
 			var shop := type in ["retail", "commercial"] or name.contains("market") or name.contains("Market")
 			var door := _hotel_door_q(obb, base + 0.3) if id == HOTEL_ID else (_door(obb, base + 0.3) if id != GASTHAUS_ID else \
 				(obb.center as Vector2) + _gasthaus_side(obb) * ((obb.size as Vector2).y / 2.0 + 0.05))
+			if (kind == "house" or type in ["terrace", "house", "detached", "residential"]) and not id in [HOTEL_ID, GASTHAUS_ID] \
+					and not shop and not church and not station:
+				var hay: Vector2 = obb.ay
+				var hout := hay if hay.dot(door - (obb.center as Vector2)) > 0.0 else -hay
+				house_doors.append({"pos": Vector3(door.x, h(door.x, door.y), door.y), "out": Vector3(hout.x, 0, hout.y), "type": type,
+					"len": maxf((obb.size as Vector2).x, (obb.size as Vector2).y), "id": id})
 			_windows(pts, base + 0.3, maxi(levels, 1) if id != HOTEL_ID else 2, wall_h, shop, door,
 				Vector2(1.25, 1.2) if not flat else Vector2(1.5, 1.3))
 			if type == "apartments":

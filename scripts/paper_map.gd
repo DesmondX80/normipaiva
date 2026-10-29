@@ -10,6 +10,7 @@ extends Control
 
 const M := preload("res://scripts/map_data.gd")
 const Mokki := preload("res://scripts/mokki.gd")
+const Kolmio := preload("res://scripts/kolmiomittaus.gd")
 
 const MAP_W := 600.0
 const INK := Color(0.22, 0.16, 0.1)
@@ -803,6 +804,7 @@ func _draw_map() -> void:
 	if game != null:
 		for qm in game.quest_marks(true):
 			_pencil_ring_on(v, qm)
+		_kolmio_rings_on(v, game.kolmio_rings("saloinen"), _w2)
 	if has_target:
 		_target_icon_on(v, _w2(target))
 	if player != null:
@@ -1201,6 +1203,7 @@ func _draw_vaala_map() -> void:
 		for m in game.cache_markers():
 			if m[0] == "vaala":
 				_cache_icon_on(v, _vpx(m[1]))
+		_kolmio_rings_on(v, game.kolmio_rings("vaala"), _vpx)
 	_draw_mokki_sites(v)
 	# Mopo: mökin pihassa tai Vaalassa parkissa; pelaaja.
 	var me := _vaala_me()
@@ -1571,6 +1574,22 @@ func _pencil_ring_on(ci: CanvasItem, qm: Array) -> void:
 	ci.draw_string(font, at, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 	if done:
 		ci.draw_line(at + Vector2(0, -4), at + Vector2(w, -4), col, 1.2)
+
+
+## Kolmiomittauksen (#255) harppiympyrät: pyöristyksen vyöhyke haaleana punakynävarjostuksena (päällekkäin tummuu,
+## joten leikkausalue erottuu), harpin viiva näytetyllä etäisyydellä, harpin kärjen jälki ja mittaajan nimi.
+## to_view: kartan koordinaatit (kylässä maailman x/z, Vaalassa kehys) näkymän pikseleiksi.
+func _kolmio_rings_on(ci: CanvasItem, rings: Array, to_view: Callable) -> void:
+	var col := Color(0.6, 0.1, 0.12)
+	for r: Dictionary in rings:
+		var c: Vector2 = to_view.call(r.c)
+		var lo: float = float(r.lo) * _vzoom
+		var hi: float = float(r.hi) * _vzoom
+		ci.draw_arc(c, (lo + hi) / 2.0, 0, TAU, 96, Color(col.r, col.g, col.b, 0.14), maxf(1.0, hi - lo))
+		ci.draw_arc(c, float(r.m) * _vzoom, 0, TAU, 96, Color(col.r, col.g, col.b, 0.8), 1.4, true)
+		ci.draw_circle(c, 2.2, col)
+		ci.draw_arc(c, 5.0, 0, TAU, 12, col, 1.2, true)
+		_outlined(ci, c + Vector2(7, -6), "%s %s" % [r.who, Kolmio.dist_text(r.m)], 12, col)
 
 
 ## Kaljapullo: ruskea runko ja kaula.

@@ -87,6 +87,16 @@ const OBST := [
 ]
 
 var drunk := 0.0
+## Erikoissäännöt (kolmiomittaus.gd, #255): peli naisen pimennetyssä olohuoneessa ilman takaovea ja portsaria.
+## Avaimet: host (emännän nimi portsarin repliikeissä), kerma (kermavaahto margariinin tilalla), mansikka (oikeasta
+## arvauksesta mansikka palkinnoksi), call (Päivin puhelu kesken pelin: [[puhuja, teksti], ...]), end_quote
+## (loppurepliikki), style (hallin värit, rasvanappi_hall.gd). Tyhjä = makasiinin tavallinen peli.
+var rules := {}
+var people: Array = PEOPLE  # pelaajat (ilman Päivin äijää), enintään viisi
+var anchor: Node3D  # ilman ovea: halli rakennetaan tämän solmun yläpuolelle ja peli alkaa esittelystä
+var strawberries := 0
+var _call_done := false
+var _call_line := 0
 var door: Node3D  # makasiinin takaovi (makasiini.gd "Takaovi"), main.gd asettaa ennen add_childia
 var sun: DirectionalLight3D  # maailman aurinko: rajataan pois hallin kerrokselta (rasvanappi_hall.gd)
 
@@ -210,7 +220,7 @@ void fragment() {
 	var order := range(PASSWORDS.size())
 	order.shuffle()
 	_opts = order
-	for i in PEOPLE.size():
+	for i in people.size():
 		npcs.append({"i": i, "pos": Vector2.ZERO, "ang": 0.0, "goal": 0.0, "phase": randf() * TAU, "turn_t": 0.0,
 			"pause_t": 0.0, "puff_t": randf_range(1.0, 6.0), "flee_t": 0.0, "flee_from": Vector2.ZERO, "target": -1,
 			"hunt_t": 0.0, "butter_t": 0.0, "moving": false})
@@ -222,9 +232,61 @@ void fragment() {
 	if door != null:
 		_setup_door()
 		_setup_hall()
+	elif anchor != null:
+		_setup_hall()
+		_mode = "esittely"
+		_hall.lineup()
+		_hall.set_lit(1.0)
+		_hall.line_cam.current = true
 
 
 # --- Yleiset ---------------------------------------------------------------------------------------------------
+
+func _host() -> String:
+	return rules.get("host", "Portsari")
+
+
+func _kerma() -> bool:
+	return rules.get("kerma", false)
+
+
+## Päivin puhelu pimeässä (rules.call): repliikit vuorotellen, E jatkaa, sitten peli jatkuu.
+func _call_step() -> void:
+	var lines: Array = rules["call"]
+	if _t > 0.5 and (_pressed_ok() or _t > 2.6):
+		_call_line += 1
+		_t = 0.0
+		if _call_line >= lines.size():
+			_mode = "pimea"
+			_t = 0.0
+			_puff(me.pos, "*klik*", Color(0.6, 0.85, 1.0), false, 1.0)
+
+
+func _draw_call() -> void:
+	var s := _size()
+	var k := s.y / 720.0
+	var lines: Array = rules["call"]
+	var r := Rect2(s.x * 0.5 - 170 * k, s.y * 0.5 - 220 * k, 340 * k, 440 * k)
+	MG.box(_top, r, Color(0.07, 0.07, 0.08), int(30 * k), int(10 * k), Color(0.35, 0.35, 0.38), int(3 * k))
+	var sr := r.grow(-14 * k)
+	MG.grad_rect(_top, sr, Color(0.15, 0.3, 0.45), Color(0.05, 0.1, 0.18))
+	var font := ThemeDB.fallback_font
+	var ring := 1.0 + 0.08 * sin(_t * 18.0) if _call_line == 0 else 1.0
+	_top.draw_string(font, sr.position + Vector2(0, 50 * k), "PÄIVI", HORIZONTAL_ALIGNMENT_CENTER, sr.size.x, int(34 * k * ring),
+		Color(1.0, 0.85, 0.85))
+	_top.draw_string(font, sr.position + Vector2(0, 78 * k), "puhelu 0:%02d" % mini(59, int(_game_t) % 60), HORIZONTAL_ALIGNMENT_CENTER,
+		sr.size.x, int(15 * k), Color(0.75, 0.8, 0.9))
+	var y := 120.0
+	for i in mini(_call_line + 1, lines.size()):
+		var l: Array = lines[i]
+		var mine: bool = l[0] != "Päivi"
+		var br := Rect2(sr.position + Vector2(16 if not mine else 70, y) * k, Vector2(sr.size.x - 86 * k, 62 * k))
+		MG.box(_top, br, Color(0.95, 0.95, 0.92) if not mine else Color(0.62, 0.9, 0.6), int(14 * k), 0, MG.OUTLINE, 1)
+		_top.draw_string(font, br.position + Vector2(10, 20) * k, l[0], HORIZONTAL_ALIGNMENT_LEFT, -1, int(13 * k), Color(0.35, 0.3, 0.3))
+		_top.draw_string(font, br.position + Vector2(10, 46) * k, l[1], HORIZONTAL_ALIGNMENT_LEFT, br.size.x - 20 * k, int(19 * k),
+			Color(0.1, 0.08, 0.06))
+		y += 76.0
+
 
 func _pressed_ok() -> bool:
 	return Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("jump")
@@ -263,7 +325,7 @@ func _process(delta: float) -> void:
 			if _t > 1.4:
 				_mode = "pimea"
 				_t = 0.0
-				_puff(Vector2(0.6, DOOR_Y - 0.7), "Portsari: Rasvanappi alkaa. Uusi aloittaa.", Color(0.85, 0.9, 1.0), true)
+				_puff(Vector2(0.6, DOOR_Y - 0.7), "%s: Rasvanappi alkaa. Uusi aloittaa." % _host(), Color(0.85, 0.9, 1.0), true)
 		"pimea":
 			_dark_step(delta)
 		"nimi":
@@ -285,15 +347,17 @@ func _process(delta: float) -> void:
 			if _t > 1.2 and (_pressed_ok() or _quit_pressed()):
 				_done(true)
 				return
+		"puhelu":
+			_call_step()
 	for p in _puffs:
 		p.t += delta
 	for i in range(_puffs.size() - 1, -1, -1):
 		if _puffs[i].t > _puffs[i].life:
 			_puffs.remove_at(i)
 	MG.sparks_step(_sparks, delta)
-	if _hall != null and _mode in ["sammutus", "pimea", "nimi", "vastaus", "nuolu", "loppu"]:
+	if _hall != null and _mode in ["sammutus", "pimea", "nimi", "vastaus", "nuolu", "loppu", "puhelu"]:
 		_hall_step(delta)
-	_dark.visible = _hall == null and (_mode in ["pimea", "nimi", "vastaus", "nuolu", "loppu"] or (_mode == "sammutus" and _t > 0.35))
+	_dark.visible = _hall == null and (_mode in ["pimea", "nimi", "vastaus", "nuolu", "loppu", "puhelu"] or (_mode == "sammutus" and _t > 0.35))
 	if _dark.visible:
 		_update_dark()
 	_update_texts()
@@ -305,7 +369,8 @@ func _done(got_in: bool) -> void:
 	if _mode == "valmis":
 		return
 	_mode = "valmis"
-	finished.emit({"got_in": got_in, "pokes": my_pokes, "hits": my_hits, "licks": licks, "total": pokes, "early": _early})
+	finished.emit({"got_in": got_in, "pokes": my_pokes, "hits": my_hits, "licks": licks, "total": pokes, "early": _early,
+		"mansikat": strawberries, "puhelu": _call_done})
 	queue_free()
 
 
@@ -337,6 +402,9 @@ func _update_texts() -> void:
 		"vastaus", "nuolu", "sammutus":
 			_info.text = ""
 			_keys.set_text("")
+		"puhelu":
+			_info.text = "Puhelin soi pimeässä!"
+			_keys.set_text("[%s] jatka" % Settings.action_key("interact"))
 		"loppu":
 			_info.text = ""
 			_keys.set_text("[%s] pukemaan ja ulos" % Settings.action_key("interact"))
@@ -499,21 +567,30 @@ func _setup_door() -> void:
 ## Halli rakennetaan heti (hahmojen lataus ei nyki valojen sammuessa), kauas makasiinin yläpuolelle.
 func _setup_hall() -> void:
 	var looks: Array = []
-	for p: Dictionary in PEOPLE:
+	for p: Dictionary in people:
 		var lk: Dictionary = p.look
 		var woman: bool = p.get("woman", false)
-		looks.append({"towel": p.towel, "woman": woman, "look": {"model": "female" if woman else "male", "skin": lk.skin,
+		var look := {"model": "female" if woman else "male", "skin": lk.skin,
 			"hair": HAIRS[lk.hair], "hair_color": lk.hair_col, "beard": lk.get("beard", false), "height": 1.64 if woman else 1.76,
-			"bulk": (p.bulk - 1.0) * 2.0, "belly": 0.6 if p.bulk > 1.1 else 0.25, "muscle": -0.9}})
+			"bulk": (p.bulk - 1.0) * 2.0, "belly": 0.6 if p.bulk > 1.1 else 0.25, "muscle": -0.9}
+		for key in ["bust", "curves", "curls", "long_hair"]:  # erikoissääntöjen pelaajien muodot ja hiukset (kolmiomittaus.gd)
+			if lk.has(key):
+				look[key] = lk[key]
+		looks.append({"towel": p.towel, "woman": woman, "look": look})
 	looks.append({"towel": Color(0.95, 0.95, 0.92), "woman": false, "look": {"skin": Color(0.98, 0.8, 0.7),
 		"hair": "Hair_SimpleParted", "hair_color": Color(0.22, 0.15, 0.1), "belly": 0.75, "bulk": 0.1, "height": 1.8}})
 	_hall = Hall.new()
 	_hall.room = ROOM
 	_hall.door_y = DOOR_Y
-	door.get_parent().add_child(_hall)
+	_hall.style = rules.get("style", {})
+	var at: Node3D = door if door != null else anchor
+	at.get_parent().add_child(_hall)
 	_hall.top_level = true
-	_hall.global_transform = Transform3D(Basis(), door.global_position + Vector3(0, 250, 0))
-	_hall.build(OBST, looks, BOUNCER, sun)
+	_hall.global_transform = Transform3D(Basis(), at.global_position + Vector3(0, 250, 0))
+	_hall.build(OBST, looks, {} if rules.has("host") else BOUNCER, sun)
+	if _kerma():
+		for c in _hall.crawlers:
+			c.set_cream()
 
 
 ## Konttaajat, valot ja tökkäysten liike joka ruutu (hallin tiloissa).
@@ -681,6 +758,16 @@ func _move(who: Dictionary, step: Vector2, self_i: int) -> bool:
 
 func _dark_step(delta: float) -> void:
 	_game_t += delta
+	if rules.has("call") and not _call_done and _game_t > 45.0 and _pending.is_empty():
+		_call_done = true
+		_call_line = 0
+		_mode = "puhelu"
+		_t = 0.0
+		Sfx.play("bell", -6.0, 2.6)
+		for n in npcs:
+			n.moving = false
+		_puff(me.pos, "*piip piip*", Color(0.6, 0.85, 1.0), true, 1.5)
+		return
 	for i in range(_later.size() - 1, -1, -1):
 		_later[i][0] -= delta
 		if _later[i][0] <= 0.0:
@@ -736,7 +823,7 @@ func _dark_step(delta: float) -> void:
 				_whiff_t = 0.8
 				n.flee_t = 1.6
 				n.flee_from = me.pos
-				Sfx.play("grunt", -6.0, PEOPLE[hit].snd[1] * 1.2)
+				Sfx.play("grunt", -6.0, people[hit].snd[1] * 1.2)
 				_puff(n.pos, ["Hei! Väärä pää!", "Ei sieltä!", "Takaa, takaa!"].pick_random(), Color(0.9, 0.9, 0.9))
 		else:
 			_whiff_t = 0.6
@@ -758,7 +845,7 @@ func _poke_target() -> int:
 
 func _npc_step(i: int, delta: float) -> void:
 	var n: Dictionary = npcs[i]
-	var person: Dictionary = PEOPLE[i]
+	var person: Dictionary = people[i]
 	n.puff_t -= delta
 	if n.puff_t <= 0.0:
 		n.puff_t = randf_range(4.5, 9.0)
@@ -834,7 +921,7 @@ func _pick_target(i: int, avoid: int) -> void:
 
 
 func _npc_say(i: int, text: String, big := false) -> void:
-	var person: Dictionary = PEOPLE[i]
+	var person: Dictionary = people[i]
 	var d: float = npcs[i].pos.distance_to(me.pos)
 	Sfx.play(person.snd[0], -8.0 - d * 1.6, person.snd[1] * randf_range(0.95, 1.05))
 	_puff(npcs[i].pos, text, Color(0.95, 0.92, 0.85), big)
@@ -845,7 +932,7 @@ func _puff(pos: Vector2, text: String, col: Color, big := false, life := 2.4) ->
 
 
 func _name_of(i: int) -> String:
-	return ME_NAME if i == -1 else PEOPLE[i].name
+	return ME_NAME if i == -1 else people[i].name
 
 
 func _begin_poke(poker: int, poked: int) -> void:
@@ -858,7 +945,7 @@ func _begin_poke(poker: int, poked: int) -> void:
 	Sfx.play("punch", -4.0, 1.5)
 	_puff(bp, "TÖK!", Color(1.0, 0.9, 0.35), true, 1.2)
 	if poked >= 0:
-		Sfx.play(PEOPLE[poked].snd[0], -4.0, PEOPLE[poked].snd[1] * 1.3)
+		Sfx.play(people[poked].snd[0], -4.0, people[poked].snd[1] * 1.3)
 		npcs[poked].flee_t = 0.0
 	if poker == -1:
 		my_pokes += 1
@@ -890,7 +977,7 @@ func _begin_poke(poker: int, poked: int) -> void:
 		if _pending.right:
 			licks += 1
 	else:
-		var answer: String = "…osui." if _pending.right else "Väärin! Mää oon %s." % PEOPLE[poked].name
+		var answer: String = "…osui." if _pending.right else "Väärin! Mää oon %s." % people[poked].name
 		_later.append([1.4, func() -> void: _npc_say(poked, answer)])
 		var licker: int = poked if _pending.right else poker
 		_later.append([2.8, func() -> void:
@@ -901,7 +988,7 @@ func _begin_poke(poker: int, poked: int) -> void:
 
 ## Nimen valinta tökkäyksen jälkeen (pelaaja on nappi).
 func _name_step() -> void:
-	var n := PEOPLE.size()
+	var n := people.size()
 	if Input.is_action_just_pressed("forward") or Input.is_action_just_pressed("left"):
 		_sel = (_sel + n - 1) % n
 		Sfx.play("pickup", -16.0, 1.6)
@@ -920,19 +1007,23 @@ func _name_step() -> void:
 
 func _name_pick(pick: int) -> void:
 	var poked: int = _pending.poked
-	_pending.guess = PEOPLE[pick].name
+	_pending.guess = people[pick].name
 	_pending.right = pick == poked
-	_puff(me.pos + Vector2(0, -0.45), "Rasvanappi, %s!" % PEOPLE[pick].name, Color(1.0, 0.95, 0.6), true)
+	_puff(me.pos + Vector2(0, -0.45), "Rasvanappi, %s!" % people[pick].name, Color(1.0, 0.95, 0.6), true)
 	Sfx.play("grunt", -4.0, 1.0)
 	_mode = "vastaus"
 	_t = 0.0
 	if _pending.right:
 		my_hits += 1
 		_lick = {"kind": "other_me", "who": poked}
+		if rules.get("mansikka", false):
+			strawberries += 1
+			_puff(me.pos + Vector2(0, -0.9), "+ mansikka!", Color(1.0, 0.45, 0.5), true, 2.0)
+			Sfx.play("pickup", -6.0, 1.4)
 	else:
 		licks += 1
 		_lick = {"kind": "me_self", "who": poked}
-	var answer: String = "…osui." if _pending.right else "Väärin! Mää oon %s." % PEOPLE[poked].name
+	var answer: String = "…osui." if _pending.right else "Väärin! Mää oon %s." % people[poked].name
 	_npcs_answer_t = 0.8
 	_npcs_answer = [poked, answer]
 
@@ -956,12 +1047,14 @@ func _new_nappi(who: int, partner: int) -> void:
 		_pending = {}
 		return
 	if who == -1:
-		_puff(Vector2(0.7, DOOR_Y - 0.7), "Portsari: Uutta margariinia. Sormi tänne.", Color(0.85, 0.9, 1.0), true, 3.0)
+		_puff(Vector2(0.7, DOOR_Y - 0.7), "%s: %s" % [_host(), "Kermavaahtoa sormeen. Pssshh." if _kerma() else "Uutta margariinia. Sormi tänne."],
+			Color(0.85, 0.9, 1.0), true, 3.0)
 		Sfx.play("cloth", -8.0, 0.8)
 	else:
 		npcs[who].butter_t = 4.0
 		_pick_target(who, partner)
-		_puff(Vector2(0.7, DOOR_Y - 0.7), "Portsari: Uusi nappi, uutta rasvaa!", Color(0.85, 0.9, 1.0), true, 2.6)
+		_puff(Vector2(0.7, DOOR_Y - 0.7), "%s: Uusi nappi, %s!" % [_host(), "lisää kermaa" if _kerma() else "uutta rasvaa"],
+			Color(0.85, 0.9, 1.0), true, 2.6)
 	_pending = {}
 
 
@@ -971,7 +1064,7 @@ func _end() -> void:
 	_mode = "loppu"
 	_t = 0.0
 	Sfx.play("rattle", -2.0, 2.2)
-	var lines := ["Joku löytää valokatkaisijan. Kaikki jähmettyvät.", "Kukaan ei katso ketään silmiin."]
+	var lines: Array = rules.get("end_lines", ["Joku löytää valokatkaisijan. Kaikki jähmettyvät.", "Kukaan ei katso ketään silmiin."])
 	if _early:
 		lines = ["Konttaat ovelle ja haet vaatteet penkiltä.", "Pimeästä kuuluu: \"Hihii, joko lähdet?\""]
 	_end_lines = lines
@@ -1046,9 +1139,10 @@ func _draw_top() -> void:
 			_draw_lineup_tags()
 		else:
 			_hand_draw(_top, pc + Vector2(-70, 210) * k, 0.55 * k, -0.25, Color(0.92, 0.72, 0.6), minf(1.0, _t * 0.8))
-		_top.draw_string_outline(ThemeDB.fallback_font, Vector2(s.x * 0.74, s.y * 0.93), "Portsari voitelee sormesi: aloitat napin.",
+		var oil := "%s suihkauttaa kermavaahtoa sormeesi: aloitat napin." % _host() if _kerma() else "Portsari voitelee sormesi: aloitat napin."
+		_top.draw_string_outline(ThemeDB.fallback_font, Vector2(s.x * 0.74, s.y * 0.93), oil,
 			HORIZONTAL_ALIGNMENT_CENTER, s.x * 0.25, int(16 * k), 5, Color.BLACK)
-		_top.draw_string(ThemeDB.fallback_font, Vector2(s.x * 0.74, s.y * 0.93), "Portsari voitelee sormesi: aloitat napin.",
+		_top.draw_string(ThemeDB.fallback_font, Vector2(s.x * 0.74, s.y * 0.93), oil,
 			HORIZONTAL_ALIGNMENT_CENTER, s.x * 0.25, int(16 * k), Color(1.0, 0.9, 0.5))
 		if _fade > 0.0:
 			_top.draw_rect(Rect2(Vector2.ZERO, s), Color(0, 0, 0, _fade))
@@ -1069,6 +1163,8 @@ func _draw_top() -> void:
 				else "väärä pää…", HORIZONTAL_ALIGNMENT_CENTER, 120, 18, Color(1, 0.9, 0.4) if behind else Color(0.7, 0.7, 0.7))
 	if _mode == "nimi":
 		_draw_name_menu()
+	elif _mode == "puhelu":
+		_draw_call()
 	elif _mode == "nuolu":
 		_draw_lick()
 	elif _mode == "loppu":
@@ -1142,9 +1238,9 @@ func _draw_lineup() -> void:
 			for j in 4:
 				ci.draw_line(cr.position + Vector2(0, 20 + j * 26) * k, cr.position + Vector2(80, 20 + j * 26) * k, c.darkened(0.35), 3.0)
 	# Pelaajat pyyhkeissään.
-	var n := PEOPLE.size()
+	var n := people.size()
 	for i in n:
-		var p: Dictionary = PEOPLE[i]
+		var p: Dictionary = people[i]
 		var look: Dictionary = p.look.duplicate()
 		look["shirt"] = look.skin
 		var x := s.x * (0.1 + i * 0.165)
@@ -1184,8 +1280,8 @@ func _draw_lineup_tags() -> void:
 	var k := _size().y / 720.0
 	var cam: Camera3D = _hall.line_cam
 	var font := ThemeDB.fallback_font
-	for i in PEOPLE.size():
-		var p: Dictionary = PEOPLE[i]
+	for i in people.size():
+		var p: Dictionary = people[i]
 		var c: Node3D = _hall.crawlers[i]
 		var feet := cam.unproject_position(c.global_position + Vector3(0, -0.05, 0.3))
 		var head := cam.unproject_position(c.global_position + Vector3(0, 1.95, 0))
@@ -1206,7 +1302,7 @@ func _tub(ci: CanvasItem, c: Vector2, k: float) -> void:
 	var r := Rect2(c - Vector2(42, 26) * k, Vector2(84, 52) * k)
 	MG.box(ci, r, Color(0.98, 0.85, 0.2), int(10 * k), 3, MG.OUTLINE, 2)
 	MG.box(ci, Rect2(r.position - Vector2(4, 8) * k, Vector2(r.size.x + 8 * k, 14 * k)), Color(0.95, 0.92, 0.8), int(6 * k), 0, MG.OUTLINE, 2)
-	ci.draw_string(ThemeDB.fallback_font, r.position + Vector2(0, 34 * k), "MARGARIINI", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, int(12 * k),
+	ci.draw_string(ThemeDB.fallback_font, r.position + Vector2(0, 34 * k), "KERMA" if _kerma() else "MARGARIINI", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, int(12 * k),
 		Color(0.2, 0.45, 0.15))
 	ci.draw_circle(r.position + Vector2(r.size.x * 0.5, 12 * k), 6 * k, Color(0.3, 0.6, 0.2))
 
@@ -1297,7 +1393,7 @@ func _draw_hall() -> void:
 	# Konttaajat.
 	for i in npcs.size():
 		var n: Dictionary = npcs[i]
-		_crawler(ci, n.pos, n.ang, n.phase, PEOPLE[i].bulk, i == nappi and n.butter_t <= 0.0)
+		_crawler(ci, n.pos, n.ang, n.phase, people[i].bulk, i == nappi and n.butter_t <= 0.0)
 	_crawler(ci, me.pos, me.ang, me.phase, 1.0, nappi == -1, true)
 
 
@@ -1425,9 +1521,15 @@ func _hand_draw(ci: CanvasItem, c: Vector2, sc: float, rot: float, skin: Color, 
 	ci.draw_line(Vector2(-27, -89), Vector2(-17, -89), nail.lightened(0.5), 2.0)
 	if butter > 0.02:
 		var h := 22.0 * butter
-		MG.box(ci, Rect2(-38, -98 - h, 34, h + 6), Color(1.0, 0.86, 0.32), 5, 2, MG.OUTLINE, 2)
-		ci.draw_rect(Rect2(-35, -96 - h, 26, 4), Color(1.0, 0.97, 0.75))
-		ci.draw_circle(Vector2(-10, -88), 4.0 * butter, Color(1.0, 0.86, 0.32))  # valuu
+		var fat := Color(1.0, 0.99, 0.95) if _kerma() else Color(1.0, 0.86, 0.32)
+		if _kerma():  # kermavaahtopilvi: pyöreät nokareet ja kiehkura
+			for j in 4:
+				ci.draw_circle(Vector2(-30 + j * 7, -96 - h * 0.5 - (j % 2) * 5), 8.0 + h * 0.15, fat.darkened(0.04 * (j % 2)))
+			ci.draw_arc(Vector2(-21, -100 - h * 0.6), 6.0, 0, PI * 1.5, 8, Color(0.85, 0.82, 0.78), 1.5)
+		else:
+			MG.box(ci, Rect2(-38, -98 - h, 34, h + 6), fat, 5, 2, MG.OUTLINE, 2)
+			ci.draw_rect(Rect2(-35, -96 - h, 26, 4), Color(1.0, 0.97, 0.75))
+		ci.draw_circle(Vector2(-10, -88), 4.0 * butter, fat)  # valuu
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 
@@ -1457,16 +1559,16 @@ func _draw_name_menu() -> void:
 	var s := _size()
 	var k := s.y / 720.0
 	var w := 420.0 * k
-	var h := (PEOPLE.size() * 48.0 + 80.0) * k
+	var h := (people.size() * 48.0 + 80.0) * k
 	var r := Rect2((s.x - w) / 2.0, (s.y - h) / 2.0, w, h)
 	MG.box(_top, r, Color(0.06, 0.05, 0.05, 0.92), 14, 8, Color(0.95, 0.8, 0.3), 2)
 	_top.draw_string(ThemeDB.fallback_font, r.position + Vector2(0, 40 * k), "\"Rasvanappi, …!\"", HORIZONTAL_ALIGNMENT_CENTER, w, int(28 * k),
 		Color(1.0, 0.9, 0.45))
-	for i in PEOPLE.size():
+	for i in people.size():
 		var rr := Rect2(r.position + Vector2(24, 62 + i * 48) * k, Vector2(w - 48 * k, 40 * k))
 		var on := i == _sel
 		MG.box(_top, rr, Color(0.95, 0.82, 0.35) if on else Color(0.2, 0.18, 0.16), 8, 0, MG.OUTLINE, 2)
-		_top.draw_string(ThemeDB.fallback_font, rr.position + Vector2(16, 28) * k, "%d   %s   · %s" % [i + 1, PEOPLE[i].name, PEOPLE[i].desc],
+		_top.draw_string(ThemeDB.fallback_font, rr.position + Vector2(16, 28) * k, "%d   %s   · %s" % [i + 1, people[i].name, people[i].desc],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, int(21 * k), Color(0.1, 0.08, 0.05) if on else Color(0.92, 0.9, 0.85))
 
 
@@ -1477,7 +1579,7 @@ func _draw_lick() -> void:
 	MG.box(_top, r, Color(0.04, 0.03, 0.04, 0.95), 18, 10, Color(0.95, 0.75, 0.8), 3)
 	var kind: String = _lick.get("kind", "")
 	var who: int = _lick.get("who", 0)
-	var p: Dictionary = PEOPLE[who]
+	var p: Dictionary = people[who]
 	var own := kind in ["other_me", "me_self"]  # nuoltava sormi on pelaajan
 	var style: String = "me" if own else p.id
 	var skin: Color = Color(0.92, 0.72, 0.6) if own else p.look.skin
@@ -1523,7 +1625,7 @@ func _draw_lick() -> void:
 			sub = "%s: \"%s\" Nyt %s on rasvanappi." % [p.name, p.lick, p.name]
 		"me_self":
 			line = "Väärin, se oli %s. Nuolet oman sormesi." % p.name
-			sub = "Margariinia. Ja jotain muuta. Älä ajattele sitä."
+			sub = "Kermavaahtoa. Makeaa. Ja jotain muuta. Älä ajattele sitä." if _kerma() else "Margariinia. Ja jotain muuta. Älä ajattele sitä."
 		"me_other":
 			line = "%s arvasi. Nuolet %s sormen puhtaaksi." % [p.name, p.gen]
 			sub = "Nyt sinä olet rasvanappi."
@@ -1564,8 +1666,11 @@ func _draw_end() -> void:
 		_top.draw_string(font, r.position + Vector2(0, y * k), l, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, int(20 * k), Color(0.95, 0.92, 0.85))
 		y += 30.0
 	y += 16.0
-	for l in ["Tökkäsit %d kertaa, arvasit oikein %d." % [my_pokes, my_hits], "Nuolit sormia: %d." % licks]:
+	var tally := ["Tökkäsit %d kertaa, arvasit oikein %d." % [my_pokes, my_hits], "Nuolit sormia: %d." % licks]
+	if rules.get("mansikka", false):
+		tally.append("Mansikoita palkinnoksi: %d." % strawberries)
+	for l in tally:
 		_top.draw_string(font, r.position + Vector2(0, y * k), l, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, int(22 * k), Color(1.0, 0.85, 0.6))
 		y += 32.0
-	_top.draw_string(font, r.position + Vector2(0, (y + 20) * k), "Pekka: \"No niin. Ensi tiistaina uudestaan.\"", HORIZONTAL_ALIGNMENT_CENTER,
+	_top.draw_string(font, r.position + Vector2(0, (y + 20) * k), rules.get("end_quote", "Pekka: \"No niin. Ensi tiistaina uudestaan.\""), HORIZONTAL_ALIGNMENT_CENTER,
 		r.size.x, int(18 * k), Color(0.8, 0.8, 0.75))

@@ -16,6 +16,8 @@ const LINE_Z := 4.4  # esittelyrivi
 
 var room := Vector2(12, 7)
 var door_y := 3.5
+## Värit (kolmiomittaus.gd: naisen olohuone): floor = lattia, wall = seinät. Tyhjä = makasiinin takahuone.
+var style := {}
 var crawlers: Array = []  # Crawler, pelaajan konttaaja viimeisenä
 var cam: Camera3D  # pelin kamera ylhäältä viistosti
 var line_cam: Camera3D  # esittely edestä
@@ -27,7 +29,8 @@ var _sight: OmniLight3D
 var _env: Environment
 
 
-## obst: esteet (Rect2, m), looks: [{look, towel, woman}] (pelaaja viimeisenä), bouncer: portsarin ulkonäkö.
+## obst: esteet (Rect2, m), looks: [{look, towel, woman}] (pelaaja viimeisenä), bouncer: portsarin ulkonäkö (tyhjä = ei
+## portsaria, esim. naisen olohuoneessa).
 func build(obst: Array, looks: Array, bouncer: Dictionary, sun: DirectionalLight3D) -> void:
 	_sun = sun
 	if _sun != null:
@@ -39,10 +42,11 @@ func build(obst: Array, looks: Array, bouncer: Dictionary, sun: DirectionalLight
 		add_child(c)
 		c.setup(lk.look, lk.towel, lk.woman)
 		crawlers.append(c)
-	var b := Looks.make(self, bouncer)
-	b.position = Vector3(0.75, 0, door_y - 1.0)
-	b.rotation.y = -PI / 2.0  # katsoo halliin (+X)
-	b.play("Idle")
+	if not bouncer.is_empty():
+		var b := Looks.make(self, bouncer)
+		b.position = Vector3(0.75, 0, door_y - 1.0)
+		b.rotation.y = -PI / 2.0  # katsoo halliin (+X)
+		b.play("Idle")
 	_env = Environment.new()
 	_env.background_mode = Environment.BG_COLOR
 	_env.background_color = Color(0.0, 0.0, 0.0)
@@ -173,8 +177,8 @@ func _build_lights() -> void:
 
 
 func _build_room(obst: Array) -> void:
-	var wood := Color(0.4, 0.3, 0.21)
-	var wall := Color(0.32, 0.15, 0.1)
+	var wood: Color = style.get("floor", Color(0.4, 0.3, 0.21))
+	var wall: Color = style.get("wall", Color(0.32, 0.15, 0.1))
 	var p := Makasiini.Parts.new()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
