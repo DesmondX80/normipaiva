@@ -237,7 +237,7 @@ const ESA := {
 const HEVARI_TERO := {
 	"shirt": Color(0.06, 0.06, 0.07), "pants": Color(0.1, 0.1, 0.12), "jeans": true, "shoes": Color(0.05, 0.05, 0.05),
 	"hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.12), "beard": true, "height": 1.82, "belly": 0.55, "bulk": 0.2,
-	"skin": Color(0.97, 0.84, 0.76),
+	"skin": Color(0.97, 0.84, 0.76), "long_hair": true,
 }
 ## Siviikki-Timo: punainen tuulitakki kuin Hondan värit, farkut, valkoiset lenkkarit.
 const SIVIIKKI_TIMO := {
@@ -246,17 +246,21 @@ const SIVIIKKI_TIMO := {
 	"skin": Color(0.98, 0.84, 0.74), "shine": 0.6,
 }
 ## Minttu: punaiset kiharat olkapäille (add_curls), pisamainen vaalea iho ja keltainen polvipituinen kesämekko
-## ohuin olkaimin (paljaat käsivarret ja sääret), valkoiset sandaalit. Selvästi eri näköinen kuin Sinikka.
+## ohuin olkaimin (paljaat käsivarret, helma add_skirt), valkoiset sandaalit. Muodot Sinikan tasoa (issue: vähintään yhtä
+## hemaiseva), mutta selvästi eri näköinen: punakiharainen ja pisamainen kesämekossa, ei platinablondi tuubitopissa.
 const MINTTU := {
 	"model": "female", "shirt": Color(1.0, 0.8, 0.22), "pants": Color(1.0, 0.8, 0.22), "shoes": Color(0.95, 0.93, 0.88),
 	"hair": "Hair_Long", "hair_color": Color(0.72, 0.2, 0.07), "height": 1.68, "skin": Color(1.0, 0.92, 0.86),
-	"bare_skin": Color(1.0, 0.86, 0.78), "shorts_y": 0.55, "sleeve_x": 0.17, "curves": 0.8, "bust": 2.0, "curls": true,
+	"bare_skin": Color(1.0, 0.86, 0.78), "shorts_y": 0.88, "sleeve_x": 0.17, "curves": 1.0, "bust": 2.7, "curls": true,
+	"skirt": Color(1.0, 0.8, 0.22),
 }
-## Katja: pitkät mustat suorat hiukset, kiiltävä musta nahkatakki, tummat farkut ja mustat saappaat; motoristi.
+## Katja: pitkät mustat suorat hiukset (add_long_hair), kiiltävä musta nahkatakki, siniset farkut vyön kanssa ja mustat
+## saappaat; motoristi. Muodot Sinikan tasoa.
 const KATJA := {
-	"model": "female", "shirt": Color(0.05, 0.045, 0.05), "shine": 0.95, "pants": Color(0.12, 0.13, 0.18), "denim": true,
+	"model": "female", "shirt": Color(0.05, 0.045, 0.05), "shine": 0.95, "pants": Color(0.16, 0.2, 0.32), "denim": true,
+	"belt_y": 1.0, "belt_col": Color(0.45, 0.42, 0.38),
 	"shoes": Color(0.04, 0.04, 0.04), "hair": "Hair_Long", "hair_color": Color(0.03, 0.025, 0.03), "height": 1.75,
-	"skin": Color(0.98, 0.86, 0.78), "curves": 0.7, "bust": 1.8,
+	"skin": Color(0.98, 0.86, 0.78), "curves": 1.0, "bust": 2.7, "long_hair": true,
 }
 ## Sandels-päkkirinkan värit (pahvilaatikko). Esikuvaa ei saatu tarkistettua: säädä tästä, kun kuva on katsottu.
 const SANDELS_BOX := Color(0.12, 0.28, 0.62)
@@ -284,6 +288,10 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 		add_braid(c, look.get("hair_color", Color(0.78, 0.5, 0.28)))
 	if look.get("curls", false):
 		add_curls(c, look.get("hair_color", Color(0.72, 0.2, 0.07)))
+	if look.get("long_hair", false):
+		add_long_hair(c, look.get("hair_color", Color(0.05, 0.04, 0.05)))
+	if look.has("skirt"):
+		add_skirt(c, look.skirt)
 	if look.get("sandels", false):
 		add_sandels_rinkka(c)
 	return c
@@ -363,47 +371,87 @@ static func add_braid(c: Node3D, col: Color) -> void:
 	c.attach("spine_03", braid, head - chest)
 
 
-## Kiharat (Minttu): tiheä kiharapilvi pään ympäri (kasvot -Z ja korvien edusta vapaana) ja niskasta olkapäille
-## valuvat kiharat pitkien hiusten päälle. Kuten mummojen permanentti (mummot.gd _perm), mutta isommat kiharat ja
-## pidemmät hiukset. Mitat hahmon avaruudessa pääluun lepopaikasta.
+## Kiharat (Minttu): pienet tiheät kiharat pitkien hiusten päällä kalotilla (kasvot -Z ja korvien edusta vapaana) ja
+## niskasta ja ohimoilta olkapäille valuvat korkkiruuvikiharat, kukin pienistä palloista ketjuna. Kuten mummojen
+## permanentti (mummot.gd _perm), mutta pienemmät kiharat ja pitkät suortuvat. Mitat hahmon avaruudessa pääluusta.
 static func add_curls(c: Node3D, col: Color) -> void:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
 	var sm := SphereMesh.new()
-	sm.radius = 0.024
-	sm.height = 0.048
+	sm.radius = 0.016
+	sm.height = 0.032
 	sm.radial_segments = 8
 	sm.rings = 5
 	mm.mesh = sm
 	var pts: Array[Vector3] = []
-	var n := 200
-	for i in n:  # kalotti
+	var n := 360
+	for i in n:  # kalotti: vain otsan yläpuolelta ja takaa
 		var y := 1.0 - 2.0 * (i + 0.5) / n
 		var rr := sqrt(1.0 - y * y)
 		var th := PI * (3.0 - sqrt(5.0)) * i
 		var d := Vector3(cos(th) * rr, y, sin(th) * rr)
-		if d.y < -0.1 or (d.z < -0.25 and d.y < 0.5) or (d.y < 0.15 and absf(d.x) > 0.55 and d.z < 0.25):
+		if d.y < 0.05 or (d.z < -0.3 and d.y < 0.55):
 			continue
-		pts.append(Vector3(d.x * 0.104, d.y * 0.118 + 0.01, d.z * 0.112))
-	for i in 90:  # niskasta ja ohimoilta olkapäille valuvat kiharat (takana ja sivuilla, ei kasvojen edessä)
-		var a := lerpf(-0.15 * PI, 1.15 * PI, fmod(i * 0.618, 1.0))
-		var fall := fmod(i * 0.381, 1.0)
-		var r := 0.1 + 0.025 * fall
-		pts.append(Vector3(cos(a) * r, -0.02 - fall * 0.2, sin(a) * r * 0.9 + 0.025))
+		pts.append(Vector3(d.x * 0.108, d.y * 0.12 + 0.01, d.z * 0.115))
+	for r in 16:  # korkkiruuvikiharat: takana ja sivuilla, korvien takaa olkapäille
+		var a := lerpf(-0.08 * PI, 1.08 * PI, (r + 0.5) / 16.0)
+		var base := Vector3(cos(a) * 0.1, -0.01, sin(a) * 0.1 + 0.02)
+		var out := Vector3(cos(a), 0, sin(a))
+		var drop := 0.2 + 0.06 * fmod(r * 0.618, 1.0)
+		for k in 9:
+			var f := k / 8.0
+			var spin := Vector3(cos(k * 1.9 + r), 0, sin(k * 1.9 + r)) * 0.012
+			pts.append(base + out * (0.02 * f) + Vector3(0, -drop * f, 0) + spin)
 	mm.instance_count = pts.size()
 	for i in pts.size():
-		var s := 0.8 + 0.4 * fmod(i * 0.618, 1.0)
+		var s := 0.85 + 0.3 * fmod(i * 0.618, 1.0)
 		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * s), pts[i]))
-		mm.set_instance_color(i, col.darkened(0.15 * fmod(i * 0.37, 1.0)).lightened(0.06 * fmod(i * 0.53, 1.0)))
+		mm.set_instance_color(i, col.darkened(0.18 * fmod(i * 0.37, 1.0)).lightened(0.08 * fmod(i * 0.53, 1.0)))
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
 	mat.vertex_color_is_srgb = true
-	mat.roughness = 0.7
+	mat.roughness = 0.6
 	mi.material_override = mat
 	c.attach("Head", mi, Vector3(0, 0.088, -0.01))
+
+
+## Pitkät suorat hiukset (Katja, Hevari-Tero): polkkamallin (Hair_Long) alle niskasta lapaluihin ulottuva verho
+## suortuvina takana ja sivuilla, kasvojen edessä ei mitään. Kiinni pääluussa, mitat hahmon avaruudessa (kasvot -Z).
+static func add_long_hair(c: Node3D, col: Color) -> void:
+	var hair := Node3D.new()
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = col
+	mat.roughness = 0.35
+	mat.metallic_specular = 0.7
+	for i in 34:
+		var a := lerpf(-0.6 * PI, 0.6 * PI, (i + 0.5) / 34.0)  # 0 = suoraan takana (+Z)
+		var top := Vector3(sin(a) * 0.098, -0.005, cos(a) * 0.098 + 0.005)
+		var bottom := Vector3(sin(a) * 0.125, -0.3 - 0.03 * fmod(i * 0.618, 1.0), cos(a) * 0.11 + 0.05)
+		if absf(a) > 0.45 * PI:  # sivuilla suortuvat laskeutuvat olkapäiden etupuolelle, mutta eivät kasvojen eteen
+			bottom.z -= 0.04
+		var strand := B.tube(hair, top, bottom, 0.011, col)
+		strand.material_override = mat
+	c.attach("Head", hair, Vector3(0, 0.088, -0.01))
+
+
+## Mekon helma (Minttu): kellomainen hame lantiolta polviin laskoksineen, kiinni lantioluussa kuten mummojen hame
+## (mummot.gd _dress).
+static func add_skirt(c: Node3D, col: Color) -> void:
+	var sk := Node3D.new()
+	var cone := B.mesh(sk, B.cyl(0.16, 0.25, 0.44, 28), Vector3(0, -0.2, 0), col)
+	cone.scale = Vector3(1.0, 1.0, 0.86)
+	B.mesh(sk, B.cyl(0.252, 0.252, 0.02, 28), Vector3(0, -0.41, 0), col.darkened(0.15)).scale = Vector3(1.0, 1.0, 0.86)
+	for a in range(0, 360, 30):  # laskokset
+		var f := B.mesh(sk, B.boxm(Vector3(0.012, 0.4, 0.012)), Vector3(cos(deg_to_rad(a)) * 0.205, -0.21,
+			sin(deg_to_rad(a)) * 0.175), col.darkened(0.1))
+		f.rotation = Vector3(sin(deg_to_rad(a)) * -0.18, 0, cos(deg_to_rad(a)) * 0.18)
+	for k in 7:  # valkoiset kukat helmassa
+		var a := k * TAU / 7.0
+		B.mesh(sk, B.sphere(0.012, 6), Vector3(cos(a) * 0.22, -0.32, sin(a) * 0.19), Color(1, 1, 1))
+	c.attach("pelvis", sk, Vector3(0, 0.08, -0.01))
 
 
 ## Jonin Sandels-päkkirinkka: Sandelsin 24-pakkauksen pahvilaatikko pystyssä selässä, yläpäähän leikattu suuaukko,

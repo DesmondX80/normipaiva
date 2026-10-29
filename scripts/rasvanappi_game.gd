@@ -570,9 +570,13 @@ func _setup_hall() -> void:
 	for p: Dictionary in people:
 		var lk: Dictionary = p.look
 		var woman: bool = p.get("woman", false)
-		looks.append({"towel": p.towel, "woman": woman, "look": {"model": "female" if woman else "male", "skin": lk.skin,
+		var look := {"model": "female" if woman else "male", "skin": lk.skin,
 			"hair": HAIRS[lk.hair], "hair_color": lk.hair_col, "beard": lk.get("beard", false), "height": 1.64 if woman else 1.76,
-			"bulk": (p.bulk - 1.0) * 2.0, "belly": 0.6 if p.bulk > 1.1 else 0.25, "muscle": -0.9}})
+			"bulk": (p.bulk - 1.0) * 2.0, "belly": 0.6 if p.bulk > 1.1 else 0.25, "muscle": -0.9}
+		for key in ["bust", "curves", "curls", "long_hair"]:  # erikoissääntöjen pelaajien muodot ja hiukset (kolmiomittaus.gd)
+			if lk.has(key):
+				look[key] = lk[key]
+		looks.append({"towel": p.towel, "woman": woman, "look": look})
 	looks.append({"towel": Color(0.95, 0.95, 0.92), "woman": false, "look": {"skin": Color(0.98, 0.8, 0.7),
 		"hair": "Hair_SimpleParted", "hair_color": Color(0.22, 0.15, 0.1), "belly": 0.75, "bulk": 0.1, "height": 1.8}})
 	_hall = Hall.new()
@@ -584,6 +588,9 @@ func _setup_hall() -> void:
 	_hall.top_level = true
 	_hall.global_transform = Transform3D(Basis(), at.global_position + Vector3(0, 250, 0))
 	_hall.build(OBST, looks, {} if rules.has("host") else BOUNCER, sun)
+	if _kerma():
+		for c in _hall.crawlers:
+			c.set_cream()
 
 
 ## Konttaajat, valot ja tökkäysten liike joka ruutu (hallin tiloissa).

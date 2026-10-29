@@ -136,6 +136,15 @@ func set_butter(on: bool) -> void:
 	_butter.visible = on
 
 
+## Kermavaahto margariinin tilalla (kolmiomittauksen Rasvanappi): valkoinen, kuohkeampi nokare.
+func set_cream() -> void:
+	var m := _butter.material_override as StandardMaterial3D
+	m.albedo_color = Color(1.0, 0.99, 0.95)
+	m.emission = Color(0.22, 0.22, 0.2)
+	m.roughness = 0.6
+	_butter.scale = Vector3(1.2, 1.1, 1.2)
+
+
 func set_stance(s: String) -> void:
 	stance = s
 	ch.clear_ik()

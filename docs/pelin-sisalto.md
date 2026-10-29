@@ -50,9 +50,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   selässä Sandels-oluen 24-pakkauksesta jesarilla tehty päkkirinkka termoksineen, golfpalloineen ja tölkkeineen) ja Esa
   (erämies, harppi taskussa), Vaalan aseman pihassa Hevari-Tero (valittaa valtiosta) ja Siviikki-Timo (punainen Honda
   Civic, VTEC). Juttele (E), niin puhelimeen tulee Sytkäri-mätsi (parodiadeittisovellus, liekkilogo): Minttu (punaiset
-  kiharat, pisamat, kesämekko) Saloisissa tai Katja (pitkät mustat suorat hiukset, nahkatakki, motoristi) Vaalassa.
+  kiharat, pisamat, kesämekko) Saloisissa tai Katja (pitkät mustat suorat hiukset, nahkatakki, motoristi) Vaalassa;
+  kumpikin vähintään yhtä hemaiseva kuin Sinikka. Kohtausten hahmot on piirretty `MG.figure`:llä (`mg_draw.gd`).
   Osoitetta ei kerrota, vain etäisyys. Kaveri mittaa lähtöpaikalta, toinen tekstaa etämittauksen (Esa kirkolta, Timo
-  Veturitallilta), ja pelaaja mittaa lisää missä vain (E "Avaa Sytkäri", vähintään 35 m edellisistä mittauksista).
+  Siviikillä kylän toiselta puolelta), ja pelaaja mittaa lisää missä vain (E "Avaa Sytkäri", vähintään 35 m edellisistä mittauksista).
   Sovellus pyöristää etäisyyden (alle 120 m 10 m:iin, alle 500 m 50 m:iin, muuten 100 m:iin), joten paperikartalla (M)
   jokainen mittaus on harpilla piirretty ympyrä ja haalea vyöhyke; vyöhykkeet tummuvat päällekkäin, ja leikkauksessa
   on naisen talo. Lähempää mitattu ympyrä on tarkempi. Väärällä ovella avaa joku muu (mummo kepin kanssa, Pannu-Sulo,

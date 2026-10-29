@@ -1,0 +1,85 @@
+extends Node
+## Kolmiomittauksen (#255) piirretyt kohtaukset ja Sytkäri kuvina ilman pelimaailmaa: ovi Saloisissa (lahjat
+## ojennettu) ja Vaalassa, väärä ovi (mummo keppi ylhäällä, pieni poika), aamu kummassakin, Sytkärin kortti, mätsi ja
+## mittaus kummallekin naiselle. Hahmot MG.figure (mg_draw.gd).
+## tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn
+const K := preload("res://scripts/kolmio_kohtaus.gd")
+const S := preload("res://scripts/sytkari.gd")
+const Kolmio := preload("res://scripts/kolmiomittaus.gd")
+
+var out := "user://kolmio_kuvat"
+var root: Node
+
+
+func _ready() -> void:
+	var args := OS.get_cmdline_user_args()
+	if args.size() > 0:
+		out = args[0]
+	DirAccess.make_dir_recursive_absolute(out)
+	root = self
+	_run.call_deferred()
+
+func _shot(node: Node, nm: String) -> void:
+	for i in 4:
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % nm))
+	node.queue_free()
+	await get_tree().process_frame
+
+func _scene(mode: String, site: String, setup: Callable) -> Node:
+	var ui = K.new()
+	ui.mode = mode
+	ui.site = site
+	var info: Dictionary = Kolmio.SITES[site]
+	ui.woman = info.woman
+	ui.friends = info.friends
+	ui.gifts = info.gifts
+	setup.call(ui)
+	root.add_child(ui)
+	ui.set_process(false)
+	return ui
+
+func _run() -> void:
+	await get_tree().process_frame
+	var ui = _scene("ovi", "saloinen", func(u): pass)
+	ui._line = 3; ui._given = 2; ui._door = 1.0; ui._line_t = 9.0
+	await _shot(ui, "ovi_saloinen")
+	ui = _scene("ovi", "vaala", func(u): pass)
+	ui._line = 1; ui._given = 0; ui._door = 1.0; ui._line_t = 9.0
+	await _shot(ui, "ovi_vaala")
+	ui = _scene("vaara", "saloinen", func(u): u.resident = Kolmio.WRONG_DOORS.saloinen[0])
+	ui._line = 2; ui._door = 1.0; ui._line_t = 9.0
+	await _shot(ui, "vaara_mummo")
+	ui = _scene("vaara", "saloinen", func(u): u.resident = Kolmio.WRONG_DOORS.saloinen[2])
+	ui._line = 1; ui._door = 1.0; ui._line_t = 9.0
+	await _shot(ui, "vaara_poika")
+	ui = _scene("aamu", "saloinen", func(u): u.stats = "Kolme ympyrää ✔")
+	ui._line = 1; ui._line_t = 9.0
+	await _shot(ui, "aamu_saloinen")
+	ui = _scene("aamu", "vaala", func(u): pass)
+	ui._line = 2; ui._line_t = 9.0
+	await _shot(ui, "aamu_vaala")
+	for site in ["saloinen", "vaala"]:
+		var info: Dictionary = Kolmio.SITES[site]
+		for m in ["match", "matka"]:
+			var sy = S.new()
+			sy.mode = m
+			sy.who = info.woman; sy.age = info.age; sy.job = info.job; sy.bio = info.bio; sy.dist = "250 m"
+			sy.note_from = "Esa"; sy.note = "Hyvä. Merkkaan harpilla."
+			root.add_child(sy)
+			sy._t = 1.2 if m == "match" else 2.0
+			sy._rise = 1.0
+			sy.set_process(false)
+			sy._view.queue_redraw()
+			await _shot(sy, "syt_%s_%s" % [m, site])
+			if m == "match":
+				sy = S.new()
+				sy.mode = m
+				sy.who = info.woman; sy.age = info.age; sy.job = info.job; sy.bio = info.bio; sy.dist = "250 m"
+				root.add_child(sy)
+				sy._t = 4.0; sy._swiped = 1.0; sy._rise = 1.0
+				sy.set_process(false)
+				sy._view.queue_redraw()
+				await _shot(sy, "syt_matsi_%s" % site)
+	get_tree().quit()

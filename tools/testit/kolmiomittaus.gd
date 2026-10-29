@@ -50,6 +50,7 @@ func _press(action := "interact") -> void:
 
 
 func run() -> void:
+	main.kolmio = Kolmio.new()  # puhdas lähtö: aiemman ajon tallennus ei saa jättää mittausta kesken
 	_logic()
 	if site == "vaala":
 		await _run_vaala()
@@ -165,8 +166,12 @@ func _run_saloinen() -> void:
 	var cam := _cam_at(joni.global_position + Vector3(4.5, 2.2, 5.5), joni.global_position + Vector3(0.8, 1.0, 0))
 	await _snap("_kaverit")
 	cam.queue_free()
+	main._kolmio_esa.visible = false  # toinen kaveri ei saa peittää kuvattavaa
 	await _model_shots(joni, "joni")
+	main._kolmio_esa.visible = true
+	joni.visible = false
 	await _model_shots(main._kolmio_esa, "esa")
+	joni.visible = true
 	var back: Vector3 = joni.global_transform.basis.z
 	cam = _cam_at(joni.global_position + back * 0.8 + Vector3(0, 1.35, 0), joni.global_position + Vector3(0, 1.25, 0))
 	await _snap("_rinkka_takaa")
@@ -361,8 +366,17 @@ func _run_vaala() -> void:
 	var cam := _cam_at(tero.global_position + Vector3(6, 2.5, 7), tero.global_position + Vector3(1.5, 0.9, 0))
 	await _snap("_kaverit")
 	cam.queue_free()
+	var timo: Node3D = main._kolmio_vaala_npcs[1]
+	timo.visible = false
 	await _model_shots(tero, "tero")
-	await _model_shots(main._kolmio_vaala_npcs[1], "timo")
+	timo.visible = true
+	tero.visible = false
+	await _model_shots(timo, "timo")
+	tero.visible = true
+	# Kaverit ja Civic ylhäältä: kukaan ei seiso auton sisällä.
+	cam = _cam_at(tero.global_position + Vector3(0.5, 9.0, 0.6), tero.global_position + Vector3(1.0, 0, 0))
+	await _snap("_kaverit_ylhaalta")
+	cam.queue_free()
 	# Juttelu ovella (vaala.gd doors) ja mätsi.
 	if mt.on_foot == null:
 		main._mopo_dismount()

@@ -34,27 +34,32 @@ var _ok := true
 
 const HAIR_MINTTU := Color(0.8, 0.24, 0.09)
 const HAIR_KATJA := Color(0.05, 0.04, 0.05)
+## Piirretyt hahmot (mg_draw.gd MG.figure). Naiset vähintään yhtä hemaisevia kuin Sinikka (bust 2,7, curves 1,0).
 const LOOKS := {
 	"me": {"skin": Color(1.0, 0.9, 0.82), "hair": "parted", "hair_col": Color(0.82, 0.66, 0.4), "shirt": Color(0.42, 0.18, 0.58),
-		"stripes": true, "cap": true, "beard": true},
-	"Joni": {"skin": Color(0.98, 0.82, 0.72), "hair": "parted", "hair_col": Color(0.08, 0.06, 0.05), "shirt": Color(0.95, 0.95, 0.92)},
-	"Esa": {"skin": Color(0.95, 0.76, 0.64), "hair": "short", "hair_col": Color(0.45, 0.32, 0.2), "shirt": Color(0.33, 0.4, 0.22),
-		"beard": true},
-	"Hevari-Tero": {"skin": Color(0.97, 0.82, 0.74), "hair": "long", "hair_col": Color(0.2, 0.15, 0.12), "shirt": Color(0.06, 0.06, 0.07),
-		"beard": true},
-	"Siviikki-Timo": {"skin": Color(0.98, 0.84, 0.74), "hair": "short", "hair_col": Color(0.55, 0.42, 0.25), "shirt": Color(0.75, 0.08, 0.1),
-		"cap": true},
-	"Minttu": {"skin": Color(1.0, 0.88, 0.8), "hair": "long", "hair_col": HAIR_MINTTU, "shirt": Color(1.0, 0.82, 0.25)},
-	"Katja": {"skin": Color(0.98, 0.84, 0.74), "hair": "long", "hair_col": HAIR_KATJA, "shirt": Color(0.08, 0.07, 0.08)},
+		"stripes": true, "cap": true, "beard": true, "pants": Color(0.42, 0.18, 0.58), "shoes": Color(0.9, 0.9, 0.88)},
+	"Joni": {"skin": Color(0.98, 0.84, 0.74), "hair": "parted", "hair_col": Color(0.07, 0.05, 0.04), "shirt": Color(0.95, 0.95, 0.92),
+		"short_sleeve": true, "pants": Color(0.82, 0.75, 0.58)},
+	"Esa": {"skin": Color(0.95, 0.76, 0.64), "hair": "short", "hair_col": Color(0.42, 0.3, 0.18), "shirt": Color(0.24, 0.36, 0.2),
+		"flannel": true, "beard": true, "pants": Color(0.33, 0.3, 0.2)},
+	"Hevari-Tero": {"skin": Color(0.97, 0.84, 0.76), "hair": "metal", "hair_col": Color(0.2, 0.15, 0.12), "shirt": Color(0.06, 0.06, 0.07),
+		"beard": true, "pants": Color(0.1, 0.1, 0.12)},
+	"Siviikki-Timo": {"skin": Color(0.98, 0.84, 0.74), "hair": "short", "hair_col": Color(0.55, 0.42, 0.25), "shirt": Color(0.78, 0.07, 0.1),
+		"cap": true, "cap_col": Color(0.85, 0.85, 0.88), "pants": Color(0.22, 0.3, 0.48)},
+	"Minttu": {"skin": Color(1.0, 0.9, 0.84), "hair": "curls", "hair_col": HAIR_MINTTU, "shirt": Color(1.0, 0.82, 0.25), "woman": true,
+		"bust": 2.7, "curves": 1.0, "dress": true, "freckles": true, "eyes": Color(0.25, 0.55, 0.35), "shoes": Color(0.95, 0.93, 0.88)},
+	"Katja": {"skin": Color(0.98, 0.86, 0.78), "hair": "long", "hair_col": HAIR_KATJA, "shirt": Color(0.08, 0.07, 0.08), "woman": true,
+		"bust": 2.7, "curves": 1.0, "jacket": true, "pants": Color(0.16, 0.2, 0.32), "shoes": Color(0.04, 0.04, 0.04)},
 	"Mummo kepin kanssa": {"skin": Color(1.0, 0.9, 0.86), "hair": "buns", "hair_col": Color(0.9, 0.9, 0.88), "shirt": Color(0.56, 0.36, 0.55),
-		"glasses": true},
+		"glasses": true, "woman": true, "pants": Color(0.32, 0.24, 0.2), "dress": false},
 	"Pannu-Sulo": {"skin": Color(1.0, 0.84, 0.78), "hair": "short", "hair_col": Color(0.7, 0.7, 0.68), "shirt": Color(0.55, 0.12, 0.1),
-		"beard": true},
-	"Pieni poika": {"skin": Color(1.0, 0.88, 0.8), "hair": "short", "hair_col": Color(0.85, 0.72, 0.42), "shirt": Color(0.2, 0.45, 0.85)},
+		"flannel": true, "beard": true, "pants": Color(0.25, 0.3, 0.2)},
+	"Pieni poika": {"skin": Color(1.0, 0.88, 0.8), "hair": "short", "hair_col": Color(0.85, 0.72, 0.42), "shirt": Color(0.2, 0.45, 0.85),
+		"pants": Color(0.2, 0.2, 0.25), "short_sleeve": true},
 	"Verotoimiston Raimo": {"skin": Color(0.96, 0.82, 0.74), "hair": "parted", "hair_col": Color(0.6, 0.58, 0.55), "shirt": Color(0.85, 0.86, 0.9),
-		"glasses": true, "tie": true},
+		"glasses": true, "tie": true, "pants": Color(0.25, 0.27, 0.32)},
 	"Unenpöpperöinen yövuorolainen": {"skin": Color(0.95, 0.8, 0.72), "hair": "short", "hair_col": Color(0.3, 0.22, 0.15),
-		"shirt": Color(0.6, 0.62, 0.66)},
+		"shirt": Color(0.6, 0.62, 0.66), "pants": Color(0.35, 0.36, 0.5)},
 }
 
 
@@ -244,88 +249,72 @@ func _draw_porch(s: Vector2, k: float) -> void:
 	if mode == "ovi":
 		_draw_trio(s, k)
 	else:
-		# Vain pelaaja portailla, kukkakimppu tai mansikat selän takana.
-		MG.person(_view, Vector2(s.x * 0.5, s.y * 0.78), 1.15 * k, LOOKS.me, Vector2(0, -0.6), false)
+		# Vain pelaaja portailla, lahja selän takana.
+		MG.figure(_view, Vector2(s.x * 0.5, s.y * 0.8), 1.0 * k, LOOKS.me, {"eye": Vector2(0, -0.6), "blink": _line >= 2})
 
 
-## Avaaja ovella: nainen (omat hiukset ja vaatteet) tai väärän oven asukas.
+## Avaaja ovella koko hahmona (pää karmin yläosassa, jalat kynnyksellä): nainen tai väärän oven asukas.
 func _draw_opener(dr: Rect2, k: float) -> void:
-	var c := Vector2(dr.get_center().x + dr.size.x * 0.08, dr.position.y + dr.size.y * 0.28)
-	var sc := 1.25 * k
+	var sc := dr.size.y / 320.0
+	var c := Vector2(dr.get_center().x + dr.size.x * 0.06, dr.end.y - 280.0 * sc)
 	if mode == "ovi":
-		_woman(c, sc, _line_t < 1.0 or _line % 2 == 1)
+		_woman(c, sc, _line_t < 1.0 or _line % 2 == 1, true)
 		return
 	var who: String = resident.get("who", "")
 	var look: Dictionary = LOOKS.get(who, LOOKS["Pannu-Sulo"])
 	var talk := _line == 1 and fmod(_t * 3.0, 1.0) < 0.6
 	if who == "Pieni poika":
-		c.y += 50 * k
-		sc *= 0.8
-	MG.person(_view, c, sc, look, Vector2(0, 0.3), talk)
+		sc *= 0.62
+		c = Vector2(c.x, dr.end.y - 280.0 * sc)
+	var up := who == "Mummo kepin kanssa" and _line >= 2  # keppi nousee viimeisellä repliikillä
+	if who == "Pannu-Sulo":
+		_canister(c + Vector2(-58, 150) * sc, sc)
+	MG.figure(_view, c, sc, look, {"talk": talk, "eye": Vector2(0, 0.3), "legs": true, "arms": "wave" if up else "down"})
 	if who == "Mummo kepin kanssa":
-		# Keppi nousee uhkaavasti viimeisellä repliikillä.
-		var up := 1.0 if _line >= 2 else 0.0
-		var hand := c + Vector2(44, 96 - 120 * up) * sc
-		_view.draw_line(hand + Vector2(0, -10) * sc, hand + Vector2(18, 110 - 160 * up) * sc, Color(0.45, 0.3, 0.15), 7 * sc)
-		_view.draw_arc(hand + Vector2(-8, -10) * sc, 10 * sc, PI, TAU, 8, Color(0.45, 0.3, 0.15), 6 * sc)
-	elif who == "Pannu-Sulo":
-		_canister(c + Vector2(-70, 80) * sc, sc)
+		var hand := c + (Vector2(62, -12) if up else Vector2(42, 136)) * sc
+		var tip := hand + (Vector2(14, -110) if up else Vector2(10, 140)) * sc
+		_view.draw_line(hand, tip, MG.OUTLINE, 9 * sc)
+		_view.draw_line(hand, tip, Color(0.45, 0.3, 0.15), 6 * sc)
+		_view.draw_arc(hand + Vector2(-8, 0) * sc, 9 * sc, PI, TAU, 8, Color(0.45, 0.3, 0.15), 6 * sc)
+		if up:
+			_view.draw_string(ThemeDB.fallback_font, tip + Vector2(10, 0) * sc, "!", HORIZONTAL_ALIGNMENT_LEFT, -1, int(40 * sc),
+				Color(0.85, 0.1, 0.1))
 
 
-func _woman(c: Vector2, sc: float, talk: bool) -> void:
-	var look: Dictionary = LOOKS[woman]
-	# Hiukset pään taakse ennen hahmoa: Mintun punaiset kiharat olkapäille, Katjan suorat mustat alas selkään.
-	if woman == "Minttu":
-		for i in 30:
-			var a := PI * 0.9 + PI * 1.2 * fmod(i * 0.618, 1.0)
-			var rr := 30.0 * (1.0 + 0.6 * fmod(i * 0.37, 1.0))
-			_view.draw_circle(c + Vector2(cos(a) * rr * 1.1, sin(a) * rr * 0.7 + 22) * sc, 10 * sc, HAIR_MINTTU.darkened(0.15 * (i % 3)))
-	else:
-		_view.draw_rect(Rect2(c + Vector2(-38, -10) * sc, Vector2(76, 90) * sc), HAIR_KATJA)
-	MG.person(_view, c, sc, look, Vector2(-0.2, 0.3), talk)
-	if woman == "Minttu":
-		for i in 9:  # kiharat otsalla ja pisamat
-			_view.draw_circle(c + Vector2(-26 + i * 6.5, -28 + absf(i - 4.0) * 1.5) * sc, 7 * sc, HAIR_MINTTU.darkened(0.08 * (i % 2)))
-		for i in 8:
-			_view.draw_circle(c + Vector2((-1 if i % 2 == 0 else 1) * (12 + i * 1.5), 6 + (i % 3) * 3) * sc, 1.3 * sc, Color(0.75, 0.45, 0.3))
-		for i in 6:  # mekon kukat
-			_view.draw_circle(c + Vector2(-24 + i * 10, 64 + (i % 2) * 12) * sc, 3.5 * sc, Color.WHITE)
-	else:
-		_view.draw_colored_polygon(PackedVector2Array([c + Vector2(-30, -26) * sc, c + Vector2(10, -32) * sc, c + Vector2(-26, -8) * sc]),
-			HAIR_KATJA)  # otsatukka
-		for sx in [-1.0, 1.0]:  # nahkatakin kaulus ja kiilto
-			_view.draw_colored_polygon(PackedVector2Array([c + Vector2(sx * 8, 36) * sc, c + Vector2(sx * 30, 38) * sc,
-				c + Vector2(sx * 12, 66) * sc]), Color(0.16, 0.14, 0.15))
-		_view.draw_line(c + Vector2(22, 46) * sc, c + Vector2(26, 96) * sc, Color(1, 1, 1, 0.25), 3 * sc)
-		_view.draw_line(c + Vector2(4, 50) * sc, c + Vector2(4, 100) * sc, Color(0.75, 0.75, 0.78), 2 * sc)  # vetoketju
-	# Ojennetut lahjat naisen sylissä.
+## Nainen (Minttu tai Katja) ovella tai keittiössä. Ojennetut lahjat sylissä, kädet niiden alla.
+func _woman(c: Vector2, sc: float, talk: bool, legs := false) -> void:
+	var holding := mode == "ovi" and _given > 0
+	MG.figure(_view, c, sc, LOOKS[woman], {"talk": talk, "eye": Vector2(-0.2, 0.4), "legs": legs, "arms": "hold" if holding else "down"})
 	var got := 0
 	for g: Array in gifts:
-		if got >= _given:
+		if got >= _given or mode != "ovi":
 			break
-		_gift(c + Vector2(-30 + got * 30, 84) * sc, sc * 0.75, g[1])
+		_gift(c + Vector2(-24 + got * 24, 100) * sc, sc * 0.8, g[1])
 		got += 1
 
 
 ## Kolmiomittaajat portailla: kaverit sivuilla, pelaaja keskellä edessä. Antamattomat lahjat käsissä.
 func _draw_trio(s: Vector2, k: float) -> void:
 	var y := s.y * 0.8
-	var pos := {friends[0]: Vector2(s.x * 0.3, y - 10 * k), friends[1]: Vector2(s.x * 0.7, y - 10 * k), "Sinä": Vector2(s.x * 0.5, y + 40 * k)}
+	var pos := {friends[0]: Vector2(s.x * 0.3, y - 10 * k), friends[1]: Vector2(s.x * 0.7, y - 10 * k), "Sinä": Vector2(s.x * 0.5, y + 30 * k)}
 	var given_by: Array = []
 	for i in mini(_given, gifts.size()):
 		given_by.append(gifts[i][0])
 	for who in [friends[0], friends[1], "Sinä"]:
-		var c: Vector2 = pos.get(who, pos.get(_short(who), Vector2(s.x * 0.5, y)))
+		var c: Vector2 = pos.get(who, Vector2(s.x * 0.5, y))
 		var key: String = "me" if who == "Sinä" else String(who)
 		var talk := false
 		if _line < lines.size() and lines[_line][0] == who:
 			talk = fmod(_t * 3.0, 1.0) < 0.6
-		MG.person(_view, c, 1.15 * k, LOOKS.get(key, LOOKS.me), Vector2(0, -0.7), talk, 0.0)
-		if key == "Joni":
-			_sandels_pack(c + Vector2(48, 30) * k, k)
+		var gift := ""
 		for g: Array in gifts:
 			if (g[0] == who or g[0] == _short(who)) and not g[0] in given_by and not (who == "Sinä" and missing != ""):
-				_gift(c + Vector2(-46, 90) * k, k, g[1])
+				gift = g[1]
+		if key == "Joni":
+			_sandels_pack(c + Vector2(44, 52) * k, k)  # rinkka olan takana
+		MG.figure(_view, c, 1.0 * k, LOOKS.get(key, LOOKS.me), {"talk": talk, "eye": Vector2(0, -0.7), "arms": "hold" if gift != "" else "down"})
+		if gift != "":
+			_gift(c + Vector2(0, 100) * k, k, gift)
 
 
 func _short(full: String) -> String:
@@ -393,13 +382,13 @@ func _draw_kitchen(s: Vector2, k: float) -> void:
 	var f0: String = friends[0]
 	var f1: String = friends[1]
 	var talk_who: String = lines[_line][0] if _line < lines.size() else ""
-	_woman(Vector2(s.x * 0.5, s.y * 0.42), 1.1 * k, talk_who == woman and fmod(_t * 3.0, 1.0) < 0.6)
-	MG.person(_view, Vector2(s.x * 0.24, s.y * 0.44), 1.1 * k, LOOKS.get(f0, LOOKS.me), Vector2(0.5, 0.3),
-		talk_who == f0 and fmod(_t * 3.0, 1.0) < 0.6)
-	MG.person(_view, Vector2(s.x * 0.76, s.y * 0.44), 1.1 * k, LOOKS.get(f1, LOOKS.me), Vector2(-0.5, 0.3),
-		talk_who == f1 and fmod(_t * 3.0, 1.0) < 0.6, 0.6)
-	# Lettupannu kaverin kädessä, letut hyppivät.
-	var pan := Vector2(s.x * 0.76 + 50 * k, s.y * 0.44 - 30 * k)
+	_woman(Vector2(s.x * 0.5, s.y * 0.38), 1.3 * k, talk_who == woman and fmod(_t * 3.0, 1.0) < 0.6)
+	MG.figure(_view, Vector2(s.x * 0.2, s.y * 0.4), 1.3 * k, LOOKS.get(f0, LOOKS.me), {"eye": Vector2(0.5, 0.3),
+		"talk": talk_who == f0 and fmod(_t * 3.0, 1.0) < 0.6, "blink": fmod(_t, 4.0) < 0.12})
+	MG.figure(_view, Vector2(s.x * 0.8, s.y * 0.4), 1.3 * k, LOOKS.get(f1, LOOKS.me), {"eye": Vector2(-0.5, 0.3),
+		"talk": talk_who == f1 and fmod(_t * 3.0, 1.0) < 0.6, "arms": "wave"})
+	# Lettupannu kaverin ylös nostetussa kädessä, letut hyppivät.
+	var pan := Vector2(s.x * 0.8, s.y * 0.4) + Vector2(68, -16) * 1.3 * k
 	_view.draw_line(pan + Vector2(10, 4) * k, pan + Vector2(60, 14) * k, Color(0.15, 0.12, 0.1), 7 * k)
 	MG.box(_view, Rect2(pan + Vector2(-34, -4) * k, Vector2(48, 12) * k), Color(0.2, 0.2, 0.22), int(5 * k), 0, MG.OUTLINE, 2)
 	var hop := absf(sin(_t * 3.0)) * 40.0 * k
@@ -454,8 +443,9 @@ func _draw_text(s: Vector2, k: float) -> void:
 		_view.draw_string(font, sr.position + Vector2(0, 29 * k), stats, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x, int(16 * k),
 			Color(1.0, 0.9, 0.55))
 	var hint := "[%s] jatka   [Esc] ohita" % Settings.action_key("interact")
-	_view.draw_string_outline(font, Vector2(0, r.end.y + 26 * k), hint, HORIZONTAL_ALIGNMENT_CENTER, s.x, int(16 * k), 5, Color.BLACK)
-	_view.draw_string(font, Vector2(0, r.end.y + 26 * k), hint, HORIZONTAL_ALIGNMENT_CENTER, s.x, int(16 * k), Color(0.95, 0.9, 0.8))
+	var hy := s.y - (76.0 if mode == "aamu" and stats != "" else 14.0) * k  # ruudun alalaitaan, ei oven tai hahmojen päälle
+	_view.draw_string_outline(font, Vector2(0, hy), hint, HORIZONTAL_ALIGNMENT_CENTER, s.x, int(16 * k), 5, Color.BLACK)
+	_view.draw_string(font, Vector2(0, hy), hint, HORIZONTAL_ALIGNMENT_CENTER, s.x, int(16 * k), Color(0.95, 0.9, 0.8))
 
 
 func _wrap(at: Vector2, text: String, w: float, size: int, col: Color) -> void:

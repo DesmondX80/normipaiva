@@ -11033,8 +11033,24 @@ func _kolmio_vaala_setup() -> void:
 	var side := Vector3(-out.z, 0, out.x)
 	var base: Vector3 = station + out * 7.0
 	_kolmio_vaala_spots["start"] = Vector2(base.x, base.z)
-	var vt: Vector3 = vl.door_pos("veturitalli")
-	_kolmio_vaala_spots["remote"] = Vector2(vt.x, vt.z) if vt != Vector3.ZERO else Vector2(base.x, base.z) + Vector2(side.x, side.z) * 120.0
+	# Timon etämittaus: Vaalan ovista se, joka on kauimpana aseman pihasta mutta alle 700 m Katjan talosta, jotta ympyrät
+	# leikkaavat jyrkässä kulmassa (Veturitalli on aseman vieressä: ympyrät olivat lähes samankeskiset).
+	var tgt := Vector2(bp.x, bp.z)
+	var start := Vector2(base.x, base.z)
+	var far := {"pos": start + Vector2(side.x, side.z) * 150.0, "name": "Vaalantien varresta"}
+	var names := {"kmarket": "K-Marketin pihasta", "zabuki": "torin Zabukilta", "apteekki": "apteekin edestä", "gasthaus": "Gasthausin pihasta",
+		"hotelli": "hotellin pihasta", "tyokkari": "työkkärin jonosta", "veturitalli": "Veturitallin pihasta"}
+	var best_d := 0.0
+	for d: Dictionary in vl.doors:
+		if not names.has(d.id):
+			continue
+		var q := Vector2(d.pos.x, d.pos.z)
+		var ds := q.distance_to(start)
+		if q.distance_to(tgt) < 700.0 and ds > best_d:
+			best_d = ds
+			far = {"pos": q, "name": names[d.id]}
+	_kolmio_vaala_spots["remote"] = far.pos
+	_kolmio_vaala_spots["remote_name"] = far.name
 	var civic := Node3D.new()
 	vl.add_child(civic)
 	Vehicles.car(civic, Color(0.72, 0.04, 0.07), "VTC-916")
@@ -11049,12 +11065,12 @@ func _kolmio_vaala_setup() -> void:
 		v.lines = _kolmio_lines("vaala", who[k][2])
 		v.voice = who[k][3]
 		v.target = player
-		var q := base + side * (0.4 + k * 1.3) - out * 0.5
+		var q := base - side * (1.2 + k * 1.3) - out * 0.5  # Civicin vastakkaiselle puolelle (auto on side-suunnassa)
 		v.position = Vector3(q.x, vl.h(q.x, q.z), q.z)
 		v.rotation.y = B.yaw_to(-out)
 		vl.add_child(v)
 		_kolmio_vaala_npcs.append(v)
-	vl.doors.append({"id": "kolmio_kaverit", "pos": base + side * 1.0, "out": out, "r": 4.0, "walk": true,
+	vl.doors.append({"id": "kolmio_kaverit", "pos": base - side * 1.8, "out": out, "r": 4.0, "walk": true,
 		"hint": "Teron ja Timon luo", "text": "Juttele Teron ja Timon kanssa"})
 
 
@@ -11180,7 +11196,7 @@ func _kolmio_briefing(site: String) -> void:
 		_queue_message("Joni: \"Mätsi! Mutta osoitetta ei kerrota, vain matka. Mää mittasin tästä, Esa lähti kirkolle.\"", 4.5)
 		_queue_message("Esa: \"Mittaa sää jostain muualta (E missä vain). Ympyrät harpilla kartalle (M), ja ruusut kaupan tiskiltä.\"", 5.0)
 	else:
-		_queue_message("Tero: \"Mätsi. Ja valtio tietää sen jo. Mää mittasin aseman pihasta, Timo ajoi Veturitallille.\"", 4.5)
+		_queue_message("Tero: \"Mätsi. Ja valtio tietää sen jo. Mää mittasin aseman pihasta, Timo ajoi Siviikillä toiselle puolelle kylää.\"", 4.5)
 		_queue_message("Timo: \"Mittaa sää lisää (E missä vain), ympyrät kartalle (M). Mansikat K-Marketin tiskiltä.\"", 5.0)
 
 
@@ -11195,7 +11211,8 @@ func _kolmio_remote(site: String) -> void:
 	var info: Dictionary = Kolmio.SITES[site]
 	var r: Dictionary = kolmio.measure(site, _kolmio_remote_point(site), _kolmio_target(site), info.remote)
 	Sfx.play("bell", -10.0, 2.8)
-	_queue_message("%s tekstaa %s: \"%s päässä. Harpilla kartalle.\" (kartta M)" % [info.remote, info.remote_place, Kolmio.dist_text(r.m)], 4.5)
+	var place: String = _kolmio_vaala_spots.get("remote_name", info.remote_place) if site == "vaala" else info.remote_place
+	_queue_message("%s tekstaa %s: \"%s päässä. Harpilla kartalle.\" (kartta M)" % [info.remote, place, Kolmio.dist_text(r.m)], 4.5)
 	_save_game()
 
 
@@ -20801,6 +20818,8 @@ func _maybe_screenshot() -> void:
 			await km.run()
 			if not saved_km.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_km)
+			else:
+				DirAccess.remove_absolute(SAVE_PATH)  # testi loi tallennuksen: pois, ettei seuraava ajo ala sen tilasta
 			get_tree().quit()
 			return
 		"vaala_ajo":

@@ -9,6 +9,7 @@ extends CanvasLayer
 signal closed
 
 const MG := preload("res://scripts/mg_draw.gd")
+const Kohtaus := preload("res://scripts/kolmio_kohtaus.gd")
 
 const FLAME_A := Color(1.0, 0.36, 0.2)
 const FLAME_B := Color(1.0, 0.7, 0.18)
@@ -202,12 +203,12 @@ func _draw_matka(sr: Rect2, card: Rect2, k: float) -> void:
 	_view.draw_string(f, top.position + Vector2(134, 52) * k, "%s, %d" % [who, age], HORIZONTAL_ALIGNMENT_LEFT, -1, int(24 * k), INK)
 	_view.draw_string(f, top.position + Vector2(134, 76) * k, job, HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * k), Color(0.45, 0.4, 0.42))
 	# Sijaintinasta ja etäisyys isolla: osoitetta ei näy, vain pyöristetty matka.
-	var pin := top.position + Vector2(146, 106) * k
+	var pin := top.position + Vector2(132, 106) * k
 	_view.draw_circle(pin, 8 * k, FLAME_A)
 	_view.draw_colored_polygon(PackedVector2Array([pin + Vector2(-7, 3) * k, pin + Vector2(7, 3) * k, pin + Vector2(0, 16) * k]), FLAME_A)
 	_view.draw_circle(pin, 3 * k, Color.WHITE)
 	var pulse := 1.0 + 0.06 * sin(_t * 6.0)
-	_view.draw_string(f, top.position + Vector2(160, 116) * k, "%s päässä" % dist, HORIZONTAL_ALIGNMENT_LEFT, -1, int(24 * k * pulse),
+	_view.draw_string(f, top.position + Vector2(144, 116) * k, "%s päässä" % dist, HORIZONTAL_ALIGNMENT_LEFT, -1, int(19 * k * pulse),
 		FLAME_A.darkened(0.15))
 	# Tutkarenkaat: sovellus pyöristää, joten paikka on rengas eikä piste.
 	var rc := Vector2(sr.get_center().x, top.end.y + 92 * k)
@@ -261,107 +262,30 @@ func _round_photo(c: Vector2, r: float, k: float, me: bool) -> void:
 	_view.draw_arc(c, r + 2 * k, 0, TAU, 48, FLAME_A, 3.0 * k)
 
 
-## Profiilikuva laatikkoon: tausta (kesäpiha tai asfaltti ja moottoripyörä), hartiat vaatteineen, pää, hiukset ja kasvot.
-## circle = pyöreä pienoiskuva (rajataan ympyräksi peittämällä kulmat taustalla).
+## Profiilikuva laatikkoon: tausta (kesäpiha tai ilta-asfaltti katulamppuineen) ja piirretty hahmo vyötäröstä ylöspäin
+## (MG.figure, samat ulkonäöt kuin ovi- ja aamukohtauksissa). circle = pyöreä pienoiskuva (kulmat peitetään).
 static func portrait(ci: CanvasItem, r: Rect2, pname: String, _k: float, circle := false) -> void:
 	var c := r.get_center()
 	var u := r.size.y / 300.0  # mittakaava: 300 px korkea kuva
-	var skin := Color(1.0, 0.86, 0.76)
 	match pname:
 		"Minttu":
 			MG.grad_rect(ci, r, Color(0.62, 0.84, 1.0), Color(0.55, 0.78, 0.45))
-			for i in 7:  # pihan kukat taustalla
-				var p := r.position + Vector2(fmod(i * 67.0, r.size.x), r.size.y * (0.62 + 0.05 * (i % 3)))
+			for i in 9:  # pihan kukat taustalla
+				var p := r.position + Vector2(fmod(i * 67.0, r.size.x), r.size.y * (0.6 + 0.05 * (i % 3)))
 				ci.draw_circle(p, 6 * u, Color(1.0, 0.95, 0.4) if i % 2 == 0 else Color(1.0, 1.0, 1.0))
+				ci.draw_circle(p, 2 * u, Color(0.95, 0.6, 0.1))
 		"Katja":
 			MG.grad_rect(ci, r, Color(0.32, 0.36, 0.44), Color(0.18, 0.18, 0.2))
-			ci.draw_circle(r.position + Vector2(r.size.x * 0.18, r.size.y * 0.25), 30 * u, Color(1.0, 0.8, 0.4, 0.35))  # katulamppu
-			skin = Color(0.98, 0.84, 0.74)
+			MG.glow(ci, r.position + Vector2(r.size.x * 0.18, r.size.y * 0.22), 60 * u, Color(1.0, 0.8, 0.4, 0.5))  # katulamppu
+			# Moottoripyörän tankki ja ohjaustanko taustalla.
+			MG.box(ci, Rect2(r.position + Vector2(r.size.x * 0.62, r.size.y * 0.55), Vector2(r.size.x * 0.4, r.size.y * 0.16)),
+				Color(0.65, 0.08, 0.1), int(30 * u), 0, MG.OUTLINE, 2)
+			ci.draw_line(r.position + Vector2(r.size.x * 0.7, r.size.y * 0.5), r.position + Vector2(r.size.x * 0.98, r.size.y * 0.45),
+				Color(0.75, 0.75, 0.78), 5 * u)
 		_:
 			MG.grad_rect(ci, r, Color(0.7, 0.75, 0.8), Color(0.45, 0.5, 0.55))
-			skin = Color(1.0, 0.9, 0.82)
-	var head := c + Vector2(0, -22 * u)
-	var hr := 62.0 * u
-	# Hiukset pään takana (pitkät) ennen vartaloa.
-	if pname == "Minttu":
-		for i in 46:  # punaiset kiharat olkapäille asti
-			var a := PI * 0.95 + PI * 1.1 * fmod(i * 0.618, 1.0)
-			var rr := hr * (1.05 + 0.55 * fmod(i * 0.37, 1.0))
-			var p := head + Vector2(cos(a) * rr * 1.1, sin(a) * rr * 0.8 + 40 * u)
-			ci.draw_circle(p, 16 * u, Color(0.78, 0.22, 0.08).darkened(0.15 * fmod(i * 0.29, 1.0)))
-	elif pname == "Katja":
-		ci.draw_rect(Rect2(head + Vector2(-hr * 1.08, -hr * 0.2), Vector2(hr * 2.16, hr * 2.6)), Color(0.05, 0.04, 0.05))
-	# Hartiat ja vaatteet.
-	var sh := Rect2(c + Vector2(-110, 52) * u, Vector2(220, 120) * u)
-	match pname:
-		"Minttu":  # keltainen kesämekko kukkakuviolla, ohuet olkaimet
-			ci.draw_rect(Rect2(sh.position + Vector2(20, 0) * u, Vector2(180, 120) * u), skin.darkened(0.04))
-			MG.box(ci, Rect2(sh.position + Vector2(30, 46) * u, Vector2(160, 90) * u), Color(1.0, 0.82, 0.25), int(26 * u), 0, MG.OUTLINE, 2)
-			for i in 9:
-				ci.draw_circle(sh.position + Vector2(48 + fmod(i * 41.0, 130.0), 66 + (i % 3) * 18) * u, 5 * u, Color(1.0, 1.0, 1.0))
-			for sx in [-1.0, 1.0]:
-				ci.draw_line(c + Vector2(sx * 52, 98) * u, c + Vector2(sx * 40, 60) * u, Color(1.0, 0.82, 0.25), 6 * u)
-			for i in 14:  # pisamat olkapäillä
-				ci.draw_circle(sh.position + Vector2(36 + fmod(i * 53.0, 150.0), 20 + fmod(i * 17.0, 26.0)) * u, 1.6 * u,
-					Color(0.75, 0.45, 0.3))
-		"Katja":  # musta nahkatakki: kaulus, vetoketju ja kiilto
-			MG.box(ci, sh, Color(0.08, 0.07, 0.08), int(40 * u), 0, MG.OUTLINE, 2)
-			ci.draw_rect(Rect2(c + Vector2(-26, 52) * u, Vector2(52, 120) * u), Color(0.75, 0.72, 0.7))  # paita
-			for sx in [-1.0, 1.0]:
-				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(sx * 28, 52) * u, c + Vector2(sx * 70, 62) * u,
-					c + Vector2(sx * 34, 128) * u]), Color(0.14, 0.12, 0.13))
-				ci.draw_line(c + Vector2(sx * 85, 70) * u, c + Vector2(sx * 95, 150) * u, Color(1, 1, 1, 0.25), 4 * u)  # kiilto
-			ci.draw_line(c + Vector2(30, 120) * u, c + Vector2(30, 172) * u, Color(0.75, 0.75, 0.78), 3 * u)  # vetoketju
-		_:  # pelaajan tuulipuku
-			MG.box(ci, sh, Color(0.42, 0.18, 0.58), int(40 * u), 0, MG.OUTLINE, 2)
-			ci.draw_line(sh.position + Vector2(20, 40) * u, sh.position + Vector2(200, 100) * u, Color(0.08, 0.66, 0.64), 12 * u)
-	# Kaula ja pää.
-	ci.draw_rect(Rect2(head + Vector2(-16, 40) * u, Vector2(32, 40) * u), skin.darkened(0.08))
-	ci.draw_circle(head + Vector2(3, 5) * u, hr, Color(0, 0, 0, 0.2))
-	ci.draw_circle(head, hr, skin)
-	# Hiukset pään päällä.
-	match pname:
-		"Minttu":
-			for i in 22:
-				var a := PI * 1.02 + PI * 0.96 * i / 21.0
-				ci.draw_circle(head + Vector2(cos(a), sin(a)) * hr * 0.95, 17 * u, Color(0.8, 0.24, 0.09).darkened(0.12 * (i % 3)))
-			for i in 4:
-				ci.draw_circle(head + Vector2(-hr * 0.5 + i * 22 * u, -hr * 0.62), 13 * u, Color(0.85, 0.28, 0.1))
-		"Katja":
-			ci.draw_arc(head, hr * 0.98, PI * 1.0, PI * 2.0, 24, Color(0.05, 0.04, 0.05), 20 * u)
-			ci.draw_colored_polygon(PackedVector2Array([head + Vector2(-hr, -8 * u), head + Vector2(-hr * 0.2, -hr * 0.95),
-				head + Vector2(hr * 0.4, -hr * 0.9), head + Vector2(-hr * 0.55, -hr * 0.35)]), Color(0.06, 0.05, 0.06))  # otsatukka sivulle
-		_:
-			ci.draw_arc(head, hr * 0.98, PI * 1.1, PI * 1.9, 16, Color(0.82, 0.66, 0.4), 16 * u)
-			MG.box(ci, Rect2(head + Vector2(-hr, -hr * 0.9), Vector2(hr * 2, hr * 0.55)), Color(0.04, 0.04, 0.05), int(16 * u))  # Karhu-lippis
-			ci.draw_rect(Rect2(head + Vector2(-hr * 0.2, -hr * 0.42), Vector2(hr * 1.5, 10 * u)), Color(0.04, 0.04, 0.05))
-	# Kasvot: silmät, kulmat, nenä, suu (naiset: ripset ja punainen huulipuna).
-	for ex in [-1.0, 1.0]:
-		var e := head + Vector2(ex * 22, -4) * u
-		if pname == "me":
-			MG.box(ci, Rect2(e - Vector2(17, 9) * u, Vector2(34, 18) * u), Color(0.05, 0.05, 0.06), int(8 * u))  # pilottilasit
-			continue
-		ci.draw_circle(e, 10 * u, Color.WHITE)
-		ci.draw_circle(e + Vector2(1, 1) * u, 5.5 * u, Color(0.25, 0.55, 0.35) if pname == "Minttu" else Color(0.3, 0.2, 0.12))
-		ci.draw_circle(e + Vector2(-1, -2) * u, 1.8 * u, Color.WHITE)
-		ci.draw_arc(e, 11 * u, PI * 1.1, PI * 1.9, 8, Color(0.08, 0.06, 0.06), 3 * u)  # ripsiviiva
-		ci.draw_line(e + Vector2(-10, -18) * u, e + Vector2(10, -20) * u,
-			Color(0.6, 0.2, 0.08) if pname == "Minttu" else Color(0.05, 0.04, 0.05), 3 * u)
-	if pname == "Minttu":
-		for i in 12:  # pisamat poskilla
-			var sx := -1.0 if i % 2 == 0 else 1.0
-			ci.draw_circle(head + Vector2(sx * (16 + fmod(i * 7.0, 20.0)), 12 + fmod(i * 5.0, 10.0)) * u, 1.8 * u, Color(0.78, 0.45, 0.3))
-	ci.draw_line(head + Vector2(0, 2) * u, head + Vector2(-4, 18) * u, skin.darkened(0.25), 2.5 * u)
-	if pname == "me":
-		ci.draw_arc(head + Vector2(0, 30) * u, 14 * u, PI * 0.15, PI * 0.85, 10, Color(0.4, 0.15, 0.12), 3 * u)
-		ci.draw_arc(head + Vector2(0, 40) * u, 20 * u, PI * 0.1, PI * 0.9, 12, Color(0.82, 0.66, 0.4), 8 * u)  # pukinparta
-	else:
-		ci.draw_arc(head + Vector2(0, 26) * u, 14 * u, PI * 0.12, PI * 0.88, 12, Color(0.8, 0.1, 0.18), 5 * u)  # hymy
-		ci.draw_circle(head + Vector2(-34, 16) * u, 9 * u, Color(1.0, 0.55, 0.55, 0.25))  # posket
-		ci.draw_circle(head + Vector2(34, 16) * u, 9 * u, Color(1.0, 0.55, 0.55, 0.25))
-	if pname == "Katja":  # hopeiset korvarenkaat
-		for sx in [-1.0, 1.0]:
-			ci.draw_arc(head + Vector2(sx * hr * 0.98, 22 * u), 8 * u, 0, TAU, 12, Color(0.8, 0.82, 0.85), 2.5 * u)
+	var look: Dictionary = Kohtaus.LOOKS.get(pname, Kohtaus.LOOKS.me)
+	MG.figure(ci, c + Vector2(0, -60 * u), 1.5 * u, look, {"eye": Vector2(0.1, 0.1), "arms": "hold" if pname == "Katja" else "down"})
 	if circle:
 		# Pyöreä rajaus: kulmat piiloon paksulla valkoisella renkaalla.
 		var rr := minf(r.size.x, r.size.y) / 2.0
