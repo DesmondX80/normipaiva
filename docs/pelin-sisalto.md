@@ -509,7 +509,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     pääsee kyytiin (E laiturilla). Muuten E = odota junaa, kello hyppää ja juna saapuu (testi `--scene=asema`). Matkalla juna ohittaa Saloisten
     päässä savuavan Raahen terästehtaan ja ylittää Vaalan päässä Oulujoen ristikkosillan. Välikuvassa istutaan
     ravintolavaunussa tuopin kanssa, naisille tarjotaan Koskenkorvat (16 €, jos rahat riittävät) ja paukun
-    jälkeen vieressä istuva Helena laskee kätensä polven päälle ja liu'uttaa sen reittä pitkin sisäreidelle; taustalla soi hidas soul-lirkuttelu
+    jälkeen vieressä istuva Helena laskee kätensä polven päälle ja liu'uttaa sen reittä pitkin sisäreidelle (ilman tarjottuja paukkuja
+    ei kättä). Erikoiskohtaus (riisuminen, flirtti, Helena Uiton saunalle) laukeaa vain verkkopaidassa ja tarjotuilla paukuilla Saloisista Vaalaan;
+    Vaalasta Saloisiin tarjoaminen tuo vain käden reidelle; taustalla soi hidas soul-lirkuttelu
     (`tools/lirkuttelu.py` syntetisoi biisin `assets/music/lirkuttelu.wav`). Junasta noustaan laiturille; Vaalaan tultaessa mopo odottaa
     aseman edessä, ja Vaalasta
     lähdettäessä se palaa mökin pihaan kuten muillakin paluureiteillä.

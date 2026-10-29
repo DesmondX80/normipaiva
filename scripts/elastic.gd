@@ -15,10 +15,10 @@ const PARTS := {
 ## Hyllyntä liikkeessä: oma vaimennettu jousi jokaiselle osalle (Character._update_jiggle), ei hiusten jousta. Jousta ajaa
 ## luun pisteen (center lepoasennossa, verkon avaruus) kiihtyvyys; side = vaakakiihtyvyyden osuus (pääosin pystysuunta),
 ## max = suurin siirto (m) kertoimella 1 (jiggle_gain). Esikuva: rinnat 3–4 Hz, pieni vaimennus, viive (juoksussa ~50 mm
-## isoilla); vatsa 4–6 Hz; pakarat ja reidet jäykkä pehmytkudos 10–15 Hz, lyhyt tärähdys askeleen iskusta.
+## isoilla); vatsa (iso maha) 3,5–4 Hz kuten rinnat, pieni vaimennus ja viive; pakarat ja reidet jäykkä pehmytkudos 10–15 Hz, lyhyt tärähdys askeleen iskusta.
 const JIGGLE := {
 	"rinta": {"bone": "spine_03", "center": Vector3(0.0, 1.29, 0.1), "hz": 3.5, "zeta": 0.12, "side": 0.35, "max": 0.03},
-	"vatsa": {"bone": "spine_01", "center": Vector3(0.0, 1.1, 0.08), "hz": 5.0, "zeta": 0.2, "side": 0.5, "max": 0.025},
+	"vatsa": {"bone": "spine_01", "center": Vector3(0.0, 1.1, 0.08), "hz": 3.8, "zeta": 0.13, "side": 0.5, "max": 0.033},
 	"pakara": {"bone": "pelvis", "center": Vector3(0.0, 0.9, -0.08), "hz": 12.0, "zeta": 0.25, "side": 0.15, "max": 0.02},
 }
 const MAX_LIMIT := 0.05  # kovin raja kaikille osille (rinta Sinikalla)
@@ -52,7 +52,7 @@ static func jiggle_gain(part: String, shape: Dictionary) -> float:
 		"rinta":
 			return clampf(0.25 + 0.5 * float(shape.get("bust", 0.0)), 0.0, 1.25)
 		"vatsa":
-			return clampf(float(shape.get("belly", 0.0)) + 0.4 * bulk, 0.0, 1.2)
+			return clampf(0.2 + 1.0 * float(shape.get("belly", 0.0)) + 0.4 * bulk, 0.0, 1.25)  # kuten rinnoilla: pohjataso + koko
 		"pakara":
 			return clampf(0.4 + 0.3 * float(shape.get("curves", 0.0)) + 0.3 * bulk + 0.3 * float(shape.get("belly", 0.0)), 0.0, 1.2)
 	return 0.0

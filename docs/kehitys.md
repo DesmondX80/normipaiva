@@ -212,7 +212,7 @@ jos jalka menisi kappaleeseen (matala askelma), asento jää, ja kädet menevät
 niin, että olkapää yltää, sormet vaakaan).
 
 **Hyllyntä liikkeessä (rinnat, vatsa, pakarat):** jokaisella osalla on oma vaimennettu jousi (`Elastic.JIGGLE`: luu, piste, taajuus,
-vaimennus, vaakakiihtyvyyden osuus, suurin siirto): rinnat 3,5 Hz / ζ 0,12 (spine_03), vatsa 5 Hz / ζ 0,2 (spine_01), pakarat ja reiden yläosa
+vaimennus, vaakakiihtyvyyden osuus, suurin siirto): rinnat 3,5 Hz / ζ 0,12 (spine_03), vatsa 3,8 Hz / ζ 0,13 (spine_01, iso maha hyllyy kuten rinnat; pelaajalla belly 0,75, joten hyllyntä toimii kaikissa vaiheissa, joissa hahmo näkyy alle 35 m päässä: kävely, mopo, välianimaatiot, minipelit), pakarat ja reiden yläosa
 12 Hz / ζ 0,25 (pelvis). `Character._update_jiggle` ajaa jouset luun pisteen kiihtyvyydestä vain lähellä (LOD-väli 1, piilossa nollaan) ja
 syöttää siirrot uniformeina `jiggle_rinta/vatsa/pakara` (pehmeä raja tanh). Voimakkuus vartalosta (`Elastic.jiggle_gain`: bust, belly, bulk,
 curves); verteksipainot `CUSTOM1` (`Elastic.jiggle_weights`, vain paikasta). Siirto lisätään ennen painumaa, joten kontaktilaatikko pitää

@@ -1973,7 +1973,10 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	var scenery: Node3D = cast.scenery
 	var faded := false  # häivytys vasta, kun kamera on vaunussa (muuten näkyi hetken tyhjä tehdaskohtauksen paikka)
 	var lines: Array = TRAIN_TALK_VAALA if to_vaala else TRAIN_TALK_SALOINEN
-	if treat:
+	# Erikoiskohtaus (riisuminen, flirtti, vihje Uiton saunalle) vain verkkopaidassa ja tarjotuilla paukuilla Saloisista
+	# Vaalaan. Muuten paukkujen tarjoaminen tuo vain käden reidelle; ilman paukkuja ei kättäkään.
+	var special := treat and to_vaala and Looks.outfit == "farkut"
+	if special:
 		# Erikoiskohtauksessa flirtti, riisuminen ja sauna-vihje täyttävät ajan: ylimääräinen small talk pois.
 		lines = lines.filter(func(l: Array) -> bool: return not (l[1] in TRAIN_TALK_TRIM))
 	const LINE := 2.3
@@ -1985,7 +1988,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			hand_from = i
 		if lines[i].size() > 2 and lines[i][2] == "treat":
 			treat_k = i
-	var net := Looks.outfit == "farkut"
+	var net := special  # erikoiskohtaus on aina verkkopaitaversio
 	var flirt := {}
 	var strip_k := -1
 	var helena0: Node3D = cast.helena
@@ -1998,7 +2001,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 				c[1] = "Ei se mitään. Tässä on mukava istua."  # naisille ei tarjottu mitään: ei kippistelyä
 			c[1] = (c[1] as String).trim_prefix("Kippis! ")
 			return c)
-	else:
+	elif special:
 		# Erikoiskohtaus: kun Helena on saanut kossuryypyn, hänellä on kuuma ja hän riisuu tuubimekon hitaasti; sitten kosketus.
 		var strip_lines: Array = [["helena", "Täällähän on kuuma...", "strip"],
 			["minä", "Kyllä täällä kuuma on... ja kuumenee." if net else "Tuota... niin. Kuuma. Joo."]]
@@ -2011,7 +2014,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 		helena0.body_mat.set_shader_parameter("undress", 0.0)
 		helena0.body_mat.set_shader_parameter("shirt", bk.shirt)
 		helena0.body_mat.set_shader_parameter("pants", bk.pants)
-	if net and treat:
+	if net:
 		lines = lines.map(func(l: Array) -> Array:
 			var c := l.duplicate()
 			c[1] = TRAIN_NET_LINES.get(l[1], l[1])
@@ -2023,7 +2026,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			c[1] = (c[1] as String).replace("%s", town)
 			return c) + lines.slice(extra)
 		flirt = _flirt_setup(cast["minä"])
-	if treat and to_vaala:
+	if special:
 		# Selkeä vihje: Helena kertoo, minne hän menee (main.gd helena_vaalassa: Helena odottaa Uiton saunalla).
 		var at_k := (hand_from + 2 + (TRAIN_NET_EXTRA.size() if net else 0))
 		at_k = mini(at_k, lines.size())
@@ -2092,11 +2095,11 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 				# Pelaajan vasen reisi (käden alusta) ja vierekkäiset jalat (Helenan liukuma) mitataan pinnasta kerran.
 				hand.thigh = Pose.limb_points(hero, car, ["thigh_l", "calf_l"])
 				var gap := INF
-				var legs := ["thigh_l", "calf_l", "thigh_r", "calf_r"]
+				var legs := ["thigh_l", "calf_l", "thigh_r", "calf_r", "pelvis", "spine_01", "spine_02", "spine_03"]  # myös vartalo: kylki kylkeen
 				var hl_leg := Pose.limb_points(hl, car, legs)
 				var hero_leg := Pose.limb_points(hero, car, legs)
 				if not hl_leg.is_empty() and not hero_leg.is_empty():
-					# Helena istuu -X:n puolella: väli = pelaajan jalan vasen reuna - Helenan jalan oikea reuna.
+					# Helena istuu -X:n puolella: väli = pelaajan jalan/vartalon vasen reuna - Helenan oikea reuna (arvo ei sisällä käsiä).
 					var hero_min := INF
 					var hl_max := -INF
 					for q in hero_leg:
@@ -2104,7 +2107,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 					for q in hl_leg:
 						hl_max = maxf(hl_max, q.x)
 					gap = hero_min - hl_max
-				hand.near = clampf(gap - 0.015, 0.0, 0.3)
+				hand.near = clampf(gap - 0.008, 0.0, 0.3)
 			if treat:
 				# Erikoiskohtauksessa Helena painautuu kiinni: liukuu penkillä viereen (jalat vierekkäin, ei sisäkkäin),
 				# kallistuu ja nojaa päänsä olalle.
@@ -2117,9 +2120,11 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 				toward.y = 0.0
 				hl.position = (hand.h0 as Vector3) + toward.normalized() * float(hand.near) * lean
 				hand.lean = lean
-				hl.set_override("spine_02", Vector3(0, 0, 1), -0.3 * lean)
-				hl.set_override("neck_01", Vector3(0, 0, 1), -0.45 * lean)
-				hl.set_override("Head", Vector3(0, 0, 1), -0.12 * lean)  # pää nojaa pelaajan olalle (mallikuva)
+				if special:
+					hl.set_override("spine_01", Vector3(0, 0, 1), -0.14 * lean)  # yläkroppa nojaa lähelle (kylki kylkeen)
+					hl.set_override("spine_02", Vector3(0, 0, 1), -0.5 * lean)
+					hl.set_override("neck_01", Vector3(0, 0, 1), -0.4 * lean)
+					hl.set_override("Head", Vector3(0, 0, 1), -0.12 * lean)  # pää nojaa pelaajan olalle (mallikuva)
 			if hand.w == 0.0:
 				hand.rest = hl.to_global(hl.bone_position("hand_r"))
 			hand.w = minf(1.0, hand.w + hdt * 1.4)

@@ -11094,7 +11094,7 @@ func _train_trip(to: String) -> void:
 		money -= TRAIN_ROUND
 		mielihyva = clampf(mielihyva + 5.0, 0.0, 100.0)
 	tilat.add("humala", 0.12)
-	helena_vaalassa = to == "vaala" and treat
+	helena_vaalassa = to == "vaala" and treat and Looks.outfit == "farkut"  # vain verkkopaita + kossut Saloisista Vaalaan
 	_save_game()
 	cutscene.train_ride(to == "vaala", _arrive_vaala_by_train if to == "vaala" else _arrive_saloinen_by_train, treat)
 
