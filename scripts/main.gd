@@ -21923,6 +21923,41 @@ func _maybe_screenshot() -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0]))
 			_paper.toggle()
+		"vaalakierros":
+			# Vaalan Ratatie (aseman edestä Zabukin taakse Aseman pihaan): paperikartta keskustasta kahdella zoomilla,
+			# sitten vapaa kamera ylhäältä ja tien tasolta kulmissa ja liittymässä.
+			_start_mopo()
+			mopo_trip.mopo.position = mopo_trip.vaala.kmarket_door + Vector3(0, 0.6, 0)
+			for i in 10:
+				await get_tree().process_frame
+			_paper.toggle()
+			for vw in [["_kartta.png", Vector2(840, -850), 1.6], ["_kartta_lahella.png", Vector2(840, -850), 3.0]]:
+				_paper._vcenter = vw[1]
+				_paper._vzoom = vw[2]
+				_paper._view.queue_redraw()
+				_paper.queue_redraw()
+				for i in 3:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0]))
+			_paper.toggle()
+			var vcam := Camera3D.new()
+			vcam.far = 3000.0
+			add_child(vcam)
+			var vh := func(x: float, z: float, up: float) -> Vector3:
+				return mopo_trip.vaala.to_global(Vector3(x, mopo_trip.vaala.h(x, z) + up, z))
+			for vw in [["_ylhaalta", vh.call(836.0, -840.0, 110.0), vh.call(836.0, -842.0, 0.0)],
+					["_asema", vh.call(935.0, -770.0, 14.0), vh.call(912.0, -815.0, 1.0)],
+					["_koillinen", vh.call(880.0, -880.0, 12.0), vh.call(907.0, -906.0, 1.0)],
+					["_taka", vh.call(850.0, -895.0, 7.0), vh.call(790.0, -906.0, 1.0)],
+					["_liittyma", vh.call(766.0, -890.0, 7.0), vh.call(765.0, -855.0, 1.0)]]:
+				vcam.look_at_from_position(vw[1], vw[2], Vector3.UP if vw[0] != "_ylhaalta" else Vector3(0, 0, -1))
+				vcam.current = true
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0] + ".png"))
+			get_tree().quit()
 		"mokkikauppa":
 			# K-Market Tervaportti Vaalassa: mopo oven eteen (vihje), kauppaan, Alkon hylly, ulos ja takaisin mopolle.
 			_start_mopo()

@@ -575,6 +575,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Zabukin pihan läpi ja liittymä torille on poistettu (`tools/vaala_asematie.py`, ajetaan kerran `vaala_risteys.py`:n jälkeen). Tori on
     laajennettu Aseman pihan pohjoispuolelle Zabukin eteen (kojut vähintään 4,5 m reunasta, tori 9 m tien keskiviivasta). Siitarin eteen, terassin ja Vaalantien väliin,
     on tehty parkkipaikka ruutuviivoin, P-kyltein ja asiakkaiden autoin (`vaala.gd _siitari_lot`).
+    **Ratatie** jatkaa asfalttia aseman editse: Veturitallintien keskeltä se kääntyy pohjoiseen aseman ja Kunnanviraston välistä, länteen Zabukin ja torin
+    taakse ja etelään Aseman pihan mutkaan, johon se liittyy T-risteyksenä (kulmat ympyränkaaria, säde 16 m; `tools/vaala_kierros.py`). Kierros on
+    ajettavaa asfalttia, ja sille jääneet kolme pientä rakennusta (kaksi taloa ja vaja) on poistettu. Kartalla tien nimi näkyy vain yli 45 m pitkillä teillä.
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
     katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin

@@ -1138,6 +1138,11 @@ func _draw_vaala_map() -> void:
 	for r in _vd.side_roads:
 		if r.name == "" or r.pts.size() < 2 or (_vzoom < 0.9 and not r.name in ["Pahalahdentie", "Satamantie", "Sahanrannantie"]):
 			continue
+		var len := 0.0
+		for q in r.pts.size() - 1:
+			len += Vector2(r.pts[q][0], r.pts[q][1]).distance_to(Vector2(r.pts[q + 1][0], r.pts[q + 1][1]))
+		if len < 45.0:
+			continue  # lyhyen tien nimi valuisi viereisten teiden päälle (Veturitallintie)
 		var k: int = r.pts.size() / 2
 		_road_label(v, _vpx(Vector2(r.pts[k - 1][0], r.pts[k - 1][1])), _vpx(Vector2(r.pts[k][0], r.pts[k][1])), r.name,
 			Color(0.35, 0.18, 0.08), 11, -6.0)
