@@ -220,6 +220,50 @@ const SULO := {
 	"skin": Color(1.0, 0.84, 0.78), "belly": 0.45, "bulk": -0.2, "shoulders": -0.3,
 }
 
+## Kolmiomittaus (#255): Saloisten Joni ja Esa, Vaalan Hevari-Tero ja Siviikki-Timo sekä Sytkäri-mätsit Minttu ja Katja.
+## Joni: tummatukkainen golfari (valkoinen pikee, vaaleat chinot), selässä Sandels-päkkirinkka (add_sandels_rinkka).
+const JONI := {
+	"shirt": Color(0.95, 0.95, 0.92), "pants": Color(0.82, 0.75, 0.58), "shoes": Color(0.92, 0.92, 0.9),
+	"hair": "Hair_SimpleParted", "hair_color": Color(0.07, 0.05, 0.04), "height": 1.8, "belly": 0.35, "bulk": 0.0,
+	"skin": Color(0.98, 0.84, 0.74), "sandels": true,
+}
+## Esa: erämies: vihreä flanellipaita, maastohousut, ruskea parta ja pitkävartiset saappaat.
+const ESA := {
+	"shirt": Color(0.24, 0.36, 0.2), "flannel": true, "pants": Color(0.33, 0.3, 0.2), "shoes": Color(0.12, 0.1, 0.08),
+	"hair": "Hair_Buzzed", "hair_color": Color(0.42, 0.3, 0.18), "beard": true, "height": 1.83, "belly": 0.2, "bulk": 0.35,
+	"shoulders": 0.4, "skin": Color(0.95, 0.76, 0.64), "muscle": 0.2,
+}
+## Hevari-Tero: musta bändipaita, mustat farkut, pitkät hiukset ja parta.
+const HEVARI_TERO := {
+	"shirt": Color(0.06, 0.06, 0.07), "pants": Color(0.1, 0.1, 0.12), "jeans": true, "shoes": Color(0.05, 0.05, 0.05),
+	"hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.12), "beard": true, "height": 1.82, "belly": 0.55, "bulk": 0.2,
+	"skin": Color(0.97, 0.84, 0.76),
+}
+## Siviikki-Timo: punainen tuulitakki kuin Hondan värit, farkut, valkoiset lenkkarit.
+const SIVIIKKI_TIMO := {
+	"shirt": Color(0.78, 0.07, 0.1), "pants": Color(0.22, 0.3, 0.48), "jeans": true, "shoes": Color(0.95, 0.95, 0.95),
+	"hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.42, 0.25), "height": 1.74, "belly": 0.3, "bulk": -0.2,
+	"skin": Color(0.98, 0.84, 0.74), "shine": 0.6,
+}
+## Minttu: punaiset kiharat olkapäille (add_curls), pisamainen vaalea iho ja keltainen polvipituinen kesämekko
+## ohuin olkaimin (paljaat käsivarret ja sääret), valkoiset sandaalit. Selvästi eri näköinen kuin Sinikka.
+const MINTTU := {
+	"model": "female", "shirt": Color(1.0, 0.8, 0.22), "pants": Color(1.0, 0.8, 0.22), "shoes": Color(0.95, 0.93, 0.88),
+	"hair": "Hair_Long", "hair_color": Color(0.72, 0.2, 0.07), "height": 1.68, "skin": Color(1.0, 0.92, 0.86),
+	"bare_skin": Color(1.0, 0.86, 0.78), "shorts_y": 0.55, "sleeve_x": 0.17, "curves": 0.8, "bust": 2.0, "curls": true,
+}
+## Katja: pitkät mustat suorat hiukset, kiiltävä musta nahkatakki, tummat farkut ja mustat saappaat; motoristi.
+const KATJA := {
+	"model": "female", "shirt": Color(0.05, 0.045, 0.05), "shine": 0.95, "pants": Color(0.12, 0.13, 0.18), "denim": true,
+	"shoes": Color(0.04, 0.04, 0.04), "hair": "Hair_Long", "hair_color": Color(0.03, 0.025, 0.03), "height": 1.75,
+	"skin": Color(0.98, 0.86, 0.78), "curves": 0.7, "bust": 1.8,
+}
+## Sandels-päkkirinkan värit (pahvilaatikko). Esikuvaa ei saatu tarkistettua: säädä tästä, kun kuva on katsottu.
+const SANDELS_BOX := Color(0.12, 0.28, 0.62)
+const SANDELS_TEXT := Color(0.98, 0.95, 0.85)
+const SANDELS_GOLD := Color(0.86, 0.7, 0.3)
+const JESARI := Color(0.66, 0.68, 0.7)
+
 
 static func make(parent: Node3D, look: Dictionary) -> Node3D:
 	var c := Character.new()
@@ -238,6 +282,10 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 		add_army_uniform(c)
 	if look.get("braid", false):
 		add_braid(c, look.get("hair_color", Color(0.78, 0.5, 0.28)))
+	if look.get("curls", false):
+		add_curls(c, look.get("hair_color", Color(0.72, 0.2, 0.07)))
+	if look.get("sandels", false):
+		add_sandels_rinkka(c)
 	return c
 
 
@@ -313,6 +361,99 @@ static func add_braid(c: Node3D, col: Color) -> void:
 		var tuft := B.mesh(braid, B.sphere(0.5, 8), tp + Vector3(sin(a) * 0.008, -0.03, cos(a) * 0.004), col.lightened(0.05))
 		tuft.scale = Vector3(0.024, 0.06, 0.018)
 	c.attach("spine_03", braid, head - chest)
+
+
+## Kiharat (Minttu): tiheä kiharapilvi pään ympäri (kasvot -Z ja korvien edusta vapaana) ja niskasta olkapäille
+## valuvat kiharat pitkien hiusten päälle. Kuten mummojen permanentti (mummot.gd _perm), mutta isommat kiharat ja
+## pidemmät hiukset. Mitat hahmon avaruudessa pääluun lepopaikasta.
+static func add_curls(c: Node3D, col: Color) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	var sm := SphereMesh.new()
+	sm.radius = 0.024
+	sm.height = 0.048
+	sm.radial_segments = 8
+	sm.rings = 5
+	mm.mesh = sm
+	var pts: Array[Vector3] = []
+	var n := 200
+	for i in n:  # kalotti
+		var y := 1.0 - 2.0 * (i + 0.5) / n
+		var rr := sqrt(1.0 - y * y)
+		var th := PI * (3.0 - sqrt(5.0)) * i
+		var d := Vector3(cos(th) * rr, y, sin(th) * rr)
+		if d.y < -0.1 or (d.z < -0.25 and d.y < 0.5) or (d.y < 0.15 and absf(d.x) > 0.55 and d.z < 0.25):
+			continue
+		pts.append(Vector3(d.x * 0.104, d.y * 0.118 + 0.01, d.z * 0.112))
+	for i in 90:  # niskasta ja ohimoilta olkapäille valuvat kiharat (takana ja sivuilla, ei kasvojen edessä)
+		var a := lerpf(-0.15 * PI, 1.15 * PI, fmod(i * 0.618, 1.0))
+		var fall := fmod(i * 0.381, 1.0)
+		var r := 0.1 + 0.025 * fall
+		pts.append(Vector3(cos(a) * r, -0.02 - fall * 0.2, sin(a) * r * 0.9 + 0.025))
+	mm.instance_count = pts.size()
+	for i in pts.size():
+		var s := 0.8 + 0.4 * fmod(i * 0.618, 1.0)
+		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * s), pts[i]))
+		mm.set_instance_color(i, col.darkened(0.15 * fmod(i * 0.37, 1.0)).lightened(0.06 * fmod(i * 0.53, 1.0)))
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.vertex_color_is_srgb = true
+	mat.roughness = 0.7
+	mi.material_override = mat
+	c.attach("Head", mi, Vector3(0, 0.088, -0.01))
+
+
+## Jonin Sandels-päkkirinkka: Sandelsin 24-pakkauksen pahvilaatikko pystyssä selässä, yläpäähän leikattu suuaukko,
+## olkahihnat ja vyötärönauha jesarista. Kylkiin teipattu termospullo, golfpallopussi, avaaja ja kaksi tölkkiä.
+## Kiinni rintakehän luussa (spine_03), mitat hahmon avaruudessa (kasvot -Z, selkä +Z).
+static func add_sandels_rinkka(c: Node3D) -> void:
+	var pack := Node3D.new()
+	var w := 0.27  # leveys (X)
+	var h := 0.41  # korkeus (Y)
+	var dz := 0.125  # paksuus (Z)
+	var box := SANDELS_BOX
+	B.mesh(pack, B.boxm(Vector3(w, h, dz)), Vector3.ZERO, box)
+	B.mesh(pack, B.boxm(Vector3(w + 0.004, 0.012, dz + 0.004)), Vector3(0, h / 2.0 - 0.006, 0), box.lightened(0.25))  # vaalea yläreuna
+	B.mesh(pack, B.boxm(Vector3(w + 0.004, 0.02, dz + 0.004)), Vector3(0, -h / 2.0 + 0.01, 0), box.darkened(0.35))  # kulunut pohja
+	B.mesh(pack, B.boxm(Vector3(w * 0.7, 0.006, dz * 0.6)), Vector3(0, h / 2.0 + 0.001, 0), Color(0.05, 0.04, 0.03))  # suuaukko
+	for k in 3:  # tölkkien kannet aukosta
+		B.mesh(pack, B.cyl(0.028, 0.028, 0.008, 12), Vector3(-0.06 + k * 0.06, h / 2.0 + 0.002, 0), Color(0.75, 0.76, 0.78))
+	# Takapinta (+Z): nimi kylttinä ja kultainen medaljonki kenraalin kuvalle.
+	var plate := B.sign_plate(pack, "SANDELS", box.darkened(0.15), SANDELS_TEXT, 0.06, 24, SANDELS_GOLD)
+	plate.position = Vector3(0, 0.08, dz / 2.0 + 0.012)
+	plate.scale = Vector3.ONE * 0.33  # levy on n. 0,72 m leveä: laatikon levyiseksi (0,27 m)
+	B.mesh(pack, B.cyl(0.05, 0.05, 0.006, 20), Vector3(0, -0.06, dz / 2.0 + 0.004), SANDELS_GOLD, Vector3(90, 0, 0))
+	B.mesh(pack, B.cyl(0.04, 0.04, 0.008, 20), Vector3(0, -0.06, dz / 2.0 + 0.005), Color(0.92, 0.88, 0.78), Vector3(90, 0, 0))
+	B.mesh(pack, B.sphere(0.014, 8), Vector3(0, -0.05, dz / 2.0 + 0.01), Color(0.55, 0.42, 0.3))  # kenraalin pää
+	B.mesh(pack, B.boxm(Vector3(0.04, 0.012, 0.004)), Vector3(0, -0.035, dz / 2.0 + 0.012), Color(0.1, 0.1, 0.12))  # kaksikolkka
+	# Jesarit: vaakanauhat ympäri ja olkahihnat selästä olkapäiden yli eteen.
+	for yy in [-0.12, 0.13]:
+		B.mesh(pack, B.boxm(Vector3(w + 0.008, 0.045, dz + 0.008)), Vector3(0, yy, 0), JESARI)
+	for sx in [-1.0, 1.0]:
+		var top := Vector3(sx * 0.08, h / 2.0 - 0.02, -dz / 2.0)
+		var shoulder := Vector3(sx * 0.1, h / 2.0 + 0.07, -dz / 2.0 - 0.11)
+		var front := Vector3(sx * 0.1, h / 2.0 - 0.1, -dz / 2.0 - 0.25)
+		B.tube(pack, top, shoulder, 0.012, JESARI)
+		B.tube(pack, shoulder, front, 0.012, JESARI)
+	# Kylkiin teipatut tarvikkeet: termos (vasen), golfpallopussi ja kaksi tölkkiä (oikea), avaaja narussa.
+	var side := -w / 2.0 - 0.035
+	B.mesh(pack, B.cyl(0.034, 0.034, 0.26, 14), Vector3(side, -0.03, 0), Color(0.55, 0.08, 0.08))
+	B.mesh(pack, B.cyl(0.03, 0.034, 0.04, 14), Vector3(side, 0.12, 0), Color(0.15, 0.15, 0.16))
+	B.mesh(pack, B.boxm(Vector3(0.075, 0.03, 0.075)), Vector3(side, -0.03, 0), JESARI)
+	for k in 5:
+		B.mesh(pack, B.sphere(0.021, 10), Vector3(-side + (k % 2) * 0.012, 0.06 + (k / 2) * 0.04, -0.02 + (k % 2) * 0.03),
+			Color(0.97, 0.97, 0.95))
+	for k in 2:
+		B.mesh(pack, B.cyl(0.033, 0.033, 0.115, 14), Vector3(-side, -0.1, -0.035 + k * 0.07), box.lightened(0.1))
+		B.mesh(pack, B.cyl(0.03, 0.033, 0.01, 14), Vector3(-side, -0.037, -0.035 + k * 0.07), Color(0.78, 0.78, 0.8))
+	B.mesh(pack, B.boxm(Vector3(0.09, 0.03, 0.15)), Vector3(-side, -0.1, 0), JESARI)
+	B.tube(pack, Vector3(-w / 2.0 + 0.02, -h / 2.0, dz / 2.0), Vector3(-w / 2.0 + 0.03, -h / 2.0 - 0.06, dz / 2.0 + 0.01), 0.003,
+		Color(0.85, 0.85, 0.82))
+	B.mesh(pack, B.boxm(Vector3(0.018, 0.05, 0.006)), Vector3(-w / 2.0 + 0.03, -h / 2.0 - 0.085, dz / 2.0 + 0.01), Color(0.7, 0.7, 0.72))
+	c.attach("spine_03", pack, Vector3(0, -0.06, 0.2))
 
 
 ## Charlie Chaplinin hammasharjaviikset nenän alle: pieni musta, hieman pyöristetty töyhtö (mitat kuten glam-asusteissa

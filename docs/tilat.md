@@ -90,6 +90,9 @@ Toimintojen vaikutukset tiloihin:
 | Nukkuminen mökillä | väsymys +++ (ennen päivän tulosta), aamulla stressi − (Päivi soittaa) |
 | Pekan kyyti mökille (ensimmäinen kerta) | kokemus + |
 | Poliisilta pakoon | stressi + |
+| Kolmiomittaus: väärä ovi | moraali − (vähän) |
+| Kolmiomittaus: onnellinen loppu (Rasvanappi naisen luona ja aamukahvit) | moraali +, stressi +, vireys +, kokemus + (ensikerrat) |
+| Kolmiomittauksen jälkeisenä päivänä kotiin: maito mukana / maito unohtui | stressi + / stressi −, moraali − |
 | WASTED | moraali −−, stressi −− |
 | Ensimmäinen kerta (kauppa, laavu, tarinat, sahaus, halkominen, poiminta, Väinö, nurmikko, pontikka, Raahe, tappelut…) | kokemus + |
 

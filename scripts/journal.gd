@@ -336,6 +336,18 @@ func _ending_card(r: Rect2, it) -> void:
 		draw_string(font, r.position + Vector2(0, r.size.y * 0.6), "???", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 28, Color(0.6, 0.58, 0.52))
 		return
 	MG.box(self, r, Color(1.0, 0.95, 0.75), 8, 3, Color(0.85, 0.6, 0.1), 2)
+	if r.size.y < 62.0:
+		# Matala kortti (monta onnellista loppua sivulla): tähti, nimi ja kerrat yhdellä rivillä, kuvaus vain kun mahtuu.
+		var cy := r.position.y + minf(r.size.y * 0.5, 20.0)
+		_star(Vector2(r.position.x + 16, cy), 8.0, Color(1.0, 0.8, 0.15))
+		var cfs := 15
+		while cfs > 11 and font.get_string_size(it.name, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs).x > r.size.x - 90:
+			cfs -= 1
+		draw_string(font, Vector2(r.position.x + 30, cy + 5), it.name, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 90, cfs, Color(0.35, 0.15, 0.05))
+		draw_string(_hand, Vector2(r.end.x - 52, cy + 5), "× %d" % it.count, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.2, 0.45, 0.2))
+		if r.size.y >= 44.0:
+			draw_string(_hand, Vector2(r.position.x + 12, cy + 22), it.desc, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 20, 11, INK)
+		return
 	_star(r.position + Vector2(18, 20), 10.0, Color(1.0, 0.8, 0.15))
 	var fs := 16
 	while fs > 11 and font.get_string_size(it.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > r.size.x - 40:

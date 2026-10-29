@@ -46,6 +46,25 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Valojen sammuttua kontataan (WASD, Shift ripeästi mutta kolisten). Rasvanappi tökkää jotakuta takaapäin peppuun
   (E) ja huutaa nimen. Jos arvaus osuu, tökätty nuolee sormen ja on seuraava nappi. Jos ei, tökkääjä nuolee itse.
   Kun nappi on joku muu, se jahtaa pimeässä. Testit `--scene=rasvanappi` ja `tools/testit/rasvanappi_kuvat.tscn`.
+- **Kolmiomittaus (Sytkäri-mätsi, vain aikuisille):** Saloisten kaupan pihassa seisovat Joni (tummatukkainen golfari,
+  selässä Sandels-oluen 24-pakkauksesta jesarilla tehty päkkirinkka termoksineen, golfpalloineen ja tölkkeineen) ja Esa
+  (erämies, harppi taskussa), Vaalan aseman pihassa Hevari-Tero (valittaa valtiosta) ja Siviikki-Timo (punainen Honda
+  Civic, VTEC). Juttele (E), niin puhelimeen tulee Sytkäri-mätsi (parodiadeittisovellus, liekkilogo): Minttu (punaiset
+  kiharat, pisamat, kesämekko) Saloisissa tai Katja (pitkät mustat suorat hiukset, nahkatakki, motoristi) Vaalassa.
+  Osoitetta ei kerrota, vain etäisyys. Kaveri mittaa lähtöpaikalta, toinen tekstaa etämittauksen (Esa kirkolta, Timo
+  Veturitallilta), ja pelaaja mittaa lisää missä vain (E "Avaa Sytkäri", vähintään 35 m edellisistä mittauksista).
+  Sovellus pyöristää etäisyyden (alle 120 m 10 m:iin, alle 500 m 50 m:iin, muuten 100 m:iin), joten paperikartalla (M)
+  jokainen mittaus on harpilla piirretty ympyrä ja haalea vyöhyke; vyöhykkeet tummuvat päällekkäin, ja leikkauksessa
+  on naisen talo. Lähempää mitattu ympyrä on tarkempi. Väärällä ovella avaa joku muu (mummo kepin kanssa, Pannu-Sulo,
+  verotoimiston Raimo...). Kolmiomittaajat tuovat kukin yhden lahjan kuin itämaan tietäjät (Saloisissa Esa mansikat,
+  Joni kermavaahdon ja pelaaja ruusut, Vaalassa Timo kermavaahdon, Tero ruusut ja pelaaja mansikat); oma lahja ostetaan
+  kaupan tiskiltä kauppiaalta (9 €), ja ilman sitä ovi ei aukea ("Missäs ne ruusut on?"). Oikealla ovella pelataan
+  erikoissääntöinen Rasvanappi naisen pimennetyssä olohuoneessa: viisi pelaajaa (pelaaja, nainen, kaverit ja naisen
+  ystävätär), kermavaahto margariinin tilalla, mansikka palkinnoksi oikeasta arvauksesta ja kaverien omat äänet
+  (golfjutut, hyräily, valitus, VTEC). Kesken pelin Päivi soittaa: "Missä sää oot?" "Kolmiomittaamassa." "No tuo maitoa
+  tullessas." Aamulla kahvit ja mansikkaletut (onnellinen loppu **Kolmiomittaus Saloisissa** tai **Vaalassa**), ja
+  seuraavana päivänä maito on vietävä kotiin, tai Päivi motkottaa. Yksi kolmiomittaus päivässä. Testit
+  `--scene=kolmiomittaus` ja `--scene=kolmiomittaus_vaala` (`tools/testit/kolmiomittaus.gd`).
 - **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (kauppalista ja Päivin omin sanoin
   kirjoittamat muistutukset; mökillä lapun kirjoittaa Santtu). Pelin tiedot, kuten jemmojen tilanne ja varoitukset,
   tulevat ruudun viesteinä. Kauppalistan neljä tuotetta on kirjoitettu kukin omanvärisellä kynällä ("vihreä tamponi,
@@ -862,14 +881,14 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Päiväkirja (O)** ei paljasta mitään etukäteen: luku näkyy, kun siihen päästään, vaihe, kun siitä on kuultu, ja
   sivutehtävä, kun siitä on kerrottu. Uusista vihjeistä tulee ilmoitus "Päiväkirjaan tuli uutta".
 - **Onnelliset loput** (päivä päättyy loppukohtaukseen): juhlat autotallissa, viinibileet, laavulla kaljoilla,
-  legendaarinen normipäivä, mökkibileet, erämaan laavu (Viitajärven laavu auringonlaskussa) ja Kymppiuutiset nauhalta
-  (video ajastetaan olohuoneessa ennen klo 22, ja klo 22.25 jälkeen sohvalle eteisen kaapin kaljan kanssa). Ilmoitus
-  "ONNELLINEN LOPPU".
+  legendaarinen normipäivä, mökkibileet, erämaan laavu (Viitajärven laavu auringonlaskussa), Kymppiuutiset nauhalta
+  (video ajastetaan olohuoneessa ennen klo 22, ja klo 22.25 jälkeen sohvalle eteisen kaapin kaljan kanssa), Mirkun
+  teltassa sekä kolmiomittaus Saloisissa ja Vaalassa. Ilmoitus "ONNELLINEN LOPPU".
 - **Legendaariset hetket** (saavutukset, peli jatkuu): Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit,
   karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas,
   Drakkar Noir ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
   Ukko, Ukko vapaaksi). Ilmoitus "LEGENDAARINEN HETKI".
-- Päiväkirjan Loput-välilehdellä onnelliset loput vasemmalla (X / 7, kerrat yhteensä) ja legendaariset hetket oikealla
+- Päiväkirjan Loput-välilehdellä onnelliset loput vasemmalla (X / 10, kerrat yhteensä; matalat kortit tiiviinä riveinä) ja legendaariset hetket oikealla
   (X / 16, tähtirivi), löytämättömät ???. Testi `--scene=paivakirja`.
 
 ## Jalan vai pyörällä?
