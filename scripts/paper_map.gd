@@ -1064,7 +1064,11 @@ func _draw_vaala_map() -> void:
 				for i in pts.size() - 1:
 					v.draw_dashed_line(pts[i], pts[i + 1], INK, 1.5, 5.0)
 		else:
-			road_line.call(pts, r.hw in ["secondary", "tertiary", "residential"] or r.surface in ["asphalt", "paved"])
+			if r.get("street", 0) == 1:  # kapea asfalttikatu: ohuempi kuin maantie
+				v.draw_polyline(pts, Color(0.45, 0.25, 0.1), 4.0 * rw)
+				v.draw_polyline(pts, Color(0.98, 0.9, 0.62), 2.2 * rw)
+			else:
+				road_line.call(pts, r.hw in ["secondary", "tertiary", "residential"] or r.surface in ["asphalt", "paved"])
 	for br in _vd.branches:
 		var pts := PackedVector2Array()
 		for q in br.pts:

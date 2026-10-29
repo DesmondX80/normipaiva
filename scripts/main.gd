@@ -430,7 +430,7 @@ var aarni: RefCounted  # legenda: Lapinraunion aarnivalkea (aarnivalkea.gd, #139
 var ukko: RefCounted  # legenda: Tekojärven Ukko (ukko_legenda.gd)
 var endings: RefCounted  # onnellisten loppujen kokoelma (endings.gd, #132)
 var quests: RefCounted  # tarinan luvut ja sivutehtävät (quests.gd, #132)
-var _journal: Control  # Normipäiväkirja (O), journal.gd
+var _journal: Control  # Normipäiväkirja ja reppu yhtenä vihkona (O / R), journal.gd
 var _matkaopas: Control  # Matkaopas (B), matkaopas.gd; saadaan taksikuskilta
 var _pannu_node: Node3D  # kuparin läikkä Pilkkarinnevalla (näkyy kun legenda on kuultu)
 var raahe_int: Node3D
@@ -568,7 +568,7 @@ var _sus_box: Control
 var _sus_bar: ProgressBar
 var _bird_t := 2.0
 var _minimap: Control
-var _inventory: Control  # reppu (I / Tab), inventory.gd
+var _inventory: Control  # reppu (R / Tab), inventory.gd
 ## Drooni (drone_game.gd): alusta kotipihalla, akku latautuu maassa, törmäys rikkoo päiväksi. Ilmakuvat kerätään
 ## kokoelmaksi, ja Pannu-Sulon pontikkapannu merkitään karttaan, kun se on kuvattu ilmasta.
 const DRONE_CHARGE_S := 240.0  # tyhjästä täyteen
@@ -1201,12 +1201,12 @@ func _ready() -> void:
 	paper.mokki = mokki
 	map_layer.add_child(paper)
 	_paper = paper
-	_inventory = Inventory.new()
+	_inventory = Inventory.new()  # repun sivu on päiväkirjan lapsi: yksi vihko (journal.gd)
 	_inventory.game = self
-	map_layer.add_child(_inventory)
 	_journal = Journal.new()
 	_journal.game = self
 	map_layer.add_child(_journal)
+	_journal.add_child(_inventory)
 	_matkaopas = Matkaopas.new()
 	_matkaopas.game = self
 	map_layer.add_child(_matkaopas)
@@ -2700,7 +2700,7 @@ func _ebike_bench_note() -> String:
 		_save_game()
 		return "\nTästähän sais sähköpyörän! Osat sieltä täältä: napamoottori, akku, ohjain ja johdot. Pekalla oli vanhoja " \
 			+ "porakoneen akkuja, ja Seppo tietää kylän romut. Työkalutaululta puolikas rulla jeesusteippiä ja purkki ruuveja. " \
-			+ "Osalista repussa (I)."
+			+ "Osalista repussa (R)."
 	var miss := PackedStringArray()
 	for k in ebike.missing_parts():
 		miss.append(EBike.PARTS[k].low)
@@ -7731,7 +7731,7 @@ func _ebike_tip(who: String) -> String:
 			continue
 		ebike.heard[t[0]] = true
 		_save_game()
-		_queue_message("Sähköpyörän osalistaan (I): %s %s." % [EBike.PARTS[t[0]].low, EBike.PARTS[t[0]].where], 3.5)
+		_queue_message("Sähköpyörän osalistaan (R): %s %s." % [EBike.PARTS[t[0]].low, EBike.PARTS[t[0]].where], 3.5)
 		return t[1]
 	return ""
 
@@ -12535,7 +12535,7 @@ func _talk_neighbor(id: String) -> void:
 				"pekka_kutsuu":
 					_story_step("tehtavat")
 					_talk_box.say_lines(Story.PEKKA_TASKS, _talk_options(),
-						"Uudet tehtävät repussa (I): sienet Pekalle, puolukat Artolle ja Sinikan nurmikko.")
+						"Uudet tehtävät repussa (R): sienet Pekalle, puolukat Artolle ja Sinikan nurmikko.")
 				"pekka_avaimet":
 					_story_step("avaimet")
 					_talk_box.say_lines(Story.PEKKA_KEYS, _talk_options(), "Hae autonavaimet kodalta (lintutornin luota).")
@@ -19428,7 +19428,7 @@ func _avoid_note() -> void:
 
 func _update_hud() -> void:
 	_avoid_note()
-	# Rahat, kauppalista, tavarat, jemmat ja mittarit ovat repussa (I): päänäkymässä vain matkan tiedot.
+	# Rahat, kauppalista, tavarat, jemmat ja mittarit ovat repussa (R): päänäkymässä vain matkan tiedot.
 	# Mökillä pääpelin tehtävät eivät näy.
 	var at_mokki := _at_mokki()
 	var lines: Array[String] = []
@@ -21924,14 +21924,14 @@ func _maybe_screenshot() -> void:
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0]))
 			_paper.toggle()
 		"vaalakierros":
-			# Vaalan Ratatie (aseman edestä Zabukin taakse Aseman pihaan): paperikartta keskustasta kahdella zoomilla,
+			# Vaalan liikenneympyrä, tori ja Zabuki: paperikartta keskustasta kahdella zoomilla,
 			# sitten vapaa kamera ylhäältä ja tien tasolta kulmissa ja liittymässä.
 			_start_mopo()
 			mopo_trip.mopo.position = mopo_trip.vaala.kmarket_door + Vector3(0, 0.6, 0)
 			for i in 10:
 				await get_tree().process_frame
 			_paper.toggle()
-			for vw in [["_kartta.png", Vector2(840, -850), 1.6], ["_kartta_lahella.png", Vector2(840, -850), 3.0]]:
+			for vw in [["_kartta.png", Vector2(820, -860), 1.6], ["_kartta_lahella.png", Vector2(795, -905), 3.0]]:
 				_paper._vcenter = vw[1]
 				_paper._vzoom = vw[2]
 				_paper._view.queue_redraw()
@@ -21946,11 +21946,15 @@ func _maybe_screenshot() -> void:
 			add_child(vcam)
 			var vh := func(x: float, z: float, up: float) -> Vector3:
 				return mopo_trip.vaala.to_global(Vector3(x, mopo_trip.vaala.h(x, z) + up, z))
-			for vw in [["_ylhaalta", vh.call(836.0, -840.0, 110.0), vh.call(836.0, -842.0, 0.0)],
-					["_asema", vh.call(935.0, -770.0, 14.0), vh.call(912.0, -815.0, 1.0)],
-					["_koillinen", vh.call(880.0, -880.0, 12.0), vh.call(907.0, -906.0, 1.0)],
-					["_taka", vh.call(850.0, -895.0, 7.0), vh.call(790.0, -906.0, 1.0)],
-					["_liittyma", vh.call(766.0, -890.0, 7.0), vh.call(765.0, -855.0, 1.0)]]:
+			for vw in [["_ylhaalta", vh.call(800.0, -895.0, 100.0), vh.call(800.0, -897.0, 0.0)],
+					["_ymparyra", vh.call(740.0, -840.0, 12.0), vh.call(771.0, -860.0, 1.0)],
+					["_tori", vh.call(765.0, -880.0, 9.0), vh.call(805.0, -910.0, 1.0)],
+					["_matkakeskus", vh.call(790.0, -890.0, 2.5), vh.call(808.0, -918.0, 2.5)],
+					["_zabuki", vh.call(778.0, -903.0, 2.2), vh.call(791.0, -920.0, 1.8)],
+					["_asemalle", vh.call(790.0, -840.0, 6.0), vh.call(850.0, -805.0, 1.0)],
+					["_kunnantalo", vh.call(872.0, -814.0, 2.2), vh.call(851.0, -782.0, 3.0)],
+					["_kunnantalo_vino", vh.call(890.0, -822.0, 14.0), vh.call(850.0, -782.0, 2.0)],
+					["_kunnantalo_ylos", vh.call(851.0, -785.0, 60.0), vh.call(851.0, -787.0, 0.0)]]:
 				vcam.look_at_from_position(vw[1], vw[2], Vector3.UP if vw[0] != "_ylhaalta" else Vector3(0, 0, -1))
 				vcam.current = true
 				for i in 20:
@@ -24552,6 +24556,37 @@ func _maybe_screenshot() -> void:
 			print("KMV mummot suuttuneet: %s" % vl.mummot.is_angry())
 			await get_tree().create_timer(3.0).timeout
 			await shot.call("karkit")
+			get_tree().quit()
+		"satamatie":
+			# Uusi Satamantie (kapea asfalttikatu K-Marketilta radan yli satamaan): kuvat _alku, _rata, _ylhaalta, _liittyma, _satama.
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			var look := func(from: Vector3, to: Vector3, tag: String) -> void:
+				var rc := Camera3D.new()
+				add_child(rc)
+				rc.current = true
+				rc.look_at_from_position(vl.to_global(from), vl.to_global(to), Vector3.UP)
+				for i in 8:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % tag))
+				rc.queue_free()
+			var sat: Dictionary = {}
+			for r in vl.data.side_roads:
+				if r.get("name", "") == "Satamantie":
+					sat = r
+			var p0 := Vector2(sat.pts[0][0], sat.pts[0][1])
+			var p1 := Vector2(sat.pts[sat.pts.size() / 3][0], sat.pts[sat.pts.size() / 3][1])
+			var pm := (p0 + p1) / 2.0
+			print("SATAMATIE pisteitä %d, katu %s" % [sat.pts.size(), sat.get("street", 0)])
+			await look.call(Vector3(p0.x - 14, vl.h(p0.x, p0.y) + 6.0, p0.y - 10), Vector3(p0.x + 14, vl.h(p0.x, p0.y), p0.y + 24), "alku")
+			await look.call(Vector3(p0.x - 30, vl.h(p0.x, p0.y) + 40.0, p0.y - 20), Vector3(p1.x, vl.h(p1.x, p1.y), p1.y), "ylhaalta")
+			await look.call(Vector3(pm.x - 22, vl.h(pm.x, pm.y) + 4.0, pm.y - 22), Vector3(pm.x + 10, vl.h(pm.x, pm.y), pm.y + 10), "rata")
+			var pj := Vector2(sat.pts[sat.pts.size() / 2][0], sat.pts[sat.pts.size() / 2][1])
+			await look.call(Vector3(pj.x - 30, vl.h(pj.x, pj.y) + 30.0, pj.y - 30), Vector3(pj.x, vl.h(pj.x, pj.y), pj.y), "liittyma")
 			get_tree().quit()
 		"sahanranta":
 			# Siirretty asema ja risteys, uusi satama ja Uiton sauna (vaala.gd _build_uitto): kuvat _asema, _risteys, _satama,

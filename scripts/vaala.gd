@@ -343,7 +343,7 @@ func _build_drive_mask_calc() -> void:
 		var style := _side_style(r)
 		var half: float = style[1]
 		# Pinta kuten piirrossa (_build_side_roads): asfaltti täyttä vauhtia, sora ja polut pientareen vauhtia.
-		var paved: bool = style[0] == "asphalt"
+		var paved: bool = style[0] in ["asphalt", "street"]
 		_surf_val = 2 if paved else 1
 		if r.name == "Vaalan tori":
 			var tp := PackedVector2Array()
@@ -387,9 +387,10 @@ func _build_drive_mask_calc() -> void:
 		var s0 := sc - sdir * float(sd.park_r[1])
 		var s1 := Vector2(sd.x, sd.z) + sdir * 1.0
 		var sw := float(sd.park_r[0]) * 0.8
+		_surf_val = 2  # parkki asfalttia
+		_drive_ellipse(sc, float(sd.park_r[0]), float(sd.park_r[1]))
 		_surf_val = 1
 		_drive_poly(PackedVector2Array([s0 - ss * sw, s0 + ss * sw, s1 + ss * 1.6, s1 - ss * 1.6]), 0.0)
-		_drive_ellipse(sc, float(sd.park_r[0]), float(sd.park_r[1]))
 		_surf_val = 0
 	# Järviseudun tiet: Nuojuankoskentie Ranta-Rosvolle ja Salmiselle, soratie laavun ja tynnyrisaunan pihaan.
 	var nbox := Rect2()
@@ -627,7 +628,7 @@ func ensure_built() -> void:
 	var t0 := Time.get_ticks_msec()
 	var times: Array[String] = []
 	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
-			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_station, _build_poliisi, _build_signs,
+			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_kunnantalo, _build_station, _build_poliisi, _build_signs,
 			_build_trees, _build_lamps, _build_atm, _build_kmarket_yard, _build_lava, _build_satama, _build_uitto, _build_lava_pier, _build_mokki_yard, _build_north, _build_salminen_trees, _build_drive_mask,
 			_build_lava_grounds, _merge_static_meshes]:
 		var ts := Time.get_ticks_msec()
@@ -2624,7 +2625,7 @@ func _sat_shore(d: Vector2, root: Vector2, wy: float, skip := []) -> void:
 	_multimesh(B.sphere(1.0, 8), warm, Color(0.43, 0.38, 0.33))
 
 
-## Sorapihan parkki (tasainen, tools/vaala_satama.py tasoittaa), auto ja pihan reunakivet.
+## Sataman asfalttiparkki (tasainen, tools/vaala_satama.py tasoittaa), auto ja pihan reunakivet.
 func _sat_park(sd: Dictionary, d: Vector2, side: Vector2, yaw: float) -> void:
 	var pc := Vector2(sd.park[0], sd.park[1])
 	var pr := Vector2(sd.park_r[0], sd.park_r[1])
@@ -2643,7 +2644,7 @@ func _sat_park(sd: Dictionary, d: Vector2, side: Vector2, yaw: float) -> void:
 			st.add_vertex(Vector3(p.x, py + 0.035, p.y))
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
-	mi.material_override = B.mat(Color(0.62, 0.58, 0.5))
+	mi.material_override = _surf_mat("asphalt")
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 	var car_p := pc + side * (pr.x * 0.62) - d * 1.0
@@ -2742,6 +2743,8 @@ func _side_style(r: Dictionary) -> Array:
 		return ["rail", 1.6]
 	if hw in ["footway", "cycleway", "path", "pedestrian", "steps"]:
 		return ["path" if r.surface != "asphalt" else "asphalt", 1.3]
+	if r.get("street", 0) == 1:  # kapea asfalttikatu kuten Saloisten "street" (world.gd STYLES): ei piennarta eikä keskiviivaa
+		return ["street", STREET_HALF]
 	if hw in ["secondary", "tertiary", "residential"] or r.surface in ["asphalt", "paved"]:
 		return ["asphalt", ROAD_HALF]
 	return ["gravel", 1.8 if hw == "service" else GRAVEL_HALF]
@@ -2782,6 +2785,7 @@ func _poly_surface(st: SurfaceTool, poly: PackedVector2Array, lift: float) -> vo
 
 
 const ROAD_HALF := 4.0  # asfaltin puolileveys (Saloisten road, 8 m)
+const STREET_HALF := 2.75  # asfalttikadun puolileveys (Saloisten street, 5,5 m)
 const GRAVEL_HALF := 2.6  # soratien puolileveys (Paapelin ja Keskimmäisentien sora)
 const ROAD_SHOULDER := 1.2  # asfaltin piennar (Saloisten "shoulder") molemmin puolin
 const LIFT_SHOULDER := 0.03
@@ -2813,6 +2817,8 @@ func _build_side_roads() -> void:
 					_ribbon(sts.shoulder, line, half + ROAD_SHOULDER, LIFT_SHOULDER)
 					_ribbon(sts.asphalt, line, half, LIFT_ASPHALT)
 					_dashes(sts.dash, line, LIFT_DASH)
+				"street":
+					_ribbon(sts.asphalt, line, half, LIFT_ASPHALT)
 				"gravel":
 					_ribbon(sts.gravel, line, half, LIFT_GRAVEL)
 				_:
@@ -4126,11 +4132,255 @@ func _build_tori() -> void:
 		_poly_surface(st, _tori, LIFT_ASPHALT + 0.015)  # parkkien ja tien yläpuolelle
 		var mi := MeshInstance3D.new()
 		mi.mesh = st.commit()
-		mi.material_override = _ground_mat(Color(0.56, 0.55, 0.52), Color(0.46, 0.45, 0.43), 0.9, 2.5)
+		mi.material_override = _surf_mat("asphalt")  # torin kenttä on asfalttia (Vaalan matkakeskuksen piha)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
 	_build_stalls()
 	_build_zabuki()
+	_build_matkakeskus()
+
+
+## Vaalan matkakeskus torin takana (tie.json keskusta.matkakeskus; tools/vaala_torisiirto.py): pitkä matala rakennus, jonka
+## julkisivu on torille päin. Alaosa punatiiltä, yläosa vaalea rappaus, kattona tasakatto; sisäänkäynnin torni ("VAALA") ja
+## sinitolppainen katos. Paikallinen kehys: +u = katsojasta torilta vasemmalle (Zabuki on tässä päässä), +v = torille päin.
+func _build_matkakeskus() -> void:
+	var mk = data.get("keskusta", {}).get("matkakeskus")
+	if mk == null:
+		return
+	var f := Vector2(mk.face[0], mk.face[1]).normalized()
+	var ax := Vector2(-f.y, f.x)
+	var c := Vector2(mk.c[0], mk.c[1])
+	var bl: float = mk.len
+	var bd: float = mk.depth
+	var base := INF
+	for u in [-bl / 2.0, bl / 2.0]:
+		for v in [-bd / 2.0, bd / 2.0]:
+			var q: Vector2 = c + ax * u + f * v
+			base = minf(base, h(q.x, q.y))
+	base -= 0.1
+	var yaw := atan2(f.x, f.y)
+	var deg := rad_to_deg(yaw)
+	var rot := Vector3(0, deg, 0)
+	var at := func(u: float, v: float, y: float) -> Vector3:
+		var q := c + ax * u + f * v
+		return Vector3(q.x, base + y, q.y)
+	var brick := Color(0.55, 0.26, 0.2)
+	var cream := Color(0.9, 0.88, 0.82)
+	var blue := Color(0.12, 0.26, 0.52)
+	var glass := Color(0.17, 0.25, 0.32)
+	var front := bd / 2.0
+	# Runko: tiilisokkeli, vaalea yläosa, vaakareunus ja tasakatto.
+	B.mesh(self, B.boxm(Vector3(bl, 2.3, bd)), at.call(0, 0, 1.15), brick, rot)
+	B.mesh(self, B.boxm(Vector3(bl + 0.1, 1.8, bd + 0.1)), at.call(0, 0, 3.2), cream, rot)
+	B.mesh(self, B.boxm(Vector3(bl + 0.14, 0.14, bd + 0.14)), at.call(0, 0, 2.32), Color(0.78, 0.76, 0.7), rot)
+	B.mesh(self, B.boxm(Vector3(bl + 0.7, 0.3, bd + 0.7)), at.call(0, 0, 4.25), Color(0.36, 0.37, 0.4), rot)
+	B.mesh(self, B.cyl(0.35, 0.35, 1.4, 10), at.call(-14.0, -2.0, 5.0), Color(0.62, 0.64, 0.66))
+	# Ikkunat tiilisokkelissa (sininen karmi, tumma lasi, vaalea pielilauta) torilta katsoen oikeassa osassa.
+	var wu := -20.0
+	while wu <= 1.0:
+		B.mesh(self, B.boxm(Vector3(2.0, 1.5, 0.06)), at.call(wu, front + 0.02, 1.35), blue, rot)
+		B.mesh(self, B.boxm(Vector3(1.7, 1.2, 0.07)), at.call(wu, front + 0.03, 1.35), glass, rot)
+		B.mesh(self, B.boxm(Vector3(0.06, 1.2, 0.08)), at.call(wu, front + 0.04, 1.35), blue, rot)
+		B.mesh(self, B.boxm(Vector3(2.2, 0.06, 0.16)), at.call(wu, front + 0.07, 0.68), Color(0.8, 0.78, 0.72), rot)
+		wu += 3.4
+	# Sisäänkäyntitorni: lasiseinä ristikoineen, ovi ja VAALA-kyltti torin katolla.
+	var tu := 5.0
+	B.mesh(self, B.boxm(Vector3(5.2, 6.3, 3.0)), at.call(tu, front + 1.2, 3.15), cream, rot)
+	B.mesh(self, B.boxm(Vector3(3.8, 4.6, 0.08)), at.call(tu, front + 2.72, 2.4), glass, rot)
+	for k in 5:
+		B.mesh(self, B.boxm(Vector3(0.07, 4.6, 0.1)), at.call(tu - 1.6 + k * 0.8, front + 2.76, 2.4), blue, rot)
+	for y in [1.2, 2.4, 3.6]:
+		B.mesh(self, B.boxm(Vector3(3.8, 0.07, 0.1)), at.call(tu, front + 2.76, y), blue, rot)
+	B.mesh(self, B.boxm(Vector3(1.6, 2.3, 0.12)), at.call(tu, front + 2.8, 1.15), Color(0.1, 0.14, 0.2), rot)
+	B.mesh(self, B.boxm(Vector3(5.6, 0.3, 3.4)), at.call(tu, front + 1.2, 6.45), Color(0.36, 0.37, 0.4), rot)
+	var vaala := B.sign_plate(self, "VAALA", blue, Color.WHITE, 0.7, 90, Color(0.9, 0.9, 0.92), "Helvetica Neue")
+	vaala.position = at.call(tu, front + 2.75, 5.2)
+	vaala.rotation.y = yaw
+	var mks := B.sign_plate(self, "MATKAKESKUS", blue, Color.WHITE, 0.45, 60, Color(0.9, 0.9, 0.92), "Helvetica Neue")
+	mks.position = at.call(-12.0, front + 0.06, 3.65)
+	mks.rotation.y = yaw
+	# Katos tornista oikealle: valkoinen aaltopelti ja siniset tolpat.
+	var cl := 24.5
+	var cu := tu - 3.0 - cl / 2.0
+	B.mesh(self, B.boxm(Vector3(cl, 0.14, 2.6)), at.call(cu, front + 1.3, 3.1), Color(0.88, 0.92, 0.96), rot)
+	B.mesh(self, B.boxm(Vector3(cl, 0.22, 0.08)), at.call(cu, front + 2.6, 3.04), blue, rot)
+	var pu := tu - 3.0
+	while pu > tu - 3.0 - cl:
+		B.mesh(self, B.cyl(0.07, 0.07, 3.1, 8), at.call(pu, front + 2.5, 1.55), blue)
+		pu -= 4.2
+	# Vasen pää: pieni katos Zabukin viereen ja valkoinen kaide (kuten kuvassa).
+	B.mesh(self, B.boxm(Vector3(4.0, 0.12, 1.8)), at.call(bl / 2.0 - 1.0, front + 0.9, 3.0), Color(0.88, 0.92, 0.96), rot)
+	var body := StaticBody3D.new()
+	add_child(body)
+	var cs := B.box_shape(Vector3(bl, 4.4, bd), Vector3.ZERO)
+	cs.transform = Transform3D(Basis(Vector3.UP, yaw), at.call(0, 0, 2.2))
+	body.add_child(cs)
+	var ct := B.box_shape(Vector3(5.2, 6.3, 3.0), Vector3.ZERO)
+	ct.transform = Transform3D(Basis(Vector3.UP, yaw), at.call(tu, front + 1.2, 3.15))
+	body.add_child(ct)
+	# Pihan kalusteet: kivetty kävelyreitti tornin eteen, kukkapenkki, valaisin ja pysäköityjä autoja.
+	var walk := B.mesh(self, B.boxm(Vector3(3.4, 0.03, 9.0)), at.call(tu, front + 2.9 + 4.5, 0.0), Color(0.64, 0.62, 0.58), rot)
+	walk.position.y = h(walk.position.x, walk.position.z) + 0.07
+	for side in [-1.7, 1.7]:
+		var kb := B.mesh(self, B.boxm(Vector3(0.12, 0.06, 9.0)), at.call(tu + side, front + 2.9 + 4.5, 0.0), Color(0.78, 0.77, 0.74), rot)
+		kb.position.y = h(kb.position.x, kb.position.z) + 0.09
+	var bu := tu - 3.4
+	var bed := B.mesh(self, B.boxm(Vector3(2.8, 0.3, 6.0)), at.call(bu, front + 6.5, 0.0), Color(0.3, 0.2, 0.12), rot)
+	bed.position.y = h(bed.position.x, bed.position.z) + 0.15
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5309
+	for k in 9:
+		var bp: Vector3 = at.call(bu + rng.randf_range(-0.9, 0.9), front + 3.9 + k * 0.62, 0.0)
+		bp.y = h(bp.x, bp.z) + 0.45
+		B.mesh(self, B.sphere(0.55, 8), bp, Color(0.2, 0.42, 0.18)).scale = Vector3(1.3, 0.75, 1.1)
+		var fp: Vector3 = bp + Vector3(rng.randf_range(-0.3, 0.3), 0.32, rng.randf_range(-0.3, 0.3))
+		B.mesh(self, B.sphere(0.16, 6), fp, Color(0.85, 0.12, 0.1))
+	var lp: Vector3 = at.call(tu + 2.6, front + 4.0, 0.0)
+	lp.y = h(lp.x, lp.z)
+	B.mesh(self, B.cyl(0.05, 0.06, 3.8, 8), lp + Vector3(0, 1.9, 0), Color(0.3, 0.32, 0.34))
+	B.mesh(self, B.sphere(0.3, 10), lp + Vector3(0, 3.95, 0), Color(1, 1, 1)).material_override = B.unshaded(Color(1.0, 0.98, 0.9))
+	for cu2 in [-5.0, -8.2, -11.4]:
+		var cp: Vector3 = at.call(cu2, front + 6.0, 0.0)
+		cp.y = h(cp.x, cp.z)
+		B.parked_car(self, cp, deg + 90.0, [Color(0.15, 0.3, 0.7), Color(0.7, 0.12, 0.1), Color(0.75, 0.75, 0.78)][int(absf(cu2)) % 3])
+
+
+## Vaalan kunnantalo (tie.json keskusta.kunnantalo; tools/vaala_kunnantalo.py): vasemmalla kaksikerroksinen vaalea siipi
+## (pienet neliöikkunat, kunnanvaakuna, puuovi), oikealla keltainen siipi lasisine matalaosineen ja valkokatoksinen
+## päätyovi, takana torni ja korkea vaalea osa. Edessä nurmikko, kivireunainen suihkulähde, reitti, valaisimet ja penkit.
+## Paikallinen kehys: +u = katsojasta rakennukselle vasemmalle, +v = tielle päin (julkisivu).
+func _build_kunnantalo() -> void:
+	var kt = data.get("keskusta", {}).get("kunnantalo")
+	if kt == null:
+		return
+	var f := Vector2(kt.face[0], kt.face[1]).normalized()
+	var ax := Vector2(-f.y, f.x)
+	var c := Vector2(kt.c[0], kt.c[1])
+	var bl: float = kt.len
+	var bd: float = kt.depth
+	var base := INF
+	for u in [-bl / 2.0, bl / 2.0]:
+		for v in [-bd / 2.0, bd / 2.0]:
+			var q: Vector2 = c + ax * u + f * v
+			base = minf(base, h(q.x, q.y))
+	base -= 0.1
+	var yaw := atan2(f.x, f.y)
+	var deg := rad_to_deg(yaw)
+	var rot := Vector3(0, deg, 0)
+	var rot_roof := Vector3(0, deg + 90.0, 0)  # harjan suunta u-akselille (PrismMesh: harja z-akselilla)
+	var at := func(u: float, v: float, y: float) -> Vector3:
+		var q := c + ax * u + f * v
+		return Vector3(q.x, base + y, q.y)
+	var ground := func(u: float, v: float, up: float) -> Vector3:
+		var q := c + ax * u + f * v
+		return Vector3(q.x, h(q.x, q.y) + up, q.y)
+	var cream := Color(0.92, 0.88, 0.72)
+	var yellow := Color(0.9, 0.75, 0.34)
+	var tile := Color(0.56, 0.26, 0.19)
+	var wood := Color(0.42, 0.28, 0.16)
+	var glass := Color(0.62, 0.74, 0.8)
+	var white := Color(0.95, 0.95, 0.93)
+	var green := Color(0.16, 0.36, 0.26)
+	var front := bd / 2.0
+	var roof_sz := func(depth: float, rise: float, length: float) -> PrismMesh:
+		var pm := PrismMesh.new()
+		pm.size = Vector3(depth, rise, length)
+		return pm
+	# --- Vasen siipi: u 3..23, kaksi kerrosta (7 m), tiilikatto. ---
+	var lu := 13.0
+	B.mesh(self, B.boxm(Vector3(20.0, 7.0, bd)), at.call(lu, 0, 3.5), cream, rot)
+	B.mesh(self, B.boxm(Vector3(20.0, 0.5, bd + 0.1)), at.call(lu, 0, 0.25), Color(0.7, 0.66, 0.55), rot)
+	B.mesh(self, roof_sz.call(bd + 1.2, 2.4, 21.0), at.call(lu, 0, 8.2), tile, rot_roof)
+	# Ikkunat: puukarmiset ikkunat vihreine ikkunaluukkuineen kahdessa kerroksessa, pieniä neliöikkunoita vasemmassa päässä.
+	for k in 4:
+		var wu := 8.0 + k * 3.4
+		for wy in [2.4, 5.5]:
+			B.mesh(self, B.boxm(Vector3(1.7, 1.3, 0.07)), at.call(wu, front + 0.03, wy), wood, rot)
+			B.mesh(self, B.boxm(Vector3(1.4, 1.0, 0.08)), at.call(wu, front + 0.05, wy), glass, rot)
+			B.mesh(self, B.boxm(Vector3(0.35, 1.2, 0.05)), at.call(wu + 1.0, front + 0.05, wy), green, rot)
+	for k in 4:
+		for wy in [2.0, 5.6]:
+			B.mesh(self, B.boxm(Vector3(0.6, 0.6, 0.06)), at.call(15.5 + k * 1.7, front + 0.04, wy), Color(0.3, 0.25, 0.18), rot)
+	# Pääovi (kaksoispuuovi katoksella ja portailla), vaakuna ja ilmoitustaulu.
+	B.mesh(self, B.boxm(Vector3(2.2, 2.5, 0.12)), at.call(lu + 2.0, front + 0.05, 1.3), wood, rot)
+	B.mesh(self, B.boxm(Vector3(0.06, 2.3, 0.14)), at.call(lu + 2.0, front + 0.08, 1.3), Color(0.25, 0.17, 0.1), rot)
+	B.mesh(self, B.boxm(Vector3(3.4, 0.14, 1.2)), at.call(lu + 2.0, front + 0.6, 2.9), Color(0.55, 0.5, 0.4), rot)
+	B.mesh(self, B.boxm(Vector3(2.6, 0.2, 0.7)), at.call(lu + 2.0, front + 0.5, 0.1), Color(0.55, 0.55, 0.55), rot)
+	var crest := B.mesh(self, B.boxm(Vector3(0.9, 1.1, 0.06)), at.call(21.0, front + 0.05, 4.4), Color(0.75, 0.1, 0.12), rot)
+	B.mesh(crest, B.boxm(Vector3(0.45, 0.5, 0.04)), Vector3(0, 0.1, 0.04), Color(0.92, 0.92, 0.9))
+	var kt_sign := B.sign_plate(self, "KUNNANTALO", Color(0.14, 0.28, 0.5), Color.WHITE, 0.3, 48, Color(0.9, 0.9, 0.92), "Helvetica Neue")
+	kt_sign.position = at.call(lu + 2.0, front + 0.62, 3.3)
+	kt_sign.rotation.y = yaw
+	B.mesh(self, B.boxm(Vector3(1.7, 1.1, 0.05)), at.call(21.4, front + 0.04, 1.6), Color(0.82, 0.82, 0.78), rot)
+	# --- Oikea siipi: keltainen u -17..3, matala lasiosa edessä. ---
+	var mu := -7.0
+	B.mesh(self, B.boxm(Vector3(20.0, 6.2, bd)), at.call(mu, 0, 3.1), yellow, rot)
+	B.mesh(self, roof_sz.call(bd + 1.2, 2.2, 21.0), at.call(mu, 0, 7.3), tile, rot_roof)
+	B.mesh(self, B.boxm(Vector3(20.0, 0.5, bd + 0.1)), at.call(mu, 0, 0.25), Color(0.65, 0.58, 0.4), rot)
+	for k in 5:
+		B.mesh(self, B.boxm(Vector3(1.0, 1.1, 0.07)), at.call(-15.0 + k * 3.8, front + 0.04, 4.9), wood, rot)
+		B.mesh(self, B.boxm(Vector3(0.8, 0.9, 0.08)), at.call(-15.0 + k * 3.8, front + 0.06, 4.9), glass, rot)
+	# Lasiosa: valkoiset karmit, matala punakattoinen räystäs.
+	var gu := -7.0
+	B.mesh(self, B.boxm(Vector3(12.0, 3.3, 2.4)), at.call(gu, front + 1.2, 1.65), glass, rot)
+	for k in 9:
+		B.mesh(self, B.boxm(Vector3(0.12, 3.3, 0.1)), at.call(gu - 5.4 + k * 1.35, front + 2.44, 1.65), white, rot)
+	for y in [0.1, 3.25]:
+		B.mesh(self, B.boxm(Vector3(12.2, 0.14, 0.14)), at.call(gu, front + 2.44, y), white, rot)
+	B.mesh(self, B.boxm(Vector3(13.0, 0.18, 3.4)), at.call(gu, front + 1.5, 3.6), tile, Vector3(-8.0, deg, 0))
+	# --- Päätyosa: u -23..-17, vaalea katos ja punainen ovi, luiska kaiteineen. ---
+	B.mesh(self, B.boxm(Vector3(6.0, 6.6, bd)), at.call(-20.0, 0, 3.3), yellow, rot)
+	B.mesh(self, roof_sz.call(bd + 1.0, 2.0, 6.6), at.call(-20.0, 0, 7.6), tile, rot_roof)
+	B.mesh(self, B.boxm(Vector3(1.6, 2.4, 0.1)), at.call(-20.5, front + 0.04, 1.25), Color(0.6, 0.12, 0.1), rot)
+	B.mesh(self, B.boxm(Vector3(5.4, 0.16, 2.4)), at.call(-20.0, front + 1.2, 3.0), white, rot)
+	for sx in [-22.6, -17.6]:
+		B.mesh(self, B.cyl(0.07, 0.07, 3.0, 8), at.call(sx, front + 2.2, 1.5), white)
+	B.mesh(self, B.boxm(Vector3(1.0, 1.2, 0.07)), at.call(-18.2, front + 0.04, 4.9), wood, rot)
+	B.mesh(self, B.boxm(Vector3(3.0, 0.3, 2.0)), at.call(-20.0, front + 1.4, 0.15), Color(0.55, 0.55, 0.56), rot)
+	# --- Takaosa: keltainen torni ja korkea vaalea osa harjakattoineen. ---
+	B.mesh(self, B.boxm(Vector3(4.0, 13.0, 4.0)), at.call(3.5, -bd / 2.0 - 1.0, 6.5), Color(0.82, 0.68, 0.28), rot)
+	B.mesh(self, B.boxm(Vector3(4.4, 0.4, 4.4)), at.call(3.5, -bd / 2.0 - 1.0, 13.2), Color(0.5, 0.36, 0.22), rot)
+	B.mesh(self, B.boxm(Vector3(12.0, 9.0, 7.0)), at.call(-9.0, -bd / 2.0 - 3.0, 4.5), Color(0.93, 0.92, 0.88), rot)
+	B.mesh(self, roof_sz.call(7.6, 2.4, 12.6), at.call(-9.0, -bd / 2.0 - 3.0, 10.2), tile, rot_roof)
+	# Törmäys.
+	var body := StaticBody3D.new()
+	add_child(body)
+	for part in [[Vector3(20.0, 8.0, bd), at.call(lu, 0, 4.0)], [Vector3(20.0, 6.5, bd), at.call(mu, 0, 3.25)],
+			[Vector3(6.0, 7.0, bd), at.call(-20.0, 0, 3.5)], [Vector3(12.0, 3.4, 2.4), at.call(gu, front + 1.2, 1.7)],
+			[Vector3(4.0, 13.0, 4.0), at.call(3.5, -bd / 2.0 - 1.0, 6.5)], [Vector3(12.0, 9.0, 7.0), at.call(-9.0, -bd / 2.0 - 3.0, 4.5)]]:
+		var cs := B.box_shape(part[0], Vector3.ZERO)
+		cs.transform = Transform3D(Basis(Vector3.UP, yaw), part[1])
+		body.add_child(cs)
+	# --- Piha: kivetty etureuna, reitti pääovelta tielle, suihkulähde, pensaat, valaisimet, penkit, lipputanko. ---
+	var strip := B.mesh(self, B.boxm(Vector3(bl, 0.03, 3.2)), ground.call(0.0, front + 1.6, 0.06), Color(0.62, 0.6, 0.56), rot)
+	strip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var path_len := 20.0
+	var path := B.mesh(self, B.boxm(Vector3(2.4, 0.03, path_len)), ground.call(lu + 2.0, front + 3.2 + path_len / 2.0, 0.07), Color(0.34, 0.34, 0.36), rot)
+	path.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var fc: Vector3 = ground.call(1.0, front + 9.0, 0.0)
+	B.mesh(self, B.cyl(2.5, 2.5, 0.7, 20), fc + Vector3(0, 0.35, 0), Color(0.45, 0.42, 0.38))
+	B.mesh(self, B.cyl(2.1, 2.1, 0.12, 20), fc + Vector3(0, 0.66, 0), Color(0.22, 0.38, 0.5))
+	B.mesh(self, B.cyl(0.35, 0.45, 0.9, 8), fc + Vector3(0, 1.0, 0), Color(0.18, 0.15, 0.12))
+	B.mesh(self, B.sphere(0.25, 8), fc + Vector3(0, 1.65, 0), Color(0.18, 0.15, 0.12))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 6112
+	for k in 14:
+		var bp: Vector3 = ground.call(-4.0 + k * 1.4, front + 0.9 + rng.randf_range(-0.2, 0.2), 0.0)
+		B.mesh(self, B.sphere(0.5, 8), bp + Vector3(0, 0.4, 0), Color(0.18 + rng.randf() * 0.08, 0.4, 0.17)).scale = Vector3(1.2, 0.8, 1.0)
+		if k % 3 == 0:
+			B.mesh(self, B.sphere(0.13, 6), bp + Vector3(0, 0.85, 0), Color(0.85, 0.2, 0.3))
+	for lu2 in [21.0, 11.0, -4.0, -14.0]:
+		var lp: Vector3 = ground.call(lu2, front + 4.5, 0.0)
+		B.mesh(self, B.cyl(0.05, 0.06, 3.6, 8), lp + Vector3(0, 1.8, 0), Color(0.62, 0.62, 0.64))
+		B.mesh(self, B.sphere(0.32, 10), lp + Vector3(0, 3.7, 0), Color(1, 1, 1)).material_override = B.unshaded(Color(1.0, 0.97, 0.85))
+	for bu in [lu - 4.0, lu + 7.5]:
+		var bp: Vector3 = ground.call(bu, front + 6.5, 0.0)
+		B.mesh(self, B.boxm(Vector3(2.0, 0.08, 0.5)), bp + Vector3(0, 0.5, 0), Color(0.75, 0.12, 0.1), rot)
+		B.mesh(self, B.boxm(Vector3(2.0, 0.45, 0.06)), bp + Vector3(0, 0.78, -0.22), Color(0.75, 0.12, 0.1), rot)
+		for lx in [-0.8, 0.8]:
+			B.mesh(self, B.boxm(Vector3(0.06, 0.5, 0.4)), bp + Vector3(ax.x * lx, 0.25, ax.y * lx), Color(0.3, 0.3, 0.3), rot)
+	var fp: Vector3 = ground.call(24.5, front + 1.5, 0.0)
+	B.mesh(self, B.cyl(0.07, 0.1, 9.0, 8), fp + Vector3(0, 4.5, 0), Color(0.85, 0.85, 0.85))
 
 
 ## Torikojut torin keskelle riviin: pöytä, neljä tolppaa ja raidallinen katos, kojuittain eri värit.

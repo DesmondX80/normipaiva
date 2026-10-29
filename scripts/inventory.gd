@@ -1,5 +1,6 @@
 extends Control
-## Reppu (I tai Tab): sama nahkakantinen vihko kuin Normipäiväkirja (O), samat sivut, viivat, kierrerenkaat ja käsiala.
+## Reppu (R tai Tab): Normipäiväkirjan (journal.gd) "Reppu"-sivu. Vihko, välilehdet, otsikko, näppäimet ja tauko ovat
+## päiväkirjan: tämä Control on sen lapsi ja piirtää vain sivut (viivat, kierrerenkaat ja käsiala samat kuin päiväkirjassa).
 ## Vasemmalla sivulla polaroid pelaajan 3D-hahmosta (kääntyy katsomaan hiirtä) ja käsin kirjoitetut tiedot: rahat ja
 ## tilanne, kauppalista, jemmat ja tarinan tehtävät. Oikealla sivulla SLOTS tavaran taskut 3 x 3 -ruudukossa (eväät mukaan
 ## lukien, T syö; ylimenevät näkyvät viimeisessä taskussa "+N"), esineet 16 x 16 pikselikuvakkeina lukumäärineen. Hiiren alla
@@ -17,7 +18,6 @@ const RED := Color(0.45, 0.12, 0.08)  # otsikot kuten päiväkirjan luvut
 const GREEN := Color(0.2, 0.45, 0.2)
 const SLOT_PAPER := Color(0.93, 0.89, 0.78)
 const PAPER_W := Color(0.99, 0.98, 0.94)  # polaroidin kehys
-const TAB_COL := Color(0.5, 0.3, 0.7)
 const PORTRAIT := Vector2(150, 190)
 const Looks := preload("res://scripts/looks.gd")
 
@@ -33,7 +33,6 @@ var _pv: SubViewport  # hahmon muotokuva, rakennetaan ensimmäisellä avauksella
 var _pchar: Node3D
 var _ptex: TextureRect  # muotokuva omana lapsenaan: lineaarinen suodatus (muu reppu on pikseligrafiikkaa)
 var _hand: SystemFont  # käsiala (sama kuin päiväkirjassa)
-var _keys: Control  # näppäinohjeet hattuina alareunassa (hint_bar.gd)
 
 
 func _ready() -> void:
@@ -41,14 +40,10 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # pikselikuvakkeet teräviksi
 	visible = false
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_IGNORE  # päiväkirja välittää klikkaukset (_gui_input)
 	_hand = SystemFont.new()
 	_hand.font_names = PackedStringArray(["Bradley Hand", "Segoe Print", "Comic Sans MS", "Chalkboard SE", "Marker Felt",
 		"Noteworthy", "sans-serif"])
-	_keys = preload("res://scripts/hint_bar.gd").new()
-	_keys.compact = true
-	_keys.centered = true
-	add_child(_keys)
 
 
 ## Klikkaus käytettävään tarvikkeeseen (it.use): syö tai juo (main.gd use_item).
@@ -64,26 +59,28 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 
 
-func toggle() -> void:
-	visible = not visible
-	get_tree().paused = visible
+## Päiväkirja näyttää tai piilottaa sivun (vihkon avaus ja tauko ovat päiväkirjan).
+func show_page(on: bool) -> void:
+	visible = on
 	if _pv != null:
-		_pv.render_target_update_mode = SubViewport.UPDATE_ALWAYS if visible else SubViewport.UPDATE_DISABLED
-		_pchar.process_mode = Node.PROCESS_MODE_ALWAYS if visible else Node.PROCESS_MODE_DISABLED
-	if visible:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_pv.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
+		_pchar.process_mode = Node.PROCESS_MODE_ALWAYS if on else Node.PROCESS_MODE_DISABLED
+	if on:
 		size = get_viewport_rect().size
 		_ensure_portrait()
 		_refresh()
-		Sfx.play("cloth", -8.0, 1.2)
-	_keys.set_text("[Klikkaus] syö tai juo evästä (T)   %s sulje" % Settings.cap("inventory", "Esc") if visible else "")
 	queue_redraw()
 
 
+## Avaa tai sulkee vihkon reppusivulta (esim. testit): sama kuin R.
+func toggle() -> void:
+	if visible:
+		game._journal.toggle()
+	else:
+		game._journal.open_at("reppu")
+
+
 func _process(_delta: float) -> void:
-	if Input.is_action_just_pressed("inventory") or (visible and Input.is_key_pressed(KEY_ESCAPE)):
-		if visible or not get_tree().paused:
-			toggle()
 	if visible:
 		var h := -1
 		var m := get_local_mouse_position()
@@ -133,9 +130,6 @@ func _draw() -> void:
 	if not visible:
 		return
 	_refresh()
-	MG.notebook(self, _book)
-	MG.notebook_tab(self, MG.notebook_tab_rect(_book, 0), TAB_COL, "Reppu", true, false)
-	MG.sign(self, MG.notebook_title_rect(_book, 240.0), "REPPU", MG.TITLE_BG, MG.TITLE_FG, 22, MG.TITLE_BORDER)
 	_draw_left()
 	_draw_right()
 

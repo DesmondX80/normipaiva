@@ -5,17 +5,21 @@ extends Control
 ## "Loput": onnelliset loput (päivä päättyy) vasemmalla ja legendaariset hetket (saavutukset) oikealla
 ## (endings.gd): erilaiset X / Y, löytämättömät ???.
 ## "Jemmat": löydetyt jemmapaikat, kaljat / tila ja riski, kotijemma tavoitteeseen nähden.
-## Mikään ei paljastu etukäteen. Peli on tauolla auki ollessa. Hiiri: välilehdet ja rulla, näppäimet 1–4, Esc / O sulkee.
+## "Reppu": viides välilehti, jonka sivut piirtää lapsi inventory.gd. R avaa vihkon reppusivulta, O päiväkirjan sivulta
+## (viimeksi katsotulta); jo auki ollessa R / O vaihtaa sivua ja saman sivun näppäin sulkee. Vihko, tauko ja Esc ovat tässä.
+## Mikään ei paljastu etukäteen. Peli on tauolla auki ollessa. Hiiri: välilehdet ja rulla, näppäimet 1–5, Esc / O sulkee.
 
 const MG := preload("res://scripts/mg_draw.gd")
 const INK := Color(0.14, 0.17, 0.4)
 const TABS := [["tarina", "Tarina", Color(0.85, 0.35, 0.25)], ["tehtavat", "Tehtävät", Color(0.25, 0.55, 0.75)],
-	["loput", "Loput", Color(0.9, 0.7, 0.15)], ["jemmat", "Jemmat", Color(0.3, 0.6, 0.3)]]
+	["loput", "Loput", Color(0.9, 0.7, 0.15)], ["jemmat", "Jemmat", Color(0.3, 0.6, 0.3)],
+	["reppu", "Reppu", Color(0.5, 0.3, 0.7)]]
 
 var game: Node
 var _links: Array = []  # [Rect2, tehtävän id] "Näytä kartalla" -linkit, piirretty tällä ruudulla
 
 var _tab := "tarina"
+var _last_tab := "tarina"  # viimeksi katsottu päiväkirjan (ei repun) sivu, jonka O avaa
 var _data := {}
 var _book := Rect2()
 var _scroll := 0.0
@@ -38,6 +42,13 @@ func _ready() -> void:
 	add_child(_keys)
 
 
+## Avaa vihkon valitulle välilehdelle (R: "reppu", O: viimeksi katsottu päiväkirjan sivu); pause pysyy päällä.
+func open_at(tab: String) -> void:
+	if not visible:
+		toggle()
+	_set_tab(tab)
+
+
 func toggle() -> void:
 	visible = not visible
 	get_tree().paused = visible
@@ -47,19 +58,48 @@ func toggle() -> void:
 		_data = game.journal_data() if game != null else {}
 		_scroll = 0.0
 		Sfx.play("cloth", -8.0, 0.9)
-	_keys.set_text("[1–4] välilehdet   [Rulla] selaa   %s sulje" % Settings.cap("journal", "Esc") if visible else "")
+	game._inventory.show_page(visible and _tab == "reppu")
+	_update_keys()
 	queue_redraw()
 
 
+func _update_keys() -> void:
+	if not visible:
+		_keys.set_text("")
+	elif _tab == "reppu":
+		_keys.set_text("[Klikkaus] syö tai juo evästä (T)   [1–5] tai [←][→] välilehdet   %s päiväkirja   %s sulje"
+			% [Settings.cap("journal"), Settings.cap("inventory", "Esc")])
+	else:
+		_keys.set_text("[1–5] tai [←][→] välilehdet   [Rulla] selaa   %s reppu   %s sulje"
+			% [Settings.cap("inventory"), Settings.cap("journal", "Esc")])
+
+
 func _process(_d: float) -> void:
-	if Input.is_action_just_pressed("journal") or (visible and Input.is_key_pressed(KEY_ESCAPE)):
-		if visible or not get_tree().paused:
+	var open_ok := visible or not get_tree().paused
+	if visible and Input.is_key_pressed(KEY_ESCAPE):
+		toggle()
+	elif Input.is_action_just_pressed("inventory") and open_ok:
+		if visible and _tab == "reppu":
 			toggle()
+		else:
+			open_at("reppu")
+	elif Input.is_action_just_pressed("journal") and open_ok:
+		if visible and _tab != "reppu":
+			toggle()
+		else:
+			open_at(_last_tab)
 	if not visible:
 		return
 	for i in TABS.size():
 		if Input.is_key_pressed(KEY_1 + i) and _tab != TABS[i][0]:
 			_set_tab(TABS[i][0])
+			return
+	var flip := int(Input.is_action_just_pressed("ui_right")) - int(Input.is_action_just_pressed("ui_left"))
+	if flip != 0:
+		var to := _tab_index() + flip
+		if to >= 0 and to < TABS.size():
+			_set_tab(TABS[to][0])
+			return
 	var h := -1
 	for i in TABS.size():
 		if _tab_rect(i).has_point(get_local_mouse_position()):
@@ -78,6 +118,10 @@ func _gui_input(event: InputEvent) -> void:
 				for i in TABS.size():
 					if _tab_rect(i).has_point(event.position):
 						_set_tab(TABS[i][0])
+						accept_event()
+						return
+				if _tab == "reppu":
+					game._inventory._gui_input(event)
 				if _tab == "tehtavat":
 					for l in _links:
 						if (l[0] as Rect2).has_point(event.position):
@@ -93,8 +137,19 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 
 
+func _tab_index() -> int:
+	for i in TABS.size():
+		if TABS[i][0] == _tab:
+			return i
+	return 0
+
+
 func _set_tab(t: String) -> void:
 	_tab = t
+	if t != "reppu":
+		_last_tab = t
+	game._inventory.show_page(visible and t == "reppu")
+	_update_keys()
 	_scroll = 0.0
 	Sfx.play("cloth", -12.0, 1.4)
 	queue_redraw()
@@ -117,7 +172,10 @@ func _draw() -> void:
 	for i in TABS.size():
 		MG.notebook_tab(self, _tab_rect(i), TABS[i][2], str(TABS[i][1]), TABS[i][0] == _tab, i == _hover_tab)
 	# Otsikkokyltti kannessa.
-	MG.sign(self, MG.notebook_title_rect(_book), "NORMIPÄIVÄKIRJA", MG.TITLE_BG, MG.TITLE_FG, 22, MG.TITLE_BORDER)
+	if _tab == "reppu":
+		MG.sign(self, MG.notebook_title_rect(_book, 240.0), "REPPU", MG.TITLE_BG, MG.TITLE_FG, 22, MG.TITLE_BORDER)
+	else:
+		MG.sign(self, MG.notebook_title_rect(_book), "NORMIPÄIVÄKIRJA", MG.TITLE_BG, MG.TITLE_FG, 22, MG.TITLE_BORDER)
 	match _tab:
 		"tarina":
 			_draw_story()

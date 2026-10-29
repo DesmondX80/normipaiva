@@ -13,7 +13,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (jos näkee, Päivi suuttuu ja lähtee jahtiin, mutta leikkuuta voi jatkaa karkuun päästyä). Lopuksi Pekan
   autonavaimet ovat hukassa kodalla: Pekka kävi lintutornilla kaverin kyydillä niin kännissä, että ampui
   luvallisia ja luvattomia lintuja osumatta yhteenkään. Avaimet Pekalle, niin Pekan kyyti Paapeliin aukeaa.
-  Tehtävät näkyvät repussa (I) sitä mukaa kuin niitä löytyy. Paapeliin ei pääse taksilla (taksi ajaa vain retkille ja
+  Tehtävät näkyvät repussa (R) sitä mukaa kuin niitä löytyy. Paapeliin ei pääse taksilla (taksi ajaa vain retkille ja
   Raahen baariin). Paapeli on välietappi: tarina jatkuu myöhemmin.
 
 - **Kauppareissu:** kuutonen, grillimakkara ja tulitikut K-Marketista. Kassalla harmaapäät laskevat kolikoita.
@@ -559,6 +559,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     hakukeskus `vaala_sahanranta.py`:ssä). Asema on siirretty 80 m radan suuntaan itään (todellisuudessa se on lännempänä), jotta Satamantie
     lähtee Aseman pihan taitteesta suoraan etelään tasoristeyksen yli aseman editse eikä kierrä aseman takaa; Veturitalli, Veturitallintie,
     Kätkötie ja narkkarin kätkö (`asema.katko`) siirtyivät mukana, ja aseman lähitalot lähimpään vapaaseen paikkaan.
+    **Satamantie** on kapea asfalttikatu (Saloisten "street": 5,5 m, ei piennarta eikä keskiviivaa): se lähtee Vaalantieltä K-Marketin länsipuolelta,
+    ylittää radan tasoristeyksellä ja jatkaa Sahanrannantienä satamaan (parkkipaikka asfalttia) ja Uitontienä Uiton saunalle (Uitontie on soratie; Satamantie ja Sahanrannantie kapeaa asfalttia, kartalla ohut vaalea tie). Entinen soratie Zabukilta
+    ja Aseman pihalta etelään on poistettu; Asemalle ajetaan liikenneympyrästä Aseman pihaa. Sataman ja Uiton pihat ovat edelleen soraa (`tools/vaala_satamatie.py`).
     **Sahanrannan täyte:** Satamantien, Sahanrannantien ja Uitontien varrella on pientaloja, aittoja ja rantamökkejä oikean Sahanrannan
     mitoin sekä puita ja lehtoja pihoilla ja rannoilla (`tools/vaala_sahanranta.py`, ajetaan kerran `vaala_suorat.py`:n jälkeen).
     **Taksihinnat (kaikki retket ja Raahen baari):** meno-paluun hinta ja kesto lasketaan lähtöpaikasta kaikkialla samalla tavalla: matka km x 1,05 min
@@ -575,13 +578,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Zabukin pihan läpi ja liittymä torille on poistettu (`tools/vaala_asematie.py`, ajetaan kerran `vaala_risteys.py`:n jälkeen). Tori on
     laajennettu Aseman pihan pohjoispuolelle Zabukin eteen (kojut vähintään 4,5 m reunasta, tori 9 m tien keskiviivasta). Siitarin eteen, terassin ja Vaalantien väliin,
     on tehty parkkipaikka ruutuviivoin, P-kyltein ja asiakkaiden autoin (`vaala.gd _siitari_lot`).
-    **Ratatie** jatkaa asfalttia aseman editse: Veturitallintien keskeltä se kääntyy pohjoiseen aseman ja Kunnanviraston välistä, länteen Zabukin ja torin
-    taakse ja etelään Aseman pihan mutkaan, johon se liittyy T-risteyksenä (kulmat ympyränkaaria, säde 16 m; `tools/vaala_kierros.py`). Kierros on
-    ajettavaa asfalttia, ja sille jääneet kolme pientä rakennusta (kaksi taloa ja vaja) on poistettu. Kartalla tien nimi näkyy vain yli 45 m pitkillä teillä.
+    **Liikenneympyrä ja tori:** Vaalantien kauimmaisessa risteyksessä (Siitarista n. 40 m) on liikenneympyrä (r 12 m, nurmisaareke). Tulosuunnasta oikealle lähtee
+    Aseman piha asemalle ja vasemmalle Torintie torille: tori ja Zabuki ovat tien vasemmalla puolella n. 87 m Siitarista (ennen 52 m). Tori on asfalttikenttä (46 x 22 m), jonka takana on Vaalan matkakeskus (pitkä matala rakennus: tiilisokkeli, vaalea yläosa, sinitolppainen katos, "VAALA"-torni; `vaala.gd _build_matkakeskus`, korvaa OSM:n nimettömän rakennuksen) ja sen vasemmassa päässä Zabuki. **Kunnantalo** on Siitarin puolella tietä Aseman pihan eteläpuolella aseman lähellä (46 x 10 m: vasemmalla vaalea kaksikerroksinen siipi vaakunoineen ja puuovineen, oikealla keltainen siipi lasiosineen ja päätyovi, takana torni; edessä nurmikko, suihkulähde, valaisimet ja penkit; `vaala.gd _build_kunnantalo`, `tools/vaala_kunnantalo.py` korvaa OSM:n Kunnanviraston). Ratatien kierros
+    torin ja entisen Kunnanviraston ympäri on poistettu (`tools/vaala_torisiirto.py`, ajetaan kerran `vaala_satamatie.py`:n jälkeen).
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
     katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin
-    soratien mallia (2,6 m, hiekan värit): Satamantie, Sahanrannantie, Pahalahdentie (lavan tie), Salmisentie, mökin päätie ja järviseudun tiet.
+    soratien mallia (2,6 m, hiekan värit): Pahalahdentie (lavan tie), Salmisentie, mökin päätie ja järviseudun tiet.
     Parkit samoin. Sivutiet, järviseudun tiet ja parkit käyttävät samaa (`_side_style`, `_surf_mat`); mopon ajoalue lasketaan samasta tyylistä. Siitarin ja K-Marketin pihoilla on vain muutama auto (`LOT_MAX_CARS`). Salmisten (Etu- ja Taka-Salminen, Pyöriäinen) rannoille
     kasvaa lisää koivuja, mäntyjä, kuusia ja pensaita teiden ulkopuolelle (`vaala.gd _build_salminen_trees`).
     **Salmisentie:** laavun ja tynnyrisaunan pihan takaa Taka-Salmisen pohjoisrantaa (11-14 m rannasta, tasaista metsää) Nuojuankoskentien
@@ -840,7 +843,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   eräjorma, pihapingis ja pummilla lavalle.
 - **Jemmat**-välilehti: kaikki löydetyt jemmapaikat täyttöpalkkeineen (kaljat / tila), kotijemma tavoitteeseen
   nähden tölkkiriveinä, ulkojemmat ja yhteensä sekä riskit: Päivi voi löytää liian täyden
-  kotijemman, ja teinit voivat pölliä ulkojemmasta. Reppu (I) näyttää myös tyhjät löydetyt jemmat. Testi `--scene=jemmat`.
+  kotijemman, ja teinit voivat pölliä ulkojemmasta. Reppu (R) näyttää myös tyhjät löydetyt jemmat. Testi `--scene=jemmat`.
 - **Päiväkirja (O)** ei paljasta mitään etukäteen: luku näkyy, kun siihen päästään, vaihe, kun siitä on kuultu, ja
   sivutehtävä, kun siitä on kerrottu. Uusista vihjeistä tulee ilmoitus "Päiväkirjaan tuli uutta".
 - **Onnelliset loput** (päivä päättyy loppukohtaukseen): juhlat autotallissa, viinibileet, laavulla kaljoilla,

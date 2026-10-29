@@ -8,7 +8,7 @@ extends RefCounted
 ##   avaimet       – avaimet ovat kodalla lintutornin juurella (Pekka oli siellä kännissä "kyyhkyjahdissa")
 ##   avaimet_mukana – avaimet löytyneet, vie ne Pekalle
 ##   valmis        – Pekan kyyti Paapeliin auki (välietappi: tarina jatkuu myöhemmin)
-## Tehtävälista näkyy repussa (I) sitä mukaa kuin tehtäviä löytyy. Tallentuu osioon [tarina].
+## Tehtävälista näkyy repussa (R) sitä mukaa kuin tehtäviä löytyy. Tallentuu osioon [tarina].
 
 const KUUTONEN := 6  # kotijemmoissa yhteensä
 const SIENET_L := 3
