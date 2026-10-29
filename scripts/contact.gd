@@ -13,7 +13,6 @@ const LIMBS := [["thigh", "calf"], ["calf", "foot"], ["upperarm", "lowerarm"], [
 ## Lisäkapselit hahmo hahmoa vastaan: kämmen (ranteesta sormiin, "hand_l"/"hand_r") ja pää (pallo kallon keskellä).
 ## Tallennetaan muodossa [luu, "", säde, pituus, akseli/piste luun avaruudessa(, kämmenen muototaulu)]; _caps_world ei osaa
 ## niitä, käytä caps_all. Raajat: [a, b, säde, 0, muototaulu] (_bin_table); kalusteita vastaan vain alkiot 0-2.
-const EXTRA := ["hand", "Head"]
 ## Varataulukko, kun verkkoa ei saada (headless): säteet 1,8 m hahmolle, mitattu profile-kutsulla (tulostus PROFIILI).
 const FALLBACK_R := {"pelvis": 0.16, "spine_01": 0.15, "spine_02": 0.15, "spine_03": 0.17, "thigh": 0.12, "calf": 0.082,
 	"upperarm": 0.045, "lowerarm": 0.04, "hand": 0.045, "Head": 0.11}
@@ -320,35 +319,6 @@ static func depth(solid: Array, p: Vector3) -> float:
 		return minf(h.x - absf(q.x), minf(h.y - absf(q.y), h.z - absf(q.z)))
 	return minf(sz.x - Vector2(q.x, q.z).length(), sz.y * 0.5 - absf(q.y))
 
-
-## Pisteen syvyys primitiivin sisällä paikallisessa avaruudessa (<= 0: ulkona). upl = ylös paikallisessa avaruudessa,
-## tol = ylöspäin osoittavan pinnan sietoraja. (Siirretty tools/testit/asento.gd:stä.)
-static func depth_local(m: Mesh, p: Vector3, upl: Vector3, tol: float) -> float:
-	if m is BoxMesh:
-		var h: Vector3 = (m as BoxMesh).size * 0.5
-		var best := INF
-		for ax in 3:
-			for sg in [-1.0, 1.0]:
-				var dd: float = h[ax] - sg * p[ax]
-				if upl[ax] * sg > 0.7:
-					dd -= tol
-				best = minf(best, dd)
-		return best
-	if m is CylinderMesh:
-		var c := m as CylinderMesh
-		var t := clampf(p.y / c.height + 0.5, 0.0, 1.0)
-		var rad := lerpf(c.bottom_radius, c.top_radius, t)
-		var dtop: float = c.height * 0.5 - p.y - (tol if upl.y > 0.7 else 0.0)
-		var dbot: float = c.height * 0.5 + p.y - (tol if upl.y < -0.7 else 0.0)
-		return minf(minf(dtop, dbot), rad - Vector2(p.x, p.z).length())
-	if m is SphereMesh:
-		return (m as SphereMesh).radius - p.length() - (tol if p.normalized().dot(upl) > 0.7 else 0.0)
-	if m is CapsuleMesh:
-		var cm := m as CapsuleMesh
-		var seg := maxf(cm.height * 0.5 - cm.radius, 0.0)
-		var q := Vector3(p.x, p.y - clampf(p.y, -seg, seg), p.z)
-		return cm.radius - q.length() - (tol if q.normalized().dot(upl) > 0.7 else 0.0)
-	return -1.0
 
 
 ## Korkein yläpinta pisteen (x, z) alapuolella, alkaen korkeudelta from_y alaspäin; muut kappaleet kuin ne, joiden

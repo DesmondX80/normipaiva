@@ -84,9 +84,6 @@ func todo() -> Array:
 	return out
 
 
-func fasteners_for(joint: String) -> Array:
-	return WIRE_FASTENERS if joint == "johdot" else JOINT_FASTENERS
-
 
 func fasten(joint: String, kind: String) -> void:
 	joints[joint] = kind

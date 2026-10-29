@@ -51,9 +51,6 @@ const DART_LOCAL := Vector3(4.2, 0, 8.0)       # heittopiste tikkataulun edessä
 const DART_TREE := DART_LOCAL + Vector3(0, 0, 3.0)  # tikkataulun mänty
 const DART_BOARD_UP := 1.5  # taulun keskusta maasta
 const DOCK_LOCAL := Vector3(8.9, 0, 55.4)      # laiturin pää Likasella
-## Pihalta rantaan laiturille johtava kulkukäytävä: metsä ei kasva tälle kaistaleelle (ks. _build_forest).
-const DOCK_PATH_A := Vector2(DOCK_LOCAL.x, 27.0)
-const DOCK_PATH_B := Vector2(DOCK_LOCAL.x, DOCK_LOCAL.z + 1.5)
 const KITCHEN_LOCAL := Vector3(-12.6, 0, 16.2) # kesäkeittiön savustimen edessä (katoksen alla)
 const SANTTU_LOCAL := Vector3(-1.5, 0, 6.5)    # pihatuolilla kuistin edessä
 ## Istuessa hahmon juuri kannon keskeltä: Sitting_Idlen lantio on 0,33 m juuren takana ja 0,54 m sen yläpuolella,
@@ -116,7 +113,6 @@ const COTTAGE_LOCAL := Vector2(0.0, -1.0)
 const OWN_BUILDINGS := ["1074462394", "1555232405"]
 const COTTAGE_SIZE := Vector2(9.4, 5.0)
 
-const SAUNA_HEAT := 20.0    # (vanha) s ennen kuin kiuas on kuuma
 const SAUNA_BURN := 260.0   # s sytytyksestä sammumiseen
 ## Savusaunan lämmitys: syli palaa SAUNA_FUEL_LOAD s, pesään mahtuu SAUNA_FUEL_MAX s, ja täyteen lämpöön menee
 ## noin 1 / SAUNA_HEAT_RATE s tulta. Savut tuulettuvat SAUNA_CLEAR s:ssa, ja lämmin kiuas jäähtyy hitaasti.
@@ -145,11 +141,6 @@ const SANTTU_AMBIENT := [
 	"Löylyä riittää, älä säästele.", "Palju lämpiää hitaasti, mutta kunnolla.",
 	"Kahvia on keittiössä, ota rohkeasti.", "Tikkaa saa heittää, puuta ei tarvi säästellä.",
 	"Ilta on kaunis järvellä.", "Rauhallista täällä, ei naapureita lähelläkään.",
-]
-const LAKE_LINES := [
-	"Järvi on tyyni, ei tuulenvirettäkään.", "Jossain kaukana kuikka huutaa.",
-	"Kala pomppaa pinnalla, laineet leviävät hitaasti.", "Usva nousee veden pinnalta illan viilettyä.",
-	"Ranta on ruovikkoa täynnä, mutta laituri kantaa hyvin.", "Ei täällä naapureita näy eikä kuulu.",
 ]
 ## Saaliit: nimi partitiivissa (sopii lauseeseen "Sait ...") ja tyypillinen paino kiloina.
 const FISH := [

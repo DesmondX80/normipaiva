@@ -120,22 +120,11 @@ func _process(delta: float) -> void:
 
 
 func _wall(a: Vector2, b: Vector2, h: float, col: Color, collide_h := WALL_H) -> void:
-	var c := (a + b) / 2.0
-	var size := Vector3(maxf(absf(b.x - a.x), 0.2), h, maxf(absf(b.y - a.y), 0.2))
-	B.mesh(self, B.boxm(size), Vector3(c.x, h / 2.0, c.y), col)
-	var body := StaticBody3D.new()
-	body.position = Vector3(c.x, 0, c.y)
-	body.add_child(B.box_shape(Vector3(size.x, collide_h, size.z), Vector3(0, collide_h / 2.0, 0)))
-	add_child(body)
+	B.wall(self, a, b, h, col, collide_h)
 
 
 func _solid(size: Vector3, pos: Vector3, col: Color) -> MeshInstance3D:
-	var mi := B.mesh(self, B.boxm(size), pos, col)
-	var body := StaticBody3D.new()
-	body.position = pos
-	body.add_child(B.box_shape(size))
-	add_child(body)
-	return mi
+	return B.solid(self, size, pos, col)
 
 
 func _build_room() -> void:

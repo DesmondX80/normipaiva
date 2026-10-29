@@ -550,56 +550,7 @@ func _drape_key() -> String:
 ## Leikkaa kolmion maastoruudukon viivoilla (x-, z- ja lävistäjäviivat kuten Terrain.h:n kolmioinnissa), niin että
 ## jokainen pala on yhden maastokolmion sisällä, ja lisää palat viuhkoina.
 func _conform(a: Vector3, b: Vector3, c: Vector3, out: PackedVector3Array) -> void:
-	var polys: Array[PackedVector3Array] = [PackedVector3Array([a, b, c])]
-	for fam in 3:
-		var nxt: Array[PackedVector3Array] = []
-		for poly in polys:
-			_split_family(poly, fam, nxt)
-		polys = nxt
-	for poly in polys:
-		for i in range(1, poly.size() - 1):
-			out.append(poly[0])
-			out.append(poly[i])
-			out.append(poly[i + 1])
-
-
-## Ruudukkokoordinaatti viivaperheelle: 0 = x, 1 = z, 2 = x + z (lävistäjät).
-func _grid_f(p: Vector3, fam: int) -> float:
-	var fx := (p.x - T.origin.x) / T.CELL
-	var fz := (p.z - T.origin.y) / T.CELL
-	return fx if fam == 0 else (fz if fam == 1 else fx + fz)
-
-
-func _split_family(poly: PackedVector3Array, fam: int, out: Array[PackedVector3Array]) -> void:
-	var lo := INF
-	var hi := -INF
-	for p in poly:
-		var f := _grid_f(p, fam)
-		lo = minf(lo, f)
-		hi = maxf(hi, f)
-	var rest := poly
-	for k in range(floori(lo) + 1, ceili(hi)):
-		var below := PackedVector3Array()
-		var above := PackedVector3Array()
-		for i in rest.size():
-			var p := rest[i]
-			var q := rest[(i + 1) % rest.size()]
-			var fp := _grid_f(p, fam) - k
-			var fq := _grid_f(q, fam) - k
-			if fp <= 0.0:
-				below.append(p)
-			if fp >= 0.0:
-				above.append(p)
-			if (fp < 0.0 and fq > 0.0) or (fp > 0.0 and fq < 0.0):
-				var x := p.lerp(q, fp / (fp - fq))
-				below.append(x)
-				above.append(x)
-		if below.size() >= 3:
-			out.append(below)
-		rest = above
-		if rest.size() < 3:
-			return
-	out.append(rest)
+	T.conform_tri(a, b, c, out, T.origin, T.CELL)
 
 
 ## Pilkkoo kolmion pisimmän sivun kohdalta, kunnes kaikki sivut ovat alle DRAPE_EDGE (ei maastoruudukkoa).

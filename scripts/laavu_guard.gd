@@ -183,9 +183,6 @@ func is_blocking() -> bool:
 	return mode in ["idle", "guard", "cooldown"]
 
 
-func boss_position() -> Vector3:
-	return _boss.global_position
-
 
 func _face(dir: Vector3) -> void:
 	if dir.length() > 0.1:

@@ -1504,8 +1504,6 @@ func _bubbles() -> CPUParticles3D:
 const TAXI_ROAD := Vector3(0, 0, -3400)
 const TAXI_OUT_LINES := ["Raaheen vai? No mennään.", "Kuutonen jää kotiin, baarissa juodaan hanasta.",
 	"Siellä on terästehtaan porukka taas liikkeellä..."]
-const TAXI_MOKKI_LINES := ["Paapeliin? Vaalaan asti? No, mittari on päällä.", "Kuuskymppiä, mutta tuon takasinki.",
-	"Mökille vai? Kantarellejako poimimaan?"]
 const REKKA_LINES := ["Raaheen? Hyppää kyytiin, ohjaamossa on tilaa.", "Terästehtaalle vien. Kolkyt vuotta samaa tietä.",
 	"Ex-vaimo vei kaiken muun, mutta rekan mää pidin.", "Tossa mutkassa hirvi melkein vei peilin. Totta se on."]
 const TAXI_HOME_LINES := ["No, oliko reissu rahan arvoinen?", "Kotipihaan asti. Onnea vaan.", "Päivi taitaa olla hereillä..."]

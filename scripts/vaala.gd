@@ -1836,55 +1836,7 @@ func _ribbon(st: SurfaceTool, pts: PackedVector2Array, half: float, lift: float,
 
 ## Leikkaa kolmion maastoruudukon viivoilla (x, z ja lävistäjä x + z kuten h():n kolmioinnissa).
 func _conform(a: Vector3, b: Vector3, c: Vector3, out: PackedVector3Array) -> void:
-	var polys: Array[PackedVector3Array] = [PackedVector3Array([a, b, c])]
-	for fam in 3:
-		var nxt: Array[PackedVector3Array] = []
-		for poly in polys:
-			_split_family(poly, fam, nxt)
-		polys = nxt
-	for poly in polys:
-		for i in range(1, poly.size() - 1):
-			out.append(poly[0])
-			out.append(poly[i])
-			out.append(poly[i + 1])
-
-
-func _grid_f(p: Vector3, fam: int) -> float:
-	var fx := (p.x - _x0) / _cell
-	var fz := (p.z - _z0) / _cell
-	return fx if fam == 0 else (fz if fam == 1 else fx + fz)
-
-
-func _split_family(poly: PackedVector3Array, fam: int, out: Array[PackedVector3Array]) -> void:
-	var lo := INF
-	var hi := -INF
-	for p in poly:
-		var f := _grid_f(p, fam)
-		lo = minf(lo, f)
-		hi = maxf(hi, f)
-	var rest := poly
-	for k in range(floori(lo) + 1, ceili(hi)):
-		var below := PackedVector3Array()
-		var above := PackedVector3Array()
-		for i in rest.size():
-			var p := rest[i]
-			var q := rest[(i + 1) % rest.size()]
-			var fp := _grid_f(p, fam) - k
-			var fq := _grid_f(q, fam) - k
-			if fp <= 0.0:
-				below.append(p)
-			if fp >= 0.0:
-				above.append(p)
-			if (fp < 0.0 and fq > 0.0) or (fp > 0.0 and fq < 0.0):
-				var x := p.lerp(q, fp / (fp - fq))
-				below.append(x)
-				above.append(x)
-		if below.size() >= 3:
-			out.append(below)
-		rest = above
-		if rest.size() < 3:
-			return
-	out.append(rest)
+	Terrain.conform_tri(a, b, c, out, Vector2(_x0, _z0), _cell)
 
 
 ## Keskiviivan katkoviiva (Saloisten tapaan 3 m viiva / 6 m väli, leveys 0,24 m) tien päälle, päistä marginaali

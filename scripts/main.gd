@@ -467,7 +467,6 @@ var _paivi_call_kind := "sinikka"  # Päivin puhelu Siitariin: "sinikka" tai "sa
 var _santtu_gossip := false  # Santtu soitti Päiville: kotona aamulla motkotusta ja Päivi nopeampi
 var _mokki_prev := "ulkona"
 var _slept_mokki := false
-const ZONE_RADIUS := 6.0
 var shop_door := Vector3.ZERO  # Saloisten K-Marketin oven edusta
 var home_door := Vector3.ZERO  # kodin etuoven portaiden edusta (kotiin meno, eteisen kaappi, Päivin ostokset, haava)
 var home_back_door := Vector3.ZERO  # takaovi takapihalle (etuovea vastapäätä)
@@ -496,8 +495,6 @@ const SHOP_NO_BEER := [
 	"Hoi hoi! Mää tunnen sut. Ensin ne kaljat pois, sitte vasta kauppaan.",
 ]
 const START_MONEY := 20.0
-## Taksi K-Marketin taksitolpalta Raahen baariin ja takaisin.
-const TAXI_FARE := 4.0  # meno-paluu Saloisista Raaheen (retket.gd raahe_tarjous: 8 km)
 const BAR_ROUND := 6.0  # kädenväännön häviäjä tarjoaa kierroksen
 const TAXI_RADIUS := 3.5
 const BAR_POS := Vector3(0, 0, -4200)  # baarin minipeli kaukana kartan ulkopuolella
@@ -589,7 +586,6 @@ var _note: Control  # Päivin heippalappu (note.gd): päivän alun ohjeet
 var _msg_time := 0.0
 var _sus_box: Control
 var _sus_bar: ProgressBar
-var _bird_t := 2.0
 var _minimap: Control
 var _inventory: Control  # reppu (I / Tab), inventory.gd
 ## Drooni (drone_game.gd): alusta kotipihalla, akku latautuu maassa, törmäys rikkoo päiväksi. Ilmakuvat kerätään
@@ -741,11 +737,6 @@ var stash_laavu: int:
 		return stash.get("laavu", 0)
 	set(v):
 		stash["laavu"] = v
-var stash_grilli: int:
-	get:
-		return stash.get("grilli", 0)
-	set(v):
-		stash["grilli"] = v
 var _jemma_found := 0
 var jemma_endings := 0
 var day := 1
@@ -2078,14 +2069,6 @@ func _on_garage_acted(kind: String) -> void:
 			_save_game()
 
 
-## Paras saatavilla oleva hiiva: korpihiiva (5 pv) > turbohiiva (7 pv) > tavallinen (21 pv). "" = ei hiivaa.
-func _best_yeast() -> String:
-	if has_korpihiiva:
-		return "korpi"
-	if has_turbo:
-		return "turbo"
-	return "hiiva" if has_yeast else ""
-
 
 func _use_yeast(kind: String) -> void:
 	match kind:
@@ -2096,9 +2079,6 @@ func _use_yeast(kind: String) -> void:
 		_:
 			has_yeast = false
 
-
-func _yeast_name(kind: String) -> String:
-	return {"korpi": "korpihiiva: viisi päivää", "turbo": "turbohiiva: viikko", "hiiva": "hiiva: kolme viikkoa"}[kind]
 
 
 func _mwine_ready() -> bool:
@@ -17871,30 +17851,6 @@ func _story_check_tasks() -> void:
 		_save_game()
 
 
-## Ämpärin litrat, jotka annettu ostaja (arto / pekka) ostaa.
-func _goods_l(buyer: String) -> int:
-	var n := 0
-	for k in bucket:
-		if GOODS[k].buyer == buyer:
-			n += bucket[k]
-	return n
-
-
-## Ottaa ämpäristä n litraa ostajan tavaraa (kalleimmasta alkaen) ja palauttaa hinnan.
-func _take_goods(buyer: String, n: int) -> float:
-	var pay := 0.0
-	var keys: Array = bucket.keys().filter(func(k: String) -> bool: return GOODS[k].buyer == buyer)
-	keys.sort_custom(func(a: String, b: String) -> bool: return GOODS[a].price > GOODS[b].price)
-	for k in keys:
-		var take: int = mini(n, bucket[k])
-		bucket[k] -= take
-		pay += take * GOODS[k].price
-		n -= take
-		if bucket[k] <= 0:
-			bucket.erase(k)
-		if n <= 0:
-			break
-	return pay
 
 
 ## Sinikan nurmikon leikkuri ja Pekan avaimet kodalla (_outside_logic).
@@ -17942,15 +17898,12 @@ func _place_keys() -> void:
 
 const JEMMA_GOAL := 24
 
-# Kota: sahaus ja pilkkominen, tuli ja tarinat.
-const HALOT_PER_POLKKY := 4
 const FIRE_HALOT := 4
 var kota_polkyt := 0
 var kota_halot := 0
 var _minigame_prev := "ulkona"
 var tarinat_kuultu: Array = []  # kuultujen tarinoiden indeksit (tallentuu)
 var _kota_chat_t := 6.0
-var _story_skip := false
 var _edge_cd := 0.0
 
 ## Kartan reunalla: hahmon kommentit (alue, repliikit).

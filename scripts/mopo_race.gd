@@ -21,7 +21,6 @@ const TOPS := [5.0, 9.0, 13.0, 16.7]   # vaihteiden huippunopeudet (m/s)
 const ACC := [3.6, 2.7, 1.9, 1.25]      # kiihtyvyys vaihteella (m/s²)
 const SHIFT_T := 0.22                   # vaihtoon kuluva aika ilman vetoa
 const ZONE := Vector2(0.72, 0.97)       # vaihtoikkuna kierroksina (0..1)
-const OPP_NAMES := ["Tunturi-Jani", "Pakoputki-Pete", "Kuskin Kimmo"]
 
 var track: Array[Vector3] = []
 var drunk := 0.0

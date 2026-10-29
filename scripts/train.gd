@@ -294,7 +294,6 @@ func _place() -> void:
 
 const VR_RED := Color(0.74, 0.07, 0.06)
 const VR_WHITE := Color(0.95, 0.95, 0.93)
-const VR_GREEN := Color(0.0, 0.46, 0.26)
 const DARK := Color(0.1, 0.1, 0.11)
 const GLASS := Color(0.07, 0.1, 0.13)
 

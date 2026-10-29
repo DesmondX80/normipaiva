@@ -1,4 +1,5 @@
 extends CanvasLayer
+const B := preload("res://scripts/build.gd")
 ## Räkäleima (Oulujärven lavan piha): rahaton kopioi tuoreen leiman pihalla juovan teinin kädestä.
 ## Vaihe 1 "kopio": vie oma käsi teinin kämmenselän leiman päälle (hiiri) ja paina vasenta nappia pohjaan. Muste kuivuu
 ##   noin 16 sekunnissa, joten se tarttuu sitä paremmin, mitä tuoreempaa se on; R kostuttaa kämmenen ("räkä"), jolloin muste
@@ -78,19 +79,7 @@ func _ready() -> void:
 
 
 func _label(size: int, y: float, bottom: bool) -> Label:
-	var l := Label.new()
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 7)
-	l.anchor_right = 1.0
-	if bottom:
-		l.anchor_top = 1.0
-		l.anchor_bottom = 1.0
-	l.offset_top = y
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(l)
-	return l
+	return B.hud_label(self, size, y, bottom)
 
 
 # --- Tila -------------------------------------------------------------------------------------------------------

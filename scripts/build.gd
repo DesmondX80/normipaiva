@@ -193,6 +193,58 @@ static func box(parent: Node3D, size: Vector3, pos: Vector3, color: Color, colli
 	return body
 
 
+## Kiinteä laatikko (verkko ja törmäys samassa paikassa): palauttaa verkon. Sisätilojen huonekalut.
+static func solid(parent: Node3D, size: Vector3, pos: Vector3, color: Color) -> MeshInstance3D:
+	var mi := mesh(parent, boxm(size), pos, color)
+	var body := StaticBody3D.new()
+	body.position = pos
+	body.add_child(box_shape(size))
+	parent.add_child(body)
+	return mi
+
+
+## Seinä pisteestä a pisteeseen b (x, z), korkeus h; törmäys vain korkeuteen collide_h asti, ohuin paksuus min_t.
+static func wall(parent: Node3D, a: Vector2, b: Vector2, h: float, color: Color, collide_h: float, min_t := 0.2) -> void:
+	var c := (a + b) / 2.0
+	var size := Vector3(maxf(absf(b.x - a.x), min_t), h, maxf(absf(b.y - a.y), min_t))
+	mesh(parent, boxm(size), Vector3(c.x, h / 2.0, c.y), color)
+	var body := StaticBody3D.new()
+	body.position = Vector3(c.x, 0, c.y)
+	body.add_child(box_shape(Vector3(size.x, collide_h, size.z), Vector3(0, collide_h / 2.0, 0)))
+	parent.add_child(body)
+
+
+## Minipelin ruututeksti: keskitetty, mustat reunat, ylä- (y < 0 ei käytössä) tai alareunan mukaan (bottom). Ei hiiren kaappausta.
+static func hud_label(parent: Node, font_size: int, y: float, bottom: bool) -> Label:
+	var l := Label.new()
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 7)
+	l.anchor_right = 1.0
+	if bottom:
+		l.anchor_top = 1.0
+		l.anchor_bottom = 1.0
+	l.offset_top = y
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(l)
+	return l
+
+
+## Kalastuspelien tekstikenttä (ruutukoordinaatit, 1280 tai 800 px leveä, rivitys, mustat reunat).
+static func ui_label(parent: Node, pos: Vector2, font_size: int, align: HorizontalAlignment) -> Label:
+	var l := Label.new()
+	l.position = pos
+	l.size = Vector2(1280 if align == HORIZONTAL_ALIGNMENT_CENTER else 800, 60)
+	l.horizontal_alignment = align
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 8)
+	parent.add_child(l)
+	return l
+
+
 static func box_shape(size: Vector3, pos := Vector3.ZERO) -> CollisionShape3D:
 	var cs := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
@@ -311,15 +363,6 @@ static func person(parent: Node3D, shirt: Color, pants: Color, skin: Color, hair
 	h.scale = Vector3(1.0, 0.75, 1.0)
 	return root
 
-
-## Kävelyanimaatio: jalat ja kädet heiluvat vastakkain. amount 0 = paikallaan.
-static func walk_anim(root: Node3D, phase: float, amount: float) -> void:
-	var s := sin(phase) * 0.6 * amount
-	root.get_node("LegL").rotation.x = s
-	root.get_node("LegR").rotation.x = -s
-	var upper := root.get_node("Upper")
-	upper.get_node("ArmL").rotation.x = -s * 0.8
-	upper.get_node("ArmR").rotation.x = s * 0.8
 
 
 ## Auto -Z-suuntaan (tarkka malli vehicles.gd:ssä; ladataan ajon aikana, ettei preload kierrä).

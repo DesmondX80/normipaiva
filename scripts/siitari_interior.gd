@@ -204,12 +204,6 @@ func in_hotel() -> bool:
 	return walker != null and walker.position.z < HOTEL.z + HOTEL_HALF.y + 2.0
 
 
-func reception_say(text: String) -> void:
-	say(_receptionist, text, 3.6)
-
-
-func dingo_say(text: String) -> void:
-	say(_band.pick_random(), text, 3.6)
 
 
 ## Pelaajan apu bändille: telkkari ikkunasta (lentää ikkunasta ulos, lasinsirpaleet).
@@ -246,9 +240,6 @@ func say(who: Node3D, text: String, t := 3.2) -> void:
 	elif not (who == _sinikka and sinikka_dancing):
 		who.play("Idle_Talking", 0.3)
 
-
-func sinikka_say(text: String) -> void:
-	say(_sinikka, text, 3.6)
 
 
 func bartender_say(text: String) -> void:
@@ -426,22 +417,11 @@ func from_stage(cheer: bool, quiet := false) -> void:
 # --- Rakennus ---------------------------------------------------------------------
 
 func _wall(a: Vector2, b: Vector2, h: float, col: Color, collide_h := WALL_H) -> void:
-	var c := (a + b) / 2.0
-	var size := Vector3(maxf(absf(b.x - a.x), 0.2), h, maxf(absf(b.y - a.y), 0.2))
-	B.mesh(self, B.boxm(size), Vector3(c.x, h / 2.0, c.y), col)
-	var body := StaticBody3D.new()
-	body.position = Vector3(c.x, 0, c.y)
-	body.add_child(B.box_shape(Vector3(size.x, collide_h, size.z), Vector3(0, collide_h / 2.0, 0)))
-	add_child(body)
+	B.wall(self, a, b, h, col, collide_h)
 
 
 func _solid(size: Vector3, pos: Vector3, col: Color) -> MeshInstance3D:
-	var mi := B.mesh(self, B.boxm(size), pos, col)
-	var body := StaticBody3D.new()
-	body.position = pos
-	body.add_child(B.box_shape(size))
-	add_child(body)
-	return mi
+	return B.solid(self, size, pos, col)
 
 
 func _build_room() -> void:

@@ -20,7 +20,6 @@ var _root: Control
 var _t := 0.0
 var _done := false
 var _player: AudioStreamPlayer
-var _grain: Array = []
 var _rng := RandomNumberGenerator.new()
 
 

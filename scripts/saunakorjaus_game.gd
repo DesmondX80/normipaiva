@@ -1,4 +1,5 @@
 extends CanvasLayer
+const B := preload("res://scripts/build.gd")
 ## Savusaunan korjaus (Santun homma "saunakorjaus"), hiirellä pelattavat vaiheet piirrettyinä kuvina:
 ## "kivet"   – kiuaskivien keräys rannan kivikasasta: pyöreät kelpaavat, liuskekivi halkeaa kuumassa (ei kelpaa).
 ## "kiuas"   – rapautuneet kivet pois kiukaasta ja uudet tilalle: isot alariviin, pienet päälle (ilma kulkee).
@@ -92,19 +93,7 @@ func _ready() -> void:
 
 
 func _label(size: int, y: float, bottom: bool) -> Label:
-	var l := Label.new()
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 7)
-	l.anchor_right = 1.0
-	if bottom:
-		l.anchor_top = 1.0
-		l.anchor_bottom = 1.0
-	l.offset_top = y
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(l)
-	return l
+	return B.hud_label(self, size, y, bottom)
 
 
 func _setup() -> void:

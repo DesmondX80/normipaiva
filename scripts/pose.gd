@@ -227,19 +227,6 @@ static func hands_on_thighs(ch: Node3D, space: Node3D, lap := false) -> void:
 		ch.set_ik_orient("arm" + lr, palm_on(gb * (sp.basis * fingers), gb * Vector3.DOWN, lr == "_l"), 1.0)
 
 
-## Jalat roikkumaan istuimen reunan yli (laituri): reisi eteen lähes vaakaan, sääri suoraan alas polvesta. Kutsu seat:n
-## jälkeen; front = suunta reunan yli. Lantion pitää olla reunan takana vähintään reiden mitan verran.
-static func legs_hang(ch: Node3D, front: Vector3) -> void:
-	front = Vector3(front.x, 0, front.z).normalized()
-	var inv := ch.transform.affine_inverse()
-	for lr: String in ["_l", "_r"]:
-		var hip: Vector3 = ch.transform * ch.bone_position("thigh" + lr)
-		var l1: float = ch.bone_position("thigh" + lr).distance_to(ch.bone_position("calf" + lr))
-		var l2: float = ch.bone_position("calf" + lr).distance_to(ch.bone_position("foot" + lr))
-		var knee := hip + front * l1 * 0.97 + Vector3(0, -l1 * 0.2, 0)
-		var tgt := knee + Vector3(0, -l2 * 0.98, 0) + front * 0.04
-		ch.set_ik("leg" + lr, "thigh" + lr, "calf" + lr, "foot" + lr, inv * tgt, inv * (knee + front * 0.3 + Vector3(0, 0.15, 0)))
-
 
 ## Istumatyylit (Pose.sit): JAYKKA = mummot, pysty selkä, polvet 90°, kädet reisillä; SUORA = jakkara, portaat, penkki
 ## ilman selkänojaa, sama asento; RENTO = selkä selkänojan kulmassa ja kiinni siinä, jalat ojossa (opts.ristissa:

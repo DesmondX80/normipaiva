@@ -50,7 +50,6 @@ var _tilt := 0.0  # vivun kulma (rad), + = vasen (X-) pää alas
 var _bar: Node3D
 var _rods: Array[MeshInstance3D] = []
 var _gauge: Node3D
-var _fingers := {}  # puoli -> sormien koukistusakseli
 var _watch: Node3D
 var _line_p := 0
 var _line_d := 0
@@ -210,12 +209,7 @@ func _grip_arms() -> void:
 # --- Rakennus -------------------------------------------------------------------------------
 
 func _solid(size: Vector3, pos: Vector3, col: Color) -> MeshInstance3D:
-	var mi := B.mesh(self, B.boxm(size), pos, col)
-	var body := StaticBody3D.new()
-	body.position = pos
-	body.add_child(B.box_shape(size))
-	add_child(body)
-	return mi
+	return B.solid(self, size, pos, col)
 
 
 func _alpha(mi: MeshInstance3D, col: Color) -> void:

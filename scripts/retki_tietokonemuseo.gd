@@ -125,12 +125,7 @@ func _process(delta: float) -> void:
 # --- Rakennus -------------------------------------------------------------------------------
 
 func _solid(size: Vector3, pos: Vector3, col: Color) -> MeshInstance3D:
-	var mi := B.mesh(self, B.boxm(size), pos, col)
-	var body := StaticBody3D.new()
-	body.position = pos
-	body.add_child(B.box_shape(size))
-	add_child(body)
-	return mi
+	return B.solid(self, size, pos, col)
 
 
 func _glow(parent: Node3D, size: Vector3, pos: Vector3, col: Color) -> MeshInstance3D:

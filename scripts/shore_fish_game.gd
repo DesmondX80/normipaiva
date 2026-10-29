@@ -185,16 +185,7 @@ func _rect(c: Color, pos: Vector2, size: Vector2) -> ColorRect:
 
 
 func _mk_label(pos: Vector2, size: int, align: HorizontalAlignment) -> Label:
-	var l := Label.new()
-	l.position = pos
-	l.size = Vector2(1280 if align == HORIZONTAL_ALIGNMENT_CENTER else 800, 60)
-	l.horizontal_alignment = align
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 8)
-	_ui.add_child(l)
-	return l
+	return B.ui_label(_ui, pos, size, align)
 
 
 func _show_bar(on: bool) -> void:

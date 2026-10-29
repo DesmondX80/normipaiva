@@ -37,8 +37,6 @@ var _hole: Node3D
 var _opened := -1  # 1 = laatta sivussa, 0 = paikallaan, -1 = ei vielä asetettu
 var _smoke: Array = []  # [Node3D, vaihe]
 var _t := 0.0
-const GUARD_LINES := ["Rautaruukki on iso työnantaja, kuulemma. Aita on aidattu syystä.", "Peruskivi on tuossa. Kekkonen sen paljasti, sanotaan.",
-	"Ei saa mennä aidan taakse. Kivelle saa."]
 
 
 func _ready() -> void:
@@ -126,12 +124,7 @@ func _on_test_exit() -> void:
 # --- Rakennus -------------------------------------------------------------------------------
 
 func _solid(size: Vector3, pos: Vector3, col: Color) -> MeshInstance3D:
-	var mi := B.mesh(self, B.boxm(size), pos, col)
-	var body := StaticBody3D.new()
-	body.position = pos
-	body.add_child(B.box_shape(size))
-	add_child(body)
-	return mi
+	return B.solid(self, size, pos, col)
 
 
 func _birch(at: Vector3, s := 1.0) -> void:

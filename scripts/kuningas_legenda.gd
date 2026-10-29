@@ -22,7 +22,6 @@ var asiakirja := false
 var drooni := false
 var found := false
 var choice := ""  # "" / "museo" / "kolo"
-var bell_police := false  # poliisin kellovaroitus annettu (ei tallenneta)
 
 
 func proven() -> bool:

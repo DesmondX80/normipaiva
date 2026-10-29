@@ -191,9 +191,4 @@ func set_line_t(t: float, dir: int) -> void:
 	_dir = dir
 
 
-func line_t() -> float:
-	return _t
 
-
-func line_dir() -> int:
-	return _dir

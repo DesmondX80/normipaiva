@@ -24,7 +24,6 @@ var _flash := 0.0
 var _msg := ""
 var _msg_t := 0.0
 var _sparks: Array = []
-var _snaps: Array = []  # otetut kuvat: [pisteet]
 var _aim := Vector2(W / 2.0, H / 2.0)
 var _mouse := Vector2(W / 2.0, H / 2.0)
 var _finished := false

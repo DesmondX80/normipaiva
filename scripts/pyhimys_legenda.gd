@@ -9,8 +9,6 @@ extends RefCounted
 ## (lupaus): suku asui Tokolassa -> Aaro muistaa mummon aitan pyhän nuken (aitta) -> pyhimys Tokolan varaston orsilta
 ## (found) -> suntiolle kirkkoon (returned). Palon vuosipäivä pelissä on joka kuudes päivä (6. = loppiainen).
 
-const PALO_VUOSI := 1930
-const KIRKKO_VUOSI := 1932
 const VUOSIPAIVA_VALI := 6
 const KYNTTILA := Vector2(18 * 60, 23 * 60)
 const MAINE := 10.0

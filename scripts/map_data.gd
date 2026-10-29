@@ -41,7 +41,6 @@ const LAAVU := Vector2(833, 2345)  # nuotiopaikka Antinsuonkankaalla
 # Haapajärven tekoaltaan kota ja lintutorni (OpenStreetMap), n. 2 km laavulta polkua pitkin.
 const KOTA := Vector2(1409, 3745)  # OSM: amenity=shelter, tourism=wilderness_hut
 const LINTUTORNI := Vector2(1417, 3747)  # OSM: man_made=tower (world.gd kääntää kodan tornin tähän)
-const J_PATO := Vector2(1304, 3778)  # Ketunperäntie / Patotie (kehyksen kiintopiste)
 ## Pannu-Sulon pontikkapannu Antinsuonkankaan kuusikossa, Ketunperäntien ja laavupolun puolivälissä.
 ## Ei näy kartoilla; kodan tarinoissa mainitaan ohimennen.
 const PONTIKKA := Vector2(560, 1850)
