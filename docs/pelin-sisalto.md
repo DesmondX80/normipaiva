@@ -51,7 +51,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (erämies, harppi taskussa), Vaalan aseman pihassa Hevari-Tero (valittaa valtiosta) ja Siviikki-Timo (punainen Honda
   Civic, VTEC). Juttele (E), niin puhelimeen tulee Sytkäri-mätsi (parodiadeittisovellus, liekkilogo): Minttu (punaiset
   kiharat, pisamat, kesämekko) Saloisissa tai Katja (pitkät mustat suorat hiukset, nahkatakki, motoristi) Vaalassa;
-  kumpikin vähintään yhtä hemaiseva kuin Sinikka. Kohtausten hahmot on piirretty `MG.figure`:llä (`mg_draw.gd`).
+  kumpikin vähintään yhtä hemaiseva kuin Sinikka. Ovi-, väärän oven ja aamukohtaukset ovat
+  3D-lavastuksia omissa maailmoissaan (`kolmio_kohtaus.gd`), ja Sytkärin profiilikuvat on otettu 3D-hahmoista.
   Osoitetta ei kerrota, vain etäisyys. Kaveri mittaa lähtöpaikalta, toinen tekstaa etämittauksen (Esa kirkolta, Timo
   Siviikillä kylän toiselta puolelta), ja pelaaja mittaa lisää missä vain (E "Avaa Sytkäri", vähintään 35 m edellisistä mittauksista).
   Sovellus pyöristää etäisyyden (alle 120 m 10 m:iin, alle 500 m 50 m:iin, muuten 100 m:iin), joten paperikartalla (M)

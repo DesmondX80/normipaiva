@@ -1,14 +1,21 @@
 extends CanvasLayer
-## Kolmiomittauksen (#255) kohtaukset piirrettynä (kolmiomittaus.gd): sarjakuvamainen ruutu, repliikit vuorotellen,
-## E jatkaa ja Esc ohittaa loppuun. finished(r) kertoo tuloksen main.gd:lle.
-##   "ovi"    naisen ovi illalla: nainen ovella, kolmiomittaajat portailla lahjat käsissä. Lahjat ojennetaan
-##            vuorotellen kuin itämaan tietäjät; jos pelaajan lahja puuttuu, ovi menee kiinni (r.ok = false).
-##   "vaara"  väärä ovi: joku muu avaa (mummo kepin kanssa, Pannu-Sulo, ...) ja pelaaja perääntyy.
-##   "aamu"   onnellinen loppu: aamukahvit naisen keittiössä, mansikkaletut, ruusut maljakossa.
+## Kolmiomittauksen (#255) kohtaukset 3D:nä (kolmiomittaus.gd): oma pieni lavastus omassa 3D-maailmassaan
+## (SubViewport, own_world_3d, kuten minipelien lavat), hahmot Looks.make-hahmoja, repliikit tekstilaatikossa.
+## E jatkaa, Esc ohittaa loppuun. finished(r) kertoo tuloksen main.gd:lle.
+##   "ovi"    naisen ovi illalla: nainen ovella, kolmiomittaajat portaiden juurella lahjat molemmissa käsissä rinnan
+##            edessä. Lahjat ojennetaan vuorotellen kuin itämaan tietäjät ja ne päätyvät kuistin pöydälle; jos pelaajan
+##            lahja puuttuu, ovi paukahtaa kiinni (r.ok = false).
+##   "vaara"  väärä ovi: joku muu avaa (mummo kepin kanssa, Pannu-Sulo kanisterin kanssa, ...) ja pelaaja perääntyy.
+##   "aamu"   onnellinen loppu: aamukahvit naisen keittiössä, nainen kaataa kahvia, kaveri paistaa lettuja, mansikat,
+##            kermavaahto ja ruusut maljakossa pöydällä.
+## Lavastuksen koordinaatit: talon julkisivu z = 0 (+Z ulos pihalle), kynnys y = 0,5; keittiössä pöytä z = 0,75 ja
+## hahmot sen takana kasvot +Z:aan (kamera edessä). Hahmo katsoo oletuksena -Z:aan, joten rotation.y = PI = kasvot ulos.
 
 signal finished(r: Dictionary)
 
 const MG := preload("res://scripts/mg_draw.gd")
+const B := preload("res://scripts/build.gd")
+const Looks := preload("res://scripts/looks.gd")
 
 var mode := "ovi"
 var site := "saloinen"
@@ -19,8 +26,13 @@ var missing := ""  # pelaajan puuttuva lahja ("" = kaikki mukana)
 var resident := {}  # väärä ovi: kolmiomittaus.gd WRONG_DOORS
 var stats := ""  # aamun tilastorivi
 var lines: Array = []  # [puhuja, teksti]; rakennetaan _ready:ssä
+var auto := true  # rivit etenevät itsestään 6,5 s välein (testi pysäyttää)
 
 var _view: Control
+var _vp: SubViewport
+var _stage: Node3D
+var _cam: Camera3D
+var _cam_base: Transform3D
 var _t := 0.0
 var _line := 0
 var _line_t := 0.0
@@ -31,41 +43,64 @@ var _shake := 0.0
 var _sparks: Array = []
 var _done := false
 var _ok := true
+var _leaf: Node3D  # ovilehti saranasta (x = -0,5)
+var _people := {}  # nimi -> hahmo
+var _holding := {}  # nimi -> lahjan kappale (pidellään rinnan edessä)
+var _props := {}  # nimi -> lahjan kappale
+var _table_top := Vector3.ZERO  # kuistin pöytä, jolle ojennetut lahjat lasketaan
+var _cane: Node3D
+var _pancake: Node3D
+var _pan_at := Vector3.ZERO
 
-const HAIR_MINTTU := Color(0.8, 0.24, 0.09)
-const HAIR_KATJA := Color(0.05, 0.04, 0.05)
-## Piirretyt hahmot (mg_draw.gd MG.figure). Naiset vähintään yhtä hemaisevia kuin Sinikka (bust 2,7, curves 1,0).
-const LOOKS := {
-	"me": {"skin": Color(1.0, 0.9, 0.82), "hair": "parted", "hair_col": Color(0.82, 0.66, 0.4), "shirt": Color(0.42, 0.18, 0.58),
-		"stripes": true, "cap": true, "beard": true, "pants": Color(0.42, 0.18, 0.58), "shoes": Color(0.9, 0.9, 0.88)},
-	"Joni": {"skin": Color(0.98, 0.84, 0.74), "hair": "parted", "hair_col": Color(0.07, 0.05, 0.04), "shirt": Color(0.95, 0.95, 0.92),
-		"short_sleeve": true, "pants": Color(0.82, 0.75, 0.58)},
-	"Esa": {"skin": Color(0.95, 0.76, 0.64), "hair": "short", "hair_col": Color(0.42, 0.3, 0.18), "shirt": Color(0.24, 0.36, 0.2),
-		"flannel": true, "beard": true, "pants": Color(0.33, 0.3, 0.2)},
-	"Hevari-Tero": {"skin": Color(0.97, 0.84, 0.76), "hair": "metal", "hair_col": Color(0.2, 0.15, 0.12), "shirt": Color(0.06, 0.06, 0.07),
-		"beard": true, "pants": Color(0.1, 0.1, 0.12)},
-	"Siviikki-Timo": {"skin": Color(0.98, 0.84, 0.74), "hair": "short", "hair_col": Color(0.55, 0.42, 0.25), "shirt": Color(0.78, 0.07, 0.1),
-		"cap": true, "cap_col": Color(0.85, 0.85, 0.88), "pants": Color(0.22, 0.3, 0.48)},
-	"Minttu": {"skin": Color(1.0, 0.9, 0.84), "hair": "curls", "hair_col": HAIR_MINTTU, "shirt": Color(1.0, 0.82, 0.25), "woman": true,
-		"bust": 2.7, "curves": 1.0, "dress": true, "freckles": true, "eyes": Color(0.25, 0.55, 0.35), "shoes": Color(0.95, 0.93, 0.88)},
-	"Katja": {"skin": Color(0.98, 0.86, 0.78), "hair": "long", "hair_col": HAIR_KATJA, "shirt": Color(0.08, 0.07, 0.08), "woman": true,
-		"bust": 2.7, "curves": 1.0, "jacket": true, "pants": Color(0.16, 0.2, 0.32), "shoes": Color(0.04, 0.04, 0.04)},
-	"Mummo kepin kanssa": {"skin": Color(1.0, 0.9, 0.86), "hair": "buns", "hair_col": Color(0.9, 0.9, 0.88), "shirt": Color(0.56, 0.36, 0.55),
-		"glasses": true, "woman": true, "pants": Color(0.32, 0.24, 0.2), "dress": false},
-	"Pannu-Sulo": {"skin": Color(1.0, 0.84, 0.78), "hair": "short", "hair_col": Color(0.7, 0.7, 0.68), "shirt": Color(0.55, 0.12, 0.1),
-		"flannel": true, "beard": true, "pants": Color(0.25, 0.3, 0.2)},
-	"Pieni poika": {"skin": Color(1.0, 0.88, 0.8), "hair": "short", "hair_col": Color(0.85, 0.72, 0.42), "shirt": Color(0.2, 0.45, 0.85),
-		"pants": Color(0.2, 0.2, 0.25), "short_sleeve": true},
-	"Verotoimiston Raimo": {"skin": Color(0.96, 0.82, 0.74), "hair": "parted", "hair_col": Color(0.6, 0.58, 0.55), "shirt": Color(0.85, 0.86, 0.9),
-		"glasses": true, "tie": true, "pants": Color(0.25, 0.27, 0.32)},
-	"Unenpöpperöinen yövuorolainen": {"skin": Color(0.95, 0.8, 0.72), "hair": "short", "hair_col": Color(0.3, 0.22, 0.15),
-		"shirt": Color(0.6, 0.62, 0.66), "pants": Color(0.35, 0.36, 0.5)},
+## 3D-hahmojen ulkonäöt (looks.gd). Väärien ovien asukkaat tässä.
+const RESIDENTS := {
+	"Mummo kepin kanssa": {"model": "female", "shirt": Color(0.56, 0.36, 0.55), "pants": Color(0.32, 0.24, 0.2),
+		"shoes": Color(0.22, 0.14, 0.1), "hair": "Hair_Long", "hair_color": Color(0.88, 0.88, 0.86), "height": 1.56,
+		"skin": Color(1.0, 0.9, 0.86), "bulk": 0.35, "belly": 0.3, "shoulders": -0.4, "muscle": -1.0},
+	"Pieni poika": {"shirt": Color(0.15, 0.35, 0.85), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.2, 0.2, 0.2),
+		"hair": "Hair_SimpleParted", "hair_color": Color(0.85, 0.72, 0.42), "height": 1.3, "bulk": -0.85, "shoulders": -0.8},
+	"Verotoimiston Raimo": {"shirt": Color(0.85, 0.86, 0.9), "pants": Color(0.25, 0.27, 0.32), "shoes": Color(0.08, 0.08, 0.08),
+		"hair": "Hair_SimpleParted", "hair_color": Color(0.6, 0.58, 0.55), "height": 1.74, "belly": 0.55},
+	"Unenpöpperöinen yövuorolainen": {"shirt": Color(0.6, 0.62, 0.66), "pants": Color(0.35, 0.36, 0.5),
+		"shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "height": 1.8, "belly": 0.4},
 }
+
+
+func _look(nimi: String) -> Dictionary:
+	match nimi:
+		"Sinä":
+			return Looks.player()
+		"Minttu":
+			return Looks.MINTTU
+		"Katja":
+			return Looks.KATJA
+		"Joni":
+			return Looks.JONI
+		"Esa":
+			return Looks.ESA
+		"Hevari-Tero":
+			return Looks.HEVARI_TERO
+		"Siviikki-Timo":
+			return Looks.SIVIIKKI_TIMO
+		"Pannu-Sulo":
+			return Looks.SULO
+	return RESIDENTS.get(nimi, Looks.SULO)
 
 
 func _ready() -> void:
 	add_to_group("esc_lopettaa")
 	layer = 7
+	var svc := SubViewportContainer.new()
+	svc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	svc.stretch = true
+	svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(svc)
+	_vp = SubViewport.new()
+	_vp.own_world_3d = true  # oma maailma: pelin aurinko, sumu ja maasto eivät näy lavastuksessa
+	_vp.msaa_3d = Viewport.MSAA_2X
+	svc.add_child(_vp)
+	_stage = Node3D.new()
+	_vp.add_child(_stage)
 	_view = Control.new()
 	_view.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -91,14 +126,18 @@ func _ready() -> void:
 				lines.append([friends[0], _friend_intro(friends[0])])
 				lines.append([friends[1], _friend_intro(friends[1])])
 				lines.append([woman, "Tulkaa sisään. Pimennetään olohuone, mulla on parempi peli ku Sytkäri."])
+			_build_porch()
 		"vaara":
 			_door = 0.0
 			_door_to = 0.0
 			Sfx.play("punch", -6.0, 0.7)
 			lines = [["", "KOP KOP KOP"], [resident.who, resident.line], ["", resident.after]]
+			_build_porch()
 		"aamu":
 			lines = _morning_lines()
+			_build_kitchen()
 	_line_t = 0.0
+	_apply(0.0)
 
 
 func _friend_intro(f: String) -> String:
@@ -134,15 +173,16 @@ func _process(delta: float) -> void:
 	_shake = maxf(0.0, _shake - delta * 2.5)
 	_door = move_toward(_door, _door_to, delta * (5.0 if _door_to == 0.0 else 1.8))
 	MG.sparks_step(_sparks, delta)
+	_apply(delta)
+	_view.queue_redraw()
 	if _done:
 		return
 	if Input.is_key_pressed(KEY_ESCAPE):
 		_finish()
 		return
 	var adv := Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("jump")
-	if (adv and _line_t > 0.4) or _line_t > 6.5:
+	if (adv and _line_t > 0.4) or (auto and _line_t > 6.5):
 		_next()
-	_view.queue_redraw()
 
 
 func _next() -> void:
@@ -157,8 +197,12 @@ func _next() -> void:
 		Sfx.play("door", -4.0, 1.0)
 	if l[0] == "lahja":
 		_given += 1
+		var giver: String = gifts[_given - 1][0]
+		var ch: Node3D = _people.get(_full(giver))
+		if ch != null:
+			ch.play("Interact", 0.2)
 		Sfx.play("pickup", -4.0, 1.0 + _given * 0.15)
-		MG.sparks_burst(_sparks, _woman_pos() + Vector2(-40, 20), Color(1.0, 0.85, 0.4), 14)
+		MG.sparks_burst(_sparks, _cam.unproject_position(_table_top) if _cam != null else Vector2(640, 360), Color(1.0, 0.85, 0.4), 14)
 	if mode == "ovi" and not _ok and _line == lines.size() - 1:
 		_door_to = 0.0
 		_shake = 0.8
@@ -181,243 +225,365 @@ func _size() -> Vector2:
 	return _view.size if _view.size.x > 10.0 else Vector2(1280, 720)
 
 
-func _woman_pos() -> Vector2:
-	var s := _size()
-	return Vector2(s.x * 0.5, s.y * 0.44)
-
-
 func _draw_all() -> void:
 	var s := _size()
 	var k := s.y / 720.0
-	var off := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake * 10.0
-	_view.draw_set_transform(off, 0, Vector2.ONE)
-	if mode == "aamu":
-		_draw_kitchen(s, k)
-	else:
-		_draw_porch(s, k)
 	MG.sparks_draw(_view, _sparks)
-	_view.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	_draw_text(s, k)
 
 
-## Talon kuisti illalla: lautaseinä, ovi ikkunoineen, kuistin lamppu, portaat; ovella avaaja ja portailla kolmikko.
-func _draw_porch(s: Vector2, k: float) -> void:
-	MG.grad_rect(_view, Rect2(Vector2.ZERO, s), Color(0.1, 0.12, 0.26), Color(0.32, 0.22, 0.32))  # iltataivas
-	var wall_col := Color(0.86, 0.78, 0.55) if site == "saloinen" else Color(0.55, 0.38, 0.3)
-	var wall := Rect2(s.x * 0.12, s.y * 0.08, s.x * 0.76, s.y * 0.7)
-	MG.solid(_view, wall, wall_col)
-	for i in int(wall.size.y / (16 * k)):  # vaakapanelointi
-		var y := wall.position.y + i * 16 * k
-		_view.draw_line(Vector2(wall.position.x, y), Vector2(wall.end.x, y), wall_col.darkened(0.18), 1.5)
-	# Ikkunat valaistuina.
-	for wx in [0.2, 0.68]:
-		var wr := Rect2(s.x * wx, s.y * 0.2, s.x * 0.12, s.y * 0.2)
-		MG.box(_view, wr.grow(6 * k), Color(0.95, 0.95, 0.92), int(3 * k))
-		MG.grad_rect(_view, wr, Color(1.0, 0.86, 0.5), Color(0.95, 0.65, 0.3))
-		_view.draw_line(Vector2(wr.get_center().x, wr.position.y), Vector2(wr.get_center().x, wr.end.y), Color(0.95, 0.95, 0.92), 4 * k)
-		_view.draw_line(Vector2(wr.position.x, wr.get_center().y), Vector2(wr.end.x, wr.get_center().y), Color(0.95, 0.95, 0.92), 4 * k)
-	# Ovi: karmi, aukko (sisältä lämmin valo) ja ovilehti, joka kiertyy auki.
-	var dr := Rect2(s.x * 0.43, s.y * 0.18, s.x * 0.14, s.y * 0.52)
-	MG.box(_view, dr.grow(8 * k), Color(0.95, 0.95, 0.92), int(3 * k), int(4 * k))
-	MG.grad_rect(_view, dr, Color(1.0, 0.85, 0.55), Color(0.85, 0.55, 0.3))
-	MG.glow(_view, dr.get_center(), dr.size.y * 0.6 * _door, Color(1.0, 0.8, 0.45, 0.5))
-	if _door > 0.15:
-		_draw_opener(dr, k)
-	var leaf_w := dr.size.x * (1.0 - 0.82 * _door)
-	var leaf := Rect2(dr.position, Vector2(leaf_w, dr.size.y))
-	var door_col := Color(0.55, 0.2, 0.12) if site == "saloinen" else Color(0.15, 0.3, 0.25)
-	MG.solid(_view, leaf, door_col)
-	if leaf_w > 20 * k:
-		MG.grad_rect(_view, Rect2(leaf.position + Vector2(leaf_w * 0.25, dr.size.y * 0.1), Vector2(leaf_w * 0.5, dr.size.y * 0.25)),
-			Color(0.7, 0.8, 0.9), Color(0.45, 0.55, 0.7))
-		MG.ball(_view, Vector2(leaf.end.x - 10 * k, dr.get_center().y), 5 * k, Color(0.85, 0.75, 0.4), 0.6)
-	# Kuistin lamppu ja yöperhoset.
-	var lamp := Vector2(dr.end.x + 34 * k, dr.position.y + 20 * k)
-	MG.glow(_view, lamp, 140 * k, Color(1.0, 0.9, 0.6, 0.6))
-	MG.box(_view, Rect2(lamp - Vector2(10, 14) * k, Vector2(20, 28) * k), Color(1.0, 0.95, 0.75), int(6 * k), 0, MG.OUTLINE, 2)
-	for i in 3:
-		var mp := lamp + Vector2(sin(_t * 5.0 + i * 2.0) * 30, cos(_t * 4.0 + i) * 22) * k
-		_view.draw_circle(mp, 2.5 * k, Color(0.9, 0.85, 0.75))
-	# Talon numero kylttinä oven vieressä.
-	MG.sign(_view, Rect2(dr.position.x - 60 * k, dr.position.y + 20 * k, 40 * k, 30 * k), "7" if site == "saloinen" else "B 3",
-		Color(0.1, 0.25, 0.5), Color.WHITE, int(16 * k))
-	# Portaat ja maa.
-	MG.grad_rect(_view, Rect2(0, s.y * 0.78, s.x, s.y * 0.22), Color(0.25, 0.32, 0.2), Color(0.12, 0.16, 0.1))
-	for i in 3:
-		var st := Rect2(dr.position.x - (40 + i * 30) * k, dr.end.y + i * 18 * k, dr.size.x + (80 + i * 60) * k, 18 * k)
-		MG.solid(_view, st, Color(0.62, 0.62, 0.6))
-	if mode == "ovi":
-		_draw_trio(s, k)
-	else:
-		# Vain pelaaja portailla, lahja selän takana.
-		MG.figure(_view, Vector2(s.x * 0.5, s.y * 0.8), 1.0 * k, LOOKS.me, {"eye": Vector2(0, -0.6), "blink": _line >= 2})
+## Lahjan antajan koko nimi hahmolistassa ("Tero" -> "Hevari-Tero").
+func _full(short: String) -> String:
+	if short == "Sinä":
+		return short
+	for f: String in friends:
+		if f == short or f.get_slice("-", 1) == short:
+			return f
+	return short
 
 
-## Avaaja ovella koko hahmona (pää karmin yläosassa, jalat kynnyksellä): nainen tai väärän oven asukas.
-func _draw_opener(dr: Rect2, k: float) -> void:
-	var sc := dr.size.y / 320.0
-	var c := Vector2(dr.get_center().x + dr.size.x * 0.06, dr.end.y - 280.0 * sc)
-	if mode == "ovi":
-		_woman(c, sc, _line_t < 1.0 or _line % 2 == 1, true)
+# --- Tila joka ruutu -------------------------------------------------------------------------------------------
+
+## Lavastus nykyisen rivin mukaan (testi voi asettaa _line, _given ja _door suoraan): ovilehti, puhujan animaatio,
+## lahjat käsissä tai kuistin pöydällä, mummon keppi ja kameran tärähdys.
+func _apply(delta: float) -> void:
+	if _cam == null:
 		return
-	var who: String = resident.get("who", "")
-	var look: Dictionary = LOOKS.get(who, LOOKS["Pannu-Sulo"])
-	var talk := _line == 1 and fmod(_t * 3.0, 1.0) < 0.6
-	if who == "Pieni poika":
-		sc *= 0.62
-		c = Vector2(c.x, dr.end.y - 280.0 * sc)
-	var up := who == "Mummo kepin kanssa" and _line >= 2  # keppi nousee viimeisellä repliikillä
-	if who == "Pannu-Sulo":
-		_canister(c + Vector2(-58, 150) * sc, sc)
-	MG.figure(_view, c, sc, look, {"talk": talk, "eye": Vector2(0, 0.3), "legs": true, "arms": "wave" if up else "down"})
-	if who == "Mummo kepin kanssa":
-		var hand := c + (Vector2(62, -12) if up else Vector2(42, 136)) * sc
-		var tip := hand + (Vector2(14, -110) if up else Vector2(10, 140)) * sc
-		_view.draw_line(hand, tip, MG.OUTLINE, 9 * sc)
-		_view.draw_line(hand, tip, Color(0.45, 0.3, 0.15), 6 * sc)
-		_view.draw_arc(hand + Vector2(-8, 0) * sc, 9 * sc, PI, TAU, 8, Color(0.45, 0.3, 0.15), 6 * sc)
-		if up:
-			_view.draw_string(ThemeDB.fallback_font, tip + Vector2(10, 0) * sc, "!", HORIZONTAL_ALIGNMENT_LEFT, -1, int(40 * sc),
-				Color(0.85, 0.1, 0.1))
+	var o := _door * _door * (3.0 - 2.0 * _door)
+	if _leaf != null:
+		_leaf.rotation.y = o * 1.55
+	var speaker: String = lines[_line][0] if _line < lines.size() else ""
+	for nimi: String in _people:
+		var ch: Node3D = _people[nimi]
+		var talking := nimi == speaker
+		if ch.get_meta("busy_until", 0.0) > _t:
+			continue
+		ch.play("Idle_Talking" if talking else "Idle", 0.3)
+	# Lahjat: annetut pöydälle riviin, antamattomat antajan käsiin.
+	for i in gifts.size():
+		var g: Array = gifts[i]
+		var nimi := _full(g[0])
+		if not _props.has(nimi):
+			continue
+		var prop: Node3D = _props[nimi]
+		var ch: Node3D = _people.get(nimi)
+		if i < _given:
+			var want := _table_top + Vector3(-0.22 + i * 0.22, 0, 0)
+			prop.global_position = prop.global_position.lerp(want, 1.0 - exp(-8.0 * delta)) if delta > 0.0 else want
+			if _holding.has(nimi):
+				_holding.erase(nimi)
+				ch.clear_ik()
+				ch.set_meta("busy_until", _t + 1.2)
+		elif ch != null:
+			_hold(ch, prop)
+			_holding[nimi] = prop
+	if _cane != null:
+		var mummo: Node3D = _people.get("Mummo kepin kanssa")
+		var up := _line >= 2
+		var pel: Vector3 = mummo.get_meta("pelvis")
+		var tgt := pel + (Vector3(0.18, 0.75, -0.25) if up else Vector3(0.24, -0.02, -0.22))
+		mummo.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", tgt, pel + Vector3(0.5, 0.2, 0.1))
+		var hand: Vector3 = mummo.to_global(tgt)
+		_cane.global_position = hand
+		_cane.rotation = Vector3(0, 0, 0.35) if up else Vector3.ZERO  # ylhäällä keppi heiluu uhkaavasti
+	if _pancake != null:
+		_pancake.position.y = 0.04 + absf(sin(_t * 3.0)) * 0.35
+		_pancake.rotation.x = fmod(_t * 3.0, PI) * 2.0
+	var jolt := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.03
+	_cam.transform = _cam_base.translated_local(jolt)
 
 
-## Nainen (Minttu tai Katja) ovella tai keittiössä. Ojennetut lahjat sylissä, kädet niiden alla.
-func _woman(c: Vector2, sc: float, talk: bool, legs := false) -> void:
-	var holding := mode == "ovi" and _given > 0
-	MG.figure(_view, c, sc, LOOKS[woman], {"talk": talk, "eye": Vector2(-0.2, 0.4), "legs": legs, "arms": "hold" if holding else "down"})
-	var got := 0
-	for g: Array in gifts:
-		if got >= _given or mode != "ovi":
-			break
-		_gift(c + Vector2(-24 + got * 24, 100) * sc, sc * 0.8, g[1])
-		got += 1
+## Lahja molemmissa käsissä rinnan alla vatsan edessä: kädet IK:lla lahjan sivuille, lahja kahden käden väliin.
+func _hold(ch: Node3D, prop: Node3D) -> void:
+	var pel: Vector3 = ch.get_meta("pelvis")
+	var mid := pel + Vector3(0, 0.3, -0.34)
+	for sd in [1.0, -1.0]:
+		var sfx := "_r" if sd > 0.0 else "_l"
+		ch.set_ik("arm" + sfx, "upperarm" + sfx, "lowerarm" + sfx, "hand" + sfx, mid + Vector3(sd * 0.09, 0, 0),
+			pel + Vector3(sd * 0.5, 0.15, 0.05))
+	prop.global_position = ch.to_global(mid + Vector3(0, -0.04, 0))
+	prop.global_rotation = Vector3(0, ch.global_rotation.y, 0)
 
 
-## Kolmiomittaajat portailla: kaverit sivuilla, pelaaja keskellä edessä. Antamattomat lahjat käsissä.
-func _draw_trio(s: Vector2, k: float) -> void:
-	var y := s.y * 0.8
-	var pos := {friends[0]: Vector2(s.x * 0.3, y - 10 * k), friends[1]: Vector2(s.x * 0.7, y - 10 * k), "Sinä": Vector2(s.x * 0.5, y + 30 * k)}
-	var given_by: Array = []
-	for i in mini(_given, gifts.size()):
-		given_by.append(gifts[i][0])
-	for who in [friends[0], friends[1], "Sinä"]:
-		var c: Vector2 = pos.get(who, Vector2(s.x * 0.5, y))
-		var key: String = "me" if who == "Sinä" else String(who)
-		var talk := false
-		if _line < lines.size() and lines[_line][0] == who:
-			talk = fmod(_t * 3.0, 1.0) < 0.6
-		var gift := ""
+# --- Lavastukset ---------------------------------------------------------------------------------------------
+
+func _person(nimi: String, at: Vector3, yaw: float) -> Node3D:
+	var ch: Node3D = Looks.make(_stage, _look(nimi))
+	ch.position = at
+	ch.rotation.y = yaw
+	ch.set_meta("pelvis", ch.bone_position("pelvis"))
+	ch.play("Idle", 0.0)
+	_people[nimi] = ch
+	return ch
+
+
+func _env(bg: Color, ambient: Color, energy: float) -> Environment:
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = bg
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = ambient
+	env.ambient_light_energy = energy
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.glow_enabled = true
+	env.glow_intensity = 0.3
+	return env
+
+
+func _camera(eye: Vector3, look: Vector3, fov: float, env: Environment) -> void:
+	_cam = Camera3D.new()
+	_cam.fov = fov
+	_cam.environment = env
+	_stage.add_child(_cam)
+	_cam_base = Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye)
+	_cam.transform = _cam_base
+	_cam.current = true
+	var we := WorldEnvironment.new()  # oman maailman ympäristö (tausta ja ympäristövalo myös ilman kameran ympäristöä)
+	we.environment = env
+	_stage.add_child(we)
+
+
+## Omakotitalon kuisti illalla: lautavuorattu julkisivu, valaistut ikkunat, valkoinen ovenkarmi ja ovilehti
+## saranoineen, lämmin eteinen oven takana, kuistin lamppu, portaat, talon numero kylttinä, nurmikko ja laatoitettu
+## polku. Avaaja ovella, kolmiomittaajat (tai vain pelaaja) portaiden juurella, lahjoille pöytä kuistin vieressä.
+func _build_porch() -> void:
+	var wall := Color(0.86, 0.76, 0.5) if site == "saloinen" else Color(0.55, 0.3, 0.24)
+	var white := Color(0.95, 0.95, 0.92)
+	# Maa: nurmikko ja polku portaille.
+	B.mesh(_stage, B.boxm(Vector3(16, 0.1, 12)), Vector3(0, -0.05, 4), Color(0.22, 0.36, 0.16))
+	for k in 6:
+		B.mesh(_stage, B.boxm(Vector3(1.0, 0.04, 0.5)), Vector3(0, 0.0, 1.4 + k * 0.62), Color(0.55, 0.53, 0.5))
+	# Julkisivu oven ympärillä (oviaukko x -0,55..0,55, y 0,5..2,6), sokkeli ja lautavuoraus.
+	for part in [[Vector3(3.45, 3.6, 0.15), Vector3(-2.275, 1.8, -0.075)], [Vector3(3.45, 3.6, 0.15), Vector3(2.275, 1.8, -0.075)],
+			[Vector3(1.1, 1.0, 0.15), Vector3(0, 3.1, -0.075)]]:
+		B.mesh(_stage, B.boxm(part[0]), part[1], wall)
+	B.mesh(_stage, B.boxm(Vector3(8.0, 0.5, 0.2)), Vector3(0, 0.25, -0.05), Color(0.5, 0.5, 0.48))
+	for i in 17:
+		var y := 0.6 + i * 0.18
+		for sx in [-1.0, 1.0]:
+			B.mesh(_stage, B.boxm(Vector3(3.45, 0.02, 0.02)), Vector3(sx * 2.275, y, 0.01), wall.darkened(0.2))
+		if y > 2.6:
+			B.mesh(_stage, B.boxm(Vector3(1.1, 0.02, 0.02)), Vector3(0, y, 0.01), wall.darkened(0.2))
+	for sx in [-1.0, 1.0]:  # nurkkalaudat
+		B.mesh(_stage, B.boxm(Vector3(0.14, 3.6, 0.04)), Vector3(sx * 3.93, 1.8, 0.02), white)
+	# Ikkunat: valkoiset karmit, ristipuitteet, lämmin valo sisältä.
+	for sx in [-1.0, 1.0]:
+		var c := Vector3(sx * 2.3, 1.75, 0.0)
+		B.mesh(_stage, B.boxm(Vector3(1.3, 1.25, 0.06)), c + Vector3(0, 0, 0.02), white)
+		var glass := B.mesh(_stage, B.boxm(Vector3(1.12, 1.07, 0.04)), c + Vector3(0, 0, 0.04), Color(1.0, 0.78, 0.45))
+		var gm := glass.material_override as StandardMaterial3D
+		gm.emission_enabled = true
+		gm.emission = Color(1.0, 0.72, 0.38)
+		gm.emission_energy_multiplier = 1.2
+		B.mesh(_stage, B.boxm(Vector3(0.05, 1.07, 0.06)), c + Vector3(0, 0, 0.06), white)
+		B.mesh(_stage, B.boxm(Vector3(1.12, 0.05, 0.06)), c + Vector3(0, 0, 0.06), white)
+		B.mesh(_stage, B.boxm(Vector3(1.4, 0.06, 0.16)), c + Vector3(0, -0.66, 0.08), white)  # vesipelti
+	# Ovenkarmi, eteinen ja ovilehti (sarana vasemmalla, aukeaa sisään).
+	B.mesh(_stage, B.boxm(Vector3(0.1, 2.15, 0.2)), Vector3(-0.6, 1.575, 0), white)
+	B.mesh(_stage, B.boxm(Vector3(0.1, 2.15, 0.2)), Vector3(0.6, 1.575, 0), white)
+	B.mesh(_stage, B.boxm(Vector3(1.3, 0.12, 0.2)), Vector3(0, 2.66, 0), white)
+	B.mesh(_stage, B.boxm(Vector3(2.4, 0.05, 2.6)), Vector3(0, 0.5, -1.4), Color(0.55, 0.38, 0.22))  # eteisen lattia
+	for part in [[Vector3(0.1, 2.6, 2.6), Vector3(-1.2, 1.8, -1.4)], [Vector3(0.1, 2.6, 2.6), Vector3(1.2, 1.8, -1.4)],
+			[Vector3(2.4, 2.6, 0.1), Vector3(0, 1.8, -2.7)], [Vector3(2.4, 0.1, 2.6), Vector3(0, 3.0, -1.4)]]:
+		B.mesh(_stage, B.boxm(part[0]), part[1], Color(0.9, 0.82, 0.66))
+	B.mesh(_stage, B.boxm(Vector3(0.9, 1.4, 0.04)), Vector3(0.55, 1.6, -2.62), Color(0.4, 0.28, 0.18))  # vaatekaappi eteisessä
+	var inside := OmniLight3D.new()
+	inside.light_color = Color(1.0, 0.82, 0.55)
+	inside.light_energy = 1.6
+	inside.omni_range = 4.0
+	inside.position = Vector3(0, 2.6, -1.4)
+	_stage.add_child(inside)
+	var hinge := Node3D.new()
+	hinge.position = Vector3(-0.53, 0.52, 0.0)
+	_stage.add_child(hinge)
+	_leaf = hinge
+	var door_col := Color(0.55, 0.2, 0.12) if site == "saloinen" else Color(0.15, 0.32, 0.26)
+	B.mesh(hinge, B.boxm(Vector3(1.04, 2.06, 0.06)), Vector3(0.52, 1.03, 0), door_col)
+	B.mesh(hinge, B.boxm(Vector3(0.36, 0.7, 0.07)), Vector3(0.52, 1.5, 0), Color(0.55, 0.68, 0.8))  # ovi-ikkuna
+	for py in [0.35, 0.8]:
+		B.mesh(hinge, B.boxm(Vector3(0.8, 0.36, 0.075)), Vector3(0.52, py, 0), door_col.darkened(0.12))  # peilit
+	B.mesh(hinge, B.sphere(0.035, 10), Vector3(0.94, 1.0, 0.05), Color(0.85, 0.72, 0.35))  # kahva
+	# Kuistin lamppu ja talon numero kylttinä.
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Color(1.0, 0.86, 0.6)
+	lamp.light_energy = 2.4
+	lamp.omni_range = 6.5
+	lamp.shadow_enabled = true
+	lamp.position = Vector3(0.95, 2.45, 0.35)
+	_stage.add_child(lamp)
+	var bulb := B.mesh(_stage, B.cyl(0.07, 0.09, 0.22, 12), Vector3(0.95, 2.45, 0.12), Color(1.0, 0.95, 0.75))
+	var bm := bulb.material_override as StandardMaterial3D
+	bm.emission_enabled = true
+	bm.emission = Color(1.0, 0.85, 0.55)
+	bm.emission_energy_multiplier = 3.0
+	var plate := B.sign_plate(_stage, "7" if site == "saloinen" else "B 3", Color(0.1, 0.25, 0.5), Color.WHITE, 0.22, 60)
+	plate.position = Vector3(-0.95, 2.3, 0.04)
+	# Portaat ja kuistin taso.
+	for i in 3:
+		var top := 0.5 - i * 0.167
+		B.mesh(_stage, B.boxm(Vector3(1.8 + i * 0.3, top, 0.36)), Vector3(0, top / 2.0, 0.18 + i * 0.36), Color(0.62, 0.62, 0.6))
+	# Pöytä kuistin vieressä lahjoille.
+	var tc := Vector3(-1.45, 0, 0.75)
+	B.mesh(_stage, B.boxm(Vector3(0.7, 0.04, 0.5)), tc + Vector3(0, 0.74, 0), Color(0.6, 0.42, 0.25))
+	for lx in [-0.3, 0.3]:
+		for lz in [-0.2, 0.2]:
+			B.mesh(_stage, B.boxm(Vector3(0.04, 0.72, 0.04)), tc + Vector3(lx, 0.36, lz), Color(0.5, 0.34, 0.2))
+	_table_top = tc + Vector3(0, 0.76, 0)
+	# Ilta: tumma taivas, kuunvalo, sinertävä hämärä.
+	var moon := DirectionalLight3D.new()
+	moon.light_color = Color(0.6, 0.68, 0.95)
+	moon.light_energy = 0.35
+	moon.rotation_degrees = Vector3(-35, 35, 0)
+	_stage.add_child(moon)
+	_camera(Vector3(2.0, 1.95, 5.2), Vector3(-0.1, 1.35, 0.2), 44.0, _env(Color(0.05, 0.06, 0.13), Color(0.4, 0.45, 0.65), 0.22))
+	# Avaaja ovella kasvot pihalle; kolmiomittaajat portaiden juurella kasvot ovelle.
+	if mode == "ovi":
+		_person(woman, Vector3(0.05, 0.52, -0.45), PI)
+		# Kolmikko kameran ja oven välisen näkölinjan sivuille, jotta nainen ovella näkyy.
+		var spots := [[friends[0], Vector3(-1.2, 0, 1.65), 0.3], ["Sinä", Vector3(-0.35, 0, 2.0), 0.1], [friends[1], Vector3(1.5, 0, 1.7), -0.45]]
+		for sp: Array in spots:
+			_person(sp[0], sp[1], sp[2])
 		for g: Array in gifts:
-			if (g[0] == who or g[0] == _short(who)) and not g[0] in given_by and not (who == "Sinä" and missing != ""):
-				gift = g[1]
-		if key == "Joni":
-			_sandels_pack(c + Vector2(44, 52) * k, k)  # rinkka olan takana
-		MG.figure(_view, c, 1.0 * k, LOOKS.get(key, LOOKS.me), {"talk": talk, "eye": Vector2(0, -0.7), "arms": "hold" if gift != "" else "down"})
-		if gift != "":
-			_gift(c + Vector2(0, 100) * k, k, gift)
-
-
-func _short(full: String) -> String:
-	return full.get_slice("-", 1) if "-" in full else full
-
-
-## Lahjat: mansikkarasia, kermavaahtospray ja ruusukimppu.
-func _gift(c: Vector2, sc: float, what: String) -> void:
-	if what.begins_with("mansik"):
-		MG.box(_view, Rect2(c + Vector2(-26, -8) * sc, Vector2(52, 26) * sc), Color(0.45, 0.62, 0.3), int(4 * sc), 0, MG.OUTLINE, 2)
-		for i in 9:
-			var p := c + Vector2(-20 + (i % 5) * 10 + (i / 5) * 5, -10 - (i / 5) * 8) * sc
-			_view.draw_circle(p, 6 * sc, Color(0.85, 0.08, 0.12))
-			_view.draw_circle(p + Vector2(-2, -2) * sc, 1.6 * sc, Color(1.0, 0.6, 0.6))
-			_view.draw_line(p + Vector2(0, -6) * sc, p + Vector2(2, -9) * sc, Color(0.2, 0.55, 0.2), 2 * sc)
-	elif what.begins_with("kerma"):
-		var r := Rect2(c + Vector2(-10, -40) * sc, Vector2(20, 54) * sc)
-		MG.grad_rect(_view, r, Color(0.98, 0.98, 1.0), Color(0.75, 0.78, 0.85))
-		_view.draw_rect(r, MG.OUTLINE, false, 2.0)
-		_view.draw_rect(Rect2(r.position + Vector2(0, 18 * sc), Vector2(r.size.x, 12 * sc)), Color(0.2, 0.4, 0.8))
-		MG.box(_view, Rect2(r.position + Vector2(3, -10) * sc, Vector2(14, 10) * sc), Color(0.85, 0.1, 0.15), int(3 * sc), 0, MG.OUTLINE, 1)
-		_view.draw_line(r.position + Vector2(10, -10) * sc, r.position + Vector2(16, -16) * sc, Color(0.85, 0.1, 0.15), 3 * sc)
+			if g[0] == "Sinä" and missing != "":
+				continue
+			_props[_full(g[0])] = _gift_prop(g[1])
 	else:
-		# Ruusut: paperikartio, varret ja kukat.
-		_view.draw_colored_polygon(PackedVector2Array([c + Vector2(-20, -24) * sc, c + Vector2(20, -24) * sc, c + Vector2(0, 26) * sc]),
-			Color(0.95, 0.92, 0.85))
-		_view.draw_polyline(PackedVector2Array([c + Vector2(-20, -24) * sc, c + Vector2(0, 26) * sc, c + Vector2(20, -24) * sc]),
-			MG.OUTLINE, 2.0)
-		for i in 5:
-			var p := c + Vector2(-16 + i * 8, -30 - (i % 2) * 8) * sc
-			_view.draw_circle(p + Vector2(0, 6) * sc, 4 * sc, Color(0.2, 0.5, 0.2))
-			_view.draw_circle(p, 7 * sc, Color(0.7, 0.04, 0.1))
-			_view.draw_arc(p, 4 * sc, 0, PI * 1.5, 8, Color(0.45, 0.02, 0.06), 1.5 * sc)
+		var who: String = resident.get("who", "")
+		_person(who, Vector3(0.05, 0.52, -0.45), PI)
+		_person("Sinä", Vector3(-0.35, 0, 1.9), 0.1)
+		if who == "Mummo kepin kanssa":
+			_cane = Node3D.new()
+			_stage.add_child(_cane)
+			B.tube(_cane, Vector3.ZERO, Vector3(0, -0.85, 0), 0.014, Color(0.42, 0.28, 0.14))
+			B.mesh(_cane, B.cyl(0.016, 0.018, 0.04, 10), Vector3(0, -0.85, 0), Color(0.05, 0.05, 0.05))
+			B.tube(_cane, Vector3.ZERO, Vector3(0.0, 0.05, 0.08), 0.014, Color(0.42, 0.28, 0.14))  # kahva
+		elif who == "Pannu-Sulo":
+			var can := B.mesh(_stage, B.boxm(Vector3(0.26, 0.4, 0.16)), Vector3(-0.45, 0.72, -0.35), Color(0.88, 0.84, 0.74))
+			B.mesh(can, B.cyl(0.03, 0.03, 0.06, 8), Vector3(0.06, 0.22, 0), Color(0.8, 0.1, 0.1))
 
 
-## Jonin Sandels-päkkirinkka sivulta: pahvilaatikko, jesariteipit, kyljessä termos ja tölkki.
-func _sandels_pack(c: Vector2, k: float) -> void:
-	var r := Rect2(c + Vector2(-14, -40) * k, Vector2(30, 70) * k)
-	MG.solid(_view, r, Color(0.12, 0.3, 0.62))
-	_view.draw_string(ThemeDB.fallback_font, r.position + Vector2(0, 40 * k), "S", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, int(20 * k),
-		Color(1.0, 0.95, 0.85))
-	for yy in [12.0, 52.0]:
-		_view.draw_rect(Rect2(r.position + Vector2(-2, yy) * k, Vector2(34, 6) * k), Color(0.62, 0.64, 0.66))
-	MG.box(_view, Rect2(r.end.x, r.position.y + 10 * k, 9 * k, 30 * k), Color(0.7, 0.1, 0.1), int(3 * k), 0, MG.OUTLINE, 1)
+## Lahjat 3D:nä: mansikkarasia (puurasia ja marjat lehtineen), kermavaahtospray (tölkki, sininen etiketti, punainen
+## korkki ja suutin) ja ruusukimppu (paperikartio, varret ja kukat).
+func _gift_prop(what: String) -> Node3D:
+	var n := Node3D.new()
+	_stage.add_child(n)
+	if what.begins_with("mansik"):
+		B.mesh(n, B.boxm(Vector3(0.2, 0.07, 0.14)), Vector3(0, 0.035, 0), Color(0.72, 0.56, 0.34))
+		for i in 12:
+			var p := Vector3(-0.075 + (i % 4) * 0.05, 0.08 + (i / 4) * 0.012, -0.045 + (i / 4) * 0.045)
+			B.mesh(n, B.sphere(0.022, 8), p, Color(0.82, 0.06, 0.1)).scale = Vector3(1.0, 1.15, 1.0)
+			B.mesh(n, B.cyl(0.012, 0.004, 0.01, 6), p + Vector3(0, 0.025, 0), Color(0.2, 0.55, 0.2))
+	elif what.begins_with("kerma"):
+		B.mesh(n, B.cyl(0.035, 0.035, 0.2, 14), Vector3(0, 0.1, 0), Color(0.92, 0.93, 0.96))
+		B.mesh(n, B.cyl(0.0355, 0.0355, 0.07, 14), Vector3(0, 0.1, 0), Color(0.2, 0.4, 0.8))
+		B.mesh(n, B.cyl(0.03, 0.035, 0.03, 14), Vector3(0, 0.215, 0), Color(0.85, 0.1, 0.15))
+		B.mesh(n, B.cyl(0.006, 0.01, 0.04, 8), Vector3(0, 0.25, 0.01), Color(0.85, 0.1, 0.15), Vector3(25, 0, 0))
+	else:
+		B.mesh(n, B.cyl(0.07, 0.015, 0.22, 12), Vector3(0, 0.11, 0), Color(0.95, 0.92, 0.84))
+		for i in 6:
+			var a := i * TAU / 6.0
+			var p := Vector3(cos(a) * 0.04, 0.27, sin(a) * 0.04)
+			B.tube(n, Vector3(0, 0.15, 0), p, 0.004, Color(0.2, 0.5, 0.2))
+			B.mesh(n, B.sphere(0.03, 10), p, Color(0.72, 0.03, 0.1))
+		B.mesh(n, B.sphere(0.03, 10), Vector3(0, 0.29, 0), Color(0.75, 0.04, 0.12))
+	return n
 
 
-func _canister(c: Vector2, sc: float) -> void:
-	MG.box(_view, Rect2(c + Vector2(-18, -26) * sc, Vector2(36, 46) * sc), Color(0.9, 0.85, 0.75), int(5 * sc), 0, MG.OUTLINE, 2)
-	MG.box(_view, Rect2(c + Vector2(-6, -34) * sc, Vector2(12, 9) * sc), Color(0.85, 0.1, 0.1), int(2 * sc), 0, MG.OUTLINE, 1)
-
-
-## Aamu naisen keittiössä: aurinkoinen ikkuna, pöytä, kahvipannu, lettupino mansikoineen ja kermavaahtoineen,
-## ruusut maljakossa. Nainen kaataa kahvia, kaveri lettupannun kanssa liedellä.
-func _draw_kitchen(s: Vector2, k: float) -> void:
-	MG.grad_rect(_view, Rect2(Vector2.ZERO, s), Color(0.98, 0.93, 0.8), Color(0.9, 0.82, 0.68))
-	for i in int(s.x / (40 * k)) + 1:  # tapetin raidat
-		_view.draw_rect(Rect2(i * 40 * k, 0, 14 * k, s.y * 0.62), Color(0.95, 0.85, 0.7, 0.6))
-	var win := Rect2(s.x * 0.36, s.y * 0.08, s.x * 0.28, s.y * 0.3)
-	MG.box(_view, win.grow(10 * k), Color(0.97, 0.97, 0.95), int(4 * k), int(4 * k))
-	MG.grad_rect(_view, win, Color(0.6, 0.82, 1.0), Color(0.85, 0.95, 1.0))
-	_view.draw_circle(win.position + Vector2(win.size.x * 0.75, win.size.y * 0.35), 26 * k, Color(1.0, 0.92, 0.5))
-	MG.glow(_view, win.get_center(), win.size.x * 0.9, Color(1.0, 0.95, 0.75, 0.35))
-	_view.draw_line(Vector2(win.get_center().x, win.position.y), Vector2(win.get_center().x, win.end.y), Color(0.97, 0.97, 0.95), 6 * k)
-	# Kaverit ja nainen pöydän takana.
-	var f0: String = friends[0]
-	var f1: String = friends[1]
-	var talk_who: String = lines[_line][0] if _line < lines.size() else ""
-	_woman(Vector2(s.x * 0.5, s.y * 0.38), 1.3 * k, talk_who == woman and fmod(_t * 3.0, 1.0) < 0.6)
-	MG.figure(_view, Vector2(s.x * 0.2, s.y * 0.4), 1.3 * k, LOOKS.get(f0, LOOKS.me), {"eye": Vector2(0.5, 0.3),
-		"talk": talk_who == f0 and fmod(_t * 3.0, 1.0) < 0.6, "blink": fmod(_t, 4.0) < 0.12})
-	MG.figure(_view, Vector2(s.x * 0.8, s.y * 0.4), 1.3 * k, LOOKS.get(f1, LOOKS.me), {"eye": Vector2(-0.5, 0.3),
-		"talk": talk_who == f1 and fmod(_t * 3.0, 1.0) < 0.6, "arms": "wave"})
-	# Lettupannu kaverin ylös nostetussa kädessä, letut hyppivät.
-	var pan := Vector2(s.x * 0.8, s.y * 0.4) + Vector2(68, -16) * 1.3 * k
-	_view.draw_line(pan + Vector2(10, 4) * k, pan + Vector2(60, 14) * k, Color(0.15, 0.12, 0.1), 7 * k)
-	MG.box(_view, Rect2(pan + Vector2(-34, -4) * k, Vector2(48, 12) * k), Color(0.2, 0.2, 0.22), int(5 * k), 0, MG.OUTLINE, 2)
-	var hop := absf(sin(_t * 3.0)) * 40.0 * k
-	MG.box(_view, Rect2(pan + Vector2(-30, -10) * k - Vector2(0, hop), Vector2(40, 8) * k), Color(0.95, 0.75, 0.4), int(4 * k), 0, MG.OUTLINE, 1)
-	# Pöytä: puupinta, kahvikupit, pannu, lettupino ja ruusut.
-	var tr := Rect2(0, s.y * 0.62, s.x, s.y * 0.38)
-	MG.wood(_view, tr, Color(0.72, 0.52, 0.3), 46 * k, 11, true)
-	_view.draw_line(tr.position, Vector2(tr.end.x, tr.position.y), Color(0.45, 0.3, 0.15), 4 * k)
-	var stack := Vector2(s.x * 0.5, tr.position.y + 70 * k)
-	for i in 6:
-		MG.box(_view, Rect2(stack + Vector2(-60, -i * 9) * k, Vector2(120, 10) * k), Color(0.95, 0.75, 0.4).darkened(0.04 * (i % 2)),
-			int(5 * k), 0, MG.OUTLINE, 1)
-	_view.draw_circle(stack + Vector2(0, -62) * k, 26 * k, Color(1.0, 1.0, 0.98))  # kermavaahto
-	_view.draw_circle(stack + Vector2(-10, -78) * k, 14 * k, Color(1.0, 1.0, 0.98))
-	_gift(stack + Vector2(30, -66) * k, k * 0.9, "mansikat")
-	var vase := Vector2(s.x * 0.18, tr.position.y + 20 * k)
-	MG.box(_view, Rect2(vase + Vector2(-18, -30) * k, Vector2(36, 50) * k), Color(0.5, 0.75, 0.85, 0.85), int(10 * k), 0, MG.OUTLINE, 2)
-	_gift(vase + Vector2(0, -60) * k, k * 1.1, "ruusut")
-	for cx in [0.32, 0.68, 0.84]:
-		var cup := Vector2(s.x * cx, tr.position.y + 60 * k)
-		MG.box(_view, Rect2(cup + Vector2(-16, -18) * k, Vector2(32, 26) * k), Color(0.97, 0.97, 0.95), int(6 * k), 0, MG.OUTLINE, 2)
-		_view.draw_arc(cup + Vector2(18, -6) * k, 7 * k, -PI / 2.0, PI / 2.0, 8, MG.OUTLINE, 2.5 * k)
-		for j in 2:  # höyry
-			var sx := sin(_t * 2.0 + cx * 10.0 + j) * 5.0 * k
-			_view.draw_line(cup + Vector2(-4 + j * 8, -22) * k + Vector2(sx, 0), cup + Vector2(-4 + j * 8, -40) * k - Vector2(sx, 0),
-				Color(1, 1, 1, 0.6), 2.5 * k)
-	var pot := Vector2(s.x * 0.6, tr.position.y + 10 * k)
-	MG.box(_view, Rect2(pot + Vector2(-22, -40) * k, Vector2(44, 50) * k), Color(0.75, 0.75, 0.78), int(8 * k), 3, MG.OUTLINE, 2)
-	_view.draw_line(pot + Vector2(-22, -30) * k, pot + Vector2(-40, -42) * k, Color(0.75, 0.75, 0.78), 6 * k)
+## Naisen keittiö aamulla: aurinkoinen ikkuna, tapetti, puulattia, pöytä kahvikuppeineen, lettupino mansikoineen ja
+## kermavaahtoineen, ruusut maljakossa. Nainen kaataa kahvia, toinen kaveri paistaa lettuja pannulla.
+func _build_kitchen() -> void:
+	var paper := Color(0.95, 0.88, 0.7) if site == "saloinen" else Color(0.72, 0.78, 0.82)
+	B.mesh(_stage, B.boxm(Vector3(7, 0.1, 6)), Vector3(0, -0.05, 1.0), Color(0.62, 0.45, 0.28))
+	for i in 12:
+		B.mesh(_stage, B.boxm(Vector3(7, 0.005, 0.01)), Vector3(0, 0.002, -1.6 + i * 0.5), Color(0.45, 0.32, 0.2))
+	for part in [[Vector3(2.6, 3.0, 0.1), Vector3(-2.2, 1.5, -1.6)], [Vector3(2.6, 3.0, 0.1), Vector3(2.2, 1.5, -1.6)],
+			[Vector3(1.8, 1.0, 0.1), Vector3(0, 0.5, -1.6)], [Vector3(1.8, 0.8, 0.1), Vector3(0, 2.6, -1.6)]]:
+		B.mesh(_stage, B.boxm(part[0]), part[1], paper)
+	for i in 20:  # tapetin raidat
+		var x := -3.4 + i * 0.36
+		if absf(x) > 0.95:
+			B.mesh(_stage, B.boxm(Vector3(0.1, 3.0, 0.01)), Vector3(x, 1.5, -1.54), paper.darkened(0.08))
+	var sky := B.mesh(_stage, B.boxm(Vector3(1.8, 1.2, 0.02)), Vector3(0, 1.6, -1.7), Color(0.65, 0.85, 1.0))
+	var skm := sky.material_override as StandardMaterial3D
+	skm.emission_enabled = true
+	skm.emission = Color(0.75, 0.9, 1.0)
+	skm.emission_energy_multiplier = 1.5
+	var white := Color(0.97, 0.97, 0.95)
+	for part in [[Vector3(1.9, 0.08, 0.14), Vector3(0, 2.2, -1.55)], [Vector3(1.9, 0.08, 0.2), Vector3(0, 1.0, -1.52)],
+			[Vector3(0.08, 1.2, 0.14), Vector3(-0.9, 1.6, -1.55)], [Vector3(0.08, 1.2, 0.14), Vector3(0.9, 1.6, -1.55)],
+			[Vector3(0.05, 1.2, 0.1), Vector3(0, 1.6, -1.55)]]:
+		B.mesh(_stage, B.boxm(part[0]), part[1], white)
+	# Pöytä ja kattaus.
+	var top := Vector3(0, 0.76, 0.75)
+	B.mesh(_stage, B.boxm(Vector3(2.6, 0.05, 0.9)), top, Color(0.7, 0.5, 0.3))
+	B.mesh(_stage, B.boxm(Vector3(2.62, 0.005, 0.92)), top + Vector3(0, 0.028, 0), Color(0.95, 0.95, 0.98))  # liina
+	for lx in [-1.2, 1.2]:
+		for lz in [-0.38, 0.38]:
+			B.mesh(_stage, B.boxm(Vector3(0.06, 0.74, 0.06)), top + Vector3(lx, -0.38, lz), Color(0.55, 0.38, 0.22))
+	var t := top + Vector3(0, 0.03, 0)
+	for i in 7:  # lettupino
+		B.mesh(_stage, B.cyl(0.13, 0.13, 0.014, 20), t + Vector3(0, 0.03 + i * 0.016, 0.05), Color(0.92, 0.7, 0.35).darkened(0.05 * (i % 2)))
+	B.mesh(_stage, B.cyl(0.17, 0.17, 0.01, 20), t + Vector3(0, 0.02, 0.05), white)  # lautanen
+	B.mesh(_stage, B.sphere(0.06, 12), t + Vector3(-0.03, 0.17, 0.05), Color(1.0, 0.99, 0.95)).scale = Vector3(1.2, 0.7, 1.2)
+	for i in 5:
+		B.mesh(_stage, B.sphere(0.022, 8), t + Vector3(0.05 + (i % 3) * 0.025, 0.16 + (i / 3) * 0.02, 0.0 + (i % 2) * 0.05),
+			Color(0.82, 0.06, 0.1))
+	for cx in [-0.85, -0.35, 0.45, 0.9]:  # kahvikupit ja asetit
+		B.mesh(_stage, B.cyl(0.06, 0.06, 0.006, 16), t + Vector3(cx, 0.005, 0.25), white)
+		B.mesh(_stage, B.cyl(0.042, 0.035, 0.07, 14), t + Vector3(cx, 0.04, 0.25), white)
+		B.mesh(_stage, B.cyl(0.038, 0.038, 0.004, 14), t + Vector3(cx, 0.074, 0.25), Color(0.25, 0.14, 0.07))
+	# Ruusut maljakossa (Katjalla maitopurkissa).
+	var vase := t + Vector3(-1.05, 0, -0.15)
+	if site == "saloinen":
+		B.mesh(_stage, B.cyl(0.05, 0.07, 0.22, 14), vase + Vector3(0, 0.11, 0), Color(0.45, 0.7, 0.85))
+	else:
+		B.mesh(_stage, B.boxm(Vector3(0.09, 0.22, 0.09)), vase + Vector3(0, 0.11, 0), Color(0.95, 0.95, 0.95))
+		B.mesh(_stage, B.boxm(Vector3(0.092, 0.08, 0.092)), vase + Vector3(0, 0.09, 0), Color(0.2, 0.4, 0.8))
+	for i in 5:
+		var a := i * TAU / 5.0
+		var p := vase + Vector3(cos(a) * 0.06, 0.38, sin(a) * 0.06)
+		B.tube(_stage, vase + Vector3(0, 0.2, 0), p, 0.004, Color(0.2, 0.5, 0.2))
+		B.mesh(_stage, B.sphere(0.035, 10), p, Color(0.72, 0.03, 0.1))
+	# Valot: aamuaurinko ikkunasta ja lämmin täyttövalo.
+	var sun := DirectionalLight3D.new()
+	sun.light_color = Color(1.0, 0.93, 0.78)
+	sun.light_energy = 1.1
+	sun.shadow_enabled = true
+	sun.rotation_degrees = Vector3(-40, 160, 0)
+	_stage.add_child(sun)
+	var fill := OmniLight3D.new()
+	fill.light_color = Color(1.0, 0.9, 0.75)
+	fill.light_energy = 1.2
+	fill.omni_range = 7.0
+	fill.position = Vector3(0, 2.6, 2.0)
+	_stage.add_child(fill)
+	_camera(Vector3(0, 1.5, 2.9), Vector3(0, 1.15, 0.1), 50.0, _env(Color(0.85, 0.9, 1.0), Color(0.95, 0.88, 0.8), 0.7))
+	# Hahmot pöydän takana kasvot kameraan: kaveri, nainen kahvipannun kanssa ja kaveri lettupannun kanssa.
+	_person(friends[0], Vector3(-1.0, 0, -0.1), PI - 0.15)
+	var w := _person(woman, Vector3(0.0, 0, -0.15), PI)
+	var cook := _person(friends[1], Vector3(1.0, 0, -0.1), PI + 0.15)
+	var wp: Vector3 = w.get_meta("pelvis")
+	var pot_at := wp + Vector3(0.14, 0.32, -0.42)
+	w.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", pot_at, wp + Vector3(0.5, 0.1, 0.0))
+	var pot := Node3D.new()
+	_stage.add_child(pot)
+	pot.global_position = w.to_global(pot_at)
+	B.mesh(pot, B.cyl(0.06, 0.08, 0.2, 14), Vector3(0, -0.12, 0), Color(0.78, 0.78, 0.8))
+	B.mesh(pot, B.cyl(0.04, 0.06, 0.04, 14), Vector3(0, -0.005, 0), Color(0.15, 0.15, 0.16))
+	B.tube(pot, Vector3(0.05, -0.08, 0), Vector3(0.14, -0.04, 0), 0.012, Color(0.78, 0.78, 0.8))  # nokka
+	var cp: Vector3 = cook.get_meta("pelvis")
+	var pan_at := cp + Vector3(0.16, 0.35, -0.42)
+	cook.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", pan_at, cp + Vector3(0.5, 0.1, 0.0))
+	var pan := Node3D.new()
+	_stage.add_child(pan)
+	pan.global_position = cook.to_global(pan_at)
+	pan.rotation.y = cook.rotation.y
+	B.tube(pan, Vector3.ZERO, Vector3(0, 0.02, -0.2), 0.012, Color(0.12, 0.1, 0.08))  # varsi kädestä pannulle
+	B.mesh(pan, B.cyl(0.13, 0.11, 0.035, 20), Vector3(0, 0.03, -0.32), Color(0.18, 0.18, 0.2))
+	_pancake = Node3D.new()
+	_pancake.position = Vector3(0, 0.05, -0.32)
+	pan.add_child(_pancake)
+	B.mesh(_pancake, B.cyl(0.1, 0.1, 0.012, 18), Vector3.ZERO, Color(0.95, 0.72, 0.38))
 
 
 func _draw_text(s: Vector2, k: float) -> void:

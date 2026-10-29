@@ -1,7 +1,7 @@
 extends Node
 ## Kolmiomittauksen (#255) piirretyt kohtaukset ja Sytkäri kuvina ilman pelimaailmaa: ovi Saloisissa (lahjat
 ## ojennettu) ja Vaalassa, väärä ovi (mummo keppi ylhäällä, pieni poika), aamu kummassakin, Sytkärin kortti, mätsi ja
-## mittaus kummallekin naiselle. Hahmot MG.figure (mg_draw.gd).
+## mittaus kummallekin naiselle. Hahmot ovat 3D-hahmoja (Looks.make) kohtausten omissa lavastuksissa.
 ## tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn
 const K := preload("res://scripts/kolmio_kohtaus.gd")
 const S := preload("res://scripts/sytkari.gd")
@@ -19,11 +19,18 @@ func _ready() -> void:
 	root = self
 	_run.call_deferred()
 
-func _shot(node: Node, nm: String) -> void:
-	for i in 4:
+func _shot(node: Node, nm: String, top := false) -> void:
+	for i in 12:  # 3D-hahmot ja IK asettuvat
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % nm))
+	if top and "_cam_base" in node:
+		# Ylhäältä: oven aukeamissuunta, hahmojen paikat ja läpimenot (CLAUDE.md: asetelmasta kuva ylhäältä).
+		node._cam_base = Transform3D(Basis.looking_at(Vector3(0, -1, -0.01), Vector3.UP), Vector3(0, 7.5, 0.8))
+		for i in 4:
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s_ylhaalta.png" % nm))
 	node.queue_free()
 	await get_tree().process_frame
 
@@ -36,23 +43,23 @@ func _scene(mode: String, site: String, setup: Callable) -> Node:
 	ui.friends = info.friends
 	ui.gifts = info.gifts
 	setup.call(ui)
+	ui.auto = false  # rivi pysyy, lavastus päivittyy (_apply)
 	root.add_child(ui)
-	ui.set_process(false)
 	return ui
 
 func _run() -> void:
 	await get_tree().process_frame
 	var ui = _scene("ovi", "saloinen", func(u): pass)
-	ui._line = 3; ui._given = 2; ui._door = 1.0; ui._line_t = 9.0
-	await _shot(ui, "ovi_saloinen")
+	ui._line = 3; ui._given = 2; ui._door = 1.0; ui._door_to = 1.0; ui._line_t = 9.0
+	await _shot(ui, "ovi_saloinen", true)
 	ui = _scene("ovi", "vaala", func(u): pass)
-	ui._line = 1; ui._given = 0; ui._door = 1.0; ui._line_t = 9.0
+	ui._line = 1; ui._given = 0; ui._door = 1.0; ui._door_to = 1.0; ui._line_t = 9.0
 	await _shot(ui, "ovi_vaala")
 	ui = _scene("vaara", "saloinen", func(u): u.resident = Kolmio.WRONG_DOORS.saloinen[0])
-	ui._line = 2; ui._door = 1.0; ui._line_t = 9.0
+	ui._line = 2; ui._door = 1.0; ui._door_to = 1.0; ui._line_t = 9.0
 	await _shot(ui, "vaara_mummo")
 	ui = _scene("vaara", "saloinen", func(u): u.resident = Kolmio.WRONG_DOORS.saloinen[2])
-	ui._line = 1; ui._door = 1.0; ui._line_t = 9.0
+	ui._line = 1; ui._door = 1.0; ui._door_to = 1.0; ui._line_t = 9.0
 	await _shot(ui, "vaara_poika")
 	ui = _scene("aamu", "saloinen", func(u): u.stats = "Kolme ympyrää ✔")
 	ui._line = 1; ui._line_t = 9.0

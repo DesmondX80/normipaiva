@@ -4,12 +4,14 @@ extends CanvasLayer
 ##   "match"  profiilikortti, pyyhkäisy oikealle, MÄTSI! ja etäisyys (osoitetta ei kerrota)
 ##   "matka"  profiili ja etäisyys tästä paikasta, alla kaverin tekstiviesti (kolmiomittaus.gd MEASURE_LINES)
 ## Puhelin nousee ruudun alalaidasta, E tai Esc sulkee (closed). Kuvat ovat piirrettyjä profiilikuvia
-## (portrait: Minttu punaisin kiharoin ja pisamin kesämekossa, Katja pitkin mustin hiuksin nahkatakissa).
+## Profiilikuvat ovat 3D-hahmoista otettuja kuvia (_photo: oma pieni studio SubViewportissa, Looks.make-hahmo):
+## Minttu kesäpihalla, Katja iltakadulla ja pelaaja harmaata taustaa vasten.
 
 signal closed
 
 const MG := preload("res://scripts/mg_draw.gd")
-const Kohtaus := preload("res://scripts/kolmio_kohtaus.gd")
+const Looks := preload("res://scripts/looks.gd")
+const B := preload("res://scripts/build.gd")
 
 const FLAME_A := Color(1.0, 0.36, 0.2)
 const FLAME_B := Color(1.0, 0.7, 0.18)
@@ -30,6 +32,7 @@ var _rise := 0.0
 var _swiped := 0.0  # 0..1 kortti lentää oikealle (match)
 var _hearts: Array = []  # [paikka, nopeus, ikä]
 var _done := false
+var _photos := {}  # nimi -> SubViewport (profiilikuva)
 
 
 func _ready() -> void:
@@ -40,6 +43,12 @@ func _ready() -> void:
 	_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_view.draw.connect(_draw_all)
 	add_child(_view)
+	match who:
+		"Minttu":
+			_photos[who] = _photo(Looks.MINTTU, Color(0.62, 0.82, 0.98), Color(0.35, 0.6, 0.28), "kesa")
+		"Katja":
+			_photos[who] = _photo(Looks.KATJA, Color(0.16, 0.18, 0.26), Color(0.2, 0.2, 0.22), "ilta")
+	_photos["me"] = _photo(Looks.player(), Color(0.62, 0.66, 0.72), Color(0.5, 0.5, 0.52), "")
 	Sfx.play("bell", -12.0, 2.4)
 	Sfx.play("bell", -14.0, 3.0)
 
@@ -229,7 +238,7 @@ func _draw_matka(sr: Rect2, card: Rect2, k: float) -> void:
 func _profile_card(r: Rect2, k: float) -> void:
 	MG.box(_view, r, Color.WHITE, int(16 * k), int(6 * k), Color(0.8, 0.76, 0.76), 1)
 	var ph := Rect2(r.position + Vector2(8, 8) * k, Vector2(r.size.x - 16 * k, r.size.y * 0.74))
-	portrait(_view, ph, who, k)
+	_portrait(_view, ph, who)
 	# Nimen tausta: tumma liukuväri kuvan alareunassa.
 	MG.grad_rect(_view, Rect2(ph.position.x, ph.end.y - 70 * k, ph.size.x, 70 * k), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.65))
 	var f := ThemeDB.fallback_font
@@ -256,43 +265,83 @@ func _round_photo(c: Vector2, r: float, k: float, me: bool) -> void:
 	_view.draw_circle(c, r + 4 * k, Color.WHITE)
 	var box := Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0)
 	if me:
-		portrait(_view, box, "me", k * r / 120.0, true)
+		_portrait(_view, box, "me", true)
 	else:
-		portrait(_view, box, who, k * r / 120.0, true)
+		_portrait(_view, box, who, true)
 	_view.draw_arc(c, r + 2 * k, 0, TAU, 48, FLAME_A, 3.0 * k)
 
 
-## Profiilikuva laatikkoon: tausta (kesäpiha tai ilta-asfaltti katulamppuineen) ja piirretty hahmo vyötäröstä ylöspäin
-## (MG.figure, samat ulkonäöt kuin ovi- ja aamukohtauksissa). circle = pyöreä pienoiskuva (kulmat peitetään).
-static func portrait(ci: CanvasItem, r: Rect2, pname: String, _k: float, circle := false) -> void:
-	var c := r.get_center()
-	var u := r.size.y / 300.0  # mittakaava: 300 px korkea kuva
-	match pname:
-		"Minttu":
-			MG.grad_rect(ci, r, Color(0.62, 0.84, 1.0), Color(0.55, 0.78, 0.45))
-			for i in 9:  # pihan kukat taustalla
-				var p := r.position + Vector2(fmod(i * 67.0, r.size.x), r.size.y * (0.6 + 0.05 * (i % 3)))
-				ci.draw_circle(p, 6 * u, Color(1.0, 0.95, 0.4) if i % 2 == 0 else Color(1.0, 1.0, 1.0))
-				ci.draw_circle(p, 2 * u, Color(0.95, 0.6, 0.1))
-		"Katja":
-			MG.grad_rect(ci, r, Color(0.32, 0.36, 0.44), Color(0.18, 0.18, 0.2))
-			MG.glow(ci, r.position + Vector2(r.size.x * 0.18, r.size.y * 0.22), 60 * u, Color(1.0, 0.8, 0.4, 0.5))  # katulamppu
-			# Moottoripyörän tankki ja ohjaustanko taustalla.
-			MG.box(ci, Rect2(r.position + Vector2(r.size.x * 0.62, r.size.y * 0.55), Vector2(r.size.x * 0.4, r.size.y * 0.16)),
-				Color(0.65, 0.08, 0.1), int(30 * u), 0, MG.OUTLINE, 2)
-			ci.draw_line(r.position + Vector2(r.size.x * 0.7, r.size.y * 0.5), r.position + Vector2(r.size.x * 0.98, r.size.y * 0.45),
-				Color(0.75, 0.75, 0.78), 5 * u)
-		_:
-			MG.grad_rect(ci, r, Color(0.7, 0.75, 0.8), Color(0.45, 0.5, 0.55))
-	var look: Dictionary = Kohtaus.LOOKS.get(pname, Kohtaus.LOOKS.me)
-	MG.figure(ci, c + Vector2(0, -60 * u), 1.5 * u, look, {"eye": Vector2(0.1, 0.1), "arms": "hold" if pname == "Katja" else "down"})
+## Profiilikuva laatikkoon: 3D-hahmon kuva (_photo), kuvasuhde säilyy (rajataan keskeltä). circle = pyöreä
+## pienoiskuva (kulmat peitetään valkoisella).
+func _portrait(ci: CanvasItem, r: Rect2, pname: String, circle := false) -> void:
+	var vp: SubViewport = _photos.get(pname)
+	if vp == null:
+		ci.draw_rect(r, Color(0.6, 0.6, 0.62))
+	else:
+		var src := Vector2(vp.size)
+		var sc := maxf(r.size.x / src.x, r.size.y / src.y)
+		var crop := r.size / sc
+		ci.draw_texture_rect_region(vp.get_texture(), r, Rect2((src - crop) / 2.0, crop))
 	if circle:
-		# Pyöreä rajaus: kulmat piiloon paksulla valkoisella renkaalla.
 		var rr := minf(r.size.x, r.size.y) / 2.0
+		var c := r.get_center()
 		ci.draw_arc(c, rr + rr * 0.25, 0, TAU, 48, Color.WHITE, rr * 0.5)
 		ci.draw_rect(Rect2(r.position.x - 2, r.end.y - 2, r.size.x + 4, rr * 0.4), Color.WHITE)
 	else:
 		ci.draw_rect(r, MG.OUTLINE, false, 2.0)
+
+
+## Profiilikuvan studio: hahmo kasvot kameraan, tausta ja valot omassa 3D-maailmassaan (ei pelin aurinkoa eikä maastoa).
+func _photo(look: Dictionary, bg: Color, ground: Color, props: String) -> SubViewport:
+	var vp := SubViewport.new()
+	vp.own_world_3d = true
+	vp.size = Vector2i(360, 480)
+	vp.msaa_3d = Viewport.MSAA_2X
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(vp)
+	var st := Node3D.new()
+	vp.add_child(st)
+	var ch: Node3D = Looks.make(st, look)
+	ch.rotation.y = PI  # kasvot +Z:aan, kameraan
+	ch.play("Idle", 0.0)
+	B.mesh(st, B.boxm(Vector3(6, 4, 0.1)), Vector3(0, 1.8, -1.6), bg)
+	B.mesh(st, B.boxm(Vector3(6, 0.1, 4)), Vector3(0, -0.05, 0), ground)
+	match props:
+		"kesa":  # pihan kukkapenkki ja pensas taustalla
+			for i in 14:
+				var p := Vector3(-1.4 + i * 0.22, 0.25 + 0.15 * (i % 3), -1.45)
+				B.mesh(st, B.sphere(0.06, 8), p, Color(1.0, 0.95, 0.4) if i % 2 == 0 else Color(1.0, 1.0, 1.0))
+			B.mesh(st, B.sphere(0.6, 14), Vector3(-1.2, 0.5, -1.3), Color(0.25, 0.5, 0.22))
+			B.mesh(st, B.sphere(0.5, 14), Vector3(1.3, 0.45, -1.35), Color(0.3, 0.55, 0.25))
+		"ilta":  # katulamppu ja moottoripyörän punainen tankki
+			var bulb := B.mesh(st, B.sphere(0.12, 12), Vector3(-0.9, 2.3, -1.4), Color(1.0, 0.85, 0.5))
+			var bm := bulb.material_override as StandardMaterial3D
+			bm.emission_enabled = true
+			bm.emission = Color(1.0, 0.8, 0.45)
+			bm.emission_energy_multiplier = 4.0
+			B.mesh(st, B.capsule(0.18, 0.7), Vector3(0.75, 0.9, -0.6), Color(0.65, 0.06, 0.08), Vector3(0, 0, 90))
+			B.tube(st, Vector3(0.35, 1.05, -0.6), Vector3(0.45, 1.15, -0.95), 0.015, Color(0.75, 0.75, 0.78))
+	var key := DirectionalLight3D.new()
+	key.light_energy = 1.2
+	key.shadow_enabled = true
+	key.rotation_degrees = Vector3(-30, 25, 0)
+	st.add_child(key)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = bg
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.85, 0.85, 0.9)
+	env.ambient_light_energy = 0.55
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	var cam := Camera3D.new()
+	cam.fov = 30.0
+	cam.environment = env
+	st.add_child(cam)
+	var h := float(look.get("height", 1.75))
+	var eye := Vector3(0.12, h * 0.9, 1.25)  # pää ja hartiat: profiilikuvan rajaus
+	cam.transform = Transform3D(Basis.looking_at(Vector3(0, h * 0.84, 0) - eye, Vector3.UP), eye)
+	cam.current = true
+	return vp
 
 
 func _bubble_text(r: Rect2, text: String, k: float, col: Color) -> void:
