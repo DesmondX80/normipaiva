@@ -590,8 +590,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     **Apteekki** on Satamantien varressa radan jälkeen oikealla (`tools/vaala_apteekki.py`, `vaala.gd _build_apteekki`): vaalea liiketila, vihreä APTEEKKI-kyltti,
     edessä asfalttiparkki. Sisälle pääsee (auki ma–su 9–17, `apteekki_interior.gd`): tiskillä farmaseutti. Ilman reseptiä saa vain Panadolia (4,90 €) ja Buranaa
     (5,50 €); kolmiolääkkeet (▲ Panacod 9,80 €, Tramal 12,40 €) vaativat reseptin, jonka kuluttaa yksi ostos (`main.gd APTEEKKI_MENU`, `reseptit`). Reseptin
-    saa aarrekätköstä: asemalla juopolle viinaa, joka kertoo kätkön, ja kätkössä on satasen lisäksi resepti (`_take_cache`). Lääke otetaan heti: kipu laskee,
-    kolmiolääke humaltuttaa ja nostaa moraalia (ei ajeta mopolla).
+    saa aarrekätköstä: asemalla juopolle viinaa, joka kertoo kätkön, ja kätkössä on satasen lisäksi resepti (`_take_cache`). Lääke menee reppuun ja sen ottaa repusta
+    ("ota") tai T-valikosta, kun sen aika on: kipu helpottaa, kolmiolääke humaltuttaa ja nostaa moraalia (ei ajeta mopolla). Listalla myös
+    **Oksikodoni ▲** (vahva opioidi) (24,90 €, resepti): kipu helpottaa ja humala nousee täysille heti. **Pervitiini ▲** (19,90 €, resepti):
+    mopon, juoksun, pyöräilyn ja kävelyn vauhti +30 % (30 peliminuuttia; `main.gd PERV_MULT`, `PERV_MIN`, `perv_until`).
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
     katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin
@@ -854,7 +856,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   eräjorma, pihapingis ja pummilla lavalle.
 - **Jemmat**-välilehti: kaikki löydetyt jemmapaikat täyttöpalkkeineen (kaljat / tila), kotijemma tavoitteeseen
   nähden tölkkiriveinä, ulkojemmat ja yhteensä sekä riskit: Päivi voi löytää liian täyden
-  kotijemman, ja teinit voivat pölliä ulkojemmasta. Reppu (R) näyttää myös tyhjät löydetyt jemmat. Testi `--scene=jemmat`.
+  kotijemman, ja teinit voivat pölliä ulkojemmasta. Reppu (I) näyttää myös tyhjät löydetyt jemmat. Testi `--scene=jemmat`.
 - **Päiväkirja (O)** ei paljasta mitään etukäteen: luku näkyy, kun siihen päästään, vaihe, kun siitä on kuultu, ja
   sivutehtävä, kun siitä on kerrottu. Uusista vihjeistä tulee ilmoitus "Päiväkirjaan tuli uutta".
 - **Onnelliset loput** (päivä päättyy loppukohtaukseen): juhlat autotallissa, viinibileet, laavulla kaljoilla,

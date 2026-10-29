@@ -72,7 +72,7 @@ func show_page(on: bool) -> void:
 	queue_redraw()
 
 
-## Avaa tai sulkee vihkon reppusivulta (esim. testit): sama kuin R.
+## Avaa tai sulkee vihkon reppusivulta (esim. testit): sama kuin I.
 func toggle() -> void:
 	if visible:
 		game._journal.toggle()

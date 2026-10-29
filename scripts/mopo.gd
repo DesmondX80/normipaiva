@@ -23,6 +23,7 @@ var controls_enabled := true
 ## Humala (0…1, main.gd:n tilat): mopo vaeltaa, ohjaus laahaa ja ylireagoi, välillä tanko nykäisee. Kännissä
 ## ojaan tai estettä päin kovaa ajettaessa mopo kaatuu (crashed).
 var drunk := 0.0
+var boost := 1.0  # pervitiini: huippunopeus (main.gd PERV_MULT)
 var surface := "asphalt"  # main.gd:n tilat (lepo luonnossa): mopo on aina tiellä
 var fallen := false  # kaatunut: malli kyljellään
 var vaala: Node3D  # vaala.gd (paikallinen kehys = mopo_trip.gd:n kehys)
@@ -202,7 +203,7 @@ func _physics_process(delta: float) -> void:
 		grade = -(n.x * fwd.x + n.z * fwd.z) / maxf(n.y, 0.3)
 	elif vaala != null:
 		grade = (vaala.h(position.x + fwd.x, position.z + fwd.z) - vaala.h(position.x - fwd.x, position.z - fwd.z)) / 2.0
-	var max_s: float = MAX_SPEED * surf.speed * clampf(1.0 - grade * 2.5, 0.6, 1.2)
+	var max_s: float = MAX_SPEED * boost * surf.speed * clampf(1.0 - grade * 2.5, 0.6, 1.2)
 	if throttle > 0.0:
 		speed = move_toward(speed, max_s, ACCEL * throttle * delta)
 	elif throttle < 0.0:

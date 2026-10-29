@@ -76,6 +76,7 @@ const ROLL := {
 }
 
 var _visual: Node3D
+var boost := 1.0  # pervitiini mopolla (main.gd PERV_MULT); polkupyörällä sama kerroin tulee legs.speed_mult:ssa
 var tune := 1.0  # autotallissa huollettu: päivän ajan kevyempi (main.gd BIKE_TUNE)
 var _cam: Camera3D
 var _cam_ready := false
@@ -292,7 +293,7 @@ func _physics_process(delta: float) -> void:
 		accel *= 0.75
 	if mopo:
 		# Kaasukahva: ei kuntoa, spurttia eikä huoltoa. Tyhjällä tankilla mopoa taluttaa kävelyvauhtia.
-		max_s = (PUSH_SPEED if mopo_dry else mopo_max) * t.speed * clampf(1.0 - grade * 2.5, 0.6, 1.2)
+		max_s = (PUSH_SPEED if mopo_dry else mopo_max) * boost * t.speed * clampf(1.0 - grade * 2.5, 0.6, 1.2)
 		accel = (2.0 if mopo_dry else MOPO_ACCEL) * t.accel
 	if throttle > 0.0:
 		speed = move_toward(speed, max_s, accel * throttle * delta)

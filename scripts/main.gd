@@ -147,14 +147,21 @@ const ZABUKI_MENU := {
 	"kana": ["Kanaburgeri ja ranskalaiset", 10.9, 0.0, 0.05, 0.05, 0.6],
 }
 ## Vaalan apteekki (apteekki_interior.gd): [nimi, hinta, vaatii reseptin, kipu, humala, moraali]. Kolmiolääkkeet (▲) vain reseptillä;
-## reseptin saa aarrekätköstä (juopolle viinaa, _take_cache).
+## reseptin saa aarrekätköstä (juopolle viinaa, _take_cache). Ostettu lääke menee reppuun (`laake`) ja otetaan sieltä tai
+## T-valikosta (_take_laake). Opiaatti nostaa humalan täysille, pervitiini kiihdyttää kaikkea liikettä PERV_MULT PERV_MIN minuutiksi.
 const APTEEKKI_MENU := {
 	"panadol": ["Panadol 500 mg", 4.9, false, -0.3, 0.0, 0.0],
 	"burana": ["Burana 400 mg", 5.5, false, -0.4, 0.0, 0.0],
 	"panacod": ["Panacod ▲ kolmiolääke", 9.8, true, -0.75, 0.1, 0.05],
 	"tramal": ["Tramal ▲ kolmiolääke", 12.4, true, -1.0, 0.2, 0.08],
+	"opiaatti": ["Oksikodoni ▲", 24.9, true, -1.0, 1.0, 0.0],
+	"perv": ["Pervitiini ▲", 19.9, true, 0.0, 0.0, 0.05],
 }
+const PERV_MULT := 1.3  # pervitiini: mopo, juoksu, pyöräily ja kävely +30 %
+const PERV_MIN := 30.0  # peliminuuttia
 var reseptit := 0  # kipulääkereseptit (kätköstä)
+var laake := {}  # reppuun ostetut lääkkeet: APTEEKKI_MENU-id -> kappalemäärä
+var perv_until := -1.0  # pervitiinin vaikutus päättyy (day * 1440 + clock_min)
 const ZABUKI_LINES := ["Grilli sihisee. Tiskin takaa huudetaan: \"Tupla valmis!\"",
 	"Torilla istuu porukkaa jakkaroilla tuoppi kourassa.", "\"Kastiketta lisää? Talon kastike, ei kysytä mitä siinä on.\"",
 	"Joku huutaa radiosta Vaalan pesäpallotulokset.", "\"Mopolla Paapelista? Burgeri päälle ni jaksaa ajaa takasin.\""]
@@ -442,7 +449,7 @@ var aarni: RefCounted  # legenda: Lapinraunion aarnivalkea (aarnivalkea.gd, #139
 var ukko: RefCounted  # legenda: Tekojärven Ukko (ukko_legenda.gd)
 var endings: RefCounted  # onnellisten loppujen kokoelma (endings.gd, #132)
 var quests: RefCounted  # tarinan luvut ja sivutehtävät (quests.gd, #132)
-var _journal: Control  # Normipäiväkirja ja reppu yhtenä vihkona (O / R), journal.gd
+var _journal: Control  # Normipäiväkirja ja reppu yhtenä vihkona (O / I), journal.gd
 var _matkaopas: Control  # Matkaopas (B), matkaopas.gd; saadaan taksikuskilta
 var _pannu_node: Node3D  # kuparin läikkä Pilkkarinnevalla (näkyy kun legenda on kuultu)
 var raahe_int: Node3D
@@ -583,7 +590,7 @@ var _sus_box: Control
 var _sus_bar: ProgressBar
 var _bird_t := 2.0
 var _minimap: Control
-var _inventory: Control  # reppu (R / Tab), inventory.gd
+var _inventory: Control  # reppu (I / Tab), inventory.gd
 ## Drooni (drone_game.gd): alusta kotipihalla, akku latautuu maassa, törmäys rikkoo päiväksi. Ilmakuvat kerätään
 ## kokoelmaksi, ja Pannu-Sulon pontikkapannu merkitään karttaan, kun se on kuvattu ilmasta.
 const DRONE_CHARGE_S := 240.0  # tyhjästä täyteen
@@ -9505,6 +9512,9 @@ func _open_eat_menu() -> void:
 	for k in ["puolukka", "mustikka"]:
 		if bucket.get(k, 0) > 0:
 			items.append([k, "%s – ämpärissä %d l" % [FOODS[k].name, bucket[k]]])
+	for k in APTEEKKI_MENU:
+		if laake.get(k, 0) > 0:
+			items.append([k, "%s (%d)" % [APTEEKKI_MENU[k][0], laake[k]]])
 	if items.is_empty():
 		_show_message("Ei mitään syötävää eikä juotavaa. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja, mökin savustimesta kalaa ja riistaa.", 3.0)
 		return
@@ -9601,6 +9611,10 @@ func _on_eat(id: String) -> void:
 	_interior_busy(false)
 	_active_walker().controls_enabled = true
 	_mopo_menu(false)
+	if APTEEKKI_MENU.has(id):
+		if laake.get(id, 0) > 0:
+			_take_laake(id)
+		return
 	match id:
 		"pulla", "piirakka", "savukala", "savuriista", "karrella", "mustikkapiirakka", "makkaraperunat", "piirakka_kaikilla", "hampurilainen":
 			if food.get(id, 0) <= 0:
@@ -9747,7 +9761,11 @@ func _stat_effects() -> void:
 	wife.speed_mult = _wife_speed_base + (0.1 if e < 0 else 0.0)
 	# Nälkä: kylläisenä kulkee kevyemmin, nälkäisenä raskaammin (jalan ja pyörällä).
 	e = t.effect("nalka")
-	walker_out.speed_mult = 1.0 + 0.1 * e
+	var perv: float = PERV_MULT if day * 1440.0 + clock_min < perv_until else 1.0  # pervitiini: kaikki liike +30 %
+	walker_out.speed_mult = (1.0 + 0.1 * e) * perv
+	bike.boost = perv
+	if mopo_trip.mopo != null:
+		mopo_trip.mopo.boost = perv
 	# Väsymys: virkeänä juoksu ja spurtti kuluttavat vähemmän, väsyneenä kunto palautuu hitaammin.
 	e = t.effect("vasymys")
 	walker_out.drain_mult = 0.7 if e > 0 else 1.0
@@ -16338,7 +16356,7 @@ func _on_apteekki_acted(kind: String) -> void:
 		_talk_open("apteekki", null, "Mitäs saisi olla?")
 
 
-## Apteekin osto: lääke otetaan heti (kipu laskee; kolmiolääke myös humaltuttaa ja kuluttaa reseptin).
+## Apteekin osto: lääke menee reppuun (resepti kuluu ostettaessa), otetaan repusta tai T-valikosta (_take_laake).
 func _on_apteekki(id: String) -> Array:
 	var m: Array = APTEEKKI_MENU[id]
 	if m[2] and reseptit <= 0:
@@ -16348,16 +16366,36 @@ func _on_apteekki(id: String) -> Array:
 	money -= m[1]
 	if m[2]:
 		reseptit -= 1
-	tilat.add("kipu", m[3])
+	laake[id] = laake.get(id, 0) + 1
+	Sfx.play("pickup", -6.0, 0.8)
+	var note := "%s reppuun, −%s €. Ota sitten, kun on sen aika." % [m[0], _eur(m[1])]
+	if m[2]:
+		note += " Reseptejä jäljellä %d." % reseptit
+	return [["Ottakaa vesilasillinen mukaan. Seuraava!", "Kiitos, ja pikaista paranemista.", "Annostus pakkauksessa. Lukekaa se."].pick_random(), note]
+
+
+## Lääkkeen ottaminen (reppu tai T): vaikutukset heti. Kolmiolääke ei sovi mopon selkään; pervitiini kiihdyttää
+## liikkumista PERV_MIN peliminuuttia (_stat_effects).
+func _take_laake(id: String) -> void:
+	var m: Array = APTEEKKI_MENU[id]
+	laake[id] -= 1
+	if laake[id] <= 0:
+		laake.erase(id)
+	if m[3] != 0.0:
+		tilat.add("kipu", -m[3])
 	if m[4] > 0.0:
 		tilat.add("humala", m[4])
 	if m[5] > 0.0:
 		tilat.add("moraali", m[5])
 	Sfx.play("pickup", -6.0, 0.8)
-	var note := "%s, −%s €. Kipu helpottaa." % [m[0], _eur(m[1])]
-	if m[2]:
-		note += " Kolmiolääke: ei ajeta mopolla! Reseptejä jäljellä %d." % reseptit
-	return [["Ottakaa vesilasillinen mukaan. Seuraava!", "Kiitos, ja pikaista paranemista.", "Annostus pakkauksessa. Lukekaa se."].pick_random(), note]
+	match id:
+		"opiaatti":
+			_show_message("Kaikki pehmenee. Kipu katoaa ja maailma kallistuu. Ei ajeta mopolla!", 3.0)
+		"perv":
+			perv_until = day * 1440.0 + clock_min + PERV_MIN
+			_show_message("Sydän jyskyttää ja jalat kulkee: vauhti +30 %% puoleksi tunniksi.", 3.0)
+		_:
+			_show_message("%s otettu. Kipu helpottaa." % m[0], 2.0)
 
 
 ## Oulujärven lava: lavatanssit (lava_game.gd) lavan lattialla. Lippu maksetaan ovella; hyvä tanssi nostaa
@@ -18091,6 +18129,8 @@ func _load_game() -> void:
 	viina_found = cfg.get_value("mokki", "viinakatkot", [])
 	asema_katkot = cfg.get_value("asema", "katkot", {})
 	reseptit = int(cfg.get_value("asema", "reseptit", 0))
+	laake = cfg.get_value("asema", "laake", {})
+	perv_until = cfg.get_value("asema", "perv_until", -1.0)
 	headphones.found = cfg.get_value("kuulokkeet", "loydetty", false)
 	phone.found = cfg.get_value("puhelin", "loydetty", false)
 	_set_outfit(cfg.get_value("pelaaja", "asu", "tuulipuku"))
@@ -18375,6 +18415,8 @@ func _save_game() -> void:
 	cfg.set_value("mokki", "viinakatkot", viina_found)
 	cfg.set_value("asema", "katkot", asema_katkot)
 	cfg.set_value("asema", "reseptit", reseptit)
+	cfg.set_value("asema", "laake", laake)
+	cfg.set_value("asema", "perv_until", perv_until)
 	cfg.set_value("kuulokkeet", "loydetty", headphones.found)
 	cfg.set_value("puhelin", "loydetty", phone.found)
 	cfg.set_value("pelaaja", "asu", Looks.outfit)
@@ -19505,7 +19547,7 @@ func _build_hud() -> void:
 	_hp_label.offset_top = -78
 	_hp_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 	_mopo_label = _label(layer, 22)
-	_mopo_label.position = Vector2(20, 12)
+	_mopo_label.position = Vector2(20, 14 + ClockHud.SIZE.y + 6)  # kellon alla, ei sen päällä
 	_mopo_label.visible = false
 
 	_stat_bars = StatBars.new()
@@ -19575,6 +19617,7 @@ func _update_hud() -> void:
 		_stamina_bar.value = walker_out.stamina
 		(_stamina_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = Color(0.9, 0.3, 0.2) if walker_out.exhausted else Color(0.3, 0.8, 0.4)
 	_stats.text = "\n".join(lines)
+	_stats.position.y = 14 + ClockHud.SIZE.y + 6 + (62 if _mopo_label.visible else 0)  # mopon tilarivit (2 riviä) kellon ja matkatietojen välissä
 	_clock_hud.minutes = clock_min
 	_clock_hud.day = day
 	_clock_hud.weekday = _weekday()
@@ -19756,7 +19799,18 @@ func inventory_items() -> Array:
 	for k in ["puolukka", "mustikka"]:
 		add.call(k, k.capitalize(), bucket.get(k, 0), "litraa ämpärissä · T syö litran",
 			{"food": true, "use": k, "use_label": "syö litra"})
+	for k in APTEEKKI_MENU:
+		add.call("laake_" + k, APTEEKKI_MENU[k][0], laake.get(k, 0), _laake_desc(k), {"food": true, "use": k, "use_label": "ota"})
 	return out
+
+
+func _laake_desc(id: String) -> String:
+	match id:
+		"opiaatti":
+			return "Vahva opioidi · T ottaa · humala täysille, ei mopolla"
+		"perv":
+			return "T ottaa · vauhti +30 %% %d min (mopo, juoksu, pyörä, kävely)" % int(PERV_MIN)
+	return "Apteekista · T ottaa · kipu helpottaa"
 
 
 ## Repusta klikattu tarvike (inventory.gd): syödään tai juodaan kuten T-valikosta. Ohjattavan hahmon tila
@@ -22118,10 +22172,24 @@ func _maybe_screenshot() -> void:
 			print("APTEEKKI tramal ilman reseptiä: ", ak1[0], " | ", ak1[1], " | rahaa ", money)
 			var kipu0: float = tilat.value("kipu")
 			var ak2 := _on_apteekki("panadol")
-			print("APTEEKKI panadol: ", ak2[1], " | kipu %.2f -> %.2f, rahaa %.2f" % [kipu0, tilat.value("kipu"), money])
-			reseptit = 1
+			print("APTEEKKI panadol reppuun: ", ak2[1], " | kipu %.2f (ei muutu ostaessa), laake %s, rahaa %.2f" % [tilat.value("kipu"), laake, money])
+			use_item("panadol")
+			print("APTEEKKI panadol otettu: kipu %.2f -> %.2f, laake %s" % [kipu0, tilat.value("kipu"), laake])
+			reseptit = 3
 			var ak3 := _on_apteekki("tramal")
-			print("APTEEKKI tramal reseptillä: ", ak3[1], " | reseptit ", reseptit, ", rahaa %.2f, humala %.2f" % [money, tilat.value("humala")])
+			print("APTEEKKI tramal reseptillä: ", ak3[1], " | reseptit ", reseptit, ", rahaa %.2f, laake %s" % [money, laake])
+			_on_apteekki("opiaatti")
+			_on_apteekki("perv")
+			use_item("opiaatti")
+			print("APTEEKKI opiaatti: humala %.2f (pitää olla 1.00), laake %s" % [tilat.value("humala"), laake])
+			clock_min = 10.0 * 60.0
+			use_item("perv")
+			_stat_effects()
+			print("APTEEKKI perv: jalan x%.2f, mopo x%.2f, päättyy %.0f (nyt %.0f)" % [walker_out.speed_mult, mopo_trip.mopo.boost, perv_until, day * 1440.0 + clock_min])
+			clock_min += PERV_MIN + 1.0
+			_stat_effects()
+			print("APTEEKKI perv loppui: jalan x%.2f, mopo x%.2f" % [walker_out.speed_mult, mopo_trip.mopo.boost])
+			reseptit = 1
 			asema_katkot["vaala"] = 1
 			_take_cache("vaala")
 			print("APTEEKKI kätkön jälkeen reseptit ", reseptit, ", viesti: ", _msg.text)
