@@ -593,7 +593,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     saa aarrekätköstä: asemalla juopolle viinaa, joka kertoo kätkön, ja kätkössä on satasen lisäksi resepti (`_take_cache`). Lääke menee reppuun ja sen ottaa repusta
     ("ota") tai T-valikosta, kun sen aika on: kipu helpottaa, kolmiolääke humaltuttaa ja nostaa moraalia (ei ajeta mopolla). Listalla myös
     **Oksikodoni ▲** (vahva opioidi) (24,90 €, resepti): kipu helpottaa ja humala nousee täysille heti. **Pervitiini ▲** (19,90 €, resepti):
-    mopon, juoksun, pyöräilyn ja kävelyn vauhti +30 % (30 peliminuuttia; `main.gd PERV_MULT`, `PERV_MIN`, `perv_until`).
+    mopon, juoksun, pyöräilyn ja kävelyn vauhti +50 % (30 peliminuuttia; `main.gd PERV_MULT`, `PERV_MIN`, `perv_until`).
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
     katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin

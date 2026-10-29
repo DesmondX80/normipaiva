@@ -749,6 +749,11 @@ const SAUNA_TYNNYRI := {
 	"seat": Vector3(-0.45, 0.68, -1.15),
 	"santtu_shot": [Vector3(0.72, 1.75, -1.05), Vector3(0.7, 1.78, -0.95), Vector3(-0.12, 1.6, 1.4), Vector3(-0.3, 1.6, -0.5), 6.0],
 }
+## Jos Vaalaan ajettiin junan erikoiskohtauksella (kossut naisille), Uiton saunalle tulee Santun sijaan Helena bikineissä
+## (main.gd helena_vaalassa -> sauna_guest = "helena").
+const SAUNA_HELENA_IN := ["Täällä on kuuma... ja kylmät kaljat. Mahdutaanko?", "Tiesin, että löydän sut täältä. Otin kylmät mukaan."]
+const SAUNA_HELENA_SIT := ["Kippis, komistus. Tää on parempaa kuin ravintolavaunu.", "Aaah. Lämmintä on, mutta sun vieressä lämpimämpää."]
+var sauna_guest := ""  # "" = Santtu, "helena" = Helena bikineissä
 const SAUNA_SANTTU_IN := ["Mahtuuko tänne? Otin kylmät mukaan.", "Löylyä ilman kaljaa? Ei meidän mökillä.",
 	"Kuulin ku kiuas sihahti. Tässä, kylmää."]
 const SAUNA_SANTTU_SIT := ["Kippis! Tää on mökin paras hetki.", "Aaah. Tätä varten tää mökki on olemassa.",
@@ -1052,7 +1057,12 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable, lay: Dictio
 ## oma kalja kädessä.
 func _sauna_santtu(frame: Transform3D, L: Dictionary, hero: Node3D, st: Dictionary) -> void:
 	var at := func(p: Vector3) -> Vector3: return frame * p
-	var s: Node3D = Looks.make(_props, sauna_look(load("res://scripts/mokki.gd").SANTTU_LOOK))
+	var helena := sauna_guest == "helena"
+	var who := "Helena" if helena else "Santtu"
+	var s: Node3D = Looks.make(_props, helena_bikini() if helena else sauna_look(load("res://scripts/mokki.gd").SANTTU_LOOK))
+	if helena:
+		_hoops(s)
+		s.body_mat.set_shader_parameter("topless", true)  # saunassa ilman bikinien yläosaa
 	var path: Array = L.door + [L.stand]
 	s.global_position = at.call(path[0])
 	s.play("Walk", 0.0)
@@ -1074,7 +1084,7 @@ func _sauna_santtu(frame: Transform3D, L: Dictionary, hero: Node3D, st: Dictiona
 	var hp := hero.global_position
 	s.global_rotation.y = B.yaw_to(Vector3(hp.x, 0, hp.z) - Vector3(s.global_position.x, 0, s.global_position.z))
 	s.play("Interact", 0.25)
-	_sub.text = "Santtu: \"%s\"" % SAUNA_SANTTU_IN.pick_random()
+	_sub.text = "%s: \"%s\"" % [who, (SAUNA_HELENA_IN if helena else SAUNA_SANTTU_IN).pick_random()]
 	await _wait(0.9)
 	# Kalja Santun kädestä hahmon viereen lauteelle; IK nostaa sen myöhemmin suulle.
 	var from: Vector3 = gift.global_position
@@ -1097,7 +1107,7 @@ func _sauna_santtu(frame: Transform3D, L: Dictionary, hero: Node3D, st: Dictiona
 	s.global_rotation.y = frame.basis.get_euler().y + B.yaw_to(L.face)
 	s.play("Sitting_Idle", 0.3)
 	Sfx.play("pickup", -4.0, 0.8)
-	_sub.text = "Santtu: \"%s\"" % SAUNA_SANTTU_SIT.pick_random()
+	_sub.text = "%s: \"%s\"" % [who, (SAUNA_HELENA_SIT if helena else SAUNA_SANTTU_SIT).pick_random()]
 	await _wait(2.4)
 
 
@@ -1868,7 +1878,17 @@ const HELENA := {
 	"model": "female", "shirt": Color(0.82, 0.03, 0.12), "pants": Color(0.82, 0.03, 0.12), "shoes": Color(0.78, 0.02, 0.08),
 	"hair": "Hair_Long", "hair_color": Color(0.1, 0.08, 0.07), "height": 1.72, "shine": 0.9, "tube_y": 1.41, "sleeve_x": 0.2,
 	"shorts_y": 0.8, "bare_skin": Color(0.84, 0.62, 0.5), "curves": 1.0, "bulk": -0.2,
+	"bust": 2.7,  # kuten Sinikalla: hyllyntä (Elastic.jiggle_gain) vaatii rinnan painon, joka tulee bust-muodosta
 }
+## Kun Helena saa kossuryypyn, hän riisuu tuubimekon (ruutu pimenee hetkeksi): alla punaiset lappubikinit, paljaat
+## jalat (kuten Looks.sinikka_bikini). Ilman tarjottua ryyppyä kohtaus on normaali ja mekko pysyy päällä.
+static func helena_bikini() -> Dictionary:
+	var look: Dictionary = HELENA.duplicate()
+	look.merge({"shirt": Color(0.9, 0.05, 0.12), "pants": Color(0.9, 0.05, 0.12), "shoes": Color(0.95, 0.75, 0.62), "shine": 0.7,
+		"string_bikini": true}, true)
+	for k in ["tube_y", "sleeve_x", "shorts_y"]:
+		look.erase(k)
+	return look
 const WAITER := {
 	"shirt": Color(0.95, 0.95, 0.95), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.05, 0.05, 0.05),
 	"hair": "Hair_SimpleParted", "hair_color": Color(0.3, 0.25, 0.2), "height": 1.8,
@@ -1894,7 +1914,12 @@ const TRAIN_TALK_SALOINEN := [
 	["liisa", "Sinulla on hauska tapa kertoa asioista."], ["minä", "Ja teidän kanssanne matka meni hetkessä."],
 	["helena", "Hyvää kotimatkaa! Oli ilo jutella."],
 ]
-const TRAIN_NO_TREAT := "Tarjoaisin teille paukut, mutta lompakko on laiha. Ottakaa omat, kippis silti!"
+## Erikoiskohtauksesta pois jätettävät täyterepliikit (flirtti tuo tilalle uutta puhetta).
+const TRAIN_TALK_TRIM := ["Oletko menossa Vaalaan asti?", "Oulujärven rantaan, Paapeliin. Mökillä odottaa sauna.",
+	"Kippis! Oulujärven auringonlasku on maailman kaunein.", "Sinä olet kyllä mukavaa seuraa.", "Ja te kauniimpia kuin Salmisen ranta.",
+	"Sinulla on hauska tapa kertoa asioista.", "Ja teidän kanssanne matka meni hetkessä.", "Kippis! Menetkö kotiin Saloisiin?",
+	"Kotiin. Kuusi kaljaa ja nurmikko odottaa."]
+const TRAIN_NO_TREAT := "Tarjoaisin teille paukut, mutta lompakko on laiha. Ottakaa vaikka kahvit itse."
 ## Verkkopaidassa (Looks.outfit "farkut") Helena ei peittele: repliikit vaihtuvat näihin (puhuja ja vanha repliikki
 ## -> uusi), ja kosketuksen jälkeen hän liukuu pelaajaa vasten ja painaa päänsä tämän olalle.
 const TRAIN_NET_LINES := {
@@ -1912,6 +1937,8 @@ const TRAIN_NET_EXTRA := [
 	["minä", "Mmm...", "flirt"],
 	["minä", "Mä voin olla sun opas %s. Tiedän kaikki parhaat maisemat."],
 	["helena", "Oma opas! Sopii, komistus."],
+	["helena", "Tule lähemmäs. Mä en pure... paitsi jos pyydät."],
+	["minä", "Mä voin pyytää."],
 ]
 
 
@@ -1946,15 +1973,45 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	var scenery: Node3D = cast.scenery
 	var faded := false  # häivytys vasta, kun kamera on vaunussa (muuten näkyi hetken tyhjä tehdaskohtauksen paikka)
 	var lines: Array = TRAIN_TALK_VAALA if to_vaala else TRAIN_TALK_SALOINEN
+	if treat:
+		# Erikoiskohtauksessa flirtti, riisuminen ja sauna-vihje täyttävät ajan: ylimääräinen small talk pois.
+		lines = lines.filter(func(l: Array) -> bool: return not (l[1] in TRAIN_TALK_TRIM))
 	const LINE := 2.3
 	const SPEED := 24.0
 	var hand_from := lines.size()
+	var treat_k := -1
 	for i in lines.size():
 		if lines[i].size() > 2 and lines[i][2] == "hand":
 			hand_from = i
+		if lines[i].size() > 2 and lines[i][2] == "treat":
+			treat_k = i
 	var net := Looks.outfit == "farkut"
 	var flirt := {}
-	if net:
+	var strip_k := -1
+	var helena0: Node3D = cast.helena
+	if not treat:
+		# Normaali sketsi: naiset eivät saa kossua (ei pulloa eikä paukkuja), ei kättä, riisumista eikä flirttiä.
+		hand_from = lines.size()
+		lines = lines.map(func(l: Array) -> Array:
+			var c := l.duplicate()
+			if c[1] == "No voi kiitos! Kippis!":
+				c[1] = "Ei se mitään. Tässä on mukava istua."  # naisille ei tarjottu mitään: ei kippistelyä
+			c[1] = (c[1] as String).trim_prefix("Kippis! ")
+			return c)
+	else:
+		# Erikoiskohtaus: kun Helena on saanut kossuryypyn, hänellä on kuuma ja hän riisuu tuubimekon hitaasti; sitten kosketus.
+		var strip_lines: Array = [["helena", "Täällähän on kuuma...", "strip"],
+			["minä", "Kyllä täällä kuuma on... ja kuumenee." if net else "Tuota... niin. Kuuma. Joo."]]
+		lines = lines.slice(0, hand_from) + strip_lines + lines.slice(hand_from)
+		strip_k = hand_from
+		hand_from += strip_lines.size()
+		# Bikinit mekon alla: mekon yläreuna liukuu shaderissa alas (undress 0 -> 1), ks. shaders/character.gdshader.
+		var bk := helena_bikini()
+		helena0.body_mat.set_shader_parameter("string_bikini", true)
+		helena0.body_mat.set_shader_parameter("undress", 0.0)
+		helena0.body_mat.set_shader_parameter("shirt", bk.shirt)
+		helena0.body_mat.set_shader_parameter("pants", bk.pants)
+	if net and treat:
 		lines = lines.map(func(l: Array) -> Array:
 			var c := l.duplicate()
 			c[1] = TRAIN_NET_LINES.get(l[1], l[1])
@@ -1966,8 +2023,24 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			c[1] = (c[1] as String).replace("%s", town)
 			return c) + lines.slice(extra)
 		flirt = _flirt_setup(cast["minä"])
+	if treat and to_vaala:
+		# Selkeä vihje: Helena kertoo, minne hän menee (main.gd helena_vaalassa: Helena odottaa Uiton saunalla).
+		var at_k := (hand_from + 2 + (TRAIN_NET_EXTRA.size() if net else 0))
+		at_k = mini(at_k, lines.size())
+		lines = lines.slice(0, at_k) + [["helena", "Mä jään Vaalassa Uiton saunalle, Sahanrannan Uitontielle. Tule perässä, niin jatketaan siellä..."],
+			["minä", "Uiton sauna. Löydän kyllä."]] + lines.slice(at_k)
+	# Verkkopaidassa Helena liukuu penkillä viereen vasta repliikistä "Tule lähemmäs" (-1 = vanha ajoitus käden mukana).
+	var closer_k := -1
+	for i in lines.size():
+		if (lines[i][1] as String).begins_with("Tule lähemmäs"):
+			closer_k = i
 	var hand := {"w": 0.0, "slide": 0.0, "rest": Vector3.ZERO, "stroke0": -1.0}
 	var sweat := {"t": 0.0, "drops": []}
+	await _fit_seats(cast)
+	var kossu_t := -1.0   # kossupullon ja paukkujen tuonti pöytään (vasta tarjoamisen jälkeen)
+	var strip_t0 := -1.0  # mekon riisuminen alkaa
+	var barefoot := false
+	var dress_rest := {}
 	var t0 := _now_ms()
 	var last := -1
 	while _now_ms() - t0 < lines.size() * LINE * 1000.0:
@@ -1987,6 +2060,28 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 		# Kamerat: leveä sivukuva käytävältä pöydän poikki (selkänojat eivät peitä), muuten puhujaa vastapäätä
 		# istuvien olan yli kevyesti liukuen.
 		var u := fmod(t, LINE) / LINE
+		if treat and k >= treat_k and kossu_t < 0.0:
+			kossu_t = t  # "kolme Koskenkorvaa naisille": tarjoilija tuo pullon ja paukut pöytään
+			cast.kossu.visible = true
+			Sfx.play("glass", -4.0)
+		if kossu_t >= 0.0:
+			var ke := smoothstep(0.0, 1.0, clampf((t - kossu_t) / 1.0, 0.0, 1.0))
+			(cast.kossu as Node3D).position = Vector3(1.3, 0.3, -1.5) * (1.0 - ke) + Vector3(0, 0.1 * sin(ke * PI), 0)
+		if strip_k >= 0 and k >= strip_k:
+			# Helena riisuu mekon hitaasti: yläreuna liukuu rinnoilta lantiolle (shader undress), kädet vetävät sitä alas.
+			if strip_t0 < 0.0:
+				strip_t0 = t
+			var up := smoothstep(0.0, 1.0, clampf((t - strip_t0) / 4.4, 0.0, 1.0))
+			var hlz: Node3D = cast.helena
+			hlz.body_mat.set_shader_parameter("undress", up)
+			if up < 1.0:
+				_dress_arms(hlz, car, up, dress_rest)
+			elif not barefoot:
+				barefoot = true
+				hlz.body_mat.set_shader_parameter("shoes", helena_bikini().shoes)  # korot pois
+				hlz._ik.erase("arm_l")
+				if k < hand_from:
+					hlz._ik.erase("arm_r")
 		if k >= hand_from:
 			# Helenan oikea käsi pelaajan vasemmalle reidelle: lepoasennosta polven päälle, sitten hitaasti reittä
 			# pitkin lantiota kohti ja kääntyen sisäreidelle (pois Helenan puolelta, kohti pelaajan toista jalkaa).
@@ -2010,18 +2105,21 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 						hl_max = maxf(hl_max, q.x)
 					gap = hero_min - hl_max
 				hand.near = clampf(gap - 0.015, 0.0, 0.3)
-			if net:
-				# Verkkopaidassa Helena painautuu kiinni: liukuu penkillä viereen (jalat vierekkäin, ei sisäkkäin),
+			if treat:
+				# Erikoiskohtauksessa Helena painautuu kiinni: liukuu penkillä viereen (jalat vierekkäin, ei sisäkkäin),
 				# kallistuu ja nojaa päänsä olalle.
 				if not hand.has("h0"):
 					hand.h0 = hl.position
 				var lean := smoothstep(0.0, 1.0, minf(1.0, hand.w * 0.6 + hand.slide * 0.6))
+				if closer_k >= 0:
+					lean = smoothstep(0.0, 1.0, clampf((t - closer_k * LINE) / 1.8, 0.0, 1.0))
 				var toward: Vector3 = hero.position - (hand.h0 as Vector3)
 				toward.y = 0.0
 				hl.position = (hand.h0 as Vector3) + toward.normalized() * float(hand.near) * lean
 				hand.lean = lean
-				hl.set_override("spine_02", Vector3(0, 0, 1), -0.22 * lean)
-				hl.set_override("neck_01", Vector3(0, 0, 1), -0.35 * lean)
+				hl.set_override("spine_02", Vector3(0, 0, 1), -0.3 * lean)
+				hl.set_override("neck_01", Vector3(0, 0, 1), -0.45 * lean)
+				hl.set_override("Head", Vector3(0, 0, 1), -0.12 * lean)  # pää nojaa pelaajan olalle (mallikuva)
 			if hand.w == 0.0:
 				hand.rest = hl.to_global(hl.bone_position("hand_r"))
 			hand.w = minf(1.0, hand.w + hdt * 1.4)
@@ -2072,14 +2170,26 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 				# kaulan takaa toiselle olalle (kämmen olan päällä, kyynärpää selän takana ylhäällä).
 				if not hand.has("own0"):
 					hand.own0 = hero.bone_position("hand_l")
-				var far: Vector3 = hero.to_local(hl.to_global(hl.bone_position("upperarm_l")))
-				var hug: Vector3 = far + Vector3(0.07, 0.04, -0.02)
-				var hw := smoothstep(0.0, 1.0, float(hand.get("lean", 0.0)))
+				# Käsi hivuttautuu hitaasti Helenan ympäri (mallikuva: käsi selän yli, kämmen rennosti kaukaisen olan päällä):
+				# ensin alaselän taakse, sitten selkää pitkin lapaluille ja lopuksi olan yli. Kyynärpää jää alas selän taakse.
+				# Pelaaja ja Helena katsovat -Z:aan: pelaajan vasen on -X (Helenan puolella), "takana" on +Z.
+				if float(hand.get("lean", 0.0)) > 0.4:
+					hand["creep"] = minf(1.0, float(hand.get("creep", 0.0)) + hdt * 0.2)
+				var cr: float = hand.get("creep", 0.0)
+				var back_l: Vector3 = hero.to_local(hl.to_global(hl.bone_position("spine_01")))
+				var w1: Vector3 = back_l + Vector3(0.0, -0.02, 0.14)  # alaselän takana
+				var w2: Vector3 = hero.to_local(hl.to_global(hl.bone_position("spine_03"))) + Vector3(-0.02, 0.0, 0.14)  # lapaluiden takana
+				var shoulder_far: Vector3 = hero.to_local(hl.to_global(hl.bone_position("upperarm_l")))
+				var w3: Vector3 = shoulder_far + Vector3(-0.01, 0.045, 0.0)  # olan päällä
+				var own0: Vector3 = hand.own0
+				var goal_l: Vector3 = own0.lerp(w1, smoothstep(0.0, 0.3, cr))
+				goal_l = goal_l.lerp(w2, smoothstep(0.3, 0.65, cr))
+				goal_l = goal_l.lerp(w3, smoothstep(0.65, 1.0, cr))
+				var hw := smoothstep(0.75, 1.0, cr)
 				var hsh: Vector3 = hero.bone_position("upperarm_l")
-				hero.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", (hand.own0 as Vector3).lerp(hug, hw),
-					hsh + Vector3(-0.15, 0.5, 0.05))
-				# Vasen käsi on peilikuva: kämmenakseli vastakkainen, joten käännetään sormien ympäri puoli kierrosta.
-				hero.set_ik_orient("arm_l", Pose.palm_down(Vector3(-0.3, -0.4, -1.0), true), hw)
+				hero.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", goal_l, hsh + Vector3(-0.1, -0.35, 0.35))  # kyynärpää alas ja taakse
+				# Kämmen olan päällä, sormet eteen ja ulos (rento ranne); vasen käsi peilikuva.
+				hero.set_ik_orient("arm_l", Pose.palm_down(Vector3(-0.3, -0.3, -1.0), true), hw)
 		if k >= hand_from and not net:
 			# Pelaaja nostaa oman kätensä reideltä ja tarttuu hermostuneena tuoppiinsa.
 			var hero: Node3D = cast["minä"]
@@ -2098,6 +2208,15 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			var head: Vector3 = ch.to_global(ch.bone_position("Head"))
 			_cam.global_position = head + ch.global_basis * Vector3(lerpf(0.1, 0.06, u), 0.0, -lerpf(0.85, 0.75, u))
 			_cam.look_at(head + Vector3(0, 0.04, 0), Vector3.UP)
+		elif strip_k >= 0 and (k == strip_k or k == strip_k + 1):
+			# Riisuminen: hidas lähikuva Helenasta pöydän yli.
+			var hc: Node3D = cast.helena
+			_cam.global_position = car.to_global(Vector3(lerpf(-0.3, -0.5, (t - strip_t0) / 4.6), 1.42, -0.5))
+			_cam.look_at(hc.global_position + Vector3(0, 1.0, 0), Vector3.UP)
+		elif net and (k == hand_from + 1 or k == hand_from + 2):
+			# Hivutus: pelaajan käsi Helenan selän taakse ja olalle, kuvattuna pöydän yli edestä.
+			_cam.global_position = car.to_global(Vector3(lerpf(-0.45, -0.7, u), 1.4, -0.4))
+			_cam.look_at(car.to_global(Vector3(-0.85, 1.12, 0.85)), Vector3.UP)
 		elif k == hand_from or k == hand_from + 1:
 			# Käsi reidellä: kurkistus pöydän alta vastapäätä (pöytälevy peittää sylin ylhäältä).
 			_cam.global_position = car.to_global(Vector3(lerpf(-0.3, -0.38, u), 0.58, lerpf(-0.42, -0.5, u)))
@@ -2392,11 +2511,19 @@ func _build_dining_car(car: Node3D) -> Dictionary:
 		car.add_child(l)
 	# Pöydät ja istuimet ikkunan vieressä (vasen rivi, x < 0), käytävä oikealla.
 	var red := Color(0.65, 0.1, 0.1)
+	var cushions := {}  # [sz, half] -> tyyny (oma pöytä)
 	for tz: float in [-4.0, 0.0, 4.0]:
 		B.box(car, Vector3(0.9, 0.05, 0.75), Vector3(-0.85, 0.75, tz), Color(0.97, 0.97, 0.96), false)  # liina
 		B.box(car, Vector3(0.08, 0.75, 0.08), Vector3(-0.85, 0.37, tz), Color(0.3, 0.3, 0.3), false)
 		for sz: float in [-1.0, 1.0]:
-			B.box(car, Vector3(0.9, 0.45, 0.55), Vector3(-0.85, 0.22, tz + sz * 0.85), red, false)
+			if tz == 0.0:
+				# Oma pöytä: tyyny istujaa kohti (korkeus sovitetaan mitattuun istuinpintaan, _fit_seats).
+				for half: int in [0, 1]:
+					var cu := B.box(car, Vector3(0.45, 1.0, 0.55), Vector3(-1.075 + 0.45 * half, 0.225, sz * 0.85), red, false)
+					cu.scale.y = 0.45
+					cushions[[sz, half]] = cu
+			else:
+				B.box(car, Vector3(0.9, 0.45, 0.55), Vector3(-0.85, 0.22, tz + sz * 0.85), red, false)
 			B.box(car, Vector3(0.9, 0.8, 0.12), Vector3(-0.85, 0.85, tz + sz * 1.15), red, false)
 		if tz == 0.0:
 			continue  # oma pöytä: olut ja paukut alla
@@ -2407,12 +2534,16 @@ func _build_dining_car(car: Node3D) -> Dictionary:
 	# Oma pöytä: pelaajalla tuoppi olutta vaahtoineen, naisilla Koskenkorvapaukut ja pöydän keskellä pullo.
 	B.mesh(car, B.cyl(0.042, 0.036, 0.16, 14), Vector3(-0.62, 0.855, 0.2), Color(0.86, 0.56, 0.12))
 	B.mesh(car, B.cyl(0.043, 0.043, 0.03, 14), Vector3(-0.62, 0.95, 0.2), Color(0.97, 0.95, 0.88))
+	# Pullo ja paukut tuodaan pöytään vasta, kun pelaaja tarjoaa naisille kossut (train_ride); muuten niitä ei ole.
+	var kossu := Node3D.new()
+	kossu.visible = false
+	car.add_child(kossu)
 	for sp: Vector3 in [Vector3(-1.07, 0.0, 0.2), Vector3(-1.05, 0.0, -0.2), Vector3(-0.6, 0.0, -0.2)]:
-		B.mesh(car, B.cyl(0.02, 0.016, 0.055, 10), sp + Vector3(0, 0.805, 0), Color(0.8, 0.88, 0.92))
-		B.mesh(car, B.cyl(0.017, 0.015, 0.03, 10), sp + Vector3(0, 0.796, 0), Color(0.97, 0.97, 0.95))
-	B.mesh(car, B.cyl(0.035, 0.035, 0.2, 12), Vector3(-0.85, 0.88, 0.0), Color(0.85, 0.9, 0.93))  # Koskenkorva-pullo
-	B.mesh(car, B.cyl(0.036, 0.036, 0.06, 12), Vector3(-0.85, 0.86, 0.0), Color(0.15, 0.3, 0.65))  # etiketti
-	B.mesh(car, B.cyl(0.013, 0.013, 0.07, 8), Vector3(-0.85, 1.015, 0.0), Color(0.85, 0.9, 0.93))
+		B.mesh(kossu, B.cyl(0.02, 0.016, 0.055, 10), sp + Vector3(0, 0.805, 0), Color(0.8, 0.88, 0.92))
+		B.mesh(kossu, B.cyl(0.017, 0.015, 0.03, 10), sp + Vector3(0, 0.796, 0), Color(0.97, 0.97, 0.95))
+	B.mesh(kossu, B.cyl(0.035, 0.035, 0.2, 12), Vector3(-0.85, 0.88, 0.0), Color(0.85, 0.9, 0.93))  # Koskenkorva-pullo
+	B.mesh(kossu, B.cyl(0.036, 0.036, 0.06, 12), Vector3(-0.85, 0.86, 0.0), Color(0.15, 0.3, 0.65))  # etiketti
+	B.mesh(kossu, B.cyl(0.013, 0.013, 0.07, 8), Vector3(-0.85, 1.015, 0.0), Color(0.85, 0.9, 0.93))
 	# Tiski kahvinkeittimineen vaunun päässä.
 	B.box(car, Vector3(W - 0.4, 1.0, 0.6), Vector3(0, 0.5, -LEN / 2.0 + 0.5), wood, false)
 	B.box(car, Vector3(0.35, 0.45, 0.3), Vector3(0.7, 1.22, -LEN / 2.0 + 0.5), Color(0.2, 0.2, 0.22), false)
@@ -2431,7 +2562,7 @@ func _build_dining_car(car: Node3D) -> Dictionary:
 			B.mesh(scenery, B.cyl(0.12, 0.16, hgt * 0.7, 6), Vector3(x, hgt * 0.35 - 1.2, z), Color(0.92, 0.92, 0.88))
 			B.mesh(scenery, B.sphere(hgt * 0.18, 7), Vector3(x, hgt * 0.75 - 1.2, z), Color(0.3, 0.5, 0.2))
 	# Hahmot: pelaaja ja Helena käytävän puolella eri pöydissä, Marja ja Liisa pelaajaa vastapäätä.
-	var cast := {"scenery": scenery}
+	var cast := {"scenery": scenery, "kossu": kossu}
 	var seat := func(look: Dictionary, at: Vector3, face: Vector3) -> Node3D:
 		var c := Looks.make(car, look)
 		c.position = at
@@ -2445,6 +2576,7 @@ func _build_dining_car(car: Node3D) -> Dictionary:
 	cast["liisa"] = seat.call(LIISA, Vector3(-0.55, 0.0, -0.85), Vector3(0, 0, 1))
 	cast["helena"] = seat.call(HELENA, Vector3(-1.1, 0.0, 0.85), Vector3(0, 0, -1))
 	_hoops(cast["helena"])
+	cast["tyynyt"] = {"minä": cushions[[1.0, 1]], "helena": cushions[[1.0, 0]], "marja": cushions[[-1.0, 0]], "liisa": cushions[[-1.0, 1]]}
 	var waiter := Looks.make(car, WAITER)
 	waiter.position = Vector3(0.35, 0.0, -1.55)
 	waiter.rotation.y = B.yaw_to(Vector3(-0.8, 0, 1.0))
@@ -2513,6 +2645,63 @@ static func _flirt_pose(c: Node3D, st: Dictionary, u: float) -> void:
 		var sk: Skin = st.brows
 		for i in sk.get_bind_count():
 			sk.set_bind_pose(i, (st.binds[i] as Transform3D) * Transform3D(Basis(), Vector3(0, lift, 0)))
+
+
+## Istujat mitataan paistetusta verkosta ja sovitetaan penkkiin: jalat lattialle, tyyny pakaran alle (1 cm painuma)
+## ja selkä pois selkänojasta (animaation istuinkorkeus on matalampi kuin vakiotyyny, hahmoilla vaihtelee).
+func _fit_seats(cast: Dictionary) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	for i in 4:
+		await get_tree().process_frame  # verkko paistetaan vasta muutaman ruudun kuluttua
+	var carn: Node3D = (cast.scenery as Node3D).get_parent()
+	for nm in ["minä", "helena", "marja", "liisa"]:
+		var ch: Node3D = cast[nm]
+		var zdir := 1.0 if nm in ["minä", "helena"] else -1.0
+		var bones := []
+		for bi in ch.skeleton.get_bone_count():
+			bones.append(ch.skeleton.get_bone_name(bi))
+		var pts := Pose.limb_points(ch, carn, bones, 1)
+		if pts.is_empty():
+			continue
+		var feet := INF
+		for q in pts:
+			feet = minf(feet, q.y)
+		ch.position.y -= feet  # jalat lattialle
+		# Lantio ja selkä mitataan omilla luillaan (säärien pisteet eivät kerro istuinkorkeutta).
+		var torso := Pose.limb_points(ch, carn, ["pelvis", "spine_01", "spine_02"], 1)
+		var butt := INF
+		var back := -INF
+		for q in torso:
+			butt = minf(butt, q.y - feet)
+			back = maxf(back, q.z * zdir)
+		var cu: Node3D = cast.tyynyt[nm]
+		var top := clampf(butt + 0.015, 0.25, 0.6) if butt < INF else 0.45
+		cu.scale.y = top
+		cu.position.y = top / 2.0
+		if back > 1.085 and back < 1.3:
+			ch.position.z -= zdir * (back - 1.085)  # selkä irti selkänojasta (sen etupinta z = 1,09)
+		print("PENKKI sovitus %s: jalat %+.3f, lantio %.3f -> tyyny %.3f, selkä %.3f, paikka %s" % [nm, -feet, butt, top, back, ch.position])
+
+
+## Helenan kädet vetävät mekon yläreunaa alas (up 0..1): lepoasennosta rinnan sivuille, reunaa pitkin lantiolle ja takaisin.
+func _dress_arms(hl: Node3D, car: Node3D, up: float, rest: Dictionary) -> void:
+	if rest.is_empty():
+		rest["r"] = hl.to_global(hl.bone_position("hand_r"))
+		rest["l"] = hl.to_global(hl.bone_position("hand_l"))
+	var chest: Vector3 = hl.to_global(hl.bone_position("spine_03"))
+	var hips: Vector3 = hl.to_global(hl.bone_position("pelvis"))
+	var fwd: Vector3 = car.global_basis * Vector3(0, 0, -1)  # Helena katsoo -Z:aan
+	var rgt: Vector3 = car.global_basis * Vector3(1, 0, 0)
+	var edge_y := lerpf(chest.y - 0.02, hips.y + 0.1, smoothstep(0.1, 0.9, up))
+	var w := minf(smoothstep(0.0, 0.15, up), 1.0 - smoothstep(0.9, 1.0, up))
+	for sgn in [1.0, -1.0]:
+		var sd := "r" if sgn > 0.0 else "l"
+		var hp: Vector3 = Vector3(chest.x, edge_y, chest.z) + rgt * sgn * 0.24 + fwd * 0.03  # kyljillä, ei rinnoilla
+		var goal: Vector3 = (rest[sd] as Vector3).lerp(hp, w)
+		var sh: Vector3 = hl.to_global(hl.bone_position("upperarm_" + sd))
+		hl.set_ik("arm_" + sd, "upperarm_" + sd, "lowerarm_" + sd, "hand_" + sd, hl.to_local(goal),
+			hl.to_local(sh + rgt * sgn * 0.3 + Vector3(0, -0.2, 0)), Basis())
 
 
 static func _hoops(c: Node3D) -> void:

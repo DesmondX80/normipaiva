@@ -55,6 +55,8 @@ uniform vec3 strap_col : source_color = vec3(0.55, 0.42, 0.25);
 uniform bool workwear = false;   // työhousut: vahvikkeet polvissa, riipputaskut, heijastinraita säären ympäri
 uniform bool flannel = false;    // flanellipaita: ruudutus
 uniform bool tattoo = false;     // tatuointi vasemmassa olkavarressa (näkyy paljaalta iholta ja verkon läpi)
+uniform float undress = 1.0;  // lappubikinit + tuubimekko: 0 = mekko täysin päällä, 1 = riisuttu (mekon yläreuna liukuu tuubin reunasta lantiolle)
+uniform bool topless = false;  // lappubikinit ilman yläosaa (sauna): rintojen kohdalla pelkkä iho
 uniform bool string_bikini = false;  // pienet lappubikinit: kolmiot rintojen päällä, pieni alaosa, ohuet nauhat
 // Kasarin hiihtohaalari (paita ja housut samaa kangasta, pohjaväri shirt): valkoinen olkakaarroke, jonka alareuna on
 // vuoristosahalaita, sen alla keltainen ja turkoosi raita, tikkauskanavat, vetoketju, vyötärökuminauha, ribbiresorit
@@ -282,7 +284,7 @@ void vertex() {
 	// Vaatteet vähän irti ihosta, ettei näytä maalatulta trikoolta.
 	float c = floor(cat + 0.5);
 	float puff = c > 0.5 && c < 1.5 ? shirt_puff : (c > 1.5 && c < 2.5 ? pants_puff : (c > 2.5 ? 0.01 : 0.0));
-	if (bare(c, UV2, VERTEX, COLOR.b, COLOR.a * 2.0 - 1.0) || string_bikini) {
+	if (bare(c, UV2, VERTEX, COLOR.b, COLOR.a * 2.0 - 1.0) || (string_bikini && undress >= 1.0)) {
 		puff = 0.0;  // lappubikinit ovat iholla kiinni (väri lasketaan fragmentissa)
 	}
 	VERTEX += NORMAL * puff;
@@ -311,11 +313,16 @@ void fragment() {
 	vec3 n = texture(normal_tex, UV).rgb;
 	bool net_hole = net_shirt && c > 0.5 && c < 1.5 && net_thread(rest, lpos) < 0.5
 		&& !(suspenders && abs(abs(rest.x) - 0.1) < 0.014 && rest.y > 0.98 && rest.y < 1.52);
-	if (string_bikini && c > 0.5 && c < 2.5) {
+	// Riisuminen: kun undress < 1, mekko peittää vielä kaistan shorts_y .. mekon yläreuna, ja sen yläpuolella näkyy bikini.
+	bool dress_on = undress < 1.0 && shorts_y > 0.0 && rest.y > shorts_y && rest.y < mix(tube_y, shorts_y, clamp(undress, 0.0, 1.0));
+	if (string_bikini && c > 0.5 && c < 2.5 && !dress_on) {
 		// Lappubikinit: kankaan peitto etäisyysfunktiosta, pehmeä reuna (ruudun kokoinen) ja kanttinauha reunoissa.
 		float d = bikini_sd(vec3(rest, rest_zn.x), vec3(rest_nx, rest_zn.y, rest_zn.z));
 		float aa = clamp(fwidth(d) * 0.75, 0.0002, 0.004);  // raja: laskenta-alueen reunalla d hyppää
 		float cov = 1.0 - smoothstep(-aa, aa, d);
+		if (topless && rest.y > 1.12) {
+			cov = 0.0;
+		}
 		vec3 skin = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos);
 		vec3 cloth = rest.y < 1.12 ? pants : shirt;
 		cloth *= 1.0 - 0.2 * (1.0 - smoothstep(0.002, 0.0045, -d));  // kanttinauha

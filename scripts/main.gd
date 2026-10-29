@@ -3,6 +3,7 @@ extends Node3D
 ## Tilat: ulkona (kylässä, mökillä ja Vaalassa) tai sisätila (in_shop, in_home, …), cutscene, fight ja minigame.
 
 const B := preload("res://scripts/build.gd")
+const Pose := preload("res://scripts/pose.gd")
 const PlayerBike := preload("res://scripts/player_bike.gd")
 const WifeCar := preload("res://scripts/wife_car.gd")
 const Juntti := preload("res://scripts/juntti.gd")
@@ -157,7 +158,7 @@ const APTEEKKI_MENU := {
 	"opiaatti": ["Oksikodoni ▲", 24.9, true, -1.0, 1.0, 0.0],
 	"perv": ["Pervitiini ▲", 19.9, true, 0.0, 0.0, 0.05],
 }
-const PERV_MULT := 1.3  # pervitiini: mopo, juoksu, pyöräily ja kävely +30 %
+const PERV_MULT := 1.5  # pervitiini: mopo, juoksu, pyöräily ja kävely +50 %
 const PERV_MIN := 30.0  # peliminuuttia
 var reseptit := 0  # kipulääkereseptit (kätköstä)
 var laake := {}  # reppuun ostetut lääkkeet: APTEEKKI_MENU-id -> kappalemäärä
@@ -9761,10 +9762,10 @@ func _stat_effects() -> void:
 	wife.speed_mult = _wife_speed_base + (0.1 if e < 0 else 0.0)
 	# Nälkä: kylläisenä kulkee kevyemmin, nälkäisenä raskaammin (jalan ja pyörällä).
 	e = t.effect("nalka")
-	var perv: float = PERV_MULT if day * 1440.0 + clock_min < perv_until else 1.0  # pervitiini: kaikki liike +30 %
+	var perv: float = PERV_MULT if day * 1440.0 + clock_min < perv_until else 1.0  # pervitiini: kaikki liike +50 %
 	walker_out.speed_mult = (1.0 + 0.1 * e) * perv
 	bike.boost = perv
-	if mopo_trip.mopo != null:
+	if mopo_trip != null and mopo_trip.mopo != null:
 		mopo_trip.mopo.boost = perv
 	# Väsymys: virkeänä juoksu ja spurtti kuluttavat vähemmän, väsyneenä kunto palautuu hitaammin.
 	e = t.effect("vasymys")
@@ -11093,11 +11094,13 @@ func _train_trip(to: String) -> void:
 		money -= TRAIN_ROUND
 		mielihyva = clampf(mielihyva + 5.0, 0.0, 100.0)
 	tilat.add("humala", 0.12)
+	helena_vaalassa = to == "vaala" and treat
 	_save_game()
 	cutscene.train_ride(to == "vaala", _arrive_vaala_by_train if to == "vaala" else _arrive_saloinen_by_train, treat)
 
 
 var _train_prev := "ulkona"
+var helena_vaalassa := false  # Vaalaan ajettu junan erikoiskohtauksella (kossut naisille): Helena bikineissä Uiton saunalla Santun sijaan
 var _train_round_msg := ""
 var _train_review_msg := ""  # Santun arvostelu tekstiviestinä junalla kotiin tultaessa
 
@@ -15475,6 +15478,7 @@ var _uitto_sauna_t := -1.0
 func _uitto_sauna() -> void:
 	_act_begin()
 	var vl: Node3D = mopo_trip.vaala
+	cutscene.sauna_guest = "helena" if helena_vaalassa else ""
 	cutscene.sauna_relax(vl.uitto_sauna_frame(), false, func() -> void:
 		walker_out.stamina = 100.0
 		walker_out.exhausted = false
@@ -15486,7 +15490,7 @@ func _uitto_sauna() -> void:
 		tilat.first("uittosauna", 0.3)
 		tilat.add("moraali", 0.1)  # Santun kylmä kalja löylyn päälle
 		_act_end()
-		_show_message("Uiton saunan löylyt ja Santun kylmät kaljat! Laiturilta pääsee vilvoittelemaan Oulujärveen.", 4.0),
+		_show_message("Uiton saunan löylyt ja %s kylmät kaljat! Laiturilta pääsee vilvoittelemaan Oulujärveen." % ("Helenan" if helena_vaalassa else "Santun"), 4.0),
 		{"title": "UITON SAUNA", "intro": "Vanha hirsisauna Oulujärven rannalla. Kiuas hehkuu ja piipusta nousee savu."}, true)
 
 
@@ -16393,7 +16397,7 @@ func _take_laake(id: String) -> void:
 			_show_message("Kaikki pehmenee. Kipu katoaa ja maailma kallistuu. Ei ajeta mopolla!", 3.0)
 		"perv":
 			perv_until = day * 1440.0 + clock_min + PERV_MIN
-			_show_message("Sydän jyskyttää ja jalat kulkee: vauhti +30 %% puoleksi tunniksi.", 3.0)
+			_show_message("Sydän jyskyttää ja jalat kulkee: vauhti +50 %% puoleksi tunniksi.", 3.0)
 		_:
 			_show_message("%s otettu. Kipu helpottaa." % m[0], 2.0)
 
@@ -19809,7 +19813,7 @@ func _laake_desc(id: String) -> String:
 		"opiaatti":
 			return "Vahva opioidi · T ottaa · humala täysille, ei mopolla"
 		"perv":
-			return "T ottaa · vauhti +30 %% %d min (mopo, juoksu, pyörä, kävely)" % int(PERV_MIN)
+			return "T ottaa · vauhti +50 %% %d min (mopo, juoksu, pyörä, kävely)" % int(PERV_MIN)
 	return "Apteekista · T ottaa · kipu helpottaa"
 
 
@@ -24846,6 +24850,7 @@ func _maybe_screenshot() -> void:
 			print("SAHANRANTA ovet: asema %s, uittosauna %s, uittouinti %s, satama %s, katko %s" % [
 				doors.get("asema", {}).get("pos"), doors.get("uittosauna", {}).get("pos"), doors.get("uittouinti", {}).get("pos"),
 				doors.get("satama", {}).get("pos"), vl.cache_pos])
+			helena_vaalassa = OS.get_cmdline_user_args().has("--helena")  # Uiton sauna Helenan kanssa Santun sijaan
 			var sd: Vector3 = doors.asema.pos
 			await look.call(sd + Vector3(-30, 25, -45), sd + Vector3(0, 0, 0), "asema")
 			await look.call(sd + Vector3(-95, 70, -40), sd + Vector3(-75, 0, 10), "risteys")
@@ -24881,7 +24886,7 @@ func _maybe_screenshot() -> void:
 			while not (cutscene.busy or state == "cutscene") and k < 30:
 				await get_tree().create_timer(0.2).timeout
 				k += 1
-			for t in 4:
+			for t in 8:
 				await get_tree().create_timer(3.0).timeout
 				await shot.call("sauna_%d" % t)
 			k = 0
@@ -24909,6 +24914,52 @@ func _maybe_screenshot() -> void:
 				await get_tree().create_timer(1.0).timeout
 				k += 1
 			print("SAHANRANTA uinti valmis (%d s), tila %s" % [k, state])
+			get_tree().quit()
+		"uittorinne":
+			# Uiton saunan rinne: törmäyssäteen osumakorkeus vs. h() pitkin linjaa saunan ovelta rantaan (TESTI VIKA, jos ero > 5 cm).
+			_start_mopo()
+			var vl: Node3D = mopo_trip.vaala
+			for i in 10:
+				await get_tree().physics_frame
+			var ud: Vector3 = vl.uitto_door
+			var dd := Vector3(vl.uitto_dir.x, 0, vl.uitto_dir.y)
+			var sdv := dd.cross(Vector3.UP)
+			var space := get_viewport().world_3d.direct_space_state
+			var worst := 0.0
+			for sv in [-3.0, 0.0, 3.0]:
+				var row := []
+				for t in range(-4, 16):
+					var lp: Vector3 = ud + dd * float(t) + sdv * sv
+					var gp: Vector3 = vl.to_global(Vector3(lp.x, vl.h(lp.x, lp.z), lp.z))
+					var q := PhysicsRayQueryParameters3D.create(gp + Vector3(0, 50, 0), gp - Vector3(0, 50, 0), 0xFFFFFFFF)
+					var r := space.intersect_ray(q)
+					if r.is_empty():
+						row.append("%d:-" % t)
+						continue
+					var gh: float = vl.to_local(r.position).y
+					var diff: float = gh - vl.h(lp.x, lp.z)
+					worst = maxf(worst, absf(diff))
+					row.append("%d:%+.2f" % [t, diff])
+				print("UITTORINNE sivu %.0f törmäys-h: %s" % [sv, " ".join(row)])
+			print("UITTORINNE suurin ero %.2f m" % worst)
+			if mopo_trip.on_foot == null:
+				_mopo_dismount()
+			var uc := Camera3D.new()
+			add_child(uc)
+			uc.current = true
+			for t in [1.0, 4.0, 7.0, 10.0]:
+				var wp: Vector3 = ud + dd * t
+				walker_out.global_position = vl.to_global(Vector3(wp.x, vl.h(wp.x, wp.z) + 0.6, wp.z))
+				for i in 30:
+					await get_tree().physics_frame
+				var wl: Vector3 = vl.to_local(walker_out.global_position)
+				print("UITTORINNE hahmo t=%.0f: jalan y - h = %+.3f, rinne %.0f°" % [t, wl.y - vl.h(wl.x, wl.z),
+					rad_to_deg(atan2(vl.h(wl.x + dd.x, wl.z + dd.z) - vl.h(wl.x - dd.x, wl.z - dd.z), 2.0))])
+				uc.look_at_from_position(walker_out.global_position + sdv * 3.0 + Vector3(0, 0.5, 0), walker_out.global_position + Vector3(0, 0.6, 0))
+				for i in 4:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_t%d.png" % int(t)))
 			get_tree().quit()
 		"satama":
 			# Mopolla satamaan, E laiturilla, autopilotti ajaa veneen kaakkoon kartan reunaan ja takaisin laiturille.
@@ -35613,12 +35664,13 @@ func _maybe_screenshot() -> void:
 				if arg.begins_with("--asu="):
 					Looks.outfit = arg.substr(6)  # esim. farkut: verkkopaidassa Helena painautuu kiinni
 			var done := [false]
-			cutscene.train_ride(scene == "junavaunu", func() -> void: done[0] = true, true)
+			cutscene.train_ride(scene == "junavaunu", func() -> void: done[0] = true, not OS.get_cmdline_user_args().has("--eitarjoa"))  # --eitarjoa: normaali sketsi ilman kossuja
 			var seen := ""
 			var due := -1
 			var n := 0
 			var close_n := 0
 			var close_due := 0
+			var seat_checked := false
 			var phase_due: Array = []
 			var cast_hand := func(tc: Dictionary) -> Vector3:
 				return tc.helena.to_global(tc.helena.bone_position("hand_r")) if tc.has("helena") else Vector3.ZERO
@@ -35637,6 +35689,54 @@ func _maybe_screenshot() -> void:
 					phase_due.pop_front()
 					await RenderingServer.frame_post_draw
 					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ilme%d.png" % (8 - phase_due.size())))
+				# Penkit: hahmon pinnan pisteet vs. istuin- ja selkänojalaatikot (vaunun avaruudessa), kerran.
+				if not seat_checked and not cutscene.train_cast.is_empty() and cutscene.train_cast.has("tyynyt") and (cutscene.train_cast.minä as Node3D).position.y > 0.005:
+					seat_checked = true
+					var sc0: Dictionary = cutscene.train_cast
+					var carn: Node3D = sc0.scenery.get_parent()
+					for nm in ["minä", "helena", "marja", "liisa"]:
+						var boxes := []  # [nimi, min, max]: oma tyyny, selkänojat ja pöytä
+						var cu: Node3D = sc0.tyynyt[nm]
+						var cx: float = cu.position.x
+						var cz: float = cu.position.z
+						boxes.append(["tyyny", Vector3(cx - 0.225, 0.0, cz - 0.275), Vector3(cx + 0.225, cu.scale.y, cz + 0.275)])
+						for sz in [-1.0, 1.0]:
+							boxes.append(["selkä%+.0f" % sz, Vector3(-1.3, 0.445, 1.15 * sz - 0.06), Vector3(-0.4, 1.25, 1.15 * sz + 0.06)])
+						boxes.append(["pöytä", Vector3(-1.3, 0.725, -0.375), Vector3(-0.4, 0.775, 0.375)])
+						var chn: Node3D = sc0[nm]
+						var bn := []
+						for bi in chn.skeleton.get_bone_count():
+							bn.append(chn.skeleton.get_bone_name(bi))
+						var pts := Pose.limb_points(chn, carn, bn, 1)
+						var worst := {}
+						for q in pts:
+							var lq: Vector3 = q
+							for b in boxes:
+								var bmin: Vector3 = b[1]
+								var bmax: Vector3 = b[2]
+								if lq.x > bmin.x and lq.x < bmax.x and lq.y > bmin.y and lq.y < bmax.y and lq.z > bmin.z and lq.z < bmax.z:
+									var dep := minf(minf(lq.x - bmin.x, bmax.x - lq.x), minf(minf(lq.y - bmin.y, bmax.y - lq.y), minf(lq.z - bmin.z, bmax.z - lq.z)))
+									worst[b[0]] = maxf(float(worst.get(b[0], 0.0)), dep)
+						var min_y := INF
+						var butt_y := INF
+						var back_z := 0.0
+						var zdir := 1.0 if nm in ["minä", "helena"] else -1.0
+						for q in pts:
+							min_y = minf(min_y, q.y)
+							if q.y > 0.3 and q.y < 0.75 and q.x > -1.3 and q.x < -0.4 and absf(q.z - zdir * 0.85) < 0.3:
+								butt_y = minf(butt_y, q.y)
+								back_z = maxf(back_z, (q.z * zdir))
+						var sk := Camera3D.new()
+						add_child(sk)
+						sk.look_at_from_position(carn.to_global(Vector3(1.25, 0.55, zdir * 0.85)), carn.to_global(Vector3(-0.85, 0.55, zdir * 0.85)), Vector3.UP)
+						sk.current = true
+						await RenderingServer.frame_post_draw
+						await RenderingServer.frame_post_draw
+						get_viewport().get_texture().get_image().save_png(path.replace(".png", "_penkki_%s.png" % nm))
+						sk.queue_free()
+						if is_instance_valid(cutscene._cam):
+							cutscene._cam.current = true
+						print("PENKKI %s paikka %s pisteitä %d, uppoaa: %s | alin y %.3f, takamus alin y %.3f (istuin 0.445), selkä z %.3f (selkänoja 1.09)" % [nm, chn.position, pts.size(), str(worst), min_y, butt_y, back_z])
 				# Käsi reidellä: suurennos pelaajan vasemmasta reidestä pöydän yli ja sivusta (0.7 s välein).
 				var tc: Dictionary = cutscene.train_cast
 				if not tc.is_empty() and is_instance_valid(tc.helena) and tc.helena._ik.has("arm_r") and close_n < 24 \
