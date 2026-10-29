@@ -45,6 +45,7 @@ const KEY_ROWS := [
 	[["punch"], "Tappelu: lyönti", [KEY_J, 0, 0]],
 	[["kick"], "Tappelu: potku", [KEY_K, 0, 0]],
 	[["special"], "Tappelu: erikoisisku", [KEY_L, 0, 0]],
+	[["time_fast"], "Kello: kiihdytys päälle / pois", [KEY_G, 0, 0]],
 	[["drone_down"], "Drooni: alas", [KEY_C, KEY_CTRL, 0]],
 	[["drone_home"], "Drooni: kotiin", [KEY_H, 0, 0]],
 	[["drone_photo"], "Drooni: kuva", [KEY_P, KEY_ENTER, 0]],

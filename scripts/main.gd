@@ -517,6 +517,8 @@ var beers := 0
 ## rannekellona (clock_hud.gd) ja repun tietosivulla.
 const ClockHud := preload("res://scripts/clock_hud.gd")
 const CLOCK_RATE := 1440.0 / 3600.0
+const CLOCK_FAST := 8.0  # kiihdytyksen kerroin (time_fast-näppäin): vain kello, ei fysiikka
+var _clock_fast := false
 const DAY_START := 8.0 * 60.0
 const HOP_RAAHE := 10.0  # taksi Saloisista Raaheen (8 km)
 const HOP_VAALA := 150.0  # auto- tai taksimatka Saloisten ja Vaalan välillä
@@ -1421,7 +1423,8 @@ func _process(delta: float) -> void:
 	CamCtl.indoors = state in ["in_shop", "in_home", "in_mokki", "in_garage", "in_siitari", "in_apteekki", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki"]
 	var at_mokki := _at_mokki()
 	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
-	clock_min = fmod(clock_min + delta * CLOCK_RATE, 1440.0)
+	_clock_fast_keys()
+	clock_min = fmod(clock_min + delta * CLOCK_RATE * (CLOCK_FAST if _clock_fast else 1.0), 1440.0)
 	_night_tick(delta)
 	_train_update()
 	# Päivin puhelu (Sinikka tai Santun kantelu): soi missä tahansa, ei välikuvissa, minipeleissä eikä karaokessa.
@@ -10609,6 +10612,18 @@ func _station_use(st: String, to: String) -> void:
 
 ## Kuulokkeet päähän / pois (H) ja seuraava biisi (N): kävellen, pyörällä, mopolla ja sisätiloissa, ei minipeleissä
 ## tai valikoissa. HUD-rivi näyttää soivan biisin.
+## Kellon kiihdytys päälle tai pois. Vain ulkona ja sisätiloissa; välikuvat ja minipelit sammuttavat sen.
+func _clock_fast_keys() -> void:
+	if _clock_fast and (cutscene.busy or state in ["cutscene", "minigame", "fight"]):
+		_clock_fast = false
+	elif Input.is_action_just_pressed("time_fast") and _hud.visible and not cutscene.busy \
+			and not state in ["cutscene", "minigame", "fight"] and not _talk_box.is_open() and not _item_menu.is_open() \
+			and not _paper.visible and not _inventory.visible:
+		_clock_fast = not _clock_fast
+		_show_message("Kello kulkee nopeasti (x%d)." % int(CLOCK_FAST) if _clock_fast else "Kello kulkee taas normaalisti.", 1.6)
+	_clock_hud.fast = _clock_fast
+
+
 func _headphones_keys() -> void:
 	_hp_label.text = headphones.hud_text(Settings.action_key("next_song"))
 	_hp_label.visible = _hud.visible and _hp_label.text != ""
@@ -18606,6 +18621,7 @@ func _nearest_safe() -> Vector3:
 ## where = "gasthaus": herätys Vaalan Gasthausista. Saloisten asiat odottavat kuten mökillä, mutta Santun hommia
 ## ei arvota eikä lappua kirjoita Santtu.
 func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
+	_clock_fast = false
 	_thief_stop()  # yöllä teini jättää pyörän siihen, missä se on
 	day += 1
 	var at_m := _at_mokki_pos(spawn)  # mökillä herätessä pääpelin asiat odottavat kotiinpaluuta
@@ -22052,7 +22068,9 @@ func _maybe_screenshot() -> void:
 					["_alikulku", vh.call(722.0, -730.0, 2.5), vh.call(752.0, -695.0, 3.0)],
 					["_alikulku_sivu", vh.call(790.0, -740.0, 18.0), vh.call(750.0, -698.0, 0.0)],
 					["_alikulku_alla", vh.call(748.0, -700.0, 1.8), vh.call(778.0, -664.0, 2.0)],
-					["_apteekki", vh.call(833.0, -624.0, 2.2), vh.call(811.0, -603.0, 2.0)],
+					["_alikulku_ylos", vh.call(752.0, -697.0, 70.0), vh.call(752.0, -699.0, 0.0)],
+					["_alikulku_tie", vh.call(733.0, -717.0, 3.0), vh.call(762.0, -684.0, 0.0)],
+					["_apteekki", vh.call(838.0, -588.0, 3.0), vh.call(806.0, -616.0, 2.0)],
 					["_apteekki_ylos", vh.call(811.0, -610.0, 50.0), vh.call(811.0, -612.0, 0.0)]]:
 				vcam.look_at_from_position(vw[1], vw[2], Vector3.UP if vw[0] != "_ylhaalta" else Vector3(0, 0, -1))
 				vcam.current = true

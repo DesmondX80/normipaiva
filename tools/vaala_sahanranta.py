@@ -191,12 +191,20 @@ class Terrain:
         fj0 = max(int((self.z0 + (cj0 - 1) * self.cell - fz0) / fcell), 0)
         fj1 = min(int((self.z0 + (cj1 + 2) * self.cell - fz0) / fcell) + 1, fnz - 1)
         n = 0
-        for fj in range(fj0, fj1 + 1):
-            for fi in range(fi0, fi1 + 1):
-                ci = int((fx0 + fi * fcell - self.x0) / self.cell)
-                cj = int((fz0 + fj * fcell - self.z0) / self.cell)
-                if (ci, cj) in self.changed and 0 <= ci < self.nx and 0 <= cj < self.nz:
-                    arr[fj * fnx + fi] = round(self.h[cj * self.nx + ci] - 1.5, 2)
+        # Kaukomaaston kolmiot ulottuvat kulmasta kulmaan (fcell), joten kulma painetaan koko ympäristönsä
+        # (±fcell) tarkan maaston matalimman pisteen alle: muuten leikkauksen yli jää kaukomaaston "katto".
+        reach = int(fcell / self.cell)
+        for fj in range(max(fj0 - 1, 0), min(fj1 + 1, fnz - 1) + 1):
+            for fi in range(max(fi0 - 1, 0), min(fi1 + 1, fnx - 1) + 1):
+                ci = int(round((fx0 + fi * fcell - self.x0) / self.cell))
+                cj = int(round((fz0 + fj * fcell - self.z0) / self.cell))
+                if not (0 <= ci < self.nx and 0 <= cj < self.nz):
+                    continue
+                low = min(self.h[j * self.nx + i]
+                          for j in range(max(cj - reach, 0), min(cj + reach, self.nz - 1) + 1)
+                          for i in range(max(ci - reach, 0), min(ci + reach, self.nx - 1) + 1))
+                if low - 1.5 < arr[fj * fnx + fi] - 0.005:
+                    arr[fj * fnx + fi] = round(low - 1.5, 2)
                     n += 1
         self.far = struct.pack("<iifff", fnx, fnz, fx0, fz0, fcell) + struct.pack("<%df" % (fnx * fnz), *arr)
         print("kaukomaasto päivitetty: %d ruutua" % n)

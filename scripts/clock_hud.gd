@@ -18,6 +18,7 @@ var minutes := 480.0
 var day := 1
 var weekday := 0
 var juhannus := false
+var fast := false  # kellon kiihdytys päällä (main.gd time_fast)
 const WEEKDAY_ABBR := ["MA", "TI", "KE", "TO", "PE", "LA", "SU"]
 
 
@@ -38,8 +39,10 @@ func _draw() -> void:
 	_round(Rect2(Vector2(14, SIZE.y - 4), Vector2(SIZE.x - 28, 8)), CASE.lightened(0.05), 3)
 	_round(Rect2(Vector2.ZERO, SIZE), CASE, 14)
 	_round(Rect2(Vector2(3, 3), SIZE - Vector2(6, 6)), BEZEL, 12)
-	draw_string(font, Vector2(14, 15), "NORMI", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.85, 0.7, 0.35))
-	draw_string(font, Vector2(SIZE.x - 92, 15), "ALARM · LIGHT", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.7, 0.7, 0.72))
+	if fast:  # kellon kiihdytys päällä: kaksi nuolta kehyksen yläreunassa
+		for dx in [0.0, 9.0]:
+			var q := Vector2(SIZE.x - 40.0 + dx, 11.0)
+			draw_colored_polygon(PackedVector2Array([q + Vector2(0, -5), q + Vector2(7, 0), q + Vector2(0, 5)]), Color(0.95, 0.75, 0.3))
 	var lcd := Rect2(Vector2(10, 20), Vector2(SIZE.x - 20, SIZE.y - 28))
 	_round(lcd, LCD, 5)
 	draw_rect(Rect2(lcd.position, Vector2(lcd.size.x, 3)), Color(0, 0, 0, 0.12))  # lasin varjo
