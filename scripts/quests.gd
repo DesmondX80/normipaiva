@@ -200,6 +200,14 @@ const SIDE := [
 	{"id": "pummi", "title": "Pummilla lavalle", "text": "Porukka aidan takana tietää reitin lavalle ilman lippua.",
 		"known": "first:nuoret_kalja|first:pummi_lava", "done": "first:pummi_lava",
 		"idea": "Porukka aidan takana kuiskaa: lavalle pääsee ilman lippua, ku tietää reitin."},
+	{"id": "kolmio_saloinen", "title": "Kolmiomittaus Saloisissa",
+		"text": "Sytkäri-mätsi Mintun kanssa, mutta osoitetta ei kerrota. Kolme mittausta, harppi ja ympyrät kartalle (M). Joni ja Esa tuo kermavaahdon ja mansikat, sää ruusut.",
+		"known": "first:kolmio_tavattu_saloinen|first:kolmio_saloinen", "done": "flag:ending_minttu",
+		"idea": "Joni ja Esa kyttää kaupan parkkipaikalla puhelinta. Sytkäri, harppi ja kolme lahjaa?"},
+	{"id": "kolmio_vaala", "title": "Kolmiomittaus Vaalassa",
+		"text": "Sytkäri-mätsi Katjan kanssa, mutta osoitetta ei kerrota. Mittaa lisää, Timo ajaa Siviikillä toiselle puolelle kylää. Tero ja Timo tuo ruusut ja kermavaahdon, sää mansikat.",
+		"known": "first:kolmio_tavattu_vaala|first:kolmio_vaala", "done": "flag:ending_katja",
+		"idea": "Hevari-Tero ja Siviikki-Timo aseman pihassa Sytkärin kanssa. Kolmiomittaus Siviikillä?"},
 ]
 
 var known := {}  # sivutehtävä -> päivä, jolloin tuli tiedoksi

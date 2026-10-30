@@ -8113,6 +8113,8 @@ func quest_spots(id: String) -> Array:
 			return [M.w2(M.KENTTA)]
 		"laavu":
 			return [M.w2(M.LAAVU)]
+		"kolmio_saloinen":
+			return [M.w2(KOLMIO_KAVERIT)]  # Joni ja Esa kaupan parkkipaikalla (Mintun taloa ei paljasteta)
 		"pontikka":
 			return [M.w2(M.PONTIKKA)] if pontikka_found else []
 		"huutokauppa", "seurailta", "oma_poyta":
@@ -12665,6 +12667,8 @@ func _talk_open(who: String, node: Node3D, hello := "") -> void:
 		tilat.first(who, 0.0)  # naapuri tavattu: kartan laskuri ja tehtävien ehdot (first:sinikka)
 	elif who == "santtu":
 		tilat.first("santtu")  # luku 2 alkaa Santun tapaamisesta, valitsipa mitä tahansa
+	elif who.begins_with("kolmio_"):
+		tilat.first("kolmio_tavattu_" + who.substr(7), 0.0)  # kolmiomittaus päiväkirjaan (quests.gd SIDE)
 	_talk_node = node
 	_talk_kind = _talk_state_kind()
 	var w := _active_walker()
