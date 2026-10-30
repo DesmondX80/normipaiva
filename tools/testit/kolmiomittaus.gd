@@ -187,8 +187,10 @@ func _run_saloinen() -> void:
 	await _frames(10)
 	print("KOLMIO kaverien vihje '%s', tila %s, puhe %s, valikko %s, Jonille %.1f m" % [main._hint.text, main.state,
 		main._talk_box.is_open(), main._item_menu.is_open(), joni.distance_to_player()])
+	_quest_reset("saloinen")
 	main._talk_open("kolmio_saloinen", joni)
 	await _frames(5)
+	await _quest_known("saloinen")
 	main._talk_choose("kolmio_aloita")
 	await _frames(150)
 	await _snap("_sytkari_matsi")
@@ -336,6 +338,11 @@ func _doors_and_evening(s: String) -> void:
 		_vika("loppu ei kirjautunut (vaihe %s, maito %d)" % [main.kolmio.stage(s), main.kolmio.maito_day])
 	if not main.endings.counts.has(Kolmio.SITES[s].ending):
 		_vika("onnellinen loppu puuttuu")
+	main._quest_ideas()
+	print("KOLMIO päiväkirjan tehtävä kolmio_%s tehty: %s" % [s, main.quests.done_day.has("kolmio_" + s)])
+	if not main.quests.done_day.has("kolmio_" + s):
+		_vika("päiväkirjan tehtävää ei leimattu tehdyksi")
+	await _journal_shot("_paivakirja_tehty")
 	# Maito: kotiin ilman maitoa = motkotus.
 	main.paivi_bag.erase("maito")
 	main._kolmio_maito_home()
@@ -369,6 +376,38 @@ func _check_follow(npcs: Array, w: Node3D, site: String) -> void:
 	var cam := _cam_at(w.global_position + Vector3(4, 3, 6), w.global_position + Vector3(0, 0.9, 0))
 	await _snap("_kaverit_mukana")
 	cam.queue_free()
+
+
+## Päiväkirjan sivutehtävä (quests.gd SIDE kolmio_<kohde>): tiedoksi ensimmäisestä juttelusta kavereiden kanssa,
+## ideaviesti; kuva Tehtävät-sivusta lopussa (_journal_shot), ettei päiväkirja avaudu keskustelun päälle.
+## Puhdas lähtö: aiemman ajon tallennuksessa tehtävä voi olla jo tiedossa (testin HOME säilyy ajojen välillä).
+func _quest_reset(site: String) -> void:
+	main.quests.known.erase("kolmio_" + site)
+	main.quests.done_day.erase("kolmio_" + site)
+	for f in ["kolmio_tavattu_" + site, "kolmio_" + site]:
+		main.tilat.firsts.erase(f)
+	main._quest_ideas()  # alkutilanne kirjattu (quests.primed), kuten pelissä puolen sekunnin välein
+
+
+func _quest_known(site: String) -> void:
+	main._quest_ideas()
+	await _frames(2)
+	var msgs: String = str(main._msg_queue) + main._msg.text
+	print("KOLMIO päiväkirjan tehtävä kolmio_%s tiedossa: %s (päivä %s), viesti päiväkirjasta: %s ('%s')" % [site,
+		main.quests.known.has("kolmio_" + site), main.quests.known.get("kolmio_" + site), msgs.contains("Kolmiomittaus"), msgs.replace("\n", " ")])
+	if not main.quests.known.has("kolmio_" + site):
+		_vika("kolmiomittaus ei tullut päiväkirjaan juttelusta")
+	if not msgs.contains("Kolmiomittaus"):
+		_vika("ajatusviesti päiväkirjan tehtävästä puuttuu")
+
+
+func _journal_shot(suffix: String) -> void:
+	main._journal.toggle()
+	main._journal._set_tab("tehtavat")
+	await _frames(6)
+	await _snap(suffix)
+	main._journal.toggle()
+	await _frames(3)
 
 
 ## Siviikki-ajo: Teron ja Timon juttelusta kyytiin, ajo Timon mittauspisteeseen (Timo mittaa) ja takaisin asemalle.
@@ -468,8 +507,10 @@ func _run_vaala() -> void:
 	mt.on_foot.activate_camera()
 	await _frames(15)
 	print("KOLMIO Vaalan kaverien vihje '%s'" % mt.hint)
+	_quest_reset("vaala")
 	main._on_vaala_door("kolmio_kaverit")
 	await _frames(5)
+	await _quest_known("vaala")
 	main._talk_choose("kolmio_aloita")
 	await _frames(150)
 	await _snap("_sytkari_matsi")

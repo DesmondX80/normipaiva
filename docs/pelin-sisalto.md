@@ -71,7 +71,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   ystävätär), kermavaahto margariinin tilalla, mansikka palkinnoksi oikeasta arvauksesta ja kaverien omat äänet
   (golfjutut, hyräily, valitus, VTEC). Kesken pelin Päivi soittaa: "Missä sää oot?" "Kolmiomittaamassa." "No tuo maitoa
   tullessas." Aamulla kahvit ja mansikkaletut (onnellinen loppu **Kolmiomittaus Saloisissa** tai **Vaalassa**), ja
-  seuraavana päivänä maito on vietävä kotiin, tai Päivi motkottaa. Yksi kolmiomittaus päivässä. Testit
+  seuraavana päivänä maito on vietävä kotiin, tai Päivi motkottaa. Yksi kolmiomittaus päivässä. Päiväkirjan Tehtävät-sivulle
+  tulee "Kolmiomittaus Saloisissa" tai "Vaalassa", kun kavereiden kanssa juttelee ensimmäisen kerran (ajatusviesti), ja se
+  leimataan tehdyksi aamulla; Saloisten tehtävällä on karttamerkintä kavereiden luo. Testit
   `--scene=kolmiomittaus` ja `--scene=kolmiomittaus_vaala` (`tools/testit/kolmiomittaus.gd`).
 - **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (kauppalista ja Päivin omin sanoin
   kirjoittamat muistutukset; mökillä lapun kirjoittaa Santtu). Pelin tiedot, kuten jemmojen tilanne ja varoitukset,
