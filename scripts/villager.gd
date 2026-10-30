@@ -17,6 +17,14 @@ var lines: Array = []
 var quiet := false  # keskustelun aikana (main.gd _talk) ei omia satunnaisia repliikkejä
 var voice := "mummo"
 var target: Node3D
+## Seuraa tätä (kolmiomittauksen kaverit): kävelee tai hölkkää gap metrin päähän ja kääntyy sitä kohti. Yli
+## CATCH_UP metrin päästä (pelaaja ajoi pyörällä) siirtyy suoraan perään. ground_fn: (globaali piste) -> maan y;
+## oletuksena Saloisten maasto.
+var follow: Node3D
+var gap := 2.2
+var ground_fn: Callable
+var avoid: Array = []  # seuratessa kierrettävät kappaleet: [solmu, säde m] (esim. Siviikki), ettei kävellä läpi
+const CATCH_UP := 60.0
 ## Pihan puuhapisteet maailmassa (ensimmäinen = ulko-ovi, lähtöpaikka). Tyhjä = seisoo paikallaan.
 var yard: Array[Vector3] = []
 ## Valinnainen: mihin kukin puuhapiste katsoo (esim. kukkapenkki), sama järjestys kuin yard.
@@ -50,6 +58,8 @@ func _physics_process(delta: float) -> void:
 	_bubble_t -= delta
 	if _bubble_t <= 0.0:
 		_bubble.text = ""
+	if follow != null and _follow(delta):
+		return
 	var d := INF
 	var to_p := Vector3.ZERO
 	if target != null:
@@ -65,6 +75,31 @@ func _physics_process(delta: float) -> void:
 		_body.play("Idle_Talking" if _bubble_t > 0.0 else "Idle", 0.3)
 		return
 	_putter(delta)
+
+
+## Seuraaminen: true, kun liikuttiin (muuten seistään ja jutellaan kuten tavallisesti).
+func _follow(delta: float) -> bool:
+	var to_f := follow.global_position - global_position
+	to_f.y = 0.0
+	var d := to_f.length()
+	if d <= gap + 0.6:
+		return false
+	var p := global_position
+	if d > CATCH_UP:
+		p = follow.global_position - to_f.normalized() * (gap + 6.0)
+	else:
+		var v := WALK_SPEED * 1.5 if d < gap + 4.0 else 4.2  # kaukana hölkätään perään
+		p += to_f.normalized() * minf(v * delta, d - gap)
+		_body.play("Walk" if v < 2.0 else "Jog_Fwd", 0.3)
+	for a: Array in avoid:  # kappaleen ympäri sen reunaa pitkin
+		var c: Vector3 = (a[0] as Node3D).global_position
+		var off := Vector3(p.x - c.x, 0, p.z - c.z)
+		if off.length() < a[1]:
+			p = Vector3(c.x, p.y, c.z) + (off.normalized() if off.length() > 0.01 else Vector3.RIGHT) * float(a[1])
+	p.y = ground_fn.call(p) if ground_fn.is_valid() else Terrain.h(p.x, p.z)
+	global_position = p
+	rotation.y = lerp_angle(rotation.y, B.yaw_to(to_f), 1.0 - exp(-6.0 * delta))
+	return true
 
 
 ## Puuhailu pihalla: kävelee seuraavaan puuhapisteeseen ja tekee siinä hetken jotain.

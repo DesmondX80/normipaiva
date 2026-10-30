@@ -10888,6 +10888,10 @@ func _kolmio_spawn_saloinen() -> void:
 	_kolmio_esa = _villager("Esa", Looks.ESA, _kolmio_lines("saloinen", "Esa"), "pekka", KOLMIO_KAVERIT + Vector2(1.7, 0.6))
 	_kolmio_joni.rotation.y = PI * 0.15
 	_kolmio_esa.rotation.y = -PI * 0.2
+	_kolmio_joni.gap = 2.0
+	_kolmio_esa.gap = 3.3
+	for v: Node3D in [_kolmio_joni, _kolmio_esa]:
+		v.set_meta("home", v.transform)
 
 
 ## OSM-talon ulko-oven edusta (world.gd _house: ovi etuseinän keskimmäisessä ikkunavälissä, -Z = etuseinä).
@@ -10946,12 +10950,15 @@ func _kolmio_remote_point(site: String) -> Vector2:
 func _kolmio_logic() -> void:
 	if not is_instance_valid(_kolmio_joni):
 		return
-	var away := kolmio.stage("saloinen") == "mittaus"  # Esa on kirkolla mittaamassa
+	var going := kolmio.stage("saloinen") == "mittaus"
+	var away := going and not kolmio.remote_done("saloinen")  # Esa on kirkolla mittaamassa, kunnes tekstaa
 	if _kolmio_esa.visible == away:
 		_kolmio_esa.visible = not away
 		_kolmio_esa.process_mode = Node.PROCESS_MODE_DISABLED if away else Node.PROCESS_MODE_INHERIT
 	if kolmio.remote_step("saloinen", get_process_delta_time()):
 		_kolmio_remote("saloinen")
+	# Mittauksen ajan kaverit kulkevat jalan pelaajan perässä (pyörän selässä jäävät odottamaan, villager.gd follow).
+	_kolmio_follow([_kolmio_joni, _kolmio_esa], walker_out if going and player == walker_out else null, going)
 	if _hint.text != "" or _kolmio_ui != null:
 		return
 	for npc: CharacterBody3D in [_kolmio_joni, _kolmio_esa]:
@@ -10967,6 +10974,16 @@ func _kolmio_logic() -> void:
 			if Input.is_action_just_pressed("interact") and not player.is_stunned():
 				_kolmio_knock("saloinen", dd[1])
 			return
+
+
+## Kaverit seuraavat (f) tai palaavat lähtöpaikalleen (meta "home"), kun tehtävä ei ole käynnissä (going = false).
+func _kolmio_follow(npcs: Array, f: Node3D, going: bool) -> void:
+	for v: Node3D in npcs:
+		if not v.visible:
+			continue
+		v.follow = f
+		if not going and v.has_meta("home") and v.transform.origin.distance_to((v.get_meta("home") as Transform3D).origin) > 0.5:
+			v.transform = v.get_meta("home")
 
 
 ## Mittaus missä vain (viimeisenä _outside_logicissa, kun muuta vihjettä ei ole).
@@ -10989,6 +11006,15 @@ func _kolmio_vaala_logic() -> void:
 		return
 	for v: Node3D in _kolmio_vaala_npcs:
 		v.target = player
+	# Siviikki-ajon jälkeen Tero ja Timo kulkevat jalan pelaajan perässä; juttelupiste kulkee Teron mukana.
+	var going := kolmio.stage("vaala") == "mittaus"
+	var f: Node3D = mopo_trip.on_foot if going and kolmio.remote_done("vaala") else null
+	_kolmio_follow(_kolmio_vaala_npcs, f, going)
+	if not _kolmio_vaala_npcs.is_empty():
+		for d: Dictionary in mopo_trip.vaala.doors:
+			if d.id == "kolmio_kaverit":
+				d.pos = mopo_trip.vaala.to_local(_kolmio_vaala_npcs[0].global_position) if f != null \
+					else _kolmio_vaala_spots.get("door_home", d.pos)
 	if kolmio.remote_step("vaala", get_process_delta_time()):
 		_kolmio_remote("vaala")
 	if _hint.text != "" or _kolmio_ui != null or mopo_trip.on_foot == null or _talk_box.is_open() \
@@ -11061,8 +11087,15 @@ func _kolmio_vaala_setup() -> void:
 		var q := base - side * (1.2 + k * 1.3) - out * 0.5  # Civicin vastakkaiselle puolelle (auto on side-suunnassa)
 		v.position = Vector3(q.x, vl.h(q.x, q.z), q.z)
 		v.rotation.y = B.yaw_to(-out)
+		v.gap = 2.0 + k * 1.3
+		v.ground_fn = func(gp: Vector3) -> float:
+			var l := vl.to_local(gp)
+			return vl.to_global(Vector3(l.x, vl.h(l.x, l.z), l.z)).y
+		v.set_meta("home", v.transform)
+		v.avoid = [[civic, 2.6]]  # Civic 4,2 m pitkä: puolikas ja hahmon leveys
 		vl.add_child(v)
 		_kolmio_vaala_npcs.append(v)
+	_kolmio_vaala_spots["door_home"] = base - side * 1.8
 	vl.doors.append({"id": "kolmio_kaverit", "pos": base - side * 1.8, "out": out, "r": 4.0, "walk": true,
 		"hint": "Teron ja Timon luo", "text": "Juttele Teron ja Timon kanssa"})
 
@@ -11220,7 +11253,8 @@ func _kolmio_drive_end() -> void:
 	w.process_mode = Node.PROCESS_MODE_INHERIT
 	var kd: Array = mopo_trip.vaala.doors.filter(func(d: Dictionary) -> bool: return d.id == "kolmio_kaverit")
 	if not kd.is_empty():
-		w.global_position = mopo_trip.vaala.to_global(kd[0].pos) + Vector3(0, 0.5, 0)
+		var at: Vector3 = kd[0].pos + (kd[0].out as Vector3) * 2.5  # kaverien eteen, ei heidän sisäänsä
+		w.global_position = mopo_trip.vaala.to_global(at) + Vector3(0, 0.5, 0)
 	w.activate_camera()
 	mopo_trip.menu_open = false
 	Sfx.play("door_close", -4.0)

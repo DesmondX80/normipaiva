@@ -56,7 +56,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Osoitetta ei kerrota, vain etäisyys. Kaveri mittaa lähtöpaikalta, ja toinen mittaa kauempaa: Saloisissa Esa
   tekstaa kirkolta, Vaalassa Teron ja Timon kanssa jutellessa valitaan "Hypätään Siviikkiin", ja Timo ajaa porukan
   aseman pihasta nurmikon yli Vaalantielle ja tietä pitkin mittauspisteeseen (VTEC kytkeytyy, matkalla Timon ja Teron
-  jutut, E hyppää perille) ja takaisin asemalle. Sen jälkeen pelaaja mittaa lisää missä vain (E "Avaa Sytkäri", vähintään 35 m edellisistä mittauksista).
+  jutut, E hyppää perille) ja takaisin asemalle. Mittauksen ajan kaverit kulkevat jalan pelaajan perässä (Esa
+  liittyy mukaan tekstattuaan, Tero ja Timo Siviikki-ajon jälkeen) ja seisovat takana ovella; pyörän tai mopon
+  selässä he jäävät odottamaan ja tulevat perään, kun pelaaja jatkaa jalan. Sen jälkeen pelaaja mittaa lisää missä vain (E "Avaa Sytkäri", vähintään 35 m edellisistä mittauksista).
   Sovellus pyöristää etäisyyden (alle 120 m 10 m:iin, alle 500 m 50 m:iin, muuten 100 m:iin), joten paperikartalla (M)
   jokainen mittaus on harpilla piirretty ympyrä ja haalea vyöhyke; vyöhykkeet tummuvat päällekkäin, ja leikkauksessa
   on naisen talo. Lähempää mitattu ympyrä on tarkempi. Väärällä ovella avaa joku muu (mummo kepin kanssa, Pannu-Sulo,

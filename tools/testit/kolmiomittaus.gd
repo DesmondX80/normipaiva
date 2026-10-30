@@ -209,6 +209,9 @@ func _run_saloinen() -> void:
 	var me := t + Vector2(180, -60)
 	w.global_position = Vector3(me.x, Terrain.h(me.x, me.y) + 0.4, me.y)
 	await _frames(10)
+	await _check_follow([main._kolmio_joni, main._kolmio_esa], w, "saloinen")
+	w.global_position = Vector3(me.x, Terrain.h(me.x, me.y) + 0.4, me.y)
+	await _frames(10)
 	print("KOLMIO mittausvihje '%s'" % main._hint.text)
 	main._kolmio_measure("saloinen", me)
 	await _frames(70)
@@ -340,6 +343,34 @@ func _doors_and_evening(s: String) -> void:
 	print("KOLMIO maidoton kotiinpaluu: '%s'" % main._msg.text)
 
 
+## Kaverit pelaajan perässä (villager.gd follow): kaukaa (pyöräily) suoraan perään, sitten 10 m kävely, jonka
+## perään kaverit kävelevät; kuva pelaajan kamerasta.
+func _check_follow(npcs: Array, w: Node3D, site: String) -> void:
+	await _frames(20)
+	for v: Node3D in npcs:
+		print("KOLMIO %s seuraa: %s, etäisyys %.1f m" % [v.display_name, v.follow != null, v.global_position.distance_to(w.global_position)])
+		if v.follow == null or v.global_position.distance_to(w.global_position) > 12.0:
+			_vika("%s ei seuraa pelaajaa (%s)" % [v.display_name, site])
+	var p0 := w.global_position
+	w.global_position = p0 + Vector3(10, 0, 0)
+	await _frames(240)
+	for v: Node3D in npcs:
+		var d := v.global_position.distance_to(w.global_position)
+		print("KOLMIO %s 10 m kävelyn jälkeen %.1f m päässä (rako %.1f)" % [v.display_name, d, v.gap])
+		if d > v.gap + 1.5:
+			_vika("%s jäi jälkeen (%.1f m)" % [v.display_name, d])
+	if site == "vaala":
+		var car: Vector3 = main._kolmio_civic.global_position
+		for v: Node3D in npcs:
+			var dc := Vector2(v.global_position.x - car.x, v.global_position.z - car.z).length()
+			print("KOLMIO %s Siviikin keskeltä %.1f m" % [v.display_name, dc])
+			if dc < 2.4:
+				_vika("%s kävelee Siviikin läpi" % v.display_name)
+	var cam := _cam_at(w.global_position + Vector3(4, 3, 6), w.global_position + Vector3(0, 0.9, 0))
+	await _snap("_kaverit_mukana")
+	cam.queue_free()
+
+
 ## Siviikki-ajo: Teron ja Timon juttelusta kyytiin, ajo Timon mittauspisteeseen (Timo mittaa) ja takaisin asemalle.
 func _siviikki() -> void:
 	var route: PackedVector3Array = main._kolmio_vaala_spots.get("route", PackedVector3Array())
@@ -389,6 +420,7 @@ func _siviikki() -> void:
 	if opts.contains("kolmio_siviikki"):
 		_vika("Siviikki-vaihtoehto jäi Timon mittauksen jälkeen")
 	await _frames(10)
+	await _check_follow(main._kolmio_vaala_npcs, main.mopo_trip.on_foot, "vaala")
 
 
 func _run_vaala() -> void:
