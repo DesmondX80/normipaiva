@@ -168,6 +168,11 @@ painuman jäännöksen (`KONTAKTI JÄÄ`, raja 1 mm yli painumarajan) ja kuvaa i
 `Contact.clear_legs`), pöydän reunan etupinta on painumakontakti (vatsa/rinta) ja litistyvä kohta pullistuu sivulle
 (`Elastic.SPREAD`, `HALO`; varjostin peilaa).
 
+**Jalkapohjat maan tasalla:** hahmomallien kengänpohjat ovat mallin origon alapuolella (mies 5,4 cm, nainen 4,6 cm
+mallin mittakaavassa), joten `character.gd` nostaa mallia animaation mukaan (`SOLE`: seisominen ja kävely täysi nosto, hölkkä,
+juoksu ja kyykky omat arvonsa, istuminen, ajaminen ja uinti ei nostoa, koska ne on sovitettu istuimiin sellaisenaan).
+Arvot on mitattu paistetusta verkosta (`Pose.limb_points`, animaation alin kohta).
+
 **Kontaktit, pohje ja maa:** `Contact.clear_seat_edge` siirtää rento-istujan eteen, kun pohje on istuinlaatikon jalanjäljessä yli
 `Elastic.sink("pohje")` pinnan alla (liuku `slide` annetaan `fit_back`ille, joten selkä kallistuu lisää eikä lantio vedy nojaan takaisin).
 Polvitaipeen pehmeä raja koskee vain etupintaa. `Contact.ground_y` (fysiikkasäde, `Terrain.COLLISION_LAYER`) on jalkojen tuki kalusteen
