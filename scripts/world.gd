@@ -7,6 +7,7 @@ const M := preload("res://scripts/map_data.gd")
 const Foliage := preload("res://scripts/foliage.gd")
 const T := preload("res://scripts/terrain.gd")
 const MeshBundle := preload("res://scripts/mesh_bundle.gd")
+const AurinkoSinikka := preload("res://scripts/aurinko_sinikka.gd")
 const Kota := preload("res://scripts/kota.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Pose := preload("res://scripts/pose.gd")
@@ -147,6 +148,8 @@ var uimaranta_people: Array = []  # rannan perheet ja mummot (näkyvyys main.gd)
 var seat_queue: Array = []  # [hahmo, kaluste, Pose-tyyli, opts]: Pose.sit ajetaan, kun hahmon luusto on valmis
 var uimaranta_sinikka: Node3D  # Sinikka aamu-uinnilla lappubikineissä (näkyvyys main.gd)
 var uimaranta_sinikka_pos: Vector3
+var uimaranta_aurinko: Node3D  # Sinikka ottaa aurinkoa pyyhkeellä 12-17 (aurinko_sinikka.gd; näkyvyys ja juttelu main.gd)
+var uimaranta_aurinko_pos: Vector3
 var pukukoppi_pos: Vector3  # pukukopin edusta (jemma)
 var grilli_ranta_pos: Vector3
 var seo_door: Vector3  # SEO:n myymälän ovi (#118)
@@ -2874,6 +2877,27 @@ func _build_uimaranta() -> void:
 	sini.position.y = 0.05
 	sini.play("Idle", 0.0)
 	uimaranta_sinikka.visible = false
+	# Iltapäivällä Sinikka ottaa aurinkoa selällään pyyhkeellä rannan reunassa, jalat järvelle päin (paikallinen -Z),
+	# perheiden pyyhkeiden ja penkin vieressä mutta erillään. Hiekkalaikku pyyhkeen alle (pinta y 0,065 kuten muualla).
+	# Hiekkalaikut nostetaan maastoon kukin keskeltään (_lift_objects), joten pyyhkeen kohdalla oleva naapurilaikku tai
+	# rinne voi olla pyyhkeen keskikohtaa korkeammalla: koko asetelma nostetaan korkeimman kohdan tasalle (lift).
+	var ap := bp - dir * 6.5 - side * 7.0
+	var h0 := T.h(ap.x, ap.y)
+	var lift := 0.0
+	for o in [Vector2.ZERO, dir * 1.2, -dir * 1.2, side * 1.1, -side * 1.1]:
+		var q: Vector2 = ap + o
+		lift = maxf(lift, T.h(q.x, q.y) - h0)
+		for k in 9:
+			var c: Vector2 = bp - dir * (2.0 + (k % 3) * 2.5) + side * (k / 3 - 1) * 5.0
+			if pow((q.x - c.x) / (3.6 * 1.3), 2.0) + pow((q.y - c.y) / 3.6, 2.0) <= 1.0:
+				lift = maxf(lift, T.h(c.x, c.y) - h0)
+	uimaranta_aurinko_pos = Vector3(ap.x, h0 + lift, ap.y)
+	B.mesh(site, B.cyl(1.7, 1.7, 0.03, 18), Vector3(ap.x, 0.05 + lift, ap.y), sand)
+	uimaranta_aurinko = AurinkoSinikka.new()
+	uimaranta_aurinko.position = Vector3(ap.x, lift, ap.y)
+	uimaranta_aurinko.rotation.y = B.yaw_to(Vector3(dir.x, 0, dir.y))  # -Z (jalat) järvelle
+	add_child(uimaranta_aurinko)
+	uimaranta_aurinko.visible = false
 
 
 ## SEO Saloinen ja ravintola A+ (#118): tankkauskatos mittareineen (OSM roof), myymälä ja ravintola (OSM rakennus),

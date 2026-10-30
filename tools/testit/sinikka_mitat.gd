@@ -35,6 +35,8 @@ func _ready() -> void:
 	var sk := Looks.make(self, Looks.sinikka_bikini())
 	var mir := Looks.make(self, Looks.MIRKKU)
 	mir.position = Vector3(3, 0, 0)
+	var piha := Looks.make(self, Looks.SINIKKA)  # regressio: pihan glam-Sinikan aurinkolasit kasvoilla (add_glam)
+	piha.position = Vector3(-8, 0, 0)
 	# Lisäargumentti "--bust=2.2,2.6": samat mitat Sinikalle näillä bust-arvoilla (piilossa, ei kuviin).
 	var extra := []
 	for a in args:
@@ -45,12 +47,12 @@ func _ready() -> void:
 				var c := Looks.make(self, lk)
 				c.position = Vector3(-3 * (extra.size() + 1), 0, 0)
 				extra.append(c)
-	for c in [sk, mir] + extra:
+	for c in [sk, mir, piha] + extra:
 		c.play("Idle", 0.0)
 		c.anim.speed_scale = 0.0  # sama asento joka ajossa (mittaus toistuu)
 	for i in 6:
 		await get_tree().process_frame
-	for c in [sk, mir] + extra:
+	for c in [sk, mir, piha] + extra:
 		c.anim.seek(0.0, true)
 	await get_tree().process_frame
 	_measure(sk, "Sinikka")
@@ -59,6 +61,7 @@ func _ready() -> void:
 		_measure(c, "Sinikka_bust%.2f" % c.body_shape.bust)
 		c.visible = false
 	mir.visible = false
+	piha.visible = false
 	var y := 1.25
 	var b := Vector3(0, 1.15, -0.05)  # rinnan korkeus (mitattu kärki y ≈ 1,14–1,15)
 	for v in [["edesta", Vector3(0, y + 0.05, -1.6), Vector3(0, y - 0.05, 0)], ["sivulta", Vector3(1.6, y + 0.05, 0), Vector3(0, y - 0.05, 0)],
@@ -69,6 +72,22 @@ func _ready() -> void:
 			await get_tree().process_frame
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(out.path_join("rinnat_%s.png" % v[0]))
+	# Pihan Sinikan kasvot lähikuvina edestä ja vinosti: lasit silmillä, sangat korville (ei takaraivolla).
+	sk.visible = false
+	piha.visible = true
+	var hd: Vector3 = piha.to_global(piha.bone_position("Head")) + Vector3(0, 0.08, 0)
+	# Edestä ja vinosti lierin alta (silmien korkeudelta lieri peittää kasvot).
+	for v in [["piha_kasvot_edesta", hd + Vector3(0, -0.2, -0.55)], ["piha_kasvot_vino", hd + Vector3(0.35, -0.18, -0.45)],
+			["piha_kasvot_sivulta", hd + Vector3(0.6, 0.03, 0)], ["piha_kasvot_lahi", hd + Vector3(0, 0.0, -0.32)]]:
+		cam.look_at_from_position(v[1], hd)
+		for i in 3:
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out.path_join("%s.png" % v[0]))
+	var sh := piha.find_child("Aurinkolasit", true, false) as Node3D
+	var face := (piha.global_transform.basis * Vector3.FORWARD).normalized()  # hahmon etu -Z
+	var ahead: float = (sh.global_position - piha.to_global(piha.bone_position("Head"))).dot(face) if sh != null else -INF
+	print("PIHA lasit pään edessä %.3f m %s" % [ahead, "OK" if ahead > 0.03 else "TESTI VIKA lasit eivät ole kasvoilla"])
 	print("kuvat: ", out)
 	get_tree().quit()
 

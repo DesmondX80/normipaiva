@@ -80,6 +80,11 @@ Vaalan tori ja Zabuki kauemmaksi Siitarista, liikenneympyrä kauimmaiseen ristey
 Kunnantalo Siitarin viereen tien oikealle puolelle (OSM:n Kunnanvirasto korvataan omalla mallilla): `venv/bin/python tools/vaala_kunnantalo.py` (kerran, `vaala_torisiirto.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). Alikulku Satamantielle radan alle: `tools/vaala_alikulku.py`, apteekki sen jälkeen: `tools/vaala_apteekki.py`. Koko ketju puhtaasta lähtötilasta: `vaala_satamatie.py`, `vaala_torisiirto.py`, `vaala_kunnantalo.py`, `vaala_alikulku.py`, `vaala_apteekki.py` (`vaala_sahanranta.py Terrain.save` päivittää kaukomaaston muuttuneille ruuduille). `--scene=apteekki`: apteekin ulkokuva, sisätila, tiskin valikko ja ostot (ilman reseptiä, reseptillä, reseptin saanti kätköstä). Kuvat `--scene=vaalakierros --nohud` (`_alikulku*`, `_apteekki*`). Alikulun siivous (`vaala_alikulku.py`:n jälkeen, kerran): `venv/bin/python tools/vaala_kaukomaasto.py` painaa kaukomaaston leikkauksen alle (muuten sen "katto" peittää tien ja luiskat) ja `tools/vaala_alikulku_nurmi.py` yhtenäistää luiskat nurmeksi.
 Pelisisällön kuvauksissa ([pelin-sisalto.md](pelin-sisalto.md)) kerrotaan kunkin ominaisuuden testi
 (`Testi --scene=...`). Lisäksi `tools/testit/` sisältää kuvatestikohtaukset (esim. `mummo_kuvat.tscn`).
+`--scene=sinikkaranta` tarkistaa myös iltapäivän aurinko-Sinikan (rivit `AS`, viat `TESTI VIKA aurinko-Sinikka`):
+näkyvyys klo 11/13/18, vihje (pyörä viereen: Sinikan juttelu voittaa pyörän vihjeen), repliikit ilman toistoa, mittarit
+kerran päivässä, kantelun arpa (0 ja 1) ja ruutuaika; kuva `_aurinko_huomaa`. Asento ja rekvisiitta (kuva `huomaa_kasvot`:
+pää kääntyy kameraan, lasit otsalla): `tools/testit/aja.sh tscn tools/testit/aurinko_sinikka_kuvat.tscn`. Pihan
+glam-Sinikan aurinkolasit kasvoilla: `sinikka_mitat.tscn`, kuvat `piha_kasvot_*` ja rivi `PIHA lasit pään edessä`.
 
 ## Puheäänet
 

@@ -397,7 +397,12 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Nokia, kultasormus Sinikalle 20 €:lla). Aamuisin mummot, iltapäivisin perheet: kalja penkillä perheiden edessä
   maksaa mainetta. Aamuisin (8–10) Sinikka käy uimassa pienissä punaisissa lappubikineissä: hänen näkemisensä piristää kerran
   päivässä (moraali, vireys, stressi), rannalla voi jutella ja antaa sormuksen, mutta jos jäät tuijottamaan mummojen
-  nähden, Päivi kuulee siitä aamulla. Testi `--scene=sinikkaranta`.
+  nähden, Päivi kuulee siitä aamulla. Iltapäivisin (12–17) Sinikka ottaa samalla rannalla aurinkoa selällään
+  pyyhkeellä (aurinkolasit silmillä; lähestyessä lasit nousevat otsalle ja hän kääntää päänsä). Juttelu avaa
+  kaksimielisiä repliikkejä (`ranta_flirtti.gd`, eivät toistu samalla kerralla) ja kolme vastausta: rasvan levitys
+  (flirtti), vitsi tai torjunta. Vastaus nostaa moraalia, vireyttä tai stressiä kerran päivässä. Jos flirttaat perheiden
+  nähden (15 m), perhe kertoo siitä Päiville noin joka toisella kerralla (arpa kerran päivässä), ja Päivi ottaa asian
+  puheeksi aamulla. Pihalla Sinikkaa ei iltapäivällä näy. Testi `--scene=sinikkaranta`.
 - **SEO Saloinen ja ravintola A+:** tankkauskatos mittareineen, SEO-pylväs hintoineen ja rekka pihassa. Myymälä
   auki 24/7: kahvi (vireys), munkki reppuun ja rekkakuskin ilmainen kyyti Raaheen (6–23, kun Kapteenin Kulma on perillä auki). A+: lounas ma–pe
   10.30–14 ja tuoppi illalla 16–22; pöydissä rekkamiesten ja vuoromiesten juttuja.
