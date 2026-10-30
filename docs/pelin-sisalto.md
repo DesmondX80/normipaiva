@@ -61,7 +61,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   verotoimiston Raimo...). Kolmiomittaajat tuovat kukin yhden lahjan kuin itämaan tietäjät (Saloisissa Esa mansikat,
   Joni kermavaahdon ja pelaaja ruusut, Vaalassa Timo kermavaahdon, Tero ruusut ja pelaaja mansikat); oma lahja ostetaan
   kaupan tiskiltä kauppiaalta (9 €), ja ilman sitä ovi ei aukea ("Missäs ne ruusut on?"). Oikealla ovella pelataan
-  erikoissääntöinen Rasvanappi naisen pimennetyssä olohuoneessa: viisi pelaajaa (pelaaja, nainen, kaverit ja naisen
+  erikoissääntöinen Rasvanappi naisen pimennetyssä olohuoneessa (TV-taso, piano, kirjahylly, takka, ruokapöytä,
+  sohva, arkku, jalkalamppu, viherkasvi ja rahi samoilla paikoilla kuin makasiinin esteet; ikkunasta kuunvalo,
+  eteisen ovesta valojuova): viisi pelaajaa (pelaaja, nainen, kaverit ja naisen
   ystävätär), kermavaahto margariinin tilalla, mansikka palkinnoksi oikeasta arvauksesta ja kaverien omat äänet
   (golfjutut, hyräily, valitus, VTEC). Kesken pelin Päivi soittaa: "Missä sää oot?" "Kolmiomittaamassa." "No tuo maitoa
   tullessas." Aamulla kahvit ja mansikkaletut (onnellinen loppu **Kolmiomittaus Saloisissa** tai **Vaalassa**), ja

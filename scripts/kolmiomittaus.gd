@@ -158,10 +158,12 @@ const RASVA_PEOPLE := {
 const RASVA_RULES := {
 	"saloinen": {"end_quote": "Esa: \"Rasvanapin jälkeen pitää syödä rasvasta.\"",
 		"end_lines": ["Minttu sytyttää kynttilän. Kaikki jähmettyvät.", "Joni: \"Tasan par.\""],
-		"style": {"floor": Color(0.66, 0.5, 0.32), "wall": Color(0.82, 0.72, 0.58)}},
+		"style": {"olohuone": true, "floor": Color(0.66, 0.5, 0.32), "wall": Color(0.82, 0.72, 0.58),
+			"sofa": Color(0.36, 0.45, 0.3), "rug": Color(0.62, 0.2, 0.18)}},
 	"vaala": {"end_quote": "Tero: \"Tästäkin menee vero.\"",
 		"end_lines": ["Katja vetää verhot auki. Kaikki jähmettyvät.", "Timo: \"Siviikki lämpiää jo.\""],
-		"style": {"floor": Color(0.45, 0.36, 0.28), "wall": Color(0.27, 0.3, 0.38)}},
+		"style": {"olohuone": true, "floor": Color(0.5, 0.38, 0.27), "wall": Color(0.42, 0.48, 0.58),
+			"sofa": Color(0.62, 0.5, 0.25), "rug": Color(0.22, 0.3, 0.5)}},
 }
 
 var state := {}  # kohde -> {stage, rings, remote_t, gift, wrong, done_day}

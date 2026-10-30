@@ -7,6 +7,8 @@ const K := preload("res://scripts/kolmio_kohtaus.gd")
 const S := preload("res://scripts/sytkari.gd")
 const Kolmio := preload("res://scripts/kolmiomittaus.gd")
 const Looks := preload("res://scripts/looks.gd")
+const Hall := preload("res://scripts/rasvanappi_hall.gd")
+const Rasva := preload("res://scripts/rasvanappi_game.gd")
 
 var out := "user://kolmio_kuvat"
 var root: Node
@@ -91,6 +93,8 @@ func _run() -> void:
 				sy._view.queue_redraw()
 				await _shot(sy, "syt_matsi_%s" % site)
 	await _rinkka()
+	for site in ["saloinen", "vaala"]:
+		await _olohuone(site)
 	get_tree().quit()
 
 
@@ -134,3 +138,42 @@ func _rinkka() -> void:
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % v[0]))
 	w.queue_free()
+
+
+## Naisen olohuone (rasvanappi_hall.gd _build_living) valot päällä: pelikamera, esittelykamera ja ylhäältä.
+func _olohuone(site: String) -> void:
+	var h = Hall.new()
+	h.room = Rasva.ROOM
+	h.door_y = Rasva.DOOR_Y
+	h.style = Kolmio.RASVA_RULES[site].style
+	add_child(h)
+	h.build(Rasva.OBST, [], {}, null)
+	h.set_lit(1.0)
+	h.set_sight(Vector2(1.5, Rasva.DOOR_Y), 2.0)
+	var top := Camera3D.new()
+	top.fov = 50.0
+	top.cull_mask = Hall.LAYER
+	top.environment = h.cam.environment
+	h.add_child(top)
+	var eye := Vector3(6.0, 11.0, 3.6)
+	top.transform = Transform3D(Basis.looking_at(Vector3(0, -1, -0.001), Vector3.UP), eye)
+	var near := Camera3D.new()  # lähikuva: televisio, piano ja ikkuna
+	near.fov = 50.0
+	near.cull_mask = Hall.LAYER
+	near.environment = h.cam.environment
+	h.add_child(near)
+	near.transform = Transform3D(Basis.looking_at(Vector3(4.0, 0.8, 0.2) - Vector3(2.6, 1.7, 3.0), Vector3.UP), Vector3(2.6, 1.7, 3.0))
+	var near2 := Camera3D.new()  # lähikuva: ruokapöytä, takka ja kirjahylly
+	near2.fov = 50.0
+	near2.cull_mask = Hall.LAYER
+	near2.environment = h.cam.environment
+	h.add_child(near2)
+	near2.transform = Transform3D(Basis.looking_at(Vector3(10.0, 0.7, 2.5) - Vector3(6.0, 2.2, 6.5), Vector3.UP), Vector3(6.0, 2.2, 6.5))
+	for v in [[h.cam, "peli"], [h.line_cam, "edesta"], [top, "ylhaalta"], [near, "tv"], [near2, "takka"]]:
+		(v[0] as Camera3D).current = true
+		for i in 6:
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_olohuone_%s_%s.png" % [site, v[1]]))
+	h.queue_free()
+	await get_tree().process_frame
