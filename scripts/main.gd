@@ -3816,6 +3816,11 @@ func _pohjoiset_visuals() -> void:
 		h.visible = _between(clock_min, ORAVA_MUMMOT) if h.get_meta("mummo") else _between(clock_min, ORAVA_PERHEET)
 	if world.uimaranta_sinikka != null:
 		world.uimaranta_sinikka.visible = _sinikka_swimming()
+	if world.uimaranta_aurinko != null:
+		var sun := _sinikka_sunbathing()
+		if world.uimaranta_aurinko.visible != sun:
+			world.uimaranta_aurinko.visible = sun
+			world.uimaranta_aurinko.process_mode = Node.PROCESS_MODE_INHERIT if sun else Node.PROCESS_MODE_DISABLED
 	if world.rossi_boys != null:
 		world.rossi_boys.visible = _weekday() >= 5 and _between(clock_min, Vector2(10 * 60, 20 * 60))
 
@@ -3829,6 +3834,28 @@ var _sinikka_tattle_day := -1
 
 func _sinikka_swimming() -> bool:
 	return _between(clock_min, SINIKKA_UINTI) and sinikka != null
+
+
+## Iltapäivällä (12–17) Sinikka ottaa aurinkoa samalla rannalla pyyhkeellä (aurinko_sinikka.gd); pihalla häntä ei
+## silloinkaan näy. Repliikit ja vastaukset ranta_flirtti.gd:ssä.
+const RantaFlirtti := preload("res://scripts/ranta_flirtti.gd")
+const SINIKKA_AURINKO := Vector2(12 * 60, 17 * 60)
+const RANTA_TATTLE_CHANCE := 0.5  # perheet näkivät flirtin: näin usein ne kertovat siitä Päiville (käyttäjän päätös)
+var _ranta_tattle_chance := RANTA_TATTLE_CHANCE  # testi asettaa 1,0 / 0,0
+var _sinikka_flirt_tattle_day := -1
+var _ranta_roll_day := -1  # päivä, jona kantelun arpa jo heitettiin
+var _ranta_noticed := false  # aurinkolasit otsalla ja pää pelaajaan päin (notice), kunnes pelaaja loittonee
+var _ranta_deck: Array = []
+var _ranta_last := -1
+
+
+func _sinikka_sunbathing() -> bool:
+	return _between(clock_min, SINIKKA_AURINKO) and sinikka != null
+
+
+## Pihan Sinikka on poissa: aamulla uimassa, iltapäivällä ottamassa aurinkoa.
+func _sinikka_away() -> bool:
+	return _sinikka_swimming() or _sinikka_sunbathing()
 
 
 ## Sinikka rannalla: näkemisbonus kerran päivässä, jutteleminen (sormuksen voi antaa) ja mummojen kantelu, jos
@@ -3860,6 +3887,193 @@ func _sinikka_beach(e: bool) -> bool:
 			_talk_open("sinikka", world.uimaranta_sinikka, "Huomenta! Mää käyn täällä joka aamu. Älä kerro Päiville, että nähtiin, se on niin mustasukkainen.")
 		return true
 	return false
+
+
+## Aurinkoa ottava Sinikka rannalla: 8 m:n päässä lasit otsalle ja pää pelaajaan päin (kerran lähestymistä kohti),
+## 2,5 m:n päässä juttelu. Palauttaa true, jos vihje asetettiin.
+func _sinikka_sun(e: bool) -> bool:
+	var s: Node3D = world.uimaranta_aurinko
+	if s == null or not _sinikka_sunbathing():
+		_ranta_noticed = false
+		return false
+	var sp: Vector3 = world.uimaranta_aurinko_pos
+	if not _near_xz(sp, 8.0):
+		if _ranta_noticed and not _near_xz(sp, 10.0):
+			_ranta_noticed = false
+			s.relax()
+		return false
+	if not _ranta_noticed:
+		_ranta_noticed = true
+		s.notice("No moi naapuri. Tuu vaan lähemmäs, mää en pure.")
+	if _near_xz(sp, 2.5):
+		_hint.text = "[E] Juttele Sinikan kanssa (ottaa aurinkoa)"
+		if e:
+			_talk_open("sinikka", s, _ranta_line())
+		return true
+	return false
+
+
+## Seuraava repliikki sekoitetusta pakasta (ei toistu ennen kuin pakka on käyty läpi).
+func _ranta_line() -> String:
+	if _ranta_deck.is_empty():
+		_ranta_deck = RantaFlirtti.deck(_ranta_last)
+	_ranta_last = _ranta_deck.pop_front()
+	return RantaFlirtti.LINES[_ranta_last]
+
+
+## Kuinka moni rannan perhe tai mummo näkee (näkyvissä, alle 15 m pelaajasta).
+func _ranta_witnesses() -> int:
+	var n := 0
+	for h in world.uimaranta_people:
+		if h.is_visible_in_tree() and _near_xz(h.global_position, 15.0):
+			n += 1
+	return n
+
+
+## Vastaus rannalla: Sinikka vastaa aina, mittarit kerran päivässä. Flirtti todistajien nähden kantautuu Päiville
+## arvalla (RANTA_TATTLE_CHANCE); kerrotaan aamulla _flowers_morning-rivillä.
+func _ranta_choose(id: String) -> void:
+	var c: Array = RantaFlirtti.CHOICES[id]
+	var info := RantaFlirtti.SPENT
+	if _once_today("ranta_sinikka"):
+		var fx: Dictionary = c[2]
+		for k in fx:
+			tilat.add(k, fx[k])
+		info = "Tilat: %s" % ", ".join(fx.keys().map(func(k): return ("%s %+.2f" % [k, fx[k]]).replace(".", ",")))
+	# Arpa kerran päivässä (ensimmäinen flirtti perheiden nähden), ettei toistaminen varmista kantelua.
+	if id == "ranta_flirtti" and _ranta_roll_day != day and _ranta_witnesses() > 0:
+		_ranta_roll_day = day
+		if randf() < _ranta_tattle_chance:
+			_sinikka_flirt_tattle_day = day
+			info = RantaFlirtti.SEEN
+	_talk_box.reply(c[1], _talk_options(), info)
+
+
+## Testi (--scene=sinikkaranta): aurinkoa ottava Sinikka klo 13. Näkyvyys, vihje, repliikit ilman toistoa (K3),
+## mittarit kerran päivässä (K4), kantelu todistajien kanssa ja ilman (K5), piilossa klo 11 ja 18 (K1), ruutuaika (K7).
+func _sinikka_sun_test(frames: Callable, snap: Callable) -> void:
+	var vika := func(t: String) -> void: print("TESTI VIKA aurinko-Sinikka: " + t)
+	var su: Node3D = world.uimaranta_aurinko
+	if su == null:
+		vika.call("world.uimaranta_aurinko puuttuu")
+		return
+	clock_min = 13 * 60
+	for i in 5:  # näkyvyys _process:ssa ja asento (_place) 0,1 s pelin aikaa myöhemmin
+		await get_tree().process_frame
+	print("AS klo 13: aurinko %s, uinti %s, piha %s" % [su.visible, world.uimaranta_sinikka.visible, sinikka.visible])
+	if not su.visible or world.uimaranta_sinikka.visible or sinikka.visible:
+		vika.call("näkyvyys klo 13")
+	var ap: Vector3 = world.uimaranta_aurinko_pos
+	var side := Vector3(1, 0, 0).rotated(Vector3.UP, su.rotation.y)  # pyyhkeen sivu (paikallinen X)
+	walker_out.global_position = ap + side * 6.0 + Vector3(0, 0.3, 0)
+	await frames.call(10)
+	for i in 3:  # fysiikkaruutuja voi mennä useita yhden piirtoruudun aikana: vihje päivittyy vasta _process:ssa
+		await get_tree().process_frame
+	print("AS 6 m: huomattu %s, vihje '%s'" % [_ranta_noticed, _hint.text])
+	await snap.call("_aurinko_huomaa.png")
+	walker_out.global_position = ap + side * 2.0 + Vector3(0, 0.3, 0)
+	# Pyörä viereen (alle 2,6 m): Sinikan juttelu on tärkeämpi ja voittaa pyörän selkään nousun vihjeen.
+	var bike_was: Vector3 = bike.global_position
+	bike.global_position = ap + side * 3.5 + Vector3(0, 0.5, 0)
+	await frames.call(25)  # siirron jälkeen pelaaja on hetken lyöty (is_stunned), vihje tulee vasta sen jälkeen
+	for i in 3:
+		await get_tree().process_frame
+	print("AS pyörä %.2f m pelaajasta" % walker_out.global_position.distance_to(bike.global_position))
+	print("AS 2 m: vihje '%s', etäisyys %.2f m, korkeus %.2f (maa %.2f), lyöty %s" % [_hint.text,
+		Vector2(player.global_position.x - ap.x, player.global_position.z - ap.z).length(), player.global_position.y, ap.y, player.is_stunned()])
+	if not "Juttele Sinikan" in _hint.text:
+		vika.call("vihje 2 m:ssä puuttuu")
+	bike.global_position = bike_was
+	_ranta_deck.clear()
+	_ranta_last = -1
+	_talk_open("sinikka", su, _ranta_line())
+	var lines: Array = [_talk_box._line]
+	for i in 5:
+		_talk_choose("juttu")
+		lines.append(_talk_box._line)
+	var uniq := {}
+	for l in lines:
+		uniq[l] = true
+	print("AS repliikit %d, eri %d: %s" % [lines.size(), uniq.size(), lines.map(func(l): return (l as String).left(24))])
+	if uniq.size() < lines.size():
+		vika.call("repliikki toistui samalla juttelukerralla")
+	var ids: Array = _talk_options().map(func(o): return o.id)
+	print("AS valinnat: %s" % [ids])
+	for id in RantaFlirtti.CHOICES:
+		if not id in ids:
+			vika.call("valinta %s puuttuu" % id)
+	# K4 + K5 ilman todistajia: perheet piiloon (synkronisesti, _pohjoiset_visuals palauttaa ne seuraavassa ruudussa).
+	for k in ["moraali", "vireys", "stressi"]:
+		tilat.values[k] = 0.0
+	_today.erase("ranta_sinikka")
+	_sinikka_flirt_tattle_day = -1
+	_ranta_roll_day = -1
+	_ranta_tattle_chance = 1.0
+	for h in world.uimaranta_people:
+		h.visible = false
+	print("AS todistajia piilotettuna %d" % _ranta_witnesses())
+	_talk_choose("ranta_flirtti")
+	var m1: float = tilat.values["moraali"]
+	print("AS flirtti 1: moraali %.2f vireys %.2f stressi %.2f, info '%s'" % [m1, tilat.values["vireys"], tilat.values["stressi"], _talk_box._info])
+	if m1 <= 0.0:
+		vika.call("mittarit eivät muuttuneet")
+	_talk_choose("ranta_vitsi")
+	print("AS toinen valinta: moraali %.2f (sama %s), info '%s'" % [tilat.values["moraali"], is_equal_approx(tilat.values["moraali"], m1), _talk_box._info])
+	if not is_equal_approx(tilat.values["moraali"], m1):
+		vika.call("toinen valinta samana päivänä muutti mittareita")
+	print("AS ilman todistajia kantelupäivä %d (päivä %d)" % [_sinikka_flirt_tattle_day, day])
+	if _sinikka_flirt_tattle_day == day:
+		vika.call("kantelu ilman todistajia")
+	_pohjoiset_visuals()
+	var w := _ranta_witnesses()
+	print("AS todistajia näkyvissä %d" % w)
+	if w == 0:
+		vika.call("perheitä ei 15 m:n säteellä (todistajatesti ei kata)")
+	# Arpa 0: todistajat näkivät, mutta eivät kerro.
+	_ranta_roll_day = -1
+	_ranta_tattle_chance = 0.0
+	_talk_choose("ranta_flirtti")
+	print("AS arpa 0: kantelupäivä %d" % _sinikka_flirt_tattle_day)
+	if _sinikka_flirt_tattle_day == day:
+		vika.call("kantelu, vaikka arpa 0")
+	# Arpa 1: kertovat; seuraavana aamuna Päivin rivi.
+	_ranta_roll_day = -1
+	_ranta_tattle_chance = 1.0
+	_talk_choose("ranta_flirtti")
+	print("AS arpa 1: kantelupäivä %d, info '%s'" % [_sinikka_flirt_tattle_day, _talk_box._info])
+	_talk_box.close()
+	_ranta_tattle_chance = RANTA_TATTLE_CHANCE
+	day += 1
+	var morning := _flowers_morning(false)
+	print("AS aamu todistajien jälkeen: rivi %s" % [RantaFlirtti.MORNING in morning])
+	if not RantaFlirtti.MORNING in morning:
+		vika.call("aamurivi puuttuu todistajien jälkeen")
+	day += 1
+	if RantaFlirtti.MORNING in _flowers_morning(false):
+		vika.call("aamurivi ilman uutta flirttiä")
+	# K7: ruutuaika rannalla, aurinko-Sinikka näkyvissä ja piilossa.
+	walker_out.global_position = ap + side * 6.0 + Vector3(0, 0.3, 0)
+	var ms := []
+	for c in [13 * 60, 11 * 60 + 59]:  # 11.59: sama valo, mutta Sinikka piilossa (_pohjoiset_visuals)
+		clock_min = c
+		await frames.call(8)
+		var t0 := Time.get_ticks_usec()
+		for i in 12:  # testipiirrossa ruutu voi kestää sekunteja: 12 ruutua riittää keskiarvoon
+			await get_tree().process_frame
+		ms.append((Time.get_ticks_usec() - t0) / 12000.0)
+	print("AS ruutu rannalla %.1f ms (Sinikka piilossa %.1f ms)" % [ms[0], ms[1]])
+	# Testiajon ruutu on ohjelmistopiirron takia satoja ms; vika, jos Sinikka hidastaa yli 10 % (16,7 ms tavoite pelikoneella).
+	if ms[0] > ms[1] * 1.1:
+		vika.call("ruutu %.1f ms, Sinikka hidastaa yli 10 %%" % ms[0])
+	for c in [11, 18]:
+		clock_min = c * 60
+		await frames.call(5)
+		for i in 3:
+			await get_tree().process_frame
+		print("AS klo %d: aurinko %s" % [c, su.visible])
+		if su.visible:
+			vika.call("näkyy klo %d" % c)
+	print("AS valmis")
 
 
 func _orava_families() -> bool:
@@ -3973,6 +4187,8 @@ func _uimaranta_logic(e: bool) -> void:
 		return
 	tilat.first("oravajarvi", 0.1)
 	if _sinikka_beach(e):
+		return
+	if _sinikka_sun(e):
 		return
 	if _near_xz(world.uimaranta_pos, 4.0):
 		_hint.text = "[E] Uimaan: Oravajärvi"
@@ -5140,6 +5356,10 @@ func _flowers_morning(at_m: bool) -> String:
 	if _sinikka_tattle_day == prev:
 		tilat.add("stressi", -0.15)
 		out += "\nMummot soitti. Mitä sää Oravajärvellä aamulla tuijottelit? Sinikkaa vai?"
+	if _sinikka_flirt_tattle_day == prev:
+		tilat.add("stressi", -0.2)
+		tilat.add("moraali", -0.1)
+		out += "\n" + RantaFlirtti.MORNING
 	if _has_sammutin and not ("sammutin_paivi" in tilat.firsts):
 		tilat.first("sammutin_paivi", 0.0)
 		tilat.add("stressi", 0.1)
@@ -12786,6 +13006,9 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("huuto", "Huutamaan: %s (lähtö %s €)" % [lot.name, _eur(lot.start)], money >= lot.start - 0.001,
 					"rahat ei riitä lähtöhintaan (%s €)" % _eur(lot.start), true))
 		"sinikka":
+			if _talk_node != null and _talk_node == world.uimaranta_aurinko:
+				for id in RantaFlirtti.CHOICES:
+					o.append(_opt(id, RantaFlirtti.CHOICES[id][0], true, "", id == "ranta_flirtti"))
 			if not kanttori.heard:
 				o.append(_opt("kanttori_legenda", "Kuuluuko Kanttorilasta öisin jotain?", true, "", true))
 			elif kanttori.nuotit() and kanttori.choice == "":
@@ -13038,6 +13261,9 @@ func _talk_choose(id: String) -> void:
 		return
 	if id.begins_with("kolmio_"):
 		_kolmio_choose(id)
+		return
+	if id.begins_with("ranta_"):
+		_ranta_choose(id)
 		return
 	if id == "juttu":
 		var line := _talk_chat_line()
@@ -13453,6 +13679,8 @@ func _note_places(line: String) -> String:
 func _talk_chat_line() -> String:
 	if _talk_who.begins_with("kolmio_"):
 		return (Kolmio.LINES[_talk_who.substr(7)] as Array).pick_random()
+	if _talk_node != null and _talk_node == world.uimaranta_aurinko:
+		return _ranta_line()  # rannalla vain Sinikan omat repliikit (ei tarinavihjeitä väliin, K3)
 	var sh := _story_hint(_talk_who, false)
 	if sh != "":
 		return sh
@@ -20978,7 +21206,7 @@ func _day_rhythm() -> void:
 	# Naapurit yöllä sisällä (piilossa ovella), aamulla taas pihalla.
 	var inside := _between(t, NEIGHBORS_INSIDE)
 	for n in [arto, pekka, sinikka]:
-		var away: bool = inside or (n == sinikka and _sinikka_swimming())
+		var away: bool = inside or (n == sinikka and _sinikka_away())
 		if n != null and n.visible == away:
 			n.visible = not away
 			n.process_mode = Node.PROCESS_MODE_DISABLED if away else Node.PROCESS_MODE_INHERIT
@@ -29739,6 +29967,11 @@ func _maybe_screenshot() -> void:
 			var frames := func(n: int) -> void:
 				for i in n:
 					await get_tree().physics_frame
+			# Pelin aikaan sidotut odotukset ruutuina: hitaassa testipiirrossa (0,5-3,5 s/ruutu) prosessiaskel on enintään
+			# 8 fysiikka-askelta (0,13 s), joten create_timer(1.5) venyi 30-40 sekuntiin ja ajo aikarajaan (600 s).
+			var ticks := func(n: int) -> void:
+				for i in n:
+					await get_tree().process_frame
 			var snap := func(name: String) -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
@@ -29748,7 +29981,7 @@ func _maybe_screenshot() -> void:
 				if is_instance_valid(boys):
 					boys.queue_free()
 				var ok := _spawn_boys()
-				await get_tree().create_timer(1.5).timeout
+				await ticks.call(3)
 				print("SR päivä %d: pojat %s kentällä '%s', Saloisten pojat näkyy %s, Honganpalon %s" % [d, ok, _boys_field,
 					world.kentta_kids[0].visible, world.hongan_kids[0].visible])
 			day = 2
@@ -29760,12 +29993,13 @@ func _maybe_screenshot() -> void:
 			clock_min = 8 * 60 + 30
 			_sinikka_seen_day = -1
 			_sinikka_tattle_day = -1
-			await get_tree().create_timer(1.5).timeout
+			await ticks.call(3)
 			print("SR pihan Sinikka näkyy %s, rannan Sinikka näkyy %s" % [sinikka.visible, world.uimaranta_sinikka.visible])
 			var sp: Vector3 = world.uimaranta_sinikka_pos
 			var m0: float = tilat.values.get("moraali", 0.0)
 			walker_out.global_position = sp + Vector3(1.5, 0.3, 0)
 			await frames.call(5)
+			await ticks.call(3)
 			print("SR bonus: moraali %.2f -> %.2f, '%s', vihje '%s'" % [m0, tilat.values.get("moraali", 0.0), _msg.text.left(50), _hint.text])
 			var dir3 := Vector3(M.UIMARANTA_DIR.x, 0, M.UIMARANTA_DIR.y)
 			var oc := Camera3D.new()
@@ -29776,7 +30010,12 @@ func _maybe_screenshot() -> void:
 			await snap.call("_sinikka.png")
 			oc.current = false
 			player.activate_camera()
-			await get_tree().create_timer(9.0).timeout
+			# Tuijotus kertyy pelin ajassa (yli 8 s): testi aloittaa 7,5 s:sta ja odottaa korkeintaan 30 ruutua.
+			_sinikka_stare_t = 7.5
+			for i in 30:
+				await get_tree().process_frame
+				if _sinikka_tattle_day == day:
+					break
 			print("SR kantelu päivä %d" % _sinikka_tattle_day)
 			_orava_finds = ["aurinkolasit", "nokia", "sormus"]
 			_sormus_given = false
@@ -29784,8 +30023,9 @@ func _maybe_screenshot() -> void:
 			day += 1
 			print("SR aamu: '%s'" % _flowers_morning(false).strip_edges().left(70))
 			clock_min = 11 * 60
-			await get_tree().create_timer(1.5).timeout
+			await ticks.call(3)
 			print("SR klo 11: pihan Sinikka %s, rannan %s" % [sinikka.visible, world.uimaranta_sinikka.visible])
+			await _sinikka_sun_test(frames, snap)
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
 		"turvapaikat":
@@ -34355,7 +34595,7 @@ func _maybe_screenshot() -> void:
 				Input.action_release("interact")
 				for i in 5:
 					await get_tree().process_frame
-			clock_min = 12 * 60  # aamulla (8–10) Sinikka on uimassa Oravajärvellä, ei pihalla
+			clock_min = 11 * 60  # aamulla (8–10) Sinikka on uimassa ja iltapäivällä (12–17) rannalla, ei pihalla
 			for i in 5:
 				await get_tree().process_frame
 			sinikka.set_physics_process(false)

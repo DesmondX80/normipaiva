@@ -174,6 +174,12 @@ static func sinikka_bikini() -> Dictionary:
 		look.erase(k)
 	return look
 
+## Sinikka ottaa aurinkoa rannalla (aurinko_sinikka.gd): samat bikinit kuin uidessa, olkihattu hiekalla eikä päässä.
+static func sinikka_aurinko() -> Dictionary:
+	var look := sinikka_bikini()
+	look["glam_hat"] = false
+	return look
+
 ## Mirkku Saloisten luontopolulla (laavupolku, main.gd): punertavan vaaleat hiukset kammattu sivulle paksuksi
 ## palmikoksi oikean olan yli rinnalle (add_braid), pisamainen vaalea iho, valkoinen väljä paita ja farkut.
 const MIRKKU := {
@@ -316,12 +322,14 @@ static func add_glam(c: Node3D, with_hat := true) -> void:
 		hat.set_meta("hattu", true)  # leveä lierihattu: Contact.fit_back saa kallistaa sitä nojaa vasten (lasit ja korut eivät)
 		c.attach("Head", hat, Vector3(0, 0.15, -0.01))
 	var shades := Node3D.new()
+	shades.name = "Aurinkolasit"  # aurinko_sinikka.gd nostaa lasit otsalle
 	var dark := Color(0.04, 0.03, 0.03)
 	for s in [-1.0, 1.0]:
 		B.mesh(shades, B.sphere(0.5, 12), Vector3(s * 0.037, 0, 0), dark).scale = Vector3(0.066, 0.052, 0.02)
-		B.mesh(shades, B.boxm(Vector3(0.006, 0.006, 0.09)), Vector3(s * 0.07, 0.008, -0.045), Color(0.85, 0.7, 0.3))
-	B.mesh(shades, B.boxm(Vector3(0.018, 0.005, 0.005)), Vector3(0, 0.012, 0), Color(0.85, 0.7, 0.3))
-	c.attach("Head", shades, Vector3(0, 0.07, 0.105))
+		B.mesh(shades, B.sphere(0.5, 12), Vector3(s * 0.037, 0, 0.002), Color(0.85, 0.7, 0.3)).scale = Vector3(0.073, 0.059, 0.016)  # kehys linssin takana
+		B.mesh(shades, B.boxm(Vector3(0.006, 0.006, 0.09)), Vector3(s * 0.07, 0.008, 0.045), Color(0.85, 0.7, 0.3))  # sanka korvalle
+	B.mesh(shades, B.boxm(Vector3(0.05, 0.004, 0.005)), Vector3(0, 0.02, -0.014), Color(0.85, 0.7, 0.3))  # silta nenänvarren edessä, päät linssien päällä
+	c.attach("Head", shades, Vector3(0, 0.098, -0.092))  # kasvot -Z:ssa (kuten parta); linssit silmien kohdalla (0,07 jäi poskille)
 	for s in [-1.0, 1.0]:
 		var ring := MeshInstance3D.new()
 		var tm := TorusMesh.new()

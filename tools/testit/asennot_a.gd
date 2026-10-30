@@ -37,6 +37,7 @@ func run() -> void:
 	cam.fov = 40.0
 	await _mummot(room, cam, out)
 	cam.reparent(main)
+	await _aurinko(cam, out)
 	await _kylä(cam, out)
 	print("ASENTO osa A kuvat: ", ProjectSettings.globalize_path(out))
 
@@ -145,3 +146,44 @@ func _kylä(cam: Camera3D, out: String) -> void:
 						c.visible = false
 				bad += await _world_view(cam, out, "taksi_ilman_%d" % k, found[k], 1.8)
 	print("ASENTO kylä yhteensä virheitä: ", bad)
+
+
+## Oravajärven rannalla aurinkoa ottava Sinikka klo 13 (aurinko_sinikka.gd): kuvat, läpimenot (K9) ja etäisyydet
+## rannan kalusteisiin ja perheisiin (K14: pyyhkeen ja hatun reunasta vähintään 1 m).
+func _aurinko(cam: Camera3D, out: String) -> void:
+	var world: Node3D = main.world
+	var a: Node3D = world.uimaranta_aurinko
+	if a == null:
+		print("TESTI VIKA aurinko-Sinikkaa ei ole (world.uimaranta_aurinko)")
+		return
+	main.clock_min = 13 * 60
+	a.visible = true  # näkyvyys on main.gd:ssä (osa B); varmistetaan tässä
+	cam.current = true
+	main.player.global_position = a.global_position + Vector3(4, 1, 4)
+	for i in 30:
+		await main.get_tree().process_frame
+	print("ASENTO aurinko: asetettu ", a.placed)
+	var p: Vector3 = a.global_position
+	var Tr := preload("res://scripts/terrain.gd")
+	print("ASENTO aurinko: maaston korkeus T.h %.3f, asetelman nosto %.3f (pyyhkeen pinta +0,08, hiekka +0,065), sijainti %s" % [Tr.h(p.x, p.z), a.position.y - Tr.h(p.x, p.z), p])
+	var bad: int = Asento.solids(a.body, main.world, 1.0)
+	print("ASENTO aurinko: läpimenotarkistus tehty")
+	var front: Vector3 = a.global_basis.x
+	await Asento.views(cam, out, "aurinko", p + Vector3(0, 0.3, 0), 2.6, front, false)
+	await Asento.views(cam, out, "aurinko_ymparisto", p + Vector3(0, 0.5, 0), 12.0, front, false)
+	var M := preload("res://scripts/map_data.gd")
+	var bp: Vector2 = M.w2(M.UIMARANTA)
+	var dir: Vector2 = M.UIMARANTA_DIR
+	var side := dir.orthogonal()
+	var hut: Vector2 = bp - dir * 15.0 - side * 9.0
+	var dock: Vector2 = bp + side * 6.0
+	var things := [["penkki", world.uimaranta_bench, 1.0], ["grilli", world.grilli_ranta_pos, 1.0],
+		["laituri", Vector3(dock.x, 0, dock.y), 1.0], ["huussi", Vector3(hut.x, 0, hut.y), 1.0]]
+	for h: Node3D in world.uimaranta_people:
+		things.append(["perhe_%d" % world.uimaranta_people.find(h), h.global_position, 1.0])
+	for t in things:
+		var c: Vector3 = t[1]
+		var d := Vector2(c.x - p.x, c.z - p.z).length() - 1.3 - (t[2] as float)  # 1,3 = pyyhkeen puolipituus ja hattu, t[2] = kohteen säde
+		print("ASENTO aurinko etäisyys %s %.2f m %s" % [t[0], d, "OK" if d >= 1.0 else "TESTI VIKA liian lähellä"])
+	print("ASENTO aurinko läpimenoja: ", bad)
+	a.visible = false
