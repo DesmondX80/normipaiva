@@ -1,11 +1,16 @@
 extends Node
 ## Kolmiomittauksen (#255) piirretyt kohtaukset ja Sytkäri kuvina ilman pelimaailmaa: ovi Saloisissa (lahjat
 ## ojennettu) ja Vaalassa, väärä ovi (mummo keppi ylhäällä, pieni poika), aamu kummassakin, Sytkärin kortti, mätsi ja
-## mittaus kummallekin naiselle. Hahmot ovat 3D-hahmoja (Looks.make) kohtausten omissa lavastuksissa.
+## mittaus kummallekin naiselle. Hahmot ovat 3D-hahmoja (Looks.make) kohtausten omissa lavastuksissa. Jokaisen
+## kohtauksen hahmoille ja Jonin rinkalle ajetaan läpimenotarkistus (Asento.solids, "LÄPI … -> …" = VIKA).
 ## tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn
 const K := preload("res://scripts/kolmio_kohtaus.gd")
 const S := preload("res://scripts/sytkari.gd")
 const Kolmio := preload("res://scripts/kolmiomittaus.gd")
+const Looks := preload("res://scripts/looks.gd")
+const Hall := preload("res://scripts/rasvanappi_hall.gd")
+const Asento := preload("res://tools/testit/asento.gd")
+const Rasva := preload("res://scripts/rasvanappi_game.gd")
 
 var out := "user://kolmio_kuvat"
 var root: Node
@@ -24,6 +29,8 @@ func _shot(node: Node, nm: String, top := false) -> void:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % nm))
+	if node.get_script() == K:  # Sytkärin kuvastudiot ovat erillisissä maailmoissa samoissa koordinaateissa
+		_lapi(node, nm)
 	if top and "_cam_base" in node:
 		# Ylhäältä: oven aukeamissuunta, hahmojen paikat ja läpimenot (CLAUDE.md: asetelmasta kuva ylhäältä).
 		node._cam_base = Transform3D(Basis.looking_at(Vector3(0, -1, -0.01), Vector3.UP), Vector3(0, 7.5, 0.8))
@@ -33,6 +40,40 @@ func _shot(node: Node, nm: String, top := false) -> void:
 		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s_ylhaalta.png" % nm))
 	node.queue_free()
 	await get_tree().process_frame
+
+## Läpimenotarkistus (CLAUDE.md, Asento.solids): jokainen kohtauksen hahmo lahjoja, ovea, kaidetta, pöytää, lattiaa
+## ja toisia hahmoja vasten. Löydökset tulostuvat "LÄPI … -> …" -riveinä, ja aja.sh merkitsee ajon VIAKSI.
+func _lapi(node: Node, nm: String) -> void:
+	var list := []
+	Asento._chars(node, list)
+	var bad := 0
+	for c: Node3D in list:
+		if c.is_visible_in_tree():
+			bad += Asento.solids(c, c.get_parent() as Node3D)
+	print("KOLMIO läpimenot %s: %d hahmoa, %d läpimenoa" % [nm, list.size(), bad])
+
+
+## Lahjojen pitely lähikuvina (Vaalassa kaikki kolme kantavat): edestä ja sivulta kunkin lahjan kohdalta.
+func _holders() -> void:
+	var ui = _scene("ovi", "vaala", func(u): pass)
+	ui._line = 0; ui._given = 0; ui._door = 0.0; ui._door_to = 0.0; ui._line_t = 9.0
+	for i in 12:
+		await get_tree().process_frame
+	for nimi: String in ui._props:
+		var prop: Node3D = ui._props[nimi]
+		var ch: Node3D = ui._people[nimi]
+		var c := prop.global_position + Vector3(0, 0.08, 0)
+		var fwd := -ch.global_basis.z
+		for v in [["edesta", fwd * 0.75 + Vector3(0, 0.12, 0)], ["sivulta", ch.global_basis.x * 0.6 + fwd * 0.2 + Vector3(0, 0.25, 0)]]:
+			var eye: Vector3 = c + v[1]
+			ui._cam_base = Transform3D(Basis.looking_at(c - eye, Vector3.UP), eye)
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(out.path_join("kuva_pitely_%s_%s.png" % [nimi.replace(" ", "_"), v[0]]))
+	ui.queue_free()
+	await get_tree().process_frame
+
 
 func _scene(mode: String, site: String, setup: Callable) -> Node:
 	var ui = K.new()
@@ -55,9 +96,13 @@ func _run() -> void:
 	ui = _scene("ovi", "vaala", func(u): pass)
 	ui._line = 1; ui._given = 0; ui._door = 1.0; ui._door_to = 1.0; ui._line_t = 9.0
 	await _shot(ui, "ovi_vaala")
+	await _holders()
 	ui = _scene("vaara", "saloinen", func(u): u.resident = Kolmio.WRONG_DOORS.saloinen[0])
 	ui._line = 2; ui._door = 1.0; ui._door_to = 1.0; ui._line_t = 9.0
 	await _shot(ui, "vaara_mummo")
+	ui = _scene("vaara", "saloinen", func(u): u.resident = Kolmio.WRONG_DOORS.saloinen[0])
+	ui._line = 0; ui._door = 1.0; ui._door_to = 1.0; ui._line_t = 9.0
+	await _shot(ui, "vaara_mummo_keppi_alas")
 	ui = _scene("vaara", "saloinen", func(u): u.resident = Kolmio.WRONG_DOORS.saloinen[2])
 	ui._line = 1; ui._door = 1.0; ui._door_to = 1.0; ui._line_t = 9.0
 	await _shot(ui, "vaara_poika")
@@ -89,4 +134,109 @@ func _run() -> void:
 				sy.set_process(false)
 				sy._view.queue_redraw()
 				await _shot(sy, "syt_matsi_%s" % site)
+	await _rinkka()
+	for site in ["saloinen", "vaala"]:
+		await _olohuone(site)
 	get_tree().quit()
+
+
+## Jonin Sandels-päkkirinkka, Mintun kiharat ja väärän oven mummon kampaus 3D:nä: takaa, sivulta, ylhäältä ja rajattuna lähikuvana (logo, muotokuva, jesarit).
+func _rinkka() -> void:
+	var w := Node3D.new()
+	add_child(w)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.55, 0.62, 0.7)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.9, 0.9, 0.95)
+	env.ambient_light_energy = 0.6
+	var we := WorldEnvironment.new()
+	we.environment = env
+	w.add_child(we)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-35, 150, 0)
+	w.add_child(sun)
+	var joni: Node3D = Looks.make(w, Looks.JONI)
+	joni.play("Idle", 0.0)
+	var minttu: Node3D = Looks.make(w, Looks.MINTTU)  # kiharat: kuvat kolmesta suunnasta ja kasvot
+	minttu.position = Vector3(4, 0, 0)
+	minttu.play("Idle", 0.0)
+	var mummo: Node3D = Looks.make(w, K.RESIDENTS["Mummo kepin kanssa"])  # väärän oven mummo: permanentti ja lasit
+	mummo.position = Vector3(-4, 0, 0)
+	mummo.play("Idle", 0.0)
+	for i in 8:
+		await get_tree().process_frame
+	# Rinkka ja hihnat Jonin vartaloa vasten: Asento.solids ohittaa hahmon omat lapset, joten pakkaus siirretään
+	# hetkeksi maailmaan samaan paikkaan.
+	var pack: Node3D = null
+	for n in joni.find_children("*", "Node3D", true, false):
+		if n.get_child_count() > 20 and not n.has_method("bone_position") and not n is Skeleton3D:
+			pack = n
+			break
+	if pack == null:
+		print("TESTI VIKA rinkkaa ei löytynyt Jonista")
+	else:
+		var xf := pack.global_transform
+		var par := pack.get_parent()
+		par.remove_child(pack)
+		w.add_child(pack)
+		pack.global_transform = xf
+		print("KOLMIO läpimenot rinkka: %d" % Asento.solids(joni, w, 1.0))
+		w.remove_child(pack)
+		par.add_child(pack)
+		pack.global_transform = xf
+	var cam := Camera3D.new()
+	cam.fov = 40.0
+	w.add_child(cam)
+	cam.current = true
+	for v in [["rinkka_takaa", Vector3(0.3, 1.5, 1.8), Vector3(0, 1.2, 0)], ["rinkka_sivulta", Vector3(1.6, 1.4, 0.4), Vector3(0, 1.25, 0.1)],
+			["rinkka_ylhaalta", Vector3(0.0, 3.0, 0.35), Vector3(0, 1.2, 0.15)], ["rinkka_lahelta", Vector3(0.05, 1.3, 0.75), Vector3(0, 1.22, 0.2)],
+			["minttu_edesta", Vector3(4.1, 1.55, -1.1), Vector3(4, 1.45, 0)], ["minttu_kasvot", Vector3(4.05, 1.58, -0.6), Vector3(4, 1.53, 0)],
+			["minttu_sivulta", Vector3(5.1, 1.55, 0.0), Vector3(4, 1.45, 0)], ["minttu_takaa", Vector3(4.1, 1.6, 1.1), Vector3(4, 1.45, 0)],
+			["mummo_kasvot", Vector3(-3.95, 1.4, -0.6), Vector3(-4, 1.36, 0)], ["mummo_sivulta", Vector3(-3.0, 1.35, 0.0), Vector3(-4, 1.3, 0)],
+			["mummo_takaa", Vector3(-3.9, 1.45, 0.9), Vector3(-4, 1.3, 0)]]:
+		cam.look_at_from_position(v[1], v[2])
+		for i in 8:
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % v[0]))
+	w.queue_free()
+
+
+## Naisen olohuone (rasvanappi_hall.gd _build_living) valot päällä: pelikamera, esittelykamera ja ylhäältä.
+func _olohuone(site: String) -> void:
+	var h = Hall.new()
+	h.room = Rasva.ROOM
+	h.door_y = Rasva.DOOR_Y
+	h.style = Kolmio.RASVA_RULES[site].style
+	add_child(h)
+	h.build(Rasva.OBST, [], {}, null)
+	h.set_lit(1.0)
+	h.set_sight(Vector2(1.5, Rasva.DOOR_Y), 2.0)
+	var top := Camera3D.new()
+	top.fov = 50.0
+	top.cull_mask = Hall.LAYER
+	top.environment = h.cam.environment
+	h.add_child(top)
+	var eye := Vector3(6.0, 11.0, 3.6)
+	top.transform = Transform3D(Basis.looking_at(Vector3(0, -1, -0.001), Vector3.UP), eye)
+	var near := Camera3D.new()  # lähikuva: televisio, piano ja ikkuna
+	near.fov = 50.0
+	near.cull_mask = Hall.LAYER
+	near.environment = h.cam.environment
+	h.add_child(near)
+	near.transform = Transform3D(Basis.looking_at(Vector3(4.0, 0.8, 0.2) - Vector3(2.6, 1.7, 3.0), Vector3.UP), Vector3(2.6, 1.7, 3.0))
+	var near2 := Camera3D.new()  # lähikuva: ruokapöytä, takka ja kirjahylly
+	near2.fov = 50.0
+	near2.cull_mask = Hall.LAYER
+	near2.environment = h.cam.environment
+	h.add_child(near2)
+	near2.transform = Transform3D(Basis.looking_at(Vector3(10.0, 0.7, 2.5) - Vector3(6.0, 2.2, 6.5), Vector3.UP), Vector3(6.0, 2.2, 6.5))
+	for v in [[h.cam, "peli"], [h.line_cam, "edesta"], [top, "ylhaalta"], [near, "tv"], [near2, "takka"]]:
+		(v[0] as Camera3D).current = true
+		for i in 6:
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_olohuone_%s_%s.png" % [site, v[1]]))
+	h.queue_free()
+	await get_tree().process_frame

@@ -209,6 +209,9 @@ func _run_saloinen() -> void:
 	var me := t + Vector2(180, -60)
 	w.global_position = Vector3(me.x, Terrain.h(me.x, me.y) + 0.4, me.y)
 	await _frames(10)
+	await _check_follow([main._kolmio_joni, main._kolmio_esa], w, "saloinen")
+	w.global_position = Vector3(me.x, Terrain.h(me.x, me.y) + 0.4, me.y)
+	await _frames(10)
 	print("KOLMIO mittausvihje '%s'" % main._hint.text)
 	main._kolmio_measure("saloinen", me)
 	await _frames(70)
@@ -340,6 +343,86 @@ func _doors_and_evening(s: String) -> void:
 	print("KOLMIO maidoton kotiinpaluu: '%s'" % main._msg.text)
 
 
+## Kaverit pelaajan perässä (villager.gd follow): kaukaa (pyöräily) suoraan perään, sitten 10 m kävely, jonka
+## perään kaverit kävelevät; kuva pelaajan kamerasta.
+func _check_follow(npcs: Array, w: Node3D, site: String) -> void:
+	await _frames(20)
+	for v: Node3D in npcs:
+		print("KOLMIO %s seuraa: %s, etäisyys %.1f m" % [v.display_name, v.follow != null, v.global_position.distance_to(w.global_position)])
+		if v.follow == null or v.global_position.distance_to(w.global_position) > 12.0:
+			_vika("%s ei seuraa pelaajaa (%s)" % [v.display_name, site])
+	var p0 := w.global_position
+	w.global_position = p0 + Vector3(10, 0, 0)
+	await _frames(240)
+	for v: Node3D in npcs:
+		var d := v.global_position.distance_to(w.global_position)
+		print("KOLMIO %s 10 m kävelyn jälkeen %.1f m päässä (rako %.1f)" % [v.display_name, d, v.gap])
+		if d > v.gap + 1.5:
+			_vika("%s jäi jälkeen (%.1f m)" % [v.display_name, d])
+	if site == "vaala":
+		var car: Vector3 = main._kolmio_civic.global_position
+		for v: Node3D in npcs:
+			var dc := Vector2(v.global_position.x - car.x, v.global_position.z - car.z).length()
+			print("KOLMIO %s Siviikin keskeltä %.1f m" % [v.display_name, dc])
+			if dc < 2.4:
+				_vika("%s kävelee Siviikin läpi" % v.display_name)
+	var cam := _cam_at(w.global_position + Vector3(4, 3, 6), w.global_position + Vector3(0, 0.9, 0))
+	await _snap("_kaverit_mukana")
+	cam.queue_free()
+
+
+## Siviikki-ajo: Teron ja Timon juttelusta kyytiin, ajo Timon mittauspisteeseen (Timo mittaa) ja takaisin asemalle.
+func _siviikki() -> void:
+	var route: PackedVector3Array = main._kolmio_vaala_spots.get("route", PackedVector3Array())
+	var t: Vector2 = main._kolmio_target("vaala")
+	var rp: Vector2 = main._kolmio_vaala_spots.remote
+	print("KOLMIO Siviikin reitti %d pistettä, %.0f m, pihasta tielle %.0f m, mittauspiste %s (%s) %.0f m Katjasta" % [route.size(),
+		main._kolmio_route_len(route), route[0].distance_to(route[1]) if route.size() > 1 else -1.0, rp,
+		main._kolmio_vaala_spots.remote_name, rp.distance_to(t)])
+	if route.size() < 2:
+		_vika("Siviikin reittiä ei löytynyt")
+		return
+	main._on_vaala_door("kolmio_kaverit")
+	await _frames(5)
+	var opts := str(main._talk_options())
+	if not opts.contains("kolmio_siviikki"):
+		_vika("Siviikki-vaihtoehto puuttuu: %s" % opts)
+	main._talk_choose("kolmio_siviikki")
+	await _frames(30)
+	if main._kolmio_drive.is_empty():
+		_vika("Siviikki-ajo ei alkanut")
+		return
+	await _snap("_siviikki_lahto")
+	main._kolmio_drive.d = 80.0  # nurmikolla aseman pihan ja Vaalantien välissä
+	await _frames(30)
+	await _snap("_siviikki_nurmikko")
+	main._kolmio_drive.d = main._kolmio_drive.len * 0.5
+	main._kolmio_drive.v = 20.0
+	await _frames(40)
+	await _snap("_siviikki_ajo")
+	var n0: int = (main.kolmio.st("vaala").rings as Array).size()
+	main._kolmio_drive.d = main._kolmio_drive.len
+	await _frames(10)
+	var rings: Array = main.kolmio.st("vaala").rings
+	print("KOLMIO Siviikki perillä: ympyröitä %d -> %d, Timo mitannut %s, viesti '%s'" % [n0, rings.size(), main.kolmio.remote_done("vaala"), main._msg.text])
+	if not main.kolmio.remote_done("vaala"):
+		_vika("Timo ei mitannut Siviikki-ajolla")
+	await _snap("_siviikki_perilla")
+	main._kolmio_drive.d = main._kolmio_drive.len
+	await _frames(20)
+	if not main._kolmio_drive.is_empty() or not main.mopo_trip.on_foot.visible or main.mopo_trip.menu_open:
+		_vika("Siviikki-ajo ei päättynyt asemalle")
+	opts = ""
+	main._on_vaala_door("kolmio_kaverit")
+	await _frames(5)
+	opts = str(main._talk_options())
+	main._talk_box.close()
+	if opts.contains("kolmio_siviikki"):
+		_vika("Siviikki-vaihtoehto jäi Timon mittauksen jälkeen")
+	await _frames(10)
+	await _check_follow(main._kolmio_vaala_npcs, main.mopo_trip.on_foot, "vaala")
+
+
 func _run_vaala() -> void:
 	if main.player != main.walker_out:
 		main._toggle_mount()
@@ -361,7 +444,7 @@ func _run_vaala() -> void:
 	var t: Vector2 = main._kolmio_target("vaala")
 	var st: Vector2 = main._kolmio_vaala_spots.start
 	print("KOLMIO Katjan ovi %s, asemalta %.0f m, Veturitallilta %.0f m" % [t, st.distance_to(t),
-		(main._kolmio_vaala_spots.remote as Vector2).distance_to(t)])
+		(main._kolmio_vaala_spots.remote as Vector2).distance_to(t)])  # Timon mittauspiste (Siviikki-ajo)
 	var tero: Node3D = main._kolmio_vaala_npcs[0]
 	var cam := _cam_at(tero.global_position + Vector3(6, 2.5, 7), tero.global_position + Vector3(1.5, 0.9, 0))
 	await _snap("_kaverit")
@@ -391,8 +474,7 @@ func _run_vaala() -> void:
 	await _frames(150)
 	await _snap("_sytkari_matsi")
 	await _close_phone()
-	main.kolmio.st("vaala").remote_t = 0.05
-	await _frames(20)
+	await _siviikki()
 	var me := t + Vector2(-150, 90)
 	main._kolmio_measure("vaala", me)
 	await _frames(70)

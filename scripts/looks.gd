@@ -262,10 +262,12 @@ const KATJA := {
 	"shoes": Color(0.04, 0.04, 0.04), "hair": "Hair_Long", "hair_color": Color(0.03, 0.025, 0.03), "height": 1.75,
 	"skin": Color(0.98, 0.86, 0.78), "curves": 1.0, "bust": 2.7, "long_hair": true,
 }
-## Sandels-päkkirinkan värit (pahvilaatikko). Esikuvaa ei saatu tarkistettua: säädä tästä, kun kuva on katsottu.
-const SANDELS_BOX := Color(0.12, 0.28, 0.62)
-const SANDELS_TEXT := Color(0.98, 0.95, 0.85)
-const SANDELS_GOLD := Color(0.86, 0.7, 0.3)
+## Sandels-päkkirinkan värit esikuvan (Sandels 4,7 % 24-pakkaus, käyttäjän kuva) mukaan: kermanvalkoinen pahvi,
+## mustat kaiverrusviivat (kenraalin muotokuva, kirkko, kuusimetsä, pelto) ja oliivinkultainen "Sandels" mustin
+## ääriviivoin. Pakkauksen taidetta ei käytetä kuvana: ulkonäkö on mallinnettu.
+const SANDELS_BOX := Color(0.95, 0.9, 0.72)
+const SANDELS_INK := Color(0.08, 0.07, 0.05)
+const SANDELS_GOLD := Color(0.62, 0.58, 0.2)
 const JESARI := Color(0.66, 0.68, 0.7)
 
 
@@ -292,6 +294,10 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 		add_long_hair(c, look.get("hair_color", Color(0.05, 0.04, 0.05)))
 	if look.has("skirt"):
 		add_skirt(c, look.skirt)
+	if look.has("perm_col"):
+		add_perm(c, look.perm_col, float(look.get("height", 1.8)) / 1.8)
+	if look.get("round_glasses", false):
+		add_round_glasses(c, float(look.get("height", 1.8)) / 1.8)
 	if look.get("sandels", false):
 		add_sandels_rinkka(c)
 	return c
@@ -371,51 +377,71 @@ static func add_braid(c: Node3D, col: Color) -> void:
 	c.attach("spine_03", braid, head - chest)
 
 
-## Kiharat (Minttu): pienet tiheät kiharat pitkien hiusten päällä kalotilla (kasvot -Z ja korvien edusta vapaana) ja
-## niskasta ja ohimoilta olkapäille valuvat korkkiruuvikiharat, kukin pienistä palloista ketjuna. Kuten mummojen
-## permanentti (mummot.gd _perm), mutta pienemmät kiharat ja pitkät suortuvat. Mitat hahmon avaruudessa pääluusta.
+## Kiharat (Minttu): yhtenäiset suortuvat putkina (ei palloja): kukin lähtee päälaelta, kulkee kallon pintaa
+## myöten aaltoillen taakse tai sivulle ja jatkuu korkkiruuvikiharana hartioille ja lapaluille. Kasvojen puoli (-Z)
+## jää vapaaksi (otsalla polkkamallin Hair_Long hiukset). Kiiltävä materiaali, suortuvittain värivaihtelu.
+## Mitat hahmon avaruudessa pääluusta.
 static func add_curls(c: Node3D, col: Color) -> void:
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = true
-	var sm := SphereMesh.new()
-	sm.radius = 0.016
-	sm.height = 0.032
-	sm.radial_segments = 8
-	sm.rings = 5
-	mm.mesh = sm
-	var pts: Array[Vector3] = []
-	var n := 360
-	for i in n:  # kalotti: vain otsan yläpuolelta ja takaa
-		var y := 1.0 - 2.0 * (i + 0.5) / n
-		var rr := sqrt(1.0 - y * y)
-		var th := PI * (3.0 - sqrt(5.0)) * i
-		var d := Vector3(cos(th) * rr, y, sin(th) * rr)
-		if d.y < 0.05 or (d.z < -0.3 and d.y < 0.55):
-			continue
-		pts.append(Vector3(d.x * 0.108, d.y * 0.12 + 0.01, d.z * 0.115))
-	for r in 16:  # korkkiruuvikiharat: takana ja sivuilla, korvien takaa olkapäille
-		var a := lerpf(-0.08 * PI, 1.08 * PI, (r + 0.5) / 16.0)
-		var base := Vector3(cos(a) * 0.1, -0.01, sin(a) * 0.1 + 0.02)
-		var out := Vector3(cos(a), 0, sin(a))
-		var drop := 0.2 + 0.06 * fmod(r * 0.618, 1.0)
-		for k in 9:
-			var f := k / 8.0
-			var spin := Vector3(cos(k * 1.9 + r), 0, sin(k * 1.9 + r)) * 0.012
-			pts.append(base + out * (0.02 * f) + Vector3(0, -drop * f, 0) + spin)
-	mm.instance_count = pts.size()
-	for i in pts.size():
-		var s := 0.85 + 0.3 * fmod(i * 0.618, 1.0)
-		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * s), pts[i]))
-		mm.set_instance_color(i, col.darkened(0.18 * fmod(i * 0.37, 1.0)).lightened(0.08 * fmod(i * 0.53, 1.0)))
-	var mi := MultiMeshInstance3D.new()
-	mi.multimesh = mm
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var radii := Vector3(0.112, 0.124, 0.12)
+	var count := 34
+	for r in count:
+		var az := lerpf(-0.66 * PI, 0.66 * PI, (r + 0.5) / count)  # 0 = suoraan takana (+Z)
+		var dir := Vector3(sin(az), 0, cos(az))
+		var side := Vector3.UP.cross(dir).normalized()
+		var pts: Array[Vector3] = []
+		for k in 14:  # kallon pinnalla: korkeuskulma 75° -> 0° aaltoillen sivusuunnassa
+			var t := k / 13.0
+			var el := deg_to_rad(lerpf(75.0, -5.0, t))
+			var on := Vector3(dir.x * cos(el) * radii.x, sin(el) * radii.y, dir.z * cos(el) * radii.z)
+			pts.append(on * 1.06 + side * sin(t * 9.0 + r) * 0.006 + Vector3(0, 0.01, 0))
+		var base: Vector3 = pts[pts.size() - 1]
+		var drop := 0.2 + 0.1 * fmod(r * 0.381, 1.0)
+		for k in range(1, 48):  # korkkiruuvi alas, spiraali kapenee
+			var t := k / 47.0
+			var spin := t * TAU * 3.5 + r
+			var hr := 0.013 * (1.0 - 0.3 * t)
+			pts.append(base + dir * (0.02 * t) + Vector3(0, -drop * t, 0) + (side * cos(spin) + dir * sin(spin)) * hr - side * hr)
+		var shade := col.darkened(0.18 * fmod(r * 0.29, 1.0)).lightened(0.08 * fmod(r * 0.53, 1.0))
+		_tube_strip(st, pts, 0.0075, shade)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
 	mat.vertex_color_is_srgb = true
-	mat.roughness = 0.6
+	mat.roughness = 0.4
+	mat.metallic_specular = 0.7
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = mat
 	c.attach("Head", mi, Vector3(0, 0.088, -0.01))
+
+
+## Putki pisteiden läpi SurfaceTooliin (6 kulmaa poikkileikkauksessa, pää suljettu kapenemalla).
+static func _tube_strip(st: SurfaceTool, pts: Array[Vector3], radius: float, col: Color) -> void:
+	var sides := 6
+	var rings: Array = []
+	for i in pts.size():
+		var tng := (pts[mini(i + 1, pts.size() - 1)] - pts[maxi(i - 1, 0)]).normalized()
+		var ref := Vector3.UP if absf(tng.dot(Vector3.UP)) < 0.9 else Vector3.RIGHT
+		var u := tng.cross(ref).normalized()
+		var v := tng.cross(u).normalized()
+		var rr := radius * (1.0 if i < pts.size() - 3 else 0.5)
+		var ring: Array[Vector3] = []
+		for k in sides:
+			var a := TAU * k / sides
+			ring.append(pts[i] + (u * cos(a) + v * sin(a)) * rr)
+		rings.append(ring)
+	for i in pts.size() - 1:
+		var a: Array[Vector3] = rings[i]
+		var b: Array[Vector3] = rings[i + 1]
+		var lit := col.lightened(0.1 * absf(sin(i * 0.45)))  # spiraalin kiilto
+		for k in sides:
+			var k2 := (k + 1) % sides
+			for q in [a[k], b[k], b[k2], a[k], b[k2], a[k2]]:
+				st.set_color(lit)
+				st.add_vertex(q)
 
 
 ## Pitkät suorat hiukset (Katja, Hevari-Tero): polkkamallin (Hair_Long) alle niskasta lapaluihin ulottuva verho
@@ -461,7 +487,7 @@ static func add_sandels_rinkka(c: Node3D) -> void:
 	var pack := Node3D.new()
 	var w := 0.27  # leveys (X)
 	var h := 0.41  # korkeus (Y)
-	var dz := 0.125  # paksuus (Z)
+	var dz := 0.17  # paksuus (Z): pakkauksen syvyys = puolen litran tölkin korkeus
 	var box := SANDELS_BOX
 	B.mesh(pack, B.boxm(Vector3(w, h, dz)), Vector3.ZERO, box)
 	B.mesh(pack, B.boxm(Vector3(w + 0.004, 0.012, dz + 0.004)), Vector3(0, h / 2.0 - 0.006, 0), box.lightened(0.25))  # vaalea yläreuna
@@ -469,17 +495,81 @@ static func add_sandels_rinkka(c: Node3D) -> void:
 	B.mesh(pack, B.boxm(Vector3(w * 0.7, 0.006, dz * 0.6)), Vector3(0, h / 2.0 + 0.001, 0), Color(0.05, 0.04, 0.03))  # suuaukko
 	for k in 3:  # tölkkien kannet aukosta
 		B.mesh(pack, B.cyl(0.028, 0.028, 0.008, 12), Vector3(-0.06 + k * 0.06, h / 2.0 + 0.002, 0), Color(0.75, 0.76, 0.78))
-	# Takapinta (+Z): nimi kylttinä ja kultainen medaljonki kenraalin kuvalle.
-	var plate := B.sign_plate(pack, "SANDELS", box.darkened(0.15), SANDELS_TEXT, 0.06, 24, SANDELS_GOLD)
-	plate.position = Vector3(0, 0.08, dz / 2.0 + 0.012)
-	plate.scale = Vector3.ONE * 0.33  # levy on n. 0,72 m leveä: laatikon levyiseksi (0,27 m)
-	B.mesh(pack, B.cyl(0.05, 0.05, 0.006, 20), Vector3(0, -0.06, dz / 2.0 + 0.004), SANDELS_GOLD, Vector3(90, 0, 0))
-	B.mesh(pack, B.cyl(0.04, 0.04, 0.008, 20), Vector3(0, -0.06, dz / 2.0 + 0.005), Color(0.92, 0.88, 0.78), Vector3(90, 0, 0))
-	B.mesh(pack, B.sphere(0.014, 8), Vector3(0, -0.05, dz / 2.0 + 0.01), Color(0.55, 0.42, 0.3))  # kenraalin pää
-	B.mesh(pack, B.boxm(Vector3(0.04, 0.012, 0.004)), Vector3(0, -0.035, dz / 2.0 + 0.012), Color(0.1, 0.1, 0.12))  # kaksikolkka
-	# Jesarit: vaakanauhat ympäri ja olkahihnat selästä olkapäiden yli eteen.
-	for yy in [-0.12, 0.13]:
-		B.mesh(pack, B.boxm(Vector3(w + 0.008, 0.045, dz + 0.008)), Vector3(0, yy, 0), JESARI)
+	# Takapinta (+Z): pakkauksen kuva pystyyn rajattuna. Kaiverrus: pelto viivoina, kuusimetsä ja kirkko horisontissa,
+	# kenraalin muotokuva (kiharat, kasvot, kauluri ja epoletit), alla "Sandels" ja oliivinvärinen tarinakehys.
+	var fz := dz / 2.0 + 0.0015
+	var ink := SANDELS_INK
+	for i in 5:  # pelto horisontin alla, logon yläpuolella
+		B.mesh(pack, B.boxm(Vector3(w - 0.03 - (i % 3) * 0.02, 0.0016, 0.002)), Vector3(0.0, -0.002 - i * 0.006, fz), ink)
+	for i in 8:  # kuusimetsä horisontissa
+		var tx := -0.115 + i * 0.033
+		if absf(tx) < 0.05:
+			continue  # muotokuvan kohdalla ei puita
+		var tree := B.mesh(pack, B.cyl(0.0, 0.011, 0.045 + 0.01 * (i % 2), 6), Vector3(tx, 0.025, fz), ink)
+		tree.scale = Vector3(1.0, 1.0, 0.08)
+	B.mesh(pack, B.boxm(Vector3(0.028, 0.02, 0.002)), Vector3(-0.09, 0.012, fz), ink)  # kirkko
+	var spire := B.mesh(pack, B.cyl(0.0, 0.006, 0.035, 4), Vector3(-0.09, 0.04, fz), ink)
+	spire.scale = Vector3(1.0, 1.0, 0.1)
+	# Muotokuva: hartiat univormussa epoletteineen, kauluri, kasvot ja tummat kiharat.
+	B.mesh(pack, B.boxm(Vector3(0.11, 0.05, 0.002)), Vector3(0, 0.03, fz + 0.0005), ink)
+	for sx in [-1.0, 1.0]:
+		var ep := B.mesh(pack, B.cyl(0.018, 0.018, 0.003, 14), Vector3(sx * 0.045, 0.05, fz + 0.001), SANDELS_GOLD, Vector3(90, 0, 0))
+		ep.scale = Vector3(1.0, 1.0, 0.7)
+	B.mesh(pack, B.boxm(Vector3(0.03, 0.02, 0.002)), Vector3(0, 0.062, fz + 0.001), SANDELS_BOX)  # kauluri
+	var head := B.mesh(pack, B.cyl(0.024, 0.024, 0.002, 18), Vector3(0, 0.095, fz + 0.001), ink, Vector3(90, 0, 0))
+	head.scale = Vector3(1.0, 1.0, 1.25)  # musta ääriviiva
+	var face := B.mesh(pack, B.cyl(0.021, 0.021, 0.002, 18), Vector3(0, 0.093, fz + 0.0015), SANDELS_BOX, Vector3(90, 0, 0))
+	face.scale = Vector3(1.0, 1.0, 1.25)
+	for k in 9:  # kiharat
+		var a := PI * (0.1 + 0.8 * k / 8.0)
+		B.mesh(pack, B.sphere(0.008, 6), Vector3(cos(a) * 0.022, 0.1 + sin(a) * 0.022, fz + 0.002), ink).scale = Vector3(1, 1, 0.2)
+	for sx in [-1.0, 1.0]:  # silmät
+		B.mesh(pack, B.boxm(Vector3(0.006, 0.0018, 0.001)), Vector3(sx * 0.008, 0.096, fz + 0.0025), ink)
+	B.mesh(pack, B.boxm(Vector3(0.008, 0.0015, 0.001)), Vector3(0, 0.08, fz + 0.0025), ink)  # suu
+	# "Sandels" oliivinkultaisena mustin ääriviivoin (painatus, ei kyltti), alle tagline.
+	var logo := Label3D.new()
+	logo.text = "Sandels"
+	logo.font_size = 128
+	logo.pixel_size = 0.00042
+	logo.modulate = SANDELS_GOLD
+	logo.outline_modulate = ink
+	logo.outline_size = 22
+	logo.double_sided = false
+	logo.position = Vector3(0, -0.055, fz + 0.003)
+	pack.add_child(logo)
+	var tag := Label3D.new()
+	tag.text = "VAHVA JA PEHMEÄ OLUT"
+	tag.font_size = 40
+	tag.pixel_size = 0.00034
+	tag.modulate = SANDELS_GOLD
+	tag.outline_size = 0
+	tag.double_sided = false
+	tag.position = Vector3(0, -0.09, fz + 0.003)
+	pack.add_child(tag)
+	# Tarinakehys: oliivinvärinen reunus ja tekstirivit.
+	for fy in [-0.105, -0.155]:
+		B.mesh(pack, B.boxm(Vector3(w - 0.03, 0.0025, 0.002)), Vector3(0, fy, fz), SANDELS_GOLD)
+	for fx in [-1.0, 1.0]:
+		B.mesh(pack, B.boxm(Vector3(0.0025, 0.05, 0.002)), Vector3(fx * (w - 0.03) / 2.0, -0.13, fz), SANDELS_GOLD)
+	for k in 4:
+		B.mesh(pack, B.boxm(Vector3(w - 0.06 - (0.03 if k == 3 else 0.0), 0.0022, 0.002)), Vector3(0, -0.113 - k * 0.011, fz + 0.0005), ink)
+	B.mesh(pack, B.cyl(0.012, 0.012, 0.002, 14), Vector3(w / 2.0 - 0.025, h / 2.0 - 0.03, fz), SANDELS_GOLD, Vector3(90, 0, 0))  # Olvin merkki
+	# Päädyt: "Sandels" pystyyn kuten pakkauksen päädyssä.
+	for sx in [-1.0, 1.0]:
+		var end := Label3D.new()
+		end.text = "Sandels"
+		end.font_size = 96
+		end.pixel_size = 0.0004
+		end.modulate = SANDELS_GOLD
+		end.outline_modulate = ink
+		end.outline_size = 16
+		end.double_sided = false
+		end.position = Vector3(sx * (w / 2.0 + 0.0025), 0.0, 0.0)
+		end.rotation = Vector3(0, sx * PI / 2.0, PI / 2.0)
+		pack.add_child(end)
+	# Jesarit: vaakanauhat ylä- ja alareunassa (eivät peitä logoa) ja olkahihnat selästä olkapäiden yli eteen.
+	for yy in [-0.18, 0.17]:
+		B.mesh(pack, B.boxm(Vector3(w + 0.008, 0.035, dz + 0.008)), Vector3(0, yy, 0), JESARI)
 	for sx in [-1.0, 1.0]:
 		var top := Vector3(sx * 0.08, h / 2.0 - 0.02, -dz / 2.0)
 		var shoulder := Vector3(sx * 0.1, h / 2.0 + 0.07, -dz / 2.0 - 0.11)
@@ -495,13 +585,83 @@ static func add_sandels_rinkka(c: Node3D) -> void:
 		B.mesh(pack, B.sphere(0.021, 10), Vector3(-side + (k % 2) * 0.012, 0.06 + (k / 2) * 0.04, -0.02 + (k % 2) * 0.03),
 			Color(0.97, 0.97, 0.95))
 	for k in 2:
-		B.mesh(pack, B.cyl(0.033, 0.033, 0.115, 14), Vector3(-side, -0.1, -0.035 + k * 0.07), box.lightened(0.1))
+		B.mesh(pack, B.cyl(0.033, 0.033, 0.115, 14), Vector3(-side, -0.1, -0.035 + k * 0.07), box)
+		B.mesh(pack, B.cyl(0.0335, 0.0335, 0.03, 14), Vector3(-side, -0.1, -0.035 + k * 0.07), SANDELS_GOLD)
 		B.mesh(pack, B.cyl(0.03, 0.033, 0.01, 14), Vector3(-side, -0.037, -0.035 + k * 0.07), Color(0.78, 0.78, 0.8))
 	B.mesh(pack, B.boxm(Vector3(0.09, 0.03, 0.15)), Vector3(-side, -0.1, 0), JESARI)
 	B.tube(pack, Vector3(-w / 2.0 + 0.02, -h / 2.0, dz / 2.0), Vector3(-w / 2.0 + 0.03, -h / 2.0 - 0.06, dz / 2.0 + 0.01), 0.003,
 		Color(0.85, 0.85, 0.82))
 	B.mesh(pack, B.boxm(Vector3(0.018, 0.05, 0.006)), Vector3(-w / 2.0 + 0.03, -h / 2.0 - 0.085, dz / 2.0 + 0.01), Color(0.7, 0.7, 0.72))
-	c.attach("spine_03", pack, Vector3(0, -0.06, 0.2))
+	c.attach("spine_03", pack, Vector3(0, -0.06, 0.22))
+
+
+## Mummon permanentti (mummot.gd ja kolmiomittauksen väärän oven mummo): pään ympäri tiheät valkoiset kiharat (MultiMesh): kalotti ja niska, kasvot ja korvien edusta vapaana.
+static func add_perm(g: Node3D, col: Color, k := 1.0, under_hat := false) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	var sm := SphereMesh.new()
+	sm.radius = 0.019
+	sm.height = 0.038
+	sm.radial_segments = 8
+	sm.rings = 5
+	mm.mesh = sm
+	var pts: Array[Vector3] = []
+	var n := 260
+	for i in n:
+		var y := 1.0 - 2.0 * (i + 0.5) / n
+		var rr := sqrt(1.0 - y * y)
+		var th := PI * (3.0 - sqrt(5.0)) * i
+		var d := Vector3(cos(th) * rr, y, sin(th) * rr)
+		if d.y < -0.15 or (d.z < -0.2 and d.y < 0.55) or (d.y < 0.1 and absf(d.x) > 0.6 and d.z < 0.3):
+			continue  # kasvot, korvat ja leuka vapaiksi
+		if under_hat and d.y > 0.35:
+			continue
+		pts.append(d)
+	mm.instance_count = pts.size()
+	for i in pts.size():
+		var d: Vector3 = pts[i]
+		var p := Vector3(d.x * 0.094, d.y * 0.11, d.z * 0.104)
+		var s := 0.85 + 0.35 * fmod(i * 0.618, 1.0)
+		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * s), p))
+		mm.set_instance_color(i, col.darkened(0.12 * fmod(i * 0.37, 1.0)))
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 0.85
+	mi.material_override = mat
+	mi.scale = Vector3.ONE * k
+	g.attach("Head", mi, Vector3(0, 0.088, -0.01) * k)
+
+
+## Mummon pyöreät kultasankaiset lasit ja ketju sangoista niskaan.
+static func add_round_glasses(g: Node3D, k := 1.0) -> void:
+	var gl := Node3D.new()
+	var gold := Color(0.78, 0.62, 0.3)
+	for s in [-1.0, 1.0]:
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.019
+		tm.outer_radius = 0.023
+		tm.rings = 16
+		tm.ring_segments = 6
+		ring.mesh = tm
+		ring.material_override = B.mat(gold).duplicate()
+		(ring.material_override as StandardMaterial3D).metallic = 0.8
+		ring.rotation = Vector3(PI / 2.0, 0, 0)
+		ring.position = Vector3(s * 0.034, 0, 0)
+		gl.add_child(ring)
+		var lens := B.mesh(gl, B.cyl(0.02, 0.02, 0.002, 14), Vector3(s * 0.034, 0, 0.0), Color(0.8, 0.9, 1.0), Vector3(90, 0, 0))
+		var lm := lens.material_override as StandardMaterial3D
+		lm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		lm.albedo_color.a = 0.25
+		lm.metallic_specular = 1.0
+		lm.roughness = 0.05
+		B.tube(gl, Vector3(s * 0.057, 0.003, 0), Vector3(s * 0.07, 0.008, 0.085), 0.003, gold)
+	B.tube(gl, Vector3(-0.014, 0.004, 0), Vector3(0.014, 0.004, 0), 0.0025, gold)
+	gl.scale = Vector3.ONE * k * 1.05
+	g.attach("Head", gl, Vector3(0, 0.074, -0.112) * k)  # kiinnityksessä kasvot -Z:aan (kuten kiharoiden aukko)
 
 
 ## Charlie Chaplinin hammasharjaviikset nenän alle: pieni musta, hieman pyöristetty töyhtö (mitat kuten glam-asusteissa

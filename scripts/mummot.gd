@@ -242,9 +242,9 @@ func _cane() -> Node3D:
 func _dress(g: Node3D, look: Dictionary) -> void:
 	var k := float(look.get("height", 1.8)) / 1.8
 	if look.has("perm"):
-		_perm(g, look.perm, k, look.has("hat"))
+		Looks.add_perm(g, look.perm, k, look.has("hat"))
 	if look.get("glasses", false):
-		_glasses(g, k)
+		Looks.add_round_glasses(g, k)
 	if look.has("hat"):
 		var hat := Node3D.new()
 		var col: Color = look.hat
@@ -275,75 +275,6 @@ func _dress(g: Node3D, look: Dictionary) -> void:
 				B.mesh(sk, B.sphere(0.008, 6), Vector3(0, 0.06 - b * 0.05, 0.172 + b * 0.008), look.shirt.darkened(0.5))
 		sk.scale = Vector3.ONE * k
 		g.attach("pelvis", sk, Vector3(0, 0.08, -0.01) * k)
-
-
-## Pään ympäri tiheät valkoiset kiharat (MultiMesh): kalotti ja niska, kasvot ja korvien edusta vapaana.
-func _perm(g: Node3D, col: Color, k: float, under_hat: bool) -> void:
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = true
-	var sm := SphereMesh.new()
-	sm.radius = 0.019
-	sm.height = 0.038
-	sm.radial_segments = 8
-	sm.rings = 5
-	mm.mesh = sm
-	var pts: Array[Vector3] = []
-	var n := 260
-	for i in n:
-		var y := 1.0 - 2.0 * (i + 0.5) / n
-		var rr := sqrt(1.0 - y * y)
-		var th := PI * (3.0 - sqrt(5.0)) * i
-		var d := Vector3(cos(th) * rr, y, sin(th) * rr)
-		if d.y < -0.15 or (d.z < -0.2 and d.y < 0.55) or (d.y < 0.1 and absf(d.x) > 0.6 and d.z < 0.3):
-			continue  # kasvot, korvat ja leuka vapaiksi
-		if under_hat and d.y > 0.35:
-			continue
-		pts.append(d)
-	mm.instance_count = pts.size()
-	for i in pts.size():
-		var d: Vector3 = pts[i]
-		var p := Vector3(d.x * 0.094, d.y * 0.11, d.z * 0.104)
-		var s := 0.85 + 0.35 * fmod(i * 0.618, 1.0)
-		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * s), p))
-		mm.set_instance_color(i, col.darkened(0.12 * fmod(i * 0.37, 1.0)))
-	var mi := MultiMeshInstance3D.new()
-	mi.multimesh = mm
-	var mat := StandardMaterial3D.new()
-	mat.vertex_color_use_as_albedo = true
-	mat.roughness = 0.85
-	mi.material_override = mat
-	mi.scale = Vector3.ONE * k
-	g.attach("Head", mi, Vector3(0, 0.088, -0.01) * k)
-
-
-## Pyöreät kultasankaiset lasit ja ketju sangoista niskaan.
-func _glasses(g: Node3D, k: float) -> void:
-	var gl := Node3D.new()
-	var gold := Color(0.78, 0.62, 0.3)
-	for s in [-1.0, 1.0]:
-		var ring := MeshInstance3D.new()
-		var tm := TorusMesh.new()
-		tm.inner_radius = 0.019
-		tm.outer_radius = 0.023
-		tm.rings = 16
-		tm.ring_segments = 6
-		ring.mesh = tm
-		ring.material_override = B.mat(gold).duplicate()
-		(ring.material_override as StandardMaterial3D).metallic = 0.8
-		ring.rotation = Vector3(PI / 2.0, 0, 0)
-		ring.position = Vector3(s * 0.034, 0, 0)
-		gl.add_child(ring)
-		var lens := B.mesh(gl, B.cyl(0.02, 0.02, 0.002, 14), Vector3(s * 0.034, 0, 0.0), Color(0.8, 0.9, 1.0), Vector3(90, 0, 0))
-		var lm := lens.material_override as StandardMaterial3D
-		lm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		lm.albedo_color.a = 0.25
-		lm.metallic_specular = 1.0
-		lm.roughness = 0.05
-		B.tube(gl, Vector3(s * 0.057, 0.003, 0), Vector3(s * 0.07, 0.008, 0.085), 0.003, gold)
-	B.tube(gl, Vector3(-0.014, 0.004, 0), Vector3(0.014, 0.004, 0), 0.0025, gold)
-	gl.scale = Vector3.ONE * k * 1.05
-	g.attach("Head", gl, Vector3(0, 0.074, -0.112) * k)  # kiinnityksessä kasvot -Z:aan (kuten kiharoiden aukko)
 
 
 ## Hameen helmaa ei lisätä polvien eteen: levy näytti irralliselta tummalta laudalta (säärien väri tulee hahmon mallista).
