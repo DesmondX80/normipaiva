@@ -38,6 +38,9 @@ const RasvanappiGame := preload("res://scripts/rasvanappi_game.gd")
 const Kolmio := preload("res://scripts/kolmiomittaus.gd")
 const Sytkari := preload("res://scripts/sytkari.gd")
 const KolmioKohtaus := preload("res://scripts/kolmio_kohtaus.gd")
+const Makasiini := preload("res://scripts/makasiini.gd")
+const Reseptit := preload("res://scripts/reseptit.gd")
+const Klaffipoyta := preload("res://scripts/klaffipoyta.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
 const SiitariInterior := preload("res://scripts/siitari_interior.gd")
 const ApteekkiInterior := preload("res://scripts/apteekki_interior.gd")
@@ -151,21 +154,34 @@ const ZABUKI_MENU := {
 	"tupla": ["Tuplajuustoburgeri", 11.5, 0.0, 0.08, 0.08, 0.7],
 	"kana": ["Kanaburgeri ja ranskalaiset", 10.9, 0.0, 0.05, 0.05, 0.6],
 }
-## Vaalan apteekki (apteekki_interior.gd): [nimi, hinta, vaatii reseptin, kipu, humala, moraali]. Kolmiolääkkeet (▲) vain reseptillä;
+## Vaalan apteekki (apteekki_interior.gd): [nimi, hinta, vaatii reseptin, kipu, humala, moraali]. Kolmiolääkkeet (▲) vain reseptillä (Panacod on vapaa); takaluukulta oksikodonia ja pervitiiniä ilman reseptiä x10 hintaan;
 ## reseptin saa aarrekätköstä (juopolle viinaa, _take_cache). Ostettu lääke menee reppuun (`laake`) ja otetaan sieltä tai
 ## T-valikosta (_take_laake). Opiaatti nostaa humalan täysille, pervitiini kiihdyttää kaikkea liikettä PERV_MULT PERV_MIN minuutiksi.
 const APTEEKKI_MENU := {
 	"panadol": ["Panadol 500 mg", 4.9, false, -0.3, 0.0, 0.0],
 	"burana": ["Burana 400 mg", 5.5, false, -0.4, 0.0, 0.0],
-	"panacod": ["Panacod ▲ kolmiolääke", 9.8, true, -0.75, 0.1, 0.05],
+	"panacod": ["Panacod", 9.8, false, -0.75, 0.1, 0.05],
 	"tramal": ["Tramal ▲ kolmiolääke", 12.4, true, -1.0, 0.2, 0.08],
 	"opiaatti": ["Oksikodoni ▲", 24.9, true, -1.0, 1.0, 0.0],
 	"perv": ["Pervitiini ▲", 19.9, true, 0.0, 0.0, 0.05],
 }
+const APTEEKKI_TAKA := ["opiaatti", "perv"]  # takaoven luukulta (vaala.gd apteekki_taka): ilman reseptiä, hinta x APTEEKKI_TAKA_MULT
+const APTEEKKI_TAKA_MULT := 10.0
 const PERV_MULT := 1.5  # pervitiini: mopo, juoksu, pyöräily ja kävely +50 %
 const PERV_MIN := 30.0  # peliminuuttia
+## Huumeiden jatkaminen: oksikodoni + Burana, pervitiini + Panadol. Jatkettu avain on "id~n" (n = jatkokertoja, teho 0,5^n):
+## yksi annos + yksi jatke antaa kaksi annosta, joiden vaikutus on puolet (T-valikko "Jatka").
+const LAAKE_JATKE := {"opiaatti": "burana", "perv": "panadol"}
+const LAAKE_JATKO_MAX := 4
+## Huumekauppa teineille (lavan pihalla ja torin mopopojille, vain Vaalassa): hinta sama kuin takaovella, teho ei vaikuta hintaan.
+## Jatkettu annos voi paljastua: teini huomaa todennäköisyydellä TEINI_KIINNI[jatkoaste] ja syntyy tappelu (_start_teini_fight);
+## häviö vie kaikki lääkkeet ja rahat. Paljastuminen ei ole koskaan varma, huonoimmallakaan (90 %).
+const TEINI_KIINNI := [0.0, 0.1, 0.3, 0.6, 0.9]
 var reseptit := 0  # kipulääkereseptit (kätköstä)
 var laake := {}  # reppuun ostetut lääkkeet: APTEEKKI_MENU-id -> kappalemäärä
+var klaffipoyta := false  # taitettava klaffipöytä löydetty (Zabukin takaa), jatkaminen reseptikirjan mukaan (klaffipoyta.gd)
+var craft_known := {}  # opitut jatkoreseptit: reseptin id -> true (päiväkirjan Reseptit-välilehti)
+var perv_mult := PERV_MULT  # käytössä olevan pervitiiniannoksen kerroin (jatkettu on heikompi)
 var perv_until := -1.0  # pervitiinin vaikutus päättyy (day * 1440 + clock_min)
 const ZABUKI_LINES := ["Grilli sihisee. Tiskin takaa huudetaan: \"Tupla valmis!\"",
 	"Torilla istuu porukkaa jakkaroilla tuoppi kourassa.", "\"Kastiketta lisää? Talon kastike, ei kysytä mitä siinä on.\"",
@@ -879,6 +895,7 @@ const TALKERS := {
 	"siitari_sinikka": ["Sinikka", Color(1.0, 0.55, 0.75)],
 	"zabuki": ["Zabuki", Color(1.0, 0.78, 0.1)],
 	"apteekki": ["Farmaseutti", Color(0.2, 0.7, 0.45)],
+	"apteekki_taka": ["Farmaseutti (luukulla)", Color(0.45, 0.7, 0.5)],
 	"gasthaus": ["Gasthausin emäntä", Color(0.75, 0.9, 0.6)],
 	"nuoret": ["Porukka aidan takana", Color(0.6, 0.9, 1.0)],
 	"mopopojat": ["Mopopojat", Color(1.0, 0.85, 0.3)],
@@ -969,6 +986,7 @@ const TALK_HELLO := {
 	"kolmio_vaala": ["Tero: Terve. Valtio vei taas jotain, en tiiä vielä mitä.", "Timo: Moro! Kuuntele tätä tyhjäkäyntiä."],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
 	"apteekki": ["Hyvää päivää. Resepti vai käsikauppaa?", "Mitäs saisi olla?", "Seuraava, olkaa hyvä."],
+	"apteekki_taka": ["Hiljaa. Oksikodonia, pervitiiniä. Resepti ei kiinnosta, hinta kymmenkertainen. Käteisellä.", "Et sä täällä oo käyny. Mitä saisi olla?"],
 	"gasthaus": ["Iltaa. Huonetta vailla?", "Tervetuloa Gasthausiin. Yö maksaa kympin."],
 	"roivainen": ["Päivää. Roivainen. Asema on auki ma–pe yheksästä kolmeen.", "No, mopomies. Jalan tänään?",
 		"Kas. Ei ainakaan ylinopeutta jalan."],
@@ -7850,6 +7868,7 @@ func journal_data() -> Dictionary:
 		d["loput" if kind == "loppu" else "hetket"] = {"distinct": endings.distinct(kind), "max": Endings.max_count(kind),
 			"total": endings.total(kind), "list": list}
 	d["stashes"] = _stash_journal()
+	d["reseptit"] = {"table": klaffipoyta, "known": craft_known.keys(), "risk": TEINI_KIINNI}
 	for s in d.side:
 		s["spot"] = not s.done and not quest_spots(s.id).is_empty()
 	_save_game()
@@ -9506,9 +9525,11 @@ func _open_eat_menu() -> void:
 	for k in ["puolukka", "mustikka"]:
 		if bucket.get(k, 0) > 0:
 			items.append([k, "%s – ämpärissä %d l" % [FOODS[k].name, bucket[k]]])
-	for k in APTEEKKI_MENU:
+	for k in _laake_keys():
 		if laake.get(k, 0) > 0:
-			items.append([k, "%s (%d)" % [APTEEKKI_MENU[k][0], laake[k]]])
+			items.append([k, "%s (%d)" % [_laake_label(k), laake[k]]])
+	if klaffipoyta:
+		items.append(["klaffipoyta", "Pystytä klaffipöytä (jatka lääkkeitä)"])
 	if items.is_empty():
 		_show_message("Ei mitään syötävää eikä juotavaa. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja, mökin savustimesta kalaa ja riistaa.", 3.0)
 		return
@@ -9605,7 +9626,12 @@ func _on_eat(id: String) -> void:
 	_interior_busy(false)
 	_active_walker().controls_enabled = true
 	_mopo_menu(false)
-	if APTEEKKI_MENU.has(id):
+	if id == "klaffipoyta":
+		if _journal.visible:
+			_journal.toggle()
+		_start_klaffipoyta.call_deferred()
+		return
+	if APTEEKKI_MENU.has(_laake_base(id)):
 		if laake.get(id, 0) > 0:
 			_take_laake(id)
 		return
@@ -9755,7 +9781,7 @@ func _stat_effects() -> void:
 	wife.speed_mult = _wife_speed_base + (0.1 if e < 0 else 0.0)
 	# Nälkä: kylläisenä kulkee kevyemmin, nälkäisenä raskaammin (jalan ja pyörällä).
 	e = t.effect("nalka")
-	var perv: float = PERV_MULT if day * 1440.0 + clock_min < perv_until else 1.0  # pervitiini: kaikki liike +50 %
+	var perv: float = perv_mult if day * 1440.0 + clock_min < perv_until else 1.0  # pervitiini: kaikki liike +50 %
 	walker_out.speed_mult = (1.0 + 0.1 * e) * perv
 	bike.boost = perv
 	if mopo_trip != null and mopo_trip.mopo != null:
@@ -12500,6 +12526,8 @@ func _talk_open_info(who: String) -> String:
 			return interior.price_note()
 		"apteekki":
 			return "Rahaa %s €. Reseptejä %d." % [_eur(money), reseptit]
+		"apteekki_taka":
+			return "Rahaa %s €. Hinnat x10, ei reseptiä." % _eur(money)
 		"raahe", "siitari", "zabuki", "gasthaus", "kauppa_auto", "leirintaalue":
 			return "Rahaa %s €." % _eur(money)
 		"mopopojat":
@@ -12525,6 +12553,9 @@ func _talk_watch() -> void:
 
 func _talk_end() -> void:
 	_talk_end_frame = Engine.get_process_frames()
+	if _talk_who == "apteekki_taka":
+		_taka_hatch(false)
+		Sfx.play("door_close", -4.0)
 	_mopo_menu(false)
 	CamCtl.free_mouse = false
 	if is_instance_valid(_talk_node) and "quiet" in _talk_node:
@@ -12893,11 +12924,13 @@ func _talk_options(who := "") -> Array:
 			else:
 				o.append(_opt("jatka", "Jatka matkaa", true, "", true))
 		"mopopojat":
+			_teini_myynti_valinnat(o)
 			o.append(_opt("kisa", "Kiihdytys Tunturi-Janin kanssa (panos %s €)" % _eur(RACE_BET), money >= RACE_BET, "rahat ei riitä", true))
 			o.append(_opt("kisa_iso", "Kiihdytys Pakoputki-Peteä vastaan (panos %s €, viritetty mopo)" % _eur(RACE_BET_BIG),
 				money >= RACE_BET_BIG, "rahat ei riitä", true))
 		"nuoret":
 			_nuoret_new_day()
+			_teini_myynti_valinnat(o)
 			o.append(_opt("huikka", "Ota huikka kossu-vissystä", _nuoret_huikat < NUORET_HUIKAT, "pullo on tyhjä"))
 			o.append(_opt("tarjoa", "Tarjoa kalja porukalle", beers > 0, "ei kaljaa mukana"))
 			if _nuoret_yard:
@@ -12945,6 +12978,10 @@ func _talk_options(who := "") -> Array:
 				var am: Array = APTEEKKI_MENU[id]
 				var no_rx: bool = am[2] and reseptit <= 0
 				o.append(_opt("osta_" + id, "%s (%s €)" % [am[0], _eur(am[1])], money >= am[1] and not no_rx, "ei reseptiä" if no_rx else "rahat ei riitä"))
+		"apteekki_taka":
+			for id in APTEEKKI_TAKA:
+				var price: float = APTEEKKI_MENU[id][1] * APTEEKKI_TAKA_MULT
+				o.append(_opt("osta_" + id, "%s (%s €)" % [APTEEKKI_MENU[id][0].trim_suffix(" ▲"), _eur(price)], money >= price, "rahat ei riitä"))
 		"zabuki":
 			for id in ZABUKI_MENU:
 				var m: Array = ZABUKI_MENU[id]
@@ -13147,9 +13184,15 @@ func _talk_choose(id: String) -> void:
 				var r := _ratsia_blow(id == "selitys")
 				_talk_box.reply(r[0], _talk_options(), r[1])
 		"mopopojat":
+			if id.begins_with("myy_"):
+				_teini_myy(id.trim_prefix("myy_"))
+				return
 			_talk_box.close()
 			_start_race(RACE_BET_BIG if id == "kisa_iso" else RACE_BET, id == "kisa_iso")
 		"nuoret":
+			if id.begins_with("myy_"):
+				_teini_myy(id.trim_prefix("myy_"))
+				return
 			if id == "leima":
 				_talk_box.close()
 				_start_rakaleima()
@@ -13179,8 +13222,8 @@ func _talk_choose(id: String) -> void:
 				_tyokkari_jonota()
 		"vastaanotto", "dingo":
 			_talk_hotel(id)
-		"apteekki":
-			var ar := _on_apteekki(id.trim_prefix("osta_"))
+		"apteekki", "apteekki_taka":
+			var ar := _on_apteekki(id.trim_prefix("osta_"), _talk_who == "apteekki_taka")
 			_talk_box.reply(ar[0], _talk_options(), ar[1] + "   Rahaa %s €." % _eur(money))
 		"zabuki":
 			if id == "hengaile":
@@ -13514,6 +13557,8 @@ func _talk_chat_line() -> String:
 			return ZABUKI_LINES.pick_random()
 		"apteekki":
 			return ApteekkiInterior.LINES.pick_random()
+		"apteekki_taka":
+			return ["Älä seiso siinä.", "Maksa ja häivy.", "Ei kysymyksiä, ei kuitteja."].pick_random()
 		"kauppa_auto":
 			return KauppaAuto.LINES.pick_random()
 		"tyokkari":
@@ -14973,10 +15018,11 @@ func _ensure_mopo_trip() -> void:
 				return "" if _vvaala_auki() else _vvaala_kiinni_teksti()
 			return closed_text({"kmarket": "kauppa", "siitari": "siitari", "lava": "lava", "apteekki": "apteekki"}[id]) if id in ["kmarket", "siitari", "lava", "apteekki"] else ""
 		mopo_trip.door_hidden = func(id: String) -> bool: return (id == "kokko" and not _juhannus()) or (id == "viski" and "viski" in viina_found) or \
-			(id == "katko" and asema_katkot.get("vaala", 0) != 1) or (id == "portti" and _lava_pass_now() != "") or \
+			(id == "katko" and asema_katkot.get("vaala", 0) != 1) or (id == "portti" and _lava_pass_now() != "") or (id == "klaffipoyta" and klaffipoyta) or \
 			(id.begins_with("kolmio_") and _kolmio_door_hidden(id))
 		_paper.mopo_trip = mopo_trip
 	mopo_trip.ensure_built()
+	_klaffi_sync()
 	_kolmio_vaala_setup()
 
 
@@ -16905,6 +16951,10 @@ func _on_vaala_door(id: String) -> void:
 			_station_use("vaala", "saloinen")
 		"katko":
 			_take_cache("vaala")
+		"apteekki_taka":
+			_apteekki_taka()
+		"klaffipoyta":
+			_klaffi_found()
 		"makasiini":
 			_start_rasvanappi()
 		"zabuki":
@@ -17034,6 +17084,27 @@ func _enter_apteekki() -> void:
 	_show_message("Vaalan apteekki. Käsikauppaa saa ilman reseptiä, kolmiolääkkeet vain reseptillä. Reseptejä: %d." % reseptit, 3.5)
 
 
+## Apteekin takaovi (vaala.gd, makasiini.gd _build_door): koputus avaa luukun, farmaseutti myy oksikodonia ja pervitiiniä
+## ilman reseptiä kymmenkertaiseen hintaan. Luukku sulkeutuu keskustelun päättyessä (_talk_end).
+var _taka_tween: Tween
+
+
+func _apteekki_taka() -> void:
+	Sfx.play("door", -3.0, 0.8)
+	_taka_hatch(true)
+	_talk_open("apteekki_taka", null)
+
+
+func _taka_hatch(open: bool) -> void:
+	var d: Node3D = mopo_trip.vaala.apteekki_back if mopo_trip != null and mopo_trip.vaala != null else null
+	if d == null:
+		return
+	if _taka_tween != null:
+		_taka_tween.kill()
+	_taka_tween = create_tween()
+	_taka_tween.tween_property(d.get_node("Ovi/Luukku"), "position:x", -0.5 + (Makasiini.HATCH_TRAVEL if open else 0.0), 0.35)
+
+
 func _on_apteekki_exited() -> void:
 	apteekki_int.leave()
 	Sfx.play("door_close", -3.0)
@@ -17050,18 +17121,22 @@ func _on_apteekki_acted(kind: String) -> void:
 
 
 ## Apteekin osto: lääke menee reppuun (resepti kuluu ostettaessa), otetaan repusta tai T-valikosta (_take_laake).
-func _on_apteekki(id: String) -> Array:
+func _on_apteekki(id: String, taka := false) -> Array:
 	var m: Array = APTEEKKI_MENU[id]
-	if m[2] and reseptit <= 0:
+	var price: float = m[1] * (APTEEKKI_TAKA_MULT if taka else 1.0)
+	var rx: bool = m[2] and not taka
+	if rx and reseptit <= 0:
 		return ["Kolmiolääkkeisiin tarvitaan resepti. Ilman sitä en voi myydä.", "Reseptejä 0."]
-	if money < m[1]:
-		return ["Ei riitä, valitettavasti.", "Rahaa %s €." % _eur(money)]
-	money -= m[1]
-	if m[2]:
+	if money < price:
+		return ["Ei riitä, valitettavasti." if not taka else "Ei riitä. Tule takaisin kun on.", "Rahaa %s €." % _eur(money)]
+	money -= price
+	if rx:
 		reseptit -= 1
 	laake[id] = laake.get(id, 0) + 1
 	Sfx.play("pickup", -6.0, 0.8)
-	var note := "%s reppuun, −%s €. Ota sitten, kun on sen aika." % [m[0], _eur(m[1])]
+	var note := "%s reppuun, −%s €. Ota sitten, kun on sen aika." % [m[0], _eur(price)]
+	if taka:
+		return [["Pussiin ja taskuun. Et ole nähnyt minua.", "Luukku kiinni, kiitos."].pick_random(), note]
 	if m[2]:
 		note += " Reseptejä jäljellä %d." % reseptit
 	return [["Ottakaa vesilasillinen mukaan. Seuraava!", "Kiitos, ja pikaista paranemista.", "Annostus pakkauksessa. Lukekaa se."].pick_random(), note]
@@ -17069,26 +17144,168 @@ func _on_apteekki(id: String) -> Array:
 
 ## Lääkkeen ottaminen (reppu tai T): vaikutukset heti. Kolmiolääke ei sovi mopon selkään; pervitiini kiihdyttää
 ## liikkumista PERV_MIN peliminuuttia (_stat_effects).
-func _take_laake(id: String) -> void:
+func _take_laake(key: String) -> void:
+	var id := _laake_base(key)
+	var pot := _laake_pot(key)
 	var m: Array = APTEEKKI_MENU[id]
-	laake[id] -= 1
-	if laake[id] <= 0:
-		laake.erase(id)
+	laake[key] -= 1
+	if laake[key] <= 0:
+		laake.erase(key)
 	if m[3] != 0.0:
-		tilat.add("kipu", -m[3])
+		tilat.add("kipu", -m[3] * pot)
 	if m[4] > 0.0:
-		tilat.add("humala", m[4])
+		tilat.add("humala", m[4] * pot)
 	if m[5] > 0.0:
-		tilat.add("moraali", m[5])
+		tilat.add("moraali", m[5] * pot)
 	Sfx.play("pickup", -6.0, 0.8)
+	var weak := " Jatkettu, teho %d %%." % roundi(pot * 100.0) if pot < 1.0 else ""
 	match id:
 		"opiaatti":
-			_show_message("Kaikki pehmenee. Kipu katoaa ja maailma kallistuu. Ei ajeta mopolla!", 3.0)
+			_show_message("Kaikki pehmenee. Kipu katoaa ja maailma kallistuu. Ei ajeta mopolla!" + weak, 3.0)
 		"perv":
+			var mult := 1.0 + (PERV_MULT - 1.0) * pot
+			var active := day * 1440.0 + clock_min < perv_until
+			perv_mult = maxf(perv_mult, mult) if active else mult
 			perv_until = day * 1440.0 + clock_min + PERV_MIN
-			_show_message("Sydän jyskyttää ja jalat kulkee: vauhti +50 %% puoleksi tunniksi.", 3.0)
+			_show_message("Sydän jyskyttää ja jalat kulkee: vauhti +%d %% puoleksi tunniksi.%s" % [roundi((perv_mult - 1.0) * 100.0), weak], 3.0)
 		_:
 			_show_message("%s otettu. Kipu helpottaa." % m[0], 2.0)
+
+
+## Reppuun kertyvät lääkeavaimet: jokainen lääke ja jatkettavien jatkoasteet ("id~n").
+func _laake_keys() -> Array:
+	var out := []
+	for k in APTEEKKI_MENU:
+		out.append(k)
+		if LAAKE_JATKE.has(k):
+			for t in range(1, LAAKE_JATKO_MAX + 1):
+				out.append("%s~%d" % [k, t])
+	return out
+
+
+func _laake_base(key: String) -> String:
+	return key.get_slice("~", 0)
+
+
+func _laake_tier(key: String) -> int:
+	return int(key.get_slice("~", 1)) if "~" in key else 0
+
+
+func _laake_pot(key: String) -> float:
+	return pow(0.5, _laake_tier(key))
+
+
+func _laake_label(key: String) -> String:
+	var n: String = APTEEKKI_MENU[_laake_base(key)][0]
+	return n if _laake_tier(key) == 0 else "%s (jatkettu, teho %d %%)" % [n.trim_suffix(" ▲"), roundi(_laake_pot(key) * 100.0)]
+
+
+## Jatkaminen (klaffipoyta.gd, reseptit.gd): huume ja jatke kuluvat, tilalle tulee reseptin mukainen määrä annoksia, joiden
+## jatkoaste kasvaa reseptin cuts-arvolla (teho puolittuu per aste). recipe_id "" = huumeen oletusresepti (Burana/Panadol).
+func _jatka_laake(key: String, recipe_id := "") -> String:
+	var base := _laake_base(key)
+	if recipe_id == "":
+		recipe_id = {"opiaatti": "oksi_burana", "perv": "perv_panadol"}.get(base, "")
+	if recipe_id == "" or not Reseptit.RECIPES.has(recipe_id):
+		return ""
+	var rc: Dictionary = Reseptit.RECIPES[recipe_id]
+	var agent: String = rc.agent
+	if base != rc.drug or laake.get(key, 0) <= 0 or _craft_stock(agent) <= 0 or _laake_tier(key) + int(rc.cuts) > LAAKE_JATKO_MAX:
+		return ""
+	laake[key] -= 1
+	if laake[key] <= 0:
+		laake.erase(key)
+	_craft_take(agent)
+	var out := "%s~%d" % [base, _laake_tier(key) + int(rc.cuts)]
+	laake[out] = laake.get(out, 0) + int(rc.yield)
+	craft_known[recipe_id] = true
+	Sfx.play("pickup", -6.0, 0.7)
+	var text := "%s → %d annosta, teho %d %%." % [rc.name, int(rc.yield), roundi(_laake_pot(out) * 100.0)]
+	_show_message(text, 3.5)
+	return text
+
+
+## Jatkoaineet: laakereppu (Burana, Panadol, huumeet) tai K-auton tarvikkeet (sokeri, turbohiiva).
+func _craft_stock(key: String) -> int:
+	match key:
+		"sokeri":
+			return 1 if has_sugar else 0
+		"turbohiiva":
+			return 1 if has_turbo else 0
+	return laake.get(key, 0)
+
+
+func _craft_take(key: String) -> void:
+	match key:
+		"sokeri":
+			has_sugar = false
+		"turbohiiva":
+			has_turbo = false
+		_:
+			laake[key] -= 1
+			if laake[key] <= 0:
+				laake.erase(key)
+
+
+## Klaffipöydän reppu: kaikki lääkeavaimet, joita on, sekä sokeri ja turbohiiva.
+func _craft_items() -> Array:
+	var out := []
+	for k in _laake_keys():
+		if laake.get(k, 0) > 0:
+			out.append(k)
+	for k in ["sokeri", "turbohiiva"]:
+		if _craft_stock(k) > 0:
+			out.append(k)
+	return out
+
+
+func _craft_do(recipe_id: String, drug_key: String) -> String:
+	var r := _jatka_laake(drug_key, recipe_id)
+	return r if r != "" else "Ei onnistunut."
+
+
+## Resepti avautuu, kun repussa on sekä huume että sen jatke (Minecraftin reseptikirja).
+func _craft_learn() -> void:
+	for id in Reseptit.IDS:
+		var rc: Dictionary = Reseptit.RECIPES[id]
+		if craft_known.has(id) or _craft_stock(rc.agent) <= 0:
+			continue
+		for k in _laake_keys():
+			if _laake_base(k) == rc.drug and laake.get(k, 0) > 0:
+				craft_known[id] = true
+				_show_message("Uusi resepti reseptikirjassa: %s." % rc.name, 3.0)
+				break
+
+
+var _klaffi_game: CanvasLayer
+
+
+func _start_klaffipoyta() -> void:
+	if _klaffi_game != null or not klaffipoyta or state in ["fight", "cutscene", "minigame"]:
+		return
+	_act_begin()
+	var g := Klaffipoyta.new()
+	g.game = self
+	g.finished.connect(func() -> void:
+		_klaffi_game = null
+		_act_end())
+	add_child(g)
+	_klaffi_game = g
+
+
+## Klaffipöytä Zabukin takaa: poimitaan kerran (vaala.gd klaffi_prop), sen jälkeen pystytetään repusta.
+func _klaffi_sync() -> void:
+	if mopo_trip != null and mopo_trip.vaala != null and mopo_trip.vaala.klaffi_prop != null:
+		mopo_trip.vaala.klaffi_prop.visible = not klaffipoyta
+
+
+func _klaffi_found() -> void:
+	klaffipoyta = true
+	_klaffi_sync()
+	Sfx.play("pickup", -4.0, 0.8)
+	_craft_learn()
+	_show_message("Taitettava klaffipöytä! Se mahtuu reppuun. Pystytä se reppuvalikosta tai T:llä ja jatka lääkkeitä: reseptit löytyvät päiväkirjan Reseptit-välilehdeltä.", 5.5)
+	_save_game()
 
 
 ## Oulujärven lava: lavatanssit (lava_game.gd) lavan lattialla. Lippu maksetaan ovella; hyvä tanssi nostaa
@@ -18255,6 +18472,94 @@ func _on_uinti_finished(place: int, time: float) -> void:
 
 
 ## Järkkärit ja lavatappelu (#183): Street Fighter -tappelu Oulujärven lavan pihalla (fight.gd: vastustaja "jarkkari", lavasteena Siitarin piha).
+## Myytävät huumeet repussa (oksikodoni ja pervitiini, kaikki jatkoasteet): lisää valikkoon myyntirivit.
+func _teini_myynti_valinnat(o: Array) -> void:
+	for k in _laake_keys():
+		if laake.get(k, 0) <= 0 or not LAAKE_JATKE.has(_laake_base(k)):
+			continue
+		var risk: float = TEINI_KIINNI[mini(_laake_tier(k), TEINI_KIINNI.size() - 1)]
+		o.append(_opt("myy_" + k, "Myy %s (%s €)%s" % [_laake_label(k), _eur(_teini_hinta(k)), ", kiinnijäämisriski %d %%" % roundi(risk * 100.0) if risk > 0.0 else ""]))
+
+
+func _teini_hinta(key: String) -> float:
+	return APTEEKKI_MENU[_laake_base(key)][1] * APTEEKKI_TAKA_MULT
+
+
+## Annoksen myynti: sama hinta heikkoudesta riippumatta, mutta jatkettu annos paljastuu todennäköisyydellä TEINI_KIINNI[aste]
+## (roll: testissä kiinteä arpa, muuten satunnainen).
+func _teini_myy(key: String, roll := -1.0) -> void:
+	if laake.get(key, 0) <= 0:
+		return
+	var kiinni: float = TEINI_KIINNI[mini(_laake_tier(key), TEINI_KIINNI.size() - 1)]
+	if (randf() if roll < 0.0 else roll) < kiinni:
+		_talk_box.close()
+		_show_message("Teini: \"Hetkinen... toi on jauhoa! Toi on JATKETTUA! Sää yritit huijata mua?!\"", 2.0)
+		get_tree().create_timer(1.4).timeout.connect(_start_teini_fight)
+		return
+	laake[key] -= 1
+	if laake[key] <= 0:
+		laake.erase(key)
+	var price := _teini_hinta(key)
+	money += price
+	Sfx.play("coin", -4.0)
+	var pot := _laake_pot(key)
+	var line: String = "Hyvää kamaa! Ei kysytä mistä." if pot >= 1.0 else ["Hmm, aika mietoa... mut ok.", "Vähän laimeeta, mut kelpaa.", "Joo joo, ota rahat."].pick_random()
+	_talk_box.reply(line, _talk_options(), "+%s €. Rahaa %s €." % [_eur(price), _eur(money)])
+
+
+func _start_teini_fight() -> void:
+	if mopo_trip == null or state == "fight":
+		return
+	mopo_trip.stop()
+	_mopo_foot_inside()
+	_fight_source = "teini"
+	var hp := 120.0 if tilat.effect("kipu") > 0 else 100.0
+	var dmg := 1.2 if tilat.effect("humala") > 0 else 1.0
+	tilat.add("stressi", -0.15)
+	tilat.add("stamina", -0.2)
+	tilat.first("tappelu_teini_diili", 0.3)
+	_fight_prev = _vaala_state
+	state = "fight"
+	_hud.visible = false
+	_mopo_label.visible = false
+	_compass.visible = false
+	fight.set_stage("siitari")
+	fight.start(beers, "teini_diili", hp, dmg)
+
+
+## Voitto: teini pakenee ja kamat jäävät. Häviö: teini ryöstää kaikki lääkkeet ja rahat.
+func _teini_fight_end(won: bool, bags_used: int, thrown: int) -> void:
+	state = _fight_prev
+	_hud.visible = true
+	_mopo_label.visible = true
+	_compass.visible = true
+	fight.set_stage("kmarket")
+	beers = maxi(0, beers - bags_used - thrown)
+	_mopo_resume()
+	if mopo_trip != null:
+		mopo_trip._resume_frame = Engine.get_process_frames()
+	if won:
+		tilat.add("moraali", 0.15)
+		tilat.add("kokemus", 0.1)
+		maine = clampf(maine + 2.0, 0.0, 100.0)
+		Sfx.play("win_small", -4.0)
+		_show_message("K.O.! Teini pakeni itkien, eikä enää osta mitään. Lääkkeet ja rahat jäi sulle. Maine +2.", 4.0)
+		return
+	var took := money
+	var pills := 0
+	for k in laake:
+		pills += laake[k]
+	money = 0.0
+	laake.clear()
+	perv_until = -1.0
+	tilat.add("kipu", -0.3)
+	tilat.add("moraali", -0.2)
+	maine = clampf(maine - 5.0, 0.0, 100.0)
+	_advance_clock(KO_MINUTES)
+	Sfx.play("glass", -6.0, 0.8)
+	_show_message("Hävisit! Teini ryösti kaiken: %s € ja %d annosta lääkkeitä. Heräsit tunnin päästä. Maine −5." % [_eur(took), pills], 5.0)
+
+
 func _start_lava_tappelu() -> void:
 	if mopo_trip == null or state == "fight":
 		return
@@ -18343,6 +18648,9 @@ func _siitari_fight_end(won: bool, bags_used: int, thrown: int) -> void:
 
 
 func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
+	if _fight_source == "teini":
+		_teini_fight_end(won, bags_used, thrown)
+		return
 	if _fight_source == "lava":
 		_lava_tappelu_end(won, bags_used, thrown)
 		return
@@ -18798,6 +19106,9 @@ func _load_game() -> void:
 	reseptit = int(cfg.get_value("asema", "reseptit", 0))
 	laake = cfg.get_value("asema", "laake", {})
 	perv_until = cfg.get_value("asema", "perv_until", -1.0)
+	perv_mult = cfg.get_value("asema", "perv_mult", PERV_MULT)
+	klaffipoyta = cfg.get_value("asema", "klaffipoyta", false)
+	craft_known = cfg.get_value("asema", "craft_known", {})
 	headphones.found = cfg.get_value("kuulokkeet", "loydetty", false)
 	phone.found = cfg.get_value("puhelin", "loydetty", false)
 	_set_outfit(cfg.get_value("pelaaja", "asu", "tuulipuku"))
@@ -19085,6 +19396,9 @@ func _save_game() -> void:
 	cfg.set_value("asema", "reseptit", reseptit)
 	cfg.set_value("asema", "laake", laake)
 	cfg.set_value("asema", "perv_until", perv_until)
+	cfg.set_value("asema", "perv_mult", perv_mult)
+	cfg.set_value("asema", "klaffipoyta", klaffipoyta)
+	cfg.set_value("asema", "craft_known", craft_known)
 	cfg.set_value("kuulokkeet", "loydetty", headphones.found)
 	cfg.set_value("puhelin", "loydetty", phone.found)
 	cfg.set_value("pelaaja", "asu", Looks.outfit)
@@ -20469,17 +20783,21 @@ func inventory_items() -> Array:
 	for k in ["puolukka", "mustikka"]:
 		add.call(k, k.capitalize(), bucket.get(k, 0), "litraa ämpärissä · T syö litran",
 			{"food": true, "use": k, "use_label": "syö litra"})
-	for k in APTEEKKI_MENU:
-		add.call("laake_" + k, APTEEKKI_MENU[k][0], laake.get(k, 0), _laake_desc(k), {"food": true, "use": k, "use_label": "ota"})
+	for k in _laake_keys():
+		add.call("laake_" + _laake_base(k), _laake_label(k), laake.get(k, 0), _laake_desc(k), {"food": true, "use": k, "use_label": "ota"})
+	if klaffipoyta:
+		add.call("laake_burana", "Klaffipöytä", 1, "Taitettava pöytä · jatka lääkkeitä (reseptit päiväkirjassa)", {"food": true, "use": "klaffipoyta", "use_label": "pystytä"})
 	return out
 
 
-func _laake_desc(id: String) -> String:
-	match id:
+func _laake_desc(key: String) -> String:
+	var pot := _laake_pot(key)
+	var jatke := " · jatkettavissa klaffipöydällä" if LAAKE_JATKE.has(_laake_base(key)) and _laake_tier(key) < LAAKE_JATKO_MAX else ""
+	match _laake_base(key):
 		"opiaatti":
-			return "Vahva opioidi · T ottaa · humala täysille, ei mopolla"
+			return "Vahva opioidi · T ottaa · humala %d %%, ei mopolla%s" % [roundi(pot * 100.0), jatke]
 		"perv":
-			return "T ottaa · vauhti +50 %% %d min (mopo, juoksu, pyörä, kävely)" % int(PERV_MIN)
+			return "T ottaa · vauhti +%d %% %d min (mopo, juoksu, pyörä, kävely)%s" % [roundi((PERV_MULT - 1.0) * 100.0 * pot), int(PERV_MIN), jatke]
 	return "Apteekista · T ottaa · kipu helpottaa"
 
 
@@ -22877,6 +23195,132 @@ func _maybe_screenshot() -> void:
 			asema_katkot["vaala"] = 1
 			_take_cache("vaala")
 			print("APTEEKKI kätkön jälkeen reseptit ", reseptit, ", viesti: ", _msg.text)
+			# Jatkaminen: oksikodoni + Burana, pervitiini + Panadol; teho puolittuu, annokset tuplaantuvat.
+			laake = {"opiaatti": 1, "burana": 2, "perv": 1, "panadol": 2}
+			_jatka_laake("opiaatti")
+			_jatka_laake("perv")
+			print("APTEEKKI jatkettu: ", laake)
+			_jatka_laake("opiaatti~1")
+			print("APTEEKKI jatkettu uudestaan: ", laake)
+			tilat.add("humala", -1.0)
+			var hum0: float = tilat.value("humala")
+			_take_laake("opiaatti~2")
+			print("APTEEKKI jatkettu opiaatti~2: humala %.2f -> %.2f (odotus +0.25)" % [hum0, tilat.value("humala")])
+			clock_min = 10.0 * 60.0
+			perv_until = -1.0
+			_take_laake("perv~1")
+			print("APTEEKKI jatkettu perv~1: kerroin %.2f (odotus 1.25)" % perv_mult)
+			print("APTEEKKI T-valikon jatkorivit: ", _laake_keys().filter(func(k): return laake.get(k, 0) > 0))
+			# Teinikauppa: jatkamaton ja kahdesti jatkettu myydään samaan hintaan, tappelun päätökset molempiin suuntiin.
+			laake = {"opiaatti": 1, "opiaatti~2": 1, "perv~3": 1}
+			money = 0.0
+			_talk_who = "mopopojat"
+			print("APTEEKKI teinivalinnat ", _talk_options("mopopojat").filter(func(o): return o.id.begins_with("myy_")).map(func(o): return o.text))
+			_teini_myy("opiaatti", 0.99)
+			_teini_myy("opiaatti~2", 0.99)
+			print("APTEEKKI teinimyynti: rahaa %.2f (odotus 498.00), laake %s" % [money, laake])
+			_fight_prev = _vaala_state
+			laake = {"opiaatti": 2, "perv~3": 1}
+			money = 120.0
+			state = "fight"
+			_teini_fight_end(false, 0, 0)
+			print("APTEEKKI teini ryösti: rahaa %.2f laake %s (odotus 0 ja tyhjä)" % [money, laake])
+			laake = {"perv~3": 1}
+			money = 50.0
+			state = "fight"
+			_teini_fight_end(true, 0, 0)
+			print("APTEEKKI teini hävisi: rahaa %.2f laake %s (odotus 50 ja perv~3)" % [money, laake])
+			# Klaffipöytä ja reseptit: muotojen tunnistus, jatkeet (sokeri, turbohiiva), kuvat pöydästä ja reseptikirjasta.
+			klaffipoyta = true
+			craft_known = {}
+			laake = {"opiaatti": 2, "perv": 2, "burana": 1, "panadol": 1, "panacod": 1}
+			has_sugar = true
+			has_turbo = true
+			var gr := func(a: Array) -> Array:
+				var c := ["", "", "", "", "", "", "", "", ""]
+				for e in a:
+					c[e[0]] = e[1]
+				return c
+			print("KLAFFI muodot: pysty %s | vaaka %s | vaaka peilattu %s | vino %s | vastavino %s | vääräkuvio %s | väärä jatke %s" % [
+				Reseptit.find(gr.call([[1, "opiaatti"], [4, "burana"]]), 4).get("id"), Reseptit.find(gr.call([[3, "perv"], [4, "panadol"]]), 4).get("id"),
+				Reseptit.find(gr.call([[5, "perv"], [4, "panadol"]]), 4).get("id"), Reseptit.find(gr.call([[0, "perv"], [4, "sokeri"]]), 4).get("id"),
+				Reseptit.find(gr.call([[1, "turbohiiva"], [3, "opiaatti"]]), 4).get("id"), Reseptit.find(gr.call([[0, "opiaatti"], [1, "burana"]]), 4).get("id"),
+				Reseptit.find(gr.call([[1, "opiaatti"], [4, "panadol"]]), 4).get("id")])
+			_craft_learn()
+			print("KLAFFI opitut ", craft_known.keys(), " (odotus: kaikki neljä)")
+			print("KLAFFI sokeri: ", _jatka_laake("perv", "perv_sokeri"), " laake ", laake, " sokeri ", has_sugar)
+			print("KLAFFI turbo: ", _jatka_laake("opiaatti", "oksi_turbo"), " laake ", laake, " turbo ", has_turbo)
+			print("KLAFFI liian monta jatkoa: '", _jatka_laake("perv~3", "perv_sokeri"), "'")
+			if _talk_box.is_open():
+				_talk_box.close()
+			if _journal.visible:
+				_journal.toggle()
+			laake["burana"] = 1
+			_start_klaffipoyta()
+			for i in 10:
+				await get_tree().process_frame
+			_klaffi_game.set("_cells", ["", "opiaatti", "", "", "burana", "", "", "", ""])
+			_klaffi_game.set("_held", "perv")
+			_klaffi_game.set("mouse_fixed", Vector2(900, 300))
+			for i in 6:
+				await get_tree().process_frame
+			print("KLAFFI ruudukko ", _klaffi_game.get("_cells"), " osuma ", _klaffi_game.call("_match"))
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_klaffipoyta.png"))
+			_klaffi_game._close()
+			for i in 4:
+				await get_tree().process_frame
+			_journal.open_at("reseptit")
+			for i in 6:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_reseptikirja.png"))
+			_journal.toggle()
+			var kp: Node3D = ak.klaffi_prop
+			var kd: Dictionary = ak.doors.filter(func(d): return d.id == "klaffipoyta")[0]
+			var kcam := Camera3D.new()
+			add_child(kcam)
+			kcam.current = true
+			kcam.look_at_from_position(ak.to_global(kd.pos + kd.out * 2.2 + Vector3(0.0, 1.6, 0.0)), ak.to_global(kp.position + Vector3(0, 0.6, 0)))
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_klaffi_prop.png"))
+			klaffipoyta = false
+			_klaffi_sync()
+			print("KLAFFI prop näkyy ennen poimintaa: ", kp.visible, " ovi ", kd.pos)
+			_klaffi_found()
+			print("KLAFFI prop näkyy poimittuna: ", kp.visible)
+			# Teinin kiinnijäämisriski: huonoinkaan ei ole varma (roll 0.95 < 0.9 ei, mutta 0.5 < 0.9 kyllä).
+			print("KLAFFI riskit ", TEINI_KIINNI, " (suurin < 1: ", TEINI_KIINNI.max() < 1.0, ")")
+			# Takaovi: kuva kiinni, koputus (luukku auki), valikko, ostot x10 ilman reseptiä.
+			var tp: Vector3 = ak.door_pos("apteekki_taka")
+			var tdir: Vector3 = ak.doors.filter(func(d): return d.id == "apteekki_taka")[0].out
+			var tcam := Camera3D.new()
+			add_child(tcam)
+			tcam.current = true
+			var tlook := func() -> void:
+				tcam.look_at_from_position(ak.to_global(tp + tdir * 3.2 + Vector3(0.6, 2.0, 0)), ak.to_global(ak.apteekki_back.global_position - ak.global_position + Vector3(0, 1.5, 0)))
+			state = _vaala_state
+			tlook.call()
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_taka_kiinni.png"))
+			reseptit = 0
+			money = 500.0
+			laake.clear()
+			_apteekki_taka()
+			tcam.look_at_from_position(ak.to_global(tp + tdir * 1.3 + Vector3(0, 1.8, 0)), ak.apteekki_back.global_position + Vector3(0, 1.6, 0))
+			for i in 60:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_taka_auki.png"))
+			print("APTEEKKI taka valinnat ", _talk_box._options.map(func(o): return "%s [%s]" % [o.text, o.enabled]))
+			var t1 := _on_apteekki("opiaatti", true)
+			var t2 := _on_apteekki("perv", true)
+			print("APTEEKKI taka ostot: ", t1[1], " | ", t2[1], " | laake ", laake, " (rahaa pitää olla %.2f)" % (500.0 - 249.0 - 199.0))
+			print("APTEEKKI panacod ilman reseptiä: ", _on_apteekki("panacod")[1])
 			get_tree().quit()
 		"mokkikauppa":
 			# K-Market Tervaportti Vaalassa: mopo oven eteen (vihje), kauppaan, Alkon hylly, ulos ja takaisin mopolle.

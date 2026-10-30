@@ -618,11 +618,26 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     kuten Vaalaan tultaessa, kilpi "4,6 m"; `tools/vaala_alikulku.py`, `vaala.gd _under_structure`).
     **Apteekki** on Satamantien varressa radan jälkeen oikealla (`tools/vaala_apteekki.py`, `vaala.gd _build_apteekki`): vaalea liiketila, vihreä APTEEKKI-kyltti,
     edessä asfalttiparkki. Sisälle pääsee (auki ma–su 9–17, `apteekki_interior.gd`): tiskillä farmaseutti. Ilman reseptiä saa vain Panadolia (4,90 €) ja Buranaa
-    (5,50 €); kolmiolääkkeet (▲ Panacod 9,80 €, Tramal 12,40 €) vaativat reseptin, jonka kuluttaa yksi ostos (`main.gd APTEEKKI_MENU`, `reseptit`). Reseptin
+    (5,50 €); Panacod (9,80 €) on reseptivapaa; kolmiolääke (▲ Tramal 12,40 €) vaatii reseptin, jonka kuluttaa yksi ostos (`main.gd APTEEKKI_MENU`, `reseptit`). Reseptin
     saa aarrekätköstä: asemalla juopolle viinaa, joka kertoo kätkön, ja kätkössä on satasen lisäksi resepti (`_take_cache`). Lääke menee reppuun ja sen ottaa repusta
     ("ota") tai T-valikosta, kun sen aika on: kipu helpottaa, kolmiolääke humaltuttaa ja nostaa moraalia (ei ajeta mopolla). Listalla myös
     **Oksikodoni ▲** (vahva opioidi) (24,90 €, resepti): kipu helpottaa ja humala nousee täysille heti. **Pervitiini ▲** (19,90 €, resepti):
     mopon, juoksun, pyöräilyn ja kävelyn vauhti +50 % (30 peliminuuttia; `main.gd PERV_MULT`, `PERV_MIN`, `perv_until`).
+    **Takaovi:** apteekin takaseinässä on teräsovi kurkistusluukkuineen kuten rasvanapin makasiinissa (`makasiini.gd _build_door`, ovi
+    "apteekki_taka", HENKILÖKUNTA-kyltti, vihreä lamppu). Koputus (E) avaa luukun, ja farmaseutti myy Oksikodonia (249 €) ja Pervitiiniä
+    (199 €) ilman reseptiä kymmenkertaiseen hintaan (`main.gd APTEEKKI_TAKA`, `APTEEKKI_TAKA_MULT`, `_apteekki_taka`). Ovi on auki aina. Testi `--scene=apteekki`.
+    **Jatkaminen (klaffipöytä):** taitettava klaffipöytä nojaa Zabukin takaseinää vasten torilla (E poimii, kerran). Se pystytetään repusta tai T:llä:
+    Minecraft-tyylinen 3×3-askartelu (`klaffipoyta.gd`, reseptit `reseptit.gd`). Esine klikataan repusta kouraan ja ruutuun, ja kun muoto täsmää
+    reseptiin (paikalla ruudukossa ei ole väliä), tulos klikataan pois. Neljä reseptiä: Oksikodoni + Burana (pystyyn), Pervitiini + Panadol (vaakaan,
+    peilikin kelpaa) → 2 annosta, teho puolet; Pervitiini + Sokeri (vinoon) ja Oksikodoni + Turbohiiva (vastavinoon) → 4 annosta, teho neljännes.
+    Sokeri ja turbohiiva ovat K-auton tarvikkeita (`has_sugar`, `has_turbo`). Jatketun voi jatkaa uudestaan (teho 100 → 50 → 25 → 13 → 6 %, jatkoaste
+    enintään 4; `main.gd LAAKE_JATKO_MAX`, `_jatka_laake`, avain `id~n`). Heikompi pervitiini ei korvaa voimassa olevaa vahvempaa (`perv_mult`).
+    **Reseptikirja** on päiväkirjan kuudes välilehti (Reseptit, näppäin 6): resepti avautuu, kun repussa on sekä huume että sen jatke, tai kun sen on
+    askarrellut; avaamattomat näkyvät ???. Kortissa on 3×3-kuvio (D = huume, A = jatke) ja tulos.
+    **Huumekauppa teineille (Vaala):** lavan pihan teineiltä ja bileporukalta sekä torin mopopojilta ("Myy ...") oksikodonin ja pervitiinin saa myydä samaan
+    hintaan kuin takaovella (249 / 199 €), teho ei vaikuta hintaan. Jatkettu annos voi paljastua: teini huomaa todennäköisyydellä 0 / 10 / 30 / 60 / 90 % jatkoasteen mukaan (ei koskaan varmaa), ja syntyy tappelu
+    (`fight.gd teini_diili`: 150 hp, kova isku, aggressiivinen). Voitto: teini pakenee, tavarat jäävät, maine +2. Häviö: teini ryöstää kaikki lääkkeet ja rahat,
+    tunti kuluu, maine −5 (`main.gd _teini_myy`, `_start_teini_fight`, `_teini_fight_end`).
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
     katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin

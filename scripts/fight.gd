@@ -55,6 +55,12 @@ const FOES := {
 		"win": ["Ja pysy poissa portilta!", "Lavan järjestys pysyy."],
 		"wave": "LIPPUKONTTORI!", "wave_cry": "LEIMAT NÄKYVIIN!", "hp": 115.0, "dmg": 1.0, "aggr": 0.9,
 	},
+	"teini_diili": {
+		"look": Looks.TEENS[0], "name": "TEINI – Tää on jatkettua, setä!", "short": "TEINI", "voice": "teini",
+		"intro": ["Toi on jatkettua paskaa, setä!", "Luuliks et mää huomaa?!", "Nyt sää maksat. Kaikki tulee mulle!"],
+		"win": ["Kaikki mulle, boomer!", "Älä tuu enää kauppaamaan!"],
+		"wave": "RAHAT TÄNNE!", "wave_cry": "KAIKKI TAVARAT MULLE!", "hp": 150.0, "dmg": 1.4, "aggr": 1.45,
+	},
 	"teens": {
 		"look": Looks.TEENS[0], "name": "TEINIJENGIN POMO – Raahe 4ever", "short": "TEINI", "voice": "teini",
 		"intro": ["Mitä sää tuijotat, setä?", "Tää on meiän mesta!", "Ok boomer."],

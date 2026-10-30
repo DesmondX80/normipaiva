@@ -5,15 +5,17 @@ extends Control
 ## "Loput": onnelliset loput (päivä päättyy) vasemmalla ja legendaariset hetket (saavutukset) oikealla
 ## (endings.gd): erilaiset X / Y, löytämättömät ???.
 ## "Jemmat": löydetyt jemmapaikat, kaljat / tila ja riski, kotijemma tavoitteeseen nähden.
+## "Reseptit": kuudes välilehti, huumeiden jatkamisen reseptikirja (reseptit.gd; Minecraft-tyyliin 3×3-kuviot).
 ## "Reppu": viides välilehti, jonka sivut piirtää lapsi inventory.gd. R avaa vihkon reppusivulta, O päiväkirjan sivulta
 ## (viimeksi katsotulta); jo auki ollessa R / O vaihtaa sivua ja saman sivun näppäin sulkee. Vihko, tauko ja Esc ovat tässä.
-## Mikään ei paljastu etukäteen. Peli on tauolla auki ollessa. Hiiri: välilehdet ja rulla, näppäimet 1–5, Esc / O sulkee.
+## Mikään ei paljastu etukäteen. Peli on tauolla auki ollessa. Hiiri: välilehdet ja rulla, näppäimet 1–6, Esc / O sulkee.
 
 const MG := preload("res://scripts/mg_draw.gd")
 const INK := Color(0.14, 0.17, 0.4)
+const Reseptit := preload("res://scripts/reseptit.gd")
 const TABS := [["tarina", "Tarina", Color(0.85, 0.35, 0.25)], ["tehtavat", "Tehtävät", Color(0.25, 0.55, 0.75)],
 	["loput", "Loput", Color(0.9, 0.7, 0.15)], ["jemmat", "Jemmat", Color(0.3, 0.6, 0.3)],
-	["reppu", "Reppu", Color(0.5, 0.3, 0.7)]]
+	["reppu", "Reppu", Color(0.5, 0.3, 0.7)], ["reseptit", "Reseptit", Color(0.75, 0.5, 0.2)]]
 
 var game: Node
 var _links: Array = []  # [Rect2, tehtävän id] "Näytä kartalla" -linkit, piirretty tällä ruudulla
@@ -67,10 +69,10 @@ func _update_keys() -> void:
 	if not visible:
 		_keys.set_text("")
 	elif _tab == "reppu":
-		_keys.set_text("[Klikkaus] syö tai juo evästä (T)   [1–5] tai [←][→] välilehdet   %s päiväkirja   %s sulje"
+		_keys.set_text("[Klikkaus] syö tai juo evästä (T)   [1–6] tai [←][→] välilehdet   %s päiväkirja   %s sulje"
 			% [Settings.cap("journal"), Settings.cap("inventory", "Esc")])
 	else:
-		_keys.set_text("[1–5] tai [←][→] välilehdet   [Rulla] selaa   %s reppu   %s sulje"
+		_keys.set_text("[1–6] tai [←][→] välilehdet   [Rulla] selaa   %s reppu   %s sulje"
 			% [Settings.cap("inventory"), Settings.cap("journal", "Esc")])
 
 
@@ -185,6 +187,8 @@ func _draw() -> void:
 			_draw_endings()
 		"jemmat":
 			_draw_stashes()
+		"reseptit":
+			_draw_recipes()
 
 
 ## Kirjoittaa rivejä sivuille: vasen sivu ensin, sitten oikea. Palauttaa false, kun tila loppui.
@@ -419,6 +423,83 @@ func _draw_stashes() -> void:
 			draw_string(_hand, Vector2(rp.position.x + 54, ry + 60), ("Koti · " if r.home else "Ulkona · ") + str(r.note), HORIZONTAL_ALIGNMENT_LEFT,
 				rp.size.x - 80, 15, Color(0.75, 0.2, 0.15) if r.warn else Color(0.4, 0.38, 0.33))
 		ry += 76
+
+
+## Reseptikirja: jokaisella reseptillä 3×3-kuvio (huume D, jatke A) ja tulos. Resepti avautuu, kun repussa on sekä huume että
+## sen jatke tai kun sen on askarrellut; avaamattomat ???. Ilman klaffipöytää sivu kertoo, ettei askartelualustaa ole.
+func _draw_recipes() -> void:
+	var data: Dictionary = _data.get("reseptit", {})
+	var known: Array = data.get("known", [])
+	var font := ThemeDB.fallback_font
+	var red := Color(0.45, 0.12, 0.08)
+	var lp := _page(false)
+	var rp := _page(true)
+	draw_string(font, Vector2(lp.position.x + 54, lp.position.y + 50), "Reseptikirja  %d / %d" % [known.size(), Reseptit.IDS.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, 24, red)
+	var y := lp.position.y + 74
+	for l in _wrap("Muoto ratkaisee, paikalla ruudukossa ei ole väliä. D = huume, A = jatke.", 16, lp.size.x - 100, _hand):
+		draw_string(_hand, Vector2(lp.position.x + 54, y), l, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
+		y += 21
+	var has_table: bool = data.get("table", false)
+	var table_note := "Klaffipöytä löytyi: pystytys repusta tai T." if has_table else "Klaffipöytää ei ole vielä. Taitettava pöytä on jossakin torin takapihoilla."
+	for l in _wrap(table_note, 16, lp.size.x - 100, _hand):
+		draw_string(_hand, Vector2(lp.position.x + 54, y), l, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.2, 0.45, 0.2) if has_table else Color(0.6, 0.18, 0.12))
+		y += 21
+	# Oikean sivun ylä: jatkoasteet, teho ja ostajan kiinnijäämisriski.
+	draw_string(font, Vector2(rp.position.x + 54, rp.position.y + 50), "Teho ja riski", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, red)
+	var risk: Array = data.get("risk", [])
+	var tiers := ""
+	var risks := ""
+	for i in Reseptit.QUALITY.size():
+		tiers += "%s %d %%" % [Reseptit.QUALITY[i], roundi(100.0 * pow(0.5, i))] + ("  ·  " if i < Reseptit.QUALITY.size() - 1 else "")
+		if i < risk.size():
+			risks += "%d %%" % roundi(float(risk[i]) * 100.0) + (" / " if i < risk.size() - 1 else "")
+	var ry := rp.position.y + 74
+	for l in _wrap(tiers, 16, rp.size.x - 100, _hand) + _wrap("Ostaja huomaa jatkon todennäköisyydellä " + risks + ". Varmaa ei ole koskaan.", 16, rp.size.x - 100, _hand):
+		draw_string(_hand, Vector2(rp.position.x + 54, ry), l, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
+		ry += 21
+	# Reseptit: neljä korttia, kaksi sivua kohti.
+	for n in Reseptit.IDS.size():
+		var pg := _page(n >= 2)
+		var top := pg.position.y + 150.0
+		var ch := (pg.end.y - top - 20.0) / 2.0
+		var r := Rect2(Vector2(pg.position.x + 40, top + (n % 2) * (ch + 8.0)), Vector2(pg.size.x - 70, ch))
+		_recipe_card(r, Reseptit.IDS[n], Reseptit.IDS[n] in known, font)
+
+
+func _recipe_card(r: Rect2, id: String, known: bool, font: Font) -> void:
+	var rc: Dictionary = Reseptit.RECIPES[id]
+	MG.box(self, r, Color(1.0, 0.96, 0.82) if known else Color(0.86, 0.84, 0.78), 8, 0, Color(0.7, 0.5, 0.2) if known else Color(0.7, 0.68, 0.62), 2)
+	if not known:
+		draw_string(font, r.position + Vector2(0, r.size.y * 0.6), "???", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 34, Color(0.6, 0.58, 0.52))
+		draw_string(_hand, r.position + Vector2(12, r.size.y - 12), "Kerää huume ja jatke reppuun, niin resepti aukeaa.", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 24, 14, Color(0.5, 0.48, 0.42))
+		return
+	draw_string(font, r.position + Vector2(14, 28), String(rc.name), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 20, 18, Color(0.35, 0.15, 0.05))
+	var cell := minf(46.0, (r.size.y - 60.0) / 3.0)
+	var g0 := r.position + Vector2(18, 44)
+	var pat: Array = rc.pattern
+	for rr in 3:
+		for cc in 3:
+			var cr := Rect2(g0 + Vector2(cc, rr) * (cell + 3), Vector2(cell, cell))
+			draw_rect(cr, Color(0.9, 0.84, 0.7))
+			draw_rect(cr, Color(0.5, 0.38, 0.2), false, 1.5)
+			if rr < pat.size() and cc < pat[0].size() and pat[rr][cc] != ".":
+				var sym: String = pat[rr][cc]
+				Reseptit.draw_item(self, cr, String(rc.drug) if sym == "D" else String(rc.agent), font)
+	var ax := g0.x + 3 * (cell + 3) + 18
+	draw_colored_polygon(PackedVector2Array([Vector2(ax, g0.y + cell * 1.5 - 12), Vector2(ax + 28, g0.y + cell * 1.5), Vector2(ax, g0.y + cell * 1.5 + 12)]), Color(0.45, 0.3, 0.12))
+	var out := "%s~%d" % [rc.drug, int(rc.cuts)]
+	var orc := Rect2(Vector2(ax + 42, g0.y + cell * 0.5), Vector2(cell + 8, cell + 8))
+	draw_rect(orc, Color(0.9, 0.84, 0.7))
+	draw_rect(orc, Color(0.5, 0.38, 0.2), false, 1.5)
+	Reseptit.draw_item(self, orc, out, font)
+	draw_string(font, orc.position + Vector2(0, orc.size.y + 18), "× %d" % int(rc.yield), HORIZONTAL_ALIGNMENT_CENTER, orc.size.x, 16, Color(0.2, 0.45, 0.2))
+	var nx := orc.end.x + 16.0
+	var ny := g0.y + 14.0
+	for l in _wrap(String(rc.note), 14, r.end.x - nx - 12.0, _hand):
+		if ny > r.end.y - 6:
+			break
+		draw_string(_hand, Vector2(nx, ny), l, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK)
+		ny += 18
 
 
 ## Tahrat pelin tapaan: kahvikupin renkaat, oluttahrat roiskeineen, makkaran rasvatäplä ja sinappi. Paikat

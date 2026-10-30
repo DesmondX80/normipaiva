@@ -3801,6 +3801,8 @@ func _build_station() -> void:
 
 var makasiini_door := Vector3.ZERO  # rasvanappimakasiinin takaoven edusta (main.gd: ovi "makasiini")
 var makasiini_root: Node3D
+var klaffi_prop: Node3D  # taitettava klaffipöytä Zabukin takana (piiloon, kun poimittu)
+var apteekki_back: Node3D  # apteekin takaovi (main.gd _taka_hatch liikuttaa luukkua)
 
 
 ## Rasvanappimakasiini (makasiini.gd) aseman viereen kuten Saloisissa: aseman kehyksessä (X radan suuntaan, -Z
@@ -4450,6 +4452,21 @@ func _build_apteekki() -> void:
 	rng.seed = 4421
 	var door_at: Vector3 = ground.call(0.0, front + 2.2, 0.0)
 	doors.append({"id": "apteekki", "pos": door_at, "out": Vector3(f.x, 0, f.y), "hint": "Apteekkiin (käsikauppa ja reseptilääkkeet)"})
+	# Takaovi kurkistusluukkuineen (makasiini.gd _build_door, kuten rasvanapin ovi): rakennuksen takaseinässä (-v = taka),
+	# betoniporras edessä. Farmaseutti myy luukulta ilman reseptiä (main.gd _apteekki_taka). Vihreä lamppu punaisen sijaan.
+	var back := front + 0.05
+	B.box(self, Vector3(1.8, 1.0, 0.9), at.call(0, -back - 0.45, 0.0), Color(0.55, 0.55, 0.53), true).rotation_degrees = rot
+	var bdoor: Node3D = Makasiini._build_door()
+	bdoor.position = at.call(0, -back, 0.5)
+	bdoor.rotation.y = yaw + PI  # oven +Z = ulos = rakennuksen taakse (-f)
+	add_child(bdoor)
+	(bdoor.get_node("Lamppu") as OmniLight3D).light_color = Color(0.3, 1.0, 0.45)
+	apteekki_back = bdoor
+	var staff := B.sign_plate(self, "HENKILÖKUNTA", Color(0.88, 0.88, 0.84), Color(0.1, 0.35, 0.2), 0.14, 26, Color(0.4, 0.45, 0.42), "Helvetica Neue")
+	staff.position = at.call(0, -back - 0.02, 3.55)
+	staff.rotation.y = yaw + PI
+	doors.append({"id": "apteekki_taka", "pos": ground.call(0.0, -front - 1.7, 0.0), "out": Vector3(-f.x, 0, -f.y), "r": 2.2, "walk": true,
+		"hint": "apteekin takaovelle", "text": "Koputa apteekin takaoveen"})
 	for k in 6:
 		var bp: Vector3 = ground.call(bl / 2.0 - 1.0 - k * 0.9, front + 0.5, 0.0)
 		B.mesh(self, B.sphere(0.4, 8), bp + Vector3(0, 0.3, 0), Color(0.2 + rng.randf() * 0.08, 0.42, 0.18)).scale = Vector3(1.2, 0.8, 1.0)
@@ -4564,6 +4581,21 @@ func _build_zabuki() -> void:
 	body.add_child(cs)
 	var front: Vector3 = at.call(-0.6, 4.6, 0.0)
 	front.y = h(front.x, front.z)
+	# Taitettava klaffipöytä nojaa Zabukin takaseinää vasten (main.gd _klaffi_found poimii; huumeiden jatkaminen, klaffipoyta.gd).
+	var kq := c + ax * 3.0 + f * -3.3
+	klaffi_prop = Node3D.new()
+	klaffi_prop.position = Vector3(kq.x, h(kq.x, kq.y), kq.y)
+	klaffi_prop.rotation.y = yaw
+	add_child(klaffi_prop)
+	var board := B.mesh(klaffi_prop, B.boxm(Vector3(0.75, 1.15, 0.05)), Vector3(0, 0.58, 0.05), Color(0.62, 0.45, 0.26))  # kasattu levy
+	board.rotation_degrees.x = 10.0
+	B.mesh(klaffi_prop, B.boxm(Vector3(0.75, 0.04, 0.06)), Vector3(0, 0.1, 0.0), Color(0.4, 0.28, 0.15))
+	for lx in [-0.3, 0.3]:  # teräsjalat taitettuina levyn etupuolella
+		var leg := B.mesh(klaffi_prop, B.boxm(Vector3(0.04, 1.05, 0.04)), Vector3(lx, 0.55, -0.0), Color(0.55, 0.57, 0.6))
+		leg.rotation_degrees.x = 10.0
+	B.mesh(klaffi_prop, B.boxm(Vector3(0.8, 0.07, 0.07)), Vector3(0, 0.62, -0.02), Color(0.9, 0.5, 0.1))  # kantohihna
+	doors.append({"id": "klaffipoyta", "pos": Vector3(kq.x, h(kq.x, kq.y), kq.y) - Vector3(f.x, 0, f.y) * 1.4, "out": Vector3(-f.x, 0, -f.y), "r": 3.5,
+		"walk": true, "hint": "klaffipöydälle", "text": "Poimi taitettava klaffipöytä Zabukin takaseinän vierestä"})
 	doors.append({"id": "zabuki", "pos": front, "out": Vector3(f.x, 0, f.y), "hint": "Zabukin tiskille (olut ja hampurilaiset)"})
 	_build_race_crew(front, Vector3(f.x, 0, f.y))
 
