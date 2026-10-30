@@ -15,6 +15,7 @@ signal finished(r: Dictionary)
 
 const MG := preload("res://scripts/mg_draw.gd")
 const B := preload("res://scripts/build.gd")
+const Pose := preload("res://scripts/pose.gd")
 const Looks := preload("res://scripts/looks.gd")
 
 var mode := "ovi"
@@ -49,6 +50,8 @@ var _holding := {}  # nimi -> lahjan kappale (pidellään rinnan edessä)
 var _props := {}  # nimi -> lahjan kappale
 var _table_top := Vector3.ZERO  # kuistin pöytä, jolle ojennetut lahjat lasketaan
 var _cane: Node3D
+const PALM := 0.06  # rannekeskeltä nyrkin sormien pintaan (Idle-käsi on nyrkissä), kun käsi on lahjan kyljellä (Asento.solids)
+const PALM_FWD := 0.07  # kämmenen keskikohta ranteen edessä
 var _pancake: Node3D
 var _pan_at := Vector3.ZERO
 
@@ -285,7 +288,8 @@ func _apply(delta: float) -> void:
 		var tgt := pel + (Vector3(0.18, 0.75, -0.25) if up else Vector3(0.24, -0.02, -0.22))
 		mummo.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", tgt, pel + Vector3(0.5, 0.2, 0.1))
 		var hand: Vector3 = mummo.to_global(tgt)
-		_cane.global_position = hand
+		# Varsi nyrkin kämmenpuolelle ja kahva sen alle, ei sormien läpi (Asento.solids; mummon +X = ulospäin).
+		_cane.global_position = hand + (mummo.global_basis * Vector3(0.035, -0.035, 0) if up else Vector3(0, -0.02, 0))
 		_cane.rotation = Vector3(0, 0, 0.35) if up else Vector3.ZERO  # ylhäällä keppi heiluu uhkaavasti
 	if _pancake != null:
 		_pancake.position.y = 0.04 + absf(sin(_t * 3.0)) * 0.35
@@ -294,23 +298,32 @@ func _apply(delta: float) -> void:
 	_cam.transform = _cam_base.translated_local(jolt)
 
 
-## Lahja molemmissa käsissä rinnan alla vatsan edessä: kädet IK:lla lahjan sivuille, lahja kahden käden väliin.
+## Lahja molemmissa käsissä rinnan alla vatsan edessä: kämmenet lahjan kyljillä (Pose.palm_on, sormet eteen -Z),
+## ranteet lahjan puolileveyden (meta "half") ja kämmenen paksuuden päähän keskeltä, ote lahjan korkeudella "grip".
+## Lahjan keskikohta on kämmenen keskellä, PALM_FWD ranteen edessä.
 func _hold(ch: Node3D, prop: Node3D) -> void:
 	var pel: Vector3 = ch.get_meta("pelvis")
 	var mid := pel + Vector3(0, 0.3, -0.34)
+	var half: float = prop.get_meta("half", 0.06) + PALM
 	for sd in [1.0, -1.0]:
 		var sfx := "_r" if sd > 0.0 else "_l"
-		ch.set_ik("arm" + sfx, "upperarm" + sfx, "lowerarm" + sfx, "hand" + sfx, mid + Vector3(sd * 0.09, 0, 0),
+		ch.set_ik("arm" + sfx, "upperarm" + sfx, "lowerarm" + sfx, "hand" + sfx, mid + Vector3(sd * half, 0, 0),
 			pel + Vector3(sd * 0.5, 0.15, 0.05))
-	prop.global_position = ch.to_global(mid + Vector3(0, -0.04, 0))
+		ch.set_ik_orient("arm" + sfx, Pose.palm_on(Vector3(0, 0, -1), Vector3(-sd, 0, 0), sd < 0.0), 1.0)
+	prop.global_position = ch.to_global(mid + Vector3(0, -prop.get_meta("grip", 0.04), -PALM_FWD))
 	prop.global_rotation = Vector3(0, ch.global_rotation.y, 0)
 
 
 # --- Lavastukset ---------------------------------------------------------------------------------------------
 
+## Idle-asennossa kengänpohjat ovat 4,5-5,4 cm mallin origon alapuolella (mitattu paistetusta verkosta,
+## Pose.limb_points): hahmo nostetaan, ettei jalkaterä uppoa lattiaan (Asento.solids, kolmio_kuvat.gd).
+const SOLE := 0.05
+
+
 func _person(nimi: String, at: Vector3, yaw: float) -> Node3D:
 	var ch: Node3D = Looks.make(_stage, _look(nimi))
-	ch.position = at
+	ch.position = at + Vector3(0, SOLE, 0)
 	ch.rotation.y = yaw
 	ch.set_meta("pelvis", ch.bone_position("pelvis"))
 	ch.play("Idle", 0.0)
@@ -468,18 +481,25 @@ func _build_porch() -> void:
 func _gift_prop(what: String) -> Node3D:
 	var n := Node3D.new()
 	_stage.add_child(n)
+	# half = lahjan puolileveys otteen kohdalla, grip = otteen korkeus lahjan pohjasta (_hold).
 	if what.begins_with("mansik"):
+		n.set_meta("half", 0.1)
+		n.set_meta("grip", 0.035)
 		B.mesh(n, B.boxm(Vector3(0.2, 0.07, 0.14)), Vector3(0, 0.035, 0), Color(0.72, 0.56, 0.34))
 		for i in 12:
 			var p := Vector3(-0.075 + (i % 4) * 0.05, 0.08 + (i / 4) * 0.012, -0.045 + (i / 4) * 0.045)
 			B.mesh(n, B.sphere(0.022, 8), p, Color(0.82, 0.06, 0.1)).scale = Vector3(1.0, 1.15, 1.0)
 			B.mesh(n, B.cyl(0.012, 0.004, 0.01, 6), p + Vector3(0, 0.025, 0), Color(0.2, 0.55, 0.2))
 	elif what.begins_with("kerma"):
+		n.set_meta("half", 0.0355)
+		n.set_meta("grip", 0.1)
 		B.mesh(n, B.cyl(0.035, 0.035, 0.2, 14), Vector3(0, 0.1, 0), Color(0.92, 0.93, 0.96))
 		B.mesh(n, B.cyl(0.0355, 0.0355, 0.07, 14), Vector3(0, 0.1, 0), Color(0.2, 0.4, 0.8))
 		B.mesh(n, B.cyl(0.03, 0.035, 0.03, 14), Vector3(0, 0.215, 0), Color(0.85, 0.1, 0.15))
 		B.mesh(n, B.cyl(0.006, 0.01, 0.04, 8), Vector3(0, 0.25, 0.01), Color(0.85, 0.1, 0.15), Vector3(25, 0, 0))
 	else:
+		n.set_meta("half", 0.07)  # kartio 0,015 -> 0,07: nyrkki ulottuu lähes yläreunaan, joten levein säde
+		n.set_meta("grip", 0.14)
 		B.mesh(n, B.cyl(0.07, 0.015, 0.22, 12), Vector3(0, 0.11, 0), Color(0.95, 0.92, 0.84))
 		for i in 6:
 			var a := i * TAU / 6.0
