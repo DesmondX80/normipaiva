@@ -6,6 +6,7 @@ extends Node
 const K := preload("res://scripts/kolmio_kohtaus.gd")
 const S := preload("res://scripts/sytkari.gd")
 const Kolmio := preload("res://scripts/kolmiomittaus.gd")
+const Looks := preload("res://scripts/looks.gd")
 
 var out := "user://kolmio_kuvat"
 var root: Node
@@ -89,4 +90,37 @@ func _run() -> void:
 				sy.set_process(false)
 				sy._view.queue_redraw()
 				await _shot(sy, "syt_matsi_%s" % site)
+	await _rinkka()
 	get_tree().quit()
+
+
+## Jonin Sandels-päkkirinkka 3D:nä: takaa, sivulta, ylhäältä ja rajattuna lähikuvana (logo, muotokuva, jesarit).
+func _rinkka() -> void:
+	var w := Node3D.new()
+	add_child(w)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.55, 0.62, 0.7)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.9, 0.9, 0.95)
+	env.ambient_light_energy = 0.6
+	var we := WorldEnvironment.new()
+	we.environment = env
+	w.add_child(we)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-35, 150, 0)
+	w.add_child(sun)
+	var joni: Node3D = Looks.make(w, Looks.JONI)
+	joni.play("Idle", 0.0)
+	var cam := Camera3D.new()
+	cam.fov = 40.0
+	w.add_child(cam)
+	cam.current = true
+	for v in [["rinkka_takaa", Vector3(0.3, 1.5, 1.8), Vector3(0, 1.2, 0)], ["rinkka_sivulta", Vector3(1.6, 1.4, 0.4), Vector3(0, 1.25, 0.1)],
+			["rinkka_ylhaalta", Vector3(0.0, 3.0, 0.35), Vector3(0, 1.2, 0.15)], ["rinkka_lahelta", Vector3(0.05, 1.3, 0.75), Vector3(0, 1.22, 0.2)]]:
+		cam.look_at_from_position(v[1], v[2])
+		for i in 8:
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % v[0]))
+	w.queue_free()
