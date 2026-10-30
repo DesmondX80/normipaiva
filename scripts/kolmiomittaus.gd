@@ -38,7 +38,7 @@ const SITES := {
 	"vaala": {
 		"woman": "Katja", "gen": "Katjan", "talker": "kolmio_vaala", "friends": ["Hevari-Tero", "Siviikki-Timo"],
 		"gift_me": "mansikat", "gift_part": "mansikoita", "start_place": "aseman pihassa",
-		"remote": "Timo", "remote_place": "Veturitallin pihasta",
+		"remote": "Timo", "remote_place": "Vaalantien varresta", "drive": true,  # Timo mittaa Siviikki-ajolla (main.gd)
 		"gifts": [["Timo", "kermavaahdon"], ["Tero", "ruusut"], ["Sinä", "mansikat"]],
 		"age": 37, "bio": "Moottoripyörä tallissa, kahvi kuumana. Löydä, jos uskallat. Tuo jotain makeaa.",
 		"job": "Rekkakuski, Vaala", "ending": "katja",
@@ -90,6 +90,15 @@ const LINES := {
 		"Tero: Sakot tuli taas. Kuulemma tunneli ei oo moshpit.",
 	],
 }
+
+## Siviikki-ajon jutut (main.gd _kolmio_drive_step), kuuden sekunnin välein.
+const DRIVE_LINES := [
+	"Timo: \"Kuuntele ku se huutaa. Matalat jouset, kakskytkuus vuotta ruostetta.\"",
+	"Tero: \"Ajoneuvovero tästä on enemmän ku mun Kela-tuki. Ja mää maksan bensat.\"",
+	"Timo: \"Pakoputken ääni on sävelletty. Honda tiesi mitä teki.\"",
+	"Tero: \"Valtio näkee meidät nytkin. Kamerat. Ja Sytkäri.\"",
+	"Timo: \"Kakkosella satasen. Älä kerro Katjalle.\"",
+]
 
 ## Mittauksen kommentit (tekstiviesti kaverilta joka mittauksen jälkeen), kierrätetään järjestyksessä.
 const MEASURE_LINES := {
@@ -233,7 +242,7 @@ func start(site: String, at: Vector2, target: Vector2, who: String) -> Dictionar
 	s.rings = []
 	s.wrong = []
 	s.gift = false  # oma lahja ostetaan joka kerta uudestaan
-	s.remote_t = REMOTE_DELAY
+	s.remote_t = -1.0 if SITES[site].get("drive", false) else REMOTE_DELAY
 	var r := ring(at, target, who)
 	(s.rings as Array).append(r)
 	return r
@@ -287,6 +296,14 @@ func remote_step(site: String, delta: float) -> bool:
 	return true
 
 
+## Onko kaveri (remote) jo mitannut (Vaalassa Siviikki-ajo tehty).
+func remote_done(site: String) -> bool:
+	for r: Dictionary in st(site).rings:
+		if r.who == SITES[site].remote:
+			return true
+	return false
+
+
 func wrong_door(site: String, i: int) -> Dictionary:
 	var s := st(site)
 	if not i in s.wrong:
@@ -331,6 +348,6 @@ func load_from(cfg: ConfigFile) -> void:
 		for q: Array in d.get("rings", []):
 			s.rings.append({"c": Vector2(q[0], q[1]), "m": float(q[2]), "lo": float(q[3]), "hi": float(q[4]), "who": String(q[5])})
 		if s.stage == "mittaus":
-			s.remote_t = REMOTE_DELAY if (s.rings as Array).size() < 2 else -1.0
+			s.remote_t = REMOTE_DELAY if (s.rings as Array).size() < 2 and not SITES[site].get("drive", false) else -1.0
 		state[site] = s
 	maito_day = cfg.get_value("kolmio", "maito", -1)

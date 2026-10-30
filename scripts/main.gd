@@ -10857,6 +10857,10 @@ var _kolmio_vaala_npcs: Array = []  # Tero ja Timo (vaala.gd:n lapsia)
 var _kolmio_doors := {}  # kohde -> [[ovi (x/z), indeksi (-1 = nainen, muuten väärä ovi)], ...]
 var _kolmio_vaala_spots := {}  # Vaalan lähtöpiste (aseman piha) ja etämittauksen piste (Veturitalli), paikallinen x/z
 var _kolmio_vaala_built: Node3D  # vaala.gd, johon kaverit ja ovet on lisätty
+var _kolmio_civic: Node3D  # Timon Siviikki aseman pihassa (vaala.gd:n lapsi)
+## Siviikki-ajo Timon mittauspisteeseen ja takaisin: path (vaalan paikalliset pisteet), d (ajettu matka), dir (1 meno,
+## -1 paluu), v (vauhti), vtec (kytkeytyi tällä osuudella), cam (ajokamera). Tyhjä = ei ajossa.
+var _kolmio_drive := {}
 var _kolmio_ui: CanvasLayer  # Sytkäri tai kohtaus auki
 var _kolmio_anchor: Node3D  # Rasvanapin halli tämän yläpuolelle
 
@@ -10980,6 +10984,9 @@ func _kolmio_measure_logic() -> void:
 ## Vaalan kaverit, mittaus ja etämittaus (_vaala_logic). Ovet ja Teron ja Timon juttelu ovat vaala.gd doors -listassa.
 func _kolmio_vaala_logic() -> void:
 	_kolmio_vaala_setup()
+	if not _kolmio_drive.is_empty():
+		_kolmio_drive_step(get_process_delta_time())
+		return
 	for v: Node3D in _kolmio_vaala_npcs:
 		v.target = player
 	if kolmio.remote_step("vaala", get_process_delta_time()):
@@ -11027,36 +11034,22 @@ func _kolmio_vaala_setup() -> void:
 		vl.doors.append({"id": "kolmio_katja" if i == 0 else "kolmio_v%d" % (i - 1), "pos": at, "out": hd.out, "r": 3.0,
 			"walk": true, "hint": "ovelle", "text": "Koputa oveen"})
 	_kolmio_doors["vaala"] = list
-	# Tero ja Timo seisovat aseman pihassa Siviikin vieressä; Timon etämittaus Veturitallilta.
+	# Tero ja Timo seisovat aseman pihassa Siviikin vieressä; Timon mittauspiste Vaalantien varrella (_kolmio_road_spot).
 	var asema: Array = vl.doors.filter(func(d: Dictionary) -> bool: return d.id == "asema")
 	var out: Vector3 = asema[0].out if not asema.is_empty() else Vector3.FORWARD
 	var side := Vector3(-out.z, 0, out.x)
 	var base: Vector3 = station + out * 7.0
 	_kolmio_vaala_spots["start"] = Vector2(base.x, base.z)
-	# Timon etämittaus: Vaalan ovista se, joka on kauimpana aseman pihasta mutta alle 700 m Katjan talosta, jotta ympyrät
-	# leikkaavat jyrkässä kulmassa (Veturitalli on aseman vieressä: ympyrät olivat lähes samankeskiset).
 	var tgt := Vector2(bp.x, bp.z)
 	var start := Vector2(base.x, base.z)
-	var far := {"pos": start + Vector2(side.x, side.z) * 150.0, "name": "Vaalantien varresta"}
-	var names := {"kmarket": "K-Marketin pihasta", "zabuki": "torin Zabukilta", "apteekki": "apteekin edestä", "gasthaus": "Gasthausin pihasta",
-		"hotelli": "hotellin pihasta", "tyokkari": "työkkärin jonosta", "veturitalli": "Veturitallin pihasta"}
-	var best_d := 0.0
-	for d: Dictionary in vl.doors:
-		if not names.has(d.id):
-			continue
-		var q := Vector2(d.pos.x, d.pos.z)
-		var ds := q.distance_to(start)
-		if q.distance_to(tgt) < 700.0 and ds > best_d:
-			best_d = ds
-			far = {"pos": q, "name": names[d.id]}
-	_kolmio_vaala_spots["remote"] = far.pos
-	_kolmio_vaala_spots["remote_name"] = far.name
+	var cp := base + side * 3.6
+	_kolmio_vaala_spots.merge(_kolmio_road_spot(vl, Vector2(cp.x, cp.z), start, tgt), true)
 	var civic := Node3D.new()
 	vl.add_child(civic)
 	Vehicles.car(civic, Color(0.72, 0.04, 0.07), "VTC-916")
-	var cp := base + side * 3.6
 	civic.position = Vector3(cp.x, vl.h(cp.x, cp.z), cp.z)
 	civic.rotation.y = B.yaw_to(side)
+	_kolmio_civic = civic
 	var who := [["Hevari-Tero", Looks.HEVARI_TERO, "Tero", "pekka"], ["Siviikki-Timo", Looks.SIVIIKKI_TIMO, "Timo", "arto"]]
 	for k in 2:
 		var v := Villager.new()
@@ -11072,6 +11065,166 @@ func _kolmio_vaala_setup() -> void:
 		_kolmio_vaala_npcs.append(v)
 	vl.doors.append({"id": "kolmio_kaverit", "pos": base - side * 1.8, "out": out, "r": 4.0, "walk": true,
 		"hint": "Teron ja Timon luo", "text": "Juttele Teron ja Timon kanssa"})
+
+
+## Timon mittauspiste Vaalantien varrella: tien näyte, joka on kauimpana aseman pihasta mutta alle 700 m Katjan
+## talosta (ympyrät leikkaavat jyrkässä kulmassa), ja Siviikin reitti sinne (vaala.gd road: [x, y, z, ...]).
+## Paikan nimi lähimmästä tunnetusta ovesta (alle 150 m), muuten "Vaalantien varresta".
+func _kolmio_road_spot(vl: Node3D, car: Vector2, start: Vector2, tgt: Vector2) -> Dictionary:
+	var road: Array = vl.road
+	var i0 := 0
+	var bi := -1
+	var best_d := 0.0
+	for i in road.size():
+		var q := Vector2(road[i][0], road[i][2])
+		if q.distance_to(car) < Vector2(road[i0][0], road[i0][2]).distance_to(car):
+			i0 = i
+		if q.distance_to(tgt) < 700.0 and q.distance_to(start) > best_d and not road[i][6]:
+			best_d = q.distance_to(start)
+			bi = i
+	if bi < 0:
+		return {"remote": start + Vector2(150, 0), "remote_name": "Vaalantien varresta", "route": PackedVector3Array()}
+	var at := Vector2(road[bi][0], road[bi][2])
+	var names := {"kmarket": "K-Marketin pihasta", "zabuki": "torin Zabukilta", "apteekki": "apteekin edestä", "gasthaus": "Gasthausin pihasta",
+		"hotelli": "hotellin pihasta", "tyokkari": "työkkärin jonosta", "veturitalli": "Veturitallin pihasta"}
+	var place := "Vaalantien varresta"
+	var nd := 150.0
+	for d: Dictionary in vl.doors:
+		if names.has(d.id) and Vector2(d.pos.x, d.pos.z).distance_to(at) < nd:
+			nd = Vector2(d.pos.x, d.pos.z).distance_to(at)
+			place = names[d.id]
+	# Aseman pihasta suoraan nurmikon yli lähimpään Vaalantien näytteeseen, sitten tietä pitkin.
+	var route := PackedVector3Array([Vector3(car.x, vl.h(car.x, car.y), car.y)])
+	var step := 1 if bi >= i0 else -1
+	for i in range(i0, bi + step, step):
+		route.append(Vector3(road[i][0], road[i][1], road[i][2]))
+	return {"remote": at, "remote_name": place, "route": route}
+
+
+## Siviikki-ajo alkaa (Teron ja Timon juttelu): kaverit ja pelaaja kyytiin, ajokamera auton taakse.
+func _kolmio_drive_start() -> void:
+	var route: PackedVector3Array = _kolmio_vaala_spots.get("route", PackedVector3Array())
+	if route.size() < 2 or _kolmio_civic == null:
+		_kolmio_remote("vaala")  # varalla tekstiviesti, jos tietä ei löytynyt
+		return
+	var vl: Node3D = mopo_trip.vaala
+	var cam := Camera3D.new()
+	cam.fov = 62.0
+	cam.top_level = true
+	vl.add_child(cam)
+	cam.current = true
+	_kolmio_drive = {"d": 0.0, "dir": 1, "v": 0.0, "vtec": false, "cam": cam, "home": _kolmio_civic.transform,
+		"len": _kolmio_route_len(route), "line": 0, "line_t": 0.0,
+		"engine": Sfx.loop_on(_kolmio_civic, "engine", -6.0)}
+	for v: Node3D in _kolmio_vaala_npcs:
+		v.visible = false
+	mopo_trip.on_foot.visible = false
+	mopo_trip.on_foot.process_mode = Node.PROCESS_MODE_DISABLED
+	mopo_trip.menu_open = true  # E ei avaa ovia ajon aikana
+	Sfx.play("door_close", -4.0)
+	_queue_message("Timo: \"Turvavyöt. Tero, pidä kiinni. Tää on kakkosvaihde ja VTEC.\"", 3.5)
+
+
+static func _kolmio_route_len(route: PackedVector3Array) -> float:
+	var n := 0.0
+	for i in route.size() - 1:
+		n += route[i].distance_to(route[i + 1])
+	return n
+
+
+## Piste ja suunta reitillä matkan d kohdalla (oikea kaista 1,7 m keskiviivasta, kun lähtöpihasta on päästy).
+func _kolmio_route_at(route: PackedVector3Array, d: float, dir: int) -> Array:
+	var left := d
+	for i in route.size() - 1:
+		var a := route[i]
+		var b := route[i + 1]
+		var l := a.distance_to(b)
+		if left <= l or i == route.size() - 2:
+			var p := a.lerp(b, clampf(left / maxf(l, 0.001), 0.0, 1.0))
+			var fwd := (b - a).normalized() * dir
+			var right := Vector3(-fwd.z, 0, fwd.x)
+			if i > 0:
+				p += right * 1.7
+			else:  # nurmikko aseman pihasta tielle: maanpinnan korkeudella
+				p.y = mopo_trip.vaala.h(p.x, p.z)
+			return [p, fwd]
+		left -= l
+	return [route[route.size() - 1], Vector3.FORWARD]
+
+
+## Ajo ruutu kerrallaan: kiihdytys, VTEC-hetki, kamera perässä ja jutut. Perillä Timo mittaa; paluussa kaverit ulos
+## aseman pihaan. E = hyppää osuuden loppuun.
+func _kolmio_drive_step(delta: float) -> void:
+	var dr := _kolmio_drive
+	var route: PackedVector3Array = _kolmio_vaala_spots.route
+	var total: float = dr.len
+	var left: float = total - dr.d
+	var top := 22.0 if left > 60.0 and dr.d > 30.0 else 8.0
+	dr.v = move_toward(dr.v, top, (6.0 if dr.v < top else 9.0) * delta)
+	dr.d = minf(total, dr.d + dr.v * delta)
+	if Input.is_action_just_pressed("interact"):
+		dr.d = total
+	var engine: AudioStreamPlayer3D = dr.engine
+	if dr.v > 12.0 and not dr.vtec:
+		dr.vtec = true
+		Sfx.play("whoosh", -2.0, 0.6)
+		_queue_message("VTEC KYTKEYTYI. Timo: \"Kuuliks! Seittemäntuhatta!\" Tero: \"Mää kuulin bensan hinnan.\"", 3.5)
+	if is_instance_valid(engine):
+		engine.pitch_scale = (0.9 + dr.v / 22.0 * 0.5) * (1.35 if dr.vtec and dr.v > 12.0 else 1.0)
+	var dist: float = dr.d if dr.dir == 1 else total - dr.d
+	var at: Array = _kolmio_route_at(route, dist, dr.dir)
+	var p: Vector3 = at[0]
+	var fwd: Vector3 = at[1]
+	_kolmio_civic.position = p
+	if fwd.length() > 0.1:
+		_kolmio_civic.rotation.y = B.yaw_to(fwd)
+	var cam: Camera3D = dr.cam
+	var eye := _kolmio_civic.global_position - fwd * 7.5 + Vector3(0, 3.2, 0)
+	cam.global_position = cam.global_position.lerp(eye, 1.0 - exp(-4.0 * delta)) if dr.d > 0.5 else eye
+	cam.look_at(_kolmio_civic.global_position + Vector3(0, 0.9, 0) + fwd * 2.0, Vector3.UP)
+	dr.line_t += delta
+	if dr.line_t > 6.0:
+		dr.line_t = 0.0
+		var lines: Array = Kolmio.DRIVE_LINES
+		_queue_message(lines[dr.line % lines.size()], 4.0)
+		dr.line += 1
+	_hint.text = "[E] Perille" if dr.dir == 1 else "[E] Takaisin asemalle"
+	if dr.d < total:
+		return
+	if dr.dir == 1:
+		dr.dir = -1
+		dr.d = 0.0
+		dr.v = 0.0
+		dr.vtec = false
+		_kolmio_civic.position = route[route.size() - 1]  # käännös tien päällä
+		var r: Dictionary = kolmio.measure("vaala", _kolmio_vaala_spots.remote, _kolmio_target("vaala"), "Timo")
+		Sfx.play("bell", -10.0, 2.8)
+		_queue_message("Timo %s: \"%s päässä. Mää piirrän, sää pidät harppia.\" (kartta M)" % [_kolmio_vaala_spots.remote_name,
+			Kolmio.dist_text(r.m)], 4.5)
+		_save_game()
+		return
+	_kolmio_drive_end()
+
+
+func _kolmio_drive_end() -> void:
+	var dr := _kolmio_drive
+	_kolmio_drive = {}
+	_kolmio_civic.transform = dr.home
+	if is_instance_valid(dr.engine):
+		(dr.engine as Node).queue_free()
+	(dr.cam as Node).queue_free()
+	for v: Node3D in _kolmio_vaala_npcs:
+		v.visible = true
+	var w: CharacterBody3D = mopo_trip.on_foot
+	w.visible = true
+	w.process_mode = Node.PROCESS_MODE_INHERIT
+	var kd: Array = mopo_trip.vaala.doors.filter(func(d: Dictionary) -> bool: return d.id == "kolmio_kaverit")
+	if not kd.is_empty():
+		w.global_position = mopo_trip.vaala.to_global(kd[0].pos) + Vector3(0, 0.5, 0)
+	w.activate_camera()
+	mopo_trip.menu_open = false
+	Sfx.play("door_close", -4.0)
+	_queue_message("Tero: \"Takas asemalla. Mittaa sää loput (E missä vain), ympyrät kartalle (M).\"", 4.0)
 
 
 ## Vaalan ovet piiloon, kun niille ei ole asiaa: talojen ovet vain mittauksen aikana.
@@ -11093,6 +11246,8 @@ func _kolmio_options(who: String, o: Array) -> void:
 	var s: Dictionary = kolmio.st(site)
 	match s.stage:
 		"mittaus":
+			if Kolmio.SITES[site].get("drive", false) and not kolmio.remote_done(site):
+				o.append(_opt("kolmio_siviikki", "Hypätään Siviikkiin: Timo ajaa toiselle puolelle kylää mittaamaan", true, "", true))
 			o.append(_opt("kolmio_tilanne", "Missä ne ympyrät nyt menee?"))
 			o.append(_opt("kolmio_lahjat", "Onks teillä lahjat valmiina?", true, "", not s.gift))
 		_:
@@ -11139,6 +11294,9 @@ func _kolmio_choose(id: String) -> void:
 			tilat.first("kolmio_" + site, 0.3)
 			_save_game()
 			_kolmio_phone(site, "match", Kolmio.dist_text(r.m))
+		"kolmio_siviikki":
+			_talk_box.close()
+			_kolmio_drive_start()
 		"kolmio_tilanne":
 			var n: int = (s.rings as Array).size()
 			var line := "Esa: Kartalla on %d ympyrää. Siellä missä ne kaikki risteää, siellä on Mintun talo. Avaa kartta (M)." % n \
@@ -11196,8 +11354,8 @@ func _kolmio_briefing(site: String) -> void:
 		_queue_message("Joni: \"Mätsi! Mutta osoitetta ei kerrota, vain matka. Mää mittasin tästä, Esa lähti kirkolle.\"", 4.5)
 		_queue_message("Esa: \"Mittaa sää jostain muualta (E missä vain). Ympyrät harpilla kartalle (M), ja ruusut kaupan tiskiltä.\"", 5.0)
 	else:
-		_queue_message("Tero: \"Mätsi. Ja valtio tietää sen jo. Mää mittasin aseman pihasta, Timo ajoi Siviikillä toiselle puolelle kylää.\"", 4.5)
-		_queue_message("Timo: \"Mittaa sää lisää (E missä vain), ympyrät kartalle (M). Mansikat K-Marketin tiskiltä.\"", 5.0)
+		_queue_message("Tero: \"Mätsi. Ja valtio tietää sen jo. Mää mittasin aseman pihasta.\"", 4.0)
+		_queue_message("Timo: \"Seuraava mittaus Siviikillä toiselta puolelta kylää. Hyppää kyytiin (puhu meille). Mittaa sää lisää (E missä vain), mansikat K-Marketin tiskiltä.\"", 6.0)
 
 
 func _kolmio_measure(site: String, at: Vector2) -> void:
