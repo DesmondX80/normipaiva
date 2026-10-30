@@ -55,7 +55,8 @@ var _pan_at := Vector3.ZERO
 ## 3D-hahmojen ulkonäöt (looks.gd). Väärien ovien asukkaat tässä.
 const RESIDENTS := {
 	"Mummo kepin kanssa": {"model": "female", "shirt": Color(0.56, 0.36, 0.55), "pants": Color(0.32, 0.24, 0.2),
-		"shoes": Color(0.22, 0.14, 0.1), "hair": "Hair_Long", "hair_color": Color(0.88, 0.88, 0.86), "height": 1.56,
+		"shoes": Color(0.22, 0.14, 0.1), "hair": "", "perm_col": Color(0.93, 0.92, 0.9), "round_glasses": true,
+		"hair_color": Color(0.85, 0.85, 0.83), "height": 1.56,
 		"skin": Color(1.0, 0.9, 0.86), "bulk": 0.35, "belly": 0.3, "shoulders": -0.4, "muscle": -1.0},
 	"Pieni poika": {"shirt": Color(0.15, 0.35, 0.85), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.2, 0.2, 0.2),
 		"hair": "Hair_SimpleParted", "hair_color": Color(0.85, 0.72, 0.42), "height": 1.3, "bulk": -0.85, "shoulders": -0.8},
