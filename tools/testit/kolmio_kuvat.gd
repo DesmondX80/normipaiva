@@ -112,12 +112,17 @@ func _rinkka() -> void:
 	w.add_child(sun)
 	var joni: Node3D = Looks.make(w, Looks.JONI)
 	joni.play("Idle", 0.0)
+	var minttu: Node3D = Looks.make(w, Looks.MINTTU)  # kiharat: kuvat kolmesta suunnasta ja kasvot
+	minttu.position = Vector3(4, 0, 0)
+	minttu.play("Idle", 0.0)
 	var cam := Camera3D.new()
 	cam.fov = 40.0
 	w.add_child(cam)
 	cam.current = true
 	for v in [["rinkka_takaa", Vector3(0.3, 1.5, 1.8), Vector3(0, 1.2, 0)], ["rinkka_sivulta", Vector3(1.6, 1.4, 0.4), Vector3(0, 1.25, 0.1)],
-			["rinkka_ylhaalta", Vector3(0.0, 3.0, 0.35), Vector3(0, 1.2, 0.15)], ["rinkka_lahelta", Vector3(0.05, 1.3, 0.75), Vector3(0, 1.22, 0.2)]]:
+			["rinkka_ylhaalta", Vector3(0.0, 3.0, 0.35), Vector3(0, 1.2, 0.15)], ["rinkka_lahelta", Vector3(0.05, 1.3, 0.75), Vector3(0, 1.22, 0.2)],
+			["minttu_edesta", Vector3(4.1, 1.55, -1.1), Vector3(4, 1.45, 0)], ["minttu_kasvot", Vector3(4.05, 1.58, -0.6), Vector3(4, 1.53, 0)],
+			["minttu_sivulta", Vector3(5.1, 1.55, 0.0), Vector3(4, 1.45, 0)], ["minttu_takaa", Vector3(4.1, 1.6, 1.1), Vector3(4, 1.45, 0)]]:
 		cam.look_at_from_position(v[1], v[2])
 		for i in 8:
 			await get_tree().process_frame

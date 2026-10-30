@@ -373,51 +373,71 @@ static func add_braid(c: Node3D, col: Color) -> void:
 	c.attach("spine_03", braid, head - chest)
 
 
-## Kiharat (Minttu): pienet tiheät kiharat pitkien hiusten päällä kalotilla (kasvot -Z ja korvien edusta vapaana) ja
-## niskasta ja ohimoilta olkapäille valuvat korkkiruuvikiharat, kukin pienistä palloista ketjuna. Kuten mummojen
-## permanentti (mummot.gd _perm), mutta pienemmät kiharat ja pitkät suortuvat. Mitat hahmon avaruudessa pääluusta.
+## Kiharat (Minttu): yhtenäiset suortuvat putkina (ei palloja): kukin lähtee päälaelta, kulkee kallon pintaa
+## myöten aaltoillen taakse tai sivulle ja jatkuu korkkiruuvikiharana hartioille ja lapaluille. Kasvojen puoli (-Z)
+## jää vapaaksi (otsalla polkkamallin Hair_Long hiukset). Kiiltävä materiaali, suortuvittain värivaihtelu.
+## Mitat hahmon avaruudessa pääluusta.
 static func add_curls(c: Node3D, col: Color) -> void:
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = true
-	var sm := SphereMesh.new()
-	sm.radius = 0.016
-	sm.height = 0.032
-	sm.radial_segments = 8
-	sm.rings = 5
-	mm.mesh = sm
-	var pts: Array[Vector3] = []
-	var n := 360
-	for i in n:  # kalotti: vain otsan yläpuolelta ja takaa
-		var y := 1.0 - 2.0 * (i + 0.5) / n
-		var rr := sqrt(1.0 - y * y)
-		var th := PI * (3.0 - sqrt(5.0)) * i
-		var d := Vector3(cos(th) * rr, y, sin(th) * rr)
-		if d.y < 0.05 or (d.z < -0.3 and d.y < 0.55):
-			continue
-		pts.append(Vector3(d.x * 0.108, d.y * 0.12 + 0.01, d.z * 0.115))
-	for r in 16:  # korkkiruuvikiharat: takana ja sivuilla, korvien takaa olkapäille
-		var a := lerpf(-0.08 * PI, 1.08 * PI, (r + 0.5) / 16.0)
-		var base := Vector3(cos(a) * 0.1, -0.01, sin(a) * 0.1 + 0.02)
-		var out := Vector3(cos(a), 0, sin(a))
-		var drop := 0.2 + 0.06 * fmod(r * 0.618, 1.0)
-		for k in 9:
-			var f := k / 8.0
-			var spin := Vector3(cos(k * 1.9 + r), 0, sin(k * 1.9 + r)) * 0.012
-			pts.append(base + out * (0.02 * f) + Vector3(0, -drop * f, 0) + spin)
-	mm.instance_count = pts.size()
-	for i in pts.size():
-		var s := 0.85 + 0.3 * fmod(i * 0.618, 1.0)
-		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * s), pts[i]))
-		mm.set_instance_color(i, col.darkened(0.18 * fmod(i * 0.37, 1.0)).lightened(0.08 * fmod(i * 0.53, 1.0)))
-	var mi := MultiMeshInstance3D.new()
-	mi.multimesh = mm
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var radii := Vector3(0.112, 0.124, 0.12)
+	var count := 34
+	for r in count:
+		var az := lerpf(-0.66 * PI, 0.66 * PI, (r + 0.5) / count)  # 0 = suoraan takana (+Z)
+		var dir := Vector3(sin(az), 0, cos(az))
+		var side := Vector3.UP.cross(dir).normalized()
+		var pts: Array[Vector3] = []
+		for k in 14:  # kallon pinnalla: korkeuskulma 75° -> 0° aaltoillen sivusuunnassa
+			var t := k / 13.0
+			var el := deg_to_rad(lerpf(75.0, -5.0, t))
+			var on := Vector3(dir.x * cos(el) * radii.x, sin(el) * radii.y, dir.z * cos(el) * radii.z)
+			pts.append(on * 1.06 + side * sin(t * 9.0 + r) * 0.006 + Vector3(0, 0.01, 0))
+		var base: Vector3 = pts[pts.size() - 1]
+		var drop := 0.2 + 0.1 * fmod(r * 0.381, 1.0)
+		for k in range(1, 48):  # korkkiruuvi alas, spiraali kapenee
+			var t := k / 47.0
+			var spin := t * TAU * 3.5 + r
+			var hr := 0.013 * (1.0 - 0.3 * t)
+			pts.append(base + dir * (0.02 * t) + Vector3(0, -drop * t, 0) + (side * cos(spin) + dir * sin(spin)) * hr - side * hr)
+		var shade := col.darkened(0.18 * fmod(r * 0.29, 1.0)).lightened(0.08 * fmod(r * 0.53, 1.0))
+		_tube_strip(st, pts, 0.0075, shade)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
 	mat.vertex_color_is_srgb = true
-	mat.roughness = 0.6
+	mat.roughness = 0.4
+	mat.metallic_specular = 0.7
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = mat
 	c.attach("Head", mi, Vector3(0, 0.088, -0.01))
+
+
+## Putki pisteiden läpi SurfaceTooliin (6 kulmaa poikkileikkauksessa, pää suljettu kapenemalla).
+static func _tube_strip(st: SurfaceTool, pts: Array[Vector3], radius: float, col: Color) -> void:
+	var sides := 6
+	var rings: Array = []
+	for i in pts.size():
+		var tng := (pts[mini(i + 1, pts.size() - 1)] - pts[maxi(i - 1, 0)]).normalized()
+		var ref := Vector3.UP if absf(tng.dot(Vector3.UP)) < 0.9 else Vector3.RIGHT
+		var u := tng.cross(ref).normalized()
+		var v := tng.cross(u).normalized()
+		var rr := radius * (1.0 if i < pts.size() - 3 else 0.5)
+		var ring: Array[Vector3] = []
+		for k in sides:
+			var a := TAU * k / sides
+			ring.append(pts[i] + (u * cos(a) + v * sin(a)) * rr)
+		rings.append(ring)
+	for i in pts.size() - 1:
+		var a: Array[Vector3] = rings[i]
+		var b: Array[Vector3] = rings[i + 1]
+		var lit := col.lightened(0.1 * absf(sin(i * 0.45)))  # spiraalin kiilto
+		for k in sides:
+			var k2 := (k + 1) % sides
+			for q in [a[k], b[k], b[k2], a[k], b[k2], a[k2]]:
+				st.set_color(lit)
+				st.add_vertex(q)
 
 
 ## Pitkät suorat hiukset (Katja, Hevari-Tero): polkkamallin (Hair_Long) alle niskasta lapaluihin ulottuva verho
