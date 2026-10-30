@@ -13,6 +13,14 @@ const HAIR_DIR := "res://assets/characters/hair/"
 const SHADER := "res://shaders/character.gdshader"
 const HAIR_SHADER := "res://shaders/hair.gdshader"
 const REST_HEIGHT := 1.8
+## Kengänpohjan alin piste mallin origon alapuolella (mallin mittakaavassa, mitattu paistetusta verkosta Pose.limb_points
+## animaation alimmasta kohdasta). Malli nostetaan tämän verran, ettei jalkaterä uppoa maahan. "" = seisominen ja muut
+## jaloilla tehtävät (Idle, Walk, Dance, Interact, Fixing_Kneeling); avain on animaation nimen alku. Istuessa, ajaessa ja
+## uidessa ei nostoa: ne on sovitettu istuimeen ja veteen sellaisenaan (kiinteät paikat ja Pose.sit).
+const SOLE := {
+	"male": {"": 0.054, "Jog": 0.029, "Sprint": 0.025, "Crouch": 0.013, "Sitting": 0.0, "Driving": 0.0, "Swim": 0.0},
+	"female": {"": 0.046, "Jog": 0.0096, "Sprint": 0.0086, "Crouch": 0.020, "Sitting": 0.0, "Driving": 0.0, "Swim": 0.0},
+}
 const DEFAULT_MUSCLE := -0.85  # pohjamalli on superhero: tavallisilla ihmisillä lihakset pienemmiksi
 const Elastic := preload("res://scripts/elastic.gd")
 const PRESS_MAX := 6  # kontaktilaatikoita enintään (varjostimen press_xf0..5)
@@ -23,6 +31,8 @@ static var _meshes := {}
 var skeleton: Skeleton3D
 var anim: AnimationPlayer
 var model: Node3D
+var _sole := {}  # SOLE tämän mallin taulukko
+var _scale := 1.0
 var body_mat: ShaderMaterial
 var born_frame := 0  # setup-kutsun ruutu: paistaminen onnistuu vasta myöhemmin (Contact.profile)
 var profile_key := ""  # kontaktimallin välimuistiavain (malli, pituus, vartalo), Contact.profile
@@ -61,6 +71,9 @@ func setup(look: Dictionary) -> void:
 	add_child(model)
 	model.rotation.y = PI
 	model.scale = Vector3.ONE * (float(look.get("height", REST_HEIGHT)) / REST_HEIGHT)
+	_sole = SOLE[kind]
+	_scale = model.scale.y
+	model.position.y = float(_sole[""]) * _scale
 	skeleton = model.get_node("Armature/Skeleton3D")
 
 	var body: MeshInstance3D = null
@@ -168,6 +181,7 @@ func play(anim_name: String, blend := 0.2, speed := 1.0) -> void:
 	_current = anim_name
 	anim.speed_scale = speed
 	anim.play(anim_name, blend)
+	_lift_sole(anim_name)
 
 
 ## Sama animaatio alusta (esim. kirveen isku uudestaan).
@@ -176,6 +190,16 @@ func restart(anim_name: String, blend := 0.1, speed := 1.0) -> void:
 	anim.speed_scale = speed
 	anim.play(anim_name, blend)
 	anim.seek(0.0, true)
+	_lift_sole(anim_name)
+
+
+## Malli kengänpohjan verran ylös animaation mukaan (SOLE).
+func _lift_sole(anim_name: String) -> void:
+	var lift: float = _sole[""]
+	for pre: String in _sole:
+		if pre != "" and anim_name.begins_with(pre):
+			lift = _sole[pre]
+	model.position.y = lift * _scale
 
 
 func current() -> String:

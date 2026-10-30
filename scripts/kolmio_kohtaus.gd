@@ -316,14 +316,9 @@ func _hold(ch: Node3D, prop: Node3D) -> void:
 
 # --- Lavastukset ---------------------------------------------------------------------------------------------
 
-## Idle-asennossa kengänpohjat ovat 4,5-5,4 cm mallin origon alapuolella (mitattu paistetusta verkosta,
-## Pose.limb_points): hahmo nostetaan, ettei jalkaterä uppoa lattiaan (Asento.solids, kolmio_kuvat.gd).
-const SOLE := 0.05
-
-
 func _person(nimi: String, at: Vector3, yaw: float) -> Node3D:
 	var ch: Node3D = Looks.make(_stage, _look(nimi))
-	ch.position = at + Vector3(0, SOLE, 0)
+	ch.position = at
 	ch.rotation.y = yaw
 	ch.set_meta("pelvis", ch.bone_position("pelvis"))
 	ch.play("Idle", 0.0)
