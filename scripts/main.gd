@@ -909,6 +909,7 @@ const TALKERS := {
 	"mopopojat": ["Mopopojat", Color(1.0, 0.85, 0.3)],
 	"kaukalo_teinit": [SaloinenTeinit.NAME, Color(0.6, 0.85, 1.0)],
 	"laavu_teinit": [SaloinenTeinit.LAAVU_NAME, Color(0.8, 1.0, 0.8)],
+	"apteekki_hoitaja": [ApteekkiSaloinen.NAME + " (luukulla)", Color(0.75, 0.92, 0.82)],
 	"poliisi": ["Ratsupoliisi Roivainen", Color(0.55, 0.7, 1.0)],
 	"roivainen": ["Konstaapeli Roivainen", Color(0.55, 0.7, 1.0)],
 	"janttu": ["Janttu", Color(0.85, 0.75, 0.5)],
@@ -997,6 +998,7 @@ const TALK_HELLO := {
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
 	"apteekki": ["Hyvää päivää. Resepti vai käsikauppaa?", "Mitäs saisi olla?", "Seuraava, olkaa hyvä."],
 	"apteekki_taka": ["Hiljaa. Oksikodonia, pervitiiniä. Resepti ei kiinnosta, hinta kymmenkertainen. Käteisellä.", "Et sä täällä oo käyny. Mitä saisi olla?"],
+	"apteekki_hoitaja": [ApteekkiSaloinen.HELLO],
 	"gasthaus": ["Iltaa. Huonetta vailla?", "Tervetuloa Gasthausiin. Yö maksaa kympin."],
 	"roivainen": ["Päivää. Roivainen. Asema on auki ma–pe yheksästä kolmeen.", "No, mopomies. Jalan tänään?",
 		"Kas. Ei ainakaan ylinopeutta jalan."],
@@ -12770,7 +12772,7 @@ func _talk_open_info(who: String) -> String:
 			return interior.price_note()
 		"apteekki":
 			return "Rahaa %s €. Reseptejä %d." % [_eur(money), reseptit]
-		"apteekki_taka":
+		"apteekki_taka", "apteekki_hoitaja":
 			return "Rahaa %s €. Hinnat x10, ei reseptiä." % _eur(money)
 		"raahe", "siitari", "zabuki", "gasthaus", "kauppa_auto", "leirintaalue", "kaukalo_teinit", "laavu_teinit":
 			return "Rahaa %s €." % _eur(money)
@@ -12799,6 +12801,9 @@ func _talk_end() -> void:
 	_talk_end_frame = Engine.get_process_frames()
 	if _talk_who == "apteekki_taka":
 		_taka_hatch(false)
+		Sfx.play("door_close", -4.0)
+	elif _talk_who == "apteekki_hoitaja":
+		_hs_hatch(false)
 		Sfx.play("door_close", -4.0)
 	_mopo_menu(false)
 	CamCtl.free_mouse = false
@@ -13225,7 +13230,7 @@ func _talk_options(who := "") -> Array:
 				var am: Array = APTEEKKI_MENU[id]
 				var no_rx: bool = am[2] and reseptit <= 0
 				o.append(_opt("osta_" + id, "%s (%s €)" % [am[0], _eur(am[1])], money >= am[1] and not no_rx, "ei reseptiä" if no_rx else "rahat ei riitä"))
-		"apteekki_taka":
+		"apteekki_taka", "apteekki_hoitaja":
 			for id in APTEEKKI_TAKA:
 				var price: float = APTEEKKI_MENU[id][1] * APTEEKKI_TAKA_MULT
 				o.append(_opt("osta_" + id, "%s (%s €)" % [APTEEKKI_MENU[id][0].trim_suffix(" ▲"), _eur(price)], money >= price, "rahat ei riitä"))
@@ -13480,6 +13485,8 @@ func _talk_choose(id: String) -> void:
 		"apteekki", "apteekki_taka":
 			var ar := _on_apteekki(id.trim_prefix("osta_"), _talk_who == "apteekki_taka")
 			_talk_box.reply(ar[0], _talk_options(), ar[1] + "   Rahaa %s €." % _eur(money))
+		"apteekki_hoitaja":
+			_hs_osta(id.trim_prefix("osta_"))
 		"zabuki":
 			if id == "hengaile":
 				_hengaile_kioskilla()
@@ -13818,6 +13825,8 @@ func _talk_chat_line() -> String:
 			return ApteekkiInterior.LINES.pick_random()
 		"apteekki_taka":
 			return ["Älä seiso siinä.", "Maksa ja häivy.", "Ei kysymyksiä, ei kuitteja."].pick_random()
+		"apteekki_hoitaja":
+			return ApteekkiSaloinen.CHAT.pick_random()
 		"kauppa_auto":
 			return KauppaAuto.LINES.pick_random()
 		"tyokkari":
@@ -18870,18 +18879,72 @@ func _huume_saloinen_logic() -> void:
 	if world == null or player.is_stunned():
 		return
 	var e := Input.is_action_just_pressed("interact")
+	_hs_door_logic(e)
 	_hs_laukku_logic(e)
 	_hs_laavu_logic(e)
 	_hs_teens_logic(e)
 
 
-## Onnistunut luukkuosto hoitajalta (M2 _hs_osta kutsuu, kun raha väheni): laskuri, päiväkirja ja kolmannen oston
-## jälkeen lääkelaukku portaalle (luukku on laukulle liian pieni).
-func _hs_ostettu() -> void:
+## Apteekin takaovi (apteekki_saloinen.gd, ovi Makasiini._build_door): E koputuspisteessä avaa luukun ja hoitaja
+## myy Vaalan takaluukun hinnoin (_on_apteekki taka). Ovi on aina auki; luukku sulkeutuu keskustelun päättyessä
+## (_talk_end). Lukitulla etuovella vain vihje.
+const HS_KNOCK_R := 1.3
+const HS_FRONT_R := 1.8
+var _hs_tween: Tween
+
+
+func _hs_door_logic(e: bool) -> void:
+	var ap: Dictionary = world.apteekki_s
+	if ap.is_empty() or _hint.text != "" or _talk_box.is_open() or player == bike:
+		return
+	if _near_xz(ap.knock, HS_KNOCK_R):
+		_hint.text = "[%s] Koputa takaoveen" % Settings.action_key("interact")
+		if e and Engine.get_process_frames() != _talk_end_frame:
+			Sfx.play("door", -3.0, 0.8)
+			_hs_hatch(true)
+			_talk_open("apteekki_hoitaja", null)
+		return
+	var root: Node3D = ap.root
+	if _near_xz(root.global_transform * Vector3(0, 0, ApteekkiSaloinen.D / 2.0 + 1.2), HS_FRONT_R):
+		_hint.text = ApteekkiSaloinen.LUKOSSA
+		if e:
+			Sfx.play("door", -8.0, 1.4)
+
+
+## Luukku auki/kiinni (kuten _taka_hatch); komeron valo palaa vain luukun ollessa auki.
+func _hs_hatch(open: bool) -> void:
+	var ap: Dictionary = world.apteekki_s if world != null else {}
+	if ap.is_empty():
+		return
+	var d: Node3D = ap.back
+	var fill: OmniLight3D = ap.fill
+	if _hs_tween != null:
+		_hs_tween.kill()
+	if open:
+		fill.visible = true
+	_hs_tween = create_tween()
+	_hs_tween.tween_property(d.get_node("Ovi/Luukku"), "position:x", -0.5 + (Makasiini.HATCH_TRAVEL if open else 0.0), 0.35)
+	if not open:
+		_hs_tween.tween_callback(func() -> void: fill.visible = false)
+
+
+## Luukkuosto: Vaalan takaluukun hinta ja kirjaus (_on_apteekki taka), hoitajan omat repliikit.
+func _hs_osta(id: String) -> void:
+	var m0 := money
+	var ar := _on_apteekki(id, true)
+	var line: String = ApteekkiSaloinen.EI_RAHAA
+	if money < m0:
+		line = ApteekkiSaloinen.LAUKKU if _hs_ostettu() else ApteekkiSaloinen.OSTO.pick_random()
+	_talk_box.reply(line, _talk_options(), ar[1] + "   Rahaa %s €." % _eur(money))
+
+
+## Onnistunut luukkuosto hoitajalta (_hs_osta kutsuu, kun raha väheni): laskuri, päiväkirja ja kolmannen oston
+## jälkeen lääkelaukku portaalle (luukku on laukulle liian pieni). true = laukku annettiin nyt (LAUKKU-repliikki).
+func _hs_ostettu() -> bool:
 	tilat.first("hs_ensiosto", 0.2)
-	if hs.osto():
-		_queue_message("Hoitaja: \"%s\"" % ApteekkiSaloinen.LAUKKU, 5.0)
+	var bag := hs.osto()
 	_save_game()
+	return bag
 
 
 var _hs_laukku_prop: Node3D

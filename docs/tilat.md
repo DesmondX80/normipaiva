@@ -94,7 +94,7 @@ Toimintojen vaikutukset tiloihin:
 | Kolmiomittaus: onnellinen loppu (Rasvanappi naisen luona ja aamukahvit) | moraali +, stressi +, vireys +, kokemus + (ensikerrat) |
 | Kolmiomittauksen jälkeisenä päivänä kotiin: maito mukana / maito unohtui | stressi + / stressi −, moraali − |
 | WASTED | moraali −−, stressi −− |
-| Ensimmäinen kerta (kauppa, laavu, tarinat, sahaus, halkominen, poiminta, Väinö, nurmikko, pontikka, Raahe, tappelut…) | kokemus + |
+| Ensimmäinen kerta (kauppa, laavu, tarinat, sahaus, halkominen, poiminta, Väinö, nurmikko, pontikka, Raahe, tappelut, Saloisten apteekin luukkuosto `hs_ensiosto`, myynti `hs_ensimyynti`, lääkelaukku `hs_laukku`…) | kokemus + |
 
 **Kehittäjille:** kun peliin tulee uusi toiminto, määritä sille vaikutukset tiloihin (`tilat.add(...)`, `_drink()`,
 `_eat()`, `_task_done()`, `_task_failed()`, `tilat.first(...)` main.gd:ssä) ja lisää ne tähän taulukkoon. Kirjaa vain

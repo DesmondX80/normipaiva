@@ -39,7 +39,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   poimia jalan (kunto +15). Rollaattorimummon eteen ei kannata mennä: hän nostaa kepin olan yli ja huitaisee.
   Ehdit perääntyä, kun keppi nousee. Osuma päähän on kuolema, ja Päivi motkottaa: "Älä kiusaa mummoja! Ne tappaa!"
   Testit `--scene=mummokeppi` ja `tools/testit/mummo_kuvat.tscn`.
-- **Rasvanappi (vain aikuisille):** aseman takana on rapistunut tavaramakasiini. Länsipäädyn takaovella palaa punainen
+- **Rasvanappi (vain aikuisille):** aseman länsipuolella (noin 21 m) on rapistunut tavaramakasiini. Länsipäädyn takaovella palaa punainen
   lamppu häkissä: koputa (E), niin kurkistusluukku aukeaa ja portsari kysyy salasanan. Oikea on "Rasvanappi", ja
   väärästä luukku paukahtaa kiinni. Sisällä pelaajat (Pekka, Arto, Sinikka, Raimo ja Helena) esittäytyvät pyyhkeissään.
   Muista, kuka kiroilee, hyräilee, kikattaa, niiskuttaa tai huokailee, sillä pimeässä muut tunnistaa vain äänestä.
@@ -645,6 +645,20 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     hintaan kuin takaovella (249 / 199 €), teho ei vaikuta hintaan. Jatkettu annos voi paljastua: teini huomaa todennäköisyydellä 0 / 10 / 30 / 60 / 90 % jatkoasteen mukaan (ei koskaan varmaa), ja syntyy tappelu
     (`fight.gd teini_diili`: 150 hp, kova isku, aggressiivinen). Voitto: teini pakenee, tavarat jäävät, maine +2. Häviö: teini ryöstää kaikki lääkkeet ja rahat,
     tunti kuluu, maine −5 (`main.gd _teini_myy`, `_start_teini_fight`, `_teini_fight_end`).
+    **Huumekauppa Saloisissa:** Kinnapotin hallien vieressä Valtatien varressa (noin 30 m tiestä länteen) on pieni uusi apteekki
+    (`apteekki_saloinen.gd`, paikka haetaan OSM-datasta ehdokkaista ja tulostetaan `APTEEKKI_S paikka`). Etuovi on ketjulla lukossa ja AVOINNA-kyltti
+    roikkuu vinossa (E etuovella: vain vihje). Takaseinässä on sama teräsovi kurkistusluukkuineen kuin Vaalassa (HENKILÖKUNTA-kyltti, vihreä lamppu),
+    ja koputus (E) avaa luukun: eläkkeellä oleva sairaanhoitaja **Hoitaja Raili** (valkoinen takki, harmaa permanentti, pyöreät lasit) myy
+    Oksikodonia (249 €) ja Pervitiiniä (199 €) ilman reseptiä samoin hinnoin kuin Vaalan takaovi (`main.gd _hs_door_logic`, `_hs_hatch`, `_hs_osta`).
+    Ostajina ovat **kaukalon iltateinit** (klo 20–01 kaukalon itälaidan ulkopuolella kaiuttimen ja tölkkien äärellä, `saloinen_teinit.gd`) ja
+    **laavun teinijengi**: kun repussa on myytävää, jengin pomo tulee juttelemaan eikä haasta tappeluun (`laavu_guard.gd peaceful`); laavun voi
+    silti haastaa erikseen. Myynti, hinnat ja paljastuminen ovat Vaalan (`_teini_myy`, `_teini_tulos`); paljastuessa tappelu K-Marketin lavasteessa
+    (`fight.gd teini_diili`). Voiton jälkeen ryhmä ei osta enää samana päivänä (laavun jengi pakenee metsään), häviö kuten Vaalassa.
+    **Hoitajan lääkelaukku:** kolmannen luukkuoston jälkeen hoitaja jättää vanhan nahkaisen lääkelaukkunsa takaoven portaalle (kerran, E poimii).
+    Se avataan repusta tai T:llä ja toimii kuten klaffipöytä (3×3, samat neljä reseptiä, jatkoaste enintään 4; `laakelaukku.gd`), mutta laukulla
+    jatketut annokset ovat puhtaampia: niiden paljastumisporras on yhtä alempi (90 → 60, 60 → 30, 30 → 10, 10 → 0 %; `huume_saloinen.gd porras`,
+    `laukku_erat`). Tila tallentuu osioon `huume_saloinen` (ostot, laukku, puhtaat erät, kieltäytyneet ryhmät); kerran-tilat `hs_ensiosto`,
+    `hs_ensimyynti` ja `hs_laukku`.
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
     katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin
