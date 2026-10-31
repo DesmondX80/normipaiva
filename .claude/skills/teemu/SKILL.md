@@ -81,8 +81,12 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
 4. **Mallit portaittain:** arkkitehti ja puristelija Opus (päätökset ja visuaalinen toteutus), muut Sonnet. Älä ylikirjoita malleja.
 5. **Rinnakkaisuus vain, kun tiedostot eivät mene päällekkäin** (arkkitehdin "Jako"). Muuten peräkkäin. Osa, joka
    ajaa toisen osan koodia, ajetaan vasta, kun se osa on valmis, vaikka tiedostot eivät mene päällekkäin.
+   **Rinnakkaisten Opus-agenttien raja on kaksi.** Rate limitin (429) jälkeen älä käynnistä lisää: odota resetiä, tarkista levyltä, mitä
+   ehdittiin, ja kirjaa lopetettu työ `ajot.md`:hen.
 6. **Älä toista.** Raportoi käyttäjälle tiivis tulos, ei aliagenttien tuotoksia.
-7. **Kirjaa, mitä arvioidaan.** Pyyntöön kirjataan, arvioidaanko järjestelmää vai lopputuloksen ulkonäköä. Käyttäjän
+7. **Valitse agentti työkalujen mukaan.** Spekstaajalla ja arkkitehdilla ei ole Bashia: git-tulosteet, erotuslistat ja puretut kansiot tehdään
+   valmiiksi tiedostoiksi työkansioon (Teemu ajaa ne), tai työ annetaan general-purposelle. Älä anna tehtävää agentille, joka ei voi ajaa sen vaatimia komentoja.
+8. **Kirjaa, mitä arvioidaan.** Pyyntöön kirjataan, arvioidaanko järjestelmää vai lopputuloksen ulkonäköä. Käyttäjän
    sivukommentti ei ole tavoite, eikä sitä liitetä pyyntöön tavoitteena.
 
 ## Putki
@@ -92,6 +96,9 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
    mainin tasalle (`git merge --ff-only origin/main`, tai merge, jos haarassa on omaa työtä) ennen kuin ketään käynnistetään.
    Katso myös, onko pyydetty asia jo mainissa (`git log origin/main --grep`, `docs/pelin-sisalto.md`), ettei tehdä samaa työtä kahdesti.
    Tee sama jokaisen erän alussa ja ennen pushia mainiin; kerro käyttäjälle yhdellä rivillä, jos main on edennyt.
+   Kirjoita työkansioon `00-main-tila.md`: `git log origin/main --oneline -20` ja `git log origin/main --oneline --grep=<pyynnön avainsanat>`
+   (sekä issuenumero, jos on). Spekstaaja ja arkkitehti lukevat sen. Jos pyydetty asia näyttää olevan jo mainissa, kysy käyttäjältä
+   (AskUserQuestion) ennen putkea.
    Aja heti `tools/testit/godot.sh`. Jos Godotia ei löydy, kerro se käyttäjälle ennen spekstaajaa ja kysy: asennetaanko,
    vai toteutetaanko testaamatta (merkitään commitiin ja PR:ään "testaamatta kunnolla").
 1. **spekstaaja** (Agent, subagent_type `spekstaaja`): "Työkansio: <polku>. Pyyntö: <pyyntö>". Jos palautuksessa on avoimia kysymyksiä, jotka eivät ratkea järkevällä oletuksella, kysy ne käyttäjältä (AskUserQuestion), kirjaa vastaukset `01-suunnitelma.md`:hen Editillä.

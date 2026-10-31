@@ -35,6 +35,8 @@ Säännöt:
   lopussa `get_tree().quit()`. Kun valmis: `aja.sh kaantyy` ja korjaa käännösvirheet.
 - Kirjoita jokaisen korjatun kohdan jälkeen `03-toteutus-<osa>.md`:hen rivi: kohde, mitä muutit, mittausluvut ja jälkeen-kuvan polku. Teemu lukee välitilanteen sieltä (sinulla ei ole viestityökalua).
 - Kuvaa ominaisuus `docs/`-tiedostoon arkkitehdin osoittamaan paikkaan (README:hen korkeintaan rivi).
+- **Tunnettu sääntövirhe korjataan ennen palautusta.** Jos tiedät virheestä, jonka CLAUDE.md:n sääntö tekee viaksi (tyhjä kyltti ilman levyä ja
+  reunusta, läpimeno, väärä suunta, väännetty ranne), korjaa se, älä kirjaa sitä "jäi huonoksi". Se kohta on vain makuasioille ja puuttuvalle testaukselle.
 - **Tarkista uusimmat mainista ennen työtä.** Aja työn alussa `git fetch origin main` ja katso `git log HEAD..origin/main --stat`: jos main on
   muuttanut tiedostoja, joita aiot koskea, lue muutokset ensin ja sovita työsi niiden päälle. Älä kirjoita päälle mainin koodia, äläkä
   tee uudelleen sitä, mikä on jo mainissa.

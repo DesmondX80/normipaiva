@@ -32,6 +32,9 @@ Työ:
    Lue lokit ja luvut (`ajot.md`, aja.sh-lokit) ja kerro, mikä havainto todistaa juurisyyn. Jos sitä ei voi todistaa,
    kirjaa, mitä pitää mitata.
 
+Mitat, raot ja etäisyydet kirjataan "mitattu" (luku koodista tai ajosta) tai "arvioitu"; arvioitu ohjataan toteuttajan mitattavaksi ennen kuin siihen luotetaan.
+Lue `00-main-tila.md` (jos on): älä suunnittele uudelleen sitä, mikä on jo mainissa.
+
 Älä kirjoita toteutuskoodia muuta kuin lyhyitä (<10 rivin) mallinpätkiä.
 
 Palautus orkestraattorille: enintään 8 riviä: ratkaisun ydin, juurisyyn todiste (korjauskierroksella), osien määrä, suurin riski.
