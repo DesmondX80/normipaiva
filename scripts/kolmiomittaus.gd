@@ -197,10 +197,6 @@ func stage(site: String) -> String:
 	return st(site).stage
 
 
-func site_info(site: String) -> Dictionary:
-	return SITES[site]
-
-
 ## Sovelluksen pyöristys: lähellä 10 m, keskimatkalla 50 m, kaukana 100 m portain.
 static func step_for(d: float) -> float:
 	if d < 120.0:
