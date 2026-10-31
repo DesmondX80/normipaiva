@@ -82,6 +82,7 @@ func _logic() -> void:
 		_vika("kohde ei ole ympyröiden leikkauksessa")
 	if k.can_measure("saloinen", Vector2(-200, 60)):
 		_vika("mittaus sallittu %d m:n päästä edellisestä" % 10)
+	_area_shrinks(target)
 	# Tallennus ja lataus säilyttävät ympyrät ja vaiheen.
 	var cfg := ConfigFile.new()
 	k.maito_day = 7
@@ -91,6 +92,47 @@ func _logic() -> void:
 	if k2.stage("saloinen") != "mittaus" or (k2.st("saloinen").rings as Array).size() != (k.st("saloinen").rings as Array).size() \
 			or k2.maito_day != 7:
 		_vika("tallennus ei säilynyt: %s" % k2.st("saloinen"))
+
+
+## Lisämittaus pienentää aluetta: kolme mittausta kylän mittakaavassa (100–400 m kohteesta) ja kaksi lisää, alueen
+## pinta-ala 10 m:n ruudukolla (vain testissä; peli tarvitsee vain inside()). Viiden jälkeen alue alle puolet kolmen
+## alueesta ja kohde sisällä. Kulmat kohteesta tulostetaan (alle 60° kahden mittauksen välillä venyttää aluetta).
+func _area_shrinks(target: Vector2) -> void:
+	var k := Kolmio.new()
+	var pts := [Vector2(-180, 120), Vector2(260, 90), Vector2(40, -330), Vector2(-150, -170), Vector2(330, -120)]
+	k.start("saloinen", target + pts[0], target, "Joni")
+	var areas := []
+	for i in pts.size():
+		if i > 0:
+			k.measure("saloinen", target + pts[i], target, "x")
+		if i == 2 or i == 4:
+			areas.append(_area(k, "saloinen"))
+			for j in i + 1:
+				var a := (pts[j] as Vector2).angle()
+				var b := (pts[(j + 1) % (i + 1)] as Vector2).angle()
+				print("KOLMIO kulma kohteesta mittaukset %d-%d: %.0f°" % [j + 1, (j + 1) % (i + 1) + 1, rad_to_deg(absf(angle_difference(a, b)))])
+	print("KOLMIO alue 3 mittausta %.0f m2, 5 mittausta %.0f m2" % [areas[0], areas[1]])
+	if not k.inside("saloinen", target):
+		_vika("kohde ei ole viiden mittauksen alueella")
+	if areas[0] <= 0.0 or areas[1] >= areas[0] * 0.5:
+		_vika("lisämittaus ei pienentänyt aluetta alle puoleen (%.0f -> %.0f m2)" % [areas[0], areas[1]])
+
+
+## Ympyröiden leikkauksen pinta-ala (m2) 10 m:n ruudukolla ensimmäisen ympyrän ulkoreunan sisältä.
+func _area(k: Kolmio, site: String) -> float:
+	var r0: Dictionary = (k.st(site).rings as Array)[0]
+	var c0: Vector2 = r0.c
+	var reach: float = r0.hi
+	var n := 0
+	var x := c0.x - reach
+	while x <= c0.x + reach:
+		var y := c0.y - reach
+		while y <= c0.y + reach:
+			if k.inside(site, Vector2(x, y)):
+				n += 1
+			y += 10.0
+		x += 10.0
+	return n * 100.0
 
 
 func _cam_at(pos: Vector3, look: Vector3) -> Camera3D:

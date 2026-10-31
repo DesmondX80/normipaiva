@@ -17,6 +17,7 @@ const MG := preload("res://scripts/mg_draw.gd")
 const B := preload("res://scripts/build.gd")
 const Pose := preload("res://scripts/pose.gd")
 const Looks := preload("res://scripts/looks.gd")
+const Gifts := preload("res://scripts/kolmio_lahjat_mallit.gd")
 
 var mode := "ovi"
 var site := "saloinen"
@@ -50,8 +51,9 @@ var _holding := {}  # nimi -> lahjan kappale (pidellään rinnan edessä)
 var _props := {}  # nimi -> lahjan kappale
 var _table_top := Vector3.ZERO  # kuistin pöytä, jolle ojennetut lahjat lasketaan
 var _cane: Node3D
-const PALM := 0.06  # rannekeskeltä nyrkin sormien pintaan (Idle-käsi on nyrkissä), kun käsi on lahjan kyljellä (Asento.solids)
+const PALM := 0.071  # rannekeskeltä nyrkin sormien pintaan (Idle-käsi on nyrkissä) + 3 mm rako, kun käsi on lahjan kyljellä (kolmio_kuvat _rako)
 const PALM_FWD := 0.07  # kämmenen keskikohta ranteen edessä
+const GIFT_FIST := 0.07  # nyrkin yläreuna otteen (ranteen) yläpuolella (mitattu): kaltevan lahjan levein kohta nyrkin kohdalla
 var _pancake: Node3D
 var _pan_at := Vector3.ZERO
 
@@ -272,7 +274,9 @@ func _apply(delta: float) -> void:
 		var prop: Node3D = _props[nimi]
 		var ch: Node3D = _people.get(nimi)
 		if i < _given:
-			var want := _table_top + Vector3(-0.22 + i * 0.22, 0, 0)
+			var want: Vector3 = _table_top + Vector3(-0.22 + i * 0.22, 0, 0) + prop.get_meta("table_at", Vector3.ZERO)
+			if prop.has_meta("table_rot"):
+				prop.global_rotation = prop.get_meta("table_rot")
 			prop.global_position = prop.global_position.lerp(want, 1.0 - exp(-8.0 * delta)) if delta > 0.0 else want
 			if _holding.has(nimi):
 				_holding.erase(nimi)
@@ -309,7 +313,9 @@ func _hold(ch: Node3D, prop: Node3D) -> void:
 		var sfx := "_r" if sd > 0.0 else "_l"
 		ch.set_ik("arm" + sfx, "upperarm" + sfx, "lowerarm" + sfx, "hand" + sfx, mid + Vector3(sd * half, 0, 0),
 			pel + Vector3(sd * 0.5, 0.15, 0.05))
-		ch.set_ik_orient("arm" + sfx, Pose.palm_on(Vector3(0, 0, -1), Vector3(-sd, 0, 0), sd < 0.0), 1.0)
+		# Kämmen lahjan kylkeä vasten; kaltevassa kyljessä (meta "slope" = dx/dy) kämmen kallistuu kyljen suuntaiseksi.
+		var face := Vector3(-sd, prop.get_meta("slope", 0.0), 0).normalized()
+		ch.set_ik_orient("arm" + sfx, Pose.palm_on(Vector3(0, 0, -1), face, sd < 0.0), 1.0)
 	prop.global_position = ch.to_global(mid + Vector3(0, -prop.get_meta("grip", 0.04), -PALM_FWD))
 	prop.global_rotation = Vector3(0, ch.global_rotation.y, 0)
 
@@ -471,37 +477,35 @@ func _build_porch() -> void:
 			B.mesh(can, B.cyl(0.03, 0.03, 0.06, 8), Vector3(0.06, 0.22, 0), Color(0.8, 0.1, 0.1))
 
 
-## Lahjat 3D:nä: mansikkarasia (puurasia ja marjat lehtineen), kermavaahtospray (tölkki, sininen etiketti, punainen
-## korkki ja suutin) ja ruusukimppu (paperikartio, varret ja kukat).
+## Lahjat 3D:nä (kolmio_lahjat_mallit.gd): litran mansikkarasia (kaltevat pahviseinät, umpinaiset marjat kekona),
+## kermavaahtospray (valkoinen purkki, sininen etiketti, kaareva suutin) ja ruusukimppu voimapaperikääreessä.
 func _gift_prop(what: String) -> Node3D:
-	var n := Node3D.new()
-	_stage.add_child(n)
-	# half = lahjan puolileveys otteen kohdalla, grip = otteen korkeus lahjan pohjasta (_hold).
+	var n: Node3D
+	# half = lahjan puolileveys otteen kohdalla, grip = otteen korkeus mallin origosta (_hold). Nyrkki ulottuu noin
+	# GIFT_FIST otteen yläpuolelle, joten kaltevassa rasiassa ja kääreessä puolileveys luetaan sieltä (nyrkki ei uppoa).
 	if what.begins_with("mansik"):
-		n.set_meta("half", 0.1)
+		n = Gifts.mansikat()
 		n.set_meta("grip", 0.035)
-		B.mesh(n, B.boxm(Vector3(0.2, 0.07, 0.14)), Vector3(0, 0.035, 0), Color(0.72, 0.56, 0.34))
-		for i in 12:
-			var p := Vector3(-0.075 + (i % 4) * 0.05, 0.08 + (i / 4) * 0.012, -0.045 + (i / 4) * 0.045)
-			B.mesh(n, B.sphere(0.022, 8), p, Color(0.82, 0.06, 0.1)).scale = Vector3(1.0, 1.15, 1.0)
-			B.mesh(n, B.cyl(0.012, 0.004, 0.01, 6), p + Vector3(0, 0.025, 0), Color(0.2, 0.55, 0.2))
+		# Rasian leveällä kyljellä nyrkin koukistuneet sormet ulottuvat 1,2 cm syvemmälle kuin purkin ja kääreen kyljellä
+		# (kolmio_kuvat _rako).
+		n.set_meta("slope", (Gifts.RASIA_YLA.x - Gifts.RASIA_ALA.x) / Gifts.RASIA_H)
+		n.set_meta("half", Gifts.rasia_half(0.035 + GIFT_FIST / 2.0) + 0.012)
 	elif what.begins_with("kerma"):
-		n.set_meta("half", 0.0355)
-		n.set_meta("grip", 0.1)
-		B.mesh(n, B.cyl(0.035, 0.035, 0.2, 14), Vector3(0, 0.1, 0), Color(0.92, 0.93, 0.96))
-		B.mesh(n, B.cyl(0.0355, 0.0355, 0.07, 14), Vector3(0, 0.1, 0), Color(0.2, 0.4, 0.8))
-		B.mesh(n, B.cyl(0.03, 0.035, 0.03, 14), Vector3(0, 0.215, 0), Color(0.85, 0.1, 0.15))
-		B.mesh(n, B.cyl(0.006, 0.01, 0.04, 8), Vector3(0, 0.25, 0.01), Color(0.85, 0.1, 0.15), Vector3(25, 0, 0))
+		n = Gifts.kermavaahto()
+		n.set_meta("grip", Gifts.PURKKI_H / 2.0)
+		n.set_meta("half", Gifts.PURKKI_R)
 	else:
-		n.set_meta("half", 0.07)  # kartio 0,015 -> 0,07: nyrkki ulottuu lähes yläreunaan, joten levein säde
-		n.set_meta("grip", 0.14)
-		B.mesh(n, B.cyl(0.07, 0.015, 0.22, 12), Vector3(0, 0.11, 0), Color(0.95, 0.92, 0.84))
-		for i in 6:
-			var a := i * TAU / 6.0
-			var p := Vector3(cos(a) * 0.04, 0.27, sin(a) * 0.04)
-			B.tube(n, Vector3(0, 0.15, 0), p, 0.004, Color(0.2, 0.5, 0.2))
-			B.mesh(n, B.sphere(0.03, 10), p, Color(0.72, 0.03, 0.1))
-		B.mesh(n, B.sphere(0.03, 10), Vector3(0, 0.29, 0), Color(0.75, 0.04, 0.12))
+		n = Gifts.ruusut()  # origo kääreen kapeimmassa kohdassa
+		n.set_meta("grip", 0.1)
+		n.set_meta("slope", (Gifts.KAARE_R1 - Gifts.KAARE_R0) / (Gifts.KAARE_Y1 - Gifts.KAARE_Y0))  # nyrkki kääreen kyljen suuntaan
+		n.set_meta("half", Gifts.kaare_r(0.1 + GIFT_FIST / 2.0))  # kallistetun nyrkin keskikohta on ranteen yläpuolella
+		# Pöydällä kimppu lepää kyljellään kukat kohti pihaa (+Z) ja rusetti ylös (mallin -Z). Kartion alin sivuviiva on
+		# vaakasuorassa, kun akseli nousee kukkia kohti kartion kyljen kulman (atan(slope) = 0,28 rad): kääre koskee pöytään
+		# koko matkalta. Varsien päät ovat alin kohta (0,048 origon alla), joten origo 0,05 pöydän yläpuolelle ja
+		# taaksepäin, jotta kukat jäävät pöydän päälle.
+		n.set_meta("table_rot", Vector3(PI / 2.0 - atan(n.get_meta("slope")), 0, 0))
+		n.set_meta("table_at", Vector3(0, 0.05, -0.1))
+	_stage.add_child(n)
 	return n
 
 

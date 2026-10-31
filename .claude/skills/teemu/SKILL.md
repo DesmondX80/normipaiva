@@ -88,6 +88,10 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
 ## Putki
 
 0. Valitse `<slug>` (kebab-case, ≤4 sanaa), luo `.claude/tyo/<slug>/`.
+   **Tarkista uusimmat mainista ennen työtä:** `git fetch origin main`; jos `git log HEAD..origin/main` ei ole tyhjä, vie työhaara
+   mainin tasalle (`git merge --ff-only origin/main`, tai merge, jos haarassa on omaa työtä) ennen kuin ketään käynnistetään.
+   Katso myös, onko pyydetty asia jo mainissa (`git log origin/main --grep`, `docs/pelin-sisalto.md`), ettei tehdä samaa työtä kahdesti.
+   Tee sama jokaisen erän alussa ja ennen pushia mainiin; kerro käyttäjälle yhdellä rivillä, jos main on edennyt.
    Aja heti `tools/testit/godot.sh`. Jos Godotia ei löydy, kerro se käyttäjälle ennen spekstaajaa ja kysy: asennetaanko,
    vai toteutetaanko testaamatta (merkitään commitiin ja PR:ään "testaamatta kunnolla").
 1. **spekstaaja** (Agent, subagent_type `spekstaaja`): "Työkansio: <polku>. Pyyntö: <pyyntö>". Jos palautuksessa on avoimia kysymyksiä, jotka eivät ratkea järkevällä oletuksella, kysy ne käyttäjältä (AskUserQuestion), kirjaa vastaukset `01-suunnitelma.md`:hen Editillä.

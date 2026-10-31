@@ -5,6 +5,7 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Looks := preload("res://scripts/looks.gd")
+const SaloinenTeinit := preload("res://scripts/saloinen_teinit.gd")
 
 const AKKA_LINES := ["Tää on MEIDÄN laavu!", "Täällä ei kaljoitella!", "Menes siitä kotias!",
 	"Kuka sulle luvan antoi?", "Mää soitan poliisille!", "Mää oon varannu tän koko kesäks!"]
@@ -12,6 +13,7 @@ const TEEN_LINES := ["Mitä sää tuijotat, setä?", "Tää on meiän mesta!", "
 	"Raahe 4ever!", "Onks sulla kaljaa? Anna!"]
 const SEE := 26.0
 const TOUCH := 1.5
+const PEACE_STOP := 2.2  # peaceful: pomo pysähtyy tämän päähän pelaajasta
 
 signal challenge(foe_key: String, direction: Vector3)
 
@@ -20,6 +22,8 @@ var target: Node3D
 var world: Node3D
 var center := Vector3.ZERO  # nuotio
 var mode := "idle"  # idle, guard, cooldown, leave, gone
+## Teinit ja repussa myytävää (main.gd _hs_laavu_logic): pomo tulee juttelemaan eikä haasta tappeluun.
+var peaceful := false
 
 var _boss: CharacterBody3D
 var _boss_body: Node3D
@@ -102,9 +106,15 @@ func _physics_process(delta: float) -> void:
 				to_g.y = 0.0
 				if to_g.length() > 0.2:
 					move = to_g.normalized() * minf(4.2, to_g.length() * 4.0)
+			elif peaceful:
+				if d > PEACE_STOP:
+					move = to_p.normalized() * minf(4.5, (d - PEACE_STOP) * 4.0)
 			else:
 				move = to_p.normalized() * 6.5
-			if d < TOUCH:
+			if peaceful and kind == "teens":
+				if player_to_fire > SEE * 1.5:
+					mode = "idle"
+			elif d < TOUCH:
 				mode = "cooldown"
 				_cool = 3.0
 				challenge.emit(kind, to_p.normalized())
@@ -189,8 +199,14 @@ func _face(dir: Vector3) -> void:
 		_boss.rotation.y = B.yaw_to(dir)
 
 
+## Pomon paikka maailmassa (main.gd: puheväli laavun teineille).
+func boss_pos() -> Vector3:
+	return _boss.global_position
+
+
 func _say() -> void:
-	_bubble.text = _speaker() + ((AKKA_LINES if kind == "akka" else TEEN_LINES).pick_random())
+	var lines: Array = AKKA_LINES if kind == "akka" else (SaloinenTeinit.PEACE if peaceful else TEEN_LINES)
+	_bubble.text = _speaker() + lines.pick_random()
 	_bubble_t = 2.4
 	_talk_t = 3.2
 	Sfx.babble(_boss, "akka" if kind == "akka" else "teini", _bubble.text)

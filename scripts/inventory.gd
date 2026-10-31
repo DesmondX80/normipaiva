@@ -477,6 +477,18 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_r(img, 5, 8, 6, 3, Color(0.95, 0.95, 0.9))
 			if id == "turbohiiva":
 				_r(img, 6, 9, 4, 1, Color(0.9, 0.2, 0.15))
+		"laakelaukku":  # hoitajan lääkelaukku: ruskea nahka, kahva, messinkikehys ja -lukko, tumma pohja
+			_r(img, 5, 1, 6, 1, Color(0.55, 0.33, 0.16))
+			_r(img, 4, 2, 1, 2, Color(0.55, 0.33, 0.16))
+			_r(img, 11, 2, 1, 2, Color(0.55, 0.33, 0.16))
+			_r(img, 3, 4, 10, 1, Color(0.8, 0.64, 0.28))
+			_r(img, 2, 5, 12, 9, Color(0.42, 0.24, 0.12))
+			_r(img, 2, 5, 12, 2, Color(0.58, 0.36, 0.19))
+			_r(img, 2, 13, 12, 2, Color(0.27, 0.15, 0.07))
+			_r(img, 7, 6, 2, 2, Color(0.8, 0.64, 0.28))
+			_r(img, 3, 9, 10, 1, Color(0.86, 0.74, 0.5))
+			_r(img, 7, 10, 2, 3, Color(0.85, 0.15, 0.12))
+			_r(img, 6, 11, 4, 1, Color(0.85, 0.15, 0.12))
 		"drakkar":
 			# Drakkar Noir: musta kulmikas pullo, hopeinen kaula ja suihkupää, hopeinen etiketti.
 			_r(img, 6, 1, 4, 2, Color(0.75, 0.76, 0.8))

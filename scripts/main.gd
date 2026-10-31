@@ -41,6 +41,11 @@ const KolmioKohtaus := preload("res://scripts/kolmio_kohtaus.gd")
 const Makasiini := preload("res://scripts/makasiini.gd")
 const Reseptit := preload("res://scripts/reseptit.gd")
 const Klaffipoyta := preload("res://scripts/klaffipoyta.gd")
+## Huumekauppa Saloisissa: kaukalon iltateinit, laavun jengi ostajina ja hoitajan lääkelaukku (huume_saloinen.gd).
+const SaloinenTeinit := preload("res://scripts/saloinen_teinit.gd")
+const HuumeSaloinen := preload("res://scripts/huume_saloinen.gd")
+const Laakelaukku := preload("res://scripts/laakelaukku.gd")
+const ApteekkiSaloinen := preload("res://scripts/apteekki_saloinen.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
 const SiitariInterior := preload("res://scripts/siitari_interior.gd")
 const ApteekkiInterior := preload("res://scripts/apteekki_interior.gd")
@@ -442,6 +447,9 @@ var aaro: CharacterBody3D  # vanha tokolalainen Aaro
 var mirkku: CharacterBody3D  # Mirkku laavupolulla (Looks.MIRKKU)
 var mirkku_tent: Node3D  # Mirkun teltta Tarpion laavun vieressä (teltta.gd)
 var kolmio := Kolmio.new()  # kolmiomittauksen tila (#255)
+var hs := HuumeSaloinen.new()  # Saloisten huumekaupan tila (huume_saloinen.gd)
+var hs_teens: Node3D  # kaukalon iltateinit (saloinen_teinit.gd)
+var _hs_group := ""  # Saloisten myynnin ostajaryhmä: "kaukalo" / "laavu" (tappelun jälkeen ei_osta)
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
 var lemmikki: RefCounted  # Lemmikki Enkelit ja Pörrön muistokyltti (lemmikki_enkelit.gd, #148)
@@ -899,6 +907,8 @@ const TALKERS := {
 	"gasthaus": ["Gasthausin emäntä", Color(0.75, 0.9, 0.6)],
 	"nuoret": ["Porukka aidan takana", Color(0.6, 0.9, 1.0)],
 	"mopopojat": ["Mopopojat", Color(1.0, 0.85, 0.3)],
+	"kaukalo_teinit": [SaloinenTeinit.NAME, Color(0.6, 0.85, 1.0)],
+	"laavu_teinit": [SaloinenTeinit.LAAVU_NAME, Color(0.8, 1.0, 0.8)],
 	"poliisi": ["Ratsupoliisi Roivainen", Color(0.55, 0.7, 1.0)],
 	"roivainen": ["Konstaapeli Roivainen", Color(0.55, 0.7, 1.0)],
 	"janttu": ["Janttu", Color(0.85, 0.75, 0.5)],
@@ -1824,6 +1834,7 @@ func _outside_logic() -> void:
 	_pannu_logic()
 	_kertun_logic()
 	_pohjoiset_logic()
+	_huume_saloinen_logic()
 	_hongan_logic()
 	_seppo_logic()
 	_leikki_logic()
@@ -9752,6 +9763,8 @@ func _open_eat_menu() -> void:
 			items.append([k, "%s (%d)" % [_laake_label(k), laake[k]]])
 	if klaffipoyta:
 		items.append(["klaffipoyta", "Pystytä klaffipöytä (jatka lääkkeitä)"])
+	if hs.laukku == "repussa":
+		items.append(["laakelaukku", "Avaa hoitajan lääkelaukku (puhdas jatkaminen)"])
 	if items.is_empty():
 		_show_message("Ei mitään syötävää eikä juotavaa. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja, mökin savustimesta kalaa ja riistaa.", 3.0)
 		return
@@ -9852,6 +9865,11 @@ func _on_eat(id: String) -> void:
 		if _journal.visible:
 			_journal.toggle()
 		_start_klaffipoyta.call_deferred()
+		return
+	if id == "laakelaukku":
+		if _journal.visible:
+			_journal.toggle()
+		_start_laakelaukku.call_deferred()
 		return
 	if APTEEKKI_MENU.has(_laake_base(id)):
 		if laake.get(id, 0) > 0:
@@ -12715,6 +12733,8 @@ func _santtu_offers_lava() -> bool:
 
 
 func _talk_hello(who: String) -> String:
+	if who in HS_TALKERS:
+		return _hs_hello(who)
 	var sh := _story_hint(who, true)
 	if sh != "":
 		return sh
@@ -12752,7 +12772,7 @@ func _talk_open_info(who: String) -> String:
 			return "Rahaa %s €. Reseptejä %d." % [_eur(money), reseptit]
 		"apteekki_taka":
 			return "Rahaa %s €. Hinnat x10, ei reseptiä." % _eur(money)
-		"raahe", "siitari", "zabuki", "gasthaus", "kauppa_auto", "leirintaalue":
+		"raahe", "siitari", "zabuki", "gasthaus", "kauppa_auto", "leirintaalue", "kaukalo_teinit", "laavu_teinit":
 			return "Rahaa %s €." % _eur(money)
 		"mopopojat":
 			return "Rahaa %s €. Kisoja voitettu %d." % [_eur(money), _race_wins]
@@ -13240,6 +13260,8 @@ func _talk_options(who := "") -> Array:
 		o.append(_opt("kukat_mirkulle", "Anna kukkakimppu Mirkulle", ilta, "vasta illalla (17–23), Päivi odottaa kimppua", true))
 	if who.begins_with("kolmio_"):
 		_kolmio_options(who, o)
+	if who in HS_TALKERS:
+		_hs_options(who, o)
 	if who == "kauppias":
 		_kolmio_gift_option(o)
 	_mopo_options(who, o)  # oma mopo (#155): Seppo, Huhtala, Simo, Aaro, SEO ja katsastus
@@ -13265,6 +13287,9 @@ func _talk_choose(id: String) -> void:
 		return
 	if id.begins_with("kolmio_"):
 		_kolmio_choose(id)
+		return
+	if _talk_who in HS_TALKERS and (id.begins_with("myy_") or id == "haasta"):
+		_hs_choose(id)
 		return
 	if id.begins_with("ranta_"):
 		_ranta_choose(id)
@@ -13683,6 +13708,8 @@ func _note_places(line: String) -> String:
 func _talk_chat_line() -> String:
 	if _talk_who.begins_with("kolmio_"):
 		return (Kolmio.LINES[_talk_who.substr(7)] as Array).pick_random()
+	if _talk_who in HS_TALKERS:
+		return (SaloinenTeinit.KAUKALO_CHAT if _talk_who == "kaukalo_teinit" else SaloinenTeinit.LAAVU_CHAT).pick_random()
 	if _talk_node != null and _talk_node == world.uimaranta_aurinko:
 		return _ranta_line()  # rannalla vain Sinikan omat repliikit (ei tarinavihjeitä väliin, K3)
 	var sh := _story_hint(_talk_who, false)
@@ -17434,7 +17461,8 @@ func _laake_label(key: String) -> String:
 
 ## Jatkaminen (klaffipoyta.gd, reseptit.gd): huume ja jatke kuluvat, tilalle tulee reseptin mukainen määrä annoksia, joiden
 ## jatkoaste kasvaa reseptin cuts-arvolla (teho puolittuu per aste). recipe_id "" = huumeen oletusresepti (Burana/Panadol).
-func _jatka_laake(key: String, recipe_id := "") -> String:
+## puhdas: hoitajan lääkelaukulla jatkettu (laakelaukku.gd), syntyneet annokset kirjataan puhtaiksi (hs.lisaa_puhdas).
+func _jatka_laake(key: String, recipe_id := "", puhdas := false) -> String:
 	var base := _laake_base(key)
 	if recipe_id == "":
 		recipe_id = {"opiaatti": "oksi_burana", "perv": "perv_panadol"}.get(base, "")
@@ -17450,6 +17478,8 @@ func _jatka_laake(key: String, recipe_id := "") -> String:
 	_craft_take(agent)
 	var out := "%s~%d" % [base, _laake_tier(key) + int(rc.cuts)]
 	laake[out] = laake.get(out, 0) + int(rc.yield)
+	if puhdas:
+		hs.lisaa_puhdas(out, int(rc.yield))
 	craft_known[recipe_id] = true
 	Sfx.play("pickup", -6.0, 0.7)
 	var text := "%s → %d annosta, teho %d %%." % [rc.name, int(rc.yield), roundi(_laake_pot(out) * 100.0)]
@@ -17491,8 +17521,8 @@ func _craft_items() -> Array:
 	return out
 
 
-func _craft_do(recipe_id: String, drug_key: String) -> String:
-	var r := _jatka_laake(drug_key, recipe_id)
+func _craft_do(recipe_id: String, drug_key: String, puhdas := false) -> String:
+	var r := _jatka_laake(drug_key, recipe_id, puhdas)
 	return r if r != "" else "Ei onnistunut."
 
 
@@ -17517,6 +17547,20 @@ func _start_klaffipoyta() -> void:
 		return
 	_act_begin()
 	var g := Klaffipoyta.new()
+	g.game = self
+	g.finished.connect(func() -> void:
+		_klaffi_game = null
+		_act_end())
+	add_child(g)
+	_klaffi_game = g
+
+
+## Hoitajan lääkelaukku (laakelaukku.gd, perii klaffipöydän): sama jatkaminen, mutta erät ovat puhtaita (hs.porras).
+func _start_laakelaukku() -> void:
+	if _klaffi_game != null or hs.laukku != "repussa" or state in ["fight", "cutscene", "minigame"]:
+		return
+	_act_begin()
+	var g := Laakelaukku.new()
 	g.game = self
 	g.finished.connect(func() -> void:
 		_klaffi_game = null
@@ -18709,7 +18753,7 @@ func _teini_myynti_valinnat(o: Array) -> void:
 	for k in _laake_keys():
 		if laake.get(k, 0) <= 0 or not LAAKE_JATKE.has(_laake_base(k)):
 			continue
-		var risk: float = TEINI_KIINNI[mini(_laake_tier(k), TEINI_KIINNI.size() - 1)]
+		var risk := _teini_riski(k)
 		o.append(_opt("myy_" + k, "Myy %s (%s €)%s" % [_laake_label(k), _eur(_teini_hinta(k)), ", kiinnijäämisriski %d %%" % roundi(risk * 100.0) if risk > 0.0 else ""]))
 
 
@@ -18717,17 +18761,24 @@ func _teini_hinta(key: String) -> float:
 	return APTEEKKI_MENU[_laake_base(key)][1] * APTEEKKI_TAKA_MULT
 
 
-## Annoksen myynti: sama hinta heikkoudesta riippumatta, mutta jatkettu annos paljastuu todennäköisyydellä TEINI_KIINNI[aste]
-## (roll: testissä kiinteä arpa, muuten satunnainen).
-func _teini_myy(key: String, roll := -1.0) -> void:
+## Paljastumisriski annokselle: TEINI_KIINNI[aste], hoitajan lääkelaukulla jatkettu (puhdas) erä porrasta alempi (hs.porras).
+func _teini_riski(key: String) -> float:
+	return TEINI_KIINNI[mini(hs.porras(_laake_tier(key), key, laake.get(key, 0)), TEINI_KIINNI.size() - 1)]
+
+
+## Annoksen myynti: sama hinta heikkoudesta riippumatta, mutta jatkettu annos paljastuu todennäköisyydellä _teini_riski
+## (roll: testissä kiinteä arpa, muuten satunnainen). fight: paljastuksen tappelu (tyhjä = Vaalan _start_teini_fight);
+## caught: paljastusrepliikki ja lines: [hyvän kaman repliikit, miedon repliikit] (tyhjä = Vaalan omat).
+func _teini_myy(key: String, roll := -1.0, fight := Callable(), caught := "", lines: Array = []) -> void:
 	if laake.get(key, 0) <= 0:
 		return
-	var kiinni: float = TEINI_KIINNI[mini(_laake_tier(key), TEINI_KIINNI.size() - 1)]
+	var kiinni := _teini_riski(key)
 	if (randf() if roll < 0.0 else roll) < kiinni:
 		_talk_box.close()
-		_show_message("Teini: \"Hetkinen... toi on jauhoa! Toi on JATKETTUA! Sää yritit huijata mua?!\"", 2.0)
-		get_tree().create_timer(1.4).timeout.connect(_start_teini_fight)
+		_show_message(caught if caught != "" else "Teini: \"Hetkinen... toi on jauhoa! Toi on JATKETTUA! Sää yritit huijata mua?!\"", 2.0)
+		get_tree().create_timer(1.4).timeout.connect(fight if fight.is_valid() else _start_teini_fight)
 		return
+	hs.myyty(key)
 	laake[key] -= 1
 	if laake[key] <= 0:
 		laake.erase(key)
@@ -18736,6 +18787,8 @@ func _teini_myy(key: String, roll := -1.0) -> void:
 	Sfx.play("coin", -4.0)
 	var pot := _laake_pot(key)
 	var line: String = "Hyvää kamaa! Ei kysytä mistä." if pot >= 1.0 else ["Hmm, aika mietoa... mut ok.", "Vähän laimeeta, mut kelpaa.", "Joo joo, ota rahat."].pick_random()
+	if lines.size() == 2:
+		line = (lines[0] if pot >= 1.0 else lines[1]).pick_random()
 	_talk_box.reply(line, _talk_options(), "+%s €. Rahaa %s €." % [_eur(price), _eur(money)])
 
 
@@ -18770,26 +18823,198 @@ func _teini_fight_end(won: bool, bags_used: int, thrown: int) -> void:
 	_mopo_resume()
 	if mopo_trip != null:
 		mopo_trip._resume_frame = Engine.get_process_frames()
+	_show_message(_teini_tulos(won), 4.0 if won else 5.0)
+
+
+## Diilitappelun lopputulos (Vaala ja Saloinen): voitto antaa maineen, häviö vie rahat ja lääkkeet ja tunnin. Palauttaa viestin.
+func _teini_tulos(won: bool) -> String:
 	if won:
 		tilat.add("moraali", 0.15)
 		tilat.add("kokemus", 0.1)
 		maine = clampf(maine + 2.0, 0.0, 100.0)
 		Sfx.play("win_small", -4.0)
-		_show_message("K.O.! Teini pakeni itkien, eikä enää osta mitään. Lääkkeet ja rahat jäi sulle. Maine +2.", 4.0)
-		return
+		return "K.O.! Teini pakeni itkien, eikä enää osta mitään. Lääkkeet ja rahat jäi sulle. Maine +2."
 	var took := money
 	var pills := 0
 	for k in laake:
 		pills += laake[k]
 	money = 0.0
 	laake.clear()
+	hs.laukku_erat.clear()
 	perv_until = -1.0
 	tilat.add("kipu", -0.3)
 	tilat.add("moraali", -0.2)
 	maine = clampf(maine - 5.0, 0.0, 100.0)
 	_advance_clock(KO_MINUTES)
 	Sfx.play("glass", -6.0, 0.8)
-	_show_message("Hävisit! Teini ryösti kaiken: %s € ja %d annosta lääkkeitä. Heräsit tunnin päästä. Maine −5." % [_eur(took), pills], 5.0)
+	return "Hävisit! Teini ryösti kaiken: %s € ja %d annosta lääkkeitä. Heräsit tunnin päästä. Maine −5." % [_eur(took), pills]
+
+
+# --- Huumekauppa Saloisissa (huume_saloinen.gd) ------------------------------------------------------------------
+# Ostajat: kaukalon iltateinit (saloinen_teinit.gd, klo 20–01) ja laavun teinijengi (laavu_guard.gd peaceful, kun repussa
+# on myytävää). Myynti, riski ja lopputulos ovat Vaalan (_teini_myynti_valinnat, _teini_myy, _teini_tulos); paljastus
+# vie tappeluun K-Marketin lavasteessa (fight.gd "teini_diili", _fight_source "teini_saloinen").
+const HS_TALKERS := ["kaukalo_teinit", "laavu_teinit"]
+const HS_TALK_R := 3.2  # puheväli ringin keskeltä tai laavun pomosta
+
+
+func _hs_setup() -> void:
+	hs_teens = SaloinenTeinit.new()
+	hs_teens.target = player
+	_hazards.add_child(hs_teens)  # paikka kaukalon kehyksestä (saloinen_teinit.gd _ready)
+	hs_teens.set_on(SaloinenTeinit.on_time(clock_min))
+
+
+## Saloisten huumekaupan pisteet (kutsutaan _pohjoiset_logicin jälkeen).
+func _huume_saloinen_logic() -> void:
+	if world == null or player.is_stunned():
+		return
+	var e := Input.is_action_just_pressed("interact")
+	_hs_laukku_logic(e)
+	_hs_laavu_logic(e)
+	_hs_teens_logic(e)
+
+
+## Onnistunut luukkuosto hoitajalta (M2 _hs_osta kutsuu, kun raha väheni): laskuri, päiväkirja ja kolmannen oston
+## jälkeen lääkelaukku portaalle (luukku on laukulle liian pieni).
+func _hs_ostettu() -> void:
+	tilat.first("hs_ensiosto", 0.2)
+	if hs.osto():
+		_queue_message("Hoitaja: \"%s\"" % ApteekkiSaloinen.LAUKKU, 5.0)
+	_save_game()
+
+
+var _hs_laukku_prop: Node3D
+
+
+## Laukku portaalla: oven vierellä, saranan puolta vastapäätä (oven paikallinen -X), oven heilahdusalueen ulkopuolella;
+## +Z = ulos (oven etusuunta). E poimii sen reppuun.
+func _hs_laukku_logic(e: bool) -> void:
+	var on_stoop: bool = hs.laukku == "portaalla" and world.apteekki_s.has("stoop_top")
+	if not on_stoop:
+		if _hs_laukku_prop != null:
+			_hs_laukku_prop.queue_free()
+			_hs_laukku_prop = null
+		return
+	if _hs_laukku_prop == null:
+		var back: Node3D = world.apteekki_s.back
+		var b := back.global_basis.orthonormalized()
+		_hs_laukku_prop = Laakelaukku.build_prop()
+		world.add_child(_hs_laukku_prop)
+		_hs_laukku_prop.global_position = world.apteekki_s.stoop_top \
+			- b.x * (ApteekkiSaloinen.STOOP.x / 2.0 - Laakelaukku.PROP_L / 2.0 - 0.05) + b.z * 0.15
+		_hs_laukku_prop.global_rotation = Vector3(0, back.global_rotation.y, 0)
+	if _hint.text != "" or player == bike or not _near_xz(_hs_laukku_prop.global_position, 1.6):
+		return
+	_hint.text = "[%s] Ota hoitajan lääkelaukku" % Settings.action_key("interact")
+	if e:
+		hs.laukku = "repussa"
+		tilat.first("hs_laukku", 0.3)
+		Sfx.play("pickup", -4.0, 0.8)
+		_show_message("Hoitajan lääkelaukku! Avaa se reppuvalikosta tai T:llä: laukulla jatketut annokset ovat puhtaampia ja paljastuvat porrasta harvemmin.", 5.5)
+		_save_game()
+
+
+func _hs_group_of(who: String) -> String:
+	return "kaukalo" if who == "kaukalo_teinit" else "laavu"
+
+
+## Myytävää repussa (oksikodoni tai pervitiini, mikä tahansa jatkoaste; sama ehto kuin _teini_myynti_valinnat).
+func _hs_has_sellable() -> bool:
+	for k in laake:
+		if laake[k] > 0 and LAAKE_JATKE.has(_laake_base(k)):
+			return true
+	return false
+
+
+## Kaukalon iltateinit näkyvät klo 20–01; lähellä puhevihje (myynti ja juttelu).
+func _hs_teens_logic(_e: bool) -> void:
+	if hs_teens == null:
+		return
+	var on := SaloinenTeinit.on_time(clock_min)
+	if hs_teens.visible != on:
+		hs_teens.set_on(on)
+	if not on or _hint.text != "" or _talk_box.is_open():
+		return
+	if _near_xz(hs_teens.center(), HS_TALK_R):
+		_talk_hint("kaukalo_teinit", hs_teens, player != bike)
+
+
+## Laavun teinijengi: kun repussa on myytävää eikä jengi ole kieltäytynyt tänään, pomo tulee juttelemaan (peaceful)
+## eikä haasta tappeluun; pomon luona puhevihje. Akka ja vallattu laavu eivät muutu.
+func _hs_laavu_logic(_e: bool) -> void:
+	if guard == null or guard.kind != "teens" or guard.mode == "gone":
+		return
+	guard.peaceful = _hs_has_sellable() and int(hs.ei_osta.get("laavu", -1)) != day
+	if not guard.peaceful or _hint.text != "" or _talk_box.is_open():
+		return
+	if _near_xz(guard.boss_pos(), HS_TALK_R):
+		_talk_hint("laavu_teinit", null, player != bike)
+
+
+func _hs_hello(who: String) -> String:
+	var kaukalo := who == "kaukalo_teinit"
+	if int(hs.ei_osta.get(_hs_group_of(who), -1)) == day:
+		return (SaloinenTeinit.KAUKALO_EI_OSTA if kaukalo else SaloinenTeinit.LAAVU_EI_OSTA).pick_random()
+	if kaukalo and not _hs_has_sellable():
+		return SaloinenTeinit.KAUKALO_EI_KAMAA.pick_random()
+	return (SaloinenTeinit.KAUKALO_HELLO if kaukalo else SaloinenTeinit.LAAVU_HELLO).pick_random()
+
+
+func _hs_options(who: String, o: Array) -> void:
+	if int(hs.ei_osta.get(_hs_group_of(who), -1)) == day:
+		o.append(_opt("myy", "Myy kamaa", false, "eivät osta sulta enää tänään"))
+	elif not _hs_has_sellable():
+		o.append(_opt("myy", "Myy kamaa", false, "repussa ei oksikodonia eikä pervitiiniä"))
+	else:
+		_teini_myynti_valinnat(o)
+	if who == "laavu_teinit":
+		o.append(_opt("haasta", "Haasta jengin pomo tappeluun laavusta", true, "", true))
+
+
+func _hs_choose(id: String) -> void:
+	var who := _talk_who
+	if id == "haasta":
+		_talk_box.close()
+		var d: Vector3 = player.global_position - guard.boss_pos()
+		d.y = 0.0
+		_start_fight("teens", "laavu", d.normalized() if d.length() > 0.1 else Vector3.RIGHT)
+		return
+	_hs_group = _hs_group_of(who)
+	var kaukalo := who == "kaukalo_teinit"
+	var m0 := money
+	_teini_myy(id.trim_prefix("myy_"), -1.0, _hs_fight_start,
+		"%s: \"%s\"" % [TALKERS[who][0], SaloinenTeinit.KAUKALO_KIINNI if kaukalo else SaloinenTeinit.LAAVU_KIINNI],
+		[SaloinenTeinit.KAUKALO_HYVA, SaloinenTeinit.KAUKALO_MIETO] if kaukalo else [SaloinenTeinit.LAAVU_HYVA, SaloinenTeinit.LAAVU_MIETO])
+	if money > m0:
+		tilat.first("hs_ensimyynti", 0.2)
+
+
+## Paljastus: tappelu ostajaryhmän kanssa (Saloisissa tavallinen _start_fight, vaarat tauolla).
+func _hs_fight_start() -> void:
+	if state != "ulkona":
+		return
+	var c: Vector3 = hs_teens.center() if _hs_group == "kaukalo" else guard.boss_pos()
+	var d := player.global_position - c
+	d.y = 0.0
+	_start_fight("teini_diili", "teini_saloinen", d.normalized() if d.length() > 0.1 else Vector3.RIGHT)
+
+
+## Diilitappelun loppu Saloisissa: voitto -> ryhmä ei osta tänään; häviö kuten Vaalassa (ryöstö ja tunti).
+func _hs_fight_end(won: bool, note: String) -> void:
+	if won:
+		hs.ei_osta[_hs_group] = day
+		if _hs_group == "laavu":
+			guard.defeat()  # jengi pakenee metsään (LAAVU_PAKO); laavu_conquered jää asettamatta (ei tallennu vapaaksi)
+		_teini_tulos(true)
+		_show_message("K.O.! %s Lääkkeet ja rahat jäi sulle. Maine +2.%s" % [
+			SaloinenTeinit.KAUKALO_PAKO if _hs_group == "kaukalo" else SaloinenTeinit.LAAVU_PAKO, note], 4.0)
+	else:
+		if player.has_method("stun"):
+			player.stun(_fight_dir)
+		_show_message(_teini_tulos(false) + note, 5.0)
+	player.set_carrying(beers > 0)
+	_save_game()
 
 
 func _start_lava_tappelu() -> void:
@@ -18900,6 +19125,9 @@ func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
 		note += "\nHeitit %d kaljaa vastustajaa päin." % thrown
 	if _fight_source == "kauppias":
 		_kauppias_fight_end(won, note)
+		return
+	if _fight_source == "teini_saloinen":
+		_hs_fight_end(won, note)
 		return
 	var loser_node: Node3D = {"juntti": juntti, "laavu": guard, "tractor": tractor}[_fight_source]
 	if won:
@@ -19335,6 +19563,7 @@ func _load_game() -> void:
 	viina_found = cfg.get_value("mokki", "viinakatkot", [])
 	asema_katkot = cfg.get_value("asema", "katkot", {})
 	kolmio.load_from(cfg)
+	hs.load_from(cfg)
 	reseptit = int(cfg.get_value("asema", "reseptit", 0))
 	laake = cfg.get_value("asema", "laake", {})
 	perv_until = cfg.get_value("asema", "perv_until", -1.0)
@@ -19625,6 +19854,8 @@ func _save_game() -> void:
 	cfg.set_value("mokki", "viinakatkot", viina_found)
 	cfg.set_value("asema", "katkot", asema_katkot)
 	kolmio.save_to(cfg)
+	hs.sovita(laake)
+	hs.save_to(cfg)
 	cfg.set_value("asema", "reseptit", reseptit)
 	cfg.set_value("asema", "laake", laake)
 	cfg.set_value("asema", "perv_until", perv_until)
@@ -20515,6 +20746,7 @@ func _spawn_threats() -> void:
 	guard.world = world
 	guard.challenge.connect(_on_laavu_challenge)
 	_hazards.add_child(guard)
+	_hs_setup()
 
 	tractor = Tractor.new()
 	tractor.position = M.w(M.TRACTOR_POS)
@@ -21019,6 +21251,9 @@ func inventory_items() -> Array:
 		add.call("laake_" + _laake_base(k), _laake_label(k), laake.get(k, 0), _laake_desc(k), {"food": true, "use": k, "use_label": "ota"})
 	if klaffipoyta:
 		add.call("laake_burana", "Klaffipöytä", 1, "Taitettava pöytä · jatka lääkkeitä (reseptit päiväkirjassa)", {"food": true, "use": "klaffipoyta", "use_label": "pystytä"})
+	if hs.laukku == "repussa":
+		add.call("laakelaukku", "Lääkelaukku", 1, "Hoitajan vanha laukku · puhtaasti jatketut annokset paljastuvat porrasta harvemmin",
+			{"food": true, "use": "laakelaukku", "use_label": "avaa"})
 	return out
 
 

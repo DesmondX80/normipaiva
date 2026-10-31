@@ -18,6 +18,7 @@ const DroneGame := preload("res://scripts/drone_game.gd")
 const HedgeNode := preload("res://scripts/hedge.gd")
 const BasketGame := preload("res://scripts/basket_game.gd")
 const RankkuGame := preload("res://scripts/rankku_game.gd")
+const ApteekkiSaloinen := preload("res://scripts/apteekki_saloinen.gd")
 const DRAPE_EDGE := 3.0  # maakerrosten kolmioiden maksimisivu, jotta ne myötäilevät maastoa
 ## Lehvästökorttien näkyvyysraja: tätä kauempana puut piirretään kevyinä perusmuotoina.
 const TREE_NEAR := 210.0
@@ -226,6 +227,7 @@ var _tree_free: Array = []  # [keskipiste, säde]: puuttomat kohdat (Kertunkanka
 var _mask_clear: Array = []
 ## Rakennusten ja pihaesteiden pohjat [keskipiste, puolikoko (x, z), yaw] naapurien reitinhakuun (villager.gd).
 var blockers: Array = []
+var apteekki_s := {}  # Saloisten apteekki (apteekki_saloinen.gd build): back, knock, out, stoop_top, nurse, fill
 var _hedge_batch := B.Batch.new()
 var _hedge_cards := B.Batch.new()
 var _hedge_quad: QuadMesh
@@ -3032,6 +3034,7 @@ func _build_kinnapotti() -> void:
 		var hp: Vector2 = c + f.ax * 9.0
 		var heap := B.mesh(self, B.sphere(4.0, 12), Vector3(hp.x, -1.2, hp.y), Color(0.7, 0.62, 0.48))
 		heap.scale = Vector3(1.4, 0.7, 1.0)
+	apteekki_s = ApteekkiSaloinen.build(self)
 
 
 ## Peltihalli OSM-rakennuksen paikalle: profiilipeltiseinät, matala harjakatto, nosto-ovet julkisivussa, ovi ja

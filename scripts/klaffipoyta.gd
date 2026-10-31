@@ -111,11 +111,16 @@ func _craft() -> void:
 	var m := _match()
 	if m.is_empty():
 		return
-	_say(game._craft_do(m.id, m.drug), 5.0)
+	_say(_do_craft(m), 5.0)
 	_cells = ["", "", "", "", "", "", "", "", ""]
 	_held = ""
 	game._craft_learn()
 	Sfx.play("pickup", -4.0, 0.7)
+
+
+## Askartelu itse (lääkelaukku ohittaa: laukulla jatkettu erä on puhdas).
+func _do_craft(m: Dictionary) -> String:
+	return game._craft_do(m.id, m.drug)
 
 
 func _draw_all() -> void:
@@ -123,21 +128,7 @@ func _draw_all() -> void:
 	var font := ThemeDB.fallback_font
 	var s := ci.size
 	_hits.clear()
-	ci.draw_rect(Rect2(Vector2.ZERO, s), Color(0.04, 0.03, 0.02, 0.82))
-	# Pöytälevy: puulankut, taitoskoloissa teräsrunko ja saranat.
-	var top := Rect2((s - Vector2(980, 620)) / 2.0, Vector2(980, 620))
-	ci.draw_rect(top.grow(8), Color(0.2, 0.2, 0.22))
-	ci.draw_rect(top, Color(0.72, 0.55, 0.32))
-	for k in 12:
-		var y := top.position.y + k * top.size.y / 12.0
-		ci.draw_rect(Rect2(top.position.x, y, top.size.x, top.size.y / 12.0), Color(0.72, 0.55, 0.32).darkened(0.05 * (k % 3)))
-		ci.draw_line(Vector2(top.position.x, y), Vector2(top.end.x, y), Color(0.45, 0.32, 0.18), 2.0)
-	ci.draw_line(Vector2(top.get_center().x, top.position.y), Vector2(top.get_center().x, top.end.y), Color(0.3, 0.3, 0.33), 5.0)  # taitto
-	for hy in [top.position.y + 70, top.end.y - 70]:
-		ci.draw_rect(Rect2(top.get_center().x - 22, hy - 12, 44, 24), Color(0.6, 0.62, 0.66))
-		ci.draw_circle(Vector2(top.get_center().x - 12, hy), 3.0, Color(0.25, 0.25, 0.28))
-		ci.draw_circle(Vector2(top.get_center().x + 12, hy), 3.0, Color(0.25, 0.25, 0.28))
-	ci.draw_string(font, top.position + Vector2(24, 40), "KLAFFIPÖYTÄ", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(0.3, 0.17, 0.06))
+	var top := _draw_board(ci, s)
 	# Ruudukko vasemmalla (3×3), nuoli, tulos.
 	var g0 := top.position + Vector2(40, 110)
 	var m := _match()
@@ -188,6 +179,27 @@ func _draw_all() -> void:
 	if _held != "":
 		var hr := Rect2(_mouse - Vector2(34, 34), Vector2(68, 68))
 		Reseptit.draw_item(ci, hr, _held, font)
+
+
+## Tausta ja työtaso; palauttaa levyn, jolle ruudukko ja reppu piirretään (lääkelaukku ohittaa).
+func _draw_board(ci: Control, s: Vector2) -> Rect2:
+	var font := ThemeDB.fallback_font
+	ci.draw_rect(Rect2(Vector2.ZERO, s), Color(0.04, 0.03, 0.02, 0.82))
+	# Pöytälevy: puulankut, taitoskoloissa teräsrunko ja saranat.
+	var top := Rect2((s - Vector2(980, 620)) / 2.0, Vector2(980, 620))
+	ci.draw_rect(top.grow(8), Color(0.2, 0.2, 0.22))
+	ci.draw_rect(top, Color(0.72, 0.55, 0.32))
+	for k in 12:
+		var y := top.position.y + k * top.size.y / 12.0
+		ci.draw_rect(Rect2(top.position.x, y, top.size.x, top.size.y / 12.0), Color(0.72, 0.55, 0.32).darkened(0.05 * (k % 3)))
+		ci.draw_line(Vector2(top.position.x, y), Vector2(top.end.x, y), Color(0.45, 0.32, 0.18), 2.0)
+	ci.draw_line(Vector2(top.get_center().x, top.position.y), Vector2(top.get_center().x, top.end.y), Color(0.3, 0.3, 0.33), 5.0)  # taitto
+	for hy in [top.position.y + 70, top.end.y - 70]:
+		ci.draw_rect(Rect2(top.get_center().x - 22, hy - 12, 44, 24), Color(0.6, 0.62, 0.66))
+		ci.draw_circle(Vector2(top.get_center().x - 12, hy), 3.0, Color(0.25, 0.25, 0.28))
+		ci.draw_circle(Vector2(top.get_center().x + 12, hy), 3.0, Color(0.25, 0.25, 0.28))
+	ci.draw_string(font, top.position + Vector2(24, 40), "KLAFFIPÖYTÄ", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(0.3, 0.17, 0.06))
+	return top
 
 
 func _item_name(key: String) -> String:
