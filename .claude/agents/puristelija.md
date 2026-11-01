@@ -30,6 +30,9 @@ Säännöt:
 - **Lopeta, jos et edisty.** Jos kaksi ajoa peräkkäin ei muuta tulosta, lopeta ja kirjaa juurisyyarvio; arkkitehti tai
   Teemu päättää seuraavan askeleen. Eri asettelut samaan vikaan lasketaan yrityksiksi: kahden kaatuneen jälkeen
   yksinkertaista tai palauta. Jos et tiedä, miltä tai miten jonkin pitää olla, kirjaa se avoimeksi kysymykseksi.
+- **Ajoraja on kova.** Ennen jokaista testiajoa katso `ajot.md`:n viimeiset rivit: jos sama testi on jo ajettu kolme kertaa
+  peräkkäin samalla vikamäärällä (`testin_löydöt`), et aja sitä neljättä kertaa vaan palautat heti numerot ja juurisyyarvion.
+  Tämä ohittaa kaikki muut ohjeet, myös "korjaa kaikki viat". (#258: Hilkan vikaa ajettiin kymmenkunta kertaa samalla tuloksella.)
 - **Testit vain `tools/testit/aja.sh`:lla** (`kaantyy`, `scene <nimi> [lisä]`, `tscn <polku>`, `--video tscn <polku>`); se hoitaa
   eristyksen, jonon ja aikarajan. Älä rakenna Godot-komentoa käsin ja luota vain sen OK/VIKA-riviin. Oma kokeilukohtaus:
   lopussa `get_tree().quit()`. Kun valmis: `aja.sh kaantyy` ja korjaa käännösvirheet.

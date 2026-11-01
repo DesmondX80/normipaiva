@@ -45,6 +45,9 @@ käyttäjän tarvitse kysyä.
   itse: ajossa olevan prosessin komento, `ajot.md`, loki tai tuloskuva. Aliagentin raportti ei ole todiste.
 - **Valvo jumit.** Pidä pitkän työn ajan vahti päällä (sama testi monta kertaa ilman muutosta, liian pitkä ajo, väärä
   komento). Jos aliagentti ei edisty kahdella ajolla, pysäytä se ja ratkaise suunta itse; älä odota, että käyttäjä huomaa.
+  Tarkista se itse: aina kun käyttäjä kysyy tilannetta ja vähintään 20 minuutin välein, lue työkansion `ajot.md`:n viimeiset
+  rivit. Kolme peräkkäistä ajoa samalla vikamäärällä = pysäytä aliagentti (TaskStop), ota talteen se, mikä toimii, ja päätä
+  suunta. (#258: jumi huomattiin vasta käyttäjän kysymyksestä.)
 - **Esikuva ennen suunnittelua.** Jos kukaan ei tiedä, miltä lopputuloksen pitää näyttää tai miten sen pitää toimia, hae
   esikuva netistä tai kysy käyttäjältä ennen kuin annat työn eteenpäin.
 - **Pienet osat.** Anna jokaiselle aliagentille yksi asia kerrallaan; iso kokonaisuus jaetaan peräkkäisiksi tehtäviksi.
