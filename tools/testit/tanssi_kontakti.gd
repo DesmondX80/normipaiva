@@ -111,6 +111,8 @@ func _vaihe(nm: String, t: float, frames: int, miss: bool) -> void:
 	var lf := _free_hand()
 	var hc := (me.to_global(me.bone_position("hand" + lf[0])) + her.to_global(her.bone_position("hand" + lf[1]))) * 0.5
 	await Asento.views(cam, out, nm + "_kadet", hc, 0.35, front, false)
+	var lb0 := "_l" if lf[0] == "_r" else "_r"  # viejän selkäkäsi (suurennos, K10)
+	await Asento.views(cam, out, nm + "_selka", me.to_global(me.bone_position("hand" + lb0)), 0.35, front, false)
 	if nm.begins_with("sinikka"):
 		await Asento.views(cam, out, nm + "_rinta", her.to_global(her.bone_position("spine_03")), 0.45, front, false)
 	Engine.time_scale = 1.0
@@ -151,7 +153,13 @@ func _free_hand() -> Array:
 func _kasi_kadessa(nm: String, lf: String, ff: String) -> void:
 	var hm: Array = Contact.caps_all(me, prof[me]).filter(func(cp: Array) -> bool: return cp[0] == "hand" + lf)[0]
 	var hh: Array = Contact.caps_all(her, prof[her]).filter(func(cp: Array) -> bool: return cp[0] == "hand" + ff)[0]
-	var gap: float = -float(Contact._pair_depth(hm, hh)[0])
+	# Kapselirako näytteistä kuten _fit_chains (6 pistettä kummankin janalla toisen kapselia vasten): kädet ovat lähes vastakkain
+	# (sormet 150-170°), ja _pair_depthin yksi lähin pistepari on silloin mielivaltainen (janan pää, säde 12 mm -> rako 35 mm).
+	var gap := INF
+	for xy: Array in [[hm, hh], [hh, hm]]:
+		var x: Array = xy[0]
+		for k in 6:
+			gap = minf(gap, -float(Contact._pt_depth2((x[1] as Vector3).lerp(x[2], k / 5.0), x, k / 5.0, xy[1])[0]))
 	var dot := _palm(me, lf).dot(_palm(her, ff))
 	var hg := INF
 	for q in _hand_pts(me, lf):
@@ -186,6 +194,8 @@ func _measure_shot(nm: String, other: Node3D, hug: bool) -> void:
 		if fl >= 0.0 or fr <= 0.0 or facing < 0.7:
 			_vika("%s suunta %s (jalat ristissä tai selkä toiseen päin)" % [nm, _who(c)])
 		_painuma(nm, c)
+	_malli_selka(nm, other)
+	_malli_selka(nm, me)
 
 
 ## RUUTU: 60 ruudun keskimääräinen kehysaika nuottiradan jatkona ilman testin omaa mittaustyötä.
