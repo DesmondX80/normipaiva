@@ -57,10 +57,10 @@ static func profile(ch: Node3D, limb_points: Callable) -> Dictionary:
 				caps[s[0]] = [s[0], s[1], r, 0.0, _bin_table(pts, a, ch.bone_position(s[1]), _bone_xf(ch, s[0]).basis.orthonormalized().inverse(), r)]
 		foot[lr] = _foot_box(ch, lr, limb_points, can_bake)
 		caps["hand" + lr] = _hand_cap(ch, lr, limb_points, can_bake)
-	_shape_tables(ch, caps, limb_points, can_bake)
 	if ch.skeleton.find_bone("Head") >= 0:
 		caps["Head"] = _head_cap(ch, limb_points, can_bake)
 		_neck_caps(ch, caps, limb_points, can_bake)
+	_shape_tables(ch, caps, limb_points, can_bake)  # katkaisun (_neck_caps) jälkeen: spine_03:n taulu katkaistulle janalle
 	var prof := {"caps": caps, "foot": foot, "measured": measured}
 	if measured:
 		_cache[key] = prof
@@ -172,15 +172,21 @@ static func _neck_caps(ch: Node3D, caps: Dictionary, limb_points: Callable, can_
 ## Vartalon kapselien muototaulut hahmo hahmoa vastaan: pyöreä kapseli on 90. persentiilin säde kaikkiin suuntiin, jolloin
 ## selän puolella se on 5-14 cm ihon ulkopuolella (vatsa määrää säteen) ja selkään laitettu käsi jäisi ilmaan. Pisteet ovat
 ## koko vartalo (lantio, selkäranka, solisluut; vatsan etuosa on usein lantion tai spine_02:n painoilla), ja kukin piste
-## kuuluu lähimmälle vartalokapselille. Taulu = 3 asemaa luuta pitkin x 4 neljännestä (luun paikallinen +x, -x, +z, -z),
-## kukin 95. persentiili etäisyydestä akseliin siihen suuntaan; tallennetaan caps[luu][4] ([3] = katkaisu, _neck_caps).
+## kuuluu lähimmälle vartalokapselille (spine_03: katkaistu jana, hartiat katkaisun yli pois; ilman hiuksia). Taulu = napakoordinaatit
+## (_polar_table: 5 asemaa x 12 sektoria), jotta selän ja kyljen välinen vino kohta tulee mitattuna eikä ellipsillä arvattuna;
+## tallennetaan caps[luu][4] ([3] = katkaisu, _neck_caps; ajetaan sen jälkeen).
 static func _shape_tables(ch: Node3D, caps: Dictionary, limb_points: Callable, can_bake: bool) -> void:
-	var pts: PackedVector3Array = limb_points.call(ch, ch, ["pelvis", "spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r"]) if can_bake else PackedVector3Array()
+	var pts: PackedVector3Array = limb_points.call(ch, ch, ["pelvis", "spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r"], 1) if can_bake else PackedVector3Array()
 	if pts.is_empty():
 		return
 	var segs := []
 	for s in TORSO:
-		segs.append([ch.bone_position(s[0]), ch.bone_position(s[1]), PackedVector3Array()])
+		var c: Array = caps[s[0]]
+		var a: Vector3 = ch.bone_position(s[0])
+		var b: Vector3 = ch.bone_position(s[1])
+		if c.size() > 3 and c[3] != null:  # katkaistu (spine_03): taulun asemat katkaistulle janalle kuten _cap_ends
+			b -= (b - a).normalized() * minf(float(c[3]), a.distance_to(b))
+		segs.append([a, b, []])  # Array (viite): PackedVector3Array kopioituisi
 	for q in pts:
 		var bi := 0
 		var bd := INF
@@ -189,12 +195,17 @@ static func _shape_tables(ch: Node3D, caps: Dictionary, limb_points: Callable, c
 			if d < bd:
 				bd = d
 				bi = i
-		(segs[bi][2] as PackedVector3Array).append(q)
+		var a: Vector3 = segs[bi][0]
+		var b: Vector3 = segs[bi][1]
+		if bi == segs.size() - 1 and (q - a).dot(b - a) > (b - a).length_squared():
+			continue  # spine_03:n katkaisun yli (hartiat, solisluut)
+		(segs[bi][2] as Array).append(q)
 	for i in TORSO.size():
 		var c: Array = caps[TORSO[i][0]]
-		var tb := _bin_table(segs[i][2], segs[i][0], segs[i][1], _bone_xf(ch, TORSO[i][0]).basis.orthonormalized().inverse(), c[2])
+		var tb := _polar_table(PackedVector3Array(segs[i][2]), segs[i][0], segs[i][1], _bone_xf(ch, TORSO[i][0]).basis.orthonormalized().inverse(), c[2])
+		var cut: Variant = c[3] if c.size() > 3 else null
 		c.resize(5)
-		c[3] = 0.0
+		c[3] = float(cut) if cut != null else 0.0
 		c[4] = tb
 
 
@@ -218,12 +229,70 @@ static func _bin_table(pts: PackedVector3Array, a: Vector3, b: Vector3, basis_in
 	return tb
 
 
+const POLAR_S := 5  # vartalon taulu: asemaa akselia pitkin
+const POLAR_K := 12  # vartalon taulu: sektoria (30°) luun x-z-tasossa
+
+
+## Vartalon napakoordinaattitaulu janalle a-b pisteistä pts (hahmon avaruus; basis_inv = hahmo -> luu, luun +Y akselin suunta):
+## {"s", "k", "r": PackedFloat32Array s*k (asema * k + sektori), "m": aseman keskiarvo}. Sektorin k keskikulma atan2(z, x) =
+## -PI + (k + 0,5) * 30°. Arvo = akselilta sektorin keskisuuntaan lähtevän säteen osuma aseman poikkileikkauksen kuperaan
+## verhoon (pisteiden o.xz, kun t on aseman välillä; alle 8 pistettä tai akseli verhon ulkopuolella: väliä levennetään), rajattu
+## 0,3-1,5 r. Verhon reuna eikä pisteiden persentiili, koska verkko on harva (vartalokapselissa 100-260 pistettä, selässä suuria
+## kolmioita: sektorissa 0-5 pistettä), ja säde osuu kolmion sisään eikä kärkeen. Selkärangan kuoppa siltautuu (käsi lepää lihasten päällä).
+static func _polar_table(pts: PackedVector3Array, a: Vector3, b: Vector3, basis_inv: Basis, r: float) -> Dictionary:
+	var ts := PackedFloat32Array()
+	var xz := PackedVector2Array()
+	for q in pts:
+		var t := _t_on(q, a, b)
+		var o: Vector3 = basis_inv * (q - a.lerp(b, t))
+		ts.append(t)
+		xz.append(Vector2(o.x, o.z))
+	var step := TAU / POLAR_K
+	var rr := PackedFloat32Array()
+	rr.resize(POLAR_S * POLAR_K)
+	var mm := PackedFloat32Array()
+	mm.resize(POLAR_S)
+	for st in POLAR_S:
+		var hull := PackedVector2Array()
+		var wid := 0.0
+		while wid <= 1.0:
+			var sec := PackedVector2Array()
+			var lo := float(st) / POLAR_S - wid
+			var hi := float(st + 1) / POLAR_S + wid
+			for i in ts.size():
+				if ts[i] >= lo and ts[i] <= hi:
+					sec.append(xz[i])
+			hull = Geometry2D.convex_hull(sec) if sec.size() >= 3 else PackedVector2Array()
+			# Akseli verhon sisällä: muuten viipaleessa on pisteitä vain yhdeltä puolelta (esim. vatsan etuosa lähimpänä toista luuta).
+			if sec.size() >= 8 and Geometry2D.is_point_in_polygon(Vector2.ZERO, hull):
+				break
+			wid += 0.5 / POLAR_S
+		var sum := 0.0
+		for k in POLAR_K:
+			var ca := -PI + (k + 0.5) * step
+			var u := Vector2(cos(ca), sin(ca)) * 10.0
+			var v := r
+			var best := -1.0
+			for i in range(hull.size() - 1):  # convex_hull: suljettu (viimeinen = ensimmäinen)
+				var hit: Variant = Geometry2D.segment_intersects_segment(Vector2.ZERO, u, hull[i], hull[i + 1])
+				if hit != null:
+					best = maxf(best, (hit as Vector2).length())
+			if best > 0.0:
+				v = clampf(best, r * 0.3, r * 1.5)
+			rr[st * POLAR_K + k] = v
+			sum += v
+		mm[st] = sum / POLAR_K
+	return {"s": POLAR_S, "k": POLAR_K, "r": rr, "m": mm}
+
+
 ## Kapselin säde suuntaan dir (maailmassa, akselista ulos) kohdassa t (0 = a, 1 = b); cap = caps_all-alkio. Ilman
 ## muototaulua (pää, kaula, varataulukko) pyöreä säde.
 static func _rad(cap: Array, t: float, dir: Vector3) -> float:
 	if cap.size() < 5 or cap[4] == null:
 		return cap[3]
 	var sh: Array = cap[4]
+	if sh[1] is Dictionary:
+		return _rad_polar(sh[1], (sh[0] as Basis) * dir, t)
 	var tb: Array = sh[1]
 	var l: Vector3 = (sh[0] as Basis) * dir
 	var st := clampf(t * 3.0 - 0.5, 0.0, 2.0)
@@ -243,6 +312,31 @@ static func _rad(cap: Array, t: float, dir: Vector3) -> float:
 	var rz: float = rr[2] if lat.y > 0.0 else rr[3]
 	var re := 1.0 / sqrt((lat.x * lat.x) / (rx * rx) + (lat.y * lat.y) / (rz * rz))
 	var w := ll * ll / maxf(l.length_squared(), 0.000001)  # sivusuunnan osuus
+	return lerpf(mean, re, w)
+
+
+## Vartalon säde napakoordinaattitaulusta (_polar_table) luun kehyksen suuntaan l kohdassa t: bilineaarinen asemien ja sektorien
+## välillä; akselin suuntainen osuus sekoittaa aseman keskiarvoa kuten _rad. Kuuma silmukka (_fit_chains): ei Arrayta.
+static func _rad_polar(tb: Dictionary, l: Vector3, t: float) -> float:
+	var ns: int = tb.s
+	var nk: int = tb.k
+	var rr: PackedFloat32Array = tb.r
+	var mm: PackedFloat32Array = tb.m
+	var st := clampf(t * ns - 0.5, 0.0, ns - 1.0)
+	var i0 := int(st)
+	var i1 := mini(i0 + 1, ns - 1)
+	var f := st - i0
+	var mean := lerpf(mm[i0], mm[i1], f)
+	var ll2 := l.x * l.x + l.z * l.z
+	if ll2 < 0.00000001:
+		return mean  # suoraan akselin suuntaan (kapselin pää)
+	var u := (atan2(l.z, l.x) + PI) / (TAU / nk) - 0.5
+	var uf := floorf(u)
+	var g := u - uf
+	var k0 := (int(uf) + nk) % nk
+	var k1 := (k0 + 1) % nk
+	var re := lerpf(lerpf(rr[i0 * nk + k0], rr[i0 * nk + k1], g), lerpf(rr[i1 * nk + k0], rr[i1 * nk + k1], g), f)
+	var w := ll2 / maxf(l.length_squared(), 0.000001)  # sivusuunnan osuus
 	return lerpf(mean, re, w)
 
 

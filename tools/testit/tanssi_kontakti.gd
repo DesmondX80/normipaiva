@@ -111,6 +111,8 @@ func _vaihe(nm: String, t: float, frames: int, miss: bool) -> void:
 	var lf := _free_hand()
 	var hc := (me.to_global(me.bone_position("hand" + lf[0])) + her.to_global(her.bone_position("hand" + lf[1]))) * 0.5
 	await Asento.views(cam, out, nm + "_kadet", hc, 0.35, front, false)
+	var lb0 := "_l" if lf[0] == "_r" else "_r"  # viejän selkäkäsi (suurennos, K10)
+	await Asento.views(cam, out, nm + "_selka", me.to_global(me.bone_position("hand" + lb0)), 0.35, front, false)
 	if nm.begins_with("sinikka"):
 		await Asento.views(cam, out, nm + "_rinta", her.to_global(her.bone_position("spine_03")), 0.45, front, false)
 	Engine.time_scale = 1.0
@@ -186,6 +188,8 @@ func _measure_shot(nm: String, other: Node3D, hug: bool) -> void:
 		if fl >= 0.0 or fr <= 0.0 or facing < 0.7:
 			_vika("%s suunta %s (jalat ristissä tai selkä toiseen päin)" % [nm, _who(c)])
 		_painuma(nm, c)
+	_malli_selka(nm, other)
+	_malli_selka(nm, me)
 
 
 ## RUUTU: 60 ruudun keskimääräinen kehysaika nuottiradan jatkona ilman testin omaa mittaustyötä.

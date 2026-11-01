@@ -197,24 +197,30 @@ loppupää liukuu pinnalle ja alkupää kiertää polea) -> `pair_contacts` (pai
 kapseliparin (`PARI <vaihe> <a>:<kapseli> <b>:<kapseli> <mm> (t)`, kuusi syvintä `PARIT`), kohteen raon pintaan (`KOHDE`: kämmenkapseli
 `Contact._pt_depth`illa ja kuvahetkellä kämmenen verkko toisen verkkoon, joka ratkaisee, koska hartialla kapseli on 2-6 cm verkon alla), ranteen kulman
 (`RANNE`, raja 70 astetta), jalkojen ja rinnan suunnan (`SUUNTA`), painuman luuttain ilman leviämistä (`PAINUMA`, luiset 0, muut enintään
-5 cm) sekä kapselimallin ja verkon eron hartioilla ja vatsassa (`MALLI`, tiedoksi). Raja 1 cm: yli -> `TESTI VIKA`. Vaihe `vanha` (halaus
+5 cm) sekä kapselimallin ja verkon eron hartioilla, vatsassa ja selässä (`MALLI`, tiedoksi; `MALLI <vaihe> <kuka> selka <kapseli>`:
+kapselin pinta - verkon uloin piste vartalokapseleilla kolmella asemalla ja suunnilla selästä kylkiin 0...±90°, ka/max/min ja selän ±30° max). Raja 1 cm: yli -> `TESTI VIKA`. Vaihe `vanha` (halaus
 kiinteillä kohteilla) ajetaan aina ja todistaa mittarin (`MITTARI`; ellei se ylitä rajaa, `TESTI VIKA mittari ei havaitse`); argumentti
 `vanha` ajaa halauksen vanhalla tavalla mittarin alla, jolloin VIKA-rivi on odotettu. Yksinäinen hahmo (toinen 30 m päässä) ei saa muuttua
 (`YKSIN`, raja 0,1 mm). Kuvat `<vaihe>_<hetki>_koottu.png` (iskut: ennen, osuma, palautuu). Halauksessa kädet ovat eri korkeuksilla,
 ettei käsivarsia tarvitse ristiin: Sinikan kädet päähahmon vyötärölle, päähahmon kädet Sinikan hartioiden yli (kyynärpäät ylhäällä). Painiote
 (Juntti leveäharteinen, joten hartiaote ei mahdu): päähahmon kämmenet Juntin kyljille (`spine_01`), Juntti tarttuu päältä päähahmon
-kyynärvarsista kyynärpään läheltä. Argumentti `paini` ajaa vain painivaiheen (nopea kokeilu).
+kyynärvarsista kyynärpään läheltä. Kämmenkohteet lasketaan samalla kämmensäteellä kuin tanssissa (`PariOte.palm_r`,
+muototaulu kämmenpuolelle); `KOHDE`-rivi kirjaa sen (`säde <mm> (pyöreä <mm>)`). Argumentti `paini` ajaa vain painivaiheen (nopea kokeilu).
 
 **Tanssin suljettu ote:** `scripts/pari_ote.gd` (`PariOte.valssi`) asettaa tanssin `_hold`issa viejän selkäkäden (lyhyellä parilla
 vyötärölle), seuraajan olkakäden ja vapaat kädet kämmen kämmentä vasten; kämmenkohde on pinta + `PariOte.palm_r` (kämmenpuolen säde
 muototaulusta). Raajojen ja kämmenen kapseleilla on muototaulu (`Contact._bin_table`: säde suunnan mukaan luun kehyksessä), joten
-kapselimalli seuraa ohutta kyynärvartta ja litteää kämmentä. Painumalla on yhteinen raja (`Elastic.press` ja `press.gdshaderinc`
+kapselimalli seuraa ohutta kyynärvartta ja litteää kämmentä. Vartalokapseleilla (pelvis, spine_01-03) on napakoordinaattitaulu
+(`Contact._polar_table`, 5 asemaa x 12 sektoria; `_rad_polar`): säde on sektorin suuntaan lähtevän säteen osuma aseman poikkileikkauksen
+kuperaan verhoon (vartalon verkko ilman hiuksia, spine_03 katkaistuna hartioiden alle), joten selkäkäsi on selän pinnassa eikä hartioiden
+leveydessä. Painumalla on yhteinen raja (`Elastic.press` ja `press.gdshaderinc`
 pitävät käytetyn painuman summaa, enintään `Elastic.MAX_LIMIT` 5 cm), joten päällekkäiset laatikot eivät painu yli rajan. Mittari:
 `tools/testit/aja.sh tscn tools/testit/tanssi_kontakti.tscn [sinikka_seura|hilkka|annaliisa] [pois]` ajaa kolme paria vaiheissa alku,
-rata, horja (kompastus) ja loppu (kaikki tahdit osutuiksi) ja tulostaa `PARI`, `KOHDE` (selkä- ja olkakäsi, verkko ±1 cm), `KÄSI KÄDESSÄ`
+rata, horja (kompastus) ja loppu (kaikki tahdit osutuiksi) ja tulostaa `PARI`, `KOHDE` (selkä- ja olkakäsi, verkko ±1 cm etumerkillisenä:
+negatiivinen = käsi verkon sisällä), `MALLI selka`, `KÄSI KÄDESSÄ`
 (kapselirako ja verkko ≤ 1 cm, kämmenet vastakkain ≤ −0,7), `RANNE` (≤ 70°), `SUUNTA` (jalat, rinnat vastakkain hartialinjoista),
 `PAINUMA` (≤ 5 cm), `RUUTU` (ka < 16,7 ms) ja `JÄÄNTEET` (0 lopetuksen jälkeen). Kuvat `<pari>_<vaihe>_koottu.png`, `_jalat`, `_kadet`
-(vapaat kädet suurennettuna) ja Sinikalla `_rinta`. `pois` ajaa ilman kontakteja (vertailu).
+(vapaat kädet suurennettuna), `_selka` (viejän selkäkäsi suurennettuna) ja Sinikalla `_rinta`. `pois` ajaa ilman kontakteja (vertailu).
 
 **Hiukset ja pää (elastiset):** hiukset ovat skinnattuja verkkoja oma varjostin `shaders/hair.gdshader` (painumasilmukka jaettu
 `shaders/press.gdshaderinc`-tiedostossa vartalon kanssa); painumaraja on 0,9 x etäisyys kallon pintaan (`CUSTOM0.w`), leviäminen suuntautuu
