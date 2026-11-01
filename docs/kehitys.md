@@ -209,7 +209,8 @@ muototaulu kämmenpuolelle); `KOHDE`-rivi kirjaa sen (`säde <mm> (pyöreä <mm>
 
 **Tanssin suljettu ote:** `scripts/pari_ote.gd` (`PariOte.valssi`) asettaa tanssin `_hold`issa viejän selkäkäden (lyhyellä parilla
 vyötärölle), seuraajan olkakäden ja vapaat kädet kämmen kämmentä vasten; kämmenkohde on pinta + `PariOte.palm_r` (kämmenpuolen säde
-muototaulusta). Raajojen ja kämmenen kapseleilla on muototaulu (`Contact._bin_table`: säde suunnan mukaan luun kehyksessä), joten
+muototaulusta). Vapaissa käsissä kämmenten keskukset (ei ranteet) ovat vastakkain, ja yhteinen kämmenten normaali kallistuu enintään
+30° (`KAMMEN_KALLISTUS`), jotta kummankin ranne pysyy suorempana. Raajojen ja kämmenen kapseleilla on muototaulu (`Contact._bin_table`: säde suunnan mukaan luun kehyksessä), joten
 kapselimalli seuraa ohutta kyynärvartta ja litteää kämmentä. Vartalokapseleilla (pelvis, spine_01-03) on napakoordinaattitaulu
 (`Contact._polar_table`, 5 asemaa x 12 sektoria; `_rad_polar`): säde on sektorin suuntaan lähtevän säteen osuma aseman poikkileikkauksen
 kuperaan verhoon (vartalon verkko ilman hiuksia, spine_03 katkaistuna hartioiden alle), joten selkäkäsi on selän pinnassa eikä hartioiden
@@ -218,7 +219,7 @@ pitävät käytetyn painuman summaa, enintään `Elastic.MAX_LIMIT` 5 cm), joten
 `tools/testit/aja.sh tscn tools/testit/tanssi_kontakti.tscn [sinikka_seura|hilkka|annaliisa] [pois]` ajaa kolme paria vaiheissa alku,
 rata, horja (kompastus) ja loppu (kaikki tahdit osutuiksi) ja tulostaa `PARI`, `KOHDE` (selkä- ja olkakäsi, verkko ±1 cm etumerkillisenä:
 negatiivinen = käsi verkon sisällä), `MALLI selka`, `KÄSI KÄDESSÄ`
-(kapselirako ja verkko ≤ 1 cm, kämmenet vastakkain ≤ −0,7), `RANNE` (≤ 70°), `SUUNTA` (jalat, rinnat vastakkain hartialinjoista),
+(kapselirako näytteistä kuten `_fit_chains` ja verkko ≤ 1 cm, kämmenet vastakkain ≤ −0,7), `RANNE` (≤ 70°), `SUUNTA` (jalat, rinnat vastakkain hartialinjoista),
 `PAINUMA` (≤ 5 cm), `RUUTU` (ka < 16,7 ms) ja `JÄÄNTEET` (0 lopetuksen jälkeen). Kuvat `<pari>_<vaihe>_koottu.png`, `_jalat`, `_kadet`
 (vapaat kädet suurennettuna), `_selka` (viejän selkäkäsi suurennettuna) ja Sinikalla `_rinta`. `pois` ajaa ilman kontakteja (vertailu).
 

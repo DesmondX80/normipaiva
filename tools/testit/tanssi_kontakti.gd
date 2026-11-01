@@ -153,7 +153,13 @@ func _free_hand() -> Array:
 func _kasi_kadessa(nm: String, lf: String, ff: String) -> void:
 	var hm: Array = Contact.caps_all(me, prof[me]).filter(func(cp: Array) -> bool: return cp[0] == "hand" + lf)[0]
 	var hh: Array = Contact.caps_all(her, prof[her]).filter(func(cp: Array) -> bool: return cp[0] == "hand" + ff)[0]
-	var gap: float = -float(Contact._pair_depth(hm, hh)[0])
+	# Kapselirako näytteistä kuten _fit_chains (6 pistettä kummankin janalla toisen kapselia vasten): kädet ovat lähes vastakkain
+	# (sormet 150-170°), ja _pair_depthin yksi lähin pistepari on silloin mielivaltainen (janan pää, säde 12 mm -> rako 35 mm).
+	var gap := INF
+	for xy: Array in [[hm, hh], [hh, hm]]:
+		var x: Array = xy[0]
+		for k in 6:
+			gap = minf(gap, -float(Contact._pt_depth2((x[1] as Vector3).lerp(x[2], k / 5.0), x, k / 5.0, xy[1])[0]))
 	var dot := _palm(me, lf).dot(_palm(her, ff))
 	var hg := INF
 	for q in _hand_pts(me, lf):

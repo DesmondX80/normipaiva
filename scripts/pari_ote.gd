@@ -20,6 +20,7 @@ const SELKA := [["spine_02", 0.8, deg_to_rad(65.0)], ["spine_02", 0.5, deg_to_ra
 const ALA := 0.08
 const VYO := [["spine_01", 0.8, deg_to_rad(75.0)], ["spine_01", 0.5, deg_to_rad(75.0)], ["spine_02", 0.3, deg_to_rad(75.0)]]
 const OLKA := deg_to_rad(30.0)  # seuraajan olkakämmenen normaali pystystä viejän olan ulkosivulle
+const KAMMEN_KALLISTUS := deg_to_rad(30.0)  # vapaiden käsien yhteinen kämmenten normaali saa kallistua eteenpäin-suunnasta
 static var _sh_cache := {}  # shoulder(): avain -> piste spine_03-luun avaruudessa
 
 
@@ -141,10 +142,33 @@ static func valssi(lead: Node3D, pl: Dictionary, fol: Node3D, pf: Dictionary, sp
 	# (3) Asennot ajan tasalle: vapaiden käsien sormet kyynärvarren jatkeena kämmenten tasossa (kyynärpäästä käteen).
 	lead.refresh_pose()
 	fol.refresh_pose()
+	# Ranne = kyynärvarren kulma kämmenten tasoon. Yhteistä kämmenten normaalia (molemmat, jolloin kämmenet pysyvät
+	# vastakkain) kierretään enintään KAMMEN_KALLISTUS, niin että suurempi kummankin ranteen kulmista on pienin.
+	var fl := (lead.to_global(lead.bone_position("hand" + lf)) - lead.to_global(lead.bone_position("lowerarm" + lf))).normalized()
+	var ffo := (fol.to_global(fol.bone_position("hand" + ff)) - fol.to_global(fol.bone_position("lowerarm" + ff))).normalized()
+	var ax := d.cross(fl - d * fl.dot(d))
+	if ax.length() > 0.001:
+		ax = ax.normalized()
+		var bd := d
+		var bw := maxf(absf(fl.dot(d)), absf(ffo.dot(d)))
+		for k in range(-6, 7):
+			var dd := d.rotated(ax, KAMMEN_KALLISTUS * k / 6.0)
+			var wv := maxf(absf(fl.dot(dd)), absf(ffo.dot(dd)))
+			if wv < bw - 0.001:
+				bd = dd
+				bw = wv
+		if bd != d:
+			d = bd
+			free = [[lead, lf, cc - d * palm_r(lead, pl, lf, -d, Vector3.UP), -d], [fol, ff, cc + d * palm_r(fol, pf, ff, d, Vector3.UP), d]]
 	for f: Array in free:
 		var ch: Node3D = f[0]
 		var fa_dir: Vector3 = (f[2] as Vector3) - ch.to_global(ch.bone_position("lowerarm" + f[1]))
-		hand_to(ch, f[1], f[2], f[3], fa_dir, cc + out * 0.3 + Vector3.DOWN * 0.3, w)
+		# Kämmenten keskukset vastakkain, ei ranteet: sormet osoittavat kumpikin oman kyynärvarren suuntaan (lähes vastakkain),
+		# joten ranne siirtyy sormien suunnassa taaksepäin puolen kämmenen (ranne -> middle_01) verran.
+		var fp: Vector3 = fa_dir - (f[3] as Vector3) * fa_dir.dot(f[3])
+		var half: float = ch.bone_position("hand" + f[1]).distance_to(ch.bone_position("middle_01" + f[1])) * 0.5
+		var tgt: Vector3 = (f[2] as Vector3) - (fp.normalized() * half if fp.length() > 0.001 else Vector3.ZERO)
+		hand_to(ch, f[1], tgt, f[3], fa_dir, cc + out * 0.3 + Vector3.DOWN * 0.3, w)
 	# (4) Seuraajan olkakäsi viejän olan päälle: pienin nosto kapseleista ulos (kapselin ja verkon ero), kun ulottuma
 	# riittää; kyynärvarsi viejän käsivarren päällä (pole viejän kyynärpään yllä).
 	var fsh := fol.to_global(fol.bone_position("upperarm" + fa))

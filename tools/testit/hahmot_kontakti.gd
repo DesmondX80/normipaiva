@@ -289,14 +289,17 @@ func _paini(t: float, other: Node3D) -> String:
 		p += n * _palm_r("paini", me, lr, n, p - sh)
 		_hand_to(me, lr, p, n, p - sh, sh + rm * s * 0.45 + Vector3(0, -0.4, 0), w)
 	me.refresh_pose()
-	for lr: String in ["_l", "_r"]:
-		var s := 1.0 if lr == "_r" else -1.0
-		var sh2 := other.to_global(other.bone_position("upperarm" + lr))
-		var mlr := "_r" if lr == "_l" else "_l"  # Juntin vasen käsi päähahmon oikeaan kyynärvarteen
-		var p2 := Contact.surface_point(me, prof[me], "lowerarm" + mlr, Vector3.UP, PAINI_KYYNARVARSI)
-		p2 += Vector3.UP * _palm_r("paini", other, lr, Vector3.UP, p2 - sh2)
-		_hand_to(other, lr, p2, Vector3.UP, p2 - sh2, sh2 + ro * s * 0.5 + Vector3(0, -0.2, 0), w)
-	_fit(other, true)
+	# Kaksi kierrosta: pair_fit siirtää päähahmon kyynärvartta (se kulkee Juntin kyljen ohi; muototaulun kylki on leveämpi
+	# kuin pyöreä säde) jopa 8 cm, joten Juntin kohteet lasketaan uudelleen siirretystä kyynärvarresta.
+	for rd in 2:
+		for lr: String in ["_l", "_r"]:
+			var s := 1.0 if lr == "_r" else -1.0
+			var sh2 := other.to_global(other.bone_position("upperarm" + lr))
+			var mlr := "_r" if lr == "_l" else "_l"  # Juntin vasen käsi päähahmon oikeaan kyynärvarteen
+			var p2 := Contact.surface_point(me, prof[me], "lowerarm" + mlr, Vector3.UP, PAINI_KYYNARVARSI)
+			p2 += Vector3.UP * _palm_r("paini", other, lr, Vector3.UP, p2 - sh2)
+			_hand_to(other, lr, p2, Vector3.UP, p2 - sh2, sh2 + ro * s * 0.5 + Vector3(0, -0.2, 0), w)
+		_fit(other, true)
 	if t >= 2.0 and t < 2.0 + DT:
 		return "ote"
 	return ""
