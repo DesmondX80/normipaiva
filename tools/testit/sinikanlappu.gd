@@ -8,6 +8,8 @@ extends Node
 const SinikanKuisti := preload("res://scripts/sinikan_kuisti.gd")
 const SinikanKuistiMallit := preload("res://scripts/sinikan_kuisti_mallit.gd")
 const Terrain := preload("res://scripts/terrain.gd")
+## Kuistin yleiskuva edestä (ankkurin kehys): kamera ja katsottava piste.
+const KUISTI_EDESTA := [Vector3(0.2, 1.45, -1.8), Vector3(0.1, 0.85, -0.3)]
 
 var main: Node3D
 var vikoja := 0
@@ -429,19 +431,16 @@ func run() -> void:
 	main.sk.kori = "marjat"
 	main.clock_min = 9.0 * 60.0
 	await _frames(3)
-	_view(Vector3(0.3, 1.6, -4.0), Vector3(0, 0.9, -0.4), 50.0)
-	for mi in main.find_children("*", "MeshInstance3D", true, false):  # DEBUG_PROBE
-		var gb: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()  # DEBUG_PROBE
-		var pc := root.global_transform.affine_inverse() * gb.get_center()  # DEBUG_PROBE
-		if (mi as MeshInstance3D).is_visible_in_tree() and pc.z < -0.9 and pc.z > -4.5 and absf(pc.x) < 3.0 and gb.size.length() < 30.0:  # DEBUG_PROBE
-			print("PROBE %s lc=%s size=%s" % [main.get_path_to(mi), pc.snappedf(0.1), gb.size.snappedf(0.1)])  # DEBUG_PROBE
+	# Edestä kuistin ja pihan auton välistä: auto seisoo noin 1,9 m:n päässä ovesta (AABB z -6,7..-1,9), ja
+	# kauempaa otettuna se peitti kuistin.
+	_view(KUISTI_EDESTA[0], KUISTI_EDESTA[1], 70.0)
 	await _snap("_kuisti_edesta")
 	_view(Vector3(3.2, 1.4, -1.6), Vector3(0, 0.7, -0.5), 50.0)
 	await _snap("_kuisti_sivusta")
 	_view(Vector3(0.0, 4.0, -1.2), Vector3(0, 0.3, -0.55), 45.0)
 	await _snap("_kuisti_ylhaalta")
 	# Ruutuaika kuistin edessä mallien kanssa ja ilman (testipiirto: suhteellinen vertailu).
-	_view(Vector3(0.3, 1.6, -4.0), Vector3(0, 0.9, -0.4), 50.0)
+	_view(KUISTI_EDESTA[0], KUISTI_EDESTA[1], 70.0)
 	var ms := []
 	for vis in [true, false]:
 		root.visible = vis

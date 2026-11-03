@@ -178,7 +178,7 @@ static func _build_basket() -> Node3D:
 	# vuorotellen +WEAVE (kepin edessä) ja -WEAVE (takana).
 	var rh := (top - BASKET_RIM - BASKET_FLOOR) / BASKET_ROWS
 	var tones: Array[Color] = [WILLOW, WILLOW_DARK.lerp(WILLOW, 0.4), WILLOW.lerp(Color(0.8, 0.66, 0.42), 0.5)]
-	var samples := BASKET_STAKES * 8
+	var samples := BASKET_STAKES * 6
 	for r in BASKET_ROWS:
 		var y := BASKET_FLOOR + (r + 0.5) * rh
 		var shade := lerpf(0.84, 1.06, float(r) / (BASKET_ROWS - 1))  # tumma alareuna, vaalea yläreuna
@@ -191,7 +191,7 @@ static func _build_basket() -> Node3D:
 			var off := cos(PI * BASKET_STAKES * s + PI * r) * BASKET_WEAVE
 			pts.append(_wall(s, y, off))
 			outs.append(_wall_out(s, y))
-		_tube(st, pts, outs, BASKET_STRAND, rh * 0.47, col, true)
+		_tube(st, pts, outs, BASKET_STRAND, rh * 0.47, col, true, 6)
 	# Reunarulla ja sen ympäri kiertyvät kaksi pajua.
 	var rim_col := WILLOW * 1.1
 	rim_col.a = 1.0
@@ -223,10 +223,12 @@ static func _build_basket() -> Node3D:
 	_tube(st, hp, ho, hr, hr, WILLOW_DARK * 1.05, false)
 	# Kääre vain kaaressa: seinän sisällä se pistäisi varjoseinän läpi.
 	_wrap(st, hp.slice(4, hp.size() - 4), ho.slice(4, ho.size() - 4), hr, wr, 0.04, WILLOW * 1.08, false)
+	st.index()  # samat kärkipisteet yhteen: verkko kevyempi piirtää
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = B.vcol_srgb_mat()
 	kori.add_child(mi)
+	print_verbose("KORI kärkipisteitä %d" % (mi.mesh as ArrayMesh).surface_get_array_len(0))
 	return kori
 
 
@@ -350,7 +352,7 @@ static func _tube_ring(st: SurfaceTool, y: float, off: float, r: float, col: Col
 ## Kaksi oksaa kiertää keskiputken (pts, säde r) ympäri kerran per pitch metriä.
 static func _wrap(st: SurfaceTool, pts: Array[Vector3], outs: Array[Vector3], r: float, wr: float, pitch: float,
 		col: Color, closed: bool) -> void:
-	var dense := 24
+	var dense := 12
 	for strand in 2:
 		var hp: Array[Vector3] = []
 		var ho: Array[Vector3] = []
