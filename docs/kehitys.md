@@ -90,6 +90,10 @@ näkyvyys klo 11/13/18, vihje (pyörä viereen: Sinikan juttelu voittaa pyörän
 kerran päivässä, kantelun arpa (0 ja 1) ja ruutuaika; kuva `_aurinko_huomaa`. Asento ja rekvisiitta (kuva `huomaa_kasvot`:
 pää kääntyy kameraan, lasit otsalla): `tools/testit/aja.sh tscn tools/testit/aurinko_sinikka_kuvat.tscn`. Pihan
 glam-Sinikan aurinkolasit kasvoilla: `sinikka_mitat.tscn`, kuvat `piha_kasvot_*` ja rivi `PIHA lasit pään edessä`.
+`--scene=sinikanlappu` (rivit `SL`): Sinikan ovilappu klo 7–17.5, tekstit, paperin rako oveen, kehote ja E, kartan
+merkki ja tallennus, korin rako portaaseen, kori → marjat → piirakka (ei synny lähellä), puhereitti ja ruutuaika; kuvat
+`_aamu`, `_ilta`, `_tyhja_ovi`, `_kori_*`, `_kuisti_edesta/_sivusta/_ylhaalta` ja `_kartta`. Mallit ilman maailmaa:
+`tools/testit/aja.sh tscn tools/testit/sinikan_kuisti_kuvat.tscn`.
 
 ## Puheäänet
 

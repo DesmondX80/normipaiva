@@ -798,6 +798,9 @@ func _draw_map() -> void:
 		for m in game.cache_markers():
 			if m[0] == "saloinen":
 				_cache_icon_on(v, _w2(m[1]))
+		var sk_p: Vector2 = game.sinikka_map_mark()
+		if sk_p != Vector2.INF:
+			_sinikka_icon_on(v, _w2(sk_p))
 	# Kylän julkiset paikat pienenä kuulakärkikynän ympyränä ("täällä on jotain"), nimi hiiren alla (_place_at).
 	for pl in _public_places():
 		_place_mark_on(v, _w2(pl[1]))
@@ -1607,6 +1610,21 @@ func _cache_icon_on(ci: CanvasItem, p: Vector2) -> void:
 	ci.draw_line(p - Vector2(5, 5), p + Vector2(5, 5), Color(0.6, 0.1, 0.05), 2.2)
 	ci.draw_line(p + Vector2(-5, 5), p + Vector2(5, -5), Color(0.6, 0.1, 0.05), 2.2)
 	_outlined(ci, p + Vector2(13, 5), "Kätkö 100 €", 13, col)
+
+
+## Sinikan ovilappu luettu (main.gd sinikka_map_mark): punakynällä sutaistu sydän ja nimi Oravajärven rannalla.
+## Siirretty oikealle ylös, ettei peitä uimarannan julkisen paikan kynäympyrää (_place_mark_on, r ≈ 5 px).
+func _sinikka_icon_on(ci: CanvasItem, p: Vector2) -> void:
+	var col := Color(0.8, 0.1, 0.25)
+	var c := p + Vector2(14, -12)
+	var pts := PackedVector2Array()
+	for s in 24:
+		var t := s * TAU / 24.0
+		pts.append(c + Vector2(16.0 * pow(sin(t), 3), -(13.0 * cos(t) - 5.0 * cos(2 * t) - 2.0 * cos(3 * t) - cos(4 * t))) * 0.45)
+	ci.draw_colored_polygon(pts, Color(col, 0.25))
+	pts.append(pts[0])
+	ci.draw_polyline(pts, col, 1.8, true)
+	_outlined(ci, c + Vector2(10, 5), "Sinikka", 13, col)
 
 
 func _target_icon_on(ci: CanvasItem, p: Vector2) -> void:

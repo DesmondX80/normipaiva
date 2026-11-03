@@ -46,6 +46,9 @@ const SaloinenTeinit := preload("res://scripts/saloinen_teinit.gd")
 const HuumeSaloinen := preload("res://scripts/huume_saloinen.gd")
 const Laakelaukku := preload("res://scripts/laakelaukku.gd")
 const ApteekkiSaloinen := preload("res://scripts/apteekki_saloinen.gd")
+## Sinikan ovilappu ja kuistin mustikkakori (sinikan_kuisti.gd, mallit sinikan_kuisti_mallit.gd).
+const SinikanKuisti := preload("res://scripts/sinikan_kuisti.gd")
+const SinikanKuistiMallit := preload("res://scripts/sinikan_kuisti_mallit.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
 const SiitariInterior := preload("res://scripts/siitari_interior.gd")
 const ApteekkiInterior := preload("res://scripts/apteekki_interior.gd")
@@ -448,6 +451,7 @@ var mirkku: CharacterBody3D  # Mirkku laavupolulla (Looks.MIRKKU)
 var mirkku_tent: Node3D  # Mirkun teltta Tarpion laavun vieressä (teltta.gd)
 var kolmio := Kolmio.new()  # kolmiomittauksen tila (#255)
 var hs := HuumeSaloinen.new()  # Saloisten huumekaupan tila (huume_saloinen.gd)
+var sk := SinikanKuisti.new()  # Sinikan ovilapun ja kuistin korin tila (sinikan_kuisti.gd)
 var hs_teens: Node3D  # kaukalon iltateinit (saloinen_teinit.gd)
 var _hs_group := ""  # Saloisten myynnin ostajaryhmä: "kaukalo" / "laavu" (tappelun jälkeen ei_osta)
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
@@ -1836,6 +1840,7 @@ func _outside_logic() -> void:
 	_pannu_logic()
 	_kertun_logic()
 	_pohjoiset_logic()
+	_sinikka_kuisti_logic()
 	_huume_saloinen_logic()
 	_hongan_logic()
 	_seppo_logic()
@@ -3869,6 +3874,123 @@ func _sinikka_sunbathing() -> bool:
 ## Pihan Sinikka on poissa: aamulla uimassa, iltapäivällä ottamassa aurinkoa.
 func _sinikka_away() -> bool:
 	return _sinikka_swimming() or _sinikka_sunbathing()
+
+
+## Sinikan ovilappu ja kuistin kori (sinikan_kuisti.gd). world.sinikka_kuisti = {root, lappu, kori, marjat, piirakka};
+## root on oven kohdalla talon pohjassa, -Z = ulos (oven etupuoli), +X = ulkoa katsottuna vasemmalle. Lappu on ovessa,
+## kun Sinikka on poissa. Koriin jätetyt mustikat muuttuvat piirakaksi, kun Sinikka on kotona ja pelaaja kaukana.
+const SK_LAPPU_R := 2.5
+const SK_KORI_R := 1.6
+const SK_PIIRAKKA_KAUKANA := 20.0  # piirakka ei synny pelaajan silmien edessä
+var _sk_lappu_key := ""  # "aamu:päivä", jolla lapun teksti on asetettu (vaihdetaan vain, kun se muuttuu)
+
+
+func _sinikka_kuisti_logic() -> void:
+	if world == null or world.sinikka_kuisti.is_empty():
+		return
+	var k: Dictionary = world.sinikka_kuisti
+	var root: Node3D = k.root
+	var away := _sinikka_away()
+	var lappu: Node3D = k.lappu
+	lappu.visible = away
+	if away:
+		var aamu := _sinikka_swimming()
+		var key := "%s:%d" % [aamu, day]
+		if key != _sk_lappu_key:
+			_sk_lappu_key = key
+			SinikanKuistiMallit.set_lappu_text(lappu, SinikanKuisti.teksti(aamu, day))
+	if sk.kori == "marjat" and not away and not _near_xz(root.global_position, SK_PIIRAKKA_KAUKANA):
+		sk.kori = "piirakka"  # Sinikka kävi kotona ja leipoi; ei tallennusta tässä (seuraava tallennus vie sen)
+	var marjat: Node3D = k.marjat
+	var piirakka: Node3D = k.piirakka
+	marjat.visible = sk.kori == "marjat"
+	piirakka.visible = sk.kori == "piirakka"
+	if _hint.text != "" or player == bike or _talk_box.is_open():
+		return
+	# Kohde: aktiivisista se, joka on oven suuntaisesti (ankkurin X) lähimpänä; pelkkä lähin valitsisi oven edessä korin.
+	var lp := root.global_transform.affine_inverse() * player.global_position
+	var best := ""
+	var best_dx := INF
+	for c in [["lappu", lappu, SK_LAPPU_R, away], ["kori", k.kori, SK_KORI_R, true],
+			["piirakka", piirakka, SK_KORI_R, piirakka.visible]]:
+		var n: Node3D = c[1]
+		if not c[3] or not _near_xz(n.global_position, c[2]):
+			continue
+		var dx := absf((root.global_transform.affine_inverse() * n.global_position).x - lp.x)
+		if dx < best_dx:
+			best_dx = dx
+			best = c[0]
+	if best == "":
+		return
+	var key_e := Settings.action_key("interact")
+	var e := Input.is_action_just_pressed("interact") and Engine.get_process_frames() != _talk_end_frame
+	match best:
+		"lappu":
+			_hint.text = "[%s] Lue Sinikan lappu" % key_e
+			if e:
+				_sinikka_lappu_read()
+		"piirakka":
+			_hint.text = "[%s] Ota Sinikan mustikkapiirakka" % key_e
+			if e:
+				sk.kori = ""
+				piirakka.visible = false
+				_sinikka_piirakka_palkka()
+				_show_message("Vadilla odotti uunituore mustikkapiirakka (T syö).", 4.0)
+		"kori":
+			var berries: int = bucket.get("mustikka", 0)
+			if sk.kori == "marjat":
+				_hint.text = "Mustikat odottavat korissa Sinikkaa."
+			elif sk.kori == "piirakka":
+				_hint.text = "Kori on tyhjä: Sinikka leipoi marjat piirakaksi."
+			elif sinikka_task != 1:
+				_hint.text = "Sinikan mustikkakori. Kysy Sinikalta, voitko auttaa."
+			elif berries < SINIKKA_BERRIES:
+				_hint.text = "Sinikan kori: tarvitaan %d l mustikoita (ämpärissä %d l)." % [SINIKKA_BERRIES, berries]
+			else:
+				_hint.text = "[%s] Jätä %d l mustikoita Sinikan koriin" % [key_e, SINIKKA_BERRIES]
+				if e:
+					_sinikka_kori_jata()
+
+
+## Lapun luku: teksti paperilappuna (note.gd), ensimmäisellä kerralla Sinikka-merkki paperikartalle.
+func _sinikka_lappu_read() -> void:
+	var aamu := _sinikka_swimming()
+	_note.show_note([SinikanKuisti.teksti(aamu, day)], "– Sinikka", 10.0)
+	Sfx.play("pickup", -12.0, 1.4)
+	if not sk.lappu_luettu:
+		sk.lappu_luettu = true
+		_show_message("Sinikka on Oravajärven rannalla: merkki kartalle (M).", 4.5)
+		_save_game()
+
+
+## Mustikat koriin: ämpäri vähenee kuten puheluovutuksessa, tehtävä sulkeutuu ja piirakka odottaa (kori = "marjat").
+func _sinikka_kori_jata() -> void:
+	bucket["mustikka"] = int(bucket.get("mustikka", 0)) - SINIKKA_BERRIES
+	if bucket["mustikka"] <= 0:
+		bucket.erase("mustikka")
+	sinikka_task = 0
+	sk.kori = "marjat"
+	Sfx.play("pickup", -6.0, 0.7)
+	_show_message("Jätit %d l mustikoita Sinikan koriin. Piirakka tulee, kun Sinikka on käynyt kotona." % SINIKKA_BERRIES, 5.0)
+	_save_game()
+
+
+## Mustikkapiirakan palkka (puheluovutus ja kuistin vati): kerran päivässä, moraali ja ensikerta.
+func _sinikka_piirakka_palkka() -> void:
+	food["mustikkapiirakka"] = food.get("mustikkapiirakka", 0) + 1
+	sinikka_task = 0
+	_once_today("sinikka_piirakka")
+	tilat.add("moraali", 0.2)
+	tilat.first("sinikka_piirakka", 0.2)
+	Sfx.play("pickup", -4.0, 0.8)
+	_save_game()
+
+
+## Paperikartan Sinikka-merkki (paper_map.gd _sinikka_icon_on): uimaranta x/z, kun lappu on luettu, muuten INF.
+func sinikka_map_mark() -> Vector2:
+	if not sk.lappu_luettu or world == null or world.uimaranta_pos == Vector3.ZERO:
+		return Vector2.INF
+	return Vector2(world.uimaranta_pos.x, world.uimaranta_pos.z)
 
 
 ## Sinikka rannalla: näkemisbonus kerran päivässä, jutteleminen (sormuksen voi antaa) ja mummojen kantelu, jos
@@ -13050,7 +13172,7 @@ func _talk_options(who := "") -> Array:
 			if sinikka_task == 1:
 				o.append(_opt("mustikat", "Anna %d l mustikoita" % SINIKKA_BERRIES, berries >= SINIKKA_BERRIES,
 					"ämpärissä %d l" % berries, true))
-			elif not ("sinikka_piirakka" in _today):
+			elif not ("sinikka_piirakka" in _today) and sk.kori == "":  # korissa marjat tai piirakka: ei uutta tehtävää
 				o.append(_opt("apu", "Voinko auttaa jotenkin?"))
 		"santtu":
 			if _santtu_offers_lava():
@@ -13629,13 +13751,7 @@ func _talk_neighbor(id: String) -> void:
 			bucket["mustikka"] = int(bucket.get("mustikka", 0)) - SINIKKA_BERRIES
 			if bucket["mustikka"] <= 0:
 				bucket.erase("mustikka")
-			food["mustikkapiirakka"] = food.get("mustikkapiirakka", 0) + 1
-			sinikka_task = 0
-			_once_today("sinikka_piirakka")
-			tilat.add("moraali", 0.2)
-			tilat.first("sinikka_piirakka", 0.2)
-			Sfx.play("pickup", -4.0, 0.8)
-			_save_game()
+			_sinikka_piirakka_palkka()
 			_talk_box.reply(SINIKKA_THANKS.pick_random(), _talk_options(), "Sait uunituoreen mustikkapiirakan (T syö).")
 		"apu":
 			sinikka_task = 1
@@ -19627,6 +19743,7 @@ func _load_game() -> void:
 	asema_katkot = cfg.get_value("asema", "katkot", {})
 	kolmio.load_from(cfg)
 	hs.load_from(cfg)
+	sk.load_from(cfg)
 	reseptit = int(cfg.get_value("asema", "reseptit", 0))
 	laake = cfg.get_value("asema", "laake", {})
 	perv_until = cfg.get_value("asema", "perv_until", -1.0)
@@ -19919,6 +20036,7 @@ func _save_game() -> void:
 	kolmio.save_to(cfg)
 	hs.sovita(laake)
 	hs.save_to(cfg)
+	sk.save_to(cfg)
 	cfg.set_value("asema", "reseptit", reseptit)
 	cfg.set_value("asema", "laake", laake)
 	cfg.set_value("asema", "perv_until", perv_until)
@@ -21846,6 +21964,19 @@ func _maybe_screenshot() -> void:
 			await mo.run()
 			if not saved_mo.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_mo)
+			get_tree().quit()
+			return
+		"sinikanlappu":
+			# Sinikan ovilappu, kori ja piirakka (tools/testit/sinikanlappu.gd); tallennus palautetaan lopuksi.
+			var saved_sl := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			var sl: Node = load("res://tools/testit/sinikanlappu.gd").new()
+			sl.main = self
+			add_child(sl)
+			await sl.run()
+			if not saved_sl.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_sl)
+			else:
+				DirAccess.remove_absolute(SAVE_PATH)
 			get_tree().quit()
 			return
 		"kolmiomittaus", "kolmiomittaus_vaala":
