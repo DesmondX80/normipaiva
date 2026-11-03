@@ -2,9 +2,11 @@ extends "res://tools/testit/hahmot_kontakti.gd"
 ## Tanssin suljettu ote (scripts/pari_ote.gd PariOte.valssi, tanssi_game.gd _hold): kolme paria (Sinikka, Hilkka, Anna-Liisa) x
 ## alku, nuottirata, horjahdus ja loppu. Mittarit kuten hahmot_kontakti: PARI (kapselit, raja 1 cm), KOHDE (selkä- ja olkakäsi,
 ## kämmenen verkko toisen verkkoon ±1 cm), KÄSI KÄDESSÄ (vapaat kädet: kapselirako ja kämmenet vastakkain ≤ -0,7), RANNE ≤ 70°,
-## SUUNTA (jalat eivät ristissä, rinnat vastakkain ≥ 0,7), PAINUMA (luiset 0, pehmeät ≤ 5 cm), RUUTU (ka < 16,7 ms) ja JÄÄNTEET (0
-## lopetuksen jälkeen). Yli rajan -> "TESTI VIKA".
-## aja.sh tscn tools/testit/tanssi_kontakti.tscn [sinikka_seura|hilkka|annaliisa] [pois]   (pois = ilman kontakteja, vertailu)
+## SUUNTA (jalat eivät ristissä lantioon eivätkä toisiinsa nähden, rinnat vastakkain ≥ 0,7; MITTARI suunta: parin käännös 180° antaa
+## < 0,7), PAINUMA (luiset 0, pehmeät ≤ 5 cm), LÄPI (Asento.solids horjassa ja lopussa: 0), RUUTU (ka ja p95 < 16,7 ms) ja JÄÄNTEET
+## (0 lopetuksen jälkeen). Yli rajan -> "TESTI VIKA". Toistettava: siemen 258, ensimmäinen kappale ja aika ruuduista (frame_clock);
+## aja --kiintea, jotta ruudun aika on 1/60 s koneen nopeudesta riippumatta.
+## aja.sh --kiintea tscn tools/testit/tanssi_kontakti.tscn [sinikka_seura|hilkka|annaliisa] [pois]   (pois = ilman kontakteja, vertailu)
 
 const TanssiGame := preload("res://scripts/tanssi_game.gd")
 const KI := preload("res://scripts/kirppis_interior.gd")
@@ -40,8 +42,9 @@ func _ready() -> void:
 
 
 func _go() -> void:
-	var only := Array(OS.get_cmdline_user_args().slice(1)).filter(func(a: String) -> bool: return a != "pois")
+	var only := Array(OS.get_cmdline_user_args().slice(1)).filter(func(a: String) -> bool: return a != "pois" and a != "nousu")
 	var pois := "pois" in OS.get_cmdline_user_args()
+	var nousu := "nousu" in OS.get_cmdline_user_args()  # otteen nousu w 0 -> 1 ruutu ruudulta ennen alkua (ilman seek-hyppyä)
 	for id in ["sinikka_seura", "hilkka", "annaliisa"]:
 		if not only.is_empty() and not id in only:
 			continue
@@ -49,16 +52,21 @@ func _go() -> void:
 		for p in KI.PEOPLE:
 			if p.id == id and "tanssit" in p.modes:
 				look = p.look if p.has("look") else Looks.sinikka_seura()
+		seed(258)  # horjahdus (randf) ja repliikit samat joka ajossa; parikohtainen, jotta yksi pari antaa samat luvut kuin kaikki
 		g = TanssiGame.new()
 		g.partner = id
 		g.look_override = look
 		g.contacts = not pois
+		g.song_index = 0
+		g.frame_clock = true
 		add_child(g)
 		cam.current = true
 		for i in 8:
 			await get_tree().process_frame
 		me = g._me
 		her = g._her
+		me.name = "viejä"  # LÄPI-riveille luettavat nimet
+		her.name = id
 		if pois:
 			prof = {me: Contact.profile(me, Pose.limb_points), her: Contact.profile(her, Pose.limb_points)}
 		elif g.prof.is_empty():
@@ -66,8 +74,15 @@ func _go() -> void:
 			break
 		else:
 			prof = g.prof
+		if not pois:  # lepoasennon kapseli vs verkko (taulu mitataan lepoprofiilista, joten tässä ero on mittausvirhe)
+			for c in [me, her]:
+				c.skeleton.reset_bone_poses()
+				_malli_selka(id + "_lepo", c)
+				c.refresh_pose()
 		for b in g._beats:  # kaikki tahdit osutuiksi: kappale ei katkea eikä horjahda kesken
 			b[2] = 1
+		if nousu:
+			await _vaihe(id + "_nousu", 0.0, 80, false)
 		await _vaihe(id + "_alku", 0.9, 20, false)
 		await _vaihe(id + "_rata", 6.0, 30, false)
 		if not pois:
@@ -95,9 +110,17 @@ func _vaihe(nm: String, t: float, frames: int, miss: bool) -> void:
 	kohde[nm] = {}
 	if miss:
 		g._miss()
+	var ws: Array = []  # otteen paino w ruuduittain (tanssi_game._place: smoothstep(0, 1.2, _t))
+	var trace: Array = []  # alku: ruudun syvin kapselipari (nousun ja täyden otteen erottelu)
 	for i in frames:
 		await get_tree().process_frame
+		ws.append(smoothstep(0.0, 1.2, g._t))
 		_measure(nm, her, i)
+		if nm.ends_with("_alku") or nm.ends_with("_nousu"):
+			var fm := 0.0
+			for p in Contact.overlap_pairs(me, prof[me], her, prof[her]):
+				fm = maxf(fm, p[2])
+			trace.append("%d:%.2f:%.1f" % [i, ws[i], fm * 1000])
 		for c: Node3D in [me, her]:
 			for lr in ["_l", "_r"]:
 				_gap(nm, "arm" + lr, c, her if c == me else me)
@@ -117,8 +140,20 @@ func _vaihe(nm: String, t: float, frames: int, miss: bool) -> void:
 		await Asento.views(cam, out, nm + "_rinta", her.to_global(her.bone_position("spine_03")), 0.45, front, false)
 	Engine.time_scale = 1.0
 	_measure_shot(nm, her, true)
+	if miss or nm.ends_with("_loppu"):
+		var lm := Asento.solids(me, self)
+		var lp := Asento.solids(her, self)
+		print("LÄPI %s me %d pari %d" % [nm, lm, lp])
+		if lm + lp > 0:
+			_kosketus(nm, me, her)
+			_kosketus(nm, her, me)
+			_vika("%s läpimenoja me %d pari %d (Asento.solids)" % [nm, lm, lp])
 	var w: Array = worst[nm]
-	print("PARI %s %s %s %.1f mm" % [nm, w[0], w[1], w[2] * 1000])
+	var wi := int(w[3])
+	print("PARI %s %s %s %.1f mm (ruutu %d, w %.2f)" % [nm, w[0], w[1], w[2] * 1000, wi, ws[wi] if wi < ws.size() else -1.0])
+	if not trace.is_empty():
+		print("PARIRUUDUT %s %s" % [nm, " ".join(trace)])
+	_ulottuma(nm, ws[ws.size() - 1])
 	var top: Array = (pairs[nm] as Dictionary).keys()
 	top.sort_custom(func(x: String, y: String) -> bool: return pairs[nm][x] > pairs[nm][y])
 	print("PARIT %s %s" % [nm, ", ".join(top.slice(0, 6).map(func(k: String) -> String: return "%s %.1f" % [k, pairs[nm][k] * 1000]))])
@@ -141,6 +176,25 @@ func _vaihe(nm: String, t: float, frames: int, miss: bool) -> void:
 	for p in Contact.overlap_pairs(me, prof[me], her, prof[her]):
 		if "arm" in str(p[0]) and "arm" in str(p[1]) and p[2] > RAJA:
 			_vika("%s käsivarret ristissä %s %s %.1f mm" % [nm, p[0], p[1], p[2] * 1000])
+
+
+## ULOTTUMA (C0): seuraajan olkakäden kohde (PariOte.valssi best, palautettu IK-kohteesta: kohde = rest.lerp(best, w) kuten
+## PariOte.hand_to), olka-kohde vs PariOte.arm_len, ja IK-kohteen sekä ranteen korkeus viejän olkavarren (kyynärpään) yläpuolella.
+func _ulottuma(nm: String, w: float) -> void:
+	var fa := "_l" if _free_hand()[1] == "_r" else "_r"
+	var lb := "_l" if _free_hand()[0] == "_r" else "_r"
+	if not her._ik.has("arm" + fa):
+		print("ULOTTUMA %s pari arm%s - (ei IK:ta)" % [nm, fa])
+		return
+	var s := 1.0 if fa == "_r" else -1.0
+	var fsh := her.to_global(her.bone_position("upperarm" + fa))
+	var rest := fsh + Vector3(0, -0.55, 0) + PariOte.right(her) * s * 0.12
+	var tgt := her.to_global(her._ik["arm" + fa][3])
+	var best := (tgt - rest * (1.0 - w)) / maxf(w, 0.001)
+	var el := me.to_global(me.bone_position("lowerarm" + lb))
+	var hand := her.to_global(her.bone_position("hand" + fa))
+	print("ULOTTUMA %s pari arm%s olka-kohde %.3f / arm_len %.3f, w %.2f, IK-kohde %.3f m ja ranne %.3f m viejän kyynärpään yllä (kohde best %.3f)" % [
+		nm, fa, best.distance_to(fsh), PariOte.arm_len(her, fa), w, tgt.y - el.y, hand.y - el.y, best.y - el.y])
 
 
 ## Vapaat kädet [viejän, seuraajan]: seuraaja on viejän oikealla -> viejän vasen ja seuraajan oikea (kuten PariOte.valssi).
@@ -189,31 +243,80 @@ func _measure_shot(nm: String, other: Node3D, hug: bool) -> void:
 		var pel := c.to_global(c.bone_position("pelvis"))
 		var fl := (c.to_global(c.bone_position("foot_l")) - pel).dot(right)
 		var fr := (c.to_global(c.bone_position("foot_r")) - pel).dot(right)
-		var facing := -Vector3.UP.cross(right).dot(Vector3.UP.cross(_right(o)))
-		print("SUUNTA %s %s vasen jalka %.2f oikea %.2f, rinnat vastakkain %.2f" % [nm, _who(c), fl, fr, facing])
-		if fl >= 0.0 or fr <= 0.0 or facing < 0.7:
+		# Jalat toisiinsa nähden (K3): horjahduksen kallistus (rotation.z) siirtää lantiota jalkojen yli, jolloin lantiomittari voi näyttää ristiä.
+		var ff := (c.to_global(c.bone_position("foot_r")) - c.to_global(c.bone_position("foot_l"))).dot(right)
+		var facing := _facing(c, o)
+		print("SUUNTA %s %s vasen jalka %.2f oikea %.2f, jalkojen väli %.2f, kallistus %.1f°, rinnat vastakkain %.2f" % [nm, _who(c), fl, fr, ff, rad_to_deg(c.rotation.z), facing])
+		if fl >= 0.0 or fr <= 0.0 or ff <= 0.0 or facing < 0.7:
 			_vika("%s suunta %s (jalat ristissä tai selkä toiseen päin)" % [nm, _who(c)])
 		_painuma(nm, c)
+	# Mittarin itsetarkistus: pari käännettynä 180° ei saa näyttää rinnat vastakkain.
+	var keep := other.global_transform
+	other.rotate_y(PI)
+	var flip := _facing(me, other)
+	other.global_transform = keep
+	print("MITTARI suunta %s pari käännetty 180° rinnat vastakkain %.2f" % [nm, flip])
+	if flip >= 0.7:
+		_vika("%s suuntamittari ei huomaa käännettyä paria (%.2f)" % [nm, flip])
 	_malli_selka(nm, other)
 	_malli_selka(nm, me)
 
 
-## RUUTU: 60 ruudun keskimääräinen kehysaika nuottiradan jatkona ilman testin omaa mittaustyötä.
+## RUUTU: 60 ruudun kehysaika (keskiarvo, p95, max) nuottiradan jatkona ilman testin omaa mittaustyötä.
 func _ruutu(id: String) -> void:
 	for i in 10:
 		await get_tree().process_frame
-	var sum := 0.0
-	var mx := 0.0
+	var ms: Array[float] = []
+	var lu0 := Contact.stat_live_us
+	var ln0 := Contact.stat_live_n
 	var t0 := Time.get_ticks_usec()
 	for i in 60:
 		await get_tree().process_frame
 		var t := Time.get_ticks_usec()
-		sum += (t - t0) / 1000.0
-		mx = maxf(mx, (t - t0) / 1000.0)
+		ms.append((t - t0) / 1000.0)
 		t0 = t
-	print("RUUTU %s ka %.2f ms max %.2f ms" % [id, sum / 60.0, mx])
-	if sum / 60.0 >= RUUTU:
-		_vika("%s ruutu %.2f ms (raja %.1f)" % [id, sum / 60.0, RUUTU])
+	var sum := 0.0
+	for m in ms:
+		sum += m
+	ms.sort()
+	var p95 := ms[56]  # 57. pienin 60:stä
+	print("RUUTU %s ka %.2f ms p95 %.2f ms max %.2f ms; elävä taulu %.3f ms/ruutu (%d taulua, %.3f ms/hahmo)" % [id, sum / 60.0, p95, ms[59],
+		(Contact.stat_live_us - lu0) / 60000.0, Contact.stat_live_n - ln0, (Contact.stat_live_us - lu0) / 120000.0])
+	if sum / 60.0 >= RUUTU or p95 >= RUUTU:
+		_vika("%s ruutu ka %.2f ms p95 %.2f ms (raja %.1f)" % [id, sum / 60.0, p95, RUUTU])
+
+
+## Läpimenon erittely: a:n luut (ei kädet, kuten Asento._chars_touch) alle 5 mm päässä b:n luiden verkkopisteistä, luupareittain.
+func _kosketus(nm: String, a: Node3D, b: Node3D) -> void:
+	var cell := {}
+	var sk: Skeleton3D = b.skeleton
+	for i in sk.get_bone_count():
+		var bn := sk.get_bone_name(i)
+		for q in Pose.limb_points(b, self, [bn]):
+			cell[Vector3i((q / 0.01).floor())] = [q, bn]
+	var cnt := {}
+	sk = a.skeleton
+	for i in sk.get_bone_count():
+		var bn := sk.get_bone_name(i)
+		if bn.contains("hand") or bn.contains("thumb") or bn.contains("index") or bn.contains("middle") or bn.contains("ring") or bn.contains("pinky"):
+			continue
+		for q in Pose.limb_points(a, self, [bn]):
+			var c := Vector3i((q / 0.01).floor())
+			for dx in range(-1, 2):
+				for dy in range(-1, 2):
+					for dz in range(-1, 2):
+						var e: Variant = cell.get(c + Vector3i(dx, dy, dz))
+						if e != null and ((e as Array)[0] as Vector3).distance_to(q) < 0.005:
+							var k := "%s:%s-%s:%s" % [_who(a), bn, _who(b), (e as Array)[1]]
+							cnt[k] = int(cnt.get(k, 0)) + 1
+	var top: Array = cnt.keys()
+	top.sort_custom(func(x: String, y: String) -> bool: return cnt[x] > cnt[y])
+	print("KOSKETUS %s %s" % [nm, ", ".join(top.slice(0, 6).map(func(k: String) -> String: return "%s %d" % [k, cnt[k]]))])
+
+
+## Rinnat vastakkain hartialinjoista: c:n ja o:n etusuuntien vastakkaisuus (1 = suoraan vastakkain, -1 = sama suunta).
+func _facing(c: Node3D, o: Node3D) -> float:
+	return -Vector3.UP.cross(_right(c)).dot(Vector3.UP.cross(_right(o)))
 
 
 func _who(c: Node3D) -> String:

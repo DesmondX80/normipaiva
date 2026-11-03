@@ -13,7 +13,9 @@
 #   tools/testit/aja.sh [valinnat] scene <nimi> [lisä...]        # main.gd:n testikohtaus, esim. scene asennot --asento=a
 #   tools/testit/aja.sh [valinnat] tscn <polku.tscn> [lisä...]   # erillinen kohtaus; saa tulostekansion 1. argumenttina
 # Valinnat: --headless (ei ikkunaa, ei kuvia), --ei-kuvia (logiikkatesti ikkunalla),
-#   --video (scene ja tscn: ajaa Movie Maker -tilassa, 30 fps, <nimi>.avi ajokansioon ja tarkistaa sen; aikaraja oletus 900 s)
+#   --video (scene ja tscn: ajaa Movie Maker -tilassa, 30 fps, <nimi>.avi ajokansioon ja tarkistaa sen; aikaraja oletus 900 s),
+#   --kiintea (scene ja tscn ilman videota: --fixed-fps 60, pelin aika kulkee 1/60 s ruudussa koneen nopeudesta riippumatta;
+#   toistettavat luvut, kun testi myös siementää satunnaisuuden)
 # Ympäristö: AJO_KANSIO (oletus ${TMPDIR:-/tmp}/normipaiva_ajot), GODOT_AIKARAJA (oletus 600 s).
 set -uo pipefail
 
@@ -29,11 +31,13 @@ leima="$(date +%Y%m%d_%H%M%S)"
 headless=0
 kuvat=1
 video=0
+kiintea=()
 while [[ "${1:-}" == --* ]]; do
 	case "$1" in
 		--headless) headless=1; kuvat=0 ;;
 		--ei-kuvia) kuvat=0 ;;
 		--video) video=1 ;;
+		--kiintea) kiintea=(--fixed-fps 60) ;;
 		*) echo "aja: tuntematon valinta $1"; exit 2 ;;
 	esac
 	shift
@@ -58,7 +62,7 @@ case "$laji" in
 			export GODOT_AIKARAJA="${GODOT_AIKARAJA:-900}"
 			args=(${alku[@]+"${alku[@]}"} --path . --resolution 1280x720 --fixed-fps 30 --write-movie "$avi" -- "--shot=$ulos/kuva.png" "--scene=$nimi" --nohud "$@")
 		else
-			args=(${alku[@]+"${alku[@]}"} --path . --resolution 1280x720 -- "--shot=$ulos/kuva.png" "--scene=$nimi" --nohud "$@")
+			args=(${alku[@]+"${alku[@]}"} ${kiintea[@]+"${kiintea[@]}"} --path . --resolution 1280x720 -- "--shot=$ulos/kuva.png" "--scene=$nimi" --nohud "$@")
 		fi
 		;;
 	tscn)
@@ -72,11 +76,11 @@ case "$laji" in
 			export GODOT_AIKARAJA="${GODOT_AIKARAJA:-900}"
 			args=(${alku[@]+"${alku[@]}"} --path . --resolution 1280x720 --fixed-fps 30 --write-movie "$avi" "$polku" -- "$ulos" "$@")
 		else
-			args=(${alku[@]+"${alku[@]}"} --path . --resolution 1280x720 "$polku" -- "$ulos" "$@")
+			args=(${alku[@]+"${alku[@]}"} ${kiintea[@]+"${kiintea[@]}"} --path . --resolution 1280x720 "$polku" -- "$ulos" "$@")
 		fi
 		;;
 	*)
-		sed -n '2,21p' "$0"
+		sed -n '2,23p' "$0"
 		exit 2
 		;;
 esac

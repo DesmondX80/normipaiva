@@ -68,6 +68,9 @@ func run() -> void:
 	var cs: Node = main.cutscene
 	var at := Vector3.ZERO
 	var root: Node3D = null
+	# Välianimaatio päättyy reaaliaikaisilla ajastimilla (ignore_time_scale) ja vapauttaa _propsin: hitaalla ruudulla se ehti ennen
+	# kuin 12 ruutua oli kulunut (root = cs._props: vapautettu). _end odottaa, kunnes testi päästää (lopussa).
+	cs.test_hold = true
 	match kohta:
 		"tarpio", "viita", "mirkku", "makkara":
 			var pit: Vector3 = M.w(M.LAAVU)
@@ -158,6 +161,7 @@ func run() -> void:
 					if c is MeshInstance3D:
 						c.visible = false
 				await _shoot(cam, out, cs._props, size2, "_ilman_koria")
+			cs.test_hold = false
 			return
 		"nortti":
 			var room := Node3D.new()
@@ -187,6 +191,7 @@ func run() -> void:
 			print("ASENTO ankkuri lantio ", ch.to_global(ch.bone_position("pelvis")), " jalka_l ", ch.to_global(ch.bone_position("foot_l")))
 			await Asento.views(cam, out, "ankkuri", ch.global_position + Vector3(0, 0.6, 0), 1.8, front)
 			print("ASENTO ankkuri kuvat ", ProjectSettings.globalize_path(out))
+			cs.test_hold = false
 			return
 	Engine.time_scale = 0.01  # jäädytä välianimaatio
 	for k in 3:  # välianimaation oma kamera (suljetuissa tiloissa ulkopuolinen kamera ei näe sisään)
@@ -197,6 +202,7 @@ func run() -> void:
 	await _frames(5)
 	await _shoot(cam, out, root)
 	Engine.time_scale = 1.0
+	cs.test_hold = false
 
 
 func Cutscene_SAUNA_TYNNYRI() -> Dictionary:

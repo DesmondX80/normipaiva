@@ -34,6 +34,7 @@ const CHOCO_FAIL_LINE := "Ja luuletko että mut ostetaan suklaalla?"
 var env: Environment
 var sun: DirectionalLight3D
 var busy := false
+var test_hold := false  # testikoukku (asennot_b): _end odottaa, kunnes testi on kuvannut ja mitannut (_props ei vapaudu kesken)
 
 var _cam: Camera3D
 var _layer: CanvasLayer
@@ -162,6 +163,8 @@ func _begin() -> void:
 
 
 func _end(done: Callable) -> void:
+	while test_hold:  # ennen häivytystä ja vapautusta: testin kuvat ilman mustaa ruutua
+		await get_tree().process_frame
 	Sfx.music_stop(1.2)
 	var tw := _tween()
 	tw.tween_property(_fade, "color:a", 1.0, 0.6)

@@ -39,6 +39,8 @@ var contacts := true  # tanssiote kontaktilla (false: vanha, kädet animaation m
 var look_override := {}  # parin ulkonäkö ilman salia (testi)
 var perf := {}  # _holdin vaiheiden ajat: nimi -> [summa us, max us, kerrat] (kehysajan mittaus, tanssi_kontakti)
 var prof := {}  # hahmo -> Contact.profile (paistetaan, kun luusto on valmis; headless: ei kontaktia)
+var song_index := -1  # >= 0: tämä Biisit.SONGS-kappale arvonnan sijaan (testi, toistettava ajo)
+var frame_clock := false  # true: aika kehyksistä eikä soivasta musiikista (testi, toistettava ajo)
 
 var _hud: CanvasLayer
 var _ui: Control
@@ -100,7 +102,7 @@ func _ready() -> void:
 	add_child(_cam)
 	_cam.current = true
 	_build_hud()
-	_song = Biisit.SONGS.pick_random()
+	_song = Biisit.SONGS[song_index] if song_index >= 0 else Biisit.SONGS.pick_random()
 	_bpm = float(_song.bpm)
 	_beats = Biisit.chart(_song)
 	Sfx.music_play(0.3, 0.0, _song.file)
@@ -138,7 +140,7 @@ func _process(delta: float) -> void:
 		return
 	var pos := Sfx.music_pos()
 	# Headless (äänilaite ei soita) ja pysäytetty aika (time_scale 0, testien kuvat): aika kehyksistä.
-	_t = pos if pos > 0.0 and Engine.time_scale > 0.0 else _t + delta
+	_t = pos if pos > 0.0 and Engine.time_scale > 0.0 and not frame_clock else _t + delta
 	_shake = maxf(0.0, _shake - delta)
 	_stumble = maxf(0.0, _stumble - delta)
 	_bubble_t -= delta

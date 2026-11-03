@@ -332,9 +332,18 @@ static func _chars_touch(ch: Node3D, space: Node3D, gp: PackedVector3Array, bone
 	for o: Node3D in others:
 		if o == ch or not o.is_visible_in_tree() or o.global_position.distance_to(ch.global_position) > 3.0:
 			continue
+		# Toisen hahmon tarkoituksella koskettavat kämmenet (meta kosketus_luut, PariOte.hand_to) ja niiden sormet pois.
+		var marked: Dictionary = o.get_meta("kosketus_luut", {})
 		var ob := []
 		for i in (o.get("skeleton") as Skeleton3D).get_bone_count():
-			ob.append((o.get("skeleton") as Skeleton3D).get_bone_name(i))
+			var bn := (o.get("skeleton") as Skeleton3D).get_bone_name(i)
+			var skip := false
+			for mh: String in marked:
+				var lr := mh.right(2)
+				if bn == mh or (bn.ends_with(lr) and (bn.contains("thumb") or bn.contains("index") or bn.contains("middle") or bn.contains("ring") or bn.contains("pinky"))):
+					skip = true
+			if not skip:
+				ob.append(bn)
 		var cell := {}
 		for q in Pose.limb_points(o, space, ob):
 			cell[Vector3i((q / 0.01).floor())] = q

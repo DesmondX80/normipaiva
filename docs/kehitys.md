@@ -29,7 +29,8 @@ luokkalistaa ei ole. Tarkistus: `tools/testit/kaantyyko.sh [godot-komento]` (sam
 Jos `godot` ei ole PATHissa, `tools/testit/godot.sh` etsii sen (`$GODOT`, PATH, tavalliset asennuspaikat
 Windowsilla, Macilla ja Linuxilla) ja tulostaa polun: `"$(tools/testit/godot.sh)" --path . -- --scene=<nimi>`.
 Testiajot ajetaan `tools/testit/aja.sh`:lla (`kaantyy`, `scene <nimi> [lisäargumentit]`, `tscn <polku>`, valinnat `--headless`,
-`--ei-kuvia` ja `--video` (vain tscn: Movie Maker, 30 fps, .avi ajokansioon; esim. `aja.sh --video tscn tools/testit/sinikka_video.tscn`, 27 s Sinikka kävelee, juoksee, hyppää ja istuu rantatuoliin)): se hoitaa eristetyn tallennuksen, jonon, aikarajan, `--shot`:n ja lokin ja tulostaa OK vain, jos ajo päättyi
+`--ei-kuvia`, `--kiintea` (scene ja tscn ilman videota: `--fixed-fps 60`, pelin aika kulkee 1/60 s ruudussa koneen nopeudesta riippumatta, joten
+siemennetyn testin luvut toistuvat) ja `--video` (vain tscn: Movie Maker, 30 fps, .avi ajokansioon; esim. `aja.sh --video tscn tools/testit/sinikka_video.tscn`, 27 s Sinikka kävelee, juoksee, hyppää ja istuu rantatuoliin)): se hoitaa eristetyn tallennuksen, jonon, aikarajan, `--shot`:n ja lokin ja tulostaa OK vain, jos ajo päättyi
 itse, skriptivirheitä ei ole, testi ei löytänyt vikoja ja kuvia syntyi. Uusi testi tulostaa vikansa riville `TESTI VIKA <selitys>`
 (aja.sh tunnistaa myös vanhat merkinnät LÄPI ... ->, RAKO LÄPI, KONTAKTI JÄÄ ja VIRHE). Pelkkä jono:
 Useampi samanaikainen ajo (esim. aliagentit) jonotetaan `tools/testit/godot_jono.sh <godot-argumentit>`:llä: ajot
@@ -141,7 +142,8 @@ etusuuntaan, lantio istuimelle), `Pose.feet_to_floor(ch, floor_y, front)` (jalat
 eteen) ja `Pose.hands_on_thighs(ch, space)` (kämmenet reisien pinnalle; kutsu vasta, kun jalka-IK on ollut voimassa
 yhden ruudun). Tarkistus: `tools/testit/asento.gd` (`seat_report` lantion rako, jalat, polvet, suunta; `bench_report`
 kalusteen osien akselit; `report` raajojen rako pintaan). Testikohtaus: `-- --shot=x.png --scene=asennot --asento=<osa>`
-ajaa `tools/testit/asennot_<osa>.gd`:n (osa 0 = apujen oma kokeilu tuolilla; kuvat `user://asennot_<osa>/`).
+ajaa `tools/testit/asennot_<osa>.gd`:n (osa 0 = apujen oma kokeilu tuolilla; kuvat `user://asennot_<osa>/`). `asennot_b` pitää
+välianimaation auki testin ajan (`cutscene.gd test_hold`: `_end` odottaa ennen häivytystä ja `_props`in vapautusta).
 
 Asentotarkastuksen korjaukset (alkuperäiset istuma-asennot säilytetään, vain viat korjataan): mummojen polvien edestä pois
 irrallinen hameen levy (`mummot.gd`), uimarannan tuolit kohti vettä, selkänoja taakse ja rento asento (nilkat ristissä, kädet
@@ -209,7 +211,10 @@ kiinteillä kohteilla) ajetaan aina ja todistaa mittarin (`MITTARI`; ellei se yl
 ettei käsivarsia tarvitse ristiin: Sinikan kädet päähahmon vyötärölle, päähahmon kädet Sinikan hartioiden yli (kyynärpäät ylhäällä). Painiote
 (Juntti leveäharteinen, joten hartiaote ei mahdu): päähahmon kämmenet Juntin kyljille (`spine_01`), Juntti tarttuu päältä päähahmon
 kyynärvarsista kyynärpään läheltä. Kämmenkohteet lasketaan samalla kämmensäteellä kuin tanssissa (`PariOte.palm_r`,
-muototaulu kämmenpuolelle); `KOHDE`-rivi kirjaa sen (`säde <mm> (pyöreä <mm>)`). Argumentti `paini` ajaa vain painivaiheen (nopea kokeilu).
+muototaulu kämmenpuolelle), ja kädet asetetaan samalla `PariOte.hand_to`lla (avoin kämmen); iskuissa sormet ovat suorina iskun painolla
+(kämmenisku). `KOHDE`-rivi kirjaa säteen (`säde <mm> (pyöreä <mm>)`). Argumentit `hali`, `iskut` ja `paini` ajavat vain sen vaiheen (nopea
+kokeilu). `PROFIILI`-rivi tulostaa kummankin kämmenkapselin säteen ja pituuden ja vaatii vasemman ja oikean eron alle 2 mm; lisähahmo
+(päähahmon ulkonäkö, pituus 1,83 m, oma profiiliavain) mitataan ensimmäistä kertaa `Sitting_Idle`-asennossa ja merkitään `(istuen)`.
 
 **Tanssin suljettu ote:** `scripts/pari_ote.gd` (`PariOte.valssi`) asettaa tanssin `_hold`issa viejän selkäkäden (lyhyellä parilla
 vyötärölle), seuraajan olkakäden ja vapaat kädet kämmen kämmentä vasten; kämmenkohde on pinta + `PariOte.palm_r` (kämmenpuolen säde
@@ -218,14 +223,40 @@ muototaulusta). Vapaissa käsissä kämmenten keskukset (ei ranteet) ovat vastak
 kapselimalli seuraa ohutta kyynärvartta ja litteää kämmentä. Vartalokapseleilla (pelvis, spine_01-03) on napakoordinaattitaulu
 (`Contact._polar_table`, 5 asemaa x 12 sektoria; `_rad_polar`): säde on sektorin suuntaan lähtevän säteen osuma aseman poikkileikkauksen
 kuperaan verhoon (vartalon verkko ilman hiuksia, spine_03 katkaistuna hartioiden alle), joten selkäkäsi on selän pinnassa eikä hartioiden
-leveydessä. Painumalla on yhteinen raja (`Elastic.press` ja `press.gdshaderinc`
+leveydessä. Taulu on elävä (`Contact._anchors`, `_live_polar`): solun säde on aseman keskeltä sektorin suuntaan lähtevän säteen kaukaisin osuma
+lepoverkon vartalokolmioihin, ja osuma tallennetaan ankkuriksi luupainoineen (`Pose.limb_points(..., weights, tris)`; vartalo, solisluut ja
+reidet). Nykyasennossa ankkurit siirretään samalla painotetulla luusiirrolla kuin verkko, ja säde luetaan sektorin ankkureista aseman kohdalta
+(iho liukuu akselia pitkin 1-6 cm). Välimuisti on kapseleittain hahmon metassa `live_polar` (avain = painoluiden asennot), ja aika kertyy
+laskuriin `Contact.stat_live_us` (`RUUTU`-rivi). Sektorien keskisuunnat ovat selästä ±15°, joten selkärangan uurre siltautuu (kämmen
+lepää lihasten päällä). `MALLI selka` mittaa painumattomasta verkosta ja tulostaa pahimman kohdan (t, kulma), saman eron verkon kolmion
+osumasta (`kolmio`) ja kulmittain 0/±15/±30° (0° on uurteen syvyys); `<pari>_lepo` mittaa lepoasennon ennen tanssia. Painumalla on yhteinen raja (`Elastic.press` ja `press.gdshaderinc`
 pitävät käytetyn painuman summaa, enintään `Elastic.MAX_LIMIT` 5 cm), joten päällekkäiset laatikot eivät painu yli rajan. Mittari:
-`tools/testit/aja.sh tscn tools/testit/tanssi_kontakti.tscn [sinikka_seura|hilkka|annaliisa] [pois]` ajaa kolme paria vaiheissa alku,
+`tools/testit/aja.sh --kiintea tscn tools/testit/tanssi_kontakti.tscn [sinikka_seura|hilkka|annaliisa] [pois]` ajaa kolme paria vaiheissa alku,
 rata, horja (kompastus) ja loppu (kaikki tahdit osutuiksi) ja tulostaa `PARI`, `KOHDE` (selkä- ja olkakäsi, verkko ±1 cm etumerkillisenä:
 negatiivinen = käsi verkon sisällä), `MALLI selka`, `KÄSI KÄDESSÄ`
-(kapselirako näytteistä kuten `_fit_chains` ja verkko ≤ 1 cm, kämmenet vastakkain ≤ −0,7), `RANNE` (≤ 70°), `SUUNTA` (jalat, rinnat vastakkain hartialinjoista),
-`PAINUMA` (≤ 5 cm), `RUUTU` (ka < 16,7 ms) ja `JÄÄNTEET` (0 lopetuksen jälkeen). Kuvat `<pari>_<vaihe>_koottu.png`, `_jalat`, `_kadet`
+(kapselirako näytteistä kuten `_fit_chains` ja verkko ≤ 1 cm, kämmenet vastakkain ≤ −0,7), `RANNE` (≤ 70°), `SUUNTA` (jalat lantioon ja toisiinsa nähden, `jalkojen väli` > 0,
+horjahduksen kallistus asteina, rinnat vastakkain hartialinjoista), `MITTARI suunta` (pari käännettynä 180° antaa < 0,7: mittarin itsetarkistus),
+`LÄPI <vaihe> me <n> pari <n>` (`Asento.solids` horjassa ja lopussa, 0),
+`PAINUMA` (≤ 5 cm), `RUUTU` (ka ja p95 < 16,7 ms, seinäkellosta) ja `JÄÄNTEET` (0 lopetuksen jälkeen). Ajo on toistettava: testi siementää
+satunnaisuuden (`seed(258)` parin alussa: horjahdus ja repliikit), valitsee ensimmäisen kappaleen (`tanssi_game.gd song_index`) ja vie
+biisin kelloa ruuduista eikä soivasta musiikista (`frame_clock`); `--kiintea` tekee ruudun ajasta vakion. Kuvat `<pari>_<vaihe>_koottu.png`, `_jalat`, `_kadet`
 (vapaat kädet suurennettuna), `_selka` (viejän selkäkäsi suurennettuna) ja Sinikalla `_rinta`. `pois` ajaa ilman kontakteja (vertailu).
+`PARI`-rivi kertoo pahimman ruudun ja otteen painon w; `PARIRUUDUT` (alku) listaa ruuduittain `ruutu:w:syvin mm`, ja `ULOTTUMA` vertaa
+seuraajan olkakäden olka-kohde-väliä `PariOte.arm_len`iin ja kertoo kohteen korkeuden viejän kyynärpään yllä. Argumentti `nousu` ajaa
+ennen alkua vaiheen `<pari>_nousu` (w 0 -> 1 ruutu ruudulta ilman hyppyä), joka näyttää otteen nousun.
+
+**Kontaktit, otteet ja jalkaterät:** `PariOte.hand_to(..., open, from_out)`: `from_out = true` (valssin olkakäsi) vie kohteen nousussa
+pinnan normaalin suunnassa kohteen tasolle (kun w ≥ 0,5), jottei käsi nouse viejän olkavarren läpi. Kädet, jotka kiertävät vartalon taakse
+(halaus, selkäkäsi), nousevat suoraan. `hand_to` merkitsee kämmenen tarkoitukselliseksi kosketukseksi (`set_meta("kosketus_luut", {"hand_r": syy})`,
+`Character.clear_ik` poistaa); `Asento.solids` (`_chars_touch`) ei laske merkityn kämmenen ja sen sormien osumaa toisen hahmon pintaan
+läpimenoksi (kämmenen syvyys mitataan `KOHDE`-rivillä). Kämmenkapselin pituus otteessa (`open = 0`, sormet koukussa) seuraa sormenpäitä
+(`_hand_cap` [6] = lepoasennon sormenpäiden projektio, `_cap_ends`: 0,5-1,0 x pituus); avautuva käsi pitää lepopituuden. Jalkaterällä
+on kaksi kapselia (`_foot_cap`, raajamuodossa napataululla): `foot_l`/`foot_r` nilkasta päkiään ja varvaskapseli `ball_l`/`ball_r` päkiästä
+varpaankärkeen (`ball_leaf`; negatiivinen katkaisu jatkaa kapselia, jos varpaat ulottuvat pidemmälle). `_fit_chains` työntää jalkaketjun
+myös niistä (vaakasuunnassa) ja pitää kenkien väliin `FOOT_GAP` 6 mm (läpimenotarkistus laskee alle 5 mm:n verkot kosketukseksi);
+`pair_contacts` ohittaa ne (kengät eivät painu). `hahmot_kontakti` tulostaa `MALLI jalka` (verkko - lähempi kapseli kantapäässä, keskellä
+ja varpaissa, p90 ≤ 10 mm) ja `PROFIILI ... luun +Y vs akseli` (< 10°, napataulu olettaa akselin luun +Y:ksi) ja painissa `VIERAS` (viejän käsivarren syvin kohta Juntin jokaista kapselia vasten); painiotteessa Juntin sormet jäävät
+koukkuun (`open = 0`), ja kämmenen normaali kallistuu enintään 30°, kunnes ranne on ≤ 60°.
 
 **Hiukset ja pää (elastiset):** hiukset ovat skinnattuja verkkoja oma varjostin `shaders/hair.gdshader` (painumasilmukka jaettu
 `shaders/press.gdshaderinc`-tiedostossa vartalon kanssa); painumaraja on 0,9 x etäisyys kallon pintaan (`CUSTOM0.w`), leviäminen suuntautuu
