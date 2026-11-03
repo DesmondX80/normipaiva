@@ -9,14 +9,17 @@ extends RefCounted
 const SHADER := "res://shaders/shoe.gdshader"
 const SLICES := 16  # poikkileikkauksia kannasta varpaisiin
 const RING := 24  # pisteitä poikkileikkauksen ympäri
-const DOME := 3  # pyöristysrenkaita kummassakin päässä (kärki ja kanta)
+const DOME := 3  # pyöristysrenkaita kannassa
+const TOE_RINGS := 5  # kärjen kapenevat renkaat viimeisen poikkileikkauksen edessä
+const TOE_N := 2.5  # kärjen superellipsin eksponentti (2 = ellipsi, suurempi = leveämpi kärki)
 
 ## Tyyppien parametrit (metrejä mallin mittakaavassa): sole = pohjan paksuus, margin = kuoren rako ihoon, flare = pohjan
-## reunan ulottuma kuoren ohi, sole_col = pohjan väri, rough = päällisen karheus, sole_rough = pohjan karheus.
+## reunan ulottuma kuoren ohi, toe_room = kärjen tila varpaiden edessä, toe_round = kärjen pyöristyksen pituus
+## (osuus kärjen puolileveydestä), sole_col = pohjan väri, rough = päällisen karheus, sole_rough = pohjan karheus.
 ## "paljas" = ei kenkää (vartalon jalkaterä värjätään kuten ennenkin).
 const TYPES := {
-	"lenkkari": {"sole": 0.020, "margin": 0.003, "flare": 0.004, "sole_col": Color(0.95, 0.94, 0.9), "rough": 0.62,
-		"sole_rough": 0.8},
+	"lenkkari": {"sole": 0.020, "margin": 0.003, "flare": 0.004, "toe_room": 0.012, "toe_round": 1.1, "collar": 0.004,
+		"sole_col": Color(0.95, 0.94, 0.9), "rough": 0.62, "sole_rough": 0.8},
 	"paljas": {},
 }
 
@@ -52,9 +55,11 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_skin_weight_count(SurfaceTool.SKIN_4_WEIGHTS if per <= 4 else SurfaceTool.SKIN_8_WEIGHTS)
 	var pohja := 0.0
+	var above := PackedInt32Array()  # jalkaterän kärjet kengän suun yläpuolella (lahkeen alla; skin_outside ohittaa)
 	for side: float in [1.0, -1.0]:
 		var foot := PackedInt32Array()  # jalkaterän kärjet (luokka 3)
 		var cand := PackedInt32Array()  # painojen lähteet: jalkaterä ja säären alaosa
+		var pant := PackedInt32Array()  # lahkeen alaosa (luokka 2): kengän suu jää sen alle
 		for v in vs.size():
 			if signf(vs[v].x) != side:
 				continue
@@ -64,17 +69,20 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 				cand.append(v)
 			elif c == 2 and vs[v].y < 0.25:
 				cand.append(v)
-		pohja = _build_side(st, p, vs, bi, bw, per, foot, cand, side, skin, skel)
+				pant.append(v)
+		pohja = _build_side(st, p, vs, bi, bw, per, foot, cand, pant, side, skin, skel, above)
 	st.index()
 	st.generate_normals()
 	var out := st.commit()
 	out.set_meta("pohja", pohja)
+	out.set_meta("suu", above)
 	return out
 
 
 ## Yhden jalan kuori ja pohja. Palauttaa pohjan alimman kohdan etäisyyden jalkapohjan alimmasta kärjestä.
 static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, bi: PackedInt32Array, bw: PackedFloat32Array,
-		per: int, foot: PackedInt32Array, cand: PackedInt32Array, side: float, skin: Skin, skel: Skeleton3D) -> float:
+		per: int, foot: PackedInt32Array, cand: PackedInt32Array, pant: PackedInt32Array, side: float, skin: Skin,
+		skel: Skeleton3D, above: PackedInt32Array) -> float:
 	# Jalan pituusakseli: kannan (foot-luu) ja päkiän (ball-luu) kärkien keskipisteiden erotus vaakatasossa.
 	var heel := Vector3.ZERO
 	var ball := Vector3.ZERO
@@ -109,13 +117,30 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		tmax = maxf(tmax, q.x)
 	var step := (tmax - tmin) / float(SLICES)
 	var win := step * 0.75 + 0.006
+	# Kengän suu: kuoren yläreuna lahkeen alimman kärjen alapuolella (collar) kussakin poikkileikkauksessa, jolloin
+	# lahkeen ja jalkaterän välinen vino kaista ei leikkaa kuorta, vaan jalkaterä (lahkeen värinen) nousee suusta.
+	var collar: float = p.get("collar", 0.0)
+	var pq := PackedVector3Array()
+	for v in pant:
+		var d := vs[v] - org
+		pq.append(Vector3(d.dot(fwd), d.dot(lat), vs[v].y))
+	var cap_at := func(t: float) -> float:
+		var lo := INF
+		for q in pq:
+			if absf(q.x - t) <= win:
+				lo = minf(lo, q.z)
+		return lo - collar
+	for i in pts.size():
+		if pts[i].z > cap_at.call(pts[i].x) - margin:
+			above.append(foot[i])
 	# Poikkileikkaukset: tukifunktio (kuperan verhon etäisyys keskeltä kuhunkin suuntaan) + rako.
 	var rings := []  # [t, keskipiste Vector2(s, y), PackedVector2Array (s, y)]
 	for i in SLICES:
 		var t := tmin + step * (i + 0.5)
 		var sel := PackedVector2Array()
+		var cap: float = cap_at.call(t)
 		for q in pts:
-			if absf(q.x - t) <= win:
+			if absf(q.x - t) <= win and q.z <= cap - margin:
 				sel.append(Vector2(q.y, q.z))
 		if sel.size() < 3:
 			continue
@@ -133,10 +158,20 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			for q in sel:
 				h = maxf(h, (q - c).dot(d))
 			var r := c + d * (h + margin + 0.004)  # + tasoituksen kutistuma (_smooth)
-			r.y = maxf(r.y, y_welt)
+			r.y = clampf(r.y, y_welt, maxf(cap, y_welt))
 			ring.append(r)
-		rings.append([t, c, ring, sel])
+		rings.append([t, c, ring, sel, cap])
 	_smooth(rings, y_welt)
+	# Pyöreä kärki: kärkiosan renkaat kapenevat superellipsin mukaan (ylhäältä pyöreä, sivulta kaartuva yläpinta) kohti
+	# kärkeä tend, joka on toe_room varpaiden edessä. Peittokorjaus alla työntää kehän takaisin varpaiden ulkopuolelle.
+	var last: Array = rings[rings.size() - 1]
+	var hw := 0.0
+	for q: Vector2 in last[2]:
+		hw = maxf(hw, absf(q.x - (last[1] as Vector2).x))
+	var tend := tmax + margin + float(p.get("toe_room", 0.0))
+	var ta := tend - hw * float(p.get("toe_round", 1.0))
+	for r in rings:
+		r[2] = _toe_scale(r[2], r[1], _toe_f(float(r[0]), ta, tend), y_welt)
 	# Tasoituksen jälkeen jokainen kehän piste vähintään raon verran ikkunan kärkien tukietäisyyden ulkopuolelle.
 	for r in rings:
 		var ring: PackedVector2Array = r[2]
@@ -149,14 +184,26 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			var need := h + margin - (ring[k] - c).dot(d)
 			if need > 0.0:
 				ring[k] += d * need
+			ring[k].y = minf(ring[k].y, maxf(float(r[4]), y_welt))  # suu tasaisena lahkeen alla
 		r[2] = ring
 		r.resize(3)
-	# Pyöristys päihin: renkaat kutistuvat keskipisteeseen neljännesympyrän mukaan (kärki ja kanta kaartuvat).
+	# Pyöristys päihin: kannan renkaat kutistuvat keskipisteeseen neljännesympyrän mukaan, kärki superellipsinä.
 	var full := []
 	for end in [0, 1]:
 		var e: Array = rings[0] if end == 0 else rings[rings.size() - 1]
-		var ext: float = (float(e[0]) - tmin if end == 0 else tmax - float(e[0])) + margin
-		var dir := -1.0 if end == 0 else 1.0
+		if end == 1:
+			# Kärki: renkaat viimeisestä renkaasta kärkeen tend, tiheämmin kärjen lähellä (superellipsi kapenee jyrkästi).
+			full.append_array(rings)
+			var ue := (float(e[0]) - ta) / (tend - ta)
+			var fe := maxf(_toe_f(float(e[0]), ta, tend), 0.05)
+			for j in range(1, TOE_RINGS + 1):
+				var u := 1.0 - (1.0 - ue) * pow(1.0 - float(j) / (TOE_RINGS + 1), 2.0)
+				var t := ta + u * (tend - ta)
+				var f := _toe_f(t, ta, tend) / fe
+				full.append([t, e[1], _toe_scale(e[2], e[1], f, y_welt), f])
+			continue
+		var ext: float = float(e[0]) - tmin + margin
+		var dir := -1.0
 		var dome := []
 		for j in range(DOME, 0, -1):
 			var phi := PI / 2.0 * j / (DOME + 1)
@@ -167,14 +214,9 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 				q.y = lerpf(q.y, r.y, clampf(1.0 - (r.y - y_welt) / 0.01, 0.0, 1.0))  # alapinta pysyy pohjan päällä
 				ring.append(q)
 			dome.append([float(e[0]) + dir * ext * sin(phi), e[1], ring, sc])
-		if end == 0:
-			full.append_array(dome)
-		else:
-			full.append_array(rings)
-			dome.reverse()
-			full.append_array(dome)
+		full.append_array(dome)
 	var t0: float = float(rings[0][0]) - (float(rings[0][0]) - tmin + margin)
-	var t1: float = float(rings[-1][0]) + (tmax - float(rings[-1][0]) + margin)
+	var t1: float = tend
 	var tip0: Vector2 = rings[0][1]
 	var tip1: Vector2 = rings[-1][1]
 	var to3 := func(t: float, q: Vector2) -> Vector3:
@@ -286,6 +328,23 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	return ymin - y_bot
 
 
+## Kärjen kavennus kohdassa t: 1 ennen ta:ta, superellipsi (eksponentti TOE_N) nollaan kärjessä tend.
+static func _toe_f(t: float, ta: float, tend: float) -> float:
+	var u := clampf((t - ta) / (tend - ta), 0.0, 1.0)
+	return pow(1.0 - pow(u, TOE_N), 1.0 / TOE_N)
+
+
+## Rengas kavennettuna keskipisteensä ympäri: sivusuunta ja keskipisteen yläpuolinen osa kertoimella f, alapinta pysyy.
+static func _toe_scale(ring: PackedVector2Array, c: Vector2, f: float, y_welt: float) -> PackedVector2Array:
+	if f >= 1.0:
+		return ring
+	var out := PackedVector2Array()
+	for q in ring:
+		var d := q - c
+		out.append(Vector2(c.x + d.x * f, maxf(c.y + (d.y * f if d.y > 0.0 else d.y), y_welt)))
+	return out
+
+
 ## Renkaat pehmeiksi: harvan vartaloverkon (noin 400 kärkeä jalassa) tukifunktio on kuhmurainen. Keskipisteet ja
 ## keskipisteestä mitatut siirrot tasoitetaan kehän ja pituuden suunnassa (1-2-1); rako (margin) kattaa kutistuman, ja
 ## testi mittaa sen (skin_outside). Alapinta pysyy tasaisena.
@@ -370,8 +429,9 @@ static func skin_outside(shoe: ArrayMesh, arr: Array) -> float:
 	var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 	var cs: PackedColorArray = arr[Mesh.ARRAY_COLOR]
 	var worst := -INF
+	var above: PackedInt32Array = shoe.get_meta("suu", PackedInt32Array())
 	for v in vs.size():
-		if roundi(cs[v].r * 4.0) != 3:
+		if roundi(cs[v].r * 4.0) != 3 or v in above:
 			continue
 		# Lähin kuoren piste (päällinen tai pohja) ja sen normaali: ihon kärki on ulkona, jos se on pinnan ulkopuolella.
 		var best := INF

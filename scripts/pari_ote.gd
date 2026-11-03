@@ -108,6 +108,7 @@ static func valssi(lead: Node3D, pl: Dictionary, fol: Node3D, pf: Dictionary, sp
 	var n := Vector3.ZERO
 	var over := INF
 	var low := lead.to_global(lead.bone_position("upperarm" + lb)).y - fol.to_global(fol.bone_position("upperarm" + fa)).y > ALA
+	print("DBGLOW %.4f %s" % [lead.to_global(lead.bone_position("upperarm" + lb)).y - fol.to_global(fol.bone_position("upperarm" + fa)).y, low])  # DBG
 	for at: Array in (VYO if low else SELKA):
 		var nn := (bk * cos(at[2]) + rf * sf * sin(at[2])).normalized()
 		var pp := Contact.surface_point(fol, pf, at[0], nn, at[1])
@@ -118,6 +119,7 @@ static func valssi(lead: Node3D, pl: Dictionary, fol: Node3D, pf: Dictionary, sp
 			p = pp
 			n = nn
 			over = o
+		print("DBGAT %s %s dist %.4f reach %.4f wrist %.1f" % [at[0], at[1], pp.distance_to(sh), reach, wrist])  # DBG
 		if o == 0.0:
 			break
 	hand_to(lead, lb, p, n, p - sh, sh + rl * sd * 0.4 + Vector3.UP * 0.1, w)
