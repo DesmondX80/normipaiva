@@ -34932,7 +34932,8 @@ func _maybe_screenshot() -> void:
 			_item_menu.chosen.emit("mustikkapiirakka")
 			print("SINIKKA söi piirakan: nälkä %+.2f, piirakoita %d, msg=%s" % [tilat.value("nalka") - n0, food.get("mustikkapiirakka", 0), _msg.text])
 		"sinikka":
-			# Sinikka läheltä edestä vinosti (ulkonäkö ja asusteet).
+			# Sinikka läheltä edestä vinosti (ulkonäkö ja asusteet). Klo 10.30: aamulla hän on uimassa, iltapäivällä rannalla.
+			clock_min = 10.5 * 60.0
 			for i in 30:
 				await get_tree().process_frame
 			sinikka.set_physics_process(false)
@@ -34949,6 +34950,9 @@ func _maybe_screenshot() -> void:
 			_msg.text = ""
 		"naapurit", "naapurit2", "naapurit3":  # naapurin talo ja piha kadulta päin (arto / pekka / sinikka)
 			var key: String = {"naapurit": "arto", "naapurit2": "pekka", "naapurit3": "sinikka"}[scene]
+			clock_min = 10.5 * 60.0  # Sinikka pihalla (8-10 uimassa, 12-17 rannalla)
+			for i in 10:
+				await get_tree().process_frame
 			var yd: Array = world.neighbor_yards[key]
 			var door: Vector3 = yd[0]
 			var hc := M.w({"arto": M.NEIGHBOR_ARTO, "pekka": M.NEIGHBOR_PEKKA, "sinikka": M.NEIGHBOR_SINIKKA}[key])
