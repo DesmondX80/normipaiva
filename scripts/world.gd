@@ -19,6 +19,7 @@ const HedgeNode := preload("res://scripts/hedge.gd")
 const BasketGame := preload("res://scripts/basket_game.gd")
 const RankkuGame := preload("res://scripts/rankku_game.gd")
 const ApteekkiSaloinen := preload("res://scripts/apteekki_saloinen.gd")
+const SinikanKuistiMallit := preload("res://scripts/sinikan_kuisti_mallit.gd")
 const DRAPE_EDGE := 3.0  # maakerrosten kolmioiden maksimisivu, jotta ne myötäilevät maastoa
 ## Lehvästökorttien näkyvyysraja: tätä kauempana puut piirretään kevyinä perusmuotoina.
 const TREE_NEAR := 210.0
@@ -77,6 +78,12 @@ const ROOFS := [Color(0.2, 0.21, 0.22), Color(0.2, 0.21, 0.22), Color(0.12, 0.12
 	Color(0.4, 0.14, 0.1), Color(0.3, 0.2, 0.15)]
 const DOORS := [Color(0.35, 0.22, 0.14), Color(0.15, 0.25, 0.4), Color(0.5, 0.1, 0.08), Color(0.9, 0.9, 0.88)]
 const WHITE := Color(0.95, 0.95, 0.92)
+## _house: ovilehti (koko, keskikohdan korkeus, keskikohta julkisivun edessä) ja porras; Sinikan kuistin mallit
+## (sinikan_kuisti_mallit.gd) mitoitetaan samoista.
+const DOOR_LEAF := Vector3(0.95, 2.1, 0.1)
+const DOOR_LEAF_Y := 1.45
+const DOOR_LEAF_OUT := 0.03
+const DOOR_STEP := Vector3(1.8, 0.3, 1.0)
 
 var graph_nodes: Array[Vector3] = []
 var graph_adj: Array = []
@@ -186,6 +193,7 @@ var platform_rect := Rect2()  # laituri maailman x/z:na (junaan noustaan täält
 var cache_pos := Vector3.INF  # rahakätkö radan varressa (ratapölkkypino)
 ## Sinikan takapihan nurmikko (tarinan "Sinikan nurmikko, ettei Päivi nää"): pivot, koko, kulma ja leikkurin paikka.
 var sinikka_lawn := {}
+var sinikka_kuisti := {}  # sinikan_kuisti_mallit.gd build: {root, lappu, kori, marjat, piirakka}; root -Z = ulos
 var follow: Node3D  # ruoho seuraa tätä (pelaaja)
 
 var _rng := RandomNumberGenerator.new()
@@ -1080,6 +1088,13 @@ func nearest_node(p: Vector3) -> int:
 
 # --- Rakennukset -------------------------------------------------------------
 
+## Ulko-oven mitat oven kehyksessä (origo oven keskellä julkisivun tasossa talon pohjalla, -Z = ulos), samoista
+## vakioista kuin _house piirtää oven ja portaan. Porras alkaa sokkelin etupinnasta (sokkeli 0,1 m seinän edessä).
+static func door_dims() -> Dictionary:
+	return {"leaf_front": -(DOOR_LEAF_OUT + DOOR_LEAF.z / 2.0), "leaf_half": DOOR_LEAF.x / 2.0,
+		"leaf_y": Vector2(DOOR_LEAF_Y - DOOR_LEAF.y / 2.0, DOOR_LEAF_Y + DOOR_LEAF.y / 2.0),
+		"step_top": DOOR_STEP.y, "step_half": DOOR_STEP.x / 2.0, "step_z": Vector2(-DOOR_STEP.z, -0.1)}
+
 ## Omakotitalo harjakatolla yhdistettyyn meshiin + törmäyslaatikko. Paikallinen -Z = etuseinä.
 ## street_gap = etäisyys etuseinästä kadun reunaan (postilaatikko, aita). extras = false: ei satunnaisia pihaesineitä
 ## (postilaatikko, aita, autokatos, lipputanko, piharakennus), kun piha kalustetaan itse.
@@ -1124,8 +1139,8 @@ func _house(pos: Vector2, yaw: float, l: float, d: float, h: float, wall: Color,
 		for z in [-d / 2.0, d / 2.0]:
 			if z < 0.0 and i == door_i:
 				add.call(B.boxm(Vector3(1.2, 2.3, 0.08)), Vector3(x, 1.55, z - 0.02), WHITE)
-				add.call(B.boxm(Vector3(0.95, 2.1, 0.1)), Vector3(x, 1.45, z - 0.03), DOORS[_rng.randi() % DOORS.size()])
-				add.call(B.boxm(Vector3(1.8, 0.3, 1.0)), Vector3(x, 0.15, z - 0.5), Color(0.5, 0.5, 0.5))
+				add.call(B.boxm(DOOR_LEAF), Vector3(x, DOOR_LEAF_Y, z - DOOR_LEAF_OUT), DOORS[_rng.randi() % DOORS.size()])
+				add.call(B.boxm(DOOR_STEP), Vector3(x, DOOR_STEP.y / 2.0, z - DOOR_STEP.z / 2.0), Color(0.5, 0.5, 0.5))
 				continue
 			var sgn := signf(z)
 			add.call(B.boxm(Vector3(1.55, 1.35, 0.06)), Vector3(x, 1.75, z + sgn * 0.02), WHITE)
@@ -3649,6 +3664,7 @@ func _build_neighbors() -> void:
 	var fb: Dictionary = fit.call(M.NEIGHBOR_SINIKKA, "Järvikuja")
 	var bb := _house(fb.c, fb.yaw, fb.l, fb.d, 3.1, Color(0.86, 0.8, 0.66), Color(0.33, 0.3, 0.28), fb.gap, false)
 	var fz: float = fb.fz
+	sinikka_kuisti = SinikanKuistiMallit.build(bb, Vector3(fb.dx, 0, fz), door_dims())
 	# Takapihan nurmikko talon takana (julkisivu kadulle -Z, takaseinä +Z): metsä ei kasva sille.
 	var lsize := Vector2(maxf(fb.l - 2.0, 8.0), 6.0)
 	var lc: Vector3 = bb.transform * Vector3(0, 0, -fz + 1.2 + lsize.y / 2.0)
