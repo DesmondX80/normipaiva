@@ -87,7 +87,19 @@ esac
 
 loki="$ulos/loki.txt"
 echo "aja: $laji ${nimi:-${polku:-}} -> $ulos (loki $loki)"
-bash "$dir/godot_jono.sh" "${args[@]}" > "$loki" 2>&1
+bash "$dir/godot_jono.sh" "${args[@]}" > "$loki" 2>&1 &
+jono=$!
+# Jäsennysvirhe ei korjaudu odottamalla: ajo katkaistaan heti, ettei se odota aikarajaa (10 min).
+while kill -0 "$jono" 2>/dev/null; do
+	if grep -q "Parse Error" "$loki" 2>/dev/null; then
+		sleep 1
+		pkill -TERM -P "$jono" 2>/dev/null
+		echo "aja: Parse Error lokissa, ajo katkaistu heti" >> "$loki"
+		break
+	fi
+	sleep 2
+done
+wait "$jono"
 rc=$?
 
 virheet=$(grep -cE "SCRIPT ERROR|Failed to load script|Parse Error" "$loki" || true)

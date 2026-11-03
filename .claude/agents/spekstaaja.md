@@ -25,6 +25,9 @@ Työ:
    jalat eivät ristissä, oikea suunta kalusteeseen nähden, kalusteen osat samaan suuntaan. Kirjaa myös, mitä esikuva
    on (esim. "käsi lötköttää vatsan päällä: kyynärpää kyljellä, kämmen valahtanut vatsan kaarelle").
 
+Uudesta 3D-esineestä (kori, astia, työkalu) kirjaa kriteeriin 2–4 esikuvan tunnusmerkkiä, joista esine tunnistetaan
+(pajukori: pystykepit, punos kepin ympäri, kapeneva runko, kierretty reuna). "Yleistuntemus" ei riitä.
+
 Säännöt: älä suunnittele toteutusta (tiedostot, funktiot) — se on arkkitehdin työ. Älä lue koodia muuten kuin pelin nykytilan varmistamiseen.
 
 Palautus orkestraattorille: enintään 8 riviä: koko, kriteerien määrä, esikuvan lähde, avoimet kysymykset. Ei suunnitelman toistoa.

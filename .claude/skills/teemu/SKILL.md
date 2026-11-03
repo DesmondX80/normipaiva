@@ -39,6 +39,8 @@ käyttäjän tarvitse kysyä.
 
 ## Valvonta
 
+- **Luvut koodista.** Ennen kuin kerrot käyttäjälle määrän, hinnan tai kellonajan, tarkista se koodista (vakio,
+  rivi). (#sinikan-ovilappu: "3 l mustikoita", koodissa SINIKKA_BERRIES = 2.)
 - **Tarkista ennen kuin ehdotat.** Ennen kuin ehdotat korjausta käyttäjälle, tarkista koodista, ettei se ole jo tehty,
   ja nimeä mittaus, joka todistaa sen tarpeen.
 - **Tarkista ennen kuin väität.** Ennen kuin kerrot käyttäjälle, että jokin on käynnissä, valmis tai toimii, tarkista se

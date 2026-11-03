@@ -405,6 +405,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (flirtti), vitsi tai torjunta. Vastaus nostaa moraalia, vireyttä tai stressiä kerran päivässä. Jos flirttaat perheiden
   nähden (15 m), perhe kertoo siitä Päiville noin joka toisella kerralla (arpa kerran päivässä), ja Päivi ottaa asian
   puheeksi aamulla. Pihalla Sinikkaa ei iltapäivällä näy. Testi `--scene=sinikkaranta`.
+  Kun Sinikka on poissa, hänen ulko-ovessaan on teipattu käsinkirjoitettu lappu (aamulla uinti, iltapäivällä
+  aurinko, kaksimielisesti ja päivän mukaan vaihtuen). E lukee lapun; ensimmäinen luku merkitsee Sinikan sydämen
+  paperikartalle Oravajärven rannalle (M). Kuistin portaalla on pajukori: kun mustikkatehtävä on auki, E koriin jättää
+  ämpäristä 2 l mustikoita (tehtävä sulkeutuu). Kun Sinikka on käynyt kotona ja olet ollut poissa kuistilta (yli 20 m),
+  korin vieressä odottaa vadilla mustikkapiirakka; E ottaa sen (sama palkka kuin puheluovutuksessa, kerran
+  päivässä). Kun korissa on marjoja tai piirakka odottaa, Sinikalta ei voi pyytää uutta tehtävää (`sinikan_kuisti.gd`).
+  Testi `--scene=sinikanlappu`.
 - **SEO Saloinen ja ravintola A+:** tankkauskatos mittareineen, SEO-pylväs hintoineen ja rekka pihassa. Myymälä
   auki 24/7: kahvi (vireys), munkki reppuun ja rekkakuskin ilmainen kyyti Raaheen (6–23, kun Kapteenin Kulma on perillä auki). A+: lounas ma–pe
   10.30–14 ja tuoppi illalla 16–22; pöydissä rekkamiesten ja vuoromiesten juttuja.
