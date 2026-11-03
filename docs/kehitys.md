@@ -258,6 +258,15 @@ myös niistä (vaakasuunnassa) ja pitää kenkien väliin `FOOT_GAP` 6 mm (läpi
 ja varpaissa, p90 ≤ 10 mm) ja `PROFIILI ... luun +Y vs akseli` (< 10°, napataulu olettaa akselin luun +Y:ksi) ja painissa `VIERAS` (viejän käsivarren syvin kohta Juntin jokaista kapselia vasten); painiotteessa Juntin sormet jäävät
 koukkuun (`open = 0`), ja kämmenen normaali kallistuu enintään 30°, kunnes ranne on ≤ 60°.
 
+**Kengät:** `scripts/shoes.gd` rakentaa kengän omaksi skinnatuksi verkoksi (luuston lapsi `Kengat`, meta `"kenka"`) jalkaterän
+lepoverkon poikkileikkauksista: kuori 3 mm ihon ulkopuolella, tasainen pohja (`TYPES[tyyppi].sole`) ja painot kolmesta lähimmästä
+vartalon kärjestä, joten kenkä taipuu päkiästä kuten iho. Tyyppi: `look.shoe` tai `Shoes.type_for` `shoes`-värin mukaan (nyt vaaleat
+ja kirkkaat = `lenkkari`, muut `paljas` = vanha värjätty jalkaterä). Kengällä vartalon jalkaterä painuu varjostimessa 6 mm kengän
+sisään (`shoe_on`, rajataso `shoe_cut`), ja `Pose.limb_points` ohittaa piilotetut kärjet ja lukee kenkäverkon, joten kontaktiprofiili
+(`profile_key` päättyy tyyppiin), jalkalaatikko ja läpimenot mittaavat kenkää. Malli nousee seistessä pohjan verran (`_lift_sole` +
+meta `"pohja"`, `Character.shoe_sole`), ja `Pose.feet_to_floor` lisää sen `FOOT_H`:hon. Testi: `aja.sh tscn tools/testit/kengat.tscn`
+(`KENKA ... alin` ±5 mm, `iho_ulkona` < 0, kuvat ja vertailukuvat kuvakulmista ja kävelystä, `RUUTU` 24 hahmolla).
+
 **Hiukset ja pää (elastiset):** hiukset ovat skinnattuja verkkoja oma varjostin `shaders/hair.gdshader` (painumasilmukka jaettu
 `shaders/press.gdshaderinc`-tiedostossa vartalon kanssa); painumaraja on 0,9 x etäisyys kallon pintaan (`CUSTOM0.w`), leviäminen suuntautuu
 pois pään keskuksesta (`press_origin`), ja latvat heilahtavat jousella (`hair_sway`, `CUSTOM0.x` paino). `Pose.limb_points(..., meshes)`:
