@@ -135,8 +135,22 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			var r := c + d * (h + margin + 0.004)  # + tasoituksen kutistuma (_smooth)
 			r.y = maxf(r.y, y_welt)
 			ring.append(r)
-		rings.append([t, c, ring])
+		rings.append([t, c, ring, sel])
 	_smooth(rings, y_welt)
+	# Tasoituksen jälkeen jokainen kehän piste vähintään raon verran ikkunan kärkien tukietäisyyden ulkopuolelle.
+	for r in rings:
+		var ring: PackedVector2Array = r[2]
+		var c: Vector2 = r[1]
+		for k in ring.size():
+			var d: Vector2 = (ring[k] - c).normalized()
+			var h := -INF
+			for q: Vector2 in r[3]:
+				h = maxf(h, (q - c).dot(d))
+			var need := h + margin - (ring[k] - c).dot(d)
+			if need > 0.0:
+				ring[k] += d * need
+		r[2] = ring
+		r.resize(3)
 	# Pyöristys päihin: renkaat kutistuvat keskipisteeseen neljännesympyrän mukaan (kärki ja kanta kaartuvat).
 	var full := []
 	for end in [0, 1]:
@@ -214,9 +228,8 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		var o := fwd * (-1.0 if end == 0 else 1.0)
 		for k in RING:
 			tri.call(up[i][k], up[i][(k + 1) % RING], tip, o, 0.0, c2, c2, c2)
-	# Pohja: pyöristetty laatta kuoren leveimmän kohdan mukaan, yläreuna 6 mm kuoren sisällä (ei rakoa), alapinta tasainen.
+	# Pohja: pyöristetty laatta kuoren leveimmän kohdan mukaan, yläreuna kuoren alapinnan tasalla, alapinta tasainen.
 	var flare: float = p.flare
-	var y_top := y_welt + 0.006
 	var prof := []  # renkaittain [t, keskipiste, 8 pistettä (s, y)]
 	for r in full:
 		var lo := INF
@@ -228,10 +241,18 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		var mid := (lo + hi) / 2.0
 		var hw := (hi - lo) / 2.0 + flare * (float(r[3]) if r.size() > 3 else 1.0)
 		var bv := 0.004
-		var pr := PackedVector2Array([Vector2(mid + hw - flare * 0.5, y_top), Vector2(mid + hw, y_top - bv),
-			Vector2(mid + hw, y_bot + bv), Vector2(mid + hw - bv, y_bot), Vector2(mid - hw + bv, y_bot),
-			Vector2(mid - hw, y_bot + bv), Vector2(mid - hw, y_top - bv), Vector2(mid - hw + flare * 0.5, y_top)])
-		prof.append([base[0], Vector2(mid, (y_top + y_bot) / 2.0), pr])
+		# Päissä kuoren alapinta kaartuu ylös: pohja nousee mukana (kärjen nousu), muuten pinnat leikkaavat lähes
+		# samansuuntaisina ja sauma rispaantuu.
+		var low := INF
+		for q: Vector2 in r[2]:
+			low = minf(low, q.y)
+		var rise := maxf(low - y_welt, 0.0)
+		var yt := low + 0.0015  # kuoren alapinnan tasalle (pieni limitys): ei lähes samansuuntaista leikkausta
+		var yb := y_bot + rise * 0.7
+		var pr := PackedVector2Array([Vector2(mid + hw - flare * 0.5, yt), Vector2(mid + hw, yt - bv),
+			Vector2(mid + hw, yb + bv), Vector2(mid + hw - bv, yb), Vector2(mid - hw + bv, yb),
+			Vector2(mid - hw, yb + bv), Vector2(mid - hw, yt - bv), Vector2(mid - hw + flare * 0.5, yt)])
+		prof.append([base[0], Vector2(mid, (yt + yb) / 2.0), pr])
 	var np := 8
 	for i in prof.size() - 1:
 		var ca: Vector2 = prof[i][1]

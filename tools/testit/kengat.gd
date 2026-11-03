@@ -119,7 +119,7 @@ func _views(nm: String, ch: Node3D) -> void:
 	var g := _foot_near(ch, rt)
 	await _shot(nm + "_sivu", g + rt * 0.75 + Vector3(0, 0.1, 0), g)
 	g = _foot_near(ch, rt)
-	await _shot(nm + "_ylhaalta", g + Vector3(0, 0.8, 0) + fw * 0.08, g)
+	await _shot(nm + "_ylhaalta", g + Vector3(0, 0.75, 0) + fw * 0.4, g)
 	await _shot(nm + "_takaa", f - fw * 1.1 + Vector3(0, 0.35, 0), f)
 	g = _foot_near(ch, fw + rt)
 	await _shot(nm + "_kolmeneljannes", g + (fw + rt).normalized() * 0.75 + Vector3(0, 0.35, 0), g)
