@@ -44,6 +44,7 @@ var hair_mis: Array = []  # hiusverkot (meta "hair_press"; Pose.limb_points)
 
 var _overrides := {}  # luu -> [akseli hahmon avaruudessa, kulma]
 var _ik := {}  # nimi -> [luu a, luu b, luu c, kohde, polvi/kyynärpää-suunta, loppuluun lisäkierto] (hahmon avaruudessa)
+var _open := {}  # "_l"/"_r" -> sormien suoristuksen paino 0..1 (set_open_hand)
 var _current := ""
 var _sway_x := Vector3.ZERO  # hiusten heilahdus (maailma, m), jousi Elastic.spring_step
 var _sway_v := Vector3.ZERO
@@ -236,8 +237,17 @@ func set_ik_orient(chain: String, orient: Basis, w: float) -> void:
 		c[7] = w
 
 
+## Avoin kämmen kontaktiin: sormien paikalliset kierrot animaatiosta kohti lepoasentoa (suorat sormet) painolla w,
+## peukalo puolella painolla (lepoasennossa se sojottaisi kämmenpuolelle). Lr "_l"/"_r"; kutsu joka ruutu otteen ajan,
+## clear_ik nollaa. Paikallinen kierto kohti lepoa, joten vasen ja oikea ovat peilikuvat ilman etumerkkejä.
+func set_open_hand(lr: String, w: float) -> void:
+	_open[lr] = clampf(w, 0.0, 1.0)
+
+
 func clear_ik() -> void:
 	_ik.clear()
+	_open.clear()
+	remove_meta("kosketus_luut")  # PariOte.hand_to: tarkoituksellinen kämmenkosketus
 	_reset_sway()
 	_reset_jiggle()
 	clear_contacts()
@@ -392,9 +402,26 @@ func _update_pose(delta: float) -> void:
 		var axis: Vector3 = (to_skel * o[0]).normalized()
 		var q := Quaternion(axis, o[1])
 		skeleton.set_bone_pose_rotation(i, parent_rot.inverse() * q * parent_rot * skeleton.get_bone_pose_rotation(i))
+	_open_fingers()
 	_apply_ik()
 	_update_hair_sway(delta)
 	_update_jiggle(delta)
+
+
+## set_open_hand: sormet kohti lepoasentoa ennen IK:ta (IK kääntää vain ranteen, sormet seuraavat).
+func _open_fingers() -> void:
+	for lr: String in _open:
+		var w: float = _open[lr]
+		if w <= 0.0:
+			continue
+		for f in ["thumb", "index", "middle", "ring", "pinky"]:
+			var fw := w * 0.5 if f == "thumb" else w
+			for k in ["01", "02", "03"]:
+				var i := skeleton.find_bone("%s_%s%s" % [f, k, lr])
+				if i < 0:
+					continue
+				var rest := skeleton.get_bone_rest(i).basis.get_rotation_quaternion()
+				skeleton.set_bone_pose_rotation(i, skeleton.get_bone_pose_rotation(i).slerp(rest, fw))
 
 
 func _apply_ik() -> void:

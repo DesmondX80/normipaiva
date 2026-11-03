@@ -3,8 +3,9 @@ extends Node3D
 ## vatsaan ja painiote Juntin kanssa. Joka ruutu pair_fit -> pair_contacts -> set_contacts -> overlap_pairs; tulostaa vaiheen
 ## pahimman kapseliparin (PARI, mm), kohteen raon pintaan (KOHDE), ranteen kulman (RANNE), suunnat (SUUNTA) ja painumat (PAINUMA).
 ## Raja 1 cm: yli -> "TESTI VIKA". Vaihe "vanha" (halaus vanhalla tavalla, kiinteät kohteet) todistaa mittarin (MITTARI).
-## aja.sh tscn tools/testit/hahmot_kontakti.tscn [vanha|paini]   (vanha = halaus vanhalla tavalla mittarin alla -> VIKA-rivejä,
-## paini = vain painivaihe)
+## PROFIILI: kämmenkapselit hand_l ja hand_r samat (|ero| < 2 mm), myös hahmolla, jonka ensimmäinen profiili mitataan istuessa (K7).
+## aja.sh --kiintea tscn tools/testit/hahmot_kontakti.tscn [vanha|hali|iskut|paini]   (vanha = halaus vanhalla tavalla mittarin alla
+## -> VIKA-rivejä; hali, iskut, paini = vain se vaihe)
 
 const Pose := preload("res://scripts/pose.gd")
 const Contact := preload("res://scripts/contact.gd")
@@ -31,6 +32,7 @@ var cam: Camera3D
 var me: Node3D
 var sinikka: Node3D
 var juntti: Node3D
+var istuja: Node3D  # ensimmäinen profiilikutsu Sitting_Idle-asennossa (K7); piiloon mittauksen jälkeen
 var prof := {}  # hahmo -> Contact.profile
 var old_way := false  # argumentti vanha: halaus vanhalla tavalla mittarin alla
 var worst := {}  # vaihe -> [a:kapseli, b:kapseli, m]
@@ -67,21 +69,42 @@ func _ready() -> void:
 	var jl: Dictionary = Looks.JUNTTI.duplicate()
 	jl.shirt = Color(0.85, 0.35, 0.2)  # vaalea paita: musta ei näytä vatsan muotoa
 	juntti = Looks.make(self, jl)
+	var il: Dictionary = Looks.player()
+	il.height = 1.83  # oma profile_key: profiilin välimuisti ei saa antaa päähahmon (seisten mitattua) profiilia
+	istuja = Looks.make(self, il)
+	istuja.position = Vector3(-3, 0, -3)
 	for c in [me, sinikka, juntti]:
 		c.restart("Idle", 0.0, 1.0)
+	istuja.restart("Sitting_Idle", 0.0, 1.0)
 	_run.call_deferred()
 
 
 func _run() -> void:
 	for i in 6:  # profiili paistetaan vasta 3 ruutua luonnin jälkeen
 		await get_tree().process_frame
-	for c in [me, sinikka, juntti]:
+	# Istuja on Sitting_Idle-asennossa: lantio selvästi päähahmon lantiota alempana (todiste, että ensikutsu on istuen).
+	print("PROFIILI istuja lantio y %.2f m (seisova %.2f m)" % [istuja.to_global(istuja.bone_position("pelvis")).y, me.to_global(me.bone_position("pelvis")).y])
+	for c in [me, sinikka, juntti, istuja]:
 		prof[c] = Contact.profile(c, Pose.limb_points)
-		print("PROFIILI %s mitattu %s käsi r %.3f pää r %.3f" % [c.profile_key, prof[c].measured,
-			(prof[c].caps["hand_r"] as Array)[2], (prof[c].caps["Head"] as Array)[2]])
+		var hl: Array = prof[c].caps["hand_l"]
+		var hr: Array = prof[c].caps["hand_r"]
+		var d := maxf(absf(float(hl[2]) - float(hr[2])), absf(float(hl[3]) - float(hr[3])))
+		print("PROFIILI %s%s mitattu %s käsi l r %.3f pituus %.3f, käsi r r %.3f pituus %.3f, ero %.1f mm, pää r %.3f" % [c.profile_key,
+			" (istuen)" if c == istuja else "", prof[c].measured, hl[2], hl[3], hr[2], hr[3], d * 1000, (prof[c].caps["Head"] as Array)[2]])
+		if d >= 0.002:
+			_vika("profiili %s vasen ja oikea kämmen eroavat %.1f mm" % [c.profile_key, d * 1000])
+		if c != istuja:
+			_malli_jalka(c)
+	istuja.visible = false
+	istuja.position = Vector3(-30, 0, -30)
 	await _yksin()
-	if "paini" in OS.get_cmdline_user_args():
+	var args := OS.get_cmdline_user_args()
+	if "paini" in args:
 		await _phase("paini", juntti, 4.0, _paini, true)
+	elif "hali" in args:
+		await _phase("hali", sinikka, 4.0, _hali, true)
+	elif "iskut" in args:
+		await _phase("iskut", juntti, ISKU * 3.0, _iskut, false)
 	elif old_way:
 		await _phase("hali", sinikka, 3.0, _vanha_hali, true)
 	else:
@@ -231,15 +254,10 @@ func _approach(other: Node3D, w: float, close: float) -> void:
 	Contact.pair_fit(me, prof[me], other, prof[other], true)
 
 
-## Kämmen pinnalle: kohde = kapselin pinta suuntaan n + kämmenen säde, kämmen sisään (-n), sormet suuntaan fingers.
+## Kämmen pinnalle: kohde = kapselin pinta suuntaan n + kämmenen säde, kämmen sisään (-n), sormet suuntaan fingers; sormet suorina
+## (avoin kämmen). Sama kuin tanssissa (PariOte.hand_to).
 func _hand_to(c: Node3D, lr: String, p: Vector3, n: Vector3, fingers: Vector3, pole: Vector3, w: float) -> void:
-	var s := 1.0 if lr == "_r" else -1.0
-	var sh := c.to_global(c.bone_position("upperarm" + lr))
-	var rest := sh + Vector3(0, -0.55, 0) + _right(c) * s * 0.12
-	var gb := c.global_transform.basis.inverse()
-	var f := (fingers - n * fingers.dot(n)).normalized()
-	c.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, c.to_local(rest.lerp(p, w)), c.to_local(pole))
-	c.set_ik_orient("arm" + lr, Pose.palm_on(gb * f, gb * -n, lr == "_l"), w)
+	Ote.hand_to(c, lr, p, n, fingers, pole, w)
 
 
 func _hali(t: float, other: Node3D) -> String:
@@ -296,13 +314,49 @@ func _paini(t: float, other: Node3D) -> String:
 			var s := 1.0 if lr == "_r" else -1.0
 			var sh2 := other.to_global(other.bone_position("upperarm" + lr))
 			var mlr := "_r" if lr == "_l" else "_l"  # Juntin vasen käsi päähahmon oikeaan kyynärvarteen
-			var p2 := Contact.surface_point(me, prof[me], "lowerarm" + mlr, Vector3.UP, PAINI_KYYNARVARSI)
-			p2 += Vector3.UP * _palm_r("paini", other, lr, Vector3.UP, p2 - sh2)
-			_hand_to(other, lr, p2, Vector3.UP, p2 - sh2, sh2 + ro * s * 0.5 + Vector3(0, -0.2, 0), w)
+			# Kämmenen normaali kallistuu ylhäältä poispäin Juntista (vaakasuunta h olasta p2:ta kohti, kohtisuoraan viejän
+			# kyynärvarteen): ensimmäinen kulma, jolla ranne taittuu enintään 60° (sama kaava kuin PariOte.valssi (1)).
+			# Ranne = käsivarren laskukulma + a, jos n kallistuu Junttia kohti, ja laskukulma - a poispäin, joten poispäin.
+			var p0 := Contact.surface_point(me, prof[me], "lowerarm" + mlr, Vector3.UP, PAINI_KYYNARVARSI)
+			var fa := me.to_global(me.bone_position("hand" + mlr)) - me.to_global(me.bone_position("lowerarm" + mlr))
+			fa = Vector3(fa.x, 0, fa.z).normalized()
+			var h := p0 - sh2
+			h = Vector3(h.x, 0, h.z)
+			h = (h - fa * h.dot(fa)).normalized()
+			var n := Vector3.UP
+			var p2 := p0
+			for a: float in [0.0, deg_to_rad(15.0), deg_to_rad(30.0)]:
+				n = (Vector3.UP * cos(a) + h * sin(a)).normalized()
+				p2 = Contact.surface_point(me, prof[me], "lowerarm" + mlr, n, PAINI_KYYNARVARSI)
+				p2 += n * _palm_r("paini", other, lr, n, p2 - sh2)
+				if rad_to_deg(asin(clampf(absf((p2 - sh2).normalized().dot(n)), 0.0, 1.0))) <= 60.0:
+					break
+			# Ote: sormet jäävät koukkuun kyynärvarren ympärille (open 0); kämmenen kapseli lyhenee sormien mukaan.
+			Ote.hand_to(other, lr, p2, n, p2 - sh2, sh2 + ro * s * 0.5 + Vector3(0, -0.2, 0), w, 0.0)
 		_fit(other, true)
 	if t >= 2.0 and t < 2.0 + DT:
+		_vieras("paini", me, "_r", other)
 		return "ote"
 	return ""
+
+
+## VIERAS: c:n käsivarsiketjun (olka, kyynärvarsi, kämmen; 6 näytettä kuten Contact._fit_chains) syvin kohta toisen
+## hahmon jokaista kapselia vasten. Näyttää, minkä kapselin työntö ketjuun tulee.
+func _vieras(nm: String, c: Node3D, lr: String, o: Node3D) -> void:
+	var oc := Contact.caps_all(o, prof[o])
+	var per := {}
+	for bn: String in ["upperarm" + lr, "lowerarm" + lr, "hand" + lr]:
+		var cw := Contact._cap_world(c, prof[c].caps[bn], bn)
+		for k in 6:
+			var p: Vector3 = (cw[1] as Vector3).lerp(cw[2], k / 5.0)
+			for oc1: Array in oc:
+				var pd := Contact._pt_depth2(p, cw, k / 5.0, oc1)
+				if float(pd[0]) > float((per.get(oc1[0], [-INF]) as Array)[0]):
+					per[oc1[0]] = [float(pd[0]), "%s k%d" % [bn, k]]
+	var ks: Array = per.keys()
+	ks.sort_custom(func(x: String, y: String) -> bool: return per[x][0] > per[y][0])
+	print("VIERAS %s %s arm%s: %s" % [nm, _who(c), lr, ", ".join(ks.slice(0, 5).map(func(k: String) -> String:
+		return "%s:%s %.1f mm (%s)" % [_who(o), k, per[k][0] * 1000, per[k][1]]))])
 
 
 ## Hartian yläpinta (paistettu verkko): olkanivelestä kaulaa kohti osuudella inner, korkeus = verkon yläreuna siinä kohdassa.
@@ -344,6 +398,8 @@ func _iskut(t: float, other: Node3D) -> String:
 	me.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, me.to_local(guard.lerp(p, e)),
 		me.to_local(sh + rm * s * 0.3 + Vector3(0, -0.4, 0)))
 	me.set_ik_orient("arm" + lr, Pose.palm_on(gb * fwd, gb * Vector3.DOWN, lr == "_l"), e)
+	me.set_open_hand(lr, e)  # kämmenisku: sormet suorina, kohde kapselin pituudesta suorilla sormilla
+	me.set_open_hand(lo, 0.0)
 	var sh2 := me.to_global(me.bone_position("upperarm" + lo))
 	me.set_ik("arm" + lo, "upperarm" + lo, "lowerarm" + lo, "hand" + lo, me.to_local(sh2 + Vector3(0, -0.1, 0) + fwd * 0.24 + rm * s * 0.08),
 		me.to_local(sh2 - rm * s * 0.3 + Vector3(0, -0.4, 0)))
@@ -530,12 +586,69 @@ func _malli(nm: String, o: Node3D) -> void:
 	print("MALLI %s %s vatsa: verkon etupinta - kapselin etupinta %.1f mm" % [nm, _who(o), (front - cf) * 1000])
 
 
+## Jalkaterän kapselit (Contact._foot_cap: foot nilkasta päkiään, ball päkiästä varpaankärkeen) vs paistettu verkko: jokaisesta
+## pisteestä etäisyys lähemmän kapselin akseliin - sen säde siihen suuntaan (napataulu). + = verkko kapselin ulkopuolella. Ryhmät:
+## kanta (foot-luun pisteet nilkan takana), keski (muut foot-luun pisteet), varpaat (ball-luun pisteet). Hyvä: p90 ≤ 10 mm.
+## PROFIILI: napataulu olettaa akselin = luun +Y; kulma luun +Y vs (b - a) < 10°.
+func _malli_jalka(c: Node3D) -> void:
+	for lr in ["_l", "_r"]:
+		if not prof[c].caps.has("ball" + lr):
+			print("MALLI jalka %s%s: ei varvaskapselia" % [c.profile_key, lr])
+			continue
+		var cws := []
+		for nm: String in ["foot" + lr, "ball" + lr]:
+			var cw := Contact._cap_world(c, prof[c].caps[nm], nm)
+			cws.append(cw)
+			var by: Vector3 = (c.global_basis * Contact._bone_xf(c, nm).basis).y.normalized()
+			var ang := rad_to_deg(by.angle_to(((cw[2] as Vector3) - cw[1]).normalized()))
+			print("PROFIILI %s %s luun +Y vs akseli %.1f° (raja 10)" % [c.profile_key, nm, ang])
+			if ang >= 10.0:
+				_vika("profiili %s %s: luun +Y ja kapselin akseli %.1f° (napataulu olettaa saman)" % [c.profile_key, nm, ang])
+		var parts := {"kanta": [], "keski": [], "varpaat": []}
+		for bn: String in ["foot" + lr, "ball" + lr]:
+			for q in Pose.limb_points(c, self, [bn], 1):
+				var best := INF
+				var gap := 0.0
+				for cw: Array in cws:
+					var a: Vector3 = cw[1]
+					var b: Vector3 = cw[2]
+					var t := Contact._t_on(q, a, b)
+					var dq: Vector3 = q - a.lerp(b, t)
+					if dq.length() < 0.0001:
+						continue
+					var g := dq.length() - Contact._rad(cw, t, dq.normalized())
+					if dq.length() < best:  # lähempi akseli
+						best = dq.length()
+						gap = g
+				var a0: Vector3 = cws[0][1]
+				var u := (q - a0).dot((cws[0][2] as Vector3) - a0)
+				var grp := "varpaat" if bn.begins_with("ball") else ("kanta" if u < 0.0 else "keski")
+				(parts[grp] as Array).append(gap)
+		var txt := []
+		for k: String in parts:
+			var ds: Array = parts[k]
+			ds.sort()
+			if not ds.is_empty():
+				txt.append("%s (%d) p50 %.1f p90 %.1f max %.1f" % [k, ds.size(), ds[int(ds.size() * 0.5)] * 1000, ds[int(ds.size() * 0.9)] * 1000, ds[ds.size() - 1] * 1000])
+		var fc: Array = prof[c].caps["foot" + lr]
+		var bc: Array = prof[c].caps["ball" + lr]
+		print("MALLI jalka %s%s foot r %.3f, ball r %.3f jatke %.3f, verkko - kapseli mm: %s" % [c.profile_key, lr, fc[2], bc[2], -float(bc[3]), ", ".join(txt)])
+
+
 ## Vartalokapselien selkäpinta vs paistettu verkko: kapseleilla pelvis ja spine_01-03 asemilla t = 0,2 / 0,5 / 0,8 ja suunnilla
 ## selästä (+Z = selkä, -Z = etu) kylkiin 0, ±30, ±60, ±90 astetta: kapselin pinta (Contact.surface_point, muototaulu) - uloin verkon
 ## piste samalla säteellä (pisteet alle 15 mm säteestä). Positiivinen = kapseli verkon ulkopuolella (käsi jäisi ilmaan). Profiili
 ## mitataan eri asennossa kuin mittaus (vartalon taivutus, lapaluut), joten kyljissä ero on suurempi kuin selässä.
+## Lisäksi: pahin kohta (t, kulma), sama ero verkon kolmion osumasta (kolmio; pinta kärkien välissä) ja kulmittain 0/±15/±30°.
+## Taulun sektorien keskisuunnat ovat selästä ±15°, ±45° (selkä = sektorien raja): 0° on selkärangan uurre, jonka taulu siltaa
+## (kämmen lepää lihasten päällä), joten 0°:n ero on uurteen syvyys (lepoasennossa 9-26 mm), ±15° on taulun oma tarkkuus.
 func _malli_selka(nm: String, o: Node3D) -> void:
-	var pts := Pose.limb_points(o, self, ["pelvis", "spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r"], 1)
+	var tris := []
+	# Painumaton iho: kapseli kuvaa vartaloa ilman painumaa (käsi painaa verkkoa kapselin pinnalle asti, PAINUMA erikseen).
+	var saved: Array = o.press_boxes
+	o.press_boxes = []
+	var pts := Pose.limb_points(o, self, ["pelvis", "spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r"], 1, null, tris)
+	o.press_boxes = saved
 	if pts.is_empty():
 		return
 	var bk := Ote.back(o)
@@ -548,9 +661,12 @@ func _malli_selka(nm: String, o: Node3D) -> void:
 		var mx := -INF
 		var mn := INF
 		var mb := -INF  # selkä 0...±30°
+		var worst := ""  # pahin selkäkohta (t, kulma)
+		var mt := -INF  # selkä ±30°: kapseli - verkon kolmion osuma samalla säteellä (pinta kärkien välissä; harva verkko)
+		var mtd := {0.0: -INF, 15.0: -INF, 30.0: -INF}  # kolmio-ero kulmittain (selkärangan uurre 0°, lihakset ±15...30°)
 		for t: float in [0.2, 0.5, 0.8]:
 			var c: Vector3 = (cw[1] as Vector3).lerp(cw[2], t)
-			for deg: float in [0.0, 30.0, -30.0, 60.0, -60.0, 90.0, -90.0]:
+			for deg: float in [0.0, 15.0, -15.0, 30.0, -30.0, 60.0, -60.0, 90.0, -90.0]:
 				var dir := bk * cos(deg_to_rad(deg)) + rt * sin(deg_to_rad(deg))
 				var d := (dir - ax * dir.dot(ax)).normalized()
 				var sp := Contact.surface_point(o, prof[o], cn, dir, t)
@@ -562,15 +678,31 @@ func _malli_selka(nm: String, o: Node3D) -> void:
 				if far == -INF:
 					continue
 				var e := (sp - c).dot(d) - far
-				sum += e
-				cnt += 1
-				mx = maxf(mx, e)
-				mn = minf(mn, e)
+				if absf(deg) != 15.0:  # ±15° vain kolmio-erittelyyn (vanhat luvut ennallaan)
+					sum += e
+					cnt += 1
+					mx = maxf(mx, e)
+					mn = minf(mn, e)
+				if absf(deg) != 15.0 and absf(deg) <= 30.0 and e > mb:
+					mb = e
+					worst = "t %.1f %+.0f°" % [t, deg]
 				if absf(deg) <= 30.0:
-					mb = maxf(mb, e)
+					var hit := -INF
+					for i in range(0, tris.size(), 3):
+						var h: Variant = Geometry3D.segment_intersects_triangle(c, c + d * 0.4, pts[tris[i]], pts[tris[i + 1]], pts[tris[i + 2]])
+						if h != null:
+							hit = maxf(hit, ((h as Vector3) - c).dot(d))
+					if hit > -INF:
+						mtd[absf(deg)] = maxf(mtd[absf(deg)], (sp - c).dot(d) - hit)
+						if absf(deg) != 15.0:
+							mt = maxf(mt, (sp - c).dot(d) - hit)
 		if cnt > 0:
-			print("MALLI %s %s selka %s: kapseli - verkko ka %.1f max %.1f min %.1f mm (selkä ±30° max %.1f)" % [nm, _who(o), cn,
-				sum / cnt * 1000, mx * 1000, mn * 1000, mb * 1000])
+			var bax: Vector3 = Contact._bone_xf(o, cn).basis.y.normalized()
+			print("MALLI %s %s selka %s: kapseli - verkko ka %.1f max %.1f min %.1f mm (selkä ±30° max %.1f, %s; kolmio max %.1f; luu Y vs akseli %.0f°)" % [nm, _who(o), cn,
+				sum / cnt * 1000, mx * 1000, mn * 1000, mb * 1000, worst, mt * 1000, rad_to_deg(bax.angle_to(o.global_basis.inverse() * ax))])
+			var bl: Vector3 = (o.global_basis * Contact._bone_xf(o, cn).basis).orthonormalized().inverse() * bk
+			print("MALLI %s %s selka %s kolmio kulmittain: 0° %.1f, ±15° %.1f, ±30° %.1f mm; selkä luun x-z-tasossa %.0f°" % [nm, _who(o), cn,
+				mtd[0.0] * 1000, mtd[15.0] * 1000, mtd[30.0] * 1000, rad_to_deg(atan2(bl.z, bl.x))])
 
 
 ## Painuma luuttain pinnan normaalia pitkin (Elastic.press ilman leviämistä): luiset (raja 0: pää, kylkiluut) 0, pehmeät enintään 5 cm.

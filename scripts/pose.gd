@@ -32,7 +32,9 @@ static func palm_down(fingers: Vector3, left: bool) -> Basis:
 ## sovitetaan näkyvään pintaan eikä luuhun kiinteällä välillä (tuulipuku on paksumpi kuin farkut).
 ## meshes: 0 = vartalo ja hiukset, 1 = vain vartalo (ja vaatteet), 2 = vain hiukset (painuvat kuten varjostimessa).
 ## Ilman näyttöä (headless) verkkoa ei paisteta: palauttaa tyhjän, ja kutsuja käyttää varalla luuta.
-static func limb_points(ch: Node3D, space: Node3D, bones: Array, meshes := 0) -> PackedVector3Array:
+## weights (valinnainen, Array-viite): jokaista palautettua pistettä kohden {luun nimi: paino} (Contact: elävä napataulu).
+## tris (valinnainen): kolmiot palautettujen pisteiden indekseinä (3 per kolmio), vain kolmiot, joiden kaikki kärjet ovat mukana.
+static func limb_points(ch: Node3D, space: Node3D, bones: Array, meshes := 0, weights: Variant = null, tris: Variant = null) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	if DisplayServer.get_name() == "headless":
 		return out
@@ -59,17 +61,23 @@ static func limb_points(ch: Node3D, space: Node3D, bones: Array, meshes := 0) ->
 		var per: int = src.per
 		var sk: Skin = (mi as MeshInstance3D).skin
 		var want := {}
+		var bnames := {}  # bind -> luun nimi (weights)
 		for bind in sk.get_bind_count():
 			var nm := str(sk.get_bind_name(bind))
 			var bn: int = sk.get_bind_bone(bind) if nm == "" else skel.find_bone(nm)
 			if nm == "":
 				nm = skel.get_bone_name(bn)
+			bnames[bind] = nm
 			if nm in bones and bn >= 0:
 				want[bind] = skel.get_bone_global_pose(bn) * sk.get_bind_pose(bind)
 		# Ihon pinta lasketaan itse luiden nykyasennosta (ei bake_mesh: se päivittyy vasta seuraavassa ruudussa).
 		var xf: Transform3D = skel.global_transform
 		var tb: Transform3D = (mi as MeshInstance3D).global_transform.affine_inverse() * xf  # skeleton -> mesh-avaruus
 		var tb_inv := tb.affine_inverse()
+		var vmap := PackedInt32Array()  # verkon kärki -> palautetun pisteen indeksi (-1 = ei mukana; tris)
+		if tris != null:
+			vmap.resize(rv.size())
+			vmap.fill(-1)
 		for v in rv.size():
 			var best := 0
 			for k in per:
@@ -96,7 +104,27 @@ static func limb_points(ch: Node3D, space: Node3D, bones: Array, meshes := 0) ->
 					vp = tb_inv * Elastic.press(tb * vp, tb.basis * np, c0[v * 4 + 3], ch.press_boxes, Elastic.SPREAD, Elastic.HALO, 1.0, tb * hair_org)
 				else:
 					vp = tb_inv * Elastic.press(tb * vp, tb.basis * np, c0[v * 4 + 3] + pf, ch.press_boxes)  # mesh-avaruudessa
+			if tris != null:
+				vmap[v] = out.size()
+			if weights != null:
+				var wd := {}
+				for k in per:
+					var wk: float = bw[v * per + k]
+					if wk > 0.0:
+						var bn: String = bnames.get(bi[v * per + k], "")
+						wd[bn] = float(wd.get(bn, 0.0)) + wk
+				(weights as Array).append(wd)
 			out.append(space.to_local(xf * vp))
+		if tris != null:
+			var ix: PackedInt32Array = src.get("ix", PackedInt32Array())
+			if ix.is_empty():  # indeksoimaton verkko: kärjet kolmioittain
+				ix = PackedInt32Array(range(rv.size()))
+			for i in range(0, ix.size() - 2, 3):
+				var i0 := vmap[ix[i]]
+				var i1 := vmap[ix[i + 1]]
+				var i2 := vmap[ix[i + 2]]
+				if i0 >= 0 and i1 >= 0 and i2 >= 0:
+					(tris as Array).append_array([i0, i1, i2])
 	return out
 
 
@@ -115,7 +143,8 @@ static func _src_arrays(mi: MeshInstance3D) -> Dictionary:
 	if not vs.is_empty() and not bi.is_empty() and bi.size() % vs.size() == 0:
 		out = {"vs": vs, "ns": a[Mesh.ARRAY_NORMAL], "bi": bi, "bw": a[Mesh.ARRAY_WEIGHTS], "per": bi.size() / vs.size(),
 			"cs": a[Mesh.ARRAY_COLOR] if a[Mesh.ARRAY_COLOR] != null else PackedColorArray(),
-			"c0": a[Mesh.ARRAY_CUSTOM0] if a[Mesh.ARRAY_CUSTOM0] != null else PackedFloat32Array()}
+			"c0": a[Mesh.ARRAY_CUSTOM0] if a[Mesh.ARRAY_CUSTOM0] != null else PackedFloat32Array(),
+			"ix": a[Mesh.ARRAY_INDEX] if a[Mesh.ARRAY_INDEX] != null else PackedInt32Array()}
 	_src_cache[key] = out
 	return out
 

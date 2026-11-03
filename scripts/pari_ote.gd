@@ -190,7 +190,7 @@ static func valssi(lead: Node3D, pl: Dictionary, fol: Node3D, pf: Dictionary, sp
 			lift = score
 	var el := lead.to_global(lead.bone_position("lowerarm" + lb))
 	var pole := el + Vector3.UP * (float((pl.caps["upperarm" + lb] as Array)[2]) + float((pf.caps["lowerarm" + fa] as Array)[2]) + 0.05)
-	hand_to(fol, fa, best, on, best - fsh, pole, w)
+	hand_to(fol, fa, best, on, best - fsh, pole, w, 1.0, true)
 
 
 ## Käsivarren pituus olkanivelestä ranteeseen (IK:n suurin ulottuma).
@@ -215,15 +215,30 @@ static func palm_r(c: Node3D, prof: Dictionary, lr: String, n: Vector3, fingers:
 
 
 ## Kämmen pinnalle: kohde = kapselin pinta suuntaan n + kämmenen säde, kämmen sisään (-n), sormet suuntaan fingers.
-## w 0 = käsi alhaalla, 1 = kohteessa.
-static func hand_to(c: Node3D, lr: String, p: Vector3, n: Vector3, fingers: Vector3, pole: Vector3, w: float) -> void:
+## w 0 = käsi alhaalla, 1 = kohteessa. Sormet suoristuvat painolla w * open (avoin kämmen, Character.set_open_hand; kämmenen
+## kapseli on mitattu suorilla sormilla). open = 0: otteessa (esim. kyynärvarresta) sormet jäävät animaation koukkuun.
+## from_out: nousu pinnan ulkopuolelta (pinnalle ylhäältä laskeva käsi, valssin olkakäsi). Ei käsille, jotka kiertävät vartalon
+## taakse (halaus, selkäkäsi): niillä n osoittaa selästä poispäin, ja siirto veisi reitin kyljen läpi.
+static func hand_to(c: Node3D, lr: String, p: Vector3, n: Vector3, fingers: Vector3, pole: Vector3, w: float, open := 1.0, from_out := false) -> void:
 	var s := 1.0 if lr == "_r" else -1.0
 	var sh := c.to_global(c.bone_position("upperarm" + lr))
 	var rest := sh + Vector3(0, -0.55, 0) + right(c) * s * 0.12
 	var gb := c.global_transform.basis.inverse()
 	var f := (fingers - n * fingers.dot(n)).normalized()
-	c.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, c.to_local(rest.lerp(p, w)), c.to_local(pole))
+	var tgt := rest.lerp(p, w)
+	if from_out:
+		# Suora linja levosta kohteeseen kulkisi pinnan alta (olkakäsi viejän olkavarren läpi). Kun w >= 0,5, kohde on normaalin
+		# n suunnassa p:n tasolla; w = 0 lepo, w = 1 p (h = kohteen korkeus levosta n:n suuntaan).
+		var h := maxf(0.0, (p - rest).dot(n))
+		tgt += n * h * (1.0 - w) * smoothstep(0.0, 0.5, w)
+	c.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, c.to_local(tgt), c.to_local(pole))
 	c.set_ik_orient("arm" + lr, Pose.palm_on(gb * f, gb * -n, lr == "_l"), w)
+	c.set_open_hand(lr, w * open)
+	# Tarkoituksellinen kosketus (CLAUDE.md): Asento.solids ei laske tämän kämmenen ja sormien osumaa toisen pintaan läpimenoksi.
+	# Kämmenen syvyys mitataan erikseen (testien KOHDE-rivi). Character.clear_ik poistaa merkinnän.
+	var marks: Dictionary = c.get_meta("kosketus_luut", {})
+	marks["hand" + lr] = "PariOte.hand_to: kämmen tarkoituksella toisen pinnalla"
+	c.set_meta("kosketus_luut", marks)
 
 
 ## Hartian yläpinta (paistettu verkko): olkanivelestä kaulaa kohti osuudella inner, korkeus = verkon yläreuna siinä kohdassa.
