@@ -47,6 +47,12 @@ Säännöt:
   (esim. `dialogue_box.gd`, `main.gd`:n yleiset apurit), kirjaa se palautukseen ja `03-toteutus-<osa>.md`:hen riville "yhteinen tiedosto"
   ja pyydä sekstaajalta regressiotarkistus (vertailukuva ennen/jälkeen muuttumattomasta tapauksesta). Pidä muutos mahdollisimman
   rajattuna: vanha käytös säilyy, ellei uusi ehto laukea.
+- **Kääntö ennen ajoa.** Jos olet muuttanut .gd-tiedostoa, aja `tools/testit/aja.sh kaantyy` ennen jokaista scene- tai
+  tscn-ajoa. Testiskriptin jäsennysvirhe ei näy kääntötarkistuksessa, joten lue myös `aja.sh`:n tulosrivi (skriptivirheitä).
+  (#sinikan-ovilappu: kaksi ajoa, 20 min, kaatui samaan jäsennysvirheeseen.)
+- **Pelimaailman testikohtaus eristää häiriöt heti alussa.** Päivin kiinnijäänti (`wife.spotted`/`caught`), aamun ja kellon
+  välikohtaukset ja päivän vaihto pois yhdellä apufunktiolla ennen ensimmäistä tarkistusta, ei vikojen ilmaantuessa.
+  Kolme ajoa samalla vikamäärällä = lopeta ja kirjaa, mikä häiritsee.
 - Älä committaa, älä pushaa, älä tapa Godotia (aja.sh lopettaa jumiutuneen ajon itse).
 - Jos suunnitelma osoittautuu mahdottomaksi, älä improvisoi isoa poikkeamaa: kirjaa syy ja palauta.
 
