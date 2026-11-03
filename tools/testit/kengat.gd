@@ -121,6 +121,15 @@ func _views(nm: String, ch: Node3D) -> void:
 	g = _foot_near(ch, rt)
 	await _shot(nm + "_ylhaalta", g + Vector3(0, 0.75, 0) + fw * 0.4, g)
 	await _shot(nm + "_takaa", f - fw * 1.1 + Vector3(0, 0.35, 0), f)
+	if nm == "lenkkari_m":  # osat erivärisinä: pohja magenta, päällinen syaani (saumat ja läpimenot näkyvät)
+		var sm: ShaderMaterial = ch.shoe_mi.material_override
+		var keep: Color = sm.get_shader_parameter("sole_col")
+		sm.set_shader_parameter("sole_col", Color(1, 0, 1))
+		sm.set_shader_parameter("main_col", Color(0, 0.9, 0.9))
+		g = _foot_near(ch, rt)
+		await _shot(nm + "_osat", g + rt * 0.75 + Vector3(0, 0.1, 0), g)
+		sm.set_shader_parameter("sole_col", keep)
+		sm.set_shader_parameter("main_col", Color(0.92, 0.92, 0.9))
 	g = _foot_near(ch, fw + rt)
 	await _shot(nm + "_kolmeneljannes", g + (fw + rt).normalized() * 0.75 + Vector3(0, 0.35, 0), g)
 
@@ -140,10 +149,18 @@ func _walk(ch: Node3D, nm: String) -> void:
 
 ## Varpaillaan: kantapää ylös (nilkka), päkiä taipuu takaisin vaakaan.
 func _tiptoe(ch: Node3D, nm: String) -> void:
-	ch.set_override("foot_l", Vector3.RIGHT, 0.6)
-	ch.set_override("foot_r", Vector3.RIGHT, 0.6)
-	ch.set_override("ball_l", Vector3.RIGHT, -0.6)
-	ch.set_override("ball_r", Vector3.RIGHT, -0.6)
+	ch.set_override("foot_l", Vector3.RIGHT, -0.6)
+	ch.set_override("foot_r", Vector3.RIGHT, -0.6)
+	ch.set_override("ball_l", Vector3.RIGHT, 0.6)
+	ch.set_override("ball_r", Vector3.RIGHT, 0.6)
+	for k in 3:
+		await get_tree().process_frame
+	# Hahmo nousee varpailleen: alin kohta lattiaan.
+	var lo := INF
+	for q in Pose.limb_points(ch, self, ["foot_l", "ball_l", "foot_r", "ball_r"]):
+		lo = minf(lo, q.y)
+	if lo < INF:
+		ch.position.y -= lo
 	for k in 3:
 		await get_tree().process_frame
 	var f := _foot_near(ch, ch.global_basis.x)
@@ -152,6 +169,7 @@ func _tiptoe(ch: Node3D, nm: String) -> void:
 	await _shot(nm + "_varpaat_edesta", f - ch.global_basis.z * 1.1 + Vector3(0, 0.3, 0), f)
 	_lowest(ch, nm + " varpaat")
 	ch.clear_overrides()
+	ch.position.y = 0.0
 
 
 func _lowest(ch: Node3D, tag: String) -> void:

@@ -320,6 +320,9 @@ void fragment() {
 	vec4 t = texture(albedo_tex, UV);
 	float lum = dot(t.rgb, vec3(0.299, 0.587, 0.114));
 	float c = floor(cat + 0.5);
+	if (shoe_on && c > 2.5) {
+		c = 2.0;  // kengän suusta nilkassa pilkistävä jalkaterä on lahjetta (shortseilla paljasta ihoa, bare)
+	}
 	vec3 n = texture(normal_tex, UV).rgb;
 	bool net_hole = net_shirt && c > 0.5 && c < 1.5 && net_thread(rest, lpos) < 0.5
 		&& !(suspenders && abs(abs(rest.x) - 0.1) < 0.014 && rest.y > 0.98 && rest.y < 1.52);

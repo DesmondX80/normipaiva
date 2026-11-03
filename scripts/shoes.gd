@@ -163,7 +163,9 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			var sc := cos(phi)
 			var ring := PackedVector2Array()
 			for r: Vector2 in e[2]:
-				ring.append(e[1] + (r - e[1]) * sc)  # alapinta kaartuu ylös kärkeä kohti
+				var q: Vector2 = e[1] + (r - e[1]) * sc
+				q.y = lerpf(q.y, r.y, clampf(1.0 - (r.y - y_welt) / 0.01, 0.0, 1.0))  # alapinta pysyy pohjan päällä
+				ring.append(q)
 			dome.append([float(e[0]) + dir * ext * sin(phi), e[1], ring, sc])
 		if end == 0:
 			full.append_array(dome)
@@ -241,18 +243,24 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		var mid := (lo + hi) / 2.0
 		var hw := (hi - lo) / 2.0 + flare * (float(r[3]) if r.size() > 3 else 1.0)
 		var bv := 0.004
-		# Päissä kuoren alapinta kaartuu ylös: pohja nousee mukana (kärjen nousu), muuten pinnat leikkaavat lähes
-		# samansuuntaisina ja sauma rispaantuu.
-		var low := INF
-		for q: Vector2 in r[2]:
-			low = minf(low, q.y)
-		var rise := maxf(low - y_welt, 0.0)
-		var yt := low + 0.0015  # kuoren alapinnan tasalle (pieni limitys): ei lähes samansuuntaista leikkausta
-		var yb := y_bot + rise * 0.7
+		var yt := y_welt + 0.0015  # kuoren tasaisen alapinnan tasalle (pieni limitys), myös päissä
+		var yb := y_bot
 		var pr := PackedVector2Array([Vector2(mid + hw - flare * 0.5, yt), Vector2(mid + hw, yt - bv),
 			Vector2(mid + hw, yb + bv), Vector2(mid + hw - bv, yb), Vector2(mid - hw + bv, yb),
 			Vector2(mid - hw, yb + bv), Vector2(mid - hw, yt - bv), Vector2(mid - hw + flare * 0.5, yt)])
 		prof.append([base[0], Vector2(mid, (yt + yb) / 2.0), pr])
+	# Pohja jatkuu kuoren kärjen ja kannan alle (kuoren pää on viimeisen renkaan edessä), kapenevana.
+	for end in [0, 1]:
+		var e: Array = prof[0] if end == 0 else prof[prof.size() - 1]
+		var mid: float = e[1].x
+		var pr := PackedVector2Array()
+		for q: Vector2 in e[2]:
+			pr.append(Vector2(mid + (q.x - mid) * 0.55, q.y))
+		var row := [(t0 - flare * 0.5) if end == 0 else (t1 + flare * 0.5), e[1], pr]
+		if end == 0:
+			prof.push_front(row)
+		else:
+			prof.append(row)
 	var np := 8
 	for i in prof.size() - 1:
 		var ca: Vector2 = prof[i][1]
