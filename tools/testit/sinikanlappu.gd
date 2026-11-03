@@ -430,6 +430,11 @@ func run() -> void:
 	main.clock_min = 9.0 * 60.0
 	await _frames(3)
 	_view(Vector3(0.3, 1.6, -4.0), Vector3(0, 0.9, -0.4), 50.0)
+	for mi in main.find_children("*", "MeshInstance3D", true, false):  # DEBUG_PROBE
+		var gb: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()  # DEBUG_PROBE
+		var pc := root.global_transform.affine_inverse() * gb.get_center()  # DEBUG_PROBE
+		if (mi as MeshInstance3D).is_visible_in_tree() and pc.z < -0.9 and pc.z > -4.5 and absf(pc.x) < 3.0 and gb.size.length() < 30.0:  # DEBUG_PROBE
+			print("PROBE %s lc=%s size=%s" % [main.get_path_to(mi), pc.snappedf(0.1), gb.size.snappedf(0.1)])  # DEBUG_PROBE
 	await _snap("_kuisti_edesta")
 	_view(Vector3(3.2, 1.4, -1.6), Vector3(0, 0.7, -0.5), 50.0)
 	await _snap("_kuisti_sivusta")

@@ -26,13 +26,19 @@ const FONT_MIN := 20
 const BASKET_AT := Vector3(0.55, 0.0, -0.50)  # korin pohjan keskikohta (y = step_top)
 const PIE_AT := Vector3(-0.55, 0.0, -0.50)
 ## Pajukori (esikuva Prisma House -pajukori 33 × 28 × 35 cm, korkea kahva): pitkä sivu X, kahva päädystä päätyyn.
+## Runko on pyöristetty suorakaide (superellipsi), joka kapenee reunasta pohjaan.
 const BASKET := Vector3(0.33, 0.19, 0.28)  # runko: leveys, seinän korkeus reunarullan keskelle, syvyys
+const BASKET_BASE := Vector2(0.25, 0.20)  # pohjan leveys ja syvyys seinän keskilinjalla
+const BASKET_ROUND := 4.0  # superellipsin eksponentti: 2 = ellipsi, suurempi = kulmikkaampi
 const BASKET_HANDLE := 0.35  # kahvan laki pohjasta
 const BASKET_FLOOR := 0.015
-const BASKET_WALL := 0.01  # punosrivin paksuus
-const BASKET_WEAVE := 0.003  # punos vuorotellen sisään ja ulos
+const BASKET_STAKES := 24  # pystykepit; parillinen, jotta punos sulkeutuu kierroksen jälkeen
+const BASKET_STAKE_R := 0.0035
+const BASKET_STRAND := 0.0028  # punosnauhan puolipaksuus seinän normaalin suuntaan
+const BASKET_WEAVE := BASKET_STAKE_R + BASKET_STRAND  # nauha kiertää kepin edestä ja takaa: ±6,3 mm
+const BASKET_LINER := BASKET_WEAVE + BASKET_STRAND + 0.001  # varjoseinä punoksen takana (sisään seinälinjasta)
 const BASKET_RIM := 0.011  # reunarullan säde
-const BASKET_ROWS := 6
+const BASKET_ROWS := 10
 const WILLOW := Color(0.74, 0.57, 0.33)
 const WILLOW_DARK := Color(0.6, 0.43, 0.24)
 const WILLOW_LINER := Color(0.36, 0.25, 0.14)  # punoksen takana näkyvä varjo
@@ -134,95 +140,270 @@ static func _build_lappu(m: Dictionary) -> Node3D:
 	return lappu
 
 
-## Pajukori: pohja, pystykepit, kuusi vaakapunosriviä (vuorotellen sisään ja ulos, kaksi sävyä, alarivit tummempia),
-## reunarulla ja kaareva kahva päädystä päätyyn. Origo pohjan alapinnan keskellä.
+## Pajukori: pohja jalkarenkaineen ja punottuine renkaineen, 24 pystykeppiä, kymmenen punosnauhaa, jotka kiertävät
+## keppejä vuorotellen edestä ja takaa (joka toinen rivi päinvastoin), kierretty reunarulla ja kaareva kahva päädystä
+## päätyyn kääreineen. Yksi verkko pistevärein: nauhan yläpinta vaaleampi, alapinta tummempi, alarivit tummempia.
+## Origo pohjan alapinnan keskellä.
 static func _build_basket() -> Node3D:
 	var kori := Node3D.new()
 	kori.name = "Kori"
-	var p := Makasiini.Parts.new()
-	var hx := BASKET.x / 2.0 - BASKET_WALL / 2.0  # seinän keskilinja
-	var hz := BASKET.z / 2.0 - BASKET_WALL / 2.0
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var top := BASKET.y
-	p.box(Vector3(BASKET.x - 0.004, BASKET_FLOOR, BASKET.z - 0.004), Vector3(0, BASKET_FLOOR / 2.0, 0), WILLOW_DARK)
-	for k in 5:  # pohjan punos näkyy sisältä vaaleina juovina
-		var z := -hz + 0.03 + k * (2.0 * hz - 0.06) / 4.0
-		p.box(Vector3(2.0 * hx - 0.02, 0.002, 0.012), Vector3(0, BASKET_FLOOR + 0.001, z), WILLOW)
-	# Varjoseinä punoksen takana: punosrivien välistä ei näe läpi.
-	var lin := BASKET_WALL + 0.004
-	var lh := top - BASKET_FLOOR
-	for sz in [-1.0, 1.0]:
-		p.box(Vector3(2.0 * (hx - lin / 2.0), lh, 0.004), Vector3(0, BASKET_FLOOR + lh / 2.0, sz * (hz - lin / 2.0)), WILLOW_LINER)
-	for sx in [-1.0, 1.0]:
-		p.box(Vector3(0.004, lh, 2.0 * (hz - lin / 2.0)), Vector3(sx * (hx - lin / 2.0), BASKET_FLOOR + lh / 2.0, 0), WILLOW_LINER)
-	# Pystykepit: kulmat ja välit, pitkällä sivulla 5, lyhyellä 4 (kulmat mukaan lukien), yhteensä 14.
-	var xs: Array[float] = []
-	var zs: Array[float] = []
-	for i in 5:
-		xs.append(-hx + i * 2.0 * hx / 4.0)
-	for i in 4:
-		zs.append(-hz + i * 2.0 * hz / 3.0)
-	var stakes: Array[Vector2] = []
-	for x in xs:
-		stakes.append(Vector2(x, -hz))
-		stakes.append(Vector2(x, hz))
-	for i in range(1, 3):
-		stakes.append(Vector2(-hx, zs[i]))
-		stakes.append(Vector2(hx, zs[i]))
-	for s in stakes:
-		p.cyl(0.006, top - BASKET_FLOOR, Vector3(s.x, BASKET_FLOOR + (top - BASKET_FLOOR) / 2.0, s.y), WILLOW_DARK)
-	# Vaakapunos: rivi kulkee vuorotellen kepin edestä ja takaa (sisään/ulos), joka toinen rivi aloittaa toisin päin.
-	var rh := (top - BASKET_FLOOR) / BASKET_ROWS
+	var ring := 96
+	# Pohjalevy ja varjoseinä punoksen takana (kumpaankin suuntaan näkyvä), ettei punosrivien välistä näe läpi.
+	_disc(st, BASKET_FLOOR, -BASKET_LINER, Vector3.UP, WILLOW_DARK, ring)
+	_disc(st, 0.0, 0.0, Vector3.DOWN, WILLOW_DARK, ring)
+	for side in [-1.0, 1.0]:
+		_band(st, BASKET_FLOOR, top, -BASKET_LINER, side, WILLOW_LINER, ring)
+	# Pohjan punos ylhäältä: sisäkkäiset nauharenkaat. Jalkarengas pohjan ulkoreunalla (alapinta y = 0).
+	for k in 3:
+		var f := 0.3 + 0.25 * k
+		var pts: Array[Vector3] = []
+		var outs: Array[Vector3] = []
+		for i in ring:
+			var w := _wall(float(i) / ring, BASKET_FLOOR, -BASKET_LINER)
+			pts.append(Vector3(w.x * f, BASKET_FLOOR + 0.001, w.z * f))
+			outs.append(Vector3.UP)
+		_tube(st, pts, outs, 0.002, 0.005, WILLOW, true)
+	var foot_r := 0.0075
+	_tube_ring(st, foot_r, foot_r * 0.4, foot_r, WILLOW_DARK, ring)
+	# Pystykepit seinälinjalla pohjasta reunarullaan.
+	for k in BASKET_STAKES:
+		var s := float(k) / BASKET_STAKES
+		var pts: Array[Vector3] = [_wall(s, foot_r, 0.0), _wall(s, top, 0.0)]
+		var o := _wall_out(s, top)
+		_tube(st, pts, [o, o] as Array[Vector3], BASKET_STAKE_R, BASKET_STAKE_R, WILLOW_DARK, false, 6)
+	# Punosnauhat: rivin r siirtymä seinän normaalin suuntaan cos(π N s + π r) * BASKET_WEAVE, eli kepin k kohdalla
+	# vuorotellen +WEAVE (kepin edessä) ja -WEAVE (takana).
+	var rh := (top - BASKET_RIM - BASKET_FLOOR) / BASKET_ROWS
+	var tones: Array[Color] = [WILLOW, WILLOW_DARK.lerp(WILLOW, 0.4), WILLOW.lerp(Color(0.8, 0.66, 0.42), 0.5)]
+	var samples := BASKET_STAKES * 8
 	for r in BASKET_ROWS:
 		var y := BASKET_FLOOR + (r + 0.5) * rh
-		var shade := lerpf(0.82, 1.06, float(r) / (BASKET_ROWS - 1))  # tumma alareuna, vaalea yläreuna
-		var col: Color = (WILLOW if r % 2 == 0 else WILLOW_DARK) * shade
+		var shade := lerpf(0.84, 1.06, float(r) / (BASKET_ROWS - 1))  # tumma alareuna, vaalea yläreuna
+		var col: Color = tones[r % 3] * shade
 		col.a = 1.0
-		for side in 4:
-			var along: Array[float] = xs if side < 2 else zs
-			var fixed: float = (hz if side < 2 else hx) * (1.0 if side % 2 == 0 else -1.0)
-			for i in along.size() - 1:
-				var a := along[i]
-				var b := along[i + 1]
-				var out := BASKET_WEAVE * (1.0 if (r + i) % 2 == 0 else -1.0)
-				var len := b - a + 0.004
-				var mid := (a + b) / 2.0
-				var size := Vector3(len, rh - 0.003, BASKET_WALL) if side < 2 else Vector3(BASKET_WALL, rh - 0.003, len)
-				var pos := Vector3(mid, y, fixed + signf(fixed) * out) if side < 2 else Vector3(fixed + signf(fixed) * out, y, mid)
-				p.box(size, pos, col)
-	# Reunarulla: vaakalieriöt sivuilla ja pallot kulmissa.
-	var rim_col := WILLOW * 1.12
+		var pts: Array[Vector3] = []
+		var outs: Array[Vector3] = []
+		for i in samples:
+			var s := float(i) / samples
+			var off := cos(PI * BASKET_STAKES * s + PI * r) * BASKET_WEAVE
+			pts.append(_wall(s, y, off))
+			outs.append(_wall_out(s, y))
+		_tube(st, pts, outs, BASKET_STRAND, rh * 0.47, col, true)
+	# Reunarulla ja sen ympäri kiertyvät kaksi pajua.
+	var rim_col := WILLOW * 1.1
 	rim_col.a = 1.0
-	for sz in [-1.0, 1.0]:
-		p.cyl(BASKET_RIM, 2.0 * hx, Vector3(0, top, sz * hz), rim_col, Basis(Vector3(0, 0, 1), PI / 2.0))
-	for sx in [-1.0, 1.0]:
-		p.cyl(BASKET_RIM, 2.0 * hz, Vector3(sx * hx, top, 0), rim_col, Basis(Vector3(1, 0, 0), PI / 2.0))
-		for sz in [-1.0, 1.0]:
-			p.ball(BASKET_RIM, Vector3(sx * hx, top, sz * hz), rim_col)
-	# Kahva: kaari päädystä päätyyn (XY-taso) lyhyistä lieriöistä yhdestä kaarifunktiosta, kääre kahdella sävyllä;
-	# päissä pystyosa, joka laskeutuu päätyseinän punokseen.
-	var arc := func(t: float) -> Vector3:
-		var a := PI * t
-		return Vector3(-cos(a) * hx, top + sin(a) * (BASKET_HANDLE - 0.01 - top), 0)
-	var segs := 14
-	var hr := 0.009
-	for k in segs:
-		var p0: Vector3 = arc.call(float(k) / segs)
-		var p1: Vector3 = arc.call(float(k + 1) / segs)
-		var d := p1 - p0
-		var bas := Basis(Vector3(0, 0, 1), atan2(d.y, d.x) - PI / 2.0)
-		p.cyl(hr, d.length() + 0.002, (p0 + p1) / 2.0, WILLOW if k % 2 == 0 else WILLOW_DARK, bas)
-		if k > 0:
-			p.ball(hr, p0, WILLOW)
-	for sx in [-1.0, 1.0]:
-		p.cyl(hr, 0.07, Vector3(sx * hx, top - 0.035, 0), WILLOW_DARK)
-	p.commit(kori)
+	_tube_ring(st, top, 0.0, BASKET_RIM, rim_col, samples)
+	var rim_pts: Array[Vector3] = []
+	var rim_outs: Array[Vector3] = []
+	for i in samples + 1:
+		var s := float(i) / samples
+		rim_pts.append(_wall(s, top, 0.0))
+		rim_outs.append(_wall_out(s, top))
+	_wrap(st, rim_pts, rim_outs, BASKET_RIM, 0.0035, 0.03, WILLOW, true)
+	# Kahva: jalat päätyjen keppien (s = 0 ja 0,5) kohdalla seinässä, kaari XY-tasossa yhdestä kaarifunktiosta,
+	# kaksi kiertyvää kääreoksaa. Laki (kääre mukaan lukien) = BASKET_HANDLE.
+	var hr := 0.008
+	var wr := 0.0035
+	var hx := _wall(0.0, top, 0.0).x
+	var crown := BASKET_HANDLE - hr - wr
+	var hp: Array[Vector3] = []
+	for k in 5:
+		hp.append(_wall(0.5, top - 0.08 + 0.02 * k, 0.0))
+	for k in range(1, 40):
+		var a := PI * k / 40.0
+		hp.append(Vector3(-cos(a) * hx, top + sin(a) * (crown - top), 0))
+	for k in 5:
+		hp.append(_wall(0.0, top - 0.02 * k, 0.0))
+	var ho: Array[Vector3] = []
+	for q in hp:
+		ho.append(Vector3(0, 0, 1))
+	_tube(st, hp, ho, hr, hr, WILLOW_DARK * 1.05, false)
+	# Kääre vain kaaressa: seinän sisällä se pistäisi varjoseinän läpi.
+	_wrap(st, hp.slice(4, hp.size() - 4), ho.slice(4, ho.size() - 4), hr, wr, 0.04, WILLOW * 1.08, false)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = B.vcol_srgb_mat()
+	kori.add_child(mi)
 	return kori
 
 
-## Korin sisämitat laskettuna seinän ja varjoseinän paksuudesta: puolileveys x, puolisyvyys z (sisäpinnat).
+## Rungon poikkileikkaus korkeudella y: superellipsin puoliakselit seinän keskilinjalla, pohjasta reunaan lineaarisesti.
+static func _half_at(y: float) -> Vector2:
+	var t := clampf(y / BASKET.y, 0.0, 1.0)
+	return (BASKET_BASE / 2.0).lerp(Vector2(BASKET.x, BASKET.z) / 2.0 - Vector2(0.009, 0.009), t)
+
+
+static func _rim_xz(th: float, half: Vector2) -> Vector2:
+	var e := 2.0 / BASKET_ROUND
+	var c := cos(th)
+	var s := sin(th)
+	return Vector2(half.x * signf(c) * pow(absf(c), e), half.y * signf(s) * pow(absf(s), e))
+
+
+static var _theta_lut := PackedFloat32Array()
+
+
+## Superellipsin kulma kierroksen osuudelle s (0..1, +X-päädystä alkaen), tasaisella kaarenpituudella: kepit ja
+## punoksen aalto jakautuvat tasaisesti myös kulmissa.
+static func _theta(s: float) -> float:
+	if _theta_lut.is_empty():
+		var hv := _half_at(BASKET.y)
+		var n := 2048
+		var cum := PackedFloat32Array([0.0])
+		var prev := _rim_xz(0.0, hv)
+		for i in range(1, n + 1):
+			var q := _rim_xz(TAU * i / n, hv)
+			cum.append(cum[i - 1] + prev.distance_to(q))
+			prev = q
+		var j := 0
+		for k in 513:
+			var target := cum[n] * k / 512.0
+			while j < n - 1 and cum[j + 1] < target:
+				j += 1
+			var f := clampf((target - cum[j]) / maxf(cum[j + 1] - cum[j], 1e-9), 0.0, 1.0)
+			_theta_lut.append(TAU * (j + f) / n)
+	var x := fposmod(s, 1.0) * 512.0
+	var i := mini(int(x), 511)
+	return lerpf(_theta_lut[i], _theta_lut[i + 1], x - i)
+
+
+## Seinän vaakasuora ulkonormaali kohdassa s korkeudella y.
+static func _wall_out(s: float, y: float) -> Vector3:
+	var h := _half_at(y)
+	var p := _rim_xz(_theta(s), h)
+	var g := Vector2(signf(p.x) * pow(absf(p.x / h.x), BASKET_ROUND - 1.0) / h.x,
+		signf(p.y) * pow(absf(p.y / h.y), BASKET_ROUND - 1.0) / h.y).normalized()
+	return Vector3(g.x, 0, g.y)
+
+
+## Seinän piste kohdassa s korkeudella y, off metriä seinälinjasta ulospäin (negatiivinen = sisään).
+static func _wall(s: float, y: float, off: float) -> Vector3:
+	var p := _rim_xz(_theta(s), _half_at(y))
+	return Vector3(p.x, y, p.y) + _wall_out(s, y) * off
+
+
+## Kolmio, kiertosuunta normaalin mukaan (Godot: myötäpäivään edestä katsottuna = etupinta).
+static func _tri(st: SurfaceTool, v: Array[Vector3], nr: Array[Vector3], c: Array[Color]) -> void:
+	var order := [0, 1, 2]
+	if (v[1] - v[0]).cross(v[2] - v[0]).dot(nr[0] + nr[1] + nr[2]) > 0.0:
+		order = [0, 2, 1]
+	for i in order:
+		st.set_color(c[i])
+		st.set_normal(nr[i])
+		st.add_vertex(v[i])
+
+
+## Pistevärin sävytys normaalin mukaan: yläpinta vaalea, alapinta tumma.
+static func _lit(col: Color, nrm: Vector3) -> Color:
+	var c := col * lerpf(0.72, 1.14, nrm.y * 0.5 + 0.5)
+	c.a = 1.0
+	return c
+
+
+## Putki pisteiden läpi, poikkileikkaus ellipsi: r_out pisteen outs-suuntaan, r_up sitä ja putkea vastaan kohtisuoraan.
+static func _tube(st: SurfaceTool, pts: Array[Vector3], outs: Array[Vector3], r_out: float, r_up: float, col: Color,
+		closed: bool, sides := 8) -> void:
+	var n := pts.size()
+	var vs: Array = []
+	var ns: Array = []
+	for i in n:
+		var a := pts[(i - 1 + n) % n] if closed or i > 0 else pts[i]
+		var b := pts[(i + 1) % n] if closed or i < n - 1 else pts[i]
+		var t := (b - a).normalized()
+		var o := (outs[i] - t * outs[i].dot(t)).normalized()
+		var u := t.cross(o)
+		var rv: Array[Vector3] = []
+		var rn: Array[Vector3] = []
+		for k in sides:
+			var f := TAU * k / sides
+			rv.append(pts[i] + o * cos(f) * r_out + u * sin(f) * r_up)
+			rn.append((o * cos(f) / r_out + u * sin(f) / r_up).normalized())
+		vs.append(rv)
+		ns.append(rn)
+	for i in (n if closed else n - 1):
+		var j := (i + 1) % n
+		for k in sides:
+			var k2 := (k + 1) % sides
+			var qv: Array[Vector3] = [vs[i][k], vs[j][k], vs[j][k2], vs[i][k2]]
+			var qn: Array[Vector3] = [ns[i][k], ns[j][k], ns[j][k2], ns[i][k2]]
+			var qc: Array[Color] = []
+			for q in qn:
+				qc.append(_lit(col, q))
+			_tri(st, [qv[0], qv[1], qv[2]], [qn[0], qn[1], qn[2]], [qc[0], qc[1], qc[2]])
+			_tri(st, [qv[0], qv[2], qv[3]], [qn[0], qn[2], qn[3]], [qc[0], qc[2], qc[3]])
+
+
+## Seinälinjaa kiertävä rengasputki korkeudella y, off ulospäin.
+static func _tube_ring(st: SurfaceTool, y: float, off: float, r: float, col: Color, count: int) -> void:
+	var pts: Array[Vector3] = []
+	var outs: Array[Vector3] = []
+	for i in count:
+		var s := float(i) / count
+		pts.append(_wall(s, y, off))
+		outs.append(_wall_out(s, y))
+	_tube(st, pts, outs, r, r, col, true)
+
+
+## Kaksi oksaa kiertää keskiputken (pts, säde r) ympäri kerran per pitch metriä.
+static func _wrap(st: SurfaceTool, pts: Array[Vector3], outs: Array[Vector3], r: float, wr: float, pitch: float,
+		col: Color, closed: bool) -> void:
+	var dense := 24
+	for strand in 2:
+		var hp: Array[Vector3] = []
+		var ho: Array[Vector3] = []
+		var dist := 0.0
+		for i in pts.size() - 1:
+			var a := pts[i]
+			var b := pts[i + 1]
+			var t := (b - a).normalized()
+			var seg := a.distance_to(b)
+			var steps := maxi(1, int(ceil(seg / pitch * dense)))
+			for k in steps:
+				var f := float(k) / steps
+				var c := a.lerp(b, f)
+				var o := outs[i].lerp(outs[i + 1], f)
+				o = (o - t * o.dot(t)).normalized()
+				var u := t.cross(o)
+				var ang := TAU * (dist + seg * f) / pitch + PI * strand
+				hp.append(c + (o * cos(ang) + u * sin(ang)) * r)
+				ho.append(o * cos(ang) + u * sin(ang))
+			dist += seg
+		_tube(st, hp, ho, wr, wr, col, closed, 6)
+
+
+## Vaakasuora levy rungon muodossa korkeudella y (off seinälinjasta), normaali nrm.
+static func _disc(st: SurfaceTool, y: float, off: float, nrm: Vector3, col: Color, count: int) -> void:
+	var c := _lit(col, nrm)
+	for i in count:
+		var a := _wall(float(i) / count, y, off)
+		var b := _wall(float(i + 1) / count, y, off)
+		_tri(st, [Vector3(0, y, 0), a, b], [nrm, nrm, nrm], [c, c, c])
+
+
+## Pystynauha seinälinjan suuntaisena (off) korkeudelta y0 korkeudelle y1; side +1 = normaali ulos, -1 = sisään.
+static func _band(st: SurfaceTool, y0: float, y1: float, off: float, side: float, col: Color, count: int) -> void:
+	for i in count:
+		var s0 := float(i) / count
+		var s1 := float(i + 1) / count
+		var v: Array[Vector3] = [_wall(s0, y0, off), _wall(s1, y0, off), _wall(s1, y1, off), _wall(s0, y1, off)]
+		var n0 := _wall_out(s0, y0) * side
+		var n1 := _wall_out(s1, y0) * side
+		var c0 := _lit(col, n0)
+		_tri(st, [v[0], v[1], v[2]], [n0, n1, n1], [c0, c0, c0])
+		_tri(st, [v[0], v[2], v[3]], [n0, n1, n0], [c0, c0, c0])
+
+
+## Korin sisämitat varjoseinän sisäpintaan korkeudella y: puolileveys x, puolisyvyys z (superellipsin puoliakselit).
+static func basket_inner_at(y: float) -> Vector2:
+	return _half_at(y) - Vector2(BASKET_LINER, BASKET_LINER)
+
+
+## Sisämitat reunan korkeudella (suurimmat; runko kapenee alaspäin).
 static func basket_inner() -> Vector2:
-	var lin := BASKET_WALL + 0.004
-	return Vector2(BASKET.x / 2.0 - BASKET_WALL / 2.0 - lin, BASKET.z / 2.0 - BASKET_WALL / 2.0 - lin)
+	return basket_inner_at(BASKET.y)
 
 
 ## Reunarullan yläpinta korin pohjasta.
@@ -230,18 +411,25 @@ static func basket_rim_top() -> float:
 	return BASKET.y + BASKET_RIM
 
 
-## Mustikkatäyte korin sisällä: tumma täyttö pohjasta, litistetty keko ja tiivis marjakerros sen pinnalla. Mitat korin
+## Mustikkatäyte korin sisällä: tumma täyttö pohjasta (kapenee rungon mukana), litistetty keko ja tiivis marjakerros sen pinnalla. Mitat korin
 ## sisämitoista: täyte ei kosketa seiniä ja ylin marja jää 1 cm reunarullan yläpinnan alle.
 static func _build_berries() -> Node3D:
 	var n := Node3D.new()
 	n.name = "Marjat"
 	var p := Makasiini.Parts.new()
-	var inner := basket_inner() - Vector2(0.004, 0.004)
 	var crown := basket_rim_top() - 0.01 - BERRY_R  # marjojen keskipisteiden ylin korkeus
 	var cap_h := 0.025
 	var y_f := crown - cap_h  # keon kanta = täytön yläpinta
-	var fill_h := y_f - BASKET_FLOOR
-	p.box(Vector3(inner.x * 2.0, fill_h, inner.y * 2.0), Vector3(0, BASKET_FLOOR + fill_h / 2.0, 0), BERRY_DEEP)
+	var inner := basket_inner_at(y_f) - Vector2(0.004, 0.004)
+	# Täyttö seuraa kapenevaa runkoa 4 mm varjoseinän sisäpuolella.
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_band(st, BASKET_FLOOR, y_f, -BASKET_LINER - 0.004, 1.0, BERRY_DEEP, 64)
+	_disc(st, y_f, -BASKET_LINER - 0.004, Vector3.UP, BERRY_DEEP, 64)
+	var fill := MeshInstance3D.new()
+	fill.mesh = st.commit()
+	fill.material_override = B.vcol_srgb_mat()
+	n.add_child(fill)
 	p.add(B.sphere(1.0, 16), Transform3D(Basis.from_scale(Vector3(inner.x, cap_h, inner.y)), Vector3(0, y_f, 0)),
 		BERRY_DEEP)
 	# Marjat tiiviisti keon pinnalle (auringonkukkakierre ellipsiin), puoliksi upoksissa; kolme sävyä.
