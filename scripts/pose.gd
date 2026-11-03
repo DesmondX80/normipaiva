@@ -41,6 +41,9 @@ static func limb_points(ch: Node3D, space: Node3D, bones: Array, meshes := 0, we
 	var pp: Variant = ch.body_mat.get_shader_parameter("pants_puff")
 	var puff: float = pp if pp != null else 0.014  # varjostimen oletus
 	var bikini: bool = ch.body_mat.get_shader_parameter("string_bikini") == true  # lappubikinit: ei pöyhennystä
+	var shoe_on: bool = ch.body_mat.get_shader_parameter("shoe_on") == true  # kengän sisään painuneet jalkaterän kärjet pois
+	var sc: Variant = ch.body_mat.get_shader_parameter("shoe_cut")
+	var shoe_cut: Vector4 = sc if sc != null else Vector4(0, 0, 1, 10.0)
 	var skel: Skeleton3D = ch.skeleton
 	for mi in skel.get_children():
 		if not mi is MeshInstance3D or (mi as MeshInstance3D).skin == null:
@@ -85,6 +88,10 @@ static func limb_points(ch: Node3D, space: Node3D, bones: Array, meshes := 0, we
 					best = k
 			if not want.has(bi[v * per + best]):
 				continue
+			var is_body: bool = mi == ch.body_mi
+			if shoe_on and is_body and cs.size() == rv.size() and roundi(cs[v].r * 4.0) == 3 \
+					and Vector3(shoe_cut.x, shoe_cut.y, shoe_cut.z).dot(rv[v]) < shoe_cut.w:
+				continue  # kengän sisällä (varjostin painaa sisään): pinta on kenkäverkossa
 			var vp := Vector3.ZERO
 			var np := Vector3.ZERO
 			for k in per:
@@ -96,7 +103,7 @@ static func limb_points(ch: Node3D, space: Node3D, bones: Array, meshes := 0, we
 				vp += (m * rv[v]) * wk
 				np += (m.basis * rn[v]) * wk
 			np = np.normalized()
-			var pants := cs.size() == rv.size() and roundi(cs[v].r * 4.0) == 2 and not bikini
+			var pants := is_body and cs.size() == rv.size() and roundi(cs[v].r * 4.0) == 2 and not bikini  # kengän pisteväri ei ole vaateluokka
 			var pf := puff if pants else 0.0
 			vp += np * pf  # pöyhennys ensin, sitten painuma (kuten varjostin: vaate painuu mukana)
 			if not c0.is_empty() and c0[v * 4 + 3] > 0.0:
@@ -186,7 +193,7 @@ static func clearance(ch: Node3D, space: Node3D, chain: Array, pts: PackedVector
 ## Istuma-apu (yhteinen kaikille istujille). Lantioluu on lonkkanivelen kohdalla, noin näin paljon istuimen
 ## pinnan yläpuolella kun pakara koskettaa istuinta (tarkistetaan seat_report-rivillä).
 const HIP_OVER_SEAT := 0.1
-const FOOT_H := 0.08  # nilkkaluun korkeus jalkapohjasta
+const FOOT_H := 0.08  # nilkkaluun korkeus jalkapohjasta (paljas jalka; kengän pohja lisätään: Character.shoe_sole)
 
 
 ## Istuttaa hahmon: kasvot (paikallinen -Z) vaakasuuntaan front ja lantion pohja istuimen pisteeseen seat_pt
@@ -203,13 +210,14 @@ static func seat(ch: Node3D, front: Vector3, seat_pt: Vector3) -> void:
 static func feet_to_floor(ch: Node3D, floor_y: float, front: Vector3) -> void:
 	front = Vector3(front.x, 0, front.z).normalized()
 	var inv := ch.transform.affine_inverse()
+	var foot_h: float = FOOT_H + float(ch.get("shoe_sole") if ch.get("shoe_sole") != null else 0.0)
 	for lr: String in ["_l", "_r"]:
 		var hip: Vector3 = ch.transform * ch.bone_position("thigh" + lr)
 		var l1: float = ch.bone_position("thigh" + lr).distance_to(ch.bone_position("calf" + lr))
 		var l2: float = ch.bone_position("calf" + lr).distance_to(ch.bone_position("foot" + lr))
-		var dy := hip.y - (floor_y + FOOT_H)
+		var dy := hip.y - (floor_y + foot_h)
 		var fwd := minf(sqrt(maxf((l1 + l2) * (l1 + l2) * 0.92 - dy * dy, 0.0025)), l1 * 0.9)  # reisi lähes vaakaan, sääri alas
-		var tgt := Vector3(hip.x, floor_y + FOOT_H, hip.z) + front * fwd
+		var tgt := Vector3(hip.x, floor_y + foot_h, hip.z) + front * fwd
 		var pole := (hip + tgt) / 2.0 + front * 0.3 + Vector3(0, 0.1, 0)
 		ch.set_ik("leg" + lr, "thigh" + lr, "calf" + lr, "foot" + lr, inv * tgt, inv * pole)
 

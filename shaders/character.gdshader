@@ -35,6 +35,10 @@ varying vec3 jig_w;
 
 uniform float shirt_puff = 0.022;
 uniform float pants_puff = 0.014;
+// Kengät (Character._attach_shoes): jalkaterä (luokka 3) ilman pöyhennystä, ja tason shoe_cut takana (dot(xyz, lepopaikka) < w, lepopaikka = UV2 ja CUSTOM0.x)
+// olevat kärjet painuvat 6 mm sisään, etteivät varpaat puhkaise kenkää. Suljettu kenkä: koko jalkaterä tason takana.
+uniform bool shoe_on = false;
+uniform vec4 shoe_cut = vec4(0.0, 0.0, 1.0, 10.0);
 // Paljastavammat vaatteet (lepoasennon korkeus/leveys, metrit; < 0 = pois käytöstä):
 // shorts_y = housut loppuvat tähän (reisi), crop_y = paita loppuu tähän (napa näkyy), sleeve_x = hihan pää.
 uniform float shorts_y = -1.0;
@@ -286,6 +290,12 @@ void vertex() {
 	float puff = c > 0.5 && c < 1.5 ? shirt_puff : (c > 1.5 && c < 2.5 ? pants_puff : (c > 2.5 ? 0.01 : 0.0));
 	if (bare(c, UV2, VERTEX, COLOR.b, COLOR.a * 2.0 - 1.0) || (string_bikini && undress >= 1.0)) {
 		puff = 0.0;  // lappubikinit ovat iholla kiinni (väri lasketaan fragmentissa)
+	}
+	if (shoe_on && c > 2.5) {
+		puff = 0.0;
+		if (dot(shoe_cut.xyz, vec3(UV2, CUSTOM0.x)) < shoe_cut.w) {  // lepopaikka: UV2 = (x, y), CUSTOM0.x = z
+			puff = -0.006;
+		}
 	}
 	VERTEX += NORMAL * puff;
 	if (press_n > 0 && CUSTOM0.w > 0.0) {
