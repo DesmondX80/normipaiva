@@ -48,7 +48,7 @@ func _look(kind: String, shoes: Color) -> Dictionary:
 func _run() -> void:
 	var looks := [["lenkkari_m", _look("male", Color(0.92, 0.92, 0.9))], ["lenkkari_f", _look("female", Color(0.92, 0.92, 0.9))],
 		["punainen_f", _look("female", Color(0.85, 0.12, 0.1))], ["paljas_m", _look("male", Color(0.12, 0.1, 0.08))],
-		["pelaaja", Looks.player("")]]
+		["pelaaja", Looks.player("")], ["haalari", Looks.player("hiihtohaalari")], ["minttu", Looks.MINTTU]]
 	for i in looks.size():
 		var ch: Node3D = Looks.make(self, looks[i][1])
 		ch.position = Vector3(i * 1.2, 0, 0)
@@ -65,6 +65,10 @@ func _run() -> void:
 	await _tiptoe(row[0][1], "lenkkari_m")
 	_sheet("vertailu_kuvakulmat", ["lenkkari_m_edesta", "lenkkari_m_sivu", "lenkkari_m_ylhaalta", "lenkkari_m_takaa",
 		"lenkkari_f_edesta", "lenkkari_f_sivu", "lenkkari_f_ylhaalta", "punainen_f_sivu"])
+	_sheet("vertailu_asut", ["pelaaja_edesta", "pelaaja_sivu", "pelaaja_kolmeneljannes", "lenkkari_f_ylhaalta",
+		"haalari_edesta", "haalari_sivu", "minttu_edesta", "minttu_sivu"])
+	_sheet("vertailu_karki", ["lenkkari_m_paalta", "lenkkari_m_kolmeneljannes", "lenkkari_m_sivu", "lenkkari_m_osat",
+		"lenkkari_f_paalta", "lenkkari_f_kolmeneljannes", "lenkkari_f_sivu", "punainen_f_kolmeneljannes"])
 	_sheet("vertailu_kavely", ["lenkkari_m_kavely_0", "lenkkari_m_kavely_1", "lenkkari_m_kavely_2", "lenkkari_m_varpaat",
 		"lenkkari_f_kavely_0", "lenkkari_f_kavely_1", "lenkkari_f_kavely_2", "lenkkari_m_varpaat_edesta"])
 	await _ruutu()
@@ -122,7 +126,8 @@ func _views(nm: String, ch: Node3D) -> void:
 	await _shot(nm + "_ylhaalta", g + Vector3(0, 0.75, 0) + fw * 0.4, g)
 	if ch.shoe_mi != null:  # suoraan ylhäältä ilman vartaloa (sääri peittäisi): kenkien ääriviiva ja kärjen muoto (K1)
 		ch.body_mi.visible = false
-		await _shot(nm + "_paalta", f + Vector3(0, 1.5, 0) + fw * 0.01, f)
+		g = _foot_near(ch, rt)  # lähempi jalka keskelle: koko kenkä näkyy
+		await _shot(nm + "_paalta", g + Vector3(0, 0.9, 0) + fw * 0.01, g)
 		ch.body_mi.visible = true
 	await _shot(nm + "_takaa", f - fw * 1.1 + Vector3(0, 0.35, 0), f)
 	if nm == "lenkkari_m":  # osat erivärisinä: pohja magenta, päällinen syaani (saumat ja läpimenot näkyvät)

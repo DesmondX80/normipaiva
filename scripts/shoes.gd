@@ -12,6 +12,7 @@ const RING := 24  # pisteitä poikkileikkauksen ympäri
 const DOME := 3  # pyöristysrenkaita kannassa
 const TOE_RINGS := 5  # kärjen kapenevat renkaat viimeisen poikkileikkauksen edessä
 const TOE_N := 2.5  # kärjen superellipsin eksponentti (2 = ellipsi, suurempi = leveämpi kärki)
+const TOE_LOW := 0.45  # kärjen kärkipiste kuoren alapinnan ja renkaan keskipisteen välissä (0 = alapinnassa)
 
 ## Tyyppien parametrit (metrejä mallin mittakaavassa): sole = pohjan paksuus, margin = kuoren rako ihoon, flare = pohjan
 ## reunan ulottuma kuoren ohi, toe_room = kärjen tila varpaiden edessä, toe_round = kärjen pyöristyksen pituus
@@ -190,10 +191,13 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	var tend := tmax + margin + float(p.get("toe_room", 0.0))
 	var ta := tend - toe_hw * float(p.get("toe_round", 1.0))
 	for r in rings:
-		r[2] = _toe_scale(r[2], Vector2(tip_s, (r[1] as Vector2).y), _toe_f(float(r[0]), ta, tend), y_welt)
-	# Tasoituksen jälkeen jokainen kehän piste vähintään raon verran ikkunan kärkien tukietäisyyden ulkopuolelle.
+		r[2] = _toe_scale(r[2], Vector2(tip_s, lerpf(y_welt, (r[1] as Vector2).y, TOE_LOW)), _toe_f(float(r[0]), ta, tend), y_welt)
+	# Tasoituksen jälkeen jokainen kehän piste vähintään raon verran ikkunan kärkien tukietäisyyden ulkopuolelle. Kärkiosassa
+	# (päkiästä tb tai kavennuksen alusta eteenpäin) koko rengas skaalataan yhdellä kertoimella (_fit_scale): pistekohtainen
+	# työntö harvan verkon varpaista teki kärjen etupintaan kuoppia.
+	var tb := (ball - org).dot(fwd)
 	for r in rings:
-		var ring := _contain(r[2], r[1], r[3], margin)
+		var ring := _fit_scale(r[2], r[1], r[3], margin, y_welt) if float(r[0]) >= minf(ta, tb) else _contain(r[2], r[1], r[3], margin)
 		for k in ring.size():
 			ring[k] = Vector2(ring[k].x, minf(ring[k].y, maxf(float(r[4]), y_welt)))  # suu tasaisena lahkeen alla
 		r[2] = ring
@@ -208,7 +212,7 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			full.append_array(rings)
 			var ue := (float(e[0]) - ta) / (tend - ta)
 			var fe := maxf(_toe_f(float(e[0]), ta, tend), 0.05)
-			var tc := Vector2(tip_s, (e[1] as Vector2).y)
+			var tc := Vector2(tip_s, lerpf(y_welt, (e[1] as Vector2).y, TOE_LOW))
 			var ts := PackedFloat32Array()
 			for j in range(1, TOE_RINGS + 1):
 				ts.append(ta + (1.0 - (1.0 - ue) * pow(1.0 - float(j) / (TOE_RINGS + 1), 2.0)) * (tend - ta))
@@ -221,7 +225,7 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 					if absf(q.x - ts[j]) <= half:
 						sel.append(Vector2(q.y, q.z))
 				var c2: Vector2 = tc + ((e[1] as Vector2) - tc) * f
-				full.append([ts[j], c2, _contain(_toe_scale(e[2], tc, f, y_welt), c2, sel, margin), f])
+				full.append([ts[j], c2, _fit_scale(_toe_scale(e[2], tc, f, y_welt), c2, sel, margin, y_welt), f])
 			tip1 = tc
 			continue
 		var ext: float = float(e[0]) - tmin + margin
@@ -246,6 +250,7 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	# Päällinen: renkaat vierekkäin, päät viuhkana.
 	var up := []  # [Vector3 paikka, Vector2 (s, y)] renkaittain
 	for r in full:
+		r[2] = _even(r[2], r[1])
 		var row := []
 		for q: Vector2 in r[2]:
 			row.append(to3.call(r[0], q))
@@ -365,20 +370,73 @@ static func _contain(ring: PackedVector2Array, c: Vector2, sel: PackedVector2Arr
 	return out
 
 
+## Kärkirengas sisältämään kärjet sel (vähintään raon verran): yksi kerroin k >= 1 koko renkaalle keskipisteen c ympäri
+## (k = suurin tarve / säde yli kehän suuntien), joten superellipsin muoto pysyy kuperana ilman kuoppia. Alapinta pysyy.
+static func _fit_scale(ring: PackedVector2Array, c: Vector2, sel: PackedVector2Array, margin: float, y_welt: float) -> PackedVector2Array:
+	var out := ring
+	if sel.is_empty():
+		return out
+	for it in 3:  # alapuolisko skaalautuu vain sivusuunnassa, joten tarve tarkistetaan uudelleen
+		var k := 1.0
+		for q in out:
+			var rad := (q - c).length()
+			if rad < 0.001 or (q - c).y < -0.3 * rad:
+				continue  # alapinta: pohja kattaa
+			var d := (q - c) / rad
+			var h := -INF
+			for p in sel:
+				h = maxf(h, (p - c).dot(d))
+			k = maxf(k, (h + margin) / rad)
+		if k <= 1.0001:
+			break
+		var sc := PackedVector2Array()
+		for q in out:
+			var d := q - c
+			sc.append(Vector2(c.x + d.x * k, maxf(c.y + d.y * k, y_welt)))
+		out = sc
+	return out
+
+
+## Rengas uudelleen tasaisin kulmin keskipisteestä c (säteen ja monikulmion leikkaus): työnnöt, skaalaukset ja alapinnan
+## rajaus siirtävät pisteitä pois omalta säteeltään, ja niihin kasautuneet lähes päällekkäiset pisteet tummensivat
+## kärjen ja alareunan normaaleja kuopiksi.
+static func _even(ring: PackedVector2Array, c: Vector2) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	var n := ring.size()
+	for k in n:
+		var a := TAU * k / n
+		var d := Vector2(cos(a), sin(a))
+		var best := -1.0
+		for i in n:
+			var p := ring[i] - c
+			var e := ring[(i + 1) % n] - ring[i]
+			var den := d.cross(e)
+			if absf(den) < 1e-9:
+				continue
+			var s := p.cross(d) / den  # leikkaus reunalla: p + e * s
+			var t := p.cross(e) / den  # säteellä: d * t
+			if s >= -1e-4 and s <= 1.0001 and t > best:
+				best = t
+		out.append(c + d * best if best > 0.0 else ring[k])
+	return out
+
+
 ## Kärjen kavennus kohdassa t: 1 ennen ta:ta, superellipsi (eksponentti TOE_N) nollaan kärjessä tend.
 static func _toe_f(t: float, ta: float, tend: float) -> float:
 	var u := clampf((t - ta) / (tend - ta), 0.0, 1.0)
 	return pow(1.0 - pow(u, TOE_N), 1.0 / TOE_N)
 
 
-## Rengas kavennettuna keskipisteensä ympäri: sivusuunta ja keskipisteen yläpuolinen osa kertoimella f, alapinta pysyy.
+## Rengas kavennettuna pisteen c ympäri kertoimella f kaikkiin suuntiin (alapinta ei alle y_weltin). c on matalalla
+## (TOE_LOW), joten kärki pyöristyy myös alhaalta: vain sivusuunnassa kavennettu alaosa jäi pystyseinäksi, jonka
+## ryppyiset alakulmat näkyivät kärjen etupinnassa kuoppina.
 static func _toe_scale(ring: PackedVector2Array, c: Vector2, f: float, y_welt: float) -> PackedVector2Array:
 	if f >= 1.0:
 		return ring
 	var out := PackedVector2Array()
 	for q in ring:
 		var d := q - c
-		out.append(Vector2(c.x + d.x * f, maxf(c.y + (d.y * f if d.y > 0.0 else d.y), y_welt)))
+		out.append(Vector2(c.x + d.x * f, maxf(c.y + d.y * f, y_welt)))
 	return out
 
 
