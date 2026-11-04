@@ -266,6 +266,13 @@ sisään (`shoe_on`, rajataso `shoe_cut`), ja `Pose.limb_points` ohittaa piilote
 (`profile_key` päättyy tyyppiin), jalkalaatikko ja läpimenot mittaavat kenkää. Malli nousee seistessä pohjan verran (`_lift_sole` +
 meta `"pohja"`, `Character.shoe_sole`), ja `Pose.feet_to_floor` lisää sen `FOOT_H`:hon. Testi: `aja.sh tscn tools/testit/kengat.tscn`
 (`KENKA ... alin` ±5 mm, `iho_ulkona` < 0, kuvat ja vertailukuvat kuvakulmista ja kävelystä, `RUUTU` 24 hahmolla).
+Kärki: `toe_room` (15 mm) varpaiden edessä, renkaat kapenevat superellipsinä (`TOE_N`) matalan kärkipisteen (`TOE_LOW`) ympäri,
+ja kärkiosan renkaat (päkiästä eteenpäin) sovitetaan varpaiden ympärille yhdellä skaalauskertoimella per rengas (`_fit_scale`), ei
+pistekohtaisella työnnöllä; pohjan alapinta nousee kärjessä `spring` (5 mm). Suu: kuoren yläreuna `collar` (12 mm) lahkeen alimman
+kärjen alla, ja suun yläpuolinen jalkaterä (meta `"suu"`) jää lahkeen värisenä näkyviin (`skin_outside` ohittaa sen). Kuvat:
+`<nimi>_paalta` (ylhäältä ilman vartaloa), `vertailu_karki` ja `vertailu_asut` (pelaaja, hiihtohaalari, Minttu helmassa).
+Tanssijoilla (Hilkka, Anna-Liisa, seuraintalon Sinikka) on eksplisiittinen `"shoe"` sama kuin pelaajalla: eri kenkätyyppi nostaa
+toisen olan pohjan verran ja rikkoo otteen (`tanssi_kontakti`). Kun tulee uusia kenkätyyppejä, tarkista tanssijoiden korkeusero.
 
 **Hiukset ja pää (elastiset):** hiukset ovat skinnattuja verkkoja oma varjostin `shaders/hair.gdshader` (painumasilmukka jaettu
 `shaders/press.gdshaderinc`-tiedostossa vartalon kanssa); painumaraja on 0,9 x etäisyys kallon pintaan (`CUSTOM0.w`), leviäminen suuntautuu
