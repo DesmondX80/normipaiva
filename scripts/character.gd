@@ -413,28 +413,8 @@ func _update_pose(delta: float) -> void:
 		skeleton.set_bone_pose_rotation(i, parent_rot.inverse() * q * parent_rot * skeleton.get_bone_pose_rotation(i))
 	_open_fingers()
 	_apply_ik()
-	_update_boot_ankle()
 	_update_hair_sway(delta)
 	_update_jiggle(delta)
-
-
-## Kumisaappaan nilkkapoimut (shoe.gdshader instance uniform nilkka): koukistus radiaaneina kummallekin jalalle,
-## + = varpaat ylös. Kulma sääriluun (polvi - nilkka) ja jalkaterän (päkiä - nilkka) välillä, lepoasennon kulmasta
-## vähennettynä, joten etumerkki on sama vasemmalle ja oikealle ilman akselikäytäntöä.
-func _update_boot_ankle() -> void:
-	if shoe_mi == null or not shoe_mi.mesh.get_meta("saapas", false):
-		return
-	var a := Vector2.ZERO
-	for k in 2:
-		var lr := "_l" if k == 0 else "_r"
-		var ib := [skeleton.find_bone("calf" + lr), skeleton.find_bone("foot" + lr), skeleton.find_bone("ball" + lr)]
-		if ib.has(-1):
-			continue
-		var ang := func(g: Callable) -> float:
-			var o: Vector3 = g.call(ib[1]).origin
-			return (g.call(ib[0]).origin - o).angle_to(g.call(ib[2]).origin - o)
-		a[k] = ang.call(skeleton.get_bone_global_rest) - ang.call(skeleton.get_bone_global_pose)
-	shoe_mi.set_instance_shader_parameter("nilkka", a)
 
 
 ## set_open_hand: sormet kohti lepoasentoa ennen IK:ta (IK kääntää vain ranteen, sormet seuraavat).
@@ -552,8 +532,6 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 			sm.set_shader_parameter(k, t[k])
 	if t.has("shaft"):
 		sm.set_shader_parameter("shaft_h", float(t.shaft.top) + float(t.lift) - float(t.sole))  # yläreuna kuoren alapinnasta
-	if t.has("boot"):
-		sm.set_shader_parameter("shaft_h", float(t.boot.top) + float(t.lift) - float(t.sole))  # saappaan yläreuna kuoren alapinnasta
 	var mi := MeshInstance3D.new()
 	mi.name = "Kengat"
 	mi.mesh = mesh

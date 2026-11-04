@@ -33,8 +33,7 @@ static var _tip_h := 0.0  # viimeksi rakennetun kengän kärkipisteen korkeus la
 ## alapinta kärjessä), sole_col = pohjan väri, rough = päällisen karheus, sole_rough = pohjan karheus, style = varjostimen
 ## tyyli (0 lenkkari, 1 varattu nauhakengälle (myöhempi issue), 2 kävelykenkä), spec = päällisen SPECULAR,
 ## clearcoat = lakkakiilto (0 = ei), shaft = varsi {join = jalkaosan suu, top = varren yläreuna (jalkapohjasta),
-## pad = varren paksuus ihon ja raon päälle}, boot = saapas yhtenä kuorena (_build_boot) {top = yläreuna jalkapohjasta,
-## pad = varren paksuus, fillet = etujohteen koveran kaaren säde nilkan taitteessa}.
+## pad = varren paksuus ihon ja raon päälle}.
 ## "paljas" = ei kenkää (vartalon jalkaterä värjätään kuten ennenkin).
 const TYPES := {
 	"lenkkari": {"lift": 0.023, "sole": 0.020, "rand": 0.0015, "margin": 0.003, "flare": 0.004, "toe_room": 0.015, "toe_round": 1.3,
@@ -47,10 +46,6 @@ const TYPES := {
 		"toe_round": 1.2, "toe_n": 3.0, "toe_h": 1.18, "toe_low": 0.32, "collar": 0.012, "spring": 0.006,
 		"sole_col": Color(0.13, 0.12, 0.11), "rough": 0.72, "sole_rough": 0.9, "style": 3, "spec": 0.35, "clearcoat": 0.0,
 		"shaft": {"join": 0.07, "top": 0.13, "pad": 0.006}},
-	"kumisaapas": {"lift": 0.023, "sole": 0.020, "rand": 0.012, "margin": 0.004, "flare": 0.004, "toe_room": 0.018,
-		"toe_round": 1.3, "toe_n": 2.6, "toe_h": 1.1, "toe_low": 0.3, "spring": 0.006, "sole_col": Color(0.8, 0.77, 0.66),
-		"rough": 0.25, "sole_rough": 0.9, "style": 4, "spec": 0.6, "clearcoat": 0.6,
-		"boot": {"top": 0.26, "pad": 0.010, "fillet": 0.03}},
 	"paljas": {},
 }
 
@@ -89,11 +84,6 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	var above := PackedInt32Array()  # jalkaterän kärjet kengän suun yläpuolella (lahkeen alla; skin_outside ohittaa)
 	var varsi := Vector4.ZERO  # varren yläreuna (lepo-y, UV2), yläreuna ja jalkaosan suu (verkon y), UV2.y - y yläreunassa
 	for side: float in [1.0, -1.0]:
-		if p.has("boot"):  # kumisaapas: yksi kuori kärjestä sääreen (lahje varren sisään)
-			var r := _build_boot(st, p, vs, arr[Mesh.ARRAY_TEX_UV2], cs, bi, bw, per, side, skin, skel)
-			pohja = r.pohja
-			varsi = r.varsi
-			continue
 		var foot := PackedInt32Array()  # jalkaterän kärjet (luokka 3)
 		var cand := PackedInt32Array()  # painojen lähteet: jalkaterä ja säären alaosa
 		var pant := PackedInt32Array()  # lahkeen alaosa (luokka 2): kengän suu jää sen alle
@@ -118,8 +108,7 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	out.set_meta("suu", above)
 	out.set_meta("karki", _tip_h)
 	out.set_meta("varsi", varsi.x)  # 0 = ei vartta; character.gdshader shoe_top (lahje varren sisään)
-	out.set_meta("varsi_v", Vector3(varsi.y, varsi.z, varsi.w))  # skin_outside ja testi (saappaalla (yläreuna, F.y, -))
-	out.set_meta("saapas", p.has("boot"))
+	out.set_meta("varsi_v", Vector3(varsi.y, varsi.z, varsi.w))  # skin_outside ja testi
 	return out
 
 
@@ -242,19 +231,56 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			need = maxf(need, absf(q.x - sc[i]) / pow(1.0 - pow(r, SE_N), 1.0 / SE_N))
 		wn.append(need + margin + PAD)
 	var wd := _envelope(wn)
-	var tp := _toe_part(p, pts, is_above, at, sc, wd, hu, cap, tmax, margin, y_welt, y_bot, yc, side)
-	var tend: float = tp.tend
-	var ta: float = tp.ta
-	var sc_a: float = tp.sc_a
-	var w_a: float = tp.w_a
-	var tip_s: float = tp.tip_s
-	var toe_n: float = tp.toe_n
-	var tipc: Vector2 = tp.tipc
-	var toe: Array = tp.toe
+	# Pyöreä kärki: kohdasta ta kärkeen tend (toe_room varpaiden edessä) rengas kutistuu kärkipisteen (tip_s, y_tip)
+	# ympäri kertoimella f = superellipsi (_toe_f): ylhäältä puoliellipsi, sivulta kaareva nokka. Kärkipiste on keskiviivan
+	# ja isovarpaiden kärjen puolivälissä ja matalalla (TOE_LOW kärjen korkeudesta).
+	var tend := tmax + margin + float(p.get("toe_room", 0.0))
+	var ta := tend - wd[wd.size() - 1] * float(p.get("toe_round", 1.0))
+	var sc_a := _at(at, sc, ta)
+	var w_a := _at(at, wd, ta)
+	var hu_a := _at(at, hu, ta)
+	var cap_a := _at(at, cap, ta)
+	var tip_s := 0.0
+	var ntip := 0
+	for q in pts:
+		if q.x >= tmax - 0.004:
+			tip_s += q.y
+			ntip += 1
+	tip_s = lerpf(sc_a, tip_s / maxf(ntip, 1), 0.5)
+	var toe_n: float = p.get("toe_n", TOE_N)
+	var tipc := Vector2(tip_s, y_welt + (B_LOW + hu_a) * float(p.get("toe_low", TOE_LOW)))
+	if side > 0.0:
+		_tip_h = tipc.y - y_bot  # testin profiili-rivi (kärkipisteen korkeus lattiasta)
+	# Varpaat kärkiosan sisään: kutistettu rengas vastaa ta:n rengasta kärkipisteestä 1/f-kertaisesti, joten kärjen tarve
+	# on varpaiden superellipsinormi siellä (raon kanssa). Yli 1 => ta:n renkaan leveys ja korkeus kasvavat.
+	var grow := 1.0
+	for i in pts.size():
+		var q := pts[i]
+		if q.x <= ta or is_above[i] == 1:
+			continue
+		var f := maxf(_toe_f(q.x, ta, tend, toe_n), 0.05)
+		var d := tipc + (Vector2(q.y, q.z) - tipc) / f - Vector2(sc_a, yc)
+		var ex := (absf(d.x) + margin / f) / w_a
+		var ey := (absf(d.y) + margin / f) / (hu_a if d.y > 0.0 else B_LOW)
+		if d.y > 0.0:
+			grow = maxf(grow, pow(pow(ex, SE_N) + pow(ey, SE_N), 1.0 / SE_N))
+		else:
+			grow = maxf(grow, ex)
+	w_a *= grow
+	hu_a *= grow * float(p.get("toe_h", 1.0))  # toe_h: korkeampi kärkikupu (turvakärki)
+	var ring_a := _ring_at(sc_a, yc, w_a, hu_a, maxf(cap_a, y_welt))
 	var rings := []  # [t, keskipiste Vector2(s, y), PackedVector2Array (s, y), leveyden kerroin pohjalle]
 	for i in at.size():
 		if at[i] < ta - step * 0.3:
 			rings.append([at[i], Vector2(sc[i], yc), _ring_at(sc[i], yc, wd[i], hu[i], maxf(cap[i], y_welt)), 1.0])
+	var toe := []
+	for j in TOE_RINGS:
+		var t := ta + (tend - ta) * sin(PI / 2.0 * j / TOE_RINGS)
+		var f := _toe_f(t, ta, tend, toe_n)
+		var ring := PackedVector2Array()
+		for q: Vector2 in ring_a:
+			ring.append(tipc + (q - tipc) * f)
+		toe.append([t, tipc + (Vector2(sc_a, yc) - tipc) * f, ring, f])
 	var tip1 := tipc
 	# Pyöristys kantaan: renkaat kutistuvat keskipisteeseen neljännesympyrän mukaan.
 	var full := []
@@ -336,41 +362,6 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		var o := fwd * (-1.0 if end == 0 else 1.0)
 		for k in RING:
 			tri.call(up[i][k], up[i][(k + 1) % RING], tip, o, 0.0, c2, c2, c2)
-	var flare: float = p.flare
-	var st_t := PackedFloat32Array()  # pohjan asemat: kuoren renkaat (ja korollisella kannan reunan katkokset)
-	var st_m := PackedFloat32Array()
-	var st_w := PackedFloat32Array()
-	for r in full.slice(0, full.size() - TOE_RINGS):
-		var lo := INF
-		var hi := -INF
-		for q: Vector2 in r[2]:
-			lo = minf(lo, q.x)
-			hi = maxf(hi, q.x)
-		st_t.append(float(r[0]))
-		st_m.append((lo + hi) / 2.0)
-		st_w.append((hi - lo) / 2.0 + flare * float(r[3]))
-	var fr := {"to3": to3, "fwd": fwd, "tb": tb, "t0": t0, "t1": t1, "ta": ta, "y_welt": y_welt, "y_bot": y_bot, "toe_n": toe_n,
-		"tip_s": tip_s, "sc_a": sc_a, "w_a": w_a}
-	_build_sole(p, fr, st_t, st_m, st_w, tri)
-	return ymin - y_bot
-
-
-## Pohja (_build_side ja _build_boot): asemat st_t (keskiviiva st_m, puolileveys st_w kuoren alareunassa flaren kanssa)
-## ja kärki kehyksestä fr (to3, fwd, tb, t0, t1, ta, y_welt, y_bot, toe_n, tip_s, sc_a, w_a). tri = kolmion lisäys.
-static func _build_sole(p: Dictionary, fr: Dictionary, st_t: PackedFloat32Array, st_m: PackedFloat32Array,
-		st_w: PackedFloat32Array, tri: Callable) -> void:
-	var to3: Callable = fr.to3
-	var fwd: Vector3 = fr.fwd
-	var tb: float = fr.tb
-	var t0: float = fr.t0
-	var t1: float = fr.t1
-	var ta: float = fr.ta
-	var y_welt: float = fr.y_welt
-	var y_bot: float = fr.y_bot
-	var toe_n: float = fr.toe_n
-	var tip_s: float = fr.tip_s
-	var sc_a: float = fr.sc_a
-	var w_a: float = fr.w_a
 	# Pohja: pyöristetty laatta kuoren ääriviivan (sc ± w + flare) mukaan, yläreuna kuoren alapinnan tasalla, alapinta
 	# tasainen. Kärjessä sama puoliellipsi kuin kuoressa, flaren verran edempänä (tend + flare), ei kutistettua päätyä.
 	var flare: float = p.flare
@@ -394,6 +385,18 @@ static func _build_sole(p: Dictionary, fr: Dictionary, st_t: PackedFloat32Array,
 			Vector2(mid - hw, yb + bv), Vector2(mid - hw, yt - bv), Vector2(mid - hw + flare * 0.5, yt)])
 		return [t, Vector2(mid, (yt + yb) / 2.0), pr]
 	var prof := []  # renkaittain [t, keskipiste, 8 pistettä (s, y)]
+	var st_t := PackedFloat32Array()  # pohjan asemat: kuoren renkaat (ja korollisella kannan reunan katkokset)
+	var st_m := PackedFloat32Array()
+	var st_w := PackedFloat32Array()
+	for r in full.slice(0, full.size() - TOE_RINGS):
+		var lo := INF
+		var hi := -INF
+		for q: Vector2 in r[2]:
+			lo = minf(lo, q.x)
+			hi = maxf(hi, q.x)
+		st_t.append(float(r[0]))
+		st_m.append((lo + hi) / 2.0)
+		st_w.append((hi - lo) / 2.0 + flare * float(r[3]))
 	var extra := [th - 0.002, th + 0.002] if waist > 0.0 else []
 	for i in st_t.size():
 		for t: float in extra:
@@ -432,60 +435,7 @@ static func _build_sole(p: Dictionary, fr: Dictionary, st_t: PackedFloat32Array,
 		var o := fwd * (-1.0 if end == 0 else 1.0)
 		for k in np:
 			tri.call(to3.call(prof[i][0], prof[i][2][k]), to3.call(prof[i][0], prof[i][2][(k + 1) % np]), cen, o, 1.0, c2, c2, c2)
-
-
-## Pyöreä kärki (_build_side ja _build_boot): poikkileikkausten käyrät (asemat at, keskiviiva sc, puolileveys wd,
-## yläpuolisko hu, suun yläraja cap) jalan koordinaateissa (t, s, y). Palauttaa kärjen mitat ja renkaat (toe).
-static func _toe_part(p: Dictionary, pts: PackedVector3Array, is_above: PackedByteArray, at: PackedFloat32Array,
-		sc: PackedFloat32Array, wd: PackedFloat32Array, hu: PackedFloat32Array, cap: PackedFloat32Array, tmax: float,
-		margin: float, y_welt: float, y_bot: float, yc: float, side: float) -> Dictionary:
-	# Pyöreä kärki: kohdasta ta kärkeen tend (toe_room varpaiden edessä) rengas kutistuu kärkipisteen (tip_s, y_tip)
-	# ympäri kertoimella f = superellipsi (_toe_f): ylhäältä puoliellipsi, sivulta kaareva nokka. Kärkipiste on keskiviivan
-	# ja isovarpaiden kärjen puolivälissä ja matalalla (TOE_LOW kärjen korkeudesta).
-	var tend := tmax + margin + float(p.get("toe_room", 0.0))
-	var ta := tend - wd[wd.size() - 1] * float(p.get("toe_round", 1.0))
-	var sc_a := _at(at, sc, ta)
-	var w_a := _at(at, wd, ta)
-	var hu_a := _at(at, hu, ta)
-	var cap_a := _at(at, cap, ta)
-	var tip_s := 0.0
-	var ntip := 0
-	for q in pts:
-		if q.x >= tmax - 0.004:
-			tip_s += q.y
-			ntip += 1
-	tip_s = lerpf(sc_a, tip_s / maxf(ntip, 1), 0.5)
-	var toe_n: float = p.get("toe_n", TOE_N)
-	var tipc := Vector2(tip_s, y_welt + (B_LOW + hu_a) * float(p.get("toe_low", TOE_LOW)))
-	if side > 0.0:
-		_tip_h = tipc.y - y_bot  # testin profiili-rivi (kärkipisteen korkeus lattiasta)
-	# Varpaat kärkiosan sisään: kutistettu rengas vastaa ta:n rengasta kärkipisteestä 1/f-kertaisesti, joten kärjen tarve
-	# on varpaiden superellipsinormi siellä (raon kanssa). Yli 1 => ta:n renkaan leveys ja korkeus kasvavat.
-	var grow := 1.0
-	for i in pts.size():
-		var q := pts[i]
-		if q.x <= ta or is_above[i] == 1:
-			continue
-		var f := maxf(_toe_f(q.x, ta, tend, toe_n), 0.05)
-		var d := tipc + (Vector2(q.y, q.z) - tipc) / f - Vector2(sc_a, yc)
-		var ex := (absf(d.x) + margin / f) / w_a
-		var ey := (absf(d.y) + margin / f) / (hu_a if d.y > 0.0 else B_LOW)
-		if d.y > 0.0:
-			grow = maxf(grow, pow(pow(ex, SE_N) + pow(ey, SE_N), 1.0 / SE_N))
-		else:
-			grow = maxf(grow, ex)
-	w_a *= grow
-	hu_a *= grow * float(p.get("toe_h", 1.0))  # toe_h: korkeampi kärkikupu (turvakärki)
-	var ring_a := _ring_at(sc_a, yc, w_a, hu_a, maxf(cap_a, y_welt))
-	var toe := []
-	for j in TOE_RINGS:
-		var t := ta + (tend - ta) * sin(PI / 2.0 * j / TOE_RINGS)
-		var f := _toe_f(t, ta, tend, toe_n)
-		var ring := PackedVector2Array()
-		for q: Vector2 in ring_a:
-			ring.append(tipc + (q - tipc) * f)
-		toe.append([t, tipc + (Vector2(sc_a, yc) - tipc) * f, ring, f])
-	return {"tend": tend, "ta": ta, "sc_a": sc_a, "w_a": w_a, "tip_s": tip_s, "toe_n": toe_n, "tipc": tipc, "toe": toe}
+	return ymin - y_bot
 
 
 ## Varsi (työkenkä, kuukenkä): pystyputki säären ympärillä jalkaosan suusta (join; alin rengas on suun ääriviiva, joten
@@ -684,495 +634,6 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 	return Vector4(y1 + dy_top, y1, yj, dy_top)
 
 
-## Kumisaapas (#273 v2): yksi kuori kärjestä kantaan ja sääreen. Poikkileikkaukset ovat tasoja kahden johteen pisteiden
-## Pf (etu: päällinen, nilkan taitteen kovera kaari, varren etulinja) ja Pb (taka: pohja, kantakaari, varren takalinja)
-## kautta, sivuakseli lat (_boot_rails). Jokainen leike on sama superellipsi (_ring_se) mitoilla, jotka mitataan ikkunan
-## kärjistä ja tasoitetaan yhtenä jonona (_envelope); λ = 0 jalassa, smoothstep siirtymässä ja 1 varressa (kaukopuoli,
-## eksponentti ja varren paksuus pad). Tasot eivät leikkaa toisiaan kuoren sisällä, joten kuori ei mene itsensä läpi.
-## Kärki ja pohja kuten _build_side. Mesh-avaruudessa +Z = varpaat (fwd), hahmon etu on -Z maailmassa.
-## Palauttaa {pohja, varsi: Vector4 kuten _build_shaft (yläreuna UV2, yläreuna, varren alku A.y, UV2.y - y)}.
-static func _build_boot(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, uv2: PackedVector2Array, cs: PackedColorArray,
-		bi: PackedInt32Array, bw: PackedFloat32Array, per: int, side: float, skin: Skin, skel: Skeleton3D) -> Dictionary:
-	var bt: Dictionary = p.boot
-	var margin: float = p.margin
-	var pad: float = bt.pad
-	var foot := PackedInt32Array()
-	for v in vs.size():
-		if signf(vs[v].x) == side and roundi(cs[v].r * 4.0) == 3:
-			foot.append(v)
-	# Kehys kuten _build_side: kannan ja päkiän luiden kärkien keskipisteet.
-	var heel := Vector3.ZERO
-	var ball := Vector3.ZERO
-	var nh := 0
-	var nb := 0
-	var ymin := INF
-	var ball_bind := -1
-	for v in foot:
-		ymin = minf(ymin, vs[v].y)
-		if _bone_of(v, bi, bw, per, skin, skel).begins_with("ball"):
-			ball += vs[v]
-			nb += 1
-			ball_bind = _bind_of(v, bi, bw, per)
-		else:
-			heel += vs[v]
-			nh += 1
-	heel /= maxf(nh, 1)
-	ball /= maxf(nb, 1)
-	var fwd := Vector3(ball.x - heel.x, 0.0, ball.z - heel.z).normalized()  # +Z-suuntainen (mesh-avaruuden etu)
-	var lat := Vector3.UP.cross(fwd)
-	var org := Vector3(heel.x, 0.0, heel.z)
-	var tb := (ball - org).dot(fwd)
-	var y_bot: float = ymin - float(p.lift)
-	var y_welt: float = y_bot + float(p.sole)
-	var y_top: float = ymin + float(bt.top)
-	var yc := y_welt + B_LOW
-	# Ehdokkaat: jalkaterä ja sääri/lahje (paita pois) yläreunan yläpuolelle asti; painot samoista.
-	var cand := PackedInt32Array()
-	var pts := PackedVector3Array()  # (t, s, y)
-	var dy_top := 0.0
-	var ntop := 0
-	var tmin := INF
-	var tmax := -INF
-	for v in vs.size():
-		var c := roundi(cs[v].r * 4.0)
-		if signf(vs[v].x) != side or c == 1 or vs[v].y > y_top + 0.06:
-			continue
-		cand.append(v)
-		var d := vs[v] - org
-		var q := Vector3(d.dot(fwd), d.dot(lat), vs[v].y)
-		pts.append(q)
-		if c == 3:
-			tmin = minf(tmin, q.x)
-			tmax = maxf(tmax, q.x)
-		if absf(vs[v].y - y_top) < 0.01:
-			dy_top += uv2[v].y - vs[v].y
-			ntop += 1
-	dy_top /= maxf(ntop, 1)
-	var foot_pts := PackedVector3Array()
-	for v in foot:
-		var d := vs[v] - org
-		foot_pts.append(Vector3(d.dot(fwd), d.dot(lat), vs[v].y))
-	var step := (tmax - tmin) / float(SLICES)
-	var win := step * 0.75 + 0.006
-	var gap := margin + pad
-	# Johteet sivuprofiilissa (_boot_rails): nilkkanivel J = kannan luun (foot) lepopaikka sidonnasta.
-	var y_ank := -INF  # jalkaterän (luokka 3) yläreuna: varren suorat johteet alkavat siitä
-	for q in foot_pts:
-		y_ank = maxf(y_ank, q.z)
-	var heel_bind := -1
-	for v in foot:
-		if not _bone_of(v, bi, bw, per, skin, skel).begins_with("ball"):
-			heel_bind = _bind_of(v, bi, bw, per)
-			break
-	var jp := skin.get_bind_pose(heel_bind).affine_inverse().origin if heel_bind >= 0 else Vector3(heel.x, ymin, heel.z)
-	var jt := Vector2((jp - org).dot(fwd), jp.y)
-	var res := _boot_rails(pts, tmin, step, win, y_welt, yc, y_top, y_ank, margin, pad, float(bt.fillet))
-	var fa: Vector2 = res.a
-	if side > 0.0:
-		var sl_: Array = res.slices
-		var s0 := -1
-		var s1 := -1
-		for i in sl_.size():
-			var pc: Vector2 = sl_[i][0] + sl_[i][1] * float(sl_[i][3])
-			var s := smoothstep(jt.y - 0.03, jt.y + 0.12, pc.y)
-			if s > 0.0 and s < 1.0:
-				s1 = i
-				if s0 < 0:
-					s0 = i
-		print("KENKA saapas johteet %d ristiin %d, J (%.1f, %.1f) mm, A (%.1f, %.1f) B (%.1f, %.1f) C (%.1f, %.1f) mm, liuku %d..%d, varsi %d viuhka %d jalka %d"
-			% [sl_.size(), res.crossed, (jt.x - tmin) * 1000.0, (jt.y - ymin) * 1000.0, (fa.x - tmin) * 1000.0, (fa.y - ymin) * 1000.0,
-			(res.b.x - tmin) * 1000.0, (res.b.y - ymin) * 1000.0, (res.c.x - tmin) * 1000.0, (res.c.y - ymin) * 1000.0, s0, s1,
-			res.nshaft, res.nfan, res.nfoot])
-		for e: Array in sl_:  # VÄLIAIKAINEN
-			var pf: Vector2 = e[0] + e[1] * (float(e[5]) + float(e[6]))
-			print("KENKA rengas Pb (%.0f, %.0f) Pf (%.0f, %.0f) sc %.0f w %.0f an %.0f af %.0f" % [(e[0].x - tmin) * 1000, (e[0].y - ymin) * 1000,
-				(pf.x - tmin) * 1000, (pf.y - ymin) * 1000, e[2] * 1000, e[4] * 1000, e[5] * 1000, e[6] * 1000])
-	var sl: Array = res.slices  # [O = Pb (t, y), b = (Pf - Pb) / D, sc, vc, w, an, af, n, vfloor]
-	var nfoot: int = res.nfoot
-	# Kärki jalkaleikkeistä (pystytasot: O = Pb lattiassa, an = Pf.y - yc).
-	var at := PackedFloat32Array()
-	var a_sc := PackedFloat32Array()
-	var a_wd := PackedFloat32Array()
-	var a_hu := PackedFloat32Array()
-	var a_cap := PackedFloat32Array()
-	for i in range(sl.size() - nfoot, sl.size()):
-		at.append(sl[i][0].x)
-		a_sc.append(sl[i][2])
-		a_wd.append(sl[i][4])
-		a_hu.append(sl[i][5])
-		a_cap.append(INF)
-	var no_above := PackedByteArray()
-	no_above.resize(foot_pts.size())
-	var tp := _toe_part(p, foot_pts, no_above, at, a_sc, a_wd, a_hu, a_cap, tmax, margin, y_welt, y_bot, yc, side)
-	var ta: float = tp.ta
-	var tend: float = tp.tend
-	var tipc: Vector2 = tp.tipc
-	var to3 := func(t: float, q: Vector2) -> Vector3:
-		return org + fwd * t + lat * q.x + Vector3.UP * q.y
-	# Renkaat 3D:nä: [pisteet, keskipiste, tason normaali, sc]; ylhäältä kärkeen.
-	var full := []
-	for i in sl.size():
-		var e: Array = sl[i]
-		if i >= sl.size() - nfoot and float(e[0].x) >= ta - step * 0.3:
-			continue
-		var o2: Vector2 = e[0]
-		var b2: Vector2 = e[1]
-		var ring := _ring_se(e[2], e[3], e[4], e[5], e[6], e[7], e[8])
-		var row := []
-		for q: Vector2 in ring:
-			row.append(to3.call(o2.x + q.y * b2.x, Vector2(q.x, o2.y + q.y * b2.y)))
-		full.append([row, to3.call(o2.x + float(e[3]) * b2.x, Vector2(e[2], o2.y + float(e[3]) * b2.y)),
-			fwd * b2.y - Vector3.UP * b2.x, float(e[2])])
-	for r: Array in tp.toe:
-		var row := []
-		for q: Vector2 in r[2]:
-			row.append(to3.call(r[0], q))
-		full.append([row, to3.call(r[0], r[1]), fwd, float(r[1].x)])
-	# Kuoren kantapää (pohjan alku) ja UV:n pituusväli.
-	var rand: float = p.rand
-	var t0 := INF
-	for r in full:
-		for a: Vector3 in r[0]:
-			if a.y <= y_welt + rand + 1e-4:
-				t0 = minf(t0, (a - org).dot(fwd))
-	var t1 := tend
-	var span := t1 - t0
-	var add := func(a: Vector3, uv: Vector2, uv2v: Vector2) -> void:
-		st.set_uv(uv)
-		st.set_uv2(uv2v)
-		st.set_color(Color(1, 1, 1, 1))
-		var tw := clampf(((a - org).dot(fwd) - tb + TOE_BLEND) / (2.0 * TOE_BLEND), 0.0, 1.0) if ball_bind >= 0 else 0.0
-		_set_weights(st, a, vs, bi, bw, per, cand, ball_bind, tw)
-		st.add_vertex(a)
-	var uv_of := func(a: Vector3, part: float, c: Vector2) -> Array:
-		var d := a - org
-		return [Vector2((d.dot(fwd) - t0) / span, a.y - y_welt), Vector2(clampf((d.dot(lat) - c.x) / 0.06, -1.0, 1.0) * side, part)]
-	var tri := func(a: Vector3, b: Vector3, c: Vector3, out: Vector3, part: float, ca: Vector2, cb: Vector2, cc: Vector2) -> void:
-		if (c - a).cross(b - a).dot(out) < 0.0:
-			var tmp := b
-			b = c
-			c = tmp
-			var tc := cb
-			cb = cc
-			cc = tc
-		for pr in [[a, ca], [b, cb], [c, cc]]:
-			var u: Array = uv_of.call(pr[0], part, pr[1])
-			add.call(pr[0], u[0], u[1])
-	# Kuori: renkaat vierekkäin (sama kehän indeksi k koko matkan), ulospäin keskipisteestä tason suunnassa.
-	for i in full.size() - 1:
-		var ca := Vector2(full[i][3], 0.0)
-		var cb := Vector2(full[i + 1][3], 0.0)
-		var ctr: Vector3 = (full[i][1] + full[i + 1][1]) / 2.0
-		var nrm: Vector3 = (full[i][2] + full[i + 1][2]).normalized()
-		for k in RING:
-			var k2 := (k + 1) % RING
-			var a: Vector3 = full[i][0][k]
-			var b: Vector3 = full[i][0][k2]
-			var c: Vector3 = full[i + 1][0][k]
-			var d: Vector3 = full[i + 1][0][k2]
-			var o := (a + b + c + d) / 4.0 - ctr
-			o -= nrm * o.dot(nrm)
-			tri.call(a, b, c, o, 0.0, ca, ca, cb)
-			tri.call(b, d, c, o, 0.0, ca, cb, cb)
-	var last: Array = full[full.size() - 1]
-	var tip: Vector3 = to3.call(t1, tipc)
-	for k in RING:
-		var cl := Vector2(last[3], 0.0)
-		tri.call(last[0][k], last[0][(k + 1) % RING], tip, fwd, 0.0, cl, cl, cl)
-	# Yläreuna: pyöristetty huuli ja sisäpinta (osa 2,2) ihoon päin, sisäpinnan alla tumma viuhka.
-	var e0: Array = sl[0]
-	var lip_ring := func(shrink: float, h: float) -> Array:
-		var ring := _ring_se(e0[2], e0[3], float(e0[4]) - shrink, float(e0[5]) - shrink, float(e0[6]) - shrink, e0[7], -INF)
-		var row := []
-		for q: Vector2 in ring:
-			row.append(to3.call(float(e0[0].x) + q.y, Vector2(q.x, h)))
-		return row
-	var top_rows := [[full[0][0], 0], [lip_ring.call(pad * 0.45, y_top + 0.005), 0], [lip_ring.call(gap - 0.001, y_top + 0.003), 1],
-		[lip_ring.call(gap - 0.001, y_top - 0.015), 2]]
-	var c_top: Vector3 = to3.call(float(e0[0].x) + float(e0[3]), Vector2(e0[2], y_top))
-	var cs0 := Vector2(e0[2], 0.0)
-	for i in top_rows.size() - 1:
-		var mode: int = top_rows[i + 1][1]
-		var part := 0.0 if mode == 0 else 2.2
-		for k in RING:
-			var k2 := (k + 1) % RING
-			var a: Vector3 = top_rows[i][0][k]
-			var b: Vector3 = top_rows[i][0][k2]
-			var c: Vector3 = top_rows[i + 1][0][k]
-			var d: Vector3 = top_rows[i + 1][0][k2]
-			var o := (a + b + c + d) / 4.0 - c_top
-			o.y = 0.0
-			if mode == 1:
-				o = Vector3.UP
-			elif mode == 2:
-				o = -o
-			tri.call(a, b, c, o, part, cs0, cs0, cs0)
-			tri.call(b, d, c, o, part, cs0, cs0, cs0)
-	var bottom: Array = top_rows[3][0]
-	var cen: Vector3 = c_top + Vector3.UP * (-0.015)
-	for k in RING:
-		tri.call(bottom[k], bottom[(k + 1) % RING], cen, Vector3.UP, 2.2, cs0, cs0, cs0)
-	# Pohja: asemat leikkaamalla valmis kuori pystytasoilla nauhassa y <= y_welt + rand (kärki kuten _build_side).
-	var segs := []
-	for i in full.size():
-		for k in RING:
-			segs.append([full[i][0][k], full[i][0][(k + 1) % RING]])
-			if i + 1 < full.size():
-				segs.append([full[i][0][k], full[i + 1][0][k]])
-	var flare: float = p.flare
-	var st_t := PackedFloat32Array()
-	var st_m := PackedFloat32Array()
-	var st_w := PackedFloat32Array()
-	var ns := 16
-	for j in range(1, ns):
-		var t := t0 + (ta - t0) * (1.0 - cos(PI / 2.0 * j / ns))
-		var lo := INF
-		var hi := -INF
-		for sg in segs:
-			var ta_: float = (sg[0] - org).dot(fwd) - t
-			var tb_: float = (sg[1] - org).dot(fwd) - t
-			if ta_ * tb_ > 0.0 or ta_ == tb_:
-				continue
-			var q: Vector3 = sg[0].lerp(sg[1], ta_ / (ta_ - tb_))
-			if q.y <= y_welt + rand + 1e-4:
-				var s := (q - org).dot(lat)
-				lo = minf(lo, s)
-				hi = maxf(hi, s)
-		if lo >= hi:
-			continue
-		st_t.append(t)
-		st_m.append((lo + hi) / 2.0)
-		st_w.append((hi - lo) / 2.0 + flare * minf(1.0, (hi - lo) / 0.04))
-	var fr := {"to3": to3, "fwd": fwd, "tb": tb, "t0": t0, "t1": t1, "ta": ta, "y_welt": y_welt, "y_bot": y_bot,
-		"toe_n": tp.toe_n, "tip_s": tp.tip_s, "sc_a": tp.sc_a, "w_a": tp.w_a}
-	_build_sole(p, fr, st_t, st_m, st_w, tri)
-	return {"pohja": ymin - y_bot, "varsi": Vector4(y_top + dy_top, y_top, fa.y, dy_top)}
-
-
-## Saappaan johteet ja leikkeet (#273 v2) sivuprofiilissa (t, y). Etujohde: jalkaterän päällinen (pystyleikkeiden tarve
-## y_ank:n alla, tasoitettuna) kärjestä taaksepäin, kovera kaari (säde fillet, keskipiste C ilmassa) varren etulinjaan ja
-## sitä ylös. Takajohde: pohja y_welt kantaan, kupera kaari kannan ympäri ja varren takalinja ylös. Varren linjat ovat
-## suoria (_rail_line: pienin suora säären ja lahkeen kärkien + margin + pad ulkopuolella välillä y_ank..y_top).
-## Leikkeet Pf (etujohde) - Pb (takajohde), ylhäältä kärkeen: varsi (Pf etulinjalla tasavälein, suunta kääntyy
-## vaakatasosta etulinjan normaaliin), siirtymä (Pb takajohteella kaarenpituuden mukaan, Pf = C + fillet · suunta Pb:hen:
-## kaikki tasot kulkevat C:n kautta, joten ne eivät leikkaa toisiaan kuoren sisällä) ja jalkaterä (pystytasot samalla t:llä,
-## ensimmäiset kaksi kääntyvät B:n normaalista pystyyn). Rengas: O = Pb, b = (Pf - Pb) / D, af = lerp(B_LOW, D / 2, λ),
-## vc = af, an = D - af (λ = 1 varressa, 0 jalassa). Leveys w ja keskiviiva sc ikkunan kärjistä (_envelope), varressa w suora.
-## Palauttaa {slices: [O, b, sc, vc, w, an, af, n, vfloor], nshaft, nfan, nfoot, crossed, a, b, c}.
-static func _boot_rails(pts: PackedVector3Array, tmin: float, step: float, win: float, y_welt: float, yc: float,
-		y_top: float, y_ank: float, margin: float, pad: float, fillet: float) -> Dictionary:
-	var gap := margin + pad
-	# Jalkaterän päällinen: pystyleikkeiden tarve (kärjet y_ank:n alla) ja yläpuoliskon väljyys HU_PAD.
-	var at := PackedFloat32Array()
-	var dn := PackedFloat32Array()
-	for i in SLICES:
-		var t := tmin + step * (i + 0.5)
-		var hi := yc
-		for q in pts:
-			if q.z < y_ank and absf(q.x - t) <= win:
-				hi = maxf(hi, q.z + margin)
-		at.append(t)
-		dn.append(hi)
-	dn = _envelope(dn)
-	var dorsum := PackedVector2Array()
-	for i in dn.size():
-		dn[i] = yc + (dn[i] - yc) * HU_PAD
-		dorsum.append(Vector2(at[i], dn[i]))
-	# Varren suorat linjat (t = c + k (y - ym)).
-	var ym := (y_ank + y_top) / 2.0
-	var up_pts := PackedVector2Array()
-	var back_pts := PackedVector2Array()
-	for q in pts:
-		if q.z <= y_top + 0.005:
-			back_pts.append(Vector2(q.x, q.z))
-			if q.z >= y_ank:
-				up_pts.append(Vector2(q.x, q.z))
-	var lf := _rail_line(up_pts, gap, ym, 1.0)
-	var lb := _rail_line(back_pts, gap, ym, -1.0)
-	var t_f := func(y: float) -> float: return lf.y + lf.x * (y - ym)
-	var t_b := func(y: float) -> float: return lb.y + lb.x * (y - ym)
-	# Kovera kaari: C etulinjan edessä (normaali n_f) säteen päässä, alin kohta, jossa päällinen on säteen päässä C:stä.
-	var n_f := Vector2(1.0, -lf.x).normalized()
-	var c := Vector2.ZERO
-	var b_pt := Vector2.ZERO
-	var yy := y_top
-	while yy > yc:
-		c = Vector2(t_f.call(yy), yy) + n_f * fillet
-		b_pt = _poly_near(dorsum, c)
-		if b_pt.distance_to(c) <= fillet:
-			break
-		yy -= 0.0005
-	var a_pt := c - n_f * fillet
-	# Takajohde monikulmiona ylhäältä: linja, kantakaari (suurin säde, jonka sisään kannan kärjet mahtuvat) ja pohja.
-	var n_b := Vector2(1.0, -lb.x).normalized()
-	var rb := 0.004
-	var cb := Vector2.ZERO
-	for j in 24:
-		var r := 0.05 - j * 0.002
-		var yb := y_welt + r
-		cb = Vector2(t_b.call(yb), yb) + n_b * r
-		var ok := true
-		for q in back_pts:
-			if q.y < cb.y and q.x < cb.x and q.distance_to(cb) > r - 0.002:
-				ok = false
-				break
-		if ok:
-			rb = r
-			break
-	cb = Vector2(t_b.call(y_welt + rb), y_welt + rb) + n_b * rb
-	var back := PackedVector2Array([Vector2(t_b.call(y_top + 0.05), y_top + 0.05)])
-	var a0 := (-n_b).angle()
-	var a1 := Vector2.DOWN.angle()
-	for j in 9:
-		back.append(cb + Vector2.from_angle(lerp_angle(a0, a1, j / 8.0)) * rb)
-	back.append(Vector2(at[at.size() - 1] + 0.2, y_welt))
-	var planes := []  # [Pf, Pb, λ]
-	# Varsi: Pf etulinjalla, suunta (Pf -> Pb) kääntyy vaakasuorasta A:n suuntaan (A - C).
-	var e_a := (a_pt - c).normalized()
-	var phi := Vector2.LEFT.angle_to(e_a)
-	var nsh := maxi(int(ceil((y_top - a_pt.y) / 0.018)), 2)
-	for j in nsh:
-		var u := float(j) / nsh
-		var yf := lerpf(y_top, a_pt.y, u)
-		var pf := Vector2(t_f.call(yf), yf)
-		planes.append([pf, _poly_ray(back, pf, Vector2.LEFT.rotated(phi * u))[0], 1.0])
-	# Siirtymä: Pb takajohteella kaarenpituuden mukaan A:n ja B:n säteiden välissä, Pf kaarella.
-	var e_b := (b_pt - c).normalized()
-	var ha := _poly_ray(back, a_pt, e_a)
-	var hb := _poly_ray(back, b_pt, e_b)
-	var nfan := maxi(int(ceil((float(hb[1]) - float(ha[1])) / step)), 2)
-	var ang := e_a.angle_to(e_b)
-	for j in nfan + 1:
-		var pb := _poly_at(back, lerpf(ha[1], hb[1], float(j) / nfan))
-		var e := (pb - c).normalized()
-		var u := clampf(e_a.angle_to(e) / ang, 0.0, 1.0) if absf(ang) > 1e-4 else 1.0
-		planes.append([c + e * fillet, pb, 1.0 - smoothstep(0.0, 1.0, u)])
-	# Jalkaterä: pystytasot B:n edessä; kaksi ensimmäistä kääntyvät B:n normaalista pystyyn.
-	var nfoot := 0
-	for i in SLICES:
-		var t := at[i]
-		if t <= b_pt.x + step * 0.3:
-			continue
-		var pf := Vector2(t, _at(at, dn, t))
-		var e := e_b.lerp(Vector2.DOWN, smoothstep(0.0, 1.0, (t - b_pt.x) / (2.0 * step))).normalized()
-		planes.append([pf, pf + e * (pf.y - y_welt) / maxf(-e.y, 1e-3), 0.0])
-		nfoot += 1
-	var crossed := 0
-	for i in planes.size() - 1:
-		if Geometry2D.segment_intersects_segment(planes[i][0], planes[i][1], planes[i + 1][0], planes[i + 1][1]) != null:
-			crossed += 1
-	# Leveys ja keskiviiva ikkunan kärjistä tason koordinaateissa (s, v), v = (q - Pb) · b.
-	var sels := []
-	var sc := PackedFloat32Array()
-	for pl in planes:
-		var o: Vector2 = pl[1]
-		var dd: float = (pl[0] - o).length()
-		var b: Vector2 = (pl[0] - o) / dd
-		var sel := PackedVector2Array()
-		var lo := INF
-		var hi := -INF
-		for q in pts:
-			var d := Vector2(q.x - o.x, q.z - o.y)
-			var v := d.dot(b)
-			if v < -0.01 or v > dd + 0.01 or absf(d.x * b.y - d.y * b.x) > win:
-				continue
-			sel.append(Vector2(q.y, v))
-			lo = minf(lo, q.y)
-			hi = maxf(hi, q.y)
-		sels.append(sel)
-		sc.append((lo + hi) / 2.0 if lo <= hi else (sc[sc.size() - 1] if sc.size() > 0 else 0.0))
-	for it in 3:
-		sc = _smooth(sc)
-	var out := []
-	var wn := PackedFloat32Array()
-	var wy := PackedVector2Array()
-	for i in planes.size():
-		var lam: float = planes[i][2]
-		var o: Vector2 = planes[i][1]
-		var dd: float = (planes[i][0] - o).length()
-		var b: Vector2 = (planes[i][0] - o) / dd
-		var af := lerpf(B_LOW, dd / 2.0, lam)
-		var an := dd - af
-		var n := lerpf(SE_N, SHAFT_N, lam)
-		var need := 0.0
-		for q: Vector2 in sels[i]:
-			var dy := q.y - af
-			var r := clampf(absf(dy) / (an if dy > 0.0 else af), 0.0, 0.95)
-			need = maxf(need, absf(q.x - sc[i]) / pow(1.0 - pow(r, n), 1.0 / n))
-		wn.append(need + margin + pad * lam)
-		if i < nsh:
-			wy.append(Vector2(wn[i], o.y))
-		var vfl: float = (y_welt - o.y) / b.y if b.y > 1e-4 else -INF
-		out.append([o, b, sc[i], af, 0.0, an, af, n, vfl])
-	var lw := _rail_line(wy, 0.0, ym, 1.0)  # varren leveys suoraksi (pienin suora tarpeen yläpuolella)
-	for i in nsh:
-		wn[i] = lw.y + lw.x * (out[i][0].y - ym)
-	var wd := _envelope(wn)
-	for i in out.size():
-		out[i][4] = wd[i]
-	return {"slices": out, "nshaft": nsh, "nfan": nfan + 1, "nfoot": nfoot, "crossed": crossed, "a": a_pt, "b": b_pt, "c": c}
-
-
-## Pienin suora t = c + k (y - ym) (k = -0,3..0,3), jonka etupuolelle (sgn 1) tai takapuolelle (sgn -1) kaikki pisteet
-## (t, y) jäävät raon gap päähän. Pienin = keskimmäisen korkeuden t lähimpänä pisteitä. Palauttaa (k, c).
-static func _rail_line(pl: PackedVector2Array, gap: float, ym: float, sgn: float) -> Vector2:
-	var best := Vector2(0.0, INF)
-	for j in range(-60, 61):
-		var k := j * 0.005
-		var c := -INF
-		for q in pl:
-			c = maxf(c, sgn * (q.x - k * (q.y - ym)) + gap)
-		if c < best.y:
-			best = Vector2(k, c)
-	return Vector2(best.x, best.y * sgn)
-
-
-## Monikulmion pl lähin piste pisteelle p.
-static func _poly_near(pl: PackedVector2Array, p: Vector2) -> Vector2:
-	var best := pl[0]
-	for i in pl.size() - 1:
-		var q := Geometry2D.get_closest_point_to_segment(p, pl[i], pl[i + 1])
-		if q.distance_squared_to(p) < best.distance_squared_to(p):
-			best = q
-	return best
-
-
-## Säde p + e·x monikulmioon pl: [osumapiste, kaarenpituus monikulmion alusta] (ensimmäinen osuma säteellä).
-static func _poly_ray(pl: PackedVector2Array, p: Vector2, e: Vector2) -> Array:
-	var far := p + e * 2.0
-	var s := 0.0
-	var best := [pl[pl.size() - 1], INF, 0.0]
-	for i in pl.size() - 1:
-		var hit = Geometry2D.segment_intersects_segment(p, far, pl[i], pl[i + 1])
-		if hit != null and (hit - p).length() < best[1]:
-			best = [hit, (hit - p).length(), s + (hit - pl[i]).length()]
-		s += (pl[i + 1] - pl[i]).length()
-	return [best[0], best[2]]
-
-
-## Monikulmion pl piste kaarenpituudella s.
-static func _poly_at(pl: PackedVector2Array, s: float) -> Vector2:
-	for i in pl.size() - 1:
-		var l := (pl[i + 1] - pl[i]).length()
-		if s <= l:
-			return pl[i].lerp(pl[i + 1], s / maxf(l, 1e-6))
-		s -= l
-	return pl[pl.size() - 1]
-
-
-## Poikkileikkaus tason koordinaateissa (s, v): superellipsi (eksponentti n) keskipisteestä (sc, vc), puolileveys w,
-## lähipuoli an (+v, k = RING / 4: jalan päällinen, taite, säären etu) ja kaukopuoli af; v vähintään vfloor (lattia).
-## _ring_at:n yleistys (sama kehän indeksointi).
-static func _ring_se(sc: float, vc: float, w: float, an: float, af: float, n: float, vfloor: float) -> PackedVector2Array:
-	var out := PackedVector2Array()
-	for k in RING:
-		var a := TAU * k / RING
-		var x := signf(cos(a)) * pow(absf(cos(a)), 2.0 / n)
-		var y := signf(sin(a)) * pow(absf(sin(a)), 2.0 / n)
-		out.append(Vector2(sc + w * x, maxf(vc + (an if y > 0.0 else af) * y, vfloor)))
-	return out
-
-
 ## Poikkileikkaus: superellipsi (eksponentti SE_N) keskipisteestä (sc, yc), puolileveys w, yläpuolisko hu ja alapuolisko
 ## B_LOW (alin piste tasan yc - B_LOW). Kiinteät kulmat: piste k on joka renkaassa samassa kohdassa kehää. Yläreuna
 ## enintään cap (kengän suu lahkeen alla, ei näy).
@@ -1290,16 +751,11 @@ static func skin_outside(shoe: ArrayMesh, arr: Array) -> float:
 	var worst := -INF
 	var above: PackedInt32Array = shoe.get_meta("suu", PackedInt32Array())
 	var vv: Vector3 = shoe.get_meta("varsi_v", Vector3.ZERO)  # (yläreuna, jalkaosan suu, -); 0 = ei vartta
-	var boot: bool = shoe.get_meta("saapas", false)
 	for v in vs.size():
 		var c := roundi(cs[v].r * 4.0)
 		# Varsi: jalkaosan suun yläpuolinen jalkaterä sekä sääri ja lahje varren yläreunaan asti mitataan varren ulkopintaa vastaan.
 		var in_shaft := vv.x > 0.0 and c != 1 and ((c == 3 and v in above) or (c != 3 and vs[v].y >= vv.y and vs[v].y <= vv.x))
-		if boot:  # saapas: jalkaterä, sääri ja lahje yläreunan alle mitataan yhtä kuorta (osa 0) vasten
-			in_shaft = false
-			if c == 1 or vs[v].y > vv.x - 0.02:
-				continue
-		elif not in_shaft and (c != 3 or v in above):
+		if not in_shaft and (c != 3 or v in above):
 			continue
 		# Lähin päällisen piste (osa 0) ja sen normaali: ihon kärki on ulkona, jos se on pinnan ulkopuolella. Pohja (osa 1)
 		# ohitetaan: sen reunuksen sisäpuolen yläreuna osoittaa ylös ja mittasi korkeutta, ei ulkonemaa (A2 M0a).
