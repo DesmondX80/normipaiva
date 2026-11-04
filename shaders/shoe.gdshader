@@ -10,6 +10,7 @@ uniform float sole_rough = 0.8;
 uniform int style = 0;  // 0 lenkkari, 1 nauhakenkä, 2 kävelykenkä (shoes.gd TYPES style)
 uniform float sole_h = 0.02;  // pohjalaatan paksuus kuoren alapinnasta alas (TYPES sole)
 uniform float rand_h = 0.0015;  // pohjan reunus kuoren kylkeä ylös (TYPES rand)
+uniform float heel_rand = 0.0;  // korkopala: pohjan yläreuna kannassa rand_h:n yläpuolella (TYPES heel_rand)
 uniform float spec = 0.4;
 uniform float clearcoat = 0.0;  // lakkakiilto (nahka)
 uniform vec3 cord_col : source_color = vec3(0.9, 0.2, 0.15);
@@ -46,7 +47,7 @@ void fragment() {
 			c = mix(c, c * 0.55, welt * step(0.5, fract(t * 90.0)));
 			c = mix(c, c * 0.6, bottom);
 			// Korko (t < 0,24, shoes.gd th): tumma nahkapino kerroksina, kumilappu alimpana.
-			float heel = (1.0 - smoothstep(0.235, 0.245, t)) * (1.0 - smoothstep(-0.0005, 0.0005, h));
+			float heel = (1.0 - smoothstep(0.235, 0.245, t)) * (1.0 - smoothstep(heel_rand - 0.0005, heel_rand + 0.0005, h));
 			vec3 hc = vec3(0.13, 0.08, 0.05) * (0.85 + 0.3 * step(0.5, fract(h * 380.0)));
 			c = mix(c, hc, heel);
 			c = mix(c, vec3(0.06, 0.055, 0.05), bottom * (1.0 - smoothstep(0.235, 0.245, t)));

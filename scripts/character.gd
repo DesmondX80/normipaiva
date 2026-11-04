@@ -526,7 +526,7 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	sm.set_shader_parameter("sole_rough", t.sole_rough)
 	sm.set_shader_parameter("sole_h", t.sole)
 	sm.set_shader_parameter("rand_h", t.rand)
-	for k in ["style", "spec", "clearcoat", "cord_col"]:
+	for k in ["style", "spec", "clearcoat", "cord_col", "heel_rand"]:
 		if t.has(k):
 			sm.set_shader_parameter(k, t[k])
 	var mi := MeshInstance3D.new()

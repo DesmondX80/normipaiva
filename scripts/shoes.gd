@@ -19,6 +19,8 @@ const HU_PAD := 1.04  # yläpuoliskon väljyys korkeimman kärjen yli
 const PAD := 0.0  # lisärako tarpeeseen (tasoituksen kutistuman kattaa rako; hahmot_kontakti MALLI jalka p90 <= 12 mm)
 const TOE_BLEND := 0.015  # kärkiosan painot: päkiästä +-15 mm sekoitus, edessä vain päkiän luu
 
+static var _tip_h := 0.0  # viimeksi rakennetun kengän kärkipisteen korkeus lattiasta (meta "karki", testin profiili)
+
 ## Tyyppien parametrit (metrejä mallin mittakaavassa): lift = koko nosto (pohjan alapinta jalkapohjan alimman kärjen alla,
 ## sama kaikilla tyypeillä, ettei hahmon pituus muutu), sole = näkyvä pohjalaatta (kuoren alapinta lift - sole jalkapohjan
 ## alla), rand = pohjan reunus kuoren kylkeä ylös, waist = korko (pohjan alapinta nousee kannan ja päkiän välissä),
@@ -27,14 +29,17 @@ const TOE_BLEND := 0.015  # kärkiosan painot: päkiästä +-15 mm sekoitus, ede
 ## (osuus kärjen puolileveydestä), toe_n = kärjen superellipsin eksponentti, toe_low = kärkipisteen korkeus (osuus),
 ## toe_h = kärkikuvun korkeuskerroin, collar = kengän suu lahkeen alimman kärjen alla, spring = kärjen nousu (pohjan
 ## alapinta kärjessä), sole_col = pohjan väri, rough = päällisen karheus, sole_rough = pohjan karheus, style = varjostimen
-## tyyli (0 lenkkari, 1 nauhakenkä, 2 kävelykenkä), spec = päällisen SPECULAR, clearcoat = lakkakiilto (0 = ei).
+## tyyli (0 lenkkari, 1 nauhakenkä, 2 kävelykenkä), spec = päällisen SPECULAR, clearcoat = lakkakiilto (0 = ei),
+## toe_tip = kärjen kiila (kuoren yläpinta laskee päkiästä nokkaan tälle korkeudelle kuoren alapinnasta), snug = varpaiden
+## tarpeesta vähennetty varjostimen painuma (enintään 6 mm), heel_rand = korkopala (pohjan yläreuna nousee kannassa).
 ## "paljas" = ei kenkää (vartalon jalkaterä värjätään kuten ennenkin).
 const TYPES := {
 	"lenkkari": {"lift": 0.023, "sole": 0.020, "rand": 0.0015, "margin": 0.003, "flare": 0.004, "toe_room": 0.015, "toe_round": 1.3,
 		"collar": 0.012, "spring": 0.005, "sole_col": Color(0.95, 0.94, 0.9), "rough": 0.62, "sole_rough": 0.8, "style": 0,
 		"spec": 0.4, "clearcoat": 0.0},
-	"nauhakenka": {"lift": 0.023, "sole": 0.010, "rand": 0.002, "waist": 0.008, "top": 0.055, "margin": 0.002, "flare": 0.002,
-		"toe_room": 0.022, "toe_round": 1.3, "toe_n": 2.2, "toe_low": 0.18, "collar": 0.012, "spring": 0.004,
+	"nauhakenka": {"lift": 0.023, "sole": 0.015, "rand": 0.002, "waist": 0.010, "heel_rand": 0.010, "top": 0.055, "margin": 0.002,
+		"flare": 0.002, "toe_room": 0.016, "toe_round": 1.6, "toe_n": 2.0, "toe_low": 0.10, "toe_tip": 0.014, "snug": 0.004,
+		"collar": 0.012, "spring": 0.010,
 		"sole_col": Color(0.24, 0.15, 0.09), "rough": 0.22, "sole_rough": 0.55, "style": 1, "spec": 0.6, "clearcoat": 0.7},
 	"kavelykenka": {"lift": 0.023, "sole": 0.016, "rand": 0.006, "top": 0.07, "margin": 0.004, "flare": 0.004, "toe_room": 0.015,
 		"toe_round": 1.0, "toe_n": 3.0, "collar": 0.012, "spring": 0.005, "sole_col": Color(0.72, 0.66, 0.56), "rough": 0.78,
@@ -95,6 +100,8 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	var out := st.commit()
 	out.set_meta("pohja", pohja)
 	out.set_meta("suu", above)
+	out.set_meta("karki", _tip_h)
+	out.set_meta("snug", float(TYPES[type].get("snug", 0.0)))
 	return out
 
 
@@ -233,6 +240,8 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	tip_s = lerpf(sc_a, tip_s / maxf(ntip, 1), 0.5)
 	var toe_n: float = p.get("toe_n", TOE_N)
 	var tipc := Vector2(tip_s, y_welt + (B_LOW + hu_a) * float(p.get("toe_low", TOE_LOW)))
+	if side > 0.0:
+		_tip_h = tipc.y - y_bot  # testin profiili-rivi (kärkipisteen korkeus lattiasta)
 	# Varpaat kärkiosan sisään: kutistettu rengas vastaa ta:n rengasta kärkipisteestä 1/f-kertaisesti, joten kärjen tarve
 	# on varpaiden superellipsinormi siellä (raon kanssa). Yli 1 => ta:n renkaan leveys ja korkeus kasvavat.
 	var grow := 1.0
@@ -251,16 +260,76 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	w_a *= grow
 	hu_a *= grow * float(p.get("toe_h", 1.0))  # toe_h: korkeampi kärkikupu (turvakärki)
 	var ring_a := _ring_at(sc_a, yc, w_a, hu_a, maxf(cap_a, y_welt))
+	# Kärjen kiila (toe_tip, nauhakenkä): päkiästä tb nokkaan tend yläpuolisko madaltuu niin, että kuoren yläpinta laskee
+	# lineaarisesti tasolle y_welt + toe_tip, mutta ei alle varpaiden tarpeen (raon kanssa, snug = varjostimen painuma
+	# vähennettynä). Kerroin gu skaalaa yläpuoliskon yc:n yläpuolella: päkiän ja ta:n väliset renkaat (hu) ja kärjen
+	# renkaat (ring_a ennen f-kutistusta), joten ta:ssa ei synny porrasta.
+	var hu2 := hu.duplicate()
+	var toe_gu := PackedFloat32Array()
+	for j in TOE_RINGS:
+		toe_gu.append(1.0)
+	var toe_tip: float = p.get("toe_tip", -1.0)
+	if toe_tip > 0.0:
+		var snug: float = p.get("snug", 0.0)
+		var sta := PackedFloat32Array()  # asemat: ta:ta edeltävät renkaat päkiän edessä, sitten kärjen renkaat
+		var ref := PackedFloat32Array()  # yläpuolisko ennen kiilaa
+		var idx := PackedInt32Array()  # renkaan indeksi at:ssa (-1 - j = kärjen rengas j)
+		for i in at.size():
+			if at[i] > tb and at[i] < ta - step * 0.3:
+				sta.append(at[i])
+				ref.append(hu[i])
+				idx.append(i)
+		for j in TOE_RINGS:
+			sta.append(ta + (tend - ta) * sin(PI / 2.0 * j / TOE_RINGS))
+			ref.append(hu_a)
+			idx.append(-1 - j)
+		var need := PackedFloat32Array()
+		need.resize(sta.size())
+		need.fill(0.0)
+		for i in pts.size():
+			var q := pts[i]
+			if q.x <= tb or is_above[i] == 1:
+				continue
+			var py := q.z - snug
+			var ex := 0.0
+			var dy := 0.0
+			if q.x < ta:
+				ex = (absf(q.y - _at(at, sc, q.x)) + margin) / _at(at, wd, q.x)
+				dy = py + margin - yc
+			else:
+				var f := maxf(_toe_f(q.x, ta, tend, toe_n), 0.05)
+				ex = (absf(tipc.x + (q.y - tipc.x) / f - sc_a) + margin / f) / w_a
+				dy = tipc.y + (py - tipc.y) / f + margin / f - yc
+			if dy <= 0.0:
+				continue
+			var hreq := dy / pow(1.0 - pow(minf(ex, 0.95), SE_N), 1.0 / SE_N)
+			var k := 0
+			while k < sta.size() - 1 and sta[k + 1] <= q.x:
+				k += 1
+			need[k] = maxf(need[k], hreq)  # kuori on asemien välissä suora: kummankin pään pitää riittää
+			need[mini(k + 1, sta.size() - 1)] = maxf(need[mini(k + 1, sta.size() - 1)], hreq)
+		need = _envelope(need)
+		print("A2DEBUG ta %.3f tb %.3f tend %.3f sta %s need %s ref %s" % [ta, tb, tend, sta, need, ref])  # A2DEBUG
+		var h_b := B_LOW + _at(sta, ref, tb)  # kiila alkaa päkiästä kuoren omalta korkeudelta (myös jos ta < tb)
+		for k in sta.size():
+			var lin := lerpf(h_b, toe_tip, clampf((sta[k] - tb) / (tend - tb), 0.0, 1.0)) - B_LOW
+			var h := ref[k] if sta[k] <= tb else minf(ref[k], maxf(lin, need[k]))
+			if idx[k] >= 0:
+				hu2[idx[k]] = h
+			else:
+				toe_gu[-1 - idx[k]] = h / ref[k]
 	var rings := []  # [t, keskipiste Vector2(s, y), PackedVector2Array (s, y), leveyden kerroin pohjalle]
 	for i in at.size():
 		if at[i] < ta - step * 0.3:
-			rings.append([at[i], Vector2(sc[i], yc), _ring_at(sc[i], yc, wd[i], hu[i], maxf(cap[i], y_welt)), 1.0])
+			rings.append([at[i], Vector2(sc[i], yc), _ring_at(sc[i], yc, wd[i], hu2[i], maxf(cap[i], y_welt)), 1.0])
 	var toe := []
 	for j in TOE_RINGS:
 		var t := ta + (tend - ta) * sin(PI / 2.0 * j / TOE_RINGS)
 		var f := _toe_f(t, ta, tend, toe_n)
 		var ring := PackedVector2Array()
 		for q in ring_a:
+			if q.y > yc:
+				q.y = yc + (q.y - yc) * toe_gu[j]
 			ring.append(tipc + (q - tipc) * f)
 		toe.append([t, tipc + (Vector2(sc_a, yc) - tipc) * f, ring, f])
 	var tip1 := tipc
@@ -351,8 +420,11 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	var th := t0 + (t1 - t0) * 0.24
 	var tf := t0 + (t1 - t0) * 0.58
 	var rand: float = p.rand
+	# Korkopala (heel_rand): pohjalaatan yläreuna nousee kannassa (t < th, sama +-2 mm reuna kuin korossa) kuoren kylkeä ylös.
+	var heel_rand: float = p.get("heel_rand", 0.0)
 	var slab := func(t: float, mid: float, hw: float) -> Array:
 		var yt := y_welt + rand  # reunus kuoren kylkeä ylös (lenkkari: pieni limitys), myös päissä
+		yt += heel_rand * (1.0 - smoothstep(th - 0.002, th + 0.002, t))
 		var yb := y_bot + spring * smoothstep(ts0, t1, t)
 		if waist > 0.0:
 			yb += waist * smoothstep(th - 0.002, th + 0.002, t) * (1.0 - smoothstep(th + 0.002, tf, t))
@@ -374,7 +446,7 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		st_t.append(float(r[0]))
 		st_m.append((lo + hi) / 2.0)
 		st_w.append((hi - lo) / 2.0 + flare * float(r[3]))
-	var extra := [th - 0.002, th + 0.002] if waist > 0.0 else []
+	var extra := [th - 0.002, th + 0.002] if waist > 0.0 or heel_rand > 0.0 else []
 	for i in st_t.size():
 		for t: float in extra:
 			if t < st_t[i] and (i == 0 or t > st_t[i - 1]):
@@ -529,19 +601,25 @@ static func skin_outside(shoe: ArrayMesh, arr: Array) -> float:
 	var su2: PackedVector2Array = sa[Mesh.ARRAY_TEX_UV2]
 	var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 	var cs: PackedColorArray = arr[Mesh.ARRAY_COLOR]
+	var vn: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+	var snug: float = shoe.get_meta("snug", 0.0)  # kuori mitoitettu varjostimen painuman verran tiukemmaksi (TYPES snug)
 	var worst := -INF
 	var above: PackedInt32Array = shoe.get_meta("suu", PackedInt32Array())
 	for v in vs.size():
 		if roundi(cs[v].r * 4.0) != 3 or v in above:
 			continue
-		# Lähin kuoren piste (päällinen tai pohja) ja sen normaali: ihon kärki on ulkona, jos se on pinnan ulkopuolella.
+		var pv := vs[v] - vn[v] * snug
+		# Lähin päällisen piste (osa 0) ja sen normaali: ihon kärki on ulkona, jos se on pinnan ulkopuolella. Pohja (osa 1)
+		# ohitetaan: sen reunuksen sisäpuolen yläreuna osoittaa ylös ja mittasi korkeutta, ei ulkonemaa (A2 M0a).
 		var best := INF
 		var bj := -1
 		for j in sv.size():
-			var d := vs[v].distance_squared_to(sv[j])
+			if su2[j].y > 0.5:
+				continue
+			var d := pv.distance_squared_to(sv[j])
 			if d < best:
 				best = d
 				bj = j
 		var n: Vector3 = (sa[Mesh.ARRAY_NORMAL] as PackedVector3Array)[bj]
-		worst = maxf(worst, (vs[v] - sv[bj]).dot(n))
+		worst = maxf(worst, (pv - sv[bj]).dot(n))
 	return worst

@@ -128,6 +128,62 @@ func _measure() -> void:
 			print("KENKA %s iho_ulkona %.1f mm (lepoasento; varjostin painaa ihoa vielä 6 mm sisään)" % [r[0], o * 1000.0])
 			if o > 0.0:
 				print("TESTI VIKA %s jalkaterän iho %.1f mm kengän ulkopuolella" % [r[0], o * 1000.0])
+			if r[0] in ["lenkkari_m", "lenkkari_f"] or NEW.has(ch.shoe_type):
+				_profile(r[0], ch.shoe_mi.mesh, ch.body_mi.mesh.surface_get_arrays(0))
+
+
+## Profiili (A2 M0b): kuoren (osa 0) yläpinta ja jalkaterän yläpinta lattiasta (pohjan alin kohta) asemilla uv.x, mm.
+## Vain +X-jalka (mesh-avaruus). Kuoren renkailla on vakio uv.x: korkein piste renkaittain, asemien välissä lineaarisesti.
+## Jalan kärjen asema = lähimmän kuoren kärjen uv.x; jalan yläpinta = korkein kärki asemanauhassa ±0,02.
+func _profile(nm: String, shoe: ArrayMesh, arr: Array) -> void:
+	var sa := shoe.surface_get_arrays(0)
+	var sv: PackedVector3Array = sa[Mesh.ARRAY_VERTEX]
+	var su: PackedVector2Array = sa[Mesh.ARRAY_TEX_UV]
+	var su2: PackedVector2Array = sa[Mesh.ARRAY_TEX_UV2]
+	var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var cs: PackedColorArray = arr[Mesh.ARRAY_COLOR]
+	var above: PackedInt32Array = shoe.get_meta("suu", PackedInt32Array())
+	var floor_y := INF
+	var ring := {}  # uv.x (0,1 mm tarkkuus) -> korkein y
+	var shell := PackedInt32Array()
+	for j in sv.size():
+		if sv[j].x <= 0.0:
+			continue
+		floor_y = minf(floor_y, sv[j].y)
+		if su2[j].y < 0.5:
+			shell.append(j)
+			var k := snappedf(su[j].x, 0.0005)
+			ring[k] = maxf(float(ring.get(k, -INF)), sv[j].y)
+	var ks: Array = ring.keys()
+	ks.sort()
+	var ymin := INF
+	var ft := []  # [uv.x, y]
+	for v in vs.size():
+		if vs[v].x <= 0.0 or roundi(cs[v].r * 4.0) != 3:
+			continue
+		ymin = minf(ymin, vs[v].y)
+		if v in above:
+			continue
+		var best := INF
+		var bj := -1
+		for j in shell:
+			var d := vs[v].distance_squared_to(sv[j])
+			if d < best:
+				best = d
+				bj = j
+		ft.append([su[bj].x, vs[v].y])
+	var line := "KENKA %s profiili ymin %.1f karki %.1f |" % [nm, (ymin - floor_y) * 1000.0, float(shoe.get_meta("karki", 0.0)) * 1000.0]
+	for t: float in [0.6, 0.8, 0.9, 0.97]:
+		var top := -INF
+		for i in ks.size() - 1:
+			if t >= ks[i] and t <= ks[i + 1]:
+				top = lerpf(ring[ks[i]], ring[ks[i + 1]], (t - ks[i]) / maxf(ks[i + 1] - ks[i], 1e-6))
+		var fy := -INF
+		for q in ft:
+			if absf(q[0] - t) <= 0.02:
+				fy = maxf(fy, q[1])
+		line += " t%.2f kuori %.1f jalka %s" % [t, (top - floor_y) * 1000.0, ("%.1f" % ((fy - floor_y) * 1000.0)) if fy > -INF else "-"]
+	print(line)
 
 
 func _feet(ch: Node3D) -> Vector3:
