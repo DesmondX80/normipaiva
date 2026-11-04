@@ -15,6 +15,9 @@ uniform float spec = 0.4;
 uniform float clearcoat = 0.0;  // lakkakiilto (nahka)
 uniform vec3 cord_col : source_color = vec3(0.9, 0.2, 0.15);
 uniform float shaft_h = 0.133;  // varren yläreuna kuoren alapinnasta (TYPES shaft.top + lift - sole)
+uniform float fold_len = 0.02;  // kumisaappaan nilkkapoimujen väli korkeussuunnassa (m)
+// Kumisaappaan nilkan koukistus radiaaneina (vasen, oikea), + = varpaat ylös; character.gd _update_pose (meta "saapas").
+instance uniform vec2 nilkka = vec2(0.0);
 
 varying vec2 fu;
 varying vec2 fu2;
@@ -161,6 +164,22 @@ void fragment() {
 		c *= 0.78 + 0.22 * smoothstep(0.0, 0.12, h);  // tumma alareuna, vaalea yläosa
 		c = mix(c, c * 0.45, band(h, shaft_h - 0.0215, shaft_h - 0.0185, 0.0006));  // ura kauluksen alla
 		c = mix(c, collar_col * (0.9 + 0.1 * smoothstep(shaft_h - 0.018, shaft_h, h)), collar);
+		// Nilkan taitteen poimut (wrinkle map nivelkulmalla): COLOR r = etuosuus (1 edessä), g = taiteen vyö, b = jalka
+		// (0 vasen, 1 oikea; shoes.gd). Voimakkuus seuraa koukistusta, matala pysyvä poimu näkyy aina (käytetty saapas).
+		// Poikittaiset aallot korkeuden mukaan, sivuille kaartuen alas; normaali kallistetaan korkeusgradientista
+		// (pinnan gradientti, Mikkelsen 2010) ja poimun pohja tummenee.
+		float bend = mix(nilkka.x, nilkka.y, step(0.5, COLOR.b));
+		float fw = mix(0.15, 1.0, smoothstep(0.05, 0.4, bend)) * smoothstep(0.1, 0.8, COLOR.r) * clamp(COLOR.g, 0.0, 1.0);
+		float ph = (h + 0.012 * (1.0 - COLOR.r)) / fold_len * 6.2832;
+		float dbh = -0.0018 * fw * (6.2832 / fold_len) * sin(ph) * (1.0 - cos(ph));  // dB/dh, B = 1,8 mm·fw·(cos − cos2/4): pyöreä harja, terävä pohja
+		vec3 ds = dFdx(VERTEX);
+		vec3 dt = dFdy(VERTEX);
+		vec3 r1 = cross(dt, NORMAL);
+		vec3 r2 = cross(NORMAL, ds);
+		float det = dot(ds, r1);
+		vec3 sg = sign(det) * (dbh * dFdx(h) * r1 + dbh * dFdy(h) * r2);
+		NORMAL = normalize(abs(det) * NORMAL - sg);
+		c *= 1.0 - 0.5 * fw * smoothstep(0.4, 1.0, cos(ph + 3.1416));
 		ALBEDO = c;
 		ROUGHNESS = rough;
 		SPECULAR = spec;
