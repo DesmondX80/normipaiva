@@ -94,7 +94,7 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 			elif c == 2 and vs[v].y < 0.25:
 				cand.append(v)
 				pant.append(v)
-		pohja = _build_side(st, p, vs, bi, bw, per, foot, cand, pant, side, skin, skel, above)
+		pohja = _build_side(st, p, vs, arr[Mesh.ARRAY_NORMAL], bi, bw, per, foot, cand, pant, side, skin, skel, above)
 	st.index()
 	st.generate_normals()
 	var out := st.commit()
@@ -106,7 +106,7 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 
 
 ## Yhden jalan kuori ja pohja. Palauttaa pohjan alimman kohdan etäisyyden jalkapohjan alimmasta kärjestä.
-static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, bi: PackedInt32Array, bw: PackedFloat32Array,
+static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, vn: PackedVector3Array, bi: PackedInt32Array, bw: PackedFloat32Array,
 		per: int, foot: PackedInt32Array, cand: PackedInt32Array, pant: PackedInt32Array, side: float, skin: Skin,
 		skel: Skeleton3D, above: PackedInt32Array) -> float:
 	# Jalan pituusakseli: kannan (foot-luu) ja päkiän (ball-luu) kärkien keskipisteiden erotus vaakatasossa.
@@ -260,11 +260,13 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	w_a *= grow
 	hu_a *= grow * float(p.get("toe_h", 1.0))  # toe_h: korkeampi kärkikupu (turvakärki)
 	var ring_a := _ring_at(sc_a, yc, w_a, hu_a, maxf(cap_a, y_welt))
-	# Kärjen kiila (toe_tip, nauhakenkä): päkiästä tb nokkaan tend yläpuolisko madaltuu niin, että kuoren yläpinta laskee
-	# lineaarisesti tasolle y_welt + toe_tip, mutta ei alle varpaiden tarpeen (raon kanssa, snug = varjostimen painuma
-	# vähennettynä). Kerroin gu skaalaa yläpuoliskon yc:n yläpuolella: päkiän ja ta:n väliset renkaat (hu) ja kärjen
-	# renkaat (ring_a ennen f-kutistusta), joten ta:ssa ei synny porrasta.
-	var hu2 := hu.duplicate()
+	# Kärjen kiila (toe_tip, nauhakenkä): päkiästä tb nokkaan tend kuoren yläpinta laskee lineaarisesti tasolle
+	# y_welt + toe_tip, mutta ei alle varpaiden tarpeen (raon kanssa, snug = varjostimen painuma vähennettynä). Kerroin gu
+	# skaalaa valmiin renkaan (suun leikkaus cap mukana) yc:n yläpuolelta: päkiän edessä olevat renkaat ja kärjen renkaat
+	# (ring_a ennen f-kutistusta), joten ta:ssa ei synny porrasta. Korkeus eff = yläpinta yc:stä ennen kiilaa.
+	var ring_gu := PackedFloat32Array()  # at-renkaittain
+	for i in at.size():
+		ring_gu.append(1.0)
 	var toe_gu := PackedFloat32Array()
 	for j in TOE_RINGS:
 		toe_gu.append(1.0)
@@ -272,64 +274,83 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	if toe_tip > 0.0:
 		var snug: float = p.get("snug", 0.0)
 		var sta := PackedFloat32Array()  # asemat: ta:ta edeltävät renkaat päkiän edessä, sitten kärjen renkaat
-		var ref := PackedFloat32Array()  # yläpuolisko ennen kiilaa
+		var eff := PackedFloat32Array()  # yläpinta yc:stä ennen kiilaa (hu tai suun leikkaus)
 		var idx := PackedInt32Array()  # renkaan indeksi at:ssa (-1 - j = kärjen rengas j)
 		for i in at.size():
 			if at[i] > tb and at[i] < ta - step * 0.3:
 				sta.append(at[i])
-				ref.append(hu[i])
+				eff.append(minf(hu[i], maxf(cap[i], y_welt) - yc))
 				idx.append(i)
 		for j in TOE_RINGS:
 			sta.append(ta + (tend - ta) * sin(PI / 2.0 * j / TOE_RINGS))
-			ref.append(hu_a)
+			eff.append(minf(hu_a, maxf(cap_a, y_welt) - yc))
 			idx.append(-1 - j)
-		var need := PackedFloat32Array()
+		var need := PackedFloat32Array()  # tarve korkeutena (gu * eff)
 		need.resize(sta.size())
 		need.fill(0.0)
 		for i in pts.size():
-			var q := pts[i]
-			if q.x <= tb or is_above[i] == 1:
+			if is_above[i] == 1:
 				continue
-			var py := q.z - snug
-			var ex := 0.0
-			var dy := 0.0
-			if q.x < ta:
-				ex = (absf(q.y - _at(at, sc, q.x)) + margin) / _at(at, wd, q.x)
-				dy = py + margin - yc
-			else:
-				var f := maxf(_toe_f(q.x, ta, tend, toe_n), 0.05)
-				ex = (absf(tipc.x + (q.y - tipc.x) / f - sc_a) + margin / f) / w_a
-				dy = tipc.y + (py - tipc.y) / f + margin / f - yc
-			if dy <= 0.0:
+			var n := vn[foot[i]]  # painuma ihon normaalin suuntaan (varjostin ja skin_outside samoin)
+			var q := pts[i] - Vector3(n.dot(fwd), n.dot(lat), n.y) * snug
+			if q.x <= sta[0] - step:
 				continue
-			var hreq := dy / pow(1.0 - pow(minf(ex, 0.95), SE_N), 1.0 / SE_N)
 			var k := 0
 			while k < sta.size() - 1 and sta[k + 1] <= q.x:
 				k += 1
-			need[k] = maxf(need[k], hreq)  # kuori on asemien välissä suora: kummankin pään pitää riittää
-			need[mini(k + 1, sta.size() - 1)] = maxf(need[mini(k + 1, sta.size() - 1)], hreq)
+			var py := q.z
+			var ex := 0.0
+			var dy := 0.0
+			var h_full := 0.0  # renkaan yläpuolisko ja suun leikkaus kärjen kohdalla
+			var h_cap := 0.0
+			if q.x < ta:
+				ex = (absf(q.y - _at(at, sc, q.x)) + margin) / _at(at, wd, q.x)
+				dy = py + margin - yc
+				h_full = _at(at, hu, q.x)
+				h_cap = maxf(_at(at, cap, q.x), y_welt) - yc
+			else:
+				# Kuori on renkaiden välissä suora: kerroin f renkaiden välillä lineaarisesti (ei käyrältä, joka on ulompana).
+				var t_k := sta[k]
+				var t_n := sta[k + 1] if k < sta.size() - 1 else tend
+				var f_n := _toe_f(t_n, ta, tend, toe_n) if k < sta.size() - 1 else 0.0
+				var f := maxf(lerpf(_toe_f(t_k, ta, tend, toe_n), f_n, clampf((q.x - t_k) / maxf(t_n - t_k, 1e-5), 0.0, 1.0)), 0.05)
+				ex = (absf(tipc.x + (q.y - tipc.x) / f - sc_a) + margin / f) / w_a
+				dy = tipc.y + (py - tipc.y) / f + margin / f - yc
+				h_full = hu_a
+				h_cap = maxf(cap_a, y_welt) - yc
+			if dy <= 0.0:
+				continue
+			var room := minf(h_full * pow(1.0 - pow(minf(ex, 0.999), SE_N), 1.0 / SE_N), h_cap)  # tila ennen kiilaa
+			var g := 1.0 if ex >= 0.999 else minf(dy / room, 1.0)
+			need[k] = maxf(need[k], g * eff[k])  # kuori on asemien välissä suora: kummankin pään pitää riittää
+			var k2 := mini(k + 1, sta.size() - 1)
+			need[k2] = maxf(need[k2], g * eff[k2])
 		need = _envelope(need)
-		print("A2DEBUG ta %.3f tb %.3f tend %.3f sta %s need %s ref %s" % [ta, tb, tend, sta, need, ref])  # A2DEBUG
-		var h_b := B_LOW + _at(sta, ref, tb)  # kiila alkaa päkiästä kuoren omalta korkeudelta (myös jos ta < tb)
+		var h_b := B_LOW + _at(sta, eff, tb)  # kiila alkaa päkiästä kuoren omalta korkeudelta (myös jos ta < tb)
 		for k in sta.size():
 			var lin := lerpf(h_b, toe_tip, clampf((sta[k] - tb) / (tend - tb), 0.0, 1.0)) - B_LOW
-			var h := ref[k] if sta[k] <= tb else minf(ref[k], maxf(lin, need[k]))
+			var g := 1.0 if sta[k] <= tb else minf(eff[k], maxf(lin, need[k])) / eff[k]
 			if idx[k] >= 0:
-				hu2[idx[k]] = h
+				ring_gu[idx[k]] = g
 			else:
-				toe_gu[-1 - idx[k]] = h / ref[k]
+				toe_gu[-1 - idx[k]] = g
+		print("A2DEBUG eff %s need %s toe_gu %s" % [eff, need, toe_gu])  # A2DEBUG
+	var squash := func(r: PackedVector2Array, g: float) -> PackedVector2Array:  # yläpuolisko yc:n yläpuolelta kertoimella g
+		if g < 1.0:
+			for k in r.size():
+				if r[k].y > yc:
+					r[k].y = yc + (r[k].y - yc) * g
+		return r
 	var rings := []  # [t, keskipiste Vector2(s, y), PackedVector2Array (s, y), leveyden kerroin pohjalle]
 	for i in at.size():
 		if at[i] < ta - step * 0.3:
-			rings.append([at[i], Vector2(sc[i], yc), _ring_at(sc[i], yc, wd[i], hu2[i], maxf(cap[i], y_welt)), 1.0])
+			rings.append([at[i], Vector2(sc[i], yc), squash.call(_ring_at(sc[i], yc, wd[i], hu[i], maxf(cap[i], y_welt)), ring_gu[i]), 1.0])
 	var toe := []
 	for j in TOE_RINGS:
 		var t := ta + (tend - ta) * sin(PI / 2.0 * j / TOE_RINGS)
 		var f := _toe_f(t, ta, tend, toe_n)
 		var ring := PackedVector2Array()
-		for q in ring_a:
-			if q.y > yc:
-				q.y = yc + (q.y - yc) * toe_gu[j]
+		for q: Vector2 in squash.call(ring_a.duplicate(), toe_gu[j]):
 			ring.append(tipc + (q - tipc) * f)
 		toe.append([t, tipc + (Vector2(sc_a, yc) - tipc) * f, ring, f])
 	var tip1 := tipc
