@@ -759,17 +759,32 @@ static func _build_boot(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	var step := (tmax - tmin) / float(SLICES)
 	var win := step * 0.75 + 0.006
 	var gap := margin + pad
-	# Pivot F: varren etureunan tarve (h >= ymin + 0,05) ja jalkaleikkeiden (t >= F.t) yläreunan tarve, sitten vinosti
+	# Pivot F: varren etureunan tarve (jalkaterän yläreunasta ylös) ja jalkaleikkeiden (t >= F.t) yläreunan tarve, sitten vinosti
 	# ulos fillet-mitan verran (etuprofiili kovera kaari). Jos jokin leike puristuisi F:n yli, F siirtyy lisää ulos.
+	var y_ank := -INF  # jalkaterän (luokka 3) yläreuna: varsi alkaa siitä (jalan päällinen on 50 mm korkeudella vasta varpaissa)
+	for q in foot_pts:
+		y_ank = maxf(y_ank, q.z)
 	var ft := -INF
 	for q in pts:
-		if q.z >= ymin + 0.05:
+		if q.z >= y_ank:
 			ft = maxf(ft, q.x + gap)
 	var fy := -INF
 	for q in pts:
 		if q.x >= ft:
 			fy = maxf(fy, q.z + margin)
 	var fil: float = float(bt.fillet) * sqrt(0.5)
+	if side > 0.0:  # VÄLIAIKAINEN profiili
+		for tb_ in range(-2, 16):
+			var mf := -INF
+			var ma := -INF
+			for q in pts:
+				if absf(q.x - tmin - tb_ * 0.02) < 0.01:
+					ma = maxf(ma, q.z - ymin)
+			for q in foot_pts:
+				if absf(q.x - tmin - tb_ * 0.02) < 0.01:
+					mf = maxf(mf, q.z - ymin)
+			print("KENKA prof t %d mm: jalka %.1f kaikki %.1f" % [tb_ * 20, mf * 1000.0, ma * 1000.0])
+		print("KENKA tmax %.1f" % [(tmax - tmin) * 1000.0])
 	var fan: int = bt.fan
 	var res := {}
 	for attempt in 6:
