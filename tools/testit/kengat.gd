@@ -130,6 +130,8 @@ func _measure() -> void:
 				print("TESTI VIKA %s jalkaterän iho %.1f mm kengän ulkopuolella" % [r[0], o * 1000.0])
 			if r[0] in ["lenkkari_m", "lenkkari_f"] or NEW.has(ch.shoe_type):
 				_profile(r[0], ch.shoe_mi.mesh, ch.body_mi.mesh.surface_get_arrays(0))
+				for g in ch.shoe_mi.mesh.get_meta("grow", []):  # M1TEMP
+					print("KENKA %s M1 %s" % [r[0], g])
 
 
 ## Profiili (A2 M0b): kuoren (osa 0) yläpinta ja jalkaterän yläpinta lattiasta (pohjan alin kohta) asemilla uv.x, mm.

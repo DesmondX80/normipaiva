@@ -20,6 +20,7 @@ const PAD := 0.0  # lisärako tarpeeseen (tasoituksen kutistuman kattaa rako; ha
 const TOE_BLEND := 0.015  # kärkiosan painot: päkiästä +-15 mm sekoitus, edessä vain päkiän luu
 
 static var _tip_h := 0.0  # viimeksi rakennetun kengän kärkipisteen korkeus lattiasta (meta "karki", testin profiili)
+static var _grow := []  # M1TEMP: kärjen kasvu jaloittain (meta "grow", testin mittaus)
 
 ## Tyyppien parametrit (metrejä mallin mittakaavassa): lift = koko nosto (pohjan alapinta jalkapohjan alimman kärjen alla,
 ## sama kaikilla tyypeillä, ettei hahmon pituus muutu), sole = näkyvä pohjalaatta (kuoren alapinta lift - sole jalkapohjan
@@ -80,6 +81,7 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var pohja := 0.0
 	var above := PackedInt32Array()  # jalkaterän kärjet kengän suun yläpuolella (lahkeen alla; skin_outside ohittaa)
+	_grow = []  # M1TEMP
 	for side: float in [1.0, -1.0]:
 		var foot := PackedInt32Array()  # jalkaterän kärjet (luokka 3)
 		var cand := PackedInt32Array()  # painojen lähteet: jalkaterä ja säären alaosa
@@ -101,6 +103,7 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	out.set_meta("pohja", pohja)
 	out.set_meta("suu", above)
 	out.set_meta("karki", _tip_h)
+	out.set_meta("grow", _grow)  # M1TEMP
 	out.set_meta("snug", float(TYPES[type].get("snug", 0.0)))
 	return out
 
@@ -257,8 +260,17 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			grow = maxf(grow, pow(pow(ex, SE_N) + pow(ey, SE_N), 1.0 / SE_N))
 		else:
 			grow = maxf(grow, ex)
+	var w_a0 := w_a  # M1TEMP
+	var hu_a0 := hu_a  # M1TEMP
 	w_a *= grow
 	hu_a *= grow * float(p.get("toe_h", 1.0))  # toe_h: korkeampi kärkikupu (turvakärki)
+	var il := 0  # M1TEMP: viimeinen tavallinen rengas
+	for i in at.size():
+		if at[i] < ta - step * 0.3:
+			il = i
+	_grow.append("side %+.0f grow %.3f step %.1f ta-tb %.1f ta-at_il %.1f wd %.1f hu %.1f w_a0 %.1f hu_a0 %.1f w_a %.1f hu_a %.1f w_a/wd %.3f hu_a/hu %.3f ta-at0 %.1f" % [side, grow,
+		step * 1000.0, (ta - tb) * 1000.0, (ta - at[il]) * 1000.0, wd[il] * 1000.0, hu[il] * 1000.0, w_a0 * 1000.0, hu_a0 * 1000.0,
+		w_a * 1000.0, hu_a * 1000.0, w_a / wd[il], hu_a / hu[il], (ta - at[0]) * 1000.0])  # M1TEMP
 	var ring_a := _ring_at(sc_a, yc, w_a, hu_a, maxf(cap_a, y_welt))
 	# Kärjen kiila (toe_tip, nauhakenkä): päkiästä tb nokkaan tend kuoren yläpinta laskee lineaarisesti tasolle
 	# y_welt + toe_tip, mutta ei alle varpaiden tarpeen (raon kanssa, snug = varjostimen painuma vähennettynä). Kerroin gu
