@@ -23,6 +23,7 @@ const SOLE := {
 }
 const DEFAULT_MUSCLE := -0.85  # pohjamalli on superhero: tavallisilla ihmisillä lihakset pienemmiksi
 const Elastic := preload("res://scripts/elastic.gd")
+const Shoes := preload("res://scripts/shoes.gd")
 const PRESS_MAX := 6  # kontaktilaatikoita enintään (varjostimen press_xf0..5)
 
 static var _lib: AnimationLibrary
@@ -41,6 +42,10 @@ var body_shape := {}  # belly, bulk, bust (Elastic.sink)
 var press_boxes: Array = []  # [[Transform3D verkko -> laatikko, puolikoko], ...] verkon avaruudessa (Elastic.press)
 var hair_mats: Array = []  # hiusten ShaderMaterialit (hair.gdshader): samat painumalaatikot kuin vartalolla
 var hair_mis: Array = []  # hiusverkot (meta "hair_press"; Pose.limb_points)
+var shoe_type := "paljas"  # Shoes.TYPES-avain
+var shoe_mi: MeshInstance3D  # kenkäverkko (meta "kenka"), null paljain jaloin
+var shoe_sole := 0.0  # kengän pohja jalkapohjan alla (m, hahmon mittakaavassa; Pose.FOOT_H:n lisä)
+var _shoe_lift := 0.0  # sama mallin mittakaavassa (_lift_sole)
 
 var _overrides := {}  # luu -> [akseli hahmon avaruudessa, kulma]
 var _ik := {}  # nimi -> [luu a, luu b, luu c, kohde, polvi/kyynärpää-suunta, loppuluun lisäkierto] (hahmon avaruudessa)
@@ -66,8 +71,9 @@ var _jig_zero := true  # jiggle_*-uniformit ovat jo nolla
 func setup(look: Dictionary) -> void:
 	var kind: String = look.get("model", "male")
 	born_frame = Engine.get_process_frames()
-	profile_key = "%s_%.3f_%.2f_%.2f_%.2f" % [kind, float(look.get("height", REST_HEIGHT)), float(look.get("belly", 0.0)),
-		float(look.get("bulk", 0.0)), float(look.get("muscle", DEFAULT_MUSCLE))]
+	shoe_type = Shoes.type_for(look)
+	profile_key = "%s_%.3f_%.2f_%.2f_%.2f_%s" % [kind, float(look.get("height", REST_HEIGHT)), float(look.get("belly", 0.0)),
+		float(look.get("bulk", 0.0)), float(look.get("muscle", DEFAULT_MUSCLE)), shoe_type]
 	model = load(MODELS[kind][0]).instantiate()
 	add_child(model)
 	model.rotation.y = PI
@@ -138,6 +144,7 @@ func setup(look: Dictionary) -> void:
 		_attach_hair(HAIR_DIR + hair + ".gltf", hair_color, kind, body_src)
 	if look.get("beard", false):
 		_attach_hair(HAIR_DIR + "Hair_Beard.gltf", hair_color, kind, body_src)
+	_attach_shoes(look, kind, body, shape)
 
 	# Matalilla laatutasoilla kaukaiset hahmot jäävät piirtämättä (kylässä 130–190 hahmoa, jokaisella oma luusto).
 	var q: int = Settings.get_v("quality")
@@ -200,6 +207,8 @@ func _lift_sole(anim_name: String) -> void:
 	for pre: String in _sole:
 		if pre != "" and anim_name.begins_with(pre):
 			lift = _sole[pre]
+	if lift > 0.0:
+		lift += _shoe_lift  # kengänpohja (istuen, ajaessa ja uidessa kontakti nostaa jalan tukeen ft.sole:lla)
 	model.position.y = lift * _scale
 
 
@@ -486,6 +495,51 @@ static func _arc(from: Vector3, to: Vector3) -> Quaternion:
 
 
 # --- Lataus ------------------------------------------------------------------
+
+## Kengät (Shoes): oma skinnattu verkko luuston lapseksi kuten hiukset, painot vartalosta, joten kenkä taipuu jalkaterän
+## mukana. Vartalon jalkaterä painuu kengän sisään (shoe_on, shoe_cut: lepoavaruuden taso, jonka takana (n·p < w)
+## olevat jalkaterän kärjet piilotetaan; suljettu kenkä = kaikki). Verkko jaetaan saman mallin, muodon ja tyypin kesken.
+func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: Dictionary) -> void:
+	shoe_mi = null
+	shoe_sole = 0.0
+	_shoe_lift = 0.0
+	body_mat.set_shader_parameter("shoe_on", false)
+	if shoe_type == "paljas":
+		return
+	var key := "shoe/%s/%s/%s" % [shoe_type, kind, shape]
+	var mesh: ArrayMesh = (_meshes[key] as WeakRef).get_ref() if _meshes.has(key) else null
+	if mesh == null:
+		var cache := _cache_path(key)
+		if FileAccess.file_exists(cache):
+			mesh = ResourceLoader.load(cache, "ArrayMesh", ResourceLoader.CACHE_MODE_IGNORE) as ArrayMesh
+		if mesh == null or not mesh.has_meta("pohja"):
+			mesh = Shoes.build(kind, shoe_type, body.mesh.surface_get_arrays(0), body.skin, skeleton)
+			DirAccess.make_dir_recursive_absolute(MESH_CACHE)
+			ResourceSaver.save(mesh, cache)
+		_meshes[key] = weakref(mesh)
+	var t: Dictionary = Shoes.TYPES[shoe_type]
+	var sm := ShaderMaterial.new()
+	sm.shader = load(Shoes.SHADER)
+	sm.set_shader_parameter("main_col", look.get("shoes", Color(0.9, 0.9, 0.9)))
+	sm.set_shader_parameter("sole_col", t.sole_col)
+	sm.set_shader_parameter("rough", t.rough)
+	sm.set_shader_parameter("sole_rough", t.sole_rough)
+	var mi := MeshInstance3D.new()
+	mi.name = "Kengat"
+	mi.mesh = mesh
+	mi.material_override = sm
+	skeleton.add_child(mi)
+	mi.skeleton = NodePath("..")
+	mi.skin = body.skin
+	mi.set_meta("kenka", shoe_type)
+	if int(Settings.get_v("quality")) <= 1:
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	shoe_mi = mi
+	_shoe_lift = float(mesh.get_meta("pohja"))
+	shoe_sole = _shoe_lift * _scale
+	body_mat.set_shader_parameter("shoe_on", true)
+	body_mat.set_shader_parameter("shoe_cut", Vector4(0, 0, 1, 10.0))  # suljettu kenkä: koko jalkaterä tason takana
+
 
 func _attach_hair(path: String, color: Color, kind: String, body_src: Mesh) -> void:
 	var scene: Node = load(path).instantiate()
@@ -914,7 +968,7 @@ static func _chest_weights(arr: Array, skin: Skin, skel: Skeleton3D, per: int) -
 ## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
 ## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
 const MESH_CACHE := "user://hahmot"
-const CACHE_VERSION := 13
+const CACHE_VERSION := 14
 static var _cache_tag := ""
 
 
@@ -922,6 +976,7 @@ static func _cache_path(key: String) -> String:
 	if _cache_tag == "":
 		var src := FileAccess.get_file_as_string("res://scripts/character.gd")
 		src += FileAccess.get_file_as_string("res://scripts/elastic.gd")  # rajat tulevat sieltä
+		src += FileAccess.get_file_as_string("res://scripts/shoes.gd")  # kenkäverkot
 		_cache_tag = "v%d_%x" % [CACHE_VERSION, src.hash() & 0xffffffff]
 		# Vanhan version tiedostot pois.
 		if DirAccess.dir_exists_absolute(MESH_CACHE):
