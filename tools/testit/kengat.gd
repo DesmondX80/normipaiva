@@ -17,6 +17,7 @@ const NEW := ["kavelykenka", "tyokenka"]  # erän 2 tyypit (lenkkarin lisäksi),
 var out := "user://kengat"
 var cam: Camera3D
 var row: Array = []  # [nimi, hahmo]
+var mitattu := false  # B2 mittaus 1 tulostettu
 
 
 func _ready() -> void:
@@ -138,6 +139,20 @@ func _measure() -> void:
 			if vv.x > 0.0:
 				print("KENKA %s varsi yläreuna %.1f mm, suu %.1f mm, UV2.y - y yläreunassa %.1f mm (shoe_top %.4f)" % [r[0],
 					vv.x * 1000.0, vv.y * 1000.0, vv.z * 1000.0, float(ch.shoe_mi.mesh.get_meta("varsi"))])
+				var hm: Dictionary = ch.shoe_mi.mesh.get_meta("helma", {})
+				if not hm.is_empty():  # B2: varren helma kuoren kyljessä (+X-jalka)
+					print("KENKA %s helma: ys %.1f mm, kuoren kärkiä varren ulkona %d, pahin %.1f mm, liitosrako max %.1f mm, säteen osumia max %d, etuosa %.1f / %.1f mm" % [
+						r[0], float(hm.ys) * 1000.0, int(hm.nout), float(hm.worst) * 1000.0, float(hm.gap) * 1000.0, int(hm.hits),
+						float(hm.front) * 1000.0, float(hm.reach) * 1000.0])
+					if not mitattu:  # mittaus 1 kerran: kuoren säde sivuilla (+lat / -lat) korkeuksilla join - 24 .. join
+						mitattu = true
+						var ln := "KENKA %s kuoren säde sivulla (join - 24 .. join, 6 mm välein, +s/-s):" % r[0]
+						for j in 5:
+							ln += " %d: %.1f/%.1f" % [-24 + 6 * j, hm.sides[j * 2] * 1000.0, hm.sides[j * 2 + 1] * 1000.0]
+						print(ln)
+					if int(hm.nout) > 0 or float(hm.gap) > 0.0005:
+						print("TESTI VIKA %s helma: %d kuoren kärkeä varren ulkona (pahin %.1f mm), liitosrako %.1f mm" % [
+							r[0], int(hm.nout), float(hm.worst) * 1000.0, float(hm.gap) * 1000.0])
 			if r[0] in ["lenkkari_m", "lenkkari_f"] or NEW.has(ch.shoe_type):
 				_profile(r[0], ch.shoe_mi.mesh, ch.body_mi.mesh.surface_get_arrays(0))
 
