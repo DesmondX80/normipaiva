@@ -2043,7 +2043,7 @@ func _build_trees() -> void:
 
 ## Santun ulkonäkö (myös mökin sisällä, mokki_interior.gd).
 const SANTTU_LOOK := {
-	"shirt": Color(0.75, 0.55, 0.12), "pants": Color(0.25, 0.24, 0.26), "shoes": Color(0.3, 0.22, 0.15), "shoe": "kumisaapas",
+	"shirt": Color(0.75, 0.55, 0.12), "pants": Color(0.25, 0.24, 0.26), "shoes": Color(0.13, 0.3, 0.14), "shoe": "kumisaapas",
 	"hair": "Hair_SimpleParted", "hair_color": Color(0.4, 0.3, 0.18), "beard": true, "height": 1.78,
 	"belly": 0.35, "bulk": -0.1,
 }

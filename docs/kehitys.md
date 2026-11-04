@@ -300,6 +300,10 @@ pohja), `kavelykenka` (2, matala suljettu varsi `top` 0,07, vaalea kumipohja, py
 `Shoes.type_for(look)`: `look.shoe` voittaa, muuten `shoes`-väri (vaaleat ja kirkkaat = `lenkkari`, muut `paljas` = vanha
 värjätty jalkaterä). Käyttäjät (`looks.gd`): mummot `kavelykenka`, Seppo ja Reijo (`Looks.SEPPO`/`REIJO`) `tyokenka`, pelaaja asun
 mukaan (tuulipuku ja hiihtohaalari `lenkkari`, farkut ja tyovaatteet `tyokenka`), tanssijat `lenkkari` (sama korkeus, #271).
+Kumisaapas (#273, `style` 4): kaksi jäykkää osaa, matala kuori jalkaterän luissa ja leveä varsiputki (`shaft`, `rigid`,
+yläreuna ~0,24 m nilkasta) säären luussa; varren alareuna levenee 8 mm suun kohdalla, jotta alaosan suu jää sen sisään
+kaikissa asennoissa (`KENKA ... suu_ulkona`, `reisi_sisalla`). Lahje kavennetaan varren sisään (`shoe_top`). Väri tulee
+`shoes`-väristä (klassinen vihreä 0.13, 0.3, 0.14). Varsi ei jousta (käyttäjän päätös). Käyttäjät: Santtu, Hanhikiven kalastaja.
 Saunassa ja uidessa paljas: `cutscene.gd sauna_look` poistaa `shoe`- ja `shoe_rough`-avaimet. Tunnetut puutteet (hyväksytty #272:ssa, jatko #279):
 kävelykengän suun kannessa kärjen päällä näkyy kuoppa, ja työkengän varren alareuna näkyy porrastuksena jalkaosan päällä;
 nauhakenkä (`style` 1 varattu) ja kuukenkä tekemättä. Kengällä vartalon jalkaterä painuu varjostimessa 6 mm kengän

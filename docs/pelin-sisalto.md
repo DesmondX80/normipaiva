@@ -947,7 +947,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (`looks.gd`, testit `--scene=asut`, `--scene=vaatekaappi`, `--scene=stetson`, `--scene=haalari` ja `--scene=koppa`).
 - **Kengät (#272):** tuulipuvussa ja hiihtohaalarissa lenkkarit, farkuissa ja työvaatteissa työkengät (varsi nilkan yli),
   saunassa ja uidessa paljain jaloin. Kaupan mummoilla kävelykengät, Sepolla ja Reijolla työkengät
-  (`scripts/shoes.gd`, ks. `docs/kehitys.md` Kengät).
+  (`scripts/shoes.gd`, ks. `docs/kehitys.md` Kengät). Santulla ja Hanhikiven kalastajalla vihreät kumisaappaat (#273).
 - **Päivin vanha kännykkä (P soimaan / taskuun, N seuraava, U voimakkuus):** kodin makuuhuoneen yöpöydällä
   parisängyn vieressä. Soittaa vanhoja iskelmiä 78 kierroksen levyiltä (`assets/music/iskelma/`, sama lista kuin
   lavabändillä) pienestä kaiuttimesta: oma ääniväylä kaistanpäästöllä ja säröllä, joten ääni on ohut kuin taskusta.
