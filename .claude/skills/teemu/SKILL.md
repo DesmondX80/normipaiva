@@ -127,6 +127,8 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
 - Raportti käyttäjälle (enintään ~10 riviä): mitä tehtiin, muutetut tiedostot, tuomio, mitä jäi huonoksi tai testaamatta. Rehellisesti: ei "toimii" ilman sekstaajan PASS:ia ja omaa katsomista.
 - **Erät etenevät ilman testin odotusta:** monierän työssä seuraava erä aloitetaan, vaikka edellisen testi olisi vielä
   kesken. Sekstaajan FAIL korjataan seuraavan erän rinnalla.
+- **Katso ennen commitia `git diff --cached --stat`.** Toisen agentin valmiiksi lisäämät tiedostot menevät muuten mukaan;
+  commit-viesti kuvaa kaiken, mitä commitissa on. (#271: df65b16 sisälsi osan B tiedostot, viesti kertoi vain A:sta.)
 - **Commit ja push:** testattu (sekstaajan PASS) työ saa committaa ja pushata työhaaraan ilman kysymistä. Kun kaikki on
   valmista ja testattu, PR saa avata ilman eri kysymystä. Testaamatonta tai FAIL-työtä ei pushata ilman käyttäjän pyyntöä.
   Käyttäjän oma GitHub-tili.

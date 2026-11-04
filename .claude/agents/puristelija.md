@@ -52,6 +52,9 @@ Säännöt:
   lisääntyvät, peru muutos ja kirjaa syy; älä paikkaa päälle. Tanssitesti ajetaan aina `--kiintea`-valinnalla
   (ilman sitä tulos vaihtelee ajosta toiseen). Kontaktivian korjaus tehdään arkkitehdin juurisyyanalyysin mukaan.
   (#oikeat-kengat: `pari_ote.gd`-muutos nosti tanssin löydöt 2 -> 15.)
+- **Toinen korjaus ilman vaikutusta = palauta.** Jos toinen korjaus samaan visuaaliseen vikaan ei muuta kuvaa, palauta
+  arkkitehdille juurisyyanalyysiin. Pyydetty hyväksyntätesti (esim. tanssi `--kiintea` kahdesti) ajetaan aina; ajoraja
+  koskee vain toistoa ilman muutosta. (#271)
 - **Kääntö ennen ajoa.** Jos olet muuttanut .gd-tiedostoa, aja `tools/testit/aja.sh kaantyy` ennen jokaista scene- tai
   tscn-ajoa. Testiskriptin jäsennysvirhe ei näy kääntötarkistuksessa, joten lue myös `aja.sh`:n tulosrivi (skriptivirheitä).
   (#sinikan-ovilappu: kaksi ajoa, 20 min, kaatui samaan jäsennysvirheeseen.)
