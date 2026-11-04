@@ -1020,7 +1020,7 @@ static func _boot_slices(p: Dictionary, pts: PackedVector3Array, flo: PackedVect
 			need = maxf(need, absf(q.x - sc[i]) / pow(1.0 - pow(r, n), 1.0 / n))
 		wn.append(need + margin + pad * lam)
 		var b: Vector2 = planes[i][1]
-		var vfl := (y_welt - planes[i][0].y) / b.y if b.y > 1e-4 else -INF
+		var vfl: float = (y_welt - planes[i][0].y) / b.y if b.y > 1e-4 else -INF
 		out.append([planes[i][0], b, sc[i], vc, 0.0, an, af, n, vfl])
 	var wd := _envelope(wn)
 	for i in out.size():
