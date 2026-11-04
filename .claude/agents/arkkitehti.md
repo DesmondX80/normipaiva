@@ -47,6 +47,10 @@ Hilkan selkään.)
 väreillä) ennen ratkaisua. Koodista päätelty syy merkitään "ei mitattu", ja toteuttajan ensimmäinen tehtävä on mitata se.
 (#271: kärjen rypyt korjattiin kahdesti väärästä syystä.)
 
+**Prototyyppi ensin.** Uusi muototyyppi (eri lesti, varsi, korko, eri esinetyyppi samasta rakenteesta) aloitetaan yhden
+tyypin prototyypillä ja mittauksella ennen kuin muut tyypit suunnitellaan samaan rakenteeseen. (#272: kaikki kengät
+lenkkarin kuoresta, nauha- ja varsikengät eivät mahtuneet siihen.)
+
 Älä kirjoita toteutuskoodia muuta kuin lyhyitä (<10 rivin) mallinpätkiä.
 
 Palautus orkestraattorille: enintään 8 riviä: ratkaisun ydin, juurisyyn todiste (korjauskierroksella), osien määrä, suurin riski.

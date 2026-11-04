@@ -49,6 +49,11 @@ käyttäjän tarvitse kysyä.
   (ei odoteta kolmatta). Vertaa löytöjä mainin vertailuajoon samoilla valinnoilla (tanssi `--kiintea`).
   Älä kerro käyttäjälle, että vahti on päällä, ennen kuin olet tarkistanut sen (`list_triggers`).
   (#oikeat-kengat: tanssi 2 -> 1 -> 10 -> 15 ennen pysäytystä.)
+- **Vertailuluku ensin.** Jos uuden testin tai testivalinnan löydöillä ei ole mainin vertailulukua `00-main-tila.md`:ssä,
+  aja se mainissa ennen kuin aliagentti korjaa löytöjä (vaihda mainiin pääkopiossa; worktree ei käänny ilman assetteja).
+  (#272: 30 min `asennot --asento=a`:n vanhoihin löytöihin, main 84.)
+- **Kierrokset yhteen.** Osien A, B, C… korjauskierrokset lasketaan yhteen. Kun samassa osassa on kolme kierrosta, kysy
+  käyttäjältä rajausta (pois, hyväksy vika, jatka). (#272)
 - **Valvo jumit.** Pidä pitkän työn ajan vahti päällä (sama testi monta kertaa ilman muutosta, liian pitkä ajo, väärä
   komento). Jos aliagentti ei edisty kahdella ajolla, pysäytä se ja ratkaise suunta itse; älä odota, että käyttäjä huomaa.
   Tarkista se itse: aina kun käyttäjä kysyy tilannetta ja vähintään 20 minuutin välein, lue työkansion `ajot.md`:n viimeiset
@@ -110,6 +115,7 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
    (AskUserQuestion) ennen putkea.
    Aja heti `tools/testit/godot.sh`. Jos Godotia ei löydy, kerro se käyttäjälle ennen spekstaajaa ja kysy: asennetaanko,
    vai toteutetaanko testaamatta (merkitään commitiin ja PR:ään "testaamatta kunnolla").
+1. Viitatut issuet (esim. "kuuluu #274:ään") kirjoitetaan työkansioon tiedostoiksi `00-issue-<n>.md` ennen spekstaajaa.
 1. **spekstaaja** (Agent, subagent_type `spekstaaja`): "Työkansio: <polku>. Pyyntö: <pyyntö>". Jos palautuksessa on avoimia kysymyksiä, jotka eivät ratkea järkevällä oletuksella, kysy ne käyttäjältä (AskUserQuestion), kirjaa vastaukset `01-suunnitelma.md`:hen Editillä.
 2. Koon mukaan:
    - **pieni** (yksi tiedosto, selvä muutos): ohita arkkitehti; puristelija lukee suunnitelman ja toteuttaa.
