@@ -102,6 +102,12 @@ tappelun loppu, PIDÄTETTY Saloisissa (menetykset, kuvat `_pidatetty`, `_pidatys
 (`_elvytetty_vaala`, `_elvytetty_puhelin0–2`). Hitaalla koneella WASTED-kierron kamera jää motkotuksen alkuun (ruudun delta
 rajautuu); oikea kuva `--kiintea`-valinnalla, mutta se ei mahdu aikarajaan. `paivakirja`: Riskit-sivu 1280×720 ja välilehtien
 mitat (`_riskit`, `_riskit_tyhja`). Muut nimet ajavat osan oman `testi(arg)`-funktion (`scripts/rikos/<nimi>.gd`).
+`velka` (rivit `VELKA`): luotto (kaksi, kolmas estetty syyn kanssa), maksu ilman rahaa (estetty, ei muuta tilaa), Riskit-data,
+korko, tallennus edestakaisin, maksu, perintä Vaalassa voitolla ja häviöllä (kuvat `_velka_riskit`, `_velka_tappelu`, `_velka_tappelu2`).
+`valeostaja` (rivit `VALEOSTAJA`): arvonta (ei ilman myytävää, kerran päivässä), paikka torilla, puhevihje jalan, aito myynti,
+kieltäytyminen, väärä ja oikea "Sää oot kyttä", Riskit-rivit, yö, tallennus ja pidätys Vaalassa (kuvat `_valeostaja_pelikamera`,
+`_aito_keskustelu`, `_korvanappi`, `_kengat`, `_vale_kokonaan`, `_tori_ja_mopopojat`, `_pidatetty`). Lähikuvat:
+`aja.sh tscn tools/testit/valeostaja_kuvat.tscn` (aito, poliisi ja mopopoika edestä, sivulta, ylhäältä, korvanappi ja kengät).
 
 ## Puheäänet
 

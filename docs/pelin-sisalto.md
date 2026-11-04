@@ -675,6 +675,20 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     ei vihjeitä, ei huolia. Vielä." **Pidätys** (`_rikos_loppu("pidatys", syy)`): otsikko PIDÄTETTY, lääkkeet takavarikkoon, puolet rahoista
     ja maine −10; Saloisissa Päivi motkottaa pihalla, Vaalassa soittaa aamulla. **Yliannos** (`_rikos_loppu("yliannos", syy)`): otsikko
     ELVYTETTY, Päivi: "Mun piti elvyttää sut." ja lopuksi "HUUMEET ON VAARALLISIA. OIKEASTI." (Vaalassa Santun piti elvyttää, Päivi soittaa).
+    **Velka** (V1, `rikos/velka.gd`): Vaalan torin mopopojat antavat annoksen myyntiin luotolla ("Ota luotolla": oksikodoni tai
+    pervitiini, 0,8 × teinien myyntihinta, enintään 2 annosta saman velan aikana, velkakatto 1000 €). Velka kasvaa joka aamu 15 %
+    (tasaeuroihin) ja näkyy Riskit-sivulla mittarina, eräpäivänä ja luottoannoksina. "Maksa velka" mopopojille onnistuu vain, jos rahat
+    riittävät (muuten valinta näkyy harmaana syineen). Kolmannen aamun jälkeen mopopojat perivät seuraavalla Vaalan-käynnillä
+    (3 s ulkona, ei kisan, ratsian eikä välianimaation aikana): diilitappelu. Voitto kuittaa velan (maine +2); häviö vie rahaa velan
+    verran ja lyhentää velkaa saman verran (maine −5), ja seuraava perintä on taas kolmen aamun päästä. Tila osiossa `rikos_velka`.
+    **Valeostaja** (V2, `rikos/valeostaja.gd`): Vaalan-päivänä, kun repussa on myytävää, torille tulee 20 %:n todennäköisyydellä
+    uusi aikuinen ostaja (arvonta kerran päivässä, paikalla klo 9–21, yöksi pois; seisoo torilla kojujen vieressä vähintään 2 m irti
+    kalusteista). Puolet on aitoja (nuhjuinen harmaa huppari, sänki, likaiset tennarit; maksaa 1,25 × teinihinnan), puolet
+    siviilipukuisia poliiseja: tumma softshell-takki, siistit farkut, korvassa nappi, josta läpikuultava kierrejohto kauluksen alle,
+    hohtavan valkoiset uudet lenkkarit ja repliikki "Mä otan kaikki, paljonko sulla on?" (liian hyvä hinta 1,6 ×). Vihjeet näkyvät
+    hahmossa ja tervehdyksen havaintorivissä. Myynti poliisille: virkamerkki ja PIDÄTETTY (`_rikos_loppu("pidatys")`). "Ei oo mitään
+    myytävää" ei maksa mitään. "Sää oot kyttä": oikein maine +2 ja vihjeet Riskit-sivun osioon Kyttävihjeet (myös pidätyksen jälkeen),
+    väärin aito ostaja loukkaantuu ja lähtee (ei muuta). Tila osiossa `rikos_valeostaja`.
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
     katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin
