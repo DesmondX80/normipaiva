@@ -495,7 +495,7 @@ func _boot_gap(ch: Node3D, tag: String) -> void:
 	var sk := _skinned(ch, mi)
 	var mats := _bind_mats(ch, mi.skin)
 	var bd := _skinned(ch, ch.body_mi)
-	var ba := ch.body_mi.mesh.surface_get_arrays(0)
+	var ba: Array = ch.body_mi.mesh.surface_get_arrays(0)
 	var bv: PackedVector3Array = ba[Mesh.ARRAY_VERTEX]
 	var bc: PackedColorArray = ba[Mesh.ARRAY_COLOR]
 	var res := {"suu": -INF, "ala": -INF, "vali": INF}
@@ -547,6 +547,12 @@ func _boot_gap(ch: Node3D, tag: String) -> void:
 				continue
 			var q: Vector3 = bd[0][v] + bd[1][v] * (-0.006 if c == 2 else 0.0)  # lahje painuu varren alla 6 mm (shoe_top)
 			res.vali = minf(res.vali, -inside.call(inv * q))
+	var top := -INF
+	for j in rv.size():
+		if u2[j].y > 1.5:
+			top = maxf(top, (ch.skeleton.global_transform * sk[0][j]).y)
+	print("KENKA %s varsi yläreuna %.0f mm lattiasta, polvi %.0f mm, nilkka %.0f mm" % [tag, top * 1000.0,
+		ch.to_global(ch.bone_position("calf_l")).y * 1000.0, ch.to_global(ch.bone_position("foot_l")).y * 1000.0])
 	print("KENKA %s suu_ulkona %.1f mm alareuna_ulkona %.1f mm vali %.1f mm" % [tag, res.suu * 1000.0, res.ala * 1000.0, res.vali * 1000.0])
 	if res.suu > 0.0005:
 		print("TESTI VIKA %s alaosan suu %.1f mm varren ulkopuolella (porras/rako)" % [tag, res.suu * 1000.0])

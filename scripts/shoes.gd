@@ -21,6 +21,7 @@ const TOE_BLEND := 0.015  # kärkiosan painot: päkiästä +-15 mm sekoitus, ede
 const SHAFT_RINGS := 8  # varren vaakarenkaat alhaalta yläreunaan
 const SHAFT_N := 2.6  # varren poikkileikkauksen superellipsin eksponentti
 
+static var _shaft_h := 0.0  # viimeksi rakennetun varren yläreuna kuoren alapinnasta (meta "varsi_h", varjostimen shaft_h)
 static var _tip_h := 0.0  # viimeksi rakennetun kengän kärkipisteen korkeus lattiasta (meta "karki", testin profiili)
 
 ## Tyyppien parametrit (metrejä mallin mittakaavassa): lift = koko nosto (pohjan alapinta jalkapohjan alimman kärjen alla,
@@ -48,11 +49,12 @@ const TYPES := {
 		"shaft": {"join": 0.07, "top": 0.13, "pad": 0.006}},
 	# Kumisaapas (#273): kaksi jäykkää osaa. Alaosa = matala kuori (suu tasan join), varsi = leveä kartioputki säären
 	# luulla (rigid: painot 100 % sääreen), alareuna limittäin alaosan suun sisällä (lap = putken alareuna join:n alla).
-	# flare = putken lisäväljyys yläreunassa (kartio), pad alareunassa.
+	# flare = putken lisäväljyys yläreunassa (kartio), pad alareunassa, top_k = yläreuna osuutena nilkasta polveen (top ohitetaan).
 	"kumisaapas": {"lift": 0.023, "sole": 0.020, "rand": 0.012, "margin": 0.004, "flare": 0.005, "toe_room": 0.016,
 		"toe_round": 1.1, "toe_n": 2.8, "toe_h": 1.1, "toe_low": 0.3, "collar": 0.012, "spring": 0.006,
 		"sole_col": Color(0.93, 0.9, 0.82), "rough": 0.3, "sole_rough": 0.85, "style": 4, "spec": 0.5, "clearcoat": 0.6,
-		"shaft": {"join": 0.09, "top": 0.237, "pad": 0.008, "rigid": true, "lap": 0.03, "gap": 0.004, "flare": 0.016}},
+		"shaft": {"join": 0.09, "top": 0.237, "top_k": 0.55, "pad": 0.014, "rigid": true, "lap": 0.03, "gap": 0.004,
+			"flare": 0.022}},
 	"paljas": {},
 }
 
@@ -116,6 +118,8 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	out.set_meta("karki", _tip_h)
 	out.set_meta("varsi", varsi.x)  # 0 = ei vartta; character.gdshader shoe_top (lahje varren sisään)
 	out.set_meta("varsi_v", Vector3(varsi.y, varsi.z, varsi.w))  # skin_outside ja testi
+	if p.has("shaft") and p.shaft.has("top_k"):
+		out.set_meta("varsi_h", _shaft_h)  # character.gd: varjostimen shaft_h (yläreuna lasketaan luista)
 	return out
 
 
@@ -492,6 +496,11 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 	var yj: float = ymin + float(sh.join)
 	var y0 := yj + 0.012  # alin mitattu rengas; sen alla rengas jalkaosan suun ääriviivalla (yj)
 	var y1: float = ymin + float(sh.top)
+	if sh.has("top_k"):  # yläreuna osuutena nilkasta polveen (säären luun alku), ei kiinteänä mittana: puoleen sääreen
+		var ank := skel.get_bone_global_rest(skel.find_bone("foot" + _bone_of(foot[0], bi, bw, per, skin, skel).right(2))).origin.y
+		var knee := skel.get_bone_global_rest(skel.find_bone("calf" + _bone_of(foot[0], bi, bw, per, skin, skel).right(2))).origin.y
+		y1 = lerpf(ank, knee, float(sh.top_k))
+	_shaft_h = y1 - y_welt
 	var win := (y1 - y0) / float(SHAFT_RINGS - 1) * 0.75 + 0.004
 	# Kärjet (t, s, y) säären alaosasta; paita (luokka 1) pois. leg = painojen lähteet.
 	var leg := PackedInt32Array()
