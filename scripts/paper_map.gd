@@ -499,7 +499,7 @@ func _legend(p: Vector2) -> float:
 	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 	var items := [
 		["road", "Maantie"], ["street", "Katu"], ["path", "Polku"], ["forest", "Metsä"], ["field", "Pelto"],
-		["bog", "Suo, räme"], ["water", "Vesi"], ["home", "Koti"], ["shop", "K-Market"], ["laavu", "Laavu"], ["berry", "Marjapaikka"], ["mushroom", "Sienipaikka"], ["stash", "Kaljajemma"], ["target", "Kompassin kohde"], ["you", "Olet tässä"],
+		["bog", "Suo, räme"], ["water", "Vesi"], ["home", "Koti"], ["shop", "K-Market"], ["apteekki", "Apteekki (Kinnapotti)"], ["laavu", "Laavu"], ["berry", "Marjapaikka"], ["mushroom", "Sienipaikka"], ["stash", "Kaljajemma"], ["target", "Kompassin kohde"], ["you", "Olet tässä"],
 	]
 	var y := p.y
 	for i in items.size():
@@ -528,6 +528,8 @@ func _legend(p: Vector2) -> float:
 			"shop":
 				draw_circle(sym, 7.0, Color(1.0, 0.45, 0.0))
 				draw_string(font, sym + Vector2(-4, 5), "K", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.WHITE)
+			"apteekki":
+				_poi_icon_on(self, sym, "apteekki")
 			"laavu":
 				_laavu_icon(sym)
 			"berry":
@@ -551,7 +553,7 @@ func _legend_vaala(p: Vector2) -> float:
 	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 	var items := [
 		["home", "Mökki Paapeli"], ["siitari", "Hotelli-Ravintola Siitari"], ["shop", "K-Market Tervaportti"],
-		["zabuki", "Zabuki (olut, burgerit)"], ["gasthaus", "Gasthaus (yö 10 €)"],
+		["zabuki", "Zabuki (olut, burgerit)"], ["gasthaus", "Gasthaus (yö 10 €)"], ["apteekki", "Apteekki (Satamantie)"],
 		["atm", "Pankkiautomaatti"], ["lava", "Oulujärven lava"], ["church", "Kirkko"], ["station", "Rautatieasema"],
 		["beach", "Salmisen uimaranta"], ["statue", "Ranta-Rosvo"], ["laavu", "Keskimmäisen laavu"],
 		["barrel", "Tynnyrisauna"], ["dock", "Laituri ja soutuvene"], ["harbor", "Vaalan satama (muskelivene)"],
@@ -560,7 +562,7 @@ func _legend_vaala(p: Vector2) -> float:
 		["water", "Vesi"], ["building", "Rakennus"],
 	]
 	# Kohteet allekkain, viivat ja alueet kahteen palstaan.
-	var first_area := 16
+	var first_area := 17
 	var last_y := p.y
 	for i in items.size():
 		var row := i if i < first_area else first_area + (i - first_area) / 2
@@ -680,9 +682,14 @@ func _draw_map() -> void:
 	var map_vis := Rect2(_vpx(_vrect.position), _vrect.size * _vzoom).intersection(Rect2(Vector2.ZERO, v.size))
 	# Kohteiden nimet: oikealle merkistä, tai vasemmalle, jos oikealla ei ole tilaa (lb_at: nimen paikka piirtoon).
 	var lb_at := {}
+	# Saloisten apteekki: paikka haetaan käynnistyksessä (apteekki_saloinen.gd), joten sijainti luetaan maailmasta.
+	var apt_s: Vector2 = M.to_px(world.apteekki_s.knock) if world != null and world.apteekki_s.has("knock") else Vector2.INF
 	var grilli_txt := "Grillikatos (turvapaikka)" if _vzoom >= 0.4 else "Grillikatos"  # kaukaa lyhyt, mahtuu
-	for lb in [["koti", M.HOME_ZONE, "Järvikuja 1"], ["kauppa", M.SHOP_ZONE, "K-Market"], ["laavu", M.LAAVU, "Laavu"],
-			["grilli", M.GRILLIKATOS, grilli_txt], ["kota", M.KOTA, "Kota ja lintutorni"]]:
+	var labels := [["koti", M.HOME_ZONE, "Järvikuja 1"], ["kauppa", M.SHOP_ZONE, "K-Market"], ["laavu", M.LAAVU, "Laavu"],
+			["grilli", M.GRILLIKATOS, grilli_txt], ["kota", M.KOTA, "Kota ja lintutorni"]]
+	if apt_s != Vector2.INF:
+		labels.append(["apteekki", apt_s, "Apteekki"])
+	for lb in labels:
 		var ip := _px(lb[1])
 		var w := font.get_string_size(lb[2], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 		var at := ip + Vector2(12, 4)
@@ -721,6 +728,9 @@ func _draw_map() -> void:
 	v.draw_circle(sp, 8.0, Color(1.0, 0.45, 0.0))
 	v.draw_string(font, sp + Vector2(-4, 5), "K", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
 	_outlined(v, lb_at.kauppa, "K-Market", 13, Color(0.7, 0.3, 0.0))
+	if apt_s != Vector2.INF:
+		_poi_icon_on(v, _px(apt_s), "apteekki")
+		_outlined(v, lb_at.apteekki, "Apteekki", 13, Color(0.05, 0.4, 0.18))
 	# Arton merkitsemät marja- ja sienipaikat, käsin piirretyn näköisinä.
 	if world != null and world.forage_revealed:
 		for f in world.forage:
@@ -981,6 +991,9 @@ func _vaala_load() -> void:
 	if tori[0] != Vector2.INF:
 		_vpois.append(["Tori", tori[0], "label", false])
 		_vpois.append(["Zabuki", tori[1], "zabuki", false])
+	var apt = _vd.get("keskusta", {}).get("apteekki")
+	if apt != null:
+		_vpois.append(["Apteekki", Vector2(apt.c[0], apt.c[1]), "apteekki", true])
 	if _vd.get("underpass") != null:
 		var u: Dictionary = _vd.underpass
 		_vpois.append(["Radan alikulku", Vector2(u.at[0], u.at[1]), "label", false])
@@ -1440,6 +1453,12 @@ func _poi_icon_on(ci: CanvasItem, p: Vector2, kind: String) -> void:
 			ci.draw_rect(Rect2(p + Vector2(-9, -6), Vector2(18, 12)), Color(0.2, 0.25, 0.45))
 			ci.draw_rect(Rect2(p + Vector2(-7, -1), Vector2(14, 5)), Color(0.95, 0.93, 0.85))
 			ci.draw_rect(Rect2(p + Vector2(-7, -4), Vector2(5, 3)), Color(1, 1, 1))
+		"apteekki":
+			# Vihreä risti valkoisella pohjalla.
+			ci.draw_rect(Rect2(p - Vector2(8, 8), Vector2(16, 16)), Color(0.97, 0.97, 0.94))
+			ci.draw_rect(Rect2(p - Vector2(8, 8), Vector2(16, 16)), INK, false, 1.0)
+			ci.draw_rect(Rect2(p - Vector2(2, 6), Vector2(4, 12)), Color(0.1, 0.55, 0.25))
+			ci.draw_rect(Rect2(p - Vector2(6, 2), Vector2(12, 4)), Color(0.1, 0.55, 0.25))
 		"atm":
 			ci.draw_rect(Rect2(p - Vector2(6, 5), Vector2(12, 10)), Color(0.1, 0.45, 0.25))
 			ci.draw_string(font, p + Vector2(-4, 4), "€", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.WHITE)

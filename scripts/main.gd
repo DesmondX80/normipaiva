@@ -22471,6 +22471,10 @@ func _maybe_screenshot() -> void:
 			_paper._vzoom_by(0.01, _paper._view.size / 2.0)
 			await snap.call("_koko.png")
 			print("MAP koko kartta: zoom %.3f" % _paper._vzoom)
+			if world.apteekki_s.has("knock"):
+				_paper._vcenter = Vector2(world.apteekki_s.knock.x, world.apteekki_s.knock.z)
+				_paper._vzoom_by(100.0, _paper._view.size / 2.0)
+				await snap.call("_apteekki.png")
 			_paper._center_on_me()
 			_paper._vzoom_by(100.0, _paper._view.size / 2.0)
 			await snap.call("_lahella.png")
@@ -23916,7 +23920,7 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().process_frame
 			_paper.toggle()
-			for vw in [["_kartta.png", Vector2(820, -880), 1.6], ["_kartta_lahella.png", Vector2(815, -900), 3.0]]:
+			for vw in [["_kartta.png", Vector2(820, -880), 1.6], ["_kartta_lahella.png", Vector2(815, -900), 3.0], ["_kartta_apteekki.png", Vector2(811, -700), 1.0]]:
 				_paper._vcenter = vw[1]
 				_paper._vzoom = vw[2]
 				_paper._view.queue_redraw()

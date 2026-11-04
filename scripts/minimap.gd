@@ -169,6 +169,8 @@ func _draw() -> void:
 	_marker(_px(M.LAAVU), Color(0.75, 0.5, 0.25), "L")
 	_marker(_px(M.GRILLIKATOS), Color(0.35, 0.8, 0.35), "G")
 	_marker(_px(M.KOTA), Color(0.85, 0.6, 0.3), "Ko")
+	if world != null and world.apteekki_s.has("knock"):
+		_marker(_px(M.to_px(world.apteekki_s.knock)), Color(0.1, 0.55, 0.25), "A")
 	if world != null and world.forage_revealed:
 		for f in world.forage:
 			if not f.taken:
@@ -222,6 +224,9 @@ func _draw_vaala() -> void:
 		marks.append([Vector2(vaala.satama_door.x, vaala.satama_door.z), Color(0.15, 0.35, 0.7), "V"])
 	if vaala._zabuki != Vector3.INF:
 		marks.append([Vector2(vaala._zabuki.x, vaala._zabuki.z), Color(0.95, 0.7, 0.15), "Z"])
+	if vaala.door_pos("apteekki") != Vector3.ZERO:
+		var ad: Vector3 = vaala.door_pos("apteekki")
+		marks.append([Vector2(ad.x, ad.z), Color(0.1, 0.55, 0.25), "A"])
 	marks.append([Vector2(vaala.mokki_mopo.x, vaala.mokki_mopo.z), Color(0.8, 0.15, 0.1), "P"])
 	for m in marks:
 		_marker(_clamp_edge(vl.call(m[0])), m[1], m[2])

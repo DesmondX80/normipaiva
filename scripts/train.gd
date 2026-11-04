@@ -83,6 +83,7 @@ func _process(delta: float) -> void:
 			if _pending >= 0.0 and _s - _stop_s > _train_len + 150.0:
 				var t := _pending
 				_pending = -1.0
+				_phase = ""  # muuten call_station jonottaa kutsun uudelleen ja return jättää junan seisomaan radalle
 				call_station(t)
 				return
 	_s += _speed * delta

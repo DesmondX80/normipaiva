@@ -631,7 +631,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     **Satamantien alikulku:** Satamantie ei ylitä rataa tasoristeyksellä vaan painuu leikkaukseen ja kulkee betonikannen alta (kiskot pysyvät maan tasolla;
     kuten Vaalaan tultaessa, kilpi "4,6 m"; `tools/vaala_alikulku.py`, `vaala.gd _under_structure`).
     **Apteekki** on Satamantien varressa radan jälkeen oikealla (`tools/vaala_apteekki.py`, `vaala.gd _build_apteekki`): vaalea liiketila, vihreä APTEEKKI-kyltti,
-    edessä asfalttiparkki. Sisälle pääsee (auki ma–su 9–17, `apteekki_interior.gd`): tiskillä farmaseutti. Ilman reseptiä saa vain Panadolia (4,90 €) ja Buranaa
+    edessä asfalttiparkki. Paperikartalla (vihreä risti, selitteessä) ja minikartalla (A) apteekki on merkitty. Sisälle pääsee (auki ma–su 9–17, `apteekki_interior.gd`): tiskillä farmaseutti. Ilman reseptiä saa vain Panadolia (4,90 €) ja Buranaa
     (5,50 €); Panacod (9,80 €) on reseptivapaa; kolmiolääke (▲ Tramal 12,40 €) vaatii reseptin, jonka kuluttaa yksi ostos (`main.gd APTEEKKI_MENU`, `reseptit`). Reseptin
     saa aarrekätköstä: asemalla juopolle viinaa, joka kertoo kätkön, ja kätkössä on satasen lisäksi resepti (`_take_cache`). Lääke menee reppuun ja sen ottaa repusta
     ("ota") tai T-valikosta, kun sen aika on: kipu helpottaa, kolmiolääke humaltuttaa ja nostaa moraalia (ei ajeta mopolla). Listalla myös
@@ -653,7 +653,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     (`fight.gd teini_diili`: 150 hp, kova isku, aggressiivinen). Voitto: teini pakenee, tavarat jäävät, maine +2. Häviö: teini ryöstää kaikki lääkkeet ja rahat,
     tunti kuluu, maine −5 (`main.gd _teini_myy`, `_start_teini_fight`, `_teini_fight_end`).
     **Huumekauppa Saloisissa:** Kinnapotin hallien vieressä Valtatien varressa (noin 30 m tiestä länteen) on pieni uusi apteekki
-    (`apteekki_saloinen.gd`, paikka haetaan OSM-datasta ehdokkaista ja tulostetaan `APTEEKKI_S paikka`). Etuovi on ketjulla lukossa ja AVOINNA-kyltti
+    (`apteekki_saloinen.gd`, paikka haetaan OSM-datasta ehdokkaista ja tulostetaan `APTEEKKI_S paikka`). Apteekki on merkitty kyläkartalle (vihreä risti, selitteessä) ja minikartalle (A); sijainti luetaan maailmasta. Etuovi on ketjulla lukossa ja AVOINNA-kyltti
     roikkuu vinossa (E etuovella: vain vihje). Takaseinässä on sama teräsovi kurkistusluukkuineen kuin Vaalassa (HENKILÖKUNTA-kyltti, vihreä lamppu),
     ja koputus (E) avaa luukun: eläkkeellä oleva sairaanhoitaja **Hoitaja Raili** (valkoinen takki, harmaa permanentti, pyöreät lasit) myy
     Oksikodonia (249 €) ja Pervitiiniä (199 €) ilman reseptiä samoin hinnoin kuin Vaalan takaovi (`main.gd _hs_door_logic`, `_hs_hatch`, `_hs_osta`).
