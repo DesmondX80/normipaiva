@@ -55,14 +55,15 @@ const PEOPLE := [
 	# Tansseissa Anna-Liisa seisoo lattian reunalla: kirppispaikka (1,8; 1,4) on taustaparien kiertoradalla (#257).
 	{"id": "annaliisa", "name": "Anna-Liisa", "role": "naapuri", "modes": ["kirppis", "tanssit"], "at": Vector3(1.8, 0, 1.4),
 		"face": Vector3(-0.6, 0, -1), "paikat": {"tanssit": [Vector3(3.4, 0, 3.6), Vector3(-0.75, 0, -0.66)]}, "pose": "Idle", "look": {"model": "female", "shirt": Color(0.75, 0.55, 0.6),
-			"pants": Color(0.3, 0.3, 0.35), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buns", "hair_color": Color(0.55, 0.45, 0.35),
+			"pants": Color(0.3, 0.3, 0.35), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari", "hair": "Hair_Buns", "hair_color": Color(0.55, 0.45, 0.35),
 			"height": 1.62, "skin": Color(0.95, 0.8, 0.74)}},
-	# Tanssit: tanssiin haettavat, kahvio ja bändi.
+	# Tanssit: tanssiin haettavat, kahvio ja bändi. Tanssijoilla (Anna-Liisa, Hilkka, sinikka_seura) on sama kenkätyyppi
+	# kuin pelaajalla ("shoe": "lenkkari"): korkeusero nostaisi toisen olan ja rikkoisi otteen (#271).
 	{"id": "sinikka_seura", "name": "Sinikka", "role": "tanssiin?", "modes": ["tanssit"], "at": Vector3(-4.0, 0, 2.6),
 		"face": Vector3(0.5, 0, -1), "pose": "Idle", "look_ref": "SINIKKA"},
 	{"id": "hilkka", "name": "Hilkka", "role": "tanssiin?", "modes": ["tanssit"], "at": Vector3(4.6, 0, 2.4),
 		"face": Vector3(-0.5, 0, -1), "pose": "Idle", "look": {"model": "female", "shirt": Color(0.55, 0.3, 0.45),
-			"pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2), "hair": "Hair_Buns", "hair_color": Color(0.85, 0.85, 0.85),
+			"pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2), "shoe": "lenkkari", "hair": "Hair_Buns", "hair_color": Color(0.85, 0.85, 0.85),
 			"height": 1.58, "skin": Color(0.95, 0.8, 0.74), "belly": 0.4}},
 	{"id": "raili", "name": "Raili", "role": "kahvio", "modes": ["tanssit", "bingo"], "at": Vector3(-5.5, 0, 3.3),
 		"face": Vector3(0, 0, 1), "pose": "Idle", "look": {"model": "female", "shirt": Color(0.2, 0.45, 0.4),
