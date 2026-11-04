@@ -120,10 +120,6 @@ func _views(nm: String, ch: Node3D) -> void:
 	await _shot(nm + "_sivu", g + rt * 0.75 + Vector3(0, 0.1, 0), g)
 	g = _foot_near(ch, rt)
 	await _shot(nm + "_ylhaalta", g + Vector3(0, 0.75, 0) + fw * 0.4, g)
-	if ch.shoe_mi != null:  # suoraan ylhäältä ilman vartaloa (sääri peittäisi): kenkien ääriviiva ja kärjen muoto (K1)
-		ch.body_mi.visible = false
-		await _shot(nm + "_paalta", f + Vector3(0, 1.5, 0) + fw * 0.01, f)
-		ch.body_mi.visible = true
 	await _shot(nm + "_takaa", f - fw * 1.1 + Vector3(0, 0.35, 0), f)
 	if nm == "lenkkari_m":  # osat erivärisinä: pohja magenta, päällinen syaani (saumat ja läpimenot näkyvät)
 		var sm: ShaderMaterial = ch.shoe_mi.material_override

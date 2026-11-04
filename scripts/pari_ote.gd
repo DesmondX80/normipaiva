@@ -120,11 +120,6 @@ static func valssi(lead: Node3D, pl: Dictionary, fol: Node3D, pf: Dictionary, sp
 			over = o
 		if o == 0.0:
 			break
-	# Ei ulotu (paljon lyhyempi seuraaja, tai viejä kengänpohjan verran korkeammalla): kohde ulottuman päähän samalla linjalla.
-	# Ulottumattomaan kohteeseen IK ojentaa käden suoraksi, eikä käsien pair_fit (fit) saa sitä siirtymään pinnalta ulos,
-	# koska pieni kohteen siirto ei muuta suoran käden suuntaa (tanssi_kontakti hilkka_horja: käsi 12 mm selän sisällä).
-	if p.distance_to(sh) > reach:
-		p = sh + (p - sh).normalized() * reach
 	hand_to(lead, lb, p, n, p - sh, sh + rl * sd * 0.4 + Vector3.UP * 0.1, w)
 	# (2) Vapaat kädet yhdessä: kohta olkien puolivälissä hieman olan alapuolella ja sivulla (suurin sivu, joka ulottuu).
 	# Kyynärpäät ulos ja alas samalle syvyydelle kuin kädet, jolloin kyynärvarret ovat kämmenten tasossa (ranne suorana).
