@@ -153,7 +153,7 @@ func _views(nm: String, ch: Node3D) -> void:
 		ch.body_mi.visible = false
 		await _shot(nm + "_ylhaalta_lahi", toe + Vector3(0, 0.4, 0) + fw * 0.01, toe)
 		ch.body_mi.visible = true
-		var sun: DirectionalLight3D = get_children().filter(func(x): return x is DirectionalLight3D)[0]  # M-TEMP
+		var sun: DirectionalLight3D = get_children().filter(func(x): return x is DirectionalLight3D)[0]  # ilman varjoja: varjokartan sahalaita ei ole muotovika
 		sun.shadow_enabled = false
 		await _shot(nm + "_vino_lahi_varjoton", toe + (fw * 0.7 + rt).normalized() * 0.35 + Vector3(0, 0.1, 0), toe)
 		sun.shadow_enabled = true

@@ -13,9 +13,10 @@ const DOME := 3  # pyöristysrenkaita kannassa
 const TOE_RINGS := 8  # kärjen kapenevat renkaat (tiheämmin kärkeä kohti)
 const TOE_N := 2.5  # kärjen superellipsin eksponentti (2 = ellipsi, suurempi = leveämpi kärki)
 const TOE_LOW := 0.22  # kärkipisteen korkeus kuoren alimmasta kohdasta (osuus kärkiosan korkeudesta)
-const SE_N := 3.0  # poikkileikkauksen superellipsin eksponentti (2 = ellipsi, suurempi = laatikkomaisempi)
+const SE_N := 2.5  # poikkileikkauksen superellipsin eksponentti (2 = ellipsi, suurempi = laatikkomaisempi)
 const B_LOW := 0.006  # poikkileikkauksen alapuoliskon korkeus (kuori kaartuu pohjaan)
 const HU_PAD := 1.1  # yläpuoliskon väljyys korkeimman kärjen yli
+const PAD := 0.002  # tasoituksen kutistuma (_envelope) ja kannan pyöristys: lisärako tarpeeseen
 const TOE_BLEND := 0.015  # kärkiosan painot: päkiästä +-15 mm sekoitus, edessä vain päkiän luu
 
 ## Tyyppien parametrit (metrejä mallin mittakaavassa): sole = pohjan paksuus, margin = kuoren rako ihoon, flare = pohjan
@@ -139,6 +140,16 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			if absf(q.x - (tmin + step * (i + 0.5))) <= win:
 				lo = minf(lo, q.z)
 		caps.append(lo - collar)
+	var cmax := -INF
+	for c in caps:
+		if c < INF:
+			cmax = maxf(cmax, c)
+	for i in caps.size():
+		caps[i] = -(caps[i] if caps[i] < INF else cmax)  # peilattuna; ei lahjetta ikkunassa = korkein suu
+	# Suu tasaisena käyränä lahkeen alapuolella (_envelope peilattuna), ennen kuin kärjet jaetaan suun ylä- ja alapuolelle.
+	caps = _envelope(caps)
+	for i in caps.size():
+		caps[i] = -caps[i]
 	# Suun yläpuolella oleva kärki: yli matalimman suun niistä poikkileikkauksista, joiden ikkunassa se on (kuori on
 	# niiden välissä suora), joten yksikään kuoren sisään jäävä kärki ei jää leikatun yläreunan yläpuolelle.
 	var is_above := PackedByteArray()
@@ -177,15 +188,10 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		at.append(t)
 		sels.append(sel)
 		sc.append((lo.x + hi.x) / 2.0)
-		cap.append(caps[i] if caps[i] < 1.0 else 1.0)  # ei lahjetta ikkunassa: ei rajaa
-		hn.append((hi.y + margin - yc) * HU_PAD)  # väljyys: superellipsin kulma ei leikkaa ylänurkan kärkiä
+		cap.append(caps[i])
+		hn.append((hi.y + margin + PAD - yc) * HU_PAD)  # väljyys: superellipsin kulma ei leikkaa ylänurkan kärkiä
 	for it in 3:
 		sc = _smooth(sc)
-	for i in cap.size():  # suu: tasainen käyrä lahkeen alapuolella (envelope peilattuna)
-		cap[i] = -cap[i]
-	cap = _envelope(cap)
-	for i in cap.size():
-		cap[i] = -cap[i]
 	var hu := _envelope(hn)
 	var wn := PackedFloat32Array()
 	for i in at.size():
@@ -194,7 +200,7 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			var dy := q.y - yc
 			var r := clampf(absf(dy) / (hu[i] if dy > 0.0 else B_LOW), 0.0, 0.95)
 			need = maxf(need, absf(q.x - sc[i]) / pow(1.0 - pow(r, SE_N), 1.0 / SE_N))
-		wn.append(need + margin)
+		wn.append(need + margin + PAD)
 	var wd := _envelope(wn)
 	# Pyöreä kärki: kohdasta ta kärkeen tend (toe_room varpaiden edessä) rengas kutistuu kärkipisteen (tip_s, y_tip)
 	# ympäri kertoimella f = superellipsi (_toe_f): ylhäältä puoliellipsi, sivulta kaareva nokka. Kärkipiste on keskiviivan
@@ -229,7 +235,6 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		else:
 			grow = maxf(grow, ex)
 	w_a *= grow
-	print("KARKI kasvu %.3f ta %.3f tend %.3f tb %.3f" % [grow, ta, tend, tb])  # M-TEMP
 	hu_a *= grow
 	var ring_a := _ring_at(sc_a, yc, w_a, hu_a, maxf(cap_a, y_welt))
 	var rings := []  # [t, keskipiste Vector2(s, y), PackedVector2Array (s, y), leveyden kerroin pohjalle]
@@ -504,7 +509,5 @@ static func skin_outside(shoe: ArrayMesh, arr: Array) -> float:
 				best = d
 				bj = j
 		var n: Vector3 = (sa[Mesh.ARRAY_NORMAL] as PackedVector3Array)[bj]
-		if (vs[v] - sv[bj]).dot(n) > 0.0:  # M-TEMP
-			print("ULKONA %.1f mm iho %s kuori %s n %s" % [(vs[v] - sv[bj]).dot(n) * 1000.0, vs[v], sv[bj], n])
 		worst = maxf(worst, (vs[v] - sv[bj]).dot(n))
 	return worst
