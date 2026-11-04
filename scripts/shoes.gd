@@ -124,24 +124,33 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	for v in pant:
 		var d := vs[v] - org
 		pq.append(Vector3(d.dot(fwd), d.dot(lat), vs[v].y))
-	var cap_at := func(t: float) -> float:
+	var caps := PackedFloat32Array()  # poikkileikkauksittain
+	for i in SLICES:
 		var lo := INF
 		for q in pq:
-			if absf(q.x - t) <= win:
+			if absf(q.x - (tmin + step * (i + 0.5))) <= win:
 				lo = minf(lo, q.z)
-		return lo - collar
+		caps.append(lo - collar)
+	# Suun yläpuolella oleva kärki: yli matalimman suun niistä poikkileikkauksista, joiden ikkunassa se on (kuori on
+	# niiden välissä suora), joten yksikään kuoren sisään jäävä kärki ei jää leikatun yläreunan yläpuolelle.
+	var is_above := PackedByteArray()
 	for i in pts.size():
-		if pts[i].z > cap_at.call(pts[i].x) - margin:
+		var cmin := INF
+		for k in SLICES:
+			if absf(pts[i].x - (tmin + step * (k + 0.5))) <= win:
+				cmin = minf(cmin, caps[k])
+		is_above.append(1 if pts[i].z > cmin - margin else 0)
+		if is_above[i] == 1:
 			above.append(foot[i])
 	# Poikkileikkaukset: tukifunktio (kuperan verhon etäisyys keskeltä kuhunkin suuntaan) + rako.
 	var rings := []  # [t, keskipiste Vector2(s, y), PackedVector2Array (s, y)]
 	for i in SLICES:
 		var t := tmin + step * (i + 0.5)
 		var sel := PackedVector2Array()
-		var cap: float = cap_at.call(t)
-		for q in pts:
-			if absf(q.x - t) <= win and q.z <= cap - margin:
-				sel.append(Vector2(q.y, q.z))
+		var cap: float = caps[i]
+		for j in pts.size():
+			if absf(pts[j].x - t) <= win and is_above[j] == 0:
+				sel.append(Vector2(pts[j].y, pts[j].z))
 		if sel.size() < 3:
 			continue
 		var lo := Vector2(INF, INF)
@@ -163,32 +172,34 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		rings.append([t, c, ring, sel, cap])
 	_smooth(rings, y_welt)
 	# Pyöreä kärki: kärkiosan renkaat kapenevat superellipsin mukaan (ylhäältä pyöreä, sivulta kaartuva yläpinta) kohti
-	# kärkeä tend, joka on toe_room varpaiden edessä. Peittokorjaus alla työntää kehän takaisin varpaiden ulkopuolelle.
+	# kärkeä tend, joka on toe_room varpaiden edessä. Kavennus tapahtuu isovarpaan kohdan (tip_s, varpaiden kärki ei ole
+	# jalan keskellä) ympäri, joten kärki on isovarpaan puolelta suorempi kuten oikeassa kengässä. Peittokorjaus alla
+	# työntää kehän takaisin varpaiden ulkopuolelle.
 	var last: Array = rings[rings.size() - 1]
-	var hw := 0.0
+	var toe_hw := 0.0
 	for q: Vector2 in last[2]:
-		hw = maxf(hw, absf(q.x - (last[1] as Vector2).x))
+		toe_hw = maxf(toe_hw, absf(q.x - (last[1] as Vector2).x))
+	var tip_s := 0.0
+	var ntip := 0
+	for q in pts:
+		if q.x >= tmax - 0.004:
+			tip_s += q.y
+			ntip += 1
+	tip_s /= maxf(ntip, 1)
 	var tend := tmax + margin + float(p.get("toe_room", 0.0))
-	var ta := tend - hw * float(p.get("toe_round", 1.0))
+	var ta := tend - toe_hw * float(p.get("toe_round", 1.0))
 	for r in rings:
-		r[2] = _toe_scale(r[2], r[1], _toe_f(float(r[0]), ta, tend), y_welt)
+		r[2] = _toe_scale(r[2], Vector2(tip_s, (r[1] as Vector2).y), _toe_f(float(r[0]), ta, tend), y_welt)
 	# Tasoituksen jälkeen jokainen kehän piste vähintään raon verran ikkunan kärkien tukietäisyyden ulkopuolelle.
 	for r in rings:
-		var ring: PackedVector2Array = r[2]
-		var c: Vector2 = r[1]
+		var ring := _contain(r[2], r[1], r[3], margin)
 		for k in ring.size():
-			var d: Vector2 = (ring[k] - c).normalized()
-			var h := -INF
-			for q: Vector2 in r[3]:
-				h = maxf(h, (q - c).dot(d))
-			var need := h + margin - (ring[k] - c).dot(d)
-			if need > 0.0:
-				ring[k] += d * need
-			ring[k].y = minf(ring[k].y, maxf(float(r[4]), y_welt))  # suu tasaisena lahkeen alla
+			ring[k] = Vector2(ring[k].x, minf(ring[k].y, maxf(float(r[4]), y_welt)))  # suu tasaisena lahkeen alla
 		r[2] = ring
 		r.resize(3)
 	# Pyöristys päihin: kannan renkaat kutistuvat keskipisteeseen neljännesympyrän mukaan, kärki superellipsinä.
 	var full := []
+	var tip1: Vector2 = rings[-1][1]
 	for end in [0, 1]:
 		var e: Array = rings[0] if end == 0 else rings[rings.size() - 1]
 		if end == 1:
@@ -196,11 +207,21 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			full.append_array(rings)
 			var ue := (float(e[0]) - ta) / (tend - ta)
 			var fe := maxf(_toe_f(float(e[0]), ta, tend), 0.05)
+			var tc := Vector2(tip_s, (e[1] as Vector2).y)
+			var ts := PackedFloat32Array()
 			for j in range(1, TOE_RINGS + 1):
-				var u := 1.0 - (1.0 - ue) * pow(1.0 - float(j) / (TOE_RINGS + 1), 2.0)
-				var t := ta + u * (tend - ta)
-				var f := _toe_f(t, ta, tend) / fe
-				full.append([t, e[1], _toe_scale(e[2], e[1], f, y_welt), f])
+				ts.append(ta + (1.0 - (1.0 - ue) * pow(1.0 - float(j) / (TOE_RINGS + 1), 2.0)) * (tend - ta))
+			for j in ts.size():
+				var f := _toe_f(ts[j], ta, tend) / fe
+				# Varpaat renkaan kohdalla (puolen renkaanvälin ikkunassa) jäävät kuoren sisään.
+				var half := (ts[j] - (float(e[0]) if j == 0 else ts[j - 1])) * 0.5 + 0.001
+				var sel := PackedVector2Array()
+				for q in pts:
+					if absf(q.x - ts[j]) <= half:
+						sel.append(Vector2(q.y, q.z))
+				var c2: Vector2 = tc + ((e[1] as Vector2) - tc) * f
+				full.append([ts[j], c2, _contain(_toe_scale(e[2], tc, f, y_welt), c2, sel, margin), f])
+			tip1 = tc
 			continue
 		var ext: float = float(e[0]) - tmin + margin
 		var dir := -1.0
@@ -218,7 +239,6 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	var t0: float = float(rings[0][0]) - (float(rings[0][0]) - tmin + margin)
 	var t1: float = tend
 	var tip0: Vector2 = rings[0][1]
-	var tip1: Vector2 = rings[-1][1]
 	var to3 := func(t: float, q: Vector2) -> Vector3:
 		return org + fwd * t + lat * q.x + Vector3.UP * q.y
 	var span := t1 - t0
@@ -326,6 +346,22 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		for k in np:
 			tri.call(to3.call(prof[i][0], prof[i][2][k]), to3.call(prof[i][0], prof[i][2][(k + 1) % np]), cen, o, 1.0, c2, c2, c2)
 	return ymin - y_bot
+
+
+## Kehän pisteet vähintään raon verran kärkien sel tukietäisyyden ulkopuolelle keskipisteestä c katsoen.
+static func _contain(ring: PackedVector2Array, c: Vector2, sel: PackedVector2Array, margin: float) -> PackedVector2Array:
+	var out := ring.duplicate()
+	if sel.is_empty():
+		return out
+	for k in out.size():
+		var d: Vector2 = (out[k] - c).normalized()
+		var h := -INF
+		for q in sel:
+			h = maxf(h, (q - c).dot(d))
+		var need := h + margin - (out[k] - c).dot(d)
+		if need > 0.0:
+			out[k] += d * need
+	return out
 
 
 ## Kärjen kavennus kohdassa t: 1 ennen ta:ta, superellipsi (eksponentti TOE_N) nollaan kärjessä tend.
