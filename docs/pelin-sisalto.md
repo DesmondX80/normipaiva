@@ -666,6 +666,15 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     jatketut annokset ovat puhtaampia: niiden paljastumisporras on yhtä alempi (90 → 60, 60 → 30, 30 → 10, 10 → 0 %; `huume_saloinen.gd porras`,
     `laukku_erat`). Tila tallentuu osioon `huume_saloinen` (ostot, laukku, puhtaat erät, kieltäytyneet ryhmät); kerran-tilat `hs_ensiosto`,
     `hs_ensimyynti` ja `hs_laukku`.
+    **Huumekaupan riskit** (`scripts/rikos/`): jokainen riski on oma osansa (`osa.gd`-pohja, ei `class_name`), jonka `main.gd` lataa
+    nimen mukaan (`RIKOS_OSAT`: velka, valeostaja, epäluulo, yliannos, huijari, autovarkaus) ja jolta se kysyy puheessa (tervehdys,
+    valinnat, valinta), logiikassa (Saloisissa ja Vaalassa), uutena päivänä (Päivin lapun lisärivi), tallennuksessa (osa omaan
+    `rikos_<nimi>`-osioon) ja päiväkirjassa. Tapahtumat kulkevat `_rikos_event`-kautta: luukkuosto, myynti (key, paikka) ja otto (key, teho).
+    Osa voi pitää Saloisten apteekin luukun kiinni (vihje takaovella) ja aloittaa diilitappelun (`_rikos_fight`, osa kertoo lopputuloksen).
+    **Riskit-sivu** on päiväkirjan seitsemäs välilehti (näppäin 7): osiot otsikkoineen, mittareineen ja riveineen; tyhjänä "Ei velkoja,
+    ei vihjeitä, ei huolia. Vielä." **Pidätys** (`_rikos_loppu("pidatys", syy)`): otsikko PIDÄTETTY, lääkkeet takavarikkoon, puolet rahoista
+    ja maine −10; Saloisissa Päivi motkottaa pihalla, Vaalassa soittaa aamulla. **Yliannos** (`_rikos_loppu("yliannos", syy)`): otsikko
+    ELVYTETTY, Päivi: "Mun piti elvyttää sut." ja lopuksi "HUUMEET ON VAARALLISIA. OIKEASTI." (Vaalassa Santun piti elvyttää, Päivi soittaa).
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
     katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin

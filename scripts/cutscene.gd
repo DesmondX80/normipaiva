@@ -26,7 +26,14 @@ const PAIVI_LINES := {
 		"Ja kotiin siitä, heti!"],
 	"raahe": ["Missä sää oot ollu koko yön?!", "Raahessa?! Taksilla?!", "Kaljanhaju tuntuu tänne asti!",
 		"Huomenna ei tule rahaa kauppaan!"],
+	# Huumekaupan riskit (main.gd _rikos_loppu): käyttäjän lause viimeisenä, ei vitsiä.
+	"yliannos": ["Mun piti elvyttää sut.", "Sää et hengittäny. Mää painoin sun rintaa, kunnes ambulanssi tuli.",
+		"Mää luulin, että sää kuolet siihen pihalle.", "HUUMEET ON VAARALLISIA. OIKEASTI."],
+	"pidatys": ["Poliisi soitti. Sut on PIDÄTETTY!", "Lääkkeitä myymässä?! Meidän perheestä?!",
+		"Sakot maksetaan sun rahoista.", "Ja kotiin siitä, heti!"],
 }
+## WASTED-otsikon tilalle syyn mukaan (huumekaupan riskit): teksti ja väri.
+const TITLES := {"yliannos": ["ELVYTETTY", Color(0.95, 0.95, 0.98)], "pidatys": ["PIDÄTETTY", Color(0.3, 0.5, 1.0)]}
 ## Suklaa Päiville motkotuksen aluksi: leppyy (lyhyt ja lempeä) tai ei (motkotus + lisärepliikki).
 const CHOCO_OK_LINES := ["...Onks toi mulle?", "No. Tän kerran annetaan anteeks."]
 const CHOCO_FAIL_LINE := "Ja luuletko että mut ostetaan suklaalla?"
@@ -208,7 +215,7 @@ func _orbit(center: Vector3, radius: float, height: float, from_a: float, to_a: 
 # --- WASTED + motkotus ------------------------------------------------------------
 
 ## WASTED-alku: hidastus, värit pois, kamera kiertää paikkaa ja punainen otsikko; lopuksi pimeään.
-func _wasted_intro(at: Vector3, reason: String) -> void:
+func _wasted_intro(at: Vector3, reason: String, cause := "") -> void:
 	_begin()
 	_cam.current = true
 	Sfx.play("lose", 0.0)
@@ -218,8 +225,9 @@ func _wasted_intro(at: Vector3, reason: String) -> void:
 	_orbit(at, 5.0, 3.5, 0.3, 1.2, 3.4)
 	await _wait(0.9)
 	_band.visible = true
-	_title.add_theme_color_override("font_color", Color(0.85, 0.08, 0.08))
-	_title.text = "WASTED"
+	var title: Array = TITLES.get(cause, ["WASTED", Color(0.85, 0.08, 0.08)])
+	_title.add_theme_color_override("font_color", title[1])
+	_title.text = title[0]
 	_title.scale = Vector2.ONE * 1.4
 	_title.pivot_offset = _title.size / 2.0
 	var tt := _tween()
@@ -234,7 +242,7 @@ func _wasted_intro(at: Vector3, reason: String) -> void:
 
 
 func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Callable, choco := "") -> void:
-	await _wasted_intro(at, reason)
+	await _wasted_intro(at, reason, cause)
 	# Päivin motkotus kotipihalla (oikea pelaajahahmo piiloon).
 	for n in hide_nodes:
 		if is_instance_valid(n):
@@ -278,6 +286,10 @@ const PHONE_LINES := {
 		"Ja kotiin siitä, heti kun pystyt!"],
 	"default": ["Missä sää oot?! ...VAALASSA?!", "Taas jotain kaljareissuja!", "Kuinka monta kertaa pitää sanoa!",
 		"Ja kotiin siitä, heti!"],
+	"yliannos": ["Santtu soitti. Santun piti elvyttää sut!", "Sää et hengittäny! Ymmärrätkö sää?",
+		"Mää en nukkunu koko yönä.", "HUUMEET ON VAARALLISIA. OIKEASTI."],
+	"pidatys": ["Vaalan poliisi soitti. Sut pidätettiin!", "Roivainen sano, että sää myit lääkkeitä torilla.",
+		"Sakot maksetaan sun rahoista.", "Ja kotiin siitä, heti kun pääset!"],
 }
 const PHONE_REPLIES := ["K-kyllä kulta...", "Kyllä kulta...", "Joo... kyllä kulta...", "Kyllä kulta. Anteeks."]
 
@@ -299,7 +311,7 @@ static func _phone() -> Node3D:
 ## WASTED, sitten aamu herätyspaikassa (wake, katse face): puhelin soi, Santtu vastaa pelokkaana ja Päivi motkottaa
 ## puhelimessa ("Kyllä kulta..."). done vaihtaa päivän ja vie pelaajan herätyspaikkaan.
 func wasted_phone(at: Vector3, reason: String, cause: String, wake: Vector3, face: Vector3, place: String, done: Callable) -> void:
-	await _wasted_intro(at, reason)
+	await _wasted_intro(at, reason, cause)
 	for n in hide_nodes:
 		if is_instance_valid(n):
 			n.visible = false

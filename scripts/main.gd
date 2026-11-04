@@ -914,6 +914,10 @@ const TALKERS := {
 	"kaukalo_teinit": [SaloinenTeinit.NAME, Color(0.6, 0.85, 1.0)],
 	"laavu_teinit": [SaloinenTeinit.LAAVU_NAME, Color(0.8, 1.0, 0.8)],
 	"apteekki_hoitaja": [ApteekkiSaloinen.NAME + " (luukulla)", Color(0.75, 0.92, 0.82)],
+	"valeostaja": ["Ostaja torilla", Color(0.95, 0.8, 0.55)],  # huumekaupan riskit (scripts/rikos/)
+	"irma": ["Kinnapotin Irma", Color(0.9, 0.7, 0.85)],
+	"huijari": ["Mies pakettiautomaatilla", Color(0.85, 0.85, 0.6)],
+	"kaukalo_poika": ["Lyyhistynyt teini", Color(0.7, 0.85, 1.0)],
 	"poliisi": ["Ratsupoliisi Roivainen", Color(0.55, 0.7, 1.0)],
 	"roivainen": ["Konstaapeli Roivainen", Color(0.55, 0.7, 1.0)],
 	"janttu": ["Janttu", Color(0.85, 0.75, 0.5)],
@@ -1321,6 +1325,7 @@ func _ready() -> void:
 	ukko = UkkoLegenda.new()
 	endings = Endings.new()
 	quests = Quests.new()
+	_rikos_init()
 	_load_game()
 	_rossi_update_clock()  # rossiradan kellotaulu: ennätys heti, ei vasta kierroksen jälkeen
 	_story_check_jemma.call_deferred()  # vanha tallennus, jossa kuutonen jo kotijemmoissa
@@ -8224,6 +8229,7 @@ func journal_data() -> Dictionary:
 			"total": endings.total(kind), "list": list}
 	d["stashes"] = _stash_journal()
 	d["reseptit"] = {"table": klaffipoyta, "known": craft_known.keys(), "risk": TEINI_KIINNI}
+	d["riskit"] = _rikos_riskit()
 	for s in d.side:
 		s["spot"] = not s.done and not quest_spots(s.id).is_empty()
 	_save_game()
@@ -12857,6 +12863,10 @@ func _santtu_offers_lava() -> bool:
 
 
 func _talk_hello(who: String) -> String:
+	for r in rikos:
+		var rh: String = r.hello(who)
+		if rh != "":
+			return rh
 	if who in HS_TALKERS:
 		return _hs_hello(who)
 	var sh := _story_hint(who, true)
@@ -13389,6 +13399,10 @@ func _talk_options(who := "") -> Array:
 		_kolmio_options(who, o)
 	if who in HS_TALKERS:
 		_hs_options(who, o)
+	for r in rikos:
+		r.options(who, o)
+		if who in r.talkers:
+			chat = false  # osan omalla puhujalla ei pelin yleistä "Mitä kuuluu?" -riviä
 	if who == "kauppias":
 		_kolmio_gift_option(o)
 	_mopo_options(who, o)  # oma mopo (#155): Seppo, Huhtala, Simo, Aaro, SEO ja katsastus
@@ -13403,6 +13417,9 @@ func _talk_choose(id: String) -> void:
 	if id == "lopeta":
 		_talk_box.close()
 		return
+	for r in rikos:
+		if r.choose(id):
+			return
 	if id.begins_with("mopo_"):
 		_mopo_choose(id)
 		return
@@ -15481,6 +15498,7 @@ func _vaala_logic() -> void:
 	_ratsia_logic()
 	_poliisi_logic()
 	_lava_yard_logic()
+	_rikos_tick(Input.is_action_just_pressed("interact"))
 
 
 var _mopo_dry := Vector3.ZERO  # jalan: viimeisin kuiva paikka
@@ -16081,7 +16099,8 @@ func _gasthaus_morning(intro: String, msg: String) -> void:
 
 
 ## Auto ajoi mopon päälle: WASTED Vaalan tiellä, Päivin motkotus ja uusi päivä kotoa Saloisista.
-func _on_mopo_killed(cause := "car") -> void:
+## reason_in: valmis syy (huumekaupan riskit _rikos_loppu: "pidatys", "yliannos"); tyhjä = syy auton tai junan mukaan.
+func _on_mopo_killed(cause := "car", reason_in := "") -> void:
 	var walking: bool = mopo_trip.on_foot != null
 	var at: Vector3 = walker_out.global_position if walking else mopo_trip.mopo.global_position
 	var road_name: String = mopo_trip.status.get_slice("\n", 1).get_slice(" · ", 0)
@@ -16091,6 +16110,8 @@ func _on_mopo_killed(cause := "car") -> void:
 	var reason := "Jäit %s alle %s (%s)." % ["junan" if cause == "train" else "auton", "jalan" if walking else "mopolla", road_name]
 	if cause == "mummo":
 		reason = "Rollaattorimummo huitaisi kepillä päähän Vaalan K-Marketin pihalla."
+	if reason_in != "":
+		reason = reason_in
 	if state == "cutscene" or trailer_safe:
 		return
 	# Herätys lähemmästä paikasta: Gasthaus Vaalan keskustassa tai Paapeli (mökki). Päivi soittaa aamulla.
@@ -16109,7 +16130,7 @@ func _on_mopo_killed(cause := "car") -> void:
 	_task_failed()
 	player.controls_enabled = false
 	_hud.visible = false
-	_day_end = "auto"
+	_day_end = {"pidatys": "poliisi", "yliannos": "ulko"}.get(cause, "auto")
 	if has_flowers:
 		has_flowers = false
 		_morning_info.append("Kukkakimppu lytistyi jossain matkalla.")
@@ -17541,6 +17562,7 @@ func _take_laake(key: String) -> void:
 		tilat.add("humala", m[4] * pot)
 	if m[5] > 0.0:
 		tilat.add("moraali", m[5] * pot)
+	_rikos_event("otto", {"key": key, "pot": pot})
 	Sfx.play("pickup", -6.0, 0.8)
 	var weak := " Jatkettu, teho %d %%." % roundi(pot * 100.0) if pot < 1.0 else ""
 	match id:
@@ -18910,6 +18932,7 @@ func _teini_myy(key: String, roll := -1.0, fight := Callable(), caught := "", li
 	var price := _teini_hinta(key)
 	money += price
 	Sfx.play("coin", -4.0)
+	_rikos_event("myynti", {"key": key, "paikka": "vaala" if _in_vaala else "saloinen"})
 	var pot := _laake_pot(key)
 	var line: String = "Hyvää kamaa! Ei kysytä mistä." if pot >= 1.0 else ["Hmm, aika mietoa... mut ok.", "Vähän laimeeta, mut kelpaa.", "Joo joo, ota rahat."].pick_random()
 	if lines.size() == 2:
@@ -18948,6 +18971,11 @@ func _teini_fight_end(won: bool, bags_used: int, thrown: int) -> void:
 	_mopo_resume()
 	if mopo_trip != null:
 		mopo_trip._resume_frame = Engine.get_process_frames()
+	if _rikos_fight != null:  # huumekaupan riskin tappelu (esim. velan perintä): osa kertoo lopputuloksen
+		var rf: Object = _rikos_fight
+		_rikos_fight = null
+		_show_message(rf.fight_end(won), 5.0)
+		return
 	_show_message(_teini_tulos(won), 4.0 if won else 5.0)
 
 
@@ -18975,6 +19003,88 @@ func _teini_tulos(won: bool) -> String:
 	return "Hävisit! Teini ryösti kaiken: %s € ja %d annosta lääkkeitä. Heräsit tunnin päästä. Maine −5." % [_eur(took), pills]
 
 
+# --- Huumekaupan riskit (scripts/rikos/, osa.gd) -----------------------------------------------------------------
+# Jokainen riski on oma osansa (velka, valeostaja, epäluulo, yliannos, huijari, autovarkaus). Tämä on niiden yhteinen
+# pistorasia: osat ladataan nimen mukaan, jos tiedosto on olemassa, ja niiltä kysytään puheessa, logiikassa, uutena
+# päivänä, tallennuksessa ja päiväkirjassa. Osat eivät koske main.gd:hen; tapahtumat kulkevat _rikos_eventin kautta.
+const RIKOS_OSAT := ["velka", "valeostaja", "epaluulo", "yliannos", "huijari", "autovarkaus"]
+const RIKOS_PIDATYS_MAINE := 10.0
+var rikos: Array = []  # osien instanssit (osa.gd)
+var _rikos_fight: Object = null  # osa, joka aloitti diilitappelun (_start_teini_fight): fight_end antaa loppuviestin
+
+
+func _rikos_init() -> void:
+	rikos.clear()
+	for n in RIKOS_OSAT:
+		var path := "res://scripts/rikos/%s.gd" % n
+		if ResourceLoader.exists(path):
+			_rikos_add(load(path).new(), n)
+
+
+## Osa listaan (myös testin oma osa, tools/testit/rikos_koe_osa.gd).
+func _rikos_add(o: Object, n: String) -> void:
+	o.game = self
+	o.nimi = n
+	rikos.append(o)
+	o.setup()
+
+
+## Osa nimellä (esim. rikos_osa("yliannos").naloksoni); null, jos osaa ei ole.
+func rikos_osa(n: String) -> Object:
+	for r in rikos:
+		if r.nimi == n:
+			return r
+	return null
+
+
+func _rikos_event(ev: String, data := {}) -> void:
+	for r in rikos:
+		r.on_event(ev, data)
+
+
+func _rikos_tick(e: bool) -> void:
+	for r in rikos:
+		r.tick(e)
+
+
+## Ensimmäisen osan vihje, jos jokin osa pitää Saloisten apteekin luukun kiinni; "" = auki.
+func _rikos_luukku_kiinni() -> String:
+	for r in rikos:
+		var t: String = r.luukku_kiinni()
+		if t != "":
+			return t
+	return ""
+
+
+## Päiväkirjan Riskit-sivun osiot (journal.gd _draw_risks): [{"otsikko", "rivit"}], tyhjät osat pois.
+func _rikos_riskit() -> Array:
+	var out: Array = []
+	for r in rikos:
+		var d: Dictionary = r.riskit()
+		if not d.is_empty():
+			out.append(d)
+	return out
+
+
+## Huumekaupan riski päättää päivän: cause "pidatys" (PIDÄTETTY) tai "yliannos" (ELVYTETTY), reason näkyy otsikon alla.
+## Pidätys takavarikoi lääkkeet ja puolet rahoista ja vie mainetta. Vaalassa herätys kuten mopon kuolemassa (Päivi soittaa),
+## Saloisissa _lose (Päivi motkottaa pihalla).
+func _rikos_loppu(cause: String, reason: String) -> void:
+	if state == "cutscene" or trailer_safe:
+		return
+	if cause == "pidatys":
+		laake.clear()
+		hs.laukku_erat.clear()
+		perv_until = -1.0
+		money = floorf(money / 2.0)
+		maine = clampf(maine - RIKOS_PIDATYS_MAINE, 0.0, 100.0)
+	_rikos_fight = null
+	if _in_vaala and mopo_trip != null and mopo_trip.active:
+		_on_mopo_killed(cause, reason)
+	else:
+		_lose(reason, cause)
+
+
 # --- Huumekauppa Saloisissa (huume_saloinen.gd) ------------------------------------------------------------------
 # Ostajat: kaukalon iltateinit (saloinen_teinit.gd, klo 20–01) ja laavun teinijengi (laavu_guard.gd peaceful, kun repussa
 # on myytävää). Myynti, riski ja lopputulos ovat Vaalan (_teini_myynti_valinnat, _teini_myy, _teini_tulos); paljastus
@@ -18999,6 +19109,7 @@ func _huume_saloinen_logic() -> void:
 	_hs_laukku_logic(e)
 	_hs_laavu_logic(e)
 	_hs_teens_logic(e)
+	_rikos_tick(e)
 
 
 ## Apteekin takaovi (apteekki_saloinen.gd, ovi Makasiini._build_door): E koputuspisteessä avaa luukun ja hoitaja
@@ -19014,6 +19125,12 @@ func _hs_door_logic(e: bool) -> void:
 	if ap.is_empty() or _hint.text != "" or _talk_box.is_open() or player == bike:
 		return
 	if _near_xz(ap.knock, HS_KNOCK_R):
+		var kiinni := _rikos_luukku_kiinni()
+		if kiinni != "":
+			_hint.text = kiinni  # epäluulo (rikos/epaluulo.gd): Raili ei avaa tänään
+			if e:
+				Sfx.play("door", -8.0, 1.4)
+			return
 		_hint.text = "[%s] Koputa takaoveen" % Settings.action_key("interact")
 		if e and Engine.get_process_frames() != _talk_end_frame:
 			Sfx.play("door", -3.0, 0.8)
@@ -19059,6 +19176,7 @@ func _hs_osta(id: String) -> void:
 func _hs_ostettu() -> bool:
 	tilat.first("hs_ensiosto", 0.2)
 	var bag := hs.osto()
+	_rikos_event("luukkuosto", {})
 	_save_game()
 	return bag
 
@@ -19181,6 +19299,15 @@ func _hs_fight_start() -> void:
 
 ## Diilitappelun loppu Saloisissa: voitto -> ryhmä ei osta tänään; häviö kuten Vaalassa (ryöstö ja tunti).
 func _hs_fight_end(won: bool, note: String) -> void:
+	if _rikos_fight != null:  # huumekaupan riskin tappelu: osa kertoo lopputuloksen
+		var rf: Object = _rikos_fight
+		_rikos_fight = null
+		if not won and player.has_method("stun"):
+			player.stun(_fight_dir)
+		_show_message(rf.fight_end(won) + note, 5.0)
+		player.set_carrying(beers > 0)
+		_save_game()
+		return
 	if won:
 		hs.ei_osta[_hs_group] = day
 		if _hs_group == "laavu":
@@ -19743,6 +19870,8 @@ func _load_game() -> void:
 	asema_katkot = cfg.get_value("asema", "katkot", {})
 	kolmio.load_from(cfg)
 	hs.load_from(cfg)
+	for r in rikos:
+		r.load_from(cfg)
 	sk.load_from(cfg)
 	reseptit = int(cfg.get_value("asema", "reseptit", 0))
 	laake = cfg.get_value("asema", "laake", {})
@@ -20036,6 +20165,8 @@ func _save_game() -> void:
 	kolmio.save_to(cfg)
 	hs.sovita(laake)
 	hs.save_to(cfg)
+	for r in rikos:
+		r.save_to(cfg)
 	sk.save_to(cfg)
 	cfg.set_value("asema", "reseptit", reseptit)
 	cfg.set_value("asema", "laake", laake)
@@ -20215,7 +20346,8 @@ func _lose(reason: String, cause := "default", at := Vector3.INF) -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
 	_hud.visible = false
 	var spawn := home_zone + Vector3(0, 0, 4)  # kuolemasta herätään aina kotona, ja Päivi motkottaa pihalla
-	_day_end = {"car": "auto", "train": "auto", "police": "poliisi", "wife": "paivi"}.get(cause, "ulko")
+	_day_end = {"car": "auto", "train": "auto", "police": "poliisi", "pidatys": "poliisi", "yliannos": "ulko",
+		"wife": "paivi"}.get(cause, "ulko")
 	var choco := _offer_chocolate()
 	_choco_mercy = choco == "ok"
 	if has_flowers:
@@ -20390,6 +20522,11 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 		bonus += "\nEilen ei tullu kaupasta mitään, vaikka oli lista!"
 	_day_end = ""
 	bonus += stats_note
+	_rikos_fight = null
+	for r in rikos:
+		var ra: String = r.aamu(at_m)
+		if ra != "":
+			bonus += "\n" + ra
 	if _sinikka_gossip and not at_m:  # mökkiaamuna juoru odottaa kotiaamua (lapun kirjoittaa Santtu)
 		_sinikka_gossip = false
 		_paivi_mad = true
@@ -21975,6 +22112,19 @@ func _maybe_screenshot() -> void:
 			await sl.run()
 			if not saved_sl.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_sl)
+			else:
+				DirAccess.remove_absolute(SAVE_PATH)
+			get_tree().quit()
+			return
+		"riskit":
+			# Huumekaupan riskit (tools/testit/riskit.gd): --riski=perus|paivakirja|<osa>; tallennus palautetaan lopuksi.
+			var saved_rk := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			var rk: Node = load("res://tools/testit/riskit.gd").new()
+			rk.main = self
+			add_child(rk)
+			await rk.run()
+			if not saved_rk.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_rk)
 			else:
 				DirAccess.remove_absolute(SAVE_PATH)
 			get_tree().quit()

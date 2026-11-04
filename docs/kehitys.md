@@ -96,6 +96,13 @@ merkki ja tallennus, korin rako portaaseen, kori → marjat → piirakka (ei syn
 `_aamu`, `_ilta`, `_tyhja_ovi`, `_kori_*`, `_kuisti_edesta/_sivusta/_ylhaalta` ja `_kartta`. Mallit ilman maailmaa:
 `tools/testit/aja.sh tscn tools/testit/sinikan_kuisti_kuvat.tscn`.
 
+`--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
+koukut testiosalla (`tools/testit/rikos_koe_osa.gd`): puhe, tapahtumat, luukun vihje, tallennus edestakaisin, päiväkirjan data,
+tappelun loppu, PIDÄTETTY Saloisissa (menetykset, kuvat `_pidatetty`, `_pidatys_paivi0–2`), uusi päivä ja ELVYTETTY Vaalassa
+(`_elvytetty_vaala`, `_elvytetty_puhelin0–2`). Hitaalla koneella WASTED-kierron kamera jää motkotuksen alkuun (ruudun delta
+rajautuu); oikea kuva `--kiintea`-valinnalla, mutta se ei mahdu aikarajaan. `paivakirja`: Riskit-sivu 1280×720 ja välilehtien
+mitat (`_riskit`, `_riskit_tyhja`). Muut nimet ajavat osan oman `testi(arg)`-funktion (`scripts/rikos/<nimi>.gd`).
+
 ## Puheäänet
 
 Päivin repliikit puhuu Satu (nalkutus: nopea tahti, korotettu sävelkorko) ja kaikki muut hahmot Eddy (rauhallinen

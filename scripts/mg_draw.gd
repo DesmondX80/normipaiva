@@ -249,8 +249,10 @@ static func notebook_tab(ci: CanvasItem, r: Rect2, col: Color, text: String, on:
 	ci.draw_set_transform(Vector2.ZERO)
 
 
-static func notebook_tab_rect(book: Rect2, i: int) -> Rect2:
-	return Rect2(Vector2(book.end.x - 6, book.position.y + 40 + i * 92), Vector2(54, 84))
+## Välilehti i / n: askel enintään 92 px, mutta n välilehteä mahtuu kirjan korkeuteen (7 välilehteä 600 px:n kirjaan).
+static func notebook_tab_rect(book: Rect2, i: int, n := 6) -> Rect2:
+	var step := minf(92.0, (book.size.y - 56.0) / n)
+	return Rect2(Vector2(book.end.x - 6, book.position.y + 40 + i * step), Vector2(54, step - 8.0))
 
 
 ## Otsikkokyltin sijainti kannessa (MG.sign(ci, notebook_title_rect(...), teksti, TITLE_BG, TITLE_FG, 22, TITLE_BORDER)).
