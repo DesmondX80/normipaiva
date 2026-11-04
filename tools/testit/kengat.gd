@@ -57,9 +57,10 @@ func _run() -> void:
 			var lk := _look(kind, COL[ty])
 			lk["shoe"] = ty
 			looks.append(["%s_%s" % [ty, kind.left(1)], lk])
-	var fk := Looks.player("farkut")  # lahkeen ja varren raja paksummalla lahkeella (pants_puff 0,016)
-	fk["shoe"] = "tyokenka"
-	looks.append(["farkut_tyokenka", fk])
+	looks.append(["farkut_tyokenka", Looks.player("farkut")])  # lahkeen ja varren raja paksummalla lahkeella (pants_puff 0,016)
+	# Osa D: jakauman hahmot sellaisinaan (Seppo, istuva hamemummo ja seisova mokkamummo).
+	looks.append_array([["seppo", Looks.SEPPO], ["mummo1", Looks.MUMMOT[0]], ["mummo3", Looks.MUMMOT[2]]])
+	_jakauma()
 	for i in looks.size():
 		var ch: Node3D = Looks.make(self, looks[i][1])
 		ch.position = Vector3(i * 1.2, 0, 0)
@@ -107,11 +108,29 @@ func _run() -> void:
 	_sheet("vertailu_tyypit_lahi", lahi)
 	_sheet("vertailu_tyypit_osat", ["lenkkari_m_osat"] + NEW.map(func(x): return x + "_m_osat") + NEW.map(func(x): return x + "_f_osat"))
 	_sheet("vertailu_tyypit_kavely", kav)
+	_sheet("vertailu_jakauma", ["seppo_sivu", "seppo_edesta", "mummo1_sivu", "mummo1_edesta", "mummo3_sivu", "mummo3_kolmeneljannes",
+		"farkut_tyokenka_sivu", "farkut_tyokenka_edesta"])
 	_sheet("vertailu_varsi", ["tyokenka_m_varsi_sivu", "tyokenka_m_varsi_edesta", "tyokenka_m_varsi_takaa", "tyokenka_m_varsi_ylhaalta",
 		"farkut_tyokenka_varsi_sivu", "farkut_tyokenka_varsi_edesta", "tyokenka_f_varsi_sivu", "farkut_tyokenka_kolmeneljannes"])
 	await _ruutu()
 	print("KENKA valmis ", ProjectSettings.globalize_path(out))
 	get_tree().quit()
+
+
+## K6: look -> kenkätyyppi (Shoes.type_for) jaetuille hahmoille ja pelaajan asuille; väärä tyyppi on vika.
+func _jakauma() -> void:
+	var Cutscene = load("res://scripts/cutscene.gd")  # tyypitön: staattiset sauna_look/swim_look
+	var want := [["MUMMOT[0]", Looks.MUMMOT[0], "kavelykenka"], ["MUMMOT[1]", Looks.MUMMOT[1], "kavelykenka"],
+		["MUMMOT[2]", Looks.MUMMOT[2], "kavelykenka"], ["SEPPO", Looks.SEPPO, "tyokenka"], ["REIJO", Looks.REIJO, "tyokenka"],
+		["tuulipuku", Looks.player("tuulipuku"), "lenkkari"], ["farkut", Looks.player("farkut"), "tyokenka"],
+		["tyovaatteet", Looks.player("tyovaatteet"), "tyokenka"], ["hiihtohaalari", Looks.player("hiihtohaalari"), "lenkkari"],
+		["sauna(farkut)", Cutscene.sauna_look(Looks.player("farkut")), "paljas"],
+		["uinti(tyovaatteet)", Cutscene.swim_look(Looks.player("tyovaatteet")), "paljas"]]
+	for w in want:
+		var t := Shoes.type_for(w[1])
+		print("KENKA jakauma %s -> %s" % [w[0], t])
+		if t != w[2]:
+			print("TESTI VIKA jakauma %s: %s, pitäisi olla %s" % [w[0], t, w[2]])
 
 
 ## K9: alin piste kummankin jalan foot+ball-luiden pinnasta (kengällä kenkäverkko, paljaalla iho) lattiaan y = 0.

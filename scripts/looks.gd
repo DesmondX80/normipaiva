@@ -43,15 +43,17 @@ static func player(which := "") -> Dictionary:
 			look.merge({"shirt": Color(0.88, 0.86, 0.8), "net_shirt": true, "shirt_puff": 0.006, "suspenders": true,
 				"strap_col": Color(0.26, 0.19, 0.13), "grime": 0.8,
 				"pants": Color(0.2, 0.21, 0.25), "jeans": true, "belt_y": 0.99, "pants_puff": 0.016,
-				"shoes": Color(0.3, 0.2, 0.12), "stripes": false, "shine": 0.0, "hair": "Hair_SimpleParted",
+				"shoes": Color(0.3, 0.2, 0.12), "shoe": "tyokenka", "stripes": false, "shine": 0.0, "hair": "Hair_SimpleParted",
 				"shades": "", "cap": ""}, true)
 		"tyovaatteet":
 			for k in ["tracksuit", "stripe_color"]:
 				look.erase(k)
 			look.merge({"shirt": Color(0.62, 0.1, 0.08), "flannel": true, "pants": Color(0.24, 0.25, 0.27), "workwear": true,
-				"shoes": Color(0.1, 0.09, 0.08), "stripes": false, "shine": 0.0, "cap": "karjala", "shades": ""}, true)
+				"shoes": Color(0.1, 0.09, 0.08), "shoe": "tyokenka", "stripes": false, "shine": 0.0, "cap": "karjala",
+				"shades": ""}, true)
 		"hiihtohaalari":
-			# Kasarin neonpinkki toppahaalari (kuviot varjostimessa, ski_suit), kuukengät ja frotee-otsapanta.
+			# Kasarin neonpinkki toppahaalari (kuviot varjostimessa, ski_suit), valkoiset lenkkarit (kuukenkä myöhemmin, #272)
+			# ja frotee-otsapanta.
 			for k in ["tracksuit", "stripe_color"]:
 				look.erase(k)
 			look.merge({"shirt": HAALARI_PINK, "pants": HAALARI_PINK, "ski_suit": true, "shirt_puff": 0.04,
@@ -205,21 +207,33 @@ const POJAT := [
 ]
 ## Kaupan edustan mummot (kettukarkit taskussa): suomalaisen mummon esikuvan mukaan tiivis valkoinen permanentti,
 ## silmälasit, villatakki, polvipituinen hame ja ruskeat sukkahousut (shorts_y polvessa, bare_skin = sukkahousut)
-## tai housut ja kävelykengät. Kaksi ensimmäistä istuu penkillä, kolmas seisoo rollaattorin takana kävelytakissa
+## tai housut ja kävelykengät (kaikilla "shoe": "kavelykenka", kolmannella mokka: shoe_rough). Kaksi ensimmäistä istuu penkillä, kolmas seisoo rollaattorin takana kävelytakissa
 ## ja huopahatussa. Asusteet (perm, glasses, hat, skirt, lap_skirt) rakentaa mummot.gd.
 const MUMMOT := [
 	{"model": "female", "shirt": Color(0.56, 0.36, 0.55), "pants": Color(0.32, 0.24, 0.2), "shoes": Color(0.22, 0.14, 0.1),
-		"hair": "", "perm": Color(0.93, 0.92, 0.9), "glasses": true, "lap_skirt": true, "shorts_y": 0.5,
+		"shoe": "kavelykenka", "hair": "", "perm": Color(0.93, 0.92, 0.9), "glasses": true, "lap_skirt": true, "shorts_y": 0.5,
 		"bare_skin": Color(0.62, 0.48, 0.4), "hair_color": Color(0.85, 0.85, 0.83), "height": 1.56,
 		"skin": Color(1.0, 0.9, 0.86), "bulk": 0.35, "belly": 0.3, "shoulders": -0.4, "muscle": -1.0},
 	{"model": "female", "shirt": Color(0.36, 0.5, 0.66), "pants": Color(0.4, 0.4, 0.42), "shoes": Color(0.15, 0.12, 0.1),
-		"hair": "", "perm": Color(0.78, 0.78, 0.8), "glasses": true, "hair_color": Color(0.75, 0.75, 0.75), "height": 1.6,
+		"shoe": "kavelykenka", "hair": "", "perm": Color(0.78, 0.78, 0.8), "glasses": true, "hair_color": Color(0.75, 0.75, 0.75), "height": 1.6,
 		"skin": Color(1.0, 0.9, 0.86), "bulk": 0.15, "belly": 0.2, "shoulders": -0.4, "muscle": -1.0},
 	{"model": "female", "shirt": Color(0.66, 0.58, 0.44), "pants": Color(0.2, 0.24, 0.32), "shoes": Color(0.12, 0.1, 0.1),
-		"hair": "", "perm": Color(0.95, 0.94, 0.92), "glasses": true, "hat": Color(0.45, 0.1, 0.16),
+		"shoe": "kavelykenka", "shoe_rough": 0.95, "hair": "", "perm": Color(0.95, 0.94, 0.92), "glasses": true, "hat": Color(0.45, 0.1, 0.16),
 		"skirt": Color(0.2, 0.24, 0.32), "coat_hem": true, "shorts_y": 0.62, "bare_skin": Color(0.62, 0.48, 0.4),
 		"hair_color": Color(0.85, 0.85, 0.83), "height": 1.54, "skin": Color(1.0, 0.9, 0.86), "bulk": 0.25, "belly": 0.35, "shoulders": -0.5, "muscle": -1.0},
 ]
+## Seppo (world.gd _build_seppo): lippis, verkkarit, iso vatsa ja tummanruskeat työkengät.
+const SEPPO := {
+	"model": "male", "shirt": Color(0.2, 0.3, 0.5), "pants": Color(0.12, 0.12, 0.14), "shoes": Color(0.3, 0.2, 0.12),
+	"shoe": "tyokenka", "hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.45, 0.4), "height": 1.76,
+	"skin": Color(0.93, 0.74, 0.62), "belly": 0.9, "beard": true,
+}
+## Hongan vahtimestari Reijo: harmaa työtakki, mustat työkengät (avainnippu world.gd:ssä).
+const REIJO := {
+	"model": "male", "shirt": Color(0.45, 0.48, 0.5), "pants": Color(0.2, 0.22, 0.3), "shoes": Color(0.1, 0.1, 0.1),
+	"shoe": "tyokenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.75, 0.75, 0.75), "height": 1.78,
+	"skin": Color(0.92, 0.74, 0.64), "belly": 0.5, "beard": true,
+}
 ## Pannu-Sulo, metsän pontikankeittäjä: ruutupaita, maastohousut, harmaa parta.
 const SULO := {
 	"shirt": Color(0.55, 0.12, 0.1), "pants": Color(0.25, 0.3, 0.2), "shoes": Color(0.12, 0.1, 0.08),

@@ -2458,8 +2458,7 @@ func _build_seppo() -> void:
 	put.call(front + ax * 1.5, table)
 	# Seppo: lippis, verkkarit, iso vatsa.
 	var sp: Vector2 = front + ax * 0.0 - f.nrm * 1.5
-	seppo_npc = Looks.make(self, {"model": "male", "shirt": Color(0.2, 0.3, 0.5), "pants": Color(0.12, 0.12, 0.14), "shoes": Color(0.9, 0.9, 0.9),
-		"hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.45, 0.4), "height": 1.76, "skin": Color(0.93, 0.74, 0.62), "belly": 0.9, "beard": true})
+	seppo_npc = Looks.make(self, Looks.SEPPO)
 	seppo_npc.position = Vector3(sp.x, 0, sp.y)
 	seppo_npc.rotation.y = f.yaw + PI
 	seppo_npc.play("Idle", 0.0)
@@ -2639,8 +2638,7 @@ func _build_honganpalo() -> void:
 	# Vahtimestari Reijo: harmaa työtakki, avainnippu.
 	var jp: Vector3 = root.to_global(Vector3(-3.5, 0, fz - 2.2))
 	hongan_janitor_pos = Vector3(jp.x, T.h(jp.x, jp.z), jp.z)
-	hongan_janitor = Looks.make(self, {"model": "male", "shirt": Color(0.45, 0.48, 0.5), "pants": Color(0.2, 0.22, 0.3), "shoes": Color(0.1, 0.1, 0.1),
-		"hair": "Hair_SimpleParted", "hair_color": Color(0.75, 0.75, 0.75), "height": 1.78, "skin": Color(0.92, 0.74, 0.64), "belly": 0.5, "beard": true})
+	hongan_janitor = Looks.make(self, Looks.REIJO)
 	hongan_janitor.position = Vector3(jp.x, 0, jp.z)
 	hongan_janitor.rotation.y = f.yaw + PI
 	hongan_janitor.play("Idle", 0.0)
