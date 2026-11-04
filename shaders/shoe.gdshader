@@ -60,9 +60,6 @@ void fragment() {
 			c = mix(c, c * 0.7, band(au, 0.078, 0.082, 0.002) * (1.0 - open_));
 			float st = band(au, 0.103, 0.107, 0.001) * step(0.5, fract(h * 220.0));
 			c = mix(c, vec3(0.85, 0.7, 0.4), st * 0.7);
-			// Kantakappale takana (au > 0,36) ja sen tikki.
-			float heel = smoothstep(0.355, 0.365, au) * (1.0 - smoothstep(0.075, 0.08, h));
-			c = mix(c, c * 0.72, heel);
 			// Pehmustettu yläreuna.
 			float pad = smoothstep(shaft_h - 0.014, shaft_h - 0.011, h);
 			c = mix(c, c * 0.5, pad);
@@ -144,7 +141,7 @@ void fragment() {
 		float zig = 0.17 * abs(fract((t - 0.46) * 16.0) * 2.0 - 1.0);
 		float lace = tongue * (1.0 - smoothstep(0.03, 0.06, abs(abs(s) - zig)));
 		c = mix(c, vec3(0.16, 0.1, 0.06), lace);
-		float eyelet = lace_zone * (1.0 - smoothstep(0.035, 0.05, length(vec2((abs(s) - 0.29) * 0.4, (fract((t - 0.46) * 16.0) - 0.5) * 0.06))));
+		float eyelet = lace_zone * (1.0 - smoothstep(0.035, 0.05, length(vec2((abs(s) - 0.29) * 0.4, (fract((t - 0.46) * 16.0) - 0.5) * 0.4))));
 		c = mix(c, vec3(0.62, 0.6, 0.56), eyelet);
 		// Sivusauma kärkiosan ja varren välillä.
 		c = mix(c, c * 0.7, band(t, 0.4, 0.41, 0.003) * smoothstep(0.02, 0.03, h));

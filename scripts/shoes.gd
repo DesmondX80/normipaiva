@@ -97,9 +97,10 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 			elif c == 2 and vs[v].y < 0.25:
 				cand.append(v)
 				pant.append(v)
-		pohja = _build_side(st, p, vs, bi, bw, per, foot, cand, pant, side, skin, skel, above)
+		var mouth := PackedVector2Array()  # jalkaosan suun ääriviiva (t, s), varrellisella
+		pohja = _build_side(st, p, vs, bi, bw, per, foot, cand, pant, side, skin, skel, above, mouth)
 		if p.has("shaft"):
-			varsi = _build_shaft(st, p, vs, arr[Mesh.ARRAY_TEX_UV2], cs, bi, bw, per, foot, side, skin, skel)
+			varsi = _build_shaft(st, p, vs, arr[Mesh.ARRAY_TEX_UV2], cs, bi, bw, per, foot, side, skin, skel, mouth)
 	st.index()
 	st.generate_normals()
 	var out := st.commit()
@@ -114,7 +115,7 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 ## Yhden jalan kuori ja pohja. Palauttaa pohjan alimman kohdan etäisyyden jalkapohjan alimmasta kärjestä.
 static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, bi: PackedInt32Array, bw: PackedFloat32Array,
 		per: int, foot: PackedInt32Array, cand: PackedInt32Array, pant: PackedInt32Array, side: float, skin: Skin,
-		skel: Skeleton3D, above: PackedInt32Array) -> float:
+		skel: Skeleton3D, above: PackedInt32Array, mouth: PackedVector2Array) -> float:
 	# Jalan pituusakseli: kannan (foot-luu) ja päkiän (ball-luu) kärkien keskipisteiden erotus vaakatasossa.
 	var heel := Vector3.ZERO
 	var ball := Vector3.ZERO
@@ -298,6 +299,11 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		full.append([float(e[0]) - ext * sin(phi), e[1], ring, sk])
 	full.append_array(rings)
 	full.append_array(toe)
+	if p.has("shaft"):  # suun reunan pisteet (leikattu tasolle top): varren alin rengas liittyy niihin
+		for r in full:
+			for q: Vector2 in r[2]:
+				if q.y >= top - 1e-5:
+					mouth.append(Vector2(float(r[0]), q.x))
 	var t0: float = float(rings[0][0]) - (float(rings[0][0]) - tmin + margin)
 	var t1: float = tend
 	var tip0: Vector2 = rings[0][1]
@@ -432,7 +438,8 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	return ymin - y_bot
 
 
-## Varsi (työkenkä, kuukenkä): pystyputki säären ympärillä jalkaosan suusta (join - 1 cm) varren yläreunaan (top).
+## Varsi (työkenkä, kuukenkä): pystyputki säären ympärillä jalkaosan suusta (join; alin rengas on suun ääriviiva, joten
+## pinta jatkuu kuoresta ilman porrasta) varren yläreunaan (top).
 ## Vaakarenkaat ovat neljän puoliakselin superellipsejä (etu +t, taka, sivut ±s) säären keskipisteestä; puoliakselit
 ## mitataan kärjistä (kaikki paitsi paita, join - margin:n yläpuolella, joten alin rengas peittää jalkaosan suun) ja
 ## tasoitetaan _envelope:lla. Yläreunassa pehmustettu reuna ja rengaslevy sääreen, sisäpinta hieman alas; pohja viuhkana.
@@ -440,7 +447,7 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 ## Palauttaa Vector4(yläreuna UV2-avaruudessa, yläreuna verkossa, jalkaosan suu verkossa, UV2.y - y yläreunassa).
 static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, uv2: PackedVector2Array, cs: PackedColorArray,
 		bi: PackedInt32Array, bw: PackedFloat32Array, per: int, foot: PackedInt32Array, side: float, skin: Skin,
-		skel: Skeleton3D) -> Vector4:
+		skel: Skeleton3D, mouth: PackedVector2Array) -> Vector4:
 	# Jalan kehys kuten _build_side: kannan ja päkiän luiden kärkien keskipisteet.
 	var heel := Vector3.ZERO
 	var ball := Vector3.ZERO
@@ -465,7 +472,7 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 	var pad: float = sh.pad
 	var y_welt: float = ymin - float(p.lift) + float(p.sole)
 	var yj: float = ymin + float(sh.join)
-	var y0 := yj - 0.01
+	var y0 := yj + 0.012  # alin mitattu rengas; sen alla rengas jalkaosan suun ääriviivalla (yj)
 	var y1: float = ymin + float(sh.top)
 	var win := (y1 - y0) / float(SHAFT_RINGS - 1) * 0.75 + 0.004
 	# Kärjet (t, s, y) säären alaosasta; paita (luokka 1) pois. leg = painojen lähteet.
@@ -528,27 +535,58 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 				raw[k] = e[k] * g
 	for k in 4:
 		ax[k] = _envelope(ax[k])
-	var at := func(c: Vector2, h: float, a: Array, k: int) -> Vector3:  # renkaan piste k (k = 0 takana, RING / 2 edessä)
-		var ang := PI + TAU * k / RING
-		var x := signf(cos(ang)) * pow(absf(cos(ang)), 2.0 / SHAFT_N)
-		var y := signf(sin(ang)) * pow(absf(sin(ang)), 2.0 / SHAFT_N)
-		var tt := c.x + x * float(a[0] if x > 0.0 else a[1])
-		var ss := c.y + y * float(a[2] if y > 0.0 else a[3])
-		return org + fwd * tt + lat * ss + Vector3.UP * h
-	# Renkaat [korkeus, keskipiste, puoliakselit, ulospäin: 0 säteittäin, 1 ylös, 2 sisään].
+	var ring := func(c: Vector2, a: Array) -> PackedVector2Array:  # superellipsi (t, s); k = 0 takana, RING / 2 edessä
+		var out := PackedVector2Array()
+		for k in RING:
+			var ang := PI + TAU * k / RING
+			var x := signf(cos(ang)) * pow(absf(cos(ang)), 2.0 / SHAFT_N)
+			var y := signf(sin(ang)) * pow(absf(sin(ang)), 2.0 / SHAFT_N)
+			out.append(Vector2(c.x + x * float(a[0] if x > 0.0 else a[1]), c.y + y * float(a[2] if y > 0.0 else a[3])))
+		return out
+	# Renkaat [korkeus, keskipiste, pisteet (t, s), ulospäin: 0 säteittäin, 1 ylös, 2 sisään].
 	var rows := []
 	for i in SHAFT_RINGS:
-		rows.append([hs[i], Vector2(ct[i], cl[i]), [ax[0][i], ax[1][i], ax[2][i], ax[3][i]], 0])
+		rows.append([hs[i], Vector2(ct[i], cl[i]), ring.call(Vector2(ct[i], cl[i]), [ax[0][i], ax[1][i], ax[2][i], ax[3][i]]), 0])
+	# Alin rengas: jalkaosan suun ääriviiva kunkin pisteen suunnassa keskipisteestä (lähin sektori), tasoitettuna kehää pitkin.
+	var c0 := Vector2(ct[0], cl[0])
+	var se0: PackedVector2Array = rows[0][2]
+	var rad := PackedFloat32Array()
+	for k in RING:
+		var d := (se0[k] - c0).normalized()
+		var r := -1.0
+		for m in mouth:
+			var dm := m - c0
+			if absf(d.angle_to(dm)) < TAU / RING:
+				r = maxf(r, dm.dot(d))
+		rad.append(maxf(r + 0.0005, (se0[k] - c0).length()))  # ei kapeampi kuin säären tarve (iho pysyy sisällä)
+	var rs := PackedFloat32Array()
+	for k in RING:
+		rs.append((rad[(k + RING - 1) % RING] + rad[k] * 2.0 + rad[(k + 1) % RING]) / 4.0)
+	var r0p := PackedVector2Array()
+	for k in RING:
+		r0p.append(c0 + (se0[k] - c0).normalized() * rs[k])
+	# Alarenkaat liukuvat suun ääriviivasta säären mittoihin (ei olkaa suun ja varren välissä): säde vähintään sekoitus.
+	for i in SHAFT_RINGS:
+		var w := smoothstep(yj, yj + 0.04, float(rows[i][0]))
+		var ci: Vector2 = rows[i][1]
+		var pi: PackedVector2Array = rows[i][2]
+		for k in RING:
+			var rse := (pi[k] - ci).length()
+			pi[k] = ci + (pi[k] - ci).normalized() * maxf(rse, lerpf(rs[k], rse, w))
+		rows[i][2] = pi
+	rows.push_front([yj, c0, r0p, 0])
 	var c1 := Vector2(ct[SHAFT_RINGS - 1], cl[SHAFT_RINGS - 1])
-	var a1: Array = rows[SHAFT_RINGS - 1][2]
+	var a1 := [ax[0][SHAFT_RINGS - 1], ax[1][SHAFT_RINGS - 1], ax[2][SHAFT_RINGS - 1], ax[3][SHAFT_RINGS - 1]]
 	var lip := []
 	var inner := []
 	for k in 4:
 		lip.append(lerpf(float(a1[k]), raw[k] + margin, 0.45))  # pyöristetty pehmustettu yläreuna
 		inner.append(raw[k] + 0.001)
-	rows.append([y1 + 0.005, c1, lip, 0])
-	rows.append([y1 + 0.003, c1, inner, 1])
-	rows.append([y1 - 0.015, c1, inner, 2])
+	rows.append([y1 + 0.005, c1, ring.call(c1, lip), 0])
+	rows.append([y1 + 0.003, c1, ring.call(c1, inner), 1])
+	rows.append([y1 - 0.015, c1, ring.call(c1, inner), 2])
+	var to3 := func(q: Vector2, h: float) -> Vector3:
+		return org + fwd * q.x + lat * q.y + Vector3.UP * h
 	var add := func(a: Vector3, k: float, h: float, part: float) -> void:
 		var ang := PI + TAU * k / RING
 		st.set_uv(Vector2(k / RING - 0.5, h - y_welt))
@@ -568,28 +606,31 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 		var r0: Array = rows[i]
 		var r1: Array = rows[i + 1]
 		var mode: int = r1[3]
+		var p0: PackedVector2Array = r0[2]
+		var p1: PackedVector2Array = r1[2]
+		var h0: float = r0[0]
+		var h1: float = r1[0]
 		for k in RING:
-			var a: Vector3 = at.call(r0[1], r0[0], r0[2], k)
-			var b: Vector3 = at.call(r0[1], r0[0], r0[2], k + 1)
-			var c: Vector3 = at.call(r1[1], r1[0], r1[2], k)
-			var d: Vector3 = at.call(r1[1], r1[0], r1[2], k + 1)
+			var k2 := (k + 1) % RING
+			var a: Vector3 = to3.call(p0[k], h0)
+			var b: Vector3 = to3.call(p0[k2], h0)
+			var c: Vector3 = to3.call(p1[k], h1)
+			var d: Vector3 = to3.call(p1[k2], h1)
 			var mid := (a + b + c + d) / 4.0
 			var cm: Vector2 = (r0[1] + r1[1]) / 2.0
-			var axis := org + fwd * cm.x + lat * cm.y
-			var o := mid - axis
+			var o: Vector3 = mid - to3.call(cm, mid.y)
 			o.y = 0.0
 			if mode == 1:
 				o = Vector3.UP
 			elif mode == 2:
 				o = -o
 			var part := 2.0 if mode == 0 else 2.2
-			tri.call([a, k, r0[0]], [b, k + 1, r0[0]], [c, k, r1[0]], o, part)
-			tri.call([b, k + 1, r0[0]], [d, k + 1, r1[0]], [c, k, r1[0]], o, part)
-	# Pohja viuhkana (jalkaosan sisällä, ulospäin alas).
-	var c0 := Vector2(ct[0], cl[0])
-	var cen: Vector3 = org + fwd * c0.x + lat * c0.y + Vector3.UP * (y0 - 0.002)
+			tri.call([a, k, h0], [b, k + 1, h0], [c, k, h1], o, part)
+			tri.call([b, k + 1, h0], [d, k + 1, h1], [c, k, h1], o, part)
+	# Pohja viuhkana (jalkaosan suun kohdalla, ulospäin alas).
+	var cen: Vector3 = to3.call(c0, yj - 0.002)
 	for k in RING:
-		tri.call([at.call(c0, y0, rows[0][2], k), k, y0], [at.call(c0, y0, rows[0][2], k + 1), k + 1, y0], [cen, k + 0.5, y0], Vector3.DOWN, 2.0)
+		tri.call([to3.call(r0p[k], yj), k, yj], [to3.call(r0p[(k + 1) % RING], yj), k + 1, yj], [cen, k + 0.5, yj], Vector3.DOWN, 2.0)
 	return Vector4(y1 + dy_top, y1, yj, dy_top)
 
 
