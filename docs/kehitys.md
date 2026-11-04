@@ -122,6 +122,13 @@ ambulanssi takaa ja kyljistä; naloksonisuihke pystyssä ja kyljellään).
 valinnat ja tervehdysten vihjeet, väärä raha (myynti, tallennus, paljastus luukkuostossa), ryöstö ja pako, "Rahat ensin", kieltäytyminen,
 väärä päivä ja Riskit-sivu (kuvat `_huijari_pelikamera`, `_automaatti_edesta`, `_automaatti_paadysta`, `_automaatti_ylha`, `_naytto`,
 `_huijari`, `_keskustelu`, `_pako`, `_riskit`).
+`autovarkaus` (rivit `AUTOVARKAUS`, `--arg=saloinen|vaala`): liikenneauton pysähtyminen jalankulkijan eteen, vihje ja odotus ovella,
+kaappaus E:llä (kuski, tähti, pyörän kotipaikka, liikenneauto siirtyy muualle), auton huippunopeus pisimmällä suoralla vs. Päivin
+jahtinopeus × 1,5, tähdet ajosta, seinä- ja liikennekolarista, 4 tähteä (Päivi turvapaikkojen ohi, poliisi, kuminauha), pako 2 tähdestä
+(24 s), nousu (hylätty auto, pyörä kotona) ja Päivin kiinniotto autossa; Vaala: kaappaus mopomatkalla, Roivaisen lähestyminen ja
+pidätys (mopo kotona). Kuvat `_autovarkaus_pysahtyi`, `_ovella`, `_kaappaus`, `_kuski_soittaa`, `_auto_edesta/_sivulta/_ylhaalta`,
+`_jahti`, `_poliisi`, `_hylatty`, `_kiinni`, `_vaala_ovella`, `_vaala_kaappaus`, `_vaala_roivainen(_peli)`, `_roivainen_sivulta`,
+`_vaala_kiinni`. Ajetaan ilman `--kiintea`-valintaa: tähtien ajat kulkevat pelin ajassa, ja hitaalla koneella kiinteä tahti ei mahdu aikarajaan.
 
 ## Puheäänet
 

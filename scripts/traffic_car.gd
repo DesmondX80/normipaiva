@@ -26,6 +26,7 @@ signal hit
 
 var target_fn: Callable  # palauttaa pelaajan solmun (jalan, pyörä tai mopo)
 var van := false  # pakettiauto henkilöauton sijaan
+var color := Color.WHITE  # maalin väri (rikos/autovarkaus.gd: kaapattu auto samanvärisenä)
 var cruise := 11.0
 var lane := 1.7
 var ground_fn: Callable  # (x, z) -> y; oletuksena kylän maasto
@@ -51,10 +52,11 @@ func _ready() -> void:
 	collision_layer = 0  # ei tönäise pelaajaa: osuma tarkistetaan itse
 	collision_mask = 0
 	add_to_group(GROUP)
+	color = VAN_COLORS.pick_random() if van else COLORS.pick_random()
 	if van:
-		Vehicles.van(self, VAN_COLORS.pick_random())
+		Vehicles.van(self, color)
 	else:
-		B.car(self, COLORS.pick_random())
+		B.car(self, color)
 	_engine = Sfx.loop_on(self, "engine", -10.0)
 	_engine.pitch_scale = randf_range(0.85, 1.1)
 
@@ -104,7 +106,8 @@ func _physics_process(delta: float) -> void:
 				Sfx.play_on(self, "horn", 0.0, randf_range(0.9, 1.1))
 				_honk_t = randf_range(1.5, 2.5)
 		# Osuma: pelaaja auton ääriviivojen sisällä ja auto liikkuu.
-		if absf(_speed) > BUMP_SPEED and ahead > -2.4 and ahead < 2.6 and side < 1.25:
+		# Pelaaja kaapatussa autossa (car): kolarin hoitaa rikos/autovarkaus.gd, ei alle jäämistä.
+		if tgt.get("car") != true and absf(_speed) > BUMP_SPEED and ahead > -2.4 and ahead < 2.6 and side < 1.25:
 			if absf(_speed) > HIT_SPEED:
 				hit.emit()
 			elif tgt.has_method("stun") and not tgt.is_stunned():

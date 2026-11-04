@@ -403,7 +403,7 @@ func _process(delta: float) -> void:
 			mopo.speed = 0.0
 			stop()
 			arrived.emit()
-	elif (target != "siitari" or _left_yard) and on_foot == null and pos.distance_to(vaala.mokki_mopo) < HOME_YARD_R:
+	elif (target != "siitari" or _left_yard) and on_foot == null and not mopo.car and pos.distance_to(vaala.mokki_mopo) < HOME_YARD_R:
 		# Mökin pihaan ajettaessa kartta vaihtuu mökille itsestään (mopo parkkiin kuten lähtiessä).
 		stop()
 		finished.emit("home")

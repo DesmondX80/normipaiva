@@ -716,6 +716,23 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     numero kaikissa") ja summa lähtee rahoista; ryöstäjä nappaa annoksen ja juoksee parkkipaikalle ilman rahaa. "Rahat ensin. Näytä
     setelit.": huijari paljastuu ja lähtee, maine +1 ja vihje Riskit-sivun osioon Huijarit. "Ei kiinnosta" ei maksa mitään. Kohtaamisen
     jälkeen hän ei palaa samalla viikolla. Tila osiossa `rikos_huijari`.
+    **Autovarkaus ja tähtijahti** (F, `rikos/autovarkaus.gd`, käyttäjän toive): liikenneauto pysähtyy jalankulkijan eteen. Kun se
+    seisoo ja pelaaja on jalan kuljettajan oven vieressä (vasen kylki; pakettiautossa ohjaamon ovi), E = "Kaappaa auto". Kuski hyppää
+    ulos ("HEI! MUN AUTO!"), juoksee kauemmas ja soittaa, ja oikeaan yläkulmaan syttyy ensimmäinen viidestä tähdestä. Kaapattu auto on
+    sama solmu kuin oma pyörä tai mopo (`player_bike.gd`/`mopo.gd set_car`): pyörä ja kuski piiloon, auton malli ja laatikkomuoto
+    1,8 × 1,4 × 4,2 m, huippunopeus 25 m/s (mitattu 25,2; 95 % 3,9 s:ssa), torvi kellon napista. Keskustelut, ovet ja talli vaativat
+    nousemisen (F); kaapattu auto ei mahdu talliin, eikä oman mopon tankki kulu. F autosta: auto jää hylätyksi tien varteen päivän
+    loppuun, ja oma pyörä tai mopo palaa paikkaan, josta se kaappaushetkellä oli (myös tallennukseen).
+    Tähdet 1–5: +1 joka 25 s ajoa jahtaajan tietäessä paikan ja +1 kovasta törmäyksestä (seinä, puu tai liikenneauto yli 8 m/s
+    vauhtierolla). **Saloisissa jahtaa Päivi** kuin poliisi: hän tietää paikan (radiolla), ajaa 1,0–1,5 × jahtinopeudella tähtien
+    mukaan (oma kerroin `wife_car.gd heat_mult`, koska päivän tilat kirjoittavat `speed_mult`:n yli), lähtee yölläkin kotipihasta,
+    4–5 tähdellä turvapaikat eivät suojaa ja mukaan tulee poliisiauto. Kuminauha 4–5 tähdellä: yli 120 m päässä oleva jahtaaja
+    siirtyy näkymättömiin lähempään tieverkon solmuun kameran taakse. **Vaalassa jahtaa konstaapeli Roivainen** poliisi-Saabilla
+    (`rikos/roivainen_auto.gd`): tietä pitkin, alle 40 m:ssä suoraan kohti. Pako: kun yksikään jahtaaja ei näe (45 m, näköyhteys)
+    tähdet × 4 s, tähti putoaa 8 s välein; kahdesta tähdestä pääsee karkuun 24 s:ssa. Kiinni: Päivi motkottaa (päivä päättyy kuten
+    Päivin kiinniotossa, kotihommien hyvitykset eivät päde), Roivainen tai poliisi pidättää (PIDÄTETTY, `_rikos_loppu`). Jahti jatkuu
+    jalan, jos autosta nousee. Riskit-sivun osio Takaa-ajo: tähdet, jahtaaja, päivän kaappaukset ja pakomatkat. Ei tallenneta:
+    lataus ja uusi päivä nollaavat jahdin ja vievät hylätyt autot.
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
     katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin

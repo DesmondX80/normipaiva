@@ -6,6 +6,7 @@ extends CharacterBody3D
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Vaala := preload("res://scripts/vaala.gd")
+const Vehicles := preload("res://scripts/vehicles.gd")
 
 const MAX_SPEED := 16.7  # 60 km/h
 const REVERSE_SPEED := 1.5
@@ -44,6 +45,17 @@ var _steer_lag := 0.0
 var _yank := 0.0
 var _yank_t := 4.0
 var _wobble := 0.0  # horjunta ojassa kännissä; 1 = kaatuu
+## Kaapattu auto (rikos/autovarkaus.gd): sama solmu autotilassa kuten player_bike.gd set_car. Mopo ja kuski piiloon,
+## auton malli näkyviin, laatikkomuoto 1,8 × 1,4 × 4,2 ja huippunopeus car_max. Pysyy teillä kuten mopo (_keep_on_road).
+const CAR_ACCEL := 6.0
+const CAR_HIT := 9.0
+signal car_crashed  # autolla kovaa päin estettä
+var car := false
+var car_max := 25.0
+var _car: Node3D
+var _car_wheels: Array[Node3D] = []
+var _cap_shape: CollisionShape3D
+var _box_shape: CollisionShape3D
 
 
 func _ready() -> void:
@@ -55,6 +67,10 @@ func _ready() -> void:
 	cs.shape = cap
 	cs.position.y = 0.9
 	add_child(cs)
+	_cap_shape = cs
+	_box_shape = B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.85, 0))
+	_box_shape.disabled = true
+	add_child(_box_shape)
 	_visual = Node3D.new()
 	add_child(_visual)
 	_wheels = build_model(_visual)
@@ -95,7 +111,7 @@ func activate_camera() -> void:
 
 ## Jalan noustessa kuski pois selästä (mopo jää parkkiin tyhjänä), selkään noustessa takaisin.
 func set_rider_visible(v: bool) -> void:
-	_rider.visible = v
+	_rider.visible = v and not car
 	if _passenger != null:
 		_passenger.visible = v
 
@@ -122,6 +138,24 @@ func set_passenger(look: Dictionary) -> void:
 			inv * Vector3(0.2 * s, 1.15, 0.3), inv * Vector3(0.5 * s, 1.2, 0.5))
 		_passenger.set_ik("leg" + side[0], "thigh" + side[0], "calf" + side[0], "foot" + side[0],
 			inv * Vector3(0.24 * s, 0.4, 0.45), inv * Vector3(0.24 * s, 0.9, -0.1))
+
+
+## Autotila päälle (väri, pakettiauto) tai pois (mopo ja kuski takaisin).
+func set_car(on: bool, color := Color.WHITE, van := false) -> void:
+	car = on
+	speed = 0.0
+	if _car != null:
+		_car.queue_free()
+		_car = null
+		_car_wheels.clear()
+	if on:
+		_car = Node3D.new()
+		add_child(_car)
+		_car_wheels = Vehicles.van(_car, color) if van else Vehicles.car(_car, color)
+	_visual.visible = not on
+	_cap_shape.disabled = on
+	_box_shape.disabled = not on
+	fallen = false
 
 
 func set_engine(on: bool) -> void:
@@ -204,8 +238,10 @@ func _physics_process(delta: float) -> void:
 	elif vaala != null:
 		grade = (vaala.h(position.x + fwd.x, position.z + fwd.z) - vaala.h(position.x - fwd.x, position.z - fwd.z)) / 2.0
 	var max_s: float = MAX_SPEED * boost * surf.speed * clampf(1.0 - grade * 2.5, 0.6, 1.2)
+	if car:
+		max_s = car_max * lerpf(1.0, surf.speed, 0.5) * clampf(1.0 - grade * 1.5, 0.7, 1.15)
 	if throttle > 0.0:
-		speed = move_toward(speed, max_s, ACCEL * throttle * delta)
+		speed = move_toward(speed, max_s, (CAR_ACCEL if car else ACCEL) * throttle * delta)
 	elif throttle < 0.0:
 		speed = move_toward(speed, 0.0 if speed > 0.1 else -REVERSE_SPEED, (BRAKE if speed > 0.1 else ACCEL) * delta)
 	else:
@@ -232,9 +268,13 @@ func _physics_process(delta: float) -> void:
 	var was := speed
 	move_and_slide()
 	speed = Vector2(velocity.x, velocity.z).dot(Vector2(fwd.x, fwd.z))
-	if drunk > 0.0 and controls_enabled:
+	if car:
+		if absf(was) > CAR_HIT and absf(speed) < absf(was) * 0.5 and is_on_wall():
+			Sfx.play("punch_heavy", -2.0, 0.7)
+			car_crashed.emit()
+	elif drunk > 0.0 and controls_enabled:
 		_drunk_crash(was, delta)
-	_lean = lerpf(_lean, steer * steer_factor * 0.4, 1.0 - exp(-5.0 * delta))
+	_lean = lerpf(_lean, 0.0 if car else steer * steer_factor * 0.4, 1.0 - exp(-5.0 * delta))
 	if fallen:
 		_visual.rotation.z = lerpf(_visual.rotation.z, 1.35, 1.0 - exp(-10.0 * delta))  # kyljellään
 	else:
@@ -244,15 +284,19 @@ func _physics_process(delta: float) -> void:
 	_visual.position.y = lerpf(_visual.position.y, bump, 1.0 - exp(-14.0 * delta))
 	for w in _wheels:
 		w.rotation.x -= speed * delta / 0.3
+	for w in _car_wheels:
+		w.rotation.x -= speed * delta / 0.34
 	_pose_rider()
-	var k := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
-	_engine.pitch_scale = lerpf(1.1, 2.6, k) + (0.25 if throttle > 0.0 else 0.0)
+	var k := clampf(absf(speed) / (car_max if car else MAX_SPEED), 0.0, 1.0)
+	_engine.pitch_scale = (lerpf(0.7, 1.6, k) if car else lerpf(1.1, 2.6, k)) + (0.25 if throttle > 0.0 else 0.0)
 	_engine.volume_db = lerpf(-14.0, -6.0, maxf(k, 0.4 if throttle > 0.0 else 0.0))
 	var eye: Vector3 = _rider.to_global(_rider.bone_position("Head")) + Vector3.UP * 0.1
 	# Kännissä kuva huojuu (katse keinuu hitaasti sivulta toiselle).
 	var dd := clampf(drunk * DRUNK_GAIN, 0.0, 1.0)
 	var sway := Vector3(sin(_sway_t * 0.9), sin(_sway_t * 0.55 + 0.7) * 0.4, 0.0) * dd * 0.9
-	CamCtl.update_camera(_cam, self, eye, 5.2, 2.4, absf(speed) > 1.0, delta, not _cam_ready, sway)
+	if car:
+		eye = global_position + Vector3.UP * 1.6
+	CamCtl.update_camera(_cam, self, eye, 8.5 if car else 5.2, 3.4 if car else 2.4, absf(speed) > 1.0, delta, not _cam_ready, sway)
 	_cam_ready = true
 
 

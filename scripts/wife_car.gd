@@ -22,6 +22,9 @@ var world: Node3D  # alusta hidastaa autoa pellolla ja rämeellä
 var safe_zones: Array = []  # [Vector3 keskipiste, float säde]: näihin Päivi ei tule perään
 var alerted := false  # naapuri käräytti: vaimo tietää koko ajan missä olet
 var speed_mult := 1.0  # päivän tilat (#18): huonon päivän jälkeen nopeampi, hyvän jälkeen hitaampi
+## Autovarkauden tähtijahti (rikos/autovarkaus.gd): oma kerroin, koska main.gd kirjoittaa speed_mult:n yli joka ruutu.
+var heat_mult := 1.0
+var ignore_safe := false  # tähtijahti (4–5 tähteä): turvapaikat eivät suojaa
 var mode := "patrol"  # patrol, chase, return
 var parked := false  # yöllä kotipihassa: Päivi sisällä, auto ei liiku eikä jahtaa (main.gd _day_rhythm)
 var grace := 0.0  # anteeksi annettu: hetken ei näe eikä saa kiinni (main.gd _on_wife_caught)
@@ -77,7 +80,7 @@ func reset_to(index: int) -> void:
 
 
 func is_target_safe() -> bool:
-	if target == null:
+	if target == null or ignore_safe:
 		return false
 	for z in safe_zones:
 		if Vector2(target.global_position.x - z[0].x, target.global_position.z - z[0].z).length() < z[1]:
@@ -140,7 +143,7 @@ func _physics_process(delta: float) -> void:
 				_prev = -1
 				_path.clear()
 				_advance()
-	_drive(delta, want * speed_mult)
+	_drive(delta, want * speed_mult * heat_mult)
 
 	if d < CATCH_DIST and not in_safe and grace <= 0.0:
 		caught.emit()

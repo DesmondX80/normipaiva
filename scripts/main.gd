@@ -1990,6 +1990,8 @@ func _test_goto_stash(id: String) -> void:
 func _garage_door_logic() -> void:
 	var e: bool = Input.is_action_just_pressed("interact") and not player.is_stunned() \
 		and Engine.get_process_frames() != _garage_exit_frame
+	if player == bike and bike.car:
+		return  # kaapattu auto ei mahdu talliin
 	if player == bike:
 		_hint.text = "[E] Vie mopo talliin" if oma_mopo.riding else "[E] Vie pyörä talliin"
 		if e:
@@ -2833,7 +2835,7 @@ func _ebike_tick(delta: float) -> void:
 	if oma_mopo.riding:  # oma mopo: bensa kuluu, sähköpyörän osat odottavat tallissa
 		bike.assist = 0.0
 		bike.heavy = false
-		if player == bike and not bike.autopilot:
+		if player == bike and not bike.autopilot and not bike.car:  # kaapatulla autolla mopon tankki ei kulu
 			var mmsg: String = oma_mopo.ride_tick(bike, delta)
 			if mmsg != "":
 				_show_message(mmsg, 4.0)
@@ -15512,6 +15514,9 @@ func _mopo_mount_logic() -> void:
 	if mopo_trip.on_foot == null:
 		if not e or mp.fallen or not mp.controls_enabled:
 			return
+		if mp.car:
+			rikos_osa("autovarkaus").nouse()  # kaapatusta autosta jalan, mopo palaa paikalleen
+			return
 		if absf(mp.speed) > 3.0:
 			_show_message("Hidasta ensin!", 1.2)
 			return
@@ -20290,8 +20295,8 @@ func _save_game() -> void:
 	cfg.set_value("reippari", "miisu", _miisu)
 	cfg.set_value("reippari", "sipuli", _reippari_onion)
 	if bike != null:
-		cfg.set_value("peli", "pyora", bike.global_position)
-		cfg.set_value("peli", "pyora_kulma", bike.rotation.y)
+		cfg.set_value("peli", "pyora", bike.car_home.origin if bike.car else bike.global_position)  # kaapattu auto: pyörän paikka
+		cfg.set_value("peli", "pyora_kulma", bike.car_home.basis.get_euler().y if bike.car else bike.rotation.y)
 		cfg.set_value("peli", "pyora_tallissa", bike_in_garage)
 	if not _resume_spot.is_empty():
 		cfg.set_value("peli", "paikka", _resume_spot)
@@ -20943,6 +20948,9 @@ func _place_on_foot(pos: Vector3) -> void:
 ## F: nouse pyörän selästä tai takaisin pyörälle (pyörän vieressä).
 func _toggle_mount() -> void:
 	_stop_mowing()
+	if player == bike and bike.car:
+		rikos_osa("autovarkaus").nouse()  # kaapatusta autosta jalan, pyörä palaa paikalleen
+		return
 	if player == bike:
 		if absf(bike.speed) > 3.0:
 			_show_message("Hidasta ensin!", 1.2)

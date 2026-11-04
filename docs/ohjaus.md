@@ -9,6 +9,7 @@
 | Q | soittokello |
 | E | toiminto (kauppaan, osta, maksa, ulos) |
 | F | nouse pyörän selästä / takaisin pyörälle (pyörä jää parkkiin ja näkyy kartassa) |
+| E (jalan pysähtyneen auton kuljettajan ovella) | kaappaa auto (tähtijahti; F nousee autosta, auto jää tien varteen) |
 | T | syö ja juo: valikko mukana olevista eväistä (korvapuusti, lihapiirakka, suklaa, marjat ämpäristä) ja kaljoista |
 | Shift | juokse (jalan) / spurtti (pyörällä) |
 | E (kolmiomittauksen aikana) | Sytkäri: lue etäisyys tästä paikasta (vihje näkyy, kun muuta toimintoa ei ole) |

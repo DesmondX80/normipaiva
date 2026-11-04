@@ -7,6 +7,7 @@ const Looks := preload("res://scripts/looks.gd")
 const DrunkWobble := preload("res://scripts/drunk_wobble.gd")
 const Mopo := preload("res://scripts/mopo.gd")
 const TwoStroke := preload("res://scripts/two_stroke.gd")
+const Vehicles := preload("res://scripts/vehicles.gd")
 
 const MAX_SPEED := 14.0
 const REVERSE_SPEED := 3.0
@@ -62,6 +63,23 @@ var _frame: Node3D  # pyörän runko, polkimet ja pyörät
 var _moped: Node3D
 var _moped_wheels: Array[Node3D] = []
 var _engine: TwoStroke  # mopon syntetisoitu kaksitahtipärinä
+## Kaapattu auto (rikos/autovarkaus.gd): sama solmu autotilassa, kuten mopo. Pyörä, mopo ja kuski piiloon (lasi on tumma),
+## auton malli (Vehicles.car/van) näkyviin, törmäysmuoto laatikoksi 1,8 × 1,4 × 4,2 (police_car.gd) ja huippunopeus car_max.
+## -Z = auton keula, kuten muillakin ajoneuvoilla.
+const CAR_ACCEL := 6.5
+const CAR_DRAG := 1.2
+const CAR_STEER := 1.5
+const CAR_REVERSE := 5.0
+const CAR_HIT := 9.0  # tätä kovempaa päin estettä (vauhti puolittuu): kova törmäys
+signal crashed  # autolla kovaa päin seinää tai puuta
+var car := false
+var car_max := 25.0
+var car_home := Transform3D()  # pyörän tai mopon paikka ennen kaappausta: tänne palataan, ja tallennus käyttää tätä
+var _car: Node3D
+var _car_wheels: Array[Node3D] = []
+var _car_engine: AudioStreamPlayer
+var _cap_shape: CollisionShape3D
+var _box_shape: CollisionShape3D
 
 ## Hiukkasten värit alustan mukaan (sora pöllyää, vesi roiskuu, vilja lentelee).
 const DEBRIS := {
@@ -110,6 +128,10 @@ func _ready() -> void:
 	cs.shape = cap
 	cs.position.y = 0.9
 	add_child(cs)
+	_cap_shape = cs
+	_box_shape = B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.85, 0))
+	_box_shape.disabled = true
+	add_child(_box_shape)
 
 	_visual = Node3D.new()
 	add_child(_visual)
@@ -169,18 +191,53 @@ func set_mopo(on: bool) -> void:
 		mopo_dry = false
 
 
+## Autotila päälle (kaapattu auto: väri ja onko pakettiauto) tai pois (pyörä tai mopo takaisin).
+func set_car(on: bool, color := Color.WHITE, van := false) -> void:
+	car = on
+	speed = 0.0
+	if _car != null:
+		_car.queue_free()
+		_car = null
+		_car_wheels.clear()
+	if on:
+		_car = Node3D.new()
+		_visual.add_child(_car)
+		_car_wheels = Vehicles.van(_car, color) if van else Vehicles.car(_car, color)
+		if _car_engine == null:
+			_car_engine = AudioStreamPlayer.new()
+			_car_engine.stream = Sfx.stream("engine")
+			_car_engine.volume_db = -10.0
+			add_child(_car_engine)
+		_car_engine.play()
+	elif _car_engine != null:
+		_car_engine.stop()
+	_frame.visible = not on and not mopo
+	if _moped != null:
+		_moped.visible = not on and mopo
+	if _ebike != null:
+		_ebike.visible = not on and not mopo
+	_rider.visible = not on and _rider.visible
+	_bag.visible = _bag.visible and not on
+	_cap_shape.disabled = on
+	_box_shape.disabled = not on
+	_lean = 0.0
+	_visual.rotation.z = 0.0
+	if on:
+		_engine.running = false
+
+
 func _seat_rider(who: Node3D) -> void:
 	who.position = (MOPO_SEAT + Vector3(0, 0.1, 0) if mopo else BIKE_SEAT + Vector3(0, 0.12, 0.02)) - who.bone_position("pelvis")
 	who.set_override("spine_01", Vector3.RIGHT, -0.15 if mopo else -0.4)
 
 
 func set_carrying(carrying: bool) -> void:
-	_bag.visible = carrying
+	_bag.visible = carrying and not car
 
 
 ## Kuski näkyviin/piiloon (jalan liikuttaessa pyörä jää parkkiin ilman kuskia).
 func set_rider_visible(v: bool) -> void:
-	_rider.visible = v
+	_rider.visible = v and not car
 	_bag.visible = _bag.visible and v
 
 
@@ -210,6 +267,8 @@ func is_stunned() -> bool:
 
 ## Karatepotku: pyörä kaatuu ja lentää hetken potkun suuntaan.
 func stun(direction: Vector3) -> void:
+	if car:
+		return  # kaapattu auto ei kaadu potkusta
 	_stun = 1.6
 	speed = 0.0
 	Sfx.play("bike_fall", -2.0)
@@ -258,18 +317,20 @@ func _physics_process(delta: float) -> void:
 		steer = clampf(Input.get_axis("right", "left") + CamCtl.vehicle_steer(speed), -1.0, 1.0)
 		braking = Input.is_action_pressed("brake")
 		if Input.is_action_just_pressed("bell"):
-			if mopo:
+			if car:
+				Sfx.play("horn", -2.0)  # auton torvi
+			elif mopo:
 				Sfx.play("horn", -8.0, 1.8)  # mopon piippari
 			else:
 				Sfx.play("bell", -4.0)
 	# Shift: spurtti, kun poljetaan eteenpäin ja kuntoa on jäljellä. Mopolla ei polje.
 	var want_sprint: bool = controls_enabled and Input.is_action_pressed("sprint") and throttle > 0.0 \
-		and legs != null and not legs.exhausted and not legs.no_sprint and not mopo
+		and legs != null and not legs.exhausted and not legs.no_sprint and not mopo and not car
 	if want_sprint and not sprinting:
 		_sprint_start()
 	sprinting = want_sprint
 	if legs != null and controls_enabled:  # vain ajettaessa: parkissa jalat hoitavat kunnon itse
-		legs.tire(sprinting and assist <= 0.0, absf(speed) < 0.2, delta)  # avustettu spurtti ei väsytä
+		legs.tire(sprinting and assist <= 0.0, absf(speed) < 0.2 or car, delta)  # avustettu spurtti ei väsytä
 
 	_update_surface()
 	var t := _terrain
@@ -295,15 +356,19 @@ func _physics_process(delta: float) -> void:
 		# Kaasukahva: ei kuntoa, spurttia eikä huoltoa. Tyhjällä tankilla mopoa taluttaa kävelyvauhtia.
 		max_s = (PUSH_SPEED if mopo_dry else mopo_max) * boost * t.speed * clampf(1.0 - grade * 2.5, 0.6, 1.2)
 		accel = (2.0 if mopo_dry else MOPO_ACCEL) * t.accel
+	if car:
+		# Kaapattu auto: ei kuntoa eikä pervitiiniä; mäet ja pehmeä alusta hidastavat vähemmän kuin pyörää.
+		max_s = car_max * lerpf(1.0, t.speed, 0.5) * clampf(1.0 - grade * 1.5, 0.7, 1.15)
+		accel = CAR_ACCEL * lerpf(1.0, t.accel, 0.5)
 	if throttle > 0.0:
 		speed = move_toward(speed, max_s, accel * throttle * delta)
 	elif throttle < 0.0:
 		if speed > 0.1:
 			speed = move_toward(speed, 0.0, BRAKE * delta)
 		else:
-			speed = move_toward(speed, -REVERSE_SPEED * t.speed, accel * delta)
+			speed = move_toward(speed, -(CAR_REVERSE if car else REVERSE_SPEED * t.speed), accel * delta)
 	else:
-		speed = move_toward(speed, 0.0, ((MOPO_DRAG if mopo else DRAG) + t.drag) * delta)
+		speed = move_toward(speed, 0.0, ((CAR_DRAG if car else MOPO_DRAG if mopo else DRAG) + t.drag) * delta)
 	if braking:
 		speed = move_toward(speed, 0.0, BRAKE * delta)
 	elif absf(grade) > 0.01 and (absf(speed) > 0.3 or throttle != 0.0):
@@ -314,6 +379,8 @@ func _physics_process(delta: float) -> void:
 
 	# Ohjaus toimii vain liikkeessä, peruuttaessa käänteisesti. Pehmeä maa ja vesi heiluttavat.
 	var steer_factor := clampf(absf(speed) / 4.0, 0.0, 1.0)
+	if car:
+		steer_factor *= CAR_STEER / STEER_SPEED
 	if controls_enabled and not autopilot:
 		steer += _drunk_wobble.steer(drunk, steer_factor, delta)
 	var heading0 := rotation.y
@@ -333,15 +400,23 @@ func _physics_process(delta: float) -> void:
 		velocity.y = 0.0
 	else:
 		velocity.y -= GRAVITY * delta
+	var was := speed
 	move_and_slide()
 	# Seinään osuminen syö vauhdin.
 	speed = Vector2(velocity.x, velocity.z).dot(Vector2(fwd.x, fwd.z))
+	if car and absf(was) > CAR_HIT and absf(speed) < absf(was) * 0.5 and is_on_wall():
+		_shake = 0.5
+		Sfx.play("punch_heavy", -2.0, 0.7)
+		crashed.emit()
 
-	_lean = lerpf(_lean, steer * steer_factor * 0.35, 1.0 - exp(-6.0 * delta))
+	_lean = lerpf(_lean, 0.0 if car else steer * steer_factor * 0.35, 1.0 - exp(-6.0 * delta))
 	_wobble = maxf(0.0, _wobble - delta)
 	_visual.rotation.z = _lean + sin(_wobble * 30.0) * _wobble * 0.5  # kettukarkki osui: heilahdus
 	_apply_bumps(delta)
-	if mopo:
+	if car:
+		for w in _car_wheels:
+			w.rotation.x -= speed * delta / 0.34
+	elif mopo:
 		for w in _moped_wheels:
 			w.rotation.x -= speed * delta / 0.3
 		_pose_mopo_rider(_thief if _thief != null else _rider)
@@ -391,7 +466,7 @@ func _update_roll_sound() -> void:
 	_roll.volume_db = linear_to_db(k * 0.6 + 0.0001) + r[1] - 2.0 + mute
 	_roll.pitch_scale = (0.75 + k * 0.5) * r[0]
 	# Vapaaratas naksuu vain, kun rullataan polkematta.
-	var coasting := controls_enabled and absf(speed) > 1.0 and not Input.is_action_pressed("forward") and not mopo
+	var coasting := controls_enabled and absf(speed) > 1.0 and not Input.is_action_pressed("forward") and not mopo and not car
 	_chain.volume_db = lerpf(_chain.volume_db, (linear_to_db(k * 0.7 + 0.0001) - 6.0 + mute) if coasting else -80.0, 0.25)
 	_chain.pitch_scale = 0.6 + k * 0.8
 	var pedal := controls_enabled and Input.is_action_pressed("forward")
@@ -403,7 +478,10 @@ func _update_roll_sound() -> void:
 	elif not hum and _whine.playing and _whine.volume_db < -60.0:
 		_whine.stop()
 	# Mopon kaksitahtinen: tyhjäkäynnillä pärisee, kaasulla kierrokset nousevat. Tyhjällä tankilla hiljaa.
-	var run := mopo and not mopo_dry and (controls_enabled or autopilot or _thief != null)
+	if _car_engine != null and car:
+		_car_engine.volume_db = linear_to_db(maxf(h, 0.0001)) - 10.0
+		_car_engine.pitch_scale = 0.7 + clampf(absf(speed) / car_max, 0.0, 1.0) * 0.9
+	var run := mopo and not car and not mopo_dry and (controls_enabled or autopilot or _thief != null)
 	_engine.running = run
 	if run:
 		var km := clampf(absf(speed) / maxf(mopo_max, 1.0), 0.0, 1.0)
@@ -561,7 +639,9 @@ func _build_debris() -> void:
 func _update_camera(delta: float) -> void:
 	var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.15
 	var eye: Vector3 = _rider.to_global(_rider.bone_position("Head")) + Vector3.UP * 0.08
-	CamCtl.update_camera(_cam, self, eye, 5.5, 2.6, absf(speed) > 1.0, delta, not _cam_ready, shake)
+	if car:
+		eye = global_position + Vector3.UP * 1.6
+	CamCtl.update_camera(_cam, self, eye, 8.5 if car else 5.5, 3.4 if car else 2.6, absf(speed) > 1.0, delta, not _cam_ready, shake)
 	_cam_ready = true
 	# Spurtissa näkökenttä levenee hieman (vauhdin tunne).
 	_fov_kick = lerpf(_fov_kick, SPRINT_FOV if sprinting and speed > 2.0 else 0.0, 1.0 - exp(-4.0 * delta))
