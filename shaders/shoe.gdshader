@@ -45,6 +45,12 @@ void fragment() {
 			c = mix(main_col * 0.32, sole_col * vec3(0.8, 0.78, 0.74), smoothstep(shaft_h - 0.006, shaft_h - 0.002, h));
 		} else if (fu2.y > 2.1) {
 			c = main_col * 0.32;
+		} else if (style == 4) {
+			// Kumisaappaan varsi (jäykkä putki): kuten kuori, vaalea kaulusraita ja ura sen alla yläreunassa.
+			c *= 0.9 + 0.1 * smoothstep(0.05, shaft_h, h);
+			c = mix(c, c * 0.45, band(h, shaft_h - 0.0215, shaft_h - 0.0185, 0.0006));
+			c = mix(c, sole_col * vec3(0.84, 0.82, 0.78) * (0.9 + 0.1 * smoothstep(shaft_h - 0.018, shaft_h, h)),
+				smoothstep(shaft_h - 0.0185, shaft_h - 0.0175, h));
 		} else {
 			float row = 0.0155;  // nauharivien väli (m)
 			float hr = h - 0.07;  // ensimmäinen koukkurivi

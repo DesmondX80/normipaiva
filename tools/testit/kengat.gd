@@ -13,6 +13,8 @@ const B := preload("res://scripts/build.gd")
 const RUUTU := 1000.0 / 60.0
 const COL := {"kavelykenka": Color(0.3, 0.19, 0.11), "tyokenka": Color(0.42, 0.27, 0.13)}  # testirivin päällisen väri
 const NEW := ["kavelykenka", "tyokenka"]  # erän 2 tyypit (lenkkarin lisäksi), rivit <tyyppi>_m ja _f
+const SAAPAS := Color(0.13, 0.3, 0.14)  # #273 kumisaapas: klassinen vihreä
+const SAAPAS_X := 4.0  # kumisaapasrivit muiden jälkeen erillään (muiden kuvat pysyvät vertailukelpoisina)
 
 var out := "user://kengat"
 var cam: Camera3D
@@ -60,10 +62,20 @@ func _run() -> void:
 	looks.append(["farkut_tyokenka", Looks.player("farkut")])  # lahkeen ja varren raja paksummalla lahkeella (pants_puff 0,016)
 	# Osa D: jakauman hahmot sellaisinaan (Seppo, istuva hamemummo ja seisova mokkamummo).
 	looks.append_array([["seppo", Looks.SEPPO], ["mummo1", Looks.MUMMOT[0]], ["mummo3", Looks.MUMMOT[2]]])
+	var n_old := looks.size()
+	# #273: kumisaapas (m, f ja farkut: lahje varren sisään).
+	for kind in ["male", "female"]:
+		var lk := _look(kind, SAAPAS)
+		lk["shoe"] = "kumisaapas"
+		looks.append(["kumisaapas_%s" % kind.left(1), lk])
+	var fk: Dictionary = Looks.player("farkut").duplicate()
+	fk["shoe"] = "kumisaapas"
+	fk["shoes"] = SAAPAS
+	looks.append(["farkut_kumisaapas", fk])
 	_jakauma()
 	for i in looks.size():
 		var ch: Node3D = Looks.make(self, looks[i][1])
-		ch.position = Vector3(i * 1.2, 0, 0)
+		ch.position = Vector3(i * 1.2 + (SAAPAS_X if i >= n_old else 0.0), 0, 0)
 		ch.play("Idle", 0.0, 0.0)
 		ch.anim.seek(0.5, true)
 		row.append([looks[i][0], ch])
@@ -110,6 +122,8 @@ func _run() -> void:
 	_sheet("vertailu_tyypit_kavely", kav)
 	_sheet("vertailu_jakauma", ["seppo_sivu", "seppo_edesta", "mummo1_sivu", "mummo1_edesta", "mummo3_sivu", "mummo3_kolmeneljannes",
 		"farkut_tyokenka_sivu", "farkut_tyokenka_edesta"])
+	_sheet("kumisaapas_eka", ["kumisaapas_m_edesta", "kumisaapas_m_sivu", "kumisaapas_m_takaa", "kumisaapas_m_kolmeneljannes",
+		"kumisaapas_f_edesta", "kumisaapas_f_sivu", "farkut_kumisaapas_sivu", "farkut_kumisaapas_takaa"])
 	_sheet("vertailu_varsi", ["tyokenka_m_varsi_sivu", "tyokenka_m_varsi_edesta", "tyokenka_m_varsi_takaa", "tyokenka_m_varsi_ylhaalta",
 		"farkut_tyokenka_varsi_sivu", "farkut_tyokenka_varsi_edesta", "tyokenka_f_varsi_sivu", "farkut_tyokenka_kolmeneljannes"])
 	await _ruutu()

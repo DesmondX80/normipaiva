@@ -46,6 +46,13 @@ const TYPES := {
 		"toe_round": 1.2, "toe_n": 3.0, "toe_h": 1.18, "toe_low": 0.32, "collar": 0.012, "spring": 0.006,
 		"sole_col": Color(0.13, 0.12, 0.11), "rough": 0.72, "sole_rough": 0.9, "style": 3, "spec": 0.35, "clearcoat": 0.0,
 		"shaft": {"join": 0.07, "top": 0.13, "pad": 0.006}},
+	# Kumisaapas (#273): kaksi jäykkää osaa. Alaosa = matala kuori (suu tasan join), varsi = leveä kartioputki säären
+	# luulla (rigid: painot 100 % sääreen), alareuna limittäin alaosan suun sisällä (lap = putken alareuna join:n alla).
+	# flare = putken lisäväljyys yläreunassa (kartio), pad alareunassa.
+	"kumisaapas": {"lift": 0.023, "sole": 0.020, "rand": 0.012, "margin": 0.004, "flare": 0.005, "toe_room": 0.016,
+		"toe_round": 1.1, "toe_n": 2.8, "toe_h": 1.1, "toe_low": 0.3, "collar": 0.012, "spring": 0.006,
+		"sole_col": Color(0.93, 0.9, 0.82), "rough": 0.3, "sole_rough": 0.85, "style": 4, "spec": 0.5, "clearcoat": 0.6,
+		"shaft": {"join": 0.09, "top": 0.237, "pad": 0.008, "rigid": true, "lap": 0.03, "gap": 0.004, "flare": 0.016}},
 	"paljas": {},
 }
 
@@ -468,6 +475,17 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 	var lat := Vector3.UP.cross(fwd)
 	var org := Vector3(heel.x, 0.0, heel.z)
 	var sh: Dictionary = p.shaft
+	var rigid: bool = sh.get("rigid", false)
+	var calf := -1  # jäykän varren luu (Skin-sidonta): saman puolen sääri
+	if rigid:
+		var nm := _bone_of(foot[0], bi, bw, per, skin, skel)
+		var want := "calf" + nm.right(2)
+		for b in skin.get_bind_count():
+			var bn := str(skin.get_bind_name(b))
+			if (bn if bn != "" else skel.get_bone_name(skin.get_bind_bone(b))) == want:
+				calf = b
+		if calf < 0:
+			push_error("kumisaapas: luuta %s ei löydy, varsi painotetaan iholta" % want)
 	var margin: float = p.margin
 	var pad: float = sh.pad
 	var y_welt: float = ymin - float(p.lift) + float(p.sole)
@@ -530,7 +548,7 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 			var a1: float = e[2] if d.y > 0.0 else e[3]
 			g = maxf(g, pow(pow(absf(d.x) / a0, SHAFT_N) + pow(absf(d.y) / a1, SHAFT_N), 1.0 / SHAFT_N))
 		for k in 4:
-			ax[k].append(e[k] * g + margin + pad)
+			ax[k].append(e[k] * g + margin + pad + float(sh.get("flare", 0.0)) * float(i) / float(SHAFT_RINGS - 1))
 			if i == SHAFT_RINGS - 1:
 				raw[k] = e[k] * g
 	for k in 4:
@@ -558,7 +576,7 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 			var dm := m - c0
 			if absf(d.angle_to(dm)) < TAU / RING:
 				r = maxf(r, dm.dot(d))
-		rad.append(maxf(r + 0.0005, (se0[k] - c0).length()))  # ei kapeampi kuin säären tarve (iho pysyy sisällä)
+		rad.append(maxf(r + float(sh.get("gap", 0.0005)), (se0[k] - c0).length()))  # ei kapeampi kuin säären tarve (iho pysyy sisällä)
 	var rs := PackedFloat32Array()
 	for k in RING:
 		rs.append((rad[(k + RING - 1) % RING] + rad[k] * 2.0 + rad[(k + 1) % RING]) / 4.0)
@@ -568,6 +586,8 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 	# Alarenkaat liukuvat suun ääriviivasta säären mittoihin (ei olkaa suun ja varren välissä): säde vähintään sekoitus.
 	for i in SHAFT_RINGS:
 		var w := smoothstep(yj, yj + 0.04, float(rows[i][0]))
+		if rigid:  # leveä varsi: suun ääriviivasta yläreunan mittoihin koko korkeudella (ei olkaa nilkassa)
+			w = clampf((float(rows[i][0]) - yj) / (y1 - yj), 0.0, 1.0)
 		var ci: Vector2 = rows[i][1]
 		var pi: PackedVector2Array = rows[i][2]
 		for k in RING:
@@ -575,6 +595,14 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 			pi[k] = ci + (pi[k] - ci).normalized() * maxf(rse, lerpf(rs[k], rse, w))
 		rows[i][2] = pi
 	rows.push_front([yj, c0, r0p, 0])
+	var yb := yj  # putken alin rengas (pohjaviuhka)
+	var rb := r0p
+	if rigid:  # jäykkä varsi: alareuna lap verran alaosan suun alla, kavennettuna kuoren sisään (limitys nilkassa)
+		yb = yj - float(sh.lap)
+		rb = PackedVector2Array()
+		for k in RING:
+			rb.append(c0 + (r0p[k] - c0).normalized() * maxf(rs[k] - margin - 0.004, 0.01))
+		rows.push_front([yb, c0, rb, 0])
 	var c1 := Vector2(ct[SHAFT_RINGS - 1], cl[SHAFT_RINGS - 1])
 	var a1 := [ax[0][SHAFT_RINGS - 1], ax[1][SHAFT_RINGS - 1], ax[2][SHAFT_RINGS - 1], ax[3][SHAFT_RINGS - 1]]
 	var lip := []
@@ -592,7 +620,7 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 		st.set_uv(Vector2(k / RING - 0.5, h - y_welt))
 		st.set_uv2(Vector2(sin(ang) * side, part))
 		st.set_color(Color(1, 1, 1, 1))
-		_set_weights(st, a, vs, bi, bw, per, leg)
+		_set_weights(st, a, vs, bi, bw, per, leg, calf, 1.0 if calf >= 0 else 0.0)
 		st.add_vertex(a)
 	# Osa 2,0 = varren ulkopinta, 2,2 = yläreunan levy ja sisäpinta (skin_outside ohittaa, varjostimessa sama osa 2).
 	var tri := func(pa: Array, pb: Array, pc: Array, out: Vector3, part: float) -> void:  # [paikka, k, h]
@@ -628,9 +656,9 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 			tri.call([a, k, h0], [b, k + 1, h0], [c, k, h1], o, part)
 			tri.call([b, k + 1, h0], [d, k + 1, h1], [c, k, h1], o, part)
 	# Pohja viuhkana (jalkaosan suun kohdalla, ulospäin alas).
-	var cen: Vector3 = to3.call(c0, yj - 0.002)
+	var cen: Vector3 = to3.call(c0, yb - 0.002)
 	for k in RING:
-		tri.call([to3.call(r0p[k], yj), k, yj], [to3.call(r0p[(k + 1) % RING], yj), k + 1, yj], [cen, k + 0.5, yj], Vector3.DOWN, 2.0)
+		tri.call([to3.call(rb[k], yb), k, yb], [to3.call(rb[(k + 1) % RING], yb), k + 1, yb], [cen, k + 0.5, yb], Vector3.DOWN, 2.0)
 	return Vector4(y1 + dy_top, y1, yj, dy_top)
 
 
