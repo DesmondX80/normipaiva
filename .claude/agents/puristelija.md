@@ -55,6 +55,8 @@ Säännöt:
 - **Toinen korjaus ilman vaikutusta = palauta.** Jos toinen korjaus samaan visuaaliseen vikaan ei muuta kuvaa, palauta
   arkkitehdille juurisyyanalyysiin. Pyydetty hyväksyntätesti (esim. tanssi `--kiintea` kahdesti) ajetaan aina; ajoraja
   koskee vain toistoa ilman muutosta. (#271)
+- **Vertailuluku ennen korjausta.** Ennen kuin korjaat testin löytöjä, tarkista mainin vertailuluku (`00-main-tila.md`,
+  `00-ohjeet.md`). Jos sitä ei ole, palauta ja pyydä Teemua ajamaan se. (#272)
 - **Kääntö ennen ajoa.** Jos olet muuttanut .gd-tiedostoa, aja `tools/testit/aja.sh kaantyy` ennen jokaista scene- tai
   tscn-ajoa. Testiskriptin jäsennysvirhe ei näy kääntötarkistuksessa, joten lue myös `aja.sh`:n tulosrivi (skriptivirheitä).
   (#sinikan-ovilappu: kaksi ajoa, 20 min, kaatui samaan jäsennysvirheeseen.)

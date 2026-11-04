@@ -125,7 +125,7 @@ func _seat(g: Node3D, x: float) -> void:
 	# Jalkaterät lattiaan siihen kohtaan, mihin animaatio ne vie (hahmon avaruudessa).
 	for side in ["_l", "_r"]:
 		var f: Vector3 = g.bone_position("foot" + side)
-		var foot := Vector3(f.x, FOOT_Y - g.position.y, f.z - 0.06)
+		var foot := Vector3(f.x, FOOT_Y + g.shoe_sole - g.position.y, f.z - 0.06)  # kengänpohja lattialle
 		g.set_ik("leg" + side, "thigh" + side, "calf" + side, "foot" + side, foot, foot + Vector3(0, 0.5, -0.6))
 	_lap_skirt(g)
 

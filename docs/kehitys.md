@@ -287,12 +287,19 @@ koukkuun (`open = 0`), ja kämmenen normaali kallistuu enintään 30°, kunnes r
 
 **Kengät:** `scripts/shoes.gd` rakentaa kengän omaksi skinnatuksi verkoksi (luuston lapsi `Kengat`, meta `"kenka"`) jalkaterän
 lepoverkon poikkileikkauksista: kuori 3 mm ihon ulkopuolella, tasainen pohja (`TYPES[tyyppi].sole`) ja painot kolmesta lähimmästä
-vartalon kärjestä, joten kenkä taipuu päkiästä kuten iho. Tyyppi: `look.shoe` tai `Shoes.type_for` `shoes`-värin mukaan (nyt vaaleat
-ja kirkkaat = `lenkkari`, muut `paljas` = vanha värjätty jalkaterä). Kengällä vartalon jalkaterä painuu varjostimessa 6 mm kengän
+vartalon kärjestä, joten kenkä taipuu päkiästä kuten iho. Tyypit (`Shoes.TYPES`, varjostimen `style`): `lenkkari` (0, valkoinen
+pohja), `kavelykenka` (2, matala suljettu varsi `top` 0,07, vaalea kumipohja, pyöreä leveä kärki, mokka `shoe_rough`) ja
+`tyokenka` (3, varsi nilkan yli `shaft`, turvakärkikupu, paksu tumma pohja); `paljas` = ei kenkää. Tyyppi valitaan
+`Shoes.type_for(look)`: `look.shoe` voittaa, muuten `shoes`-väri (vaaleat ja kirkkaat = `lenkkari`, muut `paljas` = vanha
+värjätty jalkaterä). Käyttäjät (`looks.gd`): mummot `kavelykenka`, Seppo ja Reijo (`Looks.SEPPO`/`REIJO`) `tyokenka`, pelaaja asun
+mukaan (tuulipuku ja hiihtohaalari `lenkkari`, farkut ja tyovaatteet `tyokenka`), tanssijat `lenkkari` (sama korkeus, #271).
+Saunassa ja uidessa paljas: `cutscene.gd sauna_look` poistaa `shoe`- ja `shoe_rough`-avaimet. Tunnetut puutteet (hyväksytty #272:ssa, jatko #279):
+kävelykengän suun kannessa kärjen päällä näkyy kuoppa, ja työkengän varren alareuna näkyy porrastuksena jalkaosan päällä;
+nauhakenkä (`style` 1 varattu) ja kuukenkä tekemättä. Kengällä vartalon jalkaterä painuu varjostimessa 6 mm kengän
 sisään (`shoe_on`, rajataso `shoe_cut`), ja `Pose.limb_points` ohittaa piilotetut kärjet ja lukee kenkäverkon, joten kontaktiprofiili
 (`profile_key` päättyy tyyppiin), jalkalaatikko ja läpimenot mittaavat kenkää. Malli nousee seistessä pohjan verran (`_lift_sole` +
 meta `"pohja"`, `Character.shoe_sole`), ja `Pose.feet_to_floor` lisää sen `FOOT_H`:hon. Testi: `aja.sh tscn tools/testit/kengat.tscn`
-(`KENKA ... alin` ±5 mm, `iho_ulkona` < 0, kuvat ja vertailukuvat kuvakulmista ja kävelystä, `RUUTU` 24 hahmolla).
+(`KENKA ... alin` ±5 mm, `iho_ulkona` < 0, kuvat ja vertailukuvat kuvakulmista ja kävelystä, `RUUTU` 24 hahmolla, `KENKA jakauma` tarkistaa yllä olevan jaon 11 hahmolle ja asulle, myös sauna ja uinti = paljas).
 Kuori kaavasta: jalasta mitataan asemittain vain mittakäyrät (keskiviiva, puolileveys, yläpuoliskon korkeus, suun raja), jotka
 tasoitetaan pituuden suunnassa tarpeen yläpuolelle (`_envelope`), ja jokainen poikkileikkaus on sama superellipsi (`_ring_at`,
 `SE_N`, alapuolisko `B_LOW`, alin piste tasan pohjan päällä). Mitään ei leikata renkaittain, joten kuoreen ei tule ryppyjä (vanha
