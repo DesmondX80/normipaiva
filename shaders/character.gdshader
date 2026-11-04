@@ -39,6 +39,9 @@ uniform float pants_puff = 0.014;
 // olevat kärjet painuvat 6 mm sisään, etteivät varpaat puhkaise kenkää. Suljettu kenkä: koko jalkaterä tason takana.
 uniform bool shoe_on = false;
 uniform vec4 shoe_cut = vec4(0.0, 0.0, 1.0, 10.0);
+// Varrellinen kenkä (shoes.gd meta "varsi"): varren yläreunan lepo-y (UV2.y). Lahje painuu varren sisään ja pöyhistyy
+// yläreunan yllä takaisin omaan arvoonsa (kuin housut työnnettynä varteen). -10 = ei vartta.
+uniform float shoe_top = -10.0;
 // Paljastavammat vaatteet (lepoasennon korkeus/leveys, metrit; < 0 = pois käytöstä):
 // shorts_y = housut loppuvat tähän (reisi), crop_y = paita loppuu tähän (napa näkyy), sleeve_x = hihan pää.
 uniform float shorts_y = -1.0;
@@ -296,6 +299,9 @@ void vertex() {
 		if (dot(shoe_cut.xyz, vec3(UV2, CUSTOM0.x)) < shoe_cut.w) {  // lepopaikka: UV2 = (x, y), CUSTOM0.x = z
 			puff = -0.006;
 		}
+	}
+	if (shoe_on && c > 1.5 && c < 2.5 && UV2.y < shoe_top + 0.03) {
+		puff = mix(-0.006, puff, smoothstep(shoe_top - 0.01, shoe_top + 0.03, UV2.y));
 	}
 	VERTEX += NORMAL * puff;
 	if (press_n > 0 && CUSTOM0.w > 0.0) {
