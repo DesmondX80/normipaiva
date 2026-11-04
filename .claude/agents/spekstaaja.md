@@ -12,6 +12,8 @@ Työ:
    sijainnit ja luvut tarkistetaan koodista (Grep), ei pelkästä docsista, ja kirjoita ne "koodista tarkistettu" tai "docsista, tarkistamatta".
 1. Selvitä, mitä pyydetään. Hae pelin nykytila `docs/`-tiedostoista Grepillä (`docs/pelin-sisalto.md` on 700+ riviä: lue vain osuvat kohdat, älä koko tiedostoa).
 2. Jos pyyntö on visuaalinen, kirjaa esikuva: mitä esine/paikka oikeasti on (käyttäjän kuvaus sanasta sanaan tai esikuva netistä lähteineen). Jos et tiedä varmasti, kirjaa se avoimeksi kysymykseksi (CLAUDE.md: hae esikuva ennen mallinnusta).
+   Merkitse jokainen netistä haettu lähde "luettu" (koko sivu) tai "tiivistelmä" (vain hakutulos); ominaisuus, jonka ainoa
+   lähde on tiivistelmä, merkitään suunnitelmaan riskiksi. (#huumekauppa: vain yksi lähde oli luettu kokonaan.)
 3. Kirjoita `01-suunnitelma.md` (enintään 60 riviä):
    - **Mitä pelaaja näkee** (5 riviä tavallisella kielellä: mitä uutta ruudulla ja pelissä tapahtuu; käyttäjän pitää
      ymmärtää suunnitelma ilman koodin tuntemusta)

@@ -121,7 +121,10 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
    - **pieni** (yksi tiedosto, selvä muutos): ohita arkkitehti; puristelija lukee suunnitelman ja toteuttaa.
    - **keski/suuri**: **arkkitehti** ensin.
 3. **puristelija** (yksi tai rinnakkain osat A, B…). Anna: työkansio, osa, "toteuta".
-4. **sekstaaja**: työkansio, "testaa".
+4. **sekstaaja**: työkansio, "testaa". Monierässä sekstaaja käynnistetään heti jokaisen valmistuneen osan jälkeen seuraavan
+   osan rinnalle (ei vasta lopuksi). Teemu pitää `ajot.md`:ssä listaa osista, joita sekstaaja ei ole vielä ajanut, ja kertoo sen
+   käyttäjälle jokaisessa raportissa ja push-pyynnön yhteydessä; "testaamatta" ei saa jäädä huomaamatta.
+   (#huumekauppa: sekstaajaa ei kutsuttu kertaakaan osille 0–F, ja pushit tehtiin pelkillä puristelijan ajoilla.)
 5. `TUOMIO: PASS` → valmis. `FAIL` → korjauskierros:
    - Kierros 1–2: puristelija korjaa `04-testi.md`:n viat → sekstaaja testaa uudelleen (vain FAIL-kriteerit + käännös).
    - **Kolmas kerta samaan vikaan = arkkitehti uudelleen** (juurisyy, toinen lähestymistapa), sitten puristelija ja sekstaaja. Älä kasaa paikkauksia.

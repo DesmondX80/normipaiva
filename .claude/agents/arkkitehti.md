@@ -19,6 +19,9 @@ Työ:
    - **Muutokset**: tiedosto → mitä lisätään/muutetaan (funktiot, signaalit, tilat). Merkitse `file:line` esikuville, joita toteuttajan kuuluu seurata.
    - **Jako**: jos työ jakautuu osiin, joilla ei ole yhteisiä tiedostoja, luettele ne osina A, B… (rinnakkaistettavissa). Muuten yksi osa.
      Kun osa käyttää toisen osan funktioita, kirjaa niiden käyttöohje (pakolliset parametrit) tähän.
+     Kirjaa myös jokaisen osien välillä liikkuvan tapahtuman tai jaetun tilan omistaja (kuka lähettää, kuka kuuntelee, kuka
+     laskee), jotta rinnakkaiset osat eivät laske samaa kahdesti. (#huumekauppa: D lähetti sekä "hylkasi" että "epaluulo",
+     ja C kasvatti epäluuloa kahdesti.)
    - **Riskit ja sudenkuopat**: erityisesti CLAUDE.md:n kohdat (ei `class_name`, `preload`; kyltit `B.sign_plate`; umpinaiset palat; mitoitus laskemalla; minipelien grafiikkavaatimukset; SurfaceTool `vertex_color_is_srgb`).
      Hahmon asennossa ja kalusteissa (CLAUDE.md "Hahmojen asennot ja kalusteet") nimeä toteuttajalle valmiit apufunktiot
      (`pose.gd`: `palm_down`/`palm_on`, `limb_points`, `top_y`, `clearance`; esikuva `janttu.gd _place_props` ja `_build_bench`), kerro

@@ -47,6 +47,12 @@ Säännöt:
   (esim. `dialogue_box.gd`, `main.gd`:n yleiset apurit), kirjaa se palautukseen ja `03-toteutus-<osa>.md`:hen riville "yhteinen tiedosto"
   ja pyydä sekstaajalta regressiotarkistus (vertailukuva ennen/jälkeen muuttumattomasta tapauksesta). Pidä muutos mahdollisimman
   rajattuna: vanha käytös säilyy, ellei uusi ehto laukea.
+- **Esikuva puuttuu = sano se heti.** Jos verkkoesikuvaa ei saada (haku kaatuu, rate limit), kirjoita raportin ja
+  `03-toteutus-<osa>.md`:n ensimmäiselle riville `ESIKUVA PUUTTUU: <esine>` ja pyydä Teemua hakemaan se; älä mallinna
+  yleistiedon varassa ja piilota sitä "jäi huonoksi" -listaan. (#huumekauppa: siviilipoliisi, naloksonisuihke ja Postin
+  automaatti tehtiin ilman esikuvaa.)
+- **Regressioajo viimeisen muutoksen jälkeen.** Ennen/jälkeen-vertailu ajetaan uudelleen jokaisen koodimuutoksen jälkeen, joka
+  tulee vertailun alettua; jos viimeiset säädöt eivät ole luvuissa, kirjaa se raportin alkuun. (#huumekauppa F.)
 - **Yhteinen tiedosto = vertailuajo heti.** Kun muutat yhteistä tiedostoa (`pose.gd`, `pari_ote.gd`, `character.gd`,
   varjostimet), aja heti sen järjestelmän regressiotesti ja vertaa mainin vertailuajoon samalla koneella. Jos löydöt
   lisääntyvät, peru muutos ja kirjaa syy; älä paikkaa päälle. Tanssitesti ajetaan aina `--kiintea`-valinnalla
