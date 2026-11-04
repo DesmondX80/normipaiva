@@ -45,6 +45,10 @@ käyttäjän tarvitse kysyä.
   ja nimeä mittaus, joka todistaa sen tarpeen.
 - **Tarkista ennen kuin väität.** Ennen kuin kerrot käyttäjälle, että jokin on käynnissä, valmis tai toimii, tarkista se
   itse: ajossa olevan prosessin komento, `ajot.md`, loki tai tuloskuva. Aliagentin raportti ei ole todiste.
+- **Pahenee = pysäytä.** Kaksi peräkkäistä saman testin ajoa, joissa löydöt kasvavat, pysäyttää aliagentin heti
+  (ei odoteta kolmatta). Vertaa löytöjä mainin vertailuajoon samoilla valinnoilla (tanssi `--kiintea`).
+  Älä kerro käyttäjälle, että vahti on päällä, ennen kuin olet tarkistanut sen (`list_triggers`).
+  (#oikeat-kengat: tanssi 2 -> 1 -> 10 -> 15 ennen pysäytystä.)
 - **Valvo jumit.** Pidä pitkän työn ajan vahti päällä (sama testi monta kertaa ilman muutosta, liian pitkä ajo, väärä
   komento). Jos aliagentti ei edisty kahdella ajolla, pysäytä se ja ratkaise suunta itse; älä odota, että käyttäjä huomaa.
   Tarkista se itse: aina kun käyttäjä kysyy tilannetta ja vähintään 20 minuutin välein, lue työkansion `ajot.md`:n viimeiset
