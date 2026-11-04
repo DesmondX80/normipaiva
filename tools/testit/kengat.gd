@@ -503,7 +503,7 @@ func _boot_gap(ch: Node3D, tag: String) -> void:
 	var ba: Array = ch.body_mi.mesh.surface_get_arrays(0)
 	var bv: PackedVector3Array = ba[Mesh.ARRAY_VERTEX]
 	var bc: PackedColorArray = ba[Mesh.ARRAY_COLOR]
-	var res := {"suu": -INF, "ala": -INF, "vali": INF, "reisi": 0}
+	var res := {"suu": -INF, "ala": -INF, "vali": INF, "reisi": 0, "suu_at": ""}
 	for side: float in [1.0, -1.0]:
 		var tube := PackedInt32Array()  # varren ulkopinta (osa 2,0)
 		var shell := PackedInt32Array()  # alaosan päällinen (osa 0)
@@ -539,7 +539,10 @@ func _boot_gap(ch: Node3D, tag: String) -> void:
 					bj = j
 			return (q - rv[bj]).dot(rn[bj])
 		for j in lip:
-			res.suu = maxf(res.suu, inside.call(inv * sk[0][j]))
+			var d: float = inside.call(inv * sk[0][j])
+			if d > res.suu:
+				res.suu = d
+				res.suu_at = "lepo %s, varren tilassa %s" % [rv[j], inv * sk[0][j]]
 		for j in bot:  # posed varren alareuna vs posed alaosa
 			var q: Vector3 = sk[0][j]
 			var best := INF
@@ -573,6 +576,6 @@ func _boot_gap(ch: Node3D, tag: String) -> void:
 	if res.reisi > 0:
 		print("TESTI VIKA %s reiden/polven %d kärkeä varren sisällä" % [tag, res.reisi])
 	if res.suu > 0.0005:
-		print("TESTI VIKA %s alaosan suu %.1f mm varren ulkopuolella (porras/rako)" % [tag, res.suu * 1000.0])
+		print("TESTI VIKA %s alaosan suu %.1f mm varren ulkopuolella (porras/rako) %s" % [tag, res.suu * 1000.0, res.suu_at])
 	if res.vali < 0.0:
 		print("TESTI VIKA %s lahje/sääri %.1f mm varren läpi" % [tag, -res.vali * 1000.0])
