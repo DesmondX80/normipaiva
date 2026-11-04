@@ -187,7 +187,7 @@ func _build() -> void:
 	info.rotation.x = -0.25
 	# Kalastaja rannalla (seisoo, ei erikoisasentoa).
 	_fisher = Looks.make(self, {"shirt": Color(0.3, 0.45, 0.3), "pants": Color(0.3, 0.3, 0.35),
-		"shoes": Color(0.2, 0.15, 0.12), "hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.5, 0.5), "height": 1.74})
+		"shoes": Color(0.13, 0.3, 0.14), "shoe": "kumisaapas", "hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.5, 0.5), "height": 1.74})
 	_fisher.position = Vector3(-9.0, 0, -3.8)
 	_fisher.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_fisher.play("Idle", 0.0)

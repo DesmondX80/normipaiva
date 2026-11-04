@@ -531,7 +531,7 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 		if t.has(k):
 			sm.set_shader_parameter(k, t[k])
 	if t.has("shaft"):
-		sm.set_shader_parameter("shaft_h", float(t.shaft.top) + float(t.lift) - float(t.sole))  # yläreuna kuoren alapinnasta
+		sm.set_shader_parameter("shaft_h", float(mesh.get_meta("varsi_h", float(t.shaft.top) + float(t.lift) - float(t.sole))))  # yläreuna kuoren alapinnasta
 	var mi := MeshInstance3D.new()
 	mi.name = "Kengat"
 	mi.mesh = mesh

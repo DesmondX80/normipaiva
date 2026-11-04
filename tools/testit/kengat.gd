@@ -13,6 +13,8 @@ const B := preload("res://scripts/build.gd")
 const RUUTU := 1000.0 / 60.0
 const COL := {"kavelykenka": Color(0.3, 0.19, 0.11), "tyokenka": Color(0.42, 0.27, 0.13)}  # testirivin päällisen väri
 const NEW := ["kavelykenka", "tyokenka"]  # erän 2 tyypit (lenkkarin lisäksi), rivit <tyyppi>_m ja _f
+const SAAPAS := Color(0.13, 0.3, 0.14)  # #273 kumisaapas: klassinen vihreä
+const SAAPAS_X := 4.0  # kumisaapasrivit muiden jälkeen erillään (muiden kuvat pysyvät vertailukelpoisina)
 
 var out := "user://kengat"
 var cam: Camera3D
@@ -60,10 +62,20 @@ func _run() -> void:
 	looks.append(["farkut_tyokenka", Looks.player("farkut")])  # lahkeen ja varren raja paksummalla lahkeella (pants_puff 0,016)
 	# Osa D: jakauman hahmot sellaisinaan (Seppo, istuva hamemummo ja seisova mokkamummo).
 	looks.append_array([["seppo", Looks.SEPPO], ["mummo1", Looks.MUMMOT[0]], ["mummo3", Looks.MUMMOT[2]]])
+	var n_old := looks.size()
+	# #273: kumisaapas (m, f ja farkut: lahje varren sisään).
+	for kind in ["male", "female"]:
+		var lk := _look(kind, SAAPAS)
+		lk["shoe"] = "kumisaapas"
+		looks.append(["kumisaapas_%s" % kind.left(1), lk])
+	var fk: Dictionary = Looks.player("farkut").duplicate()
+	fk["shoe"] = "kumisaapas"
+	fk["shoes"] = SAAPAS
+	looks.append(["farkut_kumisaapas", fk])
 	_jakauma()
 	for i in looks.size():
 		var ch: Node3D = Looks.make(self, looks[i][1])
-		ch.position = Vector3(i * 1.2, 0, 0)
+		ch.position = Vector3(i * 1.2 + (SAAPAS_X if i >= n_old else 0.0), 0, 0)
 		ch.play("Idle", 0.0, 0.0)
 		ch.anim.seek(0.5, true)
 		row.append([looks[i][0], ch])
@@ -79,6 +91,9 @@ func _run() -> void:
 		if NEW.has(r[1].shoe_type):
 			await _walk(r[1], r[0])
 			await _tiptoe(r[1], r[0])
+	for r in row:
+		if r[1].shoe_type == "kumisaapas":
+			await _boot(r[1], r[0])
 	_sheet("vertailu_kuvakulmat", ["lenkkari_m_edesta", "lenkkari_m_sivu", "lenkkari_m_ylhaalta", "lenkkari_m_takaa",
 		"lenkkari_f_edesta", "lenkkari_f_sivu", "lenkkari_f_ylhaalta", "punainen_f_sivu"])
 	_sheet("vertailu_asut", ["pelaaja_edesta", "pelaaja_sivu", "pelaaja_kolmeneljannes", "lenkkari_f_ylhaalta",
@@ -110,6 +125,11 @@ func _run() -> void:
 	_sheet("vertailu_tyypit_kavely", kav)
 	_sheet("vertailu_jakauma", ["seppo_sivu", "seppo_edesta", "mummo1_sivu", "mummo1_edesta", "mummo3_sivu", "mummo3_kolmeneljannes",
 		"farkut_tyokenka_sivu", "farkut_tyokenka_edesta"])
+	for nm in ["kumisaapas_m", "kumisaapas_f", "farkut_kumisaapas"]:
+		_sheet(nm + "_kuvat", [nm + "_edesta", nm + "_nilkka_lahi", nm + "_takaa", nm + "_varsi_ylhaalta",
+			nm + "_kavely_0", nm + "_kavely_1", nm + "_kavely_2", nm + "_istuu"])
+	_sheet("kumisaapas_eka", ["kumisaapas_m_edesta", "kumisaapas_m_sivu", "kumisaapas_m_takaa", "kumisaapas_m_kolmeneljannes",
+		"kumisaapas_f_edesta", "kumisaapas_f_sivu", "farkut_kumisaapas_sivu", "farkut_kumisaapas_takaa"])
 	_sheet("vertailu_varsi", ["tyokenka_m_varsi_sivu", "tyokenka_m_varsi_edesta", "tyokenka_m_varsi_takaa", "tyokenka_m_varsi_ylhaalta",
 		"farkut_tyokenka_varsi_sivu", "farkut_tyokenka_varsi_edesta", "tyokenka_f_varsi_sivu", "farkut_tyokenka_kolmeneljannes"])
 	await _ruutu()
@@ -390,3 +410,172 @@ func _ruutu() -> void:
 			print("RUUTU raja ylittyy myös paljain jaloin (kone hidas): kenkien lisäkustannus %.2f ms, raja: ei tarkistettu" % (res[true][0] - res[false][0]))
 		else:
 			print("TESTI VIKA ruutu kengillä ka %.2f ms p95 %.2f ms (raja %.1f)" % [res[true][0], res[true][1], RUUTU])
+
+
+## #273 kumisaapas: kävely (3 vaihetta) ja istuminen, joka asennossa mittaus (_boot_gap) ja kuva sivulta.
+func _boot(ch: Node3D, nm: String) -> void:
+	_boot_gap(ch, nm + " seisoo")
+	var rt: Vector3 = ch.global_basis.x
+	var fw: Vector3 = -ch.global_basis.z
+	var g := _foot_near(ch, rt)
+	await _shot(nm + "_varsi_ylhaalta", g + Vector3(0, 1.0, 0) + fw * 0.55 + rt * 0.25, g + Vector3(0, 0.3, 0))  # lahje varren suussa
+	await _shot(nm + "_nilkka_lahi", g + (rt + fw * 0.5).normalized() * 0.45 + Vector3(0, 0.12, 0), g + Vector3(0, 0.08, 0))
+	ch.play("Walk", 0.0, 0.0)
+	var ln: float = ch.anim_length("Walk")
+	for i in 6:
+		ch.anim.seek(ln * i / 6.0, true)
+		for k in 3:
+			await get_tree().process_frame
+		_boot_gap(ch, "%s kävely %d/6" % [nm, i])
+		if i % 2 == 0:
+			var f := _feet(ch)
+			await _shot("%s_kavely_%d" % [nm, i / 2], f + ch.global_basis.x * 1.0 + Vector3(0, 0.2, 0), f + Vector3(0, 0.1, 0))
+	ch.play("Sitting_Idle", 0.0, 0.0)
+	ch.anim.seek(0.5, true)
+	for k in 3:
+		await get_tree().process_frame
+	_boot_gap(ch, nm + " istuu")
+	var f := _feet(ch)
+	await _shot(nm + "_istuu", f + (ch.global_basis.x - ch.global_basis.z * 0.6).normalized() * 1.5 + Vector3(0, 0.5, 0), f + Vector3(0, 0.3, 0))
+	ch.play("Idle", 0.0, 0.0)
+	ch.anim.seek(0.5, true)
+	for k in 3:
+		await get_tree().process_frame
+
+
+## Kärjet luiden nykyasennosta (luurangon avaruus): [paikat, normaalit]. mi = kenkä tai vartalo (luurangon lapsia).
+func _skinned(ch: Node3D, mi: MeshInstance3D) -> Array:
+	var a := mi.mesh.surface_get_arrays(0)
+	var rv: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+	var rn: PackedVector3Array = a[Mesh.ARRAY_NORMAL]
+	var bi: PackedInt32Array = a[Mesh.ARRAY_BONES]
+	var bw: PackedFloat32Array = a[Mesh.ARRAY_WEIGHTS]
+	var per := bi.size() / rv.size()
+	var mats := _bind_mats(ch, mi.skin)
+	var ps := PackedVector3Array()
+	var ns := PackedVector3Array()
+	ps.resize(rv.size())
+	ns.resize(rv.size())
+	for v in rv.size():
+		var p := Vector3.ZERO
+		var n := Vector3.ZERO
+		for k in per:
+			var w := bw[v * per + k]
+			if w > 0.0:
+				var m: Transform3D = mats[bi[v * per + k]]
+				p += (m * rv[v]) * w
+				n += (m.basis * rn[v]) * w
+		ps[v] = p
+		ns[v] = n.normalized()
+	return [ps, ns]
+
+
+func _bind_mats(ch: Node3D, sk: Skin) -> Array:
+	var skel: Skeleton3D = ch.skeleton
+	var mats := []
+	for b in sk.get_bind_count():
+		var nm := str(sk.get_bind_name(b))
+		var bn: int = skel.find_bone(nm) if nm != "" else sk.get_bind_bone(b)
+		mats.append(skel.get_bone_global_pose(bn) * sk.get_bind_pose(b))
+	return mats
+
+
+## Mittaus (+X-jalka mesh-avaruudessa, molemmat jalat): varsi on jäykkä säären luulla, joten vartalon ja alaosan pisteet
+## viedään varren lepoavaruuteen (säären käänteismuunnos) ja verrataan varren ulkopinnan lähimpään kärkeen normaalin
+## suunnassa (+ = ulkona). suu_ulkona = alaosan suun reunan pahin ulkonema varren ulkopuolelle (> 0 = porras tai rako),
+## alareuna_ulkona = varren alimman renkaan pahin ulkonema alaosan kuoren ulkopuolelle (> 0 = rako näkyy alta),
+## vali = vartalon (lahje/sääri) pienin etäisyys varren ulkopintaan sisäpuolelta (läpimeno jos < paksuus 0).
+func _boot_gap(ch: Node3D, tag: String) -> void:
+	var mi: MeshInstance3D = ch.shoe_mi
+	var sa := mi.mesh.surface_get_arrays(0)
+	var rv: PackedVector3Array = sa[Mesh.ARRAY_VERTEX]
+	var rn: PackedVector3Array = sa[Mesh.ARRAY_NORMAL]
+	var u2: PackedVector2Array = sa[Mesh.ARRAY_TEX_UV2]
+	var sbi: PackedInt32Array = sa[Mesh.ARRAY_BONES]
+	var sbw: PackedFloat32Array = sa[Mesh.ARRAY_WEIGHTS]
+	var sper := sbi.size() / rv.size()
+	var vv: Vector3 = mi.mesh.get_meta("varsi_v")
+	var yj := vv.y
+	var y1 := vv.x
+	var sk := _skinned(ch, mi)
+	var mats := _bind_mats(ch, mi.skin)
+	var bd := _skinned(ch, ch.body_mi)
+	var ba: Array = ch.body_mi.mesh.surface_get_arrays(0)
+	var bv: PackedVector3Array = ba[Mesh.ARRAY_VERTEX]
+	var bc: PackedColorArray = ba[Mesh.ARRAY_COLOR]
+	var res := {"suu": -INF, "ala": -INF, "vali": INF, "reisi": 0, "suu_at": ""}
+	for side: float in [1.0, -1.0]:
+		var tube := PackedInt32Array()  # varren ulkopinta (osa 2,0)
+		var shell := PackedInt32Array()  # alaosan päällinen (osa 0)
+		var lip := PackedInt32Array()
+		var bot := PackedInt32Array()
+		var ybot := INF
+		for j in rv.size():
+			if signf(rv[j].x) != side:
+				continue
+			if u2[j].y > 1.5 and u2[j].y < 2.1:
+				tube.append(j)
+				ybot = minf(ybot, rv[j].y)
+			elif u2[j].y < 0.5:
+				shell.append(j)
+		var ytop := -INF
+		for j in shell:
+			ytop = maxf(ytop, rv[j].y)
+		for j in shell:
+			if rv[j].y >= ytop - 0.001:  # alaosan suun reuna
+				lip.append(j)
+		for j in tube:
+			if rv[j].y < ybot + 1e-4:
+				bot.append(j)
+		var m: Transform3D = mats[sbi[tube[0] * sper]]  # varsi: yksi luu (paino 1)
+		var inv := m.affine_inverse()
+		var inside := func(q: Vector3) -> float:  # lepoavaruuden piste vs varren ulkopinta
+			var best := INF
+			var bj := -1
+			for j in tube:
+				var d := q.distance_squared_to(rv[j])
+				if d < best:
+					best = d
+					bj = j
+			return (q - rv[bj]).dot(rn[bj])
+		for j in lip:
+			var d: float = inside.call(inv * sk[0][j])
+			if d > res.suu:
+				res.suu = d
+				res.suu_at = "lepo %s, varren tilassa %s" % [rv[j], inv * sk[0][j]]
+		for j in bot:  # posed varren alareuna vs posed alaosa
+			var q: Vector3 = sk[0][j]
+			var best := INF
+			var bj := -1
+			for i in shell:
+				var d := q.distance_squared_to(sk[0][i])
+				if d < best:
+					best = d
+					bj = i
+			res.ala = maxf(res.ala, (q - sk[0][bj]).dot(sk[1][bj]))
+		for v in bv.size():
+			var c := roundi(bc[v].r * 4.0)
+			if signf(bv[v].x) != side or c == 1 or c == 3 or bv[v].y < yj or bv[v].y > y1 - 0.01:
+				continue
+			var q: Vector3 = bd[0][v] + bd[1][v] * (-0.006 if c == 2 else 0.0)  # lahje painuu varren alla 6 mm (shoe_top)
+			res.vali = minf(res.vali, -inside.call(inv * q))
+		for v in bv.size():  # reisi ja polvi (lepo-y yli varren): eivät saa painua varren sisään (istuessa)
+			if signf(bv[v].x) != side or bv[v].y < y1 + 0.01 or bv[v].y > 0.75:
+				continue
+			var q: Vector3 = inv * bd[0][v]
+			if q.y > yj and q.y < y1 - 0.003 and float(inside.call(q)) < 0.0:
+				res.reisi += 1
+	var top := -INF
+	for j in rv.size():
+		if u2[j].y > 1.5:
+			top = maxf(top, (ch.skeleton.global_transform * sk[0][j]).y)
+	print("KENKA %s varsi yläreuna %.0f mm lattiasta, polvi %.0f mm, nilkka %.0f mm" % [tag, top * 1000.0,
+		ch.to_global(ch.bone_position("calf_l")).y * 1000.0, ch.to_global(ch.bone_position("foot_l")).y * 1000.0])
+	print("KENKA %s suu_ulkona %.1f mm alareuna_ulkona %.1f mm vali %.1f mm reisi_sisalla %d" % [tag, res.suu * 1000.0, res.ala * 1000.0,
+		res.vali * 1000.0, res.reisi])
+	if res.reisi > 0:
+		print("TESTI VIKA %s reiden/polven %d kärkeä varren sisällä" % [tag, res.reisi])
+	if res.suu > 0.0005:
+		print("TESTI VIKA %s alaosan suu %.1f mm varren ulkopuolella (porras/rako) %s" % [tag, res.suu * 1000.0, res.suu_at])
+	if res.vali < 0.0:
+		print("TESTI VIKA %s lahje/sääri %.1f mm varren läpi" % [tag, -res.vali * 1000.0])
