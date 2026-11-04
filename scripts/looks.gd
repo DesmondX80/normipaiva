@@ -163,6 +163,7 @@ const SINIKKA := {
 static func sinikka_seura() -> Dictionary:
 	var look: Dictionary = SINIKKA.duplicate()
 	look["glam_hat"] = false
+	look["shoe"] = "lenkkari"  # tanssija: sama kenkätyyppi kuin pelaajalla (#271); ei SINIKKA-vakioon (bikini on paljas)
 	return look
 
 ## Sinikka uimarannalla (world.gd): pienet punaiset lappubikinit, paljaat jalat.
