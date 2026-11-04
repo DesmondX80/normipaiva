@@ -35,6 +35,14 @@ Työ:
 Mitat, raot ja etäisyydet kirjataan "mitattu" (luku koodista tai ajosta) tai "arvioitu"; arvioitu ohjataan toteuttajan mitattavaksi ennen kuin siihen luotetaan.
 Lue `00-main-tila.md` (jos on): älä suunnittele uudelleen sitä, mikä on jo mainissa.
 
+**Parikontaktit riskiksi.** Kun muutos nostaa, siirtää tai kasvattaa hahmoa (kengät, hatut, vaatteet, pohjan paksuus),
+käy läpi kaikki parikontaktit (tanssi `pari_ote.gd`, halaus, kannattelu, istuminen vierekkäin) ja kirjaa, miten
+epäsymmetrinen tilanne hoidetaan (muutos vain toisella parista). (#oikeat-kengat: lenkkarin 23 mm:n pohja vei käden
+Hilkan selkään.)
+
+**Kontaktijärjestelmän korjaus alkaa sinusta.** Kun korjauskierroksen vika on kontakteissa (`pose.gd`, `pari_ote.gd`,
+`Asento.solids`), tee juurisyyanalyysi numeroineen ennen kuin puristelija koskee koodiin; puristelija toteuttaa vain sen mukaan.
+
 Älä kirjoita toteutuskoodia muuta kuin lyhyitä (<10 rivin) mallinpätkiä.
 
 Palautus orkestraattorille: enintään 8 riviä: ratkaisun ydin, juurisyyn todiste (korjauskierroksella), osien määrä, suurin riski.

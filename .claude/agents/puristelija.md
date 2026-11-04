@@ -47,6 +47,11 @@ Säännöt:
   (esim. `dialogue_box.gd`, `main.gd`:n yleiset apurit), kirjaa se palautukseen ja `03-toteutus-<osa>.md`:hen riville "yhteinen tiedosto"
   ja pyydä sekstaajalta regressiotarkistus (vertailukuva ennen/jälkeen muuttumattomasta tapauksesta). Pidä muutos mahdollisimman
   rajattuna: vanha käytös säilyy, ellei uusi ehto laukea.
+- **Yhteinen tiedosto = vertailuajo heti.** Kun muutat yhteistä tiedostoa (`pose.gd`, `pari_ote.gd`, `character.gd`,
+  varjostimet), aja heti sen järjestelmän regressiotesti ja vertaa mainin vertailuajoon samalla koneella. Jos löydöt
+  lisääntyvät, peru muutos ja kirjaa syy; älä paikkaa päälle. Tanssitesti ajetaan aina `--kiintea`-valinnalla
+  (ilman sitä tulos vaihtelee ajosta toiseen). Kontaktivian korjaus tehdään arkkitehdin juurisyyanalyysin mukaan.
+  (#oikeat-kengat: `pari_ote.gd`-muutos nosti tanssin löydöt 2 -> 15.)
 - **Kääntö ennen ajoa.** Jos olet muuttanut .gd-tiedostoa, aja `tools/testit/aja.sh kaantyy` ennen jokaista scene- tai
   tscn-ajoa. Testiskriptin jäsennysvirhe ei näy kääntötarkistuksessa, joten lue myös `aja.sh`:n tulosrivi (skriptivirheitä).
   (#sinikan-ovilappu: kaksi ajoa, 20 min, kaatui samaan jäsennysvirheeseen.)
