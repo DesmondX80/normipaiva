@@ -11,6 +11,7 @@ const Looks := preload("res://scripts/looks.gd")
 const Shoes := preload("res://scripts/shoes.gd")
 const B := preload("res://scripts/build.gd")
 const RUUTU := 1000.0 / 60.0
+const NEW := ["nauhakenka", "kavelykenka"]  # erän 2 tyypit (lenkkarin lisäksi), rivit <tyyppi>_m ja _f
 
 var out := "user://kengat"
 var cam: Camera3D
@@ -49,6 +50,12 @@ func _run() -> void:
 	var looks := [["lenkkari_m", _look("male", Color(0.92, 0.92, 0.9))], ["lenkkari_f", _look("female", Color(0.92, 0.92, 0.9))],
 		["punainen_f", _look("female", Color(0.85, 0.12, 0.1))], ["paljas_m", _look("male", Color(0.12, 0.1, 0.08))],
 		["pelaaja", Looks.player("")], ["haalari", Looks.player("hiihtohaalari")], ["minttu", Looks.MINTTU]]
+	# Erä 2 (#272): uudet tyypit rivin jatkoksi (lenkkaririvin kuvat pysyvät vertailukelpoisina).
+	for ty: String in NEW:
+		for kind in ["male", "female"]:
+			var lk := _look(kind, Color(0.07, 0.05, 0.04) if ty == "nauhakenka" else Color(0.3, 0.19, 0.11))
+			lk["shoe"] = ty
+			looks.append(["%s_%s" % [ty, kind.left(1)], lk])
 	for i in looks.size():
 		var ch: Node3D = Looks.make(self, looks[i][1])
 		ch.position = Vector3(i * 1.2, 0, 0)
@@ -63,6 +70,10 @@ func _run() -> void:
 	await _walk(row[0][1], "lenkkari_m")
 	await _walk(row[1][1], "lenkkari_f")
 	await _tiptoe(row[0][1], "lenkkari_m")
+	for r in row:
+		if NEW.has(r[1].shoe_type):
+			await _walk(r[1], r[0])
+			await _tiptoe(r[1], r[0])
 	_sheet("vertailu_kuvakulmat", ["lenkkari_m_edesta", "lenkkari_m_sivu", "lenkkari_m_ylhaalta", "lenkkari_m_takaa",
 		"lenkkari_f_edesta", "lenkkari_f_sivu", "lenkkari_f_ylhaalta", "punainen_f_sivu"])
 	_sheet("vertailu_asut", ["pelaaja_edesta", "pelaaja_sivu", "pelaaja_kolmeneljannes", "lenkkari_f_ylhaalta",
@@ -73,6 +84,25 @@ func _run() -> void:
 		"lenkkari_f_edesta_lahi", "lenkkari_f_vino_lahi", "lenkkari_f_sivu_lahi", "lenkkari_f_ylhaalta_lahi"])
 	_sheet("vertailu_kavely", ["lenkkari_m_kavely_0", "lenkkari_m_kavely_1", "lenkkari_m_kavely_2", "lenkkari_m_varpaat",
 		"lenkkari_f_kavely_0", "lenkkari_f_kavely_1", "lenkkari_f_kavely_2", "lenkkari_m_varpaat_edesta"])
+	var sivu := ["lenkkari_m_sivu"]
+	var edesta := ["lenkkari_m_edesta"]
+	var ylha := ["lenkkari_m_paalta"]
+	var lahi := []
+	var kav := []
+	for ty: String in NEW:
+		for g in ["_m", "_f"]:
+			sivu.append(ty + g + "_sivu")
+			edesta.append(ty + g + "_edesta")
+			ylha.append(ty + g + "_paalta")
+		lahi.append_array([ty + "_m_sivu_lahi", ty + "_m_edesta_lahi", ty + "_m_vino_lahi", ty + "_m_ylhaalta_lahi"])
+		kav.append_array([ty + "_m_kavely_0", ty + "_m_kavely_1", ty + "_m_kavely_2", ty + "_m_varpaat"])
+	_sheet("vertailu_tyypit_sivu", sivu)
+	_sheet("vertailu_tyypit_edesta", edesta)
+	_sheet("vertailu_tyypit_ylhaalta", ylha)
+	_sheet("vertailu_tyypit_takaa", ["lenkkari_m_takaa"] + NEW.map(func(x): return x + "_m_takaa") + NEW.map(func(x): return x + "_f_takaa"))
+	_sheet("vertailu_tyypit_lahi", lahi)
+	_sheet("vertailu_tyypit_osat", ["lenkkari_m_osat"] + NEW.map(func(x): return x + "_m_osat") + NEW.map(func(x): return x + "_f_osat"))
+	_sheet("vertailu_tyypit_kavely", kav)
 	await _ruutu()
 	print("KENKA valmis ", ProjectSettings.globalize_path(out))
 	get_tree().quit()
@@ -132,18 +162,19 @@ func _views(nm: String, ch: Node3D) -> void:
 		await _shot(nm + "_paalta", g + Vector3(0, 0.9, 0) + fw * 0.01, g)
 		ch.body_mi.visible = true
 	await _shot(nm + "_takaa", f - fw * 1.1 + Vector3(0, 0.35, 0), f)
-	if nm == "lenkkari_m":  # osat erivärisinä: pohja magenta, päällinen syaani (saumat ja läpimenot näkyvät)
+	if nm == "lenkkari_m" or NEW.has(ch.shoe_type):  # osat erivärisinä: pohja magenta, päällinen syaani (saumat ja läpimenot näkyvät)
 		var sm: ShaderMaterial = ch.shoe_mi.material_override
 		var keep: Color = sm.get_shader_parameter("sole_col")
+		var keep_main: Color = sm.get_shader_parameter("main_col")
 		sm.set_shader_parameter("sole_col", Color(1, 0, 1))
 		sm.set_shader_parameter("main_col", Color(0, 0.9, 0.9))
 		g = _foot_near(ch, rt)
 		await _shot(nm + "_osat", g + rt * 0.75 + Vector3(0, 0.1, 0), g)
 		sm.set_shader_parameter("sole_col", keep)
-		sm.set_shader_parameter("main_col", Color(0.92, 0.92, 0.9))
+		sm.set_shader_parameter("main_col", keep_main)
 	g = _foot_near(ch, fw + rt)
 	await _shot(nm + "_kolmeneljannes", g + (fw + rt).normalized() * 0.75 + Vector3(0, 0.35, 0), g)
-	if nm == "lenkkari_m" or nm == "lenkkari_f":  # kärki lähikuvina (kuopat ja ääriviiva näkyvät vain läheltä)
+	if nm == "lenkkari_m" or nm == "lenkkari_f" or NEW.has(ch.shoe_type):  # kärki lähikuvina (kuopat ja ääriviiva näkyvät vain läheltä)
 		var lr := "_r" if (ch.to_global(ch.bone_position("ball_r")) - ch.to_global(ch.bone_position("ball_l"))).dot(rt) > 0.0 else "_l"
 		var toe: Vector3 = ch.to_global(ch.bone_position("ball" + lr)) + fw * 0.03
 		toe.y = 0.03

@@ -522,8 +522,13 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	sm.shader = load(Shoes.SHADER)
 	sm.set_shader_parameter("main_col", look.get("shoes", Color(0.9, 0.9, 0.9)))
 	sm.set_shader_parameter("sole_col", t.sole_col)
-	sm.set_shader_parameter("rough", t.rough)
+	sm.set_shader_parameter("rough", look.get("shoe_rough", t.rough))  # shoe_rough: esim. mokka
 	sm.set_shader_parameter("sole_rough", t.sole_rough)
+	sm.set_shader_parameter("sole_h", t.sole)
+	sm.set_shader_parameter("rand_h", t.rand)
+	for k in ["style", "spec", "clearcoat", "cord_col"]:
+		if t.has(k):
+			sm.set_shader_parameter(k, t[k])
 	var mi := MeshInstance3D.new()
 	mi.name = "Kengat"
 	mi.mesh = mesh
