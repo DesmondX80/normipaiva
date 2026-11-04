@@ -43,6 +43,10 @@ Hilkan selkään.)
 **Kontaktijärjestelmän korjaus alkaa sinusta.** Kun korjauskierroksen vika on kontakteissa (`pose.gd`, `pari_ote.gd`,
 `Asento.solids`), tee juurisyyanalyysi numeroineen ennen kuin puristelija koskee koodiin; puristelija toteuttaa vain sen mukaan.
 
+**Visuaalisen vian juurisyy mitataan.** Todista syy mittauksella tai värjäyksellä (esim. verkko ilman skinnausta, osat eri
+väreillä) ennen ratkaisua. Koodista päätelty syy merkitään "ei mitattu", ja toteuttajan ensimmäinen tehtävä on mitata se.
+(#271: kärjen rypyt korjattiin kahdesti väärästä syystä.)
+
 Älä kirjoita toteutuskoodia muuta kuin lyhyitä (<10 rivin) mallinpätkiä.
 
 Palautus orkestraattorille: enintään 8 riviä: ratkaisun ydin, juurisyyn todiste (korjauskierroksella), osien määrä, suurin riski.
