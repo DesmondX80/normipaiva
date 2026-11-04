@@ -275,7 +275,8 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		for r: Vector2 in e[2]:
 			var q: Vector2 = e[1] + (r - e[1]) * sk
 			q.y = lerpf(q.y, r.y, clampf(1.0 - (r.y - y_welt) / 0.01, 0.0, 1.0))  # alapinta pysyy pohjan päällä
-			q.y = lerpf(q.y, r.y, clampf(1.0 - (top - r.y) / 0.01, 0.0, 1.0))  # matalan kengän suu (top) pysyy: kantapää sisällä
+			if top < INF and r.y > e[1].y:  # matala kenkä: kantakappaleen yläpuolisko pystysuora, kantapää jää sisään
+				q.y = r.y
 			ring.append(q)
 		full.append([float(e[0]) - ext * sin(phi), e[1], ring, sk])
 	full.append_array(rings)
