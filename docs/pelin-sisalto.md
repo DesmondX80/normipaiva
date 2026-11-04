@@ -689,6 +689,33 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     hahmossa ja tervehdyksen havaintorivissä. Myynti poliisille: virkamerkki ja PIDÄTETTY (`_rikos_loppu("pidatys")`). "Ei oo mitään
     myytävää" ei maksa mitään. "Sää oot kyttä": oikein maine +2 ja vihjeet Riskit-sivun osioon Kyttävihjeet (myös pidätyksen jälkeen),
     väärin aito ostaja loukkaantuu ja lähtee (ei muuta). Tila osiossa `rikos_valeostaja`.
+    **Kylän epäluulo** (S1, `rikos/epaluulo.gd`): luukkuosto apteekin takaovelta (+20) ja myynti Saloisten teineille (+15)
+    kasvattavat kylän epäluuloa (mittari 0–100, Riskit-sivulla); yön yli −30. Kinnapotin Irma (eläkeläisrouva, permanentti ja pyöreät
+    lasit) seisoo klo 8–21 apteekin takakulmalla ja tuijottaa takaovea; tervehdys kiristyy mittarin mukaan. Täynnä Irma nostaa kännykän
+    korvalle ja soittaa poliisille (puhekupla): luukku pysyy kiinni loppupäivän (Raili pudistaa päätään verhon takana) ja poliisiauto
+    partioi Kinnapotissa. Partio jahtaa vain, jos taskussa on lääkkeitä; kiinni jääminen on PIDÄTETTY, pako lopettaa partion. Aamulla
+    mittari nollautuu ja Päivin lapussa lukee, että Irma soitti hänellekin. Hyvä teko: "Tarjoa Irmalle pullakahvit" (6 €, kerran
+    päivässä) laskee mittaria 40 ja antaa maine +1. Yliannososan "hylkasi" lisää +30, "epaluulo" {n} +n. Tila osiossa `rikos_epaluulo`.
+    **Yliannos** (S2, `rikos/yliannos.gd`), vakava eikä vitsi. *Oma olo:* jokainen lääkkeen otto lisää pelin "kuormaa" (oksikodoni 45,
+    pervitiini 25, Tramal 15, Panacod 6; jatkettu annos tehon mukaan), muu humala (yli 0,3) kertoo sen kaksinkertaiseksi, ja kuorma
+    laskee 15 tunnissa. 60:ssä varoitus ("Olo on outo... Nyt ei enää yhtään mitään."), 100:ssa pelaaja lyyhistyy: ELVYTETTY ja Päivin
+    motkotus ("Mun piti elvyttää sut." ... "HUUMEET ON VAARALLISIA. OIKEASTI."). Kuorma nollautuu aamulla; Riskit-sivun osio "Olo ja
+    ensiapu" näyttää mittarin. *Kaukalo:* myyntiä kaukalon teineille seuraavana iltana (klo 20–01, pelaaja alle 30 m:n päässä) yksi teini
+    lyyhistyy 50 %:n todennäköisyydellä nurmelle ringin viereen (enintään kerran kolmessa päivässä; makaa selällään, Death01). Valinnat:
+    "Soita 112" (ambulanssi tulee 20 peliminuutissa, maine +3), "Jää auttamaan" (soitto, kylkiasento tekstinä ja häivytys; maine yhteensä
+    +5, naloksonilla teini herää ja tyhjä suihke jää nurmelle) tai "Häivy paikalta" (maine −5, kylän epäluulo +30; aamulla "joku muu
+    soitti, poika selvisi"). Pois käveleminen ilman valintaa on häipymistä. Ambulanssi (keltavihreä, oranssi ruudutus, takana nuolet,
+    siniset vilkut, AMBULANSSI-kyltit) pysähtyy 9–15 m:n päähän ja kaksi ensihoitajaa seisoo pojan vierellä; ambulanssi lähtee 14 s:n
+    päästä. *Naloksoni:* Railin luukulta kerran "Pyydä naloksonisuihke" ("Jos joku ei herää: soita 112 ja käytä tätä."). Tila osiossa
+    `rikos_yliannos`.
+    **Huijariostaja** (S3, `rikos/huijari.gd`): K-Marketin itäpäädyn seinällä on Postin pakettiautomaatti (oranssi runko, harmaat
+    luukkupylväät, keskellä näyttö, lukija ja palautusrako, "Posti"-kyltti seinässä). Kerran viikossa (päivät 2, 9, 16, …) klo 10–18
+    sen vieressä seisoo aikuinen mies (ruskea pusero, farkut, parta), joka tarjoaa liian hyvää hintaa (1,5 × teinihinta). Hän on aina
+    huijari, ja tervehdys paljastaa tavan: kuoressa rapeat uudet setelit (väärennöksiä) tai "näytä kama ensin, mennään mun autolle"
+    (nappaa ja juoksee). Myynti: väärät setelit näyttävät rahoissa oikeilta, kunnes Raili tarkistaa ne seuraavalla luukkuostolla ("sama
+    numero kaikissa") ja summa lähtee rahoista; ryöstäjä nappaa annoksen ja juoksee parkkipaikalle ilman rahaa. "Rahat ensin. Näytä
+    setelit.": huijari paljastuu ja lähtee, maine +1 ja vihje Riskit-sivun osioon Huijarit. "Ei kiinnosta" ei maksa mitään. Kohtaamisen
+    jälkeen hän ei palaa samalla viikolla. Tila osiossa `rikos_huijari`.
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
     katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin

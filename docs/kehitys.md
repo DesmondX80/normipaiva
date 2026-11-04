@@ -108,6 +108,20 @@ korko, tallennus edestakaisin, maksu, perintä Vaalassa voitolla ja häviöllä 
 kieltäytyminen, väärä ja oikea "Sää oot kyttä", Riskit-rivit, yö, tallennus ja pidätys Vaalassa (kuvat `_valeostaja_pelikamera`,
 `_aito_keskustelu`, `_korvanappi`, `_kengat`, `_vale_kokonaan`, `_tori_ja_mopopojat`, `_pidatetty`). Lähikuvat:
 `aja.sh tscn tools/testit/valeostaja_kuvat.tscn` (aito, poliisi ja mopopoika edestä, sivulta, ylhäältä, korvanappi ja kengät).
+`epaluulo` (rivit `EPALUULO`): kasvu tapahtumista (Vaalan myynti ei kasvata), yön lasku, Irman valinnat ja pullakahvit (kerran
+päivässä), hälytys apteekin takaovella (Irma puhelimessa, kupla, partio, luukun vihje), partio ilman lääkkeitä ei pysäytä, Riskit-sivu,
+tallennus, aamun nollaus ja pidätys lääkkeiden kanssa (kuvat `_epaluulo_soitto_peli`, `_irma_edesta`, `_irma_sivu`, `_irma_ylha`, `_riskit`).
+`yliannos` (rivit `YLIANNOS`): naloksoni Railin luukulta kerran, kuorma kahdesta otosta ja varoitus, lasku ajassa, humalakerroin,
+Riskit-osio, tallennus, kaukalon laukaisuehto (ei samana iltana eikä alle 3 päivän välein), puhevihje, kolme valintaa seurauksineen
+(naloksoni, soitto, apu ilman naloksonia, häivy ja epäluulo +30, aamun viesti, pois kävely), ambulanssi ja lähtö sekä oma yliannos
+(ELVYTETTY). Kuvat `_yliannos_pelikamera`, `_valinnat`, `_naloksoni`, `_ambulanssi`, `_elvytetty`. Ajastin kulkee pelin ajassa, joten
+hitaalla xvfb-koneella varoitus tulee vasta noin 12 s:n päästä. Mallit: `aja.sh tscn tools/testit/yliannos_kuvat.tscn` (makaava teini
+kaukalon paikalla: rako maahan pitkin raajoja, `Asento.solids`, kuvat edestä/päädyistä/ylhäältä; ensihoitajien rako ihosta;
+ambulanssi takaa ja kyljistä; naloksonisuihke pystyssä ja kyljellään).
+`huijari` (rivit `HUIJARI`): automaatti itäpäädyn seinässä, huijarin paikka (ei törmäysmuotoja, etäisyys automaatista), puhevihje,
+valinnat ja tervehdysten vihjeet, väärä raha (myynti, tallennus, paljastus luukkuostossa), ryöstö ja pako, "Rahat ensin", kieltäytyminen,
+väärä päivä ja Riskit-sivu (kuvat `_huijari_pelikamera`, `_automaatti_edesta`, `_automaatti_paadysta`, `_automaatti_ylha`, `_naytto`,
+`_huijari`, `_keskustelu`, `_pako`, `_riskit`).
 
 ## Puheäänet
 
