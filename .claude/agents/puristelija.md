@@ -63,6 +63,8 @@ Säännöt:
   koskee vain toistoa ilman muutosta. (#271)
 - **Vertailuluku ennen korjausta.** Ennen kuin korjaat testin löytöjä, tarkista mainin vertailuluku (`00-main-tila.md`,
   `00-ohjeet.md`). Jos sitä ei ole, palauta ja pyydä Teemua ajamaan se. (#272)
+- **Reilu muutos ensin.** Kun sama millimetrivika toistuu kahdesti, kokeile kerralla reilua muutosta (esim. kaksinkertainen
+  marginaali) ennen hienosäätöä. (#273)
 - **Kääntö ennen ajoa.** Jos olet muuttanut .gd-tiedostoa, aja `tools/testit/aja.sh kaantyy` ennen jokaista scene- tai
   tscn-ajoa. Testiskriptin jäsennysvirhe ei näy kääntötarkistuksessa, joten lue myös `aja.sh`:n tulosrivi (skriptivirheitä).
   (#sinikan-ovilappu: kaksi ajoa, 20 min, kaatui samaan jäsennysvirheeseen.)
