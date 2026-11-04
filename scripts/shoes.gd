@@ -18,7 +18,7 @@ const TOE_N := 2.5  # kärjen superellipsin eksponentti (2 = ellipsi, suurempi =
 ## (osuus kärjen puolileveydestä), sole_col = pohjan väri, rough = päällisen karheus, sole_rough = pohjan karheus.
 ## "paljas" = ei kenkää (vartalon jalkaterä värjätään kuten ennenkin).
 const TYPES := {
-	"lenkkari": {"sole": 0.020, "margin": 0.003, "flare": 0.004, "toe_room": 0.012, "toe_round": 1.1, "collar": 0.004,
+	"lenkkari": {"sole": 0.020, "margin": 0.003, "flare": 0.004, "toe_room": 0.015, "toe_round": 1.3, "collar": 0.012,
 		"sole_col": Color(0.95, 0.94, 0.9), "rough": 0.62, "sole_rough": 0.8},
 	"paljas": {},
 }
@@ -172,8 +172,8 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		rings.append([t, c, ring, sel, cap])
 	_smooth(rings, y_welt)
 	# Pyöreä kärki: kärkiosan renkaat kapenevat superellipsin mukaan (ylhäältä pyöreä, sivulta kaartuva yläpinta) kohti
-	# kärkeä tend, joka on toe_room varpaiden edessä. Kavennus tapahtuu isovarpaan kohdan (tip_s, varpaiden kärki ei ole
-	# jalan keskellä) ympäri, joten kärki on isovarpaan puolelta suorempi kuten oikeassa kengässä. Peittokorjaus alla
+	# kärkeä tend, joka on toe_room varpaiden edessä. Kavennus tapahtuu keskikohdan ja isovarpaan välin (tip_s, varpaiden
+	# kärki ei ole jalan keskellä) ympäri, joten kärki on isovarpaan puolelta suorempi kuten oikeassa kengässä. Peittokorjaus alla
 	# työntää kehän takaisin varpaiden ulkopuolelle.
 	var last: Array = rings[rings.size() - 1]
 	var toe_hw := 0.0
@@ -186,6 +186,7 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			tip_s += q.y
 			ntip += 1
 	tip_s /= maxf(ntip, 1)
+	tip_s = lerpf((last[1] as Vector2).x, tip_s, 0.5)  # puoliväliin: kärki pyöreä eikä kiila isovarpaan puolelle
 	var tend := tmax + margin + float(p.get("toe_room", 0.0))
 	var ta := tend - toe_hw * float(p.get("toe_round", 1.0))
 	for r in rings:
