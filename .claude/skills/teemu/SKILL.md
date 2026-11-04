@@ -59,6 +59,10 @@ käyttäjän tarvitse kysyä.
   Tarkista se itse: aina kun käyttäjä kysyy tilannetta ja vähintään 20 minuutin välein, lue työkansion `ajot.md`:n viimeiset
   rivit. Kolme peräkkäistä ajoa samalla vikamäärällä = pysäytä aliagentti (TaskStop), ota talteen se, mikä toimii, ja päätä
   suunta. (#258: jumi huomattiin vasta käyttäjän kysymyksestä.)
+- **Tekniikka netistä ennen suunnittelua.** Ennen kuin arkkitehti suunnittelee uuden rakenteen tai tekniikan (uusi muoto,
+  mekaniikka, efekti), Teemu tai arkkitehti hakee netistä, miten se yleensä tehdään (mallinnustapa, pelien ratkaisut,
+  oikean esineen rakenne), ja kirjaa löydöt työkansioon `00-ideat-netista.md`. "Esikuvaa ei haettu" ei kelpaa: Teemu
+  pysäyttää putken siihen. (#273: käyttäjä joutui pyytämään haun; kumisaappaan leveä varsi ja johdekäyrät löytyivät heti.)
 - **Esikuva ennen suunnittelua.** Jos kukaan ei tiedä, miltä lopputuloksen pitää näyttää tai miten sen pitää toimia, hae
   esikuva netistä tai kysy käyttäjältä ennen kuin annat työn eteenpäin.
 - **Pienet osat.** Anna jokaiselle aliagentille yksi asia kerrallaan; iso kokonaisuus jaetaan peräkkäisiksi tehtäviksi.
