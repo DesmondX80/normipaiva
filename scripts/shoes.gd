@@ -16,10 +16,11 @@ const TOE_LOW := 0.45  # kärjen kärkipiste kuoren alapinnan ja renkaan keskipi
 
 ## Tyyppien parametrit (metrejä mallin mittakaavassa): sole = pohjan paksuus, margin = kuoren rako ihoon, flare = pohjan
 ## reunan ulottuma kuoren ohi, toe_room = kärjen tila varpaiden edessä, toe_round = kärjen pyöristyksen pituus
-## (osuus kärjen puolileveydestä), sole_col = pohjan väri, rough = päällisen karheus, sole_rough = pohjan karheus.
+## (osuus kärjen puolileveydestä), collar = kengän suu lahkeen alimman kärjen alla, spring = kärjen nousu (pohjan alapinta
+## kärjessä), sole_col = pohjan väri, rough = päällisen karheus, sole_rough = pohjan karheus.
 ## "paljas" = ei kenkää (vartalon jalkaterä värjätään kuten ennenkin).
 const TYPES := {
-	"lenkkari": {"sole": 0.020, "margin": 0.003, "flare": 0.004, "toe_room": 0.015, "toe_round": 1.3, "collar": 0.012,
+	"lenkkari": {"sole": 0.020, "margin": 0.003, "flare": 0.004, "toe_room": 0.015, "toe_round": 1.3, "collar": 0.012, "spring": 0.005,
 		"sole_col": Color(0.95, 0.94, 0.9), "rough": 0.62, "sole_rough": 0.8},
 	"paljas": {},
 }
@@ -53,8 +54,8 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	var bw: PackedFloat32Array = arr[Mesh.ARRAY_WEIGHTS]
 	var per := bi.size() / vs.size()
 	var st := SurfaceTool.new()
+	st.set_skin_weight_count(SurfaceTool.SKIN_4_WEIGHTS if per <= 4 else SurfaceTool.SKIN_8_WEIGHTS)  # ennen beginiä (muuten "begun"-virhe)
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	st.set_skin_weight_count(SurfaceTool.SKIN_4_WEIGHTS if per <= 4 else SurfaceTool.SKIN_8_WEIGHTS)
 	var pohja := 0.0
 	var above := PackedInt32Array()  # jalkaterän kärjet kengän suun yläpuolella (lahkeen alla; skin_outside ohittaa)
 	for side: float in [1.0, -1.0]:
@@ -250,7 +251,6 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 	# Päällinen: renkaat vierekkäin, päät viuhkana.
 	var up := []  # [Vector3 paikka, Vector2 (s, y)] renkaittain
 	for r in full:
-		r[2] = _even(r[2], r[1])
 		var row := []
 		for q: Vector2 in r[2]:
 			row.append(to3.call(r[0], q))
@@ -300,6 +300,10 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			tri.call(up[i][k], up[i][(k + 1) % RING], tip, o, 0.0, c2, c2, c2)
 	# Pohja: pyöristetty laatta kuoren leveimmän kohdan mukaan, yläreuna kuoren alapinnan tasalla, alapinta tasainen.
 	var flare: float = p.flare
+	# Kärjen nousu (toe spring): pohjan alapinta nousee päkiän edestä (tb:n ja kärjen välin 35 %) smoothstepillä kärkeen
+	# spring-mitan verran; kanta ja päkiä pysyvät lattiassa.
+	var ts0 := lerpf(tb, t1, 0.35)
+	var spring: float = p.get("spring", 0.0)
 	var prof := []  # renkaittain [t, keskipiste, 8 pistettä (s, y)]
 	for r in full:
 		var lo := INF
@@ -312,7 +316,7 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		var hw := (hi - lo) / 2.0 + flare * (float(r[3]) if r.size() > 3 else 1.0)
 		var bv := 0.004
 		var yt := y_welt + 0.0015  # kuoren tasaisen alapinnan tasalle (pieni limitys), myös päissä
-		var yb := y_bot
+		var yb := y_bot + spring * smoothstep(ts0, t1, float(base[0]))
 		var pr := PackedVector2Array([Vector2(mid + hw - flare * 0.5, yt), Vector2(mid + hw, yt - bv),
 			Vector2(mid + hw, yb + bv), Vector2(mid + hw - bv, yb), Vector2(mid - hw + bv, yb),
 			Vector2(mid - hw, yb + bv), Vector2(mid - hw, yt - bv), Vector2(mid - hw + flare * 0.5, yt)])
@@ -394,30 +398,6 @@ static func _fit_scale(ring: PackedVector2Array, c: Vector2, sel: PackedVector2A
 			var d := q - c
 			sc.append(Vector2(c.x + d.x * k, maxf(c.y + d.y * k, y_welt)))
 		out = sc
-	return out
-
-
-## Rengas uudelleen tasaisin kulmin keskipisteestä c (säteen ja monikulmion leikkaus): työnnöt, skaalaukset ja alapinnan
-## rajaus siirtävät pisteitä pois omalta säteeltään, ja niihin kasautuneet lähes päällekkäiset pisteet tummensivat
-## kärjen ja alareunan normaaleja kuopiksi.
-static func _even(ring: PackedVector2Array, c: Vector2) -> PackedVector2Array:
-	var out := PackedVector2Array()
-	var n := ring.size()
-	for k in n:
-		var a := TAU * k / n
-		var d := Vector2(cos(a), sin(a))
-		var best := -1.0
-		for i in n:
-			var p := ring[i] - c
-			var e := ring[(i + 1) % n] - ring[i]
-			var den := d.cross(e)
-			if absf(den) < 1e-9:
-				continue
-			var s := p.cross(d) / den  # leikkaus reunalla: p + e * s
-			var t := p.cross(e) / den  # säteellä: d * t
-			if s >= -1e-4 and s <= 1.0001 and t > best:
-				best = t
-		out.append(c + d * best if best > 0.0 else ring[k])
 	return out
 
 
