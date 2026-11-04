@@ -69,6 +69,8 @@ func _run() -> void:
 		"haalari_edesta", "haalari_sivu", "minttu_edesta", "minttu_sivu"])
 	_sheet("vertailu_karki", ["lenkkari_m_paalta", "lenkkari_m_kolmeneljannes", "lenkkari_m_sivu", "lenkkari_m_osat",
 		"lenkkari_f_paalta", "lenkkari_f_kolmeneljannes", "lenkkari_f_sivu", "punainen_f_kolmeneljannes"])
+	_sheet("vertailu_karki_lahi", ["lenkkari_m_edesta_lahi", "lenkkari_m_vino_lahi", "lenkkari_m_sivu_lahi", "lenkkari_m_ylhaalta_lahi",
+		"lenkkari_f_edesta_lahi", "lenkkari_f_vino_lahi", "lenkkari_f_sivu_lahi", "lenkkari_f_ylhaalta_lahi"])
 	_sheet("vertailu_kavely", ["lenkkari_m_kavely_0", "lenkkari_m_kavely_1", "lenkkari_m_kavely_2", "lenkkari_m_varpaat",
 		"lenkkari_f_kavely_0", "lenkkari_f_kavely_1", "lenkkari_f_kavely_2", "lenkkari_m_varpaat_edesta"])
 	await _ruutu()
@@ -141,6 +143,20 @@ func _views(nm: String, ch: Node3D) -> void:
 		sm.set_shader_parameter("main_col", Color(0.92, 0.92, 0.9))
 	g = _foot_near(ch, fw + rt)
 	await _shot(nm + "_kolmeneljannes", g + (fw + rt).normalized() * 0.75 + Vector3(0, 0.35, 0), g)
+	if nm == "lenkkari_m" or nm == "lenkkari_f":  # kärki lähikuvina (kuopat ja ääriviiva näkyvät vain läheltä)
+		var lr := "_r" if (ch.to_global(ch.bone_position("ball_r")) - ch.to_global(ch.bone_position("ball_l"))).dot(rt) > 0.0 else "_l"
+		var toe: Vector3 = ch.to_global(ch.bone_position("ball" + lr)) + fw * 0.03
+		toe.y = 0.03
+		await _shot(nm + "_edesta_lahi", toe + fw * 0.35 + Vector3(0, 0.08, 0), toe)
+		await _shot(nm + "_vino_lahi", toe + (fw * 0.7 + rt).normalized() * 0.35 + Vector3(0, 0.1, 0), toe)
+		await _shot(nm + "_sivu_lahi", toe + rt * 0.35 + Vector3(0, 0.02, 0), toe)
+		ch.body_mi.visible = false
+		await _shot(nm + "_ylhaalta_lahi", toe + Vector3(0, 0.4, 0) + fw * 0.01, toe)
+		ch.body_mi.visible = true
+		var sun: DirectionalLight3D = get_children().filter(func(x): return x is DirectionalLight3D)[0]  # M-TEMP
+		sun.shadow_enabled = false
+		await _shot(nm + "_vino_lahi_varjoton", toe + (fw * 0.7 + rt).normalized() * 0.35 + Vector3(0, 0.1, 0), toe)
+		sun.shadow_enabled = true
 
 
 func _walk(ch: Node3D, nm: String) -> void:
