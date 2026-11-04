@@ -53,7 +53,7 @@ const TYPES := {
 	"kumisaapas": {"lift": 0.023, "sole": 0.020, "rand": 0.012, "margin": 0.004, "flare": 0.005, "toe_room": 0.016,
 		"toe_round": 1.1, "toe_n": 2.8, "toe_h": 1.1, "toe_low": 0.3, "collar": 0.012, "spring": 0.006,
 		"sole_col": Color(0.93, 0.9, 0.82), "rough": 0.3, "sole_rough": 0.85, "style": 4, "spec": 0.5, "clearcoat": 0.6,
-		"shaft": {"join": 0.09, "top": 0.237, "top_k": 0.55, "pad": 0.014, "rigid": true, "lap": 0.03, "gap": 0.004,
+		"shaft": {"join": 0.09, "top": 0.237, "top_k": 0.55, "pad": 0.014, "rigid": true, "lap": 0.03, "gap": 0.008,
 			"flare": 0.022}},
 	"paljas": {},
 }

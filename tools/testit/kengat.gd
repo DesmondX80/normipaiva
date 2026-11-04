@@ -126,7 +126,7 @@ func _run() -> void:
 	_sheet("vertailu_jakauma", ["seppo_sivu", "seppo_edesta", "mummo1_sivu", "mummo1_edesta", "mummo3_sivu", "mummo3_kolmeneljannes",
 		"farkut_tyokenka_sivu", "farkut_tyokenka_edesta"])
 	for nm in ["kumisaapas_m", "kumisaapas_f", "farkut_kumisaapas"]:
-		_sheet(nm + "_kuvat", [nm + "_edesta", nm + "_sivu", nm + "_takaa", nm + "_varsi_ylhaalta",
+		_sheet(nm + "_kuvat", [nm + "_edesta", nm + "_nilkka_lahi", nm + "_takaa", nm + "_varsi_ylhaalta",
 			nm + "_kavely_0", nm + "_kavely_1", nm + "_kavely_2", nm + "_istuu"])
 	_sheet("kumisaapas_eka", ["kumisaapas_m_edesta", "kumisaapas_m_sivu", "kumisaapas_m_takaa", "kumisaapas_m_kolmeneljannes",
 		"kumisaapas_f_edesta", "kumisaapas_f_sivu", "farkut_kumisaapas_sivu", "farkut_kumisaapas_takaa"])
@@ -415,6 +415,11 @@ func _ruutu() -> void:
 ## #273 kumisaapas: kävely (3 vaihetta) ja istuminen, joka asennossa mittaus (_boot_gap) ja kuva sivulta.
 func _boot(ch: Node3D, nm: String) -> void:
 	_boot_gap(ch, nm + " seisoo")
+	var rt: Vector3 = ch.global_basis.x
+	var fw: Vector3 = -ch.global_basis.z
+	var g := _foot_near(ch, rt)
+	await _shot(nm + "_varsi_ylhaalta", g + Vector3(0, 1.0, 0) + fw * 0.55 + rt * 0.25, g + Vector3(0, 0.3, 0))  # lahje varren suussa
+	await _shot(nm + "_nilkka_lahi", g + (rt + fw * 0.5).normalized() * 0.45 + Vector3(0, 0.12, 0), g + Vector3(0, 0.08, 0))
 	ch.play("Walk", 0.0, 0.0)
 	var ln: float = ch.anim_length("Walk")
 	for i in 6:
@@ -431,7 +436,7 @@ func _boot(ch: Node3D, nm: String) -> void:
 		await get_tree().process_frame
 	_boot_gap(ch, nm + " istuu")
 	var f := _feet(ch)
-	await _shot(nm + "_istuu", f + (ch.global_basis.x - ch.global_basis.z * 0.6).normalized() * 1.2 + Vector3(0, 0.3, 0), f + Vector3(0, 0.15, 0))
+	await _shot(nm + "_istuu", f + (ch.global_basis.x - ch.global_basis.z * 0.6).normalized() * 1.5 + Vector3(0, 0.5, 0), f + Vector3(0, 0.3, 0))
 	ch.play("Idle", 0.0, 0.0)
 	ch.anim.seek(0.5, true)
 	for k in 3:
@@ -498,7 +503,7 @@ func _boot_gap(ch: Node3D, tag: String) -> void:
 	var ba: Array = ch.body_mi.mesh.surface_get_arrays(0)
 	var bv: PackedVector3Array = ba[Mesh.ARRAY_VERTEX]
 	var bc: PackedColorArray = ba[Mesh.ARRAY_COLOR]
-	var res := {"suu": -INF, "ala": -INF, "vali": INF}
+	var res := {"suu": -INF, "ala": -INF, "vali": INF, "reisi": 0}
 	for side: float in [1.0, -1.0]:
 		var tube := PackedInt32Array()  # varren ulkopinta (osa 2,0)
 		var shell := PackedInt32Array()  # alaosan päällinen (osa 0)
@@ -513,8 +518,12 @@ func _boot_gap(ch: Node3D, tag: String) -> void:
 				ybot = minf(ybot, rv[j].y)
 			elif u2[j].y < 0.5:
 				shell.append(j)
-				if rv[j].y >= yj - 1e-4:
-					lip.append(j)
+		var ytop := -INF
+		for j in shell:
+			ytop = maxf(ytop, rv[j].y)
+		for j in shell:
+			if rv[j].y >= ytop - 0.001:  # alaosan suun reuna
+				lip.append(j)
 		for j in tube:
 			if rv[j].y < ybot + 1e-4:
 				bot.append(j)
@@ -547,13 +556,22 @@ func _boot_gap(ch: Node3D, tag: String) -> void:
 				continue
 			var q: Vector3 = bd[0][v] + bd[1][v] * (-0.006 if c == 2 else 0.0)  # lahje painuu varren alla 6 mm (shoe_top)
 			res.vali = minf(res.vali, -inside.call(inv * q))
+		for v in bv.size():  # reisi ja polvi (lepo-y yli varren): eivät saa painua varren sisään (istuessa)
+			if signf(bv[v].x) != side or bv[v].y < y1 + 0.01 or bv[v].y > 0.75:
+				continue
+			var q: Vector3 = inv * bd[0][v]
+			if q.y > yj and q.y < y1 - 0.003 and float(inside.call(q)) < 0.0:
+				res.reisi += 1
 	var top := -INF
 	for j in rv.size():
 		if u2[j].y > 1.5:
 			top = maxf(top, (ch.skeleton.global_transform * sk[0][j]).y)
 	print("KENKA %s varsi yläreuna %.0f mm lattiasta, polvi %.0f mm, nilkka %.0f mm" % [tag, top * 1000.0,
 		ch.to_global(ch.bone_position("calf_l")).y * 1000.0, ch.to_global(ch.bone_position("foot_l")).y * 1000.0])
-	print("KENKA %s suu_ulkona %.1f mm alareuna_ulkona %.1f mm vali %.1f mm" % [tag, res.suu * 1000.0, res.ala * 1000.0, res.vali * 1000.0])
+	print("KENKA %s suu_ulkona %.1f mm alareuna_ulkona %.1f mm vali %.1f mm reisi_sisalla %d" % [tag, res.suu * 1000.0, res.ala * 1000.0,
+		res.vali * 1000.0, res.reisi])
+	if res.reisi > 0:
+		print("TESTI VIKA %s reiden/polven %d kärkeä varren sisällä" % [tag, res.reisi])
 	if res.suu > 0.0005:
 		print("TESTI VIKA %s alaosan suu %.1f mm varren ulkopuolella (porras/rako)" % [tag, res.suu * 1000.0])
 	if res.vali < 0.0:
