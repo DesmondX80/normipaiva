@@ -13,10 +13,10 @@ const DOME := 3  # pyöristysrenkaita kannassa
 const TOE_RINGS := 8  # kärjen kapenevat renkaat (tiheämmin kärkeä kohti)
 const TOE_N := 2.5  # kärjen superellipsin eksponentti (2 = ellipsi, suurempi = leveämpi kärki)
 const TOE_LOW := 0.22  # kärkipisteen korkeus kuoren alimmasta kohdasta (osuus kärkiosan korkeudesta)
-const SE_N := 2.5  # poikkileikkauksen superellipsin eksponentti (2 = ellipsi, suurempi = laatikkomaisempi)
+const SE_N := 3.0  # poikkileikkauksen superellipsin eksponentti (2 = ellipsi, suurempi = laatikkomaisempi)
 const B_LOW := 0.006  # poikkileikkauksen alapuoliskon korkeus (kuori kaartuu pohjaan)
-const HU_PAD := 1.1  # yläpuoliskon väljyys korkeimman kärjen yli
-const PAD := 0.002  # tasoituksen kutistuma (_envelope) ja kannan pyöristys: lisärako tarpeeseen
+const HU_PAD := 1.04  # yläpuoliskon väljyys korkeimman kärjen yli
+const PAD := 0.0  # lisärako tarpeeseen (tasoituksen kutistuman kattaa rako; hahmot_kontakti MALLI jalka p90 <= 12 mm)
 const TOE_BLEND := 0.015  # kärkiosan painot: päkiästä +-15 mm sekoitus, edessä vain päkiän luu
 
 ## Tyyppien parametrit (metrejä mallin mittakaavassa): sole = pohjan paksuus, margin = kuoren rako ihoon, flare = pohjan

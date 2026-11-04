@@ -266,9 +266,14 @@ sisään (`shoe_on`, rajataso `shoe_cut`), ja `Pose.limb_points` ohittaa piilote
 (`profile_key` päättyy tyyppiin), jalkalaatikko ja läpimenot mittaavat kenkää. Malli nousee seistessä pohjan verran (`_lift_sole` +
 meta `"pohja"`, `Character.shoe_sole`), ja `Pose.feet_to_floor` lisää sen `FOOT_H`:hon. Testi: `aja.sh tscn tools/testit/kengat.tscn`
 (`KENKA ... alin` ±5 mm, `iho_ulkona` < 0, kuvat ja vertailukuvat kuvakulmista ja kävelystä, `RUUTU` 24 hahmolla).
-Kärki: `toe_room` (15 mm) varpaiden edessä, renkaat kapenevat superellipsinä (`TOE_N`) matalan kärkipisteen (`TOE_LOW`) ympäri,
-ja kärkiosan renkaat (päkiästä eteenpäin) sovitetaan varpaiden ympärille yhdellä skaalauskertoimella per rengas (`_fit_scale`), ei
-pistekohtaisella työnnöllä; pohjan alapinta nousee kärjessä `spring` (5 mm). Suu: kuoren yläreuna `collar` (12 mm) lahkeen alimman
+Kuori kaavasta: jalasta mitataan asemittain vain mittakäyrät (keskiviiva, puolileveys, yläpuoliskon korkeus, suun raja), jotka
+tasoitetaan pituuden suunnassa tarpeen yläpuolelle (`_envelope`), ja jokainen poikkileikkaus on sama superellipsi (`_ring_at`,
+`SE_N`, alapuolisko `B_LOW`, alin piste tasan pohjan päällä). Mitään ei leikata renkaittain, joten kuoreen ei tule ryppyjä (vanha
+renkaittain litistetty ja skaalattu kuori rypisti pohjan yläreunan ja kärjen). Kärki: `toe_room` (15 mm) varpaiden edessä, rengas
+kutistuu kärkipisteen (`TOE_LOW`) ympäri superellipsinä (`TOE_N`): ylhäältä puoliellipsi, sivulta kaareva nokka; pohja kiertää
+kärjen samalla käyrällä `flare`-mitan edempänä. Kärkiosa on jäykästi päkiän luulla (`TOE_BLEND` ±15 mm sekoitus); pohjan alapinta
+nousee kärjessä `spring` (5 mm). Lähikuvat `<nimi>_edesta_lahi`, `_vino_lahi`, `_sivu_lahi`, `_ylhaalta_lahi` (`vertailu_karki_lahi`)
+ja `_vino_lahi_varjoton` (varjokartan sahalaita valon rajalla ei ole muotovika). Suu: kuoren yläreuna `collar` (12 mm) lahkeen alimman
 kärjen alla, ja suun yläpuolinen jalkaterä (meta `"suu"`) jää lahkeen värisenä näkyviin (`skin_outside` ohittaa sen). Kuvat:
 `<nimi>_paalta` (ylhäältä ilman vartaloa), `vertailu_karki` ja `vertailu_asut` (pelaaja, hiihtohaalari, Minttu helmassa).
 Tanssijoilla (Hilkka, Anna-Liisa, seuraintalon Sinikka) on eksplisiittinen `"shoe"` sama kuin pelaajalla: eri kenkätyyppi nostaa
