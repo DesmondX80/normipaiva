@@ -11,6 +11,8 @@ const Looks := preload("res://scripts/looks.gd")
 const Shoes := preload("res://scripts/shoes.gd")
 const B := preload("res://scripts/build.gd")
 const RUUTU := 1000.0 / 60.0
+const COL := {"kavelykenka": Color(0.3, 0.19, 0.11), "tyokenka": Color(0.42, 0.27, 0.13)}  # testirivin päällisen väri
+const NEW := ["kavelykenka", "tyokenka"]  # erän 2 tyypit (lenkkarin lisäksi), rivit <tyyppi>_m ja _f
 
 var out := "user://kengat"
 var cam: Camera3D
@@ -49,6 +51,16 @@ func _run() -> void:
 	var looks := [["lenkkari_m", _look("male", Color(0.92, 0.92, 0.9))], ["lenkkari_f", _look("female", Color(0.92, 0.92, 0.9))],
 		["punainen_f", _look("female", Color(0.85, 0.12, 0.1))], ["paljas_m", _look("male", Color(0.12, 0.1, 0.08))],
 		["pelaaja", Looks.player("")], ["haalari", Looks.player("hiihtohaalari")], ["minttu", Looks.MINTTU]]
+	# Erä 2 (#272): uudet tyypit rivin jatkoksi (lenkkaririvin kuvat pysyvät vertailukelpoisina).
+	for ty: String in NEW:
+		for kind in ["male", "female"]:
+			var lk := _look(kind, COL[ty])
+			lk["shoe"] = ty
+			looks.append(["%s_%s" % [ty, kind.left(1)], lk])
+	looks.append(["farkut_tyokenka", Looks.player("farkut")])  # lahkeen ja varren raja paksummalla lahkeella (pants_puff 0,016)
+	# Osa D: jakauman hahmot sellaisinaan (Seppo, istuva hamemummo ja seisova mokkamummo).
+	looks.append_array([["seppo", Looks.SEPPO], ["mummo1", Looks.MUMMOT[0]], ["mummo3", Looks.MUMMOT[2]]])
+	_jakauma()
 	for i in looks.size():
 		var ch: Node3D = Looks.make(self, looks[i][1])
 		ch.position = Vector3(i * 1.2, 0, 0)
@@ -63,6 +75,10 @@ func _run() -> void:
 	await _walk(row[0][1], "lenkkari_m")
 	await _walk(row[1][1], "lenkkari_f")
 	await _tiptoe(row[0][1], "lenkkari_m")
+	for r in row:
+		if NEW.has(r[1].shoe_type):
+			await _walk(r[1], r[0])
+			await _tiptoe(r[1], r[0])
 	_sheet("vertailu_kuvakulmat", ["lenkkari_m_edesta", "lenkkari_m_sivu", "lenkkari_m_ylhaalta", "lenkkari_m_takaa",
 		"lenkkari_f_edesta", "lenkkari_f_sivu", "lenkkari_f_ylhaalta", "punainen_f_sivu"])
 	_sheet("vertailu_asut", ["pelaaja_edesta", "pelaaja_sivu", "pelaaja_kolmeneljannes", "lenkkari_f_ylhaalta",
@@ -73,9 +89,48 @@ func _run() -> void:
 		"lenkkari_f_edesta_lahi", "lenkkari_f_vino_lahi", "lenkkari_f_sivu_lahi", "lenkkari_f_ylhaalta_lahi"])
 	_sheet("vertailu_kavely", ["lenkkari_m_kavely_0", "lenkkari_m_kavely_1", "lenkkari_m_kavely_2", "lenkkari_m_varpaat",
 		"lenkkari_f_kavely_0", "lenkkari_f_kavely_1", "lenkkari_f_kavely_2", "lenkkari_m_varpaat_edesta"])
+	var sivu := ["lenkkari_m_sivu"]
+	var edesta := ["lenkkari_m_edesta"]
+	var ylha := ["lenkkari_m_paalta"]
+	var lahi := []
+	var kav := []
+	for ty: String in NEW:
+		for g in ["_m", "_f"]:
+			sivu.append(ty + g + "_sivu")
+			edesta.append(ty + g + "_edesta")
+			ylha.append(ty + g + "_paalta")
+		lahi.append_array([ty + "_m_sivu_lahi", ty + "_m_edesta_lahi", ty + "_m_vino_lahi", ty + "_m_ylhaalta_lahi"])
+		kav.append_array([ty + "_m_kavely_0", ty + "_m_kavely_1", ty + "_m_kavely_2", ty + "_m_varpaat"])
+	_sheet("vertailu_tyypit_sivu", sivu)
+	_sheet("vertailu_tyypit_edesta", edesta)
+	_sheet("vertailu_tyypit_ylhaalta", ylha)
+	_sheet("vertailu_tyypit_takaa", ["lenkkari_m_takaa"] + NEW.map(func(x): return x + "_m_takaa") + NEW.map(func(x): return x + "_f_takaa"))
+	_sheet("vertailu_tyypit_lahi", lahi)
+	_sheet("vertailu_tyypit_osat", ["lenkkari_m_osat"] + NEW.map(func(x): return x + "_m_osat") + NEW.map(func(x): return x + "_f_osat"))
+	_sheet("vertailu_tyypit_kavely", kav)
+	_sheet("vertailu_jakauma", ["seppo_sivu", "seppo_edesta", "mummo1_sivu", "mummo1_edesta", "mummo3_sivu", "mummo3_kolmeneljannes",
+		"farkut_tyokenka_sivu", "farkut_tyokenka_edesta"])
+	_sheet("vertailu_varsi", ["tyokenka_m_varsi_sivu", "tyokenka_m_varsi_edesta", "tyokenka_m_varsi_takaa", "tyokenka_m_varsi_ylhaalta",
+		"farkut_tyokenka_varsi_sivu", "farkut_tyokenka_varsi_edesta", "tyokenka_f_varsi_sivu", "farkut_tyokenka_kolmeneljannes"])
 	await _ruutu()
 	print("KENKA valmis ", ProjectSettings.globalize_path(out))
 	get_tree().quit()
+
+
+## K6: look -> kenkätyyppi (Shoes.type_for) jaetuille hahmoille ja pelaajan asuille; väärä tyyppi on vika.
+func _jakauma() -> void:
+	var Cutscene = load("res://scripts/cutscene.gd")  # tyypitön: staattiset sauna_look/swim_look
+	var want := [["MUMMOT[0]", Looks.MUMMOT[0], "kavelykenka"], ["MUMMOT[1]", Looks.MUMMOT[1], "kavelykenka"],
+		["MUMMOT[2]", Looks.MUMMOT[2], "kavelykenka"], ["SEPPO", Looks.SEPPO, "tyokenka"], ["REIJO", Looks.REIJO, "tyokenka"],
+		["tuulipuku", Looks.player("tuulipuku"), "lenkkari"], ["farkut", Looks.player("farkut"), "tyokenka"],
+		["tyovaatteet", Looks.player("tyovaatteet"), "tyokenka"], ["hiihtohaalari", Looks.player("hiihtohaalari"), "lenkkari"],
+		["sauna(farkut)", Cutscene.sauna_look(Looks.player("farkut")), "paljas"],
+		["uinti(tyovaatteet)", Cutscene.swim_look(Looks.player("tyovaatteet")), "paljas"]]
+	for w in want:
+		var t := Shoes.type_for(w[1])
+		print("KENKA jakauma %s -> %s" % [w[0], t])
+		if t != w[2]:
+			print("TESTI VIKA jakauma %s: %s, pitäisi olla %s" % [w[0], t, w[2]])
 
 
 ## K9: alin piste kummankin jalan foot+ball-luiden pinnasta (kengällä kenkäverkko, paljaalla iho) lattiaan y = 0.
@@ -98,6 +153,66 @@ func _measure() -> void:
 			print("KENKA %s iho_ulkona %.1f mm (lepoasento; varjostin painaa ihoa vielä 6 mm sisään)" % [r[0], o * 1000.0])
 			if o > 0.0:
 				print("TESTI VIKA %s jalkaterän iho %.1f mm kengän ulkopuolella" % [r[0], o * 1000.0])
+			var vv: Vector3 = ch.shoe_mi.mesh.get_meta("varsi_v", Vector3.ZERO)
+			if vv.x > 0.0:
+				print("KENKA %s varsi yläreuna %.1f mm, suu %.1f mm, UV2.y - y yläreunassa %.1f mm (shoe_top %.4f)" % [r[0],
+					vv.x * 1000.0, vv.y * 1000.0, vv.z * 1000.0, float(ch.shoe_mi.mesh.get_meta("varsi"))])
+			if r[0] in ["lenkkari_m", "lenkkari_f"] or NEW.has(ch.shoe_type):
+				_profile(r[0], ch.shoe_mi.mesh, ch.body_mi.mesh.surface_get_arrays(0))
+
+
+## Profiili (A2 M0b): kuoren (osa 0) yläpinta ja jalkaterän yläpinta lattiasta (pohjan alin kohta) asemilla uv.x, mm.
+## Vain +X-jalka (mesh-avaruus). Kuoren renkailla on vakio uv.x: korkein piste renkaittain, asemien välissä lineaarisesti.
+## Jalan kärjen asema = lähimmän kuoren kärjen uv.x; jalan yläpinta = korkein kärki asemanauhassa ±0,02.
+func _profile(nm: String, shoe: ArrayMesh, arr: Array) -> void:
+	var sa := shoe.surface_get_arrays(0)
+	var sv: PackedVector3Array = sa[Mesh.ARRAY_VERTEX]
+	var su: PackedVector2Array = sa[Mesh.ARRAY_TEX_UV]
+	var su2: PackedVector2Array = sa[Mesh.ARRAY_TEX_UV2]
+	var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var cs: PackedColorArray = arr[Mesh.ARRAY_COLOR]
+	var above: PackedInt32Array = shoe.get_meta("suu", PackedInt32Array())
+	var floor_y := INF
+	var ring := {}  # uv.x (0,1 mm tarkkuus) -> korkein y
+	var shell := PackedInt32Array()
+	for j in sv.size():
+		if sv[j].x <= 0.0:
+			continue
+		floor_y = minf(floor_y, sv[j].y)
+		if su2[j].y < 0.5:
+			shell.append(j)
+			var k := snappedf(su[j].x, 0.0005)
+			ring[k] = maxf(float(ring.get(k, -INF)), sv[j].y)
+	var ks: Array = ring.keys()
+	ks.sort()
+	var ymin := INF
+	var ft := []  # [uv.x, y]
+	for v in vs.size():
+		if vs[v].x <= 0.0 or roundi(cs[v].r * 4.0) != 3:
+			continue
+		ymin = minf(ymin, vs[v].y)
+		if v in above:
+			continue
+		var best := INF
+		var bj := -1
+		for j in shell:
+			var d := vs[v].distance_squared_to(sv[j])
+			if d < best:
+				best = d
+				bj = j
+		ft.append([su[bj].x, vs[v].y])
+	var line := "KENKA %s profiili ymin %.1f karki %.1f |" % [nm, (ymin - floor_y) * 1000.0, float(shoe.get_meta("karki", 0.0)) * 1000.0]
+	for t: float in [0.6, 0.8, 0.9, 0.97]:
+		var top := -INF
+		for i in ks.size() - 1:
+			if t >= ks[i] and t <= ks[i + 1]:
+				top = lerpf(ring[ks[i]], ring[ks[i + 1]], (t - ks[i]) / maxf(ks[i + 1] - ks[i], 1e-6))
+		var fy := -INF
+		for q in ft:
+			if absf(q[0] - t) <= 0.02:
+				fy = maxf(fy, q[1])
+		line += " t%.2f kuori %.1f jalka %s" % [t, (top - floor_y) * 1000.0, ("%.1f" % ((fy - floor_y) * 1000.0)) if fy > -INF else "-"]
+	print(line)
 
 
 func _feet(ch: Node3D) -> Vector3:
@@ -132,18 +247,19 @@ func _views(nm: String, ch: Node3D) -> void:
 		await _shot(nm + "_paalta", g + Vector3(0, 0.9, 0) + fw * 0.01, g)
 		ch.body_mi.visible = true
 	await _shot(nm + "_takaa", f - fw * 1.1 + Vector3(0, 0.35, 0), f)
-	if nm == "lenkkari_m":  # osat erivärisinä: pohja magenta, päällinen syaani (saumat ja läpimenot näkyvät)
+	if nm == "lenkkari_m" or NEW.has(ch.shoe_type):  # osat erivärisinä: pohja magenta, päällinen syaani (saumat ja läpimenot näkyvät)
 		var sm: ShaderMaterial = ch.shoe_mi.material_override
 		var keep: Color = sm.get_shader_parameter("sole_col")
+		var keep_main: Color = sm.get_shader_parameter("main_col")
 		sm.set_shader_parameter("sole_col", Color(1, 0, 1))
 		sm.set_shader_parameter("main_col", Color(0, 0.9, 0.9))
 		g = _foot_near(ch, rt)
 		await _shot(nm + "_osat", g + rt * 0.75 + Vector3(0, 0.1, 0), g)
 		sm.set_shader_parameter("sole_col", keep)
-		sm.set_shader_parameter("main_col", Color(0.92, 0.92, 0.9))
+		sm.set_shader_parameter("main_col", keep_main)
 	g = _foot_near(ch, fw + rt)
 	await _shot(nm + "_kolmeneljannes", g + (fw + rt).normalized() * 0.75 + Vector3(0, 0.35, 0), g)
-	if nm == "lenkkari_m" or nm == "lenkkari_f":  # kärki lähikuvina (kuopat ja ääriviiva näkyvät vain läheltä)
+	if nm == "lenkkari_m" or nm == "lenkkari_f" or NEW.has(ch.shoe_type):  # kärki lähikuvina (kuopat ja ääriviiva näkyvät vain läheltä)
 		var lr := "_r" if (ch.to_global(ch.bone_position("ball_r")) - ch.to_global(ch.bone_position("ball_l"))).dot(rt) > 0.0 else "_l"
 		var toe: Vector3 = ch.to_global(ch.bone_position("ball" + lr)) + fw * 0.03
 		toe.y = 0.03
@@ -153,6 +269,13 @@ func _views(nm: String, ch: Node3D) -> void:
 		ch.body_mi.visible = false
 		await _shot(nm + "_ylhaalta_lahi", toe + Vector3(0, 0.4, 0) + fw * 0.01, toe)
 		ch.body_mi.visible = true
+		if float(ch.shoe_mi.mesh.get_meta("varsi", 0.0)) > 0.0:  # varren yläreuna ja lahkeen raja läheltä
+			var ank: Vector3 = ch.to_global(ch.bone_position("foot" + lr))
+			ank.y = 0.13
+			await _shot(nm + "_varsi_sivu", ank + rt * 0.4 + Vector3(0, 0.05, 0), ank)
+			await _shot(nm + "_varsi_edesta", ank + fw * 0.4 + Vector3(0, 0.08, 0), ank)
+			await _shot(nm + "_varsi_takaa", ank - fw * 0.4 + Vector3(0, 0.05, 0), ank)
+			await _shot(nm + "_varsi_ylhaalta", ank + Vector3(0, 0.45, 0) + fw * 0.12, ank)
 		var sun: DirectionalLight3D = get_children().filter(func(x): return x is DirectionalLight3D)[0]  # ilman varjoja: varjokartan sahalaita ei ole muotovika
 		sun.shadow_enabled = false
 		await _shot(nm + "_vino_lahi_varjoton", toe + (fw * 0.7 + rt).normalized() * 0.35 + Vector3(0, 0.1, 0), toe)

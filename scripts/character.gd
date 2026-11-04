@@ -504,6 +504,7 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	shoe_sole = 0.0
 	_shoe_lift = 0.0
 	body_mat.set_shader_parameter("shoe_on", false)
+	body_mat.set_shader_parameter("shoe_top", -10.0)
 	if shoe_type == "paljas":
 		return
 	var key := "shoe/%s/%s/%s" % [shoe_type, kind, shape]
@@ -522,8 +523,15 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	sm.shader = load(Shoes.SHADER)
 	sm.set_shader_parameter("main_col", look.get("shoes", Color(0.9, 0.9, 0.9)))
 	sm.set_shader_parameter("sole_col", t.sole_col)
-	sm.set_shader_parameter("rough", t.rough)
+	sm.set_shader_parameter("rough", look.get("shoe_rough", t.rough))  # shoe_rough: esim. mokka
 	sm.set_shader_parameter("sole_rough", t.sole_rough)
+	sm.set_shader_parameter("sole_h", t.sole)
+	sm.set_shader_parameter("rand_h", t.rand)
+	for k in ["style", "spec", "clearcoat", "cord_col"]:
+		if t.has(k):
+			sm.set_shader_parameter(k, t[k])
+	if t.has("shaft"):
+		sm.set_shader_parameter("shaft_h", float(t.shaft.top) + float(t.lift) - float(t.sole))  # yläreuna kuoren alapinnasta
 	var mi := MeshInstance3D.new()
 	mi.name = "Kengat"
 	mi.mesh = mesh
@@ -539,6 +547,8 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	shoe_sole = _shoe_lift * _scale
 	body_mat.set_shader_parameter("shoe_on", true)
 	body_mat.set_shader_parameter("shoe_cut", Vector4(0, 0, 1, 10.0))  # suljettu kenkä: koko jalkaterä tason takana
+	if float(mesh.get_meta("varsi", 0.0)) > 0.0:
+		body_mat.set_shader_parameter("shoe_top", float(mesh.get_meta("varsi")))  # lahje varren sisään (lepo-y)
 
 
 func _attach_hair(path: String, color: Color, kind: String, body_src: Mesh) -> void:

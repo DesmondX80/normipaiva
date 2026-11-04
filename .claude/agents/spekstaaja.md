@@ -28,6 +28,9 @@ Työ:
 Uudesta 3D-esineestä (kori, astia, työkalu) kirjaa kriteeriin 2–4 esikuvan tunnusmerkkiä, joista esine tunnistetaan
 (pajukori: pystykepit, punos kepin ympäri, kapeneva runko, kierretty reuna). "Yleistuntemus" ei riitä.
 
+Viitattujen issuejen sisältö luetaan työkansion `00-issue-<n>.md`-tiedostoista; jos sitä ei ole, pyydä se Teemulta.
+Arvattu sisältö merkitään "arvaus" ja avoimeksi kysymykseksi. (#272)
+
 Säännöt: älä suunnittele toteutusta (tiedostot, funktiot) — se on arkkitehdin työ. Älä lue koodia muuten kuin pelin nykytilan varmistamiseen.
 
 Palautus orkestraattorille: enintään 8 riviä: koko, kriteerien määrä, esikuvan lähde, avoimet kysymykset. Ei suunnitelman toistoa.

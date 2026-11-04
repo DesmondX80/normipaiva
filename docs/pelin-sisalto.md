@@ -190,7 +190,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     tavaroita ei vielä myydä. Testi `--scene=kirppismyynti`.
   - **Hiihtohaalari:** Railin vaatetangossa keskipöydän vieressä (vakosamettitakin ja flanellipaidan välissä)
     roikkuu neonpinkki kasarin toppahaalari, 6 € (tinkiä voi). Valkoinen olkakaarroke sahalaitaisin vuorenhuipuin,
-    keltainen ja turkoosi raita, tikkauskanavat, vetoketju, mustat resorit, kuukengät ja raidallinen frotee-otsapanta
+    keltainen ja turkoosi raita, tikkauskanavat, vetoketju, mustat resorit, valkoiset lenkkarit (kuukengät myöhemmin, #279) ja raidallinen frotee-otsapanta
     (mitoitetaan pään ja tukan mukaan). Ostettuna moraali nousee hieman, Anna-Liisa nauraa, ja haalari tulee kodin
     vaatekaappiin. Haalarissa Anna-Liisa nauraa seuraintalolla ja Päivi motkottaa kotiovella kerran päivässä.
     Testi `--scene=haalari`.
@@ -945,6 +945,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   kaikkiin pelaajan malleihin paikallaan (pyörä, kävely, mopo, sisätilat) ja säilyvät tallennuksessa. Vaatteet
   piirretään varjostimessa pikseleinä (`shaders/character.gdshader`), asusteet ovat muutama pieni mesh luissa
   (`looks.gd`, testit `--scene=asut`, `--scene=vaatekaappi`, `--scene=stetson`, `--scene=haalari` ja `--scene=koppa`).
+- **Kengät (#272):** tuulipuvussa ja hiihtohaalarissa lenkkarit, farkuissa ja työvaatteissa työkengät (varsi nilkan yli),
+  saunassa ja uidessa paljain jaloin. Kaupan mummoilla kävelykengät, Sepolla ja Reijolla työkengät
+  (`scripts/shoes.gd`, ks. `docs/kehitys.md` Kengät).
 - **Päivin vanha kännykkä (P soimaan / taskuun, N seuraava, U voimakkuus):** kodin makuuhuoneen yöpöydällä
   parisängyn vieressä. Soittaa vanhoja iskelmiä 78 kierroksen levyiltä (`assets/music/iskelma/`, sama lista kuin
   lavabändillä) pienestä kaiuttimesta: oma ääniväylä kaistanpäästöllä ja säröllä, joten ääni on ohut kuin taskusta.

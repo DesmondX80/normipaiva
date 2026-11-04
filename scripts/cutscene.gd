@@ -778,7 +778,8 @@ const SAUNA_SANTTU_SIT := ["Kippis! Tää on mökin paras hetki.", "Aaah. Tätä
 ## Saunavaatteet: paljas, löylystä punertava iho ja valkoinen pyyhe lanteilla.
 static func sauna_look(base: Dictionary) -> Dictionary:
 	var look: Dictionary = base.duplicate()
-	for k in ["tracksuit", "jeans", "belt_y", "net_shirt", "suspenders", "workwear", "flannel", "chain", "shirt_puff", "pants_puff"]:
+	for k in ["tracksuit", "jeans", "belt_y", "net_shirt", "suspenders", "workwear", "flannel", "chain", "shirt_puff", "pants_puff",
+			"shoe", "shoe_rough"]:  # ei kenkiä saunassa (shoes = ihonväri -> paljas)
 		look.erase(k)
 	look.merge({"stripes": false, "shine": 0.0, "tube_y": 0.01, "shorts_y": 0.72,
 		"pants": Color(0.9, 0.88, 0.84), "shoes": Color(0.86, 0.62, 0.52), "bare_skin": Color(0.96, 0.68, 0.58)}, true)
