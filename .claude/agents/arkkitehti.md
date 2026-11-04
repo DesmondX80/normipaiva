@@ -54,6 +54,10 @@ väreillä) ennen ratkaisua. Koodista päätelty syy merkitään "ei mitattu", j
 (mallinnus, pelien ratkaisut, oikean esineen rakenne), ja lue työkansion `00-ideat-netista.md`, jos on. Kirjaa
 suunnitelmaan, mitä löytyi ja miksi valitsit tai hylkäsit. (#273)
 
+**Yksinkertaisin ensin.** Ehdota ensin yksinkertaisin toimiva rakenne (jäykät osat, valmis malli, olemassa olevan
+uudelleenkäyttö). Monimutkainen proseduraalinen ratkaisu vasta, kun käyttäjä on valinnut sen; kirjaa vaihtoehdot ja
+arvio työn määrästä Teemulle kysyttäväksi. (#272, #273: kaatuneet kuoret; kahden jäykän osan saapas toimi heti.)
+
 **Prototyyppi ensin.** Uusi muototyyppi (eri lesti, varsi, korko, eri esinetyyppi samasta rakenteesta) aloitetaan yhden
 tyypin prototyypillä ja mittauksella ennen kuin muut tyypit suunnitellaan samaan rakenteeseen. (#272: kaikki kengät
 lenkkarin kuoresta, nauha- ja varsikengät eivät mahtuneet siihen.)
