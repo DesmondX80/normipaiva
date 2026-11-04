@@ -275,8 +275,8 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		for r: Vector2 in e[2]:
 			var q: Vector2 = e[1] + (r - e[1]) * sk
 			q.y = lerpf(q.y, r.y, clampf(1.0 - (r.y - y_welt) / 0.01, 0.0, 1.0))  # alapinta pysyy pohjan päällä
-			if top < INF and r.y > e[1].y:  # matala kenkä: kantakappaleen yläpuolisko pystysuora, kantapää jää sisään
-				q.y = r.y
+			if top < INF:  # matala kenkä: kantakappaleen yläosa pystysuora (kantapää jää sisään), alaosa pyöristyy kuten ennen
+				q.y = lerpf(q.y, r.y, clampf((r.y - e[1].y - 0.005) / 0.015, 0.0, 1.0))
 			ring.append(q)
 		full.append([float(e[0]) - ext * sin(phi), e[1], ring, sk])
 	full.append_array(rings)
@@ -543,8 +543,5 @@ static func skin_outside(shoe: ArrayMesh, arr: Array) -> float:
 				best = d
 				bj = j
 		var n: Vector3 = (sa[Mesh.ARRAY_NORMAL] as PackedVector3Array)[bj]
-		var o := (vs[v] - sv[bj]).dot(n)
-		if o > 0.0:
-			print("DEBUG ulkona %.1f mm v=%s uv=%s uv2=%s" % [o * 1000.0, vs[v], sa[Mesh.ARRAY_TEX_UV][bj], su2[bj]])
-		worst = maxf(worst, o)
+		worst = maxf(worst, (vs[v] - sv[bj]).dot(n))
 	return worst
