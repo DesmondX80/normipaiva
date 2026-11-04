@@ -1,14 +1,14 @@
 shader_type spatial;
 // Kengät (scripts/shoes.gd): päällinen ja pohja samassa skinnatussa verkossa. Yksityiskohdat piirretään lepoasennon
 // koordinaateista: UV = (pituus 0 kanta .. 1 kärki, korkeus kuoren alapinnasta m), UV2 = (sivu -1..1, + = ulkosivu; osa:
-// 0 päällinen, 1 pohja, 2 varsi (2,2 = varren yläreunan levy ja sisäpinta). Varressa UV = (kulma: 0 = etu, -0,5..0,5;
-// korkeus kuoren alapinnasta m). Väri: pisteväri sRGB (vertex_color_is_srgb-vastine), päällinen main_col.
+// 0 päällinen (kumisaappaassa koko kuori kärjestä yläreunaan), 1 pohja, 2 varsi (2,2 = varren yläreunan levy ja
+// sisäpinta). Varressa UV = (kulma: 0 = etu, -0,5..0,5; korkeus kuoren alapinnasta m). Väri: pisteväri sRGB (vertex_color_is_srgb-vastine), päällinen main_col.
 
 uniform vec3 main_col : source_color = vec3(0.9);
 uniform vec3 sole_col : source_color = vec3(0.95, 0.94, 0.9);
 uniform float rough = 0.6;
 uniform float sole_rough = 0.8;
-uniform int style = 0;  // 0 lenkkari, 1 varattu nauhakengälle (myöhempi issue), 2 kävelykenkä, 3 työkenkä (TYPES style)
+uniform int style = 0;  // 0 lenkkari, 1 varattu nauhakengälle (myöhempi issue), 2 kävelykenkä, 3 työkenkä, 4 kumisaapas (TYPES style)
 uniform float sole_h = 0.02;  // pohjalaatan paksuus kuoren alapinnasta alas (TYPES sole)
 uniform float rand_h = 0.0015;  // pohjan reunus kuoren kylkeä ylös (TYPES rand)
 uniform float spec = 0.4;
@@ -40,7 +40,10 @@ void fragment() {
 		float u = t;
 		float au = abs(u);
 		vec3 c = main_col;
-		if (fu2.y > 2.1) {
+		if (fu2.y > 2.1 && style == 4) {
+			// Kumisaappaan suu: tumma sisäkumi, yläreunan huuli kauluksen väristä.
+			c = mix(main_col * 0.32, sole_col * vec3(0.8, 0.78, 0.74), smoothstep(shaft_h - 0.006, shaft_h - 0.002, h));
+		} else if (fu2.y > 2.1) {
 			c = main_col * 0.32;
 		} else {
 			float row = 0.0155;  // nauharivien väli (m)
@@ -69,6 +72,10 @@ void fragment() {
 		ALBEDO = c;
 		ROUGHNESS = rough;
 		SPECULAR = spec;
+		if (style == 4) {
+			CLEARCOAT = clearcoat;
+			CLEARCOAT_ROUGHNESS = 0.2;
+		}
 	} else if (fu2.y > 0.5) {
 		vec3 c = sole_col;
 		float bottom = 1.0 - smoothstep(-sole_h + 0.0025, -sole_h + 0.0035, h);
@@ -95,6 +102,16 @@ void fragment() {
 			c = mix(c, c * 0.45, groove);
 			c = mix(c, c * 0.6, bottom);
 			c *= 1.0 - 0.35 * bottom * step(0.5, fract(t * 26.0));
+		} else if (style == 4) {
+			// Kumisaappaan pohja: vaalea reunus ilman tikkiä (kiiltävä raita yläreunassa), kyljessä pystyurat,
+			// alapinnassa tumma nastapohja. Kermanvaalea (sole_col sellaisenaan palaa valkoiseksi kiiltävän kumin vieressä).
+			c *= vec3(0.86, 0.84, 0.8);
+			c = mix(c, c * 1.12, band(h, rand_h - 0.004, rand_h - 0.0015, 0.0006));
+			c = mix(c, c * 0.8, band(h, -0.0015, 0.0005, 0.0005));
+			float groove = band(h, -sole_h + 0.004, -0.004, 0.0006) * band(fract(t * 34.0), 0.0, 0.22, 0.03);
+			c = mix(c, c * 0.6, groove);
+			c = mix(c, vec3(0.1, 0.095, 0.09), bottom);
+			c *= 1.0 - 0.4 * bottom * step(0.5, fract(t * 26.0));
 		} else {
 			// Kävelykengän kumipohja: tikkaus reunuksessa, sivussa matala ura, alapinnassa tiheä kuvio.
 			c = mix(c, c * 0.7, band(h, rand_h - 0.0022, rand_h - 0.0014, 0.0003) * step(0.45, fract(t * 70.0)));
@@ -129,6 +146,26 @@ void fragment() {
 		SPECULAR = spec;
 		CLEARCOAT = clearcoat;
 		CLEARCOAT_ROUGHNESS = 0.15;
+	} else if (style == 4) {
+		// Kumisaapas: sileä kiiltävä kumi, vaalea kaulusraita yläreunassa (ohut tumma ura alla), kannassa tummempi
+		// vahvikeraita poikittaisin urin ja kärjessä vahvistettu kärkikumi.
+		vec3 c = main_col;
+		vec3 collar_col = sole_col * vec3(0.84, 0.82, 0.78);  // kermanvaalea, ei valkoinen
+		float collar = smoothstep(shaft_h - 0.0185, shaft_h - 0.0175, h);
+		float heel = (1.0 - smoothstep(0.19, 0.21, t)) * (1.0 - smoothstep(0.045, 0.055, h));
+		c = mix(c, c * 0.72, heel);
+		c = mix(c, c * 0.75, heel * band(fract(h * 110.0), 0.0, 0.25, 0.04) * smoothstep(0.008, 0.012, h));
+		c = mix(c, c * 0.6, band(h, 0.05, 0.053, 0.001) * (1.0 - smoothstep(0.19, 0.21, t)));  // vahvikkeen reuna
+		float toe = smoothstep(0.86, 0.88, t) * (1.0 - smoothstep(0.03, 0.035, h));
+		c = mix(c, c * 0.8, toe);
+		c *= 0.78 + 0.22 * smoothstep(0.0, 0.12, h);  // tumma alareuna, vaalea yläosa
+		c = mix(c, c * 0.45, band(h, shaft_h - 0.0215, shaft_h - 0.0185, 0.0006));  // ura kauluksen alla
+		c = mix(c, collar_col * (0.9 + 0.1 * smoothstep(shaft_h - 0.018, shaft_h, h)), collar);
+		ALBEDO = c;
+		ROUGHNESS = rough;
+		SPECULAR = spec;
+		CLEARCOAT = clearcoat;
+		CLEARCOAT_ROUGHNESS = 0.2;
 	} else if (style == 3) {
 		// Työkenkä: tumma kumitettu turvakärki, nauhoitus jalan päällä (varressa jatkuu), sivulla saumat ja tikit.
 		vec3 c = main_col;
