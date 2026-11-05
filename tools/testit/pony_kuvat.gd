@@ -106,7 +106,7 @@ func _run() -> void:
 	await _shot("sivusta_pony", Vector3(-6.0, 0.8, -2.6), Vector3(0, 0.7, -2.6))
 	_lineup(false)
 	await _shot("keula", Vector3(-1.2, 0.8, -4.2), Vector3(-1.2, 0.55, -2.0), 35.0)
-	await _shot("keula_lahi", Vector3(-1.2, 0.75, -3.2), Vector3(-1.2, 0.62, -1.9), 30.0)
+	await _shot("keula_lahi", Vector3(-1.2, 0.8, -4.6), Vector3(-1.2, 0.62, -1.9), 30.0)
 	await _shot("pera", Vector3(-1.2, 1.0, 4.2), Vector3(-1.2, 0.65, 2.0), 35.0)
 	await _shot("pera_vino", Vector3(-3.6, 1.4, 4.4), Vector3(-1.2, 0.75, 1.4), 35.0)
 	get_tree().quit()

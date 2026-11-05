@@ -282,7 +282,7 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	var body := paint(color)
 	var win := _mat("ponylasi", Color(0.2, 0.25, 0.3), 0.6, 0.06)  # vaaleampi kuin glass(): mustat kehykset erottuvat
 	var frame := plastic()
-	var bar := chrome()
+	var bar := _mat("ponykromi", Color(0.86, 0.87, 0.89), 0.45, 0.3)  # satiinikromi: chrome() näkyy ilman heijastuksia mustana
 	var stripe := _mat("ponyraita", Color(0.75, 0.08, 0.06), 0.0, 0.5)
 	if plate == "":
 		plate = "%s%s%s-%d" % [char(65 + randi() % 26), char(65 + randi() % 26), char(65 + randi() % 26), 100 + randi() % 900]
@@ -336,13 +336,13 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 		for dz in [WS0, BP, 0.95]:
 			part(parent, B.boxm(Vector3(0.01, BELT - SILL - 0.06, 0.012)), Vector3(sz, (SILL + BELT) / 2.0 + 0.02, dz), frame)
 		for hz in [BP - 0.12, RW - 0.1]:
-			part(parent, B.boxm(Vector3(0.03, 0.035, 0.14)), Vector3(sx * (SIDE + 0.01), 0.80, hz), chrome())
+			part(parent, B.boxm(Vector3(0.03, 0.035, 0.14)), Vector3(sx * (SIDE + 0.01), 0.80, hz), bar)
 		var arch_out := [FRONT, -WHEEL_Z - ARCH_R, -WHEEL_Z + ARCH_R, WHEEL_Z - ARCH_R, WHEEL_Z + ARCH_R, BACK]
 		for k in 3:
 			var z0: float = arch_out[k * 2] + (0.02 if k > 0 else 0.0)
 			var z1: float = arch_out[k * 2 + 1] - (0.02 if k < 2 else 0.0)
 			part(parent, B.boxm(Vector3(0.03, 0.05, z1 - z0)), Vector3(sx * (SIDE + 0.012), 0.52, (z0 + z1) / 2.0), frame)  # kylkilista
-		part(parent, B.boxm(Vector3(0.012, 0.018, 2.0 * (WHEEL_Z - ARCH_R) - 0.06)), Vector3(sx * (SIDE + 0.006), SILL + 0.05, 0), chrome())  # helmalista
+		part(parent, B.boxm(Vector3(0.012, 0.018, 2.0 * (WHEEL_Z - ARCH_R) - 0.06)), Vector3(sx * (SIDE + 0.006), SILL + 0.05, 0), bar)  # helmalista
 		part(parent, B.boxm(Vector3(0.12, 0.09, 0.15)), Vector3(sx * (SIDE + 0.07), BELT + 0.09, WS0 + 0.12), frame)  # peili
 		part(parent, B.boxm(Vector3(0.02, 0.07, 0.12)), Vector3(sx * (SIDE + 0.13), BELT + 0.09, WS0 + 0.12), glass())
 		for wz in [-WHEEL_Z, WHEEL_Z]:
@@ -359,7 +359,7 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	part(parent, B.boxm(Vector3(0.66, 0.17, 0.03)), Vector3(0, LAMP_Y, FRONT - 0.01), frame)
 	for k in 7:
 		part(parent, B.boxm(Vector3(0.64, 0.008, 0.035)), Vector3(0, LAMP_Y - 0.072 + k * 0.024, FRONT - 0.013), bar)  # vaakasäleet
-	part(parent, B.boxm(Vector3(0.11, 0.065, 0.04)), Vector3(0, LAMP_Y, FRONT - 0.02), chrome())  # HD-merkin kehys
+	part(parent, B.boxm(Vector3(0.11, 0.065, 0.04)), Vector3(0, LAMP_Y, FRONT - 0.02), bar)  # HD-merkin kehys
 	part(parent, B.boxm(Vector3(0.095, 0.05, 0.04)), Vector3(0, LAMP_Y, FRONT - 0.022), frame)
 	var hd := Label3D.new()
 	hd.text = "HD"
@@ -372,15 +372,15 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	hd.rotation.y = PI
 	parent.add_child(hd)
 	var amber := lamp(Color(1.0, 0.42, 0.04))
-	var lens := _mat("ponylinssi", Color(0.75, 0.78, 0.8), 0.3, 0.15)
+	var lens := _mat("ponylinssi", Color(0.62, 0.65, 0.68), 0.3, 0.15)
 	for sx in [-1.0, 1.0]:
 		# Ajovalo: kromireunus, heijastin ja lasin pystyurat.
-		part(parent, B.boxm(Vector3(0.32, 0.18, 0.025)), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.005), chrome())
-		part(parent, B.boxm(Vector3(0.29, 0.15, 0.03)), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.01), lamp(Color(1.0, 0.98, 0.9)))
+		part(parent, B.boxm(Vector3(0.32, 0.18, 0.025)), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.005), bar)
+		part(parent, B.boxm(Vector3(0.29, 0.15, 0.03)), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.01), _mat("ponyvalo", Color(0.74, 0.76, 0.75), 0.2, 0.1))  # lasi päivällä: ei hehku
 		# Pyöreä heijastin suorakaidelasin takana: kromirengas ja kirkas polttimo.
-		part(parent, B.cyl(0.062, 0.062, 0.03, 20), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.014), chrome(), Vector3(PI / 2.0, 0, 0))
+		part(parent, B.cyl(0.062, 0.062, 0.03, 20), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.014), lens, Vector3(PI / 2.0, 0, 0))
 		part(parent, B.cyl(0.05, 0.05, 0.03, 20), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.017), lamp(Color(1.0, 0.98, 0.9)), Vector3(PI / 2.0, 0, 0))
-		part(parent, B.cyl(0.018, 0.018, 0.03, 10), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.02), chrome(), Vector3(PI / 2.0, 0, 0))
+		part(parent, B.cyl(0.018, 0.018, 0.03, 10), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.02), bar, Vector3(PI / 2.0, 0, 0))
 		for k in 6:
 			part(parent, B.boxm(Vector3(0.006, 0.15, 0.032)), Vector3(sx * (0.385 + k * 0.046), LAMP_Y, FRONT - 0.012), lens)
 		part(parent, B.boxm(Vector3(0.29, 0.006, 0.032)), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.012), lens)
@@ -404,7 +404,7 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 		for sx in [-1.0, 1.0]:
 			part(parent, B.boxm(Vector3(0.04, 0.2, 0.3)), Vector3(sx * SIDE, BUMP_Y, wrap_z), frame)
 			part(parent, B.boxm(Vector3(0.005, 0.015, 0.43)), Vector3(sx * (SIDE + 0.022), BUMP_Y + 0.04, (bz + wrap_z - signf(bz) * 0.07) / 2.0), stripe)
-	part(parent, B.cyl(0.03, 0.03, 0.16, 8), Vector3(0.35, 0.21, BACK + 0.04), chrome(), Vector3(PI / 2.0, 0, 0))  # pakoputki
+	part(parent, B.cyl(0.03, 0.03, 0.16, 8), Vector3(0.35, 0.21, BACK + 0.04), bar, Vector3(PI / 2.0, 0, 0))  # pakoputki
 	for sx in [-1.0, 1.0]:
 		for wz in [-WHEEL_Z, WHEEL_Z]:
 			part(parent, B.boxm(Vector3(0.18, 0.24, 0.012)), Vector3(sx * 0.71, 0.18, wz + WHEEL_R + 0.08), frame)  # kuraläppä
