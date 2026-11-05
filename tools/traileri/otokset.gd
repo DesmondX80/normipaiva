@@ -20,7 +20,11 @@ const JUNA_HAND_FRAMES := 570
 
 
 static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
+	id = id.get_slice("__", 0)  # sama lavastus toista kertaa (leikkaus_rasvanappi.gd: "f_wasted__2")
 	_reset(main)
+	var uusi: Dictionary = load("res://tools/traileri/otokset_uusi.gd").setup(main, id, d)  # Rasvanappi-trailerin otokset
+	if not uusi.is_empty():
+		return uusi
 	match id:
 		# --- Avaus ---------------------------------------------------------------------------------------------------
 		"avaus_yo":
@@ -576,7 +580,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 				main._raahe_karaoke()
 			var tk := func(_t: float) -> void:  # laulaja osuu nuotteihin
 				var g: Node = _find(main, "karaoke_game.gd")
-				if g != null:
+				if g != null and g.has_method("_note_at"):  # (Frets on Fire -karaokessa nuotit tulevat pelaajalta, ei laulajan sävelkorkeudesta)
 					var cur: Array = g._note_at(g._t + 0.05)
 					if not cur.is_empty():
 						g._pitch = float(cur[2])

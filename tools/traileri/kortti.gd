@@ -87,17 +87,18 @@ func _build(shot: Dictionary, size: Vector2) -> Array:
 		return _lappu(shot.lappu, size, u)
 	if shot.get("kortti", "") == "":
 		return anims
-	var title := Teksti.label(root_c, shot.kortti, int(118 * u), Color.WHITE, Teksti.font(), 0)
+	var title := Teksti.label(root_c, shot.kortti, int(float(shot.get("koko", 190 if shot.has("vari") else 118)) * u), shot.get("vari", Color.WHITE), Teksti.font(), 0)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.size = Vector2(size.x, 160 * u)
 	title.position = Vector2(0, size.y * 0.5 - 120 * u)
-	title.material = _gradient_mat(title, 160 * u)
+	if not shot.has("vari"):  # väriteksti (WASTED, PIDÄTETTY...) ilman auringonlaskun liukuväriä
+		title.material = _gradient_mat(title, 160 * u)
 	var sub := Teksti.label(root_c, shot.get("ala", ""), int(46 * u), Color(0.95, 0.93, 0.88), Teksti.font(false), 0)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.size = Vector2(size.x, 80 * u)
 	sub.position = Vector2(0, size.y * 0.5 + 50 * u)
 	anims.append(func(t: float, l: float) -> void:
-		Teksti.fade(title, t, l, 0.3, 0.3)
+		Teksti.fade(title, t, l, shot.get("fade", 0.3), 0.3)
 		title.scale = Vector2.ONE * (1.0 + 0.03 * t / l)
 		title.pivot_offset = title.size / 2.0)
 	anims.append(func(t: float, l: float) -> void: Teksti.fade(sub, t - 0.35, l - 0.35, 0.4, 0.3))

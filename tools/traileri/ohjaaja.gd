@@ -330,7 +330,7 @@ func _hide_hud() -> void:
 		cs._sub.visible = false
 		cs._title.visible = _spec.get("title", true)
 		# Välianimaation repliikkikuplat (3D) pois, ellei otos käytä niitä tekstinä (spec.cs_bubbles, esim. Päivin TV).
-		if cs.get("_props") is Node3D:
+		if is_instance_valid(cs.get("_props")) and cs.get("_props") is Node3D:
 			for l in (cs._props as Node3D).find_children("*", "Label3D", true, false):
 				l.visible = _spec.get("cs_bubbles", false)
 

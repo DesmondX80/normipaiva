@@ -9,6 +9,7 @@ extends SceneTree
 ##     --ss=2.0           ylinäytteistys (render_scale): 2.0 = oletus (4× pikseleitä), 1.5 jos näytönohjaimen muisti loppuu
 ##     --groups=ulko,mokki  vain nämä ryhmät (muuten kaikki); valmiit ryhmät ohitetaan, --again kuvaa uudelleen
 ##     --ids=i_ilma,i_koti  vain nämä otokset (kokeiluun)
+##     --set=rasvanappi   uusien ominaisuuksien traileri Rasvanappi-biisin tahtiin (leikkaus_rasvanappi.gd)
 ##     --preview          ei videota: kuvat jokaisen otoksen alusta, keskeltä ja lopusta (esikatselu.png kokoaa)
 ##     --snaps=6          esikatselukuvia otosta kohden (oletus 3; arkki kokoaa vain kolme, muut <id>_<n>.png)
 ##     --quality=0.95     MJPEG-laatu
@@ -93,8 +94,8 @@ func _initialize() -> void:
 			args.append("--trailer-preview")
 			if snaps != "":
 				args.append("--trailer-snaps=" + snaps)
-		if kierros:
-			args.append("--trailer-set=kierros")
+		if Leikkaus.setti() != "":
+			args.append("--trailer-set=" + Leikkaus.setti())
 		print("Ryhmä %s (%d otosta) ..." % [g, ids.size()])
 		var t := Time.get_ticks_msec()
 		var output := []
@@ -109,10 +110,11 @@ func _initialize() -> void:
 	print("Kuvaus valmis %.1f min." % ((Time.get_ticks_msec() - t0) / 60000.0))
 	if preview:
 		OS.execute(exe, ["--path", proj, "--headless", "-s", "res://tools/traileri/kokoa.gd", "--", "--in=" + out, "--sheet"]
-			+ (["--set=kierros"] if kierros else []), [], true)
+			+ (["--set=" + Leikkaus.setti()] if Leikkaus.setti() != "" else []), [], true)
 		print("Esikatselu: ", out.path_join("esikatselu.png"))
 	else:
 		var output := []
-		OS.execute(exe, ["--path", proj, "--headless", "-s", "res://tools/traileri/kokoa.gd", "--", "--in=" + out], output, true)
+		OS.execute(exe, ["--path", proj, "--headless", "-s", "res://tools/traileri/kokoa.gd", "--", "--in=" + out]
+			+ (["--set=" + Leikkaus.setti()] if Leikkaus.setti() != "" else []), output, true)
 		print("\n".join(output))
 	quit()

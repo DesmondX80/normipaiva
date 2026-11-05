@@ -4,7 +4,7 @@ extends Node
 
 
 func _ready() -> void:
-	for f in ["otokset", "ohjaaja", "teksti", "leikkaus"]:
+	for f in ["otokset", "otokset_uusi", "ohjaaja", "teksti", "leikkaus", "leikkaus_rasvanappi"]:
 		var s: GDScript = load("res://tools/traileri/%s.gd" % f)
 		print("%s: %s" % [f, "OK" if s != null and s.can_instantiate() else "VIRHE"])
 	get_tree().quit()

@@ -160,7 +160,7 @@ func _split_group(g: String, ids: Array) -> Dictionary:
 
 ## Tunnari 48 kHz:n stereona (PackedVector2Array).
 func _music() -> PackedVector2Array:
-	var path := Leikkaus.MUSIC_SOITTO if soitto else Leikkaus.MUSIC
+	var path := Leikkaus.MUSIC_SOITTO if soitto else Leikkaus.music()
 	var s: AudioStream = load(path) if ResourceLoader.exists(path) else null
 	if s == null:
 		push_error("Musiikkia ei voi ladata: %s (uusi tiedosto? aja ensin: godot --headless --path . --import)" % path)

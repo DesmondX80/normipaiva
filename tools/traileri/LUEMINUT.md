@@ -93,3 +93,38 @@ python tools/traileri/karaoke_ajoitus.py vocals16k.wav > tools/traileri/karaoke.
 ```
 
 Sanojen kuunteluun (uusi biisi): `whisper-cli -m ggml-large-v3-turbo.bin -l fi -f vocals16k.wav` (whisper.cpp).
+
+## Rasvanappi-traileri: uudet ominaisuudet (3:03)
+
+Toinen traileri esittelee uusia ominaisuuksia (auton varastus ja tähtijahti, huumekauppa ja sen riskit, Päivin
+motkotukset, kolmiomittaus, uusi Vaala) Saloisten Saapasjalkojen Rasvanappi-biisin (`assets/music/tanssit/rasvanappi.mp3`,
+129,2 bpm) tahtiin. Suunnitelma ja perustelut: [PAPERILEIKKAUS_RASVANAPPI.md](PAPERILEIKKAUS_RASVANAPPI.md).
+Rasvanappi-minipeliä ei näytetä: kuvassa on portsari luukussa, treffiseura ja flirtti, ilta vain vihjeenä.
+
+| Tiedosto | Mitä |
+|---|---|
+| `leikkaus_rasvanappi.gd` | Otosten järjestys ja kestot iskuina. Jokaisen osan alku on ankkuroitu mitattuun iskuun (`at`), koska Sunon tempo heittelee. Sama lavastus toista kertaa: tunnisteeseen `__2`. |
+| `otokset_uusi.gd` | Uusien otosten lavastus (`a_` auto, `h_` huume, `m_` kolmiomittaus, `p_` motkotus, `v_` Vaala). Otokset.setup kutsuu tätä ensin. |
+
+Setin valinta: `--set=rasvanappi` (renderoi.gd, kokoa.gd). Ilman sitä ajetaan ensimmäinen traileri.
+
+```
+godot --path . -s res://tools/traileri/renderoi.gd -- --set=rasvanappi --res=1920x1080 --out=C:/traileri_rn
+godot --path . -s res://tools/traileri/renderoi.gd -- --set=rasvanappi --preview --res=1280x720 --groups=auto,apteekki
+```
+
+Opit lavastuksesta:
+
+- Jahtikuvissa pidä jahtaajat vähintään 9 m päässä (`_chasers`): muuten Päivi nappaa auton kesken otoksen (WASTED).
+- Autopilotin reitistä pudotetaan pisteet auton takaa (`_drive`), ja nopeus pidetään vähintään 12 m/s liikennekolarien varalta.
+- Pelin omat välianimaatiot (WASTED, ELVYTETTY, PIDÄTETTY) ajetaan oikeilla funktioilla (`_lose`, `_rikos_loppu`) kukin omassa
+  ryhmässään (muuten edellisen otoksen animaatio jatkuu seuraavan päälle) ja `in` ohittaa otsikon. `cs_bubbles` näyttää Päivin repliikit.
+- Kolmiomittauksen kohtaukset (`kolmio_kohtaus.gd`) sovitetaan mustien palkkien väliin (`_kolmio_scene`), jotta tekstilaatikko näkyy.
+- Rasvanapin luukkukohtauksesta kuvataan vain portsari ja "Salasana."-kupla: pelin oma aika pysäytetään ennen salasanavalikkoa.
+- `loppu_*`-kortit: `vari` kytkee gradientin pois ja suurentaa tekstin.
+
+Rakenne (v3): prologi ilman musiikkia (pyörä auton eteen, kaappaus: "HEI! MUN AUTO!" kuuluu vain kerran), sitten biisi alkaa:
+kaahaus ja Päivin motkotus pidätyksestä, makasiini ja portsari laulun kohdilla, apteekin takaovi, huumeiden laimennus ja
+diilaus teineille, kuolema mummon keppiin ja Päivin motkotus, nimiluettelo, kolmiomittaus, uusi Vaala, ELVYTETTY-motkotus
+ja lopun WASTED / PIDÄTETTY / ELVYTETTY. Pyöräilykohtauksia ei ole (alun pyörä auton eteen poikkeus).
+Kuski ja hänen huutonsa poistetaan kaikista muista kaappauskuvista (`_poista_kuski`, `Sfx.stop_speech`).

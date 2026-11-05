@@ -23,6 +23,9 @@ const MUSIC_GAIN := 0.9
 const SFX_MUSIC := 0.55  # pelin äänet musiikin alla
 const SFX_PRE := 1.0
 
+## Uuden ominaisuuksien trailerin leikkaus (--set=rasvanappi): leikkaus_rasvanappi.gd, musiikkina Rasvanappi.
+const RN := preload("res://tools/traileri/leikkaus_rasvanappi.gd")
+
 const SHOTS := [
 	# --- Prologi ilman musiikkia: pelin äänet (PAPERILEIKKAUS.md P1–P8) --------------------------------------------
 	{"id": "avaus_paivi", "g": "ulko", "s": 6.0},
@@ -150,10 +153,43 @@ const KIERROS_SNAPS := 6
 
 ## Kierros (--set=kierros / --trailer-set=kierros komentorivillä)?
 static func kierros() -> bool:
+	return setti() == "kierros"
+
+
+## Rasvanappi-traileri (--set=rasvanappi / --trailer-set=rasvanappi komentorivillä)?
+static func rn() -> bool:
+	return setti() == "rasvanappi"
+
+
+## Valittu setti: "kierros", "rasvanappi" tai "" (ensimmäinen traileri).
+static func setti() -> String:
 	for a in OS.get_cmdline_user_args():
-		if a == "--set=kierros" or a == "--trailer-set=kierros":
-			return true
-	return false
+		if a.begins_with("--set=") or a.begins_with("--trailer-set="):
+			return a.get_slice("=", 1)
+	return ""
+
+
+## Valitun setin otokset.
+static func shot_list() -> Array:
+	match setti():
+		"kierros":
+			return KIERROS
+		"rasvanappi":
+			return RN.SHOTS
+	return SHOTS
+
+
+## Valitun setin musiikki, iskun pituus ja ensimmäinen isku (s).
+static func music() -> String:
+	return RN.MUSIC if rn() else MUSIC
+
+
+static func beat() -> float:
+	return RN.BEAT if rn() else BEAT
+
+
+static func beat0() -> float:
+	return RN.BEAT0 if rn() else BEAT0
 
 
 static var _timeline: Array = []
@@ -163,36 +199,37 @@ static var _timeline: Array = []
 static func timeline() -> Array:
 	if not _timeline.is_empty():
 		return _timeline
+	var shots := shot_list()
 	var pre := 0.0
-	for s in SHOTS:
+	for s in shots:
 		if s.has("b") or s.has("at"):
 			break
 		pre += s.s
 	var music_start := roundi(pre * FPS)
 	var t := 0.0  # aika videossa (s)
 	var bounds := []  # [alku, loppu] sekunteina
-	for i in SHOTS.size():
-		var s: Dictionary = SHOTS[i]
+	for i in shots.size():
+		var s: Dictionary = shots[i]
 		if s.has("at"):
 			t = pre + s.at
 			if i > 0:
 				bounds[i - 1][1] = t
-		var length: float = s.b * BEAT if s.has("b") else s.s
+		var length: float = s.b * beat() if s.has("b") else s.s
 		var end := t + length
 		if s.has("b"):  # leikkaus osuu iskuun
 			var song := end - pre
-			end = pre + BEAT0 + roundf((song - BEAT0) / BEAT) * BEAT
+			end = pre + beat0() + roundf((song - beat0()) / beat()) * beat()
 		bounds.append([t, end])
 		t = end
-	for i in SHOTS.size():
+	for i in shots.size():
 		var a := roundi(bounds[i][0] * FPS)
 		var e := roundi(bounds[i][1] * FPS)
-		_timeline.append({"id": SHOTS[i].id, "start": a, "frames": e - a, "music_from": music_start})
+		_timeline.append({"id": shots[i].id, "start": a, "frames": e - a, "music_from": music_start})
 	return _timeline
 
 
 static func shot(id: String) -> Dictionary:
-	for s in (KIERROS if kierros() else SHOTS):
+	for s in shot_list():
 		if s.id == id:
 			return s
 	return {}
@@ -216,7 +253,7 @@ static func frames_of(id: String) -> int:
 
 static func groups() -> Dictionary:
 	var g := {}
-	for s in (KIERROS if kierros() else SHOTS):
+	for s in shot_list():
 		if not g.has(s.g):
 			g[s.g] = []
 		g[s.g].append(s.id)
