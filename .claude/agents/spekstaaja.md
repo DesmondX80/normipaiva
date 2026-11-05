@@ -33,6 +33,9 @@ Uudesta 3D-esineestä (kori, astia, työkalu) kirjaa kriteeriin 2–4 esikuvan t
 Viitattujen issuejen sisältö luetaan työkansion `00-issue-<n>.md`-tiedostoista; jos sitä ei ole, pyydä se Teemulta.
 Arvattu sisältö merkitään "arvaus" ja avoimeksi kysymykseksi. (#272)
 
+Esikuva ja tekniikka haetaan netistä (WebSearch) aina, kun työ on uusi esine tai rakenne: kirjaa lähteet ja tunnusmerkit.
+"Esikuvaa ei haettu" ei kelpaa. (#272, #273)
+
 Säännöt: älä suunnittele toteutusta (tiedostot, funktiot) — se on arkkitehdin työ. Älä lue koodia muuten kuin pelin nykytilan varmistamiseen.
 
 Palautus orkestraattorille: enintään 8 riviä: koko, kriteerien määrä, esikuvan lähde, avoimet kysymykset. Ei suunnitelman toistoa.

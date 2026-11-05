@@ -59,6 +59,10 @@ käyttäjän tarvitse kysyä.
   Tarkista se itse: aina kun käyttäjä kysyy tilannetta ja vähintään 20 minuutin välein, lue työkansion `ajot.md`:n viimeiset
   rivit. Kolme peräkkäistä ajoa samalla vikamäärällä = pysäytä aliagentti (TaskStop), ota talteen se, mikä toimii, ja päätä
   suunta. (#258: jumi huomattiin vasta käyttäjän kysymyksestä.)
+- **Tekniikka netistä ennen suunnittelua.** Ennen kuin arkkitehti suunnittelee uuden rakenteen tai tekniikan (uusi muoto,
+  mekaniikka, efekti), Teemu tai arkkitehti hakee netistä, miten se yleensä tehdään (mallinnustapa, pelien ratkaisut,
+  oikean esineen rakenne), ja kirjaa löydöt työkansioon `00-ideat-netista.md`. "Esikuvaa ei haettu" ei kelpaa: Teemu
+  pysäyttää putken siihen. (#273: käyttäjä joutui pyytämään haun; kumisaappaan leveä varsi ja johdekäyrät löytyivät heti.)
 - **Esikuva ennen suunnittelua.** Jos kukaan ei tiedä, miltä lopputuloksen pitää näyttää tai miten sen pitää toimia, hae
   esikuva netistä tai kysy käyttäjältä ennen kuin annat työn eteenpäin.
 - **Pienet osat.** Anna jokaiselle aliagentille yksi asia kerrallaan; iso kokonaisuus jaetaan peräkkäisiksi tehtäviksi.
@@ -136,8 +140,11 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
 - Raportti käyttäjälle (enintään ~10 riviä): mitä tehtiin, muutetut tiedostot, tuomio, mitä jäi huonoksi tai testaamatta. Rehellisesti: ei "toimii" ilman sekstaajan PASS:ia ja omaa katsomista.
 - **Erät etenevät ilman testin odotusta:** monierän työssä seuraava erä aloitetaan, vaikka edellisen testi olisi vielä
   kesken. Sekstaajan FAIL korjataan seuraavan erän rinnalla.
+- **Teemu korjaa pienet.** Kun puristelija on jumissa ja käyttäjä on pyytänyt vauhtia, Teemu saa tehdä yhden rivin tai
+  yhden luvun korjauksen itse ja testata sen (kaantyy + kyseinen testi). Kirjaa se raporttiin poikkeamana. (#273)
 - **Katso ennen commitia `git diff --cached --stat`.** Toisen agentin valmiiksi lisäämät tiedostot menevät muuten mukaan;
-  commit-viesti kuvaa kaiken, mitä commitissa on. (#271: df65b16 sisälsi osan B tiedostot, viesti kertoi vain A:sta.)
+  commit-viesti kirjoitetaan vasta tulosteen lukemisen jälkeen ja kuvaa kaiken, mitä commitissa on; välitallennuksen viesti
+  luettelee tiedostot. (#273: cc10293 väitti varren muutoksia, sisälsi vain mittarit.) (#271: df65b16 sisälsi osan B tiedostot, viesti kertoi vain A:sta.)
 - **Commit ja push:** testattu (sekstaajan PASS) työ saa committaa ja pushata työhaaraan ilman kysymistä. Kun kaikki on
   valmista ja testattu, PR saa avata ilman eri kysymystä. Testaamatonta tai FAIL-työtä ei pushata ilman käyttäjän pyyntöä.
   Käyttäjän oma GitHub-tili.
