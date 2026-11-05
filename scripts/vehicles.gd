@@ -247,8 +247,8 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	const BACK := 1.86
 	const WS0 := -0.80  # tuulilasin alareuna z
 	const WS1 := -0.15  # tuulilasin yläreuna z
-	const HT0 := 1.50  # takalasin yläreuna z: luukku lähes pysty (esikuva takaa)
-	const HT1 := 1.72  # takalasin alareuna z
+	const HT0 := 1.62  # takalasin yläreuna z: luukku lähes pysty (esikuva takaa)
+	const HT1 := BACK - 0.03  # takalasin alareuna z: lasin alla suoraan luukun pysty peltiosa
 	const HT_Y := 0.98  # takalasin alareuna y
 	const QW := 1.15  # kapean takasivuikkunan takareuna z, siitä taakse leveä takapilari
 	const RW := 0.95  # takaoven ikkunan takareuna z
@@ -280,10 +280,12 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	part(parent, B.boxm(Vector3(GLASS_W, HT_Y - BELT, HT1 - HT0)), Vector3(0, (BELT + HT_Y) / 2.0, (HT0 + HT1) / 2.0), win)
 	slab(parent, wf0, wf1, GLASS_W + 0.02, 0.04, win)  # tuulilasi
 	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, win)  # takaluukun lasi
-	slab(parent, wr1, Vector3(0, BELT, BACK), SIDE * 2.0, 0.06, body)  # takaluukun alaosa
+	part(parent, B.boxm(Vector3(SIDE * 2.0, HT_Y - BELT, 0.2)), Vector3(0, (BELT + HT_Y) / 2.0, BACK - 0.1), body)  # luukun peltiosa, takapinta z BACK
 	part(parent, B.boxm(Vector3(GLASS_W + 0.06, ROOF_T, HT0 - WS1 + 0.04)), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), body)  # katto
 	# Takaluukun pyyhin ja konepellin takareunan tuuletusritilät, tuulilasin pyyhkimet.
 	var hat := (wr1 - wr0).normalized()
+	slab(parent, wr0, wr0.lerp(wr1, 0.08), GLASS_W, 0.05, frame)  # takalasin yläkehys
+	slab(parent, wr0.lerp(wr1, 0.94), wr1, GLASS_W, 0.05, frame)  # alakehys
 	part(parent, B.boxm(Vector3(0.5, 0.012, 0.02)), wr0.lerp(wr1, 0.7) + hat.cross(Vector3.RIGHT) * 0.03, frame)
 	for sx in [-1.0, 1.0]:
 		part(parent, B.boxm(Vector3(0.38, 0.012, 0.06)), Vector3(sx * 0.38, BELT - 0.12 * (BELT - NOSE_Y) / (WS0 - FRONT) + 0.008, WS0 - 0.12), frame)  # tuuletusritilä konepellin pinnassa
@@ -293,6 +295,7 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 		var px: float = sx * (GLASS_W / 2.0 + 0.02)
 		slab(parent, wf0 + Vector3(px, 0, 0), wf1 + Vector3(px, 0, 0), 0.07, 0.06, body)  # A-pilari
 		slab(parent, wr0 + Vector3(px, 0, 0), wr1 + Vector3(px, 0, 0), 0.1, 0.06, body)  # takaluukun reuna
+		slab(parent, wr0 + Vector3(sx * (GLASS_W / 2.0 - 0.01), 0, 0), wr1 + Vector3(sx * (GLASS_W / 2.0 - 0.01), 0, 0), 0.03, 0.05, frame)  # takalasin kehys
 		# Leveä takapilari: maalattu levy sivulasin päällä QW:stä takaluukun reunaan.
 		var cx: float = sx * (GLASS_W / 2.0 + 0.012)
 		part(parent, B.boxm(Vector3(0.024, top - BELT, HT0 - QW)), Vector3(cx, (BELT + top) / 2.0, (QW + HT0) / 2.0), body)
