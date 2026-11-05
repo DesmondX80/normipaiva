@@ -1470,6 +1470,8 @@ func _process(delta: float) -> void:
 	CamCtl.indoors = state in ["in_shop", "in_home", "in_mokki", "in_garage", "in_siitari", "in_apteekki", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki"]
 	var at_mokki := _at_mokki()
 	var away := at_mokki or _in_vaala  # poissa kylästä: Saloisten vaarat, liikenne ja kello odottavat
+	if away and _vaino_at >= 0.0 and clock_min >= _vaino_at:
+		_vaino_at = -1.0  # karkuaika meni ohi poissa: Väinö pysyi kotona (ei karkaa vasta paluulla)
 	_clock_fast_keys()
 	clock_min = fmod(clock_min + delta * CLOCK_RATE * (CLOCK_FAST if _clock_fast else 1.0), 1440.0)
 	_night_tick(delta)
@@ -10788,6 +10790,7 @@ func _nimismies_raid() -> void:
 	add_child(n)
 	n.global_position = kalle.global_position + to_cottage.normalized().rotated(Vector3.UP, 0.8) * 22.0 + Vector3(0, 1.0, 0)
 	_nimismies = n
+	_minimap.nimismies = n
 	Sfx.play("alert", -2.0, 0.8)
 	_show_message("NIMISMIES! Pakoon metsän läpi – kiinni jäädessä sakko ja pullot menee!", 3.5)
 	n.caught.connect(func() -> void:
@@ -10810,6 +10813,7 @@ func _nimismies_shop_raid() -> void:
 	var back := -player.global_transform.basis.z
 	n.global_position = player.global_position - Vector3(back.x, 0, back.z).normalized() * 25.0 + Vector3(0, 1.0, 0)
 	_nimismies = n
+	_minimap.nimismies = n
 	Sfx.play("alert", 0.0, 0.8)
 	_show_message("Kauppias soitti nimismiehen! KARKUUN!", 3.5)
 	n.caught.connect(func() -> void:

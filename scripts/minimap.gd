@@ -13,7 +13,8 @@ const MOKKI_SHOW_DIST := 650.0  # etäisyys mökin keskeltä, jolloin tutka vaih
 
 var player: Node3D
 var wife: Node3D
-var police: Node3D  # jahtaava poliisi: sininen pylpyrä, kun Päivi on punainen
+var police: Node3D  # jahtaava poliisiauto: sininen pylpyrä, kun Päivi on punainen
+var nimismies: Node3D  # jalan jahtaava nimismies (Vaala, mökki): sama pylpyrä
 var world: Node3D
 var bike: Node3D  # näytetään kun liikutaan jalan
 var mokki: Node3D
@@ -190,10 +191,9 @@ func _draw() -> void:
 	if wife != null and wife.is_inside_tree() and wife.visible:  # töissä auto on piilossa origon alla
 		draw_circle(_clamp_edge(_w(wife.global_position)), 4.5, Color(0.95, 0.1, 0.1))
 	if police != null and is_instance_valid(police) and police.is_inside_tree():
-		var pp := _clamp_edge(_w(police.global_position))
-		var flash := int(Time.get_ticks_msec() / 250) % 2 == 0  # pylpyrä vilkkuu
-		draw_circle(pp, 6.5 if flash else 5.0, Color(0.15, 0.35, 1.0))
-		draw_arc(pp, 6.5 if flash else 5.0, 0, TAU, 16, Color.WHITE, 1.5)
+		_police_icon(_clamp_edge(_w(police.global_position)))
+	if _nimismies_ok():
+		_police_icon(_clamp_edge(_w(nimismies.global_position)))
 	if player != null:
 		var fwd3 := -player.global_transform.basis.z
 		var f := Vector2(fwd3.x, fwd3.z).normalized()
@@ -243,6 +243,9 @@ func _draw_vaala() -> void:
 	if vaala_mopo != null and vaala_mopo != player:
 		var mp: Vector3 = vaala.to_local(vaala_mopo.global_position)
 		_bike_icon(_clamp_edge(vl.call(Vector2(mp.x, mp.z))))
+	if _nimismies_ok():
+		var np: Vector3 = vaala.to_local(nimismies.global_position)
+		_police_icon(_clamp_edge(vl.call(Vector2(np.x, np.z))))
 	var fwd3 := vaala.global_transform.basis.inverse() * (-player.global_transform.basis.z)
 	var f := Vector2(fwd3.x, fwd3.z).normalized()
 	var r := f.orthogonal()
@@ -353,6 +356,9 @@ func _draw_mokki() -> void:
 			var fp: Vector2 = wl.call(f.local)
 			if Rect2(Vector2.ZERO, size).has_point(fp):
 				draw_circle(fp, 3.0, Mokki.FORAGE_COLORS[f.kind])
+	if _nimismies_ok():
+		var nl: Vector3 = mokki.to_local(nimismies.global_position)
+		_police_icon(_clamp_edge(wl.call(Vector2(nl.x, nl.z))))
 	if player != null:
 		var fwd3 := -player.global_transform.basis.z
 		var f := (Mokki.to_map2(Vector2(fwd3.x, fwd3.z)) - Mokki.to_map2(Vector2.ZERO)).normalized()
@@ -419,6 +425,18 @@ func _bake_mokki() -> void:
 func _clamp_edge(p: Vector2) -> Vector2:
 	var m := 9.0
 	return Vector2(clampf(p.x, m, size.x - m), clampf(p.y, m, size.y - m))
+
+
+func _nimismies_ok() -> bool:
+	return nimismies != null and is_instance_valid(nimismies) and nimismies.is_inside_tree()
+
+
+## Jahtaava poliisi: sininen vilkkuva pylpyrä valkoisella reunalla.
+func _police_icon(p: Vector2) -> void:
+	var flash := int(Time.get_ticks_msec() / 250) % 2 == 0
+	var rad := 6.5 if flash else 5.0
+	draw_circle(p, rad, Color(0.15, 0.35, 1.0))
+	draw_arc(p, rad, 0, TAU, 16, Color.WHITE, 1.5)
 
 
 func _bike_icon(p: Vector2) -> void:
