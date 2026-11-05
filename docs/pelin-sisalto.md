@@ -552,8 +552,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     ravintolavaunussa tuopin kanssa, naisille tarjotaan Koskenkorvat (16 €, jos rahat riittävät) ja paukun
     jälkeen vieressä istuva Helena laskee kätensä polven päälle ja liu'uttaa sen reittä pitkin sisäreidelle (ilman tarjottuja paukkuja
     ei kättä). Erikoiskohtaus (riisuminen, flirtti, Helena Uiton saunalle) laukeaa vain verkkopaidassa ja tarjotuilla paukuilla Saloisista Vaalaan;
-    Vaalasta Saloisiin tarjoaminen tuo vain käden reidelle; taustalla soi hidas soul-lirkuttelu
-    (`tools/lirkuttelu.py` syntetisoi biisin `assets/music/lirkuttelu.wav`). Junasta noustaan laiturille; Vaalaan tultaessa mopo odottaa
+    Vaalasta Saloisiin tarjoaminen tuo vain käden reidelle; taustalla soi hidas, rento
+    "Slow Stride" (`assets/music/slow_stride.ogg`, `Sfx.SONG_JUNA`). Junasta noustaan laiturille; Vaalaan tultaessa mopo odottaa
     aseman edessä, ja Vaalasta
     lähdettäessä se palaa mökin pihaan kuten muillakin paluureiteillä.
   - **Minikartta** näkyy myös Vaalan matkalla (mopolla ja jalan) ja mökillä koko kävelyalueella Salmisille asti.

@@ -135,8 +135,8 @@ func stream(sound: String) -> AudioStream:
 const MUSIC_FILES := ["res://assets/music/normipaiva.ogg", "res://assets/music/normipaiva.mp3",
 	"res://assets/music/normipaiva.wav"]
 const MUSIC_DB := -4.0
-## Lirkuttelubiisi (junan ravintolavaunu): tools/lirkuttelu.py.
-const SONG_LIRKUTTELU := "res://assets/music/lirkuttelu.wav"
+## Junan ravintolavaunun taustabiisi: "Slow Stride" (isaiah658, CC0; docs/tekijanoikeudet.md).
+const SONG_JUNA := "res://assets/music/slow_stride.ogg"
 var _music: AudioStreamPlayer
 var _music_tw: Tween
 var _music_file := ""  # "" = tunnusmusiikki
@@ -162,7 +162,7 @@ func music_stream() -> AudioStream:
 const MUSIC_CHORUS := 25.0  # kertosäe alkaa (s): onnelliset loput soivat tästä
 
 ## Aloittaa (tai jatkaa) musiikin häivyttäen sisään; from = aloituskohta sekunteina. file = muu biisi kuin
-## tunnusmusiikki (esim. SONG_LIRKUTTELU); toinen biisi vaihtaa soittimen sisällön. stream = valmis ääni (esim.
+## tunnusmusiikki (esim. SONG_JUNA); toinen biisi vaihtaa soittimen sisällön. stream = valmis ääni (esim.
 ## lavabändin syntetisoima humppa, humppa_synth.gd), file on silloin sen tunniste.
 func music_play(fade := 1.5, from := 0.0, file := "", stream: AudioStream = null) -> void:
 	if _music != null and file != _music_file:

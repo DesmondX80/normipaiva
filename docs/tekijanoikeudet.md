@@ -11,6 +11,8 @@
   - "90s Racer Techno" ja "Acid Action" – Bogart VGM, OpenGameArt (CC BY 4.0)
   - "I´m Free", "It´s Love" ja "Dance and Jump" – Snabisch, OpenGameArt (CC BY 3.0)
   - "Bitten by the Rave Spider" – Woolly Jammoth, OpenGameArt (CC BY 4.0)
+- Junamatkan taustabiisi (`assets/music/slow_stride.ogg`, ravintolavaunun välikuva ja kuulokkeiden varasoittolista):
+  "Slow Stride" – isaiah658, [OpenGameArt](https://opengameart.org/content/slow-stride) (CC0; maininta ei pakollinen).
 - Iskelmät ja lavamusiikki (`assets/music/iskelma/`, Päivin kännykkä ja Oulujärven lavan bändi): Kansalliskirjaston
   [Raita](https://www.doria.fi/handle/10024/66373) – musiikkia vanhoilta äänilevyiltä, Public Domain. Uudelleenkoodattu
   (mono, MP3 48 kbps 22 kHz, hiljaiset alut pois); esittäjät, vuodet ja Doria-tunnisteet `scripts/iskelmat.gd`:ssä:

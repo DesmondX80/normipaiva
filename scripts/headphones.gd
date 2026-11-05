@@ -6,7 +6,7 @@ extends Node
 ## Ruudun vasemmassa alakulmassa näkyy soiva biisi. main.gd: found tallennukseen, toggle() ja next() näppäimistä.
 
 const MUSIC_DIR := "res://assets/music/kuulokkeet"
-const FALLBACK := ["res://assets/music/normipaiva.mp3", "res://assets/music/lirkuttelu.wav"]
+const FALLBACK := ["res://assets/music/normipaiva.mp3", "res://assets/music/slow_stride.ogg"]
 ## 90-luvun tyyliset CC BY -biisit (docs/tekijanoikeudet.md: tekijät ja lisenssit). Tiedostonimi -> näytettävä nimi.
 const TITLES := {
 	"01_Robotertanz": "Robotertanz – Shane Ivers",
@@ -83,8 +83,8 @@ static func song_title(path: String) -> String:
 	t = rx.sub(t, "")
 	if path.ends_with("normipaiva.mp3"):
 		return "Normipäivä (tunnari)"
-	if path.ends_with("lirkuttelu.wav"):
-		return "Lirkuttelu"
+	if path.ends_with("slow_stride.ogg"):
+		return "Slow Stride – isaiah658"
 	return t
 
 

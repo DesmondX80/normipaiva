@@ -1959,11 +1959,11 @@ const TRAIN_NET_EXTRA := [
 ## Junamatka Saloisten ja Vaalan asemien välillä kolmessa osassa: lähtö (Saloisista Raahen terästehtaan ohi,
 ## Vaalasta Oulujoen ristikkosillan yli), ravintolavaunussa jutellaan mukavia naismatkustajien kanssa (kahvia ja
 ## pullaa, maisema vilistää ikkunoissa) ja saapuminen (Vaalaan sillan yli, Saloisiin terästehtaan ohi).
-## Taustalla soi lirkuttelubiisi. done kutsutaan pimeällä.
+## Taustalla soi rauhallinen junabiisi (Sfx.SONG_JUNA). done kutsutaan pimeällä.
 func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	_begin()
 	Sfx.play("door_close", -4.0)
-	Sfx.music_play(0.8, 0.0, Sfx.SONG_LIRKUTTELU)
+	Sfx.music_play(0.8, 0.0, Sfx.SONG_JUNA)
 	await _fade_to(1.0, 0.4)
 	var rumble := AudioStreamPlayer.new()
 	rumble.stream = Sfx.stream("tractor_engine")

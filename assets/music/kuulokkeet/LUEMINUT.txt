@@ -14,4 +14,4 @@ Kansiossa on valmiina seitsemän 90-luvun tyylistä CC BY -biisiä (01_–07_,
 tekijät ja lisenssit README.md:n Tekijänoikeudet-osiossa; näytettävät nimet
 scripts/headphones.gd TITLES). Ne soivat myös Oulujärven lavan diskopuolella
 ja teinien kasettisoittimista. Jos kansio on tyhjä, kuulokkeista soivat pelin
-omat biisit (normipaiva.mp3 ja lirkuttelu.wav).
+omat biisit (normipaiva.mp3 ja slow_stride.ogg).
