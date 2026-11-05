@@ -319,9 +319,7 @@ static func _arch(parent: Node3D, x0: float, sx: float, center: Vector2, r0: flo
 		var radial := Vector3(0, sin(mid), cos(mid))
 		for k in prof.size() - 1:
 			var e := prof[k + 1] - prof[k]
-			var nrm := Vector2(e.y, -e.x).normalized()  # ulospäin profiilissa (r kasvaa, x ulos)
-			if k == 0:
-				nrm = Vector2(-1, 0)  # sisäreuna katsoo kaaren keskelle
+			var nrm := Vector2(-e.y, e.x).normalized()  # profiili kiertää vastapäivään: sisäreuna -r, etupinta +ulos, ulkoreuna +r
 			var n3 := (radial * nrm.x + Vector3(sx * nrm.y, 0, 0)).normalized()
 			var q: Array[Vector3] = []
 			for a: float in ang:
@@ -458,7 +456,7 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 			for k in 17:
 				var a: float = lerpf(a0, PI - a0, k / 16.0)
 				well.append(Vector2(wz + cos(a) * (ARCH_R + 0.005), ARCH_Y + sin(a) * (ARCH_R + 0.005)))
-			_side_panel(parent, sx * (SIDE + 0.004), well, frame)
+			_side_panel(parent, sx * (SIDE + 0.007), well, frame)
 			_arch(parent, sx * SIDE, sx, Vector2(wz, ARCH_Y), ARCH_R, LIP_R, 0.022, a0, body)
 	part(parent, B.boxm(Vector3(0.012, 0.1, 0.12)), Vector3(-(SIDE + 0.004), 0.78, 1.6), frame)  # tankkiluukku vasemmassa takakyljessä
 	part(parent, B.boxm(Vector3(0.014, 0.085, 0.105)), Vector3(-(SIDE + 0.005), 0.78, 1.6), body)
