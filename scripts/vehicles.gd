@@ -220,16 +220,6 @@ static func car(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	return wheels
 
 
-## Suorakulmainen kolmioprisma sivuprofiilina (YZ-taso, leveys X): kanta y0:ssa z0…z1, pystysivu ylös y1:een
-## takapäässä z1 (rear) tai etupäässä z0. PrismMeshin kolmio on XY-tasossa, joten se käännetään Y:n ympäri
-## (paikallinen +X -> -Z); left_to_right 0 = kärki -X:ssä eli takana (+Z).
-static func _wedge(parent: Node3D, z0: float, z1: float, y0: float, y1: float, rear: bool, width: float, mat: Material) -> MeshInstance3D:
-	var pm := PrismMesh.new()
-	pm.size = Vector3(z1 - z0, y1 - y0, width)
-	pm.left_to_right = 0.0 if rear else 1.0
-	return part(parent, pm, Vector3(0, (y0 + y1) / 2.0, (z0 + z1) / 2.0), mat, Vector3(0, PI / 2.0, 0))
-
-
 ## Ohut kupera monikulmio sivuprofiilina x:n kohdalla (pisteet (z, y)), molemmin puolin näkyvä: C-pilarin levy.
 static func _side_panel(parent: Node3D, x: float, pts: Array, mat: Material) -> MeshInstance3D:
 	var st := SurfaceTool.new()
@@ -344,9 +334,9 @@ static func _bevel_box(parent: Node3D, size: Vector3, pos: Vector3, c: float, ma
 ## Päivin Hyundai Pony (Pony 2, 1982–90, Giugiaro) -Z-suuntaan: 5-ovinen viistoperä n. 1,6 × 1,38 × 4,0 m
 ## puskureineen, akseliväli 2,38 m. Esikuvat .claude/tyo/pony-realistinen/esikuva_pony2*.jpg: matala tasainen
 ## konepelti, suorakaiteiset ajovalot ja kulmavilkut, musta ruudukkosäleikkö HYUNDAI-merkillä, leveät mustat
-## puskurit punaisella raidalla, kolme sivuikkunaa mustin kehyksin, leveä takapilari, lähes pysty takaluukku ja
-## vaakatakavalot kilven molemmin puolin. Keulakiila ja ikkunoiden kolmiot prismoina (_wedge) samoista pisteistä
-## kuin tuulilasi ja takalasi, jotta lasi ei pistä läpi eikä jätä rakoa. Palauttaa pyörät kuten car().
+## puskurit punaisella raidalla, kolme sivuikkunaa mustin kehyksin, leveä takapilari, viisto takaluukku ja
+## vaakatakavalot kilven molemmin puolin. Kori viistetyin reunoin (_bevel), pyöreät pyöränkaaret (_arch), läpinäkyvät
+## lasit ja sisusta (selkänojat niskatukineen, kojelauta, ratti). Palauttaa pyörät kuten car().
 static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	# Mitat sivukuvasta esikuva_pony2_sivu.jpg (233 px/m akselivälistä): pyörät z ±1,19, keula 0,75 ja perä 0,87 pyörän
 	# keskeltä puskureineen, tuulilasi z -0,68…-0,15, katto päättyy z 1,18, takalasi viistää (1,33; 1,18) -> (0,98; 1,88).

@@ -980,7 +980,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   lisätyt biisit (esim. Eräät Jormat Suno-soittolistalta, ks. LUEMINUT.txt) soivat myös. Löytö ja voimakkuus
   säilyvät (testi `--scene=puhelin`).
 - **Vaarat:** Päivin Hyundai, juntti, laavun valtaajat ja jyväjemmari traktorilla, jos ajat viljapellolle.
-  Päivin Hyundai on punainen Pony 2 -viistoperä (5-ovinen, Giugiaro), oma malli `vehicles.gd pony()`; muut autot ovat `car()`.
+  Päivin Hyundai on punainen Pony 2 -viistoperä (5-ovinen, Giugiaro), oma malli `vehicles.gd pony()` (viistetyt korin reunat, pyöreät pyöränkaaret, läpinäkyvät lasit ja sisusta: selkänojat niskatukineen, kojelauta ja ratti); muut autot ovat `car()`.
   Kiinni jäädessä ratkaistaan Street Fighter -tappelussa.
   Juntilla on seitsemän paikkaa reittien varrella ja Seuranmäellä (Reipparin edusta ja kentän laita), ja hän ehtii
   sinne, minne olet menossa: kun lähestyt jotakin paikkaa ja Juntti on kaukana poissa näkyvistä, hän on jo siellä.
