@@ -250,7 +250,8 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	const HT0 := 1.25  # takalasin yläreuna z
 	const HT1 := 1.70  # takalasin alareuna z
 	const HT_Y := 1.00  # takalasin alareuna y
-	const QW := 1.30  # takasivuikkunan takareuna z, siitä taakse leveä takapilari
+	const QW := 1.15  # kapean takasivuikkunan takareuna z, siitä taakse leveä takapilari
+	const RW := 0.95  # takaoven ikkunan takareuna z
 	const GLASS_W := 1.36
 	const LAMP_Y := 0.63  # ajovalojen ja vilkkujen keskikorkeus
 	const BUMP_Y := 0.38  # puskurien keskikorkeus
@@ -258,6 +259,7 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	const WHEEL_Z := 1.19  # akseliväli 2,38 m
 	var first := parent.get_child_count()
 	var body := paint(color)
+	var win := _mat("ponylasi", Color(0.2, 0.25, 0.3), 0.6, 0.06)  # vaaleampi kuin glass(): mustat kehykset erottuvat
 	var frame := plastic()
 	var bar := _mat("ponygrille", Color(0.16, 0.16, 0.17), 0.2, 0.5)
 	var stripe := _mat("ponyraita", Color(0.75, 0.08, 0.06), 0.0, 0.5)
@@ -272,12 +274,12 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	var wf1 := Vector3(0, top, WS1)
 	var wr0 := Vector3(0, top, HT0)
 	var wr1 := Vector3(0, HT_Y, HT1)
-	part(parent, B.boxm(Vector3(GLASS_W, top - BELT, HT0 - WS1)), Vector3(0, (BELT + top) / 2.0, (WS1 + HT0) / 2.0), glass())
-	_wedge(parent, WS0, WS1, BELT, top, true, GLASS_W, glass())
-	_wedge(parent, HT0, HT1, HT_Y, top, false, GLASS_W, glass())
-	part(parent, B.boxm(Vector3(GLASS_W, HT_Y - BELT, HT1 - HT0)), Vector3(0, (BELT + HT_Y) / 2.0, (HT0 + HT1) / 2.0), glass())
-	slab(parent, wf0, wf1, GLASS_W + 0.02, 0.04, glass())  # tuulilasi
-	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, glass())  # takaluukun lasi
+	part(parent, B.boxm(Vector3(GLASS_W, top - BELT, HT0 - WS1)), Vector3(0, (BELT + top) / 2.0, (WS1 + HT0) / 2.0), win)
+	_wedge(parent, WS0, WS1, BELT, top, true, GLASS_W, win)
+	_wedge(parent, HT0, HT1, HT_Y, top, false, GLASS_W, win)
+	part(parent, B.boxm(Vector3(GLASS_W, HT_Y - BELT, HT1 - HT0)), Vector3(0, (BELT + HT_Y) / 2.0, (HT0 + HT1) / 2.0), win)
+	slab(parent, wf0, wf1, GLASS_W + 0.02, 0.04, win)  # tuulilasi
+	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, win)  # takaluukun lasi
 	slab(parent, wr1, Vector3(0, BELT, BACK), SIDE * 2.0, 0.06, body)  # takaluukun alaosa
 	part(parent, B.boxm(Vector3(GLASS_W + 0.06, ROOF_T, HT0 - WS1 + 0.04)), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), body)  # katto
 	# Takaluukun pyyhin ja konepellin takareunan tuuletusritilät, tuulilasin pyyhkimet.
@@ -302,12 +304,12 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 		part(parent, B.boxm(Vector3(0.02, 0.03, QW - WS0)), Vector3(fx, BELT + 0.015, (WS0 + QW) / 2.0), frame)
 		part(parent, B.boxm(Vector3(0.02, top - BELT, 0.025)), Vector3(fx, (BELT + top) / 2.0, QW), frame)
 		part(parent, B.boxm(Vector3(0.05, top - BELT, 0.09)), Vector3(fx, (BELT + top) / 2.0, 0.25), frame)  # B-pilari
-		part(parent, B.boxm(Vector3(0.02, top - BELT, 0.03)), Vector3(fx, (BELT + top) / 2.0, 1.05), frame)  # takaoven ikkunan takareuna
+		part(parent, B.boxm(Vector3(0.02, top - BELT, 0.03)), Vector3(fx, (BELT + top) / 2.0, RW), frame)  # takaoven ikkunan takareuna
 		slab(parent, wf0 + Vector3(fx, 0, 0.01), wf1 + Vector3(fx, 0, 0.01), 0.02, 0.03, frame)  # oven etureunan kehys
 		# Kylki: ovisaumat (2 ovea), kromiset kahvat, musta kylkilista ovien keskikorkeudella, peili, pyöräkotelot.
 		for dz in [WS0, 0.25, 1.10]:
 			part(parent, B.boxm(Vector3(0.01, BELT - SILL - 0.06, 0.012)), Vector3(sx * (SIDE + 0.001), (SILL + BELT) / 2.0 + 0.02, dz), frame)
-		for hz in [0.08, 0.93]:
+		for hz in [0.08, 0.83]:
 			part(parent, B.boxm(Vector3(0.03, 0.035, 0.14)), Vector3(sx * (SIDE + 0.01), 0.78, hz), chrome())
 		part(parent, B.boxm(Vector3(0.03, 0.05, 2 * (WHEEL_Z - WHEEL_R - 0.05))), Vector3(sx * (SIDE + 0.012), 0.55, 0), frame)  # kylkilista
 		part(parent, B.boxm(Vector3(0.12, 0.09, 0.15)), Vector3(sx * (SIDE + 0.07), BELT + 0.09, WS0 + 0.12), frame)  # peili
