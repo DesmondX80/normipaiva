@@ -21785,7 +21785,7 @@ func _day_rhythm() -> void:
 func _wife_park_pos() -> Vector3:
 	var out: Vector3 = world.garage_out
 	var p: Vector3 = world.garage_door + out.cross(Vector3.UP) * 3.3 + out * 2.4
-	return Vector3(p.x, Terrain.h(p.x, p.z) + 0.3, p.z)
+	return Vector3(p.x, Terrain.h(p.x, p.z), p.z)  # auton origo on renkaiden alapinnassa (wife_car.gd _drive)
 
 
 ## Päivin partiokohteet: [nimi, paikka (karttapikseli), perustodennäköisyys]. Kauppa painavampi: sinne pelaaja menee
@@ -25027,7 +25027,7 @@ func _maybe_screenshot() -> void:
 			var cam := get_viewport().get_camera_3d()
 			var gd: Vector3 = world.garage_door
 			print("PAIVI tallin suunta %s" % world.garage_out)
-			for v in [["_ylha", wp + Vector3(0, 28, 6), wp], ["_viisto", wp + Vector3(-10, 6, 12), wp], ["_talli", gd + Vector3(0, 22, 4), gd]]:
+			for v in [["_ylha", wp + Vector3(0, 28, 6), wp], ["_viisto", wp + Vector3(-10, 6, 12), wp], ["_sivu", wp + Vector3(6, 0.8, 5), wp + Vector3(0, 0.6, 0)], ["_talli", gd + Vector3(0, 22, 4), gd]]:
 				for i in 10:
 					cam.look_at_from_position(v[1], v[2])
 					await get_tree().process_frame

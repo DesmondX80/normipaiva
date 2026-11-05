@@ -734,7 +734,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     4–5 tähdellä turvapaikat eivät suojaa ja mukaan tulee poliisiauto. Kuminauha 4–5 tähdellä: yli 120 m päässä oleva jahtaaja
     siirtyy näkymättömiin lähempään tieverkon solmuun kameran taakse. **Vaalassa jahtaa konstaapeli Roivainen** poliisi-Saabilla
     (`rikos/roivainen_auto.gd`): tietä pitkin, alle 40 m:ssä suoraan kohti. Pako: kun yksikään jahtaaja ei näe (45 m, näköyhteys)
-    tähdet × 4 s, tähti putoaa 8 s välein; kahdesta tähdestä pääsee karkuun 24 s:ssa ja viidestä 60 s:ssa. Kiinni: Päivi motkottaa (päivä päättyy kuten
+    tähdet × 4 s, tähti putoaa 8 s välein; kahdesta tähdestä pääsee karkuun 24 s:ssa ja viidestä 60 s:ssa. Kiinni: Päivi riittää, kun hänen autonsa on 6 m:n päässä varastetusta autosta (WASTED autossa istuessakin); Päivi motkottaa (päivä päättyy kuten
     Päivin kiinniotossa, kotihommien hyvitykset eivät päde), Roivainen tai poliisi pidättää (PIDÄTETTY, `_rikos_loppu`). Jahti jatkuu
     jalan, jos autosta nousee. Riskit-sivun osio Takaa-ajo: tähdet, jahtaaja, päivän kaappaukset ja pakomatkat. Ei tallenneta:
     lataus ja uusi päivä nollaavat jahdin ja vievät hylätyt autot.

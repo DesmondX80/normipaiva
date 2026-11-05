@@ -18,6 +18,7 @@ const T := preload("res://scripts/terrain.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Vehicles := preload("res://scripts/vehicles.gd")
 const TrafficCar := preload("res://scripts/traffic_car.gd")
+const WifeCar := preload("res://scripts/wife_car.gd")
 const PoliceCar := preload("res://scripts/police_car.gd")
 const RoivainenAuto := preload("res://scripts/rikos/roivainen_auto.gd")
 const TahdetHud := preload("res://scripts/rikos/tahdet_hud.gd")
@@ -27,6 +28,7 @@ const OVI_VAN := Vector3(-1.3, 0.0, -1.3)  # pakettiauton ohjaamon ovi (Vehicles
 const OVI_R := 2.5
 const KYLKI := Vector2(2.4, 2.6)  # kaapattava, kun pelaaja on auton kehyksessä tämän laatikon (x sivulle, z pituussuuntaan) sisällä
 const KAAPPAUS_NOPEUS := 2.0  # m/s: tätä hitaampi auto kaapataan (pysähtyvä tai lähtevä auto ei karkaa käsistä)
+const KIINNI_AUTOSSA := 6.0  # m: Päivi saa kiinni, kun autojen keskipisteet ovat näin lähellä (autot ovat kolme metriä leveitä, joten 3,3 m ei koskaan toteudu)
 const PIDA_R := 9.0  # pysähtynyt auto odottaa, kun pelaaja on näin lähellä sitä (kuski jähmettyy)
 const MAX_TAHDET := 5
 const TAHTI_AJO := 25.0  # s ajoa jahdin aikana = +1 tähti
@@ -502,6 +504,7 @@ func _paivita_jahtaaja() -> void:
 	_kytke_paivi(w)
 	w.heat_mult = heat
 	w.ignore_safe = tahdet >= POLIISI_TAHDET
+	w.catch_dist = KIINNI_AUTOSSA if autossa else WifeCar.CATCH_DIST
 	w.parked = false
 	w.grace = 0.0
 	w.visible = true
@@ -546,6 +549,7 @@ func _irrota_paivi() -> void:
 		w.caught.connect(game._on_wife_caught)
 	w.heat_mult = 1.0
 	w.ignore_safe = false
+	w.catch_dist = WifeCar.CATCH_DIST
 	w.alerted = false
 	if w.mode == "chase":
 		w.forgive(6.0)

@@ -24,6 +24,7 @@ var alerted := false  # naapuri käräytti: vaimo tietää koko ajan missä olet
 var speed_mult := 1.0  # päivän tilat (#18): huonon päivän jälkeen nopeampi, hyvän jälkeen hitaampi
 ## Autovarkauden tähtijahti (rikos/autovarkaus.gd): oma kerroin, koska main.gd kirjoittaa speed_mult:n yli joka ruutu.
 var heat_mult := 1.0
+var catch_dist := CATCH_DIST  # tähtijahdissa suurempi: pelaajan auto ja Päivin auto törmäävät keulat vastakkain, ennen kuin keskipisteet ovat 3,3 m päässä
 var ignore_safe := false  # tähtijahti (4–5 tähteä): turvapaikat eivät suojaa
 var mode := "patrol"  # patrol, chase, return
 var parked := false  # yöllä kotipihassa: Päivi sisällä, auto ei liiku eikä jahtaa (main.gd _day_rhythm)
@@ -145,7 +146,7 @@ func _physics_process(delta: float) -> void:
 				_advance()
 	_drive(delta, want * speed_mult * heat_mult)
 
-	if d < CATCH_DIST and not in_safe and grace <= 0.0:
+	if d < catch_dist and not in_safe and grace <= 0.0:
 		caught.emit()
 
 
