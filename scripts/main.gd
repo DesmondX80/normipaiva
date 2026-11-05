@@ -23932,6 +23932,10 @@ func _maybe_screenshot() -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0]))
 			_paper.toggle()
+		"autovarkaus_kahdesti":
+			# Auton kaappaus useasti peräkkäin oikealla ajolla (headless); rikos/autovarkaus.gd testi_kahdesti.
+			await rikos_osa("autovarkaus").testi_kahdesti(3)
+			get_tree().quit()
 		"kolmio_juttu":
 			# Teron ja Timon juttelu Vaalan aseman pihalla: jalan kulkija heidän vieressään, vihje ja E (ei kuvia, toimii headlessina).
 			_start_mopo()
