@@ -244,6 +244,72 @@ static func _side_panel(parent: Node3D, x: float, pts: Array, mat: Material) -> 
 	return mi
 
 
+## Kolmio normaalin n puolelle näkyväksi: kiertosuunta valitaan normaalista (Godotissa etupinta myötäpäivään).
+static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, n: Vector3) -> void:
+	if (b - a).cross(c - a).dot(n) > 0.0:
+		var t := b
+		b = c
+		c = t
+	st.set_normal(n)
+	for p in [a, b, c]:
+		st.add_vertex(p)
+
+
+## Viistetty kappale: sivuprofiili pts (z, y; saa olla kovera) pursotetaan X-suunnassa -half_w…half_w, ja
+## profiilin reunat viistetään kyljissä 45° c:n verran (kylki on profiili c:n verran sisennettynä). Profiilin
+## kulmat viistetään pisteinä profiilissa. Ulkomitat ovat profiilin ja leveyden mukaiset: viiste ei kasvata
+## kappaletta. Tasaiset normaalit: viisteeseen tulee oma valoreuna.
+static func _bevel(parent: Node3D, pts: PackedVector2Array, half_w: float, c: float, mat: Material, pos := Vector3.ZERO) -> MeshInstance3D:
+	var n := pts.size()
+	var area := 0.0
+	for i in n:
+		area += pts[i].cross(pts[(i + 1) % n])
+	var outward: Array[Vector2] = []  # reunan i (pts[i] -> pts[i+1]) ulkonormaali
+	for i in n:
+		var e := (pts[(i + 1) % n] - pts[i]).normalized()
+		outward.append(Vector2(e.y, -e.x) if area > 0.0 else Vector2(-e.y, e.x))
+	var inset := PackedVector2Array()
+	for i in n:
+		var ep: Vector2 = pts[(i + n - 1) % n] - outward[(i + n - 1) % n] * c
+		var en: Vector2 = pts[i] - outward[i] * c
+		var hit = Geometry2D.line_intersects_line(ep, pts[i] - pts[(i + n - 1) % n], en, pts[(i + 1) % n] - pts[i])
+		inset.append(hit if hit != null else en)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var hx := half_w - c
+	for i in n:
+		var j := (i + 1) % n
+		var o: Vector2 = outward[i]
+		var on := Vector3(0, o.y, o.x)
+		var a := Vector3(0, pts[i].y, pts[i].x)
+		var b := Vector3(0, pts[j].y, pts[j].x)
+		_tri(st, a + Vector3(-hx, 0, 0), a + Vector3(hx, 0, 0), b + Vector3(hx, 0, 0), on)
+		_tri(st, a + Vector3(-hx, 0, 0), b + Vector3(hx, 0, 0), b + Vector3(-hx, 0, 0), on)
+		var ai := Vector3(0, inset[i].y, inset[i].x)
+		var bi := Vector3(0, inset[j].y, inset[j].x)
+		for s in [1.0, -1.0]:
+			var bn := (on + Vector3(s, 0, 0)).normalized()
+			_tri(st, a + Vector3(s * hx, 0, 0), b + Vector3(s * hx, 0, 0), bi + Vector3(s * half_w, 0, 0), bn)
+			_tri(st, a + Vector3(s * hx, 0, 0), bi + Vector3(s * half_w, 0, 0), ai + Vector3(s * half_w, 0, 0), bn)
+	var idx := Geometry2D.triangulate_polygon(inset)
+	for s in [1.0, -1.0]:
+		for k in range(0, idx.size(), 3):
+			var t: Array[Vector3] = []
+			for m in 3:
+				t.append(Vector3(s * half_w, inset[idx[k + m]].y, inset[idx[k + m]].x))
+			_tri(st, t[0], t[1], t[2], Vector3(s, 0, 0))
+	return part(parent, st.commit(), pos, mat)
+
+
+## Laatikko, jonka kaikki 12 reunaa on viistetty c:n verran (ulkomitat = size).
+static func _bevel_box(parent: Node3D, size: Vector3, pos: Vector3, c: float, mat: Material) -> MeshInstance3D:
+	var hz := size.z / 2.0
+	var hy := size.y / 2.0
+	var pts := PackedVector2Array([Vector2(-hz + c, -hy), Vector2(hz - c, -hy), Vector2(hz, -hy + c), Vector2(hz, hy - c),
+		Vector2(hz - c, hy), Vector2(-hz + c, hy), Vector2(-hz, hy - c), Vector2(-hz, -hy + c)])
+	return _bevel(parent, pts, size.x / 2.0, c, mat, pos)
+
+
 ## Päivin Hyundai Pony (Pony 2, 1982–90, Giugiaro) -Z-suuntaan: 5-ovinen viistoperä n. 1,6 × 1,38 × 4,0 m
 ## puskureineen, akseliväli 2,38 m. Esikuvat .claude/tyo/pony-realistinen/esikuva_pony2*.jpg: matala tasainen
 ## konepelti, suorakaiteiset ajovalot ja kulmavilkut, musta ruudukkosäleikkö HYUNDAI-merkillä, leveät mustat
@@ -278,6 +344,8 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	const WHEEL_Z := 1.19  # akseliväli 2,38 m
 	const ARCH_R := WHEEL_R + 0.045  # pyöränkaaren säde
 	const ARCH_Y := ARCH_R  # kaaren keskipiste renkaan keskeltä ylempänä: kotelo ulottuu maahan asti, ei alle
+	const SC := 0.03  # kyljen reunojen viiste
+	const CF := 0.035  # keulan ja perän ylä- ja alareunan viiste
 	var first := parent.get_child_count()
 	var body := paint(color)
 	var win := _mat("ponylasi", Color(0.2, 0.25, 0.3), 0.6, 0.06)  # vaaleampi kuin glass(): mustat kehykset erottuvat
@@ -287,9 +355,12 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	if plate == "":
 		plate = "%s%s%s-%d" % [char(65 + randi() % 26), char(65 + randi() % 26), char(65 + randi() % 26), 100 + randi() % 900]
 	var top := ROOF - ROOF_T  # lasien yläreuna
-	part(parent, B.boxm(Vector3(SIDE * 2.0, NOSE_Y - SILL, BACK - FRONT)), Vector3(0, (SILL + NOSE_Y) / 2.0, (FRONT + BACK) / 2.0), body)  # alakori
-	part(parent, B.boxm(Vector3(SIDE * 2.0, BELT - NOSE_Y, BACK - WS0)), Vector3(0, (NOSE_Y + BELT) / 2.0, (WS0 + BACK) / 2.0), body)
-	_wedge(parent, FRONT, WS0, NOSE_Y, BELT, true, SIDE * 2.0, body)  # konepelti laskee loivasti eteen
+	# Alakori, konepelti ja takaluukun pystyosa yhtenä sivuprofiilina: kyljen reunat viistetty SC:n verran
+	# (vyölinja, keulan ja perän pystykulmat, helma) ja profiilin kulmat CF:n verran (keulan ja perän yläreuna).
+	var nose_cf: float = NOSE_Y + (BELT - NOSE_Y) * CF / (WS0 - FRONT)  # konepellin pinta CF:n päässä keulasta
+	_bevel(parent, PackedVector2Array([Vector2(FRONT, SILL + CF), Vector2(FRONT + CF, SILL), Vector2(BACK - CF, SILL),
+		Vector2(BACK, SILL + CF), Vector2(BACK, HT_Y - CF), Vector2(BACK - CF, HT_Y), Vector2(HT1 - 0.04, HT_Y),
+		Vector2(HT1 - 0.04, BELT), Vector2(WS0, BELT), Vector2(FRONT + CF, nose_cf), Vector2(FRONT, NOSE_Y - CF)]), SIDE, SC, body)
 	# Ikkunat: tumma lasi kattoalueella ja kolmiot tuulilasin ja takalasin alla.
 	var wf0 := Vector3(0, BELT, WS0)
 	var wf1 := Vector3(0, top, WS1)
@@ -301,10 +372,9 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	part(parent, B.boxm(Vector3(GLASS_W, HT_Y - BELT, HT1 - HT0)), Vector3(0, (BELT + HT_Y) / 2.0, (HT0 + HT1) / 2.0), win)
 	slab(parent, wf0, wf1, GLASS_W + 0.02, 0.04, win)  # tuulilasi
 	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, win)  # takaluukun lasi
-	# Luukun lyhyt pysty peltiosa lasin alla (takavalot ja kilpi), yläreunassa pieni musta huulispoileri.
-	part(parent, B.boxm(Vector3(SIDE * 2.0, HT_Y - BELT, BACK - HT1 + 0.04)), Vector3(0, (BELT + HT_Y) / 2.0, (HT1 - 0.04 + BACK) / 2.0), body)
+	# Luukun lyhyen pystyn peltiosan (takavalot ja kilpi, alakorin profiilissa) yläreunassa pieni musta huulispoileri.
 	slab(parent, Vector3(0, HT_Y + 0.012, HT1 - 0.02), Vector3(0, HT_Y + 0.035, BACK + 0.04), GLASS_W + 0.04, 0.025, frame)
-	part(parent, B.boxm(Vector3(GLASS_W + 0.06, ROOF_T, HT0 - WS1 + 0.04)), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), body)  # katto
+	_bevel_box(parent, Vector3(GLASS_W + 0.06, ROOF_T, HT0 - WS1 + 0.04), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), 0.02, body)  # katto
 	# Takalasin musta kehys ja pyyhin, konepellin takareunan tuuletusritilät, tuulilasin pyyhkimet.
 	var hat := (wr1 - wr0).normalized()
 	slab(parent, wr0, wr0.lerp(wr1, 0.05), GLASS_W, 0.05, frame)
@@ -334,7 +404,7 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 		# peili, pyöränkaaret (musta kotelo ja maalattu reunus).
 		var sz: float = sx * (SIDE + 0.001)
 		for dz in [WS0, BP, 0.95]:
-			part(parent, B.boxm(Vector3(0.01, BELT - SILL - 0.06, 0.012)), Vector3(sz, (SILL + BELT) / 2.0 + 0.02, dz), frame)
+			part(parent, B.boxm(Vector3(0.01, BELT - SILL - SC * 2.0 - 0.04, 0.012)), Vector3(sz, (SILL + BELT) / 2.0, dz), frame)  # viisteiden välissä
 		for hz in [BP - 0.12, RW - 0.1]:
 			part(parent, B.boxm(Vector3(0.03, 0.035, 0.14)), Vector3(sx * (SIDE + 0.01), 0.80, hz), bar)
 		var arch_out := [FRONT, -WHEEL_Z - ARCH_R, -WHEEL_Z + ARCH_R, WHEEL_Z - ARCH_R, WHEEL_Z + ARCH_R, BACK]
@@ -384,26 +454,28 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 		for k in 6:
 			part(parent, B.boxm(Vector3(0.006, 0.15, 0.032)), Vector3(sx * (0.385 + k * 0.046), LAMP_Y, FRONT - 0.012), lens)
 		part(parent, B.boxm(Vector3(0.29, 0.006, 0.032)), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.012), lens)
-		part(parent, B.boxm(Vector3(0.11, 0.16, 0.03)), Vector3(sx * 0.735, LAMP_Y, FRONT - 0.01), amber)  # kulmavilkku
-		part(parent, B.boxm(Vector3(0.02, 0.16, 0.08)), Vector3(sx * (SIDE + 0.005), LAMP_Y, FRONT + 0.04), amber)
+		part(parent, B.boxm(Vector3(0.09, 0.16, 0.03)), Vector3(sx * (SIDE - SC - 0.045), LAMP_Y, FRONT - 0.01), amber)  # kulmavilkku viisteen sisäpuolella
+		part(parent, B.boxm(Vector3(0.02, 0.16, 0.08)), Vector3(sx * (SIDE + 0.005), LAMP_Y, FRONT + SC + 0.045), amber)
 	# Perä: vaakatakavalot kilven molemmin puolin (punainen yläosa, alhaalla vilkku ulkona ja peruutusvalo sisällä).
 	part(parent, B.boxm(Vector3(0.58, 0.2, 0.03)), Vector3(0, TAIL_Y, BACK + 0.01), frame)  # kilven syvennys
 	for sx in [-1.0, 1.0]:
-		part(parent, B.boxm(Vector3(0.5, 0.2, 0.025)), Vector3(sx * 0.54, TAIL_Y, BACK + 0.005), frame)  # valon kehys
-		part(parent, B.boxm(Vector3(0.47, 0.085, 0.03)), Vector3(sx * 0.54, TAIL_Y + 0.045, BACK + 0.01), lamp(Color(0.72, 0.02, 0.05)))
-		part(parent, B.boxm(Vector3(0.31, 0.075, 0.03)), Vector3(sx * 0.62, TAIL_Y - 0.045, BACK + 0.01), amber)
+		part(parent, B.boxm(Vector3(0.48, 0.2, 0.025)), Vector3(sx * 0.53, TAIL_Y, BACK + 0.005), frame)  # valon kehys, ulkoreuna viisteen sisäpuolella
+		part(parent, B.boxm(Vector3(0.45, 0.085, 0.03)), Vector3(sx * 0.53, TAIL_Y + 0.045, BACK + 0.01), lamp(Color(0.72, 0.02, 0.05)))
+		part(parent, B.boxm(Vector3(0.29, 0.075, 0.03)), Vector3(sx * 0.61, TAIL_Y - 0.045, BACK + 0.01), amber)
 		part(parent, B.boxm(Vector3(0.15, 0.075, 0.03)), Vector3(sx * 0.38, TAIL_Y - 0.045, BACK + 0.01), lamp(Color(0.95, 0.95, 0.92)))
 		for k in 4:
-			part(parent, B.boxm(Vector3(0.47, 0.004, 0.032)), Vector3(sx * 0.54, TAIL_Y + 0.012 + k * 0.022, BACK + 0.01), frame)  # punaisen lasin urat
+			part(parent, B.boxm(Vector3(0.45, 0.004, 0.032)), Vector3(sx * 0.53, TAIL_Y + 0.012 + k * 0.022, BACK + 0.01), frame)  # punaisen lasin urat
 	# Leveät mustat puskurit punaisella raidalla, pakoputki.
 	for bz in [FRONT - 0.05, BACK + 0.05]:
 		var face: float = signf(bz) * 0.08
-		part(parent, B.boxm(Vector3(SIDE * 2.0 + 0.04, 0.2, 0.16)), Vector3(0, BUMP_Y, bz), frame)
-		part(parent, B.boxm(Vector3(SIDE * 2.0 + 0.04, 0.015, 0.005)), Vector3(0, BUMP_Y + 0.04, bz + face), stripe)
+		_bevel_box(parent, Vector3(SIDE * 2.0 + 0.04, 0.2, 0.16), Vector3(0, BUMP_Y, bz), 0.03, frame)
+		part(parent, B.boxm(Vector3(SIDE * 2.0 - 0.02, 0.015, 0.005)), Vector3(0, BUMP_Y + 0.04, bz + face), stripe)  # päät viisteiden sisäpuolella
 		var wrap_z: float = bz - signf(bz) * 0.2  # puskurin kylkiosa kohti pyörää
+		var za: float = bz + signf(bz) * 0.05  # kylkiraita etupinnan viisteestä kylkiosan päätyviisteeseen
+		var zb: float = wrap_z - signf(bz) * 0.135
 		for sx in [-1.0, 1.0]:
-			part(parent, B.boxm(Vector3(0.04, 0.2, 0.3)), Vector3(sx * SIDE, BUMP_Y, wrap_z), frame)
-			part(parent, B.boxm(Vector3(0.005, 0.015, 0.43)), Vector3(sx * (SIDE + 0.022), BUMP_Y + 0.04, (bz + wrap_z - signf(bz) * 0.07) / 2.0), stripe)
+			_bevel_box(parent, Vector3(0.04, 0.2, 0.3), Vector3(sx * SIDE, BUMP_Y, wrap_z), 0.015, frame)
+			part(parent, B.boxm(Vector3(0.005, 0.015, absf(za - zb))), Vector3(sx * (SIDE + 0.022), BUMP_Y + 0.04, (za + zb) / 2.0), stripe)
 	part(parent, B.cyl(0.03, 0.03, 0.16, 8), Vector3(0.35, 0.21, BACK + 0.04), bar, Vector3(PI / 2.0, 0, 0))  # pakoputki
 	for sx in [-1.0, 1.0]:
 		for wz in [-WHEEL_Z, WHEEL_Z]:
