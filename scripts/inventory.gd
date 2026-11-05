@@ -22,6 +22,11 @@ const PORTRAIT := Vector2(150, 190)
 const Looks := preload("res://scripts/looks.gd")
 
 var game: Node
+var mode := "reppu"  # "reppu" tai "laakkeet": lääkkeet ja huumeet ovat omalla välilehdellään eivätkä vie reppuun tilaa
+var _n := SLOTS
+var _cols := COLS
+var _sz := SLOT
+var _gap := GAP
 
 var _items: Array = []  # tavarat ja eväät yhdessä rivissä
 var _info := {}
@@ -60,8 +65,19 @@ func _gui_input(event: InputEvent) -> void:
 
 
 ## Päiväkirja näyttää tai piilottaa sivun (vihkon avaus ja tauko ovat päiväkirjan).
-func show_page(on: bool) -> void:
+func show_page(on: bool, page := "reppu") -> void:
 	visible = on
+	mode = page
+	if mode == "laakkeet":
+		_n = 16
+		_cols = 4
+		_sz = 72.0
+		_gap = 8.0
+	else:
+		_n = SLOTS
+		_cols = COLS
+		_sz = SLOT
+		_gap = GAP
 	if _pv != null:
 		_pv.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
 		_pchar.process_mode = Node.PROCESS_MODE_ALWAYS if on else Node.PROCESS_MODE_DISABLED
@@ -96,15 +112,16 @@ func _process(_delta: float) -> void:
 func _refresh() -> void:
 	var all: Array = game.inventory_items() if game != null else []
 	# Tavarat ensin, eväät perään: sama yksi ruudukko.
+	all = all.filter(func(it): return it.get("laake", false) == (mode == "laakkeet"))
 	_items = all.filter(func(it): return not it.get("food", false)) + all.filter(func(it): return it.get("food", false))
 	_info = game.inventory_info() if game != null else {}
 	_book = MG.notebook_rect(size)
 	var pg := MG.notebook_page(_book, true)
-	var gw := COLS * SLOT + (COLS - 1) * GAP
+	var gw := _cols * _sz + (_cols - 1) * _gap
 	var gx := pg.position.x + 54.0 + (pg.size.x - 70.0 - gw) / 2.0
 	_slots.clear()
-	for c in SLOTS:
-		_slots.append(Rect2(Vector2(gx + (c % COLS) * (SLOT + GAP), pg.position.y + 96.0 + (c / COLS) * (SLOT + GAP)), Vector2(SLOT, SLOT)))
+	for c in _n:
+		_slots.append(Rect2(Vector2(gx + (c % _cols) * (_sz + _gap), pg.position.y + 96.0 + (c / _cols) * (_sz + _gap)), Vector2(_sz, _sz)))
 
 
 # --- Piirto -------------------------------------------------------------------------
@@ -130,7 +147,10 @@ func _draw() -> void:
 	if not visible:
 		return
 	_refresh()
-	_draw_left()
+	if mode == "laakkeet":
+		_draw_left_laake()
+	else:
+		_draw_left()
 	_draw_right()
 
 
@@ -182,26 +202,38 @@ func _draw_left() -> void:
 			row += 1
 
 
+## Lääkkeiden vasen sivu: pelkkä käsin kirjoitettu selitys (ei polaroidia).
+func _draw_left_laake() -> void:
+	var pg := MG.notebook_page(_book, false)
+	var rows := [["Lääkkeet ja huumeet", 24, RED], ["", 19, INK], ["Eivät vie tilaa reppuun:", 20, INK],
+		["ne ovat tällä omalla sivullaan.", 20, INK], ["", 19, INK], ["Klikkaa ruutua ottaaksesi annoksen.", 19, INK],
+		["Jatkettu annos on heikompi, mutta", 19, INK], ["klaffipöydällä sitä saa venytettyä.", 19, INK],
+		["Reseptit löytyvät Reseptit-sivulta.", 19, INK]]
+	for k in rows.size():
+		draw_string(_hand, Vector2(pg.position.x + 54.0, pg.position.y + 73.0 + k * 32.0), rows[k][0], HORIZONTAL_ALIGNMENT_LEFT,
+			pg.size.x - 70.0, rows[k][1], rows[k][2])
+
+
 ## Oikea sivu: taskut ruudukossa ja hiiren alla olevan tavaran selitys käsialalla ruudukon alla.
 func _draw_right() -> void:
 	var pg := MG.notebook_page(_book, true)
 	var n := _items.size()
 	var x := pg.position.x + 54.0
-	draw_string(_hand, Vector2(x, pg.position.y + 73.0), "Reppu %d / %d" % [mini(n, SLOTS), SLOTS], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, RED)
-	if n > SLOTS:
-		draw_string(_hand, Vector2(x + 190.0, pg.position.y + 73.0), "pullottaa, kaikki ei mahdu!", HORIZONTAL_ALIGNMENT_LEFT,
+	draw_string(_hand, Vector2(x, pg.position.y + 73.0), ("Reppu %d / %d" % [mini(n, _n), _n]) if mode == "reppu" else ("Lääkkeet ja huumeet: %d" % n), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, RED)
+	if n > _n:
+		draw_string(_hand, Vector2(x + 190.0, pg.position.y + 73.0), "pullottaa, kaikki ei mahdu!" if mode == "reppu" else "paljon lääkkeitä, loput ruudun alla!", HORIZONTAL_ALIGNMENT_LEFT,
 			pg.size.x - 250.0, 18, Color(0.7, 0.25, 0.1))
 	for i in _slots.size():
 		_draw_slot(_slots[i], _slot_item(i), i == _hover)
-	if n > SLOTS:
-		var chip := Rect2(_slots[SLOTS - 1].end - Vector2(52, SLOT - 6.0), Vector2(46, 26))
+	if n > _n:
+		var chip := Rect2(_slots[_n - 1].end - Vector2(52, _sz - 6.0), Vector2(46, 26))
 		draw_rect(chip, Color(MG.PAPER, 0.95))
 		draw_rect(chip, Color(RED, 0.7), false, 1.5)
-		draw_string(_hand, chip.position + Vector2(0, 20), "+%d" % (n - SLOTS + 1), HORIZONTAL_ALIGNMENT_CENTER, chip.size.x, 20, RED)
-	var y := _slots[SLOTS - 1].end.y + 40.0
+		draw_string(_hand, chip.position + Vector2(0, 20), "+%d" % (n - _n + 1), HORIZONTAL_ALIGNMENT_CENTER, chip.size.x, 20, RED)
+	var y := _slots[_n - 1].end.y + 40.0
 	var it = _slot_item(_hover) if _hover >= 0 else null
 	if it == null:
-		draw_string(_hand, Vector2(x, y), "Vie hiiri tavaran päälle.", HORIZONTAL_ALIGNMENT_LEFT, pg.size.x - 70.0, 19, INK.lightened(0.5))
+		draw_string(_hand, Vector2(x, y), "Vie hiiri tavaran päälle." if mode == "reppu" else "Ei lääkkeitä. Apteekki, Zabuki ja kauppa myyvät.", HORIZONTAL_ALIGNMENT_LEFT, pg.size.x - 70.0, 19, INK.lightened(0.5))
 		return
 	draw_string(_hand, Vector2(x, y), str(it.name), HORIZONTAL_ALIGNMENT_LEFT, pg.size.x - 70.0, 22, RED)
 	y += 30.0
@@ -245,9 +277,9 @@ func _tape(c: Vector2, tilt_deg: float) -> void:
 
 ## Viimeinen tasku täyden repun kohdalla: "pohjalla" olevat tavarat nimeltä (eväät saa silti T-valikosta).
 func _slot_item(i: int) -> Variant:
-	if i == SLOTS - 1 and _items.size() > SLOTS:
+	if i == _n - 1 and _items.size() > _n:
 		var names: Array[String] = []
-		for k in range(SLOTS - 1, _items.size()):
+		for k in range(_n - 1, _items.size()):
 			names.append("%s%s" % [_items[k].name, (" ×%d" % _items[k].count) if _items[k].get("count", 1) > 1 else ""])
 		var rows: Array[String] = []
 		for k in range(0, names.size(), 4):

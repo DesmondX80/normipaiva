@@ -187,7 +187,7 @@ const LAAKE_JATKO_MAX := 4
 const TEINI_KIINNI := [0.0, 0.1, 0.3, 0.6, 0.9]
 var reseptit := 0  # kipulääkereseptit (kätköstä)
 var laake := {}  # reppuun ostetut lääkkeet: APTEEKKI_MENU-id -> kappalemäärä
-var klaffipoyta := false  # taitettava klaffipöytä löydetty (Zabukin takaa), jatkaminen reseptikirjan mukaan (klaffipoyta.gd)
+var klaffipoyta := false  # taitettava klaffipöytä löydetty (Reipparin seinältä tai Zabukin luukun vierestä), jatkaminen reseptikirjan mukaan (klaffipoyta.gd)
 var craft_known := {}  # opitut jatkoreseptit: reseptin id -> true (päiväkirjan Reseptit-välilehti)
 var perv_mult := PERV_MULT  # käytössä olevan pervitiiniannoksen kerroin (jatkettu on heikompi)
 var perv_until := -1.0  # pervitiinin vaikutus päättyy (day * 1440 + clock_min)
@@ -7739,6 +7739,9 @@ func _kertun_logic() -> void:
 		_save_game()
 		_call_police("veksi")
 	if _hint.text != "" or player == bike:
+		return
+	_klaffi_saloinen()
+	if _hint.text != "":
 		return
 	_rauniot_museum()
 	if _hint.text != "":
@@ -17727,8 +17730,24 @@ func _start_laakelaukku() -> void:
 	_klaffi_game = g
 
 
-## Klaffipöytä Zabukin takaa: poimitaan kerran (vaala.gd klaffi_prop), sen jälkeen pystytetään repusta.
+## Klaffipöytä Saloisissa: Reipparin päätyseinällä (world.gd klaffi_prop), sama pöytä kuin Zabukin luukun vieressä Vaalassa.
+func _klaffi_saloinen() -> void:
+	if world == null or world.klaffi_prop == null:
+		return
+	world.klaffi_prop.visible = not klaffipoyta
+	if klaffipoyta:
+		return
+	var kp: Vector3 = world.klaffi_prop.global_position
+	if Vector2(player.global_position.x - kp.x, player.global_position.z - kp.z).length() < 2.6:
+		_hint.text = "[E] Poimi taitettava klaffipöytä (Reipparin seinällä)"
+		if Input.is_action_just_pressed("interact"):
+			_klaffi_found()
+
+
+## Klaffipöytä (Zabukin luukun vierestä Vaalassa tai Reipparin seinältä Saloisissa): poimitaan kerran, sen jälkeen pystytetään repusta.
 func _klaffi_sync() -> void:
+	if world != null and world.klaffi_prop != null:
+		world.klaffi_prop.visible = not klaffipoyta
 	if mopo_trip != null and mopo_trip.vaala != null and mopo_trip.vaala.klaffi_prop != null:
 		mopo_trip.vaala.klaffi_prop.visible = not klaffipoyta
 
@@ -17738,7 +17757,7 @@ func _klaffi_found() -> void:
 	_klaffi_sync()
 	Sfx.play("pickup", -4.0, 0.8)
 	_craft_learn()
-	_show_message("Taitettava klaffipöytä! Se mahtuu reppuun. Pystytä se reppuvalikosta tai T:llä ja jatka lääkkeitä: reseptit löytyvät päiväkirjan Reseptit-välilehdeltä.", 5.5)
+	_show_message("Taitettava klaffipöytä! Se mahtuu reppuun. Pystytä se Lääkkeet-sivulta (reppuvihkon välilehti 8) tai T:llä ja jatka lääkkeitä: reseptit löytyvät päiväkirjan Reseptit-välilehdeltä.", 5.5)
 	_save_game()
 
 
@@ -21581,12 +21600,12 @@ func inventory_items() -> Array:
 		add.call(k, k.capitalize(), bucket.get(k, 0), "litraa ämpärissä · T syö litran",
 			{"food": true, "use": k, "use_label": "syö litra"})
 	for k in _laake_keys():
-		add.call("laake_" + _laake_base(k), _laake_label(k), laake.get(k, 0), _laake_desc(k), {"food": true, "use": k, "use_label": "ota"})
+		add.call("laake_" + _laake_base(k), _laake_label(k), laake.get(k, 0), _laake_desc(k), {"food": true, "use": k, "use_label": "ota", "laake": true})
 	if klaffipoyta:
-		add.call("laake_burana", "Klaffipöytä", 1, "Taitettava pöytä · jatka lääkkeitä (reseptit päiväkirjassa)", {"food": true, "use": "klaffipoyta", "use_label": "pystytä"})
+		add.call("laake_burana", "Klaffipöytä", 1, "Taitettava pöytä · jatka lääkkeitä (reseptit päiväkirjassa)", {"food": true, "use": "klaffipoyta", "use_label": "pystytä", "laake": true})
 	if hs.laukku == "repussa":
 		add.call("laakelaukku", "Lääkelaukku", 1, "Hoitajan vanha laukku · puhtaasti jatketut annokset paljastuvat porrasta harvemmin",
-			{"food": true, "use": "laakelaukku", "use_label": "avaa"})
+			{"food": true, "use": "laakelaukku", "use_label": "avaa", "laake": true})
 	return out
 
 
@@ -23896,7 +23915,6 @@ func _maybe_screenshot() -> void:
 			for i in 5:
 				await get_tree().process_frame
 			_paper.toggle()
-			print("KARTTA alue mökillä jalan: %s %s" % [_paper._vregion, _paper._vrect])
 			for i in 12:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
@@ -23907,27 +23925,9 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().process_frame
 			_paper.toggle()
-			print("KARTTA alue lavalla: %s %s" % [_paper._vregion, _paper._vrect])
 			var views := [["_koko.png", Vector2.ZERO, 0.0], ["_keskusta.png", Vector2(800, -900), 1.0],
-				["_lava.png", Vector2(660, -270), 2.0]]
+				["_lava.png", Vector2(660, -270), 2.0], ["_mokki.png", Vector2(0, 0), 2.5], ["_neittava.png", Vector2(-120, -560), 0.7]]
 			for vw in views:
-				if vw[2] > 0.0:
-					_paper._vcenter = vw[1]
-					_paper._vzoom = vw[2]
-				_paper._view.queue_redraw()
-				_paper.queue_redraw()
-				for i in 3:
-					await get_tree().process_frame
-				await RenderingServer.frame_post_draw
-				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0]))
-			_paper.toggle()
-			# Paapelin kartta: mopo tien alkupäässä (mökin luona), koko alue, mökin piha ja Neittävän järvet.
-			mopo_trip.mopo.position = Vector3(0, mopo_trip.vaala.h(0.0, 0.0) + 0.6, 0)
-			for i in 10:
-				await get_tree().process_frame
-			_paper.toggle()
-			print("KARTTA alue mökin luona mopolla: %s %s" % [_paper._vregion, _paper._vrect])
-			for vw in [["_paapeli_koko.png", Vector2.ZERO, 0.0], ["_mokki.png", Vector2(0, 0), 2.5], ["_neittava.png", Vector2(-120, -560), 0.7]]:
 				if vw[2] > 0.0:
 					_paper._vcenter = vw[1]
 					_paper._vzoom = vw[2]
@@ -23964,28 +23964,6 @@ func _maybe_screenshot() -> void:
 					if not mopo_trip.hint.contains("Juttele Teron ja Timon"):
 						print("TESTI VIKA %s %.1f m päässä: vihje '%s' (odotettiin juttelua)" % [npc.display_name, off.length(), mopo_trip.hint])
 			get_tree().quit()
-		"karttaalue":
-			# Paperikartan alue (Paapeli tai Vaala) valitaan pelaajan paikan mukaan; ei kuvia, toimii headlessina.
-			# Mopo viedään tien eri kohtiin kehyksessä (x itään, z etelään; tien jakokohta x 520) ja kartta avataan.
-			_start_mopo()
-			var vfr: Node3D = mopo_trip.vaala
-			var alue_cases := [["mökki", Vector2(0, 0), "paapeli"], ["Neittävä", Vector2(-120, -520), "paapeli"],
-				["tien keskikohta", Vector2(350, -690), "paapeli"], ["lava", Vector2(vfr.lava_door.x, vfr.lava_door.z), "vaala"],
-				["Siitari", vfr.siitari, "vaala"], ["K-Market", Vector2(vfr.kmarket_door.x, vfr.kmarket_door.z), "vaala"]]
-			for ac in alue_cases:
-				var ap: Vector2 = ac[1]
-				mopo_trip.mopo.position = Vector3(ap.x, vfr.h(ap.x, ap.y) + 0.6, ap.y)
-				for i in 3:
-					await get_tree().process_frame
-				_paper.toggle()
-				for i in 3:
-					await get_tree().process_frame
-				var in_rect: bool = _paper._vrect.has_point(ap)
-				print("KARTTA alue %s: %s rect %s zoom %.2f mukana %s" % [ac[0], _paper._vregion, _paper._vrect, _paper._vzoom, in_rect])
-				if _paper._vregion != ac[2] or not in_rect:
-					print("TESTI VIKA kartan alue paikassa %s: %s (odotettiin %s, paikka alueella %s)" % [ac[0], _paper._vregion, ac[2], in_rect])
-				_paper.toggle()
-			get_tree().quit()
 		"vaalakierros":
 			# Vaalan liikenneympyrä, tori ja Zabuki: paperikartta keskustasta kahdella zoomilla,
 			# sitten vapaa kamera ylhäältä ja tien tasolta kulmissa ja liittymässä.
@@ -24011,9 +23989,10 @@ func _maybe_screenshot() -> void:
 				return mopo_trip.vaala.to_global(Vector3(x, mopo_trip.vaala.h(x, z) + up, z))
 			for vw in [["_ylhaalta", vh.call(815.0, -900.0, 130.0), vh.call(815.0, -902.0, 0.0)],
 					["_ymparyra", vh.call(752.0, -846.0, 5.0), vh.call(826.0, -900.0, 1.0)],
-					["_tori", vh.call(850.0, -880.0, 9.0), vh.call(805.0, -945.0, 1.0)],
-					["_matkakeskus", vh.call(813.0, -928.0, 2.5), vh.call(800.0, -956.0, 2.5)],
-					["_zabuki", vh.call(812.0, -928.0, 2.2), vh.call(788.0, -943.0, 1.8)],
+					["_tori", vh.call(838.0, -918.0, 9.0), vh.call(786.0, -934.0, 1.0)],
+					["_matkakeskus", vh.call(812.0, -936.0, 2.5), vh.call(774.0, -925.6, 2.5)],
+					["_matkakeskus_ylos", vh.call(780.0, -920.0, 80.0), vh.call(780.0, -922.0, 0.0)],
+					["_zabuki", vh.call(790.0, -884.0, 2.2), vh.call(784.0, -904.8, 1.8)],
 					["_asemalle", vh.call(840.0, -885.0, 6.0), vh.call(880.0, -830.0, 1.0)],
 					["_kunnantalo", vh.call(785.0, -878.0, 2.5), vh.call(802.0, -854.0, 3.0)],
 					["_kunnantalo_vino", vh.call(765.0, -880.0, 14.0), vh.call(803.0, -854.0, 2.0)],
@@ -24025,9 +24004,16 @@ func _maybe_screenshot() -> void:
 					["_alikulku_tie", vh.call(733.0, -717.0, 3.0), vh.call(762.0, -684.0, 0.0)],
 					["_apteekki", vh.call(838.0, -588.0, 3.0), vh.call(806.0, -616.0, 2.0)],
 					["_apteekki_ylos", vh.call(811.0, -610.0, 50.0), vh.call(811.0, -612.0, 0.0)],
-					["_kauppatie", vh.call(818.0, -894.0, 4.0), vh.call(903.0, -955.5, 3.0)],
-					["_kauppa", vh.call(877.0, -944.0, 3.0), vh.call(903.0, -955.5, 2.5)],
-					["_kauppa_ylos", vh.call(883.0, -941.0, 90.0), vh.call(883.0, -943.0, 0.0)]]:
+					["_kauppatie", vh.call(836.0, -897.0, 4.0), vh.call(925.0, -962.0, 3.0)],
+					["_kauppa", vh.call(897.0, -965.0, 3.0), vh.call(919.9, -933.8, 2.5)],
+					["_kauppa_ylos", vh.call(915.0, -945.0, 90.0), vh.call(915.0, -947.0, 0.0)],
+					["_kauppatie_loppu", vh.call(1000.0, -1030.0, 4.0), vh.call(900.0, -958.0, 3.0)],
+					["_torintie", vh.call(818.0, -914.0, 4.0), vh.call(745.0, -1074.0, 4.0)],
+					["_kirkko", vh.call(792.0, -975.0, 4.5), vh.call(750.5, -988.4, 5.0)],
+					["_kirkko_edesta", vh.call(779.0, -1001.0, 2.0), vh.call(764.6, -995.0, 4.5)],
+					["_kirkko_sivu", vh.call(752.0, -1018.0, 4.0), vh.call(750.5, -988.4, 5.0)],
+					["_kirkko_hautausmaa", vh.call(738.0, -972.0, 5.0), vh.call(755.0, -980.0, 1.5)],
+					["_kirkko_ylos", vh.call(755.0, -988.0, 70.0), vh.call(755.0, -990.0, 0.0)]]:
 				vcam.look_at_from_position(vw[1], vw[2], Vector3.UP if vw[0] != "_ylhaalta" else Vector3(0, 0, -1))
 				vcam.current = true
 				for i in 20:

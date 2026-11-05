@@ -9,7 +9,8 @@ extends Control
 ## "Riskit": seitsemäs välilehti, huumekaupan riskit (main.gd _rikos_riskit: velka, kyttävihjeet, epäluulo, olo...).
 ## "Reppu": viides välilehti, jonka sivut piirtää lapsi inventory.gd. R avaa vihkon reppusivulta, O päiväkirjan sivulta
 ## (viimeksi katsotulta); jo auki ollessa R / O vaihtaa sivua ja saman sivun näppäin sulkee. Vihko, tauko ja Esc ovat tässä.
-## Mikään ei paljastu etukäteen. Peli on tauolla auki ollessa. Hiiri: välilehdet ja rulla, näppäimet 1–7, Esc / O sulkee.
+## Mikään ei paljastu etukäteen. Peli on tauolla auki ollessa. Hiiri: välilehdet ja rulla, näppäimet 1–8, Esc / O sulkee.
+## "Lääkkeet": kahdeksas välilehti (sama sivupiirto inventory.gd, mode "laakkeet"): lääkkeet ja huumeet eivät vie repusta tilaa.
 
 const MG := preload("res://scripts/mg_draw.gd")
 const INK := Color(0.14, 0.17, 0.4)
@@ -17,7 +18,8 @@ const Reseptit := preload("res://scripts/reseptit.gd")
 const TABS := [["tarina", "Tarina", Color(0.85, 0.35, 0.25)], ["tehtavat", "Tehtävät", Color(0.25, 0.55, 0.75)],
 	["loput", "Loput", Color(0.9, 0.7, 0.15)], ["jemmat", "Jemmat", Color(0.3, 0.6, 0.3)],
 	["reppu", "Reppu", Color(0.5, 0.3, 0.7)], ["reseptit", "Reseptit", Color(0.75, 0.5, 0.2)],
-	["riskit", "Riskit", Color(0.6, 0.15, 0.15)]]
+	["riskit", "Riskit", Color(0.6, 0.15, 0.15)], ["laakkeet", "Lääkkeet", Color(0.2, 0.55, 0.5)]]
+const INV_TABS := ["reppu", "laakkeet"]  # reppusivun piirtää inventory.gd (laakkeet: lääkkeet ja huumeet omalla sivullaan)
 
 var game: Node
 var _links: Array = []  # [Rect2, tehtävän id] "Näytä kartalla" -linkit, piirretty tällä ruudulla
@@ -62,7 +64,7 @@ func toggle() -> void:
 		_data = game.journal_data() if game != null else {}
 		_scroll = 0.0
 		Sfx.play("cloth", -8.0, 0.9)
-	game._inventory.show_page(visible and _tab == "reppu")
+	game._inventory.show_page(visible and _tab in INV_TABS, _tab)
 	_update_keys()
 	queue_redraw()
 
@@ -70,11 +72,11 @@ func toggle() -> void:
 func _update_keys() -> void:
 	if not visible:
 		_keys.set_text("")
-	elif _tab == "reppu":
-		_keys.set_text("[Klikkaus] syö tai juo evästä (T)   [1–7] tai [←][→] välilehdet   %s päiväkirja   %s sulje"
+	elif _tab in INV_TABS:
+		_keys.set_text("[Klikkaus] syö tai juo evästä (T)   [1–8] tai [←][→] välilehdet   %s päiväkirja   %s sulje"
 			% [Settings.cap("journal"), Settings.cap("inventory", "Esc")])
 	else:
-		_keys.set_text("[1–7] tai [←][→] välilehdet   [Rulla] selaa   %s reppu   %s sulje"
+		_keys.set_text("[1–8] tai [←][→] välilehdet   [Rulla] selaa   %s reppu   %s sulje"
 			% [Settings.cap("inventory"), Settings.cap("journal", "Esc")])
 
 
@@ -88,7 +90,7 @@ func _process(_d: float) -> void:
 		else:
 			open_at("reppu")
 	elif Input.is_action_just_pressed("journal") and open_ok:
-		if visible and _tab != "reppu":
+		if visible and not _tab in INV_TABS:
 			toggle()
 		else:
 			open_at(_last_tab)
@@ -124,7 +126,7 @@ func _gui_input(event: InputEvent) -> void:
 						_set_tab(TABS[i][0])
 						accept_event()
 						return
-				if _tab == "reppu":
+				if _tab in INV_TABS:
 					game._inventory._gui_input(event)
 				if _tab == "tehtavat":
 					for l in _links:
@@ -150,9 +152,9 @@ func _tab_index() -> int:
 
 func _set_tab(t: String) -> void:
 	_tab = t
-	if t != "reppu":
+	if not t in INV_TABS:
 		_last_tab = t
-	game._inventory.show_page(visible and t == "reppu")
+	game._inventory.show_page(visible and t in INV_TABS, t)
 	_update_keys()
 	_scroll = 0.0
 	Sfx.play("cloth", -12.0, 1.4)
@@ -176,8 +178,8 @@ func _draw() -> void:
 	for i in TABS.size():
 		MG.notebook_tab(self, _tab_rect(i), TABS[i][2], str(TABS[i][1]), TABS[i][0] == _tab, i == _hover_tab)
 	# Otsikkokyltti kannessa.
-	if _tab == "reppu":
-		MG.sign(self, MG.notebook_title_rect(_book, 240.0), "REPPU", MG.TITLE_BG, MG.TITLE_FG, 22, MG.TITLE_BORDER)
+	if _tab in INV_TABS:
+		MG.sign(self, MG.notebook_title_rect(_book, 240.0), "REPPU" if _tab == "reppu" else "LÄÄKKEET", MG.TITLE_BG, MG.TITLE_FG, 22, MG.TITLE_BORDER)
 	else:
 		MG.sign(self, MG.notebook_title_rect(_book), "NORMIPÄIVÄKIRJA", MG.TITLE_BG, MG.TITLE_FG, 22, MG.TITLE_BORDER)
 	match _tab:

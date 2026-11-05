@@ -205,6 +205,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   hautakivirivien kera (osassa puuristi). Paikat ovat vielä koristeita: tulevat legendat (#125 Palon yön pyhimys,
   Olavinmarkkinat, kellotapuli) rakentuvat niiden varaan. Testi `--scene=kirkko` (headlessinä vain luvut, kuvat vaativat
   ikkunan).
+- **Saloisten kartta, kaikki kiinnostavat paikat:** paperikartalla (M) jokaisessa kylän julkisessa paikassa on pieni kynäympyrä, nimi näkyy hiiren
+  alla ja klikkaus asettaa kompassin kohteen (`paper_map.gd _public_places`). Mukana ovat koulu, kenttä, seuraintalo, Reippari, SEO, uimaranta, katsastus,
+  korjaamot ja säästöpiha sekä kirkko, kellotapuli, Pirtti (museo), koulukeskus, päiväkoti, kaukalo, ulkopingis, Lemmikki Enkelit, Kanttorila, Honganpalon kenttä,
+  Arttim, Rudus, Heiskasen huolto, Huhtalan romuautot, Lapinraunio, raunio, Kertunkankaan röykkiöt, Heinimäki, Kiilinlammen grillikatos, Antinsuon laavu,
+  kota ja lintutorni, Viitajärven laavu, Puntarimäki ja Kaitasaari. Salaiset (Sepon varasto, rossirata, tehtävien paikat) paljastuvat edelleen vasta kuulemalla.
+- **Lääkkeet eivät vie repusta tilaa:** lääkkeet, huumeet (myös jatketut annokset), klaffipöytä ja lääkelaukku näkyvät vain vihkon omalla Lääkkeet-sivulla (8. välilehti,
+  `inventory.gd` mode `laakkeet`, 16 taskua); reppusivu (9 tasku) on tavaroille ja eväille. Klikkaus ottaa annoksen kuten ennen, T-valikko toimii ennallaan.
 - **Legenda: Palon yön pyhimys (#125):** oikea tausta Wikipedian mukaan: Saloisten vanha puukirkko paloi loppiaisaamun
   jumalanpalveluksen aikana 1930 (issuen "1908" ei löydy lähteestä), nykyinen kirkko valmistui 1932, ja palosta pelastettiin
   mm. Pyhän Olavin ja Neitsyt Marian veistokset ja alttarikaapit. Legenda on keksitty ja pelissä totta: yksi pieni puinen
@@ -625,11 +632,20 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Aseman piha asemalle ja vasemmalle Torintie torille: tori ja Zabuki ovat tien vasemmalla puolella yli 120 m Siitarista. Tori on asfalttikenttä
     (46 x 22 m), jonka takana on Vaalan matkakeskus (pitkä matala rakennus: tiilisokkeli, vaalea yläosa, sinitolppainen katos, "VAALA"-torni;
     `vaala.gd _build_matkakeskus`) ja sen vasemmassa päässä Zabuki. Ratatien kierros on poistettu (`tools/vaala_torisiirto.py`).
-    **K-Market Tervaportti** on liikenneympyrästä suoraan eteen (95 m): ympyrästä lähtee kolmanneksi haaraksi kaksikaistainen asfalttitie (Vaalantie,
-    8 m, piennar ja keskiviiva) 62 m kaupan parkkipaikalle, ja kauppa on tien päässä julkisivu ympyrään päin (ruutuviivat, taksitolppa ja mummot
-    kuten ennen). Vanha paikka Siitarin vieressä jäi tyhjäksi pihaksi; Satamantie lähtee edelleen Vaalantieltä sen länsipuolelta
-    (`tools/vaala_kmarket_ymparyra.py`, rakennuksen `door_to` kertoo oven suunnan, `vaala.gd _door`). Testit `--scene=kmarket_vaala`,
-    `--scene=vaalakierros` (`_kauppatie`, `_kauppa`, `_kauppa_ylos`) ja `--scene=vaala_ajo --ajo=kohteet`.
+    **Tori, matkakeskus ja Zabuki** on käännetty 90 astetta vastapäivään (tori ja matkakeskus yhtenä ryhmänä torin keskipisteen ympäri): tori on Torintien
+    suuntainen ja sen itäreuna on 8 m tien keskiviivasta, ja matkakeskuksen julkisivu on itään torille ja tielle päin torin länsilaidalla. **Zabuki on
+    matkakeskuksen sisällä** (ei omaa kioskia): tiskiluukku on rakennuksen eteläpäädyssä ympyrän puolella (markiisi, kyltit, baarijakkarat), ja taitettava
+    klaffipöytä nojaa päätyseinään luukun vieressä (`vaala.gd _build_zabuki`). **Torintie** jatkuu ympyrästä torin ja matkakeskuksen ohi 180 m, ja
+    sen **vasemmalla puolella** on **Vaalan kirkko** julkisivu (torni) tielle päin ja pieni parkki tien ja kirkon välissä (`vaala_kirkko.gd`, tie.json
+    `keskusta.kirkko`): Saloisten kirkon malli, eli valkoinen puukirkko jyrkkine tummine kattoineen, korkeat kaarikattoiset ikkunat, alttarin pääty,
+    kuparinvihreä tornin huippu kultaristeineen ja kello tornin seinässä, kivetty reitti ovelle, nimikyltti ja pieni hautausmaa aitoineen (ei sisätilaa).
+    Vanha OSM-kirkko (Järvikyläntie 3) on edelleen paikallaan pohjoisempana.
+    **K-Market Tervaportti** on käännetty 90 astetta myötäpäivään: se on ympyrästä suoraan eteen jatkuvan kaksikaistaisen asfalttitien (Vaalantie,
+    8 m, piennar ja keskiviiva) kaakkoispuolella pitkä sivu tien suuntaan ja julkisivu (ovi, parkkipaikka, ruutuviivat, taksitolppa ja mummot kuten ennen)
+    tielle luoteeseen. Tie jatkuu kaupan ohi 100 m (232 m ympyrästä). Kaupan kyltti "K-MARKET TERVAPORTTI" on rakennuksen tienpuoleisella seinällä (`vaala.gd _face_road` käyttää `door_to`:ta, kun päätie on yli 60 m:n päässä; ennen kyltti jäi origoon). Vanha paikka Siitarin vieressä on tyhjä piha; Satamantie lähtee edelleen
+    Vaalantieltä sen länsipuolelta. Siirrot poistivat neljä taloa (Vaalantie 18 ja kolme nimetöntä). Työkalu `tools/vaala_kirkkotie.py`; rakennuksen
+    `door_to` kertoo oven suunnan (`vaala.gd _door`). Testit `--scene=kmarket_vaala`, `--scene=vaalakierros` (`_tori`, `_matkakeskus`, `_zabuki`, `_kauppatie`,
+    `_kauppa`, `_kauppatie_loppu`, `_kirkko*`, `_torintie`) ja `--scene=vaala_ajo --ajo=kohteet`.
     **Kunnantalo** on Vaalantien jatkeen oikealla puolella Siitarin vieressä samansuuntaisesti tien kanssa (46 x 10 m: vasemmalla vaalea kaksikerroksinen
     siipi vaakunoineen ja puuovineen, oikealla keltainen siipi lasiosineen ja päätyovi, takana torni; edessä nurmikko, suihkulähde, valaisimet ja penkit;
     `vaala.gd _build_kunnantalo`, `tools/vaala_kunnantalo.py`; OSM:n Kunnanvirasto korvautuu). Rakennuksessa ei ole sisätilaa.
@@ -645,7 +661,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     **Takaovi:** apteekin takaseinässä on teräsovi kurkistusluukkuineen kuten rasvanapin makasiinissa (`makasiini.gd _build_door`, ovi
     "apteekki_taka", HENKILÖKUNTA-kyltti, vihreä lamppu). Koputus (E) avaa luukun, ja farmaseutti myy Oksikodonia (249 €) ja Pervitiiniä
     (199 €) ilman reseptiä kymmenkertaiseen hintaan (`main.gd APTEEKKI_TAKA`, `APTEEKKI_TAKA_MULT`, `_apteekki_taka`). Ovi on auki aina. Testi `--scene=apteekki`.
-    **Jatkaminen (klaffipöytä):** taitettava klaffipöytä nojaa Zabukin takaseinää vasten torilla (E poimii, kerran). Se pystytetään repusta tai T:llä:
+    **Jatkaminen (klaffipöytä):** taitettava klaffipöytä nojaa seinää vasten näkyvillä, kahdessa paikassa: Vaalassa matkakeskuksen päätyseinällä Zabukin luukun vieressä ja Saloisissa Reipparin kioskin päätyseinällä (E poimii, kerran, sama pöytä). Se pystytetään Lääkkeet-sivulta (reppuvihkon 8. välilehti) tai T:llä:
     Minecraft-tyylinen 3×3-askartelu (`klaffipoyta.gd`, reseptit `reseptit.gd`). Esine klikataan repusta kouraan ja ruutuun, ja kun muoto täsmää
     reseptiin (paikalla ruudukossa ei ole väliä), tulos klikataan pois. Neljä reseptiä: Oksikodoni + Burana (pystyyn), Pervitiini + Panadol (vaakaan,
     peilikin kelpaa) → 2 annosta, teho puolet; Pervitiini + Sokeri (vinoon) ja Oksikodoni + Turbohiiva (vastavinoon) → 4 annosta, teho neljännes.
@@ -837,12 +853,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     vahingot maksetaan, 40 €) (`--scene=mokkihotelli`).
     Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen; mopo jää parkkiin tyhjänä) ja kävellä; **ovet, pankkiautomaatti, lava ja Siitari toimivat vain jalan**: mopon selässä
     vihje kehottaa nousemaan mopolta (F). F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
-    Paperikartta (M) on mökillä ja Vaalan matkalla kaksi karttaa samassa näkymässä (sama paneeli, selite ja ohjaus), ja alue valitaan
-    avattaessa pelaajan paikan mukaan (`paper_map.gd _vaala_region`, jakokohta kehyksen x 520, kuvaus alla): **Neittävä · Paapeli**
-    (mökin piha, Neittävän järvet rantapaikkoineen ja tien alku) tai **Vaala** (keskusta: Siitari, K-Market Tervaportti,
-    pankkiautomaatti, apteekki, kirkko, rautatieasema ja muut nimetyt talot sekä Satamantie ja Oulujärven lava). Mopotie jatkuu
-    reunan yli, ja reunassa lukee "Vaalaan → 1,2 km" tai "← Paapeliin 1,3 km" (`_draw_region_hint`); selitteessä on vain alueen kohteet.
-    Testi `--scene=karttaalue` (headless: alue kuudessa tien kohdassa). Kartta on piirretty samaan tyyliin kuin Saloisten kartta (`shaders/vaala_kartta.gdshader`): litteät värit ja
+    Paperikartta (M) on mökillä ja Vaalan matkalla yksi iso Neittävä–Vaala-kartta: mökin piha, mopotie ja Vaalan
+    keskusta (Siitari, K-Market Tervaportti, pankkiautomaatti, apteekki, Oulujärven lava, kirkko, rautatieasema ja muut
+    nimetyt talot). Tiet on piirretty mittatarkasti: leveys metreinä (asfaltti 8 m, kapea katu 5,5 m, päätie 7,2 m) zoomin mukaan,
+    kaksikaistaisilla teillä katkoviiva, liikenneympyrä renkaana ja keskisaarekkeena (`paper_map.gd _draw_vaala_roads`), ja kartalla
+    ovat myös parkkipaikat, tori sekä matkakeskuksen, Zabukin, kunnantalon, apteekin ja kirkon pohjat. Kartta on piirretty samaan tyyliin kuin Saloisten kartta (`shaders/vaala_kartta.gdshader`): litteät värit ja
     pehmeät rajat, pellolla ruskea ja vedellä sininen ääriviiva, suolla vinoviivat, metsässä puumerkit, maantiet keltaisina ruskealla
     reunuksella, sorateet ohuina mustina viivoina ja talot mustina. Siitariin ei ole keltaista ohjeviivaa, kompassi riittää. Mökin pohjoiset järvet (Salmiset, Pyöriäinen ja Keskimmäinen)
     ovat kartalla ja mopomatkan maisemassa Neittävällä Neittäväntien luoteispuolella loivasti tiivistettyinä, ja

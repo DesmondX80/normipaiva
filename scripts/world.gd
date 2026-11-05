@@ -180,6 +180,8 @@ var reippari_board: Vector3  # Reipparin ilmoitustaulun edusta
 var reippari_youth: Node3D  # iltaporukka kioskin edessä (main.gd näyttää illalla)
 var reippari_youth_pos: Vector3
 var reippari_record: Node3D  # ennätystaulu (main.gd päivittää tekstin)
+var klaffi_prop: Node3D  # taitettava klaffipöytä nojaa Reipparin päätyseinään (main.gd _klaffi_saloinen)
+var klaffi_pos := Vector3.ZERO
 var reippari_root: Node3D  # kioskin kehys (piirakkahaaste: piirakka_game.gd), -Z = julkisivu
 var reippari_raija: Node3D  # Raija luukulla
 var station_pos: Vector3  # Saloisten asema K-Marketin takana: kadun puoleisen oven edusta (E: odotussaliin)
@@ -1735,6 +1737,22 @@ func _build_tokola() -> void:
 	_add_house(hp)
 
 
+## Taitettava klaffipöytä nojaa Reipparin oikeaa päätyseinää (+X), näkyvillä kioskin vieressä (kuten Vaalassa Zabukin luukun vieressä):
+## main.gd poimii sen kerran (_klaffi_found), sen jälkeen pöytä on repun lääkesivulla. Paikallinen -Z osoittaa seinään.
+func _build_klaffi_prop(root: Node3D, l: float) -> void:
+	klaffi_prop = Node3D.new()
+	klaffi_prop.position = Vector3(l / 2.0 + 0.3, 0.0, 0.0)
+	klaffi_prop.rotation_degrees.y = 90.0
+	root.add_child(klaffi_prop)
+	var board := B.mesh(klaffi_prop, B.boxm(Vector3(0.75, 1.15, 0.05)), Vector3(0, 0.58, 0.05), Color(0.62, 0.45, 0.26))
+	board.rotation_degrees.x = -10.0
+	B.mesh(klaffi_prop, B.boxm(Vector3(0.75, 0.04, 0.06)), Vector3(0, 0.1, 0.0), Color(0.4, 0.28, 0.15))
+	for lx in [-0.3, 0.3]:
+		var leg := B.mesh(klaffi_prop, B.boxm(Vector3(0.04, 1.05, 0.04)), Vector3(lx, 0.55, 0.0), Color(0.55, 0.57, 0.6))
+		leg.rotation_degrees.x = -10.0
+	B.mesh(klaffi_prop, B.boxm(Vector3(0.8, 0.07, 0.07)), Vector3(0, 0.62, -0.02), Color(0.9, 0.5, 0.1))  # kantohihna
+
+
 ## Saloisten Reippari (#115): valkoinen grillikioski oranssein raidoin, palveluluukku markiiseineen ja luukulla
 ## Raija, katolla kyltti, hintataulu, lihapiirakkaennätyksen taulu, ilmoitustaulu, penkkipöytä aurinkovarjoineen ja
 ## illan teiniporukka (näkyvyys main.gd:ssä). Seinät tehdään itse, jotta luukun läpi näkyy sisälle.
@@ -1752,6 +1770,7 @@ func _build_reippari() -> void:
 	root.rotation.y = f.yaw  # paikallinen -Z = julkisivu tielle
 	reippari_root = root
 	add_child(root)
+	_build_klaffi_prop(root, l)
 	blockers.append([c, Vector2(l / 2.0, d / 2.0), f.yaw])
 	_add_house(c)
 	var white := Color(0.96, 0.95, 0.9)

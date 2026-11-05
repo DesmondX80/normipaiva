@@ -23,6 +23,7 @@ const Looks := preload("res://scripts/looks.gd")
 const Mummot := preload("res://scripts/mummot.gd")
 const HumppaBand := preload("res://scripts/humppa_band.gd")
 const Janttu := preload("res://scripts/janttu.gd")
+const VaalaKirkko := preload("res://scripts/vaala_kirkko.gd")
 const Muskelivene := preload("res://scripts/muskelivene.gd")
 ## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
 ## mökin omilla rakennusfunktioilla (mokki.gd ladataan ajonaikaisesti: mokki.gd -> mopo.gd -> vaala.gd).
@@ -628,7 +629,7 @@ func ensure_built() -> void:
 	var t0 := Time.get_ticks_msec()
 	var times: Array[String] = []
 	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
-			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_kunnantalo, _build_apteekki, _build_station, _build_poliisi, _build_signs,
+			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_kunnantalo, _build_kirkko, _build_apteekki, _build_station, _build_poliisi, _build_signs,
 			_build_trees, _build_lamps, _build_atm, _build_kmarket_yard, _build_lava, _build_satama, _build_uitto, _build_lava_pier, _build_mokki_yard, _build_north, _build_salminen_trees, _build_drive_mask,
 			_build_lava_grounds, _merge_static_meshes]:
 		var ts := Time.get_ticks_msec()
@@ -3338,7 +3339,7 @@ func _build_buildings() -> void:
 				60 if big_sign else 44,
 				Color(0.1, 0.12, 0.2), "Helvetica Neue")
 			plate.position.y = minf(top - 0.9, base + 3.4)
-			_face_road(plate, obb)
+			_face_road(plate, obb, Vector2(bd.door_to[0], bd.door_to[1]) if bd.has("door_to") else Vector2.INF)
 	_hotel_yard()
 	for pair in [[_walls, "res://shaders/facade.gdshader"], [_roofs, "res://shaders/roof.gdshader"]]:
 		var st: SurfaceTool = pair[0]
@@ -3615,6 +3616,14 @@ func _tori_prep() -> void:
 	for q in _tori:
 		_tori_c += q
 	_tori_c /= _tori.size()
+	var mk = data.get("keskusta", {}).get("matkakeskus")
+	if mk != null:
+		# Zabuki on matkakeskuksen sisällä: tiskiluukku rakennuksen +u-päädyssä (_build_zabuki), luukun kohta seinässä.
+		var mf := Vector2(mk.face[0], mk.face[1]).normalized()
+		var wall := Vector2(mk.c[0], mk.c[1]) + Vector2(-mf.y, mf.x) * (float(mk.len) / 2.0)
+		_zabuki = Vector3(wall.x, h(wall.x, wall.y), wall.y)
+		_zabuki_face = Vector2(-mf.y, mf.x)
+		return
 	var kz = data.get("keskusta", {}).get("zabuki")
 	if kz != null:
 		_zabuki = Vector3(kz.c[0], h(kz.c[0], kz.c[1]), kz.c[1])
@@ -4375,6 +4384,16 @@ func _build_kunnantalo() -> void:
 	B.mesh(self, B.cyl(0.07, 0.1, 9.0, 8), fp + Vector3(0, 4.5, 0), Color(0.85, 0.85, 0.85))
 
 
+## Vaalan kirkko Torintien päässä (tie.json keskusta.kirkko; tools/vaala_kirkkotie.py, malli vaala_kirkko.gd).
+var kirkko_door := Vector3.ZERO  # pääoven edusta
+
+
+func _build_kirkko() -> void:
+	var kd = data.get("keskusta", {}).get("kirkko")
+	if kd != null:
+		kirkko_door = VaalaKirkko.build(self, kd)
+
+
 ## Apteekki Satamantien varressa radan alikulun jälkeen oikealla (tie.json keskusta.apteekki; tools/vaala_apteekki.py):
 ## matala vaalea liikerakennus, jonka julkisivu on lasia ja ovi katoksen alla. Vihreä APTEEKKI-kyltti ja vihreä risti,
 ## edessä asfalttiparkki (data.parkings) ruutuviivoin, P-kyltti ja autoja. Paikallinen kehys: +u = katsojasta vasemmalle,
@@ -4528,11 +4547,13 @@ func _build_stalls() -> void:
 		body.add_child(cs)
 
 
-## Zabuki: matala tumma kioskibaari, punakeltainen markiisi, tiski luukulla ja baarijakkarat torin puolella.
+## Zabuki on matkakeskuksen sisällä, tiskiluukku rakennuksen päätyseinässä (+u-pää, ulospäin _zabuki_face): valoisa luukku,
+## teräksinen tiski, punakeltainen markiisi, kyltit ja baarijakkarat luukun edessä. Rakennuksen oma törmäys riittää.
+## Paikallinen kehys: c = päätyseinän pinta luukun kohdalla, v = ulospäin seinästä (vanhan kioskin edusta oli v 2, joten luvut ovat v - 2).
 func _build_zabuki() -> void:
 	var f := _zabuki_face
 	var ax := Vector2(-f.y, f.x)
-	var c := Vector2(_zabuki.x, _zabuki.z)
+	var c := Vector2(_zabuki.x, _zabuki.z) - f * 2.0  # vanhan kioskin keskipiste: sen etuseinä (v 2) osuu matkakeskuksen päätyyn
 	var base := INF
 	for u in [-4.5, 4.5]:
 		for v in [-3.0, 3.0]:
@@ -4548,9 +4569,8 @@ func _build_zabuki() -> void:
 	var red := Color(0.72, 0.08, 0.06)
 	var yel := Color(1.0, 0.78, 0.1)
 	var steel := Color(0.7, 0.72, 0.74)
-	# Runko 9 x 5 m, tasakatto ja katon reunan valokyltti.
-	B.mesh(self, B.boxm(Vector3(9.0, 3.3, 5.0)), at.call(0, -0.5, 1.65), wall, Vector3(0, deg, 0))
-	B.mesh(self, B.boxm(Vector3(9.3, 0.25, 5.3)), at.call(0, -0.5, 3.4), Color(0.1, 0.1, 0.11), Vector3(0, deg, 0))
+	# Tummennettu luukun kehys seinässä ja valokyltti sen yläpuolella (runko on matkakeskus).
+	B.mesh(self, B.boxm(Vector3(6.6, 2.0, 0.05)), at.call(-0.6, 2.01, 1.85), wall, Vector3(0, deg, 0))
 	var logo := B.sign_plate(self, "ZABUKI", red, yel, 1.0, 110, Color(0.3, 0.02, 0.02), "Helvetica Neue")
 	logo.position = at.call(0, 2.08, 3.95)
 	logo.rotation.y = yaw
@@ -4575,32 +4595,27 @@ func _build_zabuki() -> void:
 		var sp: Vector3 = at.call(-3.0 + k * 1.2, 2.85, 0.0)
 		B.mesh(self, B.cyl(0.03, 0.03, 0.75, 6), sp + Vector3(0, 0.37, 0), steel)
 		B.mesh(self, B.cyl(0.2, 0.2, 0.07, 12), sp + Vector3(0, 0.78, 0), red)
-	for u in [-2.5, 2.5]:
+	for u in [-5.2, 4.2]:  # seisomapöydät luukun sivuilla, mopolle jää tilaa luukun eteen
 		var tp: Vector3 = at.call(u, 6.0, 0.0)
 		B.mesh(self, B.cyl(0.05, 0.05, 1.05, 8), tp + Vector3(0, 0.52, 0), steel)
 		B.mesh(self, B.cyl(0.4, 0.4, 0.04, 14), tp + Vector3(0, 1.06, 0), Color(0.85, 0.85, 0.82))
-	var body := StaticBody3D.new()
-	add_child(body)
-	var cs := B.box_shape(Vector3(9.0, 3.6, 5.6), Vector3.ZERO)
-	cs.transform = Transform3D(Basis(Vector3.UP, yaw), at.call(0, -0.3, 1.8))
-	body.add_child(cs)
-	var front: Vector3 = at.call(-0.6, 4.6, 0.0)
+	var front: Vector3 = at.call(-0.6, 6.0, 0.0)  # 4 m seinästä: mopo mahtuu kääntymään rakennuksen kulman ympäri
 	front.y = h(front.x, front.z)
-	# Taitettava klaffipöytä nojaa Zabukin takaseinää vasten (main.gd _klaffi_found poimii; huumeiden jatkaminen, klaffipoyta.gd).
-	var kq := c + ax * 3.0 + f * -3.3
+	# Taitettava klaffipöytä nojaa matkakeskuksen päätyseinään luukun vieressä, näkyvillä (main.gd _klaffi_found poimii; huumeiden jatkaminen, klaffipoyta.gd).
+	var kq := c + ax * -4.6 + f * 2.35  # luukun itäpuolella (tulosuunnasta), seinää vasten
 	klaffi_prop = Node3D.new()
 	klaffi_prop.position = Vector3(kq.x, h(kq.x, kq.y), kq.y)
 	klaffi_prop.rotation.y = yaw
 	add_child(klaffi_prop)
 	var board := B.mesh(klaffi_prop, B.boxm(Vector3(0.75, 1.15, 0.05)), Vector3(0, 0.58, 0.05), Color(0.62, 0.45, 0.26))  # kasattu levy
-	board.rotation_degrees.x = 10.0
+	board.rotation_degrees.x = -10.0
 	B.mesh(klaffi_prop, B.boxm(Vector3(0.75, 0.04, 0.06)), Vector3(0, 0.1, 0.0), Color(0.4, 0.28, 0.15))
 	for lx in [-0.3, 0.3]:  # teräsjalat taitettuina levyn etupuolella
 		var leg := B.mesh(klaffi_prop, B.boxm(Vector3(0.04, 1.05, 0.04)), Vector3(lx, 0.55, -0.0), Color(0.55, 0.57, 0.6))
-		leg.rotation_degrees.x = 10.0
+		leg.rotation_degrees.x = -10.0
 	B.mesh(klaffi_prop, B.boxm(Vector3(0.8, 0.07, 0.07)), Vector3(0, 0.62, -0.02), Color(0.9, 0.5, 0.1))  # kantohihna
-	doors.append({"id": "klaffipoyta", "pos": Vector3(kq.x, h(kq.x, kq.y), kq.y) - Vector3(f.x, 0, f.y) * 1.4, "out": Vector3(-f.x, 0, -f.y), "r": 3.5,
-		"walk": true, "hint": "klaffipöydälle", "text": "Poimi taitettava klaffipöytä Zabukin takaseinän vierestä"})
+	doors.append({"id": "klaffipoyta", "pos": Vector3(kq.x, h(kq.x, kq.y), kq.y) + Vector3(f.x, 0, f.y) * 3.8, "out": Vector3(f.x, 0, f.y), "r": 3.5,
+		"walk": true, "hint": "klaffipöydälle", "text": "Poimi taitettava klaffipöytä Zabukin luukun vierestä"})
 	doors.append({"id": "zabuki", "pos": front, "out": Vector3(f.x, 0, f.y), "hint": "Zabukin tiskille (olut ja hampurilaiset)"})
 	_build_race_crew(front, Vector3(f.x, 0, f.y))
 
@@ -5166,12 +5181,15 @@ func _windows(pts: PackedVector2Array, y0: float, levels: int, wall_h := 3.2, sh
 				_win_mull.append(xf.translated_local(Vector3(0, 0, 0.02)))
 
 
-func _face_road(node: Node3D, obb: Dictionary) -> void:
-	var ni: Array = nearest(Vector3(obb.center.x, 0, obb.center.y))
-	if ni[0] < 0:
-		return
-	var rp := road_pos(ni[0])
-	var to_road := Vector2(rp.x, rp.z) - (obb.center as Vector2)
+## toward: tie.json door_to (kauppatie), kun päätie on yli 60 m:n päässä (nearest ei löydä sitä) ja kyltti jäisi origoon.
+func _face_road(node: Node3D, obb: Dictionary, toward := Vector2.INF) -> void:
+	var to_road := toward - (obb.center as Vector2)
+	if toward == Vector2.INF:
+		var ni: Array = nearest(Vector3(obb.center.x, 0, obb.center.y))
+		if ni[0] < 0:
+			return
+		var rp := road_pos(ni[0])
+		to_road = Vector2(rp.x, rp.z) - (obb.center as Vector2)
 	var ay: Vector2 = obb.ay
 	var side := ay if ay.dot(to_road) > 0.0 else -ay
 	var c: Vector2 = obb.center + side * ((obb.size as Vector2).y / 2.0 + 0.08)

@@ -5,7 +5,7 @@ extends Control
 ## kahden sormen nipistys zoomaa, W/A/S/D tai vetäminen siirtää, hyppy (välilyönti) keskittää pelaajaan, M tai Esc
 ## sulkee. Kyläkartalla klikkaus asettaa kompassin kohteen (tarttuu lähimpään merkkiin), klikkaus kohteen päälle tai
 ## oikea nappi poistaa sen.
-## Mökillä ja Vaalan mopomatkalla kartta on Paapelin tai Vaalan kartta (yksi näkymä, alue pelaajan paikan mukaan) mopomatkan kehyksessä (vaala.gd:
+## Mökillä ja Vaalan mopomatkalla kartta on yksi iso Neittävä–Vaala-kartta mopomatkan kehyksessä (vaala.gd:
 ## origo mökin osoitepisteessä, x itään, z etelään): mökin piha, tie Vaalaan ja Vaalan keskusta kohteineen.
 
 const M := preload("res://scripts/map_data.gd")
@@ -47,14 +47,12 @@ var _vland: Control  # maanpeite kartan alla (show_behind_parent), oma materiaal
 var _vgrid := {}  # maastoruudukon nx, nz, x0, z0, cell
 var _vcodes := PackedByteArray()
 var _vtree_pts := PackedVector2Array()  # puumerkit metsään (Saloisten tapaan)
-var _vaala_rect := Rect2()  # Neittävä–Vaala-maaston koko alue (maanpeitekuva); näkyvä kartta on yksi alue (_vrect)
-## Mopomatkan kehys on yksi 1,5 km:n tie, joten kartta on kaksi aluetta samassa näkymässä: Paapeli (mökki, Neittävän järvet,
-## tien alku) tai Vaala (keskusta, Satamantie, lava, tien loppu). Alue valitaan avattaessa pelaajan paikan mukaan (_vaala_region);
-## alueiden rajat ovat päällekkäin tien kohdalla, ja tie jatkuu reunan yli (_draw_region_hint).
-const REGION_PAAPELI := Rect2(-470.0, -760.0, 1030.0, 1000.0)
-const REGION_VAALA := Rect2(540.0, -1250.0, 780.0, 1060.0)
-const REGION_SPLIT_X := 520.0  # tien jakokohta (kehyksen x): sen länsipuolella Paapelin kartta
-var _vregion := "paapeli"
+var _vaala_rect := Rect2()  # Neittävä–Vaala-kartan alue
+const VROAD_HALF := 4.0  # Vaalan asfalttitien puolileveys (vaala.gd ROAD_HALF)
+const VROAD_STREET_HALF := 2.75  # kapea asfalttikatu (vaala.gd STREET_HALF)
+const VROAD_GRAVEL_HALF := 2.6
+const VROAD_OUT := Color(0.45, 0.25, 0.1)
+const VROAD_FILL := Color(0.98, 0.86, 0.4)
 ## Näkymä (molemmat kartat): _vrect = kartan alue (kyläkartalla maailman x/z, Vaalassa kehyksen x/z), _vcenter
 ## keskipiste samassa kehyksessä, _vzoom pikseliä metrille.
 var _vrect := Rect2()
@@ -116,10 +114,8 @@ func toggle() -> void:
 		_vaala = _vaala_mode()
 		if _vaala:
 			_vaala_load()
-			_vregion = _vaala_region()
-			_vrect = (REGION_PAAPELI if _vregion == "paapeli" else REGION_VAALA).intersection(_vaala_rect)
+			_vrect = _vaala_rect
 			_vfit()
-			_center_on_me()
 		else:
 			if _tree_pts.is_empty() and world != null:
 				for i in range(0, world._trees.size(), 7):
@@ -437,10 +433,8 @@ func _draw() -> void:
 
 	var font := ThemeDB.fallback_font
 	if _vaala:
-		var paapeli := _vregion == "paapeli"
-		draw_string(font, r.position + Vector2(40, 46), "NEITTÄVÄ · PAAPELI" if paapeli else "VAALA", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, INK)
-		draw_string(font, r.position + Vector2(40, 68), ("Mökki Paapeli (Kaisuantie 62), Neittävän järvet ja mopotie Vaalaan" if paapeli
-			else "Vaalan keskusta, Satamantie ja Oulujärven lava") + " · OpenStreetMap, MML", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK.lightened(0.2))
+		draw_string(font, r.position + Vector2(40, 46), "NEITTÄVÄ – VAALA", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, INK)
+		draw_string(font, r.position + Vector2(40, 68), "Mökki Paapeli (Kaisuantie 62) ja mopotie Vaalan keskustaan · OpenStreetMap, MML", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK.lightened(0.2))
 	else:
 		draw_string(font, r.position + Vector2(40, 46), "SALOINEN · RAAHE", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, INK)
 		draw_string(font, r.position + Vector2(40, 68), "Normipäivän maastokartta — Järvikuja 1 ja ympäristö", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK.lightened(0.2))
@@ -563,20 +557,17 @@ func _legend_vaala(p: Vector2) -> float:
 	var font := ThemeDB.fallback_font
 	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 	var items := [
-		["home", "Mökki Paapeli"], ["beach", "Salmisen uimaranta"], ["statue", "Ranta-Rosvo"], ["laavu", "Keskimmäisen laavu"],
-		["barrel", "Tynnyrisauna"], ["dock", "Laituri ja soutuvene"], ["you", "Olet tässä"],
-	] if _vregion == "paapeli" else [
-		["siitari", "Hotelli-Ravintola Siitari"], ["shop", "K-Market Tervaportti"],
+		["home", "Mökki Paapeli"], ["siitari", "Hotelli-Ravintola Siitari"], ["shop", "K-Market Tervaportti"],
 		["zabuki", "Zabuki (olut, burgerit)"], ["gasthaus", "Gasthaus (yö 10 €)"], ["apteekki", "Apteekki (Satamantie)"],
 		["atm", "Pankkiautomaatti"], ["lava", "Oulujärven lava"], ["church", "Kirkko"], ["station", "Rautatieasema"],
-		["harbor", "Vaalan satama (muskelivene)"], ["you", "Olet tässä"],
-	]
-	items += [
+		["beach", "Salmisen uimaranta"], ["statue", "Ranta-Rosvo"], ["laavu", "Keskimmäisen laavu"],
+		["barrel", "Tynnyrisauna"], ["dock", "Laituri ja soutuvene"], ["harbor", "Vaalan satama (muskelivene)"],
+		["you", "Olet tässä"],
 		["road", "Maantie"], ["gravel", "Soratie"], ["rail", "Rautatie"], ["forest", "Metsä"], ["field", "Pelto"], ["bog", "Suo"],
 		["water", "Vesi"], ["building", "Rakennus"],
 	]
 	# Kohteet allekkain, viivat ja alueet kahteen palstaan.
-	var first_area := items.size() - 8  # kohteet ensin allekkain, loput (viivat ja alueet) kahteen palstaan
+	var first_area := 17
 	var last_y := p.y
 	for i in items.size():
 		var row := i if i < first_area else first_area + (i - first_area) / 2
@@ -838,36 +829,7 @@ func _draw_map() -> void:
 		var f := -player.global_transform.basis.z
 		_you_icon_on(v, _w2(Vector2(player.global_position.x, player.global_position.z)), atan2(f.z, f.x) + PI / 2.0)
 	_mask_outside(v)
-	_draw_region_hint(v)
 	_draw_road_hover(v)  # viimeisenä: kartan reunan paperi ei peitä nimeä
-
-
-## Mopotie jatkuu toiselle kartalle: tien viimeisen alueella olevan pisteen luo nuoli ja matka ("Vaalaan →" / "← Paapeliin"),
-## jotta tien alku ja loppu ovat yhdessä kartassa tunnistettavissa.
-func _draw_region_hint(v: Control) -> void:
-	var road: Array = _vd.road
-	var to_vaala := _vregion == "paapeli"
-	var idx := -1
-	for k in road.size():
-		var i := k if to_vaala else road.size() - 1 - k
-		if _vrect.has_point(Vector2(road[i][0], road[i][2])):
-			idx = i
-		elif idx >= 0:
-			break
-	if idx < 0:
-		return
-	var km := 0.0
-	var step := 1 if to_vaala else -1
-	for i in range(idx, road.size() - 1 if to_vaala else 0, step):
-		km += Vector2(road[i][0], road[i][2]).distance_to(Vector2(road[i + step][0], road[i + step][2]))
-	km /= 1000.0
-	var txt := ("Vaalaan → %.1f km" if to_vaala else "← Paapeliin %.1f km") % km
-	txt = txt.replace(".", ",")
-	var font := ThemeDB.fallback_font
-	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
-	var at := _vpx(Vector2(road[idx][0], road[idx][2]))
-	at = Vector2(clampf(at.x - tw - 10.0, 8.0, v.size.x - tw - 8.0), clampf(at.y - 10.0, 18.0, v.size.y - 8.0))
-	_outlined(v, at, txt, 13, Color(0.45, 0.25, 0.1))
 
 
 ## Kartta-alueen ulkopuoli paperiksi (OSM-aineisto jatkuu pelialueen yli) ja alueen reunaviiva, kun kartta on
@@ -901,14 +863,6 @@ func _vaala_mode() -> bool:
 	if game._in_vaala:
 		return true
 	return game._at_mokki()
-
-
-## Avattaessa näytettävä alue: Paapeli, kun pelaaja (mökillä tai mopolla) on tien länsipuoliskolla, muuten Vaala.
-func _vaala_region() -> String:
-	var me := _vaala_me()
-	if me.is_empty() or (me[0] as Vector2).x < REGION_SPLIT_X:
-		return "paapeli"
-	return "vaala"
 
 
 func _vaala_trip() -> bool:
@@ -1005,6 +959,20 @@ func _vaala_load() -> void:
 			_vbld_idx.append(base + t)
 		for k in pts.size():
 			_vbld_cols.append(col)
+	# Datasta rakennetut talot (ei OSM-rakennuksia): matkakeskus, Zabuki, kunnantalo, apteekki ja kirkko (laiva ja torni).
+	var kes: Dictionary = _vd.get("keskusta", {})
+	var kcol := Color(0.55, 0.22, 0.16)
+	for key in ["matkakeskus", "kunnantalo", "apteekki"]:
+		if kes.has(key):
+			_vbld_rect(Vector2(kes[key].c[0], kes[key].c[1]), Vector2(kes[key].face[0], kes[key].face[1]), float(kes[key].len), float(kes[key].depth), kcol)
+	if kes.has("zabuki"):
+		_vbld_rect(Vector2(kes.zabuki.c[0], kes.zabuki.c[1]), Vector2(kes.zabuki.face[0], kes.zabuki.face[1]), 9.0, 5.0, kcol)
+	if kes.has("kirkko"):
+		var kk: Dictionary = kes.kirkko
+		var kf := Vector2(kk.face[0], kk.face[1])
+		var kc := Vector2(kk.c[0], kk.c[1])
+		_vbld_rect(kc, kf, float(kk.depth), float(kk.len), kcol)  # laiva: pitkä sivu julkisivun suuntaan
+		_vbld_rect(kc + kf * (float(kk.len) / 2.0 + 2.0), kf, 5.6, 5.2, kcol)  # torni julkisivupäässä (vaala_kirkko.gd)
 	if _vd.has("lava"):
 		var lc := Vector2(_vd.lava.x, _vd.lava.z)
 		var lh := Vector2(_vd.lava.w, _vd.lava.l) / 2.0
@@ -1038,6 +1006,8 @@ func _vaala_load() -> void:
 			_vpois.append([nm, cen, "church", nm.ends_with("kirkko")])
 		else:
 			_vpois.append([nm, cen, "named", false])
+	if kes.has("kirkko"):
+		_vpois.append(["Vaalan kirkko", Vector2(kes.kirkko.c[0], kes.kirkko.c[1]), "church", true])
 	var tori := _vaala_tori()
 	if tori[0] != Vector2.INF:
 		_vpois.append(["Tori", tori[0], "label", false])
@@ -1053,6 +1023,149 @@ func _vaala_load() -> void:
 		var a: Array = _vd.road[br[0]]
 		var b: Array = _vd.road[br[1]]
 		_vpois.append(["Oulujoen silta", Vector2((a[0] + b[0]) / 2.0, (a[2] + b[2]) / 2.0), "label", false])
+
+
+## Pysäköintialueet ja tori (kivetty kenttä) tasaisina alueina; tiet piirretään niiden päälle.
+func _draw_vaala_ground(v: Control) -> void:
+	for pk in _vd.parkings:
+		var pp := PackedVector2Array()
+		for q in pk:
+			pp.append(_vpx(Vector2(q[0], q[1])))
+		if pp.size() >= 3 and not Geometry2D.triangulate_polygon(pp).is_empty():
+			v.draw_colored_polygon(pp, Color(0.9, 0.88, 0.74))
+			v.draw_polyline(pp + PackedVector2Array([pp[0]]), INK.lightened(0.15), 1.0)
+	for r in _vd.side_roads:
+		if r.name != "Vaalan tori":
+			continue
+		var tp := PackedVector2Array()
+		for q in r.pts:
+			tp.append(_vpx(Vector2(q[0], q[1])))
+		if tp.size() > 3 and tp[0].distance_to(tp[tp.size() - 1]) < 0.01:
+			tp.remove_at(tp.size() - 1)
+		if tp.size() >= 3 and not Geometry2D.triangulate_polygon(tp).is_empty():
+			v.draw_colored_polygon(tp, Color(0.88, 0.82, 0.7))
+			v.draw_polyline(tp + PackedVector2Array([tp[0]]), INK.lightened(0.15), 1.0)
+
+
+## Tiet mittatarkkoina: asfaltti 8 m, kapea katu 5,5 m, päätie 7,2 m (vaala.gd ROAD_HALF, STREET_HALF) zoomin mukaan; pienin
+## leveys pikseleinä pitää tiet luettavina koko kartalla. Sorat ovat ohuita mustia viivoja. Ensin kaikkien tien ääriviivat ja sitten
+## täytöt, jotta risteykset ovat yhtenäisiä; keskellä liikenneympyrä (ajorengas, reunakivi ja keskisaareke), ja kaksikaistaisten
+## teiden keskelle tulee katkoviiva.
+func _draw_vaala_roads(v: Control) -> void:
+	var z := _vzoom
+	var items: Array = []  # [pikselipisteet, puolileveys m, laji (0 asfaltti, 1 katu, 2 sora), silta]
+	var rails: Array = []
+	var foot: Array = []
+	for r in _vd.side_roads:
+		var pts := PackedVector2Array()
+		for q in r.pts:
+			pts.append(_vpx(Vector2(q[0], q[1])))
+		if r.kind == "rail":
+			rails.append(pts)
+		elif r.hw in ["footway", "cycleway", "path", "pedestrian", "track"]:
+			if r.name != "Vaalan tori":
+				foot.append(pts)
+		elif r.get("street", 0) == 1:
+			items.append([pts, VROAD_STREET_HALF, 1, false])
+		elif r.hw in ["secondary", "tertiary", "residential"] or r.surface in ["asphalt", "paved"]:
+			items.append([pts, VROAD_HALF, 0, false])
+		else:
+			items.append([pts, VROAD_GRAVEL_HALF, 2, false])
+	for br in _vd.branches:
+		var bpts := PackedVector2Array()
+		for q in br.pts:
+			bpts.append(_vpx(Vector2(q[0], q[2])))
+		items.append([bpts, VROAD_HALF if br.gravel != 1 else VROAD_GRAVEL_HALF, 0 if br.gravel != 1 else 2, false])
+	# Järviseudun tiet (vaala.gd _plan_north): Nuojuankoskentie, Keskimmäisentie ja Salmisentie eivät ole datassa.
+	if mopo_trip != null:
+		for r in mopo_trip.vaala.north_roads:
+			var npts := PackedVector2Array()
+			for q: Vector2 in r.pts:
+				npts.append(_vpx(q))
+			items.append([npts, VROAD_HALF if r.asphalt else VROAD_GRAVEL_HALF, 0 if r.asphalt else 2, false])
+	var road: Array = _vd.road
+	var line := PackedVector2Array()
+	for q in road:
+		line.append(_vpx(Vector2(q[0], q[2])))
+	var run_start := 0
+	for i in range(1, road.size() + 1):
+		if i == road.size() or road[i][5] != road[run_start][5]:
+			var asph: bool = road[run_start][5] != 1
+			items.append([line.slice(run_start, mini(i + 1, road.size())), float(road[run_start][4]) if asph else VROAD_GRAVEL_HALF, 0 if asph else 2, false])
+			run_start = i
+	for br in _vd.bridges:
+		items.append([line.slice(br[0], br[1] + 1), float(road[br[0]][4]), 0, true])
+	var view_r := Rect2(Vector2(-40, -40), v.size + Vector2(80, 80))
+	var rb = _vd.get("keskusta", {}).get("asema", {}).get("roundabout")
+	# 1. Ääriviivat.
+	for it in items:
+		var kind: int = it[2]
+		if kind == 2:
+			continue
+		var fill := _vroad_fill_px(it)
+		var out_w := fill + maxf(2.4 if kind == 0 else 1.8, 1.2 * z) + (3.0 if it[3] else 0.0)
+		var col := INK if it[3] else VROAD_OUT
+		v.draw_polyline(it[0], col, out_w)
+		_vroad_joints(v, it[0], out_w, col, view_r)
+	if rb != null and float(rb.r) > 0.0:
+		var cp := _vpx(Vector2(rb.c[0], rb.c[1]))
+		v.draw_circle(cp, float(rb.r) * z + maxf(1.2, 0.6 * z), VROAD_OUT)
+	# 2. Täytöt ja keskiviivat.
+	for it in items:
+		var kind: int = it[2]
+		var pts: PackedVector2Array = it[0]
+		if kind == 2:
+			v.draw_polyline(pts, INK.lightened(0.15), clampf(2.0 * z / 0.4, 2.0, 5.0))
+			continue
+		var fill := _vroad_fill_px(it)
+		var fcol := VROAD_FILL if kind == 0 else Color(0.98, 0.9, 0.62)
+		v.draw_polyline(pts, fcol, fill)
+		_vroad_joints(v, pts, fill, fcol, view_r)
+		if kind == 0 and fill >= 9.0:
+			for i in pts.size() - 1:
+				v.draw_dashed_line(pts[i], pts[i + 1], Color(0.7, 0.5, 0.2), 1.0, 7.0)
+	for pts in foot:
+		if z > 0.6:
+			for i in pts.size() - 1:
+				v.draw_dashed_line(pts[i], pts[i + 1], INK, 1.5, 5.0)
+	for pts in rails:
+		_rail_on(v, pts, clampf(3.0 * clampf(z / 0.4, 1.0, 3.0), 2.5, 6.0))
+	if rb != null and float(rb.r) > 0.0:
+		var cp := _vpx(Vector2(rb.c[0], rb.c[1]))
+		var rr := float(rb.r) * z
+		var ir := (float(rb.r) - 6.5) * z
+		v.draw_circle(cp, rr, VROAD_FILL)
+		v.draw_circle(cp, ir + maxf(1.0, 0.4 * z), VROAD_OUT)
+		v.draw_circle(cp, ir, Color(0.72, 0.82, 0.52))
+		if ir > 14.0:
+			v.draw_arc(cp, (rr + ir) / 2.0, 0.0, TAU, 48, Color(0.7, 0.5, 0.2, 0.7), 1.0)
+
+
+## Tien täyttöleveys pikseleinä: metrit zoomilla, vähintään luettava leveys (asfaltti 3,5 px, katu 2,2 px).
+func _vroad_fill_px(it: Array) -> float:
+	var kind: int = it[2]
+	return maxf(3.5 if kind == 0 else 2.2, float(it[1]) * 2.0 * _vzoom)
+
+
+## Pyöristetyt liitokset ja päät leveille viivoille, jotta mutkat ja tien päät eivät jää kulmikkaiksi.
+func _vroad_joints(v: Control, pts: PackedVector2Array, w: float, col: Color, view_r: Rect2) -> void:
+	if w < 5.0:
+		return
+	for p in pts:
+		if view_r.has_point(p):
+			v.draw_circle(p, w / 2.0, col)
+
+
+## Suorakulmio rakennuslistaan: keskipiste, julkisivun suunta (face), pituus julkisivun suuntaisesti (len) ja syvyys.
+func _vbld_rect(c: Vector2, face: Vector2, len: float, depth: float, col: Color) -> void:
+	var f := face.normalized()
+	var ax := Vector2(-f.y, f.x)
+	var base := _vbld_pts.size()
+	_vbld_pts.append_array(PackedVector2Array([c - ax * len / 2.0 - f * depth / 2.0, c + ax * len / 2.0 - f * depth / 2.0,
+		c + ax * len / 2.0 + f * depth / 2.0, c - ax * len / 2.0 + f * depth / 2.0]))
+	_vbld_idx.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
+	for k in 4:
+		_vbld_cols.append(col)
 
 
 ## Vaalan tori ja Zabuki kuten vaala.gd _tori_prep: [torin keskipiste, Zabukin paikka] (INF, jos toria ei ole).
@@ -1094,7 +1207,7 @@ func _draw_vaala_land() -> void:
 	if _vtex == null or not _vaala or _vland.material == null:
 		return
 	(_vland.material as ShaderMaterial).set_shader_parameter("px_per_cell", float(_vgrid.cell) * _vzoom)
-	_vland.draw_texture_rect(_vtex, Rect2(_vpx(_vaala_rect.position), _vaala_rect.size * _vzoom), false)
+	_vland.draw_texture_rect(_vtex, Rect2(_vpx(_vrect.position), _vrect.size * _vzoom), false)
 
 
 func _draw_vaala_map() -> void:
@@ -1113,43 +1226,9 @@ func _draw_vaala_map() -> void:
 				v.draw_circle(tp, rad, Color(0.35, 0.5, 0.28, 0.7))
 	_draw_mokki_overlay(v)
 
-	# Tiet kuten Saloisten kartalla: ensin ääriviivat, sitten täyttö (maantie keltainen ruskealla reunuksella, sora ohut
-	# musta viiva, polku katkoviiva); leveys kasvaa zoomatessa.
+	# Tiet kuten Saloisten kartalla (ruskea reunus, keltainen täyttö), mutta leveys metreinä (_draw_vaala_roads).
 	var rw := clampf(_vzoom / 0.4, 1.0, 3.0)
-	var road_line := func(pts: PackedVector2Array, asphalt: bool) -> void:
-		if asphalt:
-			v.draw_polyline(pts, Color(0.45, 0.25, 0.1), 6.0 * rw)
-			v.draw_polyline(pts, Color(0.98, 0.86, 0.4), 3.5 * rw)
-		else:
-			v.draw_polyline(pts, INK.lightened(0.15), 2.0 * rw)
-	for r in _vd.side_roads:
-		var pts := PackedVector2Array()
-		for q in r.pts:
-			pts.append(_vpx(Vector2(q[0], q[1])))
-		if r.kind == "rail":
-			_rail_on(v, pts, clampf(3.0 * rw, 2.5, 6.0))
-		elif r.hw in ["footway", "cycleway", "path", "pedestrian", "track"]:
-			if _vzoom > 0.6:
-				for i in pts.size() - 1:
-					v.draw_dashed_line(pts[i], pts[i + 1], INK, 1.5, 5.0)
-		else:
-			if r.get("street", 0) == 1:  # kapea asfalttikatu: ohuempi kuin maantie
-				v.draw_polyline(pts, Color(0.45, 0.25, 0.1), 4.0 * rw)
-				v.draw_polyline(pts, Color(0.98, 0.9, 0.62), 2.2 * rw)
-			else:
-				road_line.call(pts, r.hw in ["secondary", "tertiary", "residential"] or r.surface in ["asphalt", "paved"])
-	for br in _vd.branches:
-		var pts := PackedVector2Array()
-		for q in br.pts:
-			pts.append(_vpx(Vector2(q[0], q[2])))
-		road_line.call(pts, br.gravel != 1)
-	# Järviseudun tiet (vaala.gd _plan_north): Nuojuankoskentie, Keskimmäisentie ja Salmisentie eivät ole datassa.
-	if mopo_trip != null:
-		for r in mopo_trip.vaala.north_roads:
-			var npts := PackedVector2Array()
-			for q: Vector2 in r.pts:
-				npts.append(_vpx(q))
-			road_line.call(npts, r.asphalt)
+	_draw_vaala_ground(v)
 	if _vd.has("satama"):
 		# Sataman laiturit viivoina: pääsilta ja T-pää.
 		var sdr := Vector2(_vd.satama.dir[0], _vd.satama.dir[1])
@@ -1178,21 +1257,12 @@ func _draw_vaala_map() -> void:
 				fp.append(_vpx(Vector2(q[0], q[1])))
 			v.draw_polyline(fp, Color(0.6, 0.08, 0.05), 1.5)
 
-	# Päätie: asfaltti keltaisena, sora ohuena mustana viivana, sillat tummalla reunalla.
+	_draw_vaala_roads(v)
 	var road: Array = _vd.road
 	var line := PackedVector2Array()
 	for q in road:
 		line.append(_vpx(Vector2(q[0], q[2])))
 	var w: float = 6.0 * rw
-	var run_start := 0
-	for i in range(1, road.size() + 1):
-		if i == road.size() or road[i][5] != road[run_start][5]:
-			road_line.call(line.slice(run_start, mini(i + 1, road.size())), road[run_start][5] != 1)
-			run_start = i
-	for br in _vd.bridges:
-		var seg := line.slice(br[0], br[1] + 1)
-		v.draw_polyline(seg, INK, w + 3.0)
-		v.draw_polyline(seg, Color(0.98, 0.86, 0.4), 3.5 * rw)
 
 	# Rakennukset kerralla.
 	if not _vbld_idx.is_empty():
@@ -1576,7 +1646,18 @@ func _public_places() -> Array:
 	for p in [["Honganpalon koulu", M.HONGAN_KOULU, "honganpalo"], ["Saloisten kenttä", M.KENTTA, "kentta"],
 			["Seuraintalo", M.SEURAINTALO, "kirppis"], ["Reippari", M.REIPPARI, "reippari"], ["SEO Saloinen", M.SEO, "seo"],
 			["Oravajärven uimaranta", M.UIMARANTA, "oravajarvi"], ["Katsastus", M.KATSASTUS, "kinnapotti"],
-			["Korpelan korjaamo", M.KORPELA, "korjaamo"], ["Säästöpiha", M.SAASTOPIHA, "saastopiha"]]:
+			["Korpelan korjaamo", M.KORPELA, "korjaamo"], ["Säästöpiha", M.SAASTOPIHA, "saastopiha"],
+			# Muut paikat, joihin ajetaan tai kävellään (kuka tahansa tietää): kirkko, tapuli, Pirtti, koulut, kentät, korjaamot, rauniot ja erämaa.
+			["Saloisten kirkko", M.KIRKKO, "kirkko"], ["Kellotapuli", M.KELLOTAPULI, "tapuli"], ["Saloisten Pirtti (museo)", M.PIRTTI, "pirtti"],
+			["Koulukeskus", M.KOULUKESKUS, "koulukeskus"], ["Päiväkoti", M.PAIVAKOTI, "paivakoti"], ["Kaukalo", M.KAUKALO, "kaukalo"],
+			["Ulkopingispöytä", M.ULKOPINGIS, "pingis"], ["Lemmikki Enkelit (muistolehto)", M.LEMMIKKI, "lemmikki"],
+			["Kanttorila", M.KANTTORILA, "kanttorila"], ["Honganpalon kenttä", M.HONGAN_KENTTA, "hongankentta"],
+			["Arttim Metal Works", M.ARTTIM, "arttim"], ["Rudus", M.RUDUS, "rudus"], ["Heiskasen huolto", M.HEISKANEN, "heiskanen"],
+			["Huhtalan auto ja varaosat", M.HUHTALA, "huhtala"], ["Lapinraunio", M.LAPINRAUNIO, "lapinraunio"],
+			["Raunio", M.RAUNIOT[0], "raunio"], ["Kertunkankaan röykkiöt", M.KERTUNKANGAS, "kertunkangas"],
+			["Heinimäki", M.HEINIMAKI, "heinimaki"], ["Kiilinlammen grillikatos", M.GRILLIKATOS, "grillikatos"],
+			["Antinsuon laavu", M.LAAVU, "laavu"], ["Kota ja lintutorni", M.KOTA, "kota"], ["Viitajärven laavu", M.VIITA_LAAVU, "viitalaavu"],
+			["Puntarimäki", M.PUNTARIMAKI, "puntarimaki"], ["Kaitasaari", M.KAITASAARI, "kaitasaari"]]:
 		out.append([p[0], M.w2(p[1]), p[2] in firsts])
 	# Kuulemalla kartalle (main.gd HEARD_PLACES), tai kun paikassa on käyty.
 	if "kuultu_seppo" in firsts or "seppo" in firsts:
