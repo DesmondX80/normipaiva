@@ -240,13 +240,14 @@ static func _side_panel(parent: Node3D, x: float, pts: Array, mat: Material) -> 
 			var tri := [pts[0], pts[k], pts[k + 1]] if side < 0.0 else [pts[0], pts[k + 1], pts[k]]
 			for p: Vector2 in tri:
 				st.add_vertex(Vector3(side * 0.004, p.y, p.x))
+	st.index()  # _merge_parts: indeksoimaton verkko katoaa, jos se on materiaalinsa ensimmäinen osa
 	var mi := part(parent, st.commit(), Vector3(x, 0, 0), mat)
 	return mi
 
 
-## Kolmio normaalin n puolelle näkyväksi: kiertosuunta valitaan normaalista (kokeiltu kuvasta).
+## Kolmio normaalin n puolelle näkyväksi: kiertosuunta valitaan normaalista (Godotissa etupinta myötäpäivään).
 static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, n: Vector3) -> void:
-	if (b - a).cross(c - a).dot(n) < 0.0:
+	if (b - a).cross(c - a).dot(n) > 0.0:
 		var t := b
 		b = c
 		c = t
@@ -304,6 +305,35 @@ static func _bevel(parent: Node3D, pts: PackedVector2Array, half_w: float, c: fl
 	return part(parent, st.commit(), pos, mat)
 
 
+## Pyöränkaaren reunus: poikkileikkaus (säde, ulostulo) pyöräytetään X-akselin ympäri kulmasta a0 kulmaan PI - a0
+## (0 = +Z, PI/2 = ylös). Kaari nousee kyljestä x0:ssa sx-suuntaan depth verran, ulkoreunassa viiste.
+static func _arch(parent: Node3D, x0: float, sx: float, center: Vector2, r0: float, r1: float, depth: float, a0: float, mat: Material) -> MeshInstance3D:
+	var bev := minf(depth, (r1 - r0) / 2.0) * 0.75
+	var prof: Array[Vector2] = [Vector2(r0, 0.0), Vector2(r0, depth), Vector2(r1 - bev, depth), Vector2(r1, depth - bev), Vector2(r1, 0.0)]  # (r, ulos)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var seg := 32
+	for i in seg:
+		var ang: Array[float] = [lerpf(a0, PI - a0, float(i) / seg), lerpf(a0, PI - a0, float(i + 1) / seg)]
+		var mid := (ang[0] + ang[1]) / 2.0
+		var radial := Vector3(0, sin(mid), cos(mid))
+		for k in prof.size() - 1:
+			var e := prof[k + 1] - prof[k]
+			var nrm := Vector2(e.y, -e.x).normalized()  # ulospäin profiilissa (r kasvaa, x ulos)
+			if k == 0:
+				nrm = Vector2(-1, 0)  # sisäreuna katsoo kaaren keskelle
+			var n3 := (radial * nrm.x + Vector3(sx * nrm.y, 0, 0)).normalized()
+			var q: Array[Vector3] = []
+			for a: float in ang:
+				for pr: Vector2 in [prof[k], prof[k + 1]]:
+					q.append(Vector3(x0 + sx * pr.y, center.y + sin(a) * pr.x, center.x + cos(a) * pr.x))
+			_tri(st, q[0], q[1], q[3], n3)
+			_tri(st, q[0], q[3], q[2], n3)
+	st.index()
+	st.generate_tangents()
+	return part(parent, st.commit(), Vector3.ZERO, mat)
+
+
 ## Laatikko, jonka kaikki 12 reunaa on viistetty c:n verran (ulkomitat = size).
 static func _bevel_box(parent: Node3D, size: Vector3, pos: Vector3, c: float, mat: Material) -> MeshInstance3D:
 	var hz := size.z / 2.0
@@ -347,6 +377,7 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	const WHEEL_Z := 1.19  # akseliväli 2,38 m
 	const ARCH_R := WHEEL_R + 0.045  # pyöränkaaren säde
 	const ARCH_Y := ARCH_R  # kaaren keskipiste renkaan keskeltä ylempänä: kotelo ulottuu maahan asti, ei alle
+	const LIP_R := ARCH_R + 0.045  # kaaren maalatun reunuksen ulkosäde
 	const SC := 0.03  # kyljen reunojen viiste
 	const CF := 0.035  # keulan ja perän ylä- ja alareunan viiste
 	var first := parent.get_child_count()
@@ -410,21 +441,25 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 			part(parent, B.boxm(Vector3(0.01, BELT - SILL - SC * 2.0 - 0.04, 0.012)), Vector3(sz, (SILL + BELT) / 2.0, dz), frame)  # viisteiden välissä
 		for hz in [BP - 0.12, RW - 0.1]:
 			part(parent, B.boxm(Vector3(0.03, 0.035, 0.14)), Vector3(sx * (SIDE + 0.01), 0.80, hz), bar)
-		var arch_out := [FRONT, -WHEEL_Z - ARCH_R, -WHEEL_Z + ARCH_R, WHEEL_Z - ARCH_R, WHEEL_Z + ARCH_R, BACK]
+		var lip_z: float = sqrt(LIP_R * LIP_R - pow(0.52 - ARCH_Y, 2.0))  # kylkilista päättyy kaaren reunuksen ulkoreunaan
+		var arch_out := [FRONT, -WHEEL_Z - lip_z, -WHEEL_Z + lip_z, WHEEL_Z - lip_z, WHEEL_Z + lip_z, BACK]
 		for k in 3:
 			var z0: float = arch_out[k * 2] + (0.02 if k > 0 else 0.0)
 			var z1: float = arch_out[k * 2 + 1] - (0.02 if k < 2 else 0.0)
 			part(parent, B.boxm(Vector3(0.03, 0.05, z1 - z0)), Vector3(sx * (SIDE + 0.012), 0.52, (z0 + z1) / 2.0), frame)  # kylkilista
-		part(parent, B.boxm(Vector3(0.012, 0.018, 2.0 * (WHEEL_Z - ARCH_R) - 0.06)), Vector3(sx * (SIDE + 0.006), SILL + 0.05, 0), bar)  # helmalista
+		part(parent, B.boxm(Vector3(0.012, 0.018, 2.0 * (WHEEL_Z - LIP_R) - 0.04)), Vector3(sx * (SIDE + 0.006), SILL + 0.05, 0), bar)  # helmalista
 		part(parent, B.boxm(Vector3(0.12, 0.09, 0.15)), Vector3(sx * (SIDE + 0.07), BELT + 0.09, WS0 + 0.12), frame)  # peili
 		part(parent, B.boxm(Vector3(0.02, 0.07, 0.12)), Vector3(sx * (SIDE + 0.13), BELT + 0.09, WS0 + 0.12), glass())
+		# Pyöränkaaret (esikuva_pony2_sivu.jpg): pyöreä maalattu reunus, joka nousee kyljestä ja jatkuu helman
+		# alareunaan asti, ja sen sisällä tumma kotelo vain helman yläpuolella (ei mustaa kiekkoa maahan asti).
+		var a0: float = -asin((ARCH_Y - SILL) / LIP_R)
 		for wz in [-WHEEL_Z, WHEEL_Z]:
-			part(parent, B.cyl(ARCH_R, ARCH_R, 0.02, 24), Vector3(sx * (SIDE + 0.005), ARCH_Y, wz), frame, Vector3(0, 0, PI / 2.0))
-			# Kaaren reunus: lyhyet maalatut palat kaarella, hieman kyljen pinnasta ulos.
-			for k in 11:
-				var a: float = lerpf(-0.2, PI + 0.2, k / 10.0)
-				var seg := part(parent, B.boxm(Vector3(0.025, 0.04, 0.115)), Vector3(sx * (SIDE + 0.012), ARCH_Y + sin(a) * (ARCH_R + 0.02), wz + cos(a) * (ARCH_R + 0.02)), body)
-				seg.rotation.x = PI / 2.0 - a  # pituus kaaren tangentin suuntaan
+			var well: Array = []
+			for k in 17:
+				var a: float = lerpf(a0, PI - a0, k / 16.0)
+				well.append(Vector2(wz + cos(a) * (ARCH_R + 0.005), ARCH_Y + sin(a) * (ARCH_R + 0.005)))
+			_side_panel(parent, sx * (SIDE + 0.004), well, frame)
+			_arch(parent, sx * SIDE, sx, Vector2(wz, ARCH_Y), ARCH_R, LIP_R, 0.022, a0, body)
 	part(parent, B.boxm(Vector3(0.012, 0.1, 0.12)), Vector3(-(SIDE + 0.004), 0.78, 1.6), frame)  # tankkiluukku vasemmassa takakyljessä
 	part(parent, B.boxm(Vector3(0.014, 0.085, 0.105)), Vector3(-(SIDE + 0.005), 0.78, 1.6), body)
 	# Keula (esikuva_pony2_edesta.jpg): suorakaiteiset ajovalot, kulmavilkut, musta säleikkö ohuin kromisin
@@ -475,9 +510,9 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 		part(parent, B.boxm(Vector3(SIDE * 2.0 - 0.02, 0.015, 0.005)), Vector3(0, BUMP_Y + 0.04, bz + face), stripe)  # päät viisteiden sisäpuolella
 		var wrap_z: float = bz - signf(bz) * 0.2  # puskurin kylkiosa kohti pyörää
 		var za: float = bz + signf(bz) * 0.05  # kylkiraita etupinnan viisteestä kylkiosan päätyviisteeseen
-		var zb: float = wrap_z - signf(bz) * 0.135
+		var zb: float = wrap_z - signf(bz) * 0.125
 		for sx in [-1.0, 1.0]:
-			_bevel_box(parent, Vector3(0.04, 0.2, 0.3), Vector3(sx * SIDE, BUMP_Y, wrap_z), 0.015, frame)
+			_bevel_box(parent, Vector3(0.04, 0.2, 0.28), Vector3(sx * SIDE, BUMP_Y, wrap_z), 0.015, frame)  # ei kaaren reunukseen
 			part(parent, B.boxm(Vector3(0.005, 0.015, absf(za - zb))), Vector3(sx * (SIDE + 0.022), BUMP_Y + 0.04, (za + zb) / 2.0), stripe)
 	part(parent, B.cyl(0.03, 0.03, 0.16, 8), Vector3(0.35, 0.21, BACK + 0.04), bar, Vector3(PI / 2.0, 0, 0))  # pakoputki
 	for sx in [-1.0, 1.0]:

@@ -104,6 +104,8 @@ func _run() -> void:
 	_lineup(true)
 	await _shot("sivusta", Vector3(-11.0, 0.9, 0), Vector3(0, 0.7, 0))
 	await _shot("sivusta_pony", Vector3(-6.0, 0.8, -2.6), Vector3(0, 0.7, -2.6))
+	await _shot("kaari", Vector3(-2.4, 0.6, -3.3), Vector3(-0.8, 0.38, -3.79), 35.0)  # etupyöränkaari vinosti edestä
+	await _shot("sisus", Vector3(-2.6, 1.45, -2.2), Vector3(0, 0.95, -2.6), 45.0)  # sivulasien läpi
 	_lineup(false)
 	await _shot("keula", Vector3(-1.2, 0.8, -4.2), Vector3(-1.2, 0.55, -2.0), 35.0)
 	await _shot("keula_lahi", Vector3(-1.2, 0.8, -4.6), Vector3(-1.2, 0.62, -1.9), 30.0)
