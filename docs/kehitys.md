@@ -96,6 +96,10 @@ merkki ja tallennus, korin rako portaaseen, kori → marjat → piirakka (ei syn
 `_aamu`, `_ilta`, `_tyhja_ovi`, `_kori_*`, `_kuisti_edesta/_sivusta/_ylhaalta` ja `_kartta`. Mallit ilman maailmaa:
 `tools/testit/aja.sh tscn tools/testit/sinikan_kuisti_kuvat.tscn`.
 
+Päivin Hyundai Pony (`vehicles.gd pony()`): `tools/testit/aja.sh tscn tools/testit/pony_kuvat.tscn` (Pony ja `car()` rinnakkain
+edestä, takaa, vinosti ylhäältä ja sivusta sekä keula ja perä lähikuvina; mittaa korin leveyden ilman peilejä, korkeuden ja pituuden
+(1,60 × 1,38 × 4,0 ±5 %), akselivälin 2,38 ja pyörän alimman pisteen 0 ± 0,01, kori ei maan alla).
+
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
 koukut testiosalla (`tools/testit/rikos_koe_osa.gd`): puhe, tapahtumat, luukun vihje, tallennus edestakaisin, päiväkirjan data,
 tappelun loppu, PIDÄTETTY Saloisissa (menetykset, kuvat `_pidatetty`, `_pidatys_paivi0–2`), uusi päivä ja ELVYTETTY Vaalassa
