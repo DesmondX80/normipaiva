@@ -389,6 +389,8 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	if plate == "":
 		plate = "%s%s%s-%d" % [char(65 + randi() % 26), char(65 + randi() % 26), char(65 + randi() % 26), 100 + randi() % 900]
 	var top := ROOF - ROOF_T  # lasien yläreuna
+	var roof_x := GLASS_W / 2.0 + 0.03  # katon alareunan x = pilarien ja sadevesilistojen ulkopinta
+	const ROOF_C := 0.02  # katon reunojen viiste: katto on viisteen verran leveämpi, jotta alareuna on roof_x:ssä
 	# Alakori, konepelti ja takaluukun pystyosa yhtenä sivuprofiilina: kyljen reunat viistetty SC:n verran
 	# (vyölinja, keulan ja perän pystykulmat, helma) ja profiilin kulmat CF:n verran (keulan ja perän yläreuna).
 	var nose_cf: float = NOSE_Y + (BELT - NOSE_Y) * CF / (WS0 - FRONT)  # konepellin pinta CF:n päässä keulasta
@@ -409,20 +411,29 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, win)  # takaluukun lasi
 	# Luukun lyhyen pystyn peltiosan (takavalot ja kilpi, alakorin profiilissa) yläreunassa pieni musta huulispoileri.
 	slab(parent, Vector3(0, HT_Y + 0.012, HT1 - 0.02), Vector3(0, HT_Y + 0.035, BACK + 0.04), GLASS_W + 0.04, 0.025, frame)
-	_bevel_box(parent, Vector3(GLASS_W + 0.06, ROOF_T, HT0 - WS1 + 0.04), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), 0.02, body)  # katto
+	_bevel_box(parent, Vector3((roof_x + ROOF_C) * 2.0, ROOF_T, HT0 - WS1 + 0.04), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), ROOF_C, body)  # katto
 	# Takalasin musta kehys ja pyyhin, konepellin takareunan tuuletusritilät, tuulilasin pyyhkimet.
 	var hat := (wr1 - wr0).normalized()
 	slab(parent, wr0, wr0.lerp(wr1, 0.05), GLASS_W, 0.05, frame)
 	slab(parent, wr0.lerp(wr1, 0.96), wr1, GLASS_W, 0.05, frame)
+	# Katon liitokset: tuulilasin yläreunan kumilista (muuten kattoverhoilu näkyy raosta vaaleana juovana) ja
+	# sadevesilistat katon kyljissä katon alareunan ja ikkunakehyksen välisen sauman päällä, pilarien välissä.
+	slab(parent, wf0.lerp(wf1, 0.95), wf1 + (wf1 - wf0).normalized() * 0.01, GLASS_W + 0.02, 0.05, frame)
+	for sx in [-1.0, 1.0]:
+		var rz0 := WS1 + 0.015  # A-pilarin yläpää on tuulilasin linjassa: lista alkaa heti sen takaa, ettei verhoilu näy raosta
+		var rz1 := HT0 - 0.04
+		part(parent, B.boxm(Vector3(0.025, 0.035, rz1 - rz0)), Vector3(sx * (roof_x - 0.0125), top + 0.005, (rz0 + rz1) / 2.0), frame)
 	part(parent, B.boxm(Vector3(0.5, 0.012, 0.02)), wr0.lerp(wr1, 0.75) + hat.cross(Vector3.RIGHT) * 0.03, frame)
 	for sx in [-1.0, 1.0]:
 		part(parent, B.boxm(Vector3(0.38, 0.012, 0.06)), Vector3(sx * 0.38, BELT - 0.12 * (BELT - NOSE_Y) / (WS0 - FRONT) + 0.008, WS0 - 0.12), frame)  # tuuletusritilä konepellin pinnassa
 		var wp := part(parent, B.boxm(Vector3(0.5, 0.015, 0.02)), wf0.lerp(wf1, 0.08) + Vector3(sx * 0.3 - 0.06, 0.03, 0), frame)  # pyyhin tuulilasin päällä
 		wp.rotation.z = 0.08 * sx
 	for sx in [-1.0, 1.0]:
-		var px: float = sx * (GLASS_W / 2.0 + 0.02)
-		slab(parent, wf0 + Vector3(px, 0, 0), wf1 + Vector3(px, 0, 0), 0.07, 0.06, body)  # A-pilari
-		slab(parent, wr0 + Vector3(px, 0, 0), wr1 + Vector3(px, 0, 0), 0.1, 0.06, body)  # takaluukun reuna
+		# Pilarien ulkopinta katon alareunan tasossa (roof_x) ja yläpää katon alle: muuten pilari porrastuu katon reunasta ulos.
+		var ax: float = sx * (roof_x - 0.035)
+		slab(parent, wf0 + Vector3(ax, 0, 0), wf1 + Vector3(ax, 0, 0) + (wf1 - wf0).normalized() * 0.02, 0.07, 0.06, body)  # A-pilari
+		var ex: float = sx * (roof_x - 0.05)
+		slab(parent, wr0 + Vector3(ex, 0, 0) - hat * 0.03, wr1 + Vector3(ex, 0, 0), 0.1, 0.06, body)  # takaluukun reuna
 		slab(parent, wr0 + Vector3(sx * (GLASS_W / 2.0 - 0.01), 0, 0), wr1 + Vector3(sx * (GLASS_W / 2.0 - 0.01), 0, 0), 0.03, 0.05, frame)  # takalasin sivukehys
 		# Leveä C-pilari: maalattu levy sivulasin päällä takasivuikkunan viistosta takareunasta takaluukkuun.
 		var cx: float = sx * (GLASS_W / 2.0 + 0.012)
@@ -487,6 +498,8 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 		part(parent, B.boxm(Vector3(0.29, 0.006, 0.032)), Vector3(sx * 0.50, LAMP_Y, FRONT - 0.012), lens)
 		part(parent, B.boxm(Vector3(0.09, 0.16, 0.03)), Vector3(sx * (SIDE - SC - 0.045), LAMP_Y, FRONT - 0.01), amber)  # kulmavilkku viisteen sisäpuolella
 		part(parent, B.boxm(Vector3(0.02, 0.16, 0.08)), Vector3(sx * (SIDE + 0.005), LAMP_Y, FRONT + SC + 0.045), amber)
+		part(parent, B.boxm(Vector3(SC * 1.414 + 0.012, 0.16, 0.02)), Vector3(sx * (SIDE - SC / 2.0 + 0.004), LAMP_Y, FRONT + SC / 2.0 - 0.004),
+			amber, Vector3(0, -sx * PI / 4.0, 0))  # korin pystyviisteessä etu- ja sivuvilkun välissä
 	# Perä: vaakatakavalot kilven molemmin puolin (punainen yläosa, alhaalla vilkku ulkona ja peruutusvalo sisällä).
 	part(parent, B.boxm(Vector3(0.58, 0.2, 0.03)), Vector3(0, TAIL_Y, BACK + 0.01), frame)  # kilven syvennys
 	for sx in [-1.0, 1.0]:
@@ -646,6 +659,8 @@ static func saab(parent: Node3D, color: Color, plate := "", police := false) -> 
 	if plate == "":
 		plate = "%s%s%s-%d" % [char(65 + randi() % 26), char(65 + randi() % 26), char(65 + randi() % 26), 100 + randi() % 900]
 	var top := ROOF - ROOF_T
+	var roof_x := GLASS_W / 2.0 + 0.03  # katon alareunan x = pilarien ja sadevesilistojen ulkopinta
+	const ROOF_C := 0.024  # katon reunojen viiste: katto on viisteen verran leveämpi, jotta alareuna on roof_x:ssä
 	# Alakori, konepelti, pysty keulapinta, viettävä tavaratilan kansi ja peräpaneeli yhtenä viistettynä sivuprofiilina.
 	_bevel(parent, PackedVector2Array([Vector2(FRONT, SILL + CF), Vector2(FRONT + CF, SILL), Vector2(BACK - CF, SILL),
 		Vector2(BACK, SILL + CF), Vector2(BACK, TAIL_TOP - CF), Vector2(BACK - CF, TAIL_TOP), Vector2(HT1 - 0.04, HT_Y),
@@ -657,15 +672,23 @@ static func saab(parent: Node3D, color: Color, plate := "", police := false) -> 
 	var wf1 := Vector3(0, top, WS1)
 	var wr0 := Vector3(0, top, HT0)
 	var wr1 := Vector3(0, HT_Y, HT1)
+	var hat_dir := (wr1 - wr0).normalized()
 	for sx in [-1.0, 1.0]:
 		_side_panel(parent, sx * GLASS_W / 2.0, [Vector2(WS0, BELT), Vector2(WS1, top), Vector2(QA, top), Vector2(QB, BELT)], win)
 	_cabin(parent, BELT, top, WS0, WS1, HT0, HT1, HT_Y, GLASS_W, bar, 0.12, 0.95, 1.3, 0.5)
 	slab(parent, wf0, wf1, GLASS_W + 0.02, 0.04, win)  # tuulilasi
 	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, win)  # takalasi
-	_bevel_box(parent, Vector3(GLASS_W + 0.06, ROOF_T, HT0 - WS1 + 0.04), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), 0.024, body)  # katto
+	_bevel_box(parent, Vector3((roof_x + ROOF_C) * 2.0, ROOF_T, HT0 - WS1 + 0.04), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), ROOF_C, body)  # katto
 	# Takalasin musta kehys, tavaratilan kannen saumat, tuulilasin pyyhkimet ja konepellin takareunan ilmanottoritilä.
 	slab(parent, wr0, wr0.lerp(wr1, 0.05), GLASS_W, 0.05, frame)
 	slab(parent, wr0.lerp(wr1, 0.95), wr1, GLASS_W, 0.05, frame)
+	# Katon liitokset: tuulilasin yläreunan kumilista (muuten kattoverhoilu näkyy raosta vaaleana juovana) ja
+	# sadevesilistat katon kyljissä katon alaviisteen ja ikkunakehyksen välisen sauman päällä.
+	slab(parent, wf0.lerp(wf1, 0.95), wf1 + (wf1 - wf0).normalized() * 0.01, GLASS_W + 0.02, 0.05, frame)
+	for sx in [-1.0, 1.0]:
+		var rz0 := WS1 + 0.06  # A-pilarin yläpään takana
+		var rz1 := HT0 - 0.04  # C-pilarin yläpään edessä: päät eivät pistä pilarien ohi
+		part(parent, B.boxm(Vector3(0.025, 0.035, rz1 - rz0)), Vector3(sx * (roof_x - 0.0125), top + 0.005, (rz0 + rz1) / 2.0), frame)  # ulkopinta katon alareunan tasossa
 	part(parent, B.boxm(Vector3(GLASS_W - 0.06, 0.004, 0.012)), Vector3(0, deck_y.call(HT1 + 0.03) + 0.003, HT1 + 0.03), frame)
 	for sx in [-1.0, 1.0]:
 		var lx: float = sx * (GLASS_W / 2.0 - 0.03)
@@ -681,12 +704,16 @@ static func saab(parent: Node3D, color: Color, plate := "", police := false) -> 
 	var white := paint(Color(0.94, 0.95, 0.95))
 	var rear_seam: float = WHEEL_Z - LIP_R - 0.03  # takaoven takareuna juuri pyöränkaaren edessä (kaari pullistuu z:aa pienemmäksi)
 	for sx in [-1.0, 1.0]:
-		var px: float = sx * (GLASS_W / 2.0 + 0.02)
 		var fx: float = sx * (GLASS_W / 2.0 + 0.016)
-		# A-pilari jyrkempänä kuin tuulilasi: sen eteen jää kylkeen kiertyvä lasikolmio.
-		slab(parent, Vector3(px, BELT, AP0), Vector3(px, top, WS1 + 0.03), 0.07, 0.06, body)
+		# A-pilari jyrkempänä kuin tuulilasi: sen eteen jää kylkeen kiertyvä lasikolmio. Pilarien ulkopinta on katon kyljen
+		# tasossa (roof_x) ja yläpää ulottuu katon alle: muuten pilari porrastuu katon reunasta ulos.
+		var ax: float = sx * (roof_x - 0.035)
+		var ap1 := Vector3(ax, top, WS1 + 0.03)
+		var ap0 := Vector3(ax, BELT, AP0)
+		slab(parent, ap0, ap1 + (ap1 - ap0).normalized() * 0.02, 0.07, 0.06, body)
 		slab(parent, Vector3(fx, BELT, AP0 + 0.035), Vector3(fx, top, WS1 + 0.065), 0.02, 0.03, frame)  # etuoven ikkunakehys
-		slab(parent, wr0 + Vector3(px, 0, 0), wr1 + Vector3(px, 0, 0), 0.1, 0.06, body)  # C-pilarin takareuna
+		var cx: float = sx * (roof_x - 0.05)
+		slab(parent, wr0 + Vector3(cx, 0, 0) - hat_dir * 0.03, wr1 + Vector3(cx, 0, 0), 0.1, 0.06, body)  # C-pilarin takareuna, yläpää katon alle
 		slab(parent, wr0 + Vector3(sx * (GLASS_W / 2.0 - 0.01), 0, 0), wr1 + Vector3(sx * (GLASS_W / 2.0 - 0.01), 0, 0), 0.03, 0.05, frame)
 		# C-pilari: maalattu levy takasivuikkunan viistosta takareunasta takalasin reunaan.
 		_side_panel(parent, sx * (GLASS_W / 2.0 + 0.012), [Vector2(QA, top), Vector2(HT0, top), Vector2(HT1, HT_Y), Vector2(HT1, BELT), Vector2(QB, BELT)], body)

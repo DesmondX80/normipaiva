@@ -109,6 +109,11 @@ func _run() -> void:
 	_lineup(false)
 	await _shot("keula", Vector3(-1.2, 0.8, -4.2), Vector3(-1.2, 0.55, -2.0), 35.0)
 	await _shot("keula_lahi", Vector3(-1.2, 0.8, -4.6), Vector3(-1.2, 0.62, -1.9), 30.0)
+	# Katon liitokset ja keulan kulma (Pony x = -1,2): A- ja C-pilarin yläpää, tuulilasin yläreuna, kulmavilkku.
+	await _shot("katto_a_kulma", Vector3(-2.6, 1.6, -0.6), Vector3(-1.85, 1.25, -0.1), 22.0)
+	await _shot("katto_c_kulma", Vector3(-2.5, 1.65, 1.7), Vector3(-1.85, 1.25, 1.2), 22.0)
+	await _shot("katto_etu", Vector3(-2.6, 1.8, -1.1), Vector3(-1.6, 1.25, -0.1), 28.0)
+	await _shot("kulmavilkku", Vector3(-2.6, 0.75, -2.7), Vector3(-1.95, 0.63, -1.9), 25.0)
 	await _shot("pera", Vector3(-1.2, 1.0, 4.2), Vector3(-1.2, 0.65, 2.0), 35.0)
 	await _shot("pera_vino", Vector3(-3.6, 1.4, 4.4), Vector3(-1.2, 0.75, 1.4), 35.0)
 	get_tree().quit()
