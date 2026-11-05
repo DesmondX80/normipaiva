@@ -188,7 +188,7 @@ const TEINI_KIINNI := [0.0, 0.1, 0.3, 0.6, 0.9]
 var reseptit := 0  # kipulääkereseptit (kätköstä)
 var laake := {}  # reppuun ostetut lääkkeet: APTEEKKI_MENU-id -> kappalemäärä
 var klaffipoyta := false  # taitettava klaffipöytä löydetty (Reipparin seinältä tai Zabukin luukun vierestä), jatkaminen reseptikirjan mukaan (klaffipoyta.gd)
-var craft_known := {}  # opitut jatkoreseptit: reseptin id -> true (päiväkirjan Reseptit-välilehti)
+var craft_known := {}  # opitut jatkoreseptit: reseptin id -> true (klaffipöydän reseptikirja)
 var perv_mult := PERV_MULT  # käytössä olevan pervitiiniannoksen kerroin (jatkettu on heikompi)
 var perv_until := -1.0  # pervitiinin vaikutus päättyy (day * 1440 + clock_min)
 const ZABUKI_LINES := ["Grilli sihisee. Tiskin takaa huudetaan: \"Tupla valmis!\"",
@@ -8235,7 +8235,6 @@ func journal_data() -> Dictionary:
 		d["loput" if kind == "loppu" else "hetket"] = {"distinct": endings.distinct(kind), "max": Endings.max_count(kind),
 			"total": endings.total(kind), "list": list}
 	d["stashes"] = _stash_journal()
-	d["reseptit"] = {"table": klaffipoyta, "known": craft_known.keys(), "risk": TEINI_KIINNI}
 	d["riskit"] = _rikos_riskit()
 	for s in d.side:
 		s["spot"] = not s.done and not quest_spots(s.id).is_empty()
@@ -17757,7 +17756,7 @@ func _klaffi_found() -> void:
 	_klaffi_sync()
 	Sfx.play("pickup", -4.0, 0.8)
 	_craft_learn()
-	_show_message("Taitettava klaffipöytä! Se mahtuu reppuun. Pystytä se Lääkkeet-sivulta (reppuvihkon välilehti 8) tai T:llä ja jatka lääkkeitä: reseptit löytyvät päiväkirjan Reseptit-välilehdeltä.", 5.5)
+	_show_message("Taitettava klaffipöytä! Se mahtuu reppuun. Pystytä se repusta tai T:llä ja jatka lääkkeitä: opitut reseptit kirjautuvat pöydän reseptikirjaan.", 5.5)
 	_save_game()
 
 
@@ -21600,12 +21599,12 @@ func inventory_items() -> Array:
 		add.call(k, k.capitalize(), bucket.get(k, 0), "litraa ämpärissä · T syö litran",
 			{"food": true, "use": k, "use_label": "syö litra"})
 	for k in _laake_keys():
-		add.call("laake_" + _laake_base(k), _laake_label(k), laake.get(k, 0), _laake_desc(k), {"food": true, "use": k, "use_label": "ota", "laake": true})
+		add.call("laake_" + _laake_base(k), _laake_label(k), laake.get(k, 0), _laake_desc(k), {"food": true, "use": k, "use_label": "ota"})
 	if klaffipoyta:
-		add.call("laake_burana", "Klaffipöytä", 1, "Taitettava pöytä · jatka lääkkeitä (reseptit päiväkirjassa)", {"food": true, "use": "klaffipoyta", "use_label": "pystytä", "laake": true})
+		add.call("laake_burana", "Klaffipöytä", 1, "Taitettava pöytä · jatka lääkkeitä (reseptikirja pöydällä)", {"food": true, "use": "klaffipoyta", "use_label": "pystytä"})
 	if hs.laukku == "repussa":
 		add.call("laakelaukku", "Lääkelaukku", 1, "Hoitajan vanha laukku · puhtaasti jatketut annokset paljastuvat porrasta harvemmin",
-			{"food": true, "use": "laakelaukku", "use_label": "avaa", "laake": true})
+			{"food": true, "use": "laakelaukku", "use_label": "avaa"})
 	return out
 
 
@@ -23993,6 +23992,9 @@ func _maybe_screenshot() -> void:
 					["_matkakeskus", vh.call(812.0, -936.0, 2.5), vh.call(774.0, -925.6, 2.5)],
 					["_matkakeskus_ylos", vh.call(780.0, -920.0, 80.0), vh.call(780.0, -922.0, 0.0)],
 					["_zabuki", vh.call(790.0, -884.0, 2.2), vh.call(784.0, -904.8, 1.8)],
+					["_zabuki_parkki", vh.call(766.0, -889.0, 4.0), vh.call(786.0, -898.0, 0.5)],
+					["_zabuki_parkki_ylos", vh.call(790.0, -895.0, 75.0), vh.call(790.0, -897.0, 0.0)],
+					["_torintie_liittyma", vh.call(826.0, -930.0, 5.0), vh.call(798.0, -935.0, 0.5)],
 					["_asemalle", vh.call(840.0, -885.0, 6.0), vh.call(880.0, -830.0, 1.0)],
 					["_kunnantalo", vh.call(785.0, -878.0, 2.5), vh.call(802.0, -854.0, 3.0)],
 					["_kunnantalo_vino", vh.call(765.0, -880.0, 14.0), vh.call(803.0, -854.0, 2.0)],
@@ -24156,11 +24158,11 @@ func _maybe_screenshot() -> void:
 			_klaffi_game._close()
 			for i in 4:
 				await get_tree().process_frame
-			_journal.open_at("reseptit")
+			_journal.open_at("reppu")
 			for i in 6:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_reseptikirja.png"))
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_reppu.png"))
 			_journal.toggle()
 			var kp: Node3D = ak.klaffi_prop
 			var kd: Dictionary = ak.doors.filter(func(d): return d.id == "klaffipoyta")[0]

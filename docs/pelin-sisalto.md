@@ -210,8 +210,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   korjaamot ja säästöpiha sekä kirkko, kellotapuli, Pirtti (museo), koulukeskus, päiväkoti, kaukalo, ulkopingis, Lemmikki Enkelit, Kanttorila, Honganpalon kenttä,
   Arttim, Rudus, Heiskasen huolto, Huhtalan romuautot, Lapinraunio, raunio, Kertunkankaan röykkiöt, Heinimäki, Kiilinlammen grillikatos, Antinsuon laavu,
   kota ja lintutorni, Viitajärven laavu, Puntarimäki ja Kaitasaari. Salaiset (Sepon varasto, rossirata, tehtävien paikat) paljastuvat edelleen vasta kuulemalla.
-- **Lääkkeet eivät vie repusta tilaa:** lääkkeet, huumeet (myös jatketut annokset), klaffipöytä ja lääkelaukku näkyvät vain vihkon omalla Lääkkeet-sivulla (8. välilehti,
-  `inventory.gd` mode `laakkeet`, 16 taskua); reppusivu (9 tasku) on tavaroille ja eväille. Klikkaus ottaa annoksen kuten ennen, T-valikko toimii ennallaan.
+- **Reppu:** 4 × 4 taskua (`inventory.gd`, 16); tavarat, eväät, lääkkeet, huumeet (myös jatketut annokset), klaffipöytä ja lääkelaukku ovat samassa ruudukossa. Klikkaus ottaa annoksen, T-valikko toimii ennallaan.
 - **Legenda: Palon yön pyhimys (#125):** oikea tausta Wikipedian mukaan: Saloisten vanha puukirkko paloi loppiaisaamun
   jumalanpalveluksen aikana 1930 (issuen "1908" ei löydy lähteestä), nykyinen kirkko valmistui 1932, ja palosta pelastettiin
   mm. Pyhän Olavin ja Neitsyt Marian veistokset ja alttarikaapit. Legenda on keksitty ja pelissä totta: yksi pieni puinen
@@ -632,6 +631,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Aseman piha asemalle ja vasemmalle Torintie torille: tori ja Zabuki ovat tien vasemmalla puolella yli 120 m Siitarista. Tori on asfalttikenttä
     (46 x 22 m), jonka takana on Vaalan matkakeskus (pitkä matala rakennus: tiilisokkeli, vaalea yläosa, sinitolppainen katos, "VAALA"-torni;
     `vaala.gd _build_matkakeskus`) ja sen vasemmassa päässä Zabuki. Ratatien kierros on poistettu (`tools/vaala_torisiirto.py`).
+    **Zabukin parkkipaikka ja liittymät:** Zabukin tiskin eteen tulee asfalttipiha torin eteläpäästä parkkiin, merkitty asiakasparkki (12 paikkaa, ruutuviivat, P-kyltti, pari autoa) piha edessä Vaalantien puolella ja liittymät: kaksi Vaalantieltä parkkiin ja kaksi Torintieltä toriin ja pihaan (`vaala.gd _build_zabuki_lot`, `_road_link`; kaikki mopon ajoaluetta). Kuvat `--scene=vaalakierros` (`_zabuki_parkki`, `_zabuki_parkki_ylos`, `_torintie_liittyma`).
     **Tori, matkakeskus ja Zabuki** on käännetty 90 astetta vastapäivään (tori ja matkakeskus yhtenä ryhmänä torin keskipisteen ympäri): tori on Torintien
     suuntainen ja sen itäreuna on 8 m tien keskiviivasta, ja matkakeskuksen julkisivu on itään torille ja tielle päin torin länsilaidalla. **Zabuki on
     matkakeskuksen sisällä** (ei omaa kioskia): tiskiluukku on rakennuksen eteläpäädyssä ympyrän puolella (markiisi, kyltit, baarijakkarat), ja taitettava
@@ -661,13 +661,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     **Takaovi:** apteekin takaseinässä on teräsovi kurkistusluukkuineen kuten rasvanapin makasiinissa (`makasiini.gd _build_door`, ovi
     "apteekki_taka", HENKILÖKUNTA-kyltti, vihreä lamppu). Koputus (E) avaa luukun, ja farmaseutti myy Oksikodonia (249 €) ja Pervitiiniä
     (199 €) ilman reseptiä kymmenkertaiseen hintaan (`main.gd APTEEKKI_TAKA`, `APTEEKKI_TAKA_MULT`, `_apteekki_taka`). Ovi on auki aina. Testi `--scene=apteekki`.
-    **Jatkaminen (klaffipöytä):** taitettava klaffipöytä nojaa seinää vasten näkyvillä, kahdessa paikassa: Vaalassa matkakeskuksen päätyseinällä Zabukin luukun vieressä ja Saloisissa Reipparin kioskin päätyseinällä (E poimii, kerran, sama pöytä). Se pystytetään Lääkkeet-sivulta (reppuvihkon 8. välilehti) tai T:llä:
+    **Jatkaminen (klaffipöytä):** taitettava klaffipöytä nojaa seinää vasten näkyvillä, kahdessa paikassa: Vaalassa matkakeskuksen päätyseinällä Zabukin luukun vieressä ja Saloisissa Reipparin kioskin päätyseinällä (E poimii, kerran, sama pöytä). Se pystytetään repusta tai T:llä:
     Minecraft-tyylinen 3×3-askartelu (`klaffipoyta.gd`, reseptit `reseptit.gd`). Esine klikataan repusta kouraan ja ruutuun, ja kun muoto täsmää
     reseptiin (paikalla ruudukossa ei ole väliä), tulos klikataan pois. Neljä reseptiä: Oksikodoni + Burana (pystyyn), Pervitiini + Panadol (vaakaan,
     peilikin kelpaa) → 2 annosta, teho puolet; Pervitiini + Sokeri (vinoon) ja Oksikodoni + Turbohiiva (vastavinoon) → 4 annosta, teho neljännes.
     Sokeri ja turbohiiva ovat K-auton tarvikkeita (`has_sugar`, `has_turbo`). Jatketun voi jatkaa uudestaan (teho 100 → 50 → 25 → 13 → 6 %, jatkoaste
     enintään 4; `main.gd LAAKE_JATKO_MAX`, `_jatka_laake`, avain `id~n`). Heikompi pervitiini ei korvaa voimassa olevaa vahvempaa (`perv_mult`).
-    **Reseptikirja** on päiväkirjan kuudes välilehti (Reseptit, näppäin 6): resepti avautuu, kun repussa on sekä huume että sen jatke, tai kun sen on
+    **Reseptikirja** on klaffipöydän levyllä ruudukon alla (ei päiväkirjan välilehteä): resepti avautuu, kun repussa on sekä huume että sen jatke, tai kun sen on
     askarrellut; avaamattomat näkyvät ???. Kortissa on 3×3-kuvio (D = huume, A = jatke) ja tulos.
     **Huumekauppa teineille (Vaala):** lavan pihan teineiltä ja bileporukalta sekä torin mopopojilta ("Myy ...") oksikodonin ja pervitiinin saa myydä samaan
     hintaan kuin takaovella (249 / 199 €), teho ei vaikuta hintaan. Jatkettu annos voi paljastua: teini huomaa todennäköisyydellä 0 / 10 / 30 / 60 / 90 % jatkoasteen mukaan (ei koskaan varmaa), ja syntyy tappelu

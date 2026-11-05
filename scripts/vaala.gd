@@ -4138,6 +4138,7 @@ func _build_tori() -> void:
 		add_child(mi)
 	_build_stalls()
 	_build_zabuki()
+	_build_zabuki_lot()
 	_build_matkakeskus()
 
 
@@ -4545,6 +4546,72 @@ func _build_stalls() -> void:
 		var cs := B.box_shape(Vector3(3.0, 1.0, 1.4), Vector3.ZERO)
 		cs.transform = Transform3D(Basis(Vector3.UP, -yaw), at.call(0, 0, 0.5))
 		body.add_child(cs)
+
+
+## Zabukin edusta: asfalttipiha torin eteläpäästä tiskin eteen, merkitty asiakasparkki pihan eteen ja liittymät: kaksi
+## Vaalantieltä parkkiin ja kaksi Torintieltä toriin ja pihaan. Paikallinen kehys: c = Zabukin päätyseinä, v = ulospäin
+## seinästä (_zabuki_face; tiski, parkki ja Vaalantie), u = sivuun (ax); tori on -v-suunnassa ja Torintie -u-puolella (u -36).
+## Liittymät ovat tienpintaa tien reunasta (ROAD_HALF) sisäpuolelle; kaikki lisätään data.parkings-listaan (mopon ajoalue).
+const ZABUKI_LOT_V0 := 9.0  # parkkirivin alku (tiskin edustalle jää tilaa seisomapöydille ja mopoille)
+const ZABUKI_LOT_AISLE := 5.5
+
+
+func _build_zabuki_lot() -> void:
+	var f := _zabuki_face
+	var ax := Vector2(-f.y, f.x)
+	var c := Vector2(_zabuki.x, _zabuki.z)
+	var q := func(u: float, v: float) -> Vector2: return c + ax * u + f * v
+	var rects: Array[PackedVector2Array] = []
+	# Piha: torin eteläpäästä tiskin eteen ja parkkirivin alkuun (sama kierto kuin _lot_build).
+	var yard := PackedVector2Array([q.call(-27.0, 0.0), q.call(8.0, 0.0), q.call(8.0, ZABUKI_LOT_V0 + 1.0), q.call(-27.0, ZABUKI_LOT_V0 + 1.0)])
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_poly_surface(st, yard, LIFT_ASPHALT)
+	rects.append(yard)
+	# Liittymät: [paikka (u, v) pihalla, tie, leveys].
+	for l: Array in [[Vector2(-6.0, 17.0), "Vaalantie", 6.5], [Vector2(15.0, 17.0), "Vaalantie", 6.5],
+			[Vector2(-24.0, -23.0), "Torintie", 7.0], [Vector2(-24.0, 5.0), "Torintie", 7.0]]:
+		rects.append(_road_link(st, q.call(l[0].x, l[0].y), l[1], l[2]))
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = _surf_mat("asphalt")
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	# Asiakasparkki pihan eteen (ruutuviivat, P-kyltti ja pari autoa: _lot_build).
+	_lot_build(c, ax, f, -11.0, 12, ZABUKI_LOT_V0, ZABUKI_LOT_AISLE, [])
+	var lot := PackedVector2Array([q.call(-11.0, ZABUKI_LOT_V0), q.call(-11.0 + 12 * LOT_BAY_W, ZABUKI_LOT_V0),
+		q.call(-11.0 + 12 * LOT_BAY_W, ZABUKI_LOT_V0 + LOT_BAY_D + ZABUKI_LOT_AISLE), q.call(-11.0, ZABUKI_LOT_V0 + LOT_BAY_D + ZABUKI_LOT_AISLE)])
+	for poly in rects:
+		var arr: Array = []
+		for pt in poly:
+			arr.append([pt.x, pt.y])
+		data.parkings.append(arr)
+	# Puut pois pihan, parkin ja liittymien ympäriltä.
+	if not _tree_clear.is_empty():
+		var keep := _drive
+		_drive = _tree_clear  # piirtoapurit kirjoittavat _driveen
+		for poly in rects + [lot]:
+			_drive_poly(poly, 2.0)
+		_tree_clear = _drive
+		_drive = keep
+
+
+## Liittymä: asfalttikaista pisteestä a (pihalla) lähimmän tien (nimi) asfaltin reunaan, leveys w. Palauttaa kaistan
+## nelikulmion (ajoalue). Kaista päättyy asfaltin reunan sisäpuolelle (0,3 m limitys), joten saumaa ei jää.
+func _road_link(st: SurfaceTool, a: Vector2, road_name: String, w: float) -> PackedVector2Array:
+	var best := Vector2.INF
+	for r in data.side_roads:
+		if r.name != road_name or r.kind == "rail":
+			continue
+		for k in r.pts.size() - 1:
+			var p := Geometry2D.get_closest_point_to_segment(a, Vector2(r.pts[k][0], r.pts[k][1]), Vector2(r.pts[k + 1][0], r.pts[k + 1][1]))
+			if best == Vector2.INF or p.distance_to(a) < best.distance_to(a):
+				best = p
+	var n := (a - best).normalized()
+	var b := best + n * (ROAD_HALF - 0.3)
+	_ribbon(st, PackedVector2Array([a, b]), w / 2.0, LIFT_ASPHALT)
+	var s := n.orthogonal() * (w / 2.0)
+	return PackedVector2Array([a + s, b + s, b - s, a - s])
 
 
 ## Zabuki on matkakeskuksen sisällä, tiskiluukku rakennuksen päätyseinässä (+u-pää, ulospäin _zabuki_face): valoisa luukku,
