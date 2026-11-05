@@ -18,18 +18,8 @@ var _siren_hi := false
 func _ready() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.85, 0)))
-	B.car(self, Color(0.93, 0.94, 0.96))
-	var blue := Color(0.05, 0.2, 0.75)
-	for sx in [-0.92, 0.92]:
-		B.mesh(self, B.boxm(Vector3(0.02, 0.16, 3.6)), Vector3(sx, 0.62, 0.0), blue)
-	B.mesh(self, B.boxm(Vector3(1.1, 0.08, 0.3)), Vector3(0, 1.5, 0.2), Color(0.2, 0.2, 0.22))
-	for sx in [-0.3, 0.3]:
-		var l := MeshInstance3D.new()
-		l.mesh = B.boxm(Vector3(0.45, 0.12, 0.26))
-		l.material_override = B.unshaded(Color(0.2, 0.4, 1.0))
-		l.position = Vector3(sx, 1.58, 0.2)
-		add_child(l)
-		_lights.append(l)
+	Vehicles.saab(self, Color.WHITE, "", true)  # poliisi-Saab: väritys, tekstit ja vilkkupalkki
+	_lights = Vehicles.police_lights(self)
 	B.guide(self, "POLIISI", Vector3(0, 2.4, 0), 56, Color(0.7, 0.8, 1.0), true)
 	_engine = Sfx.loop_on(self, "engine", -4.0)
 
@@ -76,8 +66,8 @@ func _physics_process(delta: float) -> void:
 func _siren(delta: float) -> void:
 	_siren_t -= delta
 	var blink := fmod(Time.get_ticks_msec() / 1000.0, 0.5) < 0.25
-	_lights[0].visible = blink
-	_lights[1].visible = not blink
+	for i in _lights.size():  # sammunut valo tummaksi (näkymätön paljastaisi palkin hehkuvan kuvun)
+		_lights[i].material_override = B.unshaded(Color(0.2, 0.4, 1.0) if (i == 0) == blink else Color(0.05, 0.08, 0.2))
 	if _siren_t <= 0.0 and _leaving < 0.0:
 		_siren_t = 0.55
 		_siren_hi = not _siren_hi

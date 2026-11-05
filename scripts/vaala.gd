@@ -4043,27 +4043,14 @@ func _poliisi_building(c: Vector2, f: Vector2, ax: Vector2) -> void:
 	B.mesh(flag, B.boxm(Vector3(0.02, 1.1, 1.8)), Vector3(0, 0, -0.95), Color(0.97, 0.97, 0.97))
 	B.mesh(flag, B.boxm(Vector3(0.03, 0.3, 1.8)), Vector3(0, 0, -0.95), Color(0.0, 0.21, 0.5))
 	B.mesh(flag, B.boxm(Vector3(0.03, 1.1, 0.3)), Vector3(0, 0, -0.65), Color(0.0, 0.21, 0.5))
-	# Poliisiauto pihassa nokka asemalle: valkoinen, sininen kylkiraita, POLIISI-teksti ja sininen valopaneeli.
+	# Poliisiauto pihassa nokka asemalle: poliisi-Saab (vehicles.gd saab, police).
 	var car := Node3D.new()
 	add_child(car)
 	var cp: Vector3 = at.call(-5.5, hd + 4.2, 0.0)
 	cp.y = h(cp.x, cp.z)
 	car.position = cp
 	car.rotation.y = yaw
-	Vehicles.car(car, Color(0.95, 0.95, 0.95), "PSS-112")
-	for sx in [-0.915, 0.915]:
-		Vehicles.part(car, B.boxm(Vector3(0.02, 0.14, 4.2)), Vector3(sx, 0.62, 0), Vehicles.paint(blue))
-		var l := Label3D.new()
-		l.text = "POLIISI"
-		l.font_size = 40
-		l.pixel_size = 0.005
-		l.modulate = blue
-		l.outline_size = 0
-		l.double_sided = false
-		l.position = Vector3(sx * 1.01, 0.8, 0.2)
-		l.rotation.y = PI / 2.0 if sx > 0.0 else -PI / 2.0
-		car.add_child(l)
-	Vehicles.part(car, B.boxm(Vector3(1.1, 0.12, 0.3)), Vector3(0, 1.55, 0.1), Vehicles.lamp(Color(0.2, 0.4, 1.0)))
+	Vehicles.saab(car, Color.WHITE, "PSS-112", true)
 	# Törmäys ja pohja ajoalueesta pois.
 	var body := StaticBody3D.new()
 	add_child(body)

@@ -42,22 +42,8 @@ func setup(at: Vector3, dir: Vector3, side: Vector3, half_w: float, ground: Call
 	car.position = Vector3(shoulder.x, ground.call(shoulder.x, shoulder.z), shoulder.z)
 	car.rotation.y = yaw
 	add_child(car)
-	B.car(car, Color(0.93, 0.94, 0.96))
-	var blue := Color(0.05, 0.2, 0.75)
-	for sx: float in [-0.92, 0.92]:
-		B.mesh(car, B.boxm(Vector3(0.02, 0.16, 3.6)), Vector3(sx, 0.62, 0.0), blue)
-	B.mesh(car, B.boxm(Vector3(1.1, 0.08, 0.3)), Vector3(0, 1.5, 0.2), Color(0.2, 0.2, 0.22))
-	for sx: float in [-0.3, 0.3]:
-		var l := MeshInstance3D.new()
-		l.mesh = B.boxm(Vector3(0.45, 0.12, 0.26))
-		l.material_override = B.unshaded(Color(0.2, 0.4, 1.0))
-		l.position = Vector3(sx, 1.58, 0.2)
-		car.add_child(l)
-		_lights.append(l)
-	for sx: float in [-1.0, 1.0]:
-		var lab := B.label(car, "POLIISI", Vector3(sx * 0.93, 0.95, 0.0), 40, Color(0.05, 0.2, 0.75))
-		lab.rotation.y = sx * PI / 2.0
-		lab.outline_size = 0
+	load("res://scripts/vehicles.gd").saab(car, Color.WHITE, "", true)  # poliisi-Saab: väritys, tekstit ja vilkkupalkki
+	_lights = load("res://scripts/vehicles.gd").police_lights(car)
 	var body := StaticBody3D.new()
 	car.add_child(body)
 	body.add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.7, 0)))

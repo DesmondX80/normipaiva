@@ -99,6 +99,11 @@ merkki ja tallennus, korin rako portaaseen, kori → marjat → piirakka (ei syn
 Päivin Hyundai Pony (`vehicles.gd pony()`): `tools/testit/aja.sh tscn tools/testit/pony_kuvat.tscn` (Pony ja `car()` rinnakkain
 edestä, takaa, vinosti ylhäältä ja sivusta sekä keula ja perä lähikuvina; mittaa korin leveyden ilman peilejä, korkeuden ja pituuden
 (1,60 × 1,38 × 4,0 ±5 %), akselivälin 2,38 ja pyörän alimman pisteen 0 ± 0,01, kori ei maan alla).
+Saab 900 (`vehicles.gd saab()`, #283): 4-ovinen pystykeulainen sedan, sama kori liikenteessä ja poliisilla
+(`police = true`: tummansininen, valkoiset lokasuojat, POLIISI ovissa, vilkkupalkki ja lisävalot). `tools/testit/aja.sh tscn
+tools/testit/saab_kuvat.tscn` (siviili- ja poliisi-Saab rinnakkain samoista kulmista ja poliisin lähikuvat; mittaa
+1,693 × 1,42 × 4,69 ±5 %, akselivälin 2,517 ja pyörän alimman pisteen 0 ± 0,01). Ponyn sisustus ja pyöränkaaret ovat
+yhteisiä apufunktioita (`_cabin`, `_wheel_arch`).
 
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
 koukut testiosalla (`tools/testit/rikos_koe_osa.gd`): puhe, tapahtumat, luukun vihje, tallennus edestakaisin, päiväkirjan data,
