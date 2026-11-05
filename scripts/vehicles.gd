@@ -299,6 +299,7 @@ static func _bevel(parent: Node3D, pts: PackedVector2Array, half_w: float, c: fl
 			for m in 3:
 				t.append(Vector3(s * half_w, inset[idx[k + m]].y, inset[idx[k + m]].x))
 			_tri(st, t[0], t[1], t[2], Vector3(s, 0, 0))
+	st.index()  # _merge_parts yhdistää indeksoituihin BoxMesheihin: indeksoimattomat kärjet jäisivät ilman kolmioita
 	st.generate_tangents()
 	return part(parent, st.commit(), pos, mat)
 
