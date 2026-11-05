@@ -60,23 +60,33 @@ func _shot(name: String, from: Vector3, to: Vector3, fov := 40.0) -> void:
 	print("PONY_KUVAT kuva " + out + "/" + name + ".png")
 
 
+## Kori mitataan yhdistetyn verkon pisteistä; leveys vyötärölinjan alta (peilit eivät kuulu leveyteen, esikuva 1595 mm).
 func _measure() -> void:
-	var box := AABB()
-	var started := false
-	for mi in pony.find_children("*", "MeshInstance3D", true, false):
-		var m := mi as MeshInstance3D
-		var b: AABB = (pony.global_transform.affine_inverse() * m.global_transform) * m.get_aabb()
-		box = b if not started else box.merge(b)
-		started = true
-	print("PONY mitat L×K×P %.2f × %.2f × %.2f (tavoite 1,60 × 1,38 × 4,0 ±5 %%), pohja y %.3f" % [box.size.x, box.size.y, box.size.z, box.position.y])
-	if absf(box.size.x - 1.6) > 0.08 or absf(box.size.y - 1.38) > 0.07 or absf(box.size.z - 4.0) > 0.2:
+	var lo := Vector3(INF, INF, INF)
+	var hi := -lo
+	var half_w := 0.0
+	for c in pony.get_children():
+		if not (c is MeshInstance3D):
+			continue
+		var am: Mesh = (c as MeshInstance3D).mesh
+		for s in am.get_surface_count():
+			for v: Vector3 in am.surface_get_arrays(s)[Mesh.ARRAY_VERTEX]:
+				lo = lo.min(v)
+				hi = hi.max(v)
+				if v.y < 0.86:
+					half_w = maxf(half_w, absf(v.x))
+	var size := Vector3(half_w * 2.0, hi.y - minf(lo.y, 0.0), hi.z - lo.z)
+	print("PONY mitat L×K×P %.2f × %.2f × %.2f (tavoite 1,60 × 1,38 × 4,0 ±5 %%), peileineen %.2f, korin pohja y %.3f" % [size.x, size.y, size.z, hi.x - lo.x, lo.y])
+	if absf(size.x - 1.6) > 0.08 or absf(size.y - 1.38) > 0.07 or absf(size.z - 4.0) > 0.2:
 		print("TESTI VIKA Ponyn mitat yli 5 % tavoitteesta")
+	if lo.y < -0.001:
+		print("TESTI VIKA kori maan alla")
 	var zs: Array[float] = []
 	var low := INF
 	for w in wheels:
 		zs.append(w.position.z)
 		low = minf(low, w.position.y - 0.29)
-	var wb := zs.max() - zs.min()
+	var wb: float = zs.max() - zs.min()
 	print("PONY akseliväli %.3f (2,38), pyörän alin piste %.3f (0 ± 0,01)" % [wb, low])
 	if absf(wb - 2.38) > 0.02 or absf(low) > 0.01:
 		print("TESTI VIKA pyörät väärin")
@@ -86,7 +96,7 @@ func _run() -> void:
 	for i in 10:
 		await get_tree().process_frame
 	_lineup(false)
-	await _measure()
+	_measure()
 	await _shot("edesta", Vector3(0.1, 1.1, -9.5), Vector3(0.1, 0.7, 0))
 	await _shot("takaa", Vector3(0.1, 1.1, 9.5), Vector3(0.1, 0.7, 0))
 	await _shot("vino_ylhaalta", Vector3(-6.5, 5.5, -6.5), Vector3(0, 0.5, 0))
