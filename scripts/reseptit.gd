@@ -81,7 +81,7 @@ static func _fits(pat: Array, cells: Array, r0: int, c0: int, rc: Dictionary, ma
 
 
 ## Esineen kuva ruutuun: pilleripakkaus, pussi tai pakkaus; jatketulle teho-% kulmaan.
-static func draw_item(ci: CanvasItem, r: Rect2, key: String, font: Font) -> void:
+static func draw_item(ci: CanvasItem, r: Rect2, key: String, font: Font, label := true) -> void:
 	var b := base(key)
 	var inner := r.grow(-r.size.x * 0.14)
 	var c := inner.get_center()
@@ -121,7 +121,7 @@ static func draw_item(ci: CanvasItem, r: Rect2, key: String, font: Font) -> void
 			ci.draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.3)), Color(0.2, 0.55, 0.38))
 			ci.draw_rect(inner, Color(0.35, 0.4, 0.38), false, 2.0)
 	var t := tier(key)
-	if t > 0:
+	if t > 0 and label:
 		var pct := "%d %%" % roundi(100.0 * pow(0.5, t))
 		var fs := maxi(11, int(r.size.x * 0.2))
 		ci.draw_string(font, r.position + Vector2(3, r.size.y - 4), pct, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.15, 0.05, 0.05))

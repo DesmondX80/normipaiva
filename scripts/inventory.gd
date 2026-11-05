@@ -422,6 +422,35 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_r(img, 7, 4, 1, 1, Color(1.0, 0.95, 0.7))
 			_r(img, 7, 7, 1, 1, Color(0.5, 0.1, 0.08))
 			_r(img, 4, 12, 6, 1, Color(0.95, 0.78, 0.25))
+		"laake_panadol", "laake_burana", "laake_panacod", "laake_tramal":  # lääkepakkaus: vaalea laatikko ja värikaista
+			var band: Color = {"laake_panadol": Color(0.8, 0.15, 0.15), "laake_burana": Color(0.15, 0.35, 0.75),
+				"laake_panacod": Color(0.15, 0.55, 0.4), "laake_tramal": Color(0.9, 0.55, 0.1)}[id]
+			_r(img, 3, 2, 10, 13, Color(0.94, 0.94, 0.9))
+			_r(img, 3, 2, 10, 5 if id != "laake_panadol" else 3, band)
+			if id == "laake_panadol":
+				_r(img, 3, 9, 10, 3, band)
+			_r(img, 5, 10 if id != "laake_panadol" else 7, 6, 1, Color(0.4, 0.4, 0.45))
+			if id == "laake_tramal":  # kolmiomerkki
+				_r(img, 7, 9, 2, 1, Color(0.1, 0.1, 0.1))
+				_r(img, 6, 10, 4, 1, Color(0.1, 0.1, 0.1))
+				_r(img, 5, 11, 6, 1, Color(0.1, 0.1, 0.1))
+			_r(img, 12, 3, 1, 11, Color(0.75, 0.75, 0.7))
+		"laake_opiaatti":  # läpipainoliuska: valkoiset tabletit hopeassa
+			_r(img, 2, 2, 12, 12, Color(0.78, 0.8, 0.84))
+			for k in 6:
+				_c(img, 5.0 + 6.0 * (k % 2), 4.5 + 3.5 * (k / 2), 1.4, Color(0.97, 0.97, 0.95))
+			_r(img, 2, 13, 12, 1, Color(0.5, 0.52, 0.58))
+		"laake_perv":  # minigrip-pussi ja sinertävät kiteet
+			_r(img, 3, 2, 10, 13, Color(0.88, 0.93, 0.95))
+			_r(img, 3, 4, 10, 1, Color(0.8, 0.2, 0.25))
+			for k in 4:
+				_r(img, 5 + (k % 2) * 4, 7 + (k / 2) * 4, 2, 2, Color(0.55, 0.85, 1.0))
+		"klaffipoyta":  # taitettu pöytä: ruskea levy ja teräsjalat
+			_r(img, 3, 2, 10, 12, Color(0.62, 0.45, 0.26))
+			_r(img, 3, 7, 10, 1, Color(0.4, 0.28, 0.15))
+			_r(img, 5, 3, 1, 11, Color(0.6, 0.62, 0.66))
+			_r(img, 10, 3, 1, 11, Color(0.6, 0.62, 0.66))
+			_r(img, 3, 9, 10, 1, Color(0.9, 0.5, 0.1))
 		"kalja":
 			_r(img, 7, 1, 2, 1, Color(0.9, 0.75, 0.2))
 			_r(img, 7, 2, 2, 3, Color(0.42, 0.22, 0.06))

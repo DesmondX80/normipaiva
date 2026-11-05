@@ -21601,7 +21601,7 @@ func inventory_items() -> Array:
 	for k in _laake_keys():
 		add.call("laake_" + _laake_base(k), _laake_label(k), laake.get(k, 0), _laake_desc(k), {"food": true, "use": k, "use_label": "ota"})
 	if klaffipoyta:
-		add.call("laake_burana", "Klaffipöytä", 1, "Taitettava pöytä · jatka lääkkeitä (reseptikirja pöydällä)", {"food": true, "use": "klaffipoyta", "use_label": "pystytä"})
+		add.call("klaffipoyta", "Klaffipöytä", 1, "Taitettava pöytä · jatka lääkkeitä (reseptikirja pöydällä)", {"food": true, "use": "klaffipoyta", "use_label": "pystytä"})
 	if hs.laukku == "repussa":
 		add.call("laakelaukku", "Lääkelaukku", 1, "Hoitajan vanha laukku · puhtaasti jatketut annokset paljastuvat porrasta harvemmin",
 			{"food": true, "use": "laakelaukku", "use_label": "avaa"})

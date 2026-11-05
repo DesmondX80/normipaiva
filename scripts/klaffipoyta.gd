@@ -187,20 +187,20 @@ func _draw_recipe_book(ci: Control, font: Font, top: Rect2) -> void:
 	var known: Dictionary = game.craft_known
 	var y0 := top.position.y + 440.0
 	ci.draw_string(font, Vector2(top.position.x + 40, y0 - 8), "Reseptikirja  %d / %d" % [known.size(), Reseptit.IDS.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.3, 0.17, 0.06))
-	var cw := 138.0
+	var cw := 222.0
 	for n in Reseptit.IDS.size():
 		var id: String = Reseptit.IDS[n]
 		var rc: Dictionary = Reseptit.RECIPES[id]
-		var r := Rect2(Vector2(top.position.x + 40 + n * (cw + 8.0), y0), Vector2(cw, 140))
+		var r := Rect2(Vector2(top.position.x + 30 + n * (cw + 10.0), y0), Vector2(cw, 150))
 		var ok := known.has(id)
 		ci.draw_rect(r, Color(0.96, 0.9, 0.72) if ok else Color(0.62, 0.5, 0.33))
 		ci.draw_rect(r, Color(0.35, 0.24, 0.12), false, 2.0)
 		if not ok:
 			ci.draw_string(font, r.position + Vector2(0, 80), "???", HORIZONTAL_ALIGNMENT_CENTER, cw, 30, Color(0.4, 0.3, 0.18))
 			continue
-		ci.draw_string(font, r.position + Vector2(6, 17), String(rc.name), HORIZONTAL_ALIGNMENT_LEFT, cw - 8, 12, Color(0.3, 0.12, 0.04))
-		var cell := 24.0
-		var g0 := r.position + Vector2(8, 28)
+		ci.draw_string(font, r.position + Vector2(6, 17), String(rc.name), HORIZONTAL_ALIGNMENT_LEFT, cw - 8, 14, Color(0.3, 0.12, 0.04))
+		var cell := 30.0
+		var g0 := r.position + Vector2(10, 30)
 		var pat: Array = rc.pattern
 		for rr in 3:
 			for cc in 3:
@@ -208,12 +208,12 @@ func _draw_recipe_book(ci: Control, font: Font, top: Rect2) -> void:
 				ci.draw_rect(cr, Color(0.9, 0.84, 0.7))
 				ci.draw_rect(cr, Color(0.5, 0.38, 0.2), false, 1.0)
 				if rr < pat.size() and cc < pat[0].size() and pat[rr][cc] != ".":
-					Reseptit.draw_item(ci, cr, String(rc.drug) if pat[rr][cc] == "D" else String(rc.agent), font)
-		var orc := Rect2(g0 + Vector2(3 * (cell + 2) + 8, cell + 2), Vector2(cell, cell))
-		ci.draw_string(font, orc.position + Vector2(-9, 18), "→", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.4, 0.25, 0.1))
+					Reseptit.draw_item(ci, cr, String(rc.drug) if pat[rr][cc] == "D" else String(rc.agent), font, false)
+		var orc := Rect2(g0 + Vector2(3 * (cell + 2) + 22, cell + 2), Vector2(cell, cell))
+		ci.draw_string(font, orc.position + Vector2(-16, 22), "→", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.4, 0.25, 0.1))
 		ci.draw_rect(orc.grow(0), Color(0.9, 0.84, 0.7))
-		Reseptit.draw_item(ci, orc, "%s~%d" % [rc.drug, int(rc.cuts)], font)
-		ci.draw_string(font, orc.position + Vector2(-4, cell + 14), "× %d" % int(rc.yield), HORIZONTAL_ALIGNMENT_CENTER, cell + 8, 12, Color(0.2, 0.45, 0.2))
+		Reseptit.draw_item(ci, orc, "%s~%d" % [rc.drug, int(rc.cuts)], font, false)
+		ci.draw_string(font, g0 + Vector2(0, 3 * (cell + 2) + 16), "× %d annosta, teho %d %%" % [int(rc.yield), roundi(100.0 * pow(0.5, int(rc.cuts)))], HORIZONTAL_ALIGNMENT_LEFT, cw - 16, 13, Color(0.2, 0.45, 0.2))
 
 
 ## Tausta ja työtaso; palauttaa levyn, jolle ruudukko ja reppu piirretään (lääkelaukku ohittaa).
