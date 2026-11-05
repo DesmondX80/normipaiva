@@ -315,7 +315,7 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 		part(parent, B.boxm(Vector3(0.12, 0.09, 0.15)), Vector3(sx * (SIDE + 0.07), BELT + 0.09, WS0 + 0.12), frame)  # peili
 		part(parent, B.boxm(Vector3(0.02, 0.07, 0.12)), Vector3(sx * (SIDE + 0.13), BELT + 0.09, WS0 + 0.12), glass())
 		for wz in [-WHEEL_Z, WHEEL_Z]:
-			part(parent, B.cyl(WHEEL_R + 0.04, WHEEL_R + 0.04, 0.02, 20), Vector3(sx * (SIDE + 0.005), WHEEL_R + 0.04, wz), frame, Vector3(0, 0, PI / 2.0))
+			part(parent, B.cyl(WHEEL_R + 0.025, WHEEL_R + 0.025, 0.02, 20), Vector3(sx * (SIDE + 0.005), WHEEL_R + 0.025, wz), frame, Vector3(0, 0, PI / 2.0))
 	# Keula: suorakaiteiset ajovalot, kulmavilkut, musta ruudukkosäleikkö HYUNDAI-merkillä.
 	part(parent, B.boxm(Vector3(0.66, 0.17, 0.03)), Vector3(0, LAMP_Y, FRONT - 0.01), frame)
 	for k in 5:

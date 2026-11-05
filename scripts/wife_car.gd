@@ -1,9 +1,10 @@
 extends CharacterBody3D
-## Vaimo Päivin punainen Hyundai: partioi kylän paikkoja (pick_dest valitsee määränpään, main.gd _wife_dest), ajaa
+## Vaimo Päivin punainen Hyundai Pony (Vehicles.pony): partioi kylän paikkoja (pick_dest valitsee määränpään, main.gd _wife_dest), ajaa
 ## sinne lyhintä tietä, pysähtyy hetkeksi katselemaan ja jatkaa seuraavaan. Jahtaa, kun näkee pelaajan.
 
 const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
+const Vehicles := preload("res://scripts/vehicles.gd")
 
 const PATROL_SPEED := 9.0
 const CHASE_SPEED := 12.0
@@ -53,7 +54,7 @@ var _engine: AudioStreamPlayer3D
 func _ready() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.85, 0)))
-	B.car(self, Color(0.78, 0.05, 0.05))
+	Vehicles.pony(self, Color(0.78, 0.05, 0.05))  # oma Pony-malli, muut autot car()
 	add_to_group("liikenne")  # muut autot pitävät välimatkan (traffic_car.gd)
 	B.guide(self, "Päivin Hyundai", Vector3(0, 2.4, 0), 48, Color(1, 0.8, 0.8), true)
 	_engine = Sfx.loop_on(self, "engine", -4.0)

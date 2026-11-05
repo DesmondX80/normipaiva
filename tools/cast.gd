@@ -157,7 +157,7 @@ func _build_cards() -> void:
 				car.position = Vector3(-1.4, 0, -3.2)
 				car.rotation.y = 0.9
 				root.add_child(car)
-				Vehicles.car(car, Color(0.78, 0.05, 0.05), "PÄI-V1")
+				Vehicles.pony(car, Color(0.78, 0.05, 0.05), "PÄI-V1")
 			"punch":
 				c.rotation.y = PI - 0.9
 				_punchers.append(c)
