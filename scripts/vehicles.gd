@@ -244,14 +244,15 @@ static func _side_panel(parent: Node3D, x: float, pts: Array, mat: Material) -> 
 	return mi
 
 
-## Kolmio normaalin n puolelle näkyväksi: kiertosuunta valitaan normaalista (Godotissa etupinta myötäpäivään).
+## Kolmio normaalin n puolelle näkyväksi: kiertosuunta valitaan normaalista (kokeiltu kuvasta).
 static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, n: Vector3) -> void:
-	if (b - a).cross(c - a).dot(n) > 0.0:
+	if (b - a).cross(c - a).dot(n) < 0.0:
 		var t := b
 		b = c
 		c = t
 	st.set_normal(n)
 	for p in [a, b, c]:
+		st.set_uv(Vector2(p.x + p.z, p.y))  # UV ja tangentit kuten BoxMeshissä: _merge_parts yhdistää samaan pintaan
 		st.add_vertex(p)
 
 
@@ -298,6 +299,7 @@ static func _bevel(parent: Node3D, pts: PackedVector2Array, half_w: float, c: fl
 			for m in 3:
 				t.append(Vector3(s * half_w, inset[idx[k + m]].y, inset[idx[k + m]].x))
 			_tri(st, t[0], t[1], t[2], Vector3(s, 0, 0))
+	st.generate_tangents()
 	return part(parent, st.commit(), pos, mat)
 
 
