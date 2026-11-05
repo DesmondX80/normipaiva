@@ -9575,6 +9575,7 @@ func _call_police(reason := "siili") -> void:
 			best = d
 			start = i
 	police = PoliceCar.new()
+	_minimap.police = police
 	_hazards.add_child(police)
 	police.setup(world.graph_nodes, world.graph_adj, start, player)
 	police.world = world
@@ -20580,6 +20581,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	wife_alerted = false
 	_wife_bust = []
 	police = null
+	_minimap.police = null
 	vaino = null  # karkuri palaa yöksi itse kotiin
 	_hongan_keikka = false  # kesken jäänyt roskakeikka raukeaa yöllä
 	_paivi_call_t = -1.0  # soittamatta jäänyt puhelu ei soi enää huomenna (aamun lappu hoitaa juorun)

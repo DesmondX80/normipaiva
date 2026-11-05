@@ -13,6 +13,7 @@ const MOKKI_SHOW_DIST := 650.0  # etäisyys mökin keskeltä, jolloin tutka vaih
 
 var player: Node3D
 var wife: Node3D
+var police: Node3D  # jahtaava poliisi: sininen pylpyrä, kun Päivi on punainen
 var world: Node3D
 var bike: Node3D  # näytetään kun liikutaan jalan
 var mokki: Node3D
@@ -188,6 +189,11 @@ func _draw() -> void:
 		_bike_icon(_clamp_edge(_w(bike.global_position)))
 	if wife != null and wife.is_inside_tree() and wife.visible:  # töissä auto on piilossa origon alla
 		draw_circle(_clamp_edge(_w(wife.global_position)), 4.5, Color(0.95, 0.1, 0.1))
+	if police != null and is_instance_valid(police) and police.is_inside_tree():
+		var pp := _clamp_edge(_w(police.global_position))
+		var flash := int(Time.get_ticks_msec() / 250) % 2 == 0  # pylpyrä vilkkuu
+		draw_circle(pp, 6.5 if flash else 5.0, Color(0.15, 0.35, 1.0))
+		draw_arc(pp, 6.5 if flash else 5.0, 0, TAU, 16, Color.WHITE, 1.5)
 	if player != null:
 		var fwd3 := -player.global_transform.basis.z
 		var f := Vector2(fwd3.x, fwd3.z).normalized()
