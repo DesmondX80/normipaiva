@@ -5,7 +5,7 @@ extends Control
 ## kahden sormen nipistys zoomaa, W/A/S/D tai vetäminen siirtää, hyppy (välilyönti) keskittää pelaajaan, M tai Esc
 ## sulkee. Kyläkartalla klikkaus asettaa kompassin kohteen (tarttuu lähimpään merkkiin), klikkaus kohteen päälle tai
 ## oikea nappi poistaa sen.
-## Mökillä ja Vaalan mopomatkalla kartta on yksi iso Neittävä–Vaala-kartta mopomatkan kehyksessä (vaala.gd:
+## Mökillä ja Vaalan mopomatkalla kartta on Paapelin tai Vaalan kartta (yksi näkymä, alue pelaajan paikan mukaan) mopomatkan kehyksessä (vaala.gd:
 ## origo mökin osoitepisteessä, x itään, z etelään): mökin piha, tie Vaalaan ja Vaalan keskusta kohteineen.
 
 const M := preload("res://scripts/map_data.gd")
@@ -47,7 +47,14 @@ var _vland: Control  # maanpeite kartan alla (show_behind_parent), oma materiaal
 var _vgrid := {}  # maastoruudukon nx, nz, x0, z0, cell
 var _vcodes := PackedByteArray()
 var _vtree_pts := PackedVector2Array()  # puumerkit metsään (Saloisten tapaan)
-var _vaala_rect := Rect2()  # Neittävä–Vaala-kartan alue
+var _vaala_rect := Rect2()  # Neittävä–Vaala-maaston koko alue (maanpeitekuva); näkyvä kartta on yksi alue (_vrect)
+## Mopomatkan kehys on yksi 1,5 km:n tie, joten kartta on kaksi aluetta samassa näkymässä: Paapeli (mökki, Neittävän järvet,
+## tien alku) tai Vaala (keskusta, Satamantie, lava, tien loppu). Alue valitaan avattaessa pelaajan paikan mukaan (_vaala_region);
+## alueiden rajat ovat päällekkäin tien kohdalla, ja tie jatkuu reunan yli (_draw_region_hint).
+const REGION_PAAPELI := Rect2(-470.0, -760.0, 1030.0, 1000.0)
+const REGION_VAALA := Rect2(540.0, -1250.0, 780.0, 1060.0)
+const REGION_SPLIT_X := 520.0  # tien jakokohta (kehyksen x): sen länsipuolella Paapelin kartta
+var _vregion := "paapeli"
 ## Näkymä (molemmat kartat): _vrect = kartan alue (kyläkartalla maailman x/z, Vaalassa kehyksen x/z), _vcenter
 ## keskipiste samassa kehyksessä, _vzoom pikseliä metrille.
 var _vrect := Rect2()
@@ -109,8 +116,10 @@ func toggle() -> void:
 		_vaala = _vaala_mode()
 		if _vaala:
 			_vaala_load()
-			_vrect = _vaala_rect
+			_vregion = _vaala_region()
+			_vrect = (REGION_PAAPELI if _vregion == "paapeli" else REGION_VAALA).intersection(_vaala_rect)
 			_vfit()
+			_center_on_me()
 		else:
 			if _tree_pts.is_empty() and world != null:
 				for i in range(0, world._trees.size(), 7):
@@ -428,8 +437,10 @@ func _draw() -> void:
 
 	var font := ThemeDB.fallback_font
 	if _vaala:
-		draw_string(font, r.position + Vector2(40, 46), "NEITTÄVÄ – VAALA", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, INK)
-		draw_string(font, r.position + Vector2(40, 68), "Mökki Paapeli (Kaisuantie 62) ja mopotie Vaalan keskustaan · OpenStreetMap, MML", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK.lightened(0.2))
+		var paapeli := _vregion == "paapeli"
+		draw_string(font, r.position + Vector2(40, 46), "NEITTÄVÄ · PAAPELI" if paapeli else "VAALA", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, INK)
+		draw_string(font, r.position + Vector2(40, 68), ("Mökki Paapeli (Kaisuantie 62), Neittävän järvet ja mopotie Vaalaan" if paapeli
+			else "Vaalan keskusta, Satamantie ja Oulujärven lava") + " · OpenStreetMap, MML", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK.lightened(0.2))
 	else:
 		draw_string(font, r.position + Vector2(40, 46), "SALOINEN · RAAHE", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, INK)
 		draw_string(font, r.position + Vector2(40, 68), "Normipäivän maastokartta — Järvikuja 1 ja ympäristö", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK.lightened(0.2))
@@ -552,17 +563,20 @@ func _legend_vaala(p: Vector2) -> float:
 	var font := ThemeDB.fallback_font
 	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 	var items := [
-		["home", "Mökki Paapeli"], ["siitari", "Hotelli-Ravintola Siitari"], ["shop", "K-Market Tervaportti"],
+		["home", "Mökki Paapeli"], ["beach", "Salmisen uimaranta"], ["statue", "Ranta-Rosvo"], ["laavu", "Keskimmäisen laavu"],
+		["barrel", "Tynnyrisauna"], ["dock", "Laituri ja soutuvene"], ["you", "Olet tässä"],
+	] if _vregion == "paapeli" else [
+		["siitari", "Hotelli-Ravintola Siitari"], ["shop", "K-Market Tervaportti"],
 		["zabuki", "Zabuki (olut, burgerit)"], ["gasthaus", "Gasthaus (yö 10 €)"], ["apteekki", "Apteekki (Satamantie)"],
 		["atm", "Pankkiautomaatti"], ["lava", "Oulujärven lava"], ["church", "Kirkko"], ["station", "Rautatieasema"],
-		["beach", "Salmisen uimaranta"], ["statue", "Ranta-Rosvo"], ["laavu", "Keskimmäisen laavu"],
-		["barrel", "Tynnyrisauna"], ["dock", "Laituri ja soutuvene"], ["harbor", "Vaalan satama (muskelivene)"],
-		["you", "Olet tässä"],
+		["harbor", "Vaalan satama (muskelivene)"], ["you", "Olet tässä"],
+	]
+	items += [
 		["road", "Maantie"], ["gravel", "Soratie"], ["rail", "Rautatie"], ["forest", "Metsä"], ["field", "Pelto"], ["bog", "Suo"],
 		["water", "Vesi"], ["building", "Rakennus"],
 	]
 	# Kohteet allekkain, viivat ja alueet kahteen palstaan.
-	var first_area := 17
+	var first_area := items.size() - 8  # kohteet ensin allekkain, loput (viivat ja alueet) kahteen palstaan
 	var last_y := p.y
 	for i in items.size():
 		var row := i if i < first_area else first_area + (i - first_area) / 2
@@ -824,7 +838,36 @@ func _draw_map() -> void:
 		var f := -player.global_transform.basis.z
 		_you_icon_on(v, _w2(Vector2(player.global_position.x, player.global_position.z)), atan2(f.z, f.x) + PI / 2.0)
 	_mask_outside(v)
+	_draw_region_hint(v)
 	_draw_road_hover(v)  # viimeisenä: kartan reunan paperi ei peitä nimeä
+
+
+## Mopotie jatkuu toiselle kartalle: tien viimeisen alueella olevan pisteen luo nuoli ja matka ("Vaalaan →" / "← Paapeliin"),
+## jotta tien alku ja loppu ovat yhdessä kartassa tunnistettavissa.
+func _draw_region_hint(v: Control) -> void:
+	var road: Array = _vd.road
+	var to_vaala := _vregion == "paapeli"
+	var idx := -1
+	for k in road.size():
+		var i := k if to_vaala else road.size() - 1 - k
+		if _vrect.has_point(Vector2(road[i][0], road[i][2])):
+			idx = i
+		elif idx >= 0:
+			break
+	if idx < 0:
+		return
+	var km := 0.0
+	var step := 1 if to_vaala else -1
+	for i in range(idx, road.size() - 1 if to_vaala else 0, step):
+		km += Vector2(road[i][0], road[i][2]).distance_to(Vector2(road[i + step][0], road[i + step][2]))
+	km /= 1000.0
+	var txt := ("Vaalaan → %.1f km" if to_vaala else "← Paapeliin %.1f km") % km
+	txt = txt.replace(".", ",")
+	var font := ThemeDB.fallback_font
+	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+	var at := _vpx(Vector2(road[idx][0], road[idx][2]))
+	at = Vector2(clampf(at.x - tw - 10.0, 8.0, v.size.x - tw - 8.0), clampf(at.y - 10.0, 18.0, v.size.y - 8.0))
+	_outlined(v, at, txt, 13, Color(0.45, 0.25, 0.1))
 
 
 ## Kartta-alueen ulkopuoli paperiksi (OSM-aineisto jatkuu pelialueen yli) ja alueen reunaviiva, kun kartta on
@@ -858,6 +901,14 @@ func _vaala_mode() -> bool:
 	if game._in_vaala:
 		return true
 	return game._at_mokki()
+
+
+## Avattaessa näytettävä alue: Paapeli, kun pelaaja (mökillä tai mopolla) on tien länsipuoliskolla, muuten Vaala.
+func _vaala_region() -> String:
+	var me := _vaala_me()
+	if me.is_empty() or (me[0] as Vector2).x < REGION_SPLIT_X:
+		return "paapeli"
+	return "vaala"
 
 
 func _vaala_trip() -> bool:
@@ -1043,7 +1094,7 @@ func _draw_vaala_land() -> void:
 	if _vtex == null or not _vaala or _vland.material == null:
 		return
 	(_vland.material as ShaderMaterial).set_shader_parameter("px_per_cell", float(_vgrid.cell) * _vzoom)
-	_vland.draw_texture_rect(_vtex, Rect2(_vpx(_vrect.position), _vrect.size * _vzoom), false)
+	_vland.draw_texture_rect(_vtex, Rect2(_vpx(_vaala_rect.position), _vaala_rect.size * _vzoom), false)
 
 
 func _draw_vaala_map() -> void:

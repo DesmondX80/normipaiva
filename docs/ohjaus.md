@@ -13,7 +13,7 @@
 | T | syö ja juo: valikko mukana olevista eväistä (korvapuusti, lihapiirakka, suklaa, marjat ämpäristä) ja kaljoista |
 | Shift | juokse (jalan) / spurtti (pyörällä) |
 | E (kolmiomittauksen aikana) | Sytkäri: lue etäisyys tästä paikasta (vihje näkyy, kun muuta toimintoa ei ole) |
-| M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen; mökillä ja Vaalan matkalla Neittävä–Vaala-kartta: rulla tai Q/E zoomaa, WASD tai vetäminen siirtää) |
+| M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen; mökillä ja Vaalan matkalla Paapelin tai Vaalan kartta sijainnin mukaan: rulla tai Q/E zoomaa, WASD tai vetäminen siirtää) |
 | B | matkaopas (kun sen on saanut taksikuskilta): retkikohteet, hinnat, kestot ja leimat; A/D tai nuolet selaavat, Esc / B sulkee |
 | I / Tab, O | reppu ja Normipäiväkirja ovat yksi vihko: I avaa sen reppusivulta, O päiväkirjan sivulta. Auki ollessa I / O vaihtaa sivua, saman sivun näppäin ja Esc sulkevat. Välilehti: klikkaus, 1–7 tai ←/→ (7 = Riskit, huumekaupan riskit) |
 | G | kellon kiihdytys päälle / pois (kello kulkee 8-kertaisella nopeudella, rannekellon yläreunassa nuolet; välikuvat ja minipelit sammuttavat) |

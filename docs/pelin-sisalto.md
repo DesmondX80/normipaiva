@@ -602,7 +602,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     hakukeskus `vaala_sahanranta.py`:ssä). Asema on siirretty 80 m radan suuntaan itään (todellisuudessa se on lännempänä), jotta Satamantie
     lähtee Aseman pihan taitteesta suoraan etelään tasoristeyksen yli aseman editse eikä kierrä aseman takaa; Veturitalli, Veturitallintie,
     Kätkötie ja narkkarin kätkö (`asema.katko`) siirtyivät mukana, ja aseman lähitalot lähimpään vapaaseen paikkaan.
-    **Satamantie** on kapea asfalttikatu (Saloisten "street": 5,5 m, ei piennarta eikä keskiviivaa): se lähtee Vaalantieltä K-Marketin länsipuolelta,
+    **Satamantie** on kapea asfalttikatu (Saloisten "street": 5,5 m, ei piennarta eikä keskiviivaa): se lähtee Vaalantieltä vanhan K-Marketin paikan (nyt tyhjä piha) länsipuolelta,
     ylittää radan tasoristeyksellä ja jatkaa Sahanrannantienä satamaan (parkkipaikka asfalttia) ja Uitontienä Uiton saunalle (Uitontie on soratie; Satamantie ja Sahanrannantie kapeaa asfalttia, kartalla ohut vaalea tie). Entinen soratie Zabukilta
     ja Aseman pihalta etelään on poistettu; Asemalle ajetaan liikenneympyrästä Aseman pihaa. Sataman ja Uiton pihat ovat edelleen soraa (`tools/vaala_satamatie.py`).
     **Sahanrannan täyte:** Satamantien, Sahanrannantien ja Uitontien varrella on pientaloja, aittoja ja rantamökkejä oikean Sahanrannan
@@ -625,6 +625,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Aseman piha asemalle ja vasemmalle Torintie torille: tori ja Zabuki ovat tien vasemmalla puolella yli 120 m Siitarista. Tori on asfalttikenttä
     (46 x 22 m), jonka takana on Vaalan matkakeskus (pitkä matala rakennus: tiilisokkeli, vaalea yläosa, sinitolppainen katos, "VAALA"-torni;
     `vaala.gd _build_matkakeskus`) ja sen vasemmassa päässä Zabuki. Ratatien kierros on poistettu (`tools/vaala_torisiirto.py`).
+    **K-Market Tervaportti** on liikenneympyrästä suoraan eteen (95 m): ympyrästä lähtee kolmanneksi haaraksi kaksikaistainen asfalttitie (Vaalantie,
+    8 m, piennar ja keskiviiva) 62 m kaupan parkkipaikalle, ja kauppa on tien päässä julkisivu ympyrään päin (ruutuviivat, taksitolppa ja mummot
+    kuten ennen). Vanha paikka Siitarin vieressä jäi tyhjäksi pihaksi; Satamantie lähtee edelleen Vaalantieltä sen länsipuolelta
+    (`tools/vaala_kmarket_ymparyra.py`, rakennuksen `door_to` kertoo oven suunnan, `vaala.gd _door`). Testit `--scene=kmarket_vaala`,
+    `--scene=vaalakierros` (`_kauppatie`, `_kauppa`, `_kauppa_ylos`) ja `--scene=vaala_ajo --ajo=kohteet`.
     **Kunnantalo** on Vaalantien jatkeen oikealla puolella Siitarin vieressä samansuuntaisesti tien kanssa (46 x 10 m: vasemmalla vaalea kaksikerroksinen
     siipi vaakunoineen ja puuovineen, oikealla keltainen siipi lasiosineen ja päätyovi, takana torni; edessä nurmikko, suihkulähde, valaisimet ja penkit;
     `vaala.gd _build_kunnantalo`, `tools/vaala_kunnantalo.py`; OSM:n Kunnanvirasto korvautuu). Rakennuksessa ei ole sisätilaa.
@@ -832,9 +837,12 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     vahingot maksetaan, 40 €) (`--scene=mokkihotelli`).
     Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen; mopo jää parkkiin tyhjänä) ja kävellä; **ovet, pankkiautomaatti, lava ja Siitari toimivat vain jalan**: mopon selässä
     vihje kehottaa nousemaan mopolta (F). F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
-    Paperikartta (M) on mökillä ja Vaalan matkalla yksi iso Neittävä–Vaala-kartta: mökin piha, mopotie ja Vaalan
-    keskusta (Siitari, K-Market Tervaportti, pankkiautomaatti, Oulujärven lava, kirkko, rautatieasema ja muut
-    nimetyt talot). Kartta on piirretty samaan tyyliin kuin Saloisten kartta (`shaders/vaala_kartta.gdshader`): litteät värit ja
+    Paperikartta (M) on mökillä ja Vaalan matkalla kaksi karttaa samassa näkymässä (sama paneeli, selite ja ohjaus), ja alue valitaan
+    avattaessa pelaajan paikan mukaan (`paper_map.gd _vaala_region`, jakokohta kehyksen x 520, kuvaus alla): **Neittävä · Paapeli**
+    (mökin piha, Neittävän järvet rantapaikkoineen ja tien alku) tai **Vaala** (keskusta: Siitari, K-Market Tervaportti,
+    pankkiautomaatti, apteekki, kirkko, rautatieasema ja muut nimetyt talot sekä Satamantie ja Oulujärven lava). Mopotie jatkuu
+    reunan yli, ja reunassa lukee "Vaalaan → 1,2 km" tai "← Paapeliin 1,3 km" (`_draw_region_hint`); selitteessä on vain alueen kohteet.
+    Testi `--scene=karttaalue` (headless: alue kuudessa tien kohdassa). Kartta on piirretty samaan tyyliin kuin Saloisten kartta (`shaders/vaala_kartta.gdshader`): litteät värit ja
     pehmeät rajat, pellolla ruskea ja vedellä sininen ääriviiva, suolla vinoviivat, metsässä puumerkit, maantiet keltaisina ruskealla
     reunuksella, sorateet ohuina mustina viivoina ja talot mustina. Siitariin ei ole keltaista ohjeviivaa, kompassi riittää. Mökin pohjoiset järvet (Salmiset, Pyöriäinen ja Keskimmäinen)
     ovat kartalla ja mopomatkan maisemassa Neittävällä Neittäväntien luoteispuolella loivasti tiivistettyinä, ja

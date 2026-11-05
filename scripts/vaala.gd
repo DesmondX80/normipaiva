@@ -3312,7 +3312,8 @@ func _build_buildings() -> void:
 		if name.contains("K-Market"):
 			# K-Market Tervaportti: ovi kadun puolella, pankkiautomaatti oven viereen (_build_atm), mopolla E kauppaan.
 			name = "K-MARKET TERVAPORTTI"
-			var kd := _door(obb, base + 0.3)
+			var kto := Vector2(bd.door_to[0], bd.door_to[1]) if bd.has("door_to") else Vector2.INF
+			var kd := _door(obb, base + 0.3, kto)
 			var out := (kd - (obb.center as Vector2)).normalized()
 			kmarket_door = Vector3(kd.x, h(kd.x, kd.y), kd.y) + Vector3(out.x, 0, out.y) * 2.5
 			kmarket_out = Vector3(out.x, 0, out.y)
@@ -3437,11 +3438,15 @@ func _balcony_mesh() -> ArrayMesh:
 
 
 ## Ovi pitkälle sivulle tien puolelle. Palauttaa oven paikan (ikkunat väistävät sitä).
-func _door(obb: Dictionary, y0: float) -> Vector2:
+## toward: pisteen suunta, jonne ovi katsoo (tie.json door_to), kun pääreitti ei ole lähellä (nearest hakee vain 60 m:ä).
+func _door(obb: Dictionary, y0: float, toward := Vector2.INF) -> Vector2:
 	var ni: Array = nearest(Vector3(obb.center.x, 0, obb.center.y))
 	var ay: Vector2 = obb.ay
 	var side := ay
-	if ni[0] >= 0:
+	if toward != Vector2.INF:
+		if ay.dot(toward - (obb.center as Vector2)) < 0.0:
+			side = -ay
+	elif ni[0] >= 0:
 		var rp := road_pos(ni[0])
 		if ay.dot(Vector2(rp.x, rp.z) - (obb.center as Vector2)) < 0.0:
 			side = -ay

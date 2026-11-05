@@ -23889,6 +23889,7 @@ func _maybe_screenshot() -> void:
 			for i in 5:
 				await get_tree().process_frame
 			_paper.toggle()
+			print("KARTTA alue mökillä jalan: %s %s" % [_paper._vregion, _paper._vrect])
 			for i in 12:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
@@ -23899,8 +23900,9 @@ func _maybe_screenshot() -> void:
 			for i in 10:
 				await get_tree().process_frame
 			_paper.toggle()
+			print("KARTTA alue lavalla: %s %s" % [_paper._vregion, _paper._vrect])
 			var views := [["_koko.png", Vector2.ZERO, 0.0], ["_keskusta.png", Vector2(800, -900), 1.0],
-				["_lava.png", Vector2(660, -270), 2.0], ["_mokki.png", Vector2(0, 0), 2.5], ["_neittava.png", Vector2(-120, -560), 0.7]]
+				["_lava.png", Vector2(660, -270), 2.0]]
 			for vw in views:
 				if vw[2] > 0.0:
 					_paper._vcenter = vw[1]
@@ -23912,6 +23914,45 @@ func _maybe_screenshot() -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0]))
 			_paper.toggle()
+			# Paapelin kartta: mopo tien alkupäässä (mökin luona), koko alue, mökin piha ja Neittävän järvet.
+			mopo_trip.mopo.position = Vector3(0, mopo_trip.vaala.h(0.0, 0.0) + 0.6, 0)
+			for i in 10:
+				await get_tree().process_frame
+			_paper.toggle()
+			print("KARTTA alue mökin luona mopolla: %s %s" % [_paper._vregion, _paper._vrect])
+			for vw in [["_paapeli_koko.png", Vector2.ZERO, 0.0], ["_mokki.png", Vector2(0, 0), 2.5], ["_neittava.png", Vector2(-120, -560), 0.7]]:
+				if vw[2] > 0.0:
+					_paper._vcenter = vw[1]
+					_paper._vzoom = vw[2]
+				_paper._view.queue_redraw()
+				_paper.queue_redraw()
+				for i in 3:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0]))
+			_paper.toggle()
+		"karttaalue":
+			# Paperikartan alue (Paapeli tai Vaala) valitaan pelaajan paikan mukaan; ei kuvia, toimii headlessina.
+			# Mopo viedään tien eri kohtiin kehyksessä (x itään, z etelään; tien jakokohta x 520) ja kartta avataan.
+			_start_mopo()
+			var vfr: Node3D = mopo_trip.vaala
+			var alue_cases := [["mökki", Vector2(0, 0), "paapeli"], ["Neittävä", Vector2(-120, -520), "paapeli"],
+				["tien keskikohta", Vector2(350, -690), "paapeli"], ["lava", Vector2(vfr.lava_door.x, vfr.lava_door.z), "vaala"],
+				["Siitari", vfr.siitari, "vaala"], ["K-Market", Vector2(vfr.kmarket_door.x, vfr.kmarket_door.z), "vaala"]]
+			for ac in alue_cases:
+				var ap: Vector2 = ac[1]
+				mopo_trip.mopo.position = Vector3(ap.x, vfr.h(ap.x, ap.y) + 0.6, ap.y)
+				for i in 3:
+					await get_tree().process_frame
+				_paper.toggle()
+				for i in 3:
+					await get_tree().process_frame
+				var in_rect: bool = _paper._vrect.has_point(ap)
+				print("KARTTA alue %s: %s rect %s zoom %.2f mukana %s" % [ac[0], _paper._vregion, _paper._vrect, _paper._vzoom, in_rect])
+				if _paper._vregion != ac[2] or not in_rect:
+					print("TESTI VIKA kartan alue paikassa %s: %s (odotettiin %s, paikka alueella %s)" % [ac[0], _paper._vregion, ac[2], in_rect])
+				_paper.toggle()
+			get_tree().quit()
 		"vaalakierros":
 			# Vaalan liikenneympyrä, tori ja Zabuki: paperikartta keskustasta kahdella zoomilla,
 			# sitten vapaa kamera ylhäältä ja tien tasolta kulmissa ja liittymässä.
@@ -23950,7 +23991,10 @@ func _maybe_screenshot() -> void:
 					["_alikulku_ylos", vh.call(752.0, -697.0, 70.0), vh.call(752.0, -699.0, 0.0)],
 					["_alikulku_tie", vh.call(733.0, -717.0, 3.0), vh.call(762.0, -684.0, 0.0)],
 					["_apteekki", vh.call(838.0, -588.0, 3.0), vh.call(806.0, -616.0, 2.0)],
-					["_apteekki_ylos", vh.call(811.0, -610.0, 50.0), vh.call(811.0, -612.0, 0.0)]]:
+					["_apteekki_ylos", vh.call(811.0, -610.0, 50.0), vh.call(811.0, -612.0, 0.0)],
+					["_kauppatie", vh.call(818.0, -894.0, 4.0), vh.call(903.0, -955.5, 3.0)],
+					["_kauppa", vh.call(877.0, -944.0, 3.0), vh.call(903.0, -955.5, 2.5)],
+					["_kauppa_ylos", vh.call(883.0, -941.0, 90.0), vh.call(883.0, -943.0, 0.0)]]:
 				vcam.look_at_from_position(vw[1], vw[2], Vector3.UP if vw[0] != "_ylhaalta" else Vector3(0, 0, -1))
 				vcam.current = true
 				for i in 20:
@@ -26701,6 +26745,7 @@ func _maybe_screenshot() -> void:
 			var tp: Vector3 = vl.vtaxi_pos
 			var mp3: Vector3 = vl.mummot.position
 			var kc: Vector3 = vl.kmarket_center
+			kc.y = vl.h(kc.x, kc.z)  # kmarket_center on maan tasossa (y = 0), maasto on korkeammalla
 			await look.call(kc + vl.kmarket_face * 22.0 + Vector3(0, 30, 0), kc + vl.kmarket_face * 8.0, "ylha")
 			await look.call(mp3 + vl.kmarket_face * 6.0 + Vector3(2, 2.2, 0), mp3 + Vector3(0, 0.9, 0), "mummot")
 			await look.call(tp + vl.kmarket_face * 7.0 + Vector3(0, 3.0, 0), tp - vl.kmarket_face * 2.0 + Vector3(0, 0.8, 0), "taksi")
