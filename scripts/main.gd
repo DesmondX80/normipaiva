@@ -11494,7 +11494,8 @@ func _kolmio_vaala_setup() -> void:
 		vl.add_child(v)
 		_kolmio_vaala_npcs.append(v)
 	_kolmio_vaala_spots["door_home"] = base - side * 1.8
-	vl.doors.append({"id": "kolmio_kaverit", "pos": base - side * 1.8, "out": out, "r": 4.0, "walk": true,
+	# r 7: lähin ovi voittaa (mopo_trip.gd), ja aseman odotussalin ovi on heidän vieressään; pienemmällä säteellä E avasi odotussalin.
+	vl.doors.append({"id": "kolmio_kaverit", "pos": base - side * 1.8, "out": out, "r": 7.0, "walk": true,
 		"hint": "Teron ja Timon luo", "text": "Juttele Teron ja Timon kanssa"})
 
 
@@ -23931,6 +23932,28 @@ func _maybe_screenshot() -> void:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", vw[0]))
 			_paper.toggle()
+		"kolmio_juttu":
+			# Teron ja Timon juttelu Vaalan aseman pihalla: jalan kulkija heidän vieressään, vihje ja E (ei kuvia, toimii headlessina).
+			_start_mopo()
+			var jv: Node3D = mopo_trip.vaala
+			for i in 5:
+				await get_tree().process_frame
+			print("JUTTU npcs %d, ovi: %s" % [_kolmio_vaala_npcs.size(), jv.doors.filter(func(d: Dictionary) -> bool: return d.id == "kolmio_kaverit")])
+			_mopo_dismount()
+			for nm in [0, 1]:
+				var npc: Node3D = _kolmio_vaala_npcs[nm]
+				for off in [Vector3(0, 0, 1.5), Vector3(1.5, 0, 0), Vector3(0, 0, 3.0), Vector3(0, 0, 4.5)]:
+					walker_out.global_position = npc.global_position + off + Vector3(0, 0.3, 0)
+					walker_out.speed = 0.0
+					for i in 4:
+						await get_tree().process_frame
+					var near_d := INF
+					for d: Dictionary in jv.doors:
+						near_d = minf(near_d, (mopo_trip.to_local(walker_out.global_position) - d.pos).length()) if d.id == "kolmio_kaverit" else near_d
+					print("JUTTU %s etäisyys %.1f m, oven etäisyys %.1f m: vihje '%s' tila %s" % [npc.display_name, off.length(), near_d, mopo_trip.hint, state])
+					if not mopo_trip.hint.contains("Juttele Teron ja Timon"):
+						print("TESTI VIKA %s %.1f m päässä: vihje '%s' (odotettiin juttelua)" % [npc.display_name, off.length(), mopo_trip.hint])
+			get_tree().quit()
 		"karttaalue":
 			# Paperikartan alue (Paapeli tai Vaala) valitaan pelaajan paikan mukaan; ei kuvia, toimii headlessina.
 			# Mopo viedään tien eri kohtiin kehyksessä (x itään, z etelään; tien jakokohta x 520) ja kartta avataan.
