@@ -151,7 +151,7 @@ func set_car(on: bool, color := Color.WHITE, van := false) -> void:
 	if on:
 		_car = Node3D.new()
 		add_child(_car)
-		_car_wheels = Vehicles.van(_car, color) if van else Vehicles.car(_car, color)
+		_car_wheels = Vehicles.van(_car, color) if van else Vehicles.saab(_car, color)  # sama malli kuin liikenteessä
 	_visual.visible = not on
 	_cap_shape.disabled = on
 	_box_shape.disabled = not on

@@ -202,7 +202,7 @@ func set_car(on: bool, color := Color.WHITE, van := false) -> void:
 	if on:
 		_car = Node3D.new()
 		_visual.add_child(_car)
-		_car_wheels = Vehicles.van(_car, color) if van else Vehicles.car(_car, color)
+		_car_wheels = Vehicles.van(_car, color) if van else Vehicles.saab(_car, color)  # sama malli kuin liikenteessä
 		if _car_engine == null:
 			_car_engine = AudioStreamPlayer.new()
 			_car_engine.stream = Sfx.stream("engine")
