@@ -111,6 +111,13 @@ func _run() -> void:
 	await _shot("keula_lahi", Vector3(-1.2, 0.8, -4.6), Vector3(-1.2, 0.62, -1.9), 30.0)
 	await _shot("pera", Vector3(-1.2, 1.0, 4.2), Vector3(-1.2, 0.65, 2.0), 35.0)
 	await _shot("pera_vino", Vector3(-3.6, 1.4, 4.4), Vector3(-1.2, 0.75, 1.4), 35.0)
+	# Katon liitokset (siviili-Saab x = -1,2): A-pilari ja tuulilasin yläkulma, C-pilari ja takalasin yläkulma, ylhäältä.
+	await _shot("katto_etu", Vector3(-2.6, 1.9, -1.4), Vector3(-1.6, 1.35, -0.4), 28.0)
+	await _shot("katto_taka", Vector3(-2.6, 1.9, 2.2), Vector3(-1.6, 1.3, 1.1), 28.0)
+	await _shot("katto_ylhaalta", Vector3(-1.2, 4.2, 0.4), Vector3(-1.2, 1.3, 0.3), 45.0)
+	await _shot("katto_c_kulma", Vector3(-2.5, 1.75, 1.5), Vector3(-1.85, 1.33, 1.0), 22.0)  # C-pilarin ja katon takakulman liitos
+	await _shot("katto_a_kulma", Vector3(-2.6, 1.7, -0.9), Vector3(-1.85, 1.33, -0.4), 22.0)  # A-pilarin ja katon etukulman liitos
+	await _shot("katto_sivu", Vector3(-3.6, 1.45, 0.3), Vector3(-1.2, 1.3, 0.3), 30.0)
 	await _shot("poliisi_keula", Vector3(1.4, 0.9, -4.6), Vector3(1.4, 0.62, -1.9), 30.0)
 	await _shot("poliisi_vino", Vector3(5.6, 1.7, -4.6), Vector3(1.4, 0.8, 0.0), 38.0)
 	await _shot("poliisi_pera", Vector3(5.0, 1.5, 5.0), Vector3(1.4, 0.8, 0.6), 38.0)
