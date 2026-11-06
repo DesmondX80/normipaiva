@@ -241,12 +241,13 @@ const SULO := {
 	"skin": Color(1.0, 0.84, 0.78), "belly": 0.45, "bulk": -0.2, "shoulders": -0.3,
 }
 
-## Pentti (#299): keski-ikäinen viiksimies, hihaton ruskea nahkaliivi paljain käsivarsin, farkut vyöllä, cowboybootsit,
+## Pentti (#299): keski-ikäinen viiksimies, avonainen ruskea nahkaliivi paljaan karvaisen rinnan päällä, paljaat käsivarret, farkut vyöllä, cowboybootsit,
 ## harveneva tukka. Viikset, pilottilasit ja kultaketju: add_pentti. Keksitty hahmo, ei oikea henkilö.
 const PENTTI := {
 	"shirt": Color(0.3, 0.17, 0.08), "shine": 0.6, "sleeve_x": 0.18, "pants": Color(0.2, 0.26, 0.4), "jeans": true,
 	"belt_y": 0.99, "belt_col": Color(0.06, 0.05, 0.04), "shoes": Color(0.25, 0.15, 0.08), "hair": "Hair_SimpleParted",
 	"hair_color": Color(0.22, 0.15, 0.1), "height": 1.78, "belly": 0.75, "bulk": 0.2, "skin": Color(1.0, 0.86, 0.76),
+	"vest_open": true, "chest_hair": true, "body_hair": Color(0.17, 0.11, 0.07), "bare_skin": Color(0.84, 0.62, 0.48),  # avonainen liivi ja rintakarvat
 	"pentti": true,
 }
 
