@@ -192,7 +192,8 @@ func _place_legs(along: Vector3, side_r: Vector3) -> void:
 			if heel < INF:
 				dy = maxf(dy, TOWEL_TOP - 0.01 - heel)  # kantapää ei painu syvemmälle kuin 1 cm
 			ty += dy
-		print("AURINKO jalka%s nilkka y=%.3f pohje %.3f kantapää %.3f" % [lr, ty, _low(["calf" + lr]) - TOWEL_TOP, _low(["foot" + lr, "ball" + lr]) - TOWEL_TOP])
+		if Pose.Contact.diag():  # vain testiajoissa
+			print("AURINKO jalka%s nilkka y=%.3f pohje %.3f kantapää %.3f" % [lr, ty, _low(["calf" + lr]) - TOWEL_TOP, _low(["foot" + lr, "ball" + lr]) - TOWEL_TOP])
 
 
 ## Rulla pään alle takaraivon kohdalle poikittain. Death01:n pää on taipunut taakse (leuka ylhäällä): niskaa ja päätä
@@ -218,7 +219,8 @@ func _place_head(along: Vector3, side_r: Vector3) -> Vector3:
 			lo_a = _nod
 		else:
 			hi_a = _nod
-	print("AURINKO niska+pää %.2f rad kumpikin, takaraivo %.3f (tavoite %.3f)" % [_nod, _occiput(), rest_y])
+	if Pose.Contact.diag():  # vain testiajoissa
+		print("AURINKO niska+pää %.2f rad kumpikin, takaraivo %.3f (tavoite %.3f)" % [_nod, _occiput(), rest_y])
 	return roll
 
 
@@ -295,7 +297,8 @@ func _place_left_hand(along: Vector3, side_r: Vector3) -> void:
 	body.set_ik_orient("arm_l", Pose.palm_on(fingers, to_local * -up_n, true), 1.0)
 	_curl("_l", fingers.cross(to_local * -up_n).normalized())
 	body.refresh_pose()
-	print("AURINKO vasen kyynärpää %s, kämmen %s, nosto %.3f, pole sivulle %.2f" % [_bw("lowerarm_l"), hp, lift, out])
+	if Pose.Contact.diag():  # vain testiajoissa
+		print("AURINKO vasen kyynärpää %s, kämmen %s, nosto %.3f, pole sivulle %.2f" % [_bw("lowerarm_l"), hp, lift, out])
 
 
 ## Sormet rennosti koukkuun (animaation levitetyt sormet pois), janttu.gd _curl_fingers. axis = sormet × kämmenen

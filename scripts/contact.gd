@@ -4,14 +4,9 @@
 ## Kaikki laskenta on maailman avaruudessa. Ei lataa pose.gd:tä (silmukka): limb_points annetaan profile-kutsulle.
 
 
-## Diagnostiikkatulosteet (kontaktien korjaukset, apteekin sijoittelu) vain testiajoissa: tools/testit/aja.sh välittää
-## aina omat argumenttinsa (--scene=..., tulostekansio), tavallinen pelikäynnistys (godot ./) ei. Varoitukset ("KONTAKTI
-## JÄÄ ...", oikea vika) tulostetaan aina.
-static var _diag := -1
+## Diagnostiikkatulosteet (kontaktien korjaukset) vain testiajoissa (B.diag). Varoitus "KONTAKTI JÄÄ ..." tulostetaan aina.
 static func diag() -> bool:
-	if _diag < 0:
-		_diag = 0 if OS.get_cmdline_user_args().is_empty() else 1
-	return _diag == 1
+	return load("res://scripts/build.gd").diag()
 
 const Seat := preload("res://scripts/seat.gd")
 const Elastic := preload("res://scripts/elastic.gd")
