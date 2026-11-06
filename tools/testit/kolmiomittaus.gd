@@ -428,6 +428,9 @@ func _quest_reset(site: String) -> void:
 	main.quests.done_day.erase("kolmio_" + site)
 	for f in ["kolmio_tavattu_" + site, "kolmio_" + site]:
 		main.tilat.firsts.erase(f)
+	# Tehtävän valmistumislippu on loppu (quests.gd done "flag:ending_minttu/katja"), joka säilyy testin HOME:ssa
+	# ajojen välillä: ilman tätä tehtävä on jo tehty, eikä ideaviestiä näytetä (_quest_ideas ohittaa tehdyt).
+	main.endings.counts.erase({"saloinen": "minttu", "vaala": "katja"}[site])
 	main._quest_ideas()  # alkutilanne kirjattu (quests.primed), kuten pelissä puolen sekunnin välein
 
 
