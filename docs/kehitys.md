@@ -136,8 +136,9 @@ akselivälin 2,56).
 Pentin BangBus (#299, `scripts/rikos/pentti.gd`, osa-rajapinnalla vaikka ei ole huumekauppaa; auto `Vehicles.pentin_auto`,
 hahmo `Looks.PENTTI`, kyyti `cutscene.gd pentti_ride`, Vaalan paikka `vaala.gd pentti_spot`): `tools/testit/aja.sh scene bangbus`
 ja `scene bangbus_vaala` tarkistavat aikataulun (to ei, pe 18 ei, pe 20 kyllä), liikenteen Pentin piilotuksen, valinnat, päiväkirjan,
-repliikkipakan, kyydin (päivä vaihtuu, raha ja maine laskevat, legendaarinen hetki, herätyspaikka), Päivin aamurivin ja tallennuksen;
-kuvat auto viistosti, kyljet, perä, ohjaamo, Pentti, juttelu, kyyti ja aamu.
+repliikkipakan, kyydin (päivä vaihtuu, raha ja maine laskevat, legendaarinen hetki vain ensimmäisestä, herätyspaikka), toisen kyydin
+kiertuevihjeen ja kolmannen kyydin kiertueen (`cutscene.gd pentti_tour`, onnellinen loppu `pentin_kiertue`, herätys kotipihalta),
+Päivin aamurivin ja tallennuksen; kuvat auto viistosti, kyljet, perä, ohjaamo, Pentti, juttelu, kyyti, aamu, kiertue ja kiertueen aamu.
 Kaikki mallit rivissä: `tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn`.
 
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n

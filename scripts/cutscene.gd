@@ -1753,9 +1753,10 @@ func pentti_ride(stats: String, done: Callable) -> void:
 		for c in fog:
 			(c as GeometryInstance3D).transparency = 1.0 - clampf((t - 1.5) / 4.0, 0.0, 1.0)
 		var vp := van.global_position
-		_cam.global_position = vp + Vector3(lerpf(-4.6, -3.2, u), lerpf(1.9, 1.55, u), lerpf(-5.6, -4.0, u))
-		_cam.look_at(vp + Vector3(0.4, 1.0, 0), Vector3.UP)  # auto hieman vasemmalle: otsikko ei peitä tuulilasia
-		bubble.global_position = vp + Vector3(0, 2.2, 0)  # katon lisävalojen yllä, kuvan sisällä
+		# Alaviisto (käyttäjän toive): kamera matalalla keulan sivulla, keinuva auto ja huurteinen tuulilasi taivasta vasten.
+		_cam.global_position = vp + Vector3(lerpf(-4.4, -3.2, u), lerpf(0.4, 0.3, u), lerpf(-5.2, -4.0, u))
+		_cam.look_at(vp + Vector3(0.4, 1.4, 0), Vector3.UP)
+		bubble.global_position = vp + Vector3(0, 2.6, 0)  # alaviistosta katsoen katon yllä, ei tuulilasin edessä
 		bubble.text = PENTTI_RIDE_LINES[mini(int(t / 1.5), PENTTI_RIDE_LINES.size() - 1)]
 		if t > 3.2 and _title.text != "":
 			_title.text = ""  # otsikko pois tuulilasin edestä: huurtuminen ja keinunta näkyvät
@@ -1764,6 +1765,68 @@ func pentti_ride(stats: String, done: Callable) -> void:
 			_fade_to(0.0, 0.6)
 			_title.text = "PENTIN KYYDISSÄ"
 			_sub.text = stats
+		await get_tree().process_frame
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Pentin kiertue (onnellinen loppu, joka kolmas kyyti): kuplat matkan varrelta.
+const PENTTI_TOUR_LINES := ["Pentti: \"Kajaani! Torilla soitettiin humppaa kasetilta, ja mummot tanssi.\"",
+	"Pentti: \"Kuhmon grillillä tarjosin kaikille makkarat. Sää maksoit.\"",
+	"(Radiosta soi humppa, ja Pentti laulaa mukana. Väärin sanoin.)",
+	"Pentti: \"Suomussalmella meitä luultiin bändiksi. Ei me korjattu.\"",
+	"Pentti: \"Tää oli mun elämän paras kiertue. Ja ainoa.\"",
+	"Pentti: \"Kotiin päin. Kerro Päiville, että olit kalassa.\""]
+
+
+## Pentin kiertue: BangBus ajaa yön maantietä, Pentti ratissa ja pelaaja etupenkillä. stats ruudun alalaitaan
+## (sisältää onnellisen lopun rivin, _ending_line).
+func pentti_tour(stats: String, done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.4)
+	var road := _build_taxi_road()
+	var van := Node3D.new()
+	road.add_child(van)
+	var built: Dictionary = Vehicles.pentin_auto(van)
+	var wheels: Array = built.wheels
+	Vehicles.kuski(van, "hiace", Looks.PENTTI)
+	var hero := Looks.make(van, Looks.player())
+	Looks.add_cap(hero)
+	hero.play("Sitting_Idle", 0.0)
+	Vehicles.istuta(hero, "hiace", "etu")
+	var synth := preload("res://scripts/humppa_synth.gd")
+	var wav: AudioStream = synth.cached(synth.SONGS[0]) if not synth.SONGS.is_empty() else null
+	if wav != null:
+		Sfx.music_play(0.8, 0.0, "pentti_humppa", wav)
+	else:
+		Sfx.music_play(0.8, Sfx.MUSIC_CHORUS)
+	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
+	_cam.current = true
+	_title.add_theme_color_override("font_color", Color(1.0, 0.75, 0.25))
+	_title.add_theme_font_size_override("font_size", 90)
+	var t0 := _now_ms()
+	var faded := false
+	while _now_ms() - t0 < 11000:
+		var t := (_now_ms() - t0) / 1000.0
+		var u := clampf(t / 11.0, 0.0, 1.0)
+		van.position.z = -t * 14.0
+		for w in wheels:
+			(w as Node3D).rotation.x -= 14.0 * get_process_delta_time() / 0.31
+		var vp := van.global_position
+		# Kamera kiertää vasemmalta edestä oikealle kylkeen: kuski, kyytiläinen ja banderolli.
+		var a := lerpf(-0.5, 0.9, u)
+		# Alaviisto: kamera maan rajassa katsoo ylös autoon (käyttäjän toive), auto ja banderolli taivasta vasten.
+		_cam.global_position = vp + Vector3(sin(a) * 4.6, 0.35, -cos(a) * 4.6 - 1.0)
+		_cam.look_at(vp + Vector3(0, 1.6, -0.8), Vector3.UP)
+		bubble.global_position = vp + Vector3(0, 2.6, -0.5)
+		bubble.text = PENTTI_TOUR_LINES[mini(int(t / 1.8), PENTTI_TOUR_LINES.size() - 1)]
+		if not faded:
+			faded = true
+			_fade_to(0.0, 0.6)
+			_title.text = "PENTIN KIERTUE"
+			_sub.text = stats
+		if t > 3.5 and _title.text != "":
+			_title.text = ""
 		await get_tree().process_frame
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)
