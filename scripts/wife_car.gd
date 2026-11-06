@@ -28,7 +28,12 @@ var heat_mult := 1.0
 var catch_dist := CATCH_DIST  # tähtijahdissa suurempi: pelaajan auto ja Päivin auto törmäävät keulat vastakkain, ennen kuin keskipisteet ovat 3,3 m päässä
 var ignore_safe := false  # tähtijahti (4–5 tähteä): turvapaikat eivät suojaa
 var mode := "patrol"  # patrol, chase, return
-var parked := false  # yöllä kotipihassa: Päivi sisällä, auto ei liiku eikä jahtaa (main.gd _day_rhythm)
+var parked := false:  # yöllä kotipihassa: Päivi sisällä, auto ei liiku eikä jahtaa (main.gd _day_rhythm)
+	set(v):
+		parked = v
+		if _kuski != null:
+			_kuski.visible = not v  # pysäköidyssä Ponyssa ei istu ketään (Päivi on sisällä)
+var _kuski: Node3D  # Päivi ratissa
 var grace := 0.0  # anteeksi annettu: hetken ei näe eikä saa kiinni (main.gd _on_wife_caught)
 var pick_dest: Callable  # () -> Vector3: seuraava määränpää; tyhjä = sattumanvarainen harhailu risteyksittäin
 var dest := Vector3.ZERO  # nykyinen määränpää (testit)
@@ -55,7 +60,8 @@ func _ready() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.85, 0)))
 	Vehicles.pony(self, Color(0.78, 0.05, 0.05))  # oma Pony-malli, muut autot car()
-	Vehicles.kuski(self, "pony", load("res://scripts/looks.gd").PAIVI)  # Päivi ratissa
+	_kuski = Vehicles.kuski(self, "pony", load("res://scripts/looks.gd").PAIVI)  # Päivi ratissa
+	_kuski.visible = not parked
 	add_to_group("liikenne")  # muut autot pitävät välimatkan (traffic_car.gd)
 	B.guide(self, "Päivin Hyundai", Vector3(0, 2.4, 0), 48, Color(1, 0.8, 0.8), true)
 	_engine = Sfx.loop_on(self, "engine", -4.0)
