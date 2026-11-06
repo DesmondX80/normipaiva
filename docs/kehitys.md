@@ -108,6 +108,9 @@ Lada 2105 (`vehicles.gd lada()`, #283; Suomessa Lada 1500 S): `tools/testit/aja.
 Saab rinnakkain samoista kulmista ja katon kulmat lähikuvina; mittaa 1,62 × 1,446 × 4,145 ±5 %, akselivälin 2,424 ja pyörän
 alimman pisteen 0 ± 0,01). Liikenne ja pysäköidyt autot arpovat mallin (`Vehicles.MALLIT`, `henkiloauto()`), ja kaapattu ja
 hylätty auto perii sen (`traffic_car.gd malli`).
+Timon punainen Honda Civic 3-ovinen (`vehicles.gd civic()`, kolmiomittauksen Siviikki): `tools/testit/aja.sh tscn
+tools/testit/civic_kuvat.tscn` (Civic ja Saab rinnakkain ja katon kulmat lähikuvina; mittaa 1,666 × 1,331 × 3,965 ±5 %,
+akselivälin 2,50 ja pyörän alimman pisteen 0 ± 0,01).
 
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
 koukut testiosalla (`tools/testit/rikos_koe_osa.gd`): puhe, tapahtumat, luukun vihje, tallennus edestakaisin, päiväkirjan data,
