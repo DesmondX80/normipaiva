@@ -59,6 +59,7 @@ func _ready() -> void:
 	else:
 		malli = Vehicles.MALLIT.pick_random()
 		Vehicles.henkiloauto(self, malli, color)
+		Vehicles.kuski(self, malli)  # kuski ratissa (ISTUIMET, kuten Volvossa)
 	_engine = Sfx.loop_on(self, "engine", -10.0)
 	_engine.pitch_scale = randf_range(0.85, 1.1)
 
