@@ -67,7 +67,7 @@ func _siren(delta: float) -> void:
 	_siren_t -= delta
 	var blink := fmod(Time.get_ticks_msec() / 1000.0, 0.5) < 0.25
 	for i in _lights.size():  # sammunut valo tummaksi (näkymätön paljastaisi palkin hehkuvan kuvun)
-		_lights[i].material_override = B.unshaded(Color(0.2, 0.4, 1.0) if (i == 0) == blink else Color(0.05, 0.08, 0.2))
+		_lights[i].material_override = Vehicles.vilkku_mat((i == 0) == blink)
 	if _siren_t <= 0.0 and _leaving < 0.0:
 		_siren_t = 0.55
 		_siren_hi = not _siren_hi

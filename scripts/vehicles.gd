@@ -1511,6 +1511,14 @@ static func volvo(parent: Node3D, color: Color, plate := "", farmari := false) -
 	return wheels
 
 
+## Poliisin vilkkuvalon materiaali (palaa tai sammunut tumma), kerran luotu: vilkun vaihto ei luo materiaalia joka ruudulla.
+static func vilkku_mat(palaa: bool) -> Material:
+	var key := "vilkku_palaa" if palaa else "vilkku_pois"
+	if not _mats.has(key):
+		_mats[key] = B.unshaded(Color(0.2, 0.4, 1.0) if palaa else Color(0.05, 0.08, 0.2))
+	return _mats[key]
+
+
 ## Poliisi-Saabin vilkkuvat valot vilkkupalkin kupujen päälle (SAAB_DOMES): palauttaa valot, joiden materiaalia
 ## vaihdetaan (police_car.gd, ratsia.gd). Hieman kupua suuremmat, ettei kupu näy läpi.
 static func police_lights(parent: Node3D) -> Array[MeshInstance3D]:
@@ -1518,7 +1526,7 @@ static func police_lights(parent: Node3D) -> Array[MeshInstance3D]:
 	for p: Vector3 in SAAB_DOMES:
 		var l := MeshInstance3D.new()
 		l.mesh = B.boxm(SAAB_DOME_SIZE + Vector3(0.02, 0.01, 0.01))
-		l.material_override = B.unshaded(Color(0.2, 0.4, 1.0))
+		l.material_override = vilkku_mat(true)
 		l.position = p
 		parent.add_child(l)
 		out.append(l)

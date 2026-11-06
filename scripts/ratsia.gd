@@ -5,6 +5,7 @@ extends Node3D
 ## Solmu Vaalan kehyksessä; stop_pos = pysähtymiskohta tien reunassa, wave() kun pelaajan mopo lähestyy.
 
 const B := preload("res://scripts/build.gd")
+const Vehicles := preload("res://scripts/vehicles.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Mopo := preload("res://scripts/mopo.gd")
 
@@ -42,8 +43,8 @@ func setup(at: Vector3, dir: Vector3, side: Vector3, half_w: float, ground: Call
 	car.position = Vector3(shoulder.x, ground.call(shoulder.x, shoulder.z), shoulder.z)
 	car.rotation.y = yaw
 	add_child(car)
-	load("res://scripts/vehicles.gd").saab(car, Color.WHITE, "", true)  # poliisi-Saab: väritys, tekstit ja vilkkupalkki
-	_lights = load("res://scripts/vehicles.gd").police_lights(car)
+	Vehicles.saab(car, Color.WHITE, "", true)  # poliisi-Saab: väritys, tekstit ja vilkkupalkki
+	_lights = Vehicles.police_lights(car)
 	var body := StaticBody3D.new()
 	car.add_child(body)
 	body.add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.7, 0)))
@@ -101,7 +102,7 @@ func _process(delta: float) -> void:
 	_t += delta
 	var on := fmod(_t, 0.5) < 0.25
 	for i in _lights.size():
-		_lights[i].material_override = B.unshaded(Color(0.2, 0.4, 1.0) if (i == 0) == on else Color(0.05, 0.08, 0.2))
+		_lights[i].material_override = Vehicles.vilkku_mat((i == 0) == on)
 	for who in _bubbles:
 		var b: Label3D = _bubbles[who]
 		if b.text != "":
