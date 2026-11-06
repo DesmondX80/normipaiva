@@ -24,7 +24,7 @@ const RoivainenAuto := preload("res://scripts/rikos/roivainen_auto.gd")
 const TahdetHud := preload("res://scripts/rikos/tahdet_hud.gd")
 
 const OVI := Vector3(-1.25, 0.0, -0.1)  # kuljettajan ovi auton kehyksessä (vasen kylki, etuovi; Vehicles.car kahva z -0,1)
-const OVI_VAN := Vector3(-1.3, 0.0, -1.3)  # pakettiauton ohjaamon ovi (Vehicles.van sivuikkuna z -0,85, keula -2,4)
+const OVI_VAN := Vector3(-1.3, 0.0, -1.3)  # pakettiauton (Hiace) ohjaamon ovi z -1,84…-0,76, keula -2,3
 const OVI_R := 2.5
 const KYLKI := Vector2(2.4, 2.6)  # kaapattava, kun pelaaja on auton kehyksessä tämän laatikon (x sivulle, z pituussuuntaan) sisällä
 const KAAPPAUS_NOPEUS := 2.0  # m/s: tätä hitaampi auto kaapataan (pysähtyvä tai lähtevä auto ei karkaa käsistä)

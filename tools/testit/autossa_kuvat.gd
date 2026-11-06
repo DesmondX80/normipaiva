@@ -1,6 +1,6 @@
 extends Node3D
 ## Auton istujat (Vehicles.istuta): Pekka ratissa ja sankari lippiksineen Pekan Volvo-farmarissa kuten Pekan kyydissä
-## sekä taksikuski Mercedes-taksissa (x = 4).
+## sekä taksikuski Mercedes-taksissa (x = 4) ja liikenteen kuski Hiace-pakettiautossa (x = -4).
 ## Mittaa paistetusta verkosta pään (ja lippiksen) korkeimman pisteen katon alapintaan, jalkojen alimman pisteen
 ## helmaan ja vartalon etäisyyden rattiin; kuvat sivulta, edestä ja ylhäältä katto poistettuna (leikkaus).
 ## Ajo: tools/testit/aja.sh tscn tools/testit/autossa_kuvat.tscn
@@ -20,6 +20,9 @@ var hahmot: Array[Node3D] = []
 var autot: Array[Node3D] = []  # hahmon auto (sama indeksi)
 var ratit: Array = []  # hahmon auton ratin napa tai null (matkustaja)
 var taksi: Node3D
+var paku: Node3D
+var katot: Array[float] = []  # hahmon auton katon alapinta
+var helmat: Array[float] = []  # hahmon auton alakorin alapinta
 
 
 func _ready() -> void:
@@ -57,9 +60,17 @@ func _ready() -> void:
 	var kuski := Looks.make(taksi, Looks.TAXI_DRIVER)
 	kuski.play("Driving", 0.0)
 	Vehicles.istuta(kuski, "mercedes", "kuski")
-	hahmot = [pekka, hero, kuski]
-	autot = [car, car, taksi]
-	ratit = [Vehicles.ISTUIMET.volvo.ratti, null, Vehicles.ISTUIMET.mercedes.ratti]
+	paku = Node3D.new()
+	paku.position = Vector3(-4.0, 0, 0)
+	add_child(paku)
+	Vehicles.van(paku, Color(0.92, 0.92, 0.9), "HIA-100")
+	var pakukuski := Vehicles.kuski(paku, "hiace", {"model": "male", "shirt": Color(0.2, 0.3, 0.55), "pants": Color(0.15, 0.17, 0.25),
+		"shoes": Color(0.1, 0.08, 0.07), "hair": "Hair_SimpleParted", "hair_color": Color(0.35, 0.25, 0.15), "height": 1.82})  # pisin arvottava kuski
+	hahmot = [pekka, hero, kuski, pakukuski]
+	autot = [car, car, taksi, paku]
+	ratit = [Vehicles.ISTUIMET.volvo.ratti, null, Vehicles.ISTUIMET.mercedes.ratti, Vehicles.ISTUIMET.hiace.ratti]
+	katot = [KATTO_ALA, KATTO_ALA, KATTO_ALA, 1.747]  # Hiace: kattoverhoilun alapinta (WT 1,76 - 0,013)
+	helmat = [HELMA, HELMA, HELMA, 0.33]
 	cam = Camera3D.new()
 	add_child(cam)
 	cam.current = true
@@ -91,7 +102,7 @@ func _irtoverkot_max_y(ch: Node3D, auto: Node3D) -> float:
 
 
 func _mittaa() -> void:
-	var nimet := ["Pekka", "sankari", "taksikuski"]
+	var nimet := ["Pekka", "sankari", "taksikuski", "pakettiauton kuski"]
 	for i in hahmot.size():
 		var ch := hahmot[i]
 		var auto := autot[i]
@@ -107,10 +118,12 @@ func _mittaa() -> void:
 		var low := INF
 		for p in jalat:
 			low = minf(low, p.y)
-		var rivi := "AUTOSSA %s pää %.3f, katon ala %.3f, rako %.3f; jalat alin %.3f (helma %.3f)" % [nimet[i], top, KATTO_ALA, KATTO_ALA - top, low, HELMA]
-		if top > KATTO_ALA - 0.02:
-			print("TESTI VIKA %s: pää katon läpi tai kiinni (rako %.3f)" % [nimet[i], KATTO_ALA - top])
-		if low < HELMA + 0.01:
+		var katto: float = katot[i]
+		var helma: float = helmat[i]
+		var rivi := "AUTOSSA %s pää %.3f, katon ala %.3f, rako %.3f; jalat alin %.3f (helma %.3f)" % [nimet[i], top, katto, katto - top, low, helma]
+		if top > katto - 0.02:
+			print("TESTI VIKA %s: pää katon läpi tai kiinni (rako %.3f)" % [nimet[i], katto - top])
+		if low < helma + 0.01:
 			print("TESTI VIKA %s: jalat pohjan läpi (%.3f)" % [nimet[i], low])
 		if ratit[i] != null:
 			var hub: Vector3 = ratit[i]
@@ -140,4 +153,14 @@ func _run() -> void:
 	await _shot("vino", Vector3(-2.6, 1.9, -2.6), Vector3(0, 1.1, -0.1), 35.0)
 	await _shot("taksi_sivu", Vector3(0.8, 1.25, 0.0), Vector3(4.0, 1.1, -0.1), 35.0)
 	await _shot("taksi_vino", Vector3(1.4, 1.9, -2.8), Vector3(4.0, 1.1, -0.1), 35.0)
+	await _shot("paku_sivu", Vector3(-7.0, 1.5, -1.1), Vector3(-4.0, 1.3, -1.1), 35.0)
+	await _shot("paku_vino", Vector3(-5.6, 2.2, -3.6), Vector3(-4.0, 1.3, -1.1), 35.0)
+	await _shot("paku_edesta", Vector3(-4.0, 1.6, -5.5), Vector3(-4.0, 1.3, -1.2), 30.0)
+	# Leikkaus: kori piiloon, kuski ja istuimen kohta näkyvät (jalat, polvet ja kädet ratilla).
+	for c in paku.get_children():
+		if c is MeshInstance3D:
+			(c as MeshInstance3D).visible = false
+	await _shot("paku_leikkaus_sivu", Vector3(-6.0, 1.1, -1.2), Vector3(-4.0, 1.0, -1.2), 35.0)
+	await _shot("paku_leikkaus_edesta", Vector3(-4.0, 1.2, -3.8), Vector3(-4.0, 1.0, -1.2), 35.0)
+	await _shot("paku_leikkaus_ylhaalta", Vector3(-4.0, 3.6, -1.2), Vector3(-4.0, 0.9, -1.2), 35.0)
 	get_tree().quit()

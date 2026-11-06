@@ -56,6 +56,7 @@ func _ready() -> void:
 	color = VAN_COLORS.pick_random() if van else COLORS.pick_random()
 	if van:
 		Vehicles.van(self, color)
+		Vehicles.kuski(self, "hiace")  # kuski ohjaamossa etupyörän päällä
 	else:
 		malli = Vehicles.MALLIT.pick_random()
 		Vehicles.henkiloauto(self, malli, color)
