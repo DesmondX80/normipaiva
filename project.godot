@@ -28,6 +28,10 @@ CamCtl="*res://scripts/cam_ctl.gd"
 Settings="*res://scripts/settings.gd"
 Touch="*res://scripts/touch_controls.gd"
 
+[debug]
+
+file_logging/enable_file_logging.pc=false
+
 [display]
 
 window/size/viewport_width=1280
