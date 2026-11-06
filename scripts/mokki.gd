@@ -1897,9 +1897,9 @@ func _build_yard_extras() -> void:
 		var a := TAU * k / 8.0
 		B.mesh(self, B.sphere(0.12, 6), TUB_LOCAL + Vector3(0.2 + cos(a) * 0.45, 0.06, -3.8 + sin(a) * 0.45), Color(0.45, 0.44, 0.42))
 	# Pekan vihreä Volvo pihatien päässä: Pekka on kyyhkyjahdissa ja vie kotiin (main.gd _mokki_ride_logic).
-	B.parked_car(self, RIDE_LOCAL + Vector3(-2.6, 0, 1.0), 12.0, Color(0.22, 0.3, 0.18))
-	B.mesh(self, B.boxm(Vector3(0.55, 0.32, 0.9)), RIDE_LOCAL + Vector3(-2.6, 1.72, 1.0), Color(0.75, 0.3, 0.08),
-		Vector3(0, 12.0, 0))  # kattoboksi
+	B.parked_car(self, RIDE_LOCAL + Vector3(-2.6, 0, 1.0), 12.0, Color(0.22, 0.3, 0.18), "volvo_farmari")
+	B.mesh(self, B.boxm(Vector3(0.55, 0.32, 0.9)), RIDE_LOCAL + Vector3(-2.6, 1.66, 1.0), Color(0.75, 0.3, 0.08),
+		Vector3(0, 12.0, 0))  # kattoboksi farmarin kattokiskojen päällä (yläpinta 1,50)
 	# Droonin alusta: sama drooni kulkee mukana Pekan kyydissä kotoa.
 	DroneGame.make_pad(self, DRONE_LOCAL, 0.0)
 	# Pihatie Pekan autolta pihaan (sora).
