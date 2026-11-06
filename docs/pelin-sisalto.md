@@ -61,7 +61,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Toisella kerralla Pentti suunnittelee kiertuetta, ja joka kolmas kyyti on **Pentin kiertue** (onnellinen loppu):
   loppukohtauksessa BangBus ajaa yön maantietä Kajaanin, Kuhmon ja Suomussalmen kautta, Pentti ratissa ja pelaaja
   etupenkillä. Herätys kotipihalta (Vaalassa Gasthausin pihalta) klo 11, kiertuekulut 20–40 €.
-  Testit `--scene=bangbus` ja `--scene=bangbus_vaala`.
+  Testit `--scene=bangbus` ja `--scene=bangbus_vaala`. Mainosjuliste: [kuvat/pentin_bangbus_juliste.png](kuvat/pentin_bangbus_juliste.png).
 - **Kolmiomittaus (Sytkäri-mätsi, vain aikuisille):** Saloisten kaupan pihassa seisovat Joni (tummatukkainen golfari,
   selässä Sandels-oluen 24-pakkauksesta jesarilla tehty päkkirinkka termoksineen, golfpalloineen ja tölkkeineen) ja Esa
   (erämies, harppi taskussa), Vaalan aseman pihassa Hevari-Tero (valittaa valtiosta) ja Siviikki-Timo (punainen Honda

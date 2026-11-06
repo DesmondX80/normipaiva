@@ -34,3 +34,6 @@
   välttämättä salli äänten jakelua pelin mukana; tarvittaessa äänet tehdään uudelleen vapaalla puhesyntetisaattorilla.
 - Hahmot ja animaatiot: [Quaternius](https://quaternius.com) — Universal Base Characters ja
   Universal Animation Library, **CC0** (lisenssit kansiossa `assets/characters/`).
+- Pentin BangBus -mainosjuliste (`docs/kuvat/pentin_bangbus_juliste.png`): pelin omista 3D-malleista renderöity kuva,
+  tekstit [Inter](https://rsms.me/inter/)-fontilla (**SIL Open Font License 1.1**; kuvaan piirretty teksti, fonttia ei
+  jaeta). Kansiossa on `.gdignore`, joten kuva ei tule pelin mukaan.
