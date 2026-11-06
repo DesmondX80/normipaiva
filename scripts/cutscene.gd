@@ -2699,7 +2699,8 @@ func _fit_seats(cast: Dictionary) -> void:
 		cu.position.y = top / 2.0
 		if back > 1.085 and back < 1.3:
 			ch.position.z -= zdir * (back - 1.085)  # selkä irti selkänojasta (sen etupinta z = 1,09)
-		print("PENKKI sovitus %s: jalat %+.3f, lantio %.3f -> tyyny %.3f, selkä %.3f, paikka %s" % [nm, -feet, butt, top, back, ch.position])
+		if B.diag():  # vain testiajoissa
+			print("PENKKI sovitus %s: jalat %+.3f, lantio %.3f -> tyyny %.3f, selkä %.3f, paikka %s" % [nm, -feet, butt, top, back, ch.position])
 
 
 ## Helenan kädet vetävät mekon yläreunaa alas (up 0..1): lepoasennosta rinnan sivuille, reunaa pitkin lantiolle ja takaisin.

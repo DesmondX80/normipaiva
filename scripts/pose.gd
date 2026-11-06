@@ -302,7 +302,8 @@ static func sit(ch: Node3D, node: Node3D, style := SUORA, opts := {}) -> void:
 		if style == RENTO and d.has("back"):
 			var fb := Contact.fit_back(ch, node, limb_points, tilt)
 			tilt += fb[0]
-			print("KONTAKTI selkä %s: kallistus +%.1f astetta, yläselän rako %.3f, lantion rako %.3f, kallo/hiukset/hattu %s" % [node.name, rad_to_deg(fb[0]), fb[1], fb[2], fb[4]])
+			if Contact.diag():
+				print("KONTAKTI selkä %s: kallistus +%.1f astetta, yläselän rako %.3f, lantion rako %.3f, kallo/hiukset/hattu %s" % [node.name, rad_to_deg(fb[0]), fb[1], fb[2], fb[4]])
 	# Jalat: vaakapaikka lonkan edessä (rento: ojossa), korkeus ja pohjan asento Contact.place_foot. Pakara painuu
 	# istuimeen, joten jalat sijoitetaan uudelleen, kun lantion korkeus on tarkentunut.
 	var right := front.cross(Vector3.UP).normalized()
@@ -335,15 +336,18 @@ static func sit(ch: Node3D, node: Node3D, style := SUORA, opts := {}) -> void:
 		if pass_i == 3:
 			_place_legs(ch, node, prof, style, opts, front, right, seat_g)
 	if absf(table_shift) > 0.002:
-		print("KONTAKTI pöytä %s: vartalo siirtyi %.3f pöytää kohti" % [node.name, table_shift])
+		if Contact.diag():
+			print("KONTAKTI pöytä %s: vartalo siirtyi %.3f pöytää kohti" % [node.name, table_shift])
 	if baked and style != RENTO:
 		var lg := Contact.clear_legs(ch, node, prof, seat_g.y)
 		if lg > 0.01:
-			print("KONTAKTI jalat %s: tunkeuma %.3f korjattu" % [node.name, lg])
+			if Contact.diag():
+				print("KONTAKTI jalat %s: tunkeuma %.3f korjattu" % [node.name, lg])
 	if baked:
 		var kr := _knees_down(ch, node, prof, front, seat_g.y)
 		if kr > 0.10:
-			print("KONTAKTI polvet %s: polvi %.3f lonkan yläpuolella (jalat eivät yllä pidemmälle ilman kappaleisiin menoa)" % [node.name, kr])
+			if Contact.diag():
+				print("KONTAKTI polvet %s: polvi %.3f lonkan yläpuolella (jalat eivät yllä pidemmälle ilman kappaleisiin menoa)" % [node.name, kr])
 	ch.refresh_pose()
 	var hands: String = str(opts.get("hands", ""))
 	var worst := 0.0
@@ -355,7 +359,8 @@ static func sit(ch: Node3D, node: Node3D, style := SUORA, opts := {}) -> void:
 		if baked:
 			var hg := _fit_hands(ch)
 			if hg > 0.01:
-				print("KONTAKTI kädet %s: rako reiteen %.3f" % [node.name, hg])
+				if Contact.diag():
+					print("KONTAKTI kädet %s: rako reiteen %.3f" % [node.name, hg])
 	if hands != "" and (d.get("hands", {}) as Dictionary).has(hands):
 		worst = Contact.clear_arms(ch, prof)
 	if baked:
@@ -363,7 +368,8 @@ static func sit(ch: Node3D, node: Node3D, style := SUORA, opts := {}) -> void:
 	if left > 0.01:
 		print("KONTAKTI JÄÄ %s vartalo %.3f" % [node.name, left])
 	if worst > 0.01:
-		print("KONTAKTI korjattu %s käsivarsi %.3f" % [node.name, worst])
+		if Contact.diag():
+			print("KONTAKTI korjattu %s käsivarsi %.3f" % [node.name, worst])
 
 
 
