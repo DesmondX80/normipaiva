@@ -1,10 +1,11 @@
 extends CharacterBody3D
-## Konstaapeli Roivaisen poliisi-Saab Vaalan tähtijahdissa (rikos/autovarkaus.gd). Ulkoasu kuten ratsian auto
-## (ratsia.gd: valkoinen, siniset raidat, valopalkki). Solmu on mopo_trip.gd:n kehyksessä (Vaalan paikallinen).
+## Konstaapeli Roivaisen poliisi-Saab Vaalan tähtijahdissa (rikos/autovarkaus.gd). Ulkoasu kuten muut poliisiautot
+## (vehicles.gd saab police: tummansininen, valkoiset lokasuojat, POLIISI ovissa, vilkkupalkki; vilkut police_lights). Solmu on mopo_trip.gd:n kehyksessä (Vaalan paikallinen).
 ## Ajo: kaukana tien näytteitä pitkin (traffic_car.gd _place_on_line -tapaan) kohti pelaajan näytettä, alle
 ## NEAR metrin päässä suoraan pelaajaa kohti (move_and_slide, maasto vaala.h). -Z = keula.
 
 const B := preload("res://scripts/build.gd")
+const Vehicles := preload("res://scripts/vehicles.gd")
 
 const SPEED := 12.5  # perusnopeus (m/s), kuten Päivin HUNT_SPEED; kerrotaan heat_mult:lla
 const NEAR := 40.0
@@ -33,22 +34,8 @@ func _ready() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	collision_layer = 0  # ei tönäise pelaajaa: kiinniotto tarkistetaan etäisyydestä
 	add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.85, 0)))
-	B.car(self, Color(0.93, 0.94, 0.96))
-	var blue := Color(0.05, 0.2, 0.75)
-	for sx: float in [-0.92, 0.92]:
-		B.mesh(self, B.boxm(Vector3(0.02, 0.16, 3.6)), Vector3(sx, 0.62, 0.0), blue)
-	B.mesh(self, B.boxm(Vector3(1.1, 0.08, 0.3)), Vector3(0, 1.5, 0.2), Color(0.2, 0.2, 0.22))
-	for sx: float in [-0.3, 0.3]:
-		var l := MeshInstance3D.new()
-		l.mesh = B.boxm(Vector3(0.45, 0.12, 0.26))
-		l.material_override = B.unshaded(Color(0.2, 0.4, 1.0))
-		l.position = Vector3(sx, 1.58, 0.2)
-		add_child(l)
-		_lights.append(l)
-	for sx: float in [-1.0, 1.0]:
-		var lab := B.label(self, "POLIISI", Vector3(sx * 0.93, 0.95, 0.0), 40, Color(0.05, 0.2, 0.75))
-		lab.rotation.y = sx * PI / 2.0
-		lab.outline_size = 0
+	Vehicles.saab(self, Color.WHITE, "", true)  # poliisi-Saab: väritys, tekstit ja vilkkupalkki
+	_lights = Vehicles.police_lights(self)
 	_engine = Sfx.loop_on(self, "engine", -4.0)
 
 
@@ -138,8 +125,8 @@ func _kallista() -> void:
 func _siren(delta: float) -> void:
 	_siren_t -= delta
 	var blink := fmod(Time.get_ticks_msec() / 1000.0, 0.5) < 0.25
-	_lights[0].visible = blink
-	_lights[1].visible = not blink
+	for i in _lights.size():  # sammunut valo tummaksi (näkymätön paljastaisi palkin hehkuvan kuvun)
+		_lights[i].material_override = Vehicles.vilkku_mat((i == 0) == blink)
 	if _siren_t <= 0.0 and active:
 		_siren_t = 0.55
 		_siren_hi = not _siren_hi
