@@ -57,6 +57,7 @@ var _koti := Transform3D()  # mopon paikka ennen kaappausta (Vaalan kehys); pyö
 var _tallissa := false
 var _vari := Color.WHITE
 var _van := false
+var _malli := "saab"
 var _ajo_t := 0.0
 var _piilo_t := 0.0
 var _pudotus_t := 0.0
@@ -187,6 +188,7 @@ func _lahella(c: Node3D, p: Vector3) -> bool:
 func kaappaa(c: Node3D) -> void:
 	_vari = c.color
 	_van = c.van
+	_malli = c.malli if c.malli != "" else "saab"
 	var tr: Transform3D = c.global_transform
 	_ovi_kuski = _ovi(c)
 	_kuski_ulos(tr)
@@ -201,7 +203,7 @@ func kaappaa(c: Node3D) -> void:
 		mt._respawn_car(c)  # liikenneauto siirtyy muualle tielle (sama solmu jatkaa liikenteenä)
 		mp.transform = Transform3D(lt.basis, lt.origin + Vector3(0, 0.1, 0))
 		mp.velocity = Vector3.ZERO
-		mp.set_car(true, _vari, _van)
+		mp.set_car(true, _vari, _van, _malli)
 		if not mp.car_crashed.is_connected(_on_kolari):
 			mp.car_crashed.connect(_on_kolari)
 		game._mopo_remount()
@@ -216,7 +218,7 @@ func kaappaa(c: Node3D) -> void:
 		_siirra_pois(c)
 		bike.global_transform = Transform3D(tr.basis, tr.origin + Vector3(0, 0.1, 0))
 		bike.velocity = Vector3.ZERO
-		bike.set_car(true, _vari, _van)
+		bike.set_car(true, _vari, _van, _malli)
 		if not bike.crashed.is_connected(_on_kolari):
 			bike.crashed.connect(_on_kolari)
 		var w: CharacterBody3D = game.walker_out
@@ -312,7 +314,7 @@ func _hylkaa(parent: Node3D, tr: Transform3D, ground: Callable) -> void:
 	if _van:
 		Vehicles.van(body, _vari)
 	else:
-		Vehicles.car(body, _vari)
+		Vehicles.henkiloauto(body, _malli, _vari)
 	body.set_meta("hylatty_auto", true)
 	_hylatyt.append(body)
 

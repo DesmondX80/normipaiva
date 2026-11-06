@@ -192,7 +192,7 @@ func set_mopo(on: bool) -> void:
 
 
 ## Autotila päälle (kaapattu auto: väri ja onko pakettiauto) tai pois (pyörä tai mopo takaisin).
-func set_car(on: bool, color := Color.WHITE, van := false) -> void:
+func set_car(on: bool, color := Color.WHITE, van := false, malli := "saab") -> void:
 	car = on
 	speed = 0.0
 	if _car != null:
@@ -202,7 +202,7 @@ func set_car(on: bool, color := Color.WHITE, van := false) -> void:
 	if on:
 		_car = Node3D.new()
 		_visual.add_child(_car)
-		_car_wheels = Vehicles.van(_car, color) if van else Vehicles.saab(_car, color)  # sama malli kuin liikenteessä
+		_car_wheels = Vehicles.van(_car, color) if van else Vehicles.henkiloauto(_car, malli, color)  # sama malli kuin kaapattu liikenneauto
 		if _car_engine == null:
 			_car_engine = AudioStreamPlayer.new()
 			_car_engine.stream = Sfx.stream("engine")
