@@ -577,6 +577,14 @@ const ISTUIMET := {
 		"lattia": 0.3,
 		"ratti": Vector3(-0.38, 0.98, -0.35),
 	},
+	# Hiace H100 nokaton: istuin korkealla etupyörän päällä (katon ala WT 1,75), lattia moottorin edessä, ratti
+	# 0,62 istuimen yläpuolella ja 0,34 sen edessä; selkänoja z -0,85 (_cabin seat_z) ohjaamon takaseinän edessä.
+	"hiace": {
+		"kuski": {"p": Vector3(-0.36, 0.71, -1.03), "nojaus": 0.25},  # matala istuin ja selkä taakse: pää katon alle
+		"etu": {"p": Vector3(0.36, 0.7, -0.99), "nojaus": 0.3},
+		"lattia": 0.46,
+		"ratti": Vector3(-0.36, 1.33, -1.37),
+	},
 }
 
 
@@ -586,7 +594,7 @@ const KUSKI_PAIDAT := [Color(0.2, 0.3, 0.55), Color(0.55, 0.15, 0.12), Color(0.2
 	Color(0.15, 0.15, 0.17), Color(0.6, 0.5, 0.3)]
 
 
-## Kuski henkilöautomallin (MALLIT tai "pony"/"mercedes") ratin taakse: look tai arvottu ulkonäkö, Driving-animaatio,
+## Kuski henkilöautomallin (MALLIT tai "pony"/"mercedes"/"hiace") ratin taakse: look tai arvottu ulkonäkö, Driving-animaatio,
 ## istutus kuten Volvossa (istuta). Palauttaa hahmon.
 static func kuski(car: Node3D, malli: String, look := {}) -> Node3D:
 	var istuin := "volvo" if malli == "volvo_farmari" else malli
@@ -1733,7 +1741,8 @@ static func hiace(parent: Node3D, color: Color, plate := "", korkea := false) ->
 		for sx in [-1.0, 1.0]:
 			part(parent, B.boxm(Vector3(0.012, 0.012, 3.5)), Vector3(sx * 0.675, ROOF + 0.004, 0.45), frame)  # liimasauma
 	# Ohjaamo: tuulilasi ja sivulasit kallistuvalla kyljellä, A-pilarit, sisusta (kojelauta, ratti, etupenkit).
-	_cabin(parent, BELT, WT, _hiace_ws(BELT), _hiace_ws(WT), BP - 0.01, BP - 0.01, BELT, xw * 2.0, bar, -0.98, -0.72, BP + 0.02, 0.02)
+	_cabin(parent, BELT, WT, _hiace_ws(BELT), _hiace_ws(WT), BP - 0.01, BP - 0.01, BELT, xw * 2.0, bar, -0.85, -0.72, BP + 0.02, 0.02,
+		ISTUIMET.hiace.ratti)
 	var wsec := PackedVector2Array([Vector2(-SIDE + 0.07, BELT + 0.01), Vector2(SIDE - 0.07, BELT + 0.01), Vector2(xw - 0.07, WT - 0.005),
 		Vector2(-xw + 0.07, WT - 0.005)])
 	_loft(parent, wsec, HIACE_WS - Vector2(0.012, 0), HIACE_WS, win)  # tuulilasi

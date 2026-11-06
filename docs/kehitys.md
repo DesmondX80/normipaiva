@@ -125,6 +125,8 @@ Taksi: kermanvärinen Mercedes-Benz W123 (`vehicles.gd mercedes()`, `taxi()`; #2
 Pakettiauto: 90-luvun Toyota HiAce H100 (`vehicles.gd hiace()`, `van()` kutsuu sitä; mitat H100-blueprintista,
 getoutlines.com), nokaton kori kallistuvin kyljin, ohjaamon sisusta lasien läpi, liukuovi oikealla ja takaluukku; `korkea = true`
 korotettu katto (ambulanssi, kauppa-auto). Kylkikuviot sovitetaan kylkeen `Vehicles.hiace_kylki(y)`:llä.
+Liikenteen pakettiautoissa on kuski (`Vehicles.kuski(..., "hiace")`, istuin etupyörän päällä); `autossa_kuvat.tscn` mittaa
+sen pään raon kattoon, jalat ja kädet ratilla sekä ottaa leikkauskuvat (`paku_*`).
 `tools/testit/aja.sh tscn tools/testit/hiace_kuvat.tscn` (matala, korkea ja ambulanssi; mittaa 1,69 × 1,93/2,20 × 4,60 ±5 %,
 akselivälin 2,56).
 Kaikki mallit rivissä: `tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn`.
