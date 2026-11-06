@@ -1591,8 +1591,8 @@ func taxi_home(home: Vector3, stats: String, done: Callable) -> void:
 	road.add_child(taxi)
 	Vehicles.taxi(taxi)
 	var driver := Looks.make(taxi, Looks.TAXI_DRIVER)
-	driver.position = Vector3(-0.4, 0.05, 0.1)
 	driver.play("Driving", 0.0)
+	load("res://scripts/vehicles.gd").istuta(driver, "mercedes", "kuski")  # lantio istuimelle, jalat lattialle, kädet ratille
 	_cam.current = true
 	_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
 	_title.add_theme_font_size_override("font_size", 80)

@@ -119,6 +119,9 @@ jalat ojennetaan jalkatilan lattialle korin sisään ja kuljettajan kädet IK:ll
 mukaan. `tools/testit/aja.sh tscn tools/testit/autossa_kuvat.tscn` mittaa paistetusta verkosta pään (ja lippiksen) raon katon
 alapintaan, jalkojen alimman pisteen helmaan ja vartalon etäisyyden ratin kehästä (TESTI VIKA, jos pää < 2 cm katosta, jalat
 helmassa tai kehä < 4 cm vartalosta). Pään luu on `Head`.
+Taksi: kermanvärinen Mercedes-Benz W123 (`vehicles.gd mercedes()`, `taxi()`; #283) keltaisella TAXI-kuvulla,
+`tools/testit/aja.sh tscn tools/testit/taksi_kuvat.tscn` (W123 ja taksi rinnakkain; mittaa 1,786 × 1,438 × 4,725 ±5 %, akselivälin
+2,795). Taksikuskit istutetaan `Vehicles.istuta(..., "mercedes", "kuski")`; `autossa_kuvat.tscn` mittaa myös taksikuskin.
 Kaikki mallit rivissä: `tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn`.
 
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n

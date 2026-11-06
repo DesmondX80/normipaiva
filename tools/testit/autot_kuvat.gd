@@ -1,5 +1,5 @@
 extends Node3D
-## Kaikki henkilöautomallit rivissä (vehicles.gd saab, saab poliisi, lada, volvo sedan ja farmari, civic ja Päivin pony): kuva vinosti
+## Kaikki henkilöautomallit rivissä (vehicles.gd saab, saab poliisi, lada, volvo sedan ja farmari, civic, taksi ja Päivin pony): kuva vinosti
 ## edestä, sivulta ja takaa. Ajo: tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn
 
 const Vehicles := preload("res://scripts/vehicles.gd")
@@ -35,6 +35,7 @@ func _ready() -> void:
 		func(n: Node3D): Vehicles.volvo(n, Color(0.85, 0.85, 0.87), "VLV-240"),
 		func(n: Node3D): Vehicles.volvo(n, Color(0.22, 0.3, 0.18), "PEK-14", true),
 		func(n: Node3D): Vehicles.civic(n, Color(0.72, 0.04, 0.07), "VTC-916"),
+		func(n: Node3D): Vehicles.taxi(n, "TXI-808"),
 		func(n: Node3D): Vehicles.pony(n, Color(0.78, 0.05, 0.05), "PÄI-V1"),
 	]
 	for k in row.size():
