@@ -1550,6 +1550,7 @@ func taxi_ride(title: String, sub: String, lines: Array, done: Callable, truck :
 		driver.play("Driving", 0.0)
 	else:
 		Vehicles.taxi(taxi)
+		Vehicles.kuski(taxi, "mercedes", Looks.TAXI_DRIVER)  # taksikuski ratissa (repliikit hänen)
 	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
 	_cam.current = true
 	_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
@@ -1633,6 +1634,7 @@ func taxi_home(home: Vector3, stats: String, done: Callable) -> void:
 	cab.global_position = home + Vector3(2.5, 0, -5.0)
 	cab.rotation.y = -PI * 0.5  # keula +X: ajaa pois kuvan oikealle
 	Vehicles.taxi(cab)
+	Vehicles.kuski(cab, "mercedes", Looks.TAXI_DRIVER)  # kuski ajaa takaisin taksitolpalle
 	var bubble := B.bubble(_props, paivi.global_position + Vector3(0.3, 2.05, 0), Color.WHITE, 1.0, false)
 	bubble.set("voice", "paivi")  # bubble.gd: Päivin ääni
 	bubble.no_depth_test = true

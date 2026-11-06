@@ -17,6 +17,9 @@ const NEXT_LOCAL := Vector3(58.0, 0, -63.0)  # naapurin piha Kaisuantien itäpä
 const HATCH_TOP := 1.8  # myyntiluukun saranan korkeus (luukku vyölinjan yläpuolella)
 const HATCH_H := 0.58
 const HATCH_TILT := 0.1726  # Hiacen kyljen kallistus vyölinjan yläpuolella (atan((0,845 - 0,73) / 0,66))
+## Kauppa-auton Eila: ajaa auton ja myy luukulta.
+const EILA := {"model": "female", "shirt": Color(0.2, 0.35, 0.7), "pants": Color(0.2, 0.2, 0.25),
+	"shoes": Color(0.15, 0.12, 0.1), "hair": "Hair_Buns", "hair_color": Color(0.55, 0.5, 0.48), "height": 1.62, "belly": 0.3}
 const STOP_LOCAL := Vector3(4.0, 0, -39.0)  # Kaisuantiellä n. 13 m Pekan auton itäpuolella
 ## Myytävät: avain -> [nimi, hinta]. Hinnat vähän kauppaa kalliimmat: bensa ja kuljetus.
 const MENU := {
@@ -61,6 +64,8 @@ var _wheels: Array[Node3D] = []
 var _engine: AudioStreamPlayer3D
 var _body: StaticBody3D
 var _hatch: MeshInstance3D
+var _driver: Node3D
+var _aukko: Node3D  # luukun takainen aukko hyllyineen, näkyy luukku auki
 var _bubble: Label3D
 var _bubble_t := 0.0
 
@@ -78,17 +83,25 @@ func _ready() -> void:
 	sign.rotation.y = PI / 2.0  # teksti kylkiin päin
 	B.mesh(_model, B.boxm(Vector3(0.08, 0.3, 0.08)), Vector3(0, 2.33, 0.4), Color(0.3, 0.3, 0.32))
 	# Myyntiluukku oikeassa kyljessä vyölinjan yläpuolella: kiinni ajaessa (kallistuvan kyljen pinnalla), auki
-	# (nostettu katokseksi) pysähtyneenä. Hyllyt korin sisällä.
+	# (nostettu katokseksi) pysähtyneenä. Auki näkyy luukun takana tumma aukko hyllyineen ja tuotteineen (_aukko).
 	_hatch = B.mesh(_model, B.boxm(Vector3(0.03, HATCH_H, 1.6)), _hatch_pos(false), Color(0.92, 0.9, 0.82))
 	_hatch.rotation.z = HATCH_TILT
-	for k in 3:
-		B.mesh(_model, B.boxm(Vector3(0.05, 0.04, 1.5)), Vector3(0.62, 1.2 + k * 0.25, 0.7), Color(0.55, 0.45, 0.3))
-		for j in 5:
+	_aukko = Node3D.new()  # paikallinen X = kyljen normaali, Y kylkeä ylös, Z auton suuntaan
+	_model.add_child(_aukko)
+	_aukko.position = _hatch_pos(false) - Vector3(cos(HATCH_TILT), sin(HATCH_TILT), 0) * 0.01  # kyljen pinnalle
+	_aukko.rotation.z = HATCH_TILT
+	B.mesh(_aukko, B.boxm(Vector3(0.012, HATCH_H - 0.03, 1.56)), Vector3.ZERO, Color(0.12, 0.1, 0.09))  # aukko, pimeä sisus
+	for k in 2:
+		var hy := -0.17 + k * 0.25  # hyllyn korkeus aukon keskeltä
+		B.mesh(_aukko, B.boxm(Vector3(0.04, 0.025, 1.5)), Vector3(0.012, hy, 0), Color(0.55, 0.42, 0.28))  # hylly
+		for j in 6:
 			var c: Color = [Color(0.85, 0.2, 0.15), Color(0.95, 0.85, 0.2), Color(0.2, 0.5, 0.85), Color(0.95, 0.95, 0.9),
-				Color(0.3, 0.65, 0.3)][(j + k) % 5]
-			B.mesh(_model, B.boxm(Vector3(0.1, 0.18, 0.2)), Vector3(0.58, 1.31 + k * 0.25, 0.15 + j * 0.28), c)
-	seller = Looks.make(_model, {"model": "female", "shirt": Color(0.2, 0.35, 0.7), "pants": Color(0.2, 0.2, 0.25),
-		"shoes": Color(0.15, 0.12, 0.1), "hair": "Hair_Buns", "hair_color": Color(0.55, 0.5, 0.48), "height": 1.62, "belly": 0.3})
+				Color(0.3, 0.65, 0.3), Color(0.6, 0.35, 0.15)][(j + k * 2) % 6]
+			var ph := 0.11 + 0.04 * ((j + k) % 3)  # pakkausten korkeus vaihtelee
+			B.mesh(_aukko, B.boxm(Vector3(0.025, ph, 0.16)), Vector3(0.018, hy + 0.0125 + ph / 2.0, -0.6 + j * 0.24), c)
+	_aukko.visible = false
+	seller = Looks.make(_model, EILA)
+	_driver = Vehicles.kuski(_model, "hiace", EILA)  # ajaessa Eila ratissa, pysähtyneenä luukulla (_open)
 	seller.position = Vector3(1.75, 0, 0.7)
 	seller.rotation.y = PI / 2.0  # kasvot ulos kyljestä (+X)
 	seller.visible = false
@@ -179,6 +192,8 @@ func _hatch_pos(on: bool) -> Vector3:
 
 func _open(on: bool) -> void:
 	seller.visible = on
+	_driver.visible = not on
+	_aukko.visible = on
 	# Luukku nostetaan ylös katokseksi.
 	_hatch.position = _hatch_pos(on)
 	_hatch.rotation.z = -PI / 2.6 if on else HATCH_TILT
@@ -213,7 +228,7 @@ func _process(delta: float) -> void:
 			_place(position + flat / d * step, flat)
 			step = 0.0
 	for w in _wheels:
-		w.rotation.x -= SPEED * delta / 0.36
+		w.rotation.x -= SPEED * delta / 0.31  # Hiacen renkaan säde
 	if _i >= _path.size():
 		_engine.stream_paused = true
 		if state == "coming":

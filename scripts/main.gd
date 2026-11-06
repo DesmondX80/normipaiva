@@ -25126,8 +25126,25 @@ func _maybe_screenshot() -> void:
 			_kauppa_auto_t = KAUPPA_AUTO_DELAY
 			var ka: Node3D = kauppa_auto
 			var t0 := Time.get_ticks_msec()
+			var tuli_kuva := false
+			Engine.time_scale = 4.0  # ajo nopeammin: hitaalla (ohjelmallisella) renderöinnillä auto ei muuten ehdi 90 s:ssa
 			while ka.state != "parked" and Time.get_ticks_msec() - t0 < 90000:
 				await get_tree().process_frame
+				if not tuli_kuva and ka.state == "coming" and ka._i == ka._path.size() - 1 and ka.position.distance_to(ka._path[-1]) < 14.0:
+					# Ajossa lähikuva vinosti edestä: Eila ratissa (Vehicles.kuski "hiace"), luukku kiinni.
+					tuli_kuva = true
+					ka.set_process(false)  # auto paikalleen kuvan ajaksi (hidas renderöinti: muuten se ajaa kameran ohi)
+					var tc := Camera3D.new()
+					add_child(tc)
+					var kb: Basis = ka.global_basis
+					tc.look_at_from_position(ka.global_position - kb.z * 4.6 - kb.x * 0.8 + Vector3(0, 1.9, 0), ka.global_position + Vector3(0, 1.4, 0) - kb.z * 1.3)
+					tc.current = true
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_tulee.png"))
+					tc.queue_free()
+					ka.set_process(true)
+			Engine.time_scale = 1.0
+			print("KAUPPA-AUTO fps %.0f" % Engine.get_frames_per_second())
 			print("KAUPPA-AUTO tila '%s' %.0f s, paikka %s, luukku %s, viesti '%s'" % [ka.state, (Time.get_ticks_msec() - t0) / 1000.0,
 				ka.position, ka.hatch_pos(), _msg.text])
 			var hp: Vector3 = mokki.to_global(ka.hatch_pos())
@@ -25142,6 +25159,14 @@ func _maybe_screenshot() -> void:
 			print("KAUPPA-AUTO vihje '%s'" % _hint.text)
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_luukku.png"))
+			# Lähikuva kyljestä: luukku auki katoksena, Eila luukulla, ratti tyhjä.
+			var kx: Vector3 = ka.global_basis.x
+			var kc: Vector3 = ka.global_position + ka.global_basis.z * 0.5
+			cam.look_at_from_position(kc + kx * 6.0 - ka.global_basis.z * 2.5 + Vector3(0, 1.9, 0), kc + kx * 0.8 + Vector3(0, 1.4, 0))
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_luukku_lahi.png"))
 			_talk_open("kauppa_auto", ka.seller)
 			print("KAUPPA-AUTO valikko: %s" % str(_talk_options().map(func(o): return o.text + ("" if o.enabled else " [" + o.reason + "]"))))
 			for k in ["auto_kalja", "auto_sokeri", "auto_lehti", "auto_turbohiiva", "auto_makkara"]:
@@ -25151,12 +25176,14 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 			walker_out.global_position = w0 + Vector3(0, 30, 0)  # pois luukulta: odotus kuluu
 			ka.wait_t = 0.5
+			Engine.time_scale = 4.0
 			t0 = Time.get_ticks_msec()
 			while ka.state != "away" and Time.get_ticks_msec() - t0 < 90000:
 				await get_tree().process_frame
 				if ka.state == "leaving" and Time.get_ticks_msec() - t0 > 2500 and Time.get_ticks_msec() - t0 < 2550:
 					await RenderingServer.frame_post_draw
 					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lahtee.png"))
+			Engine.time_scale = 1.0
 			print("KAUPPA-AUTO lähti: tila '%s' %.0f s, päivän käynti %d / päivä %d" % [ka.state, (Time.get_ticks_msec() - t0) / 1000.0,
 				_kauppa_auto_day, day])
 			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)

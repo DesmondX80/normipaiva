@@ -118,9 +118,11 @@ func set_rider_visible(v: bool) -> void:
 
 ## Kyytiläinen satulan takaosassa (Santtu lavalle): sama ajoasento, kädet kuskin vyötäröllä. Tyhjä look = pois.
 var _passenger: Node3D
+var _passenger_look := {}  # kyytiläinen siirtyy kaapatun auton etupenkille (set_car)
 
 
 func set_passenger(look: Dictionary) -> void:
+	_passenger_look = look
 	if _passenger != null:
 		_passenger.queue_free()
 		_passenger = null
@@ -152,6 +154,14 @@ func set_car(on: bool, color := Color.WHITE, van := false, malli := "saab") -> v
 		_car = Node3D.new()
 		add_child(_car)
 		_car_wheels = Vehicles.van(_car, color) if van else Vehicles.henkiloauto(_car, malli, color)  # sama malli kuin kaapattu liikenneauto
+		var istuin := "hiace" if van else malli
+		var kuski := Vehicles.kuski(_car, istuin, Looks.player())  # pelaajan hahmo ratissa
+		if kuski != null:
+			Looks.add_cap(kuski)
+		if not _passenger_look.is_empty() and kuski != null:  # kyytiläinen etupenkille
+			var kyyti := Looks.make(_car, _passenger_look)
+			kyyti.play("Sitting_Idle", 0.0)
+			Vehicles.istuta(kyyti, "volvo" if istuin == "volvo_farmari" else istuin, "etu")
 	_visual.visible = not on
 	_cap_shape.disabled = on
 	_box_shape.disabled = not on
