@@ -205,7 +205,7 @@ const SIDE := [
 		"known": "first:kolmio_tavattu_saloinen|first:kolmio_saloinen", "done": "flag:ending_minttu",
 		"idea": "Joni ja Esa kyttää kaupan parkkipaikalla puhelinta. Sytkäri, harppi ja kolme lahjaa?"},
 	{"id": "pentti", "title": "Pentin kyydissä",
-		"text": "Pentti ja tuunattu pakettiauto PENTIN BANGBUS pe–la klo 19–23 Saloisten K-Marketin pihassa ja Vaalan Zabukin parkissa. Penkit on lämpimät ja musiikki kovalla.",
+		"text": "Pentti ja tuunattu pakettiauto PENTIN BANGBUS pe–la klo 19–23 Saloisten K-Marketin pihassa ja Vaalan Zabukin parkissa. Penkit on lämpimät ja musiikki kovalla. Joka kolmas kyyti on Pentin kiertue.",
 		"known": "first:pentti_tavattu", "done": "first:pentti_kyyti",
 		"idea": "Viiksimies nahkaliivissä huutelee viikonloppuiltaisin kaupan pihassa pakettiautonsa vierestä. Lämpimät penkit?"},
 	{"id": "kolmio_vaala", "title": "Kolmiomittaus Vaalassa",

@@ -8,6 +8,8 @@ extends "res://scripts/rikos/osa.gd"
 ## näytetä. Pelaaja herää aamulla oudosta paikasta myöhään: moraali nousee, mutta vireys, kipu ja stressi kärsivät ja
 ## lompakosta puuttuu rahaa. Jos joku näkee kyytiin nousun, Päivi kuulee siitä aamulla ja maine laskee. Ensimmäinen
 ## kyyti: päiväkirjan sivutehtävä valmis (quests.gd "pentti") ja legendaarinen hetki "pentin_kyyti" (endings.gd).
+## Joka kolmas kyyti (KIERTUE_VALI) on Pentin kiertue: onnellinen loppu "pentin_kiertue" omalla loppukohtauksella
+## (cutscene.gd pentti_tour: BangBus maantiellä, Pentti ratissa ja pelaaja etupenkillä), herätys kotipihalta.
 ## Osa käyttää rikos-osien rajapintaa (osa.gd: puhe, logiikka, aamu, tallennus, testi), vaikka se ei ole huumekauppaa:
 ## Riskit-sivulle ei tule mitään (riskit() tyhjä).
 ## Auton kehys kuten Vehicles.hiace: -Z = keula, +X = liukuovi (oikea kylki).
@@ -18,6 +20,7 @@ const M := preload("res://scripts/map_data.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Vehicles := preload("res://scripts/vehicles.gd")
 const TrafficCar := preload("res://scripts/traffic_car.gd")
+const Endings := preload("res://scripts/endings.gd")
 
 const PAIVAT := [4, 5]  # perjantai ja lauantai (main.gd _weekday: 0 = maanantai)
 const AUKI := Vector2(19 * 60, 23 * 60)
@@ -34,6 +37,8 @@ const KANTELU_P := 0.6  # todistaja kertoo Päiville näin usein
 const TODISTAJA_R := 25.0
 const MAINE_NAHTY := 3.0
 const RAHAA_POIS := Vector2(5.0, 20.0)
+const KIERTUE_VALI := 3  # joka kolmas kyyti on kiertue (onnellinen loppu)
+const KIERTUE_RAHAA := Vector2(20.0, 40.0)
 
 const HELLO_EKA := "No terve terve! Pentti. Pentin BangBus, kylien kuuluisin kulkupeli. Lähetkö kyytiin? Penkit on lämpimät ja musiikki kovalla."
 const HELLO := [
@@ -42,6 +47,12 @@ const HELLO := [
 	"No moro! Mää just lämmittelin moottoria. Ja vähän muutakin.",
 ]
 const HELLO_TAAS := "Sieltähän se tuttu kyytiläinen tulee! Penkki on vielä vähän lämmin viime kerrasta."
+## Kiertueen vihje (seuraava kyyti on tavallinen, sitä seuraava kiertue) ja kiertuepäivän tervehdys.
+const HELLO_VIHJE := "Kuule, mää suunnittelen kiertuetta. Kajaani, Kuhmo, Suomussalmi. Tänään ajellaan vielä täällä, mutta ens kerralla lähetään, jos uskallat."
+const HELLO_KIERTUE := "No niin! Tänään lähetään kiertueelle. Tankki täynnä, kasetti kelattu alkuun ja verhot vedetty. Ootko mukana?"
+const KIERTUE_HERAYS := "Pentti jätti sut kotipihaan aamuyöllä. Kiertue kesti yhden yön, mutta tuntui viikolta. Kaulassa on vielä pehmonoppa, ja Päivi seisoo ovella kädet puuskassa."
+const KIERTUE_HERAYS_V := "Pentti jätti sut Gasthausin pihaan aamuyöllä. Kiertue kesti yhden yön, mutta tuntui viikolta. Kaulassa on vielä pehmonoppa."
+const KIERTUE_MSG_V := "Huomenta Vaalasta! Kiertue on ohi, mopo odottaa Gasthausin pihassa."
 ## Juttelurepliikit autosta; pakka sekoitetaan, joten sama ei toistu ennen kuin kaikki on kuultu.
 const LINES := [
 	"Tässä on viis vaihetta eteenpäin ja yks taaksepäin. Mää käytän enimmäkseen eteenpäin.",
@@ -221,6 +232,10 @@ func hello(who: String) -> String:
 		(d.kupla as Label3D).text = ""
 	if eka:
 		return HELLO_EKA
+	if kiertue_seuraavaksi():
+		return HELLO_KIERTUE
+	if kyydit % KIERTUE_VALI == 1:
+		return HELLO_VIHJE
 	if kyydit > 0 and randf() < 0.5:
 		return HELLO_TAAS
 	return HELLO[randi() % HELLO.size()]
@@ -229,10 +244,18 @@ func hello(who: String) -> String:
 func options(who: String, o: Array) -> void:
 	if who != "pentti":
 		return
-	o.append(game._opt("pentti_kyyti", "Lähetään ajelulle. (Kyytiin, ilta päättyy)", true, "", true))
+	if kiertue_seuraavaksi():
+		o.append(game._opt("pentti_kyyti", "Lähetään kiertueelle! (Onnellinen loppu, ilta päättyy)", true, "", true))
+	else:
+		o.append(game._opt("pentti_kyyti", "Lähetään ajelulle. (Kyytiin, ilta päättyy)", true, "", true))
 	o.append(game._opt("pentti_juttu", "Kerro siitä autosta."))
 	o.append(game._opt("pentti_bangbus", "Mikä ihmeen BangBus?"))
 	o.append(game._opt("pentti_ei", "Ei kiitos. Päivi odottaa kotona."))
+
+
+## Seuraava kyyti on kiertue (joka KIERTUE_VALI:s kyyti).
+func kiertue_seuraavaksi() -> bool:
+	return (kyydit + 1) % KIERTUE_VALI == 0
 
 
 ## Seuraava repliikki sekoitetusta pakasta: ei toistu ennen kuin pakka on käyty läpi, eikä uuden pakan ensimmäinen
@@ -292,13 +315,20 @@ func _kyyti() -> void:
 		kantelu_day = game.day
 		game.maine = clampf(game.maine - MAINE_NAHTY, 0.0, 100.0)
 	kyydit += 1
-	var raha: float = minf(maxf(game.money, 0.0), roundf(randf_range(RAHAA_POIS.x, RAHAA_POIS.y)))
+	var kiertue := kyydit % KIERTUE_VALI == 0
+	var vali: Vector2 = KIERTUE_RAHAA if kiertue else RAHAA_POIS
+	var raha: float = minf(maxf(game.money, 0.0), roundf(randf_range(vali.x, vali.y)))
 	game._talk_box.close()
 	game._hud.visible = false
 	game._save_game()
 	if nahty:
 		game._show_message(SEEN, 3.0)
-	var stats := "Kyyti nro %d  ·  %s" % [kyydit, "Joku näki, kun nousit kyytiin." if nahty else "Kukaan ei nähnyt. Toivottavasti."]
+	var nakyi := "Joku näki, kun nousit kyytiin." if nahty else "Kukaan ei nähnyt. Toivottavasti."
+	if kiertue:
+		var lstats := "Kajaani, Kuhmo, Suomussalmi yhdessä yössä  ·  %s" % game._ending_line("pentin_kiertue")
+		game.cutscene.pentti_tour(lstats, func() -> void: _kiertue_aamu(town, raha))
+		return
+	var stats := "Kyyti nro %d  ·  %s" % [kyydit, nakyi]
 	game.cutscene.pentti_ride(stats, func() -> void: _herays(town, raha))
 
 
@@ -318,9 +348,31 @@ func _herays(town: String, raha: float) -> void:
 	game.tilat.add("kipu", -0.25)  # selkä ja polvet
 	game.tilat.add("stressi", -0.15)
 	game.tilat.first("pentti_kyyti", 0.5)
-	game._ending("pentin_kyyti")
+	if game.endings.counts.get("pentin_kyyti", 0) == 0:
+		game._ending("pentin_kyyti")  # vain ensimmäinen kyyti on legendaarinen hetki
 	if raha > 0.0:
 		game._queue_message("Lompakosta puuttuu %s €. Tilalla on lappu: \"Bensarahat. T: Pentti\"." % game._eur(raha), 4.0)
+	game._save_game()
+
+
+## Kiertueen jälkeinen aamu: kotipihalla (Saloinen) tai Gasthausin pihalla (Vaala), tilat ja kiertuekulut.
+func _kiertue_aamu(town: String, raha: float) -> void:
+	if town == "vaala":
+		game._gasthaus_morning(KIERTUE_HERAYS_V, KIERTUE_MSG_V)
+	else:
+		game._new_day(game.home_zone + Vector3(0, 0, 4), false, KIERTUE_HERAYS)
+	game.clock_min = 11.0 * 60.0
+	game.money -= raha
+	for k in ["moraali", "vireys", "kipu", "stressi"]:
+		game.tilat.ensure(k)
+	game.tilat.add("moraali", 0.5)
+	game.tilat.add("vireys", -0.5)
+	game.tilat.add("kipu", -0.3)
+	game.tilat.add("stressi", -0.25)
+	game.tilat.first("pentti_kyyti", 0.5)
+	game.tilat.first("pentti_kiertue", 0.5)
+	if raha > 0.0:
+		game._queue_message("Lompakosta puuttuu %s €. Lappu: \"Kiertuekulut. Bensa, makkarat ja yks motelli. T: Pentti\"." % game._eur(raha), 4.5)
 	game._save_game()
 
 
@@ -548,6 +600,56 @@ func testi(arg: String) -> void:
 	kantelu_day = -1
 	if aamu(false) != "":
 		_vika("aamurivi ilman kantelua")
+	# Toinen kyyti: tavallinen, ei uutta legendaarista hetkeä. Kolmas: kiertue (onnellinen loppu), herätys kotipihalta.
+	todistaja_pakko = 0
+	for nro in [2, 3]:
+		while not (game._weekday() in PAIVAT):
+			game.day += 1
+		await _tf(20, 20 * 60)
+		var dd := _nykyinen()
+		var hl := hello("pentti")
+		var tekstit: Array = []
+		for o: Dictionary in game._talk_options("pentti"):
+			tekstit.append(o.text)
+		print("BANGBUS kyyti %d: tervehdys '%s', valinnat %s" % [nro, hl, tekstit])
+		if nro == 2 and hl != HELLO_VIHJE:
+			_vika("toisella kerralla ei kiertuevihjettä")
+		if nro == 3 and (hl != HELLO_KIERTUE or not tekstit.any(func(x: String) -> bool: return "kiertueelle" in x)):
+			_vika("kolmannella kerralla ei kiertuetta tarjolla")
+		var hetket: int = game.endings.counts.get("pentin_kyyti", 0)
+		var loput: int = game.endings.counts.get("pentin_kiertue", 0)
+		var dpv: int = game.day
+		game._talk_open("pentti", dd.pentti if not dd.is_empty() and is_instance_valid(dd.pentti) else null)
+		await _tf(3, 20 * 60)
+		game._talk_choose("pentti_kyyti")
+		if nro == 3:
+			game.cutscene.test_hold = true
+			var tk := Time.get_ticks_msec()
+			while Time.get_ticks_msec() - tk < 6500:
+				await _tf(1)
+			await _kuva("_kiertue")
+			game.cutscene.test_hold = false
+		var tw := Time.get_ticks_msec()
+		while (game.cutscene.busy or game.day == dpv) and Time.get_ticks_msec() - tw < 60000:
+			await _tf(1)
+		await _tf(40)
+		print("BANGBUS kyyti %d jälkeen: päivä %d, hetket %d, kiertueet %d, tila %s" % [nro, game.day,
+			game.endings.counts.get("pentin_kyyti", 0), game.endings.counts.get("pentin_kiertue", 0), game.state])
+		if game.day != dpv + 1:
+			_vika("kyyti %d: päivä ei vaihtunut" % nro)
+		if game.endings.counts.get("pentin_kyyti", 0) != hetket:
+			_vika("kyyti %d kirjasi uuden legendaarisen hetken (vain ensimmäinen)" % nro)
+		if nro == 2 and game.endings.counts.get("pentin_kiertue", 0) != loput:
+			_vika("toinen kyyti kirjasi kiertueen")
+		if nro == 3:
+			if game.endings.counts.get("pentin_kiertue", 0) != loput + 1 or not Endings.is_loppu("pentin_kiertue"):
+				_vika("kiertue ei kirjautunut onnelliseksi lopuksi")
+			if not vaala:
+				var hd: float = game.walker_out.global_position.distance_to(game.home_zone + Vector3(0, 0, 4))
+				print("BANGBUS kiertueen herätys %.1f m kotipihasta" % hd)
+				if hd > 3.0:
+					_vika("kiertueen jälkeen ei herätty kotipihalta (%.1f m)" % hd)
+			await _kuva("_kiertue_aamu")
 	todistaja_pakko = -1
 	# Tallennus edestakaisin.
 	var cfg := ConfigFile.new()
