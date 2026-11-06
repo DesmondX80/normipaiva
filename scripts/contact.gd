@@ -3,6 +3,11 @@
 ## joten istuttaminen ei maksa ruutukohtaista työtä. Paistettu verkko (Pose.limb_points) on totuus vain testissä.
 ## Kaikki laskenta on maailman avaruudessa. Ei lataa pose.gd:tä (silmukka): limb_points annetaan profile-kutsulle.
 
+
+## Diagnostiikkatulosteet (kontaktien korjaukset) vain testiajoissa (B.diag). Varoitus "KONTAKTI JÄÄ ..." tulostetaan aina.
+static func diag() -> bool:
+	return load("res://scripts/build.gd").diag()
+
 const Seat := preload("res://scripts/seat.gd")
 const Elastic := preload("res://scripts/elastic.gd")
 const Terrain := preload("res://scripts/terrain.gd")

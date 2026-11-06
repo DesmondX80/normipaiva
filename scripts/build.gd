@@ -3,6 +3,16 @@ extends RefCounted
 ## sekä jaetut materiaalit ja kohinatekstuuri.
 
 static var _mats := {}
+static var _diag := -1
+
+
+## Diagnostiikkatulosteet vain testiajoissa: tools/testit/aja.sh välittää aina omat argumenttinsa (--scene=...,
+## tulostekansio), tavallinen pelikäynnistys (godot ./) ei. Varoitukset ja oikeat viat tulostetaan aina.
+static func diag() -> bool:
+	if _diag < 0:
+		_diag = 0 if OS.get_cmdline_user_args().is_empty() else 1
+	return _diag == 1
+
 static var _fonts := {}
 
 

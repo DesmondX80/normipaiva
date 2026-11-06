@@ -103,6 +103,8 @@ func _process(_d: float) -> void:
 		if to >= 0 and to < TABS.size():
 			_set_tab(TABS[to][0])
 			return
+	if _book.size == Vector2.ZERO:
+		return  # kirjaa ei ole vielä piirretty (_draw laskee _book): välilehtien alueet olisivat negatiivisia
 	var h := -1
 	for i in TABS.size():
 		if _tab_rect(i).has_point(get_local_mouse_position()):

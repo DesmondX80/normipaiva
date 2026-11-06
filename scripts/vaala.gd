@@ -456,7 +456,8 @@ func _build_drive_mask_calc() -> void:
 	_connect_stops(stops)
 	_clear_buildings()  # ovien edustat eivät ulotu seinien sisään
 	_clear_lava_yard()
-	print("VAALA ajoalue %d ms, %.0f %% ruuduista" % [Time.get_ticks_msec() - t0, 100.0 * _drive.count(1) / _drive.size()])
+	if B.diag():  # vain testiajoissa
+		print("VAALA ajoalue %d ms, %.0f %% ruuduista" % [Time.get_ticks_msec() - t0, 100.0 * _drive.count(1) / _drive.size()])
 
 
 ## Lavan aidan sisäpuoli on kävelyaluetta: autoja ja mopoja ei päästetä portista (parkki on aidan ulkopuolella, lava_park).
@@ -636,8 +637,10 @@ func ensure_built() -> void:
 		step.call()
 		if Time.get_ticks_msec() - ts > 60:
 			times.append("%s %d" % [step.get_method().trim_prefix("_build_"), Time.get_ticks_msec() - ts])
-	print("VAALA vaiheet (ms): ", ", ".join(times))
-	print("VAALA rakennettu %d ms" % (Time.get_ticks_msec() - t0))
+	if B.diag():  # vain testiajoissa
+		print("VAALA vaiheet (ms): ", ", ".join(times))
+	if B.diag():  # vain testiajoissa
+		print("VAALA rakennettu %d ms" % (Time.get_ticks_msec() - t0))
 
 
 ## Kylttien, kojujen, aitojen ja pihojen staattiset osat lohkoittain erämesheiksi (B.merge_static): Vaalan
@@ -646,7 +649,8 @@ func _merge_static_meshes() -> void:
 	if "--ei-yhdistelya" in OS.get_cmdline_user_args():
 		return
 	var r := B.merge_static(self, 150.0)
-	print("VAALA yhdistetty %d meshiä %d erään" % r)
+	if B.diag():  # vain testiajoissa
+		print("VAALA yhdistetty %d meshiä %d erään" % r)
 
 
 func _ground_mat(a: Color, b: Color, scale := 0.04, fine := 0.8, bump := 0.7, rough := 0.95) -> Material:
@@ -1227,7 +1231,8 @@ func _build_lava_grounds() -> void:
 		add_child(f)
 		f.load_list(trees, 77)
 	_build_lava_kiosk(c, hw, hl, side)
-	print("VAALA lavan piha: %d puuta ja pensasta, karsittu %s" % [trees.size(), why])
+	if B.diag():  # vain testiajoissa
+		print("VAALA lavan piha: %d puuta ja pensasta, karsittu %s" % [trees.size(), why])
 
 
 ## Grillikioski parkin laitaan (makkaraperunat ja kahvit), jono ja penkkipöytä; tupakkapaikka oven pieleen.
@@ -1977,7 +1982,8 @@ func _boat_mask() -> PackedByteArray:
 		if c.x >= _nx - 3 or c.y >= _nz - 3:
 			edge = true
 		stack.append_array([Vector2i(c.x + 1, c.y), Vector2i(c.x - 1, c.y), Vector2i(c.x, c.y + 1), Vector2i(c.x, c.y - 1)])
-	print("VAALA venemaski %d ruutua, saavuttaa tarkan alueen kaakkoisreunan: %s" % [count, edge])
+	if B.diag():  # vain testiajoissa
+		print("VAALA venemaski %d ruutua, saavuttaa tarkan alueen kaakkoisreunan: %s" % [count, edge])
 	_memo.boat = mask
 	return mask
 
@@ -2415,7 +2421,8 @@ func _build_uitto() -> void:
 	B.mesh(fire, B.sphere(0.26, 8), Vector3(0, 0.45, 0), Color(1.0, 0.55, 0.12)).scale = Vector3(0.8, 1.5, 0.8)
 	for bx in [-1.7, 1.7]:
 		B.mesh(fire, B.cyl(0.17, 0.17, 1.5, 8), Vector3(bx, 0.2, 0), Color(0.5, 0.38, 0.26), Vector3(90, 0, 0))
-	print("VAALA uiton sauna ", sbody.global_position, " laituri ", uitto_pier_door)
+	if B.diag():  # vain testiajoissa
+		print("VAALA uiton sauna ", sbody.global_position, " laituri ", uitto_pier_door)
 
 
 # --- Lavan venelaituri (muskeliveneellä lavalle) --------------------------------------------------------------------
@@ -2938,7 +2945,8 @@ func _build_train() -> void:
 	train.setup(path)
 	if station_plat != Vector3.ZERO:
 		station_t = train.nearest_t(station_plat)
-	print("VAALA juna: rata %.0f m, %d pätkää, laituri %.0f m radan alusta" % [total, used.size(), station_t])
+	if B.diag():  # vain testiajoissa
+		print("VAALA juna: rata %.0f m, %d pätkää, laituri %.0f m radan alusta" % [total, used.size(), station_t])
 
 
 ## Radan alikulku (Vuolijoentie radan ali juuri ennen Oulujokea) ohikulkuvideon mukaan: harmaa betonikansi ohuine
@@ -3726,7 +3734,8 @@ func _build_station() -> void:
 	station_plat = Vector3(plat_c.x, h(plat_c.x, plat_c.y), plat_c.y)
 	if train != null:  # juna rakennetaan jo raiteiden kanssa (_build_side_roads)
 		station_t = train.nearest_t(station_plat)
-		print("VAALA laituri %.0f m radan alusta" % station_t)
+		if B.diag():  # vain testiajoissa
+			print("VAALA laituri %.0f m radan alusta" % station_t)
 	var back := (plat_c - c).normalized()  # laiturin puoli
 	var L: float = (obb.size as Vector2).x if absf((obb.ax as Vector2).dot(along)) > 0.7 else (obb.size as Vector2).y
 	var D: float = (obb.size as Vector2).y if absf((obb.ax as Vector2).dot(along)) > 0.7 else (obb.size as Vector2).x
@@ -3940,7 +3949,8 @@ func _build_poliisi() -> void:
 		janttu.position = Vector3(jp.x, h(jp.x, jp.y), jp.y)
 		janttu.rotation.y = B.yaw_to(Vector3(side.x, 0, side.y))  # penkin etupuoli tielle ja asemalle päin
 		add_child(janttu)
-		print("VAALA poliisiasema näytteen %d kohdalla (%.0f m sillalta)" % [i, along])
+		if B.diag():  # vain testiajoissa
+			print("VAALA poliisiasema näytteen %d kohdalla (%.0f m sillalta)" % [i, along])
 		return
 	push_warning("Vaalan poliisiasemalle ei löytynyt paikkaa sillan päästä")
 
@@ -5430,7 +5440,8 @@ func _lot_build(c: Vector2, ax: Vector2, front: Vector2, ua: float, nb: int, v0:
 	var plate := B.sign_plate(pole, "P", Color(0.0, 0.3, 0.6), Color.WHITE, 0.5, 70, Color(0.95, 0.95, 0.95), "Helvetica Neue")
 	plate.position.y = 2.0
 	plate.rotation.y = atan2(front.x, front.y)
-	print("VAALA parkki: %d paikkaa, %d autoa, kaista %.1f m" % [nb, n, aisle])
+	if B.diag():  # vain testiajoissa
+		print("VAALA parkki: %d paikkaa, %d autoa, kaista %.1f m" % [nb, n, aisle])
 	return placed
 
 
@@ -5929,7 +5940,8 @@ func _build_salminen_trees() -> void:
 	f.name = "SalmisenPuut"
 	add_child(f)
 	f.load_list(trees, 91)
-	print("VAALA Salmisen puut: %d" % trees.size())
+	if B.diag():  # vain testiajoissa
+		print("VAALA Salmisen puut: %d" % trees.size())
 
 
 ## Tienpinnat, opaste ja kohteet (mökin rakennusfunktioilla, ankkuroituna T:n kuvaamaan pisteeseen).
@@ -6029,7 +6041,8 @@ func _build_north() -> void:
 		doors.append({"id": "laavu", "pos": laavu_fire, "out": Vector3.ZERO, "text": "Laavun nuotiolle (makkaranpaisto)", "walk": true})
 		doors.append({"id": "kalastus", "pos": dock0, "out": Vector3.ZERO, "text": "Laiturilta soutuveneellä kalaan Keskimmäiselle",
 			"walk": true})
-	print("VAALA järviseutu: rosvo %s ranta %s laavu %s sauna %s" % [rosvo_pos, beach_pos, laavu_fire, barrel_door])
+	if B.diag():  # vain testiajoissa
+		print("VAALA järviseutu: rosvo %s ranta %s laavu %s sauna %s" % [rosvo_pos, beach_pos, laavu_fire, barrel_door])
 
 
 ## Järviseudun mökkikohteet (mokki.gd-instanssi, lapset pelin kehyksessä): tynnyrisauna, vene ja laituri.
