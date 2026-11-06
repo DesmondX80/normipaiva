@@ -11477,7 +11477,7 @@ func _kolmio_vaala_setup() -> void:
 	_kolmio_vaala_spots.merge(_kolmio_road_spot(vl, Vector2(cp.x, cp.z), start, tgt), true)
 	var civic := Node3D.new()
 	vl.add_child(civic)
-	Vehicles.car(civic, Color(0.72, 0.04, 0.07), "VTC-916")
+	Vehicles.civic(civic, Color(0.72, 0.04, 0.07), "VTC-916")  # punainen Honda Civic 3-ovinen (1987–91)
 	civic.position = Vector3(cp.x, vl.h(cp.x, cp.z), cp.z)
 	civic.rotation.y = B.yaw_to(side)
 	_kolmio_civic = civic
