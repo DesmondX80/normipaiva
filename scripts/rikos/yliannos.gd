@@ -613,8 +613,8 @@ static func build_ambulance(parent: Node3D) -> Array:
 		var s := B.sign_plate(parent, "AMBULANSSI", AMBU_KELTA, Color(0.05, 0.1, 0.3), 0.26, 60, AMBU_ORANSSI)
 		s.position = Vector3(sx * (Vehicles.hiace_kylki(1.55) + 0.02), 1.55, 0.75)
 		s.basis = Basis(Vector3(0, 0, 1), sx * tilt) * Basis(Vector3.UP, sx * PI / 2.0)
-	var r := B.sign_plate(parent, "AMBULANSSI", AMBU_KELTA, Color(0.05, 0.1, 0.3), 0.1, 44, AMBU_ORANSSI)
-	r.position = Vector3(0, 1.81, back + 0.015)
+	var r := B.sign_plate(parent, "AMBULANSSI", AMBU_KELTA, Color(0.05, 0.1, 0.3), 0.1, 28, AMBU_ORANSSI)  # kapea: luukun levyinen
+	r.position = Vector3(0, 1.87, back + 0.015)
 	return valot
 
 

@@ -8,6 +8,7 @@ extends Node3D
 const Vehicles := preload("res://scripts/vehicles.gd")
 const Yliannos := preload("res://scripts/rikos/yliannos.gd")
 const B := preload("res://scripts/build.gd")
+const KauppaAuto := preload("res://scripts/kauppa_auto.gd")
 
 var out := "user://hiace"
 var cam: Camera3D
@@ -41,6 +42,13 @@ func _ready() -> void:
 	korkea = Node3D.new()
 	add_child(korkea)
 	Vehicles.hiace(korkea, Color(0.12, 0.2, 0.42), "LH-113", true)
+	# Kauppa-auton myyntiluukku (kauppa_auto.gd _hatch_pos): kiinni matalan oikeassa kyljessä, auki korkean kyljessä.
+	var ka = KauppaAuto.new()
+	for k in 2:
+		var h := B.mesh(korkea if k == 1 else matala, B.boxm(Vector3(0.03, KauppaAuto.HATCH_H, 1.6)), ka._hatch_pos(k == 1), Color(0.95, 0.6, 0.1))
+		h.rotation.z = -PI / 2.6 if k == 1 else KauppaAuto.HATCH_TILT
+		h.set_meta("luukku", true)  # ei kuulu korin mittoihin
+	ka.free()
 	ambu = Node3D.new()
 	add_child(ambu)
 	Yliannos.build_ambulance(ambu)
@@ -73,7 +81,7 @@ func _measure(n: Node3D, nimi: String, korkeus: float) -> void:
 	var hi := -lo
 	var half_w := 0.0
 	for c in n.get_children():
-		if not (c is MeshInstance3D):
+		if not (c is MeshInstance3D) or c.has_meta("luukku"):
 			continue
 		var am: Mesh = (c as MeshInstance3D).mesh
 		for s in am.get_surface_count():
@@ -128,6 +136,10 @@ func _run() -> void:
 	await _shot("ohjaamo", Vector3(-2.8, 1.7, -6.6), Vector3(0, 1.3, -6.7), 45.0)
 	await _shot("ohjaamo_oikea", Vector3(2.8, 1.7, -6.6), Vector3(0, 1.3, -6.7), 45.0)
 	await _shot("liukuovi", Vector3(3.2, 1.3, -4.6), Vector3(0.8, 1.1, -5.4), 35.0)
+	await _shot("luukku_kiinni", Vector3(3.2, 1.5, -6.3), Vector3(0.8, 1.5, -4.8), 30.0)
+	await _shot("luukku_kiinni_edesta", Vector3(0.9, 1.6, -9.5), Vector3(0.85, 1.5, -5.0), 12.0)
+	await _shot("luukku_auki", Vector3(4.5, 1.6, -2.2), Vector3(0.9, 1.7, 0.7), 35.0)
+	await _shot("luukku_auki_edesta", Vector3(1.1, 1.9, -6.0), Vector3(1.1, 1.85, 0.7), 18.0)
 	await _shot("katto_ylhaalta", Vector3(0, 6.0, -5.0), Vector3(0, 1.9, -5.5), 45.0)
 	await _shot("katto_korkea", Vector3(-3.0, 3.0, -3.0), Vector3(0, 2.0, -0.8), 35.0)
 	get_tree().quit()
