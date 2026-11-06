@@ -955,6 +955,7 @@ const TALKERS := {
 	"katsastaja": ["Katsastusmies", Color(0.6, 0.75, 1.0)],
 	"hitsari": ["Arttimin hitsari", Color(1.0, 0.65, 0.3)],
 	"kolmio_saloinen": ["Joni ja Esa", Color(0.75, 0.88, 1.0)],
+	"pentti": ["Pentti", Color(1.0, 0.5, 0.35)],  # Pentin BangBus (#299, rikos/pentti.gd)
 	"kolmio_vaala": ["Hevari-Tero ja Siviikki-Timo", Color(1.0, 0.55, 0.45)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
@@ -19058,7 +19059,7 @@ func _teini_tulos(won: bool) -> String:
 # Jokainen riski on oma osansa (velka, valeostaja, epäluulo, yliannos, huijari, autovarkaus). Tämä on niiden yhteinen
 # pistorasia: osat ladataan nimen mukaan, jos tiedosto on olemassa, ja niiltä kysytään puheessa, logiikassa, uutena
 # päivänä, tallennuksessa ja päiväkirjassa. Osat eivät koske main.gd:hen; tapahtumat kulkevat _rikos_eventin kautta.
-const RIKOS_OSAT := ["velka", "valeostaja", "epaluulo", "yliannos", "huijari", "autovarkaus"]
+const RIKOS_OSAT := ["velka", "valeostaja", "epaluulo", "yliannos", "huijari", "autovarkaus", "pentti"]  # pentti: sivujuoni (#299) samalla rajapinnalla
 const RIKOS_PIDATYS_MAINE := 10.0
 var rikos: Array = []  # osien instanssit (osa.gd)
 var _rikos_fight: Object = null  # osa, joka aloitti diilitappelun (_start_teini_fight): fight_end antaa loppuviestin
@@ -21088,6 +21089,7 @@ func _spawn_threats() -> void:
 			break
 		var car := TrafficCar.new()
 		car.van = randf() < 0.25
+		car.pentti = i == 0  # yksi liikenteen pakettiautoista on Pentin (#299)
 		car.cruise = randf_range(12.5, 16.0) * (0.9 if car.van else 1.0)
 		car.target_fn = func() -> Node3D: return player
 		car.hit.connect(func() -> void:
@@ -22180,6 +22182,16 @@ func _maybe_screenshot() -> void:
 			await rk.run()
 			if not saved_rk.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_rk)
+			else:
+				DirAccess.remove_absolute(SAVE_PATH)
+			get_tree().quit()
+			return
+		"bangbus", "bangbus_vaala":
+			# Pentin BangBus (#299, rikos/pentti.gd testi): aikataulu, auto, juttelu, kyyti, herätys ja kantelu; kuvat.
+			var saved_bb := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			await rikos_osa("pentti").testi("vaala" if scene == "bangbus_vaala" else "")
+			if not saved_bb.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_bb)
 			else:
 				DirAccess.remove_absolute(SAVE_PATH)
 			get_tree().quit()

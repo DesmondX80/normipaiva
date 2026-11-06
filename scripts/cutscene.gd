@@ -1684,6 +1684,91 @@ func _build_taxi_road() -> Node3D:
 	return r
 
 
+# --- Pentin kyyti (#299, rikos/pentti.gd) ---------------------------------------------------------------
+
+const PENTTI_STAGE := Vector3(-6000, 0, 3000)
+## Kyytikohtauksen kuplat autosta (ei näytetä mitään: vihjailu, heiluva auto ja huurtuvat ikkunat riittävät).
+const PENTTI_RIDE_LINES := ["Pentti: \"Penkit on lämpimät, sanoinhan!\"", "Pentti: \"Laitetaanpa vähän kovemmalle...\"",
+	"(Radiosta soi humppa. Auto keinuu.)", "Pentti: \"Hups, vaihdekeppi!\"", "(Ikkunat on ihan huurussa.)",
+	"Pentti: \"Tää on niin sanotusti ilmastoitu.\""]
+
+
+## Parkkipaikka illalla: Pentin pakettiauto keinuu humpan tahtiin ja ikkunat huurtuvat. stats ruudun alalaitaan.
+func pentti_ride(stats: String, done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.4)
+	var stage := Node3D.new()
+	stage.position = PENTTI_STAGE
+	_props.add_child(stage)
+	# Asfalttipiha ruutuviivoineen, kaupan seinä oransseine raitoineen taustalla ja kaksi pihavaloa.
+	B.box(stage, Vector3(60, 0.1, 60), Vector3(0, -0.06, 0), Color(0.16, 0.2, 0.13), false)
+	B.box(stage, Vector3(24, 0.02, 16), Vector3(0, 0.0, 0), Color(0.22, 0.22, 0.23), false)
+	for x in [-5.2, -2.6, 2.6, 5.2]:
+		B.box(stage, Vector3(0.12, 0.01, 5.0), Vector3(x, 0.02, -0.5), Color(0.85, 0.85, 0.8), false)
+	B.box(stage, Vector3(26, 5.5, 0.4), Vector3(0, 2.75, -9.0), Color(0.82, 0.82, 0.8), false)
+	B.box(stage, Vector3(26.2, 1.2, 0.5), Vector3(0, 4.9, -8.95), Color(1.0, 0.42, 0.0), false)
+	for wx in range(-10, 11, 4):
+		B.box(stage, Vector3(2.6, 1.6, 0.05), Vector3(wx, 1.8, -8.77), Color(0.95, 0.85, 0.55), false)  # valaistut näyteikkunat
+	for lx in [-7.0, 7.0]:
+		B.box(stage, Vector3(0.14, 6.0, 0.14), Vector3(lx, 3.0, 4.0), Color(0.4, 0.4, 0.42), false)
+		B.mesh(stage, B.boxm(Vector3(0.9, 0.14, 0.35)), Vector3(lx * 0.92, 6.0, 4.0), Color(1.0, 0.85, 0.5))
+		var l := OmniLight3D.new()
+		l.position = Vector3(lx * 0.9, 5.6, 4.0)
+		l.light_color = Color(1.0, 0.78, 0.45)
+		l.light_energy = 2.2
+		l.omni_range = 18.0
+		stage.add_child(l)
+	var van := Node3D.new()
+	van.rotation.y = PI * 0.15  # keula kameraan päin viistosti
+	stage.add_child(van)
+	var built: Dictionary = Vehicles.pentin_auto(van)
+	var huuru: Node3D = built.huuru
+	huuru.visible = true
+	var fog: Array = []
+	for c in huuru.get_children():
+		if c is GeometryInstance3D:
+			fog.append(c)
+			(c as GeometryInstance3D).transparency = 1.0
+	# Humppa radiosta: lavabändin syntetisoima kappale, jos se on jo valmiina välimuistissa; muuten tunnusmusiikki.
+	var synth := preload("res://scripts/humppa_synth.gd")
+	var wav: AudioStream = synth.cached(synth.SONGS[0]) if not synth.SONGS.is_empty() else null
+	if wav != null:
+		Sfx.music_play(0.8, 0.0, "pentti_humppa", wav)
+	else:
+		Sfx.music_play(0.8)
+	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
+	_cam.current = true
+	_title.add_theme_color_override("font_color", Color(1.0, 0.45, 0.35))
+	_title.add_theme_font_size_override("font_size", 90)
+	var t0 := _now_ms()
+	var faded := false
+	while _now_ms() - t0 < 9000:
+		var t := (_now_ms() - t0) / 1000.0
+		var u := clampf(t / 9.0, 0.0, 1.0)
+		# Keinunta voimistuu, välillä tauko (humpan tahti noin 2,2 iskua sekunnissa).
+		var amp := clampf((t - 1.0) / 2.0, 0.0, 1.0) * (0.35 if fmod(t, 4.0) > 3.4 else 1.0)
+		van.rotation.z = sin(t * TAU * 2.2) * 0.04 * amp
+		van.rotation.x = sin(t * TAU * 1.1 + 0.6) * 0.012 * amp
+		van.position.y = absf(sin(t * TAU * 2.2)) * 0.025 * amp
+		for c in fog:
+			(c as GeometryInstance3D).transparency = 1.0 - clampf((t - 1.5) / 4.0, 0.0, 1.0)
+		var vp := van.global_position
+		_cam.global_position = vp + Vector3(lerpf(-4.6, -3.2, u), lerpf(1.9, 1.55, u), lerpf(-5.6, -4.0, u))
+		_cam.look_at(vp + Vector3(0.4, 1.0, 0), Vector3.UP)  # auto hieman vasemmalle: otsikko ei peitä tuulilasia
+		bubble.global_position = vp + Vector3(0, 2.2, 0)  # katon lisävalojen yllä, kuvan sisällä
+		bubble.text = PENTTI_RIDE_LINES[mini(int(t / 1.5), PENTTI_RIDE_LINES.size() - 1)]
+		if t > 3.2 and _title.text != "":
+			_title.text = ""  # otsikko pois tuulilasin edestä: huurtuminen ja keinunta näkyvät
+		if not faded:
+			faded = true
+			_fade_to(0.0, 0.6)
+			_title.text = "PENTIN KYYDISSÄ"
+			_sub.text = stats
+		await get_tree().process_frame
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
 # --- Pekan kyyti mökille ----------------------------------------------------------
 
 const RIDE_ROAD := Vector3(-6000, 0, -3000)

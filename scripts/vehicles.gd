@@ -1847,6 +1847,91 @@ static func hiace(parent: Node3D, color: Color, plate := "", korkea := false) ->
 	return wheels
 
 
+## Pentin pakettiauto (#299, rikos/pentti.gd): viininpunainen Hiace H100 tuunattuna. Kyljissä käsinmaalattu
+## kangasbanderolli PENTIN BANGBUS (kallistuvan kyljen mukaan, vyölinjan yläpuolella), keulan kyljissä liekit, katolla
+## lisävalopalkki, takaikkunassa ja ohjaamon takaseinässä punaiset samettiverhot, peilissä pehmonopat. Palauttaa
+## {"wheels": pyörät, "huuru": Node3D (huurtuneet ikkunat, piilossa; kyytikohtaus näyttää)}. -Z = keula kuten hiace().
+const PENTTI_VARI := Color(0.36, 0.04, 0.07)
+const PENTTI_TEKSTI := "PENTIN BANGBUS"
+
+
+static func pentin_auto(parent: Node3D, plate := "PNT-69") -> Dictionary:
+	var wheels := hiace(parent, PENTTI_VARI, plate)
+	var first := parent.get_child_count()
+	var tilt := atan((HIACE_KYLKI - HIACE_OLKA_X) / (HIACE_OLKA - HIACE_VYO))
+	var velvet := _mat("penttiverho", Color(0.6, 0.03, 0.06), 0.0, 0.75)
+	var fold := _mat("penttiverho2", Color(0.38, 0.02, 0.04), 0.0, 0.8)
+	var gold := _mat("ponykromi", Color(0.86, 0.87, 0.89), 0.45, 0.3)
+	# Liekit keulan kyljissä pyöränkaaren yläpuolella: oranssi ulkoliekki ja keltainen sisäliekki, kielet taaksepäin.
+	var orange := _mat("penttiliekki", Color(0.98, 0.42, 0.04), 0.1, 0.45)
+	var yellow := _mat("penttiliekki2", Color(1.0, 0.82, 0.1), 0.1, 0.45)
+	for sx in [-1.0, 1.0]:
+		for layer in 2:
+			var k := 1.0 if layer == 0 else 0.62  # sisäliekki pienempi ja lyhyempi
+			var y0 := 0.94
+			var pts := PackedVector2Array([Vector2(HIACE_KEULA + 0.08, y0 - 0.17 * k), Vector2(HIACE_KEULA + 0.08, y0 + 0.17 * k)])
+			# Neljä kieltä yläreunasta takaisin alareunaan: kärki, kuoppa, kärki...
+			var tips := [[0.55, 0.15], [0.95, 0.06], [1.25, -0.02], [1.0, -0.12]]
+			var x := HIACE_KEULA + 0.08
+			for t: Array in tips:
+				var tip := Vector2(x + float(t[0]) * k * 1.3, y0 + float(t[1]) * k)
+				pts.append(tip)
+				pts.append(Vector2(HIACE_KEULA + 0.08 + float(t[0]) * k * 0.55, y0 + (float(t[1]) - 0.04) * k))
+			_flat_panel(parent, sx * (HIACE_KYLKI + 0.009 + layer * 0.002), pts, orange if layer == 0 else yellow)  # kylkiviivan päällä
+	# Lisävalopalkki katon etureunassa: neljä pyöreää valoa kromikupeissa.
+	var roof_z := _hiace_ws(HIACE_KATTO) + 0.35
+	part(parent, B.boxm(Vector3(1.2, 0.04, 0.05)), Vector3(0, HIACE_KATTO + 0.05, roof_z), plastic())
+	for k in 4:
+		var lx := -0.45 + k * 0.3
+		part(parent, B.boxm(Vector3(0.03, 0.05, 0.03)), Vector3(lx, HIACE_KATTO + 0.025, roof_z + 0.05), plastic())
+		part(parent, B.cyl(0.08, 0.08, 0.08, 16), Vector3(lx, HIACE_KATTO + 0.13, roof_z), gold, Vector3(PI / 2.0, 0, 0))
+		part(parent, B.cyl(0.065, 0.065, 0.02, 16), Vector3(lx, HIACE_KATTO + 0.13, roof_z - 0.04), lamp(Color(1.0, 0.95, 0.75)),
+			Vector3(PI / 2.0, 0, 0))
+	# Takaikkunan verhot: kaksi poimutettua puoliskoa, keskellä rako, kultainen solmio kummassakin.
+	for sx in [-1.0, 1.0]:
+		for k in 5:
+			var fx: float = sx * (0.08 + k * 0.1)
+			part(parent, B.boxm(Vector3(0.1, 0.38, 0.012)), Vector3(fx, 1.53, HIACE_PERA + 0.012), velvet if k % 2 == 0 else fold)
+		part(parent, B.boxm(Vector3(0.05, 0.04, 0.02)), Vector3(sx * 0.5, 1.45, HIACE_PERA + 0.02), gold)
+	# Ohjaamon takaseinän verho (näkyy sivulasien läpi): poimut koko leveydeltä.
+	var cw := hiace_kylki(1.5) * 2.0 - 0.1
+	var n := 12
+	for k in n:
+		part(parent, B.boxm(Vector3(cw / n, HIACE_OLKA - HIACE_VYO - 0.12, 0.02)),
+			Vector3(-cw / 2.0 + (k + 0.5) * cw / n, (HIACE_VYO + HIACE_OLKA) / 2.0 - 0.04, -0.76 - 0.012 - 0.01 * (k % 2)), velvet if k % 2 == 0 else fold)
+	# Pehmonopat taustapeilissä: lanka ja kaksi valkoista noppaa tuulilasin yläreunan takana keskellä.
+	var mz := _hiace_ws(1.7) + 0.16
+	part(parent, B.boxm(Vector3(0.12, 0.04, 0.02)), Vector3(0, 1.69, mz), plastic())  # taustapeili
+	for sx in [-1.0, 1.0]:
+		part(parent, B.boxm(Vector3(0.004, 0.12, 0.004)), Vector3(sx * 0.03, 1.61, mz + 0.01), plastic())
+		var die := part(parent, B.boxm(Vector3(0.06, 0.06, 0.06)), Vector3(sx * 0.03, 1.52, mz + 0.01), _mat("penttinoppa", Color(0.97, 0.97, 0.95), 0.0, 0.9))
+		die.rotation = Vector3(0.3, sx * 0.5, 0.2)
+	_merge_parts(parent, first, "pentti/tuunaus")
+	# Banderolli kankaana kyljissä kallistuvan kyljen pinnalla vyölinjan yläpuolella (CLAUDE.md: kyltit levyinä tai kankaina).
+	for sx in [-1.0, 1.0]:
+		var bn := B.sign_plate(parent, PENTTI_TEKSTI, Color(0.97, 0.95, 0.88), Color(0.75, 0.02, 0.06), 0.3, 52, Color(1.0, 0.82, 0.1))
+		var by := 1.47
+		bn.position = Vector3(sx * (hiace_kylki(by) + 0.025), by, 0.75)
+		bn.basis = Basis(Vector3(0, 0, 1), sx * tilt) * Basis(Vector3.UP, sx * PI / 2.0)
+	# Huurtuneet ikkunat (kyytikohtaus): maitomainen kerros tuulilasin ja sivulasien päällä.
+	var huuru := Node3D.new()
+	huuru.name = "Huuru"
+	huuru.visible = false
+	parent.add_child(huuru)
+	var fog := _mat("penttihuuru", Color(0.93, 0.95, 0.97), 0.0, 0.5, 0.82)
+	var belt := HIACE_VYO
+	var wt := 1.76
+	var xw := hiace_kylki(wt)
+	_loft(huuru, PackedVector2Array([Vector2(-HIACE_KYLKI + 0.07, belt + 0.01), Vector2(HIACE_KYLKI - 0.07, belt + 0.01),
+		Vector2(xw - 0.07, wt - 0.005), Vector2(-xw + 0.07, wt - 0.005)]), HIACE_WS - Vector2(0.016, 0), HIACE_WS - Vector2(0.013, 0), fog)
+	for sx in [-1.0, 1.0]:
+		var wz0 := _hiace_ws(belt) + 0.09
+		var wz1 := _hiace_ws(wt) + 0.09
+		_hiace_skin(huuru, sx, PackedVector2Array([Vector2(wz0, belt), Vector2(-0.76, belt), Vector2(-0.76, wt), Vector2(wz1, wt)]), 0.001, fog)
+	part(huuru, B.boxm(Vector3(1.22, 0.39, 0.004)), Vector3(0, 1.53, HIACE_PERA + 0.022), fog)
+	return {"wheels": wheels, "huuru": huuru}
+
+
 ## Pakettiauto: Toyota HiAce H100 (hiace). korkea = korotettu katto (ambulanssi, kauppa-auto).
 static func van(parent: Node3D, color: Color, plate := "", korkea := false) -> Array[Node3D]:
 	return hiace(parent, color, plate, korkea)
