@@ -1227,15 +1227,23 @@ func _testi_vaala() -> void:
 	if not autossa or not mp.car or game.player != mp or _roivainen == null:
 		_vika("Vaala: kaappaus")
 	await _kuva("_vaala_kaappaus")
-	# Roivaisen lähestyminen ja nopeus.
+	# Roivaisen lähestyminen ja nopeus: enintään 6 s tai kunnes 20 m päässä. Pelaaja seisoo paikallaan, joten 5 tähden
+	# Roivainen (n. 74 m:stä) ehtisi muuten pidättää hänet jo n. 4 s:ssa, jolloin jahti päättyy ja _roivainen on null.
 	var d0: float = _roivainen.global_position.distance_to(mp.global_position)
+	var d1 := d0
 	var rmax := 0.0
 	var t0 := _aika
-	while _aika - t0 < 6.0:
+	while _aika - t0 < 6.0 and d1 > 20.0:
 		await _tf(1)
+		if _roivainen == null or not is_instance_valid(_roivainen):
+			break
 		rmax = maxf(rmax, _roivainen._speed)
-	var d1: float = _roivainen.global_position.distance_to(mp.global_position)
-	print("AUTOVARKAUS Roivainen %.0f m -> %.0f m (6 s), nopeus %.1f m/s (%.1f × %.3f)" % [d0, d1, rmax, RoivainenAuto.SPEED, _roivainen.heat_mult])
+		d1 = _roivainen.global_position.distance_to(mp.global_position)
+	if _roivainen == null or not is_instance_valid(_roivainen):
+		_vika("Vaala: Roivainen pidätti ennen kuin lähestyminen mitattiin")
+		return
+	print("AUTOVARKAUS Roivainen %.0f m -> %.0f m (%.1f s), nopeus %.1f m/s (%.1f × %.3f)" % [d0, d1, _aika - t0, rmax,
+		RoivainenAuto.SPEED, _roivainen.heat_mult])
 	if d1 >= d0:
 		_vika("Roivainen ei lähesty")
 	var fwd: Vector3 = -mp.global_basis.z
