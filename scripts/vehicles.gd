@@ -1583,36 +1583,264 @@ static func police_lights(parent: Node3D) -> Array[MeshInstance3D]:
 	return out
 
 
-## Pakettiauto -Z-suuntaan (Transit-tyyppinen): lyhyt keula, korkea umpinainen tavaratila, takaovien sauma.
-## Palauttaa pyörät kuten car().
-static func van(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
+## Toyota HiAce H100 (1989–2004) -Z-suuntaan: 90-luvun pakettiauto, n. 1,69 × 1,93 × 4,60 m (korkea katto 2,20),
+## akseliväli 2,56 m, renkaat 195R14C. Mitat ja muodot H100-blueprintista (getoutlines.com, 4 Gen H100 Short MWB High
+## Roof 1989, sivukuva 130,9 px/m: pituus 602 px, akseliväli 340 px) ja leveys virallisesta 1690 mm:stä. Nokaton
+## kori: moottori etuistuinten alla ja etupyörät ohjaamon ovien alla. Matala pysty keulapaneeli (tumma valopaneeli:
+## suorakaiteiset ajovalot, vaakasäleikkö ja kulmavilkut kylkeen asti), sen yllä viisto pelti tuulilasin alareunaan,
+## loiva tuulilasi, kyljet kallistuvat vyölinjasta kattoa kohti (edestä kapenee), iso tumma puskuri ilmanottoaukolla,
+## isot mustat peilit. Umpikylkinen pakettiauto: ikkunat vain ohjaamossa, liukuovi oikeassa kyljessä (kisko
+## takakyljessä), takana yläsaranallinen takaluukku ikkunoineen ja pystyt kulmatakavalot. Ohjaamossa sisusta lasien
+## läpi (_cabin); ohjaamon takana umpinainen väliseinä. korkea = true: lasikuituinen korotettu katto (ambulanssi,
+## kauppa-auto). Palauttaa pyörät kuten car().
+const HIACE_KYLKI := 0.845  # alakorin kyljen x (leveys 1690 mm)
+const HIACE_VYO := 1.20  # vyölinja: kyljet kallistuvat tästä ylöspäin
+const HIACE_OLKA := 1.86  # kallistuvan kyljen yläpää (katon pyöristys alkaa)
+const HIACE_OLKA_X := 0.73  # edestä: vyölinjalla 1,69 m, olalla 1,46 m (blueprintin etukuva)
+const HIACE_KATTO := 1.93  # matalan katon yläpinta
+const HIACE_KATTO_KORKEA := 2.20  # korotetun katon yläpinta
+const HIACE_KEULA := -2.20  # keulapaneeli z (puskuri -2,30)
+const HIACE_PERA := 2.28  # takaluukku z (puskuri 2,32)
+const HIACE_WS := Vector2(-2.845, 0.7625)  # tuulilasin taso z = x + y * korkeus: alareuna (1,20; -1,93), loiva kuten esikuvassa
+
+
+## Hiacen kyljen x korkeudella y (alakori pysty, vyölinjan yläpuolella kallistuu): kylkeen kiinnitettävät kuviot.
+static func hiace_kylki(y: float) -> float:
+	return HIACE_KYLKI - (HIACE_KYLKI - HIACE_OLKA_X) * clampf((y - HIACE_VYO) / (HIACE_OLKA - HIACE_VYO), 0.0, 1.0)
+
+
+## Pursotus Z-suunnassa: poikkileikkaus sec (x, y; kupera tai kovera monikulmio) etupinnasta z = zf.x + zf.y * y
+## takapintaan z = zb.x + zb.y * y. Molemmat päädyt ovat tasoja (kalteva tuulilasi, viisto keula), kyljet suoria
+## (Hiacen kallistuvat kyljet ja katon pyöristys ovat poikkileikkauksessa). Tasaiset normaalit kuten _bevel.
+static func _loft(parent: Node3D, sec: PackedVector2Array, zf: Vector2, zb: Vector2, mat: Material) -> MeshInstance3D:
+	var n := sec.size()
+	var area := 0.0
+	for i in n:
+		area += sec[i].cross(sec[(i + 1) % n])
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in n:
+		var a := sec[i]
+		var b := sec[(i + 1) % n]
+		var e := (b - a).normalized()
+		var o := Vector2(e.y, -e.x) if area > 0.0 else Vector2(-e.y, e.x)
+		var a0 := Vector3(a.x, a.y, zf.x + zf.y * a.y)
+		var b0 := Vector3(b.x, b.y, zf.x + zf.y * b.y)
+		var a1 := Vector3(a.x, a.y, zb.x + zb.y * a.y)
+		var b1 := Vector3(b.x, b.y, zb.x + zb.y * b.y)
+		_tri(st, a0, b0, b1, Vector3(o.x, o.y, 0))
+		_tri(st, a0, b1, a1, Vector3(o.x, o.y, 0))
+	var idx := Geometry2D.triangulate_polygon(sec)
+	for k in range(0, idx.size(), 3):
+		var f: Array[Vector3] = []
+		var r: Array[Vector3] = []
+		for m in 3:
+			var p := sec[idx[k + m]]
+			f.append(Vector3(p.x, p.y, zf.x + zf.y * p.y))
+			r.append(Vector3(p.x, p.y, zb.x + zb.y * p.y))
+		_tri(st, f[0], f[1], f[2], Vector3(0, zf.y, -1).normalized())
+		_tri(st, r[0], r[1], r[2], Vector3(0, -zb.y, 1).normalized())
+	st.index()
+	st.generate_tangents()
+	return part(parent, st.commit(), Vector3.ZERO, mat)
+
+
+## Ohut monikulmio (pisteet (z, y)) Hiacen kyljen pinnalla sx-puolella lift verran ulkona: kallistuvalla kyljellä
+## kuvio kallistuu kyljen mukana (ikkunat, saumat ja kiskot vyölinjan yläpuolella). Näkyy vain ulospäin.
+static func _hiace_skin(parent: Node3D, sx: float, pts: PackedVector2Array, lift: float, mat: Material) -> MeshInstance3D:
+	var k := (HIACE_KYLKI - HIACE_OLKA_X) / (HIACE_OLKA - HIACE_VYO)
+	var idx := Geometry2D.triangulate_polygon(pts)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in range(0, idx.size(), 3):
+		var t: Array[Vector3] = []
+		var above := false
+		for m in 3:
+			var p := pts[idx[i + m]]
+			t.append(Vector3(sx * (hiace_kylki(p.y) + lift), p.y, p.x))
+			above = above or p.y > HIACE_VYO + 0.001
+		var nrm := Vector3(sx, k if above else 0.0, 0).normalized()
+		_tri(st, t[0], t[1], t[2], nrm)
+	st.index()
+	st.generate_tangents()
+	return part(parent, st.commit(), Vector3.ZERO, mat)
+
+
+## Tuulilasin tason z korkeudella y.
+static func _hiace_ws(y: float) -> float:
+	return HIACE_WS.x + HIACE_WS.y * y
+
+
+## Kapea pystysauma tai -kuvio (z0…z1, y0…y1) Hiacen kyljessä: vyölinjan alla laatikko pystykylkeen, yläpuolella
+## kallistuvan kyljen mukainen levy (_hiace_skin), jottei kuvio jää korin sisään tai irtoa kyljestä.
+static func _hiace_strip(parent: Node3D, sx: float, z0: float, z1: float, y0: float, y1: float, lift: float, mat: Material) -> void:
+	if y0 < HIACE_VYO:
+		var yt := minf(y1, HIACE_VYO)
+		part(parent, B.boxm(Vector3(0.01, yt - y0, z1 - z0)), Vector3(sx * (HIACE_KYLKI + lift - 0.003), (y0 + yt) / 2.0, (z0 + z1) / 2.0), mat)
+	if y1 > HIACE_VYO:
+		var yb := maxf(y0, HIACE_VYO)
+		_hiace_skin(parent, sx, PackedVector2Array([Vector2(z0, yb), Vector2(z1, yb), Vector2(z1, y1), Vector2(z0, y1)]), lift, mat)
+
+
+static func hiace(parent: Node3D, color: Color, plate := "", korkea := false) -> Array[Node3D]:
+	const SIDE := HIACE_KYLKI
+	const SILL := 0.33  # alakorin alareuna (nokaton: korkea maavara)
+	const NOSE_Y := 0.98  # keulapaneelin yläreuna: viisto pelti nousee tästä tuulilasin alareunaan
+	const BELT := HIACE_VYO
+	const WT := 1.76  # ikkunoiden ja tuulilasin yläreuna
+	const ROOF := HIACE_KATTO
+	const FRONT := HIACE_KEULA
+	const BACK := HIACE_PERA
+	const BP := -0.76  # B-pilari = ohjaamon takaseinä z
+	const SLIDE := 0.69  # liukuoven takareuna z
+	const LAMP_Y := 0.885  # ajovalojen keskikorkeus
+	const BUMP_Y := 0.55
+	const WHEEL_R := 0.31  # 195R14C
+	const WHEEL_Z := 1.28  # akseliväli 2560 mm (blueprint)
+	const ARCH_R := WHEEL_R + 0.05
+	const ARCH_Y := WHEEL_R
+	const LIP_R := ARCH_R + 0.04
 	var first := parent.get_child_count()
 	var body := paint(color)
+	var win := _mat("ponylasi", Color(0.22, 0.27, 0.32), 0.3, 0.05, 0.32)
+	var frame := plastic()
+	var bar := _mat("ponykromi", Color(0.86, 0.87, 0.89), 0.45, 0.3)
+	var grey := _mat("hiaceharmaa", Color(0.24, 0.24, 0.25), 0.05, 0.7)  # puskurit ja valopaneeli (tummanharmaa muovi)
+	var amber := lamp(Color(1.0, 0.42, 0.04))
+	var red := lamp(Color(0.72, 0.02, 0.05))
 	if plate == "":
 		plate = "%s%s%s-%d" % [char(65 + randi() % 26), char(65 + randi() % 26), char(65 + randi() % 26), 100 + randi() % 900]
-	part(parent, B.boxm(Vector3(1.95, 1.75, 3.9)), Vector3(0, 1.38, 0.45), body)  # tavaratila ja ohjaamo
-	part(parent, B.boxm(Vector3(1.9, 0.62, 0.95)), Vector3(0, 0.82, -1.95), body)  # keula
-	slab(parent, Vector3(0, 1.13, -2.42), Vector3(0, 1.16, -1.5), 1.86, 0.08, body)  # konepelti
-	slab(parent, Vector3(0, 1.17, -1.5), Vector3(0, 2.05, -1.0), 1.8, 0.05, glass())  # tuulilasi
-	part(parent, B.boxm(Vector3(1.98, 0.14, 4.9)), Vector3(0, 0.5, -0.05), plastic())  # helma
-	for sx in [-0.98, 0.98]:
-		part(parent, B.boxm(Vector3(0.02, 0.5, 0.75)), Vector3(sx, 1.65, -0.85), glass())  # sivuikkuna
-		part(parent, B.boxm(Vector3(0.14, 0.12, 0.2)), Vector3(sx * 1.12, 1.6, -1.45), body)  # peili
-		part(parent, B.boxm(Vector3(0.012, 1.3, 0.012)), Vector3(sx * 0.99, 1.25, 0.2), plastic())  # liukuoven sauma
-		part(parent, B.boxm(Vector3(0.36, 0.13, 0.05)), Vector3(sx * 0.66, 0.98, -2.43), lamp(Color(1.0, 0.98, 0.9)))
-		part(parent, B.boxm(Vector3(0.12, 0.42, 0.05)), Vector3(sx * 0.9, 1.0, 2.41), lamp(Color(0.8, 0.04, 0.03)))
-	part(parent, B.boxm(Vector3(0.012, 1.5, 0.02)), Vector3(0, 1.38, 2.41), plastic())  # takaovien sauma
-	part(parent, B.boxm(Vector3(0.95, 0.24, 0.04)), Vector3(0, 0.88, -2.43), plastic())  # maski
-	part(parent, B.boxm(Vector3(1.96, 0.2, 0.12)), Vector3(0, 0.52, -2.47), plastic())
-	part(parent, B.boxm(Vector3(1.96, 0.2, 0.12)), Vector3(0, 0.52, 2.45), plastic())
-	_plate(parent, Vector3(0, 0.55, -2.54), false, plate)
-	_plate(parent, Vector3(0, 0.62, 2.45), true, plate)
-	_merge_parts(parent, first, "van/" + color.to_html())
+	var xw := hiace_kylki(WT)
+	# Kori neljänä pursotuksena: alakori (pysty keula), viisto pelti tuulilasin alle, kallistuva kylkivyöhyke
+	# ohjaamon takaa perään (ohjaamon kohdalla lasit) ja katto tuulilasista perään pyöristetyin kulmin.
+	var c := 0.03
+	_loft(parent, PackedVector2Array([Vector2(-SIDE + c, SILL), Vector2(SIDE - c, SILL), Vector2(SIDE, SILL + c), Vector2(SIDE, NOSE_Y),
+		Vector2(-SIDE, NOSE_Y), Vector2(-SIDE, SILL + c)]), Vector2(FRONT, 0), Vector2(BACK, 0), body)
+	var nb := (_hiace_ws(BELT) - FRONT) / (BELT - NOSE_Y)
+	_loft(parent, PackedVector2Array([Vector2(-SIDE, NOSE_Y), Vector2(SIDE, NOSE_Y), Vector2(SIDE, BELT), Vector2(-SIDE, BELT)]),
+		Vector2(FRONT - nb * NOSE_Y, nb), Vector2(BACK, 0), body)
+	_loft(parent, PackedVector2Array([Vector2(-SIDE, BELT), Vector2(SIDE, BELT), Vector2(xw, WT), Vector2(-xw, WT)]),
+		Vector2(BP, 0), Vector2(BACK, 0), body)
+	var roof_sec := PackedVector2Array([Vector2(-xw, WT), Vector2(xw, WT), Vector2(HIACE_OLKA_X, HIACE_OLKA), Vector2(0.71, ROOF - 0.025),
+		Vector2(0.67, ROOF), Vector2(-0.67, ROOF), Vector2(-0.71, ROOF - 0.025), Vector2(-HIACE_OLKA_X, HIACE_OLKA)])
+	_loft(parent, roof_sec, HIACE_WS, Vector2(BACK, 0), body)
+	if korkea:
+		# Lasikuituinen korotettu katto: etuosa viettää taakse tuulilasin yläreunan takaa, takaosa pyöristyy luukun yllä.
+		var hr := HIACE_KATTO_KORKEA
+		_loft(parent, PackedVector2Array([Vector2(-0.68, ROOF - 0.01), Vector2(0.68, ROOF - 0.01), Vector2(0.65, hr - 0.08),
+			Vector2(0.61, hr - 0.02), Vector2(0.55, hr), Vector2(-0.55, hr), Vector2(-0.61, hr - 0.02), Vector2(-0.65, hr - 0.08)]),
+			Vector2(-1.30 - 1.357 * (ROOF - 0.01), 1.357), Vector2(2.26 + 0.714 * (ROOF - 0.01), -0.714), body)
+		for sx in [-1.0, 1.0]:
+			part(parent, B.boxm(Vector3(0.012, 0.012, 3.5)), Vector3(sx * 0.675, ROOF + 0.004, 0.45), frame)  # liimasauma
+	# Ohjaamo: tuulilasi ja sivulasit kallistuvalla kyljellä, A-pilarit, sisusta (kojelauta, ratti, etupenkit).
+	_cabin(parent, BELT, WT, _hiace_ws(BELT), _hiace_ws(WT), BP - 0.01, BP - 0.01, BELT, xw * 2.0, bar, -0.98, -0.72, BP + 0.02, 0.02)
+	var wsec := PackedVector2Array([Vector2(-SIDE + 0.07, BELT + 0.01), Vector2(SIDE - 0.07, BELT + 0.01), Vector2(xw - 0.07, WT - 0.005),
+		Vector2(-xw + 0.07, WT - 0.005)])
+	_loft(parent, wsec, HIACE_WS - Vector2(0.012, 0), HIACE_WS, win)  # tuulilasi
+	for sx in [-1.0, 1.0]:
+		var ax0: float = sx * SIDE
+		var ax1: float = sx * xw
+		var ap := PackedVector2Array([Vector2(ax0 - sx * 0.075, BELT), Vector2(ax0, BELT), Vector2(ax1, WT), Vector2(ax1 - sx * 0.075, WT)])
+		_loft(parent, ap, HIACE_WS - Vector2(0.005, 0), HIACE_WS + Vector2(0.09, 0), body)  # A-pilari
+		_loft(parent, PackedVector2Array([Vector2(ax0 - sx * 0.075, BELT), Vector2(ax0 - sx * 0.065, BELT), Vector2(ax1 - sx * 0.065, WT),
+			Vector2(ax1 - sx * 0.075, WT)]), HIACE_WS - Vector2(0.008, 0), HIACE_WS + Vector2(0.01, 0), frame)  # lasin kumilista
+		var wz0: float = _hiace_ws(BELT) + 0.09
+		var wz1: float = _hiace_ws(WT) + 0.09
+		_hiace_skin(parent, sx, PackedVector2Array([Vector2(wz0, BELT), Vector2(BP, BELT), Vector2(BP, WT), Vector2(wz1, WT)]), -0.004, win)
+		# Ikkunan musta kehys: yläreuna, alareuna (vyölista) ja B-pilari.
+		_hiace_skin(parent, sx, PackedVector2Array([Vector2(wz1 - 0.01, WT - 0.025), Vector2(BP, WT - 0.025), Vector2(BP, WT), Vector2(wz1 - 0.01, WT)]), 0.002, frame)
+		_hiace_skin(parent, sx, PackedVector2Array([Vector2(wz0 - 0.02, BELT - 0.004), Vector2(BP, BELT - 0.004), Vector2(BP, BELT + 0.02), Vector2(wz0 - 0.02, BELT + 0.02)]), 0.002, frame)
+		_hiace_skin(parent, sx, PackedVector2Array([Vector2(BP - 0.07, BELT), Vector2(BP + 0.005, BELT), Vector2(BP + 0.005, WT), Vector2(BP - 0.07, WT)]), 0.002, frame)
+		# Kattokouru olan yläpuolella tuulilasista perään.
+		var gz0: float = _hiace_ws(HIACE_OLKA) + 0.03
+		part(parent, B.boxm(Vector3(0.025, 0.02, BACK - 0.03 - gz0)), Vector3(sx * (HIACE_OLKA_X + 0.005), HIACE_OLKA + 0.012, (gz0 + BACK - 0.03) / 2.0), frame)
+		# Isot mustat peilit varressa ohjaamon oven etukulmassa.
+		var mz := _hiace_ws(1.35) + 0.16
+		var arm_x: float = hiace_kylki(1.33) - 0.01
+		part(parent, B.boxm(Vector3(0.9 - arm_x, 0.03, 0.03)), Vector3(sx * (arm_x + 0.9) / 2.0, 1.33, mz + 0.02), frame)  # varsi
+		_bevel_box(parent, Vector3(0.11, 0.17, 0.06), Vector3(sx * 0.935, 1.36, mz + 0.03), 0.015, frame)
+		part(parent, B.boxm(Vector3(0.09, 0.15, 0.01)), Vector3(sx * 0.935, 1.36, mz + 0.062), glass())
+		# Pyyhkimet tuulilasin alareunassa.
+		var wp := part(parent, B.boxm(Vector3(0.6, 0.015, 0.02)), Vector3(sx * 0.33 - 0.08, BELT + 0.04, _hiace_ws(BELT + 0.04) - 0.02), frame)
+		wp.rotation.z = 0.12 * sx
+	# Kyljet: ohjaamon ovien saumat ja kahvat, liukuovi oikealla (+X), vaakasauma (esikuvan kylkiviiva), pyöränkaaret.
+	for sx in [-1.0, 1.0]:
+		var sz: float = sx * (SIDE + 0.003)
+		var dz0: float = FRONT + 0.36
+		part(parent, B.boxm(Vector3(0.01, BELT - SILL - 0.08, 0.012)), Vector3(sz, (SILL + BELT) / 2.0 + 0.02, dz0), frame)
+		part(parent, B.boxm(Vector3(0.01, BELT - SILL - 0.08, 0.012)), Vector3(sz, (SILL + BELT) / 2.0 + 0.02, BP), frame)
+		part(parent, B.boxm(Vector3(0.03, 0.035, 0.15)), Vector3(sx * (SIDE + 0.012), 1.12, BP - 0.2), frame)  # kahva
+		part(parent, B.boxm(Vector3(0.01, 0.008, BACK - FRONT - 0.1)), Vector3(sz, 0.905, (FRONT + BACK) / 2.0), frame)  # kylkiviiva
+		part(parent, B.boxm(Vector3(0.02, 0.05, 0.22)), Vector3(sx * (SIDE + 0.004), LAMP_Y, FRONT + 0.14), amber)  # kulmavilkku kyljessä
+		for wz in [-WHEEL_Z, WHEEL_Z]:
+			_wheel_arch(parent, sx, SIDE, SILL, wz, ARCH_R, ARCH_Y, LIP_R, frame, body)
+	_hiace_strip(parent, 1.0, BP + 0.03, BP + 0.042, SILL + 0.06, WT - 0.03, 0.003, frame)  # liukuoven etusauma
+	_hiace_strip(parent, 1.0, SLIDE - 0.006, SLIDE + 0.006, SILL + 0.06, WT - 0.03, 0.003, frame)  # takasauma
+	_hiace_strip(parent, 1.0, BP + 0.03, SLIDE + 0.006, WT - 0.042, WT - 0.03, 0.003, frame)  # yläsauma
+	part(parent, B.boxm(Vector3(0.015, 0.03, BACK - 0.12 - SLIDE)), Vector3(SIDE + 0.007, 1.0, (SLIDE + BACK - 0.12) / 2.0), frame)  # kisko
+	part(parent, B.boxm(Vector3(0.03, 0.12, 0.035)), Vector3(SIDE + 0.012, 1.0, BP + 0.1), frame)  # liukuoven kahva
+	part(parent, B.cyl(0.06, 0.06, 0.012, 20), Vector3(-SIDE - 0.004, 1.0, 1.85), frame, Vector3(0, 0, PI / 2.0))  # tankkiluukku
+	part(parent, B.cyl(0.054, 0.054, 0.014, 20), Vector3(-SIDE - 0.005, 1.0, 1.85), body, Vector3(0, 0, PI / 2.0))
+	# Alusta pyörien välissä: korkean korin alta ei näy läpi.
+	part(parent, B.boxm(Vector3(1.3, 0.14, BACK - FRONT - 0.5)), Vector3(0, SILL - 0.06, (FRONT + BACK) / 2.0), frame)
+	# Keula: tummanharmaa valopaneeli (ajovalot, vaakasäleikkö, kulmavilkut), iso puskuri ilmanottoaukkoineen.
+	var fz := FRONT - 0.005
+	var lens := _mat("ponylinssi", Color(0.62, 0.65, 0.68), 0.3, 0.15)
+	part(parent, B.boxm(Vector3(SIDE * 2.0 - 0.02, NOSE_Y - 0.79, 0.02)), Vector3(0, (NOSE_Y + 0.79) / 2.0, fz), grey)
+	for k in 3:
+		part(parent, B.boxm(Vector3(0.84, 0.012, 0.025)), Vector3(0, LAMP_Y - 0.045 + k * 0.045, fz - 0.008), frame)
+	for k in 6:
+		part(parent, B.boxm(Vector3(0.012, 0.11, 0.025)), Vector3(-0.35 + k * 0.14, LAMP_Y, fz - 0.009), frame)
+	part(parent, B.boxm(Vector3(0.1, 0.035, 0.02)), Vector3(0, LAMP_Y + 0.0, fz - 0.016), bar)  # merkki
+	for sx in [-1.0, 1.0]:
+		part(parent, B.boxm(Vector3(0.25, 0.15, 0.02)), Vector3(sx * 0.615, LAMP_Y, fz - 0.006), frame)
+		part(parent, B.boxm(Vector3(0.23, 0.13, 0.02)), Vector3(sx * 0.615, LAMP_Y, fz - 0.01), _mat("ponyvalo", Color(0.74, 0.76, 0.75), 0.2, 0.1))
+		part(parent, B.cyl(0.045, 0.045, 0.02, 16), Vector3(sx * 0.6, LAMP_Y + 0.005, fz - 0.013), lamp(Color(1.0, 0.98, 0.9)), Vector3(PI / 2.0, 0, 0))
+		for k in 3:
+			part(parent, B.boxm(Vector3(0.23, 0.004, 0.02)), Vector3(sx * 0.615, LAMP_Y - 0.035 + k * 0.035, fz - 0.014), lens)
+		part(parent, B.boxm(Vector3(0.05, 0.1, 0.02)), Vector3(sx * (SIDE - 0.035), LAMP_Y, fz - 0.008), amber)
+	_bevel_box(parent, Vector3(SIDE * 2.0 + 0.03, 0.44, 0.1), Vector3(0, BUMP_Y, FRONT - 0.05), 0.03, grey)
+	part(parent, B.boxm(Vector3(0.84, 0.13, 0.02)), Vector3(0, 0.55, FRONT - 0.096), frame)  # ilmanottoaukko
+	for k in 2:
+		part(parent, B.boxm(Vector3(0.82, 0.014, 0.02)), Vector3(0, 0.53 + k * 0.04, FRONT - 0.1), grey)
+	for sx in [-1.0, 1.0]:
+		_bevel_box(parent, Vector3(0.05, 0.4, 0.42), Vector3(sx * (SIDE - 0.01), BUMP_Y, FRONT + 0.17), 0.02, grey)  # puskurin kulma
+	_plate(parent, Vector3(0, 0.4, FRONT - 0.11), false, plate)
+	# Perä: takaluukku saumoineen ja ikkunoineen, pystyt kulmatakavalot kylkeen asti, porraspuskuri, kilpi valojen välissä.
+	var bz := BACK + 0.004
+	var gate_top := ROOF - 0.05
+	part(parent, B.boxm(Vector3(1.28, 0.44, 0.012)), Vector3(0, 1.53, bz), frame)
+	part(parent, B.boxm(Vector3(1.22, 0.39, 0.012)), Vector3(0, 1.53, bz + 0.002), glass())  # takaikkuna (tavaratila pimeä)
+	for sx in [-1.0, 1.0]:
+		part(parent, B.boxm(Vector3(0.012, gate_top - 0.6, 0.01)), Vector3(sx * 0.71, (gate_top + 0.6) / 2.0, bz), frame)
+		var lx: float = sx * (SIDE - 0.065)
+		part(parent, B.boxm(Vector3(0.13, 0.4, 0.02)), Vector3(lx, 0.9, bz), frame)
+		part(parent, B.boxm(Vector3(0.11, 0.13, 0.03)), Vector3(lx, 1.025, bz + 0.004), red)
+		part(parent, B.boxm(Vector3(0.11, 0.09, 0.03)), Vector3(lx, 0.91, bz + 0.004), amber)
+		part(parent, B.boxm(Vector3(0.11, 0.05, 0.03)), Vector3(lx, 0.84, bz + 0.004), lamp(Color(0.95, 0.95, 0.92)))
+		part(parent, B.boxm(Vector3(0.11, 0.08, 0.03)), Vector3(lx, 0.765, bz + 0.004), red)
+		part(parent, B.boxm(Vector3(0.02, 0.38, 0.06)), Vector3(sx * (SIDE + 0.004), 0.9, BACK - 0.025), red)  # kiertää kylkeen
+	part(parent, B.boxm(Vector3(1.43, 0.012, 0.01)), Vector3(0, gate_top, bz), frame)
+	part(parent, B.boxm(Vector3(1.43, 0.012, 0.01)), Vector3(0, 0.6, bz), frame)
+	part(parent, B.boxm(Vector3(0.16, 0.035, 0.03)), Vector3(0, 1.24, bz + 0.01), bar)  # luukun kahva
+	var rw := part(parent, B.boxm(Vector3(0.4, 0.015, 0.02)), Vector3(0.05, 1.4, bz + 0.012), frame)  # takapyyhkijä
+	rw.rotation.z = 0.5
+	_bevel_box(parent, Vector3(SIDE * 2.0 + 0.02, 0.2, 0.12), Vector3(0, 0.44, BACK + 0.04), 0.03, grey)
+	part(parent, B.boxm(Vector3(0.7, 0.012, 0.1)), Vector3(0, 0.546, BACK + 0.04), frame)  # porras
+	part(parent, B.cyl(0.03, 0.03, 0.12, 8), Vector3(0.55, 0.27, BACK - 0.02), bar, Vector3(PI / 2.0, 0, 0))  # pakoputki
+	_plate(parent, Vector3(0, 0.8, BACK + 0.012), true, plate)
+	_merge_parts(parent, first, "hiace/" + color.to_html() + ("/korkea" if korkea else ""))
+	var hub := _mat("hiacevanne", Color(0.74, 0.75, 0.76), 0.5, 0.4)
 	var wheels: Array[Node3D] = []
-	for sx in [-0.86, 0.86]:
-		for wz in [-1.65, 1.55]:
-			wheels.append(wheel(parent, Vector3(sx, 0.36, wz), 0.36, 0.24, 0, chrome(), 0.6))
+	for sx in [-1.0, 1.0]:  # raide 1520: rengas kotelon mustan levyn tasalla kuten muissa malleissa
+		for wz in [-WHEEL_Z, WHEEL_Z]:
+			wheels.append(wheel(parent, Vector3(sx * (SIDE - 0.085), WHEEL_R, wz), WHEEL_R, 0.19, 0, hub, 0.6, 8))
 	return wheels
+
+
+## Pakettiauto: Toyota HiAce H100 (hiace). korkea = korotettu katto (ambulanssi, kauppa-auto).
+static func van(parent: Node3D, color: Color, plate := "", korkea := false) -> Array[Node3D]:
+	return hiace(parent, color, plate, korkea)
 
 
 ## Taksin väri: beige/kerma (norsunluu, Mercedes-taksien perinteinen sävy).

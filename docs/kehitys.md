@@ -122,6 +122,11 @@ helmassa tai kehä < 4 cm vartalosta). Pään luu on `Head`.
 Taksi: kermanvärinen Mercedes-Benz W123 (`vehicles.gd mercedes()`, `taxi()`; #283) keltaisella TAXI-kuvulla,
 `tools/testit/aja.sh tscn tools/testit/taksi_kuvat.tscn` (W123 ja taksi rinnakkain; mittaa 1,786 × 1,438 × 4,725 ±5 %, akselivälin
 2,795). Liikenteen, poliisin ja Päivin autoissa on kuskit (`Vehicles.kuski`: arvottu tai annettu ulkonäkö, Driving, `istuta`); istuimet myös Ponylle, Saabille ja Ladalle (`ISTUIMET`). Taksikuskit istutetaan `Vehicles.istuta(..., "mercedes", "kuski")`; `autossa_kuvat.tscn` mittaa myös taksikuskin.
+Pakettiauto: 90-luvun Toyota HiAce H100 (`vehicles.gd hiace()`, `van()` kutsuu sitä; mitat H100-blueprintista,
+getoutlines.com), nokaton kori kallistuvin kyljin, ohjaamon sisusta lasien läpi, liukuovi oikealla ja takaluukku; `korkea = true`
+korotettu katto (ambulanssi, kauppa-auto). Kylkikuviot sovitetaan kylkeen `Vehicles.hiace_kylki(y)`:llä.
+`tools/testit/aja.sh tscn tools/testit/hiace_kuvat.tscn` (matala, korkea ja ambulanssi; mittaa 1,69 × 1,93/2,20 × 4,60 ±5 %,
+akselivälin 2,56).
 Kaikki mallit rivissä: `tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn`.
 
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
