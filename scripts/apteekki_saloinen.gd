@@ -132,10 +132,12 @@ static func _pick_site(world) -> Dictionary:
 				if not ok:
 					break
 			if ok and hi - lo < 1.0:
-				print("APTEEKKI_S paikka t=%.0f s=%.0f px %s maailma %s korkeusero %.2f m" % [t, s, str(M.to_px(Vector3(c.x, 0, c.y)).snapped(Vector2.ONE * 0.1)),
-					str(c.snapped(Vector2.ONE * 0.1)), hi - lo])
+				if Contact.diag():  # vain testiajoissa
+					print("APTEEKKI_S paikka t=%.0f s=%.0f px %s maailma %s korkeusero %.2f m" % [t, s, str(M.to_px(Vector3(c.x, 0, c.y)).snapped(Vector2.ONE * 0.1)),
+						str(c.snapped(Vector2.ONE * 0.1)), hi - lo])
 				return {"c": c, "f": f, "lo": lo}
-			print("APTEEKKI_S ehdokas t=%.0f s=%.0f hylätty: %s" % [t, s, why if why != "" else "korkeusero %.2f m" % (hi - lo)])
+			if Contact.diag():
+				print("APTEEKKI_S ehdokas t=%.0f s=%.0f hylätty: %s" % [t, s, why if why != "" else "korkeusero %.2f m" % (hi - lo)])
 	return {}
 
 

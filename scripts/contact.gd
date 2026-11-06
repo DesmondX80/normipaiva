@@ -3,6 +3,16 @@
 ## joten istuttaminen ei maksa ruutukohtaista työtä. Paistettu verkko (Pose.limb_points) on totuus vain testissä.
 ## Kaikki laskenta on maailman avaruudessa. Ei lataa pose.gd:tä (silmukka): limb_points annetaan profile-kutsulle.
 
+
+## Diagnostiikkatulosteet (kontaktien korjaukset, apteekin sijoittelu) vain testiajoissa: tools/testit/aja.sh välittää
+## aina omat argumenttinsa (--scene=..., tulostekansio), tavallinen pelikäynnistys (godot ./) ei. Varoitukset ("KONTAKTI
+## JÄÄ ...", oikea vika) tulostetaan aina.
+static var _diag := -1
+static func diag() -> bool:
+	if _diag < 0:
+		_diag = 0 if OS.get_cmdline_user_args().is_empty() else 1
+	return _diag == 1
+
 const Seat := preload("res://scripts/seat.gd")
 const Elastic := preload("res://scripts/elastic.gd")
 const Terrain := preload("res://scripts/terrain.gd")
