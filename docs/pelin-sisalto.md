@@ -46,6 +46,19 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Valojen sammuttua kontataan (WASD, Shift ripeästi mutta kolisten). Rasvanappi tökkää jotakuta takaapäin peppuun
   (E) ja huutaa nimen. Jos arvaus osuu, tökätty nuolee sormen ja on seuraava nappi. Jos ei, tökkääjä nuolee itse.
   Kun nappi on joku muu, se jahtaa pimeässä. Testit `--scene=rasvanappi` ja `tools/testit/rasvanappi_kuvat.tscn`.
+- **Pentin BangBus (vain aikuisille, #299):** Pentti (keksitty keski-ikäinen viiksimies: hihaton nahkaliivi, pilottilasit,
+  kultaketju) seisoo tuunatun pakettiautonsa vieressä perjantai- ja lauantai-iltaisin klo 19–23: Saloisissa K-Marketin
+  parkkipaikalla, Vaalassa Zabukin asiakasparkissa. Muina aikoina Pentti ajaa autollaan Saloisten liikenteessä.
+  Auto on viininpunainen Hiace: kyljissä käsinmaalattu PENTIN BANGBUS -banderolli, keulassa liekit, katolla
+  lisävalot, takaikkunassa ja ohjaamon takana punaiset samettiverhot ja peilissä pehmonopat. Pentti huutelee
+  lähelle tulevalle. Juttelussa kaksimieliset repliikit autosta (eivät toistu samalla kerralla), "Mikä ihmeen
+  BangBus?" (moraali kerran päivässä), kieltäytyminen tai kyyti. Kyyti on välikohtaus: auto keinuu parkkipaikalla,
+  ikkunat huurtuvat ja radiosta soi humppa; mitään ei näytetä. Pelaaja herää aamulla klo 10.30 oudosta paikasta
+  (Saloisissa urheilukentän maalista, Oravajärven rannalta tai aseman laiturilta, Vaalassa Gasthausin pihalta):
+  moraali nousee, mutta vireys, kipu ja stressi kärsivät, ja lompakosta puuttuu 5–20 € ("Bensarahat. T: Pentti").
+  Jos joku kylän hahmo on lähellä (25 m), hän näkee kyytiin nousun 60 %:n todennäköisyydellä: maine −3 ja Päivi
+  kuulee asiasta aamulla. Päiväkirjaan sivutehtävä "Pentin kyydissä" ja ensimmäisestä kyydistä legendaarinen hetki.
+  Testit `--scene=bangbus` ja `--scene=bangbus_vaala`.
 - **Kolmiomittaus (Sytkäri-mätsi, vain aikuisille):** Saloisten kaupan pihassa seisovat Joni (tummatukkainen golfari,
   selässä Sandels-oluen 24-pakkauksesta jesarilla tehty päkkirinkka termoksineen, golfpalloineen ja tölkkeineen) ja Esa
   (erämies, harppi taskussa), Vaalan aseman pihassa Hevari-Tero (valittaa valtiosta) ja Siviikki-Timo (punainen Honda

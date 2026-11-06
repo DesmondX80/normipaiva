@@ -40,6 +40,7 @@ const ENDINGS := [
 	["ukko_vapaa", "Ukko vapaaksi", "Tekojärven Ukko ui takaisin ladon raunioille. Tauno tarjosi kahvit."],
 	["mirkku", "Mirkun teltassa", "Päivin kukkakimppu Mirkulle, nuotio laavulla ja kesäyö teltassa. Päivi luulee, että olit kalassa."],
 	["minttu", "Kolmiomittaus Saloisissa", "Kolme ympyrää, kolme lahjaa ja Mintun pimennetty olohuone. Esa paistoi aamulla mansikkaletut."],
+	["pentin_kyyti", "Pentin kyydissä", "PENTIN BANGBUS keinui parkkipaikalla humpan tahtiin. Mitä tapahtui, jää Pentin ja verhojen väliin."],
 	["katja", "Kolmiomittaus Vaalassa", "Siviikki, harppi ja Katjan rivitalo aseman takana. Tero valitti verottajasta vielä aamukahvilla."],
 ]
 
