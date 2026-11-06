@@ -24983,7 +24983,7 @@ func _maybe_screenshot() -> void:
 			for hour in [7.0, 9.0, 12.0, 15.0, 21.0, 23.0]:
 				clock_min = hour * 60.0
 				_wife_rhythm(clock_min)
-				print("PAIVI klo %d: vaihe %s, näkyy %s, pysäköity %s" % [int(hour), _wife_phase, wife.visible, wife.parked])
+				print("PAIVI klo %d: vaihe %s, näkyy %s, pysäköity %s, kuski näkyy %s" % [int(hour), _wife_phase, wife.visible, wife.parked, wife._kuski.visible])
 			for wait in [1.5, 12.0]:
 				clock_min = 12 * 60.0
 				_wife_rhythm(clock_min)

@@ -406,7 +406,7 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 		_side_panel(parent, sx * GLASS_W / 2.0, [Vector2(WS0, BELT), Vector2(WS1, top), Vector2(QA, top), Vector2(QB, BELT)], win)
 	# Sisusta lasien läpi (vasemmanpuoleinen ohjaus: kuljettaja -X:ssä, etu -Z). Kori on umpinainen vyölinjaan asti,
 	# joten istuinosat jäävät sen sisään; näkyvissä ovat selkänojat niskatukineen, kojelauta, ratti ja verhoilu.
-	_cabin(parent, BELT, top, WS0, WS1, HT0, HT1, HT_Y, GLASS_W, bar, 0.36, 1.02, 1.5, 0.62)
+	_cabin(parent, BELT, top, WS0, WS1, HT0, HT1, HT_Y, GLASS_W, bar, 0.36, 1.02, 1.5, 0.62, ISTUIMET.pony.ratti)
 	slab(parent, wf0, wf1, GLASS_W + 0.02, 0.04, win)  # tuulilasi
 	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, win)  # takaluukun lasi
 	# Luukun lyhyen pystyn peltiosan (takavalot ja kilpi, alakorin profiilissa) yläreunassa pieni musta huulispoileri.
@@ -551,6 +551,26 @@ const ISTUIMET := {
 		"lattia": 0.3,
 		"ratti": Vector3(-0.36, 1.0, -0.3),  # ratti eteen ja ylös polvien yltä; kuljettajan kädet IK:lla kehälle (istuta)
 	},
+	# Volvon mallilla: istuin katon alapinnan mukaan (Volvo 1,39 -> 0,40), ratti vyölinjan yläpuolelle ja tuulilasin taakse
+	# (WS0 + 0,47), istuin ratin taakse 0,35. Pony, Saab ja Lada: liikenteen kuskit (traffic_car.gd, Vehicles.kuski).
+	"pony": {  # vyö 0,87, katon ala 1,33, tuulilasi WS0 -0,68
+		"kuski": {"p": Vector3(-0.34, 0.34, 0.14), "nojaus": 0.2},
+		"etu": {"p": Vector3(0.34, 0.33, 0.18), "nojaus": 0.3},
+		"lattia": 0.26,
+		"ratti": Vector3(-0.34, 0.93, -0.21),
+	},
+	"saab": {  # vyö 0,93, katon ala 1,37, tuulilasi WS0 -0,89
+		"kuski": {"p": Vector3(-0.36, 0.38, -0.07), "nojaus": 0.15},
+		"etu": {"p": Vector3(0.36, 0.37, -0.03), "nojaus": 0.3},
+		"lattia": 0.28,
+		"ratti": Vector3(-0.36, 0.99, -0.42),
+	},
+	"lada": {  # vyö 0,92, katon ala 1,39, tuulilasi WS0 -0,80, kapea ohjaamo
+		"kuski": {"p": Vector3(-0.33, 0.4, 0.02), "nojaus": 0.1},
+		"etu": {"p": Vector3(0.33, 0.38, 0.06), "nojaus": 0.3},
+		"lattia": 0.32,
+		"ratti": Vector3(-0.33, 0.98, -0.33),
+	},
 	"mercedes": {  # W123: vyö 0,92, katon ala 1,39, selkänoja z 0,2
 		"kuski": {"p": Vector3(-0.38, 0.37, 0.04), "nojaus": 0.15},  # taksikuski: istuin alas, pää katon alle
 		"etu": {"p": Vector3(0.38, 0.38, 0.06), "nojaus": 0.3},
@@ -558,6 +578,30 @@ const ISTUIMET := {
 		"ratti": Vector3(-0.38, 0.98, -0.35),
 	},
 }
+
+
+## Liikenteen kuskien ulkonäöt: arvotaan väreistä ja hiuksista, jotta kuskit eivät ole nimettyjä hahmoja.
+const KUSKI_HIUKSET := ["Hair_Buzzed", "Hair_SimpleParted", "Hair_Long"]
+const KUSKI_PAIDAT := [Color(0.2, 0.3, 0.55), Color(0.55, 0.15, 0.12), Color(0.25, 0.4, 0.25), Color(0.85, 0.85, 0.8),
+	Color(0.15, 0.15, 0.17), Color(0.6, 0.5, 0.3)]
+
+
+## Kuski henkilöautomallin (MALLIT tai "pony"/"mercedes") ratin taakse: look tai arvottu ulkonäkö, Driving-animaatio,
+## istutus kuten Volvossa (istuta). Palauttaa hahmon.
+static func kuski(car: Node3D, malli: String, look := {}) -> Node3D:
+	var istuin := "volvo" if malli == "volvo_farmari" else malli
+	if not ISTUIMET.has(istuin):
+		return null
+	if look.is_empty():
+		var nainen := randf() < 0.4
+		look = {"model": "female" if nainen else "male", "shirt": KUSKI_PAIDAT.pick_random(),
+			"pants": Color(0.15, 0.17, 0.25), "shoes": Color(0.1, 0.08, 0.07), "hair": KUSKI_HIUKSET.pick_random(),
+			"hair_color": Color(randf_range(0.15, 0.6), randf_range(0.1, 0.45), randf_range(0.05, 0.3)),
+			"height": randf_range(1.62, 1.78) if nainen else randf_range(1.7, 1.82)}
+	var ch: Node3D = load("res://scripts/looks.gd").make(car, look)
+	ch.play("Driving", 0.0)
+	istuta(ch, istuin, "kuski")
+	return ch
 
 
 ## Istuttaa hahmon autoon (ISTUIMET[malli][paikka], paikka "kuski" tai "etu"): kasvot -Z, lantio istuimelle, selkä
@@ -744,7 +788,7 @@ static func saab(parent: Node3D, color: Color, plate := "", police := false) -> 
 	var hat_dir := (wr1 - wr0).normalized()
 	for sx in [-1.0, 1.0]:
 		_side_panel(parent, sx * GLASS_W / 2.0, [Vector2(WS0, BELT), Vector2(WS1, top), Vector2(QA, top), Vector2(QB, BELT)], win)
-	_cabin(parent, BELT, top, WS0, WS1, HT0, HT1, HT_Y, GLASS_W, bar, 0.12, 0.95, 1.3, 0.5)
+	_cabin(parent, BELT, top, WS0, WS1, HT0, HT1, HT_Y, GLASS_W, bar, 0.12, 0.95, 1.3, 0.5, ISTUIMET.saab.ratti)
 	slab(parent, wf0, wf1, GLASS_W + 0.02, 0.04, win)  # tuulilasi
 	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, win)  # takalasi
 	_bevel_box(parent, Vector3((roof_x + ROOF_C) * 2.0, ROOF_T, HT0 - WS1 + 0.04), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), ROOF_C, body)  # katto
@@ -1015,7 +1059,7 @@ static func lada(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	var hat := (wr1 - wr0).normalized()
 	for sx in [-1.0, 1.0]:
 		_side_panel(parent, sx * GLASS_W / 2.0, [Vector2(WS0, BELT), Vector2(WS1, top), Vector2(QA, top), Vector2(QB, BELT)], win)
-	_cabin(parent, BELT, top, WS0, WS1, HT0, HT1, HT_Y, GLASS_W, bar, 0.15, 0.82, 1.15, 0.36)
+	_cabin(parent, BELT, top, WS0, WS1, HT0, HT1, HT_Y, GLASS_W, bar, 0.15, 0.82, 1.15, 0.36, ISTUIMET.lada.ratti)
 	slab(parent, wf0, wf1, GLASS_W + 0.02, 0.04, win)  # tuulilasi
 	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, win)  # takalasi
 	_bevel_box(parent, Vector3((roof_x + ROOF_C) * 2.0, ROOF_T, HT0 - WS1 + 0.04), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), ROOF_C, body)  # katto

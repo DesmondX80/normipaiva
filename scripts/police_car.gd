@@ -20,6 +20,7 @@ func _ready() -> void:
 	add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.85, 0)))
 	Vehicles.saab(self, Color.WHITE, "", true)  # poliisi-Saab: väritys, tekstit ja vilkkupalkki
 	_lights = Vehicles.police_lights(self)
+	Vehicles.kuski(self, "saab", load("res://scripts/ratsia.gd").COP)  # poliisi ratissa
 	B.guide(self, "POLIISI", Vector3(0, 2.4, 0), 56, Color(0.7, 0.8, 1.0), true)
 	_engine = Sfx.loop_on(self, "engine", -4.0)
 
