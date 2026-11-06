@@ -5476,8 +5476,8 @@ func _build_kmarket_yard() -> void:
 	body.add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.8, 0)))
 	load("res://scripts/vehicles.gd").taxi(body, "TXI-808")
 	var driver := Looks.make(body, Looks.TAXI_DRIVER)
-	driver.position = Vector3(-0.4, 0.05, 0.1)
 	driver.play("Driving", 0.0)
+	load("res://scripts/vehicles.gd").istuta(driver, "mercedes", "kuski")  # lantio istuimelle, jalat lattialle, kädet ratille
 	for f in Sfx.MUSIC_FILES:
 		if ResourceLoader.exists(f):
 			var st: AudioStream = load(f).duplicate()

@@ -1,5 +1,6 @@
 extends Node3D
-## Auton istujat (Vehicles.istuta): Pekka ratissa ja sankari lippiksineen Pekan Volvo-farmarissa kuten Pekan kyydissä.
+## Auton istujat (Vehicles.istuta): Pekka ratissa ja sankari lippiksineen Pekan Volvo-farmarissa kuten Pekan kyydissä
+## sekä taksikuski Mercedes-taksissa (x = 4).
 ## Mittaa paistetusta verkosta pään (ja lippiksen) korkeimman pisteen katon alapintaan, jalkojen alimman pisteen
 ## helmaan ja vartalon etäisyyden rattiin; kuvat sivulta, edestä ja ylhäältä katto poistettuna (leikkaus).
 ## Ajo: tools/testit/aja.sh tscn tools/testit/autossa_kuvat.tscn
@@ -9,14 +10,16 @@ const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Pose := preload("res://scripts/pose.gd")
 
-const KATTO_ALA := 1.39  # Volvon katon alapinta (ROOF - ROOF_T)
-const HELMA := 0.22  # Volvon alakorin alapinta (SILL)
-var RATTI: Vector3 = Vehicles.ISTUIMET.volvo.ratti  # säädetty ratin napa
+const KATTO_ALA := 1.39  # Volvon ja Mercedeksen katon alapinta (ROOF - ROOF_T)
+const HELMA := 0.22  # alakorin alapinta (SILL)
 
 var out := "user://autossa"
 var cam: Camera3D
 var car: Node3D
 var hahmot: Array[Node3D] = []
+var autot: Array[Node3D] = []  # hahmon auto (sama indeksi)
+var ratit: Array = []  # hahmon auton ratin napa tai null (matkustaja)
+var taksi: Node3D
 
 
 func _ready() -> void:
@@ -47,7 +50,16 @@ func _ready() -> void:
 	Looks.add_cap(hero)
 	hero.play("Sitting_Idle", 0.0)
 	Vehicles.istuta(hero, "volvo", "etu")
-	hahmot = [pekka, hero]
+	taksi = Node3D.new()
+	taksi.position = Vector3(4.0, 0, 0)
+	add_child(taksi)
+	Vehicles.taxi(taksi, "TXI-808")
+	var kuski := Looks.make(taksi, Looks.TAXI_DRIVER)
+	kuski.play("Driving", 0.0)
+	Vehicles.istuta(kuski, "mercedes", "kuski")
+	hahmot = [pekka, hero, kuski]
+	autot = [car, car, taksi]
+	ratit = [Vehicles.ISTUIMET.volvo.ratti, null, Vehicles.ISTUIMET.mercedes.ratti]
 	cam = Camera3D.new()
 	add_child(cam)
 	cam.current = true
@@ -65,65 +77,58 @@ func _shot(name: String, from: Vector3, to: Vector3, fov := 40.0) -> void:
 
 
 ## Lippis ja muut luurangon ulkopuoliset verkot (ei skinattuja): niiden korkein piste auton avaruudessa.
-func _irtoverkot_max_y(ch: Node3D) -> float:
+func _irtoverkot_max_y(ch: Node3D, auto: Node3D) -> float:
 	var y := -INF
 	for n in ch.find_children("*", "MeshInstance3D", true, false):
 		var mi := n as MeshInstance3D
 		if mi.skin != null or not mi.is_visible_in_tree() or mi.mesh == null:
 			continue
-		var xf := car.global_transform.affine_inverse() * mi.global_transform
+		var xf := auto.global_transform.affine_inverse() * mi.global_transform
 		for sf in mi.mesh.get_surface_count():  # verkon pisteet, ei rajauslaatikko (se on muotoa suurempi)
-			var my := -INF
 			for v: Vector3 in mi.mesh.surface_get_arrays(sf)[Mesh.ARRAY_VERTEX]:
-				my = maxf(my, (xf * v).y)
-			y = maxf(y, my)
+				y = maxf(y, (xf * v).y)
 	return y
 
 
 func _mittaa() -> void:
-	var nimet := ["Pekka", "sankari"]
+	var nimet := ["Pekka", "sankari", "taksikuski"]
 	for i in hahmot.size():
 		var ch := hahmot[i]
-		var paa := Pose.limb_points(ch, car, ["Head", "neck_01"])  # luu on "Head" (Quaternius), ei "head"
-		var jalat := Pose.limb_points(ch, car, ["foot_l", "foot_r", "calf_l", "calf_r", "ball_l", "ball_r"])
-		var keho := Pose.limb_points(ch, car, ["spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r"])  # vartalo ja reidet (kädet ovat kehällä)
+		var auto := autot[i]
+		var paa := Pose.limb_points(ch, auto, ["Head", "neck_01"])  # luu on "Head" (Quaternius), ei "head"
+		var jalat := Pose.limb_points(ch, auto, ["foot_l", "foot_r", "calf_l", "calf_r", "ball_l", "ball_r"])
 		if paa.is_empty():
 			print("AUTOSSA ei tarkistettu (headless)")
 			return
 		var top := -INF
 		for p in paa:
 			top = maxf(top, p.y)
-		var irto := _irtoverkot_max_y(ch)
-		print("AUTOSSA %s pään verkko %.3f, irtoverkot (lippis) %.3f" % [nimet[i], top, irto])
-		top = maxf(top, irto)
+		top = maxf(top, _irtoverkot_max_y(ch, auto))
 		var low := INF
 		for p in jalat:
 			low = minf(low, p.y)
-		var ratti := INF
-		var lahin := Vector3.ZERO
-		var akseli := Vector3(0, 0.5, 0.866)  # _cabin: ratti kierretty 60° X:n ympäri
-		for b: String in ["spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r"]:
-			for p in Pose.limb_points(ch, car, [b]):  # etäisyys ratin kehästä (rengas, säde 0,1775), ei navasta
-				var v := p - RATTI
-				var h := v.dot(akseli)
-				var rho := (v - akseli * h).length()
-				var dd := Vector2(rho - 0.1775, h).length()
-				if dd < ratti:
-					ratti = dd
-					lahin = p
-					if i == 0:
-						print("AUTOSSA lähin ratille %s %s %.3f" % [b, p, dd])
-		print("AUTOSSA %s pää %.3f, katon ala %.3f, rako %.3f; jalat alin %.3f (helma %.3f); vartalo ja reidet ratin kehästä %.3f" % [nimet[i], top, KATTO_ALA, KATTO_ALA - top, low, HELMA, ratti])
+		var rivi := "AUTOSSA %s pää %.3f, katon ala %.3f, rako %.3f; jalat alin %.3f (helma %.3f)" % [nimet[i], top, KATTO_ALA, KATTO_ALA - top, low, HELMA]
 		if top > KATTO_ALA - 0.02:
 			print("TESTI VIKA %s: pää katon läpi tai kiinni (rako %.3f)" % [nimet[i], KATTO_ALA - top])
 		if low < HELMA + 0.01:
 			print("TESTI VIKA %s: jalat pohjan läpi (%.3f)" % [nimet[i], low])
-		if i == 0:
-			var kl: Vector3 = car.to_local(ch.to_global(ch.bone_position("hand_l")))
-			var kr: Vector3 = car.to_local(ch.to_global(ch.bone_position("hand_r")))
-			print("AUTOSSA Pekan kädet %s %s, keskikohta %s, ratin napa %s" % [kl, kr, (kl + kr) / 2.0, RATTI])
-		if i == 0 and ratti < 0.04:
-			print("TESTI VIKA Pekka: ratin kehä vartalossa tai reisissä (%.3f)" % ratti)
+		if ratit[i] != null:
+			var hub: Vector3 = ratit[i]
+			var ratti := INF
+			var akseli := Vector3(0, 0.5, 0.866)  # _cabin: ratti kierretty 60° X:n ympäri
+			for p in Pose.limb_points(ch, auto, ["spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r"]):
+				var v := p - hub  # etäisyys ratin kehästä (rengas, säde Vehicles.RATTI_R), ei navasta
+				var h := v.dot(akseli)
+				ratti = minf(ratti, Vector2((v - akseli * h).length() - Vehicles.RATTI_R, h).length())
+			var kl: Vector3 = auto.to_local(ch.to_global(ch.bone_position("hand_l")))
+			var kr: Vector3 = auto.to_local(ch.to_global(ch.bone_position("hand_r")))
+			var kasi := maxf(absf(kl.distance_to(hub) - Vehicles.RATTI_R), absf(kr.distance_to(hub) - Vehicles.RATTI_R))
+			rivi += "; vartalo ja reidet ratin kehästä %.3f, kädet kehältä %.3f" % [ratti, kasi]
+			if ratti < 0.04:
+				print("TESTI VIKA %s: ratin kehä vartalossa tai reisissä (%.3f)" % [nimet[i], ratti])
+			if kasi > 0.06:
+				print("TESTI VIKA %s: kädet eivät ole ratilla (%.3f)" % [nimet[i], kasi])
+		print(rivi)
 
 
 func _run() -> void:
@@ -133,4 +138,6 @@ func _run() -> void:
 	await _shot("sivu", Vector3(-3.2, 1.25, 0.0), Vector3(0, 1.1, -0.1), 35.0)
 	await _shot("edesta", Vector3(0, 1.5, -4.0), Vector3(0, 1.15, 0), 32.0)
 	await _shot("vino", Vector3(-2.6, 1.9, -2.6), Vector3(0, 1.1, -0.1), 35.0)
+	await _shot("taksi_sivu", Vector3(0.8, 1.25, 0.0), Vector3(4.0, 1.1, -0.1), 35.0)
+	await _shot("taksi_vino", Vector3(1.4, 1.9, -2.8), Vector3(4.0, 1.1, -0.1), 35.0)
 	get_tree().quit()

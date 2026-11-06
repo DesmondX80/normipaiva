@@ -551,6 +551,12 @@ const ISTUIMET := {
 		"lattia": 0.3,
 		"ratti": Vector3(-0.36, 1.0, -0.3),  # ratti eteen ja ylös polvien yltä; kuljettajan kädet IK:lla kehälle (istuta)
 	},
+	"mercedes": {  # W123: vyö 0,92, katon ala 1,39, selkänoja z 0,2
+		"kuski": {"p": Vector3(-0.38, 0.37, 0.04), "nojaus": 0.15},  # taksikuski: istuin alas, pää katon alle
+		"etu": {"p": Vector3(0.38, 0.38, 0.06), "nojaus": 0.3},
+		"lattia": 0.3,
+		"ratti": Vector3(-0.38, 0.98, -0.35),
+	},
 }
 
 
@@ -1565,22 +1571,203 @@ static func van(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 	return wheels
 
 
-## Taksi: tumma farmari, katolla keltainen TAXI-kupu. Palauttaa pyörät kuten car().
-static func taxi(parent: Node3D, plate := "") -> Array[Node3D]:
-	var wheels := car(parent, Color(0.08, 0.08, 0.1), plate)
-	part(parent, B.boxm(Vector3(0.5, 0.18, 0.2)), Vector3(0, 1.58, 0.25), lamp(Color(1.0, 0.85, 0.2)))
-	for side in [0.0, PI]:
-		var l := Label3D.new()
-		l.text = "TAXI"
-		l.font_size = 26
-		l.pixel_size = 0.005
-		l.modulate = Color(0.1, 0.08, 0.02)
-		l.outline_size = 0
-		l.double_sided = false
-		l.rotation.y = side
-		l.position = Vector3(0, 1.58, 0.25 + (0.105 if side == 0.0 else -0.105))
-		parent.add_child(l)
+## Taksin väri: beige/kerma (norsunluu, Mercedes-taksien perinteinen sävy).
+const TAKSI_VARI := Color(0.94, 0.86, 0.66)
+
+
+## Mercedes-Benz W123 (1976–85) -Z-suuntaan: 4-ovinen sedan n. 1,79 × 1,44 × 4,72 m, akseliväli 2,795 m, renkaat
+## 175SR14. Mitat W123-blueprintista (getoutlines.com, sivukuva 105,5 px/m akselivälistä) ja virallisista mitoista
+## (4725 × 1786 × 1438). Suomalainen klassikkotaksi (#283). Korkea kromisäleikkö pystysäleineen ja tähtineen,
+## tähti konepellin kärjessä, isot suorakaiteiset ajovalot ja oranssit vilkut ulkoreunoissa, pitkä matala konepelti,
+## suuret ikkunat kromilistoin, leveä musta kylkilista kromireunoin, kromipuskurit mustalla kumilla, kulmien
+## vaakaurilliset takavalot ja kilpi välissä. taksi = true: katolla keltainen valaistu TAXI-kupu.
+## Palauttaa pyörät kuten car().
+static func mercedes(parent: Node3D, color: Color, plate := "", taksi := false) -> Array[Node3D]:
+	const SIDE := 0.87  # kyljen x: listoineen leveys 1786 mm
+	const SILL := 0.22
+	const NOSE_LO := 0.5  # pystyn keulapinnan alareuna (puskuri peittää)
+	const NOSE_Y := 0.88  # konepellin etureuna (säleikön yläreuna)
+	const BELT := 0.92  # vyötärölinja
+	const ROOF := 1.44  # katon yläpinta (1438 mm)
+	const ROOF_T := 0.05
+	const FRONT := -2.14  # keulapinta z
+	const BACK := 2.44  # peräpaneeli z
+	const WS0 := -0.85  # tuulilasin alareuna z
+	const WS1 := -0.36  # tuulilasin yläreuna z
+	const HT0 := 1.21  # takalasin yläreuna z
+	const HT1 := 1.64  # takalasin alareuna z
+	const HT_Y := 1.0
+	const TAIL_TOP := 0.93
+	const BP := 0.26  # B-pilari z
+	const QA := 1.12  # takaoven ikkunan takareuna ylhäällä z
+	const QB := 1.18  # ... vyölinjalla z
+	const GLASS_W := 1.48
+	const LAMP_Y := 0.73
+	const TAIL_Y := 0.76
+	const BUMP_Y := 0.52
+	const WHEEL_R := 0.321  # 175SR14
+	const WHEEL_Z := 1.3975  # akseliväli 2795 mm
+	const ARCH_R := WHEEL_R + 0.045
+	const ARCH_Y := ARCH_R
+	const LIP_R := ARCH_R + 0.04
+	const SC := 0.03
+	const CF := 0.035
+	const ROOF_C := 0.024
+	var first := parent.get_child_count()
+	var body := paint(color)
+	var win := _mat("ponylasi", Color(0.22, 0.27, 0.32), 0.3, 0.05, 0.32)
+	var frame := plastic()
+	var bar := _mat("ponykromi", Color(0.86, 0.87, 0.89), 0.45, 0.3)
+	var amber := lamp(Color(1.0, 0.42, 0.04))
+	var red := lamp(Color(0.72, 0.02, 0.05))
+	if plate == "":
+		plate = "%s%s%s-%d" % [char(65 + randi() % 26), char(65 + randi() % 26), char(65 + randi() % 26), 100 + randi() % 900]
+	var top := ROOF - ROOF_T
+	var roof_x := GLASS_W / 2.0 + 0.03
+	_bevel(parent, PackedVector2Array([Vector2(FRONT, SILL + CF), Vector2(FRONT + CF, SILL), Vector2(BACK - CF, SILL),
+		Vector2(BACK, SILL + CF), Vector2(BACK, TAIL_TOP - CF), Vector2(BACK - CF, TAIL_TOP), Vector2(HT1 - 0.04, HT_Y),
+		Vector2(HT1 - 0.04, BELT), Vector2(WS0, BELT), Vector2(FRONT + CF, NOSE_Y), Vector2(FRONT, NOSE_Y - CF)]), SIDE, SC, body)
+	var hood_y := func(z: float) -> float: return lerpf(NOSE_Y, BELT, (z - FRONT) / (WS0 - FRONT))
+	var deck_y := func(z: float) -> float: return lerpf(HT_Y, TAIL_TOP, (z - HT1 + 0.04) / (BACK - CF - HT1 + 0.04))
+	var wf0 := Vector3(0, BELT, WS0)
+	var wf1 := Vector3(0, top, WS1)
+	var wr0 := Vector3(0, top, HT0)
+	var wr1 := Vector3(0, HT_Y, HT1)
+	var hat := (wr1 - wr0).normalized()
+	for sx in [-1.0, 1.0]:
+		_side_panel(parent, sx * GLASS_W / 2.0, [Vector2(WS0, BELT), Vector2(WS1, top), Vector2(QA, top), Vector2(QB, BELT)], win)
+	_cabin(parent, BELT, top, WS0, WS1, HT0, HT1, HT_Y, GLASS_W, bar, 0.2, 1.08, 1.4, 0.45, ISTUIMET.mercedes.ratti)
+	slab(parent, wf0, wf1, GLASS_W + 0.02, 0.04, win)
+	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, win)
+	_bevel_box(parent, Vector3((roof_x + ROOF_C) * 2.0, ROOF_T, HT0 - WS1 + 0.04), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), ROOF_C, body)
+	# Kumilistat, kromiset sadevesilistat pilarien välissä, tavaratilan kannen saumat, pyyhkimet ja ilmanottoritilä.
+	slab(parent, wr0, wr0.lerp(wr1, 0.05), GLASS_W, 0.05, frame)
+	slab(parent, wr0.lerp(wr1, 0.95), wr1, GLASS_W, 0.05, frame)
+	slab(parent, wf0.lerp(wf1, 0.95), wf1 + (wf1 - wf0).normalized() * 0.01, GLASS_W + 0.02, 0.05, frame)
+	part(parent, B.boxm(Vector3(GLASS_W - 0.06, 0.004, 0.012)), Vector3(0, deck_y.call(HT1 + 0.04) + 0.003, HT1 + 0.04), frame)
+	part(parent, B.boxm(Vector3(GLASS_W - 0.1, 0.012, 0.07)), Vector3(0, hood_y.call(WS0 - 0.07) + 0.006, WS0 - 0.07), frame)
+	for sx in [-1.0, 1.0]:
+		var lx: float = sx * (GLASS_W / 2.0 - 0.02)
+		slab(parent, Vector3(lx, deck_y.call(HT1 + 0.04) + 0.003, HT1 + 0.04), Vector3(lx, deck_y.call(BACK - 0.05) + 0.003, BACK - 0.05), 0.012, 0.004, frame)
+		var rz0 := WS1 + 0.015
+		var rz1 := HT0 - 0.04
+		part(parent, B.boxm(Vector3(0.025, 0.035, rz1 - rz0)), Vector3(sx * (roof_x - 0.0125), top + 0.005, (rz0 + rz1) / 2.0), bar)
+		var wp := part(parent, B.boxm(Vector3(0.55, 0.015, 0.02)), wf0.lerp(wf1, 0.08) + Vector3(sx * 0.3 - 0.06, 0.03, 0), frame)
+		wp.rotation.z = 0.08 * sx
+	var lip_z: float = sqrt(LIP_R * LIP_R - pow(0.62 - ARCH_Y, 2.0))
+	for sx in [-1.0, 1.0]:
+		var fx: float = sx * (GLASS_W / 2.0 + 0.016)
+		var ax: float = sx * (roof_x - 0.035)
+		slab(parent, wf0 + Vector3(ax, 0, 0), wf1 + Vector3(ax, 0, 0) + (wf1 - wf0).normalized() * 0.02, 0.07, 0.06, body)  # A-pilari
+		var ex: float = sx * (roof_x - 0.05)
+		slab(parent, wr0 + Vector3(ex, 0, 0) - hat * 0.03, wr1 + Vector3(ex, 0, 0), 0.1, 0.06, body)  # C-pilarin takareuna
+		_side_panel(parent, sx * (GLASS_W / 2.0 + 0.012), [Vector2(QA, top), Vector2(HT0, top), Vector2(HT1, HT_Y), Vector2(HT1, BELT), Vector2(QB, BELT)], body)
+		# Kromiset ikkunalistat, musta B-pilari.
+		part(parent, B.boxm(Vector3(0.02, 0.025, QA - WS1)), Vector3(fx, top - 0.0125, (WS1 + QA) / 2.0), bar)
+		part(parent, B.boxm(Vector3(0.02, 0.025, QB - WS0)), Vector3(fx, BELT + 0.0125, (WS0 + QB) / 2.0), bar)
+		slab(parent, Vector3(fx, top, QA), Vector3(fx, BELT, QB), 0.02, 0.025, bar)
+		part(parent, B.boxm(Vector3(0.05, top - BELT, 0.08)), Vector3(fx, (BELT + top) / 2.0, BP), frame)
+		slab(parent, wf0 + Vector3(fx, 0, 0.01), wf1 + Vector3(fx, 0, 0.01), 0.02, 0.025, bar)  # A-pilarin kromilista
+		# Kylki: ovisaumat, kromikahvat, kromipeili, leveä musta kylkilista kromireunoin, kromihelma, pyöränkaaret.
+		var sz: float = sx * (SIDE + 0.003)
+		for dz in [WS0 + 0.08, BP + 0.05, WHEEL_Z - LIP_R - 0.03]:
+			part(parent, B.boxm(Vector3(0.01, BELT - SILL - SC * 2.0 - 0.04, 0.012)), Vector3(sz, (SILL + BELT) / 2.0, dz), frame)
+		for hz in [BP - 0.12, QB - 0.2]:
+			part(parent, B.boxm(Vector3(0.03, 0.035, 0.15)), Vector3(sx * (SIDE + 0.012), 0.84, hz), bar)
+		part(parent, B.boxm(Vector3(0.1, 0.09, 0.14)), Vector3(sx * (SIDE + 0.05), BELT + 0.08, WS0 + 0.12), bar)  # peili
+		part(parent, B.boxm(Vector3(0.02, 0.07, 0.11)), Vector3(sx * (SIDE + 0.1), BELT + 0.08, WS0 + 0.12), glass())
+		for seg in [[FRONT + 0.06, -WHEEL_Z - lip_z - 0.02], [-WHEEL_Z + lip_z + 0.02, WHEEL_Z - lip_z - 0.02], [WHEEL_Z + lip_z + 0.02, BACK - 0.06]]:
+			var za: float = seg[0]
+			var zb: float = seg[1]
+			_bevel_box(parent, Vector3(0.03, 0.09, zb - za), Vector3(sx * (SIDE + 0.01), 0.62, (za + zb) / 2.0), 0.012, frame)
+			part(parent, B.boxm(Vector3(0.01, 0.01, zb - za - 0.03)), Vector3(sx * (SIDE + 0.026), 0.665, (za + zb) / 2.0), bar)
+			part(parent, B.boxm(Vector3(0.01, 0.01, zb - za - 0.03)), Vector3(sx * (SIDE + 0.026), 0.575, (za + zb) / 2.0), bar)
+		part(parent, B.boxm(Vector3(0.015, 0.03, 2.0 * (WHEEL_Z - LIP_R) - 0.06)), Vector3(sx * (SIDE + 0.006), SILL + 0.05, 0), bar)  # helmalista
+		part(parent, B.boxm(Vector3(0.02, 0.05, 0.1)), Vector3(sx * (SIDE + 0.004), LAMP_Y, FRONT + SC + 0.05), amber)  # sivuvilkku
+		for wz in [-WHEEL_Z, WHEEL_Z]:
+			_wheel_arch(parent, sx, SIDE, SILL, wz, ARCH_R, ARCH_Y, LIP_R, frame, body)
+	part(parent, B.cyl(0.06, 0.06, 0.012, 20), Vector3(SIDE + 0.004, 0.8, 1.95), frame, Vector3(0, 0, PI / 2.0))  # tankkiluukku
+	part(parent, B.cyl(0.054, 0.054, 0.014, 20), Vector3(SIDE + 0.005, 0.8, 1.95), body, Vector3(0, 0, PI / 2.0))
+	# Keula: korkea kromisäleikkö pystysäleineen ja tähtineen, tähti konepellin kärjessä, isot ajovalot ja vilkut.
+	var fz: float = FRONT - 0.01
+	var lens := _mat("ponylinssi", Color(0.62, 0.65, 0.68), 0.3, 0.15)
+	part(parent, B.boxm(Vector3(0.4, 0.34, 0.04)), Vector3(0, LAMP_Y + 0.0, fz - 0.01), bar)  # säleikön kehys
+	part(parent, B.boxm(Vector3(0.34, 0.28, 0.04)), Vector3(0, LAMP_Y, fz - 0.013), frame)
+	for k in 9:
+		part(parent, B.boxm(Vector3(0.012, 0.28, 0.04)), Vector3(-0.16 + k * 0.04, LAMP_Y, fz - 0.016), bar)
+	part(parent, B.boxm(Vector3(0.34, 0.03, 0.04)), Vector3(0, LAMP_Y + 0.04, fz - 0.018), bar)  # vaakapalkki
+	part(parent, B.cyl(0.05, 0.05, 0.02, 24), Vector3(0, LAMP_Y + 0.04, fz - 0.035), bar, Vector3(PI / 2.0, 0, 0))  # tähti säleikössä
+	part(parent, B.cyl(0.04, 0.04, 0.022, 24), Vector3(0, LAMP_Y + 0.04, fz - 0.036), frame, Vector3(PI / 2.0, 0, 0))
+	for k in 3:
+		var sp := part(parent, B.boxm(Vector3(0.008, 0.04, 0.024)), Vector3(0, LAMP_Y + 0.04, fz - 0.037), bar)
+		sp.rotation.z = TAU * k / 3.0
+		sp.position += Vector3(-sin(TAU * k / 3.0), cos(TAU * k / 3.0), 0) * 0.02
+	var hs := Vector3(0, NOSE_Y + 0.04, FRONT + 0.06)  # seisova tähti konepellin kärjessä
+	part(parent, B.cyl(0.006, 0.006, 0.04, 6), hs - Vector3(0, 0.02, 0), bar)
+	part(parent, B.cyl(0.025, 0.025, 0.006, 20), hs + Vector3(0, 0.025, 0), bar, Vector3(PI / 2.0, 0, 0))
+	for sx in [-1.0, 1.0]:
+		part(parent, B.boxm(Vector3(0.44, 0.22, 0.02)), Vector3(sx * 0.45, LAMP_Y, fz), frame)
+		part(parent, B.boxm(Vector3(0.3, 0.2, 0.02)), Vector3(sx * 0.39, LAMP_Y, fz - 0.005), _mat("ponyvalo", Color(0.74, 0.76, 0.75), 0.2, 0.1))
+		part(parent, B.cyl(0.07, 0.07, 0.02, 20), Vector3(sx * 0.37, LAMP_Y + 0.02, fz - 0.008), lens, Vector3(PI / 2.0, 0, 0))
+		part(parent, B.cyl(0.035, 0.035, 0.02, 16), Vector3(sx * 0.37, LAMP_Y + 0.02, fz - 0.011), lamp(Color(1.0, 0.98, 0.9)), Vector3(PI / 2.0, 0, 0))
+		for k in 4:
+			part(parent, B.boxm(Vector3(0.3, 0.004, 0.02)), Vector3(sx * 0.39, LAMP_Y - 0.075 + k * 0.05, fz - 0.012), lens)
+		part(parent, B.boxm(Vector3(0.12, 0.2, 0.02)), Vector3(sx * 0.6, LAMP_Y, fz - 0.005), amber)
+		part(parent, B.boxm(Vector3(0.45, 0.012, 0.025)), Vector3(sx * 0.45, LAMP_Y + 0.115, fz - 0.002), bar)  # valojen kromireunus
+	# Perä: kulmien vaakaurilliset takavalot (punainen, oranssi, valkoinen, punainen) ja kilpi välissä kromilistan alla.
+	part(parent, B.boxm(Vector3(SIDE * 2.0 - 0.1, 0.012, 0.02)), Vector3(0, TAIL_Y + 0.14, BACK + 0.005), bar)
+	for sx in [-1.0, 1.0]:
+		var lx: float = sx * 0.57
+		part(parent, B.boxm(Vector3(0.5, 0.24, 0.02)), Vector3(lx, TAIL_Y, BACK + 0.005), frame)
+		part(parent, B.boxm(Vector3(0.48, 0.06, 0.03)), Vector3(lx, TAIL_Y + 0.085, BACK + 0.01), red)
+		part(parent, B.boxm(Vector3(0.48, 0.05, 0.03)), Vector3(lx, TAIL_Y + 0.03, BACK + 0.01), amber)
+		part(parent, B.boxm(Vector3(0.48, 0.05, 0.03)), Vector3(lx, TAIL_Y - 0.025, BACK + 0.01), lamp(Color(0.95, 0.95, 0.92)))
+		part(parent, B.boxm(Vector3(0.48, 0.06, 0.03)), Vector3(lx, TAIL_Y - 0.083, BACK + 0.01), red)
+		for k in 6:
+			part(parent, B.boxm(Vector3(0.48, 0.004, 0.032)), Vector3(lx, TAIL_Y - 0.1 + k * 0.04, BACK + 0.012), frame)
+		part(parent, B.boxm(Vector3(0.02, 0.22, 0.08)), Vector3(sx * (SIDE + 0.004), TAIL_Y, BACK - SC - 0.04), red)
+		part(parent, B.boxm(Vector3(SC * 1.414 + 0.012, 0.22, 0.02)), Vector3(sx * (SIDE - SC / 2.0 + 0.004), TAIL_Y, BACK - SC / 2.0 + 0.004),
+			red, Vector3(0, sx * PI / 4.0, 0))
+	# Kromipuskurit mustalla kumilla, kulmat kiertävät kylkeen.
+	for bz in [FRONT - 0.035, BACK + 0.035]:
+		_bevel_box(parent, Vector3(SIDE * 2.0 + 0.04, 0.1, 0.07), Vector3(0, BUMP_Y, bz), 0.02, bar)
+		part(parent, B.boxm(Vector3(SIDE * 2.0, 0.05, 0.075)), Vector3(0, BUMP_Y, bz), frame)
+		part(parent, B.boxm(Vector3(SIDE * 2.0 - 0.1, 0.12, 0.05)), Vector3(0, BUMP_Y - 0.11, bz - signf(bz) * 0.03), frame)  # helma
+		for sx in [-1.0, 1.0]:
+			var zc: float = bz - signf(bz) * 0.15
+			_bevel_box(parent, Vector3(0.05, 0.1, 0.3), Vector3(sx * (SIDE + 0.005), BUMP_Y, zc), 0.015, bar)
+			part(parent, B.boxm(Vector3(0.055, 0.05, 0.3)), Vector3(sx * (SIDE + 0.005), BUMP_Y, zc), frame)
+	part(parent, B.cyl(0.03, 0.03, 0.08, 8), Vector3(0.5, 0.3, BACK + 0.05), bar, Vector3(PI / 2.0, 0, 0))
+	_plate(parent, Vector3(0, BUMP_Y - 0.0, FRONT - 0.08), false, plate)
+	_plate(parent, Vector3(0, TAIL_Y - 0.0, BACK + 0.02), true, plate)
+	if taksi:
+		# Keltainen valaistu TAXI-kupu katon keskellä jaloillaan.
+		part(parent, B.boxm(Vector3(0.36, 0.03, 0.14)), Vector3(0, ROOF + 0.015, 0.3), frame)
+		_bevel_box(parent, Vector3(0.5, 0.17, 0.2), Vector3(0, ROOF + 0.115, 0.3), 0.03, lamp(Color(1.0, 0.82, 0.15)))
+	_merge_parts(parent, first, "mercedes/" + color.to_html() + ("/taksi" if taksi else ""))
+	if taksi:
+		for side in [1.0, -1.0]:
+			var l := Label3D.new()
+			l.text = "TAXI"
+			l.font_size = 48
+			l.pixel_size = 0.0024
+			l.modulate = Color(0.08, 0.06, 0.02)
+			l.outline_size = 0
+			l.double_sided = false
+			l.rotation.y = 0.0 if side > 0.0 else PI
+			l.position = Vector3(0, ROOF + 0.115, 0.3 + side * 0.101)
+			parent.add_child(l)
+	var hub := _mat("ponyvanne", Color(0.78, 0.79, 0.8), 0.5, 0.35)
+	var wheels: Array[Node3D] = []
+	for sx in [-0.79, 0.79]:  # raide 1580 (esikuva 1488/1446): pyörä ulottuu kotelon mustan levyn ulkopuolelle
+		for wz in [-WHEEL_Z, WHEEL_Z]:
+			wheels.append(wheel(parent, Vector3(sx, WHEEL_R, wz), WHEEL_R, 0.175, 0, hub, 0.66, 12))
 	return wheels
+
+
+## Taksi: kermanvärinen Mercedes-Benz W123 keltaisella TAXI-kuvulla (mercedes, TAKSI_VARI). Palauttaa pyörät kuten car().
+static func taxi(parent: Node3D, plate := "") -> Array[Node3D]:
+	return mercedes(parent, TAKSI_VARI, plate, true)
 
 
 ## Rekka -Z-suuntaan: eurooppalainen nokaton veturi ja umpikoripuoliperävaunu (n. 2,55 × 4,0 × 16 m),
