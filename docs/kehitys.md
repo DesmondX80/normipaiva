@@ -104,6 +104,10 @@ Saab 900 (`vehicles.gd saab()`, #283): 4-ovinen pystykeulainen sedan, sama kori 
 tools/testit/saab_kuvat.tscn` (siviili- ja poliisi-Saab rinnakkain samoista kulmista ja poliisin lähikuvat; mittaa
 1,693 × 1,42 × 4,69 ±5 %, akselivälin 2,517 ja pyörän alimman pisteen 0 ± 0,01). Ponyn sisustus ja pyöränkaaret ovat
 yhteisiä apufunktioita (`_cabin`, `_wheel_arch`).
+Lada 2105 (`vehicles.gd lada()`, #283; Suomessa Lada 1500 S): `tools/testit/aja.sh tscn tools/testit/lada_kuvat.tscn` (Lada ja
+Saab rinnakkain samoista kulmista ja katon kulmat lähikuvina; mittaa 1,62 × 1,446 × 4,145 ±5 %, akselivälin 2,424 ja pyörän
+alimman pisteen 0 ± 0,01). Liikenne ja pysäköidyt autot arpovat mallin (`Vehicles.MALLIT`, `henkiloauto()`), ja kaapattu ja
+hylätty auto perii sen (`traffic_car.gd malli`).
 
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
 koukut testiosalla (`tools/testit/rikos_koe_osa.gd`): puhe, tapahtumat, luukun vihje, tallennus edestakaisin, päiväkirjan data,

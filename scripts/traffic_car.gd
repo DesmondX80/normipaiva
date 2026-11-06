@@ -27,6 +27,7 @@ signal hit
 var target_fn: Callable  # palauttaa pelaajan solmun (jalan, pyörä tai mopo)
 var van := false  # pakettiauto henkilöauton sijaan
 var color := Color.WHITE  # maalin väri (rikos/autovarkaus.gd: kaapattu auto samanvärisenä)
+var malli := ""  # henkilöauton malli (Vehicles.MALLIT); kaapattu ja hylätty auto perii sen
 var cruise := 11.0
 var lane := 1.7
 var ground_fn: Callable  # (x, z) -> y; oletuksena kylän maasto
@@ -56,7 +57,8 @@ func _ready() -> void:
 	if van:
 		Vehicles.van(self, color)
 	else:
-		B.car(self, color)
+		malli = Vehicles.MALLIT.pick_random()
+		Vehicles.henkiloauto(self, malli, color)
 	_engine = Sfx.loop_on(self, "engine", -10.0)
 	_engine.pitch_scale = randf_range(0.85, 1.1)
 

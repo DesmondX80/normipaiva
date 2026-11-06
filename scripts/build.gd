@@ -365,10 +365,11 @@ static func person(parent: Node3D, shirt: Color, pants: Color, skin: Color, hair
 
 
 
-## Liikenteen ja pysäköity henkilöauto -Z-suuntaan: Saab 900 (vehicles.gd saab; ladataan ajon aikana, ettei
-## preload kierrä). Lada ja Volvo arvotaan mukaan, kun ne valmistuvat (#283).
-static func car(parent: Node3D, color: Color) -> void:
-	load("res://scripts/vehicles.gd").saab(parent, color)
+## Liikenteen ja pysäköity henkilöauto -Z-suuntaan: malli arvotaan (vehicles.gd MALLIT: Saab 900, Lada 2105;
+## ladataan ajon aikana, ettei preload kierrä), ellei sitä anneta.
+static func car(parent: Node3D, color: Color, malli := "") -> void:
+	var V = load("res://scripts/vehicles.gd")
+	V.henkiloauto(parent, malli if malli != "" else V.MALLIT.pick_random(), color)
 
 
 ## Pysäköity auto törmäyksellä.

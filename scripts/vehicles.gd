@@ -863,6 +863,197 @@ static func saab(parent: Node3D, color: Color, plate := "", police := false) -> 
 	return wheels
 
 
+## Liikenteen henkilöautojen mallit (#283): arvotaan liikenteeseen ja pysäköidyiksi, kaapattu auto perii mallin.
+const MALLIT := ["saab", "lada"]
+
+
+## Henkilöauto mallin nimellä (MALLIT): palauttaa pyörät kuten car().
+static func henkiloauto(parent: Node3D, malli: String, color: Color, plate := "") -> Array[Node3D]:
+	if malli == "lada":
+		return lada(parent, color, plate)
+	return saab(parent, color, plate)
+
+
+## Lada 2105 (Suomessa Lada 1500 S, 1980–2010) -Z-suuntaan: laatikkomainen 4-ovinen sedan n. 1,62 × 1,45 × 4,15 m
+## puskureineen, akseliväli 2,424 m, raide 1365/1321, renkaat 175/70R13. Mitat 1982 Lada 2107 -blueprintista
+## (getoutlines.com, sivukuva 106,9 px/m: pituus 4145, ylitykset 664/1057, korkeus 1446, leveys 1620); 2105 on samaa
+## koria. Esikuvat Wikimedia Commonsista (1990 Lada 1500 S Vantaa keula, Lada 2107 Riva kylki, 2008 Lada 210540 perä):
+## pysty keula, jossa suorakaiteiset ajovalot oranssein ulkovilkuin ja niiden välissä musta vaakasäleikkö
+## merkkeineen, lähes tasainen konepelti, kapea ohjaamo ja pystyt pilarit, etuoven tuuletusikkuna, C-pilarin
+## tuuletusritilä, pitkä tavaratila, kulmien suorakaiteiset takavalot ja kilpi kannessa niiden välissä, isot
+## alumiinipuskurit mustin kumilistoin ja päädyin, kromiset sadevesilistat ja ikkunalistat, peltivanteet.
+## Palauttaa pyörät kuten car().
+static func lada(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
+	const SIDE := 0.79  # kyljen x: listoineen ja puskureineen leveys 1620 mm
+	const SILL := 0.24  # alakorin alapinta (maavara)
+	const NOSE_LO := 0.46  # pystyn keulapinnan alareuna (puskuri peittää)
+	const NOSE_Y := 0.82  # konepellin etureuna
+	const BELT := 0.92  # vyötärölinja, ikkunoiden alareuna
+	const ROOF := 1.44  # katon yläpinta (1446 mm)
+	const ROOF_T := 0.05
+	const FRONT := -1.806  # keulapinta z: puskurin etupinta 664 mm etupyörän edessä
+	const BACK := 2.20  # peräpaneeli z: puskurin takapinta 1057 mm takapyörän takana
+	const WS0 := -0.80  # tuulilasin alareuna z
+	const WS1 := -0.40  # tuulilasin yläreuna z
+	const VENT := WS0 + 0.30  # etuoven tuuletusikkunan takareuna z
+	const HT0 := 1.00  # takalasin yläreuna z (katon takareuna)
+	const HT1 := 1.34  # takalasin alareuna z; sen takana pitkä tavaratilan kansi
+	const HT_Y := 0.98  # takalasin alareuna y
+	const TAIL_TOP := 0.90  # tavaratilan kansi viettää peräpaneelin yläreunaan
+	const BP := 0.27  # B-pilari z
+	const QA := 0.84  # takaoven ikkunan takareuna ylhäällä z (sen takana leveä C-pilari)
+	const QB := 0.90  # takaoven ikkunan takareuna vyölinjalla z
+	const GLASS_W := 1.30  # kapea ohjaamo: kyljet kallistuvat sisäänpäin ikkunoiden kohdalla
+	const LAMP_Y := 0.70  # ajovalojen keskikorkeus
+	const TAIL_Y := 0.74  # takavalojen keskikorkeus
+	const BUMP_Y := 0.42  # puskurien keskikorkeus
+	const BUMP_H := 0.15
+	const WHEEL_R := 0.29  # 175/70R13: 330 + 2 × 122 = 575 mm
+	const WHEEL_Z := 1.212  # akseliväli 2424 mm
+	const ARCH_R := WHEEL_R + 0.05
+	const ARCH_Y := ARCH_R
+	const LIP_R := ARCH_R + 0.04
+	const SC := 0.03
+	const CF := 0.035
+	const ROOF_C := 0.02
+	var first := parent.get_child_count()
+	var body := paint(color)
+	var win := _mat("ponylasi", Color(0.22, 0.27, 0.32), 0.3, 0.05, 0.32)
+	var frame := plastic()
+	var bar := _mat("ponykromi", Color(0.86, 0.87, 0.89), 0.45, 0.3)
+	var alu := _mat("ladapuskuri", Color(0.7, 0.71, 0.72), 0.5, 0.35)
+	var amber := lamp(Color(1.0, 0.42, 0.04))
+	if plate == "":
+		plate = "%s%s%s-%d" % [char(65 + randi() % 26), char(65 + randi() % 26), char(65 + randi() % 26), 100 + randi() % 900]
+	var top := ROOF - ROOF_T
+	var roof_x := GLASS_W / 2.0 + 0.03  # katon alareunan x = pilarien ja sadevesilistojen ulkopinta
+	# Alakori, konepelti, pysty keula, viettävä tavaratilan kansi ja peräpaneeli yhtenä viistettynä sivuprofiilina.
+	_bevel(parent, PackedVector2Array([Vector2(FRONT, SILL + CF), Vector2(FRONT + CF, SILL), Vector2(BACK - CF, SILL),
+		Vector2(BACK, SILL + CF), Vector2(BACK, TAIL_TOP - CF), Vector2(BACK - CF, TAIL_TOP), Vector2(HT1 - 0.04, HT_Y),
+		Vector2(HT1 - 0.04, BELT), Vector2(WS0, BELT), Vector2(FRONT + CF, NOSE_Y), Vector2(FRONT, NOSE_Y - CF)]), SIDE, SC, body)
+	var hood_y := func(z: float) -> float: return lerpf(NOSE_Y, BELT, (z - FRONT) / (WS0 - FRONT))
+	var deck_y := func(z: float) -> float: return lerpf(HT_Y, TAIL_TOP, (z - HT1 + 0.04) / (BACK - CF - HT1 + 0.04))
+	# Lasit: sivulasi tuulilasin reunasta takaoven ikkunan lähes pystyyn takareunaan, sisusta, tuulilasi, takalasi.
+	var wf0 := Vector3(0, BELT, WS0)
+	var wf1 := Vector3(0, top, WS1)
+	var wr0 := Vector3(0, top, HT0)
+	var wr1 := Vector3(0, HT_Y, HT1)
+	var hat := (wr1 - wr0).normalized()
+	for sx in [-1.0, 1.0]:
+		_side_panel(parent, sx * GLASS_W / 2.0, [Vector2(WS0, BELT), Vector2(WS1, top), Vector2(QA, top), Vector2(QB, BELT)], win)
+	_cabin(parent, BELT, top, WS0, WS1, HT0, HT1, HT_Y, GLASS_W, bar, 0.15, 0.82, 1.15, 0.36)
+	slab(parent, wf0, wf1, GLASS_W + 0.02, 0.04, win)  # tuulilasi
+	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, win)  # takalasi
+	_bevel_box(parent, Vector3((roof_x + ROOF_C) * 2.0, ROOF_T, HT0 - WS1 + 0.04), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + HT0) / 2.0), ROOF_C, body)  # katto
+	# Kumilistat tuuli- ja takalasin reunoissa, kromiset sadevesilistat katon kyljissä pilarien välissä, tavaratilan
+	# kannen saumat, konepellin takareunan ilmanottoritilä ja pyyhkimet.
+	slab(parent, wr0, wr0.lerp(wr1, 0.06), GLASS_W, 0.05, frame)
+	slab(parent, wr0.lerp(wr1, 0.94), wr1, GLASS_W, 0.05, frame)
+	slab(parent, wf0.lerp(wf1, 0.95), wf1 + (wf1 - wf0).normalized() * 0.01, GLASS_W + 0.02, 0.05, frame)
+	slab(parent, wf0, wf0.lerp(wf1, 0.04), GLASS_W + 0.02, 0.05, frame)
+	part(parent, B.boxm(Vector3(GLASS_W - 0.06, 0.004, 0.012)), Vector3(0, deck_y.call(HT1 + 0.04) + 0.003, HT1 + 0.04), frame)
+	for sx in [-1.0, 1.0]:
+		var lx: float = sx * (GLASS_W / 2.0 - 0.02)
+		slab(parent, Vector3(lx, deck_y.call(HT1 + 0.04) + 0.003, HT1 + 0.04), Vector3(lx, deck_y.call(BACK - 0.05) + 0.003, BACK - 0.05), 0.012, 0.004, frame)
+		var rz0 := WS1 + 0.015
+		var rz1 := HT0 - 0.04
+		part(parent, B.boxm(Vector3(0.025, 0.035, rz1 - rz0)), Vector3(sx * (roof_x - 0.0125), top + 0.005, (rz0 + rz1) / 2.0), bar)
+		var wp := part(parent, B.boxm(Vector3(0.45, 0.015, 0.02)), wf0.lerp(wf1, 0.08) + Vector3(sx * 0.28 - 0.06, 0.03, 0), frame)
+		wp.rotation.z = 0.08 * sx
+	part(parent, B.boxm(Vector3(GLASS_W - 0.1, 0.012, 0.06)), Vector3(0, hood_y.call(WS0 - 0.06) + 0.006, WS0 - 0.06), frame)
+	var lip_z: float = sqrt(LIP_R * LIP_R - pow(0.36 - ARCH_Y, 2.0))
+	for sx in [-1.0, 1.0]:
+		var fx: float = sx * (GLASS_W / 2.0 + 0.016)
+		# Pilarit: ulkopinta katon alareunan tasossa ja yläpää katon alle (ei porrasta katon reunaan).
+		var ax: float = sx * (roof_x - 0.03)
+		slab(parent, wf0 + Vector3(ax, 0, 0), wf1 + Vector3(ax, 0, 0) + (wf1 - wf0).normalized() * 0.02, 0.06, 0.06, body)  # A-pilari
+		var ex: float = sx * (roof_x - 0.05)
+		slab(parent, wr0 + Vector3(ex, 0, 0) - hat * 0.03, wr1 + Vector3(ex, 0, 0), 0.1, 0.06, body)  # C-pilarin takareuna
+		# C-pilari: musta muovinen levy takaoven ikkunasta takalasiin (2105, sivukuva Krakova), alaosassa tuuletusritilä.
+		_side_panel(parent, sx * (GLASS_W / 2.0 + 0.012), [Vector2(QA, top), Vector2(HT0, top), Vector2(HT1, HT_Y), Vector2(HT1, BELT), Vector2(QB, BELT)], frame)
+		part(parent, B.boxm(Vector3(0.012, 0.06, 0.13)), Vector3(sx * (GLASS_W / 2.0 + 0.016), BELT + 0.1, 1.08), frame)
+		for k in 3:
+			part(parent, B.boxm(Vector3(0.014, 0.006, 0.12)), Vector3(sx * (GLASS_W / 2.0 + 0.018), BELT + 0.08 + k * 0.02, 1.08), bar)
+		# Ikkunalistat: kromi ylhäällä ja vyölinjalla, musta B-pilari, tuuletusikkunan ja takaoven ikkunan pystylistat.
+		part(parent, B.boxm(Vector3(0.02, 0.025, QA - WS1)), Vector3(fx, top - 0.0125, (WS1 + QA) / 2.0), bar)
+		part(parent, B.boxm(Vector3(0.02, 0.025, QB - WS0)), Vector3(fx, BELT + 0.0125, (WS0 + QB) / 2.0), bar)
+		slab(parent, Vector3(fx, top, QA), Vector3(fx, BELT, QB), 0.02, 0.03, bar)
+		part(parent, B.boxm(Vector3(0.05, top - BELT, 0.07)), Vector3(fx, (BELT + top) / 2.0, BP), frame)  # B-pilari
+		var vent_top: float = lerpf(BELT, top, (VENT - WS0) / (WS1 - WS0))
+		part(parent, B.boxm(Vector3(0.02, vent_top - BELT, 0.02)), Vector3(fx, (BELT + vent_top) / 2.0, VENT), bar)  # tuuletusikkuna
+		# Kylki: ovisaumat, kahvat, peili, sivuvilkku, musta kumilista helmassa ja pyöränkaaret.
+		var sz: float = sx * (SIDE + 0.003)
+		for dz in [WS0 + 0.04, BP + 0.04, WHEEL_Z - LIP_R - 0.03]:
+			part(parent, B.boxm(Vector3(0.01, BELT - SILL - SC * 2.0 - 0.04, 0.012)), Vector3(sz, (SILL + BELT) / 2.0, dz), frame)
+		for hz in [BP - 0.1, WHEEL_Z - LIP_R - 0.12]:
+			part(parent, B.boxm(Vector3(0.025, 0.03, 0.11)), Vector3(sx * (SIDE + 0.008), 0.83, hz), bar)  # kahvat
+		part(parent, B.boxm(Vector3(0.1, 0.08, 0.13)), Vector3(sx * (SIDE + 0.05), BELT + 0.07, WS0 + 0.1), frame)  # peili
+		part(parent, B.boxm(Vector3(0.02, 0.06, 0.1)), Vector3(sx * (SIDE + 0.1), BELT + 0.07, WS0 + 0.1), glass())
+		part(parent, B.boxm(Vector3(0.02, 0.04, 0.08)), Vector3(sx * (SIDE + 0.004), 0.68, FRONT + 0.3), amber)  # sivuvilkku
+		var z0: float = -WHEEL_Z + lip_z + 0.02
+		var z1: float = WHEEL_Z - lip_z - 0.02
+		_bevel_box(parent, Vector3(0.03, 0.05, z1 - z0), Vector3(sx * (SIDE + 0.008), 0.36, (z0 + z1) / 2.0), 0.01, frame)
+		for wz in [-WHEEL_Z, WHEEL_Z]:
+			_wheel_arch(parent, sx, SIDE, SILL, wz, ARCH_R, ARCH_Y, LIP_R, frame, body)
+	# Tankkiluukku oikeassa takakyljessä.
+	part(parent, B.boxm(Vector3(0.012, 0.11, 0.11)), Vector3(SIDE + 0.004, 0.74, 1.72), frame)
+	part(parent, B.boxm(Vector3(0.014, 0.095, 0.095)), Vector3(SIDE + 0.005, 0.74, 1.72), body)
+	# Pysty keula: ajovalot kromikehyksin (valo vaakaurin ja oranssi vilkku ulkona), musta vaakasäleikkö ja merkki.
+	var lens := _mat("ponylinssi", Color(0.62, 0.65, 0.68), 0.3, 0.15)
+	var fz: float = FRONT - 0.01
+	for sx in [-1.0, 1.0]:
+		part(parent, B.boxm(Vector3(0.415, 0.155, 0.02)), Vector3(sx * 0.5375, LAMP_Y, fz), bar)  # kehys linssin ja vilkun ympärillä
+		part(parent, B.boxm(Vector3(0.295, 0.135, 0.02)), Vector3(sx * 0.48, LAMP_Y, fz - 0.005), _mat("ponyvalo", Color(0.74, 0.76, 0.75), 0.2, 0.1))
+		part(parent, B.cyl(0.055, 0.055, 0.02, 20), Vector3(sx * 0.48, LAMP_Y, fz - 0.008), lens, Vector3(PI / 2.0, 0, 0))
+		part(parent, B.cyl(0.03, 0.03, 0.02, 16), Vector3(sx * 0.48, LAMP_Y, fz - 0.011), lamp(Color(1.0, 0.98, 0.9)), Vector3(PI / 2.0, 0, 0))
+		for k in 3:
+			part(parent, B.boxm(Vector3(0.295, 0.004, 0.02)), Vector3(sx * 0.48, LAMP_Y - 0.035 + k * 0.035, fz - 0.012), lens)
+		part(parent, B.boxm(Vector3(0.105, 0.135, 0.02)), Vector3(sx * 0.685, LAMP_Y, fz - 0.005), amber)
+	part(parent, B.boxm(Vector3(0.66, 0.15, 0.02)), Vector3(0, LAMP_Y, fz), frame)
+	var slat := _mat("saabsale", Color(0.2, 0.2, 0.21), 0.3, 0.5)
+	for k in 5:
+		part(parent, B.boxm(Vector3(0.62, 0.01, 0.02)), Vector3(0, LAMP_Y - 0.05 + k * 0.025, fz - 0.006), slat)
+	part(parent, B.boxm(Vector3(0.05, 0.07, 0.02)), Vector3(0, LAMP_Y, fz - 0.012), bar)  # merkki
+	part(parent, B.boxm(Vector3(0.035, 0.05, 0.02)), Vector3(0, LAMP_Y, fz - 0.014), lamp(Color(0.7, 0.05, 0.05)))
+	# Perä: kulmien takavalot (punainen yläosa, alhaalla oranssi vilkku ulkona ja peruutusvalo sisällä), kilpi välissä.
+	for sx in [-1.0, 1.0]:
+		part(parent, B.boxm(Vector3(0.38, 0.18, 0.02)), Vector3(sx * 0.56, TAIL_Y, BACK + 0.005), frame)
+		part(parent, B.boxm(Vector3(0.35, 0.08, 0.03)), Vector3(sx * 0.56, TAIL_Y + 0.04, BACK + 0.01), lamp(Color(0.72, 0.02, 0.05)))
+		part(parent, B.boxm(Vector3(0.22, 0.07, 0.03)), Vector3(sx * 0.625, TAIL_Y - 0.04, BACK + 0.01), amber)
+		part(parent, B.boxm(Vector3(0.12, 0.07, 0.03)), Vector3(sx * 0.445, TAIL_Y - 0.04, BACK + 0.01), lamp(Color(0.95, 0.95, 0.92)))
+		for k in 3:
+			part(parent, B.boxm(Vector3(0.35, 0.004, 0.032)), Vector3(sx * 0.56, TAIL_Y + 0.015 + k * 0.02, BACK + 0.01), frame)
+	part(parent, B.boxm(Vector3(0.56, 0.15, 0.02)), Vector3(0, TAIL_Y - 0.01, BACK + 0.005), frame)  # kilven syvennys
+	# Alumiinipuskurit mustalla kumilistalla ja mustilla kulmapäädyillä, pakoputki ja kuraläpät.
+	for bz in [FRONT - 0.02, BACK + 0.02]:
+		var face: float = signf(bz) * 0.05
+		_bevel_box(parent, Vector3(SIDE * 2.0 - 0.1, BUMP_H, 0.1), Vector3(0, BUMP_Y, bz), 0.025, alu)
+		part(parent, B.boxm(Vector3(SIDE * 2.0 - 0.2, 0.035, 0.01)), Vector3(0, BUMP_Y, bz + face), frame)
+		for sx in [-1.0, 1.0]:
+			_bevel_box(parent, Vector3(0.12, BUMP_H + 0.01, 0.24), Vector3(sx * (SIDE - 0.04), BUMP_Y, bz - signf(bz) * 0.06), 0.03, frame)
+	part(parent, B.cyl(0.025, 0.025, 0.1, 8), Vector3(-0.45, 0.3, BACK + 0.03), bar, Vector3(PI / 2.0, 0, 0))
+	for sx in [-1.0, 1.0]:
+		part(parent, B.boxm(Vector3(0.16, 0.2, 0.012)), Vector3(sx * 0.7, 0.2, WHEEL_Z + WHEEL_R + 0.09), frame)
+	_plate(parent, Vector3(0, BUMP_Y - 0.11, FRONT - 0.04), false, plate)
+	_plate(parent, Vector3(0, TAIL_Y - 0.01, BACK + 0.02), true, plate)
+	_merge_parts(parent, first, "lada/" + color.to_html())
+	var badge := Label3D.new()
+	badge.text = "LADA"
+	badge.font_size = 32
+	badge.pixel_size = 0.0018
+	badge.outline_size = 0
+	badge.modulate = Color(0.85, 0.86, 0.88)
+	badge.double_sided = false
+	badge.position = Vector3(-0.55, TAIL_Y + 0.13, BACK + 0.005)
+	parent.add_child(badge)
+	var steel := _mat("ladavanne", Color(0.75, 0.76, 0.77), 0.4, 0.4)
+	var wheels: Array[Node3D] = []
+	for sx in [-0.71, 0.71]:  # raide 1420 (esikuva 1365/1321): pyörä ulottuu kotelon mustan levyn ulkopuolelle
+		for wz in [-WHEEL_Z, WHEEL_Z]:
+			wheels.append(wheel(parent, Vector3(sx, WHEEL_R, wz), WHEEL_R, 0.175, 0, steel, 0.6))  # peltivanteet
+	return wheels
+
+
 ## Poliisi-Saabin vilkkuvat valot vilkkupalkin kupujen päälle (SAAB_DOMES): palauttaa valot, joiden materiaalia
 ## vaihdetaan (police_car.gd, ratsia.gd). Hieman kupua suuremmat, ettei kupu näy läpi.
 static func police_lights(parent: Node3D) -> Array[MeshInstance3D]:
