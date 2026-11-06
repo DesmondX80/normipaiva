@@ -127,6 +127,10 @@ getoutlines.com), nokaton kori kallistuvin kyljin, ohjaamon sisusta lasien läpi
 korotettu katto (ambulanssi, kauppa-auto). Kylkikuviot sovitetaan kylkeen `Vehicles.hiace_kylki(y)`:llä.
 Liikenteen pakettiautoissa on kuski (`Vehicles.kuski(..., "hiace")`, istuin etupyörän päällä); `autossa_kuvat.tscn` mittaa
 sen pään raon kattoon, jalat ja kädet ratilla sekä ottaa leikkauskuvat (`paku_*`).
+Kuskit ovat myös kaapatussa autossa (pelaajan hahmo, mopomatkan kyytiläinen etupenkillä), Roivaisen Saabissa, kauppa-autossa
+(Eila ajaa, luukulla myy), taksimatkan ja kotipihan välianimaatioiden takseissa sekä retkikohteiden odottavissa takseissa.
+`--scene=mokkikauppaauto`: kauppa-auto mökillä (kuvat `_tulee` Eila ratissa, `_luukku`, `_luukku_lahi` luukku auki hyllyineen);
+ajo ja lähtö nopeutetaan `Engine.time_scale`:lla, jotta hitaalla renderöinnillä auto ehtii perille.
 `tools/testit/aja.sh tscn tools/testit/hiace_kuvat.tscn` (matala, korkea ja ambulanssi; mittaa 1,69 × 1,93/2,20 × 4,60 ±5 %,
 akselivälin 2,56).
 Kaikki mallit rivissä: `tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn`.

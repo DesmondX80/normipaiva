@@ -261,6 +261,7 @@ func _build() -> void:
 	taxi.rotation.y = PI / 2.0
 	add_child(taxi)
 	Vehicles.taxi(taxi)
+	Vehicles.kuski(taxi, "mercedes", load("res://scripts/looks.gd").TAXI_DRIVER)  # kuski odottaa paluukyytiä
 	for p in [Vector3(-14.0, 0, -2.0), Vector3(-3.6, 0, -4.8), Vector3(0.5, 0, -5.0), Vector3(14.0, 0, -4.8), Vector3(14.0, 0, 4.5)]:
 		_spruce(p, 1.0 + fposmod(p.x, 0.4))
 	for p in [Vector3(-14.0, 0, 3.5), Vector3(-0.8, 0, 5.8), Vector3(10.5, 0, 5.4), Vector3(-6.0, 0, 5.0)]:

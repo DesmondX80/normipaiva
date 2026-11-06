@@ -203,6 +203,9 @@ func set_car(on: bool, color := Color.WHITE, van := false, malli := "saab") -> v
 		_car = Node3D.new()
 		_visual.add_child(_car)
 		_car_wheels = Vehicles.van(_car, color) if van else Vehicles.henkiloauto(_car, malli, color)  # sama malli kuin kaapattu liikenneauto
+		var kuski := Vehicles.kuski(_car, "hiace" if van else malli, Looks.player())  # pelaajan hahmo ratissa
+		if kuski != null:
+			Looks.add_cap(kuski)
 		if _car_engine == null:
 			_car_engine = AudioStreamPlayer.new()
 			_car_engine.stream = Sfx.stream("engine")

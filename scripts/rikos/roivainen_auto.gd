@@ -35,6 +35,7 @@ func _ready() -> void:
 	collision_layer = 0  # ei tönäise pelaajaa: kiinniotto tarkistetaan etäisyydestä
 	add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.85, 0)))
 	Vehicles.saab(self, Color.WHITE, "", true)  # poliisi-Saab: väritys, tekstit ja vilkkupalkki
+	Vehicles.kuski(self, "saab", load("res://scripts/ratsia.gd").COP)  # Roivainen ratissa (kuten police_car.gd)
 	_lights = Vehicles.police_lights(self)
 	_engine = Sfx.loop_on(self, "engine", -4.0)
 
