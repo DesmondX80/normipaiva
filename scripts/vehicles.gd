@@ -539,9 +539,57 @@ static func pony(parent: Node3D, color: Color, plate := "") -> Array[Node3D]:
 ## hahmon sijainneilla: lantio etuistuimen pinnan pisteeseen (kuljettaja -X, kasvot -Z) ja jalkapohjat jalkatilan
 ## lattialle. Kori on umpinainen vyölinjaan asti, joten jalat jäävät korin sisään (lattia helman SILL yläpuolella) ja
 ## vyön yläpuolella näkyvät vartalo ja pää; pää jää katon alle. Pisteet mallin paikallisessa avaruudessa.
+const RATTI_R := 0.1775  # ratin kehän keskisäde (_cabin: TorusMesh 0,165–0,19)
+
+
+## Istuimet säädetään kuin oikeassa autossa, jotta kyytiin mahtuu: "p" istuimen pinnan piste (korkeus ja pituussuunta),
+## "nojaus" selkänojan kallistus taakse (rad, spine_01). Pään rako kattoon, jalat ja ratti: autossa_kuvat.tscn mittaa.
 const ISTUIMET := {
-	"volvo": {"kuski": Vector3(-0.36, 0.5, 0.0), "etu": Vector3(0.36, 0.5, 0.0), "lattia": 0.3},  # selkänoja z 0,12
+	"volvo": {
+		"kuski": {"p": Vector3(-0.36, 0.4, 0.02), "nojaus": 0.1},  # istuin alas (pää ei katon läpi), selkä vähän taakse: kädet yltävät rattiin
+		"etu": {"p": Vector3(0.36, 0.38, 0.06), "nojaus": 0.3},  # Sitting_Idle istuu pystyssä: istuin alas ja taakse, selkänoja taakse
+		"lattia": 0.3,
+		"ratti": Vector3(-0.36, 1.0, -0.3),  # ratti eteen ja ylös polvien yltä; kuljettajan kädet IK:lla kehälle (istuta)
+	},
 }
+
+
+## Istuttaa hahmon autoon (ISTUIMET[malli][paikka], paikka "kuski" tai "etu"): kasvot -Z, lantio istuimelle, selkä
+## nojaa taakse istuimen säädön mukaan ja jalkapohjat jalkatilan lattialle. Hahmon pitää olla puussa ja animaation valittuna.
+static func istuta(ch: Node3D, malli: String, paikka: String) -> void:
+	var Pose = load("res://scripts/pose.gd")
+	var auto: Dictionary = ISTUIMET[malli]
+	var s: Dictionary = auto[paikka]
+	var fwd := Vector3(0, 0, -1)
+	Pose.seat(ch, fwd, s.p)
+	if float(s.get("nojaus", 0.0)) != 0.0:
+		ch.set_override("spine_01", Vector3.RIGHT, float(s.nojaus))  # selkä nojaa taakse selkänojaan
+	# Jalat ojennetaan pitkälle eteen jalkatilan lattialle kuten autossa (Pose.feet_to_floor rajaa askeleen reiden mittaan,
+	# jolloin matalalla istuimella polvet nousisivat ratin tasolle): polvi koukussa n. 45°, jalkaterät korin sisällä.
+	var foot_h: float = Pose.FOOT_H + float(ch.get("shoe_sole") if ch.get("shoe_sole") != null else 0.0)
+	var inv_l := ch.transform.affine_inverse()
+	for lr: String in ["_l", "_r"]:
+		var hip: Vector3 = ch.transform * ch.bone_position("thigh" + lr)
+		var l1: float = ch.bone_position("thigh" + lr).distance_to(ch.bone_position("calf" + lr))
+		var l2: float = ch.bone_position("calf" + lr).distance_to(ch.bone_position("foot" + lr))
+		var dy: float = hip.y - (float(auto.lattia) + foot_h)
+		var eteen := sqrt(maxf((l1 + l2) * (l1 + l2) * 0.86 - dy * dy, 0.0025))
+		var tgt := Vector3(hip.x, float(auto.lattia) + foot_h, hip.z) + fwd * eteen
+		var pole := (hip + tgt) / 2.0 + Vector3(0, 0.4, 0)  # polvi ylös
+		ch.set_ik("leg" + lr, "thigh" + lr, "calf" + lr, "foot" + lr, inv_l * tgt, inv_l * pole)
+	if paikka == "kuski" and auto.has("ratti"):
+		# Kädet ratin kehälle kello 9 ja 3 (hieman ylempänä), kyynärpäät alas ja sivulle: ratti säädetään kuljettajalle,
+		# kädet seuraavat rattia eivätkä animaation kiinteää paikkaa.
+		var hub: Vector3 = auto.ratti
+		var akseli := Vector3(0, 0.5, 0.866)  # _cabin: ratti kierretty 60° X:n ympäri
+		var ylos := akseli.cross(Vector3.RIGHT)
+		var inv := ch.transform.affine_inverse()
+		for lr: String in ["_l", "_r"]:
+			var sx := -1.0 if lr == "_l" else 1.0
+			var ote: Vector3 = hub + Vector3.RIGHT * sx * RATTI_R * cos(0.25) + ylos * RATTI_R * sin(0.25)
+			var olka: Vector3 = ch.transform * ch.bone_position("upperarm" + lr)
+			var kyynar := (olka + ote) / 2.0 + Vector3(sx * 0.2, -0.25, 0.05)
+			ch.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, inv * ote, inv * kyynar)
 
 
 ## Sisusta lasien läpi (vasemmanpuoleinen ohjaus: kuljettaja -X:ssä, etu -Z): lattia vyölinjalla, kattoverhoilu,
@@ -549,7 +597,7 @@ const ISTUIMET := {
 ## vyölinjaan asti, joten istuinosat jäävät sen sisään. seat_z = etuselkänojan alapää, rear_z = takaselkänojan
 ## alapää, hat_z ja hat_len = hattuhyllyn keskikohta ja pituus. Yhteinen Ponylle ja Saabille.
 static func _cabin(parent: Node3D, belt: float, top: float, ws0: float, ws1: float, ht0: float, ht1: float, ht_y: float,
-		glass_w: float, bar: Material, seat_z: float, rear_z: float, hat_z: float, hat_len: float) -> void:
+		glass_w: float, bar: Material, seat_z: float, rear_z: float, hat_z: float, hat_len: float, ratti := Vector3.INF) -> void:
 	var trim := _mat("ponysisus", Color(0.13, 0.13, 0.14), 0.0, 0.85)
 	var seat := _mat("ponyistuin", Color(0.46, 0.44, 0.41), 0.0, 0.95)
 	var cab_w := glass_w - 0.03
@@ -557,9 +605,15 @@ static func _cabin(parent: Node3D, belt: float, top: float, ws0: float, ws1: flo
 	part(parent, B.boxm(Vector3(cab_w, 0.01, ht1 - 0.08 - ws0)), Vector3(0, belt + 0.005, (ws0 + ht1 - 0.08) / 2.0), trim)  # lattia
 	part(parent, B.boxm(Vector3(cab_w, 0.01, ht0 - ws1 - 0.02)), Vector3(0, top - 0.008, (ws1 + ht0) / 2.0), _mat("ponykatto", Color(0.7, 0.68, 0.64), 0.0, 0.9))  # kattoverhoilu
 	part(parent, B.boxm(Vector3(cab_w, 0.12, 0.28)), Vector3(0, belt + 0.06, ws0 + 0.34), trim)  # kojelauta tuulilasin takana
-	part(parent, B.boxm(Vector3(0.36, 0.06, 0.13)), Vector3(-0.36, belt + 0.15, ws0 + 0.4), trim)  # mittariston kotelo
-	var hub_p := Vector3(-0.36, belt + 0.17, ws0 + 0.58)
-	slab(parent, Vector3(-0.36, belt + 0.09, ws0 + 0.46), hub_p, 0.05, 0.05, trim)  # ohjausakseli
+	var hub_p := Vector3(-0.36, belt + 0.17, ws0 + 0.58) if ratti == Vector3.INF else ratti  # ratti: säädetty kuljettajan mukaan (ISTUIMET)
+	var akseli := Vector3(0, 0.5, 0.866)  # ratin akseli (kierretty 60° X:n ympäri), osoittaa kuljettajaa kohti
+	if ratti == Vector3.INF:
+		part(parent, B.boxm(Vector3(0.36, 0.06, 0.13)), Vector3(-0.36, belt + 0.15, ws0 + 0.4), trim)  # mittariston kotelo
+		slab(parent, Vector3(-0.36, belt + 0.09, ws0 + 0.46), hub_p, 0.05, 0.05, trim)  # ohjausakseli
+	else:
+		# Säädetty ratti: mittariston kotelo ratin yläkehän takana (ei ratin päällä) ja ohjausakseli kojelautaan akselin suunnassa.
+		part(parent, B.boxm(Vector3(0.36, 0.06, 0.13)), Vector3(hub_p.x, maxf(belt + 0.12, hub_p.y + 0.08), hub_p.z - 0.2), trim)
+		slab(parent, hub_p - akseli * 0.3, hub_p, 0.05, 0.05, trim)
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.165
 	ring.outer_radius = 0.19
@@ -1314,9 +1368,9 @@ static func volvo(parent: Node3D, color: Color, plate := "", farmari := false) -
 	for sx in [-1.0, 1.0]:
 		_side_panel(parent, sx * GLASS_W / 2.0, [Vector2(WS0, BELT), Vector2(WS1, top), Vector2(qa, top), Vector2(qb, BELT)], win)
 	if farmari:
-		_cabin(parent, BELT, top, WS0, WS1, ht0, ht1, ht_y, GLASS_W, bar, 0.12, 1.08, 1.72, 1.1)  # hylly = tavaratilan lattia
+		_cabin(parent, BELT, top, WS0, WS1, ht0, ht1, ht_y, GLASS_W, bar, 0.2, 1.08, 1.72, 1.1, ISTUIMET.volvo.ratti)  # hylly = tavaratilan lattia
 	else:
-		_cabin(parent, BELT, top, WS0, WS1, ht0, ht1, ht_y, GLASS_W, bar, 0.12, 1.02, 1.32, 0.48)
+		_cabin(parent, BELT, top, WS0, WS1, ht0, ht1, ht_y, GLASS_W, bar, 0.2, 1.02, 1.32, 0.48, ISTUIMET.volvo.ratti)
 	slab(parent, wf0, wf1, GLASS_W + 0.02, 0.04, win)  # tuulilasi
 	slab(parent, wr0, wr1, GLASS_W + 0.02, 0.04, win)  # takalasi
 	_bevel_box(parent, Vector3((roof_x + ROOF_C) * 2.0, ROOF_T, ht0 - WS1 + 0.04), Vector3(0, ROOF - ROOF_T / 2.0, (WS1 + ht0) / 2.0), ROOF_C, body)  # katto

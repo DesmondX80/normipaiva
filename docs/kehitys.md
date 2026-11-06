@@ -114,7 +114,11 @@ akselivälin 2,50 ja pyörän alimman pisteen 0 ± 0,01).
 Volvo 240 sedan ja 245 farmari (`vehicles.gd volvo(..., farmari)`; liikenteessä molemmat, Pekan vihreä farmari
 `cutscene.gd _pekka_car`): `tools/testit/aja.sh tscn tools/testit/volvo_kuvat.tscn` (sedan ja farmari rinnakkain, farmarin perä,
 katon kulmat; mittaa sedanin 1,715 × 1,435 × 4,785 ±5 %, akselivälin 2,64). Auton istujat lasketaan istuimesta
-(`Vehicles.ISTUIMET`, `Pose.seat` + `Pose.feet_to_floor`): jalat jäävät korin sisään, pää katon alle (`--scene=pekkakyyti`).
+(`Vehicles.istuta`, `Vehicles.ISTUIMET`): istuin säädetään kuin oikeassa autossa (korkeus, pituussuunta, selkänojan kallistus),
+jalat ojennetaan jalkatilan lattialle korin sisään ja kuljettajan kädet IK:lla ratin kehälle; ratin paikka on säädetty kuljettajan
+mukaan. `tools/testit/aja.sh tscn tools/testit/autossa_kuvat.tscn` mittaa paistetusta verkosta pään (ja lippiksen) raon katon
+alapintaan, jalkojen alimman pisteen helmaan ja vartalon etäisyyden ratin kehästä (TESTI VIKA, jos pää < 2 cm katosta, jalat
+helmassa tai kehä < 4 cm vartalosta). Pään luu on `Head`.
 Kaikki mallit rivissä: `tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn`.
 
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
