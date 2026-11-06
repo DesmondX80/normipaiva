@@ -1753,10 +1753,9 @@ func pentti_ride(stats: String, done: Callable) -> void:
 		for c in fog:
 			(c as GeometryInstance3D).transparency = 1.0 - clampf((t - 1.5) / 4.0, 0.0, 1.0)
 		var vp := van.global_position
-		# Alaviisto (käyttäjän toive): kamera matalalla keulan sivulla, keinuva auto ja huurteinen tuulilasi taivasta vasten.
-		_cam.global_position = vp + Vector3(lerpf(-4.4, -3.2, u), lerpf(0.4, 0.3, u), lerpf(-5.2, -4.0, u))
-		_cam.look_at(vp + Vector3(0.4, 1.4, 0), Vector3.UP)
-		bubble.global_position = vp + Vector3(0, 2.6, 0)  # alaviistosta katsoen katon yllä, ei tuulilasin edessä
+		_cam.global_position = vp + Vector3(lerpf(-4.6, -3.2, u), lerpf(1.9, 1.55, u), lerpf(-5.6, -4.0, u))
+		_cam.look_at(vp + Vector3(0.4, 1.0, 0), Vector3.UP)  # auto hieman vasemmalle: otsikko ei peitä tuulilasia
+		bubble.global_position = vp + Vector3(0, 2.2, 0)  # katon lisävalojen yllä, kuvan sisällä
 		bubble.text = PENTTI_RIDE_LINES[mini(int(t / 1.5), PENTTI_RIDE_LINES.size() - 1)]
 		if t > 3.2 and _title.text != "":
 			_title.text = ""  # otsikko pois tuulilasin edestä: huurtuminen ja keinunta näkyvät
@@ -1815,10 +1814,9 @@ func pentti_tour(stats: String, done: Callable) -> void:
 		var vp := van.global_position
 		# Kamera kiertää vasemmalta edestä oikealle kylkeen: kuski, kyytiläinen ja banderolli.
 		var a := lerpf(-0.5, 0.9, u)
-		# Alaviisto: kamera maan rajassa katsoo ylös autoon (käyttäjän toive), auto ja banderolli taivasta vasten.
-		_cam.global_position = vp + Vector3(sin(a) * 4.6, 0.35, -cos(a) * 4.6 - 1.0)
-		_cam.look_at(vp + Vector3(0, 1.6, -0.8), Vector3.UP)
-		bubble.global_position = vp + Vector3(0, 2.6, -0.5)
+		_cam.global_position = vp + Vector3(sin(a) * 6.5, 2.0, -cos(a) * 6.5 - 1.0)
+		_cam.look_at(vp + Vector3(0, 1.3, -0.8), Vector3.UP)
+		bubble.global_position = vp + Vector3(0, 2.3, -0.5)
 		bubble.text = PENTTI_TOUR_LINES[mini(int(t / 1.8), PENTTI_TOUR_LINES.size() - 1)]
 		if not faded:
 			faded = true
