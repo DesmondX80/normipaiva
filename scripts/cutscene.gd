@@ -1710,18 +1710,15 @@ func _pekka_car(parent: Node3D) -> Dictionary:
 		B.box(car, Vector3(1.5, 0.05, 0.06), Vector3(0, 1.53, z), rack, false)
 	B.box(car, Vector3(0.28, 0.12, 1.6), Vector3(0.35, 1.62, 0.25), Color(0.3, 0.24, 0.12), false)  # haulikkolaukku
 	B.box(car, Vector3(0.55, 0.32, 0.9), Vector3(-0.35, 1.72, 0.25), Color(0.75, 0.3, 0.08), false)  # punkka kattotelineellä
-	# Istujat lasketaan istuimesta (Vehicles.ISTUIMET): lantio istuimelle, jalat jalkatilan lattialle korin sisään.
-	var seats: Dictionary = Vehicles.ISTUIMET.volvo
-	var fwd := Vector3(0, 0, -1)
+	# Istujat lasketaan istuimesta (Vehicles.istuta): lantio istuimelle, jalat jalkatilan lattialle korin sisään,
+	# pää katon alle (tools/testit/autossa_kuvat.tscn mittaa).
 	var pekka := Looks.make(car, Looks.PEKKA)
 	pekka.play("Driving", 0.0)
-	Pose.seat(pekka, fwd, seats.kuski)
-	Pose.feet_to_floor(pekka, seats.lattia, fwd)
+	Vehicles.istuta(pekka, "volvo", "kuski")
 	var hero := Looks.make(car, Looks.player())
 	Looks.add_cap(hero)
 	hero.play("Sitting_Idle", 0.0)
-	Pose.seat(hero, fwd, seats.etu)
-	Pose.feet_to_floor(hero, seats.lattia, fwd)
+	Vehicles.istuta(hero, "volvo", "etu")
 	var can := Node3D.new()
 	B.mesh(can, B.cyl(0.033, 0.033, 0.12, 12), Vector3(0, -0.02, 0), Color(0.8, 0.75, 0.2))
 	hero.attach("hand_r", can, Vector3(0, -0.02, 0.03))
