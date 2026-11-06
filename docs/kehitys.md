@@ -139,6 +139,10 @@ ja `scene bangbus_vaala` tarkistavat aikataulun (to ei, pe 18 ei, pe 20 kyllä),
 repliikkipakan, kyydin (päivä vaihtuu, raha ja maine laskevat, legendaarinen hetki vain ensimmäisestä, herätyspaikka), toisen kyydin
 kiertuevihjeen ja kolmannen kyydin kiertueen (`cutscene.gd pentti_tour`, onnellinen loppu `pentin_kiertue`, herätys kotipihalta),
 Päivin aamurivin ja tallennuksen; kuvat auto viistosti, kyljet, perä, ohjaamo, Pentti, juttelu, kyyti, aamu, kiertue ja kiertueen aamu.
+Pentin ulkonäkö: `tools/testit/aja.sh tscn tools/testit/pentti_kuvat.tscn` (edestä, vino, sivu, takaa, rinta, liivin reuna, kasvot).
+Avonainen nahkaliivi ja rintakarvat ovat hahmon varjostimen asuvalintoja (`look.vest_open`, `chest_hair`, `body_hair`;
+`shaders/character.gdshader vest_half`, `chest_hair_amt`): liivin aukko lepoasennon koordinaateista, esikuvana biker-liivi
+auki paljaan rinnan päällä.
 Kaikki mallit rivissä: `tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn`.
 
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
