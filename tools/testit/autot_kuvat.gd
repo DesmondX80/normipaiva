@@ -1,5 +1,5 @@
 extends Node3D
-## Kaikki henkilöautomallit rivissä (vehicles.gd saab, saab poliisi, lada, civic ja Päivin pony): kuva vinosti
+## Kaikki henkilöautomallit rivissä (vehicles.gd saab, saab poliisi, lada, volvo sedan ja farmari, civic ja Päivin pony): kuva vinosti
 ## edestä, sivulta ja takaa. Ajo: tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn
 
 const Vehicles := preload("res://scripts/vehicles.gd")
@@ -32,6 +32,8 @@ func _ready() -> void:
 		func(n: Node3D): Vehicles.saab(n, Color(0.15, 0.25, 0.5), "SAA-900"),
 		func(n: Node3D): Vehicles.saab(n, Color.WHITE, "SJX-141", true),
 		func(n: Node3D): Vehicles.lada(n, Color(0.82, 0.78, 0.66), "LLJ-606"),
+		func(n: Node3D): Vehicles.volvo(n, Color(0.85, 0.85, 0.87), "VLV-240"),
+		func(n: Node3D): Vehicles.volvo(n, Color(0.22, 0.3, 0.18), "PEK-14", true),
 		func(n: Node3D): Vehicles.civic(n, Color(0.72, 0.04, 0.07), "VTC-916"),
 		func(n: Node3D): Vehicles.pony(n, Color(0.78, 0.05, 0.05), "PÄI-V1"),
 	]
@@ -59,7 +61,7 @@ func _shot(name: String, from: Vector3, to: Vector3, fov := 40.0) -> void:
 func _run() -> void:
 	for i in 10:
 		await get_tree().process_frame
-	await _shot("vino_edesta", Vector3(-7.5, 3.2, -9.5), Vector3(0, 0.6, 0), 42.0)
-	await _shot("edesta", Vector3(0, 1.6, -14.0), Vector3(0, 0.7, 0), 45.0)
-	await _shot("vino_takaa", Vector3(7.5, 3.2, 9.5), Vector3(0, 0.6, 0), 42.0)
+	await _shot("vino_edesta", Vector3(-10.0, 4.0, -12.0), Vector3(0, 0.6, 0), 42.0)
+	await _shot("edesta", Vector3(0, 1.6, -19.0), Vector3(0, 0.7, 0), 45.0)
+	await _shot("vino_takaa", Vector3(10.0, 4.0, 12.0), Vector3(0, 0.6, 0), 42.0)
 	get_tree().quit()

@@ -2049,7 +2049,7 @@ func _build_korjaamot() -> void:
 		cb.add_child(B.box_shape(Vector3(1.8, 1.5, 4.6), Vector3(0, 0.75, 0)))
 		n.add_child(cb)
 		return n
-	# Korpelan pihassa Pekan Volvo -tyyppinen farmari nostimella.
+	# Korpelan pihassa Volvo-farmari nostimella.
 	var kf := _osm_fit_at(M.KORPELA)
 	if not kf.is_empty():
 		var lp: Vector2 = kf.c + kf.nrm * (kf.d / 2.0 + 5.0)
@@ -2059,8 +2059,14 @@ func _build_korjaamot() -> void:
 		add_child(lift)
 		for x in [-1.3, 1.3]:
 			B.mesh(lift, B.boxm(Vector3(0.25, 2.2, 0.25)), Vector3(x, 1.1, 0), Color(0.85, 0.15, 0.1))
-		var volvo: Node3D = car.call(lp, kf.yaw, Color(0.55, 0.12, 0.1), false)
-		volvo.position.y = 0.8
+		var volvo := Node3D.new()  # punainen Volvo 245 -farmari nostimen varsilla (vehicles.gd volvo)
+		volvo.position = Vector3(lp.x, 0.8, lp.y)
+		volvo.rotation.y = kf.yaw
+		add_child(volvo)
+		load("res://scripts/vehicles.gd").volvo(volvo, Color(0.55, 0.12, 0.1), "KRP-245", true)
+		var vb := StaticBody3D.new()
+		vb.add_child(B.box_shape(Vector3(1.8, 1.5, 4.8), Vector3(0, 0.75, 0)))
+		volvo.add_child(vb)
 	# Simon pakettiauto.
 	var sv := M.w2(M.SIMO_VAN)
 	var van := Node3D.new()

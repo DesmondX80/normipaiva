@@ -1699,27 +1699,29 @@ const PEKKA_EVICT_LINES := ["Santtu soitti. Kuulemma hommat jäi tekemättä, pe
 	"Sanoinko jo että ammuin neljätoista kyyhkyä?", "Kotipihaan asti. Mee nyt vaan sisälle, perkele."]
 
 
-## Pekan vanha vihreä Volvo-farmari: kattoteline, haulikkolaukku ja läpinäkyvät lasit, että kuski ja
-## kyytiläinen näkyvät. Palauttaa {"car", "pekka", "hero", "wheels"}.
+## Pekan vanha vihreä Volvo 245 -farmari (vehicles.gd volvo, läpinäkyvät lasit: kuski ja kyytiläinen näkyvät):
+## kattoteline kattokiskojen päällä, haulikkolaukku ja punkka. Palauttaa {"car", "pekka", "hero", "wheels"}.
 func _pekka_car(parent: Node3D) -> Dictionary:
 	var car := Node3D.new()
 	parent.add_child(car)
-	var wheels := Vehicles.car(car, Color(0.22, 0.3, 0.18), "PEK-14")
-	for c in car.get_children():
-		if c is MeshInstance3D and c.material_override == Vehicles.glass():
-			c.material_override = Vehicles.cab_glass()
+	var wheels := Vehicles.volvo(car, Color(0.22, 0.3, 0.18), "PEK-14", true)
 	var rack := Color(0.12, 0.12, 0.12)
-	for z in [-0.35, 0.85]:
+	for z in [-0.02, 0.85]:  # poikittaistangot kattokiskojen päällä (kiskot z -0,1…2,0, yläpinta 1,50)
 		B.box(car, Vector3(1.5, 0.05, 0.06), Vector3(0, 1.53, z), rack, false)
 	B.box(car, Vector3(0.28, 0.12, 1.6), Vector3(0.35, 1.62, 0.25), Color(0.3, 0.24, 0.12), false)  # haulikkolaukku
 	B.box(car, Vector3(0.55, 0.32, 0.9), Vector3(-0.35, 1.72, 0.25), Color(0.75, 0.3, 0.08), false)  # punkka kattotelineellä
+	# Istujat lasketaan istuimesta (Vehicles.ISTUIMET): lantio istuimelle, jalat jalkatilan lattialle korin sisään.
+	var seats: Dictionary = Vehicles.ISTUIMET.volvo
+	var fwd := Vector3(0, 0, -1)
 	var pekka := Looks.make(car, Looks.PEKKA)
-	pekka.position = Vector3(-0.4, 0.05, 0.1)
 	pekka.play("Driving", 0.0)
+	Pose.seat(pekka, fwd, seats.kuski)
+	Pose.feet_to_floor(pekka, seats.lattia, fwd)
 	var hero := Looks.make(car, Looks.player())
 	Looks.add_cap(hero)
-	hero.position = Vector3(0.4, 0.05, 0.15)
 	hero.play("Sitting_Idle", 0.0)
+	Pose.seat(hero, fwd, seats.etu)
+	Pose.feet_to_floor(hero, seats.lattia, fwd)
 	var can := Node3D.new()
 	B.mesh(can, B.cyl(0.033, 0.033, 0.12, 12), Vector3(0, -0.02, 0), Color(0.8, 0.75, 0.2))
 	hero.attach("hand_r", can, Vector3(0, -0.02, 0.03))
