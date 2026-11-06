@@ -11366,6 +11366,8 @@ func _kolmio_logic() -> void:
 	_kolmio_follow([_kolmio_joni, _kolmio_esa], walker_out if going and player == walker_out else null, going)
 	if _hint.text != "" or _kolmio_ui != null:
 		return
+	if going:
+		return  # mittauksen aikana kaverit seuraavat vieressä: juttelu ja koputus vasta muiden toimintojen jälkeen (_kolmio_measure_logic)
 	for npc: CharacterBody3D in [_kolmio_joni, _kolmio_esa]:
 		if npc.visible and npc.distance_to_player() < 4.2:
 			_talk_hint("kolmio_saloinen", npc, player != bike)
@@ -11396,6 +11398,23 @@ func _kolmio_measure_logic() -> void:
 	if _hint.text != "" or _kolmio_ui != null or player == bike or kolmio.stage("saloinen") != "mittaus":
 		return
 	var p := _kolmio_me("saloinen")
+	# Seuraavat kaverit ovat aina vieressä, joten koputus ja juttelu tulevat vasta muiden E-toimintojen jälkeen:
+	# ensin ovi, sitten kaveri, jota pelaaja katsoo päin (lähellä), lopuksi Sytkärin mittaus.
+	for dd: Array in _kolmio_door_list("saloinen"):
+		if p.distance_to(dd[0]) < KOLMIO_DOOR_R:
+			_hint.text = "[E] Koputa oveen"
+			if Input.is_action_just_pressed("interact") and not player.is_stunned():
+				_kolmio_knock("saloinen", dd[1])
+			return
+	var eteen := -player.global_transform.basis.z
+	for npc: CharacterBody3D in [_kolmio_joni, _kolmio_esa]:
+		if not npc.visible or npc.distance_to_player() > 2.5:
+			continue
+		var suunta := npc.global_position - player.global_position
+		suunta.y = 0.0
+		if suunta.length() > 0.01 and Vector2(eteen.x, eteen.z).normalized().dot(Vector2(suunta.x, suunta.z).normalized()) > 0.6:
+			_talk_hint("kolmio_saloinen", npc, true)
+			return
 	if not kolmio.can_measure("saloinen", p):
 		return
 	_hint.text = "[E] Avaa Sytkäri: kuinka kaukana Minttu on?"
@@ -11420,6 +11439,9 @@ func _kolmio_vaala_logic() -> void:
 			if d.id == "kolmio_kaverit":
 				d.pos = mopo_trip.vaala.to_local(_kolmio_vaala_npcs[0].global_position) if f != null \
 					else _kolmio_vaala_spots.get("door_home", d.pos)
+				# Seuraavana juttelupiste on aina vieressä: pieni säde (5 m pienempi etusija), jotta ovet ja muut
+				# toiminnot voittavat sen; kotipaikalla iso säde, jotta Teron ja Timon löytää (#8572288).
+				d["r"] = 2.5 if f != null else 7.0
 	if kolmio.remote_step("vaala", get_process_delta_time()):
 		_kolmio_remote("vaala")
 	if _hint.text != "" or _kolmio_ui != null or mopo_trip.on_foot == null or _talk_box.is_open() \
