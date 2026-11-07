@@ -144,6 +144,10 @@ Avonainen nahkaliivi ja rintakarvat ovat hahmon varjostimen asuvalintoja (`look.
 `shaders/character.gdshader vest_half`, `chest_hair_amt`): liivin aukko lepoasennon koordinaateista, esikuvana biker-liivi
 auki paljaan rinnan päällä.
 Kaikki mallit rivissä: `tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn`.
+Tappelun alun ohjetauko: `tools/testit/aja.sh scene fight_ohjeet` (paneeli näkyy, tappelu ei ala itsestään, lyöntinappi aloittaa;
+kuva `_ohjeet`). Testiajoissa (`B.diag`) ohjetauko ohitetaan, ellei testi aseta `Fight.ohjeet_testissa`.
+Puhekuplien vuorottelu (`bubble.gd`: lähekkäin alle 5 m yksi kupla kerrallaan, vähimmäisaika tekstin pituudesta):
+`tools/testit/aja.sh tscn tools/testit/kuplat.tscn`.
 Pysäköidyt autot: `tools/testit/aja.sh scene parkit` tarkistaa, ettei yksikään `B.parked_car` ole toisen sisällä Saloisissa eikä Vaalassa
 (Vaalassa myös Pentin paikkaa vasten), ja kuvaa Zabukin joka suunnasta (`_zabuki_*`).
 
