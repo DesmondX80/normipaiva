@@ -71,7 +71,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   3D-lavastuksia omissa maailmoissaan (`kolmio_kohtaus.gd`), ja Sytkärin profiilikuvat on otettu 3D-hahmoista.
   Osoitetta ei kerrota, vain etäisyys. Kaveri mittaa lähtöpaikalta, ja toinen mittaa kauempaa: Saloisissa Esa
   tekstaa kirkolta, Vaalassa Teron ja Timon kanssa jutellessa valitaan "Hypätään Siviikkiin", ja Timo ajaa porukan
-  aseman pihasta nurmikon yli Vaalantielle ja tietä pitkin mittauspisteeseen (VTEC kytkeytyy, matkalla Timon ja Teron
+  aseman pihasta katuja pitkin Vaalantielle (maaston kautta vain, jos tietä ei ole) ja tietä pitkin mittauspisteeseen (VTEC kytkeytyy, matkalla Timon ja Teron
   jutut, E hyppää perille) ja takaisin asemalle. Mittauksen ajan kaverit kulkevat jalan pelaajan perässä (Esa
   liittyy mukaan tekstattuaan, Tero ja Timo Siviikki-ajon jälkeen) ja seisovat takana ovella; pyörän tai mopon
   selässä he jäävät odottamaan ja tulevat perään, kun pelaaja jatkaa jalan. Sen jälkeen pelaaja mittaa lisää missä vain (E "Avaa Sytkäri", vähintään 35 m edellisistä mittauksista).
