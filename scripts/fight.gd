@@ -942,15 +942,16 @@ func _build_hud() -> void:
 	root.add_child(_ohje)
 
 
-## Alun ohjepaneeli: kaikki tappelun napit ryhmittäin ja aloitus lyöntinapista.
+## Alun ohjepaneeli: liikkuminen (WASD-ryhmä), perusiskut ja aloitus lyöntinapista.
 func _ohje_teksti() -> String:
-	var k := func(a: String) -> String: return Settings.action_key(a)
+	var nuolet: Dictionary = preload("res://scripts/hint_bar.gd").NUOLET
+	var k := func(a: String) -> String: return nuolet.get(Settings.action_key(a), Settings.action_key(a))  # nuolinäppäimet nuolina
+	# Liikkuminen näppäinryhmänä kuin näppäimistöllä (hint_bar.gd _cluster: "[W|A,S,D]"), näppäimet asetuksista (omat
+	# valinnat näkyvät); yhdistelmät vain ottelun palkissa.
 	return "\n".join([
-		"Tappelussa ohjaus on erilainen kuin muualla pelissä:",
-		"[%s] taakse   [%s] eteen   [%s] hyppy   [%s] torju (pidä pohjassa)" % [k.call("left"), k.call("right"), k.call("forward"), k.call("back")],
-		"[%s] lyönti   [%s] potku   [%s] kassi-isku (vie kaljan)" % [k.call("punch"), k.call("kick"), k.call("special")],
-		"[%s+%s] pystykoukku   [%s+%s] pyyhkäisy   [eteen+%s] kiertopotku   [eteen+%s] heitä kalja   [%s] ilmassa: lentopotku" % [
-			k.call("back"), k.call("punch"), k.call("back"), k.call("kick"), k.call("kick"), k.call("special"), k.call("kick")],
+		"[%s|%s,%s,%s] liiku (%s hyppää, %s torjuu)   [%s] lyönti   [%s] potku   [%s] kassi-isku (vie kaljan)" % [
+			k.call("forward"), k.call("left"), k.call("back"), k.call("right"), k.call("forward"), k.call("back"),
+			k.call("punch"), k.call("kick"), k.call("special")],
 		"[%s] Aloita tappelu lyöntinapilla" % k.call("punch"),
 	])
 

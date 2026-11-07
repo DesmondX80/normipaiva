@@ -22702,6 +22702,21 @@ func _maybe_screenshot() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ohjeet.png"))
 			print("FIGHT ohjeet: vaihe '%s' 1,5 s jälkeen, aika %.1f" % [fight._phase, fight._time])
+			# Asetuksissa liikkuminen nuolinäppäimiin: paneeli näyttää valitut näppäimet (nuolina), sitten takaisin.
+			var keys0: Dictionary = (Settings.values.keys as Dictionary).duplicate(true)
+			for ak in [["forward", KEY_UP], ["back", KEY_DOWN], ["left", KEY_LEFT], ["right", KEY_RIGHT]]:
+				Settings.values.keys[ak[0]] = [ak[1], 0, 0]
+			var teksti: String = fight._ohje_teksti()
+			print("FIGHT ohjeet nuolilla: %s" % teksti.replace("\n", " / "))
+			if not "↑" in teksti:
+				print("TESTI VIKA ohjepaneeli ei käytä asetusten näppäimiä")
+			fight._ohje.set_text(teksti)
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ohjeet_nuolet.png"))
+			Settings.values.keys = keys0
+			fight._ohje.set_text(fight._ohje_teksti())
 			if fight._phase != "ohjeet":
 				print("TESTI VIKA tappelu alkoi ilman lyöntinappia (vaihe %s)" % fight._phase)
 			var ev := InputEventAction.new()
