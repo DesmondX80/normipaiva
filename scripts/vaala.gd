@@ -4240,10 +4240,12 @@ func _build_matkakeskus() -> void:
 	lp.y = h(lp.x, lp.z)
 	B.mesh(self, B.cyl(0.05, 0.06, 3.8, 8), lp + Vector3(0, 1.9, 0), Color(0.3, 0.32, 0.34))
 	B.mesh(self, B.sphere(0.3, 10), lp + Vector3(0, 3.95, 0), Color(1, 1, 1)).material_override = B.unshaded(Color(1.0, 0.98, 0.9))
+	# Autot rinnakkain 3,2 m välein nokka rakennukseen päin (pituus v-suuntaan): +90° käänsi ne rivin suuntaisiksi,
+	# jolloin 4,2 m autot olivat toistensa sisässä (tools/testit/parkit.gd).
 	for cu2 in [-5.0, -8.2, -11.4]:
 		var cp: Vector3 = at.call(cu2, front + 6.0, 0.0)
 		cp.y = h(cp.x, cp.z)
-		B.parked_car(self, cp, deg + 90.0, [Color(0.15, 0.3, 0.7), Color(0.7, 0.12, 0.1), Color(0.75, 0.75, 0.78)][int(absf(cu2)) % 3])
+		B.parked_car(self, cp, deg, [Color(0.15, 0.3, 0.7), Color(0.7, 0.12, 0.1), Color(0.75, 0.75, 0.78)][int(absf(cu2)) % 3])
 
 
 ## Vaalan kunnantalo (tie.json keskusta.kunnantalo; tools/vaala_kunnantalo.py): vasemmalla kaksikerroksinen vaalea siipi
