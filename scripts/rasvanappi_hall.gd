@@ -24,6 +24,7 @@ var cam: Camera3D  # pelin kamera ylhäältä viistosti
 var line_cam: Camera3D  # esittely edestä
 var fps_cam: Camera3D  # V: oma näkymä konttaajan silmistä (set_fps)
 var fps := false
+var fps_pitch := -0.16  # FPS-katseen kallistus (rad, + ylös); hiiriohjauksessa hiiren pystyliike (rasvanappi_game.gd)
 var _sun: DirectionalLight3D
 var _sun_mask := 0
 var _ceiling: OmniLight3D
@@ -167,7 +168,8 @@ func place(i: int, p: Vector2, ang: float, phase: float, moving: bool) -> void:
 		# Silmät konttaajan pään kohdalla (n. 0,62 m, hieman vartalon keskeltä eteen), katse eteen ja vähän alas.
 		var f := Vector3(cos(ang), 0.0, sin(ang))
 		var eye := Vector3(p.x, 0.62, p.y) + f * 0.42 + Vector3(0, sin(phase) * 0.012 if moving else 0.0, 0)
-		fps_cam.transform = Transform3D(Basis.looking_at(f - Vector3(0, 0.16, 0), Vector3.UP), eye)
+		var look := f * cos(fps_pitch) + Vector3.UP * sin(fps_pitch)
+		fps_cam.transform = Transform3D(Basis.looking_at(look, Vector3.UP), eye)
 
 
 func _build_lights() -> void:
