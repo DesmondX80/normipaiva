@@ -46,7 +46,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Valojen sammuttua kontataan (WASD, Shift ripeästi mutta kolisten). Rasvanappi tökkää jotakuta takaapäin peppuun
   (E) ja huutaa nimen. Jos arvaus osuu, tökätty nuolee sormen ja on seuraava nappi. Jos ei, tökkääjä nuolee itse.
   Kun nappi on joku muu, se jahtaa pimeässä. V (kamera) vaihtaa omaan näkymään konttaajan silmistä: W/S konttaa
-  eteen ja taakse, A/D kääntyy; valinta muistetaan seuraavaan kierrokseen ja lopussa palataan yleiskuvaan.
+  eteen ja taakse, A/D kääntyy. Jos asetuksista on valittu hiiri ohjaa kulkusuuntaa (FPS-tyyli), hiiri lukitaan:
+  sivuliike kääntää, pystyliike kallistaa katsetta, A/D konttaa sivuttain ja klikkaus tökkää. Valinta muistetaan seuraavaan kierrokseen ja lopussa palataan yleiskuvaan.
   Testit `--scene=rasvanappi` ja `tools/testit/rasvanappi_kuvat.tscn`.
 - **Pentin BangBus (vain aikuisille, #299):** Pentti (keksitty keski-ikäinen viiksimies: avonainen nahkaliivi karvaisen rinnan päällä, pilottilasit,
   kultaketju) seisoo tuunatun pakettiautonsa vieressä perjantai- ja lauantai-iltaisin klo 19–23: Saloisissa K-Marketin

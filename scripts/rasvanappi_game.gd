@@ -166,6 +166,7 @@ var _npcs_answer_t := 0.0
 
 
 func _ready() -> void:
+	_cam_saved = [CamCtl.fps, CamCtl.yaw, CamCtl.pitch]
 	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	layer = 6
 	_root = Control.new()
@@ -289,7 +290,9 @@ func _draw_call() -> void:
 
 
 func _pressed_ok() -> bool:
-	return Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("jump")
+	var click := _click
+	_click = false
+	return Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("jump") or click
 
 
 func _quit_pressed() -> bool:
@@ -298,6 +301,8 @@ func _quit_pressed() -> bool:
 
 ## Konttauksen näppäimet ohjeriville: ylös, vasen, alas, oikea (oletuksena [W/A/S/D]).
 func _move_keys() -> String:
+	if _mouse_fps():
+		return "[Hiiri] katso   %s konttaa   %s sivulle" % [Settings.pair("forward", "back"), Settings.pair("left", "right")]
 	if _hall != null and _hall.fps:
 		return "%s konttaa   %s käänny" % [Settings.pair("forward", "back"), Settings.pair("left", "right")]
 	return "[%s/%s/%s/%s] konttaa" % [Settings.action_key("forward"), Settings.action_key("left"), Settings.action_key("back"),
@@ -310,12 +315,58 @@ static var fps_valinta := false  # viimeisin valinta muistetaan seuraavaan pelii
 
 
 func _camera_toggle() -> void:
-	if _hall == null or not _mode in ["sammutus", "pimea", "nimi", "vastaus", "nuolu", "puhelu"]:
+	_mouse_capture()
+	if _hall == null or not _mode in DARK_MODES:
 		return
 	if Input.is_action_just_pressed("camera"):
 		_hall.set_fps(not _hall.fps)
 		fps_valinta = _hall.fps
 		Sfx.play("cloth", -12.0, 1.3)
+
+
+## Hiiriohjaus FPS-näkymässä, kun asetuksista on valittu hiiri ohjaa kulkusuuntaa (FPS-tyyli, ulkona tai sisällä):
+## hiiren sivuliike kääntää konttaajaa, pystyliike kallistaa katsetta, A/D sivuttain ja vasen nappi tökkää.
+const DARK_MODES := ["sammutus", "pimea", "nimi", "vastaus", "nuolu", "puhelu"]
+const MOUSE_SENS := 0.0032  # kuten cam_ctl.gd
+const PITCH_MIN := -0.75
+const PITCH_MAX := 0.45
+var _mouse_on := false
+var _click := false
+var _cam_saved: Array = []  # CamCtl: fps, yaw, pitch (V ja hiiri eivät saa muuttaa pelin omaa kameraa)
+
+
+func _mouse_fps() -> bool:
+	return _hall != null and _hall.fps and _mode in DARK_MODES and not Touch.active \
+		and (Settings.get_v("mouse_steer") or Settings.get_v("mouse_steer_indoor"))
+
+
+func _mouse_capture() -> void:
+	var want := _mouse_fps()
+	if want == _mouse_on:
+		return
+	_mouse_on = want
+	CamCtl.need_mouse = want
+	if want:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	else:
+		_click = false
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if get_tree().paused or not _mouse_on or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return
+	if event is InputEventMouseMotion and _mode == "pimea":
+		var sens: float = MOUSE_SENS * Settings.get_v("mouse_sens")
+		var inv := -1.0 if Settings.get_v("invert_y") else 1.0
+		mouse_look(event.relative * Vector2(sens, sens * inv))
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_click = true
+
+
+## Katseen käännös radiaaneina (x = oikealle, y = alas), hiirestä tai testistä.
+func mouse_look(rad: Vector2) -> void:
+	me.ang = wrapf(me.ang + rad.x, -PI, PI)
+	_hall.fps_pitch = clampf(_hall.fps_pitch - rad.y, PITCH_MIN, PITCH_MAX)
 
 
 func _size() -> Vector2:
@@ -408,7 +459,8 @@ func _update_texts() -> void:
 			if nappi == -1:
 				_info.text = "Olet RASVANAPPI · tökkää jotakuta takaapäin peppuun · tökkäyksiä %d/%d" % [pokes, MAX_POKES]
 				_keys.set_text("%s   %s ripeästi (kolisee)   [%s] tökkää   %s kamera   %s lopeta" % [_move_keys(),
-					Settings.cap("sprint"), Settings.action_key("interact"), Settings.cap("camera"), Settings.cap("mount")])
+					Settings.cap("sprint"), Settings.action_key("interact") + ("/Klikkaus" if _mouse_on else ""), Settings.cap("camera"),
+					Settings.cap("mount")])
 			else:
 				_info.text = "Rasvanappi liikkuu pimeässä · älä anna takapuolta · %d:%02d" % [int(left) / 60, int(left) % 60]
 				_keys.set_text("%s   %s ripeästi (kolisee)   %s kamera   %s lopeta" % [_move_keys(),
@@ -692,6 +744,12 @@ func _hall_step(delta: float) -> void:
 
 
 func _exit_tree() -> void:
+	if _mouse_on:
+		CamCtl.need_mouse = false
+	if _cam_saved.size() == 3:
+		CamCtl.fps = _cam_saved[0]
+		CamCtl.yaw = _cam_saved[1]
+		CamCtl.pitch = _cam_saved[2]
 	if _hall != null and is_instance_valid(_hall):
 		_hall.queue_free()
 	if door == null or not is_instance_valid(door):
@@ -857,14 +915,18 @@ func _dark_step(delta: float) -> void:
 	var dir := Input.get_vector("left", "right", "forward", "back")
 	var hurry := Input.is_action_pressed("sprint")
 	if _hall != null and _hall.fps:
-		# Oma näkymä: A/D kääntää, W/S kontaa katsesuuntaan eteen tai taakse.
-		me.ang = wrapf(me.ang + Input.get_axis("left", "right") * FPS_TURN * delta, -PI, PI)
+		# Oma näkymä: A/D kääntää (hiiriohjauksessa sivuttain), W/S kontaa katsesuuntaan eteen tai taakse.
+		var side := Input.get_axis("left", "right")
+		if not _mouse_on:
+			me.ang = wrapf(me.ang + side * FPS_TURN * delta, -PI, PI)
+			side = 0.0
 		var fw := Input.get_axis("back", "forward")
-		dir = _fwd(me.ang) * fw
-		me.moving = absf(fw) > 0.1
+		# Sivuttain ja taaksepäin hitaammin: oikea suunta on _fwd(ang + PI/2) (ang kasvaa oikealle kääntyessä).
+		var v := _fwd(me.ang) * fw * (1.0 if fw > 0.0 else 0.6) + _fwd(me.ang + PI / 2.0) * side * 0.7
+		me.moving = v.length() > 0.1
 		if me.moving:
-			var spd_f := (HURRY if hurry else CRAWL) * (1.0 - drunk * 0.25) * (1.0 if fw > 0.0 else 0.6)
-			_move(me, _fwd(me.ang) * signf(fw) * spd_f * delta, -1)
+			var spd_f := (HURRY if hurry else CRAWL) * (1.0 - drunk * 0.25) * minf(1.0, v.length())
+			_move(me, v.normalized() * spd_f * delta, -1)
 			me.phase += delta * spd_f * 9.0
 		dir = Vector2.ZERO
 	me.moving = me.moving if (_hall != null and _hall.fps) else dir.length() > 0.1
