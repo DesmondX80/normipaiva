@@ -160,23 +160,10 @@ func _chunk(part: Array) -> HBoxContainer:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	if part[0] != "":
-		var cap := PanelContainer.new()
-		var cs := StyleBoxFlat.new()
-		cs.bg_color = Color(0.96, 0.94, 0.88)
-		cs.set_corner_radius_all(6)
-		cs.border_color = Color(0.62, 0.6, 0.55)
-		cs.border_width_bottom = 4
-		cs.content_margin_left = 8
-		cs.content_margin_right = 8
-		cs.content_margin_top = 0
-		cs.content_margin_bottom = 1
-		cap.add_theme_stylebox_override("panel", cs)
-		cap.custom_minimum_size = Vector2(24, 24) if compact else Vector2(32, 32)
-		cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		var k := _label(part[0], 14 if compact else 19, Color(0.12, 0.12, 0.14), false)
-		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		cap.add_child(k)
-		h.add_child(cap)
+		if "|" in part[0]:
+			h.add_child(_cluster(part[0]))
+		else:
+			h.add_child(_keycap(part[0]))
 		if part[1] != "":
 			h.add_child(_label(part[1], 16 if compact else 22, Color.WHITE))
 	elif part[1] != "":
@@ -184,6 +171,45 @@ func _chunk(part: Array) -> HBoxContainer:
 	if part[2] != "":
 		h.add_child(_label(part[2], 18, Color(0.7, 0.7, 0.74)))
 	return h
+
+
+## Näppäinhattu (vaalea, tumma alareuna kuin näppäimen sivu).
+func _keycap(t: String) -> PanelContainer:
+	var cap := PanelContainer.new()
+	var cs := StyleBoxFlat.new()
+	cs.bg_color = Color(0.96, 0.94, 0.88)
+	cs.set_corner_radius_all(6)
+	cs.border_color = Color(0.62, 0.6, 0.55)
+	cs.border_width_bottom = 4
+	cs.content_margin_left = 8
+	cs.content_margin_right = 8
+	cs.content_margin_top = 0
+	cs.content_margin_bottom = 1
+	cap.add_theme_stylebox_override("panel", cs)
+	cap.custom_minimum_size = Vector2(24, 24) if compact else Vector2(32, 32)
+	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var k := _label(t, 14 if compact else 19, Color(0.12, 0.12, 0.14), false)
+	k.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cap.add_child(k)
+	return cap
+
+
+## Näppäinryhmä kuin näppäimistöllä: "[W|A S D]" = pystyviivaa edeltävät ylempään riviin keskelle, loput alempaan
+## (välilyönnein erotettuina). Esim. tappelun liikkuminen (fight.gd).
+func _cluster(spec: String) -> VBoxContainer:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for row_spec in spec.split("|"):
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 3)
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		for key in row_spec.strip_edges().split(" ", false):
+			var cap := _keycap(key)
+			cap.custom_minimum_size.x = 32.0 if not compact else 24.0
+			row.add_child(cap)
+		v.add_child(row)
+	return v
 
 
 func _label(t: String, size: int, c: Color, outline := true) -> Label:
