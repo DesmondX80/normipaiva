@@ -949,7 +949,6 @@ func _ohje_teksti() -> String:
 	# Liikkuminen näppäinryhmänä kuin näppäimistöllä (hint_bar.gd _cluster: "[W|A,S,D]"), näppäimet asetuksista (omat
 	# valinnat näkyvät); yhdistelmät vain ottelun palkissa.
 	return "\n".join([
-		"Tappelussa ohjaus on erilainen kuin muualla pelissä:",
 		"[%s|%s,%s,%s] liiku (%s hyppää, %s torjuu)   [%s] lyönti   [%s] potku   [%s] kassi-isku (vie kaljan)" % [
 			k.call("forward"), k.call("left"), k.call("back"), k.call("right"), k.call("forward"), k.call("back"),
 			k.call("punch"), k.call("kick"), k.call("special")],
