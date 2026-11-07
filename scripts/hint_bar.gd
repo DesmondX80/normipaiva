@@ -10,6 +10,7 @@ const GAP := 22.0  # toimintojen väli rivillä
 
 var compact := false  # näppäinohjerivi vasemmassa alakulmassa (aseta ennen add_child)
 var centered := false  # compact keskelle alareunaan (tappelun ohjeet, fight.gd)
+var middle := false  # isona alareunassa keskellä (tappelun alun ohjeet ennen ROUND 1:tä, fight.gd): ei peitä tappelijoita
 var left := 0.0  # vasen raja (lappu auki: main.gd _avoid_note)
 var right := 0.0  # varattu oikealta (minikartta: main.gd _avoid_note)
 var _text := ""
@@ -73,6 +74,10 @@ func _process(delta: float) -> void:
 	var sz := _pill.get_combined_minimum_size()
 	if compact:
 		_pill.position = Vector2((vs.x - sz.x) / 2.0 if centered else 16.0, vs.y - 12.0 - sz.y)
+		modulate.a = _a
+		return
+	if middle:
+		_pill.position = Vector2((vs.x - sz.x) / 2.0, vs.y - 18.0 - sz.y + (1.0 - _a) * 10.0)
 		modulate.a = _a
 		return
 	var lo := maxf(left, 12.0)

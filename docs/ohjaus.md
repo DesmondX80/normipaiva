@@ -47,6 +47,9 @@
 | E | tartu Teron kättä |
 | A / D | vuorotellen tasaiseen, reippaaseen tahtiin |
 
+Tappelun alussa peli pysähtyy: alareunan paneelissa ovat kaikki tappelun napit (ohjaus on eri kuin muualla
+pelissä), ja tappelu alkaa lyöntinapista (J), jonka jälkeen ROUND 1 ja FIGHT! (`fight.gd` vaihe `ohjeet`).
+
 | Tappelussa | |
 |---|---|
 | A / D | liiku |

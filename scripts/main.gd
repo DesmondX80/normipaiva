@@ -22692,6 +22692,37 @@ func _maybe_screenshot() -> void:
 			_on_kicked(Vector3.RIGHT)
 			for i in 130:
 				await get_tree().process_frame
+		"fight_ohjeet":
+			# Tappelun alun ohjetauko: paneeli näkyy, tappelu ei ala itsestään, lyöntinappi aloittaa (ROUND 1, FIGHT!).
+			fight.get_script().ohjeet_testissa = true
+			beers = 6
+			_on_kicked(Vector3.RIGHT)
+			for i in 90:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ohjeet.png"))
+			print("FIGHT ohjeet: vaihe '%s' 1,5 s jälkeen, aika %.1f" % [fight._phase, fight._time])
+			if fight._phase != "ohjeet":
+				print("TESTI VIKA tappelu alkoi ilman lyöntinappia (vaihe %s)" % fight._phase)
+			var ev := InputEventAction.new()
+			ev.action = "punch"
+			ev.pressed = true
+			Input.parse_input_event(ev)
+			for i in 3:
+				await get_tree().process_frame
+			var up := InputEventAction.new()
+			up.action = "punch"
+			Input.parse_input_event(up)
+			print("FIGHT lyöntinapin jälkeen: vaihe '%s'" % fight._phase)
+			if fight._phase != "intro":
+				print("TESTI VIKA lyöntinappi ei aloittanut tappelua (vaihe %s)" % fight._phase)
+			var t0 := Time.get_ticks_msec()
+			while fight._phase != "fight" and Time.get_ticks_msec() - t0 < 5000:
+				await get_tree().process_frame
+			print("FIGHT alkoi: vaihe '%s'" % fight._phase)
+			if fight._phase != "fight":
+				print("TESTI VIKA tappelu ei alkanut ROUND 1:n jälkeen")
+			fight.get_script().ohjeet_testissa = false
 		"field", "bog":
 			var M2 := preload("res://scripts/map_data.gd")
 			player.position = M2.w(Vector2(450, 730) if scene == "field" else Vector2(400, 1110)) + Vector3(0, 0.3, 0)
