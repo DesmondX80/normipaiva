@@ -487,7 +487,7 @@ func _siviikki_lapimenot(route: PackedVector3Array) -> void:
 				var nm: String = (col as Node).get_path() if col is Node else str(col)
 				print("KOLMIO Siviikki LÄPI %s, matka %.0f m (%s), kohta %s" % [nm, d, "meno" if dir == 1 else "paluu", at[0]])
 			d += 1.0
-	print("KOLMIO Siviikin reitin läpimenot: %d" % hits)
+	print("KOLMIO Siviikin reitin läpimenot: %d, maastossa %.0f m (tiet etusijalla)" % [hits, float(main._kolmio_vaala_spots.get("off_road", -1.0))])
 	if hits > 0:
 		_vika("Siviikki ajaa %d kertaa rakennuksen tai esteen läpi" % hits)
 

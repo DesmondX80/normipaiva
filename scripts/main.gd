@@ -11599,9 +11599,26 @@ func _siviikki_suora(vl: Node3D, a: Vector2, b: Vector2) -> bool:
 
 
 ## Siviikin reitti (lasketaan kerran ajon alussa, kun rakennusten törmäysmuodot ovat fysiikassa): aseman pihasta
-## nurmikon ja pihojen yli Vaalantielle rakennuksia kiertäen, sitten tietä pitkin mittauspisteeseen. Ensin suorat
-## oikaisut lähimpiin tien kohtiin; jos kaikki osuvat esteeseen, lyhin reitti SIVIIKKI_CELL-ruudukossa (8 naapuria),
-## suoristettuna vapain suorin. _kolmio_vaala_spots: "route" ja "lawn_n" (nurmikko-osuuksia alussa, maan pinnalla).
+## Vaalantielle ja tietä pitkin mittauspisteeseen. Pihasta tielle haetaan halvin reitti SIVIIKKI_CELL-ruudukossa
+## (Dijkstra, 8 naapuria): ajoalueella (vaala.gd drivable: tiet, sivukadut, pihat ja parkit) askel maksaa matkan verran,
+## maastossa SIVIIKKI_MAASTO-kertaisesti, ja esteet (rakennukset, autot) on kielletty. Siviikki siis ajaa teitä ja
+## oikaisee maaston kautta vain, kun tietä ei ole tai kierros olisi pitkä. Suoristus vain, kun suora on vapaa eikä lisää
+## maastossa ajettua matkaa. _kolmio_vaala_spots: "route", "lawn_n" (pihaosuudet alussa, maan pinnalla, ei kaistaa).
+const SIVIIKKI_MAASTO := 5.0
+
+
+## Matka maastossa (ei ajoaluetta) suoralla a -> b, metrin näyttein.
+func _siviikki_maastossa(vl: Node3D, a: Vector2, b: Vector2) -> float:
+	var l := a.distance_to(b)
+	var n := maxi(1, int(ceil(l)))
+	var off := 0.0
+	for i in n:
+		var q := a.lerp(b, (i + 0.5) / n)
+		if not vl.drivable(q.x, q.y):
+			off += l / n
+	return off
+
+
 func _kolmio_siviikki_route() -> PackedVector3Array:
 	var sp := _kolmio_vaala_spots
 	var route: PackedVector3Array = sp.get("route", PackedVector3Array())
@@ -11611,88 +11628,122 @@ func _kolmio_siviikki_route() -> PackedVector3Array:
 	var road: Array = vl.road
 	var bi: int = sp.road_bi
 	var start := Vector2(route[0].x, route[0].z)
-	var hop: Array = []  # nurmikon välipisteet tielle (Vector2), viimeinen tien näytteen kohdalla
+	var n := int(SIVIIKKI_HAKU * 2.0 / SIVIIKKI_CELL)
+	var o := start - Vector2.ONE * SIVIIKKI_HAKU
+	var cell_p := func(k: int) -> Vector2: return o + (Vector2(k % n, int(k / n)) + Vector2(0.5, 0.5)) * SIVIIKKI_CELL
+	var k0 := int(SIVIIKKI_HAKU / SIVIIKKI_CELL) * n + int(SIVIIKKI_HAKU / SIVIIKKI_CELL)
+	var cost := {k0: 0.0}
+	var prev := {k0: -1}
+	var done := {}
+	var blocked := {}
+	var heap: Array = [[0.0, k0]]  # binäärikeko [hinta, ruutu]
+	var goal := -1
 	var join := -1
-	# 1) Suorat oikaisut lähimpiin tien näytteisiin (ei siltaa), lähin vapaa voittaa.
-	var cand: Array = []
-	for i in road.size():
-		var q := Vector2(road[i][0], road[i][2])
-		if not road[i][6] and q.distance_to(start) < SIVIIKKI_HAKU:
-			cand.append([q.distance_to(start), i])
-	cand.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
-	for c: Array in cand.slice(0, 40):
-		var q := Vector2(road[c[1]][0], road[c[1]][2])
-		if _siviikki_suora(vl, start, q):
-			hop = [q]
-			join = c[1]
-			break
-	# 2) Lyhin reitti ruudukossa esteiden ohi (leveyshaku), maali = tien pinnalla oleva ruutu.
-	if join < 0:
-		var n := int(SIVIIKKI_HAKU * 2.0 / SIVIIKKI_CELL)
-		var o := start - Vector2.ONE * SIVIIKKI_HAKU
-		var cell_p := func(k: int) -> Vector2: return o + (Vector2(k % n, int(k / n)) + Vector2(0.5, 0.5)) * SIVIIKKI_CELL
-		var k0 := int(SIVIIKKI_HAKU / SIVIIKKI_CELL) * n + int(SIVIIKKI_HAKU / SIVIIKKI_CELL)
-		var prev := {k0: -1}
-		var queue: Array[int] = [k0]
-		var head := 0
-		var goal := -1
-		while head < queue.size():
-			var k: int = queue[head]
-			head += 1
-			var cp: Vector2 = cell_p.call(k)
-			var ni: Array = vl.nearest(Vector3(cp.x, 0, cp.y))
-			if k != k0 and ni[0] >= 0 and not road[ni[0]][6] and ni[1] < float(road[ni[0]][4]):
-				goal = k
-				join = ni[0]
-				break
-			var cx := k % n
-			var cz := int(k / n)
-			for dz in [-1, 0, 1]:
-				for dx in [-1, 0, 1]:
-					var nx: int = cx + dx
-					var nz: int = cz + dz
-					if (dx == 0 and dz == 0) or nx < 0 or nz < 0 or nx >= n or nz >= n:
-						continue
-					var nk := nz * n + nx
-					if prev.has(nk):
-						continue
-					prev[nk] = k
-					var np: Vector2 = cell_p.call(nk)
-					if not _siviikki_este(vl, np, Vector2(dx, dz).normalized(), Vector3(2.6, 1.0, 2.6)):
-						queue.append(nk)
-		if goal < 0:
-			push_warning("KOLMIO: Siviikin reittiä aseman pihasta tielle ei löytynyt esteiden ohi")
-			sp["route_ok"] = true
-			return route
-		var path: Array = []
-		var k := goal
-		while k >= 0:
-			path.push_front(cell_p.call(k))
-			k = prev[k]
-		path[0] = start
-		path.append(Vector2(road[join][0], road[join][2]))
-		# Suoristus: kauimpaan vapaasti näkyvään pisteeseen kerrallaan.
-		var at := 0
-		while at < path.size() - 1:
-			var nxt := at + 1
-			for j in range(path.size() - 1, at + 1, -1):
-				if _siviikki_suora(vl, path[at], path[j]):
-					nxt = j
+	while not heap.is_empty():
+		# Pienin pois keosta.
+		var top: Array = heap[0]
+		var last: Array = heap.pop_back()
+		if not heap.is_empty():
+			heap[0] = last
+			var i := 0
+			while true:
+				var l := i * 2 + 1
+				var m := i
+				if l < heap.size() and heap[l][0] < heap[m][0]:
+					m = l
+				if l + 1 < heap.size() and heap[l + 1][0] < heap[m][0]:
+					m = l + 1
+				if m == i:
 					break
-			hop.append(path[nxt])
-			at = nxt
+				var t: Array = heap[i]
+				heap[i] = heap[m]
+				heap[m] = t
+				i = m
+		var k: int = top[1]
+		if done.has(k):
+			continue
+		done[k] = true
+		var cp: Vector2 = cell_p.call(k)
+		var ni: Array = vl.nearest(Vector3(cp.x, 0, cp.y))
+		if k != k0 and ni[0] >= 0 and not road[ni[0]][6] and ni[1] < float(road[ni[0]][4]):
+			goal = k
+			join = ni[0]
+			break
+		var cx := k % n
+		var cz := int(k / n)
+		for dz in [-1, 0, 1]:
+			for dx in [-1, 0, 1]:
+				var nx: int = cx + dx
+				var nz: int = cz + dz
+				if (dx == 0 and dz == 0) or nx < 0 or nz < 0 or nx >= n or nz >= n:
+					continue
+				var nk := nz * n + nx
+				if done.has(nk):
+					continue
+				var np: Vector2 = cell_p.call(nk)
+				if not blocked.has(nk):
+					blocked[nk] = _siviikki_este(vl, np, Vector2(dx, dz).normalized(), Vector3(2.6, 1.0, 2.6))
+				if blocked[nk]:
+					continue
+				var step := SIVIIKKI_CELL * (1.4142 if dx != 0 and dz != 0 else 1.0)
+				var c: float = cost[k] + step * (1.0 if vl.drivable(np.x, np.y) else SIVIIKKI_MAASTO)
+				if c < float(cost.get(nk, INF)):
+					cost[nk] = c
+					prev[nk] = k
+					# Keko: lisää loppuun ja nosta.
+					heap.append([c, nk])
+					var j := heap.size() - 1
+					while j > 0:
+						var pj := int((j - 1) / 2)
+						if heap[pj][0] <= heap[j][0]:
+							break
+						var t2: Array = heap[pj]
+						heap[pj] = heap[j]
+						heap[j] = t2
+						j = pj
+	if goal < 0:
+		push_warning("KOLMIO: Siviikin reittiä aseman pihasta tielle ei löytynyt esteiden ohi")
+		sp["route_ok"] = true
+		return route
+	var path: Array = []
+	var kk := goal
+	while kk >= 0:
+		path.push_front(cell_p.call(kk))
+		kk = prev[kk]
+	path[0] = start
+	path.append(Vector2(road[join][0], road[join][2]))
+	# Suoristus: kauimpaan pisteeseen, jonne suora on vapaa eikä kulje maastossa enempää kuin ruutureitti.
+	var hop: Array = []
+	var at := 0
+	while at < path.size() - 1:
+		var nxt := at + 1
+		for j in range(path.size() - 1, at + 1, -1):
+			var via := 0.0
+			for m in range(at, j):
+				via += _siviikki_maastossa(vl, path[m], path[m + 1])
+			if _siviikki_maastossa(vl, path[at], path[j]) <= via + 0.5 and _siviikki_suora(vl, path[at], path[j]):
+				nxt = j
+				break
+		hop.append(path[nxt])
+		at = nxt
 	var out := PackedVector3Array([route[0]])
 	for q: Vector2 in hop.slice(0, hop.size() - 1):
 		out.append(Vector3(q.x, vl.h(q.x, q.y), q.y))
-	var step := 1 if bi >= join else -1
-	for i in range(join, bi + step, step):
+	var dstep := 1 if bi >= join else -1
+	for i in range(join, bi + dstep, dstep):
 		out.append(Vector3(road[i][0], road[i][1], road[i][2]))
+	var off := 0.0
+	var prevp := start
+	for q: Vector2 in hop:
+		off += _siviikki_maastossa(vl, prevp, q)
+		prevp = q
 	sp["route"] = out
-	sp["lawn_n"] = hop.size()  # nurmikko-osuudet: alku + välipisteet tien näytteeseen asti
+	sp["lawn_n"] = hop.size()
+	sp["off_road"] = off
 	sp["route_ok"] = true
 	if B.diag():
-		print("KOLMIO Siviikin reitti: %d nurmikko-osuutta, liittymä tien näytteeseen %d (ennen %d), %.0f m" % [hop.size(), join,
-			int(sp.get("road_i0", -1)), _kolmio_route_len(out)])
+		print("KOLMIO Siviikin reitti: %d pihaosuutta, maastossa %.0f m, liittymä tien näytteeseen %d, %.0f m, ruutuja tutkittu %d" % [
+			hop.size(), off, join, _kolmio_route_len(out), done.size()])
 	return out
 
 
