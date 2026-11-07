@@ -564,21 +564,72 @@ func _setup_door() -> void:
 	_rig.add_child(_dust)
 
 
-## Halli rakennetaan heti (hahmojen lataus ei nyki valojen sammuessa), kauas makasiinin yläpuolelle.
+## Pelin oikea ulkonäkö pelaajan id:n mukaan (sama hahmo kuin muualla pelissä); tyhjä = vain rasvanapin oma hahmo
+## (kolmiomittauksen Pirjo ja Sari). Haetaan kutsuttaessa: osa vakioista on muissa skripteissä.
+static func real_look(id: String) -> Dictionary:
+	match id:
+		"pekka":
+			return Looks.PEKKA
+		"arto":
+			return Looks.ARTO
+		"sinikka":
+			return Looks.SINIKKA
+		"raimo":
+			return load("res://scripts/kota.gd").RAIMO
+		"helena":
+			return load("res://scripts/cutscene.gd").HELENA
+		"minttu":
+			return Looks.MINTTU
+		"joni":
+			return Looks.JONI
+		"esa":
+			return Looks.ESA
+		"katja":
+			return Looks.KATJA
+		"tero":
+			return Looks.HEVARI_TERO
+		"timo":
+			return Looks.SIVIIKKI_TIMO
+	return {}
+
+
+## Pyyhehallin ulkonäkö oikeasta hahmosta: vain vartalo ja pää (pituus, muodot, hiukset, parta, iho). Vaatteet ja
+## asusteet (lasit, hattu, rinkka, ketju, vyö, kuviot) jäävät pois: hallissa ollaan pyyhkeissä (crawler3d.gd setup).
+const BODY_KEYS := ["model", "skin", "hair", "hair_color", "beard", "height", "belly", "bulk", "shoulders", "muscle", "bust",
+	"curves", "curls", "long_hair", "fringe", "braid", "perm_col", "chest_hair", "body_hair"]
+
+
+static func towel_look(base: Dictionary) -> Dictionary:
+	var out := {}
+	for k in BODY_KEYS:
+		if base.has(k):
+			out[k] = base[k]
+	return out
+
+
+## Halli rakennetaan heti (hahmojen lataus ei nyki valojen sammuessa), kauas makasiinin yläpuolelle. Pelaajat ovat samoja
+## hahmoja kuin muualla pelissä (real_look); vain rasvanapin omat hahmot tehdään PEOPLE-listan yksinkertaisesta kuvauksesta.
 func _setup_hall() -> void:
 	var looks: Array = []
 	for p: Dictionary in people:
 		var lk: Dictionary = p.look
 		var woman: bool = p.get("woman", false)
-		var look := {"model": "female" if woman else "male", "skin": lk.skin,
-			"hair": HAIRS[lk.hair], "hair_color": lk.hair_col, "beard": lk.get("beard", false), "height": 1.64 if woman else 1.76,
-			"bulk": (p.bulk - 1.0) * 2.0, "belly": 0.6 if p.bulk > 1.1 else 0.25, "muscle": -0.9}
-		for key in ["bust", "curves", "curls", "long_hair"]:  # erikoissääntöjen pelaajien muodot ja hiukset (kolmiomittaus.gd)
-			if lk.has(key):
-				look[key] = lk[key]
+		var real := real_look(String(p.get("id", "")))
+		var look := {}
+		if not real.is_empty():
+			look = towel_look(real)
+			if not look.has("skin"):
+				look["skin"] = lk.skin  # hahmolla ei omaa ihonsävyä: rasvanapin sävy (muuten pyyhkeissä lähes valkoinen)
+			woman = String(look.get("model", "male")) == "female"
+		else:
+			look = {"model": "female" if woman else "male", "skin": lk.skin,
+				"hair": HAIRS[lk.hair], "hair_color": lk.hair_col, "beard": lk.get("beard", false), "height": 1.64 if woman else 1.76,
+				"bulk": (p.bulk - 1.0) * 2.0, "belly": 0.6 if p.bulk > 1.1 else 0.25, "muscle": -0.9}
+			for key in ["bust", "curves", "curls", "long_hair"]:  # erikoissääntöjen pelaajien muodot ja hiukset (kolmiomittaus.gd)
+				if lk.has(key):
+					look[key] = lk[key]
 		looks.append({"towel": p.towel, "woman": woman, "look": look})
-	looks.append({"towel": Color(0.95, 0.95, 0.92), "woman": false, "look": {"skin": Color(0.98, 0.8, 0.7),
-		"hair": "Hair_SimpleParted", "hair_color": Color(0.22, 0.15, 0.1), "belly": 0.75, "bulk": 0.1, "height": 1.8}})
+	looks.append({"towel": Color(0.95, 0.95, 0.92), "woman": false, "look": towel_look(Looks.player())})  # pelaaja itse
 	_hall = Hall.new()
 	_hall.room = ROOM
 	_hall.door_y = DOOR_Y
