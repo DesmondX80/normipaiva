@@ -45,7 +45,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Muista, kuka kiroilee, hyräilee, kikattaa, niiskuttaa tai huokailee, sillä pimeässä muut tunnistaa vain äänestä.
   Valojen sammuttua kontataan (WASD, Shift ripeästi mutta kolisten). Rasvanappi tökkää jotakuta takaapäin peppuun
   (E) ja huutaa nimen. Jos arvaus osuu, tökätty nuolee sormen ja on seuraava nappi. Jos ei, tökkääjä nuolee itse.
-  Kun nappi on joku muu, se jahtaa pimeässä. Testit `--scene=rasvanappi` ja `tools/testit/rasvanappi_kuvat.tscn`.
+  Kun nappi on joku muu, se jahtaa pimeässä. V (kamera) vaihtaa omaan näkymään konttaajan silmistä: W/S konttaa
+  eteen ja taakse, A/D kääntyy; valinta muistetaan seuraavaan kierrokseen ja lopussa palataan yleiskuvaan.
+  Testit `--scene=rasvanappi` ja `tools/testit/rasvanappi_kuvat.tscn`.
 - **Pentin BangBus (vain aikuisille, #299):** Pentti (keksitty keski-ikäinen viiksimies: avonainen nahkaliivi karvaisen rinnan päällä, pilottilasit,
   kultaketju) seisoo tuunatun pakettiautonsa vieressä perjantai- ja lauantai-iltaisin klo 19–23: Saloisissa K-Marketin
   parkkipaikalla, Vaalassa Zabukin asiakasparkissa. Muina aikoina Pentti ajaa autollaan Saloisten liikenteessä.
