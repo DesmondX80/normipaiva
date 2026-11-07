@@ -144,6 +144,8 @@ Avonainen nahkaliivi ja rintakarvat ovat hahmon varjostimen asuvalintoja (`look.
 `shaders/character.gdshader vest_half`, `chest_hair_amt`): liivin aukko lepoasennon koordinaateista, esikuvana biker-liivi
 auki paljaan rinnan päällä.
 Kaikki mallit rivissä: `tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn`.
+Pysäköidyt autot: `tools/testit/aja.sh scene parkit` tarkistaa, ettei yksikään `B.parked_car` ole toisen sisällä Saloisissa eikä Vaalassa
+(Vaalassa myös Pentin paikkaa vasten), ja kuvaa Zabukin joka suunnasta (`_zabuki_*`).
 
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
 koukut testiosalla (`tools/testit/rikos_koe_osa.gd`): puhe, tapahtumat, luukun vihje, tallennus edestakaisin, päiväkirjan data,

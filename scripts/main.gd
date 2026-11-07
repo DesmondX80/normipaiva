@@ -22381,6 +22381,19 @@ func _maybe_screenshot() -> void:
 				DirAccess.remove_absolute(SAVE_PATH)
 			get_tree().quit()
 			return
+		"parkit":
+			# Pysäköidyt autot eivät ole toistensa sisällä Saloisissa eikä Vaalassa (tools/testit/parkit.gd).
+			var saved_pk := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			var pk: Node = load("res://tools/testit/parkit.gd").new()
+			pk.main = self
+			add_child(pk)
+			await pk.run()
+			if not saved_pk.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_pk)
+			else:
+				DirAccess.remove_absolute(SAVE_PATH)
+			get_tree().quit()
+			return
 		"kolmiomittaus", "kolmiomittaus_vaala":
 			# Kolmiomittaus (#255): Saloinen tai Vaala alusta loppuun kuvineen (tools/testit/kolmiomittaus.gd).
 			var saved_km := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
