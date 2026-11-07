@@ -25,7 +25,7 @@ var _re := RegEx.new()
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	_re.compile(r"\[([^\]\n]{1,30})\]")
+	_re.compile(r"\[([^\]\n]{1,60})\]")  # näppäinryhmä "[Nuoli ylös|Nuoli vas.,...]" on pitkä
 	_pill = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.07, 0.07, 0.09, 0.55 if compact else 0.86)
@@ -194,8 +194,12 @@ func _keycap(t: String) -> PanelContainer:
 	return cap
 
 
-## Näppäinryhmä kuin näppäimistöllä: "[W|A S D]" = pystyviivaa edeltävät ylempään riviin keskelle, loput alempaan
-## (välilyönnein erotettuina). Esim. tappelun liikkuminen (fight.gd).
+## Näppäinryhmä kuin näppäimistöllä: "[W|A,S,D]" = pystyviivaa edeltävät ylempään riviin keskelle, loput alempaan
+## (pilkuin erotettuina, koska asetuksissa valitun näppäimen nimessä voi olla välilyönti, esim. "Nuoli ylös").
+## Nuolinäppäimet piirretään nuolina. Esim. tappelun liikkuminen (fight.gd).
+const NUOLET := {"Nuoli ylös": "↑", "Nuoli alas": "↓", "Nuoli vas.": "←", "Nuoli oik.": "→"}
+
+
 func _cluster(spec: String) -> VBoxContainer:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 3)
@@ -204,8 +208,8 @@ func _cluster(spec: String) -> VBoxContainer:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 3)
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		for key in row_spec.strip_edges().split(" ", false):
-			var cap := _keycap(key)
+		for key in row_spec.split(",", false):
+			var cap := _keycap(NUOLET.get(key.strip_edges(), key.strip_edges()))
 			cap.custom_minimum_size.x = 32.0 if not compact else 24.0
 			row.add_child(cap)
 		v.add_child(row)

@@ -944,11 +944,13 @@ func _build_hud() -> void:
 
 ## Alun ohjepaneeli: liikkuminen (WASD-ryhmä), perusiskut ja aloitus lyöntinapista.
 func _ohje_teksti() -> String:
-	var k := func(a: String) -> String: return Settings.action_key(a)
-	# Liikkuminen näppäinryhmänä kuin näppäimistöllä (hint_bar.gd _cluster: "[W|A S D]"); yhdistelmät vain ottelun palkissa.
+	var nuolet: Dictionary = preload("res://scripts/hint_bar.gd").NUOLET
+	var k := func(a: String) -> String: return nuolet.get(Settings.action_key(a), Settings.action_key(a))  # nuolinäppäimet nuolina
+	# Liikkuminen näppäinryhmänä kuin näppäimistöllä (hint_bar.gd _cluster: "[W|A,S,D]"), näppäimet asetuksista (omat
+	# valinnat näkyvät); yhdistelmät vain ottelun palkissa.
 	return "\n".join([
 		"Tappelussa ohjaus on erilainen kuin muualla pelissä:",
-		"[%s|%s %s %s] liiku (%s hyppää, %s torjuu)   [%s] lyönti   [%s] potku   [%s] kassi-isku (vie kaljan)" % [
+		"[%s|%s,%s,%s] liiku (%s hyppää, %s torjuu)   [%s] lyönti   [%s] potku   [%s] kassi-isku (vie kaljan)" % [
 			k.call("forward"), k.call("left"), k.call("back"), k.call("right"), k.call("forward"), k.call("back"),
 			k.call("punch"), k.call("kick"), k.call("special")],
 		"[%s] Aloita tappelu lyöntinapilla" % k.call("punch"),
