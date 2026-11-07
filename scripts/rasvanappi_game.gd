@@ -298,8 +298,24 @@ func _quit_pressed() -> bool:
 
 ## Konttauksen näppäimet ohjeriville: ylös, vasen, alas, oikea (oletuksena [W/A/S/D]).
 func _move_keys() -> String:
-	return "[%s/%s/%s/%s]" % [Settings.action_key("forward"), Settings.action_key("left"), Settings.action_key("back"),
+	if _hall != null and _hall.fps:
+		return "%s konttaa   %s käänny" % [Settings.pair("forward", "back"), Settings.pair("left", "right")]
+	return "[%s/%s/%s/%s] konttaa" % [Settings.action_key("forward"), Settings.action_key("left"), Settings.action_key("back"),
 		Settings.action_key("right")]
+
+
+## V vaihtaa pelikameran (ylhäältä / oma näkymä) pimeän vaiheissa; FPS-näkymässä konttaus omaan katsesuuntaan (_dark_step).
+const FPS_TURN := 2.4  # rad/s käännös A/D:llä FPS-näkymässä
+static var fps_valinta := false  # viimeisin valinta muistetaan seuraavaan peliin (pelikerran ajan)
+
+
+func _camera_toggle() -> void:
+	if _hall == null or not _mode in ["sammutus", "pimea", "nimi", "vastaus", "nuolu", "puhelu"]:
+		return
+	if Input.is_action_just_pressed("camera"):
+		_hall.set_fps(not _hall.fps)
+		fps_valinta = _hall.fps
+		Sfx.play("cloth", -12.0, 1.3)
 
 
 func _size() -> Vector2:
@@ -308,6 +324,7 @@ func _size() -> Vector2:
 
 func _process(delta: float) -> void:
 	_t += delta
+	_camera_toggle()
 	_shake = maxf(0.0, _shake - delta * 2.5)
 	var off := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake * 10.0
 	_root.position = off
@@ -390,12 +407,12 @@ func _update_texts() -> void:
 			var left := maxf(0.0, MAX_TIME - _game_t)
 			if nappi == -1:
 				_info.text = "Olet RASVANAPPI · tökkää jotakuta takaapäin peppuun · tökkäyksiä %d/%d" % [pokes, MAX_POKES]
-				_keys.set_text("%s konttaa   %s ripeästi (kolisee)   [%s] tökkää   %s lopeta" % [_move_keys(),
-					Settings.cap("sprint"), Settings.action_key("interact"), Settings.cap("mount")])
+				_keys.set_text("%s   %s ripeästi (kolisee)   [%s] tökkää   %s kamera   %s lopeta" % [_move_keys(),
+					Settings.cap("sprint"), Settings.action_key("interact"), Settings.cap("camera"), Settings.cap("mount")])
 			else:
 				_info.text = "Rasvanappi liikkuu pimeässä · älä anna takapuolta · %d:%02d" % [int(left) / 60, int(left) % 60]
-				_keys.set_text("%s konttaa   %s ripeästi (kolisee)   %s lopeta" % [_move_keys(),
-					Settings.cap("sprint"), Settings.cap("mount")])
+				_keys.set_text("%s   %s ripeästi (kolisee)   %s kamera   %s lopeta" % [_move_keys(),
+					Settings.cap("sprint"), Settings.cap("camera"), Settings.cap("mount")])
 		"nimi":
 			_info.text = "Tökkäsit! Kuka se oli?"
 			_keys.set_text("%s valitse   [%s] huuda   [1–5] suoraan" % [Settings.pair("forward", "back"), Settings.action_key("interact")])
@@ -762,6 +779,8 @@ func _lights_out() -> void:
 	if _hall != null:
 		_hall.crawl_start()
 		_hall.cam.current = true
+		if fps_valinta:
+			_hall.set_fps(true)
 	Sfx.play("rattle", -2.0, 2.2)  # katkaisijan naksahdus
 	_shake = 0.2
 
@@ -837,8 +856,19 @@ func _dark_step(delta: float) -> void:
 	# Pelaajan konttaus.
 	var dir := Input.get_vector("left", "right", "forward", "back")
 	var hurry := Input.is_action_pressed("sprint")
-	me.moving = dir.length() > 0.1
-	if me.moving:
+	if _hall != null and _hall.fps:
+		# Oma näkymä: A/D kääntää, W/S kontaa katsesuuntaan eteen tai taakse.
+		me.ang = wrapf(me.ang + Input.get_axis("left", "right") * FPS_TURN * delta, -PI, PI)
+		var fw := Input.get_axis("back", "forward")
+		dir = _fwd(me.ang) * fw
+		me.moving = absf(fw) > 0.1
+		if me.moving:
+			var spd_f := (HURRY if hurry else CRAWL) * (1.0 - drunk * 0.25) * (1.0 if fw > 0.0 else 0.6)
+			_move(me, _fwd(me.ang) * signf(fw) * spd_f * delta, -1)
+			me.phase += delta * spd_f * 9.0
+		dir = Vector2.ZERO
+	me.moving = me.moving if (_hall != null and _hall.fps) else dir.length() > 0.1
+	if me.moving and not (_hall != null and _hall.fps):
 		var spd := (HURRY if hurry else CRAWL) * (1.0 - drunk * 0.25)
 		# Vartalo kääntyy heti liikesuuntaan, ettei hahmo kontaa takaperin tai sivuttain kääntyessään.
 		var turn := angle_difference(me.ang, dir.angle())
@@ -1114,6 +1144,8 @@ func _end() -> void:
 		return
 	_mode = "loppu"
 	_t = 0.0
+	if _hall != null and _hall.fps:
+		_hall.set_fps(false)  # valot syttyvät: koko halli näkyviin ylhäältä (valinta säilyy seuraavaan kertaan)
 	Sfx.play("rattle", -2.0, 2.2)
 	var lines: Array = rules.get("end_lines", ["Joku löytää valokatkaisijan. Kaikki jähmettyvät.", "Kukaan ei katso ketään silmiin."])
 	if _early:

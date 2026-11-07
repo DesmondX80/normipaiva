@@ -110,6 +110,39 @@ func _run() -> void:
 	n.turn_t = 5.0
 	await _wait(0.2)
 	await _shot("09_takana")
+	# V: oma näkymä (FPS) jonkun takana pimeässä ja valoissa; W kontaa katsesuuntaan, V takaisin ylhäältä.
+	var ev := InputEventAction.new()
+	ev.action = "camera"
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var up := InputEventAction.new()
+	up.action = "camera"
+	Input.parse_input_event(up)
+	await _wait(0.2)
+	print("RASVA fps %s, kamera nykyinen %s" % [g._hall.fps, g._hall.fps_cam.current])
+	if not g._hall.fps or not g._hall.fps_cam.current:
+		print("TESTI VIKA V ei vaihtanut omaan näkymään")
+	await _shot("09b_fps_pimea")
+	g.set_process(false)
+	g._hall.set_lit(1.0)
+	await get_tree().process_frame
+	await _shot("09c_fps_valot")
+	g.set_process(true)
+	var p0: Vector2 = g.me.pos
+	Input.action_press("forward")
+	await _wait(0.4)
+	Input.action_release("forward")
+	var liike: Vector2 = g.me.pos - p0
+	print("RASVA fps W: liike %s, katse %s" % [liike, g._fwd(g.me.ang)])
+	if liike.length() < 0.05 or liike.normalized().dot(g._fwd(g.me.ang)) < 0.9:
+		print("TESTI VIKA FPS-näkymässä W ei konttaa katsesuuntaan")
+	g._hall.set_fps(false)
+	g.fps_valinta = false
+	g.me.pos = Vector2(4.75, 3.5)
+	g.me.ang = 0.0
+	await _wait(0.1)
 	g._begin_poke(-1, 1)
 	await _wait(0.3)
 	await _shot("10_nimi")
