@@ -11560,12 +11560,145 @@ func _kolmio_road_spot(vl: Node3D, car: Vector2, start: Vector2, tgt: Vector2) -
 	var step := 1 if bi >= i0 else -1
 	for i in range(i0, bi + step, step):
 		route.append(Vector3(road[i][0], road[i][1], road[i][2]))
-	return {"remote": at, "remote_name": place, "route": route}
+	return {"remote": at, "remote_name": place, "route": route, "road_i0": i0, "road_bi": bi}
+
+
+const SIVIIKKI_BOX := Vector3(1.8, 1.0, 4.0)  # Civicin törmäyslaatikko reitin tarkistuksessa (0,4–1,4 m maasta)
+const SIVIIKKI_CELL := 2.0  # reitinhaun ruutu (m)
+const SIVIIKKI_HAKU := 240.0  # reitinhaun säde aseman pihasta (m)
+
+
+## Este Civicin kohdalla (xz-taso kohteen kehyksessä vl, keula fwd): rakennukset ja muut kiinteät esteet, ei maastoa,
+## ei Siviikkiä itseään eikä hahmoja tai mopoa (ne väistävät tai ovat kyydissä).
+func _siviikki_este(vl: Node3D, p: Vector2, fwd: Vector2, size := SIVIIKKI_BOX) -> bool:
+	var q := PhysicsShapeQueryParameters3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	q.shape = box
+	q.collision_mask = 0xFFFFFFFF & ~Terrain.COLLISION_LAYER
+	var lp := Vector3(p.x, vl.h(p.x, p.y) + 0.9, p.y)
+	q.transform = vl.global_transform * Transform3D(Basis(Vector3.UP, atan2(-fwd.x, -fwd.y)), lp)
+	for h: Dictionary in vl.get_world_3d().direct_space_state.intersect_shape(q, 8):
+		var col: Object = h.collider
+		if col == null or col is CharacterBody3D or (col is Node and _kolmio_civic != null and _kolmio_civic.is_ancestor_of(col)):
+			continue
+		return true
+	return vl.wet(p.x, p.y)
+
+
+## Suora a -> b vapaa (Civic 1,5 m välein suoran suuntaisena).
+func _siviikki_suora(vl: Node3D, a: Vector2, b: Vector2) -> bool:
+	var l := a.distance_to(b)
+	var fwd := (b - a) / maxf(l, 0.001)
+	var d := 0.0
+	while d <= l:
+		if _siviikki_este(vl, a + fwd * d, fwd):
+			return false
+		d += 1.5
+	return true
+
+
+## Siviikin reitti (lasketaan kerran ajon alussa, kun rakennusten törmäysmuodot ovat fysiikassa): aseman pihasta
+## nurmikon ja pihojen yli Vaalantielle rakennuksia kiertäen, sitten tietä pitkin mittauspisteeseen. Ensin suorat
+## oikaisut lähimpiin tien kohtiin; jos kaikki osuvat esteeseen, lyhin reitti SIVIIKKI_CELL-ruudukossa (8 naapuria),
+## suoristettuna vapain suorin. _kolmio_vaala_spots: "route" ja "lawn_n" (nurmikko-osuuksia alussa, maan pinnalla).
+func _kolmio_siviikki_route() -> PackedVector3Array:
+	var sp := _kolmio_vaala_spots
+	var route: PackedVector3Array = sp.get("route", PackedVector3Array())
+	if sp.get("route_ok", false) or route.size() < 2 or mopo_trip == null or not sp.has("road_bi"):
+		return route
+	var vl: Node3D = mopo_trip.vaala
+	var road: Array = vl.road
+	var bi: int = sp.road_bi
+	var start := Vector2(route[0].x, route[0].z)
+	var hop: Array = []  # nurmikon välipisteet tielle (Vector2), viimeinen tien näytteen kohdalla
+	var join := -1
+	# 1) Suorat oikaisut lähimpiin tien näytteisiin (ei siltaa), lähin vapaa voittaa.
+	var cand: Array = []
+	for i in road.size():
+		var q := Vector2(road[i][0], road[i][2])
+		if not road[i][6] and q.distance_to(start) < SIVIIKKI_HAKU:
+			cand.append([q.distance_to(start), i])
+	cand.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	for c: Array in cand.slice(0, 40):
+		var q := Vector2(road[c[1]][0], road[c[1]][2])
+		if _siviikki_suora(vl, start, q):
+			hop = [q]
+			join = c[1]
+			break
+	# 2) Lyhin reitti ruudukossa esteiden ohi (leveyshaku), maali = tien pinnalla oleva ruutu.
+	if join < 0:
+		var n := int(SIVIIKKI_HAKU * 2.0 / SIVIIKKI_CELL)
+		var o := start - Vector2.ONE * SIVIIKKI_HAKU
+		var cell_p := func(k: int) -> Vector2: return o + (Vector2(k % n, int(k / n)) + Vector2(0.5, 0.5)) * SIVIIKKI_CELL
+		var k0 := int(SIVIIKKI_HAKU / SIVIIKKI_CELL) * n + int(SIVIIKKI_HAKU / SIVIIKKI_CELL)
+		var prev := {k0: -1}
+		var queue: Array[int] = [k0]
+		var head := 0
+		var goal := -1
+		while head < queue.size():
+			var k: int = queue[head]
+			head += 1
+			var cp: Vector2 = cell_p.call(k)
+			var ni: Array = vl.nearest(Vector3(cp.x, 0, cp.y))
+			if k != k0 and ni[0] >= 0 and not road[ni[0]][6] and ni[1] < float(road[ni[0]][4]):
+				goal = k
+				join = ni[0]
+				break
+			var cx := k % n
+			var cz := int(k / n)
+			for dz in [-1, 0, 1]:
+				for dx in [-1, 0, 1]:
+					var nx: int = cx + dx
+					var nz: int = cz + dz
+					if (dx == 0 and dz == 0) or nx < 0 or nz < 0 or nx >= n or nz >= n:
+						continue
+					var nk := nz * n + nx
+					if prev.has(nk):
+						continue
+					prev[nk] = k
+					var np: Vector2 = cell_p.call(nk)
+					if not _siviikki_este(vl, np, Vector2(dx, dz).normalized(), Vector3(2.6, 1.0, 2.6)):
+						queue.append(nk)
+		if goal < 0:
+			push_warning("KOLMIO: Siviikin reittiä aseman pihasta tielle ei löytynyt esteiden ohi")
+			sp["route_ok"] = true
+			return route
+		var path: Array = []
+		var k := goal
+		while k >= 0:
+			path.push_front(cell_p.call(k))
+			k = prev[k]
+		path[0] = start
+		path.append(Vector2(road[join][0], road[join][2]))
+		# Suoristus: kauimpaan vapaasti näkyvään pisteeseen kerrallaan.
+		var at := 0
+		while at < path.size() - 1:
+			var nxt := at + 1
+			for j in range(path.size() - 1, at + 1, -1):
+				if _siviikki_suora(vl, path[at], path[j]):
+					nxt = j
+					break
+			hop.append(path[nxt])
+			at = nxt
+	var out := PackedVector3Array([route[0]])
+	for q: Vector2 in hop.slice(0, hop.size() - 1):
+		out.append(Vector3(q.x, vl.h(q.x, q.y), q.y))
+	var step := 1 if bi >= join else -1
+	for i in range(join, bi + step, step):
+		out.append(Vector3(road[i][0], road[i][1], road[i][2]))
+	sp["route"] = out
+	sp["lawn_n"] = hop.size()  # nurmikko-osuudet: alku + välipisteet tien näytteeseen asti
+	sp["route_ok"] = true
+	if B.diag():
+		print("KOLMIO Siviikin reitti: %d nurmikko-osuutta, liittymä tien näytteeseen %d (ennen %d), %.0f m" % [hop.size(), join,
+			int(sp.get("road_i0", -1)), _kolmio_route_len(out)])
+	return out
 
 
 ## Siviikki-ajo alkaa (Teron ja Timon juttelu): kaverit ja pelaaja kyytiin, ajokamera auton taakse.
 func _kolmio_drive_start() -> void:
-	var route: PackedVector3Array = _kolmio_vaala_spots.get("route", PackedVector3Array())
+	var route := _kolmio_siviikki_route()
 	if route.size() < 2 or _kolmio_civic == null:
 		_kolmio_remote("vaala")  # varalla tekstiviesti, jos tietä ei löytynyt
 		return
@@ -11596,6 +11729,7 @@ static func _kolmio_route_len(route: PackedVector3Array) -> float:
 
 ## Piste ja suunta reitillä matkan d kohdalla (oikea kaista 1,7 m keskiviivasta, kun lähtöpihasta on päästy).
 func _kolmio_route_at(route: PackedVector3Array, d: float, dir: int) -> Array:
+	var lawn_n: int = _kolmio_vaala_spots.get("lawn_n", 1)  # nurmikko-osuudet alussa (_kolmio_siviikki_route)
 	var left := d
 	for i in route.size() - 1:
 		var a := route[i]
@@ -11605,7 +11739,7 @@ func _kolmio_route_at(route: PackedVector3Array, d: float, dir: int) -> Array:
 			var p := a.lerp(b, clampf(left / maxf(l, 0.001), 0.0, 1.0))
 			var fwd := (b - a).normalized() * dir
 			var right := Vector3(-fwd.z, 0, fwd.x)
-			if i > 0:
+			if i >= lawn_n:
 				p += right * 1.7
 			else:  # nurmikko aseman pihasta tielle: maanpinnan korkeudella
 				p.y = mopo_trip.vaala.h(p.x, p.z)
