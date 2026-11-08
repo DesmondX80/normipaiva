@@ -169,6 +169,10 @@ const SIDE := [
 		"known": "first:keikkatyo|first:kesaduuni|first:tyokkari|first:pullonkeraus|first:kioski_hengailu",
 		"done": "first:keikkatyo&first:kesaduuni&first:tyokkari&first:pullonkeraus&first:kioski_hengailu", "progress": "hanttihommat",
 		"idea": "Rahaa saa muutenkin kuin kaupoilla. Hanttihommia riittää, kun herää aamulla."},
+	{"id": "tekemiset", "title": "Kylän tekemisiä", "text": "Juoksulenkki Saloisten kentän ympäri, lintutorni kodan vieressä, rönttösten leivonta mökin keittiössä. Vaalassa Siitarin hedelmäpeli ja pajatso, muskelivene satamasta ja juhannuskokko.",
+		"known": "first:juoksulenkki|first:lintutorni|first:ronttonen|first:hedelmapeli|first:pajatso|first:muskelivene|first:juhannuskokko",
+		"done": "first:juoksulenkki&first:lintutorni&first:ronttonen&first:hedelmapeli&first:pajatso&first:muskelivene&first:juhannuskokko",
+		"progress": "tekemiset", "idea": "Kylällä on kaikenlaista pientä tekemistä. Kokeilenpa kaikkea kerran."},
 	# Salaiset: tiedoksi vasta, kun on kerran tehty (ei paljasteta etukäteen).
 	{"id": "rasvanappi", "title": "Rasvanappi", "text": "Makasiinin takaovella punainen lamppu. Salasana luukulle, ja pimeässä tökätään peppuun ja arvataan nimi.",
 		"known": "first:rasvanappi", "done": "first:rasvanappi",

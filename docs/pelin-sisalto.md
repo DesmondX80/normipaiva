@@ -1043,7 +1043,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Portti, Kalajoen rantafutis) tulevat tiedoksi perillä ensimmäisestä kohdasta, edistyminen otsikon perässä (esim. tarinat 1 / 3).
   Lisäksi Teeriniemen kalalampi (saalis), Kapteenin Kulman pubivisa (kaikki oikein), ponkkarin uimakisa (voitto),
   Valentin Vaalan elokuvapäivät (Veturitallin ovelta) ja Hanttihommat (keikkatyö, kesäduuni, työkkäri, pullonkeräys ja
-  kioskihengailu, kokeiltu X / 5). Salaiset (Rasvanappi, rakaleiman kopio, Nyrkit puhuu: tappelun voitto) tulevat
+  kioskihengailu, kokeiltu X / 5) ja Kylän tekemisiä (juoksulenkki, lintutorni, rönttöset, hedelmäpeli, pajatso,
+  muskelivene ja juhannuskokko, kokeiltu X / 7). Salaiset (Rasvanappi, rakaleiman kopio, Nyrkit puhuu: tappelun voitto) tulevat
   päiväkirjaan vasta, kun ne on kerran tehty.
 - **→ näytä kartalla** tehtävän alla asettaa kompassin (lyijykynärengas kartalla). Toisten paikkakuntien tehtävät
   (Raahe, Hanhikivi, Pakkahuone, Peruskivi, Manamansalo ja retkien legendat) osoittavat K-Marketin taksitolpalle,

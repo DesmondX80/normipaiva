@@ -8236,6 +8236,8 @@ func quest_progress(key: String) -> String:
 			return "käyty %d / 3" % raate.kuultu()
 		"kalajoki":
 			return "harjoituspelejä voitettu %d" % kalajoki.harjoitus if kalajoki.harjoitus > 0 and kalajoki.voitot == 0 else ""
+		"tekemiset":
+			return "kokeiltu %d / %d" % [TEKEMISET.filter(func(k): return k in tilat.firsts).size(), TEKEMISET.size()]
 		"hanttihommat":
 			var n := 0
 			for k in HANTTIHOMMAT:
@@ -8271,6 +8273,7 @@ func journal_data() -> Dictionary:
 
 ## Muiden paikkakuntien tehtävät: "näytä kartalla" osoittaa K-Marketin taksitolpalle (retket.gd, lähtö taksilla). Kartalle
 ## niistä ei piirretä omia renkaita (kaikki samassa paikassa), vain kompassi.
+const TEKEMISET := ["juoksulenkki", "lintutorni", "ronttonen", "hedelmapeli", "pajatso", "muskelivene", "juhannuskokko"]  # quests.gd tekemiset
 const HANTTIHOMMAT := ["keikkatyo", "kesaduuni", "tyokkari", "pullonkeraus", "kioski_hengailu"]  # quests.gd hanttihommat
 const TAXI_QUESTS := ["kalajoki", "kalalampi", "pubivisa", "hanhikiven_rajakivi", "pakkahuoneen_veistos", "peruskiven_kapseli", "manamansalon_kirkko", "tietokonemuseo",
 	"wanharaahe", "kuvakirkko", "vanhaherra", "karhut", "hiidenportti", "pyhakoski", "messenius", "raate"]
@@ -30751,7 +30754,8 @@ func _maybe_screenshot() -> void:
 			# (Saloisten paikat ja taksitolppa).
 			for k in ["pyhakoski_voimala", "kuvakirkko_suntio", "wanharaahe_patsas", "karhut_opas", "olavi_legenda",
 					"kuningas_legenda", "kanttori_legenda", "pingis_ulkopoyta", "hanhikivi_legenda", "kalajoki_sarkat", "kalalupa",
-					"pubivisa", "uintikilpailu", "vvaala_ovi", "keikkatyo", "tyokkari", "rasvanappi", "rakaleima", "tappelu_juntti"]:
+					"pubivisa", "uintikilpailu", "vvaala_ovi", "keikkatyo", "tyokkari", "rasvanappi", "rakaleima", "tappelu_juntti",
+					"lintutorni", "pajatso", "ronttonen"]:
 				tilat.first(k)
 			pyhakoski.voimala = true
 			wanharaahe.kuvat = ["patsas"]
@@ -30767,13 +30771,15 @@ func _maybe_screenshot() -> void:
 					print("TESTI VIKA tehtävällä %s ei ole näytä kartalla -linkkiä" % id)
 				else:
 					print("PK %s: %s (%s)" % [id, by[id].title, by[id].progress])
-			for id in ["uintikisa", "vvaala", "hanttihommat", "rasvanappi", "rakaleima", "tappelut"]:
+			for id in ["tekemiset", "uintikisa", "vvaala", "hanttihommat", "rasvanappi", "rakaleima", "tappelut"]:
 				if not by.has(id):
 					print("TESTI VIKA päiväkirjasta puuttuu tehtävä ", id)
 				else:
 					print("PK %s: %s (%s)%s" % [id, by[id].title, by[id].progress, " tehty" if by[id].done else ""])
 			if by.has("hanttihommat") and by.hanttihommat.progress != "kokeiltu 2 / 5":
 				print("TESTI VIKA hanttihommien edistyminen '%s'" % by.hanttihommat.progress)
+			if by.has("tekemiset") and by.tekemiset.progress != "kokeiltu 3 / 7":
+				print("TESTI VIKA kylän tekemisten edistyminen '%s'" % by.tekemiset.progress)
 			if by.has("rasvanappi") and not by.rasvanappi.done:
 				print("TESTI VIKA rasvanappi ei ole tehty, vaikka pelattu")
 			if by.has("pyhakoski") and by.pyhakoski.progress != "tarinat 1 / 3":
