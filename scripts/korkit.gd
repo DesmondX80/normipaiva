@@ -12,7 +12,8 @@ const BRANDS := {
 	"pantteri": {"nimi": "Pantteri-limu", "laji": "limu", "vari": Color(0.2, 0.2, 0.22)},
 }
 const TASOT := ["tavallinen", "juhla", "virhe"]
-const TASO_NIMI := {"tavallinen": "korkki", "juhla": "kesäkorkki", "virhe": "virhepainos"}
+const TASO_NIMI := {"tavallinen": "korkki", "juhla": "juhannuskorkki", "virhe": "virhepainos"}
+const VOITTO_P := 1.0 / 25.0  # kaljakorkin alla "VOITIT PULLON" (90-luvun kampanja)
 const JUHLA_P := 1.0 / 15.0
 const VIRHE_P := 1.0 / 150.0
 
@@ -21,11 +22,12 @@ var palkitut: Array = []  # merkit, joiden täysi aukeama on jo palkittu (kerran
 
 
 ## Arpoo korkin lajista ("kalja" / "limu"): palauttaa avaimen "merkki:taso".
-static func roll(laji: String, rng: RandomNumberGenerator) -> String:
+## juhla_ok: juhannuskorkkeja saa vain juhannuksena (main.gd _juhannus); muulloin arpa antaa tavallisen.
+static func roll(laji: String, rng: RandomNumberGenerator, juhla_ok := true) -> String:
 	var ids: Array = BRANDS.keys().filter(func(k): return BRANDS[k].laji == laji)
 	var b: String = ids[rng.randi() % ids.size()]
 	var r := rng.randf()
-	var taso := "virhe" if r < VIRHE_P else ("juhla" if r < VIRHE_P + JUHLA_P else "tavallinen")
+	var taso := "virhe" if r < VIRHE_P else ("juhla" if r < VIRHE_P + JUHLA_P and juhla_ok else "tavallinen")
 	return "%s:%s" % [b, taso]
 
 

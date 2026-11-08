@@ -8620,6 +8620,7 @@ func _enter_home(door: String) -> void:
 	player.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	tilat.first("koti_sisalla", 0.1)
+	_paivi_korkit()
 	home_int.carrying = beers > 0 or has_kanister
 	home_int.phone_found = phone.found
 	home_int.enter(door)
@@ -10296,7 +10297,13 @@ func _drink(n: int) -> void:
 
 ## Avatusta pullosta jää korkki (#290): ensimmäinen aloittaa kansion, uusi ja harvinainen korkki kerrotaan.
 func _korkki(laji: String) -> void:
-	_korkki_key(Korkit.roll(laji, _korkki_rng))
+	_korkki_key(Korkit.roll(laji, _korkki_rng, _juhannus()))
+	# Voittokorkki: korkin alla "VOITIT PULLON", kauppa vaihtaa uuteen kaljaan (lisätään suoraan reppuun).
+	if laji == "kalja" and _korkki_rng.randf() < Korkit.VOITTO_P:
+		beers += 1
+		tilat.first("voittokorkki", 0.1)
+		Sfx.play("win_small", -8.0)
+		_queue_message("Korkin alla lukee \"VOITIT PULLON\"! Kassalla vaihdettiin uuteen. Kalja +1.", 3.5)
 
 
 ## Korkki kansioon (juominen, pullonkeräys, kirppiksen korkkilaatikko). Palauttaa true, jos se oli uusi.
@@ -10320,7 +10327,7 @@ func _korkki_key(key: String) -> bool:
 func _korkit_kasa(n: int) -> String:
 	var uudet: Array = []
 	for i in n:
-		var key := Korkit.roll("kalja" if _korkki_rng.randf() < 0.5 else "limu", _korkki_rng)
+		var key := Korkit.roll("kalja" if _korkki_rng.randf() < 0.5 else "limu", _korkki_rng, _juhannus())
 		if _korkki_key(key):
 			uudet.append(Korkit.nimi(key))
 	return "%d korkkia%s" % [n, (", uusi: " + ", ".join(uudet)) if not uudet.is_empty() else ""]
@@ -10351,7 +10358,7 @@ func _start_korkkilapsy() -> void:
 	g.drunk = tilat.value("humala")
 	for k in mine:
 		g.stack.append({"key": k, "up": false})
-		g.stack.append({"key": Korkit.roll("kalja" if randf() < 0.5 else "limu", _korkki_rng), "up": false})
+		g.stack.append({"key": Korkit.roll("kalja" if randf() < 0.5 else "limu", _korkki_rng, _juhannus()), "up": false})
 	# Pelipaikka teinien vierestä pihalle päin, asfaltin korkeudella; kävelijä piiloon (oma kyykkyhahmo pelissä).
 	var spot: Vector3 = vl.yard_teens_pos + out * 3.0
 	spot.y = vl.h(spot.x, spot.z)
@@ -10366,6 +10373,38 @@ func _start_korkkilapsy() -> void:
 	g.finished.connect(_on_korkkilapsy_finished)
 	_lapsy_game = g
 	vl.add_child(g)
+
+
+## Saloisten kaukalo: sama peli kaukalon iltateinien vieressä (hs_teens), pelaaja piiloon pelin ajaksi.
+func _start_korkkilapsy_kaukalo() -> void:
+	if _lapsy_game != null or not is_instance_valid(hs_teens) or korkit.tuplat() < 3:
+		return
+	var mine: Array = korkit.take_tuplat_keys(3)
+	_lapsy_day = day
+	var g := KorkkiGame.new()
+	g.drunk = tilat.value("humala")
+	for k in mine:
+		g.stack.append({"key": k, "up": false})
+		g.stack.append({"key": Korkit.roll("kalja" if randf() < 0.5 else "limu", _korkki_rng, _juhannus()), "up": false})
+	var tp: Vector3 = hs_teens.global_position
+	var out := Vector3(player.global_position.x - tp.x, 0, player.global_position.z - tp.z)
+	out = out.normalized() if out.length() > 0.1 else Vector3(0, 0, 1)
+	var spot := tp + out * 2.6
+	spot.y = Terrain.h(spot.x, spot.z)
+	g.face = out
+	g.position = spot
+	player.visible = false
+	player.controls_enabled = false
+	_hud.visible = false
+	CamCtl.free_mouse = true
+	tilat.first("korkkilapsy", 0.3)
+	g.finished.connect(func(won: Array, quit: bool) -> void:
+		player.visible = true
+		player.controls_enabled = true
+		player.activate_camera()
+		_on_korkkilapsy_finished(won, quit))
+	_lapsy_game = g
+	_hazards.add_child(g)
 
 
 func _on_korkkilapsy_finished(won: Array, quit: bool) -> void:
@@ -10422,6 +10461,26 @@ func _mmkorkki_pick() -> void:
 	Sfx.play("win", -4.0)
 	_save_game()
 	_show_message("Kultainen korkki, kyljessä \"MM 1995\". Kolmekymmentä vuotta Pekan kivikossa. Korkkikansion kansilehteen! Maine +3.", 6.0)
+
+
+## Päivi ja korkkikansio (#290): kerran päivässä kotiin tullessa, jos kansiossa on kaljakorkkeja yli viisi. Mitä
+## enemmän kaljakorkkeja limukorkkeihin nähden, sitä enemmän moraali kärsii.
+func _paivi_korkit() -> void:
+	if korkit == null:
+		return
+	var kalja := 0
+	var limu := 0
+	for k in korkit.owned:
+		var b: String = k.split(":")[0]
+		if Korkit.BRANDS.has(b):
+			if Korkit.BRANDS[b].laji == "kalja":
+				kalja += int(korkit.owned[k])
+			else:
+				limu += int(korkit.owned[k])
+	if kalja < 6 or not _once_today("paivi_korkit"):
+		return
+	tilat.add("moraali", -0.03 * clampf(float(kalja) / maxf(1.0, limu + 1.0), 1.0, 4.0))
+	_queue_message("Päivi selaa korkkikansiota: \"%d kaljankorkkia. Montako kaljaa tässä kansiossa on, häh? Ja limua %d.\"" % [kalja, limu], 5.0)
 
 
 ## Korkki-Raimo kirppiksellä (#290): vaihtaa kaksi tuplaa puuttuvaan (ei virhepainoksia), ostaa tupla-virhepainoksia
@@ -13901,6 +13960,10 @@ func _talk_choose(id: String) -> void:
 		return
 	if id.begins_with("kolmio_"):
 		_kolmio_choose(id)
+		return
+	if _talk_who == "kaukalo_teinit" and id == "korkkilapsy":
+		_talk_box.close()
+		_start_korkkilapsy_kaukalo()
 		return
 	if _talk_who in HS_TALKERS and (id.begins_with("myy_") or id == "haasta"):
 		_hs_choose(id)
@@ -19769,6 +19832,9 @@ func _hs_hello(who: String) -> String:
 
 
 func _hs_options(who: String, o: Array) -> void:
+	if who == "kaukalo_teinit" and "korkki" in tilat.firsts:
+		o.append(_opt("korkkilapsy", "Korkkiläpsyä kaukalolla (panos 3 tuplaa)", korkit.tuplat() >= 3 and _lapsy_day != day,
+			"läpsit jo tänään" if _lapsy_day == day else "tarvitset 3 tuplakorkkia", true))
 	if int(hs.ei_osta.get(_hs_group_of(who), -1)) == day:
 		o.append(_opt("myy", "Myy kamaa", false, "eivät osta sulta enää tänään"))
 	elif not _hs_has_sellable():
@@ -30998,6 +31064,49 @@ func _maybe_screenshot() -> void:
 					print("TESTI VIKA MM-korkki ei löytynyt Pekan päädystä")
 			# Korkkiläpsy: panos vain tuplista, peli pyörii (lyönnit), voitetut kansioon; kuvat pelistä.
 			for i in 4:
+				korkit.add("kontio:tavallinen")
+			# Juhannuskorkki vain juhannuksena; voittokorkki antaa kaljan; Päivi motkottaa kaljakorkeista.
+			var rr := RandomNumberGenerator.new()
+			var juhlia := 0
+			for i in 3000:
+				if Korkit.roll("kalja", rr, false).ends_with(":juhla"):
+					juhlia += 1
+			print("KORKIT juhannuskorkkeja muulloin: %d" % juhlia)
+			if juhlia > 0:
+				print("TESTI VIKA juhannuskorkkeja muulloinkin")
+			var b0 := beers
+			_korkki_rng.seed = 5
+			for i in 200:
+				_korkki("kalja")
+			print("KORKIT voittokorkit 200 kaljasta: kaljoja +%d" % (beers - b0))
+			if beers - b0 < 1 or beers - b0 > 25:
+				print("TESTI VIKA voittokorkkien määrä")
+			_msg_queue.clear()
+			_paivi_korkit()
+			var pv: String = str(_msg_queue.back()) if not _msg_queue.is_empty() else ""
+			print("KORKIT Päivi: %s" % pv.left(90))
+			if not "Montako kaljaa" in pv:
+				print("TESTI VIKA Päivi ei motkottanut korkkikansiosta")
+			# Saloisten kaukalo: läpsy kaukalon teinien vieressä (jos iltateinit ovat paikalla).
+			if is_instance_valid(hs_teens):
+				_lapsy_day = -1
+				_start_korkkilapsy_kaukalo()
+				print("KORKIT kaukalo: peli %s, pelaaja piilossa %s" % [_lapsy_game != null, not player.visible])
+				if _lapsy_game == null:
+					print("TESTI VIKA kaukalon läpsy ei alkanut")
+				else:
+					for i in 40:
+						await get_tree().process_frame
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lapsy_kaukalo.png"))
+					_lapsy_game._end(true)
+					await get_tree().process_frame
+					if not player.visible:
+						print("TESTI VIKA pelaaja jäi piiloon kaukalon läpsyn jälkeen")
+			else:
+				print("KORKIT kaukalo: iltateinit eivät paikalla, ei tarkistettu")
+			_lapsy_day = -1
+			for i in 6:
 				korkit.add("kontio:tavallinen")
 			_start_mopo()
 			for car in mopo_trip._cars:

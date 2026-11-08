@@ -1055,7 +1055,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   tai hiiri, voima ajoituksella; kääntyneet korkit lentävät pyörien lyöjän eteen, liian kova lyönti lennättää ne
   maahan. Ruudun päällä voimamittari, tilanne ja näppäinhatut asetusten näppäimistä. Testi `scene korkit` (Vaala ladataan,
   kuvat tähtäyksestä ja lyönnistä).
-- Tulossa: voittokorkit, korkkiläpsy ja
+- **Juhannuskorkit** (ennen kesäkorkki) arpoutuvat vain juhannuksena (`_juhannus()`); muulloin arpa antaa tavallisen.
+- **Voittokorkki:** joka 25. kaljakorkin alla lukee "VOITIT PULLON", ja kassalla se vaihdetaan: kalja +1.
+- **Korkkiläpsy myös Saloisten kaukalolla** iltateinien vieressä (kaukalon teinien valinta, sama kerran päivässä).
+- **Päivi ja kansio:** kotiin tullessa kerran päivässä, jos kansiossa on kuusi tai enemmän kaljakorkkia, Päivi laskee ne
+  ääneen ("Montako kaljaa tässä kansiossa on, häh?"); moraali laskee kaljakorkkien suhteessa limukorkkeihin.
   kultainen MM-korkki.
 
 ## Normipäiväkirja: tarina, tehtävät, onnelliset loput ja legendaariset hetket (O)
