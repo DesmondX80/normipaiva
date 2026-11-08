@@ -1029,6 +1029,15 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Mökki** on mallinnettu oikean Airbnb-vuokramökin ("The warmth of a smoke sauna and cottage life",
   Neittävä) valokuvien mukaan. Se on erillinen alue, jonne pääsee naapurin Pekan kyydillä tai kaupan taksilla.
 
+## Pullonkorkit (#290)
+
+- Jokaisesta juodusta kaljasta jää korkki (`korkit.gd`, `main.gd _korkki`). Merkit ovat parodioita: Kontio, Lapin Kuuma ja
+  Koffi (kalja) sekä Jaffis, Kolaa ja Pantteri-limu (limu). Tasot: tavallinen, kesäkorkki (n. 1/15) ja virhepainos
+  (n. 1/150). Ensimmäinen korkki aloittaa kansion, ja uusi harvinainen kerrotaan. Päiväkirjan tehtävä "Korkkikansio"
+  (kansiossa X / 18, tuplia). Tallennus `[korkit]`. Testi `--ei-kuvia scene korkit`.
+- Tulossa: kansionäkymä, limujen korkit, pullonkeräys ja kirppiksen korkkilaatikko, Korkki-Raimo, korkkiläpsy ja
+  kultainen MM-korkki.
+
 ## Normipäiväkirja: tarina, tehtävät, onnelliset loput ja legendaariset hetket (O)
 
 - **Tarina** etenee luvuittain: 1. Paapeliin pääsee, kunhan… (naapurien hommat ja Pekan kyyti mökille), 2. Paapelin
