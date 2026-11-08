@@ -1038,7 +1038,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Korkkikansio:** päiväkirjan Korkit-välilehti (5): vasemmalla kaljat, oikealla limut, merkin rivillä tavallinen,
   kesäkorkki (aurinkorengas) ja virhepainos (logo ylösalaisin, väärä väri). Puuttuva: katkoviiva ja vihje. Täysi
   merkki palkitaan kerran (moraali, maine +2, tähti).
-- Tulossa: limujen korkit, pullonkeräys ja kirppiksen korkkilaatikko, Korkki-Raimo, korkkiläpsy ja
+- **Limukorkit ja muut lähteet:** pullonkeräyksestä (Vaala) jää talteen 1–3 korkkia, kaljoja ja limuja. Kirppiksellä
+  Veksin korkkilaatikosta saa satunnaisen korkin 0,10 €:lla (kun kansio on aloitettu). Pelissä ei juoda limua, joten
+  limukorkit tulevat näistä.
+- Tulossa: voittokorkit, Korkki-Raimo, korkkiläpsy ja
   kultainen MM-korkki.
 
 ## Normipäiväkirja: tarina, tehtävät, onnelliset loput ja legendaariset hetket (O)

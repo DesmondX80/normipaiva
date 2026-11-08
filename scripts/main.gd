@@ -10292,22 +10292,38 @@ func _drink(n: int) -> void:
 
 ## Avatusta pullosta jää korkki (#290): ensimmäinen aloittaa kansion, uusi ja harvinainen korkki kerrotaan.
 func _korkki(laji: String) -> void:
-	var key := Korkit.roll(laji, _korkki_rng)
+	_korkki_key(Korkit.roll(laji, _korkki_rng))
+
+
+## Korkki kansioon (juominen, pullonkeräys, kirppiksen korkkilaatikko). Palauttaa true, jos se oli uusi.
+func _korkki_key(key: String) -> bool:
 	var uusi: bool = korkit.add(key)
 	if korkit.new_full(key.split(":")[0]):
 		tilat.add("moraali", 0.2)
 		maine = clampf(maine + 2.0, 0.0, 100.0)
 		Sfx.play("win_small", -6.0)
 		_queue_message("Korkkikansion aukeama täynnä: %s! Kiitostarra kulmaan. Maine +2." % Korkit.BRANDS[key.split(":")[0]].nimi, 4.0)
-		return
+		return uusi
 	if tilat.first("korkki", 0.1):
 		_queue_message("Korkki jäi käteen. \"Tää korkki on harvinainen... vai onko?\" Korkkikansio alkaa tästä.", 4.0)
 	elif uusi and not key.ends_with(":tavallinen"):
 		Sfx.play("pickup", -8.0, 1.4)
 		_queue_message("Korkkikansioon harvinainen: %s! (%d / %d)" % [Korkit.nimi(key), korkit.distinct(), Korkit.total_slots()], 3.5)
+	return uusi
+
+
+## Monta korkkia kerralla (pullonkeräys, laatikko): palauttaa lyhyen kuvauksen ilmoitukseen.
+func _korkit_kasa(n: int) -> String:
+	var uudet: Array = []
+	for i in n:
+		var key := Korkit.roll("kalja" if _korkki_rng.randf() < 0.5 else "limu", _korkki_rng)
+		if _korkki_key(key):
+			uudet.append(Korkit.nimi(key))
+	return "%d korkkia%s" % [n, (", uusi: " + ", ".join(uudet)) if not uudet.is_empty() else ""]
 
 
 var _korkki_rng := RandomNumberGenerator.new()
+const KORKKI_LAATIKKO := 0.10  # kirppiksen korkkilaatikko, €/korkki
 
 
 func _eat(amount: float) -> void:
@@ -13447,6 +13463,9 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("keikka", "Onko hommia? (roskat pihalta, %s €)" % _eur(HONGAN_PALKKA), _hongan_day != day,
 					"huomenna taas", true))
 		"veksi":
+			if kirppis_int.mode == "kirppis" and "korkki" in tilat.firsts:
+				o.append(_opt("korkkilaatikko", "Kaiva Veksin korkkilaatikosta (%s €)" % _eur(KORKKI_LAATIKKO), money >= KORKKI_LAATIKKO - 0.001,
+					"rahat ei riitä"))
 			if _kekkonen == 1:
 				o.append(_opt("kekkonen", "Myy Kekkosen rintamerkki (%s €)" % _eur(KEKKONEN_HINTA), true, "", true))
 			if ukko.caught and ukko.choice == "":
@@ -13821,7 +13840,14 @@ func _talk_choose(id: String) -> void:
 			else:
 				_talk_aaro(id)
 		"veksi":
-			if id == "olavi_myy":
+			if id == "korkkilaatikko":
+				money -= KORKKI_LAATIKKO
+				Sfx.play("rattle", -8.0, 1.6)
+				var mita := _korkit_kasa(1)
+				_talk_box.reply(["Korkkeja? Ota vaan, kymmenen senttiä kappale. Kultaisia ei oo, kysyin jo.",
+					"Tuolla laatikossa on puoli Pohjois-Suomea. Kaiva syvältä.", "Joku vanha keräilijä toi ne. Korkki-Raimo, taisi olla."].pick_random(),
+					_talk_options(), "Laatikosta: %s. Rahaa %s €." % [mita, _eur(money)])
+			elif id == "olavi_myy":
 				_olavi_sell()
 			elif id == "kirves":
 				_kertun_sell()
@@ -16256,7 +16282,8 @@ func _pullonkeraus() -> void:
 	Sfx.play("rattle", -4.0, 1.1)
 	_save_game()
 	_talk_box.reply(["Hei, se kerää meidän pullot! Kiitti, setä.", "Aamulla on aina enemmän pulloja ku väkeä. Ota vaan.", "Pantti jaetaan puoliksi. Ei, vitsi, ota kaikki."].pick_random(),
-		_talk_options(), "%d pulloa ja tölkkiä aidan takaa, pantti +%s €. 40 minuuttia kului." % [n, _eur(pantti)])
+		_talk_options(), "%d pulloa ja tölkkiä aidan takaa, pantti +%s €. Talteen %s. 40 minuuttia kului." % [n, _eur(pantti),
+		_korkit_kasa(randi_range(1, 3))])
 
 
 ## Kioskilla hengailu illalla (#183): nuoret parit, kyydinodotus ja pussauspaikka sillalla.
@@ -30779,6 +30806,12 @@ func _maybe_screenshot() -> void:
 			print("KORKIT tallennus: %s, tuplia %d, päiväkirja '%s'" % [k2.owned, k2.tuplat(), quest_progress("korkit")])
 			if k2.owned != korkit.owned or k2.tuplat() != 1:
 				print("TESTI VIKA korkkien tallennus")
+			# Pullonkeräys ja korkkilaatikko: monta korkkia, myös limuja.
+			var ennen: int = korkit.owned.values().reduce(func(a, b): return a + b, 0)
+			print("KORKIT kasa: %s" % _korkit_kasa(40))
+			var limut: int = korkit.owned.keys().filter(func(k): return Korkit.BRANDS[k.split(":")[0]].laji == "limu").size()
+			if korkit.owned.values().reduce(func(a, b): return a + b, 0) - ennen != 40 or limut == 0:
+				print("TESTI VIKA korkkikasa ei antanut 40 korkkia tai limuja")
 			# Täysi aukeama palkitaan kerran; kansio päiväkirjan Korkit-välilehdellä (kuva).
 			var maine0 := maine
 			korkit.add("koffi:tavallinen")
