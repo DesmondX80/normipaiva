@@ -43,7 +43,7 @@ static func nimi(key: String) -> String:
 
 ## Erilaisia korkkeja / kaikki mahdolliset (kansion täyttö).
 func distinct() -> int:
-	return owned.size()
+	return owned.keys().filter(func(k): return k != "mmkorkki").size()  # kultainen MM-korkki on kansilehdessä
 
 
 static func total_slots() -> int:
