@@ -10330,6 +10330,52 @@ var _korkki_rng := RandomNumberGenerator.new()
 const KORKKI_VIRHE_HINTA := 15.0  # Korkki-Raimo ostaa tupla-virhepainoksen
 
 
+## Korkkiläpsy (#290, korkki_game.gd): Vaalan lavan pihan teinit illalla 18–23 kerran päivässä. Kumpikin panee 3 tuplaa
+## (pelaajalta vain tuplat, teiniltä muiden pitäjien korkkeja), voitetut korkit kansioon.
+const KorkkiGame := preload("res://scripts/korkki_game.gd")
+var _lapsy_day := -1
+var _lapsy_game: CanvasLayer
+
+
+func _start_korkkilapsy() -> void:
+	var mine: Array = korkit.take_tuplat_keys(3)
+	if mine.is_empty() or _lapsy_game != null:
+		return
+	_lapsy_day = day
+	var g := KorkkiGame.new()
+	g.drunk = tilat.value("humala")
+	for k in mine:
+		g.stack.append({"key": k, "up": false})
+		g.stack.append({"key": Korkit.roll("kalja" if randf() < 0.5 else "limu", _korkki_rng), "up": false})
+	if mopo_trip != null:
+		mopo_trip.stop()
+	_hud.visible = false
+	CamCtl.free_mouse = true
+	tilat.first("korkkilapsy", 0.3)
+	g.finished.connect(_on_korkkilapsy_finished)
+	_lapsy_game = g
+	add_child(g)
+
+
+func _on_korkkilapsy_finished(won: Array, quit: bool) -> void:
+	_lapsy_game = null
+	CamCtl.free_mouse = false
+	_hud.visible = true
+	if mopo_trip != null:
+		_mopo_resume()
+	var uudet: Array = []
+	for k in won:
+		if _korkki_key(k):
+			uudet.append(Korkit.nimi(k))
+	_advance_clock(20.0)
+	if won.size() > 3:
+		tilat.first("korkkilapsy_voitto", 0.3)
+		tilat.add("moraali", 0.1)
+	_save_game()
+	_show_message(("Lopetit kesken. " if quit else "") + "Korkkiläpsystä %d korkkia (panos 3)%s." % [won.size(),
+		(", uusi: " + ", ".join(uudet)) if not uudet.is_empty() else ""], 4.0)
+
+
 ## Kultainen MM-korkki (#290): Raimo kertoo legendan, Pekka muistaa heittäneensä korkin saunan takaa pihan
 ## kivikkoon (Pekan talon pääty, world.neighbor_yards.pekka[3]); siellä kiiltää, E nostaa kerran. Raimo tarjoaa 200 €.
 const MMKORKKI_HINTA := 200.0
@@ -13742,6 +13788,9 @@ func _talk_options(who := "") -> Array:
 				var letka_ok: bool = _between(clock_min, Vector2(23 * 60, 3 * 60)) and oma_mopo.running and oma_mopo.fuel >= 0.15 and _letka_day != day
 				o.append(_opt("letka", "Lähde mopoletkaan Siitarin pihaan ja keskustaan (yöllä)", letka_ok,
 					"letka kokoontuu vasta yöllä 23–03" if not _between(clock_min, Vector2(23 * 60, 3 * 60)) else ("tarvitset toimivan mopon ja bensaa" if not (oma_mopo.running and oma_mopo.fuel >= 0.15) else "ajoit jo tänään")))
+			if _nuoret_yard and _between(clock_min, Vector2(18 * 60, 23 * 60)) and "korkki" in tilat.firsts:
+				o.append(_opt("korkkilapsy", "Korkkiläpsyä teinien kanssa (panos 3 tuplaa)", korkit.tuplat() >= 3 and _lapsy_day != day,
+					"läpsit jo tänään" if _lapsy_day == day else "tarvitset 3 tuplakorkkia", true))
 			if _nuoret_yard and _between(clock_min, Vector2(6 * 60, 11 * 60)):
 				o.append(_opt("pullot", "Kerää tyhjät pullot ja tölkit aidan takaa (pantti)", _pullot_day != day, "keräsit jo tänään", true))
 			if _nuoret_yard:
@@ -14015,6 +14064,10 @@ func _talk_choose(id: String) -> void:
 				return
 			if id == "pullot":
 				_pullonkeraus()
+				return
+			if id == "korkkilapsy":
+				_talk_box.close()
+				_start_korkkilapsy()
 				return
 			if id in ["purkka", "kasetti_aanita", "kasetti_soita", "letka"]:
 				_nuoret_hupi(id)
@@ -30930,6 +30983,37 @@ func _maybe_screenshot() -> void:
 				print("KORKIT mm löytyi: %s" % korkit.owned.has("mmkorkki"))
 				if not korkit.owned.has("mmkorkki"):
 					print("TESTI VIKA MM-korkki ei löytynyt Pekan päädystä")
+			# Korkkiläpsy: panos vain tuplista, peli pyörii (lyönnit), voitetut kansioon; kuvat pelistä.
+			for i in 4:
+				korkit.add("kontio:tavallinen")
+			var t_ennen: int = korkit.tuplat()
+			_start_korkkilapsy()
+			print("KORKIT läpsy: peli %s, pinossa %d, tuplat %d -> %d" % [_lapsy_game != null,
+				_lapsy_game.stack.size() if _lapsy_game != null else 0, t_ennen, korkit.tuplat()])
+			if _lapsy_game == null or _lapsy_game.stack.size() != 6 or korkit.tuplat() != t_ennen - 3:
+				print("TESTI VIKA korkkiläpsy ei alkanut oikein")
+			else:
+				var lg = _lapsy_game
+				lg._aim = 0.2
+				lg._phase = "power"
+				lg._power = 0.5
+				for i in 3:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lapsy_tahtays.png"))
+				lg._strike(0.05, 0.72)
+				await get_tree().create_timer(0.45).timeout
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lapsy_lyonti.png"))
+				var n_me: int = lg._won_me.size()
+				print("KORKIT läpsy lyönti: sain %d, pinossa %d" % [n_me, lg.stack.size()])
+				var d_ennen: int = korkit.owned.values().reduce(func(a, b): return a + b, 0)
+				lg._end(true)
+				await get_tree().process_frame
+				var d_jalk: int = korkit.owned.values().reduce(func(a, b): return a + b, 0)
+				print("KORKIT läpsy loppu: korkkeja %d -> %d, peli poissa %s" % [d_ennen, d_jalk, _lapsy_game == null])
+				if _lapsy_game != null or d_jalk < d_ennen:
+					print("TESTI VIKA korkkiläpsyn lopetus")
 			# Täysi aukeama palkitaan kerran; kansio päiväkirjan Korkit-välilehdellä (kuva).
 			var maine0 := maine
 			korkit.add("koffi:tavallinen")

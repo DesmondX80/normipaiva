@@ -67,6 +67,21 @@ func missing(with_virhe := false) -> Array:
 	return out
 
 
+## Ottaa n tuplaa pois ja palauttaa niiden avaimet (korkkiläpsyn panos); tyhjä, jos ei riitä.
+func take_tuplat_keys(n: int) -> Array:
+	if tuplat() < n:
+		return []
+	var out: Array = []
+	while out.size() < n:
+		var best := ""
+		for k in owned:
+			if int(owned[k]) > 1 and (best == "" or int(owned[k]) > int(owned[best])):
+				best = k
+		owned[best] = int(owned[best]) - 1
+		out.append(best)
+	return out
+
+
 ## Ottaa n tuplaa pois (eniten tuplia ensin). Kansion korkkeja (1 kpl) ei koskaan oteta. Palauttaa false, jos ei riitä.
 func take_tuplat(n: int, only_taso := "") -> bool:
 	var keys: Array = owned.keys().filter(func(k): return int(owned[k]) > 1 and (only_taso == "" or k.ends_with(":" + only_taso)))
