@@ -13,6 +13,9 @@ const H := 720.0
 const PILE := Vector2(640, 430)
 const SWEET := 0.72  # paras voima
 const TOO_HARD := 0.93
+const Looks := preload("res://scripts/looks.gd")
+const TEEN_3D := {"shirt": Color(0.2, 0.55, 0.45), "pants": Color(0.2, 0.25, 0.42), "shoes": Color(0.92, 0.92, 0.92),
+	"hair": "Hair_Buzzed", "hair_color": Color(0.85, 0.7, 0.35), "height": 1.62, "skin": Color(0.95, 0.77, 0.66), "belly": 0.0}
 const TEEN := {"skin": Color(0.95, 0.77, 0.66), "hair": "spiky", "hair_col": Color(0.85, 0.7, 0.35), "shirt": Color(0.2, 0.55, 0.45),
 	"cap": Color(0.85, 0.2, 0.2)}
 
@@ -33,14 +36,25 @@ var _sparks: Array = []
 var _shake := 0.0
 var _say := ""
 var _say_t := 0.0
+var _say_teen := true  # Jeren repliikki puhekuplana; muuten lyönnin tulos kerrontalaatikossa
 var _specks: Array = []
 var _rounds := 0
+var _bg: Control
+var _vp: SubViewport
+var _teen: Node3D
 var _keys: Control  # näppäinohjeet hattuina (hint_bar.gd), näppäimet asetuksista
 
 
 func _ready() -> void:
 	add_to_group("esc_lopettaa")
 	layer = 6
+	# Tausta (aita, asfaltti) -> Jere 3D:nä läpinäkyvässä SubViewportissa -> pino, lyöjä ja tekstit päällä.
+	_bg = Control.new()
+	_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bg.draw.connect(_draw_bg)
+	add_child(_bg)
+	_build_3d()
 	_root = Control.new()
 	_root.anchor_right = 1.0
 	_root.anchor_bottom = 1.0
@@ -62,6 +76,44 @@ func _ready() -> void:
 		c.rot = randf() * TAU
 	_say = "Panokset pinoon, nurin päin. Sää aloitat."
 	_say_t = 3.0
+
+
+## Jere oikeana 3D-hahmona (Looks.make) omassa maailmassaan: kyykyssä pinon takana, kasvot kameraan, illan lämmin valo.
+## Kamera on hahmon edessä hieman yläviistossa; läpinäkyvä tausta, joten piirretty piha näkyy takaa.
+func _build_3d() -> void:
+	var svc := SubViewportContainer.new()
+	svc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	svc.stretch = true
+	svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(svc)
+	_vp = SubViewport.new()
+	_vp.own_world_3d = true
+	_vp.transparent_bg = true
+	_vp.msaa_3d = Viewport.MSAA_2X
+	svc.add_child(_vp)
+	var stage := Node3D.new()
+	_vp.add_child(stage)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_CLEAR_COLOR
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.8, 0.78, 0.82)
+	env.ambient_light_energy = 0.7
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	var cam := Camera3D.new()
+	cam.fov = 38.0
+	cam.environment = env
+	stage.add_child(cam)
+	cam.transform = Transform3D(Basis.looking_at(Vector3(0, -0.55, -3.4), Vector3.UP), Vector3(0, 1.45, 3.4))
+	cam.current = true
+	var sun := DirectionalLight3D.new()
+	sun.light_color = Color(1.0, 0.9, 0.8)
+	sun.light_energy = 1.0
+	sun.rotation = Vector3(deg_to_rad(-35), deg_to_rad(35), 0)
+	stage.add_child(sun)
+	_teen = Looks.make(stage, TEEN_3D)
+	_teen.position = Vector3(1.25, 0, -2.6)
+	_teen.rotation.y = PI - 0.45  # kasvot kameraan ja pinoon päin (oletus katsoo -Z:aan)
+	_teen.play.call_deferred("Crouch_Idle", 0.0)
 
 
 func _gui(e: InputEvent) -> void:
@@ -103,6 +155,8 @@ func _process(delta: float) -> void:
 						_pdir = -_pdir
 						_power = clampf(_power, 0.0, 1.0)
 			elif _pt > 1.3:
+				if is_instance_valid(_teen):
+					_teen.play("Interact", 0.15)
 				# Teinin lyönti: kohtalainen tähtäys ja voima, joskus liian kova.
 				_strike(randf_range(-0.45, 0.45), clampf(randfn(SWEET, 0.12), 0.3, 1.0))
 		"slam":
@@ -162,6 +216,7 @@ func _resolve() -> void:
 		if n > 0:
 			Sfx.play("coin", -6.0, 1.3)
 	_say_t = 2.0
+	_say_teen = false
 	_phase = "fly"
 	_pt = 0.0
 
@@ -177,6 +232,8 @@ func _next_turn() -> void:
 		get_tree().create_timer(2.6).timeout.connect(_end.bind(false))
 		return
 	_turn = "teini" if _turn == "me" else "me"
+	if is_instance_valid(_teen):
+		_teen.play("Crouch_Idle", 0.3)
 	_phase = "aim"
 	_pt = 0.0
 
@@ -196,10 +253,8 @@ func _end(quit: bool) -> void:
 
 # --- Piirto -------------------------------------------------------------------------------------------------
 
-func _draw_root() -> void:
-	var ci := _root
-	var sh := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake * 8.0
-	ci.draw_set_transform(sh, 0.0, Vector2.ONE)
+func _draw_bg() -> void:
+	var ci := _bg
 	# Tausta: lavan pihan asfaltti iltavalossa, reunakivi ja aita, maalattu viiva ja halkeamat.
 	MG.grad_rect(ci, Rect2(0, 0, W, 300), Color(0.95, 0.62, 0.38), Color(0.55, 0.42, 0.5))
 	for i in 26:
@@ -216,17 +271,13 @@ func _draw_root() -> void:
 	ci.draw_rect(Rect2(120, 560, 1040, 8), Color(0.9, 0.85, 0.55, 0.7))
 	ci.draw_polyline(PackedVector2Array([Vector2(200, 330), Vector2(260, 380), Vector2(250, 440), Vector2(320, 500)]), Color(0.12, 0.12, 0.13), 2.0)
 	ci.draw_polyline(PackedVector2Array([Vector2(1000, 600), Vector2(1060, 560), Vector2(1140, 580)]), Color(0.12, 0.12, 0.13), 2.0)
-	# Teini Jere kyykyssä pinon takana asfaltilla: farkkupolvet ja lenkkarit, katse pinoon.
-	var tc := Vector2(890, 200)
-	for sx in [-1.0, 1.0]:
-		var knee := tc + Vector2(sx * 40, 150)
-		ci.draw_line(tc + Vector2(sx * 22, 135), knee, Color(0.2, 0.25, 0.42), 30.0)
-		ci.draw_circle(knee, 16.0, Color(0.24, 0.3, 0.48))
-		ci.draw_line(knee, knee + Vector2(sx * 6, 40), Color(0.2, 0.25, 0.42), 26.0)
-		MG.box(ci, Rect2(knee + Vector2(sx * 6 - 24, 34), Vector2(48, 20)), Color(0.95, 0.95, 0.95), 8, 0, Color(0.3, 0.3, 0.3), 2)
-		ci.draw_rect(Rect2(knee + Vector2(sx * 6 - 24, 48), Vector2(48, 6)), Color(0.75, 0.2, 0.2))
-	MG.person(ci, tc, 1.3, TEEN, Vector2((PILE.x - tc.x) / 300.0, 0.8), _say_t > 0 and _turn == "teini", 0.0)
-	_label(ci, tc + Vector2(0, -90), "Jere, 14 v.", 18)
+
+
+func _draw_root() -> void:
+	var ci := _root
+	var sh := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake * 8.0
+	ci.draw_set_transform(sh, 0.0, Vector2.ONE)
+	_label(ci, Vector2(860, 200), "Jere, 14 v.", 18)
 	# Voitetut korkit kummankin puolella.
 	for i in _won_teen.size():
 		_cap(ci, Vector2(1010 + (i % 6) * 34, 400 + (i / 6) * 34), 15.0, _won_teen[i], true, 0.3 * i)
@@ -266,24 +317,6 @@ func _draw_root() -> void:
 		ci.draw_line(sp + Vector2(8, 14), sp + Vector2(20, 6), Color(0.85, 0.87, 0.9, 0.6), 1.0)
 		ci.draw_line(sp + Vector2(-18, 10), sp + Vector2(-8, 20), Color(0.85, 0.87, 0.9, 0.6), 1.0)
 		ci.draw_circle(sp + Vector2(-12, -12), 5.0, Color(1, 1, 1, 0.5))
-		# Lyöjän käsi: pelaajan hiha alhaalta tai Jeren hiha ylhäältä, peukalo ja sormet napin reunalla.
-		var mine := _turn == "me"
-		var root := Vector2(sp.x + 140, H + 40) if mine else tc + Vector2(-40, 90)
-		var sleeve: Color = Color(0.55, 0.3, 0.25) if mine else TEEN.shirt
-		var wrist := sp + (root - sp).normalized() * 40.0
-		ci.draw_line(root, wrist, sleeve.darkened(0.4), 50.0)
-		ci.draw_line(root, wrist, sleeve, 42.0)
-		ci.draw_line(root + Vector2(-8, -4), wrist + Vector2(-8, -4), sleeve.lightened(0.25), 8.0)
-		var skin := Color(0.95, 0.77, 0.66)
-		ci.draw_circle(wrist, 20.0, skin.darkened(0.25))
-		ci.draw_circle(wrist, 18.0, skin)
-		var to_c := (sp - wrist).normalized()
-		var side := Vector2(-to_c.y, to_c.x)
-		for f in 4:
-			var fp := sp - to_c * 22.0 + side * (f - 1.5) * 11.0
-			ci.draw_line(wrist + side * (f - 1.5) * 8.0, fp, skin.darkened(0.2), 11.0)
-			ci.draw_line(wrist + side * (f - 1.5) * 8.0, fp, skin, 8.0)
-		ci.draw_line(wrist + side * 16.0, sp - to_c * 6.0 + side * 26.0, skin, 10.0)  # peukalo
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Voimamittari ja tekstit.
 	if _turn == "me" and _phase in ["aim", "power"]:
@@ -297,7 +330,11 @@ func _draw_root() -> void:
 	_label(ci, Vector2(320, 44), "KORKKILÄPSY · %s · sää %d, teini %d · pinossa %d" % ["sun vuoro" if _turn == "me" else "teinin vuoro",
 		_won_me.size(), _won_teen.size(), stack.size()], 18)
 	if _say_t > 0:
-		MG.bubble(ci, Rect2(380, 70, 420, 70), Vector2(820, 120), _say, 20)
+		if _say_teen:
+			MG.bubble(ci, Rect2(420, 90, 400, 64), Vector2(840, 200), _say, 20)
+		else:
+			MG.box(ci, Rect2(390, 92, 500, 48), Color(0.98, 0.94, 0.82, 0.95), 10, 4, Color(0.35, 0.25, 0.15), 2)
+			ci.draw_string(ThemeDB.fallback_font, Vector2(390, 124), _say, HORIZONTAL_ALIGNMENT_CENTER, 500, 20, Color(0.2, 0.14, 0.08))
 
 
 func _label(ci: CanvasItem, c: Vector2, text: String, size: int) -> void:

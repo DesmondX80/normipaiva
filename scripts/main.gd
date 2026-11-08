@@ -30997,7 +30997,7 @@ func _maybe_screenshot() -> void:
 				lg._aim = 0.2
 				lg._phase = "power"
 				lg._power = 0.5
-				for i in 3:
+				for i in 20:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lapsy_tahtays.png"))
