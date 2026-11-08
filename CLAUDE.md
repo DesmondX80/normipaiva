@@ -39,9 +39,10 @@ tehtiin kahdesti uudelleen).
 - **Ruudun päällä vain käyttöliittymä:** mittarit, tilanne, kerronta ja näppäinohje. Näppäinohje `hint_bar.gd`:llä
   (`_keys.set_text`) ja näppäimet asetuksista (`Settings.cap`, `Settings.pair`), ei kovakoodattuja kirjaimia eikä omaa
   ohjelaatikkoa. Kerronta (tulos, pisteet) laatikossa, puhekupla vain hahmon repliikille ja osoittaa puhujaan.
-- **Kameran rajaus lasketaan,** ei arvata: projisoi tärkeät pisteet (`Camera3D.unproject_position`) ja valitse paikka,
-  jossa ne osuvat haluttuihin kohtiin ruudulla (esim. `korkki_game.gd _frame_cam`: pino alakolmannekseen, vastustajan
-  pää yläosaan). Rajaus ei saa leikata päätä eikä etualan hahmo peittää toimintaa.
+- **Kamera rajataan pelin mukaan, ja rajaus lasketaan,** ei arvata. Pointti on itse peli: toiminnan kohde (pino, kortit,
+  lauta) on keskellä ja isona, ja hahmot saavat rajautua reunoilta (kädet ja polvet riittävät). Projisoi kohteen keskusta
+  ja reuna (`Camera3D.unproject_position`) ja valitse paikka, jossa kohde osuu haluttuun kohtaan ja kokoon (esim.
+  `korkki_game.gd _frame_cam`: pino y 0,6, korkki n. 90 px). Etualan hahmo ei saa peittää toimintaa.
 - **Pienet esineet näkyviin:** toiminnan kohde (korkit, nappi, kortti) on ruudulla vähintään noin 40 px; tarvittaessa
   kamera lähemmäs toiminnan hetkellä tai esine hieman oikeaa isompi.
 - **Kuvaa jokainen vaihe** (aloitus, toiminta, tulos, loppu), suurenna toiminnan kohde ja hahmot, ja ota kuvat uudelleen

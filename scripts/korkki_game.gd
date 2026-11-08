@@ -72,7 +72,7 @@ func _ready() -> void:
 	_jere.play.call_deferred("Crouch_Idle", 0.0)
 	# Pelaaja kyykyssä pinon edessä vasemmalla, kasvot pinoon.
 	_me = Looks.make(self, Looks.PLAYER)
-	_me.position = f * 0.1 - r * 0.75
+	_me.position = f * 0.15 - r * 1.0
 	_me.rotation.y = atan2(-r.x, -r.z) + PI  # kasvot pinoon sivulta
 	_me.play.call_deferred("Crouch_Idle", 0.0)
 	for i in stack.size():
@@ -97,26 +97,30 @@ func _aim_cam() -> void:
 	_cam.look_at_from_position(to_global(_eye) + sh, to_global(_look))
 
 
-## Rajaus laskemalla: kokeillaan kameran korkeuksia, etäisyyksiä ja katsepisteitä, ja valitaan se, jossa pino on ruudun
-## alakolmanneksessa (y 0,68) ja Jeren pää (n. 1,0 m) yläosassa HUD-laatikon alla (y 0,16), molemmat vaakasuunnassa
-## keskellä. Näin hahmon tai pinon siirto ei riko rajausta.
+## Rajaus laskemalla, peli edellä: kokeillaan kameran korkeuksia, etäisyyksiä ja katsepisteitä ja valitaan se, jossa
+## pino on ruudun keskellä hieman alempana (y 0,6) ja korkin halkaisija noin 90 px; hahmot saavat rajautua reunoilta
+## (Jeren kädet ja polvet näkyvät pinon takana).
 func _frame_cam() -> void:
 	var f := _f()
 	var size := Vector2(get_viewport().get_visible_rect().size)
-	var head := _jere.position + Vector3.UP * 1.02
 	var pile := Vector3.UP * CAP_H * 3.0
+	var edge := pile + _r() * CAP_R
 	var best := INF
 	for hi in 12:
 		for di in 10:
-			for li in 8:
-				var eye := f * (0.3 + di * 0.1) + Vector3.UP * (0.5 + hi * 0.1)
-				var look := -f * (0.1 + li * 0.1) + Vector3.UP * 0.25
+			for li in 6:
+				var eye := f * (0.12 + di * 0.05) + Vector3.UP * (0.2 + hi * 0.05)
+				var look := -f * (li * 0.04)
 				_cam.look_at_from_position(to_global(eye), to_global(look))
-				if _cam.is_position_behind(to_global(head)) or _cam.is_position_behind(to_global(pile)):
+				if _cam.is_position_behind(to_global(pile)):
 					continue
-				var a := _cam.unproject_position(to_global(pile)) / size
-				var b := _cam.unproject_position(to_global(head)) / size
-				var err := absf(a.y - 0.68) + absf(b.y - 0.16) + absf(a.x - 0.5) * 0.5
+				var a := _cam.unproject_position(to_global(pile))
+				var d := 2.0 * a.distance_to(_cam.unproject_position(to_global(edge)))
+				var err := absf(a.y / size.y - 0.6) + absf(a.x / size.x - 0.5) * 0.5 + absf(d - 90.0) / 90.0
+				# Kamera vinosti ylhäältä (ei suoraan alas): kulma 40–65 astetta.
+				var tilt := rad_to_deg(atan2(eye.y, Vector2(eye.x, eye.z).length()))
+				if tilt < 40.0 or tilt > 65.0:
+					continue
 				if err < best:
 					best = err
 					_eye = eye
@@ -327,7 +331,7 @@ func _process(delta: float) -> void:
 ## Lyöjä tähtäyksen kohdalla pinon yllä (vuorolla), iskussa alas pinon päälle.
 func _place_slammer() -> void:
 	var top := CAP_H * (_caps.size() + 1.0)
-	var lift := 0.14 if _phase != "slam" else 0.14 * maxf(0.0, 1.0 - _pt / 0.16)
+	var lift := 0.05 if _phase != "slam" else 0.05 * maxf(0.0, 1.0 - _pt / 0.16)
 	_slammer.visible = _phase in ["aim", "power", "slam"]
 	_slammer.position = _r() * _aim * 0.045 + Vector3.UP * (top + lift)
 
