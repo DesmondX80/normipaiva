@@ -8216,6 +8216,24 @@ func quest_progress(key: String) -> String:
 				if asema_katkot.get(t, 0) == 2:
 					n += 1
 			return "%d / 2" % n
+		"tietokonemuseo":
+			return "voittoja %d, ennätys %d" % [tietokonemuseo.voitot, tietokonemuseo.parhaat] if tietokonemuseo.voitot > 0 else ""
+		"wanharaahe":
+			return "kuvat %d / %d" % [wanharaahe.kuvat.size(), WanharaaheLegenda.STOPS.size()]
+		"kuvakirkko":
+			return "löydetty %d / %d" % [kuvakirkko.found.size(), KuvakirkkoLegenda.TOTAL]
+		"vanhaherra":
+			return "sukelluksia %d" % vanhaherra.sukelluksia if vanhaherra.sukelluksia > 0 else ""
+		"karhut":
+			return "paras kuva %d / 100" % karhut.paras if karhut.yrityksia > 0 else ""
+		"hiidenportti":
+			return "nousuja %d" % hiidenportti.nousuja if hiidenportti.nousuja > 0 else ""
+		"pyhakoski":
+			return "tarinat %d / 3" % pyhakoski.kuultu()
+		"messenius":
+			return "koettu %d / 3" % messenius.kuultu()
+		"raate":
+			return "käyty %d / 3" % raate.kuultu()
 	return ""
 
 
@@ -8243,11 +8261,19 @@ func journal_data() -> Dictionary:
 	return d
 
 
+## Muiden paikkakuntien tehtävät: "näytä kartalla" osoittaa K-Marketin taksitolpalle (retket.gd, lähtö taksilla). Kartalle
+## niistä ei piirretä omia renkaita (kaikki samassa paikassa), vain kompassi.
+const TAXI_QUESTS := ["hanhikiven_rajakivi", "pakkahuoneen_veistos", "peruskiven_kapseli", "manamansalon_kirkko", "tietokonemuseo",
+	"wanharaahe", "kuvakirkko", "vanhaherra", "karhut", "hiidenportti", "pyhakoski", "messenius", "raate"]
+
+
 ## Sivutehtävän paikat (maailman x/z) kartan lyijykynämerkintöihin ja päiväkirjan "Näytä kartalla" -linkkiin.
 ## Tyhjä: ei merkkiä (liikkuva kohde, mökin homma tai salaisuus, jota ei ole vielä löydetty).
 func quest_spots(id: String) -> Array:
 	var v3 := func(p: Vector3) -> Vector2:
 		return Vector2(p.x, p.z)
+	if id in TAXI_QUESTS:
+		return [v3.call(world.taxi_pos)] if world.taxi_pos != Vector3.ZERO else []  # retki lähtee taksitolpalta
 	match id:
 		"kauppalista":
 			return [M.w2(M.SHOP_ZONE)]
@@ -8273,6 +8299,12 @@ func quest_spots(id: String) -> Array:
 			return [M.w2(M.LEMMIKKI)]
 		"raahe":
 			return [v3.call(world.taxi_pos)] if world.taxi_pos != Vector3.ZERO else []
+		"olavinmarkkinat", "kuninkaan_tapuli":
+			return [M.w2(M.KIRKKO)]  # kirkon rannan luoto ja kellotapuli kirkon vieressä
+		"kanttorin_yosavel":
+			return [M.w2(M.KANTTORILA)]
+		"pihapingis":
+			return [M.w2(M.KOULUKESKUS)]
 		"asemakatkot":
 			return [v3.call(world.station_pos)] if world.station_pos != Vector3.ZERO else []
 		"volvo":
@@ -8325,6 +8357,8 @@ func quest_marks(on_map := false) -> Array:
 		for i in spots.size():
 			if on_map and (spots[i] as Vector2).distance_to(home) < 40.0:
 				continue  # kodin hommat: koti on kartalla muutenkin
+			if on_map and q.id in TAXI_QUESTS:
+				continue  # retket: taksitolppa, ei kymmentä rengasta päällekkäin
 			var h := absi(hash(q.id + str(i)))
 			var a := (h % 1000) / 1000.0 * TAU
 			var off := 18.0 + ((h / 1000) % 1000) / 1000.0 * 22.0
@@ -8341,10 +8375,15 @@ func show_quest_on_map(id: String) -> void:
 			near = m[1]
 	if near == Vector2.INF:
 		return
+	if id in TAXI_QUESTS:
+		near = Vector2(world.taxi_pos.x, world.taxi_pos.z)  # tarkka paikka: taksi vie perille
 	_paper.target = near
 	_paper.has_target = true
 	if _journal.visible:
 		_journal.toggle()
+	if id in TAXI_QUESTS:
+		_show_message("Kompassi näyttää taksitolpalle (K-Market). Taksi vie perille. Kartalla (%s) näkyy suunta." % Settings.action_key("map"), 3.5)
+		return
 	_show_message("Kompassi näyttää suunnan. Kartalla (%s) paikka on ympyröity lyijykynällä." % Settings.action_key("map"), 3.5)
 
 
@@ -30693,12 +30732,46 @@ func _maybe_screenshot() -> void:
 			_ending("legendaarinen")
 			print("PK lisää: ", summary.call())
 			print("PK viesti: '%s'" % [_msg_queue.back() if not _msg_queue.is_empty() else _msg.text])
+			# Retkien legendat ja karttalinkit: tiedoksi ensimmäisestä kohdasta, edistyminen ja "näytä kartalla"
+			# (Saloisten paikat ja taksitolppa).
+			for k in ["pyhakoski_voimala", "kuvakirkko_suntio", "wanharaahe_patsas", "karhut_opas", "olavi_legenda",
+					"kuningas_legenda", "kanttori_legenda", "pingis_ulkopoyta", "hanhikivi_legenda"]:
+				tilat.first(k)
+			pyhakoski.voimala = true
+			wanharaahe.kuvat = ["patsas"]
+			var dl := journal_data()
+			var by := {}
+			for q in dl.side:
+				by[q.id] = q
+			for id in ["pyhakoski", "kuvakirkko", "wanharaahe", "karhut", "olavinmarkkinat", "kuninkaan_tapuli",
+					"kanttorin_yosavel", "pihapingis", "hanhikiven_rajakivi"]:
+				if not by.has(id):
+					print("TESTI VIKA päiväkirjasta puuttuu tehtävä ", id)
+				elif not by[id].spot:
+					print("TESTI VIKA tehtävällä %s ei ole näytä kartalla -linkkiä" % id)
+				else:
+					print("PK %s: %s (%s)" % [id, by[id].title, by[id].progress])
+			if by.has("pyhakoski") and by.pyhakoski.progress != "tarinat 1 / 3":
+				print("TESTI VIKA Pyhäkosken edistyminen '%s'" % by.pyhakoski.progress)
+			show_quest_on_map("pyhakoski")
+			var taksi := Vector2(world.taxi_pos.x, world.taxi_pos.z)
+			print("PK pyhäkoski kartalla: kohde %s, taksi %s" % [_paper.target, taksi])
+			if _paper.target.distance_to(taksi) > 1.0:
+				print("TESTI VIKA retken näytä kartalla ei osoita taksitolpalle")
+			if quest_marks(true).any(func(m): return m[4] in TAXI_QUESTS):
+				print("TESTI VIKA retkille piirretään renkaita kartalle")
 			_journal.toggle()
 			for t in ["tarina", "tehtavat", "loput"]:
 				_journal._set_tab(t)
 				for i in 4:
 					await get_tree().process_frame
 				await snap.call("_%s.png" % t)
+			_journal._set_tab("tehtavat")  # listan loppu: retkien legendat ja niiden linkit
+			_journal._scroll = 1700.0
+			_journal.queue_redraw()
+			for i in 4:
+				await get_tree().process_frame
+			await snap.call("_tehtavat_loppu.png")
 			# Esc sulkee päiväkirjan eikä avaa taukovalikkoa (ennen valikko jäi auki ja peli pyöri taustalla).
 			var esc := InputEventKey.new()
 			esc.physical_keycode = KEY_ESCAPE
