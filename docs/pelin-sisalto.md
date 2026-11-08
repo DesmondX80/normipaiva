@@ -1044,6 +1044,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Korkki-Raimo** (kirppiksen salissa, keltainen paita): vaihtaa kaksi tuplaa puuttuvaan korkkiin (ei virhepainoksia),
   ostaa tupla-virhepainoksen 15 €:lla (kansion korkkeja ei koskaan viedä) ja kertoo kultaisen MM-korkin legendan
   (`mmkorkki_legenda`). Testi `scene korkit` (vaihto, kuva Raimosta).
+- **Legenda: kultainen MM-korkki (1995):** Korkki-Raimo kertoo juhlaerästä. Pekalta kysytään ("Joitko sää
+  kultakorkkisen kaljan?"): hän heitti korkin saunan jälkeen talonsa päädyn kivikkoon (`neighbor_yards.pekka[3]`).
+  Siellä [E] nostaa korkin kerran: maine +3, kansion kansilehteen kultainen korkki. Raimo ostaa sen 200 €:lla, jos
+  haluaa. Päiväkirjassa "Kultainen MM-korkki" (karttalinkki Pekan pihaan, kun Pekka on kertonut).
 - Tulossa: voittokorkit, korkkiläpsy ja
   kultainen MM-korkki.
 

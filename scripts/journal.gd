@@ -201,6 +201,11 @@ func _draw() -> void:
 ## Puuttuvan paikalla harmaa ääriviiva ja vihje.
 func _draw_caps() -> void:
 	var owned: Dictionary = _data.get("korkit", {})
+	if owned.has("mmkorkki"):
+		# Kansilehti: kultainen MM-korkki (1995) vasemman sivun yläkulmassa.
+		var gc := _page(false).position + Vector2(_page(false).size.x - 70, 40)
+		_cap(gc, 26.0, Color(0.95, 0.75, 0.2), "MM 95", "tavallinen")
+		_star(gc + Vector2(30, -18), 9.0, Color(1.0, 0.85, 0.3))
 	var hints := {"tavallinen": "kaupasta", "juhla": "harvinainen", "virhe": "tosi harvinainen"}
 	for side in 2:
 		var pg := _page(side == 1)

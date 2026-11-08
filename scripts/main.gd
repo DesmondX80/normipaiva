@@ -1863,6 +1863,7 @@ func _outside_logic() -> void:
 	_aarni_logic()
 	_pyhimys_logic()
 	_olavi_logic()
+	_mmkorkki_logic()
 	_kuningas_logic()
 	_kanttori_logic()
 	_koulu_logic()
@@ -8358,6 +8359,8 @@ func quest_spots(id: String) -> Array:
 			return [M.w2(M.REIPPARI)]
 		"miisu":
 			return [M.w2(M.AARO_HOUSE)]
+		"mmkorkki":
+			return [M.w2(M.NEIGHBOR_PEKKA)] if "mmkorkki_pekka" in tilat.firsts else []
 	return []
 
 
@@ -10327,6 +10330,41 @@ var _korkki_rng := RandomNumberGenerator.new()
 const KORKKI_VIRHE_HINTA := 15.0  # Korkki-Raimo ostaa tupla-virhepainoksen
 
 
+## Kultainen MM-korkki (#290): Raimo kertoo legendan, Pekka muistaa heittäneensä korkin saunan takaa pihan
+## kivikkoon (Pekan talon pääty, world.neighbor_yards.pekka[3]); siellä kiiltää, E nostaa kerran. Raimo tarjoaa 200 €.
+const MMKORKKI_HINTA := 200.0
+
+
+func _mmkorkki_pos() -> Vector3:
+	var y: Array = world.neighbor_yards.get("pekka", [])
+	return y[3] if y.size() > 3 else Vector3.ZERO
+
+
+func _mmkorkki_logic() -> void:
+	if korkit == null or world == null or not "mmkorkki_pekka" in tilat.firsts or korkit.owned.has("mmkorkki"):
+		return
+	if _hint.text != "" or player == bike or state != "ulkona":
+		return
+	var c := _mmkorkki_pos()
+	var p := player.global_position
+	if c == Vector3.ZERO or Vector2(p.x - c.x, p.z - c.z).length() > 2.2:
+		return
+	_hint.text = "[E] Jokin kiiltää kivien välissä"
+	if Input.is_action_just_pressed("interact"):
+		_mmkorkki_pick()
+
+
+func _mmkorkki_pick() -> void:
+	if korkit.owned.has("mmkorkki"):
+		return
+	korkit.owned["mmkorkki"] = 1
+	tilat.first("mmkorkki", 0.5)
+	maine = clampf(maine + 3.0, 0.0, 100.0)
+	Sfx.play("win", -4.0)
+	_save_game()
+	_show_message("Kultainen korkki, kyljessä \"MM 1995\". Kolmekymmentä vuotta Pekan kivikossa. Korkkikansion kansilehteen! Maine +3.", 6.0)
+
+
 ## Korkki-Raimo kirppiksellä (#290): vaihtaa kaksi tuplaa puuttuvaan (ei virhepainoksia), ostaa tupla-virhepainoksia
 ## ja kertoo kultaisen MM-korkin legendan.
 func _talk_korkkiraimo(id: String) -> void:
@@ -10349,6 +10387,13 @@ func _talk_korkkiraimo(id: String) -> void:
 			Sfx.play("coin", -4.0)
 			_talk_box.reply("Virhepainos! Logo väärin päin. Näitä mää etsin. Viistoista euroa, ja kiitos.", _talk_options(),
 				"Myit tupla-virhepainoksen. Rahaa %s €." % _eur(money))
+		"korkki_mm_myy":
+			korkit.owned.erase("mmkorkki")
+			tilat.first("mmkorkki_myyty", 0.2)
+			money += MMKORKKI_HINTA
+			Sfx.play("coin", -2.0)
+			_talk_box.reply("Kultainen! Mää oon etsiny tätä kolkytä vuotta. Tässä, ja kiitos. Sää et tiä mitä tää mulle merkkaa.",
+				_talk_options(), "Myit kultaisen MM-korkin. Rahaa %s €." % _eur(money))
 		"korkki_legenda":
 			tilat.first("mmkorkki_legenda", 0.2)
 			_talk_box.reply("Keväällä 95, ku Suomi voitti kiekon MM-kultaa, Oulun panimo teki juhlaerän kultaisilla korkeilla. " +
@@ -13348,6 +13393,8 @@ func _talk_options(who := "") -> Array:
 			if ebike.started and not ebike.parts.has("johdot"):
 				o.append(_opt("johdot", "Ois sulla johtoja ja liittimiä? (kalja)", beers > 0, "ei kaljaa"))
 		"pekka":
+			if "mmkorkki_legenda" in tilat.firsts and not "mmkorkki" in korkit.owned:
+				o.append(_opt("mmkorkki_kysy", "Joitko sää kultakorkkisen kaljan keväällä 95?", true, "", not "mmkorkki_pekka" in tilat.firsts))
 			if is_instance_valid(vaino) and vaino.mode == "follow":
 				o.append(_opt("vaino", "Palauta Väinö", vaino.distance_to_target() <= 6.0,
 					"Väinö jäi jälkeen, odota että se ehtii perään", true))
@@ -13500,6 +13547,8 @@ func _talk_options(who := "") -> Array:
 			var virheet: int = korkit.owned.keys().filter(func(k): return k.ends_with(":virhe") and int(korkit.owned[k]) > 1).size()
 			o.append(_opt("korkki_myy", "Myy tupla-virhepainos (%s €)" % _eur(KORKKI_VIRHE_HINTA), virheet > 0, "ei tupla-virhepainoksia"))
 			o.append(_opt("korkki_legenda", "Onko kultaisista korkeista juttuja?", true, "", not "mmkorkki_legenda" in tilat.firsts))
+			if korkit.owned.has("mmkorkki"):
+				o.append(_opt("korkki_mm_myy", "Myy kultainen MM-korkki (%s €)" % _eur(MMKORKKI_HINTA), true, "", true))
 		"veksi":
 			if kirppis_int.mode == "kirppis" and "korkki" in tilat.firsts:
 				o.append(_opt("korkkilaatikko", "Kaiva Veksin korkkilaatikosta (%s €)" % _eur(KORKKI_LAATIKKO), money >= KORKKI_LAATIKKO - 0.001,
@@ -14019,6 +14068,12 @@ func _talk_choose(id: String) -> void:
 
 
 func _talk_neighbor(id: String) -> void:
+	if id == "mmkorkki_kysy":
+		tilat.first("mmkorkki_pekka", 0.2)
+		_talk_box.reply("Perkele, se Raimo vieläkin siitä. Joo, mää join sen. Saunan jälkeen istuttiin tossa päädyssä, ja mää " +
+			"heitin korkin olan yli kivikkoon. Kultanen se oli, ja nyt se on varmaan ruostunu. Kato talon päädystä, jos huvittaa.",
+			_talk_options())
+		return
 	match id:
 		"myy":
 			var sale := _goods_value(_talk_who)
@@ -30863,6 +30918,18 @@ func _maybe_screenshot() -> void:
 			vk.owned = {"koffi:virhe": 1}
 			if vk.take_tuplat(1, "virhe") or vk.owned["koffi:virhe"] != 1:
 				print("TESTI VIKA kansion ainoa korkki otettiin")
+			# Kultainen MM-korkki: Pekka kertoo paikan, E nostaa kerran, Raimo ostaa.
+			tilat.first("mmkorkki_legenda")
+			_talk_neighbor("mmkorkki_kysy")
+			var mp := _mmkorkki_pos()
+			print("KORKIT mm: paikka %s, Pekka kertoi %s" % [mp, "mmkorkki_pekka" in tilat.firsts])
+			if mp == Vector3.ZERO:
+				print("TESTI VIKA MM-korkin paikkaa ei ole")
+			else:
+				_mmkorkki_pick()
+				print("KORKIT mm löytyi: %s" % korkit.owned.has("mmkorkki"))
+				if not korkit.owned.has("mmkorkki"):
+					print("TESTI VIKA MM-korkki ei löytynyt Pekan päädystä")
 			# Täysi aukeama palkitaan kerran; kansio päiväkirjan Korkit-välilehdellä (kuva).
 			var maine0 := maine
 			korkit.add("koffi:tavallinen")
