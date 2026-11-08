@@ -350,6 +350,7 @@ const PyhakoskiLegenda := preload("res://scripts/pyhakoski_legenda.gd")
 const MesseniusLegenda := preload("res://scripts/messenius_legenda.gd")
 const KalajokiLegenda := preload("res://scripts/kalajoki_legenda.gd")
 const RaateLegenda := preload("res://scripts/raate_legenda.gd")
+const Korkit := preload("res://scripts/korkit.gd")
 const RantapalloGame := preload("res://scripts/rantapallo_game.gd")
 const RotkoGame := preload("res://scripts/rotko_game.gd")
 const KanttoriLegenda := preload("res://scripts/kanttori_legenda.gd")
@@ -468,6 +469,7 @@ var hiidenportti: RefCounted  # Hiidenportin rotko (hiidenportti_legenda.gd, #25
 var pyhakoski: RefCounted  # Pyhäkosken kylä (pyhakoski_legenda.gd, #250 P16)
 var messenius: RefCounted  # Kajaanin linna ja Messenius (messenius_legenda.gd, #250 P17-P18)
 var kalajoki: RefCounted  # Kalajoen Hiekkasärkät, rantajalkapallo (kalajoki_legenda.gd, #250 P19)
+var korkit: RefCounted  # pullonkorkkien keräily (korkit.gd, #290)
 var raate: RefCounted  # Raatteen Portti, talvisodan muistopaikka (raate_legenda.gd, #250 P20)
 var vanhaherra: RefCounted  # Raahen satama: Vanha herra ja sukellus (vanhaherra_legenda.gd, #250 P11)
 var wanharaahe: RefCounted  # Wanha Raahe -kävelykierros ja ovikuva (wanharaahe_legenda.gd, #250 P8)
@@ -1321,6 +1323,7 @@ func _ready() -> void:
 	messenius = MesseniusLegenda.new()
 	kalajoki = KalajokiLegenda.new()
 	raate = RaateLegenda.new()
+	korkit = Korkit.new()
 	kanttori = KanttoriLegenda.new()
 	lemmikki = LemmikkiEnkelit.new()
 	ukko = UkkoLegenda.new()
@@ -8156,6 +8159,8 @@ func quest_flag(name: String) -> bool:
 	match name:
 		"paapeli":
 			return endings.counts.has("paapeli")
+		"korkit_kaikki":
+			return korkit.distinct() >= Korkit.total_slots()
 		"taimet_pyydetty":
 			return sinikka_taimet >= 1  # Sinikka on pyytänyt taimia (40 %:n juttu), ei pelkkä tapaaminen
 		"orava_sormus":
@@ -8236,6 +8241,8 @@ func quest_progress(key: String) -> String:
 			return "käyty %d / 3" % raate.kuultu()
 		"kalajoki":
 			return "harjoituspelejä voitettu %d" % kalajoki.harjoitus if kalajoki.harjoitus > 0 and kalajoki.voitot == 0 else ""
+		"korkit":
+			return "kansiossa %d / %d, tuplia %d" % [korkit.distinct(), Korkit.total_slots(), korkit.tuplat()]
 		"tekemiset":
 			return "kokeiltu %d / %d" % [TEKEMISET.filter(func(k): return k in tilat.firsts).size(), TEKEMISET.size()]
 		"hanttihommat":
@@ -10272,12 +10279,28 @@ func _pleasant_spot() -> bool:
 
 ## Kalja (tai useampi): humala nousee, kipu hellittää, mutta moraali ja keskittyminen kärsivät.
 func _drink(n: int) -> void:
+	for i in n:
+		_korkki("kalja")
 	tilat.add("humala", 0.12 * n)
 	tilat.add("kipu", 0.05 * n)
 	tilat.add("stamina", 0.05 * n)
 	tilat.add("nalka", 0.04 * n)
 	tilat.add("moraali", -0.04 * n)
 	tilat.add("keskittyminen", -0.05 * n)
+
+
+## Avatusta pullosta jää korkki (#290): ensimmäinen aloittaa kansion, uusi ja harvinainen korkki kerrotaan.
+func _korkki(laji: String) -> void:
+	var key := Korkit.roll(laji, _korkki_rng)
+	var uusi: bool = korkit.add(key)
+	if tilat.first("korkki", 0.1):
+		_queue_message("Korkki jäi käteen. \"Tää korkki on harvinainen... vai onko?\" Korkkikansio alkaa tästä.", 4.0)
+	elif uusi and not key.ends_with(":tavallinen"):
+		Sfx.play("pickup", -8.0, 1.4)
+		_queue_message("Korkkikansioon harvinainen: %s! (%d / %d)" % [Korkit.nimi(key), korkit.distinct(), Korkit.total_slots()], 3.5)
+
+
+var _korkki_rng := RandomNumberGenerator.new()
 
 
 func _eat(amount: float) -> void:
@@ -20325,6 +20348,7 @@ func _load_game() -> void:
 	messenius.load_from(cfg)
 	kalajoki.load_from(cfg)
 	raate.load_from(cfg)
+	korkit.load_from(cfg)
 	kanttori.load_from(cfg)
 	lemmikki.load_from(cfg)
 	ukko.load_from(cfg)
@@ -20568,6 +20592,7 @@ func _save_game() -> void:
 		messenius.save_to(cfg)
 		kalajoki.save_to(cfg)
 		raate.save_to(cfg)
+		korkit.save_to(cfg)
 		kanttori.save_to(cfg)
 		lemmikki.save_to(cfg)
 		ukko.save_to(cfg)
@@ -30716,6 +30741,37 @@ func _maybe_screenshot() -> void:
 			var d := journal_data()
 			print("RE tehtävät: %s" % [d.side.map(func(q): return "%s%s" % [q.title, "✔" if q.done else ""])])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"korkit":
+			# Pullonkorkit (#290 osa 1): kalja antaa korkin, harvinaisuudet arpoutuvat, tallennus edestakaisin.
+			korkit = Korkit.new()
+			tilat.firsts = []
+			_korkki_rng.seed = 290
+			_drink(1)
+			print("KORKIT ensimmäinen: %s, korkki-ensikerta %s" % [korkit.owned, "korkki" in tilat.firsts])
+			if korkit.owned.size() != 1 or not "korkki" in tilat.firsts:
+				print("TESTI VIKA kalja ei antanut korkkia")
+			var lkm := {"tavallinen": 0, "juhla": 0, "virhe": 0}
+			var rng := RandomNumberGenerator.new()
+			rng.seed = 7
+			for i in 30000:
+				var k := Korkit.roll("kalja", rng)
+				lkm[k.split(":")[1]] += 1
+				if Korkit.BRANDS[k.split(":")[0]].laji != "kalja":
+					print("TESTI VIKA kaljasta limukorkki ", k)
+					break
+			print("KORKIT tasot 30000: %s" % lkm)
+			if absf(lkm.juhla / 30000.0 - Korkit.JUHLA_P) > 0.01 or absf(lkm.virhe / 30000.0 - Korkit.VIRHE_P) > 0.003:
+				print("TESTI VIKA harvinaisuudet pielessä")
+			korkit.add("koffi:virhe")
+			korkit.add("koffi:virhe")
+			var cfg := ConfigFile.new()
+			korkit.save_to(cfg)
+			var k2: RefCounted = Korkit.new()
+			k2.load_from(cfg)
+			print("KORKIT tallennus: %s, tuplia %d, päiväkirja '%s'" % [k2.owned, k2.tuplat(), quest_progress("korkit")])
+			if k2.owned != korkit.owned or k2.tuplat() != 1:
+				print("TESTI VIKA korkkien tallennus")
 			get_tree().quit()
 		"paivakirja":
 			# Normipäiväkirja (#132): alussa vain luku 1 ja itsestäänselvät tehtävät, Paapelin loppu avaa luvun 2,
