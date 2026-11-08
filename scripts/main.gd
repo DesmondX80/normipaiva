@@ -10334,33 +10334,46 @@ const KORKKI_VIRHE_HINTA := 15.0  # Korkki-Raimo ostaa tupla-virhepainoksen
 ## (pelaajalta vain tuplat, teiniltä muiden pitäjien korkkeja), voitetut korkit kansioon.
 const KorkkiGame := preload("res://scripts/korkki_game.gd")
 var _lapsy_day := -1
-var _lapsy_game: CanvasLayer
+var _lapsy_game: Node3D
 
 
 func _start_korkkilapsy() -> void:
-	var mine: Array = korkit.take_tuplat_keys(3)
-	if mine.is_empty() or _lapsy_game != null:
+	if mopo_trip == null or mopo_trip.vaala == null or _lapsy_game != null or korkit.tuplat() < 3:
 		return
+	var vl: Node3D = mopo_trip.vaala
+	var out := Vector3(0, 0, 1)
+	for d in vl.doors:
+		if d.id == "pihanuoret":
+			out = d.out
+	var mine: Array = korkit.take_tuplat_keys(3)
 	_lapsy_day = day
 	var g := KorkkiGame.new()
 	g.drunk = tilat.value("humala")
 	for k in mine:
 		g.stack.append({"key": k, "up": false})
 		g.stack.append({"key": Korkit.roll("kalja" if randf() < 0.5 else "limu", _korkki_rng), "up": false})
-	if mopo_trip != null:
-		mopo_trip.stop()
+	# Pelipaikka teinien vierestä pihalle päin, asfaltin korkeudella; kävelijä piiloon (oma kyykkyhahmo pelissä).
+	var spot: Vector3 = vl.yard_teens_pos + out * 3.0
+	spot.y = vl.h(spot.x, spot.z)
+	g.face = out
+	g.position = spot
+	mopo_trip.stop()
+	if is_instance_valid(mopo_trip.on_foot):
+		mopo_trip.on_foot.visible = false
 	_hud.visible = false
 	CamCtl.free_mouse = true
 	tilat.first("korkkilapsy", 0.3)
 	g.finished.connect(_on_korkkilapsy_finished)
 	_lapsy_game = g
-	add_child(g)
+	vl.add_child(g)
 
 
 func _on_korkkilapsy_finished(won: Array, quit: bool) -> void:
 	_lapsy_game = null
 	CamCtl.free_mouse = false
 	_hud.visible = true
+	if mopo_trip != null and is_instance_valid(mopo_trip.on_foot):
+		mopo_trip.on_foot.visible = true
 	if mopo_trip != null:
 		_mopo_resume()
 	var uudet: Array = []
@@ -30986,6 +30999,14 @@ func _maybe_screenshot() -> void:
 			# Korkkiläpsy: panos vain tuplista, peli pyörii (lyönnit), voitetut kansioon; kuvat pelistä.
 			for i in 4:
 				korkit.add("kontio:tavallinen")
+			_start_mopo()
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_mopo_dismount()
+			clock_min = 19 * 60.0
+			for i in 10:
+				await get_tree().process_frame
 			var t_ennen: int = korkit.tuplat()
 			_start_korkkilapsy()
 			print("KORKIT läpsy: peli %s, pinossa %d, tuplat %d -> %d" % [_lapsy_game != null,
@@ -30997,7 +31018,7 @@ func _maybe_screenshot() -> void:
 				lg._aim = 0.2
 				lg._phase = "power"
 				lg._power = 0.5
-				for i in 20:
+				for i in 40:
 					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lapsy_tahtays.png"))

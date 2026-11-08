@@ -1048,12 +1048,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   kultakorkkisen kaljan?"): hän heitti korkin saunan jälkeen talonsa päädyn kivikkoon (`neighbor_yards.pekka[3]`).
   Siellä [E] nostaa korkin kerran: maine +3, kansion kansilehteen kultainen korkki. Raimo ostaa sen 200 €:lla, jos
   haluaa. Päiväkirjassa "Kultainen MM-korkki" (karttalinkki Pekan pihaan, kun Pekka on kertonut).
-- **Korkkiläpsy** (`korkki_game.gd`): Vaalan lavan pihan teinit illalla 18–23 kerran päivässä, kun kansio on
-  aloitettu ja tuplia on 3. Kumpikin panee pinoon 3 korkkia nurin päin (pelaajalta vain tuplat). Tähtäys A/D tai
-  hiiri, voima ajoituksella (väli tai klikkaus): kääntyneet korkit saa itselleen, liian kova lyönti lennättää korkit
-  asfaltille. Grafiikka: lavan aita iltavalossa, asfaltti halkeamineen, teini Jere, tinanappi-lyöjä, korkkien nurja
-  puoli tiivisteineen, lentävät korkit, tärähdys ja äänet. Kesken lopetus jakaa pinon puoliksi. Testi `scene korkit`
-  (kuvat tähtäyksestä ja lyönnistä).
+- **Korkkiläpsy** (`korkki_game.gd`): pelataan pelimaailmassa 3D:nä Vaalan lavan pihalla teinien vieressä illalla
+  18–23 kerran päivässä (kansio aloitettu, 3 tuplaa). Pino oikeita 3D-korkkeja (rihlattu kylki, kannessa kansion logo
+  tekstuurina, nurjalla puolella tiiviste), vastassa teini Jere kyykyssä ja pelaajan oma hahmo pinon vieressä
+  (Looks-hahmot), tinanappi-lyöjä. Kamera rajataan laskemalla (pino alakolmannekseen, Jeren pää yläosaan). Tähtäys A/D
+  tai hiiri, voima ajoituksella; kääntyneet korkit lentävät pyörien lyöjän eteen, liian kova lyönti lennättää ne
+  maahan. Ruudun päällä voimamittari, tilanne ja näppäinhatut asetusten näppäimistä. Testi `scene korkit` (Vaala ladataan,
+  kuvat tähtäyksestä ja lyönnistä).
 - Tulossa: voittokorkit, korkkiläpsy ja
   kultainen MM-korkki.
 
