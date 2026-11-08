@@ -10386,13 +10386,14 @@ func _start_korkkilapsy_kaukalo() -> void:
 	for k in mine:
 		g.stack.append({"key": k, "up": false})
 		g.stack.append({"key": Korkit.roll("kalja" if randf() < 0.5 else "limu", _korkki_rng, _juhannus()), "up": false})
-	var tp: Vector3 = hs_teens.global_position
-	var out := Vector3(player.global_position.x - tp.x, 0, player.global_position.z - tp.z)
-	out = out.normalized() if out.length() > 0.1 else Vector3(0, 0, 1)
-	var spot := tp + out * 2.6
-	spot.y = Terrain.h(spot.x, spot.z)
-	g.face = out
+	# Kaukalon asfaltilla laidan vieressä teinien kohdalla (world.gd: kaukalo leveys 24 m X:n suunnassa, kierto 0,35,
+	# asfaltin pinta y 0,045; teinien ringin keskipiste laidan takana X 15,5). Kamera kaukalon keskeltä päin.
+	var kc := M.w2(M.KAUKALO)
+	var spot := Vector3(kc.x, Terrain.h(kc.x, kc.y) + 0.045, kc.y) + Vector3(9.5, 0, 2.5).rotated(Vector3.UP, SaloinenTeinit.RINK_YAW)
+	g.face = Vector3(-1, 0, 0).rotated(Vector3.UP, SaloinenTeinit.RINK_YAW)
 	g.position = spot
+	g.opp_name = "Tuomas"
+	g.opp_look = SaloinenTeinit.LOOKS[2]  # kaukalon teini: punainen paita ja lippis
 	player.visible = false
 	player.controls_enabled = false
 	_hud.visible = false
@@ -31082,6 +31083,7 @@ func _maybe_screenshot() -> void:
 			if beers - b0 < 1 or beers - b0 > 25:
 				print("TESTI VIKA voittokorkkien määrä")
 			_msg_queue.clear()
+			_today.erase("paivi_korkit")  # tallennuksesta jäänyt "tänään jo" ei saa estää testiä
 			_paivi_korkit()
 			var pv: String = str(_msg_queue.back()) if not _msg_queue.is_empty() else ""
 			print("KORKIT Päivi: %s" % pv.left(90))
@@ -31092,6 +31094,11 @@ func _maybe_screenshot() -> void:
 				_lapsy_day = -1
 				_start_korkkilapsy_kaukalo()
 				print("KORKIT kaukalo: peli %s, pelaaja piilossa %s" % [_lapsy_game != null, not player.visible])
+				if _lapsy_game != null:
+					var lp: Vector3 = _lapsy_game.global_position
+					print("KORKIT kaukalo: pino y %.2f, maasto %.2f" % [lp.y, Terrain.h(lp.x, lp.z)])
+					if absf(lp.y - Terrain.h(lp.x, lp.z)) > 0.3:
+						print("TESTI VIKA kaukalon läpsy ei ole kaukalon pinnalla")
 				if _lapsy_game == null:
 					print("TESTI VIKA kaukalon läpsy ei alkanut")
 				else:

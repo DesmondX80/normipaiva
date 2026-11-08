@@ -22,6 +22,8 @@ const JERE := {"shirt": Color(0.2, 0.55, 0.45), "pants": Color(0.2, 0.25, 0.42),
 var stack: Array = []  # [{key, up}] (main.gd täyttää ennen lisäystä)
 var drunk := 0.0
 var face := Vector3(0, 0, 1)
+var opp_name := "Jere"  # vastustaja (main.gd: Vaalassa Jere, kaukalolla kaukalon teini)
+var opp_look: Dictionary = JERE
 var _caps: Array = []  # pinon korkit (sama järjestys kuin stack)
 var _tex := {}
 var _cam: Camera3D
@@ -66,7 +68,7 @@ func _ready() -> void:
 	add_child(_cam)
 	_cam.current = true
 	# Jere kyykyssä pinon takana kasvot pinoon (Looks-hahmo katsoo oletuksena -Z:aan).
-	_jere = Looks.make(self, JERE)
+	_jere = Looks.make(self, opp_look)
 	_jere.position = -f * 0.95
 	_jere.rotation.y = atan2(f.x, f.z) + PI
 	_jere.play.call_deferred("Crouch_Idle", 0.0)
@@ -84,7 +86,7 @@ func _ready() -> void:
 	_frame_cam()
 	_aim_cam()
 	_build_hud()
-	_say = "Jere: \"Panokset pinoon, nurin päin. Sää aloitat.\""
+	_say = "%s: \"Panokset pinoon, nurin päin. Sää aloitat.\"" % opp_name
 	_say_t = 3.0
 
 
@@ -368,11 +370,11 @@ func _resolve() -> void:
 			_caps.remove_at(i)
 			stack.remove_at(i)
 	if too_hard:
-		_say = "Liian kova! Korkit asfaltilla, ei kenellekään." if mine else "Jere löi liian kovaa. Korkit takaisin pinoon."
+		_say = "Liian kova! Korkit asfaltilla, ei kenellekään." if mine else "%s löi liian kovaa. Korkit takaisin pinoon." % opp_name
 		Sfx.play("hit", -6.0, 0.8)
 	else:
 		_say = ("%d korkkia kääntyi! Sun." % n_won if n_won > 0 else "Ei yhtään. Pino pysyi nurin.") if mine else \
-			("Jere sai %d." % n_won if n_won > 0 else "Jeren lyönti meni ohi.")
+			("%s sai %d." % [opp_name, n_won] if n_won > 0 else "%s löi ohi." % opp_name)
 		if n_won > 0:
 			Sfx.play("coin", -6.0, 1.3)
 	_say_t = 2.0
@@ -387,7 +389,7 @@ func _next_turn() -> void:
 		cn.rotation.x = PI
 	if _caps.is_empty() or _rounds >= 14:
 		_phase = "done"
-		_say = "Pino on tyhjä. Sää voitit %d korkkia, Jere %d." % [_won_me.size(), _won_teen.size()]
+		_say = "Pino on tyhjä. Sää voitit %d korkkia, %s %d." % [_won_me.size(), opp_name, _won_teen.size()]
 		_say_t = 99.0
 		Sfx.play("win_small" if _won_me.size() >= _won_teen.size() else "hit", -4.0)
 		get_tree().create_timer(2.6).timeout.connect(_end.bind(false))
@@ -416,8 +418,8 @@ func _draw_hud() -> void:
 	var ci := _hud_c
 	var s := ci.size
 	MG.box(ci, Rect2(20, 14, 620, 44), Color(0.08, 0.07, 0.06, 0.8), 8)
-	ci.draw_string(ThemeDB.fallback_font, Vector2(20, 44), "KORKKILÄPSY · %s · sää %d, Jere %d · pinossa %d" % [
-		"sun vuoro" if _turn == "me" else "Jeren vuoro", _won_me.size(), _won_teen.size(), _caps.size()],
+	ci.draw_string(ThemeDB.fallback_font, Vector2(20, 44), "KORKKILÄPSY · %s · sää %d, %s %d · pinossa %d" % [
+		"sun vuoro" if _turn == "me" else "vastustajan vuoro", _won_me.size(), opp_name, _won_teen.size(), _caps.size()],
 		HORIZONTAL_ALIGNMENT_CENTER, 620, 18, Color(1, 0.97, 0.9))
 	if _turn == "me" and _phase in ["aim", "power"]:
 		var r := Rect2(s.x - 110, s.y * 0.45, 40, 240)
