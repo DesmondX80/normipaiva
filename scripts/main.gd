@@ -1864,6 +1864,7 @@ func _outside_logic() -> void:
 	_pyhimys_logic()
 	_olavi_logic()
 	_mmkorkki_logic()
+	_korkki_loydot()
 	_kuningas_logic()
 	_kanttori_logic()
 	_koulu_logic()
@@ -2995,6 +2996,7 @@ func _enter_kirppis(mode := "kirppis") -> void:
 	kirppis_int.auction_done = _auction_day == day
 	kirppis_int.drakkar.visible = drakkar <= 0
 	kirppis_int.haalari.visible = not has_haalari
+	kirppis_int.weekday = _weekday()  # Korkki-Raimo vain lauantaisin
 	kirppis_int.enter(mode)
 	if Looks.outfit == "hiihtohaalari" and mode != "bingo" and _once_today("haalari_seura"):
 		kirppis_int.say_id("annaliisa", ["Voi taivas, onko se hiihtokeli sisällä? Hahhah!",
@@ -3218,6 +3220,16 @@ func _talk_kirppis(id: String) -> void:
 	if id == "huuto":
 		_talk_box.close()
 		_start_auction()
+		return
+	if id == "korkit_poyta":
+		var n: int = korkit.tuplat()
+		korkit.take_tuplat(n)
+		var tulo := snappedf(n * KORKKI_POYTA_HINTA, 0.05)
+		money += tulo
+		_advance_clock(20.0)
+		Sfx.play("coin", -4.0)
+		_talk_box.reply("Korkkeja? No, pikkupojat ostaa. Kymmenen senttiä kappale, ei enempää.", _talk_options(),
+			"Myit %d tuplakorkkia pöydältä, +%s €. Kansion korkit jäivät." % [n, _eur(tulo)])
 		return
 	if id == "poyta_vuokraa" or id == "poyta_mene":
 		if id == "poyta_vuokraa":
@@ -3444,6 +3456,8 @@ func _myynti_options(o: Array) -> void:
 	if _myynti_ban >= day:
 		o.append(_opt("poyta_x", "Pöytäpaikka (myyntikielto huomiseen)", false, "Hilkka: \"Ei kaljakauppiaille.\""))
 	elif _myynti_day == day:
+		if korkit.tuplat() > 0:
+			o.append(_opt("korkit_poyta", "Myy tuplakorkit omalta pöydältä (%s € / kpl)" % _eur(KORKKI_POYTA_HINTA), true, "", true))
 		o.append(_opt("poyta_mene", "Mene oman pöydän taakse (paikka maksettu)", not _myynti_stock().is_empty(),
 			"repussa ei ole myytävää", true))
 	else:
@@ -8275,6 +8289,7 @@ func journal_data() -> Dictionary:
 	d["stashes"] = _stash_journal()
 	d["riskit"] = _rikos_riskit()
 	d["korkit"] = korkit.owned.duplicate()
+	d["korkit_piilossa"] = korkit.piilossa
 	for s in d.side:
 		s["spot"] = not s.done and not quest_spots(s.id).is_empty()
 	_save_game()
@@ -10299,7 +10314,10 @@ func _drink(n: int) -> void:
 func _korkki(laji: String) -> void:
 	_korkki_key(Korkit.roll(laji, _korkki_rng, _juhannus()))
 	# Voittokorkki: korkin alla "VOITIT PULLON", kauppa vaihtaa uuteen kaljaan (lisätään suoraan reppuun).
-	if laji == "kalja" and _korkki_rng.randf() < Korkit.VOITTO_P:
+	if laji == "kalja" and not "uusi_yritys" in tilat.firsts and _korkki_rng.randf() < 0.1:
+		tilat.first("uusi_yritys", 0.0)
+		_queue_message("Korkin alla lukee \"UUSI YRITYS\". Kampanjakorkkeja! Joskus siinä lukee \"VOITIT PULLON\".", 3.5)
+	elif laji == "kalja" and _korkki_rng.randf() < Korkit.VOITTO_P:
 		beers += 1
 		tilat.first("voittokorkki", 0.1)
 		Sfx.play("win_small", -8.0)
@@ -10467,7 +10485,7 @@ func _mmkorkki_pick() -> void:
 ## Päivi ja korkkikansio (#290): kerran päivässä kotiin tullessa, jos kansiossa on kaljakorkkeja yli viisi. Mitä
 ## enemmän kaljakorkkeja limukorkkeihin nähden, sitä enemmän moraali kärsii.
 func _paivi_korkit() -> void:
-	if korkit == null:
+	if korkit == null or korkit.piilossa:
 		return
 	var kalja := 0
 	var limu := 0
@@ -10519,6 +10537,37 @@ func _talk_korkkiraimo(id: String) -> void:
 				"Sanotaan, että viimeinen säilyny korkki on täällä pitäjässä. Pekka kuulemma joi sen kaljan saunan jälkeen... " +
 				"Se korkki lens jonnekin. Jos löydät, mää maksan siitä hyvin.", _talk_options())
 const KORKKI_LAATIKKO := 0.10  # kirppiksen korkkilaatikko, €/korkki
+const KORKKI_POYTA_HINTA := 0.10  # tuplakorkit omalta kirppispöydältä, €/kpl
+## Kiiltävät korkit maastosta (#290): uimaranta, laavu ja Viitajärven laavu, kerran päivässä paikkaa kohden, kun kansio
+## on aloitettu. Paikka on kiinteä siirtymä alueen keskeltä (hiekka ja nuotiopaikan reuna).
+const KORKKI_LOYDOT := {"laavu": [M.LAAVU, Vector3(2.5, 0, -2.0)],
+	"viita": [M.VIITA_LAAVU, Vector3(-2.5, 0, 2.0)]}
+
+
+## Uimarannalla löytö penkin vierestä (world.uimaranta_bench on varmasti hiekalla, ei vedessä).
+func _korkki_loyto_ids() -> Array:
+	return ["uimaranta"] + KORKKI_LOYDOT.keys()
+
+
+func _korkki_loyto_pos(id: String) -> Vector3:
+	if id == "uimaranta":
+		return world.uimaranta_bench + Vector3(1.4, 0, 0.6)
+	return M.w(KORKKI_LOYDOT[id][0]) + KORKKI_LOYDOT[id][1]
+
+
+func _korkki_loydot() -> void:
+	if korkit == null or not "korkki" in tilat.firsts or _hint.text != "" or player == bike or state != "ulkona":
+		return
+	for id in _korkki_loyto_ids():
+		var c := _korkki_loyto_pos(id)
+		if not _near_xz(c, 1.8) or ("korkki_maa_" + id) in _today:
+			continue
+		_hint.text = "[E] Jokin kiiltää maassa"
+		if Input.is_action_just_pressed("interact"):
+			_today.append("korkki_maa_" + id)
+			var mita := _korkit_kasa(1)
+			_show_message("Maasta löytyi korkki: %s." % mita.trim_prefix("1 korkkia, uusi: ").trim_prefix("1 korkkia"), 3.0)
+		return
 
 
 func _eat(amount: float) -> void:
@@ -14059,6 +14108,9 @@ func _talk_choose(id: String) -> void:
 				money -= KORKKI_LAATIKKO
 				Sfx.play("rattle", -8.0, 1.6)
 				var mita := _korkit_kasa(1)
+				if "mmkorkki_legenda" in tilat.firsts and not "mmkorkki_lappu" in tilat.firsts:
+					tilat.first("mmkorkki_lappu", 0.1)
+					mita += ". Pohjalla Raimon lappu: \"Kultainen MM-korkki -95. Pekka joi. KYSY PEKALTA.\""
 				_talk_box.reply(["Korkkeja? Ota vaan, kymmenen senttiä kappale. Kultaisia ei oo, kysyin jo.",
 					"Tuolla laatikossa on puoli Pohjois-Suomea. Kaiva syvältä.", "Joku vanha keräilijä toi ne. Korkki-Raimo, taisi olla."].pick_random(),
 					_talk_options(), "Laatikosta: %s. Rahaa %s €." % [mita, _eur(money)])
@@ -31089,6 +31141,17 @@ func _maybe_screenshot() -> void:
 			print("KORKIT Päivi: %s" % pv.left(90))
 			if not "Montako kaljaa" in pv:
 				print("TESTI VIKA Päivi ei motkottanut korkkikansiosta")
+			korkit.piilossa = true
+			_today.erase("paivi_korkit")
+			_msg_queue.clear()
+			_paivi_korkit()
+			if not _msg_queue.is_empty():
+				print("TESTI VIKA Päivi motkotti jemmassa olevasta kansiosta")
+			korkit.piilossa = false
+			# Maastolöydöt: paikat maalla (ei vedessä).
+			for lid in _korkki_loyto_ids():
+				var lc := _korkki_loyto_pos(lid)
+				print("KORKIT löytö %s: %s, maasto %.2f" % [lid, lc, Terrain.h(lc.x, lc.z)])
 			# Saloisten kaukalo: läpsy kaukalon teinien vieressä (jos iltateinit ovat paikalla).
 			if is_instance_valid(hs_teens):
 				_lapsy_day = -1

@@ -18,7 +18,8 @@ const JUHLA_P := 1.0 / 15.0
 const VIRHE_P := 1.0 / 150.0
 
 var owned := {}  # "merkki:taso" -> kpl
-var palkitut: Array = []  # merkit, joiden täysi aukeama on jo palkittu (kerran)
+var palkitut: Array = []
+var piilossa := false  # kansio kotijemmassa: Päivi ei näe sitä (main.gd _paivi_korkit)  # merkit, joiden täysi aukeama on jo palkittu (kerran)
 
 
 ## Arpoo korkin lajista ("kalja" / "limu"): palauttaa avaimen "merkki:taso".
@@ -115,8 +116,10 @@ func new_full(brand: String) -> bool:
 func save_to(cfg: ConfigFile) -> void:
 	cfg.set_value("korkit", "owned", owned)
 	cfg.set_value("korkit", "palkitut", palkitut)
+	cfg.set_value("korkit", "piilossa", piilossa)
 
 
 func load_from(cfg: ConfigFile) -> void:
 	owned = cfg.get_value("korkit", "owned", {})
 	palkitut = cfg.get_value("korkit", "palkitut", [])
+	piilossa = cfg.get_value("korkit", "piilossa", false)

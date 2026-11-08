@@ -128,6 +128,13 @@ func _gui_input(event: InputEvent) -> void:
 						return
 				if _tab in INV_TABS:
 					game._inventory._gui_input(event)
+				if _tab == "korkit":
+					for l in _links:
+						if (l[0] as Rect2).has_point(event.position):
+							Sfx.play("cloth", -8.0, 1.2)
+							game.korkit.piilossa = not game.korkit.piilossa
+							_data["korkit_piilossa"] = game.korkit.piilossa
+							queue_redraw()
 				if _tab == "tehtavat":
 					for l in _links:
 						if (l[0] as Rect2).has_point(event.position):
@@ -201,6 +208,12 @@ func _draw() -> void:
 ## Puuttuvan paikalla harmaa ääriviiva ja vihje.
 func _draw_caps() -> void:
 	var owned: Dictionary = _data.get("korkit", {})
+	# Kansio kotijemmaan tai esiin (Päivi ei näe jemmassa olevaa kansiota): linkki oikean sivun alareunassa.
+	_links.clear()
+	var lt := "→ ota kansio esiin jemmasta" if _data.get("korkit_piilossa", false) else "→ piilota kansio kotijemmaan (Päiviltä)"
+	var lp := _page(true).position + Vector2(54, _page(true).size.y - 24)
+	draw_string(_hand, lp, lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.6, 0.18, 0.12))
+	_links.append([Rect2(lp + Vector2(-4, -20), Vector2(_hand.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 8, 26)), "korkit_jemma"])
 	if owned.has("mmkorkki"):
 		# Kansilehti: kultainen MM-korkki (1995) vasemman sivun yläkulmassa.
 		var gc := _page(false).position + Vector2(_page(false).size.x - 70, 40)
