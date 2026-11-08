@@ -57,6 +57,33 @@ func tuplat() -> int:
 	return n
 
 
+## Puuttuvat korkit (Korkki-Raimon vaihto: virhepainoksia hän ei vaihda).
+func missing(with_virhe := false) -> Array:
+	var out: Array = []
+	for b in BRANDS:
+		for t in TASOT:
+			if (with_virhe or t != "virhe") and not owned.has("%s:%s" % [b, t]):
+				out.append("%s:%s" % [b, t])
+	return out
+
+
+## Ottaa n tuplaa pois (eniten tuplia ensin). Kansion korkkeja (1 kpl) ei koskaan oteta. Palauttaa false, jos ei riitä.
+func take_tuplat(n: int, only_taso := "") -> bool:
+	var keys: Array = owned.keys().filter(func(k): return int(owned[k]) > 1 and (only_taso == "" or k.ends_with(":" + only_taso)))
+	var have := 0
+	for k in keys:
+		have += int(owned[k]) - 1
+	if have < n:
+		return false
+	keys.sort_custom(func(a, b): return int(owned[a]) > int(owned[b]))
+	while n > 0:
+		for k in keys:
+			if n > 0 and int(owned[k]) > 1:
+				owned[k] = int(owned[k]) - 1
+				n -= 1
+	return true
+
+
 ## Merkki, jonka kaikki tasot ovat nyt kansiossa ensimmäistä kertaa (palkinto kerran), tai "".
 func new_full(brand: String) -> bool:
 	if brand in palkitut:
