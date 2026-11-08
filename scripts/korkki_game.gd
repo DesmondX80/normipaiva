@@ -35,6 +35,7 @@ var _say := ""
 var _say_t := 0.0
 var _specks: Array = []
 var _rounds := 0
+var _keys: Control  # näppäinohjeet hattuina (hint_bar.gd), näppäimet asetuksista
 
 
 func _ready() -> void:
@@ -47,6 +48,10 @@ func _ready() -> void:
 	_root.draw.connect(_draw_root)
 	_root.gui_input.connect(_gui)
 	add_child(_root)
+	_keys = preload("res://scripts/hint_bar.gd").new()
+	_keys.compact = true
+	_keys.centered = true
+	add_child(_keys)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 290
@@ -109,6 +114,11 @@ func _process(delta: float) -> void:
 			if _pt > 0.9:
 				_flying.clear()
 				_next_turn()
+	if _turn == "me" and _phase in ["aim", "power"]:
+		_keys.set_text("%s [Hiiri] tähtää   %s %s" % [Settings.pair("left", "right"), Settings.cap("jump"),
+			"lyö nyt!" if _phase == "power" else "voima käyntiin"] + "   %s lopeta" % Settings.cap("mount"))
+	else:
+		_keys.set_text("%s lopeta" % Settings.cap("mount"))
 	_root.queue_redraw()
 
 
@@ -206,13 +216,20 @@ func _draw_root() -> void:
 	ci.draw_rect(Rect2(120, 560, 1040, 8), Color(0.9, 0.85, 0.55, 0.7))
 	ci.draw_polyline(PackedVector2Array([Vector2(200, 330), Vector2(260, 380), Vector2(250, 440), Vector2(320, 500)]), Color(0.12, 0.12, 0.13), 2.0)
 	ci.draw_polyline(PackedVector2Array([Vector2(1000, 600), Vector2(1060, 560), Vector2(1140, 580)]), Color(0.12, 0.12, 0.13), 2.0)
-	# Teini vastapäätä kyykyssä: lyöjä kädessä omalla vuorollaan.
-	MG.person(ci, Vector2(900, 150), 1.0, TEEN, Vector2((PILE.x - 900) / 400.0, 0.6), _say_t > 0 and _turn == "teini",
-		0.6 if _turn == "teini" and _phase != "fly" else 0.0)
-	_label(ci, Vector2(900, 70), "Jere, 14 v.", 18)
+	# Teini Jere kyykyssä pinon takana asfaltilla: farkkupolvet ja lenkkarit, katse pinoon.
+	var tc := Vector2(890, 200)
+	for sx in [-1.0, 1.0]:
+		var knee := tc + Vector2(sx * 40, 150)
+		ci.draw_line(tc + Vector2(sx * 22, 135), knee, Color(0.2, 0.25, 0.42), 30.0)
+		ci.draw_circle(knee, 16.0, Color(0.24, 0.3, 0.48))
+		ci.draw_line(knee, knee + Vector2(sx * 6, 40), Color(0.2, 0.25, 0.42), 26.0)
+		MG.box(ci, Rect2(knee + Vector2(sx * 6 - 24, 34), Vector2(48, 20)), Color(0.95, 0.95, 0.95), 8, 0, Color(0.3, 0.3, 0.3), 2)
+		ci.draw_rect(Rect2(knee + Vector2(sx * 6 - 24, 48), Vector2(48, 6)), Color(0.75, 0.2, 0.2))
+	MG.person(ci, tc, 1.3, TEEN, Vector2((PILE.x - tc.x) / 300.0, 0.8), _say_t > 0 and _turn == "teini", 0.0)
+	_label(ci, tc + Vector2(0, -90), "Jere, 14 v.", 18)
 	# Voitetut korkit kummankin puolella.
 	for i in _won_teen.size():
-		_cap(ci, Vector2(900 - (i + 1) * 34, 250), 15.0, _won_teen[i], true, 0.3 * i)
+		_cap(ci, Vector2(1010 + (i % 6) * 34, 400 + (i / 6) * 34), 15.0, _won_teen[i], true, 0.3 * i)
 	for i in _won_me.size():
 		_cap(ci, Vector2(380 + (i + 1) * 34, 640), 15.0, _won_me[i], true, 0.3 * i)
 	# Pino: korkit nurin päin päällekkäin, varjo alla.
@@ -238,7 +255,35 @@ func _draw_root() -> void:
 		ci.draw_arc(sp, 28.0, PI * 1.1, PI * 1.9, 14, Color(0.9, 0.92, 0.95), 4.0)
 		ci.draw_arc(sp, 30.0, PI * 0.1, PI * 0.9, 14, Color(0.35, 0.36, 0.38), 3.0)
 		ci.draw_circle(sp, 10.0, Color(0.5, 0.52, 0.54))
+		# Tinanapin kohokuviointi: tähti, uurrettu reunarengas ja naarmut.
+		for i in 10:
+			var a := i * TAU / 10.0 - PI / 2.0
+			var rr := 9.0 if i % 2 == 0 else 4.0
+			ci.draw_line(sp, sp + Vector2(cos(a), sin(a)) * rr * 1.6, Color(0.78, 0.8, 0.82), 2.0)
+		for i in 24:
+			var a := i * TAU / 24.0
+			ci.draw_line(sp + Vector2(cos(a), sin(a)) * 30.0, sp + Vector2(cos(a), sin(a)) * 35.0, Color(0.36, 0.38, 0.4), 1.5)
+		ci.draw_line(sp + Vector2(8, 14), sp + Vector2(20, 6), Color(0.85, 0.87, 0.9, 0.6), 1.0)
+		ci.draw_line(sp + Vector2(-18, 10), sp + Vector2(-8, 20), Color(0.85, 0.87, 0.9, 0.6), 1.0)
 		ci.draw_circle(sp + Vector2(-12, -12), 5.0, Color(1, 1, 1, 0.5))
+		# Lyöjän käsi: pelaajan hiha alhaalta tai Jeren hiha ylhäältä, peukalo ja sormet napin reunalla.
+		var mine := _turn == "me"
+		var root := Vector2(sp.x + 140, H + 40) if mine else tc + Vector2(-40, 90)
+		var sleeve: Color = Color(0.55, 0.3, 0.25) if mine else TEEN.shirt
+		var wrist := sp + (root - sp).normalized() * 40.0
+		ci.draw_line(root, wrist, sleeve.darkened(0.4), 50.0)
+		ci.draw_line(root, wrist, sleeve, 42.0)
+		ci.draw_line(root + Vector2(-8, -4), wrist + Vector2(-8, -4), sleeve.lightened(0.25), 8.0)
+		var skin := Color(0.95, 0.77, 0.66)
+		ci.draw_circle(wrist, 20.0, skin.darkened(0.25))
+		ci.draw_circle(wrist, 18.0, skin)
+		var to_c := (sp - wrist).normalized()
+		var side := Vector2(-to_c.y, to_c.x)
+		for f in 4:
+			var fp := sp - to_c * 22.0 + side * (f - 1.5) * 11.0
+			ci.draw_line(wrist + side * (f - 1.5) * 8.0, fp, skin.darkened(0.2), 11.0)
+			ci.draw_line(wrist + side * (f - 1.5) * 8.0, fp, skin, 8.0)
+		ci.draw_line(wrist + side * 16.0, sp - to_c * 6.0 + side * 26.0, skin, 10.0)  # peukalo
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Voimamittari ja tekstit.
 	if _turn == "me" and _phase in ["aim", "power"]:
@@ -253,9 +298,6 @@ func _draw_root() -> void:
 		_won_me.size(), _won_teen.size(), stack.size()], 18)
 	if _say_t > 0:
 		MG.bubble(ci, Rect2(380, 70, 420, 70), Vector2(820, 120), _say, 20)
-	var keys := "[A/D tai hiiri] tähtää   [Väli/klikkaus] lyöntivoima, toinen painallus lyö   [F/Esc] lopeta"
-	MG.box(ci, Rect2(140, 680, 1000, 32), Color(0.08, 0.07, 0.06, 0.75), 8)
-	_label(ci, Vector2(640, 703), keys, 16)
 
 
 func _label(ci: CanvasItem, c: Vector2, text: String, size: int) -> void:
