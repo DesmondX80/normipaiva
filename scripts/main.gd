@@ -8272,6 +8272,7 @@ func journal_data() -> Dictionary:
 			"total": endings.total(kind), "list": list}
 	d["stashes"] = _stash_journal()
 	d["riskit"] = _rikos_riskit()
+	d["korkit"] = korkit.owned.duplicate()
 	for s in d.side:
 		s["spot"] = not s.done and not quest_spots(s.id).is_empty()
 	_save_game()
@@ -10293,6 +10294,12 @@ func _drink(n: int) -> void:
 func _korkki(laji: String) -> void:
 	var key := Korkit.roll(laji, _korkki_rng)
 	var uusi: bool = korkit.add(key)
+	if korkit.new_full(key.split(":")[0]):
+		tilat.add("moraali", 0.2)
+		maine = clampf(maine + 2.0, 0.0, 100.0)
+		Sfx.play("win_small", -6.0)
+		_queue_message("Korkkikansion aukeama täynnä: %s! Kiitostarra kulmaan. Maine +2." % Korkit.BRANDS[key.split(":")[0]].nimi, 4.0)
+		return
 	if tilat.first("korkki", 0.1):
 		_queue_message("Korkki jäi käteen. \"Tää korkki on harvinainen... vai onko?\" Korkkikansio alkaa tästä.", 4.0)
 	elif uusi and not key.ends_with(":tavallinen"):
@@ -30772,6 +30779,24 @@ func _maybe_screenshot() -> void:
 			print("KORKIT tallennus: %s, tuplia %d, päiväkirja '%s'" % [k2.owned, k2.tuplat(), quest_progress("korkit")])
 			if k2.owned != korkit.owned or k2.tuplat() != 1:
 				print("TESTI VIKA korkkien tallennus")
+			# Täysi aukeama palkitaan kerran; kansio päiväkirjan Korkit-välilehdellä (kuva).
+			var maine0 := maine
+			korkit.add("koffi:tavallinen")
+			_korkki_rng.seed = 1
+			for key in ["koffi:juhla", "kontio:tavallinen", "kontio:juhla", "jaffis:tavallinen", "kolaa:virhe"]:
+				korkit.add(key)
+			print("KORKIT Koffi täysi: palkittu %s, maine %+.0f" % [korkit.palkitut, maine - maine0])
+			if not korkit.new_full("koffi") and not "koffi" in korkit.palkitut:
+				print("TESTI VIKA täyttä aukeamaa ei tunnistettu")
+			if korkit.new_full("koffi"):
+				print("TESTI VIKA aukeama palkittiin kahdesti")
+			_journal.toggle()
+			_journal._set_tab("korkit")
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kansio.png"))
+			_journal.toggle()
 			get_tree().quit()
 		"paivakirja":
 			# Normipäiväkirja (#132): alussa vain luku 1 ja itsestäänselvät tehtävät, Paapelin loppu avaa luvun 2,

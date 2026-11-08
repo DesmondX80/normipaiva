@@ -8,13 +8,14 @@ extends Control
 ## "Riskit": kuudes välilehti, huumekaupan riskit (main.gd _rikos_riskit: velka, kyttävihjeet, epäluulo, olo...).
 ## "Reppu": viides välilehti, jonka sivut piirtää lapsi inventory.gd. R avaa vihkon reppusivulta, O päiväkirjan sivulta
 ## (viimeksi katsotulta); jo auki ollessa R / O vaihtaa sivua ja saman sivun näppäin sulkee. Vihko, tauko ja Esc ovat tässä.
-## Mikään ei paljastu etukäteen. Peli on tauolla auki ollessa. Hiiri: välilehdet ja rulla, näppäimet 1–6, Esc / O sulkee.
+## Mikään ei paljastu etukäteen. Peli on tauolla auki ollessa. Hiiri: välilehdet ja rulla, näppäimet 1–7, Esc / O sulkee.
 
 const MG := preload("res://scripts/mg_draw.gd")
+const Korkit := preload("res://scripts/korkit.gd")
 const INK := Color(0.14, 0.17, 0.4)
 const TABS := [["tarina", "Tarina", Color(0.85, 0.35, 0.25)], ["tehtavat", "Tehtävät", Color(0.25, 0.55, 0.75)],
 	["loput", "Loput", Color(0.9, 0.7, 0.15)], ["jemmat", "Jemmat", Color(0.3, 0.6, 0.3)],
-	["reppu", "Reppu", Color(0.5, 0.3, 0.7)],
+	["korkit", "Korkit", Color(0.75, 0.5, 0.2)], ["reppu", "Reppu", Color(0.5, 0.3, 0.7)],
 	["riskit", "Riskit", Color(0.6, 0.15, 0.15)]]
 const INV_TABS := ["reppu"]  # reppusivun piirtää inventory.gd
 
@@ -70,10 +71,10 @@ func _update_keys() -> void:
 	if not visible:
 		_keys.set_text("")
 	elif _tab in INV_TABS:
-		_keys.set_text("[Klikkaus] syö tai juo evästä (T)   [1–6] tai [←][→] välilehdet   %s päiväkirja   %s sulje"
+		_keys.set_text("[Klikkaus] syö tai juo evästä (T)   [1–7] tai [←][→] välilehdet   %s päiväkirja   %s sulje"
 			% [Settings.cap("journal"), Settings.cap("inventory", "Esc")])
 	else:
-		_keys.set_text("[1–6] tai [←][→] välilehdet   [Rulla] selaa   %s reppu   %s sulje"
+		_keys.set_text("[1–7] tai [←][→] välilehdet   [Rulla] selaa   %s reppu   %s sulje"
 			% [Settings.cap("inventory"), Settings.cap("journal", "Esc")])
 
 
@@ -192,6 +193,79 @@ func _draw() -> void:
 			_draw_stashes()
 		"riskit":
 			_draw_risks()
+		"korkit":
+			_draw_caps()
+
+
+## Korkkikansio (#290): vasemmalla kaljat, oikealla limut; merkin rivillä tavallinen, kesäkorkki ja virhepainos.
+## Puuttuvan paikalla harmaa ääriviiva ja vihje.
+func _draw_caps() -> void:
+	var owned: Dictionary = _data.get("korkit", {})
+	var hints := {"tavallinen": "kaupasta", "juhla": "harvinainen", "virhe": "tosi harvinainen"}
+	for side in 2:
+		var pg := _page(side == 1)
+		var laji := "kalja" if side == 0 else "limu"
+		draw_string(_hand, pg.position + Vector2(54, 48), "Kaljakorkit" if side == 0 else "Limukorkit",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.45, 0.12, 0.08))
+		var y := pg.position.y + 70.0
+		for b in Korkit.BRANDS:
+			var br: Dictionary = Korkit.BRANDS[b]
+			if br.laji != laji:
+				continue
+			draw_string(_hand, Vector2(pg.position.x + 54, y + 22), br.nimi, HORIZONTAL_ALIGNMENT_LEFT, -1, 19, INK)
+			var full := true
+			for i in Korkit.TASOT.size():
+				var t: String = Korkit.TASOT[i]
+				var c := Vector2(pg.position.x + 92 + i * ((pg.size.x - 140) / 3.0), y + 78)
+				var n := int(owned.get("%s:%s" % [b, t], 0))
+				if n > 0:
+					_cap(c, 30.0, br.vari, br.nimi, t)
+					if n > 1:
+						draw_string(ThemeDB.fallback_font, c + Vector2(24, 30), "×%d" % n, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK)
+				else:
+					full = false
+					_dashed_circle(c, 30.0, Color(0.5, 0.5, 0.5, 0.7))
+					draw_string(_hand, c + Vector2(-60, 50), hints[t], HORIZONTAL_ALIGNMENT_CENTER, 120, 12, Color(0.45, 0.45, 0.5))
+				if n > 0:
+					draw_string(_hand, c + Vector2(-40, 50), Korkit.TASO_NIMI[t], HORIZONTAL_ALIGNMENT_CENTER, 80, 12, INK)
+			if full:
+				_star(Vector2(pg.end.x - 40, y + 16), 12.0, Color(0.95, 0.75, 0.15))
+			y += 140.0
+
+
+func _dashed_circle(c: Vector2, r: float, col: Color) -> void:
+	for i in 24:
+		if i % 2 == 0:
+			draw_arc(c, r, i * TAU / 24.0, (i + 1) * TAU / 24.0, 4, col, 2.0)
+
+
+## Kruunukorkki: varjo, rihlareuna (21 hammasta), sävytys (vaalea yläreuna, tumma alareuna), kiilto ja logo.
+## Kesäkorkissa kultainen aurinkorengas, virhepainoksessa logo ylösalaisin ja väärän värinen.
+func _cap(c: Vector2, r: float, col: Color, logo: String, taso: String) -> void:
+	draw_circle(c + Vector2(3, 4), r + 2, Color(0, 0, 0, 0.25))
+	var pts := PackedVector2Array()
+	for i in 42:
+		var a := i * TAU / 42.0
+		pts.append(c + Vector2(cos(a), sin(a)) * (r + (3.0 if i % 2 == 0 else 0.0)))
+	draw_colored_polygon(pts, col.darkened(0.35))
+	draw_polyline(pts + PackedVector2Array([pts[0]]), col.darkened(0.6), 1.2, true)
+	draw_circle(c, r - 2, col)
+	draw_arc(c, r - 4, PI * 1.1, PI * 1.9, 16, col.lightened(0.45), 3.0, true)  # yläreunan valo
+	draw_arc(c, r - 4, PI * 0.1, PI * 0.9, 16, col.darkened(0.3), 3.0, true)  # alareunan varjo
+	draw_circle(c + Vector2(-r * 0.35, -r * 0.4), r * 0.18, Color(1, 1, 1, 0.35))  # metallin kiilto
+	if taso == "juhla":
+		for i in 12:
+			var a := i * TAU / 12.0
+			draw_line(c + Vector2(cos(a), sin(a)) * (r * 0.74), c + Vector2(cos(a), sin(a)) * (r * 0.9), Color(1.0, 0.85, 0.2), 2.0)
+	var f := ThemeDB.fallback_font
+	var txt := logo.left(6 if taso != "juhla" else 5).to_upper()
+	var tc := Color(1.0, 0.95, 0.85) if taso != "virhe" else Color(0.3, 0.9, 0.4)
+	if taso == "virhe":
+		draw_set_transform(c, PI, Vector2.ONE)
+		draw_string(f, Vector2(-r * 0.8, 5), txt, HORIZONTAL_ALIGNMENT_CENTER, r * 1.6, 12, tc)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	else:
+		draw_string(f, c + Vector2(-r * 0.8, 5), txt, HORIZONTAL_ALIGNMENT_CENTER, r * 1.6, 12, tc)
 
 
 ## Kirjoittaa rivejä sivuille: vasen sivu ensin, sitten oikea. Palauttaa false, kun tila loppui.

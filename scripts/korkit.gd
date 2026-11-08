@@ -17,6 +17,7 @@ const JUHLA_P := 1.0 / 15.0
 const VIRHE_P := 1.0 / 150.0
 
 var owned := {}  # "merkki:taso" -> kpl
+var palkitut: Array = []  # merkit, joiden täysi aukeama on jo palkittu (kerran)
 
 
 ## Arpoo korkin lajista ("kalja" / "limu"): palauttaa avaimen "merkki:taso".
@@ -56,9 +57,22 @@ func tuplat() -> int:
 	return n
 
 
+## Merkki, jonka kaikki tasot ovat nyt kansiossa ensimmäistä kertaa (palkinto kerran), tai "".
+func new_full(brand: String) -> bool:
+	if brand in palkitut:
+		return false
+	for t in TASOT:
+		if not owned.has("%s:%s" % [brand, t]):
+			return false
+	palkitut.append(brand)
+	return true
+
+
 func save_to(cfg: ConfigFile) -> void:
 	cfg.set_value("korkit", "owned", owned)
+	cfg.set_value("korkit", "palkitut", palkitut)
 
 
 func load_from(cfg: ConfigFile) -> void:
 	owned = cfg.get_value("korkit", "owned", {})
+	palkitut = cfg.get_value("korkit", "palkitut", [])

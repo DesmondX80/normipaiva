@@ -1034,8 +1034,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - Jokaisesta juodusta kaljasta jää korkki (`korkit.gd`, `main.gd _korkki`). Merkit ovat parodioita: Kontio, Lapin Kuuma ja
   Koffi (kalja) sekä Jaffis, Kolaa ja Pantteri-limu (limu). Tasot: tavallinen, kesäkorkki (n. 1/15) ja virhepainos
   (n. 1/150). Ensimmäinen korkki aloittaa kansion, ja uusi harvinainen kerrotaan. Päiväkirjan tehtävä "Korkkikansio"
-  (kansiossa X / 18, tuplia). Tallennus `[korkit]`. Testi `--ei-kuvia scene korkit`.
-- Tulossa: kansionäkymä, limujen korkit, pullonkeräys ja kirppiksen korkkilaatikko, Korkki-Raimo, korkkiläpsy ja
+  (kansiossa X / 18, tuplia). Tallennus `[korkit]`. Testi `scene korkit` (kuva kansiosta).
+- **Korkkikansio:** päiväkirjan Korkit-välilehti (5): vasemmalla kaljat, oikealla limut, merkin rivillä tavallinen,
+  kesäkorkki (aurinkorengas) ja virhepainos (logo ylösalaisin, väärä väri). Puuttuva: katkoviiva ja vihje. Täysi
+  merkki palkitaan kerran (moraali, maine +2, tähti).
+- Tulossa: limujen korkit, pullonkeräys ja kirppiksen korkkilaatikko, Korkki-Raimo, korkkiläpsy ja
   kultainen MM-korkki.
 
 ## Normipäiväkirja: tarina, tehtävät, onnelliset loput ja legendaariset hetket (O)
