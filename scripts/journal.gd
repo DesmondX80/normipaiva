@@ -206,7 +206,7 @@ func _draw_caps() -> void:
 		var gc := _page(false).position + Vector2(_page(false).size.x - 70, 40)
 		_cap(gc, 26.0, Color(0.95, 0.75, 0.2), "MM 95", "tavallinen")
 		_star(gc + Vector2(30, -18), 9.0, Color(1.0, 0.85, 0.3))
-	var hints := {"tavallinen": "kaupasta", "juhla": "harvinainen", "virhe": "tosi harvinainen"}
+	var hints := {"tavallinen": "kaupasta", "juhla": "vain juhannuksena", "virhe": "tosi harvinainen"}
 	for side in 2:
 		var pg := _page(side == 1)
 		var laji := "kalja" if side == 0 else "limu"
