@@ -24,6 +24,29 @@ Minipeleihin (CanvasLayer-piirretyt kuten `carb_game.gd`, `saunakorjaus_game.gd`
 - Tyyli on yhtenäinen pelin muiden minipelien kanssa: lämmin, hieman sarjakuvamainen, selkeät värit.
 - Ota kuva testikohtauksesta ja katso se ennen kuin työ on valmis.
 
+### Uusi minipeli: ennen ensimmäistä riviä
+
+Lue tämä osio ja valitse visuaalinen malli ennen koodia (#290 korkkiläpsy tehtiin ensin 2D:nä ilman näitä ja
+tehtiin kahdesti uudelleen).
+
+- **Näkyvät hahmot ovat oikeita 3D-hahmoja** (`Looks.make`, animaatiot kuten `Crouch_Idle`, `Interact`), ei
+  2D-piirrettyjä (`MG.person` vain vanhoissa peleissä). Myös vastustaja ja pelaajan oma hahmo.
+- **Mallin valinta, järjestyksessä:** (1) pelimaailmassa 3D:nä oikeassa paikassa, jossa toiminta tapahtuu (esim.
+  `korkki_game.gd` Vaalan lavan pihalla, `rasvanappi_hall.gd`): paikka, valo ja paikalla olevat hahmot tulevat
+  pelistä; (2) oma 3D-lavastus SubViewportissa (`kolmio_kohtaus.gd`, `lava_game.gd`); (3) puhdas 2D-piirto vain
+  peleille, joissa ei näy hahmoja eikä paikkaa (pöydän pinta, laite lähikuvassa). Älä sekoita: 2D-kulissi ja 3D-hahmo
+  päällekkäin antaa ristiriitaisen perspektiivin ja valon.
+- **Ruudun päällä vain käyttöliittymä:** mittarit, tilanne, kerronta ja näppäinohje. Näppäinohje `hint_bar.gd`:llä
+  (`_keys.set_text`) ja näppäimet asetuksista (`Settings.cap`, `Settings.pair`), ei kovakoodattuja kirjaimia eikä omaa
+  ohjelaatikkoa. Kerronta (tulos, pisteet) laatikossa, puhekupla vain hahmon repliikille ja osoittaa puhujaan.
+- **Kameran rajaus lasketaan,** ei arvata: projisoi tärkeät pisteet (`Camera3D.unproject_position`) ja valitse paikka,
+  jossa ne osuvat haluttuihin kohtiin ruudulla (esim. `korkki_game.gd _frame_cam`: pino alakolmannekseen, vastustajan
+  pää yläosaan). Rajaus ei saa leikata päätä eikä etualan hahmo peittää toimintaa.
+- **Pienet esineet näkyviin:** toiminnan kohde (korkit, nappi, kortti) on ruudulla vähintään noin 40 px; tarvittaessa
+  kamera lähemmäs toiminnan hetkellä tai esine hieman oikeaa isompi.
+- **Kuvaa jokainen vaihe** (aloitus, toiminta, tulos, loppu), suurenna toiminnan kohde ja hahmot, ja ota kuvat uudelleen
+  viimeisen muutoksen jälkeen. Näytä kuvat käyttäjälle ennen mainiin vientiä.
+
 ## Kyltit
 
 Seinillä, ovissa, lavoilla ja rakennuksissa olevat tekstit ovat kylttejä: taustalevy ja reunus (`B.sign_plate`) tai
