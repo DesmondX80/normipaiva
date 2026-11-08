@@ -405,3 +405,8 @@ tasaisesti, sen yli (Sinikka 2.7, DD hoikalla) kasvaa vain ulkonema eteen, ei le
 `_subdivide_bust` tihentää pohjaverkon rinnan alueella kahdesti ennen muotoilua (muuten iso muoto on särmikäs ja
 lappubikinien reuna porrastuu). Mittaus: `aja.sh tscn tools/testit/sinikka_mitat.tscn [--bust=2.4,3.0]` (rinnan- ja
 alaympärys, ulkonema rintakehästä cm, MITAT-rivit lokissa; kuvat edestä, sivulta ja lähikuvat).
+
+Pullonkorkit (#290): `tools/testit/aja.sh scene korkit` (kalja antaa korkin, harvinaisuusjakauma, juhannuskorkit vain
+juhannuksena, voittokorkit, tallennus, kansiokuva, Korkki-Raimon vaihto ja kuva kirppiksellä, MM-korkin löytö, Päivin
+motkotus ja jemma, maastolöytöjen paikat, korkkiläpsy Saloisten kaukalolla ja Vaalan lavan pihalla: panos, lyönti,
+lopetus ja kuvat).

@@ -53,7 +53,7 @@ const PEOPLE := [
 			"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_SimpleParted", "hair_color": Color(0.35, 0.3, 0.25), "height": 1.82,
 			"skin": Color(0.96, 0.75, 0.66), "belly": 0.6}},
 	# Tansseissa Anna-Liisa seisoo lattian reunalla: kirppispaikka (1,8; 1,4) on taustaparien kiertoradalla (#257).
-	{"id": "korkkiraimo", "name": "Korkki-Raimo", "role": "vaihtaa pullonkorkkeja", "modes": ["kirppis"], "at": Vector3(-3.0, 0, 0.6),
+	{"id": "korkkiraimo", "name": "Korkki-Raimo", "role": "vaihtaa pullonkorkkeja", "modes": ["kirppis"], "wd": 5, "at": Vector3(-3.0, 0, 0.6),
 		"face": Vector3(0.3, 0, 1), "pose": "Idle", "look": {"shirt": Color(0.75, 0.6, 0.25), "pants": Color(0.3, 0.28, 0.25),
 			"shoes": Color(0.25, 0.2, 0.15), "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.55, 0.55), "beard": true,
 			"height": 1.7, "skin": Color(0.93, 0.76, 0.66), "belly": 0.55}},
@@ -131,6 +131,7 @@ var busy := false
 var walker: CharacterBody3D
 var hint := ""
 var mode := "kirppis"
+var weekday := -1  # main.gd _weekday() (0 = ma); henkilö, jolla "wd", on paikalla vain sinä päivänä
 var veksi_open := false  # Veksi ottaa vastaan takahuoneessa (Kertunkankaan kirves mukana, main.gd)
 var auction_done := false  # tämän päivän huutokauppa pidetty (main.gd): Erkki ei enää huuda kauppaa
 var lot_visible := true:  # huutokaupan napamoottori lavan pöydällä (main.gd piilottaa myynnin jälkeen)
@@ -196,7 +197,7 @@ func leave() -> void:
 
 
 func _shown(i: int) -> bool:
-	return mode in PEOPLE[i].modes
+	return mode in PEOPLE[i].modes and (not PEOPLE[i].has("wd") or weekday == PEOPLE[i].wd)
 
 
 ## Ensimmäinen tässä tilassa näkyvä henkilö, jolla on annettu id.

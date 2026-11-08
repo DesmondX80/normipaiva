@@ -1058,6 +1058,12 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Juhannuskorkit** (ennen kesäkorkki) arpoutuvat vain juhannuksena (`_juhannus()`); muulloin arpa antaa tavallisen.
 - **Voittokorkki:** joka 25. kaljakorkin alla lukee "VOITIT PULLON", ja kassalla se vaihdetaan: kalja +1.
 - **Korkkiläpsy myös Saloisten kaukalolla** iltateinien vieressä (kaukalon teinien valinta, sama kerran päivässä).
+- **Kiiltävät korkit maastosta:** uimarannan penkin vierestä, Antinsuon laavulta ja Viitajärven laavulta "[E] Jokin
+  kiiltää maassa", kerran päivässä paikkaa kohden.
+- **Tuplat omalta kirppispöydältä:** kun pöytä on vuokrattu, Hilkan valinnoissa "Myy tuplakorkit" (0,10 €/kpl).
+- **Korkki-Raimo** on kirppiksellä vain lauantaisin. **Kansio kotijemmaan:** Korkit-välilehden linkki piilottaa kansion,
+  jolloin Päivi ei näe sitä. **MM-korkin lappu:** kun legenda on kuultu, korkkilaatikon pohjalta löytyy Raimon lappu
+  ("KYSY PEKALTA"). Ensimmäinen kampanjakorkki voi olla "UUSI YRITYS".
 - **Päivi ja kansio:** kotiin tullessa kerran päivässä, jos kansiossa on kuusi tai enemmän kaljakorkkia, Päivi laskee ne
   ääneen ("Montako kaljaa tässä kansiossa on, häh?"); moraali laskee kaljakorkkien suhteessa limukorkkeihin.
   kultainen MM-korkki.
