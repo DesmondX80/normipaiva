@@ -1040,7 +1040,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   sähköpyörä, huutokauppa, tanssit ja bingo, Teron kädenvääntö, Santun viisi tähteä, viina- ja rahakätköt,
   eräjorma, pihapingis ja pummilla lavalle. Retkien legendat (tietokonemuseon Pong, Wanhan Raahen kierros, kuvakirkon
   piilokuvat, kapteenin taskukello, Kuhmon karhukuva, Hiidenportti, Pyhäkosken tarinat, Kajaanin linna ja Raatteen
-  Portti) tulevat tiedoksi perillä ensimmäisestä kohdasta, edistyminen otsikon perässä (esim. tarinat 1 / 3).
+  Portti, Kalajoen rantafutis) tulevat tiedoksi perillä ensimmäisestä kohdasta, edistyminen otsikon perässä (esim. tarinat 1 / 3).
+  Lisäksi Teeriniemen kalalampi (saalis), Kapteenin Kulman pubivisa (kaikki oikein), ponkkarin uimakisa (voitto),
+  Valentin Vaalan elokuvapäivät (Veturitallin ovelta) ja Hanttihommat (keikkatyö, kesäduuni, työkkäri, pullonkeräys ja
+  kioskihengailu, kokeiltu X / 5). Salaiset (Rasvanappi, rakaleiman kopio, Nyrkit puhuu: tappelun voitto) tulevat
+  päiväkirjaan vasta, kun ne on kerran tehty.
 - **→ näytä kartalla** tehtävän alla asettaa kompassin (lyijykynärengas kartalla). Toisten paikkakuntien tehtävät
   (Raahe, Hanhikivi, Pakkahuone, Peruskivi, Manamansalo ja retkien legendat) osoittavat K-Marketin taksitolpalle,
   eikä niille piirretä omaa rengasta. Linkitöntä tehtävää ei voi näyttää: kohde liikkuu (Väinö, pallo, Pentti) tai se

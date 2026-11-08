@@ -8234,6 +8234,14 @@ func quest_progress(key: String) -> String:
 			return "koettu %d / 3" % messenius.kuultu()
 		"raate":
 			return "käyty %d / 3" % raate.kuultu()
+		"kalajoki":
+			return "harjoituspelejä voitettu %d" % kalajoki.harjoitus if kalajoki.harjoitus > 0 and kalajoki.voitot == 0 else ""
+		"hanttihommat":
+			var n := 0
+			for k in HANTTIHOMMAT:
+				if k in tilat.firsts:
+					n += 1
+			return "kokeiltu %d / %d" % [n, HANTTIHOMMAT.size()]
 	return ""
 
 
@@ -8263,7 +8271,8 @@ func journal_data() -> Dictionary:
 
 ## Muiden paikkakuntien tehtävät: "näytä kartalla" osoittaa K-Marketin taksitolpalle (retket.gd, lähtö taksilla). Kartalle
 ## niistä ei piirretä omia renkaita (kaikki samassa paikassa), vain kompassi.
-const TAXI_QUESTS := ["hanhikiven_rajakivi", "pakkahuoneen_veistos", "peruskiven_kapseli", "manamansalon_kirkko", "tietokonemuseo",
+const HANTTIHOMMAT := ["keikkatyo", "kesaduuni", "tyokkari", "pullonkeraus", "kioski_hengailu"]  # quests.gd hanttihommat
+const TAXI_QUESTS := ["kalajoki", "kalalampi", "pubivisa", "hanhikiven_rajakivi", "pakkahuoneen_veistos", "peruskiven_kapseli", "manamansalon_kirkko", "tietokonemuseo",
 	"wanharaahe", "kuvakirkko", "vanhaherra", "karhut", "hiidenportti", "pyhakoski", "messenius", "raate"]
 
 
@@ -12785,6 +12794,8 @@ func _start_lampi_fishing() -> void:
 			rt.walker.activate()
 			rt.busy = false
 			rt.block_interact()
+		if not got.is_empty():
+			tilat.first("lampi_saalis", 0.2)  # päiväkirjan Teeriniemen kalalampi valmis
 		_after_fishing(got))
 	add_child(g)
 
@@ -12947,6 +12958,7 @@ func _quiz_answer(k: int) -> void:
 	tilat.first("pubivisa", 0.3)
 	tilat.add("keskittyminen", 0.05 * _quiz_right)
 	if _quiz_right == 3:
+		tilat.first("pubivisa_kaikki", 0.2)
 		tilat.add("moraali", 0.2)
 		tilat.add("humala", 0.14)
 		_talk_box.reply(res + " Kaikki oikein! Visajuoma talon piikkiin.", _talk_options(),
@@ -15673,6 +15685,7 @@ func _ensure_mopo_trip() -> void:
 		mopo_trip.crashed.connect(_on_mopo_crashed)
 		mopo_trip.closed = func(id: String) -> String:
 			if id == "veturitalli":
+				tilat.first("vvaala_ovi", 0.0)  # päiväkirjaan: elokuvapäivistä kuultu (ovella aikataulu)
 				return "" if _vvaala_auki() else _vvaala_kiinni_teksti()
 			return closed_text({"kmarket": "kauppa", "siitari": "siitari", "lava": "lava", "apteekki": "apteekki"}[id]) if id in ["kmarket", "siitari", "lava", "apteekki"] else ""
 		mopo_trip.door_hidden = func(id: String) -> bool: return (id == "kokko" and not _juhannus()) or (id == "viski" and "viski" in viina_found) or \
@@ -19687,6 +19700,8 @@ func _siitari_fight_end(won: bool, bags_used: int, thrown: int) -> void:
 
 
 func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
+	if won:
+		tilat.first("tappelu_voitto", 0.2)  # päiväkirjan "Nyrkit puhuu" (quests.gd)
 	if _fight_source == "teini":
 		_teini_fight_end(won, bags_used, thrown)
 		return
@@ -30735,7 +30750,8 @@ func _maybe_screenshot() -> void:
 			# Retkien legendat ja karttalinkit: tiedoksi ensimmäisestä kohdasta, edistyminen ja "näytä kartalla"
 			# (Saloisten paikat ja taksitolppa).
 			for k in ["pyhakoski_voimala", "kuvakirkko_suntio", "wanharaahe_patsas", "karhut_opas", "olavi_legenda",
-					"kuningas_legenda", "kanttori_legenda", "pingis_ulkopoyta", "hanhikivi_legenda"]:
+					"kuningas_legenda", "kanttori_legenda", "pingis_ulkopoyta", "hanhikivi_legenda", "kalajoki_sarkat", "kalalupa",
+					"pubivisa", "uintikilpailu", "vvaala_ovi", "keikkatyo", "tyokkari", "rasvanappi", "rakaleima", "tappelu_juntti"]:
 				tilat.first(k)
 			pyhakoski.voimala = true
 			wanharaahe.kuvat = ["patsas"]
@@ -30744,13 +30760,22 @@ func _maybe_screenshot() -> void:
 			for q in dl.side:
 				by[q.id] = q
 			for id in ["pyhakoski", "kuvakirkko", "wanharaahe", "karhut", "olavinmarkkinat", "kuninkaan_tapuli",
-					"kanttorin_yosavel", "pihapingis", "hanhikiven_rajakivi"]:
+					"kanttorin_yosavel", "pihapingis", "hanhikiven_rajakivi", "kalajoki", "kalalampi", "pubivisa"]:
 				if not by.has(id):
 					print("TESTI VIKA päiväkirjasta puuttuu tehtävä ", id)
 				elif not by[id].spot:
 					print("TESTI VIKA tehtävällä %s ei ole näytä kartalla -linkkiä" % id)
 				else:
 					print("PK %s: %s (%s)" % [id, by[id].title, by[id].progress])
+			for id in ["uintikisa", "vvaala", "hanttihommat", "rasvanappi", "rakaleima", "tappelut"]:
+				if not by.has(id):
+					print("TESTI VIKA päiväkirjasta puuttuu tehtävä ", id)
+				else:
+					print("PK %s: %s (%s)%s" % [id, by[id].title, by[id].progress, " tehty" if by[id].done else ""])
+			if by.has("hanttihommat") and by.hanttihommat.progress != "kokeiltu 2 / 5":
+				print("TESTI VIKA hanttihommien edistyminen '%s'" % by.hanttihommat.progress)
+			if by.has("rasvanappi") and not by.rasvanappi.done:
+				print("TESTI VIKA rasvanappi ei ole tehty, vaikka pelattu")
 			if by.has("pyhakoski") and by.pyhakoski.progress != "tarinat 1 / 3":
 				print("TESTI VIKA Pyhäkosken edistyminen '%s'" % by.pyhakoski.progress)
 			show_quest_on_map("pyhakoski")
