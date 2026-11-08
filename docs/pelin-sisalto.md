@@ -1041,7 +1041,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Limukorkit ja muut lähteet:** pullonkeräyksestä (Vaala) jää talteen 1–3 korkkia, kaljoja ja limuja. Kirppiksellä
   Veksin korkkilaatikosta saa satunnaisen korkin 0,10 €:lla (kun kansio on aloitettu). Pelissä ei juoda limua, joten
   limukorkit tulevat näistä.
-- Tulossa: voittokorkit, Korkki-Raimo, korkkiläpsy ja
+- **Korkki-Raimo** (kirppiksen salissa, keltainen paita): vaihtaa kaksi tuplaa puuttuvaan korkkiin (ei virhepainoksia),
+  ostaa tupla-virhepainoksen 15 €:lla (kansion korkkeja ei koskaan viedä) ja kertoo kultaisen MM-korkin legendan
+  (`mmkorkki_legenda`). Testi `scene korkit` (vaihto, kuva Raimosta).
+- Tulossa: voittokorkit, korkkiläpsy ja
   kultainen MM-korkki.
 
 ## Normipäiväkirja: tarina, tehtävät, onnelliset loput ja legendaariset hetket (O)

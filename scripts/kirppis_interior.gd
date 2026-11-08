@@ -53,6 +53,10 @@ const PEOPLE := [
 			"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_SimpleParted", "hair_color": Color(0.35, 0.3, 0.25), "height": 1.82,
 			"skin": Color(0.96, 0.75, 0.66), "belly": 0.6}},
 	# Tansseissa Anna-Liisa seisoo lattian reunalla: kirppispaikka (1,8; 1,4) on taustaparien kiertoradalla (#257).
+	{"id": "korkkiraimo", "name": "Korkki-Raimo", "role": "vaihtaa pullonkorkkeja", "modes": ["kirppis"], "at": Vector3(-3.0, 0, 0.6),
+		"face": Vector3(0.3, 0, 1), "pose": "Idle", "look": {"shirt": Color(0.75, 0.6, 0.25), "pants": Color(0.3, 0.28, 0.25),
+			"shoes": Color(0.25, 0.2, 0.15), "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.55, 0.55), "beard": true,
+			"height": 1.7, "skin": Color(0.93, 0.76, 0.66), "belly": 0.55}},
 	{"id": "annaliisa", "name": "Anna-Liisa", "role": "naapuri", "modes": ["kirppis", "tanssit"], "at": Vector3(1.8, 0, 1.4),
 		"face": Vector3(-0.6, 0, -1), "paikat": {"tanssit": [Vector3(3.4, 0, 3.6), Vector3(-0.75, 0, -0.66)]}, "pose": "Idle", "look": {"model": "female", "shirt": Color(0.75, 0.55, 0.6),
 			"pants": Color(0.3, 0.3, 0.35), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari", "hair": "Hair_Buns", "hair_color": Color(0.55, 0.45, 0.35),

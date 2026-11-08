@@ -943,6 +943,7 @@ const TALKERS := {
 	"reippari": ["Reipparin Raija", Color(1.0, 0.6, 0.25)],
 	"reippari_nuoret": ["Kioskin porukka", Color(0.6, 0.9, 1.0)],
 	"veksi": ["Veksi", Color(0.75, 0.65, 0.95)],
+	"korkkiraimo": ["Korkki-Raimo", Color(0.95, 0.8, 0.35)],
 	"seo": ["Huoltiksen myyjä", Color(0.4, 0.85, 0.55)],
 	"vahtimestari": ["Vahtimestari Reijo", Color(0.7, 0.75, 0.8)],
 	"seppo": ["Seppo", Color(0.95, 0.75, 0.4)],
@@ -10323,6 +10324,36 @@ func _korkit_kasa(n: int) -> String:
 
 
 var _korkki_rng := RandomNumberGenerator.new()
+const KORKKI_VIRHE_HINTA := 15.0  # Korkki-Raimo ostaa tupla-virhepainoksen
+
+
+## Korkki-Raimo kirppiksellä (#290): vaihtaa kaksi tuplaa puuttuvaan (ei virhepainoksia), ostaa tupla-virhepainoksia
+## ja kertoo kultaisen MM-korkin legendan.
+func _talk_korkkiraimo(id: String) -> void:
+	match id:
+		"korkki_vaihda":
+			var puuttuu: Array = korkit.missing()
+			if puuttuu.is_empty() or not korkit.take_tuplat(2):
+				_talk_box.reply("Ei oo mitään vaihdettavaa, poika.", _talk_options())
+				return
+			var key: String = puuttuu[_korkki_rng.randi() % puuttuu.size()]
+			_korkki_key(key)
+			Sfx.play("pickup", -6.0, 1.3)
+			_talk_box.reply(["Kaks tuplaa yhestä. Reilu kauppa, sano pankinjohtaja.", "Tää on mulla kolmena. Ota sää.",
+				"Pidä hyvänä. Korkki on kuin ihminen, ei kahta samanlaista. Paitsi tuplat."].pick_random(), _talk_options(),
+				"Vaihdoit kaksi tuplaa: %s kansioon (%d / %d)." % [Korkit.nimi(key), korkit.distinct(), Korkit.total_slots()])
+		"korkki_myy":
+			if not korkit.take_tuplat(1, "virhe"):
+				return
+			money += KORKKI_VIRHE_HINTA
+			Sfx.play("coin", -4.0)
+			_talk_box.reply("Virhepainos! Logo väärin päin. Näitä mää etsin. Viistoista euroa, ja kiitos.", _talk_options(),
+				"Myit tupla-virhepainoksen. Rahaa %s €." % _eur(money))
+		"korkki_legenda":
+			tilat.first("mmkorkki_legenda", 0.2)
+			_talk_box.reply("Keväällä 95, ku Suomi voitti kiekon MM-kultaa, Oulun panimo teki juhlaerän kultaisilla korkeilla. " +
+				"Sanotaan, että viimeinen säilyny korkki on täällä pitäjässä. Pekka kuulemma joi sen kaljan saunan jälkeen... " +
+				"Se korkki lens jonnekin. Jos löydät, mää maksan siitä hyvin.", _talk_options())
 const KORKKI_LAATIKKO := 0.10  # kirppiksen korkkilaatikko, €/korkki
 
 
@@ -13462,6 +13493,13 @@ func _talk_options(who := "") -> Array:
 			else:
 				o.append(_opt("keikka", "Onko hommia? (roskat pihalta, %s €)" % _eur(HONGAN_PALKKA), _hongan_day != day,
 					"huomenna taas", true))
+		"korkkiraimo":
+			var puuttuu: Array = korkit.missing()
+			o.append(_opt("korkki_vaihda", "Vaihda kaksi tuplaa puuttuvaan korkkiin", korkit.tuplat() >= 2 and not puuttuu.is_empty(),
+				"kansiossa ei puutu mitään, mitä Raimo vaihtaa" if puuttuu.is_empty() else "tarvitset kaksi tuplaa", true))
+			var virheet: int = korkit.owned.keys().filter(func(k): return k.ends_with(":virhe") and int(korkit.owned[k]) > 1).size()
+			o.append(_opt("korkki_myy", "Myy tupla-virhepainos (%s €)" % _eur(KORKKI_VIRHE_HINTA), virheet > 0, "ei tupla-virhepainoksia"))
+			o.append(_opt("korkki_legenda", "Onko kultaisista korkeista juttuja?", true, "", not "mmkorkki_legenda" in tilat.firsts))
 		"veksi":
 			if kirppis_int.mode == "kirppis" and "korkki" in tilat.firsts:
 				o.append(_opt("korkkilaatikko", "Kaiva Veksin korkkilaatikosta (%s €)" % _eur(KORKKI_LAATIKKO), money >= KORKKI_LAATIKKO - 0.001,
@@ -13839,6 +13877,8 @@ func _talk_choose(id: String) -> void:
 				_talk_pyhimys(id)
 			else:
 				_talk_aaro(id)
+		"korkkiraimo":
+			_talk_korkkiraimo(id)
 		"veksi":
 			if id == "korkkilaatikko":
 				money -= KORKKI_LAATIKKO
@@ -30812,6 +30852,17 @@ func _maybe_screenshot() -> void:
 			var limut: int = korkit.owned.keys().filter(func(k): return Korkit.BRANDS[k.split(":")[0]].laji == "limu").size()
 			if korkit.owned.values().reduce(func(a, b): return a + b, 0) - ennen != 40 or limut == 0:
 				print("TESTI VIKA korkkikasa ei antanut 40 korkkia tai limuja")
+			# Korkki-Raimo: kaksi tuplaa puuttuvaan, tupla-virhepainos rahaksi; kansion korkkeja ei viedä.
+			var d0: int = korkit.distinct()
+			var t0: int = korkit.tuplat()
+			_talk_korkkiraimo("korkki_vaihda")
+			print("KORKIT vaihto: erilaisia %d -> %d, tuplia %d -> %d" % [d0, korkit.distinct(), t0, korkit.tuplat()])
+			if korkit.distinct() != d0 + 1 or korkit.tuplat() > t0 - 2:
+				print("TESTI VIKA Raimon vaihto")
+			var vk := Korkit.new()
+			vk.owned = {"koffi:virhe": 1}
+			if vk.take_tuplat(1, "virhe") or vk.owned["koffi:virhe"] != 1:
+				print("TESTI VIKA kansion ainoa korkki otettiin")
 			# Täysi aukeama palkitaan kerran; kansio päiväkirjan Korkit-välilehdellä (kuva).
 			var maine0 := maine
 			korkit.add("koffi:tavallinen")
@@ -30830,6 +30881,23 @@ func _maybe_screenshot() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kansio.png"))
 			_journal.toggle()
+			# Korkki-Raimo kirppiksellä: kuva salista (seisoo pöytien välissä, ei kenenkään sisällä).
+			_enter_kirppis("kirppis")
+			for i in 30:
+				await get_tree().process_frame
+			var rk: Node3D = null
+			for n in kirppis_int.find_children("*", "Node3D", true, false):
+				if n.has_meta("talker") and n.get_meta("talker") == "korkkiraimo":
+					rk = n
+			var kc := Camera3D.new()
+			kirppis_int.add_child(kc)
+			var rp := kirppis_int.to_global(Vector3(-3.0, 0, 0.6))
+			kc.look_at_from_position(rp + Vector3(1.6, 1.6, 2.6), rp + Vector3(0, 1.0, 0))
+			kc.current = true
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_raimo.png"))
 			get_tree().quit()
 		"paivakirja":
 			# Normipäiväkirja (#132): alussa vain luku 1 ja itsestäänselvät tehtävät, Paapelin loppu avaa luvun 2,
