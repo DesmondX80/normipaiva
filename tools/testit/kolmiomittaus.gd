@@ -428,6 +428,9 @@ func _quest_reset(site: String) -> void:
 	main.quests.done_day.erase("kolmio_" + site)
 	for f in ["kolmio_tavattu_" + site, "kolmio_" + site]:
 		main.tilat.firsts.erase(f)
+	# Tehtävän valmistumislippu on loppu (quests.gd done "flag:ending_minttu/katja"), joka säilyy testin HOME:ssa
+	# ajojen välillä: ilman tätä tehtävä on jo tehty, eikä ideaviestiä näytetä (_quest_ideas ohittaa tehdyt).
+	main.endings.counts.erase({"saloinen": "minttu", "vaala": "katja"}[site])
 	main._quest_ideas()  # alkutilanne kirjattu (quests.primed), kuten pelissä puolen sekunnin välein
 
 
@@ -452,9 +455,46 @@ func _journal_shot(suffix: String) -> void:
 	await _frames(3)
 
 
+## Siviikin reitti ei saa kulkea rakennusten läpi: Civicin kokoinen laatikko (1,7 × 1,0 × 4,0 m, 0,4–1,4 m maasta)
+## reitin varrella metrin välein molempiin suuntiin (paluu toisella kaistalla). Maasto (Terrain.COLLISION_LAYER) ei lasketa.
+func _siviikki_lapimenot(route: PackedVector3Array) -> void:
+	var vl: Node3D = main.mopo_trip.vaala
+	var space := vl.get_world_3d().direct_space_state
+	var q := PhysicsShapeQueryParameters3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(1.7, 1.0, 4.0)
+	q.shape = box
+	q.collision_mask = 0xFFFFFFFF & ~16  # ei maastoa
+	var total: float = main._kolmio_route_len(route)
+	var hits := 0
+	var seen := {}
+	for dir in [1, -1]:
+		var d := 0.0
+		while d <= total:
+			var at: Array = main._kolmio_route_at(route, d if dir == 1 else total - d, dir)
+			var p: Vector3 = vl.to_global(at[0])
+			var fwd: Vector3 = vl.global_basis * (at[1] as Vector3)
+			q.transform = Transform3D(Basis(Vector3.UP, atan2(-fwd.x, -fwd.z)), p + Vector3(0, 0.9, 0))
+			for h: Dictionary in space.intersect_shape(q, 4):
+				var col: Object = h.collider
+				if col == null or (col is Node and main._kolmio_civic.is_ancestor_of(col)):
+					continue
+				var key := "%s@%d" % [col.get_instance_id(), int(d / 10.0)]
+				if seen.has(key):
+					continue
+				seen[key] = true
+				hits += 1
+				var nm: String = (col as Node).get_path() if col is Node else str(col)
+				print("KOLMIO Siviikki LÄPI %s, matka %.0f m (%s), kohta %s" % [nm, d, "meno" if dir == 1 else "paluu", at[0]])
+			d += 1.0
+	print("KOLMIO Siviikin reitin läpimenot: %d, maastossa %.0f m (tiet etusijalla)" % [hits, float(main._kolmio_vaala_spots.get("off_road", -1.0))])
+	if hits > 0:
+		_vika("Siviikki ajaa %d kertaa rakennuksen tai esteen läpi" % hits)
+
+
 ## Siviikki-ajo: Teron ja Timon juttelusta kyytiin, ajo Timon mittauspisteeseen (Timo mittaa) ja takaisin asemalle.
 func _siviikki() -> void:
-	var route: PackedVector3Array = main._kolmio_vaala_spots.get("route", PackedVector3Array())
+	var route: PackedVector3Array = main._kolmio_siviikki_route()  # esteet kiertävä reitti (lasketaan ajon alussa)
 	var t: Vector2 = main._kolmio_target("vaala")
 	var rp: Vector2 = main._kolmio_vaala_spots.remote
 	print("KOLMIO Siviikin reitti %d pistettä, %.0f m, pihasta tielle %.0f m, mittauspiste %s (%s) %.0f m Katjasta" % [route.size(),
@@ -463,6 +503,7 @@ func _siviikki() -> void:
 	if route.size() < 2:
 		_vika("Siviikin reittiä ei löytynyt")
 		return
+	_siviikki_lapimenot(route)
 	main._on_vaala_door("kolmio_kaverit")
 	await _frames(5)
 	var opts := str(main._talk_options())

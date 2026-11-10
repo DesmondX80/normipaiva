@@ -3823,6 +3823,8 @@ func _hotel_yard() -> void:
 var _tori := PackedVector2Array()
 var _tori_c := Vector2.ZERO
 var _zabuki := Vector3.INF  # Zabukin keskipiste maan tasossa; INF = toria ei ole datassa
+var pentti_spot := Vector3.INF  # Pentin pakettiauto Zabukin parkissa (#299); INF = ei paikkaa
+var pentti_yaw := 0.0
 var _zabuki_face := Vector2.ZERO  # julkisivu (tiski) torille päin
 
 
@@ -4452,10 +4454,12 @@ func _build_matkakeskus() -> void:
 	lp.y = h(lp.x, lp.z)
 	B.mesh(self, B.cyl(0.05, 0.06, 3.8, 8), lp + Vector3(0, 1.9, 0), Color(0.3, 0.32, 0.34))
 	B.mesh(self, B.sphere(0.3, 10), lp + Vector3(0, 3.95, 0), Color(1, 1, 1)).material_override = B.unshaded(Color(1.0, 0.98, 0.9))
+	# Autot rinnakkain 3,2 m välein nokka rakennukseen päin (pituus v-suuntaan): +90° käänsi ne rivin suuntaisiksi,
+	# jolloin 4,2 m autot olivat toistensa sisässä (tools/testit/parkit.gd).
 	for cu2 in [-5.0, -8.2, -11.4]:
 		var cp: Vector3 = at.call(cu2, front + 6.0, 0.0)
 		cp.y = h(cp.x, cp.z)
-		B.parked_car(self, cp, deg + 90.0, [Color(0.15, 0.3, 0.7), Color(0.7, 0.12, 0.1), Color(0.75, 0.75, 0.78)][int(absf(cu2)) % 3])
+		B.parked_car(self, cp, deg, [Color(0.15, 0.3, 0.7), Color(0.7, 0.12, 0.1), Color(0.75, 0.75, 0.78)][int(absf(cu2)) % 3])
 
 
 ## Vaalan kunnantalo (tie.json keskusta.kunnantalo; tools/vaala_kunnantalo.py): vasemmalla kaksikerroksinen vaalea siipi
@@ -4790,6 +4794,11 @@ func _build_zabuki_lot() -> void:
 	add_child(mi)
 	# Asiakasparkki pihan eteen (ruutuviivat, P-kyltti ja pari autoa: _lot_build).
 	_lot_build(c, ax, f, -11.0, 12, ZABUKI_LOT_V0, ZABUKI_LOT_AISLE, [])
+	# Pentin pakettiauton paikka (#299, rikos/pentti.gd): parkin kaukaisin ruutu (_lot_build jättää 4.–12. tyhjiksi),
+	# nokka ajokaistalle (+f). pentti_yaw = auton rotation.y (keula -Z).
+	var pq: Vector2 = q.call(-11.0 + 10.5 * LOT_BAY_W, ZABUKI_LOT_V0 + LOT_BAY_D / 2.0)
+	pentti_spot = Vector3(pq.x, h(pq.x, pq.y), pq.y)
+	pentti_yaw = atan2(-f.x, -f.y)
 	var lot := PackedVector2Array([q.call(-11.0, ZABUKI_LOT_V0), q.call(-11.0 + 12 * LOT_BAY_W, ZABUKI_LOT_V0),
 		q.call(-11.0 + 12 * LOT_BAY_W, ZABUKI_LOT_V0 + LOT_BAY_D + ZABUKI_LOT_AISLE), q.call(-11.0, ZABUKI_LOT_V0 + LOT_BAY_D + ZABUKI_LOT_AISLE)])
 	for poly in rects:

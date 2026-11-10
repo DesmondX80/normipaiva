@@ -574,39 +574,47 @@ func load_from(cfg: ConfigFile) -> void:
 ## nuolikuviot, katolla valopaneeli sinisin valoin ja AMBULANSSI-kyltit (B.sign_plate) kyljissä ja takana.
 ## Palauttaa vilkkuvat valot (parilliset ja parittomat vuorotellen).
 static func build_ambulance(parent: Node3D) -> Array:
-	Vehicles.van(parent, AMBU_KELTA, "EHO-112")
+	Vehicles.van(parent, AMBU_KELTA, "EHO-112", true)  # korotettu katto
 	var orange := Vehicles.paint(AMBU_ORANSSI)
-	# Kylkien ruudutus: korin kylki x = ±0,975, ruutu 0,3 m, kaksi riviä lomittain.
+	var back: float = Vehicles.HIACE_PERA
+	var roof: float = Vehicles.HIACE_KATTO_KORKEA
+	# Kylkien ruudutus ohjaamon takaa (B-pilari z -0,76) perään: ruutu 0,3 m, kaksi riviä lomittain. Alarivi on
+	# pyöränkaarten (yläreuna 0,71) yllä; ylärivi ulottuu vyölinjan (1,20) yli 7 cm, missä kylki kallistuu vähän:
+	# ruutu kallistetaan kyljen mukaan ja nostetaan kyljen pinnalle.
+	var tilt: float = atan((Vehicles.HIACE_KYLKI - Vehicles.HIACE_OLKA_X) / (Vehicles.HIACE_OLKA - Vehicles.HIACE_VYO))
 	for sx in [-1.0, 1.0]:
 		for row in 2:
 			var n := 0
-			var z := -1.38
-			while z + 0.3 <= 2.4:  # viimeinen ruutu korin takareunaan (z = 2,4) asti, ei yli
+			var z := -0.72
+			var y := 0.86 + row * 0.29
+			while z + 0.3 <= back - 0.06:  # viimeinen ruutu ennen takavalojen kylkiosaa
 				if (n + row) % 2 == 0:
-					Vehicles.part(parent, B.boxm(Vector3(0.012, 0.28, 0.28)), Vector3(sx * 0.983, 0.84 + row * 0.3, z + 0.15), orange)
+					var rz: float = 0.0 if row == 0 else sx * tilt * 0.5
+					Vehicles.part(parent, B.boxm(Vector3(0.012, 0.28, 0.28)), Vector3(sx * (Vehicles.hiace_kylki(y) + 0.008), y, z + 0.15),
+						orange, Vector3(0, 0, rz))
 				z += 0.3
 				n += 1
-	# Takaovien nuolikuvio: kolme oranssia ^-kaistaa (kaksi kallistettua liuskaa kukin) korin takapinnalla z = 2,4.
+	# Takaluukun nuolikuvio: kolme oranssia ^-kaistaa (kaksi kallistettua liuskaa kukin) luukun pinnalla.
 	for k in 3:
 		var y := 0.85 + k * 0.32
 		for sx in [-1.0, 1.0]:
-			Vehicles.part(parent, B.boxm(Vector3(0.72, 0.11, 0.012)), Vector3(sx * 0.42, y, 2.407), orange, Vector3(0, 0, -sx * 0.42))
-	# Valopaneeli katolla (katto y = 2,255).
+			Vehicles.part(parent, B.boxm(Vector3(0.6, 0.11, 0.012)), Vector3(sx * 0.36, y, back + 0.012), orange, Vector3(0, 0, -sx * 0.42))
+	# Valopaneelit korotetulla katolla: edessä katon tasaisella osalla (kaltevan etuosan takana), takana luukun yllä.
 	var dark := Vehicles.plastic()
-	Vehicles.part(parent, B.boxm(Vector3(1.5, 0.1, 0.32)), Vector3(0, 2.31, -1.3), dark)
-	Vehicles.part(parent, B.boxm(Vector3(1.2, 0.08, 0.2)), Vector3(0, 2.3, 2.25), dark)
+	Vehicles.part(parent, B.boxm(Vector3(1.0, 0.1, 0.32)), Vector3(0, roof + 0.05, -0.7), dark)
+	Vehicles.part(parent, B.boxm(Vector3(0.9, 0.08, 0.2)), Vector3(0, roof + 0.04, 1.9), dark)
 	var valot: Array = []
 	var blue: StandardMaterial3D = Vehicles.lamp(Color(0.2, 0.45, 1.0)).duplicate()
 	blue.emission_energy_multiplier = 2.5
-	for p in [Vector3(-0.55, 2.39, -1.3), Vector3(0.55, 2.39, -1.3), Vector3(-0.45, 2.37, 2.25), Vector3(0.45, 2.37, 2.25)]:
+	for p in [Vector3(-0.3, roof + 0.13, -0.7), Vector3(0.3, roof + 0.13, -0.7), Vector3(-0.25, roof + 0.11, 1.9), Vector3(0.25, roof + 0.11, 1.9)]:
 		valot.append(Vehicles.part(parent, B.boxm(Vector3(0.36, 0.1, 0.26)), p, blue))
-	# AMBULANSSI-kyltit: kylkiin ruudutuksen yläpuolelle ja takaoviin nuolten yläpuolelle.
+	# AMBULANSSI-kyltit: kylkiin ruudutuksen yläpuolelle kyljen kallistuksen mukaan ja takaluukkuun ikkunan yläpuolelle.
 	for sx in [-1.0, 1.0]:
-		var s := B.sign_plate(parent, "AMBULANSSI", AMBU_KELTA, Color(0.05, 0.1, 0.3), 0.3, 60, AMBU_ORANSSI)
-		s.position = Vector3(sx * 0.995, 1.62, 0.75)
-		s.rotation.y = sx * PI / 2.0
-	var r := B.sign_plate(parent, "AMBULANSSI", AMBU_KELTA, Color(0.05, 0.1, 0.3), 0.26, 44, AMBU_ORANSSI)
-	r.position = Vector3(0, 1.95, 2.42)
+		var s := B.sign_plate(parent, "AMBULANSSI", AMBU_KELTA, Color(0.05, 0.1, 0.3), 0.26, 60, AMBU_ORANSSI)
+		s.position = Vector3(sx * (Vehicles.hiace_kylki(1.55) + 0.02), 1.55, 0.75)
+		s.basis = Basis(Vector3(0, 0, 1), sx * tilt) * Basis(Vector3.UP, sx * PI / 2.0)
+	var r := B.sign_plate(parent, "AMBULANSSI", AMBU_KELTA, Color(0.05, 0.1, 0.3), 0.1, 28, AMBU_ORANSSI)  # kapea: luukun levyinen
+	r.position = Vector3(0, 1.87, back + 0.015)
 	return valot
 
 

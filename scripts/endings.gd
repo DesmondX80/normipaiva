@@ -40,13 +40,15 @@ const ENDINGS := [
 	["ukko_vapaa", "Ukko vapaaksi", "Tekojärven Ukko ui takaisin ladon raunioille. Tauno tarjosi kahvit."],
 	["mirkku", "Mirkun teltassa", "Päivin kukkakimppu Mirkulle, nuotio laavulla ja kesäyö teltassa. Päivi luulee, että olit kalassa."],
 	["minttu", "Kolmiomittaus Saloisissa", "Kolme ympyrää, kolme lahjaa ja Mintun pimennetty olohuone. Esa paistoi aamulla mansikkaletut."],
+	["pentin_kyyti", "Pentin kyydissä", "PENTIN BANGBUS keinui parkkipaikalla humpan tahtiin. Mitä tapahtui, jää Pentin ja verhojen väliin."],
+	["pentin_kiertue", "Pentin kiertueella", "Kajaani, Kuhmo ja Suomussalmi yhdessä yössä PENTIN BANGBUSILLA. Päivi luulee, että olit kalassa."],
 	["katja", "Kolmiomittaus Vaalassa", "Siviikki, harppi ja Katjan rivitalo aseman takana. Tero valitti verottajasta vielä aamukahvilla."],
 ]
 
 ## Oikeat onnelliset loput: päivä päättyy loppukohtaukseen (juhlat tallissa, viinibileet, laavu). Muut ovat
 ## legendaarisia hetkiä: saavutuksia, joiden jälkeen peli jatkuu.
 const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet", "eramaan_laavu", "uutiset", "mirkku",
-	"minttu", "katja"]
+	"minttu", "katja", "pentin_kiertue"]
 
 var counts := {}  # id -> kerrat
 var first_day := {}  # id -> päivä, jolloin saatu ensimmäisen kerran

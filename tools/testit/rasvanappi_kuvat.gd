@@ -110,6 +110,70 @@ func _run() -> void:
 	n.turn_t = 5.0
 	await _wait(0.2)
 	await _shot("09_takana")
+	# V: oma näkymä (FPS) jonkun takana pimeässä ja valoissa; W kontaa katsesuuntaan, V takaisin ylhäältä.
+	var ev := InputEventAction.new()
+	ev.action = "camera"
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var up := InputEventAction.new()
+	up.action = "camera"
+	Input.parse_input_event(up)
+	await _wait(0.2)
+	print("RASVA fps %s, kamera nykyinen %s" % [g._hall.fps, g._hall.fps_cam.current])
+	if not g._hall.fps or not g._hall.fps_cam.current:
+		print("TESTI VIKA V ei vaihtanut omaan näkymään")
+	await _shot("09b_fps_pimea")
+	g.set_process(false)
+	g._hall.set_lit(1.0)
+	await get_tree().process_frame
+	await _shot("09c_fps_valot")
+	g.set_process(true)
+	var p0: Vector2 = g.me.pos
+	Input.action_press("forward")
+	await _wait(0.4)
+	Input.action_release("forward")
+	var liike: Vector2 = g.me.pos - p0
+	print("RASVA fps W: liike %s, katse %s" % [liike, g._fwd(g.me.ang)])
+	if liike.length() < 0.05 or liike.normalized().dot(g._fwd(g.me.ang)) < 0.9:
+		print("TESTI VIKA FPS-näkymässä W ei konttaa katsesuuntaan")
+	# Hiiriohjaus (asetus "hiiri ohjaa kulkusuuntaa"): hiiri lukitaan, sivuliike kääntää, pystyliike kallistaa
+	# katsetta, D konttaa sivuttain oikealle.
+	var old_steer: bool = Settings.values.get("mouse_steer", false)
+	Settings.values["mouse_steer"] = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("RASVA hiiri lukittu %s, need_mouse %s" % [g._mouse_on, CamCtl.need_mouse])
+	if not g._mouse_on or not CamCtl.need_mouse:
+		print("TESTI VIKA hiiriohjaus ei käynnistynyt FPS-näkymässä")
+	var ang0: float = g.me.ang
+	g.mouse_look(Vector2(1.2, -0.35))  # oikealle ja ylös (oikea sivu osoittaa poispäin edellä olevasta, -X)
+	print("RASVA hiiri: kulma %.2f -> %.2f, kallistus %.2f" % [ang0, g.me.ang, g._hall.fps_pitch])
+	if absf(angle_difference(ang0 + 1.2, g.me.ang)) > 0.01 or g._hall.fps_pitch < 0.1:
+		print("TESTI VIKA hiiri ei kääntänyt tai kallistanut katsetta")
+	await _wait(0.1)
+	await _shot("09d_fps_hiiri")
+	p0 = g.me.pos
+	Input.action_press("right")
+	await _wait(0.4)
+	Input.action_release("right")
+	liike = g.me.pos - p0
+	var oikea: Vector2 = g._fwd(g.me.ang + PI / 2.0)
+	print("RASVA hiiri D: liike %s, oikea %s" % [liike, oikea])
+	if liike.length() < 0.03 or liike.normalized().dot(oikea) < 0.9:
+		print("TESTI VIKA hiiriohjauksessa D ei konttaa sivuttain oikealle")
+	Settings.values["mouse_steer"] = old_steer
+	g._hall.fps_pitch = -0.16
+	g._hall.set_fps(false)
+	g.fps_valinta = false
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if g._mouse_on or CamCtl.need_mouse:
+		print("TESTI VIKA hiiri jäi lukituksi FPS-näkymän jälkeen")
+	g.me.pos = Vector2(4.75, 3.5)
+	g.me.ang = 0.0
+	await _wait(0.1)
 	g._begin_poke(-1, 1)
 	await _wait(0.3)
 	await _shot("10_nimi")

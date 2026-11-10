@@ -45,7 +45,26 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Muista, kuka kiroilee, hyräilee, kikattaa, niiskuttaa tai huokailee, sillä pimeässä muut tunnistaa vain äänestä.
   Valojen sammuttua kontataan (WASD, Shift ripeästi mutta kolisten). Rasvanappi tökkää jotakuta takaapäin peppuun
   (E) ja huutaa nimen. Jos arvaus osuu, tökätty nuolee sormen ja on seuraava nappi. Jos ei, tökkääjä nuolee itse.
-  Kun nappi on joku muu, se jahtaa pimeässä. Testit `--scene=rasvanappi` ja `tools/testit/rasvanappi_kuvat.tscn`.
+  Kun nappi on joku muu, se jahtaa pimeässä. V (kamera) vaihtaa omaan näkymään konttaajan silmistä: W/S konttaa
+  eteen ja taakse, A/D kääntyy. Jos asetuksista on valittu hiiri ohjaa kulkusuuntaa (FPS-tyyli), hiiri lukitaan:
+  sivuliike kääntää, pystyliike kallistaa katsetta, A/D konttaa sivuttain ja klikkaus tökkää. Valinta muistetaan seuraavaan kierrokseen ja lopussa palataan yleiskuvaan.
+  Testit `--scene=rasvanappi` ja `tools/testit/rasvanappi_kuvat.tscn`.
+- **Pentin BangBus (vain aikuisille, #299):** Pentti (keksitty keski-ikäinen viiksimies: avonainen nahkaliivi karvaisen rinnan päällä, pilottilasit,
+  kultaketju) seisoo tuunatun pakettiautonsa vieressä perjantai- ja lauantai-iltaisin klo 19–23: Saloisissa K-Marketin
+  parkkipaikalla, Vaalassa Zabukin asiakasparkissa. Muina aikoina Pentti ajaa autollaan Saloisten liikenteessä.
+  Auto on viininpunainen Hiace: kyljissä käsinmaalattu PENTIN BANGBUS -banderolli, keulassa liekit, katolla
+  lisävalot, takaikkunassa ja ohjaamon takana punaiset samettiverhot ja peilissä pehmonopat. Pentti huutelee
+  lähelle tulevalle. Juttelussa kaksimieliset repliikit autosta (eivät toistu samalla kerralla), "Mikä ihmeen
+  BangBus?" (moraali kerran päivässä), kieltäytyminen tai kyyti. Kyyti on välikohtaus: auto keinuu parkkipaikalla,
+  ikkunat huurtuvat ja radiosta soi humppa; mitään ei näytetä. Pelaaja herää aamulla klo 10.30 oudosta paikasta
+  (Saloisissa urheilukentän maalista, Oravajärven rannalta tai aseman laiturilta, Vaalassa Gasthausin pihalta):
+  moraali nousee, mutta vireys, kipu ja stressi kärsivät, ja lompakosta puuttuu 5–20 € ("Bensarahat. T: Pentti").
+  Jos joku kylän hahmo on lähellä (25 m), hän näkee kyytiin nousun 60 %:n todennäköisyydellä: maine −3 ja Päivi
+  kuulee asiasta aamulla. Päiväkirjaan sivutehtävä "Pentin kyydissä" ja ensimmäisestä kyydistä legendaarinen hetki.
+  Toisella kerralla Pentti suunnittelee kiertuetta, ja joka kolmas kyyti on **Pentin kiertue** (onnellinen loppu):
+  loppukohtauksessa BangBus ajaa yön maantietä Kajaanin, Kuhmon ja Suomussalmen kautta, Pentti ratissa ja pelaaja
+  etupenkillä. Herätys kotipihalta (Vaalassa Gasthausin pihalta) klo 11, kiertuekulut 20–40 €.
+  Testit `--scene=bangbus` ja `--scene=bangbus_vaala`. Mainosjuliste: [kuvat/pentin_bangbus_juliste.png](kuvat/pentin_bangbus_juliste.png).
 - **Kolmiomittaus (Sytkäri-mätsi, vain aikuisille):** Saloisten kaupan pihassa seisovat Joni (tummatukkainen golfari,
   selässä Sandels-oluen 24-pakkauksesta jesarilla tehty päkkirinkka termoksineen, golfpalloineen ja tölkkeineen) ja Esa
   (erämies, harppi taskussa), Vaalan aseman pihassa Hevari-Tero (valittaa valtiosta) ja Siviikki-Timo (punainen Honda
@@ -55,7 +74,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   3D-lavastuksia omissa maailmoissaan (`kolmio_kohtaus.gd`), ja Sytkärin profiilikuvat on otettu 3D-hahmoista.
   Osoitetta ei kerrota, vain etäisyys. Kaveri mittaa lähtöpaikalta, ja toinen mittaa kauempaa: Saloisissa Esa
   tekstaa kirkolta, Vaalassa Teron ja Timon kanssa jutellessa valitaan "Hypätään Siviikkiin", ja Timo ajaa porukan
-  aseman pihasta nurmikon yli Vaalantielle ja tietä pitkin mittauspisteeseen (VTEC kytkeytyy, matkalla Timon ja Teron
+  aseman pihasta katuja pitkin Vaalantielle (maaston kautta vain, jos tietä ei ole) ja tietä pitkin mittauspisteeseen (VTEC kytkeytyy, matkalla Timon ja Teron
   jutut, E hyppää perille) ja takaisin asemalle. Mittauksen ajan kaverit kulkevat jalan pelaajan perässä (Esa
   liittyy mukaan tekstattuaan, Tero ja Timo Siviikki-ajon jälkeen) ja seisovat takana ovella; pyörän tai mopon
   selässä he jäävät odottamaan ja tulevat perään, kun pelaaja jatkaa jalan. Sen jälkeen pelaaja mittaa lisää missä vain (E "Avaa Sytkäri", vähintään 35 m edellisistä mittauksista).
@@ -1010,6 +1029,45 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Mökki** on mallinnettu oikean Airbnb-vuokramökin ("The warmth of a smoke sauna and cottage life",
   Neittävä) valokuvien mukaan. Se on erillinen alue, jonne pääsee naapurin Pekan kyydillä tai kaupan taksilla.
 
+## Pullonkorkit (#290)
+
+- Jokaisesta juodusta kaljasta jää korkki (`korkit.gd`, `main.gd _korkki`). Merkit ovat parodioita: Kontio, Lapin Kuuma ja
+  Koffi (kalja) sekä Jaffis, Kolaa ja Pantteri-limu (limu). Tasot: tavallinen, kesäkorkki (n. 1/15) ja virhepainos
+  (n. 1/150). Ensimmäinen korkki aloittaa kansion, ja uusi harvinainen kerrotaan. Päiväkirjan tehtävä "Korkkikansio"
+  (kansiossa X / 18, tuplia). Tallennus `[korkit]`. Testi `scene korkit` (kuva kansiosta).
+- **Korkkikansio:** päiväkirjan Korkit-välilehti (5): vasemmalla kaljat, oikealla limut, merkin rivillä tavallinen,
+  kesäkorkki (aurinkorengas) ja virhepainos (logo ylösalaisin, väärä väri). Puuttuva: katkoviiva ja vihje. Täysi
+  merkki palkitaan kerran (moraali, maine +2, tähti).
+- **Limukorkit ja muut lähteet:** pullonkeräyksestä (Vaala) jää talteen 1–3 korkkia, kaljoja ja limuja. Kirppiksellä
+  Veksin korkkilaatikosta saa satunnaisen korkin 0,10 €:lla (kun kansio on aloitettu). Pelissä ei juoda limua, joten
+  limukorkit tulevat näistä.
+- **Korkki-Raimo** (kirppiksen salissa, keltainen paita): vaihtaa kaksi tuplaa puuttuvaan korkkiin (ei virhepainoksia),
+  ostaa tupla-virhepainoksen 15 €:lla (kansion korkkeja ei koskaan viedä) ja kertoo kultaisen MM-korkin legendan
+  (`mmkorkki_legenda`). Testi `scene korkit` (vaihto, kuva Raimosta).
+- **Legenda: kultainen MM-korkki (1995):** Korkki-Raimo kertoo juhlaerästä. Pekalta kysytään ("Joitko sää
+  kultakorkkisen kaljan?"): hän heitti korkin saunan jälkeen talonsa päädyn kivikkoon (`neighbor_yards.pekka[3]`).
+  Siellä [E] nostaa korkin kerran: maine +3, kansion kansilehteen kultainen korkki. Raimo ostaa sen 200 €:lla, jos
+  haluaa. Päiväkirjassa "Kultainen MM-korkki" (karttalinkki Pekan pihaan, kun Pekka on kertonut).
+- **Korkkiläpsy** (`korkki_game.gd`): pelataan pelimaailmassa 3D:nä Vaalan lavan pihalla teinien vieressä illalla
+  18–23 kerran päivässä (kansio aloitettu, 3 tuplaa). Pino oikeita 3D-korkkeja (rihlattu kylki, kannessa kansion logo
+  tekstuurina, nurjalla puolella tiiviste), vastassa teini Jere kyykyssä ja pelaajan oma hahmo pinon vieressä
+  (Looks-hahmot), tinanappi-lyöjä. Kamera rajataan laskemalla (pino alakolmannekseen, Jeren pää yläosaan). Tähtäys A/D
+  tai hiiri, voima ajoituksella; kääntyneet korkit lentävät pyörien lyöjän eteen, liian kova lyönti lennättää ne
+  maahan. Ruudun päällä voimamittari, tilanne ja näppäinhatut asetusten näppäimistä. Testi `scene korkit` (Vaala ladataan,
+  kuvat tähtäyksestä ja lyönnistä).
+- **Juhannuskorkit** (ennen kesäkorkki) arpoutuvat vain juhannuksena (`_juhannus()`); muulloin arpa antaa tavallisen.
+- **Voittokorkki:** joka 25. kaljakorkin alla lukee "VOITIT PULLON", ja kassalla se vaihdetaan: kalja +1.
+- **Korkkiläpsy myös Saloisten kaukalolla** iltateinien vieressä (kaukalon teinien valinta, sama kerran päivässä).
+- **Kiiltävät korkit maastosta:** uimarannan penkin vierestä, Antinsuon laavulta ja Viitajärven laavulta "[E] Jokin
+  kiiltää maassa", kerran päivässä paikkaa kohden.
+- **Tuplat omalta kirppispöydältä:** kun pöytä on vuokrattu, Hilkan valinnoissa "Myy tuplakorkit" (0,10 €/kpl).
+- **Korkki-Raimo** on kirppiksellä vain lauantaisin. **Kansio kotijemmaan:** Korkit-välilehden linkki piilottaa kansion,
+  jolloin Päivi ei näe sitä. **MM-korkin lappu:** kun legenda on kuultu, korkkilaatikon pohjalta löytyy Raimon lappu
+  ("KYSY PEKALTA"). Ensimmäinen kampanjakorkki voi olla "UUSI YRITYS".
+- **Päivi ja kansio:** kotiin tullessa kerran päivässä, jos kansiossa on kuusi tai enemmän kaljakorkkia, Päivi laskee ne
+  ääneen ("Montako kaljaa tässä kansiossa on, häh?"); moraali laskee kaljakorkkien suhteessa limukorkkeihin.
+  kultainen MM-korkki.
+
 ## Normipäiväkirja: tarina, tehtävät, onnelliset loput ja legendaariset hetket (O)
 
 - **Tarina** etenee luvuittain: 1. Paapeliin pääsee, kunhan… (naapurien hommat ja Pekan kyyti mökille), 2. Paapelin
@@ -1019,7 +1077,18 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   ja Tauno kertovat, mitä seuraavaksi.
 - **Sivutehtävät**: kauppalista, nurmikko, laavu, Väinö, jalkapallopojat, pontikka, ilmakuvat, kotiviini,
   sähköpyörä, huutokauppa, tanssit ja bingo, Teron kädenvääntö, Santun viisi tähteä, viina- ja rahakätköt,
-  eräjorma, pihapingis ja pummilla lavalle.
+  eräjorma, pihapingis ja pummilla lavalle. Retkien legendat (tietokonemuseon Pong, Wanhan Raahen kierros, kuvakirkon
+  piilokuvat, kapteenin taskukello, Kuhmon karhukuva, Hiidenportti, Pyhäkosken tarinat, Kajaanin linna ja Raatteen
+  Portti, Kalajoen rantafutis) tulevat tiedoksi perillä ensimmäisestä kohdasta, edistyminen otsikon perässä (esim. tarinat 1 / 3).
+  Lisäksi Teeriniemen kalalampi (saalis), Kapteenin Kulman pubivisa (kaikki oikein), ponkkarin uimakisa (voitto),
+  Valentin Vaalan elokuvapäivät (Veturitallin ovelta) ja Hanttihommat (keikkatyö, kesäduuni, työkkäri, pullonkeräys ja
+  kioskihengailu, kokeiltu X / 5) ja Kylän tekemisiä (juoksulenkki, lintutorni, rönttöset, hedelmäpeli, pajatso,
+  muskelivene ja juhannuskokko, kokeiltu X / 7). Salaiset (Rasvanappi, rakaleiman kopio, Nyrkit puhuu: tappelun voitto) tulevat
+  päiväkirjaan vasta, kun ne on kerran tehty.
+- **→ näytä kartalla** tehtävän alla asettaa kompassin (lyijykynärengas kartalla). Toisten paikkakuntien tehtävät
+  (Raahe, Hanhikivi, Pakkahuone, Peruskivi, Manamansalo ja retkien legendat) osoittavat K-Marketin taksitolpalle,
+  eikä niille piirretä omaa rengasta. Linkitöntä tehtävää ei voi näyttää: kohde liikkuu (Väinö, pallo, Pentti) tai se
+  on mökillä tai Vaalassa, joka ei ole Saloisten kartalla.
 - **Jemmat**-välilehti: kaikki löydetyt jemmapaikat täyttöpalkkeineen (kaljat / tila), kotijemma tavoitteeseen
   nähden tölkkiriveinä, ulkojemmat ja yhteensä sekä riskit: Päivi voi löytää liian täyden
   kotijemman, ja teinit voivat pölliä ulkojemmasta. Reppu (I) näyttää myös tyhjät löydetyt jemmat. Testi `--scene=jemmat`.

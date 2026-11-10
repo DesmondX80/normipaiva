@@ -89,6 +89,10 @@ var _bar_j: ProgressBar
 var _timer_label: Label
 var _announce: Label
 var _help: Control  # ohjeet näppäinhattuina (hint_bar.gd), näppäimet asetuksista
+## Alun ohjetauko: ohjaus on tappelussa eri kuin muualla pelissä, joten ennen ROUND 1:tä peli pysähtyy ohjepaneeliin
+## (kaikki napit näppäinhattuina), ja tappelu alkaa lyöntinapista. Testiajoissa (B.diag) ohitetaan, ellei testi pyydä.
+var _ohje: Control
+static var ohjeet_testissa := false
 var _phase := "intro"
 var _phase_t := 0.0
 var _time := ROUND_TIME
@@ -192,10 +196,16 @@ func start(beer_count: int, foe_key := "juntti", player_hp := 100.0, player_dmg 
 	_phase_t = 0.0
 	_wave_cd = 2.0
 	_announce.text = "ROUND 1"
+	if not B.diag() or ohjeet_testissa:
+		_phase = "ohjeet"
+		_announce.text = "TAPPELU!"
+		_ohje.set_text(_ohje_teksti())
 	_bar_j.value = foe.hp
 	_bar_p.value = player_hp
 	_say(_bubble_j, _j, foe.intro.pick_random())
 	_update_help()
+	if _phase == "ohjeet":
+		_help.set_text("")  # samat napit isossa paneelissa, pieni palkki vasta ottelussa
 	_layer.visible = true
 	Touch.set_extra([[KEY_J, "Lyö"], [KEY_K, "Potkaise"], [KEY_L, "Erikois"]])
 	_cam.current = true
@@ -206,6 +216,15 @@ func start(beer_count: int, foe_key := "juntti", player_hp := 100.0, player_dmg 
 func _process(delta: float) -> void:
 	_phase_t += delta
 	match _phase:
+		"ohjeet":
+			# Odotetaan lyöntinappia (pieni viive, ettei edellisen ruudun painallus aloita heti).
+			if _phase_t > 0.4 and Input.is_action_just_pressed("punch"):
+				_ohje.set_text("")
+				_update_help()
+				_phase = "intro"
+				_phase_t = 0.0
+				_announce.text = "ROUND 1"
+				Sfx.play("alert", -2.0, 1.0)
 		"intro":
 			if _phase_t > 1.3 and _announce.text == "ROUND 1":
 				_announce.text = "FIGHT!"
@@ -918,6 +937,23 @@ func _build_hud() -> void:
 	_help.compact = true
 	_help.centered = true
 	root.add_child(_help)
+	_ohje = preload("res://scripts/hint_bar.gd").new()
+	_ohje.middle = true
+	root.add_child(_ohje)
+
+
+## Alun ohjepaneeli: liikkuminen (WASD-ryhmä), perusiskut ja aloitus lyöntinapista.
+func _ohje_teksti() -> String:
+	var nuolet: Dictionary = preload("res://scripts/hint_bar.gd").NUOLET
+	var k := func(a: String) -> String: return nuolet.get(Settings.action_key(a), Settings.action_key(a))  # nuolinäppäimet nuolina
+	# Liikkuminen näppäinryhmänä kuin näppäimistöllä (hint_bar.gd _cluster: "[W|A,S,D]"), näppäimet asetuksista (omat
+	# valinnat näkyvät); yhdistelmät vain ottelun palkissa.
+	return "\n".join([
+		"[%s|%s,%s,%s] liiku (%s hyppää, %s torjuu)   [%s] lyönti   [%s] potku   [%s] kassi-isku (vie kaljan)" % [
+			k.call("forward"), k.call("left"), k.call("back"), k.call("right"), k.call("forward"), k.call("back"),
+			k.call("punch"), k.call("kick"), k.call("special")],
+		"[%s] Aloita tappelu lyöntinapilla" % k.call("punch"),
+	])
 
 
 ## Kaksi riviä: perusiskut, kalja, hyppy ja torjunta; toisella erikoisliikkeet. A/D (liikkuminen) on vakio, ei ohjetta.

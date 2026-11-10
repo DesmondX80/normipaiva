@@ -26,6 +26,7 @@ signal hit
 
 var target_fn: Callable  # palauttaa pelaajan solmun (jalan, pyörä tai mopo)
 var van := false  # pakettiauto henkilöauton sijaan
+var pentti := false  # Pentin tuunattu pakettiauto, Pentti ratissa (#299, rikos/pentti.gd piilottaa sen pysäkkiaikana)
 var color := Color.WHITE  # maalin väri (rikos/autovarkaus.gd: kaapattu auto samanvärisenä)
 var malli := ""  # henkilöauton malli (Vehicles.MALLIT); kaapattu ja hylätty auto perii sen
 var cruise := 11.0
@@ -54,8 +55,14 @@ func _ready() -> void:
 	collision_mask = 0
 	add_to_group(GROUP)
 	color = VAN_COLORS.pick_random() if van else COLORS.pick_random()
-	if van:
+	if pentti:
+		van = true
+		color = Vehicles.PENTTI_VARI
+		Vehicles.pentin_auto(self)
+		Vehicles.kuski(self, "hiace", load("res://scripts/looks.gd").PENTTI)
+	elif van:
 		Vehicles.van(self, color)
+		Vehicles.kuski(self, "hiace")  # kuski ohjaamossa etupyörän päällä
 	else:
 		malli = Vehicles.MALLIT.pick_random()
 		Vehicles.henkiloauto(self, malli, color)

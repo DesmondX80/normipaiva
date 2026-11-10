@@ -69,6 +69,13 @@ uniform bool string_bikini = false;  // pienet lappubikinit: kolmiot rintojen p�
 // vuoristosahalaita, sen alla keltainen ja turkoosi raita, tikkauskanavat, vetoketju, vyötärökuminauha, ribbiresorit
 // ja kuukengät.
 uniform bool ski_suit = false;
+// Avonainen nahkaliivi (Pentti, #299): paidan etuosa paljaana syvästä V-pääntiestä vyölle (vest_half), liivin reunoissa
+// taitettu reunus ja tikkaus, vasemmassa etukappaleessa painonapit, kaarrokesauma rinnan poikki ja taskujen aukot.
+// Esikuva: biker-liivi auki paljaan rinnan päällä (Jamin Leather VM802K).
+uniform bool vest_open = false;
+// Rintakarvat paljaalla rinnalla (myös liivin aukossa) ja ohut karvavana alas vyölle; väri body_hair.
+uniform bool chest_hair = false;
+uniform vec3 body_hair : source_color = vec3(0.16, 0.11, 0.07);
 uniform vec3 ski_yoke : source_color = vec3(0.95, 0.95, 0.97);
 uniform vec3 ski_line1 : source_color = vec3(1.0, 0.9, 0.05);
 uniform vec3 ski_line2 : source_color = vec3(0.0, 0.78, 0.82);
@@ -206,6 +213,44 @@ float bikini_sd(vec3 p, vec3 n) {
 	return d;
 }
 
+// Avoimen liivin aukon puolileveys korkeudella y (lepoasento): V kaulasta rintalastan alle, siitä kämmenen levyinen
+// rako vyölle, alaosassa etukappaleet roikkuvat hieman leveämmälle.
+float vest_half(float y) {
+	return mix(0.052, 0.15, smoothstep(1.22, 1.48, y)) + 0.014 * smoothstep(1.12, 0.98, y);
+}
+
+// Rintakarvat: lyhyitä karvoja soluissa (3 × 3 naapuria), tiheys rinnan keskeltä ja kapea vana napaan ja vyölle.
+float chest_hair_amt(vec2 r, float fr) {
+	if (fr < 0.5 || r.y < 0.98 || r.y > 1.43) {
+		return 0.0;
+	}
+	float ax = abs(r.x);
+	float chest = smoothstep(0.15, 0.05, ax) * smoothstep(1.16, 1.24, r.y) * smoothstep(1.43, 1.36, r.y);
+	float trail = smoothstep(0.03, 0.008, ax) * step(r.y, 1.24);
+	float dens = max(chest, trail);
+	if (dens <= 0.0) {
+		return 0.0;
+	}
+	float cell = 0.0042;
+	vec2 g = floor(r / cell);
+	float h = 0.0;
+	for (int i = -1; i <= 1; i++) {
+		for (int j = -1; j <= 1; j++) {
+			vec2 id = g + vec2(float(i), float(j));
+			float rnd = hash21(id);
+			if (rnd > dens * 0.95) {
+				continue;
+			}
+			vec2 c0 = (id + vec2(hash21(id + 3.1), hash21(id + 7.7))) * cell;
+			// Karvat kasvavat alas ja ulospäin, kiharat vaihtelevat.
+			float ang = -1.5708 + sign(r.x + 0.0001) * 0.5 + (hash21(id + 1.3) - 0.5) * 1.6;
+			vec2 dir = vec2(cos(ang), sin(ang)) * (0.006 + 0.005 * hash21(id + 5.5));
+			h = max(h, (0.6 + 0.4 * hash21(id + 9.1)) * (1.0 - smoothstep(0.00035, 0.0008, seg_dist(r, c0, c0 + dir))));
+		}
+	}
+	return h;
+}
+
 // Paljas iho vaatteen kohdalla? (c = luokka, r = lepoasento, lp = paikka)
 bool bare(float c, vec2 r, vec3 lp, float fr, float nx) {
 	if (c > 1.5 && c < 2.5 && shorts_y > 0.0 && r.y < shorts_y + (denim ? fray(lp) : 0.0)) {
@@ -213,6 +258,9 @@ bool bare(float c, vec2 r, vec3 lp, float fr, float nx) {
 	}
 	if (c > 0.5 && c < 1.5 && ((crop_y > 0.0 && r.y < crop_y && abs(r.x) < 0.26) || abs(r.x) > sleeve_x
 			|| (tube_y > 0.0 && r.y > tube_y))) {
+		return true;
+	}
+	if (vest_open && c > 0.5 && c < 1.5 && fr > 0.5 && abs(r.x) < vest_half(r.y) && r.y > 0.97) {
 		return true;
 	}
 	return false;
@@ -360,6 +408,9 @@ void fragment() {
 	} else if (c > 0.5 && c < 2.5 && bare(c, rest, lpos, front, rest_nx)) {
 		// Vaatteen alta paljas iho: tasainen ihonsävy (pohjatekstuurissa näillä kohdin on puku).
 		ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos);
+		if (chest_hair) {
+			ALBEDO = mix(ALBEDO, body_hair, 0.85 * chest_hair_amt(rest, front));
+		}
 		ROUGHNESS = 0.55;
 		SSS_STRENGTH = 0.35;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
@@ -456,6 +507,29 @@ void fragment() {
 			if (lpos.z > 0.0 && abs(rest.x) < 0.035) {
 				float rim = step(0.026, abs(rest.x)) + step(abs(rest.y - (belt_y - 0.02)), 0.02) * step(0.0, -abs(rest.x) + 0.035);
 				cloth = mix(vec3(0.62, 0.63, 0.65), vec3(0.85, 0.86, 0.88), step(0.5, rim));
+			}
+		}
+		if (vest_open && c > 0.5 && c < 1.5 && abs(rest.x) < sleeve_x) {
+			// Nahkaliivi: hienojakoinen nahan kuvio, aukon reunassa taitettu reunus ja tikkaus, kaarrokesauma,
+			// painonapit vasemmassa etukappaleessa ja taskujen aukot. Takana pelkkä nahka.
+			cloth *= 0.9 + 0.1 * hash21(floor(rest * 420.0));
+			float ax = abs(rest.x);
+			float e = ax - vest_half(rest.y);  // etäisyys aukon reunasta (edessä)
+			if (front > 0.5 && rest.y > 0.97) {
+				cloth *= 1.0 - 0.32 * (1.0 - smoothstep(0.004, 0.009, e));  // taitettu reunus
+				cloth = mix(cloth, cloth * 1.6, step(abs(e - 0.012), 0.0012) * step(0.5, fract(rest.y * 150.0)));  // tikkaus
+				// Kaarrokesauma: rinnan poikki kädenaukosta aukolle laskeva kaari.
+				float yoke = 1.36 - 0.55 * (0.17 - ax) * (0.17 - ax) * 6.0;
+				cloth *= 1.0 - 0.35 * step(abs(rest.y - yoke), 0.0025) * step(0.0, e);
+				// Painonapit vasemmalla (+x) reunan vieressä.
+				if (rest.x > 0.0) {
+					vec2 snap = vec2(vest_half(rest.y) + 0.022, 1.02 + floor((rest.y - 1.02) / 0.07 + 0.5) * 0.07);
+					float sd = length(vec2(ax, rest.y) - snap);
+					cloth = mix(cloth, vec3(0.62, 0.5, 0.28), (1.0 - smoothstep(0.0055, 0.007, sd)) * step(rest.y, 1.24));
+				}
+				// Taskujen aukot alhaalla: tumma viisto viilto.
+				float pk = abs(rest.y - (1.06 + 0.12 * (ax - 0.1)));
+				cloth *= 1.0 - 0.5 * step(pk, 0.003) * step(0.075, ax) * step(ax, 0.16);
 			}
 		}
 		// Kankaan kude: hienot raidat + tekstuurin varjostus säilyy.

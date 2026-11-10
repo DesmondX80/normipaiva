@@ -207,6 +207,7 @@ func _build() -> void:
 	taxi.rotation.y = PI / 2.0
 	add_child(taxi)
 	Vehicles.taxi(taxi)
+	Vehicles.kuski(taxi, "mercedes", load("res://scripts/looks.gd").TAXI_DRIVER)  # kuski odottaa paluukyytiä
 	for p in [Vector3(-14.0, 0, -1.0), Vector3(-4.0, 0, 4.5), Vector3(2.0, 0, 5.0), Vector3(10.0, 0, 2.5), Vector3(13.5, 0, -3.0)]:
 		_birch(p, 0.9 + fposmod(p.x, 0.3))
 	var lamp := OmniLight3D.new()

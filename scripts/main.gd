@@ -350,6 +350,7 @@ const PyhakoskiLegenda := preload("res://scripts/pyhakoski_legenda.gd")
 const MesseniusLegenda := preload("res://scripts/messenius_legenda.gd")
 const KalajokiLegenda := preload("res://scripts/kalajoki_legenda.gd")
 const RaateLegenda := preload("res://scripts/raate_legenda.gd")
+const Korkit := preload("res://scripts/korkit.gd")
 const RantapalloGame := preload("res://scripts/rantapallo_game.gd")
 const RotkoGame := preload("res://scripts/rotko_game.gd")
 const KanttoriLegenda := preload("res://scripts/kanttori_legenda.gd")
@@ -468,6 +469,7 @@ var hiidenportti: RefCounted  # Hiidenportin rotko (hiidenportti_legenda.gd, #25
 var pyhakoski: RefCounted  # Pyhäkosken kylä (pyhakoski_legenda.gd, #250 P16)
 var messenius: RefCounted  # Kajaanin linna ja Messenius (messenius_legenda.gd, #250 P17-P18)
 var kalajoki: RefCounted  # Kalajoen Hiekkasärkät, rantajalkapallo (kalajoki_legenda.gd, #250 P19)
+var korkit: RefCounted  # pullonkorkkien keräily (korkit.gd, #290)
 var raate: RefCounted  # Raatteen Portti, talvisodan muistopaikka (raate_legenda.gd, #250 P20)
 var vanhaherra: RefCounted  # Raahen satama: Vanha herra ja sukellus (vanhaherra_legenda.gd, #250 P11)
 var wanharaahe: RefCounted  # Wanha Raahe -kävelykierros ja ovikuva (wanharaahe_legenda.gd, #250 P8)
@@ -941,6 +943,7 @@ const TALKERS := {
 	"reippari": ["Reipparin Raija", Color(1.0, 0.6, 0.25)],
 	"reippari_nuoret": ["Kioskin porukka", Color(0.6, 0.9, 1.0)],
 	"veksi": ["Veksi", Color(0.75, 0.65, 0.95)],
+	"korkkiraimo": ["Korkki-Raimo", Color(0.95, 0.8, 0.35)],
 	"seo": ["Huoltiksen myyjä", Color(0.4, 0.85, 0.55)],
 	"vahtimestari": ["Vahtimestari Reijo", Color(0.7, 0.75, 0.8)],
 	"seppo": ["Seppo", Color(0.95, 0.75, 0.4)],
@@ -955,6 +958,7 @@ const TALKERS := {
 	"katsastaja": ["Katsastusmies", Color(0.6, 0.75, 1.0)],
 	"hitsari": ["Arttimin hitsari", Color(1.0, 0.65, 0.3)],
 	"kolmio_saloinen": ["Joni ja Esa", Color(0.75, 0.88, 1.0)],
+	"pentti": ["Pentti", Color(1.0, 0.5, 0.35)],  # Pentin BangBus (#299, rikos/pentti.gd)
 	"kolmio_vaala": ["Hevari-Tero ja Siviikki-Timo", Color(1.0, 0.55, 0.45)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
@@ -1320,6 +1324,7 @@ func _ready() -> void:
 	messenius = MesseniusLegenda.new()
 	kalajoki = KalajokiLegenda.new()
 	raate = RaateLegenda.new()
+	korkit = Korkit.new()
 	kanttori = KanttoriLegenda.new()
 	lemmikki = LemmikkiEnkelit.new()
 	ukko = UkkoLegenda.new()
@@ -1858,6 +1863,8 @@ func _outside_logic() -> void:
 	_aarni_logic()
 	_pyhimys_logic()
 	_olavi_logic()
+	_mmkorkki_logic()
+	_korkki_loydot()
 	_kuningas_logic()
 	_kanttori_logic()
 	_koulu_logic()
@@ -2989,6 +2996,7 @@ func _enter_kirppis(mode := "kirppis") -> void:
 	kirppis_int.auction_done = _auction_day == day
 	kirppis_int.drakkar.visible = drakkar <= 0
 	kirppis_int.haalari.visible = not has_haalari
+	kirppis_int.weekday = _weekday()  # Korkki-Raimo vain lauantaisin
 	kirppis_int.enter(mode)
 	if Looks.outfit == "hiihtohaalari" and mode != "bingo" and _once_today("haalari_seura"):
 		kirppis_int.say_id("annaliisa", ["Voi taivas, onko se hiihtokeli sisällä? Hahhah!",
@@ -3212,6 +3220,16 @@ func _talk_kirppis(id: String) -> void:
 	if id == "huuto":
 		_talk_box.close()
 		_start_auction()
+		return
+	if id == "korkit_poyta":
+		var n: int = korkit.tuplat()
+		korkit.take_tuplat(n)
+		var tulo := snappedf(n * KORKKI_POYTA_HINTA, 0.05)
+		money += tulo
+		_advance_clock(20.0)
+		Sfx.play("coin", -4.0)
+		_talk_box.reply("Korkkeja? No, pikkupojat ostaa. Kymmenen senttiä kappale, ei enempää.", _talk_options(),
+			"Myit %d tuplakorkkia pöydältä, +%s €. Kansion korkit jäivät." % [n, _eur(tulo)])
 		return
 	if id == "poyta_vuokraa" or id == "poyta_mene":
 		if id == "poyta_vuokraa":
@@ -3438,6 +3456,8 @@ func _myynti_options(o: Array) -> void:
 	if _myynti_ban >= day:
 		o.append(_opt("poyta_x", "Pöytäpaikka (myyntikielto huomiseen)", false, "Hilkka: \"Ei kaljakauppiaille.\""))
 	elif _myynti_day == day:
+		if korkit.tuplat() > 0:
+			o.append(_opt("korkit_poyta", "Myy tuplakorkit omalta pöydältä (%s € / kpl)" % _eur(KORKKI_POYTA_HINTA), true, "", true))
 		o.append(_opt("poyta_mene", "Mene oman pöydän taakse (paikka maksettu)", not _myynti_stock().is_empty(),
 			"repussa ei ole myytävää", true))
 	else:
@@ -8155,6 +8175,8 @@ func quest_flag(name: String) -> bool:
 	match name:
 		"paapeli":
 			return endings.counts.has("paapeli")
+		"korkit_kaikki":
+			return korkit.distinct() >= Korkit.total_slots()
 		"taimet_pyydetty":
 			return sinikka_taimet >= 1  # Sinikka on pyytänyt taimia (40 %:n juttu), ei pelkkä tapaaminen
 		"orava_sormus":
@@ -8215,6 +8237,36 @@ func quest_progress(key: String) -> String:
 				if asema_katkot.get(t, 0) == 2:
 					n += 1
 			return "%d / 2" % n
+		"tietokonemuseo":
+			return "voittoja %d, ennätys %d" % [tietokonemuseo.voitot, tietokonemuseo.parhaat] if tietokonemuseo.voitot > 0 else ""
+		"wanharaahe":
+			return "kuvat %d / %d" % [wanharaahe.kuvat.size(), WanharaaheLegenda.STOPS.size()]
+		"kuvakirkko":
+			return "löydetty %d / %d" % [kuvakirkko.found.size(), KuvakirkkoLegenda.TOTAL]
+		"vanhaherra":
+			return "sukelluksia %d" % vanhaherra.sukelluksia if vanhaherra.sukelluksia > 0 else ""
+		"karhut":
+			return "paras kuva %d / 100" % karhut.paras if karhut.yrityksia > 0 else ""
+		"hiidenportti":
+			return "nousuja %d" % hiidenportti.nousuja if hiidenportti.nousuja > 0 else ""
+		"pyhakoski":
+			return "tarinat %d / 3" % pyhakoski.kuultu()
+		"messenius":
+			return "koettu %d / 3" % messenius.kuultu()
+		"raate":
+			return "käyty %d / 3" % raate.kuultu()
+		"kalajoki":
+			return "harjoituspelejä voitettu %d" % kalajoki.harjoitus if kalajoki.harjoitus > 0 and kalajoki.voitot == 0 else ""
+		"korkit":
+			return "kansiossa %d / %d, tuplia %d" % [korkit.distinct(), Korkit.total_slots(), korkit.tuplat()]
+		"tekemiset":
+			return "kokeiltu %d / %d" % [TEKEMISET.filter(func(k): return k in tilat.firsts).size(), TEKEMISET.size()]
+		"hanttihommat":
+			var n := 0
+			for k in HANTTIHOMMAT:
+				if k in tilat.firsts:
+					n += 1
+			return "kokeiltu %d / %d" % [n, HANTTIHOMMAT.size()]
 	return ""
 
 
@@ -8236,10 +8288,20 @@ func journal_data() -> Dictionary:
 			"total": endings.total(kind), "list": list}
 	d["stashes"] = _stash_journal()
 	d["riskit"] = _rikos_riskit()
+	d["korkit"] = korkit.owned.duplicate()
+	d["korkit_piilossa"] = korkit.piilossa
 	for s in d.side:
 		s["spot"] = not s.done and not quest_spots(s.id).is_empty()
 	_save_game()
 	return d
+
+
+## Muiden paikkakuntien tehtävät: "näytä kartalla" osoittaa K-Marketin taksitolpalle (retket.gd, lähtö taksilla). Kartalle
+## niistä ei piirretä omia renkaita (kaikki samassa paikassa), vain kompassi.
+const TEKEMISET := ["juoksulenkki", "lintutorni", "ronttonen", "hedelmapeli", "pajatso", "muskelivene", "juhannuskokko"]  # quests.gd tekemiset
+const HANTTIHOMMAT := ["keikkatyo", "kesaduuni", "tyokkari", "pullonkeraus", "kioski_hengailu"]  # quests.gd hanttihommat
+const TAXI_QUESTS := ["kalajoki", "kalalampi", "pubivisa", "hanhikiven_rajakivi", "pakkahuoneen_veistos", "peruskiven_kapseli", "manamansalon_kirkko", "tietokonemuseo",
+	"wanharaahe", "kuvakirkko", "vanhaherra", "karhut", "hiidenportti", "pyhakoski", "messenius", "raate"]
 
 
 ## Sivutehtävän paikat (maailman x/z) kartan lyijykynämerkintöihin ja päiväkirjan "Näytä kartalla" -linkkiin.
@@ -8247,6 +8309,8 @@ func journal_data() -> Dictionary:
 func quest_spots(id: String) -> Array:
 	var v3 := func(p: Vector3) -> Vector2:
 		return Vector2(p.x, p.z)
+	if id in TAXI_QUESTS:
+		return [v3.call(world.taxi_pos)] if world.taxi_pos != Vector3.ZERO else []  # retki lähtee taksitolpalta
 	match id:
 		"kauppalista":
 			return [M.w2(M.SHOP_ZONE)]
@@ -8272,6 +8336,12 @@ func quest_spots(id: String) -> Array:
 			return [M.w2(M.LEMMIKKI)]
 		"raahe":
 			return [v3.call(world.taxi_pos)] if world.taxi_pos != Vector3.ZERO else []
+		"olavinmarkkinat", "kuninkaan_tapuli":
+			return [M.w2(M.KIRKKO)]  # kirkon rannan luoto ja kellotapuli kirkon vieressä
+		"kanttorin_yosavel":
+			return [M.w2(M.KANTTORILA)]
+		"pihapingis":
+			return [M.w2(M.KOULUKESKUS)]
 		"asemakatkot":
 			return [v3.call(world.station_pos)] if world.station_pos != Vector3.ZERO else []
 		"volvo":
@@ -8304,6 +8374,8 @@ func quest_spots(id: String) -> Array:
 			return [M.w2(M.REIPPARI)]
 		"miisu":
 			return [M.w2(M.AARO_HOUSE)]
+		"mmkorkki":
+			return [M.w2(M.NEIGHBOR_PEKKA)] if "mmkorkki_pekka" in tilat.firsts else []
 	return []
 
 
@@ -8324,6 +8396,8 @@ func quest_marks(on_map := false) -> Array:
 		for i in spots.size():
 			if on_map and (spots[i] as Vector2).distance_to(home) < 40.0:
 				continue  # kodin hommat: koti on kartalla muutenkin
+			if on_map and q.id in TAXI_QUESTS:
+				continue  # retket: taksitolppa, ei kymmentä rengasta päällekkäin
 			var h := absi(hash(q.id + str(i)))
 			var a := (h % 1000) / 1000.0 * TAU
 			var off := 18.0 + ((h / 1000) % 1000) / 1000.0 * 22.0
@@ -8340,10 +8414,15 @@ func show_quest_on_map(id: String) -> void:
 			near = m[1]
 	if near == Vector2.INF:
 		return
+	if id in TAXI_QUESTS:
+		near = Vector2(world.taxi_pos.x, world.taxi_pos.z)  # tarkka paikka: taksi vie perille
 	_paper.target = near
 	_paper.has_target = true
 	if _journal.visible:
 		_journal.toggle()
+	if id in TAXI_QUESTS:
+		_show_message("Kompassi näyttää taksitolpalle (K-Market). Taksi vie perille. Kartalla (%s) näkyy suunta." % Settings.action_key("map"), 3.5)
+		return
 	_show_message("Kompassi näyttää suunnan. Kartalla (%s) paikka on ympyröity lyijykynällä." % Settings.action_key("map"), 3.5)
 
 
@@ -8556,6 +8635,7 @@ func _enter_home(door: String) -> void:
 	player.speed = 0.0
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	tilat.first("koti_sisalla", 0.1)
+	_paivi_korkit()
 	home_int.carrying = beers > 0 or has_kanister
 	home_int.phone_found = phone.found
 	home_int.enter(door)
@@ -10220,12 +10300,274 @@ func _pleasant_spot() -> bool:
 
 ## Kalja (tai useampi): humala nousee, kipu hellittää, mutta moraali ja keskittyminen kärsivät.
 func _drink(n: int) -> void:
+	for i in n:
+		_korkki("kalja")
 	tilat.add("humala", 0.12 * n)
 	tilat.add("kipu", 0.05 * n)
 	tilat.add("stamina", 0.05 * n)
 	tilat.add("nalka", 0.04 * n)
 	tilat.add("moraali", -0.04 * n)
 	tilat.add("keskittyminen", -0.05 * n)
+
+
+## Avatusta pullosta jää korkki (#290): ensimmäinen aloittaa kansion, uusi ja harvinainen korkki kerrotaan.
+func _korkki(laji: String) -> void:
+	_korkki_key(Korkit.roll(laji, _korkki_rng, _juhannus()))
+	# Voittokorkki: korkin alla "VOITIT PULLON", kauppa vaihtaa uuteen kaljaan (lisätään suoraan reppuun).
+	if laji == "kalja" and not "uusi_yritys" in tilat.firsts and _korkki_rng.randf() < 0.1:
+		tilat.first("uusi_yritys", 0.0)
+		_queue_message("Korkin alla lukee \"UUSI YRITYS\". Kampanjakorkkeja! Joskus siinä lukee \"VOITIT PULLON\".", 3.5)
+	elif laji == "kalja" and _korkki_rng.randf() < Korkit.VOITTO_P:
+		beers += 1
+		tilat.first("voittokorkki", 0.1)
+		Sfx.play("win_small", -8.0)
+		_queue_message("Korkin alla lukee \"VOITIT PULLON\"! Kassalla vaihdettiin uuteen. Kalja +1.", 3.5)
+
+
+## Korkki kansioon (juominen, pullonkeräys, kirppiksen korkkilaatikko). Palauttaa true, jos se oli uusi.
+func _korkki_key(key: String) -> bool:
+	var uusi: bool = korkit.add(key)
+	if korkit.new_full(key.split(":")[0]):
+		tilat.add("moraali", 0.2)
+		maine = clampf(maine + 2.0, 0.0, 100.0)
+		Sfx.play("win_small", -6.0)
+		_queue_message("Korkkikansion aukeama täynnä: %s! Kiitostarra kulmaan. Maine +2." % Korkit.BRANDS[key.split(":")[0]].nimi, 4.0)
+		return uusi
+	if tilat.first("korkki", 0.1):
+		_queue_message("Korkki jäi käteen. \"Tää korkki on harvinainen... vai onko?\" Korkkikansio alkaa tästä.", 4.0)
+	elif uusi and not key.ends_with(":tavallinen"):
+		Sfx.play("pickup", -8.0, 1.4)
+		_queue_message("Korkkikansioon harvinainen: %s! (%d / %d)" % [Korkit.nimi(key), korkit.distinct(), Korkit.total_slots()], 3.5)
+	return uusi
+
+
+## Monta korkkia kerralla (pullonkeräys, laatikko): palauttaa lyhyen kuvauksen ilmoitukseen.
+func _korkit_kasa(n: int) -> String:
+	var uudet: Array = []
+	for i in n:
+		var key := Korkit.roll("kalja" if _korkki_rng.randf() < 0.5 else "limu", _korkki_rng, _juhannus())
+		if _korkki_key(key):
+			uudet.append(Korkit.nimi(key))
+	return "%d korkkia%s" % [n, (", uusi: " + ", ".join(uudet)) if not uudet.is_empty() else ""]
+
+
+var _korkki_rng := RandomNumberGenerator.new()
+const KORKKI_VIRHE_HINTA := 15.0  # Korkki-Raimo ostaa tupla-virhepainoksen
+
+
+## Korkkiläpsy (#290, korkki_game.gd): Vaalan lavan pihan teinit illalla 18–23 kerran päivässä. Kumpikin panee 3 tuplaa
+## (pelaajalta vain tuplat, teiniltä muiden pitäjien korkkeja), voitetut korkit kansioon.
+const KorkkiGame := preload("res://scripts/korkki_game.gd")
+var _lapsy_day := -1
+var _lapsy_game: Node3D
+
+
+func _start_korkkilapsy() -> void:
+	if mopo_trip == null or mopo_trip.vaala == null or _lapsy_game != null or korkit.tuplat() < 3:
+		return
+	var vl: Node3D = mopo_trip.vaala
+	var out := Vector3(0, 0, 1)
+	for d in vl.doors:
+		if d.id == "pihanuoret":
+			out = d.out
+	var mine: Array = korkit.take_tuplat_keys(3)
+	_lapsy_day = day
+	var g := KorkkiGame.new()
+	g.drunk = tilat.value("humala")
+	for k in mine:
+		g.stack.append({"key": k, "up": false})
+		g.stack.append({"key": Korkit.roll("kalja" if randf() < 0.5 else "limu", _korkki_rng, _juhannus()), "up": false})
+	# Pelipaikka teinien vierestä pihalle päin, asfaltin korkeudella; kävelijä piiloon (oma kyykkyhahmo pelissä).
+	var spot: Vector3 = vl.yard_teens_pos + out * 3.0
+	spot.y = vl.h(spot.x, spot.z)
+	g.face = out
+	g.position = spot
+	mopo_trip.stop()
+	if is_instance_valid(mopo_trip.on_foot):
+		mopo_trip.on_foot.visible = false
+	_hud.visible = false
+	CamCtl.free_mouse = true
+	tilat.first("korkkilapsy", 0.3)
+	g.finished.connect(_on_korkkilapsy_finished)
+	_lapsy_game = g
+	vl.add_child(g)
+
+
+## Saloisten kaukalo: sama peli kaukalon iltateinien vieressä (hs_teens), pelaaja piiloon pelin ajaksi.
+func _start_korkkilapsy_kaukalo() -> void:
+	if _lapsy_game != null or not is_instance_valid(hs_teens) or korkit.tuplat() < 3:
+		return
+	var mine: Array = korkit.take_tuplat_keys(3)
+	_lapsy_day = day
+	var g := KorkkiGame.new()
+	g.drunk = tilat.value("humala")
+	for k in mine:
+		g.stack.append({"key": k, "up": false})
+		g.stack.append({"key": Korkit.roll("kalja" if randf() < 0.5 else "limu", _korkki_rng, _juhannus()), "up": false})
+	# Kaukalon asfaltilla laidan vieressä teinien kohdalla (world.gd: kaukalo leveys 24 m X:n suunnassa, kierto 0,35,
+	# asfaltin pinta y 0,045; teinien ringin keskipiste laidan takana X 15,5). Kamera kaukalon keskeltä päin.
+	var kc := M.w2(M.KAUKALO)
+	var spot := Vector3(kc.x, Terrain.h(kc.x, kc.y) + 0.045, kc.y) + Vector3(9.5, 0, 2.5).rotated(Vector3.UP, SaloinenTeinit.RINK_YAW)
+	g.face = Vector3(-1, 0, 0).rotated(Vector3.UP, SaloinenTeinit.RINK_YAW)
+	g.position = spot
+	g.opp_name = "Tuomas"
+	g.opp_look = SaloinenTeinit.LOOKS[2]  # kaukalon teini: punainen paita ja lippis
+	player.visible = false
+	player.controls_enabled = false
+	_hud.visible = false
+	CamCtl.free_mouse = true
+	tilat.first("korkkilapsy", 0.3)
+	g.finished.connect(func(won: Array, quit: bool) -> void:
+		player.visible = true
+		player.controls_enabled = true
+		player.activate_camera()
+		_on_korkkilapsy_finished(won, quit))
+	_lapsy_game = g
+	_hazards.add_child(g)
+
+
+func _on_korkkilapsy_finished(won: Array, quit: bool) -> void:
+	_lapsy_game = null
+	CamCtl.free_mouse = false
+	_hud.visible = true
+	if mopo_trip != null and is_instance_valid(mopo_trip.on_foot):
+		mopo_trip.on_foot.visible = true
+	if mopo_trip != null:
+		_mopo_resume()
+	var uudet: Array = []
+	for k in won:
+		if _korkki_key(k):
+			uudet.append(Korkit.nimi(k))
+	_advance_clock(20.0)
+	if won.size() > 3:
+		tilat.first("korkkilapsy_voitto", 0.3)
+		tilat.add("moraali", 0.1)
+	_save_game()
+	_show_message(("Lopetit kesken. " if quit else "") + "Korkkiläpsystä %d korkkia (panos 3)%s." % [won.size(),
+		(", uusi: " + ", ".join(uudet)) if not uudet.is_empty() else ""], 4.0)
+
+
+## Kultainen MM-korkki (#290): Raimo kertoo legendan, Pekka muistaa heittäneensä korkin saunan takaa pihan
+## kivikkoon (Pekan talon pääty, world.neighbor_yards.pekka[3]); siellä kiiltää, E nostaa kerran. Raimo tarjoaa 200 €.
+const MMKORKKI_HINTA := 200.0
+
+
+func _mmkorkki_pos() -> Vector3:
+	var y: Array = world.neighbor_yards.get("pekka", [])
+	return y[3] if y.size() > 3 else Vector3.ZERO
+
+
+func _mmkorkki_logic() -> void:
+	if korkit == null or world == null or not "mmkorkki_pekka" in tilat.firsts or korkit.owned.has("mmkorkki"):
+		return
+	if _hint.text != "" or player == bike or state != "ulkona":
+		return
+	var c := _mmkorkki_pos()
+	var p := player.global_position
+	if c == Vector3.ZERO or Vector2(p.x - c.x, p.z - c.z).length() > 2.2:
+		return
+	_hint.text = "[E] Jokin kiiltää kivien välissä"
+	if Input.is_action_just_pressed("interact"):
+		_mmkorkki_pick()
+
+
+func _mmkorkki_pick() -> void:
+	if korkit.owned.has("mmkorkki"):
+		return
+	korkit.owned["mmkorkki"] = 1
+	tilat.first("mmkorkki", 0.5)
+	maine = clampf(maine + 3.0, 0.0, 100.0)
+	Sfx.play("win", -4.0)
+	_save_game()
+	_show_message("Kultainen korkki, kyljessä \"MM 1995\". Kolmekymmentä vuotta Pekan kivikossa. Korkkikansion kansilehteen! Maine +3.", 6.0)
+
+
+## Päivi ja korkkikansio (#290): kerran päivässä kotiin tullessa, jos kansiossa on kaljakorkkeja yli viisi. Mitä
+## enemmän kaljakorkkeja limukorkkeihin nähden, sitä enemmän moraali kärsii.
+func _paivi_korkit() -> void:
+	if korkit == null or korkit.piilossa:
+		return
+	var kalja := 0
+	var limu := 0
+	for k in korkit.owned:
+		var b: String = k.split(":")[0]
+		if Korkit.BRANDS.has(b):
+			if Korkit.BRANDS[b].laji == "kalja":
+				kalja += int(korkit.owned[k])
+			else:
+				limu += int(korkit.owned[k])
+	if kalja < 6 or not _once_today("paivi_korkit"):
+		return
+	tilat.add("moraali", -0.03 * clampf(float(kalja) / maxf(1.0, limu + 1.0), 1.0, 4.0))
+	_queue_message("Päivi selaa korkkikansiota: \"%d kaljankorkkia. Montako kaljaa tässä kansiossa on, häh? Ja limua %d.\"" % [kalja, limu], 5.0)
+
+
+## Korkki-Raimo kirppiksellä (#290): vaihtaa kaksi tuplaa puuttuvaan (ei virhepainoksia), ostaa tupla-virhepainoksia
+## ja kertoo kultaisen MM-korkin legendan.
+func _talk_korkkiraimo(id: String) -> void:
+	match id:
+		"korkki_vaihda":
+			var puuttuu: Array = korkit.missing()
+			if puuttuu.is_empty() or not korkit.take_tuplat(2):
+				_talk_box.reply("Ei oo mitään vaihdettavaa, poika.", _talk_options())
+				return
+			var key: String = puuttuu[_korkki_rng.randi() % puuttuu.size()]
+			_korkki_key(key)
+			Sfx.play("pickup", -6.0, 1.3)
+			_talk_box.reply(["Kaks tuplaa yhestä. Reilu kauppa, sano pankinjohtaja.", "Tää on mulla kolmena. Ota sää.",
+				"Pidä hyvänä. Korkki on kuin ihminen, ei kahta samanlaista. Paitsi tuplat."].pick_random(), _talk_options(),
+				"Vaihdoit kaksi tuplaa: %s kansioon (%d / %d)." % [Korkit.nimi(key), korkit.distinct(), Korkit.total_slots()])
+		"korkki_myy":
+			if not korkit.take_tuplat(1, "virhe"):
+				return
+			money += KORKKI_VIRHE_HINTA
+			Sfx.play("coin", -4.0)
+			_talk_box.reply("Virhepainos! Logo väärin päin. Näitä mää etsin. Viistoista euroa, ja kiitos.", _talk_options(),
+				"Myit tupla-virhepainoksen. Rahaa %s €." % _eur(money))
+		"korkki_mm_myy":
+			korkit.owned.erase("mmkorkki")
+			tilat.first("mmkorkki_myyty", 0.2)
+			money += MMKORKKI_HINTA
+			Sfx.play("coin", -2.0)
+			_talk_box.reply("Kultainen! Mää oon etsiny tätä kolkytä vuotta. Tässä, ja kiitos. Sää et tiä mitä tää mulle merkkaa.",
+				_talk_options(), "Myit kultaisen MM-korkin. Rahaa %s €." % _eur(money))
+		"korkki_legenda":
+			tilat.first("mmkorkki_legenda", 0.2)
+			_talk_box.reply("Keväällä 95, ku Suomi voitti kiekon MM-kultaa, Oulun panimo teki juhlaerän kultaisilla korkeilla. " +
+				"Sanotaan, että viimeinen säilyny korkki on täällä pitäjässä. Pekka kuulemma joi sen kaljan saunan jälkeen... " +
+				"Se korkki lens jonnekin. Jos löydät, mää maksan siitä hyvin.", _talk_options())
+const KORKKI_LAATIKKO := 0.10  # kirppiksen korkkilaatikko, €/korkki
+const KORKKI_POYTA_HINTA := 0.10  # tuplakorkit omalta kirppispöydältä, €/kpl
+## Kiiltävät korkit maastosta (#290): uimaranta, laavu ja Viitajärven laavu, kerran päivässä paikkaa kohden, kun kansio
+## on aloitettu. Paikka on kiinteä siirtymä alueen keskeltä (hiekka ja nuotiopaikan reuna).
+const KORKKI_LOYDOT := {"laavu": [M.LAAVU, Vector3(2.5, 0, -2.0)],
+	"viita": [M.VIITA_LAAVU, Vector3(-2.5, 0, 2.0)]}
+
+
+## Uimarannalla löytö penkin vierestä (world.uimaranta_bench on varmasti hiekalla, ei vedessä).
+func _korkki_loyto_ids() -> Array:
+	return ["uimaranta"] + KORKKI_LOYDOT.keys()
+
+
+func _korkki_loyto_pos(id: String) -> Vector3:
+	if id == "uimaranta":
+		return world.uimaranta_bench + Vector3(1.4, 0, 0.6)
+	return M.w(KORKKI_LOYDOT[id][0]) + KORKKI_LOYDOT[id][1]
+
+
+func _korkki_loydot() -> void:
+	if korkit == null or not "korkki" in tilat.firsts or _hint.text != "" or player == bike or state != "ulkona":
+		return
+	for id in _korkki_loyto_ids():
+		var c := _korkki_loyto_pos(id)
+		if not _near_xz(c, 1.8) or ("korkki_maa_" + id) in _today:
+			continue
+		_hint.text = "[E] Jokin kiiltää maassa"
+		if Input.is_action_just_pressed("interact"):
+			_today.append("korkki_maa_" + id)
+			var mita := _korkit_kasa(1)
+			_show_message("Maasta löytyi korkki: %s." % mita.trim_prefix("1 korkkia, uusi: ").trim_prefix("1 korkkia"), 3.0)
+		return
 
 
 func _eat(amount: float) -> void:
@@ -11366,6 +11708,8 @@ func _kolmio_logic() -> void:
 	_kolmio_follow([_kolmio_joni, _kolmio_esa], walker_out if going and player == walker_out else null, going)
 	if _hint.text != "" or _kolmio_ui != null:
 		return
+	if going:
+		return  # mittauksen aikana kaverit seuraavat vieressä: juttelu ja koputus vasta muiden toimintojen jälkeen (_kolmio_measure_logic)
 	for npc: CharacterBody3D in [_kolmio_joni, _kolmio_esa]:
 		if npc.visible and npc.distance_to_player() < 4.2:
 			_talk_hint("kolmio_saloinen", npc, player != bike)
@@ -11396,6 +11740,23 @@ func _kolmio_measure_logic() -> void:
 	if _hint.text != "" or _kolmio_ui != null or player == bike or kolmio.stage("saloinen") != "mittaus":
 		return
 	var p := _kolmio_me("saloinen")
+	# Seuraavat kaverit ovat aina vieressä, joten koputus ja juttelu tulevat vasta muiden E-toimintojen jälkeen:
+	# ensin ovi, sitten kaveri, jota pelaaja katsoo päin (lähellä), lopuksi Sytkärin mittaus.
+	for dd: Array in _kolmio_door_list("saloinen"):
+		if p.distance_to(dd[0]) < KOLMIO_DOOR_R:
+			_hint.text = "[E] Koputa oveen"
+			if Input.is_action_just_pressed("interact") and not player.is_stunned():
+				_kolmio_knock("saloinen", dd[1])
+			return
+	var eteen := -player.global_transform.basis.z
+	for npc: CharacterBody3D in [_kolmio_joni, _kolmio_esa]:
+		if not npc.visible or npc.distance_to_player() > 2.5:
+			continue
+		var suunta := npc.global_position - player.global_position
+		suunta.y = 0.0
+		if suunta.length() > 0.01 and Vector2(eteen.x, eteen.z).normalized().dot(Vector2(suunta.x, suunta.z).normalized()) > 0.6:
+			_talk_hint("kolmio_saloinen", npc, true)
+			return
 	if not kolmio.can_measure("saloinen", p):
 		return
 	_hint.text = "[E] Avaa Sytkäri: kuinka kaukana Minttu on?"
@@ -11420,6 +11781,9 @@ func _kolmio_vaala_logic() -> void:
 			if d.id == "kolmio_kaverit":
 				d.pos = mopo_trip.vaala.to_local(_kolmio_vaala_npcs[0].global_position) if f != null \
 					else _kolmio_vaala_spots.get("door_home", d.pos)
+				# Seuraavana juttelupiste on aina vieressä: pieni säde (5 m pienempi etusija), jotta ovet ja muut
+				# toiminnot voittavat sen; kotipaikalla iso säde, jotta Teron ja Timon löytää (#8572288).
+				d["r"] = 2.5 if f != null else 7.0
 	if kolmio.remote_step("vaala", get_process_delta_time()):
 		_kolmio_remote("vaala")
 	if _hint.text != "" or _kolmio_ui != null or mopo_trip.on_foot == null or _talk_box.is_open() \
@@ -11537,12 +11901,196 @@ func _kolmio_road_spot(vl: Node3D, car: Vector2, start: Vector2, tgt: Vector2) -
 	var step := 1 if bi >= i0 else -1
 	for i in range(i0, bi + step, step):
 		route.append(Vector3(road[i][0], road[i][1], road[i][2]))
-	return {"remote": at, "remote_name": place, "route": route}
+	return {"remote": at, "remote_name": place, "route": route, "road_i0": i0, "road_bi": bi}
+
+
+const SIVIIKKI_BOX := Vector3(1.8, 1.0, 4.0)  # Civicin törmäyslaatikko reitin tarkistuksessa (0,4–1,4 m maasta)
+const SIVIIKKI_CELL := 2.0  # reitinhaun ruutu (m)
+const SIVIIKKI_HAKU := 240.0  # reitinhaun säde aseman pihasta (m)
+
+
+## Este Civicin kohdalla (xz-taso kohteen kehyksessä vl, keula fwd): rakennukset ja muut kiinteät esteet, ei maastoa,
+## ei Siviikkiä itseään eikä hahmoja tai mopoa (ne väistävät tai ovat kyydissä).
+func _siviikki_este(vl: Node3D, p: Vector2, fwd: Vector2, size := SIVIIKKI_BOX) -> bool:
+	var q := PhysicsShapeQueryParameters3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	q.shape = box
+	q.collision_mask = 0xFFFFFFFF & ~Terrain.COLLISION_LAYER
+	var lp := Vector3(p.x, vl.h(p.x, p.y) + 0.9, p.y)
+	q.transform = vl.global_transform * Transform3D(Basis(Vector3.UP, atan2(-fwd.x, -fwd.y)), lp)
+	for h: Dictionary in vl.get_world_3d().direct_space_state.intersect_shape(q, 8):
+		var col: Object = h.collider
+		if col == null or col is CharacterBody3D or (col is Node and _kolmio_civic != null and _kolmio_civic.is_ancestor_of(col)):
+			continue
+		return true
+	return vl.wet(p.x, p.y)
+
+
+## Suora a -> b vapaa (Civic 1,5 m välein suoran suuntaisena).
+func _siviikki_suora(vl: Node3D, a: Vector2, b: Vector2) -> bool:
+	var l := a.distance_to(b)
+	var fwd := (b - a) / maxf(l, 0.001)
+	var d := 0.0
+	while d <= l:
+		if _siviikki_este(vl, a + fwd * d, fwd):
+			return false
+		d += 1.5
+	return true
+
+
+## Siviikin reitti (lasketaan kerran ajon alussa, kun rakennusten törmäysmuodot ovat fysiikassa): aseman pihasta
+## Vaalantielle ja tietä pitkin mittauspisteeseen. Pihasta tielle haetaan halvin reitti SIVIIKKI_CELL-ruudukossa
+## (Dijkstra, 8 naapuria): ajoalueella (vaala.gd drivable: tiet, sivukadut, pihat ja parkit) askel maksaa matkan verran,
+## maastossa SIVIIKKI_MAASTO-kertaisesti, ja esteet (rakennukset, autot) on kielletty. Siviikki siis ajaa teitä ja
+## oikaisee maaston kautta vain, kun tietä ei ole tai kierros olisi pitkä. Suoristus vain, kun suora on vapaa eikä lisää
+## maastossa ajettua matkaa. _kolmio_vaala_spots: "route", "lawn_n" (pihaosuudet alussa, maan pinnalla, ei kaistaa).
+const SIVIIKKI_MAASTO := 5.0
+
+
+## Matka maastossa (ei ajoaluetta) suoralla a -> b, metrin näyttein.
+func _siviikki_maastossa(vl: Node3D, a: Vector2, b: Vector2) -> float:
+	var l := a.distance_to(b)
+	var n := maxi(1, int(ceil(l)))
+	var off := 0.0
+	for i in n:
+		var q := a.lerp(b, (i + 0.5) / n)
+		if not vl.drivable(q.x, q.y):
+			off += l / n
+	return off
+
+
+func _kolmio_siviikki_route() -> PackedVector3Array:
+	var sp := _kolmio_vaala_spots
+	var route: PackedVector3Array = sp.get("route", PackedVector3Array())
+	if sp.get("route_ok", false) or route.size() < 2 or mopo_trip == null or not sp.has("road_bi"):
+		return route
+	var vl: Node3D = mopo_trip.vaala
+	var road: Array = vl.road
+	var bi: int = sp.road_bi
+	var start := Vector2(route[0].x, route[0].z)
+	var n := int(SIVIIKKI_HAKU * 2.0 / SIVIIKKI_CELL)
+	var o := start - Vector2.ONE * SIVIIKKI_HAKU
+	var cell_p := func(k: int) -> Vector2: return o + (Vector2(k % n, int(k / n)) + Vector2(0.5, 0.5)) * SIVIIKKI_CELL
+	var k0 := int(SIVIIKKI_HAKU / SIVIIKKI_CELL) * n + int(SIVIIKKI_HAKU / SIVIIKKI_CELL)
+	var cost := {k0: 0.0}
+	var prev := {k0: -1}
+	var done := {}
+	var blocked := {}
+	var heap: Array = [[0.0, k0]]  # binäärikeko [hinta, ruutu]
+	var goal := -1
+	var join := -1
+	while not heap.is_empty():
+		# Pienin pois keosta.
+		var top: Array = heap[0]
+		var last: Array = heap.pop_back()
+		if not heap.is_empty():
+			heap[0] = last
+			var i := 0
+			while true:
+				var l := i * 2 + 1
+				var m := i
+				if l < heap.size() and heap[l][0] < heap[m][0]:
+					m = l
+				if l + 1 < heap.size() and heap[l + 1][0] < heap[m][0]:
+					m = l + 1
+				if m == i:
+					break
+				var t: Array = heap[i]
+				heap[i] = heap[m]
+				heap[m] = t
+				i = m
+		var k: int = top[1]
+		if done.has(k):
+			continue
+		done[k] = true
+		var cp: Vector2 = cell_p.call(k)
+		var ni: Array = vl.nearest(Vector3(cp.x, 0, cp.y))
+		if k != k0 and ni[0] >= 0 and not road[ni[0]][6] and ni[1] < float(road[ni[0]][4]):
+			goal = k
+			join = ni[0]
+			break
+		var cx := k % n
+		var cz := int(k / n)
+		for dz in [-1, 0, 1]:
+			for dx in [-1, 0, 1]:
+				var nx: int = cx + dx
+				var nz: int = cz + dz
+				if (dx == 0 and dz == 0) or nx < 0 or nz < 0 or nx >= n or nz >= n:
+					continue
+				var nk := nz * n + nx
+				if done.has(nk):
+					continue
+				var np: Vector2 = cell_p.call(nk)
+				if not blocked.has(nk):
+					blocked[nk] = _siviikki_este(vl, np, Vector2(dx, dz).normalized(), Vector3(2.6, 1.0, 2.6))
+				if blocked[nk]:
+					continue
+				var step := SIVIIKKI_CELL * (1.4142 if dx != 0 and dz != 0 else 1.0)
+				var c: float = cost[k] + step * (1.0 if vl.drivable(np.x, np.y) else SIVIIKKI_MAASTO)
+				if c < float(cost.get(nk, INF)):
+					cost[nk] = c
+					prev[nk] = k
+					# Keko: lisää loppuun ja nosta.
+					heap.append([c, nk])
+					var j := heap.size() - 1
+					while j > 0:
+						var pj := int((j - 1) / 2)
+						if heap[pj][0] <= heap[j][0]:
+							break
+						var t2: Array = heap[pj]
+						heap[pj] = heap[j]
+						heap[j] = t2
+						j = pj
+	if goal < 0:
+		push_warning("KOLMIO: Siviikin reittiä aseman pihasta tielle ei löytynyt esteiden ohi")
+		sp["route_ok"] = true
+		return route
+	var path: Array = []
+	var kk := goal
+	while kk >= 0:
+		path.push_front(cell_p.call(kk))
+		kk = prev[kk]
+	path[0] = start
+	path.append(Vector2(road[join][0], road[join][2]))
+	# Suoristus: kauimpaan pisteeseen, jonne suora on vapaa eikä kulje maastossa enempää kuin ruutureitti.
+	var hop: Array = []
+	var at := 0
+	while at < path.size() - 1:
+		var nxt := at + 1
+		for j in range(path.size() - 1, at + 1, -1):
+			var via := 0.0
+			for m in range(at, j):
+				via += _siviikki_maastossa(vl, path[m], path[m + 1])
+			if _siviikki_maastossa(vl, path[at], path[j]) <= via + 0.5 and _siviikki_suora(vl, path[at], path[j]):
+				nxt = j
+				break
+		hop.append(path[nxt])
+		at = nxt
+	var out := PackedVector3Array([route[0]])
+	for q: Vector2 in hop.slice(0, hop.size() - 1):
+		out.append(Vector3(q.x, vl.h(q.x, q.y), q.y))
+	var dstep := 1 if bi >= join else -1
+	for i in range(join, bi + dstep, dstep):
+		out.append(Vector3(road[i][0], road[i][1], road[i][2]))
+	var off := 0.0
+	var prevp := start
+	for q: Vector2 in hop:
+		off += _siviikki_maastossa(vl, prevp, q)
+		prevp = q
+	sp["route"] = out
+	sp["lawn_n"] = hop.size()
+	sp["off_road"] = off
+	sp["route_ok"] = true
+	if B.diag():
+		print("KOLMIO Siviikin reitti: %d pihaosuutta, maastossa %.0f m, liittymä tien näytteeseen %d, %.0f m, ruutuja tutkittu %d" % [
+			hop.size(), off, join, _kolmio_route_len(out), done.size()])
+	return out
 
 
 ## Siviikki-ajo alkaa (Teron ja Timon juttelu): kaverit ja pelaaja kyytiin, ajokamera auton taakse.
 func _kolmio_drive_start() -> void:
-	var route: PackedVector3Array = _kolmio_vaala_spots.get("route", PackedVector3Array())
+	var route := _kolmio_siviikki_route()
 	if route.size() < 2 or _kolmio_civic == null:
 		_kolmio_remote("vaala")  # varalla tekstiviesti, jos tietä ei löytynyt
 		return
@@ -11573,6 +12121,7 @@ static func _kolmio_route_len(route: PackedVector3Array) -> float:
 
 ## Piste ja suunta reitillä matkan d kohdalla (oikea kaista 1,7 m keskiviivasta, kun lähtöpihasta on päästy).
 func _kolmio_route_at(route: PackedVector3Array, d: float, dir: int) -> Array:
+	var lawn_n: int = _kolmio_vaala_spots.get("lawn_n", 1)  # nurmikko-osuudet alussa (_kolmio_siviikki_route)
 	var left := d
 	for i in route.size() - 1:
 		var a := route[i]
@@ -11582,7 +12131,7 @@ func _kolmio_route_at(route: PackedVector3Array, d: float, dir: int) -> Array:
 			var p := a.lerp(b, clampf(left / maxf(l, 0.001), 0.0, 1.0))
 			var fwd := (b - a).normalized() * dir
 			var right := Vector3(-fwd.z, 0, fwd.x)
-			if i > 0:
+			if i >= lawn_n:
 				p += right * 1.7
 			else:  # nurmikko aseman pihasta tielle: maanpinnan korkeudella
 				p.y = mopo_trip.vaala.h(p.x, p.z)
@@ -12538,6 +13087,8 @@ func _start_lampi_fishing() -> void:
 			rt.walker.activate()
 			rt.busy = false
 			rt.block_interact()
+		if not got.is_empty():
+			tilat.first("lampi_saalis", 0.2)  # päiväkirjan Teeriniemen kalalampi valmis
 		_after_fishing(got))
 	add_child(g)
 
@@ -12700,6 +13251,7 @@ func _quiz_answer(k: int) -> void:
 	tilat.first("pubivisa", 0.3)
 	tilat.add("keskittyminen", 0.05 * _quiz_right)
 	if _quiz_right == 3:
+		tilat.first("pubivisa_kaikki", 0.2)
 		tilat.add("moraali", 0.2)
 		tilat.add("humala", 0.14)
 		_talk_box.reply(res + " Kaikki oikein! Visajuoma talon piikkiin.", _talk_options(),
@@ -13009,6 +13561,8 @@ func _talk_options(who := "") -> Array:
 			if ebike.started and not ebike.parts.has("johdot"):
 				o.append(_opt("johdot", "Ois sulla johtoja ja liittimiä? (kalja)", beers > 0, "ei kaljaa"))
 		"pekka":
+			if "mmkorkki_legenda" in tilat.firsts and not "mmkorkki" in korkit.owned:
+				o.append(_opt("mmkorkki_kysy", "Joitko sää kultakorkkisen kaljan keväällä 95?", true, "", not "mmkorkki_pekka" in tilat.firsts))
 			if is_instance_valid(vaino) and vaino.mode == "follow":
 				o.append(_opt("vaino", "Palauta Väinö", vaino.distance_to_target() <= 6.0,
 					"Väinö jäi jälkeen, odota että se ehtii perään", true))
@@ -13154,7 +13708,19 @@ func _talk_options(who := "") -> Array:
 			else:
 				o.append(_opt("keikka", "Onko hommia? (roskat pihalta, %s €)" % _eur(HONGAN_PALKKA), _hongan_day != day,
 					"huomenna taas", true))
+		"korkkiraimo":
+			var puuttuu: Array = korkit.missing()
+			o.append(_opt("korkki_vaihda", "Vaihda kaksi tuplaa puuttuvaan korkkiin", korkit.tuplat() >= 2 and not puuttuu.is_empty(),
+				"kansiossa ei puutu mitään, mitä Raimo vaihtaa" if puuttuu.is_empty() else "tarvitset kaksi tuplaa", true))
+			var virheet: int = korkit.owned.keys().filter(func(k): return k.ends_with(":virhe") and int(korkit.owned[k]) > 1).size()
+			o.append(_opt("korkki_myy", "Myy tupla-virhepainos (%s €)" % _eur(KORKKI_VIRHE_HINTA), virheet > 0, "ei tupla-virhepainoksia"))
+			o.append(_opt("korkki_legenda", "Onko kultaisista korkeista juttuja?", true, "", not "mmkorkki_legenda" in tilat.firsts))
+			if korkit.owned.has("mmkorkki"):
+				o.append(_opt("korkki_mm_myy", "Myy kultainen MM-korkki (%s €)" % _eur(MMKORKKI_HINTA), true, "", true))
 		"veksi":
+			if kirppis_int.mode == "kirppis" and "korkki" in tilat.firsts:
+				o.append(_opt("korkkilaatikko", "Kaiva Veksin korkkilaatikosta (%s €)" % _eur(KORKKI_LAATIKKO), money >= KORKKI_LAATIKKO - 0.001,
+					"rahat ei riitä"))
 			if _kekkonen == 1:
 				o.append(_opt("kekkonen", "Myy Kekkosen rintamerkki (%s €)" % _eur(KEKKONEN_HINTA), true, "", true))
 			if ukko.caught and ukko.choice == "":
@@ -13344,6 +13910,9 @@ func _talk_options(who := "") -> Array:
 				var letka_ok: bool = _between(clock_min, Vector2(23 * 60, 3 * 60)) and oma_mopo.running and oma_mopo.fuel >= 0.15 and _letka_day != day
 				o.append(_opt("letka", "Lähde mopoletkaan Siitarin pihaan ja keskustaan (yöllä)", letka_ok,
 					"letka kokoontuu vasta yöllä 23–03" if not _between(clock_min, Vector2(23 * 60, 3 * 60)) else ("tarvitset toimivan mopon ja bensaa" if not (oma_mopo.running and oma_mopo.fuel >= 0.15) else "ajoit jo tänään")))
+			if _nuoret_yard and _between(clock_min, Vector2(18 * 60, 23 * 60)) and "korkki" in tilat.firsts:
+				o.append(_opt("korkkilapsy", "Korkkiläpsyä teinien kanssa (panos 3 tuplaa)", korkit.tuplat() >= 3 and _lapsy_day != day,
+					"läpsit jo tänään" if _lapsy_day == day else "tarvitset 3 tuplakorkkia", true))
 			if _nuoret_yard and _between(clock_min, Vector2(6 * 60, 11 * 60)):
 				o.append(_opt("pullot", "Kerää tyhjät pullot ja tölkit aidan takaa (pantti)", _pullot_day != day, "keräsit jo tänään", true))
 			if _nuoret_yard:
@@ -13442,6 +14011,10 @@ func _talk_choose(id: String) -> void:
 	if id.begins_with("kolmio_"):
 		_kolmio_choose(id)
 		return
+	if _talk_who == "kaukalo_teinit" and id == "korkkilapsy":
+		_talk_box.close()
+		_start_korkkilapsy_kaukalo()
+		return
 	if _talk_who in HS_TALKERS and (id.begins_with("myy_") or id == "haasta"):
 		_hs_choose(id)
 		return
@@ -13528,8 +14101,20 @@ func _talk_choose(id: String) -> void:
 				_talk_pyhimys(id)
 			else:
 				_talk_aaro(id)
+		"korkkiraimo":
+			_talk_korkkiraimo(id)
 		"veksi":
-			if id == "olavi_myy":
+			if id == "korkkilaatikko":
+				money -= KORKKI_LAATIKKO
+				Sfx.play("rattle", -8.0, 1.6)
+				var mita := _korkit_kasa(1)
+				if "mmkorkki_legenda" in tilat.firsts and not "mmkorkki_lappu" in tilat.firsts:
+					tilat.first("mmkorkki_lappu", 0.1)
+					mita += ". Pohjalla Raimon lappu: \"Kultainen MM-korkki -95. Pekka joi. KYSY PEKALTA.\""
+				_talk_box.reply(["Korkkeja? Ota vaan, kymmenen senttiä kappale. Kultaisia ei oo, kysyin jo.",
+					"Tuolla laatikossa on puoli Pohjois-Suomea. Kaiva syvältä.", "Joku vanha keräilijä toi ne. Korkki-Raimo, taisi olla."].pick_random(),
+					_talk_options(), "Laatikosta: %s. Rahaa %s €." % [mita, _eur(money)])
+			elif id == "olavi_myy":
 				_olavi_sell()
 			elif id == "kirves":
 				_kertun_sell()
@@ -13609,6 +14194,10 @@ func _talk_choose(id: String) -> void:
 			if id == "pullot":
 				_pullonkeraus()
 				return
+			if id == "korkkilapsy":
+				_talk_box.close()
+				_start_korkkilapsy()
+				return
 			if id in ["purkka", "kasetti_aanita", "kasetti_soita", "letka"]:
 				_nuoret_hupi(id)
 				return
@@ -13661,6 +14250,12 @@ func _talk_choose(id: String) -> void:
 
 
 func _talk_neighbor(id: String) -> void:
+	if id == "mmkorkki_kysy":
+		tilat.first("mmkorkki_pekka", 0.2)
+		_talk_box.reply("Perkele, se Raimo vieläkin siitä. Joo, mää join sen. Saunan jälkeen istuttiin tossa päädyssä, ja mää " +
+			"heitin korkin olan yli kivikkoon. Kultanen se oli, ja nyt se on varmaan ruostunu. Kato talon päädystä, jos huvittaa.",
+			_talk_options())
+		return
 	match id:
 		"myy":
 			var sale := _goods_value(_talk_who)
@@ -15426,6 +16021,7 @@ func _ensure_mopo_trip() -> void:
 		mopo_trip.crashed.connect(_on_mopo_crashed)
 		mopo_trip.closed = func(id: String) -> String:
 			if id == "veturitalli":
+				tilat.first("vvaala_ovi", 0.0)  # päiväkirjaan: elokuvapäivistä kuultu (ovella aikataulu)
 				return "" if _vvaala_auki() else _vvaala_kiinni_teksti()
 			return closed_text({"kmarket": "kauppa", "siitari": "siitari", "lava": "lava", "apteekki": "apteekki"}[id]) if id in ["kmarket", "siitari", "lava", "apteekki"] else ""
 		mopo_trip.door_hidden = func(id: String) -> bool: return (id == "kokko" and not _juhannus()) or (id == "viski" and "viski" in viina_found) or \
@@ -15963,7 +16559,8 @@ func _pullonkeraus() -> void:
 	Sfx.play("rattle", -4.0, 1.1)
 	_save_game()
 	_talk_box.reply(["Hei, se kerää meidän pullot! Kiitti, setä.", "Aamulla on aina enemmän pulloja ku väkeä. Ota vaan.", "Pantti jaetaan puoliksi. Ei, vitsi, ota kaikki."].pick_random(),
-		_talk_options(), "%d pulloa ja tölkkiä aidan takaa, pantti +%s €. 40 minuuttia kului." % [n, _eur(pantti)])
+		_talk_options(), "%d pulloa ja tölkkiä aidan takaa, pantti +%s €. Talteen %s. 40 minuuttia kului." % [n, _eur(pantti),
+		_korkit_kasa(randi_range(1, 3))])
 
 
 ## Kioskilla hengailu illalla (#183): nuoret parit, kyydinodotus ja pussauspaikka sillalla.
@@ -19036,7 +19633,7 @@ func _teini_tulos(won: bool) -> String:
 # Jokainen riski on oma osansa (velka, valeostaja, epäluulo, yliannos, huijari, autovarkaus). Tämä on niiden yhteinen
 # pistorasia: osat ladataan nimen mukaan, jos tiedosto on olemassa, ja niiltä kysytään puheessa, logiikassa, uutena
 # päivänä, tallennuksessa ja päiväkirjassa. Osat eivät koske main.gd:hen; tapahtumat kulkevat _rikos_eventin kautta.
-const RIKOS_OSAT := ["velka", "valeostaja", "epaluulo", "yliannos", "huijari", "autovarkaus"]
+const RIKOS_OSAT := ["velka", "valeostaja", "epaluulo", "yliannos", "huijari", "autovarkaus", "pentti"]  # pentti: sivujuoni (#299) samalla rajapinnalla
 const RIKOS_PIDATYS_MAINE := 10.0
 var rikos: Array = []  # osien instanssit (osa.gd)
 var _rikos_fight: Object = null  # osa, joka aloitti diilitappelun (_start_teini_fight): fight_end antaa loppuviestin
@@ -19288,6 +19885,9 @@ func _hs_hello(who: String) -> String:
 
 
 func _hs_options(who: String, o: Array) -> void:
+	if who == "kaukalo_teinit" and "korkki" in tilat.firsts:
+		o.append(_opt("korkkilapsy", "Korkkiläpsyä kaukalolla (panos 3 tuplaa)", korkit.tuplat() >= 3 and _lapsy_day != day,
+			"läpsit jo tänään" if _lapsy_day == day else "tarvitset 3 tuplakorkkia", true))
 	if int(hs.ei_osta.get(_hs_group_of(who), -1)) == day:
 		o.append(_opt("myy", "Myy kamaa", false, "eivät osta sulta enää tänään"))
 	elif not _hs_has_sellable():
@@ -19440,6 +20040,8 @@ func _siitari_fight_end(won: bool, bags_used: int, thrown: int) -> void:
 
 
 func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
+	if won:
+		tilat.first("tappelu_voitto", 0.2)  # päiväkirjan "Nyrkit puhuu" (quests.gd)
 	if _fight_source == "teini":
 		_teini_fight_end(won, bags_used, thrown)
 		return
@@ -20060,6 +20662,7 @@ func _load_game() -> void:
 	messenius.load_from(cfg)
 	kalajoki.load_from(cfg)
 	raate.load_from(cfg)
+	korkit.load_from(cfg)
 	kanttori.load_from(cfg)
 	lemmikki.load_from(cfg)
 	ukko.load_from(cfg)
@@ -20303,6 +20906,7 @@ func _save_game() -> void:
 		messenius.save_to(cfg)
 		kalajoki.save_to(cfg)
 		raate.save_to(cfg)
+		korkit.save_to(cfg)
 		kanttori.save_to(cfg)
 		lemmikki.save_to(cfg)
 		ukko.save_to(cfg)
@@ -21066,6 +21670,7 @@ func _spawn_threats() -> void:
 			break
 		var car := TrafficCar.new()
 		car.van = randf() < 0.25
+		car.pentti = i == 0  # yksi liikenteen pakettiautoista on Pentin (#299)
 		car.cruise = randf_range(12.5, 16.0) * (0.9 if car.van else 1.0)
 		car.target_fn = func() -> Node3D: return player
 		car.hit.connect(func() -> void:
@@ -22162,6 +22767,29 @@ func _maybe_screenshot() -> void:
 				DirAccess.remove_absolute(SAVE_PATH)
 			get_tree().quit()
 			return
+		"bangbus", "bangbus_vaala":
+			# Pentin BangBus (#299, rikos/pentti.gd testi): aikataulu, auto, juttelu, kyyti, herätys ja kantelu; kuvat.
+			var saved_bb := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			await rikos_osa("pentti").testi("vaala" if scene == "bangbus_vaala" else "")
+			if not saved_bb.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_bb)
+			else:
+				DirAccess.remove_absolute(SAVE_PATH)
+			get_tree().quit()
+			return
+		"parkit":
+			# Pysäköidyt autot eivät ole toistensa sisällä Saloisissa eikä Vaalassa (tools/testit/parkit.gd).
+			var saved_pk := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			var pk: Node = load("res://tools/testit/parkit.gd").new()
+			pk.main = self
+			add_child(pk)
+			await pk.run()
+			if not saved_pk.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_pk)
+			else:
+				DirAccess.remove_absolute(SAVE_PATH)
+			get_tree().quit()
+			return
 		"kolmiomittaus", "kolmiomittaus_vaala":
 			# Kolmiomittaus (#255): Saloinen tai Vaala alusta loppuun kuvineen (tools/testit/kolmiomittaus.gd).
 			var saved_km := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
@@ -22460,6 +23088,52 @@ func _maybe_screenshot() -> void:
 			_on_kicked(Vector3.RIGHT)
 			for i in 130:
 				await get_tree().process_frame
+		"fight_ohjeet":
+			# Tappelun alun ohjetauko: paneeli näkyy, tappelu ei ala itsestään, lyöntinappi aloittaa (ROUND 1, FIGHT!).
+			fight.get_script().ohjeet_testissa = true
+			beers = 6
+			_on_kicked(Vector3.RIGHT)
+			for i in 90:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ohjeet.png"))
+			print("FIGHT ohjeet: vaihe '%s' 1,5 s jälkeen, aika %.1f" % [fight._phase, fight._time])
+			# Asetuksissa liikkuminen nuolinäppäimiin: paneeli näyttää valitut näppäimet (nuolina), sitten takaisin.
+			var keys0: Dictionary = (Settings.values.keys as Dictionary).duplicate(true)
+			for ak in [["forward", KEY_UP], ["back", KEY_DOWN], ["left", KEY_LEFT], ["right", KEY_RIGHT]]:
+				Settings.values.keys[ak[0]] = [ak[1], 0, 0]
+			var teksti: String = fight._ohje_teksti()
+			print("FIGHT ohjeet nuolilla: %s" % teksti.replace("\n", " / "))
+			if not "↑" in teksti:
+				print("TESTI VIKA ohjepaneeli ei käytä asetusten näppäimiä")
+			fight._ohje.set_text(teksti)
+			for i in 20:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ohjeet_nuolet.png"))
+			Settings.values.keys = keys0
+			fight._ohje.set_text(fight._ohje_teksti())
+			if fight._phase != "ohjeet":
+				print("TESTI VIKA tappelu alkoi ilman lyöntinappia (vaihe %s)" % fight._phase)
+			var ev := InputEventAction.new()
+			ev.action = "punch"
+			ev.pressed = true
+			Input.parse_input_event(ev)
+			for i in 3:
+				await get_tree().process_frame
+			var up := InputEventAction.new()
+			up.action = "punch"
+			Input.parse_input_event(up)
+			print("FIGHT lyöntinapin jälkeen: vaihe '%s'" % fight._phase)
+			if fight._phase != "intro":
+				print("TESTI VIKA lyöntinappi ei aloittanut tappelua (vaihe %s)" % fight._phase)
+			var t0 := Time.get_ticks_msec()
+			while fight._phase != "fight" and Time.get_ticks_msec() - t0 < 5000:
+				await get_tree().process_frame
+			print("FIGHT alkoi: vaihe '%s'" % fight._phase)
+			if fight._phase != "fight":
+				print("TESTI VIKA tappelu ei alkanut ROUND 1:n jälkeen")
+			fight.get_script().ohjeet_testissa = false
 		"field", "bog":
 			var M2 := preload("res://scripts/map_data.gd")
 			player.position = M2.w(Vector2(450, 730) if scene == "field" else Vector2(400, 1110)) + Vector3(0, 0.3, 0)
@@ -25104,8 +25778,25 @@ func _maybe_screenshot() -> void:
 			_kauppa_auto_t = KAUPPA_AUTO_DELAY
 			var ka: Node3D = kauppa_auto
 			var t0 := Time.get_ticks_msec()
+			var tuli_kuva := false
+			Engine.time_scale = 4.0  # ajo nopeammin: hitaalla (ohjelmallisella) renderöinnillä auto ei muuten ehdi 90 s:ssa
 			while ka.state != "parked" and Time.get_ticks_msec() - t0 < 90000:
 				await get_tree().process_frame
+				if not tuli_kuva and ka.state == "coming" and ka._i == ka._path.size() - 1 and ka.position.distance_to(ka._path[-1]) < 14.0:
+					# Ajossa lähikuva vinosti edestä: Eila ratissa (Vehicles.kuski "hiace"), luukku kiinni.
+					tuli_kuva = true
+					ka.set_process(false)  # auto paikalleen kuvan ajaksi (hidas renderöinti: muuten se ajaa kameran ohi)
+					var tc := Camera3D.new()
+					add_child(tc)
+					var kb: Basis = ka.global_basis
+					tc.look_at_from_position(ka.global_position - kb.z * 4.6 - kb.x * 0.8 + Vector3(0, 1.9, 0), ka.global_position + Vector3(0, 1.4, 0) - kb.z * 1.3)
+					tc.current = true
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_tulee.png"))
+					tc.queue_free()
+					ka.set_process(true)
+			Engine.time_scale = 1.0
+			print("KAUPPA-AUTO fps %.0f" % Engine.get_frames_per_second())
 			print("KAUPPA-AUTO tila '%s' %.0f s, paikka %s, luukku %s, viesti '%s'" % [ka.state, (Time.get_ticks_msec() - t0) / 1000.0,
 				ka.position, ka.hatch_pos(), _msg.text])
 			var hp: Vector3 = mokki.to_global(ka.hatch_pos())
@@ -25120,6 +25811,14 @@ func _maybe_screenshot() -> void:
 			print("KAUPPA-AUTO vihje '%s'" % _hint.text)
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_luukku.png"))
+			# Lähikuva kyljestä: luukku auki katoksena, Eila luukulla, ratti tyhjä.
+			var kx: Vector3 = ka.global_basis.x
+			var kc: Vector3 = ka.global_position + ka.global_basis.z * 0.5
+			cam.look_at_from_position(kc + kx * 6.0 - ka.global_basis.z * 2.5 + Vector3(0, 1.9, 0), kc + kx * 0.8 + Vector3(0, 1.4, 0))
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_luukku_lahi.png"))
 			_talk_open("kauppa_auto", ka.seller)
 			print("KAUPPA-AUTO valikko: %s" % str(_talk_options().map(func(o): return o.text + ("" if o.enabled else " [" + o.reason + "]"))))
 			for k in ["auto_kalja", "auto_sokeri", "auto_lehti", "auto_turbohiiva", "auto_makkara"]:
@@ -25129,12 +25828,14 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 			walker_out.global_position = w0 + Vector3(0, 30, 0)  # pois luukulta: odotus kuluu
 			ka.wait_t = 0.5
+			Engine.time_scale = 4.0
 			t0 = Time.get_ticks_msec()
 			while ka.state != "away" and Time.get_ticks_msec() - t0 < 90000:
 				await get_tree().process_frame
 				if ka.state == "leaving" and Time.get_ticks_msec() - t0 > 2500 and Time.get_ticks_msec() - t0 < 2550:
 					await RenderingServer.frame_post_draw
 					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lahtee.png"))
+			Engine.time_scale = 1.0
 			print("KAUPPA-AUTO lähti: tila '%s' %.0f s, päivän käynti %d / päivä %d" % [ka.state, (Time.get_ticks_msec() - t0) / 1000.0,
 				_kauppa_auto_day, day])
 			var _sf := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -30355,6 +31056,200 @@ func _maybe_screenshot() -> void:
 			print("RE tehtävät: %s" % [d.side.map(func(q): return "%s%s" % [q.title, "✔" if q.done else ""])])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			get_tree().quit()
+		"korkit":
+			# Pullonkorkit (#290 osa 1): kalja antaa korkin, harvinaisuudet arpoutuvat, tallennus edestakaisin.
+			korkit = Korkit.new()
+			tilat.firsts = []
+			_korkki_rng.seed = 290
+			_drink(1)
+			print("KORKIT ensimmäinen: %s, korkki-ensikerta %s" % [korkit.owned, "korkki" in tilat.firsts])
+			if korkit.owned.size() != 1 or not "korkki" in tilat.firsts:
+				print("TESTI VIKA kalja ei antanut korkkia")
+			var lkm := {"tavallinen": 0, "juhla": 0, "virhe": 0}
+			var rng := RandomNumberGenerator.new()
+			rng.seed = 7
+			for i in 30000:
+				var k := Korkit.roll("kalja", rng)
+				lkm[k.split(":")[1]] += 1
+				if Korkit.BRANDS[k.split(":")[0]].laji != "kalja":
+					print("TESTI VIKA kaljasta limukorkki ", k)
+					break
+			print("KORKIT tasot 30000: %s" % lkm)
+			if absf(lkm.juhla / 30000.0 - Korkit.JUHLA_P) > 0.01 or absf(lkm.virhe / 30000.0 - Korkit.VIRHE_P) > 0.003:
+				print("TESTI VIKA harvinaisuudet pielessä")
+			korkit.add("koffi:virhe")
+			korkit.add("koffi:virhe")
+			var cfg := ConfigFile.new()
+			korkit.save_to(cfg)
+			var k2: RefCounted = Korkit.new()
+			k2.load_from(cfg)
+			print("KORKIT tallennus: %s, tuplia %d, päiväkirja '%s'" % [k2.owned, k2.tuplat(), quest_progress("korkit")])
+			if k2.owned != korkit.owned or k2.tuplat() != 1:
+				print("TESTI VIKA korkkien tallennus")
+			# Pullonkeräys ja korkkilaatikko: monta korkkia, myös limuja.
+			var ennen: int = korkit.owned.values().reduce(func(a, b): return a + b, 0)
+			print("KORKIT kasa: %s" % _korkit_kasa(40))
+			var limut: int = korkit.owned.keys().filter(func(k): return Korkit.BRANDS[k.split(":")[0]].laji == "limu").size()
+			if korkit.owned.values().reduce(func(a, b): return a + b, 0) - ennen != 40 or limut == 0:
+				print("TESTI VIKA korkkikasa ei antanut 40 korkkia tai limuja")
+			# Korkki-Raimo: kaksi tuplaa puuttuvaan, tupla-virhepainos rahaksi; kansion korkkeja ei viedä.
+			var d0: int = korkit.distinct()
+			var t0: int = korkit.tuplat()
+			_talk_korkkiraimo("korkki_vaihda")
+			print("KORKIT vaihto: erilaisia %d -> %d, tuplia %d -> %d" % [d0, korkit.distinct(), t0, korkit.tuplat()])
+			if korkit.distinct() != d0 + 1 or korkit.tuplat() > t0 - 2:
+				print("TESTI VIKA Raimon vaihto")
+			var vk := Korkit.new()
+			vk.owned = {"koffi:virhe": 1}
+			if vk.take_tuplat(1, "virhe") or vk.owned["koffi:virhe"] != 1:
+				print("TESTI VIKA kansion ainoa korkki otettiin")
+			# Kultainen MM-korkki: Pekka kertoo paikan, E nostaa kerran, Raimo ostaa.
+			tilat.first("mmkorkki_legenda")
+			_talk_neighbor("mmkorkki_kysy")
+			var mp := _mmkorkki_pos()
+			print("KORKIT mm: paikka %s, Pekka kertoi %s" % [mp, "mmkorkki_pekka" in tilat.firsts])
+			if mp == Vector3.ZERO:
+				print("TESTI VIKA MM-korkin paikkaa ei ole")
+			else:
+				_mmkorkki_pick()
+				print("KORKIT mm löytyi: %s" % korkit.owned.has("mmkorkki"))
+				if not korkit.owned.has("mmkorkki"):
+					print("TESTI VIKA MM-korkki ei löytynyt Pekan päädystä")
+			# Korkkiläpsy: panos vain tuplista, peli pyörii (lyönnit), voitetut kansioon; kuvat pelistä.
+			for i in 4:
+				korkit.add("kontio:tavallinen")
+			# Juhannuskorkki vain juhannuksena; voittokorkki antaa kaljan; Päivi motkottaa kaljakorkeista.
+			var rr := RandomNumberGenerator.new()
+			var juhlia := 0
+			for i in 3000:
+				if Korkit.roll("kalja", rr, false).ends_with(":juhla"):
+					juhlia += 1
+			print("KORKIT juhannuskorkkeja muulloin: %d" % juhlia)
+			if juhlia > 0:
+				print("TESTI VIKA juhannuskorkkeja muulloinkin")
+			var b0 := beers
+			_korkki_rng.seed = 5
+			for i in 200:
+				_korkki("kalja")
+			print("KORKIT voittokorkit 200 kaljasta: kaljoja +%d" % (beers - b0))
+			if beers - b0 < 1 or beers - b0 > 25:
+				print("TESTI VIKA voittokorkkien määrä")
+			_msg_queue.clear()
+			_today.erase("paivi_korkit")  # tallennuksesta jäänyt "tänään jo" ei saa estää testiä
+			_paivi_korkit()
+			var pv: String = str(_msg_queue.back()) if not _msg_queue.is_empty() else ""
+			print("KORKIT Päivi: %s" % pv.left(90))
+			if not "Montako kaljaa" in pv:
+				print("TESTI VIKA Päivi ei motkottanut korkkikansiosta")
+			korkit.piilossa = true
+			_today.erase("paivi_korkit")
+			_msg_queue.clear()
+			_paivi_korkit()
+			if not _msg_queue.is_empty():
+				print("TESTI VIKA Päivi motkotti jemmassa olevasta kansiosta")
+			korkit.piilossa = false
+			# Maastolöydöt: paikat maalla (ei vedessä).
+			for lid in _korkki_loyto_ids():
+				var lc := _korkki_loyto_pos(lid)
+				print("KORKIT löytö %s: %s, maasto %.2f" % [lid, lc, Terrain.h(lc.x, lc.z)])
+			# Saloisten kaukalo: läpsy kaukalon teinien vieressä (jos iltateinit ovat paikalla).
+			if is_instance_valid(hs_teens):
+				_lapsy_day = -1
+				_start_korkkilapsy_kaukalo()
+				print("KORKIT kaukalo: peli %s, pelaaja piilossa %s" % [_lapsy_game != null, not player.visible])
+				if _lapsy_game != null:
+					var lp: Vector3 = _lapsy_game.global_position
+					print("KORKIT kaukalo: pino y %.2f, maasto %.2f" % [lp.y, Terrain.h(lp.x, lp.z)])
+					if absf(lp.y - Terrain.h(lp.x, lp.z)) > 0.3:
+						print("TESTI VIKA kaukalon läpsy ei ole kaukalon pinnalla")
+				if _lapsy_game == null:
+					print("TESTI VIKA kaukalon läpsy ei alkanut")
+				else:
+					for i in 40:
+						await get_tree().process_frame
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lapsy_kaukalo.png"))
+					_lapsy_game._end(true)
+					await get_tree().process_frame
+					if not player.visible:
+						print("TESTI VIKA pelaaja jäi piiloon kaukalon läpsyn jälkeen")
+			else:
+				print("KORKIT kaukalo: iltateinit eivät paikalla, ei tarkistettu")
+			_lapsy_day = -1
+			for i in 6:
+				korkit.add("kontio:tavallinen")
+			_start_mopo()
+			for car in mopo_trip._cars:
+				car.process_mode = Node.PROCESS_MODE_DISABLED
+				car.visible = false
+			_mopo_dismount()
+			clock_min = 19 * 60.0
+			for i in 10:
+				await get_tree().process_frame
+			var t_ennen: int = korkit.tuplat()
+			_start_korkkilapsy()
+			print("KORKIT läpsy: peli %s, pinossa %d, tuplat %d -> %d" % [_lapsy_game != null,
+				_lapsy_game.stack.size() if _lapsy_game != null else 0, t_ennen, korkit.tuplat()])
+			if _lapsy_game == null or _lapsy_game.stack.size() != 6 or korkit.tuplat() != t_ennen - 3:
+				print("TESTI VIKA korkkiläpsy ei alkanut oikein")
+			else:
+				var lg = _lapsy_game
+				lg._aim = 0.2
+				lg._phase = "power"
+				lg._power = 0.5
+				for i in 40:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lapsy_tahtays.png"))
+				lg._strike(0.05, 0.72)
+				await get_tree().create_timer(0.45).timeout
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lapsy_lyonti.png"))
+				var n_me: int = lg._won_me.size()
+				print("KORKIT läpsy lyönti: sain %d, pinossa %d" % [n_me, lg.stack.size()])
+				var d_ennen: int = korkit.owned.values().reduce(func(a, b): return a + b, 0)
+				lg._end(true)
+				await get_tree().process_frame
+				var d_jalk: int = korkit.owned.values().reduce(func(a, b): return a + b, 0)
+				print("KORKIT läpsy loppu: korkkeja %d -> %d, peli poissa %s" % [d_ennen, d_jalk, _lapsy_game == null])
+				if _lapsy_game != null or d_jalk < d_ennen:
+					print("TESTI VIKA korkkiläpsyn lopetus")
+			# Täysi aukeama palkitaan kerran; kansio päiväkirjan Korkit-välilehdellä (kuva).
+			var maine0 := maine
+			korkit.add("koffi:tavallinen")
+			_korkki_rng.seed = 1
+			for key in ["koffi:juhla", "kontio:tavallinen", "kontio:juhla", "jaffis:tavallinen", "kolaa:virhe"]:
+				korkit.add(key)
+			print("KORKIT Koffi täysi: palkittu %s, maine %+.0f" % [korkit.palkitut, maine - maine0])
+			if not korkit.new_full("koffi") and not "koffi" in korkit.palkitut:
+				print("TESTI VIKA täyttä aukeamaa ei tunnistettu")
+			if korkit.new_full("koffi"):
+				print("TESTI VIKA aukeama palkittiin kahdesti")
+			_journal.toggle()
+			_journal._set_tab("korkit")
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kansio.png"))
+			_journal.toggle()
+			# Korkki-Raimo kirppiksellä: kuva salista (seisoo pöytien välissä, ei kenenkään sisällä).
+			_enter_kirppis("kirppis")
+			for i in 30:
+				await get_tree().process_frame
+			var rk: Node3D = null
+			for n in kirppis_int.find_children("*", "Node3D", true, false):
+				if n.has_meta("talker") and n.get_meta("talker") == "korkkiraimo":
+					rk = n
+			var kc := Camera3D.new()
+			kirppis_int.add_child(kc)
+			var rp := kirppis_int.to_global(Vector3(-3.0, 0, 0.6))
+			kc.look_at_from_position(rp + Vector3(1.6, 1.6, 2.6), rp + Vector3(0, 1.0, 0))
+			kc.current = true
+			for i in 4:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_raimo.png"))
+			get_tree().quit()
 		"paivakirja":
 			# Normipäiväkirja (#132): alussa vain luku 1 ja itsestäänselvät tehtävät, Paapelin loppu avaa luvun 2,
 			# Santun vihje tervehdyksessä, sivutehtävät ilmestyvät, loppujen kirjaus (erilaiset ja yhteensä) ja kuvat
@@ -30388,12 +31283,59 @@ func _maybe_screenshot() -> void:
 			_ending("legendaarinen")
 			print("PK lisää: ", summary.call())
 			print("PK viesti: '%s'" % [_msg_queue.back() if not _msg_queue.is_empty() else _msg.text])
+			# Retkien legendat ja karttalinkit: tiedoksi ensimmäisestä kohdasta, edistyminen ja "näytä kartalla"
+			# (Saloisten paikat ja taksitolppa).
+			for k in ["pyhakoski_voimala", "kuvakirkko_suntio", "wanharaahe_patsas", "karhut_opas", "olavi_legenda",
+					"kuningas_legenda", "kanttori_legenda", "pingis_ulkopoyta", "hanhikivi_legenda", "kalajoki_sarkat", "kalalupa",
+					"pubivisa", "uintikilpailu", "vvaala_ovi", "keikkatyo", "tyokkari", "rasvanappi", "rakaleima", "tappelu_juntti",
+					"lintutorni", "pajatso", "ronttonen"]:
+				tilat.first(k)
+			pyhakoski.voimala = true
+			wanharaahe.kuvat = ["patsas"]
+			var dl := journal_data()
+			var by := {}
+			for q in dl.side:
+				by[q.id] = q
+			for id in ["pyhakoski", "kuvakirkko", "wanharaahe", "karhut", "olavinmarkkinat", "kuninkaan_tapuli",
+					"kanttorin_yosavel", "pihapingis", "hanhikiven_rajakivi", "kalajoki", "kalalampi", "pubivisa"]:
+				if not by.has(id):
+					print("TESTI VIKA päiväkirjasta puuttuu tehtävä ", id)
+				elif not by[id].spot:
+					print("TESTI VIKA tehtävällä %s ei ole näytä kartalla -linkkiä" % id)
+				else:
+					print("PK %s: %s (%s)" % [id, by[id].title, by[id].progress])
+			for id in ["tekemiset", "uintikisa", "vvaala", "hanttihommat", "rasvanappi", "rakaleima", "tappelut"]:
+				if not by.has(id):
+					print("TESTI VIKA päiväkirjasta puuttuu tehtävä ", id)
+				else:
+					print("PK %s: %s (%s)%s" % [id, by[id].title, by[id].progress, " tehty" if by[id].done else ""])
+			if by.has("hanttihommat") and by.hanttihommat.progress != "kokeiltu 2 / 5":
+				print("TESTI VIKA hanttihommien edistyminen '%s'" % by.hanttihommat.progress)
+			if by.has("tekemiset") and by.tekemiset.progress != "kokeiltu 3 / 7":
+				print("TESTI VIKA kylän tekemisten edistyminen '%s'" % by.tekemiset.progress)
+			if by.has("rasvanappi") and not by.rasvanappi.done:
+				print("TESTI VIKA rasvanappi ei ole tehty, vaikka pelattu")
+			if by.has("pyhakoski") and by.pyhakoski.progress != "tarinat 1 / 3":
+				print("TESTI VIKA Pyhäkosken edistyminen '%s'" % by.pyhakoski.progress)
+			show_quest_on_map("pyhakoski")
+			var taksi := Vector2(world.taxi_pos.x, world.taxi_pos.z)
+			print("PK pyhäkoski kartalla: kohde %s, taksi %s" % [_paper.target, taksi])
+			if _paper.target.distance_to(taksi) > 1.0:
+				print("TESTI VIKA retken näytä kartalla ei osoita taksitolpalle")
+			if quest_marks(true).any(func(m): return m[4] in TAXI_QUESTS):
+				print("TESTI VIKA retkille piirretään renkaita kartalle")
 			_journal.toggle()
 			for t in ["tarina", "tehtavat", "loput"]:
 				_journal._set_tab(t)
 				for i in 4:
 					await get_tree().process_frame
 				await snap.call("_%s.png" % t)
+			_journal._set_tab("tehtavat")  # listan loppu: retkien legendat ja niiden linkit
+			_journal._scroll = 1700.0
+			_journal.queue_redraw()
+			for i in 4:
+				await get_tree().process_frame
+			await snap.call("_tehtavat_loppu.png")
 			# Esc sulkee päiväkirjan eikä avaa taukovalikkoa (ennen valikko jäi auki ja peli pyöri taustalla).
 			var esc := InputEventKey.new()
 			esc.physical_keycode = KEY_ESCAPE

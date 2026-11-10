@@ -241,6 +241,16 @@ const SULO := {
 	"skin": Color(1.0, 0.84, 0.78), "belly": 0.45, "bulk": -0.2, "shoulders": -0.3,
 }
 
+## Pentti (#299): keski-ikäinen viiksimies, avonainen ruskea nahkaliivi paljaan karvaisen rinnan päällä, paljaat käsivarret, farkut vyöllä, cowboybootsit,
+## harveneva tukka. Viikset, pilottilasit ja kultaketju: add_pentti. Keksitty hahmo, ei oikea henkilö.
+const PENTTI := {
+	"shirt": Color(0.3, 0.17, 0.08), "shine": 0.6, "sleeve_x": 0.18, "pants": Color(0.2, 0.26, 0.4), "jeans": true,
+	"belt_y": 0.99, "belt_col": Color(0.06, 0.05, 0.04), "shoes": Color(0.25, 0.15, 0.08), "hair": "Hair_SimpleParted",
+	"hair_color": Color(0.22, 0.15, 0.1), "height": 1.78, "belly": 0.75, "bulk": 0.2, "skin": Color(1.0, 0.86, 0.76),
+	"vest_open": true, "chest_hair": true, "body_hair": Color(0.17, 0.11, 0.07), "bare_skin": Color(0.84, 0.62, 0.48),  # avonainen liivi ja rintakarvat
+	"pentti": true,
+}
+
 ## Kolmiomittaus (#255): Saloisten Joni ja Esa, Vaalan Hevari-Tero ja Siviikki-Timo sekä Sytkäri-mätsit Minttu ja Katja.
 ## Joni: tummatukkainen golfari (valkoinen pikee, vaaleat chinot), selässä Sandels-päkkirinkka (add_sandels_rinkka).
 const JONI := {
@@ -321,7 +331,74 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 		add_round_glasses(c, float(look.get("height", 1.8)) / 1.8)
 	if look.get("sandels", false):
 		add_sandels_rinkka(c)
+	if look.get("pentti", false):
+		add_pentti(c)
 	return c
+
+
+## Pentti (#299, rikos/pentti.gd): 80-luvun tuuheat mursunviikset suupielistä alas, kultasankaiset pilottilasit
+## ruskein linssein ja kultaketju avonaisen nahkaliivin kaula-aukossa. Mitat pääluun lepopaikasta kuten add_chaplin.
+static func add_pentti(c: Node3D) -> void:
+	var hair := Color(0.2, 0.13, 0.08)
+	var m := Node3D.new()
+	# Viikset: leveä paksu harja ylähuulen päällä, päät roikkuvat suupielistä leuan tasolle.
+	B.mesh(m, B.sphere(0.5, 14), Vector3(0, 0, 0), hair).scale = Vector3(0.072, 0.024, 0.022)
+	for s in [-1.0, 1.0]:
+		var end := B.mesh(m, B.sphere(0.5, 10), Vector3(s * 0.03, -0.018, 0.004), hair)
+		end.scale = Vector3(0.018, 0.04, 0.016)
+		end.rotation.z = s * 0.25  # kärjet kääntyvät hieman ulospäin
+	for k in 9:  # karvan suunta: tummemmat urat alaspäin
+		B.mesh(m, B.boxm(Vector3(0.0018, 0.02, 0.002)), Vector3(-0.028 + k * 0.007, -0.002, -0.0105), hair.darkened(0.35))
+	c.attach("Head", m, Vector3(0, 0.035, -0.1))
+	# Pilottilasit: pisaranmuotoiset ruskeat linssit, kultasilta ja -sangat.
+	var gold := B.mat(Color(0.95, 0.76, 0.3)).duplicate() as StandardMaterial3D
+	gold.metallic = 0.95
+	gold.roughness = 0.22
+	var lens := StandardMaterial3D.new()
+	lens.albedo_color = Color(0.22, 0.13, 0.06)
+	lens.metallic = 0.6
+	lens.roughness = 0.08
+	var sh := Node3D.new()
+	sh.name = "Aurinkolasit"
+	for sx in [-1.0, 1.0]:
+		var rim := MeshInstance3D.new()  # kultareunus linssin takana
+		rim.mesh = B.sphere(0.5, 14)
+		rim.material_override = gold
+		rim.position = Vector3(sx * 0.034, -0.004, 0.003)
+		rim.scale = Vector3(0.055, 0.051, 0.01)
+		rim.rotation.z = sx * -0.25
+		sh.add_child(rim)
+		var l := MeshInstance3D.new()
+		l.mesh = B.sphere(0.5, 14)
+		l.material_override = lens
+		l.position = Vector3(sx * 0.034, -0.004, 0)
+		l.scale = Vector3(0.05, 0.046, 0.012)
+		l.rotation.z = sx * -0.25
+		sh.add_child(l)
+		var tm := MeshInstance3D.new()  # sanka korvan taakse
+		tm.mesh = B.boxm(Vector3(0.003, 0.003, 0.1))
+		tm.material_override = gold
+		tm.position = Vector3(sx * 0.068, 0.008, 0.048)
+		sh.add_child(tm)
+	for y in [0.012, 0.0]:
+		var br := MeshInstance3D.new()  # kaksoissilta
+		br.mesh = B.boxm(Vector3(0.022, 0.0025, 0.003))
+		br.material_override = gold
+		br.position = Vector3(0, y, -0.002)
+		sh.add_child(br)
+	c.attach("Head", sh, Vector3(0, 0.07, -0.105))
+	# Paksu kultaketju kaulassa.
+	var ch := MeshInstance3D.new()
+	var tmc := TorusMesh.new()
+	tmc.inner_radius = 0.068
+	tmc.outer_radius = 0.075
+	tmc.rings = 24
+	tmc.ring_segments = 5
+	ch.mesh = tmc
+	ch.material_override = gold
+	ch.scale = Vector3(1.0, 1.0, 0.85)
+	ch.rotation.x = deg_to_rad(-18)
+	c.attach("neck_01", ch, Vector3(0, -0.035, -0.012))
 
 
 ## Glamour-asusteet päähän: leveälierinen olkihattu punaisella nauhalla, isot tummat aurinkolasit ja kultaiset

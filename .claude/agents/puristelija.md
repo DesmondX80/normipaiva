@@ -24,6 +24,9 @@ Säännöt:
 - **Tunnistettava esine ei ole pallo tai laatikko** (rajakivi, karhu, rotko, patsas, maalaus): rakenna muodoista, jotka
   tunnistuu, sävytä (vaalea yläreuna, tumma alareuna) ja katso kuva kolmesta kulmasta suurennettuna. Maalaukset ja taulut
   piirretään samalla koodilla kuin minipelissä (esim. SubViewport), ei värilaattoina. Kolmas korjaus samaan: vaihda rakenne.
+- **Minipeli: lue CLAUDE.md "Uusi minipeli: ennen ensimmäistä riviä" ja valitse malli ennen koodia.** Näkyvät hahmot
+  ovat 3D-hahmoja (`Looks.make`), ensisijaisesti pelimaailmassa oikeassa paikassa; näppäinohje `hint_bar.gd`:llä
+  asetusten näppäimistä; kameran rajaus lasketaan projisoimalla. Kirjaa valittu malli toteutusraporttiin.
 - **Ota uusi kuva aina viimeisen muutoksen jälkeen** ennen kuin sanot valmis; älä raportoi kuvasta, joka on otettu ennen
   viimeistä säätöä. Jos jokin jäi katsomatta tai ajamatta, sano se palautuksessa. Jos näet kuvassa vian, työ ei ole valmis:
   älä kuittaa näkyvää vikaa mittausvirheeksi tai vanhaksi.

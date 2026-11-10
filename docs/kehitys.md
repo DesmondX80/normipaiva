@@ -63,7 +63,7 @@ Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi 
 `--scene=kalajoki`: Kalajoen Hiekkasärkät ja rantapallo (taksivalinta, järjestäjä, peli juhannuksena, turnausvoitto antaa palkkion kerran; kuvat `_alue`, `_peli`, `_loppu`; `--shot=`).
 `--scene=raate`: Raatteen Portti (taksivalinta, vierailija, portti, muistokivi, kolmen kohdan palkinto kerran; kuva `_alue`; `--shot=`).
 `--scene=kajaani`: Kajaanin linna ja Messenius (taksivalinta, rauniot, tervavene-kohtaus, Messenius, kolmen palkinto kerran; kuva `_alue`; `--shot=`).
-`--scene=kolmio_juttu` (headless): jalan kulkija Teron ja Timon vieressä 1,5–4,5 m:n päässä, vihjeen on oltava "Juttele Teron ja Timon kanssa" eikä aseman odotussalin (juttelupisteen säde 7). `--scene=kolmiomittaus` / `--scene=kolmiomittaus_vaala`: kolmiomittaus (#255, `tools/testit/kolmiomittaus.gd`): pyöristys ja ympyrät (oikea etäisyys aina vyöhykkeellä, kohde leikkauksessa), lisämittaus pienentää aluetta (viiden mittauksen leikkaus 10 m:n ruudukolla alle puolet kolmen alueesta, kulmat kohteesta tulostetaan), tallennus, kaverit ja hahmot kolmesta suunnasta (`_hahmo_*`, Jonin rinkka rajattuna `_rinkka_*`), Sytkäri (`_sytkari_matsi`, `_sytkari_matka`), etämittaus, kaverit pelaajan perässä (`_kaverit_mukana`), Siviikki-ajo (`_siviikki_*`), paperikartta (`_kartta`), väärä ovi, ovi ilman lahjaa, lahjan osto kauppiaalta, ovi lahjoineen, erikoisrasvanappi (`_rasva_esittely`, `_rasva_pimea`, `_rasva_puhelu`, `_rasva_loppu`), aamu (`_aamu`), päivän vaihto, loppu ja maito. Kohtaukset ilman pelimaailmaa: `tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn` (ovet, väärä ovi kepin
+`--scene=kolmio_juttu` (headless): jalan kulkija Teron ja Timon vieressä 1,5–4,5 m:n päässä, vihjeen on oltava "Juttele Teron ja Timon kanssa" eikä aseman odotussalin (juttelupisteen säde 7). `--scene=kolmiomittaus` / `--scene=kolmiomittaus_vaala`: kolmiomittaus (#255, `tools/testit/kolmiomittaus.gd`): pyöristys ja ympyrät (oikea etäisyys aina vyöhykkeellä, kohde leikkauksessa), lisämittaus pienentää aluetta (viiden mittauksen leikkaus 10 m:n ruudukolla alle puolet kolmen alueesta, kulmat kohteesta tulostetaan), tallennus, kaverit ja hahmot kolmesta suunnasta (`_hahmo_*`, Jonin rinkka rajattuna `_rinkka_*`), Sytkäri (`_sytkari_matsi`, `_sytkari_matka`), etämittaus, kaverit pelaajan perässä (`_kaverit_mukana`), Siviikki-ajo (`_siviikki_*`; reitti aseman pihasta tielle suosii teitä ja kiertää rakennukset (painotettu haku: maasto 5 × kalliimpi), `_kolmio_siviikki_route`, ja Civicin kokoinen laatikko reitillä ei saa osua esteisiin: TESTI VIKA läpimenoista), paperikartta (`_kartta`), väärä ovi, ovi ilman lahjaa, lahjan osto kauppiaalta, ovi lahjoineen, erikoisrasvanappi (`_rasva_esittely`, `_rasva_pimea`, `_rasva_puhelu`, `_rasva_loppu`), aamu (`_aamu`), päivän vaihto, loppu ja maito. Kohtaukset ilman pelimaailmaa: `tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn` (ovet, väärä ovi kepin
 molemmissa asennoissa, aamu, Sytkäri, lahjojen pitely lähikuvina edestä, sivulta ja ylhäältä, lahjat kuistin pöydällä,
 rinkka, Mintun kiharat, mummo ja naisen olohuone viidestä suunnasta); jokaisen kohtauksen hahmoille ja Jonin rinkalle
 ajetaan läpimenotarkistus (`Asento.solids`). Numeroina: otteen rako (`KOLMIO rako`: käden pinta lahjan kylkeen nyrkin ala-,
@@ -122,7 +122,34 @@ helmassa tai kehä < 4 cm vartalosta). Pään luu on `Head`.
 Taksi: kermanvärinen Mercedes-Benz W123 (`vehicles.gd mercedes()`, `taxi()`; #283) keltaisella TAXI-kuvulla,
 `tools/testit/aja.sh tscn tools/testit/taksi_kuvat.tscn` (W123 ja taksi rinnakkain; mittaa 1,786 × 1,438 × 4,725 ±5 %, akselivälin
 2,795). Liikenteen, poliisin ja Päivin autoissa on kuskit (`Vehicles.kuski`: arvottu tai annettu ulkonäkö, Driving, `istuta`); istuimet myös Ponylle, Saabille ja Ladalle (`ISTUIMET`). Taksikuskit istutetaan `Vehicles.istuta(..., "mercedes", "kuski")`; `autossa_kuvat.tscn` mittaa myös taksikuskin.
+Pakettiauto: 90-luvun Toyota HiAce H100 (`vehicles.gd hiace()`, `van()` kutsuu sitä; mitat H100-blueprintista,
+getoutlines.com), nokaton kori kallistuvin kyljin, ohjaamon sisusta lasien läpi, liukuovi oikealla ja takaluukku; `korkea = true`
+korotettu katto (ambulanssi, kauppa-auto). Kylkikuviot sovitetaan kylkeen `Vehicles.hiace_kylki(y)`:llä.
+Liikenteen pakettiautoissa on kuski (`Vehicles.kuski(..., "hiace")`, istuin etupyörän päällä); `autossa_kuvat.tscn` mittaa
+sen pään raon kattoon, jalat ja kädet ratilla sekä ottaa leikkauskuvat (`paku_*`).
+Kuskit ovat myös kaapatussa autossa (pelaajan hahmo, mopomatkan kyytiläinen etupenkillä), Roivaisen Saabissa, kauppa-autossa
+(Eila ajaa, luukulla myy), taksimatkan ja kotipihan välianimaatioiden takseissa sekä retkikohteiden odottavissa takseissa.
+`--scene=mokkikauppaauto`: kauppa-auto mökillä (kuvat `_tulee` Eila ratissa, `_luukku`, `_luukku_lahi` luukku auki hyllyineen);
+ajo ja lähtö nopeutetaan `Engine.time_scale`:lla, jotta hitaalla renderöinnillä auto ehtii perille.
+`tools/testit/aja.sh tscn tools/testit/hiace_kuvat.tscn` (matala, korkea ja ambulanssi; mittaa 1,69 × 1,93/2,20 × 4,60 ±5 %,
+akselivälin 2,56).
+Pentin BangBus (#299, `scripts/rikos/pentti.gd`, osa-rajapinnalla vaikka ei ole huumekauppaa; auto `Vehicles.pentin_auto`,
+hahmo `Looks.PENTTI`, kyyti `cutscene.gd pentti_ride`, Vaalan paikka `vaala.gd pentti_spot`): `tools/testit/aja.sh scene bangbus`
+ja `scene bangbus_vaala` tarkistavat aikataulun (to ei, pe 18 ei, pe 20 kyllä), liikenteen Pentin piilotuksen, valinnat, päiväkirjan,
+repliikkipakan, kyydin (päivä vaihtuu, raha ja maine laskevat, legendaarinen hetki vain ensimmäisestä, herätyspaikka), toisen kyydin
+kiertuevihjeen ja kolmannen kyydin kiertueen (`cutscene.gd pentti_tour`, onnellinen loppu `pentin_kiertue`, herätys kotipihalta),
+Päivin aamurivin ja tallennuksen; kuvat auto viistosti, kyljet, perä, ohjaamo, Pentti, juttelu, kyyti, aamu, kiertue ja kiertueen aamu.
+Pentin ulkonäkö: `tools/testit/aja.sh tscn tools/testit/pentti_kuvat.tscn` (edestä, vino, sivu, takaa, rinta, liivin reuna, kasvot).
+Avonainen nahkaliivi ja rintakarvat ovat hahmon varjostimen asuvalintoja (`look.vest_open`, `chest_hair`, `body_hair`;
+`shaders/character.gdshader vest_half`, `chest_hair_amt`): liivin aukko lepoasennon koordinaateista, esikuvana biker-liivi
+auki paljaan rinnan päällä.
 Kaikki mallit rivissä: `tools/testit/aja.sh tscn tools/testit/autot_kuvat.tscn`.
+Tappelun alun ohjetauko: `tools/testit/aja.sh scene fight_ohjeet` (paneeli näkyy, tappelu ei ala itsestään, lyöntinappi aloittaa;
+kuva `_ohjeet`). Testiajoissa (`B.diag`) ohjetauko ohitetaan, ellei testi aseta `Fight.ohjeet_testissa`.
+Puhekuplien vuorottelu (`bubble.gd`: lähekkäin alle 5 m yksi kupla kerrallaan, vähimmäisaika tekstin pituudesta):
+`tools/testit/aja.sh tscn tools/testit/kuplat.tscn`.
+Pysäköidyt autot: `tools/testit/aja.sh scene parkit` tarkistaa, ettei yksikään `B.parked_car` ole toisen sisällä Saloisissa eikä Vaalassa
+(Vaalassa myös Pentin paikkaa vasten), ja kuvaa Zabukin joka suunnasta (`_zabuki_*`).
 
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
 koukut testiosalla (`tools/testit/rikos_koe_osa.gd`): puhe, tapahtumat, luukun vihje, tallennus edestakaisin, päiväkirjan data,
@@ -378,3 +405,8 @@ tasaisesti, sen yli (Sinikka 2.7, DD hoikalla) kasvaa vain ulkonema eteen, ei le
 `_subdivide_bust` tihentää pohjaverkon rinnan alueella kahdesti ennen muotoilua (muuten iso muoto on särmikäs ja
 lappubikinien reuna porrastuu). Mittaus: `aja.sh tscn tools/testit/sinikka_mitat.tscn [--bust=2.4,3.0]` (rinnan- ja
 alaympärys, ulkonema rintakehästä cm, MITAT-rivit lokissa; kuvat edestä, sivulta ja lähikuvat).
+
+Pullonkorkit (#290): `tools/testit/aja.sh scene korkit` (kalja antaa korkin, harvinaisuusjakauma, juhannuskorkit vain
+juhannuksena, voittokorkit, tallennus, kansiokuva, Korkki-Raimon vaihto ja kuva kirppiksellä, MM-korkin löytö, Päivin
+motkotus ja jemma, maastolöytöjen paikat, korkkiläpsy Saloisten kaukalolla ja Vaalan lavan pihalla: panos, lyönti,
+lopetus ja kuvat).

@@ -166,6 +166,7 @@ var _npcs_answer_t := 0.0
 
 
 func _ready() -> void:
+	_cam_saved = [CamCtl.fps, CamCtl.yaw, CamCtl.pitch]
 	add_to_group("esc_lopettaa")  # Esc lopettaa pelin: taukovalikko ei aukea (menu.gd)
 	layer = 6
 	_root = Control.new()
@@ -289,7 +290,9 @@ func _draw_call() -> void:
 
 
 func _pressed_ok() -> bool:
-	return Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("jump")
+	var click := _click
+	_click = false
+	return Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("jump") or click
 
 
 func _quit_pressed() -> bool:
@@ -298,8 +301,72 @@ func _quit_pressed() -> bool:
 
 ## Konttauksen näppäimet ohjeriville: ylös, vasen, alas, oikea (oletuksena [W/A/S/D]).
 func _move_keys() -> String:
-	return "[%s/%s/%s/%s]" % [Settings.action_key("forward"), Settings.action_key("left"), Settings.action_key("back"),
+	if _mouse_fps():
+		return "[Hiiri] katso   %s konttaa   %s sivulle" % [Settings.pair("forward", "back"), Settings.pair("left", "right")]
+	if _hall != null and _hall.fps:
+		return "%s konttaa   %s käänny" % [Settings.pair("forward", "back"), Settings.pair("left", "right")]
+	return "[%s/%s/%s/%s] konttaa" % [Settings.action_key("forward"), Settings.action_key("left"), Settings.action_key("back"),
 		Settings.action_key("right")]
+
+
+## V vaihtaa pelikameran (ylhäältä / oma näkymä) pimeän vaiheissa; FPS-näkymässä konttaus omaan katsesuuntaan (_dark_step).
+const FPS_TURN := 2.4  # rad/s käännös A/D:llä FPS-näkymässä
+static var fps_valinta := false  # viimeisin valinta muistetaan seuraavaan peliin (pelikerran ajan)
+
+
+func _camera_toggle() -> void:
+	_mouse_capture()
+	if _hall == null or not _mode in DARK_MODES:
+		return
+	if Input.is_action_just_pressed("camera"):
+		_hall.set_fps(not _hall.fps)
+		fps_valinta = _hall.fps
+		Sfx.play("cloth", -12.0, 1.3)
+
+
+## Hiiriohjaus FPS-näkymässä, kun asetuksista on valittu hiiri ohjaa kulkusuuntaa (FPS-tyyli, ulkona tai sisällä):
+## hiiren sivuliike kääntää konttaajaa, pystyliike kallistaa katsetta, A/D sivuttain ja vasen nappi tökkää.
+const DARK_MODES := ["sammutus", "pimea", "nimi", "vastaus", "nuolu", "puhelu"]
+const MOUSE_SENS := 0.0032  # kuten cam_ctl.gd
+const PITCH_MIN := -0.75
+const PITCH_MAX := 0.45
+var _mouse_on := false
+var _click := false
+var _cam_saved: Array = []  # CamCtl: fps, yaw, pitch (V ja hiiri eivät saa muuttaa pelin omaa kameraa)
+
+
+func _mouse_fps() -> bool:
+	return _hall != null and _hall.fps and _mode in DARK_MODES and not Touch.active \
+		and (Settings.get_v("mouse_steer") or Settings.get_v("mouse_steer_indoor"))
+
+
+func _mouse_capture() -> void:
+	var want := _mouse_fps()
+	if want == _mouse_on:
+		return
+	_mouse_on = want
+	CamCtl.need_mouse = want
+	if want:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	else:
+		_click = false
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if get_tree().paused or not _mouse_on or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return
+	if event is InputEventMouseMotion and _mode == "pimea":
+		var sens: float = MOUSE_SENS * Settings.get_v("mouse_sens")
+		var inv := -1.0 if Settings.get_v("invert_y") else 1.0
+		mouse_look(event.relative * Vector2(sens, sens * inv))
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_click = true
+
+
+## Katseen käännös radiaaneina (x = oikealle, y = alas), hiirestä tai testistä.
+func mouse_look(rad: Vector2) -> void:
+	me.ang = wrapf(me.ang + rad.x, -PI, PI)
+	_hall.fps_pitch = clampf(_hall.fps_pitch - rad.y, PITCH_MIN, PITCH_MAX)
 
 
 func _size() -> Vector2:
@@ -308,6 +375,7 @@ func _size() -> Vector2:
 
 func _process(delta: float) -> void:
 	_t += delta
+	_camera_toggle()
 	_shake = maxf(0.0, _shake - delta * 2.5)
 	var off := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake * 10.0
 	_root.position = off
@@ -390,12 +458,13 @@ func _update_texts() -> void:
 			var left := maxf(0.0, MAX_TIME - _game_t)
 			if nappi == -1:
 				_info.text = "Olet RASVANAPPI · tökkää jotakuta takaapäin peppuun · tökkäyksiä %d/%d" % [pokes, MAX_POKES]
-				_keys.set_text("%s konttaa   %s ripeästi (kolisee)   [%s] tökkää   %s lopeta" % [_move_keys(),
-					Settings.cap("sprint"), Settings.action_key("interact"), Settings.cap("mount")])
+				_keys.set_text("%s   %s ripeästi (kolisee)   [%s] tökkää   %s kamera   %s lopeta" % [_move_keys(),
+					Settings.cap("sprint"), Settings.action_key("interact") + ("/Klikkaus" if _mouse_on else ""), Settings.cap("camera"),
+					Settings.cap("mount")])
 			else:
 				_info.text = "Rasvanappi liikkuu pimeässä · älä anna takapuolta · %d:%02d" % [int(left) / 60, int(left) % 60]
-				_keys.set_text("%s konttaa   %s ripeästi (kolisee)   %s lopeta" % [_move_keys(),
-					Settings.cap("sprint"), Settings.cap("mount")])
+				_keys.set_text("%s   %s ripeästi (kolisee)   %s kamera   %s lopeta" % [_move_keys(),
+					Settings.cap("sprint"), Settings.cap("camera"), Settings.cap("mount")])
 		"nimi":
 			_info.text = "Tökkäsit! Kuka se oli?"
 			_keys.set_text("%s valitse   [%s] huuda   [1–5] suoraan" % [Settings.pair("forward", "back"), Settings.action_key("interact")])
@@ -564,21 +633,72 @@ func _setup_door() -> void:
 	_rig.add_child(_dust)
 
 
-## Halli rakennetaan heti (hahmojen lataus ei nyki valojen sammuessa), kauas makasiinin yläpuolelle.
+## Pelin oikea ulkonäkö pelaajan id:n mukaan (sama hahmo kuin muualla pelissä); tyhjä = vain rasvanapin oma hahmo
+## (kolmiomittauksen Pirjo ja Sari). Haetaan kutsuttaessa: osa vakioista on muissa skripteissä.
+static func real_look(id: String) -> Dictionary:
+	match id:
+		"pekka":
+			return Looks.PEKKA
+		"arto":
+			return Looks.ARTO
+		"sinikka":
+			return Looks.SINIKKA
+		"raimo":
+			return load("res://scripts/kota.gd").RAIMO
+		"helena":
+			return load("res://scripts/cutscene.gd").HELENA
+		"minttu":
+			return Looks.MINTTU
+		"joni":
+			return Looks.JONI
+		"esa":
+			return Looks.ESA
+		"katja":
+			return Looks.KATJA
+		"tero":
+			return Looks.HEVARI_TERO
+		"timo":
+			return Looks.SIVIIKKI_TIMO
+	return {}
+
+
+## Pyyhehallin ulkonäkö oikeasta hahmosta: vain vartalo ja pää (pituus, muodot, hiukset, parta, iho). Vaatteet ja
+## asusteet (lasit, hattu, rinkka, ketju, vyö, kuviot) jäävät pois: hallissa ollaan pyyhkeissä (crawler3d.gd setup).
+const BODY_KEYS := ["model", "skin", "hair", "hair_color", "beard", "height", "belly", "bulk", "shoulders", "muscle", "bust",
+	"curves", "curls", "long_hair", "fringe", "braid", "perm_col", "chest_hair", "body_hair"]
+
+
+static func towel_look(base: Dictionary) -> Dictionary:
+	var out := {}
+	for k in BODY_KEYS:
+		if base.has(k):
+			out[k] = base[k]
+	return out
+
+
+## Halli rakennetaan heti (hahmojen lataus ei nyki valojen sammuessa), kauas makasiinin yläpuolelle. Pelaajat ovat samoja
+## hahmoja kuin muualla pelissä (real_look); vain rasvanapin omat hahmot tehdään PEOPLE-listan yksinkertaisesta kuvauksesta.
 func _setup_hall() -> void:
 	var looks: Array = []
 	for p: Dictionary in people:
 		var lk: Dictionary = p.look
 		var woman: bool = p.get("woman", false)
-		var look := {"model": "female" if woman else "male", "skin": lk.skin,
-			"hair": HAIRS[lk.hair], "hair_color": lk.hair_col, "beard": lk.get("beard", false), "height": 1.64 if woman else 1.76,
-			"bulk": (p.bulk - 1.0) * 2.0, "belly": 0.6 if p.bulk > 1.1 else 0.25, "muscle": -0.9}
-		for key in ["bust", "curves", "curls", "long_hair"]:  # erikoissääntöjen pelaajien muodot ja hiukset (kolmiomittaus.gd)
-			if lk.has(key):
-				look[key] = lk[key]
+		var real := real_look(String(p.get("id", "")))
+		var look := {}
+		if not real.is_empty():
+			look = towel_look(real)
+			if not look.has("skin"):
+				look["skin"] = lk.skin  # hahmolla ei omaa ihonsävyä: rasvanapin sävy (muuten pyyhkeissä lähes valkoinen)
+			woman = String(look.get("model", "male")) == "female"
+		else:
+			look = {"model": "female" if woman else "male", "skin": lk.skin,
+				"hair": HAIRS[lk.hair], "hair_color": lk.hair_col, "beard": lk.get("beard", false), "height": 1.64 if woman else 1.76,
+				"bulk": (p.bulk - 1.0) * 2.0, "belly": 0.6 if p.bulk > 1.1 else 0.25, "muscle": -0.9}
+			for key in ["bust", "curves", "curls", "long_hair"]:  # erikoissääntöjen pelaajien muodot ja hiukset (kolmiomittaus.gd)
+				if lk.has(key):
+					look[key] = lk[key]
 		looks.append({"towel": p.towel, "woman": woman, "look": look})
-	looks.append({"towel": Color(0.95, 0.95, 0.92), "woman": false, "look": {"skin": Color(0.98, 0.8, 0.7),
-		"hair": "Hair_SimpleParted", "hair_color": Color(0.22, 0.15, 0.1), "belly": 0.75, "bulk": 0.1, "height": 1.8}})
+	looks.append({"towel": Color(0.95, 0.95, 0.92), "woman": false, "look": towel_look(Looks.player())})  # pelaaja itse
 	_hall = Hall.new()
 	_hall.room = ROOM
 	_hall.door_y = DOOR_Y
@@ -624,6 +744,12 @@ func _hall_step(delta: float) -> void:
 
 
 func _exit_tree() -> void:
+	if _mouse_on:
+		CamCtl.need_mouse = false
+	if _cam_saved.size() == 3:
+		CamCtl.fps = _cam_saved[0]
+		CamCtl.yaw = _cam_saved[1]
+		CamCtl.pitch = _cam_saved[2]
 	if _hall != null and is_instance_valid(_hall):
 		_hall.queue_free()
 	if door == null or not is_instance_valid(door):
@@ -711,6 +837,8 @@ func _lights_out() -> void:
 	if _hall != null:
 		_hall.crawl_start()
 		_hall.cam.current = true
+		if fps_valinta:
+			_hall.set_fps(true)
 	Sfx.play("rattle", -2.0, 2.2)  # katkaisijan naksahdus
 	_shake = 0.2
 
@@ -786,8 +914,23 @@ func _dark_step(delta: float) -> void:
 	# Pelaajan konttaus.
 	var dir := Input.get_vector("left", "right", "forward", "back")
 	var hurry := Input.is_action_pressed("sprint")
-	me.moving = dir.length() > 0.1
-	if me.moving:
+	if _hall != null and _hall.fps:
+		# Oma näkymä: A/D kääntää (hiiriohjauksessa sivuttain), W/S kontaa katsesuuntaan eteen tai taakse.
+		var side := Input.get_axis("left", "right")
+		if not _mouse_on:
+			me.ang = wrapf(me.ang + side * FPS_TURN * delta, -PI, PI)
+			side = 0.0
+		var fw := Input.get_axis("back", "forward")
+		# Sivuttain ja taaksepäin hitaammin: oikea suunta on _fwd(ang + PI/2) (ang kasvaa oikealle kääntyessä).
+		var v := _fwd(me.ang) * fw * (1.0 if fw > 0.0 else 0.6) + _fwd(me.ang + PI / 2.0) * side * 0.7
+		me.moving = v.length() > 0.1
+		if me.moving:
+			var spd_f := (HURRY if hurry else CRAWL) * (1.0 - drunk * 0.25) * minf(1.0, v.length())
+			_move(me, v.normalized() * spd_f * delta, -1)
+			me.phase += delta * spd_f * 9.0
+		dir = Vector2.ZERO
+	me.moving = me.moving if (_hall != null and _hall.fps) else dir.length() > 0.1
+	if me.moving and not (_hall != null and _hall.fps):
 		var spd := (HURRY if hurry else CRAWL) * (1.0 - drunk * 0.25)
 		# Vartalo kääntyy heti liikesuuntaan, ettei hahmo kontaa takaperin tai sivuttain kääntyessään.
 		var turn := angle_difference(me.ang, dir.angle())
@@ -1063,6 +1206,8 @@ func _end() -> void:
 		return
 	_mode = "loppu"
 	_t = 0.0
+	if _hall != null and _hall.fps:
+		_hall.set_fps(false)  # valot syttyvät: koko halli näkyviin ylhäältä (valinta säilyy seuraavaan kertaan)
 	Sfx.play("rattle", -2.0, 2.2)
 	var lines: Array = rules.get("end_lines", ["Joku löytää valokatkaisijan. Kaikki jähmettyvät.", "Kukaan ei katso ketään silmiin."])
 	if _early:

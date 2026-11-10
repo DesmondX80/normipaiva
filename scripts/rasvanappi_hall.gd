@@ -22,6 +22,9 @@ var style := {}
 var crawlers: Array = []  # Crawler, pelaajan konttaaja viimeisenä
 var cam: Camera3D  # pelin kamera ylhäältä viistosti
 var line_cam: Camera3D  # esittely edestä
+var fps_cam: Camera3D  # V: oma näkymä konttaajan silmistä (set_fps)
+var fps := false
+var fps_pitch := -0.16  # FPS-katseen kallistus (rad, + ylös); hiiriohjauksessa hiiren pystyliike (rasvanappi_game.gd)
 var _sun: DirectionalLight3D
 var _sun_mask := 0
 var _ceiling: OmniLight3D
@@ -73,7 +76,26 @@ func build(obst: Array, looks: Array, bouncer: Dictionary, sun: DirectionalLight
 	add_child(line_cam)
 	var le := Vector3(room.x / 2.0, 1.5, room.y + 2.6)
 	line_cam.transform = Transform3D(Basis.looking_at(Vector3(room.x / 2.0, 1.05, LINE_Z) - le, Vector3.UP), le)
+	fps_cam = Camera3D.new()
+	fps_cam.fov = 72.0
+	fps_cam.near = 0.05
+	fps_cam.cull_mask = LAYER
+	fps_cam.environment = _env
+	add_child(fps_cam)
 	_set_layers(self)
+
+
+## V: pelikamera ylhäältä tai oma näkymä konttaajan silmistä. FPS-näkymässä oma hahmo piiloon (kamera on sen pään kohdalla).
+func set_fps(on: bool) -> void:
+	fps = on
+	(fps_cam if on else cam).current = true
+	if not crawlers.is_empty():
+		(crawlers[crawlers.size() - 1] as Node3D).visible = not on
+
+
+## Aktiivinen pelikamera (ruudun merkintöjen sijoitus).
+func play_cam() -> Camera3D:
+	return fps_cam if fps else cam
 
 
 func _exit_tree() -> void:
@@ -105,7 +127,11 @@ func set_sight(p: Vector2, radius: float) -> void:
 
 
 func w2s(p: Vector2, h := 0.4) -> Vector2:
-	return cam.unproject_position(to_global(Vector3(p.x, h, p.y)))
+	var c := play_cam()
+	var g := to_global(Vector3(p.x, h, p.y))
+	if c.is_position_behind(g):
+		return Vector2(-10000, -10000)  # FPS-näkymässä selän takana: merkintä ruudun ulkopuolelle
+	return c.unproject_position(g)
 
 
 ## Pikseliä metrillä hallin keskellä (äänirenkaiden ja tekstien mitoitus).
@@ -138,6 +164,12 @@ func place(i: int, p: Vector2, ang: float, phase: float, moving: bool) -> void:
 	c.position = Vector3(p.x, 0, p.y)
 	c.rotation.y = -ang - PI / 2.0
 	c.pose(phase, 1.0 if moving else 0.25)
+	if fps and i == crawlers.size() - 1:
+		# Silmät konttaajan pään kohdalla (n. 0,62 m, hieman vartalon keskeltä eteen), katse eteen ja vähän alas.
+		var f := Vector3(cos(ang), 0.0, sin(ang))
+		var eye := Vector3(p.x, 0.62, p.y) + f * 0.42 + Vector3(0, sin(phase) * 0.012 if moving else 0.0, 0)
+		var look := f * cos(fps_pitch) + Vector3.UP * sin(fps_pitch)
+		fps_cam.transform = Transform3D(Basis.looking_at(look, Vector3.UP), eye)
 
 
 func _build_lights() -> void:

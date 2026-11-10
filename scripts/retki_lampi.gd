@@ -221,6 +221,7 @@ func _build() -> void:
 	taxi.rotation.y = PI / 2.0
 	add_child(taxi)
 	Vehicles.taxi(taxi)
+	Vehicles.kuski(taxi, "mercedes", load("res://scripts/looks.gd").TAXI_DRIVER)  # kuski odottaa paluukyytiä
 	# Asuntovaunu, teltta, nuotiopaikka ja piknikpöytä; kuuset reunoilla.
 	_solid(Vector3(4.2, 2.0, 2.0), Vector3(-12.0, 1.0, -3.0), Color(0.93, 0.93, 0.9))
 	B.mesh(self, B.boxm(Vector3(4.24, 0.3, 2.04)), Vector3(-12.0, 0.5, -3.0), Color(0.3, 0.45, 0.7))

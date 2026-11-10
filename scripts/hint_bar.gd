@@ -10,6 +10,7 @@ const GAP := 22.0  # toimintojen väli rivillä
 
 var compact := false  # näppäinohjerivi vasemmassa alakulmassa (aseta ennen add_child)
 var centered := false  # compact keskelle alareunaan (tappelun ohjeet, fight.gd)
+var middle := false  # isona alareunassa keskellä (tappelun alun ohjeet ennen ROUND 1:tä, fight.gd): ei peitä tappelijoita
 var left := 0.0  # vasen raja (lappu auki: main.gd _avoid_note)
 var right := 0.0  # varattu oikealta (minikartta: main.gd _avoid_note)
 var _text := ""
@@ -24,7 +25,7 @@ var _re := RegEx.new()
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	_re.compile(r"\[([^\]\n]{1,30})\]")
+	_re.compile(r"\[([^\]\n]{1,60})\]")  # näppäinryhmä "[Nuoli ylös|Nuoli vas.,...]" on pitkä
 	_pill = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.07, 0.07, 0.09, 0.55 if compact else 0.86)
@@ -73,6 +74,10 @@ func _process(delta: float) -> void:
 	var sz := _pill.get_combined_minimum_size()
 	if compact:
 		_pill.position = Vector2((vs.x - sz.x) / 2.0 if centered else 16.0, vs.y - 12.0 - sz.y)
+		modulate.a = _a
+		return
+	if middle:
+		_pill.position = Vector2((vs.x - sz.x) / 2.0, vs.y - 18.0 - sz.y + (1.0 - _a) * 10.0)
 		modulate.a = _a
 		return
 	var lo := maxf(left, 12.0)
@@ -155,23 +160,10 @@ func _chunk(part: Array) -> HBoxContainer:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	if part[0] != "":
-		var cap := PanelContainer.new()
-		var cs := StyleBoxFlat.new()
-		cs.bg_color = Color(0.96, 0.94, 0.88)
-		cs.set_corner_radius_all(6)
-		cs.border_color = Color(0.62, 0.6, 0.55)
-		cs.border_width_bottom = 4
-		cs.content_margin_left = 8
-		cs.content_margin_right = 8
-		cs.content_margin_top = 0
-		cs.content_margin_bottom = 1
-		cap.add_theme_stylebox_override("panel", cs)
-		cap.custom_minimum_size = Vector2(24, 24) if compact else Vector2(32, 32)
-		cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		var k := _label(part[0], 14 if compact else 19, Color(0.12, 0.12, 0.14), false)
-		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		cap.add_child(k)
-		h.add_child(cap)
+		if "|" in part[0]:
+			h.add_child(_cluster(part[0]))
+		else:
+			h.add_child(_keycap(part[0]))
 		if part[1] != "":
 			h.add_child(_label(part[1], 16 if compact else 22, Color.WHITE))
 	elif part[1] != "":
@@ -179,6 +171,49 @@ func _chunk(part: Array) -> HBoxContainer:
 	if part[2] != "":
 		h.add_child(_label(part[2], 18, Color(0.7, 0.7, 0.74)))
 	return h
+
+
+## Näppäinhattu (vaalea, tumma alareuna kuin näppäimen sivu).
+func _keycap(t: String) -> PanelContainer:
+	var cap := PanelContainer.new()
+	var cs := StyleBoxFlat.new()
+	cs.bg_color = Color(0.96, 0.94, 0.88)
+	cs.set_corner_radius_all(6)
+	cs.border_color = Color(0.62, 0.6, 0.55)
+	cs.border_width_bottom = 4
+	cs.content_margin_left = 8
+	cs.content_margin_right = 8
+	cs.content_margin_top = 0
+	cs.content_margin_bottom = 1
+	cap.add_theme_stylebox_override("panel", cs)
+	cap.custom_minimum_size = Vector2(24, 24) if compact else Vector2(32, 32)
+	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var k := _label(t, 14 if compact else 19, Color(0.12, 0.12, 0.14), false)
+	k.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cap.add_child(k)
+	return cap
+
+
+## Näppäinryhmä kuin näppäimistöllä: "[W|A,S,D]" = pystyviivaa edeltävät ylempään riviin keskelle, loput alempaan
+## (pilkuin erotettuina, koska asetuksissa valitun näppäimen nimessä voi olla välilyönti, esim. "Nuoli ylös").
+## Nuolinäppäimet piirretään nuolina. Esim. tappelun liikkuminen (fight.gd).
+const NUOLET := {"Nuoli ylös": "↑", "Nuoli alas": "↓", "Nuoli vas.": "←", "Nuoli oik.": "→"}
+
+
+func _cluster(spec: String) -> VBoxContainer:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for row_spec in spec.split("|"):
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 3)
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		for key in row_spec.split(",", false):
+			var cap := _keycap(NUOLET.get(key.strip_edges(), key.strip_edges()))
+			cap.custom_minimum_size.x = 32.0 if not compact else 24.0
+			row.add_child(cap)
+		v.add_child(row)
+	return v
 
 
 func _label(t: String, size: int, c: Color, outline := true) -> Label:
