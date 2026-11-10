@@ -106,7 +106,11 @@ tools/testit/saab_kuvat.tscn` (siviili- ja poliisi-Saab rinnakkain samoista kulm
 yhteisiä apufunktioita (`_cabin`, `_wheel_arch`).
 Saabin muoto (#286): kori on pyöristetty sivuprofiili (`_round`: reunakohtainen säde, olka vyölinjalla ja konepellin
 reunoilla 0,09, helma ja päädyt 0,03–0,04; konepellin etureuna kaarena profiilissa) ja tuulilasi kiertää kulman ympäri
-A-pilariin (`_wrap_glass`). Poliisi-Saabissa mustat pyöränkaaren reunat, ja valkoinen helma puskurin alla
+A-pilariin (`_wrap_glass`). Korin yläosa esikuvien mukaan (`.claude/tyo/saab/esikuva_poliisi_*.jpg`, blueprint 1981 GLS):
+sivulasit ja pilarit kallistuvat sisäänpäin 0,10 m kattoa kohti (`_lean_panel`, TUMBLE), katto on kaareva
+sivuprofiili (`_round`), ikkunoiden yläkulmat pyöristetty, konepelti kupera (HOOD_BULGE), helma nousee keulassa ja
+perässä (SILL_RISE) ja peräkulma on kaari (TAIL_R). `_round`: lähes samansuuntaisilla vierekkäisillä reunoilla sama
+säde, muuten sisennysten leikkaus karkaa piikiksi. `slab()` tekee suorakulmaisen kannan myös kallistetulle laatalle. Poliisi-Saabissa mustat pyöränkaaren reunat, ja valkoinen helma puskurin alla
 (POLIISI-teksti ennallaan); `saab(..., peltivanteet = true)` antaa hopeiset peltivanteet (ratsia ja Vaalan poliisi). Lähikuvat
 `p_kaari`, `p_kylki`, `p_keula_ala`, `keula_sivu`, `ws_kulma`, `ws_matala`, `ws_ylhaalta`, `olka_edesta` ja `olka_takaa`.
 Lada 2105 (`vehicles.gd lada()`, #283; Suomessa Lada 1500 S): `tools/testit/aja.sh tscn tools/testit/lada_kuvat.tscn` (Lada ja
