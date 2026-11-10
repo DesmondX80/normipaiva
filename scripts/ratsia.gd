@@ -43,7 +43,7 @@ func setup(at: Vector3, dir: Vector3, side: Vector3, half_w: float, ground: Call
 	car.position = Vector3(shoulder.x, ground.call(shoulder.x, shoulder.z), shoulder.z)
 	car.rotation.y = yaw
 	add_child(car)
-	Vehicles.saab(car, Color.WHITE, "", true)  # poliisi-Saab: väritys, tekstit ja vilkkupalkki
+	Vehicles.saab(car, Color.WHITE, "", true, true)  # poliisi-Saab: väritys, tekstit ja vilkkupalkki
 	_lights = Vehicles.police_lights(car)
 	var body := StaticBody3D.new()
 	car.add_child(body)

@@ -36,7 +36,7 @@ func _ready() -> void:
 	wheels = Vehicles.saab(saab, Color(0.62, 0.08, 0.08), "SAA-900")
 	poliisi = Node3D.new()
 	add_child(poliisi)
-	Vehicles.saab(poliisi, Color.WHITE, "SJX-141", true)
+	Vehicles.saab(poliisi, Color.WHITE, "SJX-141", true, true)  # peltivanteet
 	cam = Camera3D.new()
 	add_child(cam)
 	cam.current = true
@@ -122,4 +122,15 @@ func _run() -> void:
 	await _shot("poliisi_vino", Vector3(5.6, 1.7, -4.6), Vector3(1.4, 0.8, 0.0), 38.0)
 	await _shot("poliisi_pera", Vector3(5.0, 1.5, 5.0), Vector3(1.4, 0.8, 0.6), 38.0)
 	await _shot("poliisi_palkki", Vector3(2.4, 2.1, -1.8), Vector3(1.4, 1.5, 0.0), 35.0)
+	# #286: muutetut kohdat lähikuvina: poliisin pyöränkaari ja peltivanne, POLIISI-teksti, keulan pyöristys ja valkoinen
+	# helma, tuulilasin kulma ja olka edestä.
+	await _shot("p_kaari", Vector3(3.6, 0.6, -2.4), Vector3(2.2, 0.4, -1.26), 30.0)
+	await _shot("p_kylki", Vector3(5.6, 0.9, 0.1), Vector3(2.2, 0.65, 0.1), 28.0)
+	await _shot("p_keula_ala", Vector3(2.6, 0.5, -4.0), Vector3(1.4, 0.4, -2.1), 30.0)
+	await _shot("keula_sivu", Vector3(-4.2, 0.9, -2.0), Vector3(-1.2, 0.7, -1.7), 22.0)
+	await _shot("ws_kulma", Vector3(-3.0, 1.7, -2.4), Vector3(-1.85, 1.1, -0.7), 22.0)
+	await _shot("ws_ylhaalta", Vector3(-1.2, 3.4, -1.1), Vector3(-1.2, 1.0, -0.7), 30.0)
+	await _shot("olka_edesta", Vector3(-1.2, 1.25, -6.5), Vector3(-1.2, 0.85, 0.0), 16.0)
+	await _shot("ws_matala", Vector3(-3.4, 1.15, -3.2), Vector3(-1.6, 1.1, -0.75), 20.0)  # tuulilasin kierto kulman ympäri
+	await _shot("olka_takaa", Vector3(-1.2, 1.35, 6.5), Vector3(-1.2, 0.9, 0.0), 16.0)
 	get_tree().quit()
