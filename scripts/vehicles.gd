@@ -1139,11 +1139,11 @@ static func saab(parent: Node3D, color: Color, plate := "", police := false, pel
 			var l := Label3D.new()
 			l.text = "POLIISI"
 			l.font_size = 96
-			l.pixel_size = 0.0051  # kirjaimet kylkilistasta olkaan ja molempien ovien yli (#286)
+			l.pixel_size = 0.0036
 			l.outline_size = 0
 			l.modulate = Color(0.95, 0.96, 0.96)
 			l.double_sided = false
-			l.position = Vector3(sx * (SIDE + 0.004), 0.655, (AP0 - 0.02 + rear_seam) / 2.0)
+			l.position = Vector3(sx * (SIDE + 0.004), 0.64, (AP0 + RW) / 2.0 + 0.04)
 			l.rotation.y = sx * PI / 2.0
 			parent.add_child(l)
 		for face_z in [-1.0, 1.0]:
