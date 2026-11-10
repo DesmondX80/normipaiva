@@ -244,6 +244,10 @@ var _fill_grid := {}  # Vector2i -> [pohja (maailma), OSM-rakennuksen indeksi ta
 ## Täytetalot (Taytto.entry, lisäksi katos ja aita maailman pohjina): testit laskevat jakaumat ja päällekkäisyydet.
 var fill_log: Array = []
 var fill_skipped := 0  # täytetaloja jätetty pois, koska OSM-pohja on tien tai veden päällä
+## Ilman taloa jääneet OSM-pohjat syittäin (indeksit): pelialueen raja, keskipiste vedessä, runko tiellä tai vedessä,
+## runko jo rakennetun täytetalon päällä (päällekkäiset pohjat). Testi ja AJASTUS-rivi.
+## oma = OWN_BUILDINGS, vanha = FILL_KEEP ja Taytto.keep_old (vanha _house-malli).
+var fill_why := {"raja": [], "vesi_keski": [], "tie": [], "vesi": [], "paallekkain": [], "oma": [], "vanha": []}
 var _fill_hash := 0  # täytetalojen rungot: metsän välimuistiavaimeen (puut väistävät koko rungon, _fill_cover)
 var _play := PackedVector2Array()
 var edge_bodies: Array[StaticBody3D] = []  # pelialueen reunaseinät (reunakommentit)
@@ -3493,6 +3497,7 @@ func _build_houses() -> void:
 			if cp.distance_to(q) < 4.0:
 				own = true
 		if own:
+			fill_why.oma.append(bi)
 			continue
 		var keep := false
 		for q in FILL_KEEP:
@@ -3503,6 +3508,7 @@ func _build_houses() -> void:
 		var l: float = f.l
 		var d: float = f.d
 		if not _in_bounds(c, 3.0) or _in_any(c, _water):
+			fill_why["raja" if not _in_bounds(c, 3.0) else "vesi_keski"].append(bi)
 			continue
 		var ax: Vector2 = f.ax
 		var nrm: Vector2 = f.nrm
@@ -3521,6 +3527,7 @@ func _build_houses() -> void:
 			_add_house(c - ax * (l / 2.0 - 5.0) * (float(k) / ceilf(l / 14.0)))
 			k += 1
 		if keep:
+			fill_why.vanha.append(bi)
 			_house(c, f.yaw, l, d, h, WALLS[_rng.randi() % WALLS.size()],
 				ROOFS[_rng.randi() % ROOFS.size()], gap)
 		else:
@@ -3541,6 +3548,25 @@ func _build_houses() -> void:
 			else:
 				n[e.t] = n.get(e.t, 0) + 1
 		print("AJASTUS täytetalot %d: päätalot %s, piharakennukset %s; tien päällä pois %d" % [fill_log.size(), n, np, fill_skipped])
+		var why := {}
+		for k in fill_why:
+			why[k] = fill_why[k].size()
+		print("AJASTUS pohjia %d, ilman taloa %d; syyt %s" % [M.Osm.BUILDINGS.size(), fill_empty().size(), why])
+
+
+## OSM-pohjat, joille ei tullut taloa (ei oma, ei vanha malli eikä yhtään täytetaloa; syyt fill_why).
+func fill_empty() -> Array:
+	var has := {}
+	for e: Dictionary in fill_log:
+		has[e.get("bi", -1)] = true
+	for k in ["oma", "vanha"]:
+		for bi in fill_why[k]:
+			has[bi] = true
+	var res := []
+	for bi in M.Osm.BUILDINGS.size():
+		if not has.has(bi):
+			res.append(bi)
+	return res
 
 
 ## Täytetalo (K1–K5, scripts/rakennukset.gd) nimettömän OSM-rakennuksen pohjaan: tyyppi, värit ja mitat
@@ -3612,11 +3638,15 @@ func _fill_house(b: Dictionary, bi: int, f: Dictionary, gap: float) -> void:
 ## own = OSM-rakennuksen indeksi (oma pohja ei estä), others = saman pohjan muiden talojen rungot.
 func _fill_one(o: Dictionary, tx: Transform3D, foot: PackedVector2Array, own: int, others: Array[PackedVector2Array], piha := false) -> void:
 	if _fill_hits(foot, -2):
+		if own >= 0:
+			fill_why.paallekkain.append(own)
 		return  # OSM-pohjat päällekkäin (kaksoiskartoitus): jo rakennetun täytetalon päälle ei toista
 	for i in foot.size():
 		for q in [foot[i], (foot[i] + foot[(i + 1) % foot.size()]) / 2.0]:
 			if _road_clearance(q) < 0.0 or _in_any(q, _water):
 				fill_skipped += 1
+				if own >= 0:
+					fill_why["tie" if _road_clearance(q) < 0.0 else "vesi"].append(own)
 				return  # OSM-pohja tien, polun tai veden päällä (kartta kulkee toisin): ei taloa sinne
 	var lo := INF
 	var hi := -INF
@@ -3664,6 +3694,7 @@ func _fill_one(o: Dictionary, tx: Transform3D, foot: PackedVector2Array, own: in
 	_fill_put(foot, -2)
 	var row := Taytto.entry(o.tyyppi, c2, yaw, o.l, o.d, o.wall, foot)
 	row.piha = piha  # piharakennus päätalon takana (jakaumat erikseen pää- ja piharakennuksille)
+	row.bi = own
 	for k in extra:
 		var poly: PackedVector2Array = extra[k]
 		var lp: PackedVector2Array = res.foot[k]
