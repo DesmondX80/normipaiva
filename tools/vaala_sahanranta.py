@@ -3,6 +3,8 @@
 
 Ajo kerran: python3 tools/vaala_sahanranta.py   (venv/bin/python; viimeinen vaihe vaala_suorat.py:n jälkeen)
 tie.json:iin merkitään "sahanranta": true, ja uusi ajo kieltäytyy. Uusi lähtötilanne: git checkout assets/vaala.
+Täytteen pohjat (id <= -3000001) ovat vain paikkoja: vaala.gd _fill_house tekee niihin ajon aikana maiseman
+täytetalot K1–K5 (scripts/rakennukset.gd, taytto.gd; rantamökin suunta lasketaan vedestä). Tätä ei ajeta uudelleen.
 
 1. Asema (rakennus, laituri, piha), Veturitalli, Veturitallintie ja Kätkötie siirtyvät ST_SHIFT m radan suuntaan
    (itään), ja kätkö (asema.katko) seuraa. Aseman lähirakennukset siirtyvät mukana lähimpään vapaaseen paikkaan.

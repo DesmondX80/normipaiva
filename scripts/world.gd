@@ -20,6 +20,8 @@ const BasketGame := preload("res://scripts/basket_game.gd")
 const RankkuGame := preload("res://scripts/rankku_game.gd")
 const ApteekkiSaloinen := preload("res://scripts/apteekki_saloinen.gd")
 const SinikanKuistiMallit := preload("res://scripts/sinikan_kuisti_mallit.gd")
+const Rakennukset := preload("res://scripts/rakennukset.gd")
+const Taytto := preload("res://scripts/taytto.gd")
 const DRAPE_EDGE := 3.0  # maakerrosten kolmioiden maksimisivu, jotta ne myötäilevät maastoa
 ## Lehvästökorttien näkyvyysraja: tätä kauempana puut piirretään kevyinä perusmuotoina.
 const TREE_NEAR := 210.0
@@ -78,6 +80,15 @@ const ROOFS := [Color(0.2, 0.21, 0.22), Color(0.2, 0.21, 0.22), Color(0.12, 0.12
 	Color(0.4, 0.14, 0.1), Color(0.3, 0.2, 0.15)]
 const DOORS := [Color(0.35, 0.22, 0.14), Color(0.15, 0.25, 0.4), Color(0.5, 0.1, 0.08), Color(0.9, 0.9, 0.88)]
 const WHITE := Color(0.95, 0.95, 0.92)
+## Nimettömät OSM-talot, jotka jäävät vanhaksi _house-malliksi (muut korvataan täytetaloilla K1–K5, _fill_house):
+## kohteet rakentavat pihansa ja kylttinsä _house-mallin mittoihin (_osm_fit_at-kutsut, jotka eivät ole
+## M.OWN_BUILDINGSissa: Lemmikki, Kanttorila, Aaro, Pirtti, koulukeskus ja päiväkoti), ja kolmiomittaus etsii
+## Mintun ja väärät ovet _house-mallin ovesta (main.gd _kolmio_house_door). Viimeiset neljä ovat main.gd:n
+## KOLMIO_MINTTU ja KOLMIO_VAARAT kopioina: pidä samoina.
+const FILL_KEEP := [M.LEMMIKKI, M.KANTTORILA, M.AARO_HOUSE, M.PIRTTI, M.KOULUKESKUS, M.PAIVAKOTI,
+	Vector2(168.1, 810.8), Vector2(148.7, 822.7), Vector2(165.9, 783.1), Vector2(129.9, 811.5)]
+const FILL_DETAIL_END := 200.0  # täytetalojen pienet osat (kannattajat, rimat, välipuut) näkyvät tähän asti
+const FILL_GRID := 30.0  # pohjaruudukon ruutu (_fill_free)
 ## _house: ovilehti (koko, keskikohdan korkeus, keskikohta julkisivun edessä) ja porras; Sinikan kuistin mallit
 ## (sinikan_kuisti_mallit.gd) mitoitetaan samoista.
 const DOOR_LEAF := Vector3(0.95, 2.1, 0.1)
@@ -227,6 +238,13 @@ const FORAGE_KINDS := {
 }
 var _surf_mats := {}
 var _batches := {}
+## Täytetalojen lohkoerät: lohko -> [runko, pienet] (lift = false: talo on pohjansa korkeimman kulman tasolla).
+var _fill_batches := {}
+var _fill_grid := {}  # Vector2i -> [pohja (maailma), OSM-rakennuksen indeksi tai -1]: pihan osat väistävät näitä
+## Täytetalot (Taytto.entry, lisäksi katos ja aita maailman pohjina): testit laskevat jakaumat ja päällekkäisyydet.
+var fill_log: Array = []
+var fill_skipped := 0  # täytetaloja jätetty pois, koska OSM-pohja on tien tai veden päällä
+var _fill_hash := 0  # täytetalojen rungot: metsän välimuistiavaimeen (puut väistävät koko rungon, _fill_cover)
 var _play := PackedVector2Array()
 var edge_bodies: Array[StaticBody3D] = []  # pelialueen reunaseinät (reunakommentit)
 var _grass_mat: ShaderMaterial
@@ -355,7 +373,7 @@ func build(step: Callable) -> void:
 	_commit_batches()
 	await step.call("Istutetaan metsää", 0.75)
 	# Metsän sirottelu (tuhansia pistetestejä) välimuistista: sama satunnaistila, kartta ja talot = samat puut.
-	var tkey := "v1/%d/%d/%d/%d/%d/%s" % [_rng.state, _trees.size(), hash(_houses), hash(_tree_free), hash(M.FORESTS), _drape_key()]
+	var tkey := "v1/%d/%d/%d/%d/%d/%d/%s" % [_rng.state, _trees.size(), hash(_houses), _fill_hash, hash(_tree_free), hash(M.FORESTS), _drape_key()]
 	var tc := MeshBundle.load_dict("metsa", tkey)
 	if tc.has("trees"):
 		_trees = tc.trees
@@ -860,6 +878,21 @@ func _commit_batches() -> void:
 		mi.material_override = B.vcol_mat()
 		add_child(mi)
 	_batches.clear()
+	for key in _fill_batches:
+		for i in 2:  # 0 = runko (näkyy kauas), 1 = pienet osat (vain lähelle, ei varjoa)
+			var fb: B.Batch = _fill_batches[key][i]
+			if fb.is_empty():
+				continue
+			var fm := MeshInstance3D.new()
+			fm.set_meta("draped", true)
+			fm.mesh = fb.commit()
+			fm.material_override = B.vcol_mat()
+			if i == 1:
+				fm.visibility_range_end = FILL_DETAIL_END
+				fm.visibility_range_end_margin = 10.0
+				fm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(fm)
+	_fill_batches.clear()
 
 
 ## Rakennusten ja pihojen staattiset koristeosat lohkoittain erämesheiksi (B.merge_static): 7 000 erillistä meshiä
@@ -1110,13 +1143,7 @@ func _house(pos: Vector2, yaw: float, l: float, d: float, h: float, wall: Color,
 	blockers.append([pos, Vector2(l / 2.0, d / 2.0), yaw])
 	var xf := body.transform
 	var batch := _batch_at(pos)
-	if _lawn_st != null:
-		var hl := l / 2.0 + 6.0
-		var hd := d / 2.0 + (street_gap if street_gap > 0.0 else 6.0)
-		var corners := [Vector3(-hl, 0.008, -hd), Vector3(hl, 0.008, -hd), Vector3(hl, 0.008, d / 2.0 + 7.0), Vector3(-hl, 0.008, d / 2.0 + 7.0)]
-		for i in [0, 1, 2, 0, 2, 3]:
-			var wv: Vector3 = xf * corners[i]
-			_lawn_st.add_vertex(Vector3(wv.x, 0.008, wv.z))
+	_lawn(xf, l, d, street_gap)
 	var add := func(m: PrimitiveMesh, p: Vector3, col: Color, rot_y := 0.0) -> void:
 		batch.add(m, xf * Transform3D(Basis(Vector3.UP, rot_y), p), col)
 
@@ -1156,49 +1183,7 @@ func _house(pos: Vector2, yaw: float, l: float, d: float, h: float, wall: Color,
 		add.call(B.boxm(Vector3(0.06, 1.35, 1.55)), Vector3(x + sgn * 0.02, 1.75, 0), WHITE)
 		add.call(B.boxm(Vector3(0.08, 1.1, 1.3)), Vector3(x + sgn * 0.035, 1.75, 0), glass)
 
-	if street_gap > 0.0 and extras:
-		var front := -d / 2.0 - street_gap
-		if _rng.randf() < 0.75:
-			var mx := l / 2.0 - 1.0
-			add.call(B.boxm(Vector3(0.08, 1.1, 0.08)), Vector3(mx, 0.55, front + 1.2), Color(0.35, 0.35, 0.35))
-			add.call(B.boxm(Vector3(0.36, 0.3, 0.5)), Vector3(mx, 1.2, front + 1.2),
-				[Color(0.9, 0.9, 0.88), Color(0.2, 0.4, 0.25), Color(0.8, 0.6, 0.1)][_rng.randi() % 3])
-		var fence_roll := _rng.randf()
-		if fence_roll < 0.35:
-			# Pensasaita pihan edessä, portti keskellä.
-			var hz := front + 2.0
-			var hl := (l + 8.0) / 2.0 - 1.6
-			var hedge := Color(0.2, 0.36, 0.14).lightened(_rng.randf_range(-0.05, 0.08))
-			var hh := _rng.randf_range(0.8, 1.3)
-			for sx in [-1.0, 1.0]:
-				_add_hedge(xf, Vector3(sx * (1.6 + hl / 2.0), hh / 2.0, hz), Vector3(hl, hh, 0.8), hedge.lightened(0.1))
-		elif fence_roll < 0.55:
-			var fz := front + 2.2
-			var fl := l + 8.0
-			for y in [0.4, 0.85]:
-				add.call(B.boxm(Vector3(fl, 0.08, 0.05)), Vector3(0, y, fz), WHITE)
-			var k := 0.0
-			while k <= fl:
-				if absf(-fl / 2.0 + k) > 1.8:  # portti keskellä
-					add.call(B.boxm(Vector3(0.08, 1.0, 0.08)), Vector3(-fl / 2.0 + k, 0.5, fz), WHITE)
-				k += 1.6
-	if street_gap > 0.0 and extras and _rng.randf() < 0.35:
-		# Autokatos talon päädyssä, sivulla rimasäleikkö.
-		var cp := Vector3(l / 2.0 + 2.2, 0, -d / 2.0 + 1.0)
-		for px in [-1.5, 1.5]:
-			for pz in [-2.4, 2.4]:
-				add.call(B.boxm(Vector3(0.12, 2.3, 0.12)), cp + Vector3(px, 1.15, pz), WHITE)
-		add.call(B.boxm(Vector3(3.4, 0.15, 5.4)), cp + Vector3(0, 2.35, 0), roof)
-		for i in 9:
-			add.call(B.boxm(Vector3(0.05, 1.6, 0.07)), cp + Vector3(1.55, 0.95, -2.2 + i * 0.55), wall)
-		body.add_child(B.box_shape(Vector3(3.2, 2.3, 0.3), cp + Vector3(0, 1.15, 2.4)))
-	if extras and _rng.randf() < 0.13:
-		# Lipputanko ja Suomen lippu.
-		var fp := Vector3(-l / 2.0 - 3.0, 0, -d / 2.0 - 3.0)
-		add.call(B.cyl(0.05, 0.07, 8.0, 6), fp + Vector3(0, 4.0, 0), WHITE)
-		add.call(B.boxm(Vector3(1.8, 1.1, 0.03)), fp + Vector3(0.95, 7.35, 0), WHITE)
-		add.call(B.boxm(Vector3(1.8, 0.3, 0.05)), fp + Vector3(0.95, 7.35, 0), Color(0.0, 0.2, 0.55))
-		add.call(B.boxm(Vector3(0.3, 1.1, 0.05)), fp + Vector3(0.7, 7.35, 0), Color(0.0, 0.2, 0.55))
+	_yard_extras(body, xf, batch, l, d, wall, roof, street_gap, extras, _rng, true, true)
 	if extras and _rng.randf() < 0.3:
 		# Piharakennus / sauna.
 		var sp := Vector3(_rng.randf_range(-l / 3.0, l / 3.0), 0, d / 2.0 + 5.0)
@@ -1209,6 +1194,71 @@ func _house(pos: Vector2, yaw: float, l: float, d: float, h: float, wall: Color,
 		add.call(sr, sp + Vector3(0, 2.8, 0), roof, PI / 2.0)
 		body.add_child(B.box_shape(Vector3(3.5, 2.3, 2.8), sp + Vector3(0, 1.15, 0)))
 	return body
+
+
+## Talon nurmikko (_lawn_st): sivuille 6 m, eteen kadulle asti (street_gap) ja taakse 7 m. xf = talon kehys
+## (-Z = julkisivu), korkeus maanpinnan mukaan myöhemmin.
+func _lawn(xf: Transform3D, l: float, d: float, street_gap: float) -> void:
+	if _lawn_st == null:
+		return
+	var hl := l / 2.0 + 6.0
+	var hd := d / 2.0 + (street_gap if street_gap > 0.0 else 6.0)
+	var corners := [Vector3(-hl, 0.008, -hd), Vector3(hl, 0.008, -hd), Vector3(hl, 0.008, d / 2.0 + 7.0), Vector3(-hl, 0.008, d / 2.0 + 7.0)]
+	for i in [0, 1, 2, 0, 2, 3]:
+		var wv: Vector3 = xf * corners[i]
+		_lawn_st.add_vertex(Vector3(wv.x, 0.008, wv.z))
+
+
+## Omakotitalon satunnaiset pihaesineet (_house ja täytetalot _fill_house): postilaatikko, aita tai pensasaita,
+## autokatos (carport) ja lipputanko. batch nostaa pisteet maahan (lift), xf on talon kehys maan tasolla.
+## fence = false: ei aitaa (K5:llä on oma umpilankkuaitansa).
+func _yard_extras(body: StaticBody3D, xf: Transform3D, batch: B.Batch, l: float, d: float, wall: Color, roof: Color,
+		street_gap: float, extras: bool, rng: RandomNumberGenerator, carport: bool, fence: bool) -> void:
+	var add := func(m: PrimitiveMesh, p: Vector3, col: Color, rot_y := 0.0) -> void:
+		batch.add(m, xf * Transform3D(Basis(Vector3.UP, rot_y), p), col)
+	if street_gap > 0.0 and extras:
+		var front := -d / 2.0 - street_gap
+		if rng.randf() < 0.75:
+			var mx := l / 2.0 - 1.0
+			add.call(B.boxm(Vector3(0.08, 1.1, 0.08)), Vector3(mx, 0.55, front + 1.2), Color(0.35, 0.35, 0.35))
+			add.call(B.boxm(Vector3(0.36, 0.3, 0.5)), Vector3(mx, 1.2, front + 1.2),
+				[Color(0.9, 0.9, 0.88), Color(0.2, 0.4, 0.25), Color(0.8, 0.6, 0.1)][rng.randi() % 3])
+		var fence_roll := rng.randf()
+		if fence and fence_roll < 0.35:
+			# Pensasaita pihan edessä, portti keskellä.
+			var hz := front + 2.0
+			var hl := (l + 8.0) / 2.0 - 1.6
+			var hedge := Color(0.2, 0.36, 0.14).lightened(rng.randf_range(-0.05, 0.08))
+			var hh := rng.randf_range(0.8, 1.3)
+			for sx in [-1.0, 1.0]:
+				_add_hedge(xf, Vector3(sx * (1.6 + hl / 2.0), hh / 2.0, hz), Vector3(hl, hh, 0.8), hedge.lightened(0.1))
+		elif fence and fence_roll < 0.55:
+			var fz := front + 2.2
+			var fl := l + 8.0
+			for y in [0.4, 0.85]:
+				add.call(B.boxm(Vector3(fl, 0.08, 0.05)), Vector3(0, y, fz), WHITE)
+			var k := 0.0
+			while k <= fl:
+				if absf(-fl / 2.0 + k) > 1.8:  # portti keskellä
+					add.call(B.boxm(Vector3(0.08, 1.0, 0.08)), Vector3(-fl / 2.0 + k, 0.5, fz), WHITE)
+				k += 1.6
+	if street_gap > 0.0 and extras and rng.randf() < 0.35 and carport:
+		# Autokatos talon päädyssä, sivulla rimasäleikkö.
+		var cp := Vector3(l / 2.0 + 2.2, 0, -d / 2.0 + 1.0)
+		for px in [-1.5, 1.5]:
+			for pz in [-2.4, 2.4]:
+				add.call(B.boxm(Vector3(0.12, 2.3, 0.12)), cp + Vector3(px, 1.15, pz), WHITE)
+		add.call(B.boxm(Vector3(3.4, 0.15, 5.4)), cp + Vector3(0, 2.35, 0), roof)
+		for i in 9:
+			add.call(B.boxm(Vector3(0.05, 1.6, 0.07)), cp + Vector3(1.55, 0.95, -2.2 + i * 0.55), wall)
+		body.add_child(B.box_shape(Vector3(3.2, 2.3, 0.3), cp + Vector3(0, 1.15, 2.4)))
+	if extras and rng.randf() < 0.13:
+		# Lipputanko ja Suomen lippu.
+		var fp := Vector3(-l / 2.0 - 3.0, 0, -d / 2.0 - 3.0)
+		add.call(B.cyl(0.05, 0.07, 8.0, 6), fp + Vector3(0, 4.0, 0), WHITE)
+		add.call(B.boxm(Vector3(1.8, 1.1, 0.03)), fp + Vector3(0.95, 7.35, 0), WHITE)
+		add.call(B.boxm(Vector3(1.8, 0.3, 0.05)), fp + Vector3(0.95, 7.35, 0), Color(0.0, 0.2, 0.55))
+		add.call(B.boxm(Vector3(0.3, 1.1, 0.05)), fp + Vector3(0.7, 7.35, 0), Color(0.0, 0.2, 0.55))
 
 
 ## Lähin tieosuuden piste ja tien puolileveys (tyhjä, jos tietä ei ole lähiruuduissa).
@@ -3434,7 +3484,9 @@ func _osm_fit_at(px: Vector2) -> Dictionary:
 
 
 func _build_houses() -> void:
-	for b in M.Osm.BUILDINGS:
+	_fill_index()
+	for bi in M.Osm.BUILDINGS.size():
+		var b: Dictionary = M.Osm.BUILDINGS[bi]
 		var cp: Vector2 = b.c
 		var own := false
 		for q in M.OWN_BUILDINGS:
@@ -3442,6 +3494,10 @@ func _build_houses() -> void:
 				own = true
 		if own:
 			continue
+		var keep := false
+		for q in FILL_KEEP:
+			if cp.distance_to(q) < 4.0:
+				keep = true
 		var f := _osm_fit(b)
 		var c: Vector2 = f.c
 		var l: float = f.l
@@ -3464,15 +3520,270 @@ func _build_houses() -> void:
 			_add_house(c + ax * (l / 2.0 - 5.0) * (float(k) / ceilf(l / 14.0)))
 			_add_house(c - ax * (l / 2.0 - 5.0) * (float(k) / ceilf(l / 14.0)))
 			k += 1
-		_house(c, f.yaw, l, d, h, WALLS[_rng.randi() % WALLS.size()],
-			ROOFS[_rng.randi() % ROOFS.size()], gap)
+		if keep:
+			_house(c, f.yaw, l, d, h, WALLS[_rng.randi() % WALLS.size()],
+				ROOFS[_rng.randi() % ROOFS.size()], gap)
+		else:
+			_fill_house(b, bi, f, gap)
 		# Pihapuut: koivuja, pihlajia (lehtipuu), kuusia ja mäntyjä talon taakse ja sivuille.
 		if area >= 45.0:
 			for tk in _rng.randi_range(1, 3):
 				var tp: Vector2 = c - nrm * (d / 2.0 + _rng.randf_range(4.0, 9.0)) + ax * _rng.randf_range(-l / 2.0 - 3.0, l / 2.0 + 3.0)
-				if _road_clearance(tp) > 3.0 and not _near_house(tp, 5.0):
+				if _road_clearance(tp) > 3.0 and not _near_house(tp, 5.0) and not _fill_in_osm(tp):
 					var kind: String = ["birch", "birch", "spruce", "pine"][_rng.randi() % 4]
 					_trees.append([tp, kind, _rng.randf_range(0.75, 1.15), true])
+	if "--ajastus" in OS.get_cmdline_user_args():
+		var n := {}
+		var np := {}
+		for e: Dictionary in fill_log:
+			if e.piha:
+				np[e.t] = np.get(e.t, 0) + 1
+			else:
+				n[e.t] = n.get(e.t, 0) + 1
+		print("AJASTUS täytetalot %d: päätalot %s, piharakennukset %s; tien päällä pois %d" % [fill_log.size(), n, np, fill_skipped])
+
+
+## Täytetalo (K1–K5, scripts/rakennukset.gd) nimettömän OSM-rakennuksen pohjaan: tyyppi, värit ja mitat
+## Taytto.planista (siemen hash(b.c), ei _rng:stä), talo pohjansa korkeimman kulman tasolle ja sokkeli alimpaan
+## kulmaan asti (lift = false). Autokatos ja K5:n aita menevät pohjan yli, joten ne tehdään vain, jos tie, vesi,
+## rata, muut pohjat ja esteet eivät ole tiellä (_fill_free); piharakennus (K3) samoin talon taakse.
+## Paikallinen kehys: X = pohjan pitkä akseli, -Z = julkisivu tielle tai rantamökillä rantaan.
+func _fill_house(b: Dictionary, bi: int, f: Dictionary, gap: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(b.c)
+	var c: Vector2 = f.c
+	var fl: float = f.l
+	var fd: float = f.d
+	var yaw: float = f.yaw
+	var ax: Vector2 = f.ax
+	var nrm: Vector2 = f.nrm
+	_lawn(Transform3D(Basis(Vector3.UP, yaw), Vector3(c.x, 0, c.y)), fl, fd, gap)
+	var ctx := {"gap": gap, "pelto": false, "ranta": false}
+	for dir: Vector2 in [nrm, -nrm, ax, -ax]:
+		var reach := absf(dir.dot(ax)) * fl / 2.0 + absf(dir.dot(nrm)) * fd / 2.0
+		if _in_any(c + dir * (reach + 6.0), _fields):
+			ctx.pelto = true
+	if fl * fd < 80.0:
+		# Rantamökki tai sauna: julkisivu (ovi) lähimpään veteen (25 m sisällä).
+		for dist in [3.0, 10.0, 18.0, 25.0]:
+			for dir: Vector2 in [nrm, -nrm, ax, -ax]:
+				var reach := absf(dir.dot(ax)) * fl / 2.0 + absf(dir.dot(nrm)) * fd / 2.0
+				if not ctx.ranta and _in_any(c + dir * (reach + dist), _water):
+					ctx.ranta = true
+					ctx.gap = -1.0
+					if absf(dir.dot(ax)) > 0.5:
+						var t := fl
+						fl = fd
+						fd = t
+					yaw = B.yaw_to(Vector3(dir.x, 0, dir.y))
+	var xf := Transform3D(Basis(Vector3.UP, yaw), Vector3(c.x, 0, c.y))
+	var plan: Array = Taytto.plan("saloinen", {"l": fl, "d": fd, "t": b.t, "lv": b.lv}, ctx, rng)
+	# Rungot ensin: saman pohjan tonttien katokset väistävät myös myöhemmin rakennettavia taloja.
+	var feet: Array[PackedVector2Array] = []
+	for o: Dictionary in plan:
+		var tx := xf * Transform3D(Basis(Vector3.UP, o.rot), Vector3(o.dx, 0, 0))
+		feet.append(_fill_poly(tx, Rakennukset._rect(0, 0, o.l / 2.0, o.d / 2.0)))
+	for i in plan.size():
+		var o: Dictionary = plan[i]
+		var others: Array[PackedVector2Array] = feet.duplicate()
+		others.remove_at(i)
+		_fill_one(o, xf * Transform3D(Basis(Vector3.UP, o.rot), Vector3(o.dx, 0, 0)), feet[i], bi, others)
+		if plan.size() == 1 and o.tyyppi in ["K1", "K2", "K5"] and fl * fd >= 45.0:
+			var gxf: Transform3D = xf * Transform3D(Basis(), Vector3(o.dx, 0, 0))
+			_yard_extras(null, gxf, _batch_at(c), o.l, o.d, o.wall, o.roof, gap, true, rng, false, o.tyyppi != "K5")
+			if rng.randf() < 0.3:
+				# Piharakennus (aitta tai sauna, K3) talon taakse, ovi (-Z) taloa kohti.
+				var sb := {"l": rng.randf_range(3.2, 4.0), "d": rng.randf_range(3.8, 4.6), "t": "shed", "lv": 1}
+				var so := Taytto.pick("saloinen", sb, {}, rng)
+				var sp := Vector3(rng.randf_range(-o.l / 3.0, o.l / 3.0), 0, o.d / 2.0 + 3.0 + sb.d / 2.0)
+				var sx := gxf * Transform3D(Basis(Vector3.UP, so.rot), sp)
+				var sf := _fill_poly(sx, Rakennukset._rect(0, 0, so.l / 2.0, so.d / 2.0))
+				if _fill_free(sf, -1, feet):
+					_fill_one(so, sx, sf, -1, feet, true)
+					# Aiempien talojen pihapuut pois piharakennuksen alta (päätalojen pohjat ne väistävät jo, _fill_in_osm).
+					for ti in range(_trees.size() - 1, -1, -1):
+						var tp: Vector2 = _trees[ti][0]
+						if tp.distance_squared_to(Vector2(sx.origin.x, sx.origin.z)) < 64.0 and Geometry2D.is_point_in_polygon(tp, _fill_grow(sf, 0.8)):
+							_trees.remove_at(ti)
+
+
+## Yksi täytetalo kehykseen tx (y = 0 maan tasolla; nostetaan tässä): lohkoerät, törmäyslaatikot, esteet
+## (blockers, _add_house) ja fill_log. Katos ja aita jätetään pois, jos ne osuisivat johonkin (_fill_free).
+## own = OSM-rakennuksen indeksi (oma pohja ei estä), others = saman pohjan muiden talojen rungot.
+func _fill_one(o: Dictionary, tx: Transform3D, foot: PackedVector2Array, own: int, others: Array[PackedVector2Array], piha := false) -> void:
+	if _fill_hits(foot, -2):
+		return  # OSM-pohjat päällekkäin (kaksoiskartoitus): jo rakennetun täytetalon päälle ei toista
+	for i in foot.size():
+		for q in [foot[i], (foot[i] + foot[(i + 1) % foot.size()]) / 2.0]:
+			if _road_clearance(q) < 0.0 or _in_any(q, _water):
+				fill_skipped += 1
+				return  # OSM-pohja tien, polun tai veden päällä (kartta kulkee toisin): ei taloa sinne
+	var lo := INF
+	var hi := -INF
+	for q in foot:
+		var y := T.h(q.x, q.y)
+		lo = minf(lo, y)
+		hi = maxf(hi, y)
+	o.drop = hi - lo + 0.2
+	tx.origin.y = hi
+	var key := Vector2i(floori(tx.origin.x / CHUNK), floori(tx.origin.z / CHUNK))
+	if not _fill_batches.has(key):
+		_fill_batches[key] = [B.Batch.new(), B.Batch.new()]
+	var bs: Array = _fill_batches[key]
+	var mark := [bs[0]._ops.size(), bs[0]._h, bs[1]._ops.size(), bs[1]._h]
+	var res: Dictionary = Rakennukset.build(o.tyyppi, o, bs[0], bs[1], tx)
+	var extra := {}
+	for k in ["katos", "aita"]:
+		if res.foot.has(k):
+			extra[k] = _fill_poly(tx, res.foot[k])
+	var ok := true
+	for k in extra:
+		if not _fill_free(extra[k], own, others):
+			ok = false
+	if not ok:
+		# Erä takaisin ennen tätä taloa (Batch.add vain kerää osat ja tiivisteen) ja talo ilman katosta ja aitaa.
+		bs[0]._ops.resize(mark[0])
+		bs[0]._h = mark[1]
+		bs[1]._ops.resize(mark[2])
+		bs[1]._h = mark[3]
+		o.carport = 0
+		o.gate_gap = 0.0
+		res = Rakennukset.build(o.tyyppi, o, bs[0], bs[1], tx)
+		extra.clear()
+	var body := StaticBody3D.new()
+	body.transform = tx
+	body.set_meta("draped", true)  # jo maaston korkeudella (_lift_objects ei nosta uudelleen)
+	add_child(body)
+	for sh: Array in res.shapes:
+		body.add_child(B.box_shape(sh[0], sh[1]))
+	var c2 := Vector2(tx.origin.x, tx.origin.z)
+	var yaw := B.yaw_to(-tx.basis.z)
+	blockers.append([c2, Vector2(o.l / 2.0, o.d / 2.0), yaw])
+	_add_house(c2)
+	_fill_cover(foot)
+	_fill_put(foot, -2)
+	var row := Taytto.entry(o.tyyppi, c2, yaw, o.l, o.d, o.wall, foot)
+	row.piha = piha  # piharakennus päätalon takana (jakaumat erikseen pää- ja piharakennuksille)
+	for k in extra:
+		var poly: PackedVector2Array = extra[k]
+		var lp: PackedVector2Array = res.foot[k]
+		var mid := (lp[0] + lp[2]) / 2.0
+		var mw := tx * Vector3(mid.x, 0, mid.y)
+		blockers.append([Vector2(mw.x, mw.z), (lp[2] - lp[0]).abs() / 2.0, yaw])
+		_add_house(Vector2(mw.x, mw.z))
+		_fill_put(poly, -1)
+		row[k] = poly
+	fill_log.append(row)
+
+
+## Puut pois koko rungon alta: keskipisteen lisäksi nurkat (1,5 m sisään) ja sivujen keskikohdat talojen
+## ruudukkoon (_near_house), mutta ei _houses-listaan (paperikartta piirtää siitä yhden neliön per talo).
+func _fill_cover(foot: PackedVector2Array) -> void:
+	var mid := Vector2.ZERO
+	for q in foot:
+		mid += q / foot.size()
+	_fill_hash = hash([_fill_hash, foot])
+	for i in foot.size():
+		var q := foot[i]
+		var e := (q + foot[(i + 1) % foot.size()]) / 2.0
+		for p2 in [q + (mid - q).limit_length(1.5), e + (mid - e).limit_length(1.5)]:
+			var key := Vector2i(floori(p2.x / HOUSE_CELL), floori(p2.y / HOUSE_CELL))
+			if not _house_grid.has(key):
+				_house_grid[key] = []
+			_house_grid[key].append(p2)
+
+
+## Kupera pohja laajennettuna m metriä joka suuntaan (keskipisteestä poispäin).
+func _fill_grow(poly: PackedVector2Array, m: float) -> PackedVector2Array:
+	var res := Geometry2D.offset_polygon(poly, m)
+	return res[0] if not res.is_empty() else poly
+
+
+## Paikallinen pohja (x, z) kehyksestä tx maailman pohjaksi (x, z).
+func _fill_poly(tx: Transform3D, local: PackedVector2Array) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for q in local:
+		var w := tx * Vector3(q.x, 0, q.y)
+		out.append(Vector2(w.x, w.z))
+	return out
+
+
+## Pohjaruudukko pihan osien tarkistukseen: kaikkien OSM-rakennusten pohjat (indeksi mukana, ettei talon oma pohja
+## estä) ja tähän mennessä rakennettujen kohteiden esteet (blockers, indeksi -1).
+func _fill_index() -> void:
+	_fill_grid.clear()
+	for bi in M.Osm.BUILDINGS.size():
+		var b: Dictionary = M.Osm.BUILDINGS[bi]
+		var c := M.w2(b.c)
+		var tx := Transform3D(Basis(Vector3.UP, -float(b.a)), Vector3(c.x, 0, c.y))
+		_fill_put(_fill_poly(tx, Rakennukset._rect(0, 0, b.l * M.SCALE / 2.0, b.d * M.SCALE / 2.0)), bi)
+	for o: Array in blockers:
+		var tx := Transform3D(Basis(Vector3.UP, float(o[2])), Vector3(o[0].x, 0, o[0].y))
+		_fill_put(_fill_poly(tx, Rakennukset._rect(0, 0, o[1].x, o[1].y)), -1)
+
+
+func _fill_put(poly: PackedVector2Array, id: int) -> void:
+	var r := Rect2(poly[0], Vector2.ZERO)
+	for q in poly:
+		r = r.expand(q)
+	for gx in range(floori(r.position.x / FILL_GRID), floori(r.end.x / FILL_GRID) + 1):
+		for gz in range(floori(r.position.y / FILL_GRID), floori(r.end.y / FILL_GRID) + 1):
+			var k := Vector2i(gx, gz)
+			if not _fill_grid.has(k):
+				_fill_grid[k] = []
+			_fill_grid[k].append([poly, id])
+
+
+## Mahtuuko pihan osa (katos, aita, piharakennus): ei tiellä (0,5 m), vedessä, radalla eikä minkään muun pohjan
+## tai esteen päällä (oma OSM-pohja own sallitaan, others = saman pohjan muiden talojen rungot).
+func _fill_free(poly: PackedVector2Array, own: int, others: Array[PackedVector2Array]) -> bool:
+	var pts := poly.duplicate()
+	for i in poly.size():
+		pts.append((poly[i] + poly[(i + 1) % poly.size()]) / 2.0)
+	var mid := Vector2.ZERO
+	for q in poly:
+		mid += q / poly.size()
+	pts.append(mid)
+	for q in pts:
+		if _road_clearance(q) < 0.5 or _in_any(q, _water) or _near_rail(q, 1.0) or not _in_bounds(q, 1.0):
+			return false
+	for p2 in others:
+		if not Geometry2D.intersect_polygons(poly, p2).is_empty():
+			return false
+	for e: Array in _fill_near(poly):
+		if e[1] >= 0 and e[1] == own:
+			continue
+		if not Geometry2D.intersect_polygons(poly, e[0]).is_empty():
+			return false
+	return true
+
+
+## Pohjaruudukon alkiot poly:n ruuduista (sama alkio voi tulla useasta ruudusta).
+func _fill_near(poly: PackedVector2Array) -> Array:
+	var res := []
+	var r := Rect2(poly[0], Vector2.ZERO)
+	for q in poly:
+		r = r.expand(q)
+	for gx in range(floori(r.position.x / FILL_GRID), floori(r.end.x / FILL_GRID) + 1):
+		for gz in range(floori(r.position.y / FILL_GRID), floori(r.end.y / FILL_GRID) + 1):
+			res.append_array(_fill_grid.get(Vector2i(gx, gz), []))
+	return res
+
+
+## Osuuko poly ruudukon alkioon, jonka tunnus on id (-2 = täytetalon runko).
+func _fill_hits(poly: PackedVector2Array, id: int) -> bool:
+	for e: Array in _fill_near(poly):
+		if e[1] == id and not Geometry2D.intersect_polygons(poly, e[0]).is_empty():
+			return true
+	return false
+
+
+## Onko piste jonkin OSM-rakennuksen pohjassa (pihapuut eivät kasva myöhemmin rakennettavan talon paikalle).
+func _fill_in_osm(p: Vector2) -> bool:
+	for e: Array in _fill_grid.get(Vector2i(floori(p.x / FILL_GRID), floori(p.y / FILL_GRID)), []):
+		if e[1] >= 0 and Geometry2D.is_point_in_polygon(p, e[0]):
+			return true
+	return false
 
 
 ## Järvikuja 1 katunäkymän (2022) mukaan: punatiilinen yksikerroksinen talo, musta tiilikuviopeltikatto,
@@ -4631,7 +4942,7 @@ func _scatter_trees() -> void:
 		var x3 := lo2.x - 90.0
 		while x3 < hi2.x + 90.0:
 			var p := Vector2(x3, y3) + Vector2(_rng.randf_range(-4, 4), _rng.randf_range(-4, 4))
-			if not _in_bounds(p, -3.0) and _play_edge_dist(p) < 90.0 and not _in_any(p, _water):
+			if not _in_bounds(p, -3.0) and _play_edge_dist(p) < 90.0 and not _in_any(p, _water) and not _near_house(p, 6.0):
 				_trees.append([p, "spruce" if _rng.randf() < 0.65 else "birch", _rng.randf_range(0.9, 1.5), false])
 			x3 += 10.0
 		y3 += 10.0

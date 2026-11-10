@@ -25,6 +25,8 @@ const HumppaBand := preload("res://scripts/humppa_band.gd")
 const Janttu := preload("res://scripts/janttu.gd")
 const VaalaKirkko := preload("res://scripts/vaala_kirkko.gd")
 const Muskelivene := preload("res://scripts/muskelivene.gd")
+const Rakennukset := preload("res://scripts/rakennukset.gd")
+const Taytto := preload("res://scripts/taytto.gd")
 ## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
 ## mökin omilla rakennusfunktioilla (mokki.gd ladataan ajonaikaisesti: mokki.gd -> mopo.gd -> vaala.gd).
 const MOKKI_PATH := "res://scripts/mokki.gd"
@@ -3104,6 +3106,14 @@ func _build_buildings() -> void:
 		Color(0.55, 0.62, 0.66), Color(0.8, 0.55, 0.3), Color(0.93, 0.9, 0.78), Color(0.7, 0.72, 0.62)]
 	var brick_cols := [Color(0.6, 0.26, 0.17), Color(0.72, 0.42, 0.28), Color(0.52, 0.3, 0.22), Color(0.82, 0.7, 0.5)]
 	var plaster_cols := [Color(0.9, 0.88, 0.82), Color(0.86, 0.8, 0.66), Color(0.78, 0.8, 0.8), Color(0.92, 0.86, 0.74)]
+	fill_log.clear()
+	_fill_others.clear()
+	for bd in data.buildings:
+		var op := PackedVector2Array()
+		for q in bd.pts:
+			op.append(Vector2(q[0], q[1]))
+		if op.size() >= 3:
+			_fill_others.append([int(bd.id), op, _bbox(op)])
 	for bd in data.buildings:
 		var pts := PackedVector2Array()
 		for q in bd.pts:
@@ -3153,6 +3163,9 @@ func _build_buildings() -> void:
 					break
 			if not fit:
 				continue
+		if _fill_ok(bd, id):
+			_fill_house(bd, id, pts, path_grid, body)  # nimetön talo: maiseman täytetalo K1–K5
+			continue
 		var name: String = bd.name
 		var type: String = bd.type
 		var levels: int = bd.levels
@@ -3348,6 +3361,7 @@ func _build_buildings() -> void:
 				Color(0.1, 0.12, 0.2), "Helvetica Neue")
 			plate.position.y = minf(top - 0.9, base + 3.4)
 			_face_road(plate, obb, Vector2(bd.door_to[0], bd.door_to[1]) if bd.has("door_to") else Vector2.INF)
+	_fill_commit()
 	_hotel_yard()
 	for pair in [[_walls, "res://shaders/facade.gdshader"], [_roofs, "res://shaders/roof.gdshader"]]:
 		var st: SurfaceTool = pair[0]
@@ -3373,6 +3387,206 @@ func _build_buildings() -> void:
 	_multimesh(_door_mesh(), _doors)
 	_multimesh(_chimney_mesh(), _chimneys)
 	_multimesh(_balcony_mesh(), _balconies)
+
+
+# --- Maiseman täytetalot: K1–K5 (scripts/rakennukset.gd), valinta scripts/taytto.gd ----------------------------
+## Katjan rivitalo (main.gd _kolmio_vaala_setup valitsee pisimmän asuinrakennuksen 80–350 m asemalta; mainissa ovi
+## (1055.8, -956.2) ennen täytettä): oma mallinsa, jotta tarinan talo ("Katjan rivitalo", endings.gd) ei vaihdu.
+const KATJA_ID := -101209
+const FILL_CHUNK := 150.0  # lohkoerien koko (m)
+const FILL_NEAR := 200.0  # lähiyksityiskohtien (rimat, kannattajat, puitteiden välipuut) näkyvyys
+const FILL_SIDE_HW := 2.5  # sivutien puolileveys (tie.json ei kerro)
+var fill_log: Array = []  # Taytto.entry + id jokaisesta täytetalosta (testit: jakaumat, päällekkäisyydet)
+var _fill_batches := {}  # Vector2i lohko -> [runko, pienet]
+var _fill_others: Array = []  # [id, pohja, rajaus]: kaikki pohjat ja hyväksytyt katokset ja aidat (törmäystesti)
+
+
+## Täytetäänkö pohja K1–K5:llä: nimettömät, paitsi hotelli, Gasthaus, työkkäri, Katja, kirkko, asema, katokset
+## (type roof) ja lama-lapulliset liiketilat (#58, oletus: ne pysyvät).
+func _fill_ok(bd: Dictionary, id: int) -> bool:
+	if str(bd.name) != "" or id in [HOTEL_ID, GASTHAUS_ID, TYOKKARI_ID, KATJA_ID, SIITARI_ID, station_id]:
+		return false
+	if bd.type in ["church", "train_station", "roof"]:
+		return false
+	return not (bd.type in ["retail", "commercial"] and bd.kind != "shed")
+
+
+## Yksi pohja täytetaloiksi: kehys pohjan suunnatusta laatikosta (X = pitkä sivu, -Z = julkisivu tielle tai rantamökissä
+## veteen), tyyppi ja mitat Taytto.planista, osat lohkoeriin. Katos ja aita vain, jos ne eivät osu tiehen, veteen,
+## kiskoon tai toiseen pohjaan.
+func _fill_house(bd: Dictionary, id: int, pts: PackedVector2Array, grid: Dictionary, body: StaticBody3D) -> void:
+	var obb := _obb(pts)
+	var c: Vector2 = obb.center
+	var ay: Vector2 = obb.ay
+	var sz: Vector2 = obb.size
+	if sz.y > sz.x:
+		ay = obb.ax
+		sz = Vector2(sz.y, sz.x)
+	var area := absf(_poly_area(pts))
+	var t: String = bd.type
+	if bd.kind == "shed":
+		t = "farm_auxiliary" if area >= 45.0 else "shed"  # iso vaja tai halli ladoksi (K4), pieni aitaksi (K3)
+	elif not (t in Taytto.RESIDENTIAL_T or t in Taytto.INDUSTRY_T or t in Taytto.BARN_T):
+		t = "yes"  # koulu, mökki ym.: asuinpohjana (iso jaetaan tonteiksi)
+	var rd := _fill_road(c, grid)
+	var to_road: Vector2 = rd[0]
+	var gap := -1.0
+	var side := ay
+	if to_road != Vector2.ZERO:
+		side = ay if ay.dot(to_road) >= 0.0 else -ay
+		gap = maxf(float(rd[1]) - sz.y / 2.0, 0.0)
+	var wdir := _fill_water(c)
+	var ranta := wdir != Vector2.ZERO and area < 80.0
+	if ranta:
+		side = ay if ay.dot(wdir) >= 0.0 else -ay  # rantamökin ovi rantaan
+	var pelto := false
+	for k in 12:
+		var dv := Vector2.from_angle(TAU * k / 12.0)
+		for rr: float in [sz.x / 2.0 + 4.0, sz.x / 2.0 + 12.0]:
+			if code_at(c.x + dv.x * rr, c.y + dv.y * rr) == FIELD:
+				pelto = true
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(id)
+	var plan := Taytto.plan("vaala", {"l": sz.x, "d": sz.y, "t": t, "lv": bd.levels}, {"pelto": pelto, "ranta": ranta, "gap": gap}, rng)
+	var yaw := atan2(-side.x, -side.y)  # Basis(UP, yaw) vie paikallisen -Z:n julkisivun suuntaan side
+	var xf := Transform3D(Basis(Vector3.UP, yaw), Vector3(c.x, 0, c.y))
+	var grown := Geometry2D.offset_polygon(pts, 0.6)
+	var key := Vector2i(floori(c.x / FILL_CHUNK), floori(c.y / FILL_CHUNK))
+	if not _fill_batches.has(key):
+		_fill_batches[key] = [B.Batch.new(), B.Batch.new()]
+	var bt: Array = _fill_batches[key]
+	for o: Dictionary in plan:
+		var xt := xf * Transform3D(Basis(Vector3.UP, o.rot), Vector3(o.dx, 0, 0))
+		var hi := -INF
+		var lo := INF
+		var runko := PackedVector2Array()
+		for q: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+			var w := xt * Vector3(q.x * o.l / 2.0, 0, q.y * o.d / 2.0)
+			runko.append(Vector2(w.x, w.z))
+			var gy := h(w.x, w.z)
+			hi = maxf(hi, gy)
+			lo = minf(lo, gy)
+		# Runko pohjan sisään (L-muotoinen pohja: laatikko voi ulottua loven yli); muuten vapaaksi tarkistettu paikka.
+		var inside := grown.size() == 1 and Geometry2D.clip_polygons(runko, grown[0]).is_empty()
+		if not inside and not _fill_free(runko, id, grid):
+			continue
+		xt.origin.y = hi  # y = 0 pohjan korkein maanpinta, sokkeli alimpaan kulmaan
+		o.drop = hi - lo + 0.2
+		# Katos ja aita pohjan ulkopuolella: koekoonti hukkaeriin, ja jos ne osuvat johonkin, ne jätetään pois.
+		if o.carport != 0 or o.gate_gap > 0.0:
+			var dry: Dictionary = Rakennukset.build(o.tyyppi, o, B.Batch.new(), B.Batch.new(), xt)
+			for k2: String in ["katos", "aita"]:
+				if dry.foot.has(k2) and not _fill_free(_xf_poly(xt, dry.foot[k2]), id, grid):
+					o.carport = 0 if k2 == "katos" else o.carport
+					o.gate_gap = 0.0 if k2 == "aita" else o.gate_gap
+		var res: Dictionary = Rakennukset.build(o.tyyppi, o, bt[0], bt[1], xt)
+		for k2: String in res.foot:
+			var wp := _xf_poly(xt, res.foot[k2])
+			_bld_polys.append(wp)
+			if k2 != "runko":
+				_fill_others.append([id, wp, _bbox(wp)])
+		for sh: Array in res.shapes:
+			var cs := B.box_shape(sh[0])
+			cs.transform = xt * Transform3D(Basis(), sh[1])
+			body.add_child(cs)
+		if o.tyyppi in ["K1", "K2", "K5"]:
+			var out := xt.basis * Vector3.FORWARD
+			var dp: Vector3 = xt * (res.door as Vector3) - out  # main.gd lisää out * 1,0 (oven edusta)
+			house_doors.append({"pos": Vector3(dp.x, h(dp.x, dp.z), dp.z), "out": out, "type": bd.type, "len": o.l, "id": id})
+		var hc := xt.origin
+		var e := Taytto.entry(o.tyyppi, Vector2(hc.x, hc.z), yaw + o.rot, o.l, o.d, o.wall, runko)
+		e.id = id
+		fill_log.append(e)
+
+
+static func _xf_poly(xt: Transform3D, poly: PackedVector2Array) -> PackedVector2Array:
+	var r := PackedVector2Array()
+	for q in poly:
+		var w := xt * Vector3(q.x, 0, q.y)
+		r.append(Vector2(w.x, w.z))
+	return r
+
+
+static func _bbox(poly: PackedVector2Array) -> Rect2:
+	var bb := Rect2(poly[0], Vector2.ZERO)
+	for q in poly:
+		bb = bb.expand(q)
+	return bb
+
+
+## Lähin tie (päätie tai sivutie/polku): [suunta pohjan keskeltä tielle (yksikkö) tai ZERO, matka tien reunaan].
+func _fill_road(c: Vector2, grid: Dictionary) -> Array:
+	var best := INF
+	var at := Vector2.INF
+	var ni: Array = nearest(Vector3(c.x, 0, c.y))
+	if ni[0] >= 0:
+		var rp := road_pos(ni[0])
+		best = float(ni[1]) - float(road[ni[0]][4])
+		at = Vector2(rp.x, rp.z)
+	var gi := Vector2i(floori(c.x / 20.0), floori(c.y / 20.0))
+	for j in range(gi.y - 2, gi.y + 3):
+		for i in range(gi.x - 2, gi.x + 3):
+			for sg in grid.get(Vector2i(i, j), []):
+				var q := Geometry2D.get_closest_point_to_segment(c, sg[0], sg[1])
+				var dd := q.distance_to(c) - FILL_SIDE_HW
+				if dd < best:
+					best = dd
+					at = q
+	if at == Vector2.INF or at.distance_to(c) < 0.01:
+		return [Vector2.ZERO, -1.0]
+	return [(at - c).normalized(), best]
+
+
+## Veden suunta pohjan keskeltä (enintään 40 m), ZERO = ei rantaa.
+func _fill_water(c: Vector2) -> Vector2:
+	for rr: float in [8.0, 16.0, 24.0, 32.0, 40.0]:
+		for k in 16:
+			var dv := Vector2.from_angle(TAU * k / 16.0)
+			if code_at(c.x + dv.x * rr, c.y + dv.y * rr) == WATER:
+				return dv
+	return Vector2.ZERO
+
+
+## Onko pohja vapaa: ei vettä, tietä, piennarta tai kiskoa, ei päätien eikä sivutien päällä eikä toisen pohjan sisällä.
+func _fill_free(poly: PackedVector2Array, own: int, grid: Dictionary) -> bool:
+	var c := Vector2.ZERO
+	for q in poly:
+		c += q / poly.size()
+	for q in Array(poly) + [c]:
+		if code_at(q.x, q.y) in [WATER, ROAD, RAIL, SHOULDER]:
+			return false
+		var ni: Array = nearest(Vector3(q.x, 0, q.y))
+		if ni[0] >= 0 and float(ni[1]) < float(road[ni[0]][4]) + 1.0:
+			return false
+	if _on_side_road(poly, grid) or _crossed_by_road(poly, grid) or _near_rail(c, 8.0):
+		return false
+	var bb := _bbox(poly)
+	for o: Array in _fill_others:
+		if o[0] != own and (o[2] as Rect2).intersects(bb) and not Geometry2D.intersect_polygons(poly, o[1]).is_empty():
+			return false
+	return true
+
+
+func _fill_commit() -> void:
+	for key in _fill_batches:
+		var pair: Array = _fill_batches[key]
+		for k in 2:
+			var bt: B.Batch = pair[k]
+			if bt.is_empty():
+				continue
+			var mi := MeshInstance3D.new()
+			mi.mesh = bt.commit()
+			mi.material_override = B.vcol_mat()
+			if k == 1:
+				mi.visibility_range_end = FILL_NEAR
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(mi)
+	_fill_batches.clear()
+	if B.diag():  # vain testiajoissa
+		var cnt := {}
+		for e: Dictionary in fill_log:
+			cnt[e.t] = cnt.get(e.t, 0) + 1
+		print("VAALA täyte %d taloa %s" % [fill_log.size(), cnt])
 
 
 func _multimesh_mat(mesh: Mesh, xfs: Array[Transform3D], m: Material) -> void:
