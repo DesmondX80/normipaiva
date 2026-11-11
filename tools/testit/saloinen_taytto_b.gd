@@ -1,11 +1,12 @@
 extends Node
 ## Saloisten täytetalot (world.gd _fill_house, K1–K5) pelimaailmassa (osa B): tyyppimäärät pää- ja
-## piharakennuksille, poikkeuslistan (FILL_KEEP) talot ennallaan, katoksen, aidan ja piharakennuksen raot tiehen
+## piharakennuksille (K1–K8, tyypitys Taytto.classify/keep_old), poikkeuslistan (FILL_KEEP) talot ennallaan, katoksen, aidan ja piharakennuksen raot tiehen
 ## ja toisiin pohjiin, rungon päällekkäisyys toisiin täytetaloihin, ruutuaika ja kuvat (kylä, reuna, kaukomaisema,
 ## yläkuva, lähikuvat K2-katoksesta ja K5-aidasta). Vika = "TESTI VIKA".
 ## tools/testit/aja.sh tscn tools/testit/saloinen_taytto_b.tscn
 const M := preload("res://scripts/map_data.gd")
 const W := preload("res://scripts/world.gd")
+const Taytto := preload("res://scripts/taytto.gd")
 
 var out := "user://saloinen_taytto_b"
 var main: Node3D
@@ -39,7 +40,8 @@ func _run() -> void:
 	_counts(rows)
 	_keep(w, rows)
 	_overlaps(w, rows)
-	_why(w)
+	_why(w, rows)
+	_typing(w, rows)
 	cam = Camera3D.new()
 	cam.far = 3000.0
 	cam.fov = 60.0
@@ -101,13 +103,13 @@ func _counts(rows: Array) -> void:
 	for e: Dictionary in rows:
 		var d: Dictionary = np if e.piha else n
 		d[e.t] = d.get(e.t, 0) + 1
-		if not e.t in ["K1", "K2", "K3", "K4", "K5"]:
+		if not e.t in Taytto.TYPES:
 			_vika("täytetalo tyyppiä %s" % e.t)
 	var total := 0
 	for k in n:
 		total += n[k]
 	var parts: Array[String] = []
-	for t in ["K1", "K2", "K3", "K4", "K5"]:
+	for t in Taytto.TYPES:
 		parts.append("%s %d (%.1f %%)" % [t, n.get(t, 0), 100.0 * n.get(t, 0) / maxi(total, 1)])
 	print("SALOINEN päätalot %d: %s; piharakennukset %s" % [total, ", ".join(parts), np])
 	if total < 40:
@@ -195,7 +197,14 @@ func _overlaps(w: Node3D, rows: Array) -> void:
 
 ## Ilman taloa jääneet pohjat syittäin (world.gd fill_why): raja ja vesi_keski kuten mainissa (sama ehto),
 ## muut (tie, vesi, päällekkäin) enintään 15 (02-arkkitehtuuri.md Korjaus 2, kohta 5).
-func _why(w: Node3D) -> void:
+func _why(w: Node3D, rows: Array = []) -> void:
+	for bi: int in w.fill_why.paallekkain:
+		var f: Dictionary = w._osm_fit(M.Osm.BUILDINGS[bi])
+		var tx := Transform3D(Basis(Vector3.UP, f.yaw), Vector3(f.c.x, 0, f.c.y))
+		var poly: PackedVector2Array = w._fill_poly(tx, load("res://scripts/rakennukset.gd")._rect(0, 0, f.l / 2.0, f.d / 2.0))
+		for e: Dictionary in rows:
+			if not Geometry2D.intersect_polygons(poly, e.foot).is_empty():
+				print("SALOINEN päällekkäin-pohja bi %d (%.0f x %.0f, %s) osuu täytetaloon %s bi %s (%.0f x %.0f)" % [bi, f.l, f.d, M.Osm.BUILDINGS[bi].t, e.t, e.get("bi"), e.l, e.d])
 	var empty: Array = w.fill_empty()
 	var muut := 0
 	var known := {}
@@ -216,6 +225,41 @@ func _why(w: Node3D) -> void:
 		_vika("%d pohjaa ilman taloa tien, veden tai päällekkäisyyden takia (yli 15)" % muut)
 	if not unknown.is_empty():
 		_vika("%d pohjaa ilman taloa ilman kirjattua syytä" % unknown.size())
+
+
+## Tyypitys (Taytto.classify/keep_old): keep_old-pohjalla ei täytetaloa, K6–K8 vain isolle pohjalle (>= 120 m²),
+## yli 260 m²:n pohja ei jakaudu yli 3 taloksi, ison hallin rinne enintään W.FILL_DROP_MAX.
+func _typing(w: Node3D, rows: Array) -> void:
+	var per := {}
+	var big := {}
+	var max_drop := {}
+	for e: Dictionary in rows:
+		var bi: int = e.get("bi", -1)
+		if bi < 0 or e.piha:
+			continue
+		per[bi] = per.get(bi, 0) + 1
+		max_drop[e.t] = maxf(max_drop.get(e.t, 0.0), e.get("drop", 0.0))
+		if e.t in ["K6", "K7", "K8"]:
+			big[bi] = e.t
+			var f: Dictionary = w._osm_fit(M.Osm.BUILDINGS[bi])
+			if f.l * f.d < 120.0:
+				_vika("%s pienellä pohjalla bi %d (%.0f m²)" % [e.t, bi, f.l * f.d])
+		if e.t in ["K6", "K7", "K8"]:
+			print("SALOINEN iso talo %s bi %d: %.0f x %.0f m, maaston korkeusero %.2f m, sokkeli %.2f m" % [e.t, bi, e.l, e.d, e.get("span", 0.0), e.get("drop", 0.0) - 0.2])
+		if e.t == "K8" and e.get("drop", 0.0) - 0.2 > W.FILL_DROP_MAX + 0.01:
+			_vika("halli bi %d rinteessä: korkeusero %.2f m" % [bi, e.drop - 0.2])
+	for bi: int in per:
+		var f: Dictionary = w._osm_fit(M.Osm.BUILDINGS[bi])
+		var b: Dictionary = M.Osm.BUILDINGS[bi]
+		if Taytto.keep_old({"l": f.l, "d": f.d, "t": b.t, "lv": b.lv, "r": 1.0}):
+			_vika("keep_old-pohjalla bi %d täytetalo" % bi)
+		if per[bi] > 3:
+			_vika("pohjassa bi %d %d taloa (enintään 3)" % [bi, per[bi]])
+		if per[bi] > 1 and big.has(bi):
+			_vika("K6–K8 jaettu taloiksi bi %d" % bi)
+		if f.l * f.d >= 500.0 and not big.has(bi) and not b.t in Taytto.RESIDENTIAL_T:
+			_vika("iso pohja bi %d (%s) ilman K6–K8-mallia" % [bi, b.t])
+	print("SALOINEN K6–K8 pohjia %d, suurin pudotus (sokkeli) tyypeittäin %s, vanhoja mallipohjia %d" % [big.size(), max_drop, w.fill_why.vanha.size()])
 
 
 func _area(p: PackedVector2Array) -> float:
