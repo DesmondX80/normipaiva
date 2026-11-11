@@ -52,12 +52,11 @@ static func player(which := "") -> Dictionary:
 				"shoes": Color(0.1, 0.09, 0.08), "shoe": "tyokenka", "stripes": false, "shine": 0.0, "cap": "karjala",
 				"shades": ""}, true)
 		"hiihtohaalari":
-			# Kasarin neonpinkki toppahaalari (kuviot varjostimessa, ski_suit), valkoiset lenkkarit (kuukenkä myöhemmin, #272)
-			# ja frotee-otsapanta.
+			# Kasarin neonpinkki toppahaalari (kuviot varjostimessa, ski_suit), valkoiset kuukengät (#279) ja frotee-otsapanta.
 			for k in ["tracksuit", "stripe_color"]:
 				look.erase(k)
 			look.merge({"shirt": HAALARI_PINK, "pants": HAALARI_PINK, "ski_suit": true, "shirt_puff": 0.04,
-				"pants_puff": 0.046, "shoes": Color(0.9, 0.9, 0.93), "stripes": false, "shine": 0.55, "cap": "panta"}, true)
+				"pants_puff": 0.046, "shoes": Color(0.9, 0.9, 0.93), "shoe": "kuukenka", "stripes": false, "shine": 0.55, "cap": "panta"}, true)
 	return look
 
 

@@ -378,7 +378,7 @@ pohja), `kavelykenka` (2, matala suljettu varsi `top` 0,07, vaalea kumipohja, py
 `tyokenka` (3, varsi nilkan yli `shaft`, turvakärkikupu, paksu tumma pohja); `paljas` = ei kenkää. Tyyppi valitaan
 `Shoes.type_for(look)`: `look.shoe` voittaa, muuten `shoes`-väri (vaaleat ja kirkkaat = `lenkkari`, muut `paljas` = vanha
 värjätty jalkaterä). Käyttäjät (`looks.gd`): mummot `kavelykenka`, Seppo ja Reijo (`Looks.SEPPO`/`REIJO`) `tyokenka`, pelaaja asun
-mukaan (tuulipuku ja hiihtohaalari `lenkkari`, farkut ja tyovaatteet `tyokenka`), tanssijat `lenkkari` (sama korkeus, #271).
+mukaan (tuulipuku `lenkkari`, hiihtohaalari `kuukenka`, farkut ja tyovaatteet `tyokenka`), tanssijat `lenkkari` (sama korkeus, #271).
 Kumisaapas (#273, `style` 4): kaksi jäykkää osaa, matala kuori jalkaterän luissa ja leveä varsiputki (`shaft`, `rigid`,
 yläreuna ~0,24 m nilkasta) säären luussa; varren alareuna levenee 8 mm suun kohdalla, jotta alaosan suu jää sen sisään
 kaikissa asennoissa (`KENKA ... suu_ulkona`, `reisi_sisalla`). Lahje kavennetaan varren sisään (`shoe_top`). Väri tulee
@@ -390,9 +390,12 @@ ei kuorta, vaan tasainen korkkipohjalaatta (sama 23 mm nosto, ei jalkaterän kal
 Jalkaterä näkyy ihona (`character.gdshader foot_skin`), ja varpaankynnet lakataan (`nails`: varpaat erotellaan k-meansilla,
 väri `look.nails` tai `shoes`). Käyttäjät: Sinikka (punaiset; bikinissä ja aurinkoa ottaessa `paljas`, tanssiessa `lenkkari`)
 ja Minttu (valkoiset). Nopea ajo vain näille: `aja.sh tscn tools/testit/kengat.tscn --e3` (`KENKA ... hihnat`).
-Saunassa ja uidessa paljas: `cutscene.gd sauna_look` poistaa `shoe`- ja `shoe_rough`-avaimet. Tunnetut puutteet (hyväksytty #272:ssa, jatko #279):
-kävelykengän suun kannessa kärjen päällä näkyy kuoppa, ja työkengän varren alareuna näkyy porrastuksena jalkaosan päällä;
-nauhakenkä (`style` 1 varattu) ja kuukenkä tekemättä. Kengällä vartalon jalkaterä painuu varjostimessa 6 mm kengän
+Saunassa ja uidessa paljas: `cutscene.gd sauna_look` poistaa `shoe`- ja `shoe_rough`-avaimet. #279: työkengän varsi on sama kaksiosainen jäykkä rakenne kuin kumisaappaassa (matala nilkkavarsi, `join` 0,09; vanha suun
+ääriviivasta noussut varsi jätti portaan). Kuukenkä (`kuukenka`, `style` 7, esikuva Moon Boot): pullea toppavarsi puoleen sääreen,
+paksu kyljille nouseva pohja, turkoosi nyöritys ja kiristysnyöri stopparilla (`cord_col`); pelaajan hiihtohaalari. Nauhakenkä
+(`nauhakenka`, `style` 1): oma lestimuoto, kenkä 4,5 cm jalkaa pidempi ja kärki kapenee vasta varpaiden edessä (`toe_room`,
+`toe_round`), ohut nahkapohja ja korko; huutokaupan Erkki. Nopea ajo: `kengat.tscn --e4`. Tunnettu puute: kävelykengän suun
+kannessa kärjen päällä näkyy kuoppa (hyväksytty #272:ssa, syy tuntematon). Kengällä vartalon jalkaterä painuu varjostimessa 6 mm kengän
 sisään (`shoe_on`, rajataso `shoe_cut`), ja `Pose.limb_points` ohittaa piilotetut kärjet ja lukee kenkäverkon, joten kontaktiprofiili
 (`profile_key` päättyy tyyppiin), jalkalaatikko ja läpimenot mittaavat kenkää. Malli nousee seistessä pohjan verran (`_lift_sole` +
 meta `"pohja"`, `Character.shoe_sole`), ja `Pose.feet_to_floor` lisää sen `FOOT_H`:hon. Testi: `aja.sh tscn tools/testit/kengat.tscn`

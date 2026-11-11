@@ -8,7 +8,7 @@ uniform vec3 main_col : source_color = vec3(0.9);
 uniform vec3 sole_col : source_color = vec3(0.95, 0.94, 0.9);
 uniform float rough = 0.6;
 uniform float sole_rough = 0.8;
-uniform int style = 0;  // 0 lenkkari, 1 varattu nauhakengälle, 2 kävelykenkä, 3 työkenkä, 4 kumisaapas, 5 nahkasaapas, 6 sandaali (TYPES style)
+uniform int style = 0;  // 0 lenkkari, 1 varattu nauhakengälle, 2 kävelykenkä, 3 työkenkä, 4 kumisaapas, 5 nahkasaapas, 6 sandaali, 7 kuukenkä (TYPES style)
 uniform float sole_h = 0.02;  // pohjalaatan paksuus kuoren alapinnasta alas (TYPES sole)
 uniform float rand_h = 0.0015;  // pohjan reunus kuoren kylkeä ylös (TYPES rand)
 uniform float spec = 0.4;
@@ -45,6 +45,22 @@ void fragment() {
 			c = mix(main_col * 0.32, sole_col * vec3(0.8, 0.78, 0.74), smoothstep(shaft_h - 0.006, shaft_h - 0.002, h));
 		} else if (fu2.y > 2.1) {
 			c = main_col * 0.32;
+		} else if (style == 7) {
+			// Kuukengän toppavarsi: nylonpinta vaakatikkauksin (toppaus), edessä ristiin kulkeva nyöritys lenkeissä,
+			// yläreunassa kiristyskuja, nyöri ja stoppari.
+			float quilt = band(fract(h * 22.0), 0.0, 0.06, 0.02);
+			c *= 1.0 - 0.22 * quilt;
+			c *= 0.9 + 0.1 * smoothstep(0.0, 0.5, fract(h * 22.0)) ;  // toppauksen pullistuma: vaalea yläreuna
+			float row = 0.026;
+			float hr = h - 0.1;
+			float zig = 0.07 * abs(fract(hr / row) * 2.0 - 1.0);
+			float lace = (1.0 - smoothstep(0.004, 0.007, abs(au - zig))) * step(0.0, hr) * step(h, shaft_h - 0.03) * step(au, 0.075);
+			float eye = (1.0 - smoothstep(0.006, 0.009, length(vec2((au - 0.07) * 0.6, fract(hr / row + 0.5) * row - row * 0.5)))) * step(0.0, hr) * step(h, shaft_h - 0.03);
+			c = mix(c, c * 0.45, eye);
+			c = mix(c, cord_col, lace);
+			c = mix(c, c * 0.8, band(h, shaft_h - 0.024, shaft_h, 0.001));  // kiristyskuja
+			c = mix(c, cord_col, band(h, shaft_h - 0.013, shaft_h - 0.009, 0.0006) * step(0.03, au));  // nyöri
+			c = mix(c, vec3(0.12, 0.12, 0.14), band(au, 0.0, 0.016, 0.001) * band(h, shaft_h - 0.02, shaft_h - 0.002, 0.001));  // stoppari
 		} else if (style == 5) {
 			// Nahkasaappaan varsi: sileä nahka, yläreunassa käännetty päärme tikkeineen, takana pystysauma, nilkassa rypyt.
 			c *= 0.86 + 0.14 * smoothstep(0.05, shaft_h, h);
@@ -115,6 +131,12 @@ void fragment() {
 			c = mix(c, c * 0.45, groove);
 			c = mix(c, c * 0.6, bottom);
 			c *= 1.0 - 0.35 * bottom * step(0.5, fract(t * 26.0));
+		} else if (style == 7) {
+			// Kuukengän pohja: paksu vaalea kumi nousee kyljille, vaakaurat kyljessä, tumma kuviopohja.
+			c = mix(c, c * 0.8, band(fract((h + sole_h) * 95.0), 0.0, 0.16, 0.04) * step(h, rand_h - 0.004));
+			c = mix(c, c * 0.7, band(h, rand_h - 0.003, rand_h, 0.0006));
+			c = mix(c, vec3(0.2, 0.2, 0.22), bottom);
+			c *= 1.0 - 0.3 * bottom * step(0.5, fract(t * 22.0));
 		} else if (style == 6) {
 			// Sandaalin pohjalaatta: korkkikylki (rakeinen), ohut tumma kumi alla ja nahkainen sisäpohja päällä.
 			float grain = fract(sin(dot(floor(vec2(t * 420.0, h * 900.0)), vec2(12.9898, 78.233))) * 43758.5453);
@@ -155,12 +177,13 @@ void fragment() {
 		float brogue = band(t, 0.792, 0.8, 0.0015) * step(0.5, fract(s * 9.0)) * (1.0 - smoothstep(0.03, 0.05, h));
 		c = mix(c, c * 0.45, max(cap_seam, brogue * 0.6));
 		// Nauhoituksen V: kaksi nauhakappaletta kohtaavat keskiviivalla, 4 poikittaista ohutta nauhaa.
-		float zone = band(t, 0.42, 0.66, 0.006) * top_;
-		float vamp = 1.0 - smoothstep(0.16, 0.2, abs(s) - (0.66 - t) * 0.5);
-		float edge = zone * band(abs(s) - (0.66 - t) * 0.5, 0.15, 0.19, 0.01);
+		// Lestin mukaan (#279: kenkä on jalkaa pidempi): nauhoitus t 0,46–0,70, leveys ±18 mm, 5 nauhaa.
+		float zone = band(t, 0.46, 0.7, 0.006) * top_;
+		float vamp = 1.0 - smoothstep(0.32, 0.38, abs(s) - (0.7 - t) * 0.5);
+		float edge = zone * band(abs(s) - (0.7 - t) * 0.5, 0.3, 0.36, 0.012);
 		c = mix(c, c * 0.5, edge);
-		float lace = zone * vamp * band(fract((t - 0.42) * 16.0), 0.35, 0.6, 0.04);
-		c = mix(c, vec3(0.05, 0.04, 0.035), lace * (1.0 - smoothstep(0.13, 0.17, abs(s))));
+		float lace = zone * vamp * band(fract((t - 0.46) * 21.0), 0.3, 0.62, 0.04);
+		c = mix(c, vec3(0.05, 0.04, 0.035), lace * (1.0 - smoothstep(0.26, 0.32, abs(s))));
 		// Reunatikki suun ympärillä ja kantalappu (vasta).
 		float heel = (1.0 - smoothstep(0.17, 0.19, t)) * smoothstep(0.012, 0.016, h);
 		c = mix(c, c * 0.8, heel);
@@ -170,6 +193,16 @@ void fragment() {
 		SPECULAR = spec;
 		CLEARCOAT = clearcoat;
 		CLEARCOAT_ROUGHNESS = 0.15;
+	} else if (style == 7) {
+		// Kuukengän jalkaosa: toppanylon vaakatikein, nyöritys jatkuu jalan päällä.
+		vec3 c = main_col;
+		c *= 1.0 - 0.2 * band(fract(h * 22.0), 0.0, 0.06, 0.02);
+		float lace = (1.0 - smoothstep(0.1, 0.13, abs(s))) * band(t, 0.5, 0.74, 0.01) * step(0.045, h);
+		c = mix(c, cord_col, lace * (1.0 - smoothstep(0.1, 0.25, abs(fract(t * 22.0) - 0.5))));
+		c *= 0.82 + 0.18 * smoothstep(0.0, 0.1, h);
+		ALBEDO = c;
+		ROUGHNESS = rough;
+		SPECULAR = spec;
 	} else if (style == 6) {
 		// Sandaalin hihnat: kiiltävä nahka, reunoissa tummempi kantti.
 		ALBEDO = main_col;
