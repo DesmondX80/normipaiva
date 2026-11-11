@@ -1789,7 +1789,15 @@ func _you_icon(p: Vector2, ang: float) -> void:
 	_you_icon_on(self, p, ang)
 
 
+const YOU_R := 12.0  # oman merkin säde (kehä 11 px)
+
+
 func _you_icon_on(ci: CanvasItem, p: Vector2, ang: float) -> void:
+	# Kartan reunalla merkki pidetään kokonaan näkyvissä (muuten kehys leikkaa nuolen ja kehän).
+	if ci is Control:
+		var s: Vector2 = (ci as Control).size
+		if s.x > 40.0 and s.y > 40.0:
+			p = p.clamp(Vector2(YOU_R, YOU_R), s - Vector2(YOU_R, YOU_R))
 	var f := Vector2(0, -1).rotated(ang)
 	var r := f.orthogonal()
 	ci.draw_circle(p, 11.0, Color(0.85, 0.1, 0.1, 0.25))

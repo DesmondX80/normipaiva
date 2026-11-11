@@ -152,6 +152,23 @@ func _render(tex_size: Vector2i, paint: Callable) -> Texture2D:
 	return vp.get_texture()
 
 
+## Tekstuurin alue ruudulle. Kartan reunalla lähdealue ylittää tekstuurin: vain tekstuurin sisälle jäävä osa piirretään
+## samassa mittakaavassa ja loppu täytetään taustavärillä (muuten reunapikselit venyisivät raidoiksi ja kartta liukuisi
+## pelaajan merkin alta).
+func _draw_tex_region(tex: Texture2D, src: Rect2, bg: Color) -> void:
+	var full := Rect2(Vector2.ZERO, size)
+	var clipped := src.intersection(Rect2(Vector2.ZERO, tex.get_size()))
+	if clipped.size.x <= 0.0 or clipped.size.y <= 0.0:
+		draw_rect(full, bg)
+		return
+	if clipped.size.is_equal_approx(src.size):
+		draw_texture_rect_region(tex, full, src)
+		return
+	draw_rect(full, bg)
+	var k := size / src.size
+	draw_texture_rect_region(tex, Rect2((clipped.position - src.position) * k, clipped.size * k), clipped)
+
+
 func _draw() -> void:
 	if player != null:
 		_origin = Vector2(player.global_position.x, player.global_position.z)
@@ -163,7 +180,7 @@ func _draw() -> void:
 		return
 	if _village_tex != null:
 		var src := Rect2((_origin - _village_origin) * TEX_SCALE - Vector2.ONE * range_m * TEX_SCALE, Vector2.ONE * 2.0 * range_m * TEX_SCALE)
-		draw_texture_rect_region(_village_tex, Rect2(Vector2.ZERO, size), src)
+		_draw_tex_region(_village_tex, src, Color(0.35, 0.45, 0.28, 0.9))
 	else:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.35, 0.45, 0.28, 0.9))
 	_marker(_px(M.HOME_ZONE), Color(0.3, 1.0, 0.4), "K")
@@ -218,7 +235,7 @@ func _draw_vaala() -> void:
 	else:
 		var src := Rect2((o - _vaala_origin) * VAALA_TEX_SCALE - Vector2.ONE * VAALA_RANGE * VAALA_TEX_SCALE,
 			Vector2.ONE * 2.0 * VAALA_RANGE * VAALA_TEX_SCALE)
-		draw_texture_rect_region(_vaala_tex, Rect2(Vector2.ZERO, size), src)
+		_draw_tex_region(_vaala_tex, src, Color(0.2, 0.3, 0.16, 0.95))
 	var marks := [[vaala.siitari, Color(0.7, 0.1, 0.08), "S"]]
 	if vaala.kmarket_door != Vector3.ZERO:
 		marks.append([Vector2(vaala.kmarket_door.x, vaala.kmarket_door.z), Color(1.0, 0.5, 0.0), "K"])
