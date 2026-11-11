@@ -8280,19 +8280,26 @@ func journal_data() -> Dictionary:
 	# Onnelliset loput ja legendaariset hetket omina listoinaan (löytämättömät null = ???).
 	for kind in ["loppu", "hetki"]:
 		var list: Array = []
+		var piilossa := 0
 		for e in Endings.ENDINGS:
 			if (kind == "loppu") != Endings.is_loppu(e[0]):
+				continue
+			if Settings.get_v("k18_pois") and e[0] in K18_LOPUT:
+				piilossa += 1
 				continue
 			if endings.counts.has(e[0]):
 				list.append({"name": e[1], "desc": e[2], "count": endings.counts[e[0]], "day": endings.first_day.get(e[0], 0)})
 			else:
 				list.append(null)
-		d["loput" if kind == "loppu" else "hetket"] = {"distinct": endings.distinct(kind), "max": Endings.max_count(kind),
+		var nahty_piilossa: int = K18_LOPUT.filter(func(k): return endings.counts.has(k) and (kind == "loppu") == Endings.is_loppu(k)).size() if piilossa > 0 else 0
+		d["loput" if kind == "loppu" else "hetket"] = {"distinct": endings.distinct(kind) - nahty_piilossa, "max": Endings.max_count(kind) - piilossa,
 			"total": endings.total(kind), "list": list}
 	d["stashes"] = _stash_journal()
 	d["riskit"] = _rikos_riskit()
 	d["korkit"] = korkit.owned.duplicate()
 	d["korkit_piilossa"] = korkit.piilossa
+	if Settings.get_v("k18_pois"):
+		d.side = d.side.filter(func(q): return not q.id in K18_SIDE)
 	for s in d.side:
 		s["spot"] = not s.done and not quest_spots(s.id).is_empty()
 	_save_game()
@@ -11538,7 +11545,7 @@ var _rasva_game: CanvasLayer
 ## Aseman takana makasiinin takaovi (makasiini.gd): koputus avaa kurkistusluukun (rasvanappi_game.gd). Vaalassa
 ## sama makasiini on aseman vieressä (vaala.gd _build_makasiini, ovi "makasiini" _on_vaala_door).
 func _makasiini_logic() -> void:
-	if _hint.text != "" or world.makasiini_door == Vector3.ZERO or _rasva_game != null:
+	if _hint.text != "" or world.makasiini_door == Vector3.ZERO or _rasva_game != null or Settings.get_v("k18_pois"):
 		return
 	var p := player.global_position
 	if Vector2(p.x, p.z).distance_to(Vector2(world.makasiini_door.x, world.makasiini_door.z)) > 2.2:
@@ -11700,6 +11707,8 @@ func _kolmio_remote_point(site: String) -> Vector2:
 func _kolmio_logic() -> void:
 	if not is_instance_valid(_kolmio_joni):
 		return
+	if _k18_hide([_kolmio_joni, _kolmio_esa]):
+		return
 	var going := kolmio.stage("saloinen") == "mittaus"
 	var away := going and not kolmio.remote_done("saloinen")  # Esa on kirkolla mittaamassa, kunnes tekstaa
 	if _kolmio_esa.visible == away:
@@ -11726,6 +11735,26 @@ func _kolmio_logic() -> void:
 			if Input.is_action_just_pressed("interact") and not player.is_stunned():
 				_kolmio_knock("saloinen", dd[1])
 			return
+
+
+## K-18-sisältö pois (asetus k18_pois): hahmot piiloon ja pysähdyksiin; palauttaa true, kun piilossa. Asetuksen
+## vaihtuessa takaisin hahmot palaavat näkyviin (kolmiomittauksen Esan poissaolon hoitaa _kolmio_logic itse).
+const K18_SIDE := ["rasvanappi", "pentti", "kolmio_saloinen", "kolmio_vaala"]  # päiväkirjan tehtävät
+const K18_LOPUT := ["minttu", "katja", "pentin_kyyti", "pentin_kiertue"]  # onnelliset loput ja legendaariset hetket
+func _k18_hide(npcs: Array) -> bool:
+	var off: bool = Settings.get_v("k18_pois")
+	for v in npcs:
+		if not is_instance_valid(v):
+			continue
+		if off and not v.has_meta("k18"):
+			v.set_meta("k18", true)
+			v.visible = false
+			v.process_mode = Node.PROCESS_MODE_DISABLED
+		elif not off and v.has_meta("k18"):
+			v.remove_meta("k18")
+			v.visible = true
+			v.process_mode = Node.PROCESS_MODE_INHERIT
+	return off
 
 
 ## Kaverit seuraavat (f) tai palaavat lähtöpaikalleen (meta "home"), kun tehtävä ei ole käynnissä (going = false).
@@ -11770,6 +11799,8 @@ func _kolmio_measure_logic() -> void:
 ## Vaalan kaverit, mittaus ja etämittaus (_vaala_logic). Ovet ja Teron ja Timon juttelu ovat vaala.gd doors -listassa.
 func _kolmio_vaala_logic() -> void:
 	_kolmio_vaala_setup()
+	if _k18_hide(_kolmio_vaala_npcs):
+		return
 	if not _kolmio_drive.is_empty():
 		_kolmio_drive_step(get_process_delta_time())
 		return
@@ -16037,7 +16068,8 @@ func _ensure_mopo_trip() -> void:
 			return closed_text({"kmarket": "kauppa", "siitari": "siitari", "lava": "lava", "apteekki": "apteekki"}[id]) if id in ["kmarket", "siitari", "lava", "apteekki"] else ""
 		mopo_trip.door_hidden = func(id: String) -> bool: return (id == "kokko" and not _juhannus()) or (id == "viski" and "viski" in viina_found) or \
 			(id == "katko" and asema_katkot.get("vaala", 0) != 1) or (id == "portti" and _lava_pass_now() != "") or (id == "klaffipoyta" and klaffipoyta) or \
-			(id.begins_with("kolmio_") and _kolmio_door_hidden(id))
+			(id.begins_with("kolmio_") and _kolmio_door_hidden(id)) or \
+			(Settings.get_v("k18_pois") and (id == "makasiini" or id.begins_with("kolmio_")))
 		_paper.mopo_trip = mopo_trip
 	mopo_trip.ensure_built()
 	_klaffi_sync()
@@ -31087,6 +31119,39 @@ func _maybe_screenshot() -> void:
 			var d := journal_data()
 			print("RE tehtävät: %s" % [d.side.map(func(q): return "%s%s" % [q.title, "✔" if q.done else ""])])
 			FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+			get_tree().quit()
+		"k18":
+			# K-18-sisältö pois (asetus k18_pois): Pentti ei ole paikalla pe 20, kolmiomittauksen kaverit piilossa,
+			# makasiinin koputus ei tarjoudu, päiväkirjasta pois tehtävät ja loput; asetus pois -> kaikki takaisin.
+			var vanha: bool = Settings.values.get("k18_pois", false)
+			day = 5  # perjantai (_weekday 4)
+			clock_min = 20 * 60.0
+			for k in ["rasvanappi", "pentti_tavattu", "kolmio_saloinen"]:
+				tilat.first(k)
+			var pentti: RefCounted = null
+			for r in rikos:
+				if r.has_method("paikalla"):
+					pentti = r
+			var tulos := func(tag: String) -> Array:
+				_kolmio_logic()
+				var dk := journal_data()
+				var ids: Array = dk.side.map(func(q): return q.id)
+				print("K18 %s: Pentti paikalla %s, Joni näkyy %s, päiväkirjassa %s, loppuja max %d" % [tag,
+					pentti.paikalla() if pentti != null else "-", _kolmio_joni.visible if is_instance_valid(_kolmio_joni) else "-",
+					K18_SIDE.filter(func(i): return i in ids), dk.loput.max])
+				return [pentti.paikalla() if pentti != null else false, _kolmio_joni.visible if is_instance_valid(_kolmio_joni) else false,
+					K18_SIDE.filter(func(i): return i in ids).size(), dk.loput.max]
+			Settings.values["k18_pois"] = false
+			var sallittu: Array = tulos.call("sallittu")
+			Settings.values["k18_pois"] = true
+			var pois: Array = tulos.call("pois")
+			if pois[0] or pois[1] or pois[2] > 0 or pois[3] >= sallittu[3]:
+				print("TESTI VIKA K-18-sisältö näkyy, vaikka asetus on päällä")
+			Settings.values["k18_pois"] = false
+			var takaisin: Array = tulos.call("takaisin")
+			if not takaisin[0] or not takaisin[1] or takaisin[2] < 3:
+				print("TESTI VIKA K-18-sisältö ei palannut, kun asetus otettiin pois")
+			Settings.values["k18_pois"] = vanha
 			get_tree().quit()
 		"korkit":
 			# Pullonkorkit (#290 osa 1): kalja antaa korkin, harvinaisuudet arpoutuvat, tallennus edestakaisin.

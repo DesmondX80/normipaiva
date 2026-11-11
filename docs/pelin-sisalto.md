@@ -39,7 +39,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   poimia jalan (kunto +15). Rollaattorimummon eteen ei kannata mennä: hän nostaa kepin olan yli ja huitaisee.
   Ehdit perääntyä, kun keppi nousee. Osuma päähän on kuolema, ja Päivi motkottaa: "Älä kiusaa mummoja! Ne tappaa!"
   Testit `--scene=mummokeppi` ja `tools/testit/mummo_kuvat.tscn`.
-- **Rasvanappi (vain aikuisille):** aseman länsipuolella (noin 21 m) on rapistunut tavaramakasiini. Länsipäädyn takaovella palaa punainen
+- **Rasvanappi (vain aikuisille; piiloon asetuksella "K-18-sisältö pois", ks. docs/ohjaus.md):** aseman länsipuolella (noin 21 m) on rapistunut tavaramakasiini. Länsipäädyn takaovella palaa punainen
   lamppu häkissä: koputa (E), niin kurkistusluukku aukeaa ja portsari kysyy salasanan. Oikea on "Rasvanappi", ja
   väärästä luukku paukahtaa kiinni. Sisällä pelaajat (Pekka, Arto, Sinikka, Raimo ja Helena) esittäytyvät pyyhkeissään.
   Muista, kuka kiroilee, hyräilee, kikattaa, niiskuttaa tai huokailee, sillä pimeässä muut tunnistaa vain äänestä.
@@ -993,6 +993,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   kaikkiin pelaajan malleihin paikallaan (pyörä, kävely, mopo, sisätilat) ja säilyvät tallennuksessa. Vaatteet
   piirretään varjostimessa pikseleinä (`shaders/character.gdshader`), asusteet ovat muutama pieni mesh luissa
   (`looks.gd`, testit `--scene=asut`, `--scene=vaatekaappi`, `--scene=stetson`, `--scene=haalari` ja `--scene=koppa`).
+  Aikuisilla hahmoilla on paljaalla rinnalla nännit (sauna, bikinit ilman yläosaa, verkkopaidan silmukat, avoin
+  liivi): naisella rinnan kärjessä, miehellä rintalihaksen alareunassa; nännipiha ja valoon reagoiva nuppi. Lapsilla ja nuorilla niitä ei ole (pituus
+  alle 1,5 m tai lookin `nipples: false`).
 - **Kengät (#272):** tuulipuvussa ja hiihtohaalarissa lenkkarit, farkuissa ja työvaatteissa työkengät (varsi nilkan yli),
   saunassa ja uidessa paljain jaloin. Kaupan mummoilla kävelykengät, Sepolla ja Reijolla työkengät
   (`scripts/shoes.gd`, ks. `docs/kehitys.md` Kengät). Santulla ja Hanhikiven kalastajalla vihreät kumisaappaat (#273).
