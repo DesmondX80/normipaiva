@@ -78,6 +78,7 @@ var values := {
 	"auto_recenter": true,
 	"mouse_look": true,
 	"mouse_steer": false,  # hiiri ohjaa kulkusuuntaa (FPS-tyyli), W/S eteen ja taakse
+	"k18_pois": false,  # K-18-sisältö pois: Rasvanappi, Pentin BangBus ja kolmiomittaus piiloon (oletuksena kaikki sallittu)
 	"mouse_steer_indoor": false,  # sisätiloissa hiiri kääntää hahmoa (muuten W/A/S/D ruudun suuntiin, kursori vapaana)
 	"keys": {},  # vaihdetut näppäimet: KEY_ROWS-rivin ensimmäinen toiminto -> [näppäin1, näppäin2, hiiri] (0 = ei mitään)
 }

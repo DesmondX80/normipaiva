@@ -101,7 +101,7 @@ func _init() -> void:
 
 
 func paikalla() -> bool:
-	return game._weekday() in PAIVAT and game._between(game.clock_min, AUKI)
+	return game._weekday() in PAIVAT and game._between(game.clock_min, AUKI) and not Settings.get_v("k18_pois")
 
 
 ## Auto ja Pentti parent-solmuun kohtaan pos (parentin kehys), keula yaw:n mukaan. Törmäyslaatikko auton kokoinen.
