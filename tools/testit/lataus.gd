@@ -2,6 +2,7 @@ extends Node
 ## Latausaika: Saloinen (main.tscn -> mokki valmis) ja Vaala (_start_mopo), vaihekohtaiset luvut tulevat
 ## --ajastus-tulosteista (AJASTUS main/maailma, VAALA vaiheet). Tulostaa rivit "LATAUS Saloinen N ms" ja "LATAUS Vaala N ms".
 ## tools/testit/aja.sh --kiintea tscn tools/testit/lataus.tscn <kansio> -- --ajastus
+## Tuottaa yhden kuvan (lataus.png tulostekansioon); logiikkaa varten myös `aja.sh --ei-kuvia tscn ...` käy.
 ## Kylmä aloitus: poista $HOME/.local/share/godot/app_userdata/Normipäivä/cache ennen ajoa (aja.sh:n HOME on eristetty).
 var main: Node3D
 
@@ -34,6 +35,12 @@ func _run(t0: int) -> void:
 	if "--avaintesti" in OS.get_cmdline_user_args():
 		_key_test(main.mopo_trip.vaala)
 	print("LATAUS Vaala %d ms" % (Time.get_ticks_msec() - tl))
+	# Yksi kuva Vaalan ensiruudusta: aja.sh vaatii kuvan (tai --ei-kuvia), ja kuva paljastaa rikkinäisen latauksen.
+	for a in OS.get_cmdline_user_args():
+		if not a.begins_with("--"):
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(a + "/lataus.png")
+			break
 	get_tree().quit()
 
 

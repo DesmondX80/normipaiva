@@ -113,13 +113,13 @@ func _buildings() -> void:
 		var c := Vector2.ZERO
 		for q in pts:
 			c += q
-			dmin = minf(dmin, vl.route_dist(q))
-		dmin = minf(dmin, vl.route_dist(c / maxi(pts.size(), 1)))
+			dmin = minf(dmin, vl.route_dist(q, true))
+		dmin = minf(dmin, vl.route_dist(c / maxi(pts.size(), 1), true))
 		if dmin > RAJA and not vl._cull_protected(bd, int(bd.id), pts):
 			far += 1
 	print("EI-SUOJATTUJA yli rajan: %d" % far)
 	if far > 0:
-		_vika("ei-suojattuja taloja yli %.0f m reitistä: %d" % [vl.VAALA_RAJA_M, far])
+		_vika("ei-suojattuja taloja yli %.0f m ydinreitistä: %d" % [vl.VAALA_RAJA_M, far])
 	print("RAKENNETUT talot (törmäyspohjat): %d" % vl._bld_polys.size())
 
 

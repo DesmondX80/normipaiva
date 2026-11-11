@@ -5462,39 +5462,47 @@ func _side_road_grid() -> Dictionary:
 
 const ROUTE_CELL := 50.0
 var _route_grid: Dictionary = {}  # Vector2i -> Array [a0, b0, a1, b1, ...] (Vector2); piste = a == b
+var _core_grid: Dictionary = {}  # sama muoto, vain ydinreitti (karsinnan peruste): päätie, keskusta, lava, satama, Uitto, mökki, asema (suojatut talot eivät ole ydinreitin pisteitä: ne säilyvät, mutta eivät pidä naapureitaan)
 var _route_ready := false
 var _route_extra: Array = []  # ensure_built:n jälkeen lisätyt ovet (pisteet)
 var cull_stats := {}  # {ennen, jalkeen, poistettu, suojattu, jakauma}
 
 
-func _route_seg(a: Vector2, b: Vector2) -> void:
+func _route_seg(a: Vector2, b: Vector2, core := false) -> void:
+	if core:
+		_seg_into(_core_grid, a, b)
+	_seg_into(_route_grid, a, b)
+
+
+func _seg_into(g: Dictionary, a: Vector2, b: Vector2) -> void:
 	var lo := Vector2i(floori(minf(a.x, b.x) / ROUTE_CELL), floori(minf(a.y, b.y) / ROUTE_CELL))
 	var hi := Vector2i(floori(maxf(a.x, b.x) / ROUTE_CELL), floori(maxf(a.y, b.y) / ROUTE_CELL))
 	for j in range(lo.y, hi.y + 1):
 		for i in range(lo.x, hi.x + 1):
 			var k := Vector2i(i, j)
-			if not _route_grid.has(k):
-				_route_grid[k] = []
-			_route_grid[k].append(a)
-			_route_grid[k].append(b)
+			if not g.has(k):
+				g[k] = []
+			g[k].append(a)
+			g[k].append(b)
 
 
-func _route_line(pts: Array, ix: int, iz: int, closed := false) -> void:
+func _route_line(pts: Array, ix: int, iz: int, closed := false, core := false) -> void:
 	for k in pts.size():
 		var a := Vector2(pts[k][ix], pts[k][iz])
 		if k + 1 < pts.size():
-			_route_seg(a, Vector2(pts[k + 1][ix], pts[k + 1][iz]))
+			_route_seg(a, Vector2(pts[k + 1][ix], pts[k + 1][iz]), core)
 		elif closed and pts.size() > 2:
-			_route_seg(a, Vector2(pts[0][ix], pts[0][iz]))
+			_route_seg(a, Vector2(pts[0][ix], pts[0][iz]), core)
 		else:
-			_route_seg(a, a)
+			_route_seg(a, a, core)
 
 
 ## Reitin jänteet datasta (ei riipu rakennuksista): päätie, haarat, sivutiet ja radat, parkit, keskusta, lava, satama,
 ## Uitto, järviseudun tiet ja alueet, mökki. Kohdepisteet ovat nollapituisia jänteitä.
 func _route_build() -> void:
 	_route_grid.clear()
-	_route_line(road, 0, 2)
+	_core_grid.clear()
+	_route_line(road, 0, 2, false, true)
 	for br in data.branches:
 		_route_line(br.pts, 0, 2)
 	for r in data.side_roads:
@@ -5505,29 +5513,29 @@ func _route_build() -> void:
 	if ks.get("parking") != null:
 		_route_line(ks.parking, 0, 1, true)
 	for sr in ks.get("side_roads", []):
-		_route_line(sr[1], 0, 1)
+		_route_line(sr[1], 0, 1, false, true)
 	if ks.has("kmarket_pts"):
-		_route_line(ks.kmarket_pts, 0, 1, true)
+		_route_line(ks.kmarket_pts, 0, 1, true)  # ei ydinreittiä: reunalla, sen ympäristö karsitaan
 	if ks.has("tori"):
 		_route_line(ks.tori.gasthaus_pts, 0, 1, true)
 	for key in ["zabuki", "matkakeskus", "kunnantalo", "apteekki", "kirkko"]:
 		if ks.has(key):
 			var c: Array = ks[key].c
-			_route_seg(Vector2(c[0], c[1]), Vector2(c[0], c[1]))
+			_route_seg(Vector2(c[0], c[1]), Vector2(c[0], c[1]), true)
 	if ks.get("asema") != null:
-		_route_line(ks.asema.pts, 0, 1, true)
+		_route_line(ks.asema.pts, 0, 1, true, true)
 	var lv: Dictionary = data.get("lava", {})
 	if not lv.is_empty():
-		_route_seg(Vector2(lv.x, lv.z), Vector2(lv.x, lv.z))
-		_route_line(lv.road, 0, 1)
+		_route_seg(Vector2(lv.x, lv.z), Vector2(lv.x, lv.z), true)
+		_route_line(lv.road, 0, 1, false, true)
 		_route_line(lv.get("fence", []), 0, 1)  # myös pummireitti (_wade_c = aidan pää)
 	for key in ["satama", "uitto"]:
 		var sd: Dictionary = data.get(key, {})
 		if sd.is_empty():
 			continue
-		_route_seg(Vector2(sd.x, sd.z), Vector2(sd.x, sd.z))
+		_route_seg(Vector2(sd.x, sd.z), Vector2(sd.x, sd.z), true)
 		_route_seg(Vector2(sd.park[0], sd.park[1]), Vector2(sd.park[0], sd.park[1]))
-		_route_line(sd.road, 0, 1)
+		_route_line(sd.road, 0, 1, false, true)
 	for r in north_roads:
 		var pp: PackedVector2Array = r.pts
 		for k in pp.size():
@@ -5536,8 +5544,8 @@ func _route_build() -> void:
 		var pp: PackedVector2Array = poly
 		for k in pp.size():
 			_route_seg(pp[k], pp[(k + 1) % pp.size()])
-	_route_seg(_mokki_c(), _mokki_c())
-	_route_seg(siitari, siitari)
+	_route_seg(_mokki_c(), _mokki_c(), true)
+	_route_seg(siitari, siitari, true)
 	for q in _route_extra:
 		_route_seg(q, q)
 	_route_ready = true
@@ -5553,9 +5561,10 @@ func route_add_doors() -> void:
 
 
 ## Lähin reitin piste (tai Vector2.INF, jos reittiä ei ole 4 km:n sisällä).
-func route_nearest(p: Vector2) -> Vector2:
+func route_nearest(p: Vector2, core := false) -> Vector2:
 	if not _route_ready:
 		_route_build()
+	var grid: Dictionary = _core_grid if core else _route_grid
 	var ci := Vector2i(floori(p.x / ROUTE_CELL), floori(p.y / ROUTE_CELL))
 	var best := INF
 	var bq := Vector2.INF
@@ -5565,7 +5574,7 @@ func route_nearest(p: Vector2) -> Vector2:
 		for j in range(ci.y - r, ci.y + r + 1):
 			var edge := j == ci.y - r or j == ci.y + r
 			for i in range(ci.x - r, ci.x + r + 1, 1 if edge else 2 * r):
-				var sg: Array = _route_grid.get(Vector2i(i, j), [])
+				var sg: Array = grid.get(Vector2i(i, j), [])
 				for k in range(0, sg.size(), 2):
 					var q: Vector2 = Geometry2D.get_closest_point_to_segment(p, sg[k], sg[k + 1])
 					var d := p.distance_squared_to(q)
@@ -5575,8 +5584,8 @@ func route_nearest(p: Vector2) -> Vector2:
 	return bq
 
 
-func route_dist(p: Vector2) -> float:
-	var q := route_nearest(p)
+func route_dist(p: Vector2, core := false) -> float:
+	var q := route_nearest(p, core)
 	return INF if q == Vector2.INF else p.distance_to(q)
 
 
@@ -5603,7 +5612,7 @@ func _cull_protected(bd: Dictionary, id: int, pts: PackedVector2Array) -> bool:
 		"r": absf(_poly_area(pts)) / maxf(ob.size.x * ob.size.y, 0.01)})
 
 
-## Poistaa data.buildings-listasta talot, jotka ovat yli VAALA_RAJA_M reitistä (etäisyys = min keskipiste ja pohjan kärjet).
+## Poistaa data.buildings-listasta talot, jotka ovat yli VAALA_RAJA_M ydinreitistä (_core_grid; sivu- ja pohjoisteet eivät laske) (etäisyys = min keskipiste ja pohjan kärjet).
 ## Suojatut ovat itse reitin pisteitä (vyöhyke niiden ympärillä). Lista suodatetaan itse: täyttö, kartat ja minimap seuraavat.
 func _cull_buildings() -> void:
 	var prot: Array = []
@@ -5631,10 +5640,10 @@ func _cull_buildings() -> void:
 			var c := Vector2.ZERO
 			for q in pts:
 				c += q
-			dmin = route_dist(c / pts.size())
+			dmin = route_dist(c / pts.size(), true)
 			if dmin > VAALA_RAJA_M:
 				for q in pts:
-					dmin = minf(dmin, route_dist(q))
+					dmin = minf(dmin, route_dist(q, true))
 		else:
 			dmin = 0.0
 		bins[0 if dmin < 75.0 else (1 if dmin < 150.0 else (2 if dmin < 300.0 else 3))] += 1
