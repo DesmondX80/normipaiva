@@ -111,6 +111,13 @@ func setup(look: Dictionary) -> void:
 			"suspenders", "strap_col", "grime", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff", "string_bikini", "ski_suit", "vest_open", "chest_hair", "body_hair"]:
 		if look.has(k):
 			body_mat.set_shader_parameter(k, look[k])
+	# Nännit aikuisille (ei lapsille eikä nuorille: pituus alle 1,5 m tai look.nipples = false). Naisella rinnan
+	# muotoillun kärjen kohdalla, miehellä rintalihaksen alareunassa.
+	if bool(look.get("nipples", float(look.get("height", REST_HEIGHT)) >= 1.5)):
+		var female := kind == "female"
+		body_mat.set_shader_parameter("nipple_pos", _bust_tip(body.mesh) if female else NIPPLE_MALE)
+		body_mat.set_shader_parameter("nipple_r", 0.013 if female else 0.011)
+		body_mat.set_shader_parameter("nipple_h", 0.007 if female else 0.004)
 	if look.has("stripe_color"):
 		body_mat.set_shader_parameter("stripe_col", look.stripe_color)
 	if look.has("tracksuit"):
@@ -829,6 +836,25 @@ static func _library() -> AnimationLibrary:
 
 
 ## Vartalomesh, jonka verteksiväri kertoo vaateluokan (painavimman luun mukaan).
+const NIPPLE_MALE := Vector2(0.098, 1.31)
+
+
+## Rinnan kärki lepoasennon koordinaateissa (UV2): muotoillun verkon uloin piste rinnan korkeudella. Tulos talteen verkkoon.
+static func _bust_tip(mesh: Mesh) -> Vector2:
+	if mesh.has_meta("bust_tip"):
+		return mesh.get_meta("bust_tip")
+	var arrs := mesh.surface_get_arrays(0)
+	var sv: PackedVector3Array = arrs[Mesh.ARRAY_VERTEX]
+	var ru: PackedVector2Array = arrs[Mesh.ARRAY_TEX_UV2]
+	var best := -1
+	for k in sv.size():
+		if sv[k].x > 0.02 and sv[k].y > 1.2 and sv[k].y < 1.45 and (best < 0 or sv[k].z > sv[best].z):
+			best = k
+	var tip := Vector2(absf(ru[best].x), ru[best].y) if best >= 0 else Vector2(0.082, 1.32)
+	mesh.set_meta("bust_tip", tip)
+	return tip
+
+
 static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D, stripes: bool,
 		shape := {}) -> ArrayMesh:
 	var key := "%s/%s/%s" % [kind, stripes, shape]
