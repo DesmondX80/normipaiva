@@ -383,6 +383,13 @@ Kumisaapas (#273, `style` 4): kaksi jäykkää osaa, matala kuori jalkaterän lu
 yläreuna ~0,24 m nilkasta) säären luussa; varren alareuna levenee 8 mm suun kohdalla, jotta alaosan suu jää sen sisään
 kaikissa asennoissa (`KENKA ... suu_ulkona`, `reisi_sisalla`). Lahje kavennetaan varren sisään (`shoe_top`). Väri tulee
 `shoes`-väristä (klassinen vihreä 0.13, 0.3, 0.14). Varsi ei jousta (käyttäjän päätös). Käyttäjät: Santtu, Hanhikiven kalastaja.
+Pitkävartinen nahkasaapas (`saapas`, `style` 5): sama kaksiosainen rakenne, varsi lähelle polvea (`top_k` 0,84), ohut tumma
+pohja ja pieni korko (`waist`), mattanahka, takasauma ja päärme; käyttäjät Esa ja Katja. Sandaali (`sandaali`, `style` 6, #273):
+ei kuorta, vaan tasainen korkkipohjalaatta (sama 23 mm nosto, ei jalkaterän kallistusta) ja hihnat ihon pinnassa
+(`_build_straps`: poikkileikkauksen kärkien kupera kuori = kiristetyn hihnan muoto; varvashihna, nilkkahihna ja kantahihna).
+Jalkaterä näkyy ihona (`character.gdshader foot_skin`), ja varpaankynnet lakataan (`nails`: varpaat erotellaan k-meansilla,
+väri `look.nails` tai `shoes`). Käyttäjät: Sinikka (punaiset; bikinissä ja aurinkoa ottaessa `paljas`, tanssiessa `lenkkari`)
+ja Minttu (valkoiset). Nopea ajo vain näille: `aja.sh tscn tools/testit/kengat.tscn --e3` (`KENKA ... hihnat`).
 Saunassa ja uidessa paljas: `cutscene.gd sauna_look` poistaa `shoe`- ja `shoe_rough`-avaimet. Tunnetut puutteet (hyväksytty #272:ssa, jatko #279):
 kävelykengän suun kannessa kärjen päällä näkyy kuoppa, ja työkengän varren alareuna näkyy porrastuksena jalkaosan päällä;
 nauhakenkä (`style` 1 varattu) ja kuukenkä tekemättä. Kengällä vartalon jalkaterä painuu varjostimessa 6 mm kengän

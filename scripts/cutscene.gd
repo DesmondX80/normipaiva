@@ -2046,7 +2046,7 @@ const HELENA := {
 static func helena_bikini() -> Dictionary:
 	var look: Dictionary = HELENA.duplicate()
 	look.merge({"shirt": Color(0.9, 0.05, 0.12), "pants": Color(0.9, 0.05, 0.12), "shoes": Color(0.95, 0.75, 0.62), "shine": 0.7,
-		"string_bikini": true}, true)
+		"string_bikini": true, "shoe": "paljas"}, true)
 	for k in ["tube_y", "sleeve_x", "shorts_y"]:
 		look.erase(k)
 	return look

@@ -38,6 +38,10 @@ uniform float pants_puff = 0.014;
 // Kengät (Character._attach_shoes): jalkaterä (luokka 3) ilman pöyhennystä, ja tason shoe_cut takana (dot(xyz, lepopaikka) < w, lepopaikka = UV2 ja CUSTOM0.x)
 // olevat kärjet painuvat 6 mm sisään, etteivät varpaat puhkaise kenkää. Suljettu kenkä: koko jalkaterä tason takana.
 uniform bool shoe_on = false;
+// Sandaali (shoes.gd "sandal"): jalkaterä (luokka 3) piirretään ihona ilman pöyhennystä.
+uniform bool foot_skin = false;
+uniform vec3 nail_col : source_color = vec3(0.8, 0.08, 0.1);
+uniform vec4 nails[10];  // varpaankynnet: lepopaikka (x, y, z) ja säde (shoes.gd meta "kynnet")
 uniform vec4 shoe_cut = vec4(0.0, 0.0, 1.0, 10.0);
 // Varrellinen kenkä (shoes.gd meta "varsi"): varren yläreunan lepo-y (UV2.y). Lahje painuu varren sisään ja pöyhistyy
 // yläreunan yllä takaisin omaan arvoonsa (kuin housut työnnettynä varteen). -10 = ei vartta.
@@ -373,6 +377,9 @@ void vertex() {
 	if (bare(c, UV2, VERTEX, COLOR.b, COLOR.a * 2.0 - 1.0) || (string_bikini && undress >= 1.0)) {
 		puff = 0.0;  // lappubikinit ovat iholla kiinni (väri lasketaan fragmentissa)
 	}
+	if (foot_skin && c > 2.5) {
+		puff = 0.0;
+	}
 	if (shoe_on && c > 2.5) {
 		puff = 0.0;
 		if (dot(shoe_cut.xyz, vec3(UV2, CUSTOM0.x)) < shoe_cut.w) {  // lepopaikka: UV2 = (x, y), CUSTOM0.x = z
@@ -411,6 +418,10 @@ void fragment() {
 	vec4 t = texture(albedo_tex, UV);
 	float lum = dot(t.rgb, vec3(0.299, 0.587, 0.114));
 	float c = floor(cat + 0.5);
+	bool sandal_foot = foot_skin && c > 2.5;
+	if (sandal_foot) {
+		c = 0.0;  // sandaali: jalkaterä on paljasta ihoa
+	}
 	if (shoe_on && c > 2.5) {
 		c = 2.0;  // kengän suusta nilkassa pilkistävä jalkaterä on lahjetta (shortseilla paljasta ihoa, bare)
 	}
@@ -454,6 +465,24 @@ void fragment() {
 		SSS_STRENGTH = 0.35;
 		skin_amt = 1.0;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	} else if (sandal_foot) {
+		// Sandaalin jalkaterä: sama tasainen ihonsävy kuin paljaalla säärellä, varpaankynnet lakattu (kiiltävä).
+		ALBEDO = bare_skin * skin_tint * (0.82 + 0.25 * lum);
+		ROUGHNESS = 0.55;
+		SSS_STRENGTH = 0.35;
+		NORMAL_MAP = n;
+		vec3 rp = vec3(rest, rest_zn.x);
+		for (int i = 0; i < 10; i++) {
+			vec3 d = rp - nails[i].xyz;
+			float r = nails[i].w;
+			float e = length(vec2(d.x / r, d.z / (r * 1.35)));
+			if (r > 0.0 && e < 1.0 && d.y > -0.006 && rest_zn.y > 0.15) {
+				float k = 1.0 - smoothstep(0.82, 1.0, e);
+				ALBEDO = mix(ALBEDO, nail_col, k);
+				ROUGHNESS = mix(ROUGHNESS, 0.18, k);
+				SSS_STRENGTH = mix(0.35, 0.0, k);
+			}
+		}
 	} else if (c < 0.5) {
 		ALBEDO = skin_with_ink(t.rgb * skin_tint, rest, lpos, rest_zn.x);
 		ROUGHNESS = texture(rough_tex, UV).r;
