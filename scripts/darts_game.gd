@@ -29,6 +29,7 @@ const FLIGHT := 0.28
 const M_R := 0.21  # mökkitikkataulun säde (Summer Sport -taulu 42 cm)
 const M_RING := M_R / 10.0  # rengasväli: keskus 10, uloin 1
 const M_DARTS := 5
+const M_THROW_DIST := 5.0  # suomalaisen tikanheiton heittomatka miehillä (fi.wikipedia Tikanheitto)
 
 ## Taulun keskipiste ja kehys mökin koordinaateissa (mokki.gd asettaa ennen add_childia).
 var board_center := Vector3.ZERO
@@ -63,7 +64,10 @@ func _ready() -> void:
 	_cam.near = 0.05
 	_cam.fov = 26.0  # taulu isona, kuin katse keskittyisi siihen
 	add_child(_cam)
-	var eye := board_center + Vector3(0, EYE_UP, -THROW_DIST)
+	var dist := M_THROW_DIST if mode == "mokki" else THROW_DIST
+	if mode == "mokki":
+		_cam.fov = 16.0  # viiden metrin päästä taulu näkyy pienempänä; kapeampi kuva pitää renkaat luettavina
+	var eye := board_center + Vector3(0, EYE_UP, -dist)
 	_cam.transform = Transform3D(Basis.looking_at(board_center + Vector3(0, 0.03, 0) - eye, Vector3.UP), eye)
 	_cam.current = true
 	_build_hud()
@@ -134,7 +138,7 @@ func _process(delta: float) -> void:
 
 ## Huojunta: hengitys ja käden vapina, humalassa moninkertainen, keskittyessä pieni.
 func _sway() -> Vector2:
-	var amp := (0.012 + 0.05 * drunk) * lerpf(1.0, 0.3, _focus)
+	var amp := (0.012 + 0.05 * drunk) * lerpf(1.0, 0.3, _focus) * (1.5 if mode == "mokki" else 1.0)
 	var shake := 0.0 if _focus_left > 0.0 else 0.006
 	return Vector2(sin(_t * 1.3) + 0.5 * sin(_t * 3.1 + 1.0), cos(_t * 1.1) + 0.5 * sin(_t * 2.7)) * amp \
 		+ Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake
@@ -147,7 +151,7 @@ func _board_point(p: Vector2) -> Vector3:
 func _throw() -> void:
 	if _phase != "aim" or get_tree().paused:
 		return
-	var spread := 0.011 + 0.03 * drunk
+	var spread := (0.011 + 0.03 * drunk) * (1.6 if mode == "mokki" else 1.0)  # viisi metriä: hajonta isompi
 	var hit := _aim + _sway() + Vector2(randfn(0.0, spread), randfn(0.0, spread))
 	var dart := _dart_mesh()
 	add_child(dart)
@@ -157,7 +161,7 @@ func _throw() -> void:
 
 
 func _update_flight(delta: float) -> void:
-	_flying.t += delta / FLIGHT
+	_flying.t += delta / (FLIGHT * 1.6 if mode == "mokki" else FLIGHT)
 	var to := _board_point(_flying.hit) + Vector3(0, 0, -0.11)  # kärjen pää (-0,10 m) uppoaa sentin tauluun
 	var k: float = minf(_flying.t, 1.0)
 	var p: Vector3 = _flying.from.lerp(to, k) + Vector3(0, sin(k * PI) * 0.08, 0)
@@ -213,7 +217,7 @@ static func score_mokki(p: Vector2) -> Array:
 static func _simulate_santtu_mokki() -> int:
 	var total := 0
 	for i in M_DARTS * ROUNDS:
-		total += score_mokki(Vector2(randfn(0.0, 0.045), randfn(0.0, 0.045)))[0]
+		total += score_mokki(Vector2(randfn(0.0, 0.06), randfn(0.0, 0.06)))[0]
 	return total
 
 
@@ -265,6 +269,8 @@ func _end(quit: bool) -> void:
 
 
 func _dart_mesh() -> Node3D:
+	if mode == "mokki":
+		return _mokki_dart_mesh()
 	# Tikka: kärki +Z (look_at osoittaa -Z:n kohteeseen, joten malli rakennetaan -Z:aan).
 	# Pelin mittakaavassa noin kaksinkertainen, jotta tikat erottuvat taulusta heittoviivalta.
 	var d := Node3D.new()
@@ -278,10 +284,28 @@ func _dart_mesh() -> Node3D:
 	return d
 
 
+## Jykevä mökkitikka (esikuva Tikkataulu.JPG): lyhyt paksu harmaa metallirunko, lyhyt kärki ja isot punaiset
+## muoviset ristisulat (neljä siipeä). Kärki -Z:aan kuten _dart_mesh; pelin mittakaavassa noin kaksinkertainen.
+func _mokki_dart_mesh() -> Node3D:
+	var d := Node3D.new()
+	var s := 2.2
+	var metal := Color(0.5, 0.52, 0.55)
+	var red := Color(0.86, 0.12, 0.1)
+	B.mesh(d, B.cyl(0.0022 * s, 0.0008 * s, 0.022 * s, 8), Vector3(0, 0, -0.06 * s + 0.07), Color(0.82, 0.82, 0.84), Vector3(90, 0, 0))  # kärki
+	B.mesh(d, B.cyl(0.0075 * s, 0.006 * s, 0.035 * s, 12), Vector3(0, 0, -0.032 * s + 0.07), metal, Vector3(90, 0, 0))  # paksu runko
+	B.mesh(d, B.cyl(0.0035 * s, 0.0035 * s, 0.025 * s, 8), Vector3(0, 0, -0.003 * s + 0.07), red, Vector3(90, 0, 0))  # muovivarsi
+	for k in 2:
+		var fl := Vector3(0.034 * s if k == 0 else 0.0025, 0.0025 if k == 0 else 0.034 * s, 0.032 * s)
+		B.mesh(d, B.boxm(fl), Vector3(0, 0, 0.022 * s + 0.07), red)  # ristisulat
+	return d
+
+
 ## Oikean näköinen tikkataulu (sektorit, tupla- ja triplarenkaat, bull, numerot). Etupinta -Z:aan, x = taulun
 ## vasen (katsojan oikea on -X), y ylös. Käytetään sekä pihan tauluna (mokki.gd) että minipelissä.
-## Suomalainen mökkitikkataulu: valkoinen pyöreä taulu vanerilevyllä, mustat rengasviivat (1–10), rengasnumerot
-## pysty- ja vaakasuunnassa, punainen kymppi keskellä ja musta reunus. Etupinta -Z:aan kuten make_board.
+## Suomalainen mökkitikkataulu (esikuva fi.wikipedia "Tikanheitto", Commons Tikkataulu.JPG): pyöreä taulu, renkaat
+## vuorotellen valkoinen ja vihreä (1 valkoinen, 2 vihreä, ... 10 vihreä keskellä), vihreä reunus, numerot pysty- ja
+## vaakarivissä renkaan vastavärillä (valkoisella vihreä, vihreällä valkoinen). Roikkuu naulassa koukusta.
+## Etupinta -Z:aan kuten make_board.
 static func make_mokki_board(parent: Node3D) -> Node3D:
 	var board := Node3D.new()
 	parent.add_child(board)
@@ -300,15 +324,12 @@ static func make_mokki_board(parent: Node3D) -> Node3D:
 			var p11 := Vector3(-cos(t1) * r1, sin(t1) * r1, z)
 			for v in [p00, p11, p01, p00, p10, p11]:
 				st.add_vertex(v)
-	var white := Color(0.96, 0.95, 0.9)
-	var ink := Color(0.06, 0.06, 0.07)
-	disc.call(0.0, M_R, white, 0.0)
-	disc.call(M_R - 0.006, M_R + 0.01, ink, -0.0006)  # musta reunus
-	for k in range(1, 10):  # rengasviivat
-		var r := M_RING * k
-		disc.call(r - 0.0011, r + 0.0011, ink, -0.0008)
-	disc.call(0.0, M_RING, Color(0.8, 0.1, 0.08), -0.001)  # kymppi
-	disc.call(0.0, M_RING * 0.35, ink, -0.0012)
+	var white := Color(0.94, 0.94, 0.9)
+	var green := Color(0.17, 0.52, 0.2)
+	disc.call(M_R, M_R + 0.012, green, 0.0)  # vihreä reunus
+	for k in range(1, 11):  # rengas k: säde M_RING * (11 - k - 1) … M_RING * (11 - k)
+		var r1 := M_RING * (11 - k)
+		disc.call(r1 - M_RING if k < 10 else 0.0, r1, white if k % 2 == 1 else green, 0.0)
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	var mat := StandardMaterial3D.new()
@@ -317,22 +338,18 @@ static func make_mokki_board(parent: Node3D) -> Node3D:
 	mat.roughness = 0.9
 	mi.material_override = mat
 	board.add_child(mi)
-	# Taulun pahvirunko ja vanerilevy takana (puun syyt vaaleina juovina), naulat kulmissa.
-	B.mesh(board, B.cyl(M_R + 0.01, M_R + 0.01, 0.025, 40), Vector3(0, 0, 0.013), Color(0.2, 0.2, 0.2), Vector3(90, 0, 0))
-	B.mesh(board, B.boxm(Vector3(0.5, 0.5, 0.012)), Vector3(0, 0, 0.032), Color(0.76, 0.6, 0.4))
-	for k in 5:
-		B.mesh(board, B.boxm(Vector3(0.5, 0.004, 0.002)), Vector3(0, -0.2 + k * 0.1, 0.025), Color(0.68, 0.52, 0.34))
-	for nx in [-0.22, 0.22]:
-		for ny in [-0.22, 0.22]:
-			B.mesh(board, B.cyl(0.008, 0.008, 0.006, 8), Vector3(nx, ny, 0.024), Color(0.55, 0.56, 0.58), Vector3(90, 0, 0))
-	for k in range(1, 10):  # rengasnumerot ylös, alas, vasemmalle ja oikealle
+	# Taulun runko (puristettu kuitulevy) ja naula koukkuineen yläreunassa.
+	B.mesh(board, B.cyl(M_R + 0.012, M_R + 0.012, 0.025, 48), Vector3(0, 0, 0.0128), Color(0.2, 0.42, 0.18), Vector3(90, 0, 0))
+	B.mesh(board, B.boxm(Vector3(0.01, 0.03, 0.004)), Vector3(0, M_R + 0.02, 0.002), Color(0.5, 0.5, 0.52))
+	B.mesh(board, B.cyl(0.004, 0.004, 0.05, 8), Vector3(0, M_R + 0.035, -0.0), Color(0.45, 0.45, 0.47), Vector3(90, 0, 0))
+	for k in range(1, 10):  # rengasnumerot ylös, alas, vasemmalle ja oikealle renkaan vastavärillä
 		var rr := M_RING * (10 - k) + M_RING * 0.5
 		for d in [Vector2(0, 1), Vector2(0, -1), Vector2(1, 0), Vector2(-1, 0)]:
 			var lab := Label3D.new()
 			lab.text = str(k)
-			lab.font_size = 40
-			lab.pixel_size = 0.0004
-			lab.modulate = ink
+			lab.font_size = 64
+			lab.pixel_size = 0.00042
+			lab.modulate = green if k % 2 == 1 else white
 			lab.outline_size = 0
 			lab.position = Vector3(-d.x * rr, d.y * rr, -0.0016)
 			lab.rotation.y = PI

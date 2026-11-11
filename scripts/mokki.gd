@@ -50,8 +50,8 @@ const TUB_LOCAL := Vector3(-0.7, 0, 14.8)      # puulämmitteinen palju
 const DART_LOCAL := Vector3(4.2, 0, 8.0)       # heittopiste tikkataulun edessä (taulu männyssä)
 const DART_TREE := DART_LOCAL + Vector3(0, 0, 3.0)  # tikkataulun mänty
 const DART_BOARD_UP := 1.5  # taulun keskusta maasta
-const MTIKKA_LOCAL := DART_LOCAL + Vector3(3.2, 0, 0)  # mökkitikan heittopiste (toinen mänty dartsin vieressä)
-const MTIKKA_TREE := MTIKKA_LOCAL + Vector3(0, 0, 3.0)
+const MTIKKA_TREE := DART_TREE + Vector3(3.2, 0, 0)  # mökkitikan mänty dartsin männyn vieressä
+const MTIKKA_LOCAL := MTIKKA_TREE - Vector3(0, 0, 5.32)  # heittoviiva 5 m taulun etupinnasta (taulu 0,32 m männyn edessä)
 const DOCK_LOCAL := Vector3(8.9, 0, 55.4)      # laiturin pää Likasella
 const KITCHEN_LOCAL := Vector3(-12.6, 0, 16.2) # kesäkeittiön savustimen edessä (katoksen alla)
 const SANTTU_LOCAL := Vector3(-1.5, 0, 6.5)    # pihatuolilla kuistin edessä
@@ -1895,7 +1895,7 @@ func _build_yard_extras() -> void:
 	var board := DartsGame.make_board(tree)  # oikea tikkataulu, etupinta heittopisteelle (-Z)
 	board.position = Vector3(0, DART_BOARD_UP, -0.36)
 	tree.add_child(B.capsule_shape(0.3, 6.0))
-	# Mökkitikka toisessa männyssä: vanerille naulattu suomalainen rengastaulu (1–10).
+	# Mökkitikka toisessa männyssä: suomalainen vihreä-valkoinen rengastaulu (1–10) naulassa.
 	var tree2 := StaticBody3D.new()
 	tree2.position = MTIKKA_TREE
 	add_child(tree2)
