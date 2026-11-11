@@ -74,6 +74,10 @@ uniform bool ski_suit = false;
 // Esikuva: biker-liivi auki paljaan rinnan päällä (Jamin Leather VM802K).
 uniform bool vest_open = false;
 // Rintakarvat paljaalla rinnalla (myös liivin aukossa) ja ohut karvavana alas vyölle; väri body_hair.
+// Nännit paljaalla rinnalla (aikuiset hahmot, character.gd): keskikohta lepoasennossa (x peilataan), x <= 0 = ei nännejä.
+// Nännipiha on ihoa tummempi ja punertavampi, keskellä pieni tummempi nänni.
+uniform vec2 nipple_pos = vec2(-1.0, 0.0);
+uniform float nipple_r = 0.011;
 uniform bool chest_hair = false;
 uniform vec3 body_hair : source_color = vec3(0.16, 0.11, 0.07);
 uniform vec3 ski_yoke : source_color = vec3(0.95, 0.95, 0.97);
@@ -110,8 +114,14 @@ float vnoise(vec2 p) {
 	return mix(mix(hash21(i), hash21(i + vec2(1, 0)), f.x), mix(hash21(i + vec2(0, 1)), hash21(i + vec2(1, 1)), f.x), f.y);
 }
 
-vec3 skin_with_ink(vec3 skin, vec2 r, vec3 lp) {
+vec3 skin_with_ink(vec3 skin, vec2 r, vec3 lp, float rz) {
 	vec3 col = mix(skin, vec3(0.08, 0.16, 0.14), 0.85 * tattoo_ink(r, lp));
+	if (nipple_pos.x > 0.0 && rz > 0.0) {  // rz = lepoasennon z: vain etupuolella
+		float d = length(vec2(abs(r.x) - nipple_pos.x, r.y - nipple_pos.y));
+		vec3 areola = skin * vec3(0.78, 0.52, 0.5);
+		col = mix(col, areola, 0.9 * (1.0 - smoothstep(nipple_r * 0.75, nipple_r, d)));
+		col = mix(col, areola * 0.78, 1.0 - smoothstep(nipple_r * 0.22, nipple_r * 0.38, d));
+	}
 	if (grime > 0.0) {
 		// Nokisia ja mullanruskeita tahroja: isoja läikkiä ja pieniä roiskeita, hieman enemmän alhaalla (kädet, vyötärö).
 		float blot = smoothstep(0.55, 0.8, vnoise(r * 38.0 + vec2(lp.z * 9.0, 3.0)));
@@ -390,7 +400,7 @@ void fragment() {
 		if (topless && rest.y > 1.12) {
 			cov = 0.0;
 		}
-		vec3 skin = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos);
+		vec3 skin = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos, rest_zn.x);
 		vec3 cloth = rest.y < 1.12 ? pants : shirt;
 		cloth *= 1.0 - 0.2 * (1.0 - smoothstep(0.002, 0.0045, -d));  // kanttinauha
 		cloth *= 0.82 + 0.25 * lum;
@@ -401,13 +411,13 @@ void fragment() {
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 	} else if (net_hole) {
 		// Verkon silmukasta näkyy iho (ja tatuointi).
-		ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos);
+		ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos, rest_zn.x);
 		ROUGHNESS = 0.55;
 		SSS_STRENGTH = 0.35;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 	} else if (c > 0.5 && c < 2.5 && bare(c, rest, lpos, front, rest_nx)) {
 		// Vaatteen alta paljas iho: tasainen ihonsävy (pohjatekstuurissa näillä kohdin on puku).
-		ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos);
+		ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos, rest_zn.x);
 		if (chest_hair) {
 			ALBEDO = mix(ALBEDO, body_hair, 0.85 * chest_hair_amt(rest, front));
 		}
@@ -415,7 +425,7 @@ void fragment() {
 		SSS_STRENGTH = 0.35;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 	} else if (c < 0.5) {
-		ALBEDO = skin_with_ink(t.rgb * skin_tint, rest, lpos);
+		ALBEDO = skin_with_ink(t.rgb * skin_tint, rest, lpos, rest_zn.x);
 		ROUGHNESS = texture(rough_tex, UV).r;
 		NORMAL_MAP = n;
 		SSS_STRENGTH = 0.35;

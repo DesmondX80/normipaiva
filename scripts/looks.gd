@@ -123,11 +123,11 @@ const AKKA := {
 }
 const TEENS := [
 	{"shirt": Color(0.12, 0.12, 0.13), "pants": Color(0.45, 0.55, 0.7), "shoes": Color(0.95, 0.95, 0.95),
-		"hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.2, 0.12), "height": 1.74, "bulk": -0.75, "shoulders": -0.6},
+		"hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.2, 0.12), "height": 1.74, "nipples": false, "bulk": -0.75, "shoulders": -0.6},
 	{"shirt": Color(0.1, 0.35, 0.2), "pants": Color(0.2, 0.2, 0.22), "shoes": Color(0.9, 0.2, 0.2),
-		"hair": "Hair_SimpleParted", "hair_color": Color(0.8, 0.65, 0.35), "height": 1.7, "bulk": -0.85, "shoulders": -0.7},
+		"hair": "Hair_SimpleParted", "hair_color": Color(0.8, 0.65, 0.35), "height": 1.7, "nipples": false, "bulk": -0.85, "shoulders": -0.7},
 	{"model": "female", "shirt": Color(0.85, 0.4, 0.7), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.95, 0.95, 0.95),
-		"hair": "Hair_Long", "hair_color": Color(0.12, 0.1, 0.1), "height": 1.65, "bulk": -0.6, "shoulders": -0.4},
+		"hair": "Hair_Long", "hair_color": Color(0.12, 0.1, 0.1), "height": 1.65, "nipples": false, "bulk": -0.6, "shoulders": -0.4},
 ]
 
 const ARTO := {
