@@ -88,7 +88,8 @@ const WHITE := Color(0.95, 0.95, 0.92)
 const FILL_KEEP := [M.LEMMIKKI, M.KANTTORILA, M.AARO_HOUSE, M.PIRTTI, M.KOULUKESKUS, M.PAIVAKOTI,
 	Vector2(168.1, 810.8), Vector2(148.7, 822.7), Vector2(165.9, 783.1), Vector2(129.9, 811.5)]
 const FILL_DETAIL_END := 200.0  # täytetalojen pienet osat (kannattajat, rimat, välipuut) näkyvät tähän asti
-const FILL_DROP_MAX := 1.5  # ison hallin (K8) rinteen korkeusero rungon alla enintään (m)
+const FILL_DROP_MAX := 1.5  # ison hallin (K8) sokkelin korkeus alarinteellä enintään (m)
+const FILL_DIG_MAX := 1.5  # ison hallin (K8) kaivautuminen: ylärinne saa upota rungon seinään enintään (m); korkeusero yhteensä <= DROP + DIG
 const FILL_GRID := 30.0  # pohjaruudukon ruutu (_fill_free)
 ## _house: ovilehti (koko, keskikohdan korkeus, keskikohta julkisivun edessä) ja porras; Sinikan kuistin mallit
 ## (sinikan_kuisti_mallit.gd) mitoitetaan samoista.
@@ -3608,6 +3609,8 @@ func _fill_house(b: Dictionary, bi: int, f: Dictionary, gap: float) -> void:
 					yaw = B.yaw_to(Vector3(dir.x, 0, dir.y))
 	var xf := Transform3D(Basis(Vector3.UP, yaw), Vector3(c.x, 0, c.y))
 	var plan: Array = Taytto.plan("saloinen", {"l": fl, "d": fd, "t": b.t, "lv": b.lv}, ctx, rng)
+	if plan.size() == 1 and plan[0].tyyppi == "K8":
+		_fill_hall_fit(plan[0], xf, fl, fd)
 	# Rungot ensin: saman pohjan tonttien katokset väistävät myös myöhemmin rakennettavia taloja.
 	var feet: Array[PackedVector2Array] = []
 	for o: Dictionary in plan:
@@ -3637,6 +3640,53 @@ func _fill_house(b: Dictionary, bi: int, f: Dictionary, gap: float) -> void:
 							_trees.remove_at(ti)
 
 
+## Rinteen halli (K8): jos pohjan korkeusero > FILL_DROP_MAX + FILL_DIG_MAX, etsitään pohjan (fl x fd, kehys xf) sisältä
+## suurin sallittu halli (>= 24 x 12 m) kääntämällä 90° ja siirtämällä 4 m:n askelin; muuttaa o:n (l, d, n, dx, dz, rot).
+## Jos mikään ei mahdu rajaan, o jää ennalleen (_fill_one lyhentää halli keskikohdasta).
+func _fill_hall_fit(o: Dictionary, xf: Transform3D, fl: float, fd: float) -> void:
+	var lim := FILL_DROP_MAX + FILL_DIG_MAX
+	var rect0 := Rakennukset._rect(0, 0, o.l / 2.0, o.d / 2.0)
+	var sp0 := _fill_span(_fill_poly(xf * Taytto.local_xf(o), rect0))
+	if sp0.y - sp0.x <= lim:
+		return
+	var sizes: Array = []
+	for fa: float in [1.0, 0.8, 0.65, 0.5]:
+		for fb: float in [1.0, 0.8, 0.65, 0.5, 0.4]:
+			var l: float = o.l * fa
+			var d: float = o.d * fb
+			if l >= 24.0 and d >= 12.0:
+				sizes.append(Vector2(l, d))
+	sizes.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.x * a.y > b.x * b.y)
+	for sz: Vector2 in sizes:
+		var best := Vector3(INF, 0, 0)  # (siirron pituus, dx, dz) pienin siirto, rot 0 ensin
+		var best_rot := 0.0
+		for rot: float in [0.0, PI / 2.0]:
+			var ex := sz.x if rot == 0.0 else sz.y  # hallin ulottuma pohjan X-suunnassa
+			var ez := sz.y if rot == 0.0 else sz.x
+			if ex > fl + 0.01 or ez > fd + 0.01:
+				continue
+			var mx := (fl - ex) / 2.0
+			var mz := (fd - ez) / 2.0
+			for ix in range(-int(mx / 4.0), int(mx / 4.0) + 1):
+				for iz in range(-int(mz / 4.0), int(mz / 4.0) + 1):
+					var dx := ix * 4.0
+					var dz := iz * 4.0
+					var cand := {"rot": rot, "dx": dx, "dz": dz}
+					var sp := _fill_span(_fill_poly(xf * Taytto.local_xf(cand), Rakennukset._rect(0, 0, sz.x / 2.0, sz.y / 2.0)))
+					var cost := Vector2(dx, dz).length() + (1000.0 if rot != 0.0 else 0.0)
+					if sp.y - sp.x <= lim and cost < best.x:
+						best = Vector3(cost, dx, dz)
+						best_rot = rot
+		if best.x < INF:
+			o.l = sz.x
+			o.d = sz.y
+			o.n = maxi(2, roundi(o.l / 6.0))
+			o.dx = best.y
+			o.dz = best.z
+			o.rot = best_rot
+			return
+
+
 ## Yksi täytetalo kehykseen tx (y = 0 maan tasolla; nostetaan tässä): lohkoerät, törmäyslaatikot, esteet
 ## (blockers, _add_house) ja fill_log. Katos ja aita jätetään pois, jos ne osuisivat johonkin (_fill_free).
 ## own = OSM-rakennuksen indeksi (oma pohja ei estä), others = saman pohjan muiden talojen rungot.
@@ -3653,15 +3703,16 @@ func _fill_one(o: Dictionary, tx: Transform3D, foot: PackedVector2Array, own: in
 					fill_why["tie" if _road_clearance(q) < 0.0 else "vesi"].append(own)
 				return  # OSM-pohja tien, polun tai veden päällä (kartta kulkee toisin): ei taloa sinne
 	var span := _fill_span(foot)
-	if o.tyyppi == "K8" and span.y - span.x > FILL_DROP_MAX:
-		# Iso halli rinteessä: sokkeli ei saa venyä yli FILL_DROP_MAX:n; lyhennetään halli (ja syvyys) keskikohdasta.
+	if o.tyyppi == "K8" and span.y - span.x > FILL_DROP_MAX + FILL_DIG_MAX:
+		# Iso halli rinteessä: lattia lo + FILL_DROP_MAX, ylärinne saa upota FILL_DIG_MAX; jos ero on silti suurempi,
+		# lyhennetään halli (ja syvyys) keskikohdasta.
 		for i in 14:
 			o.l = maxf(12.0, o.l * 0.85)
 			o.d = maxf(5.0, o.d * 0.92)
 			o.n = maxi(2, roundi(o.l / 6.0))
 			foot = _fill_poly(tx, Rakennukset._rect(0, 0, o.l / 2.0, o.d / 2.0))
 			span = _fill_span(foot)
-			if span.y - span.x <= FILL_DROP_MAX or (o.l <= 12.0 and o.d <= 5.0):
+			if span.y - span.x <= FILL_DROP_MAX + FILL_DIG_MAX or (o.l <= 12.0 and o.d <= 5.0):
 				break
 	var lo: float = span.x
 	var hi: float = span.y

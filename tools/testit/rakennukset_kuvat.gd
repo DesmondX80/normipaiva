@@ -347,7 +347,9 @@ func _run() -> void:
 	var names := {}
 	var iso: Array = []  # K6–K8 edestä, sivulta ja ylhäältä
 	var variantit: Array = []  # K8 8 m ja 40 m
+	var b_i := -1
 	for b in built:
+		b_i += 1
 		var at: Vector3 = b[1]
 		var res: Dictionary = b[3]
 		var p: Dictionary = b[2]
@@ -378,6 +380,13 @@ func _run() -> void:
 			for dist: float in [8.0, 40.0]:
 				var e := at + Vector3(-p.l / 2.0, 0, -p.d / 2.0)
 				variantit.append(await _shot("", e + Vector3(-dist * 0.5, 1.7 + dist * 0.15, -dist * 0.87), e + Vector3(p.l * 0.3, 2.5, p.d * 0.2)))
+		if nm.begins_with("K8") and p.get("v", "kone") in ["kone", "teollisuus"]:
+			# Hallin katto ja seinä kaukaa ilman pieniä (sm-erä näkyy pelissä vain alle 200 m: K8 viimeistely).
+			built[b_i][4][1].visible = false
+			for dist: float in [40.0, 150.0]:
+				var e2 := at + Vector3(p.l * 0.3, 0, -p.d / 2.0)
+				await _shot("%s_kauko_%d" % [nm, int(dist)], e2 + Vector3(-dist * 0.5, 1.7 + dist * 0.08, -dist * 0.87), at + Vector3(0, 3.0, 0), 30.0 if dist > 100.0 else 40.0)
+			built[b_i][4][1].visible = true
 		if nm.substr(0, 2) in ["K6", "K7", "K8"]:
 			# Jalankulkijan silmin (1,7 m) 6 m:n päästä julkisivun kulmasta ja takapihan puolelta.
 			var c := at + Vector3(p.l / 2.0, 0, 0)
