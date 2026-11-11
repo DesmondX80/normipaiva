@@ -1,7 +1,9 @@
 extends RefCounted
-## Maiseman täytetalot (Saloinen ja Vaala): viisi tunnistettavaa tyyppiä esikuvien mukaan
-## (.claude/tyo/rakennukset-maisema/01-esikuvat.md; docs/pelin-sisalto.md "Maiseman talot (K1–K5)").
-##   K1 rintamamiestalo, K2 matala 70–80-luvun omakotitalo, K3 aitta, K4 lato, K5 Raahen keltainen puutalo.
+## Maiseman täytetalot (Saloinen ja Vaala): kahdeksan tunnistettavaa tyyppiä esikuvien mukaan
+## (.claude/tyo/rakennukset-maisema/01-esikuvat.md ja 02-arkkitehtuuri.md Korjaus 2; docs/pelin-sisalto.md).
+##   K1 rintamamiestalo, K2 matala 70–80-luvun omakotitalo, K3 aitta, K4 lato, K5 Raahen keltainen puutalo,
+##   K6 rivitalo, K7 kerrostalo, K8 halli (kone, teollisuus, liike, suoja). K6–K8 venyvät pohjan pituuteen
+##   toistamalla moduulia (asunto, porrashuone, kehäväli); harja X:n suuntainen ja -Z julkisivu kuten K2:ssa.
 ## Osat lisätään kutsujan lohkoeriin (B.Batch): runko = näkyy kauas (seinät, katto, ikkunalasit ja -puitteet, ovi),
 ## pienet = lähiyksityiskohdat (kattokannattajat, rimat, ikkunanpuitteiden välipuut), joille kutsuja antaa
 ## visibility_range_endin. Kaikki mitat lasketaan pohjasta (l, d) ja kattokulmasta, ei kiinteistä koordinaateista.
@@ -19,13 +21,17 @@ extends RefCounted
 ##   foot: {"runko": PackedVector2Array (x, z)[, "katos": ..., "aita": ...]} paikallisina pohjina.
 ##   shapes: törmäyslaatikot [koko: Vector3, keskipiste: Vector3] paikallisina.
 ##   h_top: korkein kohta (piippu tai harja).
-##   mitat: {kulma (astetta), raystas (räystäskorkeus m), krs} testikohtaukselle (tools/testit/rakennukset_kuvat).
+##   mitat: {kulma (astetta), raystas (räystäskorkeus m), krs[, moduuli (K6–K8: asunnon, portaan tai kehävälin
+##          leveys m)]} testikohtaukselle (tools/testit/rakennukset_kuvat).
+##   doors (K6–K8): Array[Vector3] jokaisen asunnon (K6), porrashuoneen (K7) tai hallin oven edusta; door = keskimmäinen.
+##   K6–K8:n p: n (moduuleja), krs, v (K8-variantti), liike (K7), taka (K6: pihaa rungon takana, aidat).
 
 const B := preload("res://scripts/build.gd")
 
 const GLASS := Color(0.12, 0.17, 0.24)
 const STONE := Color(0.46, 0.46, 0.45)
 const BRICK := Color(0.52, 0.24, 0.18)
+const WHITE_FRAME := Color(0.92, 0.92, 0.89)  # kerrostalon ja hallin valkoiset ikkunanpuitteet
 
 
 static func build(tyyppi: String, p: Dictionary, runko: B.Batch, pienet: B.Batch, xf: Transform3D) -> Dictionary:
@@ -40,6 +46,12 @@ static func build(tyyppi: String, p: Dictionary, runko: B.Batch, pienet: B.Batch
 			return _k4(p, runko, pienet, xf)
 		"K5":
 			return _k5(p, runko, pienet, xf)
+		"K6":
+			return _k6(p, runko, pienet, xf)
+		"K7":
+			return _k7(p, runko, pienet, xf)
+		"K8":
+			return _k8(p, runko, pienet, xf)
 	push_error("rakennukset: tuntematon tyyppi " + tyyppi)
 	return {}
 
@@ -503,4 +515,396 @@ static func _k5(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dict
 		"shapes": shapes,
 		"h_top": top,
 		"mitat": {"kulma": rad_to_deg(a), "raystas": h_e, "krs": 1.0},
+	}
+
+
+## K6 rivitalo (1970–90): pitkä matala massa, jossa sama asuntomoduuli (leveys l / n) toistuu peilaten (naapurien
+## ovet pareittain). Jokaisella asunnolla julkisivussa (-Z) ovi, katos tuulensuojineen ja keittiön ikkuna, takana (+Z)
+## olohuoneen iso ikkuna ja terassin lasiovi, ja asuntopihojen välissä 1,6 m:n lauta-aita (vain jos pohjaa jää
+## rungon taakse p.taka >= 1,5 m; aita ei mene sen yli). Loiva harjakatto 14–20° umpiräystäin tai (flat) tasakatto.
+## Tiilitalo: alaosa tiiltä, ikkunoiden yläpuolinen vyöhyke ja päätykolmiot vaaleaa lautaa; peiterimatalo (rima):
+## koko talo pystyrimoin. krs 1 (räystäs 2,9 m) tai 2 (5,6 m). Vantaan kaupunginmuseo, Vantaan 1980–1990-lukujen
+## rakennuskannan inventointi: Rivitalot (2024) (02-arkkitehtuuri.md Korjaus 2).
+## p: l, d, wall, roof, trim, seed; n (asuntoja), krs, flat, rima, taka (pihan syvyys rungon takana), drop.
+static func _k6(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = p.seed
+	var l: float = p.l
+	var d: float = p.d
+	var n: int = maxi(p.get("n", 2), 1)
+	var w := l / n  # asuntomoduulin leveys
+	var krs: int = clampi(p.get("krs", 1), 1, 2)
+	var wall: Color = p.wall
+	var roof: Color = p.roof
+	var trim: Color = p.trim
+	var drop: float = p.get("drop", 0.2)
+	var flat: bool = p.get("flat", false)
+	var rima: bool = p.get("rima", false)
+	var taka: float = p.get("taka", 0.0)
+	var a := deg_to_rad(rng.randf_range(14.0, 20.0))
+	var plinth := 0.3
+	var h_e := 2.9 + 2.7 * (krs - 1) + rng.randf_range(0.0, 0.1)
+	var panel := Color(0.88, 0.82, 0.66)  # tiilitalon vaalea lautavyöhyke ja päätykolmiot
+	var win_y := plinth + 1.3  # ikkunan keskikohta (1. krs)
+	_plinth(r, xf, l, d, plinth, drop, STONE.darkened(0.15))
+	_box(r, xf, Vector3(l, h_e - plinth, d), Vector3(0, (h_e + plinth) / 2.0, 0), wall)
+	if not rima:  # lautavyöhyke ikkunoiden yläpuolella räystääseen (ylimmän kerroksen ikkunoista)
+		var yb := win_y + 2.7 * (krs - 1) + 0.85
+		for sz in [-1.0, 1.0]:
+			_box(r, xf, Vector3(l + 0.04, h_e - yb, 0.04), Vector3(0, (h_e + yb) / 2.0, sz * (d / 2.0 + 0.02)), panel)
+	var top := h_e + 0.47
+	if flat:
+		_box(r, xf, Vector3(l + 1.0, 0.45, d + 1.0), Vector3(0, h_e + 0.2, 0), trim)  # otsalauta
+		_box(r, xf, Vector3(l + 0.8, 0.06, d + 0.8), Vector3(0, h_e + 0.44, 0), roof)  # bitumikate
+	else:
+		top = _gable(r, sm, xf, l, d, h_e, a, 0.6, 0.4, 0.12, wall if rima else panel, roof, trim, false, true)
+	for sx in [-1.0, 1.0]:  # nurkkalaudat ja päätyjen ikkunat
+		for sz in [-1.0, 1.0]:
+			_box(r, xf, Vector3(0.14, h_e - plinth, 0.14), Vector3(sx * l / 2.0, (h_e + plinth) / 2.0, sz * d / 2.0), trim)
+		_window(r, sm, xf, Vector3(sx * l / 2.0, win_y, 0), Vector3(sx, 0, 0), 1.2, 1.1, trim, 2, 1)
+	# Asuntomoduulit: aukot [x, puolileveys] etu- ja takaseinällä (rimat väistävät).
+	var open_f: Array = []
+	var open_b: Array = []
+	var doors: Array[Vector3] = []
+	var door_col := Color(0.42, 0.27, 0.16) if rima else trim.lightened(0.1)
+	var fence_col := wall.darkened(0.12) if rima else Color(0.5, 0.37, 0.24)
+	var fl := minf(taka - 0.1, 4.5)  # aidan pituus rungon takana
+	for i in n:
+		var xm := -l / 2.0 + w * (i + 0.5)
+		var sg := 1.0 if i % 2 == 0 else -1.0  # peilaus: naapurien ovet vierekkäin
+		var dx := xm + sg * w * 0.25
+		var kx := xm - sg * w * 0.2
+		_door(r, sm, xf, Vector3(dx, plinth, -d / 2.0), Vector3(0, 0, -1), 1.0, 2.05, trim, door_col, plinth)
+		doors.append(Vector3(dx, 0, -d / 2.0 - 1.2))
+		_box(r, xf, Vector3(1.8, 0.12, 0.95), Vector3(dx, plinth + 2.45, -d / 2.0 - 0.475), roof.darkened(0.1))  # katos
+		if krs == 1:  # tuulensuoja katoksen alla naapurin oven puolella
+			_box(r, xf, Vector3(0.08, 2.3, 0.9), Vector3(dx + sg * 0.86, plinth + 1.15, -d / 2.0 - 0.45), fence_col)
+		_window(r, sm, xf, Vector3(kx, win_y, -d / 2.0), Vector3(0, 0, -1), 1.4, 1.1, trim, 2, 1)
+		var lx := xm - sg * w * 0.18
+		var tx := xm + sg * w * 0.27
+		_window(r, sm, xf, Vector3(lx, win_y - 0.15, d / 2.0), Vector3(0, 0, 1), 2.4, 1.4, trim, 3, 1)
+		_window(r, sm, xf, Vector3(tx, plinth + 1.05, d / 2.0), Vector3(0, 0, 1), 0.9, 2.0, trim, 1, 1)  # terassiovi
+		open_f.append_array([[dx, 0.75], [kx, 0.8]])
+		open_b.append_array([[lx, 1.3], [tx, 0.55]])
+		if krs == 2:
+			var uy := win_y + 2.7
+			_window(r, sm, xf, Vector3(xm, uy, -d / 2.0), Vector3(0, 0, -1), 1.2, 1.1, trim, 2, 1)
+			_window(r, sm, xf, Vector3(lx, uy, d / 2.0), Vector3(0, 0, 1), 1.6, 1.1, trim, 2, 1)
+			open_f.append([xm, 0.7])
+			open_b.append([lx, 0.9])
+		if i == 0:
+			continue
+		var xb := -l / 2.0 + w * i  # asuntojen raja: lista julkisivussa (ja takana) ja pihojen välinen aita
+		_box(r, xf, Vector3(0.12, h_e - plinth, 0.05), Vector3(xb, (h_e + plinth) / 2.0, -d / 2.0 - 0.025), trim)
+		if krs == 1:
+			_box(r, xf, Vector3(0.12, h_e - plinth, 0.05), Vector3(xb, (h_e + plinth) / 2.0, d / 2.0 + 0.025), trim)
+		open_f.append([xb, 0.1])
+		open_b.append([xb, 0.1])
+		if taka >= 1.5:
+			_box(r, xf, Vector3(0.05, 1.8, fl), Vector3(xb, 0.7, d / 2.0 + fl / 2.0), fence_col)  # y -0,2 ... 1,6
+			_box(sm, xf, Vector3(0.1, 0.07, fl), Vector3(xb, 1.62, d / 2.0 + fl / 2.0), fence_col.darkened(0.2))
+			_box(sm, xf, Vector3(0.11, 1.75, 0.11), Vector3(xb, 0.78, d / 2.0 + fl - 0.06), fence_col.darkened(0.2))
+			for j in range(1, int(fl / 0.6)):  # lautojen saumat (läpi aidan, näkyvät molemmin puolin)
+				_box(sm, xf, Vector3(0.07, 1.7, 0.03), Vector3(xb, 0.7, d / 2.0 + j * 0.6), fence_col.darkened(0.25))
+	if rima:  # peiterima: pystyrimat 1,2 m välein, aukkojen kohdalta pois
+		var rc := wall.darkened(0.3)
+		var rh := h_e - plinth - 0.05
+		var k := int(l / 1.2)
+		for i in range(1, k):
+			var x := -l / 2.0 + l * i / k
+			for sz in [-1.0, 1.0]:
+				var free := true
+				for o: Array in (open_f if sz < 0.0 else open_b):
+					if absf(x - o[0]) < o[1] + 0.2:
+						free = false
+				if free:
+					_box(sm, xf, Vector3(0.08, rh, 0.04), Vector3(x, (h_e + plinth) / 2.0, sz * (d / 2.0 + 0.02)), rc)
+		var kd := int(d / 1.2)
+		for sx in [-1.0, 1.0]:
+			for i in range(1, kd):
+				var z := -d / 2.0 + d * i / kd
+				if absf(z) > 0.85:
+					_box(sm, xf, Vector3(0.04, rh, 0.08), Vector3(sx * (l / 2.0 + 0.02), (h_e + plinth) / 2.0, z), rc)
+	var foot := {"runko": _rect(0, 0, l / 2.0, d / 2.0)}
+	var shapes: Array = [[Vector3(l, top, d), Vector3(0, top / 2.0, 0)]]
+	if taka >= 1.5 and n > 1:
+		foot.aidat = _rect(0, d / 2.0 + fl / 2.0, l / 2.0 - w + 0.05, fl / 2.0)
+		for i in range(1, n):
+			shapes.append([Vector3(0.05, 1.6, fl), Vector3(-l / 2.0 + w * i, 0.8, d / 2.0 + fl / 2.0)])
+	return {
+		"door": doors[n / 2],
+		"doors": doors,
+		"foot": foot,
+		"shapes": shapes,
+		"h_top": top,
+		"mitat": {"kulma": 0.0 if flat else rad_to_deg(a), "raystas": h_e, "krs": float(krs), "moduuli": w},
+	}
+
+
+## K7 kerrostalo (1960–70-luvun lamelli): suorakaide, 2–3 kerrosta (krs) ja n porrashuonetta (moduuli l / n).
+## Julkisivussa (-Z) porrashuoneen ovi katoksineen ja pystysuora ikkunanauha, asuntojen ikkunat kerroksittain
+## ja kellarin ikkunat korkeassa sokkelissa; takana (+Z) kaksi parveketta porrasta ja kerrosta kohden (laatta,
+## umpikaide ja parvekeovi). Parvekkeet kuuluvat pohjaan: rungon syvyys d - 1,4. Tasakatto otsalautoineen tai
+## (flat = false) loiva harjakatto 10–14°. liike: pohjakerroksen julkisivussa näyteikkunat. Kahri ja Pyykönen 1984
+## (runkosyvyys), Vaalan 534430539 ja Vaalantien liike- ja asuinrakennukset (02-arkkitehtuuri.md Korjaus 2).
+## p: l, d, wall, roof, trim, seed; n, krs, flat, liike, drop.
+static func _k7(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = p.seed
+	var l: float = p.l
+	var d: float = p.d
+	var n: int = maxi(p.get("n", 1), 1)
+	var w := l / n  # porrasmoduulin leveys
+	var krs: int = clampi(p.get("krs", 2), 2, 3)
+	var wall: Color = p.wall
+	var roof: Color = p.roof
+	var trim: Color = p.trim
+	var drop: float = p.get("drop", 0.2)
+	var flat: bool = p.get("flat", true)
+	var liike: bool = p.get("liike", false)
+	var bdp := 1.4  # parvekkeen syvyys
+	var bd := d - bdp  # rungon syvyys
+	var xb := xf * Transform3D(Basis(), Vector3(0, 0, -bdp / 2.0))  # runko julkisivun puolelle, parvekkeet taakse
+	var plinth := 0.6
+	var fh := 3.0  # kerroskorkeus
+	var h_e := plinth + fh * krs
+	var a := deg_to_rad(rng.randf_range(10.0, 14.0))
+	var concrete := Color(0.6, 0.59, 0.56)
+	var frame := WHITE_FRAME if wall.get_luminance() < 0.6 else trim
+	_plinth(r, xb, l, bd, plinth, drop, concrete)
+	_box(r, xb, Vector3(l, h_e - plinth, bd), Vector3(0, (h_e + plinth) / 2.0, 0), wall)
+	var top := h_e + 0.6
+	if flat:  # tasakatto: otsalauta (pelti) ja huopakate
+		_box(r, xb, Vector3(l + 0.3, 0.6, bd + 0.3), Vector3(0, h_e + 0.3, 0), trim)
+		_box(r, xb, Vector3(l + 0.1, 0.04, bd + 0.1), Vector3(0, h_e + 0.6, 0), roof)
+	else:
+		top = _gable(r, sm, xb, l, bd, h_e, a, 0.5, 0.4, 0.14, wall, roof, trim, false, true)
+	var fz := -bd / 2.0  # julkisivun z (xb-kehyksessä)
+	var bz := bd / 2.0  # takaseinän z
+	for sx in [-1.0, 1.0]:  # päätyjen ikkunat kerroksittain
+		for f in krs:
+			_window(r, sm, xb, Vector3(sx * l / 2.0, plinth + fh * f + 1.5, -bd * 0.2), Vector3(sx, 0, 0), 1.2, 1.4, frame, 2, 1)
+	var doors: Array[Vector3] = []
+	var glass_col := GLASS.lightened(0.08)
+	for i in n:
+		var xm := -l / 2.0 + w * (i + 0.5)
+		# Porrashuone: ovi katoksineen ja ikkunanauha välitasanteiden korkeudella koko talon korkeudelta.
+		_door(r, sm, xb, Vector3(xm, plinth, fz), Vector3(0, 0, -1), 1.2, 2.1, frame, Color(0.35, 0.24, 0.15), plinth)
+		doors.append(Vector3(xm, 0, -d / 2.0 - 1.2))
+		_box(r, xb, Vector3(2.4, 0.18, 0.95), Vector3(xm, plinth + 2.55, fz - 0.475), trim)
+		var sy0 := plinth + 3.0
+		var sy1 := h_e - 0.5
+		_window(r, sm, xb, Vector3(xm, (sy0 + sy1) / 2.0, fz), Vector3(0, 0, -1), 1.1, sy1 - sy0, frame, 1, krs - 1 if krs > 2 else 2)
+		for sx: float in [-1.0, 1.0]:
+			for k: float in [0.18, 0.36]:  # kellarin ikkunat sokkelissa
+				_box(sm, xb, Vector3(0.9, 0.3, 0.04), Vector3(xm + sx * w * k, plinth * 0.55, fz - 0.06), GLASS)
+			_box(sm, xb, Vector3(0.9, 0.3, 0.04), Vector3(xm + sx * w * 0.3, plinth * 0.55, bz + 0.06), GLASS)
+			for f in krs:
+				var wy := plinth + fh * f + 1.5
+				if f == 0 and liike:  # näyteikkuna
+					_window(r, sm, xb, Vector3(xm + sx * w * 0.27, plinth + 1.45, fz), Vector3(0, 0, -1), w * 0.3, 2.1, frame, 3, 1)
+				else:
+					for k: float in [0.17, 0.36]:
+						_window(r, sm, xb, Vector3(xm + sx * w * k, wy, fz), Vector3(0, 0, -1), 1.5, 1.4, frame, 2, 1)
+				# Takana: parveke (laatta, umpikaide, sivukaiteet) ja parvekeovi, uloimpana ikkuna.
+				var px := xm + sx * w * 0.2
+				var bw := minf(3.4, w * 0.3)
+				_box(r, xb, Vector3(bw, 0.16, bdp), Vector3(px, plinth + fh * f - 0.08, bz + bdp / 2.0), concrete)
+				_box(r, xb, Vector3(bw, 1.0, 0.08), Vector3(px, plinth + fh * f + 0.5, bz + bdp - 0.04), wall.lerp(concrete, 0.6))
+				for sg: float in [-1.0, 1.0]:
+					_box(sm, xb, Vector3(0.06, 1.0, bdp - 0.08), Vector3(px + sg * (bw / 2.0 - 0.03), plinth + fh * f + 0.5, bz + bdp / 2.0 - 0.04), wall.lerp(concrete, 0.6).darkened(0.1))
+				_window(r, sm, xb, Vector3(px - sx * 0.6, plinth + fh * f + 1.1, bz), Vector3(0, 0, 1), 0.9, 2.1, frame, 1, 1)
+				_window(r, sm, xb, Vector3(xm + sx * w * 0.42, wy, bz), Vector3(0, 0, 1), 1.3, 1.4, frame, 2, 1)
+		_box(sm, xb, Vector3(1.4, 0.05, 0.12), Vector3(xm, plinth + 2.66, fz - 0.06), glass_col)  # katoksen valolista
+	# Kerrosten välinen vaakalista julkisivussa (näkyy kauas tiilen ja rappauksen saumana).
+	for f in range(1, krs):
+		for sz in [-1.0, 1.0]:
+			_box(sm, xb, Vector3(l + 0.04, 0.12, 0.04), Vector3(0, plinth + fh * f, sz * (bd / 2.0 + 0.02)), wall.darkened(0.12))
+	return {
+		"door": doors[n / 2],
+		"doors": doors,
+		"foot": {"runko": _rect(0, 0, l / 2.0, d / 2.0)},
+		"shapes": [[Vector3(l, top, bd), Vector3(0, top / 2.0, -bdp / 2.0)], [Vector3(l, h_e, bdp), Vector3(0, h_e / 2.0, d / 2.0 - bdp / 2.0)]],
+		"h_top": top,
+		"mitat": {"kulma": 0.0 if flat else rad_to_deg(a), "raystas": h_e, "krs": float(krs), "moduuli": w},
+	}
+
+
+## K8 halli: pitkä suorakaide, harja X:n suuntainen, kehäpilarilistat kehävälein (l / k, k = round(l / 6)) ja
+## profiilipellin urat 1 m välein (pienet osat). Variantit (p.v):
+##   kone: seinä 4,5 m, harjakatto 18°, 2–3 liukuovea julkisivussa (-Z), valkoiset nurkkalistat (Rapko Konehalli 14 x 20).
+##   teollisuus: seinä 5–6 m, katto 10–14° (5–7°, jos d > 20 m), +X-päädyssä nosto-ovi ja henkilöovi.
+##   liike: tasakatto 0,6 m:n otsapellein, seinä 4,2–5 m, näyteikkunanauha ja lasiovi katoksineen julkisivussa.
+##   suoja: pulpettikatto 8–12° (korkea reuna julkisivussa), avoin julkisivu, pilari joka kehävälillä.
+## Kaikki katon kallistuvat osat (lappeet, pulpetin laatta, päätykolmio ja pilarien korkeus) samasta
+## kaltevuusvektorista. Seinän alaosa sokkelia, ikkunanauha ylhäällä (kone, teollisuus).
+## p: l, d, wall, roof, trim, seed, v; drop.
+static func _k8(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = p.seed
+	var l: float = p.l
+	var d: float = p.d
+	var v: String = p.get("v", "kone")
+	var wall: Color = p.wall
+	var roof: Color = p.roof
+	var trim: Color = p.trim
+	var drop: float = p.get("drop", 0.2)
+	var k := maxi(2, roundi(l / 6.0))
+	var bay := l / k  # kehäväli
+	var plinth := 0.3
+	var hw := 4.5  # räystäskorkeus
+	var a := deg_to_rad(18.0)
+	match v:
+		"teollisuus":
+			hw = rng.randf_range(5.0, 6.0)
+			a = deg_to_rad(rng.randf_range(5.0, 7.0) if d > 20.0 else rng.randf_range(10.0, 14.0))
+		"liike":
+			hw = rng.randf_range(4.2, 5.0)
+			a = 0.0
+		"suoja":
+			hw = rng.randf_range(3.6, 4.2)  # matala takaseinä
+			a = deg_to_rad(rng.randf_range(8.0, 12.0))
+	var concrete := Color(0.6, 0.59, 0.56)
+	var pil := trim  # kehäpilarilistat ja nurkkalistat
+	var ura := wall.darkened(0.18)
+	var top := hw
+	var doors: Array[Vector3] = []
+	var door := Vector3(0, 0, -d / 2.0 - 1.2)
+	var shapes: Array = []
+	if v == "suoja":
+		# Pulpetti: lappeen suunta u takaräystäältä (+Z) etureunaan (-Z) ylös, normaali n; korkeus z:ssä y(z).
+		var u := Vector3(0, sin(a), -cos(a))
+		var nn := Vector3(0, cos(a), sin(a))
+		var ov := 0.4
+		var t := 0.12
+		var rise := d * tan(a)
+		var back := Vector3(0, hw - ov * tan(a), d / 2.0 + ov)  # laatan alapinnan takareuna
+		var slab_l := (d + 2.0 * ov) / cos(a)
+		var bs := Basis(Vector3.RIGHT, nn, Vector3.RIGHT.cross(nn))
+		_box(r, xf, Vector3(l + 0.6, t, slab_l), back + u * slab_l / 2.0 + nn * t / 2.0, roof, bs)
+		_box(r, xf, Vector3(l + 0.6, 0.25, 0.05), back + u * slab_l + Vector3(0, -0.05, -0.02), trim)  # otsalauta edessä
+		_plinth(r, xf * Transform3D(Basis(), Vector3(0, 0, d / 2.0 - 0.1)), l, 0.2, plinth, drop, concrete)
+		_box(r, xf, Vector3(l, hw - plinth, 0.15), Vector3(0, (hw + plinth) / 2.0, d / 2.0 - 0.075), wall)  # takaseinä
+		for sx in [-1.0, 1.0]:  # päätyseinät: suorakaide räystääseen ja kolmio lappeen alle (apex edessä)
+			_box(r, xf, Vector3(0.15, hw, d), Vector3(sx * (l / 2.0 - 0.075), hw / 2.0, 0), wall)
+			var tri := PrismMesh.new()
+			tri.left_to_right = 0.0
+			tri.size = Vector3(d, rise, 0.15)
+			r.add(tri, xf * Transform3D(Basis(Vector3.UP, -PI / 2.0), Vector3(sx * (l / 2.0 - 0.075), hw + rise / 2.0, 0)), wall)
+		for i in range(1, k):  # pilarit etureunassa kehävälein (päissä päätyseinä), korkeus lappeen alapintaan
+			var x := -l / 2.0 + bay * i
+			var z := -d / 2.0 + 0.1
+			var y := hw + (d / 2.0 - z) * tan(a)
+			_box(r, xf, Vector3(0.2, y, 0.2), Vector3(x, y / 2.0, z), pil)
+			shapes.append([Vector3(0.2, y, 0.2), Vector3(x, y / 2.0, z)])
+		_box(r, xf, Vector3(l, 0.3, 0.2), Vector3(0, hw + rise - 0.15 - 0.2 * tan(a), -d / 2.0 + 0.1), pil)  # etupalkki
+		var kl := mini(int(l), 80)
+		for i in range(1, kl):  # takaseinän urat
+			_box(sm, xf, Vector3(0.05, hw - plinth - 0.1, 0.03), Vector3(-l / 2.0 + l * i / kl, (hw + plinth) / 2.0, d / 2.0 + 0.01), ura)
+		top = hw + rise + t
+		shapes.append([Vector3(l, hw, 0.15), Vector3(0, hw / 2.0, d / 2.0 - 0.075)])
+		for sx in [-1.0, 1.0]:
+			shapes.append([Vector3(0.15, hw, d), Vector3(sx * (l / 2.0 - 0.075), hw / 2.0, 0)])
+		door = Vector3(0, 0, -d / 2.0 - 1.2)
+	else:
+		_plinth(r, xf, l, d, plinth, drop, concrete)
+		_box(r, xf, Vector3(l, hw - plinth, d), Vector3(0, (hw + plinth) / 2.0, 0), wall)
+		if v == "liike":
+			_box(r, xf, Vector3(l + 0.2, 0.6, d + 0.2), Vector3(0, hw + 0.3, 0), trim)  # otsapelti
+			_box(r, xf, Vector3(l, 0.04, d), Vector3(0, hw + 0.58, 0), roof)
+			top = hw + 0.6
+		else:
+			top = _gable(r, sm, xf, l, d, hw, a, 0.4, 0.3, 0.12, wall, roof, trim, false, true)
+		for sx in [-1.0, 1.0]:
+			for sz in [-1.0, 1.0]:
+				_box(r, xf, Vector3(0.2, hw - plinth, 0.2), Vector3(sx * l / 2.0, (hw + plinth) / 2.0, sz * d / 2.0), WHITE_FRAME if v == "kone" else pil)
+		# Ovet: kone liukuovet julkisivun kehäväleissä, liike lasiovi keskellä, teollisuus +X-päädyssä.
+		var door_bays: Array[int] = []
+		if v == "kone":
+			var nd := mini(clampi((k + 1) / 2, 2, 3), k)
+			for j in nd:
+				door_bays.append(int(round((j + 0.5) * k / nd - 0.5)))
+		var open_f: Array = []  # julkisivun aukot [x, puolileveys] (urat väistävät)
+		for bi in door_bays:
+			var xc := -l / 2.0 + bay * (bi + 0.5)
+			var dw := minf(5.0, bay - 0.8)
+			var dh := minf(4.0, hw - 0.5)
+			_box(r, xf, Vector3(dw, dh, 0.1), Vector3(xc, dh / 2.0 + 0.02, -d / 2.0 - 0.06), wall.darkened(0.08))
+			_box(r, xf, Vector3(dw + 0.4, 0.18, 0.16), Vector3(xc, dh + 0.12, -d / 2.0 - 0.1), pil)  # kisko
+			_box(sm, xf, Vector3(0.1, dh, 0.04), Vector3(xc - dw / 2.0 + 0.05, dh / 2.0, -d / 2.0 - 0.12), WHITE_FRAME)
+			_box(sm, xf, Vector3(0.1, dh, 0.04), Vector3(xc + dw / 2.0 - 0.05, dh / 2.0, -d / 2.0 - 0.12), WHITE_FRAME)
+			_box(sm, xf, Vector3(dw, 0.08, 0.04), Vector3(xc, dh * 0.5, -d / 2.0 - 0.12), WHITE_FRAME)
+			for sg in [-1.0, 1.0]:  # vinotuet (X-ristikko)
+				var ang := atan2(dh * 0.45, dw - 0.2)
+				_box(sm, xf, Vector3(sqrt(pow(dw - 0.2, 2.0) + pow(dh * 0.45, 2.0)), 0.08, 0.04),
+					Vector3(xc, dh * 0.25 + 0.02, -d / 2.0 - 0.13), WHITE_FRAME, Basis(Vector3.BACK, sg * ang))
+			open_f.append([xc, dw / 2.0])
+			doors.append(Vector3(xc, 0, -d / 2.0 - 1.5))
+		if v == "liike":
+			var gw := minf(3.0, l * 0.12)
+			_door(r, sm, xf, Vector3(0, plinth, -d / 2.0), Vector3(0, 0, -1), 1.8, 2.2, WHITE_FRAME, GLASS.lightened(0.15), plinth)
+			_box(r, xf, Vector3(gw + 2.0, 0.3, 0.95), Vector3(0, plinth + 2.75, -d / 2.0 - 0.475), trim)  # katos
+			open_f.append([0.0, gw / 2.0 + 1.0])
+			doors.append(Vector3(0, 0, -d / 2.0 - 1.2))
+		elif v == "teollisuus":
+			var dw := minf(4.5, d * 0.35)
+			var dh := minf(4.2, hw - 0.6)
+			var zc := d * 0.12
+			_box(r, xf, Vector3(0.1, dh, dw), Vector3(l / 2.0 + 0.05, dh / 2.0, zc), Color(0.82, 0.82, 0.8))  # nosto-ovi
+			_box(r, xf, Vector3(0.14, 0.3, dw + 0.5), Vector3(l / 2.0 + 0.07, dh + 0.15, zc), pil)
+			for j in range(1, int(dh / 0.6)):
+				_box(sm, xf, Vector3(0.04, 0.04, dw), Vector3(l / 2.0 + 0.11, j * 0.6, zc), Color(0.62, 0.62, 0.6))
+			var pz := zc - dw / 2.0 - 1.6
+			_door(r, sm, xf, Vector3(l / 2.0, plinth, pz), Vector3(1, 0, 0), 1.0, 2.1, pil, Color(0.5, 0.5, 0.52), plinth)
+			door = Vector3(l / 2.0 + 1.2, 0, pz)
+			doors.append(door)
+		if not doors.is_empty():
+			door = doors[0]
+		# Kehäpilarilistat ja ikkunanauha (liikkeellä näyteikkunat alhaalla) kehäväleittäin.
+		for i in k:
+			var x0 := -l / 2.0 + bay * i
+			if i > 0:
+				for sz in [-1.0, 1.0]:
+					_box(r, xf, Vector3(0.22, hw - plinth, 0.08), Vector3(x0, (hw + plinth) / 2.0, sz * (d / 2.0 + 0.04)), pil)
+			var xc := x0 + bay / 2.0
+			if i in door_bays:
+				continue
+			if v == "liike":
+				var ww := bay - 1.0
+				if absf(xc) < ww / 2.0 + 1.2:
+					continue  # oven kohta
+				_box(r, xf, Vector3(ww, 2.4, 0.06), Vector3(xc, plinth + 1.6, -d / 2.0 - 0.03), GLASS)
+				_box(sm, xf, Vector3(ww + 0.12, 0.08, 0.08), Vector3(xc, plinth + 2.84, -d / 2.0 - 0.04), WHITE_FRAME)
+				open_f.append([xc, ww / 2.0 + 0.1])
+			else:
+				var ww := bay - 1.2
+				_box(r, xf, Vector3(ww, 0.7, 0.06), Vector3(xc, hw - 0.75, -d / 2.0 - 0.03), GLASS)
+				_box(sm, xf, Vector3(ww + 0.1, 0.06, 0.08), Vector3(xc, hw - 1.12, -d / 2.0 - 0.04), WHITE_FRAME)
+		# Profiilipellin urat 1 m välein (liike: tiili tai pelti ilman uria), enintään 80 sivua kohti.
+		if v != "liike":
+			var kl := mini(int(l), 80)
+			var uh := hw - plinth - 0.1
+			for i in range(1, kl):
+				var x := -l / 2.0 + l * i / kl
+				for sz in [-1.0, 1.0]:
+					var free := true
+					if sz < 0.0:
+						for o: Array in open_f:
+							if absf(x - o[0]) < o[1] + 0.15:
+								free = false
+					if free:
+						_box(sm, xf, Vector3(0.05, uh, 0.03), Vector3(x, (hw + plinth) / 2.0, sz * (d / 2.0 + 0.015)), ura)
+			var kd := mini(int(d), 30)
+			for i in range(1, kd):
+				var z := -d / 2.0 + d * i / kd
+				for sx in [-1.0, 1.0]:
+					_box(sm, xf, Vector3(0.03, uh, 0.05), Vector3(sx * (l / 2.0 + 0.015), (hw + plinth) / 2.0, z), ura)
+		shapes.append([Vector3(l, top, d), Vector3(0, top / 2.0, 0)])
+	return {
+		"door": door,
+		"doors": doors,
+		"foot": {"runko": _rect(0, 0, l / 2.0, d / 2.0)},
+		"shapes": shapes,
+		"h_top": top,
+		"mitat": {"kulma": rad_to_deg(a), "raystas": hw, "krs": 1.0, "moduuli": bay},
 	}

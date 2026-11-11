@@ -39,6 +39,7 @@ func _run() -> void:
 	_counts(rows)
 	_keep(w, rows)
 	_overlaps(w, rows)
+	_why(w)
 	cam = Camera3D.new()
 	cam.far = 3000.0
 	cam.fov = 60.0
@@ -190,6 +191,31 @@ func _overlaps(w: Node3D, rows: Array) -> void:
 		_vika("%d pihan osaa tiellä tai vedessä" % on_road)
 	if cross > 0:
 		_vika("%d täytetaloa päällekkäin (%.1f m²)" % [cross, area_sum])
+
+
+## Ilman taloa jääneet pohjat syittäin (world.gd fill_why): raja ja vesi_keski kuten mainissa (sama ehto),
+## muut (tie, vesi, päällekkäin) enintään 15 (02-arkkitehtuuri.md Korjaus 2, kohta 5).
+func _why(w: Node3D) -> void:
+	var empty: Array = w.fill_empty()
+	var muut := 0
+	var known := {}
+	for k in w.fill_why:
+		var ids: Array = w.fill_why[k]
+		print("SALOINEN syy %s %d: %s" % [k, ids.size(), ids if k != "oma" and k != "vanha" else ids.size()])
+		if k in ["tie", "vesi", "paallekkain"]:
+			muut += ids.size()
+		if k != "oma" and k != "vanha":
+			for bi in ids:
+				known[bi] = true
+	var unknown := []
+	for bi in empty:
+		if not known.has(bi):
+			unknown.append(bi)
+	print("SALOINEN pohjia ilman taloa %d, syy tuntematon %d: %s" % [empty.size(), unknown.size(), unknown])
+	if muut > 15:
+		_vika("%d pohjaa ilman taloa tien, veden tai päällekkäisyyden takia (yli 15)" % muut)
+	if not unknown.is_empty():
+		_vika("%d pohjaa ilman taloa ilman kirjattua syytä" % unknown.size())
 
 
 func _area(p: PackedVector2Array) -> float:
