@@ -50,6 +50,8 @@ const TUB_LOCAL := Vector3(-0.7, 0, 14.8)      # puulämmitteinen palju
 const DART_LOCAL := Vector3(4.2, 0, 8.0)       # heittopiste tikkataulun edessä (taulu männyssä)
 const DART_TREE := DART_LOCAL + Vector3(0, 0, 3.0)  # tikkataulun mänty
 const DART_BOARD_UP := 1.5  # taulun keskusta maasta
+const MTIKKA_LOCAL := DART_LOCAL + Vector3(3.2, 0, 0)  # mökkitikan heittopiste (toinen mänty dartsin vieressä)
+const MTIKKA_TREE := MTIKKA_LOCAL + Vector3(0, 0, 3.0)
 const DOCK_LOCAL := Vector3(8.9, 0, 55.4)      # laiturin pää Likasella
 const KITCHEN_LOCAL := Vector3(-12.6, 0, 16.2) # kesäkeittiön savustimen edessä (katoksen alla)
 const SANTTU_LOCAL := Vector3(-1.5, 0, 6.5)    # pihatuolilla kuistin edessä
@@ -498,6 +500,11 @@ func _build_keskimmainen() -> void:
 	north_boat.rotation.y = face + PI
 	add_child(north_boat)
 	load("res://scripts/fish_game.gd").build_boat(north_boat, true)
+
+
+## Mökkitikkataulun etupinnan keskipiste mökin koordinaateissa.
+static func mtikka_board_center() -> Vector3:
+	return MTIKKA_TREE + Vector3(0, h(MTIKKA_TREE.x, MTIKKA_TREE.z) + DART_BOARD_UP, -0.32)
 
 
 ## Tikkataulun etupinnan keskipiste mökin koordinaateissa (tikanheiton minipeli).
@@ -1888,6 +1895,14 @@ func _build_yard_extras() -> void:
 	var board := DartsGame.make_board(tree)  # oikea tikkataulu, etupinta heittopisteelle (-Z)
 	board.position = Vector3(0, DART_BOARD_UP, -0.36)
 	tree.add_child(B.capsule_shape(0.3, 6.0))
+	# Mökkitikka toisessa männyssä: vanerille naulattu suomalainen rengastaulu (1–10).
+	var tree2 := StaticBody3D.new()
+	tree2.position = MTIKKA_TREE
+	add_child(tree2)
+	B.mesh(tree2, B.cyl(0.18, 0.27, 3.2, 10), Vector3(0, 1.6, 0), Color(0.42, 0.31, 0.22))
+	var mboard := DartsGame.make_mokki_board(tree2)
+	mboard.position = Vector3(0, DART_BOARD_UP, -0.32)
+	tree2.add_child(B.capsule_shape(0.28, 6.0))
 	# Penkit ja nuotiopaikka paljun edessä (kuten kuistilta otetussa kuvassa).
 	for bp in [TUB_LOCAL + Vector3(-2.2, 0, -2.4), TUB_LOCAL + Vector3(2.4, 0, -2.4), TUB_LOCAL + Vector3(-2.6, 0, 1.0)]:
 		B.mesh(self, B.boxm(Vector3(1.6, 0.08, 0.35)), bp + Vector3(0, 0.42, 0), Color(0.45, 0.34, 0.22))

@@ -502,6 +502,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   pystylautaseinineen metsän keskellä. Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella
   savusauna, puulämmitteinen palju ja kesäkeittiö (avoin katos offset-savustimineen), tikanheittotaulu, laituri
   portaineen ja soutuveneineen sekä isäntä Santtu kahvikuppeineen.
+  - **Tikka ja mökkitikka:** tikanheittotaulun männyn vieressä toisessa männyssä on vanerilevylle naulattu
+    suomalainen mökkitikkataulu (`darts_game.gd make_mokki_board`, mode "mokki"): renkaat 1–10 kuin ampumataulussa,
+    punainen kymppi keskellä. Kolme kierrosta, viisi tikkaa kierroksella (enintään 150), Santtu heittää vastaan; oma
+    ennätys (`mtikka_ennatys`). Testi `--scene=mokkitikka` (pisteytys, 15 heittoa, kuvat taulusta ja pihalta).
   - **Kalastus soutuveneellä:** laiturilla E vie veneeseen. W/S soutaa ja A/D kääntää. Kalaparvet näkyvät renkaina
     pinnalla. Pidä E heittääksesi virvelin (pidempi painallus heittää kauemmas), ja kun koho sukeltaa, paina E heti.
     Väsytyksessä E kelaa: pidä siiman kireys vihreällä, koska punaisella siima katkeaa ja löysällä kala karkaa.
