@@ -104,6 +104,15 @@ Saab 900 (`vehicles.gd saab()`, #283): 4-ovinen pystykeulainen sedan, sama kori 
 tools/testit/saab_kuvat.tscn` (siviili- ja poliisi-Saab rinnakkain samoista kulmista ja poliisin lähikuvat; mittaa
 1,693 × 1,42 × 4,69 ±5 %, akselivälin 2,517 ja pyörän alimman pisteen 0 ± 0,01). Ponyn sisustus ja pyöränkaaret ovat
 yhteisiä apufunktioita (`_cabin`, `_wheel_arch`).
+Saabin muoto (#286): kori on pyöristetty sivuprofiili (`_round`: reunakohtainen säde, olka vyölinjalla ja konepellin
+reunoilla 0,09, helma ja päädyt 0,03–0,04; konepellin etureuna kaarena profiilissa) ja tuulilasi kiertää kulman ympäri
+A-pilariin (`_wrap_glass`). Korin yläosa esikuvien mukaan (`.claude/tyo/saab/esikuva_poliisi_*.jpg`, blueprint 1981 GLS):
+sivulasit ja pilarit kallistuvat sisäänpäin 0,10 m kattoa kohti (`_lean_panel`, TUMBLE), katto on kaareva
+sivuprofiili (`_round`), ikkunoiden yläkulmat pyöristetty, konepelti kupera (HOOD_BULGE), helma nousee keulassa ja
+perässä (SILL_RISE) ja peräkulma on kaari (TAIL_R). `_round`: lähes samansuuntaisilla vierekkäisillä reunoilla sama
+säde, muuten sisennysten leikkaus karkaa piikiksi. `slab()` tekee suorakulmaisen kannan myös kallistetulle laatalle. Poliisi-Saabissa mustat pyöränkaaren reunat, ja valkoinen helma puskurin alla
+(POLIISI-teksti ennallaan); `saab(..., peltivanteet = true)` antaa hopeiset peltivanteet (ratsia ja Vaalan poliisi). Lähikuvat
+`p_kaari`, `p_kylki`, `p_keula_ala`, `keula_sivu`, `ws_kulma`, `ws_matala`, `ws_ylhaalta`, `olka_edesta` ja `olka_takaa`.
 Lada 2105 (`vehicles.gd lada()`, #283; Suomessa Lada 1500 S): `tools/testit/aja.sh tscn tools/testit/lada_kuvat.tscn` (Lada ja
 Saab rinnakkain samoista kulmista ja katon kulmat lähikuvina; mittaa 1,62 × 1,446 × 4,145 ±5 %, akselivälin 2,424 ja pyörän
 alimman pisteen 0 ± 0,01). Liikenne ja pysäköidyt autot arpovat mallin (`Vehicles.MALLIT`, `henkiloauto()`), ja kaapattu ja

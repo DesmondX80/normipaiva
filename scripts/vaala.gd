@@ -4334,7 +4334,7 @@ func _poliisi_building(c: Vector2, f: Vector2, ax: Vector2) -> void:
 	cp.y = h(cp.x, cp.z)
 	car.position = cp
 	car.rotation.y = yaw
-	Vehicles.saab(car, Color.WHITE, "PSS-112", true)
+	Vehicles.saab(car, Color.WHITE, "PSS-112", true, true)
 	# Törmäys ja pohja ajoalueesta pois.
 	var body := StaticBody3D.new()
 	add_child(body)
