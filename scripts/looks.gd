@@ -160,6 +160,7 @@ const SINIKKA := {
 	"hair": "Hair_Long", "hair_color": Color(0.98, 0.92, 0.72), "height": 1.76, "shine": 0.85, "bulk": -0.2,
 	"curves": 1.0, "bust": 2.7, "skin": Color(1.0, 0.97, 0.93), "bare_skin": Color(0.8, 0.58, 0.46), "glam": true,
 	"shorts_y": 0.8, "crop_y": 1.23, "tube_y": 1.41, "sleeve_x": 0.2, "denim": true,
+	"shoe": "sandaali",  # punaiset avokärkiset sandaalit, punaiset varpaankynnet (#273); bikinissä ja tanssiessa vaihtuu
 }
 ## Sinikka seuraintalolla (kirppis_interior.gd sinikka_seura, tanssi_game.gd): ilman olkihattua.
 static func sinikka_seura() -> Dictionary:
@@ -172,7 +173,7 @@ static func sinikka_seura() -> Dictionary:
 static func sinikka_bikini() -> Dictionary:
 	var look: Dictionary = SINIKKA.duplicate()
 	look.merge({"shirt": Color(0.9, 0.05, 0.12), "pants": Color(0.9, 0.05, 0.12), "shoes": Color(0.95, 0.75, 0.62), "shine": 0.7,
-		"denim": false, "string_bikini": true}, true)
+		"denim": false, "string_bikini": true, "shoe": "paljas"}, true)
 	for k in ["crop_y", "tube_y", "sleeve_x", "shorts_y"]:
 		look.erase(k)
 	return look
@@ -262,7 +263,7 @@ const JONI := {
 const ESA := {
 	"shirt": Color(0.24, 0.36, 0.2), "flannel": true, "pants": Color(0.33, 0.3, 0.2), "shoes": Color(0.12, 0.1, 0.08),
 	"hair": "Hair_Buzzed", "hair_color": Color(0.42, 0.3, 0.18), "beard": true, "height": 1.83, "belly": 0.2, "bulk": 0.35,
-	"shoulders": 0.4, "skin": Color(0.95, 0.76, 0.64), "muscle": 0.2,
+	"shoulders": 0.4, "skin": Color(0.95, 0.76, 0.64), "muscle": 0.2, "shoe": "saapas",
 }
 ## Hevari-Tero: musta bändipaita, mustat farkut, pitkät hiukset ja parta.
 const HEVARI_TERO := {
@@ -283,7 +284,7 @@ const MINTTU := {
 	"model": "female", "shirt": Color(1.0, 0.8, 0.22), "pants": Color(1.0, 0.8, 0.22), "shoes": Color(0.95, 0.93, 0.88),
 	"hair": "Hair_Long", "hair_color": Color(0.72, 0.2, 0.07), "height": 1.68, "skin": Color(1.0, 0.92, 0.86),
 	"bare_skin": Color(1.0, 0.86, 0.78), "shorts_y": 0.88, "sleeve_x": 0.17, "curves": 1.0, "bust": 2.7, "curls": true,
-	"skirt": Color(1.0, 0.8, 0.22),
+	"skirt": Color(1.0, 0.8, 0.22), "shoe": "sandaali", "nails": Color(0.92, 0.45, 0.5),
 }
 ## Katja: pitkät mustat suorat hiukset (add_long_hair), kiiltävä musta nahkatakki, siniset farkut vyön kanssa ja mustat
 ## saappaat; motoristi. Muodot Sinikan tasoa.
@@ -291,7 +292,7 @@ const KATJA := {
 	"model": "female", "shirt": Color(0.05, 0.045, 0.05), "shine": 0.95, "pants": Color(0.16, 0.2, 0.32), "denim": true,
 	"belt_y": 1.0, "belt_col": Color(0.45, 0.42, 0.38),
 	"shoes": Color(0.04, 0.04, 0.04), "hair": "Hair_Long", "hair_color": Color(0.03, 0.025, 0.03), "height": 1.75,
-	"skin": Color(0.98, 0.86, 0.78), "curves": 1.0, "bust": 2.7, "long_hair": true,
+	"skin": Color(0.98, 0.86, 0.78), "curves": 1.0, "bust": 2.7, "long_hair": true, "shoe": "saapas",
 }
 ## Sandels-päkkirinkan värit esikuvan (Sandels 4,7 % 24-pakkaus, käyttäjän kuva) mukaan: kermanvalkoinen pahvi,
 ## mustat kaiverrusviivat (kenraalin muotokuva, kirkko, kuusimetsä, pelto) ja oliivinkultainen "Sandels" mustin
