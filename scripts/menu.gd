@@ -230,6 +230,12 @@ func _settings(from: String) -> void:
 	_check(c, "Hiiri ohjaa kulkusuuntaa (FPS-tyyli)", "mouse_steer")
 	_check(c, "Sisätiloissa hiiri ohjaa kulkusuuntaa", "mouse_steer_indoor")
 	_check(c, "Kamera palaa itsestään taakse", "auto_recenter")
+	var k := _tab(tabs, "Sisältö")
+	_check(k, "K-18-sisältö pois", "k18_pois")
+	var kn := _label("Piilottaa aikuisille tarkoitetut jutut: Rasvanapin (makasiinin takaovi), Pentin BangBusin ja " +
+		"kolmiomittauksen (Sytkäri-mätsit). Ne katoavat myös päiväkirjasta. Oletuksena kaikki on sallittu.", 14, Color(0.8, 0.8, 0.8))
+	kn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	k.add_child(kn)
 	_keys_tab(tabs)
 	_button("Takaisin", func() -> void: _back(from))
 

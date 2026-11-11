@@ -39,7 +39,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   poimia jalan (kunto +15). Rollaattorimummon eteen ei kannata mennä: hän nostaa kepin olan yli ja huitaisee.
   Ehdit perääntyä, kun keppi nousee. Osuma päähän on kuolema, ja Päivi motkottaa: "Älä kiusaa mummoja! Ne tappaa!"
   Testit `--scene=mummokeppi` ja `tools/testit/mummo_kuvat.tscn`.
-- **Rasvanappi (vain aikuisille):** aseman länsipuolella (noin 21 m) on rapistunut tavaramakasiini. Länsipäädyn takaovella palaa punainen
+- **Rasvanappi (vain aikuisille; piiloon asetuksella "K-18-sisältö pois", ks. docs/ohjaus.md):** aseman länsipuolella (noin 21 m) on rapistunut tavaramakasiini. Länsipäädyn takaovella palaa punainen
   lamppu häkissä: koputa (E), niin kurkistusluukku aukeaa ja portsari kysyy salasanan. Oikea on "Rasvanappi", ja
   väärästä luukku paukahtaa kiinni. Sisällä pelaajat (Pekka, Arto, Sinikka, Raimo ja Helena) esittäytyvät pyyhkeissään.
   Muista, kuka kiroilee, hyräilee, kikattaa, niiskuttaa tai huokailee, sillä pimeässä muut tunnistaa vain äänestä.
