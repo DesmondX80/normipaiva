@@ -78,6 +78,7 @@ uniform bool vest_open = false;
 // Nännipiha on ihoa tummempi ja punertavampi, keskellä pieni tummempi nänni.
 uniform vec2 nipple_pos = vec2(-1.0, 0.0);
 uniform float nipple_r = 0.011;
+uniform float nipple_h = 0.004;  // nännin kohouma pinnasta (m); varjostus piirtää pienen nupin muodon
 uniform bool chest_hair = false;
 uniform vec3 body_hair : source_color = vec3(0.16, 0.11, 0.07);
 uniform vec3 ski_yoke : source_color = vec3(0.95, 0.95, 0.97);
@@ -114,13 +115,33 @@ float vnoise(vec2 p) {
 	return mix(mix(hash21(i), hash21(i + vec2(1, 0)), f.x), mix(hash21(i + vec2(0, 1)), hash21(i + vec2(1, 1)), f.x), f.y);
 }
 
+// Nännin korkeus pinnasta (m) lepoasennon kohdassa r: loiva nännipiha ja keskellä pyöreä nuppi. Kohokuvio (fragment)
+// kääntää pinnan normaalia tämän mukaan, joten muoto varjostuu valon suunnasta.
+float nipple_height(vec2 r, float rz) {
+	if (nipple_pos.x <= 0.0 || rz <= 0.0) {
+		return 0.0;
+	}
+	float d = length(vec2(abs(r.x) - nipple_pos.x, r.y - nipple_pos.y));
+	float nub = nipple_r * 0.36;
+	return nipple_h * (0.3 * (1.0 - smoothstep(nipple_r * 0.5, nipple_r * 1.1, d)) + 0.7 * max(0.0, 1.0 - d * d / (nub * nub)));  // paraabelikupu: reunalla äärellinen kaltevuus
+}
+
 vec3 skin_with_ink(vec3 skin, vec2 r, vec3 lp, float rz) {
 	vec3 col = mix(skin, vec3(0.08, 0.16, 0.14), 0.85 * tattoo_ink(r, lp));
 	if (nipple_pos.x > 0.0 && rz > 0.0) {  // rz = lepoasennon z: vain etupuolella
 		float d = length(vec2(abs(r.x) - nipple_pos.x, r.y - nipple_pos.y));
 		vec3 areola = skin * vec3(0.78, 0.52, 0.5);
 		col = mix(col, areola, 0.9 * (1.0 - smoothstep(nipple_r * 0.75, nipple_r, d)));
-		col = mix(col, areola * 0.78, 1.0 - smoothstep(nipple_r * 0.22, nipple_r * 0.38, d));
+		// Nänni: pieni nuppi nännipihan keskellä. Muoto valosta ylhäältä: vaalea yläreuna, tumma alareuna ja varjo alla.
+		float nub = nipple_r * 0.36;
+		float dy = (r.y - nipple_pos.y) / nub;
+		float in_nub = 1.0 - smoothstep(nub * 0.8, nub, d);
+		col = mix(col, areola * (0.82 + 0.1 * clamp(dy, -1.0, 1.0)), in_nub);
+		float below = length(vec2(abs(r.x) - nipple_pos.x, r.y - nipple_pos.y + nub * 0.9));
+		col *= 1.0 - 0.15 * (1.0 - in_nub) * (1.0 - smoothstep(nub * 0.5, nub * 1.3, below));
+		// Nännipihan reunan pieni kohouma: yläreuna hieman vaaleampi, alareuna tummempi.
+		float rim = (1.0 - smoothstep(nipple_r * 0.6, nipple_r, d)) * smoothstep(nipple_r * 0.4, nipple_r * 0.8, d);
+		col *= 1.0 + 0.1 * rim * clamp((r.y - nipple_pos.y) / nipple_r, -1.0, 1.0);
 	}
 	if (grime > 0.0) {
 		// Nokisia ja mullanruskeita tahroja: isoja läikkiä ja pieniä roiskeita, hieman enemmän alhaalla (kädet, vyötärö).
@@ -362,6 +383,11 @@ void vertex() {
 		puff = mix(-0.006, puff, smoothstep(shoe_top - 0.01, shoe_top + 0.03, UV2.y));
 	}
 	VERTEX += NORMAL * puff;
+	if (nipple_pos.x > 0.0 && puff == 0.0 && c > 0.5 && c < 1.5 && CUSTOM0.x > 0.0) {
+		// Nännin kohouma paljaalla rinnalla (ja bikinin kankaan alla): nännipiha nousee hieman, keskellä nuppi.
+		float nd = length(vec2(abs(UV2.x) - nipple_pos.x, UV2.y - nipple_pos.y));
+		VERTEX += NORMAL * nipple_h * (0.35 * (1.0 - smoothstep(0.0, nipple_r * 1.4, nd)) + 0.65 * (1.0 - smoothstep(0.0, nipple_r * 0.7, nd)));
+	}
 	if (press_n > 0 && CUSTOM0.w > 0.0) {
 		// Kontaktipainuma laatikko kerrallaan (Elastic.press): pehmeä verteksi painuu pinnalle ja levenee sivulle.
 		vec3 pn;
@@ -381,6 +407,7 @@ void vertex() {
 }
 
 void fragment() {
+	float skin_amt = 0.0;  // paljaan ihon osuus pikselissä (nännin kohokuvio vain iholla)
 	vec4 t = texture(albedo_tex, UV);
 	float lum = dot(t.rgb, vec3(0.299, 0.587, 0.114));
 	float c = floor(cat + 0.5);
@@ -408,12 +435,14 @@ void fragment() {
 		ROUGHNESS = mix(0.55, mix(0.9, 0.45, fabric_shine), cov);
 		SPECULAR = mix(0.5, mix(0.25, 0.5, fabric_shine), cov);
 		SSS_STRENGTH = 0.35 * (1.0 - cov);
+		skin_amt = 1.0 - cov;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 	} else if (net_hole) {
 		// Verkon silmukasta näkyy iho (ja tatuointi).
 		ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos, rest_zn.x);
 		ROUGHNESS = 0.55;
 		SSS_STRENGTH = 0.35;
+		skin_amt = 1.0;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 	} else if (c > 0.5 && c < 2.5 && bare(c, rest, lpos, front, rest_nx)) {
 		// Vaatteen alta paljas iho: tasainen ihonsävy (pohjatekstuurissa näillä kohdin on puku).
@@ -423,12 +452,14 @@ void fragment() {
 		}
 		ROUGHNESS = 0.55;
 		SSS_STRENGTH = 0.35;
+		skin_amt = 1.0;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 	} else if (c < 0.5) {
 		ALBEDO = skin_with_ink(t.rgb * skin_tint, rest, lpos, rest_zn.x);
 		ROUGHNESS = texture(rough_tex, UV).r;
 		NORMAL_MAP = n;
 		SSS_STRENGTH = 0.35;
+		skin_amt = 1.0;
 	} else {
 		vec3 cloth = c < 1.5 ? shirt : (c < 2.5 ? pants : shoes);
 		if (tracksuit && c > 0.5 && c < 1.5) {
@@ -560,6 +591,17 @@ void fragment() {
 			METALLIC = 0.8;
 		}
 		NORMAL_MAP = mix(vec3(0.5, 0.5, 1.0), n, 0.18 * muscle_def);
+	}
+	float nh = skin_amt * nipple_height(rest, rest_zn.x);
+	if (nh > 0.0) {
+		// Kohokuvio korkeudesta (Mikkelsen): pinnan normaali kääntyy korkeuden ruutugradientin mukaan.
+		vec3 dpx = dFdx(VERTEX);
+		vec3 dpy = dFdy(VERTEX);
+		vec3 r1 = cross(dpy, NORMAL);
+		vec3 r2 = cross(NORMAL, dpx);
+		float det = dot(dpx, r1);
+		vec3 grad = sign(det) * (dFdx(nh) * r1 + dFdy(nh) * r2);
+		NORMAL = normalize(abs(det) * NORMAL - grad);
 	}
 	if (jiggle_debug) {
 		ALBEDO = mix(vec3(0.5), vec3(1.0, 0.0, 1.0), jig_w.r) * (1.0 - jig_w.g) + vec3(0.0, 1.0, 1.0) * jig_w.g;

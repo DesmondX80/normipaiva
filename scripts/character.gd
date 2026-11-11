@@ -117,6 +117,7 @@ func setup(look: Dictionary) -> void:
 		var female := kind == "female"
 		body_mat.set_shader_parameter("nipple_pos", _bust_tip(body.mesh) if female else NIPPLE_MALE)
 		body_mat.set_shader_parameter("nipple_r", 0.013 if female else 0.011)
+		body_mat.set_shader_parameter("nipple_h", 0.007 if female else 0.004)
 	if look.has("stripe_color"):
 		body_mat.set_shader_parameter("stripe_col", look.stripe_color)
 	if look.has("tracksuit"):

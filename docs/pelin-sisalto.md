@@ -994,7 +994,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   piirretään varjostimessa pikseleinä (`shaders/character.gdshader`), asusteet ovat muutama pieni mesh luissa
   (`looks.gd`, testit `--scene=asut`, `--scene=vaatekaappi`, `--scene=stetson`, `--scene=haalari` ja `--scene=koppa`).
   Aikuisilla hahmoilla on paljaalla rinnalla nännit (sauna, bikinit ilman yläosaa, verkkopaidan silmukat, avoin
-  liivi): naisella rinnan kärjessä, miehellä rintalihaksen alareunassa. Lapsilla ja nuorilla niitä ei ole (pituus
+  liivi): naisella rinnan kärjessä, miehellä rintalihaksen alareunassa; nännipiha ja valoon reagoiva nuppi. Lapsilla ja nuorilla niitä ei ole (pituus
   alle 1,5 m tai lookin `nipples: false`).
 - **Kengät (#272):** tuulipuvussa ja hiihtohaalarissa lenkkarit, farkuissa ja työvaatteissa työkengät (varsi nilkan yli),
   saunassa ja uidessa paljain jaloin. Kaupan mummoilla kävelykengät, Sepolla ja Reijolla työkengät
