@@ -96,3 +96,8 @@ Napit syöttävät samat näppäinpainallukset kuin näppäimistö, joten kaikki
 Työpöydällä ohjaimia voi kokeilla käynnistämällä pelin `godot --path . -- --touch`.
 
 **Valikot:** kaikissa valikoissa (esinevalikko, keskusteluvalinnat, päävalikko ja taukovalikko, kappale- ja toivelistat) rivit on numeroitu, ja numeronäppäin 1-9 (esinevalikossa ja toivelistoissa 0 = kymmenes) valitsee rivin suoraan. W/S ja rulla selaavat, E valitsee.
+
+**Asetukset, Sisältö-välilehti:** "K-18-sisältö pois" (oletuksena pois päältä, eli kaikki sallittu) piilottaa
+Rasvanapin (makasiinin takaovi Saloisissa ja Vaalassa), Pentin BangBusin ja kolmiomittauksen (Joni ja Esa, Tero ja
+Timo, ovet). Ne katoavat myös päiväkirjan tehtävistä ja Loput-sivulta. Asetuksen saa takaisin milloin vain, ja tallennus
+säilyy. Testi `--ei-kuvia scene k18`.
