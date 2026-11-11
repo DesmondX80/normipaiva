@@ -1035,6 +1035,28 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Mökki** on mallinnettu oikean Airbnb-vuokramökin ("The warmth of a smoke sauna and cottage life",
   Neittävä) valokuvien mukaan. Se on erillinen alue, jonne pääsee naapurin Pekan kyydillä tai kaupan taksilla.
 
+## Maiseman täyttö: talot (K1–K8)
+
+Saloisten ja Vaalan nimettömät OSM-rakennukset saavat oman mallin (`scripts/rakennukset.gd`), jonka tyypin, värit ja mitat
+valitsee `scripts/taytto.gd` pohjasta. Täyttö on vain Saloisissa (`world.gd _build_houses`) ja Vaalassa (`vaala.gd`), ei Raahessa:
+Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy silti pienenä osuutena kummassakin kylässä.
+
+- **K1** rintamamiestalo (1½ krs, avoräystäät) | **K2** matala omakotitalo (70-80-luku, osa tasakattoisia, peiterima- tai tiilenvärinen)
+  | **K3** aitta, myös rantamökki (suurennettu) | **K4** lato | **K5** Raahen vanha puutalo (aita, kun tietä on)
+  | **K6** rivitalo (asuntomoduuli toistuu, oma ovi ja katos asuntoa kohden) | **K7** kerrostalo (2-3 krs, parvekkeet, liikevariantti)
+  | **K8** halli: kone, teollisuus, liike tai suoja (neljä varianttia).
+- **Tyypitys** (`Taytto.classify`, ensimmäinen osuva sääntö): OSM-tyyppi (`t`), pohjan pinta-ala, kerrosluku (`lv`), pellon ja tien
+  läheisyys. Pieni pohja (alle 45 m²) on K3, pellolla K4; ladot ja varastot K4 tai K8 koon mukaan; apartments ja usean kerroksen
+  isot pohjat K7; terrace/semidetached tai pitkä kapea iso pohja K6; iso teollisuus- ja liikepohja K8; muut isot asuinpohjat jaetaan.
+- **Jako:** pohja, joka on 260 m² tai isompi eikä sovi K6-K8:aan, jaetaan enintään 3 taloon pitkää akselia pitkin (väli vähintään
+  5 m, talo vähintään 9 m). Jaetuissa taloissa on pieni heitto kulmassa ja paikassa, ja vierekkäisillä eri tyyppi tai väri.
+- **Pysyy vanhana mallina:** koulu, päiväkoti, kirjasto, hotelli, sairaala, julkiset rakennukset ja kirkko (`Taytto.keep_old`),
+  yli 3 kerroksiset, L- ja U-muotoiset pohjat (pohjan ala alle 0,75 suunnatusta laatikosta ja ala vähintään 260 m²), nimetyt
+  kohteet ja omat mallit (`OWN_BUILDINGS`), Saloisten `FILL_KEEP`-lista sekä Vaalassa Katjan talo (`KATJA_ID`) ja muut tunnetut
+  kohteet. Katjan oven `house_doors`-pituus pysyy 25,4 m:ssä, joten Katja pysyy pisimmän ovipituuden kohteena.
+- **Sokkeli:** rinteessä K8:n rungon alla korkeusero saa olla enintään 1,5 m (`FILL_DROP_MAX`): halli lyhennetään, ja jos ei vielä
+  riitä, ylärinteen puoli uppoaa maahan.
+
 ## Pullonkorkit (#290)
 
 - Jokaisesta juodusta kaljasta jää korkki (`korkit.gd`, `main.gd _korkki`). Merkit ovat parodioita: Kontio, Lapin Kuuma ja

@@ -3163,7 +3163,7 @@ func _build_buildings() -> void:
 					break
 			if not fit:
 				continue
-		if _fill_ok(bd, id):
+		if _fill_ok(bd, id, pts):
 			_fill_house(bd, id, pts, path_grid, body)  # nimetön talo: maiseman täytetalo K1–K5
 			continue
 		var name: String = bd.name
@@ -3402,11 +3402,18 @@ var _fill_others: Array = []  # [id, pohja, rajaus]: kaikki pohjat ja hyväksyty
 
 
 ## Täytetäänkö pohja K1–K5:llä: nimettömät, paitsi hotelli, Gasthaus, työkkäri, Katja, kirkko, asema, katokset
-## (type roof) ja lama-lapulliset liiketilat (#58, oletus: ne pysyvät).
-func _fill_ok(bd: Dictionary, id: int) -> bool:
+## (type roof), lama-lapulliset liiketilat (#58, oletus: ne pysyvät) sekä Taytto.keep_old (koulu, kirjasto, lv >= 4,
+## L- tai U-muotoinen iso pohja: r = pohjan ala / suunnatun laatikon ala).
+func _fill_ok(bd: Dictionary, id: int, pts: PackedVector2Array) -> bool:
 	if str(bd.name) != "" or id in [HOTEL_ID, GASTHAUS_ID, TYOKKARI_ID, KATJA_ID, SIITARI_ID, station_id]:
 		return false
 	if bd.type in ["church", "train_station", "roof"]:
+		return false
+	var ob := _obb(pts)
+	var box: float = ob.size.x * ob.size.y
+	var keep_b := {"l": maxf(ob.size.x, ob.size.y), "d": minf(ob.size.x, ob.size.y), "t": bd.type, "lv": bd.levels,
+		"r": absf(_poly_area(pts)) / maxf(box, 0.01)}
+	if Taytto.keep_old(keep_b):
 		return false
 	return not (bd.type in ["retail", "commercial"] and bd.kind != "shed")
 
@@ -3424,10 +3431,12 @@ func _fill_house(bd: Dictionary, id: int, pts: PackedVector2Array, grid: Diction
 		sz = Vector2(sz.y, sz.x)
 	var area := absf(_poly_area(pts))
 	var t: String = bd.type
-	if bd.kind == "shed":
-		t = "farm_auxiliary" if area >= 45.0 else "shed"  # iso vaja tai halli ladoksi (K4), pieni aitaksi (K3)
-	elif not (t in Taytto.RESIDENTIAL_T or t in Taytto.INDUSTRY_T or t in Taytto.BARN_T):
-		t = "yes"  # koulu, mökki ym.: asuinpohjana (iso jaetaan tonteiksi)
+	if t == "cabin":
+		pass  # mökki (kind shed): classify rivi 3 (K3, rannalla K3_ranta, >= 60 m² K1), ei latoa
+	elif bd.kind == "shed":
+		t = "farm_auxiliary" if area >= 45.0 else "shed"  # iso vaja tai halli ladoksi (K4/K8), pieni aitaksi (K3)
+	elif not (t in Taytto.RESIDENTIAL_T or t in Taytto.INDUSTRY_T or t in Taytto.BARN_T or t in Taytto.COMMERCE_T):
+		t = "yes"  # muu tuntematon tyyppi asuinpohjana (koulut ym. jäävät keep_old:lle jo _fill_ok:ssa)
 	var rd := _fill_road(c, grid)
 	var to_road: Vector2 = rd[0]
 	var gap := -1.0
@@ -3447,7 +3456,7 @@ func _fill_house(bd: Dictionary, id: int, pts: PackedVector2Array, grid: Diction
 				pelto = true
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id)
-	var plan := Taytto.plan("vaala", {"l": sz.x, "d": sz.y, "t": t, "lv": bd.levels}, {"pelto": pelto, "ranta": ranta, "gap": gap}, rng)
+	var plan := Taytto.plan("vaala", {"l": sz.x, "d": sz.y, "t": t, "lv": bd.levels, "r": area / maxf(sz.x * sz.y, 0.01)}, {"pelto": pelto, "ranta": ranta, "gap": gap}, rng)
 	var yaw := atan2(-side.x, -side.y)  # Basis(UP, yaw) vie paikallisen -Z:n julkisivun suuntaan side
 	var xf := Transform3D(Basis(Vector3.UP, yaw), Vector3(c.x, 0, c.y))
 	var grown := Geometry2D.offset_polygon(pts, 0.6)
@@ -3456,16 +3465,23 @@ func _fill_house(bd: Dictionary, id: int, pts: PackedVector2Array, grid: Diction
 		_fill_batches[key] = [B.Batch.new(), B.Batch.new()]
 	var bt: Array = _fill_batches[key]
 	for o: Dictionary in plan:
-		var xt := xf * Transform3D(Basis(Vector3.UP, o.rot), Vector3(o.dx, 0, 0))
-		var hi := -INF
-		var lo := INF
-		var runko := PackedVector2Array()
-		for q: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
-			var w := xt * Vector3(q.x * o.l / 2.0, 0, q.y * o.d / 2.0)
-			runko.append(Vector2(w.x, w.z))
-			var gy := h(w.x, w.z)
-			hi = maxf(hi, gy)
-			lo = minf(lo, gy)
+		var xt := xf * Taytto.local_xf(o)
+		var runko := _fill_rect(xt, o.l, o.d)
+		var span := _fill_span(runko)
+		if o.tyyppi == "K8" and span.y - span.x > FILL_DROP_MAX:
+			# Iso halli rinteessä: lyhennetään (kuten world.gd _fill_one), ettei sokkeli veny yli FILL_DROP_MAX:n.
+			for k3 in 14:
+				o.l = maxf(12.0, o.l * 0.85)
+				o.d = maxf(5.0, o.d * 0.92)
+				o.n = maxi(2, roundi(o.l / 6.0))
+				runko = _fill_rect(xt, o.l, o.d)
+				span = _fill_span(runko)
+				if span.y - span.x <= FILL_DROP_MAX or (o.l <= 12.0 and o.d <= 5.0):
+					break
+		var lo: float = span.x
+		var hi: float = span.y
+		if o.tyyppi == "K8" and hi - lo > FILL_DROP_MAX:
+			hi = lo + FILL_DROP_MAX  # ylärinteen puoli uppoaa maahan
 		# Runko pohjan sisään (L-muotoinen pohja: laatikko voi ulottua loven yli); muuten vapaaksi tarkistettu paikka.
 		var inside := grown.size() == 1 and Geometry2D.clip_polygons(runko, grown[0]).is_empty()
 		if not inside and not _fill_free(runko, id, grid):
@@ -3489,14 +3505,56 @@ func _fill_house(bd: Dictionary, id: int, pts: PackedVector2Array, grid: Diction
 			var cs := B.box_shape(sh[0])
 			cs.transform = xt * Transform3D(Basis(), sh[1])
 			body.add_child(cs)
+		var out := xt.basis * Vector3.FORWARD
 		if o.tyyppi in ["K1", "K2", "K5"]:
-			var out := xt.basis * Vector3.FORWARD
 			var dp: Vector3 = xt * (res.door as Vector3) - out  # main.gd lisää out * 1,0 (oven edusta)
 			house_doors.append({"pos": Vector3(dp.x, h(dp.x, dp.z), dp.z), "out": out, "type": bd.type, "len": o.l, "id": id})
+		elif o.tyyppi in ["K6", "K7"]:
+			# Yksi alkio kutakin asuntoa/porrasta kohden; len = moduulin leveys, ettei 36 m:n rivi syrjäytä Katjan taloa
+			# (main.gd valitsee pisimmän len:n). K8:lle ei ovia.
+			for dr: Vector3 in res.doors:
+				var dq: Vector3 = xt * dr - out
+				house_doors.append({"pos": Vector3(dq.x, h(dq.x, dq.z), dq.z), "out": out, "type": bd.type, "len": float(res.mitat.moduuli), "id": id})
 		var hc := xt.origin
-		var e := Taytto.entry(o.tyyppi, Vector2(hc.x, hc.z), yaw + o.rot, o.l, o.d, o.wall, runko)
+		var e := Taytto.entry(o.tyyppi, Vector2(hc.x, hc.z), yaw + o.rot, o.l, o.d, o.wall, runko, o.get("v", ""))
 		e.id = id
 		fill_log.append(e)
+
+
+const FILL_DROP_MAX := 1.5  # ison hallin (K8) rinteen korkeusero rungon alla enintään (m)
+
+
+static func _fill_rect(xt: Transform3D, l: float, d: float) -> PackedVector2Array:
+	var r := PackedVector2Array()
+	for q: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		var w := xt * Vector3(q.x * l / 2.0, 0, q.y * d / 2.0)
+		r.append(Vector2(w.x, w.z))
+	return r
+
+
+## Maaston alin (x) ja ylin (y) korkeus rungon alla: nurkat, sivujen keskikohdat ja yli 200 m²:n rungolle 8 m:n ruudukko.
+func _fill_span(foot: PackedVector2Array) -> Vector2:
+	var lo := INF
+	var hi := -INF
+	var pts: Array[Vector2] = []
+	for i in foot.size():
+		pts.append(foot[i])
+		pts.append((foot[i] + foot[(i + 1) % foot.size()]) / 2.0)
+	var area := 0.0
+	for i in foot.size():
+		area += foot[i].cross(foot[(i + 1) % foot.size()])
+	if absf(area) / 2.0 > 200.0:
+		var r := _bbox(foot)
+		for gx in range(int(ceilf(r.size.x / 8.0)) + 1):
+			for gz in range(int(ceilf(r.size.y / 8.0)) + 1):
+				var p2 := r.position + Vector2(gx, gz) * 8.0
+				if Geometry2D.is_point_in_polygon(p2, foot):
+					pts.append(p2)
+	for q in pts:
+		var y := h(q.x, q.y)
+		lo = minf(lo, y)
+		hi = maxf(hi, y)
+	return Vector2(lo, hi)
 
 
 static func _xf_poly(xt: Transform3D, poly: PackedVector2Array) -> PackedVector2Array:

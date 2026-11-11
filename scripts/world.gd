@@ -88,6 +88,7 @@ const WHITE := Color(0.95, 0.95, 0.92)
 const FILL_KEEP := [M.LEMMIKKI, M.KANTTORILA, M.AARO_HOUSE, M.PIRTTI, M.KOULUKESKUS, M.PAIVAKOTI,
 	Vector2(168.1, 810.8), Vector2(148.7, 822.7), Vector2(165.9, 783.1), Vector2(129.9, 811.5)]
 const FILL_DETAIL_END := 200.0  # täytetalojen pienet osat (kannattajat, rimat, välipuut) näkyvät tähän asti
+const FILL_DROP_MAX := 1.5  # ison hallin (K8) rinteen korkeusero rungon alla enintään (m)
 const FILL_GRID := 30.0  # pohjaruudukon ruutu (_fill_free)
 ## _house: ovilehti (koko, keskikohdan korkeus, keskikohta julkisivun edessä) ja porras; Sinikan kuistin mallit
 ## (sinikan_kuisti_mallit.gd) mitoitetaan samoista.
@@ -3507,6 +3508,9 @@ func _build_houses() -> void:
 		var c: Vector2 = f.c
 		var l: float = f.l
 		var d: float = f.d
+		# Koulu, kirjasto, hotelli ym. (Taytto.keep_old, Saloisissa r = 1) jäävät vanhaksi _house-malliksi kuten FILL_KEEP.
+		if not keep and Taytto.keep_old({"l": l, "d": d, "t": b.t, "lv": b.lv, "r": 1.0}):
+			keep = true
 		if not _in_bounds(c, 3.0) or _in_any(c, _water):
 			fill_why["raja" if not _in_bounds(c, 3.0) else "vesi_keski"].append(bi)
 			continue
@@ -3607,17 +3611,17 @@ func _fill_house(b: Dictionary, bi: int, f: Dictionary, gap: float) -> void:
 	# Rungot ensin: saman pohjan tonttien katokset väistävät myös myöhemmin rakennettavia taloja.
 	var feet: Array[PackedVector2Array] = []
 	for o: Dictionary in plan:
-		var tx := xf * Transform3D(Basis(Vector3.UP, o.rot), Vector3(o.dx, 0, 0))
+		var tx := xf * Taytto.local_xf(o)
 		feet.append(_fill_poly(tx, Rakennukset._rect(0, 0, o.l / 2.0, o.d / 2.0)))
 	for i in plan.size():
 		var o: Dictionary = plan[i]
 		var others: Array[PackedVector2Array] = feet.duplicate()
 		others.remove_at(i)
-		_fill_one(o, xf * Transform3D(Basis(Vector3.UP, o.rot), Vector3(o.dx, 0, 0)), feet[i], bi, others)
+		_fill_one(o, xf * Taytto.local_xf(o), feet[i], bi, others)
 		if plan.size() == 1 and o.tyyppi in ["K1", "K2", "K5"] and fl * fd >= 45.0:
-			var gxf: Transform3D = xf * Transform3D(Basis(), Vector3(o.dx, 0, 0))
+			var gxf: Transform3D = xf * Transform3D(Basis(), Vector3(o.dx, 0, o.get("dz", 0.0)))
 			_yard_extras(null, gxf, _batch_at(c), o.l, o.d, o.wall, o.roof, gap, true, rng, false, o.tyyppi != "K5")
-			if rng.randf() < 0.3:
+			if rng.randf() < 0.3 or o.get("piha", false):  # piha-lippu (jaon k = 1): aina piharakennus
 				# Piharakennus (aitta tai sauna, K3) talon taakse, ovi (-Z) taloa kohti.
 				var sb := {"l": rng.randf_range(3.2, 4.0), "d": rng.randf_range(3.8, 4.6), "t": "shed", "lv": 1}
 				var so := Taytto.pick("saloinen", sb, {}, rng)
@@ -3648,12 +3652,21 @@ func _fill_one(o: Dictionary, tx: Transform3D, foot: PackedVector2Array, own: in
 				if own >= 0:
 					fill_why["tie" if _road_clearance(q) < 0.0 else "vesi"].append(own)
 				return  # OSM-pohja tien, polun tai veden päällä (kartta kulkee toisin): ei taloa sinne
-	var lo := INF
-	var hi := -INF
-	for q in foot:
-		var y := T.h(q.x, q.y)
-		lo = minf(lo, y)
-		hi = maxf(hi, y)
+	var span := _fill_span(foot)
+	if o.tyyppi == "K8" and span.y - span.x > FILL_DROP_MAX:
+		# Iso halli rinteessä: sokkeli ei saa venyä yli FILL_DROP_MAX:n; lyhennetään halli (ja syvyys) keskikohdasta.
+		for i in 14:
+			o.l = maxf(12.0, o.l * 0.85)
+			o.d = maxf(5.0, o.d * 0.92)
+			o.n = maxi(2, roundi(o.l / 6.0))
+			foot = _fill_poly(tx, Rakennukset._rect(0, 0, o.l / 2.0, o.d / 2.0))
+			span = _fill_span(foot)
+			if span.y - span.x <= FILL_DROP_MAX or (o.l <= 12.0 and o.d <= 5.0):
+				break
+	var lo: float = span.x
+	var hi: float = span.y
+	if o.tyyppi == "K8" and hi - lo > FILL_DROP_MAX:
+		hi = lo + FILL_DROP_MAX  # liian jyrkkä vielä lyhennettynäkin: ylärinteen puoli uppoaa maahan, alarinteen sokkeli enintään FILL_DROP_MAX
 	o.drop = hi - lo + 0.2
 	tx.origin.y = hi
 	var key := Vector2i(floori(tx.origin.x / CHUNK), floori(tx.origin.z / CHUNK))
@@ -3695,6 +3708,8 @@ func _fill_one(o: Dictionary, tx: Transform3D, foot: PackedVector2Array, own: in
 	var row := Taytto.entry(o.tyyppi, c2, yaw, o.l, o.d, o.wall, foot)
 	row.piha = piha  # piharakennus päätalon takana (jakaumat erikseen pää- ja piharakennuksille)
 	row.bi = own
+	row.drop = o.drop
+	row.span = span.y - span.x  # maaston korkeusero rungon alla (halli: ylärinne uppoaa, jos > FILL_DROP_MAX)
 	for k in extra:
 		var poly: PackedVector2Array = extra[k]
 		var lp: PackedVector2Array = res.foot[k]
@@ -3714,6 +3729,19 @@ func _fill_cover(foot: PackedVector2Array) -> void:
 	for q in foot:
 		mid += q / foot.size()
 	_fill_hash = hash([_fill_hash, foot])
+	if _fill_area(foot) > 200.0:
+		# Iso runko (halli, kerrostalo, rivitalo): 6 m:n ruudukko koko pohjan sisään, ettei metsä kasva sisälle.
+		var r := Rect2(foot[0], Vector2.ZERO)
+		for q in foot:
+			r = r.expand(q)
+		for gx in range(int(ceilf(r.size.x / 6.0)) + 1):
+			for gz in range(int(ceilf(r.size.y / 6.0)) + 1):
+				var p2 := r.position + Vector2(gx, gz) * 6.0
+				if Geometry2D.is_point_in_polygon(p2, foot):
+					var key := Vector2i(floori(p2.x / HOUSE_CELL), floori(p2.y / HOUSE_CELL))
+					if not _house_grid.has(key):
+						_house_grid[key] = []
+					_house_grid[key].append(p2)
 	for i in foot.size():
 		var q := foot[i]
 		var e := (q + foot[(i + 1) % foot.size()]) / 2.0
@@ -3722,6 +3750,37 @@ func _fill_cover(foot: PackedVector2Array) -> void:
 			if not _house_grid.has(key):
 				_house_grid[key] = []
 			_house_grid[key].append(p2)
+
+
+## Maaston alin (x) ja ylin (y) korkeus rungon pohjalla: nurkat, sivujen keskikohdat ja 8 m:n ruudukko (iso halli rinteessä).
+func _fill_span(foot: PackedVector2Array) -> Vector2:
+	var lo := INF
+	var hi := -INF
+	var pts: Array[Vector2] = []
+	for i in foot.size():
+		pts.append(foot[i])
+		pts.append((foot[i] + foot[(i + 1) % foot.size()]) / 2.0)
+	if _fill_area(foot) > 200.0:
+		var r := Rect2(foot[0], Vector2.ZERO)
+		for q in foot:
+			r = r.expand(q)
+		for gx in range(int(ceilf(r.size.x / 8.0)) + 1):
+			for gz in range(int(ceilf(r.size.y / 8.0)) + 1):
+				var p2 := r.position + Vector2(gx, gz) * 8.0
+				if Geometry2D.is_point_in_polygon(p2, foot):
+					pts.append(p2)
+	for q in pts:
+		var y := T.h(q.x, q.y)
+		lo = minf(lo, y)
+		hi = maxf(hi, y)
+	return Vector2(lo, hi)
+
+
+func _fill_area(poly: PackedVector2Array) -> float:
+	var s := 0.0
+	for i in poly.size():
+		s += poly[i].cross(poly[(i + 1) % poly.size()])
+	return absf(s) / 2.0
 
 
 ## Kupera pohja laajennettuna m metriä joka suuntaan (keskipisteestä poispäin).

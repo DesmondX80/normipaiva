@@ -194,6 +194,21 @@ pidätys (mopo kotona). Kuvat `_autovarkaus_pysahtyi`, `_ovella`, `_kaappaus`, `
 `_jahti`, `_poliisi`, `_hylatty`, `_kiinni`, `_vaala_ovella`, `_vaala_kaappaus`, `_vaala_roivainen(_peli)`, `_roivainen_sivulta`,
 `_vaala_kiinni`. Ajetaan ilman `--kiintea`-valintaa: tähtien ajat kulkevat pelin ajassa, ja hitaalla koneella kiinteä tahti ei mahdu aikarajaan.
 
+### Maiseman täytetalot
+
+- `tools/testit/aja.sh tscn tools/testit/rakennukset_kuvat.tscn`: mallit K1-K8 ilman pelimaailmaa. Kattokulma, räystäs, mitat pohjaan,
+  primitiivibudjetti, tyypitysrivit (`Taytto.classify`, ero odotuksesta = `TESTI VIKA`) ja täyte kaikille Saloisten pohjille
+  (jakauma K1-K8 ja VANHA, täyttöaste, enintään 3 taloa pohjaa kohti, talot pohjan sisällä). Kuvat: `vertailu.png`, `vertailu_iso.png`
+  (K6-K8), `rivi.png`, `siluetit.png`, `K8_variantit.png`, `<K>_vino.png` ja 6 m:n silmänkorkeuskuvat `<K>_6m_*.png`.
+  Viimeksi: löydöt 0, tyypitys 25/25, täyttöaste K1 ja K2 noin 0,8.
+- `tools/testit/aja.sh tscn tools/testit/saloinen_taytto_b.tscn`: Saloinen pelimaailmassa. Tyyppimäärät, puita sisällä / tiellä /
+  päällekkäin (tulee olla 0), `FILL_KEEP`-talot ennallaan, pohjat ilman taloa syittäin (raja, tie, päällekkäin), ruutuaika. Kuvat
+  kylästä, reunasta, kaukomaisemasta ja yläkuvasta. Viimeksi: 1186 päätaloa, K1 31,5 / K2 43,2 / K3 19,6 / K4 0,4 / K5 3,4 / K6 0,8 / K8 1,2 %.
+- `tools/testit/aja.sh tscn tools/testit/vaala_taytto_g.tscn`: Vaala. Jakauma, paikkojen tyypit (koulu ja kerrostalot), Katjan
+  valinta (pisin `house_doors`-pituus on Katja), rungot päällekkäin (0), latausaika, ruutuaika ja kuvat. Viimeksi: 204 taloa, päällekkäin 0,
+  Katja id -101209 len 25,4 ennallaan.
+- Kuvat tallentuvat `/tmp/normipaiva_ajot/<testi>_<aika>/`. Luvut ovat arvontaa pohjista: pienet muutokset DIST-painoissa siirtävät niitä.
+
 ## Puheäänet
 
 Päivin repliikit puhuu Satu (nalkutus: nopea tahti, korotettu sävelkorko) ja kaikki muut hahmot Eddy (rauhallinen
