@@ -434,3 +434,7 @@ Pullonkorkit (#290): `tools/testit/aja.sh scene korkit` (kalja antaa korkin, har
 juhannuksena, voittokorkit, tallennus, kansiokuva, Korkki-Raimon vaihto ja kuva kirppiksellä, MM-korkin löytö, Päivin
 motkotus ja jemma, maastolöytöjen paikat, korkkiläpsy Saloisten kaukalolla ja Vaalan lavan pihalla: panos, lyönti,
 lopetus ja kuvat).
+
+## Latausaika (lataus-testi)
+
+`tools/testit/aja.sh --ei-kuvia --kiintea tscn tools/testit/lataus.tscn <kansio> --ajastus` mittaa Saloisten latauksen (`LATAUS Saloinen`), Vaalan latauksen (`LATAUS Vaala`, jaettuna rakennukseen, `_start_mopo`:on ja viiteen ensimmäiseen ruutuun) ja vaihekohtaiset ajat (`VAALA vaiheet`). Kylmä mittaus: poista ajon `HOME`:n `.local/share/godot/app_userdata/Normipäivä/cache`. Lisävalitsimet: `--avaintesti` (ajoalueen välimuistiavaimen kattavuus: syötteen muutos muuttaa maskin ja avaimen), `--tarkista-ajomaski` (välimuistista ladattu maski vs. laskettu), `--ei-valimuistia` (ohita ajomaskin levyvälimuisti `vaala_ajo`). Luvut ennen/jälkeen: työkansion `03-baseline.md`.

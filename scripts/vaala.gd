@@ -310,6 +310,9 @@ func _drive_ellipse(c: Vector2, rx: float, rz: float) -> void:
 static var _memo := {}
 
 
+const DRIVE_CACHE_VERSION := 1  # nosta, kun _build_drive_mask_calc:n laskentatapa muuttuu
+
+
 func _build_drive_mask() -> void:
 	if _memo.has("drive"):
 		var m: Array = _memo.drive
@@ -318,8 +321,51 @@ func _build_drive_mask() -> void:
 		_drive = (m[2] as PackedByteArray).duplicate()
 		_surf = (m[3] as PackedByteArray).duplicate()
 		return
-	_build_drive_mask_calc()
+	var args := OS.get_cmdline_user_args()
+	var use_cache := not "--ei-valimuistia" in args
+	var key := _drive_key()
+	var t0 := Time.get_ticks_msec()
+	var dc := MeshBundle.load_dict("vaala_ajo", key) if use_cache else {}
+	if dc.has("m"):
+		var cm: Array = dc.m
+		_dnx = cm[0]
+		_dnz = cm[1]
+		_drive = (cm[2] as PackedByteArray).duplicate()
+		_surf = (cm[3] as PackedByteArray).duplicate()
+		if B.diag():  # vain testiajoissa
+			print("VAALA ajoalue välimuistista %d ms, tiiviste %d/%d" % [Time.get_ticks_msec() - t0, hash(_drive), hash(_surf)])
+		if "--tarkista-ajomaski" in args:  # testi: välimuistin maski = laskettu maski (avain kattaa kaikki syötteet)
+			var cd := _drive.duplicate()
+			var cs := _surf.duplicate()
+			_build_drive_mask_calc()
+			if cd != _drive or cs != _surf:
+				print("TESTI VIKA ajomaski: välimuistin maski poikkeaa lasketusta (avain ei kata jotain syötettä)")
+	else:
+		_build_drive_mask_calc()
+		if use_cache:
+			MeshBundle.save_dict("vaala_ajo", key, {"m": [_dnx, _dnz, _drive, _surf]})
 	_memo.drive = [_dnx, _dnz, _drive.duplicate(), _surf.duplicate()]
+
+
+## Ajomaskin välimuistiavain: kaikki syötteet, joista _build_drive_mask_calc riippuu (tiet, ovet, pysäkit, rakennusten
+## pohjat, pihan viivat, mökin kehys, maasto ja rakennetun maailman laatikkoesteet). Puuttuva syöte = vanhentunut maski
+## (mopo ajaa seinään), joten testi (lataus.gd) muuttaa syötteitä ja vertaa maskia ja avainta.
+func _drive_key() -> String:
+	var dkeys: Array = []
+	for d: Dictionary in doors:
+		dkeys.append([d.pos, d.get("walk", false)])
+	var MokkiScript: GDScript = load(MOKKI_PATH)
+	var ks: Dictionary = data.get("keskusta", {})
+	var parts: Array = [
+		[_nx, _nz, _x0, _z0, _cell, hash(_h), hash(_codes), water_level], hash(road),
+		[hash(data.branches), hash(data.side_roads), hash(data.parkings), hash(ks.get("parking")), hash(ks.get("asema")),
+			hash(data.get("lava")), hash(data.get("satama"))],
+		[hash(north_roads), hash(north_areas), hash(dkeys), hash(_bld_polys), hash(_yard_lines)],
+		[siitari_park, siitari_door, kmarket_door, atm_pos, lava_park, mokki_mopo],
+		[MokkiScript.to_map2(Vector2(0, 0)), MokkiScript.to_map2(Vector2(1, 0)), MokkiScript.to_map2(Vector2(0, 1))],
+		hash(_obstacle_polys()),
+	]
+	return "v%d/%d/%d" % [DRIVE_CACHE_VERSION, hash(parts), hash(str(parts))]
 
 
 func _build_drive_mask_calc() -> void:
@@ -459,7 +505,7 @@ func _build_drive_mask_calc() -> void:
 	_clear_buildings()  # ovien edustat eivät ulotu seinien sisään
 	_clear_lava_yard()
 	if B.diag():  # vain testiajoissa
-		print("VAALA ajoalue %d ms, %.0f %% ruuduista" % [Time.get_ticks_msec() - t0, 100.0 * _drive.count(1) / _drive.size()])
+		print("VAALA ajoalue %d ms, %.0f %% ruuduista, tiiviste %d/%d" % [Time.get_ticks_msec() - t0, 100.0 * _drive.count(1) / _drive.size(), hash(_drive), hash(_surf)])
 
 
 ## Lavan aidan sisäpuoli on kävelyaluetta: autoja ja mopoja ei päästetä portista (parkki on aidan ulkopuolella, lava_park).
@@ -469,6 +515,8 @@ func _clear_lava_yard() -> void:
 		return
 	for j in range(maxi(int((_yard_lines[0][0].y - _z0) / DRIVE_CELL), 0), _dnz):
 		for i in range(0, mini(int((760.0 - _x0) / DRIVE_CELL), _dnx)):
+			if _drive[j * _dnx + i] == 0:
+				continue  # jo pois (ajoalue on ~1 % ruuduista): tulos sama, mutta in_lava_yard-kutsut jäävät väliin
 			# Myös aidan päälle jäävät ruudut pois (jokin kulma pihalla): mopo pysähtyy aidan ulkopuolelle, ei portin suuhun.
 			for o in [Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0), Vector2(1.0, 1.0)]:
 				if in_lava_yard(Vector3(_x0 + (i + o.x) * DRIVE_CELL, 0, _z0 + (j + o.y) * DRIVE_CELL)):
@@ -493,6 +541,21 @@ func _clear_buildings() -> void:
 ## Pienet esteet (kojut, penkit, laavu, kyltit ja aidanpätkät) pois ajoalueelta: mopo liukuu niiden ohi reunaa
 ## pitkin eikä juutu niihin. Isot laatikot (rakennukset, lattiat, sillankannet) ja lavan portti jäävät.
 func _carve_obstacles() -> void:
+	for poly in _obstacle_polys():
+		var lo := poly[0]
+		var hi := poly[0]
+		for q in poly:
+			lo = lo.min(q)
+			hi = hi.max(q)
+		for j in range(maxi(int((lo.y - _z0) / DRIVE_CELL), 0), mini(int((hi.y - _z0) / DRIVE_CELL), _dnz - 1) + 1):
+			for i in range(maxi(int((lo.x - _x0) / DRIVE_CELL), 0), mini(int((hi.x - _x0) / DRIVE_CELL), _dnx - 1) + 1):
+				if Geometry2D.is_point_in_polygon(Vector2(_x0 + (i + 0.5) * DRIVE_CELL, _z0 + (j + 0.5) * DRIVE_CELL), poly):
+					_drive[j * _dnx + i] = 0
+
+
+## Rakennetun maailman laatikkoesteiden (max 12 m, maan päällä) pohjat kasvatettuna: ajoalueesta pois.
+func _obstacle_polys() -> Array[PackedVector2Array]:
+	var out: Array[PackedVector2Array] = []
 	for body in find_children("*", "StaticBody3D", true, false):
 		for cs in (body as Node).get_children():
 			if not (cs is CollisionShape3D) or cs == _gate_block or not ((cs as CollisionShape3D).shape is BoxShape3D):
@@ -515,15 +578,8 @@ func _carve_obstacles() -> void:
 				# Kasvatus puolella ruudulla: ohuetkin esteet (penkki, aidanpätkä) osuvat ruutujen keskipisteisiin.
 				var q := xf * Vector3(c.x * (size.x / 2.0 + 0.4 + DRIVE_CELL * 0.5), 0, c.y * (size.z / 2.0 + 0.4 + DRIVE_CELL * 0.5))
 				poly.append(Vector2(q.x, q.z))
-			var lo := poly[0]
-			var hi := poly[0]
-			for q in poly:
-				lo = lo.min(q)
-				hi = hi.max(q)
-			for j in range(maxi(int((lo.y - _z0) / DRIVE_CELL), 0), mini(int((hi.y - _z0) / DRIVE_CELL), _dnz - 1) + 1):
-				for i in range(maxi(int((lo.x - _x0) / DRIVE_CELL), 0), mini(int((hi.x - _x0) / DRIVE_CELL), _dnx - 1) + 1):
-					if Geometry2D.is_point_in_polygon(Vector2(_x0 + (i + 0.5) * DRIVE_CELL, _z0 + (j + 0.5) * DRIVE_CELL), poly):
-						_drive[j * _dnx + i] = 0
+			out.append(poly)
+	return out
 
 
 ## Ovien edustat, joihin ei pääse tieverkosta (ajoalueen saareke rakennusten välissä): kapea ajoura lähimpään
@@ -681,6 +737,7 @@ func _build_terrain() -> void:
 	var lods := [[1, 0.0, TLOD[0]], [2, TLOD[0], TLOD[1]], [4, TLOD[1], 0.0]]
 	var half := TCHUNK * _cell * 0.71
 	# Lohkot levyvälimuistista (laskenta vie GDScriptillä puoli sekuntia): avain korkeuksista ja maankäytöstä.
+	var tt0 := Time.get_ticks_msec()
 	var tkey := "v%d/%d/%d/%d/%d" % [TERRAIN_CACHE_VERSION, _nx, _nz, hash(_h), hash(_codes)]
 	var tc := MeshBundle.load_dict("vaala_maasto", tkey)
 	var chunks: Array = tc.get("chunks", [])
@@ -697,7 +754,9 @@ func _build_terrain() -> void:
 		if lod[0] > 1:
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
+	var tt1 := Time.get_ticks_msec()
 	_build_water()
+	var tt2 := Time.get_ticks_msec()
 	# Törmäys koko tarkalle ruudukolle (tarkan alueen ulkopuoli kaukomaaston korkeudella).
 	var body := StaticBody3D.new()
 	body.collision_layer = Terrain.COLLISION_LAYER
@@ -705,13 +764,17 @@ func _build_terrain() -> void:
 	var hm := HeightMapShape3D.new()
 	hm.map_width = _nx
 	hm.map_depth = _nz
+	var tt3 := Time.get_ticks_msec()
 	hm.map_data = _h
+	var tt4 := Time.get_ticks_msec()
 	var cs := CollisionShape3D.new()
 	cs.shape = hm
 	cs.scale = Vector3(_cell, 1.0, _cell)
 	body.position = Vector3(_x0 + (_nx - 1) * _cell * 0.5, 0.0, _z0 + (_nz - 1) * _cell * 0.5)
 	body.add_child(cs)
+	var tt5 := Time.get_ticks_msec()
 	add_child(body)
+	var tt6 := Time.get_ticks_msec()
 	# Näkymättömät seinät tarkan ruudukon reunoille (kaukomaastoon ei ajeta).
 	for side in [[Vector3(_x0, 0, _z0 + _nz * _cell / 2.0), Vector3(1, 400, _nz * _cell)],
 			[Vector3(_x0 + (_nx - 1) * _cell, 0, _z0 + _nz * _cell / 2.0), Vector3(1, 400, _nz * _cell)],
@@ -721,6 +784,8 @@ func _build_terrain() -> void:
 		wall.position = side[0]
 		wall.add_child(B.box_shape(side[1], Vector3(0, 120, 0)))
 		add_child(wall)
+	if B.diag():  # vain testiajoissa
+		print("VAALA maasto: lohkot %d ms, vesi %d ms, törmäys ja seinät %d ms (map_data %d, add_child %d)" % [tt1 - tt0, tt2 - tt1, Time.get_ticks_msec() - tt2, tt4 - tt3, tt6 - tt5])
 
 
 ## Maaston lohkot [mesh, tarkkuustaso] (MeshBundle-välimuistin laskenta).
