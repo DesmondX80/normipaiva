@@ -506,7 +506,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     mökkitikkataulu (`darts_game.gd make_mokki_board`, mode "mokki", esikuva fi.wikipedia "Tikanheitto"): renkaat 1–10
     vuorotellen valkoinen ja vihreä, kymppi vihreä keskellä, numerot pysty- ja vaakarivissä. Heittomatka 5 m (taulun
     keskus 150 cm), jykevät tikat punaisin ristisuluin. Kolme kierrosta, viisi tikkaa kierroksella (enintään 150),
-    Santtu heittää vastaan; oma ennätys (`mtikka_ennatys`). Testi `--scene=mokkitikka` (pisteytys, 15 heittoa, kuvat taulusta ja pihalta).
+    Santtu heittää vastaan; oma ennätys (`mtikka_ennatys`). Päiväkirjassa "Tikkamestari": valmis, kun Santtu on
+    voitettu sekä dartsissa että mökkitikassa; otsikossa molemmat ennätykset. Testi `--scene=mokkitikka` (pisteytys, 15 heittoa, kuvat taulusta ja pihalta).
   - **Kalastus soutuveneellä:** laiturilla E vie veneeseen. W/S soutaa ja A/D kääntää. Kalaparvet näkyvät renkaina
     pinnalla. Pidä E heittääksesi virvelin (pidempi painallus heittää kauemmas), ja kun koho sukeltaa, paina E heti.
     Väsytyksessä E kelaa: pidä siiman kireys vihreällä, koska punaisella siima katkeaa ja löysällä kala karkaa.

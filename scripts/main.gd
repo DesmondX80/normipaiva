@@ -8260,6 +8260,8 @@ func quest_progress(key: String) -> String:
 			return "harjoituspelejä voitettu %d" % kalajoki.harjoitus if kalajoki.harjoitus > 0 and kalajoki.voitot == 0 else ""
 		"korkit":
 			return "kansiossa %d / %d, tuplia %d" % [korkit.distinct(), Korkit.total_slots(), korkit.tuplat()]
+		"tikka":
+			return "ennätykset: darts %d, mökkitikka %d / 150" % [tikka_ennatys, mtikka_ennatys]
 		"tekemiset":
 			return "kokeiltu %d / %d" % [TEKEMISET.filter(func(k): return k in tilat.firsts).size(), TEKEMISET.size()]
 		"hanttihommat":
@@ -17479,6 +17481,7 @@ func _after_darts(total: int, santtu: int, mode := "darts") -> void:
 		else:
 			mtikka_ennatys = total
 	if total > santtu:
+		tilat.first("tikka_voitto" if mode == "darts" else "mokkitikka_voitto", 0.2)  # päiväkirjan Tikkamestari
 		tilat.add("moraali", 0.15)
 		tilat.add("keskittyminen", 0.1)
 		mokki.say("No voi perkele, voitit mut tikassa!", 3.0)
@@ -35392,6 +35395,12 @@ func _maybe_screenshot() -> void:
 			while is_instance_valid(mg):
 				await get_tree().process_frame
 			print("MTIKKA loppu: ennätys=%d msg=%s" % [mtikka_ennatys, _msg.text])
+			_after_darts(200, 10, "darts")
+			_after_darts(140, 10, "mokki")
+			var tk: Array = journal_data().side.filter(func(q): return q.id == "tikkamestari")
+			print("MTIKKA päiväkirja: %s" % [tk.map(func(q): return "%s (%s) tehty %s" % [q.title, q.progress, q.done])])
+			if tk.is_empty() or not tk[0].done:
+				print("TESTI VIKA Tikkamestari puuttuu päiväkirjasta tai ei valmistu voitoista")
 			if mtikka_ennatys <= 0:
 				print("TESTI VIKA mökkitikan tulos ei tallentunut")
 			var pc := Camera3D.new()
