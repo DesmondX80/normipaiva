@@ -16058,6 +16058,9 @@ func _ensure_mopo_trip() -> void:
 		_connect_vaala_mummot()
 		mopo_trip.lava.connect(_enter_lava)
 		mopo_trip.crashed.connect(_on_mopo_crashed)
+		mopo_trip.reach_blocked.connect(func() -> void:
+			if _msg_time <= 0.0:
+				_show_message("Vaalan metsään ei ulkopuolisen kannata vaeltaa. Tulee puukosta.", 4.5))
 		mopo_trip.closed = func(id: String) -> String:
 			if id == "veturitalli":
 				tilat.first("vvaala_ovi", 0.0)  # päiväkirjaan: elokuvapäivistä kuultu (ovella aikataulu)
@@ -22850,6 +22853,19 @@ func _maybe_screenshot() -> void:
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_km)
 			else:
 				DirAccess.remove_absolute(SAVE_PATH)  # testi loi tallennuksen: pois, ettei seuraava ajo ala sen tilasta
+			get_tree().quit()
+			return
+		"kartta_reuna":
+			# Kartan hahmomerkki pelialueen reunoilla (tools/testit/kartta_reuna.gd).
+			var saved_kr := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var kr: Node = load("res://tools/testit/kartta_reuna.gd").new()
+			kr.main = self
+			add_child(kr)
+			await kr.run()
+			if not saved_kr.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_kr)
+			else:
+				DirAccess.remove_absolute(SAVE_PATH)
 			get_tree().quit()
 			return
 		"vaala_ajo":

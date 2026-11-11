@@ -739,6 +739,29 @@ static func _k7(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dict
 ## Kaikki katon kallistuvat osat (lappeet, pulpetin laatta, päätykolmio ja pilarien korkeus) samasta
 ## kaltevuusvektorista. Seinän alaosa sokkelia, ikkunanauha ylhäällä (kone, teollisuus).
 ## p: l, d, wall, roof, trim, seed, v; drop.
+## Hallin katon ja räystään näkyvät rakenteet aina runko-erässä (näkyy 700 m:n päähän, sm-erä vain alle 200 m):
+## leveä harjapelti, pystysaumat harjalta räystäälle ja räystäspellin vyö seinän yläreunassa. Lappeen suunta ja
+## normaali samoin kuin _gable (ov 0,4, t 0,12): u = ylös lappeella, n = lappeen normaali. top = _gable:n harjan korkeus.
+static func _k8_roof(r: B.Batch, xf: Transform3D, l: float, d: float, hw: float, a: float, top: float, roof: Color,
+		trim: Color) -> void:
+	var seam := roof.darkened(0.3)
+	_box(r, xf, Vector3(l + 0.6, 0.1, 0.6), Vector3(0, top + 0.01, 0), seam)  # harjapelti
+	_box(r, xf, Vector3(l + 0.1, 0.38, d + 0.1), Vector3(0, hw - 0.19, 0), roof.darkened(0.1))  # räystäspellin vyö
+	var ov := 0.4
+	var t := 0.12
+	var slab_l := (d / 2.0 + ov) / cos(a) + t * tan(a)
+	var run := slab_l - 0.45
+	var ns := clampi(int(l / 4.0), 3, 8)  # runkobudjetti (rakennukset_kuvat): enintään 8 saumaa per lape
+	for sg in [-1.0, 1.0]:
+		var eave := Vector3(0, hw - ov * tan(a), sg * (d / 2.0 + ov))
+		var u := Vector3(0, sin(a), -sg * cos(a))
+		var n := Vector3(0, cos(a), sg * sin(a))
+		var bs := Basis(Vector3.RIGHT, n, Vector3.RIGHT.cross(n))
+		for i in ns:
+			var x := -l / 2.0 + l * (i + 0.5) / ns
+			_box(r, xf, Vector3(0.2, 0.07, run), eave + Vector3(x, 0, 0) + u * (0.1 + run / 2.0) + n * (t + 0.03), seam, bs)
+
+
 static func _k8(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = p.seed
@@ -815,6 +838,7 @@ static func _k8(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dict
 			top = hw + 0.6
 		else:
 			top = _gable(r, sm, xf, l, d, hw, a, 0.4, 0.3, 0.12, wall, roof, trim, false, true)
+			_k8_roof(r, xf, l, d, hw, a, top, roof, trim)
 		for sx in [-1.0, 1.0]:
 			for sz in [-1.0, 1.0]:
 				_box(r, xf, Vector3(0.2, hw - plinth, 0.2), Vector3(sx * l / 2.0, (hw + plinth) / 2.0, sz * d / 2.0), WHITE_FRAME if v == "kone" else pil)

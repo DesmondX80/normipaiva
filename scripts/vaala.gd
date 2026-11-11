@@ -30,6 +30,7 @@ const Taytto := preload("res://scripts/taytto.gd")
 ## Mökin pihapiiri Vaalan maailman alussa (mopomatkan lähtö näyttää samalta kuin mökillä): rakennukset tehdään
 ## mökin omilla rakennusfunktioilla (mokki.gd ladataan ajonaikaisesti: mokki.gd -> mopo.gd -> vaala.gd).
 const MOKKI_PATH := "res://scripts/mokki.gd"
+const VAALA_RAJA_M := 150.0  # reitin vyöhyke: yli tämän reitistä ei taloja eikä pelaaja pääse (route_dist, reach_clamp)
 const MOKKI_CLEAR_R := 45.0  # tämän säteen OSM-rakennukset jätetään pois mökin kohdalta
 
 enum { FOREST, FIELD, BOG, WATER, YARD, SHOULDER, ROAD, RAIL }
@@ -310,6 +311,9 @@ func _drive_ellipse(c: Vector2, rx: float, rz: float) -> void:
 static var _memo := {}
 
 
+const DRIVE_CACHE_VERSION := 1  # nosta, kun _build_drive_mask_calc:n laskentatapa muuttuu
+
+
 func _build_drive_mask() -> void:
 	if _memo.has("drive"):
 		var m: Array = _memo.drive
@@ -318,8 +322,51 @@ func _build_drive_mask() -> void:
 		_drive = (m[2] as PackedByteArray).duplicate()
 		_surf = (m[3] as PackedByteArray).duplicate()
 		return
-	_build_drive_mask_calc()
+	var args := OS.get_cmdline_user_args()
+	var use_cache := not "--ei-valimuistia" in args
+	var key := _drive_key()
+	var t0 := Time.get_ticks_msec()
+	var dc := MeshBundle.load_dict("vaala_ajo", key) if use_cache else {}
+	if dc.has("m"):
+		var cm: Array = dc.m
+		_dnx = cm[0]
+		_dnz = cm[1]
+		_drive = (cm[2] as PackedByteArray).duplicate()
+		_surf = (cm[3] as PackedByteArray).duplicate()
+		if B.diag():  # vain testiajoissa
+			print("VAALA ajoalue välimuistista %d ms, tiiviste %d/%d" % [Time.get_ticks_msec() - t0, hash(_drive), hash(_surf)])
+		if "--tarkista-ajomaski" in args:  # testi: välimuistin maski = laskettu maski (avain kattaa kaikki syötteet)
+			var cd := _drive.duplicate()
+			var cs := _surf.duplicate()
+			_build_drive_mask_calc()
+			if cd != _drive or cs != _surf:
+				print("TESTI VIKA ajomaski: välimuistin maski poikkeaa lasketusta (avain ei kata jotain syötettä)")
+	else:
+		_build_drive_mask_calc()
+		if use_cache:
+			MeshBundle.save_dict("vaala_ajo", key, {"m": [_dnx, _dnz, _drive, _surf]})
 	_memo.drive = [_dnx, _dnz, _drive.duplicate(), _surf.duplicate()]
+
+
+## Ajomaskin välimuistiavain: kaikki syötteet, joista _build_drive_mask_calc riippuu (tiet, ovet, pysäkit, rakennusten
+## pohjat, pihan viivat, mökin kehys, maasto ja rakennetun maailman laatikkoesteet). Puuttuva syöte = vanhentunut maski
+## (mopo ajaa seinään), joten testi (lataus.gd) muuttaa syötteitä ja vertaa maskia ja avainta.
+func _drive_key() -> String:
+	var dkeys: Array = []
+	for d: Dictionary in doors:
+		dkeys.append([d.pos, d.get("walk", false)])
+	var MokkiScript: GDScript = load(MOKKI_PATH)
+	var ks: Dictionary = data.get("keskusta", {})
+	var parts: Array = [
+		[_nx, _nz, _x0, _z0, _cell, hash(_h), hash(_codes), water_level], hash(road),
+		[hash(data.branches), hash(data.side_roads), hash(data.parkings), hash(ks.get("parking")), hash(ks.get("asema")),
+			hash(data.get("lava")), hash(data.get("satama"))],
+		[hash(north_roads), hash(north_areas), hash(dkeys), hash(_bld_polys), hash(_yard_lines)],
+		[siitari_park, siitari_door, kmarket_door, atm_pos, lava_park, mokki_mopo],
+		[MokkiScript.to_map2(Vector2(0, 0)), MokkiScript.to_map2(Vector2(1, 0)), MokkiScript.to_map2(Vector2(0, 1))],
+		hash(_obstacle_polys()),
+	]
+	return "v%d/%d/%d" % [DRIVE_CACHE_VERSION, hash(parts), hash(str(parts))]
 
 
 func _build_drive_mask_calc() -> void:
@@ -459,7 +506,7 @@ func _build_drive_mask_calc() -> void:
 	_clear_buildings()  # ovien edustat eivät ulotu seinien sisään
 	_clear_lava_yard()
 	if B.diag():  # vain testiajoissa
-		print("VAALA ajoalue %d ms, %.0f %% ruuduista" % [Time.get_ticks_msec() - t0, 100.0 * _drive.count(1) / _drive.size()])
+		print("VAALA ajoalue %d ms, %.0f %% ruuduista, tiiviste %d/%d" % [Time.get_ticks_msec() - t0, 100.0 * _drive.count(1) / _drive.size(), hash(_drive), hash(_surf)])
 
 
 ## Lavan aidan sisäpuoli on kävelyaluetta: autoja ja mopoja ei päästetä portista (parkki on aidan ulkopuolella, lava_park).
@@ -469,6 +516,8 @@ func _clear_lava_yard() -> void:
 		return
 	for j in range(maxi(int((_yard_lines[0][0].y - _z0) / DRIVE_CELL), 0), _dnz):
 		for i in range(0, mini(int((760.0 - _x0) / DRIVE_CELL), _dnx)):
+			if _drive[j * _dnx + i] == 0:
+				continue  # jo pois (ajoalue on ~1 % ruuduista): tulos sama, mutta in_lava_yard-kutsut jäävät väliin
 			# Myös aidan päälle jäävät ruudut pois (jokin kulma pihalla): mopo pysähtyy aidan ulkopuolelle, ei portin suuhun.
 			for o in [Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0), Vector2(1.0, 1.0)]:
 				if in_lava_yard(Vector3(_x0 + (i + o.x) * DRIVE_CELL, 0, _z0 + (j + o.y) * DRIVE_CELL)):
@@ -493,6 +542,21 @@ func _clear_buildings() -> void:
 ## Pienet esteet (kojut, penkit, laavu, kyltit ja aidanpätkät) pois ajoalueelta: mopo liukuu niiden ohi reunaa
 ## pitkin eikä juutu niihin. Isot laatikot (rakennukset, lattiat, sillankannet) ja lavan portti jäävät.
 func _carve_obstacles() -> void:
+	for poly in _obstacle_polys():
+		var lo := poly[0]
+		var hi := poly[0]
+		for q in poly:
+			lo = lo.min(q)
+			hi = hi.max(q)
+		for j in range(maxi(int((lo.y - _z0) / DRIVE_CELL), 0), mini(int((hi.y - _z0) / DRIVE_CELL), _dnz - 1) + 1):
+			for i in range(maxi(int((lo.x - _x0) / DRIVE_CELL), 0), mini(int((hi.x - _x0) / DRIVE_CELL), _dnx - 1) + 1):
+				if Geometry2D.is_point_in_polygon(Vector2(_x0 + (i + 0.5) * DRIVE_CELL, _z0 + (j + 0.5) * DRIVE_CELL), poly):
+					_drive[j * _dnx + i] = 0
+
+
+## Rakennetun maailman laatikkoesteiden (max 12 m, maan päällä) pohjat kasvatettuna: ajoalueesta pois.
+func _obstacle_polys() -> Array[PackedVector2Array]:
+	var out: Array[PackedVector2Array] = []
 	for body in find_children("*", "StaticBody3D", true, false):
 		for cs in (body as Node).get_children():
 			if not (cs is CollisionShape3D) or cs == _gate_block or not ((cs as CollisionShape3D).shape is BoxShape3D):
@@ -515,15 +579,8 @@ func _carve_obstacles() -> void:
 				# Kasvatus puolella ruudulla: ohuetkin esteet (penkki, aidanpätkä) osuvat ruutujen keskipisteisiin.
 				var q := xf * Vector3(c.x * (size.x / 2.0 + 0.4 + DRIVE_CELL * 0.5), 0, c.y * (size.z / 2.0 + 0.4 + DRIVE_CELL * 0.5))
 				poly.append(Vector2(q.x, q.z))
-			var lo := poly[0]
-			var hi := poly[0]
-			for q in poly:
-				lo = lo.min(q)
-				hi = hi.max(q)
-			for j in range(maxi(int((lo.y - _z0) / DRIVE_CELL), 0), mini(int((hi.y - _z0) / DRIVE_CELL), _dnz - 1) + 1):
-				for i in range(maxi(int((lo.x - _x0) / DRIVE_CELL), 0), mini(int((hi.x - _x0) / DRIVE_CELL), _dnx - 1) + 1):
-					if Geometry2D.is_point_in_polygon(Vector2(_x0 + (i + 0.5) * DRIVE_CELL, _z0 + (j + 0.5) * DRIVE_CELL), poly):
-						_drive[j * _dnx + i] = 0
+			out.append(poly)
+	return out
 
 
 ## Ovien edustat, joihin ei pääse tieverkosta (ajoalueen saareke rakennusten välissä): kapea ajoura lähimpään
@@ -639,6 +696,7 @@ func ensure_built() -> void:
 		step.call()
 		if Time.get_ticks_msec() - ts > 60:
 			times.append("%s %d" % [step.get_method().trim_prefix("_build_"), Time.get_ticks_msec() - ts])
+	route_add_doors()
 	if B.diag():  # vain testiajoissa
 		print("VAALA vaiheet (ms): ", ", ".join(times))
 	if B.diag():  # vain testiajoissa
@@ -681,6 +739,7 @@ func _build_terrain() -> void:
 	var lods := [[1, 0.0, TLOD[0]], [2, TLOD[0], TLOD[1]], [4, TLOD[1], 0.0]]
 	var half := TCHUNK * _cell * 0.71
 	# Lohkot levyvälimuistista (laskenta vie GDScriptillä puoli sekuntia): avain korkeuksista ja maankäytöstä.
+	var tt0 := Time.get_ticks_msec()
 	var tkey := "v%d/%d/%d/%d/%d" % [TERRAIN_CACHE_VERSION, _nx, _nz, hash(_h), hash(_codes)]
 	var tc := MeshBundle.load_dict("vaala_maasto", tkey)
 	var chunks: Array = tc.get("chunks", [])
@@ -697,7 +756,9 @@ func _build_terrain() -> void:
 		if lod[0] > 1:
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
+	var tt1 := Time.get_ticks_msec()
 	_build_water()
+	var tt2 := Time.get_ticks_msec()
 	# Törmäys koko tarkalle ruudukolle (tarkan alueen ulkopuoli kaukomaaston korkeudella).
 	var body := StaticBody3D.new()
 	body.collision_layer = Terrain.COLLISION_LAYER
@@ -705,13 +766,17 @@ func _build_terrain() -> void:
 	var hm := HeightMapShape3D.new()
 	hm.map_width = _nx
 	hm.map_depth = _nz
+	var tt3 := Time.get_ticks_msec()
 	hm.map_data = _h
+	var tt4 := Time.get_ticks_msec()
 	var cs := CollisionShape3D.new()
 	cs.shape = hm
 	cs.scale = Vector3(_cell, 1.0, _cell)
 	body.position = Vector3(_x0 + (_nx - 1) * _cell * 0.5, 0.0, _z0 + (_nz - 1) * _cell * 0.5)
 	body.add_child(cs)
+	var tt5 := Time.get_ticks_msec()
 	add_child(body)
+	var tt6 := Time.get_ticks_msec()
 	# Näkymättömät seinät tarkan ruudukon reunoille (kaukomaastoon ei ajeta).
 	for side in [[Vector3(_x0, 0, _z0 + _nz * _cell / 2.0), Vector3(1, 400, _nz * _cell)],
 			[Vector3(_x0 + (_nx - 1) * _cell, 0, _z0 + _nz * _cell / 2.0), Vector3(1, 400, _nz * _cell)],
@@ -721,6 +786,8 @@ func _build_terrain() -> void:
 		wall.position = side[0]
 		wall.add_child(B.box_shape(side[1], Vector3(0, 120, 0)))
 		add_child(wall)
+	if B.diag():  # vain testiajoissa
+		print("VAALA maasto: lohkot %d ms, vesi %d ms, törmäys ja seinät %d ms (map_data %d, add_child %d)" % [tt1 - tt0, tt2 - tt1, Time.get_ticks_msec() - tt2, tt4 - tt3, tt6 - tt5])
 
 
 ## Maaston lohkot [mesh, tarkkuustaso] (MeshBundle-välimuistin laskenta).
@@ -3106,6 +3173,7 @@ func _build_buildings() -> void:
 		Color(0.55, 0.62, 0.66), Color(0.8, 0.55, 0.3), Color(0.93, 0.9, 0.78), Color(0.7, 0.72, 0.62)]
 	var brick_cols := [Color(0.6, 0.26, 0.17), Color(0.72, 0.42, 0.28), Color(0.52, 0.3, 0.22), Color(0.82, 0.7, 0.5)]
 	var plaster_cols := [Color(0.9, 0.88, 0.82), Color(0.86, 0.8, 0.66), Color(0.78, 0.8, 0.8), Color(0.92, 0.86, 0.74)]
+	_cull_buildings()
 	fill_log.clear()
 	_fill_others.clear()
 	for bd in data.buildings:
@@ -5388,6 +5456,197 @@ func _side_road_grid() -> Dictionary:
 						g[Vector2i(i, j)] = []
 					g[Vector2i(i, j)].append([a, b])
 	return g
+
+
+# --- Reitin vyöhyke (VAALA_RAJA_M): taloja ei ole reitistä yli rajan, eikä pelaaja pääse sinne (reach_clamp) ---
+
+const ROUTE_CELL := 50.0
+var _route_grid: Dictionary = {}  # Vector2i -> Array [a0, b0, a1, b1, ...] (Vector2); piste = a == b
+var _route_ready := false
+var _route_extra: Array = []  # ensure_built:n jälkeen lisätyt ovet (pisteet)
+var cull_stats := {}  # {ennen, jalkeen, poistettu, suojattu, jakauma}
+
+
+func _route_seg(a: Vector2, b: Vector2) -> void:
+	var lo := Vector2i(floori(minf(a.x, b.x) / ROUTE_CELL), floori(minf(a.y, b.y) / ROUTE_CELL))
+	var hi := Vector2i(floori(maxf(a.x, b.x) / ROUTE_CELL), floori(maxf(a.y, b.y) / ROUTE_CELL))
+	for j in range(lo.y, hi.y + 1):
+		for i in range(lo.x, hi.x + 1):
+			var k := Vector2i(i, j)
+			if not _route_grid.has(k):
+				_route_grid[k] = []
+			_route_grid[k].append(a)
+			_route_grid[k].append(b)
+
+
+func _route_line(pts: Array, ix: int, iz: int, closed := false) -> void:
+	for k in pts.size():
+		var a := Vector2(pts[k][ix], pts[k][iz])
+		if k + 1 < pts.size():
+			_route_seg(a, Vector2(pts[k + 1][ix], pts[k + 1][iz]))
+		elif closed and pts.size() > 2:
+			_route_seg(a, Vector2(pts[0][ix], pts[0][iz]))
+		else:
+			_route_seg(a, a)
+
+
+## Reitin jänteet datasta (ei riipu rakennuksista): päätie, haarat, sivutiet ja radat, parkit, keskusta, lava, satama,
+## Uitto, järviseudun tiet ja alueet, mökki. Kohdepisteet ovat nollapituisia jänteitä.
+func _route_build() -> void:
+	_route_grid.clear()
+	_route_line(road, 0, 2)
+	for br in data.branches:
+		_route_line(br.pts, 0, 2)
+	for r in data.side_roads:
+		_route_line(r.pts, 0, 1)
+	for poly in data.parkings:
+		_route_line(poly, 0, 1, true)
+	var ks: Dictionary = data.get("keskusta", {})
+	if ks.get("parking") != null:
+		_route_line(ks.parking, 0, 1, true)
+	for sr in ks.get("side_roads", []):
+		_route_line(sr[1], 0, 1)
+	if ks.has("kmarket_pts"):
+		_route_line(ks.kmarket_pts, 0, 1, true)
+	if ks.has("tori"):
+		_route_line(ks.tori.gasthaus_pts, 0, 1, true)
+	for key in ["zabuki", "matkakeskus", "kunnantalo", "apteekki", "kirkko"]:
+		if ks.has(key):
+			var c: Array = ks[key].c
+			_route_seg(Vector2(c[0], c[1]), Vector2(c[0], c[1]))
+	if ks.get("asema") != null:
+		_route_line(ks.asema.pts, 0, 1, true)
+	var lv: Dictionary = data.get("lava", {})
+	if not lv.is_empty():
+		_route_seg(Vector2(lv.x, lv.z), Vector2(lv.x, lv.z))
+		_route_line(lv.road, 0, 1)
+		_route_line(lv.get("fence", []), 0, 1)  # myös pummireitti (_wade_c = aidan pää)
+	for key in ["satama", "uitto"]:
+		var sd: Dictionary = data.get(key, {})
+		if sd.is_empty():
+			continue
+		_route_seg(Vector2(sd.x, sd.z), Vector2(sd.x, sd.z))
+		_route_seg(Vector2(sd.park[0], sd.park[1]), Vector2(sd.park[0], sd.park[1]))
+		_route_line(sd.road, 0, 1)
+	for r in north_roads:
+		var pp: PackedVector2Array = r.pts
+		for k in pp.size():
+			_route_seg(pp[k], pp[mini(k + 1, pp.size() - 1)])
+	for poly in north_areas:
+		var pp: PackedVector2Array = poly
+		for k in pp.size():
+			_route_seg(pp[k], pp[(k + 1) % pp.size()])
+	_route_seg(_mokki_c(), _mokki_c())
+	_route_seg(siitari, siitari)
+	for q in _route_extra:
+		_route_seg(q, q)
+	_route_ready = true
+
+
+## Lisää kohdepisteet (ovet) reitille rakennuksen jälkeen: ovet ovat vyöhykkeellä aina.
+func route_add_doors() -> void:
+	for d: Dictionary in doors:
+		var q := Vector2(d.pos.x, d.pos.z)
+		if not _route_extra.has(q):
+			_route_extra.append(q)
+			_route_seg(q, q)
+
+
+## Lähin reitin piste (tai Vector2.INF, jos reittiä ei ole 4 km:n sisällä).
+func route_nearest(p: Vector2) -> Vector2:
+	if not _route_ready:
+		_route_build()
+	var ci := Vector2i(floori(p.x / ROUTE_CELL), floori(p.y / ROUTE_CELL))
+	var best := INF
+	var bq := Vector2.INF
+	for r in 80:
+		if best <= (r - 1) * ROUTE_CELL:
+			break  # renkaan r solut ovat vähintään (r - 1) * ROUTE_CELL päässä
+		for j in range(ci.y - r, ci.y + r + 1):
+			var edge := j == ci.y - r or j == ci.y + r
+			for i in range(ci.x - r, ci.x + r + 1, 1 if edge else 2 * r):
+				var sg: Array = _route_grid.get(Vector2i(i, j), [])
+				for k in range(0, sg.size(), 2):
+					var q: Vector2 = Geometry2D.get_closest_point_to_segment(p, sg[k], sg[k + 1])
+					var d := p.distance_squared_to(q)
+					if d < best * best or bq == Vector2.INF:
+						best = sqrt(d)
+						bq = q
+	return bq
+
+
+func route_dist(p: Vector2) -> float:
+	var q := route_nearest(p)
+	return INF if q == Vector2.INF else p.distance_to(q)
+
+
+## Pehmeä seinä: reitin vyöhykkeen (VAALA_RAJA_M) ulkopuolelta paikka projisoidaan lähimmän reittipisteen
+## ympärille piirretyn levyn reunalle (tangentiaalinen liike säilyy: liukuu reunaa pitkin). p: Vaalan kehys.
+func reach_clamp(p: Vector3) -> Vector3:
+	var xz := Vector2(p.x, p.z)
+	var n := route_nearest(xz)
+	if n == Vector2.INF:
+		return p
+	var d := xz.distance_to(n)
+	if d <= VAALA_RAJA_M:
+		return p
+	var q := n + (xz - n) / d * VAALA_RAJA_M
+	return Vector3(q.x, h(q.x, q.y) + maxf(p.y - h(p.x, p.z), 0.0), q.y)
+
+
+## Suojattu rakennus ei poistu koskaan: nimetyt, hotelli, Gasthaus, työkkäri, Katja, Siitari, asema ja keep_old.
+func _cull_protected(bd: Dictionary, id: int, pts: PackedVector2Array) -> bool:
+	if str(bd.name) != "" or id in [HOTEL_ID, GASTHAUS_ID, TYOKKARI_ID, KATJA_ID, SIITARI_ID, station_id]:
+		return true
+	var ob := _obb(pts)
+	return Taytto.keep_old({"l": maxf(ob.size.x, ob.size.y), "d": minf(ob.size.x, ob.size.y), "t": bd.type, "lv": bd.levels,
+		"r": absf(_poly_area(pts)) / maxf(ob.size.x * ob.size.y, 0.01)})
+
+
+## Poistaa data.buildings-listasta talot, jotka ovat yli VAALA_RAJA_M reitistä (etäisyys = min keskipiste ja pohjan kärjet).
+## Suojatut ovat itse reitin pisteitä (vyöhyke niiden ympärillä). Lista suodatetaan itse: täyttö, kartat ja minimap seuraavat.
+func _cull_buildings() -> void:
+	var prot: Array = []
+	var items: Array = []
+	for bd in data.buildings:
+		var pts := PackedVector2Array()
+		for q in bd.pts:
+			pts.append(Vector2(q[0], q[1]))
+		var protected := pts.size() >= 3 and _cull_protected(bd, int(bd.id), pts)
+		items.append([bd, pts, protected])
+		if protected:
+			var c := Vector2.ZERO
+			for q in pts:
+				c += q
+			prot.append(c / pts.size())
+	_route_extra.append_array(prot)
+	_route_build()
+	var keep: Array = []
+	var bins := [0, 0, 0, 0]
+	var nprot := 0
+	for it in items:
+		var pts: PackedVector2Array = it[1]
+		var dmin := INF
+		if pts.size() >= 3:
+			var c := Vector2.ZERO
+			for q in pts:
+				c += q
+			dmin = route_dist(c / pts.size())
+			if dmin > VAALA_RAJA_M:
+				for q in pts:
+					dmin = minf(dmin, route_dist(q))
+		else:
+			dmin = 0.0
+		bins[0 if dmin < 75.0 else (1 if dmin < 150.0 else (2 if dmin < 300.0 else 3))] += 1
+		if it[2]:
+			nprot += 1
+		if dmin <= VAALA_RAJA_M or it[2]:
+			keep.append(it[0])
+	cull_stats = {"ennen": items.size(), "jalkeen": keep.size(), "poistettu": items.size() - keep.size(), "suojattu": nprot, "jakauma": bins}
+	data.buildings = keep
+	if B.diag():  # vain testiajoissa
+		print("VAALA karsinta: ennen %d, jalkeen %d, poistettu %d, suojattu %d, etaisyysjakauma 0-75/75-150/150-300/300+ %s" % [
+			items.size(), keep.size(), items.size() - keep.size(), nprot, "/".join(bins.map(func(v: int) -> String: return str(v)))])
 
 
 func _on_side_road(pts: PackedVector2Array, grid: Dictionary) -> bool:
