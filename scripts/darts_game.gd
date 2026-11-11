@@ -5,6 +5,8 @@ extends Node3D
 ## verrataan Santun tulokseen. Taulu on oikean tikkataulun mittainen ja pisteytys kuten oikeassa (tuplat, triplat,
 ## bull). F lopettaa. mokki.gd:n lapsi identiteettimuunnoksella: koordinaatit ovat mökin paikallisia.
 ## finished(total, santtu): pelaajan ja Santun pisteet (total < 0 = lopetettiin kesken).
+## mode "mokki": suomalainen mökkitikka toisessa männyssä: renkaat 1–10 kuin ampumataulussa (keskellä 10), viisi tikkaa
+## kierroksella, kolme kierrosta, pisteet yhteen.
 
 signal finished(total: int, santtu: int)
 
@@ -24,10 +26,15 @@ const DARTS := 3
 const ROUNDS := 3
 const SENS := 0.0009
 const FLIGHT := 0.28
+const M_R := 0.21  # mökkitikkataulun säde (Summer Sport -taulu 42 cm)
+const M_RING := M_R / 10.0  # rengasväli: keskus 10, uloin 1
+const M_DARTS := 5
+const M_THROW_DIST := 5.0  # suomalaisen tikanheiton heittomatka miehillä (fi.wikipedia Tikanheitto)
 
 ## Taulun keskipiste ja kehys mökin koordinaateissa (mokki.gd asettaa ennen add_childia).
 var board_center := Vector3.ZERO
 var drunk := 0.0  # 0..1, humalatila lisää huojuntaa ja hajontaa
+var mode := "darts"  # "darts" tai "mokki" (mökkitikka)
 
 var _aim := Vector2.ZERO  # tähtäyspiste taulun tasossa (x oikealle, y ylös)
 var _t := 0.0
@@ -57,7 +64,10 @@ func _ready() -> void:
 	_cam.near = 0.05
 	_cam.fov = 26.0  # taulu isona, kuin katse keskittyisi siihen
 	add_child(_cam)
-	var eye := board_center + Vector3(0, EYE_UP, -THROW_DIST)
+	var dist := M_THROW_DIST if mode == "mokki" else THROW_DIST
+	if mode == "mokki":
+		_cam.fov = 16.0  # viiden metrin päästä taulu näkyy pienempänä; kapeampi kuva pitää renkaat luettavina
+	var eye := board_center + Vector3(0, EYE_UP, -dist)
 	_cam.transform = Transform3D(Basis.looking_at(board_center + Vector3(0, 0.03, 0) - eye, Vector3.UP), eye)
 	_cam.current = true
 	_build_hud()
@@ -68,8 +78,11 @@ func _ready() -> void:
 		Touch.set_extra([[-1, "Keskity"]])
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	_santtu = _simulate_santtu()
-	_say("Tikanheitto: kolme kierrosta, kolme tikkaa. Santtu heitti äsken, voita se!", 3.0)
+	_santtu = _simulate_santtu() if mode == "darts" else _simulate_santtu_mokki()
+	if mode == "mokki":
+		_say("Mökkitikka: kolme kierrosta, viisi tikkaa. Kymppi keskellä. Santtu heitti äsken, voita se!", 3.0)
+	else:
+		_say("Tikanheitto: kolme kierrosta, kolme tikkaa. Santtu heitti äsken, voita se!", 3.0)
 
 
 func _exit_tree() -> void:
@@ -125,7 +138,7 @@ func _process(delta: float) -> void:
 
 ## Huojunta: hengitys ja käden vapina, humalassa moninkertainen, keskittyessä pieni.
 func _sway() -> Vector2:
-	var amp := (0.012 + 0.05 * drunk) * lerpf(1.0, 0.3, _focus)
+	var amp := (0.012 + 0.05 * drunk) * lerpf(1.0, 0.3, _focus) * (1.5 if mode == "mokki" else 1.0)
 	var shake := 0.0 if _focus_left > 0.0 else 0.006
 	return Vector2(sin(_t * 1.3) + 0.5 * sin(_t * 3.1 + 1.0), cos(_t * 1.1) + 0.5 * sin(_t * 2.7)) * amp \
 		+ Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake
@@ -138,7 +151,7 @@ func _board_point(p: Vector2) -> Vector3:
 func _throw() -> void:
 	if _phase != "aim" or get_tree().paused:
 		return
-	var spread := 0.011 + 0.03 * drunk
+	var spread := (0.011 + 0.03 * drunk) * (1.6 if mode == "mokki" else 1.0)  # viisi metriä: hajonta isompi
 	var hit := _aim + _sway() + Vector2(randfn(0.0, spread), randfn(0.0, spread))
 	var dart := _dart_mesh()
 	add_child(dart)
@@ -148,7 +161,7 @@ func _throw() -> void:
 
 
 func _update_flight(delta: float) -> void:
-	_flying.t += delta / FLIGHT
+	_flying.t += delta / (FLIGHT * 1.6 if mode == "mokki" else FLIGHT)
 	var to := _board_point(_flying.hit) + Vector3(0, 0, -0.11)  # kärjen pää (-0,10 m) uppoaa sentin tauluun
 	var k: float = minf(_flying.t, 1.0)
 	var p: Vector3 = _flying.from.lerp(to, k) + Vector3(0, sin(k * PI) * 0.08, 0)
@@ -156,7 +169,7 @@ func _update_flight(delta: float) -> void:
 	node.transform = Transform3D(Basis.looking_at(Vector3(0, 0, 1), Vector3.UP), p)  # kärki (-Z malli) tauluun
 	if _flying.t < 1.0:
 		return
-	var res := score(_flying.hit)
+	var res := score(_flying.hit) if mode == "darts" else score_mokki(_flying.hit)
 	_thrown.append(node)
 	if res[0] == 0:
 		node.queue_free()  # ohi taulun: tikka putoaa nurmikolle
@@ -167,7 +180,7 @@ func _update_flight(delta: float) -> void:
 	Sfx.play("step_wood" if res[0] > 0 else "step_grass", -4.0, 1.6)
 	_say(res[1], 1.6)
 	_dart += 1
-	if _dart >= DARTS:
+	if _dart >= _darts():
 		_phase = "pause"
 		_pause_t = 1.6
 	else:
@@ -185,6 +198,27 @@ func _next_round() -> void:
 	else:
 		_phase = "aim"
 		_say("Kierros %d." % (_round + 1), 1.5)
+
+
+func _darts() -> int:
+	return M_DARTS if mode == "mokki" else DARTS
+
+
+## Mökkitikan pisteet: renkaat 1–10 keskeltä ulos, kymppi keskellä (M_RING levyiset renkaat).
+static func score_mokki(p: Vector2) -> Array:
+	var r := p.length()
+	if r > M_R:
+		return [0, "Ohi taulun."]
+	var n: int = 10 - int(r / M_RING)
+	return [n, "KYMPPI!" if n == 10 else "%d" % n]
+
+
+## Santtu heittää mökkitikkaa keskustaan vakaalla kädellä (5 x 3 tikkaa).
+static func _simulate_santtu_mokki() -> int:
+	var total := 0
+	for i in M_DARTS * ROUNDS:
+		total += score_mokki(Vector2(randfn(0.0, 0.06), randfn(0.0, 0.06)))[0]
+	return total
 
 
 ## Pisteet ja selite osumakohdasta taulun tasossa (metreinä, x oikealle, y ylös).
@@ -235,6 +269,8 @@ func _end(quit: bool) -> void:
 
 
 func _dart_mesh() -> Node3D:
+	if mode == "mokki":
+		return _mokki_dart_mesh()
 	# Tikka: kärki +Z (look_at osoittaa -Z:n kohteeseen, joten malli rakennetaan -Z:aan).
 	# Pelin mittakaavassa noin kaksinkertainen, jotta tikat erottuvat taulusta heittoviivalta.
 	var d := Node3D.new()
@@ -248,8 +284,79 @@ func _dart_mesh() -> Node3D:
 	return d
 
 
+## Jykevä mökkitikka (esikuva Tikkataulu.JPG): lyhyt paksu harmaa metallirunko, lyhyt kärki ja isot punaiset
+## muoviset ristisulat (neljä siipeä). Kärki -Z:aan kuten _dart_mesh; pelin mittakaavassa noin kaksinkertainen.
+func _mokki_dart_mesh() -> Node3D:
+	var d := Node3D.new()
+	var s := 2.2
+	var metal := Color(0.5, 0.52, 0.55)
+	var red := Color(0.86, 0.12, 0.1)
+	B.mesh(d, B.cyl(0.0022 * s, 0.0008 * s, 0.022 * s, 8), Vector3(0, 0, -0.06 * s + 0.07), Color(0.82, 0.82, 0.84), Vector3(90, 0, 0))  # kärki
+	B.mesh(d, B.cyl(0.0075 * s, 0.006 * s, 0.035 * s, 12), Vector3(0, 0, -0.032 * s + 0.07), metal, Vector3(90, 0, 0))  # paksu runko
+	B.mesh(d, B.cyl(0.0035 * s, 0.0035 * s, 0.025 * s, 8), Vector3(0, 0, -0.003 * s + 0.07), red, Vector3(90, 0, 0))  # muovivarsi
+	for k in 2:
+		var fl := Vector3(0.034 * s if k == 0 else 0.0025, 0.0025 if k == 0 else 0.034 * s, 0.032 * s)
+		B.mesh(d, B.boxm(fl), Vector3(0, 0, 0.022 * s + 0.07), red)  # ristisulat
+	return d
+
+
 ## Oikean näköinen tikkataulu (sektorit, tupla- ja triplarenkaat, bull, numerot). Etupinta -Z:aan, x = taulun
 ## vasen (katsojan oikea on -X), y ylös. Käytetään sekä pihan tauluna (mokki.gd) että minipelissä.
+## Suomalainen mökkitikkataulu (esikuva fi.wikipedia "Tikanheitto", Commons Tikkataulu.JPG): pyöreä taulu, renkaat
+## vuorotellen valkoinen ja vihreä (1 valkoinen, 2 vihreä, ... 10 vihreä keskellä), vihreä reunus, numerot pysty- ja
+## vaakarivissä renkaan vastavärillä (valkoisella vihreä, vihreällä valkoinen). Roikkuu naulassa koukusta.
+## Etupinta -Z:aan kuten make_board.
+static func make_mokki_board(parent: Node3D) -> Node3D:
+	var board := Node3D.new()
+	parent.add_child(board)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3(0, 0, -1))
+	var disc := func(r0: float, r1: float, col: Color, z: float) -> void:
+		st.set_color(col)
+		var seg := 64
+		for k in seg:
+			var t0 := TAU * k / seg
+			var t1 := TAU * (k + 1) / seg
+			var p00 := Vector3(-cos(t0) * r0, sin(t0) * r0, z)
+			var p01 := Vector3(-cos(t0) * r1, sin(t0) * r1, z)
+			var p10 := Vector3(-cos(t1) * r0, sin(t1) * r0, z)
+			var p11 := Vector3(-cos(t1) * r1, sin(t1) * r1, z)
+			for v in [p00, p11, p01, p00, p10, p11]:
+				st.add_vertex(v)
+	var white := Color(0.94, 0.94, 0.9)
+	var green := Color(0.17, 0.52, 0.2)
+	disc.call(M_R, M_R + 0.012, green, 0.0)  # vihreä reunus
+	for k in range(1, 11):  # rengas k: säde M_RING * (11 - k - 1) … M_RING * (11 - k)
+		var r1 := M_RING * (11 - k)
+		disc.call(r1 - M_RING if k < 10 else 0.0, r1, white if k % 2 == 1 else green, 0.0)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.vertex_color_is_srgb = true
+	mat.roughness = 0.9
+	mi.material_override = mat
+	board.add_child(mi)
+	# Taulun runko (puristettu kuitulevy) ja naula koukkuineen yläreunassa.
+	B.mesh(board, B.cyl(M_R + 0.012, M_R + 0.012, 0.025, 48), Vector3(0, 0, 0.0128), Color(0.2, 0.42, 0.18), Vector3(90, 0, 0))
+	B.mesh(board, B.boxm(Vector3(0.01, 0.03, 0.004)), Vector3(0, M_R + 0.02, 0.002), Color(0.5, 0.5, 0.52))
+	B.mesh(board, B.cyl(0.004, 0.004, 0.05, 8), Vector3(0, M_R + 0.035, -0.0), Color(0.45, 0.45, 0.47), Vector3(90, 0, 0))
+	for k in range(1, 10):  # rengasnumerot ylös, alas, vasemmalle ja oikealle renkaan vastavärillä
+		var rr := M_RING * (10 - k) + M_RING * 0.5
+		for d in [Vector2(0, 1), Vector2(0, -1), Vector2(1, 0), Vector2(-1, 0)]:
+			var lab := Label3D.new()
+			lab.text = str(k)
+			lab.font_size = 64
+			lab.pixel_size = 0.00042
+			lab.modulate = green if k % 2 == 1 else white
+			lab.outline_size = 0
+			lab.position = Vector3(-d.x * rr, d.y * rr, -0.0016)
+			lab.rotation.y = PI
+			board.add_child(lab)
+	return board
+
+
 static func make_board(parent: Node3D) -> Node3D:
 	var board := Node3D.new()
 	parent.add_child(board)
@@ -368,8 +475,8 @@ func _update_hud(delta: float) -> void:
 	var pt := _board_point(_aim + _sway())
 	_cross.visible = _phase == "aim"
 	_cross.position = _cam.unproject_position(to_global(pt))
-	var left := "➶ ".repeat(DARTS - _dart) if _phase == "aim" else ""
-	_title.text = "TIKANHEITTO · kierros %d/%d   %s" % [mini(_round + 1, ROUNDS), ROUNDS, left]
+	var left := "➶ ".repeat(_darts() - _dart) if _phase == "aim" else ""
+	_title.text = "%s · kierros %d/%d   %s" % ["MÖKKITIKKA" if mode == "mokki" else "TIKANHEITTO", mini(_round + 1, ROUNDS), ROUNDS, left]
 	var lines := PackedStringArray()
 	var total := 0
 	for i in _rounds.size():

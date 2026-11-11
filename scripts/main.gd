@@ -701,6 +701,7 @@ var pekka: CharacterBody3D
 var sinikka: CharacterBody3D
 var sinikka_task := 0  # 1 = Sinikka odottaa mustikoita
 var tikka_ennatys := 0  # tikanheiton paras tulos (3 x 3 tikkaa)
+var mtikka_ennatys := 0  # mökkitikan paras tulos (3 x 5 tikkaa, max 150)
 var tractor: CharacterBody3D
 ## player = se jolla nyt liikutaan (pyörä tai jalan); bike ja walker_out ovat molemmat olemassa koko ajan.
 var bike: CharacterBody3D
@@ -14851,6 +14852,11 @@ func _mokki_logic() -> void:
 	if near.call(Mokki.TUB_LOCAL, 1.7):
 		_palju_logic(e)
 		return
+	if near.call(Mokki.MTIKKA_LOCAL, 1.3):
+		_hint.text = "[E] Heitä mökkitikkaa (renkaat 1–10, 3 x 5 tikkaa Santtua vastaan%s)" % ("" if mtikka_ennatys <= 0 else ", ennätys %d" % mtikka_ennatys)
+		if e:
+			_start_darts("mokki")
+		return
 	if near.call(Mokki.DART_LOCAL, 1.8):
 		_hint.text = "[E] Heitä tikkaa (3 kierrosta Santtua vastaan%s)" % ("" if tikka_ennatys <= 0 else ", ennätys %d" % tikka_ennatys)
 		if e:
@@ -17439,7 +17445,7 @@ func _after_hunt(bag: Array, moose: bool) -> void:
 
 
 ## Tikanheitto mökin pihalla (darts_game.gd): 3 x 3 tikkaa, verrataan Santun tulokseen. Humala heiluttaa kättä.
-func _start_darts() -> void:
+func _start_darts(mode := "darts") -> void:
 	_minigame_prev = state
 	state = "minigame"
 	player.controls_enabled = false
@@ -17448,7 +17454,8 @@ func _start_darts() -> void:
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_hud.visible = false
 	var game := DartsGame.new()
-	game.board_center = Mokki.dart_board_center()
+	game.mode = mode
+	game.board_center = Mokki.mtikka_board_center() if mode == "mokki" else Mokki.dart_board_center()
 	game.drunk = _hand_shake()
 	game.finished.connect(func(total: int, santtu: int) -> void:
 		state = _minigame_prev
@@ -17457,24 +17464,28 @@ func _start_darts() -> void:
 		player.controls_enabled = true
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
 		_hud.visible = true
-		_after_darts(total, santtu))
+		_after_darts(total, santtu, mode))
 	mokki.add_child(game)
 
 
-func _after_darts(total: int, santtu: int) -> void:
+func _after_darts(total: int, santtu: int, mode := "darts") -> void:
 	if total < 0:
 		return
-	tilat.first("tikka")
-	var record := total > tikka_ennatys
+	tilat.first("tikka" if mode == "darts" else "mokkitikka")
+	var record := total > (tikka_ennatys if mode == "darts" else mtikka_ennatys)
 	if record:
-		tikka_ennatys = total
+		if mode == "darts":
+			tikka_ennatys = total
+		else:
+			mtikka_ennatys = total
 	if total > santtu:
 		tilat.add("moraali", 0.15)
 		tilat.add("keskittyminen", 0.1)
 		mokki.say("No voi perkele, voitit mut tikassa!", 3.0)
 	else:
 		mokki.say("Heh, tikassa mää oon ollu aina parempi.", 3.0)
-	_show_message("Tikkaa: %d pistettä (Santtu %d)%s" % [total, santtu, ", uusi ennätys!" if record else ""], 3.0)
+	_show_message("%s: %d pistettä (Santtu %d)%s" % ["Tikkaa" if mode == "darts" else "Mökkitikkaa", total, santtu,
+		", uusi ennätys!" if record else ""], 3.0)
 	_save_game()
 
 
@@ -20573,6 +20584,7 @@ func _load_game() -> void:
 	has_mower_part = cfg.get_value("nurmikko", "varaosa", false)
 	sinikka_task = cfg.get_value("sinikka", "tehtava", 0)
 	tikka_ennatys = cfg.get_value("mokki", "tikka_ennatys", 0)
+	mtikka_ennatys = cfg.get_value("mokki", "mtikka_ennatys", 0)
 	hommat.reviews = cfg.get_value("mokki", "arvostelut", [])
 	hommat.banned_day = cfg.get_value("mokki", "haatopaiva", -1)
 	_volvo_fixed_day = cfg.get_value("peli", "volvo_korjattu", -1)
@@ -20862,6 +20874,7 @@ func _save_game() -> void:
 	cfg.set_value("nurmikko", "varaosa", has_mower_part)
 	cfg.set_value("sinikka", "tehtava", sinikka_task)
 	cfg.set_value("mokki", "tikka_ennatys", tikka_ennatys)
+	cfg.set_value("mokki", "mtikka_ennatys", mtikka_ennatys)
 	if hommat != null:
 		cfg.set_value("mokki", "arvostelut", hommat.reviews)
 	cfg.set_value("nurmikko", "kehu", _lawn_praise)
@@ -35351,6 +35364,45 @@ func _maybe_screenshot() -> void:
 			while is_instance_valid(dg):
 				await get_tree().process_frame
 			print("TIKKA loppu: ennätys=%d msg=%s" % [tikka_ennatys, _msg.text])
+			# Mökkitikka: pisteytys renkaittain, 15 heittoa keskustaan, kuva taulusta ja pihalta molemmat taulut.
+			for pt in [Vector2.ZERO, Vector2(0.02, 0), Vector2(0, 0.05), Vector2(0.1, 0.1), Vector2(0, 0.205), Vector2(0, 0.22)]:
+				print("MTIKKA piste %s -> %s" % [pt, DartsGame.score_mokki(pt)])
+			if DartsGame.score_mokki(Vector2.ZERO)[0] != 10 or DartsGame.score_mokki(Vector2(0, 0.205))[0] != 1 or DartsGame.score_mokki(Vector2(0, 0.22))[0] != 0:
+				print("TESTI VIKA mökkitikan pisteytys")
+			walker_out.global_position = mokki.to_global(Vector3(Mokki.MTIKKA_LOCAL.x, Mokki.h(Mokki.MTIKKA_LOCAL.x, Mokki.MTIKKA_LOCAL.z) + 0.4, Mokki.MTIKKA_LOCAL.z))
+			for i in 10:
+				await get_tree().physics_frame
+			print("MTIKKA vihje: ", _hint.text)
+			if not "mökkitikkaa" in _hint.text:
+				print("TESTI VIKA mökkitikan vihje puuttuu")
+			_start_darts("mokki")
+			var mg: Node3D = mokki.get_children().filter(func(c): return c is DartsGame)[0]
+			for i in 30:
+				await get_tree().process_frame
+			for n in 15:
+				while mg._phase != "aim":
+					await get_tree().process_frame
+				mg._aim = Vector2(randf_range(-0.04, 0.04), randf_range(-0.04, 0.04))
+				mg._throw()
+				while mg._phase == "fly":
+					await get_tree().process_frame
+				if n == 4:
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mokkitaulu.png"))
+			while is_instance_valid(mg):
+				await get_tree().process_frame
+			print("MTIKKA loppu: ennätys=%d msg=%s" % [mtikka_ennatys, _msg.text])
+			if mtikka_ennatys <= 0:
+				print("TESTI VIKA mökkitikan tulos ei tallentunut")
+			var pc := Camera3D.new()
+			mokki.add_child(pc)
+			var mid := (Mokki.DART_TREE + Mokki.MTIKKA_TREE) / 2.0
+			pc.look_at_from_position(mokki.to_global(mid + Vector3(0, Mokki.h(mid.x, mid.z) + 1.7, -5.5)), mokki.to_global(mid + Vector3(0, Mokki.h(mid.x, mid.z) + 1.4, 0)))
+			pc.current = true
+			for i in 5:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_taulut.png"))
 		"mokkijahti":
 			# Metsästys: nousee lavalle, odottaa eläimen, tähtää ja ampuu. Tulostaa saaliin.
 			_toggle_mount()
