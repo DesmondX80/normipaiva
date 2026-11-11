@@ -21,6 +21,7 @@ const TOE_BLEND := 0.015  # kärkiosan painot: päkiästä +-15 mm sekoitus, ede
 const SHAFT_RINGS := 8  # varren vaakarenkaat alhaalta yläreunaan
 const SHAFT_N := 2.6  # varren poikkileikkauksen superellipsin eksponentti
 
+static var _nails := PackedFloat32Array()  # sandaali: varpaankynnet (x, y, z lepoavaruudessa, säde) * 10 (meta "kynnet")
 static var _shaft_h := 0.0  # viimeksi rakennetun varren yläreuna kuoren alapinnasta (meta "varsi_h", varjostimen shaft_h)
 static var _tip_h := 0.0  # viimeksi rakennetun kengän kärkipisteen korkeus lattiasta (meta "karki", testin profiili)
 
@@ -55,6 +56,22 @@ const TYPES := {
 		"sole_col": Color(0.93, 0.9, 0.82), "rough": 0.3, "sole_rough": 0.85, "style": 4, "spec": 0.5, "clearcoat": 0.6,
 		"shaft": {"join": 0.09, "top": 0.237, "top_k": 0.55, "pad": 0.014, "rigid": true, "lap": 0.045, "gap": 0.012,
 			"flare": 0.022}},
+	# Pitkävartinen nahkasaapas (#273): kumisaappaan rakenne (kaksi jäykkää osaa), varsi lähelle polvea (top_k), istuvampi
+	# (pad ja flare pienemmät), ohut tumma pohja ja pieni korko (waist), mattapintainen nahka.
+	"saapas": {"lift": 0.023, "sole": 0.013, "rand": 0.004, "margin": 0.004, "flare": 0.003, "toe_room": 0.018,
+		"toe_round": 1.25, "toe_n": 2.4, "toe_low": 0.26, "collar": 0.012, "spring": 0.005, "waist": 0.009,
+		"sole_col": Color(0.09, 0.08, 0.075), "rough": 0.42, "sole_rough": 0.8, "style": 5, "spec": 0.45, "clearcoat": 0.12,
+		"shaft": {"join": 0.09, "top": 0.4, "top_k": 0.84, "pad": 0.017, "rigid": true, "lap": 0.045, "gap": 0.012,
+			"flare": 0.004}},  # pad ja gap kuten kumisaappaassa (alaosan suu jää varren sisään), kartio pienempi
+	# Sandaali (#273, Sinikka): ei kuorta. Tasainen pohjalaatta (matala 2,3 cm korotus ilman jalkaterän kallistusta) ja
+	# hihnat ihon pinnassa: varvashihna päkiän yli, nilkkahihna nilkan ympäri ja kantahihna kannan takaa. Jalka näkyy
+	# ihona (character.gdshader foot_skin), varpaankynnet lakataan varjostimessa (nail_col).
+	# sandal: toe = varvashihnan paikka päkiästä taakse (m), w = hihnan leveys, ankle = nilkkahihnan korkeus jalkapohjasta,
+	# thick = hihnan paksuus.
+	"sandaali": {"lift": 0.023, "sole": 0.021, "rand": 0.0, "margin": 0.002, "flare": 0.002, "toe_room": 0.004,
+		"toe_round": 1.0, "toe_n": 2.3, "collar": 0.0, "spring": 0.0, "sole_col": Color(0.66, 0.5, 0.33), "rough": 0.45,
+		"sole_rough": 0.75, "style": 6, "spec": 0.45, "clearcoat": 0.25,
+		"sandal": {"toe": 0.04, "w": 0.022, "ankle": 0.082, "thick": 0.0028}},
 	"paljas": {},
 }
 
@@ -90,6 +107,7 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	st.set_skin_weight_count(SurfaceTool.SKIN_4_WEIGHTS if per <= 4 else SurfaceTool.SKIN_8_WEIGHTS)  # ennen beginiä (muuten "begun"-virhe)
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var pohja := 0.0
+	_nails = PackedFloat32Array()
 	var above := PackedInt32Array()  # jalkaterän kärjet kengän suun yläpuolella (lahkeen alla; skin_outside ohittaa)
 	var varsi := Vector4.ZERO  # varren yläreuna (lepo-y, UV2), yläreuna ja jalkaosan suu (verkon y), UV2.y - y yläreunassa
 	for side: float in [1.0, -1.0]:
@@ -116,6 +134,8 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	out.set_meta("pohja", pohja)
 	out.set_meta("suu", above)
 	out.set_meta("karki", _tip_h)
+	if p.has("sandal"):
+		out.set_meta("kynnet", _nails)  # character.gd: varjostimen nails (kynsilakka)
 	out.set_meta("varsi", varsi.x)  # 0 = ei vartta; character.gdshader shoe_top (lahje varren sisään)
 	out.set_meta("varsi_v", Vector3(varsi.y, varsi.z, varsi.w))  # skin_outside ja testi
 	if p.has("shaft") and p.shaft.has("top_k"):
@@ -352,7 +372,8 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		for pr in [[a, ca], [b, cb], [c, cc]]:
 			var u: Array = uv_of.call(pr[0], part, pr[1])
 			add.call(pr[0], u[0], u[1])
-	for i in full.size() - 1:
+	var sandal: bool = p.has("sandal")
+	for i in (0 if sandal else full.size() - 1):
 		var ca: Vector2 = full[i][1]
 		var cb: Vector2 = full[i + 1][1]
 		var ctr: Vector3 = (to3.call(full[i][0], ca) + to3.call(full[i + 1][0], cb)) / 2.0
@@ -366,7 +387,7 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			o -= fwd * o.dot(fwd)
 			tri.call(a, b, c, o, 0.0, ca, ca, cb)
 			tri.call(b, d, c, o, 0.0, ca, cb, cb)
-	for end in [0, 1]:
+	for end in ([] if sandal else [0, 1]):
 		var i := 0 if end == 0 else full.size() - 1
 		var c2: Vector2 = full[i][1]
 		var tip: Vector3 = to3.call(t0 if end == 0 else t1, tip0 if end == 0 else tip1)
@@ -446,7 +467,215 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		var o := fwd * (-1.0 if end == 0 else 1.0)
 		for k in np:
 			tri.call(to3.call(prof[i][0], prof[i][2][k]), to3.call(prof[i][0], prof[i][2][(k + 1) % np]), cen, o, 1.0, c2, c2, c2)
+	if sandal:
+		_build_straps(p, pts, cand, vs, org, fwd, lat, side, tb, y_welt, ymin, _at(st_t, st_m, tb), _at(st_t, st_w, tb), to3, tri)
 	return ymin - y_bot
+
+
+## Sandaalin hihnat (osa 0, varjostin style 6). Hihna kulkee kireänä ihon päällä: poikkileikkauksen kärkien kupera
+## kuori (Geometry2D.convex_hull) on kiristetyn hihnan muoto, joten hihna ei uppoa ihoon eikä jää irti kuin koverissa
+## kohdissa (kuten oikea hihna). Ulkopinta thick verran ihon päällä, reunat suljettu ihon tasoon.
+## Varvashihna: pystyleikkaus (s, y) kohdassa tb - toe, päät pohjalaatan reunoissa. Nilkkahihna: vaakaleikkaus (t, s)
+## korkeudella ankle. Kantahihna: kannan takaa pohjasta nilkkahihnaan.
+static func _build_straps(p: Dictionary, pts: PackedVector3Array, cand: PackedInt32Array, vs: PackedVector3Array, org: Vector3,
+		fwd: Vector3, lat: Vector3, side: float, tb: float, y_welt: float, ymin: float, mid: float, hw: float, to3: Callable,
+		tri: Callable) -> void:
+	var sd: Dictionary = p.sandal
+	var w: float = sd.w
+	var thick: float = sd.thick
+	# Kupera ketju pisteiden yli: hull = suljettu monikulmio, palautetaan avoin ketju a -> b sitä kautta, jonka keskiarvo
+	# on suunnassa up korkeammalla (yläkautta), tasavälein n pisteeksi.
+	var chain := func(pts2: PackedVector2Array, a: Vector2, b: Vector2, up: Vector2, n: int) -> PackedVector2Array:
+		var all := pts2.duplicate()
+		all.append(a)
+		all.append(b)
+		var hull := Geometry2D.convex_hull(all)
+		hull.remove_at(hull.size() - 1)
+		var ia := 0
+		var ib := 0
+		for i in hull.size():
+			if hull[i].distance_to(a) < hull[ia].distance_to(a):
+				ia = i
+			if hull[i].distance_to(b) < hull[ib].distance_to(b):
+				ib = i
+		var paths := []
+		for dir: int in [1, -1]:
+			var path := PackedVector2Array()
+			var i := ia
+			while true:
+				path.append(hull[i])
+				if i == ib:
+					break
+				i = posmod(i + dir, hull.size())
+			paths.append(path)
+		var mean := func(path: PackedVector2Array) -> float:
+			var m := 0.0
+			for q in path:
+				m += q.dot(up)
+			return m / path.size()
+		var path: PackedVector2Array = paths[0] if mean.call(paths[0]) >= mean.call(paths[1]) else paths[1]
+		var total := 0.0
+		for i in path.size() - 1:
+			total += path[i].distance_to(path[i + 1])
+		var out := PackedVector2Array()
+		for k in n:
+			var d := total * k / (n - 1)
+			for i in path.size() - 1:
+				var seg := path[i].distance_to(path[i + 1])
+				if d <= seg or i == path.size() - 2:
+					out.append(path[i].lerp(path[i + 1], clampf(d / maxf(seg, 1e-6), 0.0, 1.0)))
+					break
+				d -= seg
+		return out
+	# Nauha ketjusta: ulkopinta (off = thick) kahden reunan välillä ja reunakaistat ihon tasoon. at3(q, e) = ketjun piste q
+	# reunalla e (-1 / +1) 3D:nä; ulkonormaali ketjun tasossa nrm2 -> out3(n2).
+	var band := func(ch: PackedVector2Array, closed: bool, at3: Callable, out3: Callable) -> void:
+		var n := ch.size()
+		var nrm := PackedVector2Array()
+		var cen := Vector2.ZERO
+		for q in ch:
+			cen += q / n
+		for i in n:
+			var a: Vector2 = ch[posmod(i - 1, n)] if (closed or i > 0) else ch[i]
+			var b: Vector2 = ch[(i + 1) % n] if (closed or i < n - 1) else ch[i]
+			var e := (b - a).normalized()
+			var nn := Vector2(e.y, -e.x)
+			if nn.dot(ch[i] - cen) < 0.0:
+				nn = -nn
+			nrm.append(nn)
+		for i in (n if closed else n - 1):
+			var j := (i + 1) % n
+			var o3: Vector3 = out3.call((nrm[i] + nrm[j]).normalized())
+			var a0: Vector3 = at3.call(ch[i] + nrm[i] * thick, -1.0)
+			var a1: Vector3 = at3.call(ch[i] + nrm[i] * thick, 1.0)
+			var b0: Vector3 = at3.call(ch[j] + nrm[j] * thick, -1.0)
+			var b1: Vector3 = at3.call(ch[j] + nrm[j] * thick, 1.0)
+			var z := Vector2.ZERO
+			tri.call(a0, a1, b1, o3, 0.0, z, z, z)
+			tri.call(a0, b1, b0, o3, 0.0, z, z, z)
+			for e: float in [-1.0, 1.0]:  # reunat: ulkopinnasta ihon tasoon
+				var ua: Vector3 = at3.call(ch[i] + nrm[i] * thick, e)
+				var ub: Vector3 = at3.call(ch[j] + nrm[j] * thick, e)
+				var la: Vector3 = at3.call(ch[i] - nrm[i] * 0.001, e)
+				var lb: Vector3 = at3.call(ch[j] - nrm[j] * 0.001, e)
+				var eo: Vector3 = (at3.call(ch[i], e) - at3.call(ch[i], 0.0)).normalized()
+				tri.call(ua, ub, lb, eo, 0.0, z, z, z)
+				tri.call(ua, lb, la, eo, 0.0, z, z, z)
+	# Varpaankynnet: varpaat erotetaan sivusuunnassa (k-means, 5 ryhmää) jalan etuosan kärjistä; kynsi on varpaan kärjen
+	# takana yläpinnalla. Varjostin lakkaa ne (character.gdshader nails).
+	var tmax := -INF
+	for q in pts:
+		tmax = maxf(tmax, q.x)
+	var front: Array[Vector3] = []
+	var smin := INF
+	var smax := -INF
+	for q in pts:
+		if q.x > tmax - 0.04:
+			front.append(q)
+			smin = minf(smin, q.y)
+			smax = maxf(smax, q.y)
+	var cen := PackedFloat32Array()
+	for k in 5:
+		cen.append(lerpf(smin, smax, (k + 0.5) / 5.0))
+	var grp: Array = []
+	for it in 12:
+		grp = [[], [], [], [], []]
+		for q in front:
+			var bk := 0
+			for k in 5:
+				if absf(q.y - cen[k]) < absf(q.y - cen[bk]):
+					bk = k
+			grp[bk].append(q)
+		for k in 5:
+			if not grp[k].is_empty():
+				var m := 0.0
+				for q: Vector3 in grp[k]:
+					m += q.y
+				cen[k] = m / grp[k].size()
+	for k in 5:
+		if grp[k].is_empty():
+			continue
+		var tip := -INF
+		for q: Vector3 in grp[k]:
+			tip = maxf(tip, q.x)
+		var ms := 0.0
+		var top := -INF
+		var lo := INF
+		var hi := -INF
+		var n := 0
+		for q: Vector3 in grp[k]:
+			if q.x > tip - 0.014:
+				ms += q.y
+				top = maxf(top, q.z)
+				lo = minf(lo, q.y)
+				hi = maxf(hi, q.y)
+				n += 1
+		var c3: Vector3 = to3.call(tip - 0.008, Vector2(ms / n, top))
+		_nails.append_array([c3.x, c3.y, c3.z, clampf((hi - lo) * 0.42, 0.0035, 0.008)])
+	# Varvashihna: pisteet (s, y) leikkauksessa ts ± (w/2 + 4 mm).
+	var ts: float = tb - float(sd.toe)
+	var sel := PackedVector2Array()
+	for q in pts:
+		if absf(q.x - ts) <= w / 2.0 + 0.004:
+			sel.append(Vector2(q.y, q.z))
+	if sel.size() >= 3:
+		var ch: PackedVector2Array = chain.call(sel, Vector2(mid - hw + 0.003, y_welt), Vector2(mid + hw - 0.003, y_welt), Vector2(0, 1), 18)
+		band.call(ch, false, func(q: Vector2, e: float) -> Vector3: return to3.call(ts + e * w / 2.0, q),
+			func(n2: Vector2) -> Vector3: return lat * n2.x + Vector3.UP * n2.y)
+	# Nilkkahihna: vaakaleikkaus (t, s) korkeudella ya ± (w/2 + 3 mm) jalkaterän ja säären kärjistä.
+	var ya: float = ymin + float(sd.ankle)
+	var wa: float = w * 0.8
+	var ank := PackedVector2Array()
+	var tback := INF
+	for v in cand:
+		if absf(vs[v].y - ya) <= wa / 2.0 + 0.003:
+			var d := vs[v] - org
+			ank.append(Vector2(d.dot(fwd), d.dot(lat)))
+			tback = minf(tback, d.dot(fwd))
+	if ank.size() >= 3:
+		var hull := Geometry2D.convex_hull(ank)
+		hull.remove_at(hull.size() - 1)
+		# Tasavälein 28 pistettä kehää pitkin.
+		var per := 0.0
+		for i in hull.size():
+			per += hull[i].distance_to(hull[(i + 1) % hull.size()])
+		var loop := PackedVector2Array()
+		for k in 28:
+			var d := per * k / 28.0
+			for i in hull.size():
+				var seg := hull[i].distance_to(hull[(i + 1) % hull.size()])
+				if d <= seg or i == hull.size() - 1:
+					loop.append(hull[i].lerp(hull[(i + 1) % hull.size()], clampf(d / maxf(seg, 1e-6), 0.0, 1.0)))
+					break
+				d -= seg
+		band.call(loop, true, func(q: Vector2, e: float) -> Vector3: return org + fwd * q.x + lat * q.y + Vector3.UP * (ya + e * wa / 2.0),
+			func(n2: Vector2) -> Vector3: return fwd * n2.x + lat * n2.y)
+	# Kantahihna: pystyleikkaus (t, y) kannan keskiviivalla (|s - kannan keskikohta| < 12 mm), pohjasta nilkkahihnaan.
+	var sc_h := 0.0
+	var nh := 0
+	for q in pts:
+		if q.x < tback + 0.03:
+			sc_h += q.y
+			nh += 1
+	sc_h /= maxf(nh, 1)
+	var back := PackedVector2Array()
+	for v in cand:
+		var d := vs[v] - org
+		if absf(d.dot(lat) - sc_h) < 0.012 and vs[v].y < ya + 0.004 and d.dot(fwd) < tback + 0.05:
+			back.append(Vector2(d.dot(fwd), vs[v].y))
+	if back.size() >= 3:
+		var lo_t := INF
+		for q in back:
+			lo_t = minf(lo_t, q.x)
+		var top_t := INF
+		for q in back:
+			if q.y > ya - 0.008:
+				top_t = minf(top_t, q.x)
+		if top_t == INF:
+			top_t = lo_t
+		var chb: PackedVector2Array = chain.call(back, Vector2(lo_t + 0.004, y_welt), Vector2(top_t, ya), Vector2(-1, 0), 10)
+		band.call(chb, false, func(q: Vector2, e: float) -> Vector3: return org + fwd * q.x + lat * (sc_h + e * w * 0.5) + Vector3.UP * q.y,
+			func(n2: Vector2) -> Vector3: return fwd * n2.x + Vector3.UP * n2.y)
 
 
 ## Varsi (työkenkä, kuukenkä): pystyputki säären ympärillä jalkaosan suusta (join; alin rengas on suun ääriviiva, joten

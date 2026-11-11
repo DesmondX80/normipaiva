@@ -8,7 +8,7 @@ uniform vec3 main_col : source_color = vec3(0.9);
 uniform vec3 sole_col : source_color = vec3(0.95, 0.94, 0.9);
 uniform float rough = 0.6;
 uniform float sole_rough = 0.8;
-uniform int style = 0;  // 0 lenkkari, 1 varattu nauhakengälle (myöhempi issue), 2 kävelykenkä, 3 työkenkä, 4 kumisaapas (TYPES style)
+uniform int style = 0;  // 0 lenkkari, 1 varattu nauhakengälle, 2 kävelykenkä, 3 työkenkä, 4 kumisaapas, 5 nahkasaapas, 6 sandaali (TYPES style)
 uniform float sole_h = 0.02;  // pohjalaatan paksuus kuoren alapinnasta alas (TYPES sole)
 uniform float rand_h = 0.0015;  // pohjan reunus kuoren kylkeä ylös (TYPES rand)
 uniform float spec = 0.4;
@@ -45,6 +45,13 @@ void fragment() {
 			c = mix(main_col * 0.32, sole_col * vec3(0.8, 0.78, 0.74), smoothstep(shaft_h - 0.006, shaft_h - 0.002, h));
 		} else if (fu2.y > 2.1) {
 			c = main_col * 0.32;
+		} else if (style == 5) {
+			// Nahkasaappaan varsi: sileä nahka, yläreunassa käännetty päärme tikkeineen, takana pystysauma, nilkassa rypyt.
+			c *= 0.86 + 0.14 * smoothstep(0.05, shaft_h, h);
+			c = mix(c, c * 0.6, 1.0 - smoothstep(0.003, 0.006, 0.5 - au));  // takasauma
+			c = mix(c, c * 0.78, band(h, shaft_h - 0.016, shaft_h, 0.0008));  // päärme
+			c = mix(c, c * 1.5 + 0.04, band(h, shaft_h - 0.0185, shaft_h - 0.0172, 0.0003) * step(0.5, fract(u * 150.0)));  // tikki
+			c *= 1.0 - 0.1 * band(fract((h - 0.09) * 55.0), 0.0, 0.3, 0.08) * (1.0 - smoothstep(0.09, 0.15, h));  // nilkan rypyt
 		} else if (style == 4) {
 			// Kumisaappaan varsi (jäykkä putki): kuten kuori, vaalea kaulusraita ja ura sen alla yläreunassa.
 			c *= 0.9 + 0.1 * smoothstep(0.05, shaft_h, h);
@@ -78,9 +85,9 @@ void fragment() {
 		ALBEDO = c;
 		ROUGHNESS = rough;
 		SPECULAR = spec;
-		if (style == 4) {
+		if (style >= 4) {
 			CLEARCOAT = clearcoat;
-			CLEARCOAT_ROUGHNESS = 0.2;
+			CLEARCOAT_ROUGHNESS = style == 4 ? 0.2 : 0.35;
 		}
 	} else if (fu2.y > 0.5) {
 		vec3 c = sole_col;
@@ -108,6 +115,17 @@ void fragment() {
 			c = mix(c, c * 0.45, groove);
 			c = mix(c, c * 0.6, bottom);
 			c *= 1.0 - 0.35 * bottom * step(0.5, fract(t * 26.0));
+		} else if (style == 6) {
+			// Sandaalin pohjalaatta: korkkikylki (rakeinen), ohut tumma kumi alla ja nahkainen sisäpohja päällä.
+			float grain = fract(sin(dot(floor(vec2(t * 420.0, h * 900.0)), vec2(12.9898, 78.233))) * 43758.5453);
+			c *= 0.86 + 0.22 * grain;
+			c = mix(c, vec3(0.1, 0.09, 0.08), 1.0 - smoothstep(-sole_h + 0.004, -sole_h + 0.005, h));  // kumipohja
+			c = mix(c, vec3(0.5, 0.35, 0.23), smoothstep(-0.0015, -0.0005, h));  // nahkainen sisäpohja
+		} else if (style == 5) {
+			// Nahkasaappaan pohja: ohut tumma nahkapohja, reunassa tikki, korko kerroksina.
+			c = mix(c, c * 2.2 + 0.05, band(h, rand_h - 0.0022, rand_h - 0.0012, 0.0003) * step(0.5, fract(t * 90.0)));
+			float heel = (1.0 - smoothstep(0.235, 0.245, t)) * (1.0 - smoothstep(-0.0005, 0.0005, h));
+			c = mix(c, c * (0.8 + 0.5 * step(0.5, fract(h * 330.0))), heel);
 		} else if (style == 4) {
 			// Kumisaappaan pohja: vaalea reunus ilman tikkiä (kiiltävä raita yläreunassa), kyljessä pystyurat,
 			// alapinnassa tumma nastapohja. Kermanvaalea (sole_col sellaisenaan palaa valkoiseksi kiiltävän kumin vieressä).
@@ -152,6 +170,24 @@ void fragment() {
 		SPECULAR = spec;
 		CLEARCOAT = clearcoat;
 		CLEARCOAT_ROUGHNESS = 0.15;
+	} else if (style == 6) {
+		// Sandaalin hihnat: kiiltävä nahka, reunoissa tummempi kantti.
+		ALBEDO = main_col;
+		ROUGHNESS = rough;
+		SPECULAR = spec;
+		CLEARCOAT = clearcoat;
+		CLEARCOAT_ROUGHNESS = 0.25;
+	} else if (style == 5) {
+		// Nahkasaappaan jalkaosa: sileä nahka, kärjen ja kannan saumat, tumma alareuna.
+		vec3 c = main_col;
+		c = mix(c, c * 0.62, band(t, 0.795, 0.805, 0.002) * (1.0 - smoothstep(0.045, 0.05, h)));  // kärkisauma
+		c = mix(c, c * 0.62, band(t, 0.2, 0.208, 0.002) * (1.0 - smoothstep(0.06, 0.065, h)));  // kantakappaleen sauma
+		c *= 0.78 + 0.22 * smoothstep(0.0, 0.1, h);
+		ALBEDO = c;
+		ROUGHNESS = rough;
+		SPECULAR = spec;
+		CLEARCOAT = clearcoat;
+		CLEARCOAT_ROUGHNESS = 0.35;
 	} else if (style == 4) {
 		// Kumisaapas: sileä kiiltävä kumi, vaalea kaulusraita yläreunassa (ohut tumma ura alla), kannassa tummempi
 		// vahvikeraita poikittaisin urin ja kärjessä vahvistettu kärkikumi.
