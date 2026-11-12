@@ -209,7 +209,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     tavaroita ei vielä myydä. Testi `--scene=kirppismyynti`.
   - **Hiihtohaalari:** Railin vaatetangossa keskipöydän vieressä (vakosamettitakin ja flanellipaidan välissä)
     roikkuu neonpinkki kasarin toppahaalari, 6 € (tinkiä voi). Valkoinen olkakaarroke sahalaitaisin vuorenhuipuin,
-    keltainen ja turkoosi raita, tikkauskanavat, vetoketju, mustat resorit, valkoiset lenkkarit (kuukengät myöhemmin, #279) ja raidallinen frotee-otsapanta
+    keltainen ja turkoosi raita, tikkauskanavat, vetoketju, mustat resorit, valkoiset kuukengät ja raidallinen frotee-otsapanta
     (mitoitetaan pään ja tukan mukaan). Ostettuna moraali nousee hieman, Anna-Liisa nauraa, ja haalari tulee kodin
     vaatekaappiin. Haalarissa Anna-Liisa nauraa seuraintalolla ja Päivi motkottaa kotiovella kerran päivässä.
     Testi `--scene=haalari`.
@@ -998,9 +998,18 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   nännipiha pysyy pyöreänä rinnan muotoilusta huolimatta. Näkyvät paljaalla rinnalla (sauna, bikinit ilman yläosaa,
   verkkopaidan silmukat, avoin liivi), ja kohouma erottuu myös ohuen ja tiukan kankaan läpi (bikinit, tuubitoppi;
   `nipple_cloth`). Lapsilla ja nuorilla niitä ei ole (pituus alle 1,5 m tai lookin `nipples: false`).
-- **Kengät (#272):** tuulipuvussa ja hiihtohaalarissa lenkkarit, farkuissa ja työvaatteissa työkengät (varsi nilkan yli),
-  saunassa ja uidessa paljain jaloin. Kaupan mummoilla kävelykengät, Sepolla ja Reijolla työkengät
-  (`scripts/shoes.gd`, ks. `docs/kehitys.md` Kengät). Santulla ja Hanhikiven kalastajalla vihreät kumisaappaat (#273).
+- **Kengät (#272, #274):** jokaisella hahmolla on oma kenkätyyppi (`look.shoe`; `Shoes.type_for` käyttää `shoes`-väriä vain varalla).
+  Pelaajalla tuulipuvussa lenkkarit, farkuissa ja työvaatteissa työkengät ja hiihtohaalarissa kuukengät; saunassa ja uidessa
+  paljain jaloin. **Kumisaappaat (#274):** kodin eteisessä (makuuhuoneen oven ja etuseinän välissä) ja mökin ovensuussa on
+  vihreä saapaspari; E vetää ne jalkaan ja uusi E vaihtaa omat kengät takaisin. Ne pysyvät jalassa paikasta toiseen ja tallentuvat
+  (`pelaaja/saappaat`), eikä paikka vaihda kenkiä itsestään. Toisen paikan paria ei voi ottaa, kun toinen on jalassa, ja
+  hiihtohaalari pitää aina kuukengät. **Tanssijat:** Hilkka ja Anna-Liisa kävelykengät, seuraintalon Sinikka punaiset
+  sandaalit. **Sivuhahmot:** kenkä sopii henkilöön (mummot kävelykenkä, työmiehet työkenkä, nuoret lenkkari, virkailijat ja
+  tarjoilijat nauhakenkä, naisilla osalla sandaali, kodassa ja metsäretkillä kumisaapas). Satunnaisissa joukoissa (lavan yleisö,
+  tanssiparit) kenkä arvotaan iän ja sukupuolen mukaan (`Shoes.random_type`: vanhat kävelykenkä, naisista 40 % sandaali muut lenkkari,
+  aikuisista miehistä 40 % työkenkä muut lenkkari, nuoret lenkkari), deterministisesti samasta siemenestä. Santulla ja
+  Hanhikiven kalastajalla kumisaappaat (#273). (`scripts/shoes.gd`, `scripts/kumisaappaat.gd`, ks. `docs/kehitys.md` Kengät.)
+  Testit `--scene=saappaat` ja `tools/testit/kengat.tscn`.
 - **Päivin vanha kännykkä (P soimaan / taskuun, N seuraava, U voimakkuus):** kodin makuuhuoneen yöpöydällä
   parisängyn vieressä. Soittaa vanhoja iskelmiä 78 kierroksen levyiltä (`assets/music/iskelma/`, sama lista kuin
   lavabändillä) pienestä kaiuttimesta: oma ääniväylä kaistanpäästöllä ja säröllä, joten ääni on ohut kuin taskusta.
