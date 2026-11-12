@@ -14,6 +14,13 @@ const SOLE := Color(0.93, 0.9, 0.82)  # vaalea pohja kuten shoes.gd sole_col
 const TREAD := Color(0.36, 0.3, 0.24)  # kulunut pohjan kulutuspinta
 const HEIGHT := 0.375  # varren yläreuna lattiasta
 const SOLE_H := 0.026  # pohjan paksuus (kulutuspinta 0,007 + vaalea 0,019)
+const VAMP_HEEL := 0.12  # jalkaosan kantapää (varren sisällä)
+const VAMP_TIP := -0.137  # jalkaosan kärki (pohjan kärki -0,142, reunus jää näkyviin)
+const VAMP_W := 0.049  # jalkaosan puolileveys (pohja 0,052)
+const VAMP_INSTEP_H := 0.13  # rinnan korkeus pohjan yläpinnasta varren kohdalla
+const VAMP_TOE_H := 0.05  # kärkiosan korkeus pohjan yläpinnasta
+const VAMP_SLICES := 24
+const VAMP_RING := 16
 
 
 ## Pari vierekkäin lattialla: at = parin keskikohta (y = lattian yläpinta), face = kärkien suunta (XZ). Palauttaa parin
@@ -42,13 +49,12 @@ static func _boot(b: Node3D, side: float, rubber: StandardMaterial3D) -> void:
 	_slab(b, 0.007, SOLE_H - 0.007, 0.0, SOLE)
 	# Tummempi kantaraita (rand) pohjan päällä kiertää jalkaosan alareunan.
 	_slab(b, SOLE_H, 0.016, 0.003, COLOR.darkened(0.35))
-	# Jalkaosa: matala litistetty kärki ja sen takana pullea rinta, joka nousee varteen.
-	var toe := B.mesh(b, B.capsule(0.047, 0.2), Vector3(0, SOLE_H + 0.034, -0.05), COLOR, Vector3(90, 0, 0))
-	toe.scale = Vector3(1.0, 1.0, 0.78)  # kapselin paikallinen z = maailman pysty (kierto 90° x:n ympäri)
-	toe.material_override = rubber
-	var instep := B.mesh(b, B.sphere(0.056), Vector3(0, SOLE_H + 0.05, 0.035), COLOR)
-	instep.scale = Vector3(0.92, 1.0, 1.4)
-	instep.material_override = rubber
+	# Jalkaosa: yksi umpinainen loftattu kappale kannasta kärkeen (kuten pelin kumisaappaan kuori, shoes.gd): korkea rinta
+	# varren sisällä laskee tasaisesti pitkäksi matalaksi kärjeksi, joka pyöristyy pohjan reunaan.
+	var vamp := MeshInstance3D.new()
+	vamp.mesh = _vamp_mesh()
+	vamp.material_override = rubber
+	b.add_child(vamp)
 	# Varsi: kartio kannan päältä yläreunaan, leveämpi ylhäältä (pohje).
 	var shaft_h := HEIGHT - 0.018 - SOLE_H - 0.01
 	var shaft_y0 := SOLE_H + 0.01
@@ -64,6 +70,52 @@ static func _boot(b: Node3D, side: float, rubber: StandardMaterial3D) -> void:
 	B.mesh(b, B.boxm(Vector3(0.008, 0.026, 0.014)), Vector3(sx + side * 0.002, HEIGHT - 0.045, 0.07), Color(0.72, 0.72, 0.68))
 	# Kantalappu takana yläreunassa.
 	B.mesh(b, B.boxm(Vector3(0.03, 0.045, 0.008)), Vector3(0, HEIGHT - 0.01, 0.088 + 0.066), COLOR.darkened(0.3))
+
+
+## Jalkaosan verkko (-Z = kärki): superellipsin yläkaari ja suora pohja poikkileikkauksina kannasta (z VAMP_HEEL, varren
+## sisällä) kärkeen (z VAMP_TIP). Korkeus laskee rinnasta kärkiosaan, ja kärki pyöristyy sivulta ja ylhäältä katsottuna
+## neljännesellipsinä yhteen pisteeseen pohjan tasolle; kannan pää suljetaan viuhkalla.
+static func _vamp_mesh() -> ArrayMesh:
+	var rings: Array[PackedVector3Array] = []
+	for i in VAMP_SLICES + 1:
+		var u := float(i) / VAMP_SLICES
+		var z := lerpf(VAMP_HEEL, VAMP_TIP, u)
+		var h := VAMP_TOE_H + (VAMP_INSTEP_H - VAMP_TOE_H) * smoothstep(0.72, 0.22, u)
+		var w := VAMP_W
+		if u > 0.7:  # kärjen pyöristys
+			var k := sqrt(maxf(0.0, 1.0 - pow((u - 0.7) / 0.3, 2.0)))
+			h *= lerpf(0.35, 1.0, k)  # nenä laskee pohjan reunaan, mutta ei aivan nollaan ennen kärkipistettä
+			w *= k
+		var ring := PackedVector3Array()
+		for j in VAMP_RING + 1:
+			var a := PI * float(j) / VAMP_RING  # 0 = ulkosivu +x, PI = -x
+			var c := cos(a)
+			var sn := sin(a)
+			ring.append(Vector3(w * signf(c) * pow(absf(c), 2.0 / 3.0), SOLE_H + h * pow(sn, 2.0 / 3.0), z))
+		rings.append(ring)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := VAMP_RING + 1
+	for i in VAMP_SLICES:
+		var r0 := rings[i]
+		var r1 := rings[i + 1]
+		for j in n:  # j = n - 1 -> 0 on pohjan suora reuna
+			var j1 := (j + 1) % n
+			# r1 on kärjen puolella (-Z): ulospäin osoittava normaali vastapäivään ulkoa katsottuna
+			st.add_vertex(r0[j])
+			st.add_vertex(r0[j1])
+			st.add_vertex(r1[j1])
+			st.add_vertex(r0[j])
+			st.add_vertex(r1[j1])
+			st.add_vertex(r1[j])
+	var heel := rings[0]
+	var hc := Vector3(0, SOLE_H + VAMP_INSTEP_H * 0.4, VAMP_HEEL)
+	for j in n:
+		st.add_vertex(hc)
+		st.add_vertex(heel[(j + 1) % n])
+		st.add_vertex(heel[j])
+	st.generate_normals()
+	return st.commit()
 
 
 ## Pohjan kerros: laatta ja pyöreät päät (kärki -Z, kanta +Z), alareuna y0, paksuus h, sisennys inset.

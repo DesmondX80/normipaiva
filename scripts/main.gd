@@ -26937,6 +26937,17 @@ func _maybe_screenshot() -> void:
 			_enter_home("ovi")
 			for i in 5:
 				await get_tree().process_frame
+			# Pelikameralta heti sisään tultua: esineen koko ruudulla (löydettävyys, vähintään noin 30 px).
+			var px_size := func(node: Node3D) -> Vector2:
+				var cam := get_viewport().get_camera_3d()
+				var r := Rect2(cam.unproject_position(node.global_position), Vector2.ZERO)
+				for corner in [Vector3(-0.32, 0, -0.27), Vector3(0.32, 0, -0.27), Vector3(-0.32, 0, 0.27),
+						Vector3(0.32, 0, 0.27), Vector3(-0.2, 0.375, -0.15), Vector3(0.2, 0.375, 0.15)]:
+					r = r.expand(cam.unproject_position(node.global_transform * corner))
+				return r.size
+			await snap.call("_koti_tulo.png")
+			print("SAAPPAAT koti pelikamera esine+matto %s px, pelaaja %s px" % [px_size.call(home_int._boots),
+				get_viewport().get_camera_3d().unproject_position(home_int.walker.global_position)])
 			# 1. Kotona: esine kolmesta suunnasta (-X = seinä, kärjet +X eteiseen), sitten E.
 			var bp: Vector3 = home_int._boots.global_position
 			var hx: Vector3 = home_int.global_basis.x
@@ -26983,6 +26994,8 @@ func _maybe_screenshot() -> void:
 			_enter_mokki("ovi")
 			for i in 5:
 				await get_tree().process_frame
+			await snap.call("_mokki_tulo.png")
+			print("SAAPPAAT mökki pelikamera esine %s px" % px_size.call(mokki_int._boots))
 			var mp: Vector3 = mokki_int._boots.global_position
 			var mx: Vector3 = mokki_int.global_basis.x
 			var mz: Vector3 = mokki_int.global_basis.z
