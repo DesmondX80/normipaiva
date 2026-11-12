@@ -395,7 +395,9 @@ Saunassa ja uidessa paljas: `cutscene.gd sauna_look` poistaa `shoe`- ja `shoe_ro
 paksu kyljille nouseva pohja, turkoosi nyöritys ja kiristysnyöri stopparilla (`cord_col`); pelaajan hiihtohaalari. Nauhakenkä
 (`nauhakenka`, `style` 1): oma lestimuoto, kenkä 4,5 cm jalkaa pidempi ja kärki kapenee vasta varpaiden edessä (`toe_room`,
 `toe_round`) ja madaltuu leveyttään nopeammin (`toe_flat` 1,8, esikuva oxford), ohut nahkapohja ja korko; huutokaupan
-Erkki. Työkengän nauhat ja koukut kullanruskea ja messinki (esikuva Caterpillar-turvakenkä). Nopea ajo: `kengat.tscn --e4`. Tunnettu puute: kävelykengän suun
+Erkki. Työkengän nauhat ja koukut kullanruskea ja messinki (esikuva Caterpillar-turvakenkä); varren rako suuhun
+pienempi (`gap` 0,006, `wrap` 0,003 = varren pullistuma suun alla), ettei varsi näytä erilliseltä mansetilta. Kuukengän
+jalkaosa pulleampi (`toe_h` 1,35, `margin` 0,016); nyöritys vain varressa (jalkaosan kapealla kaistaleella se hajosi). Nopea ajo: `kengat.tscn --e4`. Tunnettu puute: kävelykengän suun
 kannessa kärjen päällä näkyy kuoppa (hyväksytty #272:ssa, syy tuntematon). Kengällä vartalon jalkaterä painuu varjostimessa 6 mm kengän
 sisään (`shoe_on`, rajataso `shoe_cut`), ja `Pose.limb_points` ohittaa piilotetut kärjet ja lukee kenkäverkon, joten kontaktiprofiili
 (`profile_key` päättyy tyyppiin), jalkalaatikko ja läpimenot mittaavat kenkää. Malli nousee seistessä pohjan verran (`_lift_sole` +

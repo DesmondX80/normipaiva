@@ -194,11 +194,10 @@ void fragment() {
 		CLEARCOAT = clearcoat;
 		CLEARCOAT_ROUGHNESS = 0.15;
 	} else if (style == 7) {
-		// Kuukengän jalkaosa: toppanylon vaakatikein, nyöritys jatkuu jalan päällä.
+		// Kuukengän jalkaosa: toppanylon vaakatikein. Nyöritys on vain varressa: jalkaosasta näkyy varren edessä niin
+		// kapea kaistale, että nyöri hajosi siinä irrallisiksi paloiksi.
 		vec3 c = main_col;
 		c *= 1.0 - 0.2 * band(fract(h * 22.0), 0.0, 0.06, 0.02);
-		float lace = (1.0 - smoothstep(0.1, 0.13, abs(s))) * band(t, 0.5, 0.74, 0.01) * step(0.045, h);
-		c = mix(c, cord_col, lace * (1.0 - smoothstep(0.1, 0.25, abs(fract(t * 22.0) - 0.5))));
 		c *= 0.82 + 0.18 * smoothstep(0.0, 0.1, h);
 		ALBEDO = c;
 		ROUGHNESS = rough;

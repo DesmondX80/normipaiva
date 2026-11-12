@@ -49,7 +49,7 @@ const TYPES := {
 		"sole_col": Color(0.13, 0.12, 0.11), "rough": 0.72, "sole_rough": 0.9, "style": 3, "spec": 0.35, "clearcoat": 0.0,
 		# Varsi (#279): kumisaappaan kaksiosainen jäykkä rakenne (vanha suun ääriviivasta noussut varsi jätti portaan
 		# jalkaosan päälle). Matala nilkkavarsi säären luulla, alareuna jalkaosan suun sisällä.
-		"shaft": {"join": 0.09, "top": 0.155, "pad": 0.017, "rigid": true, "lap": 0.045, "gap": 0.012, "flare": 0.004}},
+		"shaft": {"join": 0.09, "top": 0.155, "pad": 0.017, "rigid": true, "lap": 0.045, "gap": 0.006, "wrap": 0.003, "flare": 0.004}},
 	# Kumisaapas (#273): kaksi jäykkää osaa. Alaosa = matala kuori (suu tasan join), varsi = leveä kartioputki säären
 	# luulla (rigid: painot 100 % sääreen), alareuna limittäin alaosan suun sisällä (lap = putken alareuna join:n alla).
 	# flare = putken lisäväljyys yläreunassa (kartio), pad alareunassa, top_k = yläreuna osuutena nilkasta polveen (top ohitetaan).
@@ -61,13 +61,13 @@ const TYPES := {
 	# Nauhakenkä (#279): oma lestimuoto, ei lenkkarin kuori: kenkä on 4,5 cm jalkaa pidempi (toe_room) ja kärki kapenee
 	# vasta varpaiden edessä (toe_round 1,05: kavennus ei osu varpaisiin, joten kärkeä ei levennetä takaisin; toe_n < 2 = suippo),
 	# matala kärkipiste, ohut nahkapohja ja korko (waist), matala suu, kiiltävä nahka (varjostin style 1: nauhat ja saumat).
-	"nauhakenka": {"lift": 0.023, "sole": 0.012, "rand": 0.004, "top": 0.062, "margin": 0.003, "flare": 0.003, "toe_room": 0.045,
-		"toe_round": 1.05, "toe_n": 1.9, "toe_low": 0.16, "toe_flat": 1.8, "collar": 0.012, "spring": 0.006, "waist": 0.008,
+	"nauhakenka": {"lift": 0.023, "sole": 0.012, "rand": 0.004, "top": 0.062, "margin": 0.003, "flare": 0.003, "toe_room": 0.05,
+		"toe_round": 1.25, "toe_n": 1.9, "toe_low": 0.16, "toe_flat": 2.2, "collar": 0.012, "spring": 0.006, "waist": 0.008,
 		"sole_col": Color(0.2, 0.13, 0.08), "rough": 0.3, "sole_rough": 0.7, "style": 1, "spec": 0.5, "clearcoat": 0.5},
 	# Kuukenkä (#279, esikuva Moon Boot): pullea toppavarsi puoleen sääreen, iso paksu pohja joka nousee kyljille (rand),
 	# leveä pyöreä kärki, nyöritys edessä ja kiristysnyöri stopparilla varren yläreunassa (varjostin style 7, cord_col).
-	"kuukenka": {"lift": 0.023, "sole": 0.022, "rand": 0.022, "margin": 0.012, "flare": 0.008, "toe_room": 0.02,
-		"toe_round": 1.0, "toe_n": 3.2, "toe_h": 1.15, "toe_low": 0.4, "collar": 0.012, "spring": 0.004,
+	"kuukenka": {"lift": 0.023, "sole": 0.022, "rand": 0.022, "margin": 0.016, "flare": 0.008, "toe_room": 0.02,
+		"toe_round": 1.0, "toe_n": 3.2, "toe_h": 1.35, "toe_low": 0.4, "collar": 0.012, "spring": 0.004,
 		"sole_col": Color(0.74, 0.75, 0.8), "rough": 0.5, "sole_rough": 0.8, "style": 7, "spec": 0.4, "clearcoat": 0.0,
 		"cord_col": Color(0.1, 0.72, 0.85),  # neonturkoosi nyöri (valkoinen ei erotu valkoisesta kengästä)
 		"shaft": {"join": 0.1, "top": 0.26, "top_k": 0.62, "pad": 0.03, "rigid": true, "lap": 0.05, "gap": 0.014,
@@ -862,7 +862,7 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 			rb.append(c0 + (r0p[k] - c0).normalized() * maxf(rs[k] - margin - 0.004, 0.01))
 		var rw := PackedVector2Array()  # suun levyinen rengas 15 mm suun alla: alaosan suu jää varren sisään asennoissakin
 		for k in RING:
-			rw.append(c0 + (r0p[k] - c0).normalized() * (rs[k] + 0.008))
+			rw.append(c0 + (r0p[k] - c0).normalized() * (rs[k] + float(sh.get("wrap", 0.008))))  # wrap: varren pullistuma suun alla
 		rows.push_front([yj - 0.015, c0, rw, 0])
 		rows.push_front([yb, c0, rb, 0])
 	var c1 := Vector2(ct[SHAFT_RINGS - 1], cl[SHAFT_RINGS - 1])
