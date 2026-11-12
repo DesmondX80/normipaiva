@@ -62,7 +62,7 @@ const TYPES := {
 	# vasta varpaiden edessä (toe_round 1,05: kavennus ei osu varpaisiin, joten kärkeä ei levennetä takaisin; toe_n < 2 = suippo),
 	# matala kärkipiste, ohut nahkapohja ja korko (waist), matala suu, kiiltävä nahka (varjostin style 1: nauhat ja saumat).
 	"nauhakenka": {"lift": 0.023, "sole": 0.012, "rand": 0.004, "top": 0.062, "margin": 0.003, "flare": 0.003, "toe_room": 0.045,
-		"toe_round": 1.05, "toe_n": 1.9, "toe_low": 0.16, "collar": 0.012, "spring": 0.006, "waist": 0.008,
+		"toe_round": 1.05, "toe_n": 1.9, "toe_low": 0.16, "toe_flat": 1.8, "collar": 0.012, "spring": 0.006, "waist": 0.008,
 		"sole_col": Color(0.2, 0.13, 0.08), "rough": 0.3, "sole_rough": 0.7, "style": 1, "spec": 0.5, "clearcoat": 0.5},
 	# Kuukenkä (#279, esikuva Moon Boot): pullea toppavarsi puoleen sääreen, iso paksu pohja joka nousee kyljille (rand),
 	# leveä pyöreä kärki, nyöritys edessä ja kiristysnyöri stopparilla varren yläreunassa (varjostin style 7, cord_col).
@@ -300,13 +300,15 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		_tip_h = tipc.y - y_bot  # testin profiili-rivi (kärkipisteen korkeus lattiasta)
 	# Varpaat kärkiosan sisään: kutistettu rengas vastaa ta:n rengasta kärkipisteestä 1/f-kertaisesti, joten kärjen tarve
 	# on varpaiden superellipsinormi siellä (raon kanssa). Yli 1 => ta:n renkaan leveys ja korkeus kasvavat.
+	var flat: float = p.get("toe_flat", 1.0)  # >1: kärki madaltuu leveyttään nopeammin (litteä kärki, nauhakenkä)
 	var grow := 1.0
 	for i in pts.size():
 		var q := pts[i]
 		if q.x <= ta or is_above[i] == 1:
 			continue
 		var f := maxf(_toe_f(q.x, ta, tend, toe_n), 0.05)
-		var d := tipc + (Vector2(q.y, q.z) - tipc) / f - Vector2(sc_a, yc)
+		var dq := Vector2(q.y, q.z) - tipc
+		var d := tipc + Vector2(dq.x / f, dq.y / pow(f, flat)) - Vector2(sc_a, yc)
 		var ex := (absf(d.x) + margin / f) / w_a
 		var ey := (absf(d.y) + margin / f) / (hu_a if d.y > 0.0 else B_LOW)
 		if d.y > 0.0:
@@ -325,9 +327,11 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		var t := ta + (tend - ta) * sin(PI / 2.0 * j / TOE_RINGS)
 		var f := _toe_f(t, ta, tend, toe_n)
 		var ring := PackedVector2Array()
+		var fv := pow(f, flat)
 		for q: Vector2 in ring_a:
-			ring.append(tipc + (q - tipc) * f)
-		toe.append([t, tipc + (Vector2(sc_a, yc) - tipc) * f, ring, f])
+			ring.append(tipc + Vector2((q.x - tipc.x) * f, (q.y - tipc.y) * fv))
+		var cc := Vector2(sc_a, yc) - tipc
+		toe.append([t, tipc + Vector2(cc.x * f, cc.y * fv), ring, f])
 	var tip1 := tipc
 	# Pyöristys kantaan: renkaat kutistuvat keskipisteeseen neljännesympyrän mukaan.
 	var full := []

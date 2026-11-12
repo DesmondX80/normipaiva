@@ -81,12 +81,12 @@ void fragment() {
 			c = mix(c, c * 0.62, open_);  // kieli
 			float zig = 0.06 * abs(fract(hr / row) * 2.0 - 1.0);
 			float lace = open_ * (1.0 - smoothstep(0.0035, 0.0065, abs(au - zig))) * step(-0.004, hr) * step(h, shaft_h - 0.008);
-			c = mix(c, vec3(0.16, 0.1, 0.06) * (0.8 + 0.4 * step(0.5, fract((h + u) * 260.0))), lace);
+			c = mix(c, vec3(0.6, 0.4, 0.13) * (0.75 + 0.4 * step(0.5, fract((h + u) * 260.0))), lace);  // kullanruskea nauha (Caterpillar-esikuva)
 			// Koukut ja niittiaukot nauharivien päissä.
 			float hk = (fract(hr / row + 0.5) - 0.5) * row;
 			float dk = length(vec2((au - 0.088) * 0.3, hk));
 			float hook = (1.0 - smoothstep(0.0028, 0.0034, dk)) * step(-0.004, hr) * step(h, shaft_h - 0.01);
-			c = mix(c, vec3(0.62, 0.6, 0.56) * (0.7 + 0.5 * smoothstep(0.0, 0.003, hk)), hook);
+			c = mix(c, vec3(0.78, 0.62, 0.3) * (0.7 + 0.5 * smoothstep(0.0, 0.003, hk)), hook);  // messinkikoukku
 			c = mix(c, vec3(0.05), hook * (1.0 - smoothstep(0.0012, 0.0017, dk)));
 			// Nahan reunat aukon vieressä ja tikki.
 			c = mix(c, c * 0.7, band(au, 0.078, 0.082, 0.002) * (1.0 - open_));
@@ -252,9 +252,9 @@ void fragment() {
 		c = mix(c, c * 0.62, tongue);
 		float zig = 0.17 * abs(fract((t - 0.46) * 16.0) * 2.0 - 1.0);
 		float lace = tongue * (1.0 - smoothstep(0.03, 0.06, abs(abs(s) - zig)));
-		c = mix(c, vec3(0.16, 0.1, 0.06), lace);
+		c = mix(c, vec3(0.6, 0.4, 0.13), lace);
 		float eyelet = lace_zone * (1.0 - smoothstep(0.035, 0.05, length(vec2((abs(s) - 0.29) * 0.4, (fract((t - 0.46) * 16.0) - 0.5) * 0.4))));
-		c = mix(c, vec3(0.62, 0.6, 0.56), eyelet);
+		c = mix(c, vec3(0.78, 0.62, 0.3), eyelet);
 		// Sivusauma kärkiosan ja varren välillä.
 		c = mix(c, c * 0.7, band(t, 0.4, 0.41, 0.003) * smoothstep(0.02, 0.03, h));
 		c = mix(c, vec3(0.85, 0.7, 0.4), band(t, 0.418, 0.422, 0.001) * step(0.5, fract(h * 220.0)) * smoothstep(0.02, 0.03, h) * 0.7);
