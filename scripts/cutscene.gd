@@ -721,7 +721,10 @@ func makkara(pit: Vector3, lake: Vector3, done: Callable) -> void:
 const SAUNA_LINES := ["Löyly puree korvia. Ei kiirettä mihinkään.", "Savun ja tervan tuoksu. Ihan puhdas olo.",
 	"Ei tätä kaupungissa saa.", "Hartiat rentoutuu vihdoinkin.", "Hiki virtaa selässä. Hiljaista."]
 ## Rungon kehyksessä (mokki.gd _build_savusauna): ylälaude takaseinällä, kiuas oven vieressä, kiulu alalauteella.
-const SAUNA_HERO := Vector3(0.5, 0.6, -0.75)
+## Istujan juuri on jalkojen kohdalla ja lantio 0,33 m sen takana (SIT_PELVIS), polvet n. 0,12 m edessä. Ylälauteen
+## etureuna on z = -0,375: juuri z = -0,42 vie polvet reunan yli (sääret eivät mene lauteen läpi) ja jalat alalauteen päälle.
+const SAUNA_SIT_Z := -0.42
+const SAUNA_HERO := Vector3(0.5, 0.6, SAUNA_SIT_Z)
 const SAUNA_STONES := Vector3(0.9, 1.02, 0.5)
 const SAUNA_KIULU_W := Vector3(1.15, 0.76, -0.15)
 const LADLE_LEN := 0.78
@@ -742,8 +745,8 @@ const SAUNA_SAVU := {
 		[Vector3(0.05, 1.5, 0.15), Vector3(0.15, 1.55, -0.05), Vector3(0.5, 1.55, -0.75), Vector3(0.5, 1.6, -0.75), 4.5],
 		[Vector3(-1.0, 1.4, 0.9), Vector3(-1.3, 1.45, 1.2), Vector3(0.6, 1.0, -0.2), Vector3(0.5, 1.1, -0.4), 7.0]],
 	"door": [Vector3(-0.8, 0.12, 2.1), Vector3(-0.8, 0.09, 0.95)], "stand": Vector3(-0.2, 0.09, 0.42),
-	"seat": Vector3(-0.45, 0.6, -0.75),
-	"santtu_shot": [Vector3(1.3, 1.55, -0.95), Vector3(1.2, 1.5, -0.85), Vector3(-0.7, 1.0, 1.2), Vector3(-0.2, 1.0, 0.3), 6.0],
+	"seat": Vector3(-0.45, 0.6, SAUNA_SIT_Z),
+	"santtu_shot": [Vector3(1.3, 1.55, -0.62), Vector3(1.2, 1.5, -0.52), Vector3(-0.7, 1.0, 1.2), Vector3(-0.2, 1.0, 0.3), 6.0],
 }
 ## Tynnyrisauna (mokki.gd _build_keskimmainen): rungon kehys perävaunun keskellä maan tasossa, +Z ovelle. Tynnyrin
 ## keskiviiva y 1,55, säde 1,05, päädyt z ±1,6; barrel = [säde, keskiviiva, puolipituus] rakentaa sisustan
