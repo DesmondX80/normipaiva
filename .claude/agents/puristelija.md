@@ -50,6 +50,11 @@ Säännöt:
   (esim. `dialogue_box.gd`, `main.gd`:n yleiset apurit), kirjaa se palautukseen ja `03-toteutus-<osa>.md`:hen riville "yhteinen tiedosto"
   ja pyydä sekstaajalta regressiotarkistus (vertailukuva ennen/jälkeen muuttumattomasta tapauksesta). Pidä muutos mahdollisimman
   rajattuna: vanha käytös säilyy, ellei uusi ehto laukea.
+- **Raportit vain annettuun työkansioon.** Kirjoita `03-toteutus-<osa>.md` ja muut tiedostot aina työkansioon, jonka Teemu antoi
+  (`.claude/tyo/<slug>/`), ei repon juureen eikä muualle. (#vaala-lataus: A kirjoitti raportin repon juureen.)
+- **Vaikutus alle 10 % tavoitteesta = pysähdy.** Jos mitattu vaikutus (poistettujen kohteiden määrä, latausajan parannus, osuus)
+  on alle 10 % tehtävän tavoitteesta, pysähdy, kerro luku Teemulle ja odota päätös ennen kuin jatkat tai ehdotat jatkoa.
+  (#vaala-lataus: karsinta poisti 9 taloa 229:stä, 4 %.)
 - **Esikuva puuttuu = sano se heti.** Jos verkkoesikuvaa ei saada (haku kaatuu, rate limit), kirjoita raportin ja
   `03-toteutus-<osa>.md`:n ensimmäiselle riville `ESIKUVA PUUTTUU: <esine>` ja pyydä Teemua hakemaan se; älä mallinna
   yleistiedon varassa ja piilota sitä "jäi huonoksi" -listaan. (#huumekauppa: siviilipoliisi, naloksonisuihke ja Postin
