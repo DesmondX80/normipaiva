@@ -24,7 +24,7 @@ const VALE_LOOK := {"shirt": Color(0.17, 0.2, 0.19), "pants": Color(0.16, 0.2, 0
 	"belt_col": Color(0.06, 0.05, 0.05), "shoes": Color(1.0, 1.0, 1.0), "hair": "Hair_Buzzed", "hair_color": Color(0.24, 0.18, 0.12),
 	"height": 1.84, "shoulders": 0.4, "belly": 0.1, "shine": 0.25}
 ## Aito ostaja: nuhjuinen harmaa huppari, kuluneet farkut ja likaiset tennarit, sänki.
-const AITO_LOOK := {"shirt": Color(0.42, 0.42, 0.4), "pants": Color(0.3, 0.33, 0.42), "jeans": true, "shoes": Color(0.42, 0.38, 0.33),
+const AITO_LOOK := {"shirt": Color(0.42, 0.42, 0.4), "pants": Color(0.3, 0.33, 0.42), "jeans": true, "shoes": Color(0.42, 0.38, 0.33), "shoe": "lenkkari",
 	"hair": "Hair_SimpleParted", "hair_color": Color(0.35, 0.27, 0.18), "beard": true, "height": 1.76, "bulk": -0.3, "grime": 0.25}
 
 const VIHJEET := ["Korvanappi, josta kierrejohto kauluksen alle.", "Liian uudet, hohtavan valkoiset lenkkarit.",

@@ -44,9 +44,9 @@ const TEINI_LOOK := {"shirt": Color(0.38, 0.4, 0.44), "pants": Color(0.2, 0.24, 
 	"shoes": Color(0.92, 0.92, 0.9), "hair": "Hair_Buzzed", "hair_color": Color(0.45, 0.32, 0.18), "height": 1.74,
 	"bulk": -0.65, "shoulders": -0.55}
 const ENSIHOITAJA_LOOKS := [
-	{"shirt": Color(0.72, 0.86, 0.12), "pants": Color(0.1, 0.2, 0.17), "shoes": Color(0.08, 0.08, 0.08),
+	{"shirt": Color(0.72, 0.86, 0.12), "pants": Color(0.1, 0.2, 0.17), "shoes": Color(0.08, 0.08, 0.08), "shoe": "tyokenka",
 		"hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.14), "height": 1.82},
-	{"model": "female", "shirt": Color(0.72, 0.86, 0.12), "pants": Color(0.1, 0.2, 0.17), "shoes": Color(0.08, 0.08, 0.08),
+	{"model": "female", "shirt": Color(0.72, 0.86, 0.12), "pants": Color(0.1, 0.2, 0.17), "shoes": Color(0.08, 0.08, 0.08), "shoe": "tyokenka",
 		"hair": "Hair_Long", "hair_color": Color(0.7, 0.5, 0.3), "height": 1.68},
 ]
 const AMBU_KELTA := Color(0.8, 0.9, 0.1)  # suomalainen ensihoitoyksikkö: keltavihreä, oranssi ruudutus (esikuva Commons)

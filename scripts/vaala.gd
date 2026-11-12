@@ -5226,9 +5226,9 @@ func _build_yard_teens(c: Vector2, face: Vector2) -> void:
 	var looks := [
 		{"shirt": Color(0.75, 0.75, 0.78), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buzzed",
 			"hair_color": Color(0.85, 0.75, 0.5), "height": 1.74, "bulk": -0.6, "tracksuit": {"a": Color(0.1, 0.5, 0.3), "b": Color(0.85, 0.85, 0.85)}},
-		{"model": "female", "shirt": Color(0.9, 0.85, 0.3), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.15, 0.15, 0.15), "hair": "Hair_Long",
+		{"model": "female", "shirt": Color(0.9, 0.85, 0.3), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.15, 0.15, 0.15), "shoe": "lenkkari", "hair": "Hair_Long",
 			"hair_color": Color(0.3, 0.18, 0.1), "height": 1.63, "bulk": -0.6},
-		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.3, 0.33), "shoes": Color(0.2, 0.2, 0.2), "hair": "Hair_SimpleParted",
+		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.3, 0.33), "shoes": Color(0.2, 0.2, 0.2), "shoe": "lenkkari", "hair": "Hair_SimpleParted",
 			"hair_color": Color(0.12, 0.1, 0.08), "height": 1.8, "bulk": -0.7},
 	]
 	var spots := [[Vector3(-0.9, 0, 0.3), "Idle_Talking", Vector3(1, 0, 0.2)], [Vector3(0.4, 0.42, 0.6), "Sitting_Talking", Vector3(-0.3, 0, -1)],
@@ -5282,7 +5282,7 @@ func _build_race_crew(front: Vector3, out: Vector3) -> void:
 					(n as MeshInstance3D).material_override = B.mat(Color(0.85, 0.72, 0.08))
 	var looks := [{"shirt": Color(0.1, 0.35, 0.6), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buzzed",
 		"hair_color": Color(0.7, 0.55, 0.3), "height": 1.76, "bulk": -0.6, "shoulders": -0.5, "tracksuit": {"a": Color(0.9, 0.2, 0.3), "b": Color(0.1, 0.35, 0.6)}},
-		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.2, 0.22, 0.3), "shoes": Color(0.15, 0.15, 0.15), "hair": "Hair_Long",
+		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.2, 0.22, 0.3), "shoes": Color(0.15, 0.15, 0.15), "shoe": "lenkkari", "hair": "Hair_Long",
 		"hair_color": Color(0.2, 0.15, 0.1), "height": 1.8, "bulk": -0.7}]
 	for k in 2:
 		var ch := Looks.make(self, looks[k])
