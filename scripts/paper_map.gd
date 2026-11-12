@@ -874,9 +874,11 @@ func _vaala_trip() -> bool:
 ## paikallisesta kehyksestä osoitepisteen kehykseen.
 func _vaala_me() -> Array:
 	if _vaala_trip():
-		var m: Node3D = mopo_trip.mopo
-		var f := -m.global_transform.basis.z
-		return [Vector2(m.position.x, m.position.z), atan2(f.z, f.x) + PI / 2.0]
+		# Jalan (mopo parkissa) merkki on kävelijän paikalla: kolmiomittauksen ympyrät mitataan kävelijästä (main.gd _kolmio_me).
+		var m: Node3D = mopo_trip.on_foot if is_instance_valid(mopo_trip.on_foot) else mopo_trip.mopo
+		var lp: Vector3 = mopo_trip.vaala.to_local(m.global_position)
+		var f: Vector3 = mopo_trip.vaala.global_transform.basis.inverse() * (-m.global_transform.basis.z)
+		return [Vector2(lp.x, lp.z), atan2(f.z, f.x) + PI / 2.0]
 	if mokki != null and player != null:
 		var lp: Vector3 = mokki.to_local(player.global_position)
 		var f := -player.global_transform.basis.z

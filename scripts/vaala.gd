@@ -37,6 +37,7 @@ enum { FOREST, FIELD, BOG, WATER, YARD, SHOULDER, ROAD, RAIL }
 const OUTSIDE := 255
 ## Siitarin rakennukset (OSM): ravintola Vaalantie 12 ja hotellisiipi.
 const SIITARI_ID := 225699578
+const VETURITALLI_ID := 692940281  # OSM:n "Vanha veturitalli": Veturitalli (elokuvapäivät) rakennetaan sen paikalle
 const HOTEL_ID := 225699572
 ## Pinnat ajettaessa: nopeuskerroin ja töyssyt.
 const SURF := {
@@ -690,7 +691,7 @@ func ensure_built() -> void:
 	var times: Array[String] = []
 	for step: Callable in [_plan_north, _build_terrain, _build_far, _build_road, _build_bridges, _build_side_roads,
 			_build_underpass, _tori_prep, _build_buildings, _build_parkings, _build_tori, _build_kunnantalo, _build_kirkko, _build_apteekki, _build_station, _build_poliisi, _build_signs,
-			_build_trees, _build_lamps, _build_atm, _build_kmarket_yard, _build_lava, _build_satama, _build_uitto, _build_lava_pier, _build_mokki_yard, _build_north, _build_salminen_trees, _build_drive_mask,
+			_build_trees, _build_lamps, _build_street_details, _build_atm, _build_kmarket_yard, _build_lava, _build_satama, _build_uitto, _build_lava_pier, _build_mokki_yard, _build_north, _build_salminen_trees, _build_drive_mask,
 			_build_lava_grounds, _merge_static_meshes]:
 		var ts := Time.get_ticks_msec()
 		step.call()
@@ -3201,6 +3202,8 @@ func _build_buildings() -> void:
 			continue
 		if id == station_id:
 			continue  # asemarakennus omalla mallillaan (_build_station)
+		if id == VETURITALLI_ID:
+			continue  # Veturitalli omalla mallillaan (_build_veturitalli)
 		if bd.kind == "shed" and _on_side_road(pts, path_grid):
 			continue  # OSM:n vaja polun tai pihatien päällä (kartat eivät täsmää): tie jää ajettavaksi
 
@@ -3357,6 +3360,8 @@ func _build_buildings() -> void:
 				Vector2(1.25, 1.2) if not flat else Vector2(1.5, 1.3))
 			if type == "apartments":
 				_balcony_rows(pts, base + 0.3, levels, obb)
+			if flat and area > 120.0 and not id in [HOTEL_ID, GASTHAUS_ID] and not church and not station and type != "roof":
+				_flat_details(pts, base + 0.3, top, obb, door, hsh)
 		_bld_polys.append(pts)
 		if area > 0.96 * obb.size.x * obb.size.y:  # suorakaide: yksi laatikko (muuten laatikko ulottuisi pohjan yli)
 			var cs := B.box_shape(Vector3(obb.size.x, wall_h + 2.0, obb.size.y), Vector3.ZERO)
@@ -3376,7 +3381,7 @@ func _build_buildings() -> void:
 		if id == GASTHAUS_ID:
 			_gasthaus_front(obb, base, top)
 		if id == HOTEL_ID:
-			# Hotellin ovi pysäköinnin puoleisessa päädyssä kuten ravintolan: vastaanotto ja huone 12, jossa Dingo
+			# Hotellin ovi pysäköinnin puoleisessa päädyssä (+ax) kuten ravintolan: vastaanotto ja huone 12, jossa Dingo
 			# riehuu (main.gd "hotelli"). Kyltit _hotel_signs.
 			var hd := _hotel_door_q(obb, base + 0.3, false)
 			var hout := (hd - (obb.center as Vector2)).normalized()
@@ -3889,11 +3894,11 @@ func _siitari_obb() -> Dictionary:
 	return _siitari_obb_cache
 
 
-## Hotellin ovi ravintolan vastakkaiseen (-ax) päätyyn: sisällä (siitari_interior.gd) vastaanotto ja ulko-ovi ovat
-## vasemmassa päädyssä, ja ulkoa tiehen päin katsoen -ax on vasen (ravintolan ovi on +ax-päädyssä, oikealla).
+## Hotellin ovi samaan päätyyn (+ax) kuin ravintolan ovi: sisällä (siitari_interior.gd) vastaanotto ja ulko-ovi ovat
+## samassa päädyssä kuin baarin ulko-ovi, ja ulkoa tiehen päin katsoen +ax on oikea.
 func _hotel_door_q(obb: Dictionary, y0: float, mesh := true) -> Vector2:
 	var ax: Vector2 = obb.ax
-	var side := -ax if ax.dot(_siitari_obb().ax) > 0.0 else ax
+	var side := ax if ax.dot(_siitari_obb().ax) > 0.0 else -ax
 	var q: Vector2 = (obb.center as Vector2) + side * ((obb.size as Vector2).x / 2.0 + 0.05)
 	if mesh:
 		var y := h(q.x, q.y) + 0.1
@@ -4094,7 +4099,7 @@ func _build_station() -> void:
 	var dout := Vector3(st.out[0], 0, st.out[1])
 	station_door = Vector3(dp.x, h(dp.x, dp.y), dp.y) + dout * 2.2
 	doors.append({"id": "asema", "pos": station_door, "out": dout, "hint": "asemalle (odotussali)"})
-	_build_veturitalli(c, along, -back, L, D)
+	_build_veturitalli()
 	station_back = root.transform * (sdoors.plat_door as Vector3)
 	# Laituri: betonilaatta reunaviivoineen, penkit ja valaisimet.
 	var ppts := PackedVector2Array()
@@ -5506,7 +5511,7 @@ func _route_build() -> void:
 	for br in data.branches:
 		_route_line(br.pts, 0, 2)
 	for r in data.side_roads:
-		_route_line(r.pts, 0, 1)
+		_route_line(r.pts, 0, 1, false, r.has("_kadut"))  # Katjan asuinalueen kadut (vaala_kadut.py) ovat ydinreittiä: talot säilyvät
 	for poly in data.parkings:
 		_route_line(poly, 0, 1, true)
 	var ks: Dictionary = data.get("keskusta", {})
@@ -5703,6 +5708,65 @@ func _flat_roof(pts: PackedVector2Array, y: float, col: Color) -> void:
 	_roofs.set_color(Color(col.r, col.g, col.b, FELT_ROOF))
 	for ix in tris:
 		_roofs.add_vertex(Vector3(pts[ix].x, y, pts[ix].y))
+
+
+## Tasakattoisen ison talon (kauppa, halli, kerrostalo) yksityiskohdat, ettei se ole yksivärinen laatikko: värillinen
+## otsapelti räystäällä, tumma sokkeli, syöksytorvet, sisäänkäynnin katos portaineen ja pylväineen sekä katolla
+## ilmanvaihtokoneet ja hormit. Kaikki pohjan reunoista ja ovesta laskettuna, joten sopii siipi- ja L-pohjiin.
+func _flat_details(pts: PackedVector2Array, y0: float, top: float, obb: Dictionary, door: Vector2, hsh: int) -> void:
+	var bands := [Color(0.16, 0.34, 0.3), Color(0.55, 0.14, 0.12), Color(0.2, 0.3, 0.5), Color(0.34, 0.34, 0.37)]
+	var band: Color = bands[(hsh / 11) % bands.size()]
+	var plinth := Color(0.36, 0.36, 0.38)
+	for i in pts.size():
+		var a := pts[i]
+		var b := pts[(i + 1) % pts.size()]
+		var d := b - a
+		var len := d.length()
+		if len < 1.0:
+			continue
+		d /= len
+		var n := d.orthogonal()
+		var m := (a + b) / 2.0
+		if Geometry2D.is_point_in_polygon(m + n * 0.3, pts):
+			n = -n
+		var yaw := rad_to_deg(atan2(-d.y, d.x))
+		var mq := m + n * 0.12
+		B.mesh(self, B.boxm(Vector3(len, 0.55, 0.1)), Vector3(mq.x, top - 0.15, mq.y), band, Vector3(0, yaw, 0))  # otsapelti
+		B.mesh(self, B.boxm(Vector3(len, 0.55, 0.1)), Vector3(mq.x, y0 + 0.2, mq.y), plinth, Vector3(0, yaw, 0))  # sokkeli
+	if pts.size() <= 10:
+		for q in pts:  # syöksytorvet kulmiin
+			var dir := ((obb.center as Vector2) - q).normalized()
+			var pq := q + dir * 0.1
+			B.mesh(self, B.cyl(0.05, 0.05, top - y0 - 0.2, 8), Vector3(pq.x, (top + y0) / 2.0 - 0.1, pq.y), Color(0.55, 0.56, 0.58))
+	# Sisäänkäynti: katos, pylväät ja portaat oven eteen (ulos = pohjan pitkän sivun normaali oven puolelle).
+	var ay: Vector2 = obb.ay
+	var out := ay if ay.dot(door - (obb.center as Vector2)) > 0.0 else -ay
+	var yaw_o := rad_to_deg(atan2(out.x, out.y))
+	var cq := door + out * 1.0
+	B.mesh(self, B.boxm(Vector3(3.6, 0.18, 2.0)), Vector3(cq.x, y0 + 3.0, cq.y), band, Vector3(0, yaw_o, 0))
+	var sd := Vector2(-out.y, out.x)
+	for sx: float in [-1.5, 1.5]:
+		var pp := door + out * 1.85 + sd * sx
+		B.mesh(self, B.cyl(0.06, 0.06, 3.0, 8), Vector3(pp.x, y0 + 1.5, pp.y), Color(0.85, 0.85, 0.82))
+	var st := door + out * 0.9
+	B.mesh(self, B.boxm(Vector3(3.2, 0.16, 1.5)), Vector3(st.x, y0 + 0.02, st.y), Color(0.55, 0.54, 0.52), Vector3(0, yaw_o, 0))
+	# Katolla ilmanvaihtokoneita ja hormeja pohjan sisällä.
+	var ax: Vector2 = obb.ax
+	var sz: Vector2 = obb.size
+	var k := 0
+	for off: Vector2 in [Vector2(-0.28, 0.1), Vector2(0.05, -0.15), Vector2(0.3, 0.12), Vector2(-0.05, 0.2)]:
+		var rq: Vector2 = obb.center + ax * sz.x * off.x + ay * sz.y * off.y
+		if not Geometry2D.is_point_in_polygon(rq, pts) or not Geometry2D.is_point_in_polygon(rq + ax * 1.4, pts) \
+				or not Geometry2D.is_point_in_polygon(rq - ax * 1.4, pts):
+			continue
+		var ryaw := rad_to_deg(-obb.angle)
+		if k % 2 == 0:
+			B.mesh(self, B.boxm(Vector3(2.4, 1.1, 1.3)), Vector3(rq.x, top + 0.55, rq.y), Color(0.7, 0.71, 0.72), Vector3(0, ryaw, 0))
+			B.mesh(self, B.boxm(Vector3(2.5, 0.1, 1.4)), Vector3(rq.x, top + 1.15, rq.y), Color(0.45, 0.46, 0.48), Vector3(0, ryaw, 0))
+		else:
+			B.mesh(self, B.cyl(0.3, 0.3, 1.6, 10), Vector3(rq.x, top + 0.8, rq.y), Color(0.5, 0.5, 0.52))
+			B.mesh(self, B.cyl(0.45, 0.3, 0.2, 10), Vector3(rq.x, top + 1.7, rq.y), Color(0.35, 0.35, 0.37))
+		k += 1
 
 
 ## Tasakaton räystäskaide (0,5 m) seinän materiaalilla.
@@ -6152,6 +6216,73 @@ func _build_lamps() -> void:
 		var head: Vector3 = at + Vector3(0, 7.4, 0) + right * 1.2
 		B.tube(self, at + Vector3(0, 7.4, 0), head, 0.05, Color(0.5, 0.52, 0.55))
 		B.mesh(self, B.boxm(Vector3(0.6, 0.12, 0.3)), head, Color(0.85, 0.85, 0.8))
+
+
+## Katujen ja asuintalojen lähikuva: katuvalot ja kadunnimikyltit asfalttikaduille (street 1), ja jokaiselle ovelle
+## sorapolku lähimmälle tielle ja postilaatikko tien reunaan (ovi katsoo tielle päin, _fill_house). Pelkkää koristetta:
+## ei törmäyksiä, ja polku jää pois, jos se osuisi rakennukseen, tiehen tai veteen.
+const STREET_LAMP_GAP := 36.0
+const PATH_MAX := 30.0
+func _build_street_details() -> void:
+	var metal := Color(0.5, 0.52, 0.55)
+	for r in data.side_roads:
+		if int(r.get("street", 0)) != 1 or r.pts.size() < 2:
+			continue
+		var carry := STREET_LAMP_GAP / 2.0
+		var side := 1.0
+		for k in r.pts.size() - 1:
+			var a := Vector2(r.pts[k][0], r.pts[k][1])
+			var b := Vector2(r.pts[k + 1][0], r.pts[k + 1][1])
+			var d := (b - a).normalized()
+			var right := Vector2(-d.y, d.x)
+			var t := carry
+			while t < a.distance_to(b):
+				var q := a + d * t + right * side * (STREET_HALF + 1.6)
+				if not _in_building(q, 2.0) and not wet(q.x, q.y, 1.0) and code_at(q.x, q.y) != ROAD:
+					var at := Vector3(q.x, h(q.x, q.y), q.y)
+					B.mesh(self, B.cyl(0.06, 0.09, 6.0, 8), at + Vector3(0, 3.0, 0), metal)
+					var head := at + Vector3(0, 5.95, 0) - Vector3(right.x, 0, right.y) * side * 1.1
+					B.tube(self, at + Vector3(0, 5.95, 0), head, 0.045, metal)
+					B.mesh(self, B.boxm(Vector3(0.55, 0.1, 0.28)), head, Color(0.85, 0.85, 0.8), Vector3(0, rad_to_deg(atan2(-d.y, d.x)), 0))
+					side = -side
+				t += STREET_LAMP_GAP
+			carry = t - a.distance_to(b)
+		if r.has("_kadut"):  # nimikyltti kadun alkuun, tien oikealle puolelle
+			var a0 := Vector2(r.pts[0][0], r.pts[0][1])
+			var d0 := (Vector2(r.pts[1][0], r.pts[1][1]) - a0).normalized()
+			var q0 := a0 - d0 * 1.0 + Vector2(-d0.y, d0.x) * (STREET_HALF + 1.4)
+			if not _in_building(q0, 1.5):
+				B.street_sign(self, Vector3(q0.x, h(q0.x, q0.y), q0.y), String(r.name), atan2(-d0.y, d0.x) + PI / 2.0)
+	var grid := _side_road_grid()
+	var path_col := Color(0.62, 0.56, 0.45)
+	var box_cols := [Color(0.75, 0.15, 0.12), Color(0.15, 0.3, 0.6), Color(0.2, 0.2, 0.22), Color(0.85, 0.8, 0.7)]
+	for hd: Dictionary in house_doors:
+		var dp := Vector2(hd.pos.x, hd.pos.z)
+		var out := Vector2((hd.out as Vector3).x, (hd.out as Vector3).z)
+		var rd := _fill_road(dp, grid)
+		var gap: float = rd[1]
+		var dir: Vector2 = rd[0]
+		if dir == Vector2.ZERO or gap < 2.0 or gap > PATH_MAX or dir.dot(out) < 0.5:
+			continue
+		var n := int(gap / 2.0)
+		var ok := true
+		for i in n + 1:
+			var q := dp + out * (0.3 + float(i) * (gap - 0.8) / maxf(float(n), 1.0))
+			if _in_building(q, 0.3) or wet(q.x, q.y, 0.3) or code_at(q.x, q.y) in [ROAD, SHOULDER]:
+				ok = false
+				break
+		if not ok:
+			continue
+		for i in n:
+			var q := dp + out * (0.3 + (float(i) + 0.5) * (gap - 0.8) / float(n))
+			var seg := B.mesh(self, B.boxm(Vector3(1.3, 0.05, (gap - 0.8) / float(n) + 0.05)), Vector3(q.x, h(q.x, q.y) + 0.02, q.y), path_col)
+			seg.rotation.y = atan2(out.x, out.y)
+		var m := dp + out * (gap - 0.4) + Vector2(-out.y, out.x) * 1.5  # postilaatikko tien reunaan polun viereen
+		if not _in_building(m, 0.5) and not wet(m.x, m.y, 0.3) and code_at(m.x, m.y) != ROAD:
+			var mp := Vector3(m.x, h(m.x, m.y), m.y)
+			B.mesh(self, B.boxm(Vector3(0.07, 1.0, 0.07)), mp + Vector3(0, 0.5, 0), Color(0.4, 0.28, 0.16))
+			var mb := B.mesh(self, B.boxm(Vector3(0.22, 0.2, 0.42)), mp + Vector3(0, 1.08, 0), box_cols[absi(int(hd.id)) % box_cols.size()])
+			mb.rotation.y = atan2(out.x, out.y)
 
 
 # --- Neittävän järviseutu mopolla: Ranta-Rosvo, Salminen ja Keskimmäisen laavu ----------------------------------
@@ -6714,36 +6845,113 @@ func _build_mokki_yard() -> void:
 
 
 
-## Vaalan Veturitalli (#250 P14): punatiilinen vaja aseman päädyssä tien puolella. Paikallinen +Z = vajan etupuoli (tielle),
-## ovi etuseinässä. Harjakaton molemmat lappeet lasketaan samasta kaltevuudesta. Valentin Vaala -päivinä ovella banderolli.
-func _build_veturitalli(station_c: Vector2, along: Vector2, out2: Vector2, L: float, D: float) -> void:
-	# Ulos asti 6 m lisää: viereisen rakennuksen (n. 7 m syvä, tiedossa -3,3 m asti vajan keskeltä) ja räystään taakse jää tilaa.
-	var q := station_c + along.normalized() * (L / 2.0 + 11.0) + out2 * (D / 2.0 + 8.0)
+## Vaalan Veturitalli (#250 P14): punatiilinen vaja OSM:n "Vanhan veturitallin" (VETURITALLI_ID) paikalla radan ja
+## Satamantien välisellä aukiolla, kaukana makasiinista. Paikallinen +Z = vajan etupuoli (lähimmälle tielle), ovi
+## etuseinässä. Harjakaton molemmat lappeet lasketaan samasta kaltevuudesta. Valentin Vaala -päivinä ovella banderolli.
+func _build_veturitalli() -> void:
+	var old := PackedVector2Array()
+	for bd in data.buildings:
+		if int(bd.id) == VETURITALLI_ID:
+			for pt in bd.pts:
+				old.append(Vector2(pt[0], pt[1]))
+	if old.size() < 3:
+		push_warning("Vaalan veturitallin pohjaa (VETURITALLI_ID) ei löydy")
+		return
+	var ob := _obb(old)
+	var q: Vector2 = ob.center
+	# Etupuoli: pohjan pitkän sivun normaali (ay) siihen suuntaan, jossa lähin tie on (pääsy ovelle).
+	var nearest_road := Vector2.INF
+	var best := INF
+	for r in road:
+		var rp := Vector2(r[0], r[2])
+		if rp.distance_to(q) < best:
+			best = rp.distance_to(q)
+			nearest_road = rp
+	for sr in data.side_roads:
+		if sr.kind != "road":
+			continue
+		for pt in sr.pts:
+			var rp := Vector2(pt[0], pt[1])
+			if rp.distance_to(q) < best:
+				best = rp.distance_to(q)
+				nearest_road = rp
+	var out2: Vector2 = ob.ay
+	if out2.dot(nearest_road - q) < 0.0:
+		out2 = -out2
 	var yaw := atan2(out2.x, out2.y)
+	var W := minf(20.0, (ob.size as Vector2).x)
+	var Dp := minf(9.0, (ob.size as Vector2).y)
 	var root := Node3D.new()
-	root.position = Vector3(q.x, h(q.x, q.y), q.y)
+	var base := INF  # perustus alimman kulman mukaan, jottei rinteen puolella vaja leiju
+	for k: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		var cp := q + (ob.ax as Vector2) * k.x * W / 2.0 + (ob.ay as Vector2) * k.y * Dp / 2.0
+		base = minf(base, h(cp.x, cp.y))
+	root.position = Vector3(q.x, base, q.y)
 	root.rotation.y = yaw
 	add_child(root)
-	var W := 12.0
-	var Dp := 8.0
 	var wall := 4.8
 	var brick := Color(0.55, 0.22, 0.16)
+	var brick_mat := B.shader_mat("res://shaders/bricks.gdshader", {"brick": Color(0.5, 0.2, 0.14), "mortar": Color(0.74, 0.71, 0.66)})
+	var roof_mat := B.shader_mat("res://shaders/metal_roof.gdshader", {"color": Color(0.2, 0.2, 0.22)})
+	var trim := Color(0.9, 0.87, 0.78)
+	var stone := Color(0.5, 0.49, 0.46)
 	var body := B.box(root, Vector3(W, wall, Dp), Vector3(0, wall / 2.0, 0), brick)
 	body.name = "Veturitalli"
-	# Katto: kaltevuus a, lappeen pituus hw / cos(a); +Z-lappeen ja -Z-lappeen kallistus samasta a:sta.
+	(body.get_child(1) as MeshInstance3D).material_override = brick_mat  # tiilipinta (lapsina 0 = törmäysmuoto, 1 = verkko)
+	B.mesh(root, B.boxm(Vector3(W + 0.3, 0.7, Dp + 0.3)), Vector3(0, 0.35, 0), stone)  # graniittisokkeli
 	var a := deg_to_rad(24.0)
 	var hw := Dp / 2.0 + 0.6
 	var slope := hw / cos(a)
-	for s in [1.0, -1.0]:
-		var r := B.mesh(root, B.boxm(Vector3(W + 1.0, 0.18, slope)), Vector3(0, wall + hw * tan(a) / 2.0 + 0.05, s * hw / 2.0),
-			Color(0.2, 0.2, 0.22))
-		r.rotation.x = a * s
-	# Suuri vetoovi etuseinässä (kaksi lehteä) ja ovi-ikkunat.
+	for s2 in [1.0, -1.0]:
+		var r := B.mesh(root, B.boxm(Vector3(W + 1.0, 0.18, slope)), Vector3(0, wall + hw * tan(a) / 2.0 + 0.05, s2 * hw / 2.0), Color(0.2, 0.2, 0.22))
+		r.material_override = roof_mat
+		r.rotation.x = a * s2
+		B.mesh(root, B.boxm(Vector3(W + 1.0, 0.1, 0.12)), Vector3(0, wall + hw * tan(a) * 0.0 + 0.0, s2 * (Dp / 2.0 + 0.55)) + Vector3(0, 0.0, 0), Color(0.82, 0.8, 0.74))  # otsalauta/ränni
+	# Pääty kolmiot (tiiltä) ja harjan tuuletuskupu.
+	for sx in [-1.0, 1.0]:
+		var gable := B.mesh(root, PrismMesh.new(), Vector3(sx * (W / 2.0 - 0.1), wall + hw * tan(a) / 2.0, 0), brick)
+		gable.scale = Vector3(Dp + 1.2, hw * tan(a), 0.2)
+		gable.rotation.y = PI / 2.0
+		gable.material_override = brick_mat
+	B.mesh(root, B.boxm(Vector3(2.4, 0.5, 0.9)), Vector3(0, wall + hw * tan(a) + 0.3, 0), Color(0.3, 0.3, 0.32))  # harjan tuuletin
+	B.mesh(root, B.boxm(Vector3(2.7, 0.12, 1.2)), Vector3(0, wall + hw * tan(a) + 0.6, 0), Color(0.2, 0.2, 0.22))
+	# Nurkkalaudat ja pilasterit (vaalea rappaus) sekä räystäslista.
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			B.mesh(root, B.boxm(Vector3(0.35, wall, 0.35)), Vector3(sx * (W / 2.0 - 0.1), wall / 2.0 + 0.3, sz * (Dp / 2.0 - 0.1)), trim)
+	for px in [-W / 4.0, W / 4.0]:
+		B.mesh(root, B.boxm(Vector3(0.3, wall - 0.4, 0.12)), Vector3(px, wall / 2.0 + 0.3, Dp / 2.0 + 0.04), trim)
+	B.mesh(root, B.boxm(Vector3(W + 0.1, 0.25, Dp + 0.1)), Vector3(0, wall - 0.12, 0), trim)
+	# Suuri vetoovi etuseinässä: kaksi puista liukulehteä, X-ristikot, ripustuskisko ja saranapellit; kehys valkoinen.
 	var front := Dp / 2.0 + 0.04
-	B.mesh(root, B.boxm(Vector3(3.6, 3.2, 0.08)), Vector3(0, 1.6, front), Color(0.28, 0.2, 0.14))
-	B.mesh(root, B.boxm(Vector3(0.1, 3.2, 0.1)), Vector3(0, 1.6, front + 0.05), Color(0.12, 0.1, 0.08))
-	for sx in [-4.2, 4.2]:
-		B.mesh(root, B.boxm(Vector3(1.5, 1.1, 0.08)), Vector3(sx, 2.2, front), Color(0.85, 0.8, 0.55))
+	B.mesh(root, B.boxm(Vector3(4.4, 3.8, 0.1)), Vector3(0, 1.9, front - 0.02), trim)  # ovikehys
+	for dxs in [-1.0, 1.0]:
+		B.mesh(root, B.boxm(Vector3(1.95, 3.5, 0.1)), Vector3(dxs * 1.0, 1.75, front + 0.04), Color(0.26, 0.2, 0.15))
+		for brace in [-1.0, 1.0]:
+			var br := B.mesh(root, B.boxm(Vector3(0.12, 3.9, 0.06)), Vector3(dxs * 1.0, 1.75, front + 0.1), Color(0.34, 0.26, 0.18))
+			br.rotation.z = brace * 0.5
+		for hy in [0.7, 2.8]:
+			B.mesh(root, B.boxm(Vector3(1.9, 0.12, 0.05)), Vector3(dxs * 1.0, hy, front + 0.11), Color(0.1, 0.1, 0.11))  # saranapelti
+	B.mesh(root, B.boxm(Vector3(4.6, 0.12, 0.12)), Vector3(0, 3.7, front + 0.12), Color(0.12, 0.12, 0.13))  # ripustuskisko
+	B.mesh(root, B.boxm(Vector3(0.08, 3.5, 0.08)), Vector3(0, 1.75, front + 0.1), Color(0.12, 0.1, 0.08))
+	B.mesh(root, B.boxm(Vector3(4.6, 0.12, 1.4)), Vector3(0, 0.05, front + 0.7), stone)  # kynnyksen kivilaatta
+	# Ikkunat: valkoiset karmit, ristikko, kivinen ikkunalauta ja pienet ruudut.
+	for sx in [-4.2, 4.2, -7.6, 7.6]:
+		if absf(sx) < W / 2.0 - 1.2:
+			B.mesh(root, B.boxm(Vector3(1.7, 1.3, 0.08)), Vector3(sx, 2.3, front - 0.01), trim)
+			B.mesh(root, B.boxm(Vector3(1.4, 1.0, 0.09)), Vector3(sx, 2.3, front + 0.01), Color(0.16, 0.2, 0.26))
+			B.mesh(root, B.boxm(Vector3(0.06, 1.0, 0.1)), Vector3(sx, 2.3, front + 0.03), trim)
+			B.mesh(root, B.boxm(Vector3(1.4, 0.06, 0.1)), Vector3(sx, 2.3, front + 0.03), trim)
+			B.mesh(root, B.boxm(Vector3(1.9, 0.12, 0.3)), Vector3(sx, 1.58, front + 0.1), stone)
+	# Seinälamppu oven yllä ja pari laatikkoa ja tynnyri oven vieressä; radan pätkä oven edessä (veturitalli).
+	B.mesh(root, B.boxm(Vector3(0.3, 0.25, 0.3)), Vector3(2.9, 3.4, front + 0.2), Color(0.95, 0.9, 0.6))
+	B.mesh(root, B.boxm(Vector3(1.0, 0.8, 0.8)), Vector3(-3.6, 0.4, front + 0.8), Color(0.45, 0.32, 0.2))
+	B.mesh(root, B.boxm(Vector3(0.9, 0.6, 0.7)), Vector3(-3.5, 1.1, front + 0.8), Color(0.5, 0.36, 0.22))
+	B.mesh(root, B.cyl(0.35, 0.35, 0.95, 12), Vector3(-4.8, 0.48, front + 0.9), Color(0.25, 0.3, 0.36))
+	for rx in [-0.72, 0.72]:
+		B.mesh(root, B.boxm(Vector3(0.1, 0.12, 6.0)), Vector3(rx, 0.1, front + 3.6), Color(0.35, 0.33, 0.32))  # kiskot
+	for k in 7:
+		B.mesh(root, B.boxm(Vector3(2.0, 0.1, 0.22)), Vector3(0, 0.04, front + 1.0 + k * 0.85), Color(0.3, 0.2, 0.12))  # pölkyt
 	var plate := B.sign_plate(root, "VAALAN VETURITALLI", Color(0.16, 0.12, 0.1), Color(0.97, 0.9, 0.7), 1.1, 150,
 		Color(0.8, 0.65, 0.3), "Georgia")
 	plate.position = Vector3(0, wall - 0.65, front + 0.1)

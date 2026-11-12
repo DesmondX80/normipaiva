@@ -45,12 +45,12 @@ var spots := {
 	"hedelmapeli": [Vector3(1.4, 0, -4.2), "[E] Pelaa hedelmäpeliä (1 €)"],
 	"kortit": [Vector3(3.6, 0, -1.2), "[E] Katso korttipeliä"],
 	"jukeboksi": [Vector3(4.4, 0, -4.2), "[E] Jukeboksi: toivo biisi (50 snt)"],
-	"hotelli_ovi": [HOTEL + Vector3(-8.2, 0, 0.6), "[E] Ulos ja mopolla takaisin Paapeliin"],
-	"vastaanotto": [HOTEL + Vector3(-5.6, 0, -2.4), "[E] Vastaanoton tiski"],
-	"dingo": [HOTEL + Vector3(4.2, 0, 1.6), "[E] Huone 12: Dingo"],
+	"hotelli_ovi": [HOTEL + Vector3(8.2, 0, 3.4), "[E] Ulos ja mopolla takaisin Paapeliin"],
+	"vastaanotto": [HOTEL + Vector3(5.6, 0, -2.4), "[E] Vastaanoton tiski"],
+	"dingo": [HOTEL + Vector3(-4.2, 0, 1.6), "[E] Huone 12: Dingo"],
 }
 ## Hotellin puoli: alueen keskipiste taskussa ja puolikoko. Väliseinä x = HOTEL_WALL_X (oviaukko z 2,4–4,2)
-## erottaa vastaanoton ja käytävän (vasen) huoneesta 12 (oikea).
+## erottaa vastaanoton ja käytävän (oikea, ulko-ovi +X-päädyssä) huoneesta 12 (vasen). Piirto peilattu (_hp).
 const HOTEL := Vector3(0, 0, -30)
 const HOTEL_HALF := Vector2(9.0, 6.0)
 const HOTEL_WALL_X := 0.5
@@ -195,8 +195,8 @@ func hedelma_free() -> void:
 ## Hotellin ulko-ovelta suoraan vastaanottoon.
 func enter_hotel() -> void:
 	enter()
-	walker.position = spots.hotelli_ovi[0] + Vector3(1.2, 0, 0)
-	walker.rotation.y = B.yaw_to(Vector3(1, 0, 0))
+	walker.position = spots.hotelli_ovi[0] + Vector3(-1.2, 0, 0)
+	walker.rotation.y = B.yaw_to(Vector3(-1, 0, 0))
 	say(_receptionist, "Tervetuloa Hotelli Siitariin. Huoneet on täynnä. Kiitos vaan Dingolle.")
 
 
@@ -211,7 +211,7 @@ func throw_tv() -> void:
 	_tv.visible = true
 	var tw := create_tween()
 	var a := _tv.position
-	var b := HOTEL + Vector3(6.5, 2.4, -HOTEL_HALF.y - 1.5)
+	var b := _hp(Vector3(6.5, 2.4, -HOTEL_HALF.y - 1.5))
 	tw.tween_method(func(t: float) -> void:
 		_tv.position = a.lerp(b, t) + Vector3(0, sin(t * PI) * 1.2, 0)
 		_tv.rotation = Vector3(t * 5.0, t * 3.0, 0), 0.0, 1.0, 0.9)
@@ -679,12 +679,18 @@ var _band_t := 3.0
 var _music: AudioStreamPlayer3D
 
 
+## Hotellin sisätilat on piirretty vasemmalta (x < 0) vastaanotto ja oikealta huone 12, mutta ulko-ovi on baarin tapaan
+## +X-päädyssä: kaikki hotellin koordinaatit peilataan x-akselin suhteen (_hp, rotaatiot y ja z vastakkaisiksi).
+func _hp(v: Vector3) -> Vector3:
+	return HOTEL + Vector3(-v.x, v.y, v.z)
+
+
 func _hwall(a: Vector2, b: Vector2, h: float, col: Color) -> void:
-	_wall(a + Vector2(HOTEL.x, HOTEL.z), b + Vector2(HOTEL.x, HOTEL.z), h, col, WALL_H)
+	_wall(Vector2(HOTEL.x - a.x, HOTEL.z + a.y), Vector2(HOTEL.x - b.x, HOTEL.z + b.y), h, col, WALL_H)
 
 
 func _hmesh(size: Vector3, pos: Vector3, col: Color, rot := Vector3.ZERO) -> MeshInstance3D:
-	return B.mesh(self, B.boxm(size), HOTEL + pos, col, rot)
+	return B.mesh(self, B.boxm(size), _hp(pos), col, Vector3(rot.x, -rot.y, -rot.z))
 
 
 func _build_hotel() -> void:
@@ -704,12 +710,12 @@ func _build_hotel() -> void:
 	_hwall(Vector2(HOTEL_WALL_X, 4.2), Vector2(HOTEL_WALL_X, hz), WALL_H, wall)
 	# Huoneen 12 ovi rikki: sarana irti, ovi lattialla.
 	_hmesh(Vector3(0.9, 0.05, 2.0), Vector3(HOTEL_WALL_X + 1.2, 0.03, 3.3), Color(0.5, 0.33, 0.2), Vector3(0, 20, 0))
-	B.label(self, "12", HOTEL + Vector3(HOTEL_WALL_X - 0.08, 2.5, 3.3), 60, Color(0.95, 0.8, 0.3)).rotation.y = -PI / 2.0
-	# Vastaanotto: tiski, avaintaulu, kyltti, palmu ja nojatuolit; ulko-ovi vasemmassa päädyssä.
+	B.label(self, "12", _hp(Vector3(HOTEL_WALL_X - 0.08, 2.5, 3.3)), 60, Color(0.95, 0.8, 0.3)).rotation.y = PI / 2.0
+	# Vastaanotto: tiski, avaintaulu, kyltti, palmu ja nojatuolit; ulko-ovi +X-päädyssä (peilattu).
 	var desk := Color(0.4, 0.25, 0.15)
 	_hmesh(Vector3(3.4, 1.1, 0.7), Vector3(-5.6, 0.55, -3.3), desk)
 	var db := StaticBody3D.new()
-	db.position = HOTEL + Vector3(-5.6, 0.55, -3.3)
+	db.position = _hp(Vector3(-5.6, 0.55, -3.3))
 	db.add_child(B.box_shape(Vector3(3.4, 1.1, 0.7)))
 	add_child(db)
 	_hmesh(Vector3(3.6, 0.06, 0.9), Vector3(-5.6, 1.13, -3.3), Color(0.25, 0.15, 0.08))
@@ -720,21 +726,21 @@ func _build_hotel() -> void:
 			Color(0.9, 0.8, 0.3) if k != 11 else Color(0.35, 0.22, 0.12))  # huoneen 12 avain puuttuu
 	var rs := B.sign_plate(self, "HOTELLI SIITARI · VASTAANOTTO", Color(0.12, 0.1, 0.08), Color(0.98, 0.95, 0.85), 0.18, 34,
 		Color(0.95, 0.8, 0.3))
-	rs.position = HOTEL + Vector3(-5.6, 2.65, -hz + 0.1)
-	_hotel_exit_door(hx, 0.6)
-	for cx in [-7.8, -3.4]:  # nojatuolit
+	rs.position = _hp(Vector3(-5.6, 2.65, -hz + 0.1))
+	_hotel_exit_door(hx, 3.4)  # samassa kohdassa kuin baarin ulko-ovi (z 3,4)
+	for cx in [-6.0, -3.4]:  # nojatuolit (ei ulko-oven edessä)
 		_hmesh(Vector3(0.8, 0.45, 0.8), Vector3(cx, 0.22, 2.4), Color(0.25, 0.4, 0.3))
 		_hmesh(Vector3(0.8, 0.5, 0.15), Vector3(cx, 0.65, 2.75), Color(0.25, 0.4, 0.3))
-	B.mesh(self, B.cyl(0.25, 0.3, 0.5, 10), HOTEL + Vector3(-8.3, 0.25, -5.2), Color(0.55, 0.3, 0.2))  # palmu ruukussa
+	B.mesh(self, B.cyl(0.25, 0.3, 0.5, 10), _hp(Vector3(-8.3, 0.25, -5.2)), Color(0.55, 0.3, 0.2))  # palmu ruukussa
 	for k in 5:
 		_hmesh(Vector3(0.12, 0.05, 0.9), Vector3(-8.3, 1.1 + k * 0.08, -5.2), Color(0.2, 0.5, 0.2), Vector3(30 - k * 15, k * 72, 0))
 	# Käytävän ovet 10 ja 11 (kiinni).
 	for d in [[-2.6, "10"], [-0.8, "11"]]:
 		_hmesh(Vector3(1.0, 2.2, 0.08), Vector3(d[0], 1.1, -hz + 0.05), Color(0.5, 0.33, 0.2))
-		B.label(self, d[1], HOTEL + Vector3(d[0], 2.45, -hz + 0.12), 40, Color(0.95, 0.8, 0.3))
+		B.label(self, d[1], _hp(Vector3(d[0], 2.45, -hz + 0.12)), 40, Color(0.95, 0.8, 0.3))
 	_receptionist = Looks.make(self, {"model": "female", "shirt": Color(0.2, 0.25, 0.45), "pants": Color(0.15, 0.15, 0.2),
 		"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_Buns", "hair_color": Color(0.45, 0.3, 0.2), "height": 1.64})
-	_receptionist.position = HOTEL + Vector3(-5.6, 0, -4.3)
+	_receptionist.position = _hp(Vector3(-5.6, 0, -4.3))
 	_receptionist.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_receptionist.play("Idle", 0.0)
 	_add_bubble(_receptionist)
@@ -757,8 +763,8 @@ func _hotel_exit_door(hx: float, z: float) -> void:
 		_hmesh(Vector3(0.05, 0.7, 0.5), Vector3(x + 0.05, 0.5, z + pz), Color(0.28, 0.16, 0.1))
 	_hmesh(Vector3(0.1, 0.05, 0.22), Vector3(x + 0.1, 1.05, z + 0.62), Color(0.8, 0.75, 0.4))  # kahva
 	var exit_sign := B.sign_plate(self, "ULOS", Color(0.05, 0.4, 0.15), Color.WHITE, 0.3, 40, Color(0.9, 0.9, 0.9))
-	exit_sign.position = HOTEL + Vector3(x + 0.08, 2.65, z)
-	exit_sign.rotation.y = PI / 2.0  # lukusuunta huoneeseen päin (+X)
+	exit_sign.position = _hp(Vector3(x + 0.08, 2.65, z))
+	exit_sign.rotation.y = -PI / 2.0  # lukusuunta huoneeseen päin (peilattuna -X)
 
 
 ## Huone 12 sekaisin: sänky nurin, patja seinää vasten, telkkari lattialla, ikkuna rikki, pullot, kitarat ja vahvistin,
@@ -776,14 +782,14 @@ func _build_room_12() -> void:
 	_hmesh(Vector3(0.7, 0.55, 0.5), Vector3(2.2, 0.28, -4.4), Color(0.15, 0.15, 0.17), Vector3(0, 30, 80))
 	_tv = Node3D.new()
 	add_child(_tv)
-	_tv.position = HOTEL + Vector3(4.6, 0.3, -2.4)
+	_tv.position = _hp(Vector3(4.6, 0.3, -2.4))
 	B.mesh(_tv, B.boxm(Vector3(0.7, 0.55, 0.5)), Vector3.ZERO, Color(0.18, 0.15, 0.12))
 	B.mesh(_tv, B.boxm(Vector3(0.55, 0.42, 0.02)), Vector3(0, 0, 0.26), Color(0.1, 0.2, 0.18))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 12
 	for k in 9:  # pullot
 		var p := Vector3(rng.randf_range(1.2, 8.4), 0.08, rng.randf_range(-5.4, 5.4))
-		B.mesh(self, B.cyl(0.05, 0.05, 0.28, 8), HOTEL + p, [Color(0.2, 0.45, 0.2), Color(0.45, 0.3, 0.1), Color(0.85, 0.85, 0.9)][k % 3],
+		B.mesh(self, B.cyl(0.05, 0.05, 0.28, 8), _hp(p), [Color(0.2, 0.45, 0.2), Color(0.45, 0.3, 0.1), Color(0.85, 0.85, 0.9)][k % 3],
 			Vector3(90, rng.randf() * 360.0, 0))
 	for k in 30:  # höyhenet
 		_hmesh(Vector3(0.06, 0.01, 0.03), Vector3(rng.randf_range(1.5, 8.5), 0.02, rng.randf_range(-4.5, 4.5)), Color.WHITE,
@@ -793,7 +799,7 @@ func _build_room_12() -> void:
 		_hmesh(Vector3(0.38, 0.06, 0.45), gp, g[1], Vector3(0, 35, 0))
 		_hmesh(Vector3(0.06, 0.04, 0.6), gp + Vector3(0.3, 0, -0.42), Color(0.3, 0.2, 0.1), Vector3(0, 35, 0))
 	_hmesh(Vector3(0.7, 0.8, 0.4), Vector3(8.4, 0.4, 3.2), Color(0.08, 0.08, 0.08))  # vahvistin
-	B.label(self, "DINGO", HOTEL + Vector3(8.4, 0.6, 2.98), 30, Color(0.95, 0.85, 0.2)).rotation.y = PI
+	B.label(self, "DINGO", _hp(Vector3(8.4, 0.6, 2.98)), 30, Color(0.95, 0.85, 0.2)).rotation.y = PI
 	# Tuoli, joka lentää välillä seinään.
 	_chair = Node3D.new()
 	add_child(_chair)
@@ -802,7 +808,7 @@ func _build_room_12() -> void:
 	for lx in [-0.18, 0.18]:
 		for lz in [-0.18, 0.18]:
 			B.mesh(_chair, B.boxm(Vector3(0.04, 0.45, 0.04)), Vector3(lx, 0.22, lz), Color(0.4, 0.28, 0.15))
-	_chair.position = HOTEL + Vector3(3.2, 0, -0.6)
+	_chair.position = _hp(Vector3(3.2, 0, -0.6))
 	var hair := [Color(0.95, 0.85, 0.55), Color(0.12, 0.08, 0.05), Color(0.55, 0.3, 0.15), Color(0.9, 0.8, 0.6)]
 	var spots_b := [[Vector3(4.6, 0, -0.8), "Dance"], [Vector3(6.6, 0, 1.2), "Punch_Cross"], [Vector3(3.2, 0, 1.0), "Dance"],
 		[Vector3(6.4, 0, -2.0), "Idle_Talking"]]
@@ -810,8 +816,8 @@ func _build_room_12() -> void:
 		var c := Looks.make(self, {"shirt": Color(0.06, 0.06, 0.07) if i != 2 else Color(0.95, 0.95, 0.95),
 			"pants": Color(0.92, 0.92, 0.9) if i % 2 == 0 else Color(0.25, 0.3, 0.45), "shoes": Color(0.9, 0.9, 0.9),
 			"hair": "Hair_Long", "hair_color": hair[i], "height": 1.76 + i * 0.03, "bulk": -0.4})
-		c.position = HOTEL + spots_b[i][0]
-		c.rotation.y = B.yaw_to(Vector3(-0.3 + i * 0.5, 0, 1 - i * 0.4))
+		c.position = _hp(spots_b[i][0])
+		c.rotation.y = B.yaw_to(Vector3(0.3 - i * 0.5, 0, 1 - i * 0.4))
 		c.play(spots_b[i][1], 0.0)
 		_add_bubble(c)
 		_band.append(c)
@@ -824,7 +830,7 @@ func _build_room_12() -> void:
 		_music.volume_db = -8.0
 		_music.unit_size = 4.0
 		_music.max_distance = 22.0
-		_music.position = HOTEL + Vector3(8.4, 1.0, 3.2)
+		_music.position = _hp(Vector3(8.4, 1.0, 3.2))
 		add_child(_music)
 		_music.finished.connect(_music.play)
 
@@ -844,8 +850,8 @@ func _band_tick(delta: float) -> void:
 		return
 	_band_t = randf_range(5.0, 8.0)
 	if randi() % 2 == 0:
-		var a := HOTEL + Vector3(3.2, 0, -0.6)
-		var b := HOTEL + Vector3(randf_range(5.0, 8.0), 0, -HOTEL_HALF.y + 0.6)
+		var a := _hp(Vector3(3.2, 0, -0.6))
+		var b := _hp(Vector3(randf_range(5.0, 8.0), 0, -HOTEL_HALF.y + 0.6))
 		var tw := create_tween()
 		tw.tween_method(func(t: float) -> void:
 			_chair.position = a.lerp(b, t) + Vector3(0, sin(t * PI) * 1.6, 0)

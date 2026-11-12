@@ -91,11 +91,17 @@ func _follow(delta: float) -> bool:
 		var v := WALK_SPEED * 1.5 if d < gap + 4.0 else 4.2  # kaukana hölkätään perään
 		p += to_f.normalized() * minf(v * delta, d - gap)
 		_body.play("Walk" if v < 2.0 else "Jog_Fwd", 0.3)
+	var step := Vector2(p.x - global_position.x, p.z - global_position.z).length()
 	for a: Array in avoid:  # kappaleen ympäri sen reunaa pitkin
 		var c: Vector3 = (a[0] as Node3D).global_position
 		var off := Vector3(p.x - c.x, 0, p.z - c.z)
 		if off.length() < a[1]:
-			p = Vector3(c.x, p.y, c.z) + (off.normalized() if off.length() > 0.01 else Vector3.RIGHT) * float(a[1])
+			var n := off.normalized() if off.length() > 0.01 else Vector3.RIGHT
+			# Pelkkä ulostyöntö jumittaa kappaleen taakse (kohde suoraan sen takana): liu'utaan reunaa kohteen puolelle.
+			var tang := Vector3(-n.z, 0, n.x)
+			if tang.dot(to_f) < 0.0:
+				tang = -tang
+			p = Vector3(c.x, p.y, c.z) + (n * float(a[1]) + tang * step).normalized() * float(a[1])
 	p.y = ground_fn.call(p) if ground_fn.is_valid() else Terrain.h(p.x, p.z)
 	global_position = p
 	rotation.y = lerp_angle(rotation.y, B.yaw_to(to_f), 1.0 - exp(-6.0 * delta))

@@ -66,6 +66,9 @@ BUILDING_SCALE = {-100305: 0.5}
 GASTHAUS_ID = 534430535  # torin laidan talo, vaala.gd _gasthaus_front
 # Pois kokonaan: S-Market jäi tiivistyksessä Oulujoen ylityksen ja keskustan väliin ahtaalle.
 DROP_BUILDINGS = ("S-market",)
+# Pois id:n mukaan: OSM:n koulukeskus (472392144) on 256 m pitkä 33 kulman monikulmio, joka näyttää kartalla ja pelissä
+# ristinmuotoiselta möhkäleeltä.
+DROP_BUILDING_IDS = (472392144,)
 TOWN_R = 480.0     # keskustan tarkka alue Siitarista (kaikki rakennukset, kadut ja rata)
 RAIL_1TO1 = 150.0  # 1:1 alkaa näin paljon ennen radan alikulkua (Vuolijoentie radan ali juuri ennen Oulujokea)
 # Alikulusta keskustaan: Oulujoen ylitys ja itärannan alku tiivistetään TOWN_K-kertaisesti länsirannalta (sillan alku)
@@ -595,7 +598,7 @@ def main():
     def rank(f):
         return 0 if east_service(f) else (2 if in_band(b_centroid(f)) else 1)
 
-    for f in sorted((f for f in feats if f["kind"] == "building" and not any(n_ in f.get("name", "") for n_ in DROP_BUILDINGS)),
+    for f in sorted((f for f in feats if f["kind"] == "building" and not any(n_ in f.get("name", "") for n_ in DROP_BUILDINGS) and f["id"] not in DROP_BUILDING_IDS),
                     key=lambda f: (rank(f), -b_area(f))):
         pts = f["pts"][:-1] if f["pts"][0] == f["pts"][-1] else f["pts"]
         c = b_centroid(f)

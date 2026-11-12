@@ -176,7 +176,7 @@ func _wait_ui(max_frames := 120) -> void:
 
 ## Kohtausta eteenpäin E:llä, kunnes se sulkeutuu (tai raja tulee vastaan).
 func _advance_ui(shot_at := -1, suffix := "") -> void:
-	for i in 14:
+	for i in 30:  # Vaalan ovikohtaus on 9 riviä, ja jokainen vie kaksi painallusta
 		if main._kolmio_ui == null:
 			return
 		if "_line" in main._kolmio_ui:
@@ -353,9 +353,16 @@ func _doors_and_evening(s: String) -> void:
 	await _snap("_rasva_esittely")
 	g._lights_out()
 	await _frames(120)
+	for i in 600:  # sammutus kestää 1,4 s pelin aikaa: hitaalla ruudunpäivityksellä ruutumäärä ei riitä
+		if g._mode != "sammutus":
+			break
+		await get_tree().process_frame
 	await _snap("_rasva_pimea")
 	g._game_t = 46.0
-	await _frames(20)
+	for i in 300:
+		if g._mode == "puhelu":
+			break
+		await get_tree().process_frame
 	print("KOLMIO puhelun tila '%s'" % g._mode)
 	if g._mode != "puhelu":
 		_vika("Päivin puhelu ei tullut")
@@ -402,10 +409,14 @@ func _check_follow(npcs: Array, w: Node3D, site: String) -> void:
 			_vika("%s ei seuraa pelaajaa (%s)" % [v.display_name, site])
 	var p0 := w.global_position
 	w.global_position = p0 + Vector3(10, 0, 0)
-	await _frames(240)
+	for k in 30:  # lähelle kävellään ~1,4 m/s, ja Civicin ohi kierretään: odotetaan perillä oloa (enintään 900 ruutua)
+		await _frames(30)
+		if npcs.all(func(v: Node3D) -> bool: return v.global_position.distance_to(w.global_position) <= v.gap + 1.5):
+			break
 	for v: Node3D in npcs:
 		var d := v.global_position.distance_to(w.global_position)
-		print("KOLMIO %s 10 m kävelyn jälkeen %.1f m päässä (rako %.1f)" % [v.display_name, d, v.gap])
+		print("KOLMIO %s 10 m kävelyn jälkeen %.1f m päässä (rako %.1f), paikka %s, kävelijä %s, esteet %s" % [v.display_name, d, v.gap,
+			v.global_position, w.global_position, v.avoid.map(func(a: Array) -> Vector3: return (a[0] as Node3D).global_position)])
 		if d > v.gap + 1.5:
 			_vika("%s jäi jälkeen (%.1f m)" % [v.display_name, d])
 	if site == "vaala":
@@ -612,6 +623,69 @@ func _run_vaala() -> void:
 	main._paper._vcenter = t
 	main._paper._vzoom = 1.5
 	await _snap("_kartta")
+	# Hahmon merkki on kävelijän paikalla (ei parkissa olevan mopon): kolmiomittauksen ympyröiden leikkauspiste luetaan siitä.
+	# Kävelijä mittauspaikkaan, merkin paikka kartan kehyksessä vs. kävelijän paikka Vaalan kehyksessä, ja lähikuva.
+	var wk: Node3D = mt.on_foot
+	wk.global_position = vl.to_global(Vector3(me.x, vl.h(me.x, me.y) + 0.4, me.y))
+	await _frames(5)
+	var marker: Array = main._paper._vaala_me()
+	var merr: float = (marker[0] as Vector2).distance_to(me)
+	print("KOLMIO Vaalan kartan merkki %s, kävelijä %s, ero %.2f m" % [marker[0], me, merr])
+	if merr > 0.5:
+		_vika("kartan hahmomerkki ei ole kävelijän paikalla (ero %.1f m)" % merr)
+	main._paper._vcenter = me
+	main._paper._vzoom = 3.0
+	await _snap("_kartta_merkki")
 	main._paper.toggle()
 	await _frames(5)
+	# Katjan asuinalue: kadut ja talojen etupihat ylhäältä, katutasolta ja ovelta.
+	var kc: Node3D = vl
+	var kt := Vector3(t.x, vl.h(t.x, t.y), t.y)
+	var cam_k := _cam_at(kc.to_global(kt + Vector3(0, 110, 70)), kc.to_global(kt))
+	await _snap("_katja_ylhaalta")
+	# Katutason kuvat Rekkatiellä ja Vaalantien jatkeella (rivin suunta U ja sitä vasten N, vaala_kadut.py) sekä lähin talo ovelta.
+	var su := Vector2(0.9525, -0.3047)
+	var sn := Vector2(0.3047, 0.9525)
+	var shots := [["_katu_rekkatie", Vector2(1225, -527), Vector2(1340, -523)], ["_katu_vaalantie", Vector2(1305, -682), Vector2(1430, -684)],
+		["_katu_mantytie", Vector2(1246, -660), Vector2(1244, -540)]]
+	for sh: Array in shots:
+		var e: Vector2 = su * (sh[1] as Vector2).x + sn * (sh[1] as Vector2).y
+		var l: Vector2 = su * (sh[2] as Vector2).x + sn * (sh[2] as Vector2).y
+		cam_k.global_position = kc.to_global(Vector3(e.x, vl.h(e.x, e.y) + 2.2, e.y))
+		cam_k.look_at(kc.to_global(Vector3(l.x, vl.h(l.x, l.y) + 1.5, l.y)))
+		await _snap(sh[0])
+	var mid: Vector2 = su * 1330.0 + sn * -524.0
+	var best_hd := {}
+	for hd: Dictionary in vl.house_doors:
+		if best_hd.is_empty() or Vector2(hd.pos.x, hd.pos.z).distance_to(mid) < Vector2(best_hd.pos.x, best_hd.pos.z).distance_to(mid):
+			best_hd = hd
+	var dpos: Vector3 = best_hd.pos
+	var dout: Vector3 = best_hd.out
+	cam_k.global_position = kc.to_global(dpos + dout * 9.0 + Vector3(0, 2.0, 0))
+	cam_k.look_at(kc.to_global(dpos + Vector3(0, 1.2, 0)))
+	await _snap("_katu_talo")
+	# Isot talot lähikuvissa (ei yksivärisiä laatikoita): keskustan suurimmat rakennukset kahdesta suunnasta.
+	var bigs: Array = []
+	for bd: Dictionary in vl.data.buildings:
+		var bp := PackedVector2Array()
+		for q: Array in bd.pts:
+			bp.append(Vector2(q[0], q[1]))
+		var lo := bp[0]
+		var hi := bp[0]
+		for q in bp:
+			lo = lo.min(q)
+			hi = hi.max(q)
+		if (hi - lo).length() > 28.0 and (hi - lo).length() < 90.0 and bd.pts[0][0] > 550.0:
+			bigs.append([(lo + hi) / 2.0, (hi - lo).length(), str(bd.id)])
+	bigs.sort_custom(func(x: Array, y: Array) -> bool: return x[1] > y[1])
+	for bg: Array in bigs.slice(0, 5):
+		var bc: Vector2 = bg[0]
+		var bh: float = vl.h(bc.x, bc.y)
+		for dirv: Vector2 in [Vector2(0.6, 0.8), Vector2(-0.8, -0.6)]:
+			var eye: Vector2 = bc + dirv * (float(bg[1]) * 0.6 + 14.0)
+			cam_k.global_position = kc.to_global(Vector3(eye.x, vl.h(eye.x, eye.y) + 3.0, eye.y))
+			cam_k.look_at(kc.to_global(Vector3(bc.x, bh + 3.0, bc.y)))
+			await _snap("_talo_%s_%s" % [bg[2], "a" if dirv.x > 0.0 else "b"])
+	cam_k.queue_free()
+	mt.on_foot.activate_camera()
 	await _doors_and_evening("vaala")
