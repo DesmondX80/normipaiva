@@ -120,9 +120,57 @@ func _strap_gap(ch: Node3D, nm: String) -> void:
 		print("TESTI VIKA %s sandaalin hihna irti ihosta (%.1f mm)" % [nm, worst * 1000.0])
 
 
+## #279 erikseen: `--e4` ajaa työkengän (uusi jäykkä varsi) ja kuukengän: mitat, kuvakulmat, varren raot ja kävely.
+func _run_e4() -> void:
+	var looks := []
+	for kind in ["male", "female"]:
+		var lk := _look(kind, COL.tyokenka)
+		lk["shoe"] = "tyokenka"
+		looks.append(["tyokenka_%s" % kind.left(1), lk])
+	looks.append(["farkut_tyokenka", Looks.player("farkut")])
+	looks.append(["seppo", Looks.SEPPO])
+	for kind in ["male", "female"]:
+		var lk := _look(kind, Color(0.9, 0.9, 0.93))
+		lk["shoe"] = "kuukenka"
+		looks.append(["kuukenka_%s" % kind.left(1), lk])
+	looks.append(["haalari", Looks.player("hiihtohaalari")])
+	for kind in ["male", "female"]:
+		var lk := _look(kind, Color(0.3, 0.16, 0.07))  # ruskea: nauhat ja saumat erottuvat
+		lk["shoe"] = "nauhakenka"
+		looks.append(["nauhakenka_%s" % kind.left(1), lk])
+	for i in looks.size():
+		var ch: Node3D = Looks.make(self, looks[i][1])
+		ch.position = Vector3(i * 1.2, 0, 0)
+		ch.play("Idle", 0.0, 0.0)
+		ch.anim.seek(0.5, true)
+		row.append([looks[i][0], ch])
+	for i in 6:
+		await get_tree().process_frame
+	if row[6][1].shoe_type != "kuukenka":
+		print("TESTI VIKA hiihtohaalarin kengät %s (odotus kuukenka)" % row[6][1].shoe_type)
+	_measure()
+	for r in row:
+		await _views(r[0], r[1])
+		if r[1].shoe_type == "nauhakenka":
+			await _walk(r[1], r[0])
+		else:
+			await _boot(r[1], r[0])
+	for nm in ["nauhakenka_m", "nauhakenka_f"]:
+		_sheet(nm + "_kuvat", [nm + "_edesta", nm + "_sivu", nm + "_takaa", nm + "_kolmeneljannes",
+			nm + "_edesta_lahi", nm + "_vino_lahi", nm + "_sivu_lahi", nm + "_paalta"])
+	for nm in ["tyokenka_m", "tyokenka_f", "farkut_tyokenka", "seppo", "kuukenka_m", "kuukenka_f", "haalari"]:
+		_sheet(nm + "_kuvat", [nm + "_edesta", nm + "_sivu", nm + "_takaa", nm + "_kolmeneljannes",
+			nm + "_nilkka_lahi", nm + "_kavely_0", nm + "_kavely_2", nm + "_istuu"])
+	print("KENKA valmis ", ProjectSettings.globalize_path(out))
+	get_tree().quit()
+
+
 func _run() -> void:
 	if "--e3" in OS.get_cmdline_user_args():
 		await _run_e3()
+		return
+	if "--e4" in OS.get_cmdline_user_args():
+		await _run_e4()
 		return
 	var looks := [["lenkkari_m", _look("male", Color(0.92, 0.92, 0.9))], ["lenkkari_f", _look("female", Color(0.92, 0.92, 0.9))],
 		["punainen_f", _look("female", Color(0.85, 0.12, 0.1))], ["paljas_m", _look("male", Color(0.12, 0.1, 0.08))],
@@ -217,7 +265,7 @@ func _jakauma() -> void:
 	var want := [["MUMMOT[0]", Looks.MUMMOT[0], "kavelykenka"], ["MUMMOT[1]", Looks.MUMMOT[1], "kavelykenka"],
 		["MUMMOT[2]", Looks.MUMMOT[2], "kavelykenka"], ["SEPPO", Looks.SEPPO, "tyokenka"], ["REIJO", Looks.REIJO, "tyokenka"],
 		["tuulipuku", Looks.player("tuulipuku"), "lenkkari"], ["farkut", Looks.player("farkut"), "tyokenka"],
-		["tyovaatteet", Looks.player("tyovaatteet"), "tyokenka"], ["hiihtohaalari", Looks.player("hiihtohaalari"), "lenkkari"],
+		["tyovaatteet", Looks.player("tyovaatteet"), "tyokenka"], ["hiihtohaalari", Looks.player("hiihtohaalari"), "kuukenka"],
 		["sauna(farkut)", Cutscene.sauna_look(Looks.player("farkut")), "paljas"],
 		["uinti(tyovaatteet)", Cutscene.swim_look(Looks.player("tyovaatteet")), "paljas"],
 		["SINIKKA", Looks.SINIKKA, "sandaali"], ["sinikka_bikini", Looks.sinikka_bikini(), "paljas"],
@@ -359,7 +407,7 @@ func _views(nm: String, ch: Node3D) -> void:
 		sm.set_shader_parameter("main_col", keep_main)
 	g = _foot_near(ch, fw + rt)
 	await _shot(nm + "_kolmeneljannes", g + (fw + rt).normalized() * 0.75 + Vector3(0, 0.35, 0), g)
-	if nm == "lenkkari_m" or nm == "lenkkari_f" or NEW.has(ch.shoe_type) or ch.shoe_type == "sandaali":  # kärki lähikuvina (kuopat ja ääriviiva näkyvät vain läheltä)
+	if nm == "lenkkari_m" or nm == "lenkkari_f" or NEW.has(ch.shoe_type) or ch.shoe_type in ["sandaali", "nauhakenka"]:  # kärki lähikuvina (kuopat ja ääriviiva näkyvät vain läheltä)
 		var lr := "_r" if (ch.to_global(ch.bone_position("ball_r")) - ch.to_global(ch.bone_position("ball_l"))).dot(rt) > 0.0 else "_l"
 		var toe: Vector3 = ch.to_global(ch.bone_position("ball" + lr)) + fw * 0.03
 		toe.y = 0.03

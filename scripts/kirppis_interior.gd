@@ -50,8 +50,8 @@ const PEOPLE := [
 			"skin": Color(0.95, 0.72, 0.64), "belly": 0.8}},
 	{"id": "huutaja", "name": "Erkki", "role": "huutaja", "modes": ["kirppis", "bingo"], "at": Vector3(0.0, 0.5, -4.7), "reach": 2.4,
 		"face": Vector3(0, 0, 1), "pose": "Idle", "look": {"shirt": Color(0.85, 0.85, 0.8), "pants": Color(0.15, 0.15, 0.18),
-			"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_SimpleParted", "hair_color": Color(0.35, 0.3, 0.25), "height": 1.82,
-			"skin": Color(0.96, 0.75, 0.66), "belly": 0.6}},
+			"shoes": Color(0.1, 0.1, 0.1), "shoe": "nauhakenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.35, 0.3, 0.25),
+			"height": 1.82, "skin": Color(0.96, 0.75, 0.66), "belly": 0.6}},
 	# Tansseissa Anna-Liisa seisoo lattian reunalla: kirppispaikka (1,8; 1,4) on taustaparien kiertoradalla (#257).
 	{"id": "korkkiraimo", "name": "Korkki-Raimo", "role": "vaihtaa pullonkorkkeja", "modes": ["kirppis"], "wd": 5, "at": Vector3(-3.0, 0, 0.6),
 		"face": Vector3(0.3, 0, 1), "pose": "Idle", "look": {"shirt": Color(0.75, 0.6, 0.25), "pants": Color(0.3, 0.28, 0.25),
