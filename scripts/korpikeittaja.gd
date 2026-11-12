@@ -8,7 +8,7 @@ const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 
 const KALLE := {
-	"shirt": Color(0.3, 0.32, 0.22), "pants": Color(0.2, 0.2, 0.24), "shoes": Color(0.1, 0.08, 0.06),
+	"shirt": Color(0.3, 0.32, 0.22), "pants": Color(0.2, 0.2, 0.24), "shoes": Color(0.1, 0.08, 0.06), "shoe": "kumisaapas",
 	"hair": "Hair_Long", "hair_color": Color(0.6, 0.58, 0.55), "beard": true, "height": 1.7,
 	"skin": Color(0.95, 0.8, 0.72), "belly": 0.2, "bulk": -0.3, "shoulders": -0.2,
 }

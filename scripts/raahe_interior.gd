@@ -735,10 +735,10 @@ func _captain_cap(c: Node3D) -> void:
 
 
 func _build_people() -> void:
-	var hivis := {"shirt": Color(1.0, 0.45, 0.05), "pants": Color(0.1, 0.12, 0.2), "shoes": Color(0.1, 0.08, 0.06),
+	var hivis := {"shirt": Color(1.0, 0.45, 0.05), "pants": Color(0.1, 0.12, 0.2), "shoes": Color(0.1, 0.08, 0.06), "shoe": "tyokenka",
 		"stripes": true, "stripe_color": Color(0.85, 0.85, 0.8)}
 	_bartender = _stand({"shirt": Color(0.06, 0.06, 0.08), "pants": Color(0.06, 0.06, 0.08), "shoes": Color(0.05, 0.05, 0.05),
-		"hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "beard": true, "height": 1.84}, Vector3(0.6, 0, -4.8), Vector3(0, 0, 1))
+		"shoe": "nauhakenka", "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "beard": true, "height": 1.84}, Vector3(0.6, 0, -4.8), Vector3(0, 0, 1))
 	# Terästehtaan porukka yövuoron jälkeen: Tero ja kaksi työkaveria huomioliiveissä.
 	_tero = _seat(Looks.TERO, Vector3(5.2, 0, -0.2), Vector3(0, 0, 1))
 	var w1 := hivis.duplicate()
@@ -750,24 +750,24 @@ func _build_people() -> void:
 	_ruukki.append(_tero)
 	# Vanha kapteeni ikkunapöydässä Kirkkokadun puolella: merikapteenin takki ja lakki, valkoinen parta.
 	_kapteeni = _seat({"shirt": Color(0.06, 0.08, 0.2), "pants": Color(0.06, 0.08, 0.2), "shoes": Color(0.05, 0.05, 0.05),
-		"hair": "Hair_SimpleParted", "hair_color": Color(0.92, 0.92, 0.9), "beard": true, "height": 1.74,
+		"shoe": "nauhakenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.92, 0.92, 0.9), "beard": true, "height": 1.74,
 		"skin": Color(1.0, 0.86, 0.8), "belly": 0.4, "stripes": true, "stripe_color": Color(0.9, 0.75, 0.3)},
 		Vector3(-7.8, 0, 1.4), Vector3(1, 0, 0))
 	_captain_cap(_kapteeni)
 	# Visamestari visapöydän luona kysymyspapereineen.
 	_quizmaster = _stand({"shirt": Color(0.55, 0.12, 0.12), "pants": Color(0.25, 0.25, 0.3), "shoes": Color(0.2, 0.15, 0.1),
-		"hair": "Hair_SimpleParted", "hair_color": Color(0.2, 0.15, 0.1), "height": 1.76}, Vector3(-1.6, 0, 0.0), Vector3(0, 0, 1))
+		"shoe": "nauhakenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.2, 0.15, 0.1), "height": 1.76}, Vector3(-1.6, 0, 0.0), Vector3(0, 0, 1))
 	# Asiakas ikkunapöydässä ja Kellarin karaokeporukka.
 	_seat(Looks.GRANDPAS[1], Vector3(-4.2, 0, -0.6), Vector3(0, 0, -1))
 	_cellar_bartender = _stand({"model": "female", "shirt": Color(0.1, 0.1, 0.12), "pants": Color(0.1, 0.1, 0.12),
-		"shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_Buns", "hair_color": Color(0.15, 0.1, 0.08), "height": 1.68},
+		"shoes": Color(0.05, 0.05, 0.05), "shoe": "saapas", "hair": "Hair_Buns", "hair_color": Color(0.15, 0.1, 0.08), "height": 1.68},
 		CELLAR + Vector3(1.5, 0, -4.3), Vector3(0, 0, 1))
 	_kellari.append(_seat({"model": "female", "shirt": Color(0.85, 0.3, 0.6), "pants": Color(0.1, 0.1, 0.15), "shoes": Color(0.9, 0.9, 0.9),
 		"hair": "Hair_Long", "hair_color": Color(0.9, 0.75, 0.4), "height": 1.66}, CELLAR + Vector3(2.4, 0, 2.8), Vector3(0, 0, -1)))
 	_kellari.append(_seat(hivis.merged({"hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.25, 0.2), "height": 1.82, "belly": 0.3}),
 		CELLAR + Vector3(0.0, 0, 1.4), Vector3(0, 0, -1)))
 	_singer = _seat({"model": "female", "shirt": Color(0.2, 0.55, 0.75), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.1, 0.1, 0.1),
-		"hair": "Hair_Buns", "hair_color": Color(0.85, 0.55, 0.25), "height": 1.64}, CELLAR + Vector3(3.2, 0, 2.0), Vector3(-1, 0, 0))
+		"shoe": "sandaali", "hair": "Hair_Buns", "hair_color": Color(0.85, 0.55, 0.25), "height": 1.64}, CELLAR + Vector3(3.2, 0, 2.0), Vector3(-1, 0, 0))
 	_kellari.append(_singer)
 	# Päivi (piilossa, kunnes tulee etsimään).
 	_paivi = Looks.make(self, Looks.PAIVI)

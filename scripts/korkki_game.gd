@@ -16,7 +16,7 @@ const CAP_R := 0.03  # korkin säde (m): pog-kiekon kokoinen, jotta logo erottuu
 const CAP_H := 0.008
 const SWEET := 0.72
 const TOO_HARD := 0.93
-const JERE := {"shirt": Color(0.2, 0.55, 0.45), "pants": Color(0.2, 0.25, 0.42), "shoes": Color(0.92, 0.92, 0.92),
+const JERE := {"shirt": Color(0.2, 0.55, 0.45), "pants": Color(0.2, 0.25, 0.42), "shoes": Color(0.92, 0.92, 0.92), "shoe": "lenkkari",
 	"hair": "Hair_Buzzed", "hair_color": Color(0.85, 0.7, 0.35), "height": 1.62, "skin": Color(0.95, 0.77, 0.66), "belly": 0.0}
 
 var stack: Array = []  # [{key, up}] (main.gd täyttää ennen lisäystä)

@@ -171,7 +171,7 @@ func _build() -> void:
 	B.mesh(self, B.boxm(Vector3(1.2, 0.7, 0.05)), Vector3(-9.0, 1.4, -2.98), Color(0.5, 0.7, 0.8))
 	B.mesh(self, B.boxm(Vector3(2.3, 0.15, 2.1)), Vector3(-9.0, 2.28, -3.9), Color(0.3, 0.3, 0.33))
 	_guard = Looks.make(self, {"shirt": Color(0.9, 0.8, 0.2), "pants": Color(0.2, 0.22, 0.3),
-		"shoes": Color(0.15, 0.12, 0.1), "hair": "Hair_Buzzed", "hair_color": Color(0.4, 0.35, 0.3), "height": 1.78})
+		"shoes": Color(0.15, 0.12, 0.1), "shoe": "tyokenka", "hair": "Hair_Buzzed", "hair_color": Color(0.4, 0.35, 0.3), "height": 1.78})
 	_guard.position = Vector3(-7.0, 0, -3.0)
 	_guard.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_guard.play("Idle", 0.0)

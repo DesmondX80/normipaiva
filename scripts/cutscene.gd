@@ -2029,17 +2029,17 @@ const Pose := preload("res://scripts/pose.gd")  # kämmenen asento ja raajan sov
 ## Liisalla valkoinen napapaita ja farkkuminihame, Helenalla punainen olkaimeton bodycon-minimekko, korkokengät
 ## ja kultaiset rengaskorvakorut (_hoops).
 const MARJA := {
-	"model": "female", "shirt": Color(0.05, 0.05, 0.07), "pants": Color(0.05, 0.05, 0.07), "shoes": Color(0.05, 0.05, 0.05),
+	"model": "female", "shirt": Color(0.05, 0.05, 0.07), "pants": Color(0.05, 0.05, 0.07), "shoes": Color(0.05, 0.05, 0.05), "shoe": "sandaali",
 	"hair": "Hair_Long", "hair_color": Color(0.42, 0.26, 0.14), "height": 1.68, "shine": 0.75, "sleeve_x": 0.2,
 	"shorts_y": 0.74, "bare_skin": Color(0.88, 0.68, 0.56), "curves": 0.6, "bulk": -0.2,
 }
 const LIISA := {
-	"model": "female", "shirt": Color(0.95, 0.95, 0.93), "pants": Color(0.38, 0.5, 0.7), "shoes": Color(0.92, 0.9, 0.88),
+	"model": "female", "shirt": Color(0.95, 0.95, 0.93), "pants": Color(0.38, 0.5, 0.7), "shoes": Color(0.92, 0.9, 0.88), "shoe": "lenkkari",
 	"hair": "Hair_Buns", "hair_color": Color(0.9, 0.8, 0.52), "height": 1.64, "crop_y": 1.23, "sleeve_x": 0.22,
 	"shorts_y": 0.78, "denim": true, "bare_skin": Color(0.85, 0.64, 0.52), "curves": 0.6, "bulk": -0.25,
 }
 const HELENA := {
-	"model": "female", "shirt": Color(0.82, 0.03, 0.12), "pants": Color(0.82, 0.03, 0.12), "shoes": Color(0.78, 0.02, 0.08),
+	"model": "female", "shirt": Color(0.82, 0.03, 0.12), "pants": Color(0.82, 0.03, 0.12), "shoes": Color(0.78, 0.02, 0.08), "shoe": "sandaali",
 	"hair": "Hair_Long", "hair_color": Color(0.1, 0.08, 0.07), "height": 1.72, "shine": 0.9, "tube_y": 1.41, "sleeve_x": 0.2,
 	"shorts_y": 0.8, "bare_skin": Color(0.84, 0.62, 0.5), "curves": 1.0, "bulk": -0.2,
 	"bust": 2.7,  # kuten Sinikalla: hyllyntä (Elastic.jiggle_gain) vaatii rinnan painon, joka tulee bust-muodosta
@@ -2054,7 +2054,7 @@ static func helena_bikini() -> Dictionary:
 		look.erase(k)
 	return look
 const WAITER := {
-	"shirt": Color(0.95, 0.95, 0.95), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.05, 0.05, 0.05),
+	"shirt": Color(0.95, 0.95, 0.95), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.05, 0.05, 0.05), "shoe": "nauhakenka",
 	"hair": "Hair_SimpleParted", "hair_color": Color(0.3, 0.25, 0.2), "height": 1.8,
 }
 ## Ravintolavaunun jutustelu: [puhuja, repliikki]; puhuja "minä", "marja", "liisa", "helena" tai "tarjoilija".

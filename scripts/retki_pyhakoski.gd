@@ -148,7 +148,7 @@ func _build() -> void:
 	info.rotation_degrees.x = -35.0
 	# Vahtimestari (katsoo +Z:aan).
 	_guard = Looks.make(self, {"shirt": Color(0.3, 0.4, 0.5), "pants": Color(0.2, 0.22, 0.28),
-		"shoes": Color(0.12, 0.1, 0.08), "hair": "Hair_SimpleParted", "hair_color": Color(0.6, 0.6, 0.62), "height": 1.76})
+		"shoes": Color(0.12, 0.1, 0.08), "shoe": "tyokenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.6, 0.6, 0.62), "height": 1.76})
 	_guard.position = Vector3(-3.4, 0, -0.2)
 	_guard.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_guard.play("Idle", 0.0)

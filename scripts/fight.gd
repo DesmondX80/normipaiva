@@ -48,7 +48,7 @@ const FOES := {
 		"wave": "KIRSIKKA!", "wave_cry": "KOLME KELLOA!", "hp": 110.0, "dmg": 1.0, "aggr": 0.95,
 	},
 	"jarkkari": {
-		"look": {"shirt": Color(0.06, 0.06, 0.07), "pants": Color(0.08, 0.08, 0.1), "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_Buzzed",
+		"look": {"shirt": Color(0.06, 0.06, 0.07), "pants": Color(0.08, 0.08, 0.1), "shoes": Color(0.05, 0.05, 0.05), "shoe": "tyokenka", "hair": "Hair_Buzzed",
 			"hair_color": Color(0.2, 0.15, 0.1), "height": 1.92, "bulk": 0.6, "shoulders": 0.6, "muscle": 0.4, "belly": 0.4},
 		"name": "JÄRKKÄRI – Ei tapella lavan pihalla!", "short": "JÄRKKÄRI", "voice": "juntti",
 		"intro": ["Täällä ei tapella lavan pihalla!", "Rauhallisesti nyt, pojat. Tai ei niin rauhallisesti.", "Ulos pihalta, ni katotaan!"],

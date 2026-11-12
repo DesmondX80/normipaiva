@@ -60,15 +60,15 @@ var _pan_at := Vector3.ZERO
 ## 3D-hahmojen ulkonäöt (looks.gd). Väärien ovien asukkaat tässä.
 const RESIDENTS := {
 	"Mummo kepin kanssa": {"model": "female", "shirt": Color(0.56, 0.36, 0.55), "pants": Color(0.32, 0.24, 0.2),
-		"shoes": Color(0.22, 0.14, 0.1), "hair": "", "perm_col": Color(0.93, 0.92, 0.9), "round_glasses": true,
+		"shoes": Color(0.22, 0.14, 0.1), "shoe": "kavelykenka", "hair": "", "perm_col": Color(0.93, 0.92, 0.9), "round_glasses": true,
 		"hair_color": Color(0.85, 0.85, 0.83), "height": 1.56,
 		"skin": Color(1.0, 0.9, 0.86), "bulk": 0.35, "belly": 0.3, "shoulders": -0.4, "muscle": -1.0},
-	"Pieni poika": {"shirt": Color(0.15, 0.35, 0.85), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.2, 0.2, 0.2),
+	"Pieni poika": {"shirt": Color(0.15, 0.35, 0.85), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.2, 0.2, 0.2), "shoe": "lenkkari",
 		"hair": "Hair_SimpleParted", "hair_color": Color(0.85, 0.72, 0.42), "height": 1.3, "bulk": -0.85, "shoulders": -0.8},
-	"Verotoimiston Raimo": {"shirt": Color(0.85, 0.86, 0.9), "pants": Color(0.25, 0.27, 0.32), "shoes": Color(0.08, 0.08, 0.08),
+	"Verotoimiston Raimo": {"shirt": Color(0.85, 0.86, 0.9), "pants": Color(0.25, 0.27, 0.32), "shoes": Color(0.08, 0.08, 0.08), "shoe": "nauhakenka",
 		"hair": "Hair_SimpleParted", "hair_color": Color(0.6, 0.58, 0.55), "height": 1.74, "belly": 0.55},
 	"Unenpöpperöinen yövuorolainen": {"shirt": Color(0.6, 0.62, 0.66), "pants": Color(0.35, 0.36, 0.5),
-		"shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "height": 1.8, "belly": 0.4},
+		"shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari", "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "height": 1.8, "belly": 0.4},
 }
 
 

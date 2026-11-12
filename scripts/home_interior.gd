@@ -50,7 +50,7 @@ const SPOTS := {
 	"saappaat": [Vector3(-3.45, 0, 5.05), ""],  # kumisaappaat makuuhuoneen oven ja etuseinän välissä; yli 1,3 m sisääntulopaikasta (vihje kumisaappaat.gd, vaihto main.gd)
 }
 const NERD_LOOK := {
-	"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.25, 0.27, 0.32), "shoes": Color(0.9, 0.9, 0.9),
+	"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.25, 0.27, 0.32), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari",
 	"hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.1), "height": 1.82, "belly": 0.2, "bulk": -0.2,
 }
 const NERD_LINES := [

@@ -13,7 +13,7 @@ const VIEW_HALF_ANGLE := 0.7854  # 45°
 const SUSPICION_RATE := 60.0
 const SUSPICION_DECAY := 12.0
 const LOOK := {"shirt": Color(0.06, 0.06, 0.07), "pants": Color(0.08, 0.08, 0.1), "shoes": Color(0.05, 0.05, 0.05),
-	"hair": "Hair_Buzzed", "hair_color": Color(0.2, 0.15, 0.1), "height": 1.92, "bulk": 0.6, "shoulders": 0.6,
+	"shoe": "tyokenka", "hair": "Hair_Buzzed", "hair_color": Color(0.2, 0.15, 0.1), "height": 1.92, "bulk": 0.6, "shoulders": 0.6,
 	"muscle": 0.4, "belly": 0.4}
 const IDLE_LINES := ["Leimat näkyviin, kiitos.", "Ei pulloja sisälle.", "Rauhallisesti nyt, pojat.",
 	"Kuka siellä aidan takana metelöi?", "Liput portilta, ei muualta."]

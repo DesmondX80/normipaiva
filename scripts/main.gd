@@ -3600,7 +3600,7 @@ func _start_auction() -> void:
 
 
 ## --- Tokola: vanha varasto, Aaro ja kauppiaan aarre (#120) --------------------------------------------------
-const AARO_LOOK := {"shirt": Color(0.4, 0.38, 0.3), "pants": Color(0.25, 0.22, 0.2), "shoes": Color(0.2, 0.15, 0.1),
+const AARO_LOOK := {"shirt": Color(0.4, 0.38, 0.3), "pants": Color(0.25, 0.22, 0.2), "shoes": Color(0.2, 0.15, 0.1), "shoe": "tyokenka",
 	"hair": "Hair_Buzzed", "hair_color": Color(0.9, 0.9, 0.88), "beard": true, "height": 1.7, "skin": Color(0.92, 0.72, 0.64),
 	"belly": 0.3}
 ## Mirkku kävelee kesäpäivisin Saloisten luontopolkua (laavupolku Järvikujan päästä etelään) ja poimii kukkia.
@@ -5781,11 +5781,11 @@ func _pyhimys_nodes() -> void:
 	_kynttila_flame.global_position = world.kynttila_pos + Vector3(0.0, 0.3, 0.45)
 
 
-const HOITAJA_LOOK := {"shirt": Color(0.3, 0.4, 0.3), "pants": Color(0.25, 0.25, 0.2), "shoes": Color(0.2, 0.15, 0.1), "hair": "Hair_Buzzed",
+const HOITAJA_LOOK := {"shirt": Color(0.3, 0.4, 0.3), "pants": Color(0.25, 0.25, 0.2), "shoes": Color(0.2, 0.15, 0.1), "shoe": "tyokenka", "hair": "Hair_Buzzed",
 	"hair_color": Color(0.75, 0.75, 0.72), "beard": true, "height": 1.72, "skin": Color(0.93, 0.74, 0.66)}
-const SUNTIO_LOOK := {"shirt": Color(0.1, 0.1, 0.14), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.08, 0.08, 0.08), "hair": "Hair_SimpleParted",
+const SUNTIO_LOOK := {"shirt": Color(0.1, 0.1, 0.14), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.08, 0.08, 0.08), "shoe": "nauhakenka", "hair": "Hair_SimpleParted",
 	"hair_color": Color(0.5, 0.5, 0.5), "height": 1.78, "skin": Color(0.95, 0.76, 0.68)}
-const NAINEN_LOOK := {"model": "female", "shirt": Color(0.35, 0.3, 0.4), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.15, 0.12, 0.1), "hair": "Hair_Buns",
+const NAINEN_LOOK := {"model": "female", "shirt": Color(0.35, 0.3, 0.4), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.15, 0.12, 0.1), "shoe": "kavelykenka", "hair": "Hair_Buns",
 	"hair_color": Color(0.85, 0.85, 0.85), "height": 1.6, "skin": Color(0.95, 0.8, 0.74), "belly": 0.3}
 
 
@@ -5813,7 +5813,7 @@ func _olavi_nodes() -> void:
 			_sulo_flame = fl
 
 
-const OLAVI_LOOK := {"shirt": Color(0.45, 0.42, 0.35), "pants": Color(0.25, 0.25, 0.22), "shoes": Color(0.2, 0.15, 0.1), "hair": "Hair_Buzzed",
+const OLAVI_LOOK := {"shirt": Color(0.45, 0.42, 0.35), "pants": Color(0.25, 0.25, 0.22), "shoes": Color(0.2, 0.15, 0.1), "shoe": "kavelykenka", "hair": "Hair_Buzzed",
 	"hair_color": Color(0.88, 0.88, 0.86), "beard": true, "height": 1.7, "skin": Color(0.93, 0.74, 0.66), "belly": 0.5}
 
 
@@ -5839,7 +5839,7 @@ var _kt_t := 0.0
 ## Voittaja saa mainetta, häviäjä tarjoaa limut (3 €).
 const NUORET_AIKA := Vector2(14 * 60, 21 * 60)
 const LIMU_HINTA := 3.0
-const NUORET_LOOK := {"shirt": Color(0.2, 0.55, 0.35), "pants": Color(0.2, 0.22, 0.4), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_SimpleParted",
+const NUORET_LOOK := {"shirt": Color(0.2, 0.55, 0.35), "pants": Color(0.2, 0.22, 0.4), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari", "hair": "Hair_SimpleParted",
 	"hair_color": Color(0.45, 0.3, 0.15), "height": 1.62, "skin": Color(0.96, 0.78, 0.7)}
 const PINGIS_NUORET_LINES := {
 	"intro": ["Setä pelaa pingistä? No tule!", "Ei oo voitettu meitä vielä koulun pihalla.", "Häviäjä tarjoaa limut!"],

@@ -1911,9 +1911,9 @@ mopon osia", Color(0.85, 0.95, 1.0), Vector3(0.35, 1.6, -0.04)],
 	reippari_youth = Node3D.new()
 	reippari_youth.position = table.position + Vector3(0, 0, -1.4)
 	root.add_child(reippari_youth)
-	var teens := [{"shirt": Color(0.1, 0.1, 0.12), "pants": Color(0.2, 0.25, 0.45), "hair": "Hair_Buzzed", "height": 1.72},
-		{"model": "female", "shirt": Color(0.75, 0.2, 0.5), "pants": Color(0.12, 0.12, 0.15), "hair": "Hair_Long", "height": 1.64},
-		{"shirt": Color(0.9, 0.9, 0.85), "pants": Color(0.25, 0.25, 0.3), "hair": "Hair_SimpleParted", "height": 1.78}]
+	var teens := [{"shirt": Color(0.1, 0.1, 0.12), "pants": Color(0.2, 0.25, 0.45), "hair": "Hair_Buzzed", "height": 1.72, "shoe": "lenkkari"},
+		{"model": "female", "shirt": Color(0.75, 0.2, 0.5), "pants": Color(0.12, 0.12, 0.15), "hair": "Hair_Long", "height": 1.64, "shoe": "lenkkari"},
+		{"shirt": Color(0.9, 0.9, 0.85), "pants": Color(0.25, 0.25, 0.3), "hair": "Hair_SimpleParted", "height": 1.78, "shoe": "lenkkari"}]
 	for k in teens.size():
 		var t := Looks.make(reippari_youth, teens[k])
 		t.position = Vector3(-0.9 + k * 0.9, 0, 0.2 * (k % 2))
@@ -2369,7 +2369,7 @@ func _build_rauniot() -> void:
 				{"model": "male", "shirt": Color(0.25, 0.35, 0.2), "hair": "Hair_SimpleParted"}]
 			for k in 3:
 				var a := k * TAU / 3.0 + 0.4
-				var tn := Looks.make(rauniot_youth, looks[k].merged({"pants": Color(0.15, 0.18, 0.3), "skin": Color(0.95, 0.8, 0.7), "height": 1.7}))
+				var tn := Looks.make(rauniot_youth, looks[k].merged({"pants": Color(0.15, 0.18, 0.3), "skin": Color(0.95, 0.8, 0.7), "height": 1.7, "shoe": "lenkkari"}))
 				tn.position = Vector3(cos(a) * 1.4, 0.0, sin(a) * 1.4)
 				tn.rotation.y = -a + PI / 2.0
 				tn.play("Sitting_Idle" if k == 1 else "Idle", 0.0)
@@ -2457,7 +2457,8 @@ func _playground(name: String, px: Vector2, idx: int) -> void:
 	root.add_child(mums)
 	for i in 2:
 		var mum := Looks.make(mums, {"model": "female", "shirt": [Color(0.6, 0.75, 0.9), Color(0.75, 0.22, 0.32)][i], "pants": Color(0.2, 0.22, 0.3),
-			"hair": ["Hair_Long", "Hair_Buns"][i], "hair_color": Color(0.45, 0.3, 0.2).lightened(i * 0.3), "height": 1.65, "skin": Color(0.95, 0.8, 0.7)})
+			"hair": ["Hair_Long", "Hair_Buns"][i], "hair_color": Color(0.45, 0.3, 0.2).lightened(i * 0.3), "height": 1.65, "skin": Color(0.95, 0.8, 0.7),
+			"shoe": "lenkkari"})
 		mum.rotation.y = PI  # kasvot leikkipuistoon päin (hahmo katsoo -Z, penkin selkänoja on -Z:ssa)
 		mum.play("Sitting_Idle", 0.0)
 		mum.anim.advance(0.01)
@@ -2465,7 +2466,7 @@ func _playground(name: String, px: Vector2, idx: int) -> void:
 		var pelvis: Vector3 = mum.basis * mum.bone_position("pelvis")
 		mum.position = Vector3(i * 0.8 - 0.4 - pelvis.x, 0.05, -0.07 - pelvis.z)
 	var kid := Looks.make(mums, {"model": "male", "shirt": accent, "pants": Color(0.2, 0.3, 0.6), "hair": "Hair_Buzzed",
-		"hair_color": Color(0.85, 0.75, 0.4), "height": 1.05, "skin": Color(0.97, 0.82, 0.72)})
+		"hair_color": Color(0.85, 0.75, 0.4), "height": 1.05, "skin": Color(0.97, 0.82, 0.72), "shoe": "lenkkari"})
 	kid.position = Vector3(1.0, 0.0, 7.6)
 	kid.play("Idle", 0.0)
 	# Aita kolmelle sivulle ja kyltti.
@@ -3246,7 +3247,8 @@ func _build_rossi() -> void:
 	add_child(rossi_boys)
 	for i in 2:
 		var boy := Looks.make(rossi_boys, {"model": "male", "shirt": [Color(0.95, 0.5, 0.05), Color(0.1, 0.6, 0.3)][i], "pants": Color(0.12, 0.12, 0.14),
-			"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.25, 0.15), "height": 1.72, "skin": Color(0.95, 0.78, 0.68)})
+			"shoes": Color(0.1, 0.1, 0.1), "shoe": "lenkkari", "hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.25, 0.15), "height": 1.72,
+			"skin": Color(0.95, 0.78, 0.68)})
 		boy.position = Vector3(i * 1.4 - 0.7, 0, 0)
 		boy.play("Idle", 0.0)
 		var moto := Node3D.new()

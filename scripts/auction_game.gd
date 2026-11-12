@@ -20,9 +20,9 @@ const CALL_STEP := 1.5  # sekuntia per "kerta"
 const CALLS := ["Ensimmäisen kerran...", "Toisen kerran...", "Kolmannen kerran... MYYTY!"]
 const ROW_Z := 3.0
 const SEAT_X := [-1.7, 0.0, 1.7]
-const ELVI := {"model": "female", "shirt": Color(0.6, 0.32, 0.5), "pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2),
+const ELVI := {"model": "female", "shirt": Color(0.6, 0.32, 0.5), "pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2), "shoe": "kavelykenka",
 	"hair": "Hair_Buns", "hair_color": Color(0.9, 0.9, 0.9), "height": 1.56, "skin": Color(0.96, 0.8, 0.74), "belly": 0.5}
-const VEIKKONEN := {"shirt": Color(0.32, 0.36, 0.26), "pants": Color(0.25, 0.23, 0.2), "shoes": Color(0.2, 0.15, 0.1),
+const VEIKKONEN := {"shirt": Color(0.32, 0.36, 0.26), "pants": Color(0.25, 0.23, 0.2), "shoes": Color(0.2, 0.15, 0.1), "shoe": "tyokenka",
 	"hair": "Hair_Buzzed", "hair_color": Color(0.6, 0.6, 0.58), "beard": true, "height": 1.74, "skin": Color(0.94, 0.72, 0.62),
 	"belly": 0.6}
 

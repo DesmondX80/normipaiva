@@ -11,7 +11,7 @@ signal gave_up
 
 const LOOK := {
 	"shirt": Color(0.12, 0.16, 0.3), "pants": Color(0.1, 0.12, 0.22), "shoes": Color(0.05, 0.05, 0.05),
-	"hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.3, 0.25), "height": 1.84, "belly": 0.35,
+	"shoe": "nauhakenka", "hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.3, 0.25), "height": 1.84, "belly": 0.35,
 }
 const SPEED := 4.2  # pelaaja juoksee 4,9 m/s: juokseva pääsee karkuun, kävelevä tai ontuva ei
 const CATCH_D := 1.5

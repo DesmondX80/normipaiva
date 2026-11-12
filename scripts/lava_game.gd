@@ -16,6 +16,7 @@ signal danced(score: float, mode: String)
 signal tv_shot(tex: Texture2D)
 
 const Looks := preload("res://scripts/looks.gd")
+const Shoes := preload("res://scripts/shoes.gd")
 const B := preload("res://scripts/build.gd")
 const Headphones := preload("res://scripts/headphones.gd")
 const Band := preload("res://scripts/humppa_band.gd")
@@ -272,8 +273,8 @@ func _build_tv_crew() -> void:
 	B.mesh(cam, B.boxm(Vector3(0.05, 0.05, 0.05)), Vector3(0.1, 0.2, 0.25), Color(1, 0.1, 0.1))  # REC-valo
 	cam.look_at(to_global(Vector3(0, 1.2, 2.0)), Vector3.UP)
 	var looks := [{"shirt": Color(0.2, 0.2, 0.22), "pants": Color(0.3, 0.3, 0.35), "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.25, 0.2),
-		"height": 1.8}, {"shirt": Color(0.85, 0.85, 0.8), "pants": Color(0.2, 0.2, 0.25), "hair": "Hair_SimpleParted",
-		"hair_color": Color(0.5, 0.4, 0.3), "height": 1.76}]
+		"height": 1.8, "shoe": "tyokenka"}, {"shirt": Color(0.85, 0.85, 0.8), "pants": Color(0.2, 0.2, 0.25), "hair": "Hair_SimpleParted",
+		"hair_color": Color(0.5, 0.4, 0.3), "height": 1.76, "shoe": "tyokenka"}]
 	var crew := Looks.make(self, looks[0])
 	crew.position = c + Vector3(0.6, -1.7, 0.6)
 	crew.look_at(to_global(Vector3(0, crew.position.y, 2.0)), Vector3.UP)
@@ -328,14 +329,14 @@ func _spawn_people() -> void:
 	rng.randomize()
 	# Baarimikko tiskin takana.
 	_bartender = Looks.make(self, {"shirt": Color(0.95, 0.95, 0.95), "pants": Color(0.1, 0.1, 0.12), "hair": "Hair_Buzzed",
-		"hair_color": Color(0.2, 0.15, 0.1), "height": 1.78})
+		"hair_color": Color(0.2, 0.15, 0.1), "height": 1.78, "shoe": "nauhakenka"})
 	_bartender.position = Vector3(-door_side * (W / 2.0 - 1.0), 0.06, -4.0)
 	_bartender.rotation.y = door_side * PI / 2.0
 	_bartender.play("Idle", 0.0)
 	# Pari asiakasta tiskillä.
 	for k in 2:
 		var c := Looks.make(self, {"shirt": shirts[(k * 5 + 1) % shirts.size()], "pants": Color(0.2, 0.2, 0.3),
-			"hair": hairs[(k + 1) % hairs.size()], "hair_color": Color(0.35, 0.25, 0.12), "height": 1.78})
+			"hair": hairs[(k + 1) % hairs.size()], "hair_color": Color(0.35, 0.25, 0.12), "height": 1.78, "shoe": "lenkkari"})
 		c.position = Vector3(-door_side * (W / 2.0 - 2.6), 0.06, -6.0 + k * 3.2)
 		c.rotation.y = -door_side * PI / 2.0
 		c.play("Idle_Talking", 0.0)
@@ -345,7 +346,8 @@ func _spawn_people() -> void:
 	for k in YOUTH:
 		var y := Looks.make(self, {"model": "female" if k % 2 == 1 else "male", "shirt": neon[rng.randi() % neon.size()],
 			"pants": Color(0.15, 0.2, 0.45), "hair": hairs[rng.randi() % hairs.size()],
-			"hair_color": Color(rng.randf_range(0.1, 0.9), rng.randf_range(0.08, 0.7), 0.1), "height": rng.randf_range(1.6, 1.8)})
+			"hair_color": Color(rng.randf_range(0.1, 0.9), rng.randf_range(0.08, 0.7), 0.1), "height": rng.randf_range(1.6, 1.8),
+			"shoe": Shoes.random_type(rng, "nuori", k % 2 == 1)})
 		if k % 3 == 0:
 			Looks.add_cap(y)
 		y.position = Vector3(rng.randf_range(-13.0, 13.0), 0.08, rng.randf_range(DISCO_Z + 2.5, L / 2.0 - 3.5))
@@ -361,7 +363,7 @@ func _spawn_people() -> void:
 			var look := {"model": "female" if s == 1 else "male", "shirt": shirts[rng.randi() % shirts.size()],
 				"pants": Color(0.15, 0.15, 0.25) if s == 0 else shirts[rng.randi() % shirts.size()],
 				"hair": hairs[rng.randi() % hairs.size()], "hair_color": Color(rng.randf_range(0.1, 0.8), rng.randf_range(0.08, 0.6), 0.1),
-				"height": 1.8 if s == 0 else 1.66}
+				"height": 1.8 if s == 0 else 1.66, "shoe": Shoes.random_type(rng, "aikuinen", s == 1)}
 			var d := Looks.make(self, look)
 			d.position = at + Vector3(0, 0, 0.45 if s == 0 else -0.45)
 			d.rotation.y = 0.0 if s == 0 else PI
@@ -372,7 +374,7 @@ func _spawn_people() -> void:
 		_buddy.position = Vector3(-2.5, 0.06, 2.6)
 		_buddy.play("Dance", 0.0, 0.95)
 		var bp := Looks.make(self, {"model": "female", "shirt": Color(0.95, 0.8, 0.3), "pants": Color(0.2, 0.2, 0.3),
-			"hair": "Hair_Long", "hair_color": Color(0.5, 0.3, 0.15), "height": 1.66})
+			"hair": "Hair_Long", "hair_color": Color(0.5, 0.3, 0.15), "height": 1.66, "shoe": "sandaali"})
 		bp.position = _buddy.position + Vector3(0, 0, -0.5)
 		bp.rotation.y = PI
 		bp.play("Dance", 0.0, 0.95)
@@ -381,7 +383,7 @@ func _spawn_people() -> void:
 	_me.position = Vector3(0, 0.06, 2.0)
 	_me.play("Idle", 0.0)
 	_partner = Looks.make(self, {"model": "female", "shirt": Color(0.9, 0.25, 0.4), "pants": Color(0.12, 0.12, 0.2),
-		"hair": "Hair_Long", "hair_color": Color(0.8, 0.65, 0.35), "height": 1.66})
+		"hair": "Hair_Long", "hair_color": Color(0.8, 0.65, 0.35), "height": 1.66, "shoe": "sandaali"})
 	_partner.position = Vector3(1.6, 0.06, 0.6)
 	_partner.rotation.y = -0.8
 	_partner.play("Idle", 0.0)
@@ -495,7 +497,7 @@ func _start_dance(mode: String, track := "") -> void:
 		_me.position = Vector3(0, 0.08, (DISCO_Z + L / 2.0) / 2.0)
 		_partner.queue_free()
 		_partner = Looks.make(self, {"model": "female", "shirt": Color(0.1, 0.9, 0.9), "pants": Color(0.15, 0.2, 0.45),
-			"hair": "Hair_Buns", "hair_color": Color(0.85, 0.7, 0.4), "height": 1.65})
+			"hair": "Hair_Buns", "hair_color": Color(0.85, 0.7, 0.4), "height": 1.65, "shoe": "sandaali"})
 		_title.text = "LAVAN DISKO"
 		if track == "":
 			track = Headphones.random_90s_path()  # DJ soittaa 90-luvun eurodancea, ellei toivottu muuta

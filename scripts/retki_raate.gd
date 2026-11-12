@@ -139,7 +139,7 @@ func _build() -> void:
 	t3.rotation_degrees.x = TILT
 	# Vanha vierailija (katsoo +Z:aan).
 	_guest = Looks.make(self, {"shirt": Color(0.3, 0.33, 0.38), "pants": Color(0.22, 0.22, 0.25),
-		"shoes": Color(0.12, 0.1, 0.08), "hair": "Hair_SimpleParted", "hair_color": Color(0.75, 0.75, 0.77), "height": 1.72})
+		"shoes": Color(0.12, 0.1, 0.08), "shoe": "kavelykenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.75, 0.75, 0.77), "height": 1.72})
 	_guest.position = Vector3(-3.6, 0, 0.2)
 	_guest.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_guest.play("Idle", 0.0)

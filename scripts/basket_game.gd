@@ -187,7 +187,7 @@ func _ready() -> void:
 	_ball = make_ball(self)
 	var kid_cols := [Color(0.2, 0.7, 0.3), Color(0.95, 0.5, 0.1)]
 	for i in 2:
-		var kid := Looks.make(self, {"model": "male", "shirt": kid_cols[i], "pants": Color(0.15, 0.15, 0.2), "shoes": Color(0.9, 0.9, 0.9),
+		var kid := Looks.make(self, {"model": "male", "shirt": kid_cols[i], "pants": Color(0.15, 0.15, 0.2), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari",
 			"hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.35, 0.2), "height": 1.4 + i * 0.08, "skin": Color(0.95, 0.8, 0.7)})
 		kid.play("Idle", 0.0)
 		_kids.append(kid)

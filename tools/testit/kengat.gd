@@ -195,6 +195,11 @@ func _run() -> void:
 	fk["shoe"] = "kumisaapas"
 	fk["shoes"] = SAAPAS
 	looks.append(["farkut_kumisaapas", fk])
+	# #274 osa B: seuraintalon tanssijat sellaisinaan (K6: kenkä tunnistettava lähikuvasta).
+	for pd in KI.PEOPLE:
+		if pd.id in ["hilkka", "annaliisa"] and "tanssit" in pd.modes:
+			looks.append([pd.id, pd.look])
+	looks.append(["sinikka_seura", Looks.sinikka_seura()])
 	_jakauma()
 	for i in looks.size():
 		var ch: Node3D = Looks.make(self, looks[i][1])
@@ -217,6 +222,8 @@ func _run() -> void:
 	for r in row:
 		if r[1].shoe_type == "kumisaapas":
 			await _boot(r[1], r[0])
+	_sheet("vertailu_tanssijat", ["hilkka_edesta", "hilkka_sivu", "annaliisa_edesta", "annaliisa_sivu",
+		"sinikka_seura_edesta", "sinikka_seura_sivu", "hilkka_ylhaalta", "sinikka_seura_ylhaalta"])
 	_sheet("vertailu_kuvakulmat", ["lenkkari_m_edesta", "lenkkari_m_sivu", "lenkkari_m_ylhaalta", "lenkkari_m_takaa",
 		"lenkkari_f_edesta", "lenkkari_f_sivu", "lenkkari_f_ylhaalta", "punainen_f_sivu"])
 	_sheet("vertailu_asut", ["pelaaja_edesta", "pelaaja_sivu", "pelaaja_kolmeneljannes", "lenkkari_f_ylhaalta",

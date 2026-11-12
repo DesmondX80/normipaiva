@@ -38,13 +38,13 @@ const MUSTARD := Color(0.78, 0.6, 0.25)
 const FRY_EDGE := Color(0.72, 0.42, 0.16)  # kullanruskea paistoreuna
 ## Katsojat: avain -> [nimi, ulkonäkö, paikka, asento].
 const REISKA := {"shirt": Color(0.95, 0.95, 0.92), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.15, 0.12, 0.1),
-	"hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.28, 0.2), "beard": true, "height": 1.8, "belly": 0.9, "skin": Color(0.95, 0.74, 0.64)}
+	"shoe": "tyokenka", "hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.28, 0.2), "beard": true, "height": 1.8, "belly": 0.9, "skin": Color(0.95, 0.74, 0.64)}
 const REKKAMIES := {"shirt": Color(0.2, 0.3, 0.55), "pants": Color(0.25, 0.25, 0.3), "shoes": Color(0.2, 0.15, 0.1),
-	"hair": "Hair_SimpleParted", "hair_color": Color(0.4, 0.3, 0.2), "height": 1.84, "belly": 0.8, "bulk": 0.4}
+	"shoe": "tyokenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.4, 0.3, 0.2), "height": 1.84, "belly": 0.8, "bulk": 0.4}
 const RAIJA := {"model": "female", "shirt": Color(0.95, 0.45, 0.1), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.9, 0.9, 0.9),
 	"hair": "Hair_Long", "hair_color": Color(0.7, 0.3, 0.15), "height": 1.66, "skin": Color(0.95, 0.78, 0.68), "belly": 0.4}
 const MUMMO := {"model": "female", "shirt": Color(0.5, 0.6, 0.45), "pants": Color(0.3, 0.28, 0.32), "shoes": Color(0.3, 0.25, 0.2),
-	"hair": "Hair_Buns", "hair_color": Color(0.88, 0.88, 0.88), "height": 1.58, "skin": Color(0.96, 0.8, 0.74), "belly": 0.4}
+	"shoe": "kavelykenka", "hair": "Hair_Buns", "hair_color": Color(0.88, 0.88, 0.88), "height": 1.58, "skin": Color(0.96, 0.8, 0.74), "belly": 0.4}
 ## Repliikit tilanteittain: [puhuja, repliikki]. Puhujat: reiska, juntti, rekka, mummo, raija.
 const SAY := {
 	"start": [["reiska", "Kello käy, kun mää sanon NYT!"], ["juntti", "Seittemän. Sitä ei kukaan riko."]],

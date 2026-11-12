@@ -131,7 +131,7 @@ func build() -> void:
 	_members.clear()
 	_cymbals.clear()
 	var red := Color(0.72, 0.08, 0.1) if not juhannus else Color(0.95, 0.95, 0.92)
-	var vest := {"shirt": Color(0.95, 0.95, 0.93), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.08, 0.08, 0.08),
+	var vest := {"shirt": Color(0.95, 0.95, 0.93), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.08, 0.08, 0.08), "shoe": "nauhakenka",
 		"stripes": false, "height": 1.8, "belly": 0.45}
 	var hairs := ["Hair_SimpleParted", "Hair_Buzzed", "Hair_Long", "Hair_SimpleParted", "Hair_Buzzed"]
 	var hair_cols := [Color(0.3, 0.2, 0.12), Color(0.55, 0.55, 0.55), Color(0.2, 0.15, 0.1), Color(0.7, 0.6, 0.4), Color(0.15, 0.12, 0.1)]
@@ -153,7 +153,7 @@ func build() -> void:
 		_add_horn(Vector3(-5.3, 0, -0.7), look.call(6), true)
 		for k in 2:
 			var bv := Looks.make(self, {"model": "female", "shirt": Color(0.85, 0.1, 0.35), "pants": Color(0.85, 0.1, 0.35),
-				"hair": "Hair_Long", "hair_color": [Color(0.9, 0.75, 0.4), Color(0.35, 0.2, 0.1)][k], "height": 1.68})
+				"hair": "Hair_Long", "hair_color": [Color(0.9, 0.75, 0.4), Color(0.35, 0.2, 0.1)][k], "height": 1.68, "shoe": "sandaali"})
 			bv.position = Vector3(5.2 + k * 0.9, 0, -1.2 + k * 0.4)
 			bv.play("Dance", 0.0, 0.55)
 			_members.append({"ch": bv, "role": "taustat"})

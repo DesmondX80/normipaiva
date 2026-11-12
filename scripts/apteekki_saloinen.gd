@@ -32,7 +32,7 @@ const FOOTPRINT := Rect2(-L / 2.0 - 1.0, -D / 2.0 - 2.6, L + 2.0, D + 3.6)
 ## silmälasit ja vaaleat kävelykengät (asusteet Looks.make: perm_col, round_glasses; helma _coat_hem).
 const NAME := "Hoitaja Raili"
 const HOITAJA_LOOK := {
-	"model": "female", "shirt": Color(0.95, 0.95, 0.93), "pants": Color(0.72, 0.76, 0.82), "shoes": Color(0.86, 0.83, 0.76),
+	"model": "female", "shirt": Color(0.95, 0.95, 0.93), "pants": Color(0.72, 0.76, 0.82), "shoes": Color(0.86, 0.83, 0.76), "shoe": "kavelykenka",
 	"hair": "", "perm_col": Color(0.74, 0.74, 0.76), "round_glasses": true, "hair_color": Color(0.7, 0.7, 0.72),
 	"height": 1.62, "skin": Color(1.0, 0.89, 0.84), "bulk": 0.2, "belly": 0.25, "shoulders": -0.4, "muscle": -1.0,
 }
