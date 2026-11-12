@@ -27001,8 +27001,8 @@ func _maybe_screenshot() -> void:
 			var mx: Vector3 = mokki_int.global_basis.x
 			var mz: Vector3 = mokki_int.global_basis.z
 			var mm := mp + Vector3(0, 0.18, 0)
-			await close.call(mm, mm + mz * 1.1 + Vector3(0, 0.35, 0), "_mokki_esine_edesta.png")
-			await close.call(mm, mm - mx * 1.1 + mz * 0.2 + Vector3(0, 0.3, 0), "_mokki_esine_paadysta.png")  # oven puolelta (+X:ssä CD-hylly)
+			await close.call(mm, mm + mx * 1.1 + Vector3(0, 0.35, 0), "_mokki_esine_edesta.png")  # kärjet tupaan (+X)
+			await close.call(mm, mm + mz * 1.1 + mx * 0.2 + Vector3(0, 0.3, 0), "_mokki_esine_paadysta.png")  # ikkunan puolelta (-Z:ssä uuni)
 			mokki_int.walker.position = mokki_int.SPOTS.saappaat[0]
 			for i in 5:
 				await get_tree().process_frame

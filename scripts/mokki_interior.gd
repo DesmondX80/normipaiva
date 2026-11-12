@@ -51,7 +51,7 @@ const SPOTS := {
 	"sokeri": [Vector3(-1.4, 0, -3.7), "[E] Ota sokeria Santun keittiön kaapista (Santtu suuttuu!)"],
 	"sangot": [Vector3(5.55, 0, -1.6), ""],
 	"vaatekaappi": [Vector3(2.0, 0, 0.4), "[E] Vaatekaappi: työvaatteet ja Karjala-lippis"],
-	"saappaat": [Vector3(-5.3, 0, -1.0), ""],  # kumisaappaat ulko-oven oikealla (vihje kumisaappaat.gd, vaihto main.gd)  # Paapelin viinisaavi pöntön takana olevalla seinällä: vihje main.gd:stä
+	"saappaat": [Vector3(-6.1, 0, 0.93), ""],  # kumisaappaat punaisen uunin vieressä (vihje kumisaappaat.gd, vaihto main.gd)  # Paapelin viinisaavi pöntön takana olevalla seinällä: vihje main.gd:stä
 }
 ## PA-kaiuttimet (jalustoilla sohvien päädyissä) ja tunnusmusiikin voimakkuus: taso 0..1 -> dB.
 const PA_SPEAKERS := [Vector3(-4.95, 0, 3.2), Vector3(0.2, 0, 3.2)]
@@ -131,8 +131,9 @@ func _ready() -> void:
 	_build_bedroom()
 	_build_bath_sauna()
 	_build_pa()
-	# Kumisaappaat kuramatolla oven ja CD-hyllyn (x -5,15) välissä, kärjet tupaan; maton takareuna 1 cm seinän pinnasta.
-	_boots = Saappaat.build(self, Vector3(-5.53, 0, KITCHEN.end.y + 0.075 + 0.235), Vector3(0, 0, 1), Vector2(0.45, 0.48))
+	# Kumisaappaat kuramatolla päätyseinällä punaisen uunin (z -0,1..0,5) vieressä ikkunan puolella, kärjet tupaan (+X);
+	# maton takareuna 1 cm seinän pinnasta (uunin takapinta x -HALF.x + 0,1), 5 cm rako uuniin (käyttäjän toive).
+	_boots = Saappaat.build(self, Vector3(-HALF.x + 0.1 + 0.01 + 0.25, 0, 0.5 + 0.05 + 0.375), Vector3(1, 0, 0))  # oletusmatto (tilaa on)
 	_santtu = Looks.make(self, Mokki.SANTTU_LOOK)
 	_santtu.play("Idle", 0.0)
 	_santtu_body = StaticBody3D.new()
