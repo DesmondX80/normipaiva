@@ -34,7 +34,7 @@ const LUUKKU := Color(0.88, 0.89, 0.9)
 
 ## Huijari: nahkatakki, farkut, siistit kengät, viikset ja sänki. Aikuinen, ei uhkaava; ei mopopoikien tuulipukua.
 const LOOK := {"shirt": Color(0.3, 0.19, 0.11), "shine": 0.35, "pants": Color(0.2, 0.24, 0.34), "jeans": true, "belt_y": 0.99,
-	"belt_col": Color(0.08, 0.06, 0.05), "shoes": Color(0.12, 0.1, 0.09), "hair": "Hair_SimpleParted",
+	"belt_col": Color(0.08, 0.06, 0.05), "shoes": Color(0.12, 0.1, 0.09), "shoe": "nauhakenka", "hair": "Hair_SimpleParted",
 	"hair_color": Color(0.12, 0.1, 0.09), "beard": true, "height": 1.78, "belly": 0.15, "bulk": 0.1}
 
 const TAPA_VAARA := 0  # väärennetyt setelit

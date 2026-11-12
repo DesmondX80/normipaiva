@@ -622,7 +622,7 @@ func _add_bubble(c: Node3D) -> void:
 
 func _build_people() -> void:
 	_bartender = Looks.make(self, {"shirt": Color(0.95, 0.95, 0.93), "pants": Color(0.08, 0.08, 0.1), "shoes": Color(0.08, 0.08, 0.08),
-		"hair": "Hair_SimpleParted", "hair_color": Color(0.25, 0.18, 0.12), "beard": true, "height": 1.8, "belly": 0.4})
+		"shoe": "nauhakenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.25, 0.18, 0.12), "beard": true, "height": 1.8, "belly": 0.4})
 	_bartender.position = Vector3(-4.2, 0, -4.8)
 	_bartender.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_bartender.play("Idle", 0.0)
@@ -637,13 +637,13 @@ func _build_people() -> void:
 	# Romaniseurue: naisilla mustat samettihameet ja pitsipuserot, miehillä tummat puvut ja valkoiset paidat.
 	var skirt := Color(0.04, 0.04, 0.05)
 	var looks := [
-		{"model": "female", "shirt": Color(0.95, 0.92, 0.95), "pants": skirt, "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_Buns",
+		{"model": "female", "shirt": Color(0.95, 0.92, 0.95), "pants": skirt, "shoes": Color(0.05, 0.05, 0.05), "shoe": "sandaali", "hair": "Hair_Buns",
 			"hair_color": Color(0.08, 0.06, 0.05), "height": 1.62, "skin": Color(0.92, 0.76, 0.62), "shine": 0.7},
-		{"shirt": Color(0.1, 0.1, 0.12), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_SimpleParted",
+		{"shirt": Color(0.1, 0.1, 0.12), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.05, 0.05, 0.05), "shoe": "nauhakenka", "hair": "Hair_SimpleParted",
 			"hair_color": Color(0.06, 0.05, 0.05), "height": 1.78, "skin": Color(0.9, 0.74, 0.6), "belly": 0.3},
-		{"model": "female", "shirt": Color(0.75, 0.15, 0.35), "pants": skirt, "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_Long",
+		{"model": "female", "shirt": Color(0.75, 0.15, 0.35), "pants": skirt, "shoes": Color(0.05, 0.05, 0.05), "shoe": "lenkkari", "hair": "Hair_Long",
 			"hair_color": Color(0.1, 0.07, 0.05), "height": 1.66, "skin": Color(0.92, 0.76, 0.62), "shine": 0.7},
-		{"shirt": Color(0.14, 0.14, 0.18), "pants": Color(0.14, 0.14, 0.18), "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_Buzzed",
+		{"shirt": Color(0.14, 0.14, 0.18), "pants": Color(0.14, 0.14, 0.18), "shoes": Color(0.05, 0.05, 0.05), "shoe": "nauhakenka", "hair": "Hair_Buzzed",
 			"hair_color": Color(0.12, 0.1, 0.08), "beard": true, "height": 1.82, "skin": Color(0.9, 0.74, 0.6)},
 	]
 	var seats := [[Vector3(2.0, 0, 1.8), Vector3(0, 0, 1)], [Vector3(3.6, 0, 1.8), Vector3(0, 0, 1)],
@@ -739,7 +739,7 @@ func _build_hotel() -> void:
 		_hmesh(Vector3(1.0, 2.2, 0.08), Vector3(d[0], 1.1, -hz + 0.05), Color(0.5, 0.33, 0.2))
 		B.label(self, d[1], _hp(Vector3(d[0], 2.45, -hz + 0.12)), 40, Color(0.95, 0.8, 0.3))
 	_receptionist = Looks.make(self, {"model": "female", "shirt": Color(0.2, 0.25, 0.45), "pants": Color(0.15, 0.15, 0.2),
-		"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_Buns", "hair_color": Color(0.45, 0.3, 0.2), "height": 1.64})
+		"shoes": Color(0.1, 0.1, 0.1), "shoe": "nauhakenka", "hair": "Hair_Buns", "hair_color": Color(0.45, 0.3, 0.2), "height": 1.64})
 	_receptionist.position = _hp(Vector3(-5.6, 0, -4.3))
 	_receptionist.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_receptionist.play("Idle", 0.0)

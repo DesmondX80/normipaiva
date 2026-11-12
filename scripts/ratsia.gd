@@ -10,9 +10,9 @@ const Looks := preload("res://scripts/looks.gd")
 const Mopo := preload("res://scripts/mopo.gd")
 
 const COP := {"shirt": Color(0.12, 0.16, 0.3), "pants": Color(0.1, 0.12, 0.22), "shoes": Color(0.05, 0.05, 0.05),
-	"hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "height": 1.84, "belly": 0.3}
+	"shoe": "nauhakenka", "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "height": 1.84, "belly": 0.3}
 const COP2 := {"shirt": Color(0.12, 0.16, 0.3), "pants": Color(0.1, 0.12, 0.22), "shoes": Color(0.05, 0.05, 0.05),
-	"hair": "Hair_SimpleParted", "hair_color": Color(0.55, 0.5, 0.45), "beard": true, "height": 1.78, "belly": 0.6}
+	"shoe": "nauhakenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.55, 0.5, 0.45), "beard": true, "height": 1.78, "belly": 0.6}
 const TEEN := {"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.38, 0.55), "shoes": Color(0.9, 0.9, 0.9),
 	"hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.1), "height": 1.74, "bulk": -0.7, "shoulders": -0.6}
 const TEEN_LINES := [

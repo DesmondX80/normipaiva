@@ -781,7 +781,7 @@ static func kuski(car: Node3D, malli: String, look := {}) -> Node3D:
 	if look.is_empty():
 		var nainen := randf() < 0.4
 		look = {"model": "female" if nainen else "male", "shirt": KUSKI_PAIDAT.pick_random(),
-			"pants": Color(0.15, 0.17, 0.25), "shoes": Color(0.1, 0.08, 0.07), "hair": KUSKI_HIUKSET.pick_random(),
+			"pants": Color(0.15, 0.17, 0.25), "shoes": Color(0.1, 0.08, 0.07), "shoe": "nauhakenka", "hair": KUSKI_HIUKSET.pick_random(),
 			"hair_color": Color(randf_range(0.15, 0.6), randf_range(0.1, 0.45), randf_range(0.05, 0.3)),
 			"height": randf_range(1.62, 1.78) if nainen else randf_range(1.7, 1.82)}
 	var ch: Node3D = load("res://scripts/looks.gd").make(car, look)

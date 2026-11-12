@@ -20,6 +20,7 @@ const Train := preload("res://scripts/train.gd")
 const StationBuild := preload("res://scripts/station_build.gd")
 const Makasiini := preload("res://scripts/makasiini.gd")
 const Looks := preload("res://scripts/looks.gd")
+const Shoes := preload("res://scripts/shoes.gd")
 const Mummot := preload("res://scripts/mummot.gd")
 const HumppaBand := preload("res://scripts/humppa_band.gd")
 const Janttu := preload("res://scripts/janttu.gd")
@@ -1385,14 +1386,17 @@ func _build_lava_kiosk_people() -> void:
 	var tbl := _kiosk_table
 	# Grillaaja luukulla ja jono.
 	var cook := Looks.make(_lava_outside, {"shirt": Color(0.95, 0.95, 0.95), "pants": Color(0.2, 0.2, 0.22), "hair": "Hair_Buzzed",
-		"hair_color": Color(0.3, 0.25, 0.2), "height": 1.76, "belly": 0.6})
+		"hair_color": Color(0.3, 0.25, 0.2), "height": 1.76, "belly": 0.6, "shoe": "tyokenka"})
 	cook.position = to_local(k.to_global(Vector3(0.2, 0.0, -0.3)))
 	cook.rotation.y = k.rotation.y
 	cook.play("Idle_Talking", 0.0)
 	var looks := [
-		{"shirt": Color(0.2, 0.35, 0.7), "pants": Color(0.25, 0.3, 0.45), "hair": "Hair_SimpleParted", "hair_color": Color(0.5, 0.4, 0.3), "height": 1.82, "belly": 0.5},
-		{"model": "female", "shirt": Color(0.85, 0.3, 0.45), "pants": Color(0.2, 0.2, 0.3), "hair": "Hair_Long", "hair_color": Color(0.85, 0.7, 0.4), "height": 1.65},
-		{"shirt": Color(0.3, 0.45, 0.25), "pants": Color(0.15, 0.15, 0.17), "hair": "Hair_Buzzed", "hair_color": Color(0.6, 0.6, 0.6), "height": 1.75, "belly": 0.7},
+		{"shirt": Color(0.2, 0.35, 0.7), "pants": Color(0.25, 0.3, 0.45), "hair": "Hair_SimpleParted", "hair_color": Color(0.5, 0.4, 0.3), "height": 1.82, "belly": 0.5,
+			"shoe": "lenkkari"},
+		{"model": "female", "shirt": Color(0.85, 0.3, 0.45), "pants": Color(0.2, 0.2, 0.3), "hair": "Hair_Long", "hair_color": Color(0.85, 0.7, 0.4), "height": 1.65,
+			"shoe": "sandaali"},
+		{"shirt": Color(0.3, 0.45, 0.25), "pants": Color(0.15, 0.15, 0.17), "hair": "Hair_Buzzed", "hair_color": Color(0.6, 0.6, 0.6), "height": 1.75, "belly": 0.7,
+			"shoe": "tyokenka"},
 	]
 	for i in looks.size():
 		var q := Looks.make(_lava_outside, looks[i])
@@ -1410,9 +1414,12 @@ func _build_lava_kiosk_people() -> void:
 		return
 	var smoke_c := _smoke_c
 	var smokers := [
-		{"shirt": Color(0.1, 0.1, 0.12), "pants": Color(0.25, 0.3, 0.45), "hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.1), "height": 1.84},
-		{"model": "female", "shirt": Color(0.95, 0.85, 0.3), "pants": Color(0.12, 0.12, 0.2), "hair": "Hair_Buns", "hair_color": Color(0.35, 0.2, 0.1), "height": 1.64},
-		{"shirt": Color(0.6, 0.15, 0.12), "pants": Color(0.2, 0.2, 0.25), "hair": "Hair_SimpleParted", "hair_color": Color(0.7, 0.7, 0.7), "height": 1.78, "belly": 0.8},
+		{"shirt": Color(0.1, 0.1, 0.12), "pants": Color(0.25, 0.3, 0.45), "hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.1), "height": 1.84,
+			"shoe": "lenkkari"},
+		{"model": "female", "shirt": Color(0.95, 0.85, 0.3), "pants": Color(0.12, 0.12, 0.2), "hair": "Hair_Buns", "hair_color": Color(0.35, 0.2, 0.1), "height": 1.64,
+			"shoe": "lenkkari"},
+		{"shirt": Color(0.6, 0.15, 0.12), "pants": Color(0.2, 0.2, 0.25), "hair": "Hair_SimpleParted", "hair_color": Color(0.7, 0.7, 0.7), "height": 1.78, "belly": 0.8,
+			"shoe": "tyokenka"},
 	]
 	for i in smokers.size():
 		var a := TAU * i / 3.0 + 0.3
@@ -1436,11 +1443,13 @@ func _build_lava_crowd(root: Node3D, w: float, l: float, side: float) -> void:
 		Color(0.95, 0.95, 0.95), Color(0.5, 0.2, 0.55), Color(0.15, 0.15, 0.17), Color(0.85, 0.5, 0.2)]
 	var hairs := ["Hair_SimpleParted", "Hair_Buzzed", "Hair_Long", "Hair_Buns"]
 	var person := func(female: bool) -> Dictionary:
-		return {"model": "female" if female else "male", "shirt": shirts[rng.randi() % shirts.size()],
+		var p := {"model": "female" if female else "male", "shirt": shirts[rng.randi() % shirts.size()],
 			"pants": Color(0.15, 0.15, 0.25) if not female else shirts[rng.randi() % shirts.size()],
 			"hair": hairs[rng.randi() % hairs.size()] if female else hairs[rng.randi() % 2],
 			"hair_color": Color(rng.randf_range(0.1, 0.85), rng.randf_range(0.08, 0.65), 0.1),
 			"height": 1.66 if female else 1.8, "belly": rng.randf_range(0.0, 0.6) if not female else 0.0}
+		p["shoe"] = Shoes.random_type(rng, "aikuinen" if p.belly > 0.3 else "nuori", female)  # vatsakas = aikuinen
+		return p
 	for k in 9:
 		var at := Vector3(rng.randf_range(-w / 2.0 + 4.0, w / 2.0 - 4.0), 0.06, rng.randf_range(-l / 2.0 + 8.5, l / 2.0 - 5.0))
 		for s2 in 2:
@@ -1713,13 +1722,13 @@ func _build_party(c: Vector2, away: Vector2) -> void:
 		var lg := B.mesh(root, B.cyl(0.2, 0.22, 2.2, 8), lgd[0] + Vector3(0, 0.2, 0), Color(0.35, 0.25, 0.16))
 		lg.rotation = Vector3(0, lgd[1], PI / 2.0)
 	var looks := [
-		{"shirt": Color(0.1, 0.35, 0.6), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buzzed",
+		{"shirt": Color(0.1, 0.35, 0.6), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari", "hair": "Hair_Buzzed",
 			"hair_color": Color(0.7, 0.55, 0.3), "height": 1.76, "bulk": -0.6, "shoulders": -0.5, "tracksuit": {"a": Color(0.9, 0.2, 0.3), "b": Color(0.1, 0.35, 0.6)}},
-		{"model": "female", "shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.38, 0.55), "shoes": Color(0.15, 0.15, 0.15), "hair": "Hair_Long",
+		{"model": "female", "shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.38, 0.55), "shoes": Color(0.15, 0.15, 0.15), "shoe": "sandaali", "hair": "Hair_Long",
 			"hair_color": Color(0.85, 0.75, 0.5), "height": 1.66, "bulk": -0.5},
-		{"shirt": Color(0.2, 0.45, 0.2), "pants": Color(0.15, 0.15, 0.17), "shoes": Color(0.2, 0.2, 0.2), "hair": "Hair_Long",
+		{"shirt": Color(0.2, 0.45, 0.2), "pants": Color(0.15, 0.15, 0.17), "shoes": Color(0.2, 0.2, 0.2), "shoe": "lenkkari", "hair": "Hair_Long",
 			"hair_color": Color(0.15, 0.1, 0.08), "height": 1.82, "bulk": -0.7, "shoulders": -0.6},
-		{"model": "female", "shirt": Color(0.6, 0.1, 0.45), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buns",
+		{"model": "female", "shirt": Color(0.6, 0.1, 0.45), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari", "hair": "Hair_Buns",
 			"hair_color": Color(0.35, 0.2, 0.1), "height": 1.62, "bulk": -0.6},
 	]
 	var seats := [[Vector3(-0.5, 0.0, 1.9), "Sitting_Idle"], [Vector3(0.5, 0.0, 1.9), "Sitting_Talking"], [Vector3(1.75, 0.0, -0.6), "Sitting_Idle"],
@@ -3817,17 +3826,17 @@ func _build_tyokkari_queue(door: Vector2, out: Vector2) -> void:
 	var side := Vector2(-out.y, out.x)
 	var looks := [
 		{"shirt": Color(0.3, 0.35, 0.3), "pants": Color(0.2, 0.22, 0.3), "hair": "Hair_Buzzed", "hair_color": Color(0.4, 0.35, 0.3),
-			"height": 1.78, "belly": 0.3},
+			"height": 1.78, "belly": 0.3, "shoe": "kavelykenka"},
 		{"model": "female", "shirt": Color(0.6, 0.2, 0.3), "pants": Color(0.15, 0.15, 0.2), "hair": "Hair_Long",
-			"hair_color": Color(0.35, 0.25, 0.15), "height": 1.64},
+			"hair_color": Color(0.35, 0.25, 0.15), "height": 1.64, "shoe": "kavelykenka"},
 		{"shirt": Color(0.15, 0.2, 0.45), "pants": Color(0.25, 0.25, 0.28), "hair": "Hair_SimpleParted",
-			"hair_color": Color(0.15, 0.12, 0.1), "height": 1.82, "tracksuit": {"a": Color(0.15, 0.2, 0.55), "b": Color(0.9, 0.9, 0.9)}},
+			"hair_color": Color(0.15, 0.12, 0.1), "height": 1.82, "tracksuit": {"a": Color(0.15, 0.2, 0.55), "b": Color(0.9, 0.9, 0.9)}, "shoe": "lenkkari"},
 		{"shirt": Color(0.5, 0.45, 0.35), "pants": Color(0.3, 0.28, 0.22), "hair": "Hair_Buzzed", "beard": true, "hair_color": Color(0.55, 0.5, 0.45),
-			"height": 1.72, "belly": 0.5},
+			"height": 1.72, "belly": 0.5, "shoe": "kavelykenka"},
 		{"model": "female", "shirt": Color(0.75, 0.7, 0.55), "pants": Color(0.2, 0.25, 0.4), "hair": "Hair_Buns",
-			"hair_color": Color(0.6, 0.58, 0.55), "height": 1.6, "belly": 0.2},
+			"hair_color": Color(0.6, 0.58, 0.55), "height": 1.6, "belly": 0.2, "shoe": "kavelykenka"},
 		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.35, 0.5), "hair": "Hair_Buzzed", "hair_color": Color(0.8, 0.7, 0.45),
-			"height": 1.76, "bulk": -0.5},
+			"height": 1.76, "bulk": -0.5, "shoe": "lenkkari"},
 	]
 	var anims := ["Idle", "Idle_Talking", "Idle", "Idle", "Idle_Talking", "Idle"]
 	for i in looks.size():
@@ -5143,13 +5152,14 @@ func _build_kokko(c: Vector2, face: Vector2) -> void:
 	_kokko_people = Node3D.new()
 	_kokko.add_child(_kokko_people)
 	var looks := [
-		{"shirt": Color(0.9, 0.9, 0.85), "pants": Color(0.25, 0.3, 0.45), "hair": "Hair_SimpleParted", "hair_color": Color(0.5, 0.4, 0.3), "height": 1.8},
+		{"shirt": Color(0.9, 0.9, 0.85), "pants": Color(0.25, 0.3, 0.45), "hair": "Hair_SimpleParted", "hair_color": Color(0.5, 0.4, 0.3), "height": 1.8,
+			"shoe": "lenkkari"},
 		{"model": "female", "shirt": Color(0.95, 0.85, 0.9), "pants": Color(0.3, 0.5, 0.35), "hair": "Hair_Long", "hair_color": Color(0.85, 0.7, 0.4),
-			"height": 1.66},
+			"height": 1.66, "shoe": "sandaali"},
 		{"shirt": Color(0.2, 0.4, 0.25), "pants": Color(0.2, 0.2, 0.25), "hair": "Hair_Buzzed", "beard": true, "hair_color": Color(0.4, 0.3, 0.2),
-			"height": 1.76, "belly": 0.4},
+			"height": 1.76, "belly": 0.4, "shoe": "kavelykenka"},
 		{"model": "female", "shirt": Color(0.7, 0.2, 0.25), "pants": Color(0.15, 0.15, 0.2), "hair": "Hair_Buns", "hair_color": Color(0.6, 0.55, 0.5),
-			"height": 1.62},
+			"height": 1.62, "shoe": "kavelykenka"},
 	]
 	for i in looks.size():
 		var a := PI * 0.25 + i * 0.5 + atan2(-face.y, -face.x)  # rannan puolelle, kasvot kokolle
@@ -5216,9 +5226,9 @@ func _build_yard_teens(c: Vector2, face: Vector2) -> void:
 	var looks := [
 		{"shirt": Color(0.75, 0.75, 0.78), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buzzed",
 			"hair_color": Color(0.85, 0.75, 0.5), "height": 1.74, "bulk": -0.6, "tracksuit": {"a": Color(0.1, 0.5, 0.3), "b": Color(0.85, 0.85, 0.85)}},
-		{"model": "female", "shirt": Color(0.9, 0.85, 0.3), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.15, 0.15, 0.15), "hair": "Hair_Long",
+		{"model": "female", "shirt": Color(0.9, 0.85, 0.3), "pants": Color(0.12, 0.12, 0.15), "shoes": Color(0.15, 0.15, 0.15), "shoe": "lenkkari", "hair": "Hair_Long",
 			"hair_color": Color(0.3, 0.18, 0.1), "height": 1.63, "bulk": -0.6},
-		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.3, 0.33), "shoes": Color(0.2, 0.2, 0.2), "hair": "Hair_SimpleParted",
+		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.3, 0.33), "shoes": Color(0.2, 0.2, 0.2), "shoe": "lenkkari", "hair": "Hair_SimpleParted",
 			"hair_color": Color(0.12, 0.1, 0.08), "height": 1.8, "bulk": -0.7},
 	]
 	var spots := [[Vector3(-0.9, 0, 0.3), "Idle_Talking", Vector3(1, 0, 0.2)], [Vector3(0.4, 0.42, 0.6), "Sitting_Talking", Vector3(-0.3, 0, -1)],
@@ -5272,7 +5282,7 @@ func _build_race_crew(front: Vector3, out: Vector3) -> void:
 					(n as MeshInstance3D).material_override = B.mat(Color(0.85, 0.72, 0.08))
 	var looks := [{"shirt": Color(0.1, 0.35, 0.6), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "hair": "Hair_Buzzed",
 		"hair_color": Color(0.7, 0.55, 0.3), "height": 1.76, "bulk": -0.6, "shoulders": -0.5, "tracksuit": {"a": Color(0.9, 0.2, 0.3), "b": Color(0.1, 0.35, 0.6)}},
-		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.2, 0.22, 0.3), "shoes": Color(0.15, 0.15, 0.15), "hair": "Hair_Long",
+		{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.2, 0.22, 0.3), "shoes": Color(0.15, 0.15, 0.15), "shoe": "lenkkari", "hair": "Hair_Long",
 		"hair_color": Color(0.2, 0.15, 0.1), "height": 1.8, "bulk": -0.7}]
 	for k in 2:
 		var ch := Looks.make(self, looks[k])

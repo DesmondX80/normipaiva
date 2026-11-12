@@ -195,7 +195,7 @@ func _build() -> void:
 	B.mesh(self, B.boxm(Vector3(0.7, 0.12, 0.12)), church + Vector3(0, 5.5, 2.9), Color(0.95, 0.94, 0.9))
 	# Opas kirkon oven edessä.
 	_guide = Looks.make(self, {"shirt": Color(0.2, 0.42, 0.3), "pants": Color(0.25, 0.25, 0.3),
-		"shoes": Color(0.15, 0.12, 0.1), "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.5, 0.45), "height": 1.7})
+		"shoes": Color(0.15, 0.12, 0.1), "shoe": "kavelykenka", "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.5, 0.45), "height": 1.7})
 	_guide.position = Vector3(-3.0, 0, 1.4)
 	_guide.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_guide.play("Idle", 0.0)

@@ -11,6 +11,7 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Walker := preload("res://scripts/player_walker.gd")
+const Saappaat := preload("res://scripts/kumisaappaat.gd")
 
 const HALF := Vector2(10.0, 6.0)  # huoneiston puolikas (x, z)
 const WALL_H := 2.5
@@ -46,9 +47,10 @@ const SPOTS := {
 	"nortti": [Vector3(8.0, 0, -3.6), "[E] Jutskaa nörtin kanssa"],
 	"puhelin": [Vector3(-8.7, 0, -1.4), "[E] Päivin vanha kännykkä yöpöydällä"],
 	"vaatekaappi": [Vector3(-6.0, 0, -4.9), "[E] Vaatekaappi: vaihda vaatteet"],
+	"saappaat": [Vector3(-3.2, 0, 5.2), ""],  # kumisaappaat makuuhuoneen oven ja etuseinän välissä; kuramaton (x < -3,4) ulkopuolella ja yli 1,3 m sisääntulopaikasta (vihje kumisaappaat.gd, vaihto main.gd)
 }
 const NERD_LOOK := {
-	"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.25, 0.27, 0.32), "shoes": Color(0.9, 0.9, 0.9),
+	"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.25, 0.27, 0.32), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari",
 	"hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.1), "height": 1.82, "belly": 0.2, "bulk": -0.2,
 }
 const NERD_LINES := [
@@ -98,6 +100,7 @@ var _vcr_display: Label3D
 var _vcr_rec: MeshInstance3D
 var _vcr_mode := ""
 var _screens: Array[MeshInstance3D] = []
+var _boots: Node3D  # eteisen kumisaappaat (piilossa, kun ne ovat pelaajan jalassa)
 
 
 func _ready() -> void:
@@ -123,6 +126,9 @@ func _build_hall_closet() -> void:
 	B.mesh(self, B.boxm(Vector3(0.35, 0.12, 1.1)), Vector3(LEFT_X + 0.25, 0.06, 2.6), Color(0.35, 0.25, 0.18))  # kenkäteline
 	for k in 3:
 		B.mesh(self, B.boxm(Vector3(0.12, 0.08, 0.28)), Vector3(LEFT_X + 0.25, 0.16, 2.2 + k * 0.35), Color(0.12, 0.1, 0.09))
+	# Kumisaappaat kuramatolla vasemmalla seinällä makuuhuoneen oven (z 3,3–4,3) ja etuseinän välissä, kärjet eteiseen (+X),
+	# lattian päällä (y 0,04). Matto 0,5 x 0,75: seinän sisäpinnasta (x -3,925) 2,5 cm, z 4,43–5,18 (pelikameralta noin 30 px).
+	_boots = Saappaat.build(self, Vector3(LEFT_X + 0.35, 0.04, 4.8), Vector3(1, 0, 0))
 
 
 func enter(door := "ovi") -> void:
@@ -162,6 +168,7 @@ func _process(delta: float) -> void:
 	for i in _screens.size():
 		(_screens[i].material_override as StandardMaterial3D).albedo_color = Color(0.2, 0.75, 0.4).lerp(
 			Color(0.6, 0.3, 0.9), 0.5 + 0.5 * sin(t * (2.0 + i)))
+	_boots.visible = Looks.boots != "koti"
 	if not active or busy:
 		hint = ""
 		spot = ""
@@ -192,6 +199,8 @@ func _process(delta: float) -> void:
 	hint = "" if best == "" else SPOTS[best][1]
 	if overrides.has(best):
 		hint = overrides[best]
+	if best == "saappaat":
+		hint = Saappaat.hint("koti")
 	if _blocked_t > 0.0 and best != "kaappi":
 		hint = "Kaljat kädessä ei pidemmälle – Päivi näkee! Piilota ne eteisen kaappiin."
 	if best == "" or best == "kaappi" or not Input.is_action_just_pressed("interact") or Engine.get_process_frames() == _enter_frame:

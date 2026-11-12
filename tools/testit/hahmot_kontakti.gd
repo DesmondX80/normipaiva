@@ -47,6 +47,8 @@ func _ready() -> void:
 	if args.size() > 0:
 		out = args[0]
 	old_way = "vanha" in args
+	if "saappaat" in args:  # #274: pelaaja kodin kumisaappaissa (Looks.player -> kumisaapas)
+		Looks.boots = "koti"
 	DirAccess.make_dir_recursive_absolute(out)
 	var env := WorldEnvironment.new()
 	env.environment = Environment.new()

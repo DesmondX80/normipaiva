@@ -43,7 +43,7 @@ const KUMI_ETAISYYS := Vector2(60.0, 100.0)  # siirto tieverkon solmuun tältä 
 const POLIISI_TAHDET := 4
 const HEAT := [1.0, 1.0, 1.125, 1.25, 1.375, 1.5]  # Päivin ja Roivaisen nopeuskerroin tähtien mukaan
 const KUSKI_T := 9.0  # s kuski näkyy (juoksee ja soittaa)
-const KUSKI_LOOK := {"shirt": Color(0.35, 0.45, 0.6), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.3, 0.2, 0.12),
+const KUSKI_LOOK := {"shirt": Color(0.35, 0.45, 0.6), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.3, 0.2, 0.12), "shoe": "kavelykenka",
 	"hair": "Hair_SimpleParted", "hair_color": Color(0.45, 0.35, 0.25), "height": 1.78, "belly": 0.5}
 
 var tahdet := 0

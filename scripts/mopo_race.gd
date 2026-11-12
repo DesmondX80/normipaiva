@@ -58,7 +58,7 @@ func _ready() -> void:
 		_cum.append(_cum[i - 1] + track[i - 1].distance_to(track[i]))
 	_prev_cam = get_viewport().get_camera_3d()
 	_my_model = _make_mopo(Looks.player(), Color(0.72, 0.08, 0.06), true)
-	_opp_model = _make_mopo({"shirt": Color(0.1, 0.35, 0.6), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9),
+	_opp_model = _make_mopo({"shirt": Color(0.1, 0.35, 0.6), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari",
 		"hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.55, 0.3), "height": 1.76, "bulk": -0.6, "shoulders": -0.5,
 		"tracksuit": {"a": Color(0.9, 0.2, 0.3), "b": Color(0.1, 0.35, 0.6)}}, Color(0.85, 0.72, 0.08), false)
 	# Lähtö- ja maaliviiva tiehen, sekä kaverit tien varressa.
@@ -69,13 +69,13 @@ func _ready() -> void:
 		line.rotation.y = atan2(d.x, d.z)
 	var fl := _at(DIST) + _side(DIST) * (LANE + 2.2)
 	var flagger := Looks.make(self, {"model": "female", "shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.3, 0.38, 0.55),
-		"hair": "Hair_Long", "hair_color": Color(0.85, 0.75, 0.5), "height": 1.66, "bulk": -0.5})
+		"hair": "Hair_Long", "hair_color": Color(0.85, 0.75, 0.5), "height": 1.66, "bulk": -0.5, "shoe": "lenkkari"})
 	flagger.position = fl
 	flagger.rotation.y = B.yaw_to(-_side(DIST))
 	flagger.play("Idle", 0.0)
 	var st := _at(0) - _side(0) * (LANE + 2.0) + _dir(0) * 2.0
 	var starter := Looks.make(self, {"shirt": Color(0.2, 0.45, 0.2), "pants": Color(0.15, 0.15, 0.17), "hair": "Hair_Long",
-		"hair_color": Color(0.15, 0.1, 0.08), "height": 1.82, "bulk": -0.7})
+		"hair_color": Color(0.15, 0.1, 0.08), "height": 1.82, "bulk": -0.7, "shoe": "tyokenka"})
 	Looks.add_cap(starter)
 	starter.position = st
 	starter.rotation.y = B.yaw_to(_side(0))

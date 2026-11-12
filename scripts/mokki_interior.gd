@@ -11,6 +11,7 @@ const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Walker := preload("res://scripts/player_walker.gd")
 const Mokki := preload("res://scripts/mokki.gd")
+const Saappaat := preload("res://scripts/kumisaappaat.gd")
 
 const HALF := Vector2(7.0, 3.75)  # huoneiston puolikas (x, z); tien puoli z = HALF.y
 ## Kuistin puoleinen ulkoseinä: keittiö ja pesutilat on levennetty kuistille päin pelattavuuden vuoksi.
@@ -49,7 +50,8 @@ const SPOTS := {
 	"pa": [Vector3(-0.9, 0, 1.55), "[E] Kytke Santun PA-laitteet"],
 	"sokeri": [Vector3(-1.4, 0, -3.7), "[E] Ota sokeria Santun keittiön kaapista (Santtu suuttuu!)"],
 	"sangot": [Vector3(5.55, 0, -1.6), ""],
-	"vaatekaappi": [Vector3(2.0, 0, 0.4), "[E] Vaatekaappi: työvaatteet ja Karjala-lippis"],  # Paapelin viinisaavi pöntön takana olevalla seinällä: vihje main.gd:stä
+	"vaatekaappi": [Vector3(2.0, 0, 0.4), "[E] Vaatekaappi: työvaatteet ja Karjala-lippis"],
+	"saappaat": [Vector3(-6.1, 0, 0.93), ""],  # kumisaappaat punaisen uunin vieressä (vihje kumisaappaat.gd, vaihto main.gd)  # Paapelin viinisaavi pöntön takana olevalla seinällä: vihje main.gd:stä
 }
 ## PA-kaiuttimet (jalustoilla sohvien päädyissä) ja tunnusmusiikin voimakkuus: taso 0..1 -> dB.
 const PA_SPEAKERS := [Vector3(-4.95, 0, 3.2), Vector3(0.2, 0, 3.2)]
@@ -119,6 +121,7 @@ var _pa_cones: Array[MeshInstance3D] = []
 ## Likaisia astioita tiskipöydällä (Santun homma: tiski_game.gd). 0 = tiskipöytä on siisti.
 var dishes := 0
 var _dish_pile: Node3D
+var _boots: Node3D  # ovensuun kumisaappaat (piilossa, kun ne ovat pelaajan jalassa)
 
 
 func _ready() -> void:
@@ -128,6 +131,9 @@ func _ready() -> void:
 	_build_bedroom()
 	_build_bath_sauna()
 	_build_pa()
+	# Kumisaappaat kuramatolla päätyseinällä punaisen uunin (z -0,1..0,5) vieressä ikkunan puolella, kärjet tupaan (+X);
+	# maton takareuna 1 cm seinän pinnasta (uunin takapinta x -HALF.x + 0,1), 5 cm rako uuniin (käyttäjän toive).
+	_boots = Saappaat.build(self, Vector3(-HALF.x + 0.1 + 0.01 + 0.25, 0, 0.5 + 0.05 + 0.375), Vector3(1, 0, 0))  # oletusmatto (tilaa on)
 	_santtu = Looks.make(self, Mokki.SANTTU_LOOK)
 	_santtu.play("Idle", 0.0)
 	_santtu_body = StaticBody3D.new()
@@ -365,6 +371,7 @@ func _process(delta: float) -> void:
 				bl.modulate.a -= delta * 0.6
 				if bl.modulate.a <= 0.0:
 					bl.visible = false
+	_boots.visible = Looks.boots != "mokki"
 	if not active or busy:
 		hint = ""
 		spot = ""
@@ -389,6 +396,8 @@ func _process(delta: float) -> void:
 	if best == "":
 		return
 	hint = "[E] Jutskaa Santun kanssa" if best == "santtu" else SPOTS[best][1]
+	if best == "saappaat":
+		hint = Saappaat.hint("mokki")
 	if best == "pa" and pa_on:
 		hint = "[E] Sammuta PA (pääte ensin pois)"
 	if best == "takka" and takka_on:

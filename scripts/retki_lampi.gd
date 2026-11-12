@@ -201,7 +201,7 @@ func _build() -> void:
 	var plate := B.sign_plate(self, "TEERINIEMEN LEIRINTÄALUE\nKALALUPA 8 €", Color(0.1, 0.3, 0.2), Color(1, 0.95, 0.8), 0.34, 40)
 	plate.position = Vector3(-7.0, 2.35, -5.96)
 	_clerk = Looks.make(self, {"model": "female", "shirt": Color(0.2, 0.45, 0.35), "pants": Color(0.25, 0.25, 0.3),
-		"shoes": Color(0.2, 0.15, 0.12), "hair": "Hair_Buns", "hair_color": Color(0.6, 0.45, 0.25), "height": 1.66})
+		"shoes": Color(0.2, 0.15, 0.12), "shoe": "kavelykenka", "hair": "Hair_Buns", "hair_color": Color(0.6, 0.45, 0.25), "height": 1.66})
 	_clerk.position = Vector3(-7.0, 0, -5.75)
 	_clerk.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_clerk.play("Idle", 0.0)

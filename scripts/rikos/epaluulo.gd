@@ -35,7 +35,7 @@ const EAR := Vector3(0.09, 0.09, -0.01)
 
 ## Kinnapotin Irma: eläkeläisrouva, permanentti, pyöreät lasit, roosa neuletakki ja hame (Looks.MUMMOT-mallin mitoin).
 const IRMA_LOOK := {"model": "female", "shirt": Color(0.72, 0.42, 0.55), "pants": Color(0.28, 0.27, 0.33),
-	"shoes": Color(0.2, 0.13, 0.1), "hair": "", "perm_col": Color(0.82, 0.8, 0.84), "round_glasses": true,
+	"shoes": Color(0.2, 0.13, 0.1), "shoe": "kavelykenka", "hair": "", "perm_col": Color(0.82, 0.8, 0.84), "round_glasses": true,
 	"skirt": Color(0.28, 0.27, 0.33), "coat_hem": true, "shorts_y": 0.62, "bare_skin": Color(0.66, 0.52, 0.44),
 	"hair_color": Color(0.82, 0.8, 0.84), "height": 1.58, "skin": Color(1.0, 0.89, 0.84), "bulk": 0.2, "belly": 0.3,
 	"shoulders": -0.4, "muscle": -1.0}

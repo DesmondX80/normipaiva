@@ -14,9 +14,9 @@ const SIZE := Vector2i(640, 400)
 const GLOBE_AT := Vector3(-60, 0, 0)
 const WEATHER_AT := Vector3(60, 0, 0)
 const ANCHOR := {"shirt": Color(0.1, 0.13, 0.22), "pants": Color(0.1, 0.11, 0.15), "shoes": Color(0.05, 0.05, 0.05),
-	"hair": "Hair_SimpleParted", "hair_color": Color(0.28, 0.2, 0.13), "height": 1.8, "skin": Color(0.98, 0.84, 0.74)}
+	"shoe": "nauhakenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.28, 0.2, 0.13), "height": 1.8, "skin": Color(0.98, 0.84, 0.74)}
 const METEOROLOGI := {"model": "female", "shirt": Color(0.62, 0.1, 0.14), "pants": Color(0.1, 0.1, 0.12),
-	"shoes": Color(0.08, 0.06, 0.05), "hair": "Hair_Long", "hair_color": Color(0.85, 0.68, 0.38), "height": 1.7,
+	"shoes": Color(0.08, 0.06, 0.05), "shoe": "nauhakenka", "hair": "Hair_Long", "hair_color": Color(0.85, 0.68, 0.38), "height": 1.7,
 	"skin": Color(0.98, 0.86, 0.76), "curves": 0.6, "bust": 1.6}
 ## Suomen ja naapurien rajat pituus- ja leveyspiireinä (karkea, tunnistettava muoto). Lounaisrannikolta
 ## itärajaa pohjoiseen, Lapin käsivarsi ja Tornionjoki alas, sitten Pohjanlahden rannikko etelään.

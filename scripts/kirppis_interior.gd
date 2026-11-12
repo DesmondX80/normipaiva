@@ -31,22 +31,22 @@ var spots := {
 	"takaovi": [Vector3(8.0, 0, -3.2), "[E] Takaovesta pihalle (ukot takakontilla)", ["tanssit"]],
 	"poyta": [Vector3(-3.4, 0, 2.7), "[E] Oma kirppispöytä (paikka 2 €/päivä, Hilkka)", ["kirppis"]],
 }
-const MUMMO := {"model": "female", "shirt": Color(0.45, 0.4, 0.6), "pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2),
+const MUMMO := {"model": "female", "shirt": Color(0.45, 0.4, 0.6), "pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2), "shoe": "kavelykenka",
 	"hair": "Hair_Buns", "hair_color": Color(0.9, 0.9, 0.9), "height": 1.56, "skin": Color(0.95, 0.8, 0.74), "belly": 0.5}
 ## Ihmiset: id (main.gd TALKERS; "" = pelkkä tausta), nimi, rooli vihjeeseen, tilat, paikka, katse, asento ja ulkonäkö
 ## (look tai look_ref = looks.gd-vakion nimi). Sama henkilö voi olla eri tiloissa eri paikassa omana rivinään.
 const PEOPLE := [
 	{"id": "hilkka", "name": "Hilkka", "role": "myy virkkuuliinoja", "modes": ["kirppis"], "at": Vector3(-6.2, 0, -1.4),
 		"face": Vector3(1, 0, 0.3), "pose": "Sitting_Idle", "look": {"model": "female", "shirt": Color(0.55, 0.3, 0.45),
-			"pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2), "hair": "Hair_Buns", "hair_color": Color(0.85, 0.85, 0.85),
+			"pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2), "shoe": "kavelykenka", "hair": "Hair_Buns", "hair_color": Color(0.85, 0.85, 0.85),
 			"height": 1.58, "skin": Color(0.95, 0.8, 0.74), "belly": 0.4}},
 	{"id": "raili", "name": "Raili", "role": "myy rihkamaa", "modes": ["kirppis"], "at": Vector3(0.0, 0, -0.9),
 		"face": Vector3(0, 0, 1), "pose": "Sitting_Idle", "look": {"model": "female", "shirt": Color(0.2, 0.45, 0.4),
-			"pants": Color(0.15, 0.15, 0.2), "shoes": Color(0.2, 0.2, 0.2), "hair": "Hair_Long", "hair_color": Color(0.6, 0.25, 0.15),
+			"pants": Color(0.15, 0.15, 0.2), "shoes": Color(0.2, 0.2, 0.2), "shoe": "kavelykenka", "hair": "Hair_Long", "hair_color": Color(0.6, 0.25, 0.15),
 			"height": 1.65, "skin": Color(0.96, 0.78, 0.7), "belly": 0.3}},
 	{"id": "tauno", "name": "Tauno", "role": "myy työkaluja", "modes": ["kirppis"], "at": Vector3(6.2, 0, -1.4),
 		"face": Vector3(-1, 0, 0.3), "pose": "Sitting_Idle", "look": {"shirt": Color(0.3, 0.32, 0.25), "pants": Color(0.2, 0.22, 0.35),
-			"shoes": Color(0.2, 0.15, 0.1), "hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.7, 0.68), "beard": true, "height": 1.78,
+			"shoes": Color(0.2, 0.15, 0.1), "shoe": "tyokenka", "hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.7, 0.68), "beard": true, "height": 1.78,
 			"skin": Color(0.95, 0.72, 0.64), "belly": 0.8}},
 	{"id": "huutaja", "name": "Erkki", "role": "huutaja", "modes": ["kirppis", "bingo"], "at": Vector3(0.0, 0.5, -4.7), "reach": 2.4,
 		"face": Vector3(0, 0, 1), "pose": "Idle", "look": {"shirt": Color(0.85, 0.85, 0.8), "pants": Color(0.15, 0.15, 0.18),
@@ -55,43 +55,43 @@ const PEOPLE := [
 	# Tansseissa Anna-Liisa seisoo lattian reunalla: kirppispaikka (1,8; 1,4) on taustaparien kiertoradalla (#257).
 	{"id": "korkkiraimo", "name": "Korkki-Raimo", "role": "vaihtaa pullonkorkkeja", "modes": ["kirppis"], "wd": 5, "at": Vector3(-3.0, 0, 0.6),
 		"face": Vector3(0.3, 0, 1), "pose": "Idle", "look": {"shirt": Color(0.75, 0.6, 0.25), "pants": Color(0.3, 0.28, 0.25),
-			"shoes": Color(0.25, 0.2, 0.15), "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.55, 0.55), "beard": true,
+			"shoes": Color(0.25, 0.2, 0.15), "shoe": "tyokenka", "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.55, 0.55), "beard": true,
 			"height": 1.7, "skin": Color(0.93, 0.76, 0.66), "belly": 0.55}},
 	{"id": "annaliisa", "name": "Anna-Liisa", "role": "naapuri", "modes": ["kirppis", "tanssit"], "at": Vector3(1.8, 0, 1.4),
 		"face": Vector3(-0.6, 0, -1), "paikat": {"tanssit": [Vector3(3.4, 0, 3.6), Vector3(-0.75, 0, -0.66)]}, "pose": "Idle", "look": {"model": "female", "shirt": Color(0.75, 0.55, 0.6),
-			"pants": Color(0.3, 0.3, 0.35), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari", "hair": "Hair_Buns", "hair_color": Color(0.55, 0.45, 0.35),
+			"pants": Color(0.3, 0.3, 0.35), "shoes": Color(0.22, 0.14, 0.1), "shoe": "kavelykenka", "hair": "Hair_Buns", "hair_color": Color(0.55, 0.45, 0.35),
 			"height": 1.62, "skin": Color(0.95, 0.8, 0.74)}},
-	# Tanssit: tanssiin haettavat, kahvio ja bändi. Tanssijoilla (Anna-Liisa, Hilkka, sinikka_seura) on sama kenkätyyppi
-	# kuin pelaajalla ("shoe": "lenkkari"): korkeusero nostaisi toisen olan ja rikkoisi otteen (#271).
+	# Tanssit: tanssiin haettavat, kahvio ja bändi. Hilkalla ja Anna-Liisalla kävelykengät, Sinikalla (sinikka_seura) punaiset
+	# sandaalit (#274); kaikkien kenkätyyppien nosto on sama 23 mm, joten olkakorkeus ja ote eivät muutu (#271).
 	{"id": "sinikka_seura", "name": "Sinikka", "role": "tanssiin?", "modes": ["tanssit"], "at": Vector3(-4.0, 0, 2.6),
 		"face": Vector3(0.5, 0, -1), "pose": "Idle", "look_ref": "SINIKKA"},
 	{"id": "hilkka", "name": "Hilkka", "role": "tanssiin?", "modes": ["tanssit"], "at": Vector3(4.6, 0, 2.4),
 		"face": Vector3(-0.5, 0, -1), "pose": "Idle", "look": {"model": "female", "shirt": Color(0.55, 0.3, 0.45),
-			"pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2), "shoe": "lenkkari", "hair": "Hair_Buns", "hair_color": Color(0.85, 0.85, 0.85),
+			"pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2), "shoe": "kavelykenka", "hair": "Hair_Buns", "hair_color": Color(0.85, 0.85, 0.85),
 			"height": 1.58, "skin": Color(0.95, 0.8, 0.74), "belly": 0.4}},
 	{"id": "raili", "name": "Raili", "role": "kahvio", "modes": ["tanssit", "bingo"], "at": Vector3(-5.5, 0, 3.3),
 		"face": Vector3(0, 0, 1), "pose": "Idle", "look": {"model": "female", "shirt": Color(0.2, 0.45, 0.4),
-			"pants": Color(0.15, 0.15, 0.2), "shoes": Color(0.2, 0.2, 0.2), "hair": "Hair_Long", "hair_color": Color(0.6, 0.25, 0.15),
+			"pants": Color(0.15, 0.15, 0.2), "shoes": Color(0.2, 0.2, 0.2), "shoe": "kavelykenka", "hair": "Hair_Long", "hair_color": Color(0.6, 0.25, 0.15),
 			"height": 1.65, "skin": Color(0.96, 0.78, 0.7), "belly": 0.3}},
 	{"id": "", "name": "Haitarinsoittaja", "role": "", "modes": ["tanssit"], "at": Vector3(-1.8, 0.5, -4.6), "face": Vector3(0.2, 0, 1),
 		"pose": "Idle", "instrument": "haitari", "look": {"shirt": Color(0.75, 0.1, 0.1), "pants": Color(0.1, 0.1, 0.12),
-			"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_SimpleParted", "hair_color": Color(0.25, 0.2, 0.15), "height": 1.76}},
+			"shoes": Color(0.1, 0.1, 0.1), "shoe": "nauhakenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.25, 0.2, 0.15), "height": 1.76}},
 	{"id": "", "name": "Kitaristi", "role": "", "modes": ["tanssit"], "at": Vector3(0.0, 0.5, -4.9), "face": Vector3(0, 0, 1),
 		"pose": "Idle", "instrument": "kitara", "look": {"shirt": Color(0.75, 0.1, 0.1), "pants": Color(0.1, 0.1, 0.12),
-			"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_Long", "hair_color": Color(0.5, 0.35, 0.2), "height": 1.8}},
+			"shoes": Color(0.1, 0.1, 0.1), "shoe": "nauhakenka", "hair": "Hair_Long", "hair_color": Color(0.5, 0.35, 0.2), "height": 1.8}},
 	{"id": "", "name": "Rumpali", "role": "", "modes": ["tanssit"], "at": Vector3(1.9, 0.5, -4.9), "face": Vector3(-0.2, 0, 1),
 		"pose": "Sitting_Idle", "instrument": "rummut", "look": {"shirt": Color(0.75, 0.1, 0.1), "pants": Color(0.1, 0.1, 0.12),
-			"shoes": Color(0.1, 0.1, 0.1), "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.25, 0.2), "height": 1.74, "belly": 0.7}},
+			"shoes": Color(0.1, 0.1, 0.1), "shoe": "nauhakenka", "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.25, 0.2), "height": 1.74, "belly": 0.7}},
 	# Bingo: pelaajat lappujen ääressä keskipöydässä, katse lavalle.
 	{"id": "hilkka", "name": "Hilkka", "role": "bingossa", "modes": ["bingo"], "at": Vector3(-1.0, 0, 0.9),
 		"face": Vector3(0, 0, -1), "pose": "Sitting_Idle", "look": {"model": "female", "shirt": Color(0.55, 0.3, 0.45),
-			"pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2), "hair": "Hair_Buns", "hair_color": Color(0.85, 0.85, 0.85),
+			"pants": Color(0.25, 0.22, 0.3), "shoes": Color(0.3, 0.25, 0.2), "shoe": "kavelykenka", "hair": "Hair_Buns", "hair_color": Color(0.85, 0.85, 0.85),
 			"height": 1.58, "skin": Color(0.95, 0.8, 0.74), "belly": 0.4}},
 	{"id": "", "name": "Mummo Elvi", "role": "", "modes": ["bingo"], "at": Vector3(0.0, 0, 0.9), "face": Vector3(0, 0, -1),
 		"pose": "Sitting_Idle", "look": MUMMO},
 	{"id": "tauno", "name": "Tauno", "role": "bingossa", "modes": ["bingo"], "at": Vector3(1.0, 0, 0.9),
 		"face": Vector3(0, 0, -1), "pose": "Sitting_Idle", "look": {"shirt": Color(0.3, 0.32, 0.25), "pants": Color(0.2, 0.22, 0.35),
-			"shoes": Color(0.2, 0.15, 0.1), "hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.7, 0.68), "beard": true, "height": 1.78,
+			"shoes": Color(0.2, 0.15, 0.1), "shoe": "tyokenka", "hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.7, 0.68), "beard": true, "height": 1.78,
 			"skin": Color(0.95, 0.72, 0.64), "belly": 0.8}},
 	{"id": "", "name": "Mummo Aili", "role": "", "modes": ["bingo"], "at": Vector3(-1.0, 0, -0.9), "face": Vector3(0, 0, -1),
 		"pose": "Sitting_Idle", "look": MUMMO},
@@ -820,12 +820,12 @@ func _build_drumkit(holder: Node3D, ch: Node3D, at: Vector3, face: Vector3) -> v
 ## Tanssivat parit (pelkkä tausta): kaksi hahmoa vastakkain, kiertävät tanssilattiaa _processissa.
 func _build_dancers() -> void:
 	var looks := [
-		[{"shirt": Color(0.2, 0.3, 0.5), "pants": Color(0.15, 0.15, 0.2), "hair": "Hair_SimpleParted", "height": 1.8},
-			{"model": "female", "shirt": Color(0.85, 0.3, 0.35), "pants": Color(0.2, 0.2, 0.25), "hair": "Hair_Long", "height": 1.65}],
-		[{"shirt": Color(0.5, 0.45, 0.35), "pants": Color(0.2, 0.18, 0.15), "hair": "Hair_Buzzed", "height": 1.75, "belly": 0.6},
-			{"model": "female", "shirt": Color(0.4, 0.6, 0.85), "pants": Color(0.25, 0.25, 0.3), "hair": "Hair_Buns", "height": 1.6}],
-		[{"shirt": Color(0.95, 0.95, 0.9), "pants": Color(0.1, 0.1, 0.12), "hair": "Hair_SimpleParted", "height": 1.78},
-			{"model": "female", "shirt": Color(0.55, 0.25, 0.6), "pants": Color(0.2, 0.2, 0.25), "hair": "Hair_Long", "height": 1.62}],
+		[{"shirt": Color(0.2, 0.3, 0.5), "pants": Color(0.15, 0.15, 0.2), "shoe": "kavelykenka", "hair": "Hair_SimpleParted", "height": 1.8},
+			{"model": "female", "shirt": Color(0.85, 0.3, 0.35), "pants": Color(0.2, 0.2, 0.25), "shoe": "kavelykenka", "hair": "Hair_Long", "height": 1.65}],
+		[{"shirt": Color(0.5, 0.45, 0.35), "pants": Color(0.2, 0.18, 0.15), "shoe": "kavelykenka", "hair": "Hair_Buzzed", "height": 1.75, "belly": 0.6},
+			{"model": "female", "shirt": Color(0.4, 0.6, 0.85), "pants": Color(0.25, 0.25, 0.3), "shoe": "kavelykenka", "hair": "Hair_Buns", "height": 1.6}],
+		[{"shirt": Color(0.95, 0.95, 0.9), "pants": Color(0.1, 0.1, 0.12), "shoe": "kavelykenka", "hair": "Hair_SimpleParted", "height": 1.78},
+			{"model": "female", "shirt": Color(0.55, 0.25, 0.6), "pants": Color(0.2, 0.2, 0.25), "shoe": "kavelykenka", "hair": "Hair_Long", "height": 1.62}],
 	]
 	for pair in looks:
 		var root := Node3D.new()

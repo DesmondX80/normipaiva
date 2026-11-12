@@ -380,7 +380,7 @@ pohja), `kavelykenka` (2, matala suljettu varsi `top` 0,07, vaalea kumipohja, py
 `tyokenka` (3, varsi nilkan yli `shaft`, turvakärkikupu, paksu tumma pohja); `paljas` = ei kenkää. Tyyppi valitaan
 `Shoes.type_for(look)`: `look.shoe` voittaa, muuten `shoes`-väri (vaaleat ja kirkkaat = `lenkkari`, muut `paljas` = vanha
 värjätty jalkaterä). Käyttäjät (`looks.gd`): mummot `kavelykenka`, Seppo ja Reijo (`Looks.SEPPO`/`REIJO`) `tyokenka`, pelaaja asun
-mukaan (tuulipuku `lenkkari`, hiihtohaalari `kuukenka`, farkut ja tyovaatteet `tyokenka`), tanssijat `lenkkari` (sama korkeus, #271).
+mukaan (tuulipuku `lenkkari`, hiihtohaalari `kuukenka`, farkut ja tyovaatteet `tyokenka`; kumisaappaat jalassa `Looks.boots != ""` kaikissa muissa paitsi hiihtohaalarissa, ks. alla), tanssijat Hilkka ja Anna-Liisa `kavelykenka`, Sinikka `sandaali`.
 Kumisaapas (#273, `style` 4): kaksi jäykkää osaa, matala kuori jalkaterän luissa ja leveä varsiputki (`shaft`, `rigid`,
 yläreuna ~0,24 m nilkasta) säären luussa; varren alareuna levenee 8 mm suun kohdalla, jotta alaosan suu jää sen sisään
 kaikissa asennoissa (`KENKA ... suu_ulkona`, `reisi_sisalla`). Lahje kavennetaan varren sisään (`shoe_top`). Väri tulee
@@ -390,7 +390,7 @@ pohja ja pieni korko (`waist`), mattanahka, takasauma ja päärme; käyttäjät 
 ei kuorta, vaan tasainen korkkipohjalaatta (sama 23 mm nosto, ei jalkaterän kallistusta) ja hihnat ihon pinnassa
 (`_build_straps`: poikkileikkauksen kärkien kupera kuori = kiristetyn hihnan muoto; varvashihna, nilkkahihna ja kantahihna).
 Jalkaterä näkyy ihona (`character.gdshader foot_skin`), ja varpaankynnet lakataan (`nails`: varpaat erotellaan k-meansilla,
-väri `look.nails` tai `shoes`). Käyttäjät: Sinikka (punaiset; bikinissä ja aurinkoa ottaessa `paljas`, tanssiessa `lenkkari`)
+väri `look.nails` tai `shoes`). Käyttäjät: Sinikka (punaiset; bikinissä ja aurinkoa ottaessa `paljas`, tanssiessa `sandaali`)
 ja Minttu (valkoiset). Nopea ajo vain näille: `aja.sh tscn tools/testit/kengat.tscn --e3` (`KENKA ... hihnat`).
 Saunassa ja uidessa paljas: `cutscene.gd sauna_look` poistaa `shoe`- ja `shoe_rough`-avaimet. #279: työkengän varsi on sama kaksiosainen jäykkä rakenne kuin kumisaappaassa (matala nilkkavarsi, `join` 0,09; vanha suun
 ääriviivasta noussut varsi jätti portaan). Kuukenkä (`kuukenka`, `style` 7, esikuva Moon Boot): pullea toppavarsi puoleen sääreen,
@@ -404,7 +404,7 @@ kannessa kärjen päällä näkyy kuoppa (hyväksytty #272:ssa, syy tuntematon).
 sisään (`shoe_on`, rajataso `shoe_cut`), ja `Pose.limb_points` ohittaa piilotetut kärjet ja lukee kenkäverkon, joten kontaktiprofiili
 (`profile_key` päättyy tyyppiin), jalkalaatikko ja läpimenot mittaavat kenkää. Malli nousee seistessä pohjan verran (`_lift_sole` +
 meta `"pohja"`, `Character.shoe_sole`), ja `Pose.feet_to_floor` lisää sen `FOOT_H`:hon. Testi: `aja.sh tscn tools/testit/kengat.tscn`
-(`KENKA ... alin` ±5 mm, `iho_ulkona` < 0, kuvat ja vertailukuvat kuvakulmista ja kävelystä, `RUUTU` 24 hahmolla, `KENKA jakauma` tarkistaa yllä olevan jaon 11 hahmolle ja asulle, myös sauna ja uinti = paljas).
+(`KENKA ... alin` ±5 mm, `iho_ulkona` < 0, kuvat ja vertailukuvat kuvakulmista ja kävelystä, `RUUTU` 24 hahmolla, `KENKA jakauma` tarkistaa yllä olevan jaon 25 riville (hahmot, asut, tanssijat ja saappaat jalassa), myös sauna ja uinti = paljas).
 Kuori kaavasta: jalasta mitataan asemittain vain mittakäyrät (keskiviiva, puolileveys, yläpuoliskon korkeus, suun raja), jotka
 tasoitetaan pituuden suunnassa tarpeen yläpuolelle (`_envelope`), ja jokainen poikkileikkaus on sama superellipsi (`_ring_at`,
 `SE_N`, alapuolisko `B_LOW`, alin piste tasan pohjan päällä). Mitään ei leikata renkaittain, joten kuoreen ei tule ryppyjä (vanha
@@ -415,8 +415,10 @@ nousee kärjessä `spring` (5 mm). Lähikuvat `<nimi>_edesta_lahi`, `_vino_lahi`
 ja `_vino_lahi_varjoton` (varjokartan sahalaita valon rajalla ei ole muotovika). Suu: kuoren yläreuna `collar` (12 mm) lahkeen alimman
 kärjen alla, ja suun yläpuolinen jalkaterä (meta `"suu"`) jää lahkeen värisenä näkyviin (`skin_outside` ohittaa sen). Kuvat:
 `<nimi>_paalta` (ylhäältä ilman vartaloa), `vertailu_karki` ja `vertailu_asut` (pelaaja, hiihtohaalari, Minttu helmassa).
-Tanssijoilla (Hilkka, Anna-Liisa, seuraintalon Sinikka) on eksplisiittinen `"shoe"` sama kuin pelaajalla: eri kenkätyyppi nostaa
-toisen olan pohjan verran ja rikkoo otteen (`tanssi_kontakti`). Kun tulee uusia kenkätyyppejä, tarkista tanssijoiden korkeusero.
+**Kumisaappaat ja `Looks.boots` (#274):** `scripts/kumisaappaat.gd` rakentaa kodin eteisen ja mökin (punaisen uunin vieressä) saapaspari-esineen umpinaisista paloista ja loftatusta jalkaosasta (pitkä matala kärki) vaalealle kuramatolle (`build`, maton koko parametrina, vihje `hint`; korkeus 0,375 m mitattu pelin saappaasta). `Looks.boots` (`""`, `"koti"`, `"mokki"`) on staattinen muuttuja, jonka kirjoittaa vain `main.gd` (`_toggle_boots`/`_set_boots`, kuten hattu); `Looks.player()` asettaa sen ollessa asetettuna `shoe: kumisaapas` paitsi hiihtohaalarissa. Tallennus `pelaaja/saappaat`. Sisätilat lähettävät `acted("saappaat")`. Testit: `aja.sh scene saappaat`, `kengat.tscn` (jakauma), `hahmot_kontakti`/`tanssi_kontakti` argumentilla `saappaat`.
+**Satunnaisten joukkojen kengät (#274):** `Shoes.random_type(rng, age, female)` arpoo tyypin iän ja sukupuolen mukaan (vanha `kavelykenka`; nainen 40 % `sandaali`, muuten `lenkkari`; aikuinen mies 40 % `tyokenka`, muuten `lenkkari`; nuori mies `lenkkari`). Arpa on `hash(rng.state)`, joten rng:tä ei kuluteta ja joukkojen asettelu pysyy ennallaan; sama siemen antaa samat kengät (`vaala.gd _build_lava_crowd`, `lava_game.gd`).
+**Tanssijoiden kengät:** Hilkka ja Anna-Liisa `kavelykenka`, Sinikka `sandaali`. Eri tyypin pohjat eroavat enintään 3,3 mm (`KENKA ... pohja`: lenkkari ja kumisaapas 23,0, kävelykenkä 19,7-23,0, sandaali 21,5-22,5 mm), mikä ei rikkoisi otetta (raja 5 mm). `tanssi_kontakti --kiintea`: 7 löytöä sekä mainissa että muutoksen jälkeen (myös `saappaat`). Kun tulee uusia kenkätyyppejä, tarkista tanssijoiden korkeusero.
+**Ruutuaika:** `kengat.tscn` `RUUTU`-rivi on ohjelmistorenderöinnin luku. Kenkien GPU-ruutuaikaa (lava, seuraintalo; tavoite alle 16,7 ms) ei ole mitattu: pilviympäristössä ei ole näytönohjainta, joten mittaus on testaamatta ja jää käyttäjän koneelle.
 
 **Hiukset ja pää (elastiset):** hiukset ovat skinnattuja verkkoja oma varjostin `shaders/hair.gdshader` (painumasilmukka jaettu
 `shaders/press.gdshaderinc`-tiedostossa vartalon kanssa); painumaraja on 0,9 x etäisyys kallon pintaan (`CUSTOM0.w`), leviäminen suuntautuu

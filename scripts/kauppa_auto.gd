@@ -19,7 +19,7 @@ const HATCH_H := 0.58
 const HATCH_TILT := 0.1726  # Hiacen kyljen kallistus vyölinjan yläpuolella (atan((0,845 - 0,73) / 0,66))
 ## Kauppa-auton Eila: ajaa auton ja myy luukulta.
 const EILA := {"model": "female", "shirt": Color(0.2, 0.35, 0.7), "pants": Color(0.2, 0.2, 0.25),
-	"shoes": Color(0.15, 0.12, 0.1), "hair": "Hair_Buns", "hair_color": Color(0.55, 0.5, 0.48), "height": 1.62, "belly": 0.3}
+	"shoes": Color(0.15, 0.12, 0.1), "shoe": "kavelykenka", "hair": "Hair_Buns", "hair_color": Color(0.55, 0.5, 0.48), "height": 1.62, "belly": 0.3}
 const STOP_LOCAL := Vector3(4.0, 0, -39.0)  # Kaisuantiellä n. 13 m Pekan auton itäpuolella
 ## Myytävät: avain -> [nimi, hinta]. Hinnat vähän kauppaa kalliimmat: bensa ja kuljetus.
 const MENU := {

@@ -29,17 +29,17 @@ var spots := {
 ## Asukkaat: nimi, ulkonäkö, paikka, katse, asento ja vihjeen kuvaus.
 const PEOPLE := [
 	{"name": "Rane", "kind": "juoppo", "at": Vector3(-1.6, 0, 0.42), "face": Vector3(0, 0, 1), "pose": "Sitting_Idle",
-		"look": {"shirt": Color(0.35, 0.3, 0.22), "pants": Color(0.2, 0.2, 0.24), "shoes": Color(0.15, 0.12, 0.1), "hair": "Hair_Long",
+		"look": {"shirt": Color(0.35, 0.3, 0.22), "pants": Color(0.2, 0.2, 0.24), "shoes": Color(0.15, 0.12, 0.1), "shoe": "tyokenka", "hair": "Hair_Long",
 			"hair_color": Color(0.5, 0.45, 0.4), "beard": true, "height": 1.76, "skin": Color(0.95, 0.72, 0.66), "belly": 0.7, "shine": 0.2}},
 	{"name": "Make", "kind": "juoppo", "at": Vector3(5.0, 0, -2.2), "face": Vector3(-1, 0, 0.4), "pose": "Idle",
 		"look": {"shirt": Color(0.12, 0.25, 0.45), "pants": Color(0.3, 0.32, 0.36), "shoes": Color(0.9, 0.9, 0.88), "hair": "Hair_Buzzed",
 			"hair_color": Color(0.6, 0.6, 0.58), "height": 1.8, "skin": Color(0.98, 0.7, 0.62), "belly": 0.9, "bulk": 0.2,
 			"tracksuit": {"a": Color(0.85, 0.85, 0.85), "b": Color(0.12, 0.25, 0.45)}, "stripes": true, "stripe_color": Color.WHITE}},
 	{"name": "Nisse", "kind": "narkkari", "at": Vector3(-6.2, 0, 2.9), "face": Vector3(1, 0, -0.3), "pose": "Crouch_Idle",
-		"look": {"shirt": Color(0.18, 0.18, 0.2), "pants": Color(0.25, 0.28, 0.35), "shoes": Color(0.3, 0.3, 0.3), "hair": "Hair_Buzzed",
+		"look": {"shirt": Color(0.18, 0.18, 0.2), "pants": Color(0.25, 0.28, 0.35), "shoes": Color(0.3, 0.3, 0.3), "shoe": "lenkkari", "hair": "Hair_Buzzed",
 			"hair_color": Color(0.3, 0.25, 0.2), "height": 1.75, "skin": Color(0.9, 0.86, 0.8), "bulk": -0.8, "shoulders": -0.7, "shine": 0.1}},
 	{"name": "Jonna", "kind": "narkkari", "at": Vector3(1.9, 0, 0.42), "face": Vector3(0, 0, 1), "pose": "Sitting_Idle",
-		"look": {"model": "female", "shirt": Color(0.45, 0.12, 0.3), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.2, 0.2, 0.2),
+		"look": {"model": "female", "shirt": Color(0.45, 0.12, 0.3), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.2, 0.2, 0.2), "shoe": "lenkkari",
 			"hair": "Hair_Long", "hair_color": Color(0.55, 0.45, 0.3), "height": 1.64, "skin": Color(0.92, 0.88, 0.84), "bulk": -0.7}},
 ]
 const BEG := {

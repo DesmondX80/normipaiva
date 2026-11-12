@@ -210,7 +210,7 @@ func _build() -> void:
 		_pew(Vector3(3.9, 0, z))
 	# Suntio (katsoo +Z:aan) ja kasvit ovensuussa.
 	_verger = Looks.make(self, {"shirt": Color(0.22, 0.22, 0.3), "pants": Color(0.2, 0.2, 0.24),
-		"shoes": Color(0.12, 0.1, 0.08), "hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.7, 0.72), "height": 1.74})
+		"shoes": Color(0.12, 0.1, 0.08), "shoe": "nauhakenka", "hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.7, 0.72), "height": 1.74})
 	_verger.position = Vector3(-3.6, 0, -4.4)
 	_verger.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_verger.play("Idle", 0.0)

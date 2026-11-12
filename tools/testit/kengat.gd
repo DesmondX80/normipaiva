@@ -10,6 +10,7 @@ const Pose := preload("res://scripts/pose.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Shoes := preload("res://scripts/shoes.gd")
 const B := preload("res://scripts/build.gd")
+const KI := preload("res://scripts/kirppis_interior.gd")  # #274: tanssijoiden PEOPLE-rivit
 const RUUTU := 1000.0 / 60.0
 const COL := {"kavelykenka": Color(0.3, 0.19, 0.11), "tyokenka": Color(0.42, 0.27, 0.13)}  # testirivin päällisen väri
 const NEW := ["kavelykenka", "tyokenka"]  # erän 2 tyypit (lenkkarin lisäksi), rivit <tyyppi>_m ja _f
@@ -194,6 +195,11 @@ func _run() -> void:
 	fk["shoe"] = "kumisaapas"
 	fk["shoes"] = SAAPAS
 	looks.append(["farkut_kumisaapas", fk])
+	# #274 osa B: seuraintalon tanssijat sellaisinaan (K6: kenkä tunnistettava lähikuvasta).
+	for pd in KI.PEOPLE:
+		if pd.id in ["hilkka", "annaliisa"] and "tanssit" in pd.modes:
+			looks.append([pd.id, pd.look])
+	looks.append(["sinikka_seura", Looks.sinikka_seura()])
 	_jakauma()
 	for i in looks.size():
 		var ch: Node3D = Looks.make(self, looks[i][1])
@@ -216,6 +222,8 @@ func _run() -> void:
 	for r in row:
 		if r[1].shoe_type == "kumisaapas":
 			await _boot(r[1], r[0])
+	_sheet("vertailu_tanssijat", ["hilkka_edesta", "hilkka_sivu", "annaliisa_edesta", "annaliisa_sivu",
+		"sinikka_seura_edesta", "sinikka_seura_sivu", "hilkka_ylhaalta", "sinikka_seura_ylhaalta"])
 	_sheet("vertailu_kuvakulmat", ["lenkkari_m_edesta", "lenkkari_m_sivu", "lenkkari_m_ylhaalta", "lenkkari_m_takaa",
 		"lenkkari_f_edesta", "lenkkari_f_sivu", "lenkkari_f_ylhaalta", "punainen_f_sivu"])
 	_sheet("vertailu_asut", ["pelaaja_edesta", "pelaaja_sivu", "pelaaja_kolmeneljannes", "lenkkari_f_ylhaalta",
@@ -269,9 +277,19 @@ func _jakauma() -> void:
 		["sauna(farkut)", Cutscene.sauna_look(Looks.player("farkut")), "paljas"],
 		["uinti(tyovaatteet)", Cutscene.swim_look(Looks.player("tyovaatteet")), "paljas"],
 		["SINIKKA", Looks.SINIKKA, "sandaali"], ["sinikka_bikini", Looks.sinikka_bikini(), "paljas"],
-		["sinikka_aurinko", Looks.sinikka_aurinko(), "paljas"], ["sinikka_seura", Looks.sinikka_seura(), "lenkkari"],
+		["sinikka_aurinko", Looks.sinikka_aurinko(), "paljas"], ["sinikka_seura", Looks.sinikka_seura(), "sandaali"],
 		["MINTTU", Looks.MINTTU, "sandaali"], ["KATJA", Looks.KATJA, "saapas"], ["ESA", Looks.ESA, "saapas"],
 		["sauna(SINIKKA)", Cutscene.sauna_look(Looks.SINIKKA), "paljas"]]
+	# #274 osa B: seuraintalon tanssijat (kirppis_interior.gd PEOPLE) kävelykengissä, Hilkka kaikissa tiloissa.
+	for pd in KI.PEOPLE:
+		if pd.id in ["hilkka", "annaliisa"]:
+			want.append(["%s %s" % [pd.id, pd.modes[0]], pd.look, "kavelykenka"])
+	# #274: kodin tai mökin kumisaappaat jalassa (Looks.boots) kaikissa asuissa paitsi hiihtohaalarissa.
+	Looks.boots = "koti"
+	want.append_array([["saappaat tuulipuku", Looks.player("tuulipuku"), "kumisaapas"],
+		["saappaat farkut", Looks.player("farkut"), "kumisaapas"], ["saappaat tyovaatteet", Looks.player("tyovaatteet"), "kumisaapas"],
+		["saappaat hiihtohaalari", Looks.player("hiihtohaalari"), "kuukenka"]])
+	Looks.boots = ""
 	for w in want:
 		var t := Shoes.type_for(w[1])
 		print("KENKA jakauma %s -> %s" % [w[0], t])
@@ -295,6 +313,9 @@ func _measure() -> void:
 			if ch.shoe_type != "paljas" and absf(lo) > 0.005:
 				print("TESTI VIKA %s%s kengän alin %.1f mm lattiasta (raja ±5 mm)" % [r[0], lr, lo * 1000.0])
 		if ch.shoe_mi != null:
+			if r[0] == "kumisaapas_m":  # #274: kodin ja mökin saapasesineen (kumisaappaat.gd) mitat pelin saappaasta
+				var bb: AABB = ch.shoe_mi.global_transform * ch.shoe_mi.get_aabb()
+				print("KENKA kumisaapas_m koko: korkeus %.3f m, pituus %.3f m, leveys (pari) %.3f m" % [bb.size.y, bb.size.z, bb.size.x])
 			if Shoes.TYPES[ch.shoe_type].has("sandal"):
 				continue  # avoin kenkä: iho kuuluukin näkyä
 			var o := Shoes.skin_outside(ch.shoe_mi.mesh, ch.body_mi.mesh.surface_get_arrays(0))

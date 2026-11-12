@@ -189,7 +189,7 @@ func _build() -> void:
 	_solid(Vector3(1.9, 0.8, 0.7), Vector3(-2.5, 0.4, -3.4), Color(0.5, 0.36, 0.22))
 	B.mesh(self, B.boxm(Vector3(0.5, 0.03, 0.35)), Vector3(-2.5, 0.82, -3.4), Color(0.9, 0.9, 0.85))
 	_curator = Looks.make(self, {"shirt": Color(0.5, 0.25, 0.3), "pants": Color(0.25, 0.25, 0.3),
-		"shoes": Color(0.15, 0.12, 0.1), "hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.3, 0.28), "height": 1.66})
+		"shoes": Color(0.15, 0.12, 0.1), "shoe": "nauhakenka", "hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.3, 0.28), "height": 1.66})
 	_curator.position = Vector3(-2.5, 0, -4.2)
 	_curator.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_curator.play("Idle", 0.0)

@@ -7,7 +7,7 @@ const B := preload("res://scripts/build.gd")
 ## Pelaaja: 90-luvun tuulipuku (violetti, turkoosi ja musta) ja kaljamaha superhero-lihasten tilalla.
 const PLAYER := {
 	"shirt": Color(0.42, 0.18, 0.58), "pants": Color(0.42, 0.18, 0.58), "shoes": Color(0.9, 0.9, 0.88),
-	"hair": "Hair_SimpleParted", "hair_color": Color(0.22, 0.15, 0.1), "shine": 0.85, "height": 1.8,
+	"shoe": "lenkkari", "hair": "Hair_SimpleParted", "hair_color": Color(0.22, 0.15, 0.1), "shine": 0.85, "height": 1.8,
 	"tracksuit": {"a": Color(0.08, 0.66, 0.64), "b": Color(0.07, 0.07, 0.09)},
 	"stripes": true, "stripe_color": Color(0.08, 0.66, 0.64),
 	"belly": 0.75, "bulk": 0.1, "shoulders": -0.55,
@@ -26,6 +26,9 @@ static var outfit := "tuulipuku"
 ## Pelaajan päähine lippiksen tilalle (kodin vaatekaappi): "" = asun oma lippis, "stetson" = cowboyhattu,
 ## "koppa" = Karhu-kutosen pahvikoppa (ensimmäisestä kaupasta ostetusta kutosesta).
 static var hat := ""
+## Pelaajan kumisaappaat (#274, main.gd _set_boots): "" = asun omat kengät, "koti" = kodin eteisen saappaat, "mokki" = mökin
+## ovensuun saappaat (kumisaappaat.gd). Hiihtohaalarissa pidetään aina kuukengät.
+static var boots := ""
 
 
 ## Pelaajan ulkonäkö valitussa asussa (Looks.make lisää asusteet, add_cap lippiksen asun mukaan).
@@ -57,6 +60,8 @@ static func player(which := "") -> Dictionary:
 				look.erase(k)
 			look.merge({"shirt": HAALARI_PINK, "pants": HAALARI_PINK, "ski_suit": true, "shirt_puff": 0.04,
 				"pants_puff": 0.046, "shoes": Color(0.9, 0.9, 0.93), "shoe": "kuukenka", "stripes": false, "shine": 0.55, "cap": "panta"}, true)
+	if boots != "" and o != "hiihtohaalari":
+		look.merge({"shoe": "kumisaapas", "shoes": Color(0.13, 0.3, 0.14)}, true)  # sama vihreä kuin kumisaappaat.gd COLOR
 	return look
 
 
@@ -73,17 +78,17 @@ static func restyle_player(c: Node3D) -> void:
 ## Lauantain Raahen jätkät Siitarin pajatsolla (siitari_interior.gd, fight.gd "raahelainen"): takatukka ja
 ## farkkuliivi, toisella hevirokkipaita ja parta.
 const RAAHEN_JATKAT := [
-	{"shirt": Color(0.36, 0.48, 0.66), "pants": Color(0.08, 0.08, 0.1), "shoes": Color(0.92, 0.92, 0.9), "hair": "Hair_Long",
+	{"shirt": Color(0.36, 0.48, 0.66), "pants": Color(0.08, 0.08, 0.1), "shoes": Color(0.92, 0.92, 0.9), "shoe": "lenkkari", "hair": "Hair_Long",
 		"hair_color": Color(0.62, 0.5, 0.3), "height": 1.83, "belly": 0.5, "bulk": 0.2, "shoulders": 0.2},
-	{"shirt": Color(0.07, 0.07, 0.08), "pants": Color(0.32, 0.44, 0.62), "shoes": Color(0.1, 0.08, 0.06), "hair": "Hair_Buzzed",
+	{"shirt": Color(0.07, 0.07, 0.08), "pants": Color(0.32, 0.44, 0.62), "shoes": Color(0.1, 0.08, 0.06), "shoe": "saapas", "hair": "Hair_Buzzed",
 		"hair_color": Color(0.3, 0.22, 0.14), "beard": true, "height": 1.8, "belly": 0.7, "bulk": 0.35},
 ]
 ## Siitarin seurueen kaksi hedelmäpelillä (siitari_interior.gd): nainen pelaa, mies katsoo vieressä. Mies
 ## tappelee pihalla, jos jukeboksista laitetaan ysäriä (fight.gd "hedelmamies").
 const HEDELMA_PELAAJAT := [
-	{"model": "female", "shirt": Color(0.9, 0.85, 0.95), "pants": Color(0.04, 0.04, 0.05), "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_Long",
+	{"model": "female", "shirt": Color(0.9, 0.85, 0.95), "pants": Color(0.04, 0.04, 0.05), "shoes": Color(0.05, 0.05, 0.05), "shoe": "saapas", "hair": "Hair_Long",
 		"hair_color": Color(0.07, 0.05, 0.04), "height": 1.6, "skin": Color(0.92, 0.76, 0.62), "shine": 0.7},
-	{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.12, 0.12, 0.14), "shoes": Color(0.05, 0.05, 0.05), "hair": "Hair_SimpleParted",
+	{"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.12, 0.12, 0.14), "shoes": Color(0.05, 0.05, 0.05), "shoe": "tyokenka", "hair": "Hair_SimpleParted",
 		"hair_color": Color(0.1, 0.08, 0.06), "height": 1.76, "skin": Color(0.9, 0.74, 0.6), "belly": 0.5},
 ]
 const JUNTTI := {
@@ -92,32 +97,32 @@ const JUNTTI := {
 }
 const ANNA_LIISA := {
 	"model": "female", "shirt": Color(0.28, 0.58, 0.54), "pants": Color(0.22, 0.22, 0.27),
-	"hair": "Hair_Buns", "hair_color": Color(0.55, 0.22, 0.12), "height": 1.66,
+	"shoe": "kavelykenka", "hair": "Hair_Buns", "hair_color": Color(0.55, 0.22, 0.12), "height": 1.66,
 }
 ## K-Marketin kauppias: juoksukaljojen perään juokseva kung fu -mies (shop_chaser.gd, fight.gd "kauppias").
 const KAUPPIAS := {
 	"shirt": Color(1.0, 0.42, 0.0), "pants": Color(0.12, 0.12, 0.16), "shoes": Color(0.9, 0.9, 0.92),
-	"hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.55, 0.55), "beard": true, "height": 1.86, "belly": 0.3,
+	"shoe": "lenkkari", "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.55, 0.55), "beard": true, "height": 1.86, "belly": 0.3,
 	"muscle": 0.4,
 }
 const CASHIER := {
 	"model": "female", "shirt": Color(1.0, 0.42, 0.0), "pants": Color(0.15, 0.15, 0.2),
-	"hair": "Hair_Long", "hair_color": Color(0.9, 0.78, 0.45), "height": 1.68,
+	"shoe": "lenkkari", "hair": "Hair_Long", "hair_color": Color(0.9, 0.78, 0.45), "height": 1.68,
 }
 const GRANDPAS := [
-	{"shirt": Color(0.6, 0.55, 0.45), "pants": Color(0.3, 0.3, 0.32), "hair": "Hair_Buzzed",
+	{"shirt": Color(0.6, 0.55, 0.45), "pants": Color(0.3, 0.3, 0.32), "shoe": "kavelykenka", "hair": "Hair_Buzzed",
 		"hair_color": Color(0.85, 0.85, 0.85), "beard": true, "height": 1.72, "skin": Color(1.0, 0.9, 0.86),
 		"belly": 0.35, "bulk": -0.5, "shoulders": -0.5},
-	{"shirt": Color(0.4, 0.42, 0.45), "pants": Color(0.25, 0.23, 0.2), "hair": "Hair_SimpleParted",
+	{"shirt": Color(0.4, 0.42, 0.45), "pants": Color(0.25, 0.23, 0.2), "shoe": "kavelykenka", "hair": "Hair_SimpleParted",
 		"hair_color": Color(0.75, 0.75, 0.75), "height": 1.7, "skin": Color(1.0, 0.9, 0.86),
 		"belly": 0.15, "bulk": -0.65, "shoulders": -0.6},
-	{"shirt": Color(0.55, 0.35, 0.3), "pants": Color(0.3, 0.3, 0.32), "hair": "Hair_Buzzed",
+	{"shirt": Color(0.55, 0.35, 0.3), "pants": Color(0.3, 0.3, 0.32), "shoe": "kavelykenka", "hair": "Hair_Buzzed",
 		"hair_color": Color(0.9, 0.9, 0.9), "beard": true, "height": 1.74, "skin": Color(1.0, 0.9, 0.86),
 		"belly": 0.55, "bulk": -0.4, "shoulders": -0.4},
 ]
 
 const AKKA := {
-	"model": "female", "shirt": Color(0.72, 0.1, 0.12), "pants": Color(0.18, 0.26, 0.2), "shoes": Color(0.25, 0.2, 0.15),
+	"model": "female", "shirt": Color(0.72, 0.1, 0.12), "pants": Color(0.18, 0.26, 0.2), "shoes": Color(0.25, 0.2, 0.15), "shoe": "kumisaapas",
 	"hair": "Hair_Buns", "hair_color": Color(0.7, 0.68, 0.66), "height": 1.62, "skin": Color(1.0, 0.9, 0.86), "shine": 0.4,
 }
 const TEENS := [
@@ -131,24 +136,24 @@ const TEENS := [
 
 const ARTO := {
 	"shirt": Color(0.62, 0.12, 0.1), "pants": Color(0.22, 0.3, 0.5), "shoes": Color(0.3, 0.22, 0.15),
-	"hair": "Hair_SimpleParted", "hair_color": Color(0.45, 0.38, 0.3), "beard": true, "height": 1.8,
+	"shoe": "tyokenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.45, 0.38, 0.3), "beard": true, "height": 1.8,
 }
 const PAIVI := {
 	"model": "female", "shirt": Color(0.75, 0.2, 0.35), "pants": Color(0.12, 0.12, 0.16), "shoes": Color(0.2, 0.15, 0.12),
-	"hair": "Hair_Long", "hair_color": Color(0.45, 0.28, 0.16), "height": 1.68,
+	"shoe": "kavelykenka", "hair": "Hair_Long", "hair_color": Color(0.45, 0.28, 0.16), "height": 1.68,
 }
 const JEMMARI := {
 	"shirt": Color(0.2, 0.3, 0.55), "pants": Color(0.2, 0.3, 0.55), "shoes": Color(0.12, 0.1, 0.08),
-	"hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.4, 0.3), "beard": true, "height": 1.84, "skin": Color(1.0, 0.85, 0.78), "belly": 0.8, "bulk": 0.35, "shoulders": 0.3,
+	"shoe": "kumisaapas", "hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.4, 0.3), "beard": true, "height": 1.84, "skin": Color(1.0, 0.85, 0.78), "belly": 0.8, "bulk": 0.35, "shoulders": 0.3,
 }
 ## Taksikuski ja Raahen baarin kädenvääntäjä (terästehtaan duunari).
 const TAXI_DRIVER := {
 	"shirt": Color(0.9, 0.9, 0.88), "pants": Color(0.12, 0.12, 0.14), "shoes": Color(0.08, 0.08, 0.08),
-	"hair": "Hair_SimpleParted", "hair_color": Color(0.6, 0.58, 0.55), "height": 1.76, "belly": 0.5,
+	"shoe": "nauhakenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.6, 0.58, 0.55), "height": 1.76, "belly": 0.5,
 }
 const TERO := {
 	"shirt": Color(0.95, 0.5, 0.05), "pants": Color(0.15, 0.2, 0.35), "shoes": Color(0.2, 0.15, 0.1),
-	"hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "beard": true, "height": 1.88,
+	"shoe": "tyokenka", "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "beard": true, "height": 1.88,
 	"belly": 0.6, "bulk": 0.6, "shoulders": 0.6, "muscle": 0.3,
 }
 ## Naapurin Sinikka, kylän seksipommi Salosten tapaan: platinablondi, tiimalasivartalo, punainen ysärin
@@ -159,13 +164,12 @@ const SINIKKA := {
 	"hair": "Hair_Long", "hair_color": Color(0.98, 0.92, 0.72), "height": 1.76, "shine": 0.85, "bulk": -0.2,
 	"curves": 1.0, "bust": 2.7, "skin": Color(1.0, 0.97, 0.93), "bare_skin": Color(0.8, 0.58, 0.46), "glam": true,
 	"shorts_y": 0.8, "crop_y": 1.23, "tube_y": 1.41, "sleeve_x": 0.2, "denim": true,
-	"shoe": "sandaali",  # punaiset avokärkiset sandaalit, punaiset varpaankynnet (#273); bikinissä ja tanssiessa vaihtuu
+	"shoe": "sandaali",  # punaiset avokärkiset sandaalit, punaiset varpaankynnet (#273), myös tanssissa (#274); bikinissä paljas
 }
 ## Sinikka seuraintalolla (kirppis_interior.gd sinikka_seura, tanssi_game.gd): ilman olkihattua.
 static func sinikka_seura() -> Dictionary:
 	var look: Dictionary = SINIKKA.duplicate()
-	look["glam_hat"] = false
-	look["shoe"] = "lenkkari"  # tanssija: sama kenkätyyppi kuin pelaajalla (#271); ei SINIKKA-vakioon (bikini on paljas)
+	look["glam_hat"] = false  # kengät SINIKKA-vakiosta: punaiset sandaalit myös tanssissa (#274)
 	return look
 
 ## Sinikka uimarannalla (world.gd): pienet punaiset lappubikinit, paljaat jalat.
@@ -187,20 +191,20 @@ static func sinikka_aurinko() -> Dictionary:
 ## palmikoksi oikean olan yli rinnalle (add_braid), pisamainen vaalea iho, valkoinen väljä paita ja farkut.
 const MIRKKU := {
 	"model": "female", "shirt": Color(0.95, 0.93, 0.88), "pants": Color(0.32, 0.42, 0.6), "shoes": Color(0.55, 0.42, 0.3),
-	"hair": "Hair_Long", "hair_color": Color(0.78, 0.5, 0.28), "height": 1.68, "skin": Color(1.0, 0.95, 0.9),
+	"shoe": "kavelykenka", "hair": "Hair_Long", "hair_color": Color(0.78, 0.5, 0.28), "height": 1.68, "skin": Color(1.0, 0.95, 0.9),
 	"denim": true, "braid": true, "bust": 1.4, "curves": 0.4,
 }
 
 const PEKKA := {
 	"shirt": Color(0.3, 0.36, 0.2), "pants": Color(0.35, 0.33, 0.22), "shoes": Color(0.15, 0.12, 0.1),
-	"hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.28, 0.2), "beard": true, "height": 1.78, "shine": 0.2, "belly": 0.65, "bulk": 0.1,
+	"shoe": "tyokenka", "hair": "Hair_Buzzed", "hair_color": Color(0.35, 0.28, 0.2), "beard": true, "height": 1.78, "shine": 0.2, "belly": 0.65, "bulk": 0.1,
 }
 
 ## Jalkapalloa pelaavat pojat (#29): lyhyitä ja hoikkia.
 const POJAT := [
 	{"shirt": Color(0.85, 0.15, 0.15), "pants": Color(0.12, 0.12, 0.14), "shoes": Color(0.95, 0.95, 0.95),
 		"hair": "Hair_Buzzed", "hair_color": Color(0.85, 0.72, 0.42), "height": 1.35, "bulk": -0.8, "shoulders": -0.8},
-	{"shirt": Color(0.15, 0.35, 0.85), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.2, 0.2, 0.2),
+	{"shirt": Color(0.15, 0.35, 0.85), "pants": Color(0.2, 0.2, 0.25), "shoes": Color(0.2, 0.2, 0.2), "shoe": "lenkkari",
 		"hair": "Hair_SimpleParted", "hair_color": Color(0.35, 0.22, 0.12), "height": 1.4, "bulk": -0.85, "shoulders": -0.8},
 	{"shirt": Color(0.95, 0.85, 0.15), "pants": Color(0.25, 0.3, 0.45), "shoes": Color(0.9, 0.3, 0.2),
 		"hair": "Hair_Buzzed", "hair_color": Color(0.15, 0.1, 0.08), "height": 1.3, "bulk": -0.8, "shoulders": -0.85},
@@ -237,7 +241,7 @@ const REIJO := {
 ## Pannu-Sulo, metsän pontikankeittäjä: ruutupaita, maastohousut, harmaa parta.
 const SULO := {
 	"shirt": Color(0.55, 0.12, 0.1), "pants": Color(0.25, 0.3, 0.2), "shoes": Color(0.12, 0.1, 0.08),
-	"hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.7, 0.68), "beard": true, "height": 1.72,
+	"shoe": "kumisaapas", "hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.7, 0.68), "beard": true, "height": 1.72,
 	"skin": Color(1.0, 0.84, 0.78), "belly": 0.45, "bulk": -0.2, "shoulders": -0.3,
 }
 
@@ -245,7 +249,7 @@ const SULO := {
 ## harveneva tukka. Viikset, pilottilasit ja kultaketju: add_pentti. Keksitty hahmo, ei oikea henkilö.
 const PENTTI := {
 	"shirt": Color(0.3, 0.17, 0.08), "shine": 0.6, "sleeve_x": 0.18, "pants": Color(0.2, 0.26, 0.4), "jeans": true,
-	"belt_y": 0.99, "belt_col": Color(0.06, 0.05, 0.04), "shoes": Color(0.25, 0.15, 0.08), "hair": "Hair_SimpleParted",
+	"belt_y": 0.99, "belt_col": Color(0.06, 0.05, 0.04), "shoes": Color(0.25, 0.15, 0.08), "shoe": "saapas", "hair": "Hair_SimpleParted",
 	"hair_color": Color(0.22, 0.15, 0.1), "height": 1.78, "belly": 0.75, "bulk": 0.2, "skin": Color(1.0, 0.86, 0.76),
 	"vest_open": true, "chest_hair": true, "body_hair": Color(0.17, 0.11, 0.07), "bare_skin": Color(0.84, 0.62, 0.48),  # avonainen liivi ja rintakarvat
 	"pentti": true,
@@ -255,7 +259,7 @@ const PENTTI := {
 ## Joni: tummatukkainen golfari (valkoinen pikee, vaaleat chinot), selässä Sandels-päkkirinkka (add_sandels_rinkka).
 const JONI := {
 	"shirt": Color(0.95, 0.95, 0.92), "pants": Color(0.82, 0.75, 0.58), "shoes": Color(0.92, 0.92, 0.9),
-	"hair": "Hair_SimpleParted", "hair_color": Color(0.07, 0.05, 0.04), "height": 1.8, "belly": 0.35, "bulk": 0.0,
+	"shoe": "lenkkari", "hair": "Hair_SimpleParted", "hair_color": Color(0.07, 0.05, 0.04), "height": 1.8, "belly": 0.35, "bulk": 0.0,
 	"skin": Color(0.98, 0.84, 0.74), "sandels": true,
 }
 ## Esa: erämies: vihreä flanellipaita, maastohousut, ruskea parta ja pitkävartiset saappaat.
@@ -267,13 +271,13 @@ const ESA := {
 ## Hevari-Tero: musta bändipaita, mustat farkut, pitkät hiukset ja parta.
 const HEVARI_TERO := {
 	"shirt": Color(0.06, 0.06, 0.07), "pants": Color(0.1, 0.1, 0.12), "jeans": true, "shoes": Color(0.05, 0.05, 0.05),
-	"hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.12), "beard": true, "height": 1.82, "belly": 0.55, "bulk": 0.2,
+	"shoe": "saapas", "hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.12), "beard": true, "height": 1.82, "belly": 0.55, "bulk": 0.2,
 	"skin": Color(0.97, 0.84, 0.76), "long_hair": true,
 }
 ## Siviikki-Timo: punainen tuulitakki kuin Hondan värit, farkut, valkoiset lenkkarit.
 const SIVIIKKI_TIMO := {
 	"shirt": Color(0.78, 0.07, 0.1), "pants": Color(0.22, 0.3, 0.48), "jeans": true, "shoes": Color(0.95, 0.95, 0.95),
-	"hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.42, 0.25), "height": 1.74, "belly": 0.3, "bulk": -0.2,
+	"shoe": "lenkkari", "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.42, 0.25), "height": 1.74, "belly": 0.3, "bulk": -0.2,
 	"skin": Color(0.98, 0.84, 0.74), "shine": 0.6,
 }
 ## Minttu: punaiset kiharat olkapäille (add_curls), pisamainen vaalea iho ja keltainen polvipituinen kesämekko

@@ -314,7 +314,7 @@ func _build() -> void:
 	_pong_cabinet(Vector3(5.4, 0, -0.2))
 	# Intendentti (katsoo +Z:aan) ja kasvi ovensuussa.
 	_curator = Looks.make(self, {"shirt": Color(0.32, 0.42, 0.34), "pants": Color(0.25, 0.24, 0.28),
-		"shoes": Color(0.12, 0.1, 0.08), "hair": "Hair_SimpleParted", "hair_color": Color(0.62, 0.6, 0.58), "height": 1.76})
+		"shoes": Color(0.12, 0.1, 0.08), "shoe": "nauhakenka", "hair": "Hair_SimpleParted", "hair_color": Color(0.62, 0.6, 0.58), "height": 1.76})
 	_curator.position = Vector3(-0.4, 0, -4.0)
 	_curator.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_curator.play("Idle", 0.0)

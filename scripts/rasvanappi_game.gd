@@ -22,7 +22,7 @@ const HAIRS := {"short": "Hair_Buzzed", "parted": "Hair_SimpleParted", "long": "
 ## hiukset (Looks.add_fringe) ja Charlie Chaplinin viikset (Looks.add_chaplin), tukeva.
 const BOUNCER := {
 	"shirt": Color(0.4, 0.31, 0.19), "pants": Color(0.34, 0.27, 0.17), "shoes": Color(0.05, 0.05, 0.05),
-	"hair": "Hair_SimpleParted", "hair_color": Color(0.04, 0.035, 0.03), "chaplin": true, "fringe": true, "army": true,
+	"shoe": "saapas", "hair": "Hair_SimpleParted", "hair_color": Color(0.04, 0.035, 0.03), "chaplin": true, "fringe": true, "army": true,
 	"height": 1.78,
 	"skin": Color(0.95, 0.76, 0.66), "belly": 0.45, "bulk": 0.45, "shoulders": 0.5, "muscle": -0.4,
 }

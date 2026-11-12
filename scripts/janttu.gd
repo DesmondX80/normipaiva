@@ -10,7 +10,7 @@ const Pose := preload("res://scripts/pose.gd")  # kämmenen asento ja raajan sov
 const Contact := preload("res://scripts/contact.gd")
 
 const LOOK := {
-	"shirt": Color(0.33, 0.36, 0.24), "pants": Color(0.2, 0.2, 0.24), "shoes": Color(0.12, 0.1, 0.08),
+	"shirt": Color(0.33, 0.36, 0.24), "pants": Color(0.2, 0.2, 0.24), "shoes": Color(0.12, 0.1, 0.08), "shoe": "tyokenka",
 	"hair": "Hair_Buzzed", "hair_color": Color(0.42, 0.38, 0.33), "beard": true, "height": 1.76,
 	"skin": Color(0.93, 0.76, 0.68), "belly": 0.55, "bulk": -0.1, "shoulders": -0.3,
 }

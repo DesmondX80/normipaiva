@@ -241,7 +241,7 @@ func _build() -> void:
 	info.rotation_degrees.x = -35.0
 	# Retkeilijä (katsoo +Z:aan).
 	_guide = Looks.make(self, {"shirt": Color(0.75, 0.3, 0.2), "pants": Color(0.22, 0.25, 0.35),
-		"shoes": Color(0.12, 0.1, 0.08), "hair": "Hair_SimpleParted", "hair_color": Color(0.55, 0.4, 0.2), "height": 1.74})
+		"shoes": Color(0.12, 0.1, 0.08), "shoe": "saapas", "hair": "Hair_SimpleParted", "hair_color": Color(0.55, 0.4, 0.2), "height": 1.74})
 	_guide.position = Vector3(-3.6, 0, -0.2)
 	_guide.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_guide.play("Idle", 0.0)

@@ -190,7 +190,7 @@ func _build() -> void:
 	B.mesh(_koivut, B.boxm(Vector3(13.0, 0.02, 0.02)), Vector3(0, 2.1, 1.6), Color(0.4, 0.3, 0.2))
 	# Järjestäjä (katsoo +Z:aan) ja kioskin sateenvarjo.
 	_organizer = Looks.make(self, {"shirt": Color(0.2, 0.5, 0.75), "pants": Color(0.9, 0.85, 0.7),
-		"shoes": Color(0.8, 0.7, 0.5), "hair": "Hair_SimpleParted", "hair_color": Color(0.8, 0.65, 0.3), "height": 1.74})
+		"shoes": Color(0.8, 0.7, 0.5), "shoe": "sandaali", "hair": "Hair_SimpleParted", "hair_color": Color(0.8, 0.65, 0.3), "height": 1.74})
 	_organizer.position = Vector3(5.2, 0, 2.0)
 	_organizer.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_organizer.play("Idle", 0.0)

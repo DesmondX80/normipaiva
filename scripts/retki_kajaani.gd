@@ -173,7 +173,7 @@ func _build() -> void:
 	info.rotation_degrees.x = -35.0
 	# Tervamies (katsoo +Z:aan).
 	_boatman = Looks.make(self, {"shirt": Color(0.45, 0.3, 0.2), "pants": Color(0.2, 0.2, 0.24),
-		"shoes": Color(0.12, 0.1, 0.08), "hair": "Hair_SimpleParted", "hair_color": Color(0.35, 0.28, 0.2), "height": 1.78})
+		"shoes": Color(0.12, 0.1, 0.08), "shoe": "kumisaapas", "hair": "Hair_SimpleParted", "hair_color": Color(0.35, 0.28, 0.2), "height": 1.78})
 	_boatman.position = Vector3(-4.2, 0, -0.4)
 	_boatman.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_boatman.play("Idle", 0.0)

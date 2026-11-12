@@ -340,7 +340,7 @@ func _build_rosvo() -> void:
 	B.mesh(body, B.boxm(Vector3(1.5, 0.15, 1.5)), Vector3(0, 0.08, 0), Color(0.38, 0.36, 0.35))
 	body.add_child(B.box_shape(Vector3(1.3, 3.2, 1.3), Vector3(0, 1.6, 0)))
 	var bronze := Color(0.42, 0.3, 0.16)
-	var fig := Looks.make(body, {"shirt": bronze, "pants": bronze, "shoes": bronze, "hair": "Hair_Long", "hair_color": bronze,
+	var fig := Looks.make(body, {"shirt": bronze, "pants": bronze, "shoes": bronze, "shoe": "paljas", "hair": "Hair_Long", "hair_color": bronze,
 		"beard": true, "height": 1.8, "bulk": 0.2})
 	fig.position = Vector3(0, 1.4, 0)
 	fig.rotation.y = PI

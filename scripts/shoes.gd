@@ -110,6 +110,20 @@ static func type_for(look: Dictionary) -> String:
 	return "paljas"
 
 
+## Satunnaisen joukon kenkätyyppi iän ja sukupuolen mukaan (age "nuori", "aikuinen" tai "vanha"): vanhat kävelykenkä,
+## nuoret lenkkari, osa naisista sandaali ja osa aikuisista miehistä työkenkä. Arpa johdetaan joukon rng:n tilasta
+## lukematta rng:tä, joten joukon paikat ja muut arvonnat pysyvät ennallaan ja sama siemen antaa samat kengät.
+static func random_type(rng: RandomNumberGenerator, age: String, female: bool) -> String:
+	if age == "vanha":
+		return "kavelykenka"
+	var r := float(hash(rng.state) & 0xffff) / 65536.0
+	if female:
+		return "sandaali" if r < 0.4 else "lenkkari"
+	if age == "aikuinen" and r < 0.4:
+		return "tyokenka"
+	return "lenkkari"
+
+
 ## Kenkäverkko kummallekin jalalle (yksi pinta, limb_points lukee vain pinnan 0). arr = vaatetetun vartaloverkon pinnan 0
 ## taulukot (COLOR.r = vaateluokka / 4). meta "pohja" = kengän alin kohta jalkapohjan alimman kärjen alapuolella (m, malli).
 static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skeleton3D, opts := {}) -> ArrayMesh:

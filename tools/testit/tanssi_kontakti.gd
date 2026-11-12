@@ -6,7 +6,8 @@ extends "res://tools/testit/hahmot_kontakti.gd"
 ## < 0,7), PAINUMA (luiset 0, pehmeät ≤ 5 cm), LÄPI (Asento.solids horjassa ja lopussa: 0), RUUTU (ka ja p95 < 16,7 ms) ja JÄÄNTEET
 ## (0 lopetuksen jälkeen). Yli rajan -> "TESTI VIKA". Toistettava: siemen 258, ensimmäinen kappale ja aika ruuduista (frame_clock);
 ## aja --kiintea, jotta ruudun aika on 1/60 s koneen nopeudesta riippumatta.
-## aja.sh --kiintea tscn tools/testit/tanssi_kontakti.tscn [sinikka_seura|hilkka|annaliisa] [pois]   (pois = ilman kontakteja, vertailu)
+## aja.sh --kiintea tscn tools/testit/tanssi_kontakti.tscn [sinikka_seura|hilkka|annaliisa] [pois] [saappaat]   (pois = ilman kontakteja, vertailu;
+## saappaat = pelaajalla kumisaappaat)
 
 const TanssiGame := preload("res://scripts/tanssi_game.gd")
 const KI := preload("res://scripts/kirppis_interior.gd")
@@ -42,7 +43,10 @@ func _ready() -> void:
 
 
 func _go() -> void:
-	var only := Array(OS.get_cmdline_user_args().slice(1)).filter(func(a: String) -> bool: return a != "pois" and a != "nousu")
+	var only := Array(OS.get_cmdline_user_args().slice(1)).filter(func(a: String) -> bool:
+		return a != "pois" and a != "nousu" and a != "saappaat")
+	if "saappaat" in OS.get_cmdline_user_args():  # #274: pelaaja kodin kumisaappaissa, tanssija omissa kengissään
+		Looks.boots = "koti"
 	var pois := "pois" in OS.get_cmdline_user_args()
 	var nousu := "nousu" in OS.get_cmdline_user_args()  # otteen nousu w 0 -> 1 ruutu ruudulta ennen alkua (ilman seek-hyppyä)
 	for id in ["sinikka_seura", "hilkka", "annaliisa"]:

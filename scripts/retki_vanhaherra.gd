@@ -424,14 +424,14 @@ func _build() -> void:
 	_build_boat(Vector3(5.8, WATER_Y + 0.1, -3.7), 14.0)
 	# Sukeltaja valmiina reunalla (katsoo +Z:aan): kangaspuku, kuparikypärä, lyijyvyö.
 	_diver = Looks.make(self, {"shirt": Color(0.5, 0.4, 0.24), "pants": Color(0.46, 0.37, 0.22), "shoes": Color(0.25, 0.26, 0.29),
-		"hair": "", "skin": Color(0.9, 0.72, 0.62), "height": 1.78, "bulk": 0.2})
+		"shoe": "saapas", "hair": "", "skin": Color(0.9, 0.72, 0.62), "height": 1.78, "bulk": 0.2})
 	_diver.position = DIVER_AT
 	_diver.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_diver.play("Idle", 0.0)
 	_add_helmet(_diver)
 	# Pumppaaja: sininen työpaita, lippalakki ja parta.
 	_pumper = Looks.make(self, {"shirt": Color(0.28, 0.4, 0.58), "pants": Color(0.28, 0.27, 0.32), "shoes": Color(0.15, 0.1, 0.08),
-		"hair": "Hair_SimpleParted", "hair_color": Color(0.7, 0.7, 0.68), "beard": true, "height": 1.74, "skin": Color(0.9, 0.72, 0.62)})
+		"shoe": "kumisaapas", "hair": "Hair_SimpleParted", "hair_color": Color(0.7, 0.7, 0.68), "beard": true, "height": 1.74, "skin": Color(0.9, 0.72, 0.62)})
 	_pumper.position = PUMPER_AT
 	_pumper.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_pumper.play("Idle", 0.0)

@@ -21,12 +21,12 @@ const SIGNS_IN := ["Märkien puiden\npoltto kielletty", "Kirveen käyttö\nkodas
 	"Tarinoiden liioittelu\nkielletty", "Kieltokylttien\nkieltäminen kielletty"]
 
 const RAIMO := {
-	"shirt": Color(0.2, 0.32, 0.2), "pants": Color(0.22, 0.2, 0.18), "shoes": Color(0.2, 0.15, 0.1),
+	"shirt": Color(0.2, 0.32, 0.2), "pants": Color(0.22, 0.2, 0.18), "shoes": Color(0.2, 0.15, 0.1), "shoe": "kumisaapas",
 	"hair": "Hair_Buzzed", "hair_color": Color(0.8, 0.8, 0.78), "beard": true, "height": 1.76,
 	"skin": Color(1.0, 0.88, 0.82), "belly": 0.6, "bulk": 0.1,
 }
 const VEIKKO := {
-	"shirt": Color(0.6, 0.12, 0.1), "pants": Color(0.18, 0.22, 0.32), "shoes": Color(0.15, 0.12, 0.1),
+	"shirt": Color(0.6, 0.12, 0.1), "pants": Color(0.18, 0.22, 0.32), "shoes": Color(0.15, 0.12, 0.1), "shoe": "kumisaapas",
 	"hair": "Hair_SimpleParted", "hair_color": Color(0.55, 0.5, 0.45), "height": 1.8,
 	"skin": Color(1.0, 0.9, 0.84), "bulk": -0.4, "shoulders": -0.3,
 }

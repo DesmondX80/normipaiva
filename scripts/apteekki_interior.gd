@@ -43,7 +43,7 @@ func ensure_built() -> void:
 	_build_counter()
 	_build_shelves()
 	_pharmacist = Looks.make(self, {"model": "female", "shirt": Color(0.96, 0.96, 0.94), "pants": Color(0.2, 0.22, 0.26),
-		"shoes": Color(0.95, 0.95, 0.95), "hair": "Hair_Buns", "hair_color": Color(0.35, 0.25, 0.18), "height": 1.66})
+		"shoes": Color(0.95, 0.95, 0.95), "shoe": "lenkkari", "hair": "Hair_Buns", "hair_color": Color(0.35, 0.25, 0.18), "height": 1.66})
 	_pharmacist.position = Vector3(-0.5, 0, -3.3)
 	_pharmacist.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_pharmacist.play("Idle", 0.0)
