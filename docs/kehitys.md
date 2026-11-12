@@ -378,14 +378,27 @@ pohja), `kavelykenka` (2, matala suljettu varsi `top` 0,07, vaalea kumipohja, py
 `tyokenka` (3, varsi nilkan yli `shaft`, turvakärkikupu, paksu tumma pohja); `paljas` = ei kenkää. Tyyppi valitaan
 `Shoes.type_for(look)`: `look.shoe` voittaa, muuten `shoes`-väri (vaaleat ja kirkkaat = `lenkkari`, muut `paljas` = vanha
 värjätty jalkaterä). Käyttäjät (`looks.gd`): mummot `kavelykenka`, Seppo ja Reijo (`Looks.SEPPO`/`REIJO`) `tyokenka`, pelaaja asun
-mukaan (tuulipuku ja hiihtohaalari `lenkkari`, farkut ja tyovaatteet `tyokenka`), tanssijat `lenkkari` (sama korkeus, #271).
+mukaan (tuulipuku `lenkkari`, hiihtohaalari `kuukenka`, farkut ja tyovaatteet `tyokenka`), tanssijat `lenkkari` (sama korkeus, #271).
 Kumisaapas (#273, `style` 4): kaksi jäykkää osaa, matala kuori jalkaterän luissa ja leveä varsiputki (`shaft`, `rigid`,
 yläreuna ~0,24 m nilkasta) säären luussa; varren alareuna levenee 8 mm suun kohdalla, jotta alaosan suu jää sen sisään
 kaikissa asennoissa (`KENKA ... suu_ulkona`, `reisi_sisalla`). Lahje kavennetaan varren sisään (`shoe_top`). Väri tulee
 `shoes`-väristä (klassinen vihreä 0.13, 0.3, 0.14). Varsi ei jousta (käyttäjän päätös). Käyttäjät: Santtu, Hanhikiven kalastaja.
-Saunassa ja uidessa paljas: `cutscene.gd sauna_look` poistaa `shoe`- ja `shoe_rough`-avaimet. Tunnetut puutteet (hyväksytty #272:ssa, jatko #279):
-kävelykengän suun kannessa kärjen päällä näkyy kuoppa, ja työkengän varren alareuna näkyy porrastuksena jalkaosan päällä;
-nauhakenkä (`style` 1 varattu) ja kuukenkä tekemättä. Kengällä vartalon jalkaterä painuu varjostimessa 6 mm kengän
+Pitkävartinen nahkasaapas (`saapas`, `style` 5): sama kaksiosainen rakenne, varsi lähelle polvea (`top_k` 0,84), ohut tumma
+pohja ja pieni korko (`waist`), mattanahka, takasauma ja päärme; käyttäjät Esa ja Katja. Sandaali (`sandaali`, `style` 6, #273):
+ei kuorta, vaan tasainen korkkipohjalaatta (sama 23 mm nosto, ei jalkaterän kallistusta) ja hihnat ihon pinnassa
+(`_build_straps`: poikkileikkauksen kärkien kupera kuori = kiristetyn hihnan muoto; varvashihna, nilkkahihna ja kantahihna).
+Jalkaterä näkyy ihona (`character.gdshader foot_skin`), ja varpaankynnet lakataan (`nails`: varpaat erotellaan k-meansilla,
+väri `look.nails` tai `shoes`). Käyttäjät: Sinikka (punaiset; bikinissä ja aurinkoa ottaessa `paljas`, tanssiessa `lenkkari`)
+ja Minttu (valkoiset). Nopea ajo vain näille: `aja.sh tscn tools/testit/kengat.tscn --e3` (`KENKA ... hihnat`).
+Saunassa ja uidessa paljas: `cutscene.gd sauna_look` poistaa `shoe`- ja `shoe_rough`-avaimet. #279: työkengän varsi on sama kaksiosainen jäykkä rakenne kuin kumisaappaassa (matala nilkkavarsi, `join` 0,09; vanha suun
+ääriviivasta noussut varsi jätti portaan). Kuukenkä (`kuukenka`, `style` 7, esikuva Moon Boot): pullea toppavarsi puoleen sääreen,
+paksu kyljille nouseva pohja, turkoosi nyöritys ja kiristysnyöri stopparilla (`cord_col`); pelaajan hiihtohaalari. Nauhakenkä
+(`nauhakenka`, `style` 1): oma lestimuoto, kenkä 4,5 cm jalkaa pidempi ja kärki kapenee vasta varpaiden edessä (`toe_room`,
+`toe_round`) ja madaltuu leveyttään nopeammin (`toe_flat` 1,8, esikuva oxford), ohut nahkapohja ja korko; huutokaupan
+Erkki. Työkengän nauhat ja koukut kullanruskea ja messinki (esikuva Caterpillar-turvakenkä); varren rako suuhun
+pienempi (`gap` 0,006, `wrap` 0,003 = varren pullistuma suun alla), ettei varsi näytä erilliseltä mansetilta. Kuukengän
+jalkaosa pulleampi (`toe_h` 1,35, `margin` 0,016); nyöritys vain varressa (jalkaosan kapealla kaistaleella se hajosi). Nopea ajo: `kengat.tscn --e4`. Tunnettu puute: kävelykengän suun
+kannessa kärjen päällä näkyy kuoppa (hyväksytty #272:ssa, syy tuntematon). Kengällä vartalon jalkaterä painuu varjostimessa 6 mm kengän
 sisään (`shoe_on`, rajataso `shoe_cut`), ja `Pose.limb_points` ohittaa piilotetut kärjet ja lukee kenkäverkon, joten kontaktiprofiili
 (`profile_key` päättyy tyyppiin), jalkalaatikko ja läpimenot mittaavat kenkää. Malli nousee seistessä pohjan verran (`_lift_sole` +
 meta `"pohja"`, `Character.shoe_sole`), ja `Pose.feet_to_floor` lisää sen `FOOT_H`:hon. Testi: `aja.sh tscn tools/testit/kengat.tscn`
@@ -434,3 +447,11 @@ Pullonkorkit (#290): `tools/testit/aja.sh scene korkit` (kalja antaa korkin, har
 juhannuksena, voittokorkit, tallennus, kansiokuva, Korkki-Raimon vaihto ja kuva kirppiksellä, MM-korkin löytö, Päivin
 motkotus ja jemma, maastolöytöjen paikat, korkkiläpsy Saloisten kaukalolla ja Vaalan lavan pihalla: panos, lyönti,
 lopetus ja kuvat).
+
+## Latausaika (lataus-testi)
+
+`tools/testit/aja.sh --ei-kuvia --kiintea tscn tools/testit/lataus.tscn <kansio> --ajastus` mittaa Saloisten latauksen (`LATAUS Saloinen`), Vaalan latauksen (`LATAUS Vaala`, jaettuna rakennukseen, `_start_mopo`:on ja viiteen ensimmäiseen ruutuun) ja vaihekohtaiset ajat (`VAALA vaiheet`). Testi tallentaa yhden kuvan (`lataus.png`, Vaalan ensiruutu) tulostekansioon, joten `--ei-kuvia` ei ole pakollinen (se käy silti, jos kuvaa ei tarvita). Kylmä mittaus: poista ajon `HOME`:n `.local/share/godot/app_userdata/Normipäivä/cache`. Lisävalitsimet: `--avaintesti` (ajoalueen välimuistiavaimen kattavuus: syötteen muutos muuttaa maskin ja avaimen), `--tarkista-ajomaski` (välimuistista ladattu maski vs. laskettu), `--ei-valimuistia` (ohita ajomaskin levyvälimuisti `vaala_ajo`). Luvut ennen/jälkeen: työkansion `03-baseline.md`.
+
+## Vaalan reitin vyöhyke (150 m)
+
+`vaala.gd`: `VAALA_RAJA_M = 150`; `route_dist`/`route_nearest` (50 m ruudukko reitin jänteistä: tiet, haarat, sivutiet ja radat, parkit, keskusta, lava, satama, Uitto, järviseutu, mökki, ovet). `_cull_buildings` poistaa `data.buildings`-listasta talot, jotka ovat yli rajan YDINREITISTÄ (`_core_grid`: päätie, keskustan tiet ja kohteet, lava, satama, Uitto, mökki, Siitari, asema; ei sivu-, haara- eikä pohjoisteitä eikä parkkeja; `route_dist(p, true)`). Kulun este (`reach_clamp`) ja ilmoitus käyttävät koko verkkoa (`_route_grid`), jottei pelaaja jää jumiin eikä menetä tehtäviä (suojatut: nimetyt, hotelli, Gasthaus, työkkäri, Katja, Siitari, asema, `Taytto.keep_old`; ne ovat itse reitin pisteitä). `reach_clamp` projisoi pelaajan levyn reunalle (liuku); `mopo_trip.gd` kutsuu sitä joka ruutu ja lähettää `reach_blocked` enintään 8 s välein; `main.gd` näyttää "Vaalan metsään ei ulkopuolisen kannata vaeltaa. Tulee puukosta." 4,5 s. Testi: `tools/testit/aja.sh tscn tools/testit/vaala_raja.tscn` (karsinta, route_dist vs raaka silmukka, ovet, kulku jalan ja mopolla, ilmoituksen toisto, kuvat). Paperikartan oma esiavausjäsennys näyttää karsimattomat talot.

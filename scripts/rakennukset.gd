@@ -853,7 +853,10 @@ static func _k8(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dict
 			var xc := -l / 2.0 + bay * (bi + 0.5)
 			var dw := minf(5.0, bay - 0.8)
 			var dh := minf(4.0, hw - 0.5)
-			_box(r, xf, Vector3(dw, dh, 0.1), Vector3(xc, dh / 2.0 + 0.02, -d / 2.0 - 0.06), wall.darkened(0.08))
+			# Liukuovi erottuu seinästä jo 150 m:stä: tumma vaihtoväri (wall.darkened 0,45) ja runkoerässä vaaleat pystykarmit.
+			_box(r, xf, Vector3(dw, dh, 0.1), Vector3(xc, dh / 2.0 + 0.02, -d / 2.0 - 0.06), wall.darkened(0.45))
+			for sx in [-1.0, 1.0]:
+				_box(r, xf, Vector3(0.25, dh + 0.1, 0.14), Vector3(xc + sx * (dw / 2.0 + 0.12), dh / 2.0 + 0.05, -d / 2.0 - 0.07), WHITE_FRAME)
 			_box(r, xf, Vector3(dw + 0.4, 0.18, 0.16), Vector3(xc, dh + 0.12, -d / 2.0 - 0.1), pil)  # kisko
 			_box(sm, xf, Vector3(0.1, dh, 0.04), Vector3(xc - dw / 2.0 + 0.05, dh / 2.0, -d / 2.0 - 0.12), WHITE_FRAME)
 			_box(sm, xf, Vector3(0.1, dh, 0.04), Vector3(xc + dw / 2.0 - 0.05, dh / 2.0, -d / 2.0 - 0.12), WHITE_FRAME)
@@ -866,7 +869,7 @@ static func _k8(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dict
 			doors.append(Vector3(xc, 0, -d / 2.0 - 1.5))
 		if v == "liike":
 			var gw := minf(3.0, l * 0.12)
-			_door(r, sm, xf, Vector3(0, plinth, -d / 2.0), Vector3(0, 0, -1), 1.8, 2.2, WHITE_FRAME, GLASS.lightened(0.15), plinth)
+			_door(r, sm, xf, Vector3(0, plinth, -d / 2.0), Vector3(0, 0, -1), 2.4, 2.4, WHITE_FRAME, GLASS.lightened(0.15), plinth)
 			_box(r, xf, Vector3(gw + 2.0, 0.3, 0.95), Vector3(0, plinth + 2.75, -d / 2.0 - 0.475), trim)  # katos
 			open_f.append([0.0, gw / 2.0 + 1.0])
 			doors.append(Vector3(0, 0, -d / 2.0 - 1.2))
@@ -874,10 +877,10 @@ static func _k8(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dict
 			var dw := minf(4.5, d * 0.35)
 			var dh := minf(4.2, hw - 0.6)
 			var zc := d * 0.12
-			_box(r, xf, Vector3(0.1, dh, dw), Vector3(l / 2.0 + 0.05, dh / 2.0, zc), Color(0.82, 0.82, 0.8))  # nosto-ovi
+			_box(r, xf, Vector3(0.1, dh, dw), Vector3(l / 2.0 + 0.05, dh / 2.0, zc), wall.darkened(0.62))  # nosto-ovi (tumma, erottuu seinästä)
 			_box(r, xf, Vector3(0.14, 0.3, dw + 0.5), Vector3(l / 2.0 + 0.07, dh + 0.15, zc), pil)
 			for j in range(1, int(dh / 0.6)):
-				_box(sm, xf, Vector3(0.04, 0.04, dw), Vector3(l / 2.0 + 0.11, j * 0.6, zc), Color(0.62, 0.62, 0.6))
+				_box(sm, xf, Vector3(0.04, 0.04, dw), Vector3(l / 2.0 + 0.11, j * 0.6, zc), wall.darkened(0.6))
 			var pz := zc - dw / 2.0 - 1.6
 			_door(r, sm, xf, Vector3(l / 2.0, plinth, pz), Vector3(1, 0, 0), 1.0, 2.1, pil, Color(0.5, 0.5, 0.52), plinth)
 			door = Vector3(l / 2.0 + 1.2, 0, pz)

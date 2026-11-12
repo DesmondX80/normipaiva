@@ -23,6 +23,7 @@ signal door(id: String)  # keskustan ovella E (vaala.gd doors: kmarket, zabuki, 
 signal lava    # Oulujärven lavan ovella E (lavatanssit)
 
 const LAVA_TICKET := 12.0
+signal reach_blocked  # pelaaja yritti reitin vyöhykkeen (VAALA_RAJA_M) ulkopuolelle: näytetään ilmoitus (enintään 8 s välein)
 signal crashed(reason: String)  # kännissä kumoon: "ditch" tai "wall"; mopo nostetaan tielle
 
 var vaala: Node3D
@@ -45,6 +46,8 @@ var _safe_t := 0.0
 var on_foot: CharacterBody3D = null  # jalan (main.gd:n kävelijä), mopo parkissa; null = mopon selässä
 ## Mökin pihasta on ajettu pois: pihaan palatessa matka päättyy, vaikka kohteena olisi yhä Siitari.
 var _left_yard := false
+const REACH_MSG_GAP := 8.0
+var _reach_msg_t := 0.0
 
 
 func _ready() -> void:
@@ -293,6 +296,22 @@ func _actor_pos() -> Vector3:
 	return to_local(on_foot.global_position) if on_foot != null else mopo.position
 
 
+## Pehmeä seinä: pelaaja takaisin vyöhykkeen reunalle, ulospäin menevä nopeus pois, ilmoitus (8 s välein).
+func _push_back(pos: Vector3, fx: Vector3) -> void:
+	var out := Vector3(pos.x - fx.x, 0.0, pos.z - fx.z).normalized()
+	if on_foot != null:
+		on_foot.global_position = to_global(fx)
+		on_foot.velocity -= out * maxf(on_foot.velocity.dot(out), 0.0)
+	else:
+		mopo.position = fx
+		mopo.velocity -= out * maxf(mopo.velocity.dot(out), 0.0)
+		if -mopo.global_transform.basis.z.dot(to_global(out) - to_global(Vector3.ZERO)) > 0.0:
+			mopo.speed = minf(mopo.speed, 1.0)  # nokka ulospäin: seis
+	if _reach_msg_t <= 0.0:
+		_reach_msg_t = REACH_MSG_GAP
+		reach_blocked.emit()
+
+
 func _actor_still() -> bool:
 	return absf(on_foot.speed if on_foot != null else mopo.speed) < 2.0
 
@@ -318,6 +337,11 @@ func _process(delta: float) -> void:
 		hint = ""
 		return
 	var pos := _actor_pos()
+	_reach_msg_t -= delta
+	var fx: Vector3 = vaala.reach_clamp(pos)
+	if fx != pos:
+		_push_back(pos, fx)
+		pos = fx
 	if pos.distance_to(vaala.mokki_mopo) > HOME_YARD_R + 8.0:
 		_left_yard = true
 	if vaala.train != null and vaala.train.hits(on_foot.global_position if on_foot != null else mopo.global_position):

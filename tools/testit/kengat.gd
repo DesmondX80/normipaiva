@@ -49,7 +49,129 @@ func _look(kind: String, shoes: Color) -> Dictionary:
 	return {"model": kind, "shirt": Color(0.3, 0.45, 0.6), "pants": Color(0.2, 0.22, 0.3), "shoes": shoes}
 
 
+## Erä 3 (#273) erikseen: `aja.sh tscn tools/testit/kengat.tscn --e3` ajaa vain pitkävartisen saappaan ja sandaalit
+## (mitat, kuvakulmat, kävely, saappaan varren raot, lähikuvat), jotta korjauskierros on nopea.
+func _run_e3() -> void:
+	var looks := []
+	for kind in ["male", "female"]:
+		var lk := _look(kind, Color(0.16, 0.1, 0.07))
+		lk["shoe"] = "saapas"
+		looks.append(["saapas_%s" % kind.left(1), lk])
+	var fk: Dictionary = Looks.player("farkut").duplicate()
+	fk["shoe"] = "saapas"
+	fk["shoes"] = Color(0.07, 0.07, 0.08)
+	looks.append(["farkut_saapas", fk])
+	looks.append(["sinikka", Looks.SINIKKA])
+	looks.append(["minttu_sandaali", Looks.MINTTU])
+	_jakauma()
+	looks.append(["sinikka_bikini", Looks.sinikka_bikini()])
+	for i in looks.size():
+		var ch: Node3D = Looks.make(self, looks[i][1])
+		ch.position = Vector3(i * 1.2, 0, 0)
+		ch.play("Idle", 0.0, 0.0)
+		ch.anim.seek(0.5, true)
+		row.append([looks[i][0], ch])
+	for i in 6:
+		await get_tree().process_frame
+	for r in row:
+		print("KENKA %s tyyppi %s" % [r[0], r[1].shoe_type])
+	if row[3][1].shoe_type != "sandaali" or row[5][1].shoe_type != "paljas":
+		print("TESTI VIKA Sinikan kengät: arki %s (odotus sandaali), bikini %s (odotus paljas)" % [row[3][1].shoe_type, row[5][1].shoe_type])
+	_measure()
+	for r in row:
+		await _views(r[0], r[1])
+		if r[1].shoe_type == "saapas":
+			await _boot(r[1], r[0])
+		elif r[1].shoe_type == "sandaali":
+			await _walk(r[1], r[0])
+			await _tiptoe(r[1], r[0])
+			_strap_gap(r[1], r[0])
+	for nm in ["saapas_m", "saapas_f", "farkut_saapas"]:
+		_sheet(nm + "_kuvat", [nm + "_edesta", nm + "_sivu", nm + "_takaa", nm + "_varsi_ylhaalta",
+			nm + "_kavely_0", nm + "_kavely_1", nm + "_kavely_2", nm + "_istuu"])
+	for nm in ["sinikka", "minttu_sandaali"]:
+		_sheet(nm + "_kuvat", [nm + "_edesta", nm + "_sivu", nm + "_takaa", nm + "_kolmeneljannes",
+			nm + "_edesta_lahi", nm + "_vino_lahi", nm + "_sivu_lahi", nm + "_ylhaalta"])
+		_sheet(nm + "_kavely", [nm + "_kavely_0", nm + "_kavely_1", nm + "_kavely_2", nm + "_varpaat"])
+	print("KENKA valmis ", ProjectSettings.globalize_path(out))
+	get_tree().quit()
+
+
+## Sandaalin hihnat ihon pinnassa: jokaisen hihnan ulkopinnan kärjen etäisyys lähimpään ihon kärkeen lepoasennossa.
+## Hihna on kupera kuori ihon päällä: ulkopinta saa olla enintään 12 mm irti (kovera kohta), eikä ihon alla.
+func _strap_gap(ch: Node3D, nm: String) -> void:
+	var sa: Array = ch.shoe_mi.mesh.surface_get_arrays(0)
+	var rv: PackedVector3Array = sa[Mesh.ARRAY_VERTEX]
+	var u2: PackedVector2Array = sa[Mesh.ARRAY_TEX_UV2]
+	var bv: PackedVector3Array = ch.body_mi.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var worst := 0.0
+	var n := 0
+	for j in rv.size():
+		if u2[j].y > 0.5:
+			continue  # pohjalaatta
+		var best := INF
+		for q in bv:
+			if absf(q.y - rv[j].y) < 0.03 and signf(q.x) == signf(rv[j].x):
+				best = minf(best, q.distance_to(rv[j]))
+		worst = maxf(worst, best)
+		n += 1
+	print("KENKA %s hihnat: %d kärkeä, kauimpana ihon kärjestä %.1f mm" % [nm, n, worst * 1000.0])
+	if n == 0 or worst > 0.03:  # karkea mitta: vartaloverkon kärkiväli on 1–2 cm
+		print("TESTI VIKA %s sandaalin hihna irti ihosta (%.1f mm)" % [nm, worst * 1000.0])
+
+
+## #279 erikseen: `--e4` ajaa työkengän (uusi jäykkä varsi) ja kuukengän: mitat, kuvakulmat, varren raot ja kävely.
+func _run_e4() -> void:
+	var looks := []
+	for kind in ["male", "female"]:
+		var lk := _look(kind, COL.tyokenka)
+		lk["shoe"] = "tyokenka"
+		looks.append(["tyokenka_%s" % kind.left(1), lk])
+	looks.append(["farkut_tyokenka", Looks.player("farkut")])
+	looks.append(["seppo", Looks.SEPPO])
+	for kind in ["male", "female"]:
+		var lk := _look(kind, Color(0.9, 0.9, 0.93))
+		lk["shoe"] = "kuukenka"
+		looks.append(["kuukenka_%s" % kind.left(1), lk])
+	looks.append(["haalari", Looks.player("hiihtohaalari")])
+	for kind in ["male", "female"]:
+		var lk := _look(kind, Color(0.3, 0.16, 0.07))  # ruskea: nauhat ja saumat erottuvat
+		lk["shoe"] = "nauhakenka"
+		looks.append(["nauhakenka_%s" % kind.left(1), lk])
+	for i in looks.size():
+		var ch: Node3D = Looks.make(self, looks[i][1])
+		ch.position = Vector3(i * 1.2, 0, 0)
+		ch.play("Idle", 0.0, 0.0)
+		ch.anim.seek(0.5, true)
+		row.append([looks[i][0], ch])
+	for i in 6:
+		await get_tree().process_frame
+	if row[6][1].shoe_type != "kuukenka":
+		print("TESTI VIKA hiihtohaalarin kengät %s (odotus kuukenka)" % row[6][1].shoe_type)
+	_measure()
+	for r in row:
+		await _views(r[0], r[1])
+		if r[1].shoe_type == "nauhakenka":
+			await _walk(r[1], r[0])
+		else:
+			await _boot(r[1], r[0])
+	for nm in ["nauhakenka_m", "nauhakenka_f"]:
+		_sheet(nm + "_kuvat", [nm + "_edesta", nm + "_sivu", nm + "_takaa", nm + "_kolmeneljannes",
+			nm + "_edesta_lahi", nm + "_vino_lahi", nm + "_sivu_lahi", nm + "_paalta"])
+	for nm in ["tyokenka_m", "tyokenka_f", "farkut_tyokenka", "seppo", "kuukenka_m", "kuukenka_f", "haalari"]:
+		_sheet(nm + "_kuvat", [nm + "_edesta", nm + "_sivu", nm + "_takaa", nm + "_kolmeneljannes",
+			nm + "_nilkka_lahi", nm + "_kavely_0", nm + "_kavely_2", nm + "_istuu"])
+	print("KENKA valmis ", ProjectSettings.globalize_path(out))
+	get_tree().quit()
+
+
 func _run() -> void:
+	if "--e3" in OS.get_cmdline_user_args():
+		await _run_e3()
+		return
+	if "--e4" in OS.get_cmdline_user_args():
+		await _run_e4()
+		return
 	var looks := [["lenkkari_m", _look("male", Color(0.92, 0.92, 0.9))], ["lenkkari_f", _look("female", Color(0.92, 0.92, 0.9))],
 		["punainen_f", _look("female", Color(0.85, 0.12, 0.1))], ["paljas_m", _look("male", Color(0.12, 0.1, 0.08))],
 		["pelaaja", Looks.player("")], ["haalari", Looks.player("hiihtohaalari")], ["minttu", Looks.MINTTU]]
@@ -143,9 +265,13 @@ func _jakauma() -> void:
 	var want := [["MUMMOT[0]", Looks.MUMMOT[0], "kavelykenka"], ["MUMMOT[1]", Looks.MUMMOT[1], "kavelykenka"],
 		["MUMMOT[2]", Looks.MUMMOT[2], "kavelykenka"], ["SEPPO", Looks.SEPPO, "tyokenka"], ["REIJO", Looks.REIJO, "tyokenka"],
 		["tuulipuku", Looks.player("tuulipuku"), "lenkkari"], ["farkut", Looks.player("farkut"), "tyokenka"],
-		["tyovaatteet", Looks.player("tyovaatteet"), "tyokenka"], ["hiihtohaalari", Looks.player("hiihtohaalari"), "lenkkari"],
+		["tyovaatteet", Looks.player("tyovaatteet"), "tyokenka"], ["hiihtohaalari", Looks.player("hiihtohaalari"), "kuukenka"],
 		["sauna(farkut)", Cutscene.sauna_look(Looks.player("farkut")), "paljas"],
-		["uinti(tyovaatteet)", Cutscene.swim_look(Looks.player("tyovaatteet")), "paljas"]]
+		["uinti(tyovaatteet)", Cutscene.swim_look(Looks.player("tyovaatteet")), "paljas"],
+		["SINIKKA", Looks.SINIKKA, "sandaali"], ["sinikka_bikini", Looks.sinikka_bikini(), "paljas"],
+		["sinikka_aurinko", Looks.sinikka_aurinko(), "paljas"], ["sinikka_seura", Looks.sinikka_seura(), "lenkkari"],
+		["MINTTU", Looks.MINTTU, "sandaali"], ["KATJA", Looks.KATJA, "saapas"], ["ESA", Looks.ESA, "saapas"],
+		["sauna(SINIKKA)", Cutscene.sauna_look(Looks.SINIKKA), "paljas"]]
 	for w in want:
 		var t := Shoes.type_for(w[1])
 		print("KENKA jakauma %s -> %s" % [w[0], t])
@@ -169,6 +295,8 @@ func _measure() -> void:
 			if ch.shoe_type != "paljas" and absf(lo) > 0.005:
 				print("TESTI VIKA %s%s kengän alin %.1f mm lattiasta (raja ±5 mm)" % [r[0], lr, lo * 1000.0])
 		if ch.shoe_mi != null:
+			if Shoes.TYPES[ch.shoe_type].has("sandal"):
+				continue  # avoin kenkä: iho kuuluukin näkyä
 			var o := Shoes.skin_outside(ch.shoe_mi.mesh, ch.body_mi.mesh.surface_get_arrays(0))
 			print("KENKA %s iho_ulkona %.1f mm (lepoasento; varjostin painaa ihoa vielä 6 mm sisään)" % [r[0], o * 1000.0])
 			if o > 0.0:
@@ -279,7 +407,7 @@ func _views(nm: String, ch: Node3D) -> void:
 		sm.set_shader_parameter("main_col", keep_main)
 	g = _foot_near(ch, fw + rt)
 	await _shot(nm + "_kolmeneljannes", g + (fw + rt).normalized() * 0.75 + Vector3(0, 0.35, 0), g)
-	if nm == "lenkkari_m" or nm == "lenkkari_f" or NEW.has(ch.shoe_type):  # kärki lähikuvina (kuopat ja ääriviiva näkyvät vain läheltä)
+	if nm == "lenkkari_m" or nm == "lenkkari_f" or NEW.has(ch.shoe_type) or ch.shoe_type in ["sandaali", "nauhakenka"]:  # kärki lähikuvina (kuopat ja ääriviiva näkyvät vain läheltä)
 		var lr := "_r" if (ch.to_global(ch.bone_position("ball_r")) - ch.to_global(ch.bone_position("ball_l"))).dot(rt) > 0.0 else "_l"
 		var toe: Vector3 = ch.to_global(ch.bone_position("ball" + lr)) + fw * 0.03
 		toe.y = 0.03

@@ -511,6 +511,7 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	shoe_sole = 0.0
 	_shoe_lift = 0.0
 	body_mat.set_shader_parameter("shoe_on", false)
+	body_mat.set_shader_parameter("foot_skin", false)
 	body_mat.set_shader_parameter("shoe_top", -10.0)
 	if shoe_type == "paljas":
 		return
@@ -552,6 +553,15 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	shoe_mi = mi
 	_shoe_lift = float(mesh.get_meta("pohja"))
 	shoe_sole = _shoe_lift * _scale
+	if t.has("sandal"):  # avoin kenkä: jalkaterä näkyy ihona pohjalaatan päällä, kynnet lakattu (nail_col)
+		body_mat.set_shader_parameter("foot_skin", true)
+		body_mat.set_shader_parameter("nail_col", look.get("nails", look.get("shoes", Color(0.8, 0.08, 0.1))))
+		var kf: PackedFloat32Array = mesh.get_meta("kynnet", PackedFloat32Array())
+		var nails: Array[Vector4] = []
+		for i in 10:
+			nails.append(Vector4(kf[i * 4], kf[i * 4 + 1], kf[i * 4 + 2], kf[i * 4 + 3]) if kf.size() >= i * 4 + 4 else Vector4(0, -10, 0, 0))
+		body_mat.set_shader_parameter("nails", nails)
+		return
 	body_mat.set_shader_parameter("shoe_on", true)
 	body_mat.set_shader_parameter("shoe_cut", Vector4(0, 0, 1, 10.0))  # suljettu kenkä: koko jalkaterä tason takana
 	if float(mesh.get_meta("varsi", 0.0)) > 0.0:
