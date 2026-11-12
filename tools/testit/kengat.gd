@@ -272,6 +272,12 @@ func _jakauma() -> void:
 		["sinikka_aurinko", Looks.sinikka_aurinko(), "paljas"], ["sinikka_seura", Looks.sinikka_seura(), "lenkkari"],
 		["MINTTU", Looks.MINTTU, "sandaali"], ["KATJA", Looks.KATJA, "saapas"], ["ESA", Looks.ESA, "saapas"],
 		["sauna(SINIKKA)", Cutscene.sauna_look(Looks.SINIKKA), "paljas"]]
+	# #274: kodin tai mökin kumisaappaat jalassa (Looks.boots) kaikissa asuissa paitsi hiihtohaalarissa.
+	Looks.boots = "koti"
+	want.append_array([["saappaat tuulipuku", Looks.player("tuulipuku"), "kumisaapas"],
+		["saappaat farkut", Looks.player("farkut"), "kumisaapas"], ["saappaat tyovaatteet", Looks.player("tyovaatteet"), "kumisaapas"],
+		["saappaat hiihtohaalari", Looks.player("hiihtohaalari"), "kuukenka"]])
+	Looks.boots = ""
 	for w in want:
 		var t := Shoes.type_for(w[1])
 		print("KENKA jakauma %s -> %s" % [w[0], t])
@@ -295,6 +301,9 @@ func _measure() -> void:
 			if ch.shoe_type != "paljas" and absf(lo) > 0.005:
 				print("TESTI VIKA %s%s kengän alin %.1f mm lattiasta (raja ±5 mm)" % [r[0], lr, lo * 1000.0])
 		if ch.shoe_mi != null:
+			if r[0] == "kumisaapas_m":  # #274: kodin ja mökin saapasesineen (kumisaappaat.gd) mitat pelin saappaasta
+				var bb: AABB = ch.shoe_mi.global_transform * ch.shoe_mi.get_aabb()
+				print("KENKA kumisaapas_m koko: korkeus %.3f m, pituus %.3f m, leveys (pari) %.3f m" % [bb.size.y, bb.size.z, bb.size.x])
 			if Shoes.TYPES[ch.shoe_type].has("sandal"):
 				continue  # avoin kenkä: iho kuuluukin näkyä
 			var o := Shoes.skin_outside(ch.shoe_mi.mesh, ch.body_mi.mesh.surface_get_arrays(0))

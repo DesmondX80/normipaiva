@@ -26,6 +26,9 @@ static var outfit := "tuulipuku"
 ## Pelaajan päähine lippiksen tilalle (kodin vaatekaappi): "" = asun oma lippis, "stetson" = cowboyhattu,
 ## "koppa" = Karhu-kutosen pahvikoppa (ensimmäisestä kaupasta ostetusta kutosesta).
 static var hat := ""
+## Pelaajan kumisaappaat (#274, main.gd _set_boots): "" = asun omat kengät, "koti" = kodin eteisen saappaat, "mokki" = mökin
+## ovensuun saappaat (kumisaappaat.gd). Hiihtohaalarissa pidetään aina kuukengät.
+static var boots := ""
 
 
 ## Pelaajan ulkonäkö valitussa asussa (Looks.make lisää asusteet, add_cap lippiksen asun mukaan).
@@ -57,6 +60,8 @@ static func player(which := "") -> Dictionary:
 				look.erase(k)
 			look.merge({"shirt": HAALARI_PINK, "pants": HAALARI_PINK, "ski_suit": true, "shirt_puff": 0.04,
 				"pants_puff": 0.046, "shoes": Color(0.9, 0.9, 0.93), "shoe": "kuukenka", "stripes": false, "shine": 0.55, "cap": "panta"}, true)
+	if boots != "" and o != "hiihtohaalari":
+		look.merge({"shoe": "kumisaapas", "shoes": Color(0.13, 0.3, 0.14)}, true)  # sama vihreä kuin kumisaappaat.gd COLOR
 	return look
 
 

@@ -8848,6 +8848,8 @@ func _on_home_acted(kind: String) -> void:
 				tilat.add("stressi", 0.05)
 				tilat.add("kokemus", -0.02)
 			_show_message("\"%s\"" % TV_SHOWS.pick_random(), 3.0)
+		"saappaat":
+			_toggle_boots("koti")
 		"vaatekaappi":
 			_open_wardrobe(["tuulipuku", "farkut"] + (["hiihtohaalari"] if has_haalari else []) + ["hattu"]
 				+ (["koppa"] if has_koppa else []),
@@ -11483,6 +11485,32 @@ func _set_hat(h: String) -> void:
 	if h == Looks.hat:
 		return
 	Looks.hat = h
+	var bodies := get_tree().root.find_children("*", "Node3D", true, false).filter(func(n: Node) -> bool:
+		return n.has_meta("player_body"))
+	for n in bodies:
+		Looks.restyle_player(n)
+
+
+## Kumisaappaat kodin eteisestä tai mökin ovensuusta (place = "koti" / "mokki", #274): E vetää ne jalkaan ja samoista
+## saappaista E takaisin omat kengät. Paikka ei vaihda kenkiä itsestään, ja hiihtohaalarissa pidetään kuukengät.
+func _toggle_boots(place: String) -> void:
+	if Looks.outfit == "hiihtohaalari":
+		_show_message("Hiihtohaalarissa pidetään kuukengät.", 3.0)
+		return
+	if Looks.boots != "" and Looks.boots != place:
+		_show_message("%s saappaat on jo jalassa." % ("Kodin" if Looks.boots == "koti" else "Mökin"), 3.0)
+		return
+	_set_boots("" if Looks.boots == place else place)
+	Sfx.play("cloth", -2.0)
+	_show_message("Kumisaappaat jalkaan. Nyt pärjää metsässä ja rapakoissa." if Looks.boots != "" else "Omat kengät takaisin jalkaan.", 3.0)
+	_save_game()
+
+
+## Pelaajan kumisaappaat (Looks.boots): kaikki pelaajan mallit päivittyvät paikallaan kuten hatun vaihdossa.
+func _set_boots(b: String) -> void:
+	if b == Looks.boots:
+		return
+	Looks.boots = b
 	var bodies := get_tree().root.find_children("*", "Node3D", true, false).filter(func(n: Node) -> bool:
 		return n.has_meta("player_body"))
 	for n in bodies:
@@ -16956,6 +16984,8 @@ func _on_mokki_slept() -> void:
 ## Mökin sisätoiminnot: tilavaikutukset (kerran päivässä) ja viestit.
 func _on_mokki_acted(kind: String) -> void:
 	match kind:
+		"saappaat":
+			_toggle_boots("mokki")
 		"vaatekaappi":
 			_open_wardrobe(["tyovaatteet", "tuulipuku"], "Paapelin vaatekaappi: työvaatteet vai tuulipuku?")
 		"kahvi":
@@ -20563,6 +20593,7 @@ func _load_game() -> void:
 	phone.found = cfg.get_value("puhelin", "loydetty", false)
 	_set_outfit(cfg.get_value("pelaaja", "asu", "tuulipuku"))
 	_set_hat(cfg.get_value("pelaaja", "hattu", ""))
+	_set_boots(cfg.get_value("pelaaja", "saappaat", ""))
 	phone.volume = cfg.get_value("puhelin", "voimakkuus", 2)
 	viina_pullot = cfg.get_value("mokki", "viinapullot", 0)
 	atm_day = cfg.get_value("peli", "otto_paiva", 0)
@@ -20860,6 +20891,7 @@ func _save_game() -> void:
 	cfg.set_value("puhelin", "loydetty", phone.found)
 	cfg.set_value("pelaaja", "asu", Looks.outfit)
 	cfg.set_value("pelaaja", "hattu", Looks.hat)
+	cfg.set_value("pelaaja", "saappaat", Looks.boots)
 	cfg.set_value("puhelin", "voimakkuus", phone.volume)
 	cfg.set_value("mokki", "viinapullot", viina_pullot)
 	cfg.set_value("peli", "otto_paiva", atm_day)
@@ -26853,6 +26885,144 @@ func _maybe_screenshot() -> void:
 			print("KAAPPI Paapeli asu %s, viesti '%s'" % [Looks.outfit, _msg.text])
 			await snap.call("_paapeli.png")
 			Looks.outfit = "tuulipuku"
+			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+			f.store_buffer(saved)
+			f.close()
+			get_tree().quit()
+		"saappaat":
+			# #274: kumisaappaat kodin eteisestä (E jalkaan ja pois), asun vaihto saappaat jalassa (haalari voittaa), pyörä,
+			# mökin saappaat ("jo jalassa"), tallennus. Kuvat: esine edestä, päädystä ja ylhäältä, jalat lähikuvina.
+			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var snap := func(name: String) -> void:
+				for i in 20:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+			var close := func(target: Vector3, from: Vector3, name: String) -> void:
+				var prev := get_viewport().get_camera_3d()
+				var c := Camera3D.new()
+				c.fov = 35.0
+				add_child(c)
+				c.global_position = from
+				c.look_at(target, Vector3.UP)
+				c.make_current()
+				await snap.call(name)
+				c.queue_free()
+				prev.make_current()
+			var press := func() -> void:
+				await get_tree().process_frame
+				Input.action_press("interact")
+				await get_tree().process_frame
+				await get_tree().process_frame
+				Input.action_release("interact")
+				await get_tree().process_frame
+			var types := func() -> Array:
+				var t := []
+				for n in get_tree().root.find_children("*", "Node3D", true, false):
+					if n.has_meta("player_body") and not n.shoe_type in t:
+						t.append(n.shoe_type)
+				return t
+			var check := func(what: String, got: Variant, want: Variant) -> void:
+				if got != want:
+					print("TESTI VIKA saappaat %s: %s, pitäisi olla %s" % [what, got, want])
+			var saved_boots := func() -> String:
+				var cf := ConfigFile.new()
+				cf.load(SAVE_PATH)
+				return cf.get_value("pelaaja", "saappaat", "<puuttuu>")
+			_note.visible = false
+			Looks.boots = ""
+			_set_outfit("tuulipuku")
+			if player != walker_out:
+				_toggle_mount()
+			_enter_home("ovi")
+			for i in 5:
+				await get_tree().process_frame
+			# 1. Kotona: esine kolmesta suunnasta (-X = seinä, kärjet +X eteiseen), sitten E.
+			var bp: Vector3 = home_int._boots.global_position
+			var hx: Vector3 = home_int.global_basis.x
+			var hz: Vector3 = home_int.global_basis.z
+			var mid := bp + Vector3(0, 0.18, 0)
+			await close.call(mid, mid + hx * 1.1 + Vector3(0, 0.35, 0), "_esine_edesta.png")
+			await close.call(mid, mid + hz * 1.1 + hx * 0.2 + Vector3(0, 0.3, 0), "_esine_paadysta.png")
+			await close.call(bp, bp + Vector3(0, 1.4, 0) + hx * 0.05, "_esine_ylhaalta.png")
+			home_int.walker.position = home_int.SPOTS.saappaat[0]
+			for i in 5:
+				await get_tree().process_frame
+			print("SAAPPAAT vihje '%s'" % _hint.text)
+			await press.call()
+			print("SAAPPAAT boots %s, tyyppi %s, esine näkyvissä %s, malleja %d, viesti '%s'" % [Looks.boots, types.call(),
+				home_int._boots.visible, get_tree().root.find_children("*", "Node3D", true, false).filter(
+				func(n: Node) -> bool: return n.has_meta("player_body")).size(), _msg.text])
+			check.call("koti E", [Looks.boots, types.call(), home_int._boots.visible], ["koti", ["kumisaapas"], false])
+			check.call("tallennus koti", saved_boots.call(), "koti")
+			await snap.call("_koti.png")
+			var wp: Vector3 = home_int.walker.global_position
+			await close.call(wp + Vector3(0, 0.3, 0), wp + hz * 1.4 + hx * 0.5 + Vector3(0, 0.5, 0), "_jalat.png")
+			await close.call(wp + Vector3(0, 0.3, 0), wp + hx * 1.4 + Vector3(0, 0.5, 0), "_jalat_sivu.png")
+			# K3: asun vaihto pitää saappaat, paitsi hiihtohaalarissa.
+			for o in ["farkut", "tyovaatteet", "hiihtohaalari", "tuulipuku"]:
+				_set_outfit(o)
+				await get_tree().process_frame
+				print("SAAPPAAT asu %s -> %s" % [o, types.call()])
+				check.call("asu " + o, types.call(), ["kuukenka" if o == "hiihtohaalari" else "kumisaapas"])
+			# 2. Ulos pyörälle.
+			home_int.exit_door = "ovi"
+			_on_home_exited()
+			if player == walker_out:
+				_toggle_mount()
+			for i in 30:
+				await get_tree().process_frame
+			print("SAAPPAAT pyörä %s" % [types.call()])
+			await snap.call("_pyora.png")
+			var kp := bike.global_position + Vector3(0, 0.45, 0)
+			await close.call(kp, kp + bike.global_basis.x * 1.6 + Vector3(0, 0.2, 0), "_pyora_jalat.png")
+			await close.call(kp, kp - bike.global_basis.x * 1.6 + Vector3(0, 0.2, 0), "_pyora_jalat_vasen.png")
+			# 3. Mökillä E: kodin saappaat on jo jalassa.
+			_toggle_mount()
+			mokki.ensure_built()
+			_enter_mokki("ovi")
+			for i in 5:
+				await get_tree().process_frame
+			var mp: Vector3 = mokki_int._boots.global_position
+			var mx: Vector3 = mokki_int.global_basis.x
+			var mz: Vector3 = mokki_int.global_basis.z
+			var mm := mp + Vector3(0, 0.18, 0)
+			await close.call(mm, mm + mz * 1.1 + Vector3(0, 0.35, 0), "_mokki_esine_edesta.png")
+			await close.call(mm, mm - mx * 1.1 + mz * 0.2 + Vector3(0, 0.3, 0), "_mokki_esine_paadysta.png")  # oven puolelta (+X:ssä CD-hylly)
+			mokki_int.walker.position = mokki_int.SPOTS.saappaat[0]
+			for i in 5:
+				await get_tree().process_frame
+			print("SAAPPAAT mökki vihje '%s'" % _hint.text)
+			await press.call()
+			print("SAAPPAAT mökki boots %s, esine näkyvissä %s, viesti '%s'" % [Looks.boots, mokki_int._boots.visible, _msg.text])
+			check.call("mökki E", [Looks.boots, mokki_int._boots.visible], ["koti", true])
+			await snap.call("_mokki.png")
+			# 4. Kotona E: omat kengät takaisin.
+			mokki_int.exit_door = "ovi"
+			_on_mokki_exited()
+			_enter_home("ovi")
+			home_int.walker.position = home_int.SPOTS.saappaat[0]
+			for i in 5:
+				await get_tree().process_frame
+			print("SAAPPAAT koti 2 vihje '%s'" % _hint.text)
+			await press.call()
+			print("SAAPPAAT pois: boots '%s', tyyppi %s, esine näkyvissä %s, viesti '%s'" % [Looks.boots, types.call(),
+				home_int._boots.visible, _msg.text])
+			check.call("koti pois", [Looks.boots, types.call(), home_int._boots.visible], ["", ["lenkkari"], true])
+			await snap.call("_pois.png")
+			# 5. Haalarissa E: kuukengät, ei muutosta.
+			_set_outfit("hiihtohaalari")
+			for i in 3:
+				await get_tree().process_frame
+			print("SAAPPAAT haalari vihje '%s'" % _hint.text)
+			await press.call()
+			print("SAAPPAAT haalari: boots '%s', tyyppi %s, viesti '%s'" % [Looks.boots, types.call(), _msg.text])
+			check.call("haalari E", [Looks.boots, types.call()], ["", ["kuukenka"]])
+			# 6. Tallennus.
+			print("SAAPPAAT tallennus pelaaja/saappaat '%s'" % saved_boots.call())
+			check.call("tallennus lopuksi", saved_boots.call(), "")
+			Looks.outfit = "tuulipuku"
+			Looks.boots = ""
 			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 			f.store_buffer(saved)
 			f.close()
