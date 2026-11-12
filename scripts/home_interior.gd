@@ -47,7 +47,7 @@ const SPOTS := {
 	"nortti": [Vector3(8.0, 0, -3.6), "[E] Jutskaa nörtin kanssa"],
 	"puhelin": [Vector3(-8.7, 0, -1.4), "[E] Päivin vanha kännykkä yöpöydällä"],
 	"vaatekaappi": [Vector3(-6.0, 0, -4.9), "[E] Vaatekaappi: vaihda vaatteet"],
-	"saappaat": [Vector3(-3.45, 0, 5.05), ""],  # kumisaappaat makuuhuoneen oven ja etuseinän välissä; yli 1,3 m sisääntulopaikasta (vihje kumisaappaat.gd, vaihto main.gd)
+	"saappaat": [Vector3(-3.2, 0, 5.2), ""],  # kumisaappaat makuuhuoneen oven ja etuseinän välissä; kuramaton (x < -3,4) ulkopuolella ja yli 1,3 m sisääntulopaikasta (vihje kumisaappaat.gd, vaihto main.gd)
 }
 const NERD_LOOK := {
 	"shirt": Color(0.12, 0.12, 0.14), "pants": Color(0.25, 0.27, 0.32), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari",
@@ -126,8 +126,9 @@ func _build_hall_closet() -> void:
 	B.mesh(self, B.boxm(Vector3(0.35, 0.12, 1.1)), Vector3(LEFT_X + 0.25, 0.06, 2.6), Color(0.35, 0.25, 0.18))  # kenkäteline
 	for k in 3:
 		B.mesh(self, B.boxm(Vector3(0.12, 0.08, 0.28)), Vector3(LEFT_X + 0.25, 0.16, 2.2 + k * 0.35), Color(0.12, 0.1, 0.09))
-	# Kumisaappaat vasemmalla seinällä makuuhuoneen oven (z 3,3–4,3) ja etuseinän välissä, kärjet eteiseen (+X), lattian päällä.
-	_boots = Saappaat.build(self, Vector3(LEFT_X + 0.3, 0.04, 4.8), Vector3(1, 0, 0))
+	# Kumisaappaat kuramatolla vasemmalla seinällä makuuhuoneen oven (z 3,3–4,3) ja etuseinän välissä, kärjet eteiseen (+X),
+	# lattian päällä (y 0,04). Matto 0,5 x 0,75: seinän sisäpinnasta (x -3,925) 2,5 cm, z 4,43–5,18 (pelikameralta noin 30 px).
+	_boots = Saappaat.build(self, Vector3(LEFT_X + 0.35, 0.04, 4.8), Vector3(1, 0, 0))
 
 
 func enter(door := "ovi") -> void:

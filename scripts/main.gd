@@ -26940,11 +26940,12 @@ func _maybe_screenshot() -> void:
 			# Pelikameralta heti sisään tultua: esineen koko ruudulla (löydettävyys, vähintään noin 30 px).
 			var px_size := func(node: Node3D) -> Vector2:
 				var cam := get_viewport().get_camera_3d()
+				var m: Vector2 = node.get_meta("matto") / 2.0  # maton puolikkaat (kärkien suunta, sivusuunta)
 				var r := Rect2(cam.unproject_position(node.global_position), Vector2.ZERO)
-				for corner in [Vector3(-0.32, 0, -0.27), Vector3(0.32, 0, -0.27), Vector3(-0.32, 0, 0.27),
-						Vector3(0.32, 0, 0.27), Vector3(-0.2, 0.375, -0.15), Vector3(0.2, 0.375, 0.15)]:
+				for corner in [Vector3(-m.y, 0, -m.x), Vector3(m.y, 0, -m.x), Vector3(-m.y, 0, m.x), Vector3(m.y, 0, m.x),
+						Vector3(-0.2, 0.375, 0.09), Vector3(0.2, 0.375, 0.09)]:
 					r = r.expand(cam.unproject_position(node.global_transform * corner))
-				return r.size
+				return r.size  # matto ja varsien yläreuna
 			await snap.call("_koti_tulo.png")
 			print("SAAPPAAT koti pelikamera esine+matto %s px, pelaaja %s px" % [px_size.call(home_int._boots),
 				get_viewport().get_camera_3d().unproject_position(home_int.walker.global_position)])

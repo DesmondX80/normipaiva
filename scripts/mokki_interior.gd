@@ -131,7 +131,8 @@ func _ready() -> void:
 	_build_bedroom()
 	_build_bath_sauna()
 	_build_pa()
-	_boots = Saappaat.build(self, Vector3(-5.6, 0, KITCHEN.end.y + 0.24), Vector3(0, 0, 1))  # oven ja CD-hyllyn välissä, kärjet tupaan
+	# Kumisaappaat kuramatolla oven ja CD-hyllyn (x -5,15) välissä, kärjet tupaan; maton takareuna 1 cm seinän pinnasta.
+	_boots = Saappaat.build(self, Vector3(-5.53, 0, KITCHEN.end.y + 0.075 + 0.235), Vector3(0, 0, 1), Vector2(0.45, 0.48))
 	_santtu = Looks.make(self, Mokki.SANTTU_LOOK)
 	_santtu.play("Idle", 0.0)
 	_santtu_body = StaticBody3D.new()

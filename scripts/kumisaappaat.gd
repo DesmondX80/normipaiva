@@ -10,6 +10,10 @@ const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 
 const COLOR := Color(0.13, 0.3, 0.14)  # sama vihreä kuin Santun saappaissa (mokki.gd SANTTU_LOOK) ja Looks.player
+const RUBBER := Color(0.17, 0.42, 0.19)  # esineen kumi: kirkkaampi, koska kengän varjostin (shoe.gdshader) näyttää saman vihreän
+                                         # jalassa vaaleampana kuin StandardMaterial lattialla; erottuu pelikameralta
+const MAT := Vector2(0.5, 0.75)  # kuramatto oletuksena (kärkien suunta, sivusuunta): vaalea kumialusta, jolla pari erottuu lattiasta
+const MAT_H := 0.01  # maton pohjan paksuus (saappaat sen päällä)
 const SOLE := Color(0.93, 0.9, 0.82)  # vaalea pohja kuten shoes.gd sole_col
 const TREAD := Color(0.36, 0.3, 0.24)  # kulunut pohjan kulutuspinta
 const HEIGHT := 0.375  # varren yläreuna lattiasta
@@ -23,15 +27,18 @@ const VAMP_SLICES := 24
 const VAMP_RING := 16
 
 
-## Pari vierekkäin lattialla: at = parin keskikohta (y = lattian yläpinta), face = kärkien suunta (XZ). Palauttaa parin
-## juurisolmun (näkyvyys: Looks.boots).
-static func build(parent: Node3D, at: Vector3, face: Vector3) -> Node3D:
+## Pari vierekkäin kuramaton päällä: at = parin ja maton keskikohta (y = lattian yläpinta), face = kärkien suunta (XZ),
+## mat = maton koko (kärkien suunta, sivusuunta; vähintään 0,4 x 0,4). Palauttaa parin juurisolmun (näkyvyys: Looks.boots,
+## meta "matto" = maton koko); matto jää lattialle, kun pari on jalassa.
+static func build(parent: Node3D, at: Vector3, face: Vector3, mat := MAT) -> Node3D:
+	_mat(parent, at, B.yaw_to(face), mat)
 	var pair := Node3D.new()
-	pair.position = at
+	pair.set_meta("matto", mat)
+	pair.position = at + Vector3(0, MAT_H, 0)
 	pair.rotation.y = B.yaw_to(face)  # -Z = kärjet
 	parent.add_child(pair)
 	var rubber := StandardMaterial3D.new()  # kumin kiilto
-	rubber.albedo_color = COLOR
+	rubber.albedo_color = RUBBER
 	rubber.roughness = 0.38
 	for side in [-1.0, 1.0]:
 		var boot := Node3D.new()
@@ -40,6 +47,24 @@ static func build(parent: Node3D, at: Vector3, face: Vector3) -> Node3D:
 		pair.add_child(boot)
 		_boot(boot, side, rubber)
 	return pair
+
+
+## Kuramatto: vaalea kumipohja, korotettu reunus ja poikittaiset urat (kuten eteisen saapastarjotin). -Z = kärkien suunta.
+static func _mat(parent: Node3D, at: Vector3, yaw: float, size: Vector2) -> void:
+	var m := Node3D.new()
+	m.position = at
+	m.rotation.y = yaw
+	parent.add_child(m)
+	var col := Color(0.8, 0.79, 0.75)
+	B.mesh(m, B.boxm(Vector3(size.y, MAT_H, size.x)), Vector3(0, MAT_H / 2.0, 0), col)
+	for sx in [-1.0, 1.0]:  # reunus: pitkät sivut ja päädyt, vaalea yläreuna ja tumma ulkokylki
+		B.mesh(m, B.boxm(Vector3(0.025, 0.022, size.x)), Vector3(sx * (size.y / 2.0 - 0.0125), 0.011, 0), col.lightened(0.15))
+		B.mesh(m, B.boxm(Vector3(size.y, 0.022, 0.025)), Vector3(0, 0.011, sx * (size.x / 2.0 - 0.0125)), col.lightened(0.15))
+		B.mesh(m, B.boxm(Vector3(0.002, 0.02, size.x)), Vector3(sx * (size.y / 2.0 + 0.001), 0.01, 0), col.darkened(0.35))
+		B.mesh(m, B.boxm(Vector3(size.y, 0.02, 0.002)), Vector3(0, 0.01, sx * (size.x / 2.0 + 0.001)), col.darkened(0.35))
+	for k in 7:  # urat sivusuuntaan
+		var z := -size.x / 2.0 + 0.07 + k * (size.x - 0.14) / 6.0
+		B.mesh(m, B.boxm(Vector3(size.y - 0.07, 0.002, 0.012)), Vector3(0, MAT_H + 0.001, z), col.darkened(0.2))
 
 
 ## Yksi saapas (side = ulkosivun suunta x:ssä, -Z = kärki).

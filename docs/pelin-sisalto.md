@@ -1001,7 +1001,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Kengät (#272, #274):** jokaisella hahmolla on oma kenkätyyppi (`look.shoe`; `Shoes.type_for` käyttää `shoes`-väriä vain varalla).
   Pelaajalla tuulipuvussa lenkkarit, farkuissa ja työvaatteissa työkengät ja hiihtohaalarissa kuukengät; saunassa ja uidessa
   paljain jaloin. **Kumisaappaat (#274):** kodin eteisessä (makuuhuoneen oven ja etuseinän välissä) ja mökin ovensuussa on
-  vihreä saapaspari; E vetää ne jalkaan ja uusi E vaihtaa omat kengät takaisin. Ne pysyvät jalassa paikasta toiseen ja tallentuvat
+  vihreä saapaspari vaalealla kuramatolla; E vetää ne jalkaan ja uusi E vaihtaa omat kengät takaisin. Ne pysyvät jalassa paikasta toiseen ja tallentuvat
   (`pelaaja/saappaat`), eikä paikka vaihda kenkiä itsestään. Toisen paikan paria ei voi ottaa, kun toinen on jalassa, ja
   hiihtohaalari pitää aina kuukengät. **Tanssijat:** Hilkka ja Anna-Liisa kävelykengät, seuraintalon Sinikka punaiset
   sandaalit. **Sivuhahmot:** kenkä sopii henkilöön (mummot kävelykenkä, työmiehet työkenkä, nuoret lenkkari, virkailijat ja
