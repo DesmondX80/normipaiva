@@ -874,7 +874,7 @@ func _build_siitari_stage(st: Node3D) -> void:
 		lamp.omni_range = 14.0
 		st.add_child(lamp)
 	# Katsojat kehässä: baarimikko, Sinikka, papat ja toinen Raahen jätkä huutelee.
-	var crowd := [[{"shirt": Color(0.95, 0.95, 0.93), "pants": Color(0.08, 0.08, 0.1), "shoes": Color(0.08, 0.08, 0.08),
+	var crowd := [[{"shirt": Color(0.95, 0.95, 0.93), "pants": Color(0.08, 0.08, 0.1), "shoes": Color(0.08, 0.08, 0.08), "shoe": "nauhakenka",
 		"hair": "Hair_SimpleParted", "hair_color": Color(0.25, 0.18, 0.12), "beard": true, "height": 1.8, "belly": 0.4}, -5.5, "Idle"],
 		[Looks.SINIKKA, -3.8, "Idle"], [Looks.GRANDPAS[0], 3.6, "Idle_Talking"], [Looks.RAAHEN_JATKAT[1], 5.3, "Idle_Talking"]]
 	for c in crowd:
