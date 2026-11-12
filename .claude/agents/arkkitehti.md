@@ -62,6 +62,10 @@ arvio työn määrästä Teemulle kysyttäväksi. (#272, #273: kaatuneet kuoret;
 tyypin prototyypillä ja mittauksella ennen kuin muut tyypit suunnitellaan samaan rakenteeseen. (#272: kaikki kengät
 lenkkarin kuoresta, nauha- ja varsikengät eivät mahtuneet siihen.)
 
+Pelaajan löydettävä esine (vaihtopiste, poimittava tavara): laske sen koko pelikameralta (`Camera3D.unproject_position`,
+vähintään noin 30 px), valitse paikka, jossa on tilaa, ja kirjaa luku suunnitelmaan. (#274: mökin saappaat oven ja hyllyn
+väliin 0,5 m:n rakoon, esine 15 px, käyttäjä pyysi siirtoa.)
+
 Älä kirjoita toteutuskoodia muuta kuin lyhyitä (<10 rivin) mallinpätkiä.
 
 Palautus orkestraattorille: enintään 8 riviä: ratkaisun ydin, juurisyyn todiste (korjauskierroksella), osien määrä, suurin riski.

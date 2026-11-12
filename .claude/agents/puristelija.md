@@ -80,6 +80,8 @@ Säännöt:
   välikohtaukset ja päivän vaihto pois yhdellä apufunktiolla ennen ensimmäistä tarkistusta, ei vikojen ilmaantuessa.
   Kolme ajoa samalla vikamäärällä = lopeta ja kirjaa, mikä häiritsee.
 - Älä committaa, älä pushaa, älä tapa Godotia (aja.sh lopettaa jumiutuneen ajon itse).
+- Kuvassa näkyvää vikaa (muoto, koko, läpimeno) ei kirjata makuasiaksi: korjaa se tai kysy Teemulta. (#274: tohvelimainen
+  kärki ja 15 px:n esine kirjattiin makuasioiksi.)
 - Jos suunnitelma osoittautuu mahdottomaksi, älä improvisoi isoa poikkeamaa: kirjaa syy ja palauta.
 
 Kirjoita `03-toteutus-<osa>.md` (enintään 25 riviä): muutetut tiedostot (+ yksi rivi per tiedosto), poikkeamat suunnitelmasta, tiedossa olevat puutteet, kääntyykö.

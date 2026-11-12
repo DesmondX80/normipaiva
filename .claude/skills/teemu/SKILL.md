@@ -101,10 +101,12 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
    ajaa toisen osan koodia, ajetaan vasta, kun se osa on valmis, vaikka tiedostot eivät mene päällekkäin.
    **Rinnakkaisten Opus-agenttien raja on kaksi.** Rate limitin (429) jälkeen älä käynnistä lisää: odota resetiä, tarkista levyltä, mitä
    ehdittiin, ja kirjaa lopetettu työ `ajot.md`:hen.
-6. **Älä toista.** Raportoi käyttäjälle tiivis tulos, ei aliagenttien tuotoksia.
-7. **Valitse agentti työkalujen mukaan.** Spekstaajalla ja arkkitehdilla ei ole Bashia: git-tulosteet, erotuslistat ja puretut kansiot tehdään
+6. **Iso mekaaninen työ heti rinnakkain.** Yli 30 tiedoston mekaaninen työ (esim. arvo jokaiselle lookille) jaetaan
+   rinnakkaisiksi osiksi tiedostoittain heti arkkitehdin jälkeen, ei vasta käyttäjän valituksesta. (#274)
+7. **Älä toista.** Raportoi käyttäjälle tiivis tulos, ei aliagenttien tuotoksia.
+8. **Valitse agentti työkalujen mukaan.** Spekstaajalla ja arkkitehdilla ei ole Bashia: git-tulosteet, erotuslistat ja puretut kansiot tehdään
    valmiiksi tiedostoiksi työkansioon (Teemu ajaa ne), tai työ annetaan general-purposelle. Älä anna tehtävää agentille, joka ei voi ajaa sen vaatimia komentoja.
-8. **Kirjaa, mitä arvioidaan.** Pyyntöön kirjataan, arvioidaanko järjestelmää vai lopputuloksen ulkonäköä. Käyttäjän
+9. **Kirjaa, mitä arvioidaan.** Pyyntöön kirjataan, arvioidaanko järjestelmää vai lopputuloksen ulkonäköä. Käyttäjän
    sivukommentti ei ole tavoite, eikä sitä liitetä pyyntöön tavoitteena.
 
 ## Putki
@@ -119,6 +121,11 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
    (AskUserQuestion) ennen putkea.
    Aja heti `tools/testit/godot.sh`. Jos Godotia ei löydy, kerro se käyttäjälle ennen spekstaajaa ja kysy: asennetaanko,
    vai toteutetaanko testaamatta (merkitään commitiin ja PR:ään "testaamatta kunnolla").
+   **Mainin sisältö luetaan vain lukevilla komennoilla** (`git show origin/main:<polku>`, `git grep <hakusana> origin/main`).
+   Komentoa `git checkout <ref> -- .` ei ajeta, koska se kumoaa työpuun muutokset (pakollinen; #274).
+   **Look- ja kenkätöissä** taulukko ja lopputarkistus kattavat `scripts/**` rekursiivisesti (myös alikansiot kuten
+   `scripts/rikos/`). Ennen sekstaajaa Teemu ajaa koko koodin kattavan haun: dict, jossa on `shoes` mutta ei `shoe`, ja
+   väri, jonka `Shoes.type_for` tulkitsee paljaiksi jaloiksi. (#274: 10 hahmoa paljain jaloin taulukon ohi.)
 1. Viitatut issuet (esim. "kuuluu #274:ään") kirjoitetaan työkansioon tiedostoiksi `00-issue-<n>.md` ennen spekstaajaa.
 1. **spekstaaja** (Agent, subagent_type `spekstaaja`): "Työkansio: <polku>. Pyyntö: <pyyntö>". Jos palautuksessa on avoimia kysymyksiä, jotka eivät ratkea järkevällä oletuksella, kysy ne käyttäjältä (AskUserQuestion), kirjaa vastaukset `01-suunnitelma.md`:hen Editillä.
 2. Koon mukaan:
@@ -142,6 +149,9 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
   kesken. Sekstaajan FAIL korjataan seuraavan erän rinnalla.
 - **Teemu korjaa pienet.** Kun puristelija on jumissa ja käyttäjä on pyytänyt vauhtia, Teemu saa tehdä yhden rivin tai
   yhden luvun korjauksen itse ja testata sen (kaantyy + kyseinen testi). Kirjaa se raporttiin poikkeamana. (#273)
+- **Commit-viesti vasta tiedostolistan jälkeen (pakollinen).** `git add` ja `git diff --cached --stat` ajetaan omana
+  komentonaan, ja commit-viesti kirjoitetaan vasta seuraavassa komennossa luetun tulosteen perusteella; samassa komennossa ei
+  koskaan. Rikkomus kirjataan raporttiin poikkeamana. (#274: 2df324e ja db08283 väittivät muutoksia, joita ei ollut.)
 - **Katso ennen commitia `git diff --cached --stat`.** Toisen agentin valmiiksi lisäämät tiedostot menevät muuten mukaan;
   commit-viesti kirjoitetaan vasta tulosteen lukemisen jälkeen ja kuvaa kaiken, mitä commitissa on; välitallennuksen viesti
   luettelee tiedostot. (#273: cc10293 väitti varren muutoksia, sisälsi vain mittarit.) (#271: df65b16 sisälsi osan B tiedostot, viesti kertoi vain A:sta.)
