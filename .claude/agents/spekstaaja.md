@@ -36,6 +36,10 @@ Arvattu sisältö merkitään "arvaus" ja avoimeksi kysymykseksi. (#272)
 Esikuva ja tekniikka haetaan netistä (WebSearch) aina, kun työ on uusi esine tai rakenne: kirjaa lähteet ja tunnusmerkit.
 "Esikuvaa ei haettu" ei kelpaa. (#272, #273)
 
+Pelaajan ulkoasun tai varusteen muutos (kengät, vaatteet, esineet) tarvitsee pelin sisäisen syyn: esineen, toiminnon tai
+kohtauksen. Kirjaa syy kriteeriin, äläkä oleta, että paikka vaihtaa varusteen automaattisesti. (#274: "eihän ne voi vain
+ilmestyä jalkaan".)
+
 Säännöt: älä suunnittele toteutusta (tiedostot, funktiot) — se on arkkitehdin työ. Älä lue koodia muuten kuin pelin nykytilan varmistamiseen.
 
 Palautus orkestraattorille: enintään 8 riviä: koko, kriteerien määrä, esikuvan lähde, avoimet kysymykset. Ei suunnitelman toistoa.
