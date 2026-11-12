@@ -993,9 +993,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   kaikkiin pelaajan malleihin paikallaan (pyörä, kävely, mopo, sisätilat) ja säilyvät tallennuksessa. Vaatteet
   piirretään varjostimessa pikseleinä (`shaders/character.gdshader`), asusteet ovat muutama pieni mesh luissa
   (`looks.gd`, testit `--scene=asut`, `--scene=vaatekaappi`, `--scene=stetson`, `--scene=haalari` ja `--scene=koppa`).
-  Aikuisilla hahmoilla on paljaalla rinnalla nännit (sauna, bikinit ilman yläosaa, verkkopaidan silmukat, avoin
-  liivi): naisella rinnan kärjessä, miehellä rintalihaksen alareunassa; nännipiha ja valoon reagoiva nuppi. Lapsilla ja nuorilla niitä ei ole (pituus
-  alle 1,5 m tai lookin `nipples: false`).
+  Aikuisilla hahmoilla on nännit: nännipiha ja oikeasti pinnasta kohoava nuppi (tiheä pintapala vartalon verkon päällä,
+  `character.gd _nipple_patch`). Naisella ne ovat rinnan etupinnan keskellä, miehellä rintalihaksen alareunassa, ja
+  nännipiha pysyy pyöreänä rinnan muotoilusta huolimatta. Näkyvät paljaalla rinnalla (sauna, bikinit ilman yläosaa,
+  verkkopaidan silmukat, avoin liivi), ja kohouma erottuu myös ohuen ja tiukan kankaan läpi (bikinit, tuubitoppi;
+  `nipple_cloth`). Lapsilla ja nuorilla niitä ei ole (pituus alle 1,5 m tai lookin `nipples: false`).
 - **Kengät (#272):** tuulipuvussa ja hiihtohaalarissa lenkkarit, farkuissa ja työvaatteissa työkengät (varsi nilkan yli),
   saunassa ja uidessa paljain jaloin. Kaupan mummoilla kävelykengät, Sepolla ja Reijolla työkengät
   (`scripts/shoes.gd`, ks. `docs/kehitys.md` Kengät). Santulla ja Hanhikiven kalastajalla vihreät kumisaappaat (#273).

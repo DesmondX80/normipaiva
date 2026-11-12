@@ -1814,7 +1814,7 @@ static func _cap_brim(grid: Array, top_col := CAP_NAVY, piping := CAP_PIPING) ->
 static func _tuck_hair(sk: Skeleton3D, body: MeshInstance3D, grid: Array, origin: Vector3, mb: Basis) -> void:
 	var inv := mb.inverse()
 	for mi in sk.get_children():
-		if not (mi is MeshInstance3D) or mi == body or mi.name in ["Eyes", "Eyebrows"]:
+		if not (mi is MeshInstance3D) or mi == body or mi.name in ["Eyes", "Eyebrows", "Nannit"]:
 			continue
 		var src: Mesh = mi.mesh
 		var out := ArrayMesh.new()

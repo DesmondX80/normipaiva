@@ -115,9 +115,25 @@ func setup(look: Dictionary) -> void:
 	# muotoillun kärjen kohdalla, miehellä rintalihaksen alareunassa.
 	if bool(look.get("nipples", float(look.get("height", REST_HEIGHT)) >= 1.5)):
 		var female := kind == "female"
-		body_mat.set_shader_parameter("nipple_pos", _bust_tip(body.mesh) if female else NIPPLE_MALE)
-		body_mat.set_shader_parameter("nipple_r", 0.013 if female else 0.011)
+		var fit := _nipple_fit(body.mesh, female)
+		body_mat.set_shader_parameter("nipple_pos", fit[0])
+		body_mat.set_shader_parameter("nipple_metric", fit[1])
+		var nr := 0.017 if female else 0.011  # todellinen säde pinnalla (m)
+		body_mat.set_shader_parameter("nipple_r", nr)
 		body_mat.set_shader_parameter("nipple_h", 0.007 if female else 0.004)
+		# Kohouma näkyy ohuen ja tiukan kankaan läpi: bikinit ja tuubitoppi; muu vaate peittää sen (look.nipple_cloth ohittaa).
+		var thin := 1.0 if look.get("string_bikini", false) else (0.8 if look.has("tube_y") else 0.0)
+		body_mat.set_shader_parameter("nipple_cloth", float(look.get("nipple_cloth", thin)))
+		# Oikea kohouma: vartalon verkko on nännin kohdalla liian harva, joten nännin päälle tulee tiheä pintapala
+		# samalla materiaalilla ja luustolla. Varjostin nostaa sen pisteet nupiksi (nipple_height).
+		var patch := MeshInstance3D.new()
+		patch.name = "Nannit"
+		patch.mesh = _nipple_patch(body.mesh, fit[0], fit[1], nr, female)
+		patch.skin = body.skin
+		patch.transform = body.transform  # sama paikka luuston alla kuin vartalon verkolla
+		patch.skeleton = body.skeleton  # luuston polku ei periydy: ilman tätä pala jäisi lepoasentoon
+		patch.material_override = body_mat
+		skeleton.add_child(patch)
 	if look.has("stripe_color"):
 		body_mat.set_shader_parameter("stripe_col", look.stripe_color)
 	if look.has("tracksuit"):
@@ -847,22 +863,212 @@ static func _library() -> AnimationLibrary:
 
 ## Vartalomesh, jonka verteksiväri kertoo vaateluokan (painavimman luun mukaan).
 const NIPPLE_MALE := Vector2(0.098, 1.31)
+const BUST_CENTER := Vector2(0.082, 1.32)  # rinnan etupinnan näkyvä keskikohta lepoasennossa (naisen malli)
 
 
-## Rinnan kärki lepoasennon koordinaateissa (UV2): muotoillun verkon uloin piste rinnan korkeudella. Tulos talteen verkkoon.
-static func _bust_tip(mesh: Mesh) -> Vector2:
-	if mesh.has_meta("bust_tip"):
-		return mesh.get_meta("bust_tip")
+## Nännin paikka lepoasennon koordinaateissa (UV2) ja pinnan venymä sen ympärillä: [paikka, metriikka]. Naisella
+## paikka on rinnan kärki (muotoillun verkon uloin piste rinnan korkeudella), miehellä NIPPLE_MALE. Metriikka (m.x, m.y,
+## m.z) kertoo, kuinka pitkä lepoasennon siirtymä (dx, dy) on muotoillulla pinnalla: d² = m.x·dx² + 2·m.y·dx·dy + m.z·dy².
+## Se sovitetaan pienimmän neliösumman tasona P ≈ P0 + A·dx + B·dy kärjen ympäristön pisteisiin (m = A·A, A·B, B·B).
+## Tulos talteen verkkoon.
+static func _nipple_fit(mesh: Mesh, female: bool) -> Array:
+	var key := "nipple_fit_f" if female else "nipple_fit_m"
+	if mesh.has_meta(key):
+		return mesh.get_meta(key)
 	var arrs := mesh.surface_get_arrays(0)
 	var sv: PackedVector3Array = arrs[Mesh.ARRAY_VERTEX]
 	var ru: PackedVector2Array = arrs[Mesh.ARRAY_TEX_UV2]
-	var best := -1
+	var pos := NIPPLE_MALE
+	if female:
+		var best := -1
+		for k in sv.size():
+			if sv[k].x > 0.02 and sv[k].y > 1.2 and sv[k].y < 1.45 and (best < 0 or sv[k].z > sv[best].z):
+				best = k
+		# Uloin piste on isoilla rinnoilla alareunassa: nänni sen ja rinnan etupinnan keskikohdan (BUST_CENTER, sama
+		# kuin bikinikupin keskus varjostimessa) väliin, lähemmäs keskikohtaa.
+		pos = Vector2(absf(ru[best].x), ru[best].y).lerp(BUST_CENTER, 0.65) if best >= 0 else BUST_CENTER
+	# Normaaliyhtälöt [1, dx, dy]: 3 x 3 -matriisi ja oikea puoli kullekin koordinaatille.
+	var n := 0
+	var sx := 0.0
+	var sy := 0.0
+	var sxx := 0.0
+	var sxy := 0.0
+	var syy := 0.0
+	var bp := Vector3.ZERO
+	var bx := Vector3.ZERO
+	var by := Vector3.ZERO
 	for k in sv.size():
-		if sv[k].x > 0.02 and sv[k].y > 1.2 and sv[k].y < 1.45 and (best < 0 or sv[k].z > sv[best].z):
-			best = k
-	var tip := Vector2(absf(ru[best].x), ru[best].y) if best >= 0 else Vector2(0.082, 1.32)
-	mesh.set_meta("bust_tip", tip)
-	return tip
+		if sv[k].x <= 0.0 or sv[k].z <= 0.0:
+			continue  # vain oikea etupuoli (vasen on peilikuva)
+		var d := ru[k] - pos
+		if d.length() > 0.05:
+			continue
+		n += 1
+		sx += d.x
+		sy += d.y
+		sxx += d.x * d.x
+		sxy += d.x * d.y
+		syy += d.y * d.y
+		bp += sv[k]
+		bx += sv[k] * d.x
+		by += sv[k] * d.y
+	var metric := Vector3(1, 0, 1)
+	var m := Basis(Vector3(n, sx, sy), Vector3(sx, sxx, sxy), Vector3(sy, sxy, syy))
+	if n >= 6 and absf(m.determinant()) > 1e-12:
+		var inv := m.inverse()
+		# Ratkaisu koordinaatti kerrallaan: (P0, A, B) = inv · (Σp, Σp·dx, Σp·dy).
+		var a := Vector3.ZERO
+		var b := Vector3.ZERO
+		for c in 3:
+			var sol := inv * Vector3(bp[c], bx[c], by[c])
+			a[c] = sol.y
+			b[c] = sol.z
+		metric = Vector3(a.dot(a), a.dot(b), b.dot(b))
+	var fit := [pos, metric]
+	mesh.set_meta(key, fit)
+	return fit
+
+
+## Nännien pintapalat (vasen ja oikea): tiheä kiekko vartalon pinnalla nännin ympärillä. Jokainen piste lasketaan
+## vartalon kolmiosta, jonka sisään sen lepoasennon paikka (UV2) osuu: paikka, normaali ja muut tiedot painopistein,
+## luupainot lähimmältä kulmalta. Lepopaikka on tarkka, joten varjostin värittää palan samoin kuin ihon sen alla
+## (nännipiha, tatuointi, vaate) ja nostaa sen nupiksi normaalin suuntaan. Kiekon säteet ovat todellisia metrejä
+## pinnalla (metriikka, ks. _nipple_fit). Tulos talteen verkkoon.
+static func _nipple_patch(mesh: Mesh, pos: Vector2, metric: Vector3, r: float, female: bool) -> ArrayMesh:
+	var key := "nipple_patch_f" if female else "nipple_patch_m"
+	if mesh.has_meta(key):
+		return mesh.get_meta(key)
+	var src := mesh.surface_get_arrays(0)
+	var sv: PackedVector3Array = src[Mesh.ARRAY_VERTEX]
+	var sn: PackedVector3Array = src[Mesh.ARRAY_NORMAL]
+	var st: PackedFloat32Array = src[Mesh.ARRAY_TANGENT]
+	var sc: PackedColorArray = src[Mesh.ARRAY_COLOR]
+	var su: PackedVector2Array = src[Mesh.ARRAY_TEX_UV]
+	var ru: PackedVector2Array = src[Mesh.ARRAY_TEX_UV2]
+	var sb: PackedInt32Array = src[Mesh.ARRAY_BONES]
+	var sw: PackedFloat32Array = src[Mesh.ARRAY_WEIGHTS]
+	var c0: PackedFloat32Array = src[Mesh.ARRAY_CUSTOM0]
+	var c1: PackedByteArray = src[Mesh.ARRAY_CUSTOM1]
+	var si: PackedInt32Array = src[Mesh.ARRAY_INDEX]
+	var wpv := sb.size() / sv.size()
+	# Todellinen siirtymä (metrit) -> lepoasennon siirtymä: metriikan Cholesky M = L·Lᵀ, q = L⁻ᵀ·p.
+	var l11 := sqrt(maxf(metric.x, 1e-6))
+	var l21 := metric.y / l11
+	var l22 := sqrt(maxf(metric.z - l21 * l21, 1e-6))
+	var ov := PackedVector3Array()
+	var on := PackedVector3Array()
+	var ot := PackedFloat32Array()
+	var oc := PackedColorArray()
+	var ou := PackedVector2Array()
+	var ou2 := PackedVector2Array()
+	var ob := PackedInt32Array()
+	var ow := PackedFloat32Array()
+	var o0 := PackedFloat32Array()
+	var o1 := PackedByteArray()
+	var oi := PackedInt32Array()
+	var rings := 7
+	var segs := 24
+	for side in [1.0, -1.0]:
+		var cen := Vector2(pos.x * side, pos.y)
+		# Ehdokaskolmiot: etupuolella (lepo-z > 0) ja kiekon lähellä.
+		var tris: Array = []
+		for t in range(0, si.size(), 3):
+			var ok := true
+			for k in 3:
+				var vi := si[t + k]
+				if c0[vi * 4] <= 0.0 or ru[vi].distance_to(cen) > 0.09:
+					ok = false
+					break
+			if ok:
+				tris.append(t)
+		var base := ov.size()
+		for ring in rings + 1:
+			for sg in (segs if ring > 0 else 1):
+				var rho := r * 1.15 * ring / rings
+				var ph := TAU * sg / segs
+				var px := rho * cos(ph)
+				var py := rho * sin(ph)
+				var qy := py / l22
+				var q := Vector2((px - l21 * qy) / l11 * side, qy)
+				var rp := cen + q
+				# Kolmio, jonka sisään lepopiste osuu (painopistekoordinaatit UV2:ssa); muuten lähin.
+				var best_t := -1
+				var bw := Vector3.ZERO
+				var best_out := INF
+				for t in tris:
+					var a := ru[si[t]]
+					var b := ru[si[t + 1]]
+					var c := ru[si[t + 2]]
+					var den := (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y)
+					if absf(den) < 1e-12:
+						continue
+					var w0 := ((b.y - c.y) * (rp.x - c.x) + (c.x - b.x) * (rp.y - c.y)) / den
+					var w1 := ((c.y - a.y) * (rp.x - c.x) + (a.x - c.x) * (rp.y - c.y)) / den
+					var w := Vector3(w0, w1, 1.0 - w0 - w1)
+					var out := maxf(0.0, -minf(w.x, minf(w.y, w.z)))
+					if out < best_out:
+						best_out = out
+						best_t = t
+						bw = w
+						if out == 0.0:
+							break
+				if best_t < 0:
+					continue
+				var i0 := si[best_t]
+				var i1 := si[best_t + 1]
+				var i2 := si[best_t + 2]
+				var nrm := (sn[i0] * bw.x + sn[i1] * bw.y + sn[i2] * bw.z).normalized()
+				ov.append(sv[i0] * bw.x + sv[i1] * bw.y + sv[i2] * bw.z + nrm * 0.0004)  # hieman ihon päällä: ei välkettä
+				on.append(nrm)
+				ou.append(su[i0] * bw.x + su[i1] * bw.y + su[i2] * bw.z)
+				ou2.append(rp)
+				var near := i0 if bw.x >= bw.y and bw.x >= bw.z else (i1 if bw.y >= bw.z else i2)
+				oc.append(sc[near])
+				for k in 4:
+					ot.append(st[near * 4 + k])
+					o0.append(c0[i0 * 4 + k] * bw.x + c0[i1 * 4 + k] * bw.y + c0[i2 * 4 + k] * bw.z)
+					o1.append(c1[near * 4 + k])
+				for k in wpv:
+					ob.append(sb[near * wpv + k])
+					ow.append(sw[near * wpv + k])
+		# Kolmiot: keskipisteen viuhka ja renkaat. Etupinta kiertää Godotissa myötäpäivään (ristitulo normaalia vastaan).
+		var quad := func(a: int, b: int, c: int) -> void:
+			if (ov[b] - ov[a]).cross(ov[c] - ov[a]).dot(on[a]) > 0.0:
+				oi.append_array([a, c, b])
+			else:
+				oi.append_array([a, b, c])
+		if ov.size() - base != 1 + rings * segs:
+			continue  # jokin piste jäi löytymättä: tälle puolelle ei palaa
+		for sg in segs:
+			quad.call(base, base + 1 + sg, base + 1 + (sg + 1) % segs)
+		for ring in range(1, rings):
+			var r0 := base + 1 + (ring - 1) * segs
+			var r1 := r0 + segs
+			for sg in segs:
+				var s2 := (sg + 1) % segs
+				quad.call(r0 + sg, r1 + sg, r1 + s2)
+				quad.call(r0 + sg, r1 + s2, r0 + s2)
+	var out_mesh := ArrayMesh.new()
+	if not oi.is_empty():
+		var arr := []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = ov
+		arr[Mesh.ARRAY_NORMAL] = on
+		arr[Mesh.ARRAY_TANGENT] = ot
+		arr[Mesh.ARRAY_COLOR] = oc
+		arr[Mesh.ARRAY_TEX_UV] = ou
+		arr[Mesh.ARRAY_TEX_UV2] = ou2
+		arr[Mesh.ARRAY_BONES] = ob
+		arr[Mesh.ARRAY_WEIGHTS] = ow
+		arr[Mesh.ARRAY_CUSTOM0] = o0
+		arr[Mesh.ARRAY_CUSTOM1] = o1
+		arr[Mesh.ARRAY_INDEX] = oi
+		var fmt: int = (mesh as ArrayMesh).surface_get_format(0)
+		out_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {},
+			(fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) | (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+			| (Mesh.ARRAY_CUSTOM_RGBA8_UNORM << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT))
+	mesh.set_meta(key, out_mesh)
+	return out_mesh
 
 
 static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D, stripes: bool,
