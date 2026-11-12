@@ -164,13 +164,12 @@ const SINIKKA := {
 	"hair": "Hair_Long", "hair_color": Color(0.98, 0.92, 0.72), "height": 1.76, "shine": 0.85, "bulk": -0.2,
 	"curves": 1.0, "bust": 2.7, "skin": Color(1.0, 0.97, 0.93), "bare_skin": Color(0.8, 0.58, 0.46), "glam": true,
 	"shorts_y": 0.8, "crop_y": 1.23, "tube_y": 1.41, "sleeve_x": 0.2, "denim": true,
-	"shoe": "sandaali",  # punaiset avokärkiset sandaalit, punaiset varpaankynnet (#273); bikinissä ja tanssiessa vaihtuu
+	"shoe": "sandaali",  # punaiset avokärkiset sandaalit, punaiset varpaankynnet (#273), myös tanssissa (#274); bikinissä paljas
 }
 ## Sinikka seuraintalolla (kirppis_interior.gd sinikka_seura, tanssi_game.gd): ilman olkihattua.
 static func sinikka_seura() -> Dictionary:
 	var look: Dictionary = SINIKKA.duplicate()
-	look["glam_hat"] = false
-	look["shoe"] = "lenkkari"  # tanssija: sama kenkätyyppi kuin pelaajalla (#271); ei SINIKKA-vakioon (bikini on paljas)
+	look["glam_hat"] = false  # kengät SINIKKA-vakiosta: punaiset sandaalit myös tanssissa (#274)
 	return look
 
 ## Sinikka uimarannalla (world.gd): pienet punaiset lappubikinit, paljaat jalat.

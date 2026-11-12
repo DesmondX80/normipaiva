@@ -10,6 +10,7 @@ const Pose := preload("res://scripts/pose.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Shoes := preload("res://scripts/shoes.gd")
 const B := preload("res://scripts/build.gd")
+const KI := preload("res://scripts/kirppis_interior.gd")  # #274: tanssijoiden PEOPLE-rivit
 const RUUTU := 1000.0 / 60.0
 const COL := {"kavelykenka": Color(0.3, 0.19, 0.11), "tyokenka": Color(0.42, 0.27, 0.13)}  # testirivin päällisen väri
 const NEW := ["kavelykenka", "tyokenka"]  # erän 2 tyypit (lenkkarin lisäksi), rivit <tyyppi>_m ja _f
@@ -269,9 +270,13 @@ func _jakauma() -> void:
 		["sauna(farkut)", Cutscene.sauna_look(Looks.player("farkut")), "paljas"],
 		["uinti(tyovaatteet)", Cutscene.swim_look(Looks.player("tyovaatteet")), "paljas"],
 		["SINIKKA", Looks.SINIKKA, "sandaali"], ["sinikka_bikini", Looks.sinikka_bikini(), "paljas"],
-		["sinikka_aurinko", Looks.sinikka_aurinko(), "paljas"], ["sinikka_seura", Looks.sinikka_seura(), "lenkkari"],
+		["sinikka_aurinko", Looks.sinikka_aurinko(), "paljas"], ["sinikka_seura", Looks.sinikka_seura(), "sandaali"],
 		["MINTTU", Looks.MINTTU, "sandaali"], ["KATJA", Looks.KATJA, "saapas"], ["ESA", Looks.ESA, "saapas"],
 		["sauna(SINIKKA)", Cutscene.sauna_look(Looks.SINIKKA), "paljas"]]
+	# #274 osa B: seuraintalon tanssijat (kirppis_interior.gd PEOPLE) kävelykengissä, Hilkka kaikissa tiloissa.
+	for pd in KI.PEOPLE:
+		if pd.id in ["hilkka", "annaliisa"]:
+			want.append(["%s %s" % [pd.id, pd.modes[0]], pd.look, "kavelykenka"])
 	# #274: kodin tai mökin kumisaappaat jalassa (Looks.boots) kaikissa asuissa paitsi hiihtohaalarissa.
 	Looks.boots = "koti"
 	want.append_array([["saappaat tuulipuku", Looks.player("tuulipuku"), "kumisaapas"],
