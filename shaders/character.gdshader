@@ -82,7 +82,13 @@ uniform bool vest_open = false;
 // Nännipiha on ihoa tummempi ja punertavampi, keskellä pieni tummempi nänni.
 uniform vec2 nipple_pos = vec2(-1.0, 0.0);
 uniform float nipple_r = 0.011;
-uniform float nipple_h = 0.004;  // nännin kohouma pinnasta (m); varjostus piirtää pienen nupin muodon
+// Lepoasennon siirtymän (dx, dy) todellinen pituus muotoillulla pinnalla: d² = m.x·dx² + 2·m.y·dx·dy + m.z·dy²
+// (character.gd _nipple_fit). Rinnan tai mahan muotoilu venyttää ihoa, ja ilman tätä nännipiha venyisi soikeaksi.
+uniform vec3 nipple_metric = vec3(1.0, 0.0, 1.0);
+// Kuinka paljon nännin kohouma näkyy vaatteen läpi (0 = ei, 1 = kuin paljaalla iholla): ohut ja tiukka kangas
+// (bikinit, tuubitoppi) myötäilee nuppia, paksu tai väljä vaate peittää sen (character.gd).
+uniform float nipple_cloth = 0.0;
+uniform float nipple_h = 0.004;  // nupin korkeus (m): nännin pintapalan pisteet nousevat tämän verran (character.gd _nipple_patch)
 uniform bool chest_hair = false;
 uniform vec3 body_hair : source_color = vec3(0.16, 0.11, 0.07);
 uniform vec3 ski_yoke : source_color = vec3(0.95, 0.95, 0.97);
@@ -121,31 +127,41 @@ float vnoise(vec2 p) {
 
 // Nännin korkeus pinnasta (m) lepoasennon kohdassa r: loiva nännipiha ja keskellä pyöreä nuppi. Kohokuvio (fragment)
 // kääntää pinnan normaalia tämän mukaan, joten muoto varjostuu valon suunnasta.
+// Etäisyys nännin keskeltä metreinä muotoillulla pinnalla (x peilattu).
+float nipple_dist(vec2 r) {
+	vec2 q = vec2(abs(r.x) - nipple_pos.x, r.y - nipple_pos.y);
+	return sqrt(max(0.0, nipple_metric.x * q.x * q.x + 2.0 * nipple_metric.y * q.x * q.y + nipple_metric.z * q.y * q.y));
+}
+
 float nipple_height(vec2 r, float rz) {
 	if (nipple_pos.x <= 0.0 || rz <= 0.0) {
 		return 0.0;
 	}
-	float d = length(vec2(abs(r.x) - nipple_pos.x, r.y - nipple_pos.y));
+	float d = nipple_dist(r);
 	float nub = nipple_r * 0.36;
-	return nipple_h * (0.3 * (1.0 - smoothstep(nipple_r * 0.5, nipple_r * 1.1, d)) + 0.7 * max(0.0, 1.0 - d * d / (nub * nub)));  // paraabelikupu: reunalla äärellinen kaltevuus
+	// Nännipiha kohoaa vain hieman (pehmeä kumpu), nuppi on pyöreäpäinen tappi sen keskellä.
+	float mound = 0.12 * (1.0 - smoothstep(nipple_r * 0.3, nipple_r * 1.1, d));
+	float tip = 0.88 * (1.0 - smoothstep(nub * 0.55, nub * 1.15, d)) * (0.75 + 0.25 * max(0.0, 1.0 - d * d / (nub * nub)));
+	return nipple_h * (mound + tip);
 }
 
 vec3 skin_with_ink(vec3 skin, vec2 r, vec3 lp, float rz) {
 	vec3 col = mix(skin, vec3(0.08, 0.16, 0.14), 0.85 * tattoo_ink(r, lp));
 	if (nipple_pos.x > 0.0 && rz > 0.0) {  // rz = lepoasennon z: vain etupuolella
-		float d = length(vec2(abs(r.x) - nipple_pos.x, r.y - nipple_pos.y));
-		vec3 areola = skin * vec3(0.78, 0.52, 0.5);
+		float d = nipple_dist(r);
+		vec3 areola = skin * vec3(0.72, 0.55, 0.52);
 		col = mix(col, areola, 0.9 * (1.0 - smoothstep(nipple_r * 0.75, nipple_r, d)));
 		// Nänni: pieni nuppi nännipihan keskellä. Muoto valosta ylhäältä: vaalea yläreuna, tumma alareuna ja varjo alla.
 		float nub = nipple_r * 0.36;
-		float dy = (r.y - nipple_pos.y) / nub;
+		float sy = sqrt(nipple_metric.z);  // lepo-y:n venymä: pystysuunnan varjostus todellisina metreinä
+		float dy = (r.y - nipple_pos.y) * sy / nub;
 		float in_nub = 1.0 - smoothstep(nub * 0.8, nub, d);
 		col = mix(col, areola * (0.82 + 0.1 * clamp(dy, -1.0, 1.0)), in_nub);
-		float below = length(vec2(abs(r.x) - nipple_pos.x, r.y - nipple_pos.y + nub * 0.9));
+		float below = nipple_dist(r + vec2(0.0, nub * 0.9 / sy));
 		col *= 1.0 - 0.15 * (1.0 - in_nub) * (1.0 - smoothstep(nub * 0.5, nub * 1.3, below));
 		// Nännipihan reunan pieni kohouma: yläreuna hieman vaaleampi, alareuna tummempi.
 		float rim = (1.0 - smoothstep(nipple_r * 0.6, nipple_r, d)) * smoothstep(nipple_r * 0.4, nipple_r * 0.8, d);
-		col *= 1.0 + 0.1 * rim * clamp((r.y - nipple_pos.y) / nipple_r, -1.0, 1.0);
+		col *= 1.0 + 0.1 * rim * clamp((r.y - nipple_pos.y) * sy / nipple_r, -1.0, 1.0);
 	}
 	if (grime > 0.0) {
 		// Nokisia ja mullanruskeita tahroja: isoja läikkiä ja pieniä roiskeita, hieman enemmän alhaalla (kädet, vyötärö).
@@ -390,10 +406,10 @@ void vertex() {
 		puff = mix(-0.006, puff, smoothstep(shoe_top - 0.01, shoe_top + 0.03, UV2.y));
 	}
 	VERTEX += NORMAL * puff;
-	if (nipple_pos.x > 0.0 && puff == 0.0 && c > 0.5 && c < 1.5 && CUSTOM0.x > 0.0) {
-		// Nännin kohouma paljaalla rinnalla (ja bikinin kankaan alla): nännipiha nousee hieman, keskellä nuppi.
-		float nd = length(vec2(abs(UV2.x) - nipple_pos.x, UV2.y - nipple_pos.y));
-		VERTEX += NORMAL * nipple_h * (0.35 * (1.0 - smoothstep(0.0, nipple_r * 1.4, nd)) + 0.65 * (1.0 - smoothstep(0.0, nipple_r * 0.7, nd)));
+	if (nipple_pos.x > 0.0 && c > 0.5 && c < 1.5) {
+		// Nännin kohouma: pintapalan tiheät pisteet nousevat nupiksi. Paljaalla rinnalla täysi, kankaan alla nipple_cloth.
+		bool skin_here = bare(c, UV2, VERTEX, COLOR.b, COLOR.a * 2.0 - 1.0);
+		VERTEX += NORMAL * nipple_height(UV2, CUSTOM0.x) * (skin_here ? 1.0 : nipple_cloth);
 	}
 	if (press_n > 0 && CUSTOM0.w > 0.0) {
 		// Kontaktipainuma laatikko kerrallaan (Elastic.press): pehmeä verteksi painuu pinnalle ja levenee sivulle.
@@ -621,7 +637,7 @@ void fragment() {
 		}
 		NORMAL_MAP = mix(vec3(0.5, 0.5, 1.0), n, 0.18 * muscle_def);
 	}
-	float nh = skin_amt * nipple_height(rest, rest_zn.x);
+	float nh = mix(nipple_cloth, 1.0, skin_amt) * nipple_height(rest, rest_zn.x);
 	if (nh > 0.0) {
 		// Kohokuvio korkeudesta (Mikkelsen): pinnan normaali kääntyy korkeuden ruutugradientin mukaan.
 		vec3 dpx = dFdx(VERTEX);
@@ -630,7 +646,8 @@ void fragment() {
 		vec3 r2 = cross(NORMAL, dpx);
 		float det = dot(dpx, r1);
 		vec3 grad = sign(det) * (dFdx(nh) * r1 + dFdy(nh) * r2);
-		NORMAL = normalize(abs(det) * NORMAL - grad);
+		// Normaali korkeusfunktion mukaan (pintapalan pisteillä on ihon normaali, jota pitkin ne nousevat).
+		NORMAL = normalize(mix(NORMAL, normalize(abs(det) * NORMAL - grad), 0.8));
 	}
 	if (jiggle_debug) {
 		ALBEDO = mix(vec3(0.5), vec3(1.0, 0.0, 1.0), jig_w.r) * (1.0 - jig_w.g) + vec3(0.0, 1.0, 1.0) * jig_w.g;
