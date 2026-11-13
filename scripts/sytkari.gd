@@ -57,12 +57,12 @@ func _ready() -> void:
 
 
 ## Päivi kesällä -96 (luku 6, kolmiomittaus.gd "koti"): vaaleammiksi haalistuneet pitkät hiukset, valkoinen
-## ysärin tuubitoppi ja farkut; olkihattu ja isot aurinkolasit (Looks.add_glam) piilottavat kasvot puoliksi, joten
+## ysärin turkoosi tuubitoppi ja farkut; olkihattu ja isot aurinkolasit (Looks.add_glam) piilottavat kasvot puoliksi, joten
 ## pelaaja ei tunnista omaa vaimoaan.
 static func kesaheila_look() -> Dictionary:
 	var look: Dictionary = Looks.PAIVI.duplicate()
-	look.merge({"hair_color": Color(0.62, 0.42, 0.24), "shirt": Color(0.96, 0.95, 0.9), "pants": Color(0.38, 0.5, 0.7),
-		"denim": true, "glam": true, "tube_y": 1.35, "crop_y": 1.18, "sleeve_x": 0.2, "bare_skin": Color(0.92, 0.72, 0.58), "curves": 0.6, "bust": 1.6}, true)
+	look.merge({"hair_color": Color(0.62, 0.42, 0.24), "shirt": Color(0.5, 0.74, 0.8), "pants": Color(0.38, 0.5, 0.7),
+		"denim": true, "glam": true, "tube_y": 1.35, "crop_y": 1.18, "sleeve_x": 0.2, "bare_skin": Color(0.92, 0.72, 0.58)}, true)
 	return look
 
 
@@ -73,6 +73,12 @@ func _title() -> String:
 
 func _sub() -> String:
 	return job if age > 0 else ""
+
+
+## Fonttikoko, jolla teksti mahtuu leveyteen w (pitkä otsikko pienenee, ei valu kortin yli).
+func _fit(text: String, w: float, size: int) -> int:
+	var tw := ThemeDB.fallback_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	return size if tw <= w else int(size * w / tw)
 
 
 func _process(delta: float) -> void:
@@ -231,8 +237,10 @@ func _draw_matka(sr: Rect2, card: Rect2, k: float) -> void:
 	var top := Rect2(card.position, Vector2(card.size.x, 150 * k))
 	MG.box(_view, top, Color.WHITE, int(16 * k), int(4 * k), Color(0.85, 0.8, 0.8), 1)
 	_round_photo(top.position + Vector2(70, 75) * k, 52 * k, k, false)
-	_view.draw_string(f, top.position + Vector2(134, 52) * k, _title(), HORIZONTAL_ALIGNMENT_LEFT, -1, int(24 * k), INK)
-	_view.draw_string(f, top.position + Vector2(134, 76) * k, _sub(), HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * k), Color(0.45, 0.4, 0.42))
+	var nm := _title() if age > 0 else who  # ilman ikää paikka omalle rivilleen (pitkä otsikko ei mahdu)
+	_view.draw_string(f, top.position + Vector2(134, 52) * k, nm, HORIZONTAL_ALIGNMENT_LEFT, -1,
+		_fit(nm, top.size.x - 144 * k, int(24 * k)), INK)
+	_view.draw_string(f, top.position + Vector2(134, 76) * k, job, HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * k), Color(0.45, 0.4, 0.42))
 	# Sijaintinasta ja etäisyys isolla: osoitetta ei näy, vain pyöristetty matka.
 	var pin := top.position + Vector2(132, 106) * k
 	_view.draw_circle(pin, 8 * k, FLAME_A)
@@ -265,7 +273,7 @@ func _profile_card(r: Rect2, k: float) -> void:
 	MG.grad_rect(_view, Rect2(ph.position.x, ph.end.y - 70 * k, ph.size.x, 70 * k), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.65))
 	var f := ThemeDB.fallback_font
 	_view.draw_string(f, Vector2(ph.position.x + 14 * k, ph.end.y - 30 * k), _title(), HORIZONTAL_ALIGNMENT_LEFT, -1,
-		int(28 * k), Color.WHITE)
+		_fit(_title(), ph.size.x - 28 * k, int(28 * k)), Color.WHITE)
 	_view.draw_string(f, Vector2(ph.position.x + 14 * k, ph.end.y - 10 * k), _sub(), HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * k),
 		Color(1, 1, 1, 0.85))
 	_wrap(Vector2(r.position.x + 14 * k, ph.end.y + 26 * k), bio, r.size.x - 28 * k, int(15 * k), INK)
@@ -351,15 +359,16 @@ func _photo(look: Dictionary, bg: Color, ground: Color, props: String) -> SubVie
 				B.mesh(st, B.boxm(Vector3(0.05, 0.95, 0.05)), Vector3(-2.4 + i * 0.4, 0.475, -1.0), Color(0.55, 0.37, 0.22))
 			for i in 9:  # lyhtynauha kaarella seinän edessä
 				var x := -1.6 + i * 0.4
-				var bulb := B.mesh(st, B.sphere(0.045, 10), Vector3(x, 2.05 - 0.12 * (1.0 - pow(x / 1.6, 2.0)), -1.4),
+				var bulb := B.mesh(st, B.sphere(0.045, 10), Vector3(x, 2.45 - 0.12 * (1.0 - pow(x / 1.6, 2.0)), -1.4),
 					[Color(1.0, 0.85, 0.5), Color(1.0, 0.45, 0.35), Color(0.6, 0.85, 1.0)][i % 3])
 				var lm := bulb.material_override as StandardMaterial3D
 				lm.emission_enabled = true
 				lm.emission = lm.albedo_color
 				lm.emission_energy_multiplier = 2.5
-			var plate := B.sign_plate(st, "SALOISTEN LAVA", Color(0.55, 0.12, 0.1), Color(1.0, 0.92, 0.7), 0.2, 64)
-			plate.position = Vector3(-0.62, 1.78, -1.45)
+			var plate := B.sign_plate(st, "LAVA", Color(0.55, 0.12, 0.1), Color(1.0, 0.92, 0.7), 0.2, 64)
+			plate.position = Vector3(-0.48, 1.95, -1.45)
 			plate.rotation.y = 0.12  # kameraan päin
+			ch.position.x = 0.08  # hahmo oikealle, kyltti näkyy hatun vasemmalta puolelta
 	var key := DirectionalLight3D.new()
 	key.light_energy = 1.2
 	key.shadow_enabled = true
@@ -388,6 +397,8 @@ func _photo(look: Dictionary, bg: Color, ground: Color, props: String) -> SubVie
 	st.add_child(cam)
 	var h := float(look.get("height", 1.75))
 	var eye := Vector3(0.12, h * 0.9, 1.25)  # pää ja hartiat: profiilikuvan rajaus
+	if props == "lava":  # leveä lierihattu kokonaan kuvaan ja lavan kyltti viereen
+		eye = Vector3(0.1, h * 0.88, 1.75)
 	cam.transform = Transform3D(Basis.looking_at(Vector3(0, h * 0.84, 0) - eye, Vector3.UP), eye)
 	cam.current = true
 	return vp

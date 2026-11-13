@@ -411,6 +411,27 @@ func _testi_tallennus() -> void:
 		_vika("vanha tallennus ei antanut oletusarvoja")
 
 
+## Testin lähtöpiste: tieverkon piste, josta reitti seuraintalolle on 150–250 m (ei kiertotietä).
+func _lahto(w: Node3D, talo: Vector3) -> int:
+	var b: int = w._nearest_node_to(talo)
+	var best := -1
+	var best_len := INF
+	for i in w._nodes.size():
+		var suora: float = w._nodes[i].distance_to(w._nodes[b])
+		if suora < 120.0 or suora > 220.0:
+			continue
+		var r: Array[int] = w._route(i, b)
+		var pituus := 0.0
+		var c := i
+		for n in r:
+			pituus += w._nodes[c].distance_to(w._nodes[n])
+			c = n
+		if pituus > 0.0 and pituus / suora < best_len:
+			best_len = pituus / suora
+			best = i
+	return best if best >= 0 else b
+
+
 ## Jumppa ja seuranta pelimaailmassa: _wife_rhythm vie Hyundain seuraintalolle, pelaaja seuraa kaukaa ja liian läheltä.
 func _testi_jumppa() -> void:
 	_alusta()
@@ -428,12 +449,12 @@ func _testi_jumppa() -> void:
 		_vika("jumppa, vaikka Päivi ei tutki")
 	# Tutkii: Hyundai noin 150 m päähän tielle, jumppa alkaa.
 	p.epaluulo = 70.0
-	var start: int = game.world.nearest_node(talo + Vector3(150, 0, 60))
+	var start := _lahto(w, talo)
 	w.reset_to(start)
 	game.clock_min = 19.0 * 60.0 + 1.0
 	game._wife_rhythm(game.clock_min)
-	print("PAIVI_TUTKII epäluulo 70 klo 19.01: vaihe %s, jumppa %s, kohde %s, auto %.0f m talolta" % [game._wife_phase,
-		w.jumppa, w.dest, Vector2(w.global_position.x - talo.x, w.global_position.z - talo.z).length()])
+	print("PAIVI_TUTKII epäluulo 70 klo 19.01: vaihe %s, jumppa %s, kohde %s, auto %.0f m talolta, reitillä %d pistettä" % [game._wife_phase,
+		w.jumppa, w.dest, Vector2(w.global_position.x - talo.x, w.global_position.z - talo.z).length(), w._path.size()])
 	if not w.jumppa or game._wife_phase != "jumppa":
 		_vika("jumppa ei alkanut klo 19")
 	# Seuranta matkalla 45 m takana: ei huomaa, ei jahtaa.
