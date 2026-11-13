@@ -384,15 +384,15 @@ func _paivi_sketch(center: Vector2, ilme: int) -> void:
 	draw_circle(head + Vector2(0, 2), 17, skin)
 	draw_arc(head + Vector2(0, 2), 17, 0, TAU, 24, pencil, 1.5)
 	draw_colored_polygon(PackedVector2Array([head + Vector2(-18, -4), head + Vector2(-8, -20), head + Vector2(10, -20), head + Vector2(18, -4),
-		head + Vector2(6, -11), head + Vector2(-8, -9)]), hair)
+		head + Vector2(6, -14), head + Vector2(-8, -13)]), hair)
 	# Silmät ja kulmat ilmeen mukaan
-	var brow_y: float = [-6.0, -11.0, -5.0, -5.0][ilme]
+	var brow_y: float = [-6.0, -10.0, -5.0, -5.0][ilme]
 	var tilt: float = [0.0, -3.0, 4.0, 5.0][ilme]  # sisäreuna alas = tuima
 	for sx in [-1.0, 1.0]:
 		var ex: float = head.x + sx * 7.0
 		draw_circle(Vector2(ex, head.y + 1), 1.8, pencil)
 		# sisäpää (kohti nenää) alas tuimassa ilmeessä (tilt > 0), ylös ihmetellessä (tilt < 0)
-		draw_line(Vector2(ex - sx * 4.0, head.y + brow_y - tilt * 0.4), Vector2(ex + sx * 4.0, head.y + brow_y + tilt * 0.4), pencil, 1.6)
+		draw_line(Vector2(ex - sx * 4.0, head.y + brow_y + tilt * 0.4), Vector2(ex + sx * 4.0, head.y + brow_y - tilt * 0.4), pencil, 1.6)
 	# Suu
 	match ilme:
 		0:

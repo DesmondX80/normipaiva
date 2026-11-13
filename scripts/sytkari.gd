@@ -5,7 +5,8 @@ extends CanvasLayer
 ##   "matka"  profiili ja etäisyys tästä paikasta, alla kaverin tekstiviesti (kolmiomittaus.gd MEASURE_LINES)
 ## Puhelin nousee ruudun alalaidasta, E tai Esc sulkee (closed). Kuvat ovat piirrettyjä profiilikuvia
 ## Profiilikuvat ovat 3D-hahmoista otettuja kuvia (_photo: oma pieni studio SubViewportissa, Looks.make-hahmo):
-## Minttu kesäpihalla, Katja iltakadulla ja pelaaja harmaata taustaa vasten.
+## Minttu kesäpihalla, Katja iltakadulla, Kesäheila -96 (Päivi nuorena, luku 6) seepiasävyisenä Saloisten lavalla ja
+## pelaaja harmaata taustaa vasten.
 
 signal closed
 
@@ -48,9 +49,30 @@ func _ready() -> void:
 			_photos[who] = _photo(Looks.MINTTU, Color(0.62, 0.82, 0.98), Color(0.35, 0.6, 0.28), "kesa")
 		"Katja":
 			_photos[who] = _photo(Looks.KATJA, Color(0.16, 0.18, 0.26), Color(0.2, 0.2, 0.22), "ilta")
+		"Kesäheila -96":
+			_photos[who] = _photo(kesaheila_look(), Color(0.3, 0.42, 0.62), Color(0.55, 0.4, 0.26), "lava")
 	_photos["me"] = _photo(Looks.player(), Color(0.62, 0.66, 0.72), Color(0.5, 0.5, 0.52), "")
 	Sfx.play("bell", -12.0, 2.4)
 	Sfx.play("bell", -14.0, 3.0)
+
+
+## Päivi kesällä -96 (luku 6, kolmiomittaus.gd "koti"): vaaleammiksi haalistuneet pitkät hiukset, valkoinen
+## ysärin tuubitoppi ja farkut; olkihattu ja isot aurinkolasit (Looks.add_glam) piilottavat kasvot puoliksi, joten
+## pelaaja ei tunnista omaa vaimoaan.
+static func kesaheila_look() -> Dictionary:
+	var look: Dictionary = Looks.PAIVI.duplicate()
+	look.merge({"hair_color": Color(0.62, 0.42, 0.24), "shirt": Color(0.96, 0.95, 0.9), "pants": Color(0.38, 0.5, 0.7),
+		"denim": true, "glam": true, "tube_y": 1.35, "crop_y": 1.18, "sleeve_x": 0.2, "bare_skin": Color(0.92, 0.72, 0.58), "curves": 0.6, "bust": 1.6}, true)
+	return look
+
+
+## Otsikko: "Nimi, ikä"; ilman ikää (age 0, Kesäheila -96) "Nimi, paikka" ja paikkarivi jää pois.
+func _title() -> String:
+	return "%s, %d" % [who, age] if age > 0 else "%s, %s" % [who, job]
+
+
+func _sub() -> String:
+	return job if age > 0 else ""
 
 
 func _process(delta: float) -> void:
@@ -196,7 +218,7 @@ func _draw_match(sr: Rect2, card: Rect2, k: float) -> void:
 	_round_photo(me_c, 58 * k, k, true)
 	flame(_view, Vector2(sr.get_center().x, cy + 8 * k), 18 * k, _t)
 	var y := cy + 92 * k
-	_view.draw_string(f, Vector2(sr.position.x, y), "%s, %d" % [who, age], HORIZONTAL_ALIGNMENT_CENTER, sr.size.x, int(26 * k), INK)
+	_view.draw_string(f, Vector2(sr.position.x, y), _title(), HORIZONTAL_ALIGNMENT_CENTER, sr.size.x, int(26 * k), INK)
 	_view.draw_string(f, Vector2(sr.position.x, y + 28 * k), "%s päässä" % dist, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x, int(20 * k),
 		FLAME_A.darkened(0.15))
 	_bubble_text(Rect2(sr.position.x + 18 * k, y + 46 * k, sr.size.x - 36 * k, 64 * k), "\"%s\"" % bio, k, Color(1.0, 0.93, 0.9))
@@ -209,8 +231,8 @@ func _draw_matka(sr: Rect2, card: Rect2, k: float) -> void:
 	var top := Rect2(card.position, Vector2(card.size.x, 150 * k))
 	MG.box(_view, top, Color.WHITE, int(16 * k), int(4 * k), Color(0.85, 0.8, 0.8), 1)
 	_round_photo(top.position + Vector2(70, 75) * k, 52 * k, k, false)
-	_view.draw_string(f, top.position + Vector2(134, 52) * k, "%s, %d" % [who, age], HORIZONTAL_ALIGNMENT_LEFT, -1, int(24 * k), INK)
-	_view.draw_string(f, top.position + Vector2(134, 76) * k, job, HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * k), Color(0.45, 0.4, 0.42))
+	_view.draw_string(f, top.position + Vector2(134, 52) * k, _title(), HORIZONTAL_ALIGNMENT_LEFT, -1, int(24 * k), INK)
+	_view.draw_string(f, top.position + Vector2(134, 76) * k, _sub(), HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * k), Color(0.45, 0.4, 0.42))
 	# Sijaintinasta ja etäisyys isolla: osoitetta ei näy, vain pyöristetty matka.
 	var pin := top.position + Vector2(132, 106) * k
 	_view.draw_circle(pin, 8 * k, FLAME_A)
@@ -242,9 +264,9 @@ func _profile_card(r: Rect2, k: float) -> void:
 	# Nimen tausta: tumma liukuväri kuvan alareunassa.
 	MG.grad_rect(_view, Rect2(ph.position.x, ph.end.y - 70 * k, ph.size.x, 70 * k), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.65))
 	var f := ThemeDB.fallback_font
-	_view.draw_string(f, Vector2(ph.position.x + 14 * k, ph.end.y - 30 * k), "%s, %d" % [who, age], HORIZONTAL_ALIGNMENT_LEFT, -1,
+	_view.draw_string(f, Vector2(ph.position.x + 14 * k, ph.end.y - 30 * k), _title(), HORIZONTAL_ALIGNMENT_LEFT, -1,
 		int(28 * k), Color.WHITE)
-	_view.draw_string(f, Vector2(ph.position.x + 14 * k, ph.end.y - 10 * k), job, HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * k),
+	_view.draw_string(f, Vector2(ph.position.x + 14 * k, ph.end.y - 10 * k), _sub(), HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * k),
 		Color(1, 1, 1, 0.85))
 	_wrap(Vector2(r.position.x + 14 * k, ph.end.y + 26 * k), bio, r.size.x - 28 * k, int(15 * k), INK)
 
@@ -321,6 +343,23 @@ func _photo(look: Dictionary, bg: Color, ground: Color, props: String) -> SubVie
 			bm.emission_energy_multiplier = 4.0
 			B.mesh(st, B.capsule(0.18, 0.7), Vector3(0.75, 0.9, -0.6), Color(0.65, 0.06, 0.08), Vector3(0, 0, 90))
 			B.tube(st, Vector3(0.35, 1.05, -0.6), Vector3(0.45, 1.15, -0.95), 0.015, Color(0.75, 0.75, 0.78))
+		"lava":  # Saloisten tanssilava kesäiltana -96: lautaseinä, lyhtynauha, kaide ja lavan nimi kylttinä
+			for i in 26:
+				B.mesh(st, B.boxm(Vector3(0.21, 4.0, 0.04)), Vector3(-2.7 + i * 0.22, 1.8, -1.52), Color(0.62, 0.42, 0.26).darkened(0.08 * (i % 2)))
+			B.mesh(st, B.boxm(Vector3(6, 0.08, 0.1)), Vector3(0, 0.95, -1.0), Color(0.5, 0.33, 0.2))  # kaiteen johde
+			for i in 13:
+				B.mesh(st, B.boxm(Vector3(0.05, 0.95, 0.05)), Vector3(-2.4 + i * 0.4, 0.475, -1.0), Color(0.55, 0.37, 0.22))
+			for i in 9:  # lyhtynauha kaarella seinän edessä
+				var x := -1.6 + i * 0.4
+				var bulb := B.mesh(st, B.sphere(0.045, 10), Vector3(x, 2.05 - 0.12 * (1.0 - pow(x / 1.6, 2.0)), -1.4),
+					[Color(1.0, 0.85, 0.5), Color(1.0, 0.45, 0.35), Color(0.6, 0.85, 1.0)][i % 3])
+				var lm := bulb.material_override as StandardMaterial3D
+				lm.emission_enabled = true
+				lm.emission = lm.albedo_color
+				lm.emission_energy_multiplier = 2.5
+			var plate := B.sign_plate(st, "SALOISTEN LAVA", Color(0.55, 0.12, 0.1), Color(1.0, 0.92, 0.7), 0.2, 64)
+			plate.position = Vector3(-0.62, 1.78, -1.45)
+			plate.rotation.y = 0.12  # kameraan päin
 	var key := DirectionalLight3D.new()
 	key.light_energy = 1.2
 	key.shadow_enabled = true
@@ -333,6 +372,16 @@ func _photo(look: Dictionary, bg: Color, ground: Color, props: String) -> SubVie
 	env.ambient_light_color = Color(0.85, 0.85, 0.9)
 	env.ambient_light_energy = 0.55
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	if props == "lava":  # vanha valokuva: värit pois ja seepiasävy (harmaasävy käyrän läpi ruskeasta kermaan)
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+		g.colors = PackedColorArray([Color(0.12, 0.07, 0.04), Color(0.55, 0.4, 0.26), Color(1.0, 0.93, 0.78)])
+		var gt := GradientTexture1D.new()
+		gt.gradient = g
+		env.adjustment_enabled = true
+		env.adjustment_saturation = 0.0
+		env.adjustment_contrast = 1.1
+		env.adjustment_color_correction = gt
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	cam.environment = env

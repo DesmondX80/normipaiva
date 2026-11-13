@@ -21035,11 +21035,12 @@ func _save_game() -> void:
 ## viemäriin (enintään yksi löytö aamussa). Ulkojemmoista teinit voivat pölliä. Tarkistetaan joka aamu.
 func _jemma_check(allow_found := true) -> String:
 	var note := ""
+	var pt := rikos_osa("paivi_tutkii")  # luku 6: tutkiva Päivi etsii tarkemmin, löytö nostaa epäluuloa
 	if allow_found:
 		var ids := _risky_stashes()
 		ids.shuffle()
 		for id in ids:
-			if randf() < _find_chance(id):
+			if randf() < _find_chance(id) * (pt.etsinta() if pt != null else 1.0):
 				var lost: int = stash[id] / 2
 				_jemma_choco = _offer_chocolate()
 				if _jemma_choco == "ok":
@@ -21049,7 +21050,11 @@ func _jemma_check(allow_found := true) -> String:
 				note += "\nLöysin sun kaljat %s ja kaadoin %d viemäriin!" % [STASHES[id].from, lost]
 				tilat.add("stressi", -0.3)
 				tilat.add("moraali", -0.2)
+				if pt != null:
+					pt.loysi_jemman()
 				break
+		if pt != null:
+			note += pt.kansio_check()
 	for id in STASHES:
 		var st: Dictionary = STASHES[id]
 		var n: int = stash.get(id, 0)
@@ -22566,15 +22571,28 @@ func _wife_dest() -> Vector3:
 
 ## Päivi: koko päivän teillä (partio), kotona vain nukkumassa WIFE_HOME (auto pihassa, ei jahtaa). Vaihtuu vain,
 ## kun Päivi ei ole jahtaamassa. Anna-Liisan hälytys vie hänet heti kaupalle (_on_busted, _wife_bust_arrive).
+## Luku 6 (#326): kun Päivi tutkii, hän ajaa iltaisin "jumppaan" seuraintalolle (rikos/paivi_tutkii.gd jumppa_aika).
 func _wife_rhythm(t: float) -> void:
 	if wife == null or not is_instance_valid(wife):
 		return
 	var want := "koti" if _between(t, WIFE_HOME) else "partio"
+	var pt := rikos_osa("paivi_tutkii")
+	if want == "partio" and pt != null and pt.jumppa_aika(t):
+		want = "jumppa"
 	if want == _wife_phase or wife.mode == "chase":
 		return
 	var prev := _wife_phase
 	_wife_phase = want
+	if prev == "jumppa" and want == "partio":
+		wife.end_jumppa()
 	match want:
+		"jumppa":
+			wife.parked = false
+			wife.visible = true
+			wife.process_mode = Node.PROCESS_MODE_INHERIT
+			wife.go_jumppa(M.w(M.SEURAINTALO))
+			if state == "ulkona" and not _at_mokki() and not _in_vaala:
+				_queue_message("Päivi lähti \"jumppaan\" seuraintalolle. Hyundai ei nyt jahtaa, joten perään voi ajaa, kunhan pysyy kaukana.", 4.5)
 		"koti":
 			wife.reset_to(world.nearest_node(home_zone))
 			wife.global_position = _wife_park_pos()
