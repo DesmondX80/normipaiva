@@ -5,7 +5,8 @@ extends RefCounted
 ## alueen: lisämittaukset lähempää tarkentavat sitä. Väärällä ovella avaa joku muu. Kolme kolmiomittaajaa tuovat
 ## kukin yhden lahjan (mansikat, kermavaahto, ruusut) kuin itämaan tietäjät; ilman kaikkia kolmea ovi ei aukea.
 ## Ilta päättyy erikoissääntöiseen Rasvanappiin (rasvanappi_game.gd rules) ja aamu onnelliseen loppuun.
-## Kaksi kohdetta: Saloinen (Joni ja Esa, Minttu) ja Vaala (Hevari-Tero ja Siviikki-Timo, Katja).
+## Kaksi kohdetta: Saloinen (Joni ja Esa, Minttu) ja Vaala (Hevari-Tero ja Siviikki-Timo, Katja). Luvun 6 kolmas kohde
+## "koti" (Kesäheila -96) johtaa pelaajan omalle ovelle, jossa odottaa Päivi.
 ## Tämä tiedosto on tehtävän tila ja data; main.gd kytkee sen maailmaan (_kolmio_*), Sytkäri on sytkari.gd ja
 ## ovi- ja aamukohtaukset kolmio_kohtaus.gd.
 ##
@@ -43,6 +44,17 @@ const SITES := {
 		"age": 37, "bio": "Moottoripyörä tallissa, kahvi kuumana. Löydä, jos uskallat. Tuo jotain makeaa.",
 		"job": "Rekkakuski, Vaala", "ending": "katja",
 	},
+	# Luku 6 "Päivi epäilee" (#326): mätsi tulee vasta, kun Päivin huipennus on auki (rikos/paivi.gd huipennus_auki).
+	# Profiilikuva on Päivi kesältä -96 Saloisten lavalla (sytkari.gd), ja ympyrät leikkaavat pelaajan oman kodin.
+	# Ei lahjoja: ovella Päivi itse pitää kerma- ja mansikkalaatikkoa (kolmio_kohtaus.gd). age 0 = otsikossa paikka.
+	"koti": {
+		"woman": "Kesäheila -96", "gen": "Kesäheilan", "talker": "kolmio_koti", "friends": ["Joni", "Esa"],
+		"gift_me": "", "gift_part": "", "start_place": "kaupan parkkipaikalla",
+		"remote": "Esa", "remote_place": "kirkon parkkipaikalta",
+		"gifts": [],
+		"age": 0, "bio": "Muistatko lavan? Mää muistan. Tuo kermaa ja mansikoita, niin kuin silloin.", "job": "Saloinen",
+		"ending": "kulissit",
+	},
 }
 
 ## Väärät ovet (main.gd valitsee talot): kuka avaa, mitä sanoo ja mitä sen jälkeen tapahtuu.
@@ -63,6 +75,14 @@ const WRONG_DOORS := {
 		{"who": "Unenpöpperöinen yövuorolainen", "line": "Katja asuu jossain tuolla päin. Ja hiljempaa sen Hondan kanssa.",
 			"after": "Timo kääntää Siviikin avainta: VTEC kytkeytyy kahvinkeiton tahtiin."},
 	],
+	"koti": [
+		{"who": "Mummo kepin kanssa", "line": "Kesäheilaa etsitte? Kolme miestä ja harppi? Päivihän se asuu tuossa naapurissa!",
+			"after": "Perääntyt portaita alas. Mummo jää ovelle katsomaan, mihin suuntaan lähdette."},
+		{"who": "Pannu-Sulo", "line": "Täällä ei oo kesäheiloja. Täällä on Sulo, ja Sulon kesäheila oli kanisteri. Ostatko?",
+			"after": "Esa tekstaa: \"Ympyrä meni ohi. Mittaa lähempää. Ja kato tarkkaan, kenen pihassa seisot.\""},
+		{"who": "Pieni poika", "line": "ÄITI! Täällä on se setä, joka asuu tuolla isossa tiilitalossa!",
+			"after": "Ovi pamahtaa kiinni. Joni: \"Se tunsi sut. Huono merkki.\""},
+	],
 }
 
 ## Kaverien jutut (puhekuplat ja Mitä kuuluu?). Saloisissa Joni ja Esa, Vaalassa Tero ja Timo.
@@ -77,6 +97,14 @@ const LINES := {
 		"Joni: Hcp kakskytkuus, mutta Sytkärissä mää oon kymppi.",
 		"Esa: Mää laitan illalla ruokaa. Nuotiolla tai naisen keittiössä, kumpi vaan.",
 		"Joni: Rinkka on jesarilla kasassa. Jesari pitää kaiken kasassa, paitsi mun golfkierroksen.",
+	],
+	"koti": [
+		"Esa: Kesäheila -96. Erämies muistaa jokaisen kesän. Tää kesä oli kuiva.",
+		"Joni: Saloinen taas? Mää luulin, että täällä on kaikki jo kolmiomitattu.",
+		"Esa: Ympyrät vetää tännepäin. Ihan ku metso palais vanhalle soitimelle.",
+		"Joni: Toi profiilikuva. Mää oon nähny tuon hatun jossain.",
+		"Esa: Harppi ei valehtele. Mutta joskus se näyttää paikan, jota ei haluais nähdä.",
+		"Joni: Hcp kakskytkuus, mutta tää tuntuu jo vesiesteeltä.",
 	],
 	"vaala": [
 		"Tero: Etäisyys pyöristetään ylöspäin. Ihan ku verot. Valtio varmaan kolmiomittaa mua koko ajan.",
@@ -108,6 +136,13 @@ const MEASURE_LINES := {
 		"Esa: Ympyrät risteää. Siellä se kana on.",
 		"Joni: Rinkassa on vielä kaks Sandelsia. Mittaa sää, mää vahdin kermavaahtoa.",
 		"Esa: Lähempää mitattu ympyrä on terävämpi. Ihan ku jäljet lumessa.",
+	],
+	"koti": [
+		"Esa: Merkkaan harpilla. Ympyrä kulkee kumman läheltä sun kotia.",
+		"Joni: Tää on niinku golffia, mutta reikä on sun omalla pihalla.",
+		"Esa: Kolme ympyrää ja leikkauspiste. Sää tiedät kyllä jo, missä se on.",
+		"Joni: Mää en sano mitään. Mää vaan kannan rinkkaa.",
+		"Esa: Jäljet lumessa johtaa aina kotiin. Erämiehen sääntö.",
 	],
 	"vaala": [
 		"Tero: Taas pyöristys. Ihan ku verottaja olis tehny tän sovelluksen.",

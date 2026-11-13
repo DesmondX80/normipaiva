@@ -342,9 +342,17 @@ func _draw_story() -> void:
 	for ch in _data.get("chapters", []):
 		if not wr.line(ch.title + ("  ✔" if ch.done else ""), 22, Color(0.45, 0.12, 0.08), 0.0, 36.0):
 			return
+		var narrow := 0.0
+		if ch.has("ilme"):
+			# Luku 6: Päivin ilme lyijykynäpiirroksena otsikon vieressä, tekstit kapeammiksi piirroksen kohdalla.
+			narrow = 120.0
+			if wr.last.size.x > 0.0:
+				_paivi_sketch(Vector2(wr.last.end.x - 62, wr.last.position.y + 52), ch.ilme)
+			if not wr.line("Päivin ilme: " + PAIVI_ILME[clampi(ch.ilme, 0, 3)], 18, Color(0.5, 0.4, 0.3), 0.0, 28.0, _hand):
+				return
 		for row in ch.rows:
 			var day_note := ("  (päivä %d)" % row[2]) if row.size() > 2 and row[2] > 0 else ""
-			var lines := _wrap(String(row[0]) + day_note, 19, width - 30, _hand)
+			var lines := _wrap(String(row[0]) + day_note, 19, width - 30 - narrow, _hand)
 			for k in lines.size():
 				var mark := ("✔ " if row[1] else "• ") if k == 0 else "   "
 				if not wr.line(mark + lines[k], 19, Color(0.2, 0.45, 0.2) if row[1] else INK, 16.0, 30.0, _hand):
@@ -354,6 +362,61 @@ func _draw_story() -> void:
 		wr.line("Tarina jatkuu…", 20, Color(0.5, 0.4, 0.3), 0.0, 34.0, _hand)
 	elif _data.get("chapters", []).size() > 0:
 		wr.line("…mitähän seuraavaksi?", 18, Color(0.5, 0.45, 0.4), 16.0, 34.0, _hand)
+
+
+const PAIVI_ILME := ["rauhallinen", "kulmat koholla", "kädet puuskassa", "laukku pakattu"]
+
+
+## Päivin ilme lyijykynällä (c = keskipiste, ilme 0-3 = paivi.gd ilme()): hymy, koholla kulmat, puuskassa kädet, laukku.
+func _paivi_sketch(center: Vector2, ilme: int) -> void:
+	draw_set_transform(center, 0.0, Vector2(1.45, 1.45))
+	var c := Vector2.ZERO
+	var pencil := Color(0.28, 0.27, 0.3)
+	var skin := Color(0.97, 0.9, 0.8)
+	var hair := Color(0.55, 0.42, 0.3)
+	var head := c + Vector2(-4, -12)
+	# Hartiat ja paita
+	var body := PackedVector2Array([c + Vector2(-30, 44), c + Vector2(-26, 12), c + Vector2(-10, 6), c + Vector2(2, 6), c + Vector2(18, 12), c + Vector2(22, 44)])
+	draw_colored_polygon(body, Color(0.85, 0.5, 0.5))
+	draw_polyline(body, pencil, 1.5)
+	# Hiukset taakse, pää, otsatukka
+	draw_circle(head + Vector2(0, -2), 21, hair)
+	draw_circle(head + Vector2(0, 2), 17, skin)
+	draw_arc(head + Vector2(0, 2), 17, 0, TAU, 24, pencil, 1.5)
+	draw_colored_polygon(PackedVector2Array([head + Vector2(-18, -4), head + Vector2(-8, -20), head + Vector2(10, -20), head + Vector2(18, -4),
+		head + Vector2(6, -14), head + Vector2(-8, -13)]), hair)
+	# Silmät ja kulmat ilmeen mukaan
+	var brow_y: float = [-6.0, -10.0, -5.0, -5.0][ilme]
+	var tilt: float = [0.0, -3.0, 4.0, 5.0][ilme]  # sisäreuna alas = tuima
+	for sx in [-1.0, 1.0]:
+		var ex: float = head.x + sx * 7.0
+		draw_circle(Vector2(ex, head.y + 1), 1.8, pencil)
+		# sisäpää (kohti nenää) alas tuimassa ilmeessä (tilt > 0), ylös ihmetellessä (tilt < 0)
+		draw_line(Vector2(ex - sx * 4.0, head.y + brow_y + tilt * 0.4), Vector2(ex + sx * 4.0, head.y + brow_y - tilt * 0.4), pencil, 1.6)
+	# Suu
+	match ilme:
+		0:
+			draw_arc(head + Vector2(0, 5), 6, 0.3, PI - 0.3, 10, pencil, 1.6)
+		1:
+			draw_line(head + Vector2(-3, 10), head + Vector2(3, 10), pencil, 1.6)
+		2:
+			draw_line(head + Vector2(-5, 10), head + Vector2(5, 9), pencil, 1.8)
+		3:
+			draw_arc(head + Vector2(0, 14), 6, PI + 0.4, TAU - 0.4, 10, pencil, 1.8)
+	if ilme == 2:
+		# Kädet puuskassa: käsivarret ristiin rinnan päällä
+		draw_line(c + Vector2(-26, 16), c + Vector2(16, 28), Color(0.97, 0.9, 0.8), 7.0)
+		draw_line(c + Vector2(20, 16), c + Vector2(-22, 28), Color(0.97, 0.9, 0.8), 7.0)
+		draw_line(c + Vector2(-26, 16), c + Vector2(16, 28), pencil, 1.2)
+		draw_line(c + Vector2(20, 16), c + Vector2(-22, 28), pencil, 1.2)
+	if ilme == 3:
+		# Pakattu laukku vieressä: kassi, kahva ja lukko
+		var b := Rect2(c + Vector2(-24, 20), Vector2(26, 24))
+		draw_rect(b, Color(0.55, 0.35, 0.2))
+		draw_rect(b, pencil, false, 1.5)
+		draw_arc(b.position + Vector2(13, 0), 8, PI, TAU, 10, pencil, 1.8)
+		draw_rect(Rect2(b.position + Vector2(11, 8), Vector2(4, 5)), Color(0.9, 0.75, 0.2))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_side() -> void:

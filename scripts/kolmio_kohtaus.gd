@@ -8,6 +8,10 @@ extends CanvasLayer
 ##   "vaara"  väärä ovi: joku muu avaa (mummo kepin kanssa, Pannu-Sulo kanisterin kanssa, ...) ja pelaaja perääntyy.
 ##   "aamu"   onnellinen loppu: aamukahvit naisen keittiössä, nainen kaataa kahvia, kaveri paistaa lettuja, mansikat,
 ##            kermavaahto ja ruusut maljakossa pöydällä.
+## Luvun 6 kohde "koti" (#326, Kesäheila -96): ovi on pelaajan oma tiilitalo, ja ovella seisoo Päivi kerma- ja
+## mansikkalaatikko käsissään (_box: mansikkarasia, kermavaahtopurkki pystyssä marjojen päällä). Sinikka nauraa
+## eteisessä Päivin takana, Joni ja Esa portaiden juurella. Ei lahjojen ojentamista; valinta tulee main.gd:ltä
+## kohtauksen jälkeen. Aamu on Päivin keittiössä (kerma ja mansikat syödään).
 ## Lavastuksen koordinaatit: talon julkisivu z = 0 (+Z ulos pihalle), kynnys y = 0,5; keittiössä pöytä z = 0,75 ja
 ## hahmot sen takana kasvot +Z:aan (kamera edessä). Hahmo katsoo oletuksena -Z:aan, joten rotation.y = PI = kasvot ulos.
 
@@ -53,9 +57,20 @@ var _table_top := Vector3.ZERO  # kuistin pöytä, jolle ojennetut lahjat lasket
 var _cane: Node3D
 const PALM := 0.071  # rannekeskeltä nyrkin sormien pintaan (Idle-käsi on nyrkissä) + 3 mm rako, kun käsi on lahjan kyljellä (kolmio_kuvat _rako)
 const PALM_FWD := 0.07  # kämmenen keskikohta ranteen edessä
+## Päivin laatikko kämmenillä alta (_hold_under): ranteen keskeltä kämmenpinnan ja 3 mm raon päähän (PALM_UP),
+## kämmenen keskikohta ranteen edessä (PALM_UP_FWD) ja kämmenten keskikohdat rasian pohjan sivuilla (PALM_UP_X).
+## Naisen mallin Idle-käsi on auki ja peukalo sojottaa kämmenpuolelle: kyljiltä pidellen peukalo meni Idle-asennossa
+## rasian seinän läpi (-0,025 m) ja Idle_Talkingissa kämmen kellui (0,02 m), joten rasia lepää kämmenillä ja peukalot
+## nousevat rasian kylkien ulkopuolelle.
+## Mitattu (kolmio_koti_kuvat _rako_rasia): PALM_UP 0,03 jätti kämmenen 8 mm pohjan alle ja PALM_UP_X 0,04 vei Idlen
+## peukalon 14 mm kyljen sisään, joten kämmenet 5 mm ylemmäs ja 22 mm ulommas (pohjan reunoille, peukalot kylkien ohi).
+const PALM_UP := 0.025
+const PALM_UP_FWD := 0.06
+const PALM_UP_X := 0.062
 const GIFT_FIST := 0.07  # nyrkin yläreuna otteen (ranteen) yläpuolella (mitattu): kaltevan lahjan levein kohta nyrkin kohdalla
 var _pancake: Node3D
 var _pan_at := Vector3.ZERO
+var _box: Node3D  # koti: Päivin kerma- ja mansikkalaatikko (_koti_box)
 
 ## 3D-hahmojen ulkonäöt (looks.gd). Väärien ovien asukkaat tässä.
 const RESIDENTS := {
@@ -90,6 +105,10 @@ func _look(nimi: String) -> Dictionary:
 			return Looks.SIVIIKKI_TIMO
 		"Pannu-Sulo":
 			return Looks.SULO
+		"Päivi", "Kesäheila -96":
+			return Looks.PAIVI
+		"Sinikka":
+			return Looks.sinikka_seura()  # sisällä eteisessä ilman olkihattua
 	return RESIDENTS.get(nimi, Looks.SULO)
 
 
@@ -112,7 +131,15 @@ func _ready() -> void:
 	_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_view.draw.connect(_draw_all)
 	add_child(_view)
-	match mode:
+	if site == "koti":
+		woman = "Päivi"  # Kesäheila -96 on Päivi itse
+	match "koti_ovi" if mode == "ovi" and site == "koti" else mode:
+		"koti_ovi":
+			_door = 0.0
+			_door_to = 0.0
+			Sfx.play("punch", -6.0, 0.7)
+			lines = _koti_lines()
+			_build_porch()
 		"ovi":
 			_door = 0.0
 			_door_to = 0.0
@@ -159,7 +186,25 @@ func _friend_intro(f: String) -> String:
 	return "Moi."
 
 
+## Kodin ovi (luku 6): Päivi paljastaa olevansa Kesäheila -96, Sinikka nauraa takana.
+func _koti_lines() -> Array:
+	return [["", "KOP KOP KOP"],
+		["Päivi", "No niin. Kolme miestä, harppi ja Sytkäri. Kesäheila -96 avaa oven."],
+		["Sinikka", "HAHAHAHAA! Mää sanoin Päiville, että se pyyhkäsee oikealle eikä tunnista omaa vaimoaan!"],
+		["Päivi", "Kuva on Saloisten lavalta, sinä kesänä ku me tavattiin. Sää et tunnistanu mua hatun alta."],
+		[friends[1], "Ympyrät ei valehtele. Leikkauspiste oli koko ajan tässä."],
+		[friends[0], "Tää on niinku ois lyöny pallon omaan ikkunaan."],
+		["Sinikka", "Hihhih! Mää näin ikkunasta, ku te mittasitte meidän pihalla harpin kanssa!"],
+		["Päivi", "Kerma ja mansikat on tässä. Nyt sää päätät, mitä tästä seuraa."]]
+
+
 func _morning_lines() -> Array:
+	if site == "koti":
+		return [["", "Aamulla Päivi keittää kahvit. Kerma ja mansikat on pöydässä, ja Esa paistaa lettuja."],
+			["Esa", "Kolme ympyrää, ja leikkauspiste oli oma keittiö. Erämies ei eksy, se vaan kiertää."],
+			["Joni", "Mansikkaletut kotona. Tää on ku hole-in-one omalle pihalle."],
+			["Päivi", "Syökää. Ja sää: seuraavan kerran pyyhkäset oikealle vaan mua."],
+			["", "Sytkäri poistettu puhelimesta. Kesäheilan kuva on jääkaapin ovessa."]]
 	if site == "saloinen":
 		return [["", "Aamulla Minttu keittää kahvit. Ruusut on maljakossa ikkunalla."],
 			["Esa", "Rasvanapin jälkeen pitää syödä rasvasta. Se on luonnon kiertokulku."],
@@ -209,6 +254,8 @@ func _next() -> void:
 			ch.play("Interact", 0.2)
 		Sfx.play("pickup", -4.0, 1.0 + _given * 0.15)
 		MG.sparks_burst(_sparks, _cam.unproject_position(_table_top) if _cam != null else Vector2(640, 360), Color(1.0, 0.85, 0.4), 14)
+	if site == "koti" and l[0] == "Sinikka":
+		Sfx.play("grunt", -6.0, 1.9)  # kikatus (kuten Mintun tunnusääni)
 	if mode == "ovi" and not _ok and _line == lines.size() - 1:
 		_door_to = 0.0
 		_shake = 0.8
@@ -285,6 +332,12 @@ func _apply(delta: float) -> void:
 		elif ch != null:
 			_hold(ch, prop)
 			_holding[nimi] = prop
+	if _box != null:
+		# Päivin (naisen malli) Idle-käsi on auki: sormet suoriksi ja kämmen tasaisena rasian kylkeä vasten.
+		var pv: Node3D = _people["Päivi"]
+		_hold_under(pv, _box)
+		pv.set_open_hand("_l", 1.0)
+		pv.set_open_hand("_r", 1.0)
 	if _cane != null:
 		var mummo: Node3D = _people.get("Mummo kepin kanssa")
 		var up := _line >= 2
@@ -317,6 +370,22 @@ func _hold(ch: Node3D, prop: Node3D) -> void:
 		var face := Vector3(-sd, prop.get_meta("slope", 0.0), 0).normalized()
 		ch.set_ik_orient("arm" + sfx, Pose.palm_on(Vector3(0, 0, -1), face, sd < 0.0), 1.0)
 	prop.global_position = ch.to_global(mid + Vector3(0, -prop.get_meta("grip", 0.04), -PALM_FWD))
+	prop.global_rotation = Vector3(0, ch.global_rotation.y, 0)
+
+
+## Laatikko kämmenillä alta vatsan edessä (Päivi, koti): sormet eteen (-Z), kämmenet ylös (Pose.palm_on, vasen
+## peilikuva), kämmenpinnat rasian pohjan alla PALM_UP_X keskeltä sivuille. Rasian pohja samassa kohdassa kuin
+## _holdin otteessa (lantio + 0,265 ylös ja 0,41 eteen; alempana 0,2 olkavarsi painui lähemmäs vartaloa), ranteet siitä.
+func _hold_under(ch: Node3D, prop: Node3D) -> void:
+	var pel: Vector3 = ch.get_meta("pelvis")
+	var bottom := pel + Vector3(0, 0.265, -0.41)
+	for sd in [1.0, -1.0]:
+		var sfx := "_r" if sd > 0.0 else "_l"
+		var wrist := bottom + Vector3(sd * PALM_UP_X, -PALM_UP, PALM_UP_FWD)
+		# Kyynärpää ulos ja taakse (pole): 0,5 sivulle jätti oikean olkavarren 21 mm vartalon pintaan (_kasi_vartaloon).
+		ch.set_ik("arm" + sfx, "upperarm" + sfx, "lowerarm" + sfx, "hand" + sfx, wrist, pel + Vector3(sd * 0.7, 0.1, 0.15))
+		ch.set_ik_orient("arm" + sfx, Pose.palm_on(Vector3(0, 0, -1), Vector3.UP, sd < 0.0), 1.0)
+	prop.global_position = ch.to_global(bottom)
 	prop.global_rotation = Vector3(0, ch.global_rotation.y, 0)
 
 
@@ -363,6 +432,7 @@ func _camera(eye: Vector3, look: Vector3, fov: float, env: Environment) -> void:
 ## polku. Avaaja ovella, kolmiomittaajat (tai vain pelaaja) portaiden juurella, lahjoille pöytä kuistin vieressä.
 func _build_porch() -> void:
 	var wall := Color(0.86, 0.76, 0.5) if site == "saloinen" else Color(0.55, 0.3, 0.24)
+	var koti := site == "koti"  # pelaajan oma talo (world.gd _build_home): punatiili, ruskea ovi, numero 1
 	var white := Color(0.95, 0.95, 0.92)
 	# Maa: nurmikko ja polku portaille.
 	B.mesh(_stage, B.boxm(Vector3(16, 0.1, 12)), Vector3(0, -0.05, 4), Color(0.22, 0.36, 0.16))
@@ -371,9 +441,11 @@ func _build_porch() -> void:
 	# Julkisivu oven ympärillä (oviaukko x -0,55..0,55, y 0,5..2,6), sokkeli ja lautavuoraus.
 	for part in [[Vector3(3.45, 3.6, 0.15), Vector3(-2.275, 1.8, -0.075)], [Vector3(3.45, 3.6, 0.15), Vector3(2.275, 1.8, -0.075)],
 			[Vector3(1.1, 1.0, 0.15), Vector3(0, 3.1, -0.075)]]:
-		B.mesh(_stage, B.boxm(part[0]), part[1], wall)
+		var wm := B.mesh(_stage, B.boxm(part[0]), part[1], wall)
+		if koti:
+			wm.material_override = B.shader_mat("res://shaders/bricks.gdshader")
 	B.mesh(_stage, B.boxm(Vector3(8.0, 0.5, 0.2)), Vector3(0, 0.25, -0.05), Color(0.5, 0.5, 0.48))
-	for i in 17:
+	for i in (0 if koti else 17):  # lautavuoraus (tiiliseinässä ei)
 		var y := 0.6 + i * 0.18
 		for sx in [-1.0, 1.0]:
 			B.mesh(_stage, B.boxm(Vector3(3.45, 0.02, 0.02)), Vector3(sx * 2.275, y, 0.01), wall.darkened(0.2))
@@ -408,11 +480,21 @@ func _build_porch() -> void:
 	inside.omni_range = 4.0
 	inside.position = Vector3(0, 2.6, -1.4)
 	_stage.add_child(inside)
+	if koti:
+		# Etuvalo kuistilta: Päivin kasvot eivät jää eteisen lampun vastavaloon.
+		var face := OmniLight3D.new()
+		face.light_color = Color(1.0, 0.9, 0.75)
+		face.light_energy = 2.2
+		face.omni_range = 3.5
+		face.position = Vector3(0.25, 1.9, 1.3)
+		_stage.add_child(face)
 	var hinge := Node3D.new()
 	hinge.position = Vector3(-0.53, 0.52, 0.0)
 	_stage.add_child(hinge)
 	_leaf = hinge
 	var door_col := Color(0.55, 0.2, 0.12) if site == "saloinen" else Color(0.15, 0.32, 0.26)
+	if koti:
+		door_col = Color(0.55, 0.38, 0.22)
 	B.mesh(hinge, B.boxm(Vector3(1.04, 2.06, 0.06)), Vector3(0.52, 1.03, 0), door_col)
 	B.mesh(hinge, B.boxm(Vector3(0.36, 0.7, 0.07)), Vector3(0.52, 1.5, 0), Color(0.55, 0.68, 0.8))  # ovi-ikkuna
 	for py in [0.35, 0.8]:
@@ -431,7 +513,7 @@ func _build_porch() -> void:
 	bm.emission_enabled = true
 	bm.emission = Color(1.0, 0.85, 0.55)
 	bm.emission_energy_multiplier = 3.0
-	var plate := B.sign_plate(_stage, "7" if site == "saloinen" else "B 3", Color(0.1, 0.25, 0.5), Color.WHITE, 0.22, 60)
+	var plate := B.sign_plate(_stage, {"saloinen": "7", "koti": "1"}.get(site, "B 3"), Color(0.1, 0.25, 0.5), Color.WHITE, 0.22, 60)
 	plate.position = Vector3(-0.95, 2.3, 0.04)
 	# Portaat ja kuistin taso.
 	for i in 3:
@@ -450,9 +532,23 @@ func _build_porch() -> void:
 	moon.light_energy = 0.35
 	moon.rotation_degrees = Vector3(-35, 35, 0)
 	_stage.add_child(moon)
-	_camera(Vector3(2.0, 1.95, 5.2), Vector3(-0.1, 1.35, 0.2), 44.0, _env(Color(0.05, 0.06, 0.13), Color(0.4, 0.45, 0.65), 0.22))
+	if koti and mode == "ovi":
+		# Vasemmalta etuviistosta: Päivi oviaukon oikealla puolella ja Sinikka eteisessä hänen vasemmalla puolellaan
+		# näkyvät molemmat oviaukon läpi (oikealta kuvattuna Sinikka jäisi Päivin taakse).
+		_camera(Vector3(-0.6, 1.95, 3.3), Vector3(0.0, 1.55, -0.8), 44.0, _env(Color(0.05, 0.06, 0.13), Color(0.4, 0.45, 0.65), 0.22))
+	else:
+		_camera(Vector3(2.0, 1.95, 5.2), Vector3(-0.1, 1.35, 0.2), 44.0, _env(Color(0.05, 0.06, 0.13), Color(0.4, 0.45, 0.65), 0.22))
 	# Avaaja ovella kasvot pihalle; kolmiomittaajat portaiden juurella kasvot ovelle.
-	if mode == "ovi":
+	if koti and mode == "ovi":
+		# Päivi kynnyksellä oviaukon oikealla puolella (ovilehti aukeaa vasemmalle sisään), laatikko molemmissa käsissä.
+		# Sinikka eteisessä takana vasemmalla, ovilehden ja vaatekaapin välissä. Hahmon -Z on etu; PI = kasvot pihalle.
+		_person("Päivi", Vector3(0.25, 0.52, -0.45), PI)
+		_person("Sinikka", Vector3(-0.2, 0.52, -1.8), PI - 0.15)
+		_box = _koti_box()
+		for sp: Array in [[friends[0], Vector3(-1.45, 0, 1.75), 0.4], ["Sinä", Vector3(0.6, 0, 2.0), -0.2],
+				[friends[1], Vector3(1.6, 0, 1.6), -0.45]]:
+			_person(sp[0], sp[1], sp[2])
+	elif mode == "ovi":
 		_person(woman, Vector3(0.05, 0.52, -0.45), PI)
 		# Kolmikko kameran ja oven välisen näkölinjan sivuille, jotta nainen ovella näkyy.
 		var spots := [[friends[0], Vector3(-1.2, 0, 1.65), 0.3], ["Sinä", Vector3(-0.35, 0, 2.0), 0.1], [friends[1], Vector3(1.5, 0, 1.7), -0.45]]
@@ -509,6 +605,44 @@ func _gift_prop(what: String) -> Node3D:
 	return n
 
 
+## Päivin kerma- ja mansikkalaatikko: litran mansikkarasia (pidellään alta, _hold_under) ja kermavaahtopurkki
+## pystyssä marjakeon päällä. Purkin korkeus lasketaan marjojen pinnasta (Pose.top_y) purkin pituudelta, ei arvata.
+func _koti_box() -> Node3D:
+	var box := _gift_prop("mansikat")
+	var pts := PackedVector3Array()  # rasia ja marjat (nimet eivät ole yksilöllisiä), ennen purkkia
+	for n in box.get_children():
+		if n is Node3D:
+			_mesh_pts(n, (n as Node3D).transform, pts)
+	var can := Gifts.kermavaahto()
+	box.add_child(can)
+	# Purkki seisoo pystyssä rasian päällä: pohja lepää marjakeon päällä. Paikka valitaan marjakeon matalimmasta
+	# kohdasta ja pohjan korkeus lasketaan marjojen pinnasta (Pose.top_y) pohjan säteellä, ei arvata.
+	var floor_y := 1e9
+	var at := Vector2.ZERO
+	for xi in 7:
+		for zi in 3:
+			var cand := Vector2(-0.045 + xi * 0.015, -0.02 + zi * 0.02)
+			var ty := Pose.top_y(pts, Vector3(cand.x, 1.0, cand.y), Gifts.PURKKI_R)
+			if ty < floor_y:
+				floor_y = ty
+				at = cand
+	can.position = Vector3(at.x, floor_y + 0.002, at.y)
+	box.set_meta("can_floor", floor_y)
+	return box
+
+
+## Verkon pisteet (MeshInstance3D-jälkeläiset) solmun n alla, xf = n:n muunnos kohdekehykseen.
+func _mesh_pts(n: Node, xf: Transform3D, out: PackedVector3Array) -> void:
+	if n is MeshInstance3D and (n as MeshInstance3D).mesh != null:
+		var m: Mesh = (n as MeshInstance3D).mesh
+		for si in m.get_surface_count():
+			for v: Vector3 in m.surface_get_arrays(si)[Mesh.ARRAY_VERTEX]:
+				out.append(xf * v)
+	for c in n.get_children():
+		if c is Node3D:
+			_mesh_pts(c, xf * (c as Node3D).transform, out)
+
+
 ## Naisen keittiö aamulla: aurinkoinen ikkuna, tapetti, puulattia, pöytä kahvikuppeineen, lettupino mansikoineen ja
 ## kermavaahtoineen, ruusut maljakossa. Nainen kaataa kahvia, toinen kaveri paistaa lettuja pannulla.
 func _build_kitchen() -> void:
@@ -554,12 +688,14 @@ func _build_kitchen() -> void:
 		B.mesh(_stage, B.cyl(0.038, 0.038, 0.004, 14), t + Vector3(cx, 0.074, 0.25), Color(0.25, 0.14, 0.07))
 	# Ruusut maljakossa (Katjalla maitopurkissa).
 	var vase := t + Vector3(-1.05, 0, -0.15)
-	if site == "saloinen":
+	if site == "koti":
+		pass  # Päivin kotona ei ole lahjakukkia (gifts []): ei maljakkoa eikä ruusuja
+	elif site == "saloinen":
 		B.mesh(_stage, B.cyl(0.05, 0.07, 0.22, 14), vase + Vector3(0, 0.11, 0), Color(0.45, 0.7, 0.85))
 	else:
 		B.mesh(_stage, B.boxm(Vector3(0.09, 0.22, 0.09)), vase + Vector3(0, 0.11, 0), Color(0.95, 0.95, 0.95))
 		B.mesh(_stage, B.boxm(Vector3(0.092, 0.08, 0.092)), vase + Vector3(0, 0.09, 0), Color(0.2, 0.4, 0.8))
-	for i in 5:
+	for i in (0 if site == "koti" else 5):
 		var a := i * TAU / 5.0
 		var p := vase + Vector3(cos(a) * 0.06, 0.38, sin(a) * 0.06)
 		B.tube(_stage, vase + Vector3(0, 0.2, 0), p, 0.004, Color(0.2, 0.5, 0.2))

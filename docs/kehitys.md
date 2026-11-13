@@ -162,6 +162,17 @@ Puhekuplien vuorottelu (`bubble.gd`: lähekkäin alle 5 m yksi kupla kerrallaan,
 Pysäköidyt autot: `tools/testit/aja.sh scene parkit` tarkistaa, ettei yksikään `B.parked_car` ole toisen sisällä Saloisissa eikä Vaalassa
 (Vaalassa myös Pentin paikkaa vasten), ja kuvaa Zabukin joka suunnasta (`_zabuki_*`).
 
+**Luku 6 Päivi epäilee (#326):** `--scene=riskit --riski=paivi` (epäluulo, jäljet ensikerroista `tilat.on_first`-koukulla,
+aamun jono, K-18-rajaus, tallennus), `--riski=paivi_puhe` (puheeksiotto pihalla, Päivi ja kamera rajattuna, selitykset,
+tunnustus, vastahyökkäys; kuvat `_paivi_puhe_valinta`, `_paivi_puhe_vastaus`), `--riski=paivi_hyvitys`, `--riski=paivi_tutkii`
+(jumppa seuraintalon pihaan `_jumppa_parkki`, seuranta 30 m ja 35 m, kyläläiset, jemma ja kansio; kuvat `_seuranta`,
+`_perilla`, `_parkki`) ja `--riski=paivi_tarina` (päiväkirja ja ilmeet). `--scene=kolmiomittaus_koti`
+(`tools/testit/kolmiomittaus_koti.gd`): mätsi vain huipennuksen ollessa auki, mittaus kotiin (oma ovi leikkausalueella),
+koputus etuoveen, ovikohtaus, valinnat suuttua, kukat, tunnustaa, viikon paluu ja nauraa sekä tallennus. Kohtaukset ilman
+maailmaa: `tools/testit/aja.sh tscn tools/testit/kolmio_koti_kuvat.tscn` (Sytkäri, ovi, rasian ote ja aamu) ja
+`--scene=asennot --asento=koti`. Testin E-painallus lähetetään `Input.parse_input_event`illa, koska `action_press` testin
+ruudussa jää mainilta näkemättä, jos testisolmu ajetaan mainin jälkeen. Ruutuaikaa ei ole mitattu näytönohjaimella.
+
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
 koukut testiosalla (`tools/testit/rikos_koe_osa.gd`): puhe, tapahtumat, luukun vihje, tallennus edestakaisin, päiväkirjan data,
 tappelun loppu, PIDÄTETTY Saloisissa (menetykset, kuvat `_pidatetty`, `_pidatys_paivi0–2`), uusi päivä ja ELVYTETTY Vaalassa

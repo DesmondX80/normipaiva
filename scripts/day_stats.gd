@@ -28,6 +28,8 @@ var values := {}
 var chosen: Array = []
 ## Ensikerrat, jotka on jo tehty (kokemus kasvaa vain ensimmäisellä kerralla). Tallentuu.
 var firsts: Array = []
+## Kutsutaan uuden ensikerran avaimella (main.gd: rikos-osien "first"-tapahtuma, Päivin jäljet). Lataus ei kutsu.
+var on_first := Callable()
 
 
 func _init() -> void:
@@ -69,6 +71,8 @@ func first(action: String, xp := 0.2) -> bool:
 		return false
 	firsts.append(action)
 	add("kokemus", xp)
+	if on_first.is_valid():
+		on_first.call(action)
 	return true
 
 
