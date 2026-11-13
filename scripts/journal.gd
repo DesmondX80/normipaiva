@@ -411,7 +411,7 @@ func _paivi_sketch(center: Vector2, ilme: int) -> void:
 		draw_line(c + Vector2(20, 16), c + Vector2(-22, 28), pencil, 1.2)
 	if ilme == 3:
 		# Pakattu laukku vieressä: kassi, kahva ja lukko
-		var b := Rect2(c + Vector2(22, 20), Vector2(26, 24))
+		var b := Rect2(c + Vector2(-24, 20), Vector2(26, 24))
 		draw_rect(b, Color(0.55, 0.35, 0.2))
 		draw_rect(b, pencil, false, 1.5)
 		draw_arc(b.position + Vector2(13, 0), 8, PI, TAU, 10, pencil, 1.8)

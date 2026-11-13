@@ -9,7 +9,7 @@ extends CanvasLayer
 ##   "aamu"   onnellinen loppu: aamukahvit naisen keittiössä, nainen kaataa kahvia, kaveri paistaa lettuja, mansikat,
 ##            kermavaahto ja ruusut maljakossa pöydällä.
 ## Luvun 6 kohde "koti" (#326, Kesäheila -96): ovi on pelaajan oma tiilitalo, ja ovella seisoo Päivi kerma- ja
-## mansikkalaatikko käsissään (_box: mansikkarasia, kermavaahtopurkki kyljellään marjojen päällä). Sinikka nauraa
+## mansikkalaatikko käsissään (_box: mansikkarasia, kermavaahtopurkki pystyssä marjojen päällä). Sinikka nauraa
 ## eteisessä Päivin takana, Joni ja Esa portaiden juurella. Ei lahjojen ojentamista; valinta tulee main.gd:ltä
 ## kohtauksen jälkeen. Aamu on Päivin keittiössä (kerma ja mansikat syödään).
 ## Lavastuksen koordinaatit: talon julkisivu z = 0 (+Z ulos pihalle), kynnys y = 0,5; keittiössä pöytä z = 0,75 ja
@@ -480,6 +480,14 @@ func _build_porch() -> void:
 	inside.omni_range = 4.0
 	inside.position = Vector3(0, 2.6, -1.4)
 	_stage.add_child(inside)
+	if koti:
+		# Etuvalo kuistilta: Päivin kasvot eivät jää eteisen lampun vastavaloon.
+		var face := OmniLight3D.new()
+		face.light_color = Color(1.0, 0.9, 0.75)
+		face.light_energy = 2.2
+		face.omni_range = 3.5
+		face.position = Vector3(0.25, 1.9, 1.3)
+		_stage.add_child(face)
 	var hinge := Node3D.new()
 	hinge.position = Vector3(-0.53, 0.52, 0.0)
 	_stage.add_child(hinge)
@@ -598,7 +606,7 @@ func _gift_prop(what: String) -> Node3D:
 
 
 ## Päivin kerma- ja mansikkalaatikko: litran mansikkarasia (pidellään alta, _hold_under) ja kermavaahtopurkki
-## kyljellään marjakeon päällä. Purkin korkeus lasketaan marjojen pinnasta (Pose.top_y) purkin pituudelta, ei arvata.
+## pystyssä marjakeon päällä. Purkin korkeus lasketaan marjojen pinnasta (Pose.top_y) purkin pituudelta, ei arvata.
 func _koti_box() -> Node3D:
 	var box := _gift_prop("mansikat")
 	var pts := PackedVector3Array()  # rasia ja marjat (nimet eivät ole yksilöllisiä), ennen purkkia
@@ -607,15 +615,18 @@ func _koti_box() -> Node3D:
 			_mesh_pts(n, (n as Node3D).transform, pts)
 	var can := Gifts.kermavaahto()
 	box.add_child(can)
-	# Purkin akseli rasian pituussuunnassa (x), suutin oikealle; kupu ja venttiili tekevät purkista 0,02 pidemmän
-	# toisesta päästä, joten keskikohta siirretään sen verran vasemmalle. Alin kohta on vaipan alareuna.
-	var cx := -0.012
-	var floor_y := 0.0
-	for i in 7:
-		var x := cx - Gifts.PURKKI_H / 2.0 + Gifts.PURKKI_H * i / 6.0
-		floor_y = maxf(floor_y, Pose.top_y(pts, Vector3(x, 1.0, 0.0), Gifts.PURKKI_R))
-	can.rotation = Vector3(0, 0, -PI / 2.0)  # purkin +Y (suutin) -> +X
-	can.position = Vector3(cx - Gifts.PURKKI_H / 2.0, floor_y + Gifts.PURKKI_R + 0.002, 0.0)
+	# Purkki seisoo pystyssä rasian päällä: pohja lepää marjakeon päällä. Paikka valitaan marjakeon matalimmasta
+	# kohdasta ja pohjan korkeus lasketaan marjojen pinnasta (Pose.top_y) pohjan säteellä, ei arvata.
+	var floor_y := 1e9
+	var at := Vector2.ZERO
+	for xi in 7:
+		for zi in 3:
+			var cand := Vector2(-0.045 + xi * 0.015, -0.02 + zi * 0.02)
+			var ty := Pose.top_y(pts, Vector3(cand.x, 1.0, cand.y), Gifts.PURKKI_R)
+			if ty < floor_y:
+				floor_y = ty
+				at = cand
+	can.position = Vector3(at.x, floor_y + 0.002, at.y)
 	box.set_meta("can_floor", floor_y)
 	return box
 
@@ -677,12 +688,14 @@ func _build_kitchen() -> void:
 		B.mesh(_stage, B.cyl(0.038, 0.038, 0.004, 14), t + Vector3(cx, 0.074, 0.25), Color(0.25, 0.14, 0.07))
 	# Ruusut maljakossa (Katjalla maitopurkissa).
 	var vase := t + Vector3(-1.05, 0, -0.15)
-	if site == "saloinen":
+	if site == "koti":
+		pass  # Päivin kotona ei ole lahjakukkia (gifts []): ei maljakkoa eikä ruusuja
+	elif site == "saloinen":
 		B.mesh(_stage, B.cyl(0.05, 0.07, 0.22, 14), vase + Vector3(0, 0.11, 0), Color(0.45, 0.7, 0.85))
 	else:
 		B.mesh(_stage, B.boxm(Vector3(0.09, 0.22, 0.09)), vase + Vector3(0, 0.11, 0), Color(0.95, 0.95, 0.95))
 		B.mesh(_stage, B.boxm(Vector3(0.092, 0.08, 0.092)), vase + Vector3(0, 0.09, 0), Color(0.2, 0.4, 0.8))
-	for i in 5:
+	for i in (0 if site == "koti" else 5):
 		var a := i * TAU / 5.0
 		var p := vase + Vector3(cos(a) * 0.06, 0.38, sin(a) * 0.06)
 		B.tube(_stage, vase + Vector3(0, 0.2, 0), p, 0.004, Color(0.2, 0.5, 0.2))

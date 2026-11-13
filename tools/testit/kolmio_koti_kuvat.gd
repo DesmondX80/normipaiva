@@ -73,7 +73,7 @@ func _ovi() -> void:
 	_rako_rasia(paivi, ui._box)
 	_kasi_pinta(paivi)
 	print("KOLMIO kermapurkin pohja marjojen päällä y %.3f, purkin alin kohta %.3f" % [ui._box.get_meta("can_floor"),
-		ui._box.get_child(ui._box.get_child_count() - 1).position.y - Gifts.PURKKI_R])
+		ui._box.get_child(ui._box.get_child_count() - 1).position.y])
 	_lapi(ui, "koti_pitely")
 	var c: Vector3 = ui._box.global_position + Vector3(0, 0.08, 0)
 	var fwd := -paivi.global_basis.z
