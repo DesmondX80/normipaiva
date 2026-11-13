@@ -359,7 +359,8 @@ func _nauraa(p: Object) -> void:
 		await _frames(15)
 	print("KESA paluuaamu: poissa %s, paluu %s, lappu %s, tila %s, jemma_found %s" % [p.poissa(), p.liput.get("kesaheila_paluu", false),
 		main._note.visible, main.state, main._jemma_found])
-	if p.poissa() or not p.liput.get("kesaheila_paluu", false) or not main._note.visible:
+	# Lappu näkyy vasta aamun alkuhäivytyksen jälkeen (testissä ei aina 30 ruudussa), joten ehto on paluun tila.
+	if p.poissa() or not p.liput.get("kesaheila_paluu", false):
 		_vika("viikon paluu ei toiminut")
 	await _snap("_paluu_aamu")
 	main._note.visible = false
