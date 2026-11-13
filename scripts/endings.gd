@@ -43,12 +43,16 @@ const ENDINGS := [
 	["pentin_kyyti", "Pentin kyydissä", "PENTIN BANGBUS keinui parkkipaikalla humpan tahtiin. Mitä tapahtui, jää Pentin ja verhojen väliin."],
 	["pentin_kiertue", "Pentin kiertueella", "Kajaani, Kuhmo ja Suomussalmi yhdessä yössä PENTIN BANGBUSILLA. Päivi luulee, että olit kalassa."],
 	["katja", "Kolmiomittaus Vaalassa", "Siviikki, harppi ja Katjan rivitalo aseman takana. Tero valitti verottajasta vielä aamukahvilla."],
+	# Luku 6 (#326): kesäheila -96 -huipennuksen loput (main.gd _kesaheila_*) ja legendaarinen hetki kummassakin.
+	["kulissit", "Kulissit kunnossa", "Kesäheila -96 oli Päivi. Naurettiin yhdessä, ja aamulla kerma ja mansikat syötiin keittiössä."],
+	["avoin_pelikortti", "Avoin pelikortti", "Kaikki kortit pöytään: sinun syntisi ja Päivin Zabukin tanssit. Kukaan ei lähtenyt."],
+	["kesaheila", "Kesäheila -96", "Kolme ympyrää leikkasi oman kodin. Ovella seisoi Päivi kerman ja mansikoiden kanssa."],
 ]
 
 ## Oikeat onnelliset loput: päivä päättyy loppukohtaukseen (juhlat tallissa, viinibileet, laavu). Muut ovat
 ## legendaarisia hetkiä: saavutuksia, joiden jälkeen peli jatkuu.
 const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet", "eramaan_laavu", "uutiset", "mirkku",
-	"minttu", "katja", "pentin_kiertue"]
+	"minttu", "katja", "pentin_kiertue", "kulissit", "avoin_pelikortti"]
 
 var counts := {}  # id -> kerrat
 var first_day := {}  # id -> päivä, jolloin saatu ensimmäisen kerran

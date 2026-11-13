@@ -1,6 +1,7 @@
 extends "res://scripts/rikos/osa.gd"
 ## Luku 6 "Päivi epäilee" (#326), aamun puheeksiotto: kun paivi.gd:n jonossa on jälki, Päivi ottaa sen puheeksi aamulla
-## kotipihalla (ennen klo 11, alle 50 m kodista, aamulappu luettu) pelin keskusteluikkunalla ilman hahmoa (kuten Veksi).
+## kotipihalla (ennen klo 11, alle 50 m kodista, aamulappu luettu) pelin keskusteluikkunalla. Päivi-hahmo seisoo pelaajan
+## edessä (vapaa paikka törmäysmuodoista), ja oma kamera rajaa molemmat ikkunan yläpuolelle (projisoimalla, _rajaa).
 ## Valinnat: kolme selitystä, tunnustus ja vastahyökkäys. Selitys menee läpi vain, jos pelaaja on oikeasti tehnyt sen,
 ## mihin selitys vetoaa (ehto "nahty:<puhuja>" = jutellut hahmon kanssa jäljen päivänä, "first:<avain>" = ensikerta tehty).
 ## Väärä Pekka-selitys ei paljastu heti: Päivi kysyy Pekalta, ja Pekan seuraava tervehdys möläyttää (+10).
@@ -14,6 +15,12 @@ const TUNNUSTUS := -15.0
 const TUNNUSTUS_MORAALI := -0.05  # käyttäjän "moraali -5" asteikolla -1..1 (02-arkkitehtuuri.md, arvio)
 const VASTAHYOKKAYS := 5.0
 const NAHTY_PAIVAT := 14  # montako päivää taaksepäin nähdyt muistetaan
+const VALI := 1.6  # m pelaajasta Päiviin
+const PAA_Y := 1.6  # m maasta: pään keskikohta (rajaus)
+const VYO_Y := 0.95  # m maasta: vyötärö, jonka pitää jäädä ikkunan yläpuolelle
+
+const B := preload("res://scripts/build.gd")
+const Looks := preload("res://scripts/looks.gd")
 
 ## Jälki -> lyhyt nimi (Päivi muistaa tunnustuksen) ja kolme selitystä [ehto, teksti]. Pekka on jokaisessa (möläytys).
 const SELITYKSET := {
@@ -68,6 +75,8 @@ var nahty := {}  # puhuja -> [päivät], jolloin pelaaja jutteli hahmon kanssa (
 var molays := false  # väärä Pekka-selitys: Pekan seuraava tervehdys möläyttää
 var kysytty_day := -1  # tänään jo puheeksi otettu (yksi jälki aamussa)
 var _auki := {}  # puheeksi otettu jälki (paivi.seuraava_jalki), kunnes valittu tai ikkuna suljettu
+var _hahmo: Node3D  # Päivi pihalla puheeksioton ajan
+var _cam: Camera3D  # puheeksioton kamera (molemmat ikkunan yläpuolella)
 
 
 func _init() -> void:
@@ -79,6 +88,8 @@ func _paivi() -> Object:
 
 
 func tick(_e: bool) -> void:
+	if _hahmo != null and not game._talk_box.is_open():
+		_siivoa()
 	var p: Object = _paivi()
 	if p == null or p.odottaa.is_empty():  # halpa ehto ensin (K21)
 		_auki = {}
@@ -103,7 +114,115 @@ func tick(_e: bool) -> void:
 func avaa(j: Dictionary) -> void:
 	kysytty_day = game.day
 	_auki = j
-	game._talk_open("paivi", null, repliikki(j))
+	_siivoa()
+	var w: Node3D = game._active_walker()
+	_hahmo = Looks.make(game.world, Looks.PAIVI)
+	_hahmo.global_position = _paikka(w)
+	var k := w.global_position - _hahmo.global_position
+	_hahmo.rotation.y = B.yaw_to(Vector3(k.x, 0, k.z))
+	w.rotation.y = B.yaw_to(Vector3(-k.x, 0, -k.z))
+	_hahmo.play("Idle", 0.0)
+	game._talk_open("paivi", _hahmo, repliikki(j))
+	_rajaa(w)
+
+
+## Päivin paikka: VALI m pelaajan edessä tai sivulla, ensimmäinen ehdokas ilman törmäysmuotoja (seinät, autot, aidat).
+func _paikka(w: Node3D) -> Vector3:
+	var space: PhysicsDirectSpaceState3D = game.get_world_3d().direct_space_state
+	var q := PhysicsShapeQueryParameters3D.new()
+	var sh := SphereShape3D.new()
+	sh.radius = 0.45
+	q.shape = sh
+	q.exclude = [w.get_rid()]
+	var fwd := -w.global_transform.basis.z
+	fwd = Vector3(fwd.x, 0, fwd.z).normalized()
+	var first := Vector3.INF
+	for a: float in [0.0, 45.0, -45.0, 90.0, -90.0, 135.0, -135.0, 180.0]:
+		var p: Vector3 = w.global_position + fwd.rotated(Vector3.UP, deg_to_rad(a)) * VALI
+		var r := PhysicsRayQueryParameters3D.create(p + Vector3(0, 2.5, 0), p + Vector3(0, -3.0, 0))
+		r.exclude = [w.get_rid()]
+		var hit := space.intersect_ray(r)
+		if not hit.is_empty():
+			p.y = hit.position.y
+		if first == Vector3.INF:
+			first = p
+		q.transform = Transform3D(Basis(), p + Vector3(0, 1.0, 0))
+		var vapaa := space.intersect_shape(q, 4).filter(func(o: Dictionary) -> bool:
+			return o.collider is StaticBody3D or o.collider is VehicleBody3D).is_empty()
+		var nako := space.intersect_ray(PhysicsRayQueryParameters3D.create(w.global_position + Vector3(0, 1.0, 0),
+			p + Vector3(0, 1.0, 0), 0xFFFFFFFF, [w.get_rid()])).is_empty()
+		if vapaa and nako:
+			return p
+	return first
+
+
+## Kamera kolme neljäsosaa pelaajan olan takaa: Päivin kasvot näkyvät. Rajaus lasketaan projisoimalla: päät ruudun
+## ylempään viidennekseen, vyötäröt keskusteluikkunan yläreunan yläpuolelle ja molemmat sivusuunnassa ruudulle.
+## Lähin etäisyys, joka täyttää ehdot; kamera ei saa olla seinän takana (säde keskeltä kameraan).
+func _rajaa(w: Node3D) -> void:
+	_cam = Camera3D.new()
+	_cam.fov = 50.0
+	_cam.top_level = true
+	game.world.add_child(_cam)
+	var a: Vector3 = w.global_position
+	var b: Vector3 = _hahmo.global_position
+	var mid := (a + b) * 0.5
+	var ax := Vector3(b.x - a.x, 0, b.z - a.z).normalized()
+	var vs: Vector2 = game.get_viewport().get_visible_rect().size
+	var box_top: float = game._talk_box._panel.get_global_rect().position.y
+	var space: PhysicsDirectSpaceState3D = game.get_world_3d().direct_space_state
+	var ex := [w.get_rid()]
+	var paras := {}
+	for puoli: float in [1.0, -1.0]:
+		var dir := (ax.cross(Vector3.UP) * puoli * 0.8 - ax * 0.6).normalized()
+		for i in 30:
+			var d := 2.4 + i * 0.2
+			var pos := mid + dir * d + Vector3(0, 1.75, 0)
+			if not space.intersect_ray(PhysicsRayQueryParameters3D.create(mid + Vector3(0, 1.4, 0), pos, 0xFFFFFFFF,
+					ex)).is_empty():
+				break
+			# Katsekorkeus puolitushaulla: päiden keskikohta 0,2 ruudun korkeudesta.
+			var lo := -2.0
+			var hi := 3.0
+			for n in 20:
+				var ly := (lo + hi) * 0.5
+				_cam.look_at_from_position(pos, mid + Vector3(0, ly, 0), Vector3.UP)
+				var hy := (_cam.unproject_position(a + Vector3(0, PAA_Y, 0)).y
+					+ _cam.unproject_position(b + Vector3(0, PAA_Y, 0)).y) * 0.5
+				if hy < vs.y * 0.2:
+					hi = ly
+				else:
+					lo = ly
+			var ok := true
+			for p: Vector3 in [a, b]:
+				var h := _cam.unproject_position(p + Vector3(0, PAA_Y, 0))
+				var v := _cam.unproject_position(p + Vector3(0, VYO_Y, 0))
+				ok = ok and v.y < box_top - 8.0 and h.x > vs.x * 0.12 and h.x < vs.x * 0.88 and h.y > 40.0
+			if ok:
+				if paras.is_empty() or d < paras.d:
+					paras = {"d": d, "xf": _cam.global_transform}
+				break
+	if paras.is_empty():  # ahdas paikka: kaukaisin vapaa kohta toiselta puolelta riittää
+		paras = {"d": 0.0, "xf": _cam.global_transform}
+	_cam.global_transform = paras.xf
+	_cam.current = true
+	var ha := _cam.unproject_position(a + Vector3(0, PAA_Y, 0))
+	var hb := _cam.unproject_position(b + Vector3(0, PAA_Y, 0))
+	var vb := _cam.unproject_position(b + Vector3(0, VYO_Y, 0))
+	print("PAIVI_PUHE rajaus: etäisyys %.1f m, pelaajan pää %s, Päivin pää %s, Päivin vyö y %.0f, ikkunan yläreuna %.0f" % [
+		paras.d, ha.round(), hb.round(), vb.y, box_top])
+
+
+## Puheeksiotto ohi: Päivi pois pihalta ja pelaajan kamera takaisin (jos välianimaatio ei ole vaihtanut kameraa).
+func _siivoa() -> void:
+	if is_instance_valid(_cam):
+		if _cam.current:
+			game._active_walker().activate_camera()
+		_cam.queue_free()
+	if is_instance_valid(_hahmo):
+		_hahmo.queue_free()
+	_cam = null
+	_hahmo = null
 
 
 func repliikki(j: Dictionary) -> String:
@@ -243,6 +362,7 @@ func _alusta() -> void:
 	kysytty_day = -1
 	_auki = {}
 	game._talk_box.close()
+	_siivoa()
 
 
 ## Jälki jonoon eilen ja aamu tänään: palauttaa jäljen päivän.
@@ -318,6 +438,7 @@ func _testi_aamu() -> void:
 	for v in ["paivi_puhe_sel0", "paivi_puhe_sel1", "paivi_puhe_sel2", "paivi_puhe_tunnusta", "paivi_puhe_vasta"]:
 		if not v in ids:
 			_vika("valinta %s puuttuu" % v)
+	_tarkista_rajaus("valinta")
 	await _kuva("_valinta")
 	# Suljettu ilman valintaa: ei uudestaan samana aamuna, jälki jää jonoon.
 	game._talk_box.close()
@@ -332,6 +453,8 @@ func _testi_aamu() -> void:
 	nahty["pekka"] = [game.day - 1]
 	var e0: float = _paivi().epaluulo
 	game._talk_choose("paivi_puhe_sel0")
+	await _frames(2)
+	_tarkista_rajaus("vastaus")
 	await _kuva("_vastaus")
 	print("PAIVI_PUHE aamu: Pekka-selitys (nähty) %+.0f, first:paivi_selitys %s" % [_paivi().epaluulo - e0,
 		"paivi_selitys" in game.tilat.firsts])
@@ -347,6 +470,27 @@ func _testi_aamu() -> void:
 		_vika("kaksi puheeksiottoa samana aamuna")
 	game._talk_box.close()
 	await _frames(4)
+
+
+## Päivi pihalla ja molemmat rajattu keskusteluikkunan yläpuolelle (päät ja vyöt ruudulla, ikkunan yläreunan yllä).
+func _tarkista_rajaus(vaihe: String) -> void:
+	if not is_instance_valid(_hahmo) or not is_instance_valid(_cam) or not _cam.current:
+		_vika("%s: Päivi-hahmo tai puhekamera puuttuu" % vaihe)
+		return
+	var w: Node3D = game._active_walker()
+	var vs: Vector2 = game.get_viewport().get_visible_rect().size
+	var box_top: float = game._talk_box._panel.get_global_rect().position.y
+	var vali: float = w.global_position.distance_to(_hahmo.global_position)
+	var t := []
+	for p: Vector3 in [w.global_position, _hahmo.global_position]:
+		var h := _cam.unproject_position(p + Vector3(0, PAA_Y, 0))
+		var v := _cam.unproject_position(p + Vector3(0, VYO_Y, 0))
+		t.append("pää %s vyö y %.0f" % [h.round(), v.y])
+		if v.y > box_top or h.x < 0.0 or h.x > vs.x or h.y < 0.0 or _cam.is_position_behind(p):
+			_vika("%s: hahmo ei näy ikkunan yläpuolella (%s, ikkuna %.0f)" % [vaihe, t[-1], box_top])
+	print("PAIVI_PUHE %s rajaus: väli %.1f m, pelaaja %s, Päivi %s, ikkunan yläreuna %.0f" % [vaihe, vali, t[0], t[1], box_top])
+	if vali > 3.0:
+		_vika("%s: Päivi %.1f m päässä pelaajasta" % [vaihe, vali])
 
 
 func _testi_selitys() -> void:
