@@ -496,6 +496,7 @@ func _testi_jumppa() -> void:
 	var kauas := func() -> void:
 		var q: Vector3 = park + suunta * 50.0
 		pl.global_position = Vector3(q.x, game.Terrain.h(q.x, q.z) + 0.2, q.z)
+		pl.rotation.y = atan2(suunta.x, suunta.z)  # katse autoon
 		pl.velocity = Vector3.ZERO
 		game.clock_min = 19.0 * 60.0 + 30.0
 	await _odota(HUOMAA_S + 0.7, kauas)
@@ -504,11 +505,13 @@ func _testi_jumppa() -> void:
 	if not "paivi_seurattu" in game.tilat.firsts or absf(p.epaluulo - 70.0) > 0.01:
 		_vika("kaukaa seuraaminen ei kirjannut paivi_seurattu tai muutti epäluuloa")
 	await _kuva("_perilla")
-	await _lahikuva("_parkki", park + suunta * 14.0 + Vector3(0, 6.0, 0), park + Vector3(0, 0.8, 0), 55.0)
+	var taka: Vector3 = w.global_transform.basis.z  # auton takana tiellä (etu -Z), ei puiden seassa
+	await _lahikuva("_parkki", park + taka * 11.0 + Vector3(0, 4.0, 0), park + Vector3(0, 1.0, 0) - taka * 6.0, 55.0)
 	# Liian lähelle (15 m) 3,5 s: Päivi huomaa, +10 kerran.
 	var lahelle := func() -> void:
 		var q: Vector3 = park + suunta * 15.0
 		pl.global_position = Vector3(q.x, game.Terrain.h(q.x, q.z) + 0.2, q.z)
+		pl.rotation.y = atan2(suunta.x, suunta.z)
 		pl.velocity = Vector3.ZERO
 		game.clock_min = 19.0 * 60.0 + 40.0
 	await _odota(HUOMAA_S + 0.7, lahelle)
