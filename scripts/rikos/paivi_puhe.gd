@@ -169,7 +169,8 @@ func _rajaa(w: Node3D) -> void:
 	var mid := (a + b) * 0.5
 	var ax := Vector3(b.x - a.x, 0, b.z - a.z).normalized()
 	var vs: Vector2 = game.get_viewport().get_visible_rect().size
-	var box_top: float = game._talk_box._panel.get_global_rect().position.y
+	# Ikkunan yläreuna: korkein (pisimmät valinnat, n. 0,44 ruudun korkeudesta) tai nykyinen, jos se on ylempänä.
+	var box_top: float = minf(game._talk_box._panel.get_global_rect().position.y, vs.y * 0.42)
 	var space: PhysicsDirectSpaceState3D = game.get_world_3d().direct_space_state
 	var ex := [w.get_rid()]
 	var paras := {}
@@ -178,8 +179,9 @@ func _rajaa(w: Node3D) -> void:
 		for i in 30:
 			var d := 2.4 + i * 0.2
 			var pos := mid + dir * d + Vector3(0, 1.75, 0)
-			if not space.intersect_ray(PhysicsRayQueryParameters3D.create(mid + Vector3(0, 1.4, 0), pos, 0xFFFFFFFF,
-					ex)).is_empty():
+			var este := space.intersect_ray(PhysicsRayQueryParameters3D.create(mid + Vector3(0, 1.4, 0), pos, 0xFFFFFFFF, ex))
+			if not este.is_empty():
+				print("PAIVI_PUHE rajaus: puoli %+.0f, %.1f m: este %s" % [puoli, d, este.collider.name])
 				break
 			# Katsekorkeus puolitushaulla: päiden keskikohta 0,2 ruudun korkeudesta.
 			var lo := -2.0
@@ -189,15 +191,15 @@ func _rajaa(w: Node3D) -> void:
 				_cam.look_at_from_position(pos, mid + Vector3(0, ly, 0), Vector3.UP)
 				var hy := (_cam.unproject_position(a + Vector3(0, PAA_Y, 0)).y
 					+ _cam.unproject_position(b + Vector3(0, PAA_Y, 0)).y) * 0.5
-				if hy < vs.y * 0.2:
-					hi = ly
-				else:
+				if hy < vs.y * 0.2:  # päät liian ylhäällä: katse ylemmäs
 					lo = ly
+				else:
+					hi = ly
 			var ok := true
 			for p: Vector3 in [a, b]:
 				var h := _cam.unproject_position(p + Vector3(0, PAA_Y, 0))
 				var v := _cam.unproject_position(p + Vector3(0, VYO_Y, 0))
-				ok = ok and v.y < box_top - 8.0 and h.x > vs.x * 0.12 and h.x < vs.x * 0.88 and h.y > 40.0
+				ok = ok and not _cam.is_position_behind(p) and v.y < box_top - 8.0 and h.x > vs.x * 0.12 and h.x < vs.x * 0.88 and h.y > 40.0
 			if ok:
 				if paras.is_empty() or d < paras.d:
 					paras = {"d": d, "xf": _cam.global_transform}
