@@ -54,11 +54,19 @@ func _snap(suffix: String) -> void:
 	print("KESA kuva " + _shot_path(suffix))
 
 
+## E-painallus syötetapahtumana: Input käsittelee sen seuraavan ruudun alussa, joten main.gd näkee just_pressed-tilan
+## riippumatta siitä, ajetaanko testisolmu ennen vai jälkeen mainin (action_press testin ruudussa jäi mainilta näkemättä).
 func _press() -> void:
-	Input.action_press("interact")
+	var e := InputEventAction.new()
+	e.action = "interact"
+	e.pressed = true
+	Input.parse_input_event(e)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	Input.action_release("interact")
+	var r := InputEventAction.new()
+	r.action = "interact"
+	r.pressed = false
+	Input.parse_input_event(r)
 	await get_tree().process_frame
 
 
@@ -213,8 +221,12 @@ func _mittaus() -> void:
 	var c := sum / maxf(1.0, n)
 	var hb: Vector2 = M.w2(M.HOME_BUILDING)
 	print("KESA leikkausalue %d m2, keskipiste %s: ovesta %.1f m, talon keskeltä %.1f m" % [n, c, c.distance_to(home), c.distance_to(hb)])
-	if n == 0 or c.distance_to(hb) > 15.0:
-		_vika("leikkausalueen keskipiste yli 15 m kodista (%.1f m)" % c.distance_to(hb))
+	# Kolmen renkaan leikkaus on kaari (lähimmän ympyrän nauha), joten sen keskipiste ei osu kotiin. Ehto: oma ovi on
+	# leikkausalueen sisällä, eli kolmiomittaus johtaa omalle ovelle kuten Mintun ja Katjan mittauksessa.
+	var ovi_sisalla: bool = main.kolmio.inside("koti", home)
+	print("KESA oma ovi leikkausalueella: %s" % ovi_sisalla)
+	if n == 0 or not ovi_sisalla:
+		_vika("oma ovi ei ole leikkausalueella (alue %d m2)" % n)
 	main._paper.toggle()
 	await _frames(10)
 	main._paper._vcenter = t
@@ -233,7 +245,7 @@ func _ovi() -> void:
 	await _snap("_ovi_vihje")
 	await _press()
 	await _frames(5)
-	print("KESA E:n jälkeen tila %s, kohtaus %s" % [main.state, main._kolmio_ui])
+	print("KESA E:n jälkeen tila %s, kohtaus %s, talk %s, vihje '%s'" % [main.state, main._kolmio_ui, main._talk_box.is_open(), main._hint.text])
 	if main.state == "in_home":
 		_vika("kodin ovi vei sisään ennen koputusta")
 	if main._kolmio_ui == null or main._kolmio_ui.site != "koti":
@@ -341,7 +353,12 @@ func _nauraa(p: Object) -> void:
 	p.poissa_asti = main.day + 1  # viimeinen poissaolopäivä: huomenna Päivi palaa
 	main._new_day(main.home_zone + Vector3(0, 0, 4), false)
 	await _frames(30)
-	print("KESA paluuaamu: poissa %s, paluu %s, lappu %s" % [p.poissa(), p.liput.get("kesaheila_paluu", false), main._note.visible])
+	for i in 20:  # välianimaatio (esim. Päivi löysi jemman) näyttää lapun vasta lopuksi
+		if main._note.visible or main.state == "ulkona" and not main.cutscene.busy:
+			break
+		await _frames(15)
+	print("KESA paluuaamu: poissa %s, paluu %s, lappu %s, tila %s, jemma_found %s" % [p.poissa(), p.liput.get("kesaheila_paluu", false),
+		main._note.visible, main.state, main._jemma_found])
 	if p.poissa() or not p.liput.get("kesaheila_paluu", false) or not main._note.visible:
 		_vika("viikon paluu ei toiminut")
 	await _snap("_paluu_aamu")

@@ -9,7 +9,7 @@ extends "res://scripts/rikos/osa.gd"
 
 const JUMPPA := Vector2(19.0 * 60.0, 21.0 * 60.0)  # pelimin.: Päivi "jumpassa"
 const LAHELLA := 25.0  # m: tätä lähempänä Päivi huomaa seuraajan
-const KAUKANA := 80.0  # m: tätä lähempänä pelaaja näkee, mihin Päivi menee
+const KAUKANA := 50.0  # m: tätä lähempänä pelaaja näkee, mihin Päivi menee (kauempaa auto on pelikameralta pelkkä piste)
 const HUOMAA_S := 3.0  # s yhtäjaksoisesti etäisyydellä
 const HUOMASI := 10.0  # liian lähellä seurattu
 const LOYTO := 10.0  # täysi kotijemma tai korkkikansio löytyi
@@ -459,12 +459,14 @@ func _testi_jumppa() -> void:
 		w.jumppa, w.dest, Vector2(w.global_position.x - talo.x, w.global_position.z - talo.z).length(), w._path.size()])
 	if not w.jumppa or game._wife_phase != "jumppa":
 		_vika("jumppa ei alkanut klo 19")
-	# Seuranta matkalla 45 m takana: ei huomaa, ei jahtaa.
+	# Seuranta matkalla 30 m takana: ei huomaa, ei jahtaa.
 	var takana := func() -> void:
-		var f: Vector3 = -w.global_transform.basis.z
-		var q: Vector3 = w.global_position - f * 45.0
+		# Pelaaja tiellä 30 m auton takana (edellisen tieverkon pisteen suuntaan), katse autoon.
+		var tak: Vector3 = w._nodes[w._prev] - w.global_position if w._prev >= 0 else w.global_transform.basis.z
+		tak = Vector3(tak.x, 0, tak.z).normalized()
+		var q: Vector3 = w.global_position + tak * 30.0
 		pl.global_position = Vector3(q.x, game.Terrain.h(q.x, q.z) + 0.2, q.z)
-		pl.rotation.y = atan2(-f.x, -f.z)  # katse autoon (pelikamera seuraa pelaajan suuntaa)
+		pl.rotation.y = atan2(tak.x, tak.z)  # katse autoon (pelikamera seuraa pelaajan suuntaa)
 		pl.velocity = Vector3.ZERO
 		game.clock_min = 19.0 * 60.0 + 5.0
 	await _odota(2.0, takana)
@@ -487,20 +489,20 @@ func _testi_jumppa() -> void:
 	if not w.jumppa_perilla or dt > 40.0 or w._kuski.visible or w.mode == "chase":
 		_vika("Hyundai ei pysähtynyt seuraintalolle tai jahtaa")
 	if absf(p.epaluulo - 70.0) > 0.01:
-		_vika("seuranta 45 m päästä nosti epäluuloa")
-	# Kaukaa (50 m) 3,5 s: näkee, mihin Päivi meni.
+		_vika("seuranta 30 m päästä nosti epäluuloa")
+	# Kaukaa (35 m) 3,5 s: näkee, mihin Päivi meni.
 	var park: Vector3 = w.global_position
 	var suunta: Vector3 = (Vector3(park.x - talo.x, 0, park.z - talo.z)).normalized()
 	if suunta.length() < 0.5:
 		suunta = Vector3(1, 0, 0)
 	var kauas := func() -> void:
-		var q: Vector3 = park + suunta * 50.0
+		var q: Vector3 = park + suunta * 35.0
 		pl.global_position = Vector3(q.x, game.Terrain.h(q.x, q.z) + 0.2, q.z)
 		pl.rotation.y = atan2(suunta.x, suunta.z)  # katse autoon
 		pl.velocity = Vector3.ZERO
 		game.clock_min = 19.0 * 60.0 + 30.0
 	await _odota(HUOMAA_S + 0.7, kauas)
-	print("PAIVI_TUTKII 50 m %.1f s: first:paivi_seurattu %s, first:paivi_tutkii %s, epäluulo %.0f" % [HUOMAA_S + 0.7,
+	print("PAIVI_TUTKII 35 m %.1f s: first:paivi_seurattu %s, first:paivi_tutkii %s, epäluulo %.0f" % [HUOMAA_S + 0.7,
 		"paivi_seurattu" in game.tilat.firsts, "paivi_tutkii" in game.tilat.firsts, p.epaluulo])
 	if not "paivi_seurattu" in game.tilat.firsts or absf(p.epaluulo - 70.0) > 0.01:
 		_vika("kaukaa seuraaminen ei kirjannut paivi_seurattu tai muutti epäluuloa")

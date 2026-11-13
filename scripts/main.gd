@@ -12498,7 +12498,7 @@ func _kolmio_knock(site: String, idx: int) -> void:
 		_talk_end_frame = Engine.get_process_frames()
 		if r.mode == "ovi" and site == "koti":
 			_act_end()
-			_kesaheila_valinta("Päivi seisoo ovella kerma ja mansikat käsissään, Sinikka hihittää eteisessä. \"No? Mitä sää nyt sanot, Sytkärin sankari?\"")
+			_kesaheila_valinta("No? Mitä sää nyt sanot, Sytkärin sankari? Sinikka, älä naura!")
 			return
 		if r.mode == "ovi" and r.ok:
 			_kolmio_rasvanappi(site)
@@ -12618,6 +12618,17 @@ const KESA_PAIVIN := ["\"jumppaillat\" oli Zabukin tansseja Sinikan kanssa", "te
 var _kesa_valinta := false  # Päivin valintaikkuna auki (_talk_options näyttää vain valinnat)
 
 
+## Päivin "jumppa"-parkkipaikka seuraintalon pihassa: pääoven edustalta 4 m poispäin talosta ja 6 m sivuun (ei oven eteen).
+func _jumppa_parkki() -> Vector3:
+	var talo: Vector3 = M.w(M.SEURAINTALO)
+	var ovi: Vector3 = world.kirppis_door
+	if ovi == Vector3.ZERO:
+		return talo
+	var ulos := Vector3(ovi.x - talo.x, 0, ovi.z - talo.z).normalized()
+	var p := ovi + ulos * 4.0 + ulos.cross(Vector3.UP) * 6.0
+	return Vector3(p.x, Terrain.h(p.x, p.z), p.z)
+
+
 ## Huipennus auki eikä kesäheilaa ole vielä mitattu (Jonin ja Esan valinta, Sytkärin ilmoitus).
 func _kesaheila_auki() -> bool:
 	if kolmio.stage("koti") != "":
@@ -12684,12 +12695,13 @@ func _kesaheila_ovi() -> bool:
 			p.liput["kesaheila_paluu"] = true
 			_save_game()
 			_wife_rhythm(clock_min)
-			_kesaheila_valinta("Hyundai kurvaa pihaan puolen tunnin päästä. Päivi katsoo kukkia ja sitten sinua. \"No. Puhutaanko nyt?\"")
+			_show_message("Hyundai kurvaa pihaan puolen tunnin päästä. Päivi katsoo kukkia ja sitten sinua.", 4.0)
+			_kesaheila_valinta("Kukkia. No. Puhutaanko nyt?")
 		return true
 	if p.liput.get("kesaheila_paluu", false):
 		_hint.text = "[E] Koputa: Päivi on tullut kotiin"
 		if press:
-			_kesaheila_valinta("Päivi avaa oven. \"Mää tulin takasin. Kesäheila -96 on vieläki sun Sytkärissä. No, mitä sää nyt sanot?\"")
+			_kesaheila_valinta("Mää tulin takasin. Kesäheila -96 on vieläki sun Sytkärissä. No, mitä sää nyt sanot?")
 		return true
 	return false
 
@@ -12705,7 +12717,11 @@ func _kesaheila_paluu_aamu() -> String:
 
 func _kesaheila_valinta(hello: String) -> void:
 	_kesa_valinta = true
-	_talk_open("paivi", null, hello)
+	var puhe := rikos_osa("paivi_puhe")
+	if puhe != null:
+		puhe.nayta(hello)  # Päivi näkyy pelaajan vieressä (rikos/paivi_puhe.gd)
+	else:
+		_talk_open("paivi", null, hello)
 
 
 func _kesaheila_options() -> Array:
@@ -12757,7 +12773,7 @@ func _kesaheila_choose(id: String) -> void:
 			tilat.add("moraali", Kolmio.END_MORAALI)
 			tilat.add("stressi", Kolmio.END_STRESSI)
 			var mun := _kesaheila_synnit()
-			var line := "Sinä: \"Mää %s.\"\nPäivi: \"Ja mää %s.\"\nKumpikin tuijottaa toisen listaa. Sinikka eteisessä: \"Mää tiesin kaikki!\"" % [
+			var line := "Sun lista: %s. Ja mun lista: %s. ...Mitä sää tuijotat? Ja Sinikka, sää tiesit kaikki!" % [
 				", ".join(mun), ", ".join(KESA_PAIVIN)]
 			var stats := _ending_line("avoin_pelikortti")
 			_ending("kesaheila")
@@ -22858,7 +22874,7 @@ func _wife_rhythm(t: float) -> void:
 			wife.parked = false
 			wife.visible = true
 			wife.process_mode = Node.PROCESS_MODE_INHERIT
-			wife.go_jumppa(M.w(M.SEURAINTALO))
+			wife.go_jumppa(_jumppa_parkki())
 			if state == "ulkona" and not _at_mokki() and not _in_vaala:
 				_queue_message("Päivi lähti \"jumppaan\" seuraintalolle. Hyundai ei nyt jahtaa, joten perään voi ajaa, kunhan pysyy kaukana.", 4.5)
 		"koti":

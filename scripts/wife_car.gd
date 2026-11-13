@@ -42,6 +42,7 @@ var arrived := Vector3.ZERO  # viimeksi saavutettu määränpää (testit)
 ## suoraan perille eikä jahtaa; perillä auto jää pihaan ja Päivi menee sisään (kuski piiloon).
 var jumppa := false
 var jumppa_perilla := false
+var _jumppa_piha := false  # tie ajettu: viimeinen osuus tieltä pihan parkkipaikalle (dest)
 
 var _path: Array[int] = []  # jäljellä olevat tieverkon pisteet määränpäähän
 var _linger := 0.0  # perillä: katselee hetken ennen seuraavaa
@@ -97,6 +98,7 @@ func reset_to(index: int) -> void:
 func go_jumppa(p: Vector3) -> void:
 	jumppa = true
 	jumppa_perilla = false
+	_jumppa_piha = false
 	alerted = false
 	mode = "patrol"
 	_linger = 0.0
@@ -117,6 +119,7 @@ func end_jumppa() -> void:
 func _jumppa_pois() -> void:
 	jumppa = false
 	jumppa_perilla = false
+	_jumppa_piha = false
 	if _kuski != null:
 		_kuski.visible = not parked
 
@@ -230,6 +233,10 @@ func _drive(delta: float, want: float) -> void:
 func _advance() -> void:
 	if jumppa:
 		if _path.is_empty():
+			if not _jumppa_piha:
+				_jumppa_piha = true  # tie loppui: ajetaan pihan parkkipaikalle (dest), ei jäädä tien laitaan nurmelle
+				_goal = dest
+				return
 			if not jumppa_perilla:
 				jumppa_perilla = true  # pihassa: Päivi sisälle, auto jää odottamaan
 				arrived = dest

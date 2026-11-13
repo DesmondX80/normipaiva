@@ -114,6 +114,12 @@ func tick(_e: bool) -> void:
 func avaa(j: Dictionary) -> void:
 	kysytty_day = game.day
 	_auki = j
+	nayta(repliikki(j))
+
+
+## Päivi pihalle pelaajan viereen, kamera molempiin ja keskusteluikkuna auki (myös kesäheilan valinta, main.gd
+## _kesaheila_valinta). Päivi poistuu, kun ikkuna sulkeutuu (tick -> _siivoa).
+func nayta(teksti: String) -> void:
 	_siivoa()
 	var w: Node3D = game._active_walker()
 	_hahmo = Looks.make(game.world, Looks.PAIVI)
@@ -122,7 +128,7 @@ func avaa(j: Dictionary) -> void:
 	_hahmo.rotation.y = B.yaw_to(Vector3(k.x, 0, k.z))
 	w.rotation.y = B.yaw_to(Vector3(-k.x, 0, -k.z))
 	_hahmo.play("Idle", 0.0)
-	game._talk_open("paivi", _hahmo, repliikki(j))
+	game._talk_open("paivi", _hahmo, teksti)
 	_rajaa(w)
 
 

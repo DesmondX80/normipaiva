@@ -94,6 +94,30 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   tulee "Kolmiomittaus Saloisissa" tai "Vaalassa", kun kavereiden kanssa juttelee ensimmäisen kerran (ajatusviesti), ja se
   leimataan tehdyksi aamulla; Saloisten tehtävällä on karttamerkintä kavereiden luo. Testit
   `--scene=kolmiomittaus` ja `--scene=kolmiomittaus_vaala` (`tools/testit/kolmiomittaus.gd`).
+- **Luku 6: Päivi epäilee (#326, aikuisille):** salaiset hommat jättävät jälkiä, ja Päivin **epäluulo 0–100**
+  (`scripts/rikos/paivi.gd`) nousee niistä. Jäljet: kolmiomittaus +20, Rasvanappi, Pentin BangBus ja huumekaupan myynti
+  +15, korkkikansio, rakaleiman kopio, Drakkar Noir ja Irman hälytys +10. Jälki syntyy kerran, kun ensikerta tehdään, ja
+  Päivi ottaa sen puheeksi seuraavana aamuna kotipihalla (ennen klo 11, alle 50 m kodista, yksi jälki aamussa;
+  `rikos/paivi_puhe.gd`). Päivi seisoo pihalla pelaajan vieressä, ja valinnat ovat kolme selitystä, tunnustus ja
+  vastahyökkäys. Selitys menee läpi vain, jos pelaaja on oikeasti tehnyt sen (esim. jutellut Pekan kanssa samana päivänä
+  tai käynyt kirppiksellä): tosi −5, valhe +10, ja väärä Pekka-selitys paljastuu, kun Pekka tervehtii seuraavan kerran
+  (+10). Tunnustus −15 ja moraali −0,05, ja Päivi muistaa sen. Vastahyökkäys ("Missä sää oikeen käyt iltaisin
+  jumpassa?") +5 ja avaa huipennuksen. **Hyvitykset** (`rikos/paivi_hyvitys.gd`) laskevat epäluuloa vain jäljen jälkeen:
+  kukat, Wanhan Raahen ovikuva ja Sinikan tomaatintaimet −10, kauppalista, nurmikko ja pensasaita −5; sama hyvitys ei toimi
+  samana eikä seuraavana päivänä. **Päivi tutkii** (yli 60, `rikos/paivi_tutkii.gd`): iltaisin klo 19–21 Hyundai ajaa
+  "jumppaan" seuraintalon pihaan eikä jahtaa. Alle 25 m seuraaminen paljastuu (+10 kerran päivässä), 25–50 m päästä
+  näkee, mihin Päivi menee. Pekka, Sinikka, Hilkka ja Pentti vastaavat Päiville pelaajan tekojen mukaan, ja Päivi löytää
+  liian täyden kotijemman ja korkkikansion. **Huipennus: Kesäheila -96** (`main.gd _kesaheila_*`): kun epäluulo on ollut yli
+  60 tai vastahyökkäystä on käytetty, Sytkäri piippaa uudesta mätsistä "Kesäheila -96, Saloinen" (profiilikuva: Päivi
+  olkihatussa Saloisten lavalla, seepia). Joni ja Esa mittaavat sen kaupan parkkipaikalta kuten Mintun, ympyrät
+  leikkaavat oman kodin, ja etuovella koputetaan: Päivi seisoo kynnyksellä kerma ja mansikat käsissään, Sinikka nauraa
+  eteisessä. Valinnat: **Nauraa yhdessä** (epäluulo 0, onnellinen loppu **Kulissit kunnossa**, aamu omassa keittiössä),
+  **Tunnustaa kaikki** (pelaajan synnit oikeista teoista ja Päivin omat, mm. Zabukin tanssit; loppu **Avoin pelikortti**)
+  tai **Suuttua** (Päivi äidilleen 7 päiväksi: ei lappua, rahaa eikä listaa, jääkaappi tyhjä; kukat ovella tuovat hänet
+  aiemmin, ja valinta tehdään uudelleen). Legendaarinen hetki **Kesäheila -96** tulee kummassakin onnellisessa lopussa.
+  **K-18 pois:** vain korkkikansion ja Drakkarin jäljet, puheeksiotto ja hyvitykset toimivat; Päivi ei tutki, eikä
+  huipennusta tule. Päiväkirjan Tarina-sivulla luku 6 näkyy vaiheineen ja Päivin piirretyllä ilmeellä (rauhallinen,
+  kulmat koholla, kädet puuskassa, laukku pakattu). Vihjeitä: Pekka ("Päivi kyseli musta eilen..."), Sinikka ja Pentti.
 - **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (kauppalista ja Päivin omin sanoin
   kirjoittamat muistutukset; mökillä lapun kirjoittaa Santtu). Pelin tiedot, kuten jemmojen tilanne ja varoitukset,
   tulevat ruudun viesteinä. Kauppalistan neljä tuotetta on kirjoitettu kukin omanvärisellä kynällä ("vihreä tamponi,
@@ -1114,7 +1138,7 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
 
 - **Tarina** etenee luvuittain: 1. Paapeliin pääsee, kunhan… (naapurien hommat ja Pekan kyyti mökille), 2. Paapelin
   isäntä (Santun hommat ja savusaunan korjaus), 3. Mopolla Vaalaan (Siitari, Oulujärven lava, kiihdytys), 4. Junalla
-  kotiin ja 5. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu, Lapinraunion aarnivalkea, Kertunkankaan rauta, Tekojärven Ukko). Seuraavaan
+  kotiin ja 5. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu, Lapinraunion aarnivalkea, Kertunkankaan rauta, Tekojärven Ukko) sekä rinnakkainen 6. Päivi epäilee (aikuisille, ks. yllä). Seuraavaan
   vaiheeseen vihjataan puheissa: Santtu, Siitarin baarimikko, aidan takana porukka, Gasthausin emäntä, Pekka
   ja Tauno kertovat, mitä seuraavaksi.
 - **Sivutehtävät**: kauppalista, nurmikko, laavu, Väinö, jalkapallopojat, pontikka, ilmakuvat, kotiviini,
