@@ -60,8 +60,9 @@ const EI_USKO_REPLIIKIT := ["En usko sanaakaan. Sää et oo koko päivänä tehn
 const PEKKA_KYSYY := "Vai Pekka. No, mää kysyn Pekalta, ku nään sen."
 const PEKKA_MOLAYS := "Hei! Päivi kysyi, oltiinko me yhessä. Mää sanoin, etten oo nähny sua koko päivänä. Ei kai se ollu väärin?"
 const TUNNUSTUS_VASTAUS := "...Kiitos, että sanoit suoraan. Ei se kivaa ollu kuulla, mutta parempi näin. Mää muistan tän."
-const VASTAHYOKKAYS_VASTAUS := "Zabukin tanssit -94?! Se oli ihan eri asia! ...Ja kuka sulle siitä kerto? Sinikka? Tää ei jää tähän."
-const VASTAHYOKKAYS_TEKSTI := "Entäs sää ja Zabukin tanssit -94? Sinikka kerto."
+## Vastahyökkäys on yleinen syytös: tanssit (huipennuksen yllätys) tulevat esiin vasta paivi_tutkii.gd:n vihjeistä.
+const VASTAHYOKKAYS_VASTAUS := "Jumpassa! Missä mää muuten kävisin? ...Älä yritä kääntää tätä muhun. Nyt puhutaan susta."
+const VASTAHYOKKAYS_TEKSTI := "Entäs sää? Missä sää oikeen käyt iltaisin jumpassa?"
 
 var nahty := {}  # puhuja -> [päivät], jolloin pelaaja jutteli hahmon kanssa (tai kävi puhevihjeen päässä)
 var molays := false  # väärä Pekka-selitys: Pekan seuraava tervehdys möläyttää
