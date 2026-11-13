@@ -105,6 +105,7 @@ func halyta() -> void:
 	_rivi = -1
 	_partio_ohi = false
 	game.tilat.first("epaluulo_halytys", 0.2)
+	game._rikos_event("irma_halytys", {})  # Päivin epäluulo (#326, rikos/paivi.gd); Irman mittari ennallaan
 	Sfx.play("alert", -4.0, 1.3)
 	game._show_message("Kinnapotin Irma kaivaa kännykän esiin: \"Haloo, poliisi?\"\n" +
 		"Apteekin luukku pysyy tänään kiinni, ja poliisiauto partioi Kinnapotissa.", 4.5)

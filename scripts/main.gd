@@ -960,6 +960,7 @@ const TALKERS := {
 	"hitsari": ["Arttimin hitsari", Color(1.0, 0.65, 0.3)],
 	"kolmio_saloinen": ["Joni ja Esa", Color(0.75, 0.88, 1.0)],
 	"pentti": ["Pentti", Color(1.0, 0.5, 0.35)],  # Pentin BangBus (#299, rikos/pentti.gd)
+	"paivi": ["Päivi", Color(1.0, 0.45, 0.55)],  # aamun puheeksiotto ilman hahmoa (#326, rikos/paivi_puhe.gd)
 	"kolmio_vaala": ["Hevari-Tero ja Siviikki-Timo", Color(1.0, 0.55, 0.45)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
@@ -1332,6 +1333,7 @@ func _ready() -> void:
 	endings = Endings.new()
 	quests = Quests.new()
 	_rikos_init()
+	tilat.on_first = func(k: String) -> void: _rikos_event("first", {"key": k})  # Päivin jäljet (rikos/paivi.gd)
 	_load_game()
 	_rossi_update_clock()  # rossiradan kellotaulu: ennätys heti, ei vasta kierroksen jälkeen
 	_story_check_jemma.call_deferred()  # vanha tallennus, jossa kuutonen jo kotijemmoissa
@@ -3119,6 +3121,8 @@ func _tanssi_done(who: String, score: float, quit := false) -> void:
 	score = _drakkar_dance(score)
 	var good := score >= 0.65
 	tilat.first("tanssit", 0.3)
+	if who != "sinikka_seura":
+		_rikos_event("paivi_hyvitys", {"why": "tanssit"})
 	if good:
 		tilat.add("moraali", 0.2)
 		tilat.add("stressi", 0.15)
@@ -6413,6 +6417,7 @@ func _give_ovikuva() -> void:
 	mielihyva = clampf(mielihyva + WanharaaheLegenda.OVIKUVA_MIELIHYVA, 0.0, 100.0)
 	tilat.add("stressi", -0.1)
 	tilat.first("wanharaahe_paivi", 0.1)
+	_rikos_event("paivi_hyvitys", {"why": "ovikuva"})
 	Sfx.play("win_small", -4.0)
 	_queue_message("Päivi: \"Kato noita ovia! Tuollaisen ison peilin ja kuistin kun saisi meille. Laitetaan kuva jääkaapin oveen.\"", 4.0)
 	_save_game()
@@ -8220,6 +8225,9 @@ func quest_flag(name: String) -> bool:
 			return viina_found.size() >= Mokki.VIINA.size()
 		"asema_all":
 			return asema_katkot.get("saloinen", 0) == 2 and asema_katkot.get("vaala", 0) == 2
+	if name.begins_with("paivi_"):
+		var po: Object = rikos_osa("paivi")  # luku 6 (#326): rikos/paivi.gd flag
+		return po != null and po.flag(name)
 	return false
 
 
@@ -8270,6 +8278,9 @@ func quest_progress(key: String) -> String:
 				if k in tilat.firsts:
 					n += 1
 			return "kokeiltu %d / %d" % [n, HANTTIHOMMAT.size()]
+	if key.begins_with("paivi_"):
+		var po: Object = rikos_osa("paivi")  # luku 6 (#326): rikos/paivi.gd progress
+		return po.progress(key) if po != null else ""
 	return ""
 
 
@@ -14418,6 +14429,7 @@ func _talk_neighbor(id: String) -> void:
 			food["pulla"] = food.get("pulla", 0) + 2
 			tilat.add("moraali", 0.15)
 			tilat.first("sinikka_taimet", 0.3)
+			_rikos_event("paivi_hyvitys", {"why": "taimet"})
 			Sfx.play("pickup", -4.0)
 			_save_game()
 			_talk_box.reply("Tomaatintaimet! Ja vielä niitä hyviä, säästöpihan omia. Ota pullaa, kaks kappaletta. Ja Päiville ei "
@@ -17941,6 +17953,7 @@ func _vcr_act() -> void:
 
 ## Kymppiuutiset nauhalta: kalja eteisen kaapista, sohvalle ja play. Päivä päättyy kuten sänkyyn mentäessä (_win).
 func _win_news() -> void:
+	_rikos_event("paivi_hyvitys", {"why": "uutiset"})
 	stash["koti"] = stash.get("koti", 0) - 1
 	home_int.leave()
 	state = _home_prev
@@ -19350,6 +19363,7 @@ var paivi_credit: Array = []  # ansaitut hyvitykset (homman id), vanhin ensin
 
 
 func _paivi_credit_add(why: String) -> void:
+	_rikos_event("paivi_hyvitys", {"why": why})  # Päivin epäluulo (#326) ennen kattoa
 	if paivi_credit.size() >= PAIVI_CREDIT_MAX:
 		return
 	paivi_credit.append(why)
@@ -19712,7 +19726,10 @@ func _teini_tulos(won: bool) -> String:
 # Jokainen riski on oma osansa (velka, valeostaja, epäluulo, yliannos, huijari, autovarkaus). Tämä on niiden yhteinen
 # pistorasia: osat ladataan nimen mukaan, jos tiedosto on olemassa, ja niiltä kysytään puheessa, logiikassa, uutena
 # päivänä, tallennuksessa ja päiväkirjassa. Osat eivät koske main.gd:hen; tapahtumat kulkevat _rikos_eventin kautta.
-const RIKOS_OSAT := ["velka", "valeostaja", "epaluulo", "yliannos", "huijari", "autovarkaus", "pentti"]  # pentti: sivujuoni (#299) samalla rajapinnalla
+## pentti: sivujuoni (#299) samalla rajapinnalla. paivi*: luku 6 "Päivi epäilee" (#326) ennen Penttiä, jotta Pentin
+## Päivi-vihje (paivi_tutkii.hello) voittaa Pentin oman tervehdyksen.
+const RIKOS_OSAT := ["velka", "valeostaja", "epaluulo", "yliannos", "huijari", "autovarkaus",
+	"paivi", "paivi_puhe", "paivi_hyvitys", "paivi_tutkii", "pentti"]
 const RIKOS_PIDATYS_MAINE := 10.0
 var rikos: Array = []  # osien instanssit (osa.gd)
 var _rikos_fight: Object = null  # osa, joka aloitti diilitappelun (_start_teini_fight): fight_end antaa loppuviestin
