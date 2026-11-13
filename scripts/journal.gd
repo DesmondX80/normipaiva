@@ -345,9 +345,9 @@ func _draw_story() -> void:
 		var narrow := 0.0
 		if ch.has("ilme"):
 			# Luku 6: Päivin ilme lyijykynäpiirroksena otsikon vieressä, tekstit kapeammiksi piirroksen kohdalla.
-			narrow = 104.0
+			narrow = 120.0
 			if wr.last.size.x > 0.0:
-				_paivi_sketch(Vector2(wr.last.end.x - 46, wr.last.position.y + 44), ch.ilme)
+				_paivi_sketch(Vector2(wr.last.end.x - 62, wr.last.position.y + 52), ch.ilme)
 			if not wr.line("Päivin ilme: " + PAIVI_ILME[clampi(ch.ilme, 0, 3)], 18, Color(0.5, 0.4, 0.3), 0.0, 28.0, _hand):
 				return
 		for row in ch.rows:
@@ -368,7 +368,9 @@ const PAIVI_ILME := ["rauhallinen", "kulmat koholla", "kädet puuskassa", "laukk
 
 
 ## Päivin ilme lyijykynällä (c = keskipiste, ilme 0-3 = paivi.gd ilme()): hymy, koholla kulmat, puuskassa kädet, laukku.
-func _paivi_sketch(c: Vector2, ilme: int) -> void:
+func _paivi_sketch(center: Vector2, ilme: int) -> void:
+	draw_set_transform(center, 0.0, Vector2(1.45, 1.45))
+	var c := Vector2.ZERO
 	var pencil := Color(0.28, 0.27, 0.3)
 	var skin := Color(0.97, 0.9, 0.8)
 	var hair := Color(0.55, 0.42, 0.3)
@@ -414,6 +416,7 @@ func _paivi_sketch(c: Vector2, ilme: int) -> void:
 		draw_rect(b, pencil, false, 1.5)
 		draw_arc(b.position + Vector2(13, 0), 8, PI, TAU, 10, pencil, 1.8)
 		draw_rect(Rect2(b.position + Vector2(11, 8), Vector2(4, 5)), Color(0.9, 0.75, 0.2))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_side() -> void:

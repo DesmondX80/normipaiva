@@ -27,9 +27,9 @@ func run(riskit: Node) -> void:
 		r._vika("luku 6 näkyy ennen jälkeä (juna ilman jälkeä)")
 	t.first("paivi_jalki", 0.0)
 	var d: Dictionary = main.journal_data()
-	print("PTARINA jäljen jälkeen rivejä %d (odotus 3: jälki, selitys, hyvitys)" % _rivit(d).size())
-	if _rivit(d).size() != 3:
-		r._vika("rivejä %d, piti 3" % _rivit(d).size())
+	print("PTARINA jäljen jälkeen rivejä %d (odotus 2: jälki, selitys)" % _rivit(d).size())
+	if _rivit(d).size() != 2:
+		r._vika("rivejä %d, piti 2" % _rivit(d).size())
 	if main.quests.hint_for("pekka", t.firsts, main.quest_flag) != "":
 		r._vika("Pekan vihje ennen selitystä")
 	t.first("paivi_selitys", 0.0)

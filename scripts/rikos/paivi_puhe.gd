@@ -18,15 +18,15 @@ const NAHTY_PAIVAT := 14  # montako päivää taaksepäin nähdyt muistetaan
 ## Jälki -> lyhyt nimi (Päivi muistaa tunnustuksen) ja kolme selitystä [ehto, teksti]. Pekka on jokaisessa (möläytys).
 const SELITYKSET := {
 	"kolmio": {"nimi": "sen Sytkärin", "sel": [
-		["nahty:pekka", "Pekka asenti sen mulle. Se ettii sillä kalapaikkoja ympyröillä."],
-		["first:kirppis", "Se on kirppikseltä ostettu käytetty puhelin. Kartat on edellisen omistajan."],
+		["nahty:pekka", "Pekka asenti sen mulle. Se ettii sillä kalapaikkoja."],
+		["first:kirppis", "Puhelin on kirppikseltä. Kartat on edellisen omistajan."],
 		["nahty:arto", "Arto neuvo marjapaikkoja. Ympyrät on mustikkamättäitä."]]},
 	"rasvanappi": {"nimi": "sen liukkaan paidan", "sel": [
 		["nahty:pekka", "Mää autoin Pekkaa Volvon kanssa. Siitä tuli rasvaa."],
 		["first:makkaranpaisto", "Makkaranpaistossa roiskahti. Huuto oli nuorison."],
 		["first:karburaattori", "Mää säädin mopon kaasaria. Kaikki on ihan öljyssä."]]},
 	"bangbus": {"nimi": "sen BangBusin", "sel": [
-		["nahty:pekka", "Pekka oli kans kyydissä. Me käytiin vaan kattomassa sitä autoa."],
+		["nahty:pekka", "Pekka oli kans kyydissä. Käytiin vaan kattomassa autoa."],
 		["first:pullonkeraus", "Mää keräsin pulloja, ja Pentti tarjos kyydin palautukseen."],
 		["first:keikkatyo", "Mää olin keikkahommissa, Pentti vaan heitti mut sinne."]]},
 	"korkki": {"nimi": "sen korkkikansion", "sel": [
@@ -39,7 +39,7 @@ const SELITYKSET := {
 		["first:pojat", "Mää tein leikkipuiston pojille leimasimia."]]},
 	"drakkar": {"nimi": "sen Drakkarin", "sel": [
 		["nahty:pekka", "Pekka testas sitä mulle. Se on Pekan pullo."],
-		["first:kirppis", "Mää löysin pullon kirppikseltä. Piti kokeilla, onko se aitoa."],
+		["first:kirppis", "Löysin pullon kirppikseltä. Piti kokeilla, onko se aitoa."],
 		["first:lava", "Mää laitoin sitä lavalle. Siellä haisee muuten hiki."]]},
 	"huume": {"nimi": "ne setelit", "sel": [
 		["nahty:pekka", "Pekka maksoi sienistä käteisellä."],
@@ -47,7 +47,7 @@ const SELITYKSET := {
 		["first:keikkatyo", "Keikkahommista. Ne maksaa pimeenä."]]},
 	"irma": {"nimi": "sen poliisijutun", "sel": [
 		["nahty:pekka", "Pekka oli siellä, kysy siltä. Poliisi kysy vaan Volvosta."],
-		["first:ratsia", "Roivainen pysäytti mut puhallukseen. Ei mitään sen kummempaa."],
+		["first:ratsia", "Roivainen pysäytti mut puhallukseen. Ei sen kummempaa."],
 		["first:soitti_112", "Mää soitin itte hätänumeroon, ku joku oli loukkaantunu."]]},
 }
 
@@ -192,7 +192,7 @@ func choose(id: String) -> bool:
 	_auki = {}
 	var d: float = p.epaluulo - e0
 	game._talk_box.reply(vastaus, [game._opt("lopeta", "Lopeta")],
-		"Päivi aikoo kysyä Pekalta." if vastaus == PEKKA_KYSYY else "Päivin epäluulo %+d" % roundi(d))
+		"Päivi aikoo kysyä Pekalta." if vastaus == PEKKA_KYSYY else ("Päivin epäluulo %+d" % roundi(d) if absf(d) > 0.5 else ""))
 	return true
 
 
@@ -301,7 +301,8 @@ func _testi_aamu() -> void:
 	print("PAIVI_PUHE ilman jälkeä: auki %s" % game._talk_box.is_open())
 	if game._talk_box.is_open():
 		_vika("puheeksiotto ilman jälkeä")
-	_jalki_eilen("korkki")
+	_paivi().epaluulo = 30.0
+	_jalki_eilen("kolmio")  # pisimmät selitykset kuvaan
 	game.clock_min = 13.0 * 60.0
 	await _frames(6)
 	if game._talk_box.is_open():
@@ -311,8 +312,8 @@ func _testi_aamu() -> void:
 	var ids: Array = game._talk_box._options.map(func(o: Dictionary) -> String: return o.id) if game._talk_box.is_open() else []
 	print("PAIVI_PUHE aamu 9:00 %.0f m kodista: auki %s, puhuja %s, jälki %s, valinnat %s" % [
 		w.global_position.distance_to(game.home_zone), game._talk_box.is_open(), game._talk_who, _auki.get("id", "-"), ids])
-	if not game._talk_box.is_open() or game._talk_who != "paivi" or _auki.get("id", "") != "korkki":
-		_vika("aamulla ei puheeksiottoa jäljestä korkki")
+	if not game._talk_box.is_open() or game._talk_who != "paivi" or _auki.get("id", "") != "kolmio":
+		_vika("aamulla ei puheeksiottoa jäljestä kolmio")
 	for v in ["paivi_puhe_sel0", "paivi_puhe_sel1", "paivi_puhe_sel2", "paivi_puhe_tunnusta", "paivi_puhe_vasta"]:
 		if not v in ids:
 			_vika("valinta %s puuttuu" % v)
@@ -335,6 +336,14 @@ func _testi_aamu() -> void:
 		"paivi_selitys" in game.tilat.firsts])
 	if not "paivi_selitys" in game.tilat.firsts:
 		_vika("first:paivi_selitys ei kirjautunut")
+	if absf(_paivi().epaluulo - e0 - USKOO) > 0.01:
+		_vika("aamun Pekka-selitys ei antanut %+.0f" % USKOO)
+	game._talk_box.close()
+	_jalki_eilen("drakkar")  # toinen jälki odottaa: ei samana aamuna
+	await _frames(6)
+	print("PAIVI_PUHE toinen jälki samana aamuna: auki %s" % game._talk_box.is_open())
+	if game._talk_box.is_open():
+		_vika("kaksi puheeksiottoa samana aamuna")
 	game._talk_box.close()
 	await _frames(4)
 
