@@ -50,6 +50,21 @@ const CHAPTERS := [
 		{"id": "ukko", "text": "Tekojärven Ukko: Taunon mukaan tekojärven pohjalla, vanhan ladon raunioilla, elää valtava hauki.",
 			"done": "flag:ukko_done", "hint": "flag:ukko_heard"},
 	]},
+	# Luku 6 (#326): rinnakkainen luku, avautuu Päivin ensimmäisestä jäljestä, kun luku 5 on aloitettu (juna Saloisiin). "k18":
+	# vaihe piiloon, kun K-18-sisältö on pois. "optional": ei estä seuraavaa vaihetta eikä luvun valmistumista.
+	{"id": "luku6", "title": "6. Päivi epäilee", "parallel": true, "open": "first:juna_saloinen&first:paivi_jalki",
+		"ilme": "paivi_ilme", "steps": [
+		{"id": "p_jalki", "text": "Päivi löysi jäljen salaisesta hommastani ja ottaa sen puheeksi aamulla.", "done": "first:paivi_jalki", "hint": "auto"},
+		{"id": "p_selitys", "text": "Selitä Päiville, tunnusta tai hyökkää takaisin. Selitys kelpaa vain, jos se on tosi.", "done": "first:paivi_selitys", "hint": "auto"},
+		{"id": "p_hyvitys", "text": "Hyvitä: kukkia, tomaatintaimia, kauppalista, nurmikko, pensasaita. Sama temppu ei toimi kahtena päivänä.",
+			"done": "first:paivi_hyvitys", "hint": "auto", "optional": true},
+		{"id": "p_tutkii", "text": "Päivi tutkii itse: jumppaan hän ei oikeasti mene, ja kyläläiset kertovat, mitä hän kyseli.",
+			"done": "first:paivi_tutkii", "k18": true, "hint": "pekka|Päivi kyseli musta eilen, mitä me oikein kalastettiin."},
+		{"id": "p_kesaheila", "text": "Sytkäriin ilmestyy Kesäheila -96, Saloinen. Mittaa, missä hän on.",
+			"done": "first:kesaheila_matsi", "k18": true, "hint": "flag:paivi_huipennus"},
+		{"id": "p_valinta", "text": "Kotiovella odottaa Päivi ja Sinikka: naura, tunnusta tai suutu.",
+			"done": "first:kesaheila_valinta", "k18": true, "hint": "auto"},
+	]},
 ]
 
 ## Sivutehtävät: id, otsikko, kuvaus (kun tiedossa), tiedossa-ehto, valmis-ehto ja valinnainen edistymisavain
@@ -322,6 +337,8 @@ static func check(cond: String, firsts: Array, flag: Callable) -> bool:
 ## Tarinan nykyinen avoin vaihe: [luku, vaihe] tai [] (luku 1 kulkee story.gd:n kautta).
 func active_step(firsts: Array, flag: Callable) -> Array:
 	for ch in CHAPTERS:
+		if ch.get("parallel", false):
+			continue
 		if check(ch.get("done", ""), firsts, flag) and ch.get("story", false):
 			continue
 		if ch.get("story", false):
@@ -332,25 +349,46 @@ func active_step(firsts: Array, flag: Callable) -> Array:
 	return []
 
 
+## Vaihe näkyy, ellei se ole K-18-vaihe ja K-18-sisältö ole pois (flag paivi_k18_pois).
+static func step_visible(st: Dictionary, flag: Callable) -> bool:
+	return not (st.get("k18", false) and flag.call("paivi_k18_pois"))
+
+
+## Avoimet vaiheet: pääpolun vaihe ja avatun rinnakkaisen luvun ensimmäinen tekemätön pakollinen vaihe.
+func open_steps(firsts: Array, flag: Callable) -> Array:
+	var out: Array = []
+	var a := active_step(firsts, flag)
+	if not a.is_empty():
+		out.append(a)
+	for ch in CHAPTERS:
+		if not ch.get("parallel", false) or not check(ch.open, firsts, flag):
+			continue
+		for st in ch.steps:
+			if not step_visible(st, flag) or st.get("optional", false) or check(st.done, firsts, flag):
+				continue
+			out.append([ch, st])
+			break
+	return out
+
+
 ## Vihjeen kuuleminen keskustelussa: palauttaa repliikin, jos puhujalla on avoimen vaiheen vihje.
 func hint_for(who: String, firsts: Array, flag: Callable) -> String:
-	var a := active_step(firsts, flag)
-	if a.is_empty():
-		return ""
-	var h: String = a[1].get("hint", "")
-	if h.get_slice("|", 0) != who or not "|" in h:
-		return ""
-	heard[a[1].id] = true
-	return h.get_slice("|", 1)
+	for a in open_steps(firsts, flag):
+		var h: String = a[1].get("hint", "")
+		if h.get_slice("|", 0) != who or not "|" in h:
+			continue
+		heard[a[1].id] = true
+		return h.get_slice("|", 1)
+	return ""
 
 
 ## Onko puhujalla kertomaton tarinavihje (hint_for ilman kuulluksi merkitsemistä).
 func has_unheard_hint(who: String, firsts: Array, flag: Callable) -> bool:
-	var a := active_step(firsts, flag)
-	if a.is_empty():
-		return false
-	var h: String = a[1].get("hint", "")
-	return "|" in h and h.get_slice("|", 0) == who and not heard.has(a[1].id)
+	for a in open_steps(firsts, flag):
+		var h: String = a[1].get("hint", "")
+		if "|" in h and h.get_slice("|", 0) == who and not heard.has(a[1].id):
+			return true
+	return false
 
 
 ## Uudet tiedoksi tulleet sivutehtävät (niiden idea näytetään). Ensimmäinen kutsu uuden pelin tai latauksen jälkeen
@@ -374,6 +412,8 @@ func update_done(firsts: Array, flag: Callable, day: int, story_rows: Array = []
 			done_day[story_key(r[0])] = day
 	for ch in CHAPTERS:
 		for st in ch.get("steps", []):
+			if not step_visible(st, flag):
+				continue
 			if not done_day.has(st.id) and check(st.done, firsts, flag):
 				done_day[st.id] = day
 	for q in SIDE:
@@ -395,8 +435,12 @@ func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable,
 	var chapters: Array = []
 	var prev_done := true
 	for ch in CHAPTERS:
-		if not prev_done:
-			break
+		var par: bool = ch.get("parallel", false)
+		if par:
+			if not check(ch.open, firsts, flag):
+				continue
+		elif not prev_done:
+			continue
 		var rows: Array = []
 		var ch_done := false
 		if ch.get("story", false):
@@ -409,8 +453,10 @@ func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable,
 			ch_done = true
 			var open := true
 			for st in ch.steps:
+				if not step_visible(st, flag):
+					continue
 				var d := check(st.done, firsts, flag)
-				ch_done = ch_done and d
+				ch_done = ch_done and (d or st.get("optional", false))
 				if d and not done_day.has(st.id):
 					done_day[st.id] = day
 				var h: String = st.get("hint", "")
@@ -420,10 +466,14 @@ func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable,
 					heard[st.id] = true
 				if d or ((open or by_flag) and heard.has(st.id)):
 					rows.append([st.text, d, done_day.get(st.id, 0) if d else 0])
-				if not d:
+				if not d and not st.get("optional", false):
 					open = false
-		chapters.append({"title": ch.title, "rows": rows, "done": ch_done})
-		prev_done = ch_done
+		var entry := {"title": ch.title, "rows": rows, "done": ch_done}
+		if ch.has("ilme"):
+			entry["ilme"] = int(progress.call(ch.ilme))
+		chapters.append(entry)
+		if not par:
+			prev_done = ch_done
 	var more := prev_done  # kaikki luvut tehty: tarina jatkuu myöhemmin
 	var side: Array = []
 	for q in SIDE:
