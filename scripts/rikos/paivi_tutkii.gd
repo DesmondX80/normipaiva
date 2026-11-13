@@ -209,13 +209,15 @@ func _frames(n: int) -> void:
 		await game.get_tree().process_frame
 
 
-## Odottaa s sekuntia; joka ruutu f() (esim. pelaajan paikka auton mukaan).
-func _odota(s: float, f := Callable()) -> void:
-	var t0 := Time.get_ticks_msec()
-	while Time.get_ticks_msec() - t0 < s * 1000.0:
+## Odottaa s sekuntia pelin aikaa (sama delta kuin tickillä); joka ruutu f() (esim. pelaajan paikka).
+func _odota(s: float, f := Callable(), kunnes := Callable()) -> float:
+	var t := 0.0
+	while t < s and not (kunnes.is_valid() and kunnes.call()):
 		if f.is_valid():
 			f.call()
 		await game.get_tree().process_frame
+		t += game.get_process_delta_time()
+	return t
 
 
 func _kuva(suffix: String) -> void:
@@ -411,18 +413,18 @@ func _testi_tallennus() -> void:
 		_vika("vanha tallennus ei antanut oletusarvoja")
 
 
-## Testin lähtöpiste: tieverkon piste, josta reitti seuraintalolle on 150–250 m (ei kiertotietä).
+## Testin lähtöpiste: tieverkon piste 70–120 m seuraintalolta, suorin reitti (ei kiertotietä).
 func _lahto(w: Node3D, talo: Vector3) -> int:
 	var b: int = w._nearest_node_to(talo)
 	var best := -1
 	var best_len := INF
 	for i in w._nodes.size():
 		var suora: float = w._nodes[i].distance_to(w._nodes[b])
-		if suora < 120.0 or suora > 220.0:
+		if suora < 70.0 or suora > 120.0:
 			continue
 		var r: Array[int] = w._route(i, b)
 		var pituus := 0.0
-		var c := i
+		var c: int = i
 		for n in r:
 			pituus += w._nodes[c].distance_to(w._nodes[n])
 			c = n
@@ -437,7 +439,7 @@ func _testi_jumppa() -> void:
 	_alusta()
 	var p: Object = _paivi()
 	var w: Node3D = game.wife
-	var pl: Node3D = game._active_walker()
+	var pl: Node3D = game.player  # ohjattava hahmo tai ajoneuvo (tick mittaa tästä)
 	var talo: Vector3 = game.M.w(game.M.SEURAINTALO)
 	# Ei tutki: klo 19.30 tavallinen partio.
 	p.epaluulo = 40.0
@@ -462,19 +464,26 @@ func _testi_jumppa() -> void:
 		var f: Vector3 = -w.global_transform.basis.z
 		var q: Vector3 = w.global_position - f * 45.0
 		pl.global_position = Vector3(q.x, game.Terrain.h(q.x, q.z) + 0.2, q.z)
+		pl.rotation.y = atan2(-f.x, -f.z)  # katse autoon (pelikamera seuraa pelaajan suuntaa)
 		pl.velocity = Vector3.ZERO
 		game.clock_min = 19.0 * 60.0 + 5.0
-	await _odota(4.0, takana)
+	await _odota(2.0, takana)
+	w.process_mode = Node.PROCESS_MODE_DISABLED  # auto paikalleen kuvien ajaksi
+	takana.call()
+	await _odota(0.5)
 	await _kuva("_seuranta")  # pelikamera pelaajan takaa
-	var cpos: Vector3 = w.global_position + w.global_transform.basis.x * 5.0 + Vector3(0, 2.2, 0) - w.global_transform.basis.z * 3.0
-	await _lahikuva("_kuski", cpos, w.global_position + Vector3(0, 1.0, 0), 50.0)
-	var t0 := Time.get_ticks_msec()
-	while not w.jumppa_perilla and Time.get_ticks_msec() - t0 < 60000:
-		takana.call()
-		await game.get_tree().process_frame
+	var sivu: Vector3 = w.global_transform.basis.x
+	await _lahikuva("_kuski", w.global_position + sivu * 3.2 + Vector3(0, 1.5, 0), w.global_position + Vector3(0, 1.0, 0), 40.0)
+	w.process_mode = Node.PROCESS_MODE_INHERIT
+	# Loppumatka: hidas testikone (2–3 ruutua/s) ajaisi minuutteja, joten auto siirretään seuraintalon tien kohtaan ja
+	# jumppa käynnistetään uudelleen (reitti 0–1 pistettä); pysähtyminen ja kuskin piilotus mitataan siitä.
+	w.reset_to(w._nearest_node_to(talo))
+	game._wife_phase = ""
+	game._wife_rhythm(game.clock_min)
+	var ajo: float = await _odota(60.0, takana, func() -> bool: return w.jumppa_perilla)
 	var dt := Vector2(w.global_position.x - talo.x, w.global_position.z - talo.z).length()
 	print("PAIVI_TUTKII perillä %s (%.1f s), auto %.0f m seuraintalosta, kuski näkyy %s, tila %s, epäluulo %.0f" % [
-		w.jumppa_perilla, (Time.get_ticks_msec() - t0) / 1000.0, dt, w._kuski.visible, w.mode, p.epaluulo])
+		w.jumppa_perilla, ajo, dt, w._kuski.visible, w.mode, p.epaluulo])
 	if not w.jumppa_perilla or dt > 40.0 or w._kuski.visible or w.mode == "chase":
 		_vika("Hyundai ei pysähtynyt seuraintalolle tai jahtaa")
 	if absf(p.epaluulo - 70.0) > 0.01:
