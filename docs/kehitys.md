@@ -459,3 +459,22 @@ lopetus ja kuvat).
 ## Vaalan reitin vyöhyke (150 m)
 
 `vaala.gd`: `VAALA_RAJA_M = 150`; `route_dist`/`route_nearest` (50 m ruudukko reitin jänteistä: tiet, haarat, sivutiet ja radat, parkit, keskusta, lava, satama, Uitto, järviseutu, mökki, ovet). `_cull_buildings` poistaa `data.buildings`-listasta talot, jotka ovat yli rajan YDINREITISTÄ (`_core_grid`: päätie, keskustan tiet ja kohteet, lava, satama, Uitto, mökki, Siitari, asema; ei sivu-, haara- eikä pohjoisteitä eikä parkkeja; `route_dist(p, true)`). Kulun este (`reach_clamp`) ja ilmoitus käyttävät koko verkkoa (`_route_grid`), jottei pelaaja jää jumiin eikä menetä tehtäviä (suojatut: nimetyt, hotelli, Gasthaus, työkkäri, Katja, Siitari, asema, `Taytto.keep_old`; ne ovat itse reitin pisteitä). `reach_clamp` projisoi pelaajan levyn reunalle (liuku); `mopo_trip.gd` kutsuu sitä joka ruutu ja lähettää `reach_blocked` enintään 8 s välein; `main.gd` näyttää "Vaalan metsään ei ulkopuolisen kannata vaeltaa. Tulee puukosta." 4,5 s. Testi: `tools/testit/aja.sh tscn tools/testit/vaala_raja.tscn` (karsinta, route_dist vs raaka silmukka, ovet, kulku jalan ja mopolla, ilmoituksen toisto, kuvat). Paperikartan oma esiavausjäsennys näyttää karsimattomat talot.
+
+## Hahmojen anatomia
+
+Quaternius-hahmon tarkennukset samaan luurankoon (asennot, animaatiot ja kontaktit säilyvät). Rekisteri `scripts/anatomia.gd`
+kutsuu moduuleja `anatomia_kadet|jalat|paa|vartalo.gd` kolmesta koukusta, jotka `character.gd` kutsuu: `deform(ctx)` (pisteiden
+siirto lepoasennossa ennen `_reshape`a, tulos levyvälimuistissa, jonka tiiviste kattaa myös `anatomia*.gd`), `build(ctx)` /
+`attach` (lisäverkot yhdeksi skinnatuksi "Anatomia"-solmuksi, `character.gd _attach_anatomia`) ja `pose(ch)` (luiden painot
+animaation jälkeen). Käytössä oletuksena aikuisilla (pituus >= 1,5 m); `look.anat = false` vain ennen/jälkeen-vertailuun.
+
+- Maski: pisteen `CUSTOM1.a` (tavu = alue * 16 + voimakkuus; alue 1 kädet, 2 jalat, 3 pää, 4 vartalo). Varjostin lukee sen
+  `anat.gdshaderinc`:n varyingeihin `anat_area` (flat) ja `anat_amt`; osakohtaiset funktiot ovat `anat_*.gdshaderinc`-tiedostoissa
+  (`anat_class` luokan rajoille, `anat_skin` ihon yksityiskohdille).
+- Paljas jalka: eksplisiittinen `look.shoe = "paljas"` antaa jalkaterälle ihonvärin (`bare_foot_mode` 1) tai `look.foot_col`
+  (2, esim. pronssipatsas), ei `shoes`-väriä. Raja nilkassa lasketaan fragmentissa lepoasennon y:stä
+  (`Anatomia.CLASS_Y`, mitattu `anatomia_kuvat`-testin ANAT luokka3 -rivistä), joten se on suora eikä kolmioiden sahalaita.
+  Ilman `shoe`-avainta vanha käytös (luokan 3 väri = `shoes`).
+- Testi: `tools/testit/aja.sh tscn tools/testit/anatomia_kuvat.tscn [--osa=a|b|c|d] [--anat=0|1] [--luokka] [--anim=Idle]`
+  ottaa lähikuvat (kasvot, kädet, jalat, vartalo, 4 kulmaa) pelaajasta, Sinikasta, Päivistä ja Juntista ja tulostaa ANAT-rivit
+  (jalan alin y, kämmenen ja jalan säteet, luokan 3 lepo-y). `--luokka` värjää jalkaterän luokan magentalla.

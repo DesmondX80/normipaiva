@@ -32,6 +32,7 @@ uniform bool jiggle_debug = false;  // painot väreinä: magenta rinta, syaani v
 varying vec3 jig_w;
 
 #include "res://shaders/press.gdshaderinc"
+#include "res://shaders/anat.gdshaderinc"
 
 uniform float shirt_puff = 0.022;
 uniform float pants_puff = 0.014;
@@ -386,6 +387,7 @@ void vertex() {
 	rest_nx = COLOR.a * 2.0 - 1.0;
 	rest_zn = CUSTOM0.xyz;
 	jig_w = CUSTOM1.rgb;
+	ANAT_UNPACK(CUSTOM1.a);
 	VERTEX += jiggle_rinta * CUSTOM1.r + jiggle_vatsa * CUSTOM1.g + jiggle_pakara * CUSTOM1.b;
 	// Vaatteet vähän irti ihosta, ettei näytä maalatulta trikoolta.
 	float c = floor(cat + 0.5);
@@ -438,6 +440,7 @@ void fragment() {
 	if (sandal_foot) {
 		c = 0.0;  // sandaali: jalkaterä on paljasta ihoa
 	}
+	c = anat_class(c, rest);
 	if (shoe_on && c > 2.5) {
 		c = 2.0;  // kengän suusta nilkassa pilkistävä jalkaterä on lahjetta (shortseilla paljasta ihoa, bare)
 	}
@@ -499,6 +502,12 @@ void fragment() {
 				SSS_STRENGTH = mix(0.35, 0.0, k);
 			}
 		}
+	} else if (bare_foot_mode == 1 && c > 2.5) {
+		// Paljas jalkaterä: sama tasainen ihonsävy kuin paljaalla säärellä (ei kenkien väriä).
+		ALBEDO = bare_skin * skin_tint * (0.82 + 0.25 * lum);
+		ROUGHNESS = 0.55;
+		SSS_STRENGTH = 0.35;
+		NORMAL_MAP = n;
 	} else if (c < 0.5) {
 		ALBEDO = skin_with_ink(t.rgb * skin_tint, rest, lpos, rest_zn.x);
 		ROUGHNESS = texture(rough_tex, UV).r;
@@ -506,7 +515,7 @@ void fragment() {
 		SSS_STRENGTH = 0.35;
 		skin_amt = 1.0;
 	} else {
-		vec3 cloth = c < 1.5 ? shirt : (c < 2.5 ? pants : shoes);
+		vec3 cloth = c < 1.5 ? shirt : (c < 2.5 ? pants : (bare_foot_mode == 2 ? foot_col : shoes));
 		if (tracksuit && c > 0.5 && c < 1.5) {
 			// Takki: vino värikenttä rinnan yli, tumma olkakaista ja kaulus, vetoketju edessä.
 			float ax = abs(rest.x);

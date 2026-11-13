@@ -24,6 +24,7 @@ const SOLE := {
 const DEFAULT_MUSCLE := -0.85  # pohjamalli on superhero: tavallisilla ihmisillä lihakset pienemmiksi
 const Elastic := preload("res://scripts/elastic.gd")
 const Shoes := preload("res://scripts/shoes.gd")
+const Anatomia := preload("res://scripts/anatomia.gd")
 const PRESS_MAX := 6  # kontaktilaatikoita enintään (varjostimen press_xf0..5)
 
 static var _lib: AnimationLibrary
@@ -36,6 +37,8 @@ var _sole := {}  # SOLE tämän mallin taulukko
 var _scale := 1.0
 var body_mat: ShaderMaterial
 var born_frame := 0  # setup-kutsun ruutu: paistaminen onnistuu vasta myöhemmin (Contact.profile)
+var anat_mi: MeshInstance3D = null  # Anatomia-lisäverkko (kynnet ym.) tai null
+var anat_on := false  # anatomiamoduulit käytössä (Anatomia.enabled: aikuismallit, look.anat = false ohittaa)
 var profile_key := ""  # kontaktimallin välimuistiavain (malli, pituus, vartalo), Contact.profile
 var body_mi: MeshInstance3D  # vartalon verkko (kontaktien painuma)
 var body_shape := {}  # belly, bulk, bust (Elastic.sink)
@@ -72,8 +75,9 @@ func setup(look: Dictionary) -> void:
 	var kind: String = look.get("model", "male")
 	born_frame = Engine.get_process_frames()
 	shoe_type = Shoes.type_for(look)
-	profile_key = "%s_%.3f_%.2f_%.2f_%.2f_%s" % [kind, float(look.get("height", REST_HEIGHT)), float(look.get("belly", 0.0)),
-		float(look.get("bulk", 0.0)), float(look.get("muscle", DEFAULT_MUSCLE)), shoe_type]
+	anat_on = Anatomia.enabled(look)
+	profile_key = "%s_%.3f_%.2f_%.2f_%.2f_%s_%d" % [kind, float(look.get("height", REST_HEIGHT)), float(look.get("belly", 0.0)),
+		float(look.get("bulk", 0.0)), float(look.get("muscle", DEFAULT_MUSCLE)), shoe_type, 1 if anat_on else 0]
 	model = load(MODELS[kind][0]).instantiate()
 	add_child(model)
 	model.rotation.y = PI
@@ -91,7 +95,8 @@ func setup(look: Dictionary) -> void:
 	var body_src: Mesh = body.mesh  # vaatettamaton lähdeverkko (hiusten etäisyys kalloon)
 	var shape := {"belly": float(look.get("belly", 0.0)), "bulk": float(look.get("bulk", 0.0)),
 		"shoulders": float(look.get("shoulders", 0.0)), "muscle": float(look.get("muscle", DEFAULT_MUSCLE)),
-		"curves": float(look.get("curves", 0.0)), "bust": float(look.get("bust", 0.0))}
+		"curves": float(look.get("curves", 0.0)), "bust": float(look.get("bust", 0.0)),
+		"anat": 1.0 if anat_on else 0.0}  # anat: osa verkon avaimessa (välimuisti), ei muodon termi
 	body_shape = shape
 	body.mesh = _clothed_mesh(kind, body.mesh, body.skin, skeleton, bool(look.get("stripes", false)), shape)
 	body_mat = ShaderMaterial.new()
@@ -168,6 +173,7 @@ func setup(look: Dictionary) -> void:
 	if look.get("beard", false):
 		_attach_hair(HAIR_DIR + "Hair_Beard.gltf", hair_color, kind, body_src)
 	_attach_shoes(look, kind, body, shape)
+	_attach_anatomia(look, kind, body, shape)
 
 	# Matalilla laatutasoilla kaukaiset hahmot jäävät piirtämättä (kylässä 130–190 hahmoa, jokaisella oma luusto).
 	var q: int = Settings.get_v("quality")
@@ -423,6 +429,8 @@ func _update_pose(delta: float) -> void:
 			skeleton.set_bone_pose_position(bj, skeleton.get_bone_rest(bj).origin)
 			skeleton.set_bone_pose_scale(bj, Vector3.ONE)
 	anim.advance(delta)
+	if anat_on:
+		Anatomia.pose(self)  # luiden lepoasentopainot ennen ohituksia, jotta ne pinoutuvat päälle
 	var to_skel := (model.transform * skeleton.transform).basis.inverse()
 	for bone in _overrides:
 		var o: Array = _overrides[bone]
@@ -529,7 +537,16 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	body_mat.set_shader_parameter("shoe_on", false)
 	body_mat.set_shader_parameter("foot_skin", false)
 	body_mat.set_shader_parameter("shoe_top", -10.0)
+	body_mat.set_shader_parameter("bare_foot_mode", 0)
 	if shoe_type == "paljas":
+		# Eksplisiittinen look.shoe = "paljas": jalkaterä ihonvärinen (1) tai look.foot_col (2). Ilman shoe-avainta vanha
+		# käytös: luokan 3 väri on shoes (maalatut jalat, saunan "shoes = ihonväri").
+		var fc := Anatomia.bare_foot_color(look)
+		if fc.a > 0.5:
+			if look.has("foot_col"):
+				body_mat.set_shader_parameter("foot_col", fc)
+			body_mat.set_shader_parameter("bare_foot_mode", 2 if look.has("foot_col") else 1)
+			body_mat.set_shader_parameter("anat_ankle_y", Anatomia.CLASS_Y["nilkka_female" if kind == "female" else "nilkka_male"])
 		return
 	var key := "shoe/%s/%s/%s" % [shoe_type, kind, shape]
 	var mesh: ArrayMesh = (_meshes[key] as WeakRef).get_ref() if _meshes.has(key) else null
@@ -582,6 +599,39 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	body_mat.set_shader_parameter("shoe_cut", Vector4(0, 0, 1, 10.0))  # suljettu kenkä: koko jalkaterä tason takana
 	if float(mesh.get_meta("varsi", 0.0)) > 0.0:
 		body_mat.set_shader_parameter("shoe_top", float(mesh.get_meta("varsi")))  # lahje varren sisään (lepo-y)
+
+
+## Anatomiamoduulien lisäverkot (kynnet ym.): yksi yhdistetty skinnattu MeshInstance "Anatomia" luuston lapseksi kuten
+## kengät; verkko jaetaan saman mallin ja muodon kesken ja talletetaan levylle. Ei lisäosia (Anatomia.build = null) = ei solmua.
+func _attach_anatomia(look: Dictionary, kind: String, body: MeshInstance3D, shape: Dictionary) -> void:
+	anat_mi = null
+	if not anat_on:
+		return
+	var key := "anat/%s/%s/%s" % [kind, shape, shoe_type]
+	var mesh: ArrayMesh = (_meshes[key] as WeakRef).get_ref() if _meshes.has(key) else null
+	if mesh == null:
+		var cache := _cache_path(key)
+		if FileAccess.file_exists(cache):
+			mesh = ResourceLoader.load(cache, "ArrayMesh", ResourceLoader.CACHE_MODE_IGNORE) as ArrayMesh
+		if mesh == null:
+			mesh = Anatomia.build({"kind": kind, "shape": shape, "look": look, "shoe_type": shoe_type,
+				"body": body.mesh.surface_get_arrays(0), "skin": body.skin, "skeleton": skeleton})
+			if mesh == null:
+				return
+			DirAccess.make_dir_recursive_absolute(MESH_CACHE)
+			ResourceSaver.save(mesh, cache)
+		_meshes[key] = weakref(mesh)
+	var mi := MeshInstance3D.new()
+	mi.name = "Anatomia"
+	mi.mesh = mesh
+	mi.material_override = body_mat
+	skeleton.add_child(mi)
+	mi.skeleton = NodePath("..")
+	mi.skin = body.skin
+	if int(Settings.get_v("quality")) <= 1:
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visibility_range_end = 25.0
+	anat_mi = mi
 
 
 func _attach_hair(path: String, color: Color, kind: String, body_src: Mesh) -> void:
@@ -1076,7 +1126,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 	var key := "%s/%s/%s" % [kind, stripes, shape]
 	var shaped := false
 	for k in shape:
-		shaped = shaped or absf(shape[k]) > 0.001
+		shaped = shaped or (k != "anat" and absf(shape[k]) > 0.001)
 	var live: ArrayMesh = (_meshes[key] as WeakRef).get_ref() if _meshes.has(key) else null
 	if live != null:
 		return live
@@ -1145,6 +1195,12 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 			if jn == "":
 				jn = skel.get_bone_name(skin.get_bind_bone(i))
 			joints[jn] = skin.get_bind_pose(i).affine_inverse().origin
+		var amask := PackedByteArray()  # CUSTOM1.a: anatomiamaski (alue*16 + voimakkuus), 0 = ei vaikutusta
+		amask.resize(verts.size())
+		if shape.get("anat", 0.0) > 0.5:
+			Anatomia.deform({"kind": kind, "arr": arr, "vbone": vbone, "joints": joints, "shape": shape, "mask": amask})
+			verts = arr[Mesh.ARRAY_VERTEX]  # moduulit voivat siirtää pisteitä (lepoasento, ennen _reshapea)
+			norms = arr[Mesh.ARRAY_NORMAL]
 		var rest3 := PackedFloat32Array()
 		rest3.resize(verts.size() * 4)
 		# CUSTOM1 = hyllyntäpainot (Elastic.jiggle_weights): r rinta, g vatsa, b pakara ja reiden yläosa.
@@ -1161,6 +1217,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 			jig[v * 4] = roundi(jw.x * 255.0)
 			jig[v * 4 + 1] = roundi(jw.y * 255.0)
 			jig[v * 4 + 2] = roundi(jw.z * 255.0)
+			jig[v * 4 + 3] = amask[v]
 		if shaped:
 			_reshape(arr, shape)
 		for c in [Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3]:
@@ -1220,7 +1277,7 @@ static func _chest_weights(arr: Array, skin: Skin, skel: Skeleton3D, per: int) -
 ## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
 ## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
 const MESH_CACHE := "user://hahmot"
-const CACHE_VERSION := 14
+const CACHE_VERSION := 15
 static var _cache_tag := ""
 
 
@@ -1229,6 +1286,8 @@ static func _cache_path(key: String) -> String:
 		var src := FileAccess.get_file_as_string("res://scripts/character.gd")
 		src += FileAccess.get_file_as_string("res://scripts/elastic.gd")  # rajat tulevat sieltä
 		src += FileAccess.get_file_as_string("res://scripts/shoes.gd")  # kenkäverkot
+		for af in Anatomia.FILES:  # anatomiamoduulit muuttavat verkon pisteitä ja maskia
+			src += FileAccess.get_file_as_string("res://scripts/" + af)
 		_cache_tag = "v%d_%x" % [CACHE_VERSION, src.hash() & 0xffffffff]
 		# Vanhan version tiedostot pois.
 		if DirAccess.dir_exists_absolute(MESH_CACHE):
