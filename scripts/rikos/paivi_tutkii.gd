@@ -228,7 +228,15 @@ func _kuva(suffix: String) -> void:
 	await _frames(3)
 	await RenderingServer.frame_post_draw
 	game.get_viewport().get_texture().get_image().save_png(path)
-	print("PAIVI_TUTKII kuva " + path)
+	# Auton koko pelikameralta (leveys pikseleinä) ja etäisyys pelaajasta: seurattavan kohteen pitää erottua (~30 px).
+	var cam := game.get_viewport().get_camera_3d()
+	var w: Node3D = game.wife
+	var px := -1.0
+	if cam != null and not cam.is_position_behind(w.global_position):
+		var sv: Vector3 = cam.global_transform.basis.x * 2.0
+		px = cam.unproject_position(w.global_position + sv).distance_to(cam.unproject_position(w.global_position - sv))
+	print("PAIVI_TUTKII kuva %s: auto %.0f px, %.0f m pelaajasta, kamera %.0f m autosta" % [path, px,
+		game.player.global_position.distance_to(w.global_position), cam.global_position.distance_to(w.global_position) if cam else -1.0])
 
 
 ## Lähikuva omalla kameralla from -> at.
@@ -492,7 +500,9 @@ func _testi_jumppa() -> void:
 		_vika("seuranta 30 m päästä nosti epäluuloa")
 	# Kaukaa (35 m) 3,5 s: näkee, mihin Päivi meni.
 	var park: Vector3 = w.global_position
-	var suunta: Vector3 = (Vector3(park.x - talo.x, 0, park.z - talo.z)).normalized()
+	# Pelaaja tiellä auton takana (edellisen tieverkon pisteen suuntaan), ei talon sivulla puiden seassa.
+	var suunta: Vector3 = w._nodes[w._prev] - park if w._prev >= 0 else park - talo
+	suunta = Vector3(suunta.x, 0, suunta.z).normalized()
 	if suunta.length() < 0.5:
 		suunta = Vector3(1, 0, 0)
 	var kauas := func() -> void:

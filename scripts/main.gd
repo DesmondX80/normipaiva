@@ -12717,6 +12717,7 @@ func _kesaheila_paluu_aamu() -> String:
 
 func _kesaheila_valinta(hello: String) -> void:
 	_kesa_valinta = true
+	_kesaheila_hiljaa(true)  # Joni ja Esa eivät juttele Päivin valinnan päälle
 	var puhe := rikos_osa("paivi_puhe")
 	if puhe != null:
 		puhe.nayta(hello)  # Päivi näkyy pelaajan vieressä (rikos/paivi_puhe.gd)
@@ -12749,8 +12750,18 @@ func _kesaheila_synnit() -> Array:
 	return out
 
 
+## Jonin ja Esan puhekuplat pois kesäheilan valinnan ajaksi (villager.gd quiet, say("") tyhjentää kuplan).
+func _kesaheila_hiljaa(on: bool) -> void:
+	for v in [_kolmio_joni, _kolmio_esa]:
+		if is_instance_valid(v):
+			v.quiet = on
+			if on:
+				v.say("")
+
+
 func _kesaheila_choose(id: String) -> void:
 	_kesa_valinta = false
+	_kesaheila_hiljaa(false)
 	var p := rikos_osa("paivi")
 	if id == "paivi_kesa_jatka":
 		_talk_box.close()
