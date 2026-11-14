@@ -22,7 +22,9 @@ float anat_class(float c, vec2 r) {
 
 // Ihon pienet yksityiskohdat (nivelpoimut, huulet, huokoset): osat muokkaavat albedoa, roughnessia ja normaalikarttaa.
 void anat_skin(inout vec3 albedo, inout float rough, inout vec3 nrm, vec2 r, vec3 rzn, float lum) {
-	if (anat_area < 0.5 || anat_amt <= 0.0) {
-		return;
+	// Käsimaski (osa A) on COLOR.r:n murto-osassa: cat = luokka + 0,04 koodi (ks. anatomia_kadet.gd _code_r).
+	float code = floor((cat - floor(cat + 0.5)) / 0.04 + 0.5);
+	if (code > 0.5) {
+		anat_kadet(albedo, rough, nrm, code, rzn);
 	}
 }

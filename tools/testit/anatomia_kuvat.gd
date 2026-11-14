@@ -160,13 +160,10 @@ func _shots(n: String, c: Node3D) -> void:
 		await _shot(n + "_kasvot_vino", c, head_c, 1.0, 45, 20)
 		await _shot(n + "_kasvot_sivu", c, head_c, 1.0, 90, 20)
 		await _shot(n + "_kasvot_taka", c, head_c, 1.0, 180, 20)
-	if all or osa == "a":  # kädet: oikea edestä ja sivulta, vasen edestä, oikea ylhäältä
-		var hr := _g(c, "hand_r") + Vector3(0, -0.07, 0)
-		var hl := _g(c, "hand_l") + Vector3(0, -0.07, 0)
-		await _shot(n + "_kasi_r_etu", c, hr, 0.9, 0, 18)
-		await _shot(n + "_kasi_r_sivu", c, hr, 0.9, -90, 18)
-		await _shot(n + "_kasi_l_etu", c, hl, 0.9, 0, 18)
-		await _shot(n + "_kasi_r_yla", c, _g(c, "hand_r"), 0.8, 0, 18, 70)
+	if all or osa == "a":  # kädet: Idle (roikkuva), A_TPose (avoin kämmen, kämmenselkä, sivut, kärki), nyrkki (Punch_Jab)
+		await _hand_idle(n, c)
+		await _hand_tpose(n, c)
+		await _hand_fist(n, c)
 	if all or osa == "b":  # jalat: ylhäältä, edestä, sivulta, vinosti
 		var ft := (_g(c, "foot_l") + _g(c, "ball_l")) * 0.5
 		await _shot(n + "_jalka_yla", c, ft, 0.8, 0, 22, 80)
@@ -182,3 +179,83 @@ func _shots(n: String, c: Node3D) -> void:
 		await _shot(n + "_vartalo_vino", c, mid, 4.2, 45, 22)
 		var nk := (_g(c, "neck_01") + _g(c, "Head")) * 0.5 + Vector3(0, 0.05, 0)
 		await _shot(n + "_kaula_etu", c, nk, 1.5, 0, 20)
+
+
+## Käden kuvauspiste: kämmenen keskusta (luut), sormien suunta ja pituus.
+func _hand_frame(c: Node3D, lr: String) -> Dictionary:
+	var h := _g(c, "hand" + lr)
+	var m := _g(c, "middle_01" + lr)
+	var tip := _g(c, "middle_04_leaf" + lr)
+	var f := (m - h).normalized()
+	return {"h": h, "f": f, "center": h + (tip - h) * 0.42, "tip": tip}
+
+
+func _cam_at(name: String, target: Vector3, dir: Vector3, dist: float, up: Vector3, fov := 20.0) -> void:
+	cam.fov = fov
+	cam.global_position = target + dir.normalized() * dist
+	cam.look_at(target, up if absf(dir.normalized().dot(up)) < 0.95 else Vector3.RIGHT)
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png("%s/%s.png" % [out, name])
+
+
+func _hand_idle(n: String, c: Node3D) -> void:
+	c.restart("Idle", 0.0, 1.0)
+	for i in 6:
+		await get_tree().process_frame
+	var fwd := _g(c, "ball_l") - _g(c, "foot_l")
+	fwd.y = 0
+	fwd = fwd.normalized()
+	for lr in ["_r", "_l"]:
+		var fr := _hand_frame(c, lr)
+		var out_d: Vector3 = fr.h - _g(c, "pelvis")  # ulospäin kehosta
+		out_d.y = 0
+		out_d = out_d.normalized()
+		var tc: Vector3 = fr.center
+		await _cam_at("%s_idle%s_ulko" % [n, lr], tc, out_d, 0.6, Vector3.UP)
+		await _cam_at("%s_idle%s_etu" % [n, lr], tc, fwd + out_d * 0.15, 0.6, Vector3.UP)
+		await _cam_at("%s_idle%s_taka" % [n, lr], tc, -fwd + out_d * 0.15, 0.6, Vector3.UP)
+		await _cam_at("%s_idle%s_vino" % [n, lr], tc, out_d * 0.6 + Vector3(0, 0.45, 0) + fwd * 0.5, 0.6, Vector3.UP)
+
+
+func _hand_tpose(n: String, c: Node3D) -> void:
+	c.restart("A_TPose", 0.0, 1.0)
+	for i in 6:
+		await get_tree().process_frame
+	for lr in ["_r", "_l"]:
+		var fr := _hand_frame(c, lr)
+		var f: Vector3 = fr.f
+		var tc: Vector3 = fr.center
+		var side := f.cross(Vector3.UP).normalized()
+		await _cam_at("%s_tpose%s_selka" % [n, lr], tc, Vector3.UP, 0.6, f, 16)
+		await _cam_at("%s_tpose%s_kammen" % [n, lr], tc, Vector3.DOWN, 0.6, f, 16)
+		await _cam_at("%s_tpose%s_sivu_a" % [n, lr], tc, side, 0.6, Vector3.UP, 16)
+		await _cam_at("%s_tpose%s_sivu_b" % [n, lr], tc, -side, 0.6, Vector3.UP, 16)
+		await _cam_at("%s_tpose%s_karki" % [n, lr], tc, f, 0.6, Vector3.UP, 16)
+		await _cam_at("%s_tpose%s_vino" % [n, lr], tc, Vector3.UP * 0.7 + side * 0.7 - f * 0.3, 0.6, f, 16)
+		await _cam_at("%s_tpose%s_vino_ala" % [n, lr], tc, Vector3.DOWN * 0.7 - side * 0.7 - f * 0.3, 0.6, f, 16)
+	# kynnet lähikuvana: keskisormen kärki ylhäältä, vinosti ja sivulta
+	var fr3 := _hand_frame(c, "_r")
+	var side3: Vector3 = (fr3.f as Vector3).cross(Vector3.UP).normalized()
+	var mt := _g(c, "middle_03_r") + (fr3.f as Vector3) * 0.012
+	await _cam_at("%s_kynsi_yla" % n, mt, Vector3.UP, 0.12, fr3.f, 14)
+	await _cam_at("%s_kynsi_vino" % n, mt, Vector3.UP * 0.6 + side3 * 0.6 + (fr3.f as Vector3) * 0.5, 0.12, Vector3.UP, 14)
+	await _cam_at("%s_kynsi_sivu" % n, mt, side3, 0.12, Vector3.UP, 14)
+	# nivelet ja kynnet ylhäältä lähemmin
+	var fr2 := _hand_frame(c, "_r")
+	await _cam_at("%s_tpose_r_sormet" % n, (fr2.tip as Vector3) - (fr2.f as Vector3) * 0.04, Vector3.UP * 0.8 + (Vector3.FORWARD * 0.0), 0.22, fr2.f, 18)
+
+
+func _hand_fist(n: String, c: Node3D) -> void:
+	c.restart("Punch_Jab", 0.0, 1.0)
+	for t in [0.15, 0.3, 0.45]:
+		c.anim.seek(t, true)
+		for i in 4:
+			await get_tree().process_frame
+		var fr := _hand_frame(c, "_r")
+		var tc: Vector3 = fr.center
+		var base: Vector3 = fr.h - _g(c, "spine_03")
+		base.y = 0
+		base = base.normalized()
+		var sd := base.cross(Vector3.UP)
+		await _cam_at("%s_nyrkki%d_sivu" % [n, int(t * 100)], tc, sd + base * 0.2 + Vector3.UP * 0.2, 0.6, Vector3.UP, 18)
+		await _cam_at("%s_nyrkki%d_etu" % [n, int(t * 100)], tc, base + sd * 0.3 + Vector3.UP * 0.2, 0.6, Vector3.UP, 18)

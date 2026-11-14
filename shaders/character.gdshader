@@ -514,6 +514,7 @@ void fragment() {
 		NORMAL_MAP = n;
 		SSS_STRENGTH = 0.35;
 		skin_amt = 1.0;
+		anat_skin(ALBEDO, ROUGHNESS, NORMAL_MAP, rest, rest_zn, lum);
 	} else {
 		vec3 cloth = c < 1.5 ? shirt : (c < 2.5 ? pants : (bare_foot_mode == 2 ? foot_col : shoes));
 		if (tracksuit && c > 0.5 && c < 1.5) {
