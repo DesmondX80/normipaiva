@@ -222,6 +222,19 @@ pidätys (mopo kotona). Kuvat `_autovarkaus_pysahtyi`, `_ovella`, `_kaappaus`, `
   Katja id -101209 len 25,4 ennallaan.
 - Kuvat tallentuvat `/tmp/normipaiva_ajot/<testi>_<aika>/`. Luvut ovat arvontaa pohjista: pienet muutokset DIST-painoissa siirtävät niitä.
 
+## Pyörän ja hengityksen äänet
+
+Polkupyörän räminä on vanhan vaihteettoman pyörän ajoäänite (`bike_ride.ogg`, 28 s silmukka, kolina korostettu), jonka
+alla renkaan suhina (`bike_roll`) soi hiljaa (`player_bike.gd _update_roll_sound`). Räminä kovenee vauhdin ja alustan
+mukaan: metsässä noin 5 dB ja niityllä noin 3 dB kovempaa kuin asfaltilla, ja saman pyörän kolahduksia (`bike_clunk_*`)
+tulee asfaltilla noin kerran sekunnissa täydessä vauhdissa, metsässä noin kolme kertaa tiheämmin. Juurakko metsässä
+(`_apply_bumps`) soittaa ison rämähdyksen (`bike_root_*`: tömähdys, irrallisten osien räminä, pomppu ja kellon
+helähdys), jotta ääni ohjaa ajamaan tiellä. Mopolla ja autolla räminää ei ole. Hengästyminen (`on_foot.gd tire`):
+ihan poikki nopeaa puuskutusta (`pant_*`), kunnon palatessa raskaita hengityskierroksia (`breath_*`) ja toivuttua vielä
+kaksi hiljaisempaa; seuraava alkaa vasta, kun edellinen on soinut (`Sfx.play_len`). Äänet rakennetaan lähteistä
+skripteillä `tools/aanet/rakenna_pyora_hengitys.py`, `korosta_kolina.py` ja `rakenna_ramahdys.py` (lähteet ja lisenssit
+`assets/sounds/LICENSE.md`).
+
 ## Puheäänet
 
 Päivin repliikit puhuu Satu (nalkutus: nopea tahti, korotettu sävelkorko) ja kaikki muut hahmot Eddy (rauhallinen
