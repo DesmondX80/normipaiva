@@ -219,7 +219,7 @@ func _set_layers(n: Node) -> void:
 ## Kamera tanssijoiden edestä: neljä tanssijaa ja Civicin keula ruudulle, pelaajan hahmo keskelle (projisoitu).
 func _frame_cam() -> void:
 	var vs := get_viewport().get_visible_rect().size
-	var aim := Vector3(-0.35, 1.05, 0.0)
+	var aim := Vector3(0.5, 1.05, 0.0)  # tanssijat ruudun vasemmalle 3/4:lle, liikekaistat oikeaan reunaan
 	for i in 40:
 		var d := 3.6 + i * 0.1
 		var eye := Vector3(0.3, 1.5 + d * 0.12, d)
@@ -227,7 +227,7 @@ func _frame_cam() -> void:
 		var l := _cam.unproject_position(_room.to_global(CIVIC_AT + Vector3(0.6, 1.0, 1.0)))
 		var r := _cam.unproject_position(_room.to_global(DANCERS[2] + Vector3(0.45, 1.9, 0)))
 		var top := _cam.unproject_position(_room.to_global(DANCERS[3] + Vector3(0, 1.9, 0)))
-		if l.x >= vs.x * 0.02 and r.x <= vs.x * 0.9 and top.y >= vs.y * 0.17:
+		if l.x >= vs.x * 0.02 and r.x <= vs.x * 0.74 and top.y >= vs.y * 0.17:  # oikea reuna liikekaistoille
 			break
 	_cam_base = _cam.transform
 
@@ -317,7 +317,7 @@ func _dance(delta: float) -> void:
 			_judge_t = 0.5
 			_judge_lane = n.lane
 			if _rng.randf() < 0.25:
-				_say(2, _line("ohi_sina", "Sää liikut ku Siviikki talvirenkailla."))
+				_say(3, _line("ohi_sina", "Sää liikut ku Siviikki talvirenkailla."))
 		elif auto and absf(dt) < 0.03 and _rng.randf() < 0.85:
 			_hit(n, dt)
 	if not auto:
@@ -388,7 +388,7 @@ func _animate(delta: float) -> void:
 		var c: Node3D = _chars[s]
 		var m: Dictionary = _moves[s]
 		c.clear_overrides()
-		c.rotation.y = 0.0
+		c.rotation.y = PI  # kasvot kameraan (+Z; hahmon etu on -Z)
 		if m.is_empty():
 			continue
 		m.t += delta
@@ -402,7 +402,7 @@ func _animate(delta: float) -> void:
 				c.set_override("upperarm_l", Vector3.FORWARD, -1.9 * k)
 				c.set_override("upperarm_r", Vector3.FORWARD, 1.9 * k)
 			"pylly":
-				c.rotation.y = PI * k  # selin kameraan
+				c.rotation.y = PI + PI * k  # selin kameraan
 				c.set_override("spine_01", Vector3.RIGHT, -0.75 * k)
 				c.set_override("spine_03", Vector3.RIGHT, -0.35 * k)
 		if m.t > 0.42:

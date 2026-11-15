@@ -31,6 +31,7 @@ var drunk := 0.0
 
 var _hall: Node3D
 var _cam: Camera3D
+var _cam_base: Transform3D
 var _singer: Node3D
 var _audience: Array = [null, null]
 var _tv_text: Label3D
@@ -142,6 +143,7 @@ func _frame_cam() -> void:
 		var head := _cam.unproject_position(_hall.to_global(CENTER + MIC + Vector3(0, 1.8, 0)))
 		if tvp.x >= vs.x * 0.04 and head.y >= vs.y * 0.18:
 			break
+	_cam_base = _cam.transform
 
 
 ## Laulaja mikrofonille, muut jakkaroille: vasemmalla vuoroaan odottava (tai jo laulanut) mies, oikealla nainen.
@@ -210,6 +212,7 @@ func _process(delta: float) -> void:
 		"loppu":
 			if _pressed() or (auto and _t > 2.0):
 				_finish({"voitto": _winner() == 0, "pisteet": roundi(_scores[0] * 100.0), "kiva": "karaoke"})
+	_cam.transform = _cam_base
 	_update_keys()
 	_ui.queue_redraw()
 
@@ -375,4 +378,5 @@ func test_target() -> Array:
 func test_closeup() -> void:
 	var p := CENTER + MIC + Vector3(0, 1.45, 0.2)
 	var eye := p + Vector3(0.3, 0.1, 1.3)
-	_cam.transform = Transform3D(Basis.looking_at(p - eye, Vector3.UP), eye)
+	_cam_base = Transform3D(Basis.looking_at(p - eye, Vector3.UP), eye)
+	_cam.transform = _cam_base

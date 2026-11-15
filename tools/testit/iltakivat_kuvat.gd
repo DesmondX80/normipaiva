@@ -105,7 +105,10 @@ func _run() -> void:
 					g._cam_base = keep
 			if site == "saloinen" or kiva == "disko":
 				var t: Array = g.test_target() if g.has_method("test_target") else [g._hall.to_global(g.CENTER), 1.0]
+				g.set_process(false)  # kiva palauttaa kameransa joka ruudussa: pysäytetään kulmakuvien ajaksi
 				await Asento.views(g._cam, out, "%s_asetelma" % tag, t[0] + Vector3(0, 0.4, 0), 2.6, Vector3(0, 0, 1))
+				g._cam.transform = g._cam_base
+				g.set_process(true)
 			var shot_end := false
 			for i in 30000:
 				await get_tree().process_frame

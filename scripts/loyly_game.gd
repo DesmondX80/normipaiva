@@ -123,6 +123,7 @@ func _build() -> void:
 	_build_kiuas()
 	# Nainen ylälauteen vasemmassa päässä kiukaan puolella, pitkävartinen kauha kädessä, pyyhe kainaloista reisiin.
 	var w := Looks.make(_room, _towel_look(people[3].look, true, Color(0.95, 0.45, 0.6)))
+	_woman_towel(w, Color(0.95, 0.45, 0.6))
 	w.rotation.y = PI
 	w.play("Sitting_Idle", 0.0)
 	w.anim.advance(0.01)
@@ -271,18 +272,28 @@ static func _towel_look(base: Dictionary, towel: bool, col: Color) -> Dictionary
 	lk["shoes"] = skin.darkened(0.15)
 	lk["bare_skin"] = skin
 	lk["sleeve_x"] = 0.0
-	if woman and towel:
-		lk["shirt"] = col
-		lk["pants"] = col
-		lk["crop_y"] = 0.85 * k  # paita-alue crop_y..tube_y (kuten tuppi_game.gd rintaliivit): pyyhe lanteilta kainaloihin
-		lk["tube_y"] = 1.4 * k
-		lk["shorts_y"] = 0.62 * k
+	if woman:
+		lk.erase("bare_skin")  # naisilla pyyhe maalataan varjostimeen hahmon teon jälkeen (_woman_towel)
+		lk["shirt"] = skin
+		lk["pants"] = skin
+		lk["tube_y"] = 0.01
+		lk["shorts_y"] = 1.4
 	else:
 		lk["shirt"] = skin
 		lk["tube_y"] = 0.01
 		lk["pants"] = col if towel else skin
 		lk["shorts_y"] = 0.55 * k if towel else 1.4  # pyyhe lanteilta polviin (istuessa reidet peittyvät)
 	return lk
+
+
+## Naisen pyyhe kainaloista reisiin vartalon varjostimeen (kuten crawler3d.gd set_towel).
+static func _woman_towel(c: Node3D, col: Color) -> void:
+	var bm: ShaderMaterial = c.body_mat
+	bm.set_shader_parameter("shirt", col)
+	bm.set_shader_parameter("pants", col)
+	bm.set_shader_parameter("tube_y", 1.42)
+	bm.set_shader_parameter("sleeve_x", 0.15)
+	bm.set_shader_parameter("shorts_y", 0.88)
 
 
 ## Istujat ylälauteelle: lantio laudepinnan yläpuolelle. Palauttaa alalauteen korkeuden jalkapohjien alle (mitattu
@@ -459,16 +470,14 @@ func _flee(s: int) -> void:
 	var at := old.position
 	old.queue_free()
 	var c := Looks.make(_room, _towel_look(people[s].look, false, Color.WHITE))
-	c.position = Vector3(SEAT_X[s], BENCH_TOP - 0.62, BENCH_D + 0.15)  # alalauteelta lattialle
-	c.position.y = 0.0
-	c.position.z = BENCH_D + 0.55
-	c.rotation.y = -PI / 2.0  # kohti ovea (+X)
+	c.position = Vector3(SEAT_X[s], 0.0, BENCH_D + 0.55)  # alalauteen eteen lattialle
+	c.rotation.y = -PI / 2.0  # oikealle kohti ovea (+X), alalauteen edestä (ei kameran editse)
 	c.play("Walk", 0.0, 1.4)
 	_chars[s] = c
 	_set_layers(c)
 	(_towels[s] as Node3D).visible = true
 	var tw := c.create_tween()
-	tw.tween_property(c, "position", Vector3(ROOM.x - 0.2, 0.0, 1.85), 1.8)
+	tw.tween_property(c, "position", Vector3(ROOM.x + 0.3, 0.0, BENCH_D + 0.55), 1.6)
 	tw.tween_callback(func() -> void: c.visible = false)
 	Sfx.play("door", -8.0)
 	Sfx.play("step_wood", -10.0)
