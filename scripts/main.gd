@@ -12678,7 +12678,7 @@ func _kolmio_ilta(site: String, g: CanvasLayer, all_lines: Dictionary, ending: S
 	g.anchor = _kolmio_new_anchor(site)
 	g.sun = _sun
 	g.style = (Kolmio.RASVA_RULES[site] as Dictionary).get("style", {})
-	g.lines = all_lines[site]
+	g.lines = all_lines.get(site, all_lines.values()[0])  # disko on vain Vaalassa: muualla Vaalan repliikit
 	g.people = _kolmio_people(site)
 	g.finished.connect(func(r: Dictionary) -> void:
 		if r.get("voitto", false):
@@ -23368,6 +23368,15 @@ func _maybe_screenshot() -> void:
 				DirAccess.remove_absolute(SAVE_PATH)
 			get_tree().quit()
 			return
+		"kolmio_iltakivat":
+			# Lettukisa, löylykisa, disko ja karaoke pelimaailmassa ovelta aamuun (tools/testit/kolmio_iltakivat.gd).
+			var saved_ik := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var ik: Node = load("res://tools/testit/kolmio_iltakivat.gd").new()
+			ik.main = self
+			add_child(ik)
+			await ik.run()
+			if not saved_ik.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_ik)
 		"kolmio_tuppi":
 			# Räsytuppi kolmiomittauksen toisena iltana Saloisissa: tekoäly pelaa, ilta loppuun, aamu ja loppu.
 			var saved_tp := FileAccess.get_file_as_bytes(SAVE_PATH)
