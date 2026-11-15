@@ -31,6 +31,7 @@ var gifts: Array = []  # [[antaja, lahja], ...]
 var missing := ""  # pelaajan puuttuva lahja ("" = kaikki mukana)
 var resident := {}  # väärä ovi: kolmiomittaus.gd WRONG_DOORS
 var stats := ""  # aamun tilastorivi
+var kiva := "rasvanappi"  # illan iltakiva (aamun repliikit): rasvanappi, tuppi, lettu, loyly, disko, karaoke
 var lines: Array = []  # [puhuja, teksti]; rakennetaan _ready:ssä
 var auto := true  # rivit etenevät itsestään 6,5 s välein (testi pysäyttää)
 
@@ -198,7 +199,40 @@ func _koti_lines() -> Array:
 		["Päivi", "Kerma ja mansikat on tässä. Nyt sää päätät, mitä tästä seuraa."]]
 
 
+## Aamun kaverirepliikit iltakivan mukaan (Rasvanapin rivit ovat _morning_lines-perusrivit): [kohde][kiva] = kaksi riviä.
+const KIVA_AAMU := {
+	"saloinen": {
+		"tuppi": [["Esa", "Mää heräsin sohvalta kalsareissa. Tupessa nukkuu hyvin, se on vanha erämiesten tieto."],
+			["Joni", "Rami ryöstettiin, ja housut lähti. Bogey, mutta tyylikäs bogey."]],
+		"lettu": [["Esa", "Kakstoista lettua ja niin paljon kermaa, että Minttu joutu ravistaan purkkia kahella kädellä."],
+			["Joni", "Mää otin kermat suoraan suuhun. Se on eagle, sitä ei hävetä."]],
+		"loyly": [["Esa", "Pyyhe putos kolmannella heitolla, eikä kukaan ees kattonut. Se vähän harmitti."],
+			["Joni", "Sadan asteen lauteilla mun putteri kutistu tiiksi asti."]],
+		"karaoke": [["Esa", "Mää lauloin Mintulle rakkauslaulun hirven kiimasta. Ei kuulemma ollut romanttinen."],
+			["Joni", "Mun falsetti kuulosti siltä, ku pallo ois osunu nivusiin."]]},
+	"vaala": {
+		"tuppi": [["Hevari-Tero", "Valtio ei saa tietää, kuka meni tuppeen. Kalsarit on yksityisasia."],
+			["Siviikki-Timo", "Mun kalsarit on vieläki Katjan sohvalla. Siviikissä on lämmitys, ei haittaa."]],
+		"lettu": [["Hevari-Tero", "Kilpaa syödyt letut on verottomia. Se lukee laissa, jos lukee tarpeeks tarkkaan."],
+			["Siviikki-Timo", "Mää yrjösin vaan kerran, ja se oli Siviikin ulkopuolella. Ammattilainen."]],
+		"loyly": [["Hevari-Tero", "Saunassa kaikki on samanarvoisia. Paitsi Timo, sillä oli sukat jalassa."],
+			["Siviikki-Timo", "VTEC kesti sata kakskymmentä astetta. Mun munat ei."]],
+		"disko": [["Hevari-Tero", "Pihadisko ilman lupaa. Valtio kuuli bassot Muhokselle asti."],
+			["Siviikki-Timo", "Akku loppu kolmelta, mutta pyllistys jatku aamuun. Katja sano, että mää liikun ku hirvi."]],
+		"karaoke": [["Hevari-Tero", "Mun laulun sanoissa oli viesti verottajalle. Se meni perille."],
+			["Siviikki-Timo", "Katja lauloi mun kanssa duetton. Mää luulen, että se rakastaa mua."]]}}
+
+
 func _morning_lines() -> Array:
+	var base := _morning_base()
+	var extra: Array = KIVA_AAMU.get(site, {}).get(kiva, [])
+	if extra.size() == 2 and base.size() >= 3:
+		base[1] = extra[0]
+		base[2] = extra[1]
+	return base
+
+
+func _morning_base() -> Array:
 	if site == "koti":
 		return [["", "Aamulla Päivi keittää kahvit. Kerma ja mansikat on pöydässä, ja Esa paistaa lettuja."],
 			["Esa", "Kolme ympyrää, ja leikkauspiste oli oma keittiö. Erämies ei eksy, se vaan kiertää."],

@@ -210,6 +210,167 @@ const RASVA_RULES := {
 			"sofa": Color(0.62, 0.5, 0.25), "rug": Color(0.22, 0.3, 0.5)}},
 }
 
+## Räsytupin repliikit (tuppi_game.gd, vain aikuisille): rivoja mutta hauskoja. riisuu: id -> [kengät, paita, housut].
+const TUPPI_LINES := {
+	"saloinen": {
+		"alku": ["Räsytuppi. Häviäjät riisuu. Erämies ei häviä.", "Tää on niinku strip-golf, mutta korteilla."],
+		"rami": ["Rami! Nyt otetaan tikkiä niinku Joni ottaa mailaa.", "Hihii, rami! Mää haluun nähä Esan karvat."],
+		"nolo": ["Nolo. Hiljaa ja varovasti, niinku metsossa.", "Nolo. Kukaan ei ota, kaikki menettää."],
+		"tikki": {"joni": ["Birdie!", "Suoraan reikään.", "Hole in one, kulta."], "esa": ["Erämies saalisti.", "Hmm. Mun.",
+			"Tää tikki on lihava ku metso."], "minttu": ["Hihii, mun!", "Kato ny, mää otin sen.", "Hihii, tikki kädessä!"]},
+		"riisuu": {"joni": ["Golfsukat pois. Hcp nousee.", "Paita pois. Rusketusraja on golfhanskan mallinen.",
+			"Housut pois… Älkää kattoko mailakassia."],
+			"esa": ["Villasukat pois. Erämies ei tarvi sukkia.", "Paita pois. Erämies ei tarvi paitaakaan.",
+			"Housut… Erämies ei tarvi housuja. Hmm."],
+			"minttu": ["Sandaalit pois, hihii!", "Hihii, paita pois! Älkää tuijottako, pojat!", "Hihii… nyt on viileä."],
+			"pelaaja": ["", "", ""]},
+		"kommentti": ["Hihii! Kato ny noita!", "Esa, sulla on enemmän karvaa ku karhulla.", "Tää on parempi ku Rasvanappi.",
+			"Fore! Valkoset näkyy!", "Hmm. Kauniit kintut."],
+		"voitto": ["Joni ja Esa kalsareissa: pantu tuppeen! Minttu kaataa viimeiset kaljat ja kikattaa koko illan.",
+			"Kaverit tupessa! Esa ottaa pyyhkeen ja sanoo, että erämies on aina vähän kalsareissa."],
+		"tuppeen": ["Te tupessa! Minttu nauraa kyyneleet silmissä, ja Joni ottaa kuvan kertakäyttökameralla.",
+			"Pantu tuppeen kalsareissa. Esa: \"Erämies ei koskaan unohda tätä näkyä.\""],
+		"loppu": ["Hihii. No niin, nukkumaan. Kaikki samaan sänkyyn vai?", "Kerma ja mansikat aamulla, pojat."],
+	},
+	"vaala": {
+		"alku": ["Räsytuppi. Häviäjä maksaa veroa vaatteina.", "Tero: Valtio vie paidan, vie ny sitte."],
+		"rami": ["Rami! VTEC kytkeytyy!", "Rami. Rekkakuski ottaa mitä tahtoo."],
+		"nolo": ["Nolo. Pysytään verotuksen alarajalla.", "Nolo. Hiljaa niinku tyhjäkäynnillä."],
+		"tikki": {"tero": ["Verottaja otti tän.", "Mun tikki, rokkia!", "Perintäkulut perään."],
+			"timo": ["Seitsemäntuhatta kierrosta!", "VTEC!", "Ohitus oikealta."],
+			"katja": ["Kuorma kyydissä.", "Mun. Rekkakuski ei jarruta.", "Hehe, tuplaperävaunu."]},
+		"riisuu": {"tero": ["Maiharit pois. Varpaat on mustat ku levy.", "Nahkaliivi pois… Tatuoinnit on veroton etu.",
+			"Housut pois. Tää on mun viimenen omaisuus."],
+			"timo": ["Kengät pois, kaasujalka paljaana.", "Paita pois. Näkyy Siviikin turvavyön jälki.",
+			"Housut pois… Ei oo VTEC, mutta kiertää."],
+			"katja": ["Kumpparit pois.", "Paita pois. Rekkakuskin rintaliivit, pojat!", "Housut pois. Nyt ajetaan ilman kuormaa."],
+			"pelaaja": ["", "", ""]},
+		"kommentti": ["Tero: Ihan ku verottaja kattois.", "Hehe, Timon kalsareissa lukee Honda.", "Katja nauraa ku rekan torvi.",
+			"Tää on parempi ku Rasvanappi.", "Ikkunat huurussa."],
+		"voitto": ["Tero ja Timo kalsareissa: pantu tuppeen! Tero ilmoittaa vaatteet verottajalle luontoisetuna.",
+			"Kaverit tupessa! Timo lämmittää Siviikin ja ajaa kotiin kalsareissa."],
+		"tuppeen": ["Te tupessa! Katja soittaa rekan torvea, ja Tero kirjaa teidät verottajan listalle.",
+			"Pantu tuppeen kalsareissa. Timo: \"Tää oli kovempi ku VTEC.\""],
+		"loppu": ["No niin. Mansikat aamulla, pojat.", "Katja: Rekkakuski nukkuu missä vaan."],
+	},
+}
+
+## Lettukisan repliikit (lettu_game.gd, vain aikuisille). "%s" havio-rivissä = voittajan nimi.
+const LETTU_LINES := {
+	"saloinen": {
+		"alku": ["Lettukisa! Kuka syö eniten, saa kermaa niin paljon ku jaksaa. Ja vähän muutakin, hihii.",
+			"Minuutti aikaa, pojat. Kerma suuhun ja nielkää. Ei mussuteta!"],
+		"kerma": ["Lisää kermaa! Mää ruiskutan, älkää pyristelkö.", "Kenellä on vielä suu auki? Hihii.",
+			"Nielkää, pojat! Mää en jaksa odottaa koko yötä.", "Kuumia lettuja! Varokaa, ne on rasvasia."],
+		"tukehtuu": {"joni": ["Hhkk! Kerma meni väärään reikään!", "Fore! Kerma tulee nenästä!"],
+			"esa": ["Hhkk… erämies ei niele kaikkea kerralla.", "Kerma nenästä! Ihan ku hirvellä kiima-aikaan."]},
+		"tukehtuu_sina": ["Hihii, liian iso suullinen! Kerma tuli nenästä.", "Hitaasti, kulta. Ei kaikkea kerralla."],
+		"kommentti": {"joni": ["Tää on ku mailan varsi: liukas ja pitkä.", "Mää oon nielly isompiaki. Golfpalloja siis."],
+			"esa": ["Hirvi syö kakskymmentä kiloa päivässä. Mää oon hirvi.", "Kerma suupielessä on erämiehen meikki."]},
+		"voitto": ["Sää nielit kaikki. Mää tykkään miehistä, jotka ei jätä mitään lautaselle.",
+			"Voittaja nuolee vatkaimen. Tuu tänne, kulta."],
+		"havio": ["%s voitti! Voittaja nuolee vatkaimen, ja häviäjät tiskaa kalsareissa.", "%s voitti. Hihii, sulla on kermaa poskessa."],
+	},
+	"vaala": {
+		"alku": ["Lettukisa! Minuutti aikaa, ja voittaja saa kermat siitä mistä haluaa.",
+			"Rekkakuskin letut: isoja, rasvasia ja niitä tulee koko ajan."],
+		"kerma": ["Ruiskutanko lisää, Timo? Sää näytät kermamieheltä.", "Nielkää, pojat. Kuorma tulee perässä.",
+			"Lisää lettuja! Tää on tuplaperävaunu.", "Tero, älä mussuta. Nielaise vaan."],
+		"tukehtuu": {"tero": ["Hhkk! Valtio pakotti mut nielemään!", "Kerma tuli nenästä. Siitä ei makseta veroa."],
+			"timo": ["Kerma tuli ulos ku VTEC: yhtäkkiä ja kovaa!", "Hhkk! Ohitus meni pieleen!"]},
+		"tukehtuu_sina": ["Hehe, liian iso kuorma! Kerma tuli nenästä.", "Hitaasti. Ei ahmita ku rekkakuski tauolla."],
+		"kommentti": {"tero": ["Kermasta ei makseta valmisteveroa. Vielä.", "Mää syön nää ennen ku verottaja ehtii."],
+			"timo": ["Mää vedän lettuja ku Siviikki bensaa: kierroksilla.", "Katja, ruiskuta suoraan suuhun. Säästetään aikaa."]},
+		"voitto": ["Sää nielit eniten. Mää tiedän nyt, kenet otan mukaan seuraavaan kisaan.",
+			"Voittaja nuolee vatkaimen. Tuu tänne, rekkakuski odottaa."],
+		"havio": ["%s voitti! Voittaja nuolee vatkaimen, ja häviäjät tiskaa kalsareissa.", "%s voitti. Hehe, kermaa on joka paikassa."],
+	},
+}
+
+## Löylykisan repliikit (loyly_game.gd, vain aikuisille). "%s" havio-rivissä = voittajan nimi.
+const LOYLY_LINES := {
+	"saloinen": {
+		"alku": ["Löylykisa! Viimeinen lauteilla saa nukkua keskellä. Pyyhkeet tiukalle, pojat, hihii.",
+			"Mää heitän, te kestätte. Kuka lähtee ekana, nuolee kiukaan. Ei oikeesti. Ehkä."],
+		"heitto": ["Lisää löylyä! Katotaan, kenen pyyhe kestää.", "Hihii, nyt sihisee! Pitäkää kiinni pyyhkeistä.",
+			"Toinen kauhallinen. Esa, sun karvat kihartuu.", "Kuumaa? Mää en ees aloittanu."],
+		"pakenee": {"joni": ["Mää lähen! Mailat sulaa!", "Fore! Pyyhe jäi, älkää kattoko!"],
+			"esa": ["Erämies… lähtee hakemaan… vettä.", "Hmm. Pyyhe jäi. Erämies ei tarvi pyyhettä."]},
+		"pakenee_sina": ["Hihii! Pyyhe jäi lauteille, ja kaikki näki. Kaikki.", "Sää lähdit ekana! Ja ilman pyyhettä."],
+		"kommentti": {"joni": ["Tää on kuumempi ku Floridan kenttä.", "Mun pallot kiehuu."],
+			"esa": ["Erämies saunoo savusaunassa sata kertaa kuumemmassa.", "Hmm. Vasta lämmintä."]},
+		"voitto": ["Sää kestit! Tuu alalauteelle, mää heitän sulle henkilökohtasen löylyn.", "Viimeinen lauteilla. Mää tykkään sisukkaista."],
+		"havio": ["%s voitti! Ja sun pyyhe makaa vieläkin lauteilla.", "%s kesti pisimpään. Hihii, sun pakarat oli punasemmat ku kiuas."],
+	},
+	"vaala": {
+		"alku": ["Löylykisa! Rekkakuskin sauna lämpiää sataan kahteenkymppiin. Pyyhkeet tiukalle.",
+			"Mää heitän, te kestätte. Timo, ota ne sukat pois."],
+		"heitto": ["Lisää löylyä! Tää on ku rekan pakoputki.", "Sihisee! Tero, verottaja ei pääse tänne.",
+			"Toinen kauhallinen. Kuka on vielä hengissä?", "Kuuma? Tää on vasta tyhjäkäyntiä."],
+		"pakenee": {"tero": ["Valtio pakottaa mut lähtemään!", "Pyyhe jäi! Se on nyt valtion omaisuutta."],
+			"timo": ["Mää lähen! Sukat syttyy!", "VTEC ylikuumeni! Pyyhe jäi, älkää kattoko!"]},
+		"pakenee_sina": ["Hehe! Pyyhe jäi lauteille, ja Katja näki kaiken.", "Sää lähdit ekana. Ilman pyyhettä. Mää näin."],
+		"kommentti": {"tero": ["Kiukaan kivistä ei makseta veroa. Vielä.", "Mun tatuoinnit sulaa."],
+			"timo": ["Mun sukat on aerodynaamiset.", "Tää on kuumempi ku Siviikin moottoritila."]},
+		"voitto": ["Sää kestit! Rekkakuskit arvostaa kestäviä miehiä.", "Viimeinen lauteilla. Tuu, mää heitän vielä yhen."],
+		"havio": ["%s voitti! Sun pyyhe on vielä lauteilla.", "%s kesti pisimpään. Hehe, sun takapuoli on ku jarruvalo."],
+	},
+}
+
+## Siviikki-diskon repliikit (disko_game.gd, vain Vaala, vain aikuisille). "%s" havio-rivissä = voittajan nimi.
+const DISKO_LINES := {
+	"vaala": {
+		"alku": ["Ovet auki ja bassot kaakkoon! Pihadisko alkaa, naapurit saa valittaa verottajalle.",
+			"Siviikin stereot: kakssataa wattia ja yks kaiutin. Tanssikaa, pojat!"],
+		"kommentti": {"tero": ["Valtio ei tanssi. Mää tanssin.", "Tää on mun veroton lantio."],
+			"timo": ["Kato mun pyllistystä, Katja! Seitsemäntuhatta kierrosta!", "VTEC kytkeytyy lantiossa!"],
+			"katja": ["Lantio lähemmäs, Timo. Ei noin lähelle!", "Rekkakuski tykkää, kun peräpää heiluu.",
+				"Hehe, Teron nahkaliivi narisee tahdissa."]},
+		"pylly": ["Hehe, kato ny tota peräpäätä!", "Pyllistys! Mää näin kaiken.", "Tuo on parempi ku Timon spoileri."],
+		"ohi_sina": ["Sää liikut ku Siviikki talvirenkailla.", "Tahti, kulta, tahti!", "Hehe, väärä vaihde."],
+		"voitto": ["Sää vietät mut hitaille. Timo, laita hitaat soimaan.", "Paras peräpää koko Vaalassa. Tuu tänne."],
+		"havio": ["%s voitti! Se vie mut hitaille, ja sää tanssit Teron kanssa.", "%s voitti. Hehe, sun pyllistys oli vähän laimea."],
+	},
+}
+
+## Karaoke-illan repliikit ja säkeistöt (ilta_karaoke.gd, vain aikuisille): "sakeet" laulajan id -> neljä riviä
+## (omat sanat, laulettavat karaoke_game.gd:n nuottikaistoilla), "nimet_<id>" kappaleen nimi. "%s" = laulajan nimi.
+const KARAOKE_LINES := {
+	"saloinen": {
+		"alku": ["Karaoke! Paras laulaja saa valita, kenen viereen nukkuu. Hihii.", "Mikki on lämmin, pojat. Älkää nuolko sitä."],
+		"sakeet": {
+			"joni": ["Mää puttasin sun pihalla koko yön", "pallot oli märät ja maila oli kova",
+				"Minttu huusi fore ja mää tähtäsin reikään", "Päivi luulee että mää oon kalassa"],
+			"pelaaja": ["Päivi soitti yöllä ja kysy missä mää oon", "mittaamassa kulta ihan oikeesti mittaamassa",
+				"harppi oli pitkä ja kynä oli terävä", "ympyrät leikkas just sängyn kohdalla"],
+			"esa": ["Erämies tuli metsästä harpin kanssa", "kolme ympyrää ja yksi iso keppi",
+				"kermaa ja mansikkaa en tarvi lusikkaa", "hirvi kiimassa ei kysy lupaa"]},
+		"nimet_joni": ["Hole in one"], "nimet_pelaaja": ["Kolmiomittauksen blues"], "nimet_esa": ["Erämiehen kiima"],
+		"kehu": ["Hihii, %s lauloi niin, että mun pikkuhousut lähti kiertoon!", "Kultakurkku! Nyt mää vähän punastun."],
+		"pilkka": ["Hihii, %s kuulosti hirveltä, jolla on pallit puristuksissa.", "Naapurit hakkaa seinää. Ei se mitään."],
+		"kommentti": {"joni": ["Tää on mun ainoo hole in one tänä vuonna."], "esa": ["Erämies laulaa harvoin. Ja kovaa."]},
+		"voitto": ["Sää lauloit parhaiten. Mää valitsen sut, ja Esa nukkuu saunassa.", "Kultakurkku. Tuu tänne, mää kuiskaan sulle jotain."],
+		"havio": ["%s voitti! Se nukkuu mun vieressä, ja sää sohvalla mikki kainalossa.", "%s lauloi parhaiten. Hihii, sori."],
+	},
+	"vaala": {
+		"alku": ["Karaoke! Rekkakuskin äänilaitteet, pojat. Paras laulaja saa valita vierustoverin.",
+			"Mikki on lämmin. Tero, älä laula verottajalle."],
+		"sakeet": {
+			"tero": ["Valtio vie rahat ja valtio vie naiset", "mutta tätä yötä ei verottaja saa",
+				"nahkaliivi narisee ja Katja nauraa", "pantu tuppeen ja perintäkulut perään"],
+			"pelaaja": ["Päivi soitti yöllä ja kysy missä mää oon", "mittaamassa kulta ihan oikeesti mittaamassa",
+				"harppi oli pitkä ja kynä oli terävä", "ympyrät leikkas just sängyn kohdalla"],
+			"timo": ["Siviikki keulii ja VTEC kytkeytyy", "takapenkki huurussa ja kalsarit hukassa",
+				"seitsemäntuhatta kierrosta ja Katja kyydissä", "ohitus oikealta ja suoraan perille"]},
+		"nimet_tero": ["Veroton yö"], "nimet_pelaaja": ["Kolmiomittauksen blues"], "nimet_timo": ["VTEC-rakkaus"],
+		"kehu": ["Hehe, %s lauloi niin, että rekan torvi soi itsestään!", "Kultakurkku! Mää meinasin pudota jakkaralta."],
+		"pilkka": ["Hehe, %s kuulosti Siviikiltä ilman pakoputkea.", "Naapurit soittaa poliisit. Ei se mitään."],
+		"kommentti": {"tero": ["Tää laulu on verovähennyskelpoinen."], "timo": ["Mää laulan aina ku VTEC kytkeytyy."]},
+		"voitto": ["Sää lauloit parhaiten. Mää valitsen sut, ja Timo nukkuu Siviikissä.", "Kultakurkku. Rekkakuski on myyty."],
+		"havio": ["%s voitti! Se nukkuu mun vieressä, ja sää sohvalla.", "%s lauloi parhaiten. Hehe, sori kulta."],
+	},
+}
+
 var state := {}  # kohde -> {stage, rings, remote_t, gift, wrong, done_day}
 var maito_day := -1  # päivä, jona Päivi odottaa maitoa (aamu kolmiomittauksen jälkeen)
 var _measure_i := {}
@@ -221,7 +382,20 @@ func _init() -> void:
 
 
 func _fresh() -> Dictionary:
-	return {"stage": "", "rings": [], "remote_t": -1.0, "gift": false, "wrong": [], "done_day": -1}
+	return {"stage": "", "rings": [], "remote_t": -1.0, "gift": false, "wrong": [], "done_day": -1, "illat": 0}
+
+
+## Iltakivat Rasvanapin jälkeen kiertävässä järjestyksessä (kohde -> lista); Siviikki-disko vain Vaalassa (Timon auto).
+const KIVAT := {"saloinen": ["tuppi", "lettu", "karaoke", "loyly"], "vaala": ["tuppi", "disko", "loyly", "lettu", "karaoke"]}
+
+
+## Seuraavan illan iltakiva: ensimmäinen ilta on aina Rasvanappi, sen jälkeen KIVAT kiertäen.
+func next_kiva(site: String) -> String:
+	var s := st(site)
+	if s.done_day < 0:
+		return "rasvanappi"
+	var list: Array = KIVAT.get(site, ["tuppi"])
+	return list[maxi(0, int(s.get("illat", 1)) - 1) % list.size()]
 
 
 func st(site: String) -> Dictionary:
@@ -347,6 +521,7 @@ func finish(site: String, day: int) -> void:
 	var s := st(site)
 	s.stage = "valmis"
 	s.done_day = day
+	s.illat = int(s.get("illat", 0)) + 1
 	s.remote_t = -1.0
 
 
@@ -364,7 +539,8 @@ func save_to(cfg: ConfigFile) -> void:
 		var rings: Array = []
 		for r: Dictionary in s.rings:
 			rings.append([r.c.x, r.c.y, r.m, r.lo, r.hi, r.who])
-		cfg.set_value("kolmio", site, {"stage": s.stage, "rings": rings, "gift": s.gift, "wrong": s.wrong, "done_day": s.done_day})
+		cfg.set_value("kolmio", site, {"stage": s.stage, "rings": rings, "gift": s.gift, "wrong": s.wrong, "done_day": s.done_day,
+			"illat": s.illat})
 	cfg.set_value("kolmio", "maito", maito_day)
 
 
@@ -376,6 +552,7 @@ func load_from(cfg: ConfigFile) -> void:
 		s.gift = d.get("gift", false)
 		s.wrong = d.get("wrong", [])
 		s.done_day = d.get("done_day", -1)
+		s.illat = d.get("illat", 1 if s.done_day >= 0 else 0)
 		for q: Array in d.get("rings", []):
 			s.rings.append({"c": Vector2(q[0], q[1]), "m": float(q[2]), "lo": float(q[3]), "hi": float(q[4]), "who": String(q[5])})
 		if s.stage == "mittaus":

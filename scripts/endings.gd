@@ -46,6 +46,11 @@ const ENDINGS := [
 	# Luku 6 (#326): kesäheila -96 -huipennuksen loput (main.gd _kesaheila_*) ja legendaarinen hetki kummassakin.
 	["kulissit", "Kulissit kunnossa", "Kesäheila -96 oli Päivi. Naurettiin yhdessä, ja aamulla kerma ja mansikat syötiin keittiössä."],
 	["avoin_pelikortti", "Avoin pelikortti", "Kaikki kortit pöytään: sinun syntisi ja Päivin Zabukin tanssit. Kukaan ei lähtenyt."],
+	["rasytuppi", "Räsytuppi", "Kaverit pantiin tuppeen kalsareissa naisen olohuoneessa. Kortit jäivät pöydälle, kalsarit päälle."],
+	["lettukunkku", "Lettukunkku", "Eniten kermalettuja minuutissa naisen pöydässä. Voittaja nuoli vatkaimen."],
+	["loylykunkku", "Löylykunkku", "Viimeisenä lauteilla, kun kaverit pakenivat pyyhkeet kourassa. Pyyhe putosi, ego ei."],
+	["siviikkidisko", "Siviikki-disko", "Pihadisko Siviikin bassojen tahtiin. Katja tanssi sinun kanssasi, ja Timon akku loppui."],
+	["karaokekunkku", "Karaokekunkku", "Olohuoneen karaokessa parhaat pisteet rivoimmalla laululla. Naapurit kuulivat sanat."],
 	["kesaheila", "Kesäheila -96", "Kolme ympyrää leikkasi oman kodin. Ovella seisoi Päivi kerman ja mansikoiden kanssa."],
 ]
 

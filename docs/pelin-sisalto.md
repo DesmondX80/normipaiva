@@ -94,6 +94,25 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   tulee "Kolmiomittaus Saloisissa" tai "Vaalassa", kun kavereiden kanssa juttelee ensimmäisen kerran (ajatusviesti), ja se
   leimataan tehdyksi aamulla; Saloisten tehtävällä on karttamerkintä kavereiden luo. Testit
   `--scene=kolmiomittaus` ja `--scene=kolmiomittaus_vaala` (`tools/testit/kolmiomittaus.gd`).
+- **Iltakivat (kolmiomittauksen toinen ilta ja siitä eteenpäin, vain aikuisille, vähän rivoja):** kohteen ensimmäinen
+  ilta on aina Rasvanappi, sen jälkeen illat kiertävät (`kolmiomittaus.gd KIVAT`; Saloisissa räsytuppi, lettukisa,
+  karaoke ja löylykisa; Vaalassa räsytuppi, Siviikki-disko, löylykisa, lettukisa ja karaoke). Jokaisen voitto on
+  legendaarinen hetki, ja aamun tilastorivi ja kaverien aamurepliikit kertovat illan kivasta (`kolmio_kohtaus.gd KIVA_AAMU`).
+  - **Räsytuppi** (`tuppi.gd`, `tuppi_game.gd`): tuppia pareittain naisen olohuoneen korttipöydässä (pelaaja ja nainen
+    vastaan kaverit; rami tai nolo, maapakko, ässä korkein). Jaon hävinnyt pari riisuu: kengät, paita (naisella
+    rintaliivit jäävät) ja housut; kalsareissa hävinnyt pari on pantu tuppeen. Legendaarinen hetki **Räsytuppi**.
+  - **Lettukisa** (`lettu_game.gd`): minuutissa eniten kermalettuja. Haukku (E) täyttää suuta ja suu tyhjenee
+    pureskellessa; liian iso suullinen = kerma nenästä ja yskintä. Letut ovat kolmesta palasta, haarukka nousee suulle,
+    ja nainen tuo lisää lettuja pannulta. Legendaarinen hetki **Lettukunkku**.
+  - **Löylykisa** (`loyly_game.gd`): oma sauna (lauteet, kiuas kivineen, höyry), pyyhkeet lanteilla. Nainen heittää
+    löylyä tasaisin välein; hengitä ulos (E), kun rengas on vihreällä, niin tuska laskee. Paennut nousee lauteilta, ja
+    pyyhe jää lauteille. Viimeinen lauteilla voittaa: **Löylykunkku**.
+  - **Siviikki-disko** (vain Vaala, `disko_game.gd`): Katjan pihalla Timon Civic ajovaloineen ja pohjavaloineen, stereoista
+    oikea 90-luvun tanssibiisi (tempo mitattu). Liikkeet tulevat tahdissa neljälle kaistalle: lantio (A/D), kädet ylös (W)
+    ja pyllistys (S, hahmo pyllistää kameraan). Katja valitsee parhaan tanssijan hitaille: **Siviikki-disko**.
+  - **Karaoke** (`ilta_karaoke.gd`): mikrofoniteline olohuoneessa ja putkitelkkari sanoineen; jokainen laulaa oman rivon
+    säkeistön pelin karaokella (`karaoke_game.gd`, nuottikaistat), kaverien vuoroilla tekoäly näppäilee. Paras laulaja
+    voittaa: **Karaokekunkku**.
 - **Luku 6: Päivi epäilee (#326, aikuisille):** salaiset hommat jättävät jälkiä, ja Päivin **epäluulo 0–100**
   (`scripts/rikos/paivi.gd`) nousee niistä. Jäljet: kolmiomittaus +20, Rasvanappi, Pentin BangBus ja huumekaupan myynti
   +15, korkkikansio, rakaleiman kopio, Drakkar Noir ja Irman hälytys +10. Jälki syntyy kerran, kun ensikerta tehdään, ja
