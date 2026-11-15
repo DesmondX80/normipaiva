@@ -100,7 +100,8 @@ func tick(_e: bool) -> void:
 		return
 	if kysytty_day == game.day or game.clock_min >= AAMU_ASTI or game._in_vaala or game.state != "ulkona":
 		return
-	if game._talk_box.is_open() or game._note.visible or game.cutscene.busy:
+	# Lapun näkyvyys on läpinäkyvyys (note.gd is_showing): solmu on pelissä aina visible (testit piilottavat sen).
+	if game._talk_box.is_open() or game._note.is_showing() or game.cutscene.busy:
 		return
 	if game._active_walker().global_position.distance_to(game.home_zone) > KOTI_R:
 		return
@@ -424,7 +425,12 @@ func _testi_aamu() -> void:
 	_alusta()
 	var w: Node3D = game._active_walker()
 	w.global_position = game.home_zone + Vector3(0, 0.3, 4)
-	game._note.visible = false
+	# Kuten pelissä: lappusolmu näkyvissä, aamun lappu jo häipynyt (is_showing epätosi). Ennen solmu piilotettiin, ja
+	# tick tarkisti visible-tilaa, joten puheeksiotto toimi vain testissä (pelissä lappu on aina visible).
+	game._note.visible = true
+	if game._note._tw != null:
+		game._note._tw.kill()
+	game._note._holder.modulate.a = 0.0
 	game.clock_min = 9.0 * 60.0
 	await _frames(6)
 	print("PAIVI_PUHE ilman jälkeä: auki %s" % game._talk_box.is_open())

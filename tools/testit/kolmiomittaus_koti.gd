@@ -280,8 +280,8 @@ func _suuttua(p: Object) -> void:
 		_vika("jääkaappi ei ole tyhjä Päivin ollessa poissa")
 	main._new_day(main.home_zone + Vector3(0, 0, 4), false)
 	await _frames(30)
-	print("KESA aamu poissa: lappu näkyy %s, lista %s, viesti '%s'" % [main._note.visible, main.shopping_list, main._msg.text])
-	if main._note.visible or not main.shopping_list.is_empty():
+	print("KESA aamu poissa: lappu näkyy %s, lista %s, viesti '%s'" % [main._note.is_showing(), main.shopping_list, main._msg.text])
+	if main._note.is_showing() or not main.shopping_list.is_empty():
 		_vika("Päivin lappu tai lista Päivin ollessa poissa")
 	await _snap("_suuttua_aamu")
 	await _frames(5)
@@ -354,13 +354,13 @@ func _nauraa(p: Object) -> void:
 	main._new_day(main.home_zone + Vector3(0, 0, 4), false)
 	await _frames(30)
 	for i in 20:  # välianimaatio (esim. Päivi löysi jemman) näyttää lapun vasta lopuksi
-		if main._note.visible or main.state == "ulkona" and not main.cutscene.busy:
+		if main._note.is_showing():
 			break
 		await _frames(15)
 	print("KESA paluuaamu: poissa %s, paluu %s, lappu %s, tila %s, jemma_found %s" % [p.poissa(), p.liput.get("kesaheila_paluu", false),
-		main._note.visible, main.state, main._jemma_found])
-	# Lappu näkyy vasta aamun alkuhäivytyksen jälkeen (testissä ei aina 30 ruudussa), joten ehto on paluun tila.
-	if p.poissa() or not p.liput.get("kesaheila_paluu", false):
+		main._note.is_showing(), main.state, main._jemma_found])
+	# Lapun näkyvyys on läpinäkyvyys (note.gd is_showing); testiympäristö piilottaa solmun, joten visible ei kerro mitään.
+	if p.poissa() or not p.liput.get("kesaheila_paluu", false) or not main._note.is_showing():
 		_vika("viikon paluu ei toiminut")
 	await _snap("_paluu_aamu")
 	main._note.visible = false
