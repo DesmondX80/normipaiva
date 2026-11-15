@@ -12200,7 +12200,7 @@ func _kolmio_drive_start() -> void:
 	cam.current = true
 	_kolmio_drive = {"d": 0.0, "dir": 1, "v": 0.0, "vtec": false, "cam": cam, "home": _kolmio_civic.transform,
 		"len": _kolmio_route_len(route), "line": 0, "line_t": 0.0,
-		"engine": Sfx.loop_on(_kolmio_civic, "engine", -6.0)}
+		"engine": Sfx.loop_on(_kolmio_civic, "engine", -6.0), "stereo": _siviikki_stereo()}
 	for v: Node3D in _kolmio_vaala_npcs:
 		v.visible = false
 	mopo_trip.on_foot.visible = false
@@ -12208,6 +12208,45 @@ func _kolmio_drive_start() -> void:
 	mopo_trip.menu_open = true  # E ei avaa ovia ajon aikana
 	Sfx.play("door_close", -4.0)
 	_queue_message("Timo: \"Turvavyöt. Tero, pidä kiinni. Tää on kakkosvaihde ja VTEC.\"", 3.5)
+
+
+## Siviikin stereot: 90-luvun tanssibiisi (kuulokkeiden kansio, ei tunnistettavaa biisiä) satunnaisesta kohdasta väylän
+## SIVIIKKI_BUS läpi: bassot ylös, diskantti pois ja vähän säröä, eli auton läpi kuuluva bassojytke.
+const SIVIIKKI_BUS := "Siviikki"
+func _siviikki_stereo() -> AudioStreamPlayer3D:
+	if AudioServer.get_bus_index(SIVIIKKI_BUS) < 0:
+		AudioServer.add_bus()
+		var bi := AudioServer.bus_count - 1
+		AudioServer.set_bus_name(bi, SIVIIKKI_BUS)
+		AudioServer.set_bus_send(bi, "Music" if AudioServer.get_bus_index("Music") >= 0 else "Master")
+		var eq := AudioEffectEQ6.new()  # 32, 100, 320, 1000, 3200, 10000 Hz
+		for band: Array in [[0, 9.0], [1, 8.0], [2, 2.0], [3, -4.0], [4, -12.0], [5, -20.0]]:
+			eq.set_band_gain_db(band[0], band[1])
+		AudioServer.add_bus_effect(bi, eq)
+		var lp := AudioEffectLowPassFilter.new()
+		lp.cutoff_hz = 700.0
+		AudioServer.add_bus_effect(bi, lp)
+		var dist := AudioEffectDistortion.new()  # ylikuormitettu subwoofer
+		dist.mode = AudioEffectDistortion.MODE_OVERDRIVE
+		dist.drive = 0.35
+		dist.pre_gain = -6.0
+		dist.post_gain = -2.0
+		AudioServer.add_bus_effect(bi, dist)
+	var list: Array[String] = Headphones.playlist()
+	if list.is_empty() or _kolmio_civic == null:
+		return null
+	var st: AudioStream = load(list.pick_random())
+	if st == null:
+		return null
+	var p := AudioStreamPlayer3D.new()
+	p.stream = st
+	p.bus = SIVIIKKI_BUS
+	p.volume_db = 2.0
+	p.unit_size = 8.0
+	p.max_db = 6.0
+	_kolmio_civic.add_child(p)
+	p.play(randf_range(15.0, maxf(16.0, st.get_length() - 60.0)))
+	return p
 
 
 static func _kolmio_route_len(route: PackedVector3Array) -> float:
@@ -12298,6 +12337,11 @@ func _kolmio_drive_end() -> void:
 	_kolmio_civic.transform = dr.home
 	if is_instance_valid(dr.engine):
 		(dr.engine as Node).queue_free()
+	var st: Node = dr.get("stereo")
+	if is_instance_valid(st):  # stereot hiljenevät ovien auetessa
+		var tw := st.create_tween()
+		tw.tween_property(st, "volume_db", -40.0, 0.6)
+		tw.tween_callback(st.queue_free)
 	(dr.cam as Node).queue_free()
 	for v: Node3D in _kolmio_vaala_npcs:
 		v.visible = true
