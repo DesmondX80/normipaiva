@@ -46,6 +46,11 @@ var _sitters: Array = []  # {"pain", "out", "sisu", "skill", "breath_t", "done_c
 var _towels: Array = []  # lauteille jäävät pyyhkeet (näkyviin paetessa)
 var _steam: CPUParticles3D
 var _glow: OmniLight3D
+var _ladle: Node3D  # löylykauha (-Z = varresta kuppiin, origo kädensijassa)
+var _ladle_water: Node3D
+var _ladle_cup: Node3D  # kuppi reunuksineen ja vesineen: pidetään pystyssä maailmassa (kallistus vain kaadettaessa)
+var _ladle_rest := Vector3.ZERO
+var _throw_anim := 9.0  # heiton aika (s): kurotus kiukaalle, kallistus, paluu
 var _bubbles: Array = ["", "", "", ""]
 var _bubble_t := [0.0, 0.0, 0.0, 0.0]
 var _phase := "alku"
@@ -131,10 +136,8 @@ func _build() -> void:
 	var wp: Vector3 = w.basis * w.bone_position("pelvis")
 	w.position = Vector3(WOMAN_AT.x - wp.x, BENCH_TOP + 0.1 - wp.y, BENCH_D * 0.45 - wp.z)
 	_chars.append(w)
-	var kauha := Node3D.new()
-	B.mesh(kauha, B.cyl(0.012, 0.012, 0.6, 8), Vector3(0, -0.22, 0.0), Color(0.55, 0.36, 0.2))
-	B.mesh(kauha, B.cyl(0.05, 0.04, 0.05, 12), Vector3(0, -0.53, 0.0), Color(0.6, 0.62, 0.66))
-	w.attach("hand_r", kauha, Vector3(0, 0.0, 0.0))
+	_ladle = _make_ladle()
+	_ladle_rest = Vector3(WOMAN_AT.x + 0.2, step_y + 0.12, BENCH_D + 0.45)  # kuppi alalauteella naisen polven edessä
 	# Kiulu lattialla naisen vieressä.
 	var kiulu := Vector3(0.95, 0.0, 1.25)  # lattialla alalauteen edessä
 	B.mesh(_room, B.cyl(0.13, 0.11, 0.2, 16), kiulu + Vector3(0, 0.1, 0), Color(0.62, 0.42, 0.22))
@@ -259,6 +262,109 @@ func _build_kiuas() -> void:
 		Color(0.15, 0.15, 0.16))
 
 
+const LADLE_LEN := 0.74  # kädensijasta kupin keskelle
+
+
+## Löylykauha: sorvattu puuvarsi nupilla, messinkiholkki ja alaspäin taipuva kaula, kupera messinkikuppi reunuksineen
+## ja vesi kupissa. -Z = varresta kuppiin; kuppi roikkuu kaulan päässä aukko ylöspäin.
+func _make_ladle() -> Node3D:
+	var l := Node3D.new()
+	_room.add_child(l)
+	var wood := Color(0.62, 0.42, 0.24)
+	var brass := StandardMaterial3D.new()
+	brass.albedo_color = Color(0.78, 0.55, 0.28)
+	brass.metallic = 0.8
+	brass.roughness = 0.35
+	B.mesh(l, B.sphere(0.022, 10), Vector3(0, 0, 0.1), wood.darkened(0.15))  # nuppi varren päässä
+	var handle := MeshInstance3D.new()  # kapeneva varsi kädensijasta holkkiin
+	var hm := CylinderMesh.new()
+	hm.top_radius = 0.0175
+	hm.bottom_radius = 0.012
+	hm.height = 0.7
+	hm.radial_segments = 10
+	handle.mesh = hm
+	handle.material_override = B.mat(wood)
+	handle.rotation.x = -PI / 2.0  # sylinterin y -> -Z
+	handle.position = Vector3(0, 0, 0.1 - 0.35)
+	l.add_child(handle)
+	for z: float in [0.04, -0.02]:  # tummat syyrenkaat kädensijassa
+		B.mesh(l, B.cyl(0.0182, 0.0182, 0.006, 10), Vector3(0, 0, z), wood.darkened(0.35), Vector3(PI / 2.0, 0, 0))
+	var ferrule := MeshInstance3D.new()
+	ferrule.mesh = B.cyl(0.014, 0.013, 0.05, 10)
+	ferrule.material_override = brass
+	ferrule.rotation.x = PI / 2.0
+	ferrule.position = Vector3(0, 0, -0.62)
+	l.add_child(ferrule)
+	var neck := B.tube(l, Vector3(0, 0, -0.64), Vector3(0, -0.035, -LADLE_LEN + 0.04), 0.006, Color.WHITE)
+	neck.material_override = brass
+	var cup := MeshInstance3D.new()  # avoin kuppi: kylki ja pohja, sisäpinta näkyy (cull pois)
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.052
+	cm.bottom_radius = 0.036
+	cm.height = 0.055
+	cm.radial_segments = 18
+	cm.cap_top = false
+	cup.mesh = cm
+	var cup_mat: StandardMaterial3D = brass.duplicate()
+	cup_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	cup.material_override = cup_mat
+	var grp := Node3D.new()
+	grp.position = Vector3(0, -0.06, -LADLE_LEN)
+	l.add_child(grp)
+	_ladle_cup = grp
+	grp.add_child(cup)
+	var rim := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.048
+	tm.outer_radius = 0.057
+	tm.rings = 18
+	tm.ring_segments = 6
+	rim.mesh = tm
+	rim.material_override = brass
+	rim.position = Vector3(0, 0.0275, 0)
+	grp.add_child(rim)
+	var water := MeshInstance3D.new()
+	water.mesh = B.cyl(0.046, 0.046, 0.004, 16)
+	var wm := StandardMaterial3D.new()
+	wm.albedo_color = Color(0.45, 0.62, 0.75, 0.8)
+	wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	wm.roughness = 0.05
+	water.material_override = wm
+	water.position = Vector3(0, 0.015, 0)
+	grp.add_child(water)
+	_ladle_water = water
+	return l
+
+
+## Kauha naisen oikeassa kädessä: levossa kuppi alalauteella polven edessä, heitossa käsi kurottaa ja kuppi nousee
+## kiukaan kivien ylle, kallistuu (vesi kaatuu, höyry) ja palaa. Käsi IK:lla kädensijaan.
+func _place_ladle(delta: float) -> void:
+	var w: Node3D = _chars[3]
+	_throw_anim += delta
+	var t := _throw_anim
+	var reach := smoothstep(0.0, 0.55, t) * (1.0 - smoothstep(1.3, 1.9, t))
+	var pour := smoothstep(0.6, 0.85, t) * (1.0 - smoothstep(1.05, 1.35, t))
+	var sh := _room.to_local(w.to_global(w.bone_position("upperarm_r")))
+	var over := KIUAS + Vector3(0.1, 0.98, 0.1)  # kivien etuosan yllä (piippu on kiukaan takareunassa)
+	var cup := _ladle_rest.lerp(over, reach)
+	var dir := (cup - sh)
+	var dist := dir.length()
+	dir = dir / maxf(dist, 0.001)
+	var hand := sh + dir * clampf(dist - LADLE_LEN, 0.22, 0.5)
+	cup = hand + dir * LADLE_LEN
+	var inv := w.transform.affine_inverse()
+	w.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * hand, inv * (hand + Vector3(0.25, -0.35, -0.1)))
+	_ladle.position = hand
+	_ladle.look_at(_room.to_global(cup), Vector3.UP)
+	# Kuppi roikkuu kaulan päässä aukko ylöspäin; kaadettaessa se kallistuu varren suunnassa poispäin naisesta.
+	var fwd := Vector3(dir.x, 0, dir.z).normalized()
+	var tilt := Basis(fwd.cross(Vector3.UP).normalized(), -pour * 1.7)
+	_ladle_cup.global_basis = _room.global_basis * tilt
+	_ladle_cup.global_position = _room.to_global(cup + Vector3(0, -0.05, 0))
+	_ladle_water.visible = t < 0.8 or t > 2.2
+	Room.set_layers(_ladle)
+
+
 ## Ulkonäkö saunassa: sama kuin Uiton ja mökin saunassa (cutscene.gd sauna_look: paljas, löylystä punertava iho, ei
 ## kenkiä), pyyhkeen väri lanteille. Naiset: _bikini_look. towel = false: pyyhe jäi lauteille (paljas).
 static func _towel_look(base: Dictionary, towel: bool, col: Color) -> Dictionary:
@@ -352,6 +458,7 @@ func _frame_cam() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	_place_ladle(delta)
 	for s in 4:
 		if _bubble_t[s] > 0.0:
 			_bubble_t[s] -= delta
@@ -404,8 +511,8 @@ func _race(delta: float) -> void:
 	if _throw_t <= 0.0:
 		_throw_t = THROW_EVERY
 		_heat += 1
-		_chars[3].restart("Sitting_Talking", 0.1)
-		get_tree().create_timer(0.45).timeout.connect(func() -> void:
+		_throw_anim = 0.0
+		get_tree().create_timer(0.75).timeout.connect(func() -> void:
 			if not is_instance_valid(_steam):
 				return
 			_steam.restart()
@@ -597,9 +704,10 @@ func _hall_center() -> Vector3:
 	return _room.to_global(CENTER)
 
 
-## Lähikuva naisesta (saunavaatteiden tarkistus).
+## Lähikuva naisesta ja kauhasta kesken heiton (kuppi kiukaan yllä kallistumassa): saunavaatteet ja kauha.
 func test_closeup2() -> void:
-	var p := Vector3(WOMAN_AT.x + 0.05, BENCH_TOP + 0.25, 0.4)
-	var eye := p + Vector3(0.35, 0.15, 1.0)
+	_throw_anim = 0.82
+	var p := Vector3(0.45, 1.25, 0.9)
+	var eye := p + Vector3(0.75, 0.25, 1.25)
 	_cam_base = Transform3D(Basis.looking_at(p - eye, Vector3.UP), eye)
 	_cam.transform = _cam_base
