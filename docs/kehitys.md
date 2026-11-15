@@ -83,6 +83,9 @@ Uusi Satamantie (kapea asfalttikatu K-Marketilta satamaan ja Uitolle, vanha sora
 Vaalan asematie (Vaalantie torille, Aseman piha suoraan asemalle, Satamantie soraksi, tori laajennettu): `python3 tools/vaala_asematie.py` (kerran, `vaala_risteys.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). `--scene=vaala_ajo --ajo=yhteys`: kaikki Vaalan tiet tavoitettavissa mökiltä (ajoalueen tulvatäyttö; irralliset saarekkeet listataan). `--ajo=venelava`: veneen reitti lavan laituriin. `--ajo=portti`: mopo ei pääse lavan portista eikä aidan läpi (parkki aidan ulkopuolella). Tieverkon siistii ja suoristaa `python3 tools/vaala_suorat.py` (bake-ketjun viimeinen vaihe, ajetaan kerran; sivutiet, jalkakäytävät ja umpikujahaarat pois, jäljelle suorat tiet kohteisiin).
 Vaalan Ratatie (asfalttikierros aseman edestä Zabukin taakse Aseman pihaan, 3 pientä rakennusta pois): `python3 tools/vaala_kierros.py` (kerran, `vaala_asematie.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). `--scene=vaalakierros`: paperikartta keskustasta kahdella zoomilla sekä vapaan kameran kuvat `_ylhaalta`, `_ymparyra`, `_tori`, `_zabuki`, `_asemalle`.
 
+`tools/testit/aja.sh scene aloitusruutu`: päävalikko kuten käynnistyksessä (kuva) ja tarkistus, ettei taustalla näy pelin
+HUD-laatikoita (autovarkauden tähtilaatikko `rikos/tahdet_hud.gd` on piilossa, kun valikko on auki tai tähtiä ei ole).
+
 Iltakivat (kolmiomittauksen toinen ilta eteenpäin): `godot --headless --path . -s tools/testit/tuppi_logiikka.gd` (tupin
 säännöt ja tekoäly 30 jaolla, laittomat kortit ja tikkimäärät = TESTI VIKA), `tools/testit/aja.sh tscn tools/testit/tuppi_kuvat.tscn`
 (räsytupin vaiheet, riisuminen, pöydän kortti vähintään 40 px ja läpimenot), `tools/testit/aja.sh scene kolmio_tuppi`

@@ -17,6 +17,7 @@ var _c: Control
 
 func _ready() -> void:
 	layer = 6
+	visible = false  # piilossa, kunnes _process näkee tähtiä: pysäytetyssä pelissä (aloitusruutu) _process ei aja
 	_c = Control.new()
 	_c.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_c.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -25,7 +26,8 @@ func _ready() -> void:
 
 
 func _process(_d: float) -> void:
-	visible = tahdet > 0 and (game == null or game.state == "ulkona")
+	visible = tahdet > 0 and (game == null or game.state == "ulkona") and not (game != null and game.menu != null
+		and game.menu.visible)
 	if visible:
 		_c.queue_redraw()
 

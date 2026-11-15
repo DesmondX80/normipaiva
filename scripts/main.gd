@@ -37421,6 +37421,18 @@ func _maybe_screenshot() -> void:
 				for i in 120:
 					await get_tree().physics_frame
 				walker_out.global_position = wp
+		"aloitusruutu":
+			# Aloitusruutu kuten käynnistyksessä (päävalikko ja kiertävä kamera kodin yllä): taustalla ei saa näkyä
+			# pelin HUD-laatikoita (esim. autovarkauden tähtilaatikko rikos/tahdet_hud.gd ilman tähtiä).
+			menu.open_main()
+			for i in 120:
+				await get_tree().process_frame
+			for n in find_children("*", "CanvasLayer", true, false):
+				var cl := n as CanvasLayer
+				if cl != menu and cl.visible and cl.layer < menu.layer and n.get_script() != null \
+						and String(n.get_script().resource_path).ends_with("tahdet_hud.gd"):
+					print("TESTI VIKA aloitusruudussa näkyy tähtilaatikko %s" % n.get_path())
+			print("ALOITUS valikko auki %s" % menu.visible)
 		"startcheck":
 			# Oikea käynnistys (kuvan nimi *menu.png ohittaa testitilan): tallennettu pyörä, valikosta jatkoon, kävely.
 			menu.close()
