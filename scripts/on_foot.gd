@@ -43,6 +43,7 @@ var drain_mult := 1.0  # väsymys: juoksun ja spurtin kulutus
 var recover_mult := 1.0  # väsymys: palautuminen
 var no_sprint := false  # stamina: juoksu ja spurtti eivät toimi
 var _breath_t := 0.0
+var _breath_tail := 0  # toipumisen jälkeiset hengityskierrokset
 
 var _body: Node3D
 var _cam: Camera3D
@@ -141,12 +142,20 @@ func tire(exerting: bool, resting: bool, delta: float, drain := 18.0) -> void:
 		stamina = minf(100.0, stamina + (22.0 if resting else 12.0) * (HURT_RECOVER if hurt else 1.0) * recover_mult * delta)
 		if exhausted and stamina >= 35.0:
 			exhausted = false
-	# Hengästyneenä kuuluu puuskutus.
-	if exhausted:
+	# Hengästyneenä kuuluu puuskutus (äänitteet, assets/sounds/LICENSE.md): ihan poikki nopeaa puuskutusta, kunnon
+	# palatessa raskaita hengityskierroksia ja toivuttua vielä pari hiljaisempaa. Seuraava alkaa, kun edellinen on soinut.
+	if exhausted or _breath_tail > 0:
 		_breath_t -= delta
 		if _breath_t <= 0.0:
-			_breath_t = randf_range(0.6, 0.8)
-			Sfx.play("breath", -12.0, randf_range(0.92, 1.08))
+			var pitch := randf_range(0.95, 1.05)
+			if exhausted and stamina < 15.0:
+				_breath_t = Sfx.play_len("pant", -9.0, pitch * 1.05) + randf_range(0.05, 0.15)
+			else:
+				if not exhausted:
+					_breath_tail -= 1
+				_breath_t = Sfx.play_len("breath", -11.0 if exhausted else -16.0, pitch) + randf_range(0.1, 0.35)
+	if exhausted:
+		_breath_tail = 2  # toivuttua vielä kaksi hiljaisempaa hengityskierrosta
 
 
 func _physics_process(delta: float) -> void:

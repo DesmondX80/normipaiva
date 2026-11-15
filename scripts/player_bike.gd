@@ -107,6 +107,7 @@ var _rider: Node3D
 var _stun := 0.0
 var _push := Vector3.ZERO
 var _roll: AudioStreamPlayer
+var _ride: AudioStreamPlayer  # vanhan pyörän räminä (bike_ride), vain polkupyörällä
 var _chain: AudioStreamPlayer
 var _squeal: AudioStreamPlayer
 var _squeak_phase := 0.0  # kammen kulma viimeisimmästä vinkaisusta
@@ -151,6 +152,11 @@ func _ready() -> void:
 	_roll.volume_db = -80.0
 	add_child(_roll)
 	_roll.play()
+	_ride = AudioStreamPlayer.new()
+	_ride.stream = Sfx.stream("bike_ride")
+	_ride.volume_db = -80.0
+	add_child(_ride)
+	_ride.play(randf() * 20.0)  # silmukka 28 s: eri kohdasta joka kerta
 	_chain = AudioStreamPlayer.new()
 	_chain.stream = Sfx.stream("spokes_loop")  # vapaarattaan naksutus rullatessa polkematta
 	_chain.volume_db = -80.0
@@ -466,8 +472,16 @@ func _update_roll_sound() -> void:
 	_squeal.volume_db = lerpf(_squeal.volume_db, want, 0.3)
 	_squeal.pitch_scale = 0.9 + k * 0.25
 	var r: Array = ROLL.get(surface, ROLL.asphalt)
-	_roll.volume_db = linear_to_db(k * 0.6 + 0.0001) + r[1] - 2.0 + mute
+	# Polkupyörällä rullausääni on renkaan suhina räminän alla; mopolla ja autolla se on ainoa tieääni.
+	var pyora := not mopo and not car
+	_roll.volume_db = linear_to_db(k * 0.6 + 0.0001) + r[1] - 2.0 - (6.0 if pyora else 0.0) + mute
 	_roll.pitch_scale = (0.75 + k * 0.5) * r[0]
+	# Räminä: vanha pyörä kolisee vauhdin mukaan, epätasaisella alustalla kovemmin. Sävelkorkeus muuttuu vain vähän
+	# (äänite on oikeasta vauhdista), joten kolina ei kuulosta nauhan kelaukselta.
+	var kr := clampf(absf(speed) / 6.5, 0.0, 1.3)
+	var rattle_db: float = (linear_to_db(kr * 0.85 + 0.0001) + 0.6 * r[1] + 1.5 + mute) if pyora and kr > 0.03 else -80.0
+	_ride.volume_db = lerpf(_ride.volume_db, rattle_db, 0.2)
+	_ride.pitch_scale = clampf(0.85 + kr * 0.25, 0.85, 1.15)
 	# Vapaaratas naksuu vain, kun rullataan polkematta.
 	var coasting := controls_enabled and absf(speed) > 1.0 and not Input.is_action_pressed("forward") and not mopo and not car
 	_chain.volume_db = lerpf(_chain.volume_db, (linear_to_db(k * 0.7 + 0.0001) - 6.0 + mute) if coasting else -80.0, 0.25)
@@ -609,7 +623,10 @@ func _apply_bumps(delta: float) -> void:
 	_visual.rotation.x = lerpf(_visual.rotation.x, bump * 1.5, 1.0 - exp(-14.0 * delta))
 	_shake = maxf(_shake - delta, t.bump * k * 0.6)
 	if t.bump > 0.0 and randf() < t.bump * k * 0.25:
-		_sfx("rattle", -14.0 + t.bump * 60.0, randf_range(0.85, 1.15))  # lokasuoja kolisee
+		if mopo or car:
+			_sfx("rattle", -14.0 + t.bump * 60.0, randf_range(0.85, 1.15))  # lokasuoja kolisee
+		else:
+			_sfx("bike_clunk", -16.0 + t.bump * 60.0, randf_range(0.9, 1.1))  # oman pyörän kolahdus (sama äänite)
 	_debris.emitting = DEBRIS.has(surface) and absf(speed) > 2.0
 	if _debris.emitting:
 		_debris_mat.albedo_color = DEBRIS[surface]

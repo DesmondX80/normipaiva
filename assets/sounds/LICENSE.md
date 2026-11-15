@@ -1,4 +1,4 @@
-# Äänitteet – kaikki CC0 1.0 (public domain)
+# Äänitteet – CC0 1.0 / public domain, paitsi bike_ride ja bike_clunk (CC BY-SA 4.0, alla)
 
 | Tiedosto | Lähde |
 |---|---|
@@ -28,3 +28,13 @@
 
 - saw_0–7.wav (pokasahan vedot) ja axe_0–5.wav (kirveen iskut pölkkyyn): CC0, leikattu pidemmistä äänitteistä.
 - shotgun.wav (haulikon laukaus metsästysminipelissä): syntetisoitu tätä peliä varten (kohina, matala jyly ja kaiku), CC0.
+- breath_0–4.ogg (raskas hengitys): "Heavy breathing 2" – ezwa, Wikimedia Commons,
+  https://commons.wikimedia.org/wiki/File:Heavy_breathing_2.ogg (public domain). Leikattu hengityskierroksiksi,
+  verkkohurina ja kohina poistettu (`tools/aanet/rakenna_pyora_hengitys.py`).
+- pant_0–2.ogg (puuskutus): "Breathing Tired" – https://opengameart.org/content/breathing-tired (CC0). Leikattu,
+  hurina ja 3,8 kHz:n vinkuna poistettu.
+- bike_ride.ogg (vanhan pyörän räminä, silmukka) ja bike_clunk_0–5.ogg (kolahdukset): "Old Bike UglyBike Onboard
+  Slow Start-ride-stop" – Frick & Traa (frickandtraa.com), Wikimedia Commons,
+  https://commons.wikimedia.org/wiki/File:Old_Bike_UglyBIke_Onboard_Slow_Start-ride-stop_CityBikes_FreeSamplePack_frickandtraa.com_F%26T_Bicycle.wav
+  (**CC BY-SA 4.0**). Muokattu (silmukka ristiinhäivytetty, kolahdukset leikattu, taso sovitettu); muokatut tiedostot
+  ovat samalla lisenssillä CC BY-SA 4.0.
