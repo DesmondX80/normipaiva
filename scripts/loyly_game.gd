@@ -23,6 +23,8 @@ const BENCH_TOP := 1.0  # ylälauteen pinta
 const BENCH_D := 0.62  # ylälauteen syvyys takaseinästä
 const SEAT_X := [1.45, 0.82, 2.08]  # 0 pelaaja keskellä, 1 vasen, 2 oikea
 const KIUAS := Vector3(0.42, 0.0, 1.55)
+const PIPE := Vector3(0.26, 0.95, 1.55)  # piippu kiukaan seinänpuoleisessa reunassa (kauhan tieltä), alapää kivien tasolla
+const PIPE_R := 0.07
 const WOMAN_AT := Vector3(0.3, 0.0, 0.3)  # nainen istuu ylälauteen vasemmassa päässä (x)
 const CENTER := Vector3(1.4, 0.0, 1.0)
 const THROW_EVERY := 6.5
@@ -50,6 +52,7 @@ var _ladle: Node3D  # löylykauha (-Z = varresta kuppiin, origo kädensijassa)
 var _ladle_water: Node3D
 var _ladle_cup: Node3D  # kuppi reunuksineen ja vesineen: pidetään pystyssä maailmassa (kallistus vain kaadettaessa)
 var _ladle_rest := Vector3.ZERO
+var _ladle_min_gap := 9.0  # pienin rako kauhan ja piipun välillä (m), testi tulostaa
 var _throw_anim := 9.0  # heiton aika (s): kurotus kiukaalle, kallistus, paluu
 var _bubbles: Array = ["", "", "", ""]
 var _bubble_t := [0.0, 0.0, 0.0, 0.0]
@@ -258,7 +261,7 @@ func _build_kiuas() -> void:
 		st.scale = Vector3(1.0, 0.7, 0.85)
 		st.position = KIUAS + p
 		_room.add_child(st)
-	B.mesh(_room, B.cyl(0.07, 0.07, ROOM.y - 0.95, 10), KIUAS + Vector3(0, 0.95 + (ROOM.y - 0.95) / 2.0, -0.12),
+	B.mesh(_room, B.cyl(PIPE_R, PIPE_R, ROOM.y - PIPE.y, 10), PIPE + Vector3(0, (ROOM.y - PIPE.y) / 2.0, 0),
 		Color(0.15, 0.15, 0.16))
 
 
@@ -354,8 +357,19 @@ func _place_ladle(delta: float) -> void:
 	cup = hand + dir * LADLE_LEN
 	var inv := w.transform.affine_inverse()
 	w.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * hand, inv * (hand + Vector3(0.25, -0.35, -0.1)))
-	_ladle.position = hand
+	# Kauha kämmenen keskelle sen mukaan, mihin käsi IK:lla oikeasti päätyi (ranne + kämmen kyynärvarren jatkeena).
+	var wr := _room.to_local(w.to_global(w.bone_position("hand_r")))
+	var el := _room.to_local(w.to_global(w.bone_position("lowerarm_r")))
+	var grip := wr + (wr - el).normalized() * 0.075
+	dir = (cup - grip).normalized()
+	cup = grip + dir * LADLE_LEN
+	_ladle.position = grip
 	_ladle.look_at(_room.to_global(cup), Vector3.UP)
+	for i in 11:  # rako piippuun pitkin vartta ja kuppia (piippu pystysuora PIPE.y:stä ylös)
+		var q := grip.lerp(cup + Vector3(0, -0.05, 0), i / 10.0)
+		if q.y > PIPE.y - 0.03:
+			var r := 0.06 if i == 10 else 0.02
+			_ladle_min_gap = minf(_ladle_min_gap, Vector2(q.x - PIPE.x, q.z - PIPE.z).length() - PIPE_R - r)
 	# Kuppi roikkuu kaulan päässä aukko ylöspäin; kaadettaessa se kallistuu varren suunnassa poispäin naisesta.
 	var fwd := Vector3(dir.x, 0, dir.z).normalized()
 	var tilt := Basis(fwd.cross(Vector3.UP).normalized(), -pour * 1.7)
