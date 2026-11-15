@@ -13,6 +13,7 @@ const FILES := {
 	"bike_ride": [["bike_ride.ogg"], true],  # vanhan pyörän räminä ajossa (äänitys pyörän päältä)
 	"bike_clunk": [["bike_clunk_0.ogg", "bike_clunk_1.ogg", "bike_clunk_2.ogg", "bike_clunk_3.ogg", "bike_clunk_4.ogg",
 		"bike_clunk_5.ogg"], false],  # saman pyörän kolahdukset töyssyissä
+	"bike_root": [["bike_root_0.ogg", "bike_root_1.ogg", "bike_root_2.ogg"], false],  # juurakkoon osuminen: tömähdys ja kolahdus
 	"breath": [["breath_0.ogg", "breath_1.ogg", "breath_2.ogg", "breath_3.ogg", "breath_4.ogg"], false],  # raskas hengitys
 	"pant": [["pant_0.ogg", "pant_1.ogg", "pant_2.ogg"], false],  # nopea puuskutus
 	"amb_forest": [["amb_forest.mp3"], true],

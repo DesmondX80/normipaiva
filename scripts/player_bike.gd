@@ -616,7 +616,7 @@ func _apply_bumps(delta: float) -> void:
 		# Juurakko metsässä: tärähdys ja vauhti hidastuu.
 		bump += 0.12
 		root_hits += 1
-		_sfx("rattle_hard", -2.0, randf_range(0.9, 1.1))
+		_sfx("rattle_hard" if mopo or car else "bike_root", -2.0, randf_range(0.9, 1.1))  # polkupyörällä tömähdys ja oman pyörän kolahdus
 		speed *= 0.85
 		_shake = 0.25
 	_visual.position.y = lerpf(_visual.position.y, -t.sink + bump, 1.0 - exp(-14.0 * delta))
