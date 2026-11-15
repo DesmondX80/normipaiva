@@ -294,12 +294,12 @@ const SIDE := [
 		"known": "first:pentti_tavattu", "done": "first:pentti_kyyti",
 		"idea": "Viiksimies nahkaliivissä huutelee viikonloppuiltaisin kaupan pihassa pakettiautonsa vierestä. Lämpimät penkit?"},
 	{"id": "kolmio_vaala", "title": "Kolmiomittaus Vaalassa",
-		"text": "Sytkäri-mätsi Katjan kanssa, mutta osoitetta ei kerrota. Mittaa lisää, Timo ajaa Siviikillä toiselle puolelle kylää. Tero ja Timo tuo ruusut ja kermavaahdon, sää mansikat.",
+		"text": "Sytkäri-mätsi Katjan kanssa, mutta osoitetta ei kerrota. Mittaa lisää, Timo ajaa Sivikillä toiselle puolelle kylää. Tero ja Timo tuo ruusut ja kermavaahdon, sää mansikat.",
 		"known": "first:kolmio_tavattu_vaala|first:kolmio_vaala", "done": "flag:ending_katja",
-		"idea": "Hevari-Tero ja Siviikki-Timo aseman pihassa Sytkärin kanssa. Kolmiomittaus Siviikillä?"},
-	# Iltakivat (main.gd KOLMIO_KIVAT, tilat.first("kiva_<nimi>") aamulla): kaikki kuusi koettu. Siviikki-disko vain Vaalassa.
+		"idea": "Hevari-Tero ja Sivikki-Timo aseman pihassa Sytkärin kanssa. Kolmiomittaus Sivikillä?"},
+	# Iltakivat (main.gd KOLMIO_KIVAT, tilat.first("kiva_<nimi>") aamulla): kaikki kuusi koettu. Sivikki-disko vain Vaalassa.
 	{"id": "iltakivat", "title": "Kolmiomittauksen iltakivat",
-		"text": "Ensimmäinen ilta on aina Rasvanappi, sen jälkeen ilta vaihtuu: räsytuppi, lettukisa, löylykisa, karaoke ja Vaalassa Siviikki-disko. Koe kaikki.",
+		"text": "Ensimmäinen ilta on aina Rasvanappi, sen jälkeen ilta vaihtuu: räsytuppi, lettukisa, löylykisa, karaoke ja Vaalassa Sivikki-disko. Koe kaikki.",
 		"known": "flag:ending_minttu|flag:ending_katja",
 		"done": "first:kiva_rasvanappi&first:kiva_tuppi&first:kiva_lettu&first:kiva_loyly&first:kiva_disko&first:kiva_karaoke",
 		"progress": "iltakivat",

@@ -438,7 +438,7 @@ static func _kolmio(main: Node3D, d: Node, id: String) -> Dictionary:
 			var tk := func(t: float) -> void:
 				main._paper._vzoom = lerpf(0.45, 1.3, clampf(t / 3.0, 0.0, 1.0))
 			return {"tick": tk, "warm": 10, "hud": false}
-		"m_siviikki":  # Vaala: Timon punainen Siviikki, VTEC kytkeytyy (pelin oma ajo)
+		"m_siviikki":  # Vaala: Timon punainen Sivikki, VTEC kytkeytyy (pelin oma ajo)
 			O._time(main, 15, 30)
 			O._vaala(main)
 			main._mopo_dismount()  # ajo alkaa jalan seisovasta pelaajasta (mopo_trip.on_foot)

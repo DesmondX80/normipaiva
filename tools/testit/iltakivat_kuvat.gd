@@ -1,5 +1,5 @@
 extends Node
-## Kolmiomittauksen iltakivat kuvina (lettukisa, löylykisa, Siviikki-disko, karaoke; räsytuppi: tuppi_kuvat.gd).
+## Kolmiomittauksen iltakivat kuvina (lettukisa, löylykisa, Sivikki-disko, karaoke; räsytuppi: tuppi_kuvat.gd).
 ## Tekoäly pelaa pelaajankin puolesta (auto). Jokaisesta kivasta kuvat: alku, toiminta, toiminnan kohde suurennettuna
 ## (kuva_<kiva>_lahi), loppu; asetelma Asento.views-kulmista (läpimenot "LÄPI … -> …" = VIKA) ja toiminnan kohteen koko
 ## pelikameralta (vähintään noin 40 px). Lopuksi tarkistetaan, että finished-tulos tuli.

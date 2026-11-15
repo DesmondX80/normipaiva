@@ -102,7 +102,7 @@ func _look(nimi: String) -> Dictionary:
 			return Looks.ESA
 		"Hevari-Tero":
 			return Looks.HEVARI_TERO
-		"Siviikki-Timo":
+		"Sivikki-Timo":
 			return Looks.SIVIIKKI_TIMO
 		"Pannu-Sulo":
 			return Looks.SULO
@@ -145,7 +145,7 @@ func _ready() -> void:
 			_door = 0.0
 			_door_to = 0.0
 			Sfx.play("punch", -6.0, 0.7)
-			var smell := "Sandelsille" if site == "saloinen" else "bensalle ja Siviikin kytkimelle"
+			var smell := "Sandelsille" if site == "saloinen" else "bensalle ja Sivikin kytkimelle"
 			lines = [["", "KOP KOP KOP"], [woman, "Kolme miestä, kolme lahjaa. Te ootte niinku itämaan tietäjät, paitsi että te haisette %s." % smell]]
 			for g: Array in gifts:
 				if g[0] == "Sinä" and missing != "":
@@ -182,7 +182,7 @@ func _friend_intro(f: String) -> String:
 			return "Esa. Erämies. Minä piirsin ne ympyrät."
 		"Hevari-Tero":
 			return "Tero. Valtio tietää jo, että me ollaan täällä."
-		"Siviikki-Timo":
+		"Sivikki-Timo":
 			return "Timo. Honda on tuossa. Se on lämmin vielä."
 	return "Moi."
 
@@ -212,15 +212,15 @@ const KIVA_AAMU := {
 			["Joni", "Mun falsetti kuulosti siltä, ku pallo ois osunu nivusiin."]]},
 	"vaala": {
 		"tuppi": [["Hevari-Tero", "Valtio ei saa tietää, kuka meni tuppeen. Kalsarit on yksityisasia."],
-			["Siviikki-Timo", "Mun kalsarit on vieläki Katjan sohvalla. Siviikissä on lämmitys, ei haittaa."]],
+			["Sivikki-Timo", "Mun kalsarit on vieläki Katjan sohvalla. Sivikissä on lämmitys, ei haittaa."]],
 		"lettu": [["Hevari-Tero", "Kilpaa syödyt letut on verottomia. Se lukee laissa, jos lukee tarpeeks tarkkaan."],
-			["Siviikki-Timo", "Mää yrjösin vaan kerran, ja se oli Siviikin ulkopuolella. Ammattilainen."]],
+			["Sivikki-Timo", "Mää yrjösin vaan kerran, ja se oli Sivikin ulkopuolella. Ammattilainen."]],
 		"loyly": [["Hevari-Tero", "Saunassa kaikki on samanarvoisia. Paitsi Timo, sillä oli sukat jalassa."],
-			["Siviikki-Timo", "VTEC kesti sata kakskymmentä astetta. Mun munat ei."]],
+			["Sivikki-Timo", "VTEC kesti sata kakskymmentä astetta. Mun munat ei."]],
 		"disko": [["Hevari-Tero", "Pihadisko ilman lupaa. Valtio kuuli bassot Muhokselle asti."],
-			["Siviikki-Timo", "Akku loppu kolmelta, mutta pyllistys jatku aamuun. Katja sano, että mää liikun ku hirvi."]],
+			["Sivikki-Timo", "Akku loppu kolmelta, mutta pyllistys jatku aamuun. Katja sano, että mää liikun ku hirvi."]],
 		"karaoke": [["Hevari-Tero", "Mun laulun sanoissa oli viesti verottajalle. Se meni perille."],
-			["Siviikki-Timo", "Katja lauloi mun kanssa duetton. Mää luulen, että se rakastaa mua."]]}}
+			["Sivikki-Timo", "Katja lauloi mun kanssa duetton. Mää luulen, että se rakastaa mua."]]}}
 
 
 func _morning_lines() -> Array:
@@ -247,7 +247,7 @@ func _morning_base() -> Array:
 			["", "Puhelimessa vastaamaton puhelu: Päivi. Ja viesti: \"MAITOA.\""]]
 	return [["", "Aamulla Katja keittää kahvit. Ruusut on maitopurkissa, koska maljakkoa ei löytynyt."],
 		["Hevari-Tero", "Valtio ei saa näistä letuista senttiäkään. Ei senttiäkään."],
-		["Siviikki-Timo", "Siviikki lämpiää pihassa. Kuka tarvii kyydin? VTEC on jo hereillä."],
+		["Sivikki-Timo", "Sivikki lämpiää pihassa. Kuka tarvii kyydin? VTEC on jo hereillä."],
 		["Katja", "Tulkaa uudestaan. Mutta ens kerralla Timo parkkeeraa kauemmas."],
 		["", "Puhelimessa vastaamaton puhelu: Päivi. Ja viesti: \"MAITOA.\""]]
 

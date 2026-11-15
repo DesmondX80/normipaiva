@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Siviikki-disko Katjan pihalla Vaalassa (kolmiomittauksen iltakiva, K-18 ja vähän rivo): Timon punainen Civic
+## Sivikki-disko Katjan pihalla Vaalassa (kolmiomittauksen iltakiva, K-18 ja vähän rivo): Timon punainen Civic
 ## pihassa ovet auki, ajovalot tanssipaikalle ja sininen pohjavalo, stereoista 90-luvun tanssibiisi. Pelaaja, Tero ja
 ## Timo tanssivat Katjan edessä, ja Katja valitsee parhaan tanssijan hitaille.
 ## Mekaniikka: liikkeet tulevat neljällä kaistalla biisin tahdissa (tempo ja ensimmäinen isku mitattu biisistä,
@@ -100,7 +100,7 @@ func _ready() -> void:
 	_keys.compact = true
 	_keys.centered = true
 	add_child(_keys)
-	_story = "Siviikki-disko! Paina liike, kun se osuu viivaan. Katja valitsee parhaan tanssijan hitaille."
+	_story = "Sivikki-disko! Paina liike, kun se osuu viivaan. Katja valitsee parhaan tanssijan hitaille."
 	_say(2, _line("alku", "Ovet auki ja bassot kaakkoon!"))
 
 
@@ -317,7 +317,7 @@ func _dance(delta: float) -> void:
 			_judge_t = 0.5
 			_judge_lane = n.lane
 			if _rng.randf() < 0.25:
-				_say(3, _line("ohi_sina", "Sää liikut ku Siviikki talvirenkailla."))
+				_say(3, _line("ohi_sina", "Sää liikut ku Sivikki talvirenkailla."))
 		elif auto and absf(dt) < 0.03 and _rng.randf() < 0.85:
 			_hit(n, dt)
 	if not auto:

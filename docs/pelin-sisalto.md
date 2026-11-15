@@ -67,16 +67,16 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Testit `--scene=bangbus` ja `--scene=bangbus_vaala`. Mainosjuliste: [kuvat/pentin_bangbus_juliste.png](kuvat/pentin_bangbus_juliste.png).
 - **Kolmiomittaus (Sytkäri-mätsi, vain aikuisille):** Saloisten kaupan pihassa seisovat Joni (tummatukkainen golfari,
   selässä Sandels-oluen 24-pakkauksesta jesarilla tehty päkkirinkka termoksineen, golfpalloineen ja tölkkeineen) ja Esa
-  (erämies, harppi taskussa), Vaalan aseman pihassa Hevari-Tero (valittaa valtiosta) ja Siviikki-Timo (punainen Honda
+  (erämies, harppi taskussa), Vaalan aseman pihassa Hevari-Tero (valittaa valtiosta) ja Sivikki-Timo (punainen Honda
   Civic, VTEC). Juttele (E), niin puhelimeen tulee Sytkäri-mätsi (parodiadeittisovellus, liekkilogo): Minttu (punaiset
   kiharat, pisamat, kesämekko) Saloisissa tai Katja (pitkät mustat suorat hiukset, nahkatakki, motoristi) Vaalassa;
   kumpikin vähintään yhtä hemaiseva kuin Sinikka. Ovi-, väärän oven ja aamukohtaukset ovat
   3D-lavastuksia omissa maailmoissaan (`kolmio_kohtaus.gd`), ja Sytkärin profiilikuvat on otettu 3D-hahmoista.
   Osoitetta ei kerrota, vain etäisyys. Kaveri mittaa lähtöpaikalta, ja toinen mittaa kauempaa: Saloisissa Esa
-  tekstaa kirkolta, Vaalassa Teron ja Timon kanssa jutellessa valitaan "Hypätään Siviikkiin", ja Timo ajaa porukan
+  tekstaa kirkolta, Vaalassa Teron ja Timon kanssa jutellessa valitaan "Hypätään Sivikkiin", ja Timo ajaa porukan
   aseman pihasta katuja pitkin Vaalantielle (maaston kautta vain, jos tietä ei ole) ja tietä pitkin mittauspisteeseen (VTEC kytkeytyy, matkalla Timon ja Teron
   jutut, E hyppää perille) ja takaisin asemalle. Mittauksen ajan kaverit kulkevat jalan pelaajan perässä (Esa
-  liittyy mukaan tekstattuaan, Tero ja Timo Siviikki-ajon jälkeen) ja seisovat takana ovella; pyörän tai mopon
+  liittyy mukaan tekstattuaan, Tero ja Timo Sivikki-ajon jälkeen) ja seisovat takana ovella; pyörän tai mopon
   selässä he jäävät odottamaan ja tulevat perään, kun pelaaja jatkaa jalan. Sen jälkeen pelaaja mittaa lisää missä vain (E "Avaa Sytkäri", vähintään 35 m edellisistä mittauksista).
   Sovellus pyöristää etäisyyden (alle 120 m 10 m:iin, alle 500 m 50 m:iin, muuten 100 m:iin), joten paperikartalla (M)
   jokainen mittaus on harpilla piirretty ympyrä ja haalea vyöhyke; vyöhykkeet tummuvat päällekkäin, ja leikkauksessa
@@ -96,10 +96,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   `--scene=kolmiomittaus` ja `--scene=kolmiomittaus_vaala` (`tools/testit/kolmiomittaus.gd`).
 - **Iltakivat (kolmiomittauksen toinen ilta ja siitä eteenpäin, vain aikuisille, vähän rivoja):** kohteen ensimmäinen
   ilta on aina Rasvanappi, sen jälkeen illat kiertävät (`kolmiomittaus.gd KIVAT`; Saloisissa räsytuppi, lettukisa,
-  karaoke ja löylykisa; Vaalassa räsytuppi, Siviikki-disko, löylykisa, lettukisa ja karaoke). Jokaisen voitto on
+  karaoke ja löylykisa; Vaalassa räsytuppi, Sivikki-disko, löylykisa, lettukisa ja karaoke). Jokaisen voitto on
   legendaarinen hetki, ja aamun tilastorivi ja kaverien aamurepliikit kertovat illan kivasta (`kolmio_kohtaus.gd KIVA_AAMU`).
   Sivutehtävä **Kolmiomittauksen iltakivat** (päiväkirja, tulee tiedoksi ensimmäisen kolmiomittauksen jälkeen): koe kaikki
-  kuusi (Rasvanappi, räsytuppi, lettukisa, löylykisa, Siviikki-disko ja karaoke; voittoa ei vaadita, luovutus ei kelpaa).
+  kuusi (Rasvanappi, räsytuppi, lettukisa, löylykisa, Sivikki-disko ja karaoke; voittoa ei vaadita, luovutus ei kelpaa).
   Edistyminen "koettu n / 6" ja puuttuvat kivat; disko vaatii Vaalan.
   - **Räsytuppi** (`tuppi.gd`, `tuppi_game.gd`): tuppia pareittain naisen olohuoneen korttipöydässä (pelaaja ja nainen
     vastaan kaverit; rami tai nolo, maapakko, ässä korkein). Jaon hävinnyt pari riisuu: kengät, paita (naisella
@@ -110,9 +110,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   - **Löylykisa** (`loyly_game.gd`): oma sauna (lauteet, kiuas kivineen, höyry), pyyhkeet lanteilla. Nainen heittää
     löylyä tasaisin välein; hengitä ulos (E), kun rengas on vihreällä, niin tuska laskee. Paennut nousee lauteilta, ja
     pyyhe jää lauteille. Viimeinen lauteilla voittaa: **Löylykunkku**.
-  - **Siviikki-disko** (vain Vaala, `disko_game.gd`): Katjan pihalla Timon Civic ajovaloineen ja pohjavaloineen, stereoista
+  - **Sivikki-disko** (vain Vaala, `disko_game.gd`): Katjan pihalla Timon Civic ajovaloineen ja pohjavaloineen, stereoista
     oikea 90-luvun tanssibiisi (tempo mitattu). Liikkeet tulevat tahdissa neljälle kaistalle: lantio (A/D), kädet ylös (W)
-    ja pyllistys (S, hahmo pyllistää kameraan). Katja valitsee parhaan tanssijan hitaille: **Siviikki-disko**.
+    ja pyllistys (S, hahmo pyllistää kameraan). Katja valitsee parhaan tanssijan hitaille: **Sivikki-disko**.
   - **Karaoke** (`ilta_karaoke.gd`): mikrofoniteline olohuoneessa ja putkitelkkari sanoineen; jokainen laulaa oman rivon
     säkeistön pelin karaokella (`karaoke_game.gd`, nuottikaistat), kaverien vuoroilla tekoäly näppäilee. Paras laulaja
     voittaa: **Karaokekunkku**.
