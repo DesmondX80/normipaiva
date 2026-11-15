@@ -59,6 +59,11 @@ const KIRPPIS_INT_POS := Vector3(16000, 0, 16000)  # Saloisten seuraintalon kirp
 const VARASTO_INT_POS := Vector3(-16000, 0, 16000)  # Tokolan vanha varasto (tokola_varasto.gd)
 ## Valcon kuulokkeet (headphones.gd, #15): autotallista, vaimentavat linnut ja vaarat, soittavat Suno-listaa.
 const Headphones := preload("res://scripts/headphones.gd")
+const TuppiGame := preload("res://scripts/tuppi_game.gd")
+const LettuGame := preload("res://scripts/lettu_game.gd")
+const LoylyGame := preload("res://scripts/loyly_game.gd")
+const DiskoGame := preload("res://scripts/disko_game.gd")
+const IltaKaraoke := preload("res://scripts/ilta_karaoke.gd")
 var headphones: Node
 ## Päivin vanha kännykkä (phone.gd, #16): kodin yöpöydältä, soittaa iskelmiä pienestä kaiuttimesta.
 const Phone := preload("res://scripts/phone.gd")
@@ -8276,6 +8281,11 @@ func quest_progress(key: String) -> String:
 			return "ennätykset: darts %d, mökkitikka %d / 150" % [tikka_ennatys, mtikka_ennatys]
 		"tekemiset":
 			return "kokeiltu %d / %d" % [TEKEMISET.filter(func(k): return k in tilat.firsts).size(), TEKEMISET.size()]
+		"iltakivat":
+			var koettu: Array = KOLMIO_KIVAT.filter(func(k: String) -> bool: return ("kiva_" + k) in tilat.firsts)
+			return "koettu %d / %d%s" % [koettu.size(), KOLMIO_KIVAT.size(), "" if koettu.size() == KOLMIO_KIVAT.size() else
+				" (puuttuu: %s)" % ", ".join(KOLMIO_KIVAT.filter(func(k: String) -> bool: return not k in koettu).map(
+				func(k: String) -> String: return KOLMIO_KIVA_NIMET[k]))]
 		"hanttihommat":
 			var n := 0
 			for k in HANTTIHOMMAT:
@@ -11802,8 +11812,9 @@ func _kolmio_logic() -> void:
 
 ## K-18-sisältö pois (asetus k18_pois): hahmot piiloon ja pysähdyksiin; palauttaa true, kun piilossa. Asetuksen
 ## vaihtuessa takaisin hahmot palaavat näkyviin (kolmiomittauksen Esan poissaolon hoitaa _kolmio_logic itse).
-const K18_SIDE := ["rasvanappi", "pentti", "kolmio_saloinen", "kolmio_vaala"]  # päiväkirjan tehtävät
-const K18_LOPUT := ["minttu", "katja", "pentin_kyyti", "pentin_kiertue", "kulissit", "avoin_pelikortti", "kesaheila"]  # onnelliset loput ja legendaariset hetket
+const K18_SIDE := ["rasvanappi", "pentti", "kolmio_saloinen", "kolmio_vaala", "iltakivat"]  # päiväkirjan tehtävät
+const K18_LOPUT := ["minttu", "katja", "pentin_kyyti", "pentin_kiertue", "kulissit", "avoin_pelikortti", "kesaheila", "rasytuppi", "lettukunkku", "loylykunkku",
+	"siviikkidisko", "karaokekunkku"]  # onnelliset loput ja legendaariset hetket
 func _k18_hide(npcs: Array) -> bool:
 	var off: bool = Settings.get_v("k18_pois")
 	for v in npcs:
@@ -12545,7 +12556,7 @@ func _kolmio_knock(site: String, idx: int) -> void:
 			_kesaheila_valinta("No? Mitä sää nyt sanot, Sytkärin sankari? Sinikka, älä naura!")
 			return
 		if r.mode == "ovi" and r.ok:
-			_kolmio_rasvanappi(site)
+			_kolmio_kiva(site, kolmio.next_kiva(site))
 			return
 		_act_end()
 		if r.mode == "ovi":
@@ -12555,6 +12566,46 @@ func _kolmio_knock(site: String, idx: int) -> void:
 		_save_game())
 	add_child(ui)
 	_kolmio_ui = ui
+
+
+## Iltakivat sivutehtävää varten (quests.gd "iltakivat"): koettu kiva kirjataan aamulla tilat.first("kiva_<nimi>").
+const KOLMIO_KIVAT := ["rasvanappi", "tuppi", "lettu", "loyly", "disko", "karaoke"]
+const KOLMIO_KIVA_NIMET := {"rasvanappi": "Rasvanappi", "tuppi": "räsytuppi", "lettu": "lettukisa", "loyly": "löylykisa",
+	"disko": "Siviikki-disko (Vaala)", "karaoke": "karaoke"}
+
+
+## Iltakiva naisen luona: kohteen ensimmäinen ilta on Rasvanappi, seuraavat kiertävät (kolmiomittaus.gd KIVAT):
+## räsytuppi, lettukisa, löylykisa, Siviikki-disko (Vaala) ja karaoke. Kaikki K-18 ja vähän rivoja.
+func _kolmio_kiva(site: String, kiva: String) -> void:
+	match kiva:
+		"tuppi":
+			_kolmio_tuppi(site)
+		"lettu":
+			_kolmio_ilta(site, LettuGame.new(), Kolmio.LETTU_LINES, "lettukunkku")
+		"loyly":
+			_kolmio_ilta(site, LoylyGame.new(), Kolmio.LOYLY_LINES, "loylykunkku")
+		"disko":
+			_kolmio_ilta(site, DiskoGame.new(), Kolmio.DISKO_LINES, "siviikkidisko")
+		"karaoke":
+			var k := IltaKaraoke.new()
+			k.drunk = _hand_shake()
+			_kolmio_ilta(site, k, Kolmio.KARAOKE_LINES, "karaokekunkku")
+		_:
+			_kolmio_rasvanappi(site)
+
+
+## Ankkuri naisen talon kohdalle (iltakivojen hallit rakennetaan sen yläpuolelle).
+func _kolmio_new_anchor(site: String) -> Node3D:
+	var t := _kolmio_target(site)
+	_kolmio_anchor = Node3D.new()
+	if site == "vaala":
+		var vl: Node3D = mopo_trip.vaala
+		vl.add_child(_kolmio_anchor)
+		_kolmio_anchor.position = Vector3(t.x, vl.h(t.x, t.y), t.y)
+	else:
+		add_child(_kolmio_anchor)
+		_kolmio_anchor.global_position = Vector3(t.x, Terrain.h(t.x, t.y), t.y)
+	return _kolmio_anchor
 
 
 ## Erikoissääntöinen Rasvanappi naisen pimennetyssä olohuoneessa (halli talon yläpuolella, ei ovea eikä portsaria).
@@ -12582,6 +12633,61 @@ func _kolmio_rasvanappi(site: String) -> void:
 	_rasva_game = g
 
 
+## Räsytuppi naisen olohuoneessa (toisesta kolmiomittauksesta alkaen samassa kohteessa): pelaaja ja nainen vastaan
+## kaverit; ilta päättyy, kun pari on pantu tuppeen, ja aamu tulee kuten Rasvanapin jälkeen. Ensimmäinen voitto on
+## legendaarinen hetki "rasytuppi".
+const TUPPI_KAVERIT := {"saloinen": [["joni", "Joni"], ["esa", "Esa"]], "vaala": [["tero", "Tero"], ["timo", "Timo"]]}
+const TUPPI_NAINEN := {"saloinen": "minttu", "vaala": "katja"}
+func _kolmio_tuppi(site: String) -> void:
+	var info: Dictionary = Kolmio.SITES[site]
+	_kolmio_new_anchor(site)
+	var k: Array = TUPPI_KAVERIT[site]
+	var g := TuppiGame.new()
+	g.site = site
+	g.anchor = _kolmio_anchor
+	g.sun = _sun
+	g.style = (Kolmio.RASVA_RULES[site] as Dictionary).get("style", {})
+	g.lines = Kolmio.TUPPI_LINES[site]
+	g.seats = [{"id": "pelaaja", "name": "Sinä", "look": Looks.player()},
+		{"id": k[0][0], "name": k[0][1], "look": RasvanappiGame.real_look(k[0][0])},
+		{"id": TUPPI_NAINEN[site], "name": info.woman, "look": RasvanappiGame.real_look(TUPPI_NAINEN[site])},
+		{"id": k[1][0], "name": k[1][1], "look": RasvanappiGame.real_look(k[1][0])}]
+	g.finished.connect(func(r: Dictionary) -> void:
+		if r.get("voitto", false):
+			_ending("rasytuppi")
+		r["kiva"] = "tuppi"
+		_kolmio_morning(site, r))
+	add_child(g)
+	_rasva_game = g
+
+
+## Kaverit ja nainen iltakivoihin: [pelaaja, kaveri, kaveri, nainen] ({"id", "name", "look"}).
+func _kolmio_people(site: String) -> Array:
+	var info: Dictionary = Kolmio.SITES[site]
+	var k: Array = TUPPI_KAVERIT[site]
+	return [{"id": "pelaaja", "name": "Sinä", "look": Looks.player()},
+		{"id": k[0][0], "name": k[0][1], "look": RasvanappiGame.real_look(k[0][0])},
+		{"id": k[1][0], "name": k[1][1], "look": RasvanappiGame.real_look(k[1][0])},
+		{"id": TUPPI_NAINEN[site], "name": info.woman, "look": RasvanappiGame.real_look(TUPPI_NAINEN[site])}]
+
+
+## Lettukisa, löylykisa, Siviikki-disko ja karaoke (lettu_game.gd ...): samat kentät ja finished-tulos; pelaajan voitto
+## on legendaarinen hetki (ending).
+func _kolmio_ilta(site: String, g: CanvasLayer, all_lines: Dictionary, ending: String) -> void:
+	g.site = site
+	g.anchor = _kolmio_new_anchor(site)
+	g.sun = _sun
+	g.style = (Kolmio.RASVA_RULES[site] as Dictionary).get("style", {})
+	g.lines = all_lines[site]
+	g.people = _kolmio_people(site)
+	g.finished.connect(func(r: Dictionary) -> void:
+		if r.get("voitto", false):
+			_ending(ending)
+		_kolmio_morning(site, r))
+	add_child(g)
+	_rasva_game = g
+
+
 ## Aamu naisen keittiössä, onnellinen loppu ja uusi päivä. Päivi soitti yöllä: maito on ostettava ennen kotiin menoa.
 func _kolmio_morning(site: String, r: Dictionary) -> void:
 	_rasva_game = null
@@ -12590,10 +12696,18 @@ func _kolmio_morning(site: String, r: Dictionary) -> void:
 	var info: Dictionary = Kolmio.SITES[site]
 	kolmio.finish(site, day)
 	tilat.first("rasvanappi", 0.5)
+	if not r.get("luovutti", false):
+		tilat.first("kiva_" + String(r.get("kiva", "rasvanappi")), 0.2)  # sivutehtävä "Kolmiomittauksen iltakivat"
 	tilat.add("moraali", Kolmio.END_MORAALI)
 	tilat.add("stressi", Kolmio.END_STRESSI)
 	tilat.add("vireys", Kolmio.END_VIREYS)
-	var stats := "Kolme ympyrää ✔  ·  Kolme lahjaa ✔  ·  Mansikoita %d  ·  %s" % [int(r.get("mansikat", 0)), _ending_line(info.ending)]
+	var ilta := "Mansikoita %d" % int(r.get("mansikat", 0))
+	if r.has("rasy"):  # räsytuppi: kumpi pari pantiin tuppeen
+		ilta = "Räsytuppi: kaverit tupessa ✔" if r.get("voitto", false) else "Räsytuppi: te tupessa, kalsareissa"
+	elif r.has("kiva"):
+		var nimi: String = {"tuppi": "Räsytuppi", "lettu": "Lettukisa", "loyly": "Löylykisa", "disko": "Siviikki-disko", "karaoke": "Karaoke"}.get(r.kiva, "Ilta")
+		ilta = "%s: %s" % [nimi, "voitit ✔" if r.get("voitto", false) else ("luovutit" if r.get("luovutti", false) else "hävisit")]
+	var stats := "Kolme ympyrää ✔  ·  Kolme lahjaa ✔  ·  %s  ·  %s" % [ilta, _ending_line(info.ending)]
 	kolmio.maito_day = day + 1
 	_save_game()
 	var ui := KolmioKohtaus.new()
@@ -12602,6 +12716,7 @@ func _kolmio_morning(site: String, r: Dictionary) -> void:
 	ui.woman = info.woman
 	ui.friends = info.friends
 	ui.stats = stats
+	ui.kiva = String(r.get("kiva", "rasvanappi"))
 	ui.finished.connect(func(_r: Dictionary) -> void:
 		_kolmio_ui = null
 		var intro := "Aamu %s keittiössä. Päivi tekstasi yöllä: \"MAITOA.\" Osta maitoa kaupasta ennen kuin menet kotiin.\n" % info.gen
@@ -23253,6 +23368,15 @@ func _maybe_screenshot() -> void:
 				DirAccess.remove_absolute(SAVE_PATH)
 			get_tree().quit()
 			return
+		"kolmio_tuppi":
+			# Räsytuppi kolmiomittauksen toisena iltana Saloisissa: tekoäly pelaa, ilta loppuun, aamu ja loppu.
+			var saved_tp := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var tp: Node = load("res://tools/testit/kolmio_tuppi.gd").new()
+			tp.main = self
+			add_child(tp)
+			await tp.run()
+			if not saved_tp.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_tp)
 		"kolmiomittaus_koti":
 			# Luku 6 (#326): kesäheila -96, mittaus kotiin, ovi ja kolme valintaa (tools/testit/kolmiomittaus_koti.gd).
 			var saved_kk := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
