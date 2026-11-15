@@ -113,14 +113,21 @@ func _run() -> void:
 				g._cam.transform = g._cam_base
 				g.set_process(true)
 			var shot_end := false
+			var gap := 9.0
 			for i in 30000:
 				await get_tree().process_frame
 				if not _result.is_empty() or not is_instance_valid(g):
 					break
+				if "_ladle_min_gap" in g:
+					gap = minf(gap, g._ladle_min_gap)
 				if g._phase == "loppu" and g._t > 0.4 and not shot_end:
 					shot_end = true
 					await _shot(tag + "_loppu")
 			print("ILTA %s tulos %s" % [tag, _result])
+			if gap < 9.0:
+				print("ILTA %s kauhan rako piippuun %.3f m" % [tag, gap])
+				if gap < 0.0:
+					_vika("%s: kauha menee piipun sisään (%.3f m)" % [tag, gap])
 			if _result.is_empty() or _result.get("kiva", "") != kiva:
 				_vika("%s: ei tulosta" % tag)
 			if is_instance_valid(g):
