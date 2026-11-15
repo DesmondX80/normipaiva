@@ -31,7 +31,12 @@
   Karaokeversion soittoraita (`assets/music/normipaiva_lyhyt.mp3`: lyhennetty ja ristiinhäivytetty
   `normipaiva_soitto.mp3`, laulu erotettu Demucsilla) ja ajoitetut sanat (`assets/music/normipaiva_sanat_lyhyt.json`,
   kohdistettu wav2vec2:lla) ovat samasta tunnarista.
-- Puheäänet (`assets/aanet/`): syntetisoitu Macin `say`-äänillä (Satu = Päivi, Eddy = kaikki muut hahmot) ja
+- Päivin puheäänet (`assets/aanet/paivi/`): tehty avoimella puhemallilla Chatterbox Multilingual (Resemble AI, MIT,
+  https://github.com/resemble-ai/chatterbox; malli upottaa ääniin kuulumattoman Perth-vesileiman) malliäänen
+  `tools/aanet/paivi_malliaani.ogg` pohjalta. Malliääni on koottu kolmesta naisäänityksestä Googlen FLEURS-aineistosta
+  (fi_fi, testijoukon tiedostot 10194815671252164859, 18137089313608381153 ja 2700047567934299806), lisenssi
+  **CC BY 4.0** (https://huggingface.co/datasets/google/fleurs); muokattu (leikattu, voimakkuus tasattu, yhdistetty).
+- Muiden hahmojen puheäänet (`assets/aanet/muu/`): syntetisoitu Macin `say`-äänellä Eddy ja
   jälkikäsitelty `ffmpeg`:llä (`tools/aanet/syntetisoi.sh`). **Tarkistettava ennen julkaisua:** Applen lisenssi ei
   välttämättä salli äänten jakelua pelin mukana; tarvittaessa äänet tehdään uudelleen vapaalla puhesyntetisaattorilla.
 - Hahmot ja animaatiot: [Quaternius](https://quaternius.com) — Universal Base Characters ja

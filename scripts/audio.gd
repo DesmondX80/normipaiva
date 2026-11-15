@@ -264,10 +264,11 @@ func babble(_node: Node3D, voice: String, text: String) -> void:
 	speak("paivi" if voice == "paivi" else "muu", text)
 
 
-## Puheäänet: assets/aanet/<ryhmä>/<repliikin tiiviste>.mp3, ryhmä "paivi" (Satu, nalkutus) tai "muu" (Eddy, rauhallinen
-## tenori). Tiedosto haetaan repliikin tekstin SHA-1:stä; puuttuva repliikki on hiljainen. Uusi repliikki katkaisee
-## edellisen. Äänet tehdään `--aanisynteesi`-lipulla ajettaessa (tools/aanet/syntetisoi.sh, vain macOS): ajo
-## syntetisoi jokaisen vastaan tulevan repliikin ja kirjaa sen assets/aanet/hakemisto.json:iin; `godot --import` tuo uudet.
+## Puheäänet: assets/aanet/<ryhmä>/<repliikin tiiviste>.mp3, ryhmä "paivi" (Chatterbox-puhemalli suomalaisen naisen
+## malliäänellä, tools/aanet/paivi_aani.py) tai "muu" (Macin Eddy, rauhallinen tenori). Tiedosto haetaan repliikin
+## tekstin SHA-1:stä; puuttuva repliikki on hiljainen. Uusi repliikki katkaisee edellisen. Muiden äänet tehdään
+## `--aanisynteesi`-lipulla ajettaessa (tools/aanet/syntetisoi.sh, vain macOS): ajo syntetisoi jokaisen vastaan tulevan
+## repliikin ja kirjaa sen assets/aanet/hakemisto.json:iin; `godot --import` tuo uudet. Ks. docs/kehitys.md Puheäänet.
 const VOICE_DIR := "res://assets/aanet/"
 var _voice_player: AudioStreamPlayer
 var _voice_index := {}
