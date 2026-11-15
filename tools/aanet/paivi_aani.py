@@ -7,6 +7,8 @@
 # Käyttö:
 #   ~/chatterbox/bin/python tools/aanet/paivi_aani.py <malliääni.wav|m4a> [--testi] [--vain "repliikki" ...]
 #   --testi: neljä testirepliikkiä tiedostoon .claude/tyo/paivi_testi.mp3 (ei kosketa peliin)
+#   --vain: vain annetut repliikit (lisätään myös hakemisto.json:iin)
+#   Pelin malliääni: tools/aanet/paivi_malliaani.ogg (lähde docs/tekijanoikeudet.md).
 #   ilman: kaikki hakemisto.json:n paivi/-repliikit uudelleen (vanhat korvataan), sitten `godot --import`.
 import argparse, hashlib, json, os, re, subprocess, sys, tempfile, time
 
@@ -69,6 +71,12 @@ def main() -> None:
 			subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", w, "-af",
 				"silenceremove=start_periods=1:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_threshold=-45dB,areverse",
 				"-ar", "22050", "-ac", "1", "-c:a", "libmp3lame", "-b:a", "48k", dst], check=True)
+			if a.vain:  # uusi repliikki hakemistoon (kuten audio.gd _synthesize)
+				ip = os.path.join(VOICES, "hakemisto.json")
+				idx = json.load(open(ip, encoding="utf-8")) if os.path.exists(ip) else {}
+				idx["paivi/" + voice_key(text)] = text.strip()
+				with open(ip, "w", encoding="utf-8") as f:
+					json.dump(idx, f, ensure_ascii=False, indent="\t", sort_keys=True)
 		print("%d/%d %.0f s: %s" % (i + 1, len(lines), time.time() - t0, text), flush=True)
 	if a.testi:
 		sil = os.path.join(tmp, "tauko.wav")

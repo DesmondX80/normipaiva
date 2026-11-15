@@ -250,8 +250,9 @@ skripteillä `tools/aanet/rakenna_pyora_hengitys.py`, `korosta_kolina.py` ja `ra
 
 ## Puheäänet
 
-Päivin repliikit puhuu Satu (nalkutus: nopea tahti, korotettu sävelkorko) ja kaikki muut hahmot Eddy (rauhallinen
-tenori). Äänet ovat valmiita mp3-tiedostoja `assets/aanet/<paivi|muu>/<tiiviste>.mp3`, joissa tiiviste on repliikin
+Päivin repliikit tehdään avoimella puhemallilla Chatterbox Multilingual (MIT, Resemble AI) malliäänen
+`tools/aanet/paivi_malliaani.ogg` pohjalta (kolmen suomalaisen naisen sekoitus Googlen FLEURS-aineistosta, CC BY 4.0);
+kaikki muut hahmot puhuu Macin Eddy (rauhallinen tenori). Äänet ovat valmiita mp3-tiedostoja `assets/aanet/<paivi|muu>/<tiiviste>.mp3`, joissa tiiviste on repliikin
 tekstin SHA-1:n 12 ensimmäistä merkkiä (`Sfx.voice_key`); `assets/aanet/hakemisto.json` kertoo, mikä tiiviste on mikä
 repliikki. Soitto: `Sfx.speak(ryhmä, teksti)` (`audio.gd`); puhekuplat (`bubble.gd`, `voice`-ominaisuus tai
 "Päivi: "-etuliite) ja dialogiruutu (`dialogue_box.gd`, puhujan nimi) kutsuvat sitä itse, joten uusi repliikki saa äänen
@@ -259,6 +260,11 @@ ilman koodimuutosta. Puuttuva ääni on hiljaisuutta. Äänten teko (vain macOS)
 `--aanisynteesi` (esim. `tools/testit/aja.sh --headless scene asema --aanisynteesi`), jolloin jokainen vastaan tuleva
 repliikki syntetisoidaan (`tools/aanet/syntetisoi.sh`), ja sen jälkeen `godot --headless --import`. Uusi tai muuttunut
 repliikki tarvitsee oman ajonsa: vanha tiedosto jää käyttämättömäksi.
+Päivin äänet (Linuxilla, ilman ulkopuolista palvelua, CPU:lla noin 20 s repliikki): asenna kerran
+`uv venv -p python3.11 ~/chatterbox && uv pip install -p ~/chatterbox/bin/python chatterbox-tts "setuptools<81"`, sitten
+`~/chatterbox/bin/python tools/aanet/paivi_aani.py tools/aanet/paivi_malliaani.ogg` tekee kaikki `hakemisto.json`:n
+Päivin repliikit uudelleen (`--testi`: neljä näytettä kuunneltavaksi, `--vain "repliikki"`: yksittäinen uusi repliikki,
+joka lisätään myös hakemistoon) ja lopuksi `godot --headless --import`.
 
 ## Karttadata ja maasto
 
