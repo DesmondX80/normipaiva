@@ -967,7 +967,7 @@ const TALKERS := {
 	"kolmio_koti": ["Joni ja Esa", Color(0.75, 0.88, 1.0)],  # kesäheilan mittaus (luku 6, _kolmio_sal_site)
 	"pentti": ["Pentti", Color(1.0, 0.5, 0.35)],  # Pentin BangBus (#299, rikos/pentti.gd)
 	"paivi": ["Päivi", Color(1.0, 0.45, 0.55)],  # aamun puheeksiotto ilman hahmoa (#326, rikos/paivi_puhe.gd)
-	"kolmio_vaala": ["Hevari-Tero ja Siviikki-Timo", Color(1.0, 0.55, 0.45)]}
+	"kolmio_vaala": ["Hevari-Tero ja Sivikki-Timo", Color(1.0, 0.55, 0.45)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
 	"pekka": ["No perkele, naapuri!", "Terve terve, saatana.", "Kas, sieltähän se tulee."],
@@ -11649,7 +11649,7 @@ func _rasvanappi_result(r: Dictionary) -> void:
 # lisää missä vain (E, kun muuta toimintoa ei ole). Ympyrät näkyvät paperikartalla (paper_map.gd kolmio_rings), ja
 # leikkauksessa on naisen talo. Väärällä ovella avaa joku muu. Oma lahja ostetaan kaupan tiskiltä (kauppias), ilman
 # sitä ovi ei aukea. Oikealla ovella erikoissääntöinen Rasvanappi ja aamu. Saloisissa Joni ja Esa kaupan pihassa,
-# Vaalassa Tero ja Timo Siviikin vieressä aseman pihassa. Tila: kolmiomittaus.gd, Sytkäri: sytkari.gd, ovet ja aamu:
+# Vaalassa Tero ja Timo Sivikin vieressä aseman pihassa. Tila: kolmiomittaus.gd, Sytkäri: sytkari.gd, ovet ja aamu:
 # kolmio_kohtaus.gd.
 
 const Vehicles := preload("res://scripts/vehicles.gd")
@@ -11669,8 +11669,8 @@ var _kolmio_vaala_npcs: Array = []  # Tero ja Timo (vaala.gd:n lapsia)
 var _kolmio_doors := {}  # kohde -> [[ovi (x/z), indeksi (-1 = nainen, muuten väärä ovi)], ...]
 var _kolmio_vaala_spots := {}  # Vaalan lähtöpiste (aseman piha) ja etämittauksen piste (Veturitalli), paikallinen x/z
 var _kolmio_vaala_built: Node3D  # vaala.gd, johon kaverit ja ovet on lisätty
-var _kolmio_civic: Node3D  # Timon Siviikki aseman pihassa (vaala.gd:n lapsi)
-## Siviikki-ajo Timon mittauspisteeseen ja takaisin: path (vaalan paikalliset pisteet), d (ajettu matka), dir (1 meno,
+var _kolmio_civic: Node3D  # Timon Sivikki aseman pihassa (vaala.gd:n lapsi)
+## Sivikki-ajo Timon mittauspisteeseen ja takaisin: path (vaalan paikalliset pisteet), d (ajettu matka), dir (1 meno,
 ## -1 paluu), v (vauhti), vtec (kytkeytyi tällä osuudella), cam (ajokamera). Tyhjä = ei ajossa.
 var _kolmio_drive := {}
 var _kolmio_ui: CanvasLayer  # Sytkäri tai kohtaus auki
@@ -11814,7 +11814,7 @@ func _kolmio_logic() -> void:
 ## vaihtuessa takaisin hahmot palaavat näkyviin (kolmiomittauksen Esan poissaolon hoitaa _kolmio_logic itse).
 const K18_SIDE := ["rasvanappi", "pentti", "kolmio_saloinen", "kolmio_vaala", "iltakivat"]  # päiväkirjan tehtävät
 const K18_LOPUT := ["minttu", "katja", "pentin_kyyti", "pentin_kiertue", "kulissit", "avoin_pelikortti", "kesaheila", "rasytuppi", "lettukunkku", "loylykunkku",
-	"siviikkidisko", "karaokekunkku"]  # onnelliset loput ja legendaariset hetket
+	"sivikkidisko", "karaokekunkku"]  # onnelliset loput ja legendaariset hetket
 func _k18_hide(npcs: Array) -> bool:
 	var off: bool = Settings.get_v("k18_pois")
 	for v in npcs:
@@ -11881,7 +11881,7 @@ func _kolmio_vaala_logic() -> void:
 		return
 	for v: Node3D in _kolmio_vaala_npcs:
 		v.target = player
-	# Siviikki-ajon jälkeen Tero ja Timo kulkevat jalan pelaajan perässä; juttelupiste kulkee Teron mukana.
+	# Sivikki-ajon jälkeen Tero ja Timo kulkevat jalan pelaajan perässä; juttelupiste kulkee Teron mukana.
 	var going := kolmio.stage("vaala") == "mittaus"
 	var f: Node3D = mopo_trip.on_foot if going and kolmio.remote_done("vaala") else null
 	_kolmio_follow(_kolmio_vaala_npcs, f, going)
@@ -11906,7 +11906,7 @@ func _kolmio_vaala_logic() -> void:
 		_kolmio_measure("vaala", p)
 
 
-## Vaalaan Katjan rivitalo, väärät ovet, Tero ja Timo Siviikin kanssa aseman pihaan (kerran, kun vaala on rakennettu).
+## Vaalaan Katjan rivitalo, väärät ovet, Tero ja Timo Sivikin kanssa aseman pihaan (kerran, kun vaala on rakennettu).
 func _kolmio_vaala_setup() -> void:
 	if mopo_trip == null:
 		return
@@ -11938,7 +11938,7 @@ func _kolmio_vaala_setup() -> void:
 		vl.doors.append({"id": "kolmio_katja" if i == 0 else "kolmio_v%d" % (i - 1), "pos": at, "out": hd.out, "r": 3.0,
 			"walk": true, "hint": "ovelle", "text": "Koputa oveen"})
 	_kolmio_doors["vaala"] = list
-	# Tero ja Timo seisovat aseman pihassa Siviikin vieressä; Timon mittauspiste Vaalantien varrella (_kolmio_road_spot).
+	# Tero ja Timo seisovat aseman pihassa Sivikin vieressä; Timon mittauspiste Vaalantien varrella (_kolmio_road_spot).
 	var asema: Array = vl.doors.filter(func(d: Dictionary) -> bool: return d.id == "asema")
 	var out: Vector3 = asema[0].out if not asema.is_empty() else Vector3.FORWARD
 	var side := Vector3(-out.z, 0, out.x)
@@ -11954,7 +11954,7 @@ func _kolmio_vaala_setup() -> void:
 	civic.position = Vector3(cp.x, vl.h(cp.x, cp.z), cp.z)
 	civic.rotation.y = B.yaw_to(side)
 	_kolmio_civic = civic
-	var who := [["Hevari-Tero", Looks.HEVARI_TERO, "Tero", "pekka"], ["Siviikki-Timo", Looks.SIVIIKKI_TIMO, "Timo", "arto"]]
+	var who := [["Hevari-Tero", Looks.HEVARI_TERO, "Tero", "pekka"], ["Sivikki-Timo", Looks.SIVIKKI_TIMO, "Timo", "arto"]]
 	for k in 2:
 		var v := Villager.new()
 		v.display_name = who[k][0]
@@ -11980,7 +11980,7 @@ func _kolmio_vaala_setup() -> void:
 
 
 ## Timon mittauspiste Vaalantien varrella: tien näyte, joka on kauimpana aseman pihasta mutta alle 700 m Katjan
-## talosta (ympyrät leikkaavat jyrkässä kulmassa), ja Siviikin reitti sinne (vaala.gd road: [x, y, z, ...]).
+## talosta (ympyrät leikkaavat jyrkässä kulmassa), ja Sivikin reitti sinne (vaala.gd road: [x, y, z, ...]).
 ## Paikan nimi lähimmästä tunnetusta ovesta (alle 150 m), muuten "Vaalantien varresta".
 func _kolmio_road_spot(vl: Node3D, car: Vector2, start: Vector2, tgt: Vector2) -> Dictionary:
 	var road: Array = vl.road
@@ -12013,14 +12013,14 @@ func _kolmio_road_spot(vl: Node3D, car: Vector2, start: Vector2, tgt: Vector2) -
 	return {"remote": at, "remote_name": place, "route": route, "road_i0": i0, "road_bi": bi}
 
 
-const SIVIIKKI_BOX := Vector3(1.8, 1.0, 4.0)  # Civicin törmäyslaatikko reitin tarkistuksessa (0,4–1,4 m maasta)
-const SIVIIKKI_CELL := 2.0  # reitinhaun ruutu (m)
-const SIVIIKKI_HAKU := 240.0  # reitinhaun säde aseman pihasta (m)
+const SIVIKKI_BOX := Vector3(1.8, 1.0, 4.0)  # Civicin törmäyslaatikko reitin tarkistuksessa (0,4–1,4 m maasta)
+const SIVIKKI_CELL := 2.0  # reitinhaun ruutu (m)
+const SIVIKKI_HAKU := 240.0  # reitinhaun säde aseman pihasta (m)
 
 
 ## Este Civicin kohdalla (xz-taso kohteen kehyksessä vl, keula fwd): rakennukset ja muut kiinteät esteet, ei maastoa,
-## ei Siviikkiä itseään eikä hahmoja tai mopoa (ne väistävät tai ovat kyydissä).
-func _siviikki_este(vl: Node3D, p: Vector2, fwd: Vector2, size := SIVIIKKI_BOX) -> bool:
+## ei Sivikkiä itseään eikä hahmoja tai mopoa (ne väistävät tai ovat kyydissä).
+func _sivikki_este(vl: Node3D, p: Vector2, fwd: Vector2, size := SIVIKKI_BOX) -> bool:
 	var q := PhysicsShapeQueryParameters3D.new()
 	var box := BoxShape3D.new()
 	box.size = size
@@ -12037,28 +12037,28 @@ func _siviikki_este(vl: Node3D, p: Vector2, fwd: Vector2, size := SIVIIKKI_BOX) 
 
 
 ## Suora a -> b vapaa (Civic 1,5 m välein suoran suuntaisena).
-func _siviikki_suora(vl: Node3D, a: Vector2, b: Vector2) -> bool:
+func _sivikki_suora(vl: Node3D, a: Vector2, b: Vector2) -> bool:
 	var l := a.distance_to(b)
 	var fwd := (b - a) / maxf(l, 0.001)
 	var d := 0.0
 	while d <= l:
-		if _siviikki_este(vl, a + fwd * d, fwd):
+		if _sivikki_este(vl, a + fwd * d, fwd):
 			return false
 		d += 1.5
 	return true
 
 
-## Siviikin reitti (lasketaan kerran ajon alussa, kun rakennusten törmäysmuodot ovat fysiikassa): aseman pihasta
-## Vaalantielle ja tietä pitkin mittauspisteeseen. Pihasta tielle haetaan halvin reitti SIVIIKKI_CELL-ruudukossa
+## Sivikin reitti (lasketaan kerran ajon alussa, kun rakennusten törmäysmuodot ovat fysiikassa): aseman pihasta
+## Vaalantielle ja tietä pitkin mittauspisteeseen. Pihasta tielle haetaan halvin reitti SIVIKKI_CELL-ruudukossa
 ## (Dijkstra, 8 naapuria): ajoalueella (vaala.gd drivable: tiet, sivukadut, pihat ja parkit) askel maksaa matkan verran,
-## maastossa SIVIIKKI_MAASTO-kertaisesti, ja esteet (rakennukset, autot) on kielletty. Siviikki siis ajaa teitä ja
+## maastossa SIVIKKI_MAASTO-kertaisesti, ja esteet (rakennukset, autot) on kielletty. Sivikki siis ajaa teitä ja
 ## oikaisee maaston kautta vain, kun tietä ei ole tai kierros olisi pitkä. Suoristus vain, kun suora on vapaa eikä lisää
 ## maastossa ajettua matkaa. _kolmio_vaala_spots: "route", "lawn_n" (pihaosuudet alussa, maan pinnalla, ei kaistaa).
-const SIVIIKKI_MAASTO := 5.0
+const SIVIKKI_MAASTO := 5.0
 
 
 ## Matka maastossa (ei ajoaluetta) suoralla a -> b, metrin näyttein.
-func _siviikki_maastossa(vl: Node3D, a: Vector2, b: Vector2) -> float:
+func _sivikki_maastossa(vl: Node3D, a: Vector2, b: Vector2) -> float:
 	var l := a.distance_to(b)
 	var n := maxi(1, int(ceil(l)))
 	var off := 0.0
@@ -12069,7 +12069,7 @@ func _siviikki_maastossa(vl: Node3D, a: Vector2, b: Vector2) -> float:
 	return off
 
 
-func _kolmio_siviikki_route() -> PackedVector3Array:
+func _kolmio_sivikki_route() -> PackedVector3Array:
 	var sp := _kolmio_vaala_spots
 	var route: PackedVector3Array = sp.get("route", PackedVector3Array())
 	if sp.get("route_ok", false) or route.size() < 2 or mopo_trip == null or not sp.has("road_bi"):
@@ -12078,10 +12078,10 @@ func _kolmio_siviikki_route() -> PackedVector3Array:
 	var road: Array = vl.road
 	var bi: int = sp.road_bi
 	var start := Vector2(route[0].x, route[0].z)
-	var n := int(SIVIIKKI_HAKU * 2.0 / SIVIIKKI_CELL)
-	var o := start - Vector2.ONE * SIVIIKKI_HAKU
-	var cell_p := func(k: int) -> Vector2: return o + (Vector2(k % n, int(k / n)) + Vector2(0.5, 0.5)) * SIVIIKKI_CELL
-	var k0 := int(SIVIIKKI_HAKU / SIVIIKKI_CELL) * n + int(SIVIIKKI_HAKU / SIVIIKKI_CELL)
+	var n := int(SIVIKKI_HAKU * 2.0 / SIVIKKI_CELL)
+	var o := start - Vector2.ONE * SIVIKKI_HAKU
+	var cell_p := func(k: int) -> Vector2: return o + (Vector2(k % n, int(k / n)) + Vector2(0.5, 0.5)) * SIVIKKI_CELL
+	var k0 := int(SIVIKKI_HAKU / SIVIKKI_CELL) * n + int(SIVIKKI_HAKU / SIVIKKI_CELL)
 	var cost := {k0: 0.0}
 	var prev := {k0: -1}
 	var done := {}
@@ -12132,11 +12132,11 @@ func _kolmio_siviikki_route() -> PackedVector3Array:
 					continue
 				var np: Vector2 = cell_p.call(nk)
 				if not blocked.has(nk):
-					blocked[nk] = _siviikki_este(vl, np, Vector2(dx, dz).normalized(), Vector3(2.6, 1.0, 2.6))
+					blocked[nk] = _sivikki_este(vl, np, Vector2(dx, dz).normalized(), Vector3(2.6, 1.0, 2.6))
 				if blocked[nk]:
 					continue
-				var step := SIVIIKKI_CELL * (1.4142 if dx != 0 and dz != 0 else 1.0)
-				var c: float = cost[k] + step * (1.0 if vl.drivable(np.x, np.y) else SIVIIKKI_MAASTO)
+				var step := SIVIKKI_CELL * (1.4142 if dx != 0 and dz != 0 else 1.0)
+				var c: float = cost[k] + step * (1.0 if vl.drivable(np.x, np.y) else SIVIKKI_MAASTO)
 				if c < float(cost.get(nk, INF)):
 					cost[nk] = c
 					prev[nk] = k
@@ -12152,7 +12152,7 @@ func _kolmio_siviikki_route() -> PackedVector3Array:
 						heap[j] = t2
 						j = pj
 	if goal < 0:
-		push_warning("KOLMIO: Siviikin reittiä aseman pihasta tielle ei löytynyt esteiden ohi")
+		push_warning("KOLMIO: Sivikin reittiä aseman pihasta tielle ei löytynyt esteiden ohi")
 		sp["route_ok"] = true
 		return route
 	var path: Array = []
@@ -12170,8 +12170,8 @@ func _kolmio_siviikki_route() -> PackedVector3Array:
 		for j in range(path.size() - 1, at + 1, -1):
 			var via := 0.0
 			for m in range(at, j):
-				via += _siviikki_maastossa(vl, path[m], path[m + 1])
-			if _siviikki_maastossa(vl, path[at], path[j]) <= via + 0.5 and _siviikki_suora(vl, path[at], path[j]):
+				via += _sivikki_maastossa(vl, path[m], path[m + 1])
+			if _sivikki_maastossa(vl, path[at], path[j]) <= via + 0.5 and _sivikki_suora(vl, path[at], path[j]):
 				nxt = j
 				break
 		hop.append(path[nxt])
@@ -12185,21 +12185,21 @@ func _kolmio_siviikki_route() -> PackedVector3Array:
 	var off := 0.0
 	var prevp := start
 	for q: Vector2 in hop:
-		off += _siviikki_maastossa(vl, prevp, q)
+		off += _sivikki_maastossa(vl, prevp, q)
 		prevp = q
 	sp["route"] = out
 	sp["lawn_n"] = hop.size()
 	sp["off_road"] = off
 	sp["route_ok"] = true
 	if B.diag():
-		print("KOLMIO Siviikin reitti: %d pihaosuutta, maastossa %.0f m, liittymä tien näytteeseen %d, %.0f m, ruutuja tutkittu %d" % [
+		print("KOLMIO Sivikin reitti: %d pihaosuutta, maastossa %.0f m, liittymä tien näytteeseen %d, %.0f m, ruutuja tutkittu %d" % [
 			hop.size(), off, join, _kolmio_route_len(out), done.size()])
 	return out
 
 
-## Siviikki-ajo alkaa (Teron ja Timon juttelu): kaverit ja pelaaja kyytiin, ajokamera auton taakse.
+## Sivikki-ajo alkaa (Teron ja Timon juttelu): kaverit ja pelaaja kyytiin, ajokamera auton taakse.
 func _kolmio_drive_start() -> void:
-	var route := _kolmio_siviikki_route()
+	var route := _kolmio_sivikki_route()
 	if route.size() < 2 or _kolmio_civic == null:
 		_kolmio_remote("vaala")  # varalla tekstiviesti, jos tietä ei löytynyt
 		return
@@ -12211,7 +12211,7 @@ func _kolmio_drive_start() -> void:
 	cam.current = true
 	_kolmio_drive = {"d": 0.0, "dir": 1, "v": 0.0, "vtec": false, "cam": cam, "home": _kolmio_civic.transform,
 		"len": _kolmio_route_len(route), "line": 0, "line_t": 0.0,
-		"engine": Sfx.loop_on(_kolmio_civic, "engine", -6.0), "stereo": _siviikki_stereo()}
+		"engine": Sfx.loop_on(_kolmio_civic, "engine", -6.0), "stereo": _sivikki_stereo()}
 	for v: Node3D in _kolmio_vaala_npcs:
 		v.visible = false
 	mopo_trip.on_foot.visible = false
@@ -12221,14 +12221,14 @@ func _kolmio_drive_start() -> void:
 	_queue_message("Timo: \"Turvavyöt. Tero, pidä kiinni. Tää on kakkosvaihde ja VTEC.\"", 3.5)
 
 
-## Siviikin stereot: 90-luvun tanssibiisi (kuulokkeiden kansio, ei tunnistettavaa biisiä) satunnaisesta kohdasta väylän
-## SIVIIKKI_BUS läpi: bassot ylös, diskantti pois ja vähän säröä, eli auton läpi kuuluva bassojytke.
-const SIVIIKKI_BUS := "Siviikki"
-func _siviikki_stereo() -> AudioStreamPlayer3D:
-	if AudioServer.get_bus_index(SIVIIKKI_BUS) < 0:
+## Sivikin stereot: 90-luvun tanssibiisi (kuulokkeiden kansio, ei tunnistettavaa biisiä) satunnaisesta kohdasta väylän
+## SIVIKKI_BUS läpi: bassot ylös, diskantti pois ja vähän säröä, eli auton läpi kuuluva bassojytke.
+const SIVIKKI_BUS := "Sivikki"
+func _sivikki_stereo() -> AudioStreamPlayer3D:
+	if AudioServer.get_bus_index(SIVIKKI_BUS) < 0:
 		AudioServer.add_bus()
 		var bi := AudioServer.bus_count - 1
-		AudioServer.set_bus_name(bi, SIVIIKKI_BUS)
+		AudioServer.set_bus_name(bi, SIVIKKI_BUS)
 		AudioServer.set_bus_send(bi, "Music" if AudioServer.get_bus_index("Music") >= 0 else "Master")
 		var eq := AudioEffectEQ6.new()  # 32, 100, 320, 1000, 3200, 10000 Hz
 		for band: Array in [[0, 9.0], [1, 8.0], [2, 2.0], [3, -4.0], [4, -12.0], [5, -20.0]]:
@@ -12251,7 +12251,7 @@ func _siviikki_stereo() -> AudioStreamPlayer3D:
 		return null
 	var p := AudioStreamPlayer3D.new()
 	p.stream = st
-	p.bus = SIVIIKKI_BUS
+	p.bus = SIVIKKI_BUS
 	p.volume_db = 2.0
 	p.unit_size = 8.0
 	p.max_db = 6.0
@@ -12269,7 +12269,7 @@ static func _kolmio_route_len(route: PackedVector3Array) -> float:
 
 ## Piste ja suunta reitillä matkan d kohdalla (oikea kaista 1,7 m keskiviivasta, kun lähtöpihasta on päästy).
 func _kolmio_route_at(route: PackedVector3Array, d: float, dir: int) -> Array:
-	var lawn_n: int = _kolmio_vaala_spots.get("lawn_n", 1)  # nurmikko-osuudet alussa (_kolmio_siviikki_route)
+	var lawn_n: int = _kolmio_vaala_spots.get("lawn_n", 1)  # nurmikko-osuudet alussa (_kolmio_sivikki_route)
 	var left := d
 	for i in route.size() - 1:
 		var a := route[i]
@@ -12389,7 +12389,7 @@ func _kolmio_options(who: String, o: Array) -> void:
 	match s.stage:
 		"mittaus":
 			if Kolmio.SITES[site].get("drive", false) and not kolmio.remote_done(site):
-				o.append(_opt("kolmio_siviikki", "Hypätään Siviikkiin: Timo ajaa toiselle puolelle kylää mittaamaan", true, "", true))
+				o.append(_opt("kolmio_sivikki", "Hypätään Sivikkiin: Timo ajaa toiselle puolelle kylää mittaamaan", true, "", true))
 			o.append(_opt("kolmio_tilanne", "Missä ne ympyrät nyt menee?"))
 			if not (Kolmio.SITES[site].gifts as Array).is_empty():
 				o.append(_opt("kolmio_lahjat", "Onks teillä lahjat valmiina?", true, "", not s.gift))
@@ -12447,7 +12447,7 @@ func _kolmio_choose(id: String) -> void:
 			tilat.first("kesaheila_matsi", 0.0)
 			_save_game()
 			_kolmio_phone("koti", "match", Kolmio.dist_text(r.m))
-		"kolmio_siviikki":
+		"kolmio_sivikki":
 			_talk_box.close()
 			_kolmio_drive_start()
 		"kolmio_tilanne":
@@ -12461,7 +12461,7 @@ func _kolmio_choose(id: String) -> void:
 			_talk_box.reply(line, _talk_options(), "Mittaa missä vain: E, kun Sytkäri-vihje näkyy (vähintään %d m edellisistä). Lähempää mitattu ympyrä on tarkempi." % int(Kolmio.MIN_GAP))
 		"kolmio_lahjat":
 			var gifts := "Esa: Mansikat on poimittu. Joni: Kermavaahto on rinkassa jesarin alla. Sää tuot ruusut, kauppa myy tiskiltä." \
-				if site == "saloinen" else "Timo: Kermavaahto on Siviikin takakontissa. Tero: Ruusut ostin, valtio veis nääki verona. Sää tuot mansikat, K-Marketin tiskiltä."
+				if site == "saloinen" else "Timo: Kermavaahto on Sivikin takakontissa. Tero: Ruusut ostin, valtio veis nääki verona. Sää tuot mansikat, K-Marketin tiskiltä."
 			_talk_box.reply(gifts, _talk_options(), "Oma lahja mukana ✔" if s.gift else "Oma lahja puuttuu: %s kaupan tiskiltä." % info.gift_me)
 
 
@@ -12514,7 +12514,7 @@ func _kolmio_briefing(site: String) -> void:
 		_queue_message("Esa: \"Mittaa sää jostain muualta (E missä vain). Ympyrät harpilla kartalle (M), ja ruusut kaupan tiskiltä.\"", 5.0)
 	else:
 		_queue_message("Tero: \"Mätsi. Ja valtio tietää sen jo. Mää mittasin aseman pihasta.\"", 4.0)
-		_queue_message("Timo: \"Seuraava mittaus Siviikillä toiselta puolelta kylää. Hyppää kyytiin (puhu meille). Mittaa sää lisää (E missä vain), mansikat K-Marketin tiskiltä.\"", 6.0)
+		_queue_message("Timo: \"Seuraava mittaus Sivikillä toiselta puolelta kylää. Hyppää kyytiin (puhu meille). Mittaa sää lisää (E missä vain), mansikat K-Marketin tiskiltä.\"", 6.0)
 
 
 func _kolmio_measure(site: String, at: Vector2) -> void:
@@ -12571,11 +12571,11 @@ func _kolmio_knock(site: String, idx: int) -> void:
 ## Iltakivat sivutehtävää varten (quests.gd "iltakivat"): koettu kiva kirjataan aamulla tilat.first("kiva_<nimi>").
 const KOLMIO_KIVAT := ["rasvanappi", "tuppi", "lettu", "loyly", "disko", "karaoke"]
 const KOLMIO_KIVA_NIMET := {"rasvanappi": "Rasvanappi", "tuppi": "räsytuppi", "lettu": "lettukisa", "loyly": "löylykisa",
-	"disko": "Siviikki-disko (Vaala)", "karaoke": "karaoke"}
+	"disko": "Sivikki-disko (Vaala)", "karaoke": "karaoke"}
 
 
 ## Iltakiva naisen luona: kohteen ensimmäinen ilta on Rasvanappi, seuraavat kiertävät (kolmiomittaus.gd KIVAT):
-## räsytuppi, lettukisa, löylykisa, Siviikki-disko (Vaala) ja karaoke. Kaikki K-18 ja vähän rivoja.
+## räsytuppi, lettukisa, löylykisa, Sivikki-disko (Vaala) ja karaoke. Kaikki K-18 ja vähän rivoja.
 func _kolmio_kiva(site: String, kiva: String) -> void:
 	match kiva:
 		"tuppi":
@@ -12585,7 +12585,7 @@ func _kolmio_kiva(site: String, kiva: String) -> void:
 		"loyly":
 			_kolmio_ilta(site, LoylyGame.new(), Kolmio.LOYLY_LINES, "loylykunkku")
 		"disko":
-			_kolmio_ilta(site, DiskoGame.new(), Kolmio.DISKO_LINES, "siviikkidisko")
+			_kolmio_ilta(site, DiskoGame.new(), Kolmio.DISKO_LINES, "sivikkidisko")
 		"karaoke":
 			var k := IltaKaraoke.new()
 			k.drunk = _hand_shake()
@@ -12671,7 +12671,7 @@ func _kolmio_people(site: String) -> Array:
 		{"id": TUPPI_NAINEN[site], "name": info.woman, "look": RasvanappiGame.real_look(TUPPI_NAINEN[site])}]
 
 
-## Lettukisa, löylykisa, Siviikki-disko ja karaoke (lettu_game.gd ...): samat kentät ja finished-tulos; pelaajan voitto
+## Lettukisa, löylykisa, Sivikki-disko ja karaoke (lettu_game.gd ...): samat kentät ja finished-tulos; pelaajan voitto
 ## on legendaarinen hetki (ending).
 func _kolmio_ilta(site: String, g: CanvasLayer, all_lines: Dictionary, ending: String) -> void:
 	g.site = site
@@ -12705,7 +12705,7 @@ func _kolmio_morning(site: String, r: Dictionary) -> void:
 	if r.has("rasy"):  # räsytuppi: kumpi pari pantiin tuppeen
 		ilta = "Räsytuppi: kaverit tupessa ✔" if r.get("voitto", false) else "Räsytuppi: te tupessa, kalsareissa"
 	elif r.has("kiva"):
-		var nimi: String = {"tuppi": "Räsytuppi", "lettu": "Lettukisa", "loyly": "Löylykisa", "disko": "Siviikki-disko", "karaoke": "Karaoke"}.get(r.kiva, "Ilta")
+		var nimi: String = {"tuppi": "Räsytuppi", "lettu": "Lettukisa", "loyly": "Löylykisa", "disko": "Sivikki-disko", "karaoke": "Karaoke"}.get(r.kiva, "Ilta")
 		ilta = "%s: %s" % [nimi, "voitit ✔" if r.get("voitto", false) else ("luovutit" if r.get("luovutti", false) else "hävisit")]
 	var stats := "Kolme ympyrää ✔  ·  Kolme lahjaa ✔  ·  %s  ·  %s" % [ilta, _ending_line(info.ending)]
 	kolmio.maito_day = day + 1
