@@ -100,6 +100,9 @@ func _run() -> void:
 				var keep: Transform3D = g._cam.transform
 				g.test_closeup()
 				await _shot(tag + "_lahi")
+				if g.has_method("test_closeup2"):
+					g.test_closeup2()
+					await _shot(tag + "_lahi2")
 				g._cam.transform = keep
 				if "_cam_base" in g:
 					g._cam_base = keep

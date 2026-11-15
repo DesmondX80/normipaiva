@@ -122,9 +122,9 @@ func _build() -> void:
 		B.mesh(_room, B.boxm(Vector3(0.06, BENCH_TOP - 0.03, 0.06)), Vector3(x, (BENCH_TOP - 0.03) / 2.0, BENCH_D - 0.06), dark)
 		B.mesh(_room, B.boxm(Vector3(0.06, step_y - 0.03, 0.06)), Vector3(x, (step_y - 0.03) / 2.0, BENCH_D + 0.36), dark)
 	_build_kiuas()
-	# Nainen ylälauteen vasemmassa päässä kiukaan puolella, pitkävartinen kauha kädessä, pyyhe kainaloista reisiin.
-	var w := Looks.make(_room, _towel_look(people[3].look, true, Color(0.95, 0.45, 0.6)))
-	_woman_towel(w, Color(0.95, 0.45, 0.6))
+	# Nainen ylälauteen vasemmassa päässä kiukaan puolella, pitkävartinen kauha kädessä, bikineissä kuten Helena Uiton saunassa.
+	var w := Looks.make(_room, _bikini_look(people[3].look))
+	w.body_mat.set_shader_parameter("topless", true)  # kuten Helena Uiton saunassa: ilman bikinien yläosaa
 	w.rotation.y = PI
 	w.play("Sitting_Idle", 0.0)
 	w.anim.advance(0.01)
@@ -260,8 +260,7 @@ func _build_kiuas() -> void:
 
 
 ## Ulkonäkö saunassa: sama kuin Uiton ja mökin saunassa (cutscene.gd sauna_look: paljas, löylystä punertava iho, ei
-## kenkiä), pyyhkeen väri lanteille. Naisilla pyyhe kainaloista reisiin maalataan varjostimeen hahmon teon jälkeen
-## (_woman_towel). towel = false: pyyhe jäi lauteille (paljas).
+## kenkiä), pyyhkeen väri lanteille. Naiset: _bikini_look. towel = false: pyyhe jäi lauteille (paljas).
 static func _towel_look(base: Dictionary, towel: bool, col: Color) -> Dictionary:
 	var lk: Dictionary = Cutscene.sauna_look(base)
 	for key in ["net_shirt", "chain", "vest_open", "ski_suit", "glam", "crop_y", "denim", "skirt", "cap", "sandels",
@@ -278,14 +277,15 @@ static func _towel_look(base: Dictionary, towel: bool, col: Color) -> Dictionary
 	return lk
 
 
-## Naisen pyyhe kainaloista reisiin vartalon varjostimeen (kuten crawler3d.gd set_towel).
-static func _woman_towel(c: Node3D, col: Color) -> void:
-	var bm: ShaderMaterial = c.body_mat
-	bm.set_shader_parameter("shirt", col)
-	bm.set_shader_parameter("pants", col)
-	bm.set_shader_parameter("tube_y", 1.42)
-	bm.set_shader_parameter("sleeve_x", 0.15)
-	bm.set_shader_parameter("shorts_y", 0.88)
+## Naisen saunavaatteet kuten Helenalla Uiton saunassa (cutscene.gd helena_bikini): punaiset lappubikinit, paljaat
+## jalat; yläosa pois varjostimella (topless).
+static func _bikini_look(base: Dictionary) -> Dictionary:
+	var look: Dictionary = base.duplicate()
+	look.merge({"shirt": Color(0.9, 0.05, 0.12), "pants": Color(0.9, 0.05, 0.12), "shoes": Color(0.95, 0.75, 0.62), "shine": 0.7,
+		"string_bikini": true, "shoe": "paljas", "denim": false}, true)
+	for k in ["crop_y", "tube_y", "sleeve_x", "shorts_y", "skirt", "belt_y", "shoe_rough"]:
+		look.erase(k)
+	return look
 
 
 ## Istujat ylälauteelle: lantio laudepinnan yläpuolelle. Palauttaa alalauteen korkeuden jalkapohjien alle (mitattu
@@ -595,3 +595,11 @@ func test_closeup() -> void:
 ## Läpimenotarkistuksen keskipiste (iltakivat_kuvat.gd käyttää CENTERiä, jos test_target puuttuu).
 func _hall_center() -> Vector3:
 	return _room.to_global(CENTER)
+
+
+## Lähikuva naisesta (saunavaatteiden tarkistus).
+func test_closeup2() -> void:
+	var p := Vector3(WOMAN_AT.x + 0.05, BENCH_TOP + 0.25, 0.4)
+	var eye := p + Vector3(0.35, 0.15, 1.0)
+	_cam_base = Transform3D(Basis.looking_at(p - eye, Vector3.UP), eye)
+	_cam.transform = _cam_base
