@@ -468,7 +468,7 @@ func _update_keys() -> void:
 func _draw_ui() -> void:
 	var vs := _ui.size
 	var font := ThemeDB.fallback_font
-	var top := "SIVIIKKI-DISKO   Sinä %d   %s %d   %s %d   %s" % [_score[0], people[1].name, _score[1], people[2].name,
+	var top := "SIVIKKI-DISKO   Sinä %d   %s %d   %s %d   %s" % [_score[0], people[1].name, _score[1], people[2].name,
 		_score[2], ("Combo %d" % _combo) if _combo >= 4 else ""]
 	Room.box(_ui, Rect2(vs.x / 2.0 - 380, 14, 760, 40), Color(0, 0, 0, 0.55))
 	_ui.draw_string(font, Vector2(vs.x / 2.0 - 370, 42), top, HORIZONTAL_ALIGNMENT_CENTER, 740, 20, Color.WHITE)

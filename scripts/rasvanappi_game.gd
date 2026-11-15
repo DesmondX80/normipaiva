@@ -658,7 +658,7 @@ static func real_look(id: String) -> Dictionary:
 		"tero":
 			return Looks.HEVARI_TERO
 		"timo":
-			return Looks.SIVIIKKI_TIMO
+			return Looks.SIVIKKI_TIMO
 	return {}
 
 

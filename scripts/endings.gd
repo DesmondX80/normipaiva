@@ -49,7 +49,7 @@ const ENDINGS := [
 	["rasytuppi", "Räsytuppi", "Kaverit pantiin tuppeen kalsareissa naisen olohuoneessa. Kortit jäivät pöydälle, kalsarit päälle."],
 	["lettukunkku", "Lettukunkku", "Eniten kermalettuja minuutissa naisen pöydässä. Voittaja nuoli vatkaimen."],
 	["loylykunkku", "Löylykunkku", "Viimeisenä lauteilla, kun kaverit pakenivat pyyhkeet kourassa. Pyyhe putosi, ego ei."],
-	["siviikkidisko", "Sivikki-disko", "Pihadisko Sivikin bassojen tahtiin. Katja tanssi sinun kanssasi, ja Timon akku loppui."],
+	["sivikkidisko", "Sivikki-disko", "Pihadisko Sivikin bassojen tahtiin. Katja tanssi sinun kanssasi, ja Timon akku loppui."],
 	["karaokekunkku", "Karaokekunkku", "Olohuoneen karaokessa parhaat pisteet rivoimmalla laululla. Naapurit kuulivat sanat."],
 	["kesaheila", "Kesäheila -96", "Kolme ympyrää leikkasi oman kodin. Ovella seisoi Päivi kerman ja mansikoiden kanssa."],
 ]

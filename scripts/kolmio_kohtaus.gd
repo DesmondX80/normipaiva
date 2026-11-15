@@ -103,7 +103,7 @@ func _look(nimi: String) -> Dictionary:
 		"Hevari-Tero":
 			return Looks.HEVARI_TERO
 		"Sivikki-Timo":
-			return Looks.SIVIIKKI_TIMO
+			return Looks.SIVIKKI_TIMO
 		"Pannu-Sulo":
 			return Looks.SULO
 		"Päivi", "Kesäheila -96":
