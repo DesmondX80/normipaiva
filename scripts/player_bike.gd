@@ -480,15 +480,17 @@ func _update_roll_sound() -> void:
 	# Räminä: vanha pyörä kolisee vauhdin mukaan, epätasaisella alustalla kovemmin. Sävelkorkeus muuttuu vain vähän
 	# (äänite on oikeasta vauhdista), joten kolina ei kuulosta nauhan kelaukselta.
 	var kr := clampf(absf(speed) / 6.5, 0.0, 1.3)
-	var rattle_db: float = (linear_to_db(kr * 0.85 + 0.0001) + 0.6 * r[1] + 4.5 + mute) if pyora and kr > 0.03 else -80.0
+	# Epätasaisella alustalla räminä kovenee selvästi (metsä +5 dB, niitty +3 dB): tiellä on hiljaisempaa.
+	var bump: float = _terrain.get("bump", 0.0)
+	var rattle_db: float = (linear_to_db(kr * 0.85 + 0.0001) + 0.6 * r[1] + bump * 60.0 + 4.5 + mute) if pyora and kr > 0.03 else -80.0
 	_ride.volume_db = lerpf(_ride.volume_db, rattle_db, 0.2)
 	_ride.pitch_scale = clampf(0.85 + kr * 0.25, 0.85, 1.15)
 	# Satunnaiset kolahdukset ajossa: asfaltilla noin kerran sekunnissa täydessä vauhdissa, epätasaisella tiheämmin.
 	if pyora and kr > 0.15:
-		_clunk_t -= get_physics_process_delta_time() * kr * (1.0 + _terrain.get("bump", 0.0) * 12.0)
+		_clunk_t -= get_physics_process_delta_time() * kr * (1.0 + bump * 25.0)  # metsässä noin kolminkertainen tahti
 		if _clunk_t <= 0.0:
 			_clunk_t = randf_range(0.35, 1.6)
-			_sfx("bike_clunk", randf_range(-15.0, -8.0) + 0.5 * r[1], randf_range(0.92, 1.08))
+			_sfx("bike_clunk", randf_range(-15.0, -8.0) + 0.5 * r[1] + bump * 40.0, randf_range(0.92, 1.08))
 	# Vapaaratas naksuu vain, kun rullataan polkematta.
 	var coasting := controls_enabled and absf(speed) > 1.0 and not Input.is_action_pressed("forward") and not mopo and not car
 	_chain.volume_db = lerpf(_chain.volume_db, (linear_to_db(k * 0.7 + 0.0001) - 6.0 + mute) if coasting else -80.0, 0.25)
@@ -623,7 +625,11 @@ func _apply_bumps(delta: float) -> void:
 		# Juurakko metsässä: tärähdys ja vauhti hidastuu.
 		bump += 0.12
 		root_hits += 1
-		_sfx("rattle_hard" if mopo or car else "bike_root", -2.0, randf_range(0.9, 1.1))  # polkupyörällä tömähdys ja oman pyörän kolahdus
+		# Polkupyörällä iso rämähdys (huonosti kasassa oleva pyörä pomppaa juurakosta): ääni ohjaa ajamaan tiellä.
+		if mopo or car:
+			_sfx("rattle_hard", -2.0, randf_range(0.9, 1.1))
+		else:
+			_sfx("bike_root", 1.0, randf_range(0.94, 1.06))
 		speed *= 0.85
 		_shake = 0.25
 	_visual.position.y = lerpf(_visual.position.y, -t.sink + bump, 1.0 - exp(-14.0 * delta))
