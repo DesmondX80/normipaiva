@@ -8281,6 +8281,11 @@ func quest_progress(key: String) -> String:
 			return "ennätykset: darts %d, mökkitikka %d / 150" % [tikka_ennatys, mtikka_ennatys]
 		"tekemiset":
 			return "kokeiltu %d / %d" % [TEKEMISET.filter(func(k): return k in tilat.firsts).size(), TEKEMISET.size()]
+		"iltakivat":
+			var koettu: Array = KOLMIO_KIVAT.filter(func(k: String) -> bool: return ("kiva_" + k) in tilat.firsts)
+			return "koettu %d / %d%s" % [koettu.size(), KOLMIO_KIVAT.size(), "" if koettu.size() == KOLMIO_KIVAT.size() else
+				" (puuttuu: %s)" % ", ".join(KOLMIO_KIVAT.filter(func(k: String) -> bool: return not k in koettu).map(
+				func(k: String) -> String: return KOLMIO_KIVA_NIMET[k]))]
 		"hanttihommat":
 			var n := 0
 			for k in HANTTIHOMMAT:
@@ -11807,7 +11812,7 @@ func _kolmio_logic() -> void:
 
 ## K-18-sisältö pois (asetus k18_pois): hahmot piiloon ja pysähdyksiin; palauttaa true, kun piilossa. Asetuksen
 ## vaihtuessa takaisin hahmot palaavat näkyviin (kolmiomittauksen Esan poissaolon hoitaa _kolmio_logic itse).
-const K18_SIDE := ["rasvanappi", "pentti", "kolmio_saloinen", "kolmio_vaala"]  # päiväkirjan tehtävät
+const K18_SIDE := ["rasvanappi", "pentti", "kolmio_saloinen", "kolmio_vaala", "iltakivat"]  # päiväkirjan tehtävät
 const K18_LOPUT := ["minttu", "katja", "pentin_kyyti", "pentin_kiertue", "kulissit", "avoin_pelikortti", "kesaheila", "rasytuppi", "lettukunkku", "loylykunkku",
 	"siviikkidisko", "karaokekunkku"]  # onnelliset loput ja legendaariset hetket
 func _k18_hide(npcs: Array) -> bool:
@@ -12563,6 +12568,12 @@ func _kolmio_knock(site: String, idx: int) -> void:
 	_kolmio_ui = ui
 
 
+## Iltakivat sivutehtävää varten (quests.gd "iltakivat"): koettu kiva kirjataan aamulla tilat.first("kiva_<nimi>").
+const KOLMIO_KIVAT := ["rasvanappi", "tuppi", "lettu", "loyly", "disko", "karaoke"]
+const KOLMIO_KIVA_NIMET := {"rasvanappi": "Rasvanappi", "tuppi": "räsytuppi", "lettu": "lettukisa", "loyly": "löylykisa",
+	"disko": "Siviikki-disko (Vaala)", "karaoke": "karaoke"}
+
+
 ## Iltakiva naisen luona: kohteen ensimmäinen ilta on Rasvanappi, seuraavat kiertävät (kolmiomittaus.gd KIVAT):
 ## räsytuppi, lettukisa, löylykisa, Siviikki-disko (Vaala) ja karaoke. Kaikki K-18 ja vähän rivoja.
 func _kolmio_kiva(site: String, kiva: String) -> void:
@@ -12685,6 +12696,8 @@ func _kolmio_morning(site: String, r: Dictionary) -> void:
 	var info: Dictionary = Kolmio.SITES[site]
 	kolmio.finish(site, day)
 	tilat.first("rasvanappi", 0.5)
+	if not r.get("luovutti", false):
+		tilat.first("kiva_" + String(r.get("kiva", "rasvanappi")), 0.2)  # sivutehtävä "Kolmiomittauksen iltakivat"
 	tilat.add("moraali", Kolmio.END_MORAALI)
 	tilat.add("stressi", Kolmio.END_STRESSI)
 	tilat.add("vireys", Kolmio.END_VIREYS)

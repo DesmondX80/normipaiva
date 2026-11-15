@@ -86,7 +86,7 @@ Vaalan Ratatie (asfalttikierros aseman edestä Zabukin taakse Aseman pihaan, 3 p
 Iltakivat (kolmiomittauksen toinen ilta eteenpäin): `godot --headless --path . -s tools/testit/tuppi_logiikka.gd` (tupin
 säännöt ja tekoäly 30 jaolla, laittomat kortit ja tikkimäärät = TESTI VIKA), `tools/testit/aja.sh tscn tools/testit/tuppi_kuvat.tscn`
 (räsytupin vaiheet, riisuminen, pöydän kortti vähintään 40 px ja läpimenot), `tools/testit/aja.sh scene kolmio_tuppi`
-(räsytuppi pelimaailmassa ovelta aamuun ja legenda) ja `tools/testit/aja.sh tscn tools/testit/iltakivat_kuvat.tscn
+(räsytuppi pelimaailmassa ovelta aamuun, legenda ja sivutehtävän "iltakivat" edistyminen) ja `tools/testit/aja.sh tscn tools/testit/iltakivat_kuvat.tscn
 [lettu,loyly,disko,karaoke]` (lettukisa, löylykisa, Siviikki-disko ja karaoke tekoälyllä molemmissa kohteissa: alku,
 toiminta, lähikuva, loppu, toiminnan kohteen koko pikseleinä `test_target`, läpimenot `Asento.views` ja tulos). Diskon
 biisien tempot (`disko_game.gd BIISIT`) mitattiin iskuenergian autokorrelaatiolla 30 s:n jaksoissa; vain biisit, joiden

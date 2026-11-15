@@ -80,4 +80,11 @@ func run() -> void:
 		await _snap("_aamu")
 	if not main.endings.counts.has("minttu"):
 		_vika("kolmiomittauksen loppu (minttu) puuttuu")
+	# Sivutehtävä "Kolmiomittauksen iltakivat": tuppi kirjattu koetuksi, tehtävä päiväkirjassa edistymineen.
+	var side: Array = main.journal_data().side.filter(func(q: Dictionary) -> bool: return q.id == "iltakivat")
+	print("TUPPI sivutehtävä %s" % [side])
+	if not "kiva_tuppi" in main.tilat.firsts:
+		_vika("kiva_tuppi ei kirjautunut")
+	if side.is_empty() or not String(side[0].progress).contains("/ 6"):
+		_vika("sivutehtävä iltakivat puuttuu päiväkirjasta tai edistyminen puuttuu")
 	print("TUPPI valmis, %d vikaa" % vikoja)

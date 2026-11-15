@@ -98,6 +98,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   ilta on aina Rasvanappi, sen jälkeen illat kiertävät (`kolmiomittaus.gd KIVAT`; Saloisissa räsytuppi, lettukisa,
   karaoke ja löylykisa; Vaalassa räsytuppi, Siviikki-disko, löylykisa, lettukisa ja karaoke). Jokaisen voitto on
   legendaarinen hetki, ja aamun tilastorivi ja kaverien aamurepliikit kertovat illan kivasta (`kolmio_kohtaus.gd KIVA_AAMU`).
+  Sivutehtävä **Kolmiomittauksen iltakivat** (päiväkirja, tulee tiedoksi ensimmäisen kolmiomittauksen jälkeen): koe kaikki
+  kuusi (Rasvanappi, räsytuppi, lettukisa, löylykisa, Siviikki-disko ja karaoke; voittoa ei vaadita, luovutus ei kelpaa).
+  Edistyminen "koettu n / 6" ja puuttuvat kivat; disko vaatii Vaalan.
   - **Räsytuppi** (`tuppi.gd`, `tuppi_game.gd`): tuppia pareittain naisen olohuoneen korttipöydässä (pelaaja ja nainen
     vastaan kaverit; rami tai nolo, maapakko, ässä korkein). Jaon hävinnyt pari riisuu: kengät, paita (naisella
     rintaliivit jäävät) ja housut; kalsareissa hävinnyt pari on pantu tuppeen. Legendaarinen hetki **Räsytuppi**.
