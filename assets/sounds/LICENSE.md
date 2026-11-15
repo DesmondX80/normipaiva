@@ -36,6 +36,6 @@
 - bike_ride.ogg (vanhan pyörän räminä, silmukka) ja bike_clunk_0–5.ogg (kolahdukset): "Old Bike UglyBike Onboard
   Slow Start-ride-stop" – Frick & Traa (frickandtraa.com), Wikimedia Commons,
   https://commons.wikimedia.org/wiki/File:Old_Bike_UglyBIke_Onboard_Slow_Start-ride-stop_CityBikes_FreeSamplePack_frickandtraa.com_F%26T_Bicycle.wav
-  (**CC BY-SA 4.0**). Muokattu (silmukka ristiinhäivytetty, kolahdukset leikattu, taso sovitettu); muokatut tiedostot
+  (**CC BY-SA 4.0**). Muokattu (silmukka ristiinhäivytetty, kolina korostettu `tools/aanet/korosta_kolina.py`, kolahdukset leikattu, taso sovitettu); muokatut tiedostot
   ovat samalla lisenssillä CC BY-SA 4.0. Samoin bike_root_0–2.ogg (juurakkoisku): saman äänitteen kolahdus ja tätä
   peliä varten syntetisoitu tömähdys (`tools/aanet/rakenna_juurakko.py`), CC BY-SA 4.0.
