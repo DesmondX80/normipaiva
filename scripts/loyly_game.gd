@@ -14,6 +14,7 @@ const Room := preload("res://scripts/ilta_room.gd")
 const Hall := preload("res://scripts/rasvanappi_hall.gd")
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
+const Cutscene := preload("res://scripts/cutscene.gd")
 
 ## Saunan koordinaatit: lattia y = 0, takaseinä z = 0 (lauteet), ovi ja kamera +Z:n puolella. -Z on lauteen takaosa,
 ## istujien etu on +Z.
@@ -258,31 +259,22 @@ func _build_kiuas() -> void:
 		Color(0.15, 0.15, 0.16))
 
 
-## Ulkonäkö pyyhkeessä (vartaloon maalattu kuten crawler3d.gd set_towel): miehillä lanteilta reisiin, naisilla
-## kainaloista reisiin. towel = false: pyyhe jäi lauteille.
+## Ulkonäkö saunassa: sama kuin Uiton ja mökin saunassa (cutscene.gd sauna_look: paljas, löylystä punertava iho, ei
+## kenkiä), pyyhkeen väri lanteille. Naisilla pyyhe kainaloista reisiin maalataan varjostimeen hahmon teon jälkeen
+## (_woman_towel). towel = false: pyyhe jäi lauteille (paljas).
 static func _towel_look(base: Dictionary, towel: bool, col: Color) -> Dictionary:
-	var lk: Dictionary = base.duplicate(true)
-	var skin: Color = lk.get("skin", Color(0.96, 0.78, 0.66))
-	var woman := String(lk.get("model", "male")) == "female"
-	var k: float = float(lk.get("height", 1.76)) / 1.76
-	for key in ["tracksuit", "net_shirt", "suspenders", "flannel", "chain", "shirt_puff", "vest_open", "ski_suit", "glam",
-			"crop_y", "shoe_rough", "jeans", "denim", "workwear", "belt_y", "pants_puff", "skirt", "stripes", "cap", "sandels"]:
+	var lk: Dictionary = Cutscene.sauna_look(base)
+	for key in ["net_shirt", "chain", "vest_open", "ski_suit", "glam", "crop_y", "denim", "skirt", "cap", "sandels",
+			"stripe_color", "lap_skirt", "coat_hem"]:
 		lk.erase(key)
-	lk["shoe"] = "paljas"
-	lk["shoes"] = skin.darkened(0.15)
-	lk["bare_skin"] = skin
 	lk["sleeve_x"] = 0.0
-	if woman:
-		lk.erase("bare_skin")  # naisilla pyyhe maalataan varjostimeen hahmon teon jälkeen (_woman_towel)
-		lk["shirt"] = skin
-		lk["pants"] = skin
-		lk["tube_y"] = 0.01
+	var bare: Color = lk.bare_skin
+	if String(lk.get("model", "male")) == "female":
+		lk["pants"] = bare
 		lk["shorts_y"] = 1.4
 	else:
-		lk["shirt"] = skin
-		lk["tube_y"] = 0.01
-		lk["pants"] = col if towel else skin
-		lk["shorts_y"] = 0.55 * k if towel else 1.4  # pyyhe lanteilta polviin (istuessa reidet peittyvät)
+		lk["pants"] = col if towel else bare
+		lk["shorts_y"] = 0.72 if towel else 1.4  # kuten sauna_look: pyyhe lanteilta reisiin
 	return lk
 
 
