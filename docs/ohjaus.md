@@ -19,7 +19,7 @@
 | G | kellon kiihdytys päälle / pois (kello kulkee 8-kertaisella nopeudella, rannekellon yläreunassa nuolet; välikuvat ja minipelit sammuttavat) |
 | V | FPS-näkymä / kolmas persoona |
 | Hiiri | kamera (Esc vapauttaa hiiren valikkoon) |
-| Esc | valikko (myös päivän aloitus alusta); minipelissä Esc lopettaa pelin kuten F |
+| Esc | valikko (myös päivän aloitus alusta, tallennus ja lataus); minipelissä Esc lopettaa pelin kuten F |
 
 | Muskeliveneessä (Vaalan satama) | |
 |---|---|
@@ -78,6 +78,14 @@ asetuksissa valitut napit näkyvät, nuolinäppäimet nuolina) ja perusiskut (oh
 | Vasen nappi / E | ammu (kaksi piippua, sitten lataus) |
 | Oikea nappi pohjassa | tarkka tähtäys (zoom, rauhallisempi käsi) |
 | F | lopeta jahti |
+
+## Tallennus
+
+Peli tallentuu automaattisesti (päävalikon **Jatka peliä**). Lisäksi on viisi omaa tallennuspaikkaa: taukovalikon
+**Tallenna peli** tallentaa automaattitallennukseen tai paikkaan 1–5 (varattu paikka kysyy vahvistuksen), ja **Lataa peli**
+(tauko- ja päävalikossa) jatkaa valitusta paikasta. Paikassa näkyy pelipäivä, kellonaika ja tallennushetki. Ladattu peli
+jatkuu automaattitallennuksena; oma paikka muuttuu vain, kun siihen tallennetaan uudelleen. Tiedostot:
+`user://normipaiva.cfg` (automaattinen) ja `user://tallennus_1.cfg` … `_5.cfg`. Testi: `tools/testit/aja.sh scene tallennuspaikat`.
 
 ## Puhelin ja tabletti (selainversio)
 

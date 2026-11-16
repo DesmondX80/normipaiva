@@ -37430,6 +37430,44 @@ func _maybe_screenshot() -> void:
 				for i in 120:
 					await get_tree().physics_frame
 				walker_out.global_position = wp
+		"tallennuspaikat":
+			# Viisi omaa tallennuspaikkaa (menu.gd _slots): tallennus paikkaan 2, kuvaus, valikot ja lataus (kopio
+			# automaattitallennukseksi; uudelleenlatausta ei tehdä testissä). Testin HOME on eristetty (aja.sh).
+			for i in range(1, menu.SLOTS_N + 1):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(menu.slot_path(i)))
+			day = 7
+			money = 12.5
+			menu.open_pause()
+			menu._save_slot(2)
+			var info: String = menu._slot_info(2)
+			print("PAIKAT paikka 2: %s, paikka 3: %s" % [info, menu._slot_info(3)])
+			if not info.begins_with("2: Päivä 7"):
+				print("TESTI VIKA paikan 2 kuvaus väärin: %s" % info)
+			menu._slots("save", "sub_pause")
+			await get_tree().process_frame
+			var n_save: int = menu._box.get_children().filter(func(c: Node) -> bool: return c is Button).size()
+			menu._slots("load", "sub_pause")
+			await get_tree().process_frame
+			var n_load: int = menu._box.get_children().filter(func(c: Node) -> bool: return c is Button).size()
+			print("PAIKAT painikkeita tallennus %d (odotus 7), lataus %d (odotus 2)" % [n_save, n_load])
+			if n_save != 7 or n_load != 2:
+				print("TESTI VIKA tallennus/latausvalikon painikkeet")
+			await RenderingServer.frame_post_draw
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--shot="):
+					menu._slots("save", "sub_pause")
+					for i in 4:
+						await get_tree().process_frame
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(arg.substr(7).replace(".png", "_tallenna.png"))
+			money = 99.0
+			_save_game()
+			var cfg := ConfigFile.new()
+			cfg.load(menu.slot_path(2))
+			print("PAIKAT paikan rahat %s (odotus 12.5)" % cfg.get_value("peli", "rahat"))
+			if absf(float(cfg.get_value("peli", "rahat", 0.0)) - 12.5) > 0.01:
+				print("TESTI VIKA paikan sisältö muuttui automaattitallennuksessa")
+			menu.close()
 		"aloitusruutu":
 			# Aloitusruutu kuten käynnistyksessä (päävalikko ja kiertävä kamera kodin yllä): taustalla ei saa näkyä
 			# pelin HUD-laatikoita (esim. autovarkauden tähtilaatikko rikos/tahdet_hud.gd ilman tähtiä).
