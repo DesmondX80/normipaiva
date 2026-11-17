@@ -597,6 +597,7 @@ const GOWN_ROWS := 18
 const GOWN_SEGS := 56
 const GOWN_OFF := 0.016  # pinnan yläpuolelle (housualueen pöyhennys pois, jiggle mahtuu)
 const GOWN_SLIT := 0.65  # halkion korkeus hameen pituudesta (helmasta ylös)
+const GOWN_SLIT_W := 0.07  # halkion leveys helmassa (V-aukko, yläpäässä kiinni)
 static func add_gown(c: Node3D, col: Color) -> void:
 	var sk: Skeleton3D = c.skeleton
 	var body: MeshInstance3D = null
@@ -625,8 +626,8 @@ static func add_gown(c: Node3D, col: Color) -> void:
 
 
 static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> ArrayMesh:
-	if body.mesh.has_meta("gown_v5"):
-		return body.mesh.get_meta("gown_v5")
+	if body.mesh.has_meta("gown_v6"):
+		return body.mesh.get_meta("gown_v6")
 	var src := body.mesh.surface_get_arrays(0)
 	var sv: PackedVector3Array = src[Mesh.ARRAY_VERTEX]
 	var sb: PackedInt32Array = src[Mesh.ARRAY_BONES]
@@ -722,6 +723,8 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 	st.set_skin_weight_count(SurfaceTool.SKIN_8_WEIGHTS if wpv == 8 else SurfaceTool.SKIN_4_WEIGHTS)
 	var verts: Array = []  # [rivi][sarake] -> indeksi
 	var idx := 0
+	var slit_top := GOWN_ROWS - 1 - floori((GOWN_ROWS - 1) * GOWN_SLIT)  # halkion yläpään rivi
+	var slit_b := {}  # rivi -> halkion oikean reunan piste
 	for r in GOWN_ROWS:
 		var row: Array = []
 		var y: float = rings[r][0]
@@ -762,24 +765,39 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 			st.set_uv(Vector2(float(j) / GOWN_SEGS * 10.0, y * 18.0))
 			st.set_bones(bones)
 			st.set_weights(weights)
-			st.add_vertex(p)
-			row.append(idx)
-			idx += 1
+			# Halkio on viilto: saumasarakkeessa kaksi pistettä (vasen ja oikea reuna), jotka ovat yläpäässä yhdessä ja
+			# erkanevat helmaa kohti (V-aukko). Muualla yksi piste.
+			var cut := j == slit_j and r >= slit_top
+			var spread := 0.0
+			if cut:
+				var tan_v: Vector2 = (rings[r][1][(j + 1) % GOWN_SEGS] - rings[r][1][(j + GOWN_SEGS - 1) % GOWN_SEGS]).normalized()
+				spread = GOWN_SLIT_W * 0.5 * pow(float(r - slit_top) / maxf(1.0, GOWN_ROWS - 1 - slit_top), 1.3)
+				st.add_vertex(p - Vector3(tan_v.x, 0, tan_v.y) * spread)  # vasen reuna (sarakkeen j-1 puoli)
+				slit_b[r] = idx + 1
+				st.set_color(gold.darkened(0.2) if hem else gold)
+				st.set_uv(Vector2(float(j) / GOWN_SEGS * 10.0, y * 18.0))
+				st.set_bones(bones)
+				st.set_weights(weights)
+				st.add_vertex(p + Vector3(tan_v.x, 0, tan_v.y) * spread)  # oikea reuna (sarakkeen j+1 puoli)
+				row.append(idx)
+				idx += 2
+			else:
+				st.add_vertex(p)
+				row.append(idx)
+				idx += 1
 		verts.append(row)
-	var slit_rows := floori((GOWN_ROWS - 1) * GOWN_SLIT)
 	for r in GOWN_ROWS - 1:
 		for j in GOWN_SEGS:
-			if r >= GOWN_ROWS - 1 - slit_rows and (j == slit_j or j == slit_j - 1):
-				continue  # halkio
-			var a: int = verts[r][j]
+			# Halkion saumassa sarakkeen j oikealla puolella olevat palat käyttävät oikean reunan pistettä.
+			var a: int = slit_b.get(r, verts[r][j]) if j == slit_j else verts[r][j]
 			var b: int = verts[r][j + 1]
-			var c2: int = verts[r + 1][j]
+			var c2: int = slit_b.get(r + 1, verts[r + 1][j]) if j == slit_j else verts[r + 1][j]
 			var d: int = verts[r + 1][j + 1]
 			for t in [a, b, c2, b, d, c2]:
 				st.add_index(t)
 	st.generate_normals()
 	var mesh := st.commit()
-	body.mesh.set_meta("gown_v5", mesh)
+	body.mesh.set_meta("gown_v6", mesh)
 	return mesh
 
 
