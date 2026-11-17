@@ -96,7 +96,8 @@ func setup(look: Dictionary) -> void:
 	var shape := {"belly": float(look.get("belly", 0.0)), "bulk": float(look.get("bulk", 0.0)),
 		"shoulders": float(look.get("shoulders", 0.0)), "muscle": float(look.get("muscle", DEFAULT_MUSCLE)),
 		"curves": float(look.get("curves", 0.0)), "bust": float(look.get("bust", 0.0)),
-		"anat": 1.0 if anat_on else 0.0}  # anat: osa verkon avaimessa (välimuisti), ei muodon termi
+		"anat": 1.0 if anat_on else 0.0,  # anat: osa verkon avaimessa (välimuisti), ei muodon termi
+		"anat_arch": 1.0 if anat_on and shoe_type == "paljas" else 0.0}  # jalkaholvi vain paljaalle jalalle: kengät rakennetaan alkuperäisestä jalkaverkosta (ei muodon termi)
 	body_shape = shape
 	body.mesh = _clothed_mesh(kind, body.mesh, body.skin, skeleton, bool(look.get("stripes", false)), shape)
 	body_mat = ShaderMaterial.new()
@@ -1135,7 +1136,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 	var key := "%s/%s/%s" % [kind, stripes, shape]
 	var shaped := false
 	for k in shape:
-		shaped = shaped or (k != "anat" and absf(shape[k]) > 0.001)
+		shaped = shaped or (k != "anat" and k != "anat_arch" and absf(shape[k]) > 0.001)
 	var live: ArrayMesh = (_meshes[key] as WeakRef).get_ref() if _meshes.has(key) else null
 	if live != null:
 		return live
@@ -1544,7 +1545,8 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 			var k := 0.1
 			var target := ln + 0.8 * k * log(1.0 + exp((1.0 - ln) / k))
 			var face := smoothstep(-0.7, 0.1, q.z / ln)
-			var ymask := smoothstep(0.92, 1.03, p.y) * (1.0 - smoothstep(1.4, 1.5, p.y))
+			# anatomia D: yläreuna ohenee jo rinnan alla (osittain 1,25..1,42), jotta pallo ei jää rintalihasten päälle ledjeksi
+			var ymask := smoothstep(0.92, 1.03, p.y) * (1.0 - 0.7 * smoothstep(1.25, 1.42, p.y)) * (1.0 - smoothstep(1.4, 1.5, p.y))
 			var wgt := face * ymask * (1.0 - smoothstep(0.24, 0.32, ax))
 			var inflated := c + q * (target / ln) * r
 			off += (inflated - p) * wgt

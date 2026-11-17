@@ -18,6 +18,62 @@ const HAND_BONES := ["hand", "thumb_01", "thumb_02", "thumb_03", "index_01", "in
 
 static func deform(ctx: Dictionary) -> void:
 	_wrist_class(ctx)
+	if float(ctx.shape.get("anat_arch", 0.0)) > 0.5:
+		_arch(ctx)
+
+
+## Jalkaholvi ja nilkkaluut vain paljaalle jalalle (shape.anat_arch; kengät rakennetaan Shoes.buildilla muuttamattomasta verkosta,
+## koska verkon välimuistiavain ei sisällä kenkätyyppiä, joten kengälliset hahmot saavat alkuperäisen jalkaverkon). Siirrot vain
+## ylöspäin ja vain keskijalalle (kantapää ja päkiä ennallaan), joten jalan alin piste ei muutu. Luokan 3 pisteet, positiofunktio.
+const ARCH_MM := 0.007  ## sisäholvin nosto (m)
+const MALLEOLUS := 0.003  ## nilkkaluiden ulkonema (m)
+
+
+static func _arch_shift(p: Vector3, fx: float, fy: float, fz: float, bz: float) -> Vector3:
+	var d := Vector3.ZERO
+	var ax := absf(p.x)
+	# sisäholvi: keskijalan pohja (z kantapään ja päkiän välissä), mediaalipuoli (lähempänä keskilinjaa) korkeampi
+	var zt := smoothstep(fz + 0.01, fz + 0.055, p.z) * (1.0 - smoothstep(bz - 0.055, bz - 0.01, p.z))
+	var med := 0.35 + 0.65 * smoothstep(fx + 0.025, fx - 0.03, ax)
+	var wy := 1.0 - smoothstep(0.006, 0.045, p.y)
+	d.y += ARCH_MM * zt * med * wy
+	# nilkkaluut: sisä (mediaalinen) ja ulko (lateraalinen) nilkkaluu, ulos x-suunnassa
+	for side in [-1.0, 1.0]:
+		var cx: float = fx + side * 0.033
+		var q := Vector3((ax - cx) / 0.02, (p.y - (fy - 0.006)) / 0.022, (p.z - (fz - 0.004)) / 0.022)
+		var gk := exp(-q.length_squared())
+		d.x += signf(p.x) * MALLEOLUS * (1.0 if side > 0.0 else 0.8) * gk * side
+	return d
+
+
+static func _arch(ctx: Dictionary) -> void:
+	var arr: Array = ctx.arr
+	var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var ns: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+	var cols: PackedColorArray = arr[Mesh.ARRAY_COLOR]
+	var j: Dictionary = ctx.joints
+	if not j.has("foot_l") or not j.has("ball_l"):
+		return
+	var fo: Vector3 = j["foot_l"]
+	var ba: Vector3 = j["ball_l"]
+	var fx := absf(fo.x)
+	var h := 0.003
+	for v in vs.size():
+		var p := vs[v]
+		if p.y > 0.12 or roundi(cols[v].r * 4.0) != 3:
+			continue
+		var d := _arch_shift(p, fx, fo.y, fo.z, ba.z)
+		if d.length_squared() < 1e-12:
+			continue
+		var jx := (_arch_shift(p + Vector3(h, 0, 0), fx, fo.y, fo.z, ba.z) - d) / h
+		var jy := (_arch_shift(p + Vector3(0, h, 0), fx, fo.y, fo.z, ba.z) - d) / h
+		var jz := (_arch_shift(p + Vector3(0, 0, h), fx, fo.y, fo.z, ba.z) - d) / h
+		var m := Basis(Vector3(1, 0, 0) + jx, Vector3(0, 1, 0) + jy, Vector3(0, 0, 1) + jz)
+		vs[v] = p + d
+		if m.determinant() > 0.2:
+			ns[v] = (m.inverse().transposed() * ns[v]).normalized()
+	arr[Mesh.ARRAY_VERTEX] = vs
+	arr[Mesh.ARRAY_NORMAL] = ns
 
 
 ## Käden pisteille kyynärvarren luokka (yleisin luokka kyynärvarren pisteillä ranteen tuntumassa).

@@ -466,6 +466,9 @@ void fragment() {
 			cov = 0.0;
 		}
 		vec3 skin = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos, rest_zn.x);
+		if (anat_wrist_x < 8.0) {
+			skin = anat_vartalo_alb(skin, rest, rest_zn, anat_female);  // anatomia: vartalon ihodetaljit
+		}
 		vec3 cloth = rest.y < 1.12 ? pants : shirt;
 		cloth *= 1.0 - 0.2 * (1.0 - smoothstep(0.002, 0.0045, -d));  // kanttinauha
 		cloth *= 0.82 + 0.25 * lum;
@@ -485,6 +488,9 @@ void fragment() {
 	} else if (c > 0.5 && c < 2.5 && bare(c, rest, lpos, front, rest_nx)) {
 		// Vaatteen alta paljas iho: tasainen ihonsävy (pohjatekstuurissa näillä kohdin on puku).
 		ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos, rest_zn.x);
+		if (anat_wrist_x < 8.0) {
+			ALBEDO = anat_vartalo_alb(ALBEDO, rest, rest_zn, anat_female);  // anatomia: vartalon ihodetaljit
+		}
 		if (chest_hair) {
 			ALBEDO = mix(ALBEDO, body_hair, 0.85 * chest_hair_amt(rest, front));
 		}
@@ -527,6 +533,13 @@ void fragment() {
 		}
 		ROUGHNESS = texture(rough_tex, UV).r;
 		NORMAL_MAP = n;
+		if (anat_wrist_x < 8.0 && rest.y > 1.46 && abs(rest.x) < 0.12 && (string_bikini || bare(1.0, vec2(0.0, 1.47), lpos, front, rest_nx))) {
+			// anatomia: paljaan rinnan ja selän vieressä kaula saa saman sävyn kuin paljas iho (ei vaakaraitaa kaulan tyvellä); liuku leukaan
+			float nk = 1.0 - smoothstep(1.5, 1.6, rest.y);
+			ALBEDO = mix(ALBEDO, skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos, rest_zn.x), nk);
+			ROUGHNESS = mix(ROUGHNESS, 0.55, nk);
+			NORMAL_MAP = mix(NORMAL_MAP, vec3(0.5, 0.5, 1.0), nk);
+		}
 		if (anat_hand_bare) {
 			ROUGHNESS = 0.55;  // kuten paljas kyynärvarsi (ihohaara yllä): ei sävyeroa kiillosta tai normaalikartasta
 			NORMAL_MAP = vec3(0.5, 0.5, 1.0);

@@ -526,6 +526,16 @@ animaation jälkeen). Käytössä oletuksena aikuisilla (pituus >= 1,5 m); `look
   pään kehyksestä (`anat_head` = alin y ja korkeus, `Paa.FRAME`): silmäkuopat, luomipoimu, sieraimet, nenä-huulipoimu, huulet,
   poskipuna, korvan reuna, kaulajänteet ja huokoset. `Paa.brows` korvaa Eyebrows-verkon ohuemmalla (sisäpää ylös). Yläkallon
   siirto rajataan 1,5 mm:iin, koska hiukset sovitetaan alkuperäiseen verkkoon.
+- Vartalo ja raajat (`anatomia_vartalo.gd`, `anat_vartalo.gdshaderinc`): `deform` on pelkkä paikan funktio (ei luukohtaisia ehtoja,
+  normaalit Jacobin matriisilla): solisluu ja kuoppa, miehen rintalihakset ja rintalastan ura, naisen yläosan täyttö (bust ennallaan),
+  lapaluut, selkäranka-ura, lantion harjanne ja iso sarvennoinen, pakara, käsivarren lihasrajat, kyynärpää, etureisi, polvilumpio,
+  polvitaive ja pohje. Pohje/nilkka muuttuu vain paljaalla jalalla (`shape.anat_arch`, joka on verkon avaimessa), jotta kenkien
+  rakennus (`Shoes.build` lukee paistetun verkon) ja `kengat`-testi pysyvät identtisinä; sama avain ohjaa jalkaholvin ja nilkkaluut
+  (`Jalat._arch`, vain ylöspäin, jalan alin piste ei muutu). Maskia ei käytetä: varjostin laskee navan, linea alban, selkärangan,
+  lantiokuopat, kyynärpään ja polven sävyn lepoasennon koordinaateista paljaalta iholta. `anat_class` vetää kauluksen (mitattu
+  ANATD kaulus -riveistä) ja naisen paidan helman rajan suoraksi lepo-y:stä. Kaula saa paljaan rinnan kanssa saman sävyn (ei
+  vaakaraitaa). Vatsapallon yläreuna ohenee rinnan alla (`_shape_offset`); voimakkaampi sulautus rikkoi tanssin kontaktin (hilkka_horja).
+  Trapetsin nosto rajattu 3 mm:iin (hartian yläreuna enintään 2 mm yli mainin).
 - Testi: `tools/testit/aja.sh tscn tools/testit/anatomia_kuvat.tscn [--osa=a|b|c|d] [--anat=0|1] [--luokka] [--anim=Idle]`
   ottaa lähikuvat (kasvot, kädet, jalat, vartalo, 4 kulmaa) pelaajasta, Sinikasta, Päivistä ja Juntista ja tulostaa ANAT-rivit
   (jalan alin y, kämmenen ja jalan säteet, luokan 3 lepo-y). `--luokka` värjää jalkaterän luokan magentalla.

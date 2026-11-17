@@ -103,10 +103,10 @@ void anat_paa(inout vec3 albedo, inout float rough, inout vec3 nrm, float code, 
 	vec2 pp = vec2(r.x + z * 1.7, r.y + z * 0.8) * 650.0;
 	float pore = anat_vn(pp) * 0.65 + anat_vn(pp * 2.3 + 11.0) * 0.35;
 	float dot_ = smoothstep(0.66, 0.9, pore);
-	albedo *= 1.0 - (0.038 * dot_ + 0.018 * (pore - 0.5)) * pk * on;
-	nrm.xy += (vec2(anat_vn(pp * 0.9 + 3.0), anat_vn(pp * 0.9 + 7.0)) - 0.5) * 0.035 * pk * on;
+	albedo *= 1.0 - (0.016 * dot_ + 0.006 * (pore - 0.5)) * pk * on;
+	nrm.xy += (vec2(anat_vn(pp * 0.9 + 3.0), anat_vn(pp * 0.9 + 7.0)) - 0.5) * 0.018 * pk * on;
 	float blotch = anat_vn(vec2(r.x + z, r.y) * 45.0) - 0.5;  // hennot sävyn vaihtelut
-	albedo *= 1.0 + 0.02 * blotch * on;
+	albedo *= 1.0 + 0.012 * blotch * on;
 	albedo = mix(base, albedo, on);
 	if (anat_debug == 1) {
 		albedo = mix(albedo, vec3(1, 0, 1), 0.6 * (mline + lipband));

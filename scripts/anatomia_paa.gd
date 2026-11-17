@@ -66,11 +66,11 @@ static func _neck_shift(p: Vector3, f: Vector2, female: bool) -> Vector3:
 		d.x += p.x * 0.10 * base * base * core
 		# trapetsi: olan yläreuna nousee kaulan vierestä (x 0,05..0,2), huippu x 0,10
 		var trap := smoothstep(0.045, 0.085, ax) * (1.0 - smoothstep(0.11, 0.115, ax))
-		d.y += (0.007 if female else 0.011) * trap * base
+		d.y += 0.003 * trap * base  # D: 11 mm nosti hartian yläreunaa 4-10 mm (raja 2 mm): kaari tehdään pääosin sivusuunnassa (kaulan tyven levennys)
 	# trapetsin ulompi osa (olkaan päin): pehmeä nousu x 0,10..0,22
 	var tr2 := smoothstep(0.085, 0.12, ax) * (1.0 - smoothstep(0.15, 0.23, ax))
 	var yb := smoothstep(-0.62, -0.42, yn) * (1.0 - smoothstep(-0.2, 0.0, yn))
-	d.y += (0.007 if female else 0.011) * tr2 * yb
+	d.y += 0.003 * tr2 * yb
 	return d
 
 

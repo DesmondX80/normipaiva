@@ -110,7 +110,71 @@ func _g(c: Node3D, b: String) -> Vector3:
 	return c.to_global(c.bone_position(b))
 
 
+## Osa d: vartalon lepoasennon profiili paistetun verkon taulukoista (VERTEX): per korkeus (y) vartalon
+## (|x| < 0,3) etu- ja takapinta keskilinjalla, sivuleveys ja olkapään yläpinta per x-lokero (ANATD-rivit, ennen/jälkeen anat=0/1).
+func _measure_d(n: String, c: Node3D) -> void:
+	var arr: Array = c.body_mi.mesh.surface_get_arrays(0)
+	var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]  # lepoasento (anatomia ja muoto mukana)
+	var y := 0.80
+	while y < 1.62:
+		var fz := -INF
+		var bz := INF
+		var wx := 0.0
+		for v in vs.size():
+			if absf(vs[v].y - y) > 0.0125:
+				continue
+			var z := vs[v].z
+			var ax := absf(vs[v].x)
+			if ax < 0.03:
+				fz = maxf(fz, z)
+				bz = minf(bz, z)
+			if ax < 0.3:
+				wx = maxf(wx, ax)
+		print("ANATD %s anat=%s y %.3f etu %.1f taka %.1f leveys %.1f mm" % [n, anat, y, fz * 1000, bz * 1000, wx * 2000])
+		y += 0.025
+	# kauluksen raja: luokan 0 (kaula) alin ja luokan 1 (paita) ylin lepo-y keskilinjan lähellä (|x| < 0,08), etu- ja takapuolella
+	var cols: PackedColorArray = arr[Mesh.ARRAY_COLOR]
+	var uv: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV2]
+	for side in ["etu", "taka"]:
+		var lo0 := INF
+		var hi1 := -INF
+		for v in vs.size():
+			if absf(uv[v].x) > 0.08 or uv[v].y < 1.4 or (vs[v].z > 0.0) != (side == "etu"):
+				continue
+			var k := roundi(cols[v].r * 4.0)
+			if k == 0:
+				lo0 = minf(lo0, uv[v].y)
+			elif k == 1:
+				hi1 = maxf(hi1, uv[v].y)
+		print("ANATD %s anat=%s kaulus %s: luokan 0 alin y %.1f mm, luokan 1 ylin y %.1f mm" % [n, anat, side, lo0 * 1000, hi1 * 1000])
+	# helman raja: luokan 1 (paita) alin ja luokan 2 (housut) ylin lepo-y vartalolla (|x| < 0,25, y 0,85..1,25)
+	for side in ["etu", "taka"]:
+		var lo1 := INF
+		var hi2 := -INF
+		for v in vs.size():
+			if absf(uv[v].x) > 0.25 or uv[v].y < 0.85 or uv[v].y > 1.25 or (vs[v].z > 0.0) != (side == "etu"):
+				continue
+			var k := roundi(cols[v].r * 4.0)
+			if k == 1:
+				lo1 = minf(lo1, uv[v].y)
+			elif k == 2:
+				hi2 = maxf(hi2, uv[v].y)
+		print("ANATD %s anat=%s helma %s: luokan 1 alin y %.1f mm, luokan 2 ylin y %.1f mm" % [n, anat, side, lo1 * 1000, hi2 * 1000])
+	var xb := 0.1
+	while xb < 0.5:
+		var top := -INF
+		var zt := 0.0
+		for v in vs.size():
+			if absf(absf(vs[v].x) - xb) < 0.0125 and vs[v].y > 1.3 and vs[v].y > top:
+				top = vs[v].y
+				zt = vs[v].z
+		print("ANATD %s anat=%s hartia x %.3f yläpinta y %.1f mm (z %.0f)" % [n, anat, xb, top * 1000, zt * 1000])
+		xb += 0.025
+
+
 func _measure(n: String, c: Node3D) -> void:
+	if osa == "d":
+		_measure_d(n, c)
 	if osa == "c":
 		for m in c.skeleton.get_children():
 			if m is MeshInstance3D and (m as MeshInstance3D).mesh != null:
@@ -206,6 +270,9 @@ func _shots(n: String, c: Node3D) -> void:
 		await _shot(n + "_vartalo_sivu", c, mid, 4.2, 90, 22)
 		await _shot(n + "_vartalo_taka", c, mid, 4.2, 180, 22)
 		await _shot(n + "_vartalo_vino", c, mid, 4.2, 45, 22)
+		await _shot(n + "_vartalo_yla", c, mid + Vector3(0, 0.35, 0), 3.0, 0, 22, 80)
+		await _shot(n + "_vartalo_lahi", c, mid + Vector3(0, 0.3, 0), 1.7, 0, 22)
+		await _shot(n + "_vartalo_lahi_taka", c, mid + Vector3(0, 0.3, 0), 1.7, 180, 22)
 		var nk := (_g(c, "neck_01") + _g(c, "Head")) * 0.5 + Vector3(0, 0.05, 0)
 		await _shot(n + "_kaula_etu", c, nk, 1.5, 0, 20)
 

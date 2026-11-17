@@ -17,6 +17,7 @@ varying float anat_amt;
 // koordinaateista (rest, metrit) verteksivärin interpolaation sijaan.
 float anat_class(float c, vec2 r) {
 	c = anat_class_jalat(c, r);
+	c = anat_class_vartalo(c, r, anat_female);
 	return c;
 }
 
