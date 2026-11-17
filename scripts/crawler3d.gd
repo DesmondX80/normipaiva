@@ -71,6 +71,11 @@ func setup(look: Dictionary, towel: Color, woman := false) -> void:
 ## Pyyhe lanteilla: kartiomainen kangasputki, helmassa raidat ja kyljessä kiinnityskohdan taite. Miehillä pieni
 ## lannevaate; naisilla kireä helma lanteilta reiden puoliväliin (yläosa maalataan vartaloon, set_towel).
 func _build_towel(col: Color, bulk: float, belly: float, woman: bool) -> void:
+	if woman:
+		# Naisilla pyyhe on kääre vartalosta (looks.gd add_towel_wrap): rintojen yltä suoraan alas, ei maalattu.
+		_towel_root = Looks.add_towel_wrap(ch, col)
+		_woman = false  # ei varjostinmaalausta (set_towel)
+		return
 	var root := Node3D.new()
 	var w := 1.0 + bulk * 0.12 + belly * 0.18
 	var h := 0.36 if not woman else 0.34
