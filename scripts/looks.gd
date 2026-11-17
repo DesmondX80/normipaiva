@@ -625,8 +625,8 @@ static func add_gown(c: Node3D, col: Color) -> void:
 
 
 static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> ArrayMesh:
-	if body.mesh.has_meta("gown_v2"):
-		return body.mesh.get_meta("gown_v2")
+	if body.mesh.has_meta("gown_v5"):
+		return body.mesh.get_meta("gown_v5")
 	var src := body.mesh.surface_get_arrays(0)
 	var sv: PackedVector3Array = src[Mesh.ARRAY_VERTEX]
 	var sb: PackedInt32Array = src[Mesh.ARRAY_BONES]
@@ -634,7 +634,7 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 	var wpv := sb.size() / sv.size()
 	var to_mesh := body.transform.affine_inverse()  # luuston avaruus -> verkon avaruus
 	var bone_y := func(nm: String) -> float: return (to_mesh * sk.get_bone_global_rest(sk.find_bone(nm)).origin).y
-	var y_top: float = bone_y.call("pelvis") + 0.05
+	var y_top: float = bone_y.call("pelvis") + 0.13  # vyötärö: hame jatkaa yläosaa ilman porrasta
 	var y_hem: float = bone_y.call("calf_l") + 0.05  # polven yläpuolelle
 	# Lantion ja jalkojen pisteet (ei käsiä: lepoasennon kädet voivat olla lantion korkeudella).
 	var skip := ["arm", "hand", "thumb", "index", "middle", "ring", "pinky", "clavicle"]
@@ -659,7 +659,10 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 		var y := y_top - r * dy
 		var pts: Array[Vector2] = []
 		for i: int in cand:
-			if absf(sv[i].y - y) <= maxf(dy * 1.5, 0.03):
+			# Yläriveillä (vyötärö-lantio, ei jalkoväliä) kapea siivu: muuten alempien rivien leveä lantio nostaa
+			# yläreunan irti vyötäröstä (porras). Alempana leveämpi, jottei harva verkko jätä reittä kehän sisäpuolelle.
+			var band := 0.013 if r < 6 else maxf(dy * 1.5, 0.03)
+			if absf(sv[i].y - y) <= band:
 				pts.append(Vector2(sv[i].x, sv[i].z))
 		var hull := Geometry2D.convex_hull(PackedVector2Array(pts))
 		var cen := Vector2.ZERO
@@ -684,7 +687,7 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 				if t > 0.0 and u >= -1e-4 and u <= 1.0001:
 					t_hit = maxf(t_hit, t)
 			# Yläreuna liittyy vartaloon maalattuun yläosaan ilman porrasta: ohut vyötäröllä, paksumpi lantiolta alas.
-			var off := lerpf(0.004, GOWN_OFF, smoothstep(0.0, 3.0, float(r)))
+			var off := lerpf(0.002, GOWN_OFF, smoothstep(0.0, 6.0, float(r)))
 			ring.append(cen + d * (t_hit + off))
 		rings.append([y, ring])
 	# Kapeneva helma: pakaroiden leveimmän kehän alapuolella kehä ei levene alaspäin (kynähame, ei kello).
@@ -766,7 +769,7 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 	var slit_rows := floori((GOWN_ROWS - 1) * GOWN_SLIT)
 	for r in GOWN_ROWS - 1:
 		for j in GOWN_SEGS:
-			if r >= GOWN_ROWS - 1 - slit_rows and absi(j - slit_j) <= 1 + int(r > GOWN_ROWS - 1 - slit_rows / 2):
+			if r >= GOWN_ROWS - 1 - slit_rows and (j == slit_j or j == slit_j - 1):
 				continue  # halkio
 			var a: int = verts[r][j]
 			var b: int = verts[r][j + 1]
@@ -776,7 +779,7 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 				st.add_index(t)
 	st.generate_normals()
 	var mesh := st.commit()
-	body.mesh.set_meta("gown_v2", mesh)
+	body.mesh.set_meta("gown_v5", mesh)
 	return mesh
 
 

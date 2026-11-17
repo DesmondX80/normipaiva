@@ -40,4 +40,26 @@ func _ready() -> void:
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(out.path_join("kuva_mekko.png"))
 	print("MEKKO kuva valmis")
+	# Joka puolelta: yksi Minttu keskellä, kamera kiertää kahdeksaan suuntaan (koko vartalo ja lähikuva lantiosta).
+	for n in get_children():
+		if n is Node3D and n != cam and not n is Light3D:
+			n.queue_free()
+	await get_tree().process_frame
+	var m := Looks.make(self, Looks.MINTTU)
+	m.rotation.y = PI  # kasvot +Z
+	m.play("Idle", 0.0)
+	m.anim.seek(0.0, true)
+	m.anim.pause()
+	cam.fov = 30
+	for k in 8:
+		var a := TAU * k / 8.0
+		for close in [false, true]:
+			var dist := 4.0 if not close else 1.7
+			var look_y := 0.9 if not close else 0.85
+			cam.look_at_from_position(Vector3(sin(a) * dist, look_y + 0.15, cos(a) * dist), Vector3(0, look_y, 0))
+			for i in 3:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(out.path_join("kuva_ymp_%d%s.png" % [k, "_lahi" if close else ""]))
+	print("MEKKO ympäri valmis")
 	get_tree().quit()
