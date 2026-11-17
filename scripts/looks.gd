@@ -625,9 +625,42 @@ static func add_gown(c: Node3D, col: Color) -> void:
 	sk.add_child(skirt)
 
 
-static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> ArrayMesh:
-	if body.mesh.has_meta("gown_v7"):
-		return body.mesh.get_meta("gown_v7")
+## Kääreverkko vartalosta (mekko ja pyyhe): opt "towel" = pyyhe kainaloista polven yläpuolelle, riippuu rinnoilta
+## suoraan alas (kehä ei kapene alaspäin), päällekkäinen taite etusivulla, pystypoimut; muuten mekon hame.
+## Pyyhe kääreenä (Rasvanapin naiset, crawler3d.gd): kainaloista polven yläpuolelle, riippuu rinnoilta suoraan alas
+## kuten oikea pyyhe (referenssi: pyyhe rintojen yllä, suora putki, päällekkäinen pää etusivulla), matta frotee.
+## Palauttaa verkon solmun (näkyvyys vaihdetaan pyyhkeen mukaan).
+static func add_towel_wrap(c: Node3D, col: Color) -> MeshInstance3D:
+	var sk: Skeleton3D = c.skeleton
+	var body: MeshInstance3D = null
+	for mi in sk.get_children():
+		if mi is MeshInstance3D and (mi as MeshInstance3D).material_override == c.body_mat:
+			if body == null or mi.mesh.surface_get_array_len(0) > body.mesh.surface_get_array_len(0):
+				body = mi
+	if body == null:
+		return null
+	var w := MeshInstance3D.new()
+	w.name = "Pyyhe"
+	w.mesh = _gown_mesh(body, sk, col, {"towel": true})
+	w.skin = body.skin
+	w.transform = body.transform
+	w.skeleton = body.skeleton
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
+	m.roughness = 1.0  # frotee: täysin matta, ei kiiltoa
+	m.metallic_specular = 0.15
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED  # yläreunasta näkyy sisäpinta
+	w.material_override = m
+	sk.add_child(w)
+	return w
+
+
+static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color, opt: Dictionary = {}) -> ArrayMesh:
+	var towel: bool = opt.get("towel", false)
+	var key := "towel_v3" if towel else "gown_v7"
+	if body.mesh.has_meta(key):
+		return body.mesh.get_meta(key)
 	var src := body.mesh.surface_get_arrays(0)
 	var sv: PackedVector3Array = src[Mesh.ARRAY_VERTEX]
 	var sb: PackedInt32Array = src[Mesh.ARRAY_BONES]
@@ -637,6 +670,9 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 	var bone_y := func(nm: String) -> float: return (to_mesh * sk.get_bone_global_rest(sk.find_bone(nm)).origin).y
 	var y_top: float = bone_y.call("pelvis") + 0.13  # vyötärö: hame jatkaa yläosaa ilman porrasta
 	var y_hem: float = bone_y.call("calf_l") + 0.05  # polven yläpuolelle
+	if towel:
+		y_top = bone_y.call("upperarm_l") - 0.065  # rintojen yläpuolelle kainaloiden alle, olkapäät paljaina
+		y_hem = bone_y.call("calf_l") + 0.08
 	# Lantion ja jalkojen pisteet (ei käsiä: lepoasennon kädet voivat olla lantion korkeudella).
 	var skip := ["arm", "hand", "thumb", "index", "middle", "ring", "pinky", "clavicle"]
 	var ok_bone := {}
@@ -662,7 +698,7 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 		for i: int in cand:
 			# Yläriveillä (vyötärö-lantio, ei jalkoväliä) kapea siivu: muuten alempien rivien leveä lantio nostaa
 			# yläreunan irti vyötäröstä (porras). Alempana leveämpi, jottei harva verkko jätä reittä kehän sisäpuolelle.
-			var band := 0.013 if r < 6 else maxf(dy * 1.5, 0.03)
+			var band := 0.013 if r < 6 or towel else maxf(dy * 1.5, 0.03)
 			if absf(sv[i].y - y) <= band:
 				pts.append(Vector2(sv[i].x, sv[i].z))
 		var hull := Geometry2D.convex_hull(PackedVector2Array(pts))
@@ -689,8 +725,23 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 					t_hit = maxf(t_hit, t)
 			# Yläreuna liittyy vartaloon maalattuun yläosaan ilman porrasta: ohut vyötäröllä, paksumpi lantiolta alas.
 			var off := lerpf(0.002, GOWN_OFF, smoothstep(0.0, 6.0, float(r)))
+			if towel:
+				off = 0.014 + 0.004 * sin(a * 9.0) * smoothstep(1.0, 6.0, float(r))  # frotee paksuus ja pystypoimut
 			ring.append(cen + d * (t_hit + off))
 		rings.append([y, ring])
+	if towel:
+		# Pyyhe riippuu: rivin piste ei ole ylemmän rivin pistettä sisempänä (säteen suunnassa), ja helma levenee hieman.
+		for r in range(1, GOWN_ROWS):
+			var c0 := Vector2.ZERO
+			for q: Vector2 in rings[r][1]:
+				c0 += q
+			c0 /= GOWN_SEGS
+			for j in GOWN_SEGS:
+				var cur: Vector2 = rings[r][1][j]
+				var d := (cur - c0).normalized()
+				var prev_along: float = (rings[r - 1][1][j] - c0).dot(d)
+				var dist := maxf((cur - c0).length(), prev_along)
+				rings[r][1][j] = c0 + d * dist * (1.0 + 0.004 * float(r > GOWN_ROWS / 2))
 	# Kapeneva helma: pakaroiden leveimmän kehän alapuolella kehä ei levene alaspäin (kynähame, ei kello).
 	var widest := 0
 	var wmax := 0.0
@@ -701,7 +752,7 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 		if w > wmax:
 			wmax = w
 			widest = r
-	for r in range(widest + 1, GOWN_ROWS):
+	for r in range(widest + 1, GOWN_ROWS if not towel else 0):
 		var cen_r := Vector2.ZERO
 		for q: Vector2 in rings[r][1]:
 			cen_r += q
@@ -745,6 +796,23 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 		for j in GOWN_SEGS + 1:
 			var q: Vector2 = rings[r][1][j % GOWN_SEGS]
 			var p := Vector3(q.x, y, q.y)
+			var vcol: Color = gold.darkened(0.2) if r == GOWN_ROWS - 1 else gold
+			if towel:
+				# Päällekkäinen pää etusivulla: kohollaan oleva reuna ja varjo sen vieressä; raidat helmassa.
+				var seam := posmod(roundi(atan2(0.85, -0.55) / TAU * GOWN_SEGS), GOWN_SEGS)
+				var jj := j % GOWN_SEGS
+				var c0 := Vector2.ZERO
+				for qq: Vector2 in rings[r][1]:
+					c0 += qq
+				c0 /= GOWN_SEGS
+				var outd := (q - c0).normalized()
+				if jj == seam:
+					p += Vector3(outd.x, 0, outd.y) * 0.008
+				elif jj == (seam + 1) % GOWN_SEGS:
+					vcol = vcol.darkened(0.08)
+				if r == GOWN_ROWS - 3 or r == GOWN_ROWS - 5:
+					vcol = vcol.darkened(0.12)
+				vcol = vcol.lightened(0.04 * sin(jj * 1.7 + r * 0.9) * sin(jj * 0.6))
 			# Luupainot lähimmistä vartalon pisteistä (käänteinen etäisyys, 6 lähintä).
 			var near: Array = []
 			for i: int in cand:
@@ -775,20 +843,20 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 				bones.append(keys[k] if k < keys.size() else 0)
 				weights.append(acc[keys[k]] / tot if k < keys.size() and tot > 0.0 else 0.0)
 			var hem := r == GOWN_ROWS - 1
-			st.set_color(gold.darkened(0.2) if hem else gold)
+			st.set_color(vcol)
 			st.set_uv(Vector2(float(j) / GOWN_SEGS * 10.0, y * 18.0))
 			st.set_bones(bones)
 			st.set_weights(weights)
 			# Halkio on viilto: saumasarakkeessa kaksi pistettä (vasen ja oikea reuna), jotka ovat yläpäässä yhdessä ja
 			# erkanevat helmaa kohti (V-aukko). Muualla yksi piste.
-			var cut := j == slit_j and r >= slit_top
+			var cut := j == slit_j and r >= slit_top and not towel
 			var spread := 0.0
 			if cut:
 				var tan_v: Vector2 = (rings[r][1][(j + 1) % GOWN_SEGS] - rings[r][1][(j + GOWN_SEGS - 1) % GOWN_SEGS]).normalized()
 				spread = GOWN_SLIT_W * 0.5 * pow(float(r - slit_top) / maxf(1.0, GOWN_ROWS - 1 - slit_top), 1.3)
 				st.add_vertex(p - Vector3(tan_v.x, 0, tan_v.y) * spread)  # vasen reuna (sarakkeen j-1 puoli)
 				slit_b[r] = idx + 1
-				st.set_color(gold.darkened(0.2) if hem else gold)
+				st.set_color(vcol)
 				st.set_uv(Vector2(float(j) / GOWN_SEGS * 10.0, y * 18.0))
 				st.set_bones(bones)
 				st.set_weights(weights)
@@ -811,7 +879,7 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 				st.add_index(t)
 	st.generate_normals()
 	var mesh := st.commit()
-	body.mesh.set_meta("gown_v7", mesh)
+	body.mesh.set_meta(key, mesh)
 	return mesh
 
 
