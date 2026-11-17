@@ -28,8 +28,8 @@ static var outfit := "tuulipuku"
 ## Pelaajan päähine lippiksen tilalle (kodin vaatekaappi): "" = asun oma lippis, "stetson" = cowboyhattu,
 ## "koppa" = Karhu-kutosen pahvikoppa (ensimmäisestä kaupasta ostetusta kutosesta).
 static var hat := ""
-## Pelaajan kumisaappaat (#274, main.gd _set_boots): "" = asun omat kengät, "koti" = kodin eteisen saappaat, "mokki" = mökin
-## ovensuun saappaat (kumisaappaat.gd). Hiihtohaalarissa pidetään aina kuukengät.
+## Pelaajan kumisaappaat (#274, main.gd _set_boots): "" = asun omat kengät, "jalassa" = kumisaappaat jalassa (yksi pari,
+## joka odottaa kodin ja mökin matolla, kumisaappaat.gd). Hiihtohaalarissa pidetään aina kuukengät.
 static var boots := ""
 
 
