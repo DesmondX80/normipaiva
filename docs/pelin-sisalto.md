@@ -1030,7 +1030,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   repeämät, vyö, nokiset tahrat iholla ja tuprukka vaalea tukka, viitteenä Uuno kyntämässä; `character.gdshader` net_shirt, grime), Paapelin makuuhuoneen kaapista työhousuihin, flanelliin ja Karjala-lippikseen. Kodin
   kaapista saa myös Stetson-cowboyhatun lippiksen tilalle (ruskea huopa, keskiura, kaareva lieri, nauha ja hopeinen
   koristelaatta); se pysyy päässä asusta riippumatta, kunnes lippis vaihdetaan takaisin. Kirppikseltä ostettu
-  hiihtohaalari tulee kodin kaappiin neljänneksi asuksi. Ensimmäisestä kaupasta ostetusta kutosesta (K-Market,
+  hiihtohaalari tulee kodin kaappiin neljänneksi asuksi. Pentin kiertueen jälkeen aamulla kassissa on Pentin nahkaliivi
+  lapun kanssa ("Pidä tää. Sää oot nyt kiertuemiehiä."), ja se tulee kodin kaappiin asuksi **Nahkaliivi ja farkut**:
+  avonainen ruskea nahkaliivi paljaan karvaisen rinnan päällä, farkut mustalla vyöllä ja cowboybootsit, kuten Pentillä
+  mutta ilman viiksiä ja ketjua (`looks.gd OUTFITS`, main.gd has_liivi). Kaikki asut rinnakkain:
+  `tools/testit/aja.sh tscn tools/testit/pelaaja_asut.tscn`. Ensimmäisestä kaupasta ostetusta kutosesta (K-Market,
   Vaalan K-Market tai kauppa-auto, ei juoksukaljoista) jää Karhu-kutosen pahvikoppa, ja pää pujotetaan heti sen sivun
   aukosta: koppa seisoo pystyssä päässä, edessä kansi pullonkaulojen rei'illä, sivuilla tuima karhu kyljellään
   päälaki eteenpäin ja takana pohja. Alareuna sovitetaan pään muotoon (ylimäärä pullistuu eteen ja taakse). Painatus on oma

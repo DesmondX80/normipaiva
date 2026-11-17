@@ -2930,6 +2930,7 @@ const DRAKKAR_DANCE := 0.15
 var drakkar := 0  # suihkauksia jäljellä
 var drakkar_found := false
 var has_haalari := false  # kirppikseltä ostettu hiihtohaalari kodin vaatekaapissa (Looks.OUTFITS "hiihtohaalari")
+var has_liivi := false  # Pentin nahkaliivi kodin vaatekaapissa (Looks.OUTFITS "nahkaliivi"), Pentin kiertueen jälkeen
 var has_koppa := false  # Karhu-kutosen pahvikoppa hattuna (Looks.hat "koppa"), ensimmäisestä kaupasta ostetusta kutosesta
 var drakkar_day := -1  # päivä, jona tuoksuu
 var _kirppis_prev := "ulkona"
@@ -8878,7 +8879,8 @@ func _on_home_acted(kind: String) -> void:
 		"saappaat":
 			_toggle_boots("koti")
 		"vaatekaappi":
-			_open_wardrobe(["tuulipuku", "farkut"] + (["hiihtohaalari"] if has_haalari else []) + ["hattu"]
+			_open_wardrobe(["tuulipuku", "farkut"] + (["hiihtohaalari"] if has_haalari else [])
+				+ (["nahkaliivi"] if has_liivi else []) + ["hattu"]
 				+ (["koppa"] if has_koppa else []),
 				"Kotona vaatekaapilla: mitä tänään päälle?")
 		"puhelin":
@@ -11477,7 +11479,8 @@ func _on_wardrobe(id: String) -> void:
 	_show_message({"tuulipuku": "Tuulipuku päälle ja Karhu-lippis päähän. Normipäivän univormu.",
 		"farkut": "Repaleinen verkkopaita, henkselit ja työhousut. Tukka pystyssä, naama noessa. Kyntömiehen asu.",
 		"tyovaatteet": "Työhousut, flanelli ja Karjala-lippis. Nyt kelpaa tehdä Paapelin hommia.",
-		"hiihtohaalari": "Neonpinkki hiihtohaalari, kuukengät ja otsapanta. Kasari palasi, ja koko kylä näkee sen."}[id], 3.5)
+		"hiihtohaalari": "Neonpinkki hiihtohaalari, kuukengät ja otsapanta. Kasari palasi, ja koko kylä näkee sen.",
+		"nahkaliivi": "Pentin nahkaliivi paljaalle rinnalle, farkut ja bootsit. Penkit on lämpimät, sanoo liivi."}[id], 3.5)
 	_save_game()
 
 
@@ -21067,6 +21070,7 @@ func _load_game() -> void:
 	drakkar = cfg.get_value("drakkar", "suihkaukset", 0)
 	drakkar_found = cfg.get_value("drakkar", "loydetty", false)
 	has_haalari = cfg.get_value("pelaaja", "haalari", false)
+	has_liivi = cfg.get_value("pelaaja", "liivi", false)
 	has_koppa = cfg.get_value("pelaaja", "koppa", false)
 	drakkar_day = cfg.get_value("drakkar", "paiva", -1)
 	wine_lock_day = cfg.get_value("viini", "lukko_paiva", day if wine_locked else -1)
@@ -21363,6 +21367,7 @@ func _save_game() -> void:
 	cfg.set_value("drakkar", "suihkaukset", drakkar)
 	cfg.set_value("drakkar", "loydetty", drakkar_found)
 	cfg.set_value("pelaaja", "haalari", has_haalari)
+	cfg.set_value("pelaaja", "liivi", has_liivi)
 	cfg.set_value("pelaaja", "koppa", has_koppa)
 	cfg.set_value("drakkar", "paiva", drakkar_day)
 	cfg.set_value("viini", "lukko_paiva", wine_lock_day)

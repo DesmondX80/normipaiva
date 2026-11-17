@@ -13,12 +13,14 @@ const PLAYER := {
 	"belly": 0.75, "bulk": 0.1, "shoulders": -0.55,
 }
 ## Pelaajan asut (vaatekaappi kotona ja Paapelin makuuhuoneessa, main.gd tallentaa valinnan): tuulipuku ja
-## Karhu-lippis on oletus. Hiihtohaalari ostetaan kirppikseltä Railin vaatetangosta (main.gd has_haalari). Kaikissa vaaleat hiukset, pukinparta, kello, rannekoru ja tatuointi vasemmassa olkavarressa.
+## Karhu-lippis on oletus. Hiihtohaalari ostetaan kirppikseltä Railin vaatetangosta (main.gd has_haalari). Nahkaliivin antaa Pentti kiertueen
+## jälkeen (main.gd has_liivi, rikos/pentti.gd _kiertue_aamu). Kaikissa vaaleat hiukset, pukinparta, kello, rannekoru ja tatuointi vasemmassa olkavarressa.
 const OUTFITS := {
 	"tuulipuku": {"name": "Tuulipuku ja Karhu-lippis"},
 	"farkut": {"name": "Verkkopaita, henkselit ja työhousut"},
 	"tyovaatteet": {"name": "Työvaatteet ja Karjala-lippis"},
 	"hiihtohaalari": {"name": "Hiihtohaalari ja otsapanta"},
+	"nahkaliivi": {"name": "Nahkaliivi ja farkut"},
 }
 const PLAYER_HAIR := Color(0.82, 0.66, 0.4)
 const HAALARI_PINK := Color(0.95, 0.1, 0.5)
@@ -38,6 +40,15 @@ static func player(which := "") -> Dictionary:
 	look.merge({"player": true, "outfit": o, "hair_color": PLAYER_HAIR, "skin": Color(1.0, 0.92, 0.84), "tattoo": true,
 		"cap": "karhu", "shades": "pilotti", "bare_skin": Color(0.95, 0.75, 0.6)}, true)
 	match o:
+		"nahkaliivi":
+			# Kuten Pentti (PENTTI): avonainen ruskea nahkaliivi paljaan karvaisen rinnan päällä, paljaat käsivarret, farkut
+			# mustalla vyöllä, cowboybootsit. Ei Pentin viiksiä, ketjua eikä laseja: pelaaja pysyy omana itsenään.
+			for k in ["tracksuit", "stripe_color"]:
+				look.erase(k)
+			look.merge({"shirt": Color(0.3, 0.17, 0.08), "shine": 0.6, "sleeve_x": 0.18, "vest_open": true, "chest_hair": true,
+				"body_hair": Color(0.55, 0.42, 0.25), "pants": Color(0.2, 0.26, 0.4), "jeans": true, "belt_y": 0.99,
+				"belt_col": Color(0.06, 0.05, 0.04), "pants_puff": 0.016, "shoes": Color(0.25, 0.15, 0.08), "shoe": "saapas",
+				"stripes": false, "cap": ""}, true)
 		"farkut":
 			for k in ["tracksuit", "stripe_color"]:
 				look.erase(k)
