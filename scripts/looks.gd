@@ -42,13 +42,13 @@ static func player(which := "") -> Dictionary:
 	match o:
 		"nahkaliivi":
 			# Kuten Pentti (PENTTI): avonainen ruskea nahkaliivi paljaan karvaisen rinnan päällä, paljaat käsivarret, farkut
-			# mustalla vyöllä, cowboybootsit. Ei Pentin viiksiä, ketjua eikä laseja: pelaaja pysyy omana itsenään.
+			# mustalla vyöllä, cowboybootsit ja kultaketju kaulassa. Ei Pentin viiksiä: pelaaja pysyy omana itsenään.
 			for k in ["tracksuit", "stripe_color"]:
 				look.erase(k)
 			look.merge({"shirt": Color(0.3, 0.17, 0.08), "shine": 0.6, "sleeve_x": 0.18, "vest_open": true, "chest_hair": true,
 				"body_hair": Color(0.55, 0.42, 0.25), "pants": Color(0.2, 0.26, 0.4), "jeans": true, "belt_y": 0.99,
 				"belt_col": Color(0.06, 0.05, 0.04), "pants_puff": 0.016, "shoes": Color(0.25, 0.15, 0.08), "shoe": "saapas",
-				"stripes": false, "cap": ""}, true)
+				"stripes": false, "cap": "", "chain": true}, true)
 		"farkut":
 			for k in ["tracksuit", "stripe_color"]:
 				look.erase(k)
@@ -1330,14 +1330,16 @@ static func _add_player_gear(c: Node3D, look: Dictionary) -> void:
 		# Kultaketju kaulassa paidan päällä.
 		var ch := MeshInstance3D.new()
 		var tm := TorusMesh.new()
-		tm.inner_radius = 0.07
-		tm.outer_radius = 0.075
-		tm.rings = 24
-		tm.ring_segments = 4
+		# Nahkaliivin kanssa (paljas rinta) paksumpi ja pidempi, laskeutuu rinnalle kuten Pentillä.
+		var thick: bool = look.get("vest_open", false)
+		tm.inner_radius = 0.075 if thick else 0.07
+		tm.outer_radius = 0.084 if thick else 0.075
+		tm.rings = 32 if thick else 24
+		tm.ring_segments = 6 if thick else 4
 		ch.mesh = tm
 		ch.material_override = gold
-		ch.scale = Vector3(1.0, 1.0, 0.85)
-		ch.rotation.x = deg_to_rad(-18)
+		ch.scale = Vector3(1.0, 1.0, 1.05) if thick else Vector3(1.0, 1.0, 0.85)
+		ch.rotation.x = deg_to_rad(38 if thick else -18)
 		c.attach("neck_01", ch, Vector3(0, -0.035, -0.012))
 	# Musta älykello vasemmassa ranteessa, hopeinen rannekoru oikeassa.
 	var watch := Node3D.new()
