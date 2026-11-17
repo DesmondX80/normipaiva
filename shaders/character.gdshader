@@ -11,6 +11,7 @@ uniform vec3 pants : source_color = vec3(0.2, 0.28, 0.5);
 uniform vec3 shoes : source_color = vec3(0.12, 0.1, 0.1);
 uniform vec3 stripe_col : source_color = vec3(0.95);
 uniform float fabric_shine = 0.0;
+uniform bool satin = false;  // sileä satiini (Mintun mekon yläosa): ei kudetta eikä ribbiä, tasainen kiilto
 uniform float muscle_def = 1.0;  // 0 = lihakset piiloon (kaljamaha), 1 = superhero
 uniform bool tracksuit = false;
 uniform vec3 panel_a : source_color = vec3(0.1, 0.65, 0.62);
@@ -575,7 +576,7 @@ void fragment() {
 		cloth = mix(cloth, stripe_col, stripe_on);
 		if (tube_y > 0.0 && c > 0.5 && c < 1.5) {
 			// Ysärin tuubitoppi: ribbineulos vaakaraidoin, reunoissa tiukka kaitale.
-			float rib = 0.88 + 0.12 * step(0.5, fract(rest.y * 140.0));
+			float rib = satin ? 1.0 : 0.88 + 0.12 * step(0.5, fract(rest.y * 140.0));
 			float edge = 1.0 - step(0.012, min(abs(rest.y - tube_y), abs(rest.y - crop_y)));
 			cloth *= rib * (1.0 - 0.18 * edge);
 		}
@@ -664,9 +665,9 @@ void fragment() {
 			}
 		}
 		// Kankaan kude: hienot raidat + tekstuurin varjostus säilyy.
-		float weave = 0.94 + 0.06 * sin(lpos.y * 900.0) * sin(lpos.x * 700.0 + lpos.z * 700.0);
-		ALBEDO = cloth * mix(0.96, 0.72 + 0.5 * lum, muscle_def) * weave;
-		ROUGHNESS = c > 2.5 ? 0.45 : mix(0.9, 0.5, fabric_shine);
+		float weave = satin ? 1.0 : 0.94 + 0.06 * sin(lpos.y * 900.0) * sin(lpos.x * 700.0 + lpos.z * 700.0);
+		ALBEDO = cloth * (satin ? mix(0.98, 0.92 + 0.12 * lum, muscle_def) : mix(0.96, 0.72 + 0.5 * lum, muscle_def)) * weave;
+		ROUGHNESS = c > 2.5 ? 0.45 : (satin ? 0.36 : mix(0.9, 0.5, fabric_shine));
 		if (belt_y > 0.0 && c > 1.5 && c < 2.5 && rest.y > belt_y - 0.04 && rest.y < belt_y) {
 			ROUGHNESS = lpos.z > 0.0 && abs(rest.x) < 0.035 ? 0.2 : 0.45;
 			METALLIC = lpos.z > 0.0 && abs(rest.x) < 0.035 ? 0.9 : 0.0;
@@ -681,6 +682,10 @@ void fragment() {
 			METALLIC = 0.8;
 		}
 		NORMAL_MAP = mix(vec3(0.5, 0.5, 1.0), n, 0.18 * muscle_def);
+		if (satin && c < 2.5) {
+			SPECULAR = 0.55;
+			NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+		}
 	}
 	float nh = mix(nipple_cloth, 1.0, skin_amt) * nipple_height(rest, rest_zn.x);
 	if (nh > 0.0) {
