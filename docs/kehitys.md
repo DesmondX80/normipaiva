@@ -519,6 +519,13 @@ animaation jälkeen). Käytössä oletuksena aikuisilla (pituus >= 1,5 m); `look
   (2, esim. pronssipatsas), ei `shoes`-väriä. Raja nilkassa lasketaan fragmentissa lepoasennon y:stä
   (`Anatomia.CLASS_Y`, mitattu `anatomia_kuvat`-testin ANAT luokka3 -rivistä), joten se on suora eikä kolmioiden sahalaita.
   Ilman `shoe`-avainta vanha käytös (luokan 3 väri = `shoes`).
+- Kasvot, pää ja kaula (`anatomia_paa.gd`, `anat_paa.gdshaderinc`): `deform` pehmentää kallon (Taubin-pehmennys hitsatuilla pisteryhmillä,
+  silmät, nenä, suu ja korvat suojattu), leventää alaleuan ja pyöristää leuan, nostaa poskipäät, leveämmäksi kaulan tyven ja nostaa
+  trapetsin kaaren; kaikki siirrot ovat pelkkiä paikan funktioita, jotta luu- ja UV-saumat pysyvät kiinni. Maski on `COLOR.r`:n
+  murto-osassa (koodi 10 pää, 11 kaula; kädet käyttävät 1-9, varjostin erottaa ne |x| > 0,3). Varjostin laskee kasvonpiirteet
+  pään kehyksestä (`anat_head` = alin y ja korkeus, `Paa.FRAME`): silmäkuopat, luomipoimu, sieraimet, nenä-huulipoimu, huulet,
+  poskipuna, korvan reuna, kaulajänteet ja huokoset. `Paa.brows` korvaa Eyebrows-verkon ohuemmalla (sisäpää ylös). Yläkallon
+  siirto rajataan 1,5 mm:iin, koska hiukset sovitetaan alkuperäiseen verkkoon.
 - Testi: `tools/testit/aja.sh tscn tools/testit/anatomia_kuvat.tscn [--osa=a|b|c|d] [--anat=0|1] [--luokka] [--anim=Idle]`
   ottaa lähikuvat (kasvot, kädet, jalat, vartalo, 4 kulmaa) pelaajasta, Sinikasta, Päivistä ja Juntista ja tulostaa ANAT-rivit
   (jalan alin y, kämmenen ja jalan säteet, luokan 3 lepo-y). `--luokka` värjää jalkaterän luokan magentalla.

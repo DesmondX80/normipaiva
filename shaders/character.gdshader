@@ -394,9 +394,15 @@ void vertex() {
 	float puff = c > 0.5 && c < 1.5 ? shirt_puff : (c > 1.5 && c < 2.5 ? pants_puff : (c > 2.5 ? 0.01 : 0.0));
 	if (bare(c, UV2, VERTEX, COLOR.b, COLOR.a * 2.0 - 1.0) || (string_bikini && undress >= 1.0)) {
 		puff = 0.0;  // lappubikinit ovat iholla kiinni (väri lasketaan fragmentissa)
+		if (anat_wrist_x < 8.0 && c > 1.5 && c < 2.5) {
+			puff = anat_calf(UV2.y, CUSTOM0.z);  // anatomia: paljaan säären pohje (ei vaatteen alla)
+		}
 	}
 	if (foot_skin && c > 2.5) {
 		puff = 0.0;
+	}
+	if (c > 0.5 && c < 1.5 && anat_class_jalat(c, UV2) < 0.5) {
+		puff = 0.0;  // käsi (anatomia: käden pisteillä on kyynärvarren luokka): ei hihan pöyhennystä
 	}
 	if (shoe_on && c > 2.5) {
 		puff = 0.0;
@@ -440,7 +446,9 @@ void fragment() {
 	if (sandal_foot) {
 		c = 0.0;  // sandaali: jalkaterä on paljasta ihoa
 	}
+	float c_pre = c;
 	c = anat_class(c, rest);
+	bool anat_hand = c_pre > 0.5 && c_pre < 1.5 && c < 0.5;  // käsi, jonka pisteillä on kyynärvarren luokka (anat_class_jalat)
 	if (shoe_on && c > 2.5) {
 		c = 2.0;  // kengän suusta nilkassa pilkistävä jalkaterä on lahjetta (shortseilla paljasta ihoa, bare)
 	}
@@ -508,10 +516,21 @@ void fragment() {
 		ROUGHNESS = 0.55;
 		SSS_STRENGTH = 0.35;
 		NORMAL_MAP = n;
+		if (anat_wrist_x < 8.0) {
+			anat_foot(ALBEDO, ROUGHNESS, rest, rest_zn);  // anatomia: kynnet, kärjet, känsä
+		}
 	} else if (c < 0.5) {
 		ALBEDO = skin_with_ink(t.rgb * skin_tint, rest, lpos, rest_zn.x);
+		bool anat_hand_bare = anat_hand && (string_bikini || bare(1.0, vec2(sign(rest.x) * (anat_wrist_x - 0.02), rest.y), lpos, front, rest_nx));
+		if (anat_hand_bare) {
+			ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos, rest_zn.x);  // sama sävy kuin paljas kyynärvarsi
+		}
 		ROUGHNESS = texture(rough_tex, UV).r;
 		NORMAL_MAP = n;
+		if (anat_hand_bare) {
+			ROUGHNESS = 0.55;  // kuten paljas kyynärvarsi (ihohaara yllä): ei sävyeroa kiillosta tai normaalikartasta
+			NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+		}
 		SSS_STRENGTH = 0.35;
 		skin_amt = 1.0;
 		anat_skin(ALBEDO, ROUGHNESS, NORMAL_MAP, rest, rest_zn, lum);

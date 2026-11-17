@@ -24,7 +24,9 @@ float anat_class(float c, vec2 r) {
 void anat_skin(inout vec3 albedo, inout float rough, inout vec3 nrm, vec2 r, vec3 rzn, float lum) {
 	// Käsimaski (osa A) on COLOR.r:n murto-osassa: cat = luokka + 0,04 koodi (ks. anatomia_kadet.gd _code_r).
 	float code = floor((cat - floor(cat + 0.5)) / 0.04 + 0.5);
-	if (code > 0.5) {
-		anat_kadet(albedo, rough, nrm, code, rzn);
+	if (code > 0.5 && abs(r.x) > 0.3) {
+		anat_kadet(albedo, rough, nrm, code, rzn);  // kädet ovat T-asennossa kaukana vartalosta
+	} else if (code > 0.5 && r.y > 1.4) {
+		anat_paa(albedo, rough, nrm, code, r, rzn, lum);  // pää (10) ja kaula (11); koodit välissä = pehmeä reuna
 	}
 }

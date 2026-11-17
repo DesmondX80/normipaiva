@@ -21,6 +21,7 @@ var anim := "Idle"
 var luokka := false
 var paljas := true
 var kengat := false
+var paaalasti := false  # osa c: ei lippistä eikä laseja (silmät ja kallo näkyviin)
 var names := ["pelaaja", "sinikka", "paivi", "juntti"]
 
 
@@ -43,6 +44,8 @@ func _ready() -> void:
 			paljas = false
 		elif s == "--kengat":
 			kengat = true
+		elif s == "--paaalasti":
+			paaalasti = true
 	DirAccess.make_dir_recursive_absolute(out)
 	var env := WorldEnvironment.new()
 	env.environment = Environment.new()
@@ -78,6 +81,9 @@ func _look(n: String) -> Dictionary:
 		elif paljas:
 			l["shoe"] = "paljas"
 	l["anat"] = anat
+	if paaalasti:
+		l["shades"] = ""
+		l["cap"] = ""
 	return l
 
 
@@ -105,6 +111,11 @@ func _g(c: Node3D, b: String) -> Vector3:
 
 
 func _measure(n: String, c: Node3D) -> void:
+	if osa == "c":
+		for m in c.skeleton.get_children():
+			if m is MeshInstance3D and (m as MeshInstance3D).mesh != null:
+				var bb := (m as MeshInstance3D).mesh.get_aabb()
+				print("ANATC %s solmu %s aabb pos %s koko %s" % [n, m.name, bb.position, bb.size])
 	for lr in ["l", "r"]:
 		var pts := Pose.limb_points(c, self, ["foot_" + lr, "ball_" + lr])
 		var lo := INF
@@ -160,16 +171,34 @@ func _shots(n: String, c: Node3D) -> void:
 		await _shot(n + "_kasvot_vino", c, head_c, 1.0, 45, 20)
 		await _shot(n + "_kasvot_sivu", c, head_c, 1.0, 90, 20)
 		await _shot(n + "_kasvot_taka", c, head_c, 1.0, 180, 20)
+		await _shot(n + "_kasvot_yla", c, head_c, 1.0, 0, 20, 70)
+		await _shot(n + "_kasvot_vino_vas", c, head_c, 1.0, -45, 20)
+		await _shot(n + "_kasvot_lahi", c, head_c - Vector3(0, 0.02, 0), 0.6, 0, 20)
+		await _shot(n + "_kasvot_sivu_lahi", c, head_c - Vector3(0, 0.02, 0), 0.6, 90, 20)
+		await _shot(n + "_kasvot_vino_lahi", c, head_c - Vector3(0, 0.02, 0), 0.6, 40, 20)
+		await _shot(n + "_kaula_sivu", c, head_c - Vector3(0, 0.14, 0), 1.2, 90, 20)
+		await _shot(n + "_kaula_taka", c, head_c - Vector3(0, 0.14, 0), 1.2, 180, 20)
 	if all or osa == "a":  # kädet: Idle (roikkuva), A_TPose (avoin kämmen, kämmenselkä, sivut, kärki), nyrkki (Punch_Jab)
 		await _hand_idle(n, c)
 		await _hand_tpose(n, c)
 		await _hand_fist(n, c)
+	if osa == "r":  # ranne (osa B lisätehtävä): käden ja kyynärvarren raja selästä, kämmenen puolelta ja sivulta, T-pose ja Idle
+		await _wrist(n, c)
 	if all or osa == "b":  # jalat: ylhäältä, edestä, sivulta, vinosti
 		var ft := (_g(c, "foot_l") + _g(c, "ball_l")) * 0.5
 		await _shot(n + "_jalka_yla", c, ft, 0.8, 0, 22, 80)
 		await _shot(n + "_jalka_etu", c, ft + Vector3(0, 0.03, 0), 0.8, 0, 22, 10)
 		await _shot(n + "_jalka_sivu", c, ft, 0.8, 90, 22)
 		await _shot(n + "_jalka_vino", c, ft, 0.8, 45, 22, 25)
+		var tp := _g(c, "ball_l") + (_g(c, "ball_l") - _g(c, "foot_l")) * 0.25
+		await _shot(n + "_jalka_varpaat_yla", c, tp, 0.32, 0, 22, 60)
+		await _shot(n + "_jalka_varpaat_vino", c, tp, 0.32, 40, 22, 30)
+		await _shot(n + "_jalka_takaa", c, ft, 0.8, 180, 22, 15)
+		await _shot(n + "_jalka_nilkka", c, _g(c, "foot_l") + Vector3(0, 0.02, 0), 0.5, 70, 22, 5)
+		var lg := (_g(c, "calf_l") + _g(c, "foot_l")) * 0.5
+		await _shot(n + "_saari_taka", c, lg, 1.3, 180, 22)
+		await _shot(n + "_saari_sivu", c, lg, 1.3, 90, 22)
+		await _shot(n + "_saari_etu", c, lg, 1.3, 0, 22)
 	if all or osa == "d":  # vartalo ja kaula: edestä, sivulta, takaa, vinosti; kaula lähikuvana
 		var pv := _g(c, "pelvis")
 		var mid := Vector3(pv.x, pv.y + 0.1, pv.z)
@@ -259,3 +288,23 @@ func _hand_fist(n: String, c: Node3D) -> void:
 		var sd := base.cross(Vector3.UP)
 		await _cam_at("%s_nyrkki%d_sivu" % [n, int(t * 100)], tc, sd + base * 0.2 + Vector3.UP * 0.2, 0.6, Vector3.UP, 18)
 		await _cam_at("%s_nyrkki%d_etu" % [n, int(t * 100)], tc, base + sd * 0.3 + Vector3.UP * 0.2, 0.6, Vector3.UP, 18)
+
+
+func _wrist(n: String, c: Node3D) -> void:
+	for an in ["A_TPose", "Idle"]:
+		c.restart(an, 0.0, 1.0)
+		for i in 6:
+			await get_tree().process_frame
+		for lr in ["_r", "_l"]:
+			var fr := _hand_frame(c, lr)
+			var f: Vector3 = fr.f
+			var tc: Vector3 = (fr.h as Vector3) - f * 0.03
+			var out_d: Vector3 = (fr.h as Vector3) - _g(c, "pelvis")
+			out_d.y = 0
+			out_d = out_d.normalized()
+			if an == "A_TPose":
+				await _cam_at("%s_ranne%s_selka" % [n, lr], tc, Vector3.UP, 0.4, f, 16)
+				await _cam_at("%s_ranne%s_kammen" % [n, lr], tc, Vector3.DOWN, 0.4, f, 16)
+			else:
+				await _cam_at("%s_ranne_idle%s_ulko" % [n, lr], tc, out_d, 0.4, Vector3.UP, 16)
+				await _cam_at("%s_ranne_idle%s_sisa" % [n, lr], tc, -out_d, 0.4, Vector3.UP, 16)

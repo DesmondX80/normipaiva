@@ -28,6 +28,7 @@ const ALUE_VARTALO := 4
 ## Raja-arvot, joita useampi osa käyttää: nilkan lepo-y (anat_class: luokka 3 jos rest.y < nilkka). Mitattu
 ## anatomia_kuvat.gd:n ANAT luokka3 -rivistä: jalkaterän (3) ylin ja housujen (2) alin piste menevät päällekkäin
 ## (mies 0,073..0,104, nainen 0,052..0,091), raja on välin keskikohta.
+const WRIST_X := Jalat.WRIST_X  # ranteen lepo-x (osa B)
 const CLASS_Y := {"nilkka_male": 0.088, "nilkka_female": 0.072}
 
 

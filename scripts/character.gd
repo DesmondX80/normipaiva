@@ -116,6 +116,8 @@ func setup(look: Dictionary) -> void:
 			"suspenders", "strap_col", "grime", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff", "string_bikini", "ski_suit", "vest_open", "chest_hair", "body_hair"]:
 		if look.has(k):
 			body_mat.set_shader_parameter(k, look[k])
+	if anat_on:
+		body_mat.set_shader_parameter("anat_wrist_x", Anatomia.WRIST_X["female" if kind == "female" else "male"])
 	# Nännit aikuisille (ei lapsille eikä nuorille: pituus alle 1,5 m tai look.nipples = false). Naisella rinnan
 	# muotoillun kärjen kohdalla, miehellä rintalihaksen alareunassa.
 	if bool(look.get("nipples", float(look.get("height", REST_HEIGHT)) >= 1.5)):
@@ -150,6 +152,9 @@ func setup(look: Dictionary) -> void:
 		body_mat.set_shader_parameter("shirt_puff", 0.034)
 		body_mat.set_shader_parameter("pants_puff", 0.038)
 	body.material_override = body_mat
+	if anat_on:
+		body_mat.set_shader_parameter("anat_head", Anatomia.Paa.frame(kind))  # osa C: pään kehys ja sukupuoli (huulet, poimut)
+		body_mat.set_shader_parameter("anat_female", 1.0 if kind == "female" else 0.0)
 	body_mi = body
 	press_boxes.clear()
 	# Uusi ulkonäkö (restyle) vapautti vanhan mallin: hiusverkot ja materiaalit, heilahdus ja hyllyntä rakennetaan alusta
@@ -166,6 +171,8 @@ func setup(look: Dictionary) -> void:
 	var hair_color: Color = look.get("hair_color", Color(0.25, 0.18, 0.12))
 	for mi in skeleton.get_children():
 		if mi is MeshInstance3D and mi.name == "Eyebrows":
+			if anat_on:
+				Anatomia.Paa.brows(mi, kind)  # osa C: ohuemmat kulmakarvat, sisäpää ylös (ennen sävytystä)
 			_tint(mi, hair_color)
 	var hair: String = look.get("hair", "Hair_SimpleParted")
 	if hair != "":
@@ -546,6 +553,8 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 			if look.has("foot_col"):
 				body_mat.set_shader_parameter("foot_col", fc)
 			body_mat.set_shader_parameter("bare_foot_mode", 2 if look.has("foot_col") else 1)
+			if anat_on and not look.has("foot_col"):
+				body_mat.set_shader_parameter("anat_toes", Anatomia.Jalat.toe_nails(kind, body.mesh))
 			body_mat.set_shader_parameter("anat_ankle_y", Anatomia.CLASS_Y["nilkka_female" if kind == "female" else "nilkka_male"])
 		return
 	var key := "shoe/%s/%s/%s" % [shoe_type, kind, shape]
