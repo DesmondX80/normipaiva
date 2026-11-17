@@ -287,7 +287,7 @@ const MINTTU := {
 	"model": "female", "shirt": Color(1.0, 0.78, 0.16), "pants": Color(1.0, 0.78, 0.16), "shoes": Color(0.95, 0.93, 0.88),
 	"hair": "Hair_Long", "hair_color": Color(0.72, 0.2, 0.07), "height": 1.68, "skin": Color(1.0, 0.92, 0.86),
 	"bare_skin": Color(1.0, 0.86, 0.78), "shorts_y": 0.86, "sleeve_x": 0.17, "curves": 1.0, "bust": 2.7, "curls": true,
-	"tube_y": 1.38, "shine": 0.85, "pants_puff": 0.0, "shirt_puff": 0.004,
+	"tube_y": 1.38, "shine": 0.85, "pants_puff": 0.0, "shirt_puff": 0.004, "satin": true,
 	"gown": Color(1.0, 0.78, 0.16), "shoe": "sandaali", "nails": Color(0.92, 0.45, 0.5),
 }
 ## Katja: pitkät mustat suorat hiukset (add_long_hair), kiiltävä musta nahkatakki, siniset farkut vyön kanssa ja mustat
@@ -617,8 +617,8 @@ static func add_gown(c: Node3D, col: Color) -> void:
 	m.vertex_color_use_as_albedo = true
 	m.vertex_color_is_srgb = true
 	m.albedo_color = Color.WHITE  # väri pisteissä (col), sama sävy kuin vartaloon maalattu yläosa
-	m.metallic = 0.12
-	m.roughness = 0.5
+	m.metallic = 0.08
+	m.roughness = 0.36  # sama kiilto kuin yläosan satiinissa (character.gdshader satin)
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED  # halkion reunoista näkyy sisäpinta
 	m.metallic_specular = 0.6  # satiinin hillitty kiilto, sama tuntu kuin vartaloon maalatussa yläosassa
 	skirt.material_override = m
@@ -626,8 +626,8 @@ static func add_gown(c: Node3D, col: Color) -> void:
 
 
 static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> ArrayMesh:
-	if body.mesh.has_meta("gown_v6"):
-		return body.mesh.get_meta("gown_v6")
+	if body.mesh.has_meta("gown_v7"):
+		return body.mesh.get_meta("gown_v7")
 	var src := body.mesh.surface_get_arrays(0)
 	var sv: PackedVector3Array = src[Mesh.ARRAY_VERTEX]
 	var sb: PackedInt32Array = src[Mesh.ARRAY_BONES]
@@ -715,8 +715,22 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 			var v: Vector2 = rings[r][1][j] - cen_r
 			if v.length() > rp:
 				rings[r][1][j] = cen_r + v.normalized() * rp
+	# Pystytasoitus alimmilla riveillä: kehän piste ei poukkoile rivistä toiseen (vain ulospäin, ettei reisi tule läpi).
+	for it in 2:
+		for r in range(GOWN_ROWS / 2, GOWN_ROWS - 1):
+			for j in GOWN_SEGS:
+				var a0: Vector2 = rings[r - 1][1][j]
+				var a1: Vector2 = rings[r][1][j]
+				var a2: Vector2 = rings[r + 1][1][j]
+				var avg := (a0 + a2) * 0.5
+				var c0 := Vector2.ZERO
+				for q: Vector2 in rings[r][1]:
+					c0 += q
+				c0 /= GOWN_SEGS
+				if (avg - c0).length() > (a1 - c0).length():
+					rings[r][1][j] = c0 + (a1 - c0).normalized() * (avg - c0).length()
 	# Halkio: vasemman reiden etupuolella (+X, +Z) muutaman sarakkeen rako helmasta GOWN_SLIT-korkeudelle.
-	var slit_a := atan2(0.9, 0.5)
+	var slit_a := atan2(0.62, 0.78)  # reiden ulkoetupuoli: ei reisien välisen sillan kohdalla (siellä kehä poukkoilee)
 	var slit_j := posmod(roundi(slit_a / TAU * GOWN_SEGS), GOWN_SEGS)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -797,7 +811,7 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color) -> Arr
 				st.add_index(t)
 	st.generate_normals()
 	var mesh := st.commit()
-	body.mesh.set_meta("gown_v6", mesh)
+	body.mesh.set_meta("gown_v7", mesh)
 	return mesh
 
 
