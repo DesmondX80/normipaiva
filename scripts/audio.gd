@@ -10,6 +10,12 @@ const FILES := {
 	"engine": [["car_engine.wav"], true],
 	"tractor_engine": [["tractor_engine.ogg"], true],
 	"bike_roll": [["bike_roll.ogg"], true],
+	"bike_ride": [["bike_ride.ogg"], true],  # vanhan pyörän räminä ajossa (äänitys pyörän päältä)
+	"bike_clunk": [["bike_clunk_0.ogg", "bike_clunk_1.ogg", "bike_clunk_2.ogg", "bike_clunk_3.ogg", "bike_clunk_4.ogg",
+		"bike_clunk_5.ogg"], false],  # saman pyörän kolahdukset töyssyissä
+	"bike_root": [["bike_root_0.ogg", "bike_root_1.ogg", "bike_root_2.ogg", "bike_root_3.ogg"], false],  # juurakko: iso rämähdys
+	"breath": [["breath_0.ogg", "breath_1.ogg", "breath_2.ogg", "breath_3.ogg", "breath_4.ogg"], false],  # raskas hengitys
+	"pant": [["pant_0.ogg", "pant_1.ogg", "pant_2.ogg"], false],  # nopea puuskutus
 	"amb_forest": [["amb_forest.mp3"], true],
 	"amb_birds": [["amb_birds.ogg"], true],
 	"water": [["water.ogg"], true],
@@ -67,39 +73,6 @@ func _ready() -> void:
 			list.append(st)
 		if not list.is_empty():
 			_streams[key] = list  # äänite korvaa syntetisoidun
-	# Puuskutus (hengästynyt hahmo): ei äänitettä, joten suodatettua kohinaa hengityksen verhokäyrällä.
-	_streams["breath"] = [_breath(0.42, 0.62, 1), _breath(0.5, 0.48, 2), _breath(0.38, 0.7, 3)]
-
-
-## Uloshengitys "hhah": kohina alipäästön (pehmeä huohotus) ja kaistanpäästön (kurkun "aa") läpi. Nopea nousu,
-## pitkä häivytys. dur = kesto (s), tone = kaistan korkeus (0–1).
-func _breath(dur: float, tone: float, seed_i: int) -> AudioStreamWAV:
-	var rate := 22050
-	var n := int(dur * rate)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_i
-	var data := PackedByteArray()
-	data.resize(n * 2)
-	var lp := 0.0
-	var bp_lo := 0.0
-	var bp_hi := 0.0
-	var a_lp := 0.12
-	var a_hi := lerpf(0.12, 0.3, tone)
-	var a_lo := a_hi * 0.35
-	for i in n:
-		var t := float(i) / n
-		var env := smoothstep(0.0, 0.12, t) * pow(1.0 - t, 1.6)
-		var w := rng.randf_range(-1.0, 1.0)
-		lp += a_lp * (w - lp)
-		bp_hi += a_hi * (w - bp_hi)
-		bp_lo += a_lo * (bp_hi - bp_lo)
-		var v := (lp * 0.9 + (bp_hi - bp_lo) * 1.6) * env * 0.9
-		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 32000.0))
-	var st := AudioStreamWAV.new()
-	st.format = AudioStreamWAV.FORMAT_16_BITS
-	st.mix_rate = rate
-	st.data = data
-	return st
 
 
 ## Suljettaessa soimassa olevat äänet pysäytetään ja irrotetaan, muuten äänipalvelin pitää äänitteen varattuna
@@ -217,6 +190,23 @@ func music_stop(fade := 1.5) -> void:
 
 
 ## Ei-sijainnillinen ääni (HUD-tyyppiset, pelaajan omat).
+## Kertaääni ja sen kesto sekunteina (pitch huomioiden): hengityksen tahdistus (on_foot.gd) jatkaa seuraavalla vasta,
+## kun edellinen on soinut.
+func play_len(sound: String, volume_db := 0.0, pitch := 1.0) -> float:
+	var st := stream(sound)
+	if st == null:
+		return 0.0
+	var p := AudioStreamPlayer.new()
+	p.bus = "SFX"
+	p.stream = st
+	p.volume_db = volume_db
+	p.pitch_scale = pitch
+	add_child(p)
+	p.finished.connect(p.queue_free)
+	p.play()
+	return st.get_length() / maxf(pitch, 0.01)
+
+
 ## Kertaääni. Silmukaksi merkitty äänite (esim. "water", jota käytetään myös jatkuvana) ei pääty itsestään,
 ## joten se hiljennetään ja pysäytetään loop_secs sekunnin kuluttua.
 func play(sound: String, volume_db := 0.0, pitch := 1.0, loop_secs := 1.8) -> void:
@@ -274,10 +264,11 @@ func babble(_node: Node3D, voice: String, text: String) -> void:
 	speak("paivi" if voice == "paivi" else "muu", text)
 
 
-## Puheäänet: assets/aanet/<ryhmä>/<repliikin tiiviste>.mp3, ryhmä "paivi" (Satu, nalkutus) tai "muu" (Eddy, rauhallinen
-## tenori). Tiedosto haetaan repliikin tekstin SHA-1:stä; puuttuva repliikki on hiljainen. Uusi repliikki katkaisee
-## edellisen. Äänet tehdään `--aanisynteesi`-lipulla ajettaessa (tools/aanet/syntetisoi.sh, vain macOS): ajo
-## syntetisoi jokaisen vastaan tulevan repliikin ja kirjaa sen assets/aanet/hakemisto.json:iin; `godot --import` tuo uudet.
+## Puheäänet: assets/aanet/<ryhmä>/<repliikin tiiviste>.mp3, ryhmä "paivi" (Chatterbox-puhemalli suomalaisen naisen
+## malliäänellä, tools/aanet/paivi_aani.py) tai "muu" (Macin Eddy, rauhallinen tenori). Tiedosto haetaan repliikin
+## tekstin SHA-1:stä; puuttuva repliikki on hiljainen. Uusi repliikki katkaisee edellisen. Muiden äänet tehdään
+## `--aanisynteesi`-lipulla ajettaessa (tools/aanet/syntetisoi.sh, vain macOS): ajo syntetisoi jokaisen vastaan tulevan
+## repliikin ja kirjaa sen assets/aanet/hakemisto.json:iin; `godot --import` tuo uudet. Ks. docs/kehitys.md Puheäänet.
 const VOICE_DIR := "res://assets/aanet/"
 var _voice_player: AudioStreamPlayer
 var _voice_index := {}

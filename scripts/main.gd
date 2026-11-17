@@ -59,6 +59,11 @@ const KIRPPIS_INT_POS := Vector3(16000, 0, 16000)  # Saloisten seuraintalon kirp
 const VARASTO_INT_POS := Vector3(-16000, 0, 16000)  # Tokolan vanha varasto (tokola_varasto.gd)
 ## Valcon kuulokkeet (headphones.gd, #15): autotallista, vaimentavat linnut ja vaarat, soittavat Suno-listaa.
 const Headphones := preload("res://scripts/headphones.gd")
+const TuppiGame := preload("res://scripts/tuppi_game.gd")
+const LettuGame := preload("res://scripts/lettu_game.gd")
+const LoylyGame := preload("res://scripts/loyly_game.gd")
+const DiskoGame := preload("res://scripts/disko_game.gd")
+const IltaKaraoke := preload("res://scripts/ilta_karaoke.gd")
 var headphones: Node
 ## Päivin vanha kännykkä (phone.gd, #16): kodin yöpöydältä, soittaa iskelmiä pienestä kaiuttimesta.
 const Phone := preload("res://scripts/phone.gd")
@@ -959,8 +964,10 @@ const TALKERS := {
 	"katsastaja": ["Katsastusmies", Color(0.6, 0.75, 1.0)],
 	"hitsari": ["Arttimin hitsari", Color(1.0, 0.65, 0.3)],
 	"kolmio_saloinen": ["Joni ja Esa", Color(0.75, 0.88, 1.0)],
+	"kolmio_koti": ["Joni ja Esa", Color(0.75, 0.88, 1.0)],  # kesäheilan mittaus (luku 6, _kolmio_sal_site)
 	"pentti": ["Pentti", Color(1.0, 0.5, 0.35)],  # Pentin BangBus (#299, rikos/pentti.gd)
-	"kolmio_vaala": ["Hevari-Tero ja Siviikki-Timo", Color(1.0, 0.55, 0.45)]}
+	"paivi": ["Päivi", Color(1.0, 0.45, 0.55)],  # aamun puheeksiotto ilman hahmoa (#326, rikos/paivi_puhe.gd)
+	"kolmio_vaala": ["Hevari-Tero ja Sivikki-Timo", Color(1.0, 0.55, 0.45)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
 	"pekka": ["No perkele, naapuri!", "Terve terve, saatana.", "Kas, sieltähän se tulee."],
@@ -1007,6 +1014,7 @@ const TALK_HELLO := {
 		"Kas. Sinä oot se Järvikujan poika."],
 	"mirkku": ["Moikka! Ihana päivä, eiks?", "No hei! Tuu kattoon, täällä kukkii ihan kaikki.", "Kas, sää! Lähetkö laavulle?"],
 	"kolmio_saloinen": ["Joni: No terve! Mää just kerroin Esalle mun draivista.", "Esa: Kas, sieltä se tulee. Harppi on taskussa."],
+	"kolmio_koti": ["Esa: Kesäheila -96. Harppi vetää kumman tuttuun suuntaan.", "Joni: Mää en sano mitään. Mää vaan kannan rinkkaa."],
 	"kolmio_vaala": ["Tero: Terve. Valtio vei taas jotain, en tiiä vielä mitä.", "Timo: Moro! Kuuntele tätä tyhjäkäyntiä."],
 	"zabuki": ["No mitä laitetaan?", "Seuraava! Olutta vai burgeria?", "Tiski on auki, grilli kuuma."],
 	"apteekki": ["Hyvää päivää. Resepti vai käsikauppaa?", "Mitäs saisi olla?", "Seuraava, olkaa hyvä."],
@@ -1332,6 +1340,7 @@ func _ready() -> void:
 	endings = Endings.new()
 	quests = Quests.new()
 	_rikos_init()
+	tilat.on_first = func(k: String) -> void: _rikos_event("first", {"key": k})  # Päivin jäljet (rikos/paivi.gd)
 	_load_game()
 	_rossi_update_clock()  # rossiradan kellotaulu: ennätys heti, ei vasta kierroksen jälkeen
 	_story_check_jemma.call_deferred()  # vanha tallennus, jossa kuutonen jo kotijemmoissa
@@ -1934,6 +1943,8 @@ func _home_door_logic(door: String) -> void:
 		_hint.text = "[F] Nouse pyörän selästä ja kävele ovelle"
 		return
 	var loaded := beers > 0 or has_kanister
+	if door == "ovi" and _kesaheila_ovi():
+		return  # luku 6: etuovella koputus tai Päivin paluu (sisälle takaovesta)
 	if loaded and door == "takaovi":
 		_hint.text = "Takaovesta suoraan keittiöön – Päivi näkee %s! Mene etuovesta eteisen kaapille." % (
 			"kanisterin" if beers <= 0 else "kaljat")
@@ -3119,6 +3130,8 @@ func _tanssi_done(who: String, score: float, quit := false) -> void:
 	score = _drakkar_dance(score)
 	var good := score >= 0.65
 	tilat.first("tanssit", 0.3)
+	if who != "sinikka_seura":
+		_rikos_event("paivi_hyvitys", {"why": "tanssit"})
 	if good:
 		tilat.add("moraali", 0.2)
 		tilat.add("stressi", 0.15)
@@ -6413,6 +6426,7 @@ func _give_ovikuva() -> void:
 	mielihyva = clampf(mielihyva + WanharaaheLegenda.OVIKUVA_MIELIHYVA, 0.0, 100.0)
 	tilat.add("stressi", -0.1)
 	tilat.first("wanharaahe_paivi", 0.1)
+	_rikos_event("paivi_hyvitys", {"why": "ovikuva"})
 	Sfx.play("win_small", -4.0)
 	_queue_message("Päivi: \"Kato noita ovia! Tuollaisen ison peilin ja kuistin kun saisi meille. Laitetaan kuva jääkaapin oveen.\"", 4.0)
 	_save_game()
@@ -8220,6 +8234,9 @@ func quest_flag(name: String) -> bool:
 			return viina_found.size() >= Mokki.VIINA.size()
 		"asema_all":
 			return asema_katkot.get("saloinen", 0) == 2 and asema_katkot.get("vaala", 0) == 2
+	if name.begins_with("paivi_"):
+		var po: Object = rikos_osa("paivi")  # luku 6 (#326): rikos/paivi.gd flag
+		return po != null and po.flag(name)
 	return false
 
 
@@ -8264,12 +8281,20 @@ func quest_progress(key: String) -> String:
 			return "ennätykset: darts %d, mökkitikka %d / 150" % [tikka_ennatys, mtikka_ennatys]
 		"tekemiset":
 			return "kokeiltu %d / %d" % [TEKEMISET.filter(func(k): return k in tilat.firsts).size(), TEKEMISET.size()]
+		"iltakivat":
+			var koettu: Array = KOLMIO_KIVAT.filter(func(k: String) -> bool: return ("kiva_" + k) in tilat.firsts)
+			return "koettu %d / %d%s" % [koettu.size(), KOLMIO_KIVAT.size(), "" if koettu.size() == KOLMIO_KIVAT.size() else
+				" (puuttuu: %s)" % ", ".join(KOLMIO_KIVAT.filter(func(k: String) -> bool: return not k in koettu).map(
+				func(k: String) -> String: return KOLMIO_KIVA_NIMET[k]))]
 		"hanttihommat":
 			var n := 0
 			for k in HANTTIHOMMAT:
 				if k in tilat.firsts:
 					n += 1
 			return "kokeiltu %d / %d" % [n, HANTTIHOMMAT.size()]
+	if key.begins_with("paivi_"):
+		var po: Object = rikos_osa("paivi")  # luku 6 (#326): rikos/paivi.gd progress
+		return po.progress(key) if po != null else ""
 	return ""
 
 
@@ -8822,7 +8847,9 @@ func _on_home_acted(kind: String) -> void:
 				tilat.add("stressi", 0.1)
 			_show_message("Kahvit keitetty. Päivin Juhla Mokkaa, ei mitään suodatinhienouksia.", 2.5)
 		"jaakaappi":
-			if _once_today("koti_jaakaappi"):
+			if _kesaheila_poissa():
+				_show_message("Jääkaappi on tyhjä. Päivi vei pullat äidilleen, jäi vain valo ja sinappi.", 3.0)
+			elif _once_today("koti_jaakaappi"):
 				food["pulla"] = food.get("pulla", 0) + 1
 				_show_message("Jääkaapissa oli Päivin pullaa. Otit yhden evääksi (T syö).", 3.0)
 			else:
@@ -11622,7 +11649,7 @@ func _rasvanappi_result(r: Dictionary) -> void:
 # lisää missä vain (E, kun muuta toimintoa ei ole). Ympyrät näkyvät paperikartalla (paper_map.gd kolmio_rings), ja
 # leikkauksessa on naisen talo. Väärällä ovella avaa joku muu. Oma lahja ostetaan kaupan tiskiltä (kauppias), ilman
 # sitä ovi ei aukea. Oikealla ovella erikoissääntöinen Rasvanappi ja aamu. Saloisissa Joni ja Esa kaupan pihassa,
-# Vaalassa Tero ja Timo Siviikin vieressä aseman pihassa. Tila: kolmiomittaus.gd, Sytkäri: sytkari.gd, ovet ja aamu:
+# Vaalassa Tero ja Timo Sivikin vieressä aseman pihassa. Tila: kolmiomittaus.gd, Sytkäri: sytkari.gd, ovet ja aamu:
 # kolmio_kohtaus.gd.
 
 const Vehicles := preload("res://scripts/vehicles.gd")
@@ -11642,8 +11669,8 @@ var _kolmio_vaala_npcs: Array = []  # Tero ja Timo (vaala.gd:n lapsia)
 var _kolmio_doors := {}  # kohde -> [[ovi (x/z), indeksi (-1 = nainen, muuten väärä ovi)], ...]
 var _kolmio_vaala_spots := {}  # Vaalan lähtöpiste (aseman piha) ja etämittauksen piste (Veturitalli), paikallinen x/z
 var _kolmio_vaala_built: Node3D  # vaala.gd, johon kaverit ja ovet on lisätty
-var _kolmio_civic: Node3D  # Timon Siviikki aseman pihassa (vaala.gd:n lapsi)
-## Siviikki-ajo Timon mittauspisteeseen ja takaisin: path (vaalan paikalliset pisteet), d (ajettu matka), dir (1 meno,
+var _kolmio_civic: Node3D  # Timon Sivikki aseman pihassa (vaala.gd:n lapsi)
+## Sivikki-ajo Timon mittauspisteeseen ja takaisin: path (vaalan paikalliset pisteet), d (ajettu matka), dir (1 meno,
 ## -1 paluu), v (vauhti), vtec (kytkeytyi tällä osuudella), cam (ajokamera). Tyhjä = ei ajossa.
 var _kolmio_drive := {}
 var _kolmio_ui: CanvasLayer  # Sytkäri tai kohtaus auki
@@ -11651,8 +11678,17 @@ var _kolmio_anchor: Node3D  # Rasvanapin halli tämän yläpuolelle
 
 
 ## Paperikartalle (paper_map.gd): käynnissä olevan mittauksen ympyrät (kylässä maailman x/z, Vaalassa vaala.gd x/z).
+## Kylän kartta kysyy "saloinen": kesäheilan mittauksen aikana sen ympyrät (_kolmio_sal_site).
 func kolmio_rings(site: String) -> Array:
+	if site == "saloinen":
+		site = _kolmio_sal_site()
 	return kolmio.st(site).rings if kolmio.stage(site) == "mittaus" else []
+
+
+## Jonin ja Esan kohde: "koti" (luku 6, Kesäheila -96), kun sen mittaus on käynnissä, muuten Mintun "saloinen".
+## Molemmat ovat kylän maailman x/z:ssa, ja kaverit, etämittaus kirkolta ja mittaus missä vain ovat samat.
+func _kolmio_sal_site() -> String:
+	return "koti" if kolmio.stage("koti") == "mittaus" else "saloinen"
 
 
 func _kolmio_site_of(who: String) -> String:
@@ -11689,8 +11725,15 @@ func _kolmio_house_door(f: Dictionary) -> Vector2:
 	return (f.c as Vector2) + Vector2(q.x, q.z)
 
 
-## Ovet kohteittain: Saloisissa OSM-taloista, Vaalassa _kolmio_vaala_setup.
+## Ovet kohteittain: Saloisissa OSM-taloista, Vaalassa _kolmio_vaala_setup. Kodin (luku 6) kohde on pelaajan oma
+## etuovi (koputus _home_door_logicissa, ettei ovi vie sisään), väärät ovet ovat Saloisten väärät ovet.
 func _kolmio_door_list(site: String) -> Array:
+	if site == "koti" and not _kolmio_doors.has("koti") and world != null and home_door != Vector3.ZERO:
+		var koti: Array = [[Vector2(home_door.x, home_door.z), -1]]
+		for dd: Array in _kolmio_door_list("saloinen"):
+			if dd[1] >= 0:
+				koti.append(dd)
+		_kolmio_doors["koti"] = koti
 	if site == "saloinen" and not _kolmio_doors.has("saloinen") and world != null:
 		var list: Array = []
 		var all: Array = [KOLMIO_MINTTU]
@@ -11737,13 +11780,15 @@ func _kolmio_logic() -> void:
 		return
 	if _k18_hide([_kolmio_joni, _kolmio_esa]):
 		return
-	var going := kolmio.stage("saloinen") == "mittaus"
-	var away := going and not kolmio.remote_done("saloinen")  # Esa on kirkolla mittaamassa, kunnes tekstaa
+	_kesaheila_notice()
+	var site := _kolmio_sal_site()
+	var going := kolmio.stage(site) == "mittaus"
+	var away := going and not kolmio.remote_done(site)  # Esa on kirkolla mittaamassa, kunnes tekstaa
 	if _kolmio_esa.visible == away:
 		_kolmio_esa.visible = not away
 		_kolmio_esa.process_mode = Node.PROCESS_MODE_DISABLED if away else Node.PROCESS_MODE_INHERIT
-	if kolmio.remote_step("saloinen", get_process_delta_time()):
-		_kolmio_remote("saloinen")
+	if kolmio.remote_step(site, get_process_delta_time()):
+		_kolmio_remote(site)
 	# Mittauksen ajan kaverit kulkevat jalan pelaajan perässä (pyörän selässä jäävät odottamaan, villager.gd follow).
 	_kolmio_follow([_kolmio_joni, _kolmio_esa], walker_out if going and player == walker_out else null, going)
 	if _hint.text != "" or _kolmio_ui != null:
@@ -11767,8 +11812,9 @@ func _kolmio_logic() -> void:
 
 ## K-18-sisältö pois (asetus k18_pois): hahmot piiloon ja pysähdyksiin; palauttaa true, kun piilossa. Asetuksen
 ## vaihtuessa takaisin hahmot palaavat näkyviin (kolmiomittauksen Esan poissaolon hoitaa _kolmio_logic itse).
-const K18_SIDE := ["rasvanappi", "pentti", "kolmio_saloinen", "kolmio_vaala"]  # päiväkirjan tehtävät
-const K18_LOPUT := ["minttu", "katja", "pentin_kyyti", "pentin_kiertue"]  # onnelliset loput ja legendaariset hetket
+const K18_SIDE := ["rasvanappi", "pentti", "kolmio_saloinen", "kolmio_vaala", "iltakivat"]  # päiväkirjan tehtävät
+const K18_LOPUT := ["minttu", "katja", "pentin_kyyti", "pentin_kiertue", "kulissit", "avoin_pelikortti", "kesaheila", "rasytuppi", "lettukunkku", "loylykunkku",
+	"sivikkidisko", "karaokekunkku"]  # onnelliset loput ja legendaariset hetket
 func _k18_hide(npcs: Array) -> bool:
 	var off: bool = Settings.get_v("k18_pois")
 	for v in npcs:
@@ -11797,16 +11843,17 @@ func _kolmio_follow(npcs: Array, f: Node3D, going: bool) -> void:
 
 ## Mittaus missä vain (viimeisenä _outside_logicissa, kun muuta vihjettä ei ole).
 func _kolmio_measure_logic() -> void:
-	if _hint.text != "" or _kolmio_ui != null or player == bike or kolmio.stage("saloinen") != "mittaus":
+	var site := _kolmio_sal_site()
+	if _hint.text != "" or _kolmio_ui != null or player == bike or kolmio.stage(site) != "mittaus":
 		return
-	var p := _kolmio_me("saloinen")
+	var p := _kolmio_me(site)
 	# Seuraavat kaverit ovat aina vieressä, joten koputus ja juttelu tulevat vasta muiden E-toimintojen jälkeen:
 	# ensin ovi, sitten kaveri, jota pelaaja katsoo päin (lähellä), lopuksi Sytkärin mittaus.
-	for dd: Array in _kolmio_door_list("saloinen"):
+	for dd: Array in _kolmio_door_list(site):
 		if p.distance_to(dd[0]) < KOLMIO_DOOR_R:
 			_hint.text = "[E] Koputa oveen"
 			if Input.is_action_just_pressed("interact") and not player.is_stunned():
-				_kolmio_knock("saloinen", dd[1])
+				_kolmio_knock(site, dd[1])
 			return
 	var eteen := -player.global_transform.basis.z
 	for npc: CharacterBody3D in [_kolmio_joni, _kolmio_esa]:
@@ -11815,13 +11862,13 @@ func _kolmio_measure_logic() -> void:
 		var suunta := npc.global_position - player.global_position
 		suunta.y = 0.0
 		if suunta.length() > 0.01 and Vector2(eteen.x, eteen.z).normalized().dot(Vector2(suunta.x, suunta.z).normalized()) > 0.6:
-			_talk_hint("kolmio_saloinen", npc, true)
+			_talk_hint("kolmio_" + site, npc, true)
 			return
-	if not kolmio.can_measure("saloinen", p):
+	if not kolmio.can_measure(site, p):
 		return
-	_hint.text = "[E] Avaa Sytkäri: kuinka kaukana Minttu on?"
+	_hint.text = "[E] Avaa Sytkäri: kuinka kaukana %s on?" % Kolmio.SITES[site].woman
 	if Input.is_action_just_pressed("interact") and not player.is_stunned():
-		_kolmio_measure("saloinen", p)
+		_kolmio_measure(site, p)
 
 
 ## Vaalan kaverit, mittaus ja etämittaus (_vaala_logic). Ovet ja Teron ja Timon juttelu ovat vaala.gd doors -listassa.
@@ -11834,7 +11881,7 @@ func _kolmio_vaala_logic() -> void:
 		return
 	for v: Node3D in _kolmio_vaala_npcs:
 		v.target = player
-	# Siviikki-ajon jälkeen Tero ja Timo kulkevat jalan pelaajan perässä; juttelupiste kulkee Teron mukana.
+	# Sivikki-ajon jälkeen Tero ja Timo kulkevat jalan pelaajan perässä; juttelupiste kulkee Teron mukana.
 	var going := kolmio.stage("vaala") == "mittaus"
 	var f: Node3D = mopo_trip.on_foot if going and kolmio.remote_done("vaala") else null
 	_kolmio_follow(_kolmio_vaala_npcs, f, going)
@@ -11859,7 +11906,7 @@ func _kolmio_vaala_logic() -> void:
 		_kolmio_measure("vaala", p)
 
 
-## Vaalaan Katjan rivitalo, väärät ovet, Tero ja Timo Siviikin kanssa aseman pihaan (kerran, kun vaala on rakennettu).
+## Vaalaan Katjan rivitalo, väärät ovet, Tero ja Timo Sivikin kanssa aseman pihaan (kerran, kun vaala on rakennettu).
 func _kolmio_vaala_setup() -> void:
 	if mopo_trip == null:
 		return
@@ -11891,7 +11938,7 @@ func _kolmio_vaala_setup() -> void:
 		vl.doors.append({"id": "kolmio_katja" if i == 0 else "kolmio_v%d" % (i - 1), "pos": at, "out": hd.out, "r": 3.0,
 			"walk": true, "hint": "ovelle", "text": "Koputa oveen"})
 	_kolmio_doors["vaala"] = list
-	# Tero ja Timo seisovat aseman pihassa Siviikin vieressä; Timon mittauspiste Vaalantien varrella (_kolmio_road_spot).
+	# Tero ja Timo seisovat aseman pihassa Sivikin vieressä; Timon mittauspiste Vaalantien varrella (_kolmio_road_spot).
 	var asema: Array = vl.doors.filter(func(d: Dictionary) -> bool: return d.id == "asema")
 	var out: Vector3 = asema[0].out if not asema.is_empty() else Vector3.FORWARD
 	var side := Vector3(-out.z, 0, out.x)
@@ -11907,7 +11954,7 @@ func _kolmio_vaala_setup() -> void:
 	civic.position = Vector3(cp.x, vl.h(cp.x, cp.z), cp.z)
 	civic.rotation.y = B.yaw_to(side)
 	_kolmio_civic = civic
-	var who := [["Hevari-Tero", Looks.HEVARI_TERO, "Tero", "pekka"], ["Siviikki-Timo", Looks.SIVIIKKI_TIMO, "Timo", "arto"]]
+	var who := [["Hevari-Tero", Looks.HEVARI_TERO, "Tero", "pekka"], ["Sivikki-Timo", Looks.SIVIKKI_TIMO, "Timo", "arto"]]
 	for k in 2:
 		var v := Villager.new()
 		v.display_name = who[k][0]
@@ -11933,7 +11980,7 @@ func _kolmio_vaala_setup() -> void:
 
 
 ## Timon mittauspiste Vaalantien varrella: tien näyte, joka on kauimpana aseman pihasta mutta alle 700 m Katjan
-## talosta (ympyrät leikkaavat jyrkässä kulmassa), ja Siviikin reitti sinne (vaala.gd road: [x, y, z, ...]).
+## talosta (ympyrät leikkaavat jyrkässä kulmassa), ja Sivikin reitti sinne (vaala.gd road: [x, y, z, ...]).
 ## Paikan nimi lähimmästä tunnetusta ovesta (alle 150 m), muuten "Vaalantien varresta".
 func _kolmio_road_spot(vl: Node3D, car: Vector2, start: Vector2, tgt: Vector2) -> Dictionary:
 	var road: Array = vl.road
@@ -11966,14 +12013,14 @@ func _kolmio_road_spot(vl: Node3D, car: Vector2, start: Vector2, tgt: Vector2) -
 	return {"remote": at, "remote_name": place, "route": route, "road_i0": i0, "road_bi": bi}
 
 
-const SIVIIKKI_BOX := Vector3(1.8, 1.0, 4.0)  # Civicin törmäyslaatikko reitin tarkistuksessa (0,4–1,4 m maasta)
-const SIVIIKKI_CELL := 2.0  # reitinhaun ruutu (m)
-const SIVIIKKI_HAKU := 240.0  # reitinhaun säde aseman pihasta (m)
+const SIVIKKI_BOX := Vector3(1.8, 1.0, 4.0)  # Civicin törmäyslaatikko reitin tarkistuksessa (0,4–1,4 m maasta)
+const SIVIKKI_CELL := 2.0  # reitinhaun ruutu (m)
+const SIVIKKI_HAKU := 240.0  # reitinhaun säde aseman pihasta (m)
 
 
 ## Este Civicin kohdalla (xz-taso kohteen kehyksessä vl, keula fwd): rakennukset ja muut kiinteät esteet, ei maastoa,
-## ei Siviikkiä itseään eikä hahmoja tai mopoa (ne väistävät tai ovat kyydissä).
-func _siviikki_este(vl: Node3D, p: Vector2, fwd: Vector2, size := SIVIIKKI_BOX) -> bool:
+## ei Sivikkiä itseään eikä hahmoja tai mopoa (ne väistävät tai ovat kyydissä).
+func _sivikki_este(vl: Node3D, p: Vector2, fwd: Vector2, size := SIVIKKI_BOX) -> bool:
 	var q := PhysicsShapeQueryParameters3D.new()
 	var box := BoxShape3D.new()
 	box.size = size
@@ -11990,28 +12037,28 @@ func _siviikki_este(vl: Node3D, p: Vector2, fwd: Vector2, size := SIVIIKKI_BOX) 
 
 
 ## Suora a -> b vapaa (Civic 1,5 m välein suoran suuntaisena).
-func _siviikki_suora(vl: Node3D, a: Vector2, b: Vector2) -> bool:
+func _sivikki_suora(vl: Node3D, a: Vector2, b: Vector2) -> bool:
 	var l := a.distance_to(b)
 	var fwd := (b - a) / maxf(l, 0.001)
 	var d := 0.0
 	while d <= l:
-		if _siviikki_este(vl, a + fwd * d, fwd):
+		if _sivikki_este(vl, a + fwd * d, fwd):
 			return false
 		d += 1.5
 	return true
 
 
-## Siviikin reitti (lasketaan kerran ajon alussa, kun rakennusten törmäysmuodot ovat fysiikassa): aseman pihasta
-## Vaalantielle ja tietä pitkin mittauspisteeseen. Pihasta tielle haetaan halvin reitti SIVIIKKI_CELL-ruudukossa
+## Sivikin reitti (lasketaan kerran ajon alussa, kun rakennusten törmäysmuodot ovat fysiikassa): aseman pihasta
+## Vaalantielle ja tietä pitkin mittauspisteeseen. Pihasta tielle haetaan halvin reitti SIVIKKI_CELL-ruudukossa
 ## (Dijkstra, 8 naapuria): ajoalueella (vaala.gd drivable: tiet, sivukadut, pihat ja parkit) askel maksaa matkan verran,
-## maastossa SIVIIKKI_MAASTO-kertaisesti, ja esteet (rakennukset, autot) on kielletty. Siviikki siis ajaa teitä ja
+## maastossa SIVIKKI_MAASTO-kertaisesti, ja esteet (rakennukset, autot) on kielletty. Sivikki siis ajaa teitä ja
 ## oikaisee maaston kautta vain, kun tietä ei ole tai kierros olisi pitkä. Suoristus vain, kun suora on vapaa eikä lisää
 ## maastossa ajettua matkaa. _kolmio_vaala_spots: "route", "lawn_n" (pihaosuudet alussa, maan pinnalla, ei kaistaa).
-const SIVIIKKI_MAASTO := 5.0
+const SIVIKKI_MAASTO := 5.0
 
 
 ## Matka maastossa (ei ajoaluetta) suoralla a -> b, metrin näyttein.
-func _siviikki_maastossa(vl: Node3D, a: Vector2, b: Vector2) -> float:
+func _sivikki_maastossa(vl: Node3D, a: Vector2, b: Vector2) -> float:
 	var l := a.distance_to(b)
 	var n := maxi(1, int(ceil(l)))
 	var off := 0.0
@@ -12022,7 +12069,7 @@ func _siviikki_maastossa(vl: Node3D, a: Vector2, b: Vector2) -> float:
 	return off
 
 
-func _kolmio_siviikki_route() -> PackedVector3Array:
+func _kolmio_sivikki_route() -> PackedVector3Array:
 	var sp := _kolmio_vaala_spots
 	var route: PackedVector3Array = sp.get("route", PackedVector3Array())
 	if sp.get("route_ok", false) or route.size() < 2 or mopo_trip == null or not sp.has("road_bi"):
@@ -12031,10 +12078,10 @@ func _kolmio_siviikki_route() -> PackedVector3Array:
 	var road: Array = vl.road
 	var bi: int = sp.road_bi
 	var start := Vector2(route[0].x, route[0].z)
-	var n := int(SIVIIKKI_HAKU * 2.0 / SIVIIKKI_CELL)
-	var o := start - Vector2.ONE * SIVIIKKI_HAKU
-	var cell_p := func(k: int) -> Vector2: return o + (Vector2(k % n, int(k / n)) + Vector2(0.5, 0.5)) * SIVIIKKI_CELL
-	var k0 := int(SIVIIKKI_HAKU / SIVIIKKI_CELL) * n + int(SIVIIKKI_HAKU / SIVIIKKI_CELL)
+	var n := int(SIVIKKI_HAKU * 2.0 / SIVIKKI_CELL)
+	var o := start - Vector2.ONE * SIVIKKI_HAKU
+	var cell_p := func(k: int) -> Vector2: return o + (Vector2(k % n, int(k / n)) + Vector2(0.5, 0.5)) * SIVIKKI_CELL
+	var k0 := int(SIVIKKI_HAKU / SIVIKKI_CELL) * n + int(SIVIKKI_HAKU / SIVIKKI_CELL)
 	var cost := {k0: 0.0}
 	var prev := {k0: -1}
 	var done := {}
@@ -12085,11 +12132,11 @@ func _kolmio_siviikki_route() -> PackedVector3Array:
 					continue
 				var np: Vector2 = cell_p.call(nk)
 				if not blocked.has(nk):
-					blocked[nk] = _siviikki_este(vl, np, Vector2(dx, dz).normalized(), Vector3(2.6, 1.0, 2.6))
+					blocked[nk] = _sivikki_este(vl, np, Vector2(dx, dz).normalized(), Vector3(2.6, 1.0, 2.6))
 				if blocked[nk]:
 					continue
-				var step := SIVIIKKI_CELL * (1.4142 if dx != 0 and dz != 0 else 1.0)
-				var c: float = cost[k] + step * (1.0 if vl.drivable(np.x, np.y) else SIVIIKKI_MAASTO)
+				var step := SIVIKKI_CELL * (1.4142 if dx != 0 and dz != 0 else 1.0)
+				var c: float = cost[k] + step * (1.0 if vl.drivable(np.x, np.y) else SIVIKKI_MAASTO)
 				if c < float(cost.get(nk, INF)):
 					cost[nk] = c
 					prev[nk] = k
@@ -12105,7 +12152,7 @@ func _kolmio_siviikki_route() -> PackedVector3Array:
 						heap[j] = t2
 						j = pj
 	if goal < 0:
-		push_warning("KOLMIO: Siviikin reittiä aseman pihasta tielle ei löytynyt esteiden ohi")
+		push_warning("KOLMIO: Sivikin reittiä aseman pihasta tielle ei löytynyt esteiden ohi")
 		sp["route_ok"] = true
 		return route
 	var path: Array = []
@@ -12123,8 +12170,8 @@ func _kolmio_siviikki_route() -> PackedVector3Array:
 		for j in range(path.size() - 1, at + 1, -1):
 			var via := 0.0
 			for m in range(at, j):
-				via += _siviikki_maastossa(vl, path[m], path[m + 1])
-			if _siviikki_maastossa(vl, path[at], path[j]) <= via + 0.5 and _siviikki_suora(vl, path[at], path[j]):
+				via += _sivikki_maastossa(vl, path[m], path[m + 1])
+			if _sivikki_maastossa(vl, path[at], path[j]) <= via + 0.5 and _sivikki_suora(vl, path[at], path[j]):
 				nxt = j
 				break
 		hop.append(path[nxt])
@@ -12138,21 +12185,21 @@ func _kolmio_siviikki_route() -> PackedVector3Array:
 	var off := 0.0
 	var prevp := start
 	for q: Vector2 in hop:
-		off += _siviikki_maastossa(vl, prevp, q)
+		off += _sivikki_maastossa(vl, prevp, q)
 		prevp = q
 	sp["route"] = out
 	sp["lawn_n"] = hop.size()
 	sp["off_road"] = off
 	sp["route_ok"] = true
 	if B.diag():
-		print("KOLMIO Siviikin reitti: %d pihaosuutta, maastossa %.0f m, liittymä tien näytteeseen %d, %.0f m, ruutuja tutkittu %d" % [
+		print("KOLMIO Sivikin reitti: %d pihaosuutta, maastossa %.0f m, liittymä tien näytteeseen %d, %.0f m, ruutuja tutkittu %d" % [
 			hop.size(), off, join, _kolmio_route_len(out), done.size()])
 	return out
 
 
-## Siviikki-ajo alkaa (Teron ja Timon juttelu): kaverit ja pelaaja kyytiin, ajokamera auton taakse.
+## Sivikki-ajo alkaa (Teron ja Timon juttelu): kaverit ja pelaaja kyytiin, ajokamera auton taakse.
 func _kolmio_drive_start() -> void:
-	var route := _kolmio_siviikki_route()
+	var route := _kolmio_sivikki_route()
 	if route.size() < 2 or _kolmio_civic == null:
 		_kolmio_remote("vaala")  # varalla tekstiviesti, jos tietä ei löytynyt
 		return
@@ -12164,7 +12211,7 @@ func _kolmio_drive_start() -> void:
 	cam.current = true
 	_kolmio_drive = {"d": 0.0, "dir": 1, "v": 0.0, "vtec": false, "cam": cam, "home": _kolmio_civic.transform,
 		"len": _kolmio_route_len(route), "line": 0, "line_t": 0.0,
-		"engine": Sfx.loop_on(_kolmio_civic, "engine", -6.0)}
+		"engine": Sfx.loop_on(_kolmio_civic, "engine", -6.0), "stereo": _sivikki_stereo()}
 	for v: Node3D in _kolmio_vaala_npcs:
 		v.visible = false
 	mopo_trip.on_foot.visible = false
@@ -12172,6 +12219,45 @@ func _kolmio_drive_start() -> void:
 	mopo_trip.menu_open = true  # E ei avaa ovia ajon aikana
 	Sfx.play("door_close", -4.0)
 	_queue_message("Timo: \"Turvavyöt. Tero, pidä kiinni. Tää on kakkosvaihde ja VTEC.\"", 3.5)
+
+
+## Sivikin stereot: 90-luvun tanssibiisi (kuulokkeiden kansio, ei tunnistettavaa biisiä) satunnaisesta kohdasta väylän
+## SIVIKKI_BUS läpi: bassot ylös, diskantti pois ja vähän säröä, eli auton läpi kuuluva bassojytke.
+const SIVIKKI_BUS := "Sivikki"
+func _sivikki_stereo() -> AudioStreamPlayer3D:
+	if AudioServer.get_bus_index(SIVIKKI_BUS) < 0:
+		AudioServer.add_bus()
+		var bi := AudioServer.bus_count - 1
+		AudioServer.set_bus_name(bi, SIVIKKI_BUS)
+		AudioServer.set_bus_send(bi, "Music" if AudioServer.get_bus_index("Music") >= 0 else "Master")
+		var eq := AudioEffectEQ6.new()  # 32, 100, 320, 1000, 3200, 10000 Hz
+		for band: Array in [[0, 9.0], [1, 8.0], [2, 2.0], [3, -4.0], [4, -12.0], [5, -20.0]]:
+			eq.set_band_gain_db(band[0], band[1])
+		AudioServer.add_bus_effect(bi, eq)
+		var lp := AudioEffectLowPassFilter.new()
+		lp.cutoff_hz = 700.0
+		AudioServer.add_bus_effect(bi, lp)
+		var dist := AudioEffectDistortion.new()  # ylikuormitettu subwoofer
+		dist.mode = AudioEffectDistortion.MODE_OVERDRIVE
+		dist.drive = 0.35
+		dist.pre_gain = -6.0
+		dist.post_gain = -2.0
+		AudioServer.add_bus_effect(bi, dist)
+	var list: Array[String] = Headphones.playlist()
+	if list.is_empty() or _kolmio_civic == null:
+		return null
+	var st: AudioStream = load(list.pick_random())
+	if st == null:
+		return null
+	var p := AudioStreamPlayer3D.new()
+	p.stream = st
+	p.bus = SIVIKKI_BUS
+	p.volume_db = 2.0
+	p.unit_size = 8.0
+	p.max_db = 6.0
+	_kolmio_civic.add_child(p)
+	p.play(randf_range(15.0, maxf(16.0, st.get_length() - 60.0)))
+	return p
 
 
 static func _kolmio_route_len(route: PackedVector3Array) -> float:
@@ -12183,7 +12269,7 @@ static func _kolmio_route_len(route: PackedVector3Array) -> float:
 
 ## Piste ja suunta reitillä matkan d kohdalla (oikea kaista 1,7 m keskiviivasta, kun lähtöpihasta on päästy).
 func _kolmio_route_at(route: PackedVector3Array, d: float, dir: int) -> Array:
-	var lawn_n: int = _kolmio_vaala_spots.get("lawn_n", 1)  # nurmikko-osuudet alussa (_kolmio_siviikki_route)
+	var lawn_n: int = _kolmio_vaala_spots.get("lawn_n", 1)  # nurmikko-osuudet alussa (_kolmio_sivikki_route)
 	var left := d
 	for i in route.size() - 1:
 		var a := route[i]
@@ -12262,6 +12348,11 @@ func _kolmio_drive_end() -> void:
 	_kolmio_civic.transform = dr.home
 	if is_instance_valid(dr.engine):
 		(dr.engine as Node).queue_free()
+	var st: Node = dr.get("stereo")
+	if is_instance_valid(st):  # stereot hiljenevät ovien auetessa
+		var tw := st.create_tween()
+		tw.tween_property(st, "volume_db", -40.0, 0.6)
+		tw.tween_callback(st.queue_free)
 	(dr.cam as Node).queue_free()
 	for v: Node3D in _kolmio_vaala_npcs:
 		v.visible = true
@@ -12298,9 +12389,10 @@ func _kolmio_options(who: String, o: Array) -> void:
 	match s.stage:
 		"mittaus":
 			if Kolmio.SITES[site].get("drive", false) and not kolmio.remote_done(site):
-				o.append(_opt("kolmio_siviikki", "Hypätään Siviikkiin: Timo ajaa toiselle puolelle kylää mittaamaan", true, "", true))
+				o.append(_opt("kolmio_sivikki", "Hypätään Sivikkiin: Timo ajaa toiselle puolelle kylää mittaamaan", true, "", true))
 			o.append(_opt("kolmio_tilanne", "Missä ne ympyrät nyt menee?"))
-			o.append(_opt("kolmio_lahjat", "Onks teillä lahjat valmiina?", true, "", not s.gift))
+			if not (Kolmio.SITES[site].gifts as Array).is_empty():
+				o.append(_opt("kolmio_lahjat", "Onks teillä lahjat valmiina?", true, "", not s.gift))
 		_:
 			var why := ""
 			if s.stage == "valmis" and s.done_day == day:
@@ -12309,6 +12401,9 @@ func _kolmio_options(who: String, o: Array) -> void:
 				why = "tämän illan kolmiomittaus on jo tehty"
 			elif _kolmio_target(site) == Vector2.INF:
 				why = "Sytkäri ei löydä ketään"
+			if site == "saloinen" and _kesaheila_auki():
+				o.append(_opt("kolmio_kesaheila", "Näytä Sytkärin uusi mätsi: Kesäheila -96, Saloinen", why == "" and \
+					_kolmio_target("koti") != Vector2.INF, why, true))
 			var text := "Mitä te siinä puhelimen kanssa kytätte?" if s.stage == "" else "Mittaillaanko taas?"
 			o.append(_opt("kolmio_aloita", text, why == "", why, s.stage == ""))
 
@@ -12345,19 +12440,28 @@ func _kolmio_choose(id: String) -> void:
 			tilat.first("kolmio_" + site, 0.3)
 			_save_game()
 			_kolmio_phone(site, "match", Kolmio.dist_text(r.m))
-		"kolmio_siviikki":
+		"kolmio_kesaheila":
+			# Luku 6: sama mittaus kuin Mintulle, mutta ympyrät leikkaavat pelaajan oman kodin (jälkeä ei synny).
+			_talk_box.close()
+			var r: Dictionary = kolmio.start("koti", _kolmio_start_point("koti"), _kolmio_target("koti"), "Joni")
+			tilat.first("kesaheila_matsi", 0.0)
+			_save_game()
+			_kolmio_phone("koti", "match", Kolmio.dist_text(r.m))
+		"kolmio_sivikki":
 			_talk_box.close()
 			_kolmio_drive_start()
 		"kolmio_tilanne":
 			var n: int = (s.rings as Array).size()
 			var line := "Esa: Kartalla on %d ympyrää. Siellä missä ne kaikki risteää, siellä on Mintun talo. Avaa kartta (M)." % n \
 				if site == "saloinen" else "Timo: %d ympyrää kartalla. Tero sanoo, että valtio tietää jo vastauksen. Avaa kartta (M)." % n
+			if site == "koti":
+				line = "Esa: Kartalla on %d ympyrää. Ne vetää kumman lähelle sun kotia. Avaa kartta (M)." % n
 			if n < 3:
 				line += " Tarvitaan vielä %d mittausta eri paikoista." % (3 - n)
 			_talk_box.reply(line, _talk_options(), "Mittaa missä vain: E, kun Sytkäri-vihje näkyy (vähintään %d m edellisistä). Lähempää mitattu ympyrä on tarkempi." % int(Kolmio.MIN_GAP))
 		"kolmio_lahjat":
 			var gifts := "Esa: Mansikat on poimittu. Joni: Kermavaahto on rinkassa jesarin alla. Sää tuot ruusut, kauppa myy tiskiltä." \
-				if site == "saloinen" else "Timo: Kermavaahto on Siviikin takakontissa. Tero: Ruusut ostin, valtio veis nääki verona. Sää tuot mansikat, K-Marketin tiskiltä."
+				if site == "saloinen" else "Timo: Kermavaahto on Sivikin takakontissa. Tero: Ruusut ostin, valtio veis nääki verona. Sää tuot mansikat, K-Marketin tiskiltä."
 			_talk_box.reply(gifts, _talk_options(), "Oma lahja mukana ✔" if s.gift else "Oma lahja puuttuu: %s kaupan tiskiltä." % info.gift_me)
 
 
@@ -12401,12 +12505,16 @@ func _kolmio_hold(on: bool) -> void:
 
 
 func _kolmio_briefing(site: String) -> void:
+	if site == "koti":
+		_queue_message("Joni: \"Kesäheila -96? Mää mittasin tästä, Esa lähti kirkolle. Toi hattu on jotenki tuttu.\"", 4.5)
+		_queue_message("Esa: \"Mittaa sää jostain muualta (E missä vain), ympyrät harpilla kartalle (M). Lahjoja ei tarvita: kerma ja mansikat sillä on jo.\"", 5.5)
+		return
 	if site == "saloinen":
 		_queue_message("Joni: \"Mätsi! Mutta osoitetta ei kerrota, vain matka. Mää mittasin tästä, Esa lähti kirkolle.\"", 4.5)
 		_queue_message("Esa: \"Mittaa sää jostain muualta (E missä vain). Ympyrät harpilla kartalle (M), ja ruusut kaupan tiskiltä.\"", 5.0)
 	else:
 		_queue_message("Tero: \"Mätsi. Ja valtio tietää sen jo. Mää mittasin aseman pihasta.\"", 4.0)
-		_queue_message("Timo: \"Seuraava mittaus Siviikillä toiselta puolelta kylää. Hyppää kyytiin (puhu meille). Mittaa sää lisää (E missä vain), mansikat K-Marketin tiskiltä.\"", 6.0)
+		_queue_message("Timo: \"Seuraava mittaus Sivikillä toiselta puolelta kylää. Hyppää kyytiin (puhu meille). Mittaa sää lisää (E missä vain), mansikat K-Marketin tiskiltä.\"", 6.0)
 
 
 func _kolmio_measure(site: String, at: Vector2) -> void:
@@ -12443,8 +12551,12 @@ func _kolmio_knock(site: String, idx: int) -> void:
 	ui.finished.connect(func(r: Dictionary) -> void:
 		_kolmio_ui = null
 		_talk_end_frame = Engine.get_process_frames()
+		if r.mode == "ovi" and site == "koti":
+			_act_end()
+			_kesaheila_valinta("No? Mitä sää nyt sanot, Sytkärin sankari? Sinikka, älä naura!")
+			return
 		if r.mode == "ovi" and r.ok:
-			_kolmio_rasvanappi(site)
+			_kolmio_kiva(site, kolmio.next_kiva(site))
 			return
 		_act_end()
 		if r.mode == "ovi":
@@ -12454,6 +12566,46 @@ func _kolmio_knock(site: String, idx: int) -> void:
 		_save_game())
 	add_child(ui)
 	_kolmio_ui = ui
+
+
+## Iltakivat sivutehtävää varten (quests.gd "iltakivat"): koettu kiva kirjataan aamulla tilat.first("kiva_<nimi>").
+const KOLMIO_KIVAT := ["rasvanappi", "tuppi", "lettu", "loyly", "disko", "karaoke"]
+const KOLMIO_KIVA_NIMET := {"rasvanappi": "Rasvanappi", "tuppi": "räsytuppi", "lettu": "lettukisa", "loyly": "löylykisa",
+	"disko": "Sivikki-disko (Vaala)", "karaoke": "karaoke"}
+
+
+## Iltakiva naisen luona: kohteen ensimmäinen ilta on Rasvanappi, seuraavat kiertävät (kolmiomittaus.gd KIVAT):
+## räsytuppi, lettukisa, löylykisa, Sivikki-disko (Vaala) ja karaoke. Kaikki K-18 ja vähän rivoja.
+func _kolmio_kiva(site: String, kiva: String) -> void:
+	match kiva:
+		"tuppi":
+			_kolmio_tuppi(site)
+		"lettu":
+			_kolmio_ilta(site, LettuGame.new(), Kolmio.LETTU_LINES, "lettukunkku")
+		"loyly":
+			_kolmio_ilta(site, LoylyGame.new(), Kolmio.LOYLY_LINES, "loylykunkku")
+		"disko":
+			_kolmio_ilta(site, DiskoGame.new(), Kolmio.DISKO_LINES, "sivikkidisko")
+		"karaoke":
+			var k := IltaKaraoke.new()
+			k.drunk = _hand_shake()
+			_kolmio_ilta(site, k, Kolmio.KARAOKE_LINES, "karaokekunkku")
+		_:
+			_kolmio_rasvanappi(site)
+
+
+## Ankkuri naisen talon kohdalle (iltakivojen hallit rakennetaan sen yläpuolelle).
+func _kolmio_new_anchor(site: String) -> Node3D:
+	var t := _kolmio_target(site)
+	_kolmio_anchor = Node3D.new()
+	if site == "vaala":
+		var vl: Node3D = mopo_trip.vaala
+		vl.add_child(_kolmio_anchor)
+		_kolmio_anchor.position = Vector3(t.x, vl.h(t.x, t.y), t.y)
+	else:
+		add_child(_kolmio_anchor)
+		_kolmio_anchor.global_position = Vector3(t.x, Terrain.h(t.x, t.y), t.y)
+	return _kolmio_anchor
 
 
 ## Erikoissääntöinen Rasvanappi naisen pimennetyssä olohuoneessa (halli talon yläpuolella, ei ovea eikä portsaria).
@@ -12481,6 +12633,61 @@ func _kolmio_rasvanappi(site: String) -> void:
 	_rasva_game = g
 
 
+## Räsytuppi naisen olohuoneessa (toisesta kolmiomittauksesta alkaen samassa kohteessa): pelaaja ja nainen vastaan
+## kaverit; ilta päättyy, kun pari on pantu tuppeen, ja aamu tulee kuten Rasvanapin jälkeen. Ensimmäinen voitto on
+## legendaarinen hetki "rasytuppi".
+const TUPPI_KAVERIT := {"saloinen": [["joni", "Joni"], ["esa", "Esa"]], "vaala": [["tero", "Tero"], ["timo", "Timo"]]}
+const TUPPI_NAINEN := {"saloinen": "minttu", "vaala": "katja"}
+func _kolmio_tuppi(site: String) -> void:
+	var info: Dictionary = Kolmio.SITES[site]
+	_kolmio_new_anchor(site)
+	var k: Array = TUPPI_KAVERIT[site]
+	var g := TuppiGame.new()
+	g.site = site
+	g.anchor = _kolmio_anchor
+	g.sun = _sun
+	g.style = (Kolmio.RASVA_RULES[site] as Dictionary).get("style", {})
+	g.lines = Kolmio.TUPPI_LINES[site]
+	g.seats = [{"id": "pelaaja", "name": "Sinä", "look": Looks.player()},
+		{"id": k[0][0], "name": k[0][1], "look": RasvanappiGame.real_look(k[0][0])},
+		{"id": TUPPI_NAINEN[site], "name": info.woman, "look": RasvanappiGame.real_look(TUPPI_NAINEN[site])},
+		{"id": k[1][0], "name": k[1][1], "look": RasvanappiGame.real_look(k[1][0])}]
+	g.finished.connect(func(r: Dictionary) -> void:
+		if r.get("voitto", false):
+			_ending("rasytuppi")
+		r["kiva"] = "tuppi"
+		_kolmio_morning(site, r))
+	add_child(g)
+	_rasva_game = g
+
+
+## Kaverit ja nainen iltakivoihin: [pelaaja, kaveri, kaveri, nainen] ({"id", "name", "look"}).
+func _kolmio_people(site: String) -> Array:
+	var info: Dictionary = Kolmio.SITES[site]
+	var k: Array = TUPPI_KAVERIT[site]
+	return [{"id": "pelaaja", "name": "Sinä", "look": Looks.player()},
+		{"id": k[0][0], "name": k[0][1], "look": RasvanappiGame.real_look(k[0][0])},
+		{"id": k[1][0], "name": k[1][1], "look": RasvanappiGame.real_look(k[1][0])},
+		{"id": TUPPI_NAINEN[site], "name": info.woman, "look": RasvanappiGame.real_look(TUPPI_NAINEN[site])}]
+
+
+## Lettukisa, löylykisa, Sivikki-disko ja karaoke (lettu_game.gd ...): samat kentät ja finished-tulos; pelaajan voitto
+## on legendaarinen hetki (ending).
+func _kolmio_ilta(site: String, g: CanvasLayer, all_lines: Dictionary, ending: String) -> void:
+	g.site = site
+	g.anchor = _kolmio_new_anchor(site)
+	g.sun = _sun
+	g.style = (Kolmio.RASVA_RULES[site] as Dictionary).get("style", {})
+	g.lines = all_lines.get(site, all_lines.values()[0])  # disko on vain Vaalassa: muualla Vaalan repliikit
+	g.people = _kolmio_people(site)
+	g.finished.connect(func(r: Dictionary) -> void:
+		if r.get("voitto", false):
+			_ending(ending)
+		_kolmio_morning(site, r))
+	add_child(g)
+	_rasva_game = g
+
+
 ## Aamu naisen keittiössä, onnellinen loppu ja uusi päivä. Päivi soitti yöllä: maito on ostettava ennen kotiin menoa.
 func _kolmio_morning(site: String, r: Dictionary) -> void:
 	_rasva_game = null
@@ -12489,10 +12696,18 @@ func _kolmio_morning(site: String, r: Dictionary) -> void:
 	var info: Dictionary = Kolmio.SITES[site]
 	kolmio.finish(site, day)
 	tilat.first("rasvanappi", 0.5)
+	if not r.get("luovutti", false):
+		tilat.first("kiva_" + String(r.get("kiva", "rasvanappi")), 0.2)  # sivutehtävä "Kolmiomittauksen iltakivat"
 	tilat.add("moraali", Kolmio.END_MORAALI)
 	tilat.add("stressi", Kolmio.END_STRESSI)
 	tilat.add("vireys", Kolmio.END_VIREYS)
-	var stats := "Kolme ympyrää ✔  ·  Kolme lahjaa ✔  ·  Mansikoita %d  ·  %s" % [int(r.get("mansikat", 0)), _ending_line(info.ending)]
+	var ilta := "Mansikoita %d" % int(r.get("mansikat", 0))
+	if r.has("rasy"):  # räsytuppi: kumpi pari pantiin tuppeen
+		ilta = "Räsytuppi: kaverit tupessa ✔" if r.get("voitto", false) else "Räsytuppi: te tupessa, kalsareissa"
+	elif r.has("kiva"):
+		var nimi: String = {"tuppi": "Räsytuppi", "lettu": "Lettukisa", "loyly": "Löylykisa", "disko": "Sivikki-disko", "karaoke": "Karaoke"}.get(r.kiva, "Ilta")
+		ilta = "%s: %s" % [nimi, "voitit ✔" if r.get("voitto", false) else ("luovutit" if r.get("luovutti", false) else "hävisit")]
+	var stats := "Kolme ympyrää ✔  ·  Kolme lahjaa ✔  ·  %s  ·  %s" % [ilta, _ending_line(info.ending)]
 	kolmio.maito_day = day + 1
 	_save_game()
 	var ui := KolmioKohtaus.new()
@@ -12501,6 +12716,7 @@ func _kolmio_morning(site: String, r: Dictionary) -> void:
 	ui.woman = info.woman
 	ui.friends = info.friends
 	ui.stats = stats
+	ui.kiva = String(r.get("kiva", "rasvanappi"))
 	ui.finished.connect(func(_r: Dictionary) -> void:
 		_kolmio_ui = null
 		var intro := "Aamu %s keittiössä. Päivi tekstasi yöllä: \"MAITOA.\" Osta maitoa kaupasta ennen kuin menet kotiin.\n" % info.gen
@@ -12528,6 +12744,237 @@ func _kolmio_maito_home() -> void:
 		tilat.add("moraali", Kolmio.MAITO_MORAALI)
 		_queue_message("Päivi: \"MISSÄ SE MAITO ON?! Koko yö kolmiomittaamassa, eikä ees maitoa!\"", 4.5)
 	_save_game()
+
+
+# --- Kesäheila -96 (luku 6 "Päivi epäilee", #326) ----------------------------------------------------------------
+# Kun Päivin huipennus on auki (rikos/paivi.gd huipennus_auki: epäluulo joskus yli 60 tai vastahyökkäys, K-18 sallittu),
+# Sytkäri piippaa uudesta mätsistä, ja Joni ja Esa mittaavat sen kuten Mintun (kohde "koti", _kolmio_sal_site): ympyrät
+# leikkaavat pelaajan oman kodin. Mittauksen ajan Päivin auto on kotipihassa (_wife_rhythm). Etuovella koputetaan
+# (_kesaheila_ovi, ei sisälle), ovikohtaus on kolmio_kohtaus.gd:ssä ja sen jälkeen Päivin valinta:
+#   nauraa    epäluulo 0, onnellinen loppu "kulissit" ja aamu omassa keittiössä (kerma ja mansikat)
+#   suuttua   Päivi äidillään KESA_POISSA päivää: ei lappua, listaa, rahaa eikä autoa, jääkaappi tyhjä. Paluu, kun pelaaja
+#             soittaa kukat ovella (has_flowers) tai viikon kuluttua; sitten valinta etuovella uudestaan
+#   tunnustaa onnellinen loppu "avoin_pelikortti": pelaajan synnit oikeista teoista (KESA_SYNNIT) ja Päivin synnit
+# Legendaarinen hetki "kesaheila" kummassakin onnellisessa lopussa. Ensikerrat kesaheila_matsi ja kesaheila_valinta.
+
+const KESA_POISSA := 7  # "Suuttua": Päivi äidillään 7 pelipäivää (aamua)
+## Pelaajan synnit oikeista teoista: [ensikerta tai "loppu:<id>" tai "jalki:<id>", tunnustus].
+const KESA_SYNNIT := [
+	["kolmio_saloinen", "kolmiomittasin Mintun oven Saloisissa"],
+	["kolmio_vaala", "kolmiomittasin Katjan rivitalon Vaalassa"],
+	["rasvanappi", "pelasin Rasvanappia makasiinissa"],
+	["pentti_kyyti", "istuin Pentin BangBusissa"],
+	["korkki", "keräsin korkkikansion"],
+	["drakkar", "ostin Drakkar Noirin Railin kirppispöydältä"],
+	["rakaleima_kopio", "leimasin perunalla rakaleiman kopion"],
+	["loppu:mirkku", "nukuin Mirkun teltassa, en ollu kalassa"],
+	["jalki:huume", "myin kylällä jotain, mitä ei ois pitäny"],
+	["siitari", "istuin Siitarissa, vaikka sanoin olevani Pekan kanssa"],
+]
+## Päivin synnit (issue #326: jumppaillat olivat Zabukin tansseja Sinikan kanssa). Sävy hauska, ei julma.
+const KESA_PAIVIN := ["\"jumppaillat\" oli Zabukin tansseja Sinikan kanssa", "tein Sytkäriin profiilin vanhasta lavakuvasta",
+	"söin sun piilosuklaat eteisen kaapista", "Sinikka tietää kaiken, ja se kerto Hilkalle"]
+var _kesa_valinta := false  # Päivin valintaikkuna auki (_talk_options näyttää vain valinnat)
+
+
+## Päivin "jumppa"-parkkipaikka seuraintalon pihassa: pääoven edustalta 4 m poispäin talosta ja 6 m sivuun (ei oven eteen).
+func _jumppa_parkki() -> Vector3:
+	var talo: Vector3 = M.w(M.SEURAINTALO)
+	var ovi: Vector3 = world.kirppis_door
+	if ovi == Vector3.ZERO:
+		return talo
+	var ulos := Vector3(ovi.x - talo.x, 0, ovi.z - talo.z).normalized()
+	var p := ovi + ulos * 4.0 + ulos.cross(Vector3.UP) * 6.0
+	return Vector3(p.x, Terrain.h(p.x, p.z), p.z)
+
+
+## Huipennus auki eikä kesäheilaa ole vielä mitattu (Jonin ja Esan valinta, Sytkärin ilmoitus).
+func _kesaheila_auki() -> bool:
+	if kolmio.stage("koti") != "":
+		return false
+	var p := rikos_osa("paivi")
+	return p != null and p.huipennus_auki()
+
+
+func _kesaheila_poissa() -> bool:
+	var p := rikos_osa("paivi")
+	return p != null and p.poissa()
+
+
+func _kesaheila_poissa_pv() -> int:
+	var p := rikos_osa("paivi")
+	return maxi(0, int(p.poissa_asti) - day) if p != null else 0
+
+
+## Päivin auton pakotettu vaihe (_wife_rhythm): "poissa" äidillä, "koti" kesäheilan mittauksen ja paluun ajan, muuten "".
+func _kesaheila_wife() -> String:
+	var mittaus := kolmio.stage("koti") == "mittaus"
+	var p := rikos_osa("paivi")
+	if p == null:
+		return "koti" if mittaus else ""
+	if p.poissa():
+		return "poissa"
+	return "koti" if mittaus or p.liput.get("kesaheila_paluu", false) else ""
+
+
+## Sytkärin ilmoitus kerran, kun huipennus aukeaa (ulkona, ei muuta puhelinta auki).
+func _kesaheila_notice() -> void:
+	if _kolmio_ui != null or state != "ulkona" or not _kesaheila_auki():
+		return
+	var p := rikos_osa("paivi")
+	if p.liput.get("kesaheila_viesti", false):
+		return
+	p.liput["kesaheila_viesti"] = true
+	Sfx.play("bell", -8.0, 2.4)
+	_queue_message("Sytkäri piippaa: uusi mätsi! \"Kesäheila -96, Saloinen.\" Joni ja Esa osaa mitata (kaupan parkkipaikalla).", 5.0)
+	_save_game()
+
+
+## Kodin etuovi luvussa 6: koputus kesäheilan mittauksessa, kukat ovella Päivin ollessa poissa tai Päivin paluu.
+## Palauttaa true, kun ovi on varattu tähän (sisälle pääsee takaovesta).
+func _kesaheila_ovi() -> bool:
+	if _kolmio_ui != null or Settings.get_v("k18_pois"):
+		return false
+	var press: bool = Input.is_action_just_pressed("interact") and not player.is_stunned() \
+		and Engine.get_process_frames() != _home_exit_frame and Engine.get_process_frames() != _talk_end_frame
+	if kolmio.stage("koti") == "mittaus":
+		_hint.text = "[E] Koputa omaan etuoveen (Kesäheila -96?)"
+		if press:
+			_kolmio_knock("koti", -1)
+		return true
+	var p := rikos_osa("paivi")
+	if p == null:
+		return false
+	if p.poissa() and has_flowers:
+		_hint.text = "[E] Soita Päiville äidille: kukat odottaa ovella"
+		if press:
+			has_flowers = false
+			_flowers_day = day
+			p.poissa_asti = day
+			p.liput["kesaheila_paluu"] = true
+			_save_game()
+			_wife_rhythm(clock_min)
+			_show_message("Hyundai kurvaa pihaan puolen tunnin päästä. Päivi katsoo kukkia ja sitten sinua.", 4.0)
+			_kesaheila_valinta("Kukkia. No. Puhutaanko nyt?")
+		return true
+	if p.liput.get("kesaheila_paluu", false):
+		_hint.text = "[E] Koputa: Päivi on tullut kotiin"
+		if press:
+			_kesaheila_valinta("Mää tulin takasin. Kesäheila -96 on vieläki sun Sytkärissä. No, mitä sää nyt sanot?")
+		return true
+	return false
+
+
+## Paluuaamu viikon jälkeen (_new_day): Päivi palasi yöllä, valinta odottaa etuovella.
+func _kesaheila_paluu_aamu() -> String:
+	var p := rikos_osa("paivi")
+	if p == null or int(p.poissa_asti) != day:
+		return ""
+	p.liput["kesaheila_paluu"] = true
+	return "\nMää tulin takasin äidiltä. Jääkaappi on taas täynnä. Koputa etuoveen, kun oot valmis puhumaan."
+
+
+func _kesaheila_valinta(hello: String) -> void:
+	_kesa_valinta = true
+	_kesaheila_hiljaa(true)  # Joni ja Esa eivät juttele Päivin valinnan päälle
+	var puhe := rikos_osa("paivi_puhe")
+	if puhe != null:
+		puhe.nayta(hello)  # Päivi näkyy pelaajan vieressä (rikos/paivi_puhe.gd)
+	else:
+		_talk_open("paivi", null, hello)
+
+
+func _kesaheila_options() -> Array:
+	return [_opt("paivi_kesa_nauraa", "Nauraa yhdessä: \"Sää oot vieläki se kesäheila.\"", true, "", true),
+		_opt("paivi_kesa_tunnustaa", "Tunnustaa kaikki: \"Pannaan kortit pöytään.\""),
+		_opt("paivi_kesa_suuttua", "Suuttua: \"Sää jäljitit mua Sytkärillä?!\"")]
+
+
+## Pelaajan synnit oikeista teoista (KESA_SYNNIT); aina ainakin Sytkärin pyyhkäisy.
+func _kesaheila_synnit() -> Array:
+	var p := rikos_osa("paivi")
+	var out: Array = []
+	for sy: Array in KESA_SYNNIT:
+		var k: String = sy[0]
+		var ok := false
+		if k.begins_with("loppu:"):
+			ok = endings.counts.has(k.substr(6))
+		elif k.begins_with("jalki:"):
+			ok = p != null and (p.kasitelty.has(k.substr(6)) or p.odottaa.any(func(o: Dictionary) -> bool: return o.id == k.substr(6)))
+		else:
+			ok = k in tilat.firsts
+		if ok:
+			out.append(sy[1])
+	out.append("pyyhkäsin Sytkärissä oikealle Kesäheilaa -96")
+	return out
+
+
+## Jonin ja Esan puhekuplat pois kesäheilan valinnan ajaksi (villager.gd quiet, say("") tyhjentää kuplan).
+func _kesaheila_hiljaa(on: bool) -> void:
+	for v in [_kolmio_joni, _kolmio_esa]:
+		if is_instance_valid(v):
+			v.quiet = on
+			if on:
+				v.say("")
+
+
+func _kesaheila_choose(id: String) -> void:
+	_kesa_valinta = false
+	_kesaheila_hiljaa(false)
+	var p := rikos_osa("paivi")
+	if id == "paivi_kesa_jatka":
+		_talk_box.close()
+		_kesaheila_aamu()
+		return
+	if kolmio.stage("koti") == "mittaus":
+		kolmio.finish("koti", day)
+	p.liput.erase("kesaheila_paluu")
+	var e0: float = p.epaluulo
+	match id:
+		"paivi_kesa_nauraa":
+			p.nollaa()
+			tilat.first("kesaheila_valinta", 0.0)
+			_save_game()
+			_talk_box.reply("HAHAHAA! Sää kolmiomittasit oman vaimos! ...No. Tuu sisään, Joni ja Esa kans. Kerma ja mansikat ei odota.",
+				[_opt("paivi_kesa_jatka", "Jatka: aamu keittiössä", true, "", true)], "Päivin epäluulo %d -> 0  ·  Kulissit kunnossa" % roundi(e0))
+		"paivi_kesa_tunnustaa":
+			p.nollaa()
+			tilat.first("kesaheila_valinta", 0.0)
+			tilat.add("moraali", Kolmio.END_MORAALI)
+			tilat.add("stressi", Kolmio.END_STRESSI)
+			var mun := _kesaheila_synnit()
+			var line := "Sun lista: %s. Ja mun lista: %s. ...Mitä sää tuijotat? Ja Sinikka, sää tiesit kaikki!" % [
+				", ".join(mun), ", ".join(KESA_PAIVIN)]
+			var stats := _ending_line("avoin_pelikortti")
+			_ending("kesaheila")
+			_talk_box.reply(line, [_opt("lopeta", "Lopeta")], "%s  ·  Päivin epäluulo %d -> 0" % [stats, roundi(e0)])
+		"paivi_kesa_suuttua":
+			p.poissa_asti = day + 1 + KESA_POISSA
+			_save_game()
+			_wife_rhythm(clock_min)
+			_talk_box.reply("Sää jäljitit mua Sytkärillä, ja sää SUUTUT? Mää lähen äidille. Viikoksi. Jääkaappi on tyhjä, ja sää tiedät miksi.",
+				[_opt("lopeta", "Lopeta")], "Päivi on äidillään %d päivää. Kukat ovella saa hänet kotiin aiemmin." % KESA_POISSA)
+
+
+## "Nauraa yhdessä": aamu omassa keittiössä (kolmio_kohtaus.gd aamu, koti), onnellinen loppu ja uusi päivä kotoa.
+func _kesaheila_aamu() -> void:
+	_act_begin()
+	tilat.add("moraali", Kolmio.END_MORAALI)
+	tilat.add("stressi", Kolmio.END_STRESSI)
+	tilat.add("vireys", Kolmio.END_VIREYS)
+	var stats := "Kolme ympyrää ✔  ·  Kerma ja mansikat ✔  ·  Epäluulo 0  ·  %s" % _ending_line("kulissit")
+	_ending("kesaheila")
+	var ui := KolmioKohtaus.new()
+	ui.mode = "aamu"
+	ui.site = "koti"
+	ui.woman = "Päivi"
+	ui.friends = Kolmio.SITES.koti.friends
+	ui.stats = stats
+	ui.finished.connect(func(_r: Dictionary) -> void:
+		_kolmio_ui = null
+		_new_day(home_zone + Vector3(0, 0, 4), false, "Aamu omassa keittiössä. Kesäheila -96 keitti kahvit, ja Esa paistoi letut.\n"))
+	add_child(ui)
+	_kolmio_ui = ui
 
 
 # --- Aseman odotussali: juopot, narkkarit ja rahakätkö --------------------------------------------------------
@@ -13555,6 +14002,7 @@ func _talk_watch() -> void:
 
 func _talk_end() -> void:
 	_talk_end_frame = Engine.get_process_frames()
+	_kesa_valinta = false  # suljettu ilman valintaa: koputus tai paluu uudestaan ovella
 	if _talk_who == "apteekki_taka":
 		_taka_hatch(false)
 		Sfx.play("door_close", -4.0)
@@ -13608,6 +14056,8 @@ func _goods_value(buyer: String) -> float:
 func _talk_options(who := "") -> Array:
 	if who == "":
 		who = _talk_who
+	if who == "paivi" and _kesa_valinta:
+		return _kesaheila_options()  # luku 6: vain kolme valintaa, ei Lopeta-riviä
 	var o: Array = []
 	var chat := true
 	match who:
@@ -14073,6 +14523,9 @@ func _talk_choose(id: String) -> void:
 	if id.begins_with("kolmio_"):
 		_kolmio_choose(id)
 		return
+	if id.begins_with("paivi_kesa_"):
+		_kesaheila_choose(id)
+		return
 	if _talk_who == "kaukalo_teinit" and id == "korkkilapsy":
 		_talk_box.close()
 		_start_korkkilapsy_kaukalo()
@@ -14418,6 +14871,7 @@ func _talk_neighbor(id: String) -> void:
 			food["pulla"] = food.get("pulla", 0) + 2
 			tilat.add("moraali", 0.15)
 			tilat.first("sinikka_taimet", 0.3)
+			_rikos_event("paivi_hyvitys", {"why": "taimet"})
 			Sfx.play("pickup", -4.0)
 			_save_game()
 			_talk_box.reply("Tomaatintaimet! Ja vielä niitä hyviä, säästöpihan omia. Ota pullaa, kaks kappaletta. Ja Päiville ei "
@@ -17941,6 +18395,7 @@ func _vcr_act() -> void:
 
 ## Kymppiuutiset nauhalta: kalja eteisen kaapista, sohvalle ja play. Päivä päättyy kuten sänkyyn mentäessä (_win).
 func _win_news() -> void:
+	_rikos_event("paivi_hyvitys", {"why": "uutiset"})
 	stash["koti"] = stash.get("koti", 0) - 1
 	home_int.leave()
 	state = _home_prev
@@ -19350,6 +19805,7 @@ var paivi_credit: Array = []  # ansaitut hyvitykset (homman id), vanhin ensin
 
 
 func _paivi_credit_add(why: String) -> void:
+	_rikos_event("paivi_hyvitys", {"why": why})  # Päivin epäluulo (#326) ennen kattoa
 	if paivi_credit.size() >= PAIVI_CREDIT_MAX:
 		return
 	paivi_credit.append(why)
@@ -19712,7 +20168,10 @@ func _teini_tulos(won: bool) -> String:
 # Jokainen riski on oma osansa (velka, valeostaja, epäluulo, yliannos, huijari, autovarkaus). Tämä on niiden yhteinen
 # pistorasia: osat ladataan nimen mukaan, jos tiedosto on olemassa, ja niiltä kysytään puheessa, logiikassa, uutena
 # päivänä, tallennuksessa ja päiväkirjassa. Osat eivät koske main.gd:hen; tapahtumat kulkevat _rikos_eventin kautta.
-const RIKOS_OSAT := ["velka", "valeostaja", "epaluulo", "yliannos", "huijari", "autovarkaus", "pentti"]  # pentti: sivujuoni (#299) samalla rajapinnalla
+## pentti: sivujuoni (#299) samalla rajapinnalla. paivi*: luku 6 "Päivi epäilee" (#326) ennen Penttiä, jotta Pentin
+## Päivi-vihje (paivi_tutkii.hello) voittaa Pentin oman tervehdyksen.
+const RIKOS_OSAT := ["velka", "valeostaja", "epaluulo", "yliannos", "huijari", "autovarkaus",
+	"paivi", "paivi_puhe", "paivi_hyvitys", "paivi_tutkii", "pentti"]
 const RIKOS_PIDATYS_MAINE := 10.0
 var rikos: Array = []  # osien instanssit (osa.gd)
 var _rikos_fight: Object = null  # osa, joka aloitti diilitappelun (_start_teini_fight): fight_end antaa loppuviestin
@@ -21018,11 +21477,12 @@ func _save_game() -> void:
 ## viemäriin (enintään yksi löytö aamussa). Ulkojemmoista teinit voivat pölliä. Tarkistetaan joka aamu.
 func _jemma_check(allow_found := true) -> String:
 	var note := ""
+	var pt := rikos_osa("paivi_tutkii")  # luku 6: tutkiva Päivi etsii tarkemmin, löytö nostaa epäluuloa
 	if allow_found:
 		var ids := _risky_stashes()
 		ids.shuffle()
 		for id in ids:
-			if randf() < _find_chance(id):
+			if randf() < _find_chance(id) * (pt.etsinta() if pt != null else 1.0):
 				var lost: int = stash[id] / 2
 				_jemma_choco = _offer_chocolate()
 				if _jemma_choco == "ok":
@@ -21032,7 +21492,11 @@ func _jemma_check(allow_found := true) -> String:
 				note += "\nLöysin sun kaljat %s ja kaadoin %d viemäriin!" % [STASHES[id].from, lost]
 				tilat.add("stressi", -0.3)
 				tilat.add("moraali", -0.2)
+				if pt != null:
+					pt.loysi_jemman()
 				break
+		if pt != null:
+			note += pt.kansio_check()
 	for id in STASHES:
 		var st: Dictionary = STASHES[id]
 		var n: int = stash.get(id, 0)
@@ -21172,12 +21636,13 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	smoker_fuel = 0.0
 	smoker_temp = 18.0
 	var bonus := ""
+	var pois := _kesaheila_poissa() and not at_m  # luku 6 "Suuttua": Päivi äidillään, ei lappua, listaa eikä rahaa
 	if _no_allowance:
 		_no_allowance = false
 		bonus = "\nRaahen reissun jälkeen et saa multa rahaa kauppaan."
 	elif _bday_forgotten(at_m):
 		pass  # _flowers_morning kertoo, miksi kauppa-rahoja ei tule
-	elif money < START_MONEY:
+	elif money < START_MONEY and not pois:
 		if lost:
 			_morning_info.append("Takin taskusta löytyi vähän rahaa.")
 		else:
@@ -21269,6 +21734,11 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	var rauha := _kaljarauha
 	_kaljarauha = false
 	_roll_list()
+	if pois:
+		shopping_list.clear()
+		_list_done = true
+	elif not at_m:
+		bonus += _kesaheila_paluu_aamu()
 	# Nurmikko kasvaa yön aikana; siilit ja kivet uusiin paikkoihin, leikkuri takaisin paikalleen.
 	_stop_mowing()
 	if _lawn_praise:
@@ -21321,7 +21791,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	_save_game()
 	_jemma_found = 0
 	_jemma_choco = ""
-	var jnote := "" if at_m else _jemma_check(not rauha)
+	var jnote := "" if at_m or pois else _jemma_check(not rauha)
 	if rauha and not at_m:
 		jnote += "\nKauppareissu meni hienosti, joten en ees ettiny sun jemmoja."
 	if _jemma_found > 0:
@@ -21368,7 +21838,10 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 		head = "mokilta"
 	elif spawn.distance_to(home_zone) > 50.0:
 		head = "laavulta"
-	_day_note(MORNING_HEAD[head].pick_random(), "%s%s%s" % [bonus, bike_note, jnote])
+	if pois:
+		_morning_info.push_front("Kotona on hiljaista. Päivi on äidillään vielä %d päivää: ei lappua, eikä jääkaapissa mitään." % _kesaheila_poissa_pv())
+	else:
+		_day_note(MORNING_HEAD[head].pick_random(), "%s%s%s" % [bonus, bike_note, jnote])
 	_flush_morning_info(intro)
 
 
@@ -22549,15 +23022,31 @@ func _wife_dest() -> Vector3:
 
 ## Päivi: koko päivän teillä (partio), kotona vain nukkumassa WIFE_HOME (auto pihassa, ei jahtaa). Vaihtuu vain,
 ## kun Päivi ei ole jahtaamassa. Anna-Liisan hälytys vie hänet heti kaupalle (_on_busted, _wife_bust_arrive).
+## Luku 6 (#326): kun Päivi tutkii, hän ajaa iltaisin "jumppaan" seuraintalolle (rikos/paivi_tutkii.gd jumppa_aika).
 func _wife_rhythm(t: float) -> void:
 	if wife == null or not is_instance_valid(wife):
 		return
 	var want := "koti" if _between(t, WIFE_HOME) else "partio"
-	if want == _wife_phase or wife.mode == "chase":
+	var pt := rikos_osa("paivi_tutkii")
+	if want == "partio" and pt != null and pt.jumppa_aika(t):
+		want = "jumppa"
+	var pakko := _kesaheila_wife()  # luku 6: auto kotona mittauksen ajan tai poissa, kun Päivi on äidillään
+	if pakko != "":
+		want = pakko
+	if want == _wife_phase or (wife.mode == "chase" and pakko == ""):
 		return
 	var prev := _wife_phase
 	_wife_phase = want
+	if prev == "jumppa" and want == "partio":
+		wife.end_jumppa()
 	match want:
+		"jumppa":
+			wife.parked = false
+			wife.visible = true
+			wife.process_mode = Node.PROCESS_MODE_INHERIT
+			wife.go_jumppa(_jumppa_parkki())
+			if state == "ulkona" and not _at_mokki() and not _in_vaala:
+				_queue_message("Päivi lähti \"jumppaan\" seuraintalolle. Hyundai ei nyt jahtaa, joten perään voi ajaa, kunhan pysyy kaukana.", 4.5)
 		"koti":
 			wife.reset_to(world.nearest_node(home_zone))
 			wife.global_position = _wife_park_pos()
@@ -22565,6 +23054,12 @@ func _wife_rhythm(t: float) -> void:
 			wife.parked = true
 			wife.visible = true
 			wife.process_mode = Node.PROCESS_MODE_INHERIT
+		"poissa":
+			wife.reset_to(world.nearest_node(home_zone))
+			wife.global_position = _wife_park_pos()
+			wife.parked = true
+			wife.visible = false
+			wife.process_mode = Node.PROCESS_MODE_DISABLED
 		"partio":
 			wife.parked = false
 			if prev == "":
@@ -22869,6 +23364,37 @@ func _maybe_screenshot() -> void:
 			await pk.run()
 			if not saved_pk.is_empty():
 				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_pk)
+			else:
+				DirAccess.remove_absolute(SAVE_PATH)
+			get_tree().quit()
+			return
+		"kolmio_iltakivat":
+			# Lettukisa, löylykisa, disko ja karaoke pelimaailmassa ovelta aamuun (tools/testit/kolmio_iltakivat.gd).
+			var saved_ik := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var ik: Node = load("res://tools/testit/kolmio_iltakivat.gd").new()
+			ik.main = self
+			add_child(ik)
+			await ik.run()
+			if not saved_ik.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_ik)
+		"kolmio_tuppi":
+			# Räsytuppi kolmiomittauksen toisena iltana Saloisissa: tekoäly pelaa, ilta loppuun, aamu ja loppu.
+			var saved_tp := FileAccess.get_file_as_bytes(SAVE_PATH)
+			var tp: Node = load("res://tools/testit/kolmio_tuppi.gd").new()
+			tp.main = self
+			add_child(tp)
+			await tp.run()
+			if not saved_tp.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_tp)
+		"kolmiomittaus_koti":
+			# Luku 6 (#326): kesäheila -96, mittaus kotiin, ovi ja kolme valintaa (tools/testit/kolmiomittaus_koti.gd).
+			var saved_kk := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
+			var kk: Node = load("res://tools/testit/kolmiomittaus_koti.gd").new()
+			kk.main = self
+			add_child(kk)
+			await kk.run()
+			if not saved_kk.is_empty():
+				FileAccess.open(SAVE_PATH, FileAccess.WRITE).store_buffer(saved_kk)
 			else:
 				DirAccess.remove_absolute(SAVE_PATH)
 			get_tree().quit()
@@ -36904,6 +37430,56 @@ func _maybe_screenshot() -> void:
 				for i in 120:
 					await get_tree().physics_frame
 				walker_out.global_position = wp
+		"tallennuspaikat":
+			# Viisi omaa tallennuspaikkaa (menu.gd _slots): tallennus paikkaan 2, kuvaus, valikot ja lataus (kopio
+			# automaattitallennukseksi; uudelleenlatausta ei tehdä testissä). Testin HOME on eristetty (aja.sh).
+			for i in range(1, menu.SLOTS_N + 1):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(menu.slot_path(i)))
+			day = 7
+			money = 12.5
+			menu.open_pause()
+			menu._save_slot(2)
+			var info: String = menu._slot_info(2)
+			print("PAIKAT paikka 2: %s, paikka 3: %s" % [info, menu._slot_info(3)])
+			if not info.begins_with("2: Päivä 7"):
+				print("TESTI VIKA paikan 2 kuvaus väärin: %s" % info)
+			menu._slots("save", "sub_pause")
+			await get_tree().process_frame
+			var n_save: int = menu._box.get_children().filter(func(c: Node) -> bool: return c is Button).size()
+			menu._slots("load", "sub_pause")
+			await get_tree().process_frame
+			var n_load: int = menu._box.get_children().filter(func(c: Node) -> bool: return c is Button).size()
+			print("PAIKAT painikkeita tallennus %d (odotus 7), lataus %d (odotus 2)" % [n_save, n_load])
+			if n_save != 7 or n_load != 2:
+				print("TESTI VIKA tallennus/latausvalikon painikkeet")
+			await RenderingServer.frame_post_draw
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--shot="):
+					menu._slots("save", "sub_pause")
+					for i in 4:
+						await get_tree().process_frame
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(arg.substr(7).replace(".png", "_tallenna.png"))
+			money = 99.0
+			_save_game()
+			var cfg := ConfigFile.new()
+			cfg.load(menu.slot_path(2))
+			print("PAIKAT paikan rahat %s (odotus 12.5)" % cfg.get_value("peli", "rahat"))
+			if absf(float(cfg.get_value("peli", "rahat", 0.0)) - 12.5) > 0.01:
+				print("TESTI VIKA paikan sisältö muuttui automaattitallennuksessa")
+			menu.close()
+		"aloitusruutu":
+			# Aloitusruutu kuten käynnistyksessä (päävalikko ja kiertävä kamera kodin yllä): taustalla ei saa näkyä
+			# pelin HUD-laatikoita (esim. autovarkauden tähtilaatikko rikos/tahdet_hud.gd ilman tähtiä).
+			menu.open_main()
+			for i in 120:
+				await get_tree().process_frame
+			for n in find_children("*", "CanvasLayer", true, false):
+				var cl := n as CanvasLayer
+				if cl != menu and cl.visible and cl.layer < menu.layer and n.get_script() != null \
+						and String(n.get_script().resource_path).ends_with("tahdet_hud.gd"):
+					print("TESTI VIKA aloitusruudussa näkyy tähtilaatikko %s" % n.get_path())
+			print("ALOITUS valikko auki %s" % menu.visible)
 		"startcheck":
 			# Oikea käynnistys (kuvan nimi *menu.png ohittaa testitilan): tallennettu pyörä, valikosta jatkoon, kävely.
 			menu.close()

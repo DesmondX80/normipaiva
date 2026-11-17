@@ -99,3 +99,7 @@ Toimintojen vaikutukset tiloihin:
 **Kehittäjille:** kun peliin tulee uusi toiminto, määritä sille vaikutukset tiloihin (`tilat.add(...)`, `_drink()`,
 `_eat()`, `_task_done()`, `_task_failed()`, `tilat.first(...)` main.gd:ssä) ja lisää ne tähän taulukkoon. Kirjaa vain
 vaikutukset, jotka poikkeavat nollasta. Jos arvoja ei ole annettu, päättele ne toiminnon luonteesta.
+
+Päivin epäluulo (luku 6, #326) ei ole päivän tila vaan oma mittari 0–100 (`scripts/rikos/paivi.gd`, tallennus osiossa
+`rikos_paivi`). Se ei nollaudu yön yli; tunnustus laskee moraalia 0,05, ja "Avoin pelikortti" -loppu antaa kolmiomittauksen
+lopun moraali- ja stressimuutokset.

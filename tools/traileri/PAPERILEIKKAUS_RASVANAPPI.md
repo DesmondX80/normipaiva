@@ -90,7 +90,7 @@ Nimikortti (`teksti: nimi + rooli`), tavallisessa pelin paikassa.
 | 24 | **UUSI** `m_joni_esa` | Kaupan piha: Joni päkkirinkka selässä (golfpallot, termos), Esa harppi taskussa | 2 t |
 | 25 | **UUSI** `m_sytkari` | Puhelimen Sytkäri-mätsi: Minttu (punaiset kiharat), liekkilogo, "Match!" | 1 t |
 | 26 | **UUSI** `m_kartta_harppi` | Paperikartta (M): harpilla piirretyt ympyrät leikkaavat, naisen talo | 2 t |
-| 27 | **UUSI** `m_siviikki` | Timon punainen Siviikki, VTEC kytkeytyy, nurmikon yli Vaalantielle | 2 t |
+| 27 | **UUSI** `m_sivikki` | Timon punainen Sivikki, VTEC kytkeytyy, nurmikon yli Vaalantielle | 2 t |
 
 ### 1:14–1:33 Silta: lahjat ja ilta (10 tahtia). Ei Rasvanappia
 
@@ -140,7 +140,7 @@ Tiivistyvä leikkaus (2 t, sitten 1 t), kaikki ominaisuudet vielä kerran vauhdi
 | 49 | `k_rossi` | Mopo hyppyrille | 1 t |
 | 50 | `k_karaoke` | Karaoke Siitarissa | 1 t |
 | 51 | `s_kyyti` | Kyyti yöllä | 1 t |
-| 52 | **UUSI** `m_siviikki_paluu` | Siviikki ajaa takaisin asemalle, kaverit mukana | 1 t |
+| 52 | **UUSI** `m_sivikki_paluu` | Sivikki ajaa takaisin asemalle, kaverit mukana | 1 t |
 | 53 | `f_poliisi` | Poliisi ohi | 1 t |
 | 54 | `f_wasted` | WASTED | 1 t |
 | 55 | `f_auringonlasku` | Laavu, nuotio, ilta (rauhoittuu ennen loppua) | 2 t |

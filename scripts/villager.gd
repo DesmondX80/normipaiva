@@ -23,7 +23,7 @@ var target: Node3D
 var follow: Node3D
 var gap := 2.2
 var ground_fn: Callable
-var avoid: Array = []  # seuratessa kierrettävät kappaleet: [solmu, säde m] (esim. Siviikki), ettei kävellä läpi
+var avoid: Array = []  # seuratessa kierrettävät kappaleet: [solmu, säde m] (esim. Sivikki), ettei kävellä läpi
 const CATCH_UP := 60.0
 ## Pihan puuhapisteet maailmassa (ensimmäinen = ulko-ovi, lähtöpaikka). Tyhjä = seisoo paikallaan.
 var yard: Array[Vector3] = []

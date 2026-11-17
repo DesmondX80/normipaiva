@@ -3,7 +3,8 @@ extends CanvasLayer
 ## Peli on pysäytetty valikon ollessa auki; alkuvalikon taustalla kamera kiertää Järvikujaa.
 
 const M := preload("res://scripts/map_data.gd")
-const SAVE_PATH := "user://normipaiva.cfg"
+const SAVE_PATH := "user://normipaiva.cfg"  # automaattitallennus (Jatka peliä)
+const SLOTS_N := 5  # omat tallennuspaikat automaattitallennuksen lisäksi: user://tallennus_<n>.cfg
 const YELLOW := Color(1.0, 0.8, 0.1)
 
 var game: Node3D
@@ -102,6 +103,8 @@ func open_main() -> void:
 	_button("Jatka peliä" if has_save else "Aloita peli", close)
 	if has_save:
 		_button("Uusi peli", _confirm_new)
+	if _any_slot():
+		_button("Lataa peli", func() -> void: _slots("load", "sub_main"))
 	_button("Asetukset", func() -> void: _settings("sub_main"))
 	_button("Tekijät", func() -> void: _credits("sub_main"))
 	_button("Lopeta", func() -> void:
@@ -115,11 +118,10 @@ func open_pause(saved := false) -> void:
 	_title("TAUKO", "Peli tallennettu · päivä %d" % game.day if saved
 		else "Päivä %d · jemmassa %d kaljaa" % [game.day, game.jemma])
 	_button("Jatka", close)
-	# Tallentaa saman kuin automaattitallennus, myös pelaajan paikan: "Jatka peliä" jatkaa tästä.
-	_button("Tallenna peli", func() -> void:
-		game._save_game()
-		Sfx.play("pickup")
-		open_pause(true))
+	# Tallennus omaan paikkaan (1–5) tai automaattitallennukseen; myös pelaajan paikka tallentuu.
+	_button("Tallenna peli", func() -> void: _slots("save", "sub_pause"))
+	if _any_slot():
+		_button("Lataa peli", func() -> void: _slots("load", "sub_pause"))
 	_button("Asetukset", func() -> void: _settings("sub_pause"))
 	_button("Aloita päivä alusta", func() -> void:
 		get_tree().paused = false
@@ -161,6 +163,86 @@ func _confirm_new() -> void:
 		game.get_script().skip_menu = true
 		get_tree().reload_current_scene())
 	_button("Takaisin", open_main)
+
+
+# --- Tallennuspaikat ------------------------------------------------------------
+
+static func slot_path(i: int) -> String:
+	return "user://tallennus_%d.cfg" % i
+
+
+func _any_slot() -> bool:
+	for i in range(1, SLOTS_N + 1):
+		if FileAccess.file_exists(slot_path(i)):
+			return true
+	return false
+
+
+## Paikan kuvaus: pelipäivä, kellonaika pelissä ja tallennushetki (tyhjä = "tyhjä").
+func _slot_info(i: int) -> String:
+	var cfg := ConfigFile.new()
+	if not FileAccess.file_exists(slot_path(i)) or cfg.load(slot_path(i)) != OK:
+		return "%d: tyhjä" % i
+	var mins := int(cfg.get_value("peli", "kello", 0.0))
+	return "%d: Päivä %d, klo %02d:%02d  (%s)" % [i, int(cfg.get_value("peli", "paiva", 1)), mins / 60 % 24, mins % 60,
+		String(cfg.get_value("tallennuspaikka", "aika", ""))]
+
+
+## Tallennus- tai latausvalikko: viisi omaa paikkaa (tallennuksessa myös automaattitallennus).
+func _slots(kind: String, from: String) -> void:
+	_mode = from
+	_clear()
+	if kind == "save":
+		_title("TALLENNA", "Valitse paikka. Automaattitallennus jatkuu omana paikkanaan.")
+		_button("Automaattitallennus (Jatka peliä)", func() -> void:
+			game._save_game()
+			Sfx.play("pickup")
+			open_pause(true))
+	else:
+		_title("LATAA", "Ladattu peli jatkuu automaattitallennuksena.")
+	for i in range(1, SLOTS_N + 1):
+		var used := FileAccess.file_exists(slot_path(i))
+		if kind == "save":
+			_button(_slot_info(i), func() -> void:
+				if used:
+					_confirm_overwrite(i)
+				else:
+					_save_slot(i))
+		elif used:
+			_button(_slot_info(i), func() -> void: _load_slot(i))
+	_button("Takaisin", func() -> void: _back(from))
+
+
+func _confirm_overwrite(i: int) -> void:
+	_clear()
+	_title("KORVATAANKO?", _slot_info(i))
+	_button("Kyllä, tallenna päälle", func() -> void: _save_slot(i))
+	_button("Takaisin", func() -> void: _slots("save", "sub_pause"))
+
+
+## Tallennus paikkaan: ensin automaattitallennus (sama sisältö kuin aina), sitten kopio paikkaan ja tallennushetki.
+func _save_slot(i: int) -> void:
+	game._save_game()
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE_PATH)
+	var t := Time.get_datetime_dict_from_system()
+	cfg.set_value("tallennuspaikka", "aika", "%d.%d. klo %02d:%02d" % [t.day, t.month, t.hour, t.minute])
+	cfg.save(slot_path(i))
+	Sfx.play("pickup")
+	open_pause(true)
+
+
+## Lataus: paikan tiedosto automaattitallennukseksi ja peli uudelleen siitä (kuten Jatka peliä).
+func _load_slot(i: int) -> void:
+	var bytes := FileAccess.get_file_as_bytes(slot_path(i))
+	if bytes.is_empty():
+		return
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	f.store_buffer(bytes)
+	f.close()
+	get_tree().paused = false
+	game.get_script().skip_menu = true
+	get_tree().reload_current_scene()
 
 
 func _credits(from: String) -> void:

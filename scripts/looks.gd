@@ -255,7 +255,7 @@ const PENTTI := {
 	"pentti": true,
 }
 
-## Kolmiomittaus (#255): Saloisten Joni ja Esa, Vaalan Hevari-Tero ja Siviikki-Timo sekä Sytkäri-mätsit Minttu ja Katja.
+## Kolmiomittaus (#255): Saloisten Joni ja Esa, Vaalan Hevari-Tero ja Sivikki-Timo sekä Sytkäri-mätsit Minttu ja Katja.
 ## Joni: tummatukkainen golfari (valkoinen pikee, vaaleat chinot), selässä Sandels-päkkirinkka (add_sandels_rinkka).
 const JONI := {
 	"shirt": Color(0.95, 0.95, 0.92), "pants": Color(0.82, 0.75, 0.58), "shoes": Color(0.92, 0.92, 0.9),
@@ -274,8 +274,8 @@ const HEVARI_TERO := {
 	"shoe": "saapas", "hair": "Hair_Long", "hair_color": Color(0.2, 0.15, 0.12), "beard": true, "height": 1.82, "belly": 0.55, "bulk": 0.2,
 	"skin": Color(0.97, 0.84, 0.76), "long_hair": true,
 }
-## Siviikki-Timo: punainen tuulitakki kuin Hondan värit, farkut, valkoiset lenkkarit.
-const SIVIIKKI_TIMO := {
+## Sivikki-Timo: punainen tuulitakki kuin Hondan värit, farkut, valkoiset lenkkarit.
+const SIVIKKI_TIMO := {
 	"shirt": Color(0.78, 0.07, 0.1), "pants": Color(0.22, 0.3, 0.48), "jeans": true, "shoes": Color(0.95, 0.95, 0.95),
 	"shoe": "lenkkari", "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.42, 0.25), "height": 1.74, "belly": 0.3, "bulk": -0.2,
 	"skin": Color(0.98, 0.84, 0.74), "shine": 0.6,

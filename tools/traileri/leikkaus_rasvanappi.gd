@@ -50,7 +50,7 @@ const SHOTS := [
 	{"id": "m_joni_esa", "g": "kolmio", "b": 8, "at": 60.02},
 	{"id": "m_sytkari", "g": "kolmio_puh", "b": 4},
 	{"id": "m_kartta_harppi", "g": "kolmio_kartta", "b": 8},
-	{"id": "m_siviikki", "g": "kolmio_vaala", "b": 10},
+	{"id": "m_sivikki", "g": "kolmio_vaala", "b": 10},
 
 	# --- 1:14 Silta: lahjat ja ilta (10 tahtia) -------------------------------------------------------------------
 	{"id": "m_lahjat_ovella", "g": "kolmio_koti", "b": 8, "at": 73.79},
@@ -82,7 +82,7 @@ const SHOTS := [
 	{"id": "k_rossi", "g": "ulko", "b": 4, "in": 0.3},
 	{"id": "k_karaoke", "g": "karaoke", "b": 4, "in": 1.5},
 	{"id": "s_kyyti", "g": "kyyti", "b": 4, "in": 4.0},
-	{"id": "m_siviikki__2", "g": "kolmio_vaala", "b": 4},
+	{"id": "m_sivikki__2", "g": "kolmio_vaala", "b": 4},
 	{"id": "a_poliisi_ilmestyy__2", "g": "auto", "b": 4},
 	{"id": "a_jahti_paivi__2", "g": "auto", "b": 4},
 	{"id": "f_auringonlasku", "g": "laavu", "b": 6},

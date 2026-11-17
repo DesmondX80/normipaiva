@@ -38,6 +38,11 @@ var grace := 0.0  # anteeksi annettu: hetken ei näe eikä saa kiinni (main.gd _
 var pick_dest: Callable  # () -> Vector3: seuraava määränpää; tyhjä = sattumanvarainen harhailu risteyksittäin
 var dest := Vector3.ZERO  # nykyinen määränpää (testit)
 var arrived := Vector3.ZERO  # viimeksi saavutettu määränpää (testit)
+## Päivi tutkii (rikos/paivi_tutkii.gd): iltaisin "jumppaan" seuraintalolle (main.gd _wife_rhythm, go_jumppa). Ajaa
+## suoraan perille eikä jahtaa; perillä auto jää pihaan ja Päivi menee sisään (kuski piiloon).
+var jumppa := false
+var jumppa_perilla := false
+var _jumppa_piha := false  # tie ajettu: viimeinen osuus tieltä pihan parkkipaikalle (dest)
 
 var _path: Array[int] = []  # jäljellä olevat tieverkon pisteet määränpäähän
 var _linger := 0.0  # perillä: katselee hetken ennen seuraavaa
@@ -76,6 +81,7 @@ func setup(nodes: Array[Vector3], adj: Array, start: int, player: Node3D) -> voi
 
 
 func reset_to(index: int) -> void:
+	_jumppa_pois()
 	dest = Vector3.ZERO
 	_cur = index
 	_prev = -1
@@ -86,6 +92,36 @@ func reset_to(index: int) -> void:
 	_speed = 0.0
 	_advance()
 	rotation.y = B.yaw_to(_goal - position)
+
+
+## Jumppaan: reitti suoraan p:n lähimpään tien kohtaan, jahti ja hälytys pois.
+func go_jumppa(p: Vector3) -> void:
+	jumppa = true
+	jumppa_perilla = false
+	_jumppa_piha = false
+	alerted = false
+	mode = "patrol"
+	_linger = 0.0
+	dest = p
+	_path = _route(_cur, _nearest_node_to(p))  # _cur on nykyinen tavoite: reitti jatkuu sen jälkeen (_advance perillä)
+
+
+## Jumppa ohi: Päivi takaisin rattiin, seuraava partiokohde pick_destillä.
+func end_jumppa() -> void:
+	if not jumppa:
+		return
+	_jumppa_pois()
+	_path.clear()
+	dest = Vector3.ZERO
+	_advance()
+
+
+func _jumppa_pois() -> void:
+	jumppa = false
+	jumppa_perilla = false
+	_jumppa_piha = false
+	if _kuski != null:
+		_kuski.visible = not parked
 
 
 func is_target_safe() -> bool:
@@ -113,7 +149,7 @@ func _physics_process(delta: float) -> void:
 	var d := to_p.length()
 	var in_safe := is_target_safe()
 	grace = maxf(0.0, grace - delta)
-	var sees := grace <= 0.0 and not in_safe and (alerted or (d < SIGHT and B.line_of_sight(
+	var sees := grace <= 0.0 and not in_safe and not jumppa and (alerted or (d < SIGHT and B.line_of_sight(
 		self, global_position + Vector3.UP * 1.3, target.global_position + Vector3.UP,
 		[get_rid(), (target as CollisionObject3D).get_rid()])))
 
@@ -154,7 +190,7 @@ func _physics_process(delta: float) -> void:
 				_advance()
 	_drive(delta, want * speed_mult * heat_mult)
 
-	if d < catch_dist and not in_safe and grace <= 0.0:
+	if d < catch_dist and not in_safe and grace <= 0.0 and not jumppa:
 		caught.emit()
 
 
@@ -195,6 +231,25 @@ func _drive(delta: float, want: float) -> void:
 
 
 func _advance() -> void:
+	if jumppa:
+		if _path.is_empty():
+			if not _jumppa_piha:
+				_jumppa_piha = true  # tie loppui: ajetaan pihan parkkipaikalle (dest), ei jäädä tien laitaan nurmelle
+				_goal = dest
+				return
+			if not jumppa_perilla:
+				jumppa_perilla = true  # pihassa: Päivi sisälle, auto jää odottamaan
+				arrived = dest
+				if _kuski != null:
+					_kuski.visible = false
+			_linger = 5.0
+			return
+		var nj: int = _path.pop_front()
+		var dj := (_nodes[nj] - _nodes[_cur]).normalized()
+		_prev = _cur
+		_cur = nj
+		_goal = _nodes[nj] + Vector3(-dj.z, 0, dj.x) * LANE
+		return
 	if pick_dest.is_valid():
 		if _path.is_empty():
 			if dest != Vector3.ZERO:

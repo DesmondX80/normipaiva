@@ -66,6 +66,8 @@ func run() -> void:
 			await _perus()
 		"paivakirja":
 			await _paivakirja()
+		"paivi_tarina":
+			await load("res://tools/testit/paivi_tarina.gd").new().run(self)
 		_:
 			var osa: Object = main.rikos_osa(riski)
 			if osa == null:

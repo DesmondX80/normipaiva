@@ -33,7 +33,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			return _vaala_shot(main, d, id)
 		"p_motkotus_koti", "p_motkotus_huume", "p_motkotus_pidatys":
 			return _motkotus(main, d, id)
-		"m_joni_esa", "m_sytkari", "m_kartta_harppi", "m_siviikki", "m_lahjat_ovella", "m_vaara_ovi", "m_ovi_aukeaa", "m_flirtti", \
+		"m_joni_esa", "m_sytkari", "m_kartta_harppi", "m_sivikki", "m_lahjat_ovella", "m_vaara_ovi", "m_ovi_aukeaa", "m_flirtti", \
 		"m_ilta_vihje", "m_puhelu", "m_aamu":
 			return _kolmio(main, d, id)
 	return {}
@@ -438,7 +438,7 @@ static func _kolmio(main: Node3D, d: Node, id: String) -> Dictionary:
 			var tk := func(t: float) -> void:
 				main._paper._vzoom = lerpf(0.45, 1.3, clampf(t / 3.0, 0.0, 1.0))
 			return {"tick": tk, "warm": 10, "hud": false}
-		"m_siviikki":  # Vaala: Timon punainen Siviikki, VTEC kytkeytyy (pelin oma ajo)
+		"m_sivikki":  # Vaala: Timon punainen Sivikki, VTEC kytkeytyy (pelin oma ajo)
 			O._time(main, 15, 30)
 			O._vaala(main)
 			main._mopo_dismount()  # ajo alkaa jalan seisovasta pelaajasta (mopo_trip.on_foot)

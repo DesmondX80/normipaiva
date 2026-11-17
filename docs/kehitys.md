@@ -63,7 +63,7 @@ Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi 
 `--scene=kalajoki`: Kalajoen Hiekkasärkät ja rantapallo (taksivalinta, järjestäjä, peli juhannuksena, turnausvoitto antaa palkkion kerran; kuvat `_alue`, `_peli`, `_loppu`; `--shot=`).
 `--scene=raate`: Raatteen Portti (taksivalinta, vierailija, portti, muistokivi, kolmen kohdan palkinto kerran; kuva `_alue`; `--shot=`).
 `--scene=kajaani`: Kajaanin linna ja Messenius (taksivalinta, rauniot, tervavene-kohtaus, Messenius, kolmen palkinto kerran; kuva `_alue`; `--shot=`).
-`--scene=kolmio_juttu` (headless): jalan kulkija Teron ja Timon vieressä 1,5–4,5 m:n päässä, vihjeen on oltava "Juttele Teron ja Timon kanssa" eikä aseman odotussalin (juttelupisteen säde 7). `--scene=kolmiomittaus` / `--scene=kolmiomittaus_vaala`: kolmiomittaus (#255, `tools/testit/kolmiomittaus.gd`): pyöristys ja ympyrät (oikea etäisyys aina vyöhykkeellä, kohde leikkauksessa), lisämittaus pienentää aluetta (viiden mittauksen leikkaus 10 m:n ruudukolla alle puolet kolmen alueesta, kulmat kohteesta tulostetaan), tallennus, kaverit ja hahmot kolmesta suunnasta (`_hahmo_*`, Jonin rinkka rajattuna `_rinkka_*`), Sytkäri (`_sytkari_matsi`, `_sytkari_matka`), etämittaus, kaverit pelaajan perässä (`_kaverit_mukana`), Siviikki-ajo (`_siviikki_*`; reitti aseman pihasta tielle suosii teitä ja kiertää rakennukset (painotettu haku: maasto 5 × kalliimpi), `_kolmio_siviikki_route`, ja Civicin kokoinen laatikko reitillä ei saa osua esteisiin: TESTI VIKA läpimenoista), paperikartta (`_kartta`), väärä ovi, ovi ilman lahjaa, lahjan osto kauppiaalta, ovi lahjoineen, erikoisrasvanappi (`_rasva_esittely`, `_rasva_pimea`, `_rasva_puhelu`, `_rasva_loppu`), aamu (`_aamu`), päivän vaihto, loppu ja maito. Kohtaukset ilman pelimaailmaa: `tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn` (ovet, väärä ovi kepin
+`--scene=kolmio_juttu` (headless): jalan kulkija Teron ja Timon vieressä 1,5–4,5 m:n päässä, vihjeen on oltava "Juttele Teron ja Timon kanssa" eikä aseman odotussalin (juttelupisteen säde 7). `--scene=kolmiomittaus` / `--scene=kolmiomittaus_vaala`: kolmiomittaus (#255, `tools/testit/kolmiomittaus.gd`): pyöristys ja ympyrät (oikea etäisyys aina vyöhykkeellä, kohde leikkauksessa), lisämittaus pienentää aluetta (viiden mittauksen leikkaus 10 m:n ruudukolla alle puolet kolmen alueesta, kulmat kohteesta tulostetaan), tallennus, kaverit ja hahmot kolmesta suunnasta (`_hahmo_*`, Jonin rinkka rajattuna `_rinkka_*`), Sytkäri (`_sytkari_matsi`, `_sytkari_matka`), etämittaus, kaverit pelaajan perässä (`_kaverit_mukana`), Sivikki-ajo (`_sivikki_*`; reitti aseman pihasta tielle suosii teitä ja kiertää rakennukset (painotettu haku: maasto 5 × kalliimpi), `_kolmio_sivikki_route`, ja Civicin kokoinen laatikko reitillä ei saa osua esteisiin: TESTI VIKA läpimenoista), paperikartta (`_kartta`), väärä ovi, ovi ilman lahjaa, lahjan osto kauppiaalta, ovi lahjoineen, erikoisrasvanappi (`_rasva_esittely`, `_rasva_pimea`, `_rasva_puhelu`, `_rasva_loppu`), aamu (`_aamu`), päivän vaihto, loppu ja maito. Kohtaukset ilman pelimaailmaa: `tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn` (ovet, väärä ovi kepin
 molemmissa asennoissa, aamu, Sytkäri, lahjojen pitely lähikuvina edestä, sivulta ja ylhäältä, lahjat kuistin pöydällä,
 rinkka, Mintun kiharat, mummo ja naisen olohuone viidestä suunnasta); jokaisen kohtauksen hahmoille ja Jonin rinkalle
 ajetaan läpimenotarkistus (`Asento.solids`). Numeroina: otteen rako (`KOLMIO rako`: käden pinta lahjan kylkeen nyrkin ala-,
@@ -82,6 +82,20 @@ Uusi Satamantie (kapea asfalttikatu K-Marketilta satamaan ja Uitolle, vanha sora
 
 Vaalan asematie (Vaalantie torille, Aseman piha suoraan asemalle, Satamantie soraksi, tori laajennettu): `python3 tools/vaala_asematie.py` (kerran, `vaala_risteys.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). `--scene=vaala_ajo --ajo=yhteys`: kaikki Vaalan tiet tavoitettavissa mökiltä (ajoalueen tulvatäyttö; irralliset saarekkeet listataan). `--ajo=venelava`: veneen reitti lavan laituriin. `--ajo=portti`: mopo ei pääse lavan portista eikä aidan läpi (parkki aidan ulkopuolella). Tieverkon siistii ja suoristaa `python3 tools/vaala_suorat.py` (bake-ketjun viimeinen vaihe, ajetaan kerran; sivutiet, jalkakäytävät ja umpikujahaarat pois, jäljelle suorat tiet kohteisiin).
 Vaalan Ratatie (asfalttikierros aseman edestä Zabukin taakse Aseman pihaan, 3 pientä rakennusta pois): `python3 tools/vaala_kierros.py` (kerran, `vaala_asematie.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). `--scene=vaalakierros`: paperikartta keskustasta kahdella zoomilla sekä vapaan kameran kuvat `_ylhaalta`, `_ymparyra`, `_tori`, `_zabuki`, `_asemalle`.
+
+`tools/testit/aja.sh scene aloitusruutu`: päävalikko kuten käynnistyksessä (kuva) ja tarkistus, ettei taustalla näy pelin
+HUD-laatikoita (autovarkauden tähtilaatikko `rikos/tahdet_hud.gd` on piilossa, kun valikko on auki tai tähtiä ei ole).
+
+Iltakivat (kolmiomittauksen toinen ilta eteenpäin): `godot --headless --path . -s tools/testit/tuppi_logiikka.gd` (tupin
+säännöt ja tekoäly 30 jaolla, laittomat kortit ja tikkimäärät = TESTI VIKA), `tools/testit/aja.sh tscn tools/testit/tuppi_kuvat.tscn`
+(räsytupin vaiheet, riisuminen, pöydän kortti vähintään 40 px ja läpimenot), `tools/testit/aja.sh scene kolmio_tuppi`
+(räsytuppi pelimaailmassa ovelta aamuun, legenda ja sivutehtävän "iltakivat" edistyminen), `tools/testit/aja.sh scene kolmio_iltakivat` (lettukisa, löylykisa, disko ja karaoke
+pelimaailmassa peräkkäin ovelta aamuun, sivutehtävän kirjaus jokaisesta) ja `tools/testit/aja.sh tscn tools/testit/iltakivat_kuvat.tscn
+[lettu,loyly,disko,karaoke]` (lettukisa, löylykisa, Sivikki-disko ja karaoke tekoälyllä molemmissa kohteissa: alku,
+toiminta, lähikuva, loppu, toiminnan kohteen koko pikseleinä `test_target`, läpimenot `Asento.views` ja tulos). Diskon
+biisien tempot (`disko_game.gd BIISIT`) mitattiin iskuenergian autokorrelaatiolla 30 s:n jaksoissa; vain biisit, joiden
+iskuvaihe pysyy samana jaksosta toiseen (30–120 s), ovat listalla. Yhteiset palat (olohuone, istuminen, puhekupla
+puhujaan): `scripts/ilta_room.gd`.
 
 Vaalan itäisen asuinalueen (Katjan talo) kadut: `venv/bin/python tools/vaala_kadut.py` (kerran, viimeisenä `vaala_kirkkotie.py`:n jälkeen; kuiva-ajo `--kuiva kuva.png`; uusi lähtö `git checkout assets/vaala`). Alueen MML-talot ovat aseman suuntaisia rivejä ilman katuja, joten skripti lisää Vaalantien jatkeen, Mäntytien, Rekkatien, Pihlajatien ja umpikadut Koivukuja ja Rinnetie (kapeita asfalttikatuja, `street`), tasaa maaston ja raivaa puut. Kadut ovat `tie.json`:ssa merkillä `_kadut`: `vaala.gd _route_build` käsittelee ne ydinreittinä, joten talot niiden ympärillä säilyvät karsinnassa. Koulukeskuksen möhkäle (OSM 472392144) on pois (`vaala_bake.py DROP_BUILDING_IDS`). `vaala.gd _build_street_details`: katuvalot ja kadunnimikyltit asfalttikaduille sekä sorapolku ja postilaatikko jokaiselle ovelle tien suuntaan. Katujen vierukset muutetaan nurmeksi vaiheella `tools/vaala_kadut.py --nurmi` (kerran). Isot tasakattoiset talot saavat `vaala.gd _flat_details`:ssa otsapellin, sokkelin, syöksytorvet, sisäänkäyntikatoksen ja kattokoneet; Veturitalli on tiiliseinäinen (`bricks.gdshader`) peltikattoinen ja siinä on pääty- ja ovidetaljit. `--scene=kolmiomittaus_vaala` tarkistaa, että paperikartan hahmomerkki on kävelijän paikalla (ero alle 0,5 m; `paper_map.gd _vaala_me` käyttää jalan kävelijää, ei parkissa olevaa mopoa) ja ottaa kuvat `_kartta_merkki`, `_katja_ylhaalta`, `_katu_*`.
 Vaalan tori ja Zabuki kauemmaksi Siitarista, liikenneympyrä kauimmaiseen risteykseen (oikealle Aseman piha asemalle, vasemmalle Torintie torille; Ratatien kierros pois): `venv/bin/python tools/vaala_torisiirto.py` (kerran, `vaala_satamatie.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). Kuvat `--scene=vaalakierros`.
@@ -119,7 +133,7 @@ Lada 2105 (`vehicles.gd lada()`, #283; Suomessa Lada 1500 S): `tools/testit/aja.
 Saab rinnakkain samoista kulmista ja katon kulmat lähikuvina; mittaa 1,62 × 1,446 × 4,145 ±5 %, akselivälin 2,424 ja pyörän
 alimman pisteen 0 ± 0,01). Liikenne ja pysäköidyt autot arpovat mallin (`Vehicles.MALLIT`, `henkiloauto()`), ja kaapattu ja
 hylätty auto perii sen (`traffic_car.gd malli`).
-Timon punainen Honda Civic 3-ovinen (`vehicles.gd civic()`, kolmiomittauksen Siviikki): `tools/testit/aja.sh tscn
+Timon punainen Honda Civic 3-ovinen (`vehicles.gd civic()`, kolmiomittauksen Sivikki): `tools/testit/aja.sh tscn
 tools/testit/civic_kuvat.tscn` (Civic ja Saab rinnakkain ja katon kulmat lähikuvina; mittaa 1,666 × 1,331 × 3,965 ±5 %,
 akselivälin 2,50 ja pyörän alimman pisteen 0 ± 0,01).
 Volvo 240 sedan ja 245 farmari (`vehicles.gd volvo(..., farmari)`; liikenteessä molemmat, Pekan vihreä farmari
@@ -161,6 +175,17 @@ Puhekuplien vuorottelu (`bubble.gd`: lähekkäin alle 5 m yksi kupla kerrallaan,
 `tools/testit/aja.sh tscn tools/testit/kuplat.tscn`.
 Pysäköidyt autot: `tools/testit/aja.sh scene parkit` tarkistaa, ettei yksikään `B.parked_car` ole toisen sisällä Saloisissa eikä Vaalassa
 (Vaalassa myös Pentin paikkaa vasten), ja kuvaa Zabukin joka suunnasta (`_zabuki_*`).
+
+**Luku 6 Päivi epäilee (#326):** `--scene=riskit --riski=paivi` (epäluulo, jäljet ensikerroista `tilat.on_first`-koukulla,
+aamun jono, K-18-rajaus, tallennus), `--riski=paivi_puhe` (puheeksiotto pihalla, Päivi ja kamera rajattuna, selitykset,
+tunnustus, vastahyökkäys; kuvat `_paivi_puhe_valinta`, `_paivi_puhe_vastaus`), `--riski=paivi_hyvitys`, `--riski=paivi_tutkii`
+(jumppa seuraintalon pihaan `_jumppa_parkki`, seuranta 30 m ja 35 m, kyläläiset, jemma ja kansio; kuvat `_seuranta`,
+`_perilla`, `_parkki`) ja `--riski=paivi_tarina` (päiväkirja ja ilmeet). `--scene=kolmiomittaus_koti`
+(`tools/testit/kolmiomittaus_koti.gd`): mätsi vain huipennuksen ollessa auki, mittaus kotiin (oma ovi leikkausalueella),
+koputus etuoveen, ovikohtaus, valinnat suuttua, kukat, tunnustaa, viikon paluu ja nauraa sekä tallennus. Kohtaukset ilman
+maailmaa: `tools/testit/aja.sh tscn tools/testit/kolmio_koti_kuvat.tscn` (Sytkäri, ovi, rasian ote ja aamu) ja
+`--scene=asennot --asento=koti`. Testin E-painallus lähetetään `Input.parse_input_event`illa, koska `action_press` testin
+ruudussa jää mainilta näkemättä, jos testisolmu ajetaan mainin jälkeen. Ruutuaikaa ei ole mitattu näytönohjaimella.
 
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
 koukut testiosalla (`tools/testit/rikos_koe_osa.gd`): puhe, tapahtumat, luukun vihje, tallennus edestakaisin, päiväkirjan data,
@@ -211,10 +236,24 @@ pidätys (mopo kotona). Kuvat `_autovarkaus_pysahtyi`, `_ovella`, `_kaappaus`, `
   Katja id -101209 len 25,4 ennallaan.
 - Kuvat tallentuvat `/tmp/normipaiva_ajot/<testi>_<aika>/`. Luvut ovat arvontaa pohjista: pienet muutokset DIST-painoissa siirtävät niitä.
 
+## Pyörän ja hengityksen äänet
+
+Polkupyörän räminä on vanhan vaihteettoman pyörän ajoäänite (`bike_ride.ogg`, 28 s silmukka, kolina korostettu), jonka
+alla renkaan suhina (`bike_roll`) soi hiljaa (`player_bike.gd _update_roll_sound`). Räminä kovenee vauhdin ja alustan
+mukaan: metsässä noin 5 dB ja niityllä noin 3 dB kovempaa kuin asfaltilla, ja saman pyörän kolahduksia (`bike_clunk_*`)
+tulee asfaltilla noin kerran sekunnissa täydessä vauhdissa, metsässä noin kolme kertaa tiheämmin. Juurakko metsässä
+(`_apply_bumps`) soittaa ison rämähdyksen (`bike_root_*`: tömähdys, irrallisten osien räminä, pomppu ja kellon
+helähdys), jotta ääni ohjaa ajamaan tiellä. Mopolla ja autolla räminää ei ole. Hengästyminen (`on_foot.gd tire`):
+ihan poikki nopeaa puuskutusta (`pant_*`), kunnon palatessa raskaita hengityskierroksia (`breath_*`) ja toivuttua vielä
+kaksi hiljaisempaa; seuraava alkaa vasta, kun edellinen on soinut (`Sfx.play_len`). Äänet rakennetaan lähteistä
+skripteillä `tools/aanet/rakenna_pyora_hengitys.py`, `korosta_kolina.py` ja `rakenna_ramahdys.py` (lähteet ja lisenssit
+`assets/sounds/LICENSE.md`).
+
 ## Puheäänet
 
-Päivin repliikit puhuu Satu (nalkutus: nopea tahti, korotettu sävelkorko) ja kaikki muut hahmot Eddy (rauhallinen
-tenori). Äänet ovat valmiita mp3-tiedostoja `assets/aanet/<paivi|muu>/<tiiviste>.mp3`, joissa tiiviste on repliikin
+Päivin repliikit tehdään avoimella puhemallilla Chatterbox Multilingual (MIT, Resemble AI) malliäänen
+`tools/aanet/paivi_malliaani.ogg` pohjalta (kolmen suomalaisen naisen sekoitus Googlen FLEURS-aineistosta, CC BY 4.0);
+kaikki muut hahmot puhuu Macin Eddy (rauhallinen tenori). Äänet ovat valmiita mp3-tiedostoja `assets/aanet/<paivi|muu>/<tiiviste>.mp3`, joissa tiiviste on repliikin
 tekstin SHA-1:n 12 ensimmäistä merkkiä (`Sfx.voice_key`); `assets/aanet/hakemisto.json` kertoo, mikä tiiviste on mikä
 repliikki. Soitto: `Sfx.speak(ryhmä, teksti)` (`audio.gd`); puhekuplat (`bubble.gd`, `voice`-ominaisuus tai
 "Päivi: "-etuliite) ja dialogiruutu (`dialogue_box.gd`, puhujan nimi) kutsuvat sitä itse, joten uusi repliikki saa äänen
@@ -222,6 +261,11 @@ ilman koodimuutosta. Puuttuva ääni on hiljaisuutta. Äänten teko (vain macOS)
 `--aanisynteesi` (esim. `tools/testit/aja.sh --headless scene asema --aanisynteesi`), jolloin jokainen vastaan tuleva
 repliikki syntetisoidaan (`tools/aanet/syntetisoi.sh`), ja sen jälkeen `godot --headless --import`. Uusi tai muuttunut
 repliikki tarvitsee oman ajonsa: vanha tiedosto jää käyttämättömäksi.
+Päivin äänet (Linuxilla, ilman ulkopuolista palvelua, CPU:lla noin 20 s repliikki): asenna kerran
+`uv venv -p python3.11 ~/chatterbox && uv pip install -p ~/chatterbox/bin/python chatterbox-tts "setuptools<81"`, sitten
+`~/chatterbox/bin/python tools/aanet/paivi_aani.py tools/aanet/paivi_malliaani.ogg` tekee kaikki `hakemisto.json`:n
+Päivin repliikit uudelleen (`--testi`: neljä näytettä kuunneltavaksi, `--vain "repliikki"`: yksittäinen uusi repliikki,
+joka lisätään myös hakemistoon) ja lopuksi `godot --headless --import`.
 
 ## Karttadata ja maasto
 

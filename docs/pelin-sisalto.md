@@ -67,16 +67,16 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Testit `--scene=bangbus` ja `--scene=bangbus_vaala`. Mainosjuliste: [kuvat/pentin_bangbus_juliste.png](kuvat/pentin_bangbus_juliste.png).
 - **Kolmiomittaus (Sytkäri-mätsi, vain aikuisille):** Saloisten kaupan pihassa seisovat Joni (tummatukkainen golfari,
   selässä Sandels-oluen 24-pakkauksesta jesarilla tehty päkkirinkka termoksineen, golfpalloineen ja tölkkeineen) ja Esa
-  (erämies, harppi taskussa), Vaalan aseman pihassa Hevari-Tero (valittaa valtiosta) ja Siviikki-Timo (punainen Honda
+  (erämies, harppi taskussa), Vaalan aseman pihassa Hevari-Tero (valittaa valtiosta) ja Sivikki-Timo (punainen Honda
   Civic, VTEC). Juttele (E), niin puhelimeen tulee Sytkäri-mätsi (parodiadeittisovellus, liekkilogo): Minttu (punaiset
   kiharat, pisamat, kesämekko) Saloisissa tai Katja (pitkät mustat suorat hiukset, nahkatakki, motoristi) Vaalassa;
   kumpikin vähintään yhtä hemaiseva kuin Sinikka. Ovi-, väärän oven ja aamukohtaukset ovat
   3D-lavastuksia omissa maailmoissaan (`kolmio_kohtaus.gd`), ja Sytkärin profiilikuvat on otettu 3D-hahmoista.
   Osoitetta ei kerrota, vain etäisyys. Kaveri mittaa lähtöpaikalta, ja toinen mittaa kauempaa: Saloisissa Esa
-  tekstaa kirkolta, Vaalassa Teron ja Timon kanssa jutellessa valitaan "Hypätään Siviikkiin", ja Timo ajaa porukan
+  tekstaa kirkolta, Vaalassa Teron ja Timon kanssa jutellessa valitaan "Hypätään Sivikkiin", ja Timo ajaa porukan
   aseman pihasta katuja pitkin Vaalantielle (maaston kautta vain, jos tietä ei ole) ja tietä pitkin mittauspisteeseen (VTEC kytkeytyy, matkalla Timon ja Teron
   jutut, E hyppää perille) ja takaisin asemalle. Mittauksen ajan kaverit kulkevat jalan pelaajan perässä (Esa
-  liittyy mukaan tekstattuaan, Tero ja Timo Siviikki-ajon jälkeen) ja seisovat takana ovella; pyörän tai mopon
+  liittyy mukaan tekstattuaan, Tero ja Timo Sivikki-ajon jälkeen) ja seisovat takana ovella; pyörän tai mopon
   selässä he jäävät odottamaan ja tulevat perään, kun pelaaja jatkaa jalan. Sen jälkeen pelaaja mittaa lisää missä vain (E "Avaa Sytkäri", vähintään 35 m edellisistä mittauksista).
   Sovellus pyöristää etäisyyden (alle 120 m 10 m:iin, alle 500 m 50 m:iin, muuten 100 m:iin), joten paperikartalla (M)
   jokainen mittaus on harpilla piirretty ympyrä ja haalea vyöhyke; vyöhykkeet tummuvat päällekkäin, ja leikkauksessa
@@ -94,6 +94,52 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   tulee "Kolmiomittaus Saloisissa" tai "Vaalassa", kun kavereiden kanssa juttelee ensimmäisen kerran (ajatusviesti), ja se
   leimataan tehdyksi aamulla; Saloisten tehtävällä on karttamerkintä kavereiden luo. Testit
   `--scene=kolmiomittaus` ja `--scene=kolmiomittaus_vaala` (`tools/testit/kolmiomittaus.gd`).
+- **Iltakivat (kolmiomittauksen toinen ilta ja siitä eteenpäin, vain aikuisille, vähän rivoja):** kohteen ensimmäinen
+  ilta on aina Rasvanappi, sen jälkeen illat kiertävät (`kolmiomittaus.gd KIVAT`; Saloisissa räsytuppi, lettukisa,
+  karaoke ja löylykisa; Vaalassa räsytuppi, Sivikki-disko, löylykisa, lettukisa ja karaoke). Jokaisen voitto on
+  legendaarinen hetki, ja aamun tilastorivi ja kaverien aamurepliikit kertovat illan kivasta (`kolmio_kohtaus.gd KIVA_AAMU`).
+  Sivutehtävä **Kolmiomittauksen iltakivat** (päiväkirja, tulee tiedoksi ensimmäisen kolmiomittauksen jälkeen): koe kaikki
+  kuusi (Rasvanappi, räsytuppi, lettukisa, löylykisa, Sivikki-disko ja karaoke; voittoa ei vaadita, luovutus ei kelpaa).
+  Edistyminen "koettu n / 6" ja puuttuvat kivat; disko vaatii Vaalan.
+  - **Räsytuppi** (`tuppi.gd`, `tuppi_game.gd`): tuppia pareittain naisen olohuoneen korttipöydässä (pelaaja ja nainen
+    vastaan kaverit; rami tai nolo, maapakko, ässä korkein). Jaon hävinnyt pari riisuu: kengät, paita (naisella
+    rintaliivit jäävät) ja housut; kalsareissa hävinnyt pari on pantu tuppeen. Legendaarinen hetki **Räsytuppi**.
+  - **Lettukisa** (`lettu_game.gd`): minuutissa eniten kermalettuja. Haukku (E) täyttää suuta ja suu tyhjenee
+    pureskellessa; liian iso suullinen = kerma nenästä ja yskintä. Letut ovat kolmesta palasta, haarukka nousee suulle,
+    ja nainen tuo lisää lettuja pannulta. Legendaarinen hetki **Lettukunkku**.
+  - **Löylykisa** (`loyly_game.gd`): oma sauna (lauteet, kiuas kivineen, höyry), pyyhkeet lanteilla. Nainen heittää
+    löylyä tasaisin välein; hengitä ulos (E), kun rengas on vihreällä, niin tuska laskee. Paennut nousee lauteilta, ja
+    pyyhe jää lauteille. Viimeinen lauteilla voittaa: **Löylykunkku**.
+  - **Sivikki-disko** (vain Vaala, `disko_game.gd`): Katjan pihalla Timon Civic ajovaloineen ja pohjavaloineen, stereoista
+    oikea 90-luvun tanssibiisi (tempo mitattu). Liikkeet tulevat tahdissa neljälle kaistalle: lantio (A/D), kädet ylös (W)
+    ja pyllistys (S, hahmo pyllistää kameraan). Katja valitsee parhaan tanssijan hitaille: **Sivikki-disko**.
+  - **Karaoke** (`ilta_karaoke.gd`): mikrofoniteline olohuoneessa ja putkitelkkari sanoineen; jokainen laulaa oman rivon
+    säkeistön pelin karaokella (`karaoke_game.gd`, nuottikaistat), kaverien vuoroilla tekoäly näppäilee. Paras laulaja
+    voittaa: **Karaokekunkku**.
+- **Luku 6: Päivi epäilee (#326, aikuisille):** salaiset hommat jättävät jälkiä, ja Päivin **epäluulo 0–100**
+  (`scripts/rikos/paivi.gd`) nousee niistä. Jäljet: kolmiomittaus +20, Rasvanappi, Pentin BangBus ja huumekaupan myynti
+  +15, korkkikansio, rakaleiman kopio, Drakkar Noir ja Irman hälytys +10. Jälki syntyy kerran, kun ensikerta tehdään, ja
+  Päivi ottaa sen puheeksi seuraavana aamuna kotipihalla (ennen klo 11, alle 50 m kodista, yksi jälki aamussa;
+  `rikos/paivi_puhe.gd`). Päivi seisoo pihalla pelaajan vieressä, ja valinnat ovat kolme selitystä, tunnustus ja
+  vastahyökkäys. Selitys menee läpi vain, jos pelaaja on oikeasti tehnyt sen (esim. jutellut Pekan kanssa samana päivänä
+  tai käynyt kirppiksellä): tosi −5, valhe +10, ja väärä Pekka-selitys paljastuu, kun Pekka tervehtii seuraavan kerran
+  (+10). Tunnustus −15 ja moraali −0,05, ja Päivi muistaa sen. Vastahyökkäys ("Missä sää oikeen käyt iltaisin
+  jumpassa?") +5 ja avaa huipennuksen. **Hyvitykset** (`rikos/paivi_hyvitys.gd`) laskevat epäluuloa vain jäljen jälkeen:
+  kukat, Wanhan Raahen ovikuva ja Sinikan tomaatintaimet −10, kauppalista, nurmikko ja pensasaita −5; sama hyvitys ei toimi
+  samana eikä seuraavana päivänä. **Päivi tutkii** (yli 60, `rikos/paivi_tutkii.gd`): iltaisin klo 19–21 Hyundai ajaa
+  "jumppaan" seuraintalon pihaan eikä jahtaa. Alle 25 m seuraaminen paljastuu (+10 kerran päivässä), 25–50 m päästä
+  näkee, mihin Päivi menee. Pekka, Sinikka, Hilkka ja Pentti vastaavat Päiville pelaajan tekojen mukaan, ja Päivi löytää
+  liian täyden kotijemman ja korkkikansion. **Huipennus: Kesäheila -96** (`main.gd _kesaheila_*`): kun epäluulo on ollut yli
+  60 tai vastahyökkäystä on käytetty, Sytkäri piippaa uudesta mätsistä "Kesäheila -96, Saloinen" (profiilikuva: Päivi
+  olkihatussa Saloisten lavalla, seepia). Joni ja Esa mittaavat sen kaupan parkkipaikalta kuten Mintun, ympyrät
+  leikkaavat oman kodin, ja etuovella koputetaan: Päivi seisoo kynnyksellä kerma ja mansikat käsissään, Sinikka nauraa
+  eteisessä. Valinnat: **Nauraa yhdessä** (epäluulo 0, onnellinen loppu **Kulissit kunnossa**, aamu omassa keittiössä),
+  **Tunnustaa kaikki** (pelaajan synnit oikeista teoista ja Päivin omat, mm. Zabukin tanssit; loppu **Avoin pelikortti**)
+  tai **Suuttua** (Päivi äidilleen 7 päiväksi: ei lappua, rahaa eikä listaa, jääkaappi tyhjä; kukat ovella tuovat hänet
+  aiemmin, ja valinta tehdään uudelleen). Legendaarinen hetki **Kesäheila -96** tulee kummassakin onnellisessa lopussa.
+  **K-18 pois:** vain korkkikansion ja Drakkarin jäljet, puheeksiotto ja hyvitykset toimivat; Päivi ei tutki, eikä
+  huipennusta tule. Päiväkirjan Tarina-sivulla luku 6 näkyy vaiheineen ja Päivin piirretyllä ilmeellä (rauhallinen,
+  kulmat koholla, kädet puuskassa, laukku pakattu). Vihjeitä: Pekka ("Päivi kyseli musta eilen..."), Sinikka ja Pentti.
 - **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (kauppalista ja Päivin omin sanoin
   kirjoittamat muistutukset; mökillä lapun kirjoittaa Santtu). Pelin tiedot, kuten jemmojen tilanne ja varoitukset,
   tulevat ruudun viesteinä. Kauppalistan neljä tuotetta on kirjoitettu kukin omanvärisellä kynällä ("vihreä tamponi,
@@ -1114,7 +1160,7 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
 
 - **Tarina** etenee luvuittain: 1. Paapeliin pääsee, kunhan… (naapurien hommat ja Pekan kyyti mökille), 2. Paapelin
   isäntä (Santun hommat ja savusaunan korjaus), 3. Mopolla Vaalaan (Siitari, Oulujärven lava, kiihdytys), 4. Junalla
-  kotiin ja 5. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu, Lapinraunion aarnivalkea, Kertunkankaan rauta, Tekojärven Ukko). Seuraavaan
+  kotiin ja 5. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu, Lapinraunion aarnivalkea, Kertunkankaan rauta, Tekojärven Ukko) sekä rinnakkainen 6. Päivi epäilee (aikuisille, ks. yllä). Seuraavaan
   vaiheeseen vihjataan puheissa: Santtu, Siitarin baarimikko, aidan takana porukka, Gasthausin emäntä, Pekka
   ja Tauno kertovat, mitä seuraavaksi.
 - **Sivutehtävät**: kauppalista, nurmikko, laavu, Väinö, jalkapallopojat, pontikka, ilmakuvat, kotiviini,
