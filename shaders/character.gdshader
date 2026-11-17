@@ -465,7 +465,7 @@ void fragment() {
 		if (topless && rest.y > 1.12) {
 			cov = 0.0;
 		}
-		vec3 skin = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos, rest_zn.x);
+		vec3 skin = skin_with_ink(bare_skin * skin_tint * 0.945, rest, lpos, rest_zn.x);
 		if (anat_wrist_x < 8.0) {
 			skin = anat_vartalo_alb(skin, rest, rest_zn, anat_female);  // anatomia: vartalon ihodetaljit
 		}
@@ -530,6 +530,9 @@ void fragment() {
 		bool anat_hand_bare = anat_hand && (string_bikini || bare(1.0, vec2(sign(rest.x) * (anat_wrist_x - 0.02), rest.y), lpos, front, rest_nx));
 		if (anat_hand_bare) {
 			ALBEDO = skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos, rest_zn.x);  // sama sävy kuin paljas kyynärvarsi
+		} else if (anat_wrist_x < 8.0 && abs(rest.x) > anat_wrist_x && c_pre < 1.5) {
+			// korjauskierros: kämmen oli pohjatekstuurin tumma sävy; nyt paljaan ihon sävy, vain hieman vaaleampi kuin selkä
+			ALBEDO = skin_with_ink(bare_skin * skin_tint * 0.97 * 1.04, rest, lpos, rest_zn.x);
 		}
 		ROUGHNESS = texture(rough_tex, UV).r;
 		NORMAL_MAP = n;

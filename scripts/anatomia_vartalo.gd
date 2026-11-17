@@ -73,6 +73,9 @@ static func _shift(p: Vector3, j: Dictionary, female: bool, belly: float, bare: 
 
 ## Raajojen lihasrajat ja nivelet. Käsivarsi: hartialihas, hauis/ojentaja, kyynärpää, kyynärvarren paksu yläosa; jalka: etureisi,
 ## polvilumpio ja polvitaive, pohje. Amplitudit nollaan segmentin päissä (jatkuva siirto nivelen yli).
+const ARM_K := 0.6  # olka- ja kyynärvarren lihasprofiilin kerroin (asennot a: RAKO LÄPI -rivit lisääntyivät 21 -> 23 mummoilla)
+
+
 static func _limb_shift(p: Vector3, j: Dictionary, female: bool, bare: float) -> Vector3:
 	var d := Vector3.ZERO
 	var ax := absf(p.x)
@@ -90,13 +93,13 @@ static func _limb_shift(p: Vector3, j: Dictionary, female: bool, bare: float) ->
 		var prof_u := 0.004 * _bump(tu, 0.2, 0.14) + 0.0032 * _bump(tu, 0.55, 0.16) - 0.0025 * smoothstep(0.8, 1.0, tu) * 1.0
 		# jatkuvuus: nivelessä 0 (alla elbow-profiili 0 loppu), liukuva alku olkapäällä
 		prof_u *= smoothstep(0.02, 0.12, tu) * (1.0 - smoothstep(0.92, 1.0, tu))
-		d += (u[2] as Vector3) * prof_u * g * w_in * smoothstep(0.2, 0.26, ax)
+		d += (u[2] as Vector3) * prof_u * g * w_in * smoothstep(0.2, 0.26, ax) * ARM_K  # ARM_K: korjauskierros 1, istuvan hahmon käsi–vartalo-rako
 		var l := _axis(p, el, wr)
 		var tl: float = l[0]
 		var wl := 1.0 - smoothstep(0.055, 0.085, l[1] as float)
 		var prof_l := 0.0045 * _bump(tl, 0.22, 0.17) - 0.0025 * smoothstep(0.55, WRIST_FRAC, tl)
 		prof_l *= smoothstep(0.0, 0.06, tl) * (1.0 - smoothstep(0.9, 1.0, tl))
-		d += (l[2] as Vector3) * prof_l * g * wl
+		d += (l[2] as Vector3) * prof_l * g * wl * ARM_K
 		# Kyynärpää: olecranon taakse (-Z), kyynärtaive (etupuolella lievä kuoppa)
 		var ec := el + Vector3(0, 0, -0.03)
 		var ge := _bump((p - ec).length(), 0.0, 0.04)
@@ -121,13 +124,14 @@ static func _limb_shift(p: Vector3, j: Dictionary, female: bool, bare: float) ->
 		var wc := 1.0 - smoothstep(0.08, 0.12, cg[1] as float)
 		var rc := cg[2] as Vector3
 		# pohje: takana kaksoiskantalihas (t 0,1..0,5), edessä säären harjanne ohut; nilkan yläosa kapenee
-		var calf := (0.006 * _bump(tc, 0.2, 0.12) * smoothstep(-0.2, 0.6, -rc.z) + 0.0012 * _bump(tc, 0.3, 0.15) * smoothstep(0.3, 0.9, rc.z)
+		var calf := (0.0035 * _bump(tc, 0.2, 0.12) * smoothstep(-0.2, 0.6, -rc.z) + 0.0012 * _bump(tc, 0.3, 0.15) * smoothstep(0.3, 0.9, rc.z)
 			- 0.0025 * smoothstep(0.7, 0.95, tc))
 		calf *= smoothstep(0.0, 0.08, tc) * (1.0 - smoothstep(0.93, 1.0, tc))
 		# Kengät rakennetaan paistetusta jalkaverkosta (Shoes.build): varsi ja jalkaterän iho eivät saa liikkua, joten säären alaosa
 		# (t > 0,3: kengän varren ja nilkan alue) muuttuu vain paljaalla jalalla (shape.anat_arch)
 		calf *= 1.0 - (1.0 - bare) * smoothstep(0.18, 0.3, tc)
 		d += rc * calf * g * wc * (1.15 if not female else 0.8)
+		# korjauskierros: pohkeen takakohouma 6 -> 3,5 mm (istuessa pohje istuinlaatikon reunan sisään: KONTAKTI JÄÄ istuin syvempi kuin reisi, +1 main-vertailussa)
 		# Polvilumpio (eteen) ja polvitaive (taakse)
 		var pc := kn + Vector3(0, 0.012, 0.045)
 		var gp := _bump((p - pc).length(), 0.0, 0.038)

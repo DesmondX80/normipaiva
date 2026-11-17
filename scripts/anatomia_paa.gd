@@ -47,7 +47,7 @@ static func _shift(p: Vector3, f: Vector2, female: bool) -> Vector3:
 	d.x += sx * 0.0035 * cb
 	d.z += 0.002 * cb
 	var hollow := exp(-(pow((ax - 0.05) / 0.02, 2.0) + pow((yn - 0.27) / 0.06, 2.0) + pow((p.z - 0.05) / 0.04, 2.0)))
-	d.x -= sx * 0.0025 * hollow
+	d.x -= sx * 0.001 * hollow  # korjauskierros: poskionkalo hillitty (väsynyt ilme)
 	# 3) ohimot: otsa ja ohimo kapeammaksi (ylhäällä enintään 1,5 mm)
 	var temple := smoothstep(0.55, 0.78, yn) * (1.0 - smoothstep(0.92, 1.0, yn))
 	d.x -= sx * 0.0015 * temple
