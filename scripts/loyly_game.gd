@@ -383,7 +383,7 @@ func _place_ladle(delta: float) -> void:
 ## kenkiä), pyyhkeen väri lanteille. Naiset: _bikini_look. towel = false: pyyhe jäi lauteille (paljas).
 static func _towel_look(base: Dictionary, towel: bool, col: Color) -> Dictionary:
 	var lk: Dictionary = Cutscene.sauna_look(base)
-	for key in ["net_shirt", "chain", "vest_open", "ski_suit", "glam", "crop_y", "denim", "skirt", "cap", "sandels",
+	for key in ["net_shirt", "chain", "vest_open", "ski_suit", "glam", "crop_y", "denim", "skirt", "gown", "cap", "sandels",
 			"stripe_color", "lap_skirt", "coat_hem"]:
 		lk.erase(key)
 	lk["sleeve_x"] = 0.0
@@ -403,7 +403,7 @@ static func _bikini_look(base: Dictionary) -> Dictionary:
 	var look: Dictionary = base.duplicate()
 	look.merge({"shirt": Color(0.9, 0.05, 0.12), "pants": Color(0.9, 0.05, 0.12), "shoes": Color(0.95, 0.75, 0.62), "shine": 0.7,
 		"string_bikini": true, "shoe": "paljas", "denim": false}, true)
-	for k in ["crop_y", "tube_y", "sleeve_x", "shorts_y", "skirt", "belt_y", "shoe_rough"]:
+	for k in ["crop_y", "tube_y", "sleeve_x", "shorts_y", "skirt", "gown", "belt_y", "shoe_rough"]:
 		look.erase(k)
 	return look
 
