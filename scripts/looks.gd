@@ -616,7 +616,7 @@ static func add_gown(c: Node3D, col: Color) -> void:
 	var m := StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
 	m.vertex_color_is_srgb = true
-	m.albedo_color = Color.WHITE  # väri pisteissä (col), sama sävy kuin vartaloon maalattu yläosa
+	m.albedo_color = col  # sama sävy kuin vartaloon maalattu yläosa; pisteissä vain sävytys
 	m.metallic = 0.08
 	m.roughness = 0.36  # sama kiilto kuin yläosan satiinissa (character.gdshader satin)
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED  # halkion reunoista näkyy sisäpinta
@@ -648,6 +648,7 @@ static func add_towel_wrap(c: Node3D, col: Color) -> MeshInstance3D:
 	var m := StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
 	m.vertex_color_is_srgb = true
+	m.albedo_color = col
 	m.roughness = 1.0  # frotee: täysin matta, ei kiiltoa
 	m.metallic_specular = 0.15
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED  # yläreunasta näkyy sisäpinta
@@ -658,7 +659,7 @@ static func add_towel_wrap(c: Node3D, col: Color) -> MeshInstance3D:
 
 static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color, opt: Dictionary = {}) -> ArrayMesh:
 	var towel: bool = opt.get("towel", false)
-	var key := "towel_v3" if towel else "gown_v7"
+	var key := "towel_v4" if towel else "gown_v8"
 	if body.mesh.has_meta(key):
 		return body.mesh.get_meta(key)
 	var src := body.mesh.surface_get_arrays(0)
@@ -796,7 +797,9 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color, opt: D
 		for j in GOWN_SEGS + 1:
 			var q: Vector2 = rings[r][1][j % GOWN_SEGS]
 			var p := Vector3(q.x, y, q.y)
-			var vcol: Color = gold.darkened(0.2) if r == GOWN_ROWS - 1 else gold
+			# Pisteiden väri on vain sävytys (valkoinen pohja): kankaan väri tulee materiaalista, koska valmis verkko jaetaan
+			# välimuistissa kaikille saman vartaloverkon hahmoille (eri väriset pyyhkeet samasta verkosta).
+			var vcol: Color = Color(0.8, 0.8, 0.8) if r == GOWN_ROWS - 1 else Color.WHITE
 			if towel:
 				# Päällekkäinen pää etusivulla: kohollaan oleva reuna ja varjo sen vieressä; raidat helmassa.
 				var seam := posmod(roundi(atan2(0.85, -0.55) / TAU * GOWN_SEGS), GOWN_SEGS)
