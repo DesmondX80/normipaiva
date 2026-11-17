@@ -50,6 +50,8 @@ Hilkan selkään.)
 väreillä) ennen ratkaisua. Koodista päätelty syy merkitään "ei mitattu", ja toteuttajan ensimmäinen tehtävä on mitata se.
 (#271: kärjen rypyt korjattiin kahdesti väärästä syystä.)
 
+**Sävytyön lähde mitataan.** Väri- ja ihonsävytyössä kirjaa mitattuna, mikä osa sävystä tulee tekstuurista ja mikä shaderista/kerroksesta (esim. sama kuva anat=0), ennen kuin lupaat korjausta. (#hahmot-anatomia: silmänaluset tulivat pohjatekstuurista, eikä K1 korjautunut shaderilla.)
+
 **Tekniikka netistä ensin.** Ennen uuden rakenteen suunnittelua hae netistä (WebSearch), miten vastaava tehdään
 (mallinnus, pelien ratkaisut, oikean esineen rakenne), ja lue työkansion `00-ideat-netista.md`, jos on. Kirjaa
 suunnitelmaan, mitä löytyi ja miksi valitsit tai hylkäsit. (#273)
