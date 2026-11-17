@@ -200,7 +200,7 @@ static func rasy_look(base: Dictionary, stage: int) -> Dictionary:
 		else:
 			look["tube_y"] = 0.01  # paljas yläkroppa (kuten saunassa)
 	if stage >= 3:
-		for key in ["jeans", "denim", "workwear", "belt_y", "pants_puff", "skirt"]:
+		for key in ["jeans", "denim", "workwear", "belt_y", "pants_puff", "skirt", "gown"]:
 			look.erase(key)
 		look["pants"] = Color(0.85, 0.08, 0.2) if woman else Color(0.92, 0.92, 0.95)
 		look["shorts_y"] = (0.86 if woman else 0.8) * k

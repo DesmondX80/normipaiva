@@ -33,6 +33,8 @@ func setup(look: Dictionary, towel: Color, woman := false) -> void:
 	_tilt = Node3D.new()
 	add_child(_tilt)
 	var lk := look.duplicate()
+	lk.erase("skirt")  # vaatteiden omat verkot pois: konttaajalla vain pyyhe
+	lk.erase("gown")
 	var skin: Color = lk.get("skin", Color(1.0, 0.9, 0.85))
 	lk["shirt"] = skin
 	lk["pants"] = skin

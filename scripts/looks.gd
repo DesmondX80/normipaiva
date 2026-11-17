@@ -280,7 +280,7 @@ const SIVIKKI_TIMO := {
 	"shoe": "lenkkari", "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.42, 0.25), "height": 1.74, "belly": 0.3, "bulk": -0.2,
 	"skin": Color(0.98, 0.84, 0.74), "shine": 0.6,
 }
-## Minttu: punaiset kiharat olkapäille (add_curls), pisamainen vaalea iho ja kullankeltainen olkaimeton paljettimekko
+## Minttu: punaiset kiharat olkapäille (add_curls), pisamainen vaalea iho ja kullankeltainen olkaimeton satiinimekko
 ## polviin (add_gown: vartalonmyötäinen, halkio vasemmassa reidessä), valkoiset sandaalit. Muodot Sinikan tasoa (issue: vähintään yhtä
 ## hemaiseva), mutta selvästi eri näköinen: punakiharainen ja pisamainen kesämekossa, ei platinablondi tuubitopissa.
 const MINTTU := {
@@ -587,7 +587,7 @@ static func add_skirt(c: Node3D, col: Color) -> void:
 	c.attach("pelvis", sk, Vector3(0, 0.08, -0.01))
 
 
-## Olkaimeton paljettimekko polviin (Minttu, Jessica Rabbit -tyylinen siluetti omin värein): yläosa maalataan vartaloon
+## Olkaimeton satiinimekko polviin (Minttu, Jessica Rabbit -tyylinen siluetti omin värein): yläosa maalataan vartaloon
 ## (paita kullankeltaisena, tube_y olkaimeton yläreuna), ja hame on oma verkko, joka lasketaan vartaloverkosta:
 ## vaakasiivuittain lantion ja kummankin reiden ympäri kupera kehä (ei kartio, kulkee reisien välistä yhtenä pintana)
 ## pinnan yläpuolelle. Hame seuraa luustoa: jokainen piste saa lähimpien vartalon pisteiden luupainot (käänteinen
@@ -619,7 +619,7 @@ static func add_gown(c: Node3D, col: Color) -> void:
 	m.metallic = 0.12
 	m.roughness = 0.5
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED  # halkion reunoista näkyy sisäpinta
-	m.metallic_specular = 0.6  # paljettien hillitty kiilto, sama tuntu kuin vartaloon maalatussa yläosassa
+	m.metallic_specular = 0.6  # satiinin hillitty kiilto, sama tuntu kuin vartaloon maalatussa yläosassa
 	skirt.material_override = m
 	sk.add_child(skirt)
 
