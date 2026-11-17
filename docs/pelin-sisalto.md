@@ -1051,9 +1051,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Kengät (#272, #274):** jokaisella hahmolla on oma kenkätyyppi (`look.shoe`; `Shoes.type_for` käyttää `shoes`-väriä vain varalla).
   Pelaajalla tuulipuvussa lenkkarit, farkuissa ja työvaatteissa työkengät ja hiihtohaalarissa kuukengät; saunassa ja uidessa
   paljain jaloin. **Kumisaappaat (#274):** kodin eteisessä (makuuhuoneen oven ja etuseinän välissä) ja mökin päätyseinällä punaisen uunin vieressä on
-  vihreä saapaspari vaalealla kuramatolla; E vetää ne jalkaan ja uusi E vaihtaa omat kengät takaisin. Ne pysyvät jalassa paikasta toiseen ja tallentuvat
-  (`pelaaja/saappaat`), eikä paikka vaihda kenkiä itsestään. Toisen paikan paria ei voi ottaa, kun toinen on jalassa, ja
-  hiihtohaalari pitää aina kuukengät. **Tanssijat:** Hilkka ja Anna-Liisa kävelykengät, seuraintalon Sinikka punaiset
+  vihreä saapaspari vaalealla kuramatolla. E avaa valikon: matolta jalkaan tai reppuun, jalasta matolle tai reppuun ja
+  repusta jalkaan tai matolle. Repussa kulkevat saappaat (yksi pari kerrallaan) vaihtuvat jalkaan missä tahansa repusta
+  (I) tai T-valikosta, ja riisutut menevät takaisin reppuun. Ne pysyvät jalassa paikasta toiseen ja tallentuvat
+  (`pelaaja/saappaat`, `pelaaja/saappaat_repussa`), eikä paikka vaihda kenkiä itsestään. Pari jätetään vain omalle
+  matolleen, ja hiihtohaalari pitää aina kuukengät. **Tanssijat:** Hilkka ja Anna-Liisa kävelykengät, seuraintalon Sinikka punaiset
   sandaalit. **Sivuhahmot:** kenkä sopii henkilöön (mummot kävelykenkä, työmiehet työkenkä, nuoret lenkkari, virkailijat ja
   tarjoilijat nauhakenkä, naisilla osalla sandaali, kodassa ja metsäretkillä kumisaapas). Satunnaisissa joukoissa (lavan yleisö,
   tanssiparit) kenkä arvotaan iän ja sukupuolen mukaan (`Shoes.random_type`: vanhat kävelykenkä, naisista 40 % sandaali muut lenkkari,

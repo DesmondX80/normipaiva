@@ -151,12 +151,20 @@ static func _slab(b: Node3D, y0: float, h: float, inset: float, col: Color) -> v
 	B.mesh(b, B.cyl(0.048 - inset, 0.048 - inset, h, 16), Vector3(0, y, 0.11), col)  # kanta
 
 
-## Vihje saappaiden luona (place = "koti" tai "mokki"): laita jalkaan, ota pois tai kerro, miksi ei.
+## Repussa kulkeva pari ("koti" tai "mokki", "" = ei saappaita repussa): main.gd _boots_menu ja _bag_boots, tallennus
+## pelaaja/saappaat_repussa. Jalassa oleva pari on Looks.boots.
+static var bag := ""
+
+
+## Onko paikan (place = "koti" tai "mokki") pari omalla matollaan (ei jalassa eikä repussa).
+static func at_mat(place: String) -> bool:
+	return Looks.boots != place and bag != place
+
+
+## Vihje saappaiden luona (place = "koti" tai "mokki"): E avaa valikon (jalkaan, reppuun tai tähän).
 static func hint(place: String) -> String:
-	if Looks.outfit == "hiihtohaalari":
-		return "Kumisaappaat. Hiihtohaalarissa pidetään kuukengät."
 	if Looks.boots == place:
-		return "[E] Kumisaappaat pois, omat kengät jalkaan"
-	if Looks.boots != "":
-		return "Kumisaappaat on jo jalassa (%s)." % ("kodin" if Looks.boots == "koti" else "mökin")
-	return "[E] Vedä kumisaappaat jalkaan"
+		return "[E] Kumisaappaat pois: tähän tai reppuun"
+	if bag == place:
+		return "[E] Kumisaappaat repusta: jalkaan tai tähän"
+	return "[E] Kumisaappaat: jalkaan tai reppuun"

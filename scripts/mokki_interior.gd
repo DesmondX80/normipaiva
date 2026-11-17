@@ -371,7 +371,7 @@ func _process(delta: float) -> void:
 				bl.modulate.a -= delta * 0.6
 				if bl.modulate.a <= 0.0:
 					bl.visible = false
-	_boots.visible = Looks.boots != "mokki"
+	_boots.visible = Saappaat.at_mat("mokki")
 	if not active or busy:
 		hint = ""
 		spot = ""

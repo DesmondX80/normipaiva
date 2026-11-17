@@ -445,6 +445,15 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_r(img, 3, 4, 10, 1, Color(0.8, 0.2, 0.25))
 			for k in 4:
 				_r(img, 5 + (k % 2) * 4, 7 + (k / 2) * 4, 2, 2, Color(0.55, 0.85, 1.0))
+		"kumisaappaat":  # vihreä kumisaapas sivulta: varsi, kärki eteen, vaalea pohja ja suun reunus
+			var g := Color(0.17, 0.42, 0.19)
+			_r(img, 4, 2, 6, 1, Color(0.75, 0.78, 0.7))  # suun reunus
+			_r(img, 4, 3, 6, 8, g)  # varsi
+			_r(img, 5, 3, 1, 8, g.lightened(0.25))  # kiilto
+			_r(img, 4, 10, 10, 3, g)  # jalkaosa, kärki eteen
+			_r(img, 11, 10, 3, 1, g.lightened(0.15))
+			_r(img, 3, 13, 12, 2, Color(0.93, 0.9, 0.82))  # pohja
+			_r(img, 3, 9, 1, 4, g.darkened(0.3))  # kantaraita
 		"klaffipoyta":  # taitettu pöytä: ruskea levy ja teräsjalat
 			_r(img, 3, 2, 10, 12, Color(0.62, 0.45, 0.26))
 			_r(img, 3, 7, 10, 1, Color(0.4, 0.28, 0.15))
