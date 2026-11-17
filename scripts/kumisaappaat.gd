@@ -1,7 +1,7 @@
 extends RefCounted
 ## Kumisaappaat esineenä (#274): kodin eteisessä (home_interior.gd) ja mökin ovensuussa (mokki_interior.gd) seisova
-## vihreä pari. E vaihtaa ne pelaajan jalkaan ja takaisin (main.gd _toggle_boots, Looks.boots); jalassa olevat
-## piilotetaan paikaltaan. Mitat pelin saappaasta (kengat.tscn kumisaapas_m: korkeus 0,375 m, pituus 0,33 m) ja esikuvasta
+## vihreä pari (sama pari kummassakin paikassa). E avaa valikon (main.gd _toggle_boots, Looks.boots); jalassa tai repussa
+## olevat piilotetaan molemmilta matoilta. Mitat pelin saappaasta (kengat.tscn kumisaapas_m: korkeus 0,375 m, pituus 0,33 m) ja esikuvasta
 ## (Hunter Original, EU 43: varsi noin 40 cm). Umpinaiset palat: vaalea kaksikerroksinen pohja pyöreine kärkineen ja
 ## kantoineen, matala kärki ja pullea rinta, tummempi kantaraita, kartiomainen varsi, vaalea suun reunus, tumma suu, sivusolki
 ## ja kantalappu.
@@ -151,20 +151,20 @@ static func _slab(b: Node3D, y0: float, h: float, inset: float, col: Color) -> v
 	B.mesh(b, B.cyl(0.048 - inset, 0.048 - inset, h, 16), Vector3(0, y, 0.11), col)  # kanta
 
 
-## Repussa kulkeva pari ("koti" tai "mokki", "" = ei saappaita repussa): main.gd _boots_menu ja _bag_boots, tallennus
-## pelaaja/saappaat_repussa. Jalassa oleva pari on Looks.boots.
+## Saappaat ovat yksi pari, joka odottaa sekä kodin että mökin matolla: repussa "repussa" ("" = ei repussa; jalassa
+## Looks.boots = "jalassa"). main.gd _toggle_boots ja _bag_boots, tallennus pelaaja/saappaat_repussa.
 static var bag := ""
 
 
-## Onko paikan (place = "koti" tai "mokki") pari omalla matollaan (ei jalassa eikä repussa).
-static func at_mat(place: String) -> bool:
-	return Looks.boots != place and bag != place
+## Näkyykö pari matolla (place = "koti" tai "mokki"): sama pari kummassakin, kun se ei ole jalassa eikä repussa.
+static func at_mat(_place: String) -> bool:
+	return Looks.boots == "" and bag == ""
 
 
 ## Vihje saappaiden luona (place = "koti" tai "mokki"): E avaa valikon (jalkaan, reppuun tai tähän).
-static func hint(place: String) -> String:
-	if Looks.boots == place:
+static func hint(_place: String) -> String:
+	if Looks.boots != "":
 		return "[E] Kumisaappaat pois: tähän tai reppuun"
-	if bag == place:
+	if bag != "":
 		return "[E] Kumisaappaat repusta: jalkaan tai tähän"
 	return "[E] Kumisaappaat: jalkaan tai reppuun"
