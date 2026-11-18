@@ -13,12 +13,14 @@ const PLAYER := {
 	"belly": 0.75, "sag": 1.0, "bulk": 0.1, "shoulders": -0.55,
 }
 ## Pelaajan asut (vaatekaappi kotona ja Paapelin makuuhuoneessa, main.gd tallentaa valinnan): tuulipuku ja
-## Karhu-lippis on oletus. Hiihtohaalari ostetaan kirppikseltä Railin vaatetangosta (main.gd has_haalari). Kaikissa vaaleat hiukset, pukinparta, kello, rannekoru ja tatuointi vasemmassa olkavarressa.
+## Karhu-lippis on oletus. Hiihtohaalari ostetaan kirppikseltä Railin vaatetangosta (main.gd has_haalari). Nahkaliivin antaa Pentti kiertueen
+## jälkeen (main.gd has_liivi, rikos/pentti.gd _kiertue_aamu). Kaikissa vaaleat hiukset, pukinparta, kello, rannekoru ja tatuointi vasemmassa olkavarressa.
 const OUTFITS := {
 	"tuulipuku": {"name": "Tuulipuku ja Karhu-lippis"},
 	"farkut": {"name": "Verkkopaita, henkselit ja työhousut"},
 	"tyovaatteet": {"name": "Työvaatteet ja Karjala-lippis"},
 	"hiihtohaalari": {"name": "Hiihtohaalari ja otsapanta"},
+	"nahkaliivi": {"name": "Nahkaliivi ja farkut"},
 }
 const PLAYER_HAIR := Color(0.82, 0.66, 0.4)
 const HAALARI_PINK := Color(0.95, 0.1, 0.5)
@@ -26,8 +28,8 @@ static var outfit := "tuulipuku"
 ## Pelaajan päähine lippiksen tilalle (kodin vaatekaappi): "" = asun oma lippis, "stetson" = cowboyhattu,
 ## "koppa" = Karhu-kutosen pahvikoppa (ensimmäisestä kaupasta ostetusta kutosesta).
 static var hat := ""
-## Pelaajan kumisaappaat (#274, main.gd _set_boots): "" = asun omat kengät, "koti" = kodin eteisen saappaat, "mokki" = mökin
-## ovensuun saappaat (kumisaappaat.gd). Hiihtohaalarissa pidetään aina kuukengät.
+## Pelaajan kumisaappaat (#274, main.gd _set_boots): "" = asun omat kengät, "jalassa" = kumisaappaat jalassa (yksi pari,
+## joka odottaa kodin ja mökin matolla, kumisaappaat.gd). Hiihtohaalarissa pidetään aina kuukengät.
 static var boots := ""
 
 
@@ -38,6 +40,15 @@ static func player(which := "") -> Dictionary:
 	look.merge({"player": true, "outfit": o, "hair_color": PLAYER_HAIR, "skin": Color(1.0, 0.92, 0.84), "tattoo": true,
 		"cap": "karhu", "shades": "pilotti", "bare_skin": Color(0.95, 0.75, 0.6)}, true)
 	match o:
+		"nahkaliivi":
+			# Kuten Pentti (PENTTI): avonainen ruskea nahkaliivi paljaan karvaisen rinnan päällä, paljaat käsivarret, farkut
+			# mustalla vyöllä, cowboybootsit. Ei Pentin viiksiä, ketjua eikä laseja: pelaaja pysyy omana itsenään.
+			for k in ["tracksuit", "stripe_color"]:
+				look.erase(k)
+			look.merge({"shirt": Color(0.3, 0.17, 0.08), "shine": 0.6, "sleeve_x": 0.18, "vest_open": true, "chest_hair": true,
+				"body_hair": Color(0.55, 0.42, 0.25), "pants": Color(0.2, 0.26, 0.4), "jeans": true, "belt_y": 0.99,
+				"belt_col": Color(0.06, 0.05, 0.04), "pants_puff": 0.016, "shoes": Color(0.25, 0.15, 0.08), "shoe": "saapas",
+				"stripes": false, "cap": ""}, true)
 		"farkut":
 			for k in ["tracksuit", "stripe_color"]:
 				look.erase(k)
@@ -280,14 +291,15 @@ const SIVIKKI_TIMO := {
 	"shoe": "lenkkari", "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.42, 0.25), "height": 1.74, "belly": 0.3, "bulk": -0.2,
 	"skin": Color(0.98, 0.84, 0.74), "shine": 0.6,
 }
-## Minttu: punaiset kiharat olkapäille (add_curls), pisamainen vaalea iho ja keltainen polvipituinen kesämekko
-## ohuin olkaimin (paljaat käsivarret, helma add_skirt), valkoiset sandaalit. Muodot Sinikan tasoa (issue: vähintään yhtä
+## Minttu: punaiset kiharat olkapäille (add_curls), pisamainen vaalea iho ja kullankeltainen olkaimeton satiinimekko
+## polviin (add_gown: vartalonmyötäinen, halkio vasemmassa reidessä), valkoiset sandaalit. Muodot Sinikan tasoa (issue: vähintään yhtä
 ## hemaiseva), mutta selvästi eri näköinen: punakiharainen ja pisamainen kesämekossa, ei platinablondi tuubitopissa.
 const MINTTU := {
-	"model": "female", "shirt": Color(1.0, 0.8, 0.22), "pants": Color(1.0, 0.8, 0.22), "shoes": Color(0.95, 0.93, 0.88),
+	"model": "female", "shirt": Color(1.0, 0.78, 0.16), "pants": Color(1.0, 0.78, 0.16), "shoes": Color(0.95, 0.93, 0.88),
 	"hair": "Hair_Long", "hair_color": Color(0.72, 0.2, 0.07), "height": 1.68, "skin": Color(1.0, 0.92, 0.86),
-	"bare_skin": Color(1.0, 0.86, 0.78), "shorts_y": 0.88, "sleeve_x": 0.17, "curves": 1.0, "bust": 2.7, "curls": true,
-	"skirt": Color(1.0, 0.8, 0.22), "shoe": "sandaali", "nails": Color(0.92, 0.45, 0.5),
+	"bare_skin": Color(1.0, 0.86, 0.78), "shorts_y": 0.86, "sleeve_x": 0.17, "curves": 1.0, "bust": 2.7, "curls": true,
+	"tube_y": 1.38, "shine": 0.85, "pants_puff": 0.0, "shirt_puff": 0.004, "satin": true,
+	"gown": Color(1.0, 0.78, 0.16), "shoe": "sandaali", "nails": Color(0.92, 0.45, 0.5),
 }
 ## Katja: pitkät mustat suorat hiukset (add_long_hair), kiiltävä musta nahkatakki, siniset farkut vyön kanssa ja mustat
 ## saappaat; motoristi. Muodot Sinikan tasoa.
@@ -329,6 +341,8 @@ static func make(parent: Node3D, look: Dictionary) -> Node3D:
 		add_long_hair(c, look.get("hair_color", Color(0.05, 0.04, 0.05)))
 	if look.has("skirt"):
 		add_skirt(c, look.skirt)
+	if look.has("gown"):
+		add_gown(c, look.gown)
 	if look.has("perm_col"):
 		add_perm(c, look.perm_col, float(look.get("height", 1.8)) / 1.8)
 	if look.get("round_glasses", false):
@@ -582,6 +596,305 @@ static func add_skirt(c: Node3D, col: Color) -> void:
 		var a := k * TAU / 7.0
 		B.mesh(sk, B.sphere(0.012, 6), Vector3(cos(a) * 0.22, -0.32, sin(a) * 0.19), Color(1, 1, 1))
 	c.attach("pelvis", sk, Vector3(0, 0.08, -0.01))
+
+
+## Olkaimeton satiinimekko polviin (Minttu, Jessica Rabbit -tyylinen siluetti omin värein): yläosa maalataan vartaloon
+## (paita kullankeltaisena, tube_y olkaimeton yläreuna), ja hame on oma verkko, joka lasketaan vartaloverkosta:
+## vaakasiivuittain lantion ja kummankin reiden ympäri kupera kehä (ei kartio, kulkee reisien välistä yhtenä pintana)
+## pinnan yläpuolelle. Hame seuraa luustoa: jokainen piste saa lähimpien vartalon pisteiden luupainot (käänteinen
+## etäisyys), joten reisien välinen kangas venyy askeleessa ja istuessa. Halkio vasemman reiden edessä helmasta
+## reiden puoliväliin. Lepoasennossa etu on +Z (vrt. character.gd _nipple_patch).
+const GOWN_ROWS := 18
+const GOWN_SEGS := 56
+const GOWN_OFF := 0.016  # pinnan yläpuolelle (housualueen pöyhennys pois, jiggle mahtuu)
+const GOWN_SLIT := 0.65  # halkion korkeus hameen pituudesta (helmasta ylös)
+const GOWN_SLIT_W := 0.07  # halkion leveys helmassa (V-aukko, yläpäässä kiinni)
+static func add_gown(c: Node3D, col: Color) -> void:
+	var sk: Skeleton3D = c.skeleton
+	var body: MeshInstance3D = null
+	for mi in sk.get_children():
+		if mi is MeshInstance3D and (mi as MeshInstance3D).material_override == c.body_mat:
+			if body == null or mi.mesh.surface_get_array_len(0) > body.mesh.surface_get_array_len(0):
+				body = mi
+	if body == null:
+		return
+	var skirt := MeshInstance3D.new()
+	skirt.name = "Mekko"
+	skirt.mesh = _gown_mesh(body, sk, col)
+	skirt.skin = body.skin
+	skirt.transform = body.transform
+	skirt.skeleton = body.skeleton
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
+	m.albedo_color = col  # sama sävy kuin vartaloon maalattu yläosa; pisteissä vain sävytys
+	m.metallic = 0.08
+	m.roughness = 0.36  # sama kiilto kuin yläosan satiinissa (character.gdshader satin)
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED  # halkion reunoista näkyy sisäpinta
+	m.metallic_specular = 0.6  # satiinin hillitty kiilto, sama tuntu kuin vartaloon maalatussa yläosassa
+	skirt.material_override = m
+	sk.add_child(skirt)
+
+
+## Kääreverkko vartalosta (mekko ja pyyhe): opt "towel" = pyyhe kainaloista polven yläpuolelle, riippuu rinnoilta
+## suoraan alas (kehä ei kapene alaspäin), päällekkäinen taite etusivulla, pystypoimut; muuten mekon hame.
+## Pyyhe kääreenä (Rasvanapin naiset, crawler3d.gd): kainaloista polven yläpuolelle, riippuu rinnoilta suoraan alas
+## kuten oikea pyyhe (referenssi: pyyhe rintojen yllä, suora putki, päällekkäinen pää etusivulla), matta frotee.
+## Palauttaa verkon solmun (näkyvyys vaihdetaan pyyhkeen mukaan).
+static func add_towel_wrap(c: Node3D, col: Color) -> MeshInstance3D:
+	var sk: Skeleton3D = c.skeleton
+	var body: MeshInstance3D = null
+	for mi in sk.get_children():
+		if mi is MeshInstance3D and (mi as MeshInstance3D).material_override == c.body_mat:
+			if body == null or mi.mesh.surface_get_array_len(0) > body.mesh.surface_get_array_len(0):
+				body = mi
+	if body == null:
+		return null
+	var w := MeshInstance3D.new()
+	w.name = "Pyyhe"
+	w.mesh = _gown_mesh(body, sk, col, {"towel": true})
+	w.skin = body.skin
+	w.transform = body.transform
+	w.skeleton = body.skeleton
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
+	m.albedo_color = col
+	m.roughness = 1.0  # frotee: täysin matta, ei kiiltoa
+	m.metallic_specular = 0.15
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED  # yläreunasta näkyy sisäpinta
+	w.material_override = m
+	sk.add_child(w)
+	return w
+
+
+static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color, opt: Dictionary = {}) -> ArrayMesh:
+	var towel: bool = opt.get("towel", false)
+	var key := "towel_v4" if towel else "gown_v8"
+	if body.mesh.has_meta(key):
+		return body.mesh.get_meta(key)
+	var src := body.mesh.surface_get_arrays(0)
+	var sv: PackedVector3Array = src[Mesh.ARRAY_VERTEX]
+	var sb: PackedInt32Array = src[Mesh.ARRAY_BONES]
+	var sw: PackedFloat32Array = src[Mesh.ARRAY_WEIGHTS]
+	var wpv := sb.size() / sv.size()
+	var to_mesh := body.transform.affine_inverse()  # luuston avaruus -> verkon avaruus
+	var bone_y := func(nm: String) -> float: return (to_mesh * sk.get_bone_global_rest(sk.find_bone(nm)).origin).y
+	var y_top: float = bone_y.call("pelvis") + 0.13  # vyötärö: hame jatkaa yläosaa ilman porrasta
+	var y_hem: float = bone_y.call("calf_l") + 0.05  # polven yläpuolelle
+	if towel:
+		y_top = bone_y.call("upperarm_l") - 0.065  # rintojen yläpuolelle kainaloiden alle, olkapäät paljaina
+		y_hem = bone_y.call("calf_l") + 0.08
+	# Lantion ja jalkojen pisteet (ei käsiä: lepoasennon kädet voivat olla lantion korkeudella).
+	var skip := ["arm", "hand", "thumb", "index", "middle", "ring", "pinky", "clavicle"]
+	var ok_bone := {}
+	for b in sk.get_bone_count():
+		var nm := sk.get_bone_name(b).to_lower()
+		ok_bone[b] = not skip.any(func(t: String) -> bool: return nm.contains(t))
+	var cand: Array[int] = []
+	for i in sv.size():
+		var y := sv[i].y
+		if y < y_hem - 0.06 or y > y_top + 0.06:
+			continue
+		var best := 0
+		for k in wpv:
+			if sw[i * wpv + k] > sw[i * wpv + best]:
+				best = k
+		if ok_bone.get(sb[i * wpv + best], false):
+			cand.append(i)
+	var rings: Array = []  # [y, [Vector2 kehän pisteet]]
+	var dy := (y_top - y_hem) / (GOWN_ROWS - 1)
+	for r in GOWN_ROWS:
+		var y := y_top - r * dy
+		var pts: Array[Vector2] = []
+		for i: int in cand:
+			# Yläriveillä (vyötärö-lantio, ei jalkoväliä) kapea siivu: muuten alempien rivien leveä lantio nostaa
+			# yläreunan irti vyötäröstä (porras). Alempana leveämpi, jottei harva verkko jätä reittä kehän sisäpuolelle.
+			var band := 0.013 if r < 6 or towel else maxf(dy * 1.5, 0.03)
+			if absf(sv[i].y - y) <= band:
+				pts.append(Vector2(sv[i].x, sv[i].z))
+		var hull := Geometry2D.convex_hull(PackedVector2Array(pts))
+		var cen := Vector2.ZERO
+		for q in hull:
+			cen += q
+		cen /= maxf(1.0, hull.size())
+		var ring: Array[Vector2] = []
+		for j in GOWN_SEGS:
+			var a := TAU * j / GOWN_SEGS
+			var d := Vector2(cos(a), sin(a))
+			var t_hit := 0.0  # säde keskeltä kehän reunaan (kauimmainen leikkaus kuperan monikulmion reunojen kanssa)
+			for e in hull.size():
+				var e0: Vector2 = hull[e]
+				var e1: Vector2 = hull[(e + 1) % hull.size()]
+				var ed := e1 - e0
+				var den := d.cross(ed)
+				if absf(den) < 1e-9:
+					continue
+				var w := e0 - cen
+				var t := w.cross(ed) / den
+				var u := w.cross(d) / den
+				if t > 0.0 and u >= -1e-4 and u <= 1.0001:
+					t_hit = maxf(t_hit, t)
+			# Yläreuna liittyy vartaloon maalattuun yläosaan ilman porrasta: ohut vyötäröllä, paksumpi lantiolta alas.
+			var off := lerpf(0.002, GOWN_OFF, smoothstep(0.0, 6.0, float(r)))
+			if towel:
+				off = 0.014 + 0.004 * sin(a * 9.0) * smoothstep(1.0, 6.0, float(r))  # frotee paksuus ja pystypoimut
+			ring.append(cen + d * (t_hit + off))
+		rings.append([y, ring])
+	if towel:
+		# Pyyhe riippuu: rivin piste ei ole ylemmän rivin pistettä sisempänä (säteen suunnassa), ja helma levenee hieman.
+		for r in range(1, GOWN_ROWS):
+			var c0 := Vector2.ZERO
+			for q: Vector2 in rings[r][1]:
+				c0 += q
+			c0 /= GOWN_SEGS
+			for j in GOWN_SEGS:
+				var cur: Vector2 = rings[r][1][j]
+				var d := (cur - c0).normalized()
+				var prev_along: float = (rings[r - 1][1][j] - c0).dot(d)
+				var dist := maxf((cur - c0).length(), prev_along)
+				rings[r][1][j] = c0 + d * dist * (1.0 + 0.004 * float(r > GOWN_ROWS / 2))
+	# Kapeneva helma: pakaroiden leveimmän kehän alapuolella kehä ei levene alaspäin (kynähame, ei kello).
+	var widest := 0
+	var wmax := 0.0
+	for r in GOWN_ROWS:
+		var w := 0.0
+		for q: Vector2 in rings[r][1]:
+			w += q.length()
+		if w > wmax:
+			wmax = w
+			widest = r
+	for r in range(widest + 1, GOWN_ROWS if not towel else 0):
+		var cen_r := Vector2.ZERO
+		for q: Vector2 in rings[r][1]:
+			cen_r += q
+		cen_r /= GOWN_SEGS
+		var cen_p := Vector2.ZERO
+		for q: Vector2 in rings[r - 1][1]:
+			cen_p += q
+		cen_p /= GOWN_SEGS
+		for j in GOWN_SEGS:
+			var rp: float = (rings[r - 1][1][j] - cen_p).length() * 0.985
+			var v: Vector2 = rings[r][1][j] - cen_r
+			if v.length() > rp:
+				rings[r][1][j] = cen_r + v.normalized() * rp
+	# Pystytasoitus alimmilla riveillä: kehän piste ei poukkoile rivistä toiseen (vain ulospäin, ettei reisi tule läpi).
+	for it in 2:
+		for r in range(GOWN_ROWS / 2, GOWN_ROWS - 1):
+			for j in GOWN_SEGS:
+				var a0: Vector2 = rings[r - 1][1][j]
+				var a1: Vector2 = rings[r][1][j]
+				var a2: Vector2 = rings[r + 1][1][j]
+				var avg := (a0 + a2) * 0.5
+				var c0 := Vector2.ZERO
+				for q: Vector2 in rings[r][1]:
+					c0 += q
+				c0 /= GOWN_SEGS
+				if (avg - c0).length() > (a1 - c0).length():
+					rings[r][1][j] = c0 + (a1 - c0).normalized() * (avg - c0).length()
+	# Halkio: vasemman reiden etupuolella (+X, +Z) muutaman sarakkeen rako helmasta GOWN_SLIT-korkeudelle.
+	var slit_a := atan2(0.62, 0.78)  # reiden ulkoetupuoli: ei reisien välisen sillan kohdalla (siellä kehä poukkoilee)
+	var slit_j := posmod(roundi(slit_a / TAU * GOWN_SEGS), GOWN_SEGS)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_skin_weight_count(SurfaceTool.SKIN_8_WEIGHTS if wpv == 8 else SurfaceTool.SKIN_4_WEIGHTS)
+	var verts: Array = []  # [rivi][sarake] -> indeksi
+	var idx := 0
+	var slit_top := GOWN_ROWS - 1 - floori((GOWN_ROWS - 1) * GOWN_SLIT)  # halkion yläpään rivi
+	var slit_b := {}  # rivi -> halkion oikean reunan piste
+	for r in GOWN_ROWS:
+		var row: Array = []
+		var y: float = rings[r][0]
+		for j in GOWN_SEGS + 1:
+			var q: Vector2 = rings[r][1][j % GOWN_SEGS]
+			var p := Vector3(q.x, y, q.y)
+			# Pisteiden väri on vain sävytys (valkoinen pohja): kankaan väri tulee materiaalista, koska valmis verkko jaetaan
+			# välimuistissa kaikille saman vartaloverkon hahmoille (eri väriset pyyhkeet samasta verkosta).
+			var vcol: Color = Color(0.8, 0.8, 0.8) if r == GOWN_ROWS - 1 else Color.WHITE
+			if towel:
+				# Päällekkäinen pää etusivulla: kohollaan oleva reuna ja varjo sen vieressä; raidat helmassa.
+				var seam := posmod(roundi(atan2(0.85, -0.55) / TAU * GOWN_SEGS), GOWN_SEGS)
+				var jj := j % GOWN_SEGS
+				var c0 := Vector2.ZERO
+				for qq: Vector2 in rings[r][1]:
+					c0 += qq
+				c0 /= GOWN_SEGS
+				var outd := (q - c0).normalized()
+				if jj == seam:
+					p += Vector3(outd.x, 0, outd.y) * 0.008
+				elif jj == (seam + 1) % GOWN_SEGS:
+					vcol = vcol.darkened(0.08)
+				if r == GOWN_ROWS - 3 or r == GOWN_ROWS - 5:
+					vcol = vcol.darkened(0.12)
+				vcol = vcol.lightened(0.04 * sin(jj * 1.7 + r * 0.9) * sin(jj * 0.6))
+			# Luupainot lähimmistä vartalon pisteistä (käänteinen etäisyys, 6 lähintä).
+			var near: Array = []
+			for i: int in cand:
+				if absf(sv[i].y - y) > 0.06:
+					continue
+				var dd := sv[i].distance_squared_to(p)
+				if near.size() < 6 or dd < near[-1][0]:
+					near.append([dd, i])
+					near.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+					if near.size() > 6:
+						near.pop_back()
+			var acc := {}
+			for nb: Array in near:
+				var wv := 1.0 / (sqrt(nb[0]) + 0.01)
+				for k in wpv:
+					var w: float = sw[nb[1] * wpv + k]
+					if w > 0.0:
+						acc[sb[nb[1] * wpv + k]] = float(acc.get(sb[nb[1] * wpv + k], 0.0)) + w * wv
+			var keys := acc.keys()
+			keys.sort_custom(func(a: int, b: int) -> bool: return acc[a] > acc[b])
+			var bones := PackedInt32Array()
+			var weights := PackedFloat32Array()
+			var tot := 0.0
+			for k in wpv:
+				if k < keys.size():
+					tot += acc[keys[k]]
+			for k in wpv:
+				bones.append(keys[k] if k < keys.size() else 0)
+				weights.append(acc[keys[k]] / tot if k < keys.size() and tot > 0.0 else 0.0)
+			var hem := r == GOWN_ROWS - 1
+			st.set_color(vcol)
+			st.set_uv(Vector2(float(j) / GOWN_SEGS * 10.0, y * 18.0))
+			st.set_bones(bones)
+			st.set_weights(weights)
+			# Halkio on viilto: saumasarakkeessa kaksi pistettä (vasen ja oikea reuna), jotka ovat yläpäässä yhdessä ja
+			# erkanevat helmaa kohti (V-aukko). Muualla yksi piste.
+			var cut := j == slit_j and r >= slit_top and not towel
+			var spread := 0.0
+			if cut:
+				var tan_v: Vector2 = (rings[r][1][(j + 1) % GOWN_SEGS] - rings[r][1][(j + GOWN_SEGS - 1) % GOWN_SEGS]).normalized()
+				spread = GOWN_SLIT_W * 0.5 * pow(float(r - slit_top) / maxf(1.0, GOWN_ROWS - 1 - slit_top), 1.3)
+				st.add_vertex(p - Vector3(tan_v.x, 0, tan_v.y) * spread)  # vasen reuna (sarakkeen j-1 puoli)
+				slit_b[r] = idx + 1
+				st.set_color(vcol)
+				st.set_uv(Vector2(float(j) / GOWN_SEGS * 10.0, y * 18.0))
+				st.set_bones(bones)
+				st.set_weights(weights)
+				st.add_vertex(p + Vector3(tan_v.x, 0, tan_v.y) * spread)  # oikea reuna (sarakkeen j+1 puoli)
+				row.append(idx)
+				idx += 2
+			else:
+				st.add_vertex(p)
+				row.append(idx)
+				idx += 1
+		verts.append(row)
+	for r in GOWN_ROWS - 1:
+		for j in GOWN_SEGS:
+			# Halkion saumassa sarakkeen j oikealla puolella olevat palat käyttävät oikean reunan pistettä.
+			var a: int = slit_b.get(r, verts[r][j]) if j == slit_j else verts[r][j]
+			var b: int = verts[r][j + 1]
+			var c2: int = slit_b.get(r + 1, verts[r + 1][j]) if j == slit_j else verts[r + 1][j]
+			var d: int = verts[r + 1][j + 1]
+			for t in [a, b, c2, b, d, c2]:
+				st.add_index(t)
+	st.generate_normals()
+	var mesh := st.commit()
+	body.mesh.set_meta(key, mesh)
+	return mesh
 
 
 ## Jonin Sandels-päkkirinkka: Sandelsin 24-pakkauksen pahvilaatikko pystyssä selässä, yläpäähän leikattu suuaukko,

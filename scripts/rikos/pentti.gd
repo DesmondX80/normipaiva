@@ -371,6 +371,10 @@ func _kiertue_aamu(town: String, raha: float) -> void:
 	game.tilat.add("stressi", -0.25)
 	game.tilat.first("pentti_kyyti", 0.5)
 	game.tilat.first("pentti_kiertue", 0.5)
+	if not game.has_liivi:
+		# Kiertueen muisto: Pentin nahkaliivi kodin vaatekaappiin (Looks.OUTFITS "nahkaliivi").
+		game.has_liivi = true
+		game._queue_message("Kassissa on Pentin nahkaliivi ja lappu: \"Pidä tää. Sää oot nyt kiertuemiehiä. T: Pentti\" (Kodin vaatekaapissa.)", 5.0)
 	if raha > 0.0:
 		game._queue_message("Lompakosta puuttuu %s €. Lappu: \"Kiertuekulut. Bensa, makkarat ja yks motelli. T: Pentti\"." % game._eur(raha), 4.5)
 	game._save_game()

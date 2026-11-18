@@ -1038,7 +1038,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   repeämät, vyö, nokiset tahrat iholla ja tuprukka vaalea tukka, viitteenä Uuno kyntämässä; `character.gdshader` net_shirt, grime), Paapelin makuuhuoneen kaapista työhousuihin, flanelliin ja Karjala-lippikseen. Kodin
   kaapista saa myös Stetson-cowboyhatun lippiksen tilalle (ruskea huopa, keskiura, kaareva lieri, nauha ja hopeinen
   koristelaatta); se pysyy päässä asusta riippumatta, kunnes lippis vaihdetaan takaisin. Kirppikseltä ostettu
-  hiihtohaalari tulee kodin kaappiin neljänneksi asuksi. Ensimmäisestä kaupasta ostetusta kutosesta (K-Market,
+  hiihtohaalari tulee kodin kaappiin neljänneksi asuksi. Pentin kiertueen jälkeen aamulla kassissa on Pentin nahkaliivi
+  lapun kanssa ("Pidä tää. Sää oot nyt kiertuemiehiä."), ja se tulee kodin kaappiin asuksi **Nahkaliivi ja farkut**:
+  avonainen ruskea nahkaliivi paljaan karvaisen rinnan päällä, farkut mustalla vyöllä ja cowboybootsit, kuten Pentillä
+  mutta ilman viiksiä ja ketjua (`looks.gd OUTFITS`, main.gd has_liivi). Kaikki asut rinnakkain:
+  `tools/testit/aja.sh tscn tools/testit/pelaaja_asut.tscn`. Ensimmäisestä kaupasta ostetusta kutosesta (K-Market,
   Vaalan K-Market tai kauppa-auto, ei juoksukaljoista) jää Karhu-kutosen pahvikoppa, ja pää pujotetaan heti sen sivun
   aukosta: koppa seisoo pystyssä päässä, edessä kansi pullonkaulojen rei'illä, sivuilla tuima karhu kyljellään
   päälaki eteenpäin ja takana pohja. Alareuna sovitetaan pään muotoon (ylimäärä pullistuu eteen ja taakse). Painatus on oma
@@ -1055,9 +1059,12 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Kengät (#272, #274):** jokaisella hahmolla on oma kenkätyyppi (`look.shoe`; `Shoes.type_for` käyttää `shoes`-väriä vain varalla).
   Pelaajalla tuulipuvussa lenkkarit, farkuissa ja työvaatteissa työkengät ja hiihtohaalarissa kuukengät; saunassa ja uidessa
   paljain jaloin. **Kumisaappaat (#274):** kodin eteisessä (makuuhuoneen oven ja etuseinän välissä) ja mökin päätyseinällä punaisen uunin vieressä on
-  vihreä saapaspari vaalealla kuramatolla; E vetää ne jalkaan ja uusi E vaihtaa omat kengät takaisin. Ne pysyvät jalassa paikasta toiseen ja tallentuvat
-  (`pelaaja/saappaat`), eikä paikka vaihda kenkiä itsestään. Toisen paikan paria ei voi ottaa, kun toinen on jalassa, ja
-  hiihtohaalari pitää aina kuukengät. **Tanssijat:** Hilkka ja Anna-Liisa kävelykengät, seuraintalon Sinikka punaiset
+  vihreä saapaspari vaalealla kuramatolla. Ne ovat periaatteessa yhdet saappaat: kun ne ottaa kummasta tahansa paikasta,
+  ne katoavat molemmilta matoilta, ja ne voi palauttaa kummalle tahansa. E avaa valikon: matolta jalkaan tai reppuun,
+  jalasta matolle tai reppuun ja repusta jalkaan tai matolle. Repussa kulkevat saappaat vaihtuvat jalkaan missä tahansa
+  repusta (I) tai T-valikosta, ja riisutut menevät takaisin reppuun, joten omat kengät saa aina takaisin. Ne pysyvät jalassa
+  paikasta toiseen ja tallentuvat (`pelaaja/saappaat`, `pelaaja/saappaat_repussa`), eikä paikka vaihda kenkiä itsestään.
+  Hiihtohaalari pitää aina kuukengät. **Tanssijat:** Hilkka ja Anna-Liisa kävelykengät, seuraintalon Sinikka punaiset
   sandaalit. **Sivuhahmot:** kenkä sopii henkilöön (mummot kävelykenkä, työmiehet työkenkä, nuoret lenkkari, virkailijat ja
   tarjoilijat nauhakenkä, naisilla osalla sandaali, kodassa ja metsäretkillä kumisaapas). Satunnaisissa joukoissa (lavan yleisö,
   tanssiparit) kenkä arvotaan iän ja sukupuolen mukaan (`Shoes.random_type`: vanhat kävelykenkä, naisista 40 % sandaali muut lenkkari,

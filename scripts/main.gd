@@ -879,6 +879,7 @@ const WOUND_PAIVI := ["Taas sää oot ollu vieraitten koirien kans!", "Istu siih
 ## Palautus esinevalikosta: pallo = 1 € ja moraali/kokemus, kalja = pojat juoksevat nauraen pois, muu = kivisade.
 const Boys := preload("res://scripts/boys.gd")
 const ItemMenu := preload("res://scripts/item_menu.gd")
+const Saappaat := preload("res://scripts/kumisaappaat.gd")
 const DialogueBox := preload("res://scripts/dialogue_box.gd")
 const TalkPrompt := preload("res://scripts/talk_prompt.gd")
 const HintBar := preload("res://scripts/hint_bar.gd")
@@ -2930,6 +2931,7 @@ const DRAKKAR_DANCE := 0.15
 var drakkar := 0  # suihkauksia jäljellä
 var drakkar_found := false
 var has_haalari := false  # kirppikseltä ostettu hiihtohaalari kodin vaatekaapissa (Looks.OUTFITS "hiihtohaalari")
+var has_liivi := false  # Pentin nahkaliivi kodin vaatekaapissa (Looks.OUTFITS "nahkaliivi"), Pentin kiertueen jälkeen
 var has_koppa := false  # Karhu-kutosen pahvikoppa hattuna (Looks.hat "koppa"), ensimmäisestä kaupasta ostetusta kutosesta
 var drakkar_day := -1  # päivä, jona tuoksuu
 var _kirppis_prev := "ulkona"
@@ -8878,7 +8880,8 @@ func _on_home_acted(kind: String) -> void:
 		"saappaat":
 			_toggle_boots("koti")
 		"vaatekaappi":
-			_open_wardrobe(["tuulipuku", "farkut"] + (["hiihtohaalari"] if has_haalari else []) + ["hattu"]
+			_open_wardrobe(["tuulipuku", "farkut"] + (["hiihtohaalari"] if has_haalari else [])
+				+ (["nahkaliivi"] if has_liivi else []) + ["hattu"]
 				+ (["koppa"] if has_koppa else []),
 				"Kotona vaatekaapilla: mitä tänään päälle?")
 		"puhelin":
@@ -10021,6 +10024,10 @@ func _open_eat_menu() -> void:
 		items.append(["klaffipoyta", "Pystytä klaffipöytä (jatka lääkkeitä)"])
 	if hs.laukku == "repussa":
 		items.append(["laakelaukku", "Avaa hoitajan lääkelaukku (puhdas jatkaminen)"])
+	if Looks.boots != "":
+		items.append(["saappaat", "Kumisaappaat pois ja reppuun"])
+	elif Saappaat.bag != "":
+		items.append(["saappaat", "Kumisaappaat repusta jalkaan"])
 	if items.is_empty():
 		_show_message("Ei mitään syötävää eikä juotavaa. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja, mökin savustimesta kalaa ja riistaa.", 3.0)
 		return
@@ -10117,6 +10124,9 @@ func _on_eat(id: String) -> void:
 	_interior_busy(false)
 	_active_walker().controls_enabled = true
 	_mopo_menu(false)
+	if id == "saappaat":
+		_bag_boots()
+		return
 	if id == "klaffipoyta":
 		if _journal.visible:
 			_journal.toggle()
@@ -11477,7 +11487,8 @@ func _on_wardrobe(id: String) -> void:
 	_show_message({"tuulipuku": "Tuulipuku päälle ja Karhu-lippis päähän. Normipäivän univormu.",
 		"farkut": "Repaleinen verkkopaita, henkselit ja työhousut. Tukka pystyssä, naama noessa. Kyntömiehen asu.",
 		"tyovaatteet": "Työhousut, flanelli ja Karjala-lippis. Nyt kelpaa tehdä Paapelin hommia.",
-		"hiihtohaalari": "Neonpinkki hiihtohaalari, kuukengät ja otsapanta. Kasari palasi, ja koko kylä näkee sen."}[id], 3.5)
+		"hiihtohaalari": "Neonpinkki hiihtohaalari, kuukengät ja otsapanta. Kasari palasi, ja koko kylä näkee sen.",
+		"nahkaliivi": "Pentin nahkaliivi paljaalle rinnalle, farkut ja bootsit. Penkit on lämpimät, sanoo liivi."}[id], 3.5)
 	_save_game()
 
 
@@ -11518,18 +11529,70 @@ func _set_hat(h: String) -> void:
 		Looks.restyle_player(n)
 
 
-## Kumisaappaat kodin eteisestä tai mökin ovensuusta (place = "koti" / "mokki", #274): E vetää ne jalkaan ja samoista
-## saappaista E takaisin omat kengät. Paikka ei vaihda kenkiä itsestään, ja hiihtohaalarissa pidetään kuukengät.
-func _toggle_boots(place: String) -> void:
-	if Looks.outfit == "hiihtohaalari":
-		_show_message("Hiihtohaalarissa pidetään kuukengät.", 3.0)
-		return
-	if Looks.boots != "" and Looks.boots != place:
-		_show_message("%s saappaat on jo jalassa." % ("Kodin" if Looks.boots == "koti" else "Mökin"), 3.0)
-		return
-	_set_boots("" if Looks.boots == place else place)
+## Kumisaappaat kodin eteisestä tai mökin ovensuusta (#274): yksi pari, joka odottaa kummallakin matolla (molemmissa
+## näkyy sama pari, kun se ei ole mukana). E avaa valikon: matolta jalkaan tai reppuun, jalasta matolle tai reppuun,
+## repusta jalkaan tai matolle. Otettu pari katoaa molemmilta matoilta, ja sen voi palauttaa kummalle tahansa.
+## Hiihtohaalarissa pidetään kuukengät. Jalassa: Looks.boots = "jalassa", repussa: Saappaat.bag = "repussa".
+## Repusta ja T:llä: _bag_boots.
+func _toggle_boots(_place: String) -> void:
+	var haalari := Looks.outfit == "hiihtohaalari"
+	var items := []
+	if Looks.boots != "":
+		items.append(["tahan", "Riisu ja jätä tähän"])
+		items.append(["reppuun", "Riisu ja laita reppuun"])
+	else:
+		if not haalari:
+			items.append(["jalkaan", "Vedä jalkaan" + (" repusta" if Saappaat.bag != "" else "")])
+		if Saappaat.bag != "":
+			items.append(["tahan", "Jätä tähän matolle"])
+		else:
+			items.append(["reppuun", "Laita reppuun"])
+	var title := "Kumisaappaat" + (" (hiihtohaalarissa pidetään kuukengät)" if haalari and Looks.boots == "" else "")
+	_interior_busy(true)
+	_active_walker().controls_enabled = false
+	_menu_mode = "saappaat"
+	_item_menu.open(items, title)
+
+
+func _on_boots_menu(id: String) -> void:
+	_menu_mode = "give"
+	_interior_busy(false)
+	_active_walker().controls_enabled = true
+	var worn := Looks.boots != ""
+	match id:
+		"jalkaan":
+			Saappaat.bag = ""
+			_set_boots("jalassa")
+			_show_message("Kumisaappaat jalkaan. Nyt pärjää metsässä ja rapakoissa.", 3.0)
+		"reppuun":
+			_set_boots("")
+			Saappaat.bag = "repussa"
+			_show_message("Kumisaappaat reppuun." + (" Omat kengät takaisin jalkaan." if worn else "")
+				+ " Repusta tai %s:llä ne saa jalkaan missä vaan." % Settings.action_key("eat"), 3.5)
+		"tahan":
+			_set_boots("")
+			Saappaat.bag = ""
+			_show_message("Kumisaappaat matolle." + (" Omat kengät takaisin jalkaan." if worn else ""), 3.0)
 	Sfx.play("cloth", -2.0)
-	_show_message("Kumisaappaat jalkaan. Nyt pärjää metsässä ja rapakoissa." if Looks.boots != "" else "Omat kengät takaisin jalkaan.", 3.0)
+	_save_game()
+
+
+## Repusta tai T:llä: repussa olevat saappaat jalkaan, tai jalassa olevat pois ja reppuun.
+func _bag_boots() -> void:
+	if Looks.boots != "":
+		_set_boots("")
+		Saappaat.bag = "repussa"
+		_show_message("Kumisaappaat pois ja reppuun. Omat kengät jalkaan.", 3.0)
+	elif Saappaat.bag != "":
+		if Looks.outfit == "hiihtohaalari":
+			_show_message("Hiihtohaalarissa pidetään kuukengät. Saappaat odottaa repussa.", 3.0)
+			return
+		Saappaat.bag = ""
+		_set_boots("jalassa")
+		_show_message("Kumisaappaat repusta jalkaan. Omat kengät reppuun.", 3.0)
+	else:
+		return
+	Sfx.play("cloth", -2.0)
 	_save_game()
 
 
@@ -21052,7 +21115,9 @@ func _load_game() -> void:
 	phone.found = cfg.get_value("puhelin", "loydetty", false)
 	_set_outfit(cfg.get_value("pelaaja", "asu", "tuulipuku"))
 	_set_hat(cfg.get_value("pelaaja", "hattu", ""))
-	_set_boots(cfg.get_value("pelaaja", "saappaat", ""))
+	# Yksi pari: vanhat tallennukset ("koti" / "mokki") luetaan jalassa olevaksi, ja jalassa oleva voittaa repun.
+	_set_boots("jalassa" if cfg.get_value("pelaaja", "saappaat", "") != "" else "")
+	Saappaat.bag = "repussa" if Looks.boots == "" and cfg.get_value("pelaaja", "saappaat_repussa", "") != "" else ""
 	phone.volume = cfg.get_value("puhelin", "voimakkuus", 2)
 	viina_pullot = cfg.get_value("mokki", "viinapullot", 0)
 	atm_day = cfg.get_value("peli", "otto_paiva", 0)
@@ -21067,6 +21132,7 @@ func _load_game() -> void:
 	drakkar = cfg.get_value("drakkar", "suihkaukset", 0)
 	drakkar_found = cfg.get_value("drakkar", "loydetty", false)
 	has_haalari = cfg.get_value("pelaaja", "haalari", false)
+	has_liivi = cfg.get_value("pelaaja", "liivi", false)
 	has_koppa = cfg.get_value("pelaaja", "koppa", false)
 	drakkar_day = cfg.get_value("drakkar", "paiva", -1)
 	wine_lock_day = cfg.get_value("viini", "lukko_paiva", day if wine_locked else -1)
@@ -21351,6 +21417,7 @@ func _save_game() -> void:
 	cfg.set_value("pelaaja", "asu", Looks.outfit)
 	cfg.set_value("pelaaja", "hattu", Looks.hat)
 	cfg.set_value("pelaaja", "saappaat", Looks.boots)
+	cfg.set_value("pelaaja", "saappaat_repussa", Saappaat.bag)
 	cfg.set_value("puhelin", "voimakkuus", phone.volume)
 	cfg.set_value("mokki", "viinapullot", viina_pullot)
 	cfg.set_value("peli", "otto_paiva", atm_day)
@@ -21363,6 +21430,7 @@ func _save_game() -> void:
 	cfg.set_value("drakkar", "suihkaukset", drakkar)
 	cfg.set_value("drakkar", "loydetty", drakkar_found)
 	cfg.set_value("pelaaja", "haalari", has_haalari)
+	cfg.set_value("pelaaja", "liivi", has_liivi)
 	cfg.set_value("pelaaja", "koppa", has_koppa)
 	cfg.set_value("drakkar", "paiva", drakkar_day)
 	cfg.set_value("viini", "lukko_paiva", wine_lock_day)
@@ -22483,6 +22551,8 @@ func _build_hud() -> void:
 			_on_asema_give(id)
 		elif _menu_mode == "asu":
 			_on_wardrobe(id)
+		elif _menu_mode == "saappaat":
+			_on_boots_menu(id)
 		elif _menu_mode == "raahe":
 			_on_raahe_choice(id)
 		elif _menu_mode == "jukeboksi":
@@ -22763,6 +22833,12 @@ func inventory_items() -> Array:
 		add.call("laake_" + _laake_base(k), _laake_label(k), laake.get(k, 0), _laake_desc(k), {"food": true, "use": k, "use_label": "ota"})
 	if klaffipoyta:
 		add.call("klaffipoyta", "Klaffipöytä", 1, "Taitettava pöytä · jatka lääkkeitä (reseptikirja pöydällä)", {"food": true, "use": "klaffipoyta", "use_label": "pystytä"})
+	if Looks.boots != "":
+		add.call("kumisaappaat", "Kumisaappaat (jalassa)", 1, "Vihreät kumisaappaat jalassa · repussa omat kengät",
+			{"use": "saappaat", "use_label": "riisu reppuun"})
+	elif Saappaat.bag != "":
+		add.call("kumisaappaat", "Kumisaappaat", 1, "Vihreät kumisaappaat · metsään ja rapakoihin",
+			{"use": "saappaat", "use_label": "jalkaan"})
 	if hs.laukku == "repussa":
 		add.call("laakelaukku", "Lääkelaukku", 1, "Hoitajan vanha laukku · puhtaasti jatketut annokset paljastuvat porrasta harvemmin",
 			{"food": true, "use": "laakelaukku", "use_label": "avaa"})
@@ -27442,6 +27518,15 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 				Input.action_release("interact")
 				await get_tree().process_frame
+			var menu := func(id: String) -> void:  # E-valikosta valinta (kuten näppäin: valikko kiinni ja chosen)
+				print("SAAPPAAT valikko %s -> %s" % [_item_menu._items.map(func(it): return it[0]), id])
+				if not _item_menu.visible or _item_menu._items.filter(func(it): return it[0] == id).is_empty():
+					print("TESTI VIKA saappaat: valikossa ei ole '%s'" % id)
+					return
+				_item_menu.visible = false
+				_item_menu.chosen.emit(id)
+				for k in 3:  # sisätilan _process päivittää maton näkyvyyden
+					await get_tree().process_frame
 			var types := func() -> Array:
 				var t := []
 				for n in get_tree().root.find_children("*", "Node3D", true, false):
@@ -27457,6 +27542,7 @@ func _maybe_screenshot() -> void:
 				return cf.get_value("pelaaja", "saappaat", "<puuttuu>")
 			_note.visible = false
 			Looks.boots = ""
+			Saappaat.bag = ""
 			_set_outfit("tuulipuku")
 			if player != walker_out:
 				_toggle_mount()
@@ -27488,11 +27574,13 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("SAAPPAAT vihje '%s'" % _hint.text)
 			await press.call()
+			await snap.call("_koti_valikko.png")
+			await menu.call("jalkaan")
 			print("SAAPPAAT boots %s, tyyppi %s, esine näkyvissä %s, malleja %d, viesti '%s'" % [Looks.boots, types.call(),
 				home_int._boots.visible, get_tree().root.find_children("*", "Node3D", true, false).filter(
 				func(n: Node) -> bool: return n.has_meta("player_body")).size(), _msg.text])
-			check.call("koti E", [Looks.boots, types.call(), home_int._boots.visible], ["koti", ["kumisaapas"], false])
-			check.call("tallennus koti", saved_boots.call(), "koti")
+			check.call("koti E", [Looks.boots, types.call(), home_int._boots.visible], ["jalassa", ["kumisaapas"], false])
+			check.call("tallennus koti", saved_boots.call(), "jalassa")
 			await snap.call("_koti.png")
 			var wp: Vector3 = home_int.walker.global_position
 			await close.call(wp + Vector3(0, 0.3, 0), wp + hz * 1.4 + hx * 0.5 + Vector3(0, 0.5, 0), "_jalat.png")
@@ -27515,7 +27603,7 @@ func _maybe_screenshot() -> void:
 			var kp := bike.global_position + Vector3(0, 0.45, 0)
 			await close.call(kp, kp + bike.global_basis.x * 1.6 + Vector3(0, 0.2, 0), "_pyora_jalat.png")
 			await close.call(kp, kp - bike.global_basis.x * 1.6 + Vector3(0, 0.2, 0), "_pyora_jalat_vasen.png")
-			# 3. Mökillä E: kodin saappaat on jo jalassa.
+			# 3. Mökillä: sama pari, joten mökin matto on tyhjä; E riisuu ne reppuun.
 			_toggle_mount()
 			mokki.ensure_built()
 			_enter_mokki("ovi")
@@ -27534,9 +27622,23 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("SAAPPAAT mökki vihje '%s'" % _hint.text)
 			await press.call()
-			print("SAAPPAAT mökki boots %s, esine näkyvissä %s, viesti '%s'" % [Looks.boots, mokki_int._boots.visible, _msg.text])
-			check.call("mökki E", [Looks.boots, mokki_int._boots.visible], ["koti", true])
+			check.call("mökin matto tyhjä", mokki_int._boots.visible, false)
+			await menu.call("reppuun")
+			print("SAAPPAAT mökki boots %s, reppu %s, esine näkyvissä %s, viesti '%s'" % [Looks.boots, Saappaat.bag,
+				mokki_int._boots.visible, _msg.text])
+			check.call("mökki reppuun", [Looks.boots, Saappaat.bag, mokki_int._boots.visible, types.call()],
+				["", "repussa", false, ["lenkkari"]])
+			var bag_cf := ConfigFile.new()
+			bag_cf.load(SAVE_PATH)
+			check.call("tallennus reppu", bag_cf.get_value("pelaaja", "saappaat_repussa", ""), "repussa")
 			await snap.call("_mokki.png")
+			# Mökin matolle: sama pari näkyy taas kummallakin matolla.
+			await press.call()
+			await menu.call("tahan")
+			check.call("mökin matolle", [Looks.boots, Saappaat.bag, mokki_int._boots.visible], ["", "", true])
+			await press.call()
+			await menu.call("jalkaan")
+			check.call("mökiltä jalkaan", [Looks.boots, Saappaat.bag, mokki_int._boots.visible], ["jalassa", "", false])
 			# 4. Kotona E: omat kengät takaisin.
 			mokki_int.exit_door = "ovi"
 			_on_mokki_exited()
@@ -27546,23 +27648,52 @@ func _maybe_screenshot() -> void:
 				await get_tree().process_frame
 			print("SAAPPAAT koti 2 vihje '%s'" % _hint.text)
 			await press.call()
+			check.call("kodin matto tyhjä", home_int._boots.visible, false)
+			await menu.call("tahan")  # mökiltä otetut saappaat kodin matolle
 			print("SAAPPAAT pois: boots '%s', tyyppi %s, esine näkyvissä %s, viesti '%s'" % [Looks.boots, types.call(),
 				home_int._boots.visible, _msg.text])
 			check.call("koti pois", [Looks.boots, types.call(), home_int._boots.visible], ["", ["lenkkari"], true])
 			await snap.call("_pois.png")
-			# 5. Haalarissa E: kuukengät, ei muutosta.
-			_set_outfit("hiihtohaalari")
+			# 5. Repusta (I tai T) saappaat jalkaan kotipihalla ja takaisin reppuun.
+			await press.call()
+			await menu.call("reppuun")
+			check.call("kotoa reppuun", [Looks.boots, Saappaat.bag, home_int._boots.visible], ["", "repussa", false])
+			home_int.exit_door = "ovi"
+			_on_home_exited()
+			for i in 20:
+				await get_tree().process_frame
+			var items_ids := func() -> Array:
+				return inventory_items().map(func(it): return it.icon)
+			print("SAAPPAAT reppu %s" % [items_ids.call()])
+			check.call("repussa", "kumisaappaat" in items_ids.call(), true)
+			_journal.open_at("reppu")
+			for i in 4:
+				await get_tree().process_frame
+			await snap.call("_reppu.png")
+			_journal.toggle()
+			use_item("saappaat")
 			for i in 3:
 				await get_tree().process_frame
-			print("SAAPPAAT haalari vihje '%s'" % _hint.text)
-			await press.call()
-			print("SAAPPAAT haalari: boots '%s', tyyppi %s, viesti '%s'" % [Looks.boots, types.call(), _msg.text])
-			check.call("haalari E", [Looks.boots, types.call()], ["", ["kuukenka"]])
+			print("SAAPPAAT repusta: boots '%s', reppu '%s', tyyppi %s, viesti '%s'" % [Looks.boots, Saappaat.bag, types.call(), _msg.text])
+			check.call("repusta jalkaan", [Looks.boots, Saappaat.bag, types.call()], ["jalassa", "", ["kumisaapas"]])
+			await snap.call("_pihalla.png")
+			var pw: Vector3 = _active_walker().global_position
+			await close.call(pw + Vector3(0, 0.3, 0), pw + Vector3(1.0, 0.6, 1.0), "_pihalla_jalat.png")
+			use_item("saappaat")
+			check.call("takaisin reppuun", [Looks.boots, Saappaat.bag, types.call()], ["", "repussa", ["lenkkari"]])
+			# Haalarissa repusta: kuukengät pysyvät, saappaat repussa.
+			_set_outfit("hiihtohaalari")
+			await get_tree().process_frame
+			use_item("saappaat")
+			print("SAAPPAAT haalari: boots '%s', reppu '%s', tyyppi %s, viesti '%s'" % [Looks.boots, Saappaat.bag, types.call(), _msg.text])
+			check.call("haalari repusta", [Looks.boots, Saappaat.bag, types.call()], ["", "repussa", ["kuukenka"]])
+			_set_outfit("tuulipuku")
 			# 6. Tallennus.
 			print("SAAPPAAT tallennus pelaaja/saappaat '%s'" % saved_boots.call())
 			check.call("tallennus lopuksi", saved_boots.call(), "")
 			Looks.outfit = "tuulipuku"
 			Looks.boots = ""
+			Saappaat.bag = ""
 			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 			f.store_buffer(saved)
 			f.close()

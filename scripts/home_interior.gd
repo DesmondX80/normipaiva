@@ -168,7 +168,7 @@ func _process(delta: float) -> void:
 	for i in _screens.size():
 		(_screens[i].material_override as StandardMaterial3D).albedo_color = Color(0.2, 0.75, 0.4).lerp(
 			Color(0.6, 0.3, 0.9), 0.5 + 0.5 * sin(t * (2.0 + i)))
-	_boots.visible = Looks.boots != "koti"
+	_boots.visible = Saappaat.at_mat("koti")
 	if not active or busy:
 		hint = ""
 		spot = ""
