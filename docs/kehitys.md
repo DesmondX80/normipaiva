@@ -303,6 +303,9 @@ yhden ruudun). Tarkistus: `tools/testit/asento.gd` (`seat_report` lantion rako, 
 kalusteen osien akselit; `report` raajojen rako pintaan). Testikohtaus: `-- --shot=x.png --scene=asennot --asento=<osa>`
 ajaa `tools/testit/asennot_<osa>.gd`:n (osa 0 = apujen oma kokeilu tuolilla; kuvat `user://asennot_<osa>/`). `asennot_b` pitää
 välianimaation auki testin ajan (`cutscene.gd test_hold`: `_end` odottaa ennen häivytystä ja `_props`in vapautusta).
+`asennot_h` (junan riisunta, Helenan mustat pitsialusvaatteet): `aja.sh --kiintea scene asennot --asento=h` (xvfb:llä ilman näyttöä)
+kuvaa pelikameralta riisunnan 10 vaihetta (`riisunta_*.png`) ja kaksi asentoa edestä/päädystä/ylhäältä (`helena_*_koottu.png`)
+rako- ja läpimenotarkistuksineen (`RISSUNTA asentovirheitä`); `--kohta=pitsi` kuvaa alusvaatteet edestä, sivulta, takaa ja lähikuvina.
 
 Asentotarkastuksen korjaukset (alkuperäiset istuma-asennot säilytetään, vain viat korjataan): mummojen polvien edestä pois
 irrallinen hameen levy (`mummot.gd`), uimarannan tuolit kohti vettä, selkänoja taakse ja rento asento (nilkat ristissä, kädet
@@ -376,7 +379,7 @@ kokeilu). `PROFIILI`-rivi tulostaa kummankin kämmenkapselin säteen ja pituuden
 (päähahmon ulkonäkö, pituus 1,83 m, oma profiiliavain) mitataan ensimmäistä kertaa `Sitting_Idle`-asennossa ja merkitään `(istuen)`.
 
 **Tanssin suljettu ote:** `scripts/pari_ote.gd` (`PariOte.valssi`) asettaa tanssin `_hold`issa viejän selkäkäden (lyhyellä parilla
-vyötärölle), seuraajan olkakäden ja vapaat kädet kämmen kämmentä vasten; kämmenkohde on pinta + `PariOte.palm_r` (kämmenpuolen säde
+vyötärölle; jos mikään selän kohta ei ulotu, esim. pelaajan maha välissä, lähimmän vartalokapselin pinnalle ulottuman päähän), seuraajan olkakäden ja vapaat kädet kämmen kämmentä vasten; kämmenkohde on pinta + `PariOte.palm_r` (kämmenpuolen säde
 muototaulusta). Vapaissa käsissä kämmenten keskukset (ei ranteet) ovat vastakkain, ja yhteinen kämmenten normaali kallistuu enintään
 30° (`KAMMEN_KALLISTUS`), jotta kummankin ranne pysyy suorempana. Raajojen ja kämmenen kapseleilla on muototaulu (`Contact._bin_table`: säde suunnan mukaan luun kehyksessä), joten
 kapselimalli seuraa ohutta kyynärvartta ja litteää kämmentä. Vartalokapseleilla (pelvis, spine_01-03) on napakoordinaattitaulu

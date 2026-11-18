@@ -222,10 +222,26 @@ func _hold(w: float) -> void:
 	if left > 0.006:
 		Contact.pair_fit(_me, pm, _her, ph, true, ["leg_l", "leg_r"], 4, false)  # jäännös: vielä yksi kierrosjakso jaloille
 		t0 = _perf("fit_legs2", t0)
+	_clear_thighs(pm, ph, mfront)
 	PariOte.valssi(_me, pm, _her, ph, self, w)
 	t0 = _perf("valssi", t0)
 	PariOte.fit(_me, pm, _her, ph, false, ["arm_l", "arm_r"], 8)
 	_perf("fit_arms", t0)  # sisältää pair_contactsin (noin 0,6 ms)
+
+
+## Parin reisi (IK-ketju, pair_fit ei siirrä sen juurta) pelaajan mahan sisältä: pari vaakasuunnassa pelaajan etusuuntaan (mfront) syvimmän
+## päällekkäisyyden verran miinus 6 mm (PARI-raja 10 mm; täysi erotus venyttäisi parin käden ulottumattomiin). Pelaajan löllerömaha (sag) työntyy reisien kohdalle, jolloin vartalokapselit erottava pair_fit jätti 26-29 mm.
+func _clear_thighs(pm: Dictionary, ph: Dictionary, mfront: Vector3) -> void:
+	for i in 3:
+		var depth := 0.0
+		for o: Array in Contact.overlap_pairs(_me, pm, _her, ph, 0.008):
+			if str(o[1]).begins_with("thigh") and not str(o[0]).begins_with("thigh") and not str(o[0]).begins_with("calf"):
+				depth = float(o[2])
+				break
+		if depth <= 0.008:
+			return
+		_her.global_position += Vector3(mfront.x, 0.0, mfront.z).normalized() * (depth - 0.006)
+		_her.refresh_pose()
 
 
 ## Kehysajan mittaus: vaiheen nm aika t0:sta perf-sanakirjaan; palauttaa nykyhetken (seuraavan vaiheen alku).

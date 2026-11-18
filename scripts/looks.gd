@@ -4,13 +4,13 @@ extends RefCounted
 const Character := preload("res://scripts/character.gd")
 const B := preload("res://scripts/build.gd")
 
-## Pelaaja: 90-luvun tuulipuku (violetti, turkoosi ja musta) ja kaljamaha superhero-lihasten tilalla.
+## Pelaaja: 90-luvun tuulipuku (sininen, kolme valkoista raitaa) ja kaljamaha superhero-lihasten tilalla.
 const PLAYER := {
-	"shirt": Color(0.42, 0.18, 0.58), "pants": Color(0.42, 0.18, 0.58), "shoes": Color(0.9, 0.9, 0.88),
+	"shirt": Color(0.1, 0.25, 0.6), "pants": Color(0.1, 0.25, 0.6), "shoes": Color(0.9, 0.9, 0.88),
 	"shoe": "lenkkari", "hair": "Hair_SimpleParted", "hair_color": Color(0.22, 0.15, 0.1), "shine": 0.85, "height": 1.8,
-	"tracksuit": {"a": Color(0.08, 0.66, 0.64), "b": Color(0.07, 0.07, 0.09)},
-	"stripes": true, "stripe_color": Color(0.08, 0.66, 0.64),
-	"belly": 0.75, "bulk": 0.1, "shoulders": -0.55,
+	"tracksuit": {"a": Color(0.1, 0.25, 0.6), "b": Color(0.07, 0.1, 0.3)},
+	"stripes": true, "stripe_color": Color(0.96, 0.96, 0.98), "triple_stripe": true,
+	"belly": 0.75, "sag": 1.0, "bulk": 0.1, "shoulders": -0.55,
 }
 ## Pelaajan asut (vaatekaappi kotona ja Paapelin makuuhuoneessa, main.gd tallentaa valinnan): tuulipuku ja
 ## Karhu-lippis on oletus. Hiihtohaalari ostetaan kirppikseltä Railin vaatetangosta (main.gd has_haalari). Kaikissa vaaleat hiukset, pukinparta, kello, rannekoru ja tatuointi vasemmassa olkavarressa.

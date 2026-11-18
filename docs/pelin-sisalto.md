@@ -629,6 +629,14 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     ravintolavaunussa tuopin kanssa, naisille tarjotaan Koskenkorvat (16 €, jos rahat riittävät) ja paukun
     jälkeen vieressä istuva Helena laskee kätensä polven päälle ja liu'uttaa sen reittä pitkin sisäreidelle (ilman tarjottuja paukkuja
     ei kättä). Erikoiskohtaus (riisuminen, flirtti, Helena Uiton saunalle) laukeaa vain verkkopaidassa ja tarjotuilla paukuilla Saloisista Vaalaan;
+    riisunta kestää n. 8 s ja on viekotteleva mutta pidättyvä: Helena kallistaa päätään ja katsoo pelaajaa, siirtää hiuksensa olan yli,
+    pyytää "Auttaisitko vetoketjun kanssa?" (olan yli vilkaisu, vetoketjun ääni), ja tuubimekon yläreuna liukuu hitaasti
+    nauttien alas, pysähtyy hetkeksi ja jatkaa vyötärölle käsien kulkiessa kyljillä (kangasvasen ääni, lähikuva pöydän yli).
+    Mekon alla ovat mustat pitsialusvaatteet (liivit ja stringit: Chantilly-tyylinen kukkaornamentti hienon verkkopohjan
+    päällä, tiheä reunus, vuoratut kupit ja haara, ei paljastavampi kuin aiemmat punaiset bikinit); korkokengät jäävät pois ja
+    alusvaatteet pysyvät päällä. Saunan (Uiton sauna) bikinit ovat edelleen punaiset (`helena_bikini()`). Riisunta ei ole
+    K-18-asetuksen takana (vain Rasvanappi, BangBus ja kolmiomittaus ovat), eikä siinä ole alastomuutta. Testi:
+    `aja.sh --kiintea scene asennot --asento=h` (vaiheet, asennot, läpimenot) ja `--kohta=pitsi` (alusvaatteet edestä, takaa, lähikuvat);
     Vaalasta Saloisiin tarjoaminen tuo vain käden reidelle; taustalla soi hidas, rento
     "Slow Stride" (`assets/music/slow_stride.ogg`, `Sfx.SONG_JUNA`). Junasta noustaan laiturille; Vaalaan tultaessa mopo odottaa
     aseman edessä, ja Vaalasta

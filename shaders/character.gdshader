@@ -13,6 +13,7 @@ uniform vec3 stripe_col : source_color = vec3(0.95);
 uniform float fabric_shine = 0.0;
 uniform float muscle_def = 1.0;  // 0 = lihakset piiloon (kaljamaha), 1 = superhero
 uniform bool tracksuit = false;
+uniform bool triple_stripe = false;  // pelaajan tuulipuku: kolme valkoista raitaa (Adidas) yhden sijaan
 uniform vec3 panel_a : source_color = vec3(0.1, 0.65, 0.62);
 uniform vec3 panel_b : source_color = vec3(0.08, 0.08, 0.1);
 
@@ -70,6 +71,8 @@ uniform bool tattoo = false;     // tatuointi vasemmassa olkavarressa (näkyy pa
 uniform float undress = 1.0;  // lappubikinit + tuubimekko: 0 = mekko täysin päällä, 1 = riisuttu (mekon yläreuna liukuu tuubin reunasta lantiolle)
 uniform bool topless = false;  // lappubikinit ilman yläosaa (sauna): rintojen kohdalla pelkkä iho
 uniform bool string_bikini = false;  // pienet lappubikinit: kolmiot rintojen päällä, pieni alaosa, ohuet nauhat
+uniform bool lace = false;  // string_bikini-alusvaatteet pitsiä: kukkakuvio hienon verkkopohjan päällä, tiheä reunus, vuoratut kuppien keskiöt
+uniform vec3 lace_col : source_color = vec3(0.03, 0.03, 0.04);  // pitsin väri (kuvion ja reunuksen musta)
 // Kasarin hiihtohaalari (paita ja housut samaa kangasta, pohjaväri shirt): valkoinen olkakaarroke, jonka alareuna on
 // vuoristosahalaita, sen alla keltainen ja turkoosi raita, tikkauskanavat, vetoketju, vyötärökuminauha, ribbiresorit
 // ja kuukengät.
@@ -212,6 +215,38 @@ float sd_tri(vec2 p, vec2 a, vec2 b, vec2 c) {
 	return -sqrt(d.x) * sign(d.y);
 }
 
+// Pitsin peitto 0..1 (1 = lankaa, 0 = reikä): Chantilly-tyyli: hienosilmäinen verkkopohja, sen päällä kukkaornamentit
+// (kukka, jonka keskellä on reikä, ja lehdet) ja reunassa tiheä nauha, jonka sisäreuna on kaareileva (kuorireunus).
+// r = lepoasennon (x, y), depth = etäisyys kankaan reunasta sisäänpäin (m), px = ruudun koko lepokoordinaateissa (m).
+// Esikuva: Dentelle de Chantilly noire (Wikimedia Commons, CC0): kukkaköynnökset verkon päällä, tiheämpi reuna.
+float lace_cover(vec2 r, float depth, float px) {
+	vec2 g = vec2(abs(r.x), r.y) * 44.0;  // ruutu 2,3 cm: kuppiin mahtuu 3-4 kukkaa
+	g.x += mod(floor(g.y), 2.0) * 0.5;  // joka toinen rivi puoli ruutua sivuun
+	vec2 f = fract(g) - 0.5;
+	vec2 id = floor(g);
+	float h = hash21(id);
+	float rr = length(f);
+	float ang = atan(f.y, f.x) + h * 6.2832;
+	float petal = 0.3 + 0.1 * cos(5.0 * ang);  // viisilehtinen kukka
+	float aa = clamp(px * 44.0 * 0.8, 0.03, 0.5);
+	float flower = (1.0 - smoothstep(petal - aa, petal + aa, rr)) * smoothstep(0.07 - aa * 0.5, 0.11 + aa * 0.5, rr);  // keskellä reikä
+	// Lehdet: ruutujen välissä vinoja soikioita, suunta vaihtelee ruuduittain.
+	vec2 f2 = fract(g + 0.5) - 0.5;
+	float s = h > 0.5 ? 0.7071 : -0.7071;
+	vec2 lf = vec2(f2.x * 0.7071 + f2.y * s, -f2.x * s + f2.y * 0.7071);
+	float leaf = 1.0 - smoothstep(1.0 - aa, 1.0 + aa, length(lf / vec2(0.26, 0.1)));
+	// Verkkopohja: vinoruudukko, hieno lanka (ruudun tasaantuessa keskiarvo).
+	vec2 q = r * 150.0;
+	float nl = min(abs(fract(q.x + q.y) - 0.5), abs(fract(q.x - q.y) - 0.5));
+	float net_aa = clamp(px * 150.0, 0.0, 0.5);
+	float net = mix(1.0 - smoothstep(0.1, 0.2, nl), 0.38, smoothstep(0.1, 0.5, net_aa));
+	float pat = max(max(flower, leaf), net * (r.y < 1.12 ? 0.8 : 0.55));  // housuissa tiheämpi verkko
+	// Reunus: tiheä nauha, jonka sisäreuna on kuoriaaltoa (ei koske ohuita nauhoja, jotka ovat kokonaan reunusta).
+	float scallop = 0.0022 * abs(sin((abs(r.x) + r.y) * 420.0));
+	float band = 1.0 - smoothstep(0.0075, 0.0095, depth + scallop);
+	return max(pat, band);
+}
+
 // Lappubikinit vartalon pinnalla lepoasennon koordinaateissa (p = paikka, n = normaali). Palauttaa etäisyyden
 // kankaan reunaan metreinä (negatiivinen = kangasta). Kappaleet:
 //  - yläosa: kaksi kolmiota rintojen päällä (edestä katsottuna), kärjistä nauhat niskaan, rintojen alla kiertävä nauha
@@ -236,8 +271,15 @@ float bikini_sd(vec3 p, vec3 n) {
 		d = min(d, abs(p.y - 1.288) - 0.004);
 	}
 	// Alaosa.
-	if (p.y > 0.83 && p.y < 1.08 && ax < 0.21) {
-		if (fr) {
+	if (p.y > 0.83 && p.y < 1.08 && ax < (lace ? 0.25 : 0.21)) {
+		if (lace) {
+			// Pitsihousut: leveä kolmio lantion yli (yläreuna vyötärön alla, lahkeaukot vinosti haaraan), ei lappubikinin nauhoja.
+			if (fr) {
+				d = min(d, sd_tri(vec2(p.x, p.y), vec2(-0.215, 1.05), vec2(0.215, 1.05), vec2(0.016, 0.85)));
+			} else {
+				d = min(d, sd_tri(vec2(p.x, p.y), vec2(-0.215, 1.05), vec2(0.215, 1.05), vec2(-0.012, 0.86)));
+			}
+		} else if (fr) {
 			// Idle-asennossa reidet vetävät haaraa sivulle: näkyvä haarakohta on lepoasennon x = +0,016:ssa (mitattu
 			// värijuovin edestä). Kärki on siellä, yläreuna vatsan keskilinjalla.
 			float tri = sd_tri(vec2(p.x, p.y), vec2(-0.078, 0.966), vec2(0.078, 0.966), vec2(0.016, 0.868));
@@ -250,9 +292,10 @@ float bikini_sd(vec3 p, vec3 n) {
 			d = min(d, seg_dist(vec2(p.x, p.y), vec2(dx, 0.93), vec2(dx, 0.87)) - 0.006);
 		}
 		// Haarakappale: alaspäin osoittava pinta haarassa, etukolmion kärjestä (x +0,016) takakaistaleeseen (x -0,012).
-		if (p.y < 0.89 && n.y < -0.25 && p.z > -0.05) {
+		if (p.y < (lace ? 0.93 : 0.89) && n.y < -0.25 && p.z > -0.05) {
 			d = min(d, abs(p.x - mix(-0.012, 0.016, smoothstep(-0.05, 0.02, p.z))) - 0.012);
 		}
+		if (!lace) {
 		// Sivunauhat: kaari a = kulma vartalon ympäri * säde (edessä 0, sivulla R*pi/2, takana R*pi).
 		float R = 0.16;
 		float a = abs(atan(p.x, p.z + 0.025)) * R;
@@ -261,6 +304,7 @@ float bikini_sd(vec3 p, vec3 n) {
 		// Nauhat jatkuvat hieman kolmioiden sisään, jotta ne liittyvät kulmiin (kolmio peittää jatkeen).
 		d = min(d, seg_dist(q, vec2(R * 0.6, 0.957), side) - 0.0045);
 		d = min(d, seg_dist(q, side, vec2(R * 2.9, 0.972)) - 0.0045);
+		}
 	}
 	return d;
 }
@@ -392,7 +436,7 @@ void vertex() {
 	// Vaatteet vähän irti ihosta, ettei näytä maalatulta trikoolta.
 	float c = floor(cat + 0.5);
 	float puff = c > 0.5 && c < 1.5 ? shirt_puff : (c > 1.5 && c < 2.5 ? pants_puff : (c > 2.5 ? 0.01 : 0.0));
-	if (bare(c, UV2, VERTEX, COLOR.b, COLOR.a * 2.0 - 1.0) || (string_bikini && undress >= 1.0)) {
+	if (bare(c, UV2, VERTEX, COLOR.b, COLOR.a * 2.0 - 1.0) || (string_bikini && undress >= 0.93)) {
 		puff = 0.0;  // lappubikinit ovat iholla kiinni (väri lasketaan fragmentissa)
 		if (anat_wrist_x < 8.0 && c > 1.5 && c < 2.5) {
 			puff = anat_calf(UV2.y, CUSTOM0.z);  // anatomia: paljaan säären pohje (ei vaatteen alla)
@@ -456,7 +500,8 @@ void fragment() {
 	bool net_hole = net_shirt && c > 0.5 && c < 1.5 && net_thread(rest, lpos) < 0.5
 		&& !(suspenders && abs(abs(rest.x) - 0.1) < 0.014 && rest.y > 0.98 && rest.y < 1.52);
 	// Riisuminen: kun undress < 1, mekko peittää vielä kaistan shorts_y .. mekon yläreuna, ja sen yläpuolella näkyy bikini.
-	bool dress_on = undress < 1.0 && shorts_y > 0.0 && rest.y > shorts_y && rest.y < mix(tube_y, shorts_y, clamp(undress, 0.0, 1.0));
+	// Liukuman loppu (undress > 0,93) katkaistaan: ohut jäännöskaista shorts_y:n yllä näkyi punaisena viirruna reisillä (verkon leikkaus).
+	bool dress_on = undress < 0.93 && shorts_y > 0.0 && rest.y > shorts_y && rest.y < mix(tube_y, shorts_y, clamp(undress / 0.93, 0.0, 1.0));
 	if (string_bikini && c > 0.5 && c < 2.5 && !dress_on) {
 		// Lappubikinit: kankaan peitto etäisyysfunktiosta, pehmeä reuna (ruudun kokoinen) ja kanttinauha reunoissa.
 		float d = bikini_sd(vec3(rest, rest_zn.x), vec3(rest_nx, rest_zn.y, rest_zn.z));
@@ -465,13 +510,20 @@ void fragment() {
 		if (topless && rest.y > 1.12) {
 			cov = 0.0;
 		}
+		if (lace && cov > 0.0) {
+			// Pitsi: kuvio kankaan päällä; kuppien keskiö ja haaran kärki vuorattu umpinaisiksi (ei läpikuultava).
+			float lc = lace_cover(rest, -d, max(fwidth(rest.x), fwidth(rest.y)));
+			vec2 cup = vec2(abs(rest.x) - 0.078, (rest.y - 1.325) * 1.15);
+			float lined = rest.y > 1.12 ? 1.0 - smoothstep(0.014, 0.02, length(cup)) : 1.0 - smoothstep(0.935, 0.95, rest.y);
+			cov *= max(lc, lined);
+		}
 		vec3 skin = skin_with_ink(bare_skin * skin_tint * 0.945, rest, lpos, rest_zn.x);
 		if (anat_wrist_x < 8.0) {
 			skin = anat_vartalo_alb(skin, rest, rest_zn, anat_female);  // anatomia: vartalon ihodetaljit
 		}
-		vec3 cloth = rest.y < 1.12 ? pants : shirt;
+		vec3 cloth = lace ? lace_col : (rest.y < 1.12 ? pants : shirt);
 		cloth *= 1.0 - 0.2 * (1.0 - smoothstep(0.002, 0.0045, -d));  // kanttinauha
-		cloth *= 0.82 + 0.25 * lum;
+		cloth *= lace ? 1.0 : 0.82 + 0.25 * lum;
 		ALBEDO = mix(skin, cloth, cov);
 		ROUGHNESS = mix(0.55, mix(0.9, 0.45, fabric_shine), cov);
 		SPECULAR = mix(0.5, mix(0.25, 0.5, fabric_shine), cov);
@@ -567,10 +619,31 @@ void fragment() {
 			float zip = (1.0 - smoothstep(0.004, 0.007, abs(rest.x))) * step(0.5, front) * torso;
 			cloth = mix(cloth, vec3(0.05), zip);
 		}
-		float stripe_on = step(0.5, stripe);
-		if (tracksuit) {
-			// Tuulipuvussa raidat vain housujen ulkosivuilla, terävinä lepoasennon normaalista.
-			stripe_on = (c > 1.5 && c < 2.5 && rest.y > 0.12) ? step(0.97, abs(rest_nx)) * step(0.0, rest_nx * rest.x) : 0.0;
+		// Raidat (stripes): alue (stripe = reisi, sääri, olka- ja kyynärvarsiluut) verteksistä, raidan paikka fragmentissa
+		// lepoasennon koordinaateista ja normaalista: jalassa kapea kaista ulkosivulla (|z| < 18 mm), hihassa yläpinta
+		// (normaalin y) olkapään kaarteen ulkopuolella. Verteksikohtainen kynnys interpoloituna rikkoi raidan teräviksi
+		// sirpaleiksi hihoihin ja olkapäille.
+		float stripe_on = 0.0;
+		if (stripe > 0.5) {
+			if (c > 1.5) {
+				stripe_on = (1.0 - smoothstep(0.014, 0.02, abs(rest_zn.x))) * step(0.5, abs(rest_nx)) * step(0.0, rest_nx * rest.x);
+			} else {
+				stripe_on = smoothstep(0.9, 0.97, rest_zn.y) * smoothstep(0.38, 0.44, abs(rest.x));
+			}
+		}
+		if (triple_stripe && stripe > 0.5) {
+			// Kolme raitaa: keskiraita ja kaksi sivuraitaa lepo-z:n mukaan (jalan keskilinja z = 0, hihan keskilinja z = -0,075).
+			stripe_on = 0.0;
+			if (c > 1.5) {
+				float side = step(0.5, abs(rest_nx)) * step(0.0, rest_nx * rest.x);
+				float dz = abs(rest_zn.x);
+				float b = max(1.0 - smoothstep(0.0045, 0.0065, dz), 1.0 - smoothstep(0.0045, 0.0065, abs(dz - 0.0185)));
+				stripe_on = b * side;
+			} else {
+				float dz = abs(rest_zn.x + 0.075);
+				float b = max(1.0 - smoothstep(0.005, 0.0075, dz), 1.0 - smoothstep(0.005, 0.0075, abs(dz - 0.021)));
+				stripe_on = b * smoothstep(0.35, 0.5, rest_zn.y) * smoothstep(0.38, 0.44, abs(rest.x));
+			}
 		}
 		cloth = mix(cloth, stripe_col, stripe_on);
 		if (tube_y > 0.0 && c > 0.5 && c < 1.5) {

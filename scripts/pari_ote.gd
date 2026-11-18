@@ -19,6 +19,8 @@ const SELKA := [["spine_02", 0.8, deg_to_rad(65.0)], ["spine_02", 0.5, deg_to_ra
 # Paljon lyhyempi seuraaja (olkanivel yli ALA viejän alapuolella): selkäkäsi vyötärölle, ettei kyynärpää nouse seuraajan olan yli.
 const ALA := 0.08
 const VYO := [["spine_01", 0.8, deg_to_rad(75.0)], ["spine_01", 0.5, deg_to_rad(75.0)], ["spine_02", 0.3, deg_to_rad(75.0)]]
+const SELKA_KULMA := 30.0  # selkäkäden olka-kämmen-linjan vähimmäiskulma selän pintaan (astetta, valssi (1))
+const VARTALO := ["pelvis", "spine_01", "spine_02", "spine_03"]  # ulottumattoman selkäkäden pinta (valssi (1))
 const OLKA := deg_to_rad(30.0)  # seuraajan olkakämmenen normaali pystystä viejän olan ulkosivulle
 const KAMMEN_KALLISTUS := deg_to_rad(30.0)  # vapaiden käsien yhteinen kämmenten normaali saa kallistua eteenpäin-suunnasta
 static var _sh_cache := {}  # shoulder(): avain -> piste spine_03-luun avaruudessa
@@ -99,7 +101,9 @@ static func valssi(lead: Node3D, pl: Dictionary, fol: Node3D, pf: Dictionary, sp
 	var ff := "_r" if fa == "_l" else "_l"
 	var sf := -1.0 if fa == "_l" else 1.0
 	# (1) Selkäkäsi: ensimmäinen kohta selässä seuraajan fa-kyljen puolella, joka on ulottuvilla ja jossa ranne ei taitu
-	# (kyynärpää kiertää kyljen ulkopuolelta); jos mikään ei ulotu, lähin. Suora linja olasta kulkisi aina seuraajan läpi.
+	# (kyynärpää kiertää kyljen ulkopuolelta); jos mikään ei ulotu, ks. alla. Suora linja olasta kulkisi aina seuraajan läpi.
+	# Olka-kämmen-linjan kulma selän pintaan vähintään SELKA_KULMA: lähes suora käsivarsi (ulottuma ~97 %) kulkee tätä linjaa,
+	# ja loivemmin kyynärvarsi makaa seuraajan kyljellä (Sinikka, loppu: kulma 25° -> kyynärvarren rako 2 mm, Asento.solids läpi).
 	var sh := lead.to_global(lead.bone_position("upperarm" + lb))
 	var reach := arm_len(lead, lb) * 0.98
 	var bk := back(fol)
@@ -113,13 +117,36 @@ static func valssi(lead: Node3D, pl: Dictionary, fol: Node3D, pf: Dictionary, sp
 		var pp := Contact.surface_point(fol, pf, at[0], nn, at[1])
 		pp += nn * palm_r(lead, pl, lb, nn, pp - sh)
 		var wrist := rad_to_deg(asin(clampf(absf((pp - sh).normalized().dot(nn)), 0.0, 1.0)))
-		var o := maxf(pp.distance_to(sh) - reach, 0.0) + (0.0 if wrist <= 60.0 else 1.0)
+		var o := maxf(pp.distance_to(sh) - reach, 0.0) + (0.0 if wrist <= 60.0 and wrist >= SELKA_KULMA else 1.0)
 		if o < over:
 			p = pp
 			n = nn
 			over = o
 		if o == 0.0:
 			break
+	# Mikään kohta ei ulotu (lyhyt seuraaja kauempana, esim. pelaajan löllerömaha välissä: Hilkka 0,56-0,62 m, ulottuma 0,485 m):
+	# suora käsi pysähtyisi olka-kohde-suoralle ulottuman päähän seuraajan kyljen pintaan väärin päin olevalla kämmenellä
+	# (kämmenen normaali selän kohdasta, kapselit 13-15 mm sisäkkäin). Kohde siirtyy sinne, mihin käsi yltää: lähimmän
+	# vartalokapselin pinnalle ulottuman päässä, normaali siinä kohdassa (kaksi kierrosta, koska pinta siirtää kohtaa).
+	if p.distance_to(sh) > reach:
+		var fc := Contact.caps_all(fol, pf).filter(func(c: Array) -> bool: return str(c[0]) in VARTALO)
+		for _i in 2:
+			var t := sh + (p - sh).normalized() * minf(p.distance_to(sh), reach)
+			var best: Array = []
+			var bd := INF
+			for c: Array in fc:
+				var dd := t.distance_to(Contact._seg_closest(t, c[1], c[2]))
+				if dd < bd:
+					bd = dd
+					best = c
+			if best.is_empty():
+				break
+			var q := Contact._seg_closest(t, best[1], best[2])
+			var nn := (t - q).normalized()
+			var pp := Contact.surface_point(fol, pf, best[0], nn, Contact._t_on(q, best[1], best[2]))
+			pp += nn * palm_r(lead, pl, lb, nn, pp - sh)
+			p = pp
+			n = nn
 	hand_to(lead, lb, p, n, p - sh, sh + rl * sd * 0.4 + Vector3.UP * 0.1, w)
 	# (2) Vapaat kädet yhdessä: kohta olkien puolivälissä hieman olan alapuolella ja sivulla (suurin sivu, joka ulottuu).
 	# Kyynärpäät ulos ja alas samalle syvyydelle kuin kädet, jolloin kyynärvarret ovat kämmenten tasossa (ranne suorana).
@@ -178,7 +205,7 @@ static func valssi(lead: Node3D, pl: Dictionary, fol: Node3D, pf: Dictionary, sp
 	var best := Vector3.ZERO
 	var lift := INF  # nosto (+1, jos ei ulotu)
 	for inner: float in [0.0, 0.1, 0.2, 0.25, 0.3, 0.35]:
-		var q := shoulder(lead, space, lb, inner)
+		var q := shoulder(lead, space, lb, inner, true)
 		var hr := palm_r(fol, pf, fa, on, q - fsh)
 		q += on * hr
 		var g := Contact._clearance(q, lcaps, hr)
@@ -244,8 +271,13 @@ static func hand_to(c: Node3D, lr: String, p: Vector3, n: Vector3, fingers: Vect
 ## Hartian yläpinta (paistettu verkko): olkanivelestä kaulaa kohti osuudella inner, korkeus = verkon yläreuna siinä kohdassa.
 ## space = pystyssä oleva solmu, jonka avaruudessa pinta mitataan; palautus maailmassa. Verkko käydään läpi kerran per hahmo,
 ## puoli ja inner: piste talletetaan spine_03-luun avaruuteen ja luetaan sen jälkeen luusta (clear_cache otteen lopussa).
-static func shoulder(o: Node3D, space: Node3D, lr: String, inner: float) -> Vector3:
+## pose = true: olkavarren suunta (spine_03:n avaruudessa, 0,08:n askelin) on mukana avaimessa, jolloin pinta paistetaan uudelleen,
+## kun käsivarsi on liikkunut (olkavarsi kääntyy otteessa, ja kerran paistettu pinta vanhenee 7 mm: tanssin KOHDE verkko).
+static func shoulder(o: Node3D, space: Node3D, lr: String, inner: float, pose := false) -> Vector3:
 	var key := "%d%s%.3f" % [o.get_instance_id(), lr, inner]
+	if pose:
+		var ad: Vector3 = (Contact._bone_xf(o, "spine_03").affine_inverse().basis * (o.bone_position("lowerarm" + lr) - o.bone_position("upperarm" + lr))).normalized()
+		key += "_%d_%d_%d" % [roundi(ad.x * 12.0), roundi(ad.y * 12.0), roundi(ad.z * 12.0)]
 	if not _sh_cache.has(key):
 		var j := o.to_global(o.bone_position("upperarm" + lr))
 		var p := space.to_local(j.lerp(o.to_global(o.bone_position("neck_01")), inner))

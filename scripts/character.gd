@@ -77,7 +77,7 @@ func setup(look: Dictionary) -> void:
 	shoe_type = Shoes.type_for(look)
 	anat_on = Anatomia.enabled(look)
 	profile_key = "%s_%.3f_%.2f_%.2f_%.2f_%s_%d" % [kind, float(look.get("height", REST_HEIGHT)), float(look.get("belly", 0.0)),
-		float(look.get("bulk", 0.0)), float(look.get("muscle", DEFAULT_MUSCLE)), shoe_type, 1 if anat_on else 0]
+		float(look.get("bulk", 0.0)), float(look.get("muscle", DEFAULT_MUSCLE)), shoe_type, 1 if anat_on else 0] + "_%.2f" % float(look.get("sag", 0.0))
 	model = load(MODELS[kind][0]).instantiate()
 	add_child(model)
 	model.rotation.y = PI
@@ -95,7 +95,7 @@ func setup(look: Dictionary) -> void:
 	var body_src: Mesh = body.mesh  # vaatettamaton lähdeverkko (hiusten etäisyys kalloon)
 	var shape := {"belly": float(look.get("belly", 0.0)), "bulk": float(look.get("bulk", 0.0)),
 		"shoulders": float(look.get("shoulders", 0.0)), "muscle": float(look.get("muscle", DEFAULT_MUSCLE)),
-		"curves": float(look.get("curves", 0.0)), "bust": float(look.get("bust", 0.0)),
+		"curves": float(look.get("curves", 0.0)), "bust": float(look.get("bust", 0.0)), "sag": float(look.get("sag", 0.0)),
 		"anat": 1.0 if anat_on else 0.0,  # anat: osa verkon avaimessa (välimuisti), ei muodon termi
 		"anat_arch": 1.0 if anat_on and shoe_type == "paljas" else 0.0}  # jalkaholvi vain paljaalle jalalle: kengät rakennetaan alkuperäisestä jalkaverkosta (ei muodon termi)
 	body_shape = shape
@@ -144,6 +144,7 @@ func setup(look: Dictionary) -> void:
 		skeleton.add_child(patch)
 	if look.has("stripe_color"):
 		body_mat.set_shader_parameter("stripe_col", look.stripe_color)
+	body_mat.set_shader_parameter("triple_stripe", bool(look.get("triple_stripe", false)))
 	if look.has("tracksuit"):
 		# Tuulipuku: kiiltävä nailon, 90-luvun vinot värikentät, vetoketju, väljä leikkaus.
 		var ts: Dictionary = look.tracksuit
@@ -1175,16 +1176,14 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 			var cat := _category(bone)
 			if cat == 2 and shape.get("belly", 0.0) > 0.0 and verts[v].y > 0.88:
 				# Maha roikkuu vyön yli: pullistuva osa on paitaa, ei housuja.
-				if _shape_offset(verts[v], {"belly": shape.belly}).length() > 0.012:
+				if _shape_offset(verts[v], {"belly": shape.belly, "sag": shape.get("sag", 0.0)}).length() > 0.012:
 					cat = 1
 			var stripe := 0.0
 			if stripes:
-				var p := verts[v]
-				var nrm := norms[v]
-				if bone.begins_with("thigh") or bone.begins_with("calf"):
-					stripe = 1.0 if absf(nrm.x) > 0.9 and signf(nrm.x) == signf(p.x) else 0.0
-				elif bone.begins_with("upperarm") or bone.begins_with("lowerarm"):
-					stripe = 1.0 if nrm.y > 0.9 else 0.0
+				# Raita-alue (reuna ja raidan paikka lasketaan fragmentissa lepoasennon normaalista: verteksikohtainen
+				# kynnys interpoloituna antoi hihoihin ja olkapäille teräviä sirpaleita).
+				if bone.begins_with("thigh") or bone.begins_with("calf") or bone.begins_with("upperarm") or bone.begins_with("lowerarm"):
+					stripe = 1.0
 			# B = etupuoli (vetoketju vain edessä).
 			# A = lepoasennon normaalin x (tuulipuvun terävät sivuraidat).
 			cols[v] = Color(cat / 4.0, stripe, 1.0 if verts[v].z > 0.0 else 0.0, 0.5 + 0.5 * norms[v].x)
@@ -1536,8 +1535,11 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 	if belly > 0.0:
 		# Pyöreä ja pullea maha: vatsan pinta pullistetaan ellipsoidin pinnalle (pehmeä maksimi),
 		# edestä ja sivuilta täysin, selästä ei lainkaan. Painopiste hieman alhaalla: maha roikkuu.
-		var c := Vector3(0.0, 1.16 - 0.02 * belly, -0.02)
-		var r := Vector3(0.16 + 0.08 * belly, 0.2 + 0.05 * belly, 0.13 + 0.17 * belly)
+		# sag (0..1, pelaaja): löllerömaha. Keskipiste alemmas ja ellipsoidi pidempi, yläosa ohenee (pehmeä rinnan alla),
+		# painavin kohta vyötärön alapuolella ja alareuna roikkuu hieman housunvyön yli.
+		var sag: float = shape.get("sag", 0.0)
+		var c := Vector3(0.0, 1.16 - 0.02 * belly - 0.13 * sag, -0.02)
+		var r := Vector3(0.16 + 0.08 * belly + 0.02 * sag, 0.2 + 0.05 * belly + 0.01 * sag, 0.13 + 0.17 * belly + 0.02 * sag)
 		var q := (p - c) / r
 		var ln := q.length()
 		if ln > 0.001 and ln < 1.3:
@@ -1546,10 +1548,15 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 			var target := ln + 0.8 * k * log(1.0 + exp((1.0 - ln) / k))
 			var face := smoothstep(-0.7, 0.1, q.z / ln)
 			# anatomia D: yläreuna ohenee jo rinnan alla (osittain 1,25..1,42), jotta pallo ei jää rintalihasten päälle ledjeksi
-			var ymask := smoothstep(0.92, 1.03, p.y) * (1.0 - 0.7 * smoothstep(1.25, 1.42, p.y)) * (1.0 - smoothstep(1.4, 1.5, p.y))
+			var ymask := smoothstep(0.92 - 0.07 * sag, 1.03 - 0.07 * sag, p.y) * (1.0 - (0.7 + 0.28 * sag) * smoothstep(1.25 - 0.3 * sag, 1.42 - 0.14 * sag, p.y)) * (1.0 - smoothstep(1.4, 1.5, p.y))
 			var wgt := face * ymask * (1.0 - smoothstep(0.24, 0.32, ax))
 			var inflated := c + q * (target / ln) * r
 			off += (inflated - p) * wgt
+			if sag > 0.0:
+				# Roikkuva alareuna: painovoima vetää eteen ja alas vyötärön alapuolella (kaksoispoimu ja ylitys vyön yli).
+				var hang := exp(-pow((p.y - 0.93) / 0.08, 2.0)) * wgt * smoothstep(0.0, 0.1, p.z + 0.05)
+				off.z += 0.06 * sag * hang
+				off.y -= 0.02 * sag * hang
 	var bulk: float = shape.get("bulk", 0.0)
 	if bulk != 0.0:
 		off.x += p.x * 0.2 * bulk * torso

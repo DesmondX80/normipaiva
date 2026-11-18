@@ -120,6 +120,13 @@ func _vaihe(nm: String, t: float, frames: int, miss: bool) -> void:
 		await get_tree().process_frame
 		ws.append(smoothstep(0.0, 1.2, g._t))
 		_measure(nm, her, i)
+		# Debug (F): horjan ruutukohtainen verkkorako; ota käyttöön poistamalla kommentit.
+		#if nm.ends_with("_horja"):
+		#	var fa0 := "_l" if _free_hand()[1] == "_r" else "_r"
+		#	var lb0 := "_l" if _free_hand()[0] == "_r" else "_r"
+		#	print("HORJA %s ruutu %d verkkorako %.1f mm, ranne %.3f m, viejän kyynärpää y %.3f, olka y %.3f, w %.2f" % [nm, i,
+		#		_mesh_gap(her, me, "hand" + fa0) * 1000, her.to_global(her.bone_position("hand" + fa0)).y,
+		#		me.to_global(me.bone_position("lowerarm" + lb0)).y, me.to_global(me.bone_position("upperarm" + lb0)).y, ws[i]])
 		if nm.ends_with("_alku") or nm.ends_with("_nousu"):
 			var fm := 0.0
 			for p in Contact.overlap_pairs(me, prof[me], her, prof[her]):
