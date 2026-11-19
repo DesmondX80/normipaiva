@@ -74,6 +74,10 @@ func _asento(cs: Node, out: String, tag: String) -> int:
 	var front: Vector3 = -hl.global_basis.z
 	print("RISSUNTA asento %s undress %.2f" % [tag, float(hl.body_mat.get_shader_parameter("undress"))])
 	await Asento.views(cam, out, "helena_" + tag, hl.global_position + Vector3(0, 0.7, 0), 1.2, front)
+	# Pari: pelaajan ja Helenan väli (jalkaterät, reidet) edestä, päädystä ja ylhäältä.
+	var hero: Node3D = cs.train_cast["minä"]
+	var mid: Vector3 = (hl.global_position + hero.global_position) * 0.5 + Vector3(0, 0.3, 0)
+	await Asento.views(cam, out, "pari_" + tag, mid, 0.9, front)
 	var bad: int = Asento.report(hl, car, [["upperarm_l", "lowerarm_l", "hand_l"], ["upperarm_r", "lowerarm_r", "hand_r"]],
 		["pelvis", "spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r"])
 	bad += Asento.solids(hl, car)

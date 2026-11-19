@@ -2292,6 +2292,28 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 						hl_max = maxf(hl_max, q.x)
 					gap = hero_min - hl_max
 				hand.near = clampf(gap - 0.008, 0.0, 0.3)
+				# Jalkaterät splayaavat reisiä ulommas (kärjet ulos), joten pelkkä reisi/vartalo-väli antaa liian pitkän liukuman:
+				# jalkaterät osuivat 2-3 mm päähän toisistaan. Rajoitus kenkä kenkää vasten: jokaisessa (y, z)-ruudussa
+				# (1 cm, naapurit mukaan) pelaajan jalkaterän pienin x miinus Helenan suurin x, miinus varaus.
+				var fb := ["foot_l", "foot_r", "ball_l", "ball_r"]
+				var hl_ft := Pose.limb_points(hl, car, fb)
+				var hero_ft := Pose.limb_points(hero, car, fb)
+				var hl_cell := {}  # (y, z) -> Helenan jalkaterän suurin x
+				for q in hl_ft:
+					var k2 := Vector2i(int(floorf(q.y / 0.01)), int(floorf(q.z / 0.01)))
+					hl_cell[k2] = maxf(float(hl_cell.get(k2, -INF)), q.x)
+				var foot_gap := INF
+				for q in hero_ft:
+					var k2 := Vector2i(int(floorf(q.y / 0.01)), int(floorf(q.z / 0.01)))
+					for dy in range(-1, 2):
+						for dz in range(-1, 2):
+							var kk := k2 + Vector2i(dy, dz)
+							if hl_cell.has(kk):
+								foot_gap = minf(foot_gap, q.x - float(hl_cell[kk]))
+				if foot_gap < INF:
+					hand.near = minf(hand.near, maxf(foot_gap - 0.015, 0.0))
+				if B.diag():
+					print("LIUKUMA reisi/vartalo-väli %.4f, jalkaterien väli %.4f -> liukuma %.4f" % [gap, foot_gap, hand.near])
 			if treat:
 				# Erikoiskohtauksessa Helena painautuu kiinni: liukuu penkillä viereen (jalat vierekkäin, ei sisäkkäin),
 				# kallistuu ja nojaa päänsä olalle.
@@ -2763,7 +2785,7 @@ func _build_dining_car(car: Node3D) -> Dictionary:
 		c.rotation.y = B.yaw_to(face)
 		c.play("Sitting_Idle", 0.0)
 		return c
-	var hero: Node3D = seat.call(Looks.player(), Vector3(-0.58, 0.0, 0.85), Vector3(0, 0, -1))
+	var hero: Node3D = seat.call(Looks.player(), Vector3(-0.535, 0.0, 0.85), Vector3(0, 0, -1))
 	Looks.add_cap(hero)
 	cast["minä"] = hero
 	cast["marja"] = seat.call(MARJA, Vector3(-1.05, 0.0, -0.85), Vector3(0, 0, 1))

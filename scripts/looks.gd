@@ -1035,47 +1035,120 @@ static func _fit_rinkka_straps(c: Node3D, pack: Node3D, h: float, dz: float) -> 
 	if not is_instance_valid(pack):
 		return
 	var big_r := r + margin
+	var yc := 0.13  # rintakehän poikkileikkauksen keskus pystytasossa (pakkauksen kehys): säteet lähtevät tästä
+	var zc := -0.2
+	var a0 := deg_to_rad(-60.0)  # hihnan alku selän yläreunassa ...
+	var a1 := deg_to_rad(100.0)  # ... ja etupää rinnalla (kulma ylös-suunnasta kohti hahmon etua -Z)
+	var da := deg_to_rad(1.5)
+	var n := int(round((a1 - a0) / da))
 	for sx in [-1.0, 1.0]:
 		var xs: float = sx * 0.09
-		var z0 := -dz / 2.0 + 0.02  # alku pakkauksen sisällä (ei vartalon pinnassa)
-		var z1 := -dz / 2.0 - 0.25  # alkuperäinen etupää
-		var front_y := h / 2.0 - 0.1
-		var path: Array[Vector3] = []
+		var path := PackedVector3Array()
 		if pts.is_empty():
-			path = [Vector3(sx * 0.08, h / 2.0 - 0.02, -dz / 2.0), Vector3(sx * 0.1, h / 2.0 + 0.07, -dz / 2.0 - 0.11),
-				Vector3(sx * 0.1, front_y, z1)]
+			path = PackedVector3Array([Vector3(sx * 0.08, h / 2.0 - 0.02, -dz / 2.0), Vector3(sx * 0.1, h / 2.0 + 0.07, -dz / 2.0 - 0.11),
+				Vector3(sx * 0.1, h / 2.0 - 0.1, -dz / 2.0 - 0.25)])
 		else:
-			var n := int(round((z0 - z1) / 0.01))
-			var env := PackedFloat32Array()
+			# Säteittäinen verhokäyrä: suunnassa a lähin etäisyys keskuksesta, jossa hihnan pinta (r + varaus) on kaikkien
+			# vartalon pisteiden ulkopuolella (sama pallokuori kuin ennen, mutta säteittäin: rinnan etuseinäkin tulee mukaan).
+			var low := PackedFloat32Array()
 			for i in n + 1:
-				var z := lerpf(z0, z1, float(i) / n)
-				var y := -INF
+				var a := a0 + i * da
+				var u := Vector2(cos(a), -sin(a))  # (y, z)
+				var rr := 0.0
 				for q in pts:
 					var dx := q.x - xs
-					var dzq := q.z - z
-					var hh := sqrt(dx * dx + dzq * dzq)
-					if hh < big_r:
-						y = maxf(y, q.y + sqrt(big_r * big_r - hh * hh))
-				env.append(y)
-			var last := 0  # viimeinen asema, jossa pinta on olemassa
-			for i in n + 1:
-				if env[i] > -INF:
-					last = i
-			if env[0] == -INF:
-				env[0] = h / 2.0 - 0.02
-			for i in range(1, n + 1):  # puuttuva pinta: lineaarinen etupäähän
-				if env[i] == -INF:
-					env[i] = lerpf(env[last], front_y, float(i - last) / maxf(1.0, n - last)) if i > last else env[i - 1]
-			var low := env.duplicate()
-			for pass_i in 4:  # silotus, joka vain nostaa
-				for i in range(1, n):
-					env[i] = maxf(low[i], (env[i - 1] + env[i] * 2.0 + env[i + 1]) * 0.25)
-			for i in n + 1:
-				path.append(Vector3(xs, env[i], lerpf(z0, z1, float(i) / n)))
-		for i in range(1, path.size()):
-			B.tube(pack, path[i - 1], path[i], r, JESARI).set_meta("olkahihna", true)
-		for i in range(1, path.size() - 1):  # nivelpallot, ettei kulmiin jää rakoa
-			B.mesh(pack, B.sphere(r, 6), path[i], JESARI).set_meta("olkahihna", true)
+					if absf(dx) >= big_r:
+						continue
+					var v := Vector2(q.y - yc, q.z - zc)
+					var along := v.dot(u)
+					var hh2 := v.length_squared() - along * along + dx * dx
+					if hh2 < big_r * big_r:
+						rr = maxf(rr, along + sqrt(big_r * big_r - hh2))
+				low.append(rr)
+			# Sileä käyrä: kontrollipisteet 15 asteen välein (Catmull-Rom), nostetaan kunnes käyrä on kaikkialla verhokäyrän yllä.
+			var kstep := 10  # näytettä per kontrollipiste (15 astetta)
+			var kc := int(ceil(float(n) / kstep)) + 1
+			var ctrl := PackedFloat32Array()
+			for k in kc:
+				var m := 0.0
+				for j in range(maxi(0, k * kstep - kstep / 2), mini(n, k * kstep + kstep / 2) + 1):
+					m = maxf(m, low[j])
+				ctrl.append(m)
+			var curve := PackedFloat32Array()
+			curve.resize(n + 1)
+			for it in 60:
+				var worst := 0.0
+				for j in n + 1:
+					var kf := float(j) / kstep
+					var k1 := mini(int(kf), kc - 2)
+					var t := kf - k1
+					var p0: float = ctrl[maxi(k1 - 1, 0)]
+					var p1: float = ctrl[k1]
+					var p2: float = ctrl[k1 + 1]
+					var p3: float = ctrl[mini(k1 + 2, kc - 1)]
+					curve[j] = 0.5 * (2.0 * p1 + (p2 - p0) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t
+						+ (3.0 * p1 - p0 - 3.0 * p2 + p3) * t * t * t)
+					var def: float = low[j] - curve[j]
+					if def > 0.0001:
+						worst = maxf(worst, def)
+						ctrl[k1] += def
+						ctrl[k1 + 1] += def
+				if worst <= 0.0001:
+					break
+			for j in range(0, n + 1, 2):  # rengas 3 asteen välein
+				var a := a0 + j * da
+				path.append(Vector3(xs, yc + curve[j] * cos(a), zc - curve[j] * sin(a)))
+			path.insert(0, Vector3(xs, path[0].y, -dz / 2.0 + 0.02))  # alku pakkauksen sisällä (ei vartalon pinnassa)
+		var mi := _sweep_tube(pack, path, r, JESARI)
+		mi.set_meta("olkahihna", true)
+		mi.set_meta("polku", path)
+
+
+## Pyöreä putki yhtenä verkkona polun (pistejono) ympäri: yhdensuuntaissiirretty kehys, sileät normaalit, litteät päädyt.
+static func _sweep_tube(parent: Node3D, path: PackedVector3Array, r: float, color: Color, sides := 8) -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var tang := (path[1] - path[0]).normalized()
+	var side := tang.cross(Vector3.UP).normalized()
+	var rings: Array = []  # [pisteet, normaalit]
+	for i in path.size():
+		if i > 0 and i < path.size() - 1:
+			tang = (path[i + 1] - path[i - 1]).normalized()
+		elif i > 0:
+			tang = (path[i] - path[i - 1]).normalized()
+		side = (side - tang * side.dot(tang)).normalized()
+		var up := tang.cross(side)
+		var rp := PackedVector3Array()
+		var rn := PackedVector3Array()
+		for s in sides:
+			var an := TAU * s / sides
+			var nrm := side * cos(an) + up * sin(an)
+			rp.append(path[i] + nrm * r)
+			rn.append(nrm)
+		rings.append([rp, rn])
+	for i in range(1, rings.size()):
+		for s in sides:
+			var s2 := (s + 1) % sides
+			var q := [[i - 1, s], [i, s], [i, s2], [i - 1, s2]]
+			for tri in [[0, 2, 1], [0, 3, 2]]:
+				for v in tri:
+					st.set_normal(rings[q[v][0]][1][q[v][1]])
+					st.add_vertex(rings[q[v][0]][0][q[v][1]])
+	for e in [[0, -1.0], [path.size() - 1, 1.0]]:  # päätylaipat
+		var ring: Array = rings[e[0]]
+		var cap_n: Vector3 = (path[1] - path[0]).normalized() * -1.0 if e[1] < 0.0 else (path[-1] - path[-2]).normalized()
+		for s in sides:
+			var s2 := (s + 1) % sides
+			var order := [0, 1, 2] if e[1] < 0.0 else [0, 2, 1]
+			var vs := [path[e[0]], ring[0][s], ring[0][s2]]
+			for o in order:
+				st.set_normal(cap_n)
+				st.add_vertex(vs[o])
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = B.mat(color)
+	parent.add_child(mi)
+	return mi
 
 
 ## Mummon permanentti (mummot.gd ja kolmiomittauksen väärän oven mummo): pään ympäri tiheät valkoiset kiharat (MultiMesh): kalotti ja niska, kasvot ja korvien edusta vapaana.
