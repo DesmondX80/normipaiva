@@ -341,6 +341,10 @@ func _reppu(ch: Node3D, pack: Node3D, mika: String) -> void:
 	for mi: MeshInstance3D in pack.find_children("*", "MeshInstance3D", true, false):
 		var xf := pack.global_transform.affine_inverse() * mi.global_transform
 		var cm := mi.mesh as CylinderMesh
+		if mi.has_meta("olkahihna"):  # hihnan jana (looks.gd _fit_rinkka_straps: 2 cm:n putkia ja nivelpalloja)
+			if cm != null:
+				straps.append([xf * Vector3(0, cm.height / 2.0, 0), xf * Vector3(0, -cm.height / 2.0, 0), cm.top_radius])
+			continue
 		if cm != null and is_equal_approx(cm.top_radius, 0.012) and is_equal_approx(cm.bottom_radius, 0.012) and cm.height > 0.05:  # ei Olvin merkkiä
 			straps.append([xf * Vector3(0, cm.height / 2.0, 0), xf * Vector3(0, -cm.height / 2.0, 0), cm.top_radius])
 			continue

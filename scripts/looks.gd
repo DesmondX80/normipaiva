@@ -3,6 +3,7 @@ extends RefCounted
 
 const Character := preload("res://scripts/character.gd")
 const B := preload("res://scripts/build.gd")
+const Pose := preload("res://scripts/pose.gd")
 
 ## Pelaaja: 90-luvun tuulipuku (sininen, kolme valkoista raitaa) ja kaljamaha superhero-lihasten tilalla.
 const PLAYER := {
@@ -987,12 +988,7 @@ static func add_sandels_rinkka(c: Node3D) -> void:
 	# Jesarit: vaakanauhat ylä- ja alareunassa (eivät peitä logoa) ja olkahihnat selästä olkapäiden yli eteen.
 	for yy in [-0.18, 0.17]:
 		B.mesh(pack, B.boxm(Vector3(w + 0.008, 0.035, dz + 0.008)), Vector3(0, yy, 0), JESARI)
-	for sx in [-1.0, 1.0]:
-		var top := Vector3(sx * 0.08, h / 2.0 - 0.02, -dz / 2.0)
-		var shoulder := Vector3(sx * 0.1, h / 2.0 + 0.07, -dz / 2.0 - 0.11)
-		var front := Vector3(sx * 0.1, h / 2.0 - 0.1, -dz / 2.0 - 0.25)
-		B.tube(pack, top, shoulder, 0.012, JESARI)
-		B.tube(pack, shoulder, front, 0.012, JESARI)
+	# Hihnojen polku sovitetaan vartalon pintaan (_fit_rinkka_straps) heti ensimmäisessä ruudussa, kun luut ovat paikallaan.
 	# Kylkiin teipatut tarvikkeet: termos (vasen), golfpallopussi ja kaksi tölkkiä (oikea), avaaja narussa.
 	var side := -w / 2.0 - 0.035
 	B.mesh(pack, B.cyl(0.034, 0.034, 0.26, 14), Vector3(side, -0.03, 0), Color(0.55, 0.08, 0.08))
@@ -1010,6 +1006,76 @@ static func add_sandels_rinkka(c: Node3D) -> void:
 		Color(0.85, 0.85, 0.82))
 	B.mesh(pack, B.boxm(Vector3(0.018, 0.05, 0.006)), Vector3(-w / 2.0 + 0.03, -h / 2.0 - 0.085, dz / 2.0 + 0.01), Color(0.7, 0.7, 0.72))
 	c.attach("spine_03", pack, Vector3(0, -0.06, 0.22))
+	_fit_rinkka_straps(c, pack, h, dz)
+
+
+## Rinkan olkahihnat (selästä olkapään yli rinnalle) pakkauksen kehyksessä (-Z = selkä, hahmon etu). Suora jana kulki
+## olkapään rinteen läpi (hihna 5-9 mm pinnan sisällä), joten hihnan keskilinja lasketaan pinnasta: pystytasossa x = 0,09,
+## 1 cm:n välein z:n funktiona korkeus, jolla hihnan pinta (säde r + varaus) on kaikkien vartalon pisteiden (paljas ja
+## paita) yläpuolella (pallon kuori: y >= q.y + sqrt(R^2 - vaakaetäisyys^2)), jonka jälkeen silotus ja uusi tarkistus
+## (silotus vain nostaa). Pisteitä ei ole rinnan edessä: siellä korkeus lasketaan lineaarisesti alkuperäiseen etupäähän.
+## Ilman näyttöä (headless) käytetään alkuperäistä suoraa. Odottaa 6 ruutua, että idle-asento on päällä.
+static func _fit_rinkka_straps(c: Node3D, pack: Node3D, h: float, dz: float) -> void:
+	var r := 0.012
+	var margin := 0.006  # varaa kävelyn ja idlen väliselle erolle (mitattu 3-4 mm)
+	var pts := PackedVector3Array()
+	if c.is_inside_tree():
+		for i in 6:
+			await c.get_tree().process_frame
+		if is_instance_valid(c) and is_instance_valid(pack):
+			# Pisteet luuston avaruudessa ja pakkauksen paikka luusta lasketaan (ei pack.global_transform: BoneAttachment3D
+			# voi olla jäljessä luista).
+			var sk: Skeleton3D = c.skeleton
+			var to_pack := (sk.get_bone_global_pose(sk.find_bone("spine_03")) * pack.transform).affine_inverse()
+			var bones := ["pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "clavicle_l", "clavicle_r"]
+			pts = Pose.limb_points(c, sk, bones, 1)  # paljas vartalo (kangas painuu pinnalle) ...
+			pts.append_array(Pose.limb_points(c, sk, bones, 1, null, null, true))  # ... ja paidan ulkopinta
+			for i in pts.size():
+				pts[i] = to_pack * pts[i]
+	if not is_instance_valid(pack):
+		return
+	var big_r := r + margin
+	for sx in [-1.0, 1.0]:
+		var xs: float = sx * 0.09
+		var z0 := -dz / 2.0 + 0.02  # alku pakkauksen sisällä (ei vartalon pinnassa)
+		var z1 := -dz / 2.0 - 0.25  # alkuperäinen etupää
+		var front_y := h / 2.0 - 0.1
+		var path: Array[Vector3] = []
+		if pts.is_empty():
+			path = [Vector3(sx * 0.08, h / 2.0 - 0.02, -dz / 2.0), Vector3(sx * 0.1, h / 2.0 + 0.07, -dz / 2.0 - 0.11),
+				Vector3(sx * 0.1, front_y, z1)]
+		else:
+			var n := int(round((z0 - z1) / 0.01))
+			var env := PackedFloat32Array()
+			for i in n + 1:
+				var z := lerpf(z0, z1, float(i) / n)
+				var y := -INF
+				for q in pts:
+					var dx := q.x - xs
+					var dzq := q.z - z
+					var hh := sqrt(dx * dx + dzq * dzq)
+					if hh < big_r:
+						y = maxf(y, q.y + sqrt(big_r * big_r - hh * hh))
+				env.append(y)
+			var last := 0  # viimeinen asema, jossa pinta on olemassa
+			for i in n + 1:
+				if env[i] > -INF:
+					last = i
+			if env[0] == -INF:
+				env[0] = h / 2.0 - 0.02
+			for i in range(1, n + 1):  # puuttuva pinta: lineaarinen etupäähän
+				if env[i] == -INF:
+					env[i] = lerpf(env[last], front_y, float(i - last) / maxf(1.0, n - last)) if i > last else env[i - 1]
+			var low := env.duplicate()
+			for pass_i in 4:  # silotus, joka vain nostaa
+				for i in range(1, n):
+					env[i] = maxf(low[i], (env[i - 1] + env[i] * 2.0 + env[i + 1]) * 0.25)
+			for i in n + 1:
+				path.append(Vector3(xs, env[i], lerpf(z0, z1, float(i) / n)))
+		for i in range(1, path.size()):
+			B.tube(pack, path[i - 1], path[i], r, JESARI).set_meta("olkahihna", true)
+		for i in range(1, path.size() - 1):  # nivelpallot, ettei kulmiin jää rakoa
+			B.mesh(pack, B.sphere(r, 6), path[i], JESARI).set_meta("olkahihna", true)
 
 
 ## Mummon permanentti (mummot.gd ja kolmiomittauksen väärän oven mummo): pään ympäri tiheät valkoiset kiharat (MultiMesh): kalotti ja niska, kasvot ja korvien edusta vapaana.
