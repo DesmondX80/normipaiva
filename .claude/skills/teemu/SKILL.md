@@ -119,6 +119,10 @@ Ensimmäinen vaihe, joka liipaistuu vain, kun argumentti on `matkasuunnitelma` (
    Kirjoita työkansioon `00-main-tila.md`: `git log origin/main --oneline -20` ja `git log origin/main --oneline --grep=<pyynnön avainsanat>`
    (sekä issuenumero, jos on). Spekstaaja ja arkkitehti lukevat sen. Jos pyydetty asia näyttää olevan jo mainissa, kysy käyttäjältä
    (AskUserQuestion) ennen putkea.
+   **Lyhyt ulkonäköpyyntö saa mitattavat kriteerit ennen toteutusta.** Kun käyttäjän pyyntö on lyhyt ulkonäkömuutos ("laske mahaa",
+   "mustat pitsialusvaatteet"), Teemu kirjaa työkansioon sanasta sanaan, mistä muutos tunnistetaan (esim. "maha roikkuu vyön yli,
+   ei pallo"; "housut peittävät lantiolta haaraan") ja antaa sen toteuttajalle ja sekstaajalle, vaikka spekstaajaa ei käytettäisi.
+   (#hahmot-anatomia: maha ja pitsi ilman kriteereitä, korjauskierroksia kertyi.)
    Aja heti `tools/testit/godot.sh`. Jos Godotia ei löydy, kerro se käyttäjälle ennen spekstaajaa ja kysy: asennetaanko,
    vai toteutetaanko testaamatta (merkitään commitiin ja PR:ään "testaamatta kunnolla").
    **Mainin sisältö luetaan vain lukevilla komennoilla** (`git show origin/main:<polku>`, `git grep <hakusana> origin/main`).
