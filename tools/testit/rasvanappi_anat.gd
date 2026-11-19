@@ -12,9 +12,12 @@ var hall: Node3D
 
 func _ready() -> void:
 	var anat := true
+	var no_shadow := false
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--anat="):
 			anat = a.ends_with("1")
+		elif a == "--ei-varjoa":
+			no_shadow = true  # selvitys: onko jyrkkä reuna hallin varjokartan (omni) varjo
 		elif not a.begins_with("--"):
 			out = a
 	DirAccess.make_dir_recursive_absolute(out)
@@ -37,6 +40,9 @@ func _ready() -> void:
 	add_child(hall)
 	hall.build(Game.OBST, looks, {}, null)
 	hall.set_lit(1.0)
+	if no_shadow:
+		for l in hall.find_children("*", "OmniLight3D", true, false):
+			(l as OmniLight3D).shadow_enabled = false
 	_run.call_deferred()
 
 

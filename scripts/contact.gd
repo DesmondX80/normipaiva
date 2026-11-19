@@ -1725,7 +1725,7 @@ static func _ik_cap(ch: Node3D, nm: String) -> bool:
 ## Painuman laatikot hahmopariin: jokaisesta kapseliparista, jonka rako < gap, yhteinen taso kapselipintojen puolivälissä;
 ## kummallekin laatikko toisen puolelle tasoa, +Y omaa hahmoa kohti, puolikoko toisen kapselin säteestä. Syvin ensin,
 ## enintään Character.PRESS_MAX (6) per hahmo. Palauttaa [laatikot a, laatikot b] (Character.set_contacts-muoto).
-static func pair_contacts(a: Node3D, pa: Dictionary, b: Node3D, pb: Dictionary, gap := 0.01) -> Array:
+static func pair_contacts(a: Node3D, pa: Dictionary, b: Node3D, pb: Dictionary, gap := 0.01, no_a_vs: Array = []) -> Array:
 	var found := []
 	var cb := caps_all(b, pb)
 	var ab: Vector3 = b.global_position - a.global_position
@@ -1744,13 +1744,15 @@ static func pair_contacts(a: Node3D, pa: Dictionary, b: Node3D, pb: Dictionary, 
 			var ra: float = pd[4]
 			var rb: float = pd[5]
 			var mid: Vector3 = ((pd[2] as Vector3) + n * ra + (pd[3] as Vector3) - n * rb) * 0.5
-			found.append([pd[0], n, mid, ra, rb])
+			# no_a_vs: b:n kapselit (esim. seuraajan olkakäsi), joiden vastaparilta a:n vartalo ei painu (a:n laatikkoa ei tehdä):
+			# käden kohde on jo a:n verkon pinnalla (PariOte.shoulder), eikä painuma saa nostaa väliä. Käsi (b) painuu silti.
+			found.append([pd[0], n, mid, ra, rb, (y[0] in no_a_vs) and not str(x[0]).begins_with("hand")])
 	found.sort_custom(func(p: Array, q: Array) -> bool: return float(p[0]) > float(q[0]))
 	var out_a := []
 	var out_b := []
 	for f in found:
 		var n: Vector3 = f[1]
-		if out_a.size() < 6:
+		if out_a.size() < 6 and not f[5]:
 			out_a.append([_plane_xf(-n, f[2] + n * float(f[4])), Vector3.ONE * float(f[4])])
 		if out_b.size() < 6:
 			out_b.append([_plane_xf(n, f[2] - n * float(f[3])), Vector3.ONE * float(f[3])])

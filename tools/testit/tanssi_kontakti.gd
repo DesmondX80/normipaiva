@@ -44,7 +44,7 @@ func _ready() -> void:
 
 func _go() -> void:
 	var only := Array(OS.get_cmdline_user_args().slice(1)).filter(func(a: String) -> bool:
-		return a != "pois" and a != "nousu" and a != "saappaat")
+		return a != "pois" and a != "nousu" and a != "saappaat" and a != "peukku")
 	if "saappaat" in OS.get_cmdline_user_args():  # #274: pelaaja kodin kumisaappaissa, tanssija omissa kengissään
 		Looks.boots = "koti"
 	var pois := "pois" in OS.get_cmdline_user_args()
@@ -135,6 +135,11 @@ func _vaihe(nm: String, t: float, frames: int, miss: bool) -> void:
 		for c: Node3D in [me, her]:
 			for lr in ["_l", "_r"]:
 				_gap(nm, "arm" + lr, c, her if c == me else me)
+	if "peukku" in OS.get_cmdline_user_args():  # diagnoosi: viejän selkäkäden peukalo piiloon
+		var sk: Skeleton3D = me.skeleton
+		for k in ["_01", "_02", "_03"]:
+			var bi := sk.find_bone("thumb" + k + ("_l" if lf0() == "_r" else "_r"))
+			sk.set_bone_pose_scale(bi, Vector3.ONE * 0.001)
 	var c := (me.to_global(me.bone_position("spine_02")) + her.to_global(her.bone_position("spine_02"))) * 0.5
 	var ax := her.global_position - me.global_position
 	var front := Vector3(ax.z, 0, -ax.x)
@@ -173,6 +178,14 @@ func _vaihe(nm: String, t: float, frames: int, miss: bool) -> void:
 	_kasi_kadessa(nm, lf[0], lf[1])
 	# Pitävät kädet (viejän selkäkäsi, seuraajan olkakäsi) koskettavat pintaa; vapaat kädet mitataan KÄSI KÄDESSÄ -rivillä.
 	var lb := "_l" if lf[0] == "_r" else "_r"
+	var sorm := []
+	for fg in ["thumb", "index", "middle", "ring", "pinky"]:  # SORMI: sormen verkon rako seuraajan baked-verkkoon (ilman paidan pöyhennystä)
+		sorm.append("%s %.1f" % [fg, _mesh_gap(me, her, "hand" + lb, [fg], false) * 1000])
+	print("SORMI %s kämmen %.1f mm; %s; shirt_puff %s" % [nm, _mesh_gap(me, her, "hand" + lb, [], true) * 1000, ", ".join(sorm), str(her.body_mat.get_shader_parameter("shirt_puff"))])
+	var topp := []
+	for fg in ["thumb", "index", "middle", "ring", "pinky"]:  # TOPPI: sama paidan ulkopintaan (Pose.limb_points shirt)
+		topp.append("%s %.1f" % [fg, _mesh_gap(me, her, "hand" + lb, [fg], false, true) * 1000])
+	print("TOPPI %s kämmen %.1f mm; %s" % [nm, _mesh_gap(me, her, "hand" + lb, [], true, true) * 1000, ", ".join(topp)])
 	var fa := "_l" if lf[1] == "_r" else "_r"
 	for ch: String in kohde[nm]:
 		if ch != "me arm" + lb and ch != "pari arm" + fa:
@@ -206,6 +219,10 @@ func _ulottuma(nm: String, w: float) -> void:
 	var hand := her.to_global(her.bone_position("hand" + fa))
 	print("ULOTTUMA %s pari arm%s olka-kohde %.3f / arm_len %.3f, w %.2f, IK-kohde %.3f m ja ranne %.3f m viejän kyynärpään yllä (kohde best %.3f)" % [
 		nm, fa, best.distance_to(fsh), PariOte.arm_len(her, fa), w, tgt.y - el.y, hand.y - el.y, best.y - el.y])
+
+
+func lf0() -> String:
+	return _free_hand()[0]
 
 
 ## Vapaat kädet [viejän, seuraajan]: seuraaja on viejän oikealla -> viejän vasen ja seuraajan oikea (kuten PariOte.valssi).

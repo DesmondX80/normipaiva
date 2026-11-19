@@ -53,6 +53,7 @@ var _shoe_lift := 0.0  # sama mallin mittakaavassa (_lift_sole)
 var _overrides := {}  # luu -> [akseli hahmon avaruudessa, kulma]
 var _ik := {}  # nimi -> [luu a, luu b, luu c, kohde, polvi/kyynärpää-suunta, loppuluun lisäkierto] (hahmon avaruudessa)
 var _open := {}  # "_l"/"_r" -> sormien suoristuksen paino 0..1 (set_open_hand)
+var _thumb_flat := {}  # "_l"/"_r" -> true: peukalon kärki kämmenen tasoon (set_open_hand thumb_flat)
 var _current := ""
 var _sway_x := Vector3.ZERO  # hiusten heilahdus (maailma, m), jousi Elastic.spring_step
 var _sway_v := Vector3.ZERO
@@ -114,7 +115,7 @@ func setup(look: Dictionary) -> void:
 	var mus := float(look.get("muscle", DEFAULT_MUSCLE))
 	body_mat.set_shader_parameter("muscle_def", (1.0 - 0.8 * clampf(float(look.get("belly", 0.0)), 0.0, 1.0)) * (1.0 + 0.6 * mus))
 	for k in ["shorts_y", "crop_y", "sleeve_x", "tube_y", "denim", "bare_skin", "jeans", "belt_y", "belt_col", "net_shirt",
-			"suspenders", "strap_col", "grime", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff", "string_bikini", "ski_suit", "vest_open", "chest_hair", "body_hair", "satin"]:
+			"suspenders", "strap_col", "grime", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff", "string_bikini", "ski_suit", "vest_open", "chest_hair", "body_hair", "satin", "face_match"]:
 		if look.has(k):
 			body_mat.set_shader_parameter(k, look[k])
 	if anat_on:
@@ -287,13 +288,19 @@ func set_ik_orient(chain: String, orient: Basis, w: float) -> void:
 ## Avoin kämmen kontaktiin: sormien paikalliset kierrot animaatiosta kohti lepoasentoa (suorat sormet) painolla w,
 ## peukalo puolella painolla (lepoasennossa se sojottaisi kämmenpuolelle). Lr "_l"/"_r"; kutsu joka ruutu otteen ajan,
 ## clear_ik nollaa. Paikallinen kierto kohti lepoa, joten vasen ja oikea ovat peilikuvat ilman etumerkkejä.
-func set_open_hand(lr: String, w: float) -> void:
+## thumb_flat: peukalon kärki nostetaan kämmenen tasoon (ks. _flat_thumb), kun kämmen painaa vaatetta (tanssin selkäkäsi).
+func set_open_hand(lr: String, w: float, thumb_flat := false) -> void:
 	_open[lr] = clampf(w, 0.0, 1.0)
+	if thumb_flat:
+		_thumb_flat[lr] = true
+	else:
+		_thumb_flat.erase(lr)
 
 
 func clear_ik() -> void:
 	_ik.clear()
 	_open.clear()
+	_thumb_flat.clear()
 	remove_meta("kosketus_luut")  # PariOte.hand_to: tarkoituksellinen kämmenkosketus
 	_reset_sway()
 	_reset_jiggle()
@@ -471,6 +478,44 @@ func _open_fingers() -> void:
 					continue
 				var rest := skeleton.get_bone_rest(i).basis.get_rotation_quaternion()
 				skeleton.set_bone_pose_rotation(i, skeleton.get_bone_pose_rotation(i).slerp(rest, fw))
+		if _thumb_flat.has(lr):
+			_flat_thumb(lr, w)
+
+
+## Peukalo jää puolikkaaseen asentoon ja sen kärki ulottuu kämmenen tason alle (tanssin selkäkäsi: 13 mm), jolloin kynsi pistää
+## painetun vaatteen läpi (kangas painuu vain kämmenen tasolle). Peukaloa kierretään tyvestään (thumb_01) kämmenselän suuntaan,
+## kunnes kärki on etusormen rystysen tasolla - THUMB_FLAT. Kaikki käden avaruudessa (kämmenselkä = +X oikealla, -X vasemmalla,
+## Pose.palm_on), joten vasen ja oikea ovat peilikuvat ja tulos ei riipu IK:sta. w = painoarvo (set_open_hand).
+const THUMB_FLAT := 0.004
+func _flat_thumb(lr: String, w: float) -> void:
+	var ih := skeleton.find_bone("hand" + lr)
+	var i1 := skeleton.find_bone("thumb_01" + lr)
+	var i2 := skeleton.find_bone("thumb_02" + lr)
+	var i3 := skeleton.find_bone("thumb_03" + lr)
+	var ik := skeleton.find_bone("index_01" + lr)
+	if ih < 0 or i1 < 0 or i2 < 0 or i3 < 0 or ik < 0 or skeleton.get_bone_parent(i1) != ih:
+		return
+	var hg := skeleton.get_bone_global_pose(ih)
+	var hb := hg.basis.orthonormalized()
+	var to_h := func(q: Vector3) -> Vector3: return hb.inverse() * (q - hg.origin)
+	var back := Vector3(1.0 if lr == "_r" else -1.0, 0, 0)
+	var g2 := skeleton.get_bone_global_pose(i2)
+	var g3 := skeleton.get_bone_global_pose(i3)
+	var base: Vector3 = to_h.call(skeleton.get_bone_global_pose(i1).origin)
+	var tip: Vector3 = to_h.call(g3.origin + g3.basis.orthonormalized().y * g2.origin.distance_to(g3.origin))
+	var lim: float = (to_h.call(skeleton.get_bone_global_pose(ik).origin) as Vector3).dot(back) - THUMB_FLAT
+	var v := tip - base
+	if tip.dot(back) >= lim or v.length() < 0.001:
+		return
+	var axis := v.cross(back)
+	if axis.length() < 0.0001:
+		return
+	var vb := v.dot(back)
+	var now := atan2(vb, sqrt(maxf(v.length_squared() - vb * vb, 0.0)))
+	var want := asin(clampf((lim - base.dot(back)) / v.length(), -1.0, 1.0))
+	var q := Quaternion(axis.normalized(), (want - now) * w)
+	# thumb_01:n pose on käden avaruudessa (vanhempi = käsi): kierto käden kehyksessä tyven ympäri.
+	skeleton.set_bone_pose_rotation(i1, q * skeleton.get_bone_pose_rotation(i1))
 
 
 func _apply_ik() -> void:

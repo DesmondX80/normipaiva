@@ -19,6 +19,7 @@ const SELKA := [["spine_02", 0.8, deg_to_rad(65.0)], ["spine_02", 0.5, deg_to_ra
 # Paljon lyhyempi seuraaja (olkanivel yli ALA viejän alapuolella): selkäkäsi vyötärölle, ettei kyynärpää nouse seuraajan olan yli.
 const ALA := 0.08
 const VYO := [["spine_01", 0.8, deg_to_rad(75.0)], ["spine_01", 0.5, deg_to_rad(75.0)], ["spine_02", 0.3, deg_to_rad(75.0)]]
+const SELKA_KALLISTUS := 20.0  # selkäkäden kämmenen kallistus (astetta): peukalon kärki ei painu paidan läpi
 const SELKA_KULMA := 30.0  # selkäkäden olka-kämmen-linjan vähimmäiskulma selän pintaan (astetta, valssi (1))
 const VARTALO := ["pelvis", "spine_01", "spine_02", "spine_03"]  # ulottumattoman selkäkäden pinta (valssi (1))
 const OLKA := deg_to_rad(30.0)  # seuraajan olkakämmenen normaali pystystä viejän olan ulkosivulle
@@ -147,7 +148,14 @@ static func valssi(lead: Node3D, pl: Dictionary, fol: Node3D, pf: Dictionary, sp
 			pp += nn * palm_r(lead, pl, lb, nn, pp - sh)
 			p = pp
 			n = nn
-	hand_to(lead, lb, p, n, p - sh, sh + rl * sd * 0.4 + Vector3.UP * 0.1, w)
+	# Peukalo jää animaation puolikkaaseen asentoon ja ulottuu kämmenen tason alle (mitattu 13 mm): paidan painuma ei peitä sitä,
+	# vaan kynsi pistää topin läpi. Käsi on ulottuman rajalla (nosto ei auta), joten kämmentä kallistetaan sormiakselin ympäri
+	# peukalopuoli ylös; vasen on oikean peilikuva.
+	var tilt := n.rotated((p - sh).normalized(), deg_to_rad(SELKA_KALLISTUS) * (1.0 if lb == "_r" else -1.0))
+	hand_to(lead, lb, p, tilt, p - sh, sh + rl * sd * 0.4 + Vector3.UP * 0.1, w)
+	# Kangas painuu vain kämmenen tasolle (painumalaatikko), joten peukalon kärki nostetaan kämmenen tasoon (topin pinnasta
+	# mitattuna peukalo oli 1-4 mm sisällä: tanssi_kontakti TOPPI).
+	lead.set_open_hand(lb, w, true)
 	# (2) Vapaat kädet yhdessä: kohta olkien puolivälissä hieman olan alapuolella ja sivulla (suurin sivu, joka ulottuu).
 	# Kyynärpäät ulos ja alas samalle syvyydelle kuin kädet, jolloin kyynärvarret ovat kämmenten tasossa (ranne suorana).
 	var d := -back(lead)
@@ -294,9 +302,9 @@ static func clear_cache() -> void:
 
 ## Kosketus: IK-ketjut chains (ja move_b: vartalot, b siirtyy) ulos toisesta enintään rounds kierroksella, painumalaatikot molemmille.
 static func fit(a: Node3D, pa: Dictionary, b: Node3D, pb: Dictionary, move_b := true, chains: Array = Contact.CHAINS,
-		rounds := Contact.PAIR_ROUNDS) -> void:
+		rounds := Contact.PAIR_ROUNDS, no_a_vs: Array = []) -> void:
 	Contact.pair_fit(a, pa, b, pb, move_b, chains, rounds, false)
-	var bx := Contact.pair_contacts(a, pa, b, pb)
+	var bx := Contact.pair_contacts(a, pa, b, pb, 0.01, no_a_vs)
 	a.set_contacts(bx[0])
 	b.set_contacts(bx[1])
 	a.refresh_pose()

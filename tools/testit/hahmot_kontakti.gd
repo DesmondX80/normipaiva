@@ -476,11 +476,12 @@ func _gap(nm: String, chain: String, c: Node3D, o: Node3D, mesh := false) -> voi
 
 
 ## Kämmenen ja sormien paistetun verkon lyhin etäisyys toisen hahmon paistettuun verkkoon (vartalo ja vaatteet); negatiivinen =
-## käsi verkon sisällä; INF ilman näyttöä.
-func _mesh_gap(c: Node3D, o: Node3D, hand: String) -> float:
+## käsi verkon sisällä; INF ilman näyttöä. shirt: toisen pinta paidan ulkopinnasta (Pose.limb_points shirt, tanssin TOPPI-rivi).
+func _mesh_gap(c: Node3D, o: Node3D, hand: String, fingers := ["thumb", "index", "middle", "ring", "pinky"], palm := true,
+		shirt := false) -> float:
 	var lr := hand.right(2)
-	var bones := [hand]
-	for f in ["thumb", "index", "middle", "ring", "pinky"]:
+	var bones := [hand] if palm else []
+	for f in fingers:
 		for k in ["_01", "_02", "_03"]:
 			bones.append(f + k + lr)
 	var hp := Pose.limb_points(c, self, bones, 1)
@@ -492,7 +493,7 @@ func _mesh_gap(c: Node3D, o: Node3D, hand: String) -> float:
 	ctr /= hp.size()
 	var near := PackedVector3Array()
 	for q in Pose.limb_points(o, self, ["pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "clavicle_l", "clavicle_r",
-			"upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r", "Head"], 1):
+			"upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r", "Head"], 1, null, null, shirt):
 		if q.distance_to(ctr) < 0.3:
 			near.append(q)
 	var g := INF

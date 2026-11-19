@@ -225,7 +225,7 @@ func _hold(w: float) -> void:
 	_clear_thighs(pm, ph, mfront)
 	PariOte.valssi(_me, pm, _her, ph, self, w)
 	t0 = _perf("valssi", t0)
-	PariOte.fit(_me, pm, _her, ph, false, ["arm_l", "arm_r"], 8)
+	PariOte.fit(_me, pm, _her, ph, false, ["arm_l", "arm_r"], 8, ["hand_l", "hand_r"])
 	_perf("fit_arms", t0)  # sisältää pair_contactsin (noin 0,6 ms)
 
 

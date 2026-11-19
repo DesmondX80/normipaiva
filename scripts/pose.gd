@@ -34,7 +34,10 @@ static func palm_down(fingers: Vector3, left: bool) -> Basis:
 ## Ilman näyttöä (headless) verkkoa ei paisteta: palauttaa tyhjän, ja kutsuja käyttää varalla luuta.
 ## weights (valinnainen, Array-viite): jokaista palautettua pistettä kohden {luun nimi: paino} (Contact: elävä napataulu).
 ## tris (valinnainen): kolmiot palautettujen pisteiden indekseinä (3 per kolmio), vain kolmiot, joiden kaikki kärjet ovat mukana.
-static func limb_points(ch: Node3D, space: Node3D, bones: Array, meshes := 0, weights: Variant = null, tris: Variant = null) -> PackedVector3Array:
+## shirt: myös paidan pöyhennys (shirt_puff, varjostin) paidan peittämille vartalon pisteille (ei paljaille: crop_y, tube_y,
+## sleeve_x; ei käsille), jolloin pinta on topin ulkopinta. Oletus pois (vanhat mittaukset ennallaan); tanssin selkäkäsi ja KOHDE.
+static func limb_points(ch: Node3D, space: Node3D, bones: Array, meshes := 0, weights: Variant = null, tris: Variant = null,
+		shirt := false) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	if DisplayServer.get_name() == "headless":
 		return out
@@ -44,6 +47,13 @@ static func limb_points(ch: Node3D, space: Node3D, bones: Array, meshes := 0, we
 	var shoe_on: bool = ch.body_mat.get_shader_parameter("shoe_on") == true  # kengän sisään painuneet jalkaterän kärjet pois
 	var sc: Variant = ch.body_mat.get_shader_parameter("shoe_cut")
 	var shoe_cut: Vector4 = sc if sc != null else Vector4(0, 0, 1, 10.0)
+	var shp: Variant = ch.body_mat.get_shader_parameter("shirt_puff")
+	var spuff: float = (shp if shp != null else 0.022) if shirt and not bikini else 0.0  # varjostimen oletus
+	var bare_v := Vector3(-1.0, 9.0, -1.0)  # crop_y, sleeve_x, tube_y (varjostimen bare(); oletukset = ei paljasta)
+	for i in 3:
+		var bv: Variant = ch.body_mat.get_shader_parameter(["crop_y", "sleeve_x", "tube_y"][i])
+		if bv != null:
+			bare_v[i] = float(bv)
 	var skel: Skeleton3D = ch.skeleton
 	for mi in skel.get_children():
 		if not mi is MeshInstance3D or (mi as MeshInstance3D).skin == null:
@@ -105,6 +115,11 @@ static func limb_points(ch: Node3D, space: Node3D, bones: Array, meshes := 0, we
 			np = np.normalized()
 			var pants := is_body and cs.size() == rv.size() and roundi(cs[v].r * 4.0) == 2 and not bikini  # kengän pisteväri ei ole vaateluokka
 			var pf := puff if pants else 0.0
+			if spuff > 0.0 and is_body and cs.size() == rv.size() and roundi(cs[v].r * 4.0) == 1 and src.uv2.size() == rv.size() \
+					and not str(bnames.get(bi[v * per + best], "")).get_slice("_", 0) in ["hand", "thumb", "index", "middle", "ring", "pinky"]:
+				var r: Vector2 = src.uv2[v]
+				if not ((bare_v.x > 0.0 and r.y < bare_v.x and absf(r.x) < 0.26) or absf(r.x) > bare_v.y or (bare_v.z > 0.0 and r.y > bare_v.z)):
+					pf = spuff
 			vp += np * pf  # pöyhennys ensin, sitten painuma (kuten varjostin: vaate painuu mukana)
 			if not c0.is_empty() and c0[v * 4 + 3] > 0.0:
 				if is_hair:  # hiukset leviävät pois pään keskuksesta pinnan suuntaisesti (hair.gdshader)
@@ -151,7 +166,8 @@ static func _src_arrays(mi: MeshInstance3D) -> Dictionary:
 		out = {"vs": vs, "ns": a[Mesh.ARRAY_NORMAL], "bi": bi, "bw": a[Mesh.ARRAY_WEIGHTS], "per": bi.size() / vs.size(),
 			"cs": a[Mesh.ARRAY_COLOR] if a[Mesh.ARRAY_COLOR] != null else PackedColorArray(),
 			"c0": a[Mesh.ARRAY_CUSTOM0] if a[Mesh.ARRAY_CUSTOM0] != null else PackedFloat32Array(),
-			"ix": a[Mesh.ARRAY_INDEX] if a[Mesh.ARRAY_INDEX] != null else PackedInt32Array()}
+			"ix": a[Mesh.ARRAY_INDEX] if a[Mesh.ARRAY_INDEX] != null else PackedInt32Array(),
+			"uv2": a[Mesh.ARRAY_TEX_UV2] if a[Mesh.ARRAY_TEX_UV2] != null else PackedVector2Array()}
 	_src_cache[key] = out
 	return out
 

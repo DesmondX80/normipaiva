@@ -40,6 +40,7 @@ func setup(look: Dictionary, towel: Color, woman := false) -> void:
 	lk["pants"] = skin
 	lk["shoes"] = skin.darkened(0.25)  # varalla: vanha kenkäalueen väri
 	lk["shoe"] = "paljas"  # anatomia: jalkaterä ihonvärinen (varpaat, holvi, nilkkaluut) eikä vaalea kenkäalue
+	lk["face_match"] = 1.0  # kasvojen ja kaulan sävy samaksi kuin paljaan vartalon (character.gdshader)
 	lk["tube_y"] = 0.01  # paljas yläkroppa ja jalat, pyyhe erillisenä
 	lk["sleeve_x"] = 0.0
 	lk["shorts_y"] = 1.4

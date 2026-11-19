@@ -395,7 +395,8 @@ osumasta (`kolmio`) ja kulmittain 0/±15/±30° (0° on uurteen syvyys); `<pari>
 pitävät käytetyn painuman summaa, enintään `Elastic.MAX_LIMIT` 5 cm), joten päällekkäiset laatikot eivät painu yli rajan. Mittari:
 `tools/testit/aja.sh --kiintea tscn tools/testit/tanssi_kontakti.tscn [sinikka_seura|hilkka|annaliisa] [pois]` ajaa kolme paria vaiheissa alku,
 rata, horja (kompastus) ja loppu (kaikki tahdit osutuiksi) ja tulostaa `PARI`, `KOHDE` (selkä- ja olkakäsi, verkko ±1 cm etumerkillisenä:
-negatiivinen = käsi verkon sisällä), `MALLI selka`, `KÄSI KÄDESSÄ`
+negatiivinen = käsi verkon sisällä), `SORMI`/`TOPPI` (viejän selkäkäden kämmen ja sormet seuraajan ihoon / paidan ulkopintaan:
+`Pose.limb_points` `shirt` lisää `shirt_puff`-pöyhennyksen paidan peittämille pisteille), `MALLI selka`, `KÄSI KÄDESSÄ`
 (kapselirako näytteistä kuten `_fit_chains` ja verkko ≤ 1 cm, kämmenet vastakkain ≤ −0,7), `RANNE` (≤ 70°), `SUUNTA` (jalat lantioon ja toisiinsa nähden, `jalkojen väli` > 0,
 horjahduksen kallistus asteina, rinnat vastakkain hartialinjoista), `MITTARI suunta` (pari käännettynä 180° antaa < 0,7: mittarin itsetarkistus),
 `LÄPI <vaihe> me <n> pari <n>` (`Asento.solids` horjassa ja lopussa, 0),
@@ -542,3 +543,12 @@ animaation jälkeen). Käytössä oletuksena aikuisilla (pituus >= 1,5 m); `look
 - Testi: `tools/testit/aja.sh tscn tools/testit/anatomia_kuvat.tscn [--osa=a|b|c|d] [--anat=0|1] [--luokka] [--anim=Idle]`
   ottaa lähikuvat (kasvot, kädet, jalat, vartalo, 4 kulmaa) pelaajasta, Sinikasta, Päivistä ja Juntista ja tulostaa ANAT-rivit
   (jalan alin y, kämmenen ja jalan säteet, luokan 3 lepo-y). `--luokka` värjää jalkaterän luokan magentalla.
+- Kasvojen sävy (`look.face_match` = 1, vain Rasvanapin hahmot, `crawler3d.setup`): pohjatekstuurin pään ja kaulan iho on paljasta
+  vartaloa tummempaa ja punaisempaa (`character.gdshader`: `face_match`-lohko luokan 0 haarassa): ihon värinen pikseli saa vartalon
+  sävykaavan `bare_skin * skin_tint * (0,82 + 0,25 lum)` ja pitää 40 % omasta sävyvaihtelustaan (huulet, posket); silmänvalkuainen
+  ja kulmakarvat jäävät ennalleen. Muilla hahmoilla `face_match` = 0 (ei muutosta). Hallin hartian "olkain"-reuna on katon omni-valon
+  varjokartan varjo (`rasvanappi_anat.tscn --ei-varjoa` poistaa sen), ei verkko eikä albedo.
+- Sävymittaus: `tools/testit/savy_mitta.tscn -- <kansio> [--face=0|1] [--anat=0|1] [--hahmot=a,b]` tulostaa SAVY-rivit (kasvo/kaula/rinta/käsi RGB)
+  ja kuvat edestä, takaa, kasvot ja hartia.
+- Tanssin selkäkäden peukalo: kangas painuu vain kämmenen tasolle, joten `PariOte.valssi` asettaa `set_open_hand(lb, w, true)`:
+  `Character._flat_thumb` kiertää peukaloa tyvestä kämmenselän suuntaan, kunnes kärki on etusormen rystysen tasolla - 4 mm (käden avaruudessa).

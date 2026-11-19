@@ -57,6 +57,7 @@ uniform float sleeve_x = 9.0;
 uniform float tube_y = -1.0;  // tuubitoppi: paita loppuu ylhäältä tähän (olkaimeton, olkapäät paljaina)
 uniform bool denim = false;  // revityt farkkushortsit: toimikudos, hapsuinen lahje, repeämät reisissä
 uniform vec3 bare_skin : source_color = vec3(0.93, 0.74, 0.62);
+uniform float face_match : hint_range(0.0, 1.0) = 0.0;  // 1 = pään ja kaulan iho samaan sävyyn paljaan vartalon kanssa (Rasvanapin hahmot, look.face_match)
 // Pelaajan asut (looks.gd OUTFITS): pitkät farkut vyöllä, verkkopaita (string-paita) henkseleillä, työhousut ja
 // flanellipaita. Kaikki piirretään pikseleinä lepoasennon koordinaateista (rest = UV2, metrit).
 uniform bool jeans = false;      // pitkät vaaleat farkut: toimikudos, kuluneet reidet ja polvet, sivusaumat
@@ -595,6 +596,18 @@ void fragment() {
 			ALBEDO = mix(ALBEDO, skin_with_ink(bare_skin * skin_tint * (0.82 + 0.25 * lum), rest, lpos, rest_zn.x), nk);
 			ROUGHNESS = mix(ROUGHNESS, 0.55, nk);
 			NORMAL_MAP = mix(NORMAL_MAP, vec3(0.5, 0.5, 1.0), nk);
+		}
+		if (face_match > 0.0 && rest.y > 1.46) {
+			// Pohjatekstuurin pään ja kaulan iho on paljasta vartaloa tummempaa ja punaisempaa (kasvot kuin ruskettuneet, jyrkkä
+			// sauma kaulan tyvessä). Ihon värinen pikseli saa vartalon sävykaavan (kirkkaus) ja pitää oman
+			// sävynsä vaihtelun (huulet, posket); tummat piirteet (kulmakarvat) ja silmänvalkuainen jäävät ennalleen.
+			float warm = (t.r - t.b) - 0.35 * lum;  // ihon (punertava) pikseli: R-B yli 0,35 x kirkkaus; silmänvalkuainen alle 0
+			float rel = lum / 0.46;  // pohjatekstuurin ihon tyypillinen kirkkaus kasvoissa (0,46 sellaisenaan, ei lineaarisena)
+			float w = smoothstep(0.0, 0.06, warm) * smoothstep(0.45, 0.75, rel) * smoothstep(1.46, 1.5, rest.y);
+			vec3 chroma = clamp(t.rgb / max(lum, 0.001) / vec3(1.34, 0.9, 0.636), vec3(0.6), vec3(1.6));
+			chroma = mix(vec3(1.0), chroma, 0.4);  // huulten ja poskien puna säilyy, mutta pehmeämpänä (täysi vaihtelu liioittelee)
+			vec3 body_tone = bare_skin * skin_tint * (0.82 + 0.25 * lum) * min(rel, 1.0) * chroma;
+			ALBEDO = mix(ALBEDO, skin_with_ink(body_tone, rest, lpos, rest_zn.x), w * face_match);
 		}
 		if (anat_hand_bare) {
 			ROUGHNESS = 0.55;  // kuten paljas kyynärvarsi (ihohaara yllä): ei sävyeroa kiillosta tai normaalikartasta

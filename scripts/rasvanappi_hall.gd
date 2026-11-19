@@ -11,6 +11,7 @@ const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
 
 const LAYER := 1 << 19  # näkyvyyskerros 20: vain hallin kamera ja valot
+const CH_LAYER := 1 << 18  # hallin hahmot: eivät saa katon varjokartan varjoa (itsevarjon jyrkkä reuna hartiassa), ks. _build_lights
 const WALL_H := 2.6
 const LINE_Z := 4.4  # esittelyrivi
 
@@ -28,6 +29,7 @@ var fps_pitch := -0.16  # FPS-katseen kallistus (rad, + ylös); hiiriohjauksessa
 var _sun: DirectionalLight3D
 var _sun_mask := 0
 var _ceiling: OmniLight3D
+var _ceiling_ch: OmniLight3D  # sama lamppu ilman varjoa hahmoille
 var _bulb_mat: StandardMaterial3D
 var _sight: OmniLight3D
 var _env: Environment
@@ -39,18 +41,22 @@ func build(obst: Array, looks: Array, bouncer: Dictionary, sun: DirectionalLight
 	_sun = sun
 	if _sun != null:
 		_sun_mask = _sun.light_cull_mask
-		_sun.light_cull_mask = _sun_mask & ~LAYER
+		_sun.light_cull_mask = _sun_mask & ~(LAYER | CH_LAYER)
 	_build_room(obst)
 	for lk: Dictionary in looks:
 		var c := Crawler.new()
 		add_child(c)
 		c.setup(lk.look, lk.towel, lk.woman)
 		crawlers.append(c)
+		c.set_meta("halli_hahmo", true)
+		_blob(c, Vector2(0.95, 1.5), -0.15)
 	if not bouncer.is_empty():
 		var b := Looks.make(self, bouncer)
 		b.position = Vector3(0.75, 0, door_y - 1.0)
 		b.rotation.y = -PI / 2.0  # katsoo halliin (+X)
 		b.play("Idle")
+		b.set_meta("halli_hahmo", true)
+		_blob(b, Vector2(0.8, 0.8), 0.0)
 	_env = Environment.new()
 	_env.background_mode = Environment.BG_COLOR
 	_env.background_color = Color(0.0, 0.0, 0.0)
@@ -64,14 +70,14 @@ func build(obst: Array, looks: Array, bouncer: Dictionary, sun: DirectionalLight
 	_build_lights()
 	cam = Camera3D.new()
 	cam.fov = 42.0
-	cam.cull_mask = LAYER
+	cam.cull_mask = LAYER | CH_LAYER
 	cam.environment = _env
 	add_child(cam)
 	var eye := Vector3(room.x / 2.0, 10.6, room.y + 4.6)
 	cam.transform = Transform3D(Basis.looking_at(Vector3(room.x / 2.0, 0, room.y / 2.0 + 0.25) - eye, Vector3.UP), eye)
 	line_cam = Camera3D.new()
 	line_cam.fov = 48.0
-	line_cam.cull_mask = LAYER
+	line_cam.cull_mask = LAYER | CH_LAYER
 	line_cam.environment = _env
 	add_child(line_cam)
 	var le := Vector3(room.x / 2.0, 1.5, room.y + 2.6)
@@ -79,7 +85,7 @@ func build(obst: Array, looks: Array, bouncer: Dictionary, sun: DirectionalLight
 	fps_cam = Camera3D.new()
 	fps_cam.fov = 72.0
 	fps_cam.near = 0.05
-	fps_cam.cull_mask = LAYER
+	fps_cam.cull_mask = LAYER | CH_LAYER
 	fps_cam.environment = _env
 	add_child(fps_cam)
 	_set_layers(self)
@@ -103,18 +109,45 @@ func _exit_tree() -> void:
 		_sun.light_cull_mask = _sun_mask
 
 
-func _set_layers(n: Node) -> void:
+func _set_layers(n: Node, ch := false) -> void:
+	ch = ch or n.has_meta("halli_hahmo")
 	if n is VisualInstance3D:
-		(n as VisualInstance3D).layers = LAYER
-	if n is Light3D:
-		(n as Light3D).light_cull_mask = LAYER
+		(n as VisualInstance3D).layers = CH_LAYER if ch and not n.has_meta("halli_varjo") else LAYER
+	if n is Light3D and not n.has_meta("halli_maski"):
+		(n as Light3D).light_cull_mask = LAYER | CH_LAYER
 	for c in n.get_children():
-		_set_layers(c)
+		_set_layers(c, ch)
+
+
+## Pehmeä pyöreä varjolaikku hahmon alle (hahmot eivät heitä katon varjoa, ks. _build_lights).
+func _blob(parent: Node3D, size: Vector2, z: float) -> void:
+	var g := Gradient.new()
+	g.colors = PackedColorArray([Color(0, 0, 0, 0.55), Color(0, 0, 0, 0)])
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.fill = GradientTexture2D.FILL_RADIAL
+	t.fill_from = Vector2(0.5, 0.5)
+	t.fill_to = Vector2(1.0, 0.5)
+	var q := QuadMesh.new()
+	q.size = size
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_texture = t
+	var mi := MeshInstance3D.new()
+	mi.mesh = q
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.rotation.x = -PI / 2.0
+	mi.position = Vector3(0, 0.012, z)
+	mi.set_meta("halli_varjo", true)
+	parent.add_child(mi)
 
 
 ## Kattolamppu 0..1 (0 = pimeä halli: vain ovenrako, ULOS-valo ja pelaajan ympäristö).
 func set_lit(v: float) -> void:
 	_ceiling.light_energy = 2.6 * v
+	_ceiling_ch.light_energy = 2.6 * v
 	_bulb_mat.emission_energy_multiplier = 0.2 + 5.0 * v
 	_env.ambient_light_energy = 0.5 * v
 	_sight.light_energy = 0.9 * (1.0 - v)
@@ -178,8 +211,21 @@ func _build_lights() -> void:
 	_ceiling.omni_range = 11.0
 	_ceiling.omni_attenuation = 0.8
 	_ceiling.shadow_enabled = true
+	# Hahmot (CH_LAYER) eivät saa katon varjokartan varjoa: se tekee hartiaan ja solisluuhun jyrkän "olkaimen" saumareunan
+	# (Compatibility-varjokartta, blur/opacity eivät pehmennä). Huone saa varjonsa tästä (mask LAYER), hahmot valonsa
+	# samasta lampusta ilman varjoa (_ceiling_ch); hahmon lattiavarjo on pehmeä laikku (_blob).
+	_ceiling.light_cull_mask = LAYER
+	_ceiling.set_meta("halli_maski", true)
 	_ceiling.position = Vector3(room.x / 2.0 - 0.5, 2.3, room.y / 2.0)
 	add_child(_ceiling)
+	_ceiling_ch = OmniLight3D.new()
+	_ceiling_ch.light_color = _ceiling.light_color
+	_ceiling_ch.omni_range = _ceiling.omni_range
+	_ceiling_ch.omni_attenuation = _ceiling.omni_attenuation
+	_ceiling_ch.light_cull_mask = CH_LAYER
+	_ceiling_ch.set_meta("halli_maski", true)
+	_ceiling_ch.position = _ceiling.position
+	add_child(_ceiling_ch)
 	var bulb := MeshInstance3D.new()
 	bulb.mesh = B.sphere(0.07)
 	_bulb_mat = StandardMaterial3D.new()
