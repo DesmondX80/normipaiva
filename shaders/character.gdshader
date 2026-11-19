@@ -447,6 +447,11 @@ void vertex() {
 	if (foot_skin && c > 2.5) {
 		puff = 0.0;
 	}
+	if (c > 0.5 && c < 1.5) {
+		// Pöyhennys vaimenee kyljellä (|x| 0,06-0,12): kainalon ja kyljen verteksien normaalit ovat vinossa (käsi ylhäällä) ja
+		// 22 mm normaalia pitkin repi topin sivukaistaleen rosoiseksi (tanssin rata, viejän käsi kyljellä).
+		puff *= 1.0 - smoothstep(0.06, 0.12, abs(UV2.x));
+	}
 	if (c > 0.5 && c < 1.5 && anat_class_jalat(c, UV2) < 0.5) {
 		puff = 0.0;  // käsi (anatomia: käden pisteillä on kyynärvarren luokka): ei hihan pöyhennystä
 	}

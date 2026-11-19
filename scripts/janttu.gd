@@ -163,8 +163,12 @@ func _place_props() -> void:
 	_curl_fingers()
 	# Etukäsi roikkumaan penkin etureunan yli kohti maata.
 	var sh: Vector3 = body.transform * body.bone_position("upperarm" + front)
+	# Ranne nostetaan niin, että kämmen ja roikkuvat sormet jäävät maan (y 0) yläpuolelle: sormen pituus mitataan luista
+	# (ranne -> keskisormen kärkiluu + kärjen ja ihon paksuus), ei arvata (ennen sormet menivät maahan 6 cm).
+	var finger_len: float = body.bone_position("hand" + front).distance_to(body.bone_position("middle_03" + front)) + 0.05
+	var wrist_y := maxf(SEAT - 0.4, finger_len + 0.01)
 	body.set_ik("arm" + front, "upperarm" + front, "lowerarm" + front, "hand" + front,
-		inv * Vector3(sh.x, SEAT - 0.4, -0.3), inv * Vector3(sh.x, SEAT - 0.15, -0.3))
+		inv * Vector3(sh.x, wrist_y, -0.3), inv * Vector3(sh.x, maxf(SEAT - 0.15, wrist_y + 0.2), -0.3))
 	var hand: Vector3 = body.transform * body.bone_position("hand" + front)
 	var feet: Vector3 = body.transform * ((body.bone_position("foot_l") + body.bone_position("foot_r")) / 2.0)
 	var along := Vector3(head.x - feet.x, 0, head.z - feet.z).normalized()

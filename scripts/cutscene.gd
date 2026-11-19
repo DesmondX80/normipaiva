@@ -2867,14 +2867,30 @@ func _fit_seats(cast: Dictionary) -> void:
 		var butt := INF
 		var back := -INF
 		for q in torso:
-			butt = minf(butt, q.y - feet)
+			butt = minf(butt, q.y)
 			back = maxf(back, q.z * zdir)
+		var shift := 0.0
+		if back > 1.085 and back < 1.3:
+			shift = back - 1.085  # selkä irti selkänojasta (sen etupinta z = 1,09)
+			ch.position.z -= zdir * shift
+		# Torso mitattiin jo lattialle siirretyssä asennossa, joten pakaran korkeus on suoraan lattiasta (ei feet-vähennystä).
+		# Tyynyn etureuna sääriluun takapinnan kohdalle: säärien paikka mitataan, ei arvata (muuten sääri ja jalkaterä
+		# jäävät tyynyn sisään, kun lantio on vedetty selkänojaa vasten). Takareuna z = 1,125 pysyy.
+		var calf_rear := -INF  # säären takimmainen kohta (z * zdir, penkin etuedestä taaksepäin kasvava)
+		for q in Pose.limb_points(ch, carn, ["calf_l", "calf_r", "foot_l", "foot_r"], 1):
+			calf_rear = maxf(calf_rear, q.z * zdir)  # paikka siirron jälkeen
+		# Reisien alapinta tyynyn kohdalla voi olla lantiota alempana (pelaaja 4 cm): tyyny ei saa nousta sen yli.
+		for q in Pose.limb_points(ch, carn, ["thigh_l", "thigh_r"], 1):
+			if q.z * zdir > 0.575 and q.z * zdir < 1.125 and absf(q.x + 0.85) < 0.45:
+				butt = minf(butt, q.y)
 		var cu: Node3D = cast.tyynyt[nm]
 		var top := clampf(butt + 0.015, 0.25, 0.6) if butt < INF else 0.45
 		cu.scale.y = top
 		cu.position.y = top / 2.0
-		if back > 1.085 and back < 1.3:
-			ch.position.z -= zdir * (back - 1.085)  # selkä irti selkänojasta (sen etupinta z = 1,09)
+		if calf_rear > 0.575 and calf_rear < 0.95:
+			var front_z := calf_rear + 0.01
+			cu.scale.z = (1.125 - front_z) / 0.55  # laatikon z-koko 0,55
+			cu.position.z = zdir * (front_z + 1.125) / 2.0
 		if B.diag():  # vain testiajoissa
 			print("PENKKI sovitus %s: jalat %+.3f, lantio %.3f -> tyyny %.3f, selkä %.3f, paikka %s" % [nm, -feet, butt, top, back, ch.position])
 
