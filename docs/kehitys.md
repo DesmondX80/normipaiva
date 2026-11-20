@@ -344,7 +344,10 @@ painuman jäännöksen (`KONTAKTI JÄÄ`, raja 1 mm yli painumarajan) ja kuvaa i
 **Kontaktit, jatko:** rento istuja pitää kädet sylissä (`Pose.hands_on_thighs(..., lap)`), hattu ja hiukset otetaan selkänojan mittaukseen
 (`Contact.head_extras`), portaiden jalat ojompana (`opts.jalat_ulos`, `Contact.place_foot` liu'uttaa jalan yhdelle askelmalle,
 `Contact.clear_legs`), pöydän reunan etupinta on painumakontakti (vatsa/rinta) ja litistyvä kohta pullistuu sivulle
-(`Elastic.SPREAD`, `HALO`; varjostin peilaa).
+(`Elastic.SPREAD`, `HALO`; varjostin peilaa). Vartalon sivusiirto on enintään `Elastic.SIDE_MAX` 15 mm (`press_side_max`):
+laatikon reuna häipyy 2 cm:ssä, joten isompi sivusiirto taittoi pinnan (Sinikan topin kangas kiertyi tanssin selkäkäden ympäri).
+Hiuksilla (`press_radial` 1) ei rajaa. Lyhyen topin (`crop_y`) pöyhennys nousee helmasta 3 cm:n matkalla: verkon rivit eivät ole
+helman suuntaisia, joten äkillinen 22 mm:n porras teki helmaan sahahampaita.
 
 **Jalkapohjat maan tasalla:** hahmomallien kengänpohjat ovat mallin origon alapuolella (mies 5,4 cm, nainen 4,6 cm
 mallin mittakaavassa), joten `character.gd` nostaa mallia animaation mukaan (`SOLE`: seisominen ja kävely täysi nosto, hölkkä,

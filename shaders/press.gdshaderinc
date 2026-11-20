@@ -19,6 +19,7 @@ uniform vec3 press_h4;
 uniform vec3 press_h5;
 uniform float press_spread = 1.0;  // = Elastic.SPREAD
 uniform float press_halo = 0.9;  // = Elastic.HALO
+uniform float press_side_max = 0.015;  // = Elastic.SIDE_MAX: sivusiirron yläraja (vartalo; hiuksilla, press_radial 1, ei rajaa)
 uniform float press_radial = 0.0;
 uniform vec3 press_origin = vec3(0.0);  // verkon avaruus: hiusten leviämisen keskus (pää)
 
@@ -43,7 +44,10 @@ vec3 press_disp(mat4 xf, vec3 h, vec3 v, float lim, float used, vec3 nrm, out ve
 		sdir = mix(sdir, dr, press_radial);
 		sfac = mix(sfac, smoothstep(0.0, 0.02, dl), press_radial);
 	}
-	vec3 sp = (tl > 0.0 || press_radial > 0.0) ? sdir * sfac * (press_spread * d + press_halo * lim * w * (1.0 - smoothstep(0.0, 0.08, max(-pen, 0.0)))) : vec3(0.0);  // = Elastic.HALO_H
+	// Vartalon sivusiirto (leviäminen + pullistuma) enintään press_side_max: laatikon reuna häipyy 2 cm:ssä, joten isompi sivusiirto
+	// taittaa pinnan (Sinikan topin kangas kiertyi tanssin selkäkäden ympäri ja helmaan tuli loveja).
+	float side = min(sfac * (press_spread * d + press_halo * lim * w * (1.0 - smoothstep(0.0, 0.08, max(-pen, 0.0)))), mix(press_side_max, 1000.0, press_radial));  // = Elastic.HALO_H
+	vec3 sp = (tl > 0.0 || press_radial > 0.0) ? sdir * side : vec3(0.0);
 	n_out = vec3(m[0][1], m[1][1], m[2][1]);
 	depth_out = lim > 0.0 ? d / lim : 0.0;
 	return transpose(m) * (vec3(0.0, d, 0.0) + sp);

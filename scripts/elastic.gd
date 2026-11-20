@@ -26,6 +26,9 @@ const SPREAD := 1.0  # painuman leviäminen sivuille (osuus painumasta): pullist
 ## Pullistuma: litistyvän kohdan lähellä (pinnan yläpuolella HALO_H asti) liha työntyy sivulle HALO x raja.
 const HALO := 0.9
 const HALO_H := 0.08
+## Sivusiirron (SPREAD + HALO) yläraja: laatikon reuna häipyy 2 cm:n matkalla, joten isompi sivusiirto taittaa pinnan
+## (#Q: Sinikan topin kangas kiertyi tanssin selkäkäden ympäri ja helmaan tuli loveja). Hiuksilla (radial 1) ei rajaa.
+const SIDE_MAX := 0.015
 const KNEE_R := 0.06
 const ELBOW_R := 0.05
 const WRIST_R := 0.04
@@ -165,7 +168,8 @@ static func displace(xf: Transform3D, h: Vector3, p: Vector3, lim: float, _nrm :
 		dr = dr / dl if dl > 0.00001 else Vector3.ZERO
 		sdir = sdir.lerp(dr, radial)
 		sfac = lerpf(sfac, smoothstep(0.0, 0.02, dl), radial)
-	var sp := sdir * sfac * (spread * d + halo * lim * w * (1.0 - smoothstep(0.0, HALO_H, maxf(-pen, 0.0)))) if tl > 0.0 or radial > 0.0 else Vector3.ZERO
+	var side := minf(sfac * (spread * d + halo * lim * w * (1.0 - smoothstep(0.0, HALO_H, maxf(-pen, 0.0)))), lerpf(SIDE_MAX, 1000.0, radial))
+	var sp := sdir * side if tl > 0.0 or radial > 0.0 else Vector3.ZERO
 	return xf.basis.transposed() * (Vector3(0.0, d, 0.0) + sp)
 
 

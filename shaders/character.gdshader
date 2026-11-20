@@ -451,6 +451,11 @@ void vertex() {
 		// Pöyhennys vaimenee kyljellä (|x| 0,06-0,12): kainalon ja kyljen verteksien normaalit ovat vinossa (käsi ylhäällä) ja
 		// 22 mm normaalia pitkin repi topin sivukaistaleen rosoiseksi (tanssin rata, viejän käsi kyljellä).
 		puff *= 1.0 - smoothstep(0.06, 0.12, abs(UV2.x));
+		if (crop_y > 0.0 && abs(UV2.x) < 0.26) {
+			// Lyhyen topin helma: pöyhennys nousee 3 cm:n matkalla helmasta (#Q). Ilman liukumaa helman vieruspisteet saivat
+			// vuorotellen 22 mm ja 0 (verkon rivit eivät ole crop_y:n suuntaisia), ja helmaan tuli 6-7 mm:n sahahampaat.
+			puff *= smoothstep(crop_y, crop_y + 0.03, UV2.y);
+		}
 	}
 	if (c > 0.5 && c < 1.5 && anat_class_jalat(c, UV2) < 0.5) {
 		puff = 0.0;  // käsi (anatomia: käden pisteillä on kyynärvarren luokka): ei hihan pöyhennystä
