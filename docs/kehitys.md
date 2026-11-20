@@ -21,6 +21,10 @@ Tai komentoriviltä purkukansiossa:
 godot --path .
 ```
 
+Resurssien `.import`-tiedostot ovat gitissä: kun lisäät äänen, kuvan tai mallin, committaa sen `.import` mukaan
+(editori tai `godot --headless --import` tekee sen). Silloin toisen koneen Godot tuo uuden tiedoston itse
+käynnistyessään, eikä peli valita "No loader found" tai "Ääntä ei löydy".
+
 ## Kääntyykö ilman editoria
 
 Skriptit ladataan `preload`:lla, ei `class_name`-luokilla, koska suoraan ajettuna (`godot ./`) editorin
@@ -251,21 +255,31 @@ skripteillä `tools/aanet/rakenna_pyora_hengitys.py`, `korosta_kolina.py` ja `ra
 
 ## Puheäänet
 
-Päivin repliikit tehdään avoimella puhemallilla Chatterbox Multilingual (MIT, Resemble AI) malliäänen
-`tools/aanet/paivi_malliaani.ogg` pohjalta (kolmen suomalaisen naisen sekoitus Googlen FLEURS-aineistosta, CC BY 4.0);
-kaikki muut hahmot puhuu Macin Eddy (rauhallinen tenori). Äänet ovat valmiita mp3-tiedostoja `assets/aanet/<paivi|muu>/<tiiviste>.mp3`, joissa tiiviste on repliikin
-tekstin SHA-1:n 12 ensimmäistä merkkiä (`Sfx.voice_key`); `assets/aanet/hakemisto.json` kertoo, mikä tiiviste on mikä
-repliikki. Soitto: `Sfx.speak(ryhmä, teksti)` (`audio.gd`); puhekuplat (`bubble.gd`, `voice`-ominaisuus tai
-"Päivi: "-etuliite) ja dialogiruutu (`dialogue_box.gd`, puhujan nimi) kutsuvat sitä itse, joten uusi repliikki saa äänen
-ilman koodimuutosta. Puuttuva ääni on hiljaisuutta. Äänten teko (vain macOS): aja testikohtaus lipulla
-`--aanisynteesi` (esim. `tools/testit/aja.sh --headless scene asema --aanisynteesi`), jolloin jokainen vastaan tuleva
-repliikki syntetisoidaan (`tools/aanet/syntetisoi.sh`), ja sen jälkeen `godot --headless --import`. Uusi tai muuttunut
-repliikki tarvitsee oman ajonsa: vanha tiedosto jää käyttämättömäksi.
-Päivin äänet (Linuxilla, ilman ulkopuolista palvelua, CPU:lla noin 20 s repliikki): asenna kerran
-`uv venv -p python3.11 ~/chatterbox && uv pip install -p ~/chatterbox/bin/python chatterbox-tts "setuptools<81"`, sitten
-`~/chatterbox/bin/python tools/aanet/paivi_aani.py tools/aanet/paivi_malliaani.ogg` tekee kaikki `hakemisto.json`:n
-Päivin repliikit uudelleen (`--testi`: neljä näytettä kuunneltavaksi, `--vain "repliikki"`: yksittäinen uusi repliikki,
-joka lisätään myös hakemistoon) ja lopuksi `godot --headless --import`.
+Kaikki repliikit tehdään avoimella puhemallilla Chatterbox Multilingual (MIT, Resemble AI) hahmon malliäänen
+pohjalta (`tools/aanet/malliaanet/`, suomalaisia äänityksiä Googlen FLEURS-aineistosta, CC BY 4.0; lähteet
+`docs/tekijanoikeudet.md`). Hahmot: Päivi (vihainen, huutomerkkirepliikit huutaen), pelaaja (nöyrä "Kyllä kulta"),
+baarimikko, Ruukin porukka, kapteeni, auton omistaja ja Anna-Liisa. Muu-ryhmän repliikin puhuja valitaan tekstin
+alusta (`puheaani.py PUHUJAT`, oletus Ruukin mies), joten uuden hahmon repliikit lisätään sinne. Äänet ovat valmiita
+mp3-tiedostoja `assets/aanet/<paivi|muu>/<tiiviste>.mp3`, joissa tiiviste on repliikin tekstin SHA-1:n 12 ensimmäistä
+merkkiä (`Sfx.voice_key`); `assets/aanet/hakemisto.json` kertoo, mikä tiiviste on mikä repliikki. Soitto:
+`Sfx.speak(ryhmä, teksti)` (`audio.gd`); puhekuplat (`bubble.gd`, `voice`-ominaisuus tai "Päivi: "-etuliite) ja
+dialogiruutu (`dialogue_box.gd`, puhujan nimi) kutsuvat sitä itse, joten uusi repliikki saa äänen ilman koodimuutosta.
+Puuttuva ääni on hiljaisuutta.
+
+Laatu: jokaisesta repliikistä tehdään kolme versiota, ja suomen puheentunnistus (wav2vec2) valitsee selvimmän, koska
+puhemalli sotkee välillä tavuja. Päivin huuto on jälkikäsittelyä (`puheaani.py HUUTO`): sävelkorko ylös
+WORLD-vokooderilla, jolloin äänen sointi säilyy, sekä kirkkaus ja puristus kuin huudossa. Malliäänen voimakas
+käsittely (sävelkorko, kirkkaus) teki puheesta sotkuista, joten huuto tehdään valmiiseen repliikkiin.
+
+Äänten teko (macOS:llä Applen näytönohjaimella noin 20 s repliikki, Linuxilla CPU:lla hitaammin): asenna kerran
+`uv venv -p python3.11 ~/chatterbox && uv pip install -p ~/chatterbox/bin/python chatterbox-tts pyworld "setuptools<81"`.
+Uudet repliikit löytyvät ajamalla testikohtaus lipulla `--aanisynteesi` (vain macOS, esim.
+`tools/testit/aja.sh --headless scene asema --aanisynteesi`): jokainen vastaan tuleva repliikki saa väliaikaisen
+`say`-äänen (`tools/aanet/syntetisoi.sh`) ja kirjautuu hakemistoon. Sen jälkeen
+`~/chatterbox/bin/python tools/aanet/puheaani.py` tekee kaikki hakemiston repliikit uudelleen (`--ryhma paivi|muu`
+rajaa, `--vain "repliikki" ...` tekee vain annetut ja lisää ne hakemistoon, `--testi` kokoaa näytteet tiedostoon
+`.claude/tyo/puhe_testi.mp3`) ja lopuksi `godot --headless --import`. Uusi tai muuttunut repliikki tarvitsee oman
+ajonsa: vanha tiedosto jää käyttämättömäksi.
 
 ## Karttadata ja maasto
 

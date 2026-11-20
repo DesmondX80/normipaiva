@@ -1,0 +1,182 @@
+# Hahmojen repliikit avoimella puhemallilla (Chatterbox Multilingual, MIT, Resemble AI): malli matkii hahmon
+# malliäänen (tools/aanet/malliaanet/, lähteet docs/tekijanoikeudet.md) soinnin, suomeksi. Tiedostot samoilla nimillä
+# kuin pelin haku (assets/aanet/<paivi|muu>/<repliikin tiiviste>.mp3, ks. audio.gd voice_key), joten koodi ei muutu.
+#
+# Jokaisesta repliikistä tehdään EHDOKKAAT versiota, ja niistä valitaan se, jonka suomen puheentunnistus
+# (wav2vec2-large-xlsr-53-finnish) kuulee lähimmäs tekstiä: puhemalli sotkee välillä tavuja, ja tämä karsii ne.
+# Päivi on vihainen ja huutaa huutomerkkirepliikit: sävelkorko nostetaan WORLD-vokooderilla (formantit paikallaan,
+# ääni ei muutu piipittäväksi) ja ääni kirkastetaan ja puristetaan kuin huudossa (ks. HUUTO).
+#
+# Asennus (kerran, erillinen ympäristö, ei pelin mukana):
+#   uv venv -p python3.11 ~/chatterbox && uv pip install -p ~/chatterbox/bin/python chatterbox-tts pyworld "setuptools<81"
+# Käyttö:
+#   ~/chatterbox/bin/python tools/aanet/puheaani.py [--ryhma paivi|muu] [--vain "repliikki" ...] [--testi]
+#   ilman valintoja: kaikki hakemisto.json:n repliikit uudelleen (vanhat korvataan), sitten `godot --headless --import`.
+#   --vain: vain annetut repliikit (ryhmä --ryhma, oletus muu; lisätään myös hakemisto.json:iin)
+#   --ehdokkaat N: versioita repliikkiä kohden (oletus 3; heikoille repliikeille enemmän)
+#   --testi: valitut repliikit peräkkäin tiedostoon .claude/tyo/puhe_testi.mp3 (ei kosketa peliin)
+import argparse, hashlib, json, os, re, subprocess, tempfile, time
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+VOICES = os.path.join(ROOT, "assets", "aanet")
+REFS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "malliaanet")
+EHDOKKAAT = 3
+SR = 24000
+
+## Hahmon malliääni ja puhetapa: exaggeration = tunteen voimakkuus (0,5 neutraali), cfg pienempi = vapaampi rytmi.
+HAHMOT = {
+	"paivi": {"ref": "paivi.ogg", "ex": 1.5, "cfg": 0.3},
+	"pelaaja": {"ref": "pelaaja.flac", "ex": 0.4, "cfg": 0.5},  # nolo mies puhelimessa: hiljainen ja nöyrä
+	"baarimikko": {"ref": "baarimikko.flac", "ex": 0.6, "cfg": 0.4},
+	"ruukki": {"ref": "ruukki.flac", "ex": 0.7, "cfg": 0.4},  # Ruukin porukka Kapteenin Kulmassa
+	"kapteeni": {"ref": "kapteeni.flac", "ex": 0.55, "cfg": 0.3},  # vanha merimies, hidas kertoja
+	"kuski": {"ref": "kuski.flac", "ex": 1.2, "cfg": 0.3},  # auton omistaja huomaa varkauden
+	"anna_liisa": {"ref": "anna_liisa.flac", "ex": 0.6, "cfg": 0.4},  # naapuri (neighbor.gd)
+}
+## Muu-ryhmän repliikin puhuja (tekstin alku). Puuttuva = "ruukki" (tavallinen mies).
+PUHUJAT = [
+	("Kyllä kulta", "pelaaja"), ("K-kyllä kulta", "pelaaja"), ("Joo... kyllä kulta", "pelaaja"),
+	("No terve! Kapteenin Kulmaan", "baarimikko"), ("Ko mää olin nuori", "kapteeni"), ("Raahe oli aikoinaan", "kapteeni"),
+	("Pekka seisoo torilla", "kapteeni"), ("HEI! MUN AUTO", "kuski"), ("Haloo?! Mun auto", "kuski"),
+	("Kas, täällähän on väkeä", "anna_liisa"),
+]
+## Huudon jälkikäsittely: [sävelkorko kertaa, kirkkaus dB, puristuksen nosto dB]. Päivi huutaa huutomerkkirepliikit
+## ja puhuu muut kiukkuisesti. Muilla ei jälkikäsittelyä: auton omistajan huuto oli käsiteltynä yhtä epäselvä kuin ilman.
+HUUTO = {"paivi": ([1.3, 6.0, 7.0], [1.15, 3.0, 4.0])}
+
+
+def voice_key(text: str) -> str:
+	"""Sama kuin audio.gd voice_key: SHA-1 riisutusta tekstistä, 12 ensimmäistä merkkiä."""
+	return hashlib.sha1(text.strip().encode("utf-8")).hexdigest()[:12]
+
+
+def spoken(text: str) -> str:
+	"""Puhuttava muoto: VERSAALIT tavallisiksi (malli ei tavaa niitä), muuten sama kuin ruudulla."""
+	return re.sub(r"\b[A-ZÄÖÅ]{2,}\b", lambda m: m.group(0).capitalize() if m.start() == 0 else m.group(0).lower(), text)
+
+
+def speaker(group: str, text: str) -> str:
+	if group == "paivi":
+		return "paivi"
+	return next((h for alku, h in PUHUJAT if text.startswith(alku)), "ruukki")
+
+
+def shout(group_voice: str, text: str):
+	levels = HUUTO.get(group_voice)
+	if levels is None:
+		return None
+	return levels[0] if "!" in text else levels[1]
+
+
+def words(s: str) -> list:
+	return re.sub(r"[^a-zåäö ]", " ", s.lower()).split()
+
+
+def wer(ref: list, hyp: list) -> float:
+	d = list(range(len(hyp) + 1))
+	for i, a in enumerate(ref, 1):
+		p = d[:]
+		d[0] = i
+		for j, b in enumerate(hyp, 1):
+			d[j] = min(p[j] + 1, d[j - 1] + 1, p[j - 1] + (a != b))
+	return d[-1] / max(1, len(ref))
+
+
+def apply_shout(y, level):
+	"""Sävelkorko ylös WORLD-vokooderilla (formantit paikallaan), sitten kirkkaus ja puristus ffmpegillä."""
+	import numpy as np, pyworld as pw, soundfile as sf
+	y = y.astype(np.float64)
+	f0, t = pw.harvest(y, SR, f0_floor=80, f0_ceil=600)
+	z = pw.synthesize(f0 * level[0], pw.cheaptrick(y, f0, t, SR), pw.d4c(y, f0, t, SR), SR)
+	tmp = tempfile.mkdtemp()
+	sf.write(os.path.join(tmp, "a.wav"), z / max(1e-6, np.abs(z).max()) * 0.8, SR)
+	subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", os.path.join(tmp, "a.wav"), "-af",
+		"highshelf=f=1800:g=%.1f,acompressor=threshold=-22dB:ratio=5:attack=4:release=60:makeup=%.1f,alimiter=limit=0.95"
+		% (level[1], level[2]), os.path.join(tmp, "b.wav")], check=True)
+	return sf.read(os.path.join(tmp, "b.wav"))[0]
+
+
+def main() -> None:
+	ap = argparse.ArgumentParser()
+	ap.add_argument("--ryhma", choices=["paivi", "muu"], default=None)
+	ap.add_argument("--testi", action="store_true")
+	ap.add_argument("--vain", nargs="*", default=None)
+	ap.add_argument("--ehdokkaat", type=int, default=EHDOKKAAT)
+	a = ap.parse_args()
+	import numpy as np, soundfile as sf, torch, librosa
+	from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+	from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+	_load = torch.load  # mallitiedostot on tallennettu CUDA-laitteelta: ladataan ensin muistiin, sitten laitteelle
+	torch.load = lambda *x, **k: _load(*x, **{**k, "map_location": "cpu"})
+	dev = "mps" if torch.backends.mps.is_available() else ("cuda" if torch.cuda.is_available() else "cpu")
+	m = ChatterboxMultilingualTTS.from_pretrained(device=torch.device(dev))
+	asr_name = "jonatasgrosman/wav2vec2-large-xlsr-53-finnish"
+	asr_proc, asr = Wav2Vec2Processor.from_pretrained(asr_name), Wav2Vec2ForCTC.from_pretrained(asr_name).eval()
+
+	def hear(y) -> list:
+		y16 = librosa.resample(np.asarray(y, dtype=np.float32), orig_sr=SR, target_sr=16000)
+		with torch.no_grad():
+			ids = asr(asr_proc(y16, sampling_rate=16000, return_tensors="pt").input_values).logits.argmax(-1)
+		return words(asr_proc.batch_decode(ids)[0])
+
+	ip = os.path.join(VOICES, "hakemisto.json")
+	idx = json.load(open(ip, encoding="utf-8")) if os.path.exists(ip) else {}
+	if a.vain:
+		lines = [(a.ryhma or "muu", t.strip()) for t in a.vain]
+	else:
+		lines = [(k.split("/")[0], t) for k, t in sorted(idx.items()) if a.ryhma in (None, k.split("/")[0])]
+	tmp = tempfile.mkdtemp()
+	refs = {}
+	outs = []
+	for i, (group, text) in enumerate(lines):
+		t0 = time.time()
+		who = speaker(group, text)
+		h = HAHMOT[who]
+		if who not in refs:
+			refs[who] = os.path.join(tmp, who + ".wav")
+			subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", os.path.join(REFS, h["ref"]), "-ac", "1", "-ar", str(SR),
+				refs[who]], check=True)
+		level = shout(who, text)
+		best = None
+		for n in range(a.ehdokkaat):
+			torch.manual_seed(1000 + 17 * i + n)
+			y = m.generate(spoken(text), language_id="fi", audio_prompt_path=refs[who], exaggeration=h["ex"],
+				cfg_weight=h["cfg"], temperature=0.8)[0].cpu().numpy()
+			if level is not None:
+				y = apply_shout(y, level)
+			score = wer(words(text), hear(y))
+			if best is None or score < best[0]:
+				best = (score, y)
+			if score == 0.0:
+				break
+		w = os.path.join(tmp, "r%03d.wav" % i)
+		sf.write(w, best[1], SR)
+		if a.testi:
+			outs.append(w)
+		else:
+			dst = os.path.join(VOICES, group, voice_key(text) + ".mp3")
+			subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", w, "-af",
+				"silenceremove=start_periods=1:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_threshold=-45dB,areverse",
+				"-ar", "22050", "-ac", "1", "-c:a", "libmp3lame", "-b:a", "48k", dst], check=True)
+			idx[group + "/" + voice_key(text)] = text
+		print("%d/%d %.0f s %s wer %.2f: %s" % (i + 1, len(lines), time.time() - t0, who, best[0], text), flush=True)
+	if a.testi:
+		sil = os.path.join(tmp, "tauko.wav")
+		subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-t", "0.9", "-i", "anullsrc=r=%d:cl=mono" % SR, sil],
+			check=True)
+		lst = os.path.join(tmp, "lista.txt")
+		with open(lst, "w") as f:
+			for w in outs:
+				f.write("file '%s'\nfile '%s'\n" % (w, sil))
+		out = os.path.join(ROOT, ".claude", "tyo", "puhe_testi.mp3")
+		os.makedirs(os.path.dirname(out), exist_ok=True)
+		subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst, "-c:a", "libmp3lame",
+			"-b:a", "96k", out], check=True)
+		print("testi:", out)
+	else:
+		with open(ip, "w", encoding="utf-8") as f:
+			json.dump(idx, f, ensure_ascii=False, indent="\t", sort_keys=True)
+
+
+if __name__ == "__main__":
+	main()

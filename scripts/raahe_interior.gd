@@ -773,5 +773,6 @@ func _build_people() -> void:
 	_paivi = Looks.make(self, Looks.PAIVI)
 	_paivi.visible = false
 	_add_bubble(_paivi)
+	_bubbles[_paivi].voice = "paivi"
 	_paivi_cone = _make_cone()
 	add_child(_paivi_cone)
