@@ -21,6 +21,10 @@ Tai komentoriviltä purkukansiossa:
 godot --path .
 ```
 
+Resurssien `.import`-tiedostot ovat gitissä: kun lisäät äänen, kuvan tai mallin, committaa sen `.import` mukaan
+(editori tai `godot --headless --import` tekee sen). Silloin toisen koneen Godot tuo uuden tiedoston itse
+käynnistyessään, eikä peli valita "No loader found" tai "Ääntä ei löydy".
+
 ## Kääntyykö ilman editoria
 
 Skriptit ladataan `preload`:lla, ei `class_name`-luokilla, koska suoraan ajettuna (`godot ./`) editorin
