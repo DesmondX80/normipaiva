@@ -557,6 +557,14 @@ animaation jälkeen). Käytössä oletuksena aikuisilla (pituus >= 1,5 m); `look
   ANATD kaulus -riveistä) ja naisen paidan helman rajan suoraksi lepo-y:stä. Kaula saa paljaan rinnan kanssa saman sävyn (ei
   vaakaraitaa). Vatsapallon yläreuna ohenee rinnan alla (`_shape_offset`); voimakkaampi sulautus rikkoi tanssin kontaktin (hilkka_horja).
   Trapetsin nosto rajattu 3 mm:iin (hartian yläreuna enintään 2 mm yli mainin).
+- Miesten maha (`Elastic.belly_frame`): yksi kehys muodolle (`_shape_offset`), painumarajalle ja hyllynnälle. Keskipiste navan
+  tasolla (1,085; pelaajalla 1,075), alapuolisko lyhyempi (`r_lo`), joten maha kaartuu alhaalta vyön päälle: etummainen kohta navan
+  kohdalla (pelaajalla 3 cm alempana), alareunan taite 0,98 (pelaaja 0,94: roikkuu vyön yli, ei haaraan). Pelaajan mahan yläosa
+  ohenee edessä 1,0:sta ylös (ei pallon reunaa rinnan alle) ja kyljissä kuten ennen (halaus). Paidan etuhelma on
+  sileä kaari `hem_front + hem_front_k x^2` (`Character._hem_front`: suurimman marginaalin kaari verkon paita- ja housupisteiden
+  väliin), selässä suora `hem_back`. Mittaus: `aja.sh tscn tools/testit/maha_mitta.tscn [--ennen]` (MAHA-rivit kaikista miehistä,
+  joilla belly > 0: napa, huippu, taite, siirtymä alle 0,90, etuhelman ristiriidat; kuvat edestä, sivulta, vinosti ja lepoasennosta
+  sivulta viivoineen: napa punainen, vyö keltainen, haara sininen).
 - Testi: `tools/testit/aja.sh tscn tools/testit/anatomia_kuvat.tscn [--osa=a|b|c|d] [--anat=0|1] [--luokka] [--anim=Idle]`
   ottaa lähikuvat (kasvot, kädet, jalat, vartalo, 4 kulmaa) pelaajasta, Sinikasta, Päivistä ja Juntista ja tulostaa ANAT-rivit
   (jalan alin y, kämmenen ja jalan säteet, luokan 3 lepo-y). `--luokka` värjää jalkaterän luokan magentalla.

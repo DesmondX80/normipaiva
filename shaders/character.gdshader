@@ -54,6 +54,8 @@ uniform float shoe_top = -10.0;
 uniform float shorts_y = -1.0;
 uniform float crop_y = -1.0;
 uniform float hem_back = -1.0;  // miehen paidan helma selässä (lepo-y, > 0 = käytössä; character.gd, vain belly > 0)
+uniform float hem_front = -1.0;  // etuhelma keskellä (lepo-y): kaari hem_front + hem_front_k x^2 (character.gd _hem_front)
+uniform float hem_front_k = 0.0;
 uniform float sleeve_x = 9.0;
 uniform float tube_y = -1.0;  // tuubitoppi: paita loppuu ylhäältä tähän (olkaimeton, olkapäät paljaina)
 uniform bool denim = false;  // revityt farkkushortsit: toimikudos, hapsuinen lahje, repeämät reisissä
@@ -507,6 +509,10 @@ void fragment() {
 	c = anat_class(c, rest);
 	if (hem_back > 0.0 && c > 0.5 && c < 2.5 && abs(rest.x) < 0.26 && rest.y > 0.88 && rest.y < 1.2 && rest_zn.x < -0.02) {
 		c = rest.y > hem_back ? 1.0 : 2.0;  // selän helma suorana lepo-y:stä (verteksiluokka portaili: spine / pelvis ja mahan isoviiva)
+	} else if (hem_front > 0.0 && c > 0.5 && c < 2.5 && abs(rest.x) < 0.26 && rest.y > 0.85 && rest.y < 1.2) {
+		// Etu ja kyljet: sileä kaari mahan alareunan mukaan, kyljissä liukuma selän suoraan helmaan (ei sahalaitaa, #06-maha).
+		float hy = mix(hem_back, hem_front + hem_front_k * rest.x * rest.x, smoothstep(-0.02, 0.03, rest_zn.x));
+		c = rest.y > hy ? 1.0 : 2.0;
 	}
 	bool anat_hand = c_pre > 0.5 && c_pre < 1.5 && c < 0.5;  // käsi, jonka pisteillä on kyynärvarren luokka (anat_class_jalat)
 	if (shoe_on && c > 2.5) {
