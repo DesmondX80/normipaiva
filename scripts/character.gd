@@ -114,6 +114,10 @@ func setup(look: Dictionary) -> void:
 	# Kaljamaha pehmentää superhero-lihakset kankaan alla.
 	var mus := float(look.get("muscle", DEFAULT_MUSCLE))
 	body_mat.set_shader_parameter("muscle_def", (1.0 - 0.8 * clampf(float(look.get("belly", 0.0)), 0.0, 1.0)) * (1.0 + 0.6 * mus))
+	if kind != "female" and float(look.get("belly", 0.0)) > 0.0:
+		# Paidan helma selässä suorana (taka 1,095, laskee mahan mukana 9 cm; vrt. mies Juntti belly 1 -> 1,005): verteksiluokka
+		# (spine / pelvis + mahan pullistuma) portaili selän alaosassa (#T), ks. character.gdshader hem_back.
+		body_mat.set_shader_parameter("hem_back", 1.095 - 0.09 * float(look.get("belly", 0.0)))
 	for k in ["shorts_y", "crop_y", "sleeve_x", "tube_y", "denim", "bare_skin", "jeans", "belt_y", "belt_col", "net_shirt",
 			"suspenders", "strap_col", "grime", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff", "string_bikini", "ski_suit", "vest_open", "chest_hair", "body_hair", "satin", "face_match"]:
 		if look.has(k):

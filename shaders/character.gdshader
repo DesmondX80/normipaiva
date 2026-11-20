@@ -53,6 +53,7 @@ uniform float shoe_top = -10.0;
 // shorts_y = housut loppuvat tähän (reisi), crop_y = paita loppuu tähän (napa näkyy), sleeve_x = hihan pää.
 uniform float shorts_y = -1.0;
 uniform float crop_y = -1.0;
+uniform float hem_back = -1.0;  // miehen paidan helma selässä (lepo-y, > 0 = käytössä; character.gd, vain belly > 0)
 uniform float sleeve_x = 9.0;
 uniform float tube_y = -1.0;  // tuubitoppi: paita loppuu ylhäältä tähän (olkaimeton, olkapäät paljaina)
 uniform bool denim = false;  // revityt farkkushortsit: toimikudos, hapsuinen lahje, repeämät reisissä
@@ -504,6 +505,9 @@ void fragment() {
 	}
 	float c_pre = c;
 	c = anat_class(c, rest);
+	if (hem_back > 0.0 && c > 0.5 && c < 2.5 && abs(rest.x) < 0.26 && rest.y > 0.88 && rest.y < 1.2 && rest_zn.x < -0.02) {
+		c = rest.y > hem_back ? 1.0 : 2.0;  // selän helma suorana lepo-y:stä (verteksiluokka portaili: spine / pelvis ja mahan isoviiva)
+	}
 	bool anat_hand = c_pre > 0.5 && c_pre < 1.5 && c < 0.5;  // käsi, jonka pisteillä on kyynärvarren luokka (anat_class_jalat)
 	if (shoe_on && c > 2.5) {
 		c = 2.0;  // kengän suusta nilkassa pilkistävä jalkaterä on lahjetta (shortseilla paljasta ihoa, bare)

@@ -169,6 +169,25 @@ func _place_props() -> void:
 	var wrist_y := maxf(SEAT - 0.4, finger_len + 0.01)
 	body.set_ik("arm" + front, "upperarm" + front, "lowerarm" + front, "hand" + front,
 		inv * Vector3(sh.x, wrist_y, -0.3), inv * Vector3(sh.x, maxf(SEAT - 0.15, wrist_y + 0.2), -0.3))
+	# Roikkuvan käden (kämmen, peukalo ja sormet) paistettu pinta ei saa mennä penkin päätyrautaan (x = BENCH_L/2 - 0.18 sisäreuna):
+	# mitataan käden pisimmälle +X:ään yltävä piste ja siirretään rannetta ylitys + 1 cm verran pään suuntaan, kunnes pinta on vapaa.
+	var hand_bones := []
+	for i in body.skeleton.get_bone_count():
+		var bn: String = body.skeleton.get_bone_name(i)
+		if bn.ends_with(front) and (bn.begins_with("hand") or bn.begins_with("thumb") or bn.begins_with("index") or bn.begins_with("middle") or bn.begins_with("ring") or bn.begins_with("pinky")):
+			hand_bones.append(bn)
+	var end_x := BENCH_L / 2.0 - 0.15 - 0.03 - 0.01  # päätyraudan sisäpinta miinus 1 cm
+	var wx := sh.x
+	for k in 4:
+		body.refresh_pose()
+		var max_x := -INF
+		for q in Pose.limb_points(body, self, hand_bones):
+			max_x = maxf(max_x, q.x)
+		if max_x <= end_x:
+			break
+		wx -= max_x - end_x + 0.005
+		body.set_ik("arm" + front, "upperarm" + front, "lowerarm" + front, "hand" + front,
+			inv * Vector3(wx, wrist_y, -0.3), inv * Vector3(wx, maxf(SEAT - 0.15, wrist_y + 0.2), -0.3))
 	var hand: Vector3 = body.transform * body.bone_position("hand" + front)
 	var feet: Vector3 = body.transform * ((body.bone_position("foot_l") + body.bone_position("foot_r")) / 2.0)
 	var along := Vector3(head.x - feet.x, 0, head.z - feet.z).normalized()
