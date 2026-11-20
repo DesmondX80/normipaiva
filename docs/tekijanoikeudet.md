@@ -31,14 +31,18 @@
   Karaokeversion soittoraita (`assets/music/normipaiva_lyhyt.mp3`: lyhennetty ja ristiinhäivytetty
   `normipaiva_soitto.mp3`, laulu erotettu Demucsilla) ja ajoitetut sanat (`assets/music/normipaiva_sanat_lyhyt.json`,
   kohdistettu wav2vec2:lla) ovat samasta tunnarista.
-- Päivin puheäänet (`assets/aanet/paivi/`): tehty avoimella puhemallilla Chatterbox Multilingual (Resemble AI, MIT,
-  https://github.com/resemble-ai/chatterbox; malli upottaa ääniin kuulumattoman Perth-vesileiman) malliäänen
-  `tools/aanet/paivi_malliaani.ogg` pohjalta. Malliääni on koottu kolmesta naisäänityksestä Googlen FLEURS-aineistosta
-  (fi_fi, testijoukon tiedostot 10194815671252164859, 18137089313608381153 ja 2700047567934299806), lisenssi
-  **CC BY 4.0** (https://huggingface.co/datasets/google/fleurs); muokattu (leikattu, voimakkuus tasattu, yhdistetty).
-- Muiden hahmojen puheäänet (`assets/aanet/muu/`): syntetisoitu Macin `say`-äänellä Eddy ja
-  jälkikäsitelty `ffmpeg`:llä (`tools/aanet/syntetisoi.sh`). **Tarkistettava ennen julkaisua:** Applen lisenssi ei
-  välttämättä salli äänten jakelua pelin mukana; tarvittaessa äänet tehdään uudelleen vapaalla puhesyntetisaattorilla.
+- Puheäänet (`assets/aanet/`): tehty avoimella puhemallilla Chatterbox Multilingual (Resemble AI, MIT,
+  https://github.com/resemble-ai/chatterbox; malli upottaa ääniin kuulumattoman Perth-vesileiman) hahmojen
+  malliäänten (`tools/aanet/malliaanet/`) pohjalta. Malliäänet ovat Googlen FLEURS-aineiston suomenkielisiä
+  äänityksiä (fi_fi, testijoukko), lisenssi **CC BY 4.0** (https://huggingface.co/datasets/google/fleurs); muokattu
+  (leikattu, voimakkuus tasattu, Päivillä kolme yhdistetty). Päivi (`paivi.ogg`): 10194815671252164859,
+  18137089313608381153 ja 2700047567934299806; pelaaja 10772246021666258053; baarimikko 13934801708313451415; Ruukin
+  porukka 8545712725895207763; kapteeni 10781673539025773231; auton omistaja 8848259419208340883; Anna-Liisa
+  10830659772621843268. Repliikkien valinnassa käytetty puheentunnistusmalli jonatasgrosman/wav2vec2-large-xlsr-53-finnish
+  (Apache 2.0) ei päädy peliin.
+- Uudet repliikit, jotka `--aanisynteesi`-ajo tekee Macin `say`-äänellä (`tools/aanet/syntetisoi.sh`), ovat
+  väliaikaisia: ne tehdään uudelleen `tools/aanet/puheaani.py`:llä ennen kuin ne viedään peliin (Applen lisenssi ei
+  välttämättä salli `say`-äänten jakelua).
 - Hahmot ja animaatiot: [Quaternius](https://quaternius.com) — Universal Base Characters ja
   Universal Animation Library, **CC0** (lisenssit kansiossa `assets/characters/`).
 - Pentin BangBus -mainosjuliste (`docs/kuvat/pentin_bangbus_juliste.png`): pelin omista 3D-malleista renderöity kuva,
