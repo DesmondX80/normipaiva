@@ -2086,6 +2086,8 @@ const TRAIN_TALK_TRIM := ["Oletko menossa Vaalaan asti?", "Oulujärven rantaan, 
 	"Kippis! Oulujärven auringonlasku on maailman kaunein.", "Sinä olet kyllä mukavaa seuraa.", "Ja te kauniimpia kuin Salmisen ranta.",
 	"Sinulla on hauska tapa kertoa asioista.", "Ja teidän kanssanne matka meni hetkessä.", "Kippis! Menetkö kotiin Saloisiin?",
 	"Kotiin. Kuusi kaljaa ja nurmikko odottaa."]
+## Junan puhujien äänet (Sfx.speak-ryhmä = assets/aanet/<ryhmä>/, tehdään tools/aanet/puheaani.py:llä).
+const TRAIN_VOICES := {"minä": "pelaaja", "marja": "marja", "liisa": "liisa", "helena": "helena", "tarjoilija": "tarjoilija"}
 const TRAIN_NO_TREAT := "Tarjoaisin teille paukut, mutta lompakko on laiha. Ottakaa vaikka kahvit itse."
 ## Verkkopaidassa (Looks.outfit "farkut") Helena ei peittele: repliikit vaihtuvat näihin (puhuja ja vanha repliikki
 ## -> uusi), ja kosketuksen jälkeen hän liukuu pelaajaa vasten ja painaa päänsä tämän olalle.
@@ -2216,25 +2218,32 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	var strip_fx := {}  # riisunnan äänet kerran
 	var barefoot := false
 	var dress_rest := {}
+	# Repliikki kestää vähintään LINE s, mutta aina äänen kesto + VOICE_TAIL (puheäänet assets/aanet/<puhuja>/).
+	var texts: Array[String] = []
+	var starts: Array[float] = [0.0]  # repliikin k alkuhetki; viimeinen = koko jutustelun kesto
+	for l in lines:
+		texts.append(TRAIN_NO_TREAT if l.size() > 2 and l[2] == "treat" and not treat else l[1])
+		starts.append(starts[-1] + maxf(LINE, Sfx.voice_length(TRAIN_VOICES[l[0]], texts[-1]) + VOICE_TAIL))
 	var t0 := _now_ms()
 	var last := -1
-	while _now_ms() - t0 < lines.size() * LINE * 1000.0:
+	while _now_ms() - t0 < starts[-1] * 1000.0:
 		var t := (_now_ms() - t0) / 1000.0
 		scenery.position.z = fposmod(t * SPEED, 120.0)  # maisema vilistää ikkunoissa
 		car.position.y = TRAIN_POS.y + 40.0 + sin(t * 11.0) * 0.008  # kiskojen tasainen tärinä
-		var k := mini(int(t / LINE), lines.size() - 1)
+		var k := clampi(starts.bsearch(t, false) - 1, 0, lines.size() - 1)
 		var who: String = lines[k][0]
 		var ch: Node3D = cast[who]
+		var line := texts[k]
 		if k != last:
 			last = k
 			for nm in ["marja", "liisa", "helena", "minä"]:
 				(cast[nm] as Node3D).play("Sitting_Talking" if nm == who else "Sitting_Idle", 0.3)
+			Sfx.speak(TRAIN_VOICES[who], line)
 		var names := {"minä": "Sinä", "marja": "Marja", "liisa": "Liisa", "helena": "Helena", "tarjoilija": "Tarjoilija"}
-		var line: String = TRAIN_NO_TREAT if lines[k].size() > 2 and lines[k][2] == "treat" and not treat else lines[k][1]
 		_sub.text = "%s: %s" % [names[who], line]  # tekstitys alareunassa (kupla leikkautui lähikuvissa)
 		# Kamerat: leveä sivukuva käytävältä pöydän poikki (selkänojat eivät peitä), muuten puhujaa vastapäätä
 		# istuvien olan yli kevyesti liukuen.
-		var u := fmod(t, LINE) / LINE
+		var u := (t - starts[k]) / (starts[k + 1] - starts[k])
 		if treat and k >= treat_k and kossu_t < 0.0:
 			kossu_t = t  # "kolme Koskenkorvaa naisille": tarjoilija tuo pullon ja paukut pöytään
 			cast.kossu.visible = true
@@ -2321,7 +2330,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 					hand.h0 = hl.position
 				var lean := smoothstep(0.0, 1.0, minf(1.0, hand.w * 0.6 + hand.slide * 0.6))
 				if closer_k >= 0:
-					lean = smoothstep(0.0, 1.0, clampf((t - closer_k * LINE) / 1.8, 0.0, 1.0))
+					lean = smoothstep(0.0, 1.0, clampf((t - starts[closer_k]) / 1.8, 0.0, 1.0))
 				var toward: Vector3 = hero.position - (hand.h0 as Vector3)
 				toward.y = 0.0
 				hl.position = (hand.h0 as Vector3) + toward.normalized() * float(hand.near) * lean
