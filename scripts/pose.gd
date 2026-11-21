@@ -246,7 +246,8 @@ static func feet_to_floor(ch: Node3D, floor_y: float, front: Vector3) -> void:
 ## Kämmenet reisille (lap: sylissä keskellä) pinnasta laskien. Kutsu vasta, kun jalka-IK on ollut voimassa yhden ruudun (limb_points
 ## paistaa nykyasennon). space = solmu, jonka avaruudessa pinta luetaan. Headless: varalla reisiluu.
 static func hands_on_thighs(ch: Node3D, space: Node3D, lap := false) -> void:
-	var pts := limb_points(ch, space, ["thigh_l", "thigh_r"])
+	# Pinta, jolle käsi laskeutuu: reidet ja vatsa (isovatsaisella vatsa on reisien päällä; ilman sitä kädet upposivat vatsaan).
+	var pts := limb_points(ch, space, ["thigh_l", "thigh_r", "pelvis", "spine_01"])
 	var inv := ch.global_transform.affine_inverse()
 	for lr: String in ["_l", "_r"]:
 		var hip: Vector3 = space.to_local(ch.to_global(ch.bone_position("thigh" + lr)))
@@ -439,7 +440,7 @@ static func _fit_hands(ch: Node3D) -> float:
 	var worst := 0.0
 	for rd in 5:
 		ch.refresh_pose()
-		var leg := limb_points(ch, ch, ["thigh_l", "thigh_r", "calf_l", "calf_r"])
+		var leg := limb_points(ch, ch, ["thigh_l", "thigh_r", "calf_l", "calf_r", "pelvis", "spine_01"])  # vatsa: käsi sen päälle
 		var moved := false
 		for lr: String in ["_l", "_r"]:
 			if not ch._ik.has("arm" + lr):
@@ -486,7 +487,7 @@ static func _fit_hands(ch: Node3D) -> float:
 static func _clear_torso(ch: Node3D) -> float:
 	var first := 0.0
 	var radius := {}
-	for rd in 4:
+	for rd in 6:
 		ch.refresh_pose()
 		var torso := limb_points(ch, ch, ["pelvis", "spine_01", "spine_02", "spine_03"])
 		if torso.is_empty():
@@ -519,7 +520,7 @@ static func _clear_torso(ch: Node3D) -> float:
 				first = maxf(first, worst)
 			if worst > 0.003 and away != Vector3.ZERO:
 				var e: Array = ch._ik["arm" + lr]
-				e[4] = (e[4] as Vector3) + away * (worst + 0.004) * 3.0  # pole on vihje: kyynärpää liikkuu vähemmän kuin se
+				e[4] = (e[4] as Vector3) + away * (worst + 0.004) * 4.0  # pole on vihje: kyynärpää liikkuu vähemmän kuin se
 				moved = true
 		if not moved:
 			break
