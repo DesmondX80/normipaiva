@@ -40,6 +40,7 @@ func run() -> void:
 		var holder := Node3D.new()
 		holder.position = Vector3(i * 2.5, 0, 0)
 		room.add_child(holder)
+		B.mesh(holder, B.boxm(Vector3(0.9, 0.02, 1.8)), Vector3(0, 0.07, 0), Color(0.2, 0.5, 0.9))  # pyyhe kuten world.gd: jalat sen päällä
 		var person: Node3D = Looks.make(holder, looks[i])
 		person.play("Sitting_Idle", 0.0)
 		var cc := Color(0.2, 0.5, 0.9)
