@@ -4241,6 +4241,10 @@ func _sinikka_sun_test(frames: Callable, snap: Callable) -> void:
 		for i in 12:  # testipiirrossa ruutu voi kestää sekunteja: 12 ruutua riittää keskiarvoon
 			await get_tree().process_frame
 		ms.append((Time.get_ticks_usec() - t0) / 12000.0)
+		print("AS piirto klo %d: kutsuja %d, kolmioita %d, objekteja %d" % [c / 60,
+			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
+			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)])
 	print("AS ruutu rannalla %.1f ms (Sinikka piilossa %.1f ms)" % [ms[0], ms[1]])
 	# Testiajon ruutu on ohjelmistopiirron takia satoja ms; vika, jos Sinikka hidastaa yli 10 % (16,7 ms tavoite pelikoneella).
 	if ms[0] > ms[1] * 1.1:
@@ -38619,12 +38623,15 @@ func _maybe_screenshot() -> void:
 			mokki.santtu_go_home()
 			pu._t = 1.0
 			var seen := {}
-			for k in 60 * 90:
+			# 90 s pelin aikaa, ei 5400 ruutua: hitaalla koneella (llvmpipe) ruutulaskuri venyi yli 40 minuuttiin.
+			var game_t := 0.0
+			while game_t < 90.0:
 				await get_tree().process_frame
+				game_t += get_process_delta_time()
 				var cid: String = pu.current_id()
 				if cid != "" and not seen.has(cid):
 					seen[cid] = true
-					print("PUUHA vapaa t=%d -> %s (%s)" % [k / 60, cid, pu._state])
+					print("PUUHA vapaa t=%d -> %s (%s)" % [int(game_t), cid, pu._state])
 			print("PUUHA vapaa paikat=%s" % [seen.keys()])
 			# Väistö: pelaaja tikkataululle, kun Santtu heittää.
 			pu.debug_start("tikka")
