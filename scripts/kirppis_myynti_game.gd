@@ -989,7 +989,15 @@ func _draw_panel(ci: CanvasItem) -> void:
 			HORIZONTAL_ALIGNMENT_CENTER, PANEL.size.x, 24, Color(1, 0.95, 0.7))
 		return
 	var td: Dictionary = TYPES[_b.type]
-	ci.draw_string(font, p + Vector2(18, 30), "%s (%s) ostaa %s" % [td.name, td.tag, _qty_text(_b.item, _b.qty)], HORIZONTAL_ALIGNMENT_LEFT, 640, 20, Color(0.85, 0.85, 0.9))
+	# Otsikko ei saa ulottua Vastatarjous-otsikon (x 420) kohdalle: pitkä tuotenimi (Pekan romut) pudottaa kuvauksen ja
+	# tarvittaessa pienentää tekstiä. Leveys mitataan fontista.
+	var head := "%s (%s) ostaa %s" % [td.name, td.tag, _qty_text(_b.item, _b.qty)]
+	var hsize := 20
+	if font.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, hsize).x > 395.0:
+		head = "%s ostaa %s" % [td.name, _qty_text(_b.item, _b.qty)]
+	while hsize > 14 and font.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, hsize).x > 395.0:
+		hsize -= 1
+	ci.draw_string(font, p + Vector2(18, 30), head, HORIZONTAL_ALIGNMENT_LEFT, 640, hsize, Color(0.85, 0.85, 0.9))
 	ci.draw_string(font, p + Vector2(18, 56), "Tarjous", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(0.7, 0.7, 0.75))
 	ci.draw_string(font, p + Vector2(18, 94), "%s €" % _eur(_b.offer), HORIZONTAL_ALIGNMENT_LEFT, -1, 38, Color(1, 0.9, 0.4))
 	ci.draw_string(font, p + Vector2(180, 56), "Reilu hinta %s €" % _eur(_b.fair), HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(0.7, 0.7, 0.75))
