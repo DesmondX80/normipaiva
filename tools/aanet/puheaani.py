@@ -48,14 +48,14 @@ PUHUJAT = [
 ]
 ## Sävy jälkikäsittelynä (puhemallin exaggeration yksin muuttaa ääntä vähän): [sävelkorko kertaa, intonaation laajuus
 ## (1 = ennallaan, < 1 latteampi, > 1 eloisampi), ffmpeg-suodatin]. Päivi huutaa huutomerkkirepliikit ja puhuu muut
-## kiukkuisesti; pelaaja on ripityksessä nöyrä (matalampi, latteampi, hitaampi, hiljaisempi ja pehmeämpi); Helena
+## kiukkuisesti; pelaaja on ripityksessä nöyrä (matalampi, latteampi, hitaampi, pehmeämpi); Helena
 ## flirttailee (hieman matalampi, eloisa, hidas ja lämmin); muut ovat iloisia (korkeampi, eloisampi, kirkkaampi).
 ## Auton omistaja ilman: hänen huutonsa oli käsiteltynä yhtä epäselvä.
 HUUTO_AF = "highshelf=f=1800:g=%.1f,acompressor=threshold=-22dB:ratio=5:attack=4:release=60:makeup=%.1f,alimiter=limit=0.95"
 ILO = [1.06, 1.35, "highshelf=f=2500:g=2,alimiter=limit=0.95"]
 SAVY = {
 	"paivi": ([1.3, 1.0, HUUTO_AF % (6.0, 7.0)], [1.15, 1.0, HUUTO_AF % (3.0, 4.0)]),
-	"pelaaja_nolo": ([0.93, 0.6, "atempo=0.9,highshelf=f=2500:g=-4,volume=-5dB"],) * 2,
+	"pelaaja_nolo": ([0.93, 0.6, "atempo=0.9,highshelf=f=2500:g=-4,acompressor=threshold=-30dB:ratio=3:attack=5:release=80,volume=9dB,alimiter=limit=0.9"],) * 2,
 	"helena": ([0.95, 1.25, "atempo=0.92,lowshelf=f=250:g=2,highshelf=f=3000:g=-2,alimiter=limit=0.95"],) * 2,
 	"pelaaja": (ILO,) * 2, "marja": (ILO,) * 2, "liisa": (ILO,) * 2, "tarjoilija": (ILO,) * 2,
 	"baarimikko": (ILO,) * 2, "ruukki": (ILO,) * 2, "kapteeni": (ILO,) * 2, "anna_liisa": (ILO,) * 2,
