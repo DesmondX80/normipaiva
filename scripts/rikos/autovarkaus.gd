@@ -937,6 +937,9 @@ func testi_kahdesti(kierroksia := 3) -> void:
 			_vika("kierros %d: autosta nousu ei onnistunut (autossa %s)" % [kierros + 1, autossa])
 			return
 		_lopeta_jahti(false)
+		# _irrota_paivi antaa pelissä 6 s etumatkan (forgive), mikä nollaa testin graceen: hitaalla koneella 6 s kuluu ennen
+		# seuraavaa kierrosta, ja vieressä oleva Päivi ehtii nähdä ja napata (kohtaus vapautti auton, kierros 2 kaatui).
+		game.wife.grace = 1.0e6
 	print("AUTOVARKAUS toistotesti valmis, %d vikaa" % _vikoja)
 
 
