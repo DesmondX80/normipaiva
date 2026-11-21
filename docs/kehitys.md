@@ -42,13 +42,25 @@ jakavat pelaajan tallennuksen ja user://-kansion, joten vain yksi saa olla käyn
 
 ## Testikohtaukset
 
-`scripts/main.gd`:n `_maybe_screenshot` sisältää kymmeniä testikohtauksia. Ajo:
+Testikohtaukset (noin 340) ovat tiedostoissa `tools/testit/kohtaukset/<ryhmä>.gd` (mökki, ajoneuvot, kartta ja kota, kauppa, kolmio ja Vaala sekä muut aakkosjärjestyksessä). Jokaisessa on `KOHTAUKSET`-lista ja `aja(scene, path, nohud)`, jonka `match scene:` sisältää kohtaukset; `main` on pelin päänäkymä (`main.walker_out`, `main._toggle_mount()`) ja `Main.VAKIO` sen vakiot. `main.gd:n _maybe_screenshot` lukee argumentit, valitsee ryhmän `KOHTAUSRYHMAT`-listasta ja ottaa lopuksi yhteisen kuvan; `aja` palauttaa 2, jos kohtaus lopetti itse (ennen `return`). Uusi kohtaus lisätään sopivaan ryhmään: haara `match`iin ja nimi `KOHTAUKSET`-listaan. Kohtausta ei löydy: `grep -l '"nimi"' tools/testit/kohtaukset/*.gd`. Kaikkien ryhmien ja testiskriptien (`tools/testit/*.gd`) käännöstarkistus: `aja.sh scene kohtaustarkistus` (logiikkakohtaus pelin sisällä, jotta autoloadit ovat olemassa; tulostaa `KOHTAUSTARKISTUS <ryhmä>: OK` ja lopuksi rikkinäisten testiskriptien määrän). Aja se aina, kun muutat testitiedostoja mekaanisesti: esim. perivä testi (`extends "res://tools/testit/kolmio_kuvat.gd"`) ei saa määritellä uudelleen yläluokan vakiota. Siirto tehtiin skriptillä, joka lisäsi `main.`-etuliitteet; pelin jäsentä ei voi käyttää ilman etuliitettä (käännösvirhe), ja `$Solmu` kirjoitetaan `main.get_node("Solmu")`. Ajo:
 
 ```bash
 godot --path . -- --shot=/polku/kuva.png --scene=<nimi> [--nohud]
 ```
 
-Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi ajaa `--headless`.
+Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi ajaa `--headless` (`aja.sh --headless scene <nimi>`).
+Testit ottavat kuvan apufunktiolla `tools/testit/kuva.gd` (`const Kuva := preload("res://tools/testit/kuva.gd")`,
+`await Kuva.piirto()` ja `Kuva.ruutu(get_viewport()).save_png(p)`), ei suoraan `RenderingServer.frame_post_draw`:lla:
+headlessissa mitään ei piirretä, joten signaali ei tule koskaan ja testi jäisi aikarajaan. Ruudulla apufunktio toimii
+kuten ennen; headlessissa odotus on yksi ruutu ja kuva on tyhjä samankokoinen kuva. Pikseleistä mittaava testi
+tarkistaa `Kuva.piirretaan()` ja tulostaa headlessissa "ei tarkistettu" (esim. `savy_mitta.gd`). Pelin oma koodi
+(`scripts/`) ei voi ladata `tools/`-tiedostoja (vienti jättää ne pois), joten `main.gd`:n lopun kuva tarkistaa
+`DisplayServer.get_name()`:n itse.
+Testit jakavat ajokansion (`AJO_KANSIO`) tallennuksen, joten edellisten kohtausten tarinatila kertyy: esim. korkkikansion
+rikos tuo aamulla Päivin kysymyksen, ja avoin keskustelu estää oven (vessa-kohtaus jäi ovelle). Jos kohtaus toimii
+puhtaalla kansiolla mutta ei pitkän ajon jälkeen, aja se uudella `AJO_KANSIO`:lla ennen kuin epäilet koodia.
+Kun main tuo uusia ääniä tai malleja, aja `godot --headless --path . --import` ennen testejä: muuten tiedostot puuttuvat
+tuontivälimuistista (`.godot/imported`) ja testit kaatuvat (esim. `voice_length` null).
 `--scene=kainuulista`: Gasthausin ruokalista (valinnat, nälän nollaus, köyhänä pois käytöstä).
 `--scene=ronttonen`: rönttösten leivonta (kolme vaihetta, kuva kustakin, valmis erä), vienti Päiville ja kahvipöytä (kuvat; `--shot=`).
 `--scene=kalalampi`: retkirunko ja Teeriniemen kalalampi (taksivalikko, matka, lupa, onkiminen, paluu ja kello; kuvat `_alue`, `_tiski`, `_ranta`, `_koho`, `_kirjolohi`, `_taimen`; `--shot=`).

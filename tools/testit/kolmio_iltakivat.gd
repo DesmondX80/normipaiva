@@ -4,6 +4,7 @@ extends Node
 ## ("kiva_<nimi>") ja kolmiomittaus merkitään tehdyksi. Lopuksi sivutehtävän edistyminen.
 ## Ajo: tools/testit/aja.sh scene kolmio_iltakivat
 ## Kuvat: _<kiva> (kesken illan), _<kiva>_aamu.
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Kolmio := preload("res://scripts/kolmiomittaus.gd")
 
@@ -32,10 +33,10 @@ func _frames(n := 4) -> void:
 
 func _snap(suffix: String) -> void:
 	await _frames(4)
-	await RenderingServer.frame_post_draw
+	await Kuva.piirto()
 	if DisplayServer.get_name() == "headless":
 		return
-	get_viewport().get_texture().get_image().save_png(_shot_path(suffix))
+	Kuva.ruutu(get_viewport()).save_png(_shot_path(suffix))
 	print("ILTAKIVA kuva " + _shot_path(suffix))
 
 

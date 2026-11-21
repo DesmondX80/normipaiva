@@ -5,6 +5,7 @@ extends Node3D
 ## ja lähikuvat. Rakojen ja rajojen alitus = "TESTI VIKA".
 ## tools/testit/aja.sh tscn tools/testit/sinikan_kuisti_kuvat.tscn
 ## Pelimaailmassa (maaston korkeus portaan nurkissa ja kuva pelikameralta): ... sinikan_kuisti_kuvat.tscn --maailma
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const B := preload("res://scripts/build.gd")
 const World := preload("res://scripts/world.gd")
@@ -205,8 +206,8 @@ func _shot(name: String, from: Vector3, to: Vector3, fov := 50.0) -> void:
 	cam.current = true
 	for i in 4:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join(name + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join(name + ".png"))
 
 
 ## Pelimaailmassa: maaston korkeus portaan nurkissa suhteessa talon pohjaan (talo nostetaan keskeltä), raot ja

@@ -2,6 +2,7 @@ extends SceneTree
 ## Kuvat mökiltä tarkan mallinnuksen (laserpuut, rakennusten korkeudet) tarkistukseen:
 ## godot --path . -s tools/testit/tarkka_kuvat.gd -- <kansio>
 ## Vaalan mopomatkan kuvat: godot --path . -- --shot=<kansio>/v.png --scene=mokkivaala
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 var main: Node3D
 var out := "user://tarkka"
@@ -46,6 +47,6 @@ func _shot(cam: Camera3D, from: Vector3, to: Vector3, name: String) -> void:
 	cam.current = true
 	for i in 40:
 		await process_frame
-	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png(out.path_join(name + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(root).save_png(out.path_join(name + ".png"))
 	print("kuva %s (%d FPS)" % [name, Engine.get_frames_per_second()])

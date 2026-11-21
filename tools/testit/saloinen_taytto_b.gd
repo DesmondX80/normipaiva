@@ -4,6 +4,7 @@ extends Node
 ## ja toisiin pohjiin, rungon päällekkäisyys toisiin täytetaloihin, ruutuaika ja kuvat (kylä, reuna, kaukomaisema,
 ## yläkuva, lähikuvat K2-katoksesta ja K5-aidasta). Vika = "TESTI VIKA".
 ## tools/testit/aja.sh tscn tools/testit/saloinen_taytto_b.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 const M := preload("res://scripts/map_data.gd")
 const W := preload("res://scripts/world.gd")
 const Taytto := preload("res://scripts/taytto.gd")
@@ -278,6 +279,6 @@ func _shot(nm: String, from: Vector3, to: Vector3) -> void:
 	for i in frames:
 		await get_tree().process_frame
 	var ms := (Time.get_ticks_usec() - ts) / 1000.0 / frames
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % nm))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_%s.png" % nm))
 	print("kuva %s ruutuaika %.1f ms" % [nm, ms])

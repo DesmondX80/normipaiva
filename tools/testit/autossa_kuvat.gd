@@ -4,6 +4,7 @@ extends Node3D
 ## Mittaa paistetusta verkosta pään (ja lippiksen) korkeimman pisteen katon alapintaan, jalkojen alimman pisteen
 ## helmaan ja vartalon etäisyyden rattiin; kuvat sivulta, edestä ja ylhäältä katto poistettuna (leikkaus).
 ## Ajo: tools/testit/aja.sh tscn tools/testit/autossa_kuvat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Vehicles := preload("res://scripts/vehicles.gd")
 const B := preload("res://scripts/build.gd")
@@ -82,8 +83,8 @@ func _shot(name: String, from: Vector3, to: Vector3, fov := 40.0) -> void:
 	cam.look_at_from_position(from, to)
 	for i in 4:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out + "/" + name + ".png")
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out + "/" + name + ".png")
 	print("AUTOSSA kuva " + out + "/" + name + ".png")
 
 

@@ -3,6 +3,7 @@ extends Node3D
 ## eri syvyyksiltä. Kuvat: ilman seinää, seinä (hiukset litistyvät), seinä + debug-värit (magenta = painuu, syaani = heiluu).
 ## Lopuksi kävely -> pysähdys: heilahduksen suuruus ruuduittain ja kolme kuvaa (kävely, pysähdys, lepo).
 ## aja.sh tscn tools/testit/hiukset_a1.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
@@ -50,8 +51,8 @@ func _shot(tag: String, view: String) -> void:
 	cam.look_at_from_position(pos, hp)
 	for i in 3:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	cam.get_viewport().get_texture().get_image().save_png(out.path_join("%s_%s.png" % [tag, view]))
+	await Kuva.piirto()
+	Kuva.ruutu(cam.get_viewport()).save_png(out.path_join("%s_%s.png" % [tag, view]))
 
 
 func _debug(on: bool) -> void:

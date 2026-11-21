@@ -4,6 +4,7 @@ extends Node3D
 ## lasien läpi, peili, liukuovi ja pyöränkaari suurennettuina. Mittaa ulkomitat, akselivälin ja pyörät (blueprint:
 ## pituus 4,60 m puskureineen, leveys 1,69 m, korkeus 1,93 / 2,20 m, akseliväli 2,56 m).
 ## Ajo: tools/testit/aja.sh tscn tools/testit/hiace_kuvat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Vehicles := preload("res://scripts/vehicles.gd")
 const Yliannos := preload("res://scripts/rikos/yliannos.gd")
@@ -70,8 +71,8 @@ func _shot(name: String, from: Vector3, to: Vector3, fov := 40.0) -> void:
 	cam.look_at_from_position(from, to)
 	for i in 4:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out + "/" + name + ".png")
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out + "/" + name + ".png")
 	print("HIACE_KUVAT kuva " + out + "/" + name + ".png")
 
 

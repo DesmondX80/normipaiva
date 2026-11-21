@@ -394,9 +394,10 @@ func take_photo() -> void:
 	_layer.visible = true
 	if hud != null:
 		hud.visible = true
-	img.resize(img.get_width() / 4, img.get_height() / 4)
 	_flash.color.a = 0.8
-	_thumb.texture = ImageTexture.create_from_image(img)
+	if img != null:  # headlessissa (testit) näkymällä ei ole kuvaa
+		img.resize(img.get_width() / 4, img.get_height() / 4)
+		_thumb.texture = ImageTexture.create_from_image(img)
 	_thumb_t = 3.0
 	if best != "":
 		photographed.emit(best)

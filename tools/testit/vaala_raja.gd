@@ -2,6 +2,7 @@ extends Node
 ## Vaalan reitin vyöhyke (vaala.gd VAALA_RAJA_M = 150 m): rakennusten karsinta, route_dist (oikea vs raaka silmukka),
 ## suojatut talot, pehmeä seinä (reach_clamp) jalan ja mopolla, ilmoituksen toistuminen (8 s) ja kuvat.
 ## tools/testit/aja.sh tscn tools/testit/vaala_raja.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 var out := "user://vaala_raja"
 var main: Node3D
 var vl: Node3D
@@ -34,8 +35,8 @@ func _shot(tag: String, from: Vector3, to: Vector3, ui := false) -> void:
 	cam.current = true
 	for i in 6:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out + "/%s.png" % tag)
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out + "/%s.png" % tag)
 
 
 func _g(c: Vector2, up := 0.0) -> Vector3:
@@ -286,8 +287,8 @@ func _shots() -> void:
 	cam.current = false
 	for i in 3:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out + "/e_ilmoitus.png")
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out + "/e_ilmoitus.png")
 	print("ILMOITUS ruudulla: '%s' %.1f s" % [main._msg.text, main._msg_time])
 	if main._msg.text == "":
 		_vika("ilmoitusta ei näy ruudulla")

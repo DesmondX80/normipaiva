@@ -2,6 +2,7 @@ extends Node3D
 ## Janttu penkillä (scripts/janttu.gd) erikseen: koottu kuva edestä, päädyistä, ylhäältä ja takaa unessa ja hereillä,
 ## lähikuvat vatsan päällä lepäävästä kädestä ja kassista, sekä käsien rako vartalon pintaan (RAKO-rivit).
 ## "$(tools/testit/godot.sh)" --path . --resolution 1280x720 tools/testit/janttu_kuvat.tscn -- <kansio>
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Janttu := preload("res://scripts/janttu.gd")
 const Asento := preload("res://tools/testit/asento.gd")
@@ -62,6 +63,6 @@ func _shot(name: String, from: Vector3, to: Vector3) -> void:
 	cam.look_at_from_position(from, to)
 	for i in 3:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join(name + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join(name + ".png"))
 	print("kuva ", name)

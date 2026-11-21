@@ -4,6 +4,7 @@ extends Node
 ## ajoalueen (vaala.gd drivable) lyhintä reittiä mökiltä. Kirjaa jumit, törmäykset, reunaan hankaamiset ja
 ## huippunopeuden. Ajetaan ilman ikkunaa nopeutettuna:
 ## godot --headless --path . -- --shot=x.png --scene=vaala_ajo [--ajo=tiet|kohteet|juna]
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const TIME_SCALE := 6.0
 
@@ -35,8 +36,8 @@ func run() -> void:
 			await get_tree().process_frame
 			t += get_process_delta_time()
 			if t > 7.0 + k * 2.0 and k < 2:
-				await RenderingServer.frame_post_draw
-				get_viewport().get_texture().get_image().save_png(_shot_path("_s%d" % k))
+				await Kuva.piirto()
+				Kuva.ruutu(get_viewport()).save_png(_shot_path("_s%d" % k))
 				k += 1
 		print("KUOLEMA saloinen: tila %s, kotiin %.0f m" % [main.state, main.player.global_position.distance_to(main.home_zone)])
 		return
@@ -113,8 +114,8 @@ func run() -> void:
 			cam.look_at_from_position(vl.to_global(at + v), vl.to_global(at))
 			for i in 30:
 				await get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(out.replace(".png", "_%d.png" % n))
+			await Kuva.piirto()
+			Kuva.ruutu(get_viewport()).save_png(out.replace(".png", "_%d.png" % n))
 			n += 1
 		return
 	if only == "hotelli":
@@ -696,8 +697,8 @@ func _train_test() -> void:
 		for k in 4:
 			for i in 150:
 				await get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(_shot_path("_juna%d" % k))
+			await Kuva.piirto()
+			Kuva.ruutu(get_viewport()).save_png(_shot_path("_juna%d" % k))
 	await get_tree().process_frame
 
 
@@ -715,8 +716,8 @@ func _snap(cam: Camera3D, from: Vector3, to: Vector3, suffix: String, frames := 
 	cam.current = true
 	for i in frames:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(_shot_path(suffix))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(_shot_path(suffix))
 
 
 ## lava = ulkoa ja sisältä ennen sisäänmenoa, lava_sisa = lavatanssien näkymä (lava_game.gd) ja kappaletoive.
@@ -837,8 +838,8 @@ func _sample(name: String) -> void:
 	if not "--ei-erittelya" in OS.get_cmdline_user_args():
 		await _attribute(name)
 	if "--mitta-kuvat" in OS.get_cmdline_user_args():
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(_shot_path("_" + name.split(" ")[0] + ".png"))
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png(_shot_path("_" + name.split(" ")[0] + ".png"))
 	print("MITTA %-16s renderöinti: suoritin %5.2f ms (valmistelu %5.2f ms) · näytönohjain %5.2f ms" % [name,
 		acc.rcpu / n, acc.setup / n, acc.gpu / n])
 	print("MITTA %-16s ruutu %5.1f ms (pahin %5.1f) · koko ruutu (TIME_PROCESS) %5.2f ms · fysiikka %5.2f ms · piirtoja %5d · objekteja %5d · kolmioita %6.0f k · solmuja %d · muisti %d Mt" % [
@@ -937,7 +938,7 @@ func _attribute(name: String) -> void:
 func _frame_stats() -> Array:
 	for i in 3:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
+	await Kuva.piirto()
 	return [Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)]
 
 
@@ -1030,8 +1031,8 @@ func _village_shots() -> void:
 			cam.current = true
 			for i in 20:
 				await get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(_shot_path("_%s_%s" % [sp[0], v[1]]))
+			await Kuva.piirto()
+			Kuva.ruutu(get_viewport()).save_png(_shot_path("_%s_%s" % [sp[0], v[1]]))
 
 
 ## Pelin osien koko: solmut ja muisti, kun osa vapautetaan (mökki ja Vaala rakennettuina kuten matkan jälkeen).
@@ -1163,8 +1164,8 @@ func _death_test() -> void:
 		await get_tree().process_frame
 		t += get_process_delta_time()
 		if t > 9.3 + k * 1.8 and k < 9:
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(_shot_path("_%s%d" % [where, k]))
+			await Kuva.piirto()
+			Kuva.ruutu(get_viewport()).save_png(_shot_path("_%s%d" % [where, k]))
 			k += 1
 	print("KUOLEMA %s: tila %s, Vaalassa %s, mökillä %s, pelaaja %s, viesti '%s'" % [where, main.state, main._in_vaala,
 		main._at_mokki(), main.player.global_position.round(), main._msg.text.replace("\n", " ")])

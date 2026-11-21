@@ -4,6 +4,7 @@ extends Node3D
 ## ylhäältä yhteen vertailukuvaan (vertailu.png), rivi K1–K5 samassa mittakaavassa (rivi.png) ja mustina siluetteina
 ## (siluetit.png). Rajojen ylitys: "TESTI VIKA".
 ## Ajo: tools/testit/aja.sh tscn tools/testit/rakennukset_kuvat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const B := preload("res://scripts/build.gd")
 const R := preload("res://scripts/rakennukset.gd")
@@ -316,8 +317,8 @@ func _shot(name: String, from: Vector3, to: Vector3, fov := 40.0) -> Image:
 	cam.look_at_from_position(from, to)
 	for i in 4:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	var img := get_viewport().get_texture().get_image()
+	await Kuva.piirto()
+	var img := Kuva.ruutu(get_viewport())
 	if name != "":
 		img.save_png(out + "/" + name + ".png")
 		print("RAKENNUKSET kuva " + out + "/" + name + ".png")

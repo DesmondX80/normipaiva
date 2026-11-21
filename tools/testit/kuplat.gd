@@ -3,6 +3,7 @@ extends Node3D
 ## VUORO_R) saa näkyä vain yksi kupla kerrallaan (TESTI VIKA, jos kaksi), ja jokainen repliikki näytetään vuorollaan.
 ## Kaukana oleva neljäs hahmo puhuu samaan aikaan (saa näkyä yhtä aikaa). Puhujan tyhjennys poistaa kuplan heti.
 ## Kuvat _kupla_<n>. Ajo: tools/testit/aja.sh tscn tools/testit/kuplat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
@@ -42,8 +43,8 @@ func _ready() -> void:
 
 
 func _shot(name: String) -> void:
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out + "/" + name + ".png")
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out + "/" + name + ".png")
 	print("KUPLAT kuva " + out + "/" + name + ".png")
 
 

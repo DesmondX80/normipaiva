@@ -7,6 +7,7 @@ extends Node
 ## paivakirja: Riskit-sivu 1280×720 ja välilehtien mitat (7 välilehteä mahtuu kirjaan).
 ## elvytys_vaala: pelkkä ELVYTETTY Vaalassa ja Päivin puhelu (videota varten).
 ## Muut nimet: osan oma testi(arg) (rikos/<nimi>.gd). Viat "TESTI VIKA" -riveinä. main.gd palauttaa tallennuksen.
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const KoeOsa := preload("res://tools/testit/rikos_koe_osa.gd")
 
@@ -45,8 +46,8 @@ func _frames(n := 4) -> void:
 
 func _snap(suffix: String) -> void:
 	await _frames(4)
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(_shot_path(suffix))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(_shot_path(suffix))
 	print("RISKIT kuva " + _shot_path(suffix))
 
 
@@ -196,8 +197,8 @@ func _title_shot(suffix: String, want: String) -> void:
 	if seen != want:
 		_vika("otsikko '%s', odotettiin %s" % [seen, want])
 	await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(_shot_path(suffix))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(_shot_path(suffix))
 	print("RISKIT kuva " + _shot_path(suffix))
 
 
@@ -210,8 +211,8 @@ func _paivi_shot(suffix: String) -> void:
 	for n in 3:  # repliikit: välianimaation omin ajastimin (cutscene.gd _wait), joten --kiintea pitää tahdin
 		await get_tree().create_timer(2.5 if n == 0 else 2.6, true, false, true).timeout
 		await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(_shot_path(suffix + str(n)))
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png(_shot_path(suffix + str(n)))
 		var vc := get_viewport().get_camera_3d()
 		print("RISKIT kuva %s kamera %s %s (välianimaation: %s), koti %s" % [_shot_path(suffix + str(n)), vc.name if vc else "-",
 			vc.global_position if vc else Vector3.ZERO, vc == main.cutscene._cam, main.home_zone])

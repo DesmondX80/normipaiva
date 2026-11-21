@@ -36,9 +36,9 @@ func _sytkari() -> void:
 		if m == "match":
 			for i in 12:
 				await get_tree().process_frame
-			await RenderingServer.frame_post_draw
+			await Kuva.piirto()
 			var vp: SubViewport = sy._photos[info.woman]
-			vp.get_texture().get_image().save_png(out.path_join("kuva_syt_profiilikuva_koti.png"))
+			Kuva.ruutu(vp).save_png(out.path_join("kuva_syt_profiilikuva_koti.png"))
 			print("KOLMIO otsikko: %s / %s" % [sy._title(), sy._sub()])
 			if sy._title() != "Kesäheila -96, Saloinen":
 				_vika("Sytkärin otsikko %s" % sy._title())
@@ -83,8 +83,8 @@ func _ovi() -> void:
 		ui._cam_base = Transform3D(Basis.looking_at(c - eye, Vector3.UP if v[0] != "ylhaalta" else fwd), eye)
 		for i in 4:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_koti_laatikko_%s.png" % v[0]))
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_koti_laatikko_%s.png" % v[0]))
 	# Koko asetelma sivulta (oven suunta näkyy: Päivi kynnyksellä, Sinikka eteisessä takana).
 	var mid := Vector3(0.0, 1.4, -0.9)
 	for v in [["sivulta", Vector3(4.2, 0.6, 0.6)], ["edesta", Vector3(0.1, 0.2, 4.2)]]:
@@ -92,8 +92,8 @@ func _ovi() -> void:
 		ui._cam_base = Transform3D(Basis.looking_at(mid - eye, Vector3.UP), eye)
 		for i in 4:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_koti_asetelma_%s.png" % v[0]))
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_koti_asetelma_%s.png" % v[0]))
 	ui.queue_free()
 	await get_tree().process_frame
 

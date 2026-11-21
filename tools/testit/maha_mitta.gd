@@ -5,6 +5,7 @@ extends Node3D
 ## KULMA-rivi: verkon sivusiluetin kuperat kulmat mahan alueella (raja 30°, K9: monitahoinen siluetti; HEAD e644674 pelaaja 49°).
 ## Kuvat neljästä päämiehestä Idle-asennossa: edestä, sivulta (vaakaviivat napa punainen, vyö keltainen, haara sininen) ja vinosti.
 ## aja.sh tscn tools/testit/maha_mitta.tscn [--ennen]  (--ennen = mittaus ennen muutosta: vain luvut ja kuvat ennen_*, ei rajoja)
+const Kuva := preload("res://tools/testit/kuva.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Character := preload("res://scripts/character.gd")
 const B := preload("res://scripts/build.gd")
@@ -300,7 +301,7 @@ func _shots(c: Node3D, name: String) -> void:
 		var aim := Vector3(0, c.model.global_position.y + 1.06 * hs, 0)
 		cam.global_position = aim + d * v[3]
 		cam.look_at(aim, Vector3.UP)
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png("%s/%s_%s_%s.png" % [out, tag, name, v[0]])
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png("%s/%s_%s_%s.png" % [out, tag, name, v[0]])
 		for ln in lines:
 			ln.queue_free()

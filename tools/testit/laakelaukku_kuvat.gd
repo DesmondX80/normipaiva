@@ -2,6 +2,7 @@ extends Node3D
 ## Hoitajan lääkelaukku (erä C): tilan säännöt (huume_saloinen.gd), 3D-laukku portaalla edestä, päädystä, ylhäältä ja
 ## viistosta suurennettuna, reppuikoni, sekä laukun ja klaffipöydän minipelit rinnakkain (sama valekeittiö-game).
 ## tools/testit/aja.sh tscn tools/testit/laakelaukku_kuvat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const B := preload("res://scripts/build.gd")
 const HuumeSaloinen := preload("res://scripts/huume_saloinen.gd")
@@ -157,9 +158,9 @@ func _run(bp: Vector3) -> void:
 		mg.set("mouse_fixed", Vector2(900, 300))
 		for i in 6:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
+		await Kuva.piirto()
 		var nimi := "minipeli_laukku" if sc == Laakelaukku else "minipeli_klaffi"
-		get_viewport().get_texture().get_image().save_png(out.path_join(nimi + ".png"))
+		Kuva.ruutu(get_viewport()).save_png(out.path_join(nimi + ".png"))
 		mg.call("_craft")
 		print("MINIPELI %s osuma %s puhdas=%d viesti '%s'" % [nimi, mg.get("_cells"), g.last_puhdas, mg.get("_msg")])
 		if g.last_puhdas != (1 if sc == Laakelaukku else 0):
@@ -178,5 +179,5 @@ func _shot(name: String, from: Vector3, to: Vector3, fov := 50.0) -> void:
 	cam.current = true
 	for i in 4:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join(name + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join(name + ".png"))
