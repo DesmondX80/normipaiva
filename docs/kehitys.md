@@ -564,7 +564,9 @@ animaation jälkeen). Käytössä oletuksena aikuisilla (pituus >= 1,5 m); `look
   sileä kaari `hem_front + hem_front_k x^2` (`Character._hem_front`: suurimman marginaalin kaari verkon paita- ja housupisteiden
   väliin), selässä suora `hem_back`. Mittaus: `aja.sh tscn tools/testit/maha_mitta.tscn [--ennen]` (MAHA-rivit kaikista miehistä,
   joilla belly > 0: napa, huippu, taite, siirtymä alle 0,90, etuhelman ristiriidat; kuvat edestä, sivulta, vinosti ja lepoasennosta
-  sivulta viivoineen: napa punainen, vyö keltainen, haara sininen).
+  sivulta viivoineen: napa punainen, vyö keltainen, haara sininen; KULMA-rivi: sivusiluetin kuperat kulmat, raja 30°).
+  Isoilla mahoilla (belly >= 0,6 tai sag) verkko tihennetään mahan alueella kerran (`_subdivide_belly`, sama kuin rinnoilla),
+  koska pohjamallin 2,5 cm:n rivit venyvät huipulla 5 cm:n väleiksi ja siluetti näkyi monitahoisena.
 - Testi: `tools/testit/aja.sh tscn tools/testit/anatomia_kuvat.tscn [--osa=a|b|c|d] [--anat=0|1] [--luokka] [--anim=Idle]`
   ottaa lähikuvat (kasvot, kädet, jalat, vartalo, 4 kulmaa) pelaajasta, Sinikasta, Päivistä ja Juntista ja tulostaa ANAT-rivit
   (jalan alin y, kämmenen ja jalan säteet, luokan 3 lepo-y). `--luokka` värjää jalkaterän luokan magentalla.
