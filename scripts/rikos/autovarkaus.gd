@@ -936,11 +936,7 @@ func testi_kahdesti(kierroksia := 3) -> void:
 		if autossa or game.player != game.walker_out:
 			_vika("kierros %d: autosta nousu ei onnistunut (autossa %s)" % [kierros + 1, autossa])
 			return
-		print("AVDBG ennen lopetusta: tila %s viesti '%s' sub '%s' title '%s'" % [game.state, game._msg.text, game.cutscene._sub.text, game.cutscene._title.text])
 		_lopeta_jahti(false)
-		for _i in 3:
-			await _tf(20)
-			print("AVDBG jälkeen: tila %s viesti '%s' sub '%s' title '%s'" % [game.state, game._msg.text, game.cutscene._sub.text, game.cutscene._title.text])
 	print("AUTOVARKAUS toistotesti valmis, %d vikaa" % _vikoja)
 
 
