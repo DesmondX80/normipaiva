@@ -34980,12 +34980,14 @@ func _maybe_screenshot() -> void:
 					for a2 in ["left", "right", "forward", "back"]:
 						Input.action_release(a2)
 				else:
-					var guard := 0  # yläraja: hitaalla koneella neula voi hypätä vihreän alueen yli joka kerta
-					while is_instance_valid(g) and g._phase == "push" and guard < 3000:
+					# Testi tarkistaa kulun (ponnistukset, arkit, tukos), ei ajoitusta: neula pysäytetään vihreälle ennen
+					# painallusta. Neulaa odottamalla hidas kone (iso delta) hyppäsi vihreän yli ja ajo jumittui aikarajaan.
+					var guard := 0
+					while is_instance_valid(g) and g._phase == "push" and guard < 50:
 						guard += 1
-						await get_tree().process_frame
-						if g._needle >= WcGame.GREEN.x + 0.04 and g._needle <= WcGame.GREEN.y - 0.04:
-							await press.call("interact")
+						g._needle = (WcGame.GREEN.x + WcGame.GREEN.y) / 2.0
+						g._needle_speed = 0.0
+						await press.call("interact")
 					for k in sheets:
 						await press.call("interact")
 					await press.call("brake")
@@ -35046,12 +35048,14 @@ func _maybe_screenshot() -> void:
 					for a2 in ["left", "right", "forward", "back"]:
 						Input.action_release(a2)
 				else:
-					var guard := 0  # yläraja: hitaalla koneella neula voi hypätä vihreän alueen yli joka kerta
-					while is_instance_valid(g) and g._phase == "push" and guard < 3000:
+					# Testi tarkistaa kulun (ponnistukset, arkit, tukos), ei ajoitusta: neula pysäytetään vihreälle ennen
+					# painallusta. Neulaa odottamalla hidas kone (iso delta) hyppäsi vihreän yli ja ajo jumittui aikarajaan.
+					var guard := 0
+					while is_instance_valid(g) and g._phase == "push" and guard < 50:
 						guard += 1
-						await get_tree().process_frame
-						if g._needle >= WcGame.GREEN.x + 0.04 and g._needle <= WcGame.GREEN.y - 0.04:
-							await press.call("interact")
+						g._needle = (WcGame.GREEN.x + WcGame.GREEN.y) / 2.0
+						g._needle_speed = 0.0
+						await press.call("interact")
 					for k in sheets:
 						await press.call("interact")
 					await press.call("brake")
