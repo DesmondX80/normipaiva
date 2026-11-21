@@ -469,7 +469,9 @@ static func _fit_hands(ch: Node3D) -> float:
 				var wd := INF
 				for q in leg:
 					wd = minf(wd, wp.distance_to(q))
-				dy = maxf(dy, wr - wd)
+				# Nosto rajataan: kämmen enintään 12 mm pinnasta. Ilman rajaa polven yli kulkeva kyynärvarsi nosti käden ilmaan
+				# (Honganpalon portaat: kädet leijuivat polvien yllä); jäännöslimitys raportoidaan (KONTAKTI ranne).
+				dy = maxf(dy, minf(wr - wd, 0.012 - gap))
 			if absf(dy) > 0.004:
 				var e: Array = ch._ik["arm" + lr]
 				e[3] = (e[3] as Vector3) + Vector3(0, dy, 0)
