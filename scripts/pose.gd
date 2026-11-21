@@ -464,7 +464,7 @@ static func _fit_hands(ch: Node3D) -> float:
 			var wa: Vector3 = ch.bone_position("lowerarm" + lr)
 			var wb: Vector3 = ch.bone_position("hand" + lr)
 			var wr := _radius(ch, "lowerarm" + lr, wa, wb)
-			for t in [0.75, 1.0]:
+			for t in [0.5, 0.75, 1.0]:  # kyynärvarren loppupuoli: vatsan päällä lepäävän käden kyynärvarsi painui vatsaan
 				var wp := wa.lerp(wb, t)
 				var wd := INF
 				for q in leg:
@@ -477,6 +477,22 @@ static func _fit_hands(ch: Node3D) -> float:
 		if not moved:
 			break
 	ch.refresh_pose()
+	if Contact.diag():
+		var leg := limb_points(ch, ch, ["thigh_l", "thigh_r", "calf_l", "calf_r", "pelvis", "spine_01"])
+		for lr: String in ["_l", "_r"]:
+			if not ch._ik.has("arm" + lr):
+				continue
+			var wa: Vector3 = ch.bone_position("lowerarm" + lr)
+			var wb: Vector3 = ch.bone_position("hand" + lr)
+			var wr := _radius(ch, "lowerarm" + lr, wa, wb)
+			var ov := -INF
+			for t in [0.5, 0.75, 1.0]:
+				var wd := INF
+				for q in leg:
+					wd = minf(wd, wa.lerp(wb, t).distance_to(q))
+				ov = maxf(ov, wr - wd)
+			if ov > 0.003:
+				print("KONTAKTI ranne %s%s: kyynärvarsi %.3f pinnan sisällä korjauksen jälkeen" % [ch.name, lr, ov])
 	return worst
 
 
