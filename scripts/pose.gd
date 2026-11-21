@@ -274,7 +274,9 @@ static func hands_on_thighs(ch: Node3D, space: Node3D, lap := false) -> void:
 		var out_dir := (Vector3(sh.x, 0, sh.z) - Vector3(hip.x, 0, hip.z)).normalized()
 		# Olkavarsi roikkuu kyljen vieressä: kyynärpää taakse-alas (ei eteen eikä sivulle), kyynärvarsi eteen reidelle
 		var fwd := fwd0
-		var elbow := (sh + p) / 2.0 - fwd * 0.3 + out_dir * 0.02 + Vector3(0, -0.15, 0)
+		# Kyynärpää lantion ulkopuolelle: sisempänä ja alempana (out 0,02, alas 0,15) se painui lantion ja reiden reunan päälle
+		# (asennot 0: kyynärpään rako 7-13 mm, raja 35 mm).
+		var elbow := (sh + p) / 2.0 - fwd * 0.3 + out_dir * 0.12 + Vector3(0, -0.06, 0)
 		if lap:  # kyynärpäät sivulle ja eteen, ei selkänojan sisään
 			elbow = (sh + p) / 2.0 + out_dir * 0.1 + fwd * 0.05 + Vector3(0, -0.05, 0)
 		var fingers := (knee - hip)
