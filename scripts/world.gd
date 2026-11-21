@@ -2373,6 +2373,15 @@ func _build_rauniot() -> void:
 				tn.position = Vector3(cos(a) * 1.4, 0.0, sin(a) * 1.4)
 				tn.rotation.y = -a + PI / 2.0
 				tn.play("Sitting_Idle" if k == 1 else "Idle", 0.0)
+				if k == 1:
+					# Istuu kivellä nuotion ääressä (ennen ilmassa ilman istuinta): Pose.sit SUORA, etu = hahmon -Z (kohti nuotiota).
+					var stone := Node3D.new()
+					stone.position = tn.position
+					stone.rotation.y = tn.rotation.y
+					rauniot_youth.add_child(stone)
+					B.mesh(stone, B.cyl(0.24, 0.29, 0.42, 9), Vector3(0, 0.21, 0.05), Color(0.52, 0.5, 0.47))
+					Seat.spot(stone, {"seat": Vector3(0, 0.42, 0.05), "front": Vector3(0, 0, -1), "depth": 0.4})
+					seat_queue.append([tn, stone, Pose.SUORA, {}])
 			rauniot_youth.visible = false
 
 
@@ -2445,15 +2454,22 @@ func _playground(name: String, px: Vector2, idx: int) -> void:
 	B.mesh(root, B.boxm(Vector3(0.25, 0.3, 0.7)), sr + Vector3(0, 0.6, 0), accent.lightened(0.15))
 	B.mesh(root, B.boxm(Vector3(0.2, 0.35, 0.2)), sr + Vector3(0, 0.85, 0.3), accent.lightened(0.15))
 	# Penkki ja äidit (päivisin).
+	# Penkki ja istujat maan pinnalle: leikkipuisto on y=0:ssa, mutta maa vaihtelee (Käpykatu +0,14: jalat 8 cm maassa,
+	# Herukkapolku -0,19: penkki ilmassa). Korkein kohta penkin jalkojen ja istujien jalkaterien alla, ettei mikään mene maahan.
+	var ground := -INF
+	for lp in [Vector3(-0.8, 0, -5.2), Vector3(0.8, 0, -5.2), Vector3(-0.8, 0, -4.8), Vector3(0.8, 0, -4.8),
+			Vector3(-0.4, 0, -4.4), Vector3(0.4, 0, -4.4)]:
+		var wp: Vector3 = root.transform * lp
+		ground = maxf(ground, T.h(wp.x, wp.z))
 	var bench := Node3D.new()
-	bench.position = Vector3(0, 0, -5.0)
+	bench.position = Vector3(0, ground, -5.0)
 	root.add_child(bench)
 	B.mesh(bench, B.boxm(Vector3(1.8, 0.06, 0.45)), Vector3(0, 0.45, 0), Color(0.55, 0.4, 0.25))
 	B.mesh(bench, B.boxm(Vector3(1.8, 0.4, 0.05)), Vector3(0, 0.7, -0.22), Color(0.55, 0.4, 0.25))
 	for x in [-0.8, 0.8]:
 		B.mesh(bench, B.boxm(Vector3(0.08, 0.45, 0.4)), Vector3(x, 0.22, 0), Color(0.3, 0.3, 0.3))
 	var mums := Node3D.new()
-	mums.position = Vector3(0, 0, -5.0)
+	mums.position = Vector3(0, ground, -5.0)
 	root.add_child(mums)
 	for i in 2:
 		var mum := Looks.make(mums, {"model": "female", "shirt": [Color(0.6, 0.75, 0.9), Color(0.75, 0.22, 0.32)][i], "pants": Color(0.2, 0.22, 0.3),
@@ -2461,10 +2477,13 @@ func _playground(name: String, px: Vector2, idx: int) -> void:
 			"shoe": "lenkkari"})
 		mum.rotation.y = PI  # kasvot leikkipuistoon päin (hahmo katsoo -Z, penkin selkänoja on -Z:ssa)
 		mum.play("Sitting_Idle", 0.0)
-		mum.anim.advance(0.01)
-		# Istuma-asennossa lantio on hahmon origon takana: lantio istuimelle selkänojan eteen.
-		var pelvis: Vector3 = mum.basis * mum.bone_position("pelvis")
-		mum.position = Vector3(i * 0.8 - 0.4 - pelvis.x, 0.05, -0.07 - pelvis.z)
+		# Istuu kuten muut kalusteiden istujat (Pose.sit JAYKKA): lantio istuimelle, jalat maahan, kädet reisille kontaktein.
+		# Istumapaikka omassa solmussa penkin origossa (kappaleet penkin avaruudessa), etu = +Z (kohti leikkipuistoa).
+		var spot := Node3D.new()
+		bench.add_child(spot)
+		Seat.spot(spot, {"seat": Vector3(i * 0.8 - 0.4, 0.48, 0.0), "front": Vector3(0, 0, 1), "depth": 0.45,
+			"back": {"p": Vector3(i * 0.8 - 0.4, 0.7, -0.195), "n": Vector3(0, 0, 1)}, "solids": Seat.collect(bench)})
+		seat_queue.append([mum, spot, Pose.JAYKKA, {}])
 	var kid := Looks.make(mums, {"model": "male", "shirt": accent, "pants": Color(0.2, 0.3, 0.6), "hair": "Hair_Buzzed",
 		"hair_color": Color(0.85, 0.75, 0.4), "height": 1.05, "skin": Color(0.97, 0.82, 0.72), "shoe": "lenkkari"})
 	kid.position = Vector3(1.0, 0.0, 7.6)

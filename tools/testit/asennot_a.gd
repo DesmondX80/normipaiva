@@ -57,8 +57,6 @@ func _mummot(room: Node3D, cam: Camera3D, out: String) -> void:
 	for i in 2:
 		print("ASENTO mummo %d" % i)
 		bad += Asento.seat_report(m._grans[i], room, Mummot.SEAT_TOP, 0.0, front)
-		Asento.report_3d(m._grans[i], room, [["upperarm_l", "lowerarm_l", "hand_l"], ["upperarm_r", "lowerarm_r", "hand_r"]],
-			["pelvis", "spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r"])
 		bad += Asento.report(m._grans[i], room, [["upperarm_l", "lowerarm_l", "hand_l"], ["upperarm_r", "lowerarm_r", "hand_r"]],
 			["pelvis", "spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r"])
 	await Asento.views(cam, out, "mummot", room.global_position + Vector3(0, 0.7, 0), 2.4, front)
@@ -99,8 +97,6 @@ func _world_view(cam: Camera3D, out: String, name: String, ch: Node3D, size := 2
 		if Vector2(q.x - pel.x, q.z - pel.z).length() < 0.15:
 			low = minf(low, q.y)
 	print("ASENTO %s: lantion pohja y=%.3f (pinta %d pistettä), kasvot vs etu %.3f" % [name, low, pts.size(), (-ch.global_basis.z).dot(front)])
-	Asento.report_3d(ch, main.world, [["upperarm_l", "lowerarm_l", "hand_l"], ["upperarm_r", "lowerarm_r", "hand_r"]],
-		["pelvis", "spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r"])
 	return Asento.report(ch, main.world, [["upperarm_l", "lowerarm_l", "hand_l"], ["upperarm_r", "lowerarm_r", "hand_r"]],
 		["pelvis", "spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r"])
 

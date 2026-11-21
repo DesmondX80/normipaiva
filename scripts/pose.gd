@@ -380,6 +380,9 @@ static func sit(ch: Node3D, node: Node3D, style := SUORA, opts := {}) -> void:
 		hands_on_thighs(ch, par, rento_back)
 		worst = Contact.clear_arms(ch, prof)
 		if baked:
+			var tc := _clear_torso(ch)
+			if tc > 0.003 and Contact.diag():
+				print("KONTAKTI vartalo %s: käsivarsi %.3f vartalon sisällä, siirretty ulos" % [node.name, tc])
 			var hg := _fit_hands(ch)
 			if hg > 0.01:
 				if Contact.diag():
@@ -455,14 +458,86 @@ static func _fit_hands(ch: Node3D) -> float:
 			if gap == INF:
 				continue
 			worst = maxf(worst, gap if rd == 0 else 0.0)
-			if absf(gap - 0.003) > 0.004:
+			var dy := 0.003 - gap
+			# Ranne (kyynärvarren pää) ei saa painua reiteen: kämmen reidellä 3 mm:n raolla painoi rannetta 5-9 mm reiden sisään.
+			var wa: Vector3 = ch.bone_position("lowerarm" + lr)
+			var wb: Vector3 = ch.bone_position("hand" + lr)
+			var wr := _radius(ch, "lowerarm" + lr, wa, wb)
+			for t in [0.75, 1.0]:
+				var wp := wa.lerp(wb, t)
+				var wd := INF
+				for q in leg:
+					wd = minf(wd, wp.distance_to(q))
+				dy = maxf(dy, wr - wd)
+			if absf(dy) > 0.004:
 				var e: Array = ch._ik["arm" + lr]
-				e[3] = (e[3] as Vector3) + Vector3(0, 0.003 - gap, 0)
+				e[3] = (e[3] as Vector3) + Vector3(0, dy, 0)
 				moved = true
 		if not moved:
 			break
 	ch.refresh_pose()
 	return worst
+
+
+## Käsivarret irti vartalosta: olkavarren loppupuoli ja kyynärvarren alkupuoli (kyynärpää) eivät saa mennä vatsan tai
+## kyljen sisään (rantatuolin rento asento, isovatsainen istuja: 1-2 cm). Limitys = raajan paksuus - luun etäisyys
+## vartalon pisteisiin; kyynärpään IK-vihjettä (pole) siirretään vartalosta poispäin, kunnes limitys on alle 3 mm.
+## Palauttaa ensimmäisen kierroksen suurimman limityksen.
+static func _clear_torso(ch: Node3D) -> float:
+	var first := 0.0
+	var radius := {}
+	for rd in 4:
+		ch.refresh_pose()
+		var torso := limb_points(ch, ch, ["pelvis", "spine_01", "spine_02", "spine_03"])
+		if torso.is_empty():
+			return 0.0
+		var moved := false
+		for lr: String in ["_l", "_r"]:
+			if not ch._ik.has("arm" + lr):
+				continue
+			var worst := 0.0
+			var away := Vector3.ZERO
+			for seg in [["upperarm" + lr, "lowerarm" + lr, 0.5, 1.0], ["lowerarm" + lr, "hand" + lr, 0.0, 0.5]]:
+				var a: Vector3 = ch.bone_position(seg[0])
+				var b: Vector3 = ch.bone_position(seg[1])
+				if not radius.has(seg[0]):
+					radius[seg[0]] = _radius(ch, seg[0], a, b)
+				var r: float = radius[seg[0]]
+				for k in 3:
+					var p := a.lerp(b, lerpf(seg[2], seg[3], k / 2.0))
+					var d := INF
+					var near := p
+					for q in torso:
+						var dd := p.distance_to(q)
+						if dd < d:
+							d = dd
+							near = q
+					if r - d > worst:
+						worst = r - d
+						away = Vector3(p.x - near.x, 0, p.z - near.z).normalized()
+			if rd == 0:
+				first = maxf(first, worst)
+			if worst > 0.003 and away != Vector3.ZERO:
+				var e: Array = ch._ik["arm" + lr]
+				e[4] = (e[4] as Vector3) + away * (worst + 0.004) * 3.0  # pole on vihje: kyynärpää liikkuu vähemmän kuin se
+				moved = true
+		if not moved:
+			break
+	ch.refresh_pose()
+	return first
+
+
+## Raajan puolipaksuus hahmon avaruudessa: luun verkon pisteiden mediaanietäisyys janasta a-b.
+static func _radius(ch: Node3D, bone: String, a: Vector3, b: Vector3) -> float:
+	var ds := []
+	var ab := b - a
+	for q in limb_points(ch, ch, [bone]):
+		var t := clampf((q - a).dot(ab) / maxf(ab.length_squared(), 1e-6), 0.0, 1.0)
+		ds.append(q.distance_to(a + ab * t))
+	if ds.is_empty():
+		return 0.03
+	ds.sort()
+	return ds[ds.size() / 2]
 
 
 ## Kämmenet kalusteen kohteeseen (käsinoja, ratti): origin = ote, basis.y = pinnan normaali; sormet suuntaan front.
