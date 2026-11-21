@@ -5,7 +5,7 @@
 #   - Godot päättyi itse koodilla 0 ja ilman aikarajaa,
 #   - lokissa ei ole skriptivirheitä,
 #   - testi itse ei löytänyt vikoja (ks. LOYDOT alla; uudet testit: tulosta vikarivi muodossa "TESTI VIKA <selitys>"),
-#   - kuvia syntyi (paitsi --ei-kuvia tai --headless).
+#   - kuvia syntyi (paitsi --ei-kuvia, --headless tai logiikkakohtaukset.txt:n kohtaus).
 # Rivit, joissa lukee "ei tarkistettu", raportoidaan varoituksina (testi ei voinut mitata, esim. headless).
 #
 # Käyttö:
@@ -55,6 +55,8 @@ case "$laji" in
 	scene)
 		nimi="${1:?scene vaatii nimen}"
 		shift
+		# Logiikkatestit tulostavat tuloksen ja lopettavat ilman kuvaa (luettelo: logiikkakohtaukset.txt).
+		grep -qxF "$nimi" <(grep -v "^#" "$dir/logiikkakohtaukset.txt" 2>/dev/null) && kuvat=0
 		ulos="$juuri/${nimi}_$leima"
 		mkdir -p "$ulos"
 		if [[ $video == 1 ]]; then

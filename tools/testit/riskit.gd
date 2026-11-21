@@ -5,6 +5,7 @@ extends Node
 ## perus: osa 0:n koukut testiosalla (rikos_koe_osa.gd): puhe, tapahtumat (luukkuosto, myynti, otto), luukun vihje,
 ##   tallennus edestakaisin, uusi päivä, päiväkirjan data, tappelun loppu sekä PIDÄTETTY (Saloinen) ja ELVYTETTY (Vaala).
 ## paivakirja: Riskit-sivu 1280×720 ja välilehtien mitat (7 välilehteä mahtuu kirjaan).
+## elvytys_vaala: pelkkä ELVYTETTY Vaalassa ja Päivin puhelu (videota varten).
 ## Muut nimet: osan oma testi(arg) (rikos/<nimi>.gd). Viat "TESTI VIKA" -riveinä. main.gd palauttaa tallennuksen.
 
 const KoeOsa := preload("res://tools/testit/rikos_koe_osa.gd")
@@ -68,6 +69,13 @@ func run() -> void:
 			await _paivakirja()
 		"paivi_tarina":
 			await load("res://tools/testit/paivi_tarina.gd").new().run(self)
+		"elvytys_vaala":
+			# Pelkkä ELVYTETTY Vaalassa ja Päivin puhelu (videoksi äänineen: aja.sh --video scene riskit --riski=elvytys_vaala).
+			main._start_mopo()
+			await _frames(30)
+			main._rikos_loppu("yliannos", "Otit liikaa. Olo meni liian kovaksi.")
+			await _title_shot("_elvytetty_vaala", "ELVYTETTY")
+			await _until_free()
 		_:
 			var osa: Object = main.rikos_osa(riski)
 			if osa == null:

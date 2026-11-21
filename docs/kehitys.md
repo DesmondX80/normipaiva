@@ -35,7 +35,7 @@ Windowsilla, Macilla ja Linuxilla) ja tulostaa polun: `"$(tools/testit/godot.sh)
 Testiajot ajetaan `tools/testit/aja.sh`:lla (`kaantyy`, `scene <nimi> [lisäargumentit]`, `tscn <polku>`, valinnat `--headless`,
 `--ei-kuvia`, `--kiintea` (scene ja tscn ilman videota: `--fixed-fps 60`, pelin aika kulkee 1/60 s ruudussa koneen nopeudesta riippumatta, joten
 siemennetyn testin luvut toistuvat) ja `--video` (vain tscn: Movie Maker, 30 fps, .avi ajokansioon; esim. `aja.sh --video tscn tools/testit/sinikka_video.tscn`, 27 s Sinikka kävelee, juoksee, hyppää ja istuu rantatuoliin)): se hoitaa eristetyn tallennuksen, jonon, aikarajan, `--shot`:n ja lokin ja tulostaa OK vain, jos ajo päättyi
-itse, skriptivirheitä ei ole, testi ei löytänyt vikoja ja kuvia syntyi. Uusi testi tulostaa vikansa riville `TESTI VIKA <selitys>`
+itse, skriptivirheitä ei ole, testi ei löytänyt vikoja ja kuvia syntyi (kuvaton logiikkakohtaus lisätään `tools/testit/logiikkakohtaukset.txt`:hen, jolloin kuvia ei vaadita). Aikarajalla `godot_jono.sh` lopettaa myös kääreen (xvfb-run) alla olevan Godotin, ettei se jää orvoksi syömään konetta. Testit kestävät hitaan koneen (ohjelmistopiirto llvmpipe, ruutu 0,2-2 s): odota ehtoa tai pelin aikaa (`get_process_delta_time` summana), älä kiinteää ruutumäärää; älä mittaa ruutuaikaa vikarajana (piirtokutsut ja kolmiot `RenderingServer.get_rendering_info`); pelin omat ajastimet (esim. Päivin `forgive` 6 s) ehtivät laueta testin askelten välissä; ja sulje päivän alun puhe tai lappu ennen E-painallusta. Uusi testi tulostaa vikansa riville `TESTI VIKA <selitys>`
 (aja.sh tunnistaa myös vanhat merkinnät LÄPI ... ->, RAKO LÄPI, KONTAKTI JÄÄ ja VIRHE). Pelkkä jono:
 Useampi samanaikainen ajo (esim. aliagentit) jonotetaan `tools/testit/godot_jono.sh <godot-argumentit>`:llä: ajot
 jakavat pelaajan tallennuksen ja user://-kansion, joten vain yksi saa olla käynnissä kerrallaan.
@@ -257,10 +257,12 @@ skripteillä `tools/aanet/rakenna_pyora_hengitys.py`, `korosta_kolina.py` ja `ra
 
 Kaikki repliikit tehdään avoimella puhemallilla Chatterbox Multilingual (MIT, Resemble AI) hahmon malliäänen
 pohjalta (`tools/aanet/malliaanet/`, suomalaisia äänityksiä Googlen FLEURS-aineistosta, CC BY 4.0; lähteet
-`docs/tekijanoikeudet.md`). Hahmot: Päivi (vihainen, huutomerkkirepliikit huutaen), pelaaja (nöyrä "Kyllä kulta"),
-baarimikko, Ruukin porukka, kapteeni, auton omistaja ja Anna-Liisa. Muu-ryhmän repliikin puhuja valitaan tekstin
-alusta (`puheaani.py PUHUJAT`, oletus Ruukin mies), joten uuden hahmon repliikit lisätään sinne. Äänet ovat valmiita
-mp3-tiedostoja `assets/aanet/<paivi|muu>/<tiiviste>.mp3`, joissa tiiviste on repliikin tekstin SHA-1:n 12 ensimmäistä
+`docs/tekijanoikeudet.md`). Hahmot: Päivi (vihainen, huutomerkkirepliikit huutaen), pelaaja (Päivin ripityksessä
+nöyrä "Kyllä kulta", junassa iloinen), baarimikko, Ruukin porukka, kapteeni, auton omistaja, Anna-Liisa sekä junan
+Helena (flirttaileva), Marja, Liisa ja tarjoilija; muut kuin Päivi ja pelaaja ripityksessä ovat iloisia. Hahmolla voi
+olla oma ryhmä (junassa `cutscene.gd TRAIN_VOICES`: `Sfx.speak("helena", ...)`), muuten muu-ryhmän repliikin puhuja
+valitaan tekstin alusta (`puheaani.py PUHUJAT`, oletus Ruukin mies). Junan jutustelussa repliikki kestää vähintään
+2,3 s mutta aina äänen verran. Äänet ovat valmiita mp3-tiedostoja `assets/aanet/<ryhmä>/<tiiviste>.mp3`, joissa tiiviste on repliikin tekstin SHA-1:n 12 ensimmäistä
 merkkiä (`Sfx.voice_key`); `assets/aanet/hakemisto.json` kertoo, mikä tiiviste on mikä repliikki. Soitto:
 `Sfx.speak(ryhmä, teksti)` (`audio.gd`); puhekuplat (`bubble.gd`, `voice`-ominaisuus tai "Päivi: "-etuliite) ja
 dialogiruutu (`dialogue_box.gd`, puhujan nimi) kutsuvat sitä itse, joten uusi repliikki saa äänen ilman koodimuutosta.
@@ -270,6 +272,8 @@ Laatu: jokaisesta repliikistä tehdään kolme versiota, ja suomen puheentunnist
 puhemalli sotkee välillä tavuja. Päivin huuto on jälkikäsittelyä (`puheaani.py HUUTO`): sävelkorko ylös
 WORLD-vokooderilla, jolloin äänen sointi säilyy, sekä kirkkaus ja puristus kuin huudossa. Malliäänen voimakas
 käsittely (sävelkorko, kirkkaus) teki puheesta sotkuista, joten huuto tehdään valmiiseen repliikkiin.
+Hiljaisuus leikataan alusta ja lopusta äänitteen oman huipun mukaan (`puheaani.py trim`): ffmpegin kiinteä
+-45 dB:n raja leikkasi hiljaa loppuvan viimeisen tavun.
 
 Äänten teko (macOS:llä Applen näytönohjaimella noin 20 s repliikki, Linuxilla CPU:lla hitaammin): asenna kerran
 `uv venv -p python3.11 ~/chatterbox && uv pip install -p ~/chatterbox/bin/python chatterbox-tts pyworld "setuptools<81"`.

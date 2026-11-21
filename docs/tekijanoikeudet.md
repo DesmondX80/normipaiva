@@ -38,7 +38,8 @@
   (leikattu, voimakkuus tasattu, Päivillä kolme yhdistetty). Päivi (`paivi.ogg`): 10194815671252164859,
   18137089313608381153 ja 2700047567934299806; pelaaja 10772246021666258053; baarimikko 13934801708313451415; Ruukin
   porukka 8545712725895207763; kapteeni 10781673539025773231; auton omistaja 8848259419208340883; Anna-Liisa
-  10830659772621843268. Repliikkien valinnassa käytetty puheentunnistusmalli jonatasgrosman/wav2vec2-large-xlsr-53-finnish
+  10830659772621843268; Helena 16131237497116072634; Marja 7335397981314150308; Liisa 2988836301653288389;
+  tarjoilija 16857047576276620248. Repliikkien valinnassa käytetty puheentunnistusmalli jonatasgrosman/wav2vec2-large-xlsr-53-finnish
   (Apache 2.0) ei päädy peliin.
 - Uudet repliikit, jotka `--aanisynteesi`-ajo tekee Macin `say`-äänellä (`tools/aanet/syntetisoi.sh`), ovat
   väliaikaisia: ne tehdään uudelleen `tools/aanet/puheaani.py`:llä ennen kuin ne viedään peliin (Applen lisenssi ei

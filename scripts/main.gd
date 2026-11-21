@@ -4234,6 +4234,7 @@ func _sinikka_sun_test(frames: Callable, snap: Callable) -> void:
 	# K7: ruutuaika rannalla, aurinko-Sinikka näkyvissä ja piilossa.
 	walker_out.global_position = ap + side * 6.0 + Vector3(0, 0.3, 0)
 	var ms := []
+	var info := []  # [kutsuja, kolmioita] per tila
 	for c in [13 * 60, 11 * 60 + 59]:  # 11.59: sama valo, mutta Sinikka piilossa (_pohjoiset_visuals)
 		clock_min = c
 		await frames.call(8)
@@ -4241,10 +4242,14 @@ func _sinikka_sun_test(frames: Callable, snap: Callable) -> void:
 		for i in 12:  # testipiirrossa ruutu voi kestää sekunteja: 12 ruutua riittää keskiarvoon
 			await get_tree().process_frame
 		ms.append((Time.get_ticks_usec() - t0) / 12000.0)
-	print("AS ruutu rannalla %.1f ms (Sinikka piilossa %.1f ms)" % [ms[0], ms[1]])
-	# Testiajon ruutu on ohjelmistopiirron takia satoja ms; vika, jos Sinikka hidastaa yli 10 % (16,7 ms tavoite pelikoneella).
-	if ms[0] > ms[1] * 1.1:
-		vika.call("ruutu %.1f ms, Sinikka hidastaa yli 10 %%" % ms[0])
+		info.append([RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)])
+		print("AS piirto klo %d: kutsuja %d, kolmioita %d" % [c / 60, info[-1][0], info[-1][1]])
+	print("AS ruutu rannalla %.1f ms (Sinikka piilossa %.1f ms, vain tiedoksi)" % [ms[0], ms[1]])
+	# Ruutuaika ohjelmistopiirrossa (llvmpipe) heittelee ±15 % ajosta toiseen, joten raja on piirtomäärissä: Sinikka
+	# välineineen saa lisätä enintään 100 piirtokutsua ja 40 000 kolmiota (mitattu 60 ja 11 000; ruudussa 1,2 milj.).
+	if info[0][0] - info[1][0] > 100 or info[0][1] - info[1][1] > 40000:
+		vika.call("Sinikka lisää %d piirtokutsua ja %d kolmiota" % [info[0][0] - info[1][0], info[0][1] - info[1][1]])
 	for c in [11, 18]:
 		clock_min = c * 60
 		await frames.call(5)
@@ -30752,11 +30757,6 @@ func _maybe_screenshot() -> void:
 			_on_retki_acted("infotaulu")
 			await mm_shot.call("infotaulu")
 			print("MM kyltti %s, tehtävät %s" % [manamansalo.kyltti, _manamansalo_tasks()])
-			retki_int.walker.position = retki_int.spots.laituri[0]
-			for i in 3:
-				await get_tree().process_frame
-			print("MM laiturilla: spot '%s'" % retki_int.spot)
-			_on_retki_acted("laituri")
 			retki_int.walker.position = retki_int.spots.jaanteet[0]
 			for i in 3:
 				await get_tree().process_frame
@@ -30776,7 +30776,6 @@ func _maybe_screenshot() -> void:
 			await mm_close.call("kirkko_edesta", Vector3(-3.0, 2.2, 7.5), Vector3(-3.0, 2.0, -2.5))
 			await mm_close.call("kirkko_sivusta", Vector3(6.0, 3.0, 1.0), Vector3(-3.0, 2.0, -2.5))
 			await mm_close.call("kivijalka_ennen", Vector3(9.0, 3.2, 4.2), Vector3(9.0, 0.0, -2.2))
-			await mm_close.call("laituri", Vector3(-6.0, 3.0, 4.0), Vector3(-10.0, 0.0, -7.0))
 			_on_retki_acted("jaanteet")
 			for i in 3:
 				await get_tree().process_frame
@@ -34023,6 +34022,10 @@ func _maybe_screenshot() -> void:
 			await frames.call(5)
 			_toggle_mount()
 			bike.global_position = world.garage_door + world.garage_out * 0.5 + Vector3(0, 0.4, 0)
+			# Aloituksen päivälappu ja avoin puhe (Päivi) syövät muuten E:n (SP talliin: tallissa false, kasaus kaatui).
+			_note.visible = false
+			if _talk_box.is_open():
+				_talk_box.close()
 			await frames.call(10)
 			await press.call("interact")
 			print("SP talliin: tila %s, tallissa %s" % [state, bike_in_garage])
@@ -34098,12 +34101,16 @@ func _maybe_screenshot() -> void:
 			ebike.battery = 1.0
 			# Juurakot irrottavat teipatun akun.
 			bike.speed = 8.0
+			# Yksi juurakko per prosessiruutu: ebike.gd lukee osumat kerran ruudussa, ja hitaalla koneella monta fysiikkaruutua
+			# osui samaan ruutuun (60 osumaa = muutama arvonta, akku jäi kiinni).
 			for i in 60:
 				bike.root_hits += 1
-				await frames.call(1)
+				await get_tree().process_frame
 				if not ebike.loose.is_empty():
 					break
 			print("SP irtoaminen: irti %s, avustus %.1f, viesti '%s'" % [ebike.loose.keys(), bike.assist, _msg.text])
+			if ebike.loose.is_empty():
+				print("TESTI VIKA sahkopyora: 60 juurakkoa ei irrottanut teipattua osaa")
 			bike.speed = 0.0
 			await frames.call(20)
 			bike.global_position = road + Vector3(0, 0.4, 0)
@@ -34986,12 +34993,14 @@ func _maybe_screenshot() -> void:
 					for a2 in ["left", "right", "forward", "back"]:
 						Input.action_release(a2)
 				else:
-					var guard := 0  # yläraja: hitaalla koneella neula voi hypätä vihreän alueen yli joka kerta
-					while is_instance_valid(g) and g._phase == "push" and guard < 3000:
+					# Testi tarkistaa kulun (ponnistukset, arkit, tukos), ei ajoitusta: neula pysäytetään vihreälle ennen
+					# painallusta. Neulaa odottamalla hidas kone (iso delta) hyppäsi vihreän yli ja ajo jumittui aikarajaan.
+					var guard := 0
+					while is_instance_valid(g) and g._phase == "push" and guard < 50:
 						guard += 1
-						await get_tree().process_frame
-						if g._needle >= WcGame.GREEN.x + 0.04 and g._needle <= WcGame.GREEN.y - 0.04:
-							await press.call("interact")
+						g._needle = (WcGame.GREEN.x + WcGame.GREEN.y) / 2.0
+						g._needle_speed = 0.0
+						await press.call("interact")
 					for k in sheets:
 						await press.call("interact")
 					await press.call("brake")
@@ -35052,12 +35061,14 @@ func _maybe_screenshot() -> void:
 					for a2 in ["left", "right", "forward", "back"]:
 						Input.action_release(a2)
 				else:
-					var guard := 0  # yläraja: hitaalla koneella neula voi hypätä vihreän alueen yli joka kerta
-					while is_instance_valid(g) and g._phase == "push" and guard < 3000:
+					# Testi tarkistaa kulun (ponnistukset, arkit, tukos), ei ajoitusta: neula pysäytetään vihreälle ennen
+					# painallusta. Neulaa odottamalla hidas kone (iso delta) hyppäsi vihreän yli ja ajo jumittui aikarajaan.
+					var guard := 0
+					while is_instance_valid(g) and g._phase == "push" and guard < 50:
 						guard += 1
-						await get_tree().process_frame
-						if g._needle >= WcGame.GREEN.x + 0.04 and g._needle <= WcGame.GREEN.y - 0.04:
-							await press.call("interact")
+						g._needle = (WcGame.GREEN.x + WcGame.GREEN.y) / 2.0
+						g._needle_speed = 0.0
+						await press.call("interact")
 					for k in sheets:
 						await press.call("interact")
 					await press.call("brake")
@@ -38584,13 +38595,19 @@ func _maybe_screenshot() -> void:
 				pu.debug_start(id)
 				var at: Vector3 = pu.spot_at(id)
 				var sp: Vector3 = mokki.santtu.position
-				for k in 150:
+				# Odotetaan, että Santtu tekee puuhaa (enintään 2,5 s pelin aikaa; ennen 150 ruutua, hitaalla koneella ~3 min/paikka).
+				var pt := 0.0
+				while pt < 2.5 and not pu.working():
 					await get_tree().process_frame
-					if k == 100:
-						sp = mokki.santtu.position
-						var away := Vector3(3.2, 2.0, -3.2) if id != "onki" and id != "naputus" else Vector3(-3.0, 1.8, -3.0)
-						pc.look_at_from_position(mokki.to_global(sp + away), mokki.to_global(sp + Vector3(0, 1.0, 0)), Vector3.UP)
-						pc.current = true
+					pt += get_process_delta_time()
+				for k in 20:
+					await get_tree().process_frame
+				sp = mokki.santtu.position
+				var away := Vector3(3.2, 2.0, -3.2) if id != "onki" and id != "naputus" else Vector3(-3.0, 1.8, -3.0)
+				pc.look_at_from_position(mokki.to_global(sp + away), mokki.to_global(sp + Vector3(0, 1.0, 0)), Vector3.UP)
+				pc.current = true
+				for k in 10:
+					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_p_%s.png" % id))
 				print("PUUHA %s working=%s anim=%s visible=%s bubble=%s" % [id, pu.working(), mokki.santtu.current(),
@@ -38620,12 +38637,15 @@ func _maybe_screenshot() -> void:
 			mokki.santtu_go_home()
 			pu._t = 1.0
 			var seen := {}
-			for k in 60 * 90:
+			# 90 s pelin aikaa, ei 5400 ruutua: hitaalla koneella (llvmpipe) ruutulaskuri venyi yli 40 minuuttiin.
+			var game_t := 0.0
+			while game_t < 90.0:
 				await get_tree().process_frame
+				game_t += get_process_delta_time()
 				var cid: String = pu.current_id()
 				if cid != "" and not seen.has(cid):
 					seen[cid] = true
-					print("PUUHA vapaa t=%d -> %s (%s)" % [k / 60, cid, pu._state])
+					print("PUUHA vapaa t=%d -> %s (%s)" % [int(game_t), cid, pu._state])
 			print("PUUHA vapaa paikat=%s" % [seen.keys()])
 			# Väistö: pelaaja tikkataululle, kun Santtu heittää.
 			pu.debug_start("tikka")

@@ -42,7 +42,8 @@ trap 'rm -rf "$lukko"' EXIT
 # Vahti taustalla (macOS:ssä ei ole timeoutia): lopettaa ajon aikarajan jälkeen.
 "$godot" "$@" &
 gpid=$!
-( sleep "$aikaraja" && kill "$gpid" 2>/dev/null && echo "godot_jono: AIKARAJA $aikaraja s, ajo lopetettu" >&2 ) &
+# Komento voi olla kääre (xvfb-run), jolloin Godot on sen lapsi: lopetetaan lapset ensin, ettei Godot jää orvoksi.
+( sleep "$aikaraja" && { pkill -TERM -P "$gpid" 2>/dev/null; kill "$gpid" 2>/dev/null; } && echo "godot_jono: AIKARAJA $aikaraja s, ajo lopetettu" >&2 ) &
 vahti=$!
 rc=0
 wait "$gpid" || rc=$?

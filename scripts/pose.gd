@@ -236,6 +236,11 @@ static func feet_to_floor(ch: Node3D, floor_y: float, front: Vector3) -> void:
 		var tgt := Vector3(hip.x, floor_y + foot_h, hip.z) + front * fwd
 		var pole := (hip + tgt) / 2.0 + front * 0.3 + Vector3(0, 0.1, 0)
 		ch.set_ik("leg" + lr, "thigh" + lr, "calf" + lr, "foot" + lr, inv * tgt, inv * pole)
+		# Pohja vaakaan kuten Contact-jalkojen sovituksessa: ilman tätä animaation kärki osoittaa alas lattian läpi (asennot 0: 6 cm).
+		var zc := -front
+		var gb := ch.transform.basis.orthonormalized()  # front ja kohteet ovat vanhemman avaruudessa (ch.transform)
+		var want := Basis(Vector3.UP.cross(zc).normalized(), Vector3.UP, zc)
+		ch.set_ik_orient("leg" + lr, gb.inverse() * want * Contact.foot_basis(ch, lr, true), 1.0)
 
 
 ## Kämmenet reisille (lap: sylissä keskellä) pinnasta laskien. Kutsu vasta, kun jalka-IK on ollut voimassa yhden ruudun (limb_points
@@ -269,7 +274,9 @@ static func hands_on_thighs(ch: Node3D, space: Node3D, lap := false) -> void:
 		var out_dir := (Vector3(sh.x, 0, sh.z) - Vector3(hip.x, 0, hip.z)).normalized()
 		# Olkavarsi roikkuu kyljen vieressä: kyynärpää taakse-alas (ei eteen eikä sivulle), kyynärvarsi eteen reidelle
 		var fwd := fwd0
-		var elbow := (sh + p) / 2.0 - fwd * 0.3 + out_dir * 0.02 + Vector3(0, -0.15, 0)
+		# Kyynärpää lantion ulkopuolelle: sisempänä ja alempana (out 0,02, alas 0,15) se painui lantion ja reiden reunan päälle
+		# (asennot 0: kyynärpään rako 7-13 mm, raja 35 mm).
+		var elbow := (sh + p) / 2.0 - fwd * 0.3 + out_dir * 0.12 + Vector3(0, -0.06, 0)
 		if lap:  # kyynärpäät sivulle ja eteen, ei selkänojan sisään
 			elbow = (sh + p) / 2.0 + out_dir * 0.1 + fwd * 0.05 + Vector3(0, -0.05, 0)
 		var fingers := (knee - hip)

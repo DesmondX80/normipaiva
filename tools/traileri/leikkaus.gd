@@ -25,6 +25,8 @@ const SFX_PRE := 1.0
 
 ## Uuden ominaisuuksien trailerin leikkaus (--set=rasvanappi): leikkaus_rasvanappi.gd, musiikkina Rasvanappi.
 const RN := preload("res://tools/traileri/leikkaus_rasvanappi.gd")
+## Lyhyet trailerit ilman biisiä (--set=juna, --set=mummo): leikkaus_lyhyt.gd.
+const LY := preload("res://tools/traileri/leikkaus_lyhyt.gd")
 
 const SHOTS := [
 	# --- Prologi ilman musiikkia: pelin äänet (PAPERILEIKKAUS.md P1–P8) --------------------------------------------
@@ -161,7 +163,7 @@ static func rn() -> bool:
 	return setti() == "rasvanappi"
 
 
-## Valittu setti: "kierros", "rasvanappi" tai "" (ensimmäinen traileri).
+## Valittu setti: "kierros", "rasvanappi", "juna", "mummo" tai "" (ensimmäinen traileri).
 static func setti() -> String:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--set=") or a.begins_with("--trailer-set="):
@@ -176,6 +178,10 @@ static func shot_list() -> Array:
 			return KIERROS
 		"rasvanappi":
 			return RN.SHOTS
+		"juna":
+			return LY.JUNA
+		"mummo":
+			return LY.MUMMO
 	return SHOTS
 
 
