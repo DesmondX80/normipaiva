@@ -128,3 +128,13 @@ kaahaus ja Päivin motkotus pidätyksestä, makasiini ja portsari laulun kohdill
 diilaus teineille, kuolema mummon keppiin ja Päivin motkotus, nimiluettelo, kolmiomittaus, uusi Vaala, ELVYTETTY-motkotus
 ja lopun WASTED / PIDÄTETTY / ELVYTETTY. Pyöräilykohtauksia ei ole (alun pyörä auton eteen poikkeus).
 Kuski ja hänen huutonsa poistetaan kaikista muista kaappauskuvista (`_poista_kuski`, `Sfx.stop_speech`).
+
+## Lyhyet trailerit: juna ja mummo (ei biisiä)
+
+`--set=juna`: junamatka Saloisista Vaalaan neljänä katkelmana. `--set=mummo`: kuolema Vaalan K-Marketin rollaattorimummon
+keppiin ja Päivin puhelu (pelin oma `wasted_phone`). Pelin omat äänet, kaikki otokset sekunteina (`leikkaus_lyhyt.gd`),
+joten musiikkia ei ole. Junan katkelmat alkavat matkan eri kohdista (`otokset_uusi.gd JUNA_ALKU`).
+
+```
+godot --path . -s res://tools/traileri/renderoi.gd -- --set=juna --res=1920x1080 --out=C:/traileri_juna
+```
