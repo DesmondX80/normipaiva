@@ -34101,12 +34101,16 @@ func _maybe_screenshot() -> void:
 			ebike.battery = 1.0
 			# Juurakot irrottavat teipatun akun.
 			bike.speed = 8.0
+			# Yksi juurakko per prosessiruutu: ebike.gd lukee osumat kerran ruudussa, ja hitaalla koneella monta fysiikkaruutua
+			# osui samaan ruutuun (60 osumaa = muutama arvonta, akku jäi kiinni).
 			for i in 60:
 				bike.root_hits += 1
-				await frames.call(1)
+				await get_tree().process_frame
 				if not ebike.loose.is_empty():
 					break
 			print("SP irtoaminen: irti %s, avustus %.1f, viesti '%s'" % [ebike.loose.keys(), bike.assist, _msg.text])
+			if ebike.loose.is_empty():
+				print("TESTI VIKA sahkopyora: 60 juurakkoa ei irrottanut teipattua osaa")
 			bike.speed = 0.0
 			await frames.call(20)
 			bike.global_position = road + Vector3(0, 0.4, 0)
