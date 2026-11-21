@@ -42,7 +42,7 @@ jakavat pelaajan tallennuksen ja user://-kansion, joten vain yksi saa olla käyn
 
 ## Testikohtaukset
 
-`scripts/main.gd`:n `_maybe_screenshot` sisältää kymmeniä testikohtauksia. Ajo:
+Testikohtaukset (noin 340) ovat tiedostoissa `tools/testit/kohtaukset/<ryhmä>.gd` (mökki, ajoneuvot, kartta ja kota, kauppa, kolmio ja Vaala sekä muut aakkosjärjestyksessä). Jokaisessa on `KOHTAUKSET`-lista ja `aja(scene, path, nohud)`, jonka `match scene:` sisältää kohtaukset; `main` on pelin päänäkymä (`main.walker_out`, `main._toggle_mount()`) ja `Main.VAKIO` sen vakiot. `main.gd:n _maybe_screenshot` lukee argumentit, valitsee ryhmän `KOHTAUSRYHMAT`-listasta ja ottaa lopuksi yhteisen kuvan; `aja` palauttaa 2, jos kohtaus lopetti itse (ennen `return`). Uusi kohtaus lisätään sopivaan ryhmään: haara `match`iin ja nimi `KOHTAUKSET`-listaan. Kohtausta ei löydy: `grep -l '"nimi"' tools/testit/kohtaukset/*.gd`. Kaikkien ryhmien käännöstarkistus: `aja.sh scene kohtaustarkistus` (logiikkakohtaus, tulostaa `KOHTAUSTARKISTUS <ryhmä>: OK`). Siirto tehtiin skriptillä, joka lisäsi `main.`-etuliitteet; pelin jäsentä ei voi käyttää ilman etuliitettä (käännösvirhe), ja `$Solmu` kirjoitetaan `main.get_node("Solmu")`. Ajo:
 
 ```bash
 godot --path . -- --shot=/polku/kuva.png --scene=<nimi> [--nohud]
